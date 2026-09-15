@@ -5,16 +5,20 @@ Last updated: 2026-09-15 23:50 UTC
 ## First message to the next teammate
 
 Please pull `origin/vmvm-sandbox` and read this file before changing anything.
-I own the live Kimi deployment and TB4/Mobius evaluation orchestration. Do not
-cancel or restart jobs `1729414`, `1729868`, or `1731198`, and do not launch a
-duplicate full TB4 run. Add your name, scope, files, and job IDs under **Active
-claims**, commit that claim, and push it before editing. I will fetch/rebase
-before every push and will not force-push this shared branch again.
+We are operating on different clusters, so include your cluster in every claim
+and do not assume that another owner's Slurm IDs, `cpu-*` URLs, or checkpoint
+paths are reachable. I own the `fair-cw-use2-3` Kimi deployment and TB4/Mobius
+evaluation orchestration. Do not duplicate the same code fixes or benchmark
+run on your cluster without recording why here. Add your name, cluster, scope,
+files, and job IDs under **Active claims**, commit that claim, and push it
+before editing. I will fetch/rebase before every push and will not force-push
+this shared branch again.
 
 ## Coordination protocol
 
 1. `git fetch origin && git rebase origin/vmvm-sandbox` before starting work.
-2. Add or update one row in **Active claims**, commit it, and push normally.
+2. Add or update one row in **Active claims**, including the cluster, commit
+   it, and push normally.
 3. Do not edit files or mutate jobs owned by another active row without first
    recording the handoff here.
 4. Record each submitted Slurm job, output directory, and terminal result.
@@ -24,9 +28,9 @@ before every push and will not force-push this shared branch again.
 
 ## Active claims
 
-| Owner | Scope | Files | Live resources | State / next gate |
-|---|---|---|---|---|
-| Codex session for `tianhaowu` | Kimi serving; TB4 pass@1; repaired-oracle check; 2,500-trace launch | `user/tianhaowu/terminal_bench_vmvm/**`, `environments/vmvm_tb_v2/**`, `deps/verifiers` gitlink | deployment `tianhaowu-k3-tb24-20260915`; coordinator `1729414`; proxy `1729868`; repaired-oracle job `1731198` | Wait for at least 16 healthy/0 unhealthy Kimi routes and a stable interval, then launch exactly one fresh full TB4 run. |
+| Owner | Cluster | Scope | Files | Live resources | State / next gate |
+|---|---|---|---|---|---|
+| Codex session for `tianhaowu` | `fair-cw-use2-3` | Kimi serving; TB4 pass@1; repaired-oracle check; 2,500-trace launch | `user/tianhaowu/terminal_bench_vmvm/**`, `environments/vmvm_tb_v2/**`, `deps/verifiers` gitlink | deployment `tianhaowu-k3-tb24-20260915`; coordinator `1729414`; proxy `1729868`; repaired-oracle job `1731198` | Wait for at least 16 healthy/0 unhealthy Kimi routes and a stable interval, then launch exactly one fresh full TB4 run. |
 
 Add new rows below this line; do not overwrite another owner's row.
 
@@ -60,6 +64,9 @@ Add new rows below this line; do not overwrite another owner's row.
 - The direct proxy `cpu-128-141:8100` is on another cluster and is unreachable
   here. Do not add URL-only pooling; per-endpoint credentials must remain bound
   to their URL/headers.
+- Slurm job IDs and `cpu-*` URLs in this file are meaningful only on the
+  cluster named in the owning row. Use Git commits in this file—not shared
+  scheduler visibility—as the cross-cluster source of truth.
 - `tb_tasks.zip` stays on `vmvm-sandbox`, but expanded tasks must not be added
   back to this branch. Use the detached `ac1f30b9a` worktree for Mobius.
 - The live RAM `proxy_info.json` contains a secret. Read it through
