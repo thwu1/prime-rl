@@ -18,7 +18,7 @@ project_dir=${PROJECT_DIR:-${SLURM_SUBMIT_DIR:-$PWD}}
 workflow_dir="$project_dir/user/tianhaowu/terminal_bench_vmvm"
 x86_site=${PYTHON_SITE_X86_64:-/checkpoint/ram/tianhaowu/terminal_bench_vmvm/python_x86_64}
 x86_uv=${UV_BIN_X86_64:-/storage/home/tianhaowu/.local/x86_64/bin/uv}
-eval_config=${EVAL_CONFIG:-$workflow_dir/configs/eval/tb4_qwen_a95b_miniswe.toml}
+eval_config=${EVAL_CONFIG:-$workflow_dir/configs/eval/tb4_kimi_k3_max_miniswe.toml}
 output_dir=${OUTPUT_DIR:-/checkpoint/ram/tianhaowu/terminal_bench_vmvm/evals/run_${SLURM_JOB_ID}}
 resume_dir=${RESUME_DIR:-}
 inference_base_url=${INFERENCE_BASE_URL:-}
@@ -62,6 +62,8 @@ cd "$project_dir"
 if [[ -n "$resume_dir" ]]; then
     printf 'resume_slurm_job_id=%s\n' "$SLURM_JOB_ID" >> "$output_dir/provenance.txt"
 else
+    "$python_bin" "$workflow_dir/snapshot_eval_inputs.py" \
+        "$eval_config" "$output_dir/inputs"
     {
         printf 'prime_rl=%s\n' "$(git rev-parse HEAD)"
         printf 'verifiers=%s\n' "$(git -C deps/verifiers rev-parse HEAD)"
@@ -94,10 +96,16 @@ if [[ -n "$resume_dir" ]]; then
     args=(--resume "$resume_dir")
 else
     args=(
-        @ "$eval_config"
+        @ "$output_dir/inputs/source_config.toml"
         --client.base-url "$inference_base_url"
         --output-dir "$output_dir"
     )
+    if [[ -f "$output_dir/inputs/task_file.txt" ]]; then
+        args+=(--taskset.task-file "$output_dir/inputs/task_file.txt")
+    fi
+    if [[ -f "$output_dir/inputs/image_manifest.json" ]]; then
+        args+=(--taskset.image-manifest "$output_dir/inputs/image_manifest.json")
+    fi
     if [[ -n "$inference_deployment_id" ]]; then
         if [[ ! "$inference_deployment_id" =~ ^[A-Za-z0-9._:-]+$ ]]; then
             printf 'Invalid INFERENCE_DEPLOYMENT_ID: %s\n' "$inference_deployment_id" >&2

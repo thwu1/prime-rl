@@ -1,13 +1,14 @@
 model = "Kimi-K3"
-num_tasks = 2
+num_tasks = 66
 num_rollouts = 1
-max_concurrent = 2
-max_turns = 8
+max_concurrent = 64
+max_turns = 200
 max_input_tokens = 262144
-max_output_tokens = 32768
-max_total_tokens = 65536
-multiplex = 2
+max_output_tokens = 262144
+max_total_tokens = 262144
+multiplex = 16
 rich = false
+retain_traces = false
 
 [client]
 type = "eval"
@@ -20,7 +21,7 @@ max_retries = 10
 [sampling]
 temperature = 1.0
 top_p = 1.0
-max_tokens = 4096
+max_tokens = 131072
 reasoning_effort = "max"
 logprobs = true
 top_logprobs = 0
@@ -30,7 +31,6 @@ chat_template_kwargs = { enable_thinking = true, preserve_thinking = true }
 [taskset]
 id = "terminal-bench-vmvm"
 dataset_dir = "/checkpoint/ram/tianhaowu/terminal_bench_vmvm/datasets/tb4-prebuilt-v4.0.0/tasks"
-tasks = ["batched-eval-parity", "vllm-deepseek-streaming"]
 image_prefix = "vmvm-registry.fbinfra.net/terminal_bench"
 image_tag = "tb4-452bf305c6da"
 ignore_dockerfile = true
@@ -43,9 +43,9 @@ id = "mini-swe-agent"
 version = "2.2.8"
 config_file = "mini"
 config_overrides = [
-    "agent.step_limit=8",
+    "agent.step_limit=200",
     "environment.environment_class=local",
-    "environment.timeout=600",
+    "environment.timeout=900",
     "model.model_kwargs.drop_params=true",
     "model.model_kwargs.temperature=1.0",
     "model.model_kwargs.top_p=1.0",
@@ -54,14 +54,14 @@ config_overrides = [
 
 [harness.runtime]
 type = "vmvm"
-session_timeout = 32400
+session_timeout = 43200
 tenant_id = "async_2347641"
 lease_ttl = "60s"
 max_session_buffer_size = 67108864
 
 [timeout]
 setup = 3600
-rollout = 28800
+rollout = 36000
 finalize = 3600
 scoring = 21600
 

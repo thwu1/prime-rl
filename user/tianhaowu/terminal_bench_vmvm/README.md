@@ -140,12 +140,12 @@ not injected into agent rollouts or verifier containers.
 
 ## TB4 pass@1
 
-After `fetch_tb4.sh` verifies the prebuilt release, launch an
-OpenAI-compatible Qwen A95B endpoint and submit:
+After `fetch_tb4.sh` verifies the prebuilt release, submit against the
+OpenAI-compatible Kimi-K3 deployment in max-reasoning mode:
 
 ```bash
 tmux send-keys -t swebench_vmvm:Launcher.0 \
-  "sbatch --parsable --export=ALL,INFERENCE_BASE_URL=http://HOST:8000/v1 user/tianhaowu/terminal_bench_vmvm/run_eval.sbatch" C-m
+  "env INFERENCE_BASE_URL=http://cpu-140-255:48088/v1 INFERENCE_DEPLOYMENT_ID=team-kimi-20260913-r4 OUTPUT_DIR=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/evals/tb4_kimi_k3_max sbatch user/tianhaowu/terminal_bench_vmvm/run_eval.sbatch" C-m
 ```
 
 For a shared gateway route with no default deployment, also set
@@ -154,20 +154,26 @@ embedding any credential in the config. For an HTTPS ingress that is reachable
 only through the corporate forward proxy, set `INFERENCE_PROXY_URL` as well;
 direct VMVM and inference routes continue to run with proxy variables cleared.
 
-The default config is `configs/eval/tb4_qwen_a95b_miniswe.toml`: 66 tasks,
-pass@1, mini-swe-agent, one VMVM per rollout, and a 256 Ki-token total context
-cap. All eight TB4 tasks that declare Docker Compose sidecars use the
-compose-capable VMVM path; they are not skipped or downgraded to a
-single-container approximation. The current VMVM tenant is CPU-only, so the
-three TB4 GPU tasks are rejected explicitly instead of being run under a
-silently incorrect CPU sandbox; the exact VMVM subset is therefore 63 tasks.
+The default config is `configs/eval/tb4_kimi_k3_max_miniswe.toml`: 66 tasks,
+pass@1, mini-swe-agent, `reasoning_effort=max`, one VMVM per rollout, and a
+256 Ki-token total context cap. It uses rollout concurrency 64. Synthetic
+completion bursts against deployment `team-kimi-20260913-r4` completed 64/64
+requests (mean 3.24 s) and 128/128 requests (mean 2.18 s) without an HTTP
+failure. The larger Mobius trace config uses the end-to-end-proven VMVM
+concurrency of 64 while vacli lease bring-up remains bounded at 32. All eight
+TB4 tasks that declare
+Docker Compose sidecars use the compose-capable VMVM path; they are not skipped
+or downgraded to a single-container approximation. The current VMVM tenant is
+CPU-only, so the three TB4 GPU tasks are rejected explicitly instead of being
+run under a silently incorrect CPU sandbox; the exact VMVM subset is therefore
+63 tasks.
 
 ## Training-trace gate
 
 The chat-completions dialect preserves provider-returned prompt/completion token
 IDs, per-completion-token log probabilities, and `reasoning_content`. The
 gateway must be called with `return_token_ids=true` and `logprobs=true`, as in
-both checked-in Qwen configs. Export exactly 2,500 oracle-qualified tasks before
+the checked-in Kimi configs. Export exactly 2,500 oracle-qualified tasks before
 the production run:
 
 ```bash
@@ -178,12 +184,17 @@ uv run --project user/tianhaowu/terminal_bench_vmvm \
   --limit 2500
 
 tmux send-keys -t swebench_vmvm:Launcher.0 \
-  "env EVAL_CONFIG=$PWD/user/tianhaowu/terminal_bench_vmvm/configs/eval/mobius_qwen_a95b_2500.toml INFERENCE_BASE_URL=http://HOST:8000/v1 OUTPUT_DIR=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/evals/mobius_qwen_a95b_2500 sbatch user/tianhaowu/terminal_bench_vmvm/run_eval.sbatch" C-m
+  "env EVAL_CONFIG=$PWD/user/tianhaowu/terminal_bench_vmvm/configs/eval/mobius_kimi_k3_max_2500.toml INFERENCE_BASE_URL=http://cpu-140-255:48088/v1 INFERENCE_DEPLOYMENT_ID=team-kimi-20260913-r4 OUTPUT_DIR=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/evals/mobius_kimi_k3_max_2500 sbatch user/tianhaowu/terminal_bench_vmvm/run_eval.sbatch" C-m
 ```
 
 Interrupted evals are durable. Resume only their missing or errored rollouts
-with `RESUME_DIR=/checkpoint/.../evals/mobius_qwen_a95b_2500`; the saved config
-is replayed verbatim and successful traces are retained.
+with `RESUME_DIR=/checkpoint/.../evals/mobius_kimi_k3_max_2500`; the saved config
+is replayed verbatim and successful traces are retained. New runs snapshot the
+source config, task list, and image manifest under `OUTPUT_DIR/inputs/`, record
+SHA-256 digests in `inputs/manifest.json`, and point the resolved run config at
+those immutable copies. Large configs set `retain_traces=false`: every trace is
+appended durably and then released from RAM, and the CLI does not duplicate the
+full JSONL into the Slurm log.
 
 Before consuming any run, execute:
 

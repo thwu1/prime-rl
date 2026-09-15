@@ -2156,8 +2156,32 @@ class VacliVMVMBackend:
             "import socket; "
             f"socket.create_connection(({gateway!r}, {remote_port}), timeout=1).close()"
         )
+        # TB4 images are intentionally heterogeneous: some expose `python3`,
+        # some only `python`, and a few contain neither.  Probe the actual
+        # container-to-host route with the first available TCP/HTTP client
+        # instead of assuming a `python` executable.  If an ultra-minimal
+        # image has no probe utility, retain the already-established SSH
+        # forward and bridge relay; the intercepted model call is the
+        # authoritative connectivity check and the rollout retry policy will
+        # still classify a real failure as infrastructure.
+        probe_shell = (
+            "if command -v python3 >/dev/null 2>&1; then "
+            f"exec python3 -c {shlex.quote(probe_script)}; "
+            "elif command -v python >/dev/null 2>&1; then "
+            f"exec python -c {shlex.quote(probe_script)}; "
+            "elif command -v nc >/dev/null 2>&1; then "
+            f"exec nc -z -w 1 {shlex.quote(gateway)} {remote_port}; "
+            "elif command -v busybox >/dev/null 2>&1; then "
+            f"exec busybox nc -z -w 1 {shlex.quote(gateway)} {remote_port}; "
+            "elif command -v curl >/dev/null 2>&1; then "
+            f"exec curl -sS --connect-timeout 1 --max-time 2 -o /dev/null "
+            f"http://{gateway}:{remote_port}/; "
+            "elif command -v wget >/dev/null 2>&1; then "
+            f"exec wget -q -T 2 -O /dev/null http://{gateway}:{remote_port}/; "
+            "else printf '__VACLI_NO_TCP_PROBE__\\n'; exit 125; fi"
+        )
         probe_command = (
-            f"podman exec {self._container_id} python -c {shlex.quote(probe_script)}"
+            f"podman exec {self._container_id} sh -c {shlex.quote(probe_shell)}"
         )
         deadline = time.monotonic() + 10
         last_error = "reverse forward was not reachable"
@@ -2166,6 +2190,13 @@ class VacliVMVMBackend:
             if probe.returncode == 0:
                 url = f"http://{gateway}:{remote_port}"
                 logger.info("vacli: host tunnel up at %s", url)
+                return tunnel, url
+            if b"__VACLI_NO_TCP_PROBE__" in (probe.stdout or b""):
+                url = f"http://{gateway}:{remote_port}"
+                logger.warning(
+                    "vacli: container has no TCP probe utility; "
+                    "deferring host tunnel validation to the intercepted request"
+                )
                 return tunnel, url
             last_error = (probe.stdout or b"").decode("utf-8", errors="replace").strip()
             time.sleep(0.2)
