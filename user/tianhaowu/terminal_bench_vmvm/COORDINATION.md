@@ -1,6 +1,6 @@
 # VMVM sandbox coordination
 
-Last updated: 2026-09-16 06:53 UTC
+Last updated: 2026-09-16 06:54 UTC
 
 ## First message to the next teammate
 
@@ -30,7 +30,7 @@ this shared branch again.
 
 | Owner | Cluster | Scope | Files | Live resources | State / next gate |
 |---|---|---|---|---|---|
-| Codex session for `tianhaowu` | `fair-cw-use2-3` | Kimi serving; TB4 pass@1; 2,500-trace launch | `user/tianhaowu/terminal_bench_vmvm/**`, `environments/vmvm_tb_v2/**`, `deps/verifiers` gitlink | deployment `tianhaowu-k3-tb24-nocache-20260916`; coordinator `1732626`; endpoint jobs `1732639`-`1732662`; gate chain `1732973 -> 1732984 -> 1732986 -> 1732987 -> 1732988`; 0/24 ready at 04:22 UTC | The user explicitly approved the stock-image fallback. It uses 24 normal-QoS endpoints with prefix caching off, `max-num-seqs=1`, Python frontend, PIECEWISE graphs, no logprob/token-ID request fields, and sticky routing. The CPU gate is running and all eval/checkpoint jobs are dependency-blocked. Launch production only after checkpoint `1732988` exits 0 with `ok=true`. |
+| Codex session for `tianhaowu` | `fair-cw-use2-3` | Kimi serving; TB4 pass@1; 2,500-trace launch | `user/tianhaowu/terminal_bench_vmvm/**`, `environments/vmvm_tb_v2/**`, `deps/verifiers` gitlink | deployment `tianhaowu-k3-tb24-nocache-20260916`; coordinator `1732626`; endpoint jobs `1732639`-`1732662`; gate chain `1732973 -> 1732984 -> 1732986 -> 1732987 -> 1732988`; direct TB4 chain `1733765 + 1733766 -> 1733767` | The queued 24-endpoint deployment remains the high-capacity production target. While it waits, two fixed healthy Kimi workers passed VMVM/model-I/O smokes and a 96-request no-logprob semantic soak. Exactly one disjoint 33+33 TB4 pass@1 run is now queued at 16 requests per worker; merge `1733767` is the strict reproduction checkpoint. Do not launch the 2,500-task production run on only these two workers. |
 | Codex session for `tianhaowu` | `fair-cw-use2-1` | Add a direct one-token KDA state-reuse probe; no serving or eval mutation | `user/tianhaowu/terminal_bench_vmvm/{probe_inference_routes.py,tests/test_probe_inference_routes.py,HANDOFF.md,COORDINATION.md}` | none | Extend the existing readiness probe with serial raw-completion predecessor/one-token-target cycles on every discovered sticky backend, without logprobs or response token IDs. Fail closed on unsupported routing, semantic corruption, or predecessor-dependent target output. |
 | Codex session for `tianhaowu` | `fair-cw-use2-1` | Qwen TB4 pass@1 and gated 2,500-trace launch; VMVM transport retry hardening | Qwen eval configs, VMVM backend, focused tests, runtime skill | clean smoke `1432623`; diagnostic fulls `1432675` and `1432759` canceled; endpoint `shared_qwen38_2p4t` | Smoke passed 2/2 with 16 model-I/O turns and no audit problems. Concurrency 32 failed beyond the first 16 tunnels; concurrency 16 still failed as the fourteenth container arrived, even with eight simultaneous lease starts. The clean full rerun is therefore bounded at eight active VMVMs and four simultaneous lease starts. The clean repaired Mobius worktree and exact 2,538-image manifest are staged locally; production remains gated on a clean TB4 checkpoint and exact oracle task manifest. |
 
@@ -176,9 +176,26 @@ Add new rows below this line; do not overwrite another owner's row.
   of `team-kimi-20260913-r4` produced 14/14 correct no-logprob semantic replies
   across its two workers with zero retries, but same-session requests switched
   workers; that gateway is not sticky and is diagnostic-only.
+- **2026-09-16 06:54 UTC, use2-3 owner:** direct worker binding removes the
+  non-sticky gateway from the TB4 fallback. Smokes `1733374` and `1733378`
+  completed 2/2 each; corrected strict audits `1733529` and `1733416` both
+  exited zero. Three 32-request waves at 16 requests per fixed worker passed
+  96/96 with the incident's 4,096-token semantic profile and no forbidden
+  request fields. Full disjoint shards `1733765` and `1733766` plus atomic
+  strict merge `1733767` are queued. Per the user's latest instruction, future
+  monitoring is metadata-only: do not inspect task prompts, task bodies, or raw
+  trace/model/tool content.
 
 ## Live evaluation state
 
+- Direct fixed-worker fallback smokes are complete and strict: A `1733374` /
+  audit `1733529`, B `1733378` / audit `1733416`, each with two durable rows and
+  zero automated audit failures. Full 33-task shards `1733765` and `1733766`
+  were submitted at 06:53 UTC with 16-way concurrency each; strict atomic merge
+  `1733767` depends on both. Output directories are
+  `tb4_kimi_k3_direct_{a,b,combined}_v1`. The shard manifests are disjoint and
+  cover all 66 tasks exactly once. These two workers are sufficient for TB4
+  reproduction, not for the high-throughput 2,500-task production run.
 - Use2-3 deployment `tianhaowu-k3-tb24-nocache-20260916` was submitted at
   03:17 UTC. Coordinator `1732626` is running on `cpu_x86`; all 24 endpoint
   jobs (`1732639`-`1732662`) request 16 GB300 GPUs each on `g3`, `QOS=normal`,
