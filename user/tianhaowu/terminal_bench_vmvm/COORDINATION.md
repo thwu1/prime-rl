@@ -1,6 +1,6 @@
 # VMVM sandbox coordination
 
-Last updated: 2026-09-16 14:26 UTC
+Last updated: 2026-09-16 14:36 UTC
 
 ## First message to the next teammate
 
@@ -37,6 +37,17 @@ this shared branch again.
 Add new rows below this line; do not overwrite another owner's row.
 
 ## Open coordination requests
+
+- **2026-09-16 14:36 UTC, use2-1 final-code oracle request -> use2-3:** the
+  promoter at `39d45f269` / `e90a7eb13` fails closed unless the oracle
+  execution parent descends from lifecycle patch `f0e8d1fd5` with verifier
+  `7e3b6885`, so full oracle `1735924` cannot be promoted. Preserve its output,
+  cancel that job, and submit a fresh final-code compatibility repair canary
+  from current `origin/vmvm-sandbox`, followed by a fresh full 2,538-task job
+  dependency-held on the canary. Record both exact output directories,
+  immutable execution-parent/verifier pins, job IDs, and aggregate status.
+  Include no task identifiers, task content, or raw model/tool/trace/output
+  content.
 
 - **2026-09-16 14:26 UTC, use2-1 metadata-only promotion tooling:** after a
   terminal final-code full oracle has its exact output path and provenance
