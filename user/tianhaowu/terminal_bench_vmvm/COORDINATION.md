@@ -1,6 +1,6 @@
 # VMVM sandbox coordination
 
-Last updated: 2026-09-16 09:23 UTC
+Last updated: 2026-09-16 10:02 UTC
 
 ## First message to the next teammate
 
@@ -32,11 +32,24 @@ this shared branch again.
 |---|---|---|---|---|---|
 | Codex session for `tianhaowu` | `fair-cw-use2-3` | Kimi serving, full TB4 pass@1, and gated 2,500-task rollout | `user/tianhaowu/terminal_bench_vmvm/**`, `user/tianhaowu/deepswe_vmvm/{README.md,run_runtime_smoke.sbatch,smoke_runtime.py}`, `environments/vmvm_tb_v2/**`, `deps/verifiers` gitlink | deployment `tianhaowu-k3-tb24-nocache-20260916`; coordinator `1732626`; endpoint jobs `1732639`-`1732662`; infrastructure gate `1732973`; prior task jobs canceled | At 09:16 UTC the user explicitly authorized running all tasks, including security-related tasks, while prohibiting inspection of security-task content. Relaunch only into fresh v2+ paths after current serving gates; execution and automated aggregate audits may process all tasks, but owners must not open task prompts/bodies or raw trace/model/tool content. |
 | Codex session for `tianhaowu` | `fair-cw-use2-1` | Add a direct one-token KDA state-reuse probe; no serving or eval mutation | `user/tianhaowu/terminal_bench_vmvm/{probe_inference_routes.py,tests/test_probe_inference_routes.py,HANDOFF.md,COORDINATION.md}` | none | Extend the existing readiness probe with serial raw-completion predecessor/one-token-target cycles on every discovered sticky backend, without logprobs or response token IDs. Fail closed on unsupported routing, semantic corruption, or predecessor-dependent target output. |
-| Codex session for `tianhaowu` | `fair-cw-use2-1` | Qwen full TB4 pass@1 and gated 2,500-task rollout | Qwen direct-router configs, VMVM backend, focused tests, runtime skill | clean historical smoke `1432623`; canceled diagnostic chain `1432786 -> 1433430 -> 1434234 -> 1434348`; router gate `1435351`; endpoint `shared_qwen38_2p4t` | The 09:16 UTC approval authorizes all tasks, including security-related tasks, without content inspection. Prepare explicit all-task manifests for the fail-closed direct router, run a fresh smoke and automated audit, then a fresh TB4 run; launch production only after the score/trace gate succeeds. Never inspect task prompts/bodies or raw trace/model/tool content. |
+| Codex session for `tianhaowu` | `fair-cw-use2-1` | Qwen full TB4 pass@1 and gated 2,500-task rollout | Qwen direct-router configs, VMVM backend, focused tests, runtime skill | full TB4 direct `1435776`; output `tb4_qwen_a95b_direct_full_v1`; endpoint `shared_qwen38_2p4t` | Fresh 66-task full run is live from isolated commit `5424dbf28`, after smoke `1435688` and both automated aggregate audits passed. Monitor metadata only; run the strict score/trace gate at terminal state, and launch production only if it succeeds. Never inspect task prompts/bodies or raw trace/model/tool content. |
 
 Add new rows below this line; do not overwrite another owner's row.
 
 ## Open coordination requests
+
+- **2026-09-16 10:02 UTC, use2-1 Qwen lane:** fresh full TB4 direct job
+  `1435776` is running on `cpu-131-161` from isolated worktree commit
+  `5424dbf28`. It uses `OPENAI_API_KEY=EMPTY`, the 66-entry approved manifest
+  `configs/eval/tb4_qwen_a95b_miniswe.tasks.txt` with SHA-256
+  `9485011ac4a953f4a4a1c7c5e78550b6d7de6f760a3859dac15a3610cf4ad892`,
+  pinned config `configs/eval/tb4_qwen_a95b_miniswe.toml`, and fresh output
+  `/checkpoint/ram/tianhaowu/terminal_bench_vmvm/evals/tb4_qwen_a95b_direct_full_v1`.
+  Preceding smoke `1435688` completed with exit `0:0` and two parseable rows;
+  automated direct provenance and trace audits passed with 16 endpoints, two
+  traces across two tasks, 6,862 sampled tokens, 16 model-I/O turns, zero
+  trace failures, and zero global problems. Submission was typed through
+  `swebench_vmvm:Launcher.0`; monitoring remains aggregate-only.
 
 - **2026-09-16 09:17 UTC, user approval — supersedes the execution hold from
   07:44 UTC:** all TB4 and Mobius tasks may run, including security-related
