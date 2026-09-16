@@ -1,6 +1,6 @@
 # VMVM sandbox coordination
 
-Last updated: 2026-09-16 03:33 UTC
+Last updated: 2026-09-16 03:35 UTC
 
 ## First message to the next teammate
 
@@ -31,7 +31,6 @@ this shared branch again.
 | Owner | Cluster | Scope | Files | Live resources | State / next gate |
 |---|---|---|---|---|---|
 | Codex session for `tianhaowu` | `fair-cw-use2-3` | Kimi serving; TB4 pass@1; 2,500-trace launch | `user/tianhaowu/terminal_bench_vmvm/**`, `environments/vmvm_tb_v2/**`, `deps/verifiers` gitlink | deployment `tianhaowu-k3-tb24-nocache-20260916`; coordinator `1732626`; endpoint jobs `1732639`-`1732662`; 0/24 ready and all workers pending at 03:22 UTC | The user explicitly approved the stock-image fallback. It uses 24 normal-QoS endpoints with prefix caching off, `max-num-seqs=1`, Python frontend, PIECEWISE graphs, no logprob/token-ID request fields, and sticky routing. Require model-specific health 24/0 and `probe_inference_routes.py`, then run a fresh model-I/O smoke and exactly one full TB4 run. |
-| Codex session for `tianhaowu` | `fair-cw-use2-1` | Read-only patched-image discovery and risk handoff; no image build, serving, or eval mutation | `user/tianhaowu/terminal_bench_vmvm/COORDINATION.md` | none | Record exact July-compatible KDA patch provenance and whether an immutable patched image exists; hand off the production-safety conclusion to the use2-3 owner. |
 
 Add new rows below this line; do not overwrite another owner's row.
 
@@ -125,6 +124,20 @@ Add new rows below this line; do not overwrite another owner's row.
   but this smoke is not inference-readiness evidence. `audit_traces.py` now
   fails both traces and `probe_inference_routes.py` detects the same
   whitespace-separated `@`/`!` pattern; 59 standalone workflow tests pass.
+- **2026-09-16 03:35 UTC, use2-1 -> use2-3 owner:** exhaustive read-only
+  discovery found no deployable KDA-patched Kimi image in the accessible
+  internal registries, upstream artifacts, RAM branches, or deployment
+  metadata. The only image is the known-bad July stock index
+  `sha256:e90e2603b2781936651ba019804137714367c69e10a7b25a2e57b46995225616`.
+  The immutable July-compatible fix is vLLM commit
+  `9ddef960045d20cf83d2eefe5561fa9a56373d11`; do not mount current-main PR
+  head `6a606dec` onto the July image. No-cache/Python/max-seqs=1/PIECEWISE is
+  empirical containment, not the KDA fix: sequential slot reuse remains
+  possible and PIECEWISE only makes patched metadata effective. The robust
+  production gate is a digest-pinned July derivative carrying `9ddef960`,
+  initially under eager mode, followed by per-route state-reuse/semantic soak.
+  Please do not advance the stock fallback to TB4 without resolving or
+  explicitly recording this residual correctness risk.
 
 ## Live evaluation state
 
@@ -192,6 +205,7 @@ Add new rows below this line; do not overwrite another owner's row.
 | Codex session for `tianhaowu` | TB4 oracle validation | Job `1725604`: 63 CPU-supported valid and 3 explicit GPU-unsupported tasks. |
 | Codex session for `tianhaowu` (use2-1) | Fail-closed no-logprob transport plus complete compact model-I/O capture and structural audit | Parent `59179696e`, verifier `73263fc1`; 65 verifier and 39 workflow tests passed. Job `1431481` completed 2/2 with 16/16 hash-valid model-I/O captures, tool schemas/results retained, and no forbidden request fields; later semantic audit correctly rejects its corrupted model output. |
 | Codex session for `tianhaowu` (use2-1) | Fail-closed semantic detection for whitespace-separated KDA corruption | Parent `5c24b959b`; both corrupted smoke traces now fail on all 10 affected sampled turns, the readiness probe uses the same predicate, 59 standalone workflow tests pass, and no serving or eval job was changed. |
+| Codex session for `tianhaowu` (use2-1) | Read-only patched-image discovery | No deployable patched image was found; the only accessible image is the vulnerable July stock build. Recorded the immutable July-compatible KDA fix `9ddef960` and handed the build/pin/soak requirement to the use2-3 owner without changing images or jobs. |
 
 ## Known non-overlap boundaries
 
