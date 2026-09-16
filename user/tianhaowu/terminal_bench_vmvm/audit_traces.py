@@ -4,6 +4,8 @@
 from __future__ import annotations
 
 import argparse
+import copy
+import hashlib
 import json
 import math
 from collections import Counter
@@ -11,6 +13,8 @@ from collections.abc import Iterable, Iterator
 from pathlib import Path
 
 DEFAULT_MAX_SEQUENCE_TOKENS = 262_144
+FORBIDDEN_MODEL_REQUEST_FIELDS = frozenset({"logprobs", "prompt_logprobs", "return_token_ids", "top_logprobs"})
+_SHA256_HEX_CHARS = frozenset("0123456789abcdef")
 
 
 class TraceJSONLError(ValueError):
@@ -82,9 +86,7 @@ def _message_problems(node: dict, index: int) -> list[str]:
                 for field in ("id", "name", "arguments"):
                     value = call.get(field)
                     if not isinstance(value, str) or (field != "arguments" and not value):
-                        problems.append(
-                            f"node_{index}_tool_call_{call_index}_{field}_invalid"
-                        )
+                        problems.append(f"node_{index}_tool_call_{call_index}_{field}_invalid")
                 call_id = call.get("id")
                 if isinstance(call_id, str) and call_id:
                     if call_id in seen_call_ids:
@@ -188,12 +190,234 @@ def _usage_tokens(node: dict) -> tuple[int, int] | None:
     return prompt + (cached or 0) + completion, completion
 
 
+def _is_json_value(value: object) -> bool:
+    """Whether a value has strict, finite JSON semantics."""
+    if value is None or isinstance(value, (str, bool, int)):
+        return True
+    if isinstance(value, float):
+        return math.isfinite(value)
+    if isinstance(value, list):
+        return all(_is_json_value(item) for item in value)
+    if isinstance(value, dict):
+        return all(isinstance(key, str) and _is_json_value(item) for key, item in value.items())
+    return False
+
+
+def _json_sha256(body: dict) -> str:
+    """Match the verifier's deterministic hash of parsed provider JSON."""
+    encoded = json.dumps(
+        body,
+        ensure_ascii=False,
+        allow_nan=False,
+        sort_keys=True,
+        separators=(",", ":"),
+    ).encode("utf-8")
+    return hashlib.sha256(encoded).hexdigest()
+
+
+def _valid_sha256(value: object) -> bool:
+    return isinstance(value, str) and len(value) == 64 and all(character in _SHA256_HEX_CHARS for character in value)
+
+
+def _valid_model_request(request: object) -> bool:
+    if not isinstance(request, dict):
+        return False
+    kind = request.get("kind")
+    if kind == "full":
+        return (
+            set(request) == {"kind", "sha256", "body"}
+            and _valid_sha256(request.get("sha256"))
+            and isinstance(request.get("body"), dict)
+            and _is_json_value(request["body"])
+        )
+    if kind != "delta" or set(request) != {
+        "kind",
+        "sha256",
+        "base_node",
+        "set_fields",
+        "remove_fields",
+        "append_fields",
+    }:
+        return False
+
+    base_node = request.get("base_node")
+    set_fields = request.get("set_fields")
+    remove_fields = request.get("remove_fields")
+    append_fields = request.get("append_fields")
+    if (
+        not _valid_sha256(request.get("sha256"))
+        or isinstance(base_node, bool)
+        or not isinstance(base_node, int)
+        or base_node < 0
+        or not isinstance(set_fields, dict)
+        or not _is_json_value(set_fields)
+        or not isinstance(remove_fields, list)
+        or any(not isinstance(key, str) for key in remove_fields)
+        or len(remove_fields) != len(set(remove_fields))
+        or not isinstance(append_fields, dict)
+        or any(
+            not isinstance(key, str) or not isinstance(values, list) or not values or not _is_json_value(values)
+            for key, values in append_fields.items()
+        )
+    ):
+        return False
+    removed = set(remove_fields)
+    set_keys = set(set_fields)
+    append_keys = set(append_fields)
+    return not ((removed & set_keys) | (removed & append_keys) | (set_keys & append_keys))
+
+
+def _valid_model_response(response: object) -> bool:
+    return (
+        isinstance(response, dict)
+        and set(response) == {"kind", "sha256", "body"}
+        and response.get("kind") in {"exact_provider_json", "normalized_stream_response"}
+        and _valid_sha256(response.get("sha256"))
+        and isinstance(response.get("body"), dict)
+        and _is_json_value(response["body"])
+    )
+
+
+def _model_io_base_is_ancestor(nodes: list, node_id: int, base_node: int) -> bool:
+    parent = nodes[node_id].get("parent")
+    seen: set[int] = set()
+    while parent is not None:
+        if isinstance(parent, bool) or not isinstance(parent, int) or not 0 <= parent < len(nodes):
+            return False
+        if parent == base_node:
+            return True
+        if parent in seen:
+            return False
+        seen.add(parent)
+        ancestor = nodes[parent]
+        if not isinstance(ancestor, dict):
+            return False
+        parent = ancestor.get("parent")
+    return False
+
+
+class _ModelIOReconstructionError(ValueError):
+    """A structurally valid request delta could not be safely reconstructed."""
+
+
+def _audit_model_io(nodes: list) -> tuple[list[str], int]:
+    """Validate and reconstruct all sampled-turn provider captures using only stdlib types."""
+    problems: list[str] = []
+    sampled_ids: list[int] = []
+    valid_requests: dict[int, dict] = {}
+    model_io_turns = 0
+
+    for index, node in enumerate(nodes):
+        if not isinstance(node, dict):
+            continue
+        sampled = node.get("sampled") is True
+        model_io = node.get("model_io")
+        if not sampled:
+            if model_io is not None:
+                problems.append(f"node_{index}_model_io_on_non_sampled_node")
+            continue
+        sampled_ids.append(index)
+        if model_io is None:
+            problems.append(f"node_{index}_model_io_missing")
+            continue
+        model_io_turns += 1
+        if not isinstance(model_io, dict) or set(model_io) != {"provider_route", "request", "response"}:
+            problems.append(f"node_{index}_model_io_structure_invalid")
+            continue
+
+        provider_route = model_io.get("provider_route")
+        if not isinstance(provider_route, str) or not provider_route.startswith("/"):
+            problems.append(f"node_{index}_model_io_provider_route_invalid")
+        request = model_io.get("request")
+        if not _valid_model_request(request):
+            problems.append(f"node_{index}_model_io_request_structure_invalid")
+        else:
+            valid_requests[index] = request
+        response = model_io.get("response")
+        if not _valid_model_response(response):
+            problems.append(f"node_{index}_model_io_response_structure_invalid")
+        elif _json_sha256(response["body"]) != response["sha256"]:
+            problems.append(f"node_{index}_model_io_response_hash_mismatch")
+
+    memo: dict[int, dict] = {}
+
+    def reconstruct(node_id: int) -> dict:
+        if node_id in memo:
+            return copy.deepcopy(memo[node_id])
+        chain: list[int] = []
+        chain_members: set[int] = set()
+        current_id = node_id
+        while current_id not in memo:
+            if current_id in chain_members:
+                raise _ModelIOReconstructionError("request_delta_cycle")
+            request = valid_requests.get(current_id)
+            if request is None:
+                raise _ModelIOReconstructionError("request_chain_invalid")
+            chain.append(current_id)
+            chain_members.add(current_id)
+            if request["kind"] == "full":
+                break
+            base_node = request["base_node"]
+            if base_node in chain_members:
+                raise _ModelIOReconstructionError("request_delta_cycle")
+            if base_node >= current_id or base_node >= len(nodes):
+                raise _ModelIOReconstructionError("request_delta_base_not_prior")
+            base = nodes[base_node]
+            if not isinstance(base, dict) or base.get("sampled") is not True:
+                raise _ModelIOReconstructionError("request_delta_base_not_sampled")
+            if not _model_io_base_is_ancestor(nodes, current_id, base_node):
+                raise _ModelIOReconstructionError("request_delta_base_not_ancestor")
+            current_id = base_node
+
+        body = copy.deepcopy(memo[current_id]) if current_id in memo else None
+        for current_id in reversed(chain):
+            request = valid_requests[current_id]
+            if request["kind"] == "full":
+                body = copy.deepcopy(request["body"])
+            else:
+                if body is None:  # defensive: every delta chain must terminate at a full or memoized request
+                    raise _ModelIOReconstructionError("request_chain_invalid")
+                for key in request["remove_fields"]:
+                    body.pop(key, None)
+                for key, value in request["set_fields"].items():
+                    body[key] = copy.deepcopy(value)
+                for key, suffix in request["append_fields"].items():
+                    previous = body.get(key)
+                    if not isinstance(previous, list):
+                        raise _ModelIOReconstructionError("request_delta_append_target_not_list")
+                    body[key] = [*previous, *copy.deepcopy(suffix)]
+            if _json_sha256(body) != request["sha256"]:
+                raise _ModelIOReconstructionError("request_hash_mismatch")
+            memo[current_id] = copy.deepcopy(body)
+        return copy.deepcopy(memo[node_id])
+
+    found_tool_schemas = False
+    for node_id in sampled_ids:
+        if node_id not in valid_requests:
+            continue
+        try:
+            request_body = reconstruct(node_id)
+        except _ModelIOReconstructionError as error:
+            problems.append(f"node_{node_id}_model_io_{error}")
+            continue
+        if forbidden := sorted(FORBIDDEN_MODEL_REQUEST_FIELDS & request_body.keys()):
+            problems.append(f"node_{node_id}_model_io_forbidden_request_fields={forbidden!r}")
+        tools = request_body.get("tools")
+        if isinstance(tools, list) and tools and all(isinstance(tool, dict) and tool for tool in tools):
+            found_tool_schemas = True
+
+    if sampled_ids and not found_tool_schemas:
+        problems.append("no_model_io_tool_schemas")
+    return problems, model_io_turns
+
+
 def _audit_trace(
     trace: dict,
     require_reasoning: bool,
     max_sequence_tokens: int = DEFAULT_MAX_SEQUENCE_TOKENS,
     require_token_data: bool = False,
     require_logprobs: bool = False,
+    require_model_io: bool = False,
 ) -> list[str]:
     # Requiring logprobs necessarily opts into exact token-array validation.
     require_token_data = require_token_data or require_logprobs
@@ -287,6 +511,10 @@ def _audit_trace(
     if require_token_data and sampled_tokens == 0:
         problems.append("no_sampled_tokens")
 
+    if require_model_io:
+        model_io_problems, _ = _audit_model_io(nodes)
+        problems.extend(model_io_problems)
+
     if not invalid_parents and not parent_cycle:
         for index, node in enumerate(nodes):
             if not isinstance(node, dict):
@@ -338,10 +566,12 @@ def _summarize_traces(
     require_logprobs: bool = False,
     max_sequence_tokens: int = DEFAULT_MAX_SEQUENCE_TOKENS,
     require_token_data: bool = False,
+    require_model_io: bool = False,
 ) -> tuple[dict, bool]:
     require_token_data = require_token_data or require_logprobs
     trace_count = 0
     sampled_tokens = 0
+    model_io_turns = 0
     trace_failure_count = 0
     failure_examples: list[dict] = []
     seen_ids: set[object] = set()
@@ -364,6 +594,7 @@ def _summarize_traces(
             max_sequence_tokens,
             require_token_data=require_token_data,
             require_logprobs=require_logprobs,
+            require_model_io=require_model_io,
         )
         if problems:
             trace_failure_count += 1
@@ -371,6 +602,12 @@ def _summarize_traces(
                 failure_examples.append({"id": trace_id, "task": slug, "problems": problems})
 
         nodes = trace.get("nodes")
+        if require_model_io and isinstance(nodes, list):
+            model_io_turns += sum(
+                node.get("sampled") is True and node.get("model_io") is not None
+                for node in nodes
+                if isinstance(node, dict)
+            )
         if isinstance(nodes, list) and require_token_data:
             sampled_tokens += sum(
                 sum(value is True for value in mask)
@@ -413,6 +650,8 @@ def _summarize_traces(
         "global_problems": global_problems,
         "failure_examples": failure_examples,
     }
+    if require_model_io:
+        summary["model_io_turns"] = model_io_turns
     return summary, bool(trace_failure_count or global_problems)
 
 
@@ -424,12 +663,17 @@ def main() -> None:
     parser.add_argument("--rollouts-per-task", type=int, default=1)
     parser.add_argument("--require-reasoning", action=argparse.BooleanOptionalAction, default=True)
     parser.add_argument(
+        "--require-model-io",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="require and integrity-check exact provider request/response capture for every sampled turn",
+    )
+    parser.add_argument(
         "--require-token-data",
         action=argparse.BooleanOptionalAction,
         default=False,
         help=(
-            "require exact token IDs and masks instead of the default "
-            "response/reasoning transcript with provider usage"
+            "require exact token IDs and masks instead of the default response/reasoning transcript with provider usage"
         ),
     )
     parser.add_argument(
@@ -466,6 +710,7 @@ def main() -> None:
             max_sequence_tokens=args.max_sequence_tokens,
             require_token_data=args.require_token_data,
             require_logprobs=args.require_logprobs,
+            require_model_io=args.require_model_io,
         )
     except TraceJSONLError as error:
         parser.error(str(error))

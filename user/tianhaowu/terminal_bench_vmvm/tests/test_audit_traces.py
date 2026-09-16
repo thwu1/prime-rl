@@ -1,3 +1,4 @@
+import hashlib
 import json
 import sys
 from pathlib import Path
@@ -47,6 +48,59 @@ def _transcript_trace(trace_id: str = "text", slug: str = "text-task") -> dict:
             }
         ],
     }
+
+
+def _digest(body: dict) -> str:
+    encoded = json.dumps(
+        body,
+        ensure_ascii=False,
+        allow_nan=False,
+        sort_keys=True,
+        separators=(",", ":"),
+    ).encode("utf-8")
+    return hashlib.sha256(encoded).hexdigest()
+
+
+def _request(*, tools: list | None = None, **extra: object) -> dict:
+    return {
+        "model": "kimi-k3",
+        "messages": [{"role": "user", "content": "inspect the workspace"}],
+        "tools": tools
+        if tools is not None
+        else [
+            {
+                "type": "function",
+                "function": {
+                    "name": "bash",
+                    "description": "Run a command",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {"cmd": {"type": "string"}},
+                    },
+                },
+            }
+        ],
+        **extra,
+    }
+
+
+def _model_io(request: dict, *, response: dict | None = None) -> dict:
+    response = response or {"id": "response-1", "choices": [{"message": {"content": "done"}}]}
+    return {
+        "provider_route": "/chat/completions",
+        "request": {"kind": "full", "sha256": _digest(request), "body": request},
+        "response": {
+            "kind": "exact_provider_json",
+            "sha256": _digest(response),
+            "body": response,
+        },
+    }
+
+
+def _trace_with_model_io(trace_id: str = "model-io", slug: str = "model-io-task") -> dict:
+    trace = _trace(trace_id, slug)
+    trace["nodes"][0]["model_io"] = _model_io(_request())
+    return trace
 
 
 def test_iter_traces_opens_lazily_and_skips_blank_lines(tmp_path: Path) -> None:
@@ -183,9 +237,7 @@ def test_audit_trace_accepts_exact_tokens_without_logprobs() -> None:
 
 def test_audit_trace_preserves_tool_call_and_result_payloads() -> None:
     trace = _trace("tools", "tools-task")
-    trace["nodes"][0]["message"]["tool_calls"] = [
-        {"id": "call-1", "name": "bash", "arguments": '{"cmd":"pwd"}'}
-    ]
+    trace["nodes"][0]["message"]["tool_calls"] = [{"id": "call-1", "name": "bash", "arguments": '{"cmd":"pwd"}'}]
     trace["nodes"].append(
         {
             "parent": 0,
@@ -205,9 +257,7 @@ def test_audit_trace_preserves_tool_call_and_result_payloads() -> None:
     assert _audit_trace(trace, require_reasoning=True) == []
 
     trace["nodes"][1]["message"]["tool_call_id"] = "missing"
-    assert _audit_trace(trace, require_reasoning=True) == [
-        "node_1_tool_call_not_in_ancestors"
-    ]
+    assert _audit_trace(trace, require_reasoning=True) == ["node_1_tool_call_not_in_ancestors"]
 
 
 def test_audit_trace_limits_each_reconstructed_branch() -> None:
@@ -392,6 +442,239 @@ def test_audit_trace_token_data_is_explicit_opt_in() -> None:
         "node_0_sampled_mask_empty",
         "no_sampled_tokens",
     ]
+
+
+def test_audit_trace_validates_complete_model_io_capture() -> None:
+    trace = _trace_with_model_io()
+
+    assert _audit_trace(trace, require_reasoning=True, require_model_io=True) == []
+
+
+def test_audit_trace_requires_model_io_on_every_sampled_turn() -> None:
+    trace = _trace_with_model_io()
+    second = _trace("second", "same-task")["nodes"][0]
+    second["parent"] = 0
+    trace["nodes"].append(second)
+
+    assert _audit_trace(trace, require_reasoning=True, require_model_io=True) == ["node_1_model_io_missing"]
+
+
+def test_audit_trace_reconstructs_and_hashes_model_request_deltas() -> None:
+    trace = _trace_with_model_io()
+    base_request = trace["nodes"][0]["model_io"]["request"]["body"]
+    base_request["temperature"] = 0.6
+    base_request["seed"] = 123
+    trace["nodes"][0]["model_io"]["request"]["sha256"] = _digest(base_request)
+
+    second_request = {
+        **{key: value for key, value in base_request.items() if key != "seed"},
+        "temperature": 0.7,
+        "messages": [
+            *base_request["messages"],
+            {"role": "assistant", "content": "I need the shell."},
+            {"role": "tool", "tool_call_id": "call-1", "content": "/workspace"},
+        ],
+    }
+    second = _trace("second", "same-task")["nodes"][0]
+    second["parent"] = 0
+    second["model_io"] = _model_io(second_request)
+    second["model_io"]["request"] = {
+        "kind": "delta",
+        "sha256": _digest(second_request),
+        "base_node": 0,
+        "set_fields": {"temperature": 0.7},
+        "remove_fields": ["seed"],
+        "append_fields": {"messages": second_request["messages"][1:]},
+    }
+    trace["nodes"].append(second)
+
+    assert _audit_trace(trace, require_reasoning=True, require_model_io=True) == []
+
+    second["model_io"]["request"]["sha256"] = "0" * 64
+    assert _audit_trace(trace, require_reasoning=True, require_model_io=True) == [
+        "node_1_model_io_request_hash_mismatch"
+    ]
+
+
+def test_audit_trace_rejects_model_io_response_hash_corruption() -> None:
+    trace = _trace_with_model_io()
+    trace["nodes"][0]["model_io"]["response"]["body"]["id"] = "tampered"
+
+    assert _audit_trace(trace, require_reasoning=True, require_model_io=True) == [
+        "node_0_model_io_response_hash_mismatch"
+    ]
+
+
+@pytest.mark.parametrize(
+    "malformed_request",
+    [
+        {"kind": "full", "sha256": "0" * 64, "body": [], "extra": True},
+        {
+            "kind": "delta",
+            "sha256": "0" * 64,
+            "base_node": 0,
+            "set_fields": {"messages": []},
+            "remove_fields": ["messages"],
+            "append_fields": {},
+        },
+        {
+            "kind": "delta",
+            "sha256": "0" * 64,
+            "base_node": 0,
+            "set_fields": {},
+            "remove_fields": [],
+            "append_fields": {"messages": []},
+        },
+    ],
+)
+def test_audit_trace_rejects_malformed_model_requests(malformed_request: dict) -> None:
+    trace = _trace_with_model_io()
+    trace["nodes"][0]["model_io"]["request"] = malformed_request
+
+    assert _audit_trace(trace, require_reasoning=True, require_model_io=True) == [
+        "node_0_model_io_request_structure_invalid",
+        "no_model_io_tool_schemas",
+    ]
+
+
+def test_audit_trace_rejects_malformed_model_response() -> None:
+    trace = _trace_with_model_io()
+    trace["nodes"][0]["model_io"]["response"] = {
+        "kind": "unknown",
+        "sha256": "not-a-hash",
+        "body": [],
+    }
+
+    assert _audit_trace(trace, require_reasoning=True, require_model_io=True) == [
+        "node_0_model_io_response_structure_invalid"
+    ]
+
+
+def test_audit_trace_rejects_cyclic_and_nonancestor_model_request_deltas() -> None:
+    cyclic = _trace_with_model_io("cycle")
+    request = _request()
+    cyclic["nodes"][0]["model_io"]["request"] = {
+        "kind": "delta",
+        "sha256": _digest(request),
+        "base_node": 0,
+        "set_fields": {},
+        "remove_fields": [],
+        "append_fields": {},
+    }
+    assert _audit_trace(cyclic, require_reasoning=True, require_model_io=True) == [
+        "node_0_model_io_request_delta_cycle",
+        "no_model_io_tool_schemas",
+    ]
+
+    nonancestor = _trace_with_model_io("nonancestor")
+    second = _trace("second", "same-task")["nodes"][0]
+    second["parent"] = None
+    second["model_io"] = _model_io(request)
+    second["model_io"]["request"] = {
+        "kind": "delta",
+        "sha256": _digest(request),
+        "base_node": 0,
+        "set_fields": {},
+        "remove_fields": [],
+        "append_fields": {},
+    }
+    nonancestor["nodes"].append(second)
+    assert _audit_trace(nonancestor, require_reasoning=True, require_model_io=True) == [
+        "node_1_model_io_request_delta_base_not_ancestor"
+    ]
+
+
+def test_audit_trace_handles_deep_model_request_delta_chain_without_recursion() -> None:
+    trace = _trace_with_model_io("deep-model-io")
+    initial_request = _request(turn=0)
+    trace["nodes"][0]["model_io"] = _model_io(initial_request)
+    for index in range(1, 1_100):
+        current_request = _request(turn=index)
+        node = _trace(f"turn-{index}", "same-task")["nodes"][0]
+        node["parent"] = index - 1
+        node["model_io"] = _model_io(current_request)
+        node["model_io"]["request"] = {
+            "kind": "delta",
+            "sha256": _digest(current_request),
+            "base_node": index - 1,
+            "set_fields": {"turn": index},
+            "remove_fields": [],
+            "append_fields": {},
+        }
+        trace["nodes"].append(node)
+
+    assert _audit_trace(trace, require_reasoning=True, require_model_io=True) == []
+
+
+def test_audit_trace_forbids_logprob_fields_in_reconstructed_requests() -> None:
+    trace = _trace("forbidden", "forbidden-task")
+    request = _request(
+        logprobs=False,
+        prompt_logprobs=0,
+        return_token_ids=False,
+        top_logprobs=0,
+    )
+    trace["nodes"][0]["model_io"] = _model_io(request)
+
+    assert _audit_trace(trace, require_reasoning=True, require_model_io=True) == [
+        "node_0_model_io_forbidden_request_fields=['logprobs', 'prompt_logprobs', 'return_token_ids', 'top_logprobs']"
+    ]
+
+
+def test_audit_trace_requires_nonempty_tool_schema_in_model_requests() -> None:
+    trace = _trace("no-tools", "no-tools-task")
+    trace["nodes"][0]["model_io"] = _model_io(_request(tools=[]))
+
+    assert _audit_trace(trace, require_reasoning=True, require_model_io=True) == ["no_model_io_tool_schemas"]
+
+
+def test_summarize_traces_reports_model_io_turns_only_when_required() -> None:
+    trace = _trace_with_model_io()
+
+    summary, failed = _summarize_traces(
+        [trace],
+        expected_slugs=None,
+        expected_count=1,
+        rollouts_per_task=1,
+        require_reasoning=True,
+        require_model_io=True,
+    )
+    assert failed is False
+    assert summary["model_io_turns"] == 1
+
+    backward_compatible, failed = _summarize_traces(
+        [trace],
+        expected_slugs=None,
+        expected_count=1,
+        rollouts_per_task=1,
+        require_reasoning=True,
+    )
+    assert failed is False
+    assert "model_io_turns" not in backward_compatible
+
+
+def test_main_requires_model_io_by_default(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    results = tmp_path / "results.jsonl"
+    results.write_text(f"{json.dumps(_trace('trace', 'task'))}\n")
+    monkeypatch.setattr(sys, "argv", ["audit_traces.py", str(results)])
+
+    with pytest.raises(SystemExit) as exit_info:
+        main()
+    assert exit_info.value.code == 2
+    summary = json.loads(capsys.readouterr().out)
+    assert summary["model_io_turns"] == 0
+    assert summary["failure_examples"][0]["problems"] == [
+        "node_0_model_io_missing",
+        "no_model_io_tool_schemas",
+    ]
+
+    monkeypatch.setattr(sys, "argv", ["audit_traces.py", str(results), "--no-require-model-io"])
+    main()
+    summary = json.loads(capsys.readouterr().out)
+    assert summary["trace_failures"] == 0
+    assert "model_io_turns" not in summary
 
 
 def test_main_reports_malformed_json_line_without_traceback(
