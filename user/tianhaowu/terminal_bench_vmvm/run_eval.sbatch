@@ -90,7 +90,12 @@ fi
 cd "$project_dir"
 
 if [[ -n "$resume_dir" ]]; then
-    printf 'resume_slurm_job_id=%s\n' "$SLURM_JOB_ID" >> "$output_dir/provenance.txt"
+    {
+        printf 'resume_slurm_job_id=%s\n' "$SLURM_JOB_ID"
+        printf 'resume_prime_rl=%s\n' "$(git rev-parse HEAD)"
+        printf 'resume_verifiers=%s\n' "$(git -C deps/verifiers rev-parse HEAD)"
+        printf 'resume_renderers=%s\n' "$(git -C deps/renderers rev-parse HEAD)"
+    } >> "$output_dir/provenance.txt"
 else
     "$python_bin" "$workflow_dir/snapshot_eval_inputs.py" \
         "$eval_config" "$output_dir/inputs"

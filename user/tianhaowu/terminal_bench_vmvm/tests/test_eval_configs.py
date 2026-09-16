@@ -168,6 +168,9 @@ def test_eval_controller_is_cpu_only_and_supports_high_vmvm_concurrency() -> Non
     assert "#SBATCH --mem=16G" in text
     assert "#SBATCH --gres" not in text
     assert "#SBATCH --gpus" not in text
+    assert "resume_prime_rl=" in text
+    assert "resume_verifiers=" in text
+    assert "resume_renderers=" in text
     # This bounds only simultaneous lease *bring-up*. The slot is released as
     # soon as each tunnel is ready, so the evaluator can still reach 64 active
     # rollouts without stampeding vacli with 64 setup requests at once.
