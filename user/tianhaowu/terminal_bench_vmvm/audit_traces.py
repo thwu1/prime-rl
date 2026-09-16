@@ -294,6 +294,52 @@ def _valid_model_response(response: object) -> bool:
     )
 
 
+def _captured_zero_reasoning_tool_turn(node: dict) -> bool:
+    """Whether model I/O proves this sampled tool turn genuinely used no reasoning."""
+    model_io = node.get("model_io")
+    if not isinstance(model_io, dict):
+        return False
+    response = model_io.get("response")
+    if not _valid_model_response(response) or _json_sha256(response["body"]) != response["sha256"]:
+        return False
+
+    body = response["body"]
+    if response["kind"] == "exact_provider_json":
+        choices = body.get("choices")
+        if not isinstance(choices, list) or not choices or not isinstance(choices[0], dict):
+            return False
+        message = choices[0].get("message")
+        usage = body.get("usage")
+        details = usage.get("completion_tokens_details") if isinstance(usage, dict) else None
+        reasoning_tokens = details.get("reasoning_tokens") if isinstance(details, dict) else None
+    else:
+        message = body.get("message")
+        usage = body.get("usage")
+        reasoning_tokens = usage.get("reasoning_tokens") if isinstance(usage, dict) else None
+
+    if not isinstance(message, dict):
+        return False
+    reasoning_values = [message.get("reasoning"), message.get("reasoning_content")]
+    provider_fields = message.get("provider_specific_fields")
+    if isinstance(provider_fields, dict):
+        reasoning_values.extend(
+            [provider_fields.get("reasoning"), provider_fields.get("reasoning_content")]
+        )
+    if any(isinstance(value, str) and value.strip() for value in reasoning_values):
+        return False
+    details = message.get("reasoning_details")
+    if isinstance(details, list) and details:
+        return False
+    tool_calls = message.get("tool_calls")
+    return (
+        isinstance(tool_calls, list)
+        and bool(tool_calls)
+        and isinstance(reasoning_tokens, int)
+        and not isinstance(reasoning_tokens, bool)
+        and reasoning_tokens == 0
+    )
+
+
 def _model_io_base_is_ancestor(nodes: list, node_id: int, base_node: int) -> bool:
     parent = nodes[node_id].get("parent")
     seen: set[int] = set()
@@ -447,6 +493,7 @@ def _audit_trace(
     max_branch_tokens, invalid_parents, parent_cycle = _max_branch_tokens(nodes)
 
     sampled_node_count = 0
+    sampled_reasoning_count = 0
     sampled_tokens = 0
     for index, node in enumerate(nodes):
         if not isinstance(node, dict):
@@ -456,15 +503,21 @@ def _audit_trace(
         problems.extend(_message_problems(node, index))
 
         is_sampled = node.get("sampled") is True
+        reasoning_not_retained = False
         if is_sampled:
             sampled_node_count += 1
+            message = node.get("message")
+            reasoning = message.get("reasoning_content") if isinstance(message, dict) else None
+            if isinstance(reasoning, str) and reasoning.strip():
+                sampled_reasoning_count += 1
+            elif require_reasoning and (
+                not require_model_io or not _captured_zero_reasoning_tool_turn(node)
+            ):
+                reasoning_not_retained = True
         if not require_token_data:
             if is_sampled:
-                if require_reasoning:
-                    message = node.get("message")
-                    reasoning = message.get("reasoning_content") if isinstance(message, dict) else None
-                    if not isinstance(reasoning, str) or not reasoning.strip():
-                        problems.append(f"node_{index}_reasoning_content_not_retained")
+                if reasoning_not_retained:
+                    problems.append(f"node_{index}_reasoning_content_not_retained")
                 usage = node.get("usage")
                 usage_tokens = _usage_tokens(node)
                 if usage is None:
@@ -486,11 +539,8 @@ def _audit_trace(
                     problems.append(f"node_{index}_sampled_mask_empty")
                 if require_logprobs and not logprobs:
                     problems.append(f"node_{index}_sampled_logprobs_empty")
-                if require_reasoning:
-                    message = node.get("message")
-                    reasoning = message.get("reasoning_content") if isinstance(message, dict) else None
-                    if not isinstance(reasoning, str) or not reasoning.strip():
-                        problems.append(f"node_{index}_reasoning_content_not_retained")
+                if reasoning_not_retained:
+                    problems.append(f"node_{index}_reasoning_content_not_retained")
             continue
         if any(isinstance(value, bool) or not isinstance(value, int) for value in token_ids):
             problems.append(f"node_{index}_token_ids_not_ints")
@@ -517,13 +567,12 @@ def _audit_trace(
             if require_logprobs and not logprobs:
                 problems.append(f"node_{index}_sampled_logprobs_empty")
             sampled_tokens += expected_logprobs
-            if require_reasoning:
-                message = node.get("message")
-                reasoning = message.get("reasoning_content") if isinstance(message, dict) else None
-                if not isinstance(reasoning, str) or not reasoning.strip():
-                    problems.append(f"node_{index}_reasoning_content_not_retained")
+            if reasoning_not_retained:
+                problems.append(f"node_{index}_reasoning_content_not_retained")
     if sampled_node_count == 0:
         problems.append("no_sampled_assistant_nodes")
+    if require_reasoning and require_model_io and sampled_node_count and sampled_reasoning_count == 0:
+        problems.append("no_sampled_reasoning_content")
     if require_token_data and sampled_tokens == 0:
         problems.append("no_sampled_tokens")
 

@@ -499,6 +499,118 @@ def test_audit_trace_requires_model_io_on_every_sampled_turn() -> None:
     assert _audit_trace(trace, require_reasoning=True, require_model_io=True) == ["node_1_model_io_missing"]
 
 
+def test_audit_trace_allows_captured_zero_reasoning_tool_turn() -> None:
+    trace = _trace_with_model_io()
+    second = _trace("second", "same-task")["nodes"][0]
+    second["parent"] = 0
+    second["message"] = {
+        "role": "assistant",
+        "content": None,
+        "reasoning_content": None,
+        "tool_calls": [{"id": "call-2", "name": "bash", "arguments": '{"cmd":"pwd"}'}],
+    }
+    second["model_io"] = _model_io(
+        _request(),
+        response={
+            "id": "zero-reasoning-tool",
+            "choices": [
+                {
+                    "message": {
+                        "content": None,
+                        "reasoning": None,
+                        "tool_calls": [
+                            {
+                                "id": "call-2",
+                                "type": "function",
+                                "function": {"name": "bash", "arguments": '{"cmd":"pwd"}'},
+                            }
+                        ],
+                    }
+                }
+            ],
+            "usage": {"completion_tokens_details": {"reasoning_tokens": 0}},
+        },
+    )
+    trace["nodes"].append(second)
+
+    assert _audit_trace(trace, require_reasoning=True, require_model_io=True) == []
+
+
+def test_audit_trace_requires_captured_reasoning_to_be_normalized() -> None:
+    trace = _trace_with_model_io()
+    trace["nodes"][0]["message"]["reasoning_content"] = None
+    trace["nodes"][0]["message"]["tool_calls"] = [
+        {"id": "call-1", "name": "bash", "arguments": '{"cmd":"pwd"}'}
+    ]
+    response = {
+        "id": "reasoning-not-normalized",
+        "choices": [
+            {
+                "message": {
+                    "content": None,
+                    "reasoning": "provider reasoning",
+                    "tool_calls": [
+                        {
+                            "id": "call-1",
+                            "type": "function",
+                            "function": {"name": "bash", "arguments": '{"cmd":"pwd"}'},
+                        }
+                    ],
+                }
+            }
+        ],
+        "usage": {"completion_tokens_details": {"reasoning_tokens": 2}},
+    }
+    trace["nodes"][0]["model_io"]["response"] = {
+        "kind": "exact_provider_json",
+        "sha256": _digest(response),
+        "body": response,
+    }
+
+    assert _audit_trace(trace, require_reasoning=True, require_model_io=True) == [
+        "node_0_reasoning_content_not_retained",
+        "no_sampled_reasoning_content",
+    ]
+
+
+def test_audit_trace_requires_some_reasoning_across_zero_reasoning_tool_turns() -> None:
+    trace = _trace_with_model_io()
+    trace["nodes"][0]["message"] = {
+        "role": "assistant",
+        "content": None,
+        "reasoning_content": None,
+        "tool_calls": [{"id": "call-1", "name": "bash", "arguments": '{"cmd":"pwd"}'}],
+    }
+    response = {
+        "id": "only-zero-reasoning-tool",
+        "choices": [
+            {
+                "message": {
+                    "content": None,
+                    "reasoning": None,
+                    "tool_calls": [
+                        {
+                            "id": "call-1",
+                            "type": "function",
+                            "function": {"name": "bash", "arguments": '{"cmd":"pwd"}'},
+                        }
+                    ],
+                }
+            }
+        ],
+        "usage": {"completion_tokens_details": {"reasoning_tokens": 0}},
+    }
+    trace["nodes"][0]["model_io"]["response"] = {
+        "kind": "exact_provider_json",
+        "sha256": _digest(response),
+        "body": response,
+    }
+
+    assert _audit_trace(trace, require_reasoning=True, require_model_io=True) == [
+        "no_sampled_reasoning_content"
+    ]
+
+
 def test_audit_trace_reconstructs_and_hashes_model_request_deltas() -> None:
     trace = _trace_with_model_io()
     base_request = trace["nodes"][0]["model_io"]["request"]["body"]
