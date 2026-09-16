@@ -15,6 +15,7 @@ import asyncio
 import hashlib
 import json
 import logging
+import math
 import re
 import shlex
 import subprocess
@@ -284,6 +285,36 @@ def _load_image_manifest(path: Path | None) -> dict[str, dict[str, str]]:
 
 def _string_env(raw: dict | None) -> dict[str, str]:
     return {str(key): str(value) for key, value in (raw or {}).items()}
+
+
+def _parse_verifier_reward(
+    task_name: str,
+    kind: Literal["json", "text"],
+    payload: bytes,
+) -> tuple[float, dict[str, float]]:
+    value = payload.decode().strip()
+    if kind == "json":
+        raw = json.loads(value)
+        if not isinstance(raw, dict) or not raw:
+            raise ValueError(f"{task_name}: reward.json must be a non-empty object")
+        rewards = {str(key): float(item) for key, item in raw.items()}
+    else:
+        rewards = {"reward": float(value)}
+
+    for key, reward_value in rewards.items():
+        if not math.isfinite(reward_value):
+            raise ValueError(
+                f"{task_name}: reward value for {key!r} must be finite, got {reward_value!r}"
+            )
+    if "reward" in rewards:
+        score = rewards["reward"]
+    elif len(rewards) == 1:
+        score = next(iter(rewards.values()))
+    else:
+        raise ValueError(
+            f"{task_name}: multi-key reward.json has no 'reward' key: {sorted(rewards)}"
+        )
+    return score, rewards
 
 
 def _artifact_specs(raw: list) -> list[ArtifactSpec]:
@@ -900,19 +931,10 @@ for requirement in sys.argv[1:]:
             raise RuntimeError(f"{task.name}: verifier wrote no non-empty reward file; output: {output[-4000:]}")
         kind = present.stdout.strip().splitlines()[-1]
         if kind == "json":
-            raw = json.loads((await runtime.read("/logs/verifier/reward.json")).decode())
-            if not isinstance(raw, dict) or not raw:
-                raise ValueError(f"{task.name}: reward.json must be a non-empty object")
-            rewards = {str(key): float(value) for key, value in raw.items()}
+            payload = await runtime.read("/logs/verifier/reward.json")
         else:
-            value = (await runtime.read("/logs/verifier/reward.txt")).decode().strip()
-            rewards = {"reward": float(value)}
-        if "reward" in rewards:
-            score = rewards["reward"]
-        elif len(rewards) == 1:
-            score = next(iter(rewards.values()))
-        else:
-            raise ValueError(f"{task.name}: multi-key reward.json has no 'reward' key: {sorted(rewards)}")
+            payload = await runtime.read("/logs/verifier/reward.txt")
+        score, rewards = _parse_verifier_reward(task.name, kind, payload)
         return result, False, score, rewards
 
     @staticmethod

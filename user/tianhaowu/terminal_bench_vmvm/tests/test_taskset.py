@@ -12,6 +12,7 @@ from terminal_bench_vmvm.taskset import (
     _declared_test_requirements,
     _dockerfile_startup_command,
     _environment_workdir,
+    _parse_verifier_reward,
 )
 from vmvm_tb_v2._vacli.backend import VacliVMVMBackend, _setup_bridge_proxy
 from vmvm_tb_v2._vacli.types import BackendInitError
@@ -50,6 +51,19 @@ def test_declared_test_requirements_parses_marked_pip_layer(tmp_path: Path) -> N
         "pytest==8.3.4",
         "psycopg2-binary==2.9.10",
     )
+
+
+@pytest.mark.parametrize(
+    ("kind", "payload"),
+    [
+        ("json", b'{"reward": NaN}'),
+        ("json", b'{"reward": Infinity}'),
+        ("text", b"-Infinity\n"),
+    ],
+)
+def test_parse_verifier_reward_rejects_non_finite_values(kind: str, payload: bytes) -> None:
+    with pytest.raises(ValueError, match="reward value for 'reward' must be finite"):
+        _parse_verifier_reward("task-a", kind, payload)
 
 
 def test_dockerfile_startup_command_combines_exec_forms(tmp_path: Path) -> None:
