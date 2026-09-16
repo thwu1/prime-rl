@@ -200,7 +200,9 @@ def test_probe_fails_a_same_session_backend_change() -> None:
     [
         (None, None, "stop", "empty_response_and_reasoning"),
         ("@@@@@@@@", "reasoning", "stop", "repeated_at_in_content"),
+        ("@ @ @ @ @ @ @ @", "reasoning", "stop", "repeated_at_in_content"),
         ("marker", "!!!!!!!!", "stop", "repeated_bang_in_reasoning"),
+        ("marker", "!\n!\n!\n!\n!\n!\n!\n!", "stop", "repeated_bang_in_reasoning"),
         ("prefix marker suffix", "reasoning", "stop", "semantic_marker_mismatch"),
         ("marker", "reasoning", "length", "unexpected_finish_reason:length"),
     ],
@@ -230,6 +232,25 @@ def test_probe_rejects_empty_or_repeated_character_responses(
 
     assert summary["ok"] is False
     assert any(problem in failure["problems"] for failure in summary["failures"])
+
+
+def test_probe_repeated_character_check_does_not_join_unrelated_text() -> None:
+    def reply(_session_id: str, marker: str, _call_index: int) -> tuple[int, str, dict]:
+        reasoning = " ".join(f"user{index}@example.com" for index in range(8))
+        return 200, "http://worker/v1", _completion(marker, reasoning)
+
+    summary = run_probe(
+        _proxy(),
+        _config(
+            expected_routes=1,
+            discovery_requests=1,
+            affinity_repeats=1,
+            concurrency=1,
+        ),
+        transport=FakeTransport(reply, healthy_count=1),
+    )
+
+    assert summary["ok"] is True
 
 
 def test_probe_fails_http_errors_and_route_undercoverage() -> None:

@@ -272,6 +272,12 @@ def _extract_text(value: Any) -> str:
     return ""
 
 
+def _has_whitespace_separated_run(text: str, character: str, threshold: int) -> bool:
+    """Detect a repeated character separated by whitespace, without joining unrelated text."""
+    pattern = rf"{re.escape(character)}(?:\s*{re.escape(character)}){{{threshold - 1},}}"
+    return re.search(pattern, text) is not None
+
+
 def _semantic_problems(
     payload: Any,
     marker: str,
@@ -316,7 +322,7 @@ def _semantic_problems(
     }
     for field_name, text in (("content", content), ("reasoning", reasoning)):
         for character, label in repeated.items():
-            if character * repeated_char_threshold in text:
+            if _has_whitespace_separated_run(text, character, repeated_char_threshold):
                 problems.append(f"repeated_{label}_in_{field_name}")
     return len(content), len(reasoning), problems
 

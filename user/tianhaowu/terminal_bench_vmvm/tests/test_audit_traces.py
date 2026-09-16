@@ -419,6 +419,46 @@ def test_audit_trace_transcript_mode_rejects_missing_payload_and_usage() -> None
     ]
 
 
+@pytest.mark.parametrize(
+    ("field", "character", "label"),
+    [
+        ("content", "!", "bang"),
+        ("reasoning_content", "@", "at"),
+    ],
+)
+def test_audit_trace_rejects_whitespace_separated_kda_corruption(
+    field: str,
+    character: str,
+    label: str,
+) -> None:
+    trace = _transcript_trace()
+    trace["nodes"][0]["message"][field] = f"{character} " * 64
+    problem_field = "reasoning" if field == "reasoning_content" else field
+
+    assert _audit_trace(trace, require_reasoning=True) == [f"node_0_repeated_{label}_in_{problem_field}"]
+
+
+def test_audit_trace_repeated_character_check_avoids_false_positives_and_tool_results() -> None:
+    trace = _transcript_trace()
+    trace["nodes"][0]["message"]["reasoning_content"] = " ".join(["@"] * 63)
+    trace["nodes"][0]["message"]["content"] = " ".join(f"user{index}@example.com" for index in range(64))
+    trace["nodes"][0]["message"]["tool_calls"] = [{"id": "call-1", "name": "bash", "arguments": '{"cmd":"inspect"}'}]
+    trace["nodes"].append(
+        {
+            "parent": 0,
+            "sampled": False,
+            "message": {
+                "role": "tool",
+                "tool_call_id": "call-1",
+                "name": "bash",
+                "content": " ".join(["@"] * 128),
+            },
+        }
+    )
+
+    assert _audit_trace(trace, require_reasoning=True) == []
+
+
 def test_audit_trace_transcript_mode_validates_usage_cap() -> None:
     trace = _transcript_trace()
     trace["nodes"][0]["usage"] = {

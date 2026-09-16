@@ -8,12 +8,14 @@ import copy
 import hashlib
 import json
 import math
+import re
 from collections import Counter
 from collections.abc import Iterable, Iterator
 from pathlib import Path
 
 DEFAULT_MAX_SEQUENCE_TOKENS = 262_144
 FORBIDDEN_MODEL_REQUEST_FIELDS = frozenset({"logprobs", "prompt_logprobs", "return_token_ids", "top_logprobs"})
+REPEATED_KDA_CHARACTER_THRESHOLD = 64
 _SHA256_HEX_CHARS = frozenset("0123456789abcdef")
 
 
@@ -46,6 +48,12 @@ def _valid_content(value: object) -> bool:
         else:
             return False
     return True
+
+
+def _has_whitespace_separated_run(text: str, character: str, threshold: int) -> bool:
+    """Detect a repeated character separated by whitespace, without joining unrelated text."""
+    pattern = rf"{re.escape(character)}(?:\s*{re.escape(character)}){{{threshold - 1},}}"
+    return re.search(pattern, text) is not None
 
 
 def _message_problems(node: dict, index: int) -> list[str]:
@@ -98,6 +106,14 @@ def _message_problems(node: dict, index: int) -> list[str]:
             or (isinstance(tool_calls, list) and tool_calls)
         ):
             problems.append(f"node_{index}_assistant_payload_empty")
+        if node.get("sampled") is True:
+            repeated_characters = {"@": "at", "!": "bang"}
+            for field_name, text in (("content", content), ("reasoning", reasoning)):
+                if not isinstance(text, str):
+                    continue
+                for character, label in repeated_characters.items():
+                    if _has_whitespace_separated_run(text, character, REPEATED_KDA_CHARACTER_THRESHOLD):
+                        problems.append(f"node_{index}_repeated_{label}_in_{field_name}")
     return problems
 
 
