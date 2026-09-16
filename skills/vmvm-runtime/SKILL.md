@@ -201,8 +201,9 @@ affinity can be isolated per proxy worker. Before a large Kimi run, query
 model-specific health before and after a semantic route snapshot, require the
 exact intended route count with zero unhealthy routes, reject hidden retries,
 and verify sequential same-session requests retain their backend. Never request
-`logprobs`, `prompt_logprobs`, `top_logprobs`, or `return_token_ids` from the
-affected Kimi runtime. A semantic snapshot detects already-corrupt workers but
+`logprobs`, `prompt_logprobs`, or `top_logprobs` from the affected Kimi runtime.
+Omit `return_token_ids` as well when the workflow only requires response and
+reasoning transcripts. A semantic snapshot detects already-corrupt workers but
 does not substitute for a compatible KDA patch plus piecewise CUDA graphs (or
 eager execution).
 

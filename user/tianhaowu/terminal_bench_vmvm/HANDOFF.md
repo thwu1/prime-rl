@@ -12,7 +12,7 @@ git pull --ff-only origin vmvm-sandbox
 git submodule update --init --recursive
 ```
 
-The parent repository pins `deps/verifiers` at `3b78e08e`. That verifier
+The parent repository pins `deps/verifiers` at `70ddb5ee`. That verifier
 revision preserves assistant responses and reasoning, makes large evals
 durable, retries transient VMVM setup failures, and sends both `X-Session-ID`
 and the LiteLLM-consumed `X-LiteLLM-Session-ID` from a stable rollout ID.
@@ -43,9 +43,10 @@ repairs that were present during the successful oracle run.
   multi-service path. Three GPU tasks are explicitly unsupported by the
   current CPU-only VMVM tenant, leaving 63 CPU-supported tasks.
 - All five model-eval configs omit `logprobs`, `prompt_logprobs`,
-  `top_logprobs`, and `return_token_ids`. Never request token metadata in this
-  workflow; RAM issue `#279` records a Kimi Rust-frontend crash
-  (`token_ranks must be >=1`) on such requests.
+  `top_logprobs`, and `return_token_ids`. RAM issue `#279` records a Kimi
+  Rust-frontend crash (`token_ranks must be >=1`) specifically when logprobs
+  are requested. Completion IDs are omitted separately because the user only
+  needs response and reasoning transcripts.
 - Every new run snapshots its source config, task list, and image manifest and
   writes SHA-256 provenance under `OUTPUT_DIR/inputs/`.
 - `run_eval.sbatch` and `run_oracle.sbatch` are CPU-only controllers with
