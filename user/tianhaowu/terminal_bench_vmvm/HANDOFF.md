@@ -158,7 +158,10 @@ fix to `PIECEWISE` CUDA graphs. Its PR-head tree is
 - LiteLLM sticky routing and prefix caching enabled.
 
 Coordinator `1735915` is running; endpoint job `1735929` is pending for
-priority, so no proxy exists yet. The older vulnerable deployment remained
+priority with a current September 18 08:55 UTC estimate, so no proxy exists yet.
+Shorter-walltime scheduler probes did not improve that estimate; keep seven
+days to avoid an unsafe one-route rollover during TB4. The older vulnerable
+deployment remained
 0/24 and was archived at 10:58 UTC without ever allocating a worker; the
 unallocated two-endpoint normal-QoS deployment was archived at 13:28 UTC.
 Gate `1735934` waits for exact 1/1 readiness and then owns the per-route

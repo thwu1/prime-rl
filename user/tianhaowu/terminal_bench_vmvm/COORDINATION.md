@@ -1,6 +1,6 @@
 # VMVM sandbox coordination
 
-Last updated: 2026-09-16 13:33 UTC
+Last updated: 2026-09-16 13:50 UTC
 
 ## First message to the next teammate
 
@@ -37,6 +37,14 @@ this shared branch again.
 Add new rows below this line; do not overwrite another owner's row.
 
 ## Open coordination requests
+
+- **2026-09-16 13:50 UTC, use2-3 Kimi owner:** keep endpoint `1735929` at its
+  seven-day walltime. Read-only exact-topology scheduler probes for 12h, 24h,
+  48h, and 7d all predicted the same September 18 start, while the existing
+  aged job retains an earlier 08:55 UTC estimate. Shortening would lose queue
+  age without measured backfill benefit. A one-route rollover is also unsafe
+  during long TB4 sessions: successor presubmit is 20 minutes, Kimi cold start
+  can approach 60 minutes, and worker drain terminates after 60 seconds.
 
 - **2026-09-16 13:33 UTC, use2-3 Kimi owner:** compatibility repair oracle
   `1735886` finished 37/42 valid, five `OracleFailure`, and zero infrastructure
