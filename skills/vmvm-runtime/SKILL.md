@@ -214,6 +214,24 @@ reasoning transcripts. A semantic snapshot detects already-corrupt workers but
 does not substitute for a compatible KDA patch plus piecewise CUDA graphs (or
 eager execution).
 
+For the pinned Qwen TB4 deployment, use
+`user/tianhaowu/terminal_bench_vmvm/run_qwen_direct_eval.sbatch` when the shared
+LiteLLM deadline is too short for a model turn. It validates and snapshots all
+16 non-secret endpoint metadata files, probes every direct worker, then runs a
+loopback-only consistent-hash `vllm-router` with retries disabled. Stage that
+router into its separate versioned x86 directory with
+`stage_qwen_direct_router.sh`; never add it to or overwrite the live evaluator
+dependency directory. Keep Qwen rollout concurrency, multiplexing, HTTP pools,
+router admission, and aggregate VMVM concurrency at eight or less. Do not run
+the fallback concurrently with another VMVM evaluation that already consumes
+that budget. The launcher must reject configs without an externally approved,
+SHA-256-pinned task allowlist and must never accept inline task selections. The
+approval path and digest must be supplied independently through
+`DIRECT_QWEN_APPROVED_TASK_FILE` and
+`DIRECT_QWEN_APPROVED_TASK_FILE_SHA256`; require their contents to match the
+config's pinned task-file digest. Resume only through the direct wrapper so the
+saved worker manifest and loopback endpoint are revalidated.
+
 `VACLI_IMAGE_PULL_TIMEOUT_SECONDS` bounds each VM-side image pull attempt. The
 DeepSWE launcher derives it from TOML `sandbox_startup_timeout_sec` and uses one
 hour by default; keep the command/session ceiling separate because verification

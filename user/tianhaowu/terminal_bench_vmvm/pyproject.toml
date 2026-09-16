@@ -28,6 +28,9 @@ verifiers = { path = "../../../deps/verifiers", editable = true }
 vmvm-tb-v2 = { path = "../../../environments/vmvm_tb_v2", editable = true }
 
 [dependency-groups]
+direct-router = [
+    "vllm-router @ https://github.com/PrimeIntellect-ai/router/releases/download/v0.1.26/vllm_router-0.1.26-cp38-abi3-manylinux_2_28_x86_64.whl ; platform_machine == 'x86_64'",
+]
 dev = [
     "pytest>=8.4",
     "pytest-asyncio>=0.23",

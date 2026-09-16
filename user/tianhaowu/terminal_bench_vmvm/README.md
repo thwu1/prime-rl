@@ -274,6 +274,51 @@ atomically publishes `results.jsonl`, `checkpoint.json`, and
 not resumable because task indices are local to each shard; resume the source
 shards instead.
 
+### Qwen 16-worker direct fallback
+
+The shared Qwen proxy has a shorter upstream request deadline than the Qwen
+evaluation client. `run_qwen_direct_eval.sbatch` bypasses it by starting a
+loopback-only `vllm-router` from the 16 pinned worker metadata files under
+`shared_qwen38_2p4t/endpoints`. The launcher requires the exact deployment spec
+and endpoint-bundle hashes, probes `/health` and `/v1/models` on every worker,
+and refuses to start until the local router reports all 16 workers active. It
+does not read `proxy_info.json` or accept a real API key.
+
+The router dependency is an isolated optional group and must not be added to
+the live evaluator dependency directory. Once no active evaluation depends on
+that directory, stage it at its separate versioned path:
+
+```bash
+bash user/tianhaowu/terminal_bench_vmvm/stage_qwen_direct_router.sh
+```
+
+The router uses consistent hashing on the rollout's `X-Session-ID`, disables
+router retries, admits at most eight requests with no overflow queue, and sets
+its request deadline above the evaluator's 7,200-second deadline. The direct
+launcher requires rollout concurrency, multiplexing, and HTTP pools to agree
+at eight or less. It also forces `VACLI_MAX_CONCURRENT_LEASES=8`; do not run it
+alongside another VMVM evaluation if that would raise aggregate active VMVM
+concurrency above eight.
+
+Do not launch either the smoke or the full evaluation until an externally
+approved non-cyber task allowlist is available. The direct launcher rejects the
+current unfiltered configs: an operator must supply the independent
+`DIRECT_QWEN_APPROVED_TASK_FILE` and
+`DIRECT_QWEN_APPROVED_TASK_FILE_SHA256` approval inputs, and `EVAL_CONFIG` must
+select exactly that hash using `task_file` plus `task_file_sha256` while
+omitting inline `tasks`. The launcher hashes both files without printing or
+otherwise exposing their contents. No bypass or example launch command is
+intentionally provided while those approval inputs are unavailable.
+
+After an approved run is terminal, first invoke `direct_qwen_workers.py
+--audit-run-dir RUN_DIR`; it validates the non-secret worker manifest, saved
+loopback URL, config snapshot, and credential-free provenance without opening
+the results file. Then invoke `audit_traces.py` with both
+`--expected-task-file APPROVED_ALLOWLIST` and the approved expected count. Both
+commands emit summaries only; do not print result rows. Resume only through
+`run_qwen_direct_eval.sbatch`, which reuses the snapshotted endpoint set and
+local port and fails if the live metadata no longer exactly matches.
+
 ## Transcript capture gate
 
 Never request provider log probabilities in this workflow. RAM issue `#279`

@@ -185,3 +185,33 @@ def test_eval_controller_is_cpu_only_and_supports_high_vmvm_concurrency() -> Non
     # soon as each tunnel is ready, so the evaluator can still reach 64 active
     # rollouts without stampeding vacli with 64 setup requests at once.
     assert 'VACLI_MAX_CONCURRENT_LEASES=${VACLI_MAX_CONCURRENT_LEASES:-32}' in text
+
+
+def test_direct_qwen_launcher_is_fail_closed() -> None:
+    workflow_dir = CONFIG_DIR.parents[1]
+    wrapper = (workflow_dir / "run_qwen_direct_eval.sbatch").read_text()
+
+    assert "--policy consistent_hash" in wrapper
+    assert "--request-id-headers x-session-id" in wrapper
+    assert "--request-timeout-secs 7500" in wrapper
+    assert "--disable-retries" in wrapper
+    assert "--max-concurrent-requests 8" in wrapper
+    assert "--queue-size 0" in wrapper
+    assert "VACLI_MAX_CONCURRENT_LEASES=8" in wrapper
+    assert "OPENAI_API_KEY=EMPTY" in wrapper
+    assert "INFERENCE_PROXY_INFO" in wrapper
+    assert "direct_workers.json" in wrapper
+    assert "approved task_file and task_file_sha256" in wrapper
+    assert "DIRECT_QWEN_APPROVED_TASK_FILE" in wrapper
+    assert "DIRECT_QWEN_APPROVED_TASK_FILE_SHA256" in wrapper
+
+
+def test_direct_qwen_router_probe_is_infrastructure_only() -> None:
+    workflow_dir = CONFIG_DIR.parents[1]
+    wrapper = (workflow_dir / "probe_qwen_direct_router.sbatch").read_text()
+
+    assert "/v1/models" in wrapper
+    assert "vllm_router_active_workers" in wrapper
+    assert "/chat/completions" not in wrapper
+    assert "run_eval.sbatch" not in wrapper
+    assert "EVAL_CONFIG" not in wrapper
