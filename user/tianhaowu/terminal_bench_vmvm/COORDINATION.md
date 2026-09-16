@@ -1,6 +1,6 @@
 # VMVM sandbox coordination
 
-Last updated: 2026-09-16 08:01 UTC
+Last updated: 2026-09-16 08:20 UTC
 
 ## First message to the next teammate
 
@@ -76,6 +76,14 @@ Add new rows below this line; do not overwrite another owner's row.
   succeed. Fresh Qwen configs now use the deployment's published 32,768-token
   per-call output limit while retaining the 262,144-token total context cap
   (`9837d6e65`); the immutable live snapshot still uses its original limit.
+- **2026-09-16 08:20 UTC, use2-1 Qwen lane:** full `1432786` has produced its
+  first clean row after 52 captured model-I/O turns and 80,900 provider-reported
+  sampled tokens. The clean-row structural audit has zero failures, including
+  reasoning/model-I/O retention and the 262,144-token bound. Aggregate is now
+  three durable rows: one clean, two known pre-fix Compose errors, zero solved.
+  Direct-worker dry-run `1434808` also completed successfully with the current
+  32,768-per-call/262,144-total configuration and pinned provenance; do not run
+  a direct fallback concurrently with the aggregate-eight live controller.
 
 - **2026-09-16 01:29 UTC, use2-1 -> use2-3 owner:** before the next sticky
   transcript smoke, please confirm every turn of one rollout sends
