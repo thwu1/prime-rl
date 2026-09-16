@@ -80,10 +80,10 @@ errors, dominated by 252 upstream 502 messages from the old two-replica team
 endpoint. Treat `tb4_kimi_k3_max_v1` through `v7` as diagnostic artifacts and
 start one fresh run. Do not resume `v7`.
 
-## Current Kimi deployment
+## Kimi deployment state
 
-RAM source is `/storage/home/tianhaowu/ram_common` at `95dbabedfa77`. The active
-deployment is `tianhaowu-k3-tb16-normal-20260915` on `fair-cw-use2-3`:
+RAM source is `/storage/home/tianhaowu/ram_common` at `95dbabedfa77`. The retired
+deployment `tianhaowu-k3-tb16-normal-20260915` on `fair-cw-use2-3` requested:
 
 - requested lifetime: 7 days;
 - target: 24 endpoints;
@@ -105,27 +105,33 @@ digest rather than a moving tag. `/health` alone is not a correctness signal.
 The serving-artifact request is tracked at
 `fairinternal/ram_common#279`, comment `5691043250`.
 
-Coordinator job `1731223` is running on `cpu_x86`; endpoint jobs `1731225`-
-`1731240` and `1731470`-`1731477` request `g3`/`QOS=normal`. At 2026-09-16
-01:49 UTC all 24 endpoint jobs were pending for scheduler priority with no
-estimated start time, so the
-deployment had zero ready routes and no `proxy_info.json`. Do not submit an
-eval until at least 16 routes are healthy, zero are unhealthy, the state is
-stable across repeated checks, and the proxy metadata exists. The prior
-`g3_lowest` deployment was stopped and archived.
+At 2026-09-16 02:26 UTC, that deployment was stopped before any endpoint
+allocated GPUs: all 24 workers remained pending, the proxy never existed, and
+the controller plus workers are now absent from `squeue`. It is recoverably
+archived at
+`/checkpoint/ram/shared/vllm_deployments_v2/.removed/tianhaowu-k3-tb16-normal-20260915-20260916T022644Z`.
+The prior `g3_lowest` deployment is also stopped. There is currently no active
+self-hosted Kimi pool.
+
+After the serving owner publishes an immutable compatible image, create a new
+24-endpoint deployment on `g3` with `QOS=normal`, a CPU-only controller,
+`PIECEWISE` CUDA graphs (or eager mode), the Rust frontend disabled as defense
+in depth, and sticky routing enabled. Do not reuse the retired ID. Do not submit
+an eval until all intended routes are healthy, zero are unhealthy, the state is
+stable across repeated checks, and the proxy metadata exists.
 
 Inspect it without exposing credentials:
 
 ```bash
 cd /storage/home/tianhaowu/ram_common/vllm_tools/serve_api_v2
-./serve.sh status tianhaowu-k3-tb16-normal-20260915 --json | jq \
+./serve.sh status PATCHED_DEPLOYMENT_ID --json | jq \
   '{phase,endpoints_summary,proxy:{url:.proxy.url,state:.proxy.slurm_state,extras:.proxy.extras}}'
 ```
 
 Proxy metadata (including the secret key) lives at:
 
 ```text
-/checkpoint/ram/shared/vllm_deployments_v2/tianhaowu-k3-tb16-normal-20260915/proxy_info.json
+/checkpoint/ram/shared/vllm_deployments_v2/PATCHED_DEPLOYMENT_ID/proxy_info.json
 ```
 
 Do not print or commit `api_key`. Before any eval, require the patched runtime,
@@ -144,7 +150,7 @@ its intended 24 routes:
 ```bash
 uv run --project user/tianhaowu/terminal_bench_vmvm \
   python user/tianhaowu/terminal_bench_vmvm/probe_inference_routes.py \
-  --proxy-info /checkpoint/ram/shared/vllm_deployments_v2/tianhaowu-k3-tb16-normal-20260915/proxy_info.json \
+  --proxy-info /checkpoint/ram/shared/vllm_deployments_v2/PATCHED_DEPLOYMENT_ID/proxy_info.json \
   --model Kimi-K3 --expected-routes 24 --requests 192 --repeats 3 \
   --concurrency 32 --health-timeout 30 --timeout 300 --max-tokens 4096 \
   --require-reasoning --pretty
@@ -172,7 +178,7 @@ compute allocation; the key is not placed in the command or provenance file.
 
 ```bash
 tmux send-keys -t swebench_vmvm:Launcher.0 \
-  "cd /storage/home/tianhaowu/prime-rl && env EVAL_CONFIG=\$PWD/user/tianhaowu/terminal_bench_vmvm/configs/eval/tb4_kimi_token_smoke.toml INFERENCE_PROXY_INFO=/checkpoint/ram/shared/vllm_deployments_v2/tianhaowu-k3-tb16-normal-20260915/proxy_info.json OUTPUT_DIR=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/evals/kimi_transcript_smoke_sticky_v2 sbatch --parsable user/tianhaowu/terminal_bench_vmvm/run_eval.sbatch" C-m
+  "cd /storage/home/tianhaowu/prime-rl && env EVAL_CONFIG=\$PWD/user/tianhaowu/terminal_bench_vmvm/configs/eval/tb4_kimi_token_smoke.toml INFERENCE_PROXY_INFO=/checkpoint/ram/shared/vllm_deployments_v2/PATCHED_DEPLOYMENT_ID/proxy_info.json OUTPUT_DIR=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/evals/kimi_transcript_smoke_sticky_v2 sbatch --parsable user/tianhaowu/terminal_bench_vmvm/run_eval.sbatch" C-m
 ```
 
 After it finishes:
@@ -195,7 +201,7 @@ Only one pass@1 run is requested. Use a new output directory:
 
 ```bash
 tmux send-keys -t swebench_vmvm:Launcher.0 \
-  "cd /storage/home/tianhaowu/prime-rl && env EVAL_CONFIG=\$PWD/user/tianhaowu/terminal_bench_vmvm/configs/eval/tb4_kimi_k3_max_miniswe.toml INFERENCE_PROXY_INFO=/checkpoint/ram/shared/vllm_deployments_v2/tianhaowu-k3-tb16-normal-20260915/proxy_info.json OUTPUT_DIR=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/evals/tb4_kimi_k3_sticky_full_v2 sbatch --parsable user/tianhaowu/terminal_bench_vmvm/run_eval.sbatch" C-m
+  "cd /storage/home/tianhaowu/prime-rl && env EVAL_CONFIG=\$PWD/user/tianhaowu/terminal_bench_vmvm/configs/eval/tb4_kimi_k3_max_miniswe.toml INFERENCE_PROXY_INFO=/checkpoint/ram/shared/vllm_deployments_v2/PATCHED_DEPLOYMENT_ID/proxy_info.json OUTPUT_DIR=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/evals/tb4_kimi_k3_sticky_full_v2 sbatch --parsable user/tianhaowu/terminal_bench_vmvm/run_eval.sbatch" C-m
 ```
 
 Record the returned job ID. Monitor without mutating the run:

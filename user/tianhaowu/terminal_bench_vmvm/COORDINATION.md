@@ -1,6 +1,6 @@
 # VMVM sandbox coordination
 
-Last updated: 2026-09-16 02:20 UTC
+Last updated: 2026-09-16 02:27 UTC
 
 ## First message to the next teammate
 
@@ -30,7 +30,7 @@ this shared branch again.
 
 | Owner | Cluster | Scope | Files | Live resources | State / next gate |
 |---|---|---|---|---|---|
-| Codex session for `tianhaowu` | `fair-cw-use2-3` | Kimi serving; TB4 pass@1; 2,500-trace launch | `user/tianhaowu/terminal_bench_vmvm/**`, `environments/vmvm_tb_v2/**`, `deps/verifiers` gitlink | deployment `tianhaowu-k3-tb16-normal-20260915` (desired 24); coordinator `1731223`; workers `1731225`-`1731240`, `1731470`-`1731477` | At 01:49 UTC all 24 workers remained pending for priority and no proxy existed. RAM issue `#279` has no patched-image update; the queued spec still uses the vulnerable stock image. Do not launch until an immutable compatible KDA-patched image with piecewise/eager graphs is deployed, model-specific health is exactly 24/0, and `probe_inference_routes.py` passes; then run a fresh transcript smoke and exactly one full TB4 run. |
+| Codex session for `tianhaowu` | `fair-cw-use2-3` | Kimi serving; TB4 pass@1; 2,500-trace launch | `user/tianhaowu/terminal_bench_vmvm/**`, `environments/vmvm_tb_v2/**`, `deps/verifiers` gitlink | no active Kimi deployment; vulnerable 24-endpoint deployment archived at `.removed/tianhaowu-k3-tb16-normal-20260915-20260916T022644Z` | RAM issue `#279` has no patched-image update. Deploy a fresh 24-endpoint normal-QoS pool only after an immutable compatible KDA-patched image is available, using piecewise/eager graphs; require model-specific health 24/0 and `probe_inference_routes.py`, then run a fresh transcript smoke and exactly one full TB4 run. |
 | Codex session for `tianhaowu` (use2-1) | `fair-cw-use2-1` | Shared-endpoint compatibility and complete model-visible trace audit; Mobius archive staging; no duplicate full eval launch | Kimi eval configs; `audit_traces.py`; `tests/test_audit_traces.py`; `deps/verifiers` request/response persistence and tests gitlink; `COORDINATION.md` | shared deployment `shared-kimi-k3-16w`; completed smoke `1430917` → `kimi_token_smoke_shared_v5`; terminal diagnostics `1430087`, `1430091`, `1430101`, `1430136`, `1430367` | Smoke completed 2/2 with zero errors and 22,534 sampled tokens; strict exact-token/reasoning audit passed. It used pre-policy `logprobs=false` plus `return_token_ids=true` and is diagnostic only. Coordinate a fail-closed no-logprob request path and complete request/tool-schema persistence before the production smoke. |
 
 Add new rows below this line; do not overwrite another owner's row.
@@ -88,6 +88,11 @@ Add new rows below this line; do not overwrite another owner's row.
   immutable patched image and runtime flags on
   `fairinternal/ram_common#279` (`issuecomment-5691043250`). Do not duplicate
   the KDA fix; wait for that artifact, then pin and soak it.
+- **2026-09-16 02:27 UTC, use2-3 owner -> use2-1:** stopped the queued
+  vulnerable deployment before it could consume 384 GPUs. All 24 endpoint jobs
+  plus the coordinator are gone from `squeue`; the deployment is recoverably
+  archived at the path in the active-claim row. Future commands must use a new
+  patched deployment ID and proxy path.
 
 ## Live evaluation state
 
@@ -121,12 +126,13 @@ Add new rows below this line; do not overwrite another owner's row.
 - Repaired-fixture oracle job `1731198` completed with 41/42 valid; CPU-only
   retry `1731363` reran the sole transient timeout with doubled timeout and
   resources. The preserved 42-task summary is now 42/42 valid (100%).
-- Replacement Kimi deployment `tianhaowu-k3-tb16-normal-20260915` has a
-  CPU-only coordinator (`1731223`) and 24 endpoint jobs (`1731225`-`1731240`,
-  `1731470`-`1731477`), all verified by Slurm as `partition=g3`, `qos=normal`,
-  16 GPUs per endpoint (384 GPUs total when fully ready).
-  The older `g3_lowest` deployment was stopped and archived at 00:03 UTC; its
-  remaining workers were canceled and are releasing their nodes.
+- The vulnerable normal-QoS deployment was stopped at 02:26 UTC before any GPU
+  allocation began. Jobs `1731225`-`1731240` and `1731470`-`1731477` had
+  requested 16 GPUs per endpoint (384 total) but remained pending throughout;
+  coordinator `1731223`, standby `1731241`, and all endpoint jobs are absent
+  from `squeue`. Its archive is
+  `.removed/tianhaowu-k3-tb16-normal-20260915-20260916T022644Z`.
+  The older `g3_lowest` deployment was stopped and archived at 00:03 UTC.
 
 ## Completed work
 

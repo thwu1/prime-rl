@@ -170,7 +170,7 @@ pass@1 run against Kimi-K3 in max-reasoning mode:
 
 ```bash
 tmux send-keys -t swebench_vmvm:Launcher.0 \
-  "cd /storage/home/tianhaowu/prime-rl && env EVAL_CONFIG=\$PWD/user/tianhaowu/terminal_bench_vmvm/configs/eval/tb4_kimi_k3_max_miniswe.toml INFERENCE_PROXY_INFO=/checkpoint/ram/shared/vllm_deployments_v2/tianhaowu-k3-tb16-normal-20260915/proxy_info.json OUTPUT_DIR=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/evals/tb4_kimi_k3_sticky_full_v2 sbatch --parsable user/tianhaowu/terminal_bench_vmvm/run_eval.sbatch" C-m
+  "cd /storage/home/tianhaowu/prime-rl && env EVAL_CONFIG=\$PWD/user/tianhaowu/terminal_bench_vmvm/configs/eval/tb4_kimi_k3_max_miniswe.toml INFERENCE_PROXY_INFO=/checkpoint/ram/shared/vllm_deployments_v2/PATCHED_DEPLOYMENT_ID/proxy_info.json OUTPUT_DIR=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/evals/tb4_kimi_k3_sticky_full_v2 sbatch --parsable user/tianhaowu/terminal_bench_vmvm/run_eval.sbatch" C-m
 ```
 
 `INFERENCE_PROXY_INFO` is the preferred interface for a direct RAM deployment:
@@ -229,7 +229,7 @@ remain fixed.
 ```bash
 uv run --project user/tianhaowu/terminal_bench_vmvm \
   python user/tianhaowu/terminal_bench_vmvm/probe_inference_routes.py \
-  --proxy-info /checkpoint/ram/shared/vllm_deployments_v2/tianhaowu-k3-tb16-normal-20260915/proxy_info.json \
+  --proxy-info /checkpoint/ram/shared/vllm_deployments_v2/PATCHED_DEPLOYMENT_ID/proxy_info.json \
   --model Kimi-K3 \
   --expected-routes 24 \
   --requests 192 \
@@ -267,7 +267,7 @@ uv run --project user/tianhaowu/terminal_bench_vmvm \
   --limit 2500
 
 tmux send-keys -t swebench_vmvm:Launcher.0 \
-  "cd /storage/home/tianhaowu/prime-rl && env EVAL_CONFIG=\$PWD/user/tianhaowu/terminal_bench_vmvm/configs/eval/mobius_kimi_k3_max_2500.toml INFERENCE_PROXY_INFO=/checkpoint/ram/shared/vllm_deployments_v2/tianhaowu-k3-tb16-normal-20260915/proxy_info.json OUTPUT_DIR=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/evals/mobius_kimi_k3_max_2500_transcript_v1 sbatch --parsable user/tianhaowu/terminal_bench_vmvm/run_eval.sbatch" C-m
+  "cd /storage/home/tianhaowu/prime-rl && env EVAL_CONFIG=\$PWD/user/tianhaowu/terminal_bench_vmvm/configs/eval/mobius_kimi_k3_max_2500.toml INFERENCE_PROXY_INFO=/checkpoint/ram/shared/vllm_deployments_v2/PATCHED_DEPLOYMENT_ID/proxy_info.json OUTPUT_DIR=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/evals/mobius_kimi_k3_max_2500_transcript_v1 sbatch --parsable user/tianhaowu/terminal_bench_vmvm/run_eval.sbatch" C-m
 ```
 
 Interrupted evals are durable. Resume only their missing or errored rollouts
