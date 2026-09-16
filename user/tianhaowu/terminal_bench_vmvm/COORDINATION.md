@@ -1,6 +1,6 @@
 # VMVM sandbox coordination
 
-Last updated: 2026-09-16 03:14 UTC
+Last updated: 2026-09-16 03:25 UTC
 
 ## First message to the next teammate
 
@@ -30,7 +30,7 @@ this shared branch again.
 
 | Owner | Cluster | Scope | Files | Live resources | State / next gate |
 |---|---|---|---|---|---|
-| Codex session for `tianhaowu` | `fair-cw-use2-3` | Kimi serving; TB4 pass@1; 2,500-trace launch | `user/tianhaowu/terminal_bench_vmvm/**`, `environments/vmvm_tb_v2/**`, `deps/verifiers` gitlink | deployment `tianhaowu-k3-tb24-isolated-20260916`; coordinator `1732529`; endpoint jobs `1732531`-`1732554`; 0/24 ready and all workers pending at 03:04 UTC | The user explicitly approved the stock-image fallback. It uses 24 normal-QoS endpoints with `max-num-seqs=1`, Python frontend, PIECEWISE graphs, no logprob/token-ID request fields, and sticky routing. Require model-specific health 24/0 and `probe_inference_routes.py`, then run a fresh model-I/O smoke and exactly one full TB4 run. |
+| Codex session for `tianhaowu` | `fair-cw-use2-3` | Kimi serving; TB4 pass@1; 2,500-trace launch | `user/tianhaowu/terminal_bench_vmvm/**`, `environments/vmvm_tb_v2/**`, `deps/verifiers` gitlink | deployment `tianhaowu-k3-tb24-nocache-20260916`; coordinator `1732626`; endpoint jobs `1732639`-`1732662`; 0/24 ready and all workers pending at 03:22 UTC | The user explicitly approved the stock-image fallback. It uses 24 normal-QoS endpoints with prefix caching off, `max-num-seqs=1`, Python frontend, PIECEWISE graphs, no logprob/token-ID request fields, and sticky routing. Require model-specific health 24/0 and `probe_inference_routes.py`, then run a fresh model-I/O smoke and exactly one full TB4 run. |
 | Codex session for `tianhaowu` | `fair-cw-use2-1` | Detect and document semantic KDA corruption found in completed model-I/O smoke; no serving or eval mutations | `user/tianhaowu/terminal_bench_vmvm/{audit_traces.py,probe_inference_routes.py,tests/test_audit_traces.py,tests/test_probe_inference_routes.py,COORDINATION.md}` | completed diagnostic job `1431481` (read-only evidence only) | Add fail-closed whitespace-separated repeated-`@`/`!` detection, regression tests, and correct the prior structural-only smoke result. Coordinate the same predicate with the use2-3 readiness gate; do not launch or alter benchmark/deployment jobs. |
 
 Add new rows below this line; do not overwrite another owner's row.
@@ -111,14 +111,20 @@ Add new rows below this line; do not overwrite another owner's row.
   consume the Rust rank-zero containment from upstream. KDA correctness PR
   `#51483` remains open at head `6a606decfb4bcd1522226ac00ee40227da8e93fa`;
   this does not relax the isolated deployment's semantic soak gate.
+- **2026-09-16 03:25 UTC, use2-3 owner -> use2-1:** replaced the first isolated
+  deployment before GPU allocation because prefix-cache hits can themselves
+  create a one-token first chunk. The active fallback disables prefix caching
+  in addition to serializing each worker. I also pushed verifier hardening at
+  `cc2254fe`: captured non-finite provider responses now fail as a controlled
+  502 before hashing (42 focused tests passed).
 
 ## Live evaluation state
 
-- Use2-3 deployment `tianhaowu-k3-tb24-isolated-20260916` was submitted at
-  02:50 UTC. Coordinator `1732529` is running on `cpu_x86`; all 24 endpoint
-  jobs (`1732531`-`1732554`) request 16 GB300 GPUs each on `g3`, `QOS=normal`,
-  and were pending for priority at 03:04 UTC. The frozen worker config sets
-  `max-num-seqs=1`, `VLLM_USE_RUST_FRONTEND=0`, and
+- Use2-3 deployment `tianhaowu-k3-tb24-nocache-20260916` was submitted at
+  03:17 UTC. Coordinator `1732626` is running on `cpu_x86`; all 24 endpoint
+  jobs (`1732639`-`1732662`) request 16 GB300 GPUs each on `g3`, `QOS=normal`,
+  and were pending for priority at 03:22 UTC. The frozen worker config disables
+  prefix caching and sets `max-num-seqs=1`, `VLLM_USE_RUST_FRONTEND=0`, and
   `compilation-config={"cudagraph_mode":"PIECEWISE"}`. No eval is submitted
   until all 24 routes pass health, semantic, and sticky-affinity gates.
 - Use2-1 model-I/O smoke job `1431481` completed in 12m33s: 2/2 traces,

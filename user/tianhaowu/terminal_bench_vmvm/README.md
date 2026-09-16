@@ -164,15 +164,20 @@ not injected into agent rollouts or verifier containers.
 ## TB4 pass@1
 
 After `fetch_tb4.sh` verifies the prebuilt release, wait for all 24 routes in
-`tianhaowu-k3-tb24-isolated-20260916` to be healthy, zero routes to be
+`tianhaowu-k3-tb24-nocache-20260916` to be healthy, zero routes to be
 unhealthy, and a clean per-route semantic soak. This stock-image fallback uses
-`max-num-seqs=1`, the Python frontend, PIECEWISE graphs, and the request
-denylist to avoid the known KDA/logprob failure path. Then submit exactly one
-fresh pass@1 run against Kimi-K3 in max-reasoning mode:
+prefix caching disabled, `max-num-seqs=1`, the Python frontend, PIECEWISE
+graphs, and the request denylist to avoid the known KDA/logprob failure path.
+Then submit exactly one fresh pass@1 run against Kimi-K3 in max-reasoning mode:
+
+Sticky headers still make backend affinity observable, but prefix caching is
+deliberately off, so this fallback does not reuse KV across HTTP turns. The 24
+isolated replicas provide aggregate concurrency while each backend runs one
+sequence at a time.
 
 ```bash
 tmux send-keys -t swebench_vmvm:Launcher.0 \
-  "cd /storage/home/tianhaowu/prime-rl && env EVAL_CONFIG=\$PWD/user/tianhaowu/terminal_bench_vmvm/configs/eval/tb4_kimi_k3_max_miniswe.toml INFERENCE_PROXY_INFO=/checkpoint/ram/shared/vllm_deployments_v2/tianhaowu-k3-tb24-isolated-20260916/proxy_info.json OUTPUT_DIR=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/evals/tb4_kimi_k3_sticky_full_v2 sbatch --parsable user/tianhaowu/terminal_bench_vmvm/run_eval.sbatch" C-m
+  "cd /storage/home/tianhaowu/prime-rl && env EVAL_CONFIG=\$PWD/user/tianhaowu/terminal_bench_vmvm/configs/eval/tb4_kimi_k3_max_miniswe.toml INFERENCE_PROXY_INFO=/checkpoint/ram/shared/vllm_deployments_v2/tianhaowu-k3-tb24-nocache-20260916/proxy_info.json OUTPUT_DIR=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/evals/tb4_kimi_k3_sticky_full_v2 sbatch --parsable user/tianhaowu/terminal_bench_vmvm/run_eval.sbatch" C-m
 ```
 
 `INFERENCE_PROXY_INFO` is the preferred interface for a direct RAM deployment:
@@ -214,9 +219,9 @@ samples; original sampling log probabilities cannot be reconstructed offline.
 
 This request-side rule contains the worker-wide dispatcher outage but does not
 by itself cure silent KDA state-reuse corruption. The active stock-image
-fallback therefore serializes each backend with `max-num-seqs=1`, preventing
-the cross-sequence co-batching involved in the known trigger; it also disables
-the Rust frontend and uses `PIECEWISE` CUDA graphs. This is an operational
+fallback disables prefix caching so cache hits cannot create a one-token first
+chunk and serializes each backend with `max-num-seqs=1`; it also disables the
+Rust frontend and uses `PIECEWISE` CUDA graphs. This is an operational
 workaround, not the source-level fix from vLLM PR `#51483`, so a green
 `/health` still requires a clean state-reuse semantic soak over every route.
 
@@ -232,7 +237,7 @@ remain fixed.
 ```bash
 uv run --project user/tianhaowu/terminal_bench_vmvm \
   python user/tianhaowu/terminal_bench_vmvm/probe_inference_routes.py \
-  --proxy-info /checkpoint/ram/shared/vllm_deployments_v2/tianhaowu-k3-tb24-isolated-20260916/proxy_info.json \
+  --proxy-info /checkpoint/ram/shared/vllm_deployments_v2/tianhaowu-k3-tb24-nocache-20260916/proxy_info.json \
   --model Kimi-K3 \
   --expected-routes 24 \
   --requests 192 \
@@ -271,7 +276,7 @@ uv run --project user/tianhaowu/terminal_bench_vmvm \
   --limit 2500
 
 tmux send-keys -t swebench_vmvm:Launcher.0 \
-  "cd /storage/home/tianhaowu/prime-rl && env EVAL_CONFIG=\$PWD/user/tianhaowu/terminal_bench_vmvm/configs/eval/mobius_kimi_k3_max_2500.toml INFERENCE_PROXY_INFO=/checkpoint/ram/shared/vllm_deployments_v2/tianhaowu-k3-tb24-isolated-20260916/proxy_info.json OUTPUT_DIR=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/evals/mobius_kimi_k3_max_2500_transcript_v1 sbatch --parsable user/tianhaowu/terminal_bench_vmvm/run_eval.sbatch" C-m
+  "cd /storage/home/tianhaowu/prime-rl && env EVAL_CONFIG=\$PWD/user/tianhaowu/terminal_bench_vmvm/configs/eval/mobius_kimi_k3_max_2500.toml INFERENCE_PROXY_INFO=/checkpoint/ram/shared/vllm_deployments_v2/tianhaowu-k3-tb24-nocache-20260916/proxy_info.json OUTPUT_DIR=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/evals/mobius_kimi_k3_max_2500_transcript_v1 sbatch --parsable user/tianhaowu/terminal_bench_vmvm/run_eval.sbatch" C-m
 ```
 
 Interrupted evals are durable. Resume only their missing or errored rollouts

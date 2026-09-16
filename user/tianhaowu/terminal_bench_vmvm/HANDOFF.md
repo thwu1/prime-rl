@@ -12,7 +12,7 @@ git pull --ff-only origin vmvm-sandbox
 git submodule update --init --recursive
 ```
 
-The parent repository pins `deps/verifiers` at `73263fc1`. That verifier
+The parent repository pins `deps/verifiers` at `cc2254fe`. That verifier
 revision preserves assistant responses, reasoning, tool transcripts, and the
 exact parsed provider request/response JSON (streaming responses are a
 normalized aggregate, not raw SSE frames). It also makes large evals durable,
@@ -89,33 +89,41 @@ start one fresh run. Do not resume `v7`.
 ## Kimi deployment state
 
 RAM source is `/storage/home/tianhaowu/ram_common` at `95dbabedfa77`. Active
-deployment `tianhaowu-k3-tb24-isolated-20260916` on `fair-cw-use2-3` requests:
+deployment `tianhaowu-k3-tb24-nocache-20260916` on `fair-cw-use2-3` requests:
 
 - requested lifetime: 7 days;
 - target: 24 endpoints;
 - CPU-only coordinator; each endpoint uses four GB300/g3 nodes, 16 GPUs total,
   tensor parallel 16, and GPU `QOS=normal`;
-- Kimi-K3, 1,048,576-token model limit, prefix caching enabled;
+- Kimi-K3, 1,048,576-token model limit, prefix caching disabled;
 - LiteLLM sticky routing enabled with a 43,200-second TTL.
+
+Sticky routing still provides stable backend affinity for validation, but with
+prefix caching disabled it intentionally does not provide cross-request KV
+reuse. This throughput cost is the price of excluding cached one-token first
+chunks on the unpatched runtime; the 24 replicas provide the parallelism.
 
 The deployment snapshot still names the vulnerable July 27 stock Kimi image.
 The user explicitly approved completing the run with an operational workaround
 while the immutable patched image is unavailable. Every worker is isolated
-with `max-num-seqs=1`, preventing the cross-sequence co-batching involved in
-the known KDA stale-state trigger. It additionally sets
+with `max-num-seqs=1`, and prefix caching is disabled so a cache hit cannot
+leave a stateless request with a one-token first chunk. It additionally sets
 `VLLM_USE_RUST_FRONTEND=0`, uses `PIECEWISE` CUDA graphs, and receives no
 logprob or token-ID request fields. This contains the known trigger but is not
 a source-level fix, so `/health` alone is not a correctness signal and every
 route must pass the semantic soak before evaluation. The permanent serving
 fix remains tracked at `fairinternal/ram_common#279`, comment `5691043250`.
 
-At 2026-09-16 02:26 UTC, that deployment was stopped before any endpoint
-allocated GPUs: all 24 workers remained pending, the proxy never existed, and
-the controller plus workers are now absent from `squeue`. It is recoverably
-archived at
+At 2026-09-16 02:26 UTC, the retired `tb16-normal` deployment was stopped
+before any endpoint allocated GPUs: all 24 workers remained pending, the proxy
+never existed, and the controller plus workers are now absent from `squeue`.
+It is recoverably archived at
 `/checkpoint/ram/shared/vllm_deployments_v2/.removed/tianhaowu-k3-tb16-normal-20260915-20260916T022644Z`.
-The prior `g3_lowest` deployment is also stopped. The replacement coordinator
-is Slurm job `1732529`; its endpoint jobs are `1732531`-`1732554`. At 03:04 UTC
+The first isolated attempt was likewise stopped before allocation and archived
+at `.removed/tianhaowu-k3-tb24-isolated-20260916-20260916T031753Z` after the
+prefix-cache gap was found. The prior `g3_lowest` deployment is also stopped.
+The replacement coordinator is Slurm job `1732626`; its endpoint jobs are
+`1732639`-`1732662`. At 03:22 UTC
 all 24 GPU jobs were pending for priority and no route was ready. Do not submit
 an eval until all 24 intended routes are healthy, zero are unhealthy, the state
 is stable across repeated checks, and the proxy metadata exists.
@@ -124,14 +132,14 @@ Inspect it without exposing credentials:
 
 ```bash
 cd /storage/home/tianhaowu/ram_common/vllm_tools/serve_api_v2
-./serve.sh status tianhaowu-k3-tb24-isolated-20260916 --json | jq \
+./serve.sh status tianhaowu-k3-tb24-nocache-20260916 --json | jq \
   '{phase,endpoints_summary,proxy:{url:.proxy.url,state:.proxy.slurm_state,extras:.proxy.extras}}'
 ```
 
 Proxy metadata (including the secret key) lives at:
 
 ```text
-/checkpoint/ram/shared/vllm_deployments_v2/tianhaowu-k3-tb24-isolated-20260916/proxy_info.json
+/checkpoint/ram/shared/vllm_deployments_v2/tianhaowu-k3-tb24-nocache-20260916/proxy_info.json
 ```
 
 Do not print or commit `api_key`. Before any eval, verify the frozen isolation
@@ -150,7 +158,7 @@ its intended 24 routes:
 ```bash
 uv run --project user/tianhaowu/terminal_bench_vmvm \
   python user/tianhaowu/terminal_bench_vmvm/probe_inference_routes.py \
-  --proxy-info /checkpoint/ram/shared/vllm_deployments_v2/tianhaowu-k3-tb24-isolated-20260916/proxy_info.json \
+  --proxy-info /checkpoint/ram/shared/vllm_deployments_v2/tianhaowu-k3-tb24-nocache-20260916/proxy_info.json \
   --model Kimi-K3 --expected-routes 24 --requests 192 --repeats 3 \
   --concurrency 24 --health-timeout 30 --timeout 300 --max-tokens 4096 \
   --require-reasoning --pretty
@@ -179,7 +187,7 @@ compute allocation; the key is not placed in the command or provenance file.
 
 ```bash
 tmux send-keys -t swebench_vmvm:Launcher.0 \
-  "cd /storage/home/tianhaowu/prime-rl && env EVAL_CONFIG=\$PWD/user/tianhaowu/terminal_bench_vmvm/configs/eval/tb4_kimi_token_smoke.toml INFERENCE_PROXY_INFO=/checkpoint/ram/shared/vllm_deployments_v2/tianhaowu-k3-tb24-isolated-20260916/proxy_info.json OUTPUT_DIR=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/evals/kimi_model_io_smoke_isolated_v1 sbatch --parsable user/tianhaowu/terminal_bench_vmvm/run_eval.sbatch" C-m
+  "cd /storage/home/tianhaowu/prime-rl && env EVAL_CONFIG=\$PWD/user/tianhaowu/terminal_bench_vmvm/configs/eval/tb4_kimi_token_smoke.toml INFERENCE_PROXY_INFO=/checkpoint/ram/shared/vllm_deployments_v2/tianhaowu-k3-tb24-nocache-20260916/proxy_info.json OUTPUT_DIR=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/evals/kimi_model_io_smoke_nocache_v1 sbatch --parsable user/tianhaowu/terminal_bench_vmvm/run_eval.sbatch" C-m
 ```
 
 After it finishes:
@@ -187,7 +195,7 @@ After it finishes:
 ```bash
 uv run --project user/tianhaowu/terminal_bench_vmvm \
   python user/tianhaowu/terminal_bench_vmvm/audit_traces.py \
-  /checkpoint/ram/tianhaowu/terminal_bench_vmvm/evals/kimi_model_io_smoke_isolated_v1/results.jsonl \
+  /checkpoint/ram/tianhaowu/terminal_bench_vmvm/evals/kimi_model_io_smoke_nocache_v1/results.jsonl \
   --expected-count 2 --require-reasoning
 ```
 
@@ -202,7 +210,7 @@ Only one pass@1 run is requested. Use a new output directory:
 
 ```bash
 tmux send-keys -t swebench_vmvm:Launcher.0 \
-  "cd /storage/home/tianhaowu/prime-rl && env EVAL_CONFIG=\$PWD/user/tianhaowu/terminal_bench_vmvm/configs/eval/tb4_kimi_k3_max_miniswe.toml INFERENCE_PROXY_INFO=/checkpoint/ram/shared/vllm_deployments_v2/tianhaowu-k3-tb24-isolated-20260916/proxy_info.json OUTPUT_DIR=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/evals/tb4_kimi_k3_sticky_full_v2 sbatch --parsable user/tianhaowu/terminal_bench_vmvm/run_eval.sbatch" C-m
+  "cd /storage/home/tianhaowu/prime-rl && env EVAL_CONFIG=\$PWD/user/tianhaowu/terminal_bench_vmvm/configs/eval/tb4_kimi_k3_max_miniswe.toml INFERENCE_PROXY_INFO=/checkpoint/ram/shared/vllm_deployments_v2/tianhaowu-k3-tb24-nocache-20260916/proxy_info.json OUTPUT_DIR=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/evals/tb4_kimi_k3_sticky_full_v2 sbatch --parsable user/tianhaowu/terminal_bench_vmvm/run_eval.sbatch" C-m
 ```
 
 Record the returned job ID. Monitor without mutating the run:
