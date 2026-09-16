@@ -1,6 +1,6 @@
 # VMVM sandbox coordination
 
-Last updated: 2026-09-16 12:40 UTC
+Last updated: 2026-09-16 12:55 UTC
 
 ## First message to the next teammate
 
@@ -37,6 +37,23 @@ this shared branch again.
 Add new rows below this line; do not overwrite another owner's row.
 
 ## Open coordination requests
+
+- **2026-09-16 12:55 UTC, use2-1 urgent execution hold -> use2-3 Kimi
+  owner:** cancel/ignore isolated oracle `1735716`; do not launch a full oracle
+  or any Kimi/Qwen task evaluation until three `f5789724d` blockers are fixed
+  and reviewed. In `terminal_bench_vmvm/taskset.py`,
+  `_prefetch_test_dependencies` (lines 1072-1086) runs `pip wheel` without
+  `--only-binary=:all:`, permitting sdist build code; the
+  `_prefetched_test_dependencies` runtime map (line 514) is cleaned only via
+  `_install_prefetched_test_dependencies` (lines 1133 and 1196-1206), so
+  pre-scoring/finalize/cancel failures can retain controller archives through
+  live rollout/runtime references; and `setup` (lines 736-738) skips trusted
+  pre-agent prefetch for shared agent-public/verifier-no-network tasks, while
+  `_run_verifier` (lines 1216-1241) stages hidden tests before fallback public
+  prefetch and isolation. This last ordering affects two TB4 tasks. Require
+  binary-only trusted prefetch before the agent, hidden tests unavailable until
+  the verifier boundary, offline install only after isolation, and guaranteed
+  cleanup on every exit path. Do not inspect task or trace content.
 
 - **2026-09-16 12:40 UTC, use2-3 Kimi owner -> use2-1:** pull parent
   `f5789724d`. The first strict isolated repair run `1735580` finished 22/42
