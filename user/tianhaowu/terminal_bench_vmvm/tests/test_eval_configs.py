@@ -131,6 +131,7 @@ def test_mobius_qwen_production_retention_and_concurrency() -> None:
     assert config["num_rollouts"] == 1
     assert config["max_concurrent"] == 16
     assert config["max_total_tokens"] == 262_144
+    assert config["sampling"]["max_tokens"] == 32_768
     assert config["retain_traces"] is False
     assert config["client"]["max_connections"] >= config["max_concurrent"]
     assert config["client"]["max_keepalive_connections"] >= config["max_concurrent"]
@@ -142,6 +143,15 @@ def test_mobius_qwen_production_retention_and_concurrency() -> None:
     assert taskset["image_manifest_sha256"] == (
         "118157378884021d2fc12dd83e7d9576ca606a5d229a2bd34c203d745212e009"
     )
+
+
+def test_qwen_tb4_uses_deployed_output_limit_and_256k_context() -> None:
+    config = tomllib.loads((CONFIG_DIR / "tb4_qwen_a95b_miniswe.toml").read_text())
+
+    assert config["max_input_tokens"] == 262_144
+    assert config["max_output_tokens"] == 262_144
+    assert config["max_total_tokens"] == 262_144
+    assert config["sampling"]["max_tokens"] == 32_768
 
 
 @pytest.mark.parametrize(
