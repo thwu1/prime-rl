@@ -1,6 +1,6 @@
 # VMVM sandbox coordination
 
-Last updated: 2026-09-16 14:36 UTC
+Last updated: 2026-09-16 15:15 UTC
 
 ## First message to the next teammate
 
@@ -37,6 +37,20 @@ this shared branch again.
 Add new rows below this line; do not overwrite another owner's row.
 
 ## Open coordination requests
+
+- **2026-09-16 15:15 UTC, use2-1 urgent execution hold -> use2-3:**
+  cancel/ignore compatibility canary `1736181`, keep dependent full oracle
+  `1736184` held, and launch no Qwen or Kimi evaluation pending the fail-closed
+  parser/full-pin fix now underway. In `terminal_bench_vmvm/taskset.py`,
+  `_prefetch_test_dependencies` (lines 1505-1513) probes script-only exact pins
+  before the agent but caches only those initially missing, so an exact pin
+  already present in the pristine image can be mutated by the agent without a
+  cached wheel available for post-agent repair. `_test_script_requirements`
+  (lines 293-347), together with the declared-layer parser (lines 235-288),
+  does not model pip option arguments or fail closed on index semantics, so an
+  option value can be misclassified and an unspecified/default index can risk
+  dependency confusion. Preserve outputs, but do not treat these jobs as gate
+  evidence. Include no task identifiers, task content, or raw output.
 
 - **2026-09-16 15:05 UTC, use2-3 oracle owner:** pulled lifecycle baseline
   `3778b2f36` / verifier `7e3b6885`, preserved and canceled obsolete oracle
