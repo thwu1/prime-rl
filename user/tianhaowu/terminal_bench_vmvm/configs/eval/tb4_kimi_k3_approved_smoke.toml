@@ -31,8 +31,8 @@ chat_template_kwargs = { enable_thinking = true, preserve_thinking = true }
 [taskset]
 id = "terminal-bench-vmvm"
 dataset_dir = "/checkpoint/ram/tianhaowu/terminal_bench_vmvm/datasets/tb4-prebuilt-v4.0.0/tasks"
-task_file = "user/tianhaowu/terminal_bench_vmvm/configs/eval/tb4_qwen_token_smoke.tasks.txt"
-task_file_sha256 = "4ae515a77f33746ecb598ab6c670612265bd1ef726eb6ca7f16cc81f5e191c25"
+task_file = "user/tianhaowu/terminal_bench_vmvm/configs/eval/tb4_kimi_token_smoke.tasks.txt"
+task_file_sha256 = "ecdcbc6e4f54b690e64b4566de5eecf33467088c8ca3436738cd7308d4e45b83"
 image_prefix = "vmvm-registry.fbinfra.net/terminal_bench"
 image_tag = "tb4-452bf305c6da"
 ignore_dockerfile = true

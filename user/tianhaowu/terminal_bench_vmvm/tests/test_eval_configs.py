@@ -149,7 +149,7 @@ def test_mobius_qwen_production_retention_and_concurrency() -> None:
         (
             "tb4_kimi_k3_approved_smoke.toml",
             2,
-            "4ae515a77f33746ecb598ab6c670612265bd1ef726eb6ca7f16cc81f5e191c25",
+            "ecdcbc6e4f54b690e64b4566de5eecf33467088c8ca3436738cd7308d4e45b83",
         ),
         (
             "tb4_qwen_a95b_miniswe.toml",
@@ -199,7 +199,7 @@ def test_eval_configs_pin_approved_tasks_and_runtime_contract(
     tasks = task_bytes.decode().splitlines()
     assert hashlib.sha256(task_bytes).hexdigest() == expected_sha256
     assert len(tasks) == len(set(tasks)) == expected_count
-    if expected_count == 2:
+    if filename == "tb4_qwen_token_smoke.toml":
         assert tasks == ["ctr-optimization", "vllm-deepseek-streaming"]
     elif expected_count == 66:
         shard_tasks = {

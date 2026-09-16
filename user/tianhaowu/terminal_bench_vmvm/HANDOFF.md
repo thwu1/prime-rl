@@ -126,7 +126,7 @@ fix to `PIECEWISE` CUDA graphs. Its PR-head tree is
 Coordinator `1735331` is running; endpoint jobs `1735340` and `1735341` are
 pending for priority, so no proxy exists yet. The older vulnerable deployment
 remained 0/24 and was archived at 10:58 UTC without ever allocating a worker.
-Gate `1735392` waits for exact 2/2 readiness and then owns the per-route
+Gate `1735410` waits for exact 2/2 readiness and then owns the per-route
 semantic, affinity, and one-token state-reuse probe. Do not submit task jobs
 before it exits successfully.
 
@@ -186,20 +186,24 @@ All Slurm mutations must be typed through `swebench_vmvm:Launcher.0`.
 The active readiness job is:
 
 ```text
-1735392 readiness and semantic/state-reuse gate
+1735410 readiness and semantic/state-reuse gate
 ```
 
 Gate artifact:
-`/checkpoint/ram/tianhaowu/terminal_bench_vmvm/gates/k3_kda_tb2_readiness_v1.json`.
+`/checkpoint/ram/tianhaowu/terminal_bench_vmvm/gates/k3_kda_tb2_readiness_v2.json`.
 No smoke or full eval is dependency-submitted yet; create them only from a
 tested commit after this gate succeeds.
+
+Gate `1735392` failed safely in two seconds with `serve_sh_unavailable` because
+its launcher path named the deployment's Python package snapshot instead of the
+executable PR checkout. It sent no model traffic and created no eval output.
 
 Monitor the active chain with:
 
 ```bash
-squeue -j 1735392 \
+squeue -j 1735410 \
   -o '%.18i %.28j %.10T %.10M %.50R'
-tail -n 50 /checkpoint/ram/tianhaowu/terminal_bench_vmvm/logs/route_gate_1735392.log
+tail -n 50 /checkpoint/ram/tianhaowu/terminal_bench_vmvm/logs/route_gate_1735410.log
 ```
 
 Run this fresh two-task smoke after the replacement deployment passes its route
@@ -208,7 +212,7 @@ compute allocation; the key is not placed in the command or provenance file.
 
 ```bash
 tmux send-keys -t swebench_vmvm:Launcher.0 \
-  "cd /storage/home/tianhaowu/prime-rl && env EVAL_APPROVED_TASK_FILE=\$PWD/user/tianhaowu/terminal_bench_vmvm/configs/eval/tb4_qwen_token_smoke.tasks.txt EVAL_APPROVED_TASK_FILE_SHA256=4ae515a77f33746ecb598ab6c670612265bd1ef726eb6ca7f16cc81f5e191c25 EVAL_CONFIG=\$PWD/user/tianhaowu/terminal_bench_vmvm/configs/eval/tb4_kimi_k3_approved_smoke.toml INFERENCE_PROXY_INFO=/checkpoint/ram/shared/vllm_deployments_v2/tianhaowu-k3-kda-tb2-20260916/proxy_info.json OUTPUT_DIR=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/evals/kimi_kda_tb2_approved_smoke_v1 VACLI_MAX_CONCURRENT_LEASES=2 sbatch --parsable user/tianhaowu/terminal_bench_vmvm/run_eval.sbatch" C-m
+  "cd /storage/home/tianhaowu/prime-rl && env EVAL_APPROVED_TASK_FILE=\$PWD/user/tianhaowu/terminal_bench_vmvm/configs/eval/tb4_kimi_token_smoke.tasks.txt EVAL_APPROVED_TASK_FILE_SHA256=ecdcbc6e4f54b690e64b4566de5eecf33467088c8ca3436738cd7308d4e45b83 EVAL_CONFIG=\$PWD/user/tianhaowu/terminal_bench_vmvm/configs/eval/tb4_kimi_k3_approved_smoke.toml INFERENCE_PROXY_INFO=/checkpoint/ram/shared/vllm_deployments_v2/tianhaowu-k3-kda-tb2-20260916/proxy_info.json OUTPUT_DIR=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/evals/kimi_kda_tb2_approved_smoke_v1 VACLI_MAX_CONCURRENT_LEASES=2 sbatch --parsable user/tianhaowu/terminal_bench_vmvm/run_eval.sbatch" C-m
 ```
 
 After it finishes:
