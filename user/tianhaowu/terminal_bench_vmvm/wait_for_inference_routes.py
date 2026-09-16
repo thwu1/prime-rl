@@ -66,6 +66,10 @@ class GateError(RuntimeError):
         self.reason = reason
 
 
+class StatusUnavailable(GateError):
+    """A retryable rc=1 status response that did not contain a valid snapshot."""
+
+
 @dataclass(frozen=True)
 class ProcessResult:
     returncode: int
@@ -110,6 +114,7 @@ class GateConfig:
     proxy_info: Path | None = None
     output: Path | None = None
     consecutive_polls: int = 3
+    max_status_unavailable: int = 10
     poll_interval: float = 60.0
     wait_timeout: float = 72 * 60 * 60
     status_command_timeout: float = 30.0
@@ -174,46 +179,65 @@ def _nonnegative_int(value: Any, field: str) -> int:
     return value
 
 
+def _status_problem(result: ProcessResult, reason: str) -> GateError:
+    if result.returncode == 1:
+        return StatusUnavailable(reason)
+    return GateError(reason)
+
+
 def _parse_status(result: ProcessResult, deployment: str) -> StatusObservation:
     if result.returncode not in {0, 1}:
-        raise GateError("dead_deployment")
+        raise GateError("status_command_failed")
+    if not result.stdout.strip():
+        raise _status_problem(result, "empty_status_stdout")
     try:
         payload = json.loads(result.stdout)
     except (json.JSONDecodeError, TypeError) as exc:
-        raise GateError("malformed_status_json") from exc
+        raise _status_problem(result, "malformed_status_json") from exc
     if payload is None:
-        raise GateError("dead_deployment")
+        raise _status_problem(result, "null_status")
     if not isinstance(payload, dict):
-        raise GateError("malformed_status_root")
+        raise _status_problem(result, "malformed_status_root")
+
+    phase = payload.get("phase")
+    if not isinstance(phase, str):
+        raise _status_problem(result, "malformed_status_phase")
+    phase = phase.casefold()
+    if phase in TERMINAL_PHASES:
+        raise GateError("terminal_deployment")
 
     observed_deployment = payload.get("deployment_id")
     if observed_deployment != deployment:
-        raise GateError("malformed_status_deployment_id")
-    schema_version = _nonnegative_int(payload.get("schema_version"), "schema_version")
-    phase = payload.get("phase")
-    if not isinstance(phase, str):
-        raise GateError("malformed_status_phase")
-    if phase in TERMINAL_PHASES:
-        raise GateError("terminal_deployment")
+        raise _status_problem(result, "malformed_status_deployment_id")
+    try:
+        schema_version = _nonnegative_int(payload.get("schema_version"), "schema_version")
+    except GateError as exc:
+        raise _status_problem(result, exc.reason) from exc
     if phase not in LIVE_PHASES:
-        raise GateError("malformed_status_phase")
+        raise _status_problem(result, "malformed_status_phase")
     expected_returncode = 0 if phase == "serving" else 1
     if result.returncode != expected_returncode:
-        raise GateError("inconsistent_status_exit_code")
+        raise _status_problem(result, "inconsistent_status_exit_code")
 
     summary = payload.get("endpoints_summary")
     if not isinstance(summary, dict):
-        raise GateError("malformed_status_endpoints_summary")
-    desired = _nonnegative_int(summary.get("desired"), "desired")
-    ready = _nonnegative_int(summary.get("ready"), "ready")
-    running_not_ready = _nonnegative_int(summary.get("running_not_ready"), "running_not_ready")
-    pending = _nonnegative_int(summary.get("pending"), "pending")
+        raise _status_problem(result, "malformed_status_endpoints_summary")
+    try:
+        desired = _nonnegative_int(summary.get("desired"), "desired")
+        ready = _nonnegative_int(summary.get("ready"), "ready")
+        running_not_ready = _nonnegative_int(summary.get("running_not_ready"), "running_not_ready")
+        pending = _nonnegative_int(summary.get("pending"), "pending")
+    except GateError as exc:
+        raise _status_problem(result, exc.reason) from exc
     ticks: int | None = None
     coord = payload.get("coord")
     if coord is not None:
         if not isinstance(coord, dict):
-            raise GateError("malformed_status_coord")
-        ticks = _nonnegative_int(coord.get("ticks_completed"), "ticks_completed")
+            raise _status_problem(result, "malformed_status_coord")
+        try:
+            ticks = _nonnegative_int(coord.get("ticks_completed"), "ticks_completed")
+        except GateError as exc:
+            raise _status_problem(result, exc.reason) from exc
     return StatusObservation(
         schema_version=schema_version,
         deployment_id=observed_deployment,
@@ -331,6 +355,12 @@ def _validate_config(config: GateConfig) -> None:
     for name, value in integer_fields.items():
         if not isinstance(value, int) or isinstance(value, bool) or value < 1:
             raise GateError(f"invalid_{name}")
+    if (
+        not isinstance(config.max_status_unavailable, int)
+        or isinstance(config.max_status_unavailable, bool)
+        or config.max_status_unavailable < 0
+    ):
+        raise GateError("invalid_max_status_unavailable")
     if config.resolved_probe_requests() < config.expected_routes:
         raise GateError("invalid_probe_requests")
     if (
@@ -396,6 +426,7 @@ def _base_artifact(config: GateConfig) -> dict[str, Any]:
         "deployment": config.deployment,
         "expected_routes": config.expected_routes,
         "required_consecutive_polls": config.consecutive_polls,
+        "max_consecutive_status_unavailable": config.max_status_unavailable,
         "updated_at": _utc_now(),
     }
 
@@ -416,6 +447,8 @@ def run_gate(
     deadline = start + config.wait_timeout
     polls = 0
     consecutive = 0
+    consecutive_status_unavailable = 0
+    status_unavailable_reason: str | None = None
     last_status: StatusObservation | None = None
     proxy_info_readable = False
     observed_spec_sha256: str | None = None
@@ -431,6 +464,8 @@ def run_gate(
             "state": state,
             "polls": polls,
             "consecutive_ready_polls": consecutive,
+            "consecutive_status_unavailable": consecutive_status_unavailable,
+            "status_unavailable_reason": status_unavailable_reason,
             "proxy_info_readable": proxy_info_readable,
             "observed_spec_sha256": observed_spec_sha256,
             "last_status": _status_record(last_status) if last_status else None,
@@ -452,7 +487,28 @@ def run_gate(
                 raise GateError("spec_sha256_mismatch")
             result = runner(_status_command(config), config.status_command_timeout)
             polls += 1
-            last_status = _parse_status(result, config.deployment)
+            try:
+                last_status = _parse_status(result, config.deployment)
+            except StatusUnavailable as exc:
+                consecutive = 0
+                consecutive_status_unavailable += 1
+                status_unavailable_reason = exc.reason
+                if consecutive_status_unavailable > config.max_status_unavailable:
+                    raise GateError("status_unavailable_limit_exceeded") from exc
+                persist("waiting")
+                emit(
+                    f"poll={polls} status=unavailable "
+                    f"consecutive={consecutive_status_unavailable}/"
+                    f"{config.max_status_unavailable}"
+                )
+                remaining = deadline - monotonic()
+                if remaining <= 0:
+                    raise GateError("wait_timeout")
+                sleeper(min(config.poll_interval, remaining))
+                continue
+
+            consecutive_status_unavailable = 0
+            status_unavailable_reason = None
             if last_status.is_exactly_ready(config.expected_routes):
                 consecutive += 1
             else:
@@ -519,6 +575,13 @@ def _positive_int(value: str) -> int:
     return parsed
 
 
+def _nonnegative_cli_int(value: str) -> int:
+    parsed = int(value)
+    if parsed < 0:
+        raise argparse.ArgumentTypeError("must be nonnegative")
+    return parsed
+
+
 def _positive_float(value: str) -> float:
     parsed = float(value)
     if not math.isfinite(parsed) or parsed <= 0:
@@ -546,6 +609,12 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--proxy-info", type=Path)
     parser.add_argument("--output", type=Path)
     parser.add_argument("--consecutive-polls", type=_positive_int, default=3)
+    parser.add_argument(
+        "--max-status-unavailable",
+        type=_nonnegative_cli_int,
+        default=10,
+        help="number of consecutive unusable rc=1 status results to tolerate",
+    )
     parser.add_argument("--poll-interval", type=_positive_float, default=60.0)
     parser.add_argument("--wait-timeout", type=_positive_float, default=72 * 60 * 60)
     parser.add_argument("--status-command-timeout", type=_positive_float, default=30.0)
@@ -573,6 +642,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         proxy_info=args.proxy_info,
         output=args.output,
         consecutive_polls=args.consecutive_polls,
+        max_status_unavailable=args.max_status_unavailable,
         poll_interval=args.poll_interval,
         wait_timeout=args.wait_timeout,
         status_command_timeout=args.status_command_timeout,

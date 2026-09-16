@@ -188,14 +188,16 @@ def test_nonready_poll_resets_consecutive_streak(tmp_path: Path) -> None:
 @pytest.mark.parametrize(
     ("result", "reason"),
     [
-        (ProcessResult(1, "null"), "dead_deployment"),
-        (ProcessResult(2, "{}"), "dead_deployment"),
-        (ProcessResult(1, "not-json"), "malformed_status_json"),
+        (ProcessResult(2, _status().stdout), "status_command_failed"),
+        (ProcessResult(0, "not-json"), "malformed_status_json"),
         (_status(phase="failed"), "terminal_deployment"),
+        (_status(phase="FAILED"), "terminal_deployment"),
         (_status(ready=True, pending=23), "malformed_status_ready"),
     ],
 )
-def test_dead_terminal_and_malformed_status_fail_closed(tmp_path: Path, result: ProcessResult, reason: str) -> None:
+def test_command_terminal_and_successful_malformed_status_fail_closed(
+    tmp_path: Path, result: ProcessResult, reason: str
+) -> None:
     config = _config(tmp_path)
     runner = FakeRunner([result])
     clock = FakeClock()
@@ -207,6 +209,61 @@ def test_dead_terminal_and_malformed_status_fail_closed(tmp_path: Path, result: 
     assert artifact["state"] == "failed"
     assert artifact["reason"] == reason
     assert len(runner.calls) == 1
+
+
+def test_rc1_unavailability_is_bounded_and_never_persists_output(tmp_path: Path) -> None:
+    config = _config(tmp_path, max_status_unavailable=2)
+    runner = FakeRunner(
+        [
+            ProcessResult(1, "", "stderr-with-unit-test-secret"),
+            ProcessResult(1, "null"),
+            ProcessResult(1, "not-json-with-unit-test-secret"),
+        ]
+    )
+    clock = FakeClock()
+
+    with pytest.raises(GateError, match="^status_unavailable_limit_exceeded$"):
+        _run(config, runner, clock)
+
+    persisted = config.resolved_output().read_text()
+    artifact = json.loads(persisted)
+    assert artifact["state"] == "failed"
+    assert artifact["reason"] == "status_unavailable_limit_exceeded"
+    assert artifact["consecutive_status_unavailable"] == 3
+    assert artifact["status_unavailable_reason"] == "malformed_status_json"
+    assert artifact["consecutive_ready_polls"] == 0
+    assert "unit-test-secret" not in persisted
+    assert len(runner.calls) == 3
+
+
+def test_valid_status_resets_unavailability_budget_and_readiness_streak(
+    tmp_path: Path,
+) -> None:
+    config = _config(
+        tmp_path,
+        consecutive_polls=2,
+        max_status_unavailable=1,
+    )
+    runner = FakeRunner(
+        [
+            ProcessResult(1, ""),
+            _status(phase="booting", ready=0, pending=24),
+            _status(),
+            ProcessResult(1, "null"),
+            _status(),
+            _status(),
+            _probe(),
+        ]
+    )
+    clock = FakeClock()
+
+    artifact = _run(config, runner, clock)
+
+    assert artifact["state"] == "passed"
+    assert artifact["polls"] == 6
+    assert artifact["consecutive_status_unavailable"] == 0
+    assert artifact["status_unavailable_reason"] is None
+    assert artifact["consecutive_ready_polls"] == 2
 
 
 def test_valid_degraded_and_draining_snapshots_only_reset_streak(tmp_path: Path) -> None:
@@ -369,6 +426,7 @@ def test_sbatch_wrapper_is_cpu_only_and_forwards_safe_tunables(tmp_path: Path) -
         "GATE_OUTPUT": str(tmp_path / "gate.json"),
         "EXPECTED_ROUTES": "7",
         "CONSECUTIVE_POLLS": "5",
+        "MAX_STATUS_UNAVAILABLE": "4",
         "PROBE_REQUESTS": "56",
         "PROBE_CONCURRENCY": "7",
         "CAPTURE": str(capture),
@@ -393,6 +451,7 @@ def test_sbatch_wrapper_is_cpu_only_and_forwards_safe_tunables(tmp_path: Path) -
     assert argv[argv.index("--expected-spec-sha256") + 1] == "a" * 64
     assert argv[argv.index("--expected-routes") + 1] == "7"
     assert argv[argv.index("--consecutive-polls") + 1] == "5"
+    assert argv[argv.index("--max-status-unavailable") + 1] == "4"
     assert argv[argv.index("--probe-requests") + 1] == "56"
     assert argv[argv.index("--probe-concurrency") + 1] == "7"
     assert "--allow-unverified-affinity" not in argv

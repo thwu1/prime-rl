@@ -58,6 +58,7 @@ args=(
     --model "${MODEL:-Kimi-K3}"
     --output "$gate_output"
     --consecutive-polls "${CONSECUTIVE_POLLS:-3}"
+    --max-status-unavailable "${MAX_STATUS_UNAVAILABLE:-10}"
     --poll-interval "${POLL_INTERVAL:-60}"
     --wait-timeout "${WAIT_TIMEOUT:-594000}"
     --status-command-timeout "${STATUS_COMMAND_TIMEOUT:-30}"
