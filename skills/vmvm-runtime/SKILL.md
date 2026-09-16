@@ -120,6 +120,19 @@ teardown removes tunnel rules, the chain, and the internal network idempotently.
 `podman exec` and SSH control remain outside the workload network namespace and
 continue to function after isolation.
 
+Do not install shared-verifier test dependencies before the agent or Oracle
+solution runs: this changes the application environment and breaks Harbor's
+solution-before-verifier ordering. During trusted public setup, use `pip wheel`
+to resolve and build a complete wheelhouse for every declared verifier
+requirement without installing it. Move the resulting wheel-only tar to a
+mode-0600 controller temporary directory so 64 concurrent rollouts do not retain
+archives in RAM and an agent cannot modify the cached bytes. After the
+agent/solution and after `no-network` activation, re-probe all declared versions,
+restore the integrity-checked archive, and install only missing or mismatched
+requirements with `--no-index` / `PIP_NO_INDEX=1`. Fail closed on resolution,
+source-build, non-wheel, integrity, offline-install, or post-install validation
+failure. Clean both sandbox and controller copies on every terminal path.
+
 Pier's DeepSWE adapter supports prebuilt agent images and the benchmark's
 separate verifier Dockerfiles. It validates the Dockerfile, starts its `FROM`
 image, copies the hidden verifier files only into the verifier runtime, and

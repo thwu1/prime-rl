@@ -1,7 +1,9 @@
+import asyncio
 import hashlib
 import json
 import subprocess
 from pathlib import Path
+from types import SimpleNamespace
 from zipfile import ZipFile
 
 import pytest
@@ -15,6 +17,7 @@ from terminal_bench_vmvm.taskset import (
     _network_modes,
     _parse_verifier_reward,
 )
+from verifiers.v1.runtimes import ProgramResult
 from vmvm_tb_v2._vacli import backend as vacli_backend
 from vmvm_tb_v2._vacli.backend import (
     VacliHostTunnel,
@@ -58,6 +61,137 @@ def test_declared_test_requirements_parses_marked_pip_layer(tmp_path: Path) -> N
         "pytest==8.3.4",
         "psycopg2-binary==2.9.10",
     )
+
+
+class DependencyRuntime:
+    def __init__(self, *, installed: bool = True, wheel_failure: bool = False) -> None:
+        self.installed = installed
+        self.wheel_failure = wheel_failure
+        self.events: list[str] = []
+        self.commands: list[str] = []
+
+    async def run(self, argv: list[str], env: dict[str, str]) -> ProgramResult:
+        command = subprocess.list2cmdline(argv)
+        self.commands.append(command)
+        if argv[:2] == ["python3", "-c"] and "importlib.metadata" in argv[2]:
+            self.events.append("probe")
+            output = "" if self.installed else "verifier-helper==1.0\n"
+            return ProgramResult(exit_code=0, stdout=output, stderr="")
+        if argv[:4] == ["python3", "-m", "pip", "wheel"]:
+            self.events.append("wheel")
+            return ProgramResult(
+                exit_code=1 if self.wheel_failure else 0,
+                stdout="wheel failed" if self.wheel_failure else "",
+                stderr="",
+            )
+        if "PIP_NO_INDEX=1" in command:
+            self.events.append("install")
+            self.installed = True
+        return ProgramResult(exit_code=0, stdout="", stderr="")
+
+    async def read(self, path: str) -> bytes:
+        self.events.append("archive-read")
+        return b"complete-wheelhouse"
+
+    async def write(self, path: str, data: bytes) -> None:
+        self.events.append("archive-write")
+        assert data == b"complete-wheelhouse"
+
+
+def dependency_taskset(tmp_path: Path) -> TerminalBenchVMVMTaskset:
+    return TerminalBenchVMVMTaskset(
+        TerminalBenchVMVMConfig(
+            id="terminal-bench-vmvm",
+            dataset_dir=tmp_path,
+            image_prefix="registry.invalid/terminal_bench",
+            image_tag="test-revision",
+            ignore_dockerfile=True,
+        )
+    )
+
+
+def dependency_task(tmp_path: Path) -> SimpleNamespace:
+    environment = tmp_path / "environment"
+    tests = tmp_path / "tests"
+    environment.mkdir()
+    tests.mkdir()
+    (environment / "Dockerfile").write_text(
+        "FROM python:3.12\n"
+        "# Test dependencies prebaked so the verifier runs offline\n"
+        "RUN pip install verifier-helper==1.0\n"
+    )
+    (tests / "test.sh").write_text("#!/bin/sh\n")
+    return SimpleNamespace(name="task-a", task_dir=str(tmp_path))
+
+
+def test_verifier_dependencies_prefetch_all_then_install_offline_after_solution(
+    tmp_path: Path,
+) -> None:
+    taskset = dependency_taskset(tmp_path)
+    task = dependency_task(tmp_path)
+    runtime = DependencyRuntime(installed=True)
+
+    asyncio.run(taskset._prefetch_test_dependencies(task, runtime))
+
+    prefetched = taskset._prefetched_test_dependencies[runtime]
+    assert prefetched.requirements == ("verifier-helper==1.0",)
+    assert prefetched.archive_path is not None
+    controller_archive = prefetched.archive_path
+    assert controller_archive.stat().st_mode & 0o777 == 0o600
+    assert runtime.events == ["wheel", "archive-read"]
+    assert not any("pip install" in command for command in runtime.commands)
+    wheel_command = next(command for command in runtime.commands if " pip wheel " in command)
+    assert "--no-deps" not in wheel_command
+    assert "--only-binary" not in wheel_command
+
+    runtime.events.append("solution")
+    runtime.installed = False
+    asyncio.run(taskset._install_prefetched_test_dependencies(task, runtime))
+
+    assert runtime.events == [
+        "wheel",
+        "archive-read",
+        "solution",
+        "probe",
+        "archive-write",
+        "install",
+        "probe",
+    ]
+    install_command = next(command for command in runtime.commands if "PIP_NO_INDEX=1" in command)
+    assert "--no-index" in install_command
+    assert "--find-links" in install_command
+    assert "verifier-helper==1.0" in install_command
+    assert controller_archive.exists() is False
+    assert runtime not in taskset._prefetched_test_dependencies
+
+
+def test_verifier_dependency_wheel_failure_is_fail_closed(tmp_path: Path) -> None:
+    taskset = dependency_taskset(tmp_path)
+    task = dependency_task(tmp_path)
+    runtime = DependencyRuntime(installed=True, wheel_failure=True)
+
+    with pytest.raises(RuntimeError, match="wheel prefetch failed"):
+        asyncio.run(taskset._prefetch_test_dependencies(task, runtime))
+
+    assert runtime.events == ["wheel"]
+    assert runtime not in taskset._prefetched_test_dependencies
+
+
+def test_verifier_dependency_archive_tampering_is_fail_closed(tmp_path: Path) -> None:
+    taskset = dependency_taskset(tmp_path)
+    task = dependency_task(tmp_path)
+    runtime = DependencyRuntime(installed=True)
+    asyncio.run(taskset._prefetch_test_dependencies(task, runtime))
+    prefetched = taskset._prefetched_test_dependencies[runtime]
+    assert prefetched.archive_path is not None
+    controller_archive = prefetched.archive_path
+    controller_archive.write_bytes(b"tampered")
+
+    with pytest.raises(RuntimeError, match="integrity check"):
+        asyncio.run(taskset._install_prefetched_test_dependencies(task, runtime))
+
+    assert "install" not in runtime.events
+    assert controller_archive.exists() is False
 
 
 @pytest.mark.parametrize(

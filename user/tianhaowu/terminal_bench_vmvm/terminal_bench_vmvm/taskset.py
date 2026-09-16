@@ -19,10 +19,14 @@ import math
 import re
 import shlex
 import subprocess
+import tempfile
 import tomllib
+import uuid
+from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path, PurePosixPath
 from typing import Literal
+from weakref import WeakKeyDictionary
 
 import verifiers.v1 as vf
 from pydantic import Field
@@ -99,6 +103,49 @@ class CollectHook(vf.StrictBaseModel):
     service: str = "main"
     timeout_sec: float = Field(60.0, gt=0)
     user: str | int | None = None
+
+
+@dataclass
+class PrefetchedTestDependencies:
+    requirements: tuple[str, ...]
+    directory: tempfile.TemporaryDirectory[str] | None
+    archive_path: Path | None
+    sha256: str | None
+
+    @classmethod
+    def store(
+        cls,
+        requirements: tuple[str, ...],
+        wheel_archive: bytes,
+    ) -> "PrefetchedTestDependencies":
+        directory = tempfile.TemporaryDirectory(prefix="terminal-bench-verifier-wheels-")
+        archive_path = Path(directory.name) / "wheelhouse.tar"
+        try:
+            archive_path.touch(mode=0o600, exist_ok=False)
+            archive_path.write_bytes(wheel_archive)
+        except Exception:
+            directory.cleanup()
+            raise
+        return cls(
+            requirements=requirements,
+            directory=directory,
+            archive_path=archive_path,
+            sha256=hashlib.sha256(wheel_archive).hexdigest(),
+        )
+
+    def read_verified(self) -> bytes:
+        if self.archive_path is None or self.sha256 is None:
+            raise RuntimeError("prefetched verifier wheelhouse was missing")
+        wheel_archive = self.archive_path.read_bytes()
+        if self.sha256 != hashlib.sha256(wheel_archive).hexdigest():
+            raise RuntimeError("prefetched verifier wheelhouse failed integrity check")
+        return wheel_archive
+
+    def cleanup(self) -> None:
+        if self.directory is not None:
+            self.directory.cleanup()
+            self.directory = None
+            self.archive_path = None
 
 
 class TerminalBenchTask(HarborTask):
@@ -464,6 +511,7 @@ class TerminalBenchVMVMTaskset(
     def __init__(self, config: TerminalBenchVMVMConfig) -> None:
         super().__init__(config)
         self._artifact_payloads: dict[str, dict[str, bytes]] = {}
+        self._prefetched_test_dependencies: WeakKeyDictionary[Runtime, PrefetchedTestDependencies] = WeakKeyDictionary()
 
     def _validate_dataset_revision(self, root: Path) -> None:
         expected = self.config.dataset_revision
@@ -686,7 +734,7 @@ class TerminalBenchVMVMTaskset(
             raise RuntimeError(f"{task.name}: AppleDouble cleanup failed: {(cleaned.stdout + cleaned.stderr)[-2000:]}")
 
         if task.verifier_mode == "shared" and task.agent_network_mode == "no-network":
-            await self._ensure_test_dependencies(task, runtime)
+            await self._prefetch_test_dependencies(task, runtime)
 
         if not compose_started:
             startup = _dockerfile_startup_command(task.task_dir)
@@ -916,19 +964,25 @@ class TerminalBenchVMVMTaskset(
         self._artifact_payloads[trace.id] = payload
         trace.info["terminal_bench_artifacts"] = metadata
 
-    async def _ensure_test_dependencies(
-        self,
-        task: TerminalBenchTask,
-        runtime: Runtime,
-    ) -> None:
+    @staticmethod
+    def _test_requirements(task: TerminalBenchTask) -> tuple[str, ...]:
         test_script = (Path(task.task_dir) / "tests" / "test.sh").read_text(errors="replace")
         requirements = list(_declared_test_requirements(task.task_dir))
         if "pytest" in test_script and not any(
             requirement.lower().split("==", 1)[0] == "pytest" for requirement in requirements
         ):
             requirements.append("pytest==8.3.4")
+        return tuple(requirements)
+
+    async def _missing_test_dependencies(
+        self,
+        task: TerminalBenchTask,
+        runtime: Runtime,
+        requirements: tuple[str, ...] | None = None,
+    ) -> tuple[str, ...]:
+        requirements = requirements or self._test_requirements(task)
         if not requirements:
-            return
+            return ()
         probe_code = """
 import importlib.metadata as metadata
 import re
@@ -952,9 +1006,20 @@ for requirement in sys.argv[1:]:
             {},
         )
         if available.exit_code != 0:
-            missing = requirements
-        else:
-            missing = [line for line in available.stdout.splitlines() if line]
+            return requirements
+        declared = set(requirements)
+        missing = tuple(line for line in available.stdout.splitlines() if line in declared)
+        unexpected = [line for line in available.stdout.splitlines() if line and line not in declared]
+        if unexpected:
+            raise RuntimeError(f"{task.name}: dependency probe returned unexpected values: {unexpected}")
+        return missing
+
+    async def _ensure_test_dependencies(
+        self,
+        task: TerminalBenchTask,
+        runtime: Runtime,
+    ) -> None:
+        missing = await self._missing_test_dependencies(task, runtime)
         if not missing:
             return
         command = (
@@ -970,6 +1035,176 @@ for requirement in sys.argv[1:]:
                 f"{task.name}: verifier dependency bootstrap failed for "
                 f"{missing}: {(installed.stdout + installed.stderr)[-4000:]}"
             )
+
+    async def _prefetch_test_dependencies(
+        self,
+        task: TerminalBenchTask,
+        runtime: Runtime,
+    ) -> None:
+        """Build a complete wheelhouse without mutating the task environment."""
+        previous = self._prefetched_test_dependencies.pop(runtime, None)
+        if previous is not None:
+            previous.cleanup()
+        requirements = self._test_requirements(task)
+        if not requirements:
+            self._prefetched_test_dependencies[runtime] = PrefetchedTestDependencies(
+                requirements=(),
+                directory=None,
+                archive_path=None,
+                sha256=None,
+            )
+            return
+
+        digest = hashlib.sha256("\0".join(requirements).encode()).hexdigest()[:16]
+        wheel_dir = f"/tmp/terminal-bench-verifier-wheels-{digest}"
+        archive_path = f"{wheel_dir}.tar"
+        prepared = await self._run_root(
+            runtime,
+            f"rm -rf {shlex.quote(wheel_dir)} {shlex.quote(archive_path)} && "
+            f"mkdir -p {shlex.quote(wheel_dir)} && chmod 1777 {shlex.quote(wheel_dir)}",
+        )
+        if prepared.exit_code != 0:
+            raise RuntimeError(
+                f"{task.name}: preparing verifier wheelhouse failed: {(prepared.stdout + prepared.stderr)[-4000:]}"
+            )
+
+        try:
+            # `pip wheel` resolves transitives and builds source distributions in
+            # an isolated build environment. The target Python environment is not
+            # installed into or otherwise mutated during this public-network step.
+            built = await runtime.run(
+                [
+                    "python3",
+                    "-m",
+                    "pip",
+                    "wheel",
+                    "--quiet",
+                    "--no-cache-dir",
+                    "--wheel-dir",
+                    wheel_dir,
+                    *requirements,
+                ],
+                {},
+            )
+            if built.exit_code != 0:
+                raise RuntimeError(
+                    f"{task.name}: verifier wheel prefetch failed for {requirements}: "
+                    f"{(built.stdout + built.stderr)[-4000:]}"
+                )
+            archived = await self._run_root(
+                runtime,
+                f'test "$(find {shlex.quote(wheel_dir)} -maxdepth 1 -type f '
+                "-name '*.whl' | wc -l)\" -gt 0 && "
+                f'test -z "$(find {shlex.quote(wheel_dir)} -mindepth 1 -maxdepth 1 '
+                "! -type f -o -type f ! -name '*.whl')\" && "
+                f"tar -C {shlex.quote(wheel_dir)} -cf {shlex.quote(archive_path)} .",
+            )
+            if archived.exit_code != 0:
+                raise RuntimeError(
+                    f"{task.name}: verifier wheelhouse was empty or contained "
+                    f"non-wheel artifacts: {(archived.stdout + archived.stderr)[-4000:]}"
+                )
+            wheel_archive = await runtime.read(archive_path)
+            if not wheel_archive:
+                raise RuntimeError(f"{task.name}: verifier wheelhouse archive was empty")
+        finally:
+            cleaned = await self._run_root(
+                runtime,
+                f"rm -rf {shlex.quote(wheel_dir)} {shlex.quote(archive_path)}",
+            )
+            if cleaned.exit_code != 0:
+                logger.warning(
+                    "%s verifier wheelhouse cleanup failed: %s",
+                    task.name,
+                    (cleaned.stdout + cleaned.stderr)[-2000:],
+                )
+
+        self._prefetched_test_dependencies[runtime] = await asyncio.to_thread(
+            PrefetchedTestDependencies.store,
+            requirements,
+            wheel_archive,
+        )
+
+    async def _install_prefetched_test_dependencies(
+        self,
+        task: TerminalBenchTask,
+        runtime: Runtime,
+    ) -> None:
+        prefetched = self._prefetched_test_dependencies.pop(runtime, None)
+        if prefetched is None:
+            raise RuntimeError(f"{task.name}: isolated verifier dependencies were not prefetched")
+        if not prefetched.requirements:
+            return
+        try:
+            try:
+                wheel_archive = await asyncio.to_thread(prefetched.read_verified)
+            except RuntimeError as error:
+                raise RuntimeError(f"{task.name}: {error}") from error
+
+            # Probe after the solution/agent so dependency changes made there
+            # remain observable, matching the historical verifier ordering.
+            missing = await self._missing_test_dependencies(
+                task,
+                runtime,
+                prefetched.requirements,
+            )
+            if not missing:
+                return
+
+            nonce = uuid.uuid4().hex[:16]
+            archive_path = f"/tmp/terminal-bench-verifier-wheels-{nonce}.tar"
+            wheel_dir = f"/tmp/terminal-bench-verifier-wheels-{nonce}"
+            await runtime.write(archive_path, wheel_archive)
+            prepared = await self._run_root(
+                runtime,
+                f"rm -rf {shlex.quote(wheel_dir)} && mkdir -p {shlex.quote(wheel_dir)} && "
+                f"tar -xf {shlex.quote(archive_path)} -C {shlex.quote(wheel_dir)} && "
+                f'test "$(find {shlex.quote(wheel_dir)} -maxdepth 1 -type f '
+                "-name '*.whl' | wc -l)\" -gt 0 && "
+                f'test -z "$(find {shlex.quote(wheel_dir)} -mindepth 1 -maxdepth 1 '
+                "! -type f -o -type f ! -name '*.whl')\"",
+            )
+            if prepared.exit_code != 0:
+                raise RuntimeError(
+                    f"{task.name}: restoring verifier wheelhouse failed: {(prepared.stdout + prepared.stderr)[-4000:]}"
+                )
+            install_command = (
+                "if python3 -m pip install --help 2>/dev/null | "
+                "grep -q -- --break-system-packages; then "
+                "break_system=--break-system-packages; else break_system=; fi; "
+                f"PIP_NO_INDEX=1 python3 -m pip install -q --no-cache-dir "
+                f"--no-index --ignore-installed --find-links {shlex.quote(wheel_dir)} "
+                f"$break_system {shlex.join(missing)}"
+            )
+            installed = await runtime.run(["sh", "-c", install_command], {})
+            if installed.exit_code != 0:
+                raise RuntimeError(
+                    f"{task.name}: offline verifier dependency install failed for "
+                    f"{missing}: "
+                    f"{(installed.stdout + installed.stderr)[-4000:]}"
+                )
+            remaining = await self._missing_test_dependencies(
+                task,
+                runtime,
+                missing,
+            )
+            if remaining:
+                raise RuntimeError(
+                    f"{task.name}: offline verifier dependency install left requirements unsatisfied: {remaining}"
+                )
+        finally:
+            await asyncio.to_thread(prefetched.cleanup)
+            if "wheel_dir" in locals() and "archive_path" in locals():
+                cleaned = await self._run_root(
+                    runtime,
+                    f"rm -rf {shlex.quote(wheel_dir)} {shlex.quote(archive_path)}",
+                )
+                if cleaned.exit_code != 0:
+                    logger.warning(
+                        "%s restored verifier wheelhouse cleanup failed: %s",
+                        task.name,
+                        (cleaned.stdout + cleaned.stderr)[-2000:],
+                    )
 
     async def _run_verifier(
         self,
@@ -990,14 +1225,20 @@ for requirement in sys.argv[1:]:
             )
         # Official separate-verifier images own their sealed test dependencies.
         # Only shared-mode/staged tests need repair for the older Mobius image set.
-        if stage_tests and not (task.verifier_mode == "shared" and task.agent_network_mode == "no-network"):
-            await self._ensure_test_dependencies(task, runtime)
+        if stage_tests:
+            if task.verifier_network_mode == "no-network":
+                if runtime not in self._prefetched_test_dependencies:
+                    await self._prefetch_test_dependencies(task, runtime)
+            else:
+                await self._ensure_test_dependencies(task, runtime)
         await self._configure_network_policy(
             task,
             runtime,
             task.verifier_network_mode,
             activate=True,
         )
+        if stage_tests and task.verifier_network_mode == "no-network":
+            await self._install_prefetched_test_dependencies(task, runtime)
         timeout = f"{task.verifier_timeout_sec:g}s"
         command = (
             "mkdir -p /logs/verifier; "
