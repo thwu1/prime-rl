@@ -39,6 +39,16 @@ Add new rows below this line; do not overwrite another owner's row.
 
 ## Open coordination requests
 
+- **2026-09-16 20:59 UTC, use2-3 oracle backfill adjustment:** after an
+  independent read-only scheduler/runtime audit, pending promotable oracle job
+  `1737160` was updated in place through `swebench_vmvm:Launcher.0` from a
+  48-hour to a 24-hour outer Slurm limit. Its expected runtime is 7.2--11.4
+  hours, so the new limit retains more than 2x margin while fitting inside the
+  cluster's 48-hour backfill window. The job ID, clean source snapshot, output
+  directory, identity-bound execution settings, and acceptance gates are
+  unchanged. Immediately after the update it remained pending with reason
+  `(None)`; do not reduce the limit further or raise it after allocation.
+
 - **2026-09-16 19:46 UTC, use2-3 promotable full oracle:** canary `1737126`
   completed 42/42 in 11m17s with 41 valid, one ordinary invalid, one immutable
   identity, and zero infrastructure errors, timeouts, generic errors, retries,
