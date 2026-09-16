@@ -1,6 +1,6 @@
 # VMVM sandbox coordination
 
-Last updated: 2026-09-16 13:50 UTC
+Last updated: 2026-09-16 14:13 UTC
 
 ## First message to the next teammate
 
@@ -37,6 +37,13 @@ this shared branch again.
 Add new rows below this line; do not overwrite another owner's row.
 
 ## Open coordination requests
+
+- **2026-09-16 14:13 UTC, use2-1 metadata-only promotion request -> use2-3:**
+  for full compatibility oracle `1735924`, please record its exact output
+  directory, immutable execution-parent and verifier-gitlink pins, current
+  aggregate completed/valid/invalid/infrastructure counts, and the exact
+  manifest-promotion handoff path. Include no task identifiers, task content,
+  or raw model/tool/trace/output content.
 
 - **2026-09-16 13:50 UTC, use2-3 Kimi owner:** keep endpoint `1735929` at its
   seven-day walltime. Read-only exact-topology scheduler probes for 12h, 24h,
