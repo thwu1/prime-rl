@@ -32,7 +32,7 @@ this shared branch again.
 |---|---|---|---|---|---|
 | Codex session for `tianhaowu` | `fair-cw-use2-3` | Kimi serving, full TB4 pass@1, and gated 2,500-task rollout | `user/tianhaowu/terminal_bench_vmvm/**`, `user/tianhaowu/deepswe_vmvm/{README.md,run_runtime_smoke.sbatch,smoke_runtime.py}`, `environments/vmvm_tb_v2/**`, `deps/verifiers` gitlink | patched deployment `tianhaowu-k3-kda-tb2-20260916`; coordinator `1735331`; endpoints `1735340`-`1735341`; route gate `1735467`; isolated oracle chain `1735580` -> `1735598` | Require 42/42 repaired fixtures and at least 90% across all 2,538 under enforced `no-network`. In parallel wait for exact 2/2 Kimi readiness, semantic/state-reuse soak, and an approved transcript smoke; then run one fresh full TB4 pass@1 at eight active rollouts/four lease starts. Never inspect task prompts/bodies or raw trace/model/tool content. |
 | Codex session for `tianhaowu` | `fair-cw-use2-1` | Add a direct one-token KDA state-reuse probe; no serving or eval mutation | `user/tianhaowu/terminal_bench_vmvm/{probe_inference_routes.py,tests/test_probe_inference_routes.py,HANDOFF.md,COORDINATION.md}` | none | Extend the existing readiness probe with serial raw-completion predecessor/one-token-target cycles on every discovered sticky backend, without logprobs or response token IDs. Fail closed on unsupported routing, semantic corruption, or predecessor-dependent target output. |
-| Codex session for `tianhaowu` | `fair-cw-use2-1` | Qwen full TB4 pass@1 and gated 2,500-task rollout | Qwen direct-router configs, VMVM backend, focused tests, runtime skill | full TB4 direct `1435776`; output `tb4_qwen_a95b_direct_full_v1`; endpoint `shared_qwen38_2p4t` | Fresh 66-task full run is live from isolated commit `5424dbf28`, after smoke `1435688` and both automated aggregate audits passed. Monitor metadata only; run the strict score/trace gate at terminal state, and launch production only if it succeeds. Never inspect task prompts/bodies or raw trace/model/tool content. |
+| Codex session for `tianhaowu` | `fair-cw-use2-1` | Qwen full TB4 pass@1 and gated 2,500-task rollout | Qwen direct-router configs, VMVM backend, focused tests, runtime skill | canceled diagnostic `1435776`; preserved output `tb4_qwen_a95b_direct_full_v1`; endpoint `shared_qwen38_2p4t` | Run `1435776` is non-official because it predates the enforced no-network policy. It was canceled at 7/66 clean diagnostic rows. Require one fresh post-policy 66-task run from the latest branch and verifier gitlink, into a fresh output path; run the strict score/trace gate only after that run completes, and launch production only if it succeeds. Never inspect task prompts/bodies or raw trace/model/tool content. |
 
 Add new rows below this line; do not overwrite another owner's row.
 
@@ -96,6 +96,18 @@ Add new rows below this line; do not overwrite another owner's row.
   job IDs as they are submitted. Automated harnesses may run all tasks, but do
   not inspect security-task prompts/bodies or any raw trace/model/tool content;
   monitor aggregate metadata only.
+
+- **2026-09-16 12:35 UTC, use2-1 Qwen lane:** full direct job `1435776`
+  was canceled through `swebench_vmvm:Launcher.0` after the latest preflight
+  established that its immutable `5424dbf28` snapshot predates the enforced
+  no-network policy and is therefore non-official for two verifier-only checks.
+  Scheduler state is terminal `CANCELLED` after 02:31:51. Its diagnostic output
+  is preserved unchanged with 7/66 parseable rows, zero malformed rows, zero
+  structural trace failures, and zero observed infrastructure-error markers;
+  no strict terminal audit was submitted. The next gate is a fresh all-66 run
+  from the latest branch and verifier gitlink, using a new output path. Only
+  that fresh run may be scored against the TB4 gate or unlock the 2,500-task
+  production rollout. Monitoring remains aggregate-only and content-blind.
 
 - **2026-09-16 10:02 UTC, use2-1 Qwen lane:** fresh full TB4 direct job
   `1435776` is running on `cpu-131-161` from isolated worktree commit
