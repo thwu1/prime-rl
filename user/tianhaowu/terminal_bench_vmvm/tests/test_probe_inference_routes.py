@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import threading
+import urllib.request
 from collections import Counter
 from typing import Any, Callable, Mapping
 
@@ -11,20 +12,31 @@ from probe_inference_routes import (
     HttpResponse,
     ProbeConfig,
     ProxyInfo,
+    UrllibTransport,
     _attempted_retries,
     _backend_identifier,
     run_probe,
 )
 
 ReplyFactory = Callable[[str, str, int], tuple[int, str | None, Any]]
+RawReplyFactory = Callable[[str, Mapping[str, Any], int], tuple[int, str | None, Any]]
 
 
 class FakeTransport:
-    def __init__(self, reply_factory: ReplyFactory, *, healthy_count: int = 2) -> None:
+    def __init__(
+        self,
+        reply_factory: ReplyFactory,
+        *,
+        healthy_count: int = 2,
+        raw_reply_factory: RawReplyFactory | None = None,
+    ) -> None:
         self.reply_factory = reply_factory
+        self.raw_reply_factory = raw_reply_factory
         self.healthy_count = healthy_count
         self.requests: list[dict[str, Any]] = []
         self._session_calls: Counter[str] = Counter()
+        self._raw_session_calls: Counter[str] = Counter()
+        self._session_backends: dict[str, str] = {}
         self._lock = threading.Lock()
 
     def request(
@@ -61,6 +73,42 @@ class FakeTransport:
         assert body is not None
         payload = json.loads(body)
         session_id = headers["X-LiteLLM-Session-ID"]
+        if url.endswith("/v1/completions"):
+            with self._lock:
+                call_index = self._raw_session_calls[session_id]
+                self._raw_session_calls[session_id] += 1
+                self.requests.append(
+                    {
+                        "method": method,
+                        "url": url,
+                        "headers": dict(headers),
+                        "body": body,
+                        "timeout": timeout,
+                    }
+                )
+                default_backend = self._session_backends.get(session_id)
+            if self.raw_reply_factory is None:
+                max_tokens = payload["max_tokens"]
+                is_target = max_tokens == 1
+                response_payload = _raw_completion(
+                    " stable-target-canary" if is_target else " predecessor-canary",
+                    prompt_tokens=1 if is_target else 64,
+                    completion_tokens=max_tokens,
+                )
+                status, backend = 200, default_backend
+            else:
+                status, backend, response_payload = self.raw_reply_factory(
+                    session_id,
+                    payload,
+                    call_index,
+                )
+            response_headers = {"X-LiteLLM-Model-API-Base": backend} if backend is not None else {}
+            return HttpResponse(
+                status,
+                response_headers,
+                json.dumps(response_payload).encode(),
+            )
+
         marker = payload["messages"][-1]["content"].splitlines()[-1]
         with self._lock:
             call_index = self._session_calls[session_id]
@@ -75,6 +123,9 @@ class FakeTransport:
                 }
             )
         status, backend, response_payload = self.reply_factory(session_id, marker, call_index)
+        if backend is not None:
+            with self._lock:
+                self._session_backends.setdefault(session_id, backend)
         response_headers = {"X-LiteLLM-Model-API-Base": backend} if backend is not None else {}
         return HttpResponse(
             status,
@@ -92,9 +143,31 @@ def _completion(content: str | None, reasoning: str | None = "reasoning") -> dic
                     "role": "assistant",
                     "content": content,
                     "reasoning_content": reasoning,
-                }
+                },
             }
         ]
+    }
+
+
+def _raw_completion(
+    text: str | None,
+    *,
+    prompt_tokens: int = 1,
+    completion_tokens: int = 1,
+    finish_reason: str = "length",
+) -> dict:
+    choice: dict[str, Any] = {
+        "finish_reason": finish_reason,
+    }
+    if text is not None:
+        choice["text"] = text
+    return {
+        "choices": [choice],
+        "usage": {
+            "prompt_tokens": prompt_tokens,
+            "completion_tokens": completion_tokens,
+            "total_tokens": prompt_tokens + completion_tokens,
+        },
     }
 
 
@@ -152,19 +225,51 @@ def test_probe_covers_routes_and_reuses_stable_session_headers() -> None:
     }
     assert summary["requests"]["total"] == 8
     assert summary["affinity"]["ok"] is True
+    assert summary["state_reuse"]["ok"] is True
+    assert summary["state_reuse"]["routes_checked"] == 2
+    assert summary["state_reuse"]["cycles_per_route"] == 3
+    assert summary["state_reuse"]["requests"] == 12
+    assert summary["state_reuse"]["expected_requests"] == 12
 
-    posts = [request for request in transport.requests if request["method"] == "POST"]
-    assert len(posts) == 8
-    bodies = [json.loads(request["body"]) for request in posts]
+    chat_posts = [
+        request
+        for request in transport.requests
+        if request["method"] == "POST" and request["url"].endswith("/v1/chat/completions")
+    ]
+    assert len(chat_posts) == 8
+    bodies = [json.loads(request["body"]) for request in chat_posts]
     assert all(FORBIDDEN_REQUEST_FIELDS.isdisjoint(body) for body in bodies)
-    assert all(request["headers"]["X-LiteLLM-Session-ID"] == request["headers"]["X-Session-ID"] for request in posts)
-    session_counts = Counter(request["headers"]["X-LiteLLM-Session-ID"] for request in posts)
+    assert all(
+        request["headers"]["X-LiteLLM-Session-ID"] == request["headers"]["X-Session-ID"] for request in chat_posts
+    )
+    session_counts = Counter(request["headers"]["X-LiteLLM-Session-ID"] for request in chat_posts)
     assert sorted(session_counts.values()) == [1, 1, 3, 3]
+
+    raw_posts = [
+        request
+        for request in transport.requests
+        if request["method"] == "POST" and request["url"].endswith("/v1/completions")
+    ]
+    assert len(raw_posts) == 12
+    raw_by_session: dict[str, list[dict[str, Any]]] = {}
+    for request in raw_posts:
+        session_id = request["headers"]["X-LiteLLM-Session-ID"]
+        assert session_id == request["headers"]["X-Session-ID"]
+        raw_by_session.setdefault(session_id, []).append(json.loads(request["body"]))
+    assert sorted(len(requests) for requests in raw_by_session.values()) == [6, 6]
+    for requests in raw_by_session.values():
+        assert [request["max_tokens"] for request in requests] == [32, 1, 32, 1, 32, 1]
+        assert len({request["prompt"] for request in requests[::2]}) == 3
+        assert len({request["prompt"] for request in requests[1::2]}) == 1
+        assert all(FORBIDDEN_REQUEST_FIELDS.isdisjoint(request) for request in requests)
+
     health_requests = [request for request in transport.requests if request["method"] == "GET"]
     assert len(health_requests) == 2
     assert all(request["url"].endswith("/health?model=Kimi-K3") for request in health_requests)
     serialized = json.dumps(summary)
     assert "super-secret-key" not in serialized
+    assert "stable-target-canary" not in serialized
+    assert "predecessor-canary" not in serialized
 
 
 def test_probe_fails_a_same_session_backend_change() -> None:
@@ -359,3 +464,138 @@ def test_health_failure_stops_before_completions() -> None:
     }
     assert summary["requests"]["total"] == 0
     assert transport.calls == 1
+
+
+@pytest.mark.parametrize(
+    ("failure_mode", "expected_problem"),
+    [
+        ("unsupported", "http_status_404"),
+        ("routing", "sticky_backend_changed"),
+        ("corrupt", "empty_completion_text"),
+        ("changed", "state_reuse_target_changed"),
+    ],
+)
+def test_state_reuse_gate_fails_closed(
+    failure_mode: str,
+    expected_problem: str,
+) -> None:
+    backend = "http://worker/v1"
+
+    def chat_reply(_session_id: str, marker: str, _call_index: int) -> tuple[int, str, dict]:
+        return 200, backend, _completion(marker)
+
+    def raw_reply(
+        _session_id: str,
+        payload: Mapping[str, Any],
+        call_index: int,
+    ) -> tuple[int, str | None, dict]:
+        is_target = payload["max_tokens"] == 1
+        prompt_tokens = 1 if is_target else 64
+        completion_tokens = payload["max_tokens"]
+        text = " stable-target-a" if is_target else " predecessor-canary"
+        response_backend: str | None = backend
+        status = 200
+        if failure_mode == "unsupported":
+            status = 404
+        elif failure_mode == "routing" and is_target:
+            response_backend = None
+        elif failure_mode == "corrupt" and is_target:
+            text = "   "
+        elif failure_mode == "changed" and is_target and call_index > 1:
+            text = " stable-target-b"
+        return (
+            status,
+            response_backend,
+            _raw_completion(
+                text,
+                prompt_tokens=prompt_tokens,
+                completion_tokens=completion_tokens,
+            ),
+        )
+
+    summary = run_probe(
+        _proxy("http://proxy:8100/v1"),
+        _config(
+            expected_routes=1,
+            discovery_requests=1,
+            affinity_repeats=1,
+            concurrency=1,
+            state_reuse_cycles=2,
+        ),
+        transport=FakeTransport(
+            chat_reply,
+            healthy_count=1,
+            raw_reply_factory=raw_reply,
+        ),
+    )
+
+    assert summary["ok"] is False
+    assert summary["state_reuse"]["ok"] is False
+    route = summary["state_reuse"]["routes"][0]
+    assert expected_problem in route["problem_counts"]
+    serialized = json.dumps(summary)
+    assert "stable-target-a" not in serialized
+    assert "stable-target-b" not in serialized
+    assert "predecessor-canary" not in serialized
+
+
+def test_state_reuse_rejects_non_one_token_target_usage() -> None:
+    backend = "http://worker/v1"
+
+    def raw_reply(
+        _session_id: str,
+        payload: Mapping[str, Any],
+        _call_index: int,
+    ) -> tuple[int, str, dict]:
+        is_target = payload["max_tokens"] == 1
+        return (
+            200,
+            backend,
+            _raw_completion(
+                " target" if is_target else " predecessor",
+                prompt_tokens=2 if is_target else 64,
+                completion_tokens=payload["max_tokens"],
+            ),
+        )
+
+    summary = run_probe(
+        _proxy(),
+        _config(
+            expected_routes=1,
+            discovery_requests=1,
+            affinity_repeats=1,
+            concurrency=1,
+            state_reuse_cycles=2,
+        ),
+        transport=FakeTransport(
+            lambda _session_id, marker, _call_index: (200, backend, _completion(marker)),
+            healthy_count=1,
+            raw_reply_factory=raw_reply,
+        ),
+    )
+
+    assert summary["ok"] is False
+    assert summary["state_reuse"]["routes"][0]["problem_counts"] == {"target_prompt_not_one_token": 2}
+
+
+def test_urllib_transport_does_not_consult_environment_proxies(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    handlers: list[Any] = []
+    build_opener = urllib.request.build_opener
+
+    def fail_getproxies() -> dict[str, str]:
+        raise AssertionError("ambient proxy discovery must not run")
+
+    def capture_build_opener(*requested_handlers: Any) -> Any:
+        handlers.extend(requested_handlers)
+        return build_opener(*requested_handlers)
+
+    monkeypatch.setattr(urllib.request, "getproxies", fail_getproxies)
+    monkeypatch.setattr(urllib.request, "build_opener", capture_build_opener)
+
+    UrllibTransport()
+
+    proxy_handlers = [handler for handler in handlers if isinstance(handler, urllib.request.ProxyHandler)]
+    assert len(proxy_handlers) == 1
+    assert proxy_handlers[0].proxies == {}

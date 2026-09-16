@@ -14,6 +14,14 @@
 
 set -euo pipefail
 
+dry_run=0
+if (( $# == 1 )) && [[ $1 == --dry-run ]]; then
+    dry_run=1
+elif (( $# != 0 )); then
+    printf 'The eval launcher accepts no overrides except a single --dry-run\n' >&2
+    exit 2
+fi
+
 project_dir=${PROJECT_DIR:-${SLURM_SUBMIT_DIR:-$PWD}}
 workflow_dir="$project_dir/user/tianhaowu/terminal_bench_vmvm"
 x86_site=${PYTHON_SITE_X86_64:-/checkpoint/ram/tianhaowu/terminal_bench_vmvm/python_x86_64}
@@ -27,6 +35,71 @@ inference_deployment_id=${INFERENCE_DEPLOYMENT_ID:-}
 inference_proxy_info=${INFERENCE_PROXY_INFO:-}
 eval_model=${EVAL_MODEL:-}
 inference_proxy_url=${INFERENCE_PROXY_URL:-}
+
+if [[ "$(uname -m)" != x86_64 || ! -d "$x86_site/pydantic" ]]; then
+    printf 'Missing x86_64 Python runtime/dependencies\n' >&2
+    exit 2
+fi
+if [[ ! -x "$x86_uv" ]]; then
+    printf 'Missing x86_64 uv binary: %s\n' "$x86_uv" >&2
+    exit 2
+fi
+export PYTHONDONTWRITEBYTECODE=1
+export PYTHONPATH="$workflow_dir:$project_dir/environments/vmvm_tb_v2:$project_dir/deps/verifiers:$project_dir/deps/renderers:$project_dir/deps/pydantic-config/src:$x86_site${PYTHONPATH:+:$PYTHONPATH}"
+
+if [[ "$dry_run" -eq 1 ]]; then
+    if [[ -n "$resume_dir" ]]; then
+        printf 'RESUME_DIR cannot be combined with --dry-run\n' >&2
+        exit 2
+    fi
+    cd "$project_dir"
+    args=(
+        @ "$eval_config"
+        --output-dir "$output_dir"
+        --dry-run
+    )
+    if [[ -n "$inference_base_url" ]]; then
+        args+=(--client.base-url "$inference_base_url")
+    fi
+    if [[ -n "$eval_model" ]]; then
+        args+=(--model "$eval_model")
+    fi
+    exec "$x86_uv" run --no-project --offline --python "$python_bin" \
+        python3 -c 'from verifiers.v1.cli.eval.main import main; main()' "${args[@]}"
+fi
+
+eval_approved_task_file=${EVAL_APPROVED_TASK_FILE:-}
+eval_approved_task_file_sha256=${EVAL_APPROVED_TASK_FILE_SHA256:-}
+direct_approved_task_file=${DIRECT_QWEN_APPROVED_TASK_FILE:-}
+direct_approved_task_file_sha256=${DIRECT_QWEN_APPROVED_TASK_FILE_SHA256:-}
+if [[ ( -n "$eval_approved_task_file" && -z "$eval_approved_task_file_sha256" ) \
+    || ( -z "$eval_approved_task_file" && -n "$eval_approved_task_file_sha256" ) ]]; then
+    printf 'The EVAL task approval pair is incomplete\n' >&2
+    exit 2
+fi
+if [[ ( -n "$direct_approved_task_file" && -z "$direct_approved_task_file_sha256" ) \
+    || ( -z "$direct_approved_task_file" && -n "$direct_approved_task_file_sha256" ) ]]; then
+    printf 'The DIRECT_QWEN task approval pair is incomplete\n' >&2
+    exit 2
+fi
+if [[ -n "$eval_approved_task_file" && -n "$direct_approved_task_file" ]]; then
+    if [[ "$eval_approved_task_file" != "$direct_approved_task_file" \
+        || "$eval_approved_task_file_sha256" != "$direct_approved_task_file_sha256" ]]; then
+        printf 'The task approval environment pairs conflict\n' >&2
+        exit 2
+    fi
+    approved_task_file=$eval_approved_task_file
+    approved_task_file_sha256=$eval_approved_task_file_sha256
+elif [[ -n "$eval_approved_task_file" ]]; then
+    approved_task_file=$eval_approved_task_file
+    approved_task_file_sha256=$eval_approved_task_file_sha256
+elif [[ -n "$direct_approved_task_file" ]]; then
+    approved_task_file=$direct_approved_task_file
+    approved_task_file_sha256=$direct_approved_task_file_sha256
+else
+    printf 'An external approved task file and lowercase SHA-256 are required\n' >&2
+    exit 2
+fi
 
 if [[ -n "$inference_proxy_info" ]]; then
     if [[ ! -r "$inference_proxy_info" ]]; then
@@ -56,14 +129,6 @@ if [[ -n "$inference_proxy_info" ]]; then
     export OPENAI_API_KEY=$proxy_api_key
 fi
 
-if [[ "$(uname -m)" != x86_64 || ! -d "$x86_site/pydantic" ]]; then
-    printf 'Missing x86_64 Python runtime/dependencies\n' >&2
-    exit 2
-fi
-if [[ ! -x "$x86_uv" ]]; then
-    printf 'Missing x86_64 uv binary: %s\n' "$x86_uv" >&2
-    exit 2
-fi
 if [[ -n "$resume_dir" ]]; then
     output_dir=$resume_dir
 elif [[ -z "$inference_base_url" ]]; then
@@ -90,15 +155,45 @@ fi
 cd "$project_dir"
 
 if [[ -n "$resume_dir" ]]; then
+    approval_args=(
+        --inputs-dir "$output_dir/inputs"
+        --approved-task-file "$approved_task_file"
+        --approved-task-file-sha256 "$approved_task_file_sha256"
+        --resume-config "$output_dir/config.toml"
+    )
+else
+    "$python_bin" "$workflow_dir/snapshot_eval_inputs.py" \
+        "$eval_config" "$output_dir/inputs"
+    approval_args=(
+        --inputs-dir "$output_dir/inputs"
+        --approved-task-file "$approved_task_file"
+        --approved-task-file-sha256 "$approved_task_file_sha256"
+    )
+fi
+approval_metadata=$(
+    "$x86_uv" run --no-project --offline --python "$python_bin" \
+        python3 "$workflow_dir/validate_task_approval.py" "${approval_args[@]}"
+)
+IFS=$'\t' read -r validated_approval_sha256 validated_approval_count metadata_extra \
+    <<< "$approval_metadata"
+if [[ "$validated_approval_sha256" != "$approved_task_file_sha256" \
+    || ! "$validated_approval_count" =~ ^[1-9][0-9]*$ \
+    || -n "$metadata_extra" \
+    || "$approval_metadata" == *$'\n'* ]]; then
+    printf 'Task approval validator returned invalid metadata\n' >&2
+    exit 2
+fi
+
+if [[ -n "$resume_dir" ]]; then
     {
         printf 'resume_slurm_job_id=%s\n' "$SLURM_JOB_ID"
         printf 'resume_prime_rl=%s\n' "$(git rev-parse HEAD)"
         printf 'resume_verifiers=%s\n' "$(git -C deps/verifiers rev-parse HEAD)"
         printf 'resume_renderers=%s\n' "$(git -C deps/renderers rev-parse HEAD)"
+        printf 'resume_approval_task_file_sha256=%s\n' "$validated_approval_sha256"
+        printf 'resume_approval_task_count=%s\n' "$validated_approval_count"
     } >> "$output_dir/provenance.txt"
 else
-    "$python_bin" "$workflow_dir/snapshot_eval_inputs.py" \
-        "$eval_config" "$output_dir/inputs"
     {
         printf 'prime_rl=%s\n' "$(git rev-parse HEAD)"
         printf 'verifiers=%s\n' "$(git -C deps/verifiers rev-parse HEAD)"
@@ -106,6 +201,8 @@ else
         printf 'inference_base_url=%s\n' "$inference_base_url"
         printf 'inference_deployment_id=%s\n' "$inference_deployment_id"
         printf 'slurm_job_id=%s\n' "$SLURM_JOB_ID"
+        printf 'approval_task_file_sha256=%s\n' "$validated_approval_sha256"
+        printf 'approval_task_count=%s\n' "$validated_approval_count"
     } > "$output_dir/provenance.txt"
 fi
 
@@ -115,8 +212,6 @@ if [[ -n "$inference_proxy_url" ]]; then
     export HTTPS_PROXY="$inference_proxy_url"
 fi
 export OPENAI_API_KEY=${OPENAI_API_KEY:-EMPTY}
-export PYTHONDONTWRITEBYTECODE=1
-export PYTHONPATH="$workflow_dir:$project_dir/environments/vmvm_tb_v2:$project_dir/deps/verifiers:$project_dir/deps/renderers:$project_dir/deps/pydantic-config/src:$x86_site${PYTHONPATH:+:$PYTHONPATH}"
 export VACLI_LEASE_RETRIES=${VACLI_LEASE_RETRIES:-20}
 export VACLI_MAX_CONCURRENT_LEASES=${VACLI_MAX_CONCURRENT_LEASES:-32}
 export VACLI_MAX_PULL_RETRIES=${VACLI_MAX_PULL_RETRIES:-20}
@@ -124,10 +219,6 @@ export VACLI_IMAGE_PULL_TIMEOUT_SECONDS=${VACLI_IMAGE_PULL_TIMEOUT_SECONDS:-3600
 export VACLI_CONTAINER_PRIVILEGED=${VACLI_CONTAINER_PRIVILEGED:-1}
 
 if [[ -n "$resume_dir" ]]; then
-    if (( $# != 0 )); then
-        printf 'RESUME_DIR cannot be combined with eval overrides\n' >&2
-        exit 2
-    fi
     args=(--resume "$resume_dir")
 else
     args=(
@@ -137,6 +228,7 @@ else
     )
     if [[ -f "$output_dir/inputs/task_file.txt" ]]; then
         args+=(--taskset.task-file "$output_dir/inputs/task_file.txt")
+        args+=(--taskset.task-file-sha256 "$approved_task_file_sha256")
     fi
     if [[ -f "$output_dir/inputs/image_manifest.json" ]]; then
         args+=(--taskset.image-manifest "$output_dir/inputs/image_manifest.json")
@@ -151,7 +243,6 @@ else
     if [[ -n "$eval_model" ]]; then
         args+=(--model "$eval_model")
     fi
-    args+=("$@")
 fi
 exec "$x86_uv" run --no-project --offline --python "$python_bin" \
     python3 -c 'from verifiers.v1.cli.eval.main import main; main()' "${args[@]}"
