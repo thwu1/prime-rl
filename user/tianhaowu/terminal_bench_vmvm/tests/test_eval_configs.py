@@ -134,6 +134,7 @@ def test_mobius_qwen_production_retention_and_concurrency() -> None:
     assert config["retain_traces"] is False
     assert config["client"]["max_connections"] == 16
     assert config["client"]["max_keepalive_connections"] == 16
+    assert "model.model_kwargs.timeout=15000" in config["harness"]["config_overrides"]
     taskset = config["taskset"]
     assert taskset["dataset_revision"] == "ac1f30b9ac0e6c6a20a9fe423900d9ed28a6d366"
     assert taskset["task_file"] == ("user/tianhaowu/terminal_bench_vmvm/configs/eval/mobius_valid_tasks_2500.txt")
@@ -270,9 +271,9 @@ def test_eval_controller_is_cpu_only_and_supports_high_vmvm_concurrency() -> Non
     assert "resume_prime_rl=" in text
     assert "resume_verifiers=" in text
     assert "resume_renderers=" in text
-    # This bounds only simultaneous lease *bring-up*. The slot is released as
-    # soon as each tunnel is ready, so the evaluator can still reach 64 active
-    # rollouts without stampeding vacli with 64 setup requests at once.
+    # This bounds simultaneous lease and reverse-forward setup. The slot is
+    # released as soon as each setup probe passes, so it does not cap the
+    # evaluator's number of active rollouts or live tunnels.
     assert "VACLI_MAX_CONCURRENT_LEASES=${VACLI_MAX_CONCURRENT_LEASES:-32}" in text
 
 
@@ -286,7 +287,7 @@ def test_direct_qwen_launcher_is_fail_closed() -> None:
     assert '--max-concurrent-requests "$router_max_concurrent"' in wrapper
     assert '--queue-size "$router_queue_size"' in wrapper
     assert '--queue-timeout-secs "$router_queue_timeout"' in wrapper
-    assert "VACLI_MAX_CONCURRENT_LEASES=4" in wrapper
+    assert "VACLI_MAX_CONCURRENT_LEASES=2" in wrapper
     assert "OPENAI_API_KEY=EMPTY" in wrapper
     assert "INFERENCE_PROXY_INFO" in wrapper
     assert "direct_workers.json" in wrapper

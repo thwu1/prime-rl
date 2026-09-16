@@ -153,6 +153,31 @@ def test_production_qwen_config_queues_64_rollouts_behind_16_http_connections() 
     assert config["multiplex"] == 64
     assert config["client"]["max_connections"] == direct.EXPECTED_ENDPOINTS == 16
     assert config["client"]["max_keepalive_connections"] == direct.EXPECTED_ENDPOINTS
+    assert [
+        value for value in config["harness"]["config_overrides"] if value.startswith("model.model_kwargs.timeout=")
+    ] == [f"model.model_kwargs.timeout={direct.PRODUCTION_MODEL_TIMEOUT_SECONDS}"]
+
+
+def test_production_qwen_config_requires_end_to_end_model_timeout(tmp_path: Path) -> None:
+    config = _approved_config(tmp_path)
+    text = config.read_text()
+    text = text.replace("max_concurrent = 2", "max_concurrent = 64")
+    text = text.replace("multiplex = 2", "multiplex = 64")
+    text = text.replace("max_connections = 2", "max_connections = 16")
+    text = text.replace("max_keepalive_connections = 2", "max_keepalive_connections = 16")
+    config.write_text(text)
+
+    with pytest.raises(direct.DirectWorkerError, match="eval_model_timeout_mismatch"):
+        direct.validate_eval_config(config)
+
+    config.write_text(
+        config.read_text().replace(
+            '    "model.model_kwargs.parallel_tool_calls=true",',
+            '    "model.model_kwargs.parallel_tool_calls=true",\n'
+            f'    "model.model_kwargs.timeout={direct.PRODUCTION_MODEL_TIMEOUT_SECONDS}",',
+        )
+    )
+    assert direct.validate_eval_config(config)
 
 
 def test_approved_qwen_config_rejects_independent_approval_mismatch(tmp_path: Path) -> None:

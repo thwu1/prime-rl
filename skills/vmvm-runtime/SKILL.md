@@ -27,11 +27,12 @@ The local backend package must be importable by the CPU evaluator:
 export PYTHONPATH="$PWD/environments/vmvm_tb_v2${PYTHONPATH:+:$PYTHONPATH}"
 ```
 
-`VACLI_MAX_CONCURRENT_LEASES` limits only simultaneous lease bring-up. It does
-not cap the number of active VMVMs after their tunnels are ready. For a
-high-fanout run, set the evaluator's worker count to the desired active
-concurrency. The DeepSWE launchers default to 113 active trials while capping
-simultaneous VMVM lease acquisition at 32; set
+`VACLI_MAX_CONCURRENT_LEASES` limits simultaneous lease and reverse-forward
+setup through one process-wide slot pool. A slot is released as soon as setup
+and its readiness probe complete, so it does not cap the number of active
+VMVMs or live host tunnels. For a high-fanout run, set the evaluator's worker
+count to the desired active concurrency. The DeepSWE launchers default to 113
+active trials while capping simultaneous VMVM setup at 32; set
 `VACLI_MAX_CONCURRENT_LEASES` explicitly to override that startup fanout.
 
 Do not run VMVM evaluation drivers on a login node. Validate the real provider
@@ -238,11 +239,13 @@ host tunnel. A transfer started after `open_host_tunnel()` can block behind the
 SSH control connection; making the tunnel the last setup step avoids that stall.
 
 Keep model-provider retries inside the individual model call. Transport errors,
-HTTP 429, and HTTP 5xx responses may be retried there, but exhausting those
-retries is not evidence that the sandbox was lost and must not replay the whole
-rollout. Score or surface the terminal provider failure according to the
-benchmark contract. A fresh whole-rollout attempt is reserved for a confirmed
-lost VM or container before any result was persisted.
+HTTP 429, and HTTP 5xx responses may be retried there. If those retries exhaust
+inside a VMVM host-endpoint context, probe the workload-to-host HTTP path with
+proxies disabled before teardown: preserve the provider error while the path is
+reachable, and classify it as a tunnel failure only when that post-failure probe
+cannot reach the endpoint. A fresh whole-rollout attempt is reserved for this
+confirmed tunnel loss or a confirmed lost VM/container before any result was
+persisted.
 Classify provider-specific context-limit wording before generic retry handling.
 In particular, Nemotron/vLLM may report that the model's "context length is
 only" a given size and ask to "reduce the length of the input prompt". That is

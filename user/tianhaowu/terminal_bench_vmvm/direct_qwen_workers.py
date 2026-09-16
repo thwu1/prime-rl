@@ -41,6 +41,7 @@ MAX_METADATA_BYTES = 16 * 1024
 MAX_MODELS_BYTES = 1 << 20
 MAX_DIRECT_CONCURRENCY = 64
 ROUTER_QUEUE_TIMEOUT_SECONDS = 7_200
+PRODUCTION_MODEL_TIMEOUT_SECONDS = 15_000
 
 
 class DirectWorkerError(ValueError):
@@ -270,6 +271,13 @@ def validate_eval_config(
     harness = config.get("harness")
     if not isinstance(harness, dict) or harness.get("id") != "mini-swe-agent":
         raise DirectWorkerError("eval_harness_invalid")
+    config_overrides = harness.get("config_overrides")
+    if not isinstance(config_overrides, list) or not all(isinstance(value, str) for value in config_overrides):
+        raise DirectWorkerError("eval_harness_config_overrides_invalid")
+    if max_concurrent == MAX_DIRECT_CONCURRENCY:
+        timeout_overrides = [value for value in config_overrides if value.startswith("model.model_kwargs.timeout=")]
+        if timeout_overrides != [f"model.model_kwargs.timeout={PRODUCTION_MODEL_TIMEOUT_SECONDS}"]:
+            raise DirectWorkerError("eval_model_timeout_mismatch")
     runtime = harness.get("runtime")
     if not isinstance(runtime, dict) or runtime.get("type") != "vmvm":
         raise DirectWorkerError("eval_runtime_not_vmvm")
