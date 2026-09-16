@@ -350,12 +350,14 @@ bash user/tianhaowu/terminal_bench_vmvm/stage_qwen_direct_router.sh
 ```
 
 The router disables retries and uses round-robin dispatch across the 16 pinned
-workers. It admits at most 16 model requests concurrently and queues the
-remaining active rollout requests (up to 48 at production concurrency 64) for
-up to 7,200 seconds. Its backend request deadline is 7,500 seconds. The direct
-launcher requires rollout concurrency, multiplexing, and HTTP pools to agree at
-64 or less. It keeps simultaneous VMVM lease bring-up capped at four while
-allowing up to 64 active sessions.
+workers. Its configured admission bucket starts at 16 requests and exposes a
+48-request queue for production concurrency 64, with a 7,200-second queue
+timeout and a 7,500-second backend request deadline. Because vllm-router 0.1.26
+refills that bucket while requests are still active, the shared evaluator
+HTTP/1.1 pool is the strict backend bound: it permits exactly
+`min(max_concurrent, 16)` connections. This keeps 64 rollout/VMVM sessions
+active while at most 16 model calls reach the router. Simultaneous VMVM lease
+bring-up remains capped at four.
 
 The full 66-task TB4 set and 2,500-task oracle-valid Mobius production set,
 including all task categories, are approved for the direct Qwen route. The
@@ -372,10 +374,11 @@ checked-in launch inputs are:
   `d33ef93f9b77ee91a41600934e677ba37988d3b4509e4da05ff1fcf7b4bc3a4b`.
 
 The smoke uses two slots, TB4 uses eight, and the Mobius production config uses
-64. Every config matches its HTTP pools and multiplexing to that concurrency,
-retains captured model I/O and thinking content, permits 32,768 output tokens
-per model call, and keeps the 262,144-token full-context cap plus the extended
-VMVM timeouts.
+64. Multiplexing matches rollout concurrency; each shared HTTP pool matches the
+smaller of rollout concurrency and the 16-worker backend. Every config retains
+captured model I/O and thinking content, permits 32,768 output tokens per model
+call, and keeps the 262,144-token full-context cap plus the extended VMVM
+timeouts.
 The direct launcher still requires the selected manifest path and exact digest
 to be supplied independently through `DIRECT_QWEN_APPROVED_TASK_FILE` and
 `DIRECT_QWEN_APPROVED_TASK_FILE_SHA256`. `EVAL_CONFIG` must select that same
