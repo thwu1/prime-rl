@@ -201,6 +201,7 @@ def _provenance_args(prime_rl_commit: str) -> dict[str, str]:
     return {
         "expected_prime_rl_commit": prime_rl_commit,
         "required_prime_rl_ancestor": prime_rl_commit,
+        "minimum_prime_rl_ancestor": prime_rl_commit,
         "expected_verifiers_commit": VERIFIER_COMMIT,
         "expected_vmvm_tb_v2_sha256": VMVM_TB_V2_SHA256,
     }
@@ -382,10 +383,69 @@ def test_rejects_dirty_or_mismatched_oracle_provenance(tmp_path: Path) -> None:
         )
 
 
-def test_cli_emits_metadata_only(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+def test_rejects_required_ancestor_before_lifecycle_baseline(tmp_path: Path) -> None:
     dataset, _, revision, oracle, manifest, digest, configs, prime_rl_commit = _fixture(
         tmp_path,
         valid_indexes=set(range(10)),
+    )
+    marker = manifest.parent / "lifecycle-marker"
+    marker.write_text("final\n")
+    subprocess.run(["git", "-C", str(manifest.parent), "add", marker.name], check=True)
+    subprocess.run(
+        [
+            "git",
+            "-C",
+            str(manifest.parent),
+            "-c",
+            "user.name=Test",
+            "-c",
+            "user.email=test@example.invalid",
+            "commit",
+            "-qm",
+            "lifecycle baseline",
+        ],
+        check=True,
+    )
+    lifecycle_commit = subprocess.run(
+        ["git", "-C", str(manifest.parent), "rev-parse", "HEAD"],
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+    provenance = _provenance_args(prime_rl_commit)
+    provenance["minimum_prime_rl_ancestor"] = lifecycle_commit
+
+    with pytest.raises(
+        PromotionError,
+        match="^required_oracle_ancestor_before_lifecycle_baseline$",
+    ):
+        export_oracle_tasks.promote(
+            oracle,
+            manifest,
+            dataset_dir=dataset,
+            dataset_revision=revision,
+            expected_current_manifest_sha256=digest,
+            configs=configs,
+            project_root=manifest.parent,
+            expected_total=10,
+            limit=8,
+            **provenance,
+        )
+
+
+def test_cli_emits_metadata_only(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    dataset, _, revision, oracle, manifest, digest, configs, prime_rl_commit = _fixture(
+        tmp_path,
+        valid_indexes=set(range(10)),
+    )
+    monkeypatch.setattr(
+        export_oracle_tasks,
+        "MINIMUM_ORACLE_PRIME_RL_ANCESTOR",
+        prime_rl_commit,
     )
     status = export_oracle_tasks.main(
         [

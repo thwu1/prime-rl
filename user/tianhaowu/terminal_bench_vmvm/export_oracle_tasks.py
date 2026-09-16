@@ -30,6 +30,7 @@ MAX_CONFIG_BYTES = 2 * 1024 * 1024
 MAX_MANIFEST_BYTES = 16 * 1024 * 1024
 TASKSET_ID = "terminal-bench-vmvm"
 CLEAN_TREE_SHA256 = hashlib.sha256(b"").hexdigest()
+MINIMUM_ORACLE_PRIME_RL_ANCESTOR = "f0e8d1fd55dadedc086feb8833071700ed034f63"
 PROVENANCE_KEYS = {
     "host",
     "oracle_solution_network_mode",
@@ -109,6 +110,7 @@ def _audit_provenance(
     *,
     expected_prime_rl_commit: str,
     required_prime_rl_ancestor: str,
+    minimum_prime_rl_ancestor: str,
     expected_verifiers_commit: str,
     expected_vmvm_tb_v2_sha256: str,
     trusted_reference_solution: str,
@@ -116,6 +118,7 @@ def _audit_provenance(
     if (
         REVISION_RE.fullmatch(expected_prime_rl_commit) is None
         or REVISION_RE.fullmatch(required_prime_rl_ancestor) is None
+        or REVISION_RE.fullmatch(minimum_prime_rl_ancestor) is None
         or REVISION_RE.fullmatch(expected_verifiers_commit) is None
         or SHA256_RE.fullmatch(expected_vmvm_tb_v2_sha256) is None
     ):
@@ -152,27 +155,31 @@ def _audit_provenance(
         root = project_root.resolve(strict=True)
     except (OSError, RuntimeError) as cause:
         raise PromotionError("project_root_unreadable") from cause
-    try:
-        ancestry = subprocess.run(
-            [
-                "git",
-                "-C",
-                str(root),
-                "merge-base",
-                "--is-ancestor",
-                required_prime_rl_ancestor,
-                expected_prime_rl_commit,
-            ],
-            check=False,
-            capture_output=True,
-            timeout=120,
-        )
-    except (OSError, subprocess.SubprocessError) as cause:
-        raise PromotionError("oracle_commit_ancestry_unverifiable") from cause
-    if ancestry.returncode == 1:
-        raise PromotionError("oracle_commit_before_required_ancestor")
-    if ancestry.returncode != 0:
-        raise PromotionError("oracle_commit_ancestry_unverifiable")
+    for ancestor, descendant, mismatch_error in (
+        (
+            minimum_prime_rl_ancestor,
+            required_prime_rl_ancestor,
+            "required_oracle_ancestor_before_lifecycle_baseline",
+        ),
+        (
+            required_prime_rl_ancestor,
+            expected_prime_rl_commit,
+            "oracle_commit_before_required_ancestor",
+        ),
+    ):
+        try:
+            ancestry = subprocess.run(
+                ["git", "-C", str(root), "merge-base", "--is-ancestor", ancestor, descendant],
+                check=False,
+                capture_output=True,
+                timeout=120,
+            )
+        except (OSError, subprocess.SubprocessError) as cause:
+            raise PromotionError("oracle_commit_ancestry_unverifiable") from cause
+        if ancestry.returncode == 1:
+            raise PromotionError(mismatch_error)
+        if ancestry.returncode != 0:
+            raise PromotionError("oracle_commit_ancestry_unverifiable")
     gitlink = _git_output(
         root,
         "ls-tree",
@@ -481,6 +488,7 @@ def promote(
     minimum_pass_rate: float = 0.9,
     trusted_reference_solution: str = "public",
     expected_config_count: int = 2,
+    minimum_prime_rl_ancestor: str | None = None,
     apply: bool = False,
 ) -> dict[str, Any]:
     if REVISION_RE.fullmatch(dataset_revision) is None:
@@ -516,6 +524,9 @@ def promote(
         project_root,
         expected_prime_rl_commit=expected_prime_rl_commit,
         required_prime_rl_ancestor=required_prime_rl_ancestor,
+        minimum_prime_rl_ancestor=(
+            MINIMUM_ORACLE_PRIME_RL_ANCESTOR if minimum_prime_rl_ancestor is None else minimum_prime_rl_ancestor
+        ),
         expected_verifiers_commit=expected_verifiers_commit,
         expected_vmvm_tb_v2_sha256=expected_vmvm_tb_v2_sha256,
         trusted_reference_solution=trusted_reference_solution,
