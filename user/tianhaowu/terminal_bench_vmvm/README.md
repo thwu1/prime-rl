@@ -163,12 +163,14 @@ not injected into agent rollouts or verifier containers.
 
 ## TB4 pass@1
 
-After `fetch_tb4.sh` verifies the prebuilt release, submit against the
-OpenAI-compatible Kimi-K3 deployment in max-reasoning mode:
+After `fetch_tb4.sh` verifies the prebuilt release, wait for a KDA-patched Kimi
+runtime, at least 16 healthy and zero unhealthy routes in the normal-QoS
+deployment, and a clean per-route semantic soak. Then submit exactly one fresh
+pass@1 run against Kimi-K3 in max-reasoning mode:
 
 ```bash
 tmux send-keys -t swebench_vmvm:Launcher.0 \
-  "env INFERENCE_PROXY_INFO=/checkpoint/ram/shared/vllm_deployments_v2/DEPLOYMENT_ID/proxy_info.json OUTPUT_DIR=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/evals/tb4_kimi_k3_max sbatch user/tianhaowu/terminal_bench_vmvm/run_eval.sbatch" C-m
+  "cd /storage/home/tianhaowu/prime-rl && env EVAL_CONFIG=\$PWD/user/tianhaowu/terminal_bench_vmvm/configs/eval/tb4_kimi_k3_max_miniswe.toml INFERENCE_PROXY_INFO=/checkpoint/ram/shared/vllm_deployments_v2/tianhaowu-k3-tb16-normal-20260915/proxy_info.json OUTPUT_DIR=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/evals/tb4_kimi_k3_sticky_full_v2 sbatch --parsable user/tianhaowu/terminal_bench_vmvm/run_eval.sbatch" C-m
 ```
 
 `INFERENCE_PROXY_INFO` is the preferred interface for a direct RAM deployment:
@@ -184,26 +186,38 @@ direct VMVM and inference routes continue to run with proxy variables cleared.
 
 The default config is `configs/eval/tb4_kimi_k3_max_miniswe.toml`: 66 tasks,
 pass@1, mini-swe-agent, `reasoning_effort=max`, one VMVM per rollout, and a
-256 Ki-token total context cap. It uses rollout and HTTP concurrency 64. A
-64-request distinct-session burst against 12 healthy workers of deployment
-`tianhaowu-k3-tb24-20260915` completed 64/64 requests in 1.21 seconds with no
-HTTP failures and exercised all 12 routes. The larger Mobius trace config uses
-the same measured concurrency while vacli lease bring-up remains bounded at
-32. All eight
-TB4 tasks that declare
-Docker Compose sidecars use the compose-capable VMVM path; they are not skipped
-or downgraded to a single-container approximation. The current VMVM tenant is
-CPU-only, so the three TB4 GPU tasks are rejected explicitly instead of being
-run under a silently incorrect CPU sandbox; the exact VMVM subset is therefore
-63 tasks.
+256 Ki-token total context cap. It uses rollout concurrency 64 and an HTTP
+connection/keepalive pool of 64. The larger Mobius trace config uses the same
+concurrency while vacli lease bring-up remains bounded at 32. All eight TB4
+tasks that declare Docker Compose sidecars use the compose-capable VMVM path;
+they are not skipped or downgraded to a single-container approximation. The
+current VMVM tenant is CPU-only, so the three TB4 GPU tasks are rejected
+explicitly instead of being run under a silently incorrect CPU sandbox; the
+exact VMVM subset is therefore 63 tasks.
 
-## Training-trace gate
+The evaluator and oracle are network-bound CPU controllers; their checked-in
+Slurm defaults request `cpu_x86`, 8 CPUs, 16 GiB, and no GPUs. Rollout
+concurrency does not require one controller CPU per sandbox.
 
-The chat-completions dialect preserves provider-returned prompt/completion token
-IDs, per-completion-token log probabilities, and `reasoning_content`. The
-gateway must be called with `return_token_ids=true` and `logprobs=true`, as in
-the checked-in Kimi configs. Export exactly 2,500 oracle-qualified tasks before
-the production run:
+## Transcript capture gate
+
+Never request provider log probabilities in this workflow. RAM issue `#279`
+records a Kimi Rust-frontend crash (`token_ranks must be >=1`) when a request
+asks for logprobs. All checked-in eval configs therefore omit `logprobs`,
+`prompt_logprobs`, `top_logprobs`, and `return_token_ids` entirely. The
+chat-completions dialect still preserves assistant response content, tool calls,
+`reasoning_content`, and provider usage. These are durable text transcripts for
+offline retokenization/processing, not directly consumable token-level on-policy
+samples; original sampling log probabilities cannot be reconstructed offline.
+
+This request-side rule only contains the worker-wide outage. The same incident
+also found silent KDA state-reuse corruption without logprobs, where a worker
+returns repeated `@`/blank text with HTTP 200. A stock-image pool is therefore
+not launch-ready merely because `/health` is green: it needs a compatible port
+of vLLM PR `#51483`, `PIECEWISE` CUDA graphs (or eager mode), and a clean
+state-reuse semantic soak covering every route.
+
+Export exactly 2,500 oracle-qualified tasks before the production run:
 
 ```bash
 uv run --project user/tianhaowu/terminal_bench_vmvm \
@@ -213,17 +227,18 @@ uv run --project user/tianhaowu/terminal_bench_vmvm \
   --limit 2500
 
 tmux send-keys -t swebench_vmvm:Launcher.0 \
-  "env EVAL_CONFIG=$PWD/user/tianhaowu/terminal_bench_vmvm/configs/eval/mobius_kimi_k3_max_2500.toml INFERENCE_PROXY_INFO=/checkpoint/ram/shared/vllm_deployments_v2/DEPLOYMENT_ID/proxy_info.json OUTPUT_DIR=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/evals/mobius_kimi_k3_max_2500 sbatch user/tianhaowu/terminal_bench_vmvm/run_eval.sbatch" C-m
+  "cd /storage/home/tianhaowu/prime-rl && env EVAL_CONFIG=\$PWD/user/tianhaowu/terminal_bench_vmvm/configs/eval/mobius_kimi_k3_max_2500.toml INFERENCE_PROXY_INFO=/checkpoint/ram/shared/vllm_deployments_v2/tianhaowu-k3-tb16-normal-20260915/proxy_info.json OUTPUT_DIR=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/evals/mobius_kimi_k3_max_2500_transcript_v1 sbatch --parsable user/tianhaowu/terminal_bench_vmvm/run_eval.sbatch" C-m
 ```
 
 Interrupted evals are durable. Resume only their missing or errored rollouts
-with `RESUME_DIR=/checkpoint/.../evals/mobius_kimi_k3_max_2500`; the saved config
-is replayed verbatim and successful traces are retained. New runs snapshot the
-source config, task list, and image manifest under `OUTPUT_DIR/inputs/`, record
-SHA-256 digests in `inputs/manifest.json`, and point the resolved run config at
-those immutable copies. Large configs set `retain_traces=false`: every trace is
-appended durably and then released from RAM, and the CLI does not duplicate the
-full JSONL into the Slurm log.
+with
+`RESUME_DIR=/checkpoint/.../evals/mobius_kimi_k3_max_2500_transcript_v1`;
+the saved config is replayed verbatim and successful traces are retained. New
+runs snapshot the source config, task list, and image manifest under
+`OUTPUT_DIR/inputs/`, record SHA-256 digests in `inputs/manifest.json`, and point
+the resolved run config at those immutable copies. Large configs set
+`retain_traces=false`: every trace is appended durably and then released from
+RAM, and the CLI does not duplicate the full JSONL into the Slurm log.
 
 Before consuming any run, execute:
 
@@ -236,7 +251,10 @@ uv run --project user/tianhaowu/terminal_bench_vmvm \
   --require-reasoning
 ```
 
-The audit rejects missing/duplicate tasks, rollout errors, absent sampled token
-IDs, token/mask/logprob misalignment, and missing retained reasoning. Scale only
-after this gate passes on a smoke run and after measuring a stable VMVM lease
-concurrency.
+Transcript audit is the default. It rejects missing/duplicate tasks, rollout
+errors, missing sampled response content/tool calls, missing reasoning, invalid
+or absent provider usage, malformed parent graphs, and any provider-reported
+turn over 262,144 total tokens. `--require-token-data` remains an explicit
+legacy/diagnostic mode for traces that intentionally contain exact token IDs,
+masks, and sampling logprobs. Scale only after the default gate passes on a
+fresh smoke run and after measuring stable VMVM lease concurrency.

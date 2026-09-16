@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Fail closed when rollout traces are unsuitable as complete training trajectories."""
+"""Fail closed when rollout traces are unsuitable as retained training transcripts."""
 
 from __future__ import annotations
 
@@ -91,8 +91,8 @@ def _message_problems(node: dict, index: int) -> list[str]:
                         problems.append(f"node_{index}_tool_call_id_duplicate")
                     seen_call_ids.add(call_id)
         if not (
-            (isinstance(content, str) and content)
-            or (isinstance(reasoning, str) and reasoning)
+            (isinstance(content, str) and content.strip())
+            or (isinstance(reasoning, str) and reasoning.strip())
             or (isinstance(tool_calls, list) and tool_calls)
         ):
             problems.append(f"node_{index}_assistant_payload_empty")
@@ -121,9 +121,7 @@ def _ancestor_has_tool_call(nodes: list, index: int, tool_call_id: str) -> bool:
 def _max_branch_tokens(nodes: list) -> tuple[int, list[int], bool]:
     """Return the longest root-to-node token path and graph integrity failures."""
     token_counts = [
-        len(node.get("token_ids", []))
-        if isinstance(node, dict) and isinstance(node.get("token_ids"), list)
-        else 0
+        len(node.get("token_ids", [])) if isinstance(node, dict) and isinstance(node.get("token_ids"), list) else 0
         for node in nodes
     ]
     path_lengths: list[int | None] = [None] * len(nodes)
@@ -154,11 +152,7 @@ def _max_branch_tokens(nodes: list) -> tuple[int, list[int], bool]:
             if parent is None:
                 prefix_length = 0
                 break
-            if (
-                isinstance(parent, bool)
-                or not isinstance(parent, int)
-                or not 0 <= parent < len(nodes)
-            ):
+            if isinstance(parent, bool) or not isinstance(parent, int) or not 0 <= parent < len(nodes):
                 invalid_parents.add(current)
                 prefix_length = None
                 break
@@ -173,12 +167,36 @@ def _max_branch_tokens(nodes: list) -> tuple[int, list[int], bool]:
     return max((length or 0 for length in path_lengths), default=0), sorted(invalid_parents), parent_cycle
 
 
+def _usage_tokens(node: dict) -> tuple[int, int] | None:
+    """Return provider-reported (sequence, completion) tokens for one sampled node."""
+    usage = node.get("usage")
+    if not isinstance(usage, dict):
+        return None
+    prompt = usage.get("prompt_tokens")
+    completion = usage.get("completion_tokens")
+    cached = usage.get("cached_input_tokens")
+    if (
+        isinstance(prompt, bool)
+        or not isinstance(prompt, int)
+        or prompt < 0
+        or isinstance(completion, bool)
+        or not isinstance(completion, int)
+        or completion <= 0
+        or (cached is not None and (isinstance(cached, bool) or not isinstance(cached, int) or cached < 0))
+    ):
+        return None
+    return prompt + (cached or 0) + completion, completion
+
+
 def _audit_trace(
     trace: dict,
     require_reasoning: bool,
     max_sequence_tokens: int = DEFAULT_MAX_SEQUENCE_TOKENS,
+    require_token_data: bool = False,
     require_logprobs: bool = False,
 ) -> list[str]:
+    # Requiring logprobs necessarily opts into exact token-array validation.
+    require_token_data = require_token_data or require_logprobs
     problems: list[str] = []
     if trace.get("errors"):
         problems.append("trace_has_errors")
@@ -200,6 +218,22 @@ def _audit_trace(
         is_sampled = node.get("sampled") is True
         if is_sampled:
             sampled_node_count += 1
+        if not require_token_data:
+            if is_sampled:
+                if require_reasoning:
+                    message = node.get("message")
+                    reasoning = message.get("reasoning_content") if isinstance(message, dict) else None
+                    if not isinstance(reasoning, str) or not reasoning.strip():
+                        problems.append(f"node_{index}_reasoning_content_not_retained")
+                usage = node.get("usage")
+                usage_tokens = _usage_tokens(node)
+                if usage is None:
+                    problems.append(f"node_{index}_usage_not_retained")
+                elif usage_tokens is None:
+                    problems.append(f"node_{index}_usage_invalid")
+                elif usage_tokens[0] > max_sequence_tokens:
+                    problems.append(f"node_{index}_usage_sequence_tokens={usage_tokens[0]} limit={max_sequence_tokens}")
+            continue
         token_ids = node.get("token_ids")
         mask = node.get("mask")
         logprobs = node.get("logprobs")
@@ -210,7 +244,7 @@ def _audit_trace(
                     problems.append(f"node_{index}_sampled_token_ids_empty")
                 if not mask:
                     problems.append(f"node_{index}_sampled_mask_empty")
-                if not logprobs:
+                if require_logprobs and not logprobs:
                     problems.append(f"node_{index}_sampled_logprobs_empty")
                 if require_reasoning:
                     message = node.get("message")
@@ -250,7 +284,7 @@ def _audit_trace(
                     problems.append(f"node_{index}_reasoning_content_not_retained")
     if sampled_node_count == 0:
         problems.append("no_sampled_assistant_nodes")
-    if sampled_tokens == 0:
+    if require_token_data and sampled_tokens == 0:
         problems.append("no_sampled_tokens")
 
     if not invalid_parents and not parent_cycle:
@@ -270,10 +304,8 @@ def _audit_trace(
     problems.extend(f"node_{index}_invalid_parent" for index in invalid_parents)
     if parent_cycle:
         problems.append("parent_cycle")
-    if max_branch_tokens > max_sequence_tokens:
-        problems.append(
-            f"max_sequence_tokens={max_branch_tokens} limit={max_sequence_tokens}"
-        )
+    if require_token_data and max_branch_tokens > max_sequence_tokens:
+        problems.append(f"max_sequence_tokens={max_branch_tokens} limit={max_sequence_tokens}")
     return problems
 
 
@@ -285,23 +317,15 @@ def _iter_traces(results: Path) -> Iterator[dict]:
                 try:
                     trace = json.loads(line)
                 except json.JSONDecodeError as error:
-                    raise TraceJSONLError(
-                        f"{results}: invalid JSON on line {line_number}: {error.msg}"
-                    ) from None
+                    raise TraceJSONLError(f"{results}: invalid JSON on line {line_number}: {error.msg}") from None
                 if not isinstance(trace, dict):
-                    raise TraceJSONLError(
-                        f"{results}: invalid trace on line {line_number}: expected a JSON object"
-                    )
+                    raise TraceJSONLError(f"{results}: invalid trace on line {line_number}: expected a JSON object")
                 yield trace
 
 
 def _read_expected_slugs(task_file: Path) -> set[str]:
     with task_file.open(encoding="utf-8") as handle:
-        return {
-            line.strip().split("\t", 1)[0]
-            for line in handle
-            if line.strip() and not line.lstrip().startswith("#")
-        }
+        return {line.strip().split("\t", 1)[0] for line in handle if line.strip() and not line.lstrip().startswith("#")}
 
 
 def _summarize_traces(
@@ -313,7 +337,9 @@ def _summarize_traces(
     require_reasoning: bool,
     require_logprobs: bool = False,
     max_sequence_tokens: int = DEFAULT_MAX_SEQUENCE_TOKENS,
+    require_token_data: bool = False,
 ) -> tuple[dict, bool]:
+    require_token_data = require_token_data or require_logprobs
     trace_count = 0
     sampled_tokens = 0
     trace_failure_count = 0
@@ -336,6 +362,7 @@ def _summarize_traces(
             trace,
             require_reasoning,
             max_sequence_tokens,
+            require_token_data=require_token_data,
             require_logprobs=require_logprobs,
         )
         if problems:
@@ -344,11 +371,19 @@ def _summarize_traces(
                 failure_examples.append({"id": trace_id, "task": slug, "problems": problems})
 
         nodes = trace.get("nodes")
-        if isinstance(nodes, list):
+        if isinstance(nodes, list) and require_token_data:
             sampled_tokens += sum(
                 sum(value is True for value in mask)
                 for node in nodes
                 if isinstance(node, dict) and isinstance((mask := node.get("mask")), list)
+            )
+        elif isinstance(nodes, list):
+            sampled_tokens += sum(
+                usage_tokens[1]
+                for node in nodes
+                if isinstance(node, dict)
+                and node.get("sampled") is True
+                and (usage_tokens := _usage_tokens(node)) is not None
             )
 
     global_problems = []
@@ -363,9 +398,7 @@ def _summarize_traces(
         if extra := sorted(observed - expected_slugs):
             global_problems.append(f"unexpected_tasks={extra[:20]!r} count={len(extra)}")
         wrong_multiplicity = {
-            slug: per_task.get(slug, 0)
-            for slug in expected_slugs
-            if per_task.get(slug, 0) != rollouts_per_task
+            slug: per_task.get(slug, 0) for slug in expected_slugs if per_task.get(slug, 0) != rollouts_per_task
         }
         if wrong_multiplicity:
             global_problems.append(
@@ -391,10 +424,19 @@ def main() -> None:
     parser.add_argument("--rollouts-per-task", type=int, default=1)
     parser.add_argument("--require-reasoning", action=argparse.BooleanOptionalAction, default=True)
     parser.add_argument(
+        "--require-token-data",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+        help=(
+            "require exact token IDs and masks instead of the default "
+            "response/reasoning transcript with provider usage"
+        ),
+    )
+    parser.add_argument(
         "--require-logprobs",
         action=argparse.BooleanOptionalAction,
         default=False,
-        help="require one finite logprob per sampled token (default: false)",
+        help="also require one finite logprob per sampled token (implies --require-token-data)",
     )
     parser.add_argument(
         "--max-sequence-tokens",
@@ -421,8 +463,9 @@ def main() -> None:
             expected_count=expected_count,
             rollouts_per_task=args.rollouts_per_task,
             require_reasoning=args.require_reasoning,
-            require_logprobs=args.require_logprobs,
             max_sequence_tokens=args.max_sequence_tokens,
+            require_token_data=args.require_token_data,
+            require_logprobs=args.require_logprobs,
         )
     except TraceJSONLError as error:
         parser.error(str(error))

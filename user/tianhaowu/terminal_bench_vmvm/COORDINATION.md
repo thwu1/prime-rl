@@ -1,6 +1,6 @@
 # VMVM sandbox coordination
 
-Last updated: 2026-09-16 00:24 UTC
+Last updated: 2026-09-16 01:21 UTC
 
 ## First message to the next teammate
 
@@ -30,15 +30,30 @@ this shared branch again.
 
 | Owner | Cluster | Scope | Files | Live resources | State / next gate |
 |---|---|---|---|---|---|
-| Codex session for `tianhaowu` | `fair-cw-use2-3` | Kimi serving; TB4 pass@1; 2,500-trace launch | `user/tianhaowu/terminal_bench_vmvm/**`, `environments/vmvm_tb_v2/**`, `deps/verifiers` gitlink | deployment `tianhaowu-k3-tb16-normal-20260915` (desired 24); coordinator `1731223`; workers `1731225`-`1731240`, `1731470`-`1731477` | All 24 workers are `g3`/`QOS=normal`, currently pending for priority. The old `g3_lowest` deployment was stopped and archived. Wait for at least 16 healthy/0 unhealthy normal-QoS routes and a stable interval, then launch exactly one fresh full TB4 run; retain the remaining workers toward 24-way trace capacity. |
+| Codex session for `tianhaowu` | `fair-cw-use2-3` | Kimi serving; TB4 pass@1; 2,500-trace launch | `user/tianhaowu/terminal_bench_vmvm/**`, `environments/vmvm_tb_v2/**`, `deps/verifiers` gitlink | deployment `tianhaowu-k3-tb16-normal-20260915` (desired 24); coordinator `1731223`; workers `1731225`-`1731240`, `1731470`-`1731477` | All 24 workers are `g3`/`QOS=normal`, currently pending for priority. RAM issue `#279` requires every eval config to omit logprob/token-ID request fields, and the stock image still has silent KDA state corruption without logprobs. Do not launch until a compatible KDA-patched image with piecewise/eager graphs is deployed and every route passes a semantic soak; then run a fresh transcript smoke and exactly one full TB4 run. |
 | Codex session for `tianhaowu` (use2-1) | `fair-cw-use2-1` | Shared-endpoint compatibility and complete model-visible trace audit; Mobius archive staging; no duplicate full eval launch | Kimi eval configs; `audit_traces.py`; `tests/test_audit_traces.py`; `deps/verifiers` chat-token parser/tests gitlink; `COORDINATION.md` | shared deployment `shared-kimi-k3-16w`; smoke `1430917` → `kimi_token_smoke_shared_v5`; terminal diagnostics `1430087`, `1430091`, `1430101`, `1430136`, `1430367` | Logprobs disabled and exact-token parsing fixed in `7938b492e`; audit the smoke for reasoning, assistant content/tool calls, and tool results, then report evidence to the use2-3 owner. |
 
 Add new rows below this line; do not overwrite another owner's row.
 
 ## Live evaluation state
 
-- Sticky/token smoke job `1730918` completed: 2/2 traces, 7,217 sampled
-  tokens, response/tool calls and reasoning retained, zero audit failures.
+- Historical sticky/token smoke job `1730918` completed: 2/2 traces, 7,217
+  sampled tokens, response/tool calls and reasoning retained, zero audit
+  failures. It predates RAM issue `#279`, requested now-forbidden logprobs, and
+  must not be reused as the replacement deployment's readiness gate.
+- RAM issue `#279`: the Kimi Rust frontend crashes with
+  `token_ranks must be >=1` when requests ask for logprobs. The repository-wide
+  workflow invariant is to omit `logprobs`, `prompt_logprobs`, `top_logprobs`,
+  and `return_token_ids` entirely. Production artifacts are
+  response/reasoning/tool transcripts with provider usage for offline
+  retokenization, not directly consumable token-level on-policy samples.
+- Omitting logprobs contains the worker-wide crash but does not cure the
+  independent KDA state-reuse corruption: stock-image workers can still return
+  repeated `@`/blank output with HTTP 200. The server gate is a compatible port
+  of vLLM PR `#51483` plus `PIECEWISE` CUDA graphs (or eager mode), followed by
+  per-route semantic soak; liveness-only `/health` is insufficient. The queued
+  deployment still pins the vulnerable July 27 image, so it must be replaced or
+  updated before evaluation even if its workers become ready.
 - A 64-request inference probe completed 64/64 in 1.21 seconds across all 12
   routes then available. Same-session requests stayed pinned to one route.
 - Full TB4 job `1731157` was canceled after 2m54s with no result rows because
@@ -62,7 +77,7 @@ Add new rows below this line; do not overwrite another owner's row.
 
 | Owner | Result | Evidence |
 |---|---|---|
-| Codex session for `tianhaowu` | VMVM adapter, transport hardening, Compose support, durable eval snapshots/resume, Kimi token/reasoning capture, LiteLLM session affinity | See `HANDOFF.md`; pipeline tests 16/16 and focused verifier tests 30/30 passed. |
+| Codex session for `tianhaowu` | VMVM adapter, transport hardening, Compose support, durable eval snapshots/resume, response/reasoning capture, LiteLLM session affinity | See `HANDOFF.md`; pipeline tests 16/16 and focused verifier tests 30/30 passed. |
 | Codex session for `tianhaowu` | Mobius oracle exceeded 90% | Job `1725524`: 2,523/2,538 valid (99.408983%). |
 | Codex session for `tianhaowu` | All 42 repaired Mobius fixtures revalidated | Jobs `1731198` and `1731363`: final preserved summary 42/42 valid (100%). |
 | Codex session for `tianhaowu` | TB4 oracle validation | Job `1725604`: 63 CPU-supported valid and 3 explicit GPU-unsupported tasks. |

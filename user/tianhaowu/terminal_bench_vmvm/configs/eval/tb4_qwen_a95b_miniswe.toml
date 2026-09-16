@@ -22,9 +22,6 @@ temperature = 0.7
 top_p = 0.95
 top_k = 20
 max_tokens = 131072
-logprobs = true
-top_logprobs = 0
-return_token_ids = true
 chat_template_kwargs = { enable_thinking = true, preserve_thinking = true }
 
 [taskset]

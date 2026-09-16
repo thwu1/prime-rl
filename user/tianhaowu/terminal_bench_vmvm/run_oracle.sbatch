@@ -6,8 +6,8 @@
 #SBATCH --time=2-00:00:00
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
-#SBATCH --cpus-per-task=64
-#SBATCH --mem=64G
+#SBATCH --cpus-per-task=8
+#SBATCH --mem=16G
 #SBATCH --no-requeue
 #SBATCH --output=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/logs/oracle_%j.log
 #SBATCH --error=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/logs/oracle_%j.log

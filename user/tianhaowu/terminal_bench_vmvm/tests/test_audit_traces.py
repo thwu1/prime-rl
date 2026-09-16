@@ -18,11 +18,34 @@ def _trace(trace_id: str, slug: str, *, valid: bool = True) -> dict:
             "reasoning_content": "reasoning",
             "tool_calls": None,
         },
+        "usage": {"prompt_tokens": 100, "completion_tokens": 2},
     }
     return {
         "id": trace_id,
         "task": {"slug": slug},
         "nodes": [node],
+    }
+
+
+def _transcript_trace(trace_id: str = "text", slug: str = "text-task") -> dict:
+    return {
+        "id": trace_id,
+        "task": {"slug": slug},
+        "nodes": [
+            {
+                "parent": None,
+                "sampled": True,
+                "token_ids": [],
+                "mask": [],
+                "logprobs": [],
+                "message": {
+                    "role": "assistant",
+                    "content": "retained response",
+                    "reasoning_content": "retained reasoning",
+                },
+                "usage": {"prompt_tokens": 100, "completion_tokens": 20},
+            }
+        ],
     }
 
 
@@ -52,6 +75,7 @@ def test_summarize_traces_preserves_validation_report() -> None:
         expected_count=4,
         rollouts_per_task=1,
         require_reasoning=True,
+        require_token_data=True,
     )
 
     assert failed is True
@@ -86,6 +110,7 @@ def test_summarize_traces_retains_only_emitted_failure_examples() -> None:
         expected_count=None,
         rollouts_per_task=1,
         require_reasoning=True,
+        require_token_data=True,
     )
 
     assert failed is True
@@ -101,7 +126,7 @@ def test_audit_trace_validates_token_array_values() -> None:
         logprobs=[float("nan")],
     )
 
-    assert _audit_trace(trace, require_reasoning=True) == [
+    assert _audit_trace(trace, require_reasoning=True, require_token_data=True) == [
         "node_0_token_ids_not_ints",
         "node_0_mask_not_bools",
         "node_0_logprobs_not_finite_numbers",
@@ -126,16 +151,19 @@ def test_audit_trace_requires_complete_sampled_nodes_and_reasoning() -> None:
         }
     )
 
-    assert _audit_trace(trace, require_reasoning=True) == [
+    assert _audit_trace(trace, require_reasoning=True, require_token_data=True) == [
+        "node_1_assistant_payload_empty",
         "node_1_sampled_token_ids_empty",
         "node_1_sampled_mask_empty",
         "node_1_reasoning_content_not_retained",
     ]
-    assert _audit_trace(trace, require_reasoning=False) == [
+    assert _audit_trace(trace, require_reasoning=False, require_token_data=True) == [
+        "node_1_assistant_payload_empty",
         "node_1_sampled_token_ids_empty",
         "node_1_sampled_mask_empty",
     ]
     assert _audit_trace(trace, require_reasoning=False, require_logprobs=True) == [
+        "node_1_assistant_payload_empty",
         "node_1_sampled_token_ids_empty",
         "node_1_sampled_mask_empty",
         "node_1_sampled_logprobs_empty",
@@ -221,10 +249,21 @@ def test_audit_trace_limits_each_reconstructed_branch() -> None:
         },
     ]
 
-    assert _audit_trace(trace, require_reasoning=True, max_sequence_tokens=11) == []
-    assert _audit_trace(trace, require_reasoning=True, max_sequence_tokens=10) == [
-        "max_sequence_tokens=11 limit=10"
-    ]
+    assert (
+        _audit_trace(
+            trace,
+            require_reasoning=True,
+            max_sequence_tokens=11,
+            require_token_data=True,
+        )
+        == []
+    )
+    assert _audit_trace(
+        trace,
+        require_reasoning=True,
+        max_sequence_tokens=10,
+        require_token_data=True,
+    ) == ["max_sequence_tokens=11 limit=10"]
 
 
 def test_audit_trace_rejects_invalid_parent_graphs() -> None:
@@ -258,7 +297,7 @@ def test_audit_trace_rejects_invalid_parent_graphs() -> None:
         ]
     )
 
-    assert _audit_trace(trace, require_reasoning=True) == [
+    assert _audit_trace(trace, require_reasoning=True, require_token_data=True) == [
         "node_3_invalid_parent",
         "parent_cycle",
     ]
@@ -287,7 +326,72 @@ def test_audit_trace_handles_deep_parent_chain_without_recursion() -> None:
         for index in range(1_500)
     ]
 
-    assert _audit_trace(trace, require_reasoning=True, max_sequence_tokens=1_500) == []
+    assert (
+        _audit_trace(
+            trace,
+            require_reasoning=True,
+            max_sequence_tokens=1_500,
+            require_token_data=True,
+        )
+        == []
+    )
+
+
+def test_audit_trace_defaults_to_response_reasoning_and_usage() -> None:
+    trace = _transcript_trace()
+
+    assert _audit_trace(trace, require_reasoning=True) == []
+    summary, failed = _summarize_traces(
+        [trace],
+        expected_slugs={"text-task"},
+        expected_count=1,
+        rollouts_per_task=1,
+        require_reasoning=True,
+    )
+
+    assert failed is False
+    assert summary["sampled_tokens"] == 20
+
+
+def test_audit_trace_transcript_mode_rejects_missing_payload_and_usage() -> None:
+    trace = _transcript_trace()
+    trace["nodes"][0]["message"] = {
+        "role": "assistant",
+        "content": " ",
+        "reasoning_content": " ",
+    }
+    trace["nodes"][0]["usage"] = None
+
+    assert _audit_trace(trace, require_reasoning=True) == [
+        "node_0_assistant_payload_empty",
+        "node_0_reasoning_content_not_retained",
+        "node_0_usage_not_retained",
+    ]
+
+
+def test_audit_trace_transcript_mode_validates_usage_cap() -> None:
+    trace = _transcript_trace()
+    trace["nodes"][0]["usage"] = {
+        "prompt_tokens": 5,
+        "cached_input_tokens": 4,
+        "completion_tokens": 2,
+    }
+
+    assert _audit_trace(trace, require_reasoning=True, max_sequence_tokens=10) == [
+        "node_0_usage_sequence_tokens=11 limit=10"
+    ]
+    trace["nodes"][0]["usage"]["prompt_tokens"] = True
+    assert _audit_trace(trace, require_reasoning=True) == ["node_0_usage_invalid"]
+
+
+def test_audit_trace_token_data_is_explicit_opt_in() -> None:
+    trace = _transcript_trace()
+
+    assert _audit_trace(trace, require_reasoning=True, require_token_data=True) == [
+        "node_0_sampled_token_ids_empty",
+        "node_0_sampled_mask_empty",
+        "no_sampled_tokens",
+    ]
 
 
 def test_main_reports_malformed_json_line_without_traceback(
