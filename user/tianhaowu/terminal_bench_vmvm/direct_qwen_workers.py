@@ -239,13 +239,14 @@ def validate_eval_config(
         raise DirectWorkerError("eval_request_denylist_mismatch")
     if client.get("timeout") != 7_200:
         raise DirectWorkerError("eval_client_timeout_mismatch")
+    # vllm-router 0.1.26 implements ``max_concurrent_requests`` with a
+    # replenishing token bucket, not a strict in-flight semaphore.  Keep the
+    # one shared HTTP/1.1 client's connection pool at the worker count so 64
+    # active rollouts can queue locally without over-driving the 16 backends.
+    expected_provider_concurrency = min(max_concurrent, EXPECTED_ENDPOINTS)
     for field in ("max_connections", "max_keepalive_connections"):
         value = client.get(field)
-        if (
-            isinstance(value, bool)
-            or not isinstance(value, int)
-            or not max_concurrent <= value <= MAX_DIRECT_CONCURRENCY
-        ):
+        if isinstance(value, bool) or not isinstance(value, int) or value != expected_provider_concurrency:
             raise DirectWorkerError(f"eval_client_{field}_invalid")
 
     sampling = config.get("sampling")

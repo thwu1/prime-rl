@@ -132,8 +132,8 @@ def test_mobius_qwen_production_retention_and_concurrency() -> None:
     assert config["max_total_tokens"] == 262_144
     assert config["sampling"]["max_tokens"] == 32_768
     assert config["retain_traces"] is False
-    assert config["client"]["max_connections"] == 64
-    assert config["client"]["max_keepalive_connections"] == 64
+    assert config["client"]["max_connections"] == 16
+    assert config["client"]["max_keepalive_connections"] == 16
     taskset = config["taskset"]
     assert taskset["dataset_revision"] == "ac1f30b9ac0e6c6a20a9fe423900d9ed28a6d366"
     assert taskset["task_file"] == ("user/tianhaowu/terminal_bench_vmvm/configs/eval/mobius_valid_tasks_2500.txt")
@@ -186,8 +186,9 @@ def test_eval_configs_pin_approved_tasks_and_runtime_contract(
     }
     maximum_concurrency = 64 if filename == "mobius_qwen_a95b_2500.toml" else 8
     assert config["max_concurrent"] == config["multiplex"] <= maximum_concurrency
-    assert config["client"]["max_connections"] == config["max_concurrent"]
-    assert config["client"]["max_keepalive_connections"] == config["max_concurrent"]
+    expected_http_concurrency = 16 if filename == "mobius_qwen_a95b_2500.toml" else config["max_concurrent"]
+    assert config["client"]["max_connections"] == expected_http_concurrency
+    assert config["client"]["max_keepalive_connections"] == expected_http_concurrency
     assert config["client"]["timeout"] == 7_200
     assert config["harness"]["runtime"]["type"] == "vmvm"
     assert config["timeout"]["setup"] >= 3_600

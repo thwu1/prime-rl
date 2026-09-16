@@ -136,6 +136,25 @@ def test_approved_qwen_config_preserves_direct_fallback_contract(tmp_path: Path)
     )
 
 
+@pytest.mark.parametrize("field", ["max_connections", "max_keepalive_connections"])
+def test_approved_qwen_config_requires_exact_worker_bounded_http_pool(tmp_path: Path, field: str) -> None:
+    config = _approved_config(tmp_path)
+    config.write_text(config.read_text().replace(f"{field} = 2", f"{field} = 3"))
+
+    with pytest.raises(direct.DirectWorkerError, match=f"eval_client_{field}_invalid"):
+        direct.validate_eval_config(config)
+
+
+def test_production_qwen_config_queues_64_rollouts_behind_16_http_connections() -> None:
+    config_path = Path(__file__).parents[1] / "configs" / "eval" / "mobius_qwen_a95b_2500.toml"
+    config = tomllib.loads(config_path.read_text())
+
+    assert config["max_concurrent"] == 64
+    assert config["multiplex"] == 64
+    assert config["client"]["max_connections"] == direct.EXPECTED_ENDPOINTS == 16
+    assert config["client"]["max_keepalive_connections"] == direct.EXPECTED_ENDPOINTS
+
+
 def test_approved_qwen_config_rejects_independent_approval_mismatch(tmp_path: Path) -> None:
     config = _approved_config(tmp_path)
     different_allowlist = tmp_path / "external_approval.txt"
