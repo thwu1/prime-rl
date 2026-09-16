@@ -31,6 +31,7 @@ this shared branch again.
 | Owner | Cluster | Scope | Files | Live resources | State / next gate |
 |---|---|---|---|---|---|
 | Codex session for `tianhaowu` | `fair-cw-use2-3` | Kimi serving; TB4 pass@1; 2,500-trace launch | `user/tianhaowu/terminal_bench_vmvm/**`, `environments/vmvm_tb_v2/**`, `deps/verifiers` gitlink | deployment `tianhaowu-k3-tb24-isolated-20260916`; coordinator `1732529`; endpoint jobs `1732531`-`1732554`; 0/24 ready and all workers pending at 03:04 UTC | The user explicitly approved the stock-image fallback. It uses 24 normal-QoS endpoints with `max-num-seqs=1`, Python frontend, PIECEWISE graphs, no logprob/token-ID request fields, and sticky routing. Require model-specific health 24/0 and `probe_inference_routes.py`, then run a fresh model-I/O smoke and exactly one full TB4 run. |
+| Codex session for `tianhaowu` | `fair-cw-use2-1` | Detect and document semantic KDA corruption found in completed model-I/O smoke; no serving or eval mutations | `user/tianhaowu/terminal_bench_vmvm/{audit_traces.py,probe_inference_routes.py,tests/test_audit_traces.py,tests/test_probe_inference_routes.py,COORDINATION.md}` | completed diagnostic job `1431481` (read-only evidence only) | Add fail-closed whitespace-separated repeated-`@`/`!` detection, regression tests, and correct the prior structural-only smoke result. Coordinate the same predicate with the use2-3 readiness gate; do not launch or alter benchmark/deployment jobs. |
 
 Add new rows below this line; do not overwrite another owner's row.
 
