@@ -1,6 +1,6 @@
 # VMVM sandbox coordination
 
-Last updated: 2026-09-16 00:12 UTC
+Last updated: 2026-09-16 00:24 UTC
 
 ## First message to the next teammate
 
@@ -30,7 +30,7 @@ this shared branch again.
 
 | Owner | Cluster | Scope | Files | Live resources | State / next gate |
 |---|---|---|---|---|---|
-| Codex session for `tianhaowu` | `fair-cw-use2-3` | Kimi serving; TB4 pass@1; 2,500-trace launch | `user/tianhaowu/terminal_bench_vmvm/**`, `environments/vmvm_tb_v2/**`, `deps/verifiers` gitlink | replacement deployment `tianhaowu-k3-tb16-normal-20260915`; coordinator `1731223`; workers `1731225`-`1731240` | All 16 replacement workers are `g3`/`QOS=normal`, currently pending for priority. The old `g3_lowest` deployment was stopped and archived. Wait for at least 16 healthy/0 unhealthy normal-QoS routes and a stable interval, then launch exactly one fresh full TB4 run. |
+| Codex session for `tianhaowu` | `fair-cw-use2-3` | Kimi serving; TB4 pass@1; 2,500-trace launch | `user/tianhaowu/terminal_bench_vmvm/**`, `environments/vmvm_tb_v2/**`, `deps/verifiers` gitlink | deployment `tianhaowu-k3-tb16-normal-20260915` (desired 24); coordinator `1731223`; workers `1731225`-`1731240`, `1731470`-`1731477` | All 24 workers are `g3`/`QOS=normal`, currently pending for priority. The old `g3_lowest` deployment was stopped and archived. Wait for at least 16 healthy/0 unhealthy normal-QoS routes and a stable interval, then launch exactly one fresh full TB4 run; retain the remaining workers toward 24-way trace capacity. |
 
 Add new rows below this line; do not overwrite another owner's row.
 
@@ -51,8 +51,9 @@ Add new rows below this line; do not overwrite another owner's row.
   retry `1731363` reran the sole transient timeout with doubled timeout and
   resources. The preserved 42-task summary is now 42/42 valid (100%).
 - Replacement Kimi deployment `tianhaowu-k3-tb16-normal-20260915` has a
-  CPU-only coordinator (`1731223`) and 16 endpoint jobs (`1731225`-`1731240`),
-  all verified by Slurm as `partition=g3`, `qos=normal`, 16 GPUs per endpoint.
+  CPU-only coordinator (`1731223`) and 24 endpoint jobs (`1731225`-`1731240`,
+  `1731470`-`1731477`), all verified by Slurm as `partition=g3`, `qos=normal`,
+  16 GPUs per endpoint (384 GPUs total when fully ready).
   The older `g3_lowest` deployment was stopped and archived at 00:03 UTC; its
   remaining workers were canceled and are releasing their nodes.
 
