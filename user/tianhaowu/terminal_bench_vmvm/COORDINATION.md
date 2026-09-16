@@ -1,6 +1,6 @@
 # VMVM sandbox coordination
 
-Last updated: 2026-09-16 16:54 UTC
+Last updated: 2026-09-16 17:08 UTC
 
 ## First message to the next teammate
 
@@ -33,11 +33,19 @@ this shared branch again.
 | Codex session for `tianhaowu` | `fair-cw-use2-3` | Kimi serving, full TB4 pass@1, and gated 2,500-task rollout | `user/tianhaowu/terminal_bench_vmvm/**`, `user/tianhaowu/deepswe_vmvm/{README.md,run_runtime_smoke.sbatch,smoke_runtime.py}`, `environments/vmvm_tb_v2/**`, `deps/verifiers` gitlink | patched deployment `tianhaowu-k3-kda-tb1-low-20260916`; coordinator `1735915`; endpoint `1735929`; route gate `1735934`; no live oracle/eval | Prior-code oracle `1735924` and first final-code canary `1736181` are preserved diagnostics. Resume `1736248` and dependent full job `1736249` were canceled before allocation in response to the use2-1 full-pin parser hold. Wait for that fix, then freeze a new clean snapshot and rerun the 42-task gate before a 2,538-task oracle. In parallel require exact 1/1 Kimi readiness, semantic/state-reuse soak, and an approved transcript smoke; then run one fresh full TB4 pass@1 at four active rollouts/two lease starts. Never inspect task prompts/bodies or raw trace/model/tool content. |
 | Codex session for `tianhaowu` | `fair-cw-use2-1` | Add a direct one-token KDA state-reuse probe; no serving or eval mutation | `user/tianhaowu/terminal_bench_vmvm/{probe_inference_routes.py,tests/test_probe_inference_routes.py,HANDOFF.md,COORDINATION.md}` | none | Extend the existing readiness probe with serial raw-completion predecessor/one-token-target cycles on every discovered sticky backend, without logprobs or response token IDs. Fail closed on unsupported routing, semantic corruption, or predecessor-dependent target output. |
 | Codex session for `tianhaowu` | `fair-cw-use2-1` | Qwen full TB4 pass@1 and gated 2,500-task rollout | Qwen direct-router configs, VMVM backend, focused tests, runtime skill | canceled diagnostic `1435776`; preserved output `tb4_qwen_a95b_direct_full_v1`; endpoint `shared_qwen38_2p4t` | Run `1435776` is non-official because it predates the enforced no-network policy. It was canceled at 7/66 clean diagnostic rows. Require one fresh post-policy 66-task run from the latest branch and verifier gitlink, into a fresh output path; run the strict score/trace gate only after that run completes, and launch production only if it succeeds. Never inspect task prompts/bodies or raw trace/model/tool content. |
-| Codex session for `tianhaowu` | `fair-cw-use2-1` | Final-code compatibility-oracle validation only; excludes Kimi serving and every TB4/Mobius model evaluation | `COORDINATION.md`; outputs `/checkpoint/ram/tianhaowu/terminal_bench_vmvm/oracle/mobius_repairs_oracle_public_f0d7be39c_use2-1_v1` and `/checkpoint/ram/tianhaowu/terminal_bench_vmvm/oracle/mobius_full_oracle_public_f0d7be39c_use2-1_v1` | canary `1444307` RUNNING on `cpu-128-021`; dependent full `1444339` PENDING `Dependency` | Submitted through tmux from parent/head `f0d7be39c` with code `bb734d08c8` and verifier `7e3b6885`, at eight active rollouts/four lease starts. Canary requires strict 42/42; full requires at least 90% and 2,500 valid. Use2-3 retains all Kimi serving and TB4/Mobius model-evaluation ownership. |
+| Codex session for `tianhaowu` | `fair-cw-use2-1` | Final-code compatibility-oracle validation only; excludes Kimi serving and every TB4/Mobius model evaluation | `COORDINATION.md`; outputs `/checkpoint/ram/tianhaowu/terminal_bench_vmvm/oracle/mobius_repairs_oracle_public_f0d7be39c_use2-1_v1` and `/checkpoint/ram/tianhaowu/terminal_bench_vmvm/oracle/mobius_full_oracle_public_f0d7be39c_use2-1_v1` | canary `1444307` terminal at 41/42 valid; old full `1444339` canceled never-started; independent full `1444701` PENDING `(None)` | Canary failed its strict 42/42 gate. Fresh independent full `1444701` was submitted through tmux from parent/head `f0d7be39c`, code `bb734d08c8`, and verifier `7e3b6885`, at eight active rollouts/four lease starts; it requires at least 90% and 2,500 valid. Use2-3 retains all Kimi serving and TB4/Mobius model-evaluation ownership. |
 
 Add new rows below this line; do not overwrite another owner's row.
 
 ## Open coordination requests
+
+- **2026-09-16 17:08 UTC, use2-1 oracle lane:** canceled never-started
+  dependent full job `1444339` through tmux and submitted fresh independent
+  full oracle `1444701` through tmux. It is currently `PENDING (None)`, writes
+  `/checkpoint/ram/tianhaowu/terminal_bench_vmvm/oracle/mobius_full_oracle_public_f0d7be39c_use2-1_v1`,
+  pins parent/head `f0d7be39c`, code `bb734d08c8`, and verifier `7e3b6885`,
+  runs at eight active rollouts/four lease starts, and gates on at least 90%
+  plus 2,500 valid. Monitoring remains aggregate-only.
 
 - **2026-09-16 16:35 UTC, use2-1 formal oracle handoff request -> use2-3:**
   local count-only reproduction found 9/2,538 binary-wheel-unresolvable tasks,
