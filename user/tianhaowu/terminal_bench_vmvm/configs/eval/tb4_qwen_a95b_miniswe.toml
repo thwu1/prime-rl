@@ -30,6 +30,8 @@ chat_template_kwargs = { enable_thinking = true, preserve_thinking = true }
 [taskset]
 id = "terminal-bench-vmvm"
 dataset_dir = "/checkpoint/ram/tianhaowu/terminal_bench_vmvm/datasets/tb4-prebuilt-v4.0.0/tasks"
+task_file = "user/tianhaowu/terminal_bench_vmvm/configs/eval/tb4_qwen_a95b_miniswe.tasks.txt"
+task_file_sha256 = "9485011ac4a953f4a4a1c7c5e78550b6d7de6f760a3859dac15a3610cf4ad892"
 image_prefix = "vmvm-registry.fbinfra.net/terminal_bench"
 image_tag = "tb4-452bf305c6da"
 ignore_dockerfile = true

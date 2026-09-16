@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import tomllib
 from pathlib import Path
 
 import direct_qwen_workers as direct
@@ -43,15 +44,15 @@ def _approved_config(tmp_path: Path) -> Path:
     task_file = tmp_path / "approved_tasks.txt"
     task_file.write_text("approved-fixture-a\napproved-fixture-b\n")
     task_hash = hashlib.sha256(task_file.read_bytes()).hexdigest()
-    text = source.read_text().replace('tasks = ["ctr-optimization", "vllm-deepseek-streaming"]\n', "")
+    source_config = tomllib.loads(source.read_text())
+    source_task_file = source_config["taskset"]["task_file"]
+    source_task_hash = source_config["taskset"]["task_file_sha256"]
+    text = source.read_text()
     text = text.replace(
-        "connect_timeout = 30\n",
-        "connect_timeout = 30\nmax_connections = 2\nmax_keepalive_connections = 2\n",
-    )
-    text = text.replace(
-        'dataset_dir = "/checkpoint/ram/tianhaowu/terminal_bench_vmvm/datasets/tb4-prebuilt-v4.0.0/tasks"',
-        'dataset_dir = "/checkpoint/ram/tianhaowu/terminal_bench_vmvm/datasets/tb4-prebuilt-v4.0.0/tasks"\n'
-        f'task_file = "{task_file}"\n'
+        f'task_file = "{source_task_file}"',
+        f'task_file = "{task_file}"',
+    ).replace(
+        f'task_file_sha256 = "{source_task_hash}"',
         f'task_file_sha256 = "{task_hash}"',
     )
     config = tmp_path / "approved.toml"
@@ -85,13 +86,31 @@ def test_load_workers_rejects_metadata_change(tmp_path: Path) -> None:
         )
 
 
-def test_unfiltered_qwen_configs_cannot_use_direct_fallback() -> None:
+@pytest.mark.parametrize(
+    "filename",
+    [
+        "tb4_qwen_token_smoke.toml",
+        "tb4_qwen_a95b_miniswe.toml",
+        "mobius_qwen_a95b_2500.toml",
+    ],
+)
+def test_approved_qwen_configs_can_use_direct_fallback(filename: str, monkeypatch: pytest.MonkeyPatch) -> None:
     config_dir = Path(__file__).parents[1] / "configs" / "eval"
+    repository_root = config_dir.parents[4]
+    config_path = config_dir / filename
+    config = tomllib.loads(config_path.read_text())
+    task_file = repository_root / config["taskset"]["task_file"]
+    task_hash = config["taskset"]["task_file_sha256"]
+    monkeypatch.chdir(repository_root)
 
-    with pytest.raises(direct.DirectWorkerError, match="inline_tasks_forbidden"):
-        direct.validate_eval_config(config_dir / "tb4_qwen_token_smoke.toml")
-    with pytest.raises(direct.DirectWorkerError, match="approved_task_file_missing"):
-        direct.validate_eval_config(config_dir / "tb4_qwen_a95b_miniswe.toml")
+    assert (
+        direct.validate_eval_config(
+            config_path,
+            approved_task_file=task_file,
+            approved_task_file_sha256=task_hash,
+        )
+        == task_hash
+    )
 
 
 def test_empty_inline_task_selection_is_still_forbidden(tmp_path: Path) -> None:

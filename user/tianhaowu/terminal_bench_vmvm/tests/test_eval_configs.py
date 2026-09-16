@@ -129,12 +129,13 @@ def test_mobius_qwen_production_retention_and_concurrency() -> None:
 
     assert config["num_tasks"] == 2_500
     assert config["num_rollouts"] == 1
-    assert config["max_concurrent"] == 16
+    assert config["max_concurrent"] == 8
+    assert config["multiplex"] == 8
     assert config["max_total_tokens"] == 262_144
     assert config["sampling"]["max_tokens"] == 32_768
     assert config["retain_traces"] is False
-    assert config["client"]["max_connections"] >= config["max_concurrent"]
-    assert config["client"]["max_keepalive_connections"] >= config["max_concurrent"]
+    assert config["client"]["max_connections"] == 8
+    assert config["client"]["max_keepalive_connections"] == 8
     taskset = config["taskset"]
     assert taskset["dataset_revision"] == "ac1f30b9ac0e6c6a20a9fe423900d9ed28a6d366"
     assert taskset["task_file_sha256"] == (
@@ -145,13 +146,69 @@ def test_mobius_qwen_production_retention_and_concurrency() -> None:
     )
 
 
-def test_qwen_tb4_uses_deployed_output_limit_and_256k_context() -> None:
-    config = tomllib.loads((CONFIG_DIR / "tb4_qwen_a95b_miniswe.toml").read_text())
+@pytest.mark.parametrize(
+    ("filename", "expected_count", "expected_sha256"),
+    [
+        (
+            "tb4_qwen_token_smoke.toml",
+            2,
+            "4ae515a77f33746ecb598ab6c670612265bd1ef726eb6ca7f16cc81f5e191c25",
+        ),
+        (
+            "tb4_qwen_a95b_miniswe.toml",
+            66,
+            "9485011ac4a953f4a4a1c7c5e78550b6d7de6f760a3859dac15a3610cf4ad892",
+        ),
+        (
+            "mobius_qwen_a95b_2500.toml",
+            2_500,
+            "d33ef93f9b77ee91a41600934e677ba37988d3b4509e4da05ff1fcf7b4bc3a4b",
+        ),
+    ],
+)
+def test_qwen_direct_configs_pin_approved_tasks_and_runtime_contract(
+    filename: str, expected_count: int, expected_sha256: str
+) -> None:
+    config = tomllib.loads((CONFIG_DIR / filename).read_text())
 
     assert config["max_input_tokens"] == 262_144
     assert config["max_output_tokens"] == 262_144
     assert config["max_total_tokens"] == 262_144
     assert config["sampling"]["max_tokens"] == 32_768
+    assert config["sampling"]["chat_template_kwargs"] == {
+        "enable_thinking": True,
+        "preserve_thinking": True,
+    }
+    assert config["max_concurrent"] == config["multiplex"] <= 8
+    assert config["client"]["max_connections"] == config["max_concurrent"]
+    assert config["client"]["max_keepalive_connections"] == config["max_concurrent"]
+    assert config["client"]["timeout"] == 7_200
+    assert config["harness"]["runtime"]["type"] == "vmvm"
+    assert config["timeout"]["setup"] >= 3_600
+    assert config["timeout"]["rollout"] >= 28_800
+    assert config["timeout"]["finalize"] >= 3_600
+    assert config["timeout"]["scoring"] >= 21_600
+
+    taskset = config["taskset"]
+    assert "tasks" not in taskset
+    assert taskset["task_file_sha256"] == expected_sha256
+    task_file = CONFIG_DIR.parents[4] / taskset["task_file"]
+    task_bytes = task_file.read_bytes()
+    tasks = task_bytes.decode().splitlines()
+    assert hashlib.sha256(task_bytes).hexdigest() == expected_sha256
+    assert len(tasks) == len(set(tasks)) == expected_count
+    if filename == "tb4_qwen_token_smoke.toml":
+        assert tasks == ["ctr-optimization", "vllm-deepseek-streaming"]
+    elif filename == "tb4_qwen_a95b_miniswe.toml":
+        shard_tasks = {
+            task
+            for shard in (
+                "tb4_kimi_k3_direct_a.tasks.txt",
+                "tb4_kimi_k3_direct_b.tasks.txt",
+            )
+            for task in (CONFIG_DIR / shard).read_text().splitlines()
+        }
+        assert set(tasks) == shard_tasks
 
 
 @pytest.mark.parametrize(

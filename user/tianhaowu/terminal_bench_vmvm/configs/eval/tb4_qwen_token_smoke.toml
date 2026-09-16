@@ -4,8 +4,8 @@ num_rollouts = 1
 max_concurrent = 2
 max_turns = 8
 max_input_tokens = 262144
-max_output_tokens = 32768
-max_total_tokens = 65536
+max_output_tokens = 262144
+max_total_tokens = 262144
 multiplex = 2
 rich = false
 
@@ -17,18 +17,21 @@ base_url = "http://127.0.0.1:8000/v1"
 api_key_var = "OPENAI_API_KEY"
 timeout = 7200
 connect_timeout = 30
+max_connections = 2
+max_keepalive_connections = 2
 
 [sampling]
 temperature = 0.7
 top_p = 0.95
 top_k = 20
-max_tokens = 4096
+max_tokens = 32768
 chat_template_kwargs = { enable_thinking = true, preserve_thinking = true }
 
 [taskset]
 id = "terminal-bench-vmvm"
 dataset_dir = "/checkpoint/ram/tianhaowu/terminal_bench_vmvm/datasets/tb4-prebuilt-v4.0.0/tasks"
-tasks = ["ctr-optimization", "vllm-deepseek-streaming"]
+task_file = "user/tianhaowu/terminal_bench_vmvm/configs/eval/tb4_qwen_token_smoke.tasks.txt"
+task_file_sha256 = "4ae515a77f33746ecb598ab6c670612265bd1ef726eb6ca7f16cc81f5e191c25"
 image_prefix = "vmvm-registry.fbinfra.net/terminal_bench"
 image_tag = "tb4-452bf305c6da"
 ignore_dockerfile = true

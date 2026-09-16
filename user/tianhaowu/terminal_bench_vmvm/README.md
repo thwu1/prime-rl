@@ -300,15 +300,30 @@ at eight or less. It also forces `VACLI_MAX_CONCURRENT_LEASES=8`; do not run it
 alongside another VMVM evaluation if that would raise aggregate active VMVM
 concurrency above eight.
 
-Do not launch either the smoke or the full evaluation until an externally
-approved non-cyber task allowlist is available. The direct launcher rejects the
-current unfiltered configs: an operator must supply the independent
-`DIRECT_QWEN_APPROVED_TASK_FILE` and
-`DIRECT_QWEN_APPROVED_TASK_FILE_SHA256` approval inputs, and `EVAL_CONFIG` must
-select exactly that hash using `task_file` plus `task_file_sha256` while
-omitting inline `tasks`. The launcher hashes both files without printing or
-otherwise exposing their contents. No bypass or example launch command is
-intentionally provided while those approval inputs are unavailable.
+The full 66-task TB4 set and 2,500-task oracle-valid Mobius production set,
+including all task categories, are approved for the direct Qwen route. The
+checked-in launch inputs are:
+
+- `tb4_qwen_token_smoke.toml`: two tasks from
+  `tb4_qwen_token_smoke.tasks.txt`, SHA-256
+  `4ae515a77f33746ecb598ab6c670612265bd1ef726eb6ca7f16cc81f5e191c25`;
+- `tb4_qwen_a95b_miniswe.toml`: all 66 TB4 tasks from
+  `tb4_qwen_a95b_miniswe.tasks.txt`, SHA-256
+  `9485011ac4a953f4a4a1c7c5e78550b6d7de6f760a3859dac15a3610cf4ad892`;
+- `mobius_qwen_a95b_2500.toml`: the 2,500 oracle-valid Mobius tasks from
+  `mobius_valid_tasks_2500.txt`, SHA-256
+  `d33ef93f9b77ee91a41600934e677ba37988d3b4509e4da05ff1fcf7b4bc3a4b`.
+
+The smoke uses two slots; both production configs use eight. Every config
+matches its HTTP pools and multiplexing to that concurrency, retains captured
+model I/O and thinking content, permits 32,768 output tokens per model call,
+and keeps the 262,144-token full-context cap plus the extended VMVM timeouts.
+The direct launcher still requires the selected manifest path and exact digest
+to be supplied independently through `DIRECT_QWEN_APPROVED_TASK_FILE` and
+`DIRECT_QWEN_APPROVED_TASK_FILE_SHA256`. `EVAL_CONFIG` must select that same
+hash using `task_file` plus `task_file_sha256` while omitting inline `tasks`.
+The launcher hashes both files without printing or otherwise exposing their
+contents.
 
 After an approved run is terminal, first invoke `direct_qwen_workers.py
 --audit-run-dir RUN_DIR`; it validates the non-secret worker manifest, saved
