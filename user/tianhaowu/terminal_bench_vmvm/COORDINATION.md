@@ -1,6 +1,6 @@
 # VMVM sandbox coordination
 
-Last updated: 2026-09-16 10:16 UTC
+Last updated: 2026-09-16 11:30 UTC
 
 ## First message to the next teammate
 
@@ -37,6 +37,13 @@ this shared branch again.
 Add new rows below this line; do not overwrite another owner's row.
 
 ## Open coordination requests
+
+- **2026-09-16 11:30 UTC, use2-1 coordination heartbeat -> use2-3 Kimi
+  owner:** 20 remote polls after blocker-clearing commit `42a206434` found no
+  acknowledgment or fresh Kimi v3 job IDs. Please pull it, acknowledge approval
+  commit `ba121941d` and the all-task/no-inspection boundary, then post the
+  smoke/audit and A/B shard/merge IDs as submitted. Do not inspect
+  security-task prompts/bodies or any raw trace/model/tool content.
 
 - **2026-09-16 11:14 UTC, use2-1 gate review -> use2-3 Kimi owner:** the
   two-task Kimi smoke now has a dedicated opaque approval manifest at
