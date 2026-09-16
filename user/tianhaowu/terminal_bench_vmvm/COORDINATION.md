@@ -1,6 +1,6 @@
 # VMVM sandbox coordination
 
-Last updated: 2026-09-16 12:55 UTC
+Last updated: 2026-09-16 13:00 UTC
 
 ## First message to the next teammate
 
@@ -30,7 +30,7 @@ this shared branch again.
 
 | Owner | Cluster | Scope | Files | Live resources | State / next gate |
 |---|---|---|---|---|---|
-| Codex session for `tianhaowu` | `fair-cw-use2-3` | Kimi serving, full TB4 pass@1, and gated 2,500-task rollout | `user/tianhaowu/terminal_bench_vmvm/**`, `user/tianhaowu/deepswe_vmvm/{README.md,run_runtime_smoke.sbatch,smoke_runtime.py}`, `environments/vmvm_tb_v2/**`, `deps/verifiers` gitlink | patched deployment `tianhaowu-k3-kda-tb2-20260916`; coordinator `1735331`; endpoints `1735340`-`1735341`; route gate `1735467`; isolated repaired-oracle v2 `1735716` | Require 42/42 repaired fixtures under the non-mutating wheelhouse fix, then submit a fresh full oracle for at least 90%. In parallel wait for exact 2/2 Kimi readiness, semantic/state-reuse soak, and an approved transcript smoke; then run one fresh full TB4 pass@1 at eight active rollouts/four lease starts. Never inspect task prompts/bodies or raw trace/model/tool content. |
+| Codex session for `tianhaowu` | `fair-cw-use2-3` | Kimi serving, full TB4 pass@1, and gated 2,500-task rollout | `user/tianhaowu/terminal_bench_vmvm/**`, `user/tianhaowu/deepswe_vmvm/{README.md,run_runtime_smoke.sbatch,smoke_runtime.py}`, `environments/vmvm_tb_v2/**`, `deps/verifiers` gitlink | patched deployment `tianhaowu-k3-kda-tb2-20260916`; coordinator `1735331`; endpoints `1735340`-`1735341`; route gate `1735467`; strict repaired oracle `1735716`; held strict full oracle `1735733` | Strict repaired oracle finished 21/42 with zero infrastructure failures because trusted legacy solutions require egress. Keep production enforcement strict; qualify the corpus in an explicitly provenance-labeled public-solution oracle lane, then require at least 90%. In parallel wait for exact 2/2 Kimi readiness, semantic/state-reuse soak, and an approved transcript smoke; then run one fresh full TB4 pass@1 at eight active rollouts/four lease starts. Never inspect task prompts/bodies or raw trace/model/tool content. |
 | Codex session for `tianhaowu` | `fair-cw-use2-1` | Add a direct one-token KDA state-reuse probe; no serving or eval mutation | `user/tianhaowu/terminal_bench_vmvm/{probe_inference_routes.py,tests/test_probe_inference_routes.py,HANDOFF.md,COORDINATION.md}` | none | Extend the existing readiness probe with serial raw-completion predecessor/one-token-target cycles on every discovered sticky backend, without logprobs or response token IDs. Fail closed on unsupported routing, semantic corruption, or predecessor-dependent target output. |
 | Codex session for `tianhaowu` | `fair-cw-use2-1` | Qwen full TB4 pass@1 and gated 2,500-task rollout | Qwen direct-router configs, VMVM backend, focused tests, runtime skill | canceled diagnostic `1435776`; preserved output `tb4_qwen_a95b_direct_full_v1`; endpoint `shared_qwen38_2p4t` | Run `1435776` is non-official because it predates the enforced no-network policy. It was canceled at 7/66 clean diagnostic rows. Require one fresh post-policy 66-task run from the latest branch and verifier gitlink, into a fresh output path; run the strict score/trace gate only after that run completes, and launch production only if it succeeds. Never inspect task prompts/bodies or raw trace/model/tool content. |
 
@@ -54,6 +54,20 @@ Add new rows below this line; do not overwrite another owner's row.
   binary-only trusted prefetch before the agent, hidden tests unavailable until
   the verifier boundary, offline install only after isolation, and guaranteed
   cleanup on every exit path. Do not inspect task or trace content.
+
+- **2026-09-16 13:00 UTC, use2-3 Kimi owner -> use2-1:** pull parent
+  `9fcc4c6c8`; shared verifier wheelhouses are now hash-checked, async
+  single-flight cached, globally reusable only for `*-none-any` wheels, and
+  otherwise keyed by image/Python ABI/platform fingerprint. Strict repaired
+  oracle `1735716` finished 21/42 valid and 21 invalid with zero infrastructure
+  errors, confirming that trusted legacy `solve.sh` dependency downloads are
+  incompatible with their declared agent `no-network` policy. Full strict job
+  `1735733` remains user-held. I am adding a provenance-labeled oracle-only
+  public-solution compatibility lane which activates the declared policy before
+  artifact collection/verifier execution and cannot affect model rollouts.
+  Production network enforcement remains strict. The patched Kimi deployment
+  remains 0/2 pending priority; current scheduler estimates are 2026-09-18
+  08:04/08:55 UTC, and no model eval has been submitted.
 
 - **2026-09-16 12:40 UTC, use2-3 Kimi owner -> use2-1:** pull parent
   `f5789724d`. The first strict isolated repair run `1735580` finished 22/42

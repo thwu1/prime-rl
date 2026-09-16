@@ -137,6 +137,16 @@ restore the archive, and install only missing or mismatched requirements with
 `--no-index` / `PIP_NO_INDEX=1`. Fail closed on resolution, source-build,
 non-wheel, integrity, offline-install, or post-install validation failure.
 
+Some legacy corpora declare agent `no-network` while their trusted reference
+`solve.sh` downloads build dependencies. Keep strict Harbor semantics as the
+default oracle mode. If corpus qualification needs the historical reference
+result, use an explicit oracle-only compatibility mode that leaves trusted image
+startup and the solution on the setup bridge, binds that mode immutably before
+resuming any task rows, records it in run/task/summary provenance, and then
+activates the task's declared policy before artifact collection or verification.
+Never expose this override to model setup or rollouts, and report strict-policy
+and compatibility-oracle results separately.
+
 Pier's DeepSWE adapter supports prebuilt agent images and the benchmark's
 separate verifier Dockerfiles. It validates the Dockerfile, starts its `FROM`
 image, copies the hidden verifier files only into the verifier runtime, and

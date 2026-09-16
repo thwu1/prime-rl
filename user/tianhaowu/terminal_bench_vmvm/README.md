@@ -139,6 +139,16 @@ tmux send-keys -t swebench_vmvm:Launcher.0 \
 `RERUN_INVALID=1`. The full-corpus acceptance gate is at least 90% valid; task
 failures must be debugged separately from VMVM infrastructure failures.
 
+Strict oracle validation applies the declared agent policy to `solve.sh` and
+is the default. Some legacy reference solutions download build dependencies
+despite declaring agent `no-network`. For corpus qualification only, set
+`ORACLE_SOLUTION_NETWORK_MODE=public`: this leaves the trusted image startup
+and reference solution on the setup bridge, records the override in immutable
+run semantics and task/summary provenance, then activates the declared policy
+before artifact collection and verification. It never changes model rollouts.
+Report this compatibility result separately from the strict-policy result, and
+use a fresh output directory when changing modes.
+
 The adapter resolves Harbor's environment, agent, and verifier network policy
 with Harbor 0.14.0 precedence. For `no-network`, trusted dependency staging
 finishes first; immediately before untrusted agent or verifier execution, VMVM

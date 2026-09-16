@@ -92,6 +92,9 @@ class TerminalBenchVMVMConfig(HarborConfig):
     capture_convention_artifacts: bool = True
     """Also preserve Harbor's conventional /logs/artifacts directory when present."""
 
+    oracle_solution_network_mode: Literal["declared", "public"] = "declared"
+    """Network policy for trusted reference solutions; model rollouts always use the declared policy."""
+
 
 class ArtifactSpec(vf.StrictBaseModel):
     source: str
@@ -748,6 +751,25 @@ class TerminalBenchVMVMTaskset(
             await runtime.activate_network_policy()
 
     async def setup(self, task: TerminalBenchTask, runtime: Runtime) -> None:
+        # Model rollouts always use the task's declared network policy.  The
+        # oracle compatibility option is intentionally invisible here.
+        await self._setup(task, runtime, oracle_solution_network_mode="declared")
+
+    async def setup_oracle(self, task: TerminalBenchTask, runtime: Runtime) -> None:
+        """Prepare a trusted reference run without changing model setup semantics."""
+        await self._setup(
+            task,
+            runtime,
+            oracle_solution_network_mode=self.config.oracle_solution_network_mode,
+        )
+
+    async def _setup(
+        self,
+        task: TerminalBenchTask,
+        runtime: Runtime,
+        *,
+        oracle_solution_network_mode: Literal["declared", "public"],
+    ) -> None:
         if isinstance(runtime, VMVMRuntime) and task.resources.gpu:
             raise UnsupportedTaskError(f"{task.name}: requests GPU resources, but the current VMVM tenant is CPU-only")
         compose_started = False
@@ -797,7 +819,7 @@ class TerminalBenchVMVMTaskset(
                     "-c",
                     f"nohup {shlex.join(startup)} >{startup_log} 2>&1 </dev/null &",
                 ]
-                if task.agent_network_mode == "no-network":
+                if task.agent_network_mode == "no-network" and oracle_solution_network_mode != "public":
                     if not isinstance(runtime, VMVMRuntime):
                         raise UnsupportedTaskError(f"{task.name}: deferred no-network startup requires VMVMRuntime")
                     runtime.defer_until_network_isolated(startup_argv)
@@ -1655,13 +1677,28 @@ for requirement in sys.argv[1:]:
         solution_uses_tests = any(b"/tests" in path.read_bytes() for path in solution_dir.iterdir() if path.is_file())
         if task.verifier_mode == "shared" or solution_uses_tests:
             await self._stage_directory(runtime, Path(task.task_dir) / "tests", "/tests", "tests")
-        await self._configure_network_policy(
-            task,
-            runtime,
-            task.agent_network_mode,
-            activate=True,
+        defer_declared_network = (
+            self.config.oracle_solution_network_mode == "public" and task.agent_network_mode == "no-network"
         )
+        if not defer_declared_network:
+            await self._configure_network_policy(
+                task,
+                runtime,
+                task.agent_network_mode,
+                activate=True,
+            )
         solution = await self._run_solution(task, runtime)
+        if defer_declared_network:
+            # This compatibility path is opt-in and applies only to the trusted
+            # reference solution used by validate().  Activate the task's real
+            # policy before artifact collection or verifier execution; model
+            # rollouts never call validate() and cannot enter this path.
+            await self._configure_network_policy(
+                task,
+                runtime,
+                task.agent_network_mode,
+                activate=True,
+            )
         if task.verifier_mode == "shared":
             result, timed_out, score, rewards = await self._run_verifier(task, runtime, stage_tests=True)
         else:

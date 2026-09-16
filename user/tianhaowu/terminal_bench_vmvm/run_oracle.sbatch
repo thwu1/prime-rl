@@ -22,12 +22,21 @@ image_tag=${IMAGE_TAG:-mobius-9b6988a3faf0}
 image_manifest=${IMAGE_MANIFEST:-}
 output_dir=${OUTPUT_DIR:-/checkpoint/ram/tianhaowu/terminal_bench_vmvm/oracle/run_${SLURM_JOB_ID}}
 max_concurrent=${MAX_CONCURRENT:-64}
+oracle_solution_network_mode=${ORACLE_SOLUTION_NETWORK_MODE:-declared}
 python_bin=${PYTHON_BIN_X86_64:-python3}
 x86_uv=${UV_BIN_X86_64:-/storage/home/tianhaowu/.local/x86_64/bin/uv}
 x86_site=${PYTHON_SITE_X86_64:-/checkpoint/ram/tianhaowu/terminal_bench_vmvm/python_x86_64}
 
 mkdir -p "$output_dir" /checkpoint/ram/tianhaowu/terminal_bench_vmvm/logs
 cd "$project_dir"
+
+case "$oracle_solution_network_mode" in
+    declared|public) ;;
+    *)
+        printf 'Invalid ORACLE_SOLUTION_NETWORK_MODE: %s\n' "$oracle_solution_network_mode" >&2
+        exit 2
+        ;;
+esac
 
 if [[ "$(uname -m)" != x86_64 ]]; then
     printf 'Oracle runner requires an x86_64 CPU node\n' >&2
@@ -42,6 +51,23 @@ if [[ ! -x "$x86_uv" ]]; then
     exit 2
 fi
 
+semantics_file="$output_dir/oracle_network_semantics.json"
+if [[ -f "$semantics_file" ]]; then
+    saved_solution_mode=$("$python_bin" - "$semantics_file" <<'PY'
+import json
+import sys
+
+with open(sys.argv[1]) as handle:
+    print(json.load(handle).get("trusted_reference_solution", ""))
+PY
+)
+    if [[ "$saved_solution_mode" != "$oracle_solution_network_mode" ]]; then
+        printf 'Oracle network semantics mismatch: saved=%s requested=%s; use a fresh output directory\n' \
+            "$saved_solution_mode" "$oracle_solution_network_mode" >&2
+        exit 2
+    fi
+fi
+
 {
     printf 'prime_rl=%s\n' "$(git rev-parse HEAD)"
     printf 'prime_rl_tree=%s\n' "$(git status --porcelain=v1 | sha256sum | cut -d' ' -f1)"
@@ -49,6 +75,7 @@ fi
     printf 'vmvm_tb_v2=%s\n' "$(sha256sum environments/vmvm_tb_v2/vmvm_tb_v2/_vacli/*.py | sha256sum | cut -d' ' -f1)"
     printf 'host=%s\n' "$(hostname)"
     printf 'slurm_job_id=%s\n' "$SLURM_JOB_ID"
+    printf 'oracle_solution_network_mode=%s\n' "$oracle_solution_network_mode"
 } > "$output_dir/provenance.txt"
 
 unset HTTP_PROXY HTTPS_PROXY http_proxy https_proxy ALL_PROXY all_proxy
@@ -72,6 +99,7 @@ args=(
     --session-timeout "${SESSION_TIMEOUT:-10800}"
     --timeout-multiplier "${TIMEOUT_MULTIPLIER:-1}"
     --resource-multiplier "${RESOURCE_MULTIPLIER:-1}"
+    --oracle-solution-network-mode "$oracle_solution_network_mode"
     --minimum-pass-rate "${MINIMUM_PASS_RATE:-0.9}"
 )
 if [[ -z "$image_manifest" && "${USE_DECLARED_IMAGES:-0}" != 1 \

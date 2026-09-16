@@ -28,8 +28,16 @@ isolation with pre-agent verifier dependency installation, so parent
 `f5789724d` removes the latter as a confounder: it builds all verifier wheels
 without installing them, stores the wheelhouse on controller disk, and
 re-probes/installs offline only after the isolated agent/solution. Strict
-42-task rerun `1735716` is the current gate. Require 42/42 before submitting a
-fresh full oracle, which must exceed 90% before production trace generation.
+42-task rerun `1735716` finished 21/42 valid and 21/42 invalid with zero
+infrastructure errors. This isolates the remaining incompatibility to trusted
+legacy `solve.sh` scripts that download dependencies under their declared agent
+`no-network` policy. Full strict job `1735733` is user-held. Production
+rollouts remain strictly isolated. Corpus qualification uses an explicit,
+provenance-labeled `ORACLE_SOLUTION_NETWORK_MODE=public` compatibility lane:
+only trusted image startup and the reference solution retain setup egress, and
+the declared policy activates before artifact collection or verification.
+First require 42/42 in that lane, then a fresh full compatibility oracle above
+90%; report the strict and compatibility semantics separately.
 
 ## Start here
 

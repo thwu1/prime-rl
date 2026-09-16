@@ -51,6 +51,12 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument("--verifier-runtime-retries", type=int, default=2)
     parser.add_argument("--timeout-multiplier", type=float, default=1.0)
     parser.add_argument("--resource-multiplier", type=float, default=1.0)
+    parser.add_argument(
+        "--oracle-solution-network-mode",
+        choices=("declared", "public"),
+        default="declared",
+        help="network policy for trusted solve.sh only; verifier policy remains declared",
+    )
     parser.add_argument("--minimum-pass-rate", type=float, default=0.9)
     parser.add_argument("--resume", action=argparse.BooleanOptionalAction, default=True)
     parser.add_argument("--rerun-invalid", action=argparse.BooleanOptionalAction, default=False)
@@ -90,6 +96,43 @@ def _read_result(path: Path) -> dict | None:
     return json.loads(path.read_text())
 
 
+def _oracle_network_semantics(mode: str) -> dict[str, str | int]:
+    return {
+        "schema_version": 1,
+        "trusted_reference_solution": mode,
+        "verifier": "declared",
+    }
+
+
+def _bind_oracle_network_semantics(output_dir: Path, mode: str) -> dict[str, str | int]:
+    """Create or validate the immutable network-semantics label for a run."""
+    expected = _oracle_network_semantics(mode)
+    path = output_dir / "oracle_network_semantics.json"
+    if path.is_file():
+        try:
+            existing = json.loads(path.read_text())
+        except (OSError, json.JSONDecodeError) as error:
+            raise SystemExit(f"invalid oracle network semantics file: {path}") from error
+        if existing != expected:
+            raise SystemExit(
+                "oracle network semantics mismatch: "
+                f"saved={existing!r} requested={expected!r}; use a fresh output directory"
+            )
+        return expected
+
+    status_dir = output_dir / "tasks"
+    if (
+        (output_dir / "results.jsonl").exists()
+        or (output_dir / "summary.json").exists()
+        or any(status_dir.glob("*.json"))
+    ):
+        raise SystemExit(
+            "existing oracle results have no immutable network-semantics label; use a fresh output directory"
+        )
+    _atomic_json(path, expected)
+    return expected
+
+
 async def _attempt(
     taskset: TerminalBenchVMVMTaskset,
     task: TerminalBenchTask,
@@ -108,7 +151,7 @@ async def _attempt(
     try:
         await asyncio.wait_for(runtime.start(), timeout=setup_timeout)
         descriptor = runtime.descriptor
-        await asyncio.wait_for(taskset.setup(task, runtime), timeout=setup_timeout)
+        await asyncio.wait_for(taskset.setup_oracle(task, runtime), timeout=setup_timeout)
         valid = await asyncio.wait_for(taskset.validate(task, runtime), timeout=validate_timeout)
         return bool(valid), {
             "attempt": attempt,
@@ -230,7 +273,7 @@ async def _validate_one(
     raise AssertionError("unreachable")
 
 
-def _summary(results: list[dict], selected: int) -> dict:
+def _summary(results: list[dict], selected: int, network_semantics: dict[str, str | int]) -> dict:
     reasons: dict[str, int] = {}
     for result in results:
         reasons[result["reason"]] = reasons.get(result["reason"], 0) + 1
@@ -241,6 +284,7 @@ def _summary(results: list[dict], selected: int) -> dict:
         "passed": passed,
         "pass_rate": passed / selected if selected else 0.0,
         "reasons": reasons,
+        "oracle_network_semantics": network_semantics,
     }
 
 
@@ -259,6 +303,7 @@ async def _run(args: argparse.Namespace) -> int:
             verifier_runtime_retries=args.verifier_runtime_retries,
             timeout_multiplier=args.timeout_multiplier,
             resource_multiplier=args.resource_multiplier,
+            oracle_solution_network_mode=args.oracle_solution_network_mode,
             ignore_dockerfile=True,
         )
     )
@@ -276,6 +321,8 @@ async def _run(args: argparse.Namespace) -> int:
     except BlockingIOError as error:
         raise SystemExit(f"another oracle runner owns {output_dir}") from error
 
+    network_semantics = _bind_oracle_network_semantics(output_dir, args.oracle_solution_network_mode)
+
     run_config = {
         "dataset_dir": str(args.dataset_dir.resolve()),
         "image_prefix": args.image_prefix,
@@ -284,6 +331,8 @@ async def _run(args: argparse.Namespace) -> int:
         "infra_retries": args.infra_retries,
         "timeout_multiplier": args.timeout_multiplier,
         "resource_multiplier": args.resource_multiplier,
+        "oracle_solution_network_mode": args.oracle_solution_network_mode,
+        "oracle_network_semantics": network_semantics,
         "selected_tasks": len(tasks),
         "started_at": time.time(),
     }
@@ -294,6 +343,11 @@ async def _run(args: argparse.Namespace) -> int:
     for task in tasks:
         path = status_dir / f"{task.slug}.json"
         prior = _read_result(path) if args.resume else None
+        if prior is not None and prior.get("oracle_network_semantics") != network_semantics:
+            raise SystemExit(
+                f"{task.slug}: saved task result has different or missing oracle network semantics; "
+                "use a fresh output directory"
+            )
         if prior is not None and (prior.get("valid") or not args.rerun_invalid):
             results_by_slug[task.slug] = prior
         else:
@@ -313,6 +367,7 @@ async def _run(args: argparse.Namespace) -> int:
         async with semaphore:
             logger.info("start idx=%d task=%s", task.idx, task.name)
             result = await _validate_one(taskset, task, runtime_config, args)
+            result["oracle_network_semantics"] = network_semantics
             _atomic_json(status_dir / f"{task.slug}.json", result)
             logger.info(
                 "done idx=%d task=%s reason=%s elapsed=%.1fs",
@@ -329,14 +384,14 @@ async def _run(args: argparse.Namespace) -> int:
         result = await future
         results_by_slug[result["slug"]] = result
         ordered = [results_by_slug[task.slug] for task in tasks if task.slug in results_by_slug]
-        _atomic_json(output_dir / "summary.json", _summary(ordered, len(tasks)))
+        _atomic_json(output_dir / "summary.json", _summary(ordered, len(tasks), network_semantics))
 
     results = [results_by_slug[task.slug] for task in tasks]
     with (output_dir / "results.jsonl.tmp").open("w") as handle:
         for result in results:
             handle.write(json.dumps(result, sort_keys=True, ensure_ascii=False) + "\n")
     os.replace(output_dir / "results.jsonl.tmp", output_dir / "results.jsonl")
-    summary = _summary(results, len(tasks))
+    summary = _summary(results, len(tasks), network_semantics)
     summary["finished_at"] = time.time()
     _atomic_json(output_dir / "summary.json", summary)
     logger.info("oracle summary: %s", json.dumps(summary, sort_keys=True))

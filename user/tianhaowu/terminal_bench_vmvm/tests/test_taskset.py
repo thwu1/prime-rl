@@ -9,6 +9,7 @@ from types import SimpleNamespace
 from zipfile import ZipFile
 
 import pytest
+import terminal_bench_vmvm.taskset as taskset_module
 from terminal_bench_vmvm.taskset import (
     TerminalBenchVMVMConfig,
     TerminalBenchVMVMTaskset,
@@ -19,7 +20,7 @@ from terminal_bench_vmvm.taskset import (
     _network_modes,
     _parse_verifier_reward,
 )
-from verifiers.v1.runtimes import ProgramResult
+from verifiers.v1.runtimes import ProgramResult, VMVMConfig, VMVMRuntime
 from vmvm_tb_v2._vacli import backend as vacli_backend
 from vmvm_tb_v2._vacli.backend import (
     VacliHostTunnel,
@@ -151,6 +152,250 @@ def dependency_task(tmp_path: Path) -> SimpleNamespace:
     )
     (tests / "test.sh").write_text("#!/bin/sh\n")
     return SimpleNamespace(name="task-a", task_dir=str(tmp_path))
+
+
+@pytest.mark.parametrize(
+    ("solution_network_mode", "agent_network_mode", "expected_events"),
+    [
+        ("declared", "no-network", ["network:no-network", "solution", "verifier"]),
+        ("public", "no-network", ["solution", "network:no-network", "verifier"]),
+        ("public", "public", ["network:public", "solution", "verifier"]),
+    ],
+)
+def test_oracle_solution_network_mode_only_defers_declared_isolation(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    solution_network_mode: str,
+    agent_network_mode: str,
+    expected_events: list[str],
+) -> None:
+    taskset = TerminalBenchVMVMTaskset(
+        TerminalBenchVMVMConfig(
+            id="terminal-bench-vmvm",
+            dataset_dir=tmp_path,
+            oracle_solution_network_mode=solution_network_mode,
+        )
+    )
+    solution = tmp_path / "solution"
+    solution.mkdir()
+    (solution / "solve.sh").write_text("#!/bin/sh\n")
+    events: list[str] = []
+
+    async def stage_directory(*args: object, **kwargs: object) -> None:
+        return None
+
+    async def configure_network(
+        task: object,
+        runtime: object,
+        mode: str,
+        *,
+        activate: bool,
+    ) -> None:
+        assert activate is True
+        events.append(f"network:{mode}")
+
+    async def run_solution(task: object, runtime: object) -> ProgramResult:
+        events.append("solution")
+        return ProgramResult(exit_code=0, stdout="", stderr="")
+
+    async def run_verifier(
+        task: object,
+        runtime: object,
+        *,
+        stage_tests: bool,
+    ) -> tuple[ProgramResult, bool, float, dict[str, float]]:
+        assert stage_tests is True
+        events.append("verifier")
+        return ProgramResult(exit_code=0, stdout="", stderr=""), False, 1.0, {"solved": 1.0}
+
+    monkeypatch.setattr(taskset, "_stage_directory", stage_directory)
+    monkeypatch.setattr(taskset, "_configure_network_policy", configure_network)
+    monkeypatch.setattr(taskset, "_run_solution", run_solution)
+    monkeypatch.setattr(taskset, "_run_verifier", run_verifier)
+    task = SimpleNamespace(
+        task_dir=str(tmp_path),
+        agent_network_mode=agent_network_mode,
+        verifier_mode="shared",
+    )
+
+    assert asyncio.run(taskset.validate(task, object())) is True
+    assert events == expected_events
+
+
+def test_model_setup_ignores_oracle_solution_network_override(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    taskset = TerminalBenchVMVMTaskset(
+        TerminalBenchVMVMConfig(
+            id="terminal-bench-vmvm",
+            dataset_dir=tmp_path,
+            oracle_solution_network_mode="public",
+        )
+    )
+    events: list[str] = []
+
+    async def setup(
+        task: object,
+        runtime: object,
+        *,
+        oracle_solution_network_mode: str,
+    ) -> None:
+        events.append(oracle_solution_network_mode)
+
+    monkeypatch.setattr(taskset, "_setup", setup)
+    asyncio.run(taskset.setup(object(), object()))
+    asyncio.run(taskset.setup_oracle(object(), object()))
+
+    assert events == ["declared", "public"]
+
+
+@pytest.mark.parametrize(
+    ("solution_network_mode", "last_event"),
+    [("declared", "deferred-startup"), ("public", "public-startup")],
+)
+def test_oracle_setup_preserves_startup_before_public_solution(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    solution_network_mode: str,
+    last_event: str,
+) -> None:
+    taskset = TerminalBenchVMVMTaskset(
+        TerminalBenchVMVMConfig(
+            id="terminal-bench-vmvm",
+            dataset_dir=tmp_path,
+            oracle_solution_network_mode=solution_network_mode,
+        )
+    )
+    runtime = VMVMRuntime(VMVMConfig(image="registry.invalid/task:latest", workdir="/app"))
+    events: list[str] = []
+
+    async def run_root(*args: object, **kwargs: object) -> ProgramResult:
+        events.append("trusted-setup")
+        return ProgramResult(exit_code=0, stdout="", stderr="")
+
+    async def configure_network(*args: object, **kwargs: object) -> None:
+        events.append("prepare-isolation")
+
+    async def run(*args: object, **kwargs: object) -> ProgramResult:
+        events.append("public-startup")
+        return ProgramResult(exit_code=0, stdout="", stderr="")
+
+    def defer(*args: object, **kwargs: object) -> None:
+        events.append("deferred-startup")
+
+    monkeypatch.setattr(taskset, "_run_root", run_root)
+    monkeypatch.setattr(taskset, "_configure_network_policy", configure_network)
+    monkeypatch.setattr(runtime, "run", run)
+    monkeypatch.setattr(runtime, "defer_until_network_isolated", defer)
+    monkeypatch.setattr(taskset_module, "_dockerfile_startup_command", lambda task_dir: ["start-server"])
+    task = SimpleNamespace(
+        name="task-a",
+        task_dir=str(tmp_path),
+        resources=SimpleNamespace(gpu=0),
+        workdir="/app",
+        verifier_mode="separate",
+        agent_network_mode="no-network",
+    )
+
+    asyncio.run(taskset.setup_oracle(task, runtime))
+
+    assert events == ["prepare-isolation", "trusted-setup", last_event]
+
+
+def test_public_oracle_isolation_failure_prevents_verifier(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    taskset = TerminalBenchVMVMTaskset(
+        TerminalBenchVMVMConfig(
+            id="terminal-bench-vmvm",
+            dataset_dir=tmp_path,
+            oracle_solution_network_mode="public",
+        )
+    )
+    solution = tmp_path / "solution"
+    solution.mkdir()
+    (solution / "solve.sh").write_text("#!/bin/sh\n")
+    events: list[str] = []
+
+    async def stage_directory(*args: object, **kwargs: object) -> None:
+        return None
+
+    async def configure_network(*args: object, **kwargs: object) -> None:
+        events.append("isolation")
+        raise RuntimeError("isolation failed")
+
+    async def run_solution(*args: object, **kwargs: object) -> ProgramResult:
+        events.append("solution")
+        return ProgramResult(exit_code=0, stdout="", stderr="")
+
+    async def run_verifier(*args: object, **kwargs: object) -> tuple[ProgramResult, bool, float, dict[str, float]]:
+        events.append("verifier")
+        return ProgramResult(exit_code=0, stdout="", stderr=""), False, 1.0, {"solved": 1.0}
+
+    monkeypatch.setattr(taskset, "_stage_directory", stage_directory)
+    monkeypatch.setattr(taskset, "_configure_network_policy", configure_network)
+    monkeypatch.setattr(taskset, "_run_solution", run_solution)
+    monkeypatch.setattr(taskset, "_run_verifier", run_verifier)
+    task = SimpleNamespace(
+        task_dir=str(tmp_path),
+        agent_network_mode="no-network",
+        verifier_mode="shared",
+    )
+
+    with pytest.raises(RuntimeError, match="isolation failed"):
+        asyncio.run(taskset.validate(task, object()))
+    assert events == ["solution", "isolation"]
+
+
+def test_public_oracle_isolates_before_separate_artifact_collection(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    taskset = TerminalBenchVMVMTaskset(
+        TerminalBenchVMVMConfig(
+            id="terminal-bench-vmvm",
+            dataset_dir=tmp_path,
+            oracle_solution_network_mode="public",
+        )
+    )
+    solution = tmp_path / "solution"
+    solution.mkdir()
+    (solution / "solve.sh").write_text("#!/bin/sh\n")
+    events: list[str] = []
+
+    async def configure_network(*args: object, **kwargs: object) -> None:
+        events.append("isolation")
+
+    async def run_solution(*args: object, **kwargs: object) -> ProgramResult:
+        events.append("solution")
+        return ProgramResult(exit_code=0, stdout="", stderr="")
+
+    async def capture_artifacts(*args: object, **kwargs: object) -> tuple[dict[str, bytes], list[dict[str, str]]]:
+        events.append("artifacts")
+        return {}, []
+
+    async def score_separate(
+        *args: object, **kwargs: object
+    ) -> tuple[ProgramResult, bool, float, dict[str, float], str, int, list[str]]:
+        events.append("verifier")
+        return ProgramResult(exit_code=0, stdout="", stderr=""), False, 1.0, {"solved": 1.0}, "vm", 1, []
+
+    monkeypatch.setattr(taskset, "_configure_network_policy", configure_network)
+    monkeypatch.setattr(taskset, "_run_solution", run_solution)
+    monkeypatch.setattr(taskset, "_capture_artifacts", capture_artifacts)
+    monkeypatch.setattr(taskset, "_score_separate", score_separate)
+    task = SimpleNamespace(
+        idx=1,
+        task_dir=str(tmp_path),
+        agent_network_mode="no-network",
+        verifier_mode="separate",
+        verifier_timeout_sec=60.0,
+    )
+
+    assert asyncio.run(taskset.validate(task, object())) is True
+    assert events == ["solution", "isolation", "artifacts", "verifier"]
 
 
 def test_verifier_dependencies_prefetch_all_then_install_offline_after_solution(
