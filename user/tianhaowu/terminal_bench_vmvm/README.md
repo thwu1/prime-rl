@@ -350,12 +350,11 @@ bash user/tianhaowu/terminal_bench_vmvm/stage_qwen_direct_router.sh
 ```
 
 The router uses consistent hashing on the rollout's `X-Session-ID`, disables
-router retries, admits at most eight requests with no overflow queue, and sets
-its request deadline above the evaluator's 7,200-second deadline. The direct
-launcher requires rollout concurrency, multiplexing, and HTTP pools to agree
-at eight or less. It also forces `VACLI_MAX_CONCURRENT_LEASES=8`; do not run it
-alongside another VMVM evaluation if that would raise aggregate active VMVM
-concurrency above eight.
+router retries, admits at most the pinned evaluation concurrency (up to 64)
+with no overflow queue, and sets its request deadline above the evaluator's
+7,200-second deadline. The direct launcher requires rollout concurrency,
+multiplexing, and HTTP pools to agree at 64 or less. It keeps simultaneous
+VMVM lease bring-up capped at four while allowing up to 64 active sessions.
 
 The full 66-task TB4 set and 2,500-task oracle-valid Mobius production set,
 including all task categories, are approved for the direct Qwen route. The
@@ -371,10 +370,11 @@ checked-in launch inputs are:
   `mobius_valid_tasks_2500.txt`, SHA-256
   `d33ef93f9b77ee91a41600934e677ba37988d3b4509e4da05ff1fcf7b4bc3a4b`.
 
-The smoke uses two slots; both production configs use eight. Every config
-matches its HTTP pools and multiplexing to that concurrency, retains captured
-model I/O and thinking content, permits 32,768 output tokens per model call,
-and keeps the 262,144-token full-context cap plus the extended VMVM timeouts.
+The smoke uses two slots, TB4 uses eight, and the Mobius production config uses
+64. Every config matches its HTTP pools and multiplexing to that concurrency,
+retains captured model I/O and thinking content, permits 32,768 output tokens
+per model call, and keeps the 262,144-token full-context cap plus the extended
+VMVM timeouts.
 The direct launcher still requires the selected manifest path and exact digest
 to be supplied independently through `DIRECT_QWEN_APPROVED_TASK_FILE` and
 `DIRECT_QWEN_APPROVED_TASK_FILE_SHA256`. `EVAL_CONFIG` must select that same

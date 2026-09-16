@@ -127,13 +127,13 @@ def test_mobius_qwen_production_retention_and_concurrency() -> None:
 
     assert config["num_tasks"] == 2_500
     assert config["num_rollouts"] == 1
-    assert config["max_concurrent"] == 8
-    assert config["multiplex"] == 8
+    assert config["max_concurrent"] == 64
+    assert config["multiplex"] == 64
     assert config["max_total_tokens"] == 262_144
     assert config["sampling"]["max_tokens"] == 32_768
     assert config["retain_traces"] is False
-    assert config["client"]["max_connections"] == 8
-    assert config["client"]["max_keepalive_connections"] == 8
+    assert config["client"]["max_connections"] == 64
+    assert config["client"]["max_keepalive_connections"] == 64
     taskset = config["taskset"]
     assert taskset["dataset_revision"] == "ac1f30b9ac0e6c6a20a9fe423900d9ed28a6d366"
     assert taskset["task_file"] == ("user/tianhaowu/terminal_bench_vmvm/configs/eval/mobius_valid_tasks_2500.txt")
@@ -184,7 +184,8 @@ def test_eval_configs_pin_approved_tasks_and_runtime_contract(
         "enable_thinking": True,
         "preserve_thinking": True,
     }
-    assert config["max_concurrent"] == config["multiplex"] <= 8
+    maximum_concurrency = 64 if filename == "mobius_qwen_a95b_2500.toml" else 8
+    assert config["max_concurrent"] == config["multiplex"] <= maximum_concurrency
     assert config["client"]["max_connections"] == config["max_concurrent"]
     assert config["client"]["max_keepalive_connections"] == config["max_concurrent"]
     assert config["client"]["timeout"] == 7_200
@@ -282,9 +283,9 @@ def test_direct_qwen_launcher_is_fail_closed() -> None:
     assert "--request-id-headers x-session-id" in wrapper
     assert "--request-timeout-secs 7500" in wrapper
     assert "--disable-retries" in wrapper
-    assert "--max-concurrent-requests 8" in wrapper
+    assert '--max-concurrent-requests "$router_max_concurrent"' in wrapper
     assert "--queue-size 0" in wrapper
-    assert "VACLI_MAX_CONCURRENT_LEASES=8" in wrapper
+    assert "VACLI_MAX_CONCURRENT_LEASES=4" in wrapper
     assert "OPENAI_API_KEY=EMPTY" in wrapper
     assert "INFERENCE_PROXY_INFO" in wrapper
     assert "direct_workers.json" in wrapper

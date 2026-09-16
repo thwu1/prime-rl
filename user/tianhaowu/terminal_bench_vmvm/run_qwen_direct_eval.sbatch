@@ -141,12 +141,18 @@ fi
 
 mapfile -t worker_urls < "$urls_file"
 mapfile -t ports < "$ports_file"
-if [[ ${#worker_urls[@]} -ne 16 || ${#ports[@]} -ne 2 ]]; then
+if [[ ${#worker_urls[@]} -ne 16 || ${#ports[@]} -ne 3 ]]; then
     printf 'Direct-worker runtime files are incomplete\n' >&2
     exit 2
 fi
 router_port=${ports[0]}
 metrics_port=${ports[1]}
+router_max_concurrent=${ports[2]}
+if [[ ! "$router_max_concurrent" =~ ^[1-9][0-9]*$ ]] \
+    || (( router_max_concurrent > 64 )); then
+    printf 'Direct Qwen router concurrency is invalid\n' >&2
+    exit 2
+fi
 
 router_args=(
     -c 'from vllm_router.launch_router import main; main()'
@@ -159,7 +165,7 @@ router_args=(
     --worker-startup-timeout-secs 60
     --request-timeout-secs 7500
     --disable-retries
-    --max-concurrent-requests 8
+    --max-concurrent-requests "$router_max_concurrent"
     --queue-size 0
     --log-level warning
     --worker-urls "${worker_urls[@]}"
@@ -202,7 +208,7 @@ export PROJECT_DIR="$project_dir"
 export OUTPUT_DIR="$output_dir"
 export INFERENCE_BASE_URL="$router_url/v1"
 export OPENAI_API_KEY=EMPTY
-export VACLI_MAX_CONCURRENT_LEASES=8
+export VACLI_MAX_CONCURRENT_LEASES=4
 if [[ -n "$resume_dir" ]]; then
     export RESUME_DIR="$resume_dir"
 else

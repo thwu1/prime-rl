@@ -39,6 +39,7 @@ HOST_RE = re.compile(r"^[A-Za-z0-9.-]+$")
 ENDPOINT_FILE_RE = re.compile(r"^[1-9][0-9]*\.json$")
 MAX_METADATA_BYTES = 16 * 1024
 MAX_MODELS_BYTES = 1 << 20
+MAX_DIRECT_CONCURRENCY = 64
 
 
 class DirectWorkerError(ValueError):
@@ -174,7 +175,11 @@ def validate_eval_config(
     if isinstance(num_tasks, bool) or not isinstance(num_tasks, int) or num_tasks < 1:
         raise DirectWorkerError("eval_num_tasks_invalid")
     max_concurrent = config.get("max_concurrent")
-    if isinstance(max_concurrent, bool) or not isinstance(max_concurrent, int) or not 1 <= max_concurrent <= 8:
+    if (
+        isinstance(max_concurrent, bool)
+        or not isinstance(max_concurrent, int)
+        or not 1 <= max_concurrent <= MAX_DIRECT_CONCURRENCY
+    ):
         raise DirectWorkerError("eval_max_concurrent_invalid")
     multiplex = config.get("multiplex")
     if (
@@ -235,7 +240,11 @@ def validate_eval_config(
         raise DirectWorkerError("eval_client_timeout_mismatch")
     for field in ("max_connections", "max_keepalive_connections"):
         value = client.get(field)
-        if isinstance(value, bool) or not isinstance(value, int) or not max_concurrent <= value <= 8:
+        if (
+            isinstance(value, bool)
+            or not isinstance(value, int)
+            or not max_concurrent <= value <= MAX_DIRECT_CONCURRENCY
+        ):
             raise DirectWorkerError(f"eval_client_{field}_invalid")
 
     sampling = config.get("sampling")
@@ -356,6 +365,7 @@ def _manifest(
     approved_task_allowlist_sha256: str,
     router_port: int,
     metrics_port: int,
+    max_concurrent_requests: int = 8,
 ) -> dict[str, Any]:
     return {
         "schema_version": 1,
@@ -372,7 +382,7 @@ def _manifest(
             "metrics_port": metrics_port,
             "policy": "consistent_hash",
             "request_timeout_seconds": 7_500,
-            "max_concurrent_requests": 8,
+            "max_concurrent_requests": max_concurrent_requests,
             "retries": 0,
         },
     }
@@ -432,13 +442,25 @@ def validate_saved_manifest(path: Path) -> dict[str, Any]:
         "host": "127.0.0.1",
         "policy": "consistent_hash",
         "request_timeout_seconds": 7_500,
-        "max_concurrent_requests": 8,
         "retries": 0,
     }
     if not isinstance(router, dict) or any(router.get(key) != value for key, value in expected_router.items()):
         raise DirectWorkerError("direct_worker_manifest_router_invalid")
-    if set(router) != {*expected_router, "port", "metrics_host", "metrics_port"}:
+    if set(router) != {
+        *expected_router,
+        "max_concurrent_requests",
+        "port",
+        "metrics_host",
+        "metrics_port",
+    }:
         raise DirectWorkerError("direct_worker_manifest_router_structure_invalid")
+    max_concurrent_requests = router.get("max_concurrent_requests")
+    if (
+        isinstance(max_concurrent_requests, bool)
+        or not isinstance(max_concurrent_requests, int)
+        or not 1 <= max_concurrent_requests <= MAX_DIRECT_CONCURRENCY
+    ):
+        raise DirectWorkerError("direct_worker_manifest_router_concurrency_invalid")
     if router.get("metrics_host") != "127.0.0.1":
         raise DirectWorkerError("direct_worker_manifest_metrics_host_invalid")
     ports = (router.get("port"), router.get("metrics_port"))
@@ -474,6 +496,8 @@ def audit_run_directory(run_dir: Path) -> dict[str, Any]:
     if task_allowlist_sha256 != manifest["approved_task_allowlist_sha256"]:
         raise DirectWorkerError("direct_worker_saved_task_allowlist_mismatch")
     config = tomllib.loads(config_path.read_text(encoding="utf-8"))
+    if manifest["router"]["max_concurrent_requests"] != config["max_concurrent"]:
+        raise DirectWorkerError("direct_worker_saved_router_concurrency_mismatch")
     expected_base_url = f"http://127.0.0.1:{manifest['router']['port']}/v1"
     if str(config["client"].get("base_url", "")).rstrip("/") != expected_base_url:
         raise DirectWorkerError("direct_worker_saved_config_url_mismatch")
@@ -532,6 +556,8 @@ def prepare(
         approved_task_file=approved_task_file,
         approved_task_file_sha256=approved_task_file_sha256,
     )
+    config = tomllib.loads(eval_config.read_text(encoding="utf-8"))
+    max_concurrent_requests = config["max_concurrent"]
     workers, spec_sha256, bundle_sha256 = load_workers(deployment_root)
     probe_workers(workers, timeout=probe_timeout)
 
@@ -554,6 +580,7 @@ def prepare(
             task_allowlist_sha256,
             router_port,
             metrics_port,
+            max_concurrent_requests,
         )
         if saved != expected:
             raise DirectWorkerError("direct_worker_manifest_mismatch")
@@ -572,6 +599,7 @@ def prepare(
             task_allowlist_sha256,
             router_port,
             metrics_port,
+            max_concurrent_requests,
         )
         _atomic_write(
             manifest_path,
@@ -580,7 +608,14 @@ def prepare(
         )
 
     _atomic_write(urls_output, "".join(f"{worker.url}\n" for worker in workers).encode())
-    _atomic_write(ports_output, f"{manifest['router']['port']}\n{manifest['router']['metrics_port']}\n".encode())
+    _atomic_write(
+        ports_output,
+        (
+            f"{manifest['router']['port']}\n"
+            f"{manifest['router']['metrics_port']}\n"
+            f"{manifest['router']['max_concurrent_requests']}\n"
+        ).encode(),
+    )
     return manifest
 
 

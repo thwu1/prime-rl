@@ -206,6 +206,11 @@ def test_prepare_snapshots_only_non_secret_worker_metadata(tmp_path: Path, monke
     assert manifest["spec_sha256"] == spec_sha256
     assert manifest["endpoint_bundle_sha256"] == bundle_sha256
     assert len(urls.read_text().splitlines()) == 2
+    assert ports.read_text().splitlines() == [
+        str(manifest["router"]["port"]),
+        str(manifest["router"]["metrics_port"]),
+        "2",
+    ]
     serialized = manifest_path.read_text().casefold()
     assert "api_key" not in serialized
     assert "authorization" not in serialized
@@ -251,7 +256,16 @@ def test_audit_run_directory_validates_provenance_without_results(tmp_path: Path
     task_file = tmp_path / "approved_tasks.txt"
     task_file.write_text("approved-fixture-a\napproved-fixture-b\n")
     task_hash = hashlib.sha256(task_file.read_bytes()).hexdigest()
-    manifest = direct._manifest(tmp_path, workers, spec_sha256, bundle_sha256, task_hash, 20_001, 40_001)
+    manifest = direct._manifest(
+        tmp_path,
+        workers,
+        spec_sha256,
+        bundle_sha256,
+        task_hash,
+        20_001,
+        40_001,
+        2,
+    )
     (run_dir / "direct_workers.json").write_text(json.dumps(manifest) + "\n")
 
     source = _approved_config(tmp_path)
@@ -306,7 +320,16 @@ def test_audit_run_directory_rejects_credential_provenance(tmp_path: Path, monke
     task_file = tmp_path / "approved_tasks.txt"
     task_file.write_text("approved-fixture-a\napproved-fixture-b\n")
     task_hash = hashlib.sha256(task_file.read_bytes()).hexdigest()
-    manifest = direct._manifest(tmp_path, workers, spec_sha256, bundle_sha256, task_hash, 20_001, 40_001)
+    manifest = direct._manifest(
+        tmp_path,
+        workers,
+        spec_sha256,
+        bundle_sha256,
+        task_hash,
+        20_001,
+        40_001,
+        2,
+    )
     (run_dir / "direct_workers.json").write_text(json.dumps(manifest) + "\n")
     (run_dir / "config.toml").write_text(_approved_config(tmp_path).read_text().replace("127.0.0.1:8000", "127.0.0.1:20001"))
     (run_dir / "provenance.txt").write_text("api_key=forbidden\n")
