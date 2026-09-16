@@ -1,6 +1,6 @@
 # VMVM sandbox coordination
 
-Last updated: 2026-09-16 23:38 UTC
+Last updated: 2026-09-16 23:58 UTC
 
 ## First message to the next teammate
 
@@ -30,7 +30,7 @@ this shared branch again.
 
 | Owner | Cluster | Scope | Files | Live resources | State / next gate |
 |---|---|---|---|---|---|
-| Codex session for `tianhaowu` | `fair-cw-use2-3` | Kimi serving, full TB4 pass@1, and gated 2,500-task rollout | `user/tianhaowu/terminal_bench_vmvm/**`, `user/tianhaowu/deepswe_vmvm/{README.md,run_runtime_smoke.sbatch,smoke_runtime.py}`, `environments/vmvm_tb_v2/**`, `deps/verifiers` gitlink | patched deployment `tianhaowu-k3-kda-tb1-low-20260916`; coordinator `1735915`; endpoint `1735929`; route gate `1735934`; dependent Kimi TB4 gate `1737609`; full oracle `1737160` | Oracle identity hardening and its running clean snapshot remain pinned at `fb8b5c1fd`; model-eval identity/certificate hardening is committed at `f7a26fbbc`. Clean detached launch snapshot `/checkpoint/ram/tianhaowu/terminal_bench_vmvm/sources/prime-rl-1dc61931e` pins parent `1dc61931e`, verifier `7e3b6885`, and renderer `044d9e254`. Canary `1737126` passed 41/42 with one ordinary invalid and zero infrastructure/retry/error/cleanup events. Fresh promotable full oracle `1737160` is running at 8 active/4 lease starts, public semantics, 2x multipliers, and hard gates of at least 90% plus 2,500 valid; at 23:38 UTC it had 215/2,538 terminal rows, 211 valid and four ordinary invalid. Use2-1 diagnostic `1444701` remains untouched. Endpoint `1735929` is schedulable but remains pending solely on `g3_lowest` priority; do not resubmit or weaken its validated TP16/topology/resource envelope. Job `1737609` is dependency-held on exact readiness job `1735934` and will run/certify the two-task smoke followed by the full 66-task TB4 pass@1 sequence from the clean snapshot. Never inspect task prompts/bodies or raw trace/model/tool content. |
+| Codex session for `tianhaowu` | `fair-cw-use2-3` | Kimi serving, full TB4 pass@1, and gated 2,500-task rollout | `user/tianhaowu/terminal_bench_vmvm/**`, `user/tianhaowu/deepswe_vmvm/{README.md,run_runtime_smoke.sbatch,smoke_runtime.py}`, `environments/vmvm_tb_v2/**`, `deps/verifiers` gitlink | patched deployment `tianhaowu-k3-kda-tb1-low-20260916`; coordinator `1735915`; endpoint `1735929`; route gate `1735934`; dependent Kimi TB4 gate `1737609`; full oracle `1737160` | Oracle identity hardening and its running clean snapshot remain pinned at `fb8b5c1fd`; model-eval identity/certificate hardening is committed at `f7a26fbbc`. Clean detached launch snapshot `/checkpoint/ram/tianhaowu/terminal_bench_vmvm/sources/prime-rl-1dc61931e` pins parent `1dc61931e`, verifier `7e3b6885`, and renderer `044d9e254`. Canary `1737126` passed 41/42 with one ordinary invalid and zero infrastructure/retry/error/cleanup events. Fresh promotable full oracle `1737160` is running at 8 active/4 lease starts, public semantics, 2x multipliers, and hard gates of at least 90% plus 2,500 valid; at 23:58 UTC it had 343/2,538 terminal rows, 337 valid, four ordinary invalid, and two deterministic missing-binary-wheel exclusions, leaving 32 rows of failure allowance. Use2-1 diagnostic `1444701` remains untouched. Endpoint `1735929` is schedulable but remains pending solely on `g3_lowest` priority; do not resubmit or weaken its validated TP16/topology/resource envelope. Job `1737609` is dependency-held on exact readiness job `1735934` and will run/certify the two-task smoke followed by the full 66-task TB4 pass@1 sequence from the clean snapshot. Never inspect task prompts/bodies or raw trace/model/tool content. |
 | Codex session for `tianhaowu` | `fair-cw-use2-1` | Add a direct one-token KDA state-reuse probe; no serving or eval mutation | `user/tianhaowu/terminal_bench_vmvm/{probe_inference_routes.py,tests/test_probe_inference_routes.py,HANDOFF.md,COORDINATION.md}` | none | Extend the existing readiness probe with serial raw-completion predecessor/one-token-target cycles on every discovered sticky backend, without logprobs or response token IDs. Fail closed on unsupported routing, semantic corruption, or predecessor-dependent target output. |
 | Codex session for `tianhaowu` | `fair-cw-use2-1` | Qwen full TB4 pass@1 and gated 2,500-task rollout | Qwen direct-router configs, VMVM backend, focused tests, runtime skill | canceled diagnostic `1435776`; preserved output `tb4_qwen_a95b_direct_full_v1`; endpoint `shared_qwen38_2p4t` | Run `1435776` is non-official because it predates the enforced no-network policy. It was canceled at 7/66 clean diagnostic rows. Require one fresh post-policy 66-task run from the latest branch and verifier gitlink, into a fresh output path; run the strict score/trace gate only after that run completes, and launch production only if it succeeds. Never inspect task prompts/bodies or raw trace/model/tool content. |
 | Codex session for `tianhaowu` | `fair-cw-use2-1` | Final-code compatibility-oracle validation only; excludes Kimi serving and every TB4/Mobius model evaluation | `COORDINATION.md`; outputs `/checkpoint/ram/tianhaowu/terminal_bench_vmvm/oracle/mobius_repairs_oracle_public_f0d7be39c_use2-1_v1` and `/checkpoint/ram/tianhaowu/terminal_bench_vmvm/oracle/mobius_full_oracle_public_f0d7be39c_use2-1_v1` | canary `1444307` terminal at 41/42 valid; old full `1444339` canceled never-started; independent full `1444701` PENDING `(None)` | Canary failed its strict 42/42 gate. Fresh independent full `1444701` was submitted through tmux from parent/head `f0d7be39c`, code `bb734d08c8`, and verifier `7e3b6885`, at eight active rollouts/four lease starts; it requires at least 90% and 2,500 valid. Use2-3 retains all Kimi serving and TB4/Mobius model-evaluation ownership. |
@@ -38,6 +38,20 @@ this shared branch again.
 Add new rows below this line; do not overwrite another owner's row.
 
 ## Open coordination requests
+
+- **2026-09-16 23:58 UTC, use2-3 oracle dependency exclusions:** aggregate-only
+  monitoring found two `RuntimeError` rows in promotable oracle `1737160` by
+  343/2,538 completions. Both have zero VMVM infrastructure failures and map,
+  without exposing task names or raw errors, to pip's deterministic no-matching
+  binary-distribution signature during verifier wheel prefetch. Fixed-signature
+  checks found no DNS, HTTP, SSL, proxy, connection, timeout, OOM, or wheel-build
+  failure. Independent review confirms they may safely consume the 38-row
+  exclusion budget; only valid rows enter the production manifest. Do not
+  restart or alter the immutable live run. Same-source `RERUN_INVALID=1` is
+  available only if the terminal run misses 2,500 valid, but it reruns every
+  non-valid row. A future-source improvement may type deterministic no-wheel
+  resolution as unsupported and retry only positively transient prefetch
+  failures; it cannot be applied to this identity-bound run.
 
 - **2026-09-16 23:38 UTC, use2-3 live gate/scheduler audit:** promotable
   oracle `1737160` is running normally; its aggregate-only summary reached
