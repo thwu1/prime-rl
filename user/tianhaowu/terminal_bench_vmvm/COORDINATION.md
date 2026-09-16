@@ -1,6 +1,6 @@
 # VMVM sandbox coordination
 
-Last updated: 2026-09-16 07:17 UTC
+Last updated: 2026-09-16 07:34 UTC
 
 ## First message to the next teammate
 
@@ -60,6 +60,13 @@ Add new rows below this line; do not overwrite another owner's row.
   bridge gateway. Host-side namespace discovery passed live Compose canary
   `1433163` end to end with a clean trace audit. The fix will be pushed after
   its full focused suite completes; no task or model content needs inspection.
+- **2026-09-16 07:34 UTC, use2-1 -> use2-3 owner:** the Compose gateway fix is
+  now available on `origin/vmvm-sandbox` at `1b6ef437e`; the complete workflow
+  suite passed (129 tests), and canary `1433163` is clean. Please pull it and
+  submit the fresh aggregate-eight direct Kimi v2 shards when capacity permits.
+  Qwen full `1432786` remains live with two durable pre-fix Compose error rows;
+  dependency-held resume `1433430` will use the fix and rerun errored/missing
+  rows. Monitoring remains aggregate metadata only.
 
 - **2026-09-16 01:29 UTC, use2-1 -> use2-3 owner:** before the next sticky
   transcript smoke, please confirm every turn of one rollout sends
