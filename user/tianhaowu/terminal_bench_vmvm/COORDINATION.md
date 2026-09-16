@@ -1,6 +1,6 @@
 # VMVM sandbox coordination
 
-Last updated: 2026-09-16 19:30 UTC
+Last updated: 2026-09-16 19:46 UTC
 
 ## First message to the next teammate
 
@@ -30,7 +30,7 @@ this shared branch again.
 
 | Owner | Cluster | Scope | Files | Live resources | State / next gate |
 |---|---|---|---|---|---|
-| Codex session for `tianhaowu` | `fair-cw-use2-3` | Kimi serving, full TB4 pass@1, and gated 2,500-task rollout | `user/tianhaowu/terminal_bench_vmvm/**`, `user/tianhaowu/deepswe_vmvm/{README.md,run_runtime_smoke.sbatch,smoke_runtime.py}`, `environments/vmvm_tb_v2/**`, `deps/verifiers` gitlink | patched deployment `tianhaowu-k3-kda-tb1-low-20260916`; coordinator `1735915`; endpoint `1735929`; route gate `1735934`; promotable oracle canary `1737126` | Identity hardening is pushed at `fb8b5c1fd`; clean snapshot `prime-rl-fb8b5c1fd` pins verifier `7e3b6885`. Fresh 42-row canary `1737126` is pending at 8 active/4 lease starts, public semantics, and 2x multipliers. Only 42 terminal, at least 41 valid, and zero infrastructure/timeout/error/cleanup events authorize the fresh full oracle. Use2-1 diagnostic `1444701` remains untouched. In parallel require exact 1/1 Kimi readiness, semantic/state-reuse soak, and an approved transcript smoke; then run one fresh full TB4 pass@1 at four active rollouts/two lease starts. Never inspect task prompts/bodies or raw trace/model/tool content. |
+| Codex session for `tianhaowu` | `fair-cw-use2-3` | Kimi serving, full TB4 pass@1, and gated 2,500-task rollout | `user/tianhaowu/terminal_bench_vmvm/**`, `user/tianhaowu/deepswe_vmvm/{README.md,run_runtime_smoke.sbatch,smoke_runtime.py}`, `environments/vmvm_tb_v2/**`, `deps/verifiers` gitlink | patched deployment `tianhaowu-k3-kda-tb1-low-20260916`; coordinator `1735915`; endpoint `1735929`; route gate `1735934`; full oracle `1737160` | Identity hardening is pushed at `fb8b5c1fd`; clean snapshot `prime-rl-fb8b5c1fd` pins verifier `7e3b6885`. Canary `1737126` passed 41/42 with one ordinary invalid and zero infrastructure/retry/error/cleanup events. Fresh promotable full oracle `1737160` is pending at 8 active/4 lease starts, public semantics, 2x multipliers, and hard gates of at least 90% plus 2,500 valid. Use2-1 diagnostic `1444701` remains untouched. In parallel require exact 1/1 Kimi readiness, semantic/state-reuse soak, and an approved transcript smoke; then run one fresh full TB4 pass@1 at four active rollouts/two lease starts. Never inspect task prompts/bodies or raw trace/model/tool content. |
 | Codex session for `tianhaowu` | `fair-cw-use2-1` | Add a direct one-token KDA state-reuse probe; no serving or eval mutation | `user/tianhaowu/terminal_bench_vmvm/{probe_inference_routes.py,tests/test_probe_inference_routes.py,HANDOFF.md,COORDINATION.md}` | none | Extend the existing readiness probe with serial raw-completion predecessor/one-token-target cycles on every discovered sticky backend, without logprobs or response token IDs. Fail closed on unsupported routing, semantic corruption, or predecessor-dependent target output. |
 | Codex session for `tianhaowu` | `fair-cw-use2-1` | Qwen full TB4 pass@1 and gated 2,500-task rollout | Qwen direct-router configs, VMVM backend, focused tests, runtime skill | canceled diagnostic `1435776`; preserved output `tb4_qwen_a95b_direct_full_v1`; endpoint `shared_qwen38_2p4t` | Run `1435776` is non-official because it predates the enforced no-network policy. It was canceled at 7/66 clean diagnostic rows. Require one fresh post-policy 66-task run from the latest branch and verifier gitlink, into a fresh output path; run the strict score/trace gate only after that run completes, and launch production only if it succeeds. Never inspect task prompts/bodies or raw trace/model/tool content. |
 | Codex session for `tianhaowu` | `fair-cw-use2-1` | Final-code compatibility-oracle validation only; excludes Kimi serving and every TB4/Mobius model evaluation | `COORDINATION.md`; outputs `/checkpoint/ram/tianhaowu/terminal_bench_vmvm/oracle/mobius_repairs_oracle_public_f0d7be39c_use2-1_v1` and `/checkpoint/ram/tianhaowu/terminal_bench_vmvm/oracle/mobius_full_oracle_public_f0d7be39c_use2-1_v1` | canary `1444307` terminal at 41/42 valid; old full `1444339` canceled never-started; independent full `1444701` PENDING `(None)` | Canary failed its strict 42/42 gate. Fresh independent full `1444701` was submitted through tmux from parent/head `f0d7be39c`, code `bb734d08c8`, and verifier `7e3b6885`, at eight active rollouts/four lease starts; it requires at least 90% and 2,500 valid. Use2-3 retains all Kimi serving and TB4/Mobius model-evaluation ownership. |
@@ -38,6 +38,18 @@ this shared branch again.
 Add new rows below this line; do not overwrite another owner's row.
 
 ## Open coordination requests
+
+- **2026-09-16 19:46 UTC, use2-3 promotable full oracle:** canary `1737126`
+  completed 42/42 in 11m17s with 41 valid, one ordinary invalid, one immutable
+  identity, and zero infrastructure errors, timeouts, generic errors, retries,
+  or cleanup failures. It exited 0 and authorized the full gate. Fresh full job
+  `1737160` writes
+  `/checkpoint/ram/tianhaowu/terminal_bench_vmvm/oracle/mobius_full_oracle_public_fb8b5c1fd_use2-3_v1`.
+  It uses the same exact source/dataset/image pins and public/declaration
+  semantics at the measured stable 8-active/4-lease lane with 2x multipliers;
+  acceptance requires at least 90% and at least 2,500 valid among all 2,538
+  terminal rows. It is the sole promotable full oracle; do not duplicate,
+  mutate, or merge it with diagnostic `1444701`.
 
 - **2026-09-16 19:30 UTC, use2-3 promotable-oracle canary:** independently
   approved hardening is pushed as `fb8b5c1fd6901e7dd6879d9a125e0d3b1c27cb41`;
