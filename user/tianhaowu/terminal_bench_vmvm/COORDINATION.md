@@ -31,6 +31,7 @@ this shared branch again.
 | Owner | Cluster | Scope | Files | Live resources | State / next gate |
 |---|---|---|---|---|---|
 | Codex session for `tianhaowu` | `fair-cw-use2-3` | Kimi serving; TB4 pass@1; 2,500-trace launch | `user/tianhaowu/terminal_bench_vmvm/**`, `environments/vmvm_tb_v2/**`, `deps/verifiers` gitlink | deployment `tianhaowu-k3-tb24-nocache-20260916`; coordinator `1732626`; endpoint jobs `1732639`-`1732662`; 0/24 ready and all workers pending at 03:22 UTC | The user explicitly approved the stock-image fallback. It uses 24 normal-QoS endpoints with prefix caching off, `max-num-seqs=1`, Python frontend, PIECEWISE graphs, no logprob/token-ID request fields, and sticky routing. Require model-specific health 24/0 and `probe_inference_routes.py`, then run a fresh model-I/O smoke and exactly one full TB4 run. |
+| Codex session for `tianhaowu` | `fair-cw-use2-1` | Read-only patched-image discovery and risk handoff; no image build, serving, or eval mutation | `user/tianhaowu/terminal_bench_vmvm/COORDINATION.md` | none | Record exact July-compatible KDA patch provenance and whether an immutable patched image exists; hand off the production-safety conclusion to the use2-3 owner. |
 
 Add new rows below this line; do not overwrite another owner's row.
 
