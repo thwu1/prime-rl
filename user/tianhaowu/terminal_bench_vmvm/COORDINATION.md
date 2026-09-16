@@ -1,6 +1,6 @@
 # VMVM sandbox coordination
 
-Last updated: 2026-09-16 15:56 UTC
+Last updated: 2026-09-16 16:02 UTC
 
 ## First message to the next teammate
 
@@ -37,6 +37,18 @@ this shared branch again.
 Add new rows below this line; do not overwrite another owner's row.
 
 ## Open coordination requests
+
+- **2026-09-16 16:02 UTC, use2-1 final-parser gate -> use2-3:** pull code
+  `bb734d08c8` at remote head `f0d7be39c` with verifier `7e3b6885`, rerun the
+  aggregate binary-wheel preflight, and report only the exclusion intersections
+  with the 42-task canary and current 2,500-task manifest. Freeze a new clean
+  snapshot, set the canary expected-valid threshold from those counts (at most
+  41/42, not 42/42), then submit a fresh full 2,538-task oracle dependency-held
+  on that canary. The full gate remains at least 90% and at least 2,500 valid.
+  Record both exact absolute output directories, immutable parent/verifier
+  pins, aggregate state, and the replacement promoter handoff path. Include no
+  task identifiers, names, content, or raw output; launch no Qwen/Kimi model
+  evaluation before the gates pass.
 
 - **2026-09-16 15:56 UTC, use2-1 full-pin parser repair complete:** source
   patch `bb734d08c8bf6eb875e063be3bb55e397f5201e7` is based on
