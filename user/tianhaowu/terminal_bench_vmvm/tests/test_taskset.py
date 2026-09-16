@@ -85,11 +85,13 @@ class DependencyRuntime:
         *,
         installed: bool = True,
         wheel_failure: bool = False,
+        source_only: bool = False,
         image: str = "registry.invalid/task@sha256:" + "a" * 64,
         wheel_names: tuple[str, ...] = ("verifier_helper-1.0-py3-none-any.whl",),
     ) -> None:
         self.installed = installed
         self.wheel_failure = wheel_failure
+        self.source_only = source_only
         self.config = SimpleNamespace(image=image)
         self.wheel_archive = wheel_archive(*wheel_names)
         self.events: list[str] = []
@@ -111,17 +113,22 @@ class DependencyRuntime:
             )
         if argv[:4] == ["python3", "-m", "pip", "wheel"]:
             self.events.append("wheel")
+            source_rejected = self.source_only and "--only-binary=:all:" in argv
             return ProgramResult(
-                exit_code=1 if self.wheel_failure else 0,
-                stdout="wheel failed" if self.wheel_failure else "",
+                exit_code=1 if self.wheel_failure or source_rejected else 0,
+                stdout="wheel failed" if self.wheel_failure or source_rejected else "",
                 stderr="",
             )
         if "PIP_NO_INDEX=1" in command:
             self.events.append("install")
             self.installed = True
+        if "if test -s /logs/verifier/reward.json" in command:
+            return ProgramResult(exit_code=0, stdout="text", stderr="")
         return ProgramResult(exit_code=0, stdout="", stderr="")
 
     async def read(self, path: str) -> bytes:
+        if path == "/logs/verifier/reward.txt":
+            return b"1\n"
         self.events.append("archive-read")
         return self.wheel_archive
 
@@ -506,6 +513,19 @@ def test_verifier_dependency_wheel_failure_is_fail_closed(tmp_path: Path) -> Non
     assert runtime not in taskset._prefetched_test_dependencies
 
 
+def test_verifier_dependency_source_distribution_is_fail_closed(tmp_path: Path) -> None:
+    taskset = dependency_taskset(tmp_path)
+    task = dependency_task(tmp_path)
+    runtime = DependencyRuntime(source_only=True)
+
+    with pytest.raises(RuntimeError, match="wheel prefetch failed"):
+        asyncio.run(taskset._prefetch_test_dependencies(task, runtime))
+
+    wheel_command = next(command for command in runtime.commands if " pip wheel " in command)
+    assert "--only-binary=:all:" in wheel_command
+    assert runtime not in taskset._prefetched_test_dependencies
+
+
 @pytest.mark.parametrize("failure", [RuntimeError("prepare failed"), asyncio.CancelledError()])
 def test_verifier_wheelhouse_preparation_always_attempts_cleanup(
     tmp_path: Path,
@@ -578,7 +598,17 @@ def test_verifier_dependency_universal_cache_is_single_flight_across_images(tmp_
     wheelhouses = [taskset._prefetched_test_dependencies[runtime] for runtime in runtimes]
     assert wheelhouses[0] is wheelhouses[1] is wheelhouses[2]
     assert wheelhouses[0].universal is True
-    taskset._cleanup_wheelhouse_cache()
+    archive_path = wheelhouses[0].archive_path
+    assert archive_path is not None and archive_path.exists()
+
+    asyncio.run(taskset.cleanup(task, None, runtimes[0]))
+    assert runtimes[0] not in taskset._prefetched_test_dependencies
+    assert runtimes[0] not in taskset._runtime_wheel_fingerprints
+    assert archive_path.exists()
+
+    asyncio.run(taskset.close())
+    assert archive_path.exists() is False
+    assert taskset._universal_wheelhouse_cache == {}
 
 
 def test_verifier_dependency_platform_cache_is_scoped_to_runtime_fingerprint(tmp_path: Path) -> None:
@@ -624,6 +654,152 @@ def test_verifier_dependency_cache_key_includes_exact_requirement_tuple(tmp_path
     assert taskset._prefetched_test_dependencies[runtimes[0]].requirements == ("verifier-helper==1.0",)
     assert taskset._prefetched_test_dependencies[runtimes[1]].requirements == ("other-helper==2.0",)
     taskset._cleanup_wheelhouse_cache()
+
+
+def test_cancelled_wheelhouse_owner_is_quiesced_and_waiter_retries(tmp_path: Path) -> None:
+    taskset = dependency_taskset(tmp_path)
+    task = dependency_task(tmp_path)
+    owner = DependencyRuntime()
+    waiter = DependencyRuntime()
+
+    async def exercise() -> None:
+        wheel_started = asyncio.Event()
+        never_finish = asyncio.Event()
+        owner_run = owner.run
+
+        async def blocked_run(argv: list[str], env: dict[str, str]) -> ProgramResult:
+            if argv[:4] == ["python3", "-m", "pip", "wheel"]:
+                owner.events.append("wheel")
+                wheel_started.set()
+                await never_finish.wait()
+            return await owner_run(argv, env)
+
+        owner.run = blocked_run
+        owner_prefetch = asyncio.create_task(taskset._prefetch_test_dependencies(task, owner))
+        await wheel_started.wait()
+        waiter_prefetch = asyncio.create_task(taskset._prefetch_test_dependencies(task, waiter))
+        await asyncio.sleep(0)
+
+        owner_prefetch.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await owner_prefetch
+        await taskset.cleanup(task, None, owner)
+        await waiter_prefetch
+
+        assert waiter.events.count("wheel") == 1
+        assert owner not in taskset._runtime_wheel_fingerprints
+        assert owner not in taskset._prefetched_test_dependencies
+        assert waiter in taskset._prefetched_test_dependencies
+        assert taskset._wheelhouse_discovery_flights == {}
+        assert taskset._wheelhouse_flight_runtimes == {}
+        await taskset.close()
+
+    asyncio.run(exercise())
+
+
+def test_taskset_close_cancels_inflight_wheelhouse_builder(tmp_path: Path) -> None:
+    taskset = dependency_taskset(tmp_path)
+    task = dependency_task(tmp_path)
+    runtime = DependencyRuntime()
+
+    async def exercise() -> None:
+        wheel_started = asyncio.Event()
+        never_finish = asyncio.Event()
+        runtime_run = runtime.run
+
+        async def blocked_run(argv: list[str], env: dict[str, str]) -> ProgramResult:
+            if argv[:4] == ["python3", "-m", "pip", "wheel"]:
+                runtime.events.append("wheel")
+                wheel_started.set()
+                await never_finish.wait()
+            return await runtime_run(argv, env)
+
+        runtime.run = blocked_run
+        prefetch = asyncio.create_task(taskset._prefetch_test_dependencies(task, runtime))
+        await wheel_started.wait()
+        await taskset.close()
+        (outcome,) = await asyncio.gather(prefetch, return_exceptions=True)
+
+        assert isinstance(outcome, RuntimeError)
+        assert "cache is closed" in str(outcome)
+        assert taskset._wheelhouse_discovery_flights == {}
+        assert taskset._wheelhouse_compatibility_flights == {}
+        assert taskset._wheelhouse_flight_runtimes == {}
+        assert taskset._wheelhouse_cache_directory is None
+
+    asyncio.run(exercise())
+
+
+def test_taskset_cleanup_drops_unscored_artifacts(tmp_path: Path) -> None:
+    taskset = dependency_taskset(tmp_path)
+    task = dependency_task(tmp_path)
+    runtime = DependencyRuntime()
+    trace = SimpleNamespace(id="unfinished-trace")
+    taskset._artifact_payloads[trace.id] = {"main": b"artifact"}
+
+    asyncio.run(taskset.cleanup(task, trace, runtime))
+
+    assert trace.id not in taskset._artifact_payloads
+
+
+def test_public_agent_offline_verifier_stages_tests_only_after_isolation(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    taskset = dependency_taskset(tmp_path)
+    task = dependency_task(tmp_path)
+    task.resources = SimpleNamespace(gpu=None)
+    task.workdir = "/app"
+    task.verifier_workdir = "/app"
+    task.verifier_mode = "shared"
+    task.agent_network_mode = "public"
+    task.verifier_network_mode = "no-network"
+    task.verifier_timeout_sec = 30.0
+    task.verifier_env = {}
+    runtime = DependencyRuntime(installed=True)
+
+    async def configure_network_policy(
+        task_arg: SimpleNamespace,
+        runtime_arg: DependencyRuntime,
+        mode: str,
+        *,
+        activate: bool,
+    ) -> None:
+        assert task_arg is task
+        assert runtime_arg is runtime
+        runtime.events.append(f"network:{mode}:{'active' if activate else 'prepared'}")
+
+    async def stage_tests(
+        runtime_arg: DependencyRuntime,
+        source: Path,
+        target: str,
+        label: str,
+    ) -> None:
+        assert runtime_arg is runtime
+        assert source == Path(task.task_dir) / "tests"
+        assert (target, label) == ("/tests", "tests")
+        runtime.events.append("stage-tests")
+
+    monkeypatch.setattr(taskset, "_configure_network_policy", configure_network_policy)
+    monkeypatch.setattr(taskset, "_stage_directory", stage_tests)
+
+    async def run_phases() -> float:
+        await taskset.setup(task, runtime)
+        runtime.events.append("agent")
+        runtime.installed = False
+        _, _, score, _ = await taskset._run_verifier(task, runtime, stage_tests=True)
+        await taskset.cleanup(task, None, runtime)
+        await taskset.close()
+        return score
+
+    score = asyncio.run(run_phases())
+
+    assert score == 1.0
+    assert runtime.events.count("wheel") == 1
+    assert runtime.events.index("wheel") < runtime.events.index("agent")
+    assert runtime.events.index("agent") < runtime.events.index("network:no-network:active")
+    assert runtime.events.index("network:no-network:active") < runtime.events.index("stage-tests")
+    assert runtime.events.index("stage-tests") < runtime.events.index("install")
 
 
 @pytest.mark.parametrize(

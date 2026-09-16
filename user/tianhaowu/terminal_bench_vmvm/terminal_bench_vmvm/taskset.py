@@ -546,10 +546,14 @@ class TerminalBenchVMVMTaskset(
         self._wheelhouse_compatibility_flights: dict[
             tuple[tuple[str, ...], str], asyncio.Task[PrefetchedTestDependencies]
         ] = {}
+        self._wheelhouse_flight_runtimes: dict[asyncio.Task[PrefetchedTestDependencies], Runtime] = {}
         self._wheelhouse_cache_lock = asyncio.Lock()
         self._wheelhouse_cache_directory: tempfile.TemporaryDirectory[str] | None = None
+        self._wheelhouse_cache_closed = False
 
     def _wheelhouse_cache_path(self) -> Path:
+        if self._wheelhouse_cache_closed:
+            raise RuntimeError("verifier wheelhouse cache is closed")
         if self._wheelhouse_cache_directory is None:
             self._wheelhouse_cache_directory = tempfile.TemporaryDirectory(
                 prefix="terminal-bench-verifier-wheelhouse-cache-"
@@ -558,13 +562,44 @@ class TerminalBenchVMVMTaskset(
 
     def _cleanup_wheelhouse_cache(self) -> None:
         self._prefetched_test_dependencies.clear()
+        self._runtime_wheel_fingerprints.clear()
         self._universal_wheelhouse_cache.clear()
         self._compatible_wheelhouse_cache.clear()
         self._nonuniversal_wheelhouse_requirements.clear()
+        self._wheelhouse_discovery_flights.clear()
+        self._wheelhouse_compatibility_flights.clear()
+        self._wheelhouse_flight_runtimes.clear()
         directory = self._wheelhouse_cache_directory
         self._wheelhouse_cache_directory = None
         if directory is not None:
             directory.cleanup()
+
+    async def cleanup(self, task: TerminalBenchTask, trace: vf.Trace | None, runtime: Runtime) -> None:
+        """Detach per-rollout state and quiesce cache work owned by this runtime."""
+        async with self._wheelhouse_cache_lock:
+            flights = [flight for flight, owner in self._wheelhouse_flight_runtimes.items() if owner is runtime]
+        for flight in flights:
+            flight.cancel()
+        try:
+            if flights:
+                await asyncio.gather(*flights, return_exceptions=True)
+        finally:
+            self._prefetched_test_dependencies.pop(runtime, None)
+            self._runtime_wheel_fingerprints.pop(runtime, None)
+            if trace is not None:
+                self._artifact_payloads.pop(trace.id, None)
+
+    async def close(self) -> None:
+        """Cancel cache builders and deterministically release the shared cache."""
+        async with self._wheelhouse_cache_lock:
+            self._wheelhouse_cache_closed = True
+            flights = set(self._wheelhouse_discovery_flights.values())
+            flights.update(self._wheelhouse_compatibility_flights.values())
+        for flight in flights:
+            flight.cancel()
+        if flights:
+            await asyncio.gather(*flights, return_exceptions=True)
+        await asyncio.to_thread(self._cleanup_wheelhouse_cache)
 
     def _validate_dataset_revision(self, root: Path) -> None:
         expected = self.config.dataset_revision
@@ -1253,6 +1288,8 @@ for requirement in sys.argv[1:]:
             async with self._wheelhouse_cache_lock:
                 if self._wheelhouse_discovery_flights.get(requirements) is current:
                     self._wheelhouse_discovery_flights.pop(requirements, None)
+                if current is not None:
+                    self._wheelhouse_flight_runtimes.pop(current, None)
 
     async def _publish_compatible_wheelhouse(
         self,
@@ -1281,6 +1318,8 @@ for requirement in sys.argv[1:]:
             async with self._wheelhouse_cache_lock:
                 if self._wheelhouse_compatibility_flights.get(key) is current:
                     self._wheelhouse_compatibility_flights.pop(key, None)
+                if current is not None:
+                    self._wheelhouse_flight_runtimes.pop(current, None)
 
     async def _verified_wheelhouse(
         self,
@@ -1303,6 +1342,8 @@ for requirement in sys.argv[1:]:
         fingerprint = compatibility_fingerprint or await self._runtime_wheel_fingerprint(task, runtime)
         key = (requirements, fingerprint)
         async with self._wheelhouse_cache_lock:
+            if self._wheelhouse_cache_closed:
+                raise RuntimeError(f"{task.name}: verifier wheelhouse cache is closed")
             cached = self._universal_wheelhouse_cache.get(requirements)
             if cached is None:
                 cached = self._compatible_wheelhouse_cache.get(key)
@@ -1318,10 +1359,17 @@ for requirement in sys.argv[1:]:
                 )
                 flight.add_done_callback(self._consume_wheelhouse_flight_result)
                 self._wheelhouse_compatibility_flights[key] = flight
+                self._wheelhouse_flight_runtimes[flight] = runtime
         if cached is not None:
             return await self._verified_wheelhouse(task, cached)
         assert flight is not None
-        return await asyncio.shield(flight)
+        try:
+            return await asyncio.shield(flight)
+        except asyncio.CancelledError:
+            current = asyncio.current_task()
+            if current is not None and current.cancelling():
+                raise
+            return await self._compatible_wheelhouse(task, runtime, requirements, fingerprint)
 
     async def _cached_test_dependency_wheelhouse(
         self,
@@ -1330,6 +1378,8 @@ for requirement in sys.argv[1:]:
         requirements: tuple[str, ...],
     ) -> PrefetchedTestDependencies:
         async with self._wheelhouse_cache_lock:
+            if self._wheelhouse_cache_closed:
+                raise RuntimeError(f"{task.name}: verifier wheelhouse cache is closed")
             cached = self._universal_wheelhouse_cache.get(requirements)
             flight = self._wheelhouse_discovery_flights.get(requirements)
             has_nonuniversal = requirements in self._nonuniversal_wheelhouse_requirements
@@ -1337,12 +1387,19 @@ for requirement in sys.argv[1:]:
                 flight = asyncio.create_task(self._publish_discovered_wheelhouse(task, runtime, requirements))
                 flight.add_done_callback(self._consume_wheelhouse_flight_result)
                 self._wheelhouse_discovery_flights[requirements] = flight
+                self._wheelhouse_flight_runtimes[flight] = runtime
         if cached is not None:
             return await self._verified_wheelhouse(task, cached)
         if has_nonuniversal and flight is None:
             return await self._compatible_wheelhouse(task, runtime, requirements)
         assert flight is not None
-        discovered = await asyncio.shield(flight)
+        try:
+            discovered = await asyncio.shield(flight)
+        except asyncio.CancelledError:
+            current = asyncio.current_task()
+            if current is not None and current.cancelling():
+                raise
+            return await self._cached_test_dependency_wheelhouse(task, runtime, requirements)
         if discovered.universal:
             return discovered
         fingerprint = await self._runtime_wheel_fingerprint(task, runtime)
@@ -1390,7 +1447,7 @@ for requirement in sys.argv[1:]:
             return
         try:
             try:
-                wheel_archive = await asyncio.to_thread(prefetched.read_verified)
+                await asyncio.to_thread(prefetched.verify)
             except RuntimeError as error:
                 raise RuntimeError(f"{task.name}: {error}") from error
 
@@ -1403,6 +1460,11 @@ for requirement in sys.argv[1:]:
             )
             if not missing:
                 return
+
+            try:
+                wheel_archive = await asyncio.to_thread(prefetched.read_verified)
+            except RuntimeError as error:
+                raise RuntimeError(f"{task.name}: {error}") from error
 
             nonce = uuid.uuid4().hex[:16]
             archive_path = f"/tmp/terminal-bench-verifier-wheels-{nonce}.tar"
@@ -1465,6 +1527,18 @@ for requirement in sys.argv[1:]:
         *,
         stage_tests: bool,
     ) -> tuple[ProgramResult, bool, float, dict[str, float]]:
+        isolated_staged_tests = stage_tests and task.verifier_network_mode == "no-network"
+        if isolated_staged_tests and runtime not in self._prefetched_test_dependencies:
+            raise RuntimeError(
+                f"{task.name}: isolated verifier dependencies were not prefetched before the untrusted phase"
+            )
+        if task.verifier_network_mode == "no-network":
+            await self._configure_network_policy(
+                task,
+                runtime,
+                task.verifier_network_mode,
+                activate=True,
+            )
         if stage_tests:
             await self._stage_directory(runtime, Path(task.task_dir) / "tests", "/tests", "tests")
         prepared = await self._run_root(
@@ -1478,19 +1552,17 @@ for requirement in sys.argv[1:]:
         # Official separate-verifier images own their sealed test dependencies.
         # Only shared-mode/staged tests need repair for the older Mobius image set.
         if stage_tests:
-            if task.verifier_network_mode == "no-network":
-                if runtime not in self._prefetched_test_dependencies:
-                    await self._prefetch_test_dependencies(task, runtime)
+            if isolated_staged_tests:
+                await self._install_prefetched_test_dependencies(task, runtime)
             else:
                 await self._ensure_test_dependencies(task, runtime)
-        await self._configure_network_policy(
-            task,
-            runtime,
-            task.verifier_network_mode,
-            activate=True,
-        )
-        if stage_tests and task.verifier_network_mode == "no-network":
-            await self._install_prefetched_test_dependencies(task, runtime)
+        if task.verifier_network_mode == "public":
+            await self._configure_network_policy(
+                task,
+                runtime,
+                task.verifier_network_mode,
+                activate=True,
+            )
         timeout = f"{task.verifier_timeout_sec:g}s"
         command = (
             "mkdir -p /logs/verifier; "
@@ -1566,6 +1638,11 @@ for requirement in sys.argv[1:]:
             try:
                 await verifier.start()
                 descriptor = verifier.descriptor
+                stage_tests = not task.verifier_tests_baked
+                if stage_tests and task.verifier_network_mode == "no-network":
+                    # Cache wheels while this verifier runtime is still pristine,
+                    # before restoring any agent-produced artifact into it.
+                    await self._prefetch_test_dependencies(task, verifier)
                 for index, (service, payload) in enumerate(sorted(payloads.items())):
                     archive_path = f"/tmp/terminal-bench-artifacts-{index}.tgz"
                     await verifier.write(archive_path, payload)
@@ -1581,18 +1658,29 @@ for requirement in sys.argv[1:]:
                 outcome = await self._run_verifier(
                     task,
                     verifier,
-                    stage_tests=not task.verifier_tests_baked,
+                    stage_tests=stage_tests,
                 )
             except SandboxError as error:
                 failure = str(error)
             finally:
                 try:
-                    await verifier.stop()
-                except Exception as cleanup_error:
-                    if outcome is None:
-                        failure = f"{failure}; cleanup failed: {cleanup_error}" if failure else str(cleanup_error)
-                    else:
-                        logger.warning("%s verifier cleanup failed: %s", task.name, cleanup_error)
+                    try:
+                        await self.cleanup(task, None, verifier)
+                    except Exception as cleanup_error:
+                        if outcome is None:
+                            failure = (
+                                f"{failure}; taskset cleanup failed: {cleanup_error}" if failure else str(cleanup_error)
+                            )
+                        else:
+                            logger.warning("%s verifier taskset cleanup failed: %s", task.name, cleanup_error)
+                finally:
+                    try:
+                        await verifier.stop()
+                    except Exception as cleanup_error:
+                        if outcome is None:
+                            failure = f"{failure}; cleanup failed: {cleanup_error}" if failure else str(cleanup_error)
+                        else:
+                            logger.warning("%s verifier cleanup failed: %s", task.name, cleanup_error)
             if outcome is not None:
                 return (*outcome, descriptor, attempt, failures)
             failures.append(failure or "verifier failed without an error")

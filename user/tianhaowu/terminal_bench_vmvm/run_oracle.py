@@ -10,6 +10,7 @@ import json
 import logging
 import os
 import random
+import signal
 import time
 from pathlib import Path
 
@@ -160,10 +161,17 @@ async def _attempt(
         }
     finally:
         try:
-            await asyncio.shield(runtime.stop())
-        except Exception as error:
-            cleanup_error = f"{type(error).__name__}: {error}"
-            logger.warning("%s cleanup failed: %s", task.name, cleanup_error)
+            try:
+                await taskset.cleanup(task, None, runtime)
+            except Exception as error:
+                cleanup_error = f"{type(error).__name__}: {error}"
+                logger.warning("%s taskset cleanup failed: %s", task.name, cleanup_error)
+        finally:
+            try:
+                await asyncio.shield(runtime.stop())
+            except Exception as error:
+                cleanup_error = f"{type(error).__name__}: {error}"
+                logger.warning("%s cleanup failed: %s", task.name, cleanup_error)
 
 
 async def _validate_one(
@@ -380,22 +388,29 @@ async def _run(args: argparse.Namespace) -> int:
 
     logger.info("selected=%d resumed=%d pending=%d", len(tasks), len(results_by_slug), len(pending))
     futures = [asyncio.create_task(one(task)) for task in pending]
-    for future in asyncio.as_completed(futures):
-        result = await future
-        results_by_slug[result["slug"]] = result
-        ordered = [results_by_slug[task.slug] for task in tasks if task.slug in results_by_slug]
-        _atomic_json(output_dir / "summary.json", _summary(ordered, len(tasks), network_semantics))
+    try:
+        for future in asyncio.as_completed(futures):
+            result = await future
+            results_by_slug[result["slug"]] = result
+            ordered = [results_by_slug[task.slug] for task in tasks if task.slug in results_by_slug]
+            _atomic_json(output_dir / "summary.json", _summary(ordered, len(tasks), network_semantics))
 
-    results = [results_by_slug[task.slug] for task in tasks]
-    with (output_dir / "results.jsonl.tmp").open("w") as handle:
-        for result in results:
-            handle.write(json.dumps(result, sort_keys=True, ensure_ascii=False) + "\n")
-    os.replace(output_dir / "results.jsonl.tmp", output_dir / "results.jsonl")
-    summary = _summary(results, len(tasks), network_semantics)
-    summary["finished_at"] = time.time()
-    _atomic_json(output_dir / "summary.json", summary)
-    logger.info("oracle summary: %s", json.dumps(summary, sort_keys=True))
-    return 0 if summary["pass_rate"] >= args.minimum_pass_rate else 2
+        results = [results_by_slug[task.slug] for task in tasks]
+        with (output_dir / "results.jsonl.tmp").open("w") as handle:
+            for result in results:
+                handle.write(json.dumps(result, sort_keys=True, ensure_ascii=False) + "\n")
+        os.replace(output_dir / "results.jsonl.tmp", output_dir / "results.jsonl")
+        summary = _summary(results, len(tasks), network_semantics)
+        summary["finished_at"] = time.time()
+        _atomic_json(output_dir / "summary.json", summary)
+        logger.info("oracle summary: %s", json.dumps(summary, sort_keys=True))
+        return 0 if summary["pass_rate"] >= args.minimum_pass_rate else 2
+    finally:
+        for future in futures:
+            future.cancel()
+        if futures:
+            await asyncio.gather(*futures, return_exceptions=True)
+        await taskset.close()
 
 
 def main() -> None:
@@ -404,6 +419,7 @@ def main() -> None:
         level=getattr(logging, args.log_level.upper()),
         format="%(asctime)s %(levelname)s %(name)s %(message)s",
     )
+    signal.signal(signal.SIGTERM, lambda *_: (_ for _ in ()).throw(KeyboardInterrupt()))
     try:
         raise SystemExit(asyncio.run(_run(args)))
     except KeyboardInterrupt:

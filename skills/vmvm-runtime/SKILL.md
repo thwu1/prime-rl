@@ -133,11 +133,13 @@ archives in RAM and an agent cannot modify the cached bytes. Cache by the exact
 requirement tuple with async single-flight. A wheelhouse containing only
 `*-none-any.whl` files can be shared across images; otherwise scope reuse to the
 runtime image plus its Python implementation/version, SOABI, platform, and
-machine fingerprint. Hash-check every reuse, retain controller cache entries
-for the taskset lifetime without strongly retaining the taskset through cleanup
-callbacks, and clean each sandbox copy after installation. After the
-agent/solution and after `no-network` activation, re-probe all declared versions,
-restore the archive, and install only missing or mismatched requirements with
+machine fingerprint. Hash-check every reuse, detach per-runtime references on
+every terminal path, retain controller cache entries for the taskset lifetime,
+and clean each sandbox copy after installation. Deterministically close the
+shared cache when the evaluator or environment server exits; object finalization
+is only a fallback. After the agent/solution and after `no-network` activation,
+stage hidden tests, re-probe all declared versions, restore the archive, and
+install only missing or mismatched requirements with
 `--no-index` / `PIP_NO_INDEX=1`. Fail closed on resolution, source-build,
 non-wheel, integrity, offline-install, or post-install validation failure.
 
