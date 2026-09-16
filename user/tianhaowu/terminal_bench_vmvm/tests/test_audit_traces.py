@@ -12,7 +12,12 @@ def _trace(trace_id: str, slug: str, *, valid: bool = True) -> dict:
         "token_ids": [101, 102],
         "mask": [True, True],
         "logprobs": [-0.1, -0.2] if valid else [-0.1],
-        "message": {"reasoning_content": "reasoning"},
+        "message": {
+            "role": "assistant",
+            "content": None,
+            "reasoning_content": "reasoning",
+            "tool_calls": None,
+        },
     }
     return {
         "id": trace_id,
@@ -112,20 +117,68 @@ def test_audit_trace_requires_complete_sampled_nodes_and_reasoning() -> None:
             "token_ids": [],
             "mask": [],
             "logprobs": [],
-            "message": {"reasoning_content": "  "},
+            "message": {
+                "role": "assistant",
+                "content": None,
+                "reasoning_content": "  ",
+                "tool_calls": None,
+            },
         }
     )
 
     assert _audit_trace(trace, require_reasoning=True) == [
         "node_1_sampled_token_ids_empty",
         "node_1_sampled_mask_empty",
-        "node_1_sampled_logprobs_empty",
         "node_1_reasoning_content_not_retained",
     ]
     assert _audit_trace(trace, require_reasoning=False) == [
         "node_1_sampled_token_ids_empty",
         "node_1_sampled_mask_empty",
+    ]
+    assert _audit_trace(trace, require_reasoning=False, require_logprobs=True) == [
+        "node_1_sampled_token_ids_empty",
+        "node_1_sampled_mask_empty",
         "node_1_sampled_logprobs_empty",
+    ]
+
+
+def test_audit_trace_accepts_exact_tokens_without_logprobs() -> None:
+    trace = _trace("no-logprobs", "no-logprobs-task")
+    trace["nodes"][0]["logprobs"] = []
+
+    assert _audit_trace(trace, require_reasoning=True) == []
+    assert _audit_trace(trace, require_reasoning=True, require_logprobs=True) == [
+        "node_0_logprob_mismatch",
+        "node_0_sampled_logprobs_empty",
+    ]
+
+
+def test_audit_trace_preserves_tool_call_and_result_payloads() -> None:
+    trace = _trace("tools", "tools-task")
+    trace["nodes"][0]["message"]["tool_calls"] = [
+        {"id": "call-1", "name": "bash", "arguments": '{"cmd":"pwd"}'}
+    ]
+    trace["nodes"].append(
+        {
+            "parent": 0,
+            "sampled": False,
+            "token_ids": [103],
+            "mask": [False],
+            "logprobs": [],
+            "message": {
+                "role": "tool",
+                "tool_call_id": "call-1",
+                "name": "bash",
+                "content": "/workspace\n",
+            },
+        }
+    )
+
+    assert _audit_trace(trace, require_reasoning=True) == []
+
+    trace["nodes"][1]["message"]["tool_call_id"] = "missing"
+    assert _audit_trace(trace, require_reasoning=True) == [
+        "node_1_tool_call_not_in_ancestors"
     ]
 
 
@@ -138,7 +191,7 @@ def test_audit_trace_limits_each_reconstructed_branch() -> None:
             "token_ids": [1, 2, 3, 4],
             "mask": [False] * 4,
             "logprobs": [],
-            "message": {"role": "user"},
+            "message": {"role": "user", "content": "prompt"},
         },
         {
             "parent": 0,
@@ -146,7 +199,12 @@ def test_audit_trace_limits_each_reconstructed_branch() -> None:
             "token_ids": [5, 6, 7, 8],
             "mask": [True] * 4,
             "logprobs": [-0.1] * 4,
-            "message": {"reasoning_content": "first branch"},
+            "message": {
+                "role": "assistant",
+                "content": None,
+                "reasoning_content": "first branch",
+                "tool_calls": None,
+            },
         },
         {
             "parent": 0,
@@ -154,7 +212,12 @@ def test_audit_trace_limits_each_reconstructed_branch() -> None:
             "token_ids": [9, 10, 11, 12, 13, 14, 15],
             "mask": [True] * 7,
             "logprobs": [-0.1] * 7,
-            "message": {"reasoning_content": "second branch"},
+            "message": {
+                "role": "assistant",
+                "content": None,
+                "reasoning_content": "second branch",
+                "tool_calls": None,
+            },
         },
     ]
 
@@ -174,7 +237,7 @@ def test_audit_trace_rejects_invalid_parent_graphs() -> None:
                 "token_ids": [],
                 "mask": [],
                 "logprobs": [],
-                "message": {"role": "tool"},
+                "message": {"role": "tool", "tool_call_id": "call", "content": "result"},
             },
             {
                 "parent": 1,
@@ -182,7 +245,7 @@ def test_audit_trace_rejects_invalid_parent_graphs() -> None:
                 "token_ids": [],
                 "mask": [],
                 "logprobs": [],
-                "message": {"role": "tool"},
+                "message": {"role": "tool", "tool_call_id": "call", "content": "result"},
             },
             {
                 "parent": 99,
@@ -190,7 +253,7 @@ def test_audit_trace_rejects_invalid_parent_graphs() -> None:
                 "token_ids": [],
                 "mask": [],
                 "logprobs": [],
-                "message": {"role": "tool"},
+                "message": {"role": "tool", "tool_call_id": "call", "content": "result"},
             },
         ]
     )
@@ -210,7 +273,16 @@ def test_audit_trace_handles_deep_parent_chain_without_recursion() -> None:
             "token_ids": [index],
             "mask": [index == 1_499],
             "logprobs": [-0.1] if index == 1_499 else [],
-            "message": {"reasoning_content": "last node" if index == 1_499 else None},
+            "message": (
+                {
+                    "role": "assistant",
+                    "content": None,
+                    "reasoning_content": "last node",
+                    "tool_calls": None,
+                }
+                if index == 1_499
+                else {"role": "user", "content": f"prompt-{index}"}
+            ),
         }
         for index in range(1_500)
     ]
