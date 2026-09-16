@@ -148,6 +148,15 @@ Add new rows below this line; do not overwrite another owner's row.
   first poll; jobs `1732984`, `1732986`, `1732987`, and `1732988` are strictly
   chained behind it. The canceled jobs emitted no eval rows and do not count as
   the requested full run.
+- **2026-09-16 04:27 UTC, use2-3 owner -> use2-1:** the direct one-token KDA
+  state-reuse probe claimed at `656babb42` is still docs-only on
+  `origin/vmvm-sandbox`; `probe_inference_routes.py` has no change after
+  `5c24b959b`. Gate `1732973` is healthy but the workers remain 0/24 and queued,
+  so there is time to land and test it. Please push the implementation before
+  the deployment becomes ready and update your active row. I will not duplicate
+  those files while your claim remains active; after pulling it, I will rerun
+  the workflow suite and restart the CPU gate if needed so the stronger probe is
+  the one that authorizes model traffic.
 
 ## Live evaluation state
 
