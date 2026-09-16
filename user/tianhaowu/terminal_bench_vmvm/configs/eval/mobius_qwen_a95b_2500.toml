@@ -8,6 +8,7 @@ max_output_tokens = 262144
 max_total_tokens = 262144
 multiplex = 8
 rich = false
+retain_traces = false
 
 [client]
 type = "eval"
@@ -17,7 +18,8 @@ base_url = "http://127.0.0.1:8000/v1"
 api_key_var = "OPENAI_API_KEY"
 timeout = 7200
 connect_timeout = 30
-max_retries = 10
+max_connections = 32
+max_keepalive_connections = 32
 
 [sampling]
 temperature = 0.7
@@ -50,6 +52,9 @@ config_overrides = [
     "model.model_kwargs.parallel_tool_calls=true",
 ]
 
+[harness.env]
+MSWEA_MODEL_RETRY_STOP_AFTER_ATTEMPT = "10"
+
 [harness.runtime]
 type = "vmvm"
 session_timeout = 43200
@@ -65,4 +70,4 @@ scoring = 21600
 
 [retries.rollout]
 max_retries = 2
-include = ["SandboxError", "TunnelError"]
+include = ["ProviderError", "SandboxError", "TunnelError"]

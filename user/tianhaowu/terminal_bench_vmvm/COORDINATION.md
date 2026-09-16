@@ -1,6 +1,6 @@
 # VMVM sandbox coordination
 
-Last updated: 2026-09-16 04:22 UTC
+Last updated: 2026-09-16 06:23 UTC
 
 ## First message to the next teammate
 
@@ -32,6 +32,7 @@ this shared branch again.
 |---|---|---|---|---|---|
 | Codex session for `tianhaowu` | `fair-cw-use2-3` | Kimi serving; TB4 pass@1; 2,500-trace launch | `user/tianhaowu/terminal_bench_vmvm/**`, `environments/vmvm_tb_v2/**`, `deps/verifiers` gitlink | deployment `tianhaowu-k3-tb24-nocache-20260916`; coordinator `1732626`; endpoint jobs `1732639`-`1732662`; gate chain `1732973 -> 1732984 -> 1732986 -> 1732987 -> 1732988`; 0/24 ready at 04:22 UTC | The user explicitly approved the stock-image fallback. It uses 24 normal-QoS endpoints with prefix caching off, `max-num-seqs=1`, Python frontend, PIECEWISE graphs, no logprob/token-ID request fields, and sticky routing. The CPU gate is running and all eval/checkpoint jobs are dependency-blocked. Launch production only after checkpoint `1732988` exits 0 with `ok=true`. |
 | Codex session for `tianhaowu` | `fair-cw-use2-1` | Add a direct one-token KDA state-reuse probe; no serving or eval mutation | `user/tianhaowu/terminal_bench_vmvm/{probe_inference_routes.py,tests/test_probe_inference_routes.py,HANDOFF.md,COORDINATION.md}` | none | Extend the existing readiness probe with serial raw-completion predecessor/one-token-target cycles on every discovered sticky backend, without logprobs or response token IDs. Fail closed on unsupported routing, semantic corruption, or predecessor-dependent target output. |
+| Codex session for `tianhaowu` | `fair-cw-use2-1` | Qwen TB4 pass@1 and gated 2,500-trace launch; VMVM transport retry hardening | Qwen eval configs, VMVM backend, focused tests, runtime skill | zero-row canceled smokes `1432488`, `1432621`; bounded exact-dialect smoke `1432623`; endpoint `shared_qwen38_2p4t` | Require a clean two-task model-I/O/reasoning audit, then one 66-task pass@1 checkpoint in the 4%-22% supported-task band. Launch the 2,500-task run only after reproducing the requested approximately 11% TB4 score and staging the pinned Mobius inputs on this cluster. |
 
 Add new rows below this line; do not overwrite another owner's row.
 

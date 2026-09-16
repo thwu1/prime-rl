@@ -38,17 +38,22 @@ def test_eval_config_captures_model_io(config_path: Path) -> None:
     "filename",
     [
         "mobius_kimi_k3_max_2500.toml",
+        "mobius_qwen_a95b_2500.toml",
         "tb4_kimi_k3_max_miniswe.toml",
         "tb4_kimi_token_smoke.toml",
+        "tb4_qwen_a95b_miniswe.toml",
+        "tb4_qwen_token_smoke.toml",
     ],
 )
-def test_kimi_configs_pin_harness_model_retry_policy(filename: str) -> None:
+def test_miniswe_configs_pin_harness_model_retry_policy(filename: str) -> None:
     config = tomllib.loads((CONFIG_DIR / filename).read_text())
 
     # EvalClient is a transparent relay, so its BaseClientConfig.max_retries
     # field is not consumed. mini-swe-agent owns provider retries instead.
     assert "max_retries" not in config["client"]
     assert config["harness"]["env"]["MSWEA_MODEL_RETRY_STOP_AFTER_ATTEMPT"] == "10"
+    if filename != "tb4_kimi_token_smoke.toml":
+        assert "ProviderError" in config["retries"]["rollout"]["include"]
 
 
 def test_mobius_kimi_production_contract() -> None:
@@ -108,6 +113,18 @@ def test_mobius_kimi_production_contract() -> None:
         "SandboxError",
         "TunnelError",
     }
+
+
+def test_mobius_qwen_production_retention_and_concurrency() -> None:
+    config = tomllib.loads((CONFIG_DIR / "mobius_qwen_a95b_2500.toml").read_text())
+
+    assert config["num_tasks"] == 2_500
+    assert config["num_rollouts"] == 1
+    assert config["max_concurrent"] == 32
+    assert config["max_total_tokens"] == 262_144
+    assert config["retain_traces"] is False
+    assert config["client"]["max_connections"] >= config["max_concurrent"]
+    assert config["client"]["max_keepalive_connections"] >= config["max_concurrent"]
 
 
 def test_eval_controller_is_cpu_only_and_supports_high_vmvm_concurrency() -> None:

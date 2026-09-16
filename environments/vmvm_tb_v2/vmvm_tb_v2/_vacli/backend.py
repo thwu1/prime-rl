@@ -1811,6 +1811,8 @@ class VacliVMVMBackend:
         except subprocess.TimeoutExpired:
             return _bash_result("error", "compose exec timed out", "timeout", exit_code=-1)
         output = (result.stdout or b"").decode("utf-8", errors="replace")
+        if result.returncode == 255:
+            return _bash_result("error", output, "broken_pipe", exit_code=-1)
         if result.returncode != 0:
             return _bash_result("error", output, "exit", exit_code=result.returncode)
         return _bash_result("success", output, "none", exit_code=0)
@@ -1835,6 +1837,8 @@ class VacliVMVMBackend:
                 "error", "root command timed out", "timeout", exit_code=-1
             )
         output = (result.stdout or b"").decode("utf-8", errors="replace")
+        if result.returncode == 255:
+            return _bash_result("error", output, "broken_pipe", exit_code=-1)
         if result.returncode != 0:
             return _bash_result("error", output, "exit", exit_code=result.returncode)
         return _bash_result("success", output, "none", exit_code=0)

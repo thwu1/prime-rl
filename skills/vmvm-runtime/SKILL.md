@@ -121,8 +121,11 @@ usually means this host-memory setup did not take effect.
 Never replay an agent command after an uncertain transport result. A nonnegative
 exit code is the command result; a negative exit code is surfaced as
 `SandboxError`, allowing rollout-level retry policy to decide whether to start a
-fresh attempt. Cleanup remains idempotent and closes every active bridge before
-releasing the vacli lease.
+fresh attempt. OpenSSH reserves exit code 255 for transport failure, so direct
+root and Compose-sidecar exec paths must normalize it to a negative
+`broken_pipe` result instead of treating it as a task command failure. Cleanup
+remains idempotent and closes every active bridge before releasing the vacli
+lease.
 
 The DeepSWE Pier adapter adds provider-local recovery without changing the
 generic Runtime or VMVM-TB-v2 interfaces. When `runtime.run()` reports a VMVM

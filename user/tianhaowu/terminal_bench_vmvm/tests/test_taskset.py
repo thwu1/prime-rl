@@ -13,6 +13,7 @@ from terminal_bench_vmvm.taskset import (
     _dockerfile_startup_command,
     _environment_workdir,
 )
+from vmvm_tb_v2._vacli.backend import VacliVMVMBackend
 
 
 def test_environment_workdir_defaults_and_tracks_relative_updates(tmp_path: Path) -> None:
@@ -108,6 +109,44 @@ def test_task_file_selects_exact_tasks(tmp_path: Path) -> None:
         "aig-coq-verification",
         "maxsat-vertex-cover",
     ]
+
+
+def test_vmvm_root_exec_classifies_ssh_exit_255_as_transport_failure() -> None:
+    backend = object.__new__(VacliVMVMBackend)
+    backend._destroyed = False
+    backend._container_id = "a" * 12
+    backend._ssh_call_raw = lambda command, *, timeout: subprocess.CompletedProcess(
+        args=[],
+        returncode=255,
+        stdout=b"Connection to localhost closed by remote host.\n",
+    )
+
+    result = backend.run_root_bash("true")
+
+    assert result == {
+        "status": "error",
+        "output": "Connection to localhost closed by remote host.\n",
+        "error_type": "broken_pipe",
+        "exit_code": -1,
+    }
+
+
+def test_vmvm_sidecar_exec_classifies_ssh_exit_255_as_transport_failure() -> None:
+    backend = object.__new__(VacliVMVMBackend)
+    backend._compose_command = lambda args, *, timeout: subprocess.CompletedProcess(
+        args=[],
+        returncode=255,
+        stdout=b"ssh: connect to host localhost: Connection refused\n",
+    )
+
+    result = backend.run_service_bash("database", "true")
+
+    assert result == {
+        "status": "error",
+        "output": "ssh: connect to host localhost: Connection refused\n",
+        "error_type": "broken_pipe",
+        "exit_code": -1,
+    }
 
 
 def test_dataset_revision_requires_exact_clean_worktree(tmp_path: Path) -> None:
