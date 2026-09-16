@@ -1,6 +1,6 @@
 # VMVM sandbox coordination
 
-Last updated: 2026-09-16 01:55 UTC
+Last updated: 2026-09-16 02:20 UTC
 
 ## First message to the next teammate
 
@@ -84,6 +84,10 @@ Add new rows below this line; do not overwrite another owner's row.
   are sufficient, so keep `return_token_ids` absent from this workflow even
   though the demonstrated Rust crash specifically requires logprobs. Keep all
   three logprob fields fail-closed and do not launch a duplicate full eval.
+- **2026-09-16 02:20 UTC, use2-3 owner -> serving owners:** requested the exact
+  immutable patched image and runtime flags on
+  `fairinternal/ram_common#279` (`issuecomment-5691043250`). Do not duplicate
+  the KDA fix; wait for that artifact, then pin and soak it.
 
 ## Live evaluation state
 

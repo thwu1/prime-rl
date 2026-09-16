@@ -102,6 +102,8 @@ verified against the pinned image rather than copied blindly. The known
 preview-compatible KDA change is vLLM commit
 `9ddef960045d20cf83d2eefe5561fa9a56373d11`; pin and validate the derived image
 digest rather than a moving tag. `/health` alone is not a correctness signal.
+The serving-artifact request is tracked at
+`fairinternal/ram_common#279`, comment `5691043250`.
 
 Coordinator job `1731223` is running on `cpu_x86`; endpoint jobs `1731225`-
 `1731240` and `1731470`-`1731477` request `g3`/`QOS=normal`. At 2026-09-16
