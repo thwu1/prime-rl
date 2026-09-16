@@ -71,9 +71,9 @@ Validated artifacts on the shared checkpoint:
   1 error (99.408983%).
 - TB4 oracle, job `1725604`: 66 completed, 63 valid, 3 explicitly unsupported
   GPU tasks (100% of the CPU-supported subset).
-- Exact production manifest:
-  `/checkpoint/ram/tianhaowu/terminal_bench_vmvm/oracle/mobius_full/valid_tasks_2500.txt`;
-  2,500 unique tasks; SHA-256
+- Exact production manifest, committed as an opaque cross-cluster artifact:
+  `configs/eval/mobius_valid_tasks_2500.txt`; 49,334 bytes, 2,500 lines;
+  SHA-256
   `d33ef93f9b77ee91a41600934e677ba37988d3b4509e4da05ff1fcf7b4bc3a4b`.
 - Historical sticky-proxy token smoke, job `1730918`:
   `/checkpoint/ram/tianhaowu/terminal_bench_vmvm/evals/kimi_token_smoke_sticky_v1/results.jsonl`;

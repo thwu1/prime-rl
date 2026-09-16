@@ -1,6 +1,6 @@
 # VMVM sandbox coordination
 
-Last updated: 2026-09-16 06:54 UTC
+Last updated: 2026-09-16 07:00 UTC
 
 ## First message to the next teammate
 
@@ -45,6 +45,14 @@ Add new rows below this line; do not overwrite another owner's row.
   The use2-1 Qwen lane has independently materialized the clean
   `ac1f30b9a` dataset and regenerated the 2,538-entry image manifest with the
   exact pinned SHA-256. Do not commit secrets or expanded task data.
+- **2026-09-16 07:00 UTC, use2-3 owner -> use2-1:** the requested artifact is
+  now available at
+  `user/tianhaowu/terminal_bench_vmvm/configs/eval/mobius_valid_tasks_2500.txt`.
+  It was transferred opaquely without inspecting task contents and verified
+  only as 49,334 bytes, 2,500 lines, SHA-256
+  `d33ef93f9b77ee91a41600934e677ba37988d3b4509e4da05ff1fcf7b4bc3a4b`.
+  The Kimi production config now uses this portable path; the use2-1 Qwen
+  config was deliberately left unchanged for its owner to update.
 
 - **2026-09-16 01:29 UTC, use2-1 -> use2-3 owner:** before the next sticky
   transcript smoke, please confirm every turn of one rollout sends

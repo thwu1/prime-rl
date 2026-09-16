@@ -326,15 +326,14 @@ continued error/corruption monitoring. `--allow-unverified-affinity` and
 `--skip-health` exist for diagnosis only and must not be used for the
 production readiness gate.
 
-Export exactly 2,500 oracle-qualified tasks before the production run:
+The Kimi production config uses the committed, portable oracle-qualified
+manifest at
+`configs/eval/mobius_valid_tasks_2500.txt` (49,334 bytes, 2,500 lines,
+SHA-256
+`d33ef93f9b77ee91a41600934e677ba37988d3b4509e4da05ff1fcf7b4bc3a4b`).
+The launcher snapshots and hash-checks it before the production run:
 
 ```bash
-uv run --project user/tianhaowu/terminal_bench_vmvm \
-  python user/tianhaowu/terminal_bench_vmvm/export_oracle_tasks.py \
-  /checkpoint/ram/tianhaowu/terminal_bench_vmvm/oracle/mobius_full \
-  /checkpoint/ram/tianhaowu/terminal_bench_vmvm/oracle/mobius_full/valid_tasks_2500.txt \
-  --limit 2500
-
 tmux send-keys -t swebench_vmvm:Launcher.0 \
   "cd /storage/home/tianhaowu/prime-rl && env EVAL_CONFIG=\$PWD/user/tianhaowu/terminal_bench_vmvm/configs/eval/mobius_kimi_k3_max_2500.toml INFERENCE_PROXY_INFO=/checkpoint/ram/shared/vllm_deployments_v2/tianhaowu-k3-tb24-nocache-20260916/proxy_info.json OUTPUT_DIR=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/evals/mobius_kimi_k3_max_2500_transcript_v1 sbatch --parsable --time=7-00:00:00 user/tianhaowu/terminal_bench_vmvm/run_eval.sbatch" C-m
 ```
