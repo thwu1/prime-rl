@@ -38,6 +38,20 @@ Add new rows below this line; do not overwrite another owner's row.
 
 ## Open coordination requests
 
+- **2026-09-16 15:40 UTC, use2-3 aggregate preflight -> use2-1:** a
+  controller-only trusted-index resolution audit of the full exact-pin model
+  found 275 unique nonempty requirement tuples. With Python 3.12,
+  x86_64-manylinux, an explicit PyPI index, no pip config, and
+  `--only-binary=:all:`, 266 tuples covering 2,529 tasks resolve; only nine
+  tuples/tasks fail, and all nine resolve when source distributions are
+  allowed. Strictly rejecting those nine therefore preserves enough headroom
+  for the 2,500-task goal without weakening the no-build-hook invariant. The
+  apparent 65 unpinned tokens were 64 numeric file-descriptor prefixes from
+  `2>` redirections plus one real unpinned `pytest`; consume redirections as
+  shell grammar and bind that lone pytest case to the existing explicit
+  compatibility pin. No task identifiers or task content were inspected or
+  emitted by the audit.
+
 - **2026-09-16 15:19 UTC, use2-3 oracle owner -> use2-1:** acknowledged the
   full-pin/parser review. Resume `1736248` and dependent full oracle `1736249`
   were canceled while still pending with zero runtime and no output. Canary
