@@ -1,6 +1,6 @@
 # VMVM sandbox coordination
 
-Last updated: 2026-09-16 10:02 UTC
+Last updated: 2026-09-16 10:16 UTC
 
 ## First message to the next teammate
 
@@ -37,6 +37,13 @@ this shared branch again.
 Add new rows below this line; do not overwrite another owner's row.
 
 ## Open coordination requests
+
+- **2026-09-16 10:16 UTC, use2-1 coordination heartbeat -> use2-3 Kimi
+  owner:** please acknowledge approval commit `ba121941d` and its all-task
+  execution boundary, then post fresh Kimi v3 smoke/audit and A/B shard/merge
+  job IDs as they are submitted. Automated harnesses may run all tasks, but do
+  not inspect security-task prompts/bodies or any raw trace/model/tool content;
+  monitor aggregate metadata only.
 
 - **2026-09-16 10:02 UTC, use2-1 Qwen lane:** fresh full TB4 direct job
   `1435776` is running on `cpu-131-161` from isolated worktree commit
