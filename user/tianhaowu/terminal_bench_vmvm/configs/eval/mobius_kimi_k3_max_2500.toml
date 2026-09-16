@@ -20,7 +20,6 @@ timeout = 7200
 connect_timeout = 120
 max_connections = 64
 max_keepalive_connections = 64
-max_retries = 10
 
 [sampling]
 temperature = 1.0
@@ -32,6 +31,7 @@ chat_template_kwargs = { enable_thinking = true, preserve_thinking = true }
 [taskset]
 id = "terminal-bench-vmvm"
 dataset_dir = "/checkpoint/ram/tianhaowu/terminal_bench_vmvm/datasets/mobius-ac1f30b9"
+dataset_revision = "ac1f30b9ac0e6c6a20a9fe423900d9ed28a6d366"
 task_file = "/checkpoint/ram/tianhaowu/terminal_bench_vmvm/oracle/mobius_full/valid_tasks_2500.txt"
 image_prefix = "vmvm-registry.fbinfra.net/terminal_bench"
 image_tag = "mobius-9b6988a3faf0"
@@ -55,6 +55,9 @@ config_overrides = [
     "model.model_kwargs.parallel_tool_calls=true",
 ]
 
+[harness.env]
+MSWEA_MODEL_RETRY_STOP_AFTER_ATTEMPT = "10"
+
 [harness.runtime]
 type = "vmvm"
 session_timeout = 43200
@@ -70,4 +73,4 @@ scoring = 21600
 
 [retries.rollout]
 max_retries = 2
-include = ["SandboxError", "TunnelError"]
+include = ["ProviderError", "SandboxError", "TunnelError"]

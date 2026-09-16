@@ -202,6 +202,12 @@ current VMVM tenant is CPU-only, so the three TB4 GPU tasks are rejected
 explicitly instead of being run under a silently incorrect CPU sandbox; the
 exact VMVM subset is therefore 63 tasks.
 
+The Kimi configs explicitly give mini-swe-agent 10 total attempts for each
+provider call. If all of those attempts fail, the full TB4 and Mobius configs
+retry the whole rollout up to twice under a new trace/session ID; this can move
+the retry away from a transiently bad sticky backend. The transparent
+`EvalClient` itself does not own a retry loop.
+
 The evaluator and oracle are network-bound CPU controllers; their checked-in
 Slurm defaults request `cpu_x86`, 8 CPUs, 16 GiB, and no GPUs. Rollout
 concurrency does not require one controller CPU per sandbox.
@@ -276,18 +282,26 @@ uv run --project user/tianhaowu/terminal_bench_vmvm \
   --limit 2500
 
 tmux send-keys -t swebench_vmvm:Launcher.0 \
-  "cd /storage/home/tianhaowu/prime-rl && env EVAL_CONFIG=\$PWD/user/tianhaowu/terminal_bench_vmvm/configs/eval/mobius_kimi_k3_max_2500.toml INFERENCE_PROXY_INFO=/checkpoint/ram/shared/vllm_deployments_v2/tianhaowu-k3-tb24-nocache-20260916/proxy_info.json OUTPUT_DIR=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/evals/mobius_kimi_k3_max_2500_transcript_v1 sbatch --parsable user/tianhaowu/terminal_bench_vmvm/run_eval.sbatch" C-m
+  "cd /storage/home/tianhaowu/prime-rl && env EVAL_CONFIG=\$PWD/user/tianhaowu/terminal_bench_vmvm/configs/eval/mobius_kimi_k3_max_2500.toml INFERENCE_PROXY_INFO=/checkpoint/ram/shared/vllm_deployments_v2/tianhaowu-k3-tb24-nocache-20260916/proxy_info.json OUTPUT_DIR=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/evals/mobius_kimi_k3_max_2500_transcript_v1 sbatch --parsable --time=7-00:00:00 user/tianhaowu/terminal_bench_vmvm/run_eval.sbatch" C-m
 ```
 
 Interrupted evals are durable. Resume only their missing or errored rollouts
 with
-`RESUME_DIR=/checkpoint/.../evals/mobius_kimi_k3_max_2500_transcript_v1`;
-the saved config is replayed verbatim and successful traces are retained. New
+`RESUME_DIR=/checkpoint/.../evals/mobius_kimi_k3_max_2500_transcript_v1` and
+the same `INFERENCE_PROXY_INFO=.../proxy_info.json`; the latter is required to
+reload the RAM API key because credentials are deliberately absent from saved
+config and provenance. A resume replays the saved proxy URL, so confirm that
+the same deployment proxy is still live before submitting it.
+The saved config is replayed verbatim and successful traces are retained. New
 runs snapshot the source config, task list, and image manifest under
 `OUTPUT_DIR/inputs/`, record SHA-256 digests in `inputs/manifest.json`, and point
 the resolved run config at those immutable copies. Large configs set
 `retain_traces=false`: every trace is appended durably and then released from
 RAM, and the CLI does not duplicate the full JSONL into the Slurm log.
+
+The Kimi Mobius config additionally requires the dataset worktree to be clean
+at exact commit `ac1f30b9ac0e6c6a20a9fe423900d9ed28a6d366`; task loading fails
+before any model call if the checkout has moved or contains local changes.
 
 Before consuming any run, execute:
 

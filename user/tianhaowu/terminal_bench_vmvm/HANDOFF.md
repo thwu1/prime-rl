@@ -270,4 +270,19 @@ Mobius production run be launched with
 `configs/eval/mobius_kimi_k3_max_2500.toml` and the pinned manifest above. Its
 fresh output directory is
 `/checkpoint/ram/tianhaowu/terminal_bench_vmvm/evals/mobius_kimi_k3_max_2500_transcript_v1`;
-use the same active deployment's `INFERENCE_PROXY_INFO` path.
+use the same active deployment's `INFERENCE_PROXY_INFO` path. Override the
+generic evaluator limit with `sbatch --time=7-00:00:00`; the default two-day
+controller allocation is intentionally insufficient as a worst-case bound for
+2,500 long rollouts. The production config now refuses to load unless the
+Mobius worktree is clean at exact commit
+`ac1f30b9ac0e6c6a20a9fe423900d9ed28a6d366`.
+
+Mini-swe-agent owns provider-call retries and is explicitly configured for 10
+total attempts. If those are exhausted, TB4 and production retry the complete
+rollout up to twice for `ProviderError`, `SandboxError`, or `TunnelError`; a new
+trace/session can escape a transiently bad sticky backend. For a resumed job,
+pass both `RESUME_DIR` and the same `INFERENCE_PROXY_INFO`. The saved config
+contains the old proxy URL but deliberately no API key, so `RESUME_DIR` alone
+would authenticate with the placeholder key. Confirm the original deployment
+proxy is still live before resuming; do not silently rebind an old run to a
+different proxy.

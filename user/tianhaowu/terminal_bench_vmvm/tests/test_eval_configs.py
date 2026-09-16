@@ -34,6 +34,23 @@ def test_eval_config_captures_model_io(config_path: Path) -> None:
     assert client["outbound_body_denylist"] == OUTBOUND_BODY_DENYLIST
 
 
+@pytest.mark.parametrize(
+    "filename",
+    [
+        "mobius_kimi_k3_max_2500.toml",
+        "tb4_kimi_k3_max_miniswe.toml",
+        "tb4_kimi_token_smoke.toml",
+    ],
+)
+def test_kimi_configs_pin_harness_model_retry_policy(filename: str) -> None:
+    config = tomllib.loads((CONFIG_DIR / filename).read_text())
+
+    # EvalClient is a transparent relay, so its BaseClientConfig.max_retries
+    # field is not consumed. mini-swe-agent owns provider retries instead.
+    assert "max_retries" not in config["client"]
+    assert config["harness"]["env"]["MSWEA_MODEL_RETRY_STOP_AFTER_ATTEMPT"] == "10"
+
+
 def test_mobius_kimi_production_contract() -> None:
     config = tomllib.loads((CONFIG_DIR / "mobius_kimi_k3_max_2500.toml").read_text())
 
@@ -62,6 +79,7 @@ def test_mobius_kimi_production_contract() -> None:
 
     taskset = config["taskset"]
     assert taskset["id"] == "terminal-bench-vmvm"
+    assert taskset["dataset_revision"] == "ac1f30b9ac0e6c6a20a9fe423900d9ed28a6d366"
     assert taskset["task_file"].endswith("/valid_tasks_2500.txt")
     assert taskset["image_manifest"].endswith("/mobius_images.json")
     assert taskset["verifier_runtime_retries"] >= 2
@@ -76,6 +94,14 @@ def test_mobius_kimi_production_contract() -> None:
     assert timeouts["rollout"] >= 36_000
     assert timeouts["finalize"] >= 3_600
     assert timeouts["scoring"] >= 21_600
+
+    rollout_retries = config["retries"]["rollout"]
+    assert rollout_retries["max_retries"] >= 2
+    assert set(rollout_retries["include"]) == {
+        "ProviderError",
+        "SandboxError",
+        "TunnelError",
+    }
 
 
 def test_eval_controller_is_cpu_only_and_supports_high_vmvm_concurrency() -> None:

@@ -17,6 +17,7 @@ import json
 import logging
 import re
 import shlex
+import subprocess
 import tomllib
 from functools import lru_cache
 from pathlib import Path, PurePosixPath
@@ -58,6 +59,9 @@ class UnsupportedTaskError(ValueError):
 class TerminalBenchVMVMConfig(HarborConfig):
     dataset_dir: Path = Path(".")
     """Directory whose immediate children are Harbor tasks."""
+
+    dataset_revision: str | None = Field(default=None, pattern=r"^[0-9a-f]{40}$")
+    """Optional exact Git commit required for a clean dataset worktree."""
 
     task_file: Path | None = None
     """Optional newline-delimited task slugs, useful for large oracle-qualified subsets."""
@@ -345,10 +349,39 @@ class TerminalBenchVMVMTaskset(
         super().__init__(config)
         self._artifact_payloads: dict[str, dict[str, bytes]] = {}
 
+    def _validate_dataset_revision(self, root: Path) -> None:
+        expected = self.config.dataset_revision
+        if expected is None:
+            return
+        try:
+            head = subprocess.run(
+                ["git", "-C", str(root), "rev-parse", "HEAD"],
+                check=True,
+                capture_output=True,
+                text=True,
+                timeout=30,
+            ).stdout.strip()
+            status = subprocess.run(
+                ["git", "-C", str(root), "status", "--porcelain=v1", "--untracked-files=all"],
+                check=True,
+                capture_output=True,
+                text=True,
+                timeout=60,
+            ).stdout
+        except (OSError, subprocess.SubprocessError) as error:
+            raise ValueError(f"cannot verify Harbor dataset revision at {root}") from error
+        if head != expected:
+            raise ValueError(
+                f"Harbor dataset revision mismatch: expected {expected}, observed {head or '<empty>'}"
+            )
+        if status.strip():
+            raise ValueError(f"Harbor dataset worktree is not clean: {root}")
+
     def load_tasks(self) -> list[TerminalBenchTask]:
         root = self.config.dataset_dir.resolve()
         if not root.is_dir():
             raise ValueError(f"Harbor dataset directory does not exist: {root}")
+        self._validate_dataset_revision(root)
         requested = set(self.config.tasks or [])
         if self.config.task_file is not None:
             requested.update(

@@ -17,7 +17,6 @@ base_url = "http://127.0.0.1:8000/v1"
 api_key_var = "OPENAI_API_KEY"
 timeout = 7200
 connect_timeout = 30
-max_retries = 10
 
 [sampling]
 temperature = 1.0
@@ -50,6 +49,9 @@ config_overrides = [
     "model.model_kwargs.top_p=1.0",
     "model.model_kwargs.parallel_tool_calls=true",
 ]
+
+[harness.env]
+MSWEA_MODEL_RETRY_STOP_AFTER_ATTEMPT = "10"
 
 [harness.runtime]
 type = "vmvm"

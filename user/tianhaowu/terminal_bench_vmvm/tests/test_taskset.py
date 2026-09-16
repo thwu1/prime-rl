@@ -1,6 +1,8 @@
+import subprocess
 from pathlib import Path
 from zipfile import ZipFile
 
+import pytest
 from terminal_bench_vmvm.taskset import (
     TerminalBenchVMVMConfig,
     TerminalBenchVMVMTaskset,
@@ -104,3 +106,44 @@ def test_task_file_selects_exact_tasks(tmp_path: Path) -> None:
         "aig-coq-verification",
         "maxsat-vertex-cover",
     ]
+
+
+def test_dataset_revision_requires_exact_clean_worktree(tmp_path: Path) -> None:
+    task_dir = tmp_path / "task-a"
+    task_dir.mkdir()
+    (task_dir / "task.toml").write_text("")
+    (task_dir / "instruction.md").write_text("Complete task-a.\n")
+    subprocess.run(["git", "init", "-q", str(tmp_path)], check=True)
+    subprocess.run(["git", "-C", str(tmp_path), "config", "user.name", "Test"], check=True)
+    subprocess.run(
+        ["git", "-C", str(tmp_path), "config", "user.email", "test@example.invalid"],
+        check=True,
+    )
+    subprocess.run(["git", "-C", str(tmp_path), "add", "."], check=True)
+    subprocess.run(["git", "-C", str(tmp_path), "commit", "-qm", "dataset"], check=True)
+    revision = subprocess.run(
+        ["git", "-C", str(tmp_path), "rev-parse", "HEAD"],
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+
+    def taskset(expected: str) -> TerminalBenchVMVMTaskset:
+        return TerminalBenchVMVMTaskset(
+            TerminalBenchVMVMConfig(
+                id="terminal-bench-vmvm",
+                dataset_dir=tmp_path,
+                dataset_revision=expected,
+                image_prefix="registry.invalid/terminal_bench",
+                image_tag="test-revision",
+                ignore_dockerfile=True,
+            )
+        )
+
+    assert [task.slug for task in taskset(revision).load_tasks()] == ["task-a"]
+    with pytest.raises(ValueError, match="dataset revision mismatch"):
+        taskset("0" * 40).load_tasks()
+
+    (task_dir / "instruction.md").write_text("Changed.\n")
+    with pytest.raises(ValueError, match="dataset worktree is not clean"):
+        taskset(revision).load_tasks()
