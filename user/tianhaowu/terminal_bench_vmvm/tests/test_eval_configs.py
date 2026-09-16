@@ -309,6 +309,21 @@ def test_eval_controller_is_cpu_only_and_supports_high_vmvm_concurrency() -> Non
     assert "VACLI_MAX_CONCURRENT_LEASES=${VACLI_MAX_CONCURRENT_LEASES:-32}" in text
 
 
+def test_kimi_tb4_gate_sequences_smoke_before_full_evaluation() -> None:
+    wrapper = (CONFIG_DIR.parents[1] / "run_kimi_tb4_gate.sbatch").read_text()
+
+    assert "1dc61931e9958733310cb5f351a1041f69ffd9bf" in wrapper
+    assert "EVAL_RUN_ROLE=smoke" in wrapper
+    assert "EVAL_RUN_ROLE=tb4" in wrapper
+    assert "SMOKE_EXPECTED_TRACES=2" in wrapper
+    assert "VACLI_MAX_CONCURRENT_LEASES=2" in wrapper
+    assert "run_trace_smoke_audit.sbatch" in wrapper
+    assert "run_tb4_audit.sbatch" in wrapper
+    assert wrapper.index("EVAL_RUN_ROLE=smoke") < wrapper.index("run_trace_smoke_audit.sbatch")
+    assert wrapper.index("run_trace_smoke_audit.sbatch") < wrapper.index("EVAL_RUN_ROLE=tb4")
+    assert wrapper.index("EVAL_RUN_ROLE=tb4") < wrapper.index("run_tb4_audit.sbatch")
+
+
 def test_direct_qwen_launcher_is_fail_closed() -> None:
     workflow_dir = CONFIG_DIR.parents[1]
     wrapper = (workflow_dir / "run_qwen_direct_eval.sbatch").read_text()
