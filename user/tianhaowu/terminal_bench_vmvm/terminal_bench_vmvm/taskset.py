@@ -44,6 +44,10 @@ DEFAULT_DATASET_REVISION = "9b6988a3faf0"
 DEFAULT_IMAGE_PREFIX = "vmvm-registry.fbinfra.net/terminal_bench"
 VERIFIER_TIMEOUT_MARKER = "__TERMINAL_BENCH_VERIFIER_TIMEOUT__"
 TEST_DEPENDENCY_MARKER = "Test dependencies prebaked so the verifier runs offline"
+_EXACT_PIP_REQUIREMENT_RE = re.compile(r"[A-Za-z0-9][A-Za-z0-9_.-]*(?:\[[A-Za-z0-9_,.-]+\])?==[A-Za-z0-9.!+_-]+")
+_PIP_EXECUTABLE_RE = re.compile(r"pip(?:3(?:\.[0-9]+)?)?")
+_PYTHON_EXECUTABLE_RE = re.compile(r"python(?:3(?:\.[0-9]+)?)?")
+_SHELL_CONTROL_TOKENS = {"if", "then", "elif", "do", "!", "command", "exec", "time", "env"}
 
 # Reference-solution-only compatibility constraints. These never enter model
 # rollouts or verifier containers. build123d 0.10.0 permits ocp_gordon>=0.1.17,
@@ -283,6 +287,81 @@ def _declared_test_requirements(task_dir: str) -> tuple[str, ...]:
                 requirements.append(token)
         return tuple(requirements)
     return ()
+
+
+@lru_cache(maxsize=None)
+def _test_script_requirements(task_dir: str) -> tuple[str, ...]:
+    """Extract reproducible literal pip requirements from the verifier script.
+
+    Older immutable Mobius images predate some test-only dependency layers.
+    The verifier scripts still declare exact pins, so those wheels can be
+    fetched during trusted setup without staging or executing the hidden tests.
+    Dynamic requirements, local paths, URLs, and unpinned packages are ignored.
+    """
+    test_script = Path(task_dir) / "tests" / "test.sh"
+    if not test_script.is_file():
+        return ()
+    source = test_script.read_text(errors="replace").replace("\\\n", " ")
+    requirements: list[str] = []
+    for line in source.splitlines():
+        try:
+            lexer = shlex.shlex(line, posix=True, punctuation_chars=";&|<>")
+            lexer.whitespace_split = True
+            lexer.commenters = "#"
+            tokens = list(lexer)
+        except ValueError:
+            continue
+        commands: list[list[str]] = []
+        command: list[str] = []
+        for token in tokens:
+            if token and set(token) <= set(";&|<>"):
+                if command:
+                    commands.append(command)
+                    command = []
+            else:
+                command.append(token)
+        if command:
+            commands.append(command)
+        for command in commands:
+            while command and (
+                command[0] in _SHELL_CONTROL_TOKENS or re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*=.*", command[0])
+            ):
+                command = command[1:]
+            if not command:
+                continue
+            executable = PurePosixPath(command[0]).name
+            requirement_start = None
+            if _PIP_EXECUTABLE_RE.fullmatch(executable) and len(command) > 1 and command[1] == "install":
+                requirement_start = 2
+            elif _PYTHON_EXECUTABLE_RE.fullmatch(executable) and command[1:4] == [
+                "-m",
+                "pip",
+                "install",
+            ]:
+                requirement_start = 4
+            if requirement_start is None:
+                continue
+            for requirement in command[requirement_start:]:
+                if _EXACT_PIP_REQUIREMENT_RE.fullmatch(requirement):
+                    requirements.append(requirement)
+    return tuple(dict.fromkeys(requirements))
+
+
+def _requirement_name(requirement: str) -> str:
+    name = re.split(r"[<>=!~;\[]", requirement, maxsplit=1)[0]
+    return re.sub(r"[-_.]+", "-", name).lower()
+
+
+def _merge_test_requirements(*groups: tuple[str, ...]) -> tuple[str, ...]:
+    requirements: dict[str, str] = {}
+    for group in groups:
+        for requirement in group:
+            normalized_name = _requirement_name(requirement)
+            previous = requirements.get(normalized_name)
+            if previous is not None and previous != requirement:
+                raise ValueError(f"conflicting verifier requirements: {previous!r} and {requirement!r}")
+            requirements[normalized_name] = requirement
+    return tuple(requirements.values())
 
 
 @lru_cache(maxsize=None)
@@ -1074,12 +1153,15 @@ class TerminalBenchVMVMTaskset(
     @staticmethod
     def _test_requirements(task: TerminalBenchTask) -> tuple[str, ...]:
         test_script = (Path(task.task_dir) / "tests" / "test.sh").read_text(errors="replace")
-        requirements = list(_declared_test_requirements(task.task_dir))
+        requirements = _merge_test_requirements(
+            _declared_test_requirements(task.task_dir),
+            _test_script_requirements(task.task_dir),
+        )
         if "pytest" in test_script and not any(
-            requirement.lower().split("==", 1)[0] == "pytest" for requirement in requirements
+            _requirement_name(requirement) == "pytest" for requirement in requirements
         ):
-            requirements.append("pytest==8.3.4")
-        return tuple(requirements)
+            requirements = (*requirements, "pytest==8.3.4")
+        return requirements
 
     async def _missing_test_dependencies(
         self,
@@ -1087,7 +1169,8 @@ class TerminalBenchVMVMTaskset(
         runtime: Runtime,
         requirements: tuple[str, ...] | None = None,
     ) -> tuple[str, ...]:
-        requirements = requirements or self._test_requirements(task)
+        if requirements is None:
+            requirements = self._test_requirements(task)
         if not requirements:
             return ()
         probe_code = """
@@ -1419,7 +1502,19 @@ for requirement in sys.argv[1:]:
     ) -> None:
         """Cache a complete wheelhouse without mutating the task environment."""
         self._prefetched_test_dependencies.pop(runtime, None)
-        requirements = self._test_requirements(task)
+        declared = _declared_test_requirements(task.task_dir)
+        scripted = _test_script_requirements(task.task_dir)
+        merged = _merge_test_requirements(declared, scripted)
+        declared_names = {_requirement_name(requirement) for requirement in declared}
+        scripted_extras = tuple(
+            requirement for requirement in scripted if _requirement_name(requirement) not in declared_names
+        )
+        missing_scripted = await self._missing_test_dependencies(task, runtime, scripted_extras)
+        requirements = _merge_test_requirements(declared, missing_scripted)
+        if "pytest" in (Path(task.task_dir) / "tests" / "test.sh").read_text(errors="replace") and not any(
+            _requirement_name(requirement) == "pytest" for requirement in merged
+        ):
+            requirements = _merge_test_requirements(requirements, ("pytest==8.3.4",))
         if not requirements:
             self._prefetched_test_dependencies[runtime] = PrefetchedTestDependencies(
                 requirements=(),
@@ -1488,10 +1583,10 @@ for requirement in sys.argv[1:]:
                 "grep -q -- --break-system-packages; then "
                 "break_system=--break-system-packages; else break_system=; fi; "
                 f"PIP_NO_INDEX=1 python3 -m pip install -q --no-cache-dir "
-                f"--no-index --ignore-installed --find-links {shlex.quote(wheel_dir)} "
+                f"--no-index --find-links {shlex.quote(wheel_dir)} "
                 f"$break_system {shlex.join(missing)}"
             )
-            installed = await runtime.run(["sh", "-c", install_command], {})
+            installed = await self._run_root(runtime, install_command)
             if installed.exit_code != 0:
                 raise RuntimeError(
                     f"{task.name}: offline verifier dependency install failed for "

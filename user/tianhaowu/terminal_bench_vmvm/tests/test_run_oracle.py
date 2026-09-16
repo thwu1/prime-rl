@@ -51,6 +51,15 @@ def test_oracle_summary_contains_network_semantics() -> None:
     assert summary["oracle_network_semantics"] == semantics
 
 
+def test_oracle_acceptance_requires_rate_and_minimum_valid_count() -> None:
+    summary = {"passed": 2499, "pass_rate": 0.99}
+    assert run_oracle._meets_acceptance(summary, 0.9, 2500) is False
+
+    summary["passed"] = 2500
+    assert run_oracle._meets_acceptance(summary, 0.9, 2500) is True
+    assert run_oracle._meets_acceptance(summary, 1.0, 2500) is False
+
+
 def test_oracle_attempt_cleans_taskset_before_runtime_stop_on_cancellation(monkeypatch) -> None:
     events: list[str] = []
     setup_started = asyncio.Event()

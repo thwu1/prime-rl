@@ -59,6 +59,7 @@ def _parse_args() -> argparse.Namespace:
         help="network policy for trusted solve.sh only; verifier policy remains declared",
     )
     parser.add_argument("--minimum-pass-rate", type=float, default=0.9)
+    parser.add_argument("--minimum-valid", type=int, default=0)
     parser.add_argument("--resume", action=argparse.BooleanOptionalAction, default=True)
     parser.add_argument("--rerun-invalid", action=argparse.BooleanOptionalAction, default=False)
     parser.add_argument("--log-level", default="INFO")
@@ -69,6 +70,8 @@ def _parse_args() -> argparse.Namespace:
         parser.error("--infra-retries cannot be negative")
     if not 0 <= args.minimum_pass_rate <= 1:
         parser.error("--minimum-pass-rate must be between 0 and 1")
+    if args.minimum_valid < 0:
+        parser.error("--minimum-valid cannot be negative")
     if args.timeout_multiplier <= 0 or args.resource_multiplier <= 0:
         parser.error("timeout and resource multipliers must be positive")
     return args
@@ -296,6 +299,10 @@ def _summary(results: list[dict], selected: int, network_semantics: dict[str, st
     }
 
 
+def _meets_acceptance(summary: dict, minimum_pass_rate: float, minimum_valid: int) -> bool:
+    return summary["pass_rate"] >= minimum_pass_rate and summary["passed"] >= minimum_valid
+
+
 async def _run(args: argparse.Namespace) -> int:
     requested = _requested_tasks(args)
     taskset = TerminalBenchVMVMTaskset(
@@ -319,6 +326,8 @@ async def _run(args: argparse.Namespace) -> int:
     tasks = tasks[args.offset : args.offset + args.limit if args.limit is not None else None]
     if not tasks:
         raise SystemExit("no tasks selected")
+    if args.minimum_valid > len(tasks):
+        raise SystemExit(f"--minimum-valid={args.minimum_valid} exceeds {len(tasks)} selected tasks")
 
     output_dir = args.output_dir.resolve()
     status_dir = output_dir / "tasks"
@@ -339,6 +348,8 @@ async def _run(args: argparse.Namespace) -> int:
         "infra_retries": args.infra_retries,
         "timeout_multiplier": args.timeout_multiplier,
         "resource_multiplier": args.resource_multiplier,
+        "minimum_pass_rate": args.minimum_pass_rate,
+        "minimum_valid": args.minimum_valid,
         "oracle_solution_network_mode": args.oracle_solution_network_mode,
         "oracle_network_semantics": network_semantics,
         "selected_tasks": len(tasks),
@@ -404,7 +415,8 @@ async def _run(args: argparse.Namespace) -> int:
         summary["finished_at"] = time.time()
         _atomic_json(output_dir / "summary.json", summary)
         logger.info("oracle summary: %s", json.dumps(summary, sort_keys=True))
-        return 0 if summary["pass_rate"] >= args.minimum_pass_rate else 2
+        accepted = _meets_acceptance(summary, args.minimum_pass_rate, args.minimum_valid)
+        return 0 if accepted else 2
     finally:
         for future in futures:
             future.cancel()

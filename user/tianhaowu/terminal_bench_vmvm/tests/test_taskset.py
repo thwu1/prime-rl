@@ -19,8 +19,10 @@ from terminal_bench_vmvm.taskset import (
     _declared_test_requirements,
     _dockerfile_startup_command,
     _environment_workdir,
+    _merge_test_requirements,
     _network_modes,
     _parse_verifier_reward,
+    _test_script_requirements,
 )
 from verifiers.v1.runtimes import ProgramResult, VMVMConfig, VMVMRuntime
 from vmvm_tb_v2._vacli import backend as vacli_backend
@@ -68,6 +70,28 @@ def test_declared_test_requirements_parses_marked_pip_layer(tmp_path: Path) -> N
     )
 
 
+def test_test_script_requirements_extracts_only_literal_exact_pins(tmp_path: Path) -> None:
+    tests = tmp_path / "tests"
+    tests.mkdir()
+    (tests / "test.sh").write_text(
+        "# pip install commented-out==1.0\n"
+        "echo 'pip install quoted==1.0'\n"
+        "python3 -m pip install -q pytest==8.3.5 numpy==2.1.3 \\\n"
+        "  --extra-index-url https://example.invalid/simple && pytest -q\n"
+        "pip install unpinned ./local-package package-from-$VARIABLE\n"
+    )
+
+    assert _test_script_requirements(str(tmp_path)) == (
+        "pytest==8.3.5",
+        "numpy==2.1.3",
+    )
+
+
+def test_merge_test_requirements_rejects_conflicting_canonical_names() -> None:
+    with pytest.raises(ValueError, match="conflicting verifier requirements"):
+        _merge_test_requirements(("example_pkg==1.0",), ("example-pkg==2.0",))
+
+
 def wheel_archive(*names: str) -> bytes:
     output = io.BytesIO()
     with tarfile.open(fileobj=output, mode="w") as archive:
@@ -102,7 +126,7 @@ class DependencyRuntime:
         self.commands.append(command)
         if argv[:2] == ["python3", "-c"] and "importlib.metadata" in argv[2]:
             self.events.append("probe")
-            output = "" if self.installed else "verifier-helper==1.0\n"
+            output = "" if self.installed else "".join(f"{requirement}\n" for requirement in argv[3:])
             return ProgramResult(exit_code=0, stdout=output, stderr="")
         if argv[:2] == ["python3", "-c"] and "sysconfig.get_config_var" in argv[2]:
             self.events.append("fingerprint")
@@ -445,10 +469,19 @@ def test_public_oracle_isolates_before_separate_artifact_collection(
 
 def test_verifier_dependencies_prefetch_all_then_install_offline_after_solution(
     tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     taskset = dependency_taskset(tmp_path)
     task = dependency_task(tmp_path)
-    runtime = DependencyRuntime(installed=True)
+    runtime = DependencyRuntime(installed=False)
+    root_commands: list[str] = []
+    run_root = taskset._run_root
+
+    async def record_root(runtime: object, command: str) -> ProgramResult:
+        root_commands.append(command)
+        return await run_root(runtime, command)
+
+    monkeypatch.setattr(taskset, "_run_root", record_root)
 
     asyncio.run(taskset._prefetch_test_dependencies(task, runtime))
 
@@ -480,12 +513,32 @@ def test_verifier_dependencies_prefetch_all_then_install_offline_after_solution(
     ]
     install_command = next(command for command in runtime.commands if "PIP_NO_INDEX=1" in command)
     assert "--no-index" in install_command
+    assert "--ignore-installed" not in install_command
     assert "--find-links" in install_command
     assert "verifier-helper==1.0" in install_command
+    assert any("PIP_NO_INDEX=1" in command for command in root_commands)
     assert controller_archive.exists() is True
     assert runtime not in taskset._prefetched_test_dependencies
     taskset._cleanup_wheelhouse_cache()
     assert controller_archive.exists() is False
+
+
+def test_scripted_dependencies_prefetch_only_missing_image_drift(tmp_path: Path) -> None:
+    taskset = dependency_taskset(tmp_path)
+    task = dependency_task(tmp_path)
+    (Path(task.task_dir) / "environment" / "Dockerfile").write_text("FROM python:3.12\n")
+    (Path(task.task_dir) / "tests" / "test.sh").write_text("pip install verifier-helper==1.0\n")
+
+    baked = DependencyRuntime(installed=True, source_only=True)
+    asyncio.run(taskset._prefetch_test_dependencies(task, baked))
+    assert taskset._prefetched_test_dependencies[baked].requirements == ()
+    assert baked.events == ["probe"]
+
+    missing = DependencyRuntime(installed=False)
+    asyncio.run(taskset._prefetch_test_dependencies(task, missing))
+    assert taskset._prefetched_test_dependencies[missing].requirements == ("verifier-helper==1.0",)
+    assert missing.events == ["probe", "fingerprint", "wheel", "archive-read"]
+    taskset._cleanup_wheelhouse_cache()
 
 
 def test_wheelhouse_cache_cleans_when_taskset_is_released(tmp_path: Path) -> None:
@@ -504,7 +557,7 @@ def test_wheelhouse_cache_cleans_when_taskset_is_released(tmp_path: Path) -> Non
 def test_verifier_dependency_wheel_failure_is_fail_closed(tmp_path: Path) -> None:
     taskset = dependency_taskset(tmp_path)
     task = dependency_task(tmp_path)
-    runtime = DependencyRuntime(installed=True, wheel_failure=True)
+    runtime = DependencyRuntime(installed=False, wheel_failure=True)
 
     with pytest.raises(RuntimeError, match="wheel prefetch failed"):
         asyncio.run(taskset._prefetch_test_dependencies(task, runtime))
@@ -561,7 +614,7 @@ def test_verifier_wheelhouse_preparation_always_attempts_cleanup(
 def test_verifier_dependency_archive_tampering_is_fail_closed(tmp_path: Path) -> None:
     taskset = dependency_taskset(tmp_path)
     task = dependency_task(tmp_path)
-    runtime = DependencyRuntime(installed=True)
+    runtime = DependencyRuntime(installed=False)
     asyncio.run(taskset._prefetch_test_dependencies(task, runtime))
     prefetched = taskset._prefetched_test_dependencies[runtime]
     assert prefetched.archive_path is not None

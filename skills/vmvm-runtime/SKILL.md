@@ -142,6 +142,15 @@ stage hidden tests, re-probe all declared versions, restore the archive, and
 install only missing or mismatched requirements with
 `--no-index` / `PIP_NO_INDEX=1`. Fail closed on resolution, source-build,
 non-wheel, integrity, offline-install, or post-install validation failure.
+For older immutable Mobius images, supplement the marked Dockerfile layer with
+only literal, exactly pinned `pip install` requirements from `tests/test.sh`.
+Probe those script-only pins while the pristine image still has trusted egress
+and add only missing or mismatched pins to the wheelhouse; this avoids trying
+to rebuild source-only packages that are already baked into an image. Ignore
+dynamic, URL, local-path, and unpinned specifications, reject conflicting
+canonical package pins, and perform the offline restore through the
+harness-owned root path without `--ignore-installed` before re-probing from the
+agent shell.
 
 Some legacy corpora declare agent `no-network` while their trusted reference
 `solve.sh` downloads build dependencies. Keep strict Harbor semantics as the

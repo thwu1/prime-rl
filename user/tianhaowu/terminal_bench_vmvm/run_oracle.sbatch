@@ -101,6 +101,7 @@ args=(
     --resource-multiplier "${RESOURCE_MULTIPLIER:-1}"
     --oracle-solution-network-mode "$oracle_solution_network_mode"
     --minimum-pass-rate "${MINIMUM_PASS_RATE:-0.9}"
+    --minimum-valid "${MINIMUM_VALID:-0}"
 )
 if [[ -z "$image_manifest" && "${USE_DECLARED_IMAGES:-0}" != 1 \
     && -f /checkpoint/ram/tianhaowu/terminal_bench_vmvm/mobius_images.json ]]; then

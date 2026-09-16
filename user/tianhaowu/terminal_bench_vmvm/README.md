@@ -131,13 +131,14 @@ Smoke one task first by putting its directory slug in a text file and setting
 
 ```bash
 tmux send-keys -t swebench_vmvm:Launcher.0 \
-  "env DATASET_DIR=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/datasets/mobius-ac1f30b9 sbatch --parsable user/tianhaowu/terminal_bench_vmvm/run_oracle.sbatch" C-m
+  "env DATASET_DIR=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/datasets/mobius-ac1f30b9 MINIMUM_VALID=2500 sbatch --parsable user/tianhaowu/terminal_bench_vmvm/run_oracle.sbatch" C-m
 ```
 
 `run_oracle.py` writes one atomic JSON result per task plus `results.jsonl` and
 `summary.json`. A resumed invocation skips existing terminal results unless
-`RERUN_INVALID=1`. The full-corpus acceptance gate is at least 90% valid; task
-failures must be debugged separately from VMVM infrastructure failures.
+`RERUN_INVALID=1`. The full-corpus acceptance gate is at least 90% and at least
+2,500 valid tasks; task failures must be debugged separately from VMVM
+infrastructure failures.
 
 Strict oracle validation applies the declared agent policy to `solve.sh` and
 is the default. Some legacy reference solutions download build dependencies
@@ -167,12 +168,20 @@ on every terminal path, and evaluator shutdown deterministically deletes the
 cache. Hidden tests are staged only after verifier network isolation; sandbox
 wheelhouse copies are removed after use.
 
+The old Mobius images do not contain every test-only package named by their
+verifier scripts. The adapter extracts only literal exact `name==version` pins
+from `tests/test.sh`, probes those pins before the untrusted phase, and adds
+only missing or mismatched script-only packages to the wheelhouse. Dynamic,
+URL, local-path, unpinned, and conflicting specifications are not guessed.
+Offline restoration runs as harness root without `--ignore-installed`, then is
+revalidated from the task shell.
+
 After materializing corpus revision `ac1f30b9a`, revalidate the 42 repaired
 fixtures before consuming the prior 2,500-task manifest:
 
 ```bash
 tmux send-keys -t swebench_vmvm:Launcher.0 \
-  "env TASK_FILE=\$PWD/user/tianhaowu/terminal_bench_vmvm/configs/validate/mobius_repaired_tasks.txt OUTPUT_DIR=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/oracle/mobius_repairs_ac1f30b9 DATASET_DIR=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/datasets/mobius-ac1f30b9 sbatch --parsable user/tianhaowu/terminal_bench_vmvm/run_oracle.sbatch" C-m
+  "env TASK_FILE=\$PWD/user/tianhaowu/terminal_bench_vmvm/configs/validate/mobius_repaired_tasks.txt OUTPUT_DIR=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/oracle/mobius_repairs_ac1f30b9 DATASET_DIR=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/datasets/mobius-ac1f30b9 MINIMUM_PASS_RATE=1 MINIMUM_VALID=42 sbatch --parsable user/tianhaowu/terminal_bench_vmvm/run_oracle.sbatch" C-m
 ```
 
 Validate TB4 with its official digest-pinned images and Compose sidecars by
