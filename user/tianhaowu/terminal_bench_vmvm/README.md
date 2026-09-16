@@ -127,18 +127,25 @@ uv run --project user/tianhaowu/terminal_bench_vmvm \
 ## Oracle validation
 
 Smoke one task first by putting its directory slug in a text file and setting
-`TASK_FILE`. Then run the full set:
+the `TASK_FILE{,_SHA256}` pair. Then run the full set:
 
 ```bash
 tmux send-keys -t swebench_vmvm:Launcher.0 \
-  "env DATASET_DIR=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/datasets/mobius-ac1f30b9 MINIMUM_VALID=2500 sbatch --parsable user/tianhaowu/terminal_bench_vmvm/run_oracle.sbatch" C-m
+  "cd /checkpoint/ram/tianhaowu/terminal_bench_vmvm/sources/prime-rl-<commit> && env PROJECT_DIR=\$PWD OUTPUT_DIR=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/oracle/mobius_full_oracle_public_<commit>_v1 DATASET_DIR=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/datasets/mobius-ac1f30b9 DATASET_REVISION=ac1f30b9ac0e6c6a20a9fe423900d9ed28a6d366 IMAGE_MANIFEST=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/mobius_images.json IMAGE_MANIFEST_SHA256=118157378884021d2fc12dd83e7d9576ca606a5d229a2bd34c203d745212e009 ORACLE_SOLUTION_NETWORK_MODE=public MAX_CONCURRENT=8 VACLI_LEASE_RETRIES=20 VACLI_MAX_CONCURRENT_LEASES=4 VACLI_MAX_PULL_RETRIES=20 VACLI_IMAGE_PULL_TIMEOUT_SECONDS=3600 VACLI_CONTAINER_PRIVILEGED=1 TIMEOUT_MULTIPLIER=2 RESOURCE_MULTIPLIER=2 MINIMUM_PASS_RATE=0.9 MINIMUM_VALID=2500 sbatch --parsable \$PWD/user/tianhaowu/terminal_bench_vmvm/run_oracle.sbatch" C-m
 ```
 
 `run_oracle.py` writes one atomic JSON result per task plus `results.jsonl` and
-`summary.json`. A resumed invocation skips existing terminal results unless
-`RERUN_INVALID=1`. The full-corpus acceptance gate is at least 90% and at least
-2,500 valid tasks; task failures must be debugged separately from VMVM
-infrastructure failures.
+`summary.json`. Before any row can be reused, it verifies an immutable
+`run_identity.json` that binds the clean dataset revision (or official archive
+and extracted-tree digest), ordered task selection, task/image manifests,
+source and runtime pins, network semantics, execution settings, and acceptance
+thresholds. Initial provenance is write-once and later invocations are recorded
+separately. A resumed invocation skips existing terminal results unless
+`RERUN_INVALID=1`; any missing or mismatched identity requires a fresh output
+directory. The full-corpus acceptance gate is at least 90% and at least 2,500
+valid tasks; task failures must be debugged separately from VMVM infrastructure
+failures. Promotion takes the same exclusive `.writer.lock`, so it rejects a
+live oracle or resume rather than reading a changing result set.
 
 Strict oracle validation applies the declared agent policy to `solve.sh` and
 is the default. Some legacy reference solutions download build dependencies
@@ -184,8 +191,12 @@ fixtures before consuming the prior 2,500-task manifest:
 
 ```bash
 tmux send-keys -t swebench_vmvm:Launcher.0 \
-  "env TASK_FILE=\$PWD/user/tianhaowu/terminal_bench_vmvm/configs/validate/mobius_repaired_tasks.txt OUTPUT_DIR=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/oracle/mobius_repairs_ac1f30b9 DATASET_DIR=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/datasets/mobius-ac1f30b9 MINIMUM_PASS_RATE=1 MINIMUM_VALID=42 sbatch --parsable user/tianhaowu/terminal_bench_vmvm/run_oracle.sbatch" C-m
+  "cd /checkpoint/ram/tianhaowu/terminal_bench_vmvm/sources/prime-rl-<commit> && env PROJECT_DIR=\$PWD TASK_FILE=\$PWD/user/tianhaowu/terminal_bench_vmvm/configs/validate/mobius_repaired_tasks.txt TASK_FILE_SHA256=8d7d9377a9bbe6ade2fba7cc0730647d8be82402e225f95ad864a2218647563c OUTPUT_DIR=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/oracle/mobius_repairs_identity_<commit>_v1 DATASET_DIR=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/datasets/mobius-ac1f30b9 DATASET_REVISION=ac1f30b9ac0e6c6a20a9fe423900d9ed28a6d366 IMAGE_MANIFEST=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/mobius_images.json IMAGE_MANIFEST_SHA256=118157378884021d2fc12dd83e7d9576ca606a5d229a2bd34c203d745212e009 ORACLE_SOLUTION_NETWORK_MODE=public MAX_CONCURRENT=8 VACLI_LEASE_RETRIES=20 VACLI_MAX_CONCURRENT_LEASES=4 VACLI_MAX_PULL_RETRIES=20 VACLI_IMAGE_PULL_TIMEOUT_SECONDS=3600 VACLI_CONTAINER_PRIVILEGED=1 TIMEOUT_MULTIPLIER=2 RESOURCE_MULTIPLIER=2 MINIMUM_PASS_RATE=0.9 MINIMUM_VALID=41 sbatch --parsable \$PWD/user/tianhaowu/terminal_bench_vmvm/run_oracle.sbatch" C-m
 ```
+
+Require all 42 canary rows to be terminal, at least 41 valid, and zero
+infrastructure, timeout, generic-error, or cleanup failures before submitting
+the full run.
 
 Validate TB4 with its official digest-pinned images and Compose sidecars by
 setting `USE_DECLARED_IMAGES=1` and `ENABLE_COMPOSE=1`:
@@ -194,6 +205,12 @@ setting `USE_DECLARED_IMAGES=1` and `ENABLE_COMPOSE=1`:
 tmux send-keys -t swebench_vmvm:Launcher.0 \
   "sbatch --parsable --export=ALL,DATASET_DIR=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/datasets/tb4-prebuilt-v4.0.0/tasks,USE_DECLARED_IMAGES=1,ENABLE_COMPOSE=1,MAX_CONCURRENT=8 user/tianhaowu/terminal_bench_vmvm/run_oracle.sbatch" C-m
 ```
+
+For the exact standard TB4 path, the launcher binds the official release
+archive SHA-256 and verifies that every extracted task path, type, mode, size,
+file byte, and symlink target matches its `tasks/` payload before loading any
+task. Other non-Git datasets must supply an explicit
+`DATASET_ARCHIVE{,_SHA256}` pair.
 
 The model-facing TB4 inputs remain byte-for-byte official. Oracle-only setup
 applies one compatibility constraint for `cad-model`: `build123d==0.10.0`

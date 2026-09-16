@@ -164,6 +164,16 @@ activates the task's declared policy before artifact collection or verification.
 Never expose this override to model setup or rollouts, and report strict-policy
 and compatibility-oracle results separately.
 
+Treat an oracle output directory as one immutable run. Before loading tasks,
+bind either an exact clean Git dataset revision or a digest-pinned release
+archive whose task-tree payload exactly matches the extracted dataset. Also
+bind the ordered task selection, task/image-manifest hashes, clean source and
+runtime pins, network semantics, timeouts, concurrency, and acceptance gates in
+`run_identity.json`. Every durable task row and summary must carry that identity
+digest. A resume may append invocation metadata, but must never rewrite initial
+provenance or reuse a row whose identity differs; legacy unlabeled output needs
+a fresh directory.
+
 Pier's DeepSWE adapter supports prebuilt agent images and the benchmark's
 separate verifier Dockerfiles. It validates the Dockerfile, starts its `FROM`
 image, copies the hidden verifier files only into the verifier runtime, and

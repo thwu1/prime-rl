@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import fcntl
 import hashlib
 import importlib.util
 import json
@@ -18,6 +19,8 @@ SPEC.loader.exec_module(export_oracle_tasks)
 PromotionError = export_oracle_tasks.PromotionError
 VERIFIER_COMMIT = "a" * 40
 VMVM_TB_V2_SHA256 = "b" * 64
+IMAGE_MANIFEST_BYTES = b'{"images":{}}\n'
+IMAGE_MANIFEST_SHA256 = hashlib.sha256(IMAGE_MANIFEST_BYTES).hexdigest()
 
 
 def _sha256(data: bytes) -> str:
@@ -65,24 +68,109 @@ def _oracle(
     tasks: list[str],
     valid: set[str],
     prime_rl_commit: str,
+    revision: str,
+    image_manifest: Path,
+    minimum_valid: int,
 ) -> Path:
     oracle = tmp_path / "oracle"
     statuses = oracle / "tasks"
     statuses.mkdir(parents=True)
+    (oracle / ".writer.lock").touch()
     semantics = {
         "schema_version": 1,
         "trusted_reference_solution": "public",
         "verifier": "declared",
     }
+    identity = {
+        "schema_version": 1,
+        "dataset": {
+            "path": str(dataset.resolve()),
+            "revision": revision,
+            "archive": {"path": None, "sha256": None},
+            "content_sha256": None,
+        },
+        "selection": {
+            "count": len(tasks),
+            "ordered_task_slugs_sha256": _sha256("".join(f"{task}\n" for task in tasks).encode()),
+            "offset": 0,
+            "limit": None,
+            "task_file": {"path": None, "sha256": None},
+        },
+        "images": {
+            "prefix": "vmvm-registry.invalid/terminal-bench",
+            "tag": "mobius-pinned",
+            "manifest": {
+                "path": str(image_manifest.resolve()),
+                "sha256": IMAGE_MANIFEST_SHA256,
+            },
+            "use_declared_images": False,
+            "enable_compose": False,
+        },
+        "source": {
+            "prime_rl_commit": prime_rl_commit,
+            "prime_rl_tree_sha256": hashlib.sha256(b"").hexdigest(),
+            "verifiers_commit": VERIFIER_COMMIT,
+            "vmvm_tb_v2_sha256": VMVM_TB_V2_SHA256,
+        },
+        "network_semantics": semantics,
+        "execution": {
+            "max_concurrent": 8,
+            "infra_retries": 2,
+            "setup_timeout_sec": 3600.0,
+            "validate_timeout_sec": 10800.0,
+            "session_timeout_sec": 10800.0,
+            "tenant_id": "test-tenant",
+            "lease_ttl": "60s",
+            "max_session_buffer_size": 67_108_864,
+            "verifier_runtime_retries": 2,
+            "vacli_lease_retries": 20,
+            "vacli_max_concurrent_leases": 4,
+            "vacli_max_pull_retries": 20,
+            "vacli_image_pull_timeout_seconds": 3600,
+            "vacli_container_privileged": True,
+            "timeout_multiplier": 2.0,
+            "resource_multiplier": 2.0,
+            "runtime_image": "python:3.12-slim",
+            "runtime_workdir": "/app",
+        },
+        "acceptance": {"minimum_pass_rate": 0.9, "minimum_valid": minimum_valid},
+    }
+    identity_bytes = json.dumps(
+        identity,
+        ensure_ascii=False,
+        allow_nan=False,
+        sort_keys=True,
+        separators=(",", ":"),
+    ).encode()
+    identity_sha256 = _sha256(identity_bytes)
+    (oracle / "run_identity.json").write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "run_identity_sha256": identity_sha256,
+                "identity": identity,
+            },
+            sort_keys=True,
+        )
+        + "\n"
+    )
     results = []
     for index, task in enumerate(tasks):
         passed = task in valid
         result = {
             "index": index,
+            "name": task,
             "slug": task,
+            "image": f"registry.example/tasks@sha256:{index:064x}",
             "valid": passed,
             "reason": "valid" if passed else "invalid",
+            "error": None,
+            "error_type": None,
+            "elapsed_sec": 1.0,
+            "attempts": 1,
+            "infrastructure_failures": [],
             "oracle_network_semantics": semantics,
+            "run_identity_sha256": identity_sha256,
         }
         results.append(result)
         (statuses / f"{task}.json").write_text(json.dumps(result) + "\n")
@@ -97,6 +185,7 @@ def _oracle(
                 "pass_rate": len(valid) / len(tasks),
                 "reasons": dict(reasons),
                 "oracle_network_semantics": semantics,
+                "run_identity_sha256": identity_sha256,
                 "finished_at": 1.0,
             }
         )
@@ -109,6 +198,7 @@ def _oracle(
                 "selected_tasks": len(tasks),
                 "oracle_solution_network_mode": "public",
                 "oracle_network_semantics": semantics,
+                "run_identity_sha256": identity_sha256,
             }
         )
         + "\n"
@@ -122,17 +212,30 @@ def _oracle(
         "host=opaque-host\n"
         "slurm_job_id=1\n"
         "oracle_solution_network_mode=public\n"
+        f"run_identity_sha256={identity_sha256}\n"
     )
     return oracle
 
 
-def _config(path: Path, task_file: str, digest: str, count: int) -> None:
+def _config(
+    path: Path,
+    task_file: str,
+    digest: str,
+    count: int,
+    dataset: Path,
+    revision: str,
+    image_manifest: Path,
+) -> None:
     path.write_text(
         f"num_tasks = {count}\n"
         "[taskset]\n"
         'id = "terminal-bench-vmvm"\n'
+        f'dataset_dir = "{dataset.resolve()}"\n'
+        f'dataset_revision = "{revision}"\n'
         f'task_file = "{task_file}"\n'
         f'task_file_sha256 = "{digest}"\n'
+        f'image_manifest = "{image_manifest.resolve()}"\n'
+        f'image_manifest_sha256 = "{IMAGE_MANIFEST_SHA256}"\n'
     )
 
 
@@ -149,9 +252,11 @@ def _fixture(
     current_bytes = "".join(f"{task}\n" for task in tasks[:limit]).encode()
     manifest.write_bytes(current_bytes)
     digest = _sha256(current_bytes)
+    image_manifest = tmp_path / "image-manifest.json"
+    image_manifest.write_bytes(IMAGE_MANIFEST_BYTES)
     configs = [project / "kimi.toml", project / "qwen.toml"]
     for config in configs:
-        _config(config, manifest.name, digest, limit)
+        _config(config, manifest.name, digest, limit, dataset, revision, image_manifest)
     subprocess.run(["git", "init", "-q", str(project)], check=True)
     subprocess.run(["git", "-C", str(project), "add", "."], check=True)
     subprocess.run(
@@ -193,6 +298,9 @@ def _fixture(
         tasks,
         {tasks[index] for index in valid_indexes},
         prime_rl_commit,
+        revision,
+        image_manifest,
+        limit,
     )
     return dataset, tasks, revision, oracle, manifest, digest, configs, prime_rl_commit
 
@@ -204,6 +312,7 @@ def _provenance_args(prime_rl_commit: str) -> dict[str, str]:
         "minimum_prime_rl_ancestor": prime_rl_commit,
         "expected_verifiers_commit": VERIFIER_COMMIT,
         "expected_vmvm_tb_v2_sha256": VMVM_TB_V2_SHA256,
+        "expected_image_manifest_sha256": IMAGE_MANIFEST_SHA256,
     }
 
 
@@ -219,7 +328,15 @@ def test_dry_run_and_apply_replace_new_invalid_without_reordering_survivors(
     manifest.write_bytes(original_manifest)
     digest = _sha256(original_manifest)
     for config in configs:
-        _config(config, manifest.name, digest, 8)
+        _config(
+            config,
+            manifest.name,
+            digest,
+            8,
+            dataset,
+            revision,
+            tmp_path / "image-manifest.json",
+        )
     original_configs = [path.read_bytes() for path in configs]
     arguments = {
         "dataset_dir": dataset,
@@ -338,7 +455,15 @@ def test_rejects_unapproved_current_hash_and_config_drift(tmp_path: Path) -> Non
             **_provenance_args(prime_rl_commit),
         )
 
-    _config(configs[0], manifest.name, "1" * 64, 8)
+    _config(
+        configs[0],
+        manifest.name,
+        "1" * 64,
+        8,
+        dataset,
+        revision,
+        tmp_path / "image-manifest.json",
+    )
     with pytest.raises(PromotionError, match="^config_current_hash_mismatch$"):
         export_oracle_tasks.promote(
             oracle,
@@ -351,6 +476,53 @@ def test_rejects_unapproved_current_hash_and_config_drift(tmp_path: Path) -> Non
             expected_total=10,
             limit=8,
             apply=True,
+            **_provenance_args(prime_rl_commit),
+        )
+
+    _config(
+        configs[0],
+        manifest.name,
+        digest,
+        8,
+        dataset,
+        "f" * 40,
+        tmp_path / "image-manifest.json",
+    )
+    with pytest.raises(PromotionError, match="^config_dataset_mismatch$"):
+        export_oracle_tasks.promote(
+            oracle,
+            manifest,
+            dataset_dir=dataset,
+            dataset_revision=revision,
+            expected_current_manifest_sha256=digest,
+            configs=configs,
+            project_root=manifest.parent,
+            expected_total=10,
+            limit=8,
+            **_provenance_args(prime_rl_commit),
+        )
+
+    _config(
+        configs[0],
+        manifest.name,
+        digest,
+        8,
+        dataset,
+        revision,
+        tmp_path / "image-manifest.json",
+    )
+    configs[0].write_text(configs[0].read_text().replace(IMAGE_MANIFEST_SHA256, "0" * 64))
+    with pytest.raises(PromotionError, match="^config_image_manifest_hash_mismatch$"):
+        export_oracle_tasks.promote(
+            oracle,
+            manifest,
+            dataset_dir=dataset,
+            dataset_revision=revision,
+            expected_current_manifest_sha256=digest,
+            configs=configs,
+            project_root=manifest.parent,
+            expected_total=10,
+            limit=8,
             **_provenance_args(prime_rl_commit),
         )
 
@@ -381,6 +553,117 @@ def test_rejects_dirty_or_mismatched_oracle_provenance(tmp_path: Path) -> None:
             limit=8,
             **_provenance_args(prime_rl_commit),
         )
+
+
+def test_rejects_missing_or_tampered_run_identity(tmp_path: Path) -> None:
+    dataset, _, revision, oracle, manifest, digest, configs, prime_rl_commit = _fixture(
+        tmp_path,
+        valid_indexes=set(range(10)),
+    )
+    arguments = {
+        "dataset_dir": dataset,
+        "dataset_revision": revision,
+        "expected_current_manifest_sha256": digest,
+        "configs": configs,
+        "project_root": manifest.parent,
+        "expected_total": 10,
+        "limit": 8,
+        **_provenance_args(prime_rl_commit),
+    }
+    identity_path = oracle / "run_identity.json"
+    original = identity_path.read_bytes()
+    identity_path.unlink()
+    with pytest.raises(PromotionError, match="^oracle_run_identity_invalid$"):
+        export_oracle_tasks.promote(oracle, manifest, **arguments)
+
+    identity_path.write_bytes(original)
+    wrapper = json.loads(identity_path.read_text())
+    wrapper["identity"]["dataset"]["revision"] = "f" * 40
+    identity_path.write_text(json.dumps(wrapper) + "\n")
+    with pytest.raises(PromotionError, match="^oracle_run_identity_hash_mismatch$"):
+        export_oracle_tasks.promote(oracle, manifest, **arguments)
+
+
+def test_rejects_result_without_bound_run_identity(tmp_path: Path) -> None:
+    dataset, _, revision, oracle, manifest, digest, configs, prime_rl_commit = _fixture(
+        tmp_path,
+        valid_indexes=set(range(10)),
+    )
+    rows = (oracle / "results.jsonl").read_text().splitlines()
+    first = json.loads(rows[0])
+    del first["run_identity_sha256"]
+    rows[0] = json.dumps(first)
+    (oracle / "results.jsonl").write_text("\n".join(rows) + "\n")
+
+    with pytest.raises(PromotionError, match="^oracle_result_schema_invalid$"):
+        export_oracle_tasks.promote(
+            oracle,
+            manifest,
+            dataset_dir=dataset,
+            dataset_revision=revision,
+            expected_current_manifest_sha256=digest,
+            configs=configs,
+            project_root=manifest.parent,
+            expected_total=10,
+            limit=8,
+            **_provenance_args(prime_rl_commit),
+        )
+
+
+def test_rejects_malformed_or_divergent_terminal_rows(tmp_path: Path) -> None:
+    dataset, tasks, revision, oracle, manifest, digest, configs, prime_rl_commit = _fixture(
+        tmp_path,
+        valid_indexes=set(range(10)),
+    )
+    arguments = {
+        "dataset_dir": dataset,
+        "dataset_revision": revision,
+        "expected_current_manifest_sha256": digest,
+        "configs": configs,
+        "project_root": manifest.parent,
+        "expected_total": 10,
+        "limit": 8,
+        **_provenance_args(prime_rl_commit),
+    }
+    results_path = oracle / "results.jsonl"
+    original_results = results_path.read_bytes()
+    rows = results_path.read_text().splitlines()
+    first = json.loads(rows[0])
+    first["index"] = False
+    rows[0] = json.dumps(first)
+    results_path.write_text("\n".join(rows) + "\n")
+    with pytest.raises(PromotionError, match="^oracle_result_schema_invalid$"):
+        export_oracle_tasks.promote(oracle, manifest, **arguments)
+
+    results_path.write_bytes(original_results)
+    status_path = oracle / "tasks" / f"{tasks[0]}.json"
+    status = json.loads(status_path.read_text())
+    status["attempts"] = 2
+    status_path.write_text(json.dumps(status) + "\n")
+    with pytest.raises(PromotionError, match="^oracle_status_mismatch$"):
+        export_oracle_tasks.promote(oracle, manifest, **arguments)
+
+
+def test_rejects_promotion_while_oracle_writer_is_active(tmp_path: Path) -> None:
+    dataset, _, revision, oracle, manifest, digest, configs, prime_rl_commit = _fixture(
+        tmp_path,
+        valid_indexes=set(range(10)),
+    )
+    with (oracle / ".writer.lock").open("rb") as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        with pytest.raises(PromotionError, match="^oracle_writer_active$"):
+            export_oracle_tasks.promote(
+                oracle,
+                manifest,
+                dataset_dir=dataset,
+                dataset_revision=revision,
+                expected_current_manifest_sha256=digest,
+                configs=configs,
+                project_root=manifest.parent,
+                expected_total=10,
+                limit=8,
+                **_provenance_args(prime_rl_commit),
+            )
 
 
 def test_rejects_required_ancestor_before_lifecycle_baseline(tmp_path: Path) -> None:
@@ -465,6 +748,8 @@ def test_cli_emits_metadata_only(
             VERIFIER_COMMIT,
             "--expected-vmvm-tb-v2-sha256",
             VMVM_TB_V2_SHA256,
+            "--expected-image-manifest-sha256",
+            IMAGE_MANIFEST_SHA256,
             "--config",
             str(configs[0]),
             "--config",

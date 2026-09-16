@@ -10,6 +10,7 @@ replacement tasks are appended in the canonical dataset order.
 from __future__ import annotations
 
 import argparse
+import fcntl
 import hashlib
 import json
 import math
@@ -36,9 +37,28 @@ PROVENANCE_KEYS = {
     "oracle_solution_network_mode",
     "prime_rl",
     "prime_rl_tree",
+    "run_identity_sha256",
     "slurm_job_id",
     "verifiers",
     "vmvm_tb_v2",
+}
+RUN_IDENTITY_KEYS = {
+    "acceptance",
+    "dataset",
+    "execution",
+    "images",
+    "network_semantics",
+    "schema_version",
+    "selection",
+    "source",
+}
+ORACLE_REASONS = {
+    "error",
+    "infrastructure_error",
+    "invalid",
+    "timeout",
+    "unsupported",
+    "valid",
 }
 
 
@@ -91,6 +111,200 @@ def _manifest_tasks(data: bytes, *, error: str) -> list[str]:
     return tasks
 
 
+def _ordered_tasks_sha256(tasks: list[str]) -> str:
+    return _sha256("".join(f"{task}\n" for task in tasks).encode("utf-8"))
+
+
+def _positive_number(value: object) -> bool:
+    return not isinstance(value, bool) and isinstance(value, (int, float)) and math.isfinite(value) and value > 0
+
+
+def _audit_run_identity(
+    oracle_dir: Path,
+    dataset_dir: Path,
+    dataset_revision: str,
+    canonical_tasks: list[str],
+    *,
+    expected_prime_rl_commit: str,
+    expected_verifiers_commit: str,
+    expected_vmvm_tb_v2_sha256: str,
+    expected_image_manifest_sha256: str,
+    expected_minimum_pass_rate: float,
+    expected_minimum_valid: int,
+    trusted_reference_solution: str,
+) -> tuple[str, str, Path]:
+    wrapper, sidecar_sha256 = _json_file_with_sha256(
+        oracle_dir / "run_identity.json",
+        error="oracle_run_identity_invalid",
+    )
+    if set(wrapper) != {"schema_version", "run_identity_sha256", "identity"} or wrapper.get("schema_version") != 1:
+        raise PromotionError("oracle_run_identity_invalid")
+    identity = wrapper.get("identity")
+    identity_sha256 = wrapper.get("run_identity_sha256")
+    if not isinstance(identity, dict) or set(identity) != RUN_IDENTITY_KEYS or not isinstance(identity_sha256, str):
+        raise PromotionError("oracle_run_identity_invalid")
+    canonical_identity = json.dumps(
+        identity,
+        ensure_ascii=False,
+        allow_nan=False,
+        sort_keys=True,
+        separators=(",", ":"),
+    ).encode("utf-8")
+    if SHA256_RE.fullmatch(identity_sha256) is None or _sha256(canonical_identity) != identity_sha256:
+        raise PromotionError("oracle_run_identity_hash_mismatch")
+
+    dataset = identity.get("dataset")
+    selection = identity.get("selection")
+    images = identity.get("images")
+    source = identity.get("source")
+    network_semantics = identity.get("network_semantics")
+    execution = identity.get("execution")
+    acceptance = identity.get("acceptance")
+    if (
+        identity.get("schema_version") != 1
+        or not isinstance(dataset, dict)
+        or set(dataset) != {"archive", "content_sha256", "path", "revision"}
+        or not isinstance(selection, dict)
+        or set(selection) != {"count", "limit", "offset", "ordered_task_slugs_sha256", "task_file"}
+        or not isinstance(images, dict)
+        or set(images) != {"enable_compose", "manifest", "prefix", "tag", "use_declared_images"}
+        or not isinstance(source, dict)
+        or set(source) != {"prime_rl_commit", "prime_rl_tree_sha256", "verifiers_commit", "vmvm_tb_v2_sha256"}
+        or not isinstance(execution, dict)
+        or set(execution)
+        != {
+            "infra_retries",
+            "lease_ttl",
+            "max_concurrent",
+            "max_session_buffer_size",
+            "resource_multiplier",
+            "runtime_image",
+            "runtime_workdir",
+            "session_timeout_sec",
+            "setup_timeout_sec",
+            "tenant_id",
+            "timeout_multiplier",
+            "vacli_container_privileged",
+            "vacli_image_pull_timeout_seconds",
+            "vacli_lease_retries",
+            "vacli_max_concurrent_leases",
+            "vacli_max_pull_retries",
+            "validate_timeout_sec",
+            "verifier_runtime_retries",
+        }
+        or not isinstance(acceptance, dict)
+        or set(acceptance) != {"minimum_pass_rate", "minimum_valid"}
+    ):
+        raise PromotionError("oracle_run_identity_invalid")
+
+    try:
+        identity_dataset = Path(dataset["path"]).resolve(strict=True)
+    except (KeyError, TypeError, OSError, RuntimeError) as cause:
+        raise PromotionError("oracle_run_identity_invalid") from cause
+    expected_semantics = _expected_semantics(trusted_reference_solution)
+    if (
+        identity_dataset != dataset_dir.resolve(strict=True)
+        or dataset.get("revision") != dataset_revision
+        or dataset.get("archive") != {"path": None, "sha256": None}
+        or dataset.get("content_sha256") is not None
+        or selection.get("count") != len(canonical_tasks)
+        or selection.get("offset") != 0
+        or selection.get("limit") is not None
+        or selection.get("ordered_task_slugs_sha256") != _ordered_tasks_sha256(canonical_tasks)
+        or selection.get("task_file") != {"path": None, "sha256": None}
+        or source.get("prime_rl_commit") != expected_prime_rl_commit
+        or source.get("prime_rl_tree_sha256") != CLEAN_TREE_SHA256
+        or source.get("verifiers_commit") != expected_verifiers_commit
+        or source.get("vmvm_tb_v2_sha256") != expected_vmvm_tb_v2_sha256
+        or network_semantics != expected_semantics
+    ):
+        raise PromotionError("oracle_run_identity_mismatch")
+
+    minimum_pass_rate = acceptance.get("minimum_pass_rate")
+    minimum_valid = acceptance.get("minimum_valid")
+    if (
+        isinstance(minimum_pass_rate, bool)
+        or not isinstance(minimum_pass_rate, (int, float))
+        or not math.isfinite(minimum_pass_rate)
+        or minimum_pass_rate != expected_minimum_pass_rate
+        or isinstance(minimum_valid, bool)
+        or not isinstance(minimum_valid, int)
+        or minimum_valid != expected_minimum_valid
+    ):
+        raise PromotionError("oracle_run_identity_mismatch")
+
+    manifest = images.get("manifest")
+    if not isinstance(manifest, dict) or set(manifest) != {"path", "sha256"}:
+        raise PromotionError("oracle_run_identity_invalid")
+    manifest_path = manifest.get("path")
+    if (
+        not isinstance(manifest_path, str)
+        or not manifest_path
+        or manifest.get("sha256") != expected_image_manifest_sha256
+        or not isinstance(images.get("prefix"), str)
+        or not images["prefix"]
+        or not isinstance(images.get("tag"), str)
+        or not images["tag"]
+        or images["tag"] == "latest"
+        or images.get("use_declared_images") is not False
+        or not isinstance(images.get("enable_compose"), bool)
+    ):
+        raise PromotionError("oracle_run_identity_mismatch")
+    try:
+        resolved_manifest = Path(manifest_path).resolve(strict=True)
+    except (OSError, RuntimeError) as cause:
+        raise PromotionError("oracle_image_manifest_unreadable") from cause
+    if str(resolved_manifest) != manifest_path:
+        raise PromotionError("oracle_run_identity_mismatch")
+    manifest_bytes = _read_bytes(
+        resolved_manifest,
+        limit=MAX_MANIFEST_BYTES,
+        error="oracle_image_manifest_unreadable",
+    )
+    if _sha256(manifest_bytes) != expected_image_manifest_sha256:
+        raise PromotionError("oracle_image_manifest_mismatch")
+
+    positive_ints = (
+        "max_concurrent",
+        "max_session_buffer_size",
+        "vacli_image_pull_timeout_seconds",
+        "vacli_max_concurrent_leases",
+    )
+    nonnegative_ints = (
+        "infra_retries",
+        "vacli_lease_retries",
+        "vacli_max_pull_retries",
+        "verifier_runtime_retries",
+    )
+    positive_numbers = (
+        "resource_multiplier",
+        "session_timeout_sec",
+        "setup_timeout_sec",
+        "timeout_multiplier",
+        "validate_timeout_sec",
+    )
+    if (
+        any(
+            isinstance(execution.get(key), bool) or not isinstance(execution.get(key), int) or execution[key] < 1
+            for key in positive_ints
+        )
+        or any(
+            isinstance(execution.get(key), bool) or not isinstance(execution.get(key), int) or execution[key] < 0
+            for key in nonnegative_ints
+        )
+        or any(not _positive_number(execution.get(key)) for key in positive_numbers)
+        or not isinstance(execution.get("tenant_id"), str)
+        or not execution["tenant_id"]
+        or not isinstance(execution.get("lease_ttl"), str)
+        or not execution["lease_ttl"]
+        or execution.get("runtime_image") != "python:3.12-slim"
+        or execution.get("runtime_workdir") != "/app"
+        or not isinstance(execution.get("vacli_container_privileged"), bool)
+    ):
+        raise PromotionError("oracle_run_identity_invalid")
+    return identity_sha256, sidecar_sha256, resolved_manifest
+
+
 def _git_output(dataset_dir: Path, *args: str, error: str) -> str:
     try:
         return subprocess.run(
@@ -113,6 +327,7 @@ def _audit_provenance(
     minimum_prime_rl_ancestor: str,
     expected_verifiers_commit: str,
     expected_vmvm_tb_v2_sha256: str,
+    expected_run_identity_sha256: str,
     trusted_reference_solution: str,
 ) -> str:
     if (
@@ -121,6 +336,7 @@ def _audit_provenance(
         or REVISION_RE.fullmatch(minimum_prime_rl_ancestor) is None
         or REVISION_RE.fullmatch(expected_verifiers_commit) is None
         or SHA256_RE.fullmatch(expected_vmvm_tb_v2_sha256) is None
+        or SHA256_RE.fullmatch(expected_run_identity_sha256) is None
     ):
         raise PromotionError("provenance_expectation_invalid")
     raw = _read_bytes(
@@ -145,6 +361,7 @@ def _audit_provenance(
         or records["prime_rl_tree"] != CLEAN_TREE_SHA256
         or records["verifiers"] != expected_verifiers_commit
         or records["vmvm_tb_v2"] != expected_vmvm_tb_v2_sha256
+        or records["run_identity_sha256"] != expected_run_identity_sha256
         or records["oracle_solution_network_mode"] != trusted_reference_solution
         or not records["host"].strip()
         or not records["slurm_job_id"].isdigit()
@@ -273,6 +490,7 @@ def _audit_oracle(
     expected_total: int,
     minimum_pass_rate: float,
     minimum_valid: int,
+    expected_run_identity_sha256: str,
     trusted_reference_solution: str,
 ) -> tuple[list[str], set[str], int, float, str, str]:
     canonical = _dataset_tasks(dataset_dir, dataset_revision, expected_total)
@@ -287,16 +505,41 @@ def _audit_oracle(
     reasons: Counter[str] = Counter()
     for expected_index, result in enumerate(results):
         slug = result.get("slug")
+        name = result.get("name")
+        image = result.get("image")
         is_valid = result.get("valid")
         reason = result.get("reason")
+        error = result.get("error")
+        error_type = result.get("error_type")
+        elapsed_sec = result.get("elapsed_sec")
+        attempts = result.get("attempts")
         if (
-            result.get("index") != expected_index
+            isinstance(result.get("index"), bool)
+            or not isinstance(result.get("index"), int)
+            or result["index"] != expected_index
             or not isinstance(slug, str)
             or not slug
+            or not isinstance(name, str)
+            or not name
+            or not isinstance(image, str)
+            or not image
             or not isinstance(is_valid, bool)
             or not isinstance(reason, str)
+            or reason not in ORACLE_REASONS
             or (is_valid and reason != "valid")
             or (not is_valid and reason == "valid")
+            or not (error is None or isinstance(error, str))
+            or not (error_type is None or isinstance(error_type, str))
+            or isinstance(elapsed_sec, bool)
+            or not isinstance(elapsed_sec, (int, float))
+            or not math.isfinite(elapsed_sec)
+            or elapsed_sec < 0
+            or isinstance(attempts, bool)
+            or not isinstance(attempts, int)
+            or attempts < 1
+            or not isinstance(result.get("infrastructure_failures"), list)
+            or ("last_attempt" in result and not isinstance(result["last_attempt"], dict))
+            or result.get("run_identity_sha256") != expected_run_identity_sha256
         ):
             raise PromotionError("oracle_result_schema_invalid")
         if result.get("oracle_network_semantics") != expected_semantics:
@@ -334,6 +577,7 @@ def _audit_oracle(
         or summary.get("passed") != passed
         or summary.get("reasons") != dict(reasons)
         or summary.get("oracle_network_semantics") != expected_semantics
+        or summary.get("run_identity_sha256") != expected_run_identity_sha256
     ):
         raise PromotionError("oracle_summary_mismatch")
     summary_rate = summary.get("pass_rate")
@@ -355,6 +599,7 @@ def _audit_oracle(
         or run_config.get("selected_tasks") != expected_total
         or run_config.get("oracle_solution_network_mode") != trusted_reference_solution
         or run_config.get("oracle_network_semantics") != expected_semantics
+        or run_config.get("run_identity_sha256") != expected_run_identity_sha256
     ):
         raise PromotionError("oracle_run_config_mismatch")
     if (
@@ -382,9 +627,8 @@ def _audit_oracle(
             raise PromotionError("oracle_status_set_mismatch")
         observed_statuses.add(slug)
         expected = expected_by_slug[slug]
-        for key in ("index", "valid", "reason", "oracle_network_semantics"):
-            if status.get(key) != expected.get(key):
-                raise PromotionError("oracle_status_mismatch")
+        if status != expected:
+            raise PromotionError("oracle_status_mismatch")
     if observed_statuses != canonical_set:
         raise PromotionError("oracle_status_set_mismatch")
     return canonical, valid, passed, pass_rate, results_sha256, summary_sha256
@@ -405,6 +649,10 @@ def _updated_config(
     *,
     project_root: Path,
     output: Path,
+    dataset_dir: Path,
+    dataset_revision: str,
+    image_manifest: Path,
+    image_manifest_sha256: str,
     current_sha256: str,
     new_sha256: str,
     selected_count: int,
@@ -420,6 +668,20 @@ def _updated_config(
         raise PromotionError("config_taskset_invalid")
     if config.get("num_tasks") != selected_count:
         raise PromotionError("config_task_count_mismatch")
+    dataset_value = taskset.get("dataset_dir")
+    if not isinstance(dataset_value, str) or not dataset_value:
+        raise PromotionError("config_dataset_invalid")
+    configured_dataset = _resolve_task_file(project_root, dataset_value)
+    if configured_dataset != dataset_dir.resolve(strict=True) or taskset.get("dataset_revision") != dataset_revision:
+        raise PromotionError("config_dataset_mismatch")
+    if taskset.get("image_manifest_sha256") != image_manifest_sha256:
+        raise PromotionError("config_image_manifest_hash_mismatch")
+    image_manifest_value = taskset.get("image_manifest")
+    if not isinstance(image_manifest_value, str) or not image_manifest_value:
+        raise PromotionError("config_image_manifest_invalid")
+    configured_image_manifest = _resolve_task_file(project_root, image_manifest_value)
+    if configured_image_manifest != image_manifest:
+        raise PromotionError("config_image_manifest_mismatch")
     task_file = taskset.get("task_file")
     if not isinstance(task_file, str) or _resolve_task_file(project_root, task_file) != output.resolve():
         raise PromotionError("config_task_file_mismatch")
@@ -470,7 +732,7 @@ def _replace_files(updates: list[tuple[Path, bytes]]) -> None:
             temporary.unlink(missing_ok=True)
 
 
-def promote(
+def _promote_locked(
     oracle_dir: Path,
     output: Path,
     *,
@@ -481,6 +743,7 @@ def promote(
     required_prime_rl_ancestor: str,
     expected_verifiers_commit: str,
     expected_vmvm_tb_v2_sha256: str,
+    expected_image_manifest_sha256: str,
     configs: list[Path],
     project_root: Path,
     expected_total: int = 2_538,
@@ -495,6 +758,8 @@ def promote(
         raise PromotionError("dataset_revision_invalid")
     if SHA256_RE.fullmatch(expected_current_manifest_sha256) is None:
         raise PromotionError("current_manifest_hash_invalid")
+    if SHA256_RE.fullmatch(expected_image_manifest_sha256) is None:
+        raise PromotionError("image_manifest_hash_invalid")
     if expected_total < 1 or limit < 1 or limit > expected_total:
         raise PromotionError("task_counts_invalid")
     if not 0.0 <= minimum_pass_rate <= 1.0:
@@ -519,6 +784,20 @@ def promote(
     if len(current_tasks) != limit:
         raise PromotionError("current_manifest_count_mismatch")
 
+    canonical_at_promotion = _dataset_tasks(dataset_dir, dataset_revision, expected_total)
+    run_identity_sha256, run_identity_file_sha256, run_image_manifest = _audit_run_identity(
+        oracle_dir.resolve(),
+        dataset_dir,
+        dataset_revision,
+        canonical_at_promotion,
+        expected_prime_rl_commit=expected_prime_rl_commit,
+        expected_verifiers_commit=expected_verifiers_commit,
+        expected_vmvm_tb_v2_sha256=expected_vmvm_tb_v2_sha256,
+        expected_image_manifest_sha256=expected_image_manifest_sha256,
+        expected_minimum_pass_rate=minimum_pass_rate,
+        expected_minimum_valid=limit,
+        trusted_reference_solution=trusted_reference_solution,
+    )
     oracle_provenance_sha256 = _audit_provenance(
         oracle_dir.resolve(),
         project_root,
@@ -529,6 +808,7 @@ def promote(
         ),
         expected_verifiers_commit=expected_verifiers_commit,
         expected_vmvm_tb_v2_sha256=expected_vmvm_tb_v2_sha256,
+        expected_run_identity_sha256=run_identity_sha256,
         trusted_reference_solution=trusted_reference_solution,
     )
     canonical, valid, passed, pass_rate, oracle_results_sha256, oracle_summary_sha256 = _audit_oracle(
@@ -538,6 +818,7 @@ def promote(
         expected_total=expected_total,
         minimum_pass_rate=minimum_pass_rate,
         minimum_valid=limit,
+        expected_run_identity_sha256=run_identity_sha256,
         trusted_reference_solution=trusted_reference_solution,
     )
     canonical_set = set(canonical)
@@ -559,6 +840,10 @@ def promote(
                 path.resolve(),
                 project_root=project_root.resolve(),
                 output=output,
+                dataset_dir=dataset_dir,
+                dataset_revision=dataset_revision,
+                image_manifest=run_image_manifest,
+                image_manifest_sha256=expected_image_manifest_sha256,
                 current_sha256=current_sha256,
                 new_sha256=selected_sha256,
                 selected_count=limit,
@@ -590,6 +875,8 @@ def promote(
         "oracle_prime_rl_commit": expected_prime_rl_commit,
         "oracle_provenance_sha256": oracle_provenance_sha256,
         "oracle_results_sha256": oracle_results_sha256,
+        "oracle_run_identity_file_sha256": run_identity_file_sha256,
+        "oracle_run_identity_sha256": run_identity_sha256,
         "oracle_summary_sha256": oracle_summary_sha256,
         "oracle_verifiers_commit": expected_verifiers_commit,
         "oracle_vmvm_tb_v2_sha256": expected_vmvm_tb_v2_sha256,
@@ -599,6 +886,64 @@ def promote(
         "selected_manifest_sha256": selected_sha256,
         "selected_subset_valid": True,
     }
+
+
+def promote(
+    oracle_dir: Path,
+    output: Path,
+    *,
+    dataset_dir: Path,
+    dataset_revision: str,
+    expected_current_manifest_sha256: str,
+    expected_prime_rl_commit: str,
+    required_prime_rl_ancestor: str,
+    expected_verifiers_commit: str,
+    expected_vmvm_tb_v2_sha256: str,
+    expected_image_manifest_sha256: str,
+    configs: list[Path],
+    project_root: Path,
+    expected_total: int = 2_538,
+    limit: int = 2_500,
+    minimum_pass_rate: float = 0.9,
+    trusted_reference_solution: str = "public",
+    expected_config_count: int = 2,
+    minimum_prime_rl_ancestor: str | None = None,
+    apply: bool = False,
+) -> dict[str, Any]:
+    """Audit/promote one terminal oracle run while excluding active writers."""
+    lock_path = oracle_dir.resolve() / ".writer.lock"
+    try:
+        lock = lock_path.open("rb")
+    except OSError as cause:
+        raise PromotionError("oracle_writer_lock_unreadable") from cause
+    try:
+        try:
+            fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError as cause:
+            raise PromotionError("oracle_writer_active") from cause
+        return _promote_locked(
+            oracle_dir,
+            output,
+            dataset_dir=dataset_dir,
+            dataset_revision=dataset_revision,
+            expected_current_manifest_sha256=expected_current_manifest_sha256,
+            expected_prime_rl_commit=expected_prime_rl_commit,
+            required_prime_rl_ancestor=required_prime_rl_ancestor,
+            expected_verifiers_commit=expected_verifiers_commit,
+            expected_vmvm_tb_v2_sha256=expected_vmvm_tb_v2_sha256,
+            expected_image_manifest_sha256=expected_image_manifest_sha256,
+            configs=configs,
+            project_root=project_root,
+            expected_total=expected_total,
+            limit=limit,
+            minimum_pass_rate=minimum_pass_rate,
+            trusted_reference_solution=trusted_reference_solution,
+            expected_config_count=expected_config_count,
+            minimum_prime_rl_ancestor=minimum_prime_rl_ancestor,
+            apply=apply,
+        )
+    finally:
+        lock.close()
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -612,6 +957,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--required-prime-rl-ancestor", required=True)
     parser.add_argument("--expected-verifiers-commit", required=True)
     parser.add_argument("--expected-vmvm-tb-v2-sha256", required=True)
+    parser.add_argument("--expected-image-manifest-sha256", required=True)
     parser.add_argument("--config", type=Path, action="append", required=True)
     parser.add_argument("--expected-config-count", type=int, default=2)
     parser.add_argument("--project-root", type=Path, default=Path.cwd())
@@ -636,6 +982,7 @@ def main(argv: list[str] | None = None) -> int:
             required_prime_rl_ancestor=args.required_prime_rl_ancestor,
             expected_verifiers_commit=args.expected_verifiers_commit,
             expected_vmvm_tb_v2_sha256=args.expected_vmvm_tb_v2_sha256,
+            expected_image_manifest_sha256=args.expected_image_manifest_sha256,
             configs=args.config,
             project_root=args.project_root,
             expected_total=args.expected_total,
