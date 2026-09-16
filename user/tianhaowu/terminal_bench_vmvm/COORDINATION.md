@@ -638,11 +638,15 @@ Add new rows below this line; do not overwrite another owner's row.
   Review found that vllm-router 0.1.26 implements its advertised concurrency
   bound as a refilling token bucket, so long generations can exceed the 16
   pinned workers despite `max-concurrent-requests=16`. Replacement job
-  `1447684` is running from parent `f8c77c8e6` in a fresh output directory. It
-  has again measured 64 active task sessions while the shared EvalClient HTTP
-  connection pool is hard-capped at 16; startup has zero connection failures
-  and two transient retrying-429 mentions. Retries are not capacity control.
-  The no-network reverse-tunnel
+  `1447684` ran from parent `f8c77c8e6` in a fresh output directory. It again
+  measured 64 active task sessions and proved the shared EvalClient HTTP pool
+  stayed hard-capped at 16, but was canceled and preserved after its first
+  eight rows were all zero-node `HarnessError`s. Reverse-forward creation had
+  a separate uncapped thundering herd, and a dead forward after launch was not
+  reclassified as retriable tunnel infrastructure. The next attempt must
+  serialize lease plus host-tunnel starts, verify the tunnel after a failing
+  harness body, and keep the in-sandbox LiteLLM timeout above worst-case local
+  queue plus provider time. Retries are not capacity control. The no-network reverse-tunnel
   fix itself has a completed one-task behavioral proof (64,761 sampled tokens,
   20 captured model-I/O turns, reasoning retained), and the final verifier
   suite passes 9/9. Per-task rollout/session ceilings remain 10/12 hours and
