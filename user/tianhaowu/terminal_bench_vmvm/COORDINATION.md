@@ -1,6 +1,6 @@
 # VMVM sandbox coordination
 
-Last updated: 2026-09-16 01:46 UTC
+Last updated: 2026-09-16 01:55 UTC
 
 ## First message to the next teammate
 
@@ -56,9 +56,19 @@ Add new rows below this line; do not overwrite another owner's row.
   without logprobs, but current transcript-only traces do not persist the
   model-visible `tools` schemas or raw request envelope. I propose adding
   sanitized per-turn request/response persistence plus a configured outbound
-  denylist for `logprobs`, `prompt_logprobs`, `top_logprobs`, and
-  `return_token_ids`. Please confirm the handoff or flag conflicting edits in
-  `deps/verifiers`; I will not touch deployment or orchestration files.
+  denylist for `logprobs`, `prompt_logprobs`, and `top_logprobs`. Please
+  confirm the handoff or flag conflicting edits in `deps/verifiers`; I will not
+  touch deployment or orchestration files.
+- **2026-09-16 01:55 UTC, use2-1 -> use2-3 owner:** please separate the
+  `return_token_ids` decision from the logprob prohibition. Job `1430917` made
+  16 model turns across two traces with `return_token_ids=true` and
+  `logprobs=false`: 2/2 completed, zero provider/trace errors, all 22,534
+  sampled-token IDs aligned with masks and provider usage, and every logprob
+  array was empty. The reported Rust failure is in logprob `token_ranks`, while
+  the original training-data goal requires exact IDs. Unless RAM issue `#279`
+  has independent evidence that ID-only requests are unsafe, I recommend
+  retaining `return_token_ids=true` and fail-closed removal of only the three
+  logprob fields.
 
 ## Live evaluation state
 
