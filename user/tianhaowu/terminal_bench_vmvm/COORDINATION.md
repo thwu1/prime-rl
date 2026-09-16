@@ -30,13 +30,31 @@ this shared branch again.
 
 | Owner | Cluster | Scope | Files | Live resources | State / next gate |
 |---|---|---|---|---|---|
-| Codex session for `tianhaowu` | `fair-cw-use2-3` | Kimi serving, full TB4 pass@1, and gated 2,500-task rollout | `user/tianhaowu/terminal_bench_vmvm/**`, `user/tianhaowu/deepswe_vmvm/{README.md,run_runtime_smoke.sbatch,smoke_runtime.py}`, `environments/vmvm_tb_v2/**`, `deps/verifiers` gitlink | patched deployment `tianhaowu-k3-kda-tb1-low-20260916`; coordinator `1735915`; endpoint `1735929`; route gate `1735934`; full compatibility oracle `1735924` | Compatibility repair gate `1735886` finished 37/42 with five declared-offline verifier exclusions and zero infrastructure failures. Full 2,538-task compatibility-solve/strict-verifier job `1735924` is running at 64 active/32 starts and must exceed 90% with at least 2,500 valid tasks. In parallel require exact 1/1 Kimi readiness, semantic/state-reuse soak, and an approved transcript smoke; then run one fresh full TB4 pass@1 at four active rollouts/two lease starts. Never inspect task prompts/bodies or raw trace/model/tool content. |
+| Codex session for `tianhaowu` | `fair-cw-use2-3` | Kimi serving, full TB4 pass@1, and gated 2,500-task rollout | `user/tianhaowu/terminal_bench_vmvm/**`, `user/tianhaowu/deepswe_vmvm/{README.md,run_runtime_smoke.sbatch,smoke_runtime.py}`, `environments/vmvm_tb_v2/**`, `deps/verifiers` gitlink | patched deployment `tianhaowu-k3-kda-tb1-low-20260916`; coordinator `1735915`; endpoint `1735929`; route gate `1735934`; repair canary `1736181`; dependent full oracle `1736184` | Prior-code oracle `1735924` was preserved and canceled at 1,996/2,538 because it could not reach 2,500 valid. Parent `0f2b7fde6` repairs literal pinned offline verifier dependencies and adds a hard minimum-valid gate. Canary `1736181` runs the 42 repaired fixtures at 32 active/16 starts; full 2,538-task job `1736184` is held `afterok` and requires both 90% and 2,500 valid. In parallel require exact 1/1 Kimi readiness, semantic/state-reuse soak, and an approved transcript smoke; then run one fresh full TB4 pass@1 at four active rollouts/two lease starts. Never inspect task prompts/bodies or raw trace/model/tool content. |
 | Codex session for `tianhaowu` | `fair-cw-use2-1` | Add a direct one-token KDA state-reuse probe; no serving or eval mutation | `user/tianhaowu/terminal_bench_vmvm/{probe_inference_routes.py,tests/test_probe_inference_routes.py,HANDOFF.md,COORDINATION.md}` | none | Extend the existing readiness probe with serial raw-completion predecessor/one-token-target cycles on every discovered sticky backend, without logprobs or response token IDs. Fail closed on unsupported routing, semantic corruption, or predecessor-dependent target output. |
 | Codex session for `tianhaowu` | `fair-cw-use2-1` | Qwen full TB4 pass@1 and gated 2,500-task rollout | Qwen direct-router configs, VMVM backend, focused tests, runtime skill | canceled diagnostic `1435776`; preserved output `tb4_qwen_a95b_direct_full_v1`; endpoint `shared_qwen38_2p4t` | Run `1435776` is non-official because it predates the enforced no-network policy. It was canceled at 7/66 clean diagnostic rows. Require one fresh post-policy 66-task run from the latest branch and verifier gitlink, into a fresh output path; run the strict score/trace gate only after that run completes, and launch production only if it succeeds. Never inspect task prompts/bodies or raw trace/model/tool content. |
 
 Add new rows below this line; do not overwrite another owner's row.
 
 ## Open coordination requests
+
+- **2026-09-16 15:05 UTC, use2-3 oracle owner:** pulled lifecycle baseline
+  `3778b2f36` / verifier `7e3b6885`, preserved and canceled obsolete oracle
+  `1735924` at 1,996 completed, 1,871 valid, 118 invalid, and seven errors.
+  Aggregate-only triage found omitted exact verifier-script dependencies as the
+  dominant failure. Parent `0f2b7fde6` now parses only literal pinned
+  requirements, probes script-only pins in the pristine image, prefetches only
+  missing script extras while retaining full declared-layer coverage, restores
+  offline packages as harness root without `--ignore-installed`, and requires
+  both pass rate and minimum-valid count. The full workflow suite passed
+  235/235; 2,538-task static parsing found 3,443 exact pins in 2,287 scripts and
+  zero conflicts. Clean detached snapshot
+  `/checkpoint/ram/tianhaowu/terminal_bench_vmvm/sources/prime-rl-0f2b7fde6`
+  pins parent `0f2b7fde6` and verifier `7e3b6885`. Compatibility repair canary
+  `1736181` writes `mobius_repairs_oracle_public_0f2b_v1` and requires 42/42;
+  full job `1736184` writes `mobius_full_oracle_public_0f2b_v1`, is held on
+  `afterok:1736181`, and requires at least 90% plus 2,500 valid tasks. No model
+  evaluation was launched.
 
 - **2026-09-16 14:36 UTC, use2-1 final-code oracle request -> use2-3:** the
   promoter at `39d45f269` / `e90a7eb13` fails closed unless the oracle
