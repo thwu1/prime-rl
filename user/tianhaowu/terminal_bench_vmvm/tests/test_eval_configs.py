@@ -48,6 +48,7 @@ def test_eval_config_captures_model_io(config_path: Path) -> None:
         "mobius_qwen_a95b_2500.toml",
         "tb4_kimi_k3_approved_smoke.toml",
         "tb4_kimi_k3_max_miniswe.toml",
+        "tb4_kimi_k3_shared24_miniswe.toml",
         "tb4_kimi_token_smoke.toml",
         "tb4_qwen_a95b_miniswe.toml",
         "tb4_qwen_token_smoke.toml",
@@ -166,6 +167,11 @@ def test_mobius_qwen_production_retention_and_concurrency() -> None:
             "9485011ac4a953f4a4a1c7c5e78550b6d7de6f760a3859dac15a3610cf4ad892",
         ),
         (
+            "tb4_kimi_k3_shared24_miniswe.toml",
+            66,
+            "9485011ac4a953f4a4a1c7c5e78550b6d7de6f760a3859dac15a3610cf4ad892",
+        ),
+        (
             "mobius_qwen_a95b_2500.toml",
             2_500,
             _mobius_task_file_sha256(),
@@ -185,7 +191,10 @@ def test_eval_configs_pin_approved_tasks_and_runtime_contract(
         "enable_thinking": True,
         "preserve_thinking": True,
     }
-    maximum_concurrency = 64 if filename == "mobius_qwen_a95b_2500.toml" else 8
+    maximum_concurrency = {
+        "mobius_qwen_a95b_2500.toml": 64,
+        "tb4_kimi_k3_shared24_miniswe.toml": 24,
+    }.get(filename, 8)
     assert config["max_concurrent"] == config["multiplex"] <= maximum_concurrency
     expected_http_concurrency = 16 if filename == "mobius_qwen_a95b_2500.toml" else config["max_concurrent"]
     assert config["client"]["max_connections"] == expected_http_concurrency
@@ -226,6 +235,35 @@ def test_kimi_tb4_config_pins_single_route_qualification_concurrency() -> None:
     assert config["multiplex"] == 4
     assert config["client"]["max_connections"] == 4
     assert config["client"]["max_keepalive_connections"] == 4
+
+
+def test_kimi_shared24_tb4_contract() -> None:
+    config = tomllib.loads((CONFIG_DIR / "tb4_kimi_k3_shared24_miniswe.toml").read_text())
+
+    assert config["model"] == "Kimi-K3"
+    assert config["num_tasks"] == 66
+    assert config["num_rollouts"] == 1
+    assert config["max_concurrent"] == 24
+    assert config["multiplex"] == 24
+    assert config["max_total_tokens"] == 262_144
+    assert config["retain_traces"] is False
+    assert config["client"]["capture_model_io"] is True
+    assert config["client"]["max_connections"] == 24
+    assert config["client"]["max_keepalive_connections"] == 24
+    assert config["sampling"]["reasoning_effort"] == "max"
+    assert "model.model_kwargs.timeout=15000" in config["harness"]["config_overrides"]
+    assert config["harness"]["runtime"]["session_timeout"] == 43_200
+    assert config["timeout"]["rollout"] == 36_000
+
+
+def test_kimi_shared24_launch_recipe_is_fail_closed() -> None:
+    readme = (CONFIG_DIR.parents[1] / "README.md").read_text()
+    section = readme.split("### Shared 24-route Kimi deployment", 1)[1].split("###", 1)[0]
+
+    assert "tb4_kimi_k3_shared24_miniswe.toml" in section
+    assert "shared-kimi-k3/proxy_info.json" in section
+    assert "VACLI_MAX_CONCURRENT_LEASES=2" in section
+    assert "INFERENCE_DEPLOYMENT_ID=" not in section
 
 
 @pytest.mark.parametrize(
