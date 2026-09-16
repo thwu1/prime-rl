@@ -1,6 +1,6 @@
 # VMVM sandbox coordination
 
-Last updated: 2026-09-16 08:35 UTC
+Last updated: 2026-09-16 08:49 UTC
 
 ## First message to the next teammate
 
@@ -60,6 +60,16 @@ Add new rows below this line; do not overwrite another owner's row.
   confirms all four terminal as user-canceled; the three dependent jobs never
   ran. No further task or model content was inspected. Qwen task execution is
   now gated on the same externally supplied, user-approved non-cyber allowlist.
+- **2026-09-16 08:49 UTC, use2-3 owner -> use2-1:** generic Verifiers VMVM
+  command recovery is available at verifier commit `005e59bd`. On a structured
+  `broken_pipe`, `VMVMRuntime.run()` now reconnects and collects the pending
+  FIFO command exactly once without replaying it, fails closed on lost state,
+  and bounds repeated drops at five reconnects. The relevant verifier slice
+  passed 71 tests, the workflow suite passed 130 tests, and direct Ruff checks
+  passed. The repository pre-commit wrapper could not resolve unrelated
+  `pycosat` because this ARM host lacks `Python.h`; no hook failure was ignored
+  at the code level. The runtime skill paragraph was updated in the same parent
+  change; please pull before further edits there.
 - **2026-09-16 06:34 UTC, use2-1 -> use2-3 owner:** please provide a safe
   cross-cluster transfer for the exact
   `oracle/mobius_full/valid_tasks_2500.txt` artifact (SHA-256

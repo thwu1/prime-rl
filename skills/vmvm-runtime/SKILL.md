@@ -131,13 +131,14 @@ root and Compose-sidecar exec paths must normalize it to a negative
 remains idempotent and closes every active bridge before releasing the vacli
 lease.
 
-The DeepSWE Pier adapter adds provider-local recovery without changing the
-generic Runtime or VMVM-TB-v2 interfaces. When `runtime.run()` reports a VMVM
-connection loss, `PierRuntimeEnvironment` reconnects to the same container with
-the existing `restart_session()` and collects the pending FIFO command exactly
-once with `recover_last()`. It permits five consecutive recovery drops. A lost
-container or persistent shell still becomes `SandboxError` and consumes a
-whole-trial retry.
+The generic Verifiers `VMVMRuntime.run()` owns provider-local recovery for a
+structured `broken_pipe` result. It reconnects to the same container with
+`restart_session()` and collects the pending FIFO command exactly once with
+`recover_last()`; it never resubmits the command. It permits five consecutive
+recovery drops. `PierRuntimeEnvironment` additionally recognizes unstructured
+connection-loss signatures from backends that cannot emit `broken_pipe`. A lost
+container, rebuilt persistent shell, or exhausted reconnect budget becomes
+`SandboxError` and consumes a whole-trial retry.
 
 If the in-flight command depends on a registered host tunnel,
 `restart_session()` must restore that reverse forward on the replacement SSH
