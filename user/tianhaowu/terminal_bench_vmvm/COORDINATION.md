@@ -1,6 +1,6 @@
 # VMVM sandbox coordination
 
-Last updated: 2026-09-16 03:25 UTC
+Last updated: 2026-09-16 03:33 UTC
 
 ## First message to the next teammate
 
@@ -31,7 +31,6 @@ this shared branch again.
 | Owner | Cluster | Scope | Files | Live resources | State / next gate |
 |---|---|---|---|---|---|
 | Codex session for `tianhaowu` | `fair-cw-use2-3` | Kimi serving; TB4 pass@1; 2,500-trace launch | `user/tianhaowu/terminal_bench_vmvm/**`, `environments/vmvm_tb_v2/**`, `deps/verifiers` gitlink | deployment `tianhaowu-k3-tb24-nocache-20260916`; coordinator `1732626`; endpoint jobs `1732639`-`1732662`; 0/24 ready and all workers pending at 03:22 UTC | The user explicitly approved the stock-image fallback. It uses 24 normal-QoS endpoints with prefix caching off, `max-num-seqs=1`, Python frontend, PIECEWISE graphs, no logprob/token-ID request fields, and sticky routing. Require model-specific health 24/0 and `probe_inference_routes.py`, then run a fresh model-I/O smoke and exactly one full TB4 run. |
-| Codex session for `tianhaowu` | `fair-cw-use2-1` | Detect and document semantic KDA corruption found in completed model-I/O smoke; no serving or eval mutations | `user/tianhaowu/terminal_bench_vmvm/{audit_traces.py,probe_inference_routes.py,tests/test_audit_traces.py,tests/test_probe_inference_routes.py,COORDINATION.md}` | completed diagnostic job `1431481` (read-only evidence only) | Add fail-closed whitespace-separated repeated-`@`/`!` detection, regression tests, and correct the prior structural-only smoke result. Coordinate the same predicate with the use2-3 readiness gate; do not launch or alter benchmark/deployment jobs. |
 
 Add new rows below this line; do not overwrite another owner's row.
 
@@ -117,6 +116,14 @@ Add new rows below this line; do not overwrite another owner's row.
   in addition to serializing each worker. I also pushed verifier hardening at
   `cc2254fe`: captured non-finite provider responses now fail as a controlled
   502 before hashing (42 focused tests passed).
+- **2026-09-16 03:33 UTC, use2-1 -> use2-3 owner:** pull parent `5c24b959b`
+  before running the readiness probe. Post-hoc semantic validation of smoke
+  `1431481` found the known KDA signature in both traces: 10/16 sampled turns
+  contain 4,096 whitespace-separated `@` characters as their only
+  non-whitespace reasoning character. The structural captures are complete,
+  but this smoke is not inference-readiness evidence. `audit_traces.py` now
+  fails both traces and `probe_inference_routes.py` detects the same
+  whitespace-separated `@`/`!` pattern; 59 standalone workflow tests pass.
 
 ## Live evaluation state
 
@@ -127,13 +134,15 @@ Add new rows below this line; do not overwrite another owner's row.
   prefix caching and sets `max-num-seqs=1`, `VLLM_USE_RUST_FRONTEND=0`, and
   `compilation-config={"cudagraph_mode":"PIECEWISE"}`. No eval is submitted
   until all 24 routes pass health, semantic, and sticky-affinity gates.
-- Use2-1 model-I/O smoke job `1431481` completed in 12m33s: 2/2 traces,
-  zero errors/audit failures, 16/16 sampled turns with hash-validated request
-  and exact non-stream response captures, tool schemas on every request,
-  41,605 provider-reported completion tokens, and zero forbidden request
-  fields. Every tool result appears in a later captured request. This validates
-  capture and denylisting only; the shared proxy is non-sticky and the run is
-  not the production readiness gate.
+- Use2-1 model-I/O smoke job `1431481` completed in 12m33s. Its structural
+  evidence remains valid: 16/16 sampled turns have hash-validated requests and
+  exact non-stream responses, every request has tool schemas, every tool result
+  appears in a later request, and no forbidden request field was sent. The
+  corrected semantic audit fails both traces: 10/16 sampled turns contain
+  4,096 whitespace-separated `@` characters as the only non-whitespace
+  reasoning character (trace one nodes 2/6/8/12/14/16; trace two nodes
+  2/4/8/12). This validates capture and denylisting only; it is explicit
+  evidence that the shared non-sticky endpoint was not inference-ready.
 - Historical sticky/token smoke job `1730918` completed: 2/2 traces, 7,217
   sampled tokens, response/tool calls and reasoning retained, zero audit
   failures. It predates RAM issue `#279`, requested now-forbidden logprobs, and
@@ -180,7 +189,8 @@ Add new rows below this line; do not overwrite another owner's row.
 | Codex session for `tianhaowu` | Mobius oracle exceeded 90% | Job `1725524`: 2,523/2,538 valid (99.408983%). |
 | Codex session for `tianhaowu` | All 42 repaired Mobius fixtures revalidated | Jobs `1731198` and `1731363`: final preserved summary 42/42 valid (100%). |
 | Codex session for `tianhaowu` | TB4 oracle validation | Job `1725604`: 63 CPU-supported valid and 3 explicit GPU-unsupported tasks. |
-| Codex session for `tianhaowu` (use2-1) | Fail-closed no-logprob transport plus complete compact model-I/O capture and audit | Parent `59179696e`, verifier `73263fc1`; 65 verifier and 39 workflow tests passed. Job `1431481` completed 2/2 with 16/16 valid model-I/O turns, tool schemas/results retained, and no forbidden request fields. |
+| Codex session for `tianhaowu` (use2-1) | Fail-closed no-logprob transport plus complete compact model-I/O capture and structural audit | Parent `59179696e`, verifier `73263fc1`; 65 verifier and 39 workflow tests passed. Job `1431481` completed 2/2 with 16/16 hash-valid model-I/O captures, tool schemas/results retained, and no forbidden request fields; later semantic audit correctly rejects its corrupted model output. |
+| Codex session for `tianhaowu` (use2-1) | Fail-closed semantic detection for whitespace-separated KDA corruption | Parent `5c24b959b`; both corrupted smoke traces now fail on all 10 affected sampled turns, the readiness probe uses the same predicate, 59 standalone workflow tests pass, and no serving or eval job was changed. |
 
 ## Known non-overlap boundaries
 
