@@ -1,6 +1,6 @@
 # VMVM sandbox coordination
 
-Last updated: 2026-09-16 03:35 UTC
+Last updated: 2026-09-16 04:22 UTC
 
 ## First message to the next teammate
 
@@ -30,7 +30,7 @@ this shared branch again.
 
 | Owner | Cluster | Scope | Files | Live resources | State / next gate |
 |---|---|---|---|---|---|
-| Codex session for `tianhaowu` | `fair-cw-use2-3` | Kimi serving; TB4 pass@1; 2,500-trace launch | `user/tianhaowu/terminal_bench_vmvm/**`, `environments/vmvm_tb_v2/**`, `deps/verifiers` gitlink | deployment `tianhaowu-k3-tb24-nocache-20260916`; coordinator `1732626`; endpoint jobs `1732639`-`1732662`; 0/24 ready and all workers pending at 03:22 UTC | The user explicitly approved the stock-image fallback. It uses 24 normal-QoS endpoints with prefix caching off, `max-num-seqs=1`, Python frontend, PIECEWISE graphs, no logprob/token-ID request fields, and sticky routing. Require model-specific health 24/0 and `probe_inference_routes.py`, then run a fresh model-I/O smoke and exactly one full TB4 run. |
+| Codex session for `tianhaowu` | `fair-cw-use2-3` | Kimi serving; TB4 pass@1; 2,500-trace launch | `user/tianhaowu/terminal_bench_vmvm/**`, `environments/vmvm_tb_v2/**`, `deps/verifiers` gitlink | deployment `tianhaowu-k3-tb24-nocache-20260916`; coordinator `1732626`; endpoint jobs `1732639`-`1732662`; gate chain `1732973 -> 1732984 -> 1732986 -> 1732987 -> 1732988`; 0/24 ready at 04:22 UTC | The user explicitly approved the stock-image fallback. It uses 24 normal-QoS endpoints with prefix caching off, `max-num-seqs=1`, Python frontend, PIECEWISE graphs, no logprob/token-ID request fields, and sticky routing. The CPU gate is running and all eval/checkpoint jobs are dependency-blocked. Launch production only after checkpoint `1732988` exits 0 with `ok=true`. |
 | Codex session for `tianhaowu` | `fair-cw-use2-1` | Add a direct one-token KDA state-reuse probe; no serving or eval mutation | `user/tianhaowu/terminal_bench_vmvm/{probe_inference_routes.py,tests/test_probe_inference_routes.py,HANDOFF.md,COORDINATION.md}` | none | Extend the existing readiness probe with serial raw-completion predecessor/one-token-target cycles on every discovered sticky backend, without logprobs or response token IDs. Fail closed on unsupported routing, semantic corruption, or predecessor-dependent target output. |
 
 Add new rows below this line; do not overwrite another owner's row.
@@ -139,16 +139,28 @@ Add new rows below this line; do not overwrite another owner's row.
   initially under eager mode, followed by per-route state-reuse/semantic soak.
   Please do not advance the stock fallback to TB4 without resolving or
   explicitly recording this residual correctness risk.
+- **2026-09-16 04:22 UTC, use2-3 owner:** the first two readiness chains failed
+  safely before model traffic. Gate `1732855` exposed transient status
+  handling; gate `1732902` then exposed an architecture-specific PATH issue:
+  the x86 CPU job inherited an aarch64 `~/.local/bin/uv`, so RAM `serve.sh`
+  returned rc=1 with empty stdout. Commits `b9690862e` and `23abee39b` fix both
+  cases. The replacement gate `1732973` parsed a valid booting snapshot on its
+  first poll; jobs `1732984`, `1732986`, `1732987`, and `1732988` are strictly
+  chained behind it. The canceled jobs emitted no eval rows and do not count as
+  the requested full run.
 
 ## Live evaluation state
 
 - Use2-3 deployment `tianhaowu-k3-tb24-nocache-20260916` was submitted at
   03:17 UTC. Coordinator `1732626` is running on `cpu_x86`; all 24 endpoint
   jobs (`1732639`-`1732662`) request 16 GB300 GPUs each on `g3`, `QOS=normal`,
-  and were pending for priority at 03:22 UTC. The frozen worker config disables
-  prefix caching and sets `max-num-seqs=1`, `VLLM_USE_RUST_FRONTEND=0`, and
-  `compilation-config={"cudagraph_mode":"PIECEWISE"}`. No eval is submitted
-  until all 24 routes pass health, semantic, and sticky-affinity gates.
+  and remained pending for priority at 04:22 UTC. The frozen worker config
+  disables prefix caching and sets `max-num-seqs=1`,
+  `VLLM_USE_RUST_FRONTEND=0`, and
+  `compilation-config={"cudagraph_mode":"PIECEWISE"}`. Readiness gate
+  `1732973` is running; smoke `1732984`, smoke audit `1732986`, the single
+  66-task eval `1732987`, and strict checkpoint `1732988` are dependency-held.
+  The 2,500-task run has not been submitted.
 - Use2-1 model-I/O smoke job `1431481` completed in 12m33s. Its structural
   evidence remains valid: 16/16 sampled turns have hash-validated requests and
   exact non-stream responses, every request has tool schemas, every tool result
@@ -174,8 +186,9 @@ Add new rows below this line; do not overwrite another owner's row.
   repeated `@`/blank output with HTTP 200. The server gate is a compatible port
   of vLLM PR `#51483` plus `PIECEWISE` CUDA graphs (or eager mode), followed by
   per-route semantic soak; liveness-only `/health` is insufficient. The queued
-  deployment still pins the vulnerable July 27 image, so it must be replaced or
-  updated before evaluation even if its workers become ready.
+  deployment still pins the vulnerable July 27 image. The user explicitly
+  accepted the documented containment path; it may advance only if every route
+  passes the mandatory semantic/state-reuse probe and the fresh smoke audit.
 - A 64-request inference probe completed 64/64 in 1.21 seconds across all 12
   routes then available. Same-session requests stayed pinned to one route.
 - Full TB4 job `1731157` was canceled after 2m54s with no result rows because

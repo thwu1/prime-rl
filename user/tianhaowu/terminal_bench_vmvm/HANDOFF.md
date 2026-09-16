@@ -123,10 +123,11 @@ The first isolated attempt was likewise stopped before allocation and archived
 at `.removed/tianhaowu-k3-tb24-isolated-20260916-20260916T031753Z` after the
 prefix-cache gap was found. The prior `g3_lowest` deployment is also stopped.
 The replacement coordinator is Slurm job `1732626`; its endpoint jobs are
-`1732639`-`1732662`. At 03:22 UTC
-all 24 GPU jobs were pending for priority and no route was ready. Do not submit
-an eval until all 24 intended routes are healthy, zero are unhealthy, the state
-is stable across repeated checks, and the proxy metadata exists.
+`1732639`-`1732662`. At 04:22 UTC all 24 GPU jobs were pending for priority and
+no route was ready. A fail-closed evaluation chain is already submitted, but
+its jobs cannot start until all 24 intended routes are healthy, zero are
+unhealthy, the state is stable across repeated checks, the proxy metadata
+exists, and the semantic/affinity probe passes.
 
 Inspect it without exposing credentials:
 
@@ -181,6 +182,35 @@ binds each URL to its own key and headers.
 
 All Slurm mutations must be typed through `swebench_vmvm:Launcher.0`.
 
+The active dependency chain is:
+
+```text
+1732973 readiness gate
+  -> 1732984 two-task model-I/O smoke
+  -> 1732986 strict smoke semantic/model-I/O audit
+  -> 1732987 single 66-task TB4 pass@1 eval
+  -> 1732988 strict TB4 result/score checkpoint
+```
+
+Gate artifact:
+`/checkpoint/ram/tianhaowu/terminal_bench_vmvm/gates/k3_tb24_nocache_readiness_v3.json`.
+Its first poll on the x86 controller parsed the expected booting snapshot with
+24 pending routes and zero status errors. Two earlier chains failed safely and
+all descendants were automatically canceled before starting. The first gate
+needed bounded transient-status retries; the second revealed that the x86 job
+inherited an aarch64 `uv` from the login-node PATH. Commit `23abee39b` invokes
+RAM status with a portable system PATH, and the behavior was verified directly
+inside the x86 coordinator allocation. Neither failed chain created an eval
+directory or sent model traffic.
+
+Monitor the active chain with:
+
+```bash
+squeue -j 1732973,1732984,1732986,1732987,1732988 \
+  -o '%.18i %.28j %.10T %.10M %.50R'
+tail -n 50 /checkpoint/ram/tianhaowu/terminal_bench_vmvm/logs/route_gate_1732973.log
+```
+
 Run this fresh two-task smoke after the replacement deployment passes its route
 health and affinity checks. The job loads the proxy URL and key inside the
 compute allocation; the key is not placed in the command or provenance file.
@@ -227,6 +257,13 @@ tasks. Investigate any provider or VMVM infrastructure error; do not silently
 turn it into reward zero. If interrupted, resume the same snapshot with
 `RESUME_DIR=.../tb4_kimi_k3_sticky_full_v2` rather than starting a second full
 run.
+
+Job `1732988` enforces exactly those 66 unique tasks, exactly 63 supported
+results plus the three known CPU-only `UnsupportedTaskError` records, clean
+reasoning/model-I/O/KDA audits, binary `rewards.solved`, and a supported-task
+pass rate in `[0.04, 0.22]`. It writes `checkpoint.json` beside the TB4 results.
+Do not launch production merely because the eval job exits zero; require this
+checkpoint job to complete successfully and its JSON to contain `"ok": true`.
 
 Only after the full TB4 run and trace checks are clean should the 2,500-task
 Mobius production run be launched with
