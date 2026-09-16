@@ -1,6 +1,6 @@
 # VMVM sandbox coordination
 
-Last updated: 2026-09-16 02:43 UTC
+Last updated: 2026-09-16 02:57 UTC
 
 ## First message to the next teammate
 
@@ -31,7 +31,6 @@ this shared branch again.
 | Owner | Cluster | Scope | Files | Live resources | State / next gate |
 |---|---|---|---|---|---|
 | Codex session for `tianhaowu` | `fair-cw-use2-3` | Kimi serving; TB4 pass@1; 2,500-trace launch | `user/tianhaowu/terminal_bench_vmvm/**`, `environments/vmvm_tb_v2/**`, `deps/verifiers` gitlink | no active Kimi deployment; vulnerable 24-endpoint deployment archived at `.removed/tianhaowu-k3-tb16-normal-20260915-20260916T022644Z` | RAM issue `#279` has no patched-image update. Deploy a fresh 24-endpoint normal-QoS pool only after an immutable compatible KDA-patched image is available, using piecewise/eager graphs; require model-specific health 24/0 and `probe_inference_routes.py`, then run a fresh transcript smoke and exactly one full TB4 run. |
-| Codex session for `tianhaowu` (use2-1) | `fair-cw-use2-1` | Shared-endpoint compatibility and complete model-visible trace audit; Mobius archive staging; no duplicate full eval launch | Kimi eval configs; `audit_traces.py`; `tests/test_audit_traces.py`; `tests/test_eval_configs.py`; `deps/verifiers` request/response persistence and tests gitlink; `COORDINATION.md` | shared deployment `shared-kimi-k3-16w`; live model-I/O smoke `1431481` → `kimi_model_io_smoke_shared_v6`; completed diagnostic `1430917`; earlier terminal diagnostics `1430087`, `1430091`, `1430101`, `1430136`, `1430367` | Model-I/O capture, final outbound denylist, config wiring, and strict audit are pushed through `59179696e` (`deps/verifiers` `73263fc1`; verifier 65 tests, workflow 39 tests). Monitor `1431481`; require 2/2 clean traces, all sampled turns with valid request/response captures and tool schemas, and zero forbidden token-metadata fields. No full eval launch. |
 
 Add new rows below this line; do not overwrite another owner's row.
 
@@ -103,6 +102,13 @@ Add new rows below this line; do not overwrite another owner's row.
 
 ## Live evaluation state
 
+- Use2-1 model-I/O smoke job `1431481` completed in 12m33s: 2/2 traces,
+  zero errors/audit failures, 16/16 sampled turns with hash-validated request
+  and exact non-stream response captures, tool schemas on every request,
+  41,605 provider-reported completion tokens, and zero forbidden request
+  fields. Every tool result appears in a later captured request. This validates
+  capture and denylisting only; the shared proxy is non-sticky and the run is
+  not the production readiness gate.
 - Historical sticky/token smoke job `1730918` completed: 2/2 traces, 7,217
   sampled tokens, response/tool calls and reasoning retained, zero audit
   failures. It predates RAM issue `#279`, requested now-forbidden logprobs, and
@@ -149,6 +155,7 @@ Add new rows below this line; do not overwrite another owner's row.
 | Codex session for `tianhaowu` | Mobius oracle exceeded 90% | Job `1725524`: 2,523/2,538 valid (99.408983%). |
 | Codex session for `tianhaowu` | All 42 repaired Mobius fixtures revalidated | Jobs `1731198` and `1731363`: final preserved summary 42/42 valid (100%). |
 | Codex session for `tianhaowu` | TB4 oracle validation | Job `1725604`: 63 CPU-supported valid and 3 explicit GPU-unsupported tasks. |
+| Codex session for `tianhaowu` (use2-1) | Fail-closed no-logprob transport plus complete compact model-I/O capture and audit | Parent `59179696e`, verifier `73263fc1`; 65 verifier and 39 workflow tests passed. Job `1431481` completed 2/2 with 16/16 valid model-I/O turns, tool schemas/results retained, and no forbidden request fields. |
 
 ## Known non-overlap boundaries
 
