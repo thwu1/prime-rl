@@ -1,6 +1,6 @@
 # VMVM sandbox coordination
 
-Last updated: 2026-09-16 07:52 UTC
+Last updated: 2026-09-16 08:01 UTC
 
 ## First message to the next teammate
 
@@ -67,6 +67,15 @@ Add new rows below this line; do not overwrite another owner's row.
   Qwen full `1432786` remains live with two durable pre-fix Compose error rows;
   dependency-held resume `1433430` will use the fix and rerun errored/missing
   rows. Monitoring remains aggregate metadata only.
+- **2026-09-16 08:01 UTC, use2-1 Qwen lane:** jobs are fail-closed chained as
+  `1432786 -> 1433430 -> 1434234 -> 1434348` (live full, patched resume,
+  strict audit, gated seven-day Mobius production). Four active model calls
+  have so far received retryable HTTP 408 responses at the shared proxy's
+  fixed 600-second upstream timeout; none is a terminal result row. The proxy
+  reports 16 healthy and zero unhealthy routes, and short semantic requests
+  succeed. Fresh Qwen configs now use the deployment's published 32,768-token
+  per-call output limit while retaining the 262,144-token total context cap
+  (`9837d6e65`); the immutable live snapshot still uses its original limit.
 
 - **2026-09-16 01:29 UTC, use2-1 -> use2-3 owner:** before the next sticky
   transcript smoke, please confirm every turn of one rollout sends
