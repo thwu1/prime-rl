@@ -163,14 +163,16 @@ not injected into agent rollouts or verifier containers.
 
 ## TB4 pass@1
 
-After `fetch_tb4.sh` verifies the prebuilt release, wait for a KDA-patched Kimi
-runtime, at least 16 healthy and zero unhealthy routes in the normal-QoS
-deployment, and a clean per-route semantic soak. Then submit exactly one fresh
-pass@1 run against Kimi-K3 in max-reasoning mode:
+After `fetch_tb4.sh` verifies the prebuilt release, wait for all 24 routes in
+`tianhaowu-k3-tb24-isolated-20260916` to be healthy, zero routes to be
+unhealthy, and a clean per-route semantic soak. This stock-image fallback uses
+`max-num-seqs=1`, the Python frontend, PIECEWISE graphs, and the request
+denylist to avoid the known KDA/logprob failure path. Then submit exactly one
+fresh pass@1 run against Kimi-K3 in max-reasoning mode:
 
 ```bash
 tmux send-keys -t swebench_vmvm:Launcher.0 \
-  "cd /storage/home/tianhaowu/prime-rl && env EVAL_CONFIG=\$PWD/user/tianhaowu/terminal_bench_vmvm/configs/eval/tb4_kimi_k3_max_miniswe.toml INFERENCE_PROXY_INFO=/checkpoint/ram/shared/vllm_deployments_v2/PATCHED_DEPLOYMENT_ID/proxy_info.json OUTPUT_DIR=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/evals/tb4_kimi_k3_sticky_full_v2 sbatch --parsable user/tianhaowu/terminal_bench_vmvm/run_eval.sbatch" C-m
+  "cd /storage/home/tianhaowu/prime-rl && env EVAL_CONFIG=\$PWD/user/tianhaowu/terminal_bench_vmvm/configs/eval/tb4_kimi_k3_max_miniswe.toml INFERENCE_PROXY_INFO=/checkpoint/ram/shared/vllm_deployments_v2/tianhaowu-k3-tb24-isolated-20260916/proxy_info.json OUTPUT_DIR=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/evals/tb4_kimi_k3_sticky_full_v2 sbatch --parsable user/tianhaowu/terminal_bench_vmvm/run_eval.sbatch" C-m
 ```
 
 `INFERENCE_PROXY_INFO` is the preferred interface for a direct RAM deployment:
@@ -210,14 +212,15 @@ chat-completions dialect still preserves assistant response content, tool calls,
 offline retokenization/processing, not directly consumable token-level on-policy
 samples; original sampling log probabilities cannot be reconstructed offline.
 
-This request-side rule only contains the worker-wide outage. The same incident
-also found silent KDA state-reuse corruption without logprobs, where a worker
-returns repeated `@`/blank text with HTTP 200. A stock-image pool is therefore
-not launch-ready merely because `/health` is green: it needs a compatible port
-of vLLM PR `#51483`, `PIECEWISE` CUDA graphs (or eager mode), and a clean
-state-reuse semantic soak covering every route.
+This request-side rule contains the worker-wide dispatcher outage but does not
+by itself cure silent KDA state-reuse corruption. The active stock-image
+fallback therefore serializes each backend with `max-num-seqs=1`, preventing
+the cross-sequence co-batching involved in the known trigger; it also disables
+the Rust frontend and uses `PIECEWISE` CUDA graphs. This is an operational
+workaround, not the source-level fix from vLLM PR `#51483`, so a green
+`/health` still requires a clean state-reuse semantic soak over every route.
 
-After verifying the image revision and piecewise/eager setting, run the
+After verifying the frozen isolation and PIECEWISE settings, run the
 standalone semantic snapshot and sticky-route gate before the two-task smoke.
 It reads the proxy URL, key, served model, and sticky/Redis metadata directly
 from `proxy_info.json`, never includes the key in its JSON output, and uses only
@@ -229,12 +232,12 @@ remain fixed.
 ```bash
 uv run --project user/tianhaowu/terminal_bench_vmvm \
   python user/tianhaowu/terminal_bench_vmvm/probe_inference_routes.py \
-  --proxy-info /checkpoint/ram/shared/vllm_deployments_v2/PATCHED_DEPLOYMENT_ID/proxy_info.json \
+  --proxy-info /checkpoint/ram/shared/vllm_deployments_v2/tianhaowu-k3-tb24-isolated-20260916/proxy_info.json \
   --model Kimi-K3 \
   --expected-routes 24 \
   --requests 192 \
   --repeats 3 \
-  --concurrency 32 \
+  --concurrency 24 \
   --health-timeout 30 \
   --timeout 300 \
   --max-tokens 4096 \
@@ -253,9 +256,10 @@ Completions payload omits `logprobs`, `prompt_logprobs`, `top_logprobs`, and
 
 This snapshot catches already-corrupt routes and affinity regressions; it does
 not deterministically reproduce the one-token scheduling trigger in vLLM
-`#51483`. A passing result cannot replace the immutable patched-image and
-piecewise/eager checks. `--allow-unverified-affinity` and `--skip-health` exist
-for diagnosis only and must not be used for the production readiness gate.
+`#51483`. A passing result cannot replace the isolation/configuration checks or
+continued error/corruption monitoring. `--allow-unverified-affinity` and
+`--skip-health` exist for diagnosis only and must not be used for the
+production readiness gate.
 
 Export exactly 2,500 oracle-qualified tasks before the production run:
 
@@ -267,7 +271,7 @@ uv run --project user/tianhaowu/terminal_bench_vmvm \
   --limit 2500
 
 tmux send-keys -t swebench_vmvm:Launcher.0 \
-  "cd /storage/home/tianhaowu/prime-rl && env EVAL_CONFIG=\$PWD/user/tianhaowu/terminal_bench_vmvm/configs/eval/mobius_kimi_k3_max_2500.toml INFERENCE_PROXY_INFO=/checkpoint/ram/shared/vllm_deployments_v2/PATCHED_DEPLOYMENT_ID/proxy_info.json OUTPUT_DIR=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/evals/mobius_kimi_k3_max_2500_transcript_v1 sbatch --parsable user/tianhaowu/terminal_bench_vmvm/run_eval.sbatch" C-m
+  "cd /storage/home/tianhaowu/prime-rl && env EVAL_CONFIG=\$PWD/user/tianhaowu/terminal_bench_vmvm/configs/eval/mobius_kimi_k3_max_2500.toml INFERENCE_PROXY_INFO=/checkpoint/ram/shared/vllm_deployments_v2/tianhaowu-k3-tb24-isolated-20260916/proxy_info.json OUTPUT_DIR=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/evals/mobius_kimi_k3_max_2500_transcript_v1 sbatch --parsable user/tianhaowu/terminal_bench_vmvm/run_eval.sbatch" C-m
 ```
 
 Interrupted evals are durable. Resume only their missing or errored rollouts

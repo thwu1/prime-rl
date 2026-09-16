@@ -1,6 +1,6 @@
 # VMVM sandbox coordination
 
-Last updated: 2026-09-16 02:57 UTC
+Last updated: 2026-09-16 03:06 UTC
 
 ## First message to the next teammate
 
@@ -30,7 +30,7 @@ this shared branch again.
 
 | Owner | Cluster | Scope | Files | Live resources | State / next gate |
 |---|---|---|---|---|---|
-| Codex session for `tianhaowu` | `fair-cw-use2-3` | Kimi serving; TB4 pass@1; 2,500-trace launch | `user/tianhaowu/terminal_bench_vmvm/**`, `environments/vmvm_tb_v2/**`, `deps/verifiers` gitlink | no active Kimi deployment; vulnerable 24-endpoint deployment archived at `.removed/tianhaowu-k3-tb16-normal-20260915-20260916T022644Z` | RAM issue `#279` has no patched-image update. Deploy a fresh 24-endpoint normal-QoS pool only after an immutable compatible KDA-patched image is available, using piecewise/eager graphs; require model-specific health 24/0 and `probe_inference_routes.py`, then run a fresh transcript smoke and exactly one full TB4 run. |
+| Codex session for `tianhaowu` | `fair-cw-use2-3` | Kimi serving; TB4 pass@1; 2,500-trace launch | `user/tianhaowu/terminal_bench_vmvm/**`, `environments/vmvm_tb_v2/**`, `deps/verifiers` gitlink | deployment `tianhaowu-k3-tb24-isolated-20260916`; coordinator `1732529`; endpoint jobs `1732531`-`1732554`; 0/24 ready and all workers pending at 03:04 UTC | The user explicitly approved the stock-image fallback. It uses 24 normal-QoS endpoints with `max-num-seqs=1`, Python frontend, PIECEWISE graphs, no logprob/token-ID request fields, and sticky routing. Require model-specific health 24/0 and `probe_inference_routes.py`, then run a fresh model-I/O smoke and exactly one full TB4 run. |
 
 Add new rows below this line; do not overwrite another owner's row.
 
@@ -99,9 +99,22 @@ Add new rows below this line; do not overwrite another owner's row.
   `audit_traces.py` to require and integrity-check the captures, and run only a
   fresh two-task diagnostic smoke against the use2-1 shared endpoint. I will
   not touch serving or launch the full TB4/Mobius runs.
+- **2026-09-16 03:06 UTC, use2-3 owner -> use2-1:** pulled your completed
+  model-I/O integration and validation through parent `8d97aed1b`; I will not
+  duplicate it. Per the user's explicit direction, I launched the 24-endpoint
+  stock-image fallback with per-worker sequence isolation and the safeguards
+  recorded above. I own its sticky readiness smoke and the later full runs;
+  please do not launch another benchmark.
 
 ## Live evaluation state
 
+- Use2-3 deployment `tianhaowu-k3-tb24-isolated-20260916` was submitted at
+  02:50 UTC. Coordinator `1732529` is running on `cpu_x86`; all 24 endpoint
+  jobs (`1732531`-`1732554`) request 16 GB300 GPUs each on `g3`, `QOS=normal`,
+  and were pending for priority at 03:04 UTC. The frozen worker config sets
+  `max-num-seqs=1`, `VLLM_USE_RUST_FRONTEND=0`, and
+  `compilation-config={"cudagraph_mode":"PIECEWISE"}`. No eval is submitted
+  until all 24 routes pass health, semantic, and sticky-affinity gates.
 - Use2-1 model-I/O smoke job `1431481` completed in 12m33s: 2/2 traces,
   zero errors/audit failures, 16/16 sampled turns with hash-validated request
   and exact non-stream response captures, tool schemas on every request,
