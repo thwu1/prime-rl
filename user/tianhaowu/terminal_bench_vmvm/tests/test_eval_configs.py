@@ -120,7 +120,7 @@ def test_mobius_qwen_production_retention_and_concurrency() -> None:
 
     assert config["num_tasks"] == 2_500
     assert config["num_rollouts"] == 1
-    assert config["max_concurrent"] == 32
+    assert config["max_concurrent"] == 16
     assert config["max_total_tokens"] == 262_144
     assert config["retain_traces"] is False
     assert config["client"]["max_connections"] >= config["max_concurrent"]
