@@ -193,20 +193,21 @@ After `fetch_tb4.sh` verifies the prebuilt release, wait for every intended
 route to be healthy, zero routes to be unhealthy, and a clean per-route
 semantic plus state-reuse soak. The vulnerable, unallocated
 `tianhaowu-k3-tb24-nocache-20260916` deployment was archived on 2026-09-16.
-Its replacement, `tianhaowu-k3-kda-tb2-20260916`, uses the digest-pinned ARM64
-fix from RAM PR `#285` together with `PIECEWISE` graphs. It starts at two routes
-so TB4 can qualify the patched runtime and VMVM capacity before any scale-up;
-never treat `/health` alone as readiness.
+Its replacement, `tianhaowu-k3-kda-tb1-low-20260916`, uses the digest-pinned
+ARM64 fix from RAM PR `#285` together with `PIECEWISE` graphs. It starts at one
+route on the cluster-default `g3_lowest` QoS so TB4 can qualify the patched
+runtime and VMVM capacity before any scale-up; never treat `/health` alone as
+readiness.
 Then submit exactly one fresh pass@1 run against Kimi-K3 in max-reasoning mode:
 
 Sticky headers make backend affinity observable. The patched deployment keeps
-prefix caching enabled and begins with aggregate rollout concurrency eight
-across its two routes. VMVM lease creation remains capped at four until a clean
-post-fix smoke and full TB4 run qualify a higher rate.
+prefix caching enabled and begins with rollout concurrency four on its one
+route. VMVM lease creation remains capped at two until a clean post-fix smoke
+and full TB4 run qualify a higher rate.
 
 ```bash
 tmux send-keys -t swebench_vmvm:Launcher.0 \
-  "cd /storage/home/tianhaowu/prime-rl && env EVAL_APPROVED_TASK_FILE=\$PWD/user/tianhaowu/terminal_bench_vmvm/configs/eval/tb4_qwen_a95b_miniswe.tasks.txt EVAL_APPROVED_TASK_FILE_SHA256=9485011ac4a953f4a4a1c7c5e78550b6d7de6f760a3859dac15a3610cf4ad892 EVAL_CONFIG=\$PWD/user/tianhaowu/terminal_bench_vmvm/configs/eval/tb4_kimi_k3_max_miniswe.toml INFERENCE_PROXY_INFO=/checkpoint/ram/shared/vllm_deployments_v2/tianhaowu-k3-kda-tb2-20260916/proxy_info.json OUTPUT_DIR=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/evals/tb4_kimi_k3_sticky_full_v3 VACLI_MAX_CONCURRENT_LEASES=4 sbatch --parsable user/tianhaowu/terminal_bench_vmvm/run_eval.sbatch" C-m
+  "cd /storage/home/tianhaowu/prime-rl && env EVAL_APPROVED_TASK_FILE=\$PWD/user/tianhaowu/terminal_bench_vmvm/configs/eval/tb4_qwen_a95b_miniswe.tasks.txt EVAL_APPROVED_TASK_FILE_SHA256=9485011ac4a953f4a4a1c7c5e78550b6d7de6f760a3859dac15a3610cf4ad892 EVAL_CONFIG=\$PWD/user/tianhaowu/terminal_bench_vmvm/configs/eval/tb4_kimi_k3_max_miniswe.toml INFERENCE_PROXY_INFO=/checkpoint/ram/shared/vllm_deployments_v2/tianhaowu-k3-kda-tb1-low-20260916/proxy_info.json OUTPUT_DIR=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/evals/tb4_kimi_k3_sticky_full_v3 VACLI_MAX_CONCURRENT_LEASES=2 sbatch --parsable user/tianhaowu/terminal_bench_vmvm/run_eval.sbatch" C-m
 ```
 
 Every real launch and resume through `run_eval.sbatch` requires an external
@@ -443,7 +444,7 @@ The launcher snapshots and hash-checks it before the production run:
 
 ```bash
 tmux send-keys -t swebench_vmvm:Launcher.0 \
-  "cd /storage/home/tianhaowu/prime-rl && env EVAL_APPROVED_TASK_FILE=\$PWD/user/tianhaowu/terminal_bench_vmvm/configs/eval/mobius_valid_tasks_2500.txt EVAL_APPROVED_TASK_FILE_SHA256=d33ef93f9b77ee91a41600934e677ba37988d3b4509e4da05ff1fcf7b4bc3a4b EVAL_CONFIG=\$PWD/user/tianhaowu/terminal_bench_vmvm/configs/eval/mobius_kimi_k3_max_2500.toml INFERENCE_PROXY_INFO=/checkpoint/ram/shared/vllm_deployments_v2/tianhaowu-k3-kda-tb2-20260916/proxy_info.json OUTPUT_DIR=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/evals/mobius_kimi_k3_max_2500_transcript_v2 VACLI_MAX_CONCURRENT_LEASES=4 sbatch --parsable --time=7-00:00:00 user/tianhaowu/terminal_bench_vmvm/run_eval.sbatch" C-m
+  "cd /storage/home/tianhaowu/prime-rl && env EVAL_APPROVED_TASK_FILE=\$PWD/user/tianhaowu/terminal_bench_vmvm/configs/eval/mobius_valid_tasks_2500.txt EVAL_APPROVED_TASK_FILE_SHA256=d33ef93f9b77ee91a41600934e677ba37988d3b4509e4da05ff1fcf7b4bc3a4b EVAL_CONFIG=\$PWD/user/tianhaowu/terminal_bench_vmvm/configs/eval/mobius_kimi_k3_max_2500.toml INFERENCE_PROXY_INFO=/checkpoint/ram/shared/vllm_deployments_v2/tianhaowu-k3-kda-tb1-low-20260916/proxy_info.json OUTPUT_DIR=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/evals/mobius_kimi_k3_max_2500_transcript_v2 VACLI_MAX_CONCURRENT_LEASES=4 sbatch --parsable --time=7-00:00:00 user/tianhaowu/terminal_bench_vmvm/run_eval.sbatch" C-m
 ```
 
 The checked-in production starting point is eight active rollouts and four

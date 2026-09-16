@@ -1,6 +1,6 @@
 # VMVM sandbox coordination
 
-Last updated: 2026-09-16 13:21 UTC
+Last updated: 2026-09-16 13:33 UTC
 
 ## First message to the next teammate
 
@@ -30,13 +30,28 @@ this shared branch again.
 
 | Owner | Cluster | Scope | Files | Live resources | State / next gate |
 |---|---|---|---|---|---|
-| Codex session for `tianhaowu` | `fair-cw-use2-3` | Kimi serving, full TB4 pass@1, and gated 2,500-task rollout | `user/tianhaowu/terminal_bench_vmvm/**`, `user/tianhaowu/deepswe_vmvm/{README.md,run_runtime_smoke.sbatch,smoke_runtime.py}`, `environments/vmvm_tb_v2/**`, `deps/verifiers` gitlink | patched deployment `tianhaowu-k3-kda-tb2-20260916`; coordinator `1735331`; endpoints `1735340`-`1735341`; route gate `1735467`; compatibility repair oracle `1735886`; held strict full oracle `1735733` | Strict repaired oracle finished 21/42 with zero infrastructure failures because trusted legacy solutions require egress. Compatibility gate `1735886` is fresh from `66f8127f6` at 32 active/16 starts; require 42/42, then a fresh full compatibility oracle above 90%. In parallel wait for exact 2/2 Kimi readiness, semantic/state-reuse soak, and an approved transcript smoke; then run one fresh full TB4 pass@1 at eight active rollouts/four lease starts. Never inspect task prompts/bodies or raw trace/model/tool content. |
+| Codex session for `tianhaowu` | `fair-cw-use2-3` | Kimi serving, full TB4 pass@1, and gated 2,500-task rollout | `user/tianhaowu/terminal_bench_vmvm/**`, `user/tianhaowu/deepswe_vmvm/{README.md,run_runtime_smoke.sbatch,smoke_runtime.py}`, `environments/vmvm_tb_v2/**`, `deps/verifiers` gitlink | patched deployment `tianhaowu-k3-kda-tb1-low-20260916`; coordinator `1735915`; endpoint `1735929`; route gate `1735934`; full compatibility oracle `1735924` | Compatibility repair gate `1735886` finished 37/42 with five declared-offline verifier exclusions and zero infrastructure failures. Full 2,538-task compatibility-solve/strict-verifier job `1735924` is running at 64 active/32 starts and must exceed 90% with at least 2,500 valid tasks. In parallel require exact 1/1 Kimi readiness, semantic/state-reuse soak, and an approved transcript smoke; then run one fresh full TB4 pass@1 at four active rollouts/two lease starts. Never inspect task prompts/bodies or raw trace/model/tool content. |
 | Codex session for `tianhaowu` | `fair-cw-use2-1` | Add a direct one-token KDA state-reuse probe; no serving or eval mutation | `user/tianhaowu/terminal_bench_vmvm/{probe_inference_routes.py,tests/test_probe_inference_routes.py,HANDOFF.md,COORDINATION.md}` | none | Extend the existing readiness probe with serial raw-completion predecessor/one-token-target cycles on every discovered sticky backend, without logprobs or response token IDs. Fail closed on unsupported routing, semantic corruption, or predecessor-dependent target output. |
 | Codex session for `tianhaowu` | `fair-cw-use2-1` | Qwen full TB4 pass@1 and gated 2,500-task rollout | Qwen direct-router configs, VMVM backend, focused tests, runtime skill | canceled diagnostic `1435776`; preserved output `tb4_qwen_a95b_direct_full_v1`; endpoint `shared_qwen38_2p4t` | Run `1435776` is non-official because it predates the enforced no-network policy. It was canceled at 7/66 clean diagnostic rows. Require one fresh post-policy 66-task run from the latest branch and verifier gitlink, into a fresh output path; run the strict score/trace gate only after that run completes, and launch production only if it succeeds. Never inspect task prompts/bodies or raw trace/model/tool content. |
 
 Add new rows below this line; do not overwrite another owner's row.
 
 ## Open coordination requests
+
+- **2026-09-16 13:33 UTC, use2-3 Kimi owner:** compatibility repair oracle
+  `1735886` finished 37/42 valid, five `OracleFailure`, and zero infrastructure
+  failures in 7m06s. Aggregate signatures place all five in verifier network
+  failures, with three also reporting missing dependencies; four intersect the
+  old 2,500 manifest. Obsolete held strict job `1735733` was canceled. Clean
+  full job `1735924` is running over all 2,538 tasks at 64 active/32 starts from
+  parent `a5af4ebc3`, with immutable public-solution/declared-verifier semantics
+  and a 90% exit gate. Separately, the unallocated two-endpoint normal-QoS Kimi
+  deployment was recoverably archived. Replacement
+  `tianhaowu-k3-kda-tb1-low-20260916` uses the identical patched PR `#285`
+  tree and one validated 16-GPU GB300 endpoint on default `g3_lowest` QoS:
+  coordinator `1735915`, endpoint `1735929` (priority 100,748), readiness gate
+  `1735934`, spec SHA-256 `a296613aea26c4401385f70e16c81bc363f670203a5b29b7e1eec3bcef086ccf`.
+  No Kimi model eval is active; TB4 now qualifies at four active/two starts.
 
 - **2026-09-16 13:21 UTC, use2-3 Kimi owner:** fresh compatibility repair
   oracle `1735886` is submitted from parent `66f8127f6` into
@@ -453,19 +468,19 @@ Add new rows below this line; do not overwrite another owner's row.
 
 ## Live evaluation state
 
-- Patched deployment `tianhaowu-k3-kda-tb2-20260916` is the only active Kimi
-  candidate. Coordinator `1735331` is running and endpoint jobs `1735340` and
-  `1735341` are pending for priority at 0/2. The source tree exactly matches RAM
-  PR `#285`, including the digest-pinned patched ARM64 image and `PIECEWISE`
-  graphs. Readiness/semantic gate `1735467` is queued; no smoke, TB4, or Mobius
-  model-eval job has been submitted. The old vulnerable 0/24 deployment and
-  gate are archived/canceled.
+- Patched deployment `tianhaowu-k3-kda-tb1-low-20260916` is the only active
+  Kimi candidate. Coordinator `1735915` is running and endpoint job `1735929`
+  is pending for priority at 0/1 on approved `g3_lowest` QoS. The source tree
+  exactly matches RAM PR `#285`, including the digest-pinned patched ARM64 image
+  and `PIECEWISE` graphs. Readiness/semantic gate `1735934` is queued; no smoke,
+  TB4, or Mobius model-eval job has been submitted. The vulnerable 0/24 and
+  unallocated normal-QoS 0/2 deployments and their gates are archived/canceled.
 - Historical direct fixed-worker smokes A `1733374` / audit `1733529` and B
   `1733378` / audit `1733416` passed, but those ports are now offline. The
   aggregate-32 v1 shards failed VMVM capacity, and v2 was canceled during the
-  safety hold. Fresh patched TB4 therefore starts at eight active rollouts and
-  four simultaneous lease starts; only four active/four starts has clean prior
-  evidence, so eight/four is a qualification run rather than a proven ceiling.
+  safety hold. Fresh patched TB4 therefore starts at four active rollouts and
+  two simultaneous lease starts on the single route. Scale the deployment and
+  requalify capacity before increasing either limit.
 - Use2-1 model-I/O smoke job `1431481` completed in 12m33s. Its structural
   evidence remains valid: 16/16 sampled turns have hash-validated requests and
   exact non-stream responses, every request has tool schemas, every tool result

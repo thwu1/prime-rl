@@ -2,17 +2,21 @@
 
 State captured on 2026-09-16 UTC. The takeover branch is `vmvm-sandbox`.
 
-## 12:10 UTC replacement update
+## 13:30 UTC replacement update
 
 The vulnerable `tianhaowu-k3-tb24-nocache-20260916` deployment never allocated
 an endpoint and was recoverably archived. Its stale route gate was canceled.
-Replacement `tianhaowu-k3-kda-tb2-20260916` was submitted from the exact source
-tree of RAM PR `#285` (digest-pinned KDA/logprobs fix plus `PIECEWISE` graphs):
-coordinator `1735331`, endpoint jobs `1735340` and `1735341`. It is booting at
-0/2, and no Kimi task job is active. First require exact 2/2 route readiness,
-the semantic/state-reuse probe, and an approved two-task transcript smoke.
-The fresh full TB4 config now starts at eight active rollouts with four
-simultaneous VMVM lease starts; do not restore the old 64/32 model-eval setting.
+The unallocated two-endpoint normal-QoS replacement was also archived after its
+workers received September 18 estimates. Active replacement
+`tianhaowu-k3-kda-tb1-low-20260916` was submitted from the same exact RAM PR
+`#285` source tree (digest-pinned KDA/logprobs fix plus `PIECEWISE` graphs):
+coordinator `1735915`, endpoint `1735929`, and readiness gate `1735934`. It is
+booting at 0/1 on the approved cluster-default `g3_lowest` QoS, where its
+scheduler priority is 100,748 instead of roughly 875. No Kimi task job is
+active. First require exact 1/1 route readiness, the semantic/state-reuse probe,
+and an approved two-task transcript smoke. The fresh full TB4 config starts at
+four active rollouts with two simultaneous VMVM lease starts; do not restore the
+old 64/32 model-eval setting.
 
 The Harbor adapter now enforces declared `network_mode = "no-network"` at the
 untrusted phase boundary. It retains only a private internal IPv4 network,
@@ -31,13 +35,16 @@ re-probes/installs offline only after the isolated agent/solution. Strict
 42-task rerun `1735716` finished 21/42 valid and 21/42 invalid with zero
 infrastructure errors. This isolates the remaining incompatibility to trusted
 legacy `solve.sh` scripts that download dependencies under their declared agent
-`no-network` policy. Full strict job `1735733` is user-held. Production
-rollouts remain strictly isolated. Corpus qualification uses an explicit,
+`no-network` policy. Full strict job `1735733` was canceled without running.
+Production rollouts remain strictly isolated. Corpus qualification uses an explicit,
 provenance-labeled `ORACLE_SOLUTION_NETWORK_MODE=public` compatibility lane:
 only trusted image startup and the reference solution retain setup egress, and
 the declared policy activates before artifact collection or verification.
-First require 42/42 in that lane, then a fresh full compatibility oracle above
-90%; report the strict and compatibility semantics separately.
+Compatibility repair gate `1735886` finished 37/42 valid with five
+declared-offline verifier failures and zero infrastructure failures. Clean full job
+`1735924` is running all 2,538 tasks at 64 active/32 simultaneous starts; it
+must exceed 90% and leave at least 2,500 valid tasks. Report the strict and
+compatibility semantics separately.
 
 The cached-wheel implementation is fail-closed: trusted prefetch uses
 `--only-binary=:all:` so it cannot execute sdist build hooks; all shared
@@ -140,19 +147,21 @@ RAM PR `#285` pins the ARM64 Kimi image by digest and couples the KDA metadata
 fix to `PIECEWISE` CUDA graphs. Its PR-head tree is
 `b7da70d77604d00cd89578b9bcfb5183eed6814e`; the local deployment checkout at
 `a3f5baf` has that exact tree. Active deployment
-`tianhaowu-k3-kda-tb2-20260916` on `fair-cw-use2-3` requests:
+`tianhaowu-k3-kda-tb1-low-20260916` on `fair-cw-use2-3` requests:
 
 - seven days of serving lifetime and a 7,200-second startup grace;
-- two endpoints for the TB4 qualification stage;
-- four GB300/g3 nodes and 16 GPUs per endpoint, tensor parallel 16, normal QoS;
+- one endpoint for the TB4 qualification stage;
+- four GB300/g3 nodes and 16 GPUs per endpoint, tensor parallel 16,
+  `g3_lowest` QoS;
 - the digest-pinned patched image, 1,048,576-token model limit, and
   `PIECEWISE` graphs;
 - LiteLLM sticky routing and prefix caching enabled.
 
-Coordinator `1735331` is running; endpoint jobs `1735340` and `1735341` are
-pending for priority, so no proxy exists yet. The older vulnerable deployment
-remained 0/24 and was archived at 10:58 UTC without ever allocating a worker.
-Gate `1735467` waits for exact 2/2 readiness and then owns the per-route
+Coordinator `1735915` is running; endpoint job `1735929` is pending for
+priority, so no proxy exists yet. The older vulnerable deployment remained
+0/24 and was archived at 10:58 UTC without ever allocating a worker; the
+unallocated two-endpoint normal-QoS deployment was archived at 13:28 UTC.
+Gate `1735934` waits for exact 1/1 readiness and then owns the per-route
 semantic, affinity, and one-token state-reuse probe. Do not submit task jobs
 before it exits successfully.
 
@@ -160,40 +169,40 @@ Inspect it without exposing credentials:
 
 ```bash
 cd /storage/home/tianhaowu/ram_common_pr285/vllm_tools/serve_api_v2
-./serve.sh status tianhaowu-k3-kda-tb2-20260916 --json | jq \
+./serve.sh status tianhaowu-k3-kda-tb1-low-20260916 --json | jq \
   '{phase,endpoints_summary,proxy:{url:.proxy.url,state:.proxy.slurm_state,extras:.proxy.extras}}'
 ```
 
 Proxy metadata (including the secret key) lives at:
 
 ```text
-/checkpoint/ram/shared/vllm_deployments_v2/tianhaowu-k3-kda-tb2-20260916/proxy_info.json
+/checkpoint/ram/shared/vllm_deployments_v2/tianhaowu-k3-kda-tb1-low-20260916/proxy_info.json
 ```
 
 Do not print or commit `api_key`. Before any eval, verify the frozen patched
-settings, authenticate to `/health`, and require exactly two healthy routes with
+settings, authenticate to `/health`, and require exactly one healthy route with
 zero unhealthy routes. Then send repeated semantic completions through every route,
 including mixed short/long state-reuse traffic. Use the same
 `X-LiteLLM-Session-ID` repeatedly and confirm
-that response header `x-litellm-model-api-base` remains identical. Several
-different session IDs should span multiple API bases once multiple workers are
-healthy. The probe must not request logprobs. Finally run the two-task
+that response header `x-litellm-model-api-base` remains identical. Different
+session IDs must remain on that one advertised API base. The probe must not
+request logprobs. Finally run the two-task
 transcript smoke and its default audit.
 
 Use the checked-in snapshot/affinity gate after the deployment reaches its
-intended two routes:
+intended route:
 
 ```bash
 uv run --project user/tianhaowu/terminal_bench_vmvm \
   python user/tianhaowu/terminal_bench_vmvm/probe_inference_routes.py \
-  --proxy-info /checkpoint/ram/shared/vllm_deployments_v2/tianhaowu-k3-kda-tb2-20260916/proxy_info.json \
-  --model Kimi-K3 --expected-routes 2 --requests 16 --repeats 3 \
-  --concurrency 2 --health-timeout 30 --timeout 300 --max-tokens 4096 \
+  --proxy-info /checkpoint/ram/shared/vllm_deployments_v2/tianhaowu-k3-kda-tb1-low-20260916/proxy_info.json \
+  --model Kimi-K3 --expected-routes 1 --requests 8 --repeats 3 \
+  --concurrency 1 --health-timeout 30 --timeout 300 --max-tokens 4096 \
   --require-reasoning --pretty
 ```
 
-It requires model-specific health counts before and after, exactly 24 observed
-API bases, published sticky/Redis metadata, zero hidden LiteLLM retries, exact
+It requires model-specific health counts before and after, exactly 24 API-base
+observations, published sticky/Redis metadata, zero hidden LiteLLM retries, exact
 semantic replies, and sequential same-session backend affinity. This is a
 corruption snapshot, not a deterministic reproduction of the one-token KDA
 trigger, so it never replaces the isolation/configuration checks or close
@@ -212,11 +221,11 @@ All Slurm mutations must be typed through `swebench_vmvm:Launcher.0`.
 The active readiness job is:
 
 ```text
-1735467 readiness and semantic/state-reuse gate
+1735934 readiness and semantic/state-reuse gate
 ```
 
 Gate artifact:
-`/checkpoint/ram/tianhaowu/terminal_bench_vmvm/gates/k3_kda_tb2_readiness_v3.json`.
+`/checkpoint/ram/tianhaowu/terminal_bench_vmvm/gates/k3_kda_tb1_low_readiness_v1.json`.
 No smoke or full eval is dependency-submitted yet; create them only from a
 tested commit after this gate succeeds.
 
@@ -225,15 +234,17 @@ its launcher path named the deployment's Python package snapshot instead of an
 executable checkout. Gate `1735410` then exposed that the PR checkout's local
 virtualenv was ARM-only on the x86 controller and was canceled before reaching
 its failure threshold. Both sent no model traffic and created no eval output;
-`1735467` uses the x86-compatible main status client against the unchanged
-patched deployment.
+`1735467` was canceled when its unallocated normal-QoS deployment was archived.
+Replacement `1735934` uses the x86-compatible main status client against the
+one-endpoint patched deployment and pins spec SHA-256
+`a296613aea26c4401385f70e16c81bc363f670203a5b29b7e1eec3bcef086ccf`.
 
 Monitor the active chain with:
 
 ```bash
-squeue -j 1735467 \
+squeue -j 1735934 \
   -o '%.18i %.28j %.10T %.10M %.50R'
-tail -n 50 /checkpoint/ram/tianhaowu/terminal_bench_vmvm/logs/route_gate_1735467.log
+tail -n 50 /checkpoint/ram/tianhaowu/terminal_bench_vmvm/logs/route_gate_1735934.log
 ```
 
 Run this fresh two-task smoke after the replacement deployment passes its route
@@ -242,7 +253,7 @@ compute allocation; the key is not placed in the command or provenance file.
 
 ```bash
 tmux send-keys -t swebench_vmvm:Launcher.0 \
-  "cd /storage/home/tianhaowu/prime-rl && env EVAL_APPROVED_TASK_FILE=\$PWD/user/tianhaowu/terminal_bench_vmvm/configs/eval/tb4_kimi_token_smoke.tasks.txt EVAL_APPROVED_TASK_FILE_SHA256=ecdcbc6e4f54b690e64b4566de5eecf33467088c8ca3436738cd7308d4e45b83 EVAL_CONFIG=\$PWD/user/tianhaowu/terminal_bench_vmvm/configs/eval/tb4_kimi_k3_approved_smoke.toml INFERENCE_PROXY_INFO=/checkpoint/ram/shared/vllm_deployments_v2/tianhaowu-k3-kda-tb2-20260916/proxy_info.json OUTPUT_DIR=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/evals/kimi_kda_tb2_approved_smoke_v1 VACLI_MAX_CONCURRENT_LEASES=2 sbatch --parsable user/tianhaowu/terminal_bench_vmvm/run_eval.sbatch" C-m
+  "cd /storage/home/tianhaowu/prime-rl && env EVAL_APPROVED_TASK_FILE=\$PWD/user/tianhaowu/terminal_bench_vmvm/configs/eval/tb4_kimi_token_smoke.tasks.txt EVAL_APPROVED_TASK_FILE_SHA256=ecdcbc6e4f54b690e64b4566de5eecf33467088c8ca3436738cd7308d4e45b83 EVAL_CONFIG=\$PWD/user/tianhaowu/terminal_bench_vmvm/configs/eval/tb4_kimi_k3_approved_smoke.toml INFERENCE_PROXY_INFO=/checkpoint/ram/shared/vllm_deployments_v2/tianhaowu-k3-kda-tb1-low-20260916/proxy_info.json OUTPUT_DIR=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/evals/kimi_kda_tb1_low_approved_smoke_v1 VACLI_MAX_CONCURRENT_LEASES=2 sbatch --parsable user/tianhaowu/terminal_bench_vmvm/run_eval.sbatch" C-m
 ```
 
 After it finishes:
@@ -250,7 +261,7 @@ After it finishes:
 ```bash
 uv run --project user/tianhaowu/terminal_bench_vmvm \
   python user/tianhaowu/terminal_bench_vmvm/audit_traces.py \
-  /checkpoint/ram/tianhaowu/terminal_bench_vmvm/evals/kimi_kda_tb2_approved_smoke_v1/results.jsonl \
+  /checkpoint/ram/tianhaowu/terminal_bench_vmvm/evals/kimi_kda_tb1_low_approved_smoke_v1/results.jsonl \
   --expected-count 2 --require-reasoning
 ```
 
@@ -265,7 +276,7 @@ Only one pass@1 run is requested. Use a new output directory:
 
 ```bash
 tmux send-keys -t swebench_vmvm:Launcher.0 \
-  "cd /storage/home/tianhaowu/prime-rl && env EVAL_APPROVED_TASK_FILE=\$PWD/user/tianhaowu/terminal_bench_vmvm/configs/eval/tb4_qwen_a95b_miniswe.tasks.txt EVAL_APPROVED_TASK_FILE_SHA256=9485011ac4a953f4a4a1c7c5e78550b6d7de6f760a3859dac15a3610cf4ad892 EVAL_CONFIG=\$PWD/user/tianhaowu/terminal_bench_vmvm/configs/eval/tb4_kimi_k3_max_miniswe.toml INFERENCE_PROXY_INFO=/checkpoint/ram/shared/vllm_deployments_v2/tianhaowu-k3-kda-tb2-20260916/proxy_info.json OUTPUT_DIR=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/evals/tb4_kimi_k3_sticky_full_v3 VACLI_MAX_CONCURRENT_LEASES=4 sbatch --parsable user/tianhaowu/terminal_bench_vmvm/run_eval.sbatch" C-m
+  "cd /storage/home/tianhaowu/prime-rl && env EVAL_APPROVED_TASK_FILE=\$PWD/user/tianhaowu/terminal_bench_vmvm/configs/eval/tb4_qwen_a95b_miniswe.tasks.txt EVAL_APPROVED_TASK_FILE_SHA256=9485011ac4a953f4a4a1c7c5e78550b6d7de6f760a3859dac15a3610cf4ad892 EVAL_CONFIG=\$PWD/user/tianhaowu/terminal_bench_vmvm/configs/eval/tb4_kimi_k3_max_miniswe.toml INFERENCE_PROXY_INFO=/checkpoint/ram/shared/vllm_deployments_v2/tianhaowu-k3-kda-tb1-low-20260916/proxy_info.json OUTPUT_DIR=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/evals/tb4_kimi_k3_sticky_full_v3 VACLI_MAX_CONCURRENT_LEASES=2 sbatch --parsable user/tianhaowu/terminal_bench_vmvm/run_eval.sbatch" C-m
 ```
 
 Record the returned job ID. Monitor without mutating the run:

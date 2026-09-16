@@ -213,6 +213,15 @@ def test_eval_configs_pin_approved_tasks_and_runtime_contract(
         assert set(tasks) == shard_tasks
 
 
+def test_kimi_tb4_config_pins_single_route_qualification_concurrency() -> None:
+    config = tomllib.loads((CONFIG_DIR / "tb4_kimi_k3_max_miniswe.toml").read_text())
+
+    assert config["max_concurrent"] == 4
+    assert config["multiplex"] == 4
+    assert config["client"]["max_connections"] == 4
+    assert config["client"]["max_keepalive_connections"] == 4
+
+
 @pytest.mark.parametrize(
     "filename",
     ["tb4_kimi_k3_direct_a.toml", "tb4_kimi_k3_direct_b.toml"],
