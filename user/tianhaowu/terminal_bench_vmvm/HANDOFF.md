@@ -126,7 +126,7 @@ fix to `PIECEWISE` CUDA graphs. Its PR-head tree is
 Coordinator `1735331` is running; endpoint jobs `1735340` and `1735341` are
 pending for priority, so no proxy exists yet. The older vulnerable deployment
 remained 0/24 and was archived at 10:58 UTC without ever allocating a worker.
-Gate `1735410` waits for exact 2/2 readiness and then owns the per-route
+Gate `1735467` waits for exact 2/2 readiness and then owns the per-route
 semantic, affinity, and one-token state-reuse probe. Do not submit task jobs
 before it exits successfully.
 
@@ -186,24 +186,28 @@ All Slurm mutations must be typed through `swebench_vmvm:Launcher.0`.
 The active readiness job is:
 
 ```text
-1735410 readiness and semantic/state-reuse gate
+1735467 readiness and semantic/state-reuse gate
 ```
 
 Gate artifact:
-`/checkpoint/ram/tianhaowu/terminal_bench_vmvm/gates/k3_kda_tb2_readiness_v2.json`.
+`/checkpoint/ram/tianhaowu/terminal_bench_vmvm/gates/k3_kda_tb2_readiness_v3.json`.
 No smoke or full eval is dependency-submitted yet; create them only from a
 tested commit after this gate succeeds.
 
 Gate `1735392` failed safely in two seconds with `serve_sh_unavailable` because
-its launcher path named the deployment's Python package snapshot instead of the
-executable PR checkout. It sent no model traffic and created no eval output.
+its launcher path named the deployment's Python package snapshot instead of an
+executable checkout. Gate `1735410` then exposed that the PR checkout's local
+virtualenv was ARM-only on the x86 controller and was canceled before reaching
+its failure threshold. Both sent no model traffic and created no eval output;
+`1735467` uses the x86-compatible main status client against the unchanged
+patched deployment.
 
 Monitor the active chain with:
 
 ```bash
-squeue -j 1735410 \
+squeue -j 1735467 \
   -o '%.18i %.28j %.10T %.10M %.50R'
-tail -n 50 /checkpoint/ram/tianhaowu/terminal_bench_vmvm/logs/route_gate_1735410.log
+tail -n 50 /checkpoint/ram/tianhaowu/terminal_bench_vmvm/logs/route_gate_1735467.log
 ```
 
 Run this fresh two-task smoke after the replacement deployment passes its route

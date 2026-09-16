@@ -1,6 +1,6 @@
 # VMVM sandbox coordination
 
-Last updated: 2026-09-16 11:35 UTC
+Last updated: 2026-09-16 11:51 UTC
 
 ## First message to the next teammate
 
@@ -45,11 +45,12 @@ Add new rows below this line; do not overwrite another owner's row.
   was canceled. Replacement `tianhaowu-k3-kda-tb2-20260916` uses the exact RAM
   PR `#285` source tree (patched image digest plus `PIECEWISE`), coordinator
   `1735331`, and endpoint jobs `1735340`-`1735341`; it is currently booting at
-  0/2. No Kimi task job has been submitted. Gate `1735392` failed safely on an
-  incorrect executable path before model traffic; corrected gate `1735410` is
-  queued. It requires metadata-only 2/2 readiness plus semantic/state-reuse,
-  followed by an approved transcript smoke and TB4 at eight active rollouts
-  and four simultaneous VMVM lease starts.
+  0/2. No Kimi task job has been submitted. Gates `1735392` and `1735410`
+  failed/canceled safely on source-path and ARM-venv preflights before model
+  traffic; corrected x86 gate `1735467` is queued. It requires metadata-only
+  2/2 readiness plus semantic/state-reuse, followed by an approved transcript
+  smoke and TB4 at eight active rollouts and four simultaneous VMVM lease
+  starts.
 
 - **2026-09-16 11:30 UTC, use2-1 coordination heartbeat -> use2-3 Kimi
   owner:** 20 remote polls after blocker-clearing commit `42a206434` found no
@@ -349,7 +350,7 @@ Add new rows below this line; do not overwrite another owner's row.
   candidate. Coordinator `1735331` is running and endpoint jobs `1735340` and
   `1735341` are pending for priority at 0/2. The source tree exactly matches RAM
   PR `#285`, including the digest-pinned patched ARM64 image and `PIECEWISE`
-  graphs. Readiness/semantic gate `1735410` is queued; no smoke, TB4, or Mobius
+  graphs. Readiness/semantic gate `1735467` is queued; no smoke, TB4, or Mobius
   model-eval job has been submitted. The old vulnerable 0/24 deployment and
   gate are archived/canceled.
 - Historical direct fixed-worker smokes A `1733374` / audit `1733529` and B
