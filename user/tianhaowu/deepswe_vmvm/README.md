@@ -8,7 +8,7 @@ require Prime tunnel credentials. The mini-swe-agent benchmark preset uses its
 local environment because VMVM already runs the agent inside the SWE-bench task
 image.
 
-All launchers pin the existing
+The evaluation launchers pin the existing
 `/storage/home/tianhaowu/.venvs/prime-rl-nemotron-sft` environment and run with
 `UV_NO_SYNC=1`. Treat that environment as read-only: do not run `uv sync` or
 install packages into it while the Nemotron SFT job is active. For the manual
@@ -31,9 +31,13 @@ env -u SBATCH_OUTPUT -u SBATCH_ERROR \
   sbatch user/tianhaowu/deepswe_vmvm/run_runtime_smoke.sbatch
 ```
 
-The smoke provisions a VMVM container, runs a command in its task workdir, uploads
-and downloads binary data, verifies the digest, reaches a host-local HTTP server
-through the VMVM reverse tunnel, and releases the lease.
+The smoke uses the staged x86 evaluator dependencies, provisions a VMVM
+container, runs a command in its task workdir, uploads and downloads binary
+data, verifies the digest, and reaches a host-local HTTP server through the
+VMVM reverse tunnel. It then kills the vacli tunnel during a side-effecting
+command and requires `VMVMRuntime` to reconnect, collect the result without
+replaying the command, and preserve an exactly-once marker before releasing the
+lease.
 
 ## Start DeepSWE
 
