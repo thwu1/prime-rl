@@ -113,6 +113,8 @@ class TerminalBenchTask(HarborTask):
     artifacts: list[ArtifactSpec] = Field(default_factory=list, exclude=True)
     collect_hooks: list[CollectHook] = Field(default_factory=list, exclude=True)
     verifier_tests_baked: bool = Field(default=False, exclude=True)
+    agent_network_mode: Literal["public", "no-network"] = Field(default="public", exclude=True)
+    verifier_network_mode: Literal["public", "no-network"] = Field(default="public", exclude=True)
 
 
 def _environment_workdir(dockerfile: Path, default: str = "/app") -> str:
@@ -165,9 +167,7 @@ def _declared_test_requirements(task_dir: str) -> tuple[str, ...]:
         return ()
     lines = dockerfile.read_text(errors="replace").splitlines()
     try:
-        marker_index = next(
-            index for index, line in enumerate(lines) if TEST_DEPENDENCY_MARKER in line
-        )
+        marker_index = next(index for index, line in enumerate(lines) if TEST_DEPENDENCY_MARKER in line)
     except StopIteration:
         return ()
 
@@ -236,9 +236,7 @@ def _dockerfile_startup_command(task_dir: str) -> tuple[str, ...]:
         value = value.strip()
         if value.startswith("["):
             parsed = json.loads(value)
-            if not isinstance(parsed, list) or not all(
-                isinstance(item, str) for item in parsed
-            ):
+            if not isinstance(parsed, list) or not all(isinstance(item, str) for item in parsed):
                 raise ValueError(f"{dockerfile}: invalid {instruction} {value!r}")
             parsed_command = tuple(parsed)
             shell_form = False
@@ -287,6 +285,92 @@ def _string_env(raw: dict | None) -> dict[str, str]:
     return {str(key): str(value) for key, value in (raw or {}).items()}
 
 
+def _network_policy_mode(
+    task_name: str,
+    role: str,
+    raw: dict,
+    *,
+    default: Literal["public", "no-network"],
+    phase_override: bool = False,
+) -> Literal["public", "no-network"]:
+    """Resolve Harbor's baseline/phase network mode without weakening it."""
+    declared = raw.get("network_mode")
+    if declared is None:
+        if phase_override and "allowed_hosts" in raw:
+            raise ValueError(f"{task_name}: {role}.allowed_hosts requires network_mode='allowlist'")
+        if not phase_override and "allow_internet" in raw:
+            allow_internet = raw["allow_internet"]
+            if not isinstance(allow_internet, bool):
+                raise ValueError(f"{task_name}: {role}.allow_internet must be a boolean")
+            declared = "public" if allow_internet else "no-network"
+        else:
+            declared = default
+    if declared == "allowlist":
+        raise UnsupportedTaskError(f"{task_name}: {role} network_mode='allowlist' is not supported by VMVM")
+    if declared not in ("public", "no-network"):
+        raise UnsupportedTaskError(f"{task_name}: unknown {role} network_mode {declared!r}")
+    if raw.get("allowed_hosts"):
+        raise ValueError(f"{task_name}: {role}.allowed_hosts is only valid with network_mode='allowlist'")
+    return declared
+
+
+def _network_modes(
+    task_name: str,
+    raw: dict,
+    verifier_mode: Literal["shared", "separate"],
+) -> tuple[Literal["public", "no-network"], Literal["public", "no-network"]]:
+    environment = raw.get("environment", {})
+    agent = raw.get("agent", {})
+    verifier = raw.get("verifier", {})
+    environment_mode = _network_policy_mode(
+        task_name,
+        "environment",
+        environment,
+        default="public",
+    )
+    agent_mode = _network_policy_mode(
+        task_name,
+        "agent",
+        agent,
+        default=environment_mode,
+        phase_override=True,
+    )
+    if environment_mode == "no-network" and agent_mode == "public":
+        raise UnsupportedTaskError(
+            f"{task_name}: VMVM cannot relax the no-network environment baseline for the agent phase"
+        )
+
+    verifier_environment = verifier.get("environment")
+    if verifier_mode == "separate" and verifier_environment is not None:
+        if not isinstance(verifier_environment, dict):
+            raise ValueError(f"{task_name}: verifier.environment must be a table")
+        verifier_baseline = _network_policy_mode(
+            task_name,
+            "verifier.environment",
+            verifier_environment,
+            default="public",
+        )
+    else:
+        verifier_baseline = environment_mode
+    verifier_mode_resolved = _network_policy_mode(
+        task_name,
+        "verifier",
+        verifier,
+        default=verifier_baseline,
+        phase_override=True,
+    )
+    if verifier_baseline == "no-network" and verifier_mode_resolved == "public":
+        raise UnsupportedTaskError(
+            f"{task_name}: VMVM cannot relax the no-network verifier baseline for the verifier phase"
+        )
+    if verifier_mode == "shared" and agent_mode == "no-network" and verifier_mode_resolved == "public":
+        raise UnsupportedTaskError(
+            f"{task_name}: VMVM cannot restore public networking after an isolated "
+            "agent phase in a shared verifier environment"
+        )
+    return agent_mode, verifier_mode_resolved
+
+
 def _parse_verifier_reward(
     task_name: str,
     kind: Literal["json", "text"],
@@ -303,17 +387,13 @@ def _parse_verifier_reward(
 
     for key, reward_value in rewards.items():
         if not math.isfinite(reward_value):
-            raise ValueError(
-                f"{task_name}: reward value for {key!r} must be finite, got {reward_value!r}"
-            )
+            raise ValueError(f"{task_name}: reward value for {key!r} must be finite, got {reward_value!r}")
     if "reward" in rewards:
         score = rewards["reward"]
     elif len(rewards) == 1:
         score = next(iter(rewards.values()))
     else:
-        raise ValueError(
-            f"{task_name}: multi-key reward.json has no 'reward' key: {sorted(rewards)}"
-        )
+        raise ValueError(f"{task_name}: multi-key reward.json has no 'reward' key: {sorted(rewards)}")
     return score, rewards
 
 
@@ -407,9 +487,7 @@ class TerminalBenchVMVMTaskset(
         except (OSError, subprocess.SubprocessError) as error:
             raise ValueError(f"cannot verify Harbor dataset revision at {root}") from error
         if head != expected:
-            raise ValueError(
-                f"Harbor dataset revision mismatch: expected {expected}, observed {head or '<empty>'}"
-            )
+            raise ValueError(f"Harbor dataset revision mismatch: expected {expected}, observed {head or '<empty>'}")
         if status.strip():
             raise ValueError(f"Harbor dataset worktree is not clean: {root}")
 
@@ -432,9 +510,7 @@ class TerminalBenchVMVMTaskset(
             raise ValueError(f"cannot verify {field} SHA-256: {path}") from error
         observed = digest.hexdigest()
         if observed != expected:
-            raise ValueError(
-                f"{field} SHA-256 mismatch: expected {expected}, observed {observed}"
-            )
+            raise ValueError(f"{field} SHA-256 mismatch: expected {expected}, observed {observed}")
 
     def load_tasks(self) -> list[TerminalBenchTask]:
         root = self.config.dataset_dir.resolve()
@@ -487,6 +563,11 @@ class TerminalBenchVMVMTaskset(
                 mode = "separate" if verifier.get("environment") is not None else "shared"
             if mode not in ("shared", "separate"):
                 raise ValueError(f"{task_dir.name}: unknown verifier environment_mode {mode!r}")
+            agent_network_mode, verifier_network_mode = _network_modes(
+                task_dir.name,
+                raw,
+                mode,
+            )
 
             agent_dockerfile = task_dir / "environment" / "Dockerfile"
             tests_dockerfile = task_dir / "tests" / "Dockerfile"
@@ -544,23 +625,37 @@ class TerminalBenchVMVMTaskset(
                 artifacts=_artifact_specs(raw.get("artifacts", [])),
                 collect_hooks=[CollectHook(**hook) for hook in verifier.get("collect", [])],
                 verifier_tests_baked=verifier_tests_baked,
+                agent_network_mode=agent_network_mode,
+                verifier_network_mode=verifier_network_mode,
             )
             tasks.append(TerminalBenchTask(**task_data))
         return tasks
 
+    @staticmethod
+    async def _configure_network_policy(
+        task: TerminalBenchTask,
+        runtime: Runtime,
+        mode: Literal["public", "no-network"],
+        *,
+        activate: bool,
+    ) -> None:
+        if not isinstance(runtime, VMVMRuntime):
+            if mode == "no-network":
+                raise UnsupportedTaskError(f"{task.name}: network_mode='no-network' requires VMVMRuntime")
+            return
+        await runtime.configure_network_policy(mode)
+        if activate:
+            await runtime.activate_network_policy()
+
     async def setup(self, task: TerminalBenchTask, runtime: Runtime) -> None:
         if isinstance(runtime, VMVMRuntime) and task.resources.gpu:
-            raise UnsupportedTaskError(
-                f"{task.name}: requests GPU resources, but the current VMVM tenant is CPU-only"
-            )
+            raise UnsupportedTaskError(f"{task.name}: requests GPU resources, but the current VMVM tenant is CPU-only")
         compose_started = False
         if self.config.enable_compose:
             compose_path = _compose_path(Path(task.task_dir))
             if compose_path is not None:
                 if not isinstance(runtime, VMVMRuntime):
-                    raise UnsupportedTaskError(
-                        f"{task.name}: Docker Compose currently requires VMVMRuntime"
-                    )
+                    raise UnsupportedTaskError(f"{task.name}: Docker Compose currently requires VMVMRuntime")
                 try:
                     runtime._descriptor = await asyncio.to_thread(
                         runtime.backend.start_compose,
@@ -569,6 +664,13 @@ class TerminalBenchVMVMTaskset(
                     compose_started = True
                 except Exception as error:
                     raise SandboxError(f"VMVM compose provisioning failed: {error}") from error
+
+        await self._configure_network_policy(
+            task,
+            runtime,
+            task.agent_network_mode,
+            activate=False,
+        )
 
         # Some upstream task archives contain macOS AppleDouble resource forks.
         # They are packaging metadata, not benchmark inputs, and can break scripts
@@ -581,27 +683,30 @@ class TerminalBenchVMVMTaskset(
             "fi",
         )
         if cleaned.exit_code != 0:
-            raise RuntimeError(
-                f"{task.name}: AppleDouble cleanup failed: "
-                f"{(cleaned.stdout + cleaned.stderr)[-2000:]}"
-            )
+            raise RuntimeError(f"{task.name}: AppleDouble cleanup failed: {(cleaned.stdout + cleaned.stderr)[-2000:]}")
+
+        if task.verifier_mode == "shared" and task.agent_network_mode == "no-network":
+            await self._ensure_test_dependencies(task, runtime)
 
         if not compose_started:
             startup = _dockerfile_startup_command(task.task_dir)
             if startup:
                 startup_log = "/tmp/terminal-bench-image-startup.log"
-                launched = await runtime.run(
-                    [
-                        "sh",
-                        "-c",
-                        f"nohup {shlex.join(startup)} >{startup_log} 2>&1 </dev/null &",
-                    ],
-                    {},
-                )
+                startup_argv = [
+                    "sh",
+                    "-c",
+                    f"nohup {shlex.join(startup)} >{startup_log} 2>&1 </dev/null &",
+                ]
+                if task.agent_network_mode == "no-network":
+                    if not isinstance(runtime, VMVMRuntime):
+                        raise UnsupportedTaskError(f"{task.name}: deferred no-network startup requires VMVMRuntime")
+                    runtime.defer_until_network_isolated(startup_argv)
+                    launched = ProgramResult(exit_code=0, stdout="", stderr="")
+                else:
+                    launched = await runtime.run(startup_argv, {})
                 if launched.exit_code != 0:
                     raise RuntimeError(
-                        f"{task.name}: image startup command failed: "
-                        f"{(launched.stdout + launched.stderr)[-2000:]}"
+                        f"{task.name}: image startup command failed: {(launched.stdout + launched.stderr)[-2000:]}"
                     )
 
     @staticmethod
@@ -616,9 +721,7 @@ class TerminalBenchVMVMTaskset(
         if service in ("", "main"):
             return await runtime.run(argv, env)
         if not isinstance(runtime, VMVMRuntime):
-            raise UnsupportedTaskError(
-                f"service {service!r} requires a compose-capable VMVMRuntime"
-            )
+            raise UnsupportedTaskError(f"service {service!r} requires a compose-capable VMVMRuntime")
         command = shlex.join(argv)
         try:
             result = await asyncio.to_thread(
@@ -632,9 +735,7 @@ class TerminalBenchVMVMTaskset(
         except Exception as error:
             raise SandboxError(f"VMVM service exec failed: {error}") from error
         if result["exit_code"] < 0:
-            raise SandboxError(
-                f"VMVM service exec failed ({result['error_type']}): {result['output']}"
-            )
+            raise SandboxError(f"VMVM service exec failed ({result['error_type']}): {result['output']}")
         return ProgramResult(exit_code=result["exit_code"], stdout=result["output"], stderr="")
 
     @staticmethod
@@ -642,9 +743,7 @@ class TerminalBenchVMVMTaskset(
         if service in ("", "main"):
             return await runtime.read(path)
         if not isinstance(runtime, VMVMRuntime):
-            raise UnsupportedTaskError(
-                f"service {service!r} requires a compose-capable VMVMRuntime"
-            )
+            raise UnsupportedTaskError(f"service {service!r} requires a compose-capable VMVMRuntime")
         try:
             return await asyncio.to_thread(
                 runtime.backend.read_service_file,
@@ -668,9 +767,7 @@ class TerminalBenchVMVMTaskset(
         except Exception as error:
             raise SandboxError(f"VMVM root command failed: {error}") from error
         if result["exit_code"] < 0:
-            raise SandboxError(
-                f"VMVM root command failed ({result['error_type']}): {result['output']}"
-            )
+            raise SandboxError(f"VMVM root command failed ({result['error_type']}): {result['output']}")
         return ProgramResult(
             exit_code=result["exit_code"],
             stdout=result["output"],
@@ -779,9 +876,7 @@ class TerminalBenchVMVMTaskset(
             tar_args = ["tar", "-czf", archive_path]
             for pattern in excludes.get(service, []):
                 tar_args.append(f"--exclude={pattern}")
-            tar_args.extend(
-                ["-C", "/", "--", *(path.lstrip("/") for path in service_paths)]
-            )
+            tar_args.extend(["-C", "/", "--", *(path.lstrip("/") for path in service_paths)])
             captured = await self._run_service(runtime, service, tar_args, {})
             if captured.exit_code != 0:
                 raise RuntimeError(
@@ -821,37 +916,20 @@ class TerminalBenchVMVMTaskset(
         self._artifact_payloads[trace.id] = payload
         trace.info["terminal_bench_artifacts"] = metadata
 
-    async def _run_verifier(
+    async def _ensure_test_dependencies(
         self,
         task: TerminalBenchTask,
         runtime: Runtime,
-        *,
-        stage_tests: bool,
-    ) -> tuple[ProgramResult, bool, float, dict[str, float]]:
-        if stage_tests:
-            await self._stage_directory(runtime, Path(task.task_dir) / "tests", "/tests", "tests")
-        prepared = await self._run_root(
-            runtime,
-            "mkdir -p /logs/verifier; chmod 1777 /logs/verifier; "
-            f"chmod a+rwx {shlex.quote(task.verifier_workdir)}",
-        )
-        if prepared.exit_code != 0:
-            raise RuntimeError(
-                f"{task.name}: preparing verifier paths failed: "
-                f"{(prepared.stdout + prepared.stderr)[-4000:]}"
-            )
+    ) -> None:
         test_script = (Path(task.task_dir) / "tests" / "test.sh").read_text(errors="replace")
-        # Official separate-verifier images own their sealed test dependencies.
-        # Only shared-mode/staged tests need repair for the older Mobius image set.
-        if stage_tests:
-            requirements = list(_declared_test_requirements(task.task_dir))
-            if "pytest" in test_script and not any(
-                requirement.lower().split("==", 1)[0] == "pytest"
-                for requirement in requirements
-            ):
-                requirements.append("pytest==8.3.4")
-            if requirements:
-                probe_code = """
+        requirements = list(_declared_test_requirements(task.task_dir))
+        if "pytest" in test_script and not any(
+            requirement.lower().split("==", 1)[0] == "pytest" for requirement in requirements
+        ):
+            requirements.append("pytest==8.3.4")
+        if not requirements:
+            return
+        probe_code = """
 import importlib.metadata as metadata
 import re
 import sys
@@ -867,30 +945,59 @@ for requirement in sys.argv[1:]:
         if expected is not None and installed != expected:
             print(requirement)
 """.strip()
-                # Distribution names are not always import names (for example,
-                # psycopg2-binary), so probe package metadata rather than imports.
-                available = await runtime.run(
-                    ["python3", "-c", probe_code, *requirements],
-                    {},
-                )
-                if available.exit_code != 0:
-                    missing = requirements
-                else:
-                    missing = [line for line in available.stdout.splitlines() if line]
-                if missing:
-                    command = (
-                        "python3 -m pip install -q --ignore-installed "
-                        "--break-system-packages "
-                        f"{shlex.join(missing)} || "
-                        "python3 -m pip install -q --ignore-installed "
-                        f"{shlex.join(missing)}"
-                    )
-                    installed = await runtime.run(["sh", "-c", command], {})
-                    if installed.exit_code != 0:
-                        raise RuntimeError(
-                            f"{task.name}: verifier dependency bootstrap failed for "
-                            f"{missing}: {(installed.stdout + installed.stderr)[-4000:]}"
-                        )
+        # Distribution names are not always import names (for example,
+        # psycopg2-binary), so probe package metadata rather than imports.
+        available = await runtime.run(
+            ["python3", "-c", probe_code, *requirements],
+            {},
+        )
+        if available.exit_code != 0:
+            missing = requirements
+        else:
+            missing = [line for line in available.stdout.splitlines() if line]
+        if not missing:
+            return
+        command = (
+            "python3 -m pip install -q --ignore-installed "
+            "--break-system-packages "
+            f"{shlex.join(missing)} || "
+            "python3 -m pip install -q --ignore-installed "
+            f"{shlex.join(missing)}"
+        )
+        installed = await runtime.run(["sh", "-c", command], {})
+        if installed.exit_code != 0:
+            raise RuntimeError(
+                f"{task.name}: verifier dependency bootstrap failed for "
+                f"{missing}: {(installed.stdout + installed.stderr)[-4000:]}"
+            )
+
+    async def _run_verifier(
+        self,
+        task: TerminalBenchTask,
+        runtime: Runtime,
+        *,
+        stage_tests: bool,
+    ) -> tuple[ProgramResult, bool, float, dict[str, float]]:
+        if stage_tests:
+            await self._stage_directory(runtime, Path(task.task_dir) / "tests", "/tests", "tests")
+        prepared = await self._run_root(
+            runtime,
+            f"mkdir -p /logs/verifier; chmod 1777 /logs/verifier; chmod a+rwx {shlex.quote(task.verifier_workdir)}",
+        )
+        if prepared.exit_code != 0:
+            raise RuntimeError(
+                f"{task.name}: preparing verifier paths failed: {(prepared.stdout + prepared.stderr)[-4000:]}"
+            )
+        # Official separate-verifier images own their sealed test dependencies.
+        # Only shared-mode/staged tests need repair for the older Mobius image set.
+        if stage_tests and not (task.verifier_mode == "shared" and task.agent_network_mode == "no-network"):
+            await self._ensure_test_dependencies(task, runtime)
+        await self._configure_network_policy(
+            task,
+            runtime,
+            task.verifier_network_mode,
+            activate=True,
+        )
         timeout = f"{task.verifier_timeout_sec:g}s"
         command = (
             "mkdir -p /logs/verifier; "
@@ -1073,13 +1180,15 @@ for requirement in sys.argv[1:]:
         # Reference solutions sometimes invoke public tests as a self-check.
         # Stage them before the solution, then stage a fresh copy for scoring.
         solution_dir = Path(task.task_dir) / "solution"
-        solution_uses_tests = any(
-            b"/tests" in path.read_bytes()
-            for path in solution_dir.iterdir()
-            if path.is_file()
-        )
+        solution_uses_tests = any(b"/tests" in path.read_bytes() for path in solution_dir.iterdir() if path.is_file())
         if task.verifier_mode == "shared" or solution_uses_tests:
             await self._stage_directory(runtime, Path(task.task_dir) / "tests", "/tests", "tests")
+        await self._configure_network_policy(
+            task,
+            runtime,
+            task.agent_network_mode,
+            activate=True,
+        )
         solution = await self._run_solution(task, runtime)
         if task.verifier_mode == "shared":
             result, timed_out, score, rewards = await self._run_verifier(task, runtime, stage_tests=True)
@@ -1098,12 +1207,10 @@ for requirement in sys.argv[1:]:
             solution_detail = ""
             if solution.exit_code != 0:
                 solution_detail = (
-                    f"; solution exited {solution.exit_code}: "
-                    f"{(solution.stdout + solution.stderr)[-4000:]}"
+                    f"; solution exited {solution.exit_code}: {(solution.stdout + solution.stderr)[-4000:]}"
                 )
             raise OracleFailure(
-                f"{task.name}: oracle reward is {rewards!r}; verifier output: {output}"
-                f"{solution_detail}"
+                f"{task.name}: oracle reward is {rewards!r}; verifier output: {output}{solution_detail}"
             )
         return True
 

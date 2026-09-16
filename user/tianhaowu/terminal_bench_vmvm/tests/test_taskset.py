@@ -12,9 +12,16 @@ from terminal_bench_vmvm.taskset import (
     _declared_test_requirements,
     _dockerfile_startup_command,
     _environment_workdir,
+    _network_modes,
     _parse_verifier_reward,
 )
-from vmvm_tb_v2._vacli.backend import VacliVMVMBackend, _setup_bridge_proxy
+from vmvm_tb_v2._vacli import backend as vacli_backend
+from vmvm_tb_v2._vacli.backend import (
+    VacliHostTunnel,
+    VacliVMVMBackend,
+    _setup_bridge_proxy,
+    _VacliNetworkIsolation,
+)
 from vmvm_tb_v2._vacli.types import BackendInitError
 
 
@@ -66,13 +73,105 @@ def test_parse_verifier_reward_rejects_non_finite_values(kind: str, payload: byt
         _parse_verifier_reward("task-a", kind, payload)
 
 
+@pytest.mark.parametrize(
+    ("raw", "verifier_mode", "expected"),
+    [
+        ({}, "shared", ("public", "public")),
+        (
+            {
+                "environment": {"network_mode": "no-network"},
+                "agent": {},
+                "verifier": {},
+            },
+            "shared",
+            ("no-network", "no-network"),
+        ),
+        (
+            {
+                "environment": {"network_mode": "public"},
+                "agent": {"network_mode": "public"},
+                "verifier": {"network_mode": "no-network"},
+            },
+            "shared",
+            ("public", "no-network"),
+        ),
+        (
+            {
+                "environment": {"network_mode": "no-network"},
+                "verifier": {
+                    "environment_mode": "separate",
+                    "environment": {"network_mode": "public"},
+                },
+            },
+            "separate",
+            ("no-network", "public"),
+        ),
+        (
+            {"environment": {"allow_internet": False}},
+            "shared",
+            ("no-network", "no-network"),
+        ),
+        (
+            {
+                "environment": {
+                    "network_mode": "public",
+                    "allow_internet": False,
+                }
+            },
+            "shared",
+            ("public", "public"),
+        ),
+    ],
+)
+def test_network_modes_resolve_harbor_baselines_and_phase_overrides(
+    raw: dict,
+    verifier_mode: str,
+    expected: tuple[str, str],
+) -> None:
+    assert _network_modes("task-a", raw, verifier_mode) == expected
+
+
+@pytest.mark.parametrize(
+    ("raw", "match"),
+    [
+        (
+            {"environment": {"network_mode": "allowlist", "allowed_hosts": ["example.com"]}},
+            "allowlist.*not supported",
+        ),
+        (
+            {"agent": {"network_mode": "private"}},
+            "unknown agent network_mode",
+        ),
+        (
+            {
+                "environment": {"network_mode": "no-network"},
+                "agent": {"network_mode": "public"},
+            },
+            "cannot relax.*agent phase",
+        ),
+        (
+            {
+                "environment": {"network_mode": "public"},
+                "agent": {"network_mode": "no-network"},
+                "verifier": {"network_mode": "public"},
+            },
+            "cannot restore public networking",
+        ),
+    ],
+)
+def test_network_modes_fail_closed_for_unsupported_policies(
+    raw: dict,
+    match: str,
+) -> None:
+    with pytest.raises(ValueError, match=match):
+        _network_modes("task-a", raw, "shared")
+
+
 def test_dockerfile_startup_command_combines_exec_forms(tmp_path: Path) -> None:
     environment = tmp_path / "environment"
     environment.mkdir()
     dockerfile = environment / "Dockerfile"
-    dockerfile.write_text(
-        'FROM ubuntu\nENTRYPOINT ["/entrypoint.sh"]\nCMD ["sleep", "infinity"]\n'
-    )
+    dockerfile.write_text('FROM ubuntu\nENTRYPOINT ["/entrypoint.sh"]\nCMD ["sleep", "infinity"]\n')
     assert _dockerfile_startup_command(str(tmp_path)) == (
         "/entrypoint.sh",
         "sleep",
@@ -95,9 +194,7 @@ def test_repository_mobius_archive_indexes_all_tasks() -> None:
         task_slugs = {
             parts[1]
             for name in archive.namelist()
-            if len(parts := name.split("/")) == 3
-            and parts[0] == "tb_tasks"
-            and parts[2] == "task.toml"
+            if len(parts := name.split("/")) == 3 and parts[0] == "tb_tasks" and parts[2] == "task.toml"
         }
     assert len(task_slugs) == 2538
 
@@ -168,9 +265,7 @@ def test_vmvm_bridge_gateway_uses_container_network_namespace() -> None:
     calls: list[list[str]] = []
     responses = iter(
         [
-            subprocess.CompletedProcess(
-                args=[], returncode=0, stdout=b"default via 10.89.3.1 dev eth0\n"
-            ),
+            subprocess.CompletedProcess(args=[], returncode=0, stdout=b"default via 10.89.3.1 dev eth0\n"),
             subprocess.CompletedProcess(args=[], returncode=0, stdout=b""),
         ]
     )
@@ -218,6 +313,256 @@ def test_vmvm_compose_gateway_detection_fails_closed() -> None:
             ("api",),
             require_detected=True,
         )
+
+
+def test_vmvm_network_isolation_preserves_internal_network_and_is_idempotent() -> None:
+    backend = object.__new__(VacliVMVMBackend)
+    isolation = _VacliNetworkIsolation(
+        network="vf-internal-test",
+        gateway="10.89.0.1",
+        subnet="10.89.0.0/24",
+        main_address="10.89.0.2",
+        firewall_chain="VFNI_TEST",
+        containers=("a" * 12,),
+    )
+    backend._network_isolation = isolation
+    backend._host_tunnels = {VacliHostTunnel("10.89.0.1", 41000, 1234, 99)}
+    calls: list[str] = []
+    network_states = iter(
+        [
+            {"podman": {}, "vf-internal-test": {}},
+            {"vf-internal-test": {}},
+        ]
+    )
+    backend._container_networks = lambda container_id: next(network_states)
+
+    def ssh(command: str, *, timeout: int) -> subprocess.CompletedProcess:
+        calls.append(command)
+        return subprocess.CompletedProcess(args=[], returncode=0, stdout=b"")
+
+    backend._ssh_call_raw = ssh
+
+    backend.activate_network_isolation()
+    call_count = len(calls)
+    backend.activate_network_isolation()
+
+    assert isolation.active is True
+    assert isolation.allowed_tunnel_ports == {41000}
+    assert len(calls) == call_count
+    assert "--dport 53" in calls[0]
+    assert "-s 10.89.0.2/32 -p tcp --dport 41000" in calls[0]
+    assert "-A VFNI_TEST -j REJECT" in calls[0]
+    assert any("network disconnect --force podman" in command for command in calls)
+    assert not any("network disconnect --force vf-internal-test" in command for command in calls)
+
+
+def test_vmvm_network_isolation_tunnel_rules_add_remove_and_cleanup() -> None:
+    backend = object.__new__(VacliVMVMBackend)
+    isolation = _VacliNetworkIsolation(
+        network="vf-internal-test",
+        gateway="10.89.0.1",
+        subnet="10.89.0.0/24",
+        main_address="10.89.0.2",
+        firewall_chain="VFNI_TEST",
+        containers=("a" * 12,),
+        active=True,
+        firewall_active=True,
+    )
+    backend._network_isolation = isolation
+    calls: list[str] = []
+
+    def ssh(command: str, *, timeout: int) -> subprocess.CompletedProcess:
+        calls.append(command)
+        return subprocess.CompletedProcess(args=[], returncode=0, stdout=b"")
+
+    backend._ssh_call_raw = ssh
+
+    backend._allow_isolated_tunnel(42000)
+    backend._allow_isolated_tunnel(42000)
+    backend._remove_isolated_tunnel(42000)
+    backend._remove_isolated_tunnel(42000)
+    backend._cleanup_network_firewall()
+    backend._cleanup_network_firewall()
+
+    assert len(calls) == 3
+    assert "-I VFNI_TEST 1 -s 10.89.0.2/32" in calls[0]
+    assert "--dport 42000 -j ACCEPT" in calls[0]
+    assert "-D VFNI_TEST -s 10.89.0.2/32" in calls[1]
+    assert "-C INPUT -s 10.89.0.0/24 -d 10.89.0.1 -j VFNI_TEST" in calls[2]
+    assert "-F VFNI_TEST" in calls[2]
+    assert "-X VFNI_TEST" in calls[2]
+    assert isolation.firewall_active is False
+    assert isolation.allowed_tunnel_ports == set()
+
+
+def test_vmvm_network_targets_include_each_compose_service() -> None:
+    backend = object.__new__(VacliVMVMBackend)
+    backend._container_id = "a" * 12
+    backend._compose_project = "vf-test"
+    backend._compose_services = ("main", "database")
+    containers = {"main": "a" * 12, "database": "b" * 12}
+    backend._compose_container = lambda service: containers[service]
+
+    assert backend._network_targets() == (
+        ("main", "a" * 12),
+        ("database", "b" * 12),
+    )
+
+
+def test_vmvm_network_prepare_preserves_declared_compose_aliases(monkeypatch) -> None:
+    backend = object.__new__(VacliVMVMBackend)
+    backend._destroyed = False
+    backend._network_isolation = None
+    backend._container_id = "a" * 12
+    backend._network_targets = lambda: (("main", "a" * 12),)
+    calls: list[str] = []
+    inspect_calls = 0
+
+    def ssh(command: str, *, timeout: int) -> subprocess.CompletedProcess:
+        nonlocal inspect_calls
+        calls.append(command)
+        if command.startswith("podman network inspect"):
+            metadata = [
+                {
+                    "internal": True,
+                    "ipv6_enabled": False,
+                    "subnets": [{"subnet": "10.89.0.0/24", "gateway": "10.89.0.1"}],
+                }
+            ]
+            return subprocess.CompletedProcess(args=[], returncode=0, stdout=json.dumps(metadata).encode())
+        if command.startswith("podman inspect"):
+            inspect_calls += 1
+            networks = (
+                {"old": {"Aliases": ["main", "declared-alias"]}}
+                if inspect_calls == 1
+                else {"vf-internal-test": {"IPAddress": "10.89.0.2"}}
+            )
+            return subprocess.CompletedProcess(args=[], returncode=0, stdout=json.dumps(networks).encode())
+        return subprocess.CompletedProcess(args=[], returncode=0, stdout=b"")
+
+    backend._ssh_call_raw = ssh
+
+    monkeypatch.setattr(
+        vacli_backend.uuid,
+        "uuid4",
+        lambda: type("UUID", (), {"hex": "test"})(),
+    )
+    backend.prepare_network_isolation()
+
+    connect = next(command for command in calls if "network connect" in command)
+    assert "--alias declared-alias" in connect
+    assert "--alias main" in connect
+
+
+@pytest.mark.parametrize(
+    "metadata",
+    [
+        {
+            "internal": True,
+            "ipv6_enabled": True,
+            "subnets": [{"subnet": "10.89.0.0/24", "gateway": "10.89.0.1"}],
+        },
+        {
+            "internal": True,
+            "ipv6_enabled": False,
+            "subnets": [
+                {"subnet": "10.89.0.0/24", "gateway": "10.89.0.1"},
+                {"subnet": "fd00::/64", "gateway": "fd00::1"},
+            ],
+        },
+    ],
+)
+def test_vmvm_network_prepare_rejects_additional_address_families(
+    metadata: dict,
+) -> None:
+    backend = object.__new__(VacliVMVMBackend)
+    backend._destroyed = False
+    backend._network_isolation = None
+    calls: list[str] = []
+
+    def ssh(command: str, *, timeout: int) -> subprocess.CompletedProcess:
+        calls.append(command)
+        output = json.dumps([metadata]).encode() if "network inspect" in command else b""
+        return subprocess.CompletedProcess(args=[], returncode=0, stdout=output)
+
+    backend._ssh_call_raw = ssh
+
+    with pytest.raises(BackendInitError, match="IPv6|malformed"):
+        backend.prepare_network_isolation()
+
+    assert any("network rm -f" in command for command in calls)
+
+
+def test_vmvm_network_activation_failure_pauses_and_rolls_back_firewall() -> None:
+    backend = object.__new__(VacliVMVMBackend)
+    isolation = _VacliNetworkIsolation(
+        network="vf-internal-test",
+        gateway="10.89.0.1",
+        subnet="10.89.0.0/24",
+        main_address="10.89.0.2",
+        firewall_chain="VFNI_TEST",
+        containers=("a" * 12, "b" * 12),
+    )
+    backend._network_isolation = isolation
+    backend._host_tunnels = set()
+    calls: list[str] = []
+    states = {
+        "a" * 12: iter(
+            [
+                {"podman": {}, "vf-internal-test": {}},
+                {"vf-internal-test": {}},
+            ]
+        ),
+        "b" * 12: iter([{"podman": {}, "vf-internal-test": {}}]),
+    }
+    backend._container_networks = lambda container_id: next(states[container_id])
+
+    def ssh(command: str, *, timeout: int) -> subprocess.CompletedProcess:
+        calls.append(command)
+        if "network disconnect --force podman" in command and "b" * 12 in command:
+            return subprocess.CompletedProcess(args=[], returncode=1, stdout=b"disconnect failed")
+        return subprocess.CompletedProcess(args=[], returncode=0, stdout=b"")
+
+    backend._ssh_call_raw = ssh
+
+    with pytest.raises(BackendInitError, match="disconnecting public network"):
+        backend.activate_network_isolation()
+
+    assert isolation.active is False
+    assert isolation.firewall_active is False
+    assert any(command.startswith("podman pause") for command in calls)
+    assert any("-C INPUT" in command and "-X VFNI_TEST" in command for command in calls)
+
+
+def test_vmvm_partial_firewall_install_is_rolled_back() -> None:
+    backend = object.__new__(VacliVMVMBackend)
+    isolation = _VacliNetworkIsolation(
+        network="vf-internal-test",
+        gateway="10.89.0.1",
+        subnet="10.89.0.0/24",
+        main_address="10.89.0.2",
+        firewall_chain="VFNI_TEST",
+        containers=("a" * 12,),
+    )
+    backend._network_isolation = isolation
+    backend._host_tunnels = set()
+    calls: list[str] = []
+
+    def ssh(command: str, *, timeout: int) -> subprocess.CompletedProcess:
+        calls.append(command)
+        return subprocess.CompletedProcess(
+            args=[],
+            returncode=1 if command.startswith("set -e") else 0,
+            stdout=b"firewall failed",
+        )
+
+    backend._ssh_call_raw = ssh
+
+    with pytest.raises(BackendInitError, match="firewall failed"):
+        backend.activate_network_isolation()
+
+    assert isolation.firewall_active is False
+    assert any("-C INPUT" in command and "-X VFNI_TEST" in command for command in calls)
 
 
 def test_dataset_revision_requires_exact_clean_worktree(tmp_path: Path) -> None:

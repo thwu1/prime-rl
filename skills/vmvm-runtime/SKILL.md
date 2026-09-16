@@ -87,6 +87,39 @@ using the default Podman gateway makes every model call fail before sampling.
 Probe the resulting route from the task container with any available TCP
 client; benchmark images are not required to provide Python or Bash.
 
+For Harbor task network policy, resolve the effective modes with Harbor's own
+precedence: `[environment].network_mode` is the baseline and defaults to
+`public`; explicit `[agent].network_mode` and `[verifier].network_mode` override
+their respective phase; a separate verifier uses its own environment baseline.
+Only translate legacy `allow_internet` when the same environment table does not
+set `network_mode`. The VMVM Harbor adapter supports `public` and `no-network`.
+Reject unknown modes, `allowlist`, and any phase transition that would relax an
+already active `no-network` runtime back to `public` before provisioning tasks.
+
+VMVM implements `no-network` at the untrusted agent/verifier boundary. Trusted
+harness dependency preparation retains the original bridge temporarily. For a
+single-container task, defer its declared image startup command until isolation
+is active. Immediately before the agent program (when its host endpoint opens,
+with `run_program` as a backstop), disconnect every public network and retain a
+unique Podman `--internal` IPv4 network. Separate verifiers activate the same
+policy immediately before `test.sh`. Compose containers share that internal
+network; carry every existing declared alias plus the service name when
+reattaching them. Reject an internal network with IPv6, multiple subnets, a
+non-private subnet, or unexpected residual network attachments.
+
+An internal Podman network still reaches services bound on its host gateway, so
+`--internal` alone is insufficient: the injected forward proxy on gateway port
+8080 remains an egress path. Install a workload-subnet-scoped INPUT chain that
+allows TCP/UDP 53 for Podman's internal service-name DNS, allows each active SSH
+reverse-tunnel TCP port only from the main container address, and rejects every
+other gateway packet. Podman DNS on an internal network must not recurse for
+external names; verify this in a live canary whenever the network stack changes.
+Add and remove tunnel rules with tunnel lifetime. On partial activation, pause
+all workload containers and remove any partial firewall jump/chain; normal
+teardown removes tunnel rules, the chain, and the internal network idempotently.
+`podman exec` and SSH control remain outside the workload network namespace and
+continue to function after isolation.
+
 Pier's DeepSWE adapter supports prebuilt agent images and the benchmark's
 separate verifier Dockerfiles. It validates the Dockerfile, starts its `FROM`
 image, copies the hidden verifier files only into the verifier runtime, and
