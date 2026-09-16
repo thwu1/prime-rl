@@ -686,6 +686,16 @@ Add new rows below this line; do not overwrite another owner's row.
 
 ## Live evaluation state
 
+- **2026-09-16 18:56 UTC, use2-1 full-oracle 25% milestone:** diagnostic job
+  `1444701` remains `RUNNING` with 640/2,538 parseable durable statuses: 629
+  valid, eight ordinary invalid, and three generic errors. Unsupported,
+  timeout, infrastructure-error, retry, recovered-infrastructure,
+  cleanup-failure, malformed, schema, and network-semantics counts remain
+  zero. Overall throughput is 5.882 tasks/minute despite the concurrent Qwen
+  c64 rollout; no aggregate VMVM-contention signal is present. Eleven of the
+  38 nonvalid slots permitted by the 2,500-valid gate are consumed. This run
+  remains diagnostic-only pending the launch-bound provenance patch and a
+  fresh full run.
 - **2026-09-16 17:52 UTC, use2-1 full-oracle 10% milestone:** job `1444701`
   remains `RUNNING` with 256/2,538 parseable durable statuses: 252 valid and
   four ordinary invalid. Unsupported, timeout, generic-error,
