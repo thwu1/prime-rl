@@ -13,7 +13,8 @@ from terminal_bench_vmvm.taskset import (
     _dockerfile_startup_command,
     _environment_workdir,
 )
-from vmvm_tb_v2._vacli.backend import VacliVMVMBackend
+from vmvm_tb_v2._vacli.backend import VacliVMVMBackend, _setup_bridge_proxy
+from vmvm_tb_v2._vacli.types import BackendInitError
 
 
 def test_environment_workdir_defaults_and_tracks_relative_updates(tmp_path: Path) -> None:
@@ -147,6 +148,62 @@ def test_vmvm_sidecar_exec_classifies_ssh_exit_255_as_transport_failure() -> Non
         "error_type": "broken_pipe",
         "exit_code": -1,
     }
+
+
+def test_vmvm_bridge_gateway_uses_container_network_namespace() -> None:
+    calls: list[list[str]] = []
+    responses = iter(
+        [
+            subprocess.CompletedProcess(
+                args=[], returncode=0, stdout=b"default via 10.89.3.1 dev eth0\n"
+            ),
+            subprocess.CompletedProcess(args=[], returncode=0, stdout=b""),
+        ]
+    )
+
+    class FakeSubprocess:
+        DEVNULL = subprocess.DEVNULL
+        PIPE = subprocess.PIPE
+
+        @staticmethod
+        def run(argv, **kwargs):
+            calls.append(argv)
+            return next(responses)
+
+    gateway = _setup_bridge_proxy(FakeSubprocess, 2222, None, "a" * 64, ("api",))
+
+    assert gateway == "10.89.3.1"
+    assert "podman inspect" in calls[0][-1]
+    assert "nsenter" in calls[0][-1]
+    assert "10.89.3.1" in calls[1][-1]
+    assert "api" in calls[1][-1]
+
+
+def test_vmvm_compose_gateway_detection_fails_closed() -> None:
+    responses = iter(
+        [
+            subprocess.CompletedProcess(args=[], returncode=1, stdout=b""),
+            subprocess.CompletedProcess(args=[], returncode=127, stdout=b""),
+        ]
+    )
+
+    class FakeSubprocess:
+        DEVNULL = subprocess.DEVNULL
+        PIPE = subprocess.PIPE
+
+        @staticmethod
+        def run(argv, **kwargs):
+            return next(responses)
+
+    with pytest.raises(BackendInitError, match="Compose container bridge gateway"):
+        _setup_bridge_proxy(
+            FakeSubprocess,
+            2222,
+            None,
+            "a" * 64,
+            ("api",),
+            require_detected=True,
+        )
 
 
 def test_dataset_revision_requires_exact_clean_worktree(tmp_path: Path) -> None:

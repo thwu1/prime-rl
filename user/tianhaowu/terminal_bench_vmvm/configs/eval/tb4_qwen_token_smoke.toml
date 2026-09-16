@@ -28,7 +28,7 @@ chat_template_kwargs = { enable_thinking = true, preserve_thinking = true }
 [taskset]
 id = "terminal-bench-vmvm"
 dataset_dir = "/checkpoint/ram/tianhaowu/terminal_bench_vmvm/datasets/tb4-prebuilt-v4.0.0/tasks"
-tasks = ["batched-eval-parity", "vllm-deepseek-streaming"]
+tasks = ["ctr-optimization", "vllm-deepseek-streaming"]
 image_prefix = "vmvm-registry.fbinfra.net/terminal_bench"
 image_tag = "tb4-452bf305c6da"
 ignore_dockerfile = true

@@ -30,6 +30,7 @@ import asyncio
 import atexit
 import ctypes
 import io
+import ipaddress
 import json
 import logging
 import math
@@ -637,7 +638,24 @@ def _ensure_python_in_container(sp, ssh_port, control_path, cid):
         logger.warning("vacli: ensure-python symlink step failed (non-fatal)")
 
 
-def _setup_bridge_proxy(sp, ssh_port, control_path, cid, extra_bypass=()):
+def _default_ipv4_gateway(output: bytes) -> str | None:
+    for line in output.decode("utf-8", errors="replace").splitlines():
+        fields = line.split()
+        if fields[:1] != ["default"] or "via" not in fields:
+            continue
+        candidate = fields[fields.index("via") + 1]
+        try:
+            address = ipaddress.ip_address(candidate)
+        except ValueError:
+            continue
+        if address.version == 4:
+            return str(address)
+    return None
+
+
+def _setup_bridge_proxy(
+    sp, ssh_port, control_path, cid, extra_bypass=(), *, require_detected=False
+):
     """For a `--network bridge` container: detect the bridge gateway and write
     the egress proxy (now reachable at gateway:8080, not 0.0.0.0:8080) into
     /etc/profile.d so `bash -l` paths (e.g. test exec) get egress. Returns the
@@ -645,20 +663,47 @@ def _setup_bridge_proxy(sp, ssh_port, control_path, cid, extra_bypass=()):
     container inherits http_proxy=0.0.0.0:8080 from the host, which is wrong once
     it has its own netns; gateway:8080 routes back to the host socat proxy.
     Best-effort; returns gateway IP (default 10.88.0.1)."""
-    gw = "10.88.0.1"
+    gw = None
     try:
-        r = sp.run(
+        route = sp.run(
             _ssh_opts(ssh_port, control_path)
-            + ["root@localhost", "podman exec --user 0 " + cid + " ip route"],
-            stdin=sp.DEVNULL, stdout=sp.PIPE, stderr=sp.DEVNULL, timeout=30,
+            + [
+                "root@localhost",
+                "pid=$(podman inspect --format '{{.State.Pid}}' "
+                + cid
+                + "); test \"$pid\" -gt 0; "
+                + 'nsenter --target "$pid" --net ip -4 route show default',
+            ],
+            stdin=sp.DEVNULL,
+            stdout=sp.PIPE,
+            stderr=sp.DEVNULL,
+            timeout=30,
         )
-        for line in r.stdout.decode("utf-8", "replace").splitlines():
-            f = line.split()
-            if f[:1] == ["default"] and "via" in f:
-                gw = f[f.index("via") + 1]
-                break
+        if route.returncode == 0:
+            gw = _default_ipv4_gateway(route.stdout or b"")
     except Exception:
-        logger.warning("vacli: bridge gateway detection failed; using 10.88.0.1")
+        logger.warning("vacli: host-side bridge gateway detection failed")
+    if gw is None:
+        try:
+            route = sp.run(
+                _ssh_opts(ssh_port, control_path)
+                + ["root@localhost", "podman exec --user 0 " + cid + " ip route"],
+                stdin=sp.DEVNULL,
+                stdout=sp.PIPE,
+                stderr=sp.DEVNULL,
+                timeout=30,
+            )
+            if route.returncode == 0:
+                gw = _default_ipv4_gateway(route.stdout or b"")
+        except Exception:
+            logger.warning("vacli: in-container bridge gateway detection failed")
+    if gw is None:
+        if require_detected:
+            raise BackendInitError(
+                "could not determine the Compose container bridge gateway"
+            )
+        gw = "10.88.0.1"
+        logger.warning("vacli: bridge gateway detection failed; using %s", gw)
     bypass_hosts = ["localhost", "127.0.0.1", gw]
     bypass_hosts.extend(
         host
@@ -1769,6 +1814,7 @@ class VacliVMVMBackend:
                 self._control_path,
                 self._container_id,
                 self._compose_services,
+                require_detected=True,
             )
             self._open_session(run_entrypoint=False)
             logger.info(
@@ -2203,6 +2249,18 @@ class VacliVMVMBackend:
                 )
                 return tunnel, url
             last_error = (probe.stdout or b"").decode("utf-8", errors="replace").strip()
+            relay_status = self._ssh_call_raw(
+                f"kill -0 {tunnel.relay_pid} 2>/dev/null || "
+                f"{{ cat {shlex.quote(relay_log)} 2>/dev/null; exit 1; }}",
+                timeout=5,
+            )
+            if relay_status.returncode != 0:
+                relay_error = (relay_status.stdout or b"").decode(
+                    "utf-8", errors="replace"
+                ).strip()
+                if relay_error:
+                    last_error = f"{last_error}; bridge relay exited: {relay_error[-1000:]}"
+                break
             time.sleep(0.2)
 
         self.close_host_tunnel(tunnel)

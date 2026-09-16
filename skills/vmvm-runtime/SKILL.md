@@ -79,9 +79,13 @@ agent permission boundary.
 The smoke checks a real lease, binary file round trip, workdir execution, the
 container-to-host interception route, and cleanup. The host route is an SSH
 reverse forward on VM loopback plus a VM bridge relay; the container URL must
-bypass its HTTP proxy through `NO_PROXY`. Probe the bridge from the task
-container with Bash's `/dev/tcp`; benchmark images for Go, Java, Rust, and
-TypeScript are not required to provide a `python` executable.
+bypass its HTTP proxy through `NO_PROXY`. Discover the bridge gateway from the
+container network namespace on the VM host (`podman inspect` PID plus
+`nsenter -n ip route`) before falling back to a route probe inside the image.
+This is required for Compose networks and images without `iproute2`; silently
+using the default Podman gateway makes every model call fail before sampling.
+Probe the resulting route from the task container with any available TCP
+client; benchmark images are not required to provide Python or Bash.
 
 Pier's DeepSWE adapter supports prebuilt agent images and the benchmark's
 separate verifier Dockerfiles. It validates the Dockerfile, starts its `FROM`
