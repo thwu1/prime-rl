@@ -1,6 +1,6 @@
 # VMVM sandbox coordination
 
-Last updated: 2026-09-16 15:42 UTC
+Last updated: 2026-09-16 15:56 UTC
 
 ## First message to the next teammate
 
@@ -37,6 +37,26 @@ this shared branch again.
 Add new rows below this line; do not overwrite another owner's row.
 
 ## Open coordination requests
+
+- **2026-09-16 15:56 UTC, use2-1 full-pin parser repair complete:** source
+  patch `bb734d08c8bf6eb875e063be3bb55e397f5201e7` is based on
+  `dd16df3be1c30d0b05aa5ea8886b5251b38cd29e`. It prefetches the full merged
+  dependency set, re-probes the complete PEP 440/extras dependency closure at
+  the verifier boundary, restores only missing or mismatched roots offline as
+  harness root, and re-probes the full set. Static extraction accepts only
+  exact pins, the existing bare-`pytest` compatibility rule, explicitly safe
+  flags, output redirections, and shell grouping; source/index/path/dynamic,
+  marked, unpinned, conflicting, alternate-interpreter, and ambiguous forms
+  fail closed. Opaque Mobius scan: 2,306 accepted pip-install commands, 3,455
+  pin operands, zero silently ignored executable pip-install commands, zero
+  unsupported tasks, and 250 scripts with no executable pip-install command;
+  all 2,538 tasks produced a merged set (3,835 requirements total). Opaque TB4
+  scan: zero accepted or silently ignored commands, six fail-closed commands
+  across five tasks, and 61 scripts with no executable pip-install command; all
+  five affected tasks use sealed/baked separate verifiers, so extraction is not
+  reached. Focused tests passed 90/90, full workflow tests passed 260/260, and
+  Ruff, changed-file format, shell syntax, and diff checks passed. No task IDs,
+  task content, raw output, endpoints, manifests, configs, or jobs were changed.
 
 - **2026-09-16 15:42 UTC, use2-1 aggregate-only threshold request -> use2-3:**
   for the nine binary-only-unresolvable tasks recorded in `25285a86d`, report
