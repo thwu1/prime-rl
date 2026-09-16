@@ -1,6 +1,6 @@
 # VMVM sandbox coordination
 
-Last updated: 2026-09-16 13:19 UTC
+Last updated: 2026-09-16 13:21 UTC
 
 ## First message to the next teammate
 
@@ -30,13 +30,21 @@ this shared branch again.
 
 | Owner | Cluster | Scope | Files | Live resources | State / next gate |
 |---|---|---|---|---|---|
-| Codex session for `tianhaowu` | `fair-cw-use2-3` | Kimi serving, full TB4 pass@1, and gated 2,500-task rollout | `user/tianhaowu/terminal_bench_vmvm/**`, `user/tianhaowu/deepswe_vmvm/{README.md,run_runtime_smoke.sbatch,smoke_runtime.py}`, `environments/vmvm_tb_v2/**`, `deps/verifiers` gitlink | patched deployment `tianhaowu-k3-kda-tb2-20260916`; coordinator `1735331`; endpoints `1735340`-`1735341`; route gate `1735467`; strict repaired oracle `1735716`; held strict full oracle `1735733` | Strict repaired oracle finished 21/42 with zero infrastructure failures because trusted legacy solutions require egress. Keep production enforcement strict; qualify the corpus in an explicitly provenance-labeled public-solution oracle lane, then require at least 90%. In parallel wait for exact 2/2 Kimi readiness, semantic/state-reuse soak, and an approved transcript smoke; then run one fresh full TB4 pass@1 at eight active rollouts/four lease starts. Never inspect task prompts/bodies or raw trace/model/tool content. |
+| Codex session for `tianhaowu` | `fair-cw-use2-3` | Kimi serving, full TB4 pass@1, and gated 2,500-task rollout | `user/tianhaowu/terminal_bench_vmvm/**`, `user/tianhaowu/deepswe_vmvm/{README.md,run_runtime_smoke.sbatch,smoke_runtime.py}`, `environments/vmvm_tb_v2/**`, `deps/verifiers` gitlink | patched deployment `tianhaowu-k3-kda-tb2-20260916`; coordinator `1735331`; endpoints `1735340`-`1735341`; route gate `1735467`; compatibility repair oracle `1735886`; held strict full oracle `1735733` | Strict repaired oracle finished 21/42 with zero infrastructure failures because trusted legacy solutions require egress. Compatibility gate `1735886` is fresh from `66f8127f6` at 32 active/16 starts; require 42/42, then a fresh full compatibility oracle above 90%. In parallel wait for exact 2/2 Kimi readiness, semantic/state-reuse soak, and an approved transcript smoke; then run one fresh full TB4 pass@1 at eight active rollouts/four lease starts. Never inspect task prompts/bodies or raw trace/model/tool content. |
 | Codex session for `tianhaowu` | `fair-cw-use2-1` | Add a direct one-token KDA state-reuse probe; no serving or eval mutation | `user/tianhaowu/terminal_bench_vmvm/{probe_inference_routes.py,tests/test_probe_inference_routes.py,HANDOFF.md,COORDINATION.md}` | none | Extend the existing readiness probe with serial raw-completion predecessor/one-token-target cycles on every discovered sticky backend, without logprobs or response token IDs. Fail closed on unsupported routing, semantic corruption, or predecessor-dependent target output. |
 | Codex session for `tianhaowu` | `fair-cw-use2-1` | Qwen full TB4 pass@1 and gated 2,500-task rollout | Qwen direct-router configs, VMVM backend, focused tests, runtime skill | canceled diagnostic `1435776`; preserved output `tb4_qwen_a95b_direct_full_v1`; endpoint `shared_qwen38_2p4t` | Run `1435776` is non-official because it predates the enforced no-network policy. It was canceled at 7/66 clean diagnostic rows. Require one fresh post-policy 66-task run from the latest branch and verifier gitlink, into a fresh output path; run the strict score/trace gate only after that run completes, and launch production only if it succeeds. Never inspect task prompts/bodies or raw trace/model/tool content. |
 
 Add new rows below this line; do not overwrite another owner's row.
 
 ## Open coordination requests
+
+- **2026-09-16 13:21 UTC, use2-3 Kimi owner:** fresh compatibility repair
+  oracle `1735886` is submitted from parent `66f8127f6` into
+  `mobius_repairs_oracle_public_66f_v1`, at 32 active/16 simultaneous starts,
+  doubled task resources/timeouts, and a strict 42/42 exit gate. Its immutable
+  semantics are `trusted_reference_solution=public, verifier=declared`; model
+  setup and rollout networking remain declared/strict. It is pending priority.
+  Full strict job `1735733` remains user-held, and no Kimi model eval is active.
 
 - **2026-09-16 13:19 UTC, use2-3 Kimi owner, prefetch hold cleared:** an
   independent read-only review found and closed the last cleanup gap: sandbox
