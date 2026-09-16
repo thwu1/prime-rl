@@ -1,6 +1,6 @@
 # VMVM sandbox coordination
 
-Last updated: 2026-09-15 23:56 UTC
+Last updated: 2026-09-16 00:04 UTC
 
 ## First message to the next teammate
 
@@ -30,7 +30,7 @@ this shared branch again.
 
 | Owner | Cluster | Scope | Files | Live resources | State / next gate |
 |---|---|---|---|---|---|
-| Codex session for `tianhaowu` | `fair-cw-use2-3` | Kimi serving; TB4 pass@1; repaired-oracle check; 2,500-trace launch | `user/tianhaowu/terminal_bench_vmvm/**`, `environments/vmvm_tb_v2/**`, `deps/verifiers` gitlink | replacement deployment `tianhaowu-k3-tb16-normal-20260915`; coordinator `1731223`; workers `1731225`-`1731240`; repaired-oracle job `1731198`; old low-QoS deployment `tianhaowu-k3-tb24-20260915` is draining fallback only | All 16 replacement workers are `g3`/`QOS=normal`, currently pending for priority. Do not use the old `g3_lowest` pool for evaluation. Wait for at least 16 healthy/0 unhealthy normal-QoS routes and a stable interval, then launch exactly one fresh full TB4 run. |
+| Codex session for `tianhaowu` | `fair-cw-use2-3` | Kimi serving; TB4 pass@1; repaired-oracle check; 2,500-trace launch | `user/tianhaowu/terminal_bench_vmvm/**`, `environments/vmvm_tb_v2/**`, `deps/verifiers` gitlink | replacement deployment `tianhaowu-k3-tb16-normal-20260915`; coordinator `1731223`; workers `1731225`-`1731240`; repaired-oracle retry `1731354` | All 16 replacement workers are `g3`/`QOS=normal`, currently pending for priority. The old `g3_lowest` deployment was stopped and archived. Wait for at least 16 healthy/0 unhealthy normal-QoS routes and a stable interval, then launch exactly one fresh full TB4 run. |
 
 Add new rows below this line; do not overwrite another owner's row.
 
@@ -47,13 +47,16 @@ Add new rows below this line; do not overwrite another owner's row.
 - Repaired Mobius corpus is a clean detached worktree at
   `/checkpoint/ram/tianhaowu/terminal_bench_vmvm/datasets/mobius-ac1f30b9`,
   commit `ac1f30b9a`, with 2,538 tasks and all 2,500 selected slugs.
-- Repaired-fixture oracle job `1731198` is queued/running for the 42 changed
-  tasks. Its output is
-  `/checkpoint/ram/tianhaowu/terminal_bench_vmvm/oracle/mobius_repairs_ac1f30b9`.
+- Repaired-fixture oracle job `1731198` completed with 41/42 valid. The sole
+  miss was a transient 300-second verifier timeout on
+  `gritql-lodash-migration`, which passed in 54 seconds in the original full
+  oracle. CPU-only job `1731354` is rerunning only that task with a doubled
+  timeout into the same output directory.
 - Replacement Kimi deployment `tianhaowu-k3-tb16-normal-20260915` has a
   CPU-only coordinator (`1731223`) and 16 endpoint jobs (`1731225`-`1731240`),
   all verified by Slurm as `partition=g3`, `qos=normal`, 16 GPUs per endpoint.
-  The older `g3_lowest` deployment is not an evaluation target.
+  The older `g3_lowest` deployment was stopped and archived at 00:03 UTC; its
+  remaining workers were canceled and are releasing their nodes.
 
 ## Completed work
 
