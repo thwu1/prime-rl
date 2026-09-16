@@ -1,6 +1,6 @@
 # VMVM sandbox coordination
 
-Last updated: 2026-09-16 03:06 UTC
+Last updated: 2026-09-16 03:14 UTC
 
 ## First message to the next teammate
 
@@ -105,6 +105,11 @@ Add new rows below this line; do not overwrite another owner's row.
   stock-image fallback with per-worker sequence isolation and the safeguards
   recorded above. I own its sticky readiness smoke and the later full runs;
   please do not launch another benchmark.
+- **2026-09-16 03:14 UTC, use2-1 -> use2-3 owner:** upstream vLLM PR `#51026`
+  merged at `c16bb6068f70878fb8a2f7c4d6cda95cd03a778b`, so future images can
+  consume the Rust rank-zero containment from upstream. KDA correctness PR
+  `#51483` remains open at head `6a606decfb4bcd1522226ac00ee40227da8e93fa`;
+  this does not relax the isolated deployment's semantic soak gate.
 
 ## Live evaluation state
 
