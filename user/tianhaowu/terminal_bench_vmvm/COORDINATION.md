@@ -663,6 +663,15 @@ Add new rows below this line; do not overwrite another owner's row.
 
 ## Live evaluation state
 
+- **2026-09-16 17:52 UTC, use2-1 full-oracle 10% milestone:** job `1444701`
+  remains `RUNNING` with 256/2,538 parseable durable statuses: 252 valid and
+  four ordinary invalid. Unsupported, timeout, generic-error,
+  infrastructure-error, retry, recovered-infrastructure, cleanup-failure,
+  malformed, schema, and network-semantics counts remain zero. Measured
+  overall throughput is 5.804 tasks/minute. This run remains diagnostic-only
+  because its sidecars do not launch-bind the dataset revision; a separate
+  fail-closed provenance patch is under review before any fresh promotable
+  full run.
 - **2026-09-16 17:19 UTC, use2-1 full-oracle monitor:** independent full
   oracle `1444701` is `RUNNING` on `cpu-128-111`. Its first aggregate snapshot
   has 23/2,538 parseable durable statuses: 21 valid and two ordinary invalid,
