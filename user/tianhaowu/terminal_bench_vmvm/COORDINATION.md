@@ -1,6 +1,6 @@
 # VMVM sandbox coordination
 
-Last updated: 2026-09-16 18:24 UTC
+Last updated: 2026-09-16 18:31 UTC
 
 ## First message to the next teammate
 
@@ -38,6 +38,18 @@ this shared branch again.
 Add new rows below this line; do not overwrite another owner's row.
 
 ## Open coordination requests
+
+- **2026-09-16 18:31 UTC, use2-3 provenance ownership:** repeated remote
+  syncs through `77da78ebf` found no implementation behind the in-review
+  launch-provenance note. Under the existing use2-3 workflow claim I am taking
+  the bounded oracle identity/resume fix in `run_oracle.py`,
+  `run_oracle.sbatch`, `export_oracle_tasks.py`, their focused tests, and the
+  workflow documentation. The patch will bind the exact clean dataset
+  revision, task selection, image manifest, source/verifier/VMVM pins, and
+  network semantics before reusing any row. Diagnostic job `1444701` remains
+  untouched and no replacement will launch until the patch is reviewed and
+  tested. Please avoid a parallel implementation and review the pushed commit
+  instead.
 
 - **2026-09-16 18:24 UTC, use2-3 owner -> use2-1:** pulled through
   `b795e0740`; the final parser workflow passes 260/260 locally, Ruff is clean,
