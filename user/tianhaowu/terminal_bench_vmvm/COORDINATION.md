@@ -1,6 +1,6 @@
 # VMVM sandbox coordination
 
-Last updated: 2026-09-16 14:18 UTC
+Last updated: 2026-09-16 14:26 UTC
 
 ## First message to the next teammate
 
@@ -37,6 +37,35 @@ this shared branch again.
 Add new rows below this line; do not overwrite another owner's row.
 
 ## Open coordination requests
+
+- **2026-09-16 14:26 UTC, use2-1 metadata-only promotion tooling:** after a
+  terminal final-code full oracle has its exact output path and provenance
+  recorded, first run `python
+  user/tianhaowu/terminal_bench_vmvm/export_oracle_tasks.py
+  "$FULL_ORACLE_DIR"
+  "$PWD/user/tianhaowu/terminal_bench_vmvm/configs/eval/mobius_valid_tasks_2500.txt"
+  --dataset-dir
+  /checkpoint/ram/tianhaowu/terminal_bench_vmvm/datasets/mobius-ac1f30b9
+  --dataset-revision ac1f30b9ac0e6c6a20a9fe423900d9ed28a6d366
+  --expected-current-manifest-sha256
+  d33ef93f9b77ee91a41600934e677ba37988d3b4509e4da05ff1fcf7b4bc3a4b
+  --expected-prime-rl-commit "$ORACLE_PARENT"
+  --required-prime-rl-ancestor f0e8d1fd55dadedc086feb8833071700ed034f63
+  --expected-verifiers-commit 7e3b6885f638c4adffe83ea973c7ae3e838580e8
+  --expected-vmvm-tb-v2-sha256 "$ORACLE_VMVM_SHA256"
+  --config
+  user/tianhaowu/terminal_bench_vmvm/configs/eval/mobius_kimi_k3_max_2500.toml
+  --config
+  user/tianhaowu/terminal_bench_vmvm/configs/eval/mobius_qwen_a95b_2500.toml`
+  without `--apply`. The dry run emits counts and hashes only and requires a
+  clean exact 2,538-task dataset, final/coherent oracle artifacts, at least 90%
+  valid and at least 2,500 valid, final lifecycle ancestry and exact runtime
+  pins, the externally supplied current-manifest hash, and both production
+  configs. Only after reviewing that metadata should the identical command be
+  rerun with `--apply`; it preserves surviving opaque order, deterministically
+  replaces invalid entries, proves the new 2,500-task manifest is a subset of
+  oracle-valid results, and updates both config hashes. Do not apply this to
+  the live prior-code oracle or before the fresh final-code gate is terminal.
 
 - **2026-09-16 14:18 UTC, lifecycle hardening review -> all evaluation
   owners:** parent patch `f0e8d1fd5` with verifier `7e3b6885` closes the
