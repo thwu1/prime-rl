@@ -1,6 +1,6 @@
 # VMVM sandbox coordination
 
-Last updated: 2026-09-16 02:27 UTC
+Last updated: 2026-09-16 02:33 UTC
 
 ## First message to the next teammate
 
@@ -31,7 +31,7 @@ this shared branch again.
 | Owner | Cluster | Scope | Files | Live resources | State / next gate |
 |---|---|---|---|---|---|
 | Codex session for `tianhaowu` | `fair-cw-use2-3` | Kimi serving; TB4 pass@1; 2,500-trace launch | `user/tianhaowu/terminal_bench_vmvm/**`, `environments/vmvm_tb_v2/**`, `deps/verifiers` gitlink | no active Kimi deployment; vulnerable 24-endpoint deployment archived at `.removed/tianhaowu-k3-tb16-normal-20260915-20260916T022644Z` | RAM issue `#279` has no patched-image update. Deploy a fresh 24-endpoint normal-QoS pool only after an immutable compatible KDA-patched image is available, using piecewise/eager graphs; require model-specific health 24/0 and `probe_inference_routes.py`, then run a fresh transcript smoke and exactly one full TB4 run. |
-| Codex session for `tianhaowu` (use2-1) | `fair-cw-use2-1` | Shared-endpoint compatibility and complete model-visible trace audit; Mobius archive staging; no duplicate full eval launch | Kimi eval configs; `audit_traces.py`; `tests/test_audit_traces.py`; `deps/verifiers` request/response persistence and tests gitlink; `COORDINATION.md` | shared deployment `shared-kimi-k3-16w`; completed smoke `1430917` → `kimi_token_smoke_shared_v5`; terminal diagnostics `1430087`, `1430091`, `1430101`, `1430136`, `1430367` | Smoke completed 2/2 with zero errors and 22,534 sampled tokens; strict exact-token/reasoning audit passed. It used pre-policy `logprobs=false` plus `return_token_ids=true` and is diagnostic only. Coordinate a fail-closed no-logprob request path and complete request/tool-schema persistence before the production smoke. |
+| Codex session for `tianhaowu` (use2-1) | `fair-cw-use2-1` | Shared-endpoint compatibility and complete model-visible trace audit; Mobius archive staging; no duplicate full eval launch | Kimi eval configs; `audit_traces.py`; `tests/test_audit_traces.py`; `tests/test_eval_configs.py`; `deps/verifiers` request/response persistence and tests gitlink; `COORDINATION.md` | shared deployment `shared-kimi-k3-16w`; completed smoke `1430917` → `kimi_token_smoke_shared_v5`; terminal diagnostics `1430087`, `1430091`, `1430101`, `1430136`, `1430367` | Verifier model-I/O capture and outbound denylist are pinned in `7ec7991a9` (`deps/verifiers` `73263fc1`; 65 tests). Next, wire only the capture/denylist client fields into eval configs, extend the audit, and run a fresh two-task shared-endpoint smoke; no full eval launch. |
 
 Add new rows below this line; do not overwrite another owner's row.
 
@@ -93,6 +93,13 @@ Add new rows below this line; do not overwrite another owner's row.
   plus the coordinator are gone from `squeue`; the deployment is recoverably
   archived at the path in the active-claim row. Future commands must use a new
   patched deployment ID and proxy path.
+- **2026-09-16 02:33 UTC, use2-1 -> use2-3 owner:** model-I/O capture is now
+  pinned at parent commit `7ec7991a9` / verifier commit `73263fc1` (65 focused
+  tests). Per the approved handoff, I will wire `capture_model_io=true` and a
+  four-field outbound body denylist into the eval configs, extend
+  `audit_traces.py` to require and integrity-check the captures, and run only a
+  fresh two-task diagnostic smoke against the use2-1 shared endpoint. I will
+  not touch serving or launch the full TB4/Mobius runs.
 
 ## Live evaluation state
 
