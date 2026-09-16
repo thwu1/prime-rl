@@ -205,23 +205,27 @@ not injected into agent rollouts or verifier containers.
 
 After `fetch_tb4.sh` verifies the prebuilt release, wait for every intended
 route to be healthy, zero routes to be unhealthy, and a clean per-route
-semantic plus state-reuse soak. The vulnerable, unallocated
-`tianhaowu-k3-tb24-nocache-20260916` deployment was archived on 2026-09-16.
-Its replacement, `tianhaowu-k3-kda-tb1-low-20260916`, uses the digest-pinned
-ARM64 fix from RAM PR `#285` together with `PIECEWISE` graphs. It starts at one
-route on the cluster-default `g3_lowest` QoS so TB4 can qualify the patched
-runtime and VMVM capacity before any scale-up; never treat `/health` alone as
-readiness.
-Then submit exactly one fresh pass@1 run against Kimi-K3 in max-reasoning mode:
+semantic plus state-reuse soak. Never treat `/health` alone as readiness.
 
-Sticky headers make backend affinity observable. The patched deployment keeps
-prefix caching enabled and begins with rollout concurrency four on its one
-route. VMVM lease creation remains capped at two until a clean post-fix smoke
-and full TB4 run qualify a higher rate.
+### Shared 24-route Kimi deployment
+
+The preferred `shared-kimi-k3` deployment publishes 24 sticky Kimi-K3 routes
+and its credential through `proxy_info.json`. The readiness gate must establish
+exactly 24 healthy routes, zero unhealthy routes, stable per-session affinity,
+and clean one-token state reuse before the transcript smoke or full run starts.
+The evaluator automatically sends both stable rollout-session headers. Pass the
+credential file only; do not set `INFERENCE_DEPLOYMENT_ID` because this proxy
+already has a default Kimi-K3 deployment.
+
+After the approved two-task transcript smoke and strict trace audit pass, submit
+one fresh pass@1 run. The dedicated config uses 24 rollout and HTTP slots, keeps
+VMVM lease/tunnel setup capped at two, preserves the 256K total context budget,
+and allows a queued model call up to 15,000 seconds without changing the
+existing VMVM session or rollout deadlines.
 
 ```bash
 tmux send-keys -t swebench_vmvm:Launcher.0 \
-  "cd /storage/home/tianhaowu/prime-rl && env EVAL_APPROVED_TASK_FILE=\$PWD/user/tianhaowu/terminal_bench_vmvm/configs/eval/tb4_qwen_a95b_miniswe.tasks.txt EVAL_APPROVED_TASK_FILE_SHA256=9485011ac4a953f4a4a1c7c5e78550b6d7de6f760a3859dac15a3610cf4ad892 EVAL_CONFIG=\$PWD/user/tianhaowu/terminal_bench_vmvm/configs/eval/tb4_kimi_k3_max_miniswe.toml INFERENCE_PROXY_INFO=/checkpoint/ram/shared/vllm_deployments_v2/tianhaowu-k3-kda-tb1-low-20260916/proxy_info.json OUTPUT_DIR=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/evals/tb4_kimi_k3_sticky_full_v3 VACLI_MAX_CONCURRENT_LEASES=2 sbatch --parsable user/tianhaowu/terminal_bench_vmvm/run_eval.sbatch" C-m
+  "cd /path/to/clean/prime-rl-worktree && env -u INFERENCE_BASE_URL -u INFERENCE_DEPLOYMENT_ID -u INFERENCE_JOB_ID -u INFERENCE_PROXY_URL -u RESUME_DIR PROJECT_DIR=\$PWD EVAL_APPROVED_TASK_FILE=\$PWD/user/tianhaowu/terminal_bench_vmvm/configs/eval/tb4_qwen_a95b_miniswe.tasks.txt EVAL_APPROVED_TASK_FILE_SHA256=9485011ac4a953f4a4a1c7c5e78550b6d7de6f760a3859dac15a3610cf4ad892 EVAL_CONFIG=\$PWD/user/tianhaowu/terminal_bench_vmvm/configs/eval/tb4_kimi_k3_shared24_miniswe.toml INFERENCE_PROXY_INFO=/checkpoint/ram/shared/vllm_deployments_v2/shared-kimi-k3/proxy_info.json OUTPUT_DIR=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/evals/tb4_kimi_k3_shared24_full_v1 VACLI_MAX_CONCURRENT_LEASES=2 sbatch --parsable --time=7-00:00:00 user/tianhaowu/terminal_bench_vmvm/run_eval.sbatch" C-m
 ```
 
 Every real launch and resume through `run_eval.sbatch` requires an external
@@ -243,10 +247,10 @@ embedding any credential in the config. For an HTTPS ingress that is reachable
 only through the corporate forward proxy, set `INFERENCE_PROXY_URL` as well;
 direct VMVM and inference routes continue to run with proxy variables cleared.
 
-The default config is `configs/eval/tb4_kimi_k3_max_miniswe.toml`: 66 tasks,
-pass@1, mini-swe-agent, `reasoning_effort=max`, one VMVM per rollout, and a
-256 Ki-token total context cap. It uses rollout concurrency eight and an HTTP
-connection/keepalive pool of eight. Keep vacli lease bring-up bounded at four
+The shared config is `configs/eval/tb4_kimi_k3_shared24_miniswe.toml`: 66
+tasks, pass@1, mini-swe-agent, `reasoning_effort=max`, one VMVM per rollout,
+and a 256 Ki-token total context cap. It uses rollout concurrency 24 and an
+HTTP connection/keepalive pool of 24. Keep vacli lease bring-up bounded at two
 for this qualification run. All 11 TB4 tasks that declare Docker Compose
 sidecars use the compose-capable VMVM path;
 they are not skipped or downgraded to a single-container approximation. The
@@ -263,6 +267,11 @@ the retry away from a transiently bad sticky backend. The transparent
 The evaluator and oracle are network-bound CPU controllers; their checked-in
 Slurm defaults request `cpu_x86`, 8 CPUs, 16 GiB, and no GPUs. Rollout
 concurrency does not require one controller CPU per sandbox.
+
+The single-route `tb4_kimi_k3_max_miniswe.toml` remains available only for the
+digest-pinned `tianhaowu-k3-kda-tb1-low-20260916` fallback. It stays at four
+rollout and HTTP slots and must pass its own one-route readiness gate before
+use.
 
 ### Two-worker direct fallback
 
