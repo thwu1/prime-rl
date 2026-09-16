@@ -193,6 +193,19 @@ shared `ram-inference-gateway`, and the MiniSWE process in each VMVM calls that
 stable public ingress. VMVM's reverse-SSH `host_endpoint` remains available for
 generic Runtime consumers and its contract smoke.
 
+For LiteLLM-backed multi-turn evals, send one stable rollout trace ID as both
+`X-LiteLLM-Session-ID` and `X-Session-ID` on every turn. The first header drives
+LiteLLM session affinity; the second is a compatibility mirror. A serving
+deployment must publish `extras.sticky=true` and a Redis port, because otherwise
+affinity can be isolated per proxy worker. Before a large Kimi run, query
+model-specific health before and after a semantic route snapshot, require the
+exact intended route count with zero unhealthy routes, reject hidden retries,
+and verify sequential same-session requests retain their backend. Never request
+`logprobs`, `prompt_logprobs`, `top_logprobs`, or `return_token_ids` from the
+affected Kimi runtime. A semantic snapshot detects already-corrupt workers but
+does not substitute for a compatible KDA patch plus piecewise CUDA graphs (or
+eager execution).
+
 `VACLI_IMAGE_PULL_TIMEOUT_SECONDS` bounds each VM-side image pull attempt. The
 DeepSWE launcher derives it from TOML `sandbox_startup_timeout_sec` and uses one
 hour by default; keep the command/session ceiling separate because verification

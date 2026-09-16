@@ -217,6 +217,46 @@ not launch-ready merely because `/health` is green: it needs a compatible port
 of vLLM PR `#51483`, `PIECEWISE` CUDA graphs (or eager mode), and a clean
 state-reuse semantic soak covering every route.
 
+After verifying the image revision and piecewise/eager setting, run the
+standalone semantic snapshot and sticky-route gate before the two-task smoke.
+It reads the proxy URL, key, served model, and sticky/Redis metadata directly
+from `proxy_info.json`, never includes the key in its JSON output, and uses only
+the Python standard library. Each discovery request gets a unique session value in both
+`X-LiteLLM-Session-ID` and `X-Session-ID`; the probe then repeats one stable
+session sequentially per backend and requires `x-litellm-model-api-base` to
+remain fixed.
+
+```bash
+uv run --project user/tianhaowu/terminal_bench_vmvm \
+  python user/tianhaowu/terminal_bench_vmvm/probe_inference_routes.py \
+  --proxy-info /checkpoint/ram/shared/vllm_deployments_v2/tianhaowu-k3-tb16-normal-20260915/proxy_info.json \
+  --model Kimi-K3 \
+  --expected-routes 24 \
+  --requests 192 \
+  --repeats 3 \
+  --concurrency 32 \
+  --health-timeout 30 \
+  --timeout 300 \
+  --max-tokens 4096 \
+  --require-reasoning \
+  --pretty
+```
+
+Set `--expected-routes` to the deployment's intended ready-route count, not
+merely its current observed count. The command requires the model-specific
+health response to report exactly that many healthy routes and zero unhealthy
+routes before and after the requests. It also requires an exact observed route
+count, shared-affinity metadata, no hidden LiteLLM retries, an exact marker with
+a normal stop, and stable backend headers for the repeated sessions. Its Chat
+Completions payload omits `logprobs`, `prompt_logprobs`, `top_logprobs`, and
+`return_token_ids` entirely.
+
+This snapshot catches already-corrupt routes and affinity regressions; it does
+not deterministically reproduce the one-token scheduling trigger in vLLM
+`#51483`. A passing result cannot replace the immutable patched-image and
+piecewise/eager checks. `--allow-unverified-affinity` and `--skip-health` exist
+for diagnosis only and must not be used for the production readiness gate.
+
 Export exactly 2,500 oracle-qualified tasks before the production run:
 
 ```bash

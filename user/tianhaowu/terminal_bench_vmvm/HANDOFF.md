@@ -104,7 +104,8 @@ digest rather than a moving tag. `/health` alone is not a correctness signal.
 
 Coordinator job `1731223` is running on `cpu_x86`; endpoint jobs `1731225`-
 `1731240` and `1731470`-`1731477` request `g3`/`QOS=normal`. At 2026-09-16
-00:53 UTC all 24 endpoint jobs were pending for scheduler priority, so the
+01:49 UTC all 24 endpoint jobs were pending for scheduler priority with no
+estimated start time, so the
 deployment had zero ready routes and no `proxy_info.json`. Do not submit an
 eval until at least 16 routes are healthy, zero are unhealthy, the state is
 stable across repeated checks, and the proxy metadata exists. The prior
@@ -133,6 +134,24 @@ that response header `x-litellm-model-api-base` remains identical. Several
 different session IDs should span multiple API bases once multiple workers are
 healthy. The probe must not request logprobs. Finally run the two-task
 transcript smoke and its default audit.
+
+Use the checked-in snapshot/affinity gate after the patched deployment reaches
+its intended 24 routes:
+
+```bash
+uv run --project user/tianhaowu/terminal_bench_vmvm \
+  python user/tianhaowu/terminal_bench_vmvm/probe_inference_routes.py \
+  --proxy-info /checkpoint/ram/shared/vllm_deployments_v2/tianhaowu-k3-tb16-normal-20260915/proxy_info.json \
+  --model Kimi-K3 --expected-routes 24 --requests 192 --repeats 3 \
+  --concurrency 32 --health-timeout 30 --timeout 300 --max-tokens 4096 \
+  --require-reasoning --pretty
+```
+
+It requires model-specific health counts before and after, exactly 24 observed
+API bases, published sticky/Redis metadata, zero hidden LiteLLM retries, exact
+semantic replies, and sequential same-session backend affinity. This is a
+corruption snapshot, not a deterministic reproduction of the one-token KDA
+trigger, so it never replaces the patched-image and piecewise/eager gates.
 
 The other-cluster proxy `http://cpu-128-141:8100` is not reachable from this
 cluster either directly or through `fwdproxy`. URL-only client pooling was
