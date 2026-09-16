@@ -23,8 +23,10 @@ The effective corpus policies are 2,538/2,538 shared no-network/no-network for
 Mobius, and 64 separate public/public plus two separate public/no-network for
 TB4. Repaired-fixture oracle job `1735580` is the first strict revalidation
 under this policy (42 tasks, required pass rate 1.0, 32 active/16 lease starts).
-Require it to finish 42/42, then revalidate the full oracle before production
-trace generation.
+Require it to finish 42/42. Full 2,538-task oracle job `1735598` is held on its
+success and will run at the previously measured oracle-only 64 active/32 lease
+starts with doubled task timeout/resources. It must exceed 90% before
+production trace generation.
 
 ## Start here
 
