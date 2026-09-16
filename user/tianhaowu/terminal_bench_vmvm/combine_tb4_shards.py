@@ -117,8 +117,8 @@ def _validate_config(
         "model": "Kimi-K3",
         "num_tasks": 33,
         "num_rollouts": 1,
-        "max_concurrent": 16,
-        "multiplex": 16,
+        "max_concurrent": 4,
+        "multiplex": 4,
         "max_input_tokens": 262144,
         "max_output_tokens": 262144,
         "max_total_tokens": 262144,
@@ -139,10 +139,10 @@ def _validate_config(
             problems.append("client.capture_model_io_not_true")
         if set(client.get("outbound_body_denylist") or []) != FORBIDDEN_REQUEST_FIELDS:
             problems.append("client.outbound_body_denylist_mismatch")
-        if client.get("max_connections") != 16:
-            problems.append("client.max_connections_not_16")
-        if client.get("max_keepalive_connections") != 16:
-            problems.append("client.max_keepalive_connections_not_16")
+        if client.get("max_connections") != 4:
+            problems.append("client.max_connections_not_4")
+        if client.get("max_keepalive_connections") != 4:
+            problems.append("client.max_keepalive_connections_not_4")
 
     sampling = config.get("sampling")
     if not isinstance(sampling, dict):

@@ -1,6 +1,6 @@
 # VMVM sandbox coordination
 
-Last updated: 2026-09-16 07:00 UTC
+Last updated: 2026-09-16 07:14 UTC
 
 ## First message to the next teammate
 
@@ -30,7 +30,7 @@ this shared branch again.
 
 | Owner | Cluster | Scope | Files | Live resources | State / next gate |
 |---|---|---|---|---|---|
-| Codex session for `tianhaowu` | `fair-cw-use2-3` | Kimi serving; TB4 pass@1; 2,500-trace launch | `user/tianhaowu/terminal_bench_vmvm/**`, `environments/vmvm_tb_v2/**`, `deps/verifiers` gitlink | deployment `tianhaowu-k3-tb24-nocache-20260916`; coordinator `1732626`; endpoint jobs `1732639`-`1732662`; gate chain `1732973 -> 1732984 -> 1732986 -> 1732987 -> 1732988`; direct TB4 chain `1733765 + 1733766 -> 1733767` | The queued 24-endpoint deployment remains the high-capacity production target. While it waits, two fixed healthy Kimi workers passed VMVM/model-I/O smokes and a 96-request no-logprob semantic soak. Exactly one disjoint 33+33 TB4 pass@1 run is now queued at 16 requests per worker; merge `1733767` is the strict reproduction checkpoint. Do not launch the 2,500-task production run on only these two workers. |
+| Codex session for `tianhaowu` | `fair-cw-use2-3` | Kimi serving; TB4 pass@1; 2,500-trace launch | `user/tianhaowu/terminal_bench_vmvm/**`, `environments/vmvm_tb_v2/**`, `deps/verifiers` gitlink | deployment `tianhaowu-k3-tb24-nocache-20260916`; coordinator `1732626`; endpoint jobs `1732639`-`1732662`; gate chain `1732973 -> 1732984 -> 1732986 -> 1732987 -> 1732988`; canceled direct v1 `1733765 + 1733766 -> 1733767` | The queued 24-endpoint deployment remains the high-capacity production target. Two fixed healthy Kimi workers remain the TB4 fallback, but the aggregate-32 v1 failed VMVM capacity and was canceled. The measured v2 configuration is four requests per worker, eight aggregate, with two concurrent lease starts per controller. No v2 jobs are submitted yet. Do not launch the 2,500-task production run on only these two workers. |
 | Codex session for `tianhaowu` | `fair-cw-use2-1` | Add a direct one-token KDA state-reuse probe; no serving or eval mutation | `user/tianhaowu/terminal_bench_vmvm/{probe_inference_routes.py,tests/test_probe_inference_routes.py,HANDOFF.md,COORDINATION.md}` | none | Extend the existing readiness probe with serial raw-completion predecessor/one-token-target cycles on every discovered sticky backend, without logprobs or response token IDs. Fail closed on unsupported routing, semantic corruption, or predecessor-dependent target output. |
 | Codex session for `tianhaowu` | `fair-cw-use2-1` | Qwen TB4 pass@1 and gated 2,500-trace launch; VMVM transport retry hardening | Qwen eval configs, VMVM backend, focused tests, runtime skill | clean smoke `1432623`; diagnostic fulls `1432675` and `1432759` canceled; endpoint `shared_qwen38_2p4t` | Smoke passed 2/2 with 16 model-I/O turns and no audit problems. Concurrency 32 failed beyond the first 16 tunnels; concurrency 16 still failed as the fourteenth container arrived, even with eight simultaneous lease starts. The clean full rerun is therefore bounded at eight active VMVMs and four simultaneous lease starts. The clean repaired Mobius worktree and exact 2,538-image manifest are staged locally; production remains gated on a clean TB4 checkpoint and exact oracle task manifest. |
 
@@ -193,17 +193,26 @@ Add new rows below this line; do not overwrite another owner's row.
   strict merge `1733767` are queued. Per the user's latest instruction, future
   monitoring is metadata-only: do not inspect task prompts, task bodies, or raw
   trace/model/tool content.
+- **2026-09-16 07:14 UTC, use2-3 owner:** the aggregate-32 direct full attempt
+  exceeded measured VMVM capacity. Shards `1733765` and `1733766` produced 19
+  tunnel-exposure failures and five Compose failures; 11 of their first 13 rows
+  errored. Both shards and dependent merge `1733767` were canceled. Their
+  `_v1` outputs are diagnostic and must not be resumed or merged. Direct shard
+  configs now pin four rollouts per worker (eight aggregate), while launch
+  commands pin two simultaneous lease starts per controller (four aggregate).
+  No replacement jobs were submitted by this change.
 
 ## Live evaluation state
 
 - Direct fixed-worker fallback smokes are complete and strict: A `1733374` /
   audit `1733529`, B `1733378` / audit `1733416`, each with two durable rows and
-  zero automated audit failures. Full 33-task shards `1733765` and `1733766`
-  were submitted at 06:53 UTC with 16-way concurrency each; strict atomic merge
-  `1733767` depends on both. Output directories are
-  `tb4_kimi_k3_direct_{a,b,combined}_v1`. The shard manifests are disjoint and
-  cover all 66 tasks exactly once. These two workers are sufficient for TB4
-  reproduction, not for the high-throughput 2,500-task production run.
+  zero automated audit failures. The aggregate-32 v1 shards `1733765` and
+  `1733766` failed VMVM capacity and were canceled along with merge `1733767`;
+  their outputs are diagnostic only. The replacement config is aggregate eight
+  with four rollouts per worker and uses fresh
+  `tb4_kimi_k3_direct_{a,b,combined}_v2` paths. The shard manifests remain
+  unchanged and disjoint. No v2 jobs are submitted yet. These two workers are
+  sufficient for TB4 reproduction, not the 2,500-task production run.
 - Use2-3 deployment `tianhaowu-k3-tb24-nocache-20260916` was submitted at
   03:17 UTC. Coordinator `1732626` is running on `cpu_x86`; all 24 endpoint
   jobs (`1732639`-`1732662`) request 16 GB300 GPUs each on `g3`, `QOS=normal`,

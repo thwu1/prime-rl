@@ -219,10 +219,10 @@ fallback keeps every trajectory on one engine by construction. It is one
 pass@1 evaluation split into two disjoint 33-task manifests, not two attempts
 of the same tasks:
 
-- `tb4_kimi_k3_direct_a.toml` uses `http://g3-138-137:32317/v1`, 16 rollout
+- `tb4_kimi_k3_direct_a.toml` uses `http://g3-138-137:32317/v1`, four rollout
   slots, and task-manifest SHA-256
   `d0f7c0297a82edf79f3e966ffd830fb418ea90c9faa7c4f3d288d5c7bacd1365`;
-- `tb4_kimi_k3_direct_b.toml` uses `http://g3-146-243:32499/v1`, 16 rollout
+- `tb4_kimi_k3_direct_b.toml` uses `http://g3-146-243:32499/v1`, four rollout
   slots, and task-manifest SHA-256
   `485c1a038efc72a4eddf4928758c74d31827ebb7624108cee63e503df0fa02ec`.
 
@@ -233,15 +233,23 @@ Direct worker access requires all proxy environment variables to be unset;
 `run_eval.sbatch` already does this. Do not set `INFERENCE_PROXY_URL` or put
 these URLs behind round-robin routing. `OPENAI_API_KEY=EMPTY` is accepted.
 
+The first full attempt used 16 rollouts per worker (32 aggregate). Jobs
+`1733765` and `1733766` produced 19 tunnel-exposure failures and five Compose
+failures; 11 of the first 13 rows were errors. They were canceled, as was
+dependent merge `1733767`. Treat all three `_v1` directories as diagnostic and
+do not resume or merge them. The measured fallback limit is now four rollouts
+per worker (eight aggregate) and two concurrent lease bring-ups per controller
+(four aggregate).
+
 Submit only through the launcher tmux after both workers pass a fresh
 no-logprob semantic and model-I/O smoke:
 
 ```bash
 tmux send-keys -t swebench_vmvm:Launcher.0 \
-  "cd /storage/home/tianhaowu/prime-rl && env OPENAI_API_KEY=EMPTY INFERENCE_BASE_URL=http://g3-138-137:32317/v1 EVAL_CONFIG=\$PWD/user/tianhaowu/terminal_bench_vmvm/configs/eval/tb4_kimi_k3_direct_a.toml OUTPUT_DIR=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/evals/tb4_kimi_k3_direct_a_v1 VACLI_MAX_CONCURRENT_LEASES=16 sbatch --parsable user/tianhaowu/terminal_bench_vmvm/run_eval.sbatch" C-m
+  "cd /storage/home/tianhaowu/prime-rl && env OPENAI_API_KEY=EMPTY INFERENCE_BASE_URL=http://g3-138-137:32317/v1 EVAL_CONFIG=\$PWD/user/tianhaowu/terminal_bench_vmvm/configs/eval/tb4_kimi_k3_direct_a.toml OUTPUT_DIR=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/evals/tb4_kimi_k3_direct_a_v2 VACLI_MAX_CONCURRENT_LEASES=2 sbatch --parsable user/tianhaowu/terminal_bench_vmvm/run_eval.sbatch" C-m
 
 tmux send-keys -t swebench_vmvm:Launcher.0 \
-  "cd /storage/home/tianhaowu/prime-rl && env OPENAI_API_KEY=EMPTY INFERENCE_BASE_URL=http://g3-146-243:32499/v1 EVAL_CONFIG=\$PWD/user/tianhaowu/terminal_bench_vmvm/configs/eval/tb4_kimi_k3_direct_b.toml OUTPUT_DIR=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/evals/tb4_kimi_k3_direct_b_v1 VACLI_MAX_CONCURRENT_LEASES=16 sbatch --parsable user/tianhaowu/terminal_bench_vmvm/run_eval.sbatch" C-m
+  "cd /storage/home/tianhaowu/prime-rl && env OPENAI_API_KEY=EMPTY INFERENCE_BASE_URL=http://g3-146-243:32499/v1 EVAL_CONFIG=\$PWD/user/tianhaowu/terminal_bench_vmvm/configs/eval/tb4_kimi_k3_direct_b.toml OUTPUT_DIR=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/evals/tb4_kimi_k3_direct_b_v2 VACLI_MAX_CONCURRENT_LEASES=2 sbatch --parsable user/tianhaowu/terminal_bench_vmvm/run_eval.sbatch" C-m
 ```
 
 Each shard remains its own resumable evaluator output. A resume replays the
@@ -251,9 +259,9 @@ worker. After both finish, publish a separate, audit-only combined artifact:
 ```bash
 uv run --project user/tianhaowu/terminal_bench_vmvm \
   python user/tianhaowu/terminal_bench_vmvm/combine_tb4_shards.py \
-  --shard-a-dir /checkpoint/ram/tianhaowu/terminal_bench_vmvm/evals/tb4_kimi_k3_direct_a_v1 \
-  --shard-b-dir /checkpoint/ram/tianhaowu/terminal_bench_vmvm/evals/tb4_kimi_k3_direct_b_v1 \
-  --output-dir /checkpoint/ram/tianhaowu/terminal_bench_vmvm/evals/tb4_kimi_k3_direct_combined_v1 \
+  --shard-a-dir /checkpoint/ram/tianhaowu/terminal_bench_vmvm/evals/tb4_kimi_k3_direct_a_v2 \
+  --shard-b-dir /checkpoint/ram/tianhaowu/terminal_bench_vmvm/evals/tb4_kimi_k3_direct_b_v2 \
+  --output-dir /checkpoint/ram/tianhaowu/terminal_bench_vmvm/evals/tb4_kimi_k3_direct_combined_v2 \
   --dataset-dir /checkpoint/ram/tianhaowu/terminal_bench_vmvm/datasets/tb4-prebuilt-v4.0.0/tasks
 ```
 

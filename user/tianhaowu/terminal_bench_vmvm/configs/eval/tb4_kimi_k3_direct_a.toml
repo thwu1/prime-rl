@@ -1,12 +1,12 @@
 model = "Kimi-K3"
 num_tasks = 33
 num_rollouts = 1
-max_concurrent = 16
+max_concurrent = 4
 max_turns = 200
 max_input_tokens = 262144
 max_output_tokens = 262144
 max_total_tokens = 262144
-multiplex = 16
+multiplex = 4
 rich = false
 retain_traces = false
 
@@ -18,8 +18,8 @@ base_url = "http://g3-138-137:32317/v1"
 api_key_var = "OPENAI_API_KEY"
 timeout = 7200
 connect_timeout = 120
-max_connections = 16
-max_keepalive_connections = 16
+max_connections = 4
+max_keepalive_connections = 4
 
 [sampling]
 temperature = 1.0

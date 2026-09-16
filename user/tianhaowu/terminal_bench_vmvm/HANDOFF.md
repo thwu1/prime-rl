@@ -272,14 +272,20 @@ checkpoint job to complete successfully and its JSON to contain `"ok": true`.
 If the queued 24-route deployment remains unavailable, the direct-worker
 fallback is fully pinned in
 `configs/eval/tb4_kimi_k3_direct_{a,b}.toml`. It assigns each of the 66 tasks to
-exactly one fixed worker, at concurrency 16 per worker, so a trajectory cannot
+exactly one fixed worker, at concurrency four per worker, so a trajectory cannot
 move between engines. The corresponding 33-line task manifests have SHA-256
 `d0f7c0297a82edf79f3e966ffd830fb418ea90c9faa7c4f3d288d5c7bacd1365`
 and `485c1a038efc72a4eddf4928758c74d31827ebb7624108cee63e503df0fa02ec`;
 their union is the full TB4 set and their intersection is empty. Run both only
 after separate no-logprob smokes, with `OPENAI_API_KEY=EMPTY` and no proxy
-environment. Use `VACLI_MAX_CONCURRENT_LEASES=16` in each submission so the two
-controllers create at most 32 leases at once.
+environment. Use `VACLI_MAX_CONCURRENT_LEASES=2` in each submission so the two
+controllers create at most four leases at once.
+
+The `_v1` attempt at aggregate concurrency 32 is diagnostic and invalid: jobs
+`1733765` and `1733766` produced 19 tunnel-exposure failures and five Compose
+failures, with 11 errors among the first 13 rows, then were canceled. Dependent
+merge `1733767` was also canceled. Do not resume or merge those directories;
+all fresh shard and combined output paths use `_v2`.
 
 Keep the two output directories independently resumable. After both contain
 33 rows, run `combine_tb4_shards.py` as documented in the README. It refuses an

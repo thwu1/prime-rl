@@ -144,6 +144,20 @@ def test_mobius_qwen_production_retention_and_concurrency() -> None:
     )
 
 
+@pytest.mark.parametrize(
+    "filename",
+    ["tb4_kimi_k3_direct_a.toml", "tb4_kimi_k3_direct_b.toml"],
+)
+def test_direct_kimi_configs_pin_measured_safe_concurrency(filename: str) -> None:
+    config = tomllib.loads((CONFIG_DIR / filename).read_text())
+
+    assert config["num_tasks"] == 33
+    assert config["max_concurrent"] == 4
+    assert config["multiplex"] == 4
+    assert config["client"]["max_connections"] == 4
+    assert config["client"]["max_keepalive_connections"] == 4
+
+
 def test_eval_controller_is_cpu_only_and_supports_high_vmvm_concurrency() -> None:
     wrapper = CONFIG_DIR.parents[1] / "run_eval.sbatch"
     text = wrapper.read_text()
