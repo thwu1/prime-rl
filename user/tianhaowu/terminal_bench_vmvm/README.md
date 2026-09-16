@@ -356,8 +356,12 @@ timeout and a 7,500-second backend request deadline. Because vllm-router 0.1.26
 refills that bucket while requests are still active, the shared evaluator
 HTTP/1.1 pool is the strict backend bound: it permits exactly
 `min(max_concurrent, 16)` connections. This keeps 64 rollout/VMVM sessions
-active while at most 16 model calls reach the router. Simultaneous VMVM lease
-bring-up remains capped at four.
+active while at most 16 model calls reach the router. The production mini-swe
+model timeout is 15,000 seconds, covering a full 7,200-second local pool wait
+plus a full provider read with margin while remaining below the rollout limit.
+Simultaneous VMVM lease or reverse-forward setup is capped at two for the
+production canary; the shared slot is released after setup, not held for the
+tunnel lifetime.
 
 The full 66-task TB4 set and 2,500-task oracle-valid Mobius production set,
 including all task categories, are approved for the direct Qwen route. The

@@ -55,6 +55,7 @@ config_overrides = [
     "model.model_kwargs.temperature=0.7",
     "model.model_kwargs.top_p=0.95",
     "model.model_kwargs.parallel_tool_calls=true",
+    "model.model_kwargs.timeout=15000",
 ]
 
 [harness.env]

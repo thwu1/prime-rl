@@ -1155,6 +1155,58 @@ def test_vmvm_root_exec_classifies_ssh_exit_255_as_transport_failure() -> None:
     }
 
 
+def test_vmvm_host_tunnel_setup_uses_and_releases_shared_vacli_slot(monkeypatch) -> None:
+    class RecordingBoundedSemaphore:
+        def __init__(self) -> None:
+            self.held = 0
+            self.acquisitions = 0
+
+        def acquire(self) -> None:
+            assert self.held == 0
+            self.held = 1
+            self.acquisitions += 1
+
+        def release(self) -> None:
+            assert self.held == 1
+            self.held = 0
+
+        def __enter__(self):
+            self.acquire()
+            return self
+
+        def __exit__(self, exc_type, exc_value, traceback) -> None:
+            self.release()
+
+    semaphore = RecordingBoundedSemaphore()
+    monkeypatch.setattr(vacli_backend, "_lease_concurrency", semaphore)
+    backend = object.__new__(VacliVMVMBackend)
+    backend._destroyed = False
+    backend._container_id = "a" * 12
+    tunnel = VacliHostTunnel("10.89.0.1", 42000, 1234, 99)
+
+    def succeed(local_port: int) -> tuple[VacliHostTunnel, str]:
+        assert semaphore.held == 1
+        return tunnel, f"http://10.89.0.1:{local_port}"
+
+    backend._open_host_tunnel = succeed
+    assert backend.open_host_tunnel(1234) == (tunnel, "http://10.89.0.1:1234")
+    assert semaphore.held == 0
+
+    def fail(local_port: int) -> tuple[VacliHostTunnel, str]:
+        assert semaphore.held == 1
+        raise BackendInitError(f"failed to expose {local_port}")
+
+    backend._open_host_tunnel = fail
+    with pytest.raises(BackendInitError, match="failed to expose"):
+        backend.open_host_tunnel(1234)
+    assert semaphore.held == 0
+
+    backend._open_host_tunnel = succeed
+    assert backend.open_host_tunnel(1234)[0] is tunnel
+    assert semaphore.held == 0
+    assert semaphore.acquisitions == 3
+
+
 def test_vmvm_sidecar_exec_classifies_ssh_exit_255_as_transport_failure() -> None:
     backend = object.__new__(VacliVMVMBackend)
     backend._compose_command = lambda args, *, timeout: subprocess.CompletedProcess(

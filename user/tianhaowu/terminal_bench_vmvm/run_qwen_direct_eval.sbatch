@@ -213,7 +213,7 @@ export PROJECT_DIR="$project_dir"
 export OUTPUT_DIR="$output_dir"
 export INFERENCE_BASE_URL="$router_url/v1"
 export OPENAI_API_KEY=EMPTY
-export VACLI_MAX_CONCURRENT_LEASES=4
+export VACLI_MAX_CONCURRENT_LEASES=2
 if [[ -n "$resume_dir" ]]; then
     export RESUME_DIR="$resume_dir"
 else

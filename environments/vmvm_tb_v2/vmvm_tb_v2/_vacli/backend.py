@@ -90,8 +90,9 @@ def _child_pdeathsig() -> None:
         _libc.prctl(_PR_SET_PDEATHSIG, signal.SIGTERM)
 
 
-# Cap concurrent in-flight vacli leases per process: bursts of simultaneous
-# lease attempts trigger FAAS tunnel-setup timeouts. Tune via env if needed.
+# Cap concurrent in-flight vacli setup operations per process: bursts of
+# simultaneous lease or reverse-forward setup trigger FAAS tunnel timeouts.
+# The historical lease-named environment variable remains the public knob.
 MAX_CONCURRENT_LEASES = int(os.environ.get("VACLI_MAX_CONCURRENT_LEASES", "16"))
 # Retries for `podman pull` inside the VM when DockerHub returns 429
 # (toomanyrequests). The vmvm-registry mirror path needs no retries; this only
@@ -415,7 +416,7 @@ class VacliLease:
             "--release-on-exit",
         ]
         logger.info("vacli.restart_tunnel: resuming session (attempt %d)", self._resume_count)
-        # Respect the bring-up concurrency cap (released by wait_for_tunnel's finally).
+        # Respect the shared setup cap (released by wait_for_tunnel's finally).
         _lease_concurrency.acquire()
         self._concurrency_held = True
         try:
@@ -461,7 +462,7 @@ class VacliLease:
         self._release_concurrency_slot()
 
     def _release_concurrency_slot(self) -> None:
-        """Release the `_lease_concurrency` slot if held. Idempotent."""
+        """Release the process-global vacli setup slot if held. Idempotent."""
         if self._concurrency_held:
             self._concurrency_held = False
             try:
@@ -2469,13 +2470,22 @@ class VacliVMVMBackend:
         return result.stdout or b""
 
     def open_host_tunnel(self, local_port: int) -> tuple[VacliHostTunnel, str]:
-        """Make a host-local TCP service reachable from the VMVM container."""
+        """Make a host-local TCP service reachable from the VMVM container.
+
+        Reverse-forward creation and its readiness probe share the process-wide
+        vacli setup limit with lease bring-up. The slot is released before the
+        live tunnel is returned and is not held for the tunnel lifetime.
+        """
         if self._destroyed:
             raise RuntimeError("open_host_tunnel called after destroy")
         if self._container_id is None:
             raise RuntimeError("open_host_tunnel called before container init")
         if not 1 <= local_port <= 65535:
             raise ValueError(f"invalid local port: {local_port}")
+        with _lease_concurrency:
+            return self._open_host_tunnel(local_port)
+
+    def _open_host_tunnel(self, local_port: int) -> tuple[VacliHostTunnel, str]:
         isolation = self._network_isolation
         gateway = isolation.gateway if isolation is not None else self._proxy_gateway
         forward = f"127.0.0.1:0:127.0.0.1:{local_port}"
