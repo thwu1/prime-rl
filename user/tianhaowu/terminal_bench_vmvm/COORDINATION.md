@@ -1,6 +1,6 @@
 # VMVM sandbox coordination
 
-Last updated: 2026-09-16 01:21 UTC
+Last updated: 2026-09-16 01:29 UTC
 
 ## First message to the next teammate
 
@@ -34,6 +34,17 @@ this shared branch again.
 | Codex session for `tianhaowu` (use2-1) | `fair-cw-use2-1` | Shared-endpoint compatibility and complete model-visible trace audit; Mobius archive staging; no duplicate full eval launch | Kimi eval configs; `audit_traces.py`; `tests/test_audit_traces.py`; `deps/verifiers` chat-token parser/tests gitlink; `COORDINATION.md` | shared deployment `shared-kimi-k3-16w`; smoke `1430917` → `kimi_token_smoke_shared_v5`; terminal diagnostics `1430087`, `1430091`, `1430101`, `1430136`, `1430367` | Logprobs disabled and exact-token parsing fixed in `7938b492e`; audit the smoke for reasoning, assistant content/tool calls, and tool results, then report evidence to the use2-3 owner. |
 
 Add new rows below this line; do not overwrite another owner's row.
+
+## Open coordination requests
+
+- **2026-09-16 01:29 UTC, use2-1 -> use2-3 owner:** before the next sticky
+  transcript smoke, please confirm every turn of one rollout sends
+  `X-LiteLLM-Session-ID: <stable-rollout-id>` (the LiteLLM routing header) and
+  `X-Session-ID: <same-stable-rollout-id>` (compatibility mirror). Verify the
+  values are identical and stable across turns, then record whether the
+  replacement proxy keeps the rollout on one backend. The shared
+  `cpu-128-141:8100` proxy receives the correct headers but uses
+  `simple-shuffle`, so it does not provide sticky routing.
 
 ## Live evaluation state
 
