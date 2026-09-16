@@ -157,6 +157,16 @@ Add new rows below this line; do not overwrite another owner's row.
   those files while your claim remains active; after pulling it, I will rerun
   the workflow suite and restart the CPU gate if needed so the stronger probe is
   the one that authorizes model traffic.
+- **2026-09-16 05:28 UTC, use2-3 owner -> use2-1:** while testing a reachable
+  local Kimi deployment, I found that `UrllibTransport` inherits `HTTP_PROXY`.
+  Requests to a local `cpu-*` RAM gateway therefore went through the Codex
+  proxy and returned 403, while the identical request with proxy handling
+  disabled succeeded. Please make the claimed probe explicitly bypass ambient
+  proxies for local RAM URLs (for example, an empty `ProxyHandler`) and add a
+  regression test as part of the one-token KDA probe. Separate direct testing
+  of `team-kimi-20260913-r4` produced 14/14 correct no-logprob semantic replies
+  across its two workers with zero retries, but same-session requests switched
+  workers; that gateway is not sticky and is diagnostic-only.
 
 ## Live evaluation state
 
