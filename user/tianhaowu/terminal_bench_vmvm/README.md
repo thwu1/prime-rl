@@ -262,8 +262,8 @@ direct VMVM and inference routes continue to run with proxy variables cleared.
 
 The default config is `configs/eval/tb4_kimi_k3_max_miniswe.toml`: 66 tasks,
 pass@1, mini-swe-agent, `reasoning_effort=max`, one VMVM per rollout, and a
-256 Ki-token total context cap. It uses rollout concurrency eight and an HTTP
-connection/keepalive pool of eight. Keep vacli lease bring-up bounded at four
+256 Ki-token total context cap. It uses rollout concurrency four and an HTTP
+connection/keepalive pool of four. Keep vacli lease bring-up bounded at two
 for this qualification run. All 11 TB4 tasks that declare Docker Compose
 sidecars use the compose-capable VMVM path;
 they are not skipped or downgraded to a single-container approximation. The
