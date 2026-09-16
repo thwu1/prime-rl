@@ -20,6 +20,7 @@ def _trace(trace_id: str, slug: str, *, valid: bool = True) -> dict:
             "tool_calls": None,
         },
         "usage": {"prompt_tokens": 100, "completion_tokens": 2},
+        "finish_reason": "stop",
     }
     return {
         "id": trace_id,
@@ -84,8 +85,40 @@ def _request(*, tools: list | None = None, **extra: object) -> dict:
     }
 
 
+def _exact_response(
+    *,
+    message: dict | None = None,
+    finish_reason: str = "stop",
+    usage: dict | None = None,
+) -> dict:
+    return {
+        "id": "response-1",
+        "object": "chat.completion",
+        "created": 1,
+        "model": "kimi-k3",
+        "choices": [
+            {
+                "index": 0,
+                "finish_reason": finish_reason,
+                "message": message
+                or {
+                    "role": "assistant",
+                    "content": None,
+                    "reasoning_content": "reasoning",
+                },
+            }
+        ],
+        "usage": usage
+        or {
+            "prompt_tokens": 100,
+            "completion_tokens": 2,
+            "total_tokens": 102,
+        },
+    }
+
+
 def _model_io(request: dict, *, response: dict | None = None) -> dict:
-    response = response or {"id": "response-1", "choices": [{"message": {"content": "done"}}]}
+    response = response or _exact_response()
     return {
         "provider_route": "/chat/completions",
         "request": {"kind": "full", "sha256": _digest(request), "body": request},
@@ -170,6 +203,36 @@ def test_summarize_traces_retains_only_emitted_failure_examples() -> None:
     assert failed is True
     assert summary["trace_failures"] == 75
     assert len(summary["failure_examples"]) == 50
+
+
+def test_aggregate_only_summary_omits_trace_and_task_identifiers() -> None:
+    summary, failed = _summarize_traces(
+        [
+            _trace("private-trace", "private-task", valid=False),
+            _trace("other-trace", "unexpected-task"),
+        ],
+        expected_slugs={"private-task", "missing-task"},
+        expected_count=3,
+        rollouts_per_task=1,
+        require_reasoning=True,
+        require_token_data=True,
+        aggregate_only=True,
+    )
+
+    assert failed is True
+    encoded = json.dumps(summary, sort_keys=True)
+    assert "private-trace" not in encoded
+    assert "private-task" not in encoded
+    assert "missing-task" not in encoded
+    assert "unexpected-task" not in encoded
+    assert "failure_examples" not in summary
+    assert summary["global_problems"] == [
+        "trace_count=2 expected=3",
+        "missing_tasks_count=1",
+        "unexpected_tasks_count=1",
+        "wrong_rollout_multiplicity_count=1",
+    ]
+    assert summary["problem_counts"] == {"node_logprob_mismatch": 1}
 
 
 def test_audit_trace_validates_token_array_values() -> None:
@@ -490,6 +553,132 @@ def test_audit_trace_validates_complete_model_io_capture() -> None:
     assert _audit_trace(trace, require_reasoning=True, require_model_io=True) == []
 
 
+def test_audit_trace_reconciles_exact_chat_response_semantics() -> None:
+    trace = _trace_with_model_io()
+    reasoning_details = [{"type": "reasoning.text", "text": "signed detail"}]
+    trace["nodes"][0]["message"] = {
+        "role": "assistant",
+        "content": "answer",
+        "reasoning_content": "preferred reasoning",
+        "tool_calls": [{"id": "call-1", "name": "bash", "arguments": '{"cmd":"pwd"}'}],
+        "provider_state": reasoning_details,
+    }
+    trace["nodes"][0]["finish_reason"] = "tool_calls"
+    trace["nodes"][0]["usage"] = {
+        "prompt_tokens": 90,
+        "completion_tokens": 10,
+        "cached_input_tokens": 10,
+        "reasoning_tokens": 4,
+        "cost": 0.25,
+    }
+    response = _exact_response(
+        message={
+            "role": "assistant",
+            "content": "answer",
+            "reasoning": "preferred reasoning",
+            "reasoning_content": "lower-precedence reasoning",
+            "reasoning_details": reasoning_details,
+            "tool_calls": [
+                {
+                    "id": "call-1",
+                    "type": "function",
+                    "function": {"name": "bash", "arguments": '{"cmd":"pwd"}'},
+                }
+            ],
+        },
+        finish_reason="tool_calls",
+        usage={
+            "prompt_tokens": 100,
+            "completion_tokens": 10,
+            "total_tokens": 110,
+            "prompt_tokens_details": {"cached_tokens": 10},
+            "completion_tokens_details": {"reasoning_tokens": 4},
+            "cost": 0.25,
+        },
+    )
+    trace["nodes"][0]["model_io"]["response"] = {
+        "kind": "exact_provider_json",
+        "sha256": _digest(response),
+        "body": response,
+    }
+
+    assert _audit_trace(trace, require_reasoning=True, require_model_io=True) == []
+
+
+def test_audit_trace_reconciles_normalized_stream_response_semantics() -> None:
+    trace = _trace_with_model_io()
+    normalized = {
+        "id": "stream-response",
+        "created": 1,
+        "model": "kimi-k3",
+        "message": {
+            "role": "assistant",
+            "content": None,
+            "reasoning_content": "reasoning",
+            "tool_calls": None,
+            "provider_state": None,
+        },
+        "finish_reason": "stop",
+        "usage": {
+            "prompt_tokens": 100,
+            "completion_tokens": 2,
+            "cached_input_tokens": None,
+            "reasoning_tokens": None,
+            "cost": None,
+        },
+        "tokens": None,
+    }
+    trace["nodes"][0]["model_io"]["response"] = {
+        "kind": "normalized_stream_response",
+        "sha256": _digest(normalized),
+        "body": normalized,
+    }
+
+    assert _audit_trace(trace, require_reasoning=True, require_model_io=True) == []
+
+
+def test_audit_trace_rejects_hash_valid_unrelated_provider_response() -> None:
+    trace = _trace_with_model_io()
+    unrelated = _exact_response(
+        message={
+            "role": "assistant",
+            "content": "unrelated answer",
+            "reasoning_content": "reasoning",
+        }
+    )
+    trace["nodes"][0]["model_io"]["response"] = {
+        "kind": "exact_provider_json",
+        "sha256": _digest(unrelated),
+        "body": unrelated,
+    }
+
+    assert _audit_trace(trace, require_reasoning=True, require_model_io=True) == [
+        "node_0_model_io_response_message_mismatch"
+    ]
+
+
+@pytest.mark.parametrize(
+    ("field", "value", "problem"),
+    [
+        ("finish_reason", "length", "node_0_model_io_response_finish_reason_mismatch"),
+        (
+            "usage",
+            {"prompt_tokens": 100, "completion_tokens": 3},
+            "node_0_model_io_response_usage_mismatch",
+        ),
+    ],
+)
+def test_audit_trace_rejects_response_metadata_mismatch(
+    field: str,
+    value: object,
+    problem: str,
+) -> None:
+    trace = _trace_with_model_io()
+    trace["nodes"][0][field] = value
+
+    assert _audit_trace(trace, require_reasoning=True, require_model_io=True) == [problem]
+
+
 def test_audit_trace_requires_model_io_on_every_sampled_turn() -> None:
     trace = _trace_with_model_io()
     second = _trace("second", "same-task")["nodes"][0]
@@ -509,27 +698,29 @@ def test_audit_trace_allows_captured_zero_reasoning_tool_turn() -> None:
         "reasoning_content": None,
         "tool_calls": [{"id": "call-2", "name": "bash", "arguments": '{"cmd":"pwd"}'}],
     }
+    second["usage"]["reasoning_tokens"] = 0
     second["model_io"] = _model_io(
         _request(),
-        response={
-            "id": "zero-reasoning-tool",
-            "choices": [
-                {
-                    "message": {
-                        "content": None,
-                        "reasoning": None,
-                        "tool_calls": [
-                            {
-                                "id": "call-2",
-                                "type": "function",
-                                "function": {"name": "bash", "arguments": '{"cmd":"pwd"}'},
-                            }
-                        ],
+        response=_exact_response(
+            message={
+                "role": "assistant",
+                "content": None,
+                "reasoning": None,
+                "tool_calls": [
+                    {
+                        "id": "call-2",
+                        "type": "function",
+                        "function": {"name": "bash", "arguments": '{"cmd":"pwd"}'},
                     }
-                }
-            ],
-            "usage": {"completion_tokens_details": {"reasoning_tokens": 0}},
-        },
+                ],
+            },
+            usage={
+                "prompt_tokens": 100,
+                "completion_tokens": 2,
+                "total_tokens": 102,
+                "completion_tokens_details": {"reasoning_tokens": 0},
+            },
+        ),
     )
     trace["nodes"].append(second)
 
@@ -542,25 +733,27 @@ def test_audit_trace_requires_captured_reasoning_to_be_normalized() -> None:
     trace["nodes"][0]["message"]["tool_calls"] = [
         {"id": "call-1", "name": "bash", "arguments": '{"cmd":"pwd"}'}
     ]
-    response = {
-        "id": "reasoning-not-normalized",
-        "choices": [
-            {
-                "message": {
-                    "content": None,
-                    "reasoning": "provider reasoning",
-                    "tool_calls": [
-                        {
-                            "id": "call-1",
-                            "type": "function",
-                            "function": {"name": "bash", "arguments": '{"cmd":"pwd"}'},
-                        }
-                    ],
+    trace["nodes"][0]["usage"]["reasoning_tokens"] = 2
+    response = _exact_response(
+        message={
+            "role": "assistant",
+            "content": None,
+            "reasoning": "provider reasoning",
+            "tool_calls": [
+                {
+                    "id": "call-1",
+                    "type": "function",
+                    "function": {"name": "bash", "arguments": '{"cmd":"pwd"}'},
                 }
-            }
-        ],
-        "usage": {"completion_tokens_details": {"reasoning_tokens": 2}},
-    }
+            ],
+        },
+        usage={
+            "prompt_tokens": 100,
+            "completion_tokens": 2,
+            "total_tokens": 102,
+            "completion_tokens_details": {"reasoning_tokens": 2},
+        },
+    )
     trace["nodes"][0]["model_io"]["response"] = {
         "kind": "exact_provider_json",
         "sha256": _digest(response),
@@ -570,6 +763,7 @@ def test_audit_trace_requires_captured_reasoning_to_be_normalized() -> None:
     assert _audit_trace(trace, require_reasoning=True, require_model_io=True) == [
         "node_0_reasoning_content_not_retained",
         "no_sampled_reasoning_content",
+        "node_0_model_io_response_message_mismatch",
     ]
 
 
@@ -581,25 +775,27 @@ def test_audit_trace_requires_some_reasoning_across_zero_reasoning_tool_turns() 
         "reasoning_content": None,
         "tool_calls": [{"id": "call-1", "name": "bash", "arguments": '{"cmd":"pwd"}'}],
     }
-    response = {
-        "id": "only-zero-reasoning-tool",
-        "choices": [
-            {
-                "message": {
-                    "content": None,
-                    "reasoning": None,
-                    "tool_calls": [
-                        {
-                            "id": "call-1",
-                            "type": "function",
-                            "function": {"name": "bash", "arguments": '{"cmd":"pwd"}'},
-                        }
-                    ],
+    trace["nodes"][0]["usage"]["reasoning_tokens"] = 0
+    response = _exact_response(
+        message={
+            "role": "assistant",
+            "content": None,
+            "reasoning": None,
+            "tool_calls": [
+                {
+                    "id": "call-1",
+                    "type": "function",
+                    "function": {"name": "bash", "arguments": '{"cmd":"pwd"}'},
                 }
-            }
-        ],
-        "usage": {"completion_tokens_details": {"reasoning_tokens": 0}},
-    }
+            ],
+        },
+        usage={
+            "prompt_tokens": 100,
+            "completion_tokens": 2,
+            "total_tokens": 102,
+            "completion_tokens_details": {"reasoning_tokens": 0},
+        },
+    )
     trace["nodes"][0]["model_io"]["response"] = {
         "kind": "exact_provider_json",
         "sha256": _digest(response),

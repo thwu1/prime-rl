@@ -338,6 +338,7 @@ def test_dry_run_and_apply_replace_new_invalid_without_reordering_survivors(
             tmp_path / "image-manifest.json",
         )
     original_configs = [path.read_bytes() for path in configs]
+    receipt = manifest.parent / "promotion-receipt.json"
     arguments = {
         "dataset_dir": dataset,
         "dataset_revision": revision,
@@ -350,7 +351,7 @@ def test_dry_run_and_apply_replace_new_invalid_without_reordering_survivors(
         **_provenance_args(prime_rl_commit),
     }
 
-    checked = export_oracle_tasks.promote(oracle, manifest, **arguments)
+    checked = export_oracle_tasks.promote(oracle, manifest, receipt=receipt, **arguments)
 
     assert checked["applied"] is False
     assert checked["completed"] == 10
@@ -360,8 +361,15 @@ def test_dry_run_and_apply_replace_new_invalid_without_reordering_survivors(
     assert checked["selected_subset_valid"] is True
     assert manifest.read_bytes() == original_manifest
     assert [path.read_bytes() for path in configs] == original_configs
+    assert not receipt.exists()
 
-    applied = export_oracle_tasks.promote(oracle, manifest, apply=True, **arguments)
+    applied = export_oracle_tasks.promote(
+        oracle,
+        manifest,
+        apply=True,
+        receipt=receipt,
+        **arguments,
+    )
 
     assert applied["applied"] is True
     assert manifest.read_text().splitlines() == [
@@ -372,6 +380,181 @@ def test_dry_run_and_apply_replace_new_invalid_without_reordering_survivors(
     for config in configs:
         parsed = tomllib.loads(config.read_text())
         assert parsed["taskset"]["task_file_sha256"] == applied["selected_manifest_sha256"]
+
+    envelope = json.loads(receipt.read_bytes())
+    assert set(envelope) == {"receipt", "receipt_sha256", "schema_version"}
+    assert envelope["schema_version"] == 1
+    payload = envelope["receipt"]
+    canonical_payload = json.dumps(
+        payload,
+        ensure_ascii=False,
+        allow_nan=False,
+        sort_keys=True,
+        separators=(",", ":"),
+    ).encode()
+    assert envelope["receipt_sha256"] == _sha256(canonical_payload)
+    assert applied["receipt_sha256"] == envelope["receipt_sha256"]
+    expected_summary = dict(applied)
+    del expected_summary["receipt_sha256"]
+    assert payload["promotion_summary"] == expected_summary
+    assert payload["schema_version"] == 1
+    assert payload["artifact_type"] == "terminal_bench_vmvm_oracle_promotion_receipt"
+    assert payload["applied_manifest"] == {
+        "path": manifest.name,
+        "sha256": applied["selected_manifest_sha256"],
+    }
+    assert payload["updated_configs"] == [
+        {"path": path.name, "sha256": _sha256(path.read_bytes())} for path in sorted(configs)
+    ]
+    assert payload["oracle_artifacts"] == {
+        "provenance": {
+            "path": "provenance.txt",
+            "sha256": _sha256((oracle / "provenance.txt").read_bytes()),
+        },
+        "results": {
+            "path": "results.jsonl",
+            "sha256": _sha256((oracle / "results.jsonl").read_bytes()),
+        },
+        "run_identity": {
+            "identity_sha256": applied["oracle_run_identity_sha256"],
+            "path": "run_identity.json",
+            "sha256": _sha256((oracle / "run_identity.json").read_bytes()),
+        },
+        "summary": {
+            "path": "summary.json",
+            "sha256": _sha256((oracle / "summary.json").read_bytes()),
+        },
+    }
+    assert payload["dataset"] == {"revision": revision}
+    assert payload["image_manifest"] == {"sha256": IMAGE_MANIFEST_SHA256}
+    assert payload["source"] == {
+        "minimum_prime_rl_ancestor": prime_rl_commit,
+        "prime_rl_commit": prime_rl_commit,
+        "prime_rl_tree_sha256": hashlib.sha256(b"").hexdigest(),
+        "required_prime_rl_ancestor": prime_rl_commit,
+        "verifiers_commit": VERIFIER_COMMIT,
+        "vmvm_tb_v2_sha256": VMVM_TB_V2_SHA256,
+    }
+    assert payload["counts"] == {
+        "completed": 10,
+        "configured_files": 2,
+        "expected_total": 10,
+        "oracle_reasons": {"invalid": 1, "valid": 9},
+        "passed": 9,
+        "removed_invalid": 1,
+        "selected": 8,
+    }
+    assert payload["acceptance"] == {
+        "minimum_pass_rate": 0.9,
+        "minimum_valid": 8,
+        "observed_pass_rate": 0.9,
+        "oracle_network_semantics": {
+            "schema_version": 1,
+            "trusted_reference_solution": "public",
+            "verifier": "declared",
+        },
+        "selected_subset_valid": True,
+    }
+    assert receipt.stat().st_mode & 0o777 == 0o444
+    assert "opaque-" not in receipt.read_text()
+
+    applied_manifest = manifest.read_bytes()
+    applied_configs = [path.read_bytes() for path in configs]
+    receipt_bytes = receipt.read_bytes()
+    with pytest.raises(PromotionError, match="^receipt_already_exists$"):
+        export_oracle_tasks.promote(
+            oracle,
+            manifest,
+            apply=True,
+            receipt=receipt,
+            **arguments,
+        )
+    assert manifest.read_bytes() == applied_manifest
+    assert [path.read_bytes() for path in configs] == applied_configs
+    assert receipt.read_bytes() == receipt_bytes
+
+
+def test_apply_requires_receipt_before_writes(tmp_path: Path) -> None:
+    dataset, _, revision, oracle, manifest, digest, configs, prime_rl_commit = _fixture(
+        tmp_path,
+        valid_indexes=set(range(10)),
+    )
+    original_manifest = manifest.read_bytes()
+    original_configs = [path.read_bytes() for path in configs]
+
+    with pytest.raises(PromotionError, match="^receipt_required_for_apply$"):
+        export_oracle_tasks.promote(
+            oracle,
+            manifest,
+            dataset_dir=dataset,
+            dataset_revision=revision,
+            expected_current_manifest_sha256=digest,
+            configs=configs,
+            project_root=manifest.parent,
+            expected_total=10,
+            limit=8,
+            apply=True,
+            **_provenance_args(prime_rl_commit),
+        )
+    assert manifest.read_bytes() == original_manifest
+    assert [path.read_bytes() for path in configs] == original_configs
+
+    receipt = tmp_path / "promotion-receipt.json"
+    receipt.write_bytes(b"existing receipt\n")
+    with pytest.raises(PromotionError, match="^receipt_already_exists$"):
+        export_oracle_tasks.promote(
+            oracle,
+            manifest,
+            dataset_dir=dataset,
+            dataset_revision=revision,
+            expected_current_manifest_sha256=digest,
+            configs=configs,
+            project_root=manifest.parent,
+            expected_total=10,
+            limit=8,
+            apply=True,
+            receipt=receipt,
+            **_provenance_args(prime_rl_commit),
+        )
+    assert manifest.read_bytes() == original_manifest
+    assert [path.read_bytes() for path in configs] == original_configs
+    assert receipt.read_bytes() == b"existing receipt\n"
+
+
+def test_receipt_is_not_published_when_apply_fails(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    dataset, _, revision, oracle, manifest, digest, configs, prime_rl_commit = _fixture(
+        tmp_path,
+        valid_indexes=set(range(10)),
+    )
+    original_manifest = manifest.read_bytes()
+    original_configs = [path.read_bytes() for path in configs]
+    receipt = tmp_path / "promotion-receipt.json"
+
+    def fail_apply(_: list[tuple[Path, bytes]]) -> None:
+        raise PromotionError("synthetic_apply_failure")
+
+    monkeypatch.setattr(export_oracle_tasks, "_replace_files", fail_apply)
+    with pytest.raises(PromotionError, match="^synthetic_apply_failure$"):
+        export_oracle_tasks.promote(
+            oracle,
+            manifest,
+            dataset_dir=dataset,
+            dataset_revision=revision,
+            expected_current_manifest_sha256=digest,
+            configs=configs,
+            project_root=manifest.parent,
+            expected_total=10,
+            limit=8,
+            apply=True,
+            receipt=receipt,
+            **_provenance_args(prime_rl_commit),
+        )
+    assert manifest.read_bytes() == original_manifest
+    assert [path.read_bytes() for path in configs] == original_configs
+    assert not receipt.exists()
 
 
 @pytest.mark.parametrize(
@@ -416,6 +599,7 @@ def test_rejects_incomplete_or_incoherent_oracle_before_writes(tmp_path: Path) -
         valid_indexes=set(range(10)),
     )
     original = manifest.read_bytes()
+    receipt = tmp_path / "promotion-receipt.json"
     lines = (oracle / "results.jsonl").read_text().splitlines(keepends=True)
     (oracle / "results.jsonl").write_text("".join(lines[:-1]))
 
@@ -431,9 +615,11 @@ def test_rejects_incomplete_or_incoherent_oracle_before_writes(tmp_path: Path) -
             expected_total=10,
             limit=8,
             apply=True,
+            receipt=receipt,
             **_provenance_args(prime_rl_commit),
         )
     assert manifest.read_bytes() == original
+    assert not receipt.exists()
 
 
 def test_rejects_unapproved_current_hash_and_config_drift(tmp_path: Path) -> None:
@@ -464,6 +650,7 @@ def test_rejects_unapproved_current_hash_and_config_drift(tmp_path: Path) -> Non
         revision,
         tmp_path / "image-manifest.json",
     )
+    receipt = tmp_path / "promotion-receipt.json"
     with pytest.raises(PromotionError, match="^config_current_hash_mismatch$"):
         export_oracle_tasks.promote(
             oracle,
@@ -476,8 +663,10 @@ def test_rejects_unapproved_current_hash_and_config_drift(tmp_path: Path) -> Non
             expected_total=10,
             limit=8,
             apply=True,
+            receipt=receipt,
             **_provenance_args(prime_rl_commit),
         )
+    assert not receipt.exists()
 
     _config(
         configs[0],
@@ -730,41 +919,56 @@ def test_cli_emits_metadata_only(
         "MINIMUM_ORACLE_PRIME_RL_ANCESTOR",
         prime_rl_commit,
     )
-    status = export_oracle_tasks.main(
-        [
-            str(oracle),
-            str(manifest),
-            "--dataset-dir",
-            str(dataset),
-            "--dataset-revision",
-            revision,
-            "--expected-current-manifest-sha256",
-            digest,
-            "--expected-prime-rl-commit",
-            prime_rl_commit,
-            "--required-prime-rl-ancestor",
-            prime_rl_commit,
-            "--expected-verifiers-commit",
-            VERIFIER_COMMIT,
-            "--expected-vmvm-tb-v2-sha256",
-            VMVM_TB_V2_SHA256,
-            "--expected-image-manifest-sha256",
-            IMAGE_MANIFEST_SHA256,
-            "--config",
-            str(configs[0]),
-            "--config",
-            str(configs[1]),
-            "--project-root",
-            str(manifest.parent),
-            "--expected-total",
-            "10",
-            "--limit",
-            "8",
-        ]
-    )
+    arguments = [
+        str(oracle),
+        str(manifest),
+        "--dataset-dir",
+        str(dataset),
+        "--dataset-revision",
+        revision,
+        "--expected-current-manifest-sha256",
+        digest,
+        "--expected-prime-rl-commit",
+        prime_rl_commit,
+        "--required-prime-rl-ancestor",
+        prime_rl_commit,
+        "--expected-verifiers-commit",
+        VERIFIER_COMMIT,
+        "--expected-vmvm-tb-v2-sha256",
+        VMVM_TB_V2_SHA256,
+        "--expected-image-manifest-sha256",
+        IMAGE_MANIFEST_SHA256,
+        "--config",
+        str(configs[0]),
+        "--config",
+        str(configs[1]),
+        "--project-root",
+        str(manifest.parent),
+        "--expected-total",
+        "10",
+        "--limit",
+        "8",
+    ]
+    status = export_oracle_tasks.main(arguments)
 
     assert status == 0
     output = capsys.readouterr()
     assert "opaque-" not in output.out
     assert output.err == ""
     assert json.loads(output.out)["selected_subset_valid"] is True
+
+    with pytest.raises(SystemExit, match="^2$"):
+        export_oracle_tasks.main([*arguments, "--apply"])
+    output = capsys.readouterr()
+    assert output.out == ""
+    assert "--receipt is required with --apply" in output.err
+
+    receipt = tmp_path / "promotion-receipt.json"
+    status = export_oracle_tasks.main([*arguments, "--apply", "--receipt", str(receipt)])
+    assert status == 0
+    output = capsys.readouterr()
+    assert "opaque-" not in output.out
+    assert output.err == ""
+    summary = json.loads(output.out)
+    assert summary["applied"] is True
+    assert summary["receipt_sha256"] == json.loads(receipt.read_text())["receipt_sha256"]

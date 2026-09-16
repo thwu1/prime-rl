@@ -147,6 +147,15 @@ valid tasks; task failures must be debugged separately from VMVM infrastructure
 failures. Promotion takes the same exclusive `.writer.lock`, so it rejects a
 live oracle or resume rather than reading a changing result set.
 
+Run `export_oracle_tasks.py` once without `--apply` and review its aggregate
+counts and hashes. The identical apply invocation must include a fresh
+`--receipt /checkpoint/.../oracle_promotion_<commit>.json` path outside the Git
+worktree. Apply mode atomically updates the approved 2,500-task manifest and
+its configured hashes, then publishes a mode-0444, self-hashed receipt binding
+the final oracle artifacts, immutable run identity, acceptance thresholds,
+dataset/image/runtime pins, selected manifest, and updated configs. An existing
+receipt path fails closed; it is never overwritten.
+
 Strict oracle validation applies the declared agent policy to `solve.sh` and
 is the default. Some legacy reference solutions download build dependencies
 despite declaring agent `no-network`. For corpus qualification only, set
@@ -229,25 +238,48 @@ ARM64 fix from RAM PR `#285` together with `PIECEWISE` graphs. It starts at one
 route on the cluster-default `g3_lowest` QoS so TB4 can qualify the patched
 runtime and VMVM capacity before any scale-up; never treat `/health` alone as
 readiness.
-Then submit exactly one fresh pass@1 run against Kimi-K3 in max-reasoning mode:
-
 Sticky headers make backend affinity observable. The patched deployment keeps
 prefix caching enabled and begins with rollout concurrency four on its one
 route. VMVM lease creation remains capped at two until a clean post-fix smoke
 and full TB4 run qualify a higher rate.
 
+Run every command from one clean detached source snapshot. First submit the
+approved two-task transcript smoke. `INFERENCE_READINESS_CHECKPOINT_SHA256` is
+the external file SHA-256 of the completed readiness JSON, not its embedded
+deployment-spec digest.
+
 ```bash
 tmux send-keys -t swebench_vmvm:Launcher.0 \
-  "cd /storage/home/tianhaowu/prime-rl && env EVAL_APPROVED_TASK_FILE=\$PWD/user/tianhaowu/terminal_bench_vmvm/configs/eval/tb4_qwen_a95b_miniswe.tasks.txt EVAL_APPROVED_TASK_FILE_SHA256=9485011ac4a953f4a4a1c7c5e78550b6d7de6f760a3859dac15a3610cf4ad892 EVAL_CONFIG=\$PWD/user/tianhaowu/terminal_bench_vmvm/configs/eval/tb4_kimi_k3_max_miniswe.toml INFERENCE_PROXY_INFO=/checkpoint/ram/shared/vllm_deployments_v2/tianhaowu-k3-kda-tb1-low-20260916/proxy_info.json OUTPUT_DIR=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/evals/tb4_kimi_k3_sticky_full_v3 VACLI_MAX_CONCURRENT_LEASES=2 sbatch --parsable user/tianhaowu/terminal_bench_vmvm/run_eval.sbatch" C-m
+  "cd /checkpoint/ram/tianhaowu/terminal_bench_vmvm/sources/prime-rl-<commit> && env PROJECT_DIR=\$PWD EVAL_RUN_ROLE=smoke EVAL_DEPLOYMENT_ID=tianhaowu-k3-kda-tb1-low-20260916 EVAL_EXPECTED_MODEL=Kimi-K3 EVAL_APPROVED_TASK_FILE=\$PWD/user/tianhaowu/terminal_bench_vmvm/configs/eval/tb4_kimi_token_smoke.tasks.txt EVAL_APPROVED_TASK_FILE_SHA256=ecdcbc6e4f54b690e64b4566de5eecf33467088c8ca3436738cd7308d4e45b83 EVAL_CONFIG=\$PWD/user/tianhaowu/terminal_bench_vmvm/configs/eval/tb4_kimi_k3_approved_smoke.toml EVAL_DATASET_ARCHIVE=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/downloads/terminal-bench-prebuilt-v4.0.0.tar.gz EVAL_DATASET_ARCHIVE_SHA256=6d2c57cbcb1a75b5cdc0b0f989747fa68cdc65df8ff0a6893045a70ced7e668e EVAL_DATASET_CONTENT_SHA256=564a42a4e2ce0a5efd23758656e4e419b3566a36234dfc09bae1029bc15326b2 INFERENCE_DEPLOYMENT_SPEC=/checkpoint/ram/shared/vllm_deployments_v2/tianhaowu-k3-kda-tb1-low-20260916/spec.yaml INFERENCE_DEPLOYMENT_SPEC_SHA256=a296613aea26c4401385f70e16c81bc363f670203a5b29b7e1eec3bcef086ccf INFERENCE_READINESS_CHECKPOINT=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/gates/k3_kda_tb1_low_readiness_v1.json INFERENCE_READINESS_CHECKPOINT_SHA256=<passed-readiness-file-sha256> INFERENCE_PROXY_INFO=/checkpoint/ram/shared/vllm_deployments_v2/tianhaowu-k3-kda-tb1-low-20260916/proxy_info.json OUTPUT_DIR=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/evals/tb4_kimi_k3_sticky_smoke_v1 VACLI_MAX_CONCURRENT_LEASES=2 sbatch --parsable \$PWD/user/tianhaowu/terminal_bench_vmvm/run_eval.sbatch" C-m
+
+tmux send-keys -t swebench_vmvm:Launcher.0 \
+  "cd /checkpoint/ram/tianhaowu/terminal_bench_vmvm/sources/prime-rl-<commit> && env PROJECT_DIR=\$PWD RESULTS_DIR=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/evals/tb4_kimi_k3_sticky_smoke_v1 SMOKE_TASK_FILE=\$PWD/user/tianhaowu/terminal_bench_vmvm/configs/eval/tb4_kimi_token_smoke.tasks.txt SMOKE_TASK_FILE_SHA256=ecdcbc6e4f54b690e64b4566de5eecf33467088c8ca3436738cd7308d4e45b83 SMOKE_EXPECTED_TRACES=2 sbatch --parsable \$PWD/user/tianhaowu/terminal_bench_vmvm/run_trace_smoke_audit.sbatch" C-m
 ```
 
-Every real launch and resume through `run_eval.sbatch` requires an external
-approved task file plus its lowercase SHA-256. The launcher snapshots the
-selection, binds the source and resolved configs to that digest and task count,
-records approval metadata in provenance, and rejects inline tasks or CLI
-overrides. Exact `--dry-run` is the sole approval-free mode and exits before
-task loading. The checked-in full-TB4 manifest is shared by the Kimi and Qwen
-configs despite its historical filename.
+After that audit publishes `smoke_checkpoint.json`, hash the file and launch
+the full 66-task pass@1 run with the same passed readiness artifact:
+
+```bash
+tmux send-keys -t swebench_vmvm:Launcher.0 \
+  "cd /checkpoint/ram/tianhaowu/terminal_bench_vmvm/sources/prime-rl-<commit> && env PROJECT_DIR=\$PWD EVAL_RUN_ROLE=tb4 EVAL_DEPLOYMENT_ID=tianhaowu-k3-kda-tb1-low-20260916 EVAL_EXPECTED_MODEL=Kimi-K3 EVAL_APPROVED_TASK_FILE=\$PWD/user/tianhaowu/terminal_bench_vmvm/configs/eval/tb4_qwen_a95b_miniswe.tasks.txt EVAL_APPROVED_TASK_FILE_SHA256=9485011ac4a953f4a4a1c7c5e78550b6d7de6f760a3859dac15a3610cf4ad892 EVAL_CONFIG=\$PWD/user/tianhaowu/terminal_bench_vmvm/configs/eval/tb4_kimi_k3_max_miniswe.toml EVAL_DATASET_ARCHIVE=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/downloads/terminal-bench-prebuilt-v4.0.0.tar.gz EVAL_DATASET_ARCHIVE_SHA256=6d2c57cbcb1a75b5cdc0b0f989747fa68cdc65df8ff0a6893045a70ced7e668e EVAL_DATASET_CONTENT_SHA256=564a42a4e2ce0a5efd23758656e4e419b3566a36234dfc09bae1029bc15326b2 INFERENCE_DEPLOYMENT_SPEC=/checkpoint/ram/shared/vllm_deployments_v2/tianhaowu-k3-kda-tb1-low-20260916/spec.yaml INFERENCE_DEPLOYMENT_SPEC_SHA256=a296613aea26c4401385f70e16c81bc363f670203a5b29b7e1eec3bcef086ccf INFERENCE_READINESS_CHECKPOINT=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/gates/k3_kda_tb1_low_readiness_v1.json INFERENCE_READINESS_CHECKPOINT_SHA256=<passed-readiness-file-sha256> INFERENCE_SMOKE_CHECKPOINT=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/evals/tb4_kimi_k3_sticky_smoke_v1/smoke_checkpoint.json INFERENCE_SMOKE_CHECKPOINT_SHA256=<smoke-checkpoint-file-sha256> INFERENCE_PROXY_INFO=/checkpoint/ram/shared/vllm_deployments_v2/tianhaowu-k3-kda-tb1-low-20260916/proxy_info.json OUTPUT_DIR=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/evals/tb4_kimi_k3_sticky_full_v3 VACLI_MAX_CONCURRENT_LEASES=2 sbatch --parsable \$PWD/user/tianhaowu/terminal_bench_vmvm/run_eval.sbatch" C-m
+
+tmux send-keys -t swebench_vmvm:Launcher.0 \
+  "cd /checkpoint/ram/tianhaowu/terminal_bench_vmvm/sources/prime-rl-<commit> && env PROJECT_DIR=\$PWD RESULTS_DIR=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/evals/tb4_kimi_k3_sticky_full_v3 sbatch --parsable \$PWD/user/tianhaowu/terminal_bench_vmvm/run_tb4_audit.sbatch" C-m
+```
+
+Every real launch and resume through `run_eval.sbatch` requires
+`EVAL_RUN_ROLE`, `EVAL_DEPLOYMENT_ID`, `EVAL_EXPECTED_MODEL`, an exact
+deployment spec and passed readiness artifact, one dataset authority, and an
+external approved task file with its lowercase SHA-256. TB4 and Mobius also
+require the externally hashed smoke checkpoint; Mobius additionally requires
+the externally hashed launch certificate. The launcher snapshots all mutable
+inputs and publishes a self-hashed `eval_run_identity.json` before any model
+call. It binds source/runtime pins, dataset authority, deployment gates,
+pass@1/max-reasoning/256K/capture settings, task count and digest, and effective
+execution concurrency. A resume must recompute exactly the same identity.
+Exact `--dry-run` is the sole approval-free mode and exits before task loading.
+The checked-in full-TB4 manifest is shared by the Kimi and Qwen configs despite
+its historical filename.
 
 `INFERENCE_PROXY_INFO` is the preferred interface for a direct RAM deployment:
 the compute job reads `url` and `api_key` without putting the key in the config,
@@ -310,21 +342,11 @@ do not resume or merge them. The measured fallback limit is now four rollouts
 per worker (eight aggregate) and two concurrent lease bring-ups per controller
 (four aggregate).
 
-Submit only through the launcher tmux after both workers pass a fresh
-no-logprob semantic and model-I/O smoke:
-
-As of 2026-09-16 09:52 UTC both pinned ports refused TCP connections. Do not
-submit these commands until both allocations are restored and pass the fresh
-smoke. All replacement paths are `_v3`; canceled `_v1`/`_v2` artifacts are not
-resume inputs.
-
-```bash
-tmux send-keys -t swebench_vmvm:Launcher.0 \
-  "cd /storage/home/tianhaowu/prime-rl && env OPENAI_API_KEY=EMPTY EVAL_APPROVED_TASK_FILE=\$PWD/user/tianhaowu/terminal_bench_vmvm/configs/eval/tb4_kimi_k3_direct_a.tasks.txt EVAL_APPROVED_TASK_FILE_SHA256=d0f7c0297a82edf79f3e966ffd830fb418ea90c9faa7c4f3d288d5c7bacd1365 INFERENCE_BASE_URL=http://g3-138-137:32317/v1 EVAL_CONFIG=\$PWD/user/tianhaowu/terminal_bench_vmvm/configs/eval/tb4_kimi_k3_direct_a.toml OUTPUT_DIR=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/evals/tb4_kimi_k3_direct_a_v3 VACLI_MAX_CONCURRENT_LEASES=2 sbatch --parsable user/tianhaowu/terminal_bench_vmvm/run_eval.sbatch" C-m
-
-tmux send-keys -t swebench_vmvm:Launcher.0 \
-  "cd /storage/home/tianhaowu/prime-rl && env OPENAI_API_KEY=EMPTY EVAL_APPROVED_TASK_FILE=\$PWD/user/tianhaowu/terminal_bench_vmvm/configs/eval/tb4_kimi_k3_direct_b.tasks.txt EVAL_APPROVED_TASK_FILE_SHA256=485c1a038efc72a4eddf4928758c74d31827ebb7624108cee63e503df0fa02ec INFERENCE_BASE_URL=http://g3-146-243:32499/v1 EVAL_CONFIG=\$PWD/user/tianhaowu/terminal_bench_vmvm/configs/eval/tb4_kimi_k3_direct_b.toml OUTPUT_DIR=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/evals/tb4_kimi_k3_direct_b_v3 VACLI_MAX_CONCURRENT_LEASES=2 sbatch --parsable user/tianhaowu/terminal_bench_vmvm/run_eval.sbatch" C-m
-```
+The pinned ports are not currently live, so there is no authorized direct
+fallback launch command. If they are restored, each worker must first receive
+its own externally hashed deployment-spec, readiness, and transcript-smoke
+artifacts and then use the same `EVAL_RUN_ROLE=tb4` identity ceremony as the
+primary route. Canceled `_v1`/`_v2` artifacts are not resume inputs.
 
 Each shard remains its own resumable evaluator output. A resume replays the
 saved direct URL and takes no overrides; never resume a shard against the other
@@ -471,11 +493,65 @@ manifest at
 `configs/eval/mobius_valid_tasks_2500.txt` (49,334 bytes, 2,500 lines,
 SHA-256
 `d33ef93f9b77ee91a41600934e677ba37988d3b4509e4da05ff1fcf7b4bc3a4b`).
-The launcher snapshots and hash-checks it before the production run:
+Do not launch it directly after TB4. First publish the final oracle promotion
+receipt, resize the same deployment, pass a fresh readiness/state-reuse gate,
+and certify a trace-capacity smoke whose rollout, multiplex, HTTP-pool, and
+effective lease-start concurrency are each at least the production values.
+The checked-in capacity-smoke config exercises the already validated 42-case
+Mobius repair set at eight active rollouts and four lease starts:
 
 ```bash
 tmux send-keys -t swebench_vmvm:Launcher.0 \
-  "cd /storage/home/tianhaowu/prime-rl && env EVAL_APPROVED_TASK_FILE=\$PWD/user/tianhaowu/terminal_bench_vmvm/configs/eval/mobius_valid_tasks_2500.txt EVAL_APPROVED_TASK_FILE_SHA256=d33ef93f9b77ee91a41600934e677ba37988d3b4509e4da05ff1fcf7b4bc3a4b EVAL_CONFIG=\$PWD/user/tianhaowu/terminal_bench_vmvm/configs/eval/mobius_kimi_k3_max_2500.toml INFERENCE_PROXY_INFO=/checkpoint/ram/shared/vllm_deployments_v2/tianhaowu-k3-kda-tb1-low-20260916/proxy_info.json OUTPUT_DIR=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/evals/mobius_kimi_k3_max_2500_transcript_v2 VACLI_MAX_CONCURRENT_LEASES=4 sbatch --parsable --time=7-00:00:00 user/tianhaowu/terminal_bench_vmvm/run_eval.sbatch" C-m
+  "cd /checkpoint/ram/tianhaowu/terminal_bench_vmvm/sources/prime-rl-<commit> && env PROJECT_DIR=\$PWD EVAL_RUN_ROLE=smoke EVAL_DEPLOYMENT_ID=tianhaowu-k3-kda-tb1-low-20260916 EVAL_EXPECTED_MODEL=Kimi-K3 EVAL_DATASET_REVISION=ac1f30b9ac0e6c6a20a9fe423900d9ed28a6d366 EVAL_APPROVED_TASK_FILE=\$PWD/user/tianhaowu/terminal_bench_vmvm/configs/validate/mobius_repaired_tasks.txt EVAL_APPROVED_TASK_FILE_SHA256=8d7d9377a9bbe6ade2fba7cc0730647d8be82402e225f95ad864a2218647563c EVAL_CONFIG=\$PWD/user/tianhaowu/terminal_bench_vmvm/configs/eval/mobius_kimi_k3_capacity_smoke.toml INFERENCE_DEPLOYMENT_SPEC=/path/to/post-resize-spec.yaml INFERENCE_DEPLOYMENT_SPEC_SHA256=<post-resize-spec-sha256> INFERENCE_READINESS_CHECKPOINT=/path/to/post-resize-readiness.json INFERENCE_READINESS_CHECKPOINT_SHA256=<post-resize-readiness-file-sha256> INFERENCE_PROXY_INFO=/checkpoint/ram/shared/vllm_deployments_v2/tianhaowu-k3-kda-tb1-low-20260916/proxy_info.json OUTPUT_DIR=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/evals/mobius_kimi_k3_capacity_smoke_v1 VACLI_MAX_CONCURRENT_LEASES=4 sbatch --parsable \$PWD/user/tianhaowu/terminal_bench_vmvm/run_eval.sbatch" C-m
+
+tmux send-keys -t swebench_vmvm:Launcher.0 \
+  "cd /checkpoint/ram/tianhaowu/terminal_bench_vmvm/sources/prime-rl-<commit> && env PROJECT_DIR=\$PWD RESULTS_DIR=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/evals/mobius_kimi_k3_capacity_smoke_v1 SMOKE_TASK_FILE=\$PWD/user/tianhaowu/terminal_bench_vmvm/configs/validate/mobius_repaired_tasks.txt SMOKE_TASK_FILE_SHA256=8d7d9377a9bbe6ade2fba7cc0730647d8be82402e225f95ad864a2218647563c SMOKE_EXPECTED_TRACES=42 sbatch --parsable \$PWD/user/tianhaowu/terminal_bench_vmvm/run_trace_smoke_audit.sbatch" C-m
+```
+
+Then create one write-once launch certificate outside the Git worktree:
+
+```bash
+uv run --project user/tianhaowu/terminal_bench_vmvm \
+  python user/tianhaowu/terminal_bench_vmvm/mobius_launch_certificate.py create \
+  --tb4-checkpoint /path/to/tb4-run/checkpoint.json \
+  --tb4-checkpoint-sha256 <tb4-checkpoint-file-sha256> \
+  --oracle-receipt /path/to/oracle-promotion-receipt.json \
+  --oracle-receipt-sha256 <oracle-receipt-file-sha256> \
+  --readiness-checkpoint /path/to/post-resize-readiness.json \
+  --readiness-checkpoint-sha256 <post-resize-readiness-file-sha256> \
+  --capacity-smoke-checkpoint /path/to/capacity-smoke/smoke_checkpoint.json \
+  --capacity-smoke-checkpoint-sha256 <capacity-smoke-file-sha256> \
+  --deployment-id tianhaowu-k3-kda-tb1-low-20260916 \
+  --deployment-spec /path/to/post-resize-spec.yaml \
+  --deployment-spec-sha256 <post-resize-spec-sha256> \
+  --production-config user/tianhaowu/terminal_bench_vmvm/configs/eval/mobius_kimi_k3_max_2500.toml \
+  --approved-manifest user/tianhaowu/terminal_bench_vmvm/configs/eval/mobius_valid_tasks_2500.txt \
+  --approved-manifest-sha256 d33ef93f9b77ee91a41600934e677ba37988d3b4509e4da05ff1fcf7b4bc3a4b \
+  --requested-lease-start-concurrency 4 \
+  --output /checkpoint/ram/tianhaowu/terminal_bench_vmvm/gates/mobius_launch_<commit>.json
+```
+
+The certificate reconstructs and rehashes every linked gate and run identity;
+it accepts the oracle execution commit only as an ancestor of the clean
+production commit while requiring exact Verifiers and VMVM source pins. Its
+TB4 gate is fixed at 66 total/63 CPU-supported tasks, four active rollouts, two
+lease starts, and a supported pass rate from 4% through 22%. The production
+launcher revalidates the complete certificate against its live inputs before
+creating an output directory or contacting inference.
+
+Mobius launch does not accept `EVAL_MODEL`, `INFERENCE_BASE_URL`,
+`INFERENCE_JOB_ID`, or shared-gateway deployment overrides. It requires the
+deployment-local `proxy_info.json` in the same exact directory as the
+certificate-bound `spec.yaml`, and requires `EVAL_EXPECTED_MODEL=Kimi-K3`.
+The launch validator also requires the exact post-resize readiness and capacity
+smoke paths and file hashes embedded in the certificate; a different but valid
+checkpoint cannot be substituted.
+
+Launch from the same clean detached source path used to create the certificate:
+
+```bash
+tmux send-keys -t swebench_vmvm:Launcher.0 \
+  "cd /checkpoint/ram/tianhaowu/terminal_bench_vmvm/sources/prime-rl-<commit> && env PROJECT_DIR=\$PWD EVAL_RUN_ROLE=mobius EVAL_DEPLOYMENT_ID=tianhaowu-k3-kda-tb1-low-20260916 EVAL_EXPECTED_MODEL=Kimi-K3 EVAL_DATASET_REVISION=ac1f30b9ac0e6c6a20a9fe423900d9ed28a6d366 EVAL_APPROVED_TASK_FILE=\$PWD/user/tianhaowu/terminal_bench_vmvm/configs/eval/mobius_valid_tasks_2500.txt EVAL_APPROVED_TASK_FILE_SHA256=d33ef93f9b77ee91a41600934e677ba37988d3b4509e4da05ff1fcf7b4bc3a4b EVAL_CONFIG=\$PWD/user/tianhaowu/terminal_bench_vmvm/configs/eval/mobius_kimi_k3_max_2500.toml INFERENCE_DEPLOYMENT_SPEC=/path/to/post-resize-spec.yaml INFERENCE_DEPLOYMENT_SPEC_SHA256=<post-resize-spec-sha256> INFERENCE_READINESS_CHECKPOINT=/path/to/post-resize-readiness.json INFERENCE_READINESS_CHECKPOINT_SHA256=<post-resize-readiness-file-sha256> INFERENCE_SMOKE_CHECKPOINT=/path/to/capacity-smoke/smoke_checkpoint.json INFERENCE_SMOKE_CHECKPOINT_SHA256=<capacity-smoke-file-sha256> EVAL_PROMOTION_CERTIFICATE=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/gates/mobius_launch_<commit>.json EVAL_PROMOTION_CERTIFICATE_SHA256=<launch-certificate-file-sha256> INFERENCE_PROXY_INFO=/checkpoint/ram/shared/vllm_deployments_v2/tianhaowu-k3-kda-tb1-low-20260916/proxy_info.json OUTPUT_DIR=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/evals/mobius_kimi_k3_max_2500_transcript_v2 VACLI_MAX_CONCURRENT_LEASES=4 sbatch --parsable --time=7-00:00:00 \$PWD/user/tianhaowu/terminal_bench_vmvm/run_eval.sbatch" C-m
 ```
 
 The checked-in production starting point is eight active rollouts and four
@@ -518,6 +594,7 @@ uv run --project user/tianhaowu/terminal_bench_vmvm \
   /path/to/results.jsonl \
   --expected-task-file /path/to/oracle_passed_tasks.txt \
   --expected-count 2500 \
+  --aggregate-only \
   --require-reasoning
 ```
 
@@ -528,6 +605,14 @@ turn over 262,144 total tokens. `--require-token-data` remains an explicit
 legacy/diagnostic mode for traces that intentionally contain exact token IDs,
 masks, and sampling logprobs. Scale only after the default gate passes on a
 fresh smoke run and after measuring stable VMVM lease concurrency.
+
+For every captured model turn, the audit reparses exact chat-completion JSON or
+the normalized streamed response through Verifiers' own response models and
+requires the resulting assistant message, reasoning details, tool calls,
+provider state, finish reason, and normalized usage to equal the persisted
+assistant node. Hash-valid but unrelated response payloads therefore fail the
+gate. Audit output contains stable problem codes and aggregate counts only,
+never response text.
 
 Because this workflow intentionally omits token IDs, the previous response's
 provider usage is used as the conservative best-known size when clamping the

@@ -21,6 +21,8 @@ def _sha256(path: Path) -> str:
 
 def snapshot(config_path: Path, output_dir: Path) -> dict[str, dict[str, str]]:
     config_path = config_path.resolve(strict=True)
+    if output_dir.exists() and any(output_dir.iterdir()):
+        raise FileExistsError(f"refusing to overwrite existing eval input snapshot: {output_dir}")
     output_dir.mkdir(parents=True, exist_ok=True)
     config = tomllib.loads(config_path.read_text())
     records: dict[str, dict[str, str]] = {}

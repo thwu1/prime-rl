@@ -45,6 +45,7 @@ def test_eval_config_captures_model_io(config_path: Path) -> None:
     "filename",
     [
         "mobius_kimi_k3_max_2500.toml",
+        "mobius_kimi_k3_capacity_smoke.toml",
         "mobius_qwen_a95b_2500.toml",
         "tb4_kimi_k3_approved_smoke.toml",
         "tb4_kimi_k3_max_miniswe.toml",
@@ -122,6 +123,35 @@ def test_mobius_kimi_production_contract() -> None:
     }
 
 
+def test_mobius_kimi_capacity_smoke_matches_production_lane() -> None:
+    config = tomllib.loads((CONFIG_DIR / "mobius_kimi_k3_capacity_smoke.toml").read_text())
+
+    assert config["model"] == "Kimi-K3"
+    assert config["num_tasks"] == 42
+    assert config["num_rollouts"] == 1
+    assert config["max_turns"] == 8
+    assert config["max_concurrent"] == config["multiplex"] == 8
+    assert config["max_input_tokens"] == 262_144
+    assert config["max_output_tokens"] == 262_144
+    assert config["max_total_tokens"] == 262_144
+    assert config["retain_traces"] is False
+    assert config["client"]["capture_model_io"] is True
+    assert config["client"]["max_connections"] == 8
+    assert config["client"]["max_keepalive_connections"] == 8
+    assert config["client"]["outbound_body_denylist"] == OUTBOUND_BODY_DENYLIST
+    assert config["sampling"]["reasoning_effort"] == "max"
+    assert config["sampling"]["chat_template_kwargs"] == {
+        "enable_thinking": True,
+        "preserve_thinking": True,
+    }
+    taskset = config["taskset"]
+    assert taskset["dataset_revision"] == "ac1f30b9ac0e6c6a20a9fe423900d9ed28a6d366"
+    assert taskset["task_file_sha256"] == "8d7d9377a9bbe6ade2fba7cc0730647d8be82402e225f95ad864a2218647563c"
+    assert taskset["image_manifest_sha256"] == (
+        "118157378884021d2fc12dd83e7d9576ca606a5d229a2bd34c203d745212e009"
+    )
+
+
 def test_mobius_qwen_production_retention_and_concurrency() -> None:
     config = tomllib.loads((CONFIG_DIR / "mobius_qwen_a95b_2500.toml").read_text())
 
@@ -163,6 +193,11 @@ def test_mobius_qwen_production_retention_and_concurrency() -> None:
             "tb4_kimi_k3_max_miniswe.toml",
             66,
             "9485011ac4a953f4a4a1c7c5e78550b6d7de6f760a3859dac15a3610cf4ad892",
+        ),
+        (
+            "mobius_kimi_k3_capacity_smoke.toml",
+            42,
+            "8d7d9377a9bbe6ade2fba7cc0730647d8be82402e225f95ad864a2218647563c",
         ),
         (
             "mobius_qwen_a95b_2500.toml",
@@ -265,9 +300,9 @@ def test_eval_controller_is_cpu_only_and_supports_high_vmvm_concurrency() -> Non
     assert "#SBATCH --mem=16G" in text
     assert "#SBATCH --gres" not in text
     assert "#SBATCH --gpus" not in text
-    assert "resume_prime_rl=" in text
-    assert "resume_verifiers=" in text
-    assert "resume_renderers=" in text
+    assert 'python3 "$workflow_dir/eval_run_identity.py"' in text
+    assert "--mode \"$identity_mode\"" in text
+    assert "eval_run_identity_sha256" in text
     # This bounds only simultaneous lease *bring-up*. The slot is released as
     # soon as each tunnel is ready, so the evaluator can still reach 64 active
     # rollouts without stampeding vacli with 64 setup requests at once.
@@ -277,6 +312,7 @@ def test_eval_controller_is_cpu_only_and_supports_high_vmvm_concurrency() -> Non
 def test_direct_qwen_launcher_is_fail_closed() -> None:
     workflow_dir = CONFIG_DIR.parents[1]
     wrapper = (workflow_dir / "run_qwen_direct_eval.sbatch").read_text()
+    driver = (workflow_dir / "run_direct_qwen_eval_driver.sh").read_text()
 
     assert "--policy consistent_hash" in wrapper
     assert "--request-id-headers x-session-id" in wrapper
@@ -291,6 +327,13 @@ def test_direct_qwen_launcher_is_fail_closed() -> None:
     assert "approved task_file and task_file_sha256" in wrapper
     assert "DIRECT_QWEN_APPROVED_TASK_FILE" in wrapper
     assert "DIRECT_QWEN_APPROVED_TASK_FILE_SHA256" in wrapper
+    assert "validate_saved_manifest" in driver
+    assert "validate_eval_config" in driver
+    assert "load_workers" in driver
+    assert "snapshot_eval_inputs.py" in driver
+    assert "validate_task_approval.py" in driver
+    assert '.writer.lock"' in driver
+    assert "Direct Qwen driver received a forbidden generic-eval override" in driver
 
 
 def test_direct_qwen_router_probe_is_infrastructure_only() -> None:

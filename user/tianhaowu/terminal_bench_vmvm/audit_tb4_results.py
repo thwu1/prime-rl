@@ -4,14 +4,30 @@
 from __future__ import annotations
 
 import argparse
+import fcntl
+import hashlib
 import json
 import math
+import os
+import tempfile
 from collections import Counter
+from contextlib import contextmanager
 from pathlib import Path
+from typing import Any, Iterator
 
 from audit_traces import DEFAULT_MAX_SEQUENCE_TOKENS, TraceJSONLError, _audit_trace, _iter_traces, _task_slug
+from eval_run_identity import EvalIdentityError, canonical_json, load_eval_run_identity
 
 EXPECTED_TASK_COUNT = 66
+EXPECTED_SUPPORTED_TASK_COUNT = 63
+EXPECTED_MODEL = "Kimi-K3"
+EXPECTED_TB4_ROLLOUT_CONCURRENCY = 4
+EXPECTED_TB4_LEASE_START_CONCURRENCY = 2
+EXPECTED_MIN_SUPPORTED_PASS_RATE = 0.04
+EXPECTED_MAX_SUPPORTED_PASS_RATE = 0.22
+EXPECTED_OUTBOUND_BODY_DENYLIST = frozenset(
+    {"logprobs", "prompt_logprobs", "return_token_ids", "top_logprobs"}
+)
 EXPECTED_UNSUPPORTED_TASKS = frozenset(
     {
         "fp8-rmsnorm-gemm",
@@ -23,6 +39,76 @@ EXPECTED_UNSUPPORTED_TASKS = frozenset(
 
 class TB4AuditError(ValueError):
     """The expected TB4 input set could not be established safely."""
+
+
+def _sha256_file(path: Path, *, label: str) -> str:
+    digest = hashlib.sha256()
+    try:
+        with path.open("rb") as handle:
+            for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+                digest.update(chunk)
+    except OSError as error:
+        raise TB4AuditError(f"{label}_unreadable") from error
+    return digest.hexdigest()
+
+
+def _resolved_file(path: Path, *, label: str) -> Path:
+    try:
+        resolved = path.resolve(strict=True)
+    except (OSError, RuntimeError) as error:
+        raise TB4AuditError(f"{label}_unreadable") from error
+    if not resolved.is_file():
+        raise TB4AuditError(f"{label}_unreadable")
+    return resolved
+
+
+def _identity_artifact(record: object, *, label: str) -> tuple[Path, str]:
+    if not isinstance(record, dict) or set(record) != {"path", "sha256"}:
+        raise TB4AuditError(f"{label}_identity_invalid")
+    path = _resolved_file(Path(str(record["path"])), label=label)
+    digest = record["sha256"]
+    if not isinstance(digest, str) or len(digest) != 64 or any(character not in "0123456789abcdef" for character in digest):
+        raise TB4AuditError(f"{label}_identity_invalid")
+    if _sha256_file(path, label=label) != digest:
+        raise TB4AuditError(f"{label}_sha256_mismatch")
+    return path, digest
+
+
+def _require_run_local(path: Path, expected: Path, *, label: str) -> None:
+    if path != _resolved_file(expected, label=label):
+        raise TB4AuditError(f"{label}_path_mismatch")
+
+
+def _read_json_object(path: Path, *, label: str) -> dict[str, Any]:
+    try:
+        value = json.loads(path.read_bytes())
+    except (OSError, json.JSONDecodeError, UnicodeDecodeError) as error:
+        raise TB4AuditError(f"{label}_invalid") from error
+    if not isinstance(value, dict):
+        raise TB4AuditError(f"{label}_invalid")
+    return value
+
+
+@contextmanager
+def _hold_writer_lock(run_dir: Path) -> Iterator[None]:
+    lock_path = run_dir / ".writer.lock"
+    if lock_path.is_symlink():
+        raise TB4AuditError("writer_lock_invalid")
+    try:
+        handle = lock_path.open("rb")
+    except OSError as error:
+        raise TB4AuditError("writer_lock_unreadable") from error
+    try:
+        try:
+            fcntl.flock(handle.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError as error:
+            raise TB4AuditError("writer_lock_busy") from error
+        yield
+    finally:
+        try:
+            fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
+        finally:
+            handle.close()
 
 
 def _read_task_file(path: Path) -> list[str]:
@@ -223,6 +309,399 @@ def audit_results(
     return summary, not summary["ok"]
 
 
+def _validate_tb4_identity(envelope: dict[str, Any]) -> dict[str, Any]:
+    identity = envelope.get("identity")
+    if not isinstance(identity, dict) or identity.get("role") != "tb4":
+        raise TB4AuditError("tb4_eval_identity_required")
+    digest = envelope.get("eval_run_identity_sha256")
+    if not isinstance(digest, str) or len(digest) != 64:
+        raise TB4AuditError("eval_run_identity_digest_invalid")
+
+    inputs = identity.get("inputs")
+    contract = identity.get("contract")
+    execution = identity.get("execution")
+    if not all(isinstance(value, dict) for value in (inputs, contract, execution)):
+        raise TB4AuditError("eval_run_identity_contract_invalid")
+    assert isinstance(inputs, dict) and isinstance(contract, dict) and isinstance(execution, dict)
+    task_file = inputs.get("task_file")
+    if not isinstance(task_file, dict) or task_file.get("count") != EXPECTED_TASK_COUNT:
+        raise TB4AuditError("tb4_approved_task_count_invalid")
+    thinking = contract.get("thinking")
+    context = contract.get("context_tokens")
+    denylist = contract.get("outbound_body_denylist")
+    sampling_max_tokens = contract.get("sampling_max_tokens")
+    if (
+        contract.get("model") != EXPECTED_MODEL
+        or contract.get("pass_at_1") is not True
+        or contract.get("num_rollouts") != 1
+        or contract.get("reasoning_effort") != "max"
+        or not isinstance(thinking, dict)
+        or thinking.get("enable_thinking") is not True
+        or thinking.get("preserve_thinking") is not True
+        or not isinstance(context, dict)
+        or set(context) != {"max_input_tokens", "max_output_tokens", "max_total_tokens"}
+        or any(value != DEFAULT_MAX_SEQUENCE_TOKENS for value in context.values())
+        or contract.get("capture_model_io") is not True
+        or contract.get("retain_traces") is not False
+        or not isinstance(denylist, list)
+        or len(denylist) != len(EXPECTED_OUTBOUND_BODY_DENYLIST)
+        or set(denylist) != EXPECTED_OUTBOUND_BODY_DENYLIST
+        or not isinstance(sampling_max_tokens, int)
+        or isinstance(sampling_max_tokens, bool)
+        or not 0 < sampling_max_tokens <= DEFAULT_MAX_SEQUENCE_TOKENS
+    ):
+        raise TB4AuditError("eval_run_identity_contract_invalid")
+    vmvm_environment = execution.get("vmvm_environment")
+    if (
+        execution.get("rollout_concurrency") != EXPECTED_TB4_ROLLOUT_CONCURRENCY
+        or execution.get("multiplex") != EXPECTED_TB4_ROLLOUT_CONCURRENCY
+        or execution.get("http_max_connections") != EXPECTED_TB4_ROLLOUT_CONCURRENCY
+        or execution.get("http_max_keepalive_connections") != EXPECTED_TB4_ROLLOUT_CONCURRENCY
+        or not isinstance(vmvm_environment, dict)
+        or vmvm_environment.get("lease_start_concurrency") != EXPECTED_TB4_LEASE_START_CONCURRENCY
+    ):
+        raise TB4AuditError("tb4_concurrency_contract_invalid")
+    return identity
+
+
+def _validate_provenance(
+    path: Path,
+    *,
+    identity: dict[str, Any],
+    identity_sha256: str,
+) -> None:
+    try:
+        lines = path.read_text(encoding="utf-8").splitlines()
+    except OSError as error:
+        raise TB4AuditError("provenance_unreadable") from error
+    records: dict[str, str] = {}
+    for line in lines:
+        key, separator, value = line.partition("=")
+        if not separator or not key or not value or key in records:
+            raise TB4AuditError("provenance_invalid")
+        records[key] = value
+
+    source = identity.get("source")
+    deployment = identity.get("deployment")
+    inputs = identity.get("inputs")
+    if not all(isinstance(value, dict) for value in (source, deployment, inputs)):
+        raise TB4AuditError("eval_run_identity_schema_invalid")
+    assert isinstance(source, dict) and isinstance(deployment, dict) and isinstance(inputs, dict)
+    task_file = inputs.get("task_file")
+    if not isinstance(task_file, dict):
+        raise TB4AuditError("eval_run_identity_schema_invalid")
+    stable = {
+        "prime_rl": source.get("prime_rl_commit"),
+        "prime_rl_tree": source.get("prime_rl_tree_sha256"),
+        "verifiers": source.get("verifiers_commit"),
+        "verifiers_tree": source.get("verifiers_tree_sha256"),
+        "renderers": source.get("renderers_commit"),
+        "renderers_tree": source.get("renderers_tree_sha256"),
+        "vmvm_tb_v2": source.get("vmvm_tb_v2_sha256"),
+        "deployment_id": deployment.get("id"),
+        "eval_run_role": "tb4",
+        "eval_run_identity_sha256": identity_sha256,
+        "approval_task_file_sha256": task_file.get("sha256"),
+        "approval_task_count": str(EXPECTED_TASK_COUNT),
+    }
+    expected_keys = {*stable, "host", "slurm_job_id"}
+    if (
+        set(records) != expected_keys
+        or any(not isinstance(value, str) or records.get(key) != value for key, value in stable.items())
+        or not records.get("host", "").strip()
+        or not records.get("slurm_job_id", "").isdigit()
+    ):
+        raise TB4AuditError("provenance_mismatch")
+
+
+def _validate_deployment_checkpoints(
+    identity: dict[str, Any],
+) -> tuple[tuple[Path, str], tuple[Path, str]]:
+    deployment = identity.get("deployment")
+    if not isinstance(deployment, dict):
+        raise TB4AuditError("deployment_identity_invalid")
+    spec = deployment.get("spec")
+    if not isinstance(spec, dict) or not isinstance(spec.get("sha256"), str):
+        raise TB4AuditError("deployment_identity_invalid")
+    readiness = _identity_artifact(deployment.get("readiness_checkpoint"), label="readiness_checkpoint")
+    smoke = _identity_artifact(deployment.get("smoke_checkpoint"), label="smoke_checkpoint")
+    readiness_payload = _read_json_object(readiness[0], label="readiness_checkpoint")
+    probe = readiness_payload.get("probe")
+    if (
+        readiness_payload.get("schema_version") != 1
+        or readiness_payload.get("state") != "passed"
+        or readiness_payload.get("deployment") != deployment.get("id")
+        or readiness_payload.get("observed_spec_sha256") != spec["sha256"]
+        or not isinstance(probe, dict)
+        or probe.get("ok") is not True
+    ):
+        raise TB4AuditError("readiness_checkpoint_not_passed")
+    smoke_payload = _read_json_object(smoke[0], label="smoke_checkpoint")
+    self_digest = smoke_payload.get("smoke_checkpoint_sha256")
+    smoke_body = {
+        key: value for key, value in smoke_payload.items() if key != "smoke_checkpoint_sha256"
+    }
+    smoke_deployment = smoke_payload.get("deployment")
+    smoke_artifacts = smoke_payload.get("artifacts")
+    smoke_readiness = (
+        smoke_artifacts.get("readiness_checkpoint") if isinstance(smoke_artifacts, dict) else None
+    )
+    policy = smoke_payload.get("audit_policy")
+    counts = smoke_payload.get("counts")
+    if (
+        smoke_payload.get("schema_version") != 1
+        or smoke_payload.get("state") != "passed"
+        or smoke_payload.get("ok") is not True
+        or not isinstance(self_digest, str)
+        or self_digest != hashlib.sha256(canonical_json(smoke_body)).hexdigest()
+        or not isinstance(smoke_deployment, dict)
+        or smoke_deployment.get("id") != deployment.get("id")
+        or smoke_deployment.get("spec_sha256") != spec["sha256"]
+        or not isinstance(smoke_readiness, dict)
+        or smoke_readiness.get("sha256") != readiness[1]
+        or not isinstance(policy, dict)
+        or policy.get("rollouts_per_task") != 1
+        or policy.get("require_reasoning") is not True
+        or policy.get("require_model_io") is not True
+        or policy.get("require_token_data") is not False
+        or policy.get("require_logprobs") is not False
+        or policy.get("max_sequence_tokens") != DEFAULT_MAX_SEQUENCE_TOKENS
+        or not isinstance(counts, dict)
+        or counts.get("trace_failures") != 0
+        or counts.get("global_problems") != 0
+    ):
+        raise TB4AuditError("smoke_checkpoint_not_passed")
+    expected_traces = policy.get("expected_traces")
+    positive_counts = (counts.get("traces"), counts.get("tasks"), counts.get("model_io_turns"))
+    if (
+        not isinstance(expected_traces, int)
+        or isinstance(expected_traces, bool)
+        or expected_traces < 1
+        or counts.get("traces") != expected_traces
+        or counts.get("tasks") != expected_traces
+        or any(not isinstance(value, int) or isinstance(value, bool) or value < 1 for value in positive_counts)
+    ):
+        raise TB4AuditError("smoke_checkpoint_counts_invalid")
+    return readiness, smoke
+
+
+def _certificate_bytes(certificate: dict[str, Any]) -> bytes:
+    return (
+        json.dumps(certificate, allow_nan=False, ensure_ascii=False, indent=2, sort_keys=True) + "\n"
+    ).encode("utf-8")
+
+
+def _publish_write_once(path: Path, certificate: dict[str, Any]) -> None:
+    payload = _certificate_bytes(certificate)
+    if path.exists() or path.is_symlink():
+        if path.is_symlink():
+            raise TB4AuditError("tb4_certificate_invalid")
+        try:
+            existing = path.read_bytes()
+        except OSError as error:
+            raise TB4AuditError("tb4_certificate_unreadable") from error
+        if existing != payload:
+            raise TB4AuditError("tb4_certificate_already_exists_different")
+        return
+
+    temporary_name: str | None = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            mode="wb",
+            dir=path.parent,
+            prefix=f".{path.name}.",
+            suffix=".tmp",
+            delete=False,
+        ) as handle:
+            temporary_name = handle.name
+            handle.write(payload)
+            handle.flush()
+            os.fsync(handle.fileno())
+        try:
+            os.link(temporary_name, path)
+        except FileExistsError:
+            if path.is_symlink() or path.read_bytes() != payload:
+                raise TB4AuditError("tb4_certificate_already_exists_different")
+        directory_fd = os.open(path.parent, os.O_RDONLY)
+        try:
+            os.fsync(directory_fd)
+        finally:
+            os.close(directory_fd)
+    except OSError as error:
+        raise TB4AuditError("tb4_certificate_write_failed") from error
+    finally:
+        if temporary_name is not None:
+            Path(temporary_name).unlink(missing_ok=True)
+
+
+def certify_tb4_results(
+    results: Path,
+    *,
+    certificate_path: Path,
+    min_supported_pass_rate: float,
+    max_supported_pass_rate: float,
+    max_sequence_tokens: int = DEFAULT_MAX_SEQUENCE_TOKENS,
+) -> dict[str, Any]:
+    """Validate and atomically bind a completed TB4 run without exporting example data."""
+
+    try:
+        run_dir = results.parent.resolve(strict=True)
+    except (OSError, RuntimeError) as error:
+        raise TB4AuditError("results_directory_unreadable") from error
+    if not run_dir.is_dir():
+        raise TB4AuditError("results_directory_unreadable")
+    results = _resolved_file(results, label="results")
+    _require_run_local(results, run_dir / "results.jsonl", label="results")
+    try:
+        certificate_parent = certificate_path.parent.resolve(strict=True)
+    except (OSError, RuntimeError) as error:
+        raise TB4AuditError("tb4_certificate_parent_unreadable") from error
+    if certificate_parent != run_dir or certificate_path.name != "checkpoint.json":
+        raise TB4AuditError("tb4_certificate_path_mismatch")
+    certificate_path = certificate_parent / certificate_path.name
+    if (
+        not math.isfinite(min_supported_pass_rate)
+        or not math.isfinite(max_supported_pass_rate)
+        or min_supported_pass_rate != EXPECTED_MIN_SUPPORTED_PASS_RATE
+        or max_supported_pass_rate != EXPECTED_MAX_SUPPORTED_PASS_RATE
+    ):
+        raise TB4AuditError("tb4_score_bounds_mismatch")
+
+    with _hold_writer_lock(run_dir):
+        identity_path = _resolved_file(run_dir / "eval_run_identity.json", label="eval_run_identity")
+        identity_file_sha256 = _sha256_file(identity_path, label="eval_run_identity")
+        try:
+            envelope = load_eval_run_identity(identity_path)
+        except EvalIdentityError as error:
+            raise TB4AuditError("eval_run_identity_invalid") from error
+        if _sha256_file(identity_path, label="eval_run_identity") != identity_file_sha256:
+            raise TB4AuditError("eval_run_identity_changed")
+        identity = _validate_tb4_identity(envelope)
+        identity_sha256 = envelope["eval_run_identity_sha256"]
+
+        config_section = identity.get("config")
+        inputs_section = identity.get("inputs")
+        dataset_section = identity.get("dataset")
+        if not all(isinstance(value, dict) for value in (config_section, inputs_section, dataset_section)):
+            raise TB4AuditError("eval_run_identity_schema_invalid")
+        assert isinstance(config_section, dict)
+        assert isinstance(inputs_section, dict)
+        assert isinstance(dataset_section, dict)
+        config = _identity_artifact(config_section.get("resolved"), label="config")
+        manifest = _identity_artifact(inputs_section.get("manifest"), label="inputs_manifest")
+        task_record = inputs_section.get("task_file")
+        if not isinstance(task_record, dict) or not {"path", "sha256", "count"}.issubset(task_record):
+            raise TB4AuditError("task_file_identity_invalid")
+        task_file = _resolved_file(Path(str(task_record["path"])), label="task_file")
+        if _sha256_file(task_file, label="task_file") != task_record["sha256"]:
+            raise TB4AuditError("task_file_sha256_mismatch")
+        _require_run_local(config[0], run_dir / "config.toml", label="config")
+        _require_run_local(manifest[0], run_dir / "inputs/manifest.json", label="inputs_manifest")
+        _require_run_local(task_file, run_dir / "inputs/task_file.txt", label="task_file")
+        provenance = _resolved_file(run_dir / "provenance.txt", label="provenance")
+        _validate_provenance(provenance, identity=identity, identity_sha256=identity_sha256)
+        readiness, smoke = _validate_deployment_checkpoints(identity)
+
+        dataset_path = dataset_section.get("path")
+        if not isinstance(dataset_path, str):
+            raise TB4AuditError("dataset_identity_invalid")
+        if max_sequence_tokens != DEFAULT_MAX_SEQUENCE_TOKENS:
+            raise TB4AuditError("tb4_max_sequence_tokens_mismatch")
+
+        artifact_paths = {
+            "results": results,
+            "eval_run_identity": identity_path,
+            "config": config[0],
+            "inputs_manifest": manifest[0],
+            "provenance": provenance,
+            "readiness_checkpoint": readiness[0],
+            "smoke_checkpoint": smoke[0],
+        }
+        before = {name: _sha256_file(path, label=name) for name, path in artifact_paths.items()}
+        if before["eval_run_identity"] != identity_file_sha256:
+            raise TB4AuditError("eval_run_identity_changed")
+        try:
+            summary, failed = audit_results(
+                results,
+                dataset_dir=Path(dataset_path),
+                task_file=task_file,
+                min_supported_pass_rate=min_supported_pass_rate,
+                max_supported_pass_rate=max_supported_pass_rate,
+                max_sequence_tokens=max_sequence_tokens,
+            )
+        except (TraceJSONLError, TB4AuditError) as error:
+            raise TB4AuditError("tb4_results_audit_failed") from error
+        if failed:
+            raise TB4AuditError("tb4_results_audit_failed")
+        after = {name: _sha256_file(path, label=name) for name, path in artifact_paths.items()}
+        if before != after:
+            raise TB4AuditError("tb4_audit_artifact_changed")
+        if (
+            before["config"] != config[1]
+            or before["inputs_manifest"] != manifest[1]
+            or before["readiness_checkpoint"] != readiness[1]
+            or before["smoke_checkpoint"] != smoke[1]
+        ):
+            raise TB4AuditError("identity_artifact_sha256_mismatch")
+
+        deployment = identity["deployment"]
+        unsigned = {
+            "schema_version": 1,
+            "state": "passed",
+            "ok": True,
+            "eval_run_identity_sha256": identity_sha256,
+            "deployment": {
+                "id": deployment["id"],
+                "spec_sha256": deployment["spec"]["sha256"],
+            },
+            "audit_policy": {
+                "expected_tasks": EXPECTED_TASK_COUNT,
+                "expected_supported_tasks": EXPECTED_SUPPORTED_TASK_COUNT,
+                "expected_cpu_unsupported_tasks": len(EXPECTED_UNSUPPORTED_TASKS),
+                "rollouts_per_task": 1,
+                "model": EXPECTED_MODEL,
+                "reasoning_effort": "max",
+                "max_sequence_tokens": max_sequence_tokens,
+                "rollout_concurrency": EXPECTED_TB4_ROLLOUT_CONCURRENCY,
+                "lease_start_concurrency": EXPECTED_TB4_LEASE_START_CONCURRENCY,
+                "require_reasoning": True,
+                "require_response": True,
+                "require_model_io": True,
+                "require_tool_schemas": True,
+                "require_tool_call_lineage": True,
+                "require_token_data": False,
+                "require_logprobs": False,
+                "binary_solved_reward": True,
+                "min_supported_pass_rate": min_supported_pass_rate,
+                "max_supported_pass_rate": max_supported_pass_rate,
+            },
+            "counts": {
+                "observed_traces": summary["observed_traces"],
+                "supported_tasks": summary["supported_tasks"],
+                "cpu_unsupported_tasks": len(summary["observed_unsupported_tasks"]),
+                "supported_passes": summary["supported_passes"],
+                "trace_failures": summary["trace_failures"],
+                "supported_trace_failures": summary["supported_trace_failures"],
+                "cpu_unsupported_trace_failures": summary["unsupported_trace_failures"],
+                "global_problems": len(summary["global_problems"]),
+            },
+            "scores": {
+                "supported_pass_rate": summary["supported_pass_rate"],
+                "all_task_pass_rate": summary["all_task_pass_rate"],
+            },
+            "artifacts": {
+                name: {"path": str(artifact_paths[name]), "sha256": before[name]}
+                for name in artifact_paths
+            },
+        }
+        certificate = {
+            **unsigned,
+            "tb4_certificate_sha256": hashlib.sha256(canonical_json(unsigned)).hexdigest(),
+        }
+        _publish_write_once(certificate_path, certificate)
+        return certificate
+
+
 def _rate(value: str) -> float:
     rate = float(value)
     if not math.isfinite(rate) or not 0 <= rate <= 1:
@@ -235,7 +714,6 @@ def main() -> None:
     parser.add_argument("results", type=Path)
     parser.add_argument(
         "--dataset-dir",
-        required=True,
         type=Path,
         help="pinned TB4 tasks directory used to establish the expected slug set",
     )
@@ -259,6 +737,11 @@ def main() -> None:
         type=int,
         default=DEFAULT_MAX_SEQUENCE_TOKENS,
     )
+    parser.add_argument(
+        "--certificate",
+        type=Path,
+        help="publish an aggregate-only, write-once TB4 certificate using run identity inputs",
+    )
     args = parser.parse_args()
     if args.max_sequence_tokens < 1:
         parser.error("--max-sequence-tokens must be positive")
@@ -269,17 +752,43 @@ def main() -> None:
     ):
         parser.error("--min-supported-pass-rate cannot exceed --max-supported-pass-rate")
     try:
-        summary, failed = audit_results(
-            args.results,
-            dataset_dir=args.dataset_dir,
-            task_file=args.task_file,
-            min_supported_pass_rate=args.min_supported_pass_rate,
-            max_supported_pass_rate=args.max_supported_pass_rate,
-            max_sequence_tokens=args.max_sequence_tokens,
-        )
-    except (OSError, TraceJSONLError, TB4AuditError) as error:
+        if args.certificate is not None:
+            if args.dataset_dir is not None or args.task_file is not None:
+                parser.error("--dataset-dir/--task-file cannot be used with --certificate")
+            if args.min_supported_pass_rate is None or args.max_supported_pass_rate is None:
+                parser.error("certificate mode requires both supported pass-rate bounds")
+            summary = certify_tb4_results(
+                args.results,
+                certificate_path=args.certificate,
+                min_supported_pass_rate=args.min_supported_pass_rate,
+                max_supported_pass_rate=args.max_supported_pass_rate,
+                max_sequence_tokens=args.max_sequence_tokens,
+            )
+            failed = False
+        else:
+            if args.dataset_dir is None:
+                parser.error("--dataset-dir is required unless --certificate is used")
+            summary, failed = audit_results(
+                args.results,
+                dataset_dir=args.dataset_dir,
+                task_file=args.task_file,
+                min_supported_pass_rate=args.min_supported_pass_rate,
+                max_supported_pass_rate=args.max_supported_pass_rate,
+                max_sequence_tokens=args.max_sequence_tokens,
+            )
+    except (OSError, TraceJSONLError, TB4AuditError, EvalIdentityError) as error:
         parser.error(str(error))
-    print(json.dumps(summary, indent=2, sort_keys=True))
+    if args.certificate is None:
+        output = summary
+    else:
+        checkpoint_path = args.certificate.resolve(strict=True)
+        output = {
+            "ok": True,
+            "checkpoint": str(checkpoint_path),
+            "checkpoint_file_sha256": _sha256_file(checkpoint_path, label="tb4_certificate"),
+            "tb4_certificate_sha256": summary["tb4_certificate_sha256"],
+        }
+    print(json.dumps(output, indent=2, sort_keys=True))
     if failed:
         raise SystemExit(2)
 

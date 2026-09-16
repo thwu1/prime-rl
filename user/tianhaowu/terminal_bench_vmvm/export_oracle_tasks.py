@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
 """Promote a complete oracle run into an approved, deterministic task manifest.
 
-The command is a dry-run unless ``--apply`` is supplied. Its stdout contains
-counts and digests only; task identifiers and oracle error details are never
-printed. Existing manifest order is retained for tasks that remain valid and
-replacement tasks are appended in the canonical dataset order.
+The command is a dry-run unless ``--apply`` is supplied. Apply mode requires a
+new ``--receipt`` target and publishes a canonical, self-hashed receipt only
+after the manifest and configs are verified. Stdout contains counts and digests
+only; task identifiers and oracle error details are never printed. Existing
+manifest order is retained for tasks that remain valid and replacement tasks
+are appended in the canonical dataset order.
 """
 
 from __future__ import annotations
@@ -32,6 +34,8 @@ MAX_MANIFEST_BYTES = 16 * 1024 * 1024
 TASKSET_ID = "terminal-bench-vmvm"
 CLEAN_TREE_SHA256 = hashlib.sha256(b"").hexdigest()
 MINIMUM_ORACLE_PRIME_RL_ANCESTOR = "f0e8d1fd55dadedc086feb8833071700ed034f63"
+RECEIPT_SCHEMA_VERSION = 1
+RECEIPT_ARTIFACT_TYPE = "terminal_bench_vmvm_oracle_promotion_receipt"
 PROVENANCE_KEYS = {
     "host",
     "oracle_solution_network_mode",
@@ -79,6 +83,21 @@ def _read_bytes(path: Path, *, limit: int, error: str) -> bytes:
 
 def _sha256(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
+
+
+def _canonical_json_sha256(value: object) -> str:
+    encoded = json.dumps(
+        value,
+        ensure_ascii=False,
+        allow_nan=False,
+        sort_keys=True,
+        separators=(",", ":"),
+    ).encode("utf-8")
+    return _sha256(encoded)
+
+
+def _canonical_json_file(value: object) -> bytes:
+    return (json.dumps(value, ensure_ascii=False, allow_nan=False, indent=2, sort_keys=True) + "\n").encode("utf-8")
 
 
 def _json_file_with_sha256(path: Path, *, error: str) -> tuple[dict[str, Any], str]:
@@ -492,7 +511,7 @@ def _audit_oracle(
     minimum_valid: int,
     expected_run_identity_sha256: str,
     trusted_reference_solution: str,
-) -> tuple[list[str], set[str], int, float, str, str]:
+) -> tuple[list[str], set[str], int, float, dict[str, int], str, str]:
     canonical = _dataset_tasks(dataset_dir, dataset_revision, expected_total)
     canonical_set = set(canonical)
     results, results_sha256 = _results(oracle_dir)
@@ -631,7 +650,7 @@ def _audit_oracle(
             raise PromotionError("oracle_status_mismatch")
     if observed_statuses != canonical_set:
         raise PromotionError("oracle_status_set_mismatch")
-    return canonical, valid, passed, pass_rate, results_sha256, summary_sha256
+    return canonical, valid, passed, pass_rate, dict(reasons), results_sha256, summary_sha256
 
 
 def _resolve_task_file(project_root: Path, value: str) -> Path:
@@ -715,6 +734,57 @@ def _updated_config(
     return updated
 
 
+def _stable_project_path(path: Path, project_root: Path) -> str:
+    try:
+        relative = path.resolve(strict=True).relative_to(project_root.resolve(strict=True))
+    except (OSError, RuntimeError, ValueError) as cause:
+        raise PromotionError("promotion_path_outside_project") from cause
+    if relative == Path("."):
+        raise PromotionError("promotion_path_outside_project")
+    return relative.as_posix()
+
+
+def _receipt_destination(path: Path) -> Path:
+    configured = path.expanduser().absolute()
+    if not configured.name:
+        raise PromotionError("receipt_path_invalid")
+    try:
+        parent = configured.parent.resolve(strict=True)
+    except (OSError, RuntimeError) as cause:
+        raise PromotionError("receipt_parent_unreadable") from cause
+    if not parent.is_dir():
+        raise PromotionError("receipt_parent_unreadable")
+    destination = parent / configured.name
+    try:
+        destination.lstat()
+    except FileNotFoundError:
+        return destination
+    except OSError as cause:
+        raise PromotionError("receipt_target_unreadable") from cause
+    raise PromotionError("receipt_already_exists")
+
+
+def _write_receipt_once(path: Path, data: bytes) -> None:
+    temporary = path.with_name(f".{path.name}.{os.getpid()}.{uuid.uuid4().hex}.tmp")
+    try:
+        try:
+            with temporary.open("xb") as handle:
+                handle.write(data)
+                handle.flush()
+                os.fchmod(handle.fileno(), 0o444)
+                os.fsync(handle.fileno())
+        except OSError as cause:
+            raise PromotionError("receipt_staging_failed") from cause
+        try:
+            os.link(temporary, path)
+        except FileExistsError as cause:
+            raise PromotionError("receipt_already_exists") from cause
+        except OSError as cause:
+            raise PromotionError("receipt_publish_failed") from cause
+    finally:
+        temporary.unlink(missing_ok=True)
+
+
 def _replace_files(updates: list[tuple[Path, bytes]]) -> None:
     staged: list[tuple[Path, Path]] = []
     try:
@@ -753,6 +823,7 @@ def _promote_locked(
     expected_config_count: int = 2,
     minimum_prime_rl_ancestor: str | None = None,
     apply: bool = False,
+    receipt: Path | None = None,
 ) -> dict[str, Any]:
     if REVISION_RE.fullmatch(dataset_revision) is None:
         raise PromotionError("dataset_revision_invalid")
@@ -770,6 +841,9 @@ def _promote_locked(
         raise PromotionError("config_count_mismatch")
     if len(configs) != len({path.resolve() for path in configs}):
         raise PromotionError("configs_invalid")
+    if apply and receipt is None:
+        raise PromotionError("receipt_required_for_apply")
+    receipt_path = _receipt_destination(receipt) if apply and receipt is not None else None
 
     output = output.resolve()
     current_bytes = _read_bytes(
@@ -798,20 +872,21 @@ def _promote_locked(
         expected_minimum_valid=limit,
         trusted_reference_solution=trusted_reference_solution,
     )
+    effective_minimum_prime_rl_ancestor = (
+        MINIMUM_ORACLE_PRIME_RL_ANCESTOR if minimum_prime_rl_ancestor is None else minimum_prime_rl_ancestor
+    )
     oracle_provenance_sha256 = _audit_provenance(
         oracle_dir.resolve(),
         project_root,
         expected_prime_rl_commit=expected_prime_rl_commit,
         required_prime_rl_ancestor=required_prime_rl_ancestor,
-        minimum_prime_rl_ancestor=(
-            MINIMUM_ORACLE_PRIME_RL_ANCESTOR if minimum_prime_rl_ancestor is None else minimum_prime_rl_ancestor
-        ),
+        minimum_prime_rl_ancestor=effective_minimum_prime_rl_ancestor,
         expected_verifiers_commit=expected_verifiers_commit,
         expected_vmvm_tb_v2_sha256=expected_vmvm_tb_v2_sha256,
         expected_run_identity_sha256=run_identity_sha256,
         trusted_reference_solution=trusted_reference_solution,
     )
-    canonical, valid, passed, pass_rate, oracle_results_sha256, oracle_summary_sha256 = _audit_oracle(
+    canonical, valid, passed, pass_rate, oracle_reasons, oracle_results_sha256, oracle_summary_sha256 = _audit_oracle(
         oracle_dir.resolve(),
         dataset_dir,
         dataset_revision,
@@ -851,7 +926,51 @@ def _promote_locked(
         )
         for path in configs
     ]
+    summary = {
+        "applied": apply,
+        "completed": expected_total,
+        "configured_files": len(configs),
+        "current_manifest_sha256": current_sha256,
+        "dataset_revision": dataset_revision,
+        "minimum_pass_rate": minimum_pass_rate,
+        "minimum_valid": limit,
+        "oracle_image_manifest_sha256": expected_image_manifest_sha256,
+        "oracle_pass_rate": pass_rate,
+        "oracle_prime_rl_commit": expected_prime_rl_commit,
+        "oracle_provenance_sha256": oracle_provenance_sha256,
+        "oracle_reasons": oracle_reasons,
+        "oracle_results_sha256": oracle_results_sha256,
+        "oracle_run_identity_file_sha256": run_identity_file_sha256,
+        "oracle_run_identity_sha256": run_identity_sha256,
+        "oracle_summary_sha256": oracle_summary_sha256,
+        "oracle_verifiers_commit": expected_verifiers_commit,
+        "oracle_vmvm_tb_v2_sha256": expected_vmvm_tb_v2_sha256,
+        "passed": passed,
+        "removed_invalid": limit - len(preserved),
+        "selected": len(selected),
+        "selected_manifest_sha256": selected_sha256,
+        "selected_subset_valid": True,
+        "trusted_reference_solution": trusted_reference_solution,
+    }
     if apply:
+        if receipt_path is None:
+            raise PromotionError("receipt_required_for_apply")
+        if _receipt_destination(receipt_path) != receipt_path:
+            raise PromotionError("receipt_path_changed")
+        manifest_record = {
+            "path": _stable_project_path(output, project_root),
+            "sha256": selected_sha256,
+        }
+        config_records = sorted(
+            (
+                {
+                    "path": _stable_project_path(path, project_root),
+                    "sha256": _sha256(updated),
+                }
+                for path, updated in config_updates
+            ),
+            key=lambda record: record["path"],
+        )
         _replace_files([(output, selected_bytes), *config_updates])
         applied = _read_bytes(
             output,
@@ -864,28 +983,59 @@ def _promote_locked(
             observed = _read_bytes(path, limit=MAX_CONFIG_BYTES, error="applied_config_unreadable")
             if observed != expected:
                 raise PromotionError("applied_config_mismatch")
+        receipt_payload = {
+            "acceptance": {
+                "minimum_pass_rate": minimum_pass_rate,
+                "minimum_valid": limit,
+                "observed_pass_rate": pass_rate,
+                "oracle_network_semantics": _expected_semantics(trusted_reference_solution),
+                "selected_subset_valid": True,
+            },
+            "applied_manifest": manifest_record,
+            "artifact_type": RECEIPT_ARTIFACT_TYPE,
+            "counts": {
+                "completed": expected_total,
+                "configured_files": len(configs),
+                "expected_total": expected_total,
+                "oracle_reasons": oracle_reasons,
+                "passed": passed,
+                "removed_invalid": limit - len(preserved),
+                "selected": len(selected),
+            },
+            "dataset": {"revision": dataset_revision},
+            "image_manifest": {"sha256": expected_image_manifest_sha256},
+            "oracle_artifacts": {
+                "provenance": {"path": "provenance.txt", "sha256": oracle_provenance_sha256},
+                "results": {"path": "results.jsonl", "sha256": oracle_results_sha256},
+                "run_identity": {
+                    "identity_sha256": run_identity_sha256,
+                    "path": "run_identity.json",
+                    "sha256": run_identity_file_sha256,
+                },
+                "summary": {"path": "summary.json", "sha256": oracle_summary_sha256},
+            },
+            "promotion_summary": dict(summary),
+            "schema_version": RECEIPT_SCHEMA_VERSION,
+            "source": {
+                "minimum_prime_rl_ancestor": effective_minimum_prime_rl_ancestor,
+                "prime_rl_commit": expected_prime_rl_commit,
+                "prime_rl_tree_sha256": CLEAN_TREE_SHA256,
+                "required_prime_rl_ancestor": required_prime_rl_ancestor,
+                "verifiers_commit": expected_verifiers_commit,
+                "vmvm_tb_v2_sha256": expected_vmvm_tb_v2_sha256,
+            },
+            "updated_configs": config_records,
+        }
+        receipt_sha256 = _canonical_json_sha256(receipt_payload)
+        receipt_envelope = {
+            "receipt": receipt_payload,
+            "receipt_sha256": receipt_sha256,
+            "schema_version": RECEIPT_SCHEMA_VERSION,
+        }
+        _write_receipt_once(receipt_path, _canonical_json_file(receipt_envelope))
+        summary["receipt_sha256"] = receipt_sha256
 
-    return {
-        "applied": apply,
-        "completed": expected_total,
-        "configured_files": len(configs),
-        "current_manifest_sha256": current_sha256,
-        "dataset_revision": dataset_revision,
-        "oracle_pass_rate": pass_rate,
-        "oracle_prime_rl_commit": expected_prime_rl_commit,
-        "oracle_provenance_sha256": oracle_provenance_sha256,
-        "oracle_results_sha256": oracle_results_sha256,
-        "oracle_run_identity_file_sha256": run_identity_file_sha256,
-        "oracle_run_identity_sha256": run_identity_sha256,
-        "oracle_summary_sha256": oracle_summary_sha256,
-        "oracle_verifiers_commit": expected_verifiers_commit,
-        "oracle_vmvm_tb_v2_sha256": expected_vmvm_tb_v2_sha256,
-        "passed": passed,
-        "removed_invalid": limit - len(preserved),
-        "selected": len(selected),
-        "selected_manifest_sha256": selected_sha256,
-        "selected_subset_valid": True,
-    }
+    return summary
 
 
 def promote(
@@ -909,6 +1059,7 @@ def promote(
     expected_config_count: int = 2,
     minimum_prime_rl_ancestor: str | None = None,
     apply: bool = False,
+    receipt: Path | None = None,
 ) -> dict[str, Any]:
     """Audit/promote one terminal oracle run while excluding active writers."""
     lock_path = oracle_dir.resolve() / ".writer.lock"
@@ -941,6 +1092,7 @@ def promote(
             expected_config_count=expected_config_count,
             minimum_prime_rl_ancestor=minimum_prime_rl_ancestor,
             apply=apply,
+            receipt=receipt,
         )
     finally:
         lock.close()
@@ -970,7 +1122,10 @@ def main(argv: list[str] | None = None) -> int:
         default="public",
     )
     parser.add_argument("--apply", action="store_true")
+    parser.add_argument("--receipt", type=Path)
     args = parser.parse_args(argv)
+    if args.apply and args.receipt is None:
+        parser.error("--receipt is required with --apply")
     try:
         summary = promote(
             args.oracle_dir,
@@ -991,6 +1146,7 @@ def main(argv: list[str] | None = None) -> int:
             trusted_reference_solution=args.trusted_reference_solution,
             expected_config_count=args.expected_config_count,
             apply=args.apply,
+            receipt=args.receipt,
         )
     except PromotionError as error:
         print(f"oracle_promotion_error:{error}", file=sys.stderr)

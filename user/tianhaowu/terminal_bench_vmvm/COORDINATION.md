@@ -1,6 +1,6 @@
 # VMVM sandbox coordination
 
-Last updated: 2026-09-16 20:59 UTC
+Last updated: 2026-09-16 22:50 UTC
 
 ## First message to the next teammate
 
@@ -38,6 +38,29 @@ this shared branch again.
 Add new rows below this line; do not overwrite another owner's row.
 
 ## Open coordination requests
+
+- **2026-09-16 22:50 UTC, use2-3 immutable model-eval gate:** the shared
+  worktree now implements and independently tests immutable evaluation
+  identities, write-once transcript-smoke and full-TB4 certificates, a
+  write-once oracle-promotion receipt, and a reconstructing Mobius launch
+  certificate. `run_eval.sbatch` validates the Mobius certificate against its
+  exact config, approved 2,500-task manifest, post-resize spec, deployment ID,
+  readiness/capacity artifacts, and normalized lease-start concurrency before
+  creating an output directory or contacting inference. Model/base-URL
+  overrides are rejected and the proxy metadata must resolve beside the
+  certificate-bound spec. Captured provider responses are reparsed with
+  Verifiers and reconciled to persisted assistant nodes; production audit has
+  an aggregate-only output mode. The checked-in Mobius capacity smoke uses 42
+  previously validated cases at eight active rollouts/four lease starts. The
+  separately owned direct-Qwen wrapper retains its isolated, manifest-validated
+  driver instead of bypassing the Kimi identity gates. All 325 workflow tests,
+  Ruff, shell syntax, and diff checks pass. At this poll,
+  endpoint `1735929` and promotable oracle `1737160` remain pending on priority;
+  readiness watcher `1735934` is live at 554 polls with zero ready routes. No
+  model evaluation has started. Publish a clean descendant snapshot before the
+  first smoke, and preserve the gate order: two-task smoke, 66-task TB4,
+  post-resize readiness, 42-case capacity smoke, launch certificate, then
+  2,500-task production.
 
 - **2026-09-16 20:59 UTC, use2-3 oracle backfill adjustment:** after an
   independent read-only scheduler/runtime audit, pending promotable oracle job

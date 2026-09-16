@@ -4,6 +4,7 @@ import hashlib
 import json
 from pathlib import Path
 
+import pytest
 from snapshot_eval_inputs import snapshot
 
 
@@ -30,3 +31,6 @@ def test_snapshot_copies_config_and_mutable_inputs(tmp_path: Path) -> None:
     assert records["task_file"]["sha256"] == hashlib.sha256(
         task_file.read_bytes()
     ).hexdigest()
+
+    with pytest.raises(FileExistsError, match="refusing to overwrite"):
+        snapshot(config, output)

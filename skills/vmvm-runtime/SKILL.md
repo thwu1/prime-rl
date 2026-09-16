@@ -174,6 +174,42 @@ digest. A resume may append invocation metadata, but must never rewrite initial
 provenance or reuse a row whose identity differs; legacy unlabeled output needs
 a fresh directory.
 
+Apply the same immutable-run rule to model evaluations. Every non-dry launch
+through `terminal_bench_vmvm/run_eval.sbatch` must declare its role (`smoke`,
+`tb4`, or `mobius`), metadata deployment ID, expected model, exact deployment
+spec and passed readiness checkpoint with external file hashes, dataset
+authority, and an independently approved task manifest. The launcher publishes
+`eval_run_identity.json` before the first model call and permits a resume only
+when the recomputed identity is byte-for-byte identical. A TB4 run additionally
+requires the passed two-task transcript-smoke checkpoint. A Mobius run requires
+the post-resize capacity-smoke checkpoint and a write-once launch certificate
+that independently reconstructs the full chain: final oracle promotion receipt,
+qualified TB4 result, post-resize readiness, capacity smoke, production config,
+2,500-task manifest, dataset/image pins, and effective lease-start concurrency.
+Use the external SHA-256 of each certificate file in launcher environment
+variables, not the certificate's embedded canonical-body digest. Keep
+certificates outside a Git worktree, and verify the Mobius certificate before
+creating the output directory or contacting inference.
+For Mobius, reject model and direct/base-URL overrides: load only the
+deployment-local `proxy_info.json` whose resolved parent is the same exact
+directory as the certificate-bound `spec.yaml`. The run validator must match
+the live readiness and capacity-smoke artifact paths and file hashes to the
+records embedded in the launch certificate.
+
+When auditing a production trace file interactively, pass
+`audit_traces.py --aggregate-only`; this reports counts and stable problem codes
+without emitting trace IDs or task identifiers. The write-once smoke and TB4
+certificate modes are aggregate-only by construction.
+
+The required order is readiness and state-reuse gate, two-task transcript
+smoke, full 66-task TB4 pass@1 audit, deployment resize, fresh readiness gate,
+capacity smoke at or above production concurrency, Mobius launch-certificate
+creation, and only then the 2,500-task rollout. The full TB4 qualification uses
+four active rollouts and two simultaneous lease starts. Normalize effective
+lease-start concurrency as the smaller of `VACLI_MAX_CONCURRENT_LEASES` and the
+configured rollout concurrency, and bind that value in both the eval identity
+and the downstream certificate.
+
 Pier's DeepSWE adapter supports prebuilt agent images and the benchmark's
 separate verifier Dockerfiles. It validates the Dockerfile, starts its `FROM`
 image, copies the hidden verifier files only into the verifier runtime, and

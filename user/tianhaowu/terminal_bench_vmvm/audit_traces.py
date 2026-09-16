@@ -13,6 +13,10 @@ from collections import Counter
 from collections.abc import Iterable, Iterator
 from pathlib import Path
 
+from openai.types.chat import ChatCompletion
+from verifiers.v1.dialects.chat import response_from_wire
+from verifiers.v1.types import AssistantMessage, Response, Usage
+
 DEFAULT_MAX_SEQUENCE_TOKENS = 262_144
 FORBIDDEN_MODEL_REQUEST_FIELDS = frozenset({"logprobs", "prompt_logprobs", "return_token_ids", "top_logprobs"})
 REPEATED_KDA_CHARACTER_THRESHOLD = 64
@@ -294,6 +298,30 @@ def _valid_model_response(response: object) -> bool:
     )
 
 
+def _response_node_problems(node: dict, index: int, response: dict) -> list[str]:
+    """Reparse captured response semantics exactly as Verifiers did before graph commit."""
+    try:
+        if response["kind"] == "exact_provider_json":
+            parsed = response_from_wire(ChatCompletion.model_validate(response["body"]))
+        else:
+            parsed = Response.model_validate(response["body"])
+        node_message = AssistantMessage.model_validate(node.get("message"))
+        node_usage = Usage.model_validate(node["usage"]) if node.get("usage") is not None else None
+    except (AttributeError, IndexError, KeyError, TypeError, ValueError):
+        return [f"node_{index}_model_io_response_semantics_invalid"]
+
+    problems: list[str] = []
+    if parsed.message.model_dump(mode="json") != node_message.model_dump(mode="json"):
+        problems.append(f"node_{index}_model_io_response_message_mismatch")
+    if parsed.finish_reason != node.get("finish_reason"):
+        problems.append(f"node_{index}_model_io_response_finish_reason_mismatch")
+    parsed_usage = parsed.usage.model_dump(mode="json") if parsed.usage is not None else None
+    normalized_node_usage = node_usage.model_dump(mode="json") if node_usage is not None else None
+    if parsed_usage != normalized_node_usage:
+        problems.append(f"node_{index}_model_io_response_usage_mismatch")
+    return problems
+
+
 def _captured_zero_reasoning_tool_turn(node: dict) -> bool:
     """Whether model I/O proves this sampled tool turn genuinely used no reasoning."""
     model_io = node.get("model_io")
@@ -400,6 +428,8 @@ def _audit_model_io(nodes: list) -> tuple[list[str], int]:
             problems.append(f"node_{index}_model_io_response_structure_invalid")
         elif _json_sha256(response["body"]) != response["sha256"]:
             problems.append(f"node_{index}_model_io_response_hash_mismatch")
+        else:
+            problems.extend(_response_node_problems(node, index, response))
 
     memo: dict[int, dict] = {}
 
@@ -632,6 +662,7 @@ def _summarize_traces(
     max_sequence_tokens: int = DEFAULT_MAX_SEQUENCE_TOKENS,
     require_token_data: bool = False,
     require_model_io: bool = False,
+    aggregate_only: bool = False,
 ) -> tuple[dict, bool]:
     require_token_data = require_token_data or require_logprobs
     trace_count = 0
@@ -639,6 +670,7 @@ def _summarize_traces(
     model_io_turns = 0
     trace_failure_count = 0
     failure_examples: list[dict] = []
+    problem_counts: Counter[str] = Counter()
     seen_ids: set[object] = set()
     duplicate_trace_ids = False
     per_task: Counter[str] = Counter()
@@ -663,7 +695,8 @@ def _summarize_traces(
         )
         if problems:
             trace_failure_count += 1
-            if len(failure_examples) < 50:
+            problem_counts.update(re.sub(r"^node_[0-9]+_", "node_", problem).split("=", 1)[0] for problem in problems)
+            if not aggregate_only and len(failure_examples) < 50:
                 failure_examples.append({"id": trace_id, "task": slug, "problems": problems})
 
         nodes = trace.get("nodes")
@@ -696,16 +729,25 @@ def _summarize_traces(
     if expected_slugs is not None:
         observed = set(per_task)
         if missing := sorted(expected_slugs - observed):
-            global_problems.append(f"missing_tasks={missing[:20]!r} count={len(missing)}")
+            if aggregate_only:
+                global_problems.append(f"missing_tasks_count={len(missing)}")
+            else:
+                global_problems.append(f"missing_tasks={missing[:20]!r} count={len(missing)}")
         if extra := sorted(observed - expected_slugs):
-            global_problems.append(f"unexpected_tasks={extra[:20]!r} count={len(extra)}")
+            if aggregate_only:
+                global_problems.append(f"unexpected_tasks_count={len(extra)}")
+            else:
+                global_problems.append(f"unexpected_tasks={extra[:20]!r} count={len(extra)}")
         wrong_multiplicity = {
             slug: per_task.get(slug, 0) for slug in expected_slugs if per_task.get(slug, 0) != rollouts_per_task
         }
         if wrong_multiplicity:
-            global_problems.append(
-                f"wrong_rollout_multiplicity={dict(list(sorted(wrong_multiplicity.items()))[:20])!r}"
-            )
+            if aggregate_only:
+                global_problems.append(f"wrong_rollout_multiplicity_count={len(wrong_multiplicity)}")
+            else:
+                global_problems.append(
+                    f"wrong_rollout_multiplicity={dict(list(sorted(wrong_multiplicity.items()))[:20])!r}"
+                )
 
     summary = {
         "traces": trace_count,
@@ -713,8 +755,11 @@ def _summarize_traces(
         "sampled_tokens": sampled_tokens,
         "trace_failures": trace_failure_count,
         "global_problems": global_problems,
-        "failure_examples": failure_examples,
     }
+    if aggregate_only:
+        summary["problem_counts"] = dict(sorted(problem_counts.items()))
+    else:
+        summary["failure_examples"] = failure_examples
     if require_model_io:
         summary["model_io_turns"] = model_io_turns
     return summary, bool(trace_failure_count or global_problems)
@@ -753,6 +798,11 @@ def main() -> None:
         default=DEFAULT_MAX_SEQUENCE_TOKENS,
         help="fail traces with any reconstructed branch longer than this (default: %(default)s)",
     )
+    parser.add_argument(
+        "--aggregate-only",
+        action="store_true",
+        help="omit trace IDs, task identifiers, and failure examples from output",
+    )
     args = parser.parse_args()
 
     if args.max_sequence_tokens < 1:
@@ -776,6 +826,7 @@ def main() -> None:
             require_token_data=args.require_token_data,
             require_logprobs=args.require_logprobs,
             require_model_io=args.require_model_io,
+            aggregate_only=args.aggregate_only,
         )
     except TraceJSONLError as error:
         parser.error(str(error))

@@ -162,9 +162,40 @@ def test_generic_launcher_rejects_task_overrides_and_keeps_dry_run() -> None:
     assert "DIRECT_QWEN_APPROVED_TASK_FILE" in text
     assert "DIRECT_QWEN_APPROVED_TASK_FILE_SHA256" in text
     assert "validate_task_approval.py" in text
-    assert "--taskset.task-file-sha256" in text
-    assert "approval_task_file_sha256=" in text
-    assert "approval_task_count=" in text
+    assert "run_direct_qwen_eval_driver.sh" in text
+    assert "eval_run_identity.py" in text
+    assert "--approved-task-file-sha256" in text
+    assert "--approved-task-count" in text
+    assert "eval_run_identity_sha256" in text
+    assert "eval_run_identity.json" in (Path(__file__).parents[1] / "eval_run_identity.py").read_text()
+    assert 'python3 "$workflow_dir/mobius_launch_certificate.py" verify' in text
+    assert '--certificate-sha256 "$promotion_certificate_sha256"' in text
+    assert '--production-config "$eval_config"' in text
+    assert '--approved-manifest "$approved_task_file"' in text
+    assert '--approved-manifest-sha256 "$approved_task_file_sha256"' in text
+    assert '--deployment-id "$eval_deployment_id"' in text
+    assert '--deployment-spec "$deployment_spec"' in text
+    assert '--deployment-spec-sha256 "$deployment_spec_sha256"' in text
+    assert '--readiness-checkpoint "$readiness_checkpoint"' in text
+    assert '--readiness-checkpoint-sha256 "$readiness_checkpoint_sha256"' in text
+    assert '--capacity-smoke-checkpoint "$smoke_checkpoint"' in text
+    assert '--capacity-smoke-checkpoint-sha256 "$smoke_checkpoint_sha256"' in text
+    assert '--requested-lease-start-concurrency "$effective_lease_start_concurrency"' in text
+    assert "without EVAL_MODEL override" in text
+    assert "deployment-local INFERENCE_PROXY_INFO endpoint" in text
+    assert "--routing-deployment-id" in text
+    assert "INFERENCE_DEPLOYMENT_ID routing must match EVAL_DEPLOYMENT_ID metadata" in text
+    assert "EVAL_PROMOTION_CERTIFICATE" in text
+    assert text.index('python3 "$workflow_dir/mobius_launch_certificate.py" verify') < text.index(
+        'python3 "$workflow_dir/eval_run_identity.py"'
+    )
+    assert text.index('python3 "$workflow_dir/mobius_launch_certificate.py" verify') < text.index(
+        'mkdir -p "$output_dir"'
+    )
+    assert text.index('python3 "$workflow_dir/eval_run_identity.py"') < text.index(
+        "from verifiers.v1.cli.eval.main import main; main()' \"${args[@]}\"",
+        text.index('python3 "$workflow_dir/eval_run_identity.py"'),
+    )
 
 
 def _launcher_environment(tmp_path: Path) -> tuple[dict[str, str], Path, Path, Path]:
@@ -196,12 +227,28 @@ def _launcher_environment(tmp_path: Path) -> tuple[dict[str, str], Path, Path, P
         "DIRECT_QWEN_APPROVED_TASK_FILE_SHA256",
         "EVAL_APPROVED_TASK_FILE",
         "EVAL_APPROVED_TASK_FILE_SHA256",
+        "EVAL_MODEL",
         "INFERENCE_BASE_URL",
         "INFERENCE_DEPLOYMENT_ID",
         "INFERENCE_JOB_ID",
         "INFERENCE_PROXY_INFO",
         "INFERENCE_PROXY_URL",
         "RESUME_DIR",
+        "EVAL_RUN_ROLE",
+        "EVAL_DEPLOYMENT_ID",
+        "EVAL_EXPECTED_MODEL",
+        "EVAL_DATASET_REVISION",
+        "EVAL_DATASET_ARCHIVE",
+        "EVAL_DATASET_ARCHIVE_SHA256",
+        "EVAL_DATASET_CONTENT_SHA256",
+        "INFERENCE_DEPLOYMENT_SPEC",
+        "INFERENCE_DEPLOYMENT_SPEC_SHA256",
+        "INFERENCE_READINESS_CHECKPOINT",
+        "INFERENCE_READINESS_CHECKPOINT_SHA256",
+        "INFERENCE_SMOKE_CHECKPOINT",
+        "INFERENCE_SMOKE_CHECKPOINT_SHA256",
+        "EVAL_PROMOTION_CERTIFICATE",
+        "EVAL_PROMOTION_CERTIFICATE_SHA256",
     ):
         env.pop(name, None)
     env.update(
@@ -259,6 +306,62 @@ def test_real_launcher_fails_before_endpoint_or_snapshot_without_approval(tmp_pa
 
     assert result.returncode == 2
     assert result.stderr == "An external approved task file and lowercase SHA-256 are required\n"
+    assert not uv_log.exists()
+    assert not python_log.exists()
+    assert not output_dir.exists()
+
+
+@pytest.mark.parametrize(
+    ("override", "expected_error"),
+    [
+        (
+            {"EVAL_MODEL": "not-approved"},
+            "Mobius evaluation requires the certificate-bound Kimi-K3 model without EVAL_MODEL override\n",
+        ),
+        (
+            {"INFERENCE_BASE_URL": "http://not-approved.invalid/v1"},
+            "Mobius evaluation requires only the deployment-local INFERENCE_PROXY_INFO endpoint\n",
+        ),
+    ],
+)
+def test_mobius_launcher_rejects_model_and_endpoint_overrides_before_mutation(
+    tmp_path: Path,
+    override: dict[str, str],
+    expected_error: str,
+) -> None:
+    env, output_dir, uv_log, python_log = _launcher_environment(tmp_path)
+    env.update(
+        {
+            "EVAL_APPROVED_TASK_FILE": "/opaque/approved",
+            "EVAL_APPROVED_TASK_FILE_SHA256": "a" * 64,
+            "EVAL_DATASET_REVISION": "b" * 40,
+            "EVAL_DEPLOYMENT_ID": "deployment-test",
+            "EVAL_EXPECTED_MODEL": "Kimi-K3",
+            "EVAL_PROMOTION_CERTIFICATE": "/opaque/certificate",
+            "EVAL_PROMOTION_CERTIFICATE_SHA256": "c" * 64,
+            "EVAL_RUN_ROLE": "mobius",
+            "INFERENCE_DEPLOYMENT_SPEC": "/opaque/spec.yaml",
+            "INFERENCE_DEPLOYMENT_SPEC_SHA256": "d" * 64,
+            "INFERENCE_PROXY_INFO": "/opaque/proxy_info.json",
+            "INFERENCE_READINESS_CHECKPOINT": "/opaque/readiness.json",
+            "INFERENCE_READINESS_CHECKPOINT_SHA256": "e" * 64,
+            "INFERENCE_SMOKE_CHECKPOINT": "/opaque/smoke.json",
+            "INFERENCE_SMOKE_CHECKPOINT_SHA256": "f" * 64,
+        }
+    )
+    env.update(override)
+    wrapper = Path(__file__).parents[1] / "run_eval.sbatch"
+
+    result = subprocess.run(
+        ["bash", str(wrapper)],
+        env=env,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 2
+    assert result.stderr == expected_error
     assert not uv_log.exists()
     assert not python_log.exists()
     assert not output_dir.exists()

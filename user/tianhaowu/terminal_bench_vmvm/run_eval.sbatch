@@ -13,6 +13,7 @@
 #SBATCH --error=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/logs/eval_%j.log
 
 set -euo pipefail
+umask 077
 
 dry_run=0
 if (( $# == 1 )) && [[ $1 == --dry-run ]]; then
@@ -32,9 +33,25 @@ output_dir=${OUTPUT_DIR:-/checkpoint/ram/tianhaowu/terminal_bench_vmvm/evals/run
 resume_dir=${RESUME_DIR:-}
 inference_base_url=${INFERENCE_BASE_URL:-}
 inference_deployment_id=${INFERENCE_DEPLOYMENT_ID:-}
+inference_job_id=${INFERENCE_JOB_ID:-}
 inference_proxy_info=${INFERENCE_PROXY_INFO:-}
 eval_model=${EVAL_MODEL:-}
 inference_proxy_url=${INFERENCE_PROXY_URL:-}
+eval_run_role=${EVAL_RUN_ROLE:-}
+eval_deployment_id=${EVAL_DEPLOYMENT_ID:-}
+eval_expected_model=${EVAL_EXPECTED_MODEL:-}
+deployment_spec=${INFERENCE_DEPLOYMENT_SPEC:-}
+deployment_spec_sha256=${INFERENCE_DEPLOYMENT_SPEC_SHA256:-}
+readiness_checkpoint=${INFERENCE_READINESS_CHECKPOINT:-}
+readiness_checkpoint_sha256=${INFERENCE_READINESS_CHECKPOINT_SHA256:-}
+smoke_checkpoint=${INFERENCE_SMOKE_CHECKPOINT:-}
+smoke_checkpoint_sha256=${INFERENCE_SMOKE_CHECKPOINT_SHA256:-}
+promotion_certificate=${EVAL_PROMOTION_CERTIFICATE:-}
+promotion_certificate_sha256=${EVAL_PROMOTION_CERTIFICATE_SHA256:-}
+eval_dataset_revision=${EVAL_DATASET_REVISION:-}
+eval_dataset_archive=${EVAL_DATASET_ARCHIVE:-}
+eval_dataset_archive_sha256=${EVAL_DATASET_ARCHIVE_SHA256:-}
+eval_dataset_content_sha256=${EVAL_DATASET_CONTENT_SHA256:-}
 
 if [[ "$(uname -m)" != x86_64 || ! -d "$x86_site/pydantic" ]]; then
     printf 'Missing x86_64 Python runtime/dependencies\n' >&2
@@ -66,6 +83,14 @@ if [[ "$dry_run" -eq 1 ]]; then
     fi
     exec "$x86_uv" run --no-project --offline --python "$python_bin" \
         python3 -c 'from verifiers.v1.cli.eval.main import main; main()' "${args[@]}"
+fi
+
+if [[ -z "$eval_run_role" \
+    && -n ${DIRECT_QWEN_APPROVED_TASK_FILE:-} \
+    && -n ${DIRECT_QWEN_APPROVED_TASK_FILE_SHA256:-} \
+    && -z ${EVAL_APPROVED_TASK_FILE:-} \
+    && -z ${EVAL_APPROVED_TASK_FILE_SHA256:-} ]]; then
+    exec bash "$workflow_dir/run_direct_qwen_eval_driver.sh"
 fi
 
 eval_approved_task_file=${EVAL_APPROVED_TASK_FILE:-}
@@ -101,6 +126,153 @@ else
     exit 2
 fi
 
+case "$eval_run_role" in
+    smoke|tb4|mobius) ;;
+    *)
+        printf 'EVAL_RUN_ROLE must be smoke, tb4, or mobius\n' >&2
+        exit 2
+        ;;
+esac
+if [[ -z "$eval_deployment_id" || -z "$eval_expected_model" ]]; then
+    printf 'EVAL_DEPLOYMENT_ID and EVAL_EXPECTED_MODEL are required metadata\n' >&2
+    exit 2
+fi
+if [[ -n "$inference_deployment_id" ]]; then
+    if [[ ! "$inference_deployment_id" =~ ^[A-Za-z0-9._:-]+$ ]]; then
+        printf 'Invalid INFERENCE_DEPLOYMENT_ID: %s\n' "$inference_deployment_id" >&2
+        exit 2
+    fi
+    if [[ "$inference_deployment_id" != "$eval_deployment_id" ]]; then
+        printf 'INFERENCE_DEPLOYMENT_ID routing must match EVAL_DEPLOYMENT_ID metadata\n' >&2
+        exit 2
+    fi
+fi
+if [[ -z "$deployment_spec" || -z "$deployment_spec_sha256" \
+    || -z "$readiness_checkpoint" || -z "$readiness_checkpoint_sha256" ]]; then
+    printf 'Deployment spec and readiness checkpoint paths with SHA-256 values are required\n' >&2
+    exit 2
+fi
+if [[ "$eval_run_role" == smoke ]]; then
+    if [[ -n "$smoke_checkpoint" || -n "$smoke_checkpoint_sha256" ]]; then
+        printf 'Smoke-role evaluation cannot depend on a prior smoke checkpoint\n' >&2
+        exit 2
+    fi
+elif [[ -z "$smoke_checkpoint" || -z "$smoke_checkpoint_sha256" ]]; then
+    printf 'TB4 and Mobius evaluations require a smoke checkpoint and SHA-256\n' >&2
+    exit 2
+fi
+if [[ "$eval_run_role" == mobius ]]; then
+    if [[ -z "$promotion_certificate" || -z "$promotion_certificate_sha256" ]]; then
+        printf 'Mobius evaluation requires EVAL_PROMOTION_CERTIFICATE and its SHA-256\n' >&2
+        exit 2
+    fi
+    if [[ "$eval_expected_model" != Kimi-K3 || -n "$eval_model" ]]; then
+        printf 'Mobius evaluation requires the certificate-bound Kimi-K3 model without EVAL_MODEL override\n' >&2
+        exit 2
+    fi
+    if [[ -n "$inference_base_url" || -n "$inference_job_id" || -n "$inference_deployment_id" \
+        || -z "$inference_proxy_info" ]]; then
+        printf 'Mobius evaluation requires only the deployment-local INFERENCE_PROXY_INFO endpoint\n' >&2
+        exit 2
+    fi
+    if ! deployment_spec_resolved=$(realpath -e -- "$deployment_spec") \
+        || ! proxy_info_resolved=$(realpath -e -- "$inference_proxy_info"); then
+        printf 'Mobius deployment spec or proxy metadata is unreadable\n' >&2
+        exit 2
+    fi
+    if [[ "$(dirname "$deployment_spec_resolved")" != "$(dirname "$proxy_info_resolved")" \
+        || "$(basename "$(dirname "$deployment_spec_resolved")")" != "$eval_deployment_id" \
+        || "$(basename "$deployment_spec_resolved")" != spec.yaml \
+        || "$(basename "$proxy_info_resolved")" != proxy_info.json ]]; then
+        printf 'Mobius proxy metadata must belong to the certificate-bound deployment directory\n' >&2
+        exit 2
+    fi
+elif [[ -n "$promotion_certificate" || -n "$promotion_certificate_sha256" ]]; then
+    printf 'Only Mobius evaluation may bind an EVAL promotion certificate\n' >&2
+    exit 2
+fi
+if [[ ( -n "$eval_dataset_archive" && -z "$eval_dataset_archive_sha256" ) \
+    || ( -n "$eval_dataset_archive" && -z "$eval_dataset_content_sha256" ) \
+    || ( -z "$eval_dataset_archive" && -n "$eval_dataset_archive_sha256" ) \
+    || ( -z "$eval_dataset_archive" && -n "$eval_dataset_content_sha256" ) ]]; then
+    printf 'EVAL_DATASET_ARCHIVE, its SHA-256, and EVAL_DATASET_CONTENT_SHA256 are one required tuple\n' >&2
+    exit 2
+fi
+if [[ ( -n "$eval_dataset_revision" && -n "$eval_dataset_archive" ) \
+    || ( -z "$eval_dataset_revision" && -z "$eval_dataset_archive" ) ]]; then
+    printf 'Supply exactly one dataset authority: EVAL_DATASET_REVISION or archive tuple\n' >&2
+    exit 2
+fi
+
+export VACLI_LEASE_RETRIES=${VACLI_LEASE_RETRIES:-20}
+export VACLI_MAX_CONCURRENT_LEASES=${VACLI_MAX_CONCURRENT_LEASES:-32}
+export VACLI_MAX_PULL_RETRIES=${VACLI_MAX_PULL_RETRIES:-20}
+export VACLI_IMAGE_PULL_TIMEOUT_SECONDS=${VACLI_IMAGE_PULL_TIMEOUT_SECONDS:-3600}
+export VACLI_CONTAINER_PRIVILEGED=${VACLI_CONTAINER_PRIVILEGED:-1}
+export VACLI_BIN=${VACLI_BIN:-/public/fbpkgs/x86_64/vacli/stable/vacli}
+
+cd "$project_dir"
+prime_rl_status=$(git status --porcelain=v1 --untracked-files=all)
+verifiers_status=$(git -C deps/verifiers status --porcelain=v1 --untracked-files=all)
+renderers_status=$(git -C deps/renderers status --porcelain=v1 --untracked-files=all)
+if [[ -n "$prime_rl_status" || -n "$verifiers_status" || -n "$renderers_status" ]]; then
+    printf 'Prime-RL, Verifiers, and Renderers worktrees must all be clean\n' >&2
+    exit 2
+fi
+prime_rl_commit=$(git rev-parse --verify HEAD)
+verifiers_commit=$(git -C deps/verifiers rev-parse --verify HEAD)
+renderers_commit=$(git -C deps/renderers rev-parse --verify HEAD)
+prime_rl_tree_sha256=$(printf '%s' "$prime_rl_status" | sha256sum | cut -d' ' -f1)
+verifiers_tree_sha256=$(printf '%s' "$verifiers_status" | sha256sum | cut -d' ' -f1)
+renderers_tree_sha256=$(printf '%s' "$renderers_status" | sha256sum | cut -d' ' -f1)
+vmvm_tb_v2_sha256=$(sha256sum environments/vmvm_tb_v2/vmvm_tb_v2/_vacli/*.py \
+    | sha256sum | cut -d' ' -f1)
+
+if [[ "$eval_run_role" == mobius ]]; then
+    if ! effective_lease_start_concurrency=$(
+        "$x86_uv" run --no-project --offline --python "$python_bin" \
+            python3 - "$eval_config" "$VACLI_MAX_CONCURRENT_LEASES" <<'PY'
+import sys
+import tomllib
+
+try:
+    with open(sys.argv[1], "rb") as handle:
+        rollout_concurrency = tomllib.load(handle).get("max_concurrent")
+    requested = int(sys.argv[2])
+except (OSError, ValueError, tomllib.TOMLDecodeError):
+    raise SystemExit(2)
+if (
+    not isinstance(rollout_concurrency, int)
+    or isinstance(rollout_concurrency, bool)
+    or rollout_concurrency < 1
+    or requested < 1
+    or str(requested) != sys.argv[2]
+):
+    raise SystemExit(2)
+print(min(rollout_concurrency, requested))
+PY
+    ); then
+        printf 'Invalid production max_concurrent or VACLI_MAX_CONCURRENT_LEASES\n' >&2
+        exit 2
+    fi
+    "$x86_uv" run --no-project --offline --python "$python_bin" \
+        python3 "$workflow_dir/mobius_launch_certificate.py" verify \
+        "$promotion_certificate" \
+        --certificate-sha256 "$promotion_certificate_sha256" \
+        --production-config "$eval_config" \
+        --approved-manifest "$approved_task_file" \
+        --approved-manifest-sha256 "$approved_task_file_sha256" \
+        --deployment-id "$eval_deployment_id" \
+        --deployment-spec "$deployment_spec" \
+        --deployment-spec-sha256 "$deployment_spec_sha256" \
+        --readiness-checkpoint "$readiness_checkpoint" \
+        --readiness-checkpoint-sha256 "$readiness_checkpoint_sha256" \
+        --capacity-smoke-checkpoint "$smoke_checkpoint" \
+        --capacity-smoke-checkpoint-sha256 "$smoke_checkpoint_sha256" \
+        --requested-lease-start-concurrency "$effective_lease_start_concurrency" \
+        >/dev/null
+fi
+
 if [[ -n "$inference_proxy_info" ]]; then
     if [[ ! -r "$inference_proxy_info" ]]; then
         printf 'Cannot read INFERENCE_PROXY_INFO: %s\n' "$inference_proxy_info" >&2
@@ -132,10 +304,10 @@ fi
 if [[ -n "$resume_dir" ]]; then
     output_dir=$resume_dir
 elif [[ -z "$inference_base_url" ]]; then
-    : "${INFERENCE_JOB_ID:?Set INFERENCE_BASE_URL or INFERENCE_JOB_ID}"
-    inference_nodes=$(squeue -h -j "$INFERENCE_JOB_ID" -t RUNNING -o '%N')
+    : "${inference_job_id:?Set INFERENCE_BASE_URL or INFERENCE_JOB_ID}"
+    inference_nodes=$(squeue -h -j "$inference_job_id" -t RUNNING -o '%N')
     if [[ -z "$inference_nodes" ]]; then
-        printf 'Inference job %s is not running\n' "$INFERENCE_JOB_ID" >&2
+        printf 'Inference job %s is not running\n' "$inference_job_id" >&2
         exit 2
     fi
     inference_host=$(scontrol show hostnames "$inference_nodes" | head -n 1)
@@ -148,9 +320,13 @@ if ! flock -n 9; then
     printf 'Another evaluator owns %s\n' "$output_dir" >&2
     exit 2
 fi
-if [[ -z "$resume_dir" && -e "$output_dir/results.jsonl" ]]; then
-    printf 'Refusing to overwrite %s/results.jsonl; use the eval resume command\n' "$output_dir" >&2
-    exit 2
+if [[ -z "$resume_dir" ]]; then
+    for existing in inputs config.toml results.jsonl provenance.txt eval_run_identity.json eval_invocations.jsonl; do
+        if [[ -e "$output_dir/$existing" ]]; then
+            printf 'Refusing to overwrite existing eval artifact: %s/%s\n' "$output_dir" "$existing" >&2
+            exit 2
+        fi
+    done
 fi
 cd "$project_dir"
 
@@ -184,65 +360,87 @@ if [[ "$validated_approval_sha256" != "$approved_task_file_sha256" \
     exit 2
 fi
 
-if [[ -n "$resume_dir" ]]; then
-    {
-        printf 'resume_slurm_job_id=%s\n' "$SLURM_JOB_ID"
-        printf 'resume_prime_rl=%s\n' "$(git rev-parse HEAD)"
-        printf 'resume_verifiers=%s\n' "$(git -C deps/verifiers rev-parse HEAD)"
-        printf 'resume_renderers=%s\n' "$(git -C deps/renderers rev-parse HEAD)"
-        printf 'resume_approval_task_file_sha256=%s\n' "$validated_approval_sha256"
-        printf 'resume_approval_task_count=%s\n' "$validated_approval_count"
-    } >> "$output_dir/provenance.txt"
-else
-    {
-        printf 'prime_rl=%s\n' "$(git rev-parse HEAD)"
-        printf 'verifiers=%s\n' "$(git -C deps/verifiers rev-parse HEAD)"
-        printf 'renderers=%s\n' "$(git -C deps/renderers rev-parse HEAD)"
-        printf 'inference_base_url=%s\n' "$inference_base_url"
-        printf 'inference_deployment_id=%s\n' "$inference_deployment_id"
-        printf 'slurm_job_id=%s\n' "$SLURM_JOB_ID"
-        printf 'approval_task_file_sha256=%s\n' "$validated_approval_sha256"
-        printf 'approval_task_count=%s\n' "$validated_approval_count"
-    } > "$output_dir/provenance.txt"
-fi
-
 unset HTTP_PROXY HTTPS_PROXY http_proxy https_proxy ALL_PROXY all_proxy
 if [[ -n "$inference_proxy_url" ]]; then
     export HTTP_PROXY="$inference_proxy_url"
     export HTTPS_PROXY="$inference_proxy_url"
 fi
 export OPENAI_API_KEY=${OPENAI_API_KEY:-EMPTY}
-export VACLI_LEASE_RETRIES=${VACLI_LEASE_RETRIES:-20}
-export VACLI_MAX_CONCURRENT_LEASES=${VACLI_MAX_CONCURRENT_LEASES:-32}
-export VACLI_MAX_PULL_RETRIES=${VACLI_MAX_PULL_RETRIES:-20}
-export VACLI_IMAGE_PULL_TIMEOUT_SECONDS=${VACLI_IMAGE_PULL_TIMEOUT_SECONDS:-3600}
-export VACLI_CONTAINER_PRIVILEGED=${VACLI_CONTAINER_PRIVILEGED:-1}
 
 if [[ -n "$resume_dir" ]]; then
-    args=(--resume "$resume_dir")
+    identity_mode=resume
 else
-    args=(
-        @ "$output_dir/inputs/source_config.toml"
-        --client.base-url "$inference_base_url"
-        --output-dir "$output_dir"
-    )
-    if [[ -f "$output_dir/inputs/task_file.txt" ]]; then
-        args+=(--taskset.task-file "$output_dir/inputs/task_file.txt")
-        args+=(--taskset.task-file-sha256 "$approved_task_file_sha256")
-    fi
-    if [[ -f "$output_dir/inputs/image_manifest.json" ]]; then
-        args+=(--taskset.image-manifest "$output_dir/inputs/image_manifest.json")
-    fi
-    if [[ -n "$inference_deployment_id" ]]; then
-        if [[ ! "$inference_deployment_id" =~ ^[A-Za-z0-9._:-]+$ ]]; then
-            printf 'Invalid INFERENCE_DEPLOYMENT_ID: %s\n' "$inference_deployment_id" >&2
-            exit 2
-        fi
-        args+=(--client.headers "{\"X-Deployment-Id\":\"$inference_deployment_id\"}")
-    fi
+    identity_mode=fresh
+fi
+identity_args=(
+    --mode "$identity_mode"
+    --output-dir "$output_dir"
+    --inputs-dir "$output_dir/inputs"
+    --expected-model "$eval_expected_model"
+    --approved-task-file-sha256 "$validated_approval_sha256"
+    --approved-task-count "$validated_approval_count"
+    --role "$eval_run_role"
+    --deployment-id "$eval_deployment_id"
+    --deployment-spec "$deployment_spec"
+    --deployment-spec-sha256 "$deployment_spec_sha256"
+    --readiness-checkpoint "$readiness_checkpoint"
+    --readiness-checkpoint-sha256 "$readiness_checkpoint_sha256"
+    --project-root "$project_dir"
+    --prime-rl-commit "$prime_rl_commit"
+    --prime-rl-tree-sha256 "$prime_rl_tree_sha256"
+    --verifiers-commit "$verifiers_commit"
+    --verifiers-tree-sha256 "$verifiers_tree_sha256"
+    --renderers-commit "$renderers_commit"
+    --renderers-tree-sha256 "$renderers_tree_sha256"
+    --vmvm-tb-v2-sha256 "$vmvm_tb_v2_sha256"
+    --vacli-bin "$VACLI_BIN"
+    --vacli-max-concurrent-leases "$VACLI_MAX_CONCURRENT_LEASES"
+    --vacli-lease-retries "$VACLI_LEASE_RETRIES"
+    --vacli-max-pull-retries "$VACLI_MAX_PULL_RETRIES"
+    --vacli-image-pull-timeout-seconds "$VACLI_IMAGE_PULL_TIMEOUT_SECONDS"
+    --vacli-container-privileged "$VACLI_CONTAINER_PRIVILEGED"
+    --invocation-host "$(hostname)"
+    --slurm-job-id "$SLURM_JOB_ID"
+)
+if [[ -n "$inference_deployment_id" ]]; then
+    identity_args+=(--routing-deployment-id "$inference_deployment_id")
+fi
+if [[ "$identity_mode" == fresh ]]; then
+    identity_args+=(--client-base-url "$inference_base_url")
     if [[ -n "$eval_model" ]]; then
-        args+=(--model "$eval_model")
+        identity_args+=(--model-override "$eval_model")
     fi
 fi
+if [[ -n "$eval_dataset_revision" ]]; then
+    identity_args+=(--dataset-revision "$eval_dataset_revision")
+else
+    identity_args+=(
+        --dataset-archive "$eval_dataset_archive"
+        --dataset-archive-sha256 "$eval_dataset_archive_sha256"
+        --dataset-content-sha256 "$eval_dataset_content_sha256"
+    )
+fi
+if [[ -n "$smoke_checkpoint" ]]; then
+    identity_args+=(
+        --smoke-checkpoint "$smoke_checkpoint"
+        --smoke-checkpoint-sha256 "$smoke_checkpoint_sha256"
+    )
+fi
+if [[ -n "$promotion_certificate" ]]; then
+    identity_args+=(
+        --promotion-certificate "$promotion_certificate"
+        --promotion-certificate-sha256 "$promotion_certificate_sha256"
+    )
+fi
+eval_run_identity_sha256=$(
+    "$x86_uv" run --no-project --offline --python "$python_bin" \
+        python3 "$workflow_dir/eval_run_identity.py" "${identity_args[@]}"
+)
+if [[ ! "$eval_run_identity_sha256" =~ ^[0-9a-f]{64}$ ]]; then
+    printf 'Eval identity binder returned invalid metadata\n' >&2
+    exit 2
+fi
+
+args=(--resume "$output_dir")
 exec "$x86_uv" run --no-project --offline --python "$python_bin" \
     python3 -c 'from verifiers.v1.cli.eval.main import main; main()' "${args[@]}"
