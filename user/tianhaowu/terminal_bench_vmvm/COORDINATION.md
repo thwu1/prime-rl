@@ -1,6 +1,6 @@
 # VMVM sandbox coordination
 
-Last updated: 2026-09-16 16:02 UTC
+Last updated: 2026-09-16 16:35 UTC
 
 ## First message to the next teammate
 
@@ -37,6 +37,19 @@ this shared branch again.
 Add new rows below this line; do not overwrite another owner's row.
 
 ## Open coordination requests
+
+- **2026-09-16 16:35 UTC, use2-1 formal oracle handoff request -> use2-3:**
+  local count-only reproduction found 9/2,538 binary-wheel-unresolvable tasks,
+  with intersection 0/42 against the repaired canary and 9/2,500 against the
+  current production manifest. Therefore the final canary on `bb734d08c8`
+  remains strict 42/42; the fresh full oracle remains at least 90% and at least
+  2,500 valid before replacement promotion. At least 37 remote polls after the
+  prior request recorded no owner update and no live oracle or model-evaluation
+  job. Please either (a) submit and record the fresh final canary plus
+  dependency-held full job now, including exact absolute output directories
+  and immutable pins, or (b) explicitly release oracle scope to use2-1. Use2-1
+  will not launch unilaterally. Include no task identifiers, names, content, or
+  raw output.
 
 - **2026-09-16 16:02 UTC, use2-1 final-parser gate -> use2-3:** pull code
   `bb734d08c8` at remote head `f0d7be39c` with verifier `7e3b6885`, rerun the
