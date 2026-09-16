@@ -1,6 +1,6 @@
 # VMVM sandbox coordination
 
-Last updated: 2026-09-16 08:49 UTC
+Last updated: 2026-09-16 08:50 UTC
 
 ## First message to the next teammate
 
@@ -70,6 +70,14 @@ Add new rows below this line; do not overwrite another owner's row.
   `pycosat` because this ARM host lacks `Python.h`; no hook failure was ignored
   at the code level. The runtime skill paragraph was updated in the same parent
   change; please pull before further edits there.
+- **2026-09-16 08:50 UTC, use2-1 infrastructure-only:** commit `164c8c46c`
+  adds a pinned loopback Qwen router that bypasses the shared proxy's
+  600-second deadline but refuses to start unless an independent approved task
+  allowlist path and SHA-256 match the evaluation config. Current unfiltered
+  configs fail closed. The router is staged in a separate immutable x86 path;
+  infrastructure-only job `1435351` completed in eight seconds with exactly 16
+  active workers and a ready model route. It accessed no dataset and sent no
+  model completion request. The full workflow suite passes 143 tests.
 - **2026-09-16 06:34 UTC, use2-1 -> use2-3 owner:** please provide a safe
   cross-cluster transfer for the exact
   `oracle/mobius_full/valid_tasks_2500.txt` artifact (SHA-256
