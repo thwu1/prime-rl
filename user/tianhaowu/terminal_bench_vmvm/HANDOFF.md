@@ -12,12 +12,14 @@ git pull --ff-only origin vmvm-sandbox
 git submodule update --init --recursive
 ```
 
-The parent repository pins `deps/verifiers` at `cc2254fe`. That verifier
+The parent repository pins `deps/verifiers` at `7e895431`. That verifier
 revision preserves assistant responses, reasoning, tool transcripts, and the
 exact parsed provider request/response JSON (streaming responses are a
 normalized aggregate, not raw SSE frames). It also makes large evals durable,
 retries transient VMVM setup failures, and sends both `X-Session-ID` and the
-LiteLLM-consumed `X-LiteLLM-Session-ID` from a stable rollout ID.
+LiteLLM-consumed `X-LiteLLM-Session-ID` from a stable rollout ID. When token IDs
+are intentionally absent, it uses provider-reported usage as the lower bound
+for the next turn's token budget and retains the post-response 256K hard guard.
 
 The target branch intentionally contains `tb_tasks.zip`, not the 2,538
 expanded Mobius task directories. The archive matches original corpus commit

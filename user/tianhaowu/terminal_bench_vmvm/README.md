@@ -321,3 +321,10 @@ turn over 262,144 total tokens. `--require-token-data` remains an explicit
 legacy/diagnostic mode for traces that intentionally contain exact token IDs,
 masks, and sampling logprobs. Scale only after the default gate passes on a
 fresh smoke run and after measuring stable VMVM lease concurrency.
+
+Because this workflow intentionally omits token IDs, the previous response's
+provider usage is used as a lower bound when clamping the next generation
+budget. New tool output can still increase the next prompt beyond that known
+prefix, so the provider usage returned for every response remains the final
+fail-closed check: a turn above 262,144 tokens is rejected before graph commit
+and cannot enter the retained training corpus.
