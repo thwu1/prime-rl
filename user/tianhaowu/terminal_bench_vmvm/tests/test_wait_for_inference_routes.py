@@ -151,6 +151,8 @@ def test_three_exact_polls_run_strict_probe_and_write_redacted_artifact(
 
     status_argv = runner.calls[0][0]
     assert status_argv == [
+        "/usr/bin/env",
+        "PATH=/usr/bin:/bin",
         str(config.serve_sh),
         "status",
         config.deployment,

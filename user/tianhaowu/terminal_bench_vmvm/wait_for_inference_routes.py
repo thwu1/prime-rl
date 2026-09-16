@@ -45,6 +45,7 @@ TERMINAL_PHASES = frozenset(
 )
 LIVE_PHASES = frozenset({"booting", "draining", "serving"})
 MAX_PROXY_INFO_BYTES = 1 << 20
+STATUS_PATH = "/usr/bin:/bin"
 BEARER_RE = re.compile(r"(?i)\bbearer\s+[^\s\"']+")
 SENSITIVE_RESULT_KEY_FRAGMENTS = frozenset(
     {
@@ -389,7 +390,20 @@ def _validate_config(config: GateConfig) -> None:
 
 
 def _status_command(config: GateConfig) -> list[str]:
-    return [str(config.serve_sh), "status", config.deployment, "--json"]
+    # Login-node PATH entries may contain architecture-specific developer
+    # tools (for example an aarch64 ``uv`` binary).  Those entries are
+    # inherited by x86 Slurm jobs, where serve.sh would select the unusable
+    # binary and return rc=1 with empty stdout.  Use only the system PATH for
+    # this status subprocess so serve.sh deterministically falls back to its
+    # deployment-local virtualenv on either architecture.
+    return [
+        "/usr/bin/env",
+        f"PATH={STATUS_PATH}",
+        str(config.serve_sh),
+        "status",
+        config.deployment,
+        "--json",
+    ]
 
 
 def _probe_command(config: GateConfig) -> list[str]:
