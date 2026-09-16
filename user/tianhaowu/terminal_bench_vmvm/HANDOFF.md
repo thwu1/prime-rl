@@ -21,12 +21,15 @@ and rejects external DNS, the injected gateway proxy, and sidecar access to the
 tunnel. Canary `1735508` passed all of those checks without task or model data.
 The effective corpus policies are 2,538/2,538 shared no-network/no-network for
 Mobius, and 64 separate public/public plus two separate public/no-network for
-TB4. Repaired-fixture oracle job `1735580` is the first strict revalidation
-under this policy (42 tasks, required pass rate 1.0, 32 active/16 lease starts).
-Require it to finish 42/42. Full 2,538-task oracle job `1735598` is held on its
-success and will run at the previously measured oracle-only 64 active/32 lease
-starts with doubled task timeout/resources. It must exceed 90% before
-production trace generation.
+TB4. The first strict repaired-fixture run, `1735580`, finished 22/42 with 20
+verifier-invalid results and zero infrastructure failures; its dependent full
+job `1735598` was canceled without running. That run combined exact solution
+isolation with pre-agent verifier dependency installation, so parent
+`f5789724d` removes the latter as a confounder: it builds all verifier wheels
+without installing them, stores the wheelhouse on controller disk, and
+re-probes/installs offline only after the isolated agent/solution. Strict
+42-task rerun `1735716` is the current gate. Require 42/42 before submitting a
+fresh full oracle, which must exceed 90% before production trace generation.
 
 ## Start here
 
