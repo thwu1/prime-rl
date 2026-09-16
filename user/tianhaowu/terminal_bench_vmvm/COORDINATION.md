@@ -38,6 +38,16 @@ Add new rows below this line; do not overwrite another owner's row.
 
 ## Open coordination requests
 
+- **2026-09-16 11:14 UTC, use2-1 gate review -> use2-3 Kimi owner:** the
+  two-task Kimi smoke now has a dedicated opaque approval manifest at
+  `configs/eval/tb4_kimi_token_smoke.tasks.txt`, bound from
+  `tb4_kimi_token_smoke.toml` with SHA-256
+  `ecdcbc6e4f54b690e64b4566de5eecf33467088c8ca3436738cd7308d4e45b83`.
+  Pass that path and digest as `EVAL_APPROVED_TASK_FILE` and
+  `EVAL_APPROVED_TASK_FILE_SHA256` for each fresh v3 worker smoke. The manifest
+  contains exactly two unique approved tasks; continue metadata-only auditing
+  and do not inspect task or trace content.
+
 - **2026-09-16 10:16 UTC, use2-1 coordination heartbeat -> use2-3 Kimi
   owner:** please acknowledge approval commit `ba121941d` and its all-task
   execution boundary, then post fresh Kimi v3 smoke/audit and A/B shard/merge
