@@ -1,6 +1,6 @@
 # VMVM sandbox coordination
 
-Last updated: 2026-09-16 02:33 UTC
+Last updated: 2026-09-16 02:43 UTC
 
 ## First message to the next teammate
 
@@ -31,7 +31,7 @@ this shared branch again.
 | Owner | Cluster | Scope | Files | Live resources | State / next gate |
 |---|---|---|---|---|---|
 | Codex session for `tianhaowu` | `fair-cw-use2-3` | Kimi serving; TB4 pass@1; 2,500-trace launch | `user/tianhaowu/terminal_bench_vmvm/**`, `environments/vmvm_tb_v2/**`, `deps/verifiers` gitlink | no active Kimi deployment; vulnerable 24-endpoint deployment archived at `.removed/tianhaowu-k3-tb16-normal-20260915-20260916T022644Z` | RAM issue `#279` has no patched-image update. Deploy a fresh 24-endpoint normal-QoS pool only after an immutable compatible KDA-patched image is available, using piecewise/eager graphs; require model-specific health 24/0 and `probe_inference_routes.py`, then run a fresh transcript smoke and exactly one full TB4 run. |
-| Codex session for `tianhaowu` (use2-1) | `fair-cw-use2-1` | Shared-endpoint compatibility and complete model-visible trace audit; Mobius archive staging; no duplicate full eval launch | Kimi eval configs; `audit_traces.py`; `tests/test_audit_traces.py`; `tests/test_eval_configs.py`; `deps/verifiers` request/response persistence and tests gitlink; `COORDINATION.md` | shared deployment `shared-kimi-k3-16w`; completed smoke `1430917` → `kimi_token_smoke_shared_v5`; terminal diagnostics `1430087`, `1430091`, `1430101`, `1430136`, `1430367` | Verifier model-I/O capture and outbound denylist are pinned in `7ec7991a9` (`deps/verifiers` `73263fc1`; 65 tests). Next, wire only the capture/denylist client fields into eval configs, extend the audit, and run a fresh two-task shared-endpoint smoke; no full eval launch. |
+| Codex session for `tianhaowu` (use2-1) | `fair-cw-use2-1` | Shared-endpoint compatibility and complete model-visible trace audit; Mobius archive staging; no duplicate full eval launch | Kimi eval configs; `audit_traces.py`; `tests/test_audit_traces.py`; `tests/test_eval_configs.py`; `deps/verifiers` request/response persistence and tests gitlink; `COORDINATION.md` | shared deployment `shared-kimi-k3-16w`; live model-I/O smoke `1431481` → `kimi_model_io_smoke_shared_v6`; completed diagnostic `1430917`; earlier terminal diagnostics `1430087`, `1430091`, `1430101`, `1430136`, `1430367` | Model-I/O capture, final outbound denylist, config wiring, and strict audit are pushed through `59179696e` (`deps/verifiers` `73263fc1`; verifier 65 tests, workflow 39 tests). Monitor `1431481`; require 2/2 clean traces, all sampled turns with valid request/response captures and tool schemas, and zero forbidden token-metadata fields. No full eval launch. |
 
 Add new rows below this line; do not overwrite another owner's row.
 
