@@ -2,7 +2,7 @@
 
 State captured on 2026-09-16 UTC. The takeover branch is `vmvm-sandbox`.
 
-## 11:20 UTC replacement update
+## 12:10 UTC replacement update
 
 The vulnerable `tianhaowu-k3-tb24-nocache-20260916` deployment never allocated
 an endpoint and was recoverably archived. Its stale route gate was canceled.
@@ -14,12 +14,17 @@ the semantic/state-reuse probe, and an approved two-task transcript smoke.
 The fresh full TB4 config now starts at eight active rollouts with four
 simultaneous VMVM lease starts; do not restore the old 64/32 model-eval setting.
 
-The Harbor adapter still needs an explicit resolution for tasks declaring
-`network_mode = "no-network"`: current VMVM bridge networking does not enforce
-that policy exactly. Do not launch the 2,500-task production trace run until
-the sandbox enforces the policy or the deviation is explicitly accepted and
-recorded. This does not block the 66-task TB4 corpus, which declares no explicit
-network mode.
+The Harbor adapter now enforces declared `network_mode = "no-network"` at the
+untrusted phase boundary. It retains only a private internal IPv4 network,
+preserves Compose aliases, permits the main container's dynamic reverse tunnel,
+and rejects external DNS, the injected gateway proxy, and sidecar access to the
+tunnel. Canary `1735508` passed all of those checks without task or model data.
+The effective corpus policies are 2,538/2,538 shared no-network/no-network for
+Mobius, and 64 separate public/public plus two separate public/no-network for
+TB4. Repaired-fixture oracle job `1735580` is the first strict revalidation
+under this policy (42 tasks, required pass rate 1.0, 32 active/16 lease starts).
+Require it to finish 42/42, then revalidate the full oracle before production
+trace generation.
 
 ## Start here
 
@@ -31,7 +36,7 @@ git pull --ff-only origin vmvm-sandbox
 git submodule update --init --recursive
 ```
 
-The parent repository pins `deps/verifiers` at `9b88711f`. That verifier
+The parent repository pins `deps/verifiers` at `15e22ca5`. That verifier
 revision preserves assistant responses, reasoning, tool transcripts, and the
 exact parsed provider request/response JSON (streaming responses are a
 normalized aggregate, not raw SSE frames). It also makes large evals durable,

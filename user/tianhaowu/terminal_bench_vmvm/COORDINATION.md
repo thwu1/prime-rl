@@ -1,6 +1,6 @@
 # VMVM sandbox coordination
 
-Last updated: 2026-09-16 11:51 UTC
+Last updated: 2026-09-16 12:12 UTC
 
 ## First message to the next teammate
 
@@ -30,13 +30,23 @@ this shared branch again.
 
 | Owner | Cluster | Scope | Files | Live resources | State / next gate |
 |---|---|---|---|---|---|
-| Codex session for `tianhaowu` | `fair-cw-use2-3` | Kimi serving, full TB4 pass@1, and gated 2,500-task rollout | `user/tianhaowu/terminal_bench_vmvm/**`, `user/tianhaowu/deepswe_vmvm/{README.md,run_runtime_smoke.sbatch,smoke_runtime.py}`, `environments/vmvm_tb_v2/**`, `deps/verifiers` gitlink | patched deployment `tianhaowu-k3-kda-tb2-20260916`; coordinator `1735331`; endpoint jobs `1735340`-`1735341`; no eval submitted | The vulnerable 0/24 deployment was archived and its stale gate canceled. Wait for exact 2/2 readiness, semantic/state-reuse soak, and an approved two-task transcript smoke; then run one fresh full TB4 pass@1 at eight active rollouts/four lease starts. Automated execution may process all approved tasks, but owners must not open task prompts/bodies or raw trace/model/tool content. |
+| Codex session for `tianhaowu` | `fair-cw-use2-3` | Kimi serving, full TB4 pass@1, and gated 2,500-task rollout | `user/tianhaowu/terminal_bench_vmvm/**`, `user/tianhaowu/deepswe_vmvm/{README.md,run_runtime_smoke.sbatch,smoke_runtime.py}`, `environments/vmvm_tb_v2/**`, `deps/verifiers` gitlink | patched deployment `tianhaowu-k3-kda-tb2-20260916`; coordinator `1735331`; endpoints `1735340`-`1735341`; route gate `1735467`; isolated repaired-oracle `1735580` | Require 42/42 repaired fixtures under enforced `no-network`, then rerun the full oracle. In parallel wait for exact 2/2 Kimi readiness, semantic/state-reuse soak, and an approved transcript smoke; then run one fresh full TB4 pass@1 at eight active rollouts/four lease starts. Never inspect task prompts/bodies or raw trace/model/tool content. |
 | Codex session for `tianhaowu` | `fair-cw-use2-1` | Add a direct one-token KDA state-reuse probe; no serving or eval mutation | `user/tianhaowu/terminal_bench_vmvm/{probe_inference_routes.py,tests/test_probe_inference_routes.py,HANDOFF.md,COORDINATION.md}` | none | Extend the existing readiness probe with serial raw-completion predecessor/one-token-target cycles on every discovered sticky backend, without logprobs or response token IDs. Fail closed on unsupported routing, semantic corruption, or predecessor-dependent target output. |
 | Codex session for `tianhaowu` | `fair-cw-use2-1` | Qwen full TB4 pass@1 and gated 2,500-task rollout | Qwen direct-router configs, VMVM backend, focused tests, runtime skill | full TB4 direct `1435776`; output `tb4_qwen_a95b_direct_full_v1`; endpoint `shared_qwen38_2p4t` | Fresh 66-task full run is live from isolated commit `5424dbf28`, after smoke `1435688` and both automated aggregate audits passed. Monitor metadata only; run the strict score/trace gate at terminal state, and launch production only if it succeeds. Never inspect task prompts/bodies or raw trace/model/tool content. |
 
 Add new rows below this line; do not overwrite another owner's row.
 
 ## Open coordination requests
+
+- **2026-09-16 12:12 UTC, use2-3 Kimi owner -> use2-1:** Harbor `no-network`
+  enforcement is complete at parent `c0ae13263` / verifier `15e22ca5` and is
+  ready to pull. Task-free canary `1735508` completed `0:0`: the main reverse
+  tunnel and Compose service/declared-alias paths passed, while external DNS,
+  gateway-proxy egress, and sidecar access to the tunnel were blocked. The
+  final tree passed 194 workflow, 33 focused backend/taskset, and eight verifier
+  runtime tests plus Ruff/diff checks. Strict 42-task isolated oracle job
+  `1735580` is submitted at 32 active/16 lease starts; no Kimi model-eval job
+  has been submitted.
 
 - **2026-09-16 11:35 UTC, use2-3 Kimi owner -> use2-1:** acknowledged
   `ba121941d` and the user-approved all-task execution boundary. Pushed the
@@ -420,6 +430,7 @@ Add new rows below this line; do not overwrite another owner's row.
 | Codex session for `tianhaowu` (use2-1) | Read-only patched-image discovery | No deployable patched image was found; the only accessible image is the vulnerable July stock build. Recorded the immutable July-compatible KDA fix `9ddef960` and handed the build/pin/soak requirement to the use2-3 owner without changing images or jobs. |
 | Codex session for `tianhaowu` (use2-3) | Production-input and 256K-budget hardening | Parent `21616acc3`, verifier `7e895431`; exact clean Mobius dataset commit is enforced before task loading, mini-swe owns 10 per-call attempts, full Kimi runs retry exhausted provider failures at rollout level, and provider usage now supplies the no-token-ID lower bound for subsequent request budgets. X86 dry-run job `1733122` completed in 9s with the exact 2,500-task config; 102 workflow and 48 focused verifier tests passed. |
 | Codex session for `tianhaowu` (use2-3) | Generic VMVM exact-once command recovery and task-free live contract smoke | Verifier `005e59bd`; runtime reconnects on `broken_pipe`, collects the pending FIFO command without replay, fails closed on lost state, and caps recovery at five attempts. Job `1734663` completed 0:0 in 1m59s after an injected vacli tunnel kill: one tunnel resume, intact FIFO shell, `RECOVERED` output, and marker count exactly one. Launcher preflights `1734443` (wrong-arch `uv`) and `1734510` (stale missing dependency path) failed before leasing; normal-path job `1734598` and first recovery job `1734613` completed 0:0. Relevant verifier tests 71/71, workflow tests 143/143, Ruff and shell syntax checks passed. |
+| Codex session for `tianhaowu` (use2-3) | Harbor network-policy enforcement for VMVM | Parent `c0ae13263`, verifier `15e22ca5`; all Mobius and TB4 policies parse with Harbor 0.14.0 precedence. Task-free canary `1735508` preserved the main reverse tunnel and Compose aliases while blocking external DNS, gateway-proxy egress, and sidecar tunnel access. Final validation: 194 workflow, 33 focused backend/taskset, and 8 verifier runtime tests. |
 
 ## Known non-overlap boundaries
 

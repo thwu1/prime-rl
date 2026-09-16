@@ -139,6 +139,15 @@ tmux send-keys -t swebench_vmvm:Launcher.0 \
 `RERUN_INVALID=1`. The full-corpus acceptance gate is at least 90% valid; task
 failures must be debugged separately from VMVM infrastructure failures.
 
+The adapter resolves Harbor's environment, agent, and verifier network policy
+with Harbor 0.14.0 precedence. For `no-network`, trusted dependency staging
+finishes first; immediately before untrusted agent or verifier execution, VMVM
+moves all workload containers onto a private internal IPv4 network. Compose
+aliases remain available, while a subnet-scoped firewall permits only internal
+DNS and the main container's active reverse-tunnel port and rejects the gateway
+proxy and other host traffic. Unknown modes, allowlists, IPv6, residual public
+attachments, and attempts to relax an active policy fail closed.
+
 After materializing corpus revision `ac1f30b9a`, revalidate the 42 repaired
 fixtures before consuming the prior 2,500-task manifest:
 
