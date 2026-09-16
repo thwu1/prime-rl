@@ -3,7 +3,9 @@ import gc
 import hashlib
 import io
 import json
+import os
 import subprocess
+import sys
 import tarfile
 from pathlib import Path
 from types import SimpleNamespace
@@ -76,20 +78,78 @@ def test_test_script_requirements_extracts_only_literal_exact_pins(tmp_path: Pat
     (tests / "test.sh").write_text(
         "# pip install commented-out==1.0\n"
         "echo 'pip install quoted==1.0'\n"
-        "python3 -m pip install -q pytest==8.3.5 numpy==2.1.3 \\\n"
-        "  --extra-index-url https://example.invalid/simple && pytest -q\n"
-        "pip install unpinned ./local-package package-from-$VARIABLE\n"
+        "python3 -m pip install -q pytest==8.3.5 numpy[typing,test-extra]==2.1.3 \\\n"
+        "  --disable-pip-version-check && pytest -q\n"
+        "pip --quiet install packaging==24.2\n"
+        "pip install redirected==1.0 >/dev/null 2>&1\n"
+        ">/dev/null pip install prefix-redirected==1.0\n"
+        "(pip install grouped==1.0); true\n"
     )
 
     assert _test_script_requirements(str(tmp_path)) == (
         "pytest==8.3.5",
-        "numpy==2.1.3",
+        "numpy[typing,test-extra]==2.1.3",
+        "packaging==24.2",
+        "redirected==1.0",
+        "prefix-redirected==1.0",
+        "grouped==1.0",
     )
+
+
+def test_test_script_requirements_normalizes_only_bare_pytest_compatibility_rule(tmp_path: Path) -> None:
+    tests = tmp_path / "tests"
+    tests.mkdir()
+    (tests / "test.sh").write_text("pip install pytest\n")
+
+    assert _test_script_requirements(str(tmp_path)) == ("pytest==8.3.4",)
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        "pip install unpinned",
+        "pip install ./local-package",
+        "pip install https://example.invalid/package.whl",
+        "pip install -r requirements.txt",
+        "pip install --constraint constraint==1 package==1.0",
+        "pip install --extra-index-url https://example.invalid/simple package==1.0",
+        "pip install --no-deps package==1.0",
+        "pip --index-url https://example.invalid/simple install package==1.0",
+        "python3 -m pip --index-url https://example.invalid/simple install package==1.0",
+        "python3 -I -m pip install package==1.0",
+        "/opt/venv/bin/pip install package==1.0",
+        "python3.11 -m pip install package==1.0",
+        "pip install \"package==1.0; python_version < '3.13'\"",
+        "PIP_INDEX_URL=https://example.invalid/simple pip install package==1.0",
+        "$PIP install package==1.0",
+        "sudo pip install package==1.0",
+        "uv pip install package==1.0",
+        "sh -c 'pip install package==1.0'",
+        "pip install package==1.0 | tee install.log",
+        "pip install package==1.0 >",
+        "pip install package==1.0 < requirements.txt",
+        "pip install 'package==1.0",
+    ],
+)
+def test_test_script_requirements_rejects_nonreplayable_commands(tmp_path: Path, command: str) -> None:
+    tests = tmp_path / "tests"
+    tests.mkdir()
+    (tests / "test.sh").write_text(f"{command}\n")
+
+    with pytest.raises(ValueError, match="pip install"):
+        _test_script_requirements(str(tmp_path))
 
 
 def test_merge_test_requirements_rejects_conflicting_canonical_names() -> None:
     with pytest.raises(ValueError, match="conflicting verifier requirements"):
         _merge_test_requirements(("example_pkg==1.0",), ("example-pkg==2.0",))
+
+
+def test_merge_test_requirements_preserves_compatible_extras() -> None:
+    assert _merge_test_requirements(("example_pkg[first]==1.0",), ("example-pkg[second]==1.0",)) == (
+        "example_pkg[first]==1.0",
+        "example-pkg[second]==1.0",
+    )
 
 
 def wheel_archive(*names: str) -> bytes:
@@ -161,6 +221,28 @@ class DependencyRuntime:
         assert data == self.wheel_archive
 
 
+class LocalMetadataRuntime:
+    def __init__(self, site: Path) -> None:
+        self.site = site
+
+    async def run(self, argv: list[str], env: dict[str, str]) -> ProgramResult:
+        process_env = os.environ.copy()
+        process_env.update(env)
+        process_env["PYTHONPATH"] = str(self.site)
+        completed = subprocess.run(
+            [sys.executable, *argv[1:]],
+            capture_output=True,
+            check=False,
+            env=process_env,
+            text=True,
+        )
+        return ProgramResult(
+            exit_code=completed.returncode,
+            stdout=completed.stdout,
+            stderr=completed.stderr,
+        )
+
+
 def dependency_taskset(tmp_path: Path) -> TerminalBenchVMVMTaskset:
     return TerminalBenchVMVMTaskset(
         TerminalBenchVMVMConfig(
@@ -185,6 +267,32 @@ def dependency_task(tmp_path: Path) -> SimpleNamespace:
     )
     (tests / "test.sh").write_text("#!/bin/sh\n")
     return SimpleNamespace(name="task-a", task_dir=str(tmp_path))
+
+
+def write_distribution(site: Path, name: str, version: str, *requirements: str) -> None:
+    metadata_dir = site / f"{name.replace('-', '_')}-{version}.dist-info"
+    metadata_dir.mkdir()
+    metadata = ["Metadata-Version: 2.1", f"Name: {name}", f"Version: {version}"]
+    metadata.extend(f"Requires-Dist: {requirement}" for requirement in requirements)
+    (metadata_dir / "METADATA").write_text("\n".join(metadata) + "\n")
+
+
+def test_missing_dependency_probe_honors_versions_extras_and_dependency_closure(tmp_path: Path) -> None:
+    site = tmp_path / "site"
+    site.mkdir()
+    write_distribution(site, "root-package", "1.0", 'extra-package>=2; extra == "feature"')
+    runtime = LocalMetadataRuntime(site)
+    taskset = dependency_taskset(tmp_path / "taskset")
+    task = SimpleNamespace(name="task-a")
+
+    assert asyncio.run(taskset._missing_test_dependencies(task, runtime, ("root-package==1.0.0",))) == ()
+    assert asyncio.run(taskset._missing_test_dependencies(task, runtime, ("root-package[feature]==1.0.0",))) == (
+        "root-package[feature]==1.0.0",
+    )
+
+    write_distribution(site, "extra-package", "2.1")
+    assert asyncio.run(taskset._missing_test_dependencies(task, runtime, ("root-package[feature]==1.0.0",))) == ()
+    taskset._cleanup_wheelhouse_cache()
 
 
 @pytest.mark.parametrize(
@@ -523,21 +631,30 @@ def test_verifier_dependencies_prefetch_all_then_install_offline_after_solution(
     assert controller_archive.exists() is False
 
 
-def test_scripted_dependencies_prefetch_only_missing_image_drift(tmp_path: Path) -> None:
+def test_scripted_dependencies_prefetch_full_set_and_restore_post_agent_drift(tmp_path: Path) -> None:
     taskset = dependency_taskset(tmp_path)
     task = dependency_task(tmp_path)
     (Path(task.task_dir) / "environment" / "Dockerfile").write_text("FROM python:3.12\n")
     (Path(task.task_dir) / "tests" / "test.sh").write_text("pip install verifier-helper==1.0\n")
 
-    baked = DependencyRuntime(installed=True, source_only=True)
-    asyncio.run(taskset._prefetch_test_dependencies(task, baked))
-    assert taskset._prefetched_test_dependencies[baked].requirements == ()
-    assert baked.events == ["probe"]
+    runtime = DependencyRuntime(installed=True)
+    asyncio.run(taskset._prefetch_test_dependencies(task, runtime))
+    assert taskset._prefetched_test_dependencies[runtime].requirements == ("verifier-helper==1.0",)
+    assert runtime.events == ["fingerprint", "wheel", "archive-read"]
 
-    missing = DependencyRuntime(installed=False)
-    asyncio.run(taskset._prefetch_test_dependencies(task, missing))
-    assert taskset._prefetched_test_dependencies[missing].requirements == ("verifier-helper==1.0",)
-    assert missing.events == ["probe", "fingerprint", "wheel", "archive-read"]
+    runtime.events.append("agent")
+    runtime.installed = False
+    asyncio.run(taskset._install_prefetched_test_dependencies(task, runtime))
+    assert runtime.events == [
+        "fingerprint",
+        "wheel",
+        "archive-read",
+        "agent",
+        "probe",
+        "archive-write",
+        "install",
+        "probe",
+    ]
     taskset._cleanup_wheelhouse_cache()
 
 

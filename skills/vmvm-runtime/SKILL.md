@@ -144,13 +144,15 @@ install only missing or mismatched requirements with
 non-wheel, integrity, offline-install, or post-install validation failure.
 For older immutable Mobius images, supplement the marked Dockerfile layer with
 only literal, exactly pinned `pip install` requirements from `tests/test.sh`.
-Probe those script-only pins while the pristine image still has trusted egress
-and add only missing or mismatched pins to the wheelhouse; this avoids trying
-to rebuild source-only packages that are already baked into an image. Ignore
-dynamic, URL, local-path, and unpinned specifications, reject conflicting
-canonical package pins, and perform the offline restore through the
-harness-owned root path without `--ignore-installed` before re-probing from the
-agent shell.
+Prefetch the full merged set before the untrusted phase, accepting only exact
+`name[extras]==version` operands and an explicit allowlist of semantic-neutral
+zero-argument flags. The only unpinned compatibility rule is bare `pytest`,
+which normalizes to the adapter's existing `pytest==8.3.4` default. Reject all
+other dynamic, URL, local-path, unpinned, environment-marked, conflicting,
+option-dependent, and ambiguously wrapped commands rather than silently
+changing their meaning. At the verifier boundary, re-probe the full dependency
+closure and perform any offline restore through the harness-owned root path
+without `--ignore-installed` before re-probing from the agent shell.
 
 Some legacy corpora declare agent `no-network` while their trusted reference
 `solve.sh` downloads build dependencies. Keep strict Harbor semantics as the

@@ -169,12 +169,15 @@ cache. Hidden tests are staged only after verifier network isolation; sandbox
 wheelhouse copies are removed after use.
 
 The old Mobius images do not contain every test-only package named by their
-verifier scripts. The adapter extracts only literal exact `name==version` pins
-from `tests/test.sh`, probes those pins before the untrusted phase, and adds
-only missing or mismatched script-only packages to the wheelhouse. Dynamic,
-URL, local-path, unpinned, and conflicting specifications are not guessed.
-Offline restoration runs as harness root without `--ignore-installed`, then is
-revalidated from the task shell.
+verifier scripts. The adapter extracts only literal exact
+`name[extras]==version` pins from direct `pip install` commands in
+`tests/test.sh` and prefetches the full merged requirement set before the
+untrusted phase. The sole compatibility exception normalizes bare `pytest` to
+the adapter's existing `pytest==8.3.4` pin. Other dynamic, URL, local-path,
+unpinned, environment-marked, conflicting, and option-dependent specifications
+fail closed rather than being replayed with different semantics. Offline
+restoration re-probes the full dependency closure, runs as harness root without
+`--ignore-installed`, and is revalidated from the task shell.
 
 After materializing corpus revision `ac1f30b9a`, revalidate the 42 repaired
 fixtures before consuming the prior 2,500-task manifest:

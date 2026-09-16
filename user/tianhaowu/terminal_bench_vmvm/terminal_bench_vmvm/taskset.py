@@ -44,10 +44,47 @@ DEFAULT_DATASET_REVISION = "9b6988a3faf0"
 DEFAULT_IMAGE_PREFIX = "vmvm-registry.fbinfra.net/terminal_bench"
 VERIFIER_TIMEOUT_MARKER = "__TERMINAL_BENCH_VERIFIER_TIMEOUT__"
 TEST_DEPENDENCY_MARKER = "Test dependencies prebaked so the verifier runs offline"
+PYTEST_COMPATIBILITY_REQUIREMENT = "pytest==8.3.4"
 _EXACT_PIP_REQUIREMENT_RE = re.compile(r"[A-Za-z0-9][A-Za-z0-9_.-]*(?:\[[A-Za-z0-9_,.-]+\])?==[A-Za-z0-9.!+_-]+")
 _PIP_EXECUTABLE_RE = re.compile(r"pip(?:3(?:\.[0-9]+)?)?")
 _PYTHON_EXECUTABLE_RE = re.compile(r"python(?:3(?:\.[0-9]+)?)?")
+_SAFE_PIP_EXECUTABLES = {"pip", "pip3"}
+_SAFE_PYTHON_EXECUTABLES = {"python", "python3"}
 _SHELL_CONTROL_TOKENS = {"if", "then", "elif", "do", "!", "command", "exec", "time", "env"}
+_SHELL_COMMAND_SEPARATORS = {";", "&&", "||"}
+_SHELL_GROUP_BOUNDARIES = {"(", ")"}
+_SHELL_OUTPUT_REDIRECTS = {">", ">>", ">&", ">|", "&>", "&>>"}
+_SAFE_PIP_INSTALL_FLAGS = {
+    "--break-system-packages",
+    "--compile",
+    "--disable-pip-version-check",
+    "--no-cache-dir",
+    "--no-color",
+    "--no-compile",
+    "--no-input",
+    "--no-python-version-warning",
+    "--no-warn-conflicts",
+    "--no-warn-script-location",
+    "--quiet",
+    "--verbose",
+    "-q",
+    "-v",
+}
+_EXECUTING_SHELL_WRAPPERS = {
+    "bash",
+    "chroot",
+    "dash",
+    "eval",
+    "nice",
+    "nohup",
+    "runuser",
+    "sh",
+    "su",
+    "sudo",
+    "xargs",
+    "zsh",
+}
+_SHELL_PUNCTUATION_RE = re.compile(r"&>>|&&|\|\||>>|>&|>\||&>|<<<|<<|<&|<>|[;&|<>()]")
 
 # Reference-solution-only compatibility constraints. These never enter model
 # rollouts or verifier containers. build123d 0.10.0 permits ocp_gordon>=0.1.17,
@@ -296,7 +333,9 @@ def _test_script_requirements(task_dir: str) -> tuple[str, ...]:
     Older immutable Mobius images predate some test-only dependency layers.
     The verifier scripts still declare exact pins, so those wheels can be
     fetched during trusted setup without staging or executing the hidden tests.
-    Dynamic requirements, local paths, URLs, and unpinned packages are ignored.
+    Commands with dynamic requirements, local paths, URLs, unpinned packages,
+    indexes, requirement files, or other option semantics fail closed rather
+    than being replayed as a different dependency request.
     """
     test_script = Path(task_dir) / "tests" / "test.sh"
     if not test_script.is_file():
@@ -305,45 +344,148 @@ def _test_script_requirements(task_dir: str) -> tuple[str, ...]:
     requirements: list[str] = []
     for line in source.splitlines():
         try:
-            lexer = shlex.shlex(line, posix=True, punctuation_chars=";&|<>")
+            lexer = shlex.shlex(line, posix=True, punctuation_chars=";&|<>()")
             lexer.whitespace_split = True
             lexer.commenters = "#"
             tokens = list(lexer)
-        except ValueError:
+        except ValueError as error:
+            if re.search(r"(?:^|\s)pip(?:3(?:\.[0-9]+)?)?\s+install(?:\s|$)", line):
+                raise ValueError("could not parse pip install command in verifier script") from error
             continue
-        commands: list[list[str]] = []
+        tokens = [
+            part
+            for token in tokens
+            for part in (_SHELL_PUNCTUATION_RE.findall(token) if token and set(token) <= set(";&|<>()") else [token])
+        ]
+        commands: list[tuple[list[str], str | None, str | None]] = []
         command: list[str] = []
-        for token in tokens:
-            if token and set(token) <= set(";&|<>"):
+        previous_operator = None
+        invalid_output_redirect = False
+        token_index = 0
+        while token_index < len(tokens):
+            token = tokens[token_index]
+            if token in _SHELL_OUTPUT_REDIRECTS:
+                if command and command[-1].isdigit():
+                    command.pop()
+                token_index += 1
+                if token_index >= len(tokens) or (tokens[token_index] and set(tokens[token_index]) <= set(";&|<>()")):
+                    invalid_output_redirect = True
+                    continue
+                token_index += 1
+                continue
+            if token and set(token) <= set(";&|<>()"):
                 if command:
-                    commands.append(command)
+                    commands.append((command, previous_operator, token))
                     command = []
+                previous_operator = token
             else:
                 command.append(token)
+            token_index += 1
         if command:
-            commands.append(command)
-        for command in commands:
-            while command and (
-                command[0] in _SHELL_CONTROL_TOKENS or re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*=.*", command[0])
-            ):
-                command = command[1:]
+            commands.append((command, previous_operator, None))
+        for raw_command, previous_operator, next_operator in commands:
+            command = list(raw_command)
+            had_assignment = False
+            while command:
+                if command[0] in _SHELL_CONTROL_TOKENS:
+                    command = command[1:]
+                elif re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*=.*", command[0]):
+                    had_assignment = True
+                    command = command[1:]
+                else:
+                    break
             if not command:
                 continue
             executable = PurePosixPath(command[0]).name
             requirement_start = None
-            if _PIP_EXECUTABLE_RE.fullmatch(executable) and len(command) > 1 and command[1] == "install":
-                requirement_start = 2
-            elif _PYTHON_EXECUTABLE_RE.fullmatch(executable) and command[1:4] == [
-                "-m",
-                "pip",
-                "install",
-            ]:
-                requirement_start = 4
+            pip_launcher = "/" not in command[0] and executable in _SAFE_PIP_EXECUTABLES
+            python_pip_launcher = bool(
+                "/" not in command[0] and executable in _SAFE_PYTHON_EXECUTABLES and command[1:3] == ["-m", "pip"]
+            )
+            if pip_launcher or python_pip_launcher:
+                cursor = 1 if pip_launcher else 3
+                while cursor < len(command) and command[cursor] in _SAFE_PIP_INSTALL_FLAGS:
+                    cursor += 1
+                if cursor < len(command) and command[cursor] == "install":
+                    requirement_start = cursor + 1
             if requirement_start is None:
+                contains_direct_pip = any(
+                    _PIP_EXECUTABLE_RE.fullmatch(PurePosixPath(token).name)
+                    and index + 1 < len(command)
+                    and command[index + 1] == "install"
+                    for index, token in enumerate(command)
+                )
+                contains_python_pip = any(
+                    _PYTHON_EXECUTABLE_RE.fullmatch(PurePosixPath(token).name)
+                    and command[index + 1 : index + 4] == ["-m", "pip", "install"]
+                    for index, token in enumerate(command)
+                )
+                contains_python_pip_layout = bool(
+                    _PYTHON_EXECUTABLE_RE.fullmatch(executable)
+                    and any(
+                        command[index : index + 2] == ["-m", "pip"] and "install" in command[index + 2 :]
+                        for index in range(1, len(command))
+                    )
+                )
+                dynamic_pip = len(command) > 1 and command[0].startswith("$") and command[1] == "install"
+                executable = PurePosixPath(command[0]).name
+                nested_pip = executable in _EXECUTING_SHELL_WRAPPERS and any(
+                    re.search(
+                        r"(?:^|\s)(?:python(?:3(?:\.[0-9]+)?)?\s+-m\s+)?pip(?:3(?:\.[0-9]+)?)?\s+install(?:\s|$)", token
+                    )
+                    for token in command[1:]
+                )
+                dynamic_subcommand = bool(
+                    (pip_launcher and len(command) > 1 and command[1].startswith("$"))
+                    or (python_pip_launcher and len(command) > 3 and command[3].startswith("$"))
+                    or (
+                        _PYTHON_EXECUTABLE_RE.fullmatch(executable)
+                        and command[1:2] == ["-m"]
+                        and len(command) > 2
+                        and command[2].startswith("$")
+                    )
+                )
+                unsupported_install_layout = bool(
+                    (pip_launcher and "install" in command[1:]) or (python_pip_launcher and "install" in command[3:])
+                )
+                if (
+                    dynamic_pip
+                    or dynamic_subcommand
+                    or unsupported_install_layout
+                    or contains_python_pip_layout
+                    or nested_pip
+                    or ((contains_direct_pip or contains_python_pip) and executable not in {"echo", "printf"})
+                ):
+                    raise ValueError("unsupported wrapped pip install command in verifier script")
                 continue
-            for requirement in command[requirement_start:]:
-                if _EXACT_PIP_REQUIREMENT_RE.fullmatch(requirement):
-                    requirements.append(requirement)
+            if had_assignment:
+                raise ValueError("unsupported environment assignment on pip install command in verifier script")
+            if invalid_output_redirect:
+                raise ValueError("invalid output redirection on pip install command in verifier script")
+            if previous_operator not in (
+                None,
+                *_SHELL_COMMAND_SEPARATORS,
+                *_SHELL_GROUP_BOUNDARIES,
+            ) or next_operator not in (
+                None,
+                *_SHELL_COMMAND_SEPARATORS,
+                *_SHELL_GROUP_BOUNDARIES,
+            ):
+                raise ValueError("unsupported shell operator on pip install command in verifier script")
+            command_requirements: list[str] = []
+            for operand in command[requirement_start:]:
+                if operand in _SAFE_PIP_INSTALL_FLAGS:
+                    continue
+                if _EXACT_PIP_REQUIREMENT_RE.fullmatch(operand):
+                    command_requirements.append(operand)
+                    continue
+                if operand == "pytest":
+                    command_requirements.append(PYTEST_COMPATIBILITY_REQUIREMENT)
+                    continue
+                raise ValueError("unsupported pip install operand in verifier script")
+            if not command_requirements:
+                raise ValueError("pip install command has no exact verifier requirements")
+            requirements.extend(command_requirements)
     return tuple(dict.fromkeys(requirements))
 
 
@@ -353,15 +495,21 @@ def _requirement_name(requirement: str) -> str:
 
 
 def _merge_test_requirements(*groups: tuple[str, ...]) -> tuple[str, ...]:
-    requirements: dict[str, str] = {}
+    requirements: list[str] = []
+    requirements_by_name: dict[str, list[str]] = {}
     for group in groups:
         for requirement in group:
             normalized_name = _requirement_name(requirement)
-            previous = requirements.get(normalized_name)
-            if previous is not None and previous != requirement:
-                raise ValueError(f"conflicting verifier requirements: {previous!r} and {requirement!r}")
-            requirements[normalized_name] = requirement
-    return tuple(requirements.values())
+            previous = requirements_by_name.setdefault(normalized_name, [])
+            if requirement in previous:
+                continue
+            current_pin = requirement.partition("==")[2] or None
+            previous_pins = {item.partition("==")[2] or None for item in previous}
+            if previous and previous_pins != {current_pin}:
+                raise ValueError("conflicting verifier requirements for one canonical package name")
+            previous.append(requirement)
+            requirements.append(requirement)
+    return tuple(requirements)
 
 
 @lru_cache(maxsize=None)
@@ -1160,7 +1308,7 @@ class TerminalBenchVMVMTaskset(
         if "pytest" in test_script and not any(
             _requirement_name(requirement) == "pytest" for requirement in requirements
         ):
-            requirements = (*requirements, "pytest==8.3.4")
+            requirements = (*requirements, PYTEST_COMPATIBILITY_REQUIREMENT)
         return requirements
 
     async def _missing_test_dependencies(
@@ -1175,19 +1323,61 @@ class TerminalBenchVMVMTaskset(
             return ()
         probe_code = """
 import importlib.metadata as metadata
-import re
 import sys
 
-for requirement in sys.argv[1:]:
-    name = re.split(r"[<>=!~;\\[]", requirement, maxsplit=1)[0]
-    expected = requirement.split("==", 1)[1] if "==" in requirement else None
+try:
+    from packaging.markers import default_environment
+    from packaging.requirements import Requirement
+    from packaging.utils import canonicalize_name
+except ModuleNotFoundError:
+    from pip._vendor.packaging.markers import default_environment
+    from pip._vendor.packaging.requirements import Requirement
+    from pip._vendor.packaging.utils import canonicalize_name
+
+
+def requirement_is_satisfied(root_text):
     try:
-        installed = metadata.version(name)
-    except metadata.PackageNotFoundError:
+        pending = [(Requirement(root_text), frozenset(Requirement(root_text).extras))]
+        visited = set()
+        while pending:
+            requirement, parent_extras = pending.pop()
+            key = (
+                canonicalize_name(requirement.name),
+                str(requirement.specifier),
+                tuple(sorted(parent_extras)),
+            )
+            if key in visited:
+                continue
+            visited.add(key)
+            try:
+                distribution = metadata.distribution(requirement.name)
+            except metadata.PackageNotFoundError:
+                return False
+            if requirement.specifier and not requirement.specifier.contains(
+                distribution.version,
+                prereleases=True,
+            ):
+                return False
+            environments = []
+            for extra in parent_extras or {""}:
+                environment = default_environment()
+                environment["extra"] = extra
+                environments.append(environment)
+            for dependency_text in distribution.requires or ():
+                dependency = Requirement(dependency_text)
+                if dependency.marker is not None and not any(
+                    dependency.marker.evaluate(environment) for environment in environments
+                ):
+                    continue
+                pending.append((dependency, frozenset(dependency.extras)))
+        return True
+    except Exception:
+        return False
+
+
+for requirement in sys.argv[1:]:
+    if not requirement_is_satisfied(requirement):
         print(requirement)
-    else:
-        if expected is not None and installed != expected:
-            print(requirement)
 """.strip()
         # Distribution names are not always import names (for example,
         # psycopg2-binary), so probe package metadata rather than imports.
@@ -1502,19 +1692,7 @@ for requirement in sys.argv[1:]:
     ) -> None:
         """Cache a complete wheelhouse without mutating the task environment."""
         self._prefetched_test_dependencies.pop(runtime, None)
-        declared = _declared_test_requirements(task.task_dir)
-        scripted = _test_script_requirements(task.task_dir)
-        merged = _merge_test_requirements(declared, scripted)
-        declared_names = {_requirement_name(requirement) for requirement in declared}
-        scripted_extras = tuple(
-            requirement for requirement in scripted if _requirement_name(requirement) not in declared_names
-        )
-        missing_scripted = await self._missing_test_dependencies(task, runtime, scripted_extras)
-        requirements = _merge_test_requirements(declared, missing_scripted)
-        if "pytest" in (Path(task.task_dir) / "tests" / "test.sh").read_text(errors="replace") and not any(
-            _requirement_name(requirement) == "pytest" for requirement in merged
-        ):
-            requirements = _merge_test_requirements(requirements, ("pytest==8.3.4",))
+        requirements = self._test_requirements(task)
         if not requirements:
             self._prefetched_test_dependencies[runtime] = PrefetchedTestDependencies(
                 requirements=(),
@@ -1596,7 +1774,7 @@ for requirement in sys.argv[1:]:
             remaining = await self._missing_test_dependencies(
                 task,
                 runtime,
-                missing,
+                prefetched.requirements,
             )
             if remaining:
                 raise RuntimeError(
