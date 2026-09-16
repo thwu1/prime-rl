@@ -141,23 +141,27 @@ fi
 
 mapfile -t worker_urls < "$urls_file"
 mapfile -t ports < "$ports_file"
-if [[ ${#worker_urls[@]} -ne 16 || ${#ports[@]} -ne 3 ]]; then
+if [[ ${#worker_urls[@]} -ne 16 || ${#ports[@]} -ne 5 ]]; then
     printf 'Direct-worker runtime files are incomplete\n' >&2
     exit 2
 fi
 router_port=${ports[0]}
 metrics_port=${ports[1]}
 router_max_concurrent=${ports[2]}
+router_queue_size=${ports[3]}
+router_queue_timeout=${ports[4]}
 if [[ ! "$router_max_concurrent" =~ ^[1-9][0-9]*$ ]] \
-    || (( router_max_concurrent > 64 )); then
+    || (( router_max_concurrent > 16 )) \
+    || [[ ! "$router_queue_size" =~ ^[0-9]+$ ]] \
+    || (( router_queue_size >= 64 )) \
+    || [[ ! "$router_queue_timeout" =~ ^[1-9][0-9]*$ ]]; then
     printf 'Direct Qwen router concurrency is invalid\n' >&2
     exit 2
 fi
 
 router_args=(
     -c 'from vllm_router.launch_router import main; main()'
-    --policy consistent_hash
-    --request-id-headers x-session-id
+    --policy round_robin
     --host 127.0.0.1
     --port "$router_port"
     --prometheus-host 127.0.0.1
@@ -166,7 +170,8 @@ router_args=(
     --request-timeout-secs 7500
     --disable-retries
     --max-concurrent-requests "$router_max_concurrent"
-    --queue-size 0
+    --queue-size "$router_queue_size"
+    --queue-timeout-secs "$router_queue_timeout"
     --log-level warning
     --worker-urls "${worker_urls[@]}"
 )

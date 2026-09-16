@@ -40,6 +40,7 @@ ENDPOINT_FILE_RE = re.compile(r"^[1-9][0-9]*\.json$")
 MAX_METADATA_BYTES = 16 * 1024
 MAX_MODELS_BYTES = 1 << 20
 MAX_DIRECT_CONCURRENCY = 64
+ROUTER_QUEUE_TIMEOUT_SECONDS = 7_200
 
 
 class DirectWorkerError(ValueError):
@@ -365,8 +366,9 @@ def _manifest(
     approved_task_allowlist_sha256: str,
     router_port: int,
     metrics_port: int,
-    max_concurrent_requests: int = 8,
+    rollout_concurrency: int = 8,
 ) -> dict[str, Any]:
+    max_concurrent_requests = min(rollout_concurrency, EXPECTED_ENDPOINTS)
     return {
         "schema_version": 1,
         "deployment_root": str(deployment_root.resolve()),
@@ -380,9 +382,11 @@ def _manifest(
             "port": router_port,
             "metrics_host": "127.0.0.1",
             "metrics_port": metrics_port,
-            "policy": "consistent_hash",
+            "policy": "round_robin",
             "request_timeout_seconds": 7_500,
             "max_concurrent_requests": max_concurrent_requests,
+            "queue_size": rollout_concurrency - max_concurrent_requests,
+            "queue_timeout_seconds": ROUTER_QUEUE_TIMEOUT_SECONDS,
             "retries": 0,
         },
     }
@@ -440,8 +444,9 @@ def validate_saved_manifest(path: Path) -> dict[str, Any]:
     router = manifest.get("router")
     expected_router = {
         "host": "127.0.0.1",
-        "policy": "consistent_hash",
+        "policy": "round_robin",
         "request_timeout_seconds": 7_500,
+        "queue_timeout_seconds": ROUTER_QUEUE_TIMEOUT_SECONDS,
         "retries": 0,
     }
     if not isinstance(router, dict) or any(router.get(key) != value for key, value in expected_router.items()):
@@ -449,6 +454,7 @@ def validate_saved_manifest(path: Path) -> dict[str, Any]:
     if set(router) != {
         *expected_router,
         "max_concurrent_requests",
+        "queue_size",
         "port",
         "metrics_host",
         "metrics_port",
@@ -458,9 +464,12 @@ def validate_saved_manifest(path: Path) -> dict[str, Any]:
     if (
         isinstance(max_concurrent_requests, bool)
         or not isinstance(max_concurrent_requests, int)
-        or not 1 <= max_concurrent_requests <= MAX_DIRECT_CONCURRENCY
+        or not 1 <= max_concurrent_requests <= EXPECTED_ENDPOINTS
     ):
         raise DirectWorkerError("direct_worker_manifest_router_concurrency_invalid")
+    queue_size = router.get("queue_size")
+    if isinstance(queue_size, bool) or not isinstance(queue_size, int) or not 0 <= queue_size < MAX_DIRECT_CONCURRENCY:
+        raise DirectWorkerError("direct_worker_manifest_router_queue_invalid")
     if router.get("metrics_host") != "127.0.0.1":
         raise DirectWorkerError("direct_worker_manifest_metrics_host_invalid")
     ports = (router.get("port"), router.get("metrics_port"))
@@ -496,8 +505,12 @@ def audit_run_directory(run_dir: Path) -> dict[str, Any]:
     if task_allowlist_sha256 != manifest["approved_task_allowlist_sha256"]:
         raise DirectWorkerError("direct_worker_saved_task_allowlist_mismatch")
     config = tomllib.loads(config_path.read_text(encoding="utf-8"))
-    if manifest["router"]["max_concurrent_requests"] != config["max_concurrent"]:
+    expected_router_concurrency = min(config["max_concurrent"], EXPECTED_ENDPOINTS)
+    expected_queue_size = config["max_concurrent"] - expected_router_concurrency
+    if manifest["router"]["max_concurrent_requests"] != expected_router_concurrency:
         raise DirectWorkerError("direct_worker_saved_router_concurrency_mismatch")
+    if manifest["router"]["queue_size"] != expected_queue_size:
+        raise DirectWorkerError("direct_worker_saved_router_queue_mismatch")
     expected_base_url = f"http://127.0.0.1:{manifest['router']['port']}/v1"
     if str(config["client"].get("base_url", "")).rstrip("/") != expected_base_url:
         raise DirectWorkerError("direct_worker_saved_config_url_mismatch")
@@ -614,6 +627,8 @@ def prepare(
             f"{manifest['router']['port']}\n"
             f"{manifest['router']['metrics_port']}\n"
             f"{manifest['router']['max_concurrent_requests']}\n"
+            f"{manifest['router']['queue_size']}\n"
+            f"{manifest['router']['queue_timeout_seconds']}\n"
         ).encode(),
     )
     return manifest

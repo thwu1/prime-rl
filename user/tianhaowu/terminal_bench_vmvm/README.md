@@ -349,12 +349,13 @@ that directory, stage it at its separate versioned path:
 bash user/tianhaowu/terminal_bench_vmvm/stage_qwen_direct_router.sh
 ```
 
-The router uses consistent hashing on the rollout's `X-Session-ID`, disables
-router retries, admits at most the pinned evaluation concurrency (up to 64)
-with no overflow queue, and sets its request deadline above the evaluator's
-7,200-second deadline. The direct launcher requires rollout concurrency,
-multiplexing, and HTTP pools to agree at 64 or less. It keeps simultaneous
-VMVM lease bring-up capped at four while allowing up to 64 active sessions.
+The router disables retries and uses round-robin dispatch across the 16 pinned
+workers. It admits at most 16 model requests concurrently and queues the
+remaining active rollout requests (up to 48 at production concurrency 64) for
+up to 7,200 seconds. Its backend request deadline is 7,500 seconds. The direct
+launcher requires rollout concurrency, multiplexing, and HTTP pools to agree at
+64 or less. It keeps simultaneous VMVM lease bring-up capped at four while
+allowing up to 64 active sessions.
 
 The full 66-task TB4 set and 2,500-task oracle-valid Mobius production set,
 including all task categories, are approved for the direct Qwen route. The

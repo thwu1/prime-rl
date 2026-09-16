@@ -210,6 +210,8 @@ def test_prepare_snapshots_only_non_secret_worker_metadata(tmp_path: Path, monke
         str(manifest["router"]["port"]),
         str(manifest["router"]["metrics_port"]),
         "2",
+        "0",
+        "7200",
     ]
     serialized = manifest_path.read_text().casefold()
     assert "api_key" not in serialized

@@ -279,12 +279,12 @@ def test_direct_qwen_launcher_is_fail_closed() -> None:
     workflow_dir = CONFIG_DIR.parents[1]
     wrapper = (workflow_dir / "run_qwen_direct_eval.sbatch").read_text()
 
-    assert "--policy consistent_hash" in wrapper
-    assert "--request-id-headers x-session-id" in wrapper
+    assert "--policy round_robin" in wrapper
     assert "--request-timeout-secs 7500" in wrapper
     assert "--disable-retries" in wrapper
     assert '--max-concurrent-requests "$router_max_concurrent"' in wrapper
-    assert "--queue-size 0" in wrapper
+    assert '--queue-size "$router_queue_size"' in wrapper
+    assert '--queue-timeout-secs "$router_queue_timeout"' in wrapper
     assert "VACLI_MAX_CONCURRENT_LEASES=4" in wrapper
     assert "OPENAI_API_KEY=EMPTY" in wrapper
     assert "INFERENCE_PROXY_INFO" in wrapper
