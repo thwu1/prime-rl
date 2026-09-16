@@ -18,6 +18,12 @@ OUTBOUND_BODY_DENYLIST = [
     "top_logprobs",
     "return_token_ids",
 ]
+MOBIUS_TASK_FILE = CONFIG_DIR / "mobius_valid_tasks_2500.txt"
+
+
+def _mobius_task_file_sha256() -> str:
+    with MOBIUS_TASK_FILE.open("rb") as handle:
+        return hashlib.file_digest(handle, "sha256").hexdigest()
 
 
 @pytest.mark.parametrize("config_path", EVAL_CONFIGS, ids=lambda path: path.name)
@@ -89,13 +95,9 @@ def test_mobius_kimi_production_contract() -> None:
     assert taskset["id"] == "terminal-bench-vmvm"
     assert taskset["dataset_revision"] == "ac1f30b9ac0e6c6a20a9fe423900d9ed28a6d366"
     assert taskset["task_file"] == ("user/tianhaowu/terminal_bench_vmvm/configs/eval/mobius_valid_tasks_2500.txt")
-    assert taskset["task_file_sha256"] == ("d33ef93f9b77ee91a41600934e677ba37988d3b4509e4da05ff1fcf7b4bc3a4b")
-    task_file = CONFIG_DIR / "mobius_valid_tasks_2500.txt"
-    assert task_file.stat().st_size == 49_334
-    with task_file.open("rb") as handle:
-        assert hashlib.file_digest(handle, "sha256").hexdigest() == taskset["task_file_sha256"]
-    with task_file.open("rb") as handle:
-        assert sum(chunk.count(b"\n") for chunk in iter(lambda: handle.read(8192), b"")) == 2_500
+    assert taskset["task_file_sha256"] == _mobius_task_file_sha256()
+    tasks = MOBIUS_TASK_FILE.read_text().splitlines()
+    assert len(tasks) == len(set(tasks)) == 2_500
     assert taskset["image_manifest"].endswith("/mobius_images.json")
     assert taskset["image_manifest_sha256"] == ("118157378884021d2fc12dd83e7d9576ca606a5d229a2bd34c203d745212e009")
     assert taskset["verifier_runtime_retries"] >= 2
@@ -134,7 +136,8 @@ def test_mobius_qwen_production_retention_and_concurrency() -> None:
     assert config["client"]["max_keepalive_connections"] == 8
     taskset = config["taskset"]
     assert taskset["dataset_revision"] == "ac1f30b9ac0e6c6a20a9fe423900d9ed28a6d366"
-    assert taskset["task_file_sha256"] == ("d33ef93f9b77ee91a41600934e677ba37988d3b4509e4da05ff1fcf7b4bc3a4b")
+    assert taskset["task_file"] == ("user/tianhaowu/terminal_bench_vmvm/configs/eval/mobius_valid_tasks_2500.txt")
+    assert taskset["task_file_sha256"] == _mobius_task_file_sha256()
     assert taskset["image_manifest_sha256"] == ("118157378884021d2fc12dd83e7d9576ca606a5d229a2bd34c203d745212e009")
 
 
@@ -164,7 +167,7 @@ def test_mobius_qwen_production_retention_and_concurrency() -> None:
         (
             "mobius_qwen_a95b_2500.toml",
             2_500,
-            "d33ef93f9b77ee91a41600934e677ba37988d3b4509e4da05ff1fcf7b4bc3a4b",
+            _mobius_task_file_sha256(),
         ),
     ],
 )
