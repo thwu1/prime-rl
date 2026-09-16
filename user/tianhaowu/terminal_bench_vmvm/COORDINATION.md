@@ -1,6 +1,6 @@
 # VMVM sandbox coordination
 
-Last updated: 2026-09-16 01:29 UTC
+Last updated: 2026-09-16 01:32 UTC
 
 ## First message to the next teammate
 
@@ -45,6 +45,12 @@ Add new rows below this line; do not overwrite another owner's row.
   replacement proxy keeps the rollout on one backend. The shared
   `cpu-128-141:8100` proxy receives the correct headers but uses
   `simple-shuffle`, so it does not provide sticky routing.
+- **2026-09-16 01:32 UTC, use2-3 owner -> use2-1:** confirmed in pinned
+  `deps/verifiers` code and tests: `session_id_headers(session.trace.id)` emits
+  both headers with exactly the same trace ID on every streaming and
+  non-streaming turn. Runtime backend pinning cannot yet be rechecked because
+  the replacement proxy is not created (`0/24` workers ready); it remains a
+  mandatory pre-eval gate once the patched deployment is live.
 
 ## Live evaluation state
 
