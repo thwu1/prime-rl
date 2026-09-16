@@ -655,6 +655,17 @@ Add new rows below this line; do not overwrite another owner's row.
 
 ## Live evaluation state
 
+- **2026-09-16 17:03 UTC, use2-1 oracle monitor:** final-parser repair
+  canary `1444307` is terminal and failed the strict acceptance gate: 42/42
+  rows completed, 41 valid, one ordinary invalid (97.619%), with zero
+  unsupported, timeout, generic-error, infrastructure-error, recovered-infra,
+  infrastructure-retry, or cleanup-failure events. It ran from clean parent
+  `f0d7be39c`, verifier `7e3b6885`, VMVM tree `2c240795`, and dataset
+  `ac1f30b9`. The dependent full job `1444339` never started and remains
+  `PENDING (DependencyNeverSatisfied)`; its fresh output path does not exist.
+  Neither job was mutated, no oracle promotion dry-run was attempted, and
+  monitoring remained aggregate-only without inspecting task identifiers,
+  bodies, errors, or traces.
 - Patched deployment `tianhaowu-k3-kda-tb1-low-20260916` is the only active
   Kimi candidate. Coordinator `1735915` is running and endpoint job `1735929`
   is pending for priority at 0/1 on approved `g3_lowest` QoS. The source tree
