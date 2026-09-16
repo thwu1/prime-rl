@@ -163,22 +163,33 @@ not injected into agent rollouts or verifier containers.
 
 ## TB4 pass@1
 
-After `fetch_tb4.sh` verifies the prebuilt release, wait for all 24 routes in
-`tianhaowu-k3-tb24-nocache-20260916` to be healthy, zero routes to be
-unhealthy, and a clean per-route semantic soak. This stock-image fallback uses
-prefix caching disabled, `max-num-seqs=1`, the Python frontend, PIECEWISE
-graphs, and the request denylist to avoid the known KDA/logprob failure path.
+After `fetch_tb4.sh` verifies the prebuilt release, wait for every intended
+route to be healthy, zero routes to be unhealthy, and a clean per-route
+semantic plus state-reuse soak. The vulnerable, unallocated
+`tianhaowu-k3-tb24-nocache-20260916` deployment was archived on 2026-09-16.
+Its replacement, `tianhaowu-k3-kda-tb2-20260916`, uses the digest-pinned ARM64
+fix from RAM PR `#285` together with `PIECEWISE` graphs. It starts at two routes
+so TB4 can qualify the patched runtime and VMVM capacity before any scale-up;
+never treat `/health` alone as readiness.
 Then submit exactly one fresh pass@1 run against Kimi-K3 in max-reasoning mode:
 
-Sticky headers still make backend affinity observable, but prefix caching is
-deliberately off, so this fallback does not reuse KV across HTTP turns. The 24
-isolated replicas provide aggregate concurrency while each backend runs one
-sequence at a time.
+Sticky headers make backend affinity observable. The patched deployment keeps
+prefix caching enabled and begins with aggregate rollout concurrency eight
+across its two routes. VMVM lease creation remains capped at four until a clean
+post-fix smoke and full TB4 run qualify a higher rate.
 
 ```bash
 tmux send-keys -t swebench_vmvm:Launcher.0 \
-  "cd /storage/home/tianhaowu/prime-rl && env EVAL_CONFIG=\$PWD/user/tianhaowu/terminal_bench_vmvm/configs/eval/tb4_kimi_k3_max_miniswe.toml INFERENCE_PROXY_INFO=/checkpoint/ram/shared/vllm_deployments_v2/tianhaowu-k3-tb24-nocache-20260916/proxy_info.json OUTPUT_DIR=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/evals/tb4_kimi_k3_sticky_full_v2 sbatch --parsable user/tianhaowu/terminal_bench_vmvm/run_eval.sbatch" C-m
+  "cd /storage/home/tianhaowu/prime-rl && env EVAL_APPROVED_TASK_FILE=\$PWD/user/tianhaowu/terminal_bench_vmvm/configs/eval/tb4_qwen_a95b_miniswe.tasks.txt EVAL_APPROVED_TASK_FILE_SHA256=9485011ac4a953f4a4a1c7c5e78550b6d7de6f760a3859dac15a3610cf4ad892 EVAL_CONFIG=\$PWD/user/tianhaowu/terminal_bench_vmvm/configs/eval/tb4_kimi_k3_max_miniswe.toml INFERENCE_PROXY_INFO=/checkpoint/ram/shared/vllm_deployments_v2/tianhaowu-k3-kda-tb2-20260916/proxy_info.json OUTPUT_DIR=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/evals/tb4_kimi_k3_sticky_full_v3 VACLI_MAX_CONCURRENT_LEASES=4 sbatch --parsable user/tianhaowu/terminal_bench_vmvm/run_eval.sbatch" C-m
 ```
+
+Every real launch and resume through `run_eval.sbatch` requires an external
+approved task file plus its lowercase SHA-256. The launcher snapshots the
+selection, binds the source and resolved configs to that digest and task count,
+records approval metadata in provenance, and rejects inline tasks or CLI
+overrides. Exact `--dry-run` is the sole approval-free mode and exits before
+task loading. The checked-in full-TB4 manifest is shared by the Kimi and Qwen
+configs despite its historical filename.
 
 `INFERENCE_PROXY_INFO` is the preferred interface for a direct RAM deployment:
 the compute job reads `url` and `api_key` without putting the key in the config,
@@ -193,10 +204,10 @@ direct VMVM and inference routes continue to run with proxy variables cleared.
 
 The default config is `configs/eval/tb4_kimi_k3_max_miniswe.toml`: 66 tasks,
 pass@1, mini-swe-agent, `reasoning_effort=max`, one VMVM per rollout, and a
-256 Ki-token total context cap. It uses rollout concurrency 64 and an HTTP
-connection/keepalive pool of 64. The larger Mobius trace config uses the same
-concurrency while vacli lease bring-up remains bounded at 32. All eight TB4
-tasks that declare Docker Compose sidecars use the compose-capable VMVM path;
+256 Ki-token total context cap. It uses rollout concurrency eight and an HTTP
+connection/keepalive pool of eight. Keep vacli lease bring-up bounded at four
+for this qualification run. All 11 TB4 tasks that declare Docker Compose
+sidecars use the compose-capable VMVM path;
 they are not skipped or downgraded to a single-container approximation. The
 current VMVM tenant is CPU-only, so the three TB4 GPU tasks are rejected
 explicitly instead of being run under a silently incorrect CPU sandbox; the
@@ -244,12 +255,17 @@ per worker (eight aggregate) and two concurrent lease bring-ups per controller
 Submit only through the launcher tmux after both workers pass a fresh
 no-logprob semantic and model-I/O smoke:
 
+As of 2026-09-16 09:52 UTC both pinned ports refused TCP connections. Do not
+submit these commands until both allocations are restored and pass the fresh
+smoke. All replacement paths are `_v3`; canceled `_v1`/`_v2` artifacts are not
+resume inputs.
+
 ```bash
 tmux send-keys -t swebench_vmvm:Launcher.0 \
-  "cd /storage/home/tianhaowu/prime-rl && env OPENAI_API_KEY=EMPTY INFERENCE_BASE_URL=http://g3-138-137:32317/v1 EVAL_CONFIG=\$PWD/user/tianhaowu/terminal_bench_vmvm/configs/eval/tb4_kimi_k3_direct_a.toml OUTPUT_DIR=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/evals/tb4_kimi_k3_direct_a_v2 VACLI_MAX_CONCURRENT_LEASES=2 sbatch --parsable user/tianhaowu/terminal_bench_vmvm/run_eval.sbatch" C-m
+  "cd /storage/home/tianhaowu/prime-rl && env OPENAI_API_KEY=EMPTY EVAL_APPROVED_TASK_FILE=\$PWD/user/tianhaowu/terminal_bench_vmvm/configs/eval/tb4_kimi_k3_direct_a.tasks.txt EVAL_APPROVED_TASK_FILE_SHA256=d0f7c0297a82edf79f3e966ffd830fb418ea90c9faa7c4f3d288d5c7bacd1365 INFERENCE_BASE_URL=http://g3-138-137:32317/v1 EVAL_CONFIG=\$PWD/user/tianhaowu/terminal_bench_vmvm/configs/eval/tb4_kimi_k3_direct_a.toml OUTPUT_DIR=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/evals/tb4_kimi_k3_direct_a_v3 VACLI_MAX_CONCURRENT_LEASES=2 sbatch --parsable user/tianhaowu/terminal_bench_vmvm/run_eval.sbatch" C-m
 
 tmux send-keys -t swebench_vmvm:Launcher.0 \
-  "cd /storage/home/tianhaowu/prime-rl && env OPENAI_API_KEY=EMPTY INFERENCE_BASE_URL=http://g3-146-243:32499/v1 EVAL_CONFIG=\$PWD/user/tianhaowu/terminal_bench_vmvm/configs/eval/tb4_kimi_k3_direct_b.toml OUTPUT_DIR=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/evals/tb4_kimi_k3_direct_b_v2 VACLI_MAX_CONCURRENT_LEASES=2 sbatch --parsable user/tianhaowu/terminal_bench_vmvm/run_eval.sbatch" C-m
+  "cd /storage/home/tianhaowu/prime-rl && env OPENAI_API_KEY=EMPTY EVAL_APPROVED_TASK_FILE=\$PWD/user/tianhaowu/terminal_bench_vmvm/configs/eval/tb4_kimi_k3_direct_b.tasks.txt EVAL_APPROVED_TASK_FILE_SHA256=485c1a038efc72a4eddf4928758c74d31827ebb7624108cee63e503df0fa02ec INFERENCE_BASE_URL=http://g3-146-243:32499/v1 EVAL_CONFIG=\$PWD/user/tianhaowu/terminal_bench_vmvm/configs/eval/tb4_kimi_k3_direct_b.toml OUTPUT_DIR=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/evals/tb4_kimi_k3_direct_b_v3 VACLI_MAX_CONCURRENT_LEASES=2 sbatch --parsable user/tianhaowu/terminal_bench_vmvm/run_eval.sbatch" C-m
 ```
 
 Each shard remains its own resumable evaluator output. A resume replays the
@@ -259,9 +275,9 @@ worker. After both finish, publish a separate, audit-only combined artifact:
 ```bash
 uv run --project user/tianhaowu/terminal_bench_vmvm \
   python user/tianhaowu/terminal_bench_vmvm/combine_tb4_shards.py \
-  --shard-a-dir /checkpoint/ram/tianhaowu/terminal_bench_vmvm/evals/tb4_kimi_k3_direct_a_v2 \
-  --shard-b-dir /checkpoint/ram/tianhaowu/terminal_bench_vmvm/evals/tb4_kimi_k3_direct_b_v2 \
-  --output-dir /checkpoint/ram/tianhaowu/terminal_bench_vmvm/evals/tb4_kimi_k3_direct_combined_v2 \
+  --shard-a-dir /checkpoint/ram/tianhaowu/terminal_bench_vmvm/evals/tb4_kimi_k3_direct_a_v3 \
+  --shard-b-dir /checkpoint/ram/tianhaowu/terminal_bench_vmvm/evals/tb4_kimi_k3_direct_b_v3 \
+  --output-dir /checkpoint/ram/tianhaowu/terminal_bench_vmvm/evals/tb4_kimi_k3_direct_combined_v3 \
   --dataset-dir /checkpoint/ram/tianhaowu/terminal_bench_vmvm/datasets/tb4-prebuilt-v4.0.0/tasks
 ```
 
@@ -383,16 +399,14 @@ merely its current observed count. The command requires the model-specific
 health response to report exactly that many healthy routes and zero unhealthy
 routes before and after the requests. It also requires an exact observed route
 count, shared-affinity metadata, no hidden LiteLLM retries, an exact marker with
-a normal stop, and stable backend headers for the repeated sessions. Its Chat
-Completions payload omits `logprobs`, `prompt_logprobs`, `top_logprobs`, and
-`return_token_ids` entirely.
-
-This snapshot catches already-corrupt routes and affinity regressions; it does
-not deterministically reproduce the one-token scheduling trigger in vLLM
-`#51483`. A passing result cannot replace the isolation/configuration checks or
-continued error/corruption monitoring. `--allow-unverified-affinity` and
-`--skip-health` exist for diagnosis only and must not be used for the
-production readiness gate.
+a normal stop, and stable backend headers for the repeated sessions. It then
+runs serial raw-completion predecessor/one-token-target cycles on every
+discovered backend and fails if routing changes, the target prompt or response
+is not exactly one token, corruption appears, or deterministic target output
+depends on predecessor state. Neither request dialect sends `logprobs`,
+`prompt_logprobs`, `top_logprobs`, or `return_token_ids`; the summary never
+contains response text. `--allow-unverified-affinity` and `--skip-health` exist
+for diagnosis only and must not be used for the production readiness gate.
 
 The Kimi production config uses the committed, portable oracle-qualified
 manifest at
@@ -403,16 +417,26 @@ The launcher snapshots and hash-checks it before the production run:
 
 ```bash
 tmux send-keys -t swebench_vmvm:Launcher.0 \
-  "cd /storage/home/tianhaowu/prime-rl && env EVAL_CONFIG=\$PWD/user/tianhaowu/terminal_bench_vmvm/configs/eval/mobius_kimi_k3_max_2500.toml INFERENCE_PROXY_INFO=/checkpoint/ram/shared/vllm_deployments_v2/tianhaowu-k3-tb24-nocache-20260916/proxy_info.json OUTPUT_DIR=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/evals/mobius_kimi_k3_max_2500_transcript_v1 sbatch --parsable --time=7-00:00:00 user/tianhaowu/terminal_bench_vmvm/run_eval.sbatch" C-m
+  "cd /storage/home/tianhaowu/prime-rl && env EVAL_APPROVED_TASK_FILE=\$PWD/user/tianhaowu/terminal_bench_vmvm/configs/eval/mobius_valid_tasks_2500.txt EVAL_APPROVED_TASK_FILE_SHA256=d33ef93f9b77ee91a41600934e677ba37988d3b4509e4da05ff1fcf7b4bc3a4b EVAL_CONFIG=\$PWD/user/tianhaowu/terminal_bench_vmvm/configs/eval/mobius_kimi_k3_max_2500.toml INFERENCE_PROXY_INFO=/checkpoint/ram/shared/vllm_deployments_v2/tianhaowu-k3-kda-tb2-20260916/proxy_info.json OUTPUT_DIR=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/evals/mobius_kimi_k3_max_2500_transcript_v2 VACLI_MAX_CONCURRENT_LEASES=4 sbatch --parsable --time=7-00:00:00 user/tianhaowu/terminal_bench_vmvm/run_eval.sbatch" C-m
 ```
+
+The checked-in production starting point is eight active rollouts and four
+simultaneous lease starts. Qualify it with the patched full TB4 run, then use
+audited capacity smokes to raise steady-state concurrency to 16 and at most 24
+after the deployment has 24 ready routes; keep lease starts at four. Update the
+config before creating the production output directory because a resume replays
+its saved config verbatim. The oracle-only 64/32 result does not qualify model
+trace generation: it has no per-rollout model-interception tunnel or Compose
+sidecars.
 
 Interrupted evals are durable. Resume only their missing or errored rollouts
 with
-`RESUME_DIR=/checkpoint/.../evals/mobius_kimi_k3_max_2500_transcript_v1` and
-the same `INFERENCE_PROXY_INFO=.../proxy_info.json`; the latter is required to
-reload the RAM API key because credentials are deliberately absent from saved
-config and provenance. A resume replays the saved proxy URL, so confirm that
-the same deployment proxy is still live before submitting it.
+`RESUME_DIR=/checkpoint/.../evals/mobius_kimi_k3_max_2500_transcript_v2`, the
+same `EVAL_APPROVED_TASK_FILE{,_SHA256}` pair, and the same
+`INFERENCE_PROXY_INFO=.../proxy_info.json`; the latter is required to reload the
+RAM API key because credentials are deliberately absent from saved config and
+provenance. A resume replays the saved proxy URL, so confirm that the same
+deployment proxy is still live before submitting it.
 The saved config is replayed verbatim and successful traces are retained. New
 runs snapshot the source config, task list, and image manifest under
 `OUTPUT_DIR/inputs/`, record SHA-256 digests in `inputs/manifest.json`, and point

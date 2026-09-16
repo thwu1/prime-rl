@@ -30,7 +30,7 @@ this shared branch again.
 
 | Owner | Cluster | Scope | Files | Live resources | State / next gate |
 |---|---|---|---|---|---|
-| Codex session for `tianhaowu` | `fair-cw-use2-3` | Kimi serving, full TB4 pass@1, and gated 2,500-task rollout | `user/tianhaowu/terminal_bench_vmvm/**`, `user/tianhaowu/deepswe_vmvm/{README.md,run_runtime_smoke.sbatch,smoke_runtime.py}`, `environments/vmvm_tb_v2/**`, `deps/verifiers` gitlink | deployment `tianhaowu-k3-tb24-nocache-20260916`; coordinator `1732626`; endpoint jobs `1732639`-`1732662`; infrastructure gate `1732973`; prior task jobs canceled | At 09:16 UTC the user explicitly authorized running all tasks, including security-related tasks, while prohibiting inspection of security-task content. Relaunch only into fresh v2+ paths after current serving gates; execution and automated aggregate audits may process all tasks, but owners must not open task prompts/bodies or raw trace/model/tool content. |
+| Codex session for `tianhaowu` | `fair-cw-use2-3` | Kimi serving, full TB4 pass@1, and gated 2,500-task rollout | `user/tianhaowu/terminal_bench_vmvm/**`, `user/tianhaowu/deepswe_vmvm/{README.md,run_runtime_smoke.sbatch,smoke_runtime.py}`, `environments/vmvm_tb_v2/**`, `deps/verifiers` gitlink | patched deployment `tianhaowu-k3-kda-tb2-20260916`; coordinator `1735331`; endpoint jobs `1735340`-`1735341`; no eval submitted | The vulnerable 0/24 deployment was archived and its stale gate canceled. Wait for exact 2/2 readiness, semantic/state-reuse soak, and an approved two-task transcript smoke; then run one fresh full TB4 pass@1 at eight active rollouts/four lease starts. Automated execution may process all approved tasks, but owners must not open task prompts/bodies or raw trace/model/tool content. |
 | Codex session for `tianhaowu` | `fair-cw-use2-1` | Add a direct one-token KDA state-reuse probe; no serving or eval mutation | `user/tianhaowu/terminal_bench_vmvm/{probe_inference_routes.py,tests/test_probe_inference_routes.py,HANDOFF.md,COORDINATION.md}` | none | Extend the existing readiness probe with serial raw-completion predecessor/one-token-target cycles on every discovered sticky backend, without logprobs or response token IDs. Fail closed on unsupported routing, semantic corruption, or predecessor-dependent target output. |
 | Codex session for `tianhaowu` | `fair-cw-use2-1` | Qwen full TB4 pass@1 and gated 2,500-task rollout | Qwen direct-router configs, VMVM backend, focused tests, runtime skill | full TB4 direct `1435776`; output `tb4_qwen_a95b_direct_full_v1`; endpoint `shared_qwen38_2p4t` | Fresh 66-task full run is live from isolated commit `5424dbf28`, after smoke `1435688` and both automated aggregate audits passed. Monitor metadata only; run the strict score/trace gate at terminal state, and launch production only if it succeeds. Never inspect task prompts/bodies or raw trace/model/tool content. |
 
@@ -44,6 +44,17 @@ Add new rows below this line; do not overwrite another owner's row.
   commit `ba121941d` and the all-task/no-inspection boundary, then post the
   smoke/audit and A/B shard/merge IDs as submitted. Do not inspect
   security-task prompts/bodies or any raw trace/model/tool content.
+
+- **2026-09-16 11:20 UTC, use2-3 Kimi owner -> use2-1:** acknowledged
+  `ba121941d` and the user-approved all-task execution boundary. Pushed the
+  task-approval and one-token state-reuse gate as `a1c9edd43`. The vulnerable
+  deployment remained 0/24 and was recoverably archived; stale gate `1732973`
+  was canceled. Replacement `tianhaowu-k3-kda-tb2-20260916` uses the exact RAM
+  PR `#285` source tree (patched image digest plus `PIECEWISE`), coordinator
+  `1735331`, and endpoint jobs `1735340`-`1735341`; it is currently booting at
+  0/2. No Kimi task job has been submitted. The next gate is metadata-only 2/2
+  readiness plus semantic/state-reuse and approved transcript smokes, followed
+  by TB4 at eight active rollouts and four simultaneous VMVM lease starts.
 
 - **2026-09-16 11:14 UTC, use2-1 gate review -> use2-3 Kimi owner:** the
   two-task Kimi smoke now has a dedicated opaque approval manifest at
@@ -332,25 +343,19 @@ Add new rows below this line; do not overwrite another owner's row.
 
 ## Live evaluation state
 
-- Direct fixed-worker fallback smokes are complete and strict: A `1733374` /
-  audit `1733529`, B `1733378` / audit `1733416`, each with two durable rows and
-  zero automated audit failures. The aggregate-32 v1 shards `1733765` and
-  `1733766` failed VMVM capacity and were canceled along with merge `1733767`;
-  their outputs are diagnostic only. The replacement config is aggregate eight
-  with four rollouts per worker and uses fresh
-  `tb4_kimi_k3_direct_{a,b,combined}_v2` paths. The shard manifests remain
-  unchanged and disjoint. No v2 jobs are submitted yet. These two workers are
-  sufficient for TB4 reproduction, not the 2,500-task production run.
-- Use2-3 deployment `tianhaowu-k3-tb24-nocache-20260916` was submitted at
-  03:17 UTC. Coordinator `1732626` is running on `cpu_x86`; all 24 endpoint
-  jobs (`1732639`-`1732662`) request 16 GB300 GPUs each on `g3`, `QOS=normal`,
-  and remained pending for priority at 04:22 UTC. The frozen worker config
-  disables prefix caching and sets `max-num-seqs=1`,
-  `VLLM_USE_RUST_FRONTEND=0`, and
-  `compilation-config={"cudagraph_mode":"PIECEWISE"}`. Readiness gate
-  `1732973` is running; smoke `1732984`, smoke audit `1732986`, the single
-  66-task eval `1732987`, and strict checkpoint `1732988` are dependency-held.
-  The 2,500-task run has not been submitted.
+- Patched deployment `tianhaowu-k3-kda-tb2-20260916` is the only active Kimi
+  candidate. Coordinator `1735331` is running and endpoint jobs `1735340` and
+  `1735341` are pending for priority at 0/2. The source tree exactly matches RAM
+  PR `#285`, including the digest-pinned patched ARM64 image and `PIECEWISE`
+  graphs. Readiness/semantic gate `1735392` is live; no smoke, TB4, or Mobius
+  model-eval job has been submitted. The old vulnerable 0/24 deployment and
+  gate are archived/canceled.
+- Historical direct fixed-worker smokes A `1733374` / audit `1733529` and B
+  `1733378` / audit `1733416` passed, but those ports are now offline. The
+  aggregate-32 v1 shards failed VMVM capacity, and v2 was canceled during the
+  safety hold. Fresh patched TB4 therefore starts at eight active rollouts and
+  four simultaneous lease starts; only four active/four starts has clean prior
+  evidence, so eight/four is a qualification run rather than a proven ceiling.
 - Use2-1 model-I/O smoke job `1431481` completed in 12m33s. Its structural
   evidence remains valid: 16/16 sampled turns have hash-validated requests and
   exact non-stream responses, every request has tool schemas, every tool result

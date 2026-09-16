@@ -2,6 +2,25 @@
 
 State captured on 2026-09-16 UTC. The takeover branch is `vmvm-sandbox`.
 
+## 11:20 UTC replacement update
+
+The vulnerable `tianhaowu-k3-tb24-nocache-20260916` deployment never allocated
+an endpoint and was recoverably archived. Its stale route gate was canceled.
+Replacement `tianhaowu-k3-kda-tb2-20260916` was submitted from the exact source
+tree of RAM PR `#285` (digest-pinned KDA/logprobs fix plus `PIECEWISE` graphs):
+coordinator `1735331`, endpoint jobs `1735340` and `1735341`. It is booting at
+0/2, and no Kimi task job is active. First require exact 2/2 route readiness,
+the semantic/state-reuse probe, and an approved two-task transcript smoke.
+The fresh full TB4 config now starts at eight active rollouts with four
+simultaneous VMVM lease starts; do not restore the old 64/32 model-eval setting.
+
+The Harbor adapter still needs an explicit resolution for tasks declaring
+`network_mode = "no-network"`: current VMVM bridge networking does not enforce
+that policy exactly. Do not launch the 2,500-task production trace run until
+the sandbox enforces the policy or the deviation is explicitly accepted and
+recorded. This does not block the 66-task TB4 corpus, which declares no explicit
+network mode.
+
 ## Start here
 
 ```bash
@@ -43,8 +62,8 @@ repairs that were present during the successful oracle run.
 - TB4 v4.0.0 is pinned to commit
   `452bf305c6daa62fc59061d22133a7cbc7c1572e` and release SHA-256
   `6d2c57cbcb1a75b5cdc0b0f989747fa68cdc65df8ff0a6893045a70ced7e668e`.
-- The 66-task Kimi config is pass@1, max reasoning, 64 rollout/HTTP concurrency,
-  200 turns, and a 262,144-token total cap. Eight Compose tasks use the real
+- The 66-task Kimi config is pass@1, max reasoning, eight rollout/HTTP concurrency,
+  200 turns, and a 262,144-token total cap. Eleven Compose tasks use the real
   multi-service path. Three GPU tasks are explicitly unsupported by the
   current CPU-only VMVM tenant, leaving 63 CPU-supported tasks.
 - All five model-eval configs omit `logprobs`, `prompt_logprobs`,
@@ -91,63 +110,42 @@ start one fresh run. Do not resume `v7`.
 
 ## Kimi deployment state
 
-RAM source is `/storage/home/tianhaowu/ram_common` at `95dbabedfa77`. Active
-deployment `tianhaowu-k3-tb24-nocache-20260916` on `fair-cw-use2-3` requests:
+RAM PR `#285` pins the ARM64 Kimi image by digest and couples the KDA metadata
+fix to `PIECEWISE` CUDA graphs. Its PR-head tree is
+`b7da70d77604d00cd89578b9bcfb5183eed6814e`; the local deployment checkout at
+`a3f5baf` has that exact tree. Active deployment
+`tianhaowu-k3-kda-tb2-20260916` on `fair-cw-use2-3` requests:
 
-- requested lifetime: 7 days;
-- target: 24 endpoints;
-- CPU-only coordinator; each endpoint uses four GB300/g3 nodes, 16 GPUs total,
-  tensor parallel 16, and GPU `QOS=normal`;
-- Kimi-K3, 1,048,576-token model limit, prefix caching disabled;
-- LiteLLM sticky routing enabled with a 43,200-second TTL.
+- seven days of serving lifetime and a 7,200-second startup grace;
+- two endpoints for the TB4 qualification stage;
+- four GB300/g3 nodes and 16 GPUs per endpoint, tensor parallel 16, normal QoS;
+- the digest-pinned patched image, 1,048,576-token model limit, and
+  `PIECEWISE` graphs;
+- LiteLLM sticky routing and prefix caching enabled.
 
-Sticky routing still provides stable backend affinity for validation, but with
-prefix caching disabled it intentionally does not provide cross-request KV
-reuse. This throughput cost is the price of excluding cached one-token first
-chunks on the unpatched runtime; the 24 replicas provide the parallelism.
-
-The deployment snapshot still names the vulnerable July 27 stock Kimi image.
-The user explicitly approved completing the run with an operational workaround
-while the immutable patched image is unavailable. Every worker is isolated
-with `max-num-seqs=1`, and prefix caching is disabled so a cache hit cannot
-leave a stateless request with a one-token first chunk. It additionally sets
-`VLLM_USE_RUST_FRONTEND=0`, uses `PIECEWISE` CUDA graphs, and receives no
-logprob or token-ID request fields. This contains the known trigger but is not
-a source-level fix, so `/health` alone is not a correctness signal and every
-route must pass the semantic soak before evaluation. The permanent serving
-fix remains tracked at `fairinternal/ram_common#279`, comment `5691043250`.
-
-At 2026-09-16 02:26 UTC, the retired `tb16-normal` deployment was stopped
-before any endpoint allocated GPUs: all 24 workers remained pending, the proxy
-never existed, and the controller plus workers are now absent from `squeue`.
-It is recoverably archived at
-`/checkpoint/ram/shared/vllm_deployments_v2/.removed/tianhaowu-k3-tb16-normal-20260915-20260916T022644Z`.
-The first isolated attempt was likewise stopped before allocation and archived
-at `.removed/tianhaowu-k3-tb24-isolated-20260916-20260916T031753Z` after the
-prefix-cache gap was found. The prior `g3_lowest` deployment is also stopped.
-The replacement coordinator is Slurm job `1732626`; its endpoint jobs are
-`1732639`-`1732662`. At 04:22 UTC all 24 GPU jobs were pending for priority and
-no route was ready. A fail-closed evaluation chain is already submitted, but
-its jobs cannot start until all 24 intended routes are healthy, zero are
-unhealthy, the state is stable across repeated checks, the proxy metadata
-exists, and the semantic/affinity probe passes.
+Coordinator `1735331` is running; endpoint jobs `1735340` and `1735341` are
+pending for priority, so no proxy exists yet. The older vulnerable deployment
+remained 0/24 and was archived at 10:58 UTC without ever allocating a worker.
+Gate `1735392` waits for exact 2/2 readiness and then owns the per-route
+semantic, affinity, and one-token state-reuse probe. Do not submit task jobs
+before it exits successfully.
 
 Inspect it without exposing credentials:
 
 ```bash
-cd /storage/home/tianhaowu/ram_common/vllm_tools/serve_api_v2
-./serve.sh status tianhaowu-k3-tb24-nocache-20260916 --json | jq \
+cd /storage/home/tianhaowu/ram_common_pr285/vllm_tools/serve_api_v2
+./serve.sh status tianhaowu-k3-kda-tb2-20260916 --json | jq \
   '{phase,endpoints_summary,proxy:{url:.proxy.url,state:.proxy.slurm_state,extras:.proxy.extras}}'
 ```
 
 Proxy metadata (including the secret key) lives at:
 
 ```text
-/checkpoint/ram/shared/vllm_deployments_v2/tianhaowu-k3-tb24-nocache-20260916/proxy_info.json
+/checkpoint/ram/shared/vllm_deployments_v2/tianhaowu-k3-kda-tb2-20260916/proxy_info.json
 ```
 
-Do not print or commit `api_key`. Before any eval, verify the frozen isolation
-settings, authenticate to `/health`, and require exactly 24 healthy routes with
+Do not print or commit `api_key`. Before any eval, verify the frozen patched
+settings, authenticate to `/health`, and require exactly two healthy routes with
 zero unhealthy routes. Then send repeated semantic completions through every route,
 including mixed short/long state-reuse traffic. Use the same
 `X-LiteLLM-Session-ID` repeatedly and confirm
@@ -156,15 +154,15 @@ different session IDs should span multiple API bases once multiple workers are
 healthy. The probe must not request logprobs. Finally run the two-task
 transcript smoke and its default audit.
 
-Use the checked-in snapshot/affinity gate after the isolated deployment reaches
-its intended 24 routes:
+Use the checked-in snapshot/affinity gate after the deployment reaches its
+intended two routes:
 
 ```bash
 uv run --project user/tianhaowu/terminal_bench_vmvm \
   python user/tianhaowu/terminal_bench_vmvm/probe_inference_routes.py \
-  --proxy-info /checkpoint/ram/shared/vllm_deployments_v2/tianhaowu-k3-tb24-nocache-20260916/proxy_info.json \
-  --model Kimi-K3 --expected-routes 24 --requests 192 --repeats 3 \
-  --concurrency 24 --health-timeout 30 --timeout 300 --max-tokens 4096 \
+  --proxy-info /checkpoint/ram/shared/vllm_deployments_v2/tianhaowu-k3-kda-tb2-20260916/proxy_info.json \
+  --model Kimi-K3 --expected-routes 2 --requests 16 --repeats 3 \
+  --concurrency 2 --health-timeout 30 --timeout 300 --max-tokens 4096 \
   --require-reasoning --pretty
 ```
 
@@ -185,33 +183,23 @@ binds each URL to its own key and headers.
 
 All Slurm mutations must be typed through `swebench_vmvm:Launcher.0`.
 
-The active dependency chain is:
+The active readiness job is:
 
 ```text
-1732973 readiness gate
-  -> 1732984 two-task model-I/O smoke
-  -> 1732986 strict smoke semantic/model-I/O audit
-  -> 1732987 single 66-task TB4 pass@1 eval
-  -> 1732988 strict TB4 result/score checkpoint
+1735392 readiness and semantic/state-reuse gate
 ```
 
 Gate artifact:
-`/checkpoint/ram/tianhaowu/terminal_bench_vmvm/gates/k3_tb24_nocache_readiness_v3.json`.
-Its first poll on the x86 controller parsed the expected booting snapshot with
-24 pending routes and zero status errors. Two earlier chains failed safely and
-all descendants were automatically canceled before starting. The first gate
-needed bounded transient-status retries; the second revealed that the x86 job
-inherited an aarch64 `uv` from the login-node PATH. Commit `23abee39b` invokes
-RAM status with a portable system PATH, and the behavior was verified directly
-inside the x86 coordinator allocation. Neither failed chain created an eval
-directory or sent model traffic.
+`/checkpoint/ram/tianhaowu/terminal_bench_vmvm/gates/k3_kda_tb2_readiness_v1.json`.
+No smoke or full eval is dependency-submitted yet; create them only from a
+tested commit after this gate succeeds.
 
 Monitor the active chain with:
 
 ```bash
-squeue -j 1732973,1732984,1732986,1732987,1732988 \
+squeue -j 1735392 \
   -o '%.18i %.28j %.10T %.10M %.50R'
-tail -n 50 /checkpoint/ram/tianhaowu/terminal_bench_vmvm/logs/route_gate_1732973.log
+tail -n 50 /checkpoint/ram/tianhaowu/terminal_bench_vmvm/logs/route_gate_1735392.log
 ```
 
 Run this fresh two-task smoke after the replacement deployment passes its route
@@ -220,7 +208,7 @@ compute allocation; the key is not placed in the command or provenance file.
 
 ```bash
 tmux send-keys -t swebench_vmvm:Launcher.0 \
-  "cd /storage/home/tianhaowu/prime-rl && env EVAL_CONFIG=\$PWD/user/tianhaowu/terminal_bench_vmvm/configs/eval/tb4_kimi_token_smoke.toml INFERENCE_PROXY_INFO=/checkpoint/ram/shared/vllm_deployments_v2/tianhaowu-k3-tb24-nocache-20260916/proxy_info.json OUTPUT_DIR=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/evals/kimi_model_io_smoke_nocache_v1 sbatch --parsable user/tianhaowu/terminal_bench_vmvm/run_eval.sbatch" C-m
+  "cd /storage/home/tianhaowu/prime-rl && env EVAL_APPROVED_TASK_FILE=\$PWD/user/tianhaowu/terminal_bench_vmvm/configs/eval/tb4_qwen_token_smoke.tasks.txt EVAL_APPROVED_TASK_FILE_SHA256=4ae515a77f33746ecb598ab6c670612265bd1ef726eb6ca7f16cc81f5e191c25 EVAL_CONFIG=\$PWD/user/tianhaowu/terminal_bench_vmvm/configs/eval/tb4_kimi_k3_approved_smoke.toml INFERENCE_PROXY_INFO=/checkpoint/ram/shared/vllm_deployments_v2/tianhaowu-k3-kda-tb2-20260916/proxy_info.json OUTPUT_DIR=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/evals/kimi_kda_tb2_approved_smoke_v1 VACLI_MAX_CONCURRENT_LEASES=2 sbatch --parsable user/tianhaowu/terminal_bench_vmvm/run_eval.sbatch" C-m
 ```
 
 After it finishes:
@@ -228,7 +216,7 @@ After it finishes:
 ```bash
 uv run --project user/tianhaowu/terminal_bench_vmvm \
   python user/tianhaowu/terminal_bench_vmvm/audit_traces.py \
-  /checkpoint/ram/tianhaowu/terminal_bench_vmvm/evals/kimi_model_io_smoke_nocache_v1/results.jsonl \
+  /checkpoint/ram/tianhaowu/terminal_bench_vmvm/evals/kimi_kda_tb2_approved_smoke_v1/results.jsonl \
   --expected-count 2 --require-reasoning
 ```
 
@@ -243,7 +231,7 @@ Only one pass@1 run is requested. Use a new output directory:
 
 ```bash
 tmux send-keys -t swebench_vmvm:Launcher.0 \
-  "cd /storage/home/tianhaowu/prime-rl && env EVAL_CONFIG=\$PWD/user/tianhaowu/terminal_bench_vmvm/configs/eval/tb4_kimi_k3_max_miniswe.toml INFERENCE_PROXY_INFO=/checkpoint/ram/shared/vllm_deployments_v2/tianhaowu-k3-tb24-nocache-20260916/proxy_info.json OUTPUT_DIR=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/evals/tb4_kimi_k3_sticky_full_v2 sbatch --parsable user/tianhaowu/terminal_bench_vmvm/run_eval.sbatch" C-m
+  "cd /storage/home/tianhaowu/prime-rl && env EVAL_APPROVED_TASK_FILE=\$PWD/user/tianhaowu/terminal_bench_vmvm/configs/eval/tb4_qwen_a95b_miniswe.tasks.txt EVAL_APPROVED_TASK_FILE_SHA256=9485011ac4a953f4a4a1c7c5e78550b6d7de6f760a3859dac15a3610cf4ad892 EVAL_CONFIG=\$PWD/user/tianhaowu/terminal_bench_vmvm/configs/eval/tb4_kimi_k3_max_miniswe.toml INFERENCE_PROXY_INFO=/checkpoint/ram/shared/vllm_deployments_v2/tianhaowu-k3-kda-tb2-20260916/proxy_info.json OUTPUT_DIR=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/evals/tb4_kimi_k3_sticky_full_v3 VACLI_MAX_CONCURRENT_LEASES=4 sbatch --parsable user/tianhaowu/terminal_bench_vmvm/run_eval.sbatch" C-m
 ```
 
 Record the returned job ID. Monitor without mutating the run:
@@ -251,32 +239,34 @@ Record the returned job ID. Monitor without mutating the run:
 ```bash
 squeue -j JOB_ID -o '%.18i %.10T %.12M %.24R'
 tail -n 100 /checkpoint/ram/tianhaowu/terminal_bench_vmvm/logs/eval_JOB_ID.log
-wc -l /checkpoint/ram/tianhaowu/terminal_bench_vmvm/evals/tb4_kimi_k3_sticky_full_v2/results.jsonl
+wc -l /checkpoint/ram/tianhaowu/terminal_bench_vmvm/evals/tb4_kimi_k3_sticky_full_v3/results.jsonl
 ```
 
 Expected completion is 66 durable rows and 66 unique task slugs. Report the
 63-task CPU-supported score separately from the three explicit GPU-unsupported
 tasks. Investigate any provider or VMVM infrastructure error; do not silently
 turn it into reward zero. If interrupted, resume the same snapshot with both
-`RESUME_DIR=.../tb4_kimi_k3_sticky_full_v2` and the same deployment's
+`RESUME_DIR=.../tb4_kimi_k3_sticky_full_v3`, the same approved task-file pair,
+and the same deployment's
 `INFERENCE_PROXY_INFO`; the credential is not stored in the snapshot. Do this
 rather than starting a second full run.
 
-Job `1732988` enforces exactly those 66 unique tasks, exactly 63 supported
-results plus the three known CPU-only `UnsupportedTaskError` records, clean
-reasoning/model-I/O/KDA audits, binary `rewards.solved`, and a supported-task
-pass rate in `[0.04, 0.22]`. It writes `checkpoint.json` beside the TB4 results.
-Do not launch production merely because the eval job exits zero; require this
-checkpoint job to complete successfully and its JSON to contain `"ok": true`.
+After the evaluator finishes, submit a fresh strict audit that enforces exactly
+66 unique tasks, 63 supported results plus the three known CPU-only
+`UnsupportedTaskError` records, clean reasoning/model-I/O/KDA audits, binary
+`rewards.solved`, and a supported-task pass rate in `[0.04, 0.22]`. Do not
+launch production merely because the eval job exits zero; require the audit's
+`checkpoint.json` to contain `"ok": true`.
 
-If the queued 24-route deployment remains unavailable, the direct-worker
-fallback is fully pinned in
+The historical direct-worker fallback is pinned in
 `configs/eval/tb4_kimi_k3_direct_{a,b}.toml`. It assigns each of the 66 tasks to
 exactly one fixed worker, at concurrency four per worker, so a trajectory cannot
 move between engines. The corresponding 33-line task manifests have SHA-256
 `d0f7c0297a82edf79f3e966ffd830fb418ea90c9faa7c4f3d288d5c7bacd1365`
 and `485c1a038efc72a4eddf4928758c74d31827ebb7624108cee63e503df0fa02ec`;
-their union is the full TB4 set and their intersection is empty. Run both only
+their union is the full TB4 set and their intersection is empty. Both direct
+worker ports are currently offline; run these only after replacement workers
+pass fresh smokes. Run both only
 after separate no-logprob smokes, with `OPENAI_API_KEY=EMPTY` and no proxy
 environment. Use `VACLI_MAX_CONCURRENT_LEASES=2` in each submission so the two
 controllers create at most four leases at once.
@@ -299,8 +289,9 @@ Only after the full TB4 run and trace checks are clean should the 2,500-task
 Mobius production run be launched with
 `configs/eval/mobius_kimi_k3_max_2500.toml` and the pinned manifest above. Its
 fresh output directory is
-`/checkpoint/ram/tianhaowu/terminal_bench_vmvm/evals/mobius_kimi_k3_max_2500_transcript_v1`;
-use the same active deployment's `INFERENCE_PROXY_INFO` path. Override the
+`/checkpoint/ram/tianhaowu/terminal_bench_vmvm/evals/mobius_kimi_k3_max_2500_transcript_v2`;
+use the same active deployment's `INFERENCE_PROXY_INFO` path after it has been
+resized and requalified. Override the
 generic evaluator limit with `sbatch --time=7-00:00:00`; the default two-day
 controller allocation is intentionally insufficient as a worst-case bound for
 2,500 long rollouts. Task loading now fails before any model call unless the
