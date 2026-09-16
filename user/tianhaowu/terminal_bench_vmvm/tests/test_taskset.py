@@ -506,6 +506,38 @@ def test_verifier_dependency_wheel_failure_is_fail_closed(tmp_path: Path) -> Non
     assert runtime not in taskset._prefetched_test_dependencies
 
 
+@pytest.mark.parametrize("failure", [RuntimeError("prepare failed"), asyncio.CancelledError()])
+def test_verifier_wheelhouse_preparation_always_attempts_cleanup(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    failure: BaseException,
+) -> None:
+    taskset = dependency_taskset(tmp_path)
+    task = dependency_task(tmp_path)
+    runtime = DependencyRuntime()
+    root_commands: list[str] = []
+
+    async def run_root(runtime: object, command: str) -> ProgramResult:
+        root_commands.append(command)
+        if len(root_commands) == 1:
+            raise failure
+        return ProgramResult(exit_code=0, stdout="", stderr="")
+
+    monkeypatch.setattr(taskset, "_run_root", run_root)
+    with pytest.raises(type(failure)):
+        asyncio.run(
+            taskset._build_test_dependency_wheelhouse(
+                task,
+                runtime,
+                ("verifier-helper==1.0",),
+                "compatibility-fingerprint",
+            )
+        )
+
+    assert len(root_commands) == 2
+    assert "rm -rf" in root_commands[1]
+
+
 def test_verifier_dependency_archive_tampering_is_fail_closed(tmp_path: Path) -> None:
     taskset = dependency_taskset(tmp_path)
     task = dependency_task(tmp_path)

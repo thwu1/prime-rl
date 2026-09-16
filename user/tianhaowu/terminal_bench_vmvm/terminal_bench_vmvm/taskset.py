@@ -1152,17 +1152,17 @@ for requirement in sys.argv[1:]:
         digest = hashlib.sha256("\0".join(requirements).encode()).hexdigest()[:16]
         wheel_dir = f"/tmp/terminal-bench-verifier-wheels-{digest}-{uuid.uuid4().hex[:12]}"
         archive_path = f"{wheel_dir}.tar"
-        prepared = await self._run_root(
-            runtime,
-            f"rm -rf {shlex.quote(wheel_dir)} {shlex.quote(archive_path)} && "
-            f"mkdir -p {shlex.quote(wheel_dir)} && chmod 1777 {shlex.quote(wheel_dir)}",
-        )
-        if prepared.exit_code != 0:
-            raise RuntimeError(
-                f"{task.name}: preparing verifier wheelhouse failed: {(prepared.stdout + prepared.stderr)[-4000:]}"
-            )
-
         try:
+            prepared = await self._run_root(
+                runtime,
+                f"rm -rf {shlex.quote(wheel_dir)} {shlex.quote(archive_path)} && "
+                f"mkdir -p {shlex.quote(wheel_dir)} && chmod 1777 {shlex.quote(wheel_dir)}",
+            )
+            if prepared.exit_code != 0:
+                raise RuntimeError(
+                    f"{task.name}: preparing verifier wheelhouse failed: {(prepared.stdout + prepared.stderr)[-4000:]}"
+                )
+
             # Resolve only published wheels. Building an sdist would execute
             # package-controlled build hooks during trusted setup, which is not
             # a non-mutating prefetch even when pip uses build isolation.

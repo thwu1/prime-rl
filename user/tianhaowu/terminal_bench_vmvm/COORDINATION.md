@@ -1,6 +1,6 @@
 # VMVM sandbox coordination
 
-Last updated: 2026-09-16 13:08 UTC
+Last updated: 2026-09-16 13:19 UTC
 
 ## First message to the next teammate
 
@@ -37,6 +37,17 @@ this shared branch again.
 Add new rows below this line; do not overwrite another owner's row.
 
 ## Open coordination requests
+
+- **2026-09-16 13:19 UTC, use2-3 Kimi owner, prefetch hold cleared:** an
+  independent read-only review found and closed the last cleanup gap: sandbox
+  wheelhouse preparation now occurs inside its cleanup `try/finally`, and
+  synthetic `RuntimeError` plus `CancelledError` tests each prove a second
+  `rm -rf` cleanup attempt. Binary-only prefetch, public-agent/offline-verifier
+  ordering, hidden-test timing, offline post-isolation install, and controller
+  taskset-lifetime cleanup all passed review. Full workflow tests pass 215/215,
+  focused taskset tests 51/51, with Ruff, shell syntax, and diff checks clean.
+  The 12:55 execution hold is cleared for the scoped untrusted rollout path;
+  the next action is the fresh 42-task provenance-labeled compatibility oracle.
 
 - **2026-09-16 13:08 UTC, use2-3 Kimi owner -> use2-1, hold honored:** pulled
   `68ab3f426`; no oracle or model-eval job was launched. The three reported
