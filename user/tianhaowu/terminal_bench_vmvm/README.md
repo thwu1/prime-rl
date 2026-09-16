@@ -212,6 +212,60 @@ The evaluator and oracle are network-bound CPU controllers; their checked-in
 Slurm defaults request `cpu_x86`, 8 CPUs, 16 GiB, and no GPUs. Rollout
 concurrency does not require one controller CPU per sandbox.
 
+### Two-worker direct fallback
+
+When the 24-route RAM deployment is unavailable, the checked-in direct-worker
+fallback keeps every trajectory on one engine by construction. It is one
+pass@1 evaluation split into two disjoint 33-task manifests, not two attempts
+of the same tasks:
+
+- `tb4_kimi_k3_direct_a.toml` uses `http://g3-138-137:32317/v1`, 16 rollout
+  slots, and task-manifest SHA-256
+  `d0f7c0297a82edf79f3e966ffd830fb418ea90c9faa7c4f3d288d5c7bacd1365`;
+- `tb4_kimi_k3_direct_b.toml` uses `http://g3-146-243:32499/v1`, 16 rollout
+  slots, and task-manifest SHA-256
+  `485c1a038efc72a4eddf4928758c74d31827ebb7624108cee63e503df0fa02ec`.
+
+The manifests contain 33 unique tasks each, have no overlap, cover all 66 TB4
+tasks, and distribute the three CPU-unsupported GPU tasks as one plus two. The
+supported tasks were greedily balanced using the completed TB4 oracle runtime.
+Direct worker access requires all proxy environment variables to be unset;
+`run_eval.sbatch` already does this. Do not set `INFERENCE_PROXY_URL` or put
+these URLs behind round-robin routing. `OPENAI_API_KEY=EMPTY` is accepted.
+
+Submit only through the launcher tmux after both workers pass a fresh
+no-logprob semantic and model-I/O smoke:
+
+```bash
+tmux send-keys -t swebench_vmvm:Launcher.0 \
+  "cd /storage/home/tianhaowu/prime-rl && env OPENAI_API_KEY=EMPTY INFERENCE_BASE_URL=http://g3-138-137:32317/v1 EVAL_CONFIG=\$PWD/user/tianhaowu/terminal_bench_vmvm/configs/eval/tb4_kimi_k3_direct_a.toml OUTPUT_DIR=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/evals/tb4_kimi_k3_direct_a_v1 VACLI_MAX_CONCURRENT_LEASES=16 sbatch --parsable user/tianhaowu/terminal_bench_vmvm/run_eval.sbatch" C-m
+
+tmux send-keys -t swebench_vmvm:Launcher.0 \
+  "cd /storage/home/tianhaowu/prime-rl && env OPENAI_API_KEY=EMPTY INFERENCE_BASE_URL=http://g3-146-243:32499/v1 EVAL_CONFIG=\$PWD/user/tianhaowu/terminal_bench_vmvm/configs/eval/tb4_kimi_k3_direct_b.toml OUTPUT_DIR=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/evals/tb4_kimi_k3_direct_b_v1 VACLI_MAX_CONCURRENT_LEASES=16 sbatch --parsable user/tianhaowu/terminal_bench_vmvm/run_eval.sbatch" C-m
+```
+
+Each shard remains its own resumable evaluator output. A resume replays the
+saved direct URL and takes no overrides; never resume a shard against the other
+worker. After both finish, publish a separate, audit-only combined artifact:
+
+```bash
+uv run --project user/tianhaowu/terminal_bench_vmvm \
+  python user/tianhaowu/terminal_bench_vmvm/combine_tb4_shards.py \
+  --shard-a-dir /checkpoint/ram/tianhaowu/terminal_bench_vmvm/evals/tb4_kimi_k3_direct_a_v1 \
+  --shard-b-dir /checkpoint/ram/tianhaowu/terminal_bench_vmvm/evals/tb4_kimi_k3_direct_b_v1 \
+  --output-dir /checkpoint/ram/tianhaowu/terminal_bench_vmvm/evals/tb4_kimi_k3_direct_combined_v1 \
+  --dataset-dir /checkpoint/ram/tianhaowu/terminal_bench_vmvm/datasets/tb4-prebuilt-v4.0.0/tasks
+```
+
+The combiner takes both evaluator writer locks, validates the committed and
+snapshotted task/config hashes, exact worker URLs, matching code revisions,
+33-row shard membership, and cross-shard trace IDs. It then runs the strict
+66-task TB4 reasoning/model-I/O/KDA/score audit in a temporary directory and
+atomically publishes `results.jsonl`, `checkpoint.json`, and
+`merge_manifest.json` only when every check passes. The combined directory is
+not resumable because task indices are local to each shard; resume the source
+shards instead.
+
 ## Transcript capture gate
 
 Never request provider log probabilities in this workflow. RAM issue `#279`

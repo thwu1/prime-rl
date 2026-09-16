@@ -269,6 +269,26 @@ pass rate in `[0.04, 0.22]`. It writes `checkpoint.json` beside the TB4 results.
 Do not launch production merely because the eval job exits zero; require this
 checkpoint job to complete successfully and its JSON to contain `"ok": true`.
 
+If the queued 24-route deployment remains unavailable, the direct-worker
+fallback is fully pinned in
+`configs/eval/tb4_kimi_k3_direct_{a,b}.toml`. It assigns each of the 66 tasks to
+exactly one fixed worker, at concurrency 16 per worker, so a trajectory cannot
+move between engines. The corresponding 33-line task manifests have SHA-256
+`d0f7c0297a82edf79f3e966ffd830fb418ea90c9faa7c4f3d288d5c7bacd1365`
+and `485c1a038efc72a4eddf4928758c74d31827ebb7624108cee63e503df0fa02ec`;
+their union is the full TB4 set and their intersection is empty. Run both only
+after separate no-logprob smokes, with `OPENAI_API_KEY=EMPTY` and no proxy
+environment. Use `VACLI_MAX_CONCURRENT_LEASES=16` in each submission so the two
+controllers create at most 32 leases at once.
+
+Keep the two output directories independently resumable. After both contain
+33 rows, run `combine_tb4_shards.py` as documented in the README. It refuses an
+active writer, wrong endpoint, invalid input snapshot hashes or provenance,
+different code revisions, missing/duplicate tasks or trace IDs, and any failure
+from `audit_tb4_results.py`. It records the source artifact hashes and publishes
+the combined 66-row directory by one atomic rename; never use the combined
+directory as a resume target.
+
 Only after the full TB4 run and trace checks are clean should the 2,500-task
 Mobius production run be launched with
 `configs/eval/mobius_kimi_k3_max_2500.toml` and the pinned manifest above. Its
