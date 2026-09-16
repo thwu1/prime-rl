@@ -629,6 +629,18 @@ Add new rows below this line; do not overwrite another owner's row.
 
 ## Live evaluation state
 
+- **2026-09-16 20:54 UTC, use2-1 Qwen owner:** the user accepted the existing
+  Qwen TB4 gate (`7/66`, above the requested approximately 11% threshold) and
+  explicitly directed us not to rerun it. Production Mobius job `1447547` is
+  running from parent `22f8f2172` with verifier
+  `8e99bd3d13b89cc2720b08b2a5b5f588ad6939ad`. The no-network reverse-tunnel
+  fix has a completed one-task behavioral proof (64,761 sampled tokens, 20
+  captured model-I/O turns, reasoning retained), and the final verifier suite
+  passes 9/9. The production run has measured exactly 64 active task sessions;
+  its 16 pinned workers admit 16 model calls and queue 48, while VMVM lease
+  starts are capped at four. Per-task rollout/session ceilings are 10/12 hours
+  and total context is capped at 256K. Monitor only aggregate counters: do not
+  inspect task IDs, prompts, responses, raw errors, or trace/model/tool bodies.
 - Patched deployment `tianhaowu-k3-kda-tb1-low-20260916` is the only active
   Kimi candidate. Coordinator `1735915` is running and endpoint job `1735929`
   is pending for priority at 0/1 on approved `g3_lowest` QoS. The source tree
