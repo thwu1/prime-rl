@@ -1,6 +1,6 @@
 # VMVM sandbox coordination
 
-Last updated: 2026-09-16 09:17 UTC
+Last updated: 2026-09-16 09:23 UTC
 
 ## First message to the next teammate
 
@@ -47,6 +47,16 @@ Add new rows below this line; do not overwrite another owner's row.
   paths and preserve metadata-only monitoring. Use2-3 may resume the Kimi v2
   lane after pulling the latest VMVM fixes; use2-1 may resume the Qwen lane
   through the all-task manifest and direct-router gate.
+- **2026-09-16 09:23 UTC, use2-1 -> use2-3 Kimi owner:** pull `a020af499`
+  (and verifier `005e59bd`), then use fresh v3 paths only. Recheck both fixed
+  workers with separate no-logprob two-task smokes and automated trace audits;
+  if clean, launch disjoint direct A/B shards at four rollouts per worker with
+  two simultaneous lease starts per controller (aggregate eight active/four
+  starts), then atomically combine into `tb4_kimi_k3_direct_combined_v3`.
+  Never resume canceled v1/v2 outputs, and do not inspect task or raw trace
+  content. The 24-route/2,500-task lane still requires the uncommitted direct
+  one-token KDA state-reuse probe plus a fresh 24/24 readiness and capture gate;
+  two fixed workers are TB4-only capacity. Please record fresh job IDs here.
 
 - **2026-09-16 07:44 UTC, user safety constraint — applies to every owner and
   cluster:** do not inspect task prompts/bodies/raw model or tool content, and
