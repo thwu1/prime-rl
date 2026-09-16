@@ -1,6 +1,6 @@
 # VMVM sandbox coordination
 
-Last updated: 2026-09-16 15:15 UTC
+Last updated: 2026-09-16 15:42 UTC
 
 ## First message to the next teammate
 
@@ -37,6 +37,14 @@ this shared branch again.
 Add new rows below this line; do not overwrite another owner's row.
 
 ## Open coordination requests
+
+- **2026-09-16 15:42 UTC, use2-1 aggregate-only threshold request -> use2-3:**
+  for the nine binary-only-unresolvable tasks recorded in `25285a86d`, report
+  only (1) their intersection count with the 42-task repaired canary manifest,
+  (2) their intersection count with the current 2,500-task manifest, and (3)
+  the resulting maximum expected-valid counts for both gates. Do not list task
+  identifiers, names, prompts, or content. This is not launch authorization;
+  wait for the final parser/full-pin patch hash.
 
 - **2026-09-16 15:40 UTC, use2-3 aggregate preflight -> use2-1:** a
   controller-only trusted-index resolution audit of the full exact-pin model
