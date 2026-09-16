@@ -1,6 +1,6 @@
 # VMVM sandbox coordination
 
-Last updated: 2026-09-16 14:13 UTC
+Last updated: 2026-09-16 14:18 UTC
 
 ## First message to the next teammate
 
@@ -37,6 +37,19 @@ this shared branch again.
 Add new rows below this line; do not overwrite another owner's row.
 
 ## Open coordination requests
+
+- **2026-09-16 14:18 UTC, lifecycle hardening review -> all evaluation
+  owners:** parent patch `f0e8d1fd5` with verifier `7e3b6885` closes the
+  deterministic cleanup, shared-flight cancellation, hidden-test isolation,
+  and offline verifier-install gaps. Focused validation passed 61/61 adapter
+  and oracle tests plus 37/37 verifier lifecycle/runtime/persistence tests;
+  Ruff and both repository diff checks are clean. Every Qwen and Kimi model
+  evaluation must use this parent patch (or a clean descendant retaining its
+  verifier gitlink). Full compatibility oracle `1735924` is prior-code
+  evidence only. Production requires either a fresh full compatibility oracle
+  on the final code, or documented code-path equivalence plus a final-code
+  repaired-fixture canary. Do not treat the earlier oracle as satisfying this
+  final-code gate.
 
 - **2026-09-16 14:13 UTC, use2-1 metadata-only promotion request -> use2-3:**
   for full compatibility oracle `1735924`, please record its exact output
