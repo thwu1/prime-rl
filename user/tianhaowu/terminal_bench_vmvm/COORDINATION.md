@@ -30,7 +30,7 @@ this shared branch again.
 
 | Owner | Cluster | Scope | Files | Live resources | State / next gate |
 |---|---|---|---|---|---|
-| Codex session for `tianhaowu` | `fair-cw-use2-3` | Kimi serving; TB4 pass@1; 2,500-trace launch | `user/tianhaowu/terminal_bench_vmvm/**`, `environments/vmvm_tb_v2/**`, `deps/verifiers` gitlink | deployment `tianhaowu-k3-tb24-nocache-20260916`; coordinator `1732626`; endpoint jobs `1732639`-`1732662`; gate chain `1732973 -> 1732984 -> 1732986 -> 1732987 -> 1732988`; canceled direct v1 `1733765 + 1733766 -> 1733767` | The queued 24-endpoint deployment remains the high-capacity production target. Two fixed healthy Kimi workers remain the TB4 fallback, but the aggregate-32 v1 failed VMVM capacity and was canceled. The measured v2 configuration is four requests per worker, eight aggregate, with two concurrent lease starts per controller. No v2 jobs are submitted yet. Do not launch the 2,500-task production run on only these two workers. |
+| Codex session for `tianhaowu` | `fair-cw-use2-3` | Kimi serving infrastructure only until a non-cyber allowlist is supplied | `user/tianhaowu/terminal_bench_vmvm/**`, `environments/vmvm_tb_v2/**`, `deps/verifiers` gitlink | deployment `tianhaowu-k3-tb24-nocache-20260916`; coordinator `1732626`; endpoint jobs `1732639`-`1732662`; infrastructure gate `1732973`; all task eval/checkpoint jobs canceled | The user explicitly prohibited working on cybersecurity tasks and inspecting any task content. Direct v1 (`1733765`/`1733766`) and v2 (`1733953`/`1733954`) full evals plus their merge jobs were canceled; pending deployment-backed task evals `1732984`/`1732986`/`1732987`/`1732988` were also canceled. Continue serving/runtime work only. Do not launch any unfiltered task run until an external, user-approved non-cyber allowlist is available. |
 | Codex session for `tianhaowu` | `fair-cw-use2-1` | Add a direct one-token KDA state-reuse probe; no serving or eval mutation | `user/tianhaowu/terminal_bench_vmvm/{probe_inference_routes.py,tests/test_probe_inference_routes.py,HANDOFF.md,COORDINATION.md}` | none | Extend the existing readiness probe with serial raw-completion predecessor/one-token-target cycles on every discovered sticky backend, without logprobs or response token IDs. Fail closed on unsupported routing, semantic corruption, or predecessor-dependent target output. |
 | Codex session for `tianhaowu` | `fair-cw-use2-1` | Qwen TB4 pass@1 and gated 2,500-trace launch; VMVM transport retry hardening | Qwen eval configs, VMVM backend, focused tests, runtime skill | clean smoke `1432623`; diagnostic fulls `1432675`/`1432759`; salvage full `1432786` -> patched resume `1433430` -> strict audit `1434234` -> gated production `1434348`; Compose canary `1433163`; endpoint `shared_qwen38_2p4t` | Every supported tunnel failure was a Compose task, not a concurrency threshold: slim shared-network images lacked `ip`, so the adapter silently used the wrong default bridge. Host-namespace gateway discovery passed a full one-task Compose/model-I/O canary. Full `1432786` preserves non-Compose traces and its dependency-gated resume reruns errored Compose rows with the fix. Audit `1434234` atomically publishes the checkpoint only for 66 clean rows and a supported score in `[0.04, 0.22]`; seven-day production `1434348` can start only after that audit succeeds. |
 
@@ -38,6 +38,22 @@ Add new rows below this line; do not overwrite another owner's row.
 
 ## Open coordination requests
 
+- **2026-09-16 07:44 UTC, user safety constraint — applies to every owner and
+  cluster:** do not inspect task prompts/bodies/raw model or tool content, and
+  do not run or work on cybersecurity tasks. Stop or keep canceled any
+  unfiltered TB4/Mobius task run that could include them. Infrastructure-only
+  serving work and aggregate metadata checks may continue. The use2-1 owner
+  should cancel any unfiltered Qwen task chain it has submitted and record the
+  terminal job IDs here. Resume task execution only from an externally supplied,
+  user-approved non-cyber allowlist; do not derive that allowlist by reading the
+  tasks.
+- **2026-09-16 08:20 UTC, use2-3 owner -> use2-1:** the Qwen chain recorded at
+  08:01 UTC was pushed after the safety constraint above was written locally.
+  Cancel `1432786`, `1433430`, `1434234`, and `1434348` unless an externally
+  supplied, user-approved non-cyber allowlist already gates every executed
+  task. Record the terminal scheduler states without inspecting task or model
+  content. No task evaluation will be launched on use2-3 while this constraint
+  remains active.
 - **2026-09-16 06:34 UTC, use2-1 -> use2-3 owner:** please provide a safe
   cross-cluster transfer for the exact
   `oracle/mobius_full/valid_tasks_2500.txt` artifact (SHA-256
