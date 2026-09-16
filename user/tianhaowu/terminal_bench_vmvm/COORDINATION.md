@@ -1,6 +1,6 @@
 # VMVM sandbox coordination
 
-Last updated: 2026-09-16 09:13 UTC
+Last updated: 2026-09-16 09:17 UTC
 
 ## First message to the next teammate
 
@@ -30,13 +30,23 @@ this shared branch again.
 
 | Owner | Cluster | Scope | Files | Live resources | State / next gate |
 |---|---|---|---|---|---|
-| Codex session for `tianhaowu` | `fair-cw-use2-3` | Kimi serving infrastructure only until a non-cyber allowlist is supplied | `user/tianhaowu/terminal_bench_vmvm/**`, `user/tianhaowu/deepswe_vmvm/{README.md,run_runtime_smoke.sbatch,smoke_runtime.py}`, `environments/vmvm_tb_v2/**`, `deps/verifiers` gitlink | deployment `tianhaowu-k3-tb24-nocache-20260916`; coordinator `1732626`; endpoint jobs `1732639`-`1732662`; infrastructure gate `1732973`; all task eval/checkpoint jobs canceled | The user explicitly prohibited working on cybersecurity tasks and inspecting any task content. Direct v1 (`1733765`/`1733766`) and v2 (`1733953`/`1733954`) full evals plus their merge jobs were canceled; pending deployment-backed task evals `1732984`/`1732986`/`1732987`/`1732988` were also canceled. Continue serving/runtime work only. Do not launch any unfiltered task run until an external, user-approved non-cyber allowlist is available. |
+| Codex session for `tianhaowu` | `fair-cw-use2-3` | Kimi serving, full TB4 pass@1, and gated 2,500-task rollout | `user/tianhaowu/terminal_bench_vmvm/**`, `user/tianhaowu/deepswe_vmvm/{README.md,run_runtime_smoke.sbatch,smoke_runtime.py}`, `environments/vmvm_tb_v2/**`, `deps/verifiers` gitlink | deployment `tianhaowu-k3-tb24-nocache-20260916`; coordinator `1732626`; endpoint jobs `1732639`-`1732662`; infrastructure gate `1732973`; prior task jobs canceled | At 09:16 UTC the user explicitly authorized running all tasks, including security-related tasks, while prohibiting inspection of security-task content. Relaunch only into fresh v2+ paths after current serving gates; execution and automated aggregate audits may process all tasks, but owners must not open task prompts/bodies or raw trace/model/tool content. |
 | Codex session for `tianhaowu` | `fair-cw-use2-1` | Add a direct one-token KDA state-reuse probe; no serving or eval mutation | `user/tianhaowu/terminal_bench_vmvm/{probe_inference_routes.py,tests/test_probe_inference_routes.py,HANDOFF.md,COORDINATION.md}` | none | Extend the existing readiness probe with serial raw-completion predecessor/one-token-target cycles on every discovered sticky backend, without logprobs or response token IDs. Fail closed on unsupported routing, semantic corruption, or predecessor-dependent target output. |
-| Codex session for `tianhaowu` | `fair-cw-use2-1` | Qwen serving/runtime infrastructure only until a non-cyber allowlist is supplied | Qwen eval configs, VMVM backend, focused tests, runtime skill | clean smoke `1432623`; canceled unfiltered chain `1432786 -> 1433430 -> 1434234 -> 1434348`; Compose canary `1433163`; endpoint `shared_qwen38_2p4t` | The complete unfiltered Qwen chain was canceled at 08:33 UTC in response to the global user safety constraint. Preserve its partial artifacts without inspecting task/model content. Continue infrastructure-only work and aggregate metadata checks; do not resume or launch any task run until an externally supplied, user-approved non-cyber allowlist is available. |
+| Codex session for `tianhaowu` | `fair-cw-use2-1` | Qwen full TB4 pass@1 and gated 2,500-task rollout | Qwen direct-router configs, VMVM backend, focused tests, runtime skill | clean historical smoke `1432623`; canceled diagnostic chain `1432786 -> 1433430 -> 1434234 -> 1434348`; router gate `1435351`; endpoint `shared_qwen38_2p4t` | The 09:16 UTC approval authorizes all tasks, including security-related tasks, without content inspection. Prepare explicit all-task manifests for the fail-closed direct router, run a fresh smoke and automated audit, then a fresh TB4 run; launch production only after the score/trace gate succeeds. Never inspect task prompts/bodies or raw trace/model/tool content. |
 
 Add new rows below this line; do not overwrite another owner's row.
 
 ## Open coordination requests
+
+- **2026-09-16 09:17 UTC, user approval — supersedes the execution hold from
+  07:44 UTC:** all TB4 and Mobius tasks may run, including security-related
+  tasks. The user separately requires that security-task content not be
+  inspected. Owners may use automated harnesses and aggregate audits across the
+  complete sets, but must not open task prompts/bodies or raw trace/model/tool
+  content. Existing canceled outputs remain diagnostic; relaunch into fresh
+  paths and preserve metadata-only monitoring. Use2-3 may resume the Kimi v2
+  lane after pulling the latest VMVM fixes; use2-1 may resume the Qwen lane
+  through the all-task manifest and direct-router gate.
 
 - **2026-09-16 07:44 UTC, user safety constraint — applies to every owner and
   cluster:** do not inspect task prompts/bodies/raw model or tool content, and
