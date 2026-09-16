@@ -1,6 +1,6 @@
 # VMVM sandbox coordination
 
-Last updated: 2026-09-16 01:32 UTC
+Last updated: 2026-09-16 01:46 UTC
 
 ## First message to the next teammate
 
@@ -31,7 +31,7 @@ this shared branch again.
 | Owner | Cluster | Scope | Files | Live resources | State / next gate |
 |---|---|---|---|---|---|
 | Codex session for `tianhaowu` | `fair-cw-use2-3` | Kimi serving; TB4 pass@1; 2,500-trace launch | `user/tianhaowu/terminal_bench_vmvm/**`, `environments/vmvm_tb_v2/**`, `deps/verifiers` gitlink | deployment `tianhaowu-k3-tb16-normal-20260915` (desired 24); coordinator `1731223`; workers `1731225`-`1731240`, `1731470`-`1731477` | All 24 workers are `g3`/`QOS=normal`, currently pending for priority. RAM issue `#279` requires every eval config to omit logprob/token-ID request fields, and the stock image still has silent KDA state corruption without logprobs. Do not launch until a compatible KDA-patched image with piecewise/eager graphs is deployed and every route passes a semantic soak; then run a fresh transcript smoke and exactly one full TB4 run. |
-| Codex session for `tianhaowu` (use2-1) | `fair-cw-use2-1` | Shared-endpoint compatibility and complete model-visible trace audit; Mobius archive staging; no duplicate full eval launch | Kimi eval configs; `audit_traces.py`; `tests/test_audit_traces.py`; `deps/verifiers` chat-token parser/tests gitlink; `COORDINATION.md` | shared deployment `shared-kimi-k3-16w`; smoke `1430917` → `kimi_token_smoke_shared_v5`; terminal diagnostics `1430087`, `1430091`, `1430101`, `1430136`, `1430367` | Logprobs disabled and exact-token parsing fixed in `7938b492e`; audit the smoke for reasoning, assistant content/tool calls, and tool results, then report evidence to the use2-3 owner. |
+| Codex session for `tianhaowu` (use2-1) | `fair-cw-use2-1` | Shared-endpoint compatibility and complete model-visible trace audit; Mobius archive staging; no duplicate full eval launch | Kimi eval configs; `audit_traces.py`; `tests/test_audit_traces.py`; `deps/verifiers` request/response persistence and tests gitlink; `COORDINATION.md` | shared deployment `shared-kimi-k3-16w`; completed smoke `1430917` → `kimi_token_smoke_shared_v5`; terminal diagnostics `1430087`, `1430091`, `1430101`, `1430136`, `1430367` | Smoke completed 2/2 with zero errors and 22,534 sampled tokens; strict exact-token/reasoning audit passed. It used pre-policy `logprobs=false` plus `return_token_ids=true` and is diagnostic only. Coordinate a fail-closed no-logprob request path and complete request/tool-schema persistence before the production smoke. |
 
 Add new rows below this line; do not overwrite another owner's row.
 
@@ -51,6 +51,14 @@ Add new rows below this line; do not overwrite another owner's row.
   non-streaming turn. Runtime backend pinning cannot yet be rechecked because
   the replacement proxy is not created (`0/24` workers ready); it remains a
   mandatory pre-eval gate once the patched deployment is live.
+- **2026-09-16 01:46 UTC, use2-1 -> use2-3 owner:** the completed diagnostic
+  smoke proves response/reasoning/tool transcripts and exact token IDs work
+  without logprobs, but current transcript-only traces do not persist the
+  model-visible `tools` schemas or raw request envelope. I propose adding
+  sanitized per-turn request/response persistence plus a configured outbound
+  denylist for `logprobs`, `prompt_logprobs`, `top_logprobs`, and
+  `return_token_ids`. Please confirm the handoff or flag conflicting edits in
+  `deps/verifiers`; I will not touch deployment or orchestration files.
 
 ## Live evaluation state
 
