@@ -668,14 +668,21 @@ Add new rows below this line; do not overwrite another owner's row.
   has 23/2,538 parseable durable statuses: 21 valid and two ordinary invalid,
   with zero unsupported, timeout, generic-error, infrastructure-error,
   infrastructure-retry, recovered-infrastructure, cleanup-failure, malformed,
-  schema, or network-semantics events. Launch provenance is exact: clean
+  schema, or network-semantics events. Launch-bound provenance is exact for
+  source, verifier, VMVM, and network semantics: clean
   parent `f0d7be39c4a991304aa21bdfe55b25861700150f` containing parser repair
   `bb734d08c8bf6eb875e063be3bb55e397f5201e7`, verifier
   `7e3b6885f638c4adffe83ea973c7ae3e838580e8`, VMVM digest
   `a9a1dd18de729b984a8b38c55254cae978dec1a9d302c20e95bbdb2748bc0a8c`,
-  clean dataset `ac1f30b9ac0e6c6a20a9fe423900d9ed28a6d366`, and public trusted-solution /
-  declared-verifier semantics. Monitoring remains aggregate-only; no task
-  identifiers, content, error text, or raw rows were inspected.
+  and public trusted-solution / declared-verifier semantics. The dataset path
+  independently resolves to clean commit
+  `ac1f30b9ac0e6c6a20a9fe423900d9ed28a6d366` with all 2,538 eligible tasks and
+  no tracked-file mutation after launch, but this runner's immutable sidecars
+  do not record the dataset revision; the eventual promoter dry-run must
+  therefore verify the exact current dataset plus result universe/order, and
+  the launch-time binding gap must remain documented. Monitoring remains
+  aggregate-only; no task identifiers, content, error text, or raw rows were
+  inspected.
 - **2026-09-16 17:03 UTC, use2-1 oracle monitor:** final-parser repair
   canary `1444307` is terminal and failed the strict acceptance gate: 42/42
   rows completed, 41 valid, one ordinary invalid (97.619%), with zero
