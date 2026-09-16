@@ -1,4 +1,5 @@
 import asyncio
+import gc
 import hashlib
 import io
 import json
@@ -6,6 +7,7 @@ import subprocess
 import tarfile
 from pathlib import Path
 from types import SimpleNamespace
+from weakref import ref
 from zipfile import ZipFile
 
 import pytest
@@ -250,6 +252,42 @@ def test_model_setup_ignores_oracle_solution_network_override(
     assert events == ["declared", "public"]
 
 
+def test_setup_prefetches_shared_isolated_verifier_before_public_agent(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    taskset = dependency_taskset(tmp_path)
+    events: list[str] = []
+
+    async def run_root(*args: object, **kwargs: object) -> ProgramResult:
+        events.append("trusted-setup")
+        return ProgramResult(exit_code=0, stdout="", stderr="")
+
+    async def configure_network(*args: object, **kwargs: object) -> None:
+        events.append("prepare-agent-network")
+
+    async def prefetch(*args: object, **kwargs: object) -> None:
+        events.append("prefetch-before-agent")
+
+    monkeypatch.setattr(taskset, "_run_root", run_root)
+    monkeypatch.setattr(taskset, "_configure_network_policy", configure_network)
+    monkeypatch.setattr(taskset, "_prefetch_test_dependencies", prefetch)
+    monkeypatch.setattr(taskset_module, "_dockerfile_startup_command", lambda task_dir: None)
+    task = SimpleNamespace(
+        name="task-a",
+        task_dir=str(tmp_path),
+        resources=SimpleNamespace(gpu=0),
+        workdir="/app",
+        verifier_mode="shared",
+        agent_network_mode="public",
+        verifier_network_mode="no-network",
+    )
+
+    asyncio.run(taskset.setup(task, object()))
+
+    assert events == ["prepare-agent-network", "trusted-setup", "prefetch-before-agent"]
+
+
 @pytest.mark.parametrize(
     ("solution_network_mode", "last_event"),
     [("declared", "deferred-startup"), ("public", "public-startup")],
@@ -417,7 +455,7 @@ def test_verifier_dependencies_prefetch_all_then_install_offline_after_solution(
     assert not any("pip install" in command for command in runtime.commands)
     wheel_command = next(command for command in runtime.commands if " pip wheel " in command)
     assert "--no-deps" not in wheel_command
-    assert "--only-binary" not in wheel_command
+    assert "--only-binary=:all:" in wheel_command
 
     runtime.events.append("solution")
     runtime.installed = False
@@ -441,6 +479,19 @@ def test_verifier_dependencies_prefetch_all_then_install_offline_after_solution(
     assert runtime not in taskset._prefetched_test_dependencies
     taskset._cleanup_wheelhouse_cache()
     assert controller_archive.exists() is False
+
+
+def test_wheelhouse_cache_cleans_when_taskset_is_released(tmp_path: Path) -> None:
+    taskset = dependency_taskset(tmp_path)
+    cache_path = taskset._wheelhouse_cache_path()
+    assert cache_path.exists()
+    taskset_ref = ref(taskset)
+
+    del taskset
+    gc.collect()
+
+    assert taskset_ref() is None
+    assert cache_path.exists() is False
 
 
 def test_verifier_dependency_wheel_failure_is_fail_closed(tmp_path: Path) -> None:

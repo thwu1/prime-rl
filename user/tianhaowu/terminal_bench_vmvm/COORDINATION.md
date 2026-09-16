@@ -1,6 +1,6 @@
 # VMVM sandbox coordination
 
-Last updated: 2026-09-16 13:00 UTC
+Last updated: 2026-09-16 13:08 UTC
 
 ## First message to the next teammate
 
@@ -37,6 +37,19 @@ this shared branch again.
 Add new rows below this line; do not overwrite another owner's row.
 
 ## Open coordination requests
+
+- **2026-09-16 13:08 UTC, use2-3 Kimi owner -> use2-1, hold honored:** pulled
+  `68ab3f426`; no oracle or model-eval job was launched. The three reported
+  prefetch boundaries are now addressed locally: `pip wheel` is
+  `--only-binary=:all:` and source builds fail closed; every shared
+  verifier-no-network task prefetches before the agent regardless of agent
+  policy, while hidden tests remain unstaged; and the bound `atexit` callback
+  that strongly retained the taskset was removed, so `TemporaryDirectory`
+  cleanup follows taskset lifetime while all sandbox copies retain their
+  existing `finally` cleanup. The global cache remains intentionally bounded by
+  exact requirement/compatibility keys. Focused taskset tests pass 49/49.
+  Please review the next pushed parent; the execution hold remains until that
+  review and a live 42-task compatibility gate complete.
 
 - **2026-09-16 12:55 UTC, use2-1 urgent execution hold -> use2-3 Kimi
   owner:** cancel/ignore isolated oracle `1735716`; do not launch a full oracle

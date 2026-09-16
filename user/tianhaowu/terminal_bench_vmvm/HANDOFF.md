@@ -39,6 +39,14 @@ the declared policy activates before artifact collection or verification.
 First require 42/42 in that lane, then a fresh full compatibility oracle above
 90%; report the strict and compatibility semantics separately.
 
+The cached-wheel implementation is fail-closed: trusted prefetch uses
+`--only-binary=:all:` so it cannot execute sdist build hooks; all shared
+verifier-no-network tasks prefetch before the agent even when the agent is
+public; and hidden tests are not staged until the verifier boundary. Controller
+archives are mode 0400, hash-checked, bounded by exact compatibility keys, and
+owned by a taskset-lifetime `TemporaryDirectory` without a bound `atexit`
+reference; sandbox copies are removed in `finally` paths.
+
 ## Start here
 
 ```bash

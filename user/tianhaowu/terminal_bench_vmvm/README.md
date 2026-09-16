@@ -158,6 +158,13 @@ DNS and the main container's active reverse-tunnel port and rejects the gateway
 proxy and other host traffic. Unknown modes, allowlists, IPv6, residual public
 attachments, and attempts to relax an active policy fail closed.
 
+Shared offline verifiers prefetch their declared dependencies before any agent
+phase even when the agent itself is public. Prefetch accepts wheels only
+(`--only-binary=:all:`), so package build hooks cannot execute during trusted
+setup; source-only requirements fail closed. Cached controller archives are
+read-only and tied to the taskset lifetime, while sandbox copies are removed
+after use.
+
 After materializing corpus revision `ac1f30b9a`, revalidate the 42 repaired
 fixtures before consuming the prior 2,500-task manifest:
 

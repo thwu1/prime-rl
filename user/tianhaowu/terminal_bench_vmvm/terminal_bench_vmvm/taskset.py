@@ -12,7 +12,6 @@ artifacts.
 from __future__ import annotations
 
 import asyncio
-import atexit
 import hashlib
 import json
 import logging
@@ -549,7 +548,6 @@ class TerminalBenchVMVMTaskset(
         ] = {}
         self._wheelhouse_cache_lock = asyncio.Lock()
         self._wheelhouse_cache_directory: tempfile.TemporaryDirectory[str] | None = None
-        atexit.register(self._cleanup_wheelhouse_cache)
 
     def _wheelhouse_cache_path(self) -> Path:
         if self._wheelhouse_cache_directory is None:
@@ -807,7 +805,7 @@ class TerminalBenchVMVMTaskset(
         if cleaned.exit_code != 0:
             raise RuntimeError(f"{task.name}: AppleDouble cleanup failed: {(cleaned.stdout + cleaned.stderr)[-2000:]}")
 
-        if task.verifier_mode == "shared" and task.agent_network_mode == "no-network":
+        if task.verifier_mode == "shared" and task.verifier_network_mode == "no-network":
             await self._prefetch_test_dependencies(task, runtime)
 
         if not compose_started:
@@ -1165,9 +1163,9 @@ for requirement in sys.argv[1:]:
             )
 
         try:
-            # `pip wheel` resolves transitives and builds source distributions in
-            # an isolated build environment. The target Python environment is not
-            # installed into or otherwise mutated during this public-network step.
+            # Resolve only published wheels. Building an sdist would execute
+            # package-controlled build hooks during trusted setup, which is not
+            # a non-mutating prefetch even when pip uses build isolation.
             built = await runtime.run(
                 [
                     "python3",
@@ -1176,6 +1174,7 @@ for requirement in sys.argv[1:]:
                     "wheel",
                     "--quiet",
                     "--no-cache-dir",
+                    "--only-binary=:all:",
                     "--wheel-dir",
                     wheel_dir,
                     *requirements,
