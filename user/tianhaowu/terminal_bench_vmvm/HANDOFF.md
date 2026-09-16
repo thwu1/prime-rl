@@ -256,9 +256,10 @@ wc -l /checkpoint/ram/tianhaowu/terminal_bench_vmvm/evals/tb4_kimi_k3_sticky_ful
 Expected completion is 66 durable rows and 66 unique task slugs. Report the
 63-task CPU-supported score separately from the three explicit GPU-unsupported
 tasks. Investigate any provider or VMVM infrastructure error; do not silently
-turn it into reward zero. If interrupted, resume the same snapshot with
-`RESUME_DIR=.../tb4_kimi_k3_sticky_full_v2` rather than starting a second full
-run.
+turn it into reward zero. If interrupted, resume the same snapshot with both
+`RESUME_DIR=.../tb4_kimi_k3_sticky_full_v2` and the same deployment's
+`INFERENCE_PROXY_INFO`; the credential is not stored in the snapshot. Do this
+rather than starting a second full run.
 
 Job `1732988` enforces exactly those 66 unique tasks, exactly 63 supported
 results plus the three known CPU-only `UnsupportedTaskError` records, clean
@@ -275,9 +276,12 @@ fresh output directory is
 use the same active deployment's `INFERENCE_PROXY_INFO` path. Override the
 generic evaluator limit with `sbatch --time=7-00:00:00`; the default two-day
 controller allocation is intentionally insufficient as a worst-case bound for
-2,500 long rollouts. The production config now refuses to load unless the
+2,500 long rollouts. Task loading now fails before any model call unless the
 Mobius worktree is clean at exact commit
-`ac1f30b9ac0e6c6a20a9fe423900d9ed28a6d366`.
+`ac1f30b9ac0e6c6a20a9fe423900d9ed28a6d366`, the task manifest has SHA-256
+`d33ef93f9b77ee91a41600934e677ba37988d3b4509e4da05ff1fcf7b4bc3a4b`,
+and the image manifest has SHA-256
+`118157378884021d2fc12dd83e7d9576ca606a5d229a2bd34c203d745212e009`.
 
 Mini-swe-agent owns provider-call retries and is explicitly configured for 10
 total attempts. If those are exhausted, TB4 and production retry the complete

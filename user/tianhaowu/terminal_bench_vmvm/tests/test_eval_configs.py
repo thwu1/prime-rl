@@ -81,7 +81,13 @@ def test_mobius_kimi_production_contract() -> None:
     assert taskset["id"] == "terminal-bench-vmvm"
     assert taskset["dataset_revision"] == "ac1f30b9ac0e6c6a20a9fe423900d9ed28a6d366"
     assert taskset["task_file"].endswith("/valid_tasks_2500.txt")
+    assert taskset["task_file_sha256"] == (
+        "d33ef93f9b77ee91a41600934e677ba37988d3b4509e4da05ff1fcf7b4bc3a4b"
+    )
     assert taskset["image_manifest"].endswith("/mobius_images.json")
+    assert taskset["image_manifest_sha256"] == (
+        "118157378884021d2fc12dd83e7d9576ca606a5d229a2bd34c203d745212e009"
+    )
     assert taskset["verifier_runtime_retries"] >= 2
 
     runtime = config["harness"]["runtime"]

@@ -66,11 +66,16 @@ class TerminalBenchVMVMConfig(HarborConfig):
     task_file: Path | None = None
     """Optional newline-delimited task slugs, useful for large oracle-qualified subsets."""
 
+    task_file_sha256: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
+    """Optional exact SHA-256 required for ``task_file`` before task loading."""
+
     image_prefix: str = DEFAULT_IMAGE_PREFIX
     image_tag: str = f"mobius-{DEFAULT_DATASET_REVISION}"
     verifier_image_suffix: str = "-verifier"
     image_manifest: Path | None = None
     """Optional JSON mapping task slugs to immutable agent/verifier image refs."""
+    image_manifest_sha256: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
+    """Optional exact SHA-256 required for ``image_manifest`` before task loading."""
     use_declared_images: bool = False
     """Prefer task.toml docker_image fields over deterministic built image names."""
     enable_compose: bool = False
@@ -377,11 +382,44 @@ class TerminalBenchVMVMTaskset(
         if status.strip():
             raise ValueError(f"Harbor dataset worktree is not clean: {root}")
 
+    @staticmethod
+    def _validate_input_sha256(
+        path: Path | None,
+        expected: str | None,
+        field: str,
+    ) -> None:
+        if expected is None:
+            return
+        if path is None:
+            raise ValueError(f"{field}_sha256 requires {field}")
+        try:
+            digest = hashlib.sha256()
+            with path.open("rb") as handle:
+                for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+                    digest.update(chunk)
+        except OSError as error:
+            raise ValueError(f"cannot verify {field} SHA-256: {path}") from error
+        observed = digest.hexdigest()
+        if observed != expected:
+            raise ValueError(
+                f"{field} SHA-256 mismatch: expected {expected}, observed {observed}"
+            )
+
     def load_tasks(self) -> list[TerminalBenchTask]:
         root = self.config.dataset_dir.resolve()
         if not root.is_dir():
             raise ValueError(f"Harbor dataset directory does not exist: {root}")
         self._validate_dataset_revision(root)
+        self._validate_input_sha256(
+            self.config.task_file,
+            self.config.task_file_sha256,
+            "task_file",
+        )
+        self._validate_input_sha256(
+            self.config.image_manifest,
+            self.config.image_manifest_sha256,
+            "image_manifest",
+        )
         requested = set(self.config.tasks or [])
         if self.config.task_file is not None:
             requested.update(

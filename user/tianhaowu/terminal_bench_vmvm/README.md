@@ -300,8 +300,12 @@ the resolved run config at those immutable copies. Large configs set
 RAM, and the CLI does not duplicate the full JSONL into the Slurm log.
 
 The Kimi Mobius config additionally requires the dataset worktree to be clean
-at exact commit `ac1f30b9ac0e6c6a20a9fe423900d9ed28a6d366`; task loading fails
-before any model call if the checkout has moved or contains local changes.
+at exact commit `ac1f30b9ac0e6c6a20a9fe423900d9ed28a6d366`, the task manifest to
+have SHA-256 `d33ef93f9b77ee91a41600934e677ba37988d3b4509e4da05ff1fcf7b4bc3a4b`,
+and the image manifest to have SHA-256
+`118157378884021d2fc12dd83e7d9576ca606a5d229a2bd34c203d745212e009`.
+Task loading fails before any model call if the checkout is moved or dirty, or
+if either manifest differs.
 
 Before consuming any run, execute:
 

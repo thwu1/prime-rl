@@ -1,3 +1,5 @@
+import hashlib
+import json
 import subprocess
 from pathlib import Path
 from zipfile import ZipFile
@@ -147,3 +149,60 @@ def test_dataset_revision_requires_exact_clean_worktree(tmp_path: Path) -> None:
     (task_dir / "instruction.md").write_text("Changed.\n")
     with pytest.raises(ValueError, match="dataset worktree is not clean"):
         taskset(revision).load_tasks()
+
+
+def test_task_and_image_manifest_sha256_are_enforced(tmp_path: Path) -> None:
+    task_dir = tmp_path / "task-a"
+    task_dir.mkdir()
+    (task_dir / "task.toml").write_text("")
+    (task_dir / "instruction.md").write_text("Complete task-a.\n")
+    task_file = tmp_path / "tasks.txt"
+    task_file.write_text("task-a\n")
+    image_manifest = tmp_path / "images.json"
+    image_manifest.write_text(
+        json.dumps(
+            {
+                "images": {
+                    "task-a": {
+                        "agent": "registry.invalid/task-a@sha256:" + "a" * 64,
+                    }
+                }
+            }
+        )
+        + "\n"
+    )
+
+    def sha256(path: Path) -> str:
+        return hashlib.sha256(path.read_bytes()).hexdigest()
+
+    def taskset() -> TerminalBenchVMVMTaskset:
+        return TerminalBenchVMVMTaskset(
+            TerminalBenchVMVMConfig(
+                id="terminal-bench-vmvm",
+                dataset_dir=tmp_path,
+                task_file=task_file,
+                task_file_sha256=sha256(task_file),
+                image_manifest=image_manifest,
+                image_manifest_sha256=sha256(image_manifest),
+                image_prefix="registry.invalid/terminal_bench",
+                image_tag="test-revision",
+                ignore_dockerfile=True,
+            )
+        )
+
+    assert [task.slug for task in taskset().load_tasks()] == ["task-a"]
+
+    expected_task_hash = sha256(task_file)
+    task_file.write_text("task-a\ntask-b\n")
+    mismatched_task_file = taskset()
+    mismatched_task_file.config.task_file_sha256 = expected_task_hash
+    with pytest.raises(ValueError, match="task_file SHA-256 mismatch"):
+        mismatched_task_file.load_tasks()
+
+    task_file.write_text("task-a\n")
+    expected_image_hash = sha256(image_manifest)
+    image_manifest.write_text('{"images": {}}\n')
+    mismatched_image_manifest = taskset()
+    mismatched_image_manifest.config.image_manifest_sha256 = expected_image_hash
+    with pytest.raises(ValueError, match="image_manifest SHA-256 mismatch"):
+        mismatched_image_manifest.load_tasks()
