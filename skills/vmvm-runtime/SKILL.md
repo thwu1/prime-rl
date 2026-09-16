@@ -125,13 +125,17 @@ solution runs: this changes the application environment and breaks Harbor's
 solution-before-verifier ordering. During trusted public setup, use `pip wheel`
 to resolve and build a complete wheelhouse for every declared verifier
 requirement without installing it. Move the resulting wheel-only tar to a
-mode-0600 controller temporary directory so 64 concurrent rollouts do not retain
-archives in RAM and an agent cannot modify the cached bytes. After the
+controller temporary directory as mode 0400 so concurrent rollouts do not retain
+archives in RAM and an agent cannot modify the cached bytes. Cache by the exact
+requirement tuple with async single-flight. A wheelhouse containing only
+`*-none-any.whl` files can be shared across images; otherwise scope reuse to the
+runtime image plus its Python implementation/version, SOABI, platform, and
+machine fingerprint. Hash-check every reuse, retain controller cache entries
+until process exit, and clean each sandbox copy after installation. After the
 agent/solution and after `no-network` activation, re-probe all declared versions,
-restore the integrity-checked archive, and install only missing or mismatched
-requirements with `--no-index` / `PIP_NO_INDEX=1`. Fail closed on resolution,
-source-build, non-wheel, integrity, offline-install, or post-install validation
-failure. Clean both sandbox and controller copies on every terminal path.
+restore the archive, and install only missing or mismatched requirements with
+`--no-index` / `PIP_NO_INDEX=1`. Fail closed on resolution, source-build,
+non-wheel, integrity, offline-install, or post-install validation failure.
 
 Pier's DeepSWE adapter supports prebuilt agent images and the benchmark's
 separate verifier Dockerfiles. It validates the Dockerfile, starts its `FROM`

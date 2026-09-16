@@ -1,7 +1,9 @@
 import asyncio
 import hashlib
+import io
 import json
 import subprocess
+import tarfile
 from pathlib import Path
 from types import SimpleNamespace
 from zipfile import ZipFile
@@ -63,10 +65,30 @@ def test_declared_test_requirements_parses_marked_pip_layer(tmp_path: Path) -> N
     )
 
 
+def wheel_archive(*names: str) -> bytes:
+    output = io.BytesIO()
+    with tarfile.open(fileobj=output, mode="w") as archive:
+        for name in names:
+            payload = b"wheel"
+            member = tarfile.TarInfo(name)
+            member.size = len(payload)
+            archive.addfile(member, io.BytesIO(payload))
+    return output.getvalue()
+
+
 class DependencyRuntime:
-    def __init__(self, *, installed: bool = True, wheel_failure: bool = False) -> None:
+    def __init__(
+        self,
+        *,
+        installed: bool = True,
+        wheel_failure: bool = False,
+        image: str = "registry.invalid/task@sha256:" + "a" * 64,
+        wheel_names: tuple[str, ...] = ("verifier_helper-1.0-py3-none-any.whl",),
+    ) -> None:
         self.installed = installed
         self.wheel_failure = wheel_failure
+        self.config = SimpleNamespace(image=image)
+        self.wheel_archive = wheel_archive(*wheel_names)
         self.events: list[str] = []
         self.commands: list[str] = []
 
@@ -77,6 +99,13 @@ class DependencyRuntime:
             self.events.append("probe")
             output = "" if self.installed else "verifier-helper==1.0\n"
             return ProgramResult(exit_code=0, stdout=output, stderr="")
+        if argv[:2] == ["python3", "-c"] and "sysconfig.get_config_var" in argv[2]:
+            self.events.append("fingerprint")
+            return ProgramResult(
+                exit_code=0,
+                stdout='["cpython",[3,12],"cpython-312-x86_64-linux-gnu","linux-x86_64","x86_64"]\n',
+                stderr="",
+            )
         if argv[:4] == ["python3", "-m", "pip", "wheel"]:
             self.events.append("wheel")
             return ProgramResult(
@@ -91,11 +120,11 @@ class DependencyRuntime:
 
     async def read(self, path: str) -> bytes:
         self.events.append("archive-read")
-        return b"complete-wheelhouse"
+        return self.wheel_archive
 
     async def write(self, path: str, data: bytes) -> None:
         self.events.append("archive-write")
-        assert data == b"complete-wheelhouse"
+        assert data == self.wheel_archive
 
 
 def dependency_taskset(tmp_path: Path) -> TerminalBenchVMVMTaskset:
@@ -113,7 +142,7 @@ def dependency_taskset(tmp_path: Path) -> TerminalBenchVMVMTaskset:
 def dependency_task(tmp_path: Path) -> SimpleNamespace:
     environment = tmp_path / "environment"
     tests = tmp_path / "tests"
-    environment.mkdir()
+    environment.mkdir(parents=True)
     tests.mkdir()
     (environment / "Dockerfile").write_text(
         "FROM python:3.12\n"
@@ -137,8 +166,9 @@ def test_verifier_dependencies_prefetch_all_then_install_offline_after_solution(
     assert prefetched.requirements == ("verifier-helper==1.0",)
     assert prefetched.archive_path is not None
     controller_archive = prefetched.archive_path
-    assert controller_archive.stat().st_mode & 0o777 == 0o600
-    assert runtime.events == ["wheel", "archive-read"]
+    assert controller_archive.stat().st_mode & 0o777 == 0o400
+    assert controller_archive.parent.stat().st_mode & 0o777 == 0o700
+    assert runtime.events == ["fingerprint", "wheel", "archive-read"]
     assert not any("pip install" in command for command in runtime.commands)
     wheel_command = next(command for command in runtime.commands if " pip wheel " in command)
     assert "--no-deps" not in wheel_command
@@ -149,6 +179,7 @@ def test_verifier_dependencies_prefetch_all_then_install_offline_after_solution(
     asyncio.run(taskset._install_prefetched_test_dependencies(task, runtime))
 
     assert runtime.events == [
+        "fingerprint",
         "wheel",
         "archive-read",
         "solution",
@@ -161,8 +192,10 @@ def test_verifier_dependencies_prefetch_all_then_install_offline_after_solution(
     assert "--no-index" in install_command
     assert "--find-links" in install_command
     assert "verifier-helper==1.0" in install_command
-    assert controller_archive.exists() is False
+    assert controller_archive.exists() is True
     assert runtime not in taskset._prefetched_test_dependencies
+    taskset._cleanup_wheelhouse_cache()
+    assert controller_archive.exists() is False
 
 
 def test_verifier_dependency_wheel_failure_is_fail_closed(tmp_path: Path) -> None:
@@ -173,7 +206,7 @@ def test_verifier_dependency_wheel_failure_is_fail_closed(tmp_path: Path) -> Non
     with pytest.raises(RuntimeError, match="wheel prefetch failed"):
         asyncio.run(taskset._prefetch_test_dependencies(task, runtime))
 
-    assert runtime.events == ["wheel"]
+    assert runtime.events == ["fingerprint", "wheel"]
     assert runtime not in taskset._prefetched_test_dependencies
 
 
@@ -185,13 +218,84 @@ def test_verifier_dependency_archive_tampering_is_fail_closed(tmp_path: Path) ->
     prefetched = taskset._prefetched_test_dependencies[runtime]
     assert prefetched.archive_path is not None
     controller_archive = prefetched.archive_path
+    controller_archive.chmod(0o600)
     controller_archive.write_bytes(b"tampered")
 
     with pytest.raises(RuntimeError, match="integrity check"):
         asyncio.run(taskset._install_prefetched_test_dependencies(task, runtime))
 
     assert "install" not in runtime.events
+    assert controller_archive.exists() is True
+    taskset._cleanup_wheelhouse_cache()
     assert controller_archive.exists() is False
+
+
+def test_verifier_dependency_universal_cache_is_single_flight_across_images(tmp_path: Path) -> None:
+    taskset = dependency_taskset(tmp_path)
+    task = dependency_task(tmp_path)
+    runtimes = [
+        DependencyRuntime(image=f"registry.invalid/task-{index}@sha256:" + str(index) * 64) for index in range(3)
+    ]
+
+    async def prefetch() -> None:
+        await asyncio.gather(
+            taskset._prefetch_test_dependencies(task, runtimes[0]),
+            taskset._prefetch_test_dependencies(task, runtimes[1]),
+        )
+        await taskset._prefetch_test_dependencies(task, runtimes[2])
+
+    asyncio.run(prefetch())
+
+    assert sum(runtime.events.count("wheel") for runtime in runtimes) == 1
+    wheelhouses = [taskset._prefetched_test_dependencies[runtime] for runtime in runtimes]
+    assert wheelhouses[0] is wheelhouses[1] is wheelhouses[2]
+    assert wheelhouses[0].universal is True
+    taskset._cleanup_wheelhouse_cache()
+
+
+def test_verifier_dependency_platform_cache_is_scoped_to_runtime_fingerprint(tmp_path: Path) -> None:
+    taskset = dependency_taskset(tmp_path)
+    task = dependency_task(tmp_path)
+    image_a = "registry.invalid/task-a@sha256:" + "a" * 64
+    runtimes = [
+        DependencyRuntime(
+            image=image_a if index < 2 else "registry.invalid/task-b@sha256:" + "b" * 64,
+            wheel_names=("verifier_helper-1.0-cp312-cp312-linux_x86_64.whl",),
+        )
+        for index in range(3)
+    ]
+
+    async def prefetch() -> None:
+        await asyncio.gather(*(taskset._prefetch_test_dependencies(task, runtime) for runtime in runtimes))
+
+    asyncio.run(prefetch())
+
+    assert sum(runtime.events.count("wheel") for runtime in runtimes) == 2
+    wheelhouses = [taskset._prefetched_test_dependencies[runtime] for runtime in runtimes]
+    assert wheelhouses[0] is wheelhouses[1]
+    assert wheelhouses[0] is not wheelhouses[2]
+    assert all(wheelhouse.universal is False for wheelhouse in wheelhouses)
+    taskset._cleanup_wheelhouse_cache()
+
+
+def test_verifier_dependency_cache_key_includes_exact_requirement_tuple(tmp_path: Path) -> None:
+    taskset = dependency_taskset(tmp_path)
+    first_task = dependency_task(tmp_path / "first")
+    second_task = dependency_task(tmp_path / "second")
+    second_dockerfile = Path(second_task.task_dir) / "environment" / "Dockerfile"
+    second_dockerfile.write_text(second_dockerfile.read_text().replace("verifier-helper==1.0", "other-helper==2.0"))
+    runtimes = [DependencyRuntime(), DependencyRuntime()]
+
+    async def prefetch() -> None:
+        await taskset._prefetch_test_dependencies(first_task, runtimes[0])
+        await taskset._prefetch_test_dependencies(second_task, runtimes[1])
+
+    asyncio.run(prefetch())
+
+    assert sum(runtime.events.count("wheel") for runtime in runtimes) == 2
+    assert taskset._prefetched_test_dependencies[runtimes[0]].requirements == ("verifier-helper==1.0",)
+    assert taskset._prefetched_test_dependencies[runtimes[1]].requirements == ("other-helper==2.0",)
+    taskset._cleanup_wheelhouse_cache()
 
 
 @pytest.mark.parametrize(

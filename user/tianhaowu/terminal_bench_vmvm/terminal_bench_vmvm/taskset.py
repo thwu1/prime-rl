@@ -12,6 +12,7 @@ artifacts.
 from __future__ import annotations
 
 import asyncio
+import atexit
 import hashlib
 import json
 import logging
@@ -19,6 +20,7 @@ import math
 import re
 import shlex
 import subprocess
+import tarfile
 import tempfile
 import tomllib
 import uuid
@@ -105,47 +107,69 @@ class CollectHook(vf.StrictBaseModel):
     user: str | int | None = None
 
 
-@dataclass
+@dataclass(frozen=True)
 class PrefetchedTestDependencies:
     requirements: tuple[str, ...]
-    directory: tempfile.TemporaryDirectory[str] | None
     archive_path: Path | None
     sha256: str | None
+    universal: bool
+    compatibility_fingerprint: str | None
 
     @classmethod
     def store(
         cls,
+        cache_directory: Path,
         requirements: tuple[str, ...],
         wheel_archive: bytes,
+        compatibility_fingerprint: str,
     ) -> "PrefetchedTestDependencies":
-        directory = tempfile.TemporaryDirectory(prefix="terminal-bench-verifier-wheels-")
-        archive_path = Path(directory.name) / "wheelhouse.tar"
+        archive_path = cache_directory / f"{uuid.uuid4().hex}.tar"
         try:
             archive_path.touch(mode=0o600, exist_ok=False)
             archive_path.write_bytes(wheel_archive)
+            wheel_names: list[str] = []
+            with tarfile.open(archive_path, mode="r:") as archive:
+                for member in archive.getmembers():
+                    parts = PurePosixPath(member.name).parts
+                    if member.isdir() and not parts:
+                        continue
+                    if not member.isfile() or len(parts) != 1 or not parts[0].lower().endswith(".whl"):
+                        raise RuntimeError("prefetched verifier wheelhouse contained an invalid archive member")
+                    wheel_names.append(parts[0])
+            if not wheel_names:
+                raise RuntimeError("prefetched verifier wheelhouse archive was empty")
+            archive_path.chmod(0o400)
         except Exception:
-            directory.cleanup()
+            archive_path.unlink(missing_ok=True)
             raise
         return cls(
             requirements=requirements,
-            directory=directory,
             archive_path=archive_path,
             sha256=hashlib.sha256(wheel_archive).hexdigest(),
+            universal=all(name.lower().endswith("-none-any.whl") for name in wheel_names),
+            compatibility_fingerprint=compatibility_fingerprint,
         )
 
-    def read_verified(self) -> bytes:
+    def verify(self) -> None:
         if self.archive_path is None or self.sha256 is None:
             raise RuntimeError("prefetched verifier wheelhouse was missing")
+        digest = hashlib.sha256()
+        try:
+            with self.archive_path.open("rb") as handle:
+                for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+                    digest.update(chunk)
+        except OSError as error:
+            raise RuntimeError("prefetched verifier wheelhouse was missing") from error
+        if self.sha256 != digest.hexdigest():
+            raise RuntimeError("prefetched verifier wheelhouse failed integrity check")
+
+    def read_verified(self) -> bytes:
+        self.verify()
+        assert self.archive_path is not None
         wheel_archive = self.archive_path.read_bytes()
         if self.sha256 != hashlib.sha256(wheel_archive).hexdigest():
             raise RuntimeError("prefetched verifier wheelhouse failed integrity check")
         return wheel_archive
-
-    def cleanup(self) -> None:
-        if self.directory is not None:
-            self.directory.cleanup()
-            self.directory = None
-            self.archive_path = None
 
 
 class TerminalBenchTask(HarborTask):
@@ -512,6 +536,34 @@ class TerminalBenchVMVMTaskset(
         super().__init__(config)
         self._artifact_payloads: dict[str, dict[str, bytes]] = {}
         self._prefetched_test_dependencies: WeakKeyDictionary[Runtime, PrefetchedTestDependencies] = WeakKeyDictionary()
+        self._runtime_wheel_fingerprints: WeakKeyDictionary[Runtime, str] = WeakKeyDictionary()
+        self._universal_wheelhouse_cache: dict[tuple[str, ...], PrefetchedTestDependencies] = {}
+        self._compatible_wheelhouse_cache: dict[tuple[tuple[str, ...], str], PrefetchedTestDependencies] = {}
+        self._nonuniversal_wheelhouse_requirements: set[tuple[str, ...]] = set()
+        self._wheelhouse_discovery_flights: dict[tuple[str, ...], asyncio.Task[PrefetchedTestDependencies]] = {}
+        self._wheelhouse_compatibility_flights: dict[
+            tuple[tuple[str, ...], str], asyncio.Task[PrefetchedTestDependencies]
+        ] = {}
+        self._wheelhouse_cache_lock = asyncio.Lock()
+        self._wheelhouse_cache_directory: tempfile.TemporaryDirectory[str] | None = None
+        atexit.register(self._cleanup_wheelhouse_cache)
+
+    def _wheelhouse_cache_path(self) -> Path:
+        if self._wheelhouse_cache_directory is None:
+            self._wheelhouse_cache_directory = tempfile.TemporaryDirectory(
+                prefix="terminal-bench-verifier-wheelhouse-cache-"
+            )
+        return Path(self._wheelhouse_cache_directory.name)
+
+    def _cleanup_wheelhouse_cache(self) -> None:
+        self._prefetched_test_dependencies.clear()
+        self._universal_wheelhouse_cache.clear()
+        self._compatible_wheelhouse_cache.clear()
+        self._nonuniversal_wheelhouse_requirements.clear()
+        directory = self._wheelhouse_cache_directory
+        self._wheelhouse_cache_directory = None
+        if directory is not None:
+            directory.cleanup()
 
     def _validate_dataset_revision(self, root: Path) -> None:
         expected = self.config.dataset_revision
@@ -1036,27 +1088,49 @@ for requirement in sys.argv[1:]:
                 f"{missing}: {(installed.stdout + installed.stderr)[-4000:]}"
             )
 
-    async def _prefetch_test_dependencies(
+    async def _runtime_wheel_fingerprint(
         self,
         task: TerminalBenchTask,
         runtime: Runtime,
-    ) -> None:
-        """Build a complete wheelhouse without mutating the task environment."""
-        previous = self._prefetched_test_dependencies.pop(runtime, None)
-        if previous is not None:
-            previous.cleanup()
-        requirements = self._test_requirements(task)
-        if not requirements:
-            self._prefetched_test_dependencies[runtime] = PrefetchedTestDependencies(
-                requirements=(),
-                directory=None,
-                archive_path=None,
-                sha256=None,
+    ) -> str:
+        cached = self._runtime_wheel_fingerprints.get(runtime)
+        if cached is not None:
+            return cached
+        image = getattr(getattr(runtime, "config", None), "image", None)
+        if not isinstance(image, str) or not image:
+            raise RuntimeError(f"{task.name}: verifier wheel caching requires an exact runtime image reference")
+        probe_code = (
+            "import json, platform, sys, sysconfig; "
+            "print(json.dumps([sys.implementation.name, list(sys.version_info[:2]), "
+            "sysconfig.get_config_var('SOABI'), sysconfig.get_platform(), platform.machine()], "
+            "separators=(',', ':')))"
+        )
+        probed = await runtime.run(["python3", "-c", probe_code], {})
+        if probed.exit_code != 0 or not probed.stdout.strip():
+            raise RuntimeError(
+                f"{task.name}: verifier wheel compatibility probe failed: {(probed.stdout + probed.stderr)[-2000:]}"
             )
-            return
+        try:
+            compatibility = json.loads(probed.stdout.strip())
+        except json.JSONDecodeError as error:
+            raise RuntimeError(f"{task.name}: verifier wheel compatibility probe returned invalid JSON") from error
+        if not isinstance(compatibility, list) or len(compatibility) != 5:
+            raise RuntimeError(f"{task.name}: verifier wheel compatibility probe returned an invalid fingerprint")
+        fingerprint = hashlib.sha256(
+            json.dumps([image, compatibility], separators=(",", ":"), sort_keys=True).encode()
+        ).hexdigest()
+        self._runtime_wheel_fingerprints[runtime] = fingerprint
+        return fingerprint
 
+    async def _build_test_dependency_wheelhouse(
+        self,
+        task: TerminalBenchTask,
+        runtime: Runtime,
+        requirements: tuple[str, ...],
+        compatibility_fingerprint: str,
+    ) -> PrefetchedTestDependencies:
         digest = hashlib.sha256("\0".join(requirements).encode()).hexdigest()[:16]
-        wheel_dir = f"/tmp/terminal-bench-verifier-wheels-{digest}"
+        wheel_dir = f"/tmp/terminal-bench-verifier-wheels-{digest}-{uuid.uuid4().hex[:12]}"
         archive_path = f"{wheel_dir}.tar"
         prepared = await self._run_root(
             runtime,
@@ -1119,10 +1193,168 @@ for requirement in sys.argv[1:]:
                     (cleaned.stdout + cleaned.stderr)[-2000:],
                 )
 
-        self._prefetched_test_dependencies[runtime] = await asyncio.to_thread(
+        return await asyncio.to_thread(
             PrefetchedTestDependencies.store,
+            self._wheelhouse_cache_path(),
             requirements,
             wheel_archive,
+            compatibility_fingerprint,
+        )
+
+    @staticmethod
+    def _consume_wheelhouse_flight_result(task: asyncio.Task[PrefetchedTestDependencies]) -> None:
+        if not task.cancelled():
+            task.exception()
+
+    async def _publish_discovered_wheelhouse(
+        self,
+        task: TerminalBenchTask,
+        runtime: Runtime,
+        requirements: tuple[str, ...],
+    ) -> PrefetchedTestDependencies:
+        try:
+            fingerprint = await self._runtime_wheel_fingerprint(task, runtime)
+            wheelhouse = await self._build_test_dependency_wheelhouse(
+                task,
+                runtime,
+                requirements,
+                fingerprint,
+            )
+            async with self._wheelhouse_cache_lock:
+                if wheelhouse.universal:
+                    self._universal_wheelhouse_cache[requirements] = wheelhouse
+                else:
+                    self._nonuniversal_wheelhouse_requirements.add(requirements)
+                    self._compatible_wheelhouse_cache[(requirements, fingerprint)] = wheelhouse
+            return wheelhouse
+        finally:
+            current = asyncio.current_task()
+            async with self._wheelhouse_cache_lock:
+                if self._wheelhouse_discovery_flights.get(requirements) is current:
+                    self._wheelhouse_discovery_flights.pop(requirements, None)
+
+    async def _publish_compatible_wheelhouse(
+        self,
+        task: TerminalBenchTask,
+        runtime: Runtime,
+        requirements: tuple[str, ...],
+        compatibility_fingerprint: str,
+    ) -> PrefetchedTestDependencies:
+        key = (requirements, compatibility_fingerprint)
+        try:
+            wheelhouse = await self._build_test_dependency_wheelhouse(
+                task,
+                runtime,
+                requirements,
+                compatibility_fingerprint,
+            )
+            async with self._wheelhouse_cache_lock:
+                if wheelhouse.universal:
+                    self._universal_wheelhouse_cache[requirements] = wheelhouse
+                else:
+                    self._nonuniversal_wheelhouse_requirements.add(requirements)
+                    self._compatible_wheelhouse_cache[key] = wheelhouse
+            return wheelhouse
+        finally:
+            current = asyncio.current_task()
+            async with self._wheelhouse_cache_lock:
+                if self._wheelhouse_compatibility_flights.get(key) is current:
+                    self._wheelhouse_compatibility_flights.pop(key, None)
+
+    async def _verified_wheelhouse(
+        self,
+        task: TerminalBenchTask,
+        wheelhouse: PrefetchedTestDependencies,
+    ) -> PrefetchedTestDependencies:
+        try:
+            await asyncio.to_thread(wheelhouse.verify)
+        except RuntimeError as error:
+            raise RuntimeError(f"{task.name}: {error}") from error
+        return wheelhouse
+
+    async def _compatible_wheelhouse(
+        self,
+        task: TerminalBenchTask,
+        runtime: Runtime,
+        requirements: tuple[str, ...],
+        compatibility_fingerprint: str | None = None,
+    ) -> PrefetchedTestDependencies:
+        fingerprint = compatibility_fingerprint or await self._runtime_wheel_fingerprint(task, runtime)
+        key = (requirements, fingerprint)
+        async with self._wheelhouse_cache_lock:
+            cached = self._universal_wheelhouse_cache.get(requirements)
+            if cached is None:
+                cached = self._compatible_wheelhouse_cache.get(key)
+            flight = self._wheelhouse_compatibility_flights.get(key)
+            if cached is None and flight is None:
+                flight = asyncio.create_task(
+                    self._publish_compatible_wheelhouse(
+                        task,
+                        runtime,
+                        requirements,
+                        fingerprint,
+                    )
+                )
+                flight.add_done_callback(self._consume_wheelhouse_flight_result)
+                self._wheelhouse_compatibility_flights[key] = flight
+        if cached is not None:
+            return await self._verified_wheelhouse(task, cached)
+        assert flight is not None
+        return await asyncio.shield(flight)
+
+    async def _cached_test_dependency_wheelhouse(
+        self,
+        task: TerminalBenchTask,
+        runtime: Runtime,
+        requirements: tuple[str, ...],
+    ) -> PrefetchedTestDependencies:
+        async with self._wheelhouse_cache_lock:
+            cached = self._universal_wheelhouse_cache.get(requirements)
+            flight = self._wheelhouse_discovery_flights.get(requirements)
+            has_nonuniversal = requirements in self._nonuniversal_wheelhouse_requirements
+            if cached is None and flight is None and not has_nonuniversal:
+                flight = asyncio.create_task(self._publish_discovered_wheelhouse(task, runtime, requirements))
+                flight.add_done_callback(self._consume_wheelhouse_flight_result)
+                self._wheelhouse_discovery_flights[requirements] = flight
+        if cached is not None:
+            return await self._verified_wheelhouse(task, cached)
+        if has_nonuniversal and flight is None:
+            return await self._compatible_wheelhouse(task, runtime, requirements)
+        assert flight is not None
+        discovered = await asyncio.shield(flight)
+        if discovered.universal:
+            return discovered
+        fingerprint = await self._runtime_wheel_fingerprint(task, runtime)
+        if discovered.compatibility_fingerprint == fingerprint:
+            return discovered
+        return await self._compatible_wheelhouse(
+            task,
+            runtime,
+            requirements,
+            fingerprint,
+        )
+
+    async def _prefetch_test_dependencies(
+        self,
+        task: TerminalBenchTask,
+        runtime: Runtime,
+    ) -> None:
+        """Cache a complete wheelhouse without mutating the task environment."""
+        self._prefetched_test_dependencies.pop(runtime, None)
+        requirements = self._test_requirements(task)
+        if not requirements:
+            self._prefetched_test_dependencies[runtime] = PrefetchedTestDependencies(
+                requirements=(),
+                archive_path=None,
+                sha256=None,
+                universal=True,
+                compatibility_fingerprint=None,
+            )
+            return
+        self._prefetched_test_dependencies[runtime] = await self._cached_test_dependency_wheelhouse(
+            task,
+            runtime,
+            requirements,
         )
 
     async def _install_prefetched_test_dependencies(
@@ -1193,7 +1425,6 @@ for requirement in sys.argv[1:]:
                     f"{task.name}: offline verifier dependency install left requirements unsatisfied: {remaining}"
                 )
         finally:
-            await asyncio.to_thread(prefetched.cleanup)
             if "wheel_dir" in locals() and "archive_path" in locals():
                 cleaned = await self._run_root(
                     runtime,
