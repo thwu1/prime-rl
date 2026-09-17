@@ -100,6 +100,18 @@ weight_column = "sft_weight"
 
 Weighted SFT requires `loss_impl = "torch"`, `"liger"`, or `"chunked"`; fused SFT losses do not expose per-token losses. Use `chunked` with an integer `model.fused_lm_head_token_chunk_size` (8192 is the standard long-context setting) when full logits do not fit in memory.
 
+## Grouped SFT shuffle
+
+Set `data.shuffle_group_column` to randomize groups each epoch while preserving the original row order within each group. The loader flattens the shuffled groups before distributed rank sharding, so consecutive rows from one source trajectory usually share a global optimizer batch. This is soft grouping: ordinary batch and epoch boundaries may split a group, and no padding or bin-packing is added.
+
+```toml
+[data]
+shuffle = true
+shuffle_group_column = "source_trajectory_index"
+```
+
+The configured column must exist and contain non-null scalar values. Use `fixed_stack` when batch placement matters; length-bucketed `stack` is rejected because it reorders the stream. Leave the field unset to retain independent row shuffling.
+
 ## Model Client Transport
 
 Model endpoint transport is configured under `[orchestrator.client]`. `connect_timeout`

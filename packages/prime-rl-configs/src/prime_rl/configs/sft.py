@@ -92,6 +92,9 @@ class SFTDataConfig(BaseDataConfig):
     shuffle: bool = True
     """Shuffle the dataset at the start of each epoch."""
 
+    shuffle_group_column: str | None = Field(None, min_length=1)
+    """Optional column used to shuffle row groups while preserving row order within each group."""
+
     seed: int = 0
     """Random seed for shuffling. Re-shuffled per epoch by adding the epoch count to the seed."""
 
@@ -104,6 +107,10 @@ class SFTDataConfig(BaseDataConfig):
 
     @model_validator(mode="after")
     def validate_subsets_and_splits(self):
+        if self.shuffle_group_column is not None and not self.shuffle:
+            raise ValueError("shuffle_group_column requires shuffle=true")
+        if self.shuffle_group_column is not None and self.pack_function == "stack":
+            raise ValueError("shuffle_group_column is incompatible with pack_function='stack'")
         if self.subsets is not None or self.splits is not None:
             if self.subsets is not None and self.splits is not None:
                 if len(self.subsets) != len(self.splits):
