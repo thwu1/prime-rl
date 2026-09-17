@@ -40,6 +40,7 @@ from inference_route_generation import (
     validate_readiness_route_generation,
     validate_route_generation,
 )
+from tb4_shard_workflow import ShardWorkflowError, validate_sharded_checkpoint
 from trace_concurrency import TraceConcurrencyError, measure_peak_active_rollouts
 from vmvm_tb_v2._vacli.concurrency_telemetry import (
     ConcurrencyTelemetryError,
@@ -575,6 +576,11 @@ def _validate_tb4_checkpoint(
     deployment_id: str,
     endpoint: dict[str, Any],
 ) -> dict[str, Any]:
+    if isinstance(value, dict) and value.get("schema_version") == 2:
+        try:
+            return validate_sharded_checkpoint(value, deployment_id=deployment_id)
+        except (OSError, ShardWorkflowError) as cause:
+            raise LaunchCertificateError("tb4_sharded_checkpoint_invalid") from cause
     expected_keys = {
         "artifacts",
         "audit_policy",
@@ -1778,6 +1784,34 @@ def _validate_capacity(
         raise LaunchCertificateError("capacity_smoke_task_count_too_small")
 
 
+def _tb4_gate_record(
+    artifact: dict[str, str],
+    validated: dict[str, Any],
+) -> dict[str, Any]:
+    record = {
+        "artifact": artifact,
+        "certificate_sha256": validated["certificate_sha256"],
+        "deployment_spec_sha256": validated["deployment_spec_sha256"],
+        "expected_routes": validated["expected_routes"],
+        "supported_pass_rate": validated["supported_pass_rate"],
+        "supported_passes": validated["supported_passes"],
+    }
+    if validated.get("sharded") is True:
+        return {
+            **record,
+            "sharded": True,
+            "shard_count": validated["shard_count"],
+            "route_generation_sha256s": validated["route_generation_sha256s"],
+            "endpoint_binding_sha256s": validated["endpoint_binding_sha256s"],
+            "proxy_policy_sha256": validated["proxy_policy_sha256"],
+        }
+    return {
+        **record,
+        "serving_route_generation": validated["serving_route_generation"],
+        "proxy_policy": validated["proxy_policy"],
+    }
+
+
 def _build_unsigned(
     *,
     tb4_checkpoint: Path,
@@ -1957,16 +1991,7 @@ def _build_unsigned(
                 "serving_route_generation": readiness["serving_route_generation"],
                 "proxy_policy": readiness["proxy_policy"],
             },
-            "tb4": {
-                "artifact": tb4_record,
-                "certificate_sha256": tb4["certificate_sha256"],
-                "deployment_spec_sha256": tb4["deployment_spec_sha256"],
-                "expected_routes": tb4["expected_routes"],
-                "serving_route_generation": tb4["serving_route_generation"],
-                "proxy_policy": tb4["proxy_policy"],
-                "supported_pass_rate": tb4["supported_pass_rate"],
-                "supported_passes": tb4["supported_passes"],
-            },
+            "tb4": _tb4_gate_record(tb4_record, tb4),
         },
         "ok": True,
         "production": {
