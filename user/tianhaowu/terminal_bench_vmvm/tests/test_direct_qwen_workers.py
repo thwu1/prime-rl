@@ -733,7 +733,82 @@ def test_audit_run_directory_validates_provenance_without_results(tmp_path: Path
         + "resume_direct_qwen_provider_concurrency=16\n"
         + "resume_direct_qwen_provider_concurrency=2\n"
     )
+    with pytest.raises(direct.DirectWorkerError, match="resume_provenance_duplicate_key"):
+        direct.audit_run_directory(run_dir)
+
+    valid_resume_router = (
+        f"resume_direct_qwen_manifest_sha256={manifest_sha256}\n"
+        "resume_direct_qwen_router_policy=consistent_hash\n"
+        "resume_direct_qwen_request_id_headers=x-session-id\n"
+        "resume_direct_qwen_provider_concurrency=2\n"
+    )
+    provenance_path.write_text(
+        fresh_provenance
+        + "resume_slurm_job_id=124\n"
+        + valid_resume_router
+        + "resume_slurm_job_id=125\n"
+        + valid_resume_router
+    )
+    assert direct.audit_run_directory(run_dir)["ok"] is True
+
+    provenance_path.write_text(
+        fresh_provenance
+        + "resume_slurm_job_id=124\n"
+        + valid_resume_router
+        + "resume_slurm_job_id=124\n"
+        + valid_resume_router
+    )
+    with pytest.raises(direct.DirectWorkerError, match="resume_provenance_boundary_invalid"):
+        direct.audit_run_directory(run_dir)
+
+    provenance_path.write_text(
+        fresh_provenance
+        + "resume_slurm_job_id=124\n"
+        + "resume_prime_rl="
+        + "4" * 40
+        + "\nresume_prime_rl="
+        + "5" * 40
+        + "\n"
+        + valid_resume_router
+    )
+    with pytest.raises(direct.DirectWorkerError, match="resume_provenance_duplicate_key"):
+        direct.audit_run_directory(run_dir)
+
+    provenance_path.write_text(fresh_provenance + valid_resume_router)
+    with pytest.raises(direct.DirectWorkerError, match="resume_provenance_boundary_invalid"):
+        direct.audit_run_directory(run_dir)
+
+    provenance_path.write_text(
+        fresh_provenance
+        + "resume_slurm_job_id=124\n"
+        + valid_resume_router
+        + "ambiguous_boundary=value\n"
+        + "resume_prime_rl="
+        + "4" * 40
+        + "\n"
+    )
+    with pytest.raises(direct.DirectWorkerError, match="resume_provenance_boundary_invalid"):
+        direct.audit_run_directory(run_dir)
+
+    provenance_path.write_text(fresh_provenance + "resume_slurm_job_id=0\n" + valid_resume_router)
+    with pytest.raises(direct.DirectWorkerError, match="resume_provenance_boundary_invalid"):
+        direct.audit_run_directory(run_dir)
+
+    provenance_path.write_text(
+        fresh_provenance + "resume_slurm_job_id=124\n" + valid_resume_router + "resume_direct_qwen_unknown=value\n"
+    )
     with pytest.raises(direct.DirectWorkerError, match="resume_provenance_router_mismatch"):
+        direct.audit_run_directory(run_dir)
+
+    provenance_path.write_text(
+        fresh_provenance
+        + "qwen_router_admission_transition_sha256="
+        + "a" * 64
+        + "\nqwen_router_transition_sha256="
+        + "b" * 64
+        + "\n"
+    )
+    with pytest.raises(direct.DirectWorkerError, match="resume_provenance_boundary_invalid"):
         direct.audit_run_directory(run_dir)
 
 

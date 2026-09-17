@@ -656,20 +656,65 @@ def validate_router_provenance(
         for index, (key, separator, _value) in enumerate(entries)
         if separator and key in {"qwen_router_transition_sha256", "qwen_router_admission_transition_sha256"}
     ]
-    resume_floor = transition_positions[-1] if transition_positions else -1
-    resume_positions = [
-        index
+    transition_by_key = {
+        key: index
         for index, (key, separator, _value) in enumerate(entries)
-        if index > resume_floor and separator and key == "resume_slurm_job_id"
-    ]
-    for position_index, position in enumerate(resume_positions):
-        end = resume_positions[position_index + 1] if position_index + 1 < len(resume_positions) else len(entries)
-        expected_resume = {f"resume_{key}": value for key, value in expected.items()}
-        block_entries = [(key, value) for key, separator, value in entries[position:end] if separator]
-        block = {key: value for key, value in block_entries}
-        if any(
-            sum(observed_key == key for observed_key, _value in block_entries) != 1 or block.get(key) != value
-            for key, value in expected_resume.items()
+        if separator and key in {"qwen_router_transition_sha256", "qwen_router_admission_transition_sha256"}
+    }
+    if (
+        "qwen_router_transition_sha256" in transition_by_key
+        and "qwen_router_admission_transition_sha256" in transition_by_key
+        and transition_by_key["qwen_router_transition_sha256"]
+        >= transition_by_key["qwen_router_admission_transition_sha256"]
+    ):
+        raise DirectWorkerError("direct_worker_resume_provenance_boundary_invalid")
+    resume_floor = transition_positions[-1] if transition_positions else -1
+    resume_blocks: list[tuple[int, list[tuple[str, str]]]] = []
+    current_start: int | None = None
+    current_entries: list[tuple[str, str]] = []
+    allowed_resume_boundaries = {
+        "qwen_router_transition_sha256",
+        "direct_qwen_provider_concurrency",
+        "qwen_router_admission_transition_sha256",
+    }
+    for index, (key, separator, value) in enumerate(entries):
+        if not separator:
+            raise DirectWorkerError("direct_worker_provenance_malformed")
+        if key == "resume_slurm_job_id":
+            if current_start is not None:
+                resume_blocks.append((current_start, current_entries))
+            current_start = index
+            current_entries = [(key, value)]
+        elif key.startswith("resume_"):
+            if current_start is None:
+                raise DirectWorkerError("direct_worker_resume_provenance_boundary_invalid")
+            current_entries.append((key, value))
+        elif current_start is not None:
+            if key not in allowed_resume_boundaries:
+                raise DirectWorkerError("direct_worker_resume_provenance_boundary_invalid")
+            resume_blocks.append((current_start, current_entries))
+            current_start = None
+            current_entries = []
+    if current_start is not None:
+        resume_blocks.append((current_start, current_entries))
+
+    expected_resume = {f"resume_{key}": value for key, value in expected.items()}
+    expected_resume_keys = set(expected_resume)
+    resume_job_ids: set[str] = set()
+    for position, block_entries in resume_blocks:
+        keys = [key for key, _value in block_entries]
+        if len(keys) != len(set(keys)):
+            raise DirectWorkerError("direct_worker_resume_provenance_duplicate_key")
+        block = dict(block_entries)
+        resume_job_id = block.get("resume_slurm_job_id", "")
+        if re.fullmatch(r"[1-9][0-9]*", resume_job_id) is None or resume_job_id in resume_job_ids:
+            raise DirectWorkerError("direct_worker_resume_provenance_boundary_invalid")
+        resume_job_ids.add(resume_job_id)
+        if position <= resume_floor:
+            continue
+        observed_router_keys = {key for key in keys if key.startswith("resume_direct_qwen_")}
+        if observed_router_keys != expected_resume_keys or any(
+            block.get(key) != value for key, value in expected_resume.items()
         ):
             raise DirectWorkerError("direct_worker_resume_provenance_router_mismatch")
     return provenance
