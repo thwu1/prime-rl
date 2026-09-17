@@ -855,13 +855,7 @@ def test_audit_trace_requires_model_io_on_every_sampled_turn() -> None:
     assert _audit_trace(trace, require_reasoning=True, require_model_io=True) == ["node_1_model_io_missing"]
 
 
-@pytest.mark.parametrize(
-    "completion_tokens_details",
-    [pytest.param({"reasoning_tokens": 0}, id="explicit-zero"), pytest.param(None, id="missing")],
-)
-def test_audit_trace_allows_captured_zero_reasoning_tool_turn(
-    completion_tokens_details: dict | None,
-) -> None:
+def test_audit_trace_allows_provider_reported_zero_reasoning_tool_turn() -> None:
     trace = _trace_with_model_io()
     second = _trace("second", "same-task")["nodes"][0]
     second["parent"] = 0
@@ -871,15 +865,13 @@ def test_audit_trace_allows_captured_zero_reasoning_tool_turn(
         "reasoning_content": None,
         "tool_calls": [{"id": "call-2", "name": "bash", "arguments": '{"cmd":"pwd"}'}],
     }
-    if completion_tokens_details is not None:
-        second["usage"]["reasoning_tokens"] = 0
+    second["usage"]["reasoning_tokens"] = 0
     usage = {
         "prompt_tokens": 100,
         "completion_tokens": 2,
         "total_tokens": 102,
     }
-    if completion_tokens_details is not None:
-        usage["completion_tokens_details"] = completion_tokens_details
+    usage["completion_tokens_details"] = {"reasoning_tokens": 0}
     second["model_io"] = _model_io(
         _request(),
         response=_exact_response(
@@ -901,6 +893,162 @@ def test_audit_trace_allows_captured_zero_reasoning_tool_turn(
     trace["nodes"].append(second)
 
     assert _audit_trace(trace, require_reasoning=True, require_model_io=True) == []
+
+
+def test_audit_trace_allows_hash_bound_explicit_empty_reasoning_tool_turn() -> None:
+    trace = _trace_with_model_io()
+    second = _trace("second", "same-task")["nodes"][0]
+    second["parent"] = 0
+    second["message"] = {
+        "role": "assistant",
+        "content": None,
+        "reasoning_content": None,
+        "tool_calls": [{"id": "call-2", "name": "bash", "arguments": '{"cmd":"pwd"}'}],
+    }
+    second["model_io"] = _model_io(
+        _request(),
+        response=_exact_response(
+            message={
+                "role": "assistant",
+                "content": None,
+                "reasoning": "",
+                "tool_calls": [
+                    {
+                        "id": "call-2",
+                        "type": "function",
+                        "function": {"name": "bash", "arguments": '{"cmd":"pwd"}'},
+                    }
+                ],
+            },
+            usage={"prompt_tokens": 100, "completion_tokens": 2, "total_tokens": 102},
+        ),
+    )
+    trace["nodes"].append(second)
+
+    assert _audit_trace(trace, require_reasoning=True, require_model_io=True) == []
+
+
+@pytest.mark.parametrize(
+    ("reasoning_tokens", "accepted"),
+    [pytest.param(0, True, id="reported-zero"), pytest.param(None, False, id="counter-missing")],
+)
+def test_normalized_zero_reasoning_tool_turn_requires_reported_counter(
+    reasoning_tokens: int | None,
+    accepted: bool,
+) -> None:
+    trace = _trace_with_model_io()
+    second = _trace("second", "same-task")["nodes"][0]
+    second["parent"] = 0
+    second["message"] = {
+        "role": "assistant",
+        "content": None,
+        "reasoning_content": None,
+        "tool_calls": [{"id": "call-2", "name": "bash", "arguments": '{"cmd":"pwd"}'}],
+    }
+    second["finish_reason"] = "tool_calls"
+    usage = {
+        "prompt_tokens": 100,
+        "completion_tokens": 2,
+        "cached_input_tokens": None,
+        "cost": None,
+    }
+    if reasoning_tokens is not None:
+        usage["reasoning_tokens"] = reasoning_tokens
+        second["usage"]["reasoning_tokens"] = reasoning_tokens
+    response = {
+        "id": "normalized-zero-reasoning-tool",
+        "created": 1,
+        "model": "Kimi-K3",
+        "message": {
+            **second["message"],
+            "provider_state": None,
+        },
+        "finish_reason": "tool_calls",
+        "usage": usage,
+        "tokens": None,
+    }
+    second["model_io"] = _model_io(_request())
+    second["model_io"]["response"] = {
+        "kind": "normalized_stream_response",
+        "sha256": _digest(response),
+        "body": response,
+    }
+    trace["nodes"].append(second)
+
+    problems = _audit_trace(trace, require_reasoning=True, require_model_io=True)
+    assert ("node_1_reasoning_content_not_retained" not in problems) is accepted
+
+
+@pytest.mark.parametrize(
+    "mutation",
+    [
+        "reasoning_absent",
+        "reasoning_null",
+        "thinking_disabled",
+        "thinking_missing",
+        "preserve_disabled",
+        "preserve_missing",
+        "top_level_reasoning_tokens",
+        "tool_call_mismatch",
+    ],
+)
+def test_audit_trace_rejects_ambiguous_empty_reasoning_tool_turn(mutation: str) -> None:
+    trace = _trace_with_model_io()
+    second = _trace("second", "same-task")["nodes"][0]
+    second["parent"] = 0
+    second["message"] = {
+        "role": "assistant",
+        "content": None,
+        "reasoning_content": None,
+        "tool_calls": [{"id": "call-2", "name": "bash", "arguments": '{"cmd":"pwd"}'}],
+    }
+    request = _request()
+    provider_message = {
+        "role": "assistant",
+        "content": None,
+        "reasoning": "",
+        "tool_calls": [
+            {
+                "id": "call-2",
+                "type": "function",
+                "function": {"name": "bash", "arguments": '{"cmd":"pwd"}'},
+            }
+        ],
+    }
+    if mutation == "reasoning_absent":
+        provider_message.pop("reasoning")
+    elif mutation == "reasoning_null":
+        provider_message["reasoning"] = None
+    elif mutation == "thinking_disabled":
+        request["chat_template_kwargs"]["enable_thinking"] = False
+    elif mutation == "thinking_missing":
+        request["chat_template_kwargs"].pop("enable_thinking")
+    elif mutation == "preserve_disabled":
+        request["chat_template_kwargs"]["preserve_thinking"] = False
+    elif mutation == "preserve_missing":
+        request["chat_template_kwargs"].pop("preserve_thinking")
+    elif mutation == "tool_call_mismatch":
+        provider_message["tool_calls"][0]["function"]["name"] = "different"
+    usage = {"prompt_tokens": 100, "completion_tokens": 2, "total_tokens": 102}
+    if mutation == "top_level_reasoning_tokens":
+        usage["reasoning_tokens"] = 0
+    second["model_io"] = _model_io(
+        request,
+        response=_exact_response(
+            message=provider_message,
+            usage=usage,
+        ),
+    )
+    trace["nodes"].append(second)
+
+    problems = _audit_trace(
+        trace,
+        require_reasoning=True,
+        require_model_io=True,
+    )
+    assert "node_1_reasoning_content_not_retained" in problems
+    if mutation == "tool_call_mismatch":
+        assert "node_1_model_io_response_message_mismatch" in problems
 
 
 @pytest.mark.parametrize("reasoning_tokens", [1, -1, True, 0.0, "0", None])

@@ -354,8 +354,11 @@ def _response_node_problems(
     return problems
 
 
-def _captured_zero_reasoning_tool_turn(node: dict) -> bool:
-    """Whether model I/O proves this sampled tool turn genuinely used no reasoning."""
+def _captured_zero_reasoning_tool_turn(
+    node: dict,
+    request_body: dict | None = None,
+) -> bool:
+    """Whether hash-bound model I/O proves this tool turn exposed no reasoning."""
     model_io = node.get("model_io")
     if not isinstance(model_io, dict):
         return False
@@ -376,8 +379,11 @@ def _captured_zero_reasoning_tool_turn(node: dict) -> bool:
         completion_details = usage.get("completion_tokens_details")
         if completion_details is not None and not isinstance(completion_details, dict):
             return False
+        # Verifiers reads exact chat-completion reasoning usage only from the
+        # nested details object. Do not let an ignored top-level extra certify
+        # a turn that the captured/flattened usage considers unknown.
         if "reasoning_tokens" in usage:
-            reasoning_token_values.append(usage["reasoning_tokens"])
+            return False
         if isinstance(completion_details, dict) and "reasoning_tokens" in completion_details:
             reasoning_token_values.append(completion_details["reasoning_tokens"])
     else:
@@ -389,23 +395,86 @@ def _captured_zero_reasoning_tool_turn(node: dict) -> bool:
 
     if any(not isinstance(value, int) or isinstance(value, bool) or value != 0 for value in reasoning_token_values):
         return False
+    provider_reported_zero = bool(reasoning_token_values)
 
     if not isinstance(message, dict):
         return False
-    reasoning_values = [message.get("reasoning"), message.get("reasoning_content")]
-    reasoning_details_values = [message.get("reasoning_details")]
+    reasoning_values: list[object] = []
+    reasoning_details_values: list[object] = []
+    explicit_empty_reasoning = False
+    for field in ("reasoning", "reasoning_content"):
+        if field in message:
+            value = message[field]
+            reasoning_values.append(value)
+            explicit_empty_reasoning |= isinstance(value, str) and not value.strip()
+    if "reasoning_details" in message:
+        value = message["reasoning_details"]
+        reasoning_details_values.append(value)
+        explicit_empty_reasoning |= value == []
     provider_fields = message.get("provider_specific_fields")
     if provider_fields is not None:
         if not isinstance(provider_fields, dict):
             return False
-        reasoning_values.extend([provider_fields.get("reasoning"), provider_fields.get("reasoning_content")])
-        reasoning_details_values.append(provider_fields.get("reasoning_details"))
+        for field in ("reasoning", "reasoning_content"):
+            if field in provider_fields:
+                value = provider_fields[field]
+                reasoning_values.append(value)
+                explicit_empty_reasoning |= isinstance(value, str) and not value.strip()
+        if "reasoning_details" in provider_fields:
+            value = provider_fields["reasoning_details"]
+            reasoning_details_values.append(value)
+            explicit_empty_reasoning |= value == []
     if any(value is not None and (not isinstance(value, str) or value.strip()) for value in reasoning_values):
         return False
     if any(value is not None and (not isinstance(value, list) or value) for value in reasoning_details_values):
         return False
-    tool_calls = message.get("tool_calls")
-    return isinstance(tool_calls, list) and bool(tool_calls)
+
+    provider_calls = message.get("tool_calls")
+    flattened_message = node.get("message")
+    flattened_calls = flattened_message.get("tool_calls") if isinstance(flattened_message, dict) else None
+    if not isinstance(provider_calls, list) or not provider_calls or not isinstance(flattened_calls, list):
+        return False
+
+    normalized_provider_calls: list[tuple[str, str, str]] = []
+    for call in provider_calls:
+        if not isinstance(call, dict) or not isinstance(call.get("id"), str):
+            return False
+        if response["kind"] == "exact_provider_json":
+            function = call.get("function")
+            if not isinstance(function, dict):
+                return False
+            name = function.get("name")
+            arguments = function.get("arguments")
+        else:
+            name = call.get("name")
+            arguments = call.get("arguments")
+        if not isinstance(name, str) or not isinstance(arguments, str):
+            return False
+        normalized_provider_calls.append((call["id"], name, arguments))
+
+    normalized_flattened_calls: list[tuple[str, str, str]] = []
+    for call in flattened_calls:
+        if (
+            not isinstance(call, dict)
+            or not isinstance(call.get("id"), str)
+            or not isinstance(call.get("name"), str)
+            or not isinstance(call.get("arguments"), str)
+        ):
+            return False
+        normalized_flattened_calls.append((call["id"], call["name"], call["arguments"]))
+    if normalized_provider_calls != normalized_flattened_calls:
+        return False
+
+    if provider_reported_zero:
+        return True
+    if response["kind"] != "exact_provider_json" or not explicit_empty_reasoning:
+        return False
+    template = request_body.get("chat_template_kwargs") if isinstance(request_body, dict) else None
+    return (
+        isinstance(template, dict)
+        and template.get("enable_thinking") is True
+        and template.get("preserve_thinking") is True
+    )
 
 
 def _model_io_base_is_ancestor(nodes: list, node_id: int, base_node: int) -> bool:
@@ -433,7 +502,7 @@ class _ModelIOReconstructionError(ValueError):
 def _audit_model_io(
     nodes: list,
     model_io_contract: CapturedModelIOContract | None = None,
-) -> tuple[list[str], int]:
+) -> tuple[list[str], int, dict[int, dict]]:
     """Validate and reconstruct all sampled-turn provider captures using only stdlib types."""
     problems: list[str] = []
     sampled_ids: list[int] = []
@@ -561,7 +630,7 @@ def _audit_model_io(
 
     if sampled_ids and not found_tool_schemas:
         problems.append("no_model_io_tool_schemas")
-    return problems, model_io_turns
+    return problems, model_io_turns, memo
 
 
 def _audit_trace(
@@ -583,6 +652,14 @@ def _audit_trace(
     if not isinstance(nodes, list) or not nodes:
         return [*problems, "no_message_nodes"]
 
+    model_io_problems: list[str] = []
+    reconstructed_requests: dict[int, dict] = {}
+    if require_model_io:
+        model_io_problems, _model_io_turns, reconstructed_requests = _audit_model_io(
+            nodes,
+            model_io_contract,
+        )
+
     max_branch_tokens, invalid_parents, parent_cycle = _max_branch_tokens(nodes)
 
     sampled_node_count = 0
@@ -603,7 +680,10 @@ def _audit_trace(
             reasoning = message.get("reasoning_content") if isinstance(message, dict) else None
             if isinstance(reasoning, str) and reasoning.strip():
                 sampled_reasoning_count += 1
-            elif require_reasoning and (not require_model_io or not _captured_zero_reasoning_tool_turn(node)):
+            elif require_reasoning and (
+                not require_model_io
+                or not _captured_zero_reasoning_tool_turn(node, reconstructed_requests.get(index))
+            ):
                 reasoning_not_retained = True
         if not require_token_data:
             if is_sampled:
@@ -668,7 +748,6 @@ def _audit_trace(
         problems.append("no_sampled_tokens")
 
     if require_model_io:
-        model_io_problems, _ = _audit_model_io(nodes, model_io_contract)
         problems.extend(model_io_problems)
 
     if not invalid_parents and not parent_cycle:
