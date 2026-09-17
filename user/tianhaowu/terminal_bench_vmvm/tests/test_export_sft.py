@@ -4,6 +4,7 @@ import hashlib
 import json
 from pathlib import Path
 
+import direct_qwen_workers as direct_workers
 import pytest
 from audit_traces import _json_sha256
 from datasets import load_dataset
@@ -332,8 +333,10 @@ def _read_jsonl(path: Path) -> list[dict]:
     return [json.loads(line) for line in path.read_text().splitlines()]
 
 
-def _write_routing_epoch_index(results: Path, epochs: list[int]) -> Path:
+def _write_routing_epoch_index(results: Path, epochs: list[int], *, current_epoch: int = 2) -> Path:
     run_dir = results.parent
+    assert current_epoch in {2, 3}
+    assert all(epoch in range(1, current_epoch + 1) for epoch in epochs)
     (run_dir / ".direct_router.lock").touch()
     (run_dir / ".writer.lock").touch()
     rows = results.read_bytes().splitlines(keepends=True)
@@ -355,6 +358,7 @@ def _write_routing_epoch_index(results: Path, epochs: list[int]) -> Path:
             "verifiers": "2" * 40,
             "renderers": "3" * 40,
             "config_sha256": "4" * 64,
+            "source_config_sha256": "a" * 64,
             "inputs_manifest_sha256": "5" * 64,
             "provenance_sha256": source_provenance_sha256,
             "results_sha256": "6" * 64,
@@ -394,7 +398,25 @@ def _write_routing_epoch_index(results: Path, epochs: list[int]) -> Path:
     transition_sha256 = _sha256(transition_path)
     with (run_dir / "provenance.txt").open("a") as provenance:
         provenance.write(f"qwen_router_transition_sha256={transition_sha256}\n")
-        provenance.write("qwen_router_epoch=2\n")
+        if current_epoch == 3:
+            epoch2_records = [
+                {
+                    "row_sha256": hashlib.sha256(raw).hexdigest(),
+                    "routing_epoch": epoch,
+                }
+                for raw, epoch in zip(rows, epochs, strict=True)
+                if epoch <= 2
+            ]
+            (run_dir / "qwen_router_epoch2_lineage.jsonl").write_text(
+                "".join(json.dumps(record, sort_keys=True, separators=(",", ":")) + "\n" for record in epoch2_records)
+            )
+            admission_path = run_dir / "qwen_router_admission_transition.json"
+            admission_path.write_text("{}\n")
+            admission_transition_sha256 = _sha256(admission_path)
+            provenance.write(f"qwen_router_admission_transition_sha256={admission_transition_sha256}\n")
+        else:
+            admission_transition_sha256 = None
+        provenance.write(f"qwen_router_epoch={current_epoch}\n")
     records = [
         {
             "row": row,
@@ -408,6 +430,8 @@ def _write_routing_epoch_index(results: Path, epochs: list[int]) -> Path:
         "kind": "qwen-routing-epoch-index",
         "results_sha256": _sha256(results),
         "transition_sha256": transition_sha256,
+        "admission_transition_sha256": admission_transition_sha256,
+        "routing_epoch": current_epoch,
         "row_count": len(records),
     }
     index_path = run_dir / "qwen_router_epochs.jsonl"
@@ -684,6 +708,7 @@ def test_routing_epoch_index_is_strictly_bound_and_propagated(tmp_path: Path) ->
     manifest = json.loads((output / "manifest.json").read_text())
     transition_path = results.parent / "qwen_router_transition.json"
     assert manifest["routing_epochs"] == {
+        "current_epoch": 2,
         "emitted_rows": {"1": 2, "2": 2},
         "epoch1_row_hashes_sha256": _sha256(results.parent / "qwen_router_epoch1_rows.sha256"),
         "index_sha256": _sha256(index_path),
@@ -700,6 +725,88 @@ def test_routing_epoch_index_is_strictly_bound_and_propagated(tmp_path: Path) ->
     assert manifest["source_artifacts"]["direct_workers.json"]["sha256"] == _sha256(
         results.parent / "direct_workers.json"
     )
+
+
+def test_schema3_routing_provenance_is_validated_bound_and_propagated(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    results = _write_run(
+        tmp_path / "run",
+        [
+            _linear_trace("epoch-one", task_name="first-task"),
+            _linear_trace("epoch-two", task_name="second-task"),
+            _linear_trace("epoch-three", task_name="third-task"),
+        ],
+    )
+    index_path = _write_routing_epoch_index(results, [1, 2, 3], current_epoch=3)
+    manifest_path = results.parent / "direct_workers.json"
+    audited: list[Path] = []
+
+    def audit_run_directory(run_dir: Path) -> dict[str, object]:
+        audited.append(run_dir)
+        return {
+            "routing_epoch": 3,
+            "manifest_schema_version": direct_workers.ROUTER_MANIFEST_SCHEMA_VERSION,
+            "manifest_sha256": _sha256(manifest_path),
+        }
+
+    monkeypatch.setattr(direct_workers, "audit_run_directory", audit_run_directory)
+    output = tmp_path / "dataset"
+
+    summary = export_sft(_options(results, output, routing_epoch_index=index_path))
+
+    assert audited == [results.parent.resolve()]
+    assert summary["routing_epoch_rows"] == {"1": 2, "2": 2, "3": 2}
+    manifest = json.loads((output / "manifest.json").read_text())
+    routing = manifest["routing_epochs"]
+    assert routing["current_epoch"] == 3
+    assert routing["input_traces"] == {"1": 1, "2": 1, "3": 1}
+    assert routing["admission_transition_sha256"] == _sha256(results.parent / "qwen_router_admission_transition.json")
+    assert routing["epoch2_lineage_sha256"] == _sha256(results.parent / "qwen_router_epoch2_lineage.jsonl")
+    assert "qwen_router_admission_transition.json" in manifest["source_artifacts"]
+    assert "qwen_router_epoch2_lineage.jsonl" in manifest["source_artifacts"]
+
+
+def test_schema3_routing_provenance_and_lineage_drift_fail_closed(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    results = _write_run(
+        tmp_path / "run",
+        [
+            _linear_trace("epoch-one", task_name="first-task"),
+            _linear_trace("epoch-two", task_name="second-task"),
+            _linear_trace("epoch-three", task_name="third-task"),
+        ],
+    )
+    index_path = _write_routing_epoch_index(results, [1, 2, 3], current_epoch=3)
+    manifest_path = results.parent / "direct_workers.json"
+    monkeypatch.setattr(
+        direct_workers,
+        "audit_run_directory",
+        lambda _run_dir: {
+            "routing_epoch": 3,
+            "manifest_schema_version": direct_workers.ROUTER_MANIFEST_SCHEMA_VERSION,
+            "manifest_sha256": _sha256(manifest_path),
+        },
+    )
+    lines = [json.loads(line) for line in index_path.read_text().splitlines()]
+    lines[2]["routing_epoch"] = 3
+    index_path.write_text("".join(json.dumps(line, sort_keys=True, separators=(",", ":")) + "\n" for line in lines))
+
+    with pytest.raises(ExportError, match="^routing_epoch_index_classification_mismatch$"):
+        export_sft(_options(results, tmp_path / "lineage-drift", routing_epoch_index=index_path))
+
+    fresh_results = _write_run(tmp_path / "audit-run", [_linear_trace()])
+    fresh_index = _write_routing_epoch_index(fresh_results, [3], current_epoch=3)
+
+    def reject_audit(_run_dir: Path) -> dict[str, object]:
+        raise direct_workers.DirectWorkerError("direct_worker_manifest_admission_invalid")
+
+    monkeypatch.setattr(direct_workers, "audit_run_directory", reject_audit)
+    with pytest.raises(ExportError, match="^routing_schema3_provenance_invalid$"):
+        export_sft(_options(fresh_results, tmp_path / "audit-drift", routing_epoch_index=fresh_index))
 
 
 @pytest.mark.parametrize(

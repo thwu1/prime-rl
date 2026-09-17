@@ -587,11 +587,13 @@ uv run --project user/tianhaowu/terminal_bench_vmvm \
 ```
 
 With that option, the exporter requires an exact one-to-one row-hash mapping,
-binds the full results, index, transition, active router manifest, and
-transition-anchored epoch-1 hash list, and verifies each epoch label against
-that anchored set. Every emitted SFT row and the aggregate manifest carry its
-routing epoch. Omit the option for a non-migrated run; no routing-epoch field is
-then added.
+binds the full results, index, policy transition, active router manifest, and
+transition-anchored epoch-1 hash list. For a schema-3 admission run it also
+validates the complete cap-32 transition chain and binds the admission
+certificate plus the epoch-2 lineage. Each epoch label is checked against the
+anchored lineage before any output is published. Every emitted SFT row and the
+aggregate manifest carry its routing epoch. Omit the option for a non-migrated
+run; no routing-epoch field is then added.
 
 Use `--selection all-outcomes` only when failed trajectories are intentionally
 part of the training recipe. The exporter refuses held evaluator or

@@ -27,6 +27,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Literal
 
+import direct_qwen_workers as direct_workers
 from audit_traces import DEFAULT_MAX_SEQUENCE_TOKENS, _audit_trace
 
 FORMAT_VERSION = 1
@@ -37,7 +38,9 @@ ROUTING_EPOCH_INDEX_KIND = "qwen-routing-epoch-index"
 ROUTING_TRANSITION_KIND = "qwen-direct-router-policy-transition"
 ROUTING_EPOCH_INDEX_FILENAME = "qwen_router_epochs.jsonl"
 ROUTING_TRANSITION_FILENAME = "qwen_router_transition.json"
+ROUTING_ADMISSION_TRANSITION_FILENAME = "qwen_router_admission_transition.json"
 ROUTING_EPOCH1_ROWS_FILENAME = "qwen_router_epoch1_rows.sha256"
+ROUTING_EPOCH2_LINEAGE_FILENAME = "qwen_router_epoch2_lineage.jsonl"
 DIRECT_WORKERS_FILENAME = "direct_workers.json"
 MAX_ROUTING_EPOCH_INDEX_BYTES = 16 * 1024 * 1024
 MAX_ROUTING_TRANSITION_BYTES = 2 * 1024 * 1024
@@ -87,9 +90,12 @@ class ExportOptions:
 @dataclass(frozen=True)
 class RoutingEpochIndex:
     artifact: FileArtifact
+    admission_transition_artifact: FileArtifact | None
     direct_workers_artifact: FileArtifact
     epoch1_rows_artifact: FileArtifact
+    epoch2_lineage_artifact: FileArtifact | None
     transition_artifact: FileArtifact
+    current_epoch: int
     results_sha256: str
     transition_sha256: str
     row_sha256: tuple[str, ...]
@@ -329,6 +335,123 @@ def _validate_run_provenance(run_dir: Path, max_sequence_tokens: int) -> tuple[d
     }
 
 
+def _parse_epoch2_lineage(body: bytes) -> dict[str, int]:
+    if body and not body.endswith(b"\n"):
+        raise ExportError("routing_epoch2_lineage_invalid")
+    lineage: dict[str, int] = {}
+    for raw_line in body.splitlines(keepends=True):
+        if not raw_line.endswith(b"\n") or not raw_line.strip():
+            raise ExportError("routing_epoch2_lineage_invalid")
+        record = _parse_json_object(raw_line, "routing_epoch2_lineage_invalid")
+        digest = record.get("row_sha256")
+        epoch = record.get("routing_epoch")
+        if (
+            set(record) != {"row_sha256", "routing_epoch"}
+            or not _valid_sha256(digest)
+            or isinstance(epoch, bool)
+            or not isinstance(epoch, int)
+            or epoch not in {1, 2}
+            or digest in lineage
+        ):
+            raise ExportError("routing_epoch2_lineage_invalid")
+        lineage[digest] = epoch
+    return lineage
+
+
+def _load_epoch3_routing_provenance(
+    *,
+    resolved_run: Path,
+    source_artifacts: Mapping[str, FileArtifact],
+    index_artifact: FileArtifact,
+    header: Mapping[str, Any],
+    row_sha256: list[str],
+    routing_epochs: list[int],
+) -> RoutingEpochIndex:
+    artifact_paths = {
+        DIRECT_WORKERS_FILENAME: (resolved_run / DIRECT_WORKERS_FILENAME, MAX_ROUTING_TRANSITION_BYTES),
+        ROUTING_TRANSITION_FILENAME: (resolved_run / ROUTING_TRANSITION_FILENAME, MAX_ROUTING_TRANSITION_BYTES),
+        ROUTING_ADMISSION_TRANSITION_FILENAME: (
+            resolved_run / ROUTING_ADMISSION_TRANSITION_FILENAME,
+            MAX_ROUTING_TRANSITION_BYTES,
+        ),
+        ROUTING_EPOCH1_ROWS_FILENAME: (
+            resolved_run / ROUTING_EPOCH1_ROWS_FILENAME,
+            MAX_ROUTING_EPOCH_INDEX_BYTES,
+        ),
+        ROUTING_EPOCH2_LINEAGE_FILENAME: (
+            resolved_run / ROUTING_EPOCH2_LINEAGE_FILENAME,
+            MAX_ROUTING_EPOCH_INDEX_BYTES,
+        ),
+    }
+    bodies: dict[str, bytes] = {}
+    artifacts: dict[str, FileArtifact] = {}
+    for name, (path, max_bytes) in artifact_paths.items():
+        bodies[name], artifacts[name] = _read_stable_file(path, max_bytes=max_bytes)
+
+    _parse_json_object(bodies[DIRECT_WORKERS_FILENAME], "routing_direct_workers_invalid")
+    _parse_json_object(bodies[ROUTING_TRANSITION_FILENAME], "routing_transition_invalid")
+    _parse_json_object(
+        bodies[ROUTING_ADMISSION_TRANSITION_FILENAME],
+        "routing_admission_transition_invalid",
+    )
+    if artifacts[ROUTING_TRANSITION_FILENAME].sha256 != header["transition_sha256"]:
+        raise ExportError("routing_transition_mismatch")
+    if artifacts[ROUTING_ADMISSION_TRANSITION_FILENAME].sha256 != header["admission_transition_sha256"]:
+        raise ExportError("routing_admission_transition_mismatch")
+
+    try:
+        routing_summary = direct_workers.audit_run_directory(resolved_run)
+    except direct_workers.DirectWorkerError as error:
+        raise ExportError("routing_schema3_provenance_invalid") from error
+    if (
+        routing_summary.get("routing_epoch") != 3
+        or routing_summary.get("manifest_schema_version") != direct_workers.ROUTER_MANIFEST_SCHEMA_VERSION
+        or routing_summary.get("manifest_sha256") != artifacts[DIRECT_WORKERS_FILENAME].sha256
+    ):
+        raise ExportError("routing_schema3_provenance_invalid")
+
+    for name, (path, max_bytes) in artifact_paths.items():
+        if _read_stable_file(path, max_bytes=max_bytes)[1] != artifacts[name]:
+            raise ExportError("routing_schema3_provenance_changed")
+    if _read_stable_file(resolved_run / "provenance.txt")[1] != source_artifacts["provenance.txt"]:
+        raise ExportError("source_provenance_changed")
+
+    epoch1_body = bodies[ROUTING_EPOCH1_ROWS_FILENAME]
+    if epoch1_body and not epoch1_body.endswith(b"\n"):
+        raise ExportError("routing_epoch1_rows_invalid")
+    try:
+        epoch1_hashes = epoch1_body.decode("ascii").splitlines()
+    except UnicodeDecodeError as error:
+        raise ExportError("routing_epoch1_rows_invalid") from error
+    if any(not _valid_sha256(digest) for digest in epoch1_hashes) or len(epoch1_hashes) != len(set(epoch1_hashes)):
+        raise ExportError("routing_epoch1_rows_invalid")
+
+    epoch2_lineage = _parse_epoch2_lineage(bodies[ROUTING_EPOCH2_LINEAGE_FILENAME])
+    if {digest for digest, epoch in epoch2_lineage.items() if epoch == 1} != set(epoch1_hashes):
+        raise ExportError("routing_epoch_index_classification_mismatch")
+    observed = dict(zip(row_sha256, routing_epochs, strict=True))
+    if not set(epoch2_lineage).issubset(observed) or any(
+        observed[digest] != epoch for digest, epoch in epoch2_lineage.items()
+    ):
+        raise ExportError("routing_epoch_index_classification_mismatch")
+    if any(digest not in epoch2_lineage and epoch != 3 for digest, epoch in observed.items()):
+        raise ExportError("routing_epoch_index_classification_mismatch")
+
+    return RoutingEpochIndex(
+        artifact=index_artifact,
+        admission_transition_artifact=artifacts[ROUTING_ADMISSION_TRANSITION_FILENAME],
+        direct_workers_artifact=artifacts[DIRECT_WORKERS_FILENAME],
+        epoch1_rows_artifact=artifacts[ROUTING_EPOCH1_ROWS_FILENAME],
+        epoch2_lineage_artifact=artifacts[ROUTING_EPOCH2_LINEAGE_FILENAME],
+        transition_artifact=artifacts[ROUTING_TRANSITION_FILENAME],
+        current_epoch=3,
+        results_sha256=header["results_sha256"],
+        transition_sha256=header["transition_sha256"],
+        row_sha256=tuple(row_sha256),
+        routing_epochs=tuple(routing_epochs),
+    )
+
+
 def _load_routing_epoch_index(
     path: Path,
     *,
@@ -357,10 +480,14 @@ def _load_routing_epoch_index(
         "kind",
         "results_sha256",
         "transition_sha256",
+        "admission_transition_sha256",
+        "routing_epoch",
         "row_count",
     }:
         raise ExportError("routing_epoch_index_header_invalid")
     row_count = header.get("row_count")
+    current_epoch = header.get("routing_epoch")
+    admission_transition_sha256 = header.get("admission_transition_sha256")
     if (
         isinstance(header.get("schema_version"), bool)
         or not isinstance(header.get("schema_version"), int)
@@ -368,6 +495,11 @@ def _load_routing_epoch_index(
         or header.get("kind") != ROUTING_EPOCH_INDEX_KIND
         or not _valid_sha256(header.get("results_sha256"))
         or not _valid_sha256(header.get("transition_sha256"))
+        or isinstance(current_epoch, bool)
+        or not isinstance(current_epoch, int)
+        or current_epoch not in {2, 3}
+        or (current_epoch == 2 and admission_transition_sha256 is not None)
+        or (current_epoch == 3 and not _valid_sha256(admission_transition_sha256))
         or isinstance(row_count, bool)
         or not isinstance(row_count, int)
         or row_count < 0
@@ -391,13 +523,23 @@ def _load_routing_epoch_index(
             or not _valid_sha256(digest)
             or isinstance(epoch, bool)
             or not isinstance(epoch, int)
-            or epoch not in {1, 2}
+            or epoch not in range(1, current_epoch + 1)
         ):
             raise ExportError("routing_epoch_index_record_invalid")
         row_sha256.append(digest)
         routing_epochs.append(epoch)
     if len(row_sha256) != len(set(row_sha256)):
         raise ExportError("routing_epoch_index_duplicate_row_hash")
+
+    if current_epoch == 3:
+        return _load_epoch3_routing_provenance(
+            resolved_run=resolved_run,
+            source_artifacts=source_artifacts,
+            index_artifact=artifact,
+            header=header,
+            row_sha256=row_sha256,
+            routing_epochs=routing_epochs,
+        )
 
     transition_path = resolved_run / ROUTING_TRANSITION_FILENAME
     transition_body, transition_artifact = _read_stable_file(
@@ -432,6 +574,7 @@ def _load_routing_epoch_index(
     child = transition.get("child")
     source_hash_fields = (
         "config_sha256",
+        "source_config_sha256",
         "inputs_manifest_sha256",
         "provenance_sha256",
         "results_sha256",
@@ -452,6 +595,7 @@ def _load_routing_epoch_index(
             "verifiers",
             "renderers",
             "config_sha256",
+            "source_config_sha256",
             "inputs_manifest_sha256",
             "provenance_sha256",
             "results_sha256",
@@ -588,9 +732,12 @@ def _load_routing_epoch_index(
 
     return RoutingEpochIndex(
         artifact=artifact,
+        admission_transition_artifact=None,
         direct_workers_artifact=direct_workers_artifact,
         epoch1_rows_artifact=epoch1_rows_artifact,
+        epoch2_lineage_artifact=None,
         transition_artifact=transition_artifact,
+        current_epoch=2,
         results_sha256=header["results_sha256"],
         transition_sha256=header["transition_sha256"],
         row_sha256=tuple(row_sha256),
@@ -1039,6 +1186,10 @@ def export_sft(options: ExportOptions) -> dict[str, Any]:
             source_artifacts[DIRECT_WORKERS_FILENAME] = routing_index.direct_workers_artifact
             source_artifacts[ROUTING_EPOCH1_ROWS_FILENAME] = routing_index.epoch1_rows_artifact
             source_artifacts[ROUTING_TRANSITION_FILENAME] = routing_index.transition_artifact
+            if routing_index.admission_transition_artifact is not None:
+                source_artifacts[ROUTING_ADMISSION_TRANSITION_FILENAME] = routing_index.admission_transition_artifact
+            if routing_index.epoch2_lineage_artifact is not None:
+                source_artifacts[ROUTING_EPOCH2_LINEAGE_FILENAME] = routing_index.epoch2_lineage_artifact
         source, source_before = _open_regular(options.results)
         temporary = Path(tempfile.mkdtemp(prefix=f".{options.output_dir.name}.", dir=output_parent))
         published = False
@@ -1225,21 +1376,29 @@ def export_sft(options: ExportOptions) -> dict[str, Any]:
                 },
             }
             if routing_index is not None:
-                manifest["routing_epochs"] = {
+                routing_epoch_manifest = {
+                    "current_epoch": routing_index.current_epoch,
                     "emitted_rows": {
-                        "1": counts["routing_epoch_1_emitted_rows"],
-                        "2": counts["routing_epoch_2_emitted_rows"],
+                        str(epoch): counts[f"routing_epoch_{epoch}_emitted_rows"]
+                        for epoch in range(1, routing_index.current_epoch + 1)
                     },
                     "epoch1_row_hashes_sha256": routing_index.epoch1_rows_artifact.sha256,
                     "index_sha256": routing_index.artifact.sha256,
                     "input_traces": {
-                        "1": counts["routing_epoch_1_input_traces"],
-                        "2": counts["routing_epoch_2_input_traces"],
+                        str(epoch): counts[f"routing_epoch_{epoch}_input_traces"]
+                        for epoch in range(1, routing_index.current_epoch + 1)
                     },
                     "results_sha256": routing_index.results_sha256,
                     "row_mapping": "one unique SHA-256 mapping per physical results.jsonl row",
                     "transition_sha256": routing_index.transition_sha256,
                 }
+                if routing_index.admission_transition_artifact is not None:
+                    routing_epoch_manifest["admission_transition_sha256"] = (
+                        routing_index.admission_transition_artifact.sha256
+                    )
+                if routing_index.epoch2_lineage_artifact is not None:
+                    routing_epoch_manifest["epoch2_lineage_sha256"] = routing_index.epoch2_lineage_artifact.sha256
+                manifest["routing_epochs"] = routing_epoch_manifest
             _write_json(temporary / "manifest.json", manifest)
             _fsync_dir(temporary / "train")
             _fsync_dir(temporary / "validation")
@@ -1268,8 +1427,8 @@ def export_sft(options: ExportOptions) -> dict[str, Any]:
             }
             if routing_index is not None:
                 summary["routing_epoch_rows"] = {
-                    "1": counts["routing_epoch_1_emitted_rows"],
-                    "2": counts["routing_epoch_2_emitted_rows"],
+                    str(epoch): counts[f"routing_epoch_{epoch}_emitted_rows"]
+                    for epoch in range(1, routing_index.current_epoch + 1)
                 }
             return summary
         finally:
