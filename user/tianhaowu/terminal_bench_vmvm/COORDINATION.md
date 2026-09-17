@@ -1,6 +1,6 @@
 # VMVM sandbox coordination
 
-Last updated: 2026-09-17 08:32 UTC
+Last updated: 2026-09-17 09:57 UTC
 
 ## First message to the next teammate
 
@@ -39,6 +39,19 @@ this shared branch again.
 Add new rows below this line; do not overwrite another owner's row.
 
 ## Open coordination requests
+
+- **2026-09-17 09:57 UTC, use2-3 Kimi/TB4 and oracle checkpoint:**
+  readiness/semantic route gate `1739467` completed successfully, and guarded
+  TB4 evaluation `1739469` is running. The evaluation is pinned to clean core
+  `62988609e` and wrapper `ef22c74cd`; the route-gate runtime corrections are
+  on the shared branch through `5f43fbf2f`. The live proxy's stale route was
+  cleared manually with `SIGHUP`. A serving-source correction exists only as
+  local commit `3e758ca` and has not been pushed, so that fix is not yet
+  reproducible from the shared branch. The oracle currently has 2,488/2,538
+  valid rows, below the 2,500 acceptance floor; the isolated repair canary is
+  still pending and there is no promotable oracle result yet. Do not claim a
+  TB4 score before the guarded evaluation and its terminal audit complete, and
+  do not start the 2,500-task Kimi rollout from the current oracle state.
 
 - **2026-09-17 08:32 UTC, use2-1 Qwen affinity cutover:** round-robin job
   `1448128` was stopped cleanly at 237 durable rows: 231 non-error traces, 133
