@@ -43,7 +43,7 @@ if [[ "$stop_after_smoke" != 0 && "$stop_after_smoke" != 1 ]]; then
     exit 2
 fi
 
-if [[ "$(git -C "$project_dir" rev-parse HEAD)" != cdd127921491dd59eea505f4c94cff207d6b16db \
+if [[ "$(git -C "$project_dir" rev-parse HEAD)" != ed1d83d5905bdd2db87ffbbe16e9374b9bd28ddd \
     || -n "$(git -C "$project_dir" status --porcelain=v1 --untracked-files=all)" ]]; then
     printf 'PROJECT_DIR must be the clean approved Kimi evaluation snapshot\n' >&2
     exit 2
