@@ -18,6 +18,7 @@ from wait_for_inference_routes import (
     GateError,
     ProcessResult,
     _child_environment,
+    _status_command,
     run_gate,
 )
 
@@ -262,14 +263,7 @@ def test_three_exact_polls_run_strict_probe_and_write_redacted_artifact(
     assert not list(tmp_path.glob(".gate.json.*.tmp"))
 
     status_argv = runner.calls[0][0]
-    assert status_argv == [
-        "/usr/bin/env",
-        "PATH=/usr/bin:/bin",
-        str(config.serve_sh),
-        "status",
-        config.deployment,
-        "--json",
-    ]
+    assert status_argv == _status_command(config)
     probe_argv = runner.calls[-2][0]
     assert probe_argv[:2] == [sys.executable, str(config.probe_script)]
     assert probe_argv[probe_argv.index("--proxy-info-sha256") + 1] == artifact["endpoint"]["proxy_info"]["sha256"]
@@ -741,6 +735,31 @@ def test_all_proxy_environment_variables_are_removed_from_children() -> None:
     assert child == {"PATH": "/bin"}
 
 
+def test_status_command_uses_gate_interpreter_and_pins_serve_source(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    config = _config(tmp_path)
+    inherited_pythonpath = os.pathsep.join(
+        (
+            "/gate/workflow",
+            "/checkpoint/ram/tianhaowu/terminal_bench_vmvm/python_x86_64",
+        )
+    )
+    monkeypatch.setenv("PYTHONPATH", inherited_pythonpath)
+
+    assert _status_command(config) == [
+        "/usr/bin/env",
+        "PATH=/usr/bin:/bin",
+        f"PYTHONPATH={config.serve_sh.resolve().parent / 'src'}{os.pathsep}{inherited_pythonpath}",
+        sys.executable,
+        "-m",
+        "serve_api_v2.cli.status",
+        config.deployment,
+        "--json",
+    ]
+
+
 def test_sbatch_wrapper_is_cpu_only_and_forwards_safe_tunables(tmp_path: Path) -> None:
     wrapper = Path(__file__).parents[1] / "wait_for_inference_routes.sbatch"
     wrapper_text = wrapper.read_text()
@@ -757,8 +776,7 @@ def test_sbatch_wrapper_is_cpu_only_and_forwards_safe_tunables(tmp_path: Path) -
     assert "#SBATCH --gres" not in wrapper_text
     assert "#SBATCH --gpus" not in wrapper_text
     assert (
-        "x86_site=${PYTHON_SITE_X86_64:-"
-        "/checkpoint/ram/tianhaowu/terminal_bench_vmvm/python_x86_64}"
+        "x86_site=${PYTHON_SITE_X86_64:-/checkpoint/ram/tianhaowu/terminal_bench_vmvm/python_x86_64}"
     ) in wrapper_text
 
     workflow = tmp_path / "user/tianhaowu/terminal_bench_vmvm"

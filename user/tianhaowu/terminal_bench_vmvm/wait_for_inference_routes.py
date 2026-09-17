@@ -433,17 +433,21 @@ def _validate_config(config: GateConfig) -> None:
 
 
 def _status_command(config: GateConfig) -> list[str]:
-    # Login-node PATH entries may contain architecture-specific developer
-    # tools (for example an aarch64 ``uv`` binary).  Those entries are
-    # inherited by x86 Slurm jobs, where serve.sh would select the unusable
-    # binary and return rc=1 with empty stdout.  Use only the system PATH for
-    # this status subprocess so serve.sh deterministically falls back to its
-    # deployment-local virtualenv on either architecture.
+    # Never execute serve.sh here: its project virtualenv may have been
+    # materialized for the login node's architecture.  The configured script
+    # still pins the serve_api_v2 checkout whose source must be imported, while
+    # the gate's interpreter and PYTHONPATH provide the compute-node runtime.
+    serve_src = config.serve_sh.resolve().parent / "src"
+    pythonpath = str(serve_src)
+    if inherited_pythonpath := os.environ.get("PYTHONPATH"):
+        pythonpath = os.pathsep.join((pythonpath, inherited_pythonpath))
     return [
         "/usr/bin/env",
         f"PATH={STATUS_PATH}",
-        str(config.serve_sh),
-        "status",
+        f"PYTHONPATH={pythonpath}",
+        sys.executable,
+        "-m",
+        "serve_api_v2.cli.status",
         config.deployment,
         "--json",
     ]

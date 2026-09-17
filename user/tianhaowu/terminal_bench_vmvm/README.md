@@ -56,7 +56,9 @@ bash user/tianhaowu/terminal_bench_vmvm/fetch_tb4.sh
 The dependency target defaults to
 `/checkpoint/ram/tianhaowu/terminal_bench_vmvm/python_x86_64`. Slurm jobs add
 the local source trees ahead of it in `PYTHONPATH`, so code edits take effect
-without rebuilding that layer.
+without rebuilding that layer. The route gate runs the `serve_api_v2` status
+module with its compute-node Python rather than executing `serve.sh`, whose
+checkout virtualenv may have been materialized for the ARM64 login node.
 
 `vmvm-sandbox` intentionally does not check out the 2,538 task directories.
 Materialize the pinned repaired corpus as a detached worktree instead:
