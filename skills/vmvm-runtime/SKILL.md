@@ -272,7 +272,11 @@ Mobius, and rejects resume. TB4 shard plans derive their accepted rollout and
 HTTP concurrency from the pinned base config, allowing only the shared value 4
 or this server-lane value 24; never rewrite a server shard to the shared value
 4. Run its TB4 certificate audit with expected rollout concurrency 24 and
-lease-start concurrency 2.
+lease-start concurrency 2. The 24/2 audit and every shard certificate require
+the bound smoke checkpoint to qualify exactly 24 rollout, multiplex, and HTTP
+slots with two lease starts, and to observe peaks of exactly 24 active rollouts
+and two lease starts across at least 24 traces. The shared 4/2 lane keeps its
+existing two-task transcript-smoke policy.
 Configured limits do not prove achieved capacity. Guarded VMVM evaluators must
 publish the aggregate-only, mode-0400 `concurrency_telemetry.json` at clean
 interpreter exit. It measures the peak count of holders of the vacli lease-start

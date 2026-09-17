@@ -763,6 +763,7 @@ def _certify_shard(
     expected_rollout_concurrency: int,
     expected_lease_start_concurrency: int,
 ) -> CertifiedShard:
+    from audit_tb4_results import TB4AuditError, _validate_deployment_checkpoints
     from eval_run_identity import EvalIdentityError, load_eval_run_identity
     from guard_success_receipt import (
         GuardReceiptError,
@@ -802,6 +803,18 @@ def _certify_shard(
         or vmvm_environment.get("lease_start_concurrency") != expected_lease_start_concurrency
     ):
         raise ShardWorkflowError("shard_execution_contract_invalid")
+    try:
+        _validate_deployment_checkpoints(
+            identity,
+            deployment.get("endpoint"),
+            expected_routes=EXPECTED_ROUTES_BY_ROLLOUT_CONCURRENCY[
+                expected_rollout_concurrency
+            ],
+            expected_rollout_concurrency=expected_rollout_concurrency,
+            expected_lease_start_concurrency=expected_lease_start_concurrency,
+        )
+    except TB4AuditError as error:
+        raise ShardWorkflowError("shard_deployment_checkpoint_invalid") from error
     task_record = inputs.get("task_file")
     resolved_config_record = config_section.get("resolved")
     source_config_record = config_section.get("source")

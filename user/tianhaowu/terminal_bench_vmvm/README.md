@@ -407,7 +407,12 @@ concurrency 24 while retaining lease-start concurrency 2. The generic Kimi TB4
 qualification remains at concurrency 4. Shard plans inherit either supported
 contract from their pinned base config; do not substitute the shared value 4
 for this server lane. The server launcher runs the TB4 certificate audit with
-the explicit 24/2 contract after a successful guarded evaluation.
+the explicit 24/2 contract after a successful guarded evaluation. That audit,
+including each shard certification, requires the bound smoke checkpoint to
+qualify exactly 24 rollout, multiplex, and HTTP slots with two lease starts,
+and to observe peaks of exactly 24 active rollouts and two lease starts across
+at least 24 traces. The shared 4/2 lane keeps its existing two-task
+transcript-smoke policy.
 
 ### Two-worker direct fallback
 
