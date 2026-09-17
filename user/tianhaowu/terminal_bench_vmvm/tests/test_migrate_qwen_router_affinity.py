@@ -55,8 +55,7 @@ def test_slurm_terminal_check_accepts_cancelled_by_numeric_uid(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     def fake_run(command: list[str]) -> str:
-        if command[0] == "squeue":
-            return ""
+        assert command[0] == "sacct"
         assert command[-1] == "--format=State%64"
         return "CANCELLED by 656177|\n"
 
@@ -72,9 +71,29 @@ def test_slurm_terminal_check_fails_closed_on_nonterminal_or_malformed_state(
     monkeypatch.setattr(
         migration,
         "_run",
-        lambda command: "" if command[0] == "squeue" else f"{state}|\n",
+        lambda _command: f"{state}|\n",
     )
     assert migration.slurm_job_is_terminal("1448128") is False
+
+
+@pytest.mark.parametrize(
+    "sacct_output",
+    ["", "UNKNOWN|\n", "PENDING|\n", "COMPLETED|\nRUNNING|\n"],
+)
+def test_slurm_terminal_check_rejects_missing_unknown_or_mixed_states(
+    sacct_output: str,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls: list[list[str]] = []
+
+    def fake_run(command: list[str]) -> str:
+        calls.append(command)
+        return sacct_output
+
+    monkeypatch.setattr(migration, "_run", fake_run)
+    assert migration.slurm_job_is_terminal("1448128") is False
+    assert len(calls) == 1
+    assert calls[0][0] == "sacct"
 
 
 def _write_source_run(
