@@ -273,6 +273,47 @@ tmux send-keys -t swebench_vmvm:Launcher.0 \
   "cd /checkpoint/ram/tianhaowu/terminal_bench_vmvm/sources/prime-rl-<commit> && env PROJECT_DIR=\$PWD RESULTS_DIR=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/evals/tb4_kimi_k3_sticky_full_v3 sbatch --parsable \$PWD/user/tianhaowu/terminal_bench_vmvm/run_tb4_audit.sbatch" C-m
 ```
 
+If only the backend worker generation rotates before launch, a completed
+schema-1 smoke may be qualified for the new generation without changing or
+relabeling that smoke. First pass a fresh readiness gate for the replacement
+workers, then publish a separate schema-2 bridge:
+
+```bash
+python user/tianhaowu/terminal_bench_vmvm/create_smoke_generation_bridge.py \
+  --output /path/to/write-once/smoke_generation_bridge.json \
+  --source-smoke-checkpoint /path/to/source-smoke/smoke_checkpoint.json \
+  --source-smoke-checkpoint-sha256 <source-smoke-file-sha256> \
+  --deployment-id <deployment-id> \
+  --deployment-spec /path/to/deployment/spec.yaml \
+  --deployment-spec-sha256 <exact-spec-sha256> \
+  --target-readiness-checkpoint /path/to/fresh-readiness.json \
+  --target-readiness-checkpoint-sha256 <fresh-readiness-file-sha256> \
+  --proxy-info /path/to/deployment/proxy_info.json \
+  --proxy-info-sha256 <unchanged-proxy-info-sha256>
+```
+
+Use the resulting file and its external SHA-256 as
+`INFERENCE_SMOKE_CHECKPOINT` and `INFERENCE_SMOKE_CHECKPOINT_SHA256`. The
+bridge is accepted only when the deployment ID, spec path/hash, model,
+coordinator incarnation, proxy incarnation, proxy-info path/hash, endpoint
+authority, and parsed proxy policy remain exact. The source and target route
+sets must differ, so this mechanism cannot certify a proxy, coordinator,
+policy, model, or deployment rotation. It recursively revalidates the source
+schema-1 smoke, its identity, configuration, results hashes, guard receipt,
+single non-resume invocation, and evaluator/model-I/O/tool/thinking contract.
+
+The fresh bridge probe reuses readiness's sticky representative session for
+every target backend. On each backend it sends `reasoning_effort=max`, both
+thinking flags, and an actual function-tool call followed by its tool result;
+both responses must report the exact model and nonempty reasoning. The bridge
+stores only request/response SHA-256 values and aggregate pass facts, never
+messages, reasoning, tool arguments, endpoint URLs, or credentials. The file
+is mode 0444, self-hashed, and write-once. A changed source artifact, duplicate
+JSON key, type mismatch, missing backend, or proxy-info rotation fails closed.
+Every shard still performs its own fresh route guard against the target
+generation. Cross-generation resume remains forbidden: restart an interrupted
+shard in a new output directory with a newly validated bridge and guard.
+
 Every real launch through `run_eval.sbatch` requires
 `EVAL_RUN_ROLE`, `EVAL_DEPLOYMENT_ID`, `EVAL_EXPECTED_MODEL`, an exact
 deployment spec and passed readiness artifact, one dataset authority, and an

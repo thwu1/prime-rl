@@ -44,6 +44,10 @@ from inference_route_generation import (
     validate_readiness_route_generation,
     validate_route_generation,
 )
+from smoke_qualification import (
+    SmokeQualificationError,
+    validate_smoke_qualification,
+)
 
 EXPECTED_TASK_COUNT = 66
 EXPECTED_SUPPORTED_TASK_COUNT = 63
@@ -52,9 +56,7 @@ EXPECTED_TB4_ROLLOUT_CONCURRENCY = 4
 EXPECTED_TB4_LEASE_START_CONCURRENCY = 2
 EXPECTED_MIN_SUPPORTED_PASS_RATE = 0.04
 EXPECTED_MAX_SUPPORTED_PASS_RATE = 0.22
-EXPECTED_OUTBOUND_BODY_DENYLIST = frozenset(
-    {"logprobs", "prompt_logprobs", "return_token_ids", "top_logprobs"}
-)
+EXPECTED_OUTBOUND_BODY_DENYLIST = frozenset({"logprobs", "prompt_logprobs", "return_token_ids", "top_logprobs"})
 EXPECTED_MODEL_IO_CONTRACT = {
     "provider_route": KIMI_K3_MAX_MODEL_IO_CONTRACT.provider_route,
     "request_model": KIMI_K3_MAX_MODEL_IO_CONTRACT.request_model,
@@ -101,7 +103,11 @@ def _identity_artifact(record: object, *, label: str) -> tuple[Path, str]:
         raise TB4AuditError(f"{label}_identity_invalid")
     path = _resolved_file(Path(str(record["path"])), label=label)
     digest = record["sha256"]
-    if not isinstance(digest, str) or len(digest) != 64 or any(character not in "0123456789abcdef" for character in digest):
+    if (
+        not isinstance(digest, str)
+        or len(digest) != 64
+        or any(character not in "0123456789abcdef" for character in digest)
+    ):
         raise TB4AuditError(f"{label}_identity_invalid")
     if _sha256_file(path, label=label) != digest:
         raise TB4AuditError(f"{label}_sha256_mismatch")
@@ -370,8 +376,7 @@ def _validate_tb4_identity(envelope: dict[str, Any]) -> dict[str, Any]:
         or contract.get("pass_at_1") is not True
         or contract.get("num_rollouts") != 1
         or contract.get("reasoning_effort") != "max"
-        or canonical_json(thinking)
-        != canonical_json({"enable_thinking": True, "preserve_thinking": True})
+        or canonical_json(thinking) != canonical_json({"enable_thinking": True, "preserve_thinking": True})
         or not isinstance(context, dict)
         or set(context) != {"max_input_tokens", "max_output_tokens", "max_total_tokens"}
         or any(value != DEFAULT_MAX_SEQUENCE_TOKENS for value in context.values())
@@ -454,12 +459,8 @@ def _validate_provenance(
         "renderers_tree": source.get("renderers_tree_sha256"),
         "vmvm_tb_v2": source.get("vmvm_tb_v2_sha256"),
         "deployment_id": deployment.get("id"),
-        "deployment_endpoint_authority_sha256": deployment.get("endpoint", {}).get(
-            "authority_sha256"
-        ),
-        "deployment_proxy_info_sha256": deployment.get("endpoint", {})
-        .get("proxy_info", {})
-        .get("sha256"),
+        "deployment_endpoint_authority_sha256": deployment.get("endpoint", {}).get("authority_sha256"),
+        "deployment_proxy_info_sha256": deployment.get("endpoint", {}).get("proxy_info", {}).get("sha256"),
         "eval_run_role": "tb4",
         "eval_run_identity_sha256": identity_sha256,
         "approval_task_file_sha256": task_file.get("sha256"),
@@ -475,7 +476,7 @@ def _validate_provenance(
         raise TB4AuditError("provenance_mismatch")
 
 
-def _validate_deployment_checkpoints(
+def _validate_deployment_checkpoints_legacy(
     identity: dict[str, Any],
     endpoint: dict[str, Any],
 ) -> tuple[tuple[Path, str], tuple[Path, str]]:
@@ -500,18 +501,14 @@ def _validate_deployment_checkpoints(
         raise TB4AuditError("readiness_checkpoint_not_passed")
     try:
         readiness_endpoint = validate_endpoint_binding(readiness_payload.get("endpoint"))
-        identity_generation = validate_route_generation(
-            deployment.get("serving_route_generation")
-        )
+        identity_generation = validate_route_generation(deployment.get("serving_route_generation"))
         readiness_generation = validate_readiness_route_generation(
             readiness_payload,
             deployment_id=deployment.get("id"),
             deployment_spec_sha256=spec["sha256"],
         )
         identity_proxy_policy = validate_proxy_policy_binding(deployment.get("proxy_policy"))
-        readiness_proxy_policy = validate_proxy_policy_binding(
-            readiness_payload.get("proxy_policy")
-        )
+        readiness_proxy_policy = validate_proxy_policy_binding(readiness_payload.get("proxy_policy"))
         revalidate_deployment_proxy_policy(
             Path(spec["path"]),
             expected_spec_sha256=spec["sha256"],
@@ -531,14 +528,10 @@ def _validate_deployment_checkpoints(
         raise TB4AuditError("readiness_checkpoint_endpoint_mismatch")
     smoke_payload = _read_json_object(smoke[0], label="smoke_checkpoint")
     self_digest = smoke_payload.get("smoke_checkpoint_sha256")
-    smoke_body = {
-        key: value for key, value in smoke_payload.items() if key != "smoke_checkpoint_sha256"
-    }
+    smoke_body = {key: value for key, value in smoke_payload.items() if key != "smoke_checkpoint_sha256"}
     smoke_deployment = smoke_payload.get("deployment")
     smoke_artifacts = smoke_payload.get("artifacts")
-    smoke_readiness = (
-        smoke_artifacts.get("readiness_checkpoint") if isinstance(smoke_artifacts, dict) else None
-    )
+    smoke_readiness = smoke_artifacts.get("readiness_checkpoint") if isinstance(smoke_artifacts, dict) else None
     policy = smoke_payload.get("audit_policy")
     counts = smoke_payload.get("counts")
     if (
@@ -556,8 +549,7 @@ def _validate_deployment_checkpoints(
         or policy.get("rollouts_per_task") != 1
         or policy.get("require_reasoning") is not True
         or policy.get("require_model_io") is not True
-        or canonical_json(policy.get("model_io_contract"))
-        != canonical_json(EXPECTED_MODEL_IO_CONTRACT)
+        or canonical_json(policy.get("model_io_contract")) != canonical_json(EXPECTED_MODEL_IO_CONTRACT)
         or policy.get("require_token_data") is not False
         or policy.get("require_logprobs") is not False
         or policy.get("max_sequence_tokens") != DEFAULT_MAX_SEQUENCE_TOKENS
@@ -568,9 +560,7 @@ def _validate_deployment_checkpoints(
         raise TB4AuditError("smoke_checkpoint_not_passed")
     try:
         smoke_endpoint = validate_endpoint_binding(smoke_payload.get("endpoint"))
-        smoke_generation = validate_route_generation(
-            smoke_payload.get("serving_route_generation")
-        )
+        smoke_generation = validate_route_generation(smoke_payload.get("serving_route_generation"))
         smoke_proxy_policy = validate_proxy_policy_binding(smoke_payload.get("proxy_policy"))
     except (
         EndpointBindingError,
@@ -600,10 +590,56 @@ def _validate_deployment_checkpoints(
     return readiness, smoke
 
 
+def _validate_deployment_checkpoints(
+    identity: dict[str, Any],
+    endpoint: dict[str, Any],
+) -> tuple[tuple[Path, str], tuple[Path, str]]:
+    """Revalidate readiness and smoke through the shared qualification gate."""
+
+    deployment = identity.get("deployment")
+    contract = identity.get("contract")
+    if not isinstance(deployment, dict) or not isinstance(contract, dict):
+        raise TB4AuditError("deployment_identity_invalid")
+    spec = _identity_artifact(deployment.get("spec"), label="deployment_spec")
+    readiness = _identity_artifact(
+        deployment.get("readiness_checkpoint"),
+        label="readiness_checkpoint",
+    )
+    smoke = _identity_artifact(
+        deployment.get("smoke_checkpoint"),
+        label="smoke_checkpoint",
+    )
+    smoke_payload = _read_json_object(smoke[0], label="smoke_checkpoint")
+    if smoke_payload.get("schema_version") == 1:
+        return _validate_deployment_checkpoints_legacy(identity, endpoint)
+    proxy_info = endpoint.get("proxy_info")
+    if not isinstance(proxy_info, dict):
+        raise TB4AuditError("deployment_identity_invalid")
+    try:
+        evidence = validate_smoke_qualification(
+            smoke[0],
+            smoke[1],
+            deployment_id=deployment["id"],
+            deployment_spec_path=spec[0],
+            deployment_spec_sha256=spec[1],
+            readiness_path=readiness[0],
+            readiness_sha256=readiness[1],
+            proxy_info_path=Path(proxy_info["path"]),
+            proxy_info_sha256=proxy_info["sha256"],
+            model=contract["model"],
+            identity_loader=load_eval_run_identity,
+        )
+    except (KeyError, TypeError, SmokeQualificationError) as error:
+        raise TB4AuditError("smoke_checkpoint_not_passed") from error
+    if evidence.target_generation != deployment.get("serving_route_generation"):
+        raise TB4AuditError("smoke_checkpoint_endpoint_mismatch")
+    return readiness, smoke
+
+
 def _certificate_bytes(certificate: dict[str, Any]) -> bytes:
-    return (
-        json.dumps(certificate, allow_nan=False, ensure_ascii=False, indent=2, sort_keys=True) + "\n"
-    ).encode("utf-8")
+    return (json.dumps(certificate, allow_nan=False, ensure_ascii=False, indent=2, sort_keys=True) + "\n").encode(
+        "utf-8"
+    )
 
 
 def _publish_write_once(path: Path, certificate: dict[str, Any]) -> None:
@@ -780,10 +816,8 @@ def certify_tb4_results(
             raise TB4AuditError("tb4_audit_artifact_changed")
         if (
             before["results"] != guard_artifacts["results"]["sha256"]
-            or before["eval_run_identity"]
-            != guard_artifacts["eval_run_identity"]["sha256"]
-            or before["eval_invocations"]
-            != guard_artifacts["eval_invocations"]["sha256"]
+            or before["eval_run_identity"] != guard_artifacts["eval_run_identity"]["sha256"]
+            or before["eval_invocations"] != guard_artifacts["eval_invocations"]["sha256"]
             or before["config"] != config[1]
             or before["inputs_manifest"] != manifest[1]
             or before["readiness_checkpoint"] != readiness[1]
@@ -840,10 +874,7 @@ def certify_tb4_results(
                 "supported_pass_rate": summary["supported_pass_rate"],
                 "all_task_pass_rate": summary["all_task_pass_rate"],
             },
-            "artifacts": {
-                name: {"path": str(artifact_paths[name]), "sha256": before[name]}
-                for name in artifact_paths
-            },
+            "artifacts": {name: {"path": str(artifact_paths[name]), "sha256": before[name]} for name in artifact_paths},
         }
         certificate = {
             **unsigned,

@@ -29,6 +29,10 @@ from inference_route_generation import (
     validate_readiness_route_generation,
     validate_route_generation,
 )
+from smoke_qualification import (
+    SmokeQualificationError,
+    validate_smoke_qualification,
+)
 from tb4_shard_workflow import (
     PlannedShard,
     ShardWorkflowError,
@@ -850,7 +854,7 @@ def _validate_identity_references(
         raise WaveLaunchError("smoke_identity_provenance_invalid")
 
 
-def _validate_generation_bindings(
+def _validate_generation_bindings_legacy(
     *,
     deployment_id: str,
     deployment_spec: PinnedArtifact,
@@ -1121,6 +1125,43 @@ def _validate_generation_bindings(
         ):
             raise WaveLaunchError("smoke_observed_concurrency_invalid")
     return _sha256_bytes(canonical_json(generation))
+
+
+def _validate_generation_bindings(
+    *,
+    deployment_id: str,
+    deployment_spec: PinnedArtifact,
+    readiness: PinnedArtifact,
+    proxy_info: PinnedArtifact,
+    smoke: PinnedArtifact,
+) -> str:
+    """Validate v1 or bridged smoke through the shared qualification gate."""
+
+    payload = _json_object(smoke, label="smoke_checkpoint")
+    if payload.get("schema_version") == 1:
+        return _validate_generation_bindings_legacy(
+            deployment_id=deployment_id,
+            deployment_spec=deployment_spec,
+            readiness=readiness,
+            proxy_info=proxy_info,
+            smoke=smoke,
+        )
+    try:
+        evidence = validate_smoke_qualification(
+            smoke.path,
+            smoke.sha256,
+            deployment_id=deployment_id,
+            deployment_spec_path=deployment_spec.path,
+            deployment_spec_sha256=deployment_spec.sha256,
+            readiness_path=readiness.path,
+            readiness_sha256=readiness.sha256,
+            proxy_info_path=proxy_info.path,
+            proxy_info_sha256=proxy_info.sha256,
+            model=EXPECTED_MODEL,
+        )
+    except SmokeQualificationError as error:
+        raise WaveLaunchError("smoke_checkpoint_not_passed") from error
+    return _sha256_bytes(canonical_json(evidence.target_generation))
 
 
 def _git(

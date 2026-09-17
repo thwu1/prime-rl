@@ -39,6 +39,11 @@ from inference_route_generation import (
     validate_route_generation,
 )
 from pydantic_config import cli
+from smoke_qualification import (
+    SmokeQualificationError,
+    validate_smoke_qualification,
+    validate_target_evaluator_compatibility,
+)
 from verifiers.v1.cli.resolve import narrow_config
 from verifiers.v1.configs.eval import EvalConfig
 
@@ -373,7 +378,10 @@ def _dataset_identity(config: dict[str, Any], args: argparse.Namespace) -> dict[
             raise EvalIdentityError("dataset_revision_invalid")
         if taskset.get("dataset_revision") != args.dataset_revision:
             raise EvalIdentityError("dataset_revision_config_mismatch")
-        if _git_output(dataset_path, "rev-parse", "--verify", "HEAD", label="dataset_revision").strip() != args.dataset_revision:
+        if (
+            _git_output(dataset_path, "rev-parse", "--verify", "HEAD", label="dataset_revision").strip()
+            != args.dataset_revision
+        ):
             raise EvalIdentityError("dataset_revision_mismatch")
         if _git_output(
             dataset_path,
@@ -515,10 +523,7 @@ def _contract(
         raise EvalIdentityError("pass_at_1_required")
     thinking = sampling.get("chat_template_kwargs")
     expected_thinking = {"enable_thinking": True, "preserve_thinking": True}
-    if (
-        sampling.get("reasoning_effort") != "max"
-        or canonical_json(thinking) != canonical_json(expected_thinking)
-    ):
+    if sampling.get("reasoning_effort") != "max" or canonical_json(thinking) != canonical_json(expected_thinking):
         raise EvalIdentityError("max_reasoning_contract_required")
     limits = {
         "max_input_tokens": config.get("max_input_tokens"),
@@ -641,8 +646,7 @@ def _validate_smoke_checkpoint_payload(
         or policy.get("rollouts_per_task") != 1
         or policy.get("require_reasoning") is not True
         or policy.get("require_model_io") is not True
-        or canonical_json(policy.get("model_io_contract"))
-        != canonical_json(EXPECTED_MODEL_IO_CONTRACT)
+        or canonical_json(policy.get("model_io_contract")) != canonical_json(EXPECTED_MODEL_IO_CONTRACT)
         or policy.get("require_token_data") is not False
         or policy.get("require_logprobs") is not False
         or policy.get("max_sequence_tokens") != 262_144
@@ -686,9 +690,7 @@ def _validate_smoke_checkpoint_payload(
     envelope = load_eval_run_identity(Path(identity_artifact["path"]), verify_references=True)
     smoke_identity = envelope["identity"]
     smoke_deployment = smoke_identity.get("deployment")
-    smoke_readiness = (
-        smoke_deployment.get("readiness_checkpoint") if isinstance(smoke_deployment, dict) else None
-    )
+    smoke_readiness = smoke_deployment.get("readiness_checkpoint") if isinstance(smoke_deployment, dict) else None
     if (
         payload.get("eval_run_identity_sha256") != envelope.get("eval_run_identity_sha256")
         or not isinstance(smoke_deployment, dict)
@@ -782,15 +784,33 @@ def _checkpoint_identity(
             raise EvalIdentityError("smoke_checkpoint_required")
         smoke = _artifact(args.smoke_checkpoint, args.smoke_checkpoint_sha256, label="smoke_checkpoint")
         smoke_payload = _json_artifact(smoke, label="smoke_checkpoint")
-        _validate_smoke_checkpoint_payload(
-            smoke_payload,
-            deployment_id=args.deployment_id,
-            deployment_spec_sha256=spec["sha256"],
-            readiness=readiness,
-            endpoint=endpoint,
-            serving_route_generation=serving_route_generation,
-            proxy_policy=proxy_policy,
-        )
+        if smoke_payload.get("schema_version") == 1:
+            _validate_smoke_checkpoint_payload(
+                smoke_payload,
+                deployment_id=args.deployment_id,
+                deployment_spec_sha256=spec["sha256"],
+                readiness=readiness,
+                endpoint=endpoint,
+                serving_route_generation=serving_route_generation,
+                proxy_policy=proxy_policy,
+            )
+        else:
+            try:
+                validate_smoke_qualification(
+                    Path(smoke["path"]),
+                    smoke["sha256"],
+                    deployment_id=args.deployment_id,
+                    deployment_spec_path=Path(spec["path"]),
+                    deployment_spec_sha256=spec["sha256"],
+                    readiness_path=Path(readiness["path"]),
+                    readiness_sha256=readiness["sha256"],
+                    proxy_info_path=Path(endpoint["proxy_info"]["path"]),
+                    proxy_info_sha256=endpoint["proxy_info"]["sha256"],
+                    model=args.expected_model,
+                    identity_loader=load_eval_run_identity,
+                )
+            except SmokeQualificationError as error:
+                raise EvalIdentityError("smoke_checkpoint_not_passed") from error
     promotion: dict[str, str] | None = None
     if args.role == "mobius":
         if args.promotion_certificate is None or args.promotion_certificate_sha256 is None:
@@ -804,19 +824,13 @@ def _checkpoint_identity(
         promotion_deployment = promotion_payload.get("deployment")
         try:
             promotion_endpoint = validate_endpoint_binding(
-                promotion_deployment.get("endpoint")
-                if isinstance(promotion_deployment, dict)
-                else None
+                promotion_deployment.get("endpoint") if isinstance(promotion_deployment, dict) else None
             )
             promotion_generation = validate_route_generation(
-                promotion_deployment.get("serving_route_generation")
-                if isinstance(promotion_deployment, dict)
-                else None
+                promotion_deployment.get("serving_route_generation") if isinstance(promotion_deployment, dict) else None
             )
             promotion_proxy_policy = validate_proxy_policy_binding(
-                promotion_deployment.get("proxy_policy")
-                if isinstance(promotion_deployment, dict)
-                else None
+                promotion_deployment.get("proxy_policy") if isinstance(promotion_deployment, dict) else None
             )
         except (
             EndpointBindingError,
@@ -1239,9 +1253,7 @@ def _verify_checkpoint_records(identity: dict[str, Any], endpoint: dict[str, Any
             deployment_id=deployment.get("id"),
             deployment_spec_sha256=spec["sha256"],
         )
-        readiness_proxy_policy = validate_proxy_policy_binding(
-            readiness_payload.get("proxy_policy")
-        )
+        readiness_proxy_policy = validate_proxy_policy_binding(readiness_payload.get("proxy_policy"))
     except (
         EndpointBindingError,
         RouteGenerationError,
@@ -1268,15 +1280,34 @@ def _verify_checkpoint_records(identity: dict[str, Any], endpoint: dict[str, Any
         raise EvalIdentityError("eval_run_identity_schema_invalid")
     _artifact(Path(smoke["path"]), smoke["sha256"], label="smoke_checkpoint")
     smoke_payload = _json_artifact(smoke, label="smoke_checkpoint")
-    _validate_smoke_checkpoint_payload(
-        smoke_payload,
-        deployment_id=deployment["id"],
-        deployment_spec_sha256=spec["sha256"],
-        readiness=readiness,
-        endpoint=endpoint,
-        serving_route_generation=readiness_generation,
-        proxy_policy=readiness_proxy_policy,
-    )
+    if smoke_payload.get("schema_version") == 1:
+        _validate_smoke_checkpoint_payload(
+            smoke_payload,
+            deployment_id=deployment["id"],
+            deployment_spec_sha256=spec["sha256"],
+            readiness=readiness,
+            endpoint=endpoint,
+            serving_route_generation=readiness_generation,
+            proxy_policy=readiness_proxy_policy,
+        )
+    else:
+        try:
+            evidence = validate_smoke_qualification(
+                Path(smoke["path"]),
+                smoke["sha256"],
+                deployment_id=deployment["id"],
+                deployment_spec_path=Path(spec["path"]),
+                deployment_spec_sha256=spec["sha256"],
+                readiness_path=Path(readiness["path"]),
+                readiness_sha256=readiness["sha256"],
+                proxy_info_path=Path(endpoint["proxy_info"]["path"]),
+                proxy_info_sha256=endpoint["proxy_info"]["sha256"],
+                model=identity["contract"]["model"],
+                identity_loader=load_eval_run_identity,
+            )
+            validate_target_evaluator_compatibility(identity, evidence.evaluator_evidence)
+        except SmokeQualificationError as error:
+            raise EvalIdentityError("smoke_checkpoint_not_passed") from error
     if identity["role"] == "mobius":
         assert isinstance(promotion, dict)
         _artifact(Path(promotion["path"]), promotion["sha256"], label="promotion_certificate")
@@ -1284,19 +1315,13 @@ def _verify_checkpoint_records(identity: dict[str, Any], endpoint: dict[str, Any
         promotion_deployment = promotion_payload.get("deployment")
         try:
             promotion_endpoint = validate_endpoint_binding(
-                promotion_deployment.get("endpoint")
-                if isinstance(promotion_deployment, dict)
-                else None
+                promotion_deployment.get("endpoint") if isinstance(promotion_deployment, dict) else None
             )
             promotion_generation = validate_route_generation(
-                promotion_deployment.get("serving_route_generation")
-                if isinstance(promotion_deployment, dict)
-                else None
+                promotion_deployment.get("serving_route_generation") if isinstance(promotion_deployment, dict) else None
             )
             promotion_proxy_policy = validate_proxy_policy_binding(
-                promotion_deployment.get("proxy_policy")
-                if isinstance(promotion_deployment, dict)
-                else None
+                promotion_deployment.get("proxy_policy") if isinstance(promotion_deployment, dict) else None
             )
         except (
             EndpointBindingError,
@@ -1595,9 +1620,7 @@ def _bind_provenance(
             "renderers_tree": stable["renderers_tree"],
             "vmvm_tb_v2": stable["vmvm_tb_v2"],
             "deployment_id": stable["deployment_id"],
-            "deployment_endpoint_authority_sha256": stable[
-                "deployment_endpoint_authority_sha256"
-            ],
+            "deployment_endpoint_authority_sha256": stable["deployment_endpoint_authority_sha256"],
             "deployment_proxy_info_sha256": stable["deployment_proxy_info_sha256"],
             "eval_run_role": stable["eval_run_role"],
             "eval_run_identity_sha256": stable["eval_run_identity_sha256"],
@@ -1715,6 +1738,29 @@ def prepare(args: argparse.Namespace) -> str:
         "contract": contract,
         "execution": execution,
     }
+    if args.role != "smoke" and deployment["smoke_checkpoint"] is not None:
+        smoke_payload = _json_artifact(
+            deployment["smoke_checkpoint"],
+            label="smoke_checkpoint",
+        )
+        if smoke_payload.get("schema_version") == 2:
+            try:
+                evidence = validate_smoke_qualification(
+                    Path(deployment["smoke_checkpoint"]["path"]),
+                    deployment["smoke_checkpoint"]["sha256"],
+                    deployment_id=deployment["id"],
+                    deployment_spec_path=Path(deployment["spec"]["path"]),
+                    deployment_spec_sha256=deployment["spec"]["sha256"],
+                    readiness_path=Path(deployment["readiness_checkpoint"]["path"]),
+                    readiness_sha256=deployment["readiness_checkpoint"]["sha256"],
+                    proxy_info_path=Path(endpoint_info.binding["proxy_info"]["path"]),
+                    proxy_info_sha256=endpoint_info.binding["proxy_info"]["sha256"],
+                    model=contract["model"],
+                    identity_loader=load_eval_run_identity,
+                )
+                validate_target_evaluator_compatibility(identity, evidence.evaluator_evidence)
+            except SmokeQualificationError as error:
+                raise EvalIdentityError("smoke_checkpoint_target_evaluator_mismatch") from error
     identity_sha256 = _bind_identity(output_dir, identity, resume=args.mode == "resume")
     _bind_provenance(output_dir, identity, identity_sha256, args)
     return identity_sha256
