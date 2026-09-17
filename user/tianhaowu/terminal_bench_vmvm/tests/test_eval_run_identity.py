@@ -11,6 +11,7 @@ import eval_run_identity
 import pytest
 import tomli_w
 from deployment_endpoint import load_deployment_endpoint
+from deployment_proxy_policy import load_deployment_proxy_policy
 from eval_run_identity import (
     EvalIdentityError,
     _bind_identity,
@@ -24,6 +25,10 @@ from eval_run_identity import (
     _write_resolved_config,
     canonical_json,
     load_eval_run_identity,
+)
+from guard_success_receipt import (
+    build_guard_success_receipt,
+    write_guard_success_receipt,
 )
 
 
@@ -115,6 +120,33 @@ def _identity() -> dict:
                 "proxy_info": {"path": "/deployment/proxy_info.json", "sha256": artifact_sha256},
                 "authority_sha256": "b" * 64,
             },
+            "serving_route_generation": {
+                "schema_version": 2,
+                "coordinator": {
+                    "slurm_job_id": "900",
+                    "started_at": "2026-09-17T00:00:00Z",
+                },
+                "proxy": {
+                    "slurm_job_id": "999",
+                    "first_ready_at": "2026-09-17T00:30:00Z",
+                },
+                "routes": [
+                    {
+                        "slurm_job_id": "12345",
+                        "started_at": "2026-09-17T01:00:00Z",
+                        "backend_sha256": f"backend-sha256:{'c' * 64}",
+                    }
+                ],
+            },
+            "proxy_policy": {
+                "schema_version": 1,
+                "request_timeout": 7200,
+                "num_retries": 0,
+                "proxy_litellm_config": {
+                    "path": "/deployment/proxy_litellm_config.yaml",
+                    "sha256": "d" * 64,
+                },
+            },
             "routing": {"deployment_id": None, "headers": {}},
             "spec": {"path": "/deployment/spec.yaml", "sha256": artifact_sha256},
             "readiness_checkpoint": {
@@ -154,6 +186,11 @@ def test_eval_identity_rejects_legacy_and_mismatched_resume(tmp_path: Path) -> N
     legacy["deployment"].pop("endpoint")
     with pytest.raises(EvalIdentityError, match="schema_invalid"):
         _identity_envelope(legacy)
+
+    legacy_generation = _identity()
+    legacy_generation["deployment"].pop("serving_route_generation")
+    with pytest.raises(EvalIdentityError, match="schema_invalid"):
+        _identity_envelope(legacy_generation)
 
     with pytest.raises(EvalIdentityError, match="legacy_resume"):
         _bind_identity(tmp_path, _identity(), resume=True)
@@ -273,7 +310,19 @@ def test_checkpoint_chain_is_hashed_and_role_aware(tmp_path: Path, monkeypatch: 
     deployment_dir = tmp_path / deployment_id
     deployment_dir.mkdir()
     spec = deployment_dir / "spec.yaml"
-    spec.write_text("version: pinned\n")
+    spec.write_text(
+        "spec:\n"
+        "  proxy:\n"
+        "    config:\n"
+        "      request_timeout: 7200\n"
+        "      num_retries: 0\n"
+    )
+    generated_proxy_config = deployment_dir / "proxy_litellm_config.yaml"
+    generated_proxy_config.write_text(
+        "litellm_settings:\n"
+        "  request_timeout: 7200\n"
+        "  num_retries: 0\n"
+    )
     proxy_info = deployment_dir / "proxy_info.json"
     proxy_info.write_text(
         json.dumps(
@@ -296,6 +345,29 @@ def test_checkpoint_chain_is_hashed_and_role_aware(tmp_path: Path, monkeypatch: 
         deployment_spec=spec,
         expected_proxy_info_sha256=_sha256(proxy_info),
     ).binding
+    backend_sha256 = hashlib.sha256(b"http://worker-0:8000/v1").hexdigest()
+    serving_route_generation = {
+        "schema_version": 2,
+        "coordinator": {
+            "slurm_job_id": "900",
+            "started_at": "2026-09-17T00:00:00Z",
+        },
+        "proxy": {
+            "slurm_job_id": "12345",
+            "first_ready_at": "2026-09-17T00:30:00Z",
+        },
+        "routes": [
+            {
+                "slurm_job_id": "12345",
+                "started_at": "2026-09-17T01:00:00Z",
+                "backend_sha256": f"backend-sha256:{backend_sha256}",
+            }
+        ],
+    }
+    proxy_policy = load_deployment_proxy_policy(
+        spec,
+        expected_spec_sha256=_sha256(spec),
+    )
     readiness = tmp_path / "readiness.json"
     readiness.write_text(
         json.dumps(
@@ -305,7 +377,31 @@ def test_checkpoint_chain_is_hashed_and_role_aware(tmp_path: Path, monkeypatch: 
                 "deployment": deployment_id,
                 "observed_spec_sha256": _sha256(spec),
                 "endpoint": endpoint,
-                "probe": {"ok": True},
+                "proxy_policy": proxy_policy,
+                "serving_route_generation": serving_route_generation,
+                "expected_routes": 1,
+                "last_status": {
+                    "schema_version": 4,
+                    "deployment_id": deployment_id,
+                    "phase": "serving",
+                    "desired": 1,
+                    "ready": 1,
+                    "running_not_ready": 0,
+                    "pending": 0,
+                    "coordinator_incarnation": serving_route_generation["coordinator"],
+                    "coord_ticks_completed": 10,
+                    "serving_route_generation": serving_route_generation,
+                },
+                "probe": {
+                    "ok": True,
+                    "endpoint_authority_sha256": endpoint["authority_sha256"],
+                    "coverage": {
+                        "ok": True,
+                        "expected_routes": 1,
+                        "discovered_routes": 1,
+                        "backends": [f"backend-sha256:{backend_sha256}"],
+                    },
+                },
             }
         )
         + "\n"
@@ -314,6 +410,8 @@ def test_checkpoint_chain_is_hashed_and_role_aware(tmp_path: Path, monkeypatch: 
     smoke_identity["deployment"] = {
         "id": deployment_id,
         "endpoint": endpoint,
+        "serving_route_generation": serving_route_generation,
+        "proxy_policy": proxy_policy,
         "routing": {"deployment_id": None, "headers": {}},
         "spec": {"path": str(spec), "sha256": _sha256(spec)},
         "readiness_checkpoint": {"path": str(readiness), "sha256": _sha256(readiness)},
@@ -334,9 +432,47 @@ def test_checkpoint_chain_is_hashed_and_role_aware(tmp_path: Path, monkeypatch: 
         "proxy_info": endpoint["proxy_info"],
     }
     for name in ("results", "config", "inputs_manifest", "provenance"):
-        path = tmp_path / name
+        path = tmp_path / ("results.jsonl" if name == "results" else name)
         path.write_bytes(f"opaque {name}".encode())
         artifacts[name] = {"path": str(path), "sha256": _sha256(path)}
+    invocations = tmp_path / "eval_invocations.jsonl"
+    invocations.write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "eval_run_identity_sha256": envelope["eval_run_identity_sha256"],
+                "role": "smoke",
+                "resume": False,
+                "host": "test-host",
+                "slurm_job_id": "1",
+            }
+        )
+        + "\n"
+    )
+    artifacts["eval_invocations"] = {
+        "path": str(invocations),
+        "sha256": _sha256(invocations),
+    }
+    guard_receipt_path = tmp_path / "route_guard_success.json"
+    guard_receipt = build_guard_success_receipt(
+        eval_run_identity_sha256=envelope["eval_run_identity_sha256"],
+        eval_run_role="smoke",
+        eval_run_identity=eval_identity,
+        eval_invocations=invocations,
+        results=Path(artifacts["results"]["path"]),
+        deployment_id=deployment_id,
+        deployment_spec_sha256=_sha256(spec),
+        readiness_checkpoint=readiness,
+        readiness_checkpoint_sha256=_sha256(readiness),
+        endpoint=endpoint,
+        serving_route_generation=serving_route_generation,
+        proxy_policy=proxy_policy,
+    )
+    write_guard_success_receipt(guard_receipt_path, guard_receipt)
+    artifacts["route_guard_success"] = {
+        "path": str(guard_receipt_path),
+        "sha256": _sha256(guard_receipt_path),
+    }
     smoke_body = {
         "schema_version": 1,
         "state": "passed",
@@ -344,6 +480,8 @@ def test_checkpoint_chain_is_hashed_and_role_aware(tmp_path: Path, monkeypatch: 
         "eval_run_identity_sha256": envelope["eval_run_identity_sha256"],
         "deployment": {"id": deployment_id, "spec_sha256": _sha256(spec)},
         "endpoint": endpoint,
+        "serving_route_generation": serving_route_generation,
+        "proxy_policy": proxy_policy,
         "audit_policy": {
             "expected_traces": 2,
             "rollouts_per_task": 1,
@@ -394,7 +532,19 @@ def test_checkpoint_chain_is_hashed_and_role_aware(tmp_path: Path, monkeypatch: 
     with pytest.raises(EvalIdentityError, match="readiness_checkpoint_not_passed"):
         _checkpoint_identity(args, mismatched_endpoint)
     promotion = tmp_path / "promotion.json"
-    promotion.write_text(json.dumps({"state": "passed", "deployment": {"endpoint": endpoint}}) + "\n")
+    promotion.write_text(
+        json.dumps(
+            {
+                "state": "passed",
+                "deployment": {
+                    "endpoint": endpoint,
+                    "serving_route_generation": serving_route_generation,
+                    "proxy_policy": proxy_policy,
+                },
+            }
+        )
+        + "\n"
+    )
     args.role = "mobius"
     args.promotion_certificate = promotion
     args.promotion_certificate_sha256 = _sha256(promotion)

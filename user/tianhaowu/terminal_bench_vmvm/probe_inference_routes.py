@@ -23,6 +23,7 @@ from pathlib import Path
 from typing import Any, Mapping, Protocol, Sequence
 
 from deployment_endpoint import SHA256_RE, EndpointBindingError, load_deployment_endpoint
+from inference_route_generation import RouteGenerationError, canonical_backend_identifier
 
 BACKEND_HEADER = "x-litellm-model-api-base"
 SESSION_HEADERS = ("X-LiteLLM-Session-ID", "X-Session-ID")
@@ -477,11 +478,10 @@ def _backend_identifier(raw_backend: str) -> tuple[str, str | None]:
     """Return a safe comparable API-base value without leaking embedded credentials."""
 
     try:
-        normalized = _validate_base_url(raw_backend)
-    except ValueError:
+        identifier = canonical_backend_identifier(raw_backend)
+    except RouteGenerationError:
         return "invalid-backend", "invalid_backend_header"
-    digest = hashlib.sha256(normalized.encode()).hexdigest()
-    return f"backend-sha256:{digest}", None
+    return identifier, None
 
 
 def _attempted_retries(headers: Mapping[str, str]) -> tuple[int | None, str | None]:

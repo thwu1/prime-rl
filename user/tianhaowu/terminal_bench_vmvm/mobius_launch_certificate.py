@@ -23,7 +23,22 @@ from deployment_endpoint import (
     load_deployment_endpoint,
     validate_endpoint_binding,
 )
+from deployment_proxy_policy import (
+    DeploymentProxyPolicyError,
+    revalidate_deployment_proxy_policy,
+    validate_proxy_policy_binding,
+)
 from eval_run_identity import EvalIdentityError, load_eval_run_identity
+from guard_success_receipt import (
+    GuardReceiptError,
+    load_guard_success_receipt,
+    validate_guard_success_linkage,
+)
+from inference_route_generation import (
+    RouteGenerationError,
+    validate_readiness_route_generation,
+    validate_route_generation,
+)
 
 SCHEMA_VERSION = 1
 ARTIFACT_TYPE = "terminal_bench_vmvm_mobius_launch_certificate"
@@ -567,6 +582,8 @@ def _validate_tb4_checkpoint(
         "counts",
         "deployment",
         "endpoint",
+        "serving_route_generation",
+        "proxy_policy",
         "eval_run_identity_sha256",
         "ok",
         "schema_version",
@@ -583,6 +600,15 @@ def _validate_tb4_checkpoint(
     )
     deployment = value.get("deployment")
     checkpoint_endpoint = _endpoint_binding(value.get("endpoint"), label="tb4_endpoint")
+    try:
+        checkpoint_generation = validate_route_generation(
+            value.get("serving_route_generation")
+        )
+        checkpoint_proxy_policy = validate_proxy_policy_binding(value.get("proxy_policy"))
+    except (RouteGenerationError, DeploymentProxyPolicyError) as cause:
+        raise LaunchCertificateError("tb4_checkpoint_schema_invalid") from cause
+    if len(checkpoint_generation["routes"]) != 1:
+        raise LaunchCertificateError("tb4_route_count_invalid")
     if (
         value.get("schema_version") != 1
         or value.get("state") != "passed"
@@ -675,10 +701,12 @@ def _validate_tb4_checkpoint(
     expected_artifacts = {
         "config",
         "eval_run_identity",
+        "eval_invocations",
         "inputs_manifest",
         "provenance",
         "readiness_checkpoint",
         "results",
+        "route_guard_success",
         "smoke_checkpoint",
         "proxy_info",
     }
@@ -694,7 +722,7 @@ def _validate_tb4_checkpoint(
     try:
         identity_envelope = load_eval_run_identity(
             artifact_paths["eval_run_identity"],
-            verify_references=True,
+            verify_references=False,
         )
     except (EvalIdentityError, OSError, ValueError) as cause:
         raise LaunchCertificateError("tb4_eval_run_identity_invalid") from cause
@@ -712,6 +740,8 @@ def _validate_tb4_checkpoint(
         not isinstance(identity_deployment, dict)
         or identity_deployment.get("id") != deployment_id
         or identity_deployment.get("endpoint") != endpoint
+        or identity_deployment.get("serving_route_generation") != checkpoint_generation
+        or identity_deployment.get("proxy_policy") != checkpoint_proxy_policy
         or not isinstance(identity_deployment.get("spec"), dict)
         or identity_deployment["spec"].get("sha256") != deployment["spec_sha256"]
         or not isinstance(identity_inputs, dict)
@@ -747,9 +777,34 @@ def _validate_tb4_checkpoint(
         ),
     ):
         _records_match(identity_record, artifact_records[artifact_name], label=f"tb4_{artifact_name}_link")
+    try:
+        guard_receipt = load_guard_success_receipt(
+            artifact_paths["route_guard_success"],
+        )
+        guard_artifacts = validate_guard_success_linkage(
+            guard_receipt,
+            run_dir=artifact_paths["eval_run_identity"].parent,
+            eval_run_identity_sha256=value["eval_run_identity_sha256"],
+            eval_run_role="tb4",
+            eval_run_identity_file_sha256=artifact_records["eval_run_identity"]["sha256"],
+            results_sha256=artifact_records["results"]["sha256"],
+            deployment_id=deployment_id,
+            deployment_spec_sha256=deployment["spec_sha256"],
+            readiness_checkpoint=artifact_records["readiness_checkpoint"],
+            endpoint=endpoint,
+            serving_route_generation=checkpoint_generation,
+            proxy_policy=checkpoint_proxy_policy,
+        )
+    except (OSError, GuardReceiptError) as cause:
+        raise LaunchCertificateError("tb4_guard_success_receipt_invalid") from cause
+    if guard_artifacts["eval_invocations"] != artifact_records["eval_invocations"]:
+        raise LaunchCertificateError("tb4_guard_success_receipt_invalid")
     return {
         "certificate_sha256": certificate_sha256,
         "deployment_spec_sha256": deployment["spec_sha256"],
+        "expected_routes": len(checkpoint_generation["routes"]),
+        "serving_route_generation": checkpoint_generation,
+        "proxy_policy": checkpoint_proxy_policy,
         "supported_pass_rate": supported_rate,
         "supported_passes": supported_passes,
     }
@@ -1108,11 +1163,13 @@ def _validate_readiness_checkpoint(
         "observed_spec_sha256",
         "polls",
         "probe",
+        "proxy_policy",
         "proxy_info_readable",
         "required_consecutive_polls",
         "schema_version",
         "state",
         "status_unavailable_reason",
+        "serving_route_generation",
         "updated_at",
     }
     if set(value) != required_keys:
@@ -1137,8 +1194,20 @@ def _validate_readiness_checkpoint(
     )
     probe = value.get("probe")
     checkpoint_endpoint = _endpoint_binding(value.get("endpoint"), label="readiness_endpoint")
+    if value.get("schema_version") != 1 or value.get("state") != "passed":
+        raise LaunchCertificateError("readiness_checkpoint_not_passed")
+    try:
+        serving_route_generation = validate_readiness_route_generation(
+            value,
+            deployment_id=deployment_id,
+            deployment_spec_sha256=deployment_spec_sha256,
+        )
+        proxy_policy = validate_proxy_policy_binding(value.get("proxy_policy"))
+    except (RouteGenerationError, DeploymentProxyPolicyError) as cause:
+        raise LaunchCertificateError("readiness_checkpoint_schema_invalid") from cause
     last_status = value.get("last_status")
     expected_status_keys = {
+        "coordinator_incarnation",
         "coord_ticks_completed",
         "deployment_id",
         "desired",
@@ -1147,6 +1216,7 @@ def _validate_readiness_checkpoint(
         "ready",
         "running_not_ready",
         "schema_version",
+        "serving_route_generation",
     }
     if (
         value.get("schema_version") != 1
@@ -1175,7 +1245,13 @@ def _validate_readiness_checkpoint(
     ticks = last_status.get("coord_ticks_completed")
     if ticks is not None:
         _require_nonnegative_int(ticks, "readiness_coord_ticks_completed")
-    return {"endpoint": checkpoint_endpoint, "expected_routes": expected_routes, "polls": polls}
+    return {
+        "endpoint": checkpoint_endpoint,
+        "expected_routes": expected_routes,
+        "polls": polls,
+        "serving_route_generation": serving_route_generation,
+        "proxy_policy": proxy_policy,
+    }
 
 
 def _validate_capacity_smoke(
@@ -1198,6 +1274,8 @@ def _validate_capacity_smoke(
         "deployment_id",
         "deployment_spec_sha256",
         "endpoint",
+        "serving_route_generation",
+        "proxy_policy",
         "eval_run_identity_sha256",
         "ok",
         "qualified_execution",
@@ -1215,6 +1293,13 @@ def _validate_capacity_smoke(
     )
     deployment = value.get("deployment")
     checkpoint_endpoint = _endpoint_binding(value.get("endpoint"), label="capacity_endpoint")
+    try:
+        checkpoint_generation = validate_route_generation(
+            value.get("serving_route_generation")
+        )
+        checkpoint_proxy_policy = validate_proxy_policy_binding(value.get("proxy_policy"))
+    except (RouteGenerationError, DeploymentProxyPolicyError) as cause:
+        raise LaunchCertificateError("capacity_smoke_schema_invalid") from cause
     if (
         value.get("schema_version") != 1
         or value.get("state") != "passed"
@@ -1304,10 +1389,12 @@ def _validate_capacity_smoke(
     expected_artifacts = {
         "config",
         "eval_run_identity",
+        "eval_invocations",
         "inputs_manifest",
         "provenance",
         "readiness_checkpoint",
         "results",
+        "route_guard_success",
         "proxy_info",
     }
     if not isinstance(artifacts, dict) or set(artifacts) != expected_artifacts:
@@ -1361,6 +1448,8 @@ def _validate_capacity_smoke(
         not isinstance(identity_deployment, dict)
         or identity_deployment.get("id") != deployment_id
         or identity_deployment.get("endpoint") != endpoint
+        or identity_deployment.get("serving_route_generation") != checkpoint_generation
+        or identity_deployment.get("proxy_policy") != checkpoint_proxy_policy
         or not isinstance(identity_deployment.get("spec"), dict)
         or identity_deployment["spec"].get("sha256") != deployment_spec_sha256
         or not isinstance(identity_inputs, dict)
@@ -1415,10 +1504,34 @@ def _validate_capacity_smoke(
             artifact_records[artifact_name],
             label=f"capacity_{artifact_name}_link",
         )
+    try:
+        guard_receipt = load_guard_success_receipt(
+            artifact_paths["route_guard_success"],
+        )
+        guard_artifacts = validate_guard_success_linkage(
+            guard_receipt,
+            run_dir=artifact_paths["eval_run_identity"].parent,
+            eval_run_identity_sha256=value["eval_run_identity_sha256"],
+            eval_run_role="smoke",
+            eval_run_identity_file_sha256=artifact_records["eval_run_identity"]["sha256"],
+            results_sha256=artifact_records["results"]["sha256"],
+            deployment_id=deployment_id,
+            deployment_spec_sha256=deployment_spec_sha256,
+            readiness_checkpoint=readiness_record,
+            endpoint=endpoint,
+            serving_route_generation=checkpoint_generation,
+            proxy_policy=checkpoint_proxy_policy,
+        )
+    except (OSError, GuardReceiptError) as cause:
+        raise LaunchCertificateError("capacity_guard_success_receipt_invalid") from cause
+    if guard_artifacts["eval_invocations"] != artifact_records["eval_invocations"]:
+        raise LaunchCertificateError("capacity_guard_success_receipt_invalid")
     return {
         "checkpoint_sha256": checkpoint_sha256,
         "expected_traces": expected_traces,
         "qualified_execution": qualified_execution,
+        "serving_route_generation": checkpoint_generation,
+        "proxy_policy": checkpoint_proxy_policy,
     }
 
 
@@ -1683,6 +1796,20 @@ def _build_unsigned(
     )
     if readiness["expected_routes"] != spec_num_endpoints:
         raise LaunchCertificateError("readiness_route_count_spec_mismatch")
+    if readiness["expected_routes"] < 2:
+        raise LaunchCertificateError("post_tb4_route_count_too_small")
+    if readiness["expected_routes"] <= tb4["expected_routes"]:
+        raise LaunchCertificateError("post_tb4_route_count_not_increased")
+    if tb4["deployment_spec_sha256"] == spec_record["sha256"]:
+        raise LaunchCertificateError("post_tb4_deployment_spec_not_changed")
+    try:
+        revalidate_deployment_proxy_policy(
+            Path(spec_record["path"]),
+            expected_spec_sha256=spec_record["sha256"],
+            expected_binding=readiness["proxy_policy"],
+        )
+    except DeploymentProxyPolicyError as cause:
+        raise LaunchCertificateError("deployment_proxy_policy_changed") from cause
     capacity = _validate_capacity_smoke(
         capacity_value,
         deployment_id=deployment_id,
@@ -1700,12 +1827,19 @@ def _build_unsigned(
         requested_leases,
         capacity["expected_traces"],
     )
+    if (
+        capacity["serving_route_generation"] != readiness["serving_route_generation"]
+        or capacity["proxy_policy"] != readiness["proxy_policy"]
+    ):
+        raise LaunchCertificateError("capacity_smoke_route_generation_mismatch")
 
     unsigned = {
         "artifact_type": ARTIFACT_TYPE,
         "deployment": {
             "id": deployment_id,
             "endpoint": endpoint,
+            "serving_route_generation": readiness["serving_route_generation"],
+            "proxy_policy": readiness["proxy_policy"],
             "spec": spec_record,
         },
         "gates": {
@@ -1715,6 +1849,8 @@ def _build_unsigned(
                 "expected_traces": capacity["expected_traces"],
                 "qualified_execution": capacity["qualified_execution"],
                 "readiness_checkpoint_sha256": readiness_record["sha256"],
+                "serving_route_generation": capacity["serving_route_generation"],
+                "proxy_policy": capacity["proxy_policy"],
             },
             "oracle_promotion": {
                 "artifact": oracle_record,
@@ -1733,11 +1869,16 @@ def _build_unsigned(
                 "artifact": readiness_record,
                 "expected_routes": readiness["expected_routes"],
                 "polls": readiness["polls"],
+                "serving_route_generation": readiness["serving_route_generation"],
+                "proxy_policy": readiness["proxy_policy"],
             },
             "tb4": {
                 "artifact": tb4_record,
                 "certificate_sha256": tb4["certificate_sha256"],
                 "deployment_spec_sha256": tb4["deployment_spec_sha256"],
+                "expected_routes": tb4["expected_routes"],
+                "serving_route_generation": tb4["serving_route_generation"],
+                "proxy_policy": tb4["proxy_policy"],
                 "supported_pass_rate": tb4["supported_pass_rate"],
                 "supported_passes": tb4["supported_passes"],
             },
@@ -1764,6 +1905,14 @@ def _build_unsigned(
     ).binding
     if final_endpoint != endpoint:
         raise LaunchCertificateError("deployment_endpoint_changed")
+    try:
+        revalidate_deployment_proxy_policy(
+            Path(spec_record["path"]),
+            expected_spec_sha256=spec_record["sha256"],
+            expected_binding=readiness["proxy_policy"],
+        )
+    except DeploymentProxyPolicyError as cause:
+        raise LaunchCertificateError("deployment_proxy_policy_changed") from cause
     final_invocations, _ = _rehash_record(
         oracle["invocations"],
         label="oracle_invocations",

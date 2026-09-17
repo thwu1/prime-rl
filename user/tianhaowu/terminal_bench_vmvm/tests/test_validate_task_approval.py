@@ -164,6 +164,7 @@ def test_generic_launcher_rejects_task_overrides_and_keeps_dry_run() -> None:
     assert "validate_task_approval.py" in text
     assert "run_direct_qwen_eval_driver.sh" in text
     assert "eval_run_identity.py" in text
+    assert "inference_route_guard.py" in text
     assert "--approved-task-file-sha256" in text
     assert "--approved-task-count" in text
     assert "eval_run_identity_sha256" in text
@@ -195,9 +196,32 @@ def test_generic_launcher_rejects_task_overrides_and_keeps_dry_run() -> None:
         'mkdir -p "$output_dir"'
     )
     assert text.index('python3 "$workflow_dir/eval_run_identity.py"') < text.index(
+        'python3 "$workflow_dir/inference_route_guard.py"'
+    )
+    assert text.index("Guarded Kimi evaluations cannot resume") < text.index(
+        'python3 "$workflow_dir/eval_run_identity.py"'
+    )
+    assert text.index('python3 "$workflow_dir/inference_route_guard.py"') < text.index(
         "from verifiers.v1.cli.eval.main import main; main()' \"${args[@]}\"",
         text.index('python3 "$workflow_dir/eval_run_identity.py"'),
     )
+    guard = text[text.index('python3 "$workflow_dir/inference_route_guard.py"') :]
+    for argument in (
+        '--deployment-id "$eval_deployment_id"',
+        '--deployment-spec "$deployment_spec"',
+        '--deployment-spec-sha256 "$deployment_spec_sha256"',
+        '--readiness-checkpoint "$readiness_checkpoint"',
+        '--readiness-checkpoint-sha256 "$readiness_checkpoint_sha256"',
+        '--proxy-info "$inference_proxy_info"',
+        '--proxy-info-sha256 "$inference_proxy_info_sha256"',
+        '--expected-model "$eval_expected_model"',
+        '--eval-run-identity "$output_dir/eval_run_identity.json"',
+        '--eval-run-identity-sha256 "$eval_run_identity_sha256"',
+        '--eval-invocations "$output_dir/eval_invocations.jsonl"',
+        '--results "$output_dir/results.jsonl"',
+        '--success-receipt "$output_dir/route_guard_success.json"',
+    ):
+        assert argument in guard
 
 
 def _launcher_environment(tmp_path: Path) -> tuple[dict[str, str], Path, Path, Path]:
@@ -312,6 +336,42 @@ def test_real_launcher_fails_before_endpoint_or_snapshot_without_approval(tmp_pa
     assert not uv_log.exists()
     assert not python_log.exists()
     assert not output_dir.exists()
+
+
+def test_guarded_launcher_rejects_partial_output_resume_before_mutation(
+    tmp_path: Path,
+) -> None:
+    env, output_dir, uv_log, python_log = _launcher_environment(tmp_path)
+    failed_run = tmp_path / "failed-generation-a"
+    failed_run.mkdir()
+    results = failed_run / "results.jsonl"
+    invocations = failed_run / "eval_invocations.jsonl"
+    results.write_text('{"partial":"row"}\n')
+    invocations.write_text('{"generation":"A","resume":false}\n')
+    before = {path: path.read_bytes() for path in (results, invocations)}
+    env.update(
+        {
+            "EVAL_RUN_ROLE": "smoke",
+            "OUTPUT_DIR": str(output_dir),
+            "RESUME_DIR": str(failed_run),
+        }
+    )
+    wrapper = Path(__file__).parents[1] / "run_eval.sbatch"
+
+    result = subprocess.run(
+        ["bash", str(wrapper)],
+        env=env,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 2
+    assert result.stderr == "Guarded Kimi evaluations cannot resume; use a fresh OUTPUT_DIR\n"
+    assert {path: path.read_bytes() for path in before} == before
+    assert not output_dir.exists()
+    assert not uv_log.exists()
+    assert not python_log.exists()
 
 
 def test_real_launcher_requires_readiness_bound_proxy_hash_before_mutation(tmp_path: Path) -> None:

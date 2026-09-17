@@ -16,6 +16,11 @@ from audit_tb4_results import (
     certify_tb4_results,
 )
 from deployment_endpoint import load_deployment_endpoint
+from deployment_proxy_policy import load_deployment_proxy_policy
+from guard_success_receipt import (
+    build_guard_success_receipt,
+    write_guard_success_receipt,
+)
 
 
 def _digest(body: dict) -> str:
@@ -167,7 +172,20 @@ def _certificate_fixture(
     config.write_text('model = "Kimi-K3"\n', encoding="utf-8")
     manifest.write_text("{}\n", encoding="utf-8")
     task_file.write_text("\n".join(sorted(path.name for path in dataset.iterdir())) + "\n")
-    spec.write_text('{"schema_version":1}\n', encoding="utf-8")
+    spec.write_text(
+        "spec:\n"
+        "  proxy:\n"
+        "    config:\n"
+        "      request_timeout: 7200\n"
+        "      num_retries: 0\n",
+        encoding="utf-8",
+    )
+    (deployment_dir / "proxy_litellm_config.yaml").write_text(
+        "litellm_settings:\n"
+        "  request_timeout: 7200\n"
+        "  num_retries: 0\n",
+        encoding="utf-8",
+    )
     proxy_info = deployment_dir / "proxy_info.json"
     proxy_info.write_text(
         json.dumps(
@@ -191,13 +209,60 @@ def _certificate_fixture(
         deployment_spec=spec,
         expected_proxy_info_sha256=_file_digest(proxy_info),
     ).binding
+    backend = f"backend-sha256:{hashlib.sha256(b'http://worker-0:8000/v1').hexdigest()}"
+    serving_route_generation = {
+        "schema_version": 2,
+        "coordinator": {
+            "slurm_job_id": "900",
+            "started_at": "2026-09-17T00:00:00Z",
+        },
+        "proxy": {
+            "slurm_job_id": "12345",
+            "first_ready_at": "2026-09-17T00:30:00Z",
+        },
+        "routes": [
+            {
+                "slurm_job_id": "12345",
+                "started_at": "2026-09-17T01:00:00Z",
+                "backend_sha256": backend,
+            }
+        ],
+    }
+    proxy_policy = load_deployment_proxy_policy(
+        spec,
+        expected_spec_sha256=_file_digest(spec),
+    )
     readiness_payload = {
         "schema_version": 1,
         "state": "passed",
         "deployment": deployment_id,
         "observed_spec_sha256": _file_digest(spec),
         "endpoint": endpoint,
-        "probe": {"ok": True},
+        "proxy_policy": proxy_policy,
+        "serving_route_generation": serving_route_generation,
+        "expected_routes": 1,
+        "last_status": {
+            "schema_version": 4,
+            "deployment_id": deployment_id,
+            "phase": "serving",
+            "desired": 1,
+            "ready": 1,
+            "running_not_ready": 0,
+            "pending": 0,
+            "coordinator_incarnation": serving_route_generation["coordinator"],
+            "coord_ticks_completed": 10,
+            "serving_route_generation": serving_route_generation,
+        },
+        "probe": {
+            "ok": True,
+            "endpoint_authority_sha256": endpoint["authority_sha256"],
+            "coverage": {
+                "ok": True,
+                "expected_routes": 1,
+                "discovered_routes": 1,
+                "backends": [backend],
+            },
+        },
     }
     readiness.write_text(json.dumps(readiness_payload), encoding="utf-8")
     smoke_payload = {
@@ -206,6 +271,8 @@ def _certificate_fixture(
         "ok": True,
         "deployment": {"id": deployment_id, "spec_sha256": _file_digest(spec)},
         "endpoint": endpoint,
+        "serving_route_generation": serving_route_generation,
+        "proxy_policy": proxy_policy,
         "audit_policy": {
             "expected_traces": 2,
             "rollouts_per_task": 1,
@@ -272,6 +339,8 @@ def _certificate_fixture(
         "deployment": {
             "id": deployment_id,
             "endpoint": endpoint,
+            "serving_route_generation": serving_route_generation,
+            "proxy_policy": proxy_policy,
             "spec": {"path": str(spec), "sha256": _file_digest(spec)},
             "readiness_checkpoint": {
                 "path": str(readiness),
@@ -334,6 +403,36 @@ def _certificate_fixture(
         "approval_task_count": "66",
     }
     provenance.write_text("".join(f"{key}={value}\n" for key, value in provenance_records.items()))
+    invocations = tmp_path / "eval_invocations.jsonl"
+    invocations.write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "eval_run_identity_sha256": identity_sha256,
+                "role": role,
+                "resume": False,
+                "host": "test-host",
+                "slurm_job_id": "123",
+            }
+        )
+        + "\n"
+    )
+    guard_receipt = build_guard_success_receipt(
+        eval_run_identity_sha256=identity_sha256,
+        eval_run_role=role,
+        eval_run_identity=identity_path,
+        eval_invocations=invocations,
+        results=results,
+        deployment_id=deployment_id,
+        deployment_spec_sha256=_file_digest(spec),
+        readiness_checkpoint=readiness,
+        readiness_checkpoint_sha256=_file_digest(readiness),
+        endpoint=endpoint,
+        serving_route_generation=serving_route_generation,
+        proxy_policy=proxy_policy,
+    )
+    guard_receipt_path = tmp_path / "route_guard_success.json"
+    write_guard_success_receipt(guard_receipt_path, guard_receipt)
     monkeypatch.setattr(tb4, "load_eval_run_identity", lambda _path: envelope)
     return results, certificate, envelope, {
         "config": config,
@@ -343,6 +442,8 @@ def _certificate_fixture(
         "readiness": readiness,
         "smoke": smoke,
         "proxy_info": proxy_info,
+        "eval_invocations": invocations,
+        "route_guard_success": guard_receipt_path,
     }
 
 
@@ -562,6 +663,8 @@ def test_certificate_is_aggregate_only_self_hashed_and_write_once(
     assert set(certificate["artifacts"]) == {
         "results",
         "eval_run_identity",
+        "eval_invocations",
+        "route_guard_success",
         "config",
         "inputs_manifest",
         "provenance",
@@ -776,6 +879,22 @@ def test_certificate_rejects_existing_different_certificate(
         )
 
 
+def test_certificate_rejects_missing_guard_success_receipt(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    results, checkpoint, _, paths = _certificate_fixture(tmp_path, monkeypatch)
+    paths["route_guard_success"].unlink()
+
+    with pytest.raises(TB4AuditError, match="guard_success_receipt_invalid"):
+        certify_tb4_results(
+            results,
+            certificate_path=checkpoint,
+            min_supported_pass_rate=0.04,
+            max_supported_pass_rate=0.22,
+        )
+
+
 def test_certificate_rejects_results_changed_after_publication(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -789,7 +908,7 @@ def test_certificate_rejects_results_changed_after_publication(
     )
     results.write_text(results.read_text() + "\n")
 
-    with pytest.raises(TB4AuditError, match="tb4_certificate_already_exists_different"):
+    with pytest.raises(TB4AuditError, match="guard_success_receipt_invalid"):
         certify_tb4_results(
             results,
             certificate_path=checkpoint,

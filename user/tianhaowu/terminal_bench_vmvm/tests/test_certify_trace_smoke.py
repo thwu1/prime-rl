@@ -8,6 +8,16 @@ from pathlib import Path
 import pytest
 from certify_trace_smoke import SmokeCertificateError, certify_smoke
 from deployment_endpoint import load_deployment_endpoint
+from deployment_proxy_policy import load_deployment_proxy_policy
+from guard_success_receipt import (
+    GuardReceiptError,
+    build_guard_success_receipt,
+    load_guard_success_receipt,
+    write_guard_success_receipt,
+)
+from guard_success_receipt import (
+    canonical_json as guard_canonical_json,
+)
 
 
 def _sha256_bytes(value: bytes) -> str:
@@ -63,7 +73,7 @@ def _trace(trace_id: str, task: str) -> dict:
                     "role": "assistant",
                     "content": "retained",
                     "reasoning_content": "retained reasoning",
-                }
+                },
             }
         ],
         "usage": {"prompt_tokens": 8, "completion_tokens": 4, "total_tokens": 12},
@@ -104,11 +114,7 @@ def _fixture(tmp_path: Path) -> tuple[Path, Path, str, dict]:
     task_sha256 = _sha256_bytes(task_file.read_bytes())
     results = run_dir / "results.jsonl"
     results.write_text(
-        "\n".join(
-            json.dumps(row)
-            for row in (_trace("trace-a", "opaque-a"), _trace("trace-b", "opaque-b"))
-        )
-        + "\n"
+        "\n".join(json.dumps(row) for row in (_trace("trace-a", "opaque-a"), _trace("trace-b", "opaque-b"))) + "\n"
     )
     config = run_dir / "config.toml"
     config.write_text('model = "Kimi-K3"\n')
@@ -120,7 +126,10 @@ def _fixture(tmp_path: Path) -> tuple[Path, Path, str, dict]:
     deployment_dir = tmp_path / deployment_id
     deployment_dir.mkdir()
     spec = deployment_dir / "spec.yaml"
-    spec.write_text("schema_version: 1\n")
+    spec.write_text("spec:\n  proxy:\n    config:\n      request_timeout: 7200\n      num_retries: 0\n")
+    (deployment_dir / "proxy_litellm_config.yaml").write_text(
+        "litellm_settings:\n  request_timeout: 7200\n  num_retries: 0\n"
+    )
     proxy_info = deployment_dir / "proxy_info.json"
     proxy_info.write_text(
         json.dumps(
@@ -143,8 +152,67 @@ def _fixture(tmp_path: Path) -> tuple[Path, Path, str, dict]:
         deployment_spec=spec,
         expected_proxy_info_sha256=_sha256_bytes(proxy_info.read_bytes()),
     ).binding
+    backend = f"backend-sha256:{hashlib.sha256(b'http://worker-0:8000/v1').hexdigest()}"
+    serving_route_generation = {
+        "schema_version": 2,
+        "coordinator": {
+            "slurm_job_id": "900",
+            "started_at": "2026-09-17T00:00:00Z",
+        },
+        "proxy": {
+            "slurm_job_id": "12345",
+            "first_ready_at": "2026-09-17T00:30:00Z",
+        },
+        "routes": [
+            {
+                "slurm_job_id": "12345",
+                "started_at": "2026-09-17T01:00:00Z",
+                "backend_sha256": backend,
+            }
+        ],
+    }
+    proxy_policy = load_deployment_proxy_policy(
+        spec,
+        expected_spec_sha256=_sha256_bytes(spec.read_bytes()),
+    )
     readiness = tmp_path / "readiness.json"
-    readiness.write_text(json.dumps({"state": "passed", "endpoint": endpoint}) + "\n")
+    readiness.write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "state": "passed",
+                "deployment": deployment_id,
+                "observed_spec_sha256": _sha256_bytes(spec.read_bytes()),
+                "expected_routes": 1,
+                "endpoint": endpoint,
+                "proxy_policy": proxy_policy,
+                "serving_route_generation": serving_route_generation,
+                "last_status": {
+                    "schema_version": 4,
+                    "deployment_id": deployment_id,
+                    "phase": "serving",
+                    "desired": 1,
+                    "ready": 1,
+                    "running_not_ready": 0,
+                    "pending": 0,
+                    "coordinator_incarnation": serving_route_generation["coordinator"],
+                    "coord_ticks_completed": 10,
+                    "serving_route_generation": serving_route_generation,
+                },
+                "probe": {
+                    "ok": True,
+                    "endpoint_authority_sha256": endpoint["authority_sha256"],
+                    "coverage": {
+                        "ok": True,
+                        "expected_routes": 1,
+                        "discovered_routes": 1,
+                        "backends": [backend],
+                    },
+                },
+            }
+        )
+        + "\n"
+    )
     identity_path = run_dir / "eval_run_identity.json"
     identity_path.write_text("{}\n")
     (run_dir / ".writer.lock").touch()
@@ -160,6 +228,8 @@ def _fixture(tmp_path: Path) -> tuple[Path, Path, str, dict]:
         "deployment": {
             "id": deployment_id,
             "endpoint": endpoint,
+            "serving_route_generation": serving_route_generation,
+            "proxy_policy": proxy_policy,
             "spec": _record(spec),
             "readiness_checkpoint": _record(readiness),
             "smoke_checkpoint": None,
@@ -198,6 +268,35 @@ def _fixture(tmp_path: Path) -> tuple[Path, Path, str, dict]:
         "eval_run_identity_sha256": "b" * 64,
         "identity": identity,
     }
+    invocations = run_dir / "eval_invocations.jsonl"
+    invocations.write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "eval_run_identity_sha256": envelope["eval_run_identity_sha256"],
+                "role": "smoke",
+                "resume": False,
+                "host": "test-host",
+                "slurm_job_id": "1",
+            }
+        )
+        + "\n"
+    )
+    receipt = build_guard_success_receipt(
+        eval_run_identity_sha256=envelope["eval_run_identity_sha256"],
+        eval_run_role="smoke",
+        eval_run_identity=identity_path,
+        eval_invocations=invocations,
+        results=results,
+        deployment_id=deployment_id,
+        deployment_spec_sha256=_sha256_bytes(spec.read_bytes()),
+        readiness_checkpoint=readiness,
+        readiness_checkpoint_sha256=_sha256_bytes(readiness.read_bytes()),
+        endpoint=endpoint,
+        serving_route_generation=serving_route_generation,
+        proxy_policy=proxy_policy,
+    )
+    write_guard_success_receipt(run_dir / "route_guard_success.json", receipt)
     return run_dir, task_file, task_sha256, envelope
 
 
@@ -238,6 +337,69 @@ def test_rejects_active_writer(tmp_path: Path) -> None:
                 expected_traces=2,
                 identity_loader=lambda *_args, **_kwargs: envelope,
             )
+
+
+def test_rejects_missing_or_stale_guard_success_receipt(tmp_path: Path) -> None:
+    run_dir, task_file, task_sha256, envelope = _fixture(tmp_path)
+    (run_dir / "route_guard_success.json").unlink()
+
+    with pytest.raises(SmokeCertificateError, match="^guard_success_receipt_invalid$"):
+        certify_smoke(
+            run_dir,
+            expected_task_file=task_file,
+            expected_task_file_sha256=task_sha256,
+            expected_traces=2,
+            identity_loader=lambda *_args, **_kwargs: envelope,
+        )
+
+    run_dir, task_file, task_sha256, envelope = _fixture(tmp_path / "stale")
+    results = run_dir / "results.jsonl"
+    results.write_text(results.read_text() + "\n")
+    with pytest.raises(SmokeCertificateError, match="^guard_success_receipt_invalid$"):
+        certify_smoke(
+            run_dir,
+            expected_task_file=task_file,
+            expected_task_file_sha256=task_sha256,
+            expected_traces=2,
+            identity_loader=lambda *_args, **_kwargs: envelope,
+        )
+
+
+@pytest.mark.parametrize(
+    "mutation",
+    ["resume", "multiple", "forged_job", "forged_role", "forged_identity"],
+)
+def test_guard_receipt_rejects_invalid_invocation_ledger(
+    tmp_path: Path,
+    mutation: str,
+) -> None:
+    run_dir, _, _, _ = _fixture(tmp_path)
+    invocations = run_dir / "eval_invocations.jsonl"
+    record = json.loads(invocations.read_text())
+    if mutation == "resume":
+        record["resume"] = True
+        invocations.write_text(json.dumps(record) + "\n")
+    elif mutation == "multiple":
+        line = json.dumps(record) + "\n"
+        invocations.write_text(line + line)
+    elif mutation == "forged_job":
+        record["slurm_job_id"] = "01"
+        invocations.write_text(json.dumps(record) + "\n")
+    elif mutation == "forged_role":
+        record["role"] = "tb4"
+        invocations.write_text(json.dumps(record) + "\n")
+    else:
+        record["eval_run_identity_sha256"] = "f" * 64
+        invocations.write_text(json.dumps(record) + "\n")
+    receipt_path = run_dir / "route_guard_success.json"
+    receipt = json.loads(receipt_path.read_text())
+    receipt["artifacts"]["eval_invocations"]["sha256"] = _sha256_bytes(invocations.read_bytes())
+    receipt.pop("guard_success_receipt_sha256")
+    receipt["guard_success_receipt_sha256"] = _sha256_bytes(guard_canonical_json(receipt))
+    receipt_path.write_text(json.dumps(receipt) + "\n")
+
+    with pytest.raises(GuardReceiptError, match="eval_invocations_invalid"):
+        load_guard_success_receipt(receipt_path)
 
 
 def test_rejects_trace_failure_without_publishing(tmp_path: Path) -> None:

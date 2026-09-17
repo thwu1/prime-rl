@@ -9,6 +9,11 @@ from pathlib import Path
 import mobius_launch_certificate as certificate_module
 import pytest
 from deployment_endpoint import load_deployment_endpoint
+from deployment_proxy_policy import load_deployment_proxy_policy
+from guard_success_receipt import (
+    build_guard_success_receipt,
+    write_guard_success_receipt,
+)
 from mobius_launch_certificate import (
     LaunchCertificateError,
     create_launch_certificate,
@@ -22,7 +27,6 @@ def _strict_identity_loader(monkeypatch: pytest.MonkeyPatch) -> list[Path]:
     calls: list[Path] = []
 
     def load(path: Path, *, verify_references: bool) -> dict:
-        assert verify_references is True
         calls.append(path)
         return json.loads(path.read_text())
 
@@ -57,6 +61,28 @@ def _artifact(path: Path, digest: str = "a" * 64) -> dict[str, str]:
     return {"path": str(path.resolve()), "sha256": digest}
 
 
+def _route_generation(count: int, *, first_job_id: int) -> dict:
+    return {
+        "schema_version": 2,
+        "coordinator": {
+            "slurm_job_id": "900",
+            "started_at": "2026-09-17T00:00:00Z",
+        },
+        "proxy": {
+            "slurm_job_id": "12345",
+            "first_ready_at": "2026-09-17T00:30:00Z",
+        },
+        "routes": [
+            {
+                "slurm_job_id": str(first_job_id + index),
+                "started_at": "2026-09-17T01:00:00Z",
+                "backend_sha256": f"backend-sha256:{hashlib.sha256(f'http://worker-{index}:{8000 + index}/v1'.encode()).hexdigest()}",
+            }
+            for index in range(count)
+        ],
+    }
+
+
 def _vmvm_sha256(project: Path) -> str:
     digest = hashlib.sha256()
     source_root = project / "environments/vmvm_tb_v2/vmvm_tb_v2/_vacli"
@@ -66,9 +92,18 @@ def _vmvm_sha256(project: Path) -> str:
     return digest.hexdigest()
 
 
-def _tb4_checkpoint(path: Path, deployment_id: str, endpoint: dict) -> str:
+def _tb4_checkpoint(
+    path: Path,
+    deployment_id: str,
+    endpoint: dict,
+    route_generation: dict,
+    proxy_policy: dict,
+    spec_sha256: str,
+) -> str:
+    run_dir = path.parent / "tb4-run"
+    run_dir.mkdir()
     artifact_paths = {
-        name: path.parent / f"tb4-{name}.metadata"
+        name: run_dir / ("results.jsonl" if name == "results" else f"tb4-{name}.metadata")
         for name in (
             "results",
             "config",
@@ -82,7 +117,7 @@ def _tb4_checkpoint(path: Path, deployment_id: str, endpoint: dict) -> str:
         artifact.write_text("aggregate metadata\n")
     artifacts = {name: _artifact(artifact, _sha256(artifact.read_bytes())) for name, artifact in artifact_paths.items()}
     artifacts["proxy_info"] = endpoint["proxy_info"]
-    identity_path = path.parent / "tb4-eval_run_identity.metadata"
+    identity_path = run_dir / "eval_run_identity.json"
     identity = {
         "role": "tb4",
         "config": {"resolved": artifacts["config"]},
@@ -93,7 +128,9 @@ def _tb4_checkpoint(path: Path, deployment_id: str, endpoint: dict) -> str:
         "deployment": {
             "id": deployment_id,
             "endpoint": endpoint,
-            "spec": {"path": str(path.parent / "tb4-spec.metadata"), "sha256": "2" * 64},
+            "serving_route_generation": route_generation,
+            "proxy_policy": proxy_policy,
+            "spec": {"path": str(path.parent / "tb4-spec.metadata"), "sha256": spec_sha256},
             "readiness_checkpoint": artifacts["readiness_checkpoint"],
             "smoke_checkpoint": artifacts["smoke_checkpoint"],
         },
@@ -107,13 +144,50 @@ def _tb4_checkpoint(path: Path, deployment_id: str, endpoint: dict) -> str:
         },
     )
     artifacts["eval_run_identity"] = _artifact(identity_path, _sha256(identity_path.read_bytes()))
+    invocations = run_dir / "eval_invocations.jsonl"
+    invocations.write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "eval_run_identity_sha256": "1" * 64,
+                "role": "tb4",
+                "resume": False,
+                "host": "test-host",
+                "slurm_job_id": "1",
+            }
+        )
+        + "\n"
+    )
+    guard_receipt_path = run_dir / "route_guard_success.json"
+    guard_receipt = build_guard_success_receipt(
+        eval_run_identity_sha256="1" * 64,
+        eval_run_role="tb4",
+        eval_run_identity=identity_path,
+        eval_invocations=invocations,
+        results=artifact_paths["results"],
+        deployment_id=deployment_id,
+        deployment_spec_sha256=spec_sha256,
+        readiness_checkpoint=artifact_paths["readiness_checkpoint"],
+        readiness_checkpoint_sha256=artifacts["readiness_checkpoint"]["sha256"],
+        endpoint=endpoint,
+        serving_route_generation=route_generation,
+        proxy_policy=proxy_policy,
+    )
+    write_guard_success_receipt(guard_receipt_path, guard_receipt)
+    artifacts["eval_invocations"] = _artifact(invocations, _sha256(invocations.read_bytes()))
+    artifacts["route_guard_success"] = _artifact(
+        guard_receipt_path,
+        _sha256(guard_receipt_path.read_bytes()),
+    )
     body = {
         "schema_version": 1,
         "state": "passed",
         "ok": True,
         "eval_run_identity_sha256": "1" * 64,
-        "deployment": {"id": deployment_id, "spec_sha256": "2" * 64},
+        "deployment": {"id": deployment_id, "spec_sha256": spec_sha256},
         "endpoint": endpoint,
+        "serving_route_generation": route_generation,
+        "proxy_policy": proxy_policy,
         "audit_policy": {
             "expected_tasks": 66,
             "expected_supported_tasks": 63,
@@ -160,14 +234,20 @@ def _readiness_checkpoint(
     deployment_id: str,
     spec_sha256: str,
     endpoint: dict,
+    route_generation: dict,
+    proxy_policy: dict,
 ) -> str:
+    expected_routes = len(route_generation["routes"])
+    backends = sorted(route["backend_sha256"] for route in route_generation["routes"])
     return _write_json(
         path,
         {
             "schema_version": 1,
             "deployment": deployment_id,
             "endpoint": endpoint,
-            "expected_routes": 4,
+            "serving_route_generation": route_generation,
+            "proxy_policy": proxy_policy,
+            "expected_routes": expected_routes,
             "required_consecutive_polls": 3,
             "max_consecutive_status_unavailable": 10,
             "updated_at": "2026-09-16T00:00:00Z",
@@ -182,13 +262,24 @@ def _readiness_checkpoint(
                 "schema_version": 4,
                 "deployment_id": deployment_id,
                 "phase": "serving",
-                "desired": 4,
-                "ready": 4,
+                "desired": expected_routes,
+                "ready": expected_routes,
                 "running_not_ready": 0,
                 "pending": 0,
+                "coordinator_incarnation": route_generation["coordinator"],
                 "coord_ticks_completed": 100,
+                "serving_route_generation": route_generation,
             },
-            "probe": {"ok": True},
+            "probe": {
+                "ok": True,
+                "endpoint_authority_sha256": endpoint["authority_sha256"],
+                "coverage": {
+                    "ok": True,
+                    "expected_routes": expected_routes,
+                    "discovered_routes": expected_routes,
+                    "backends": backends,
+                },
+            },
         },
     )
 
@@ -203,9 +294,13 @@ def _capacity_checkpoint(
     image_manifest: Path,
     image_manifest_sha256: str,
     endpoint: dict,
+    route_generation: dict,
+    proxy_policy: dict,
 ) -> str:
+    run_dir = path.parent / "capacity-run"
+    run_dir.mkdir()
     artifact_paths = {
-        name: path.parent / f"capacity-{name}.metadata"
+        name: run_dir / ("results.jsonl" if name == "results" else f"capacity-{name}.metadata")
         for name in ("results", "config", "inputs_manifest", "provenance")
     }
     for artifact in artifact_paths.values():
@@ -213,7 +308,7 @@ def _capacity_checkpoint(
     artifacts = {name: _artifact(artifact, _sha256(artifact.read_bytes())) for name, artifact in artifact_paths.items()}
     artifacts["readiness_checkpoint"] = _artifact(readiness, readiness_sha256)
     artifacts["proxy_info"] = endpoint["proxy_info"]
-    identity_path = path.parent / "capacity-eval_run_identity.metadata"
+    identity_path = run_dir / "eval_run_identity.json"
     identity = {
         "role": "smoke",
         "config": {"resolved": artifacts["config"]},
@@ -226,6 +321,8 @@ def _capacity_checkpoint(
         "deployment": {
             "id": deployment_id,
             "endpoint": endpoint,
+            "serving_route_generation": route_generation,
+            "proxy_policy": proxy_policy,
             "spec": {"path": str(path.parent / "capacity-spec.metadata"), "sha256": spec_sha256},
             "readiness_checkpoint": artifacts["readiness_checkpoint"],
             "smoke_checkpoint": None,
@@ -268,6 +365,41 @@ def _capacity_checkpoint(
         },
     )
     artifacts["eval_run_identity"] = _artifact(identity_path, _sha256(identity_path.read_bytes()))
+    invocations = run_dir / "eval_invocations.jsonl"
+    invocations.write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "eval_run_identity_sha256": "3" * 64,
+                "role": "smoke",
+                "resume": False,
+                "host": "test-host",
+                "slurm_job_id": "1",
+            }
+        )
+        + "\n"
+    )
+    guard_receipt_path = run_dir / "route_guard_success.json"
+    guard_receipt = build_guard_success_receipt(
+        eval_run_identity_sha256="3" * 64,
+        eval_run_role="smoke",
+        eval_run_identity=identity_path,
+        eval_invocations=invocations,
+        results=artifact_paths["results"],
+        deployment_id=deployment_id,
+        deployment_spec_sha256=spec_sha256,
+        readiness_checkpoint=readiness,
+        readiness_checkpoint_sha256=readiness_sha256,
+        endpoint=endpoint,
+        serving_route_generation=route_generation,
+        proxy_policy=proxy_policy,
+    )
+    write_guard_success_receipt(guard_receipt_path, guard_receipt)
+    artifacts["eval_invocations"] = _artifact(invocations, _sha256(invocations.read_bytes()))
+    artifacts["route_guard_success"] = _artifact(
+        guard_receipt_path,
+        _sha256(guard_receipt_path.read_bytes()),
+    )
     body = {
         "schema_version": 1,
         "state": "passed",
@@ -278,6 +410,8 @@ def _capacity_checkpoint(
         "readiness_checkpoint_sha256": readiness_sha256,
         "deployment": {"id": deployment_id, "spec_sha256": spec_sha256},
         "endpoint": endpoint,
+        "serving_route_generation": route_generation,
+        "proxy_policy": proxy_policy,
         "qualified_execution": {
             "rollout_concurrency": 8,
             "multiplex": 8,
@@ -434,7 +568,13 @@ def _oracle_receipt(
     return digest
 
 
-def _fixture(tmp_path: Path) -> tuple[dict[str, object], Path]:
+def _fixture(
+    tmp_path: Path,
+    *,
+    production_routes: int = 2,
+    tb4_routes: int = 1,
+    no_post_tb4_resize: bool = False,
+) -> tuple[dict[str, object], Path]:
     project = tmp_path / "project"
     project.mkdir(parents=True)
     configs = project / "configs"
@@ -472,7 +612,20 @@ def _fixture(tmp_path: Path) -> tuple[dict[str, object], Path]:
     deployment_dir = tmp_path / deployment_id
     deployment_dir.mkdir()
     spec = deployment_dir / "spec.yaml"
-    spec.write_text("schema_version: 1\nspec:\n  num_endpoints: 4\n")
+    spec.write_text(
+        "schema_version: 1\n"
+        "spec:\n"
+        f"  num_endpoints: {production_routes}\n"
+        "  proxy:\n"
+        "    config:\n"
+        "      request_timeout: 7200\n"
+        "      num_retries: 0\n"
+    )
+    (deployment_dir / "proxy_litellm_config.yaml").write_text(
+        "litellm_settings:\n"
+        "  request_timeout: 7200\n"
+        "  num_retries: 0\n"
+    )
     spec_sha256 = _sha256(spec.read_bytes())
     proxy_info = deployment_dir / "proxy_info.json"
     proxy_info.write_text(
@@ -498,6 +651,19 @@ def _fixture(tmp_path: Path) -> tuple[dict[str, object], Path]:
         expected_proxy_info_sha256=proxy_info_sha256,
     )
     endpoint = endpoint_info.binding
+    proxy_policy = load_deployment_proxy_policy(
+        spec,
+        expected_spec_sha256=spec_sha256,
+    )
+    tb4_proxy_policy = {
+        **proxy_policy,
+        "proxy_litellm_config": {
+            **proxy_policy["proxy_litellm_config"],
+            "sha256": "f" * 64,
+        },
+    }
+    tb4_route_generation = _route_generation(tb4_routes, first_job_id=12000)
+    production_route_generation = _route_generation(production_routes, first_job_id=13000)
     manifest = project / "approved.txt"
     manifest.write_text("".join(f"synthetic-entry-{index:04d}\n" for index in range(2_500)))
     manifest_sha256 = _sha256(manifest.read_bytes())
@@ -615,9 +781,23 @@ def _fixture(tmp_path: Path) -> tuple[dict[str, object], Path]:
     ]
 
     tb4 = tmp_path / "tb4-checkpoint.json"
-    tb4_sha256 = _tb4_checkpoint(tb4, deployment_id, endpoint)
+    tb4_sha256 = _tb4_checkpoint(
+        tb4,
+        deployment_id,
+        endpoint,
+        tb4_route_generation,
+        tb4_proxy_policy,
+        spec_sha256 if no_post_tb4_resize else "2" * 64,
+    )
     readiness = tmp_path / "readiness-checkpoint.json"
-    readiness_sha256 = _readiness_checkpoint(readiness, deployment_id, spec_sha256, endpoint)
+    readiness_sha256 = _readiness_checkpoint(
+        readiness,
+        deployment_id,
+        spec_sha256,
+        endpoint,
+        production_route_generation,
+        proxy_policy,
+    )
     capacity = tmp_path / "capacity-checkpoint.json"
     capacity_sha256 = _capacity_checkpoint(
         capacity,
@@ -629,6 +809,8 @@ def _fixture(tmp_path: Path) -> tuple[dict[str, object], Path]:
         image_manifest,
         image_manifest_sha256,
         endpoint,
+        production_route_generation,
+        proxy_policy,
     )
     receipt = tmp_path / "oracle-receipt.json"
     receipt_sha256 = _oracle_receipt(
@@ -843,6 +1025,14 @@ def test_create_and_verify_launch_certificate_without_task_metadata(
     assert 'base_url = "http://127.0.0.1:8000/v1"' in Path(arguments["production_config"]).read_text()
     assert certificate["ok"] is True
     assert certificate["state"] == "passed"
+    assert certificate["deployment"]["spec"]["sha256"] != certificate["gates"]["tb4"][
+        "deployment_spec_sha256"
+    ]
+    assert certificate["gates"]["readiness"]["expected_routes"] == 2
+    assert certificate["gates"]["tb4"]["expected_routes"] == 1
+    assert certificate["gates"]["tb4"]["proxy_policy"] != certificate["gates"][
+        "readiness"
+    ]["proxy_policy"]
     assert certificate["deployment"]["endpoint"]["proxy_info"] == {
         "path": str(Path(arguments["deployment_proxy_info"]).resolve()),
         "sha256": arguments["deployment_proxy_info_sha256"],
@@ -867,6 +1057,63 @@ def test_create_and_verify_launch_certificate_without_task_metadata(
     assert len(_strict_identity_loader) == 4
     with pytest.raises(LaunchCertificateError, match="^launch_inputs_mismatch$"):
         _validate_for_run(arguments, output, file_sha256, requested_leases=3)
+
+
+def test_rejects_missing_post_tb4_resize(tmp_path: Path) -> None:
+    arguments, _ = _fixture(tmp_path, no_post_tb4_resize=True)
+
+    with pytest.raises(LaunchCertificateError, match="^post_tb4_deployment_spec_not_changed$"):
+        create_launch_certificate(**arguments)
+
+
+def test_rejects_post_tb4_route_count_below_two(tmp_path: Path) -> None:
+    arguments, _ = _fixture(tmp_path, production_routes=1)
+
+    with pytest.raises(LaunchCertificateError, match="^post_tb4_route_count_too_small$"):
+        create_launch_certificate(**arguments)
+
+
+def test_rejects_tb4_checkpoint_not_run_at_exactly_one_route(tmp_path: Path) -> None:
+    arguments, _ = _fixture(tmp_path, tb4_routes=2, production_routes=3)
+
+    with pytest.raises(LaunchCertificateError, match="^tb4_route_count_invalid$"):
+        create_launch_certificate(**arguments)
+
+
+@pytest.mark.parametrize(
+    ("argument", "hash_argument", "hash_field", "error"),
+    [
+        (
+            "tb4_checkpoint",
+            "tb4_checkpoint_sha256",
+            "tb4_certificate_sha256",
+            "tb4_artifacts_invalid",
+        ),
+        (
+            "capacity_smoke_checkpoint",
+            "capacity_smoke_checkpoint_sha256",
+            "smoke_checkpoint_sha256",
+            "capacity_smoke_artifacts_invalid",
+        ),
+    ],
+)
+def test_rejects_certificate_chain_without_guard_receipt(
+    tmp_path: Path,
+    argument: str,
+    hash_argument: str,
+    hash_field: str,
+    error: str,
+) -> None:
+    arguments, _ = _fixture(tmp_path)
+    checkpoint = Path(arguments[argument])
+    arguments[hash_argument] = _rewrite_flat(
+        checkpoint,
+        hash_field,
+        lambda value: value["artifacts"].pop("route_guard_success"),
+    )
+
+    with pytest.raises(LaunchCertificateError, match=f"^{error}$"):
+        create_launch_certificate(**arguments)
 
 
 def test_rejects_existing_output_before_reading_inputs(tmp_path: Path) -> None:
@@ -1130,6 +1377,15 @@ def test_rejects_failed_readiness_and_capacity_below_production(tmp_path: Path) 
     identity["identity"]["execution"]["rollout_concurrency"] = 7
     _write_json(identity_path, identity)
     identity_record["sha256"] = _sha256(identity_path.read_bytes())
+    guard_record = capacity_value["artifacts"]["route_guard_success"]
+    guard_path = Path(guard_record["path"])
+    guard_value = json.loads(guard_path.read_text())
+    guard_value["artifacts"]["eval_run_identity"]["sha256"] = identity_record[
+        "sha256"
+    ]
+    guard_value.pop("guard_success_receipt_sha256")
+    guard_value["guard_success_receipt_sha256"] = _sha256(_canonical(guard_value))
+    guard_record["sha256"] = _write_json(guard_path, guard_value)
     capacity_value["qualified_execution"]["rollout_concurrency"] = 7
     arguments["capacity_smoke_checkpoint_sha256"] = _write_json(
         capacity,

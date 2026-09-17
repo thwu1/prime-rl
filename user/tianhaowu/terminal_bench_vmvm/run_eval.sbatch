@@ -94,6 +94,11 @@ if [[ -z "$eval_run_role" \
     exec bash "$workflow_dir/run_direct_qwen_eval_driver.sh"
 fi
 
+if [[ -n "$resume_dir" ]]; then
+    printf 'Guarded Kimi evaluations cannot resume; use a fresh OUTPUT_DIR\n' >&2
+    exit 2
+fi
+
 eval_approved_task_file=${EVAL_APPROVED_TASK_FILE:-}
 eval_approved_task_file_sha256=${EVAL_APPROVED_TASK_FILE_SHA256:-}
 direct_approved_task_file=${DIRECT_QWEN_APPROVED_TASK_FILE:-}
@@ -452,4 +457,20 @@ fi
 
 args=(--resume "$output_dir")
 exec "$x86_uv" run --no-project --offline --python "$python_bin" \
+    python3 "$workflow_dir/inference_route_guard.py" \
+    --deployment-id "$eval_deployment_id" \
+    --deployment-spec "$deployment_spec" \
+    --deployment-spec-sha256 "$deployment_spec_sha256" \
+    --readiness-checkpoint "$readiness_checkpoint" \
+    --readiness-checkpoint-sha256 "$readiness_checkpoint_sha256" \
+    --proxy-info "$inference_proxy_info" \
+    --proxy-info-sha256 "$inference_proxy_info_sha256" \
+    --expected-model "$eval_expected_model" \
+    --eval-run-identity "$output_dir/eval_run_identity.json" \
+    --eval-run-identity-sha256 "$eval_run_identity_sha256" \
+    --eval-invocations "$output_dir/eval_invocations.jsonl" \
+    --results "$output_dir/results.jsonl" \
+    --success-receipt "$output_dir/route_guard_success.json" \
+    -- \
+    "$x86_uv" run --no-project --offline --python "$python_bin" \
     python3 -c 'from verifiers.v1.cli.eval.main import main; main()' "${args[@]}"

@@ -23,6 +23,21 @@ from deployment_endpoint import (
     load_deployment_endpoint,
     validate_endpoint_binding,
 )
+from deployment_proxy_policy import (
+    DeploymentProxyPolicyError,
+    revalidate_deployment_proxy_policy,
+    validate_proxy_policy_binding,
+)
+from guard_success_receipt import (
+    GuardReceiptError,
+    load_guard_success_receipt,
+    validate_guard_success_linkage,
+)
+from inference_route_generation import (
+    RouteGenerationError,
+    validate_readiness_route_generation,
+    validate_route_generation,
+)
 from pydantic_config import cli
 from verifiers.v1.cli.resolve import narrow_config
 from verifiers.v1.configs.eval import EvalConfig
@@ -592,13 +607,21 @@ def _validate_smoke_checkpoint_payload(
     deployment_spec_sha256: str,
     readiness: dict[str, str],
     endpoint: dict[str, Any],
+    serving_route_generation: dict[str, Any],
+    proxy_policy: dict[str, Any],
 ) -> None:
     self_digest = payload.get("smoke_checkpoint_sha256")
     body = {key: value for key, value in payload.items() if key != "smoke_checkpoint_sha256"}
     deployment = payload.get("deployment")
     try:
         smoke_endpoint = validate_endpoint_binding(payload.get("endpoint"))
-    except EndpointBindingError as error:
+        smoke_generation = validate_route_generation(payload.get("serving_route_generation"))
+        smoke_proxy_policy = validate_proxy_policy_binding(payload.get("proxy_policy"))
+    except (
+        EndpointBindingError,
+        RouteGenerationError,
+        DeploymentProxyPolicyError,
+    ) as error:
         raise EvalIdentityError("smoke_checkpoint_endpoint_invalid") from error
     policy = payload.get("audit_policy")
     counts = payload.get("counts")
@@ -612,6 +635,8 @@ def _validate_smoke_checkpoint_payload(
         or deployment.get("id") != deployment_id
         or deployment.get("spec_sha256") != deployment_spec_sha256
         or smoke_endpoint != endpoint
+        or smoke_generation != serving_route_generation
+        or smoke_proxy_policy != proxy_policy
         or not isinstance(policy, dict)
         or policy.get("rollouts_per_task") != 1
         or policy.get("require_reasoning") is not True
@@ -638,7 +663,14 @@ def _validate_smoke_checkpoint_payload(
     ):
         raise EvalIdentityError("smoke_checkpoint_counts_invalid")
 
-    for name in ("results", "config", "inputs_manifest", "provenance"):
+    for name in (
+        "results",
+        "eval_invocations",
+        "route_guard_success",
+        "config",
+        "inputs_manifest",
+        "provenance",
+    ):
         _checkpoint_artifact(payload, name)
     certificate_proxy = _checkpoint_artifact(payload, "proxy_info")
     if certificate_proxy != endpoint["proxy_info"]:
@@ -662,6 +694,8 @@ def _validate_smoke_checkpoint_payload(
         or not isinstance(smoke_deployment, dict)
         or smoke_deployment.get("id") != deployment_id
         or smoke_deployment.get("endpoint") != endpoint
+        or smoke_deployment.get("serving_route_generation") != serving_route_generation
+        or smoke_deployment.get("proxy_policy") != proxy_policy
         or not isinstance(smoke_deployment.get("spec"), dict)
         or smoke_deployment["spec"].get("sha256") != deployment_spec_sha256
         or not isinstance(smoke_readiness, dict)
@@ -669,6 +703,32 @@ def _validate_smoke_checkpoint_payload(
         or smoke_identity.get("inputs", {}).get("task_file", {}).get("count") != expected_traces
     ):
         raise EvalIdentityError("smoke_checkpoint_identity_mismatch")
+    results_artifact = _checkpoint_artifact(payload, "results")
+    invocations_artifact = _checkpoint_artifact(payload, "eval_invocations")
+    guard_artifact = _checkpoint_artifact(payload, "route_guard_success")
+    run_dir = Path(identity_artifact["path"]).parent
+    if guard_artifact["path"] != str(run_dir / "route_guard_success.json"):
+        raise EvalIdentityError("smoke_checkpoint_guard_receipt_invalid")
+    try:
+        guard_receipt = load_guard_success_receipt(Path(guard_artifact["path"]))
+        guard_artifacts = validate_guard_success_linkage(
+            guard_receipt,
+            run_dir=run_dir,
+            eval_run_identity_sha256=envelope["eval_run_identity_sha256"],
+            eval_run_role="smoke",
+            eval_run_identity_file_sha256=identity_artifact["sha256"],
+            results_sha256=results_artifact["sha256"],
+            deployment_id=deployment_id,
+            deployment_spec_sha256=deployment_spec_sha256,
+            readiness_checkpoint=readiness,
+            endpoint=endpoint,
+            serving_route_generation=serving_route_generation,
+            proxy_policy=proxy_policy,
+        )
+    except (OSError, GuardReceiptError) as error:
+        raise EvalIdentityError("smoke_checkpoint_guard_receipt_invalid") from error
+    if guard_artifacts["eval_invocations"] != invocations_artifact:
+        raise EvalIdentityError("smoke_checkpoint_guard_receipt_invalid")
 
 
 def _checkpoint_identity(
@@ -685,7 +745,22 @@ def _checkpoint_identity(
     probe = readiness_payload.get("probe")
     try:
         readiness_endpoint = validate_endpoint_binding(readiness_payload.get("endpoint"))
-    except EndpointBindingError as error:
+        serving_route_generation = validate_readiness_route_generation(
+            readiness_payload,
+            deployment_id=args.deployment_id,
+            deployment_spec_sha256=spec["sha256"],
+        )
+        proxy_policy = validate_proxy_policy_binding(readiness_payload.get("proxy_policy"))
+        revalidate_deployment_proxy_policy(
+            Path(spec["path"]),
+            expected_spec_sha256=spec["sha256"],
+            expected_binding=proxy_policy,
+        )
+    except (
+        EndpointBindingError,
+        RouteGenerationError,
+        DeploymentProxyPolicyError,
+    ) as error:
         raise EvalIdentityError("readiness_checkpoint_endpoint_invalid") from error
     if (
         readiness_payload.get("schema_version") != 1
@@ -713,6 +788,8 @@ def _checkpoint_identity(
             deployment_spec_sha256=spec["sha256"],
             readiness=readiness,
             endpoint=endpoint,
+            serving_route_generation=serving_route_generation,
+            proxy_policy=proxy_policy,
         )
     promotion: dict[str, str] | None = None
     if args.role == "mobius":
@@ -731,15 +808,35 @@ def _checkpoint_identity(
                 if isinstance(promotion_deployment, dict)
                 else None
             )
-        except EndpointBindingError as error:
+            promotion_generation = validate_route_generation(
+                promotion_deployment.get("serving_route_generation")
+                if isinstance(promotion_deployment, dict)
+                else None
+            )
+            promotion_proxy_policy = validate_proxy_policy_binding(
+                promotion_deployment.get("proxy_policy")
+                if isinstance(promotion_deployment, dict)
+                else None
+            )
+        except (
+            EndpointBindingError,
+            RouteGenerationError,
+            DeploymentProxyPolicyError,
+        ) as error:
             raise EvalIdentityError("promotion_certificate_endpoint_invalid") from error
-        if promotion_endpoint != endpoint:
+        if (
+            promotion_endpoint != endpoint
+            or promotion_generation != serving_route_generation
+            or promotion_proxy_policy != proxy_policy
+        ):
             raise EvalIdentityError("promotion_certificate_endpoint_mismatch")
     elif args.promotion_certificate is not None or args.promotion_certificate_sha256 is not None:
         raise EvalIdentityError("promotion_certificate_role_invalid")
     return {
         "id": args.deployment_id,
         "endpoint": endpoint,
+        "serving_route_generation": serving_route_generation,
+        "proxy_policy": proxy_policy,
         "routing": _routing_identity(args.routing_deployment_id),
         "spec": spec,
         "readiness_checkpoint": readiness,
@@ -972,6 +1069,8 @@ def _validate_identity_shape(identity: object) -> dict[str, Any]:
     if not isinstance(deployment, dict) or set(deployment) != {
         "id",
         "endpoint",
+        "serving_route_generation",
+        "proxy_policy",
         "routing",
         "spec",
         "readiness_checkpoint",
@@ -984,7 +1083,13 @@ def _validate_identity_shape(identity: object) -> dict[str, Any]:
         raise EvalIdentityError("eval_run_identity_schema_invalid")
     try:
         validate_endpoint_binding(deployment.get("endpoint"))
-    except EndpointBindingError as error:
+        validate_route_generation(deployment.get("serving_route_generation"))
+        validate_proxy_policy_binding(deployment.get("proxy_policy"))
+    except (
+        EndpointBindingError,
+        RouteGenerationError,
+        DeploymentProxyPolicyError,
+    ) as error:
         raise EvalIdentityError("eval_run_identity_schema_invalid") from error
     routing = deployment.get("routing")
     routing_id = routing.get("deployment_id") if isinstance(routing, dict) else None
@@ -1129,7 +1234,19 @@ def _verify_checkpoint_records(identity: dict[str, Any], endpoint: dict[str, Any
     readiness_payload = _json_artifact(readiness, label="readiness_checkpoint")
     try:
         readiness_endpoint = validate_endpoint_binding(readiness_payload.get("endpoint"))
-    except EndpointBindingError as error:
+        readiness_generation = validate_readiness_route_generation(
+            readiness_payload,
+            deployment_id=deployment.get("id"),
+            deployment_spec_sha256=spec["sha256"],
+        )
+        readiness_proxy_policy = validate_proxy_policy_binding(
+            readiness_payload.get("proxy_policy")
+        )
+    except (
+        EndpointBindingError,
+        RouteGenerationError,
+        DeploymentProxyPolicyError,
+    ) as error:
         raise EvalIdentityError("readiness_checkpoint_endpoint_invalid") from error
     if (
         readiness_payload.get("schema_version") != 1
@@ -1139,6 +1256,8 @@ def _verify_checkpoint_records(identity: dict[str, Any], endpoint: dict[str, Any
         or not isinstance(readiness_payload.get("probe"), dict)
         or readiness_payload["probe"].get("ok") is not True
         or readiness_endpoint != endpoint
+        or readiness_generation != deployment.get("serving_route_generation")
+        or readiness_proxy_policy != deployment.get("proxy_policy")
     ):
         raise EvalIdentityError("readiness_checkpoint_not_passed")
     if identity["role"] == "smoke":
@@ -1155,6 +1274,8 @@ def _verify_checkpoint_records(identity: dict[str, Any], endpoint: dict[str, Any
         deployment_spec_sha256=spec["sha256"],
         readiness=readiness,
         endpoint=endpoint,
+        serving_route_generation=readiness_generation,
+        proxy_policy=readiness_proxy_policy,
     )
     if identity["role"] == "mobius":
         assert isinstance(promotion, dict)
@@ -1167,9 +1288,27 @@ def _verify_checkpoint_records(identity: dict[str, Any], endpoint: dict[str, Any
                 if isinstance(promotion_deployment, dict)
                 else None
             )
-        except EndpointBindingError as error:
+            promotion_generation = validate_route_generation(
+                promotion_deployment.get("serving_route_generation")
+                if isinstance(promotion_deployment, dict)
+                else None
+            )
+            promotion_proxy_policy = validate_proxy_policy_binding(
+                promotion_deployment.get("proxy_policy")
+                if isinstance(promotion_deployment, dict)
+                else None
+            )
+        except (
+            EndpointBindingError,
+            RouteGenerationError,
+            DeploymentProxyPolicyError,
+        ) as error:
             raise EvalIdentityError("promotion_certificate_endpoint_invalid") from error
-        if promotion_endpoint != endpoint:
+        if (
+            promotion_endpoint != endpoint
+            or promotion_generation != readiness_generation
+            or promotion_proxy_policy != readiness_proxy_policy
+        ):
             raise EvalIdentityError("promotion_certificate_endpoint_mismatch")
 
 

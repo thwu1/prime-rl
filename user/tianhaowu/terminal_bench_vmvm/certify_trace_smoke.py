@@ -26,7 +26,22 @@ from deployment_endpoint import (
     load_deployment_endpoint,
     validate_endpoint_binding,
 )
+from deployment_proxy_policy import (
+    DeploymentProxyPolicyError,
+    revalidate_deployment_proxy_policy,
+    validate_proxy_policy_binding,
+)
 from eval_run_identity import load_eval_run_identity
+from guard_success_receipt import (
+    GuardReceiptError,
+    load_guard_success_receipt,
+    validate_guard_success_linkage,
+)
+from inference_route_generation import (
+    RouteGenerationError,
+    validate_readiness_route_generation,
+    validate_route_generation,
+)
 
 SHA256_RE = re.compile(r"[0-9a-f]{64}")
 SCHEMA_VERSION = 1
@@ -225,6 +240,7 @@ def certify_smoke(
             raise SmokeCertificateError("writer_active") from cause
 
         identity_path = run_dir / "eval_run_identity.json"
+        identity_file_sha256 = _sha256_file(identity_path)
         try:
             envelope = identity_loader(identity_path, verify_references=True)
         except (OSError, ValueError) as cause:
@@ -279,6 +295,13 @@ def certify_smoke(
         vmvm_environment = execution.get("vmvm_environment") if isinstance(execution, dict) else None
         deployment_id = deployment.get("id")
         spec = deployment.get("spec")
+        try:
+            serving_route_generation = validate_route_generation(
+                deployment.get("serving_route_generation")
+            )
+            proxy_policy = validate_proxy_policy_binding(deployment.get("proxy_policy"))
+        except (RouteGenerationError, DeploymentProxyPolicyError) as cause:
+            raise SmokeCertificateError("eval_identity_deployment_invalid") from cause
         if (
             not isinstance(deployment_id, str)
             or not deployment_id
@@ -286,6 +309,14 @@ def certify_smoke(
             or SHA256_RE.fullmatch(str(spec.get("sha256", ""))) is None
         ):
             raise SmokeCertificateError("eval_identity_deployment_invalid")
+        try:
+            revalidate_deployment_proxy_policy(
+                Path(spec["path"]),
+                expected_spec_sha256=spec["sha256"],
+                expected_binding=proxy_policy,
+            )
+        except DeploymentProxyPolicyError as cause:
+            raise SmokeCertificateError("eval_identity_proxy_policy_changed") from cause
         execution_fields = {
             "rollout_concurrency": execution.get("rollout_concurrency") if isinstance(execution, dict) else None,
             "multiplex": execution.get("multiplex") if isinstance(execution, dict) else None,
@@ -313,9 +344,54 @@ def certify_smoke(
             raise SmokeCertificateError("readiness_endpoint_invalid") from cause
         if readiness_endpoint != endpoint:
             raise SmokeCertificateError("readiness_endpoint_mismatch")
+        try:
+            readiness_generation = validate_readiness_route_generation(
+                readiness_payload,
+                deployment_id=deployment_id,
+                deployment_spec_sha256=spec["sha256"],
+            )
+            readiness_proxy_policy = validate_proxy_policy_binding(
+                readiness_payload.get("proxy_policy")
+            )
+        except (
+            RouteGenerationError,
+            DeploymentProxyPolicyError,
+        ) as cause:
+            raise SmokeCertificateError("readiness_generation_invalid") from cause
+        if (
+            readiness_generation != serving_route_generation
+            or readiness_proxy_policy != proxy_policy
+        ):
+            raise SmokeCertificateError("readiness_generation_mismatch")
+        guard_receipt_path = run_dir / "route_guard_success.json"
+        try:
+            if guard_receipt_path.resolve(strict=True) != guard_receipt_path:
+                raise GuardReceiptError("guard_receipt_path_mismatch")
+            guard_receipt = load_guard_success_receipt(guard_receipt_path)
+            guard_artifacts = validate_guard_success_linkage(
+                guard_receipt,
+                run_dir=run_dir,
+                eval_run_identity_sha256=identity_sha256,
+                eval_run_role="smoke",
+                eval_run_identity_file_sha256=identity_file_sha256,
+                results_sha256=before_results_sha256,
+                deployment_id=deployment_id,
+                deployment_spec_sha256=spec["sha256"],
+                readiness_checkpoint=readiness_record,
+                endpoint=endpoint,
+                serving_route_generation=serving_route_generation,
+                proxy_policy=proxy_policy,
+            )
+        except (OSError, GuardReceiptError) as cause:
+            raise SmokeCertificateError("guard_success_receipt_invalid") from cause
         artifacts = {
             "results": {"path": str(results_path), "sha256": before_results_sha256},
-            "eval_run_identity": _artifact(identity_path),
+            "eval_run_identity": {
+                "path": str(identity_path),
+                "sha256": identity_file_sha256,
+            },
+            "eval_invocations": guard_artifacts["eval_invocations"],
+            "route_guard_success": _artifact(guard_receipt_path),
             "config": config_record,
             "inputs_manifest": manifest_record,
             "provenance": _artifact(run_dir / "provenance.txt"),
@@ -339,6 +415,8 @@ def certify_smoke(
                 "spec_sha256": spec["sha256"],
             },
             "endpoint": endpoint,
+            "serving_route_generation": serving_route_generation,
+            "proxy_policy": proxy_policy,
             "qualified_execution": execution_fields,
             "audit_policy": {
                 "expected_traces": expected_traces,

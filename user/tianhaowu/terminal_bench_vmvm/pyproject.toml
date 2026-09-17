@@ -5,6 +5,7 @@ description = "Prime-RL Harbor taskset and VMVM operations for Terminal-Bench"
 requires-python = ">=3.12,<3.14"
 dependencies = [
     "prime-pydantic-config",
+    "pyyaml>=6",
     "renderers",
     "verifiers",
     "vmvm-tb-v2",

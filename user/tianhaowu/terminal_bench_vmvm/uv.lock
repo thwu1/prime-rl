@@ -1922,6 +1922,7 @@ version = "0.1.0"
 source = { editable = "." }
 dependencies = [
     { name = "prime-pydantic-config" },
+    { name = "pyyaml" },
     { name = "renderers" },
     { name = "verifiers" },
     { name = "vmvm-tb-v2" },
@@ -1940,6 +1941,7 @@ direct-router = [
 [package.metadata]
 requires-dist = [
     { name = "prime-pydantic-config", editable = "../../../deps/pydantic-config" },
+    { name = "pyyaml", specifier = ">=6" },
     { name = "renderers", editable = "../../../deps/renderers" },
     { name = "verifiers", editable = "../../../deps/verifiers" },
     { name = "vmvm-tb-v2", editable = "../../../environments/vmvm_tb_v2" },

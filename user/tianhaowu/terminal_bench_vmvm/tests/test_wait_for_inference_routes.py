@@ -11,6 +11,8 @@ from typing import Any
 
 import pytest
 from deployment_endpoint import load_deployment_endpoint
+from inference_route_generation import route_generation_from_status_endpoints
+from probe_inference_routes import _backend_identifier
 from wait_for_inference_routes import (
     GateConfig,
     GateError,
@@ -64,21 +66,53 @@ def _status(
     running_not_ready: Any = 0,
     pending: Any = 0,
     deployment: str = "test-deployment",
+    job_ids: Sequence[str] | None = None,
+    endpoint_started_at: str = "2026-09-17T01:00:00Z",
+    coord_job_id: str = "900",
+    coord_started_at: str = "2026-09-17T00:00:00Z",
+    coord_ticks: Any = 10,
+    proxy_job_id: str = "12345",
+    proxy_first_ready_at: str = "2026-09-17T00:30:00Z",
+    schema_version: Any = 4,
 ) -> ProcessResult:
+    endpoint_count = desired if isinstance(desired, int) and not isinstance(desired, bool) else 24
+    if job_ids is None:
+        job_ids = [str(1000 + index) for index in range(endpoint_count)]
     payload = {
-        "schema_version": 4,
+        "schema_version": schema_version,
         "deployment_id": deployment,
         "phase": phase,
         "terminal_reason": None,
-        "coord": {"ticks_completed": 10},
+        "coord": {
+            "jobid": coord_job_id,
+            "started_at": coord_started_at,
+            "ticks_completed": coord_ticks,
+        },
         "endpoints_summary": {
             "desired": desired,
             "ready": ready,
             "running_not_ready": running_not_ready,
             "pending": pending,
         },
+        "endpoints": [
+            {
+                "jobid": job_id,
+                "host": f"worker-{index}",
+                "port": 8000 + index,
+                "slurm_state": "RUNNING",
+                "sub_state": "ready",
+                "started_at": endpoint_started_at,
+            }
+            for index, job_id in enumerate(job_ids)
+        ],
         # These fields must never be copied into the artifact.
-        "proxy": {"url": "http://private-proxy:8100", "api_key": "status-secret"},
+        "proxy": {
+            "jobid": proxy_job_id,
+            "slurm_state": "RUNNING",
+            "first_ready_at": proxy_first_ready_at,
+            "url": "http://private-proxy:8100",
+            "api_key": "status-secret",
+        },
         "spec": {"future_secret": "do-not-copy"},
     }
     return ProcessResult(0 if phase == "serving" else 1, json.dumps(payload))
@@ -89,10 +123,21 @@ def _probe(
     ok: bool = True,
     returncode: int | None = None,
     endpoint_authority_sha256: str | None = None,
+    backends: Sequence[str] | None = None,
 ) -> ProcessResult:
+    if backends is None:
+        backends = sorted(
+            f"backend-sha256:{hashlib.sha256(f'http://worker-{index}:{8000 + index}/v1'.encode()).hexdigest()}"
+            for index in range(24)
+        )
     payload = {
         "ok": ok,
-        "coverage": {"ok": ok, "discovered_routes": 24},
+        "coverage": {
+            "ok": ok,
+            "expected_routes": len(backends),
+            "discovered_routes": len(backends),
+            "backends": list(backends),
+        },
         "requests": {"ok": ok, "failed": 0 if ok else 1},
         "future_api_key": "not-a-known-key-name",
         "failure": "Bearer unit-test-secret" if not ok else None,
@@ -100,6 +145,13 @@ def _probe(
     if endpoint_authority_sha256 is not None:
         payload["endpoint_authority_sha256"] = endpoint_authority_sha256
     return ProcessResult(returncode if returncode is not None else (0 if ok else 1), json.dumps(payload))
+
+
+def _backends(count: int) -> list[str]:
+    return sorted(
+        f"backend-sha256:{hashlib.sha256(f'http://worker-{index}:{8000 + index}/v1'.encode()).hexdigest()}"
+        for index in range(count)
+    )
 
 
 def _config(tmp_path: Path, **overrides: Any) -> GateConfig:
@@ -110,7 +162,18 @@ def _config(tmp_path: Path, **overrides: Any) -> GateConfig:
     deployment_dir = tmp_path / "test-deployment"
     deployment_dir.mkdir()
     spec = deployment_dir / "spec.yaml"
-    spec.write_text("immutable: true\n")
+    spec.write_text(
+        "spec:\n"
+        "  proxy:\n"
+        "    config:\n"
+        "      request_timeout: 7200\n"
+        "      num_retries: 0\n"
+    )
+    (deployment_dir / "proxy_litellm_config.yaml").write_text(
+        "litellm_settings:\n"
+        "  request_timeout: 7200\n"
+        "  num_retries: 0\n"
+    )
     proxy_info = deployment_dir / "proxy_info.json"
     proxy_info.write_text(
         json.dumps(
@@ -160,7 +223,15 @@ def test_three_exact_polls_run_strict_probe_and_write_redacted_artifact(
     tmp_path: Path,
 ) -> None:
     config = _config(tmp_path)
-    runner = FakeRunner([_status(), _status(), _status(), _probe()])
+    runner = FakeRunner(
+        [
+            _status(coord_ticks=10),
+            _status(coord_ticks=11),
+            _status(coord_ticks=12),
+            _probe(),
+            _status(coord_ticks=13),
+        ]
+    )
     clock = FakeClock()
 
     artifact = _run(config, runner, clock)
@@ -168,6 +239,12 @@ def test_three_exact_polls_run_strict_probe_and_write_redacted_artifact(
     assert artifact["state"] == "passed"
     assert artifact["polls"] == 3
     assert artifact["consecutive_ready_polls"] == 3
+    assert [
+        route["slurm_job_id"] for route in artifact["serving_route_generation"]["routes"]
+    ] == [str(1000 + index) for index in range(24)]
+    assert artifact["last_status"]["serving_route_generation"] == artifact[
+        "serving_route_generation"
+    ]
     assert artifact["proxy_info_readable"] is True
     assert artifact["observed_spec_sha256"] == config.expected_spec_sha256
     persisted = config.resolved_output().read_text()
@@ -193,7 +270,7 @@ def test_three_exact_polls_run_strict_probe_and_write_redacted_artifact(
         config.deployment,
         "--json",
     ]
-    probe_argv = runner.calls[-1][0]
+    probe_argv = runner.calls[-2][0]
     assert probe_argv[:2] == [sys.executable, str(config.probe_script)]
     assert probe_argv[probe_argv.index("--proxy-info-sha256") + 1] == artifact["endpoint"]["proxy_info"]["sha256"]
     assert probe_argv[probe_argv.index("--deployment-id") + 1] == config.deployment
@@ -214,8 +291,19 @@ def test_nonready_poll_resets_consecutive_streak(tmp_path: Path) -> None:
         phase="booting",
         ready=23,
         running_not_ready=1,
+        coord_ticks=11,
     )
-    runner = FakeRunner([_status(), booting, _status(), _status(), _status(), _probe()])
+    runner = FakeRunner(
+        [
+            _status(coord_ticks=10),
+            booting,
+            _status(coord_ticks=12),
+            _status(coord_ticks=13),
+            _status(coord_ticks=14),
+            _probe(),
+            _status(coord_ticks=15),
+        ]
+    )
     clock = FakeClock()
 
     artifact = _run(config, runner, clock)
@@ -223,6 +311,160 @@ def test_nonready_poll_resets_consecutive_streak(tmp_path: Path) -> None:
     assert artifact["state"] == "passed"
     assert artifact["polls"] == 5
     assert artifact["consecutive_ready_polls"] == 3
+
+
+def test_endpoint_job_rotation_resets_ready_streak(tmp_path: Path) -> None:
+    config = _config(tmp_path, expected_routes=2, consecutive_polls=2)
+    generation_a = _status(desired=2, ready=2, job_ids=["100", "101"], coord_ticks=10)
+    generation_b = _status(desired=2, ready=2, job_ids=["200", "201"], coord_ticks=11)
+    runner = FakeRunner(
+        [
+            generation_a,
+            generation_b,
+            _status(desired=2, ready=2, job_ids=["200", "201"], coord_ticks=12),
+            _probe(backends=_backends(2)),
+            _status(desired=2, ready=2, job_ids=["200", "201"], coord_ticks=13),
+        ]
+    )
+
+    artifact = _run(config, runner, FakeClock())
+
+    assert artifact["polls"] == 3
+    assert [
+        route["slurm_job_id"] for route in artifact["serving_route_generation"]["routes"]
+    ] == ["200", "201"]
+
+
+@pytest.mark.parametrize(
+    ("changed", "field"),
+    [
+        (
+            {"endpoint_started_at": "2026-09-17T01:01:00Z"},
+            "routes",
+        ),
+        (
+            {"coord_started_at": "2026-09-17T00:01:00Z"},
+            "coordinator",
+        ),
+    ],
+)
+def test_process_incarnation_rotation_resets_ready_streak(
+    tmp_path: Path,
+    changed: dict[str, str],
+    field: str,
+) -> None:
+    config = _config(tmp_path, expected_routes=2, consecutive_polls=2)
+    generation_a = _status(desired=2, ready=2, job_ids=["100", "101"], coord_ticks=10)
+    runner = FakeRunner(
+        [
+            generation_a,
+            _status(desired=2, ready=2, job_ids=["100", "101"], coord_ticks=11, **changed),
+            _status(desired=2, ready=2, job_ids=["100", "101"], coord_ticks=12, **changed),
+            _probe(backends=_backends(2)),
+            _status(desired=2, ready=2, job_ids=["100", "101"], coord_ticks=13, **changed),
+        ]
+    )
+
+    artifact = _run(config, runner, FakeClock())
+
+    assert artifact["polls"] == 3
+    assert field in artifact["serving_route_generation"]
+
+
+def test_coordinator_tick_regression_fails_closed(tmp_path: Path) -> None:
+    config = _config(tmp_path, consecutive_polls=3)
+    runner = FakeRunner([_status(coord_ticks=10), _status(coord_ticks=9)])
+
+    with pytest.raises(GateError, match="^coordinator_ticks_regressed$"):
+        _run(config, runner, FakeClock())
+
+
+def test_frozen_coordinator_tick_fails_closed(tmp_path: Path) -> None:
+    config = _config(tmp_path, consecutive_polls=3)
+    runner = FakeRunner([_status(coord_ticks=10), _status(coord_ticks=10)])
+
+    with pytest.raises(GateError, match="^coordinator_ticks_not_advancing$"):
+        _run(config, runner, FakeClock())
+
+
+def test_frozen_coordinator_tick_after_probe_fails_closed(tmp_path: Path) -> None:
+    config = _config(tmp_path, consecutive_polls=1)
+    runner = FakeRunner([_status(coord_ticks=10), _probe(), _status(coord_ticks=10)])
+
+    with pytest.raises(GateError, match="^coordinator_ticks_not_advancing$"):
+        _run(config, runner, FakeClock())
+
+
+def test_proxy_status_job_must_match_proxy_info(tmp_path: Path) -> None:
+    config = _config(tmp_path, consecutive_polls=1)
+    runner = FakeRunner([_status(proxy_job_id="54321")])
+
+    with pytest.raises(GateError, match="^proxy_job_id_mismatch$"):
+        _run(config, runner, FakeClock())
+
+
+def test_endpoint_job_rotation_after_probe_fails_closed(tmp_path: Path) -> None:
+    config = _config(tmp_path, expected_routes=2, consecutive_polls=1)
+    generation_a = _status(desired=2, ready=2, job_ids=["100", "101"])
+    generation_b = _status(desired=2, ready=2, job_ids=["200", "201"])
+    runner = FakeRunner(
+        [generation_a, _probe(backends=_backends(2)), generation_b]
+    )
+
+    with pytest.raises(GateError, match="^serving_route_generation_changed$"):
+        _run(config, runner, FakeClock())
+
+    artifact = json.loads(config.resolved_output().read_text())
+    assert artifact["state"] == "failed"
+    assert artifact["reason"] == "serving_route_generation_changed"
+
+
+def test_probe_backend_set_must_match_status_routes(tmp_path: Path) -> None:
+    config = _config(tmp_path, consecutive_polls=1)
+    backends = _backends(24)
+    backends[-1] = f"backend-sha256:{'f' * 64}"
+    runner = FakeRunner([_status(), _probe(backends=backends)])
+
+    with pytest.raises(GateError, match="^probe_serving_routes_mismatch$"):
+        _run(config, runner, FakeClock())
+
+
+def test_duplicate_endpoint_job_ids_fail_before_probe(tmp_path: Path) -> None:
+    config = _config(tmp_path, consecutive_polls=1)
+    runner = FakeRunner([_status(job_ids=["100"] * 24)])
+
+    with pytest.raises(GateError, match="^malformed_status_serving_endpoints$"):
+        _run(config, runner, FakeClock())
+
+    assert len(runner.calls) == 1
+
+
+def test_status_backend_hash_matches_probe_identifier() -> None:
+    endpoint = {
+        "jobid": "12345",
+        "host": "worker-0",
+        "port": 8000,
+        "slurm_state": "RUNNING",
+        "sub_state": "ready",
+        "started_at": "2026-09-17T01:00:00Z",
+    }
+    generation = route_generation_from_status_endpoints(
+        [endpoint],
+        {
+            "jobid": "900",
+            "started_at": "2026-09-17T00:00:00Z",
+            "ticks_completed": 10,
+        },
+        {
+            "jobid": "12345",
+            "slurm_state": "RUNNING",
+            "first_ready_at": "2026-09-17T00:30:00Z",
+        },
+    )
+
+    assert generation["routes"][0]["backend_sha256"] == _backend_identifier(
+        "http://worker-0:8000/v1"
+    )[0]
 
 
 @pytest.mark.parametrize(
@@ -233,6 +475,7 @@ def test_nonready_poll_resets_consecutive_streak(tmp_path: Path) -> None:
         (_status(phase="failed"), "terminal_deployment"),
         (_status(phase="FAILED"), "terminal_deployment"),
         (_status(ready=True, pending=23), "malformed_status_ready"),
+        (_status(schema_version=3), "unsupported_status_schema_version"),
     ],
 )
 def test_command_terminal_and_successful_malformed_status_fail_closed(
@@ -287,12 +530,13 @@ def test_valid_status_resets_unavailability_budget_and_readiness_streak(
     runner = FakeRunner(
         [
             ProcessResult(1, ""),
-            _status(phase="booting", ready=0, pending=24),
-            _status(),
+            _status(phase="booting", ready=0, pending=24, coord_ticks=10),
+            _status(coord_ticks=11),
             ProcessResult(1, "null"),
-            _status(),
-            _status(),
+            _status(coord_ticks=12),
+            _status(coord_ticks=13),
             _probe(),
+            _status(coord_ticks=14),
         ]
     )
     clock = FakeClock()
@@ -308,18 +552,19 @@ def test_valid_status_resets_unavailability_budget_and_readiness_streak(
 
 def test_valid_degraded_and_draining_snapshots_only_reset_streak(tmp_path: Path) -> None:
     config = _config(tmp_path)
-    degraded = _status(ready=20, pending=0, running_not_ready=0)
-    draining = _status(phase="draining")
+    degraded = _status(ready=20, pending=0, running_not_ready=0, coord_ticks=11)
+    draining = _status(phase="draining", coord_ticks=13)
     runner = FakeRunner(
         [
-            _status(),
+            _status(coord_ticks=10),
             degraded,
-            _status(),
+            _status(coord_ticks=12),
             draining,
-            _status(),
-            _status(),
-            _status(),
+            _status(coord_ticks=14),
+            _status(coord_ticks=15),
+            _status(coord_ticks=16),
             _probe(),
+            _status(coord_ticks=17),
         ]
     )
     clock = FakeClock()
@@ -337,7 +582,9 @@ def test_timeout_is_persisted_when_proxy_info_never_becomes_readable(
     config = _config(tmp_path, wait_timeout=2.0)
     assert config.proxy_info is not None
     config.proxy_info.unlink()
-    runner = FakeRunner([_status(), _status(), _status()])
+    runner = FakeRunner(
+        [_status(coord_ticks=10), _status(coord_ticks=11), _status(coord_ticks=12)]
+    )
     clock = FakeClock()
 
     with pytest.raises(GateError, match="^wait_timeout$"):

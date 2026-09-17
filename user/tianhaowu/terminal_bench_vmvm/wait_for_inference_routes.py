@@ -32,6 +32,17 @@ from deployment_endpoint import (
     EndpointBindingError,
     load_deployment_endpoint,
 )
+from deployment_proxy_policy import (
+    DeploymentProxyPolicyError,
+    load_deployment_proxy_policy,
+    revalidate_deployment_proxy_policy,
+    validate_deployment_spec_proxy_policy,
+)
+from inference_route_generation import (
+    RouteGenerationError,
+    coordinator_incarnation_from_status,
+    route_generation_from_status_endpoints,
+)
 
 DEFAULT_SERVE_SH = Path("/storage/home/tianhaowu/ram_common/vllm_tools/serve_api_v2/serve.sh")
 DEFAULT_DEPLOYMENT_ROOT = Path("/checkpoint/ram/shared/vllm_deployments_v2")
@@ -96,7 +107,9 @@ class StatusObservation:
     ready: int
     running_not_ready: int
     pending: int
+    coordinator_incarnation: dict[str, str] | None
     coord_ticks_completed: int | None
+    serving_route_generation: dict[str, Any] | None
 
     def is_exactly_ready(self, expected_routes: int) -> bool:
         return (
@@ -105,6 +118,10 @@ class StatusObservation:
             and self.ready == expected_routes
             and self.running_not_ready == 0
             and self.pending == 0
+            and isinstance(self.coordinator_incarnation, dict)
+            and isinstance(self.coord_ticks_completed, int)
+            and isinstance(self.serving_route_generation, dict)
+            and len(self.serving_route_generation.get("routes", [])) == expected_routes
         )
 
 
@@ -219,6 +236,8 @@ def _parse_status(result: ProcessResult, deployment: str) -> StatusObservation:
         schema_version = _nonnegative_int(payload.get("schema_version"), "schema_version")
     except GateError as exc:
         raise _status_problem(result, exc.reason) from exc
+    if schema_version != 4:
+        raise _status_problem(result, "unsupported_status_schema_version")
     if phase not in LIVE_PHASES:
         raise _status_problem(result, "malformed_status_phase")
     expected_returncode = 0 if phase == "serving" else 1
@@ -236,14 +255,36 @@ def _parse_status(result: ProcessResult, deployment: str) -> StatusObservation:
     except GateError as exc:
         raise _status_problem(result, exc.reason) from exc
     ticks: int | None = None
+    coordinator_incarnation: dict[str, str] | None = None
     coord = payload.get("coord")
     if coord is not None:
         if not isinstance(coord, dict):
             raise _status_problem(result, "malformed_status_coord")
         try:
             ticks = _nonnegative_int(coord.get("ticks_completed"), "ticks_completed")
+            coordinator_incarnation = coordinator_incarnation_from_status(coord)
         except GateError as exc:
             raise _status_problem(result, exc.reason) from exc
+        except RouteGenerationError as exc:
+            raise _status_problem(result, "malformed_status_coord") from exc
+    serving_route_generation: dict[str, Any] | None = None
+    if (
+        phase == "serving"
+        and desired > 0
+        and ready == desired
+        and running_not_ready == 0
+        and pending == 0
+    ):
+        try:
+            serving_route_generation = route_generation_from_status_endpoints(
+                payload.get("endpoints"),
+                coord,
+                payload.get("proxy"),
+            )
+        except RouteGenerationError as exc:
+            raise _status_problem(result, "malformed_status_serving_endpoints") from exc
+        if len(serving_route_generation["routes"]) != desired:
+            raise _status_problem(result, "malformed_status_serving_endpoint_count")
     return StatusObservation(
         schema_version=schema_version,
         deployment_id=observed_deployment,
@@ -252,7 +293,9 @@ def _parse_status(result: ProcessResult, deployment: str) -> StatusObservation:
         ready=ready,
         running_not_ready=running_not_ready,
         pending=pending,
+        coordinator_incarnation=coordinator_incarnation,
         coord_ticks_completed=ticks,
+        serving_route_generation=serving_route_generation,
     )
 
 
@@ -473,6 +516,11 @@ def run_gate(
     proxy_info_readable = False
     observed_spec_sha256: str | None = None
     endpoint: DeploymentEndpoint | None = None
+    proxy_policy: dict[str, Any] | None = None
+    serving_route_generation: dict[str, Any] | None = None
+    candidate_route_generation: dict[str, Any] | None = None
+    last_coord_incarnation: dict[str, str] | None = None
+    last_coord_ticks: int | None = None
 
     def persist(
         state: str,
@@ -489,6 +537,8 @@ def run_gate(
             "status_unavailable_reason": status_unavailable_reason,
             "proxy_info_readable": proxy_info_readable,
             "endpoint": endpoint.binding if endpoint is not None else None,
+            "proxy_policy": proxy_policy,
+            "serving_route_generation": serving_route_generation,
             "observed_spec_sha256": observed_spec_sha256,
             "last_status": _status_record(last_status) if last_status else None,
         }
@@ -507,10 +557,17 @@ def run_gate(
             observed_spec_sha256 = _hash_spec(config.resolved_spec())
             if observed_spec_sha256 != config.expected_spec_sha256:
                 raise GateError("spec_sha256_mismatch")
+            try:
+                validate_deployment_spec_proxy_policy(
+                    config.resolved_spec(),
+                    expected_spec_sha256=config.expected_spec_sha256,
+                )
+            except DeploymentProxyPolicyError as exc:
+                raise GateError("deployment_proxy_policy_invalid") from exc
             result = runner(_status_command(config), config.status_command_timeout)
             polls += 1
             try:
-                last_status = _parse_status(result, config.deployment)
+                observed_status = _parse_status(result, config.deployment)
             except StatusUnavailable as exc:
                 consecutive = 0
                 consecutive_status_unavailable += 1
@@ -531,19 +588,57 @@ def run_gate(
 
             consecutive_status_unavailable = 0
             status_unavailable_reason = None
+            if observed_status.coordinator_incarnation is not None:
+                if (
+                    observed_status.coordinator_incarnation == last_coord_incarnation
+                    and last_coord_ticks is not None
+                    and observed_status.coord_ticks_completed is not None
+                ):
+                    if observed_status.coord_ticks_completed < last_coord_ticks:
+                        raise GateError("coordinator_ticks_regressed")
+                    if observed_status.coord_ticks_completed == last_coord_ticks:
+                        raise GateError("coordinator_ticks_not_advancing")
+                last_coord_incarnation = observed_status.coordinator_incarnation
+                last_coord_ticks = observed_status.coord_ticks_completed
+            last_status = observed_status
             if last_status.is_exactly_ready(config.expected_routes):
-                consecutive += 1
+                observed_generation = last_status.serving_route_generation
+                if observed_generation == candidate_route_generation:
+                    consecutive += 1
+                else:
+                    candidate_route_generation = observed_generation
+                    consecutive = 1
             else:
                 consecutive = 0
+                candidate_route_generation = None
 
             if consecutive >= config.consecutive_polls:
+                serving_route_generation = candidate_route_generation
+                observed_spec_sha256 = _hash_spec(config.resolved_spec())
+                if observed_spec_sha256 != config.expected_spec_sha256:
+                    raise GateError("spec_sha256_mismatch")
                 try:
                     endpoint = _load_endpoint(config)
                 except GateError as exc:
                     if exc.reason != "proxy_info_unreadable":
                         raise
                 else:
-                    proxy_info_readable = True
+                    if (
+                        serving_route_generation is None
+                        or endpoint.proxy_job_id
+                        != serving_route_generation["proxy"]["slurm_job_id"]
+                    ):
+                        raise GateError("proxy_job_id_mismatch")
+                    try:
+                        proxy_policy = load_deployment_proxy_policy(
+                            config.resolved_spec(),
+                            expected_spec_sha256=config.expected_spec_sha256,
+                        )
+                    except DeploymentProxyPolicyError as exc:
+                        if str(exc) != "proxy_litellm_config_unreadable":
+                            raise GateError("deployment_proxy_policy_invalid") from exc
+                    else:
+                        proxy_info_readable = True
 
             persist("waiting")
             emit(
@@ -601,6 +696,57 @@ def run_gate(
                         probe=safe_probe,
                     )
                     raise GateError("probe_failed")
+                coverage = probe_payload.get("coverage")
+                expected_backends = sorted(
+                    route["backend_sha256"]
+                    for route in serving_route_generation["routes"]
+                )
+                if (
+                    not isinstance(coverage, dict)
+                    or coverage.get("backends") != expected_backends
+                ):
+                    raise GateError("probe_serving_routes_mismatch")
+                post_probe_result = runner(
+                    _status_command(config),
+                    config.status_command_timeout,
+                )
+                try:
+                    post_probe_status = _parse_status(post_probe_result, config.deployment)
+                except GateError as exc:
+                    raise GateError("serving_route_generation_changed") from exc
+                post_probe_generation = post_probe_status.serving_route_generation
+                if (
+                    not post_probe_status.is_exactly_ready(config.expected_routes)
+                    or post_probe_generation != serving_route_generation
+                ):
+                    raise GateError("serving_route_generation_changed")
+                if last_status.coord_ticks_completed is None or post_probe_status.coord_ticks_completed is None:
+                    raise GateError("coordinator_ticks_not_advancing")
+                if post_probe_status.coord_ticks_completed < last_status.coord_ticks_completed:
+                    raise GateError("coordinator_ticks_regressed")
+                if post_probe_status.coord_ticks_completed == last_status.coord_ticks_completed:
+                    raise GateError("coordinator_ticks_not_advancing")
+                last_status = post_probe_status
+                try:
+                    final_endpoint = _load_endpoint(
+                        config,
+                        expected_proxy_info_sha256=endpoint.proxy_info_sha256,
+                    )
+                except GateError as exc:
+                    raise GateError("proxy_info_changed") from exc
+                if final_endpoint.binding != endpoint.binding:
+                    raise GateError("proxy_info_changed")
+                observed_spec_sha256 = _hash_spec(config.resolved_spec())
+                if observed_spec_sha256 != config.expected_spec_sha256:
+                    raise GateError("spec_sha256_mismatch")
+                try:
+                    revalidate_deployment_proxy_policy(
+                        config.resolved_spec(),
+                        expected_spec_sha256=config.expected_spec_sha256,
+                        expected_binding=proxy_policy,
+                    )
+                except DeploymentProxyPolicyError as exc:
+                    raise GateError("deployment_proxy_policy_changed") from exc
                 return persist(
                     "passed",
                     probe=safe_probe,

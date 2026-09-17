@@ -189,8 +189,12 @@ through `terminal_bench_vmvm/run_eval.sbatch` must declare its role (`smoke`,
 `tb4`, or `mobius`), metadata deployment ID, expected model, exact deployment
 spec and passed readiness checkpoint with external file hashes, dataset
 authority, and an independently approved task manifest. The launcher publishes
-`eval_run_identity.json` before the first model call and permits a resume only
-when the recomputed identity is byte-for-byte identical. A TB4 run additionally
+`eval_run_identity.json` before the first model call. Guarded Kimi smoke, TB4,
+and Mobius runs must reject nonempty `RESUME_DIR` before mutating output,
+identity, or invocation metadata; interrupted runs require a fresh output
+directory. Their guard receipt must bind exactly one well-formed invocation
+record with `resume=false`, matching role/identity, and a canonical positive
+Slurm job ID. A TB4 run additionally
 requires the passed two-task transcript-smoke checkpoint. A Mobius run requires
 the post-resize capacity-smoke checkpoint and a write-once launch certificate
 that independently reconstructs the full chain: final oracle promotion receipt,
@@ -211,6 +215,36 @@ must reuse that value, rehash before and after each stage, and reject endpoint
 rotation rather than blessing it. The run validator must match the live
 readiness and capacity-smoke artifact paths and file hashes to the records
 embedded in the launch certificate.
+Also bind the exact serving generation from status schema v4: each canonical
+positive Slurm endpoint job ID, worker `started_at`, and SHA-256 digest of its
+status-derived backend API base; the coordinator job ID and `started_at`; and
+the proxy job ID and `first_ready_at`. Require the status proxy job to match
+`proxy_info.json`, use one backend-URL canonicalizer for status and probe
+headers, and reject regressing coordinator ticks. The readiness probe's
+discovered backend digests must exactly match that set. Require strict tick
+advancement between same-incarnation readiness polls and across the probe;
+during evaluation, require progress within 30 seconds at the ten-second poll
+cadence. Readiness must obtain the same status generation again after the semantic probe. Every
+non-dry evaluator must verify the generation before model traffic, poll it
+throughout the evaluator lifetime, and check it after child exit; terminate
+and wait for the evaluator process group on route change, unavailable status,
+endpoint preemption, a surviving descendant after leader exit, SIGTERM, or
+SIGINT. Ignore repeated termination signals during cleanup. Remove any stale
+guard receipt before spawn and publish a fresh atomic mode-0600
+`route_guard_success.json` only after child exit zero, final route verification,
+and stable hashes of the eval identity, invocation ledger, and results. Smoke,
+TB4, capacity, and launch certificates must rehash and link this receipt. The same guard must revalidate
+`proxy_info.json` and the generated LiteLLM policy on every poll.
+
+Kimi deployment specs must contain typed integer
+`spec.proxy.config.request_timeout: 7200` and `num_retries: 0`. Independently
+parse `proxy_litellm_config.yaml` with a duplicate-rejecting safe YAML loader,
+reject aliases/merge keys and quoted or tagged type confusion, require the
+same typed values, and bind its
+full-file SHA-256 without recording its URL, key, or contents. That generated
+file is mutable across an intentional resize: retain each readiness/certificate
+generation's own hash, compare stable policy values across generations, and
+only require the current file to match the currently active readiness record.
 
 When auditing a production trace file interactively, pass
 `audit_traces.py --aggregate-only`; this reports counts and stable problem codes
@@ -230,6 +264,13 @@ four active rollouts and two simultaneous lease starts. Normalize effective
 lease-start concurrency as the smaller of `VACLI_MAX_CONCURRENT_LEASES` and the
 configured rollout concurrency, and bind that value in both the eval identity
 and the downstream certificate.
+The launch certificate must prove that TB4 used exactly one route, the
+post-resize deployment-spec digest differs from the TB4 digest, and the
+post-resize spec/readiness route count is strictly larger and at least two.
+The initial production target is exactly two routes, so invoke the
+post-resize waiter with `EXPECTED_ROUTES=2` before the concurrency-eight,
+lease-starts-four capacity smoke. A route-generation change invalidates the
+current eval identity; do not resume guarded Kimi outputs at all.
 
 Pier's DeepSWE adapter supports prebuilt agent images and the benchmark's
 separate verifier Dockerfiles. It validates the Dockerfile, starts its `FROM`

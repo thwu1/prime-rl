@@ -28,7 +28,22 @@ from deployment_endpoint import (
     load_deployment_endpoint,
     validate_endpoint_binding,
 )
+from deployment_proxy_policy import (
+    DeploymentProxyPolicyError,
+    revalidate_deployment_proxy_policy,
+    validate_proxy_policy_binding,
+)
 from eval_run_identity import EvalIdentityError, canonical_json, load_eval_run_identity
+from guard_success_receipt import (
+    GuardReceiptError,
+    load_guard_success_receipt,
+    validate_guard_success_linkage,
+)
+from inference_route_generation import (
+    RouteGenerationError,
+    validate_readiness_route_generation,
+    validate_route_generation,
+)
 
 EXPECTED_TASK_COUNT = 66
 EXPECTED_SUPPORTED_TASK_COUNT = 63
@@ -485,9 +500,34 @@ def _validate_deployment_checkpoints(
         raise TB4AuditError("readiness_checkpoint_not_passed")
     try:
         readiness_endpoint = validate_endpoint_binding(readiness_payload.get("endpoint"))
-    except EndpointBindingError as error:
+        identity_generation = validate_route_generation(
+            deployment.get("serving_route_generation")
+        )
+        readiness_generation = validate_readiness_route_generation(
+            readiness_payload,
+            deployment_id=deployment.get("id"),
+            deployment_spec_sha256=spec["sha256"],
+        )
+        identity_proxy_policy = validate_proxy_policy_binding(deployment.get("proxy_policy"))
+        readiness_proxy_policy = validate_proxy_policy_binding(
+            readiness_payload.get("proxy_policy")
+        )
+        revalidate_deployment_proxy_policy(
+            Path(spec["path"]),
+            expected_spec_sha256=spec["sha256"],
+            expected_binding=identity_proxy_policy,
+        )
+    except (
+        EndpointBindingError,
+        RouteGenerationError,
+        DeploymentProxyPolicyError,
+    ) as error:
         raise TB4AuditError("readiness_checkpoint_endpoint_invalid") from error
-    if readiness_endpoint != endpoint:
+    if (
+        readiness_endpoint != endpoint
+        or readiness_generation != identity_generation
+        or readiness_proxy_policy != identity_proxy_policy
+    ):
         raise TB4AuditError("readiness_checkpoint_endpoint_mismatch")
     smoke_payload = _read_json_object(smoke[0], label="smoke_checkpoint")
     self_digest = smoke_payload.get("smoke_checkpoint_sha256")
@@ -528,10 +568,23 @@ def _validate_deployment_checkpoints(
         raise TB4AuditError("smoke_checkpoint_not_passed")
     try:
         smoke_endpoint = validate_endpoint_binding(smoke_payload.get("endpoint"))
-    except EndpointBindingError as error:
+        smoke_generation = validate_route_generation(
+            smoke_payload.get("serving_route_generation")
+        )
+        smoke_proxy_policy = validate_proxy_policy_binding(smoke_payload.get("proxy_policy"))
+    except (
+        EndpointBindingError,
+        RouteGenerationError,
+        DeploymentProxyPolicyError,
+    ) as error:
         raise TB4AuditError("smoke_checkpoint_endpoint_invalid") from error
     smoke_proxy = smoke_artifacts.get("proxy_info") if isinstance(smoke_artifacts, dict) else None
-    if smoke_endpoint != endpoint or smoke_proxy != endpoint["proxy_info"]:
+    if (
+        smoke_endpoint != endpoint
+        or smoke_proxy != endpoint["proxy_info"]
+        or smoke_generation != identity_generation
+        or smoke_proxy_policy != identity_proxy_policy
+    ):
         raise TB4AuditError("smoke_checkpoint_endpoint_mismatch")
     expected_traces = policy.get("expected_traces")
     positive_counts = (counts.get("traces"), counts.get("tasks"), counts.get("model_io_turns"))
@@ -664,6 +717,29 @@ def certify_tb4_results(
         provenance = _resolved_file(run_dir / "provenance.txt", label="provenance")
         _validate_provenance(provenance, identity=identity, identity_sha256=identity_sha256)
         readiness, smoke = _validate_deployment_checkpoints(identity, endpoint)
+        deployment = identity["deployment"]
+        guard_receipt_path = run_dir / "route_guard_success.json"
+        guarded_results_sha256 = _sha256_file(results, label="results")
+        try:
+            if guard_receipt_path.resolve(strict=True) != guard_receipt_path:
+                raise GuardReceiptError("guard_receipt_path_mismatch")
+            guard_receipt = load_guard_success_receipt(guard_receipt_path)
+            guard_artifacts = validate_guard_success_linkage(
+                guard_receipt,
+                run_dir=run_dir,
+                eval_run_identity_sha256=identity_sha256,
+                eval_run_role="tb4",
+                eval_run_identity_file_sha256=identity_file_sha256,
+                results_sha256=guarded_results_sha256,
+                deployment_id=deployment["id"],
+                deployment_spec_sha256=deployment["spec"]["sha256"],
+                readiness_checkpoint={"path": str(readiness[0]), "sha256": readiness[1]},
+                endpoint=endpoint,
+                serving_route_generation=deployment["serving_route_generation"],
+                proxy_policy=deployment["proxy_policy"],
+            )
+        except (OSError, GuardReceiptError) as error:
+            raise TB4AuditError("guard_success_receipt_invalid") from error
 
         dataset_path = dataset_section.get("path")
         if not isinstance(dataset_path, str):
@@ -674,6 +750,8 @@ def certify_tb4_results(
         artifact_paths = {
             "results": results,
             "eval_run_identity": identity_path,
+            "eval_invocations": Path(guard_artifacts["eval_invocations"]["path"]),
+            "route_guard_success": guard_receipt_path,
             "config": config[0],
             "inputs_manifest": manifest[0],
             "provenance": provenance,
@@ -701,7 +779,12 @@ def certify_tb4_results(
         if before != after:
             raise TB4AuditError("tb4_audit_artifact_changed")
         if (
-            before["config"] != config[1]
+            before["results"] != guard_artifacts["results"]["sha256"]
+            or before["eval_run_identity"]
+            != guard_artifacts["eval_run_identity"]["sha256"]
+            or before["eval_invocations"]
+            != guard_artifacts["eval_invocations"]["sha256"]
+            or before["config"] != config[1]
             or before["inputs_manifest"] != manifest[1]
             or before["readiness_checkpoint"] != readiness[1]
             or before["smoke_checkpoint"] != smoke[1]
@@ -709,7 +792,6 @@ def certify_tb4_results(
         ):
             raise TB4AuditError("identity_artifact_sha256_mismatch")
 
-        deployment = identity["deployment"]
         unsigned = {
             "schema_version": 1,
             "state": "passed",
@@ -720,6 +802,8 @@ def certify_tb4_results(
                 "spec_sha256": deployment["spec"]["sha256"],
             },
             "endpoint": endpoint,
+            "serving_route_generation": deployment["serving_route_generation"],
+            "proxy_policy": deployment["proxy_policy"],
             "audit_policy": {
                 "expected_tasks": EXPECTED_TASK_COUNT,
                 "expected_supported_tasks": EXPECTED_SUPPORTED_TASK_COUNT,
