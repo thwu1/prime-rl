@@ -168,6 +168,7 @@ def _write_source_run(
             f'task_file_sha256 = "{task_sha256}"',
         )
     )
+    source_config_text = source_config_text.replace(', "InterceptionError"', "")
     if production:
         relative_image_manifest = Path("user/fixture/images.json")
         original_image_manifest = original_repository / relative_image_manifest
@@ -841,6 +842,13 @@ def test_pinned_resume_planner_loads_with_isolated_python_path() -> None:
             workflow_dir.parents[2] / "deps" / "verifiers" / "verifiers" / "v1" / "cli" / "eval" / "resume.py"
         ).resolve()
     )
+
+
+def test_resume_planner_compatibility_is_explicit_and_narrow() -> None:
+    assert migration.COMPATIBLE_RESUME_VERIFIERS_REVISIONS == {
+        migration.EXPECTED_VERIFIERS_REVISION,
+        "bb2c42dace0aeecd177e2834f3c87a1d438aed44",
+    }
 
 
 def test_fallback_cleans_destination_after_ordinary_validation_failure(

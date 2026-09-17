@@ -36,6 +36,8 @@ EXPECTED_MANIFEST_KEYS = frozenset(
 )
 EXPECTED_WORKER_KEYS = frozenset({"metadata_file", "metadata_sha256", "host", "port", "started_at"})
 FORBIDDEN_REQUEST_FIELDS = frozenset({"logprobs", "prompt_logprobs", "top_logprobs", "return_token_ids"})
+LEGACY_ROLLOUT_RETRY_POLICY = frozenset({"ProviderError", "SandboxError", "TunnelError"})
+ROLLOUT_RETRY_POLICY = LEGACY_ROLLOUT_RETRY_POLICY | {"InterceptionError"}
 HOST_RE = re.compile(r"^[A-Za-z0-9.-]+$")
 ENDPOINT_FILE_RE = re.compile(r"^[1-9][0-9]*\.json$")
 MAX_METADATA_BYTES = 16 * 1024
@@ -223,6 +225,7 @@ def validate_eval_config(
     *,
     approved_task_file: Path | None = None,
     approved_task_file_sha256: str | None = None,
+    allow_historical_retry_policy: bool = False,
 ) -> str:
     try:
         config = tomllib.loads(path.read_text(encoding="utf-8"))
@@ -338,12 +341,19 @@ def validate_eval_config(
     retries = config.get("retries")
     rollout_retries = retries.get("rollout") if isinstance(retries, dict) else None
     retry_include = rollout_retries.get("include") if isinstance(rollout_retries, dict) else None
+    retry_exclude = rollout_retries.get("exclude", []) if isinstance(rollout_retries, dict) else None
+    allowed_retry_policies = {ROLLOUT_RETRY_POLICY}
+    if allow_historical_retry_policy:
+        allowed_retry_policies.add(LEGACY_ROLLOUT_RETRY_POLICY)
     if (
         not isinstance(rollout_retries, dict)
         or rollout_retries.get("max_retries") != 2
         or not isinstance(retry_include, list)
         or not all(isinstance(item, str) for item in retry_include)
-        or set(retry_include) != {"ProviderError", "SandboxError", "TunnelError"}
+        or len(retry_include) != len(set(retry_include))
+        or frozenset(retry_include) not in allowed_retry_policies
+        or not isinstance(retry_exclude, list)
+        or retry_exclude
     ):
         raise DirectWorkerError("eval_rollout_retry_policy_mismatch")
     return task_file_sha256
@@ -1358,7 +1368,10 @@ def audit_run_directory(run_dir: Path) -> dict[str, Any]:
     manifest = validate_saved_manifest(manifest_path)
     manifest_sha256 = _sha256(manifest_path)
     config_path = run_dir / "config.toml"
-    task_allowlist_sha256 = validate_eval_config(config_path)
+    task_allowlist_sha256 = validate_eval_config(
+        config_path,
+        allow_historical_retry_policy=True,
+    )
     if task_allowlist_sha256 != manifest["approved_task_allowlist_sha256"]:
         raise DirectWorkerError("direct_worker_saved_task_allowlist_mismatch")
     config = tomllib.loads(config_path.read_text(encoding="utf-8"))
@@ -1384,6 +1397,8 @@ def audit_run_directory(run_dir: Path) -> dict[str, Any]:
     if provenance.get("inference_deployment_id"):
         raise DirectWorkerError("direct_worker_provenance_deployment_id_present")
     transition = validate_routing_transition(run_dir, manifest, provenance)
+    if frozenset(config["retries"]["rollout"]["include"]) == LEGACY_ROLLOUT_RETRY_POLICY and transition is None:
+        raise DirectWorkerError("legacy_retry_policy_requires_transition")
 
     inputs_manifest = _read_json_object(run_dir / "inputs" / "manifest.json", max_bytes=1 << 20)
     config_record = inputs_manifest.get("config")
@@ -1404,7 +1419,10 @@ def audit_run_directory(run_dir: Path) -> dict[str, Any]:
         raise DirectWorkerError("direct_worker_input_task_file_hash_mismatch")
     if _sha256(task_file_snapshot) != manifest["approved_task_allowlist_sha256"]:
         raise DirectWorkerError("direct_worker_task_file_snapshot_hash_mismatch")
-    source_task_allowlist_sha256 = validate_eval_config(source_config)
+    source_task_allowlist_sha256 = validate_eval_config(
+        source_config,
+        allow_historical_retry_policy=True,
+    )
     if source_task_allowlist_sha256 != manifest["approved_task_allowlist_sha256"]:
         raise DirectWorkerError("direct_worker_source_task_allowlist_mismatch")
     try:
@@ -1474,6 +1492,7 @@ def prepare(
         eval_config,
         approved_task_file=approved_task_file,
         approved_task_file_sha256=approved_task_file_sha256,
+        allow_historical_retry_policy=resume,
     )
     config = tomllib.loads(eval_config.read_text(encoding="utf-8"))
     rollout_concurrency = config["max_concurrent"]
@@ -1491,7 +1510,9 @@ def prepare(
             if saved["schema_version"] == ROUTER_MANIFEST_SCHEMA_VERSION
             else None,
         )
-        validate_routing_transition(manifest_path.parent, saved, provenance)
+        transition = validate_routing_transition(manifest_path.parent, saved, provenance)
+        if frozenset(config["retries"]["rollout"]["include"]) == LEGACY_ROLLOUT_RETRY_POLICY and transition is None:
+            raise DirectWorkerError("legacy_retry_policy_requires_transition")
         router = saved.get("router")
         if not isinstance(router, dict):
             raise DirectWorkerError("direct_worker_manifest_router_invalid")

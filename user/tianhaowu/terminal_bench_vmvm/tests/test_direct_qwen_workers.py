@@ -136,6 +136,48 @@ def test_approved_qwen_config_preserves_direct_fallback_contract(tmp_path: Path)
     )
 
 
+def test_approved_qwen_config_requires_interception_retry(tmp_path: Path) -> None:
+    config = _approved_config(tmp_path)
+    config.write_text(config.read_text().replace(', "InterceptionError"', ""))
+
+    with pytest.raises(direct.DirectWorkerError, match="eval_rollout_retry_policy_mismatch"):
+        direct.validate_eval_config(config)
+
+
+def test_approved_qwen_config_rejects_harness_error_retry(tmp_path: Path) -> None:
+    config = _approved_config(tmp_path)
+    config.write_text(config.read_text().replace('"InterceptionError"', '"InterceptionError", "HarnessError"'))
+
+    with pytest.raises(direct.DirectWorkerError, match="eval_rollout_retry_policy_mismatch"):
+        direct.validate_eval_config(config)
+
+
+def test_historical_qwen_retry_policy_requires_explicit_validation_mode(tmp_path: Path) -> None:
+    config = _approved_config(tmp_path)
+    config.write_text(config.read_text().replace(', "InterceptionError"', ""))
+
+    with pytest.raises(direct.DirectWorkerError, match="eval_rollout_retry_policy_mismatch"):
+        direct.validate_eval_config(config)
+
+    assert direct.validate_eval_config(config, allow_historical_retry_policy=True)
+
+
+def test_qwen_retry_policy_rejects_duplicate_entries(tmp_path: Path) -> None:
+    config = _approved_config(tmp_path)
+    config.write_text(config.read_text().replace('"InterceptionError"', '"InterceptionError", "InterceptionError"'))
+
+    with pytest.raises(direct.DirectWorkerError, match="eval_rollout_retry_policy_mismatch"):
+        direct.validate_eval_config(config, allow_historical_retry_policy=True)
+
+
+def test_qwen_retry_policy_rejects_exclusions(tmp_path: Path) -> None:
+    config = _approved_config(tmp_path)
+    config.write_text(config.read_text() + '\nexclude = ["InterceptionError"]\n')
+
+    with pytest.raises(direct.DirectWorkerError, match="eval_rollout_retry_policy_mismatch"):
+        direct.validate_eval_config(config)
+
+
 @pytest.mark.parametrize("field", ["max_connections", "max_keepalive_connections"])
 def test_approved_qwen_config_requires_exact_worker_bounded_http_pool(tmp_path: Path, field: str) -> None:
     config = _approved_config(tmp_path)
