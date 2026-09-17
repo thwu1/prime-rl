@@ -1,6 +1,7 @@
 import hashlib
 import json
 import sys
+from collections import Counter
 from pathlib import Path
 
 import pytest
@@ -100,6 +101,58 @@ def _model_io(request: dict, *, response: dict | None = None) -> dict:
 def _trace_with_model_io(trace_id: str = "model-io", slug: str = "model-io-task") -> dict:
     trace = _trace(trace_id, slug)
     trace["nodes"][0]["model_io"] = _model_io(_request())
+    return trace
+
+
+def _trace_with_explicit_empty_reasoning_tool_turn() -> dict:
+    trace = _trace_with_model_io()
+    base_request = trace["nodes"][0]["model_io"]["request"]["body"]
+    request = {
+        **base_request,
+        "chat_template_kwargs": {"enable_thinking": True, "preserve_thinking": True},
+        "messages": [
+            *base_request["messages"],
+            {"role": "assistant", "content": "continue"},
+        ],
+    }
+    response = {
+        "id": "explicit-empty-reasoning-tool",
+        "choices": [
+            {
+                "finish_reason": "tool_calls",
+                "message": {
+                    "content": None,
+                    "reasoning": "",
+                    "tool_calls": [
+                        {
+                            "id": "call-2",
+                            "type": "function",
+                            "function": {"name": "bash", "arguments": '{"cmd":"pwd"}'},
+                        }
+                    ],
+                },
+            }
+        ],
+        "usage": {"prompt_tokens": 10, "completion_tokens": 3},
+    }
+    second = _trace("second", "same-task")["nodes"][0]
+    second["parent"] = 0
+    second["message"] = {
+        "role": "assistant",
+        "content": None,
+        "reasoning_content": None,
+        "tool_calls": [{"id": "call-2", "name": "bash", "arguments": '{"cmd":"pwd"}'}],
+    }
+    second["model_io"] = _model_io(request, response=response)
+    second["model_io"]["request"] = {
+        "kind": "delta",
+        "sha256": _digest(request),
+        "base_node": 0,
+        "set_fields": {"chat_template_kwargs": request["chat_template_kwargs"]},
+        "remove_fields": [],
+        "append_fields": {"messages": request["messages"][len(base_request["messages"]) :]},
+    }
+    trace["nodes"].append(second)
     return trace
 
 
@@ -501,6 +554,7 @@ def test_audit_trace_requires_model_io_on_every_sampled_turn() -> None:
 
 def test_audit_trace_allows_captured_zero_reasoning_tool_turn() -> None:
     trace = _trace_with_model_io()
+    observations = Counter()
     second = _trace("second", "same-task")["nodes"][0]
     second["parent"] = 0
     second["message"] = {
@@ -533,15 +587,112 @@ def test_audit_trace_allows_captured_zero_reasoning_tool_turn() -> None:
     )
     trace["nodes"].append(second)
 
-    assert _audit_trace(trace, require_reasoning=True, require_model_io=True) == []
+    assert (
+        _audit_trace(
+            trace,
+            require_reasoning=True,
+            require_model_io=True,
+            observations=observations,
+        )
+        == []
+    )
+    assert observations == {"provider_reported_zero_reasoning_tool_turns": 1}
+
+    summary, failed = _summarize_traces(
+        [trace],
+        expected_slugs=None,
+        expected_count=1,
+        rollouts_per_task=1,
+        require_reasoning=True,
+        require_model_io=True,
+    )
+    assert failed is False
+    assert summary["provider_reported_zero_reasoning_tool_turns"] == 1
+    assert summary["provider_explicit_empty_reasoning_tool_turns"] == 0
+
+
+def test_audit_trace_allows_hash_bound_explicit_empty_reasoning_tool_turn() -> None:
+    trace = _trace_with_explicit_empty_reasoning_tool_turn()
+    observations = Counter()
+
+    assert (
+        _audit_trace(
+            trace,
+            require_reasoning=True,
+            require_model_io=True,
+            observations=observations,
+        )
+        == []
+    )
+    assert observations == {"provider_explicit_empty_reasoning_tool_turns": 1}
+
+    summary, failed = _summarize_traces(
+        [trace],
+        expected_slugs=None,
+        expected_count=1,
+        rollouts_per_task=1,
+        require_reasoning=True,
+        require_model_io=True,
+    )
+    assert failed is False
+    assert summary["provider_reported_zero_reasoning_tool_turns"] == 0
+    assert summary["provider_explicit_empty_reasoning_tool_turns"] == 1
+
+
+@pytest.mark.parametrize(
+    "mutation",
+    [
+        "reasoning_absent",
+        "thinking_disabled",
+        "preserve_missing",
+        "positive_reasoning_tokens",
+        "tool_call_mismatch",
+        "normalized_response",
+    ],
+)
+def test_audit_trace_rejects_ambiguous_empty_reasoning_tool_turn(mutation: str) -> None:
+    trace = _trace_with_explicit_empty_reasoning_tool_turn()
+    node = trace["nodes"][1]
+    request = node["model_io"]["request"]
+    response = node["model_io"]["response"]
+    body = response["body"]
+    message = body["choices"][0]["message"]
+
+    if mutation == "reasoning_absent":
+        message.pop("reasoning")
+    elif mutation == "thinking_disabled":
+        request["set_fields"]["chat_template_kwargs"]["enable_thinking"] = False
+    elif mutation == "preserve_missing":
+        request["set_fields"]["chat_template_kwargs"].pop("preserve_thinking")
+    elif mutation == "positive_reasoning_tokens":
+        body["usage"]["completion_tokens_details"] = {"reasoning_tokens": 1}
+    elif mutation == "tool_call_mismatch":
+        message["tool_calls"][0]["function"]["name"] = "different"
+    else:
+        response["kind"] = "normalized_stream_response"
+    request["sha256"] = _digest(
+        {
+            **trace["nodes"][0]["model_io"]["request"]["body"],
+            **request["set_fields"],
+            "messages": [
+                *trace["nodes"][0]["model_io"]["request"]["body"]["messages"],
+                *request["append_fields"]["messages"],
+            ],
+        }
+    )
+    response["sha256"] = _digest(body)
+
+    assert "node_1_reasoning_content_not_retained" in _audit_trace(
+        trace,
+        require_reasoning=True,
+        require_model_io=True,
+    )
 
 
 def test_audit_trace_requires_captured_reasoning_to_be_normalized() -> None:
     trace = _trace_with_model_io()
     trace["nodes"][0]["message"]["reasoning_content"] = None
-    trace["nodes"][0]["message"]["tool_calls"] = [
-        {"id": "call-1", "name": "bash", "arguments": '{"cmd":"pwd"}'}
-    ]
+    trace["nodes"][0]["message"]["tool_calls"] = [{"id": "call-1", "name": "bash", "arguments": '{"cmd":"pwd"}'}]
     response = {
         "id": "reasoning-not-normalized",
         "choices": [
@@ -606,9 +757,7 @@ def test_audit_trace_requires_some_reasoning_across_zero_reasoning_tool_turns() 
         "body": response,
     }
 
-    assert _audit_trace(trace, require_reasoning=True, require_model_io=True) == [
-        "no_sampled_reasoning_content"
-    ]
+    assert _audit_trace(trace, require_reasoning=True, require_model_io=True) == ["no_sampled_reasoning_content"]
 
 
 def test_audit_trace_reconstructs_and_hashes_model_request_deltas() -> None:

@@ -550,6 +550,16 @@ legacy/diagnostic mode for traces that intentionally contain exact token IDs,
 masks, and sampling logprobs. Scale only after the default gate passes on a
 fresh smoke run and after measuring stable VMVM lease concurrency.
 
+A sampled tool-call turn may omit flattened reasoning only when its hash-bound
+provider response proves either a zero `reasoning_tokens` count or an explicit
+empty reasoning field. The explicit-empty case additionally requires an exact
+provider response, identical captured and flattened tool calls, and a
+hash-valid reconstructed request with both thinking and thinking preservation
+enabled; a missing field is not evidence of emptiness. The audit reports these
+as separate `provider_reported_zero_reasoning_tool_turns` and
+`provider_explicit_empty_reasoning_tool_turns` counters. A trace containing no
+sampled reasoning anywhere still fails closed.
+
 Because this workflow intentionally omits token IDs, the previous response's
 provider usage is used as the conservative best-known size when clamping the
 next generation budget. Exact token arrays remain authoritative whenever they
