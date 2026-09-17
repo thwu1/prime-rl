@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import errno
 import fcntl
 import hashlib
 import json
@@ -196,6 +197,11 @@ def test_migrate_is_copy_on_write_and_resume_ready(
     source_hashes = {relative: _sha256(source / relative) for relative in migration.REQUIRED_SOURCE_FILES}
     child = tmp_path / "child"
 
+    def unsupported_rename(_source: Path, _destination: Path) -> None:
+        raise OSError(errno.EINVAL, "filesystem does not support RENAME_NOREPLACE")
+
+    monkeypatch.setattr(migration, "_rename_noreplace", unsupported_rename)
+
     summary = migration.migrate(source, child, terminal_check=lambda _job_id: True)
 
     assert summary["retained_rows"] == 1
@@ -209,6 +215,7 @@ def test_migrate_is_copy_on_write_and_resume_ready(
     assert (child / "direct_workers.epoch-1.json").read_bytes() == (source / "direct_workers.json").read_bytes()
     assert (child / "direct_router.epoch-1.log").is_file()
     assert not (child / "direct_router.log").exists()
+    assert not (child / direct.MIGRATION_INCOMPLETE_FILENAME).exists()
     assert len((child / "results.jsonl").read_text().splitlines()) == 1
     child_config = tomllib.loads((child / "config.toml").read_text())
     assert Path(child_config["taskset"]["task_file"]) == child / "inputs" / "task_file.txt"
@@ -238,6 +245,72 @@ def test_migrate_is_copy_on_write_and_resume_ready(
         probe_timeout=1,
     )
     assert resumed == child_manifest
+
+
+def test_fallback_cleans_destination_after_ordinary_validation_failure(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    staged = tmp_path / "staged"
+    staged.mkdir()
+    (staged / "artifact").write_text("complete\n")
+    destination = tmp_path / "destination"
+    monkeypatch.setattr(
+        migration,
+        "_rename_noreplace",
+        lambda _source, _destination: (_ for _ in ()).throw(OSError(errno.EINVAL, "unsupported")),
+    )
+
+    with pytest.raises(migration.MigrationError, match="synthetic_validation_failure"):
+        migration._publish_directory(
+            staged,
+            destination,
+            lambda _path, _allow_incomplete: (_ for _ in ()).throw(
+                migration.MigrationError("synthetic_validation_failure")
+            ),
+        )
+
+    assert staged.is_dir()
+    assert not destination.exists()
+
+
+def test_fallback_crash_leaves_marker_that_launchers_reject(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    staged = tmp_path / "staged"
+    staged.mkdir()
+    (staged / "artifact").write_text("complete\n")
+    destination = tmp_path / "destination"
+    monkeypatch.setattr(
+        migration,
+        "_rename_noreplace",
+        lambda _source, _destination: (_ for _ in ()).throw(OSError(errno.EINVAL, "unsupported")),
+    )
+
+    with pytest.raises(KeyboardInterrupt):
+        migration._publish_directory(
+            staged,
+            destination,
+            lambda _path, allow_incomplete: (_ for _ in ()).throw(KeyboardInterrupt()) if allow_incomplete else None,
+        )
+
+    marker = destination / direct.MIGRATION_INCOMPLETE_FILENAME
+    assert marker.is_file()
+    with pytest.raises(direct.DirectWorkerError, match="migration_incomplete"):
+        direct.audit_run_directory(destination)
+    with pytest.raises(direct.DirectWorkerError, match="migration_incomplete"):
+        direct.prepare(
+            tmp_path,
+            destination / "config.toml",
+            destination / "direct_workers.json",
+            tmp_path / "urls.txt",
+            tmp_path / "runtime.txt",
+            tmp_path / "tasks.txt",
+            "a" * 64,
+            resume=True,
+            probe_timeout=1,
+        )
 
 
 def test_migrate_refuses_busy_source_lock(

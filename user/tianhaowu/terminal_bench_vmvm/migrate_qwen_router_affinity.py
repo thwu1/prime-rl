@@ -244,6 +244,97 @@ def _rename_noreplace(source: Path, destination: Path) -> None:
         raise OSError(error_number, os.strerror(error_number), destination)
 
 
+def _fsync_directory(path: Path) -> None:
+    descriptor = os.open(path, os.O_RDONLY | os.O_CLOEXEC | os.O_DIRECTORY | os.O_NOFOLLOW)
+    try:
+        os.fsync(descriptor)
+    finally:
+        os.close(descriptor)
+
+
+def _fsync_tree(root: Path) -> None:
+    directories = [root]
+    for current, names, _files in os.walk(root, topdown=True, followlinks=False):
+        current_path = Path(current)
+        for name in names:
+            child = current_path / name
+            if child.is_symlink() or not child.is_dir():
+                raise MigrationError(f"published_directory_invalid:{name}")
+            directories.append(child)
+    for directory in reversed(directories):
+        _fsync_directory(directory)
+
+
+def _publish_with_incomplete_marker(
+    source: Path,
+    destination: Path,
+    validate: Callable[[Path, bool], None],
+) -> None:
+    try:
+        destination.mkdir(mode=0o700)
+    except FileExistsError as error:
+        raise MigrationError("destination_exists") from error
+    marker = destination / direct.MIGRATION_INCOMPLETE_FILENAME
+    marker_descriptor = -1
+    try:
+        marker_descriptor = os.open(
+            marker,
+            os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_CLOEXEC | os.O_NOFOLLOW,
+            0o600,
+        )
+        os.write(marker_descriptor, b"qwen-router-affinity-migration-v1\n")
+        os.fsync(marker_descriptor)
+        marker_metadata = os.fstat(marker_descriptor)
+        _fsync_directory(destination)
+        _fsync_directory(destination.parent)
+        _clone_tree(source, destination)
+        _fsync_tree(destination)
+        validate(destination, True)
+        observed_marker = marker.lstat()
+        if (
+            not stat.S_ISREG(observed_marker.st_mode)
+            or observed_marker.st_dev != marker_metadata.st_dev
+            or observed_marker.st_ino != marker_metadata.st_ino
+        ):
+            raise MigrationError("migration_incomplete_marker_changed")
+        marker.unlink()
+        _fsync_directory(destination)
+        _fsync_directory(destination.parent)
+    except Exception:
+        with contextlib.suppress(OSError):
+            if marker_descriptor >= 0:
+                os.close(marker_descriptor)
+                marker_descriptor = -1
+        with contextlib.suppress(OSError):
+            shutil.rmtree(destination)
+        raise
+    finally:
+        if marker_descriptor >= 0:
+            os.close(marker_descriptor)
+
+
+def _publish_directory(
+    source: Path,
+    destination: Path,
+    validate: Callable[[Path, bool], None],
+) -> None:
+    try:
+        _rename_noreplace(source, destination)
+    except OSError as error:
+        if error.errno not in {errno.EINVAL, errno.ENOSYS, errno.EOPNOTSUPP, errno.EXDEV}:
+            raise
+        _publish_with_incomplete_marker(source, destination, validate)
+        return
+    try:
+        validate(destination, False)
+        _fsync_directory(destination)
+        _fsync_directory(destination.parent)
+    except Exception:
+        with contextlib.suppress(OSError):
+            shutil.rmtree(destination)
+        raise
+
+
 def _rewrite_toml_path(text: str, key: str, old: Path, new: Path) -> str:
     old_literal = json.dumps(str(old))
     new_literal = json.dumps(str(new))
@@ -399,6 +490,7 @@ def migrate(
         raise MigrationError("destination_exists")
     if output == source or output.is_relative_to(source):
         raise MigrationError("destination_overlaps_source")
+    direct.reject_incomplete_migration(source)
 
     with _source_locks(source):
         job_ids = _provenance_job_ids(source / "provenance.txt")
@@ -513,17 +605,22 @@ def migrate(
             )
             _atomic_write(provenance_path, provenance_text.encode())
 
-            _rename_noreplace(temporary, output)
-            temporary = None
-            try:
+            def validate_published(path: Path, allow_incomplete: bool) -> None:
+                published_manifest = direct.validate_saved_manifest(path / "direct_workers.json")
                 child_provenance = direct.validate_router_provenance(
-                    output / "provenance.txt",
+                    path / "provenance.txt",
                     transition["to_router"]["direct_workers_sha256"],
                 )
-                direct.validate_routing_transition(output, upgraded_manifest, child_provenance)
-            except BaseException:
-                shutil.rmtree(output)
-                raise
+                direct.validate_routing_transition(
+                    path,
+                    published_manifest,
+                    child_provenance,
+                    allow_incomplete=allow_incomplete,
+                )
+
+            _publish_directory(temporary, output, validate_published)
+            if not temporary.exists():
+                temporary = None
         finally:
             if temporary is not None:
                 shutil.rmtree(temporary)
@@ -553,6 +650,7 @@ def label_routing_epochs(
         raise MigrationError("epoch_index_must_be_inside_run")
     if output.is_symlink():
         raise MigrationError("epoch_index_symlink_forbidden")
+    direct.reject_incomplete_migration(run)
     with _source_locks(run):
         job_ids = _provenance_job_ids(run / "provenance.txt")
         if any(not terminal_check(job_id) for job_id in job_ids):

@@ -50,10 +50,17 @@ ROUTING_TRANSITION_FILENAME = "qwen_router_transition.json"
 ROUTING_EPOCH1_MANIFEST_FILENAME = "direct_workers.epoch-1.json"
 ROUTING_EPOCH1_ROWS_FILENAME = "qwen_router_epoch1_rows.sha256"
 ROUTING_TRANSITION_KIND = "qwen-direct-router-policy-transition"
+MIGRATION_INCOMPLETE_FILENAME = ".migration_incomplete"
 
 
 class DirectWorkerError(ValueError):
     """The direct-worker deployment or evaluation config is not the pinned one."""
+
+
+def reject_incomplete_migration(run_dir: Path) -> None:
+    marker = run_dir / MIGRATION_INCOMPLETE_FILENAME
+    if marker.exists() or marker.is_symlink():
+        raise DirectWorkerError("direct_worker_migration_incomplete")
 
 
 @dataclass(frozen=True)
@@ -610,8 +617,12 @@ def validate_routing_transition(
     run_dir: Path,
     manifest: dict[str, Any],
     provenance: dict[str, str],
+    *,
+    allow_incomplete: bool = False,
 ) -> dict[str, Any] | None:
     """Validate optional copy-on-write routing-epoch lineage without decoding traces."""
+    if not allow_incomplete:
+        reject_incomplete_migration(run_dir)
     transition_path = run_dir / ROUTING_TRANSITION_FILENAME
     epoch1_manifest_path = run_dir / ROUTING_EPOCH1_MANIFEST_FILENAME
     epoch1_rows_path = run_dir / ROUTING_EPOCH1_ROWS_FILENAME
@@ -806,6 +817,7 @@ def validate_routing_transition(
 
 def audit_run_directory(run_dir: Path) -> dict[str, Any]:
     run_dir = run_dir.resolve(strict=True)
+    reject_incomplete_migration(run_dir)
     manifest_path = run_dir / "direct_workers.json"
     manifest = validate_saved_manifest(manifest_path)
     manifest_sha256 = _sha256(manifest_path)
@@ -881,6 +893,7 @@ def prepare(
     resume: bool,
     probe_timeout: float,
 ) -> dict[str, Any]:
+    reject_incomplete_migration(manifest_path.parent)
     task_allowlist_sha256 = validate_eval_config(
         eval_config,
         approved_task_file=approved_task_file,
