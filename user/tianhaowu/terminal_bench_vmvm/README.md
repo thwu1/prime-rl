@@ -358,12 +358,15 @@ that directory, stage it at its separate versioned path:
 bash user/tianhaowu/terminal_bench_vmvm/stage_qwen_direct_router.sh
 ```
 
-The router disables retries and uses round-robin dispatch across the 16 pinned
-workers. Its configured admission bucket starts at 16 requests and exposes a
-48-request queue for production concurrency 64, with a 7,200-second queue
-timeout and a 7,500-second backend request deadline. Because vllm-router 0.1.26
-refills that bucket while requests are still active, the shared evaluator
-HTTP/1.1 pool is the strict backend bound: it permits exactly
+The router disables retries and uses consistent-hash dispatch across the 16
+pinned workers, keyed only by `x-session-id`. Verifiers sends the same
+`X-Session-ID` trace ID on every turn of a rollout, so its growing prefix stays
+on one worker instead of losing KV-cache locality on every round-robin hop. Its
+configured admission bucket starts at 16 requests and exposes a 48-request
+queue for production concurrency 64, with a 7,200-second queue timeout and a
+7,500-second backend request deadline. Because vllm-router 0.1.26 refills that
+bucket while requests are still active, the shared evaluator HTTP/1.1 pool is
+the strict backend bound: it permits exactly
 `min(max_concurrent, 16)` connections. This keeps 64 rollout/VMVM sessions
 active while at most 16 model calls reach the router. The production mini-swe
 model timeout is 15,000 seconds, covering a full 7,200-second local pool wait
@@ -402,11 +405,23 @@ contents.
 After an approved run is terminal, first invoke `direct_qwen_workers.py
 --audit-run-dir RUN_DIR`; it validates the non-secret worker manifest, saved
 loopback URL, config snapshot, and credential-free provenance without opening
-the results file. Then invoke `audit_traces.py` with both
+the results file for a fresh schema-2 run. For a migrated run it additionally
+hashes result rows, without decoding or printing their content, to prove the
+epoch-1 membership certificate. Then invoke `audit_traces.py` with both
 `--expected-task-file APPROVED_ALLOWLIST` and the approved expected count. Both
 commands emit summaries only; do not print result rows. Resume only through
 `run_qwen_direct_eval.sbatch`, which reuses the snapshotted endpoint set and
 local port and fails if the live metadata no longer exactly matches.
+
+The direct-worker manifest schema is version 2. It binds both
+`policy = consistent_hash` and the exact singleton
+`request_id_headers = ["x-session-id"]`; the launcher obtains those values from
+the validated manifest-derived runtime file and checks them again before
+starting the router. A schema-1 round-robin output is deliberately not directly
+resumable with this launcher. Do not edit its manifest in place or present a
+mixed-policy run as one routing epoch. See `QWEN_ROUTING_MIGRATION.md` for the
+required copy-on-write transition certificate if preserving legacy good rows
+is operationally necessary.
 
 ## Transcript capture gate
 

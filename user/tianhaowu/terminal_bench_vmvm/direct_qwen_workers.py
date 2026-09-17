@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import concurrent.futures
+import copy
 import hashlib
 import json
 import os
@@ -42,10 +43,25 @@ MAX_MODELS_BYTES = 1 << 20
 MAX_DIRECT_CONCURRENCY = 64
 ROUTER_QUEUE_TIMEOUT_SECONDS = 7_200
 PRODUCTION_MODEL_TIMEOUT_SECONDS = 15_000
+ROUTER_MANIFEST_SCHEMA_VERSION = 2
+ROUTER_POLICY = "consistent_hash"
+ROUTER_REQUEST_ID_HEADERS = ("x-session-id",)
+ROUTING_TRANSITION_FILENAME = "qwen_router_transition.json"
+ROUTING_EPOCH1_MANIFEST_FILENAME = "direct_workers.epoch-1.json"
+ROUTING_EPOCH1_ROWS_FILENAME = "qwen_router_epoch1_rows.sha256"
+ROUTING_EPOCH1_SOURCE_CONFIG_FILENAME = "source_config.epoch-1.toml"
+ROUTING_TRANSITION_KIND = "qwen-direct-router-policy-transition"
+MIGRATION_INCOMPLETE_FILENAME = ".migration_incomplete"
 
 
 class DirectWorkerError(ValueError):
     """The direct-worker deployment or evaluation config is not the pinned one."""
+
+
+def reject_incomplete_migration(run_dir: Path) -> None:
+    marker = run_dir / MIGRATION_INCOMPLETE_FILENAME
+    if marker.exists() or marker.is_symlink():
+        raise DirectWorkerError("direct_worker_migration_incomplete")
 
 
 @dataclass(frozen=True)
@@ -74,11 +90,7 @@ def _task_allowlist_count(path: Path) -> int:
         lines = path.read_text(encoding="utf-8").splitlines()
     except (OSError, UnicodeDecodeError) as error:
         raise DirectWorkerError("eval_approved_task_file_unreadable") from error
-    tasks = [
-        line.strip().split("\t", 1)[0]
-        for line in lines
-        if line.strip() and not line.lstrip().startswith("#")
-    ]
+    tasks = [line.strip().split("\t", 1)[0] for line in lines if line.strip() and not line.lstrip().startswith("#")]
     if any(not task for task in tasks):
         raise DirectWorkerError("eval_approved_task_file_entry_invalid")
     if len(tasks) != len(set(tasks)):
@@ -184,11 +196,7 @@ def validate_eval_config(
     ):
         raise DirectWorkerError("eval_max_concurrent_invalid")
     multiplex = config.get("multiplex")
-    if (
-        isinstance(multiplex, bool)
-        or not isinstance(multiplex, int)
-        or multiplex != max_concurrent
-    ):
+    if isinstance(multiplex, bool) or not isinstance(multiplex, int) or multiplex != max_concurrent:
         raise DirectWorkerError("eval_multiplex_invalid")
     for field in ("max_input_tokens", "max_output_tokens", "max_total_tokens"):
         value = config.get(field)
@@ -292,8 +300,7 @@ def validate_eval_config(
         or rollout_retries.get("max_retries") != 2
         or not isinstance(retry_include, list)
         or not all(isinstance(item, str) for item in retry_include)
-        or set(retry_include)
-        != {"ProviderError", "SandboxError", "TunnelError"}
+        or set(retry_include) != {"ProviderError", "SandboxError", "TunnelError"}
     ):
         raise DirectWorkerError("eval_rollout_retry_policy_mismatch")
     return task_file_sha256
@@ -321,12 +328,18 @@ def _probe_worker(worker: Worker, model: str, timeout: float) -> None:
     except (UnicodeDecodeError, json.JSONDecodeError) as error:
         raise DirectWorkerError(f"models_invalid_json:{worker.metadata_file}") from error
     data = payload.get("data") if isinstance(payload, dict) else None
-    model_ids = [item.get("id") for item in data] if isinstance(data, list) and all(isinstance(item, dict) for item in data) else []
+    model_ids = (
+        [item.get("id") for item in data]
+        if isinstance(data, list) and all(isinstance(item, dict) for item in data)
+        else []
+    )
     if model_ids != [model]:
         raise DirectWorkerError(f"models_mismatch:{worker.metadata_file}")
 
 
-def probe_workers(workers: list[Worker], model: str = EXPECTED_MODEL, concurrency: int = 8, timeout: float = 30) -> None:
+def probe_workers(
+    workers: list[Worker], model: str = EXPECTED_MODEL, concurrency: int = 8, timeout: float = 30
+) -> None:
     if not 1 <= concurrency <= 8:
         raise DirectWorkerError("probe_concurrency_invalid")
     with concurrent.futures.ThreadPoolExecutor(max_workers=concurrency) as executor:
@@ -379,7 +392,7 @@ def _manifest(
 ) -> dict[str, Any]:
     max_concurrent_requests = min(rollout_concurrency, EXPECTED_ENDPOINTS)
     return {
-        "schema_version": 1,
+        "schema_version": ROUTER_MANIFEST_SCHEMA_VERSION,
         "deployment_root": str(deployment_root.resolve()),
         "model": EXPECTED_MODEL,
         "spec_sha256": spec_sha256,
@@ -391,7 +404,8 @@ def _manifest(
             "port": router_port,
             "metrics_host": "127.0.0.1",
             "metrics_port": metrics_port,
-            "policy": "round_robin",
+            "policy": ROUTER_POLICY,
+            "request_id_headers": list(ROUTER_REQUEST_ID_HEADERS),
             "request_timeout_seconds": 7_500,
             "max_concurrent_requests": max_concurrent_requests,
             "queue_size": rollout_concurrency - max_concurrent_requests,
@@ -403,7 +417,9 @@ def _manifest(
 
 def validate_saved_manifest(path: Path) -> dict[str, Any]:
     manifest = _read_json_object(path, max_bytes=1 << 20)
-    if set(manifest) != EXPECTED_MANIFEST_KEYS or manifest.get("schema_version") != 1:
+    if manifest.get("schema_version") != ROUTER_MANIFEST_SCHEMA_VERSION:
+        raise DirectWorkerError("direct_worker_manifest_schema_mismatch")
+    if set(manifest) != EXPECTED_MANIFEST_KEYS:
         raise DirectWorkerError("direct_worker_manifest_structure_invalid")
     if manifest.get("model") != EXPECTED_MODEL:
         raise DirectWorkerError("direct_worker_manifest_model_mismatch")
@@ -453,7 +469,8 @@ def validate_saved_manifest(path: Path) -> dict[str, Any]:
     router = manifest.get("router")
     expected_router = {
         "host": "127.0.0.1",
-        "policy": "round_robin",
+        "policy": ROUTER_POLICY,
+        "request_id_headers": list(ROUTER_REQUEST_ID_HEADERS),
         "request_timeout_seconds": 7_500,
         "queue_timeout_seconds": ROUTER_QUEUE_TIMEOUT_SECONDS,
         "retries": 0,
@@ -506,9 +523,304 @@ def _read_provenance(path: Path) -> dict[str, str]:
     return values
 
 
+def validate_router_provenance(
+    path: Path,
+    manifest_sha256: str,
+) -> dict[str, str]:
+    provenance = _read_provenance(path)
+    expected = {
+        "direct_qwen_manifest_sha256": manifest_sha256,
+        "direct_qwen_router_policy": ROUTER_POLICY,
+        "direct_qwen_request_id_headers": ",".join(ROUTER_REQUEST_ID_HEADERS),
+    }
+    if any(provenance.get(key) != value for key, value in expected.items()):
+        raise DirectWorkerError("direct_worker_provenance_router_mismatch")
+    try:
+        entries = [line.partition("=") for line in path.read_text(encoding="utf-8").splitlines()]
+    except (OSError, UnicodeDecodeError) as error:
+        raise DirectWorkerError("direct_worker_provenance_unreadable") from error
+    transition_positions = [
+        index
+        for index, (key, separator, _value) in enumerate(entries)
+        if separator and key == "qwen_router_transition_sha256"
+    ]
+    resume_floor = transition_positions[-1] if transition_positions else -1
+    resume_positions = [
+        index
+        for index, (key, separator, _value) in enumerate(entries)
+        if index > resume_floor and separator and key == "resume_slurm_job_id"
+    ]
+    for position_index, position in enumerate(resume_positions):
+        end = resume_positions[position_index + 1] if position_index + 1 < len(resume_positions) else len(entries)
+        block = {key: value for key, separator, value in entries[position:end] if separator}
+        expected_resume = {f"resume_{key}": value for key, value in expected.items()}
+        if any(block.get(key) != value for key, value in expected_resume.items()):
+            raise DirectWorkerError("direct_worker_resume_provenance_router_mismatch")
+    return provenance
+
+
+def upgrade_legacy_manifest(manifest: dict[str, Any]) -> dict[str, Any]:
+    """Return the only supported schema-1 -> schema-2 routing-policy upgrade."""
+    if set(manifest) != EXPECTED_MANIFEST_KEYS or manifest.get("schema_version") != 1:
+        raise DirectWorkerError("legacy_direct_worker_manifest_structure_invalid")
+    router = manifest.get("router")
+    if not isinstance(router, dict):
+        raise DirectWorkerError("legacy_direct_worker_manifest_router_invalid")
+    expected_router_keys = {
+        "host",
+        "port",
+        "metrics_host",
+        "metrics_port",
+        "policy",
+        "request_timeout_seconds",
+        "max_concurrent_requests",
+        "queue_size",
+        "queue_timeout_seconds",
+        "retries",
+    }
+    if set(router) != expected_router_keys or router.get("policy") != "round_robin" or "request_id_headers" in router:
+        raise DirectWorkerError("legacy_direct_worker_manifest_router_invalid")
+    upgraded = copy.deepcopy(manifest)
+    upgraded["schema_version"] = ROUTER_MANIFEST_SCHEMA_VERSION
+    upgraded["router"]["policy"] = ROUTER_POLICY
+    upgraded["router"]["request_id_headers"] = list(ROUTER_REQUEST_ID_HEADERS)
+    return upgraded
+
+
+def _read_epoch1_row_hashes(path: Path) -> list[str]:
+    try:
+        lines = path.read_text(encoding="ascii").splitlines()
+    except (OSError, UnicodeDecodeError) as error:
+        raise DirectWorkerError("routing_transition_epoch1_rows_unreadable") from error
+    if any(re.fullmatch(r"[0-9a-f]{64}", line) is None for line in lines):
+        raise DirectWorkerError("routing_transition_epoch1_rows_invalid")
+    if len(lines) != len(set(lines)):
+        raise DirectWorkerError("routing_transition_epoch1_rows_duplicate")
+    return lines
+
+
+def validate_routing_transition(
+    run_dir: Path,
+    manifest: dict[str, Any],
+    provenance: dict[str, str],
+    *,
+    allow_incomplete: bool = False,
+) -> dict[str, Any] | None:
+    """Validate optional copy-on-write routing-epoch lineage without decoding traces."""
+    if not allow_incomplete:
+        reject_incomplete_migration(run_dir)
+    transition_path = run_dir / ROUTING_TRANSITION_FILENAME
+    epoch1_manifest_path = run_dir / ROUTING_EPOCH1_MANIFEST_FILENAME
+    epoch1_rows_path = run_dir / ROUTING_EPOCH1_ROWS_FILENAME
+    epoch1_source_config_path = run_dir / "inputs" / ROUTING_EPOCH1_SOURCE_CONFIG_FILENAME
+    lineage_present = any(
+        (
+            transition_path.exists(),
+            epoch1_manifest_path.exists(),
+            epoch1_rows_path.exists(),
+            epoch1_source_config_path.exists(),
+            "qwen_router_transition_sha256" in provenance,
+            "qwen_router_epoch" in provenance,
+        )
+    )
+    if not lineage_present:
+        return None
+    if not all(
+        path.is_file() and not path.is_symlink()
+        for path in (
+            transition_path,
+            epoch1_manifest_path,
+            epoch1_rows_path,
+            epoch1_source_config_path,
+        )
+    ):
+        raise DirectWorkerError("routing_transition_artifacts_incomplete")
+
+    transition_sha256 = _sha256(transition_path)
+    if provenance.get("qwen_router_transition_sha256") != transition_sha256:
+        raise DirectWorkerError("routing_transition_provenance_hash_mismatch")
+    if provenance.get("qwen_router_epoch") != "2":
+        raise DirectWorkerError("routing_transition_provenance_epoch_mismatch")
+    transition = _read_json_object(transition_path, max_bytes=1 << 20)
+    if (
+        set(transition)
+        != {
+            "schema_version",
+            "kind",
+            "source",
+            "resume_plan",
+            "from_router",
+            "to_router",
+            "child",
+        }
+        or transition.get("schema_version") != 1
+        or transition.get("kind") != ROUTING_TRANSITION_KIND
+    ):
+        raise DirectWorkerError("routing_transition_structure_invalid")
+
+    source = transition.get("source")
+    if not isinstance(source, dict) or set(source) != {
+        "canonical_path",
+        "slurm_job_id",
+        "prime_rl",
+        "verifiers",
+        "renderers",
+        "config_sha256",
+        "source_config_sha256",
+        "inputs_manifest_sha256",
+        "provenance_sha256",
+        "results_sha256",
+        "results_size_bytes",
+        "direct_workers_sha256",
+    }:
+        raise DirectWorkerError("routing_transition_source_invalid")
+    hashes = {
+        source.get("config_sha256"),
+        source.get("source_config_sha256"),
+        source.get("inputs_manifest_sha256"),
+        source.get("provenance_sha256"),
+        source.get("results_sha256"),
+        source.get("direct_workers_sha256"),
+    }
+    revisions = {source.get("prime_rl"), source.get("verifiers"), source.get("renderers")}
+    if (
+        any(not isinstance(value, str) or re.fullmatch(r"[0-9a-f]{64}", value) is None for value in hashes)
+        or any(not isinstance(value, str) or re.fullmatch(r"[0-9a-f]{40}", value) is None for value in revisions)
+        or not isinstance(source.get("canonical_path"), str)
+        or not Path(source["canonical_path"]).is_absolute()
+        or not isinstance(source.get("slurm_job_id"), str)
+        or re.fullmatch(r"[1-9][0-9]*", source["slurm_job_id"]) is None
+        or isinstance(source.get("results_size_bytes"), bool)
+        or not isinstance(source.get("results_size_bytes"), int)
+        or source["results_size_bytes"] < 0
+    ):
+        raise DirectWorkerError("routing_transition_source_invalid")
+
+    resume_plan = transition.get("resume_plan")
+    if not isinstance(resume_plan, dict) or set(resume_plan) != {
+        "retained_results_sha256",
+        "retained_results_size_bytes",
+        "retained_row_count",
+        "owed_rollout_count",
+        "epoch1_row_hashes_sha256",
+    }:
+        raise DirectWorkerError("routing_transition_resume_plan_invalid")
+    for key in ("retained_results_sha256", "epoch1_row_hashes_sha256"):
+        value = resume_plan.get(key)
+        if not isinstance(value, str) or re.fullmatch(r"[0-9a-f]{64}", value) is None:
+            raise DirectWorkerError("routing_transition_resume_plan_invalid")
+    for key in ("retained_results_size_bytes", "retained_row_count", "owed_rollout_count"):
+        value = resume_plan.get(key)
+        if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+            raise DirectWorkerError("routing_transition_resume_plan_invalid")
+    if resume_plan["owed_rollout_count"] < 1:
+        raise DirectWorkerError("routing_transition_nothing_owed")
+
+    from_router = transition.get("from_router")
+    if from_router != {
+        "manifest_schema_version": 1,
+        "policy": "round_robin",
+        "request_id_headers": [],
+    }:
+        raise DirectWorkerError("routing_transition_source_router_invalid")
+    to_router = transition.get("to_router")
+    if not isinstance(to_router, dict) or set(to_router) != {
+        "manifest_schema_version",
+        "policy",
+        "request_id_headers",
+        "spec_sha256",
+        "endpoint_bundle_sha256",
+        "direct_workers_sha256",
+    }:
+        raise DirectWorkerError("routing_transition_target_router_invalid")
+    if to_router != {
+        "manifest_schema_version": ROUTER_MANIFEST_SCHEMA_VERSION,
+        "policy": ROUTER_POLICY,
+        "request_id_headers": list(ROUTER_REQUEST_ID_HEADERS),
+        "spec_sha256": manifest["spec_sha256"],
+        "endpoint_bundle_sha256": manifest["endpoint_bundle_sha256"],
+        "direct_workers_sha256": _sha256(run_dir / "direct_workers.json"),
+    }:
+        raise DirectWorkerError("routing_transition_target_router_invalid")
+
+    child = transition.get("child")
+    if not isinstance(child, dict) or set(child) != {
+        "canonical_path",
+        "routing_epoch",
+        "config_sha256",
+        "source_config_sha256",
+        "inputs_manifest_sha256",
+    }:
+        raise DirectWorkerError("routing_transition_child_invalid")
+    if (
+        child.get("canonical_path") != str(run_dir.resolve())
+        or child.get("canonical_path") == source["canonical_path"]
+        or child.get("routing_epoch") != 2
+        or child.get("config_sha256") != _sha256(run_dir / "config.toml")
+        or child.get("source_config_sha256") != _sha256(run_dir / "inputs" / "source_config.toml")
+        or child.get("inputs_manifest_sha256") != _sha256(run_dir / "inputs" / "manifest.json")
+    ):
+        raise DirectWorkerError("routing_transition_child_invalid")
+
+    if _sha256(epoch1_manifest_path) != source["direct_workers_sha256"]:
+        raise DirectWorkerError("routing_transition_epoch1_manifest_hash_mismatch")
+    if _sha256(epoch1_source_config_path) != source["source_config_sha256"]:
+        raise DirectWorkerError("routing_transition_epoch1_source_config_hash_mismatch")
+    try:
+        legacy_manifest = json.loads(epoch1_manifest_path.read_bytes())
+    except (UnicodeDecodeError, json.JSONDecodeError) as error:
+        raise DirectWorkerError("routing_transition_epoch1_manifest_invalid") from error
+    if not isinstance(legacy_manifest, dict):
+        raise DirectWorkerError("routing_transition_epoch1_manifest_invalid")
+    upgraded_legacy = upgrade_legacy_manifest(legacy_manifest)
+    if upgraded_legacy != manifest:
+        raise DirectWorkerError("routing_transition_manifest_lineage_mismatch")
+
+    if _sha256(epoch1_rows_path) != resume_plan["epoch1_row_hashes_sha256"]:
+        raise DirectWorkerError("routing_transition_epoch1_rows_hash_mismatch")
+    epoch1_row_hashes = _read_epoch1_row_hashes(epoch1_rows_path)
+    if len(epoch1_row_hashes) != resume_plan["retained_row_count"]:
+        raise DirectWorkerError("routing_transition_epoch1_rows_count_mismatch")
+
+    results_path = run_dir / "results.jsonl"
+    if not results_path.is_file() or results_path.is_symlink():
+        raise DirectWorkerError("routing_transition_results_missing")
+    provenance_entries = (run_dir / "provenance.txt").read_text(encoding="utf-8").splitlines()
+    transition_positions = [
+        index for index, line in enumerate(provenance_entries) if line.startswith("qwen_router_transition_sha256=")
+    ]
+    if len(transition_positions) != 1:
+        raise DirectWorkerError("routing_transition_provenance_marker_invalid")
+    post_transition_resumes = sum(
+        line.startswith("resume_slurm_job_id=") for line in provenance_entries[transition_positions[0] + 1 :]
+    )
+    if post_transition_resumes <= 1:
+        with results_path.open("rb") as results:
+            retained_prefix = results.read(resume_plan["retained_results_size_bytes"])
+        if hashlib.sha256(retained_prefix).hexdigest() != resume_plan["retained_results_sha256"]:
+            raise DirectWorkerError("routing_transition_epoch1_boundary_mismatch")
+    observed: dict[str, int] = {}
+    observed_order: list[str] = []
+    with results_path.open("rb") as results:
+        while raw := results.readline():
+            if not raw.endswith(b"\n"):
+                break
+            digest = hashlib.sha256(raw).hexdigest()
+            observed_order.append(digest)
+            observed[digest] = observed.get(digest, 0) + 1
+    if post_transition_resumes <= 1 and observed_order[: len(epoch1_row_hashes)] != epoch1_row_hashes:
+        raise DirectWorkerError("routing_transition_epoch1_boundary_mismatch")
+    if any(observed.get(digest) != 1 for digest in epoch1_row_hashes):
+        raise DirectWorkerError("routing_transition_epoch1_row_membership_mismatch")
+    return transition
+
+
 def audit_run_directory(run_dir: Path) -> dict[str, Any]:
     run_dir = run_dir.resolve(strict=True)
-    manifest = validate_saved_manifest(run_dir / "direct_workers.json")
+    reject_incomplete_migration(run_dir)
+    manifest_path = run_dir / "direct_workers.json"
+    manifest = validate_saved_manifest(manifest_path)
+    manifest_sha256 = _sha256(manifest_path)
     config_path = run_dir / "config.toml"
     task_allowlist_sha256 = validate_eval_config(config_path)
     if task_allowlist_sha256 != manifest["approved_task_allowlist_sha256"]:
@@ -524,11 +836,15 @@ def audit_run_directory(run_dir: Path) -> dict[str, Any]:
     if str(config["client"].get("base_url", "")).rstrip("/") != expected_base_url:
         raise DirectWorkerError("direct_worker_saved_config_url_mismatch")
 
-    provenance = _read_provenance(run_dir / "provenance.txt")
+    provenance = validate_router_provenance(
+        run_dir / "provenance.txt",
+        manifest_sha256,
+    )
     if str(provenance.get("inference_base_url", "")).rstrip("/") != expected_base_url:
         raise DirectWorkerError("direct_worker_provenance_url_mismatch")
     if provenance.get("inference_deployment_id"):
         raise DirectWorkerError("direct_worker_provenance_deployment_id_present")
+    transition = validate_routing_transition(run_dir, manifest, provenance)
 
     inputs_manifest = _read_json_object(run_dir / "inputs" / "manifest.json", max_bytes=1 << 20)
     config_record = inputs_manifest.get("config")
@@ -558,6 +874,10 @@ def audit_run_directory(run_dir: Path) -> dict[str, Any]:
         "endpoints": len(manifest["workers"]),
         "spec_sha256": manifest["spec_sha256"],
         "endpoint_bundle_sha256": manifest["endpoint_bundle_sha256"],
+        "manifest_sha256": manifest_sha256,
+        "router_policy": manifest["router"]["policy"],
+        "request_id_headers": manifest["router"]["request_id_headers"],
+        "routing_epoch": 2 if transition is not None else 1,
     }
 
 
@@ -573,6 +893,7 @@ def prepare(
     resume: bool,
     probe_timeout: float,
 ) -> dict[str, Any]:
+    reject_incomplete_migration(manifest_path.parent)
     task_allowlist_sha256 = validate_eval_config(
         eval_config,
         approved_task_file=approved_task_file,
@@ -580,20 +901,31 @@ def prepare(
     )
     config = tomllib.loads(eval_config.read_text(encoding="utf-8"))
     max_concurrent_requests = config["max_concurrent"]
-    workers, spec_sha256, bundle_sha256 = load_workers(deployment_root)
-    probe_workers(workers, timeout=probe_timeout)
-
     if resume:
         if not manifest_path.is_file():
             raise DirectWorkerError("direct_worker_manifest_missing")
         saved = validate_saved_manifest(manifest_path)
+        provenance = validate_router_provenance(
+            manifest_path.parent / "provenance.txt",
+            _sha256(manifest_path),
+        )
+        validate_routing_transition(manifest_path.parent, saved, provenance)
         router = saved.get("router")
         if not isinstance(router, dict):
             raise DirectWorkerError("direct_worker_manifest_router_invalid")
         router_port = router.get("port")
         metrics_port = router.get("metrics_port")
-        if not all(isinstance(port, int) and not isinstance(port, bool) and 1 <= port <= 65535 for port in (router_port, metrics_port)):
+        if not all(
+            isinstance(port, int) and not isinstance(port, bool) and 1 <= port <= 65535
+            for port in (router_port, metrics_port)
+        ):
             raise DirectWorkerError("direct_worker_manifest_ports_invalid")
+        saved_config = tomllib.loads(eval_config.read_text(encoding="utf-8"))
+        expected_base_url = f"http://127.0.0.1:{router_port}/v1"
+        if str(saved_config["client"].get("base_url", "")).rstrip("/") != expected_base_url:
+            raise DirectWorkerError("resume_router_url_mismatch")
+        workers, spec_sha256, bundle_sha256 = load_workers(deployment_root)
+        probe_workers(workers, timeout=probe_timeout)
         expected = _manifest(
             deployment_root,
             workers,
@@ -606,12 +938,10 @@ def prepare(
         )
         if saved != expected:
             raise DirectWorkerError("direct_worker_manifest_mismatch")
-        saved_config = tomllib.loads(eval_config.read_text(encoding="utf-8"))
-        expected_base_url = f"http://127.0.0.1:{router_port}/v1"
-        if str(saved_config["client"].get("base_url", "")).rstrip("/") != expected_base_url:
-            raise DirectWorkerError("resume_router_url_mismatch")
         manifest = saved
     else:
+        workers, spec_sha256, bundle_sha256 = load_workers(deployment_root)
+        probe_workers(workers, timeout=probe_timeout)
         router_port, metrics_port = derive_ports(manifest_path.parent)
         manifest = _manifest(
             deployment_root,
@@ -638,6 +968,8 @@ def prepare(
             f"{manifest['router']['max_concurrent_requests']}\n"
             f"{manifest['router']['queue_size']}\n"
             f"{manifest['router']['queue_timeout_seconds']}\n"
+            f"{manifest['router']['policy']}\n"
+            f"{manifest['router']['request_id_headers'][0]}\n"
         ).encode(),
     )
     return manifest
@@ -660,18 +992,21 @@ def main() -> None:
         parser.error("--probe-timeout must be positive")
     try:
         if args.audit_run_dir is not None:
-            if any(
-                value is not None
-                for value in (
-                    args.deployment_root,
-                    args.eval_config,
-                    args.manifest,
-                    args.urls_output,
-                    args.ports_output,
-                    args.approved_task_file,
-                    args.approved_task_file_sha256,
+            if (
+                any(
+                    value is not None
+                    for value in (
+                        args.deployment_root,
+                        args.eval_config,
+                        args.manifest,
+                        args.urls_output,
+                        args.ports_output,
+                        args.approved_task_file,
+                        args.approved_task_file_sha256,
+                    )
                 )
-            ) or args.resume:
+                or args.resume
+            ):
                 parser.error("--audit-run-dir cannot be combined with launch preparation arguments")
             summary = audit_run_directory(args.audit_run_dir)
         else:
@@ -703,6 +1038,8 @@ def main() -> None:
                 "endpoints": len(manifest["workers"]),
                 "spec_sha256": manifest["spec_sha256"],
                 "endpoint_bundle_sha256": manifest["endpoint_bundle_sha256"],
+                "router_policy": manifest["router"]["policy"],
+                "request_id_headers": manifest["router"]["request_id_headers"],
             }
     except (OSError, DirectWorkerError) as error:
         parser.error(str(error))

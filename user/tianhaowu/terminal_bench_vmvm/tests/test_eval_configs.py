@@ -319,7 +319,11 @@ def test_direct_qwen_launcher_is_fail_closed() -> None:
     workflow_dir = CONFIG_DIR.parents[1]
     wrapper = (workflow_dir / "run_qwen_direct_eval.sbatch").read_text()
 
-    assert "--policy round_robin" in wrapper
+    assert '--policy "$router_policy"' in wrapper
+    assert '--request-id-headers "$router_request_id_header"' in wrapper
+    assert '[[ "$router_policy" != consistent_hash ]]' in wrapper
+    assert '[[ "$router_request_id_header" != x-session-id ]]' in wrapper
+    assert "round_robin" not in wrapper
     assert "--request-timeout-secs 7500" in wrapper
     assert "--disable-retries" in wrapper
     assert '--max-concurrent-requests "$router_max_concurrent"' in wrapper
@@ -332,6 +336,15 @@ def test_direct_qwen_launcher_is_fail_closed() -> None:
     assert "approved task_file and task_file_sha256" in wrapper
     assert "DIRECT_QWEN_APPROVED_TASK_FILE" in wrapper
     assert "DIRECT_QWEN_APPROVED_TASK_FILE_SHA256" in wrapper
+    assert 'export DIRECT_QWEN_MANIFEST_SHA256="$manifest_sha256"' in wrapper
+    assert 'export DIRECT_QWEN_ROUTER_POLICY="$router_policy"' in wrapper
+    assert 'export DIRECT_QWEN_REQUEST_ID_HEADERS="$router_request_id_header"' in wrapper
+
+    generic_wrapper = (workflow_dir / "run_eval.sbatch").read_text()
+    assert "direct_qwen_manifest_sha256=" in generic_wrapper
+    assert "direct_qwen_router_policy=" in generic_wrapper
+    assert "direct_qwen_request_id_headers=" in generic_wrapper
+    assert "resume_direct_qwen_manifest_sha256=" in generic_wrapper
 
 
 def test_direct_qwen_router_probe_is_infrastructure_only() -> None:
