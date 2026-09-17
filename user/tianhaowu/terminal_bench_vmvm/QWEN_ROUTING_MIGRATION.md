@@ -120,13 +120,45 @@ workers; exactly 32 must reach the backends before release, none may fail, and
 session affinity must remain stable.
 
 Observe cap 32 for at least 10 minutes and 256 completed provider requests.
-Promote it only while all 16 workers remain healthy, non-2xx responses stay
-below 1% and within 0.5 percentage points of baseline, preemptions remain zero,
-backend waiting p95 stays at most two, KV-cache p95/max stay below 60%/75%,
-prefix-cache hits stay at least 75% and within 10 points of baseline, TTFT p95
-stays below twice baseline, and generation throughput improves at least 20%.
-Any health loss, preemption, sustained queue growth, or threshold violation is
-a failback signal. Cancel the epoch-3 writer and preserve it for diagnosis.
+The hard gates that do not require traffic attribution are: all 16 workers
+remain healthy, preemptions remain zero, backend waiting p95 stays at most two,
+KV-cache p95/max stay below 60%/75%, local-router non-2xx responses stay below
+1% and within 0.5 percentage points of baseline, circuit breakers remain
+closed, the local queue does not grow persistently or time out, and job-local
+clean-result throughput improves at least 20% over a like-for-like baseline.
+Any violation is a failback signal.
+
+Prefix-cache hit rate, TTFT, and generation-token throughput from worker
+Prometheus endpoints are hard promotion/failback gates only for a dedicated
+worker pool or a demonstrably at least 95%-attributable observation window.
+Such a window must span at least 10 minutes and 256 local-router completions,
+use aligned worker and local-router counter deltas, and account explicitly for
+requests crossing both measurement boundaries. Record the attribution
+numerator, denominator, boundary counts, and residual. If the worker series
+lack a job/router/session label and that test cannot be met, record the three
+metrics as `UNATTRIBUTABLE`: they remain advisory deployment-health context,
+and neither a passing nor failing decision may be based on them alone. For an
+attribution-qualified window, prefix-cache hits must remain at least 75% and
+within 10 points of baseline, TTFT p95 must remain below twice baseline, and
+generation throughput must improve at least 20%.
+
+At 2026-09-17 15:26 UTC, the live epoch-3 worker cache windows were 72.10% and
+67.22%, but every relevant worker series was labeled only by engine and model.
+An aligned 30-second sample observed 176 worker-running requests against this
+job's hard provider cap of 32, and 31 worker successes against six local-router
+completions. At least 144 running requests and 25 completions were therefore
+external, far from the 95% attribution requirement. Those cache measurements
+are `UNATTRIBUTABLE`, not failback evidence. The hard gates remained green:
+16/16 workers active, waiting zero, KV-cache maximum 6.91%, no
+provider/non-2xx, circuit-breaker, preemption, or tunnel failures, and about 56
+clean rows/hour. Worker TTFT p95 of 0.995 seconds and queue-time p95 of 0.285
+seconds were benign but advisory in this shared window. Continue epoch 3 under
+aggregate-only monitoring. This decision is not a retroactive formal promotion
+certificate: the earlier 439-request window did not retain matching TTFT and
+queue measurements, while the preceding complete slice had only 245 requests.
+Cancel the epoch-3 writer and preserve it for diagnosis if a hard gate later
+fails.
+
 The new launcher intentionally rejects production cap 16, so resume the
 immutable epoch-2 source only from an isolated worktree pinned to its recorded
 `prime_rl` revision (the current source records
