@@ -7,6 +7,7 @@ import pytest
 from audit_traces import (
     KIMI_K3_MAX_MODEL_IO_CONTRACT,
     _audit_trace,
+    _captured_zero_reasoning_tool_turn,
     _iter_traces,
     _summarize_traces,
     main,
@@ -854,7 +855,13 @@ def test_audit_trace_requires_model_io_on_every_sampled_turn() -> None:
     assert _audit_trace(trace, require_reasoning=True, require_model_io=True) == ["node_1_model_io_missing"]
 
 
-def test_audit_trace_allows_captured_zero_reasoning_tool_turn() -> None:
+@pytest.mark.parametrize(
+    "completion_tokens_details",
+    [pytest.param({"reasoning_tokens": 0}, id="explicit-zero"), pytest.param(None, id="missing")],
+)
+def test_audit_trace_allows_captured_zero_reasoning_tool_turn(
+    completion_tokens_details: dict | None,
+) -> None:
     trace = _trace_with_model_io()
     second = _trace("second", "same-task")["nodes"][0]
     second["parent"] = 0
@@ -864,7 +871,15 @@ def test_audit_trace_allows_captured_zero_reasoning_tool_turn() -> None:
         "reasoning_content": None,
         "tool_calls": [{"id": "call-2", "name": "bash", "arguments": '{"cmd":"pwd"}'}],
     }
-    second["usage"]["reasoning_tokens"] = 0
+    if completion_tokens_details is not None:
+        second["usage"]["reasoning_tokens"] = 0
+    usage = {
+        "prompt_tokens": 100,
+        "completion_tokens": 2,
+        "total_tokens": 102,
+    }
+    if completion_tokens_details is not None:
+        usage["completion_tokens_details"] = completion_tokens_details
     second["model_io"] = _model_io(
         _request(),
         response=_exact_response(
@@ -880,12 +895,7 @@ def test_audit_trace_allows_captured_zero_reasoning_tool_turn() -> None:
                     }
                 ],
             },
-            usage={
-                "prompt_tokens": 100,
-                "completion_tokens": 2,
-                "total_tokens": 102,
-                "completion_tokens_details": {"reasoning_tokens": 0},
-            },
+            usage=usage,
         ),
     )
     trace["nodes"].append(second)
@@ -893,12 +903,79 @@ def test_audit_trace_allows_captured_zero_reasoning_tool_turn() -> None:
     assert _audit_trace(trace, require_reasoning=True, require_model_io=True) == []
 
 
+@pytest.mark.parametrize("reasoning_tokens", [1, -1, True, 0.0, "0", None])
+def test_zero_reasoning_tool_turn_rejects_nonzero_or_malformed_counter(
+    reasoning_tokens: object,
+) -> None:
+    response = _exact_response(
+        message={
+            "role": "assistant",
+            "content": None,
+            "tool_calls": [
+                {
+                    "id": "call-1",
+                    "type": "function",
+                    "function": {"name": "bash", "arguments": '{"cmd":"pwd"}'},
+                }
+            ],
+        },
+        usage={
+            "prompt_tokens": 100,
+            "completion_tokens": 2,
+            "total_tokens": 102,
+            "completion_tokens_details": {"reasoning_tokens": reasoning_tokens},
+        },
+    )
+    node = {"model_io": {"response": {"kind": "exact_provider_json", "body": response}}}
+    node["model_io"]["response"]["sha256"] = _digest(response)
+
+    assert _captured_zero_reasoning_tool_turn(node) is False
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("reasoning", "retained"),
+        ("reasoning_content", {"malformed": True}),
+        ("reasoning_details", "malformed"),
+        ("provider_specific_fields", "malformed"),
+        ("provider_specific_fields", {"reasoning_details": [{"text": "retained"}]}),
+    ],
+)
+def test_zero_reasoning_tool_turn_rejects_provider_reasoning_or_malformed_fields(
+    field: str,
+    value: object,
+) -> None:
+    message = {
+        "role": "assistant",
+        "content": None,
+        "tool_calls": [
+            {
+                "id": "call-1",
+                "type": "function",
+                "function": {"name": "bash", "arguments": '{"cmd":"pwd"}'},
+            }
+        ],
+        field: value,
+    }
+    response = _exact_response(
+        message=message,
+        usage={
+            "prompt_tokens": 100,
+            "completion_tokens": 2,
+            "total_tokens": 102,
+        },
+    )
+    node = {"model_io": {"response": {"kind": "exact_provider_json", "body": response}}}
+    node["model_io"]["response"]["sha256"] = _digest(response)
+
+    assert _captured_zero_reasoning_tool_turn(node) is False
+
+
 def test_audit_trace_requires_captured_reasoning_to_be_normalized() -> None:
     trace = _trace_with_model_io()
     trace["nodes"][0]["message"]["reasoning_content"] = None
-    trace["nodes"][0]["message"]["tool_calls"] = [
-        {"id": "call-1", "name": "bash", "arguments": '{"cmd":"pwd"}'}
-    ]
+    trace["nodes"][0]["message"]["tool_calls"] = [{"id": "call-1", "name": "bash", "arguments": '{"cmd":"pwd"}'}]
     trace["nodes"][0]["usage"]["reasoning_tokens"] = 2
     response = _exact_response(
         message={
@@ -968,9 +1045,7 @@ def test_audit_trace_requires_some_reasoning_across_zero_reasoning_tool_turns() 
         "body": response,
     }
 
-    assert _audit_trace(trace, require_reasoning=True, require_model_io=True) == [
-        "no_sampled_reasoning_content"
-    ]
+    assert _audit_trace(trace, require_reasoning=True, require_model_io=True) == ["no_sampled_reasoning_content"]
 
 
 def test_audit_trace_reconstructs_and_hashes_model_request_deltas() -> None:

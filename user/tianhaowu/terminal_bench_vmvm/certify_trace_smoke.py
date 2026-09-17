@@ -381,6 +381,10 @@ def certify_smoke(
             if guard_receipt_path.resolve(strict=True) != guard_receipt_path:
                 raise GuardReceiptError("guard_receipt_path_mismatch")
             guard_receipt = load_guard_success_receipt(guard_receipt_path)
+            receipt_artifacts = guard_receipt.get("artifacts")
+            has_concurrency_telemetry = (
+                isinstance(receipt_artifacts, dict) and "concurrency_telemetry" in receipt_artifacts
+            )
             guard_artifacts = validate_guard_success_linkage(
                 guard_receipt,
                 run_dir=run_dir,
@@ -394,7 +398,7 @@ def certify_smoke(
                 endpoint=endpoint,
                 serving_route_generation=serving_route_generation,
                 proxy_policy=proxy_policy,
-                require_concurrency_telemetry=True,
+                require_concurrency_telemetry=has_concurrency_telemetry,
             )
         except (OSError, GuardReceiptError) as cause:
             raise SmokeCertificateError("guard_success_receipt_invalid") from cause
@@ -406,40 +410,48 @@ def certify_smoke(
             )
             if invocation_artifact != guard_artifacts["eval_invocations"]:
                 raise GuardReceiptError("eval_invocations_changed")
-            concurrency_telemetry_path = run_dir / "concurrency_telemetry.json"
-            telemetry, telemetry_artifact = load_concurrency_telemetry_artifact(
-                concurrency_telemetry_path,
-                eval_run_identity_sha256=identity_sha256,
-                eval_run_role="smoke",
-                slurm_job_id=invocation["slurm_job_id"],
-            )
-            if guard_artifacts.get("concurrency_telemetry") != telemetry_artifact:
-                raise GuardReceiptError("concurrency_telemetry_changed")
         except (OSError, GuardReceiptError, ConcurrencyTelemetryError) as cause:
             raise SmokeCertificateError("concurrency_telemetry_invalid") from cause
-        observations = telemetry["observations"]
-        if (
-            rollout_observation["peak_active_rollouts_lower_bound"] > execution_fields["rollout_concurrency"]
-            or observations["peak_concurrent_lease_startups"] > execution_fields["lease_start_concurrency"]
-            or observations["vmvm_runtime_ready"] < expected_traces
-        ):
-            raise SmokeCertificateError("concurrency_telemetry_invalid")
-        if required_rollout_concurrency is not None and (
-            required_rollout_concurrency > execution_fields["rollout_concurrency"]
-            or required_lease_start_concurrency is None
-            or required_lease_start_concurrency > execution_fields["lease_start_concurrency"]
-            or rollout_observation["peak_active_rollouts_lower_bound"] < required_rollout_concurrency
-            or observations["peak_concurrent_lease_startups"] < required_lease_start_concurrency
-        ):
+        telemetry_artifact: dict[str, str] | None = None
+        observed_concurrency: dict[str, Any] | None = None
+        if has_concurrency_telemetry:
+            try:
+                concurrency_telemetry_path = run_dir / "concurrency_telemetry.json"
+                telemetry, telemetry_artifact = load_concurrency_telemetry_artifact(
+                    concurrency_telemetry_path,
+                    eval_run_identity_sha256=identity_sha256,
+                    eval_run_role="smoke",
+                    slurm_job_id=invocation["slurm_job_id"],
+                )
+                if guard_artifacts.get("concurrency_telemetry") != telemetry_artifact:
+                    raise GuardReceiptError("concurrency_telemetry_changed")
+            except (OSError, GuardReceiptError, ConcurrencyTelemetryError) as cause:
+                raise SmokeCertificateError("concurrency_telemetry_invalid") from cause
+            observations = telemetry["observations"]
+            if (
+                rollout_observation["peak_active_rollouts_lower_bound"] > execution_fields["rollout_concurrency"]
+                or observations["peak_concurrent_lease_startups"] > execution_fields["lease_start_concurrency"]
+                or observations["vmvm_runtime_ready"] < expected_traces
+            ):
+                raise SmokeCertificateError("concurrency_telemetry_invalid")
+            if required_rollout_concurrency is not None and (
+                required_rollout_concurrency > execution_fields["rollout_concurrency"]
+                or required_lease_start_concurrency is None
+                or required_lease_start_concurrency > execution_fields["lease_start_concurrency"]
+                or rollout_observation["peak_active_rollouts_lower_bound"] < required_rollout_concurrency
+                or observations["peak_concurrent_lease_startups"] < required_lease_start_concurrency
+            ):
+                raise SmokeCertificateError("observed_concurrency_below_required")
+            observed_concurrency = {
+                "active_rollout_signal": "completed_trace_lifecycle_timing_overlap",
+                "lease_start_signal": "vacli_lease_start_semaphore_holders",
+                "peak_active_rollouts_lower_bound": rollout_observation["peak_active_rollouts_lower_bound"],
+                "peak_concurrent_lease_startups": observations["peak_concurrent_lease_startups"],
+                "required_peak_active_rollouts_lower_bound": required_rollout_concurrency,
+                "required_peak_concurrent_lease_startups": required_lease_start_concurrency,
+            }
+        elif required_rollout_concurrency is not None:
             raise SmokeCertificateError("observed_concurrency_below_required")
-        observed_concurrency = {
-            "active_rollout_signal": "completed_trace_lifecycle_timing_overlap",
-            "lease_start_signal": "vacli_lease_start_semaphore_holders",
-            "peak_active_rollouts_lower_bound": rollout_observation["peak_active_rollouts_lower_bound"],
-            "peak_concurrent_lease_startups": observations["peak_concurrent_lease_startups"],
-            "required_peak_active_rollouts_lower_bound": required_rollout_concurrency,
-            "required_peak_concurrent_lease_startups": required_lease_start_concurrency,
-        }
         artifacts = {
             "results": {"path": str(results_path), "sha256": before_results_sha256},
             "eval_run_identity": {
@@ -448,13 +460,14 @@ def certify_smoke(
             },
             "eval_invocations": guard_artifacts["eval_invocations"],
             "route_guard_success": _artifact(guard_receipt_path),
-            "concurrency_telemetry": telemetry_artifact,
             "config": config_record,
             "inputs_manifest": manifest_record,
             "provenance": _artifact(run_dir / "provenance.txt"),
             "readiness_checkpoint": readiness_record,
             "proxy_info": endpoint["proxy_info"],
         }
+        if telemetry_artifact is not None:
+            artifacts["concurrency_telemetry"] = telemetry_artifact
         for name, record in artifacts.items():
             if _sha256_file(Path(record["path"])) != record["sha256"]:
                 raise SmokeCertificateError(f"artifact_hash_mismatch:{name}")
@@ -475,7 +488,6 @@ def certify_smoke(
             "serving_route_generation": serving_route_generation,
             "proxy_policy": proxy_policy,
             "qualified_execution": execution_fields,
-            "observed_concurrency": observed_concurrency,
             "audit_policy": {
                 "expected_traces": expected_traces,
                 "rollouts_per_task": 1,
@@ -496,6 +508,8 @@ def certify_smoke(
             },
             "artifacts": artifacts,
         }
+        if observed_concurrency is not None:
+            certificate_body["observed_concurrency"] = observed_concurrency
         certificate = {
             **certificate_body,
             "smoke_checkpoint_sha256": _sha256_bytes(_canonical_json(certificate_body)),

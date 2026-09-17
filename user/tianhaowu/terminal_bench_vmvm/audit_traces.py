@@ -364,40 +364,48 @@ def _captured_zero_reasoning_tool_turn(node: dict) -> bool:
         return False
 
     body = response["body"]
+    reasoning_token_values: list[object] = []
     if response["kind"] == "exact_provider_json":
         choices = body.get("choices")
         if not isinstance(choices, list) or not choices or not isinstance(choices[0], dict):
             return False
         message = choices[0].get("message")
         usage = body.get("usage")
-        details = usage.get("completion_tokens_details") if isinstance(usage, dict) else None
-        reasoning_tokens = details.get("reasoning_tokens") if isinstance(details, dict) else None
+        if not isinstance(usage, dict):
+            return False
+        completion_details = usage.get("completion_tokens_details")
+        if completion_details is not None and not isinstance(completion_details, dict):
+            return False
+        if "reasoning_tokens" in usage:
+            reasoning_token_values.append(usage["reasoning_tokens"])
+        if isinstance(completion_details, dict) and "reasoning_tokens" in completion_details:
+            reasoning_token_values.append(completion_details["reasoning_tokens"])
     else:
         message = body.get("message")
         usage = body.get("usage")
-        reasoning_tokens = usage.get("reasoning_tokens") if isinstance(usage, dict) else None
+        if not isinstance(usage, dict) or "reasoning_tokens" not in usage:
+            return False
+        reasoning_token_values.append(usage["reasoning_tokens"])
+
+    if any(not isinstance(value, int) or isinstance(value, bool) or value != 0 for value in reasoning_token_values):
+        return False
 
     if not isinstance(message, dict):
         return False
     reasoning_values = [message.get("reasoning"), message.get("reasoning_content")]
+    reasoning_details_values = [message.get("reasoning_details")]
     provider_fields = message.get("provider_specific_fields")
-    if isinstance(provider_fields, dict):
-        reasoning_values.extend(
-            [provider_fields.get("reasoning"), provider_fields.get("reasoning_content")]
-        )
-    if any(isinstance(value, str) and value.strip() for value in reasoning_values):
+    if provider_fields is not None:
+        if not isinstance(provider_fields, dict):
+            return False
+        reasoning_values.extend([provider_fields.get("reasoning"), provider_fields.get("reasoning_content")])
+        reasoning_details_values.append(provider_fields.get("reasoning_details"))
+    if any(value is not None and (not isinstance(value, str) or value.strip()) for value in reasoning_values):
         return False
-    details = message.get("reasoning_details")
-    if isinstance(details, list) and details:
+    if any(value is not None and (not isinstance(value, list) or value) for value in reasoning_details_values):
         return False
     tool_calls = message.get("tool_calls")
-    return (
-        isinstance(tool_calls, list)
-        and bool(tool_calls)
-        and isinstance(reasoning_tokens, int)
-        and not isinstance(reasoning_tokens, bool)
-        and reasoning_tokens == 0
-    )
+    return isinstance(tool_calls, list) and bool(tool_calls)
 
 
 def _model_io_base_is_ancestor(nodes: list, node_id: int, base_node: int) -> bool:
@@ -595,9 +603,7 @@ def _audit_trace(
             reasoning = message.get("reasoning_content") if isinstance(message, dict) else None
             if isinstance(reasoning, str) and reasoning.strip():
                 sampled_reasoning_count += 1
-            elif require_reasoning and (
-                not require_model_io or not _captured_zero_reasoning_tool_turn(node)
-            ):
+            elif require_reasoning and (not require_model_io or not _captured_zero_reasoning_tool_turn(node)):
                 reasoning_not_retained = True
         if not require_token_data:
             if is_sampled:

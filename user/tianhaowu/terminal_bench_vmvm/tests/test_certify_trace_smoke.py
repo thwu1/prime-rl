@@ -340,7 +340,12 @@ def _fixture(
     return run_dir, task_file, task_sha256, envelope
 
 
-def _refresh_guard_receipt(run_dir: Path, envelope: dict) -> None:
+def _refresh_guard_receipt(
+    run_dir: Path,
+    envelope: dict,
+    *,
+    include_concurrency_telemetry: bool = True,
+) -> None:
     receipt_path = run_dir / "route_guard_success.json"
     previous = json.loads(receipt_path.read_text())
     deployment = previous["deployment"]
@@ -357,7 +362,7 @@ def _refresh_guard_receipt(run_dir: Path, envelope: dict) -> None:
         endpoint=deployment["endpoint"],
         serving_route_generation=deployment["serving_route_generation"],
         proxy_policy=deployment["proxy_policy"],
-        concurrency_telemetry=run_dir / "concurrency_telemetry.json",
+        concurrency_telemetry=(run_dir / "concurrency_telemetry.json" if include_concurrency_telemetry else None),
     )
     write_guard_success_receipt(receipt_path, receipt)
 
@@ -393,6 +398,52 @@ def test_certifies_valid_smoke_without_task_metadata(tmp_path: Path) -> None:
     assert certificate["smoke_checkpoint_sha256"] == _sha256_bytes(
         json.dumps(body, allow_nan=False, ensure_ascii=False, separators=(",", ":"), sort_keys=True).encode()
     )
+
+
+def test_certifies_legacy_guard_without_concurrency_telemetry(tmp_path: Path) -> None:
+    run_dir, task_file, task_sha256, envelope = _fixture(tmp_path)
+    (run_dir / "concurrency_telemetry.json").unlink()
+    _refresh_guard_receipt(
+        run_dir,
+        envelope,
+        include_concurrency_telemetry=False,
+    )
+
+    certificate = certify_smoke(
+        run_dir,
+        expected_task_file=task_file,
+        expected_task_file_sha256=task_sha256,
+        expected_traces=2,
+        identity_loader=lambda *_args, **_kwargs: envelope,
+    )
+
+    assert certificate["ok"] is True
+    assert "observed_concurrency" not in certificate
+    assert "concurrency_telemetry" not in certificate["artifacts"]
+
+
+def test_legacy_guard_cannot_satisfy_required_concurrency(tmp_path: Path) -> None:
+    run_dir, task_file, task_sha256, envelope = _fixture(tmp_path)
+    (run_dir / "concurrency_telemetry.json").unlink()
+    _refresh_guard_receipt(
+        run_dir,
+        envelope,
+        include_concurrency_telemetry=False,
+    )
+
+    with pytest.raises(
+        SmokeCertificateError,
+        match="^observed_concurrency_below_required$",
+    ):
+        certify_smoke(
+            run_dir,
+            expected_task_file=task_file,
+            expected_task_file_sha256=task_sha256,
+            expected_traces=2,
+            required_rollout_concurrency=2,
+            required_lease_start_concurrency=2,
+            identity_loader=lambda *_args, **_kwargs: envelope,
+        )
 
 
 def test_rejects_active_writer(tmp_path: Path) -> None:
