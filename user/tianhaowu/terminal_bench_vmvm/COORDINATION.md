@@ -1,6 +1,6 @@
 # VMVM sandbox coordination
 
-Last updated: 2026-09-17 16:24 UTC
+Last updated: 2026-09-17 16:46 UTC
 
 ## First message to the next teammate
 
@@ -55,15 +55,15 @@ Add new rows below this line; do not overwrite another owner's row.
   backward-compatible worker `time_min` support and passed 761 unit tests plus
   329 subtests; it is locally committed but not yet deployed.
 
-- **2026-09-17 16:14 UTC, use2-1 Qwen production/error-handling
-  checkpoint:** job `1454171` reached 431 durable rows. Across the complete
-  lineage, 244/418 scored rows pass (58.37%); epoch 3 has 166 clean/scored
-  rows, 95 passes, and 13 ordinary error rows. All 95 pass traces pass strict
+- **2026-09-17 16:46 UTC, use2-1 Qwen production/error-handling
+  checkpoint:** job `1454171` reached 450 durable rows. Across the complete
+  lineage, 254/438 scored rows pass (57.99%); epoch 3 has 186 clean/scored
+  rows, 105 passes, and 12 ordinary error rows. All 105 pass traces pass strict
   reasoning/model-I/O/256K audit. Two rows record a prior-attempt tunnel error
   followed by a final HarnessError; neither is terminal tunnel exhaustion.
-  A five-row follow-up had no recurrence, ten process samples held 61--64
+  Nineteen following rows had no recurrence; ten process samples held 61--64
   leases with no dead/zombie processes, and provider/router health stayed
-  green. A fresh shared cache window recovered to 75.60%; earlier sub-gate
+  green. A fresh shared cache window measured 75.54%; earlier sub-gate
   windows remain unattributable under >80% external traffic. Continue the run
   and alert on final/clustered infrastructure failures, not recovered retry
   history alone. Aggregate log ordinals show 41 logical rollouts used at least
@@ -72,7 +72,10 @@ Add new rows below this line; do not overwrite another owner's row.
   minutes while 22 rows completed. If retry bursts recur with throughput or
   lease degradation, the relevant future throttle is task concurrency 64 to
   32; provider admission 32 and lease-start 2 do not govern reverse-tunnel
-  creation. No current stop threshold is met.
+  creation. No current stop threshold is met. All progress/error aggregates
+  now use one fixed-prefix file snapshot per report; an earlier 431-row
+  incremental tail estimate was one error high because a live append crossed
+  two separate reads.
 
 - **2026-09-17 15:30 UTC, use2-1 Qwen shared-metric attribution:** cap-32
   job `1454171` remains live and reached 405 durable rows. Epoch 3 has 146
