@@ -17,6 +17,12 @@ import uuid
 from pathlib import Path, PurePosixPath
 from typing import Any
 
+from audit_traces import KIMI_K3_MAX_MODEL_IO_CONTRACT
+from deployment_endpoint import (
+    EndpointBindingError,
+    load_deployment_endpoint,
+    validate_endpoint_binding,
+)
 from eval_run_identity import EvalIdentityError, load_eval_run_identity
 
 SCHEMA_VERSION = 1
@@ -37,6 +43,13 @@ EXPECTED_TB4_MAX_PASS_RATE = 0.22
 EXPECTED_TB4_ROLLOUT_CONCURRENCY = 4
 EXPECTED_TB4_LEASE_START_CONCURRENCY = 2
 EXPECTED_DENYLIST = frozenset({"logprobs", "prompt_logprobs", "return_token_ids", "top_logprobs"})
+EXPECTED_MODEL_IO_CONTRACT = {
+    "provider_route": KIMI_K3_MAX_MODEL_IO_CONTRACT.provider_route,
+    "request_model": KIMI_K3_MAX_MODEL_IO_CONTRACT.request_model,
+    "response_model": KIMI_K3_MAX_MODEL_IO_CONTRACT.response_model,
+    "request_reasoning_effort": KIMI_K3_MAX_MODEL_IO_CONTRACT.reasoning_effort,
+    "request_chat_template_kwargs": dict(KIMI_K3_MAX_MODEL_IO_CONTRACT.chat_template_kwargs),
+}
 ORACLE_REASONS = frozenset({"error", "infrastructure_error", "invalid", "timeout", "unsupported", "valid"})
 CLEAN_TREE_SHA256 = hashlib.sha256(b"").hexdigest()
 
@@ -241,6 +254,32 @@ def _records_match(left: dict[str, Any], right: dict[str, Any], *, label: str) -
         raise LaunchCertificateError(f"{label}_mismatch")
 
 
+def _endpoint_binding(value: object, *, label: str) -> dict[str, Any]:
+    try:
+        return validate_endpoint_binding(value)
+    except EndpointBindingError as cause:
+        raise LaunchCertificateError(f"{label}_invalid") from cause
+
+
+def _load_current_endpoint(
+    proxy_info: Path,
+    proxy_info_sha256: str,
+    *,
+    deployment_id: str,
+    deployment_spec: Path,
+) -> Any:
+    try:
+        return load_deployment_endpoint(
+            proxy_info,
+            deployment_id=deployment_id,
+            expected_model=EXPECTED_MODEL,
+            deployment_spec=deployment_spec,
+            expected_proxy_info_sha256=proxy_info_sha256,
+        )
+    except EndpointBindingError as cause:
+        raise LaunchCertificateError("deployment_endpoint_invalid") from cause
+
+
 def _verify_flat_self_hash(value: dict[str, Any], field: str, *, label: str) -> str:
     digest = _require_sha256(value.get(field), label)
     unsigned = dict(value)
@@ -431,12 +470,17 @@ def _spec_num_endpoints(raw: bytes) -> int:
     return _require_positive_int(int(matches[0]), "deployment_spec_num_endpoints")
 
 
-def _validate_tb4_checkpoint(value: dict[str, Any], deployment_id: str) -> dict[str, Any]:
+def _validate_tb4_checkpoint(
+    value: dict[str, Any],
+    deployment_id: str,
+    endpoint: dict[str, Any],
+) -> dict[str, Any]:
     expected_keys = {
         "artifacts",
         "audit_policy",
         "counts",
         "deployment",
+        "endpoint",
         "eval_run_identity_sha256",
         "ok",
         "schema_version",
@@ -452,6 +496,7 @@ def _validate_tb4_checkpoint(value: dict[str, Any], deployment_id: str) -> dict[
         label="tb4_checkpoint",
     )
     deployment = value.get("deployment")
+    checkpoint_endpoint = _endpoint_binding(value.get("endpoint"), label="tb4_endpoint")
     if (
         value.get("schema_version") != 1
         or value.get("state") != "passed"
@@ -459,6 +504,7 @@ def _validate_tb4_checkpoint(value: dict[str, Any], deployment_id: str) -> dict[
         or not isinstance(deployment, dict)
         or set(deployment) != {"id", "spec_sha256"}
         or deployment.get("id") != deployment_id
+        or checkpoint_endpoint != endpoint
     ):
         raise LaunchCertificateError("tb4_checkpoint_not_passed")
     _require_sha256(deployment.get("spec_sha256"), "tb4_deployment_spec")
@@ -474,6 +520,7 @@ def _validate_tb4_checkpoint(value: dict[str, Any], deployment_id: str) -> dict[
         "max_supported_pass_rate": EXPECTED_TB4_MAX_PASS_RATE,
         "min_supported_pass_rate": EXPECTED_TB4_MIN_PASS_RATE,
         "model": EXPECTED_MODEL,
+        "model_io_contract": EXPECTED_MODEL_IO_CONTRACT,
         "reasoning_effort": "max",
         "require_logprobs": False,
         "require_model_io": True,
@@ -485,7 +532,7 @@ def _validate_tb4_checkpoint(value: dict[str, Any], deployment_id: str) -> dict[
         "rollout_concurrency": EXPECTED_TB4_ROLLOUT_CONCURRENCY,
         "rollouts_per_task": 1,
     }
-    if value.get("audit_policy") != expected_policy:
+    if _canonical_json(value.get("audit_policy")) != _canonical_json(expected_policy):
         raise LaunchCertificateError("tb4_policy_invalid")
 
     counts = value.get("counts")
@@ -547,6 +594,7 @@ def _validate_tb4_checkpoint(value: dict[str, Any], deployment_id: str) -> dict[
         "readiness_checkpoint",
         "results",
         "smoke_checkpoint",
+        "proxy_info",
     }
     if not isinstance(artifacts, dict) or set(artifacts) != expected_artifacts:
         raise LaunchCertificateError("tb4_artifacts_invalid")
@@ -577,6 +625,7 @@ def _validate_tb4_checkpoint(value: dict[str, Any], deployment_id: str) -> dict[
     if (
         not isinstance(identity_deployment, dict)
         or identity_deployment.get("id") != deployment_id
+        or identity_deployment.get("endpoint") != endpoint
         or not isinstance(identity_deployment.get("spec"), dict)
         or identity_deployment["spec"].get("sha256") != deployment["spec_sha256"]
         or not isinstance(identity_inputs, dict)
@@ -605,6 +654,10 @@ def _validate_tb4_checkpoint(value: dict[str, Any], deployment_id: str) -> dict[
                 label="tb4_identity_smoke",
             ),
             "smoke_checkpoint",
+        ),
+        (
+            endpoint["proxy_info"],
+            "proxy_info",
         ),
     ):
         _records_match(identity_record, artifact_records[artifact_name], label=f"tb4_{artifact_name}_link")
@@ -907,11 +960,13 @@ def _validate_readiness_checkpoint(
     *,
     deployment_id: str,
     deployment_spec_sha256: str,
-) -> dict[str, int]:
+    endpoint: dict[str, Any],
+) -> dict[str, Any]:
     required_keys = {
         "consecutive_ready_polls",
         "consecutive_status_unavailable",
         "deployment",
+        "endpoint",
         "expected_routes",
         "last_status",
         "max_consecutive_status_unavailable",
@@ -946,6 +1001,7 @@ def _validate_readiness_checkpoint(
         "readiness_consecutive_status_unavailable",
     )
     probe = value.get("probe")
+    checkpoint_endpoint = _endpoint_binding(value.get("endpoint"), label="readiness_endpoint")
     last_status = value.get("last_status")
     expected_status_keys = {
         "coord_ticks_completed",
@@ -962,6 +1018,7 @@ def _validate_readiness_checkpoint(
         or value.get("state") != "passed"
         or value.get("deployment") != deployment_id
         or value.get("observed_spec_sha256") != deployment_spec_sha256
+        or checkpoint_endpoint != endpoint
         or value.get("proxy_info_readable") is not True
         or value.get("status_unavailable_reason") is not None
         or consecutive_unavailable != 0
@@ -983,7 +1040,7 @@ def _validate_readiness_checkpoint(
     ticks = last_status.get("coord_ticks_completed")
     if ticks is not None:
         _require_nonnegative_int(ticks, "readiness_coord_ticks_completed")
-    return {"expected_routes": expected_routes, "polls": polls}
+    return {"endpoint": checkpoint_endpoint, "expected_routes": expected_routes, "polls": polls}
 
 
 def _validate_capacity_smoke(
@@ -991,6 +1048,7 @@ def _validate_capacity_smoke(
     *,
     deployment_id: str,
     deployment_spec_sha256: str,
+    endpoint: dict[str, Any],
     readiness_path: Path,
     readiness_sha256: str,
     production_contract: dict[str, Any],
@@ -1004,6 +1062,7 @@ def _validate_capacity_smoke(
         "deployment",
         "deployment_id",
         "deployment_spec_sha256",
+        "endpoint",
         "eval_run_identity_sha256",
         "ok",
         "qualified_execution",
@@ -1020,6 +1079,7 @@ def _validate_capacity_smoke(
         label="capacity_smoke",
     )
     deployment = value.get("deployment")
+    checkpoint_endpoint = _endpoint_binding(value.get("endpoint"), label="capacity_endpoint")
     if (
         value.get("schema_version") != 1
         or value.get("state") != "passed"
@@ -1027,6 +1087,7 @@ def _validate_capacity_smoke(
         or value.get("deployment_id") != deployment_id
         or value.get("deployment_spec_sha256") != deployment_spec_sha256
         or value.get("readiness_checkpoint_sha256") != readiness_sha256
+        or checkpoint_endpoint != endpoint
         or not isinstance(deployment, dict)
         or deployment
         != {
@@ -1057,6 +1118,7 @@ def _validate_capacity_smoke(
         "max_sequence_tokens",
         "require_logprobs",
         "require_model_io",
+        "model_io_contract",
         "require_reasoning",
         "require_token_data",
         "rollouts_per_task",
@@ -1067,15 +1129,17 @@ def _validate_capacity_smoke(
         policy.get("expected_traces"),
         "capacity_expected_traces",
     )
-    if policy != {
+    expected_policy = {
         "expected_traces": expected_traces,
         "max_sequence_tokens": EXPECTED_CONTEXT_TOKENS,
         "require_logprobs": False,
         "require_model_io": True,
+        "model_io_contract": EXPECTED_MODEL_IO_CONTRACT,
         "require_reasoning": True,
         "require_token_data": False,
         "rollouts_per_task": 1,
-    }:
+    }
+    if _canonical_json(policy) != _canonical_json(expected_policy):
         raise LaunchCertificateError("capacity_smoke_policy_invalid")
 
     counts = value.get("counts")
@@ -1109,6 +1173,7 @@ def _validate_capacity_smoke(
         "provenance",
         "readiness_checkpoint",
         "results",
+        "proxy_info",
     }
     if not isinstance(artifacts, dict) or set(artifacts) != expected_artifacts:
         raise LaunchCertificateError("capacity_smoke_artifacts_invalid")
@@ -1160,6 +1225,7 @@ def _validate_capacity_smoke(
     if (
         not isinstance(identity_deployment, dict)
         or identity_deployment.get("id") != deployment_id
+        or identity_deployment.get("endpoint") != endpoint
         or not isinstance(identity_deployment.get("spec"), dict)
         or identity_deployment["spec"].get("sha256") != deployment_spec_sha256
         or not isinstance(identity_inputs, dict)
@@ -1167,7 +1233,7 @@ def _validate_capacity_smoke(
         or identity_inputs["task_file"].get("count") != expected_traces
         or not isinstance(image_manifest, dict)
         or image_manifest.get("sha256") != image_manifest_sha256
-        or identity_contract != expected_contract
+        or _canonical_json(identity_contract) != _canonical_json(expected_contract)
         or not isinstance(identity_dataset, dict)
         or identity_dataset.get("kind") != "git_revision"
         or identity_dataset.get("revision") != dataset_revision
@@ -1185,6 +1251,11 @@ def _validate_capacity_smoke(
         or vmvm_environment.get("lease_start_concurrency") != qualified_execution["lease_start_concurrency"]
     ):
         raise LaunchCertificateError("capacity_eval_run_identity_invalid")
+    _records_match(
+        endpoint["proxy_info"],
+        artifact_records["proxy_info"],
+        label="capacity_proxy_info_link",
+    )
     for identity_record, artifact_name in (
         (
             _identity_record(identity, "config", "resolved", label="capacity_identity_config"),
@@ -1262,7 +1333,8 @@ def _validate_production_config(
         or config.get("rich") is not False
         or any(value != EXPECTED_CONTEXT_TOKENS for value in context.values())
         or sampling.get("reasoning_effort") != "max"
-        or thinking != {"enable_thinking": True, "preserve_thinking": True}
+        or _canonical_json(thinking)
+        != _canonical_json({"enable_thinking": True, "preserve_thinking": True})
         or client.get("type") != "eval"
         or client.get("capture_model_io") is not True
         or not isinstance(denylist, list)
@@ -1386,6 +1458,8 @@ def _build_unsigned(
     deployment_id: str,
     deployment_spec: Path,
     deployment_spec_sha256: str,
+    deployment_proxy_info: Path,
+    deployment_proxy_info_sha256: str,
     production_config: Path,
     approved_manifest: Path,
     approved_manifest_sha256: str,
@@ -1403,6 +1477,13 @@ def _build_unsigned(
         label="deployment_spec",
     )
     spec_num_endpoints = _spec_num_endpoints(spec_raw)
+    endpoint_info = _load_current_endpoint(
+        deployment_proxy_info,
+        deployment_proxy_info_sha256,
+        deployment_id=deployment_id,
+        deployment_spec=Path(spec_record["path"]),
+    )
+    endpoint = endpoint_info.binding
     manifest_record, manifest_raw = _pinned_bytes(
         approved_manifest,
         approved_manifest_sha256,
@@ -1442,7 +1523,7 @@ def _build_unsigned(
         label="capacity_smoke_checkpoint",
     )
 
-    tb4 = _validate_tb4_checkpoint(tb4_value, deployment_id)
+    tb4 = _validate_tb4_checkpoint(tb4_value, deployment_id, endpoint)
     oracle = _validate_oracle_receipt(
         oracle_value,
         project_root=project_root,
@@ -1463,6 +1544,7 @@ def _build_unsigned(
         readiness_value,
         deployment_id=deployment_id,
         deployment_spec_sha256=spec_record["sha256"],
+        endpoint=endpoint,
     )
     if readiness["expected_routes"] != spec_num_endpoints:
         raise LaunchCertificateError("readiness_route_count_spec_mismatch")
@@ -1470,6 +1552,7 @@ def _build_unsigned(
         capacity_value,
         deployment_id=deployment_id,
         deployment_spec_sha256=spec_record["sha256"],
+        endpoint=endpoint,
         readiness_path=Path(readiness_record["path"]),
         readiness_sha256=readiness_record["sha256"],
         production_contract=production_contract,
@@ -1483,10 +1566,11 @@ def _build_unsigned(
         capacity["expected_traces"],
     )
 
-    return {
+    unsigned = {
         "artifact_type": ARTIFACT_TYPE,
         "deployment": {
             "id": deployment_id,
+            "endpoint": endpoint,
             "spec": spec_record,
         },
         "gates": {
@@ -1532,6 +1616,15 @@ def _build_unsigned(
         },
         "state": "passed",
     }
+    final_endpoint = _load_current_endpoint(
+        deployment_proxy_info,
+        deployment_proxy_info_sha256,
+        deployment_id=deployment_id,
+        deployment_spec=Path(spec_record["path"]),
+    ).binding
+    if final_endpoint != endpoint:
+        raise LaunchCertificateError("deployment_endpoint_changed")
+    return unsigned
 
 
 def _output_destination(path: Path) -> Path:
@@ -1600,6 +1693,8 @@ def create_launch_certificate(
     deployment_id: str,
     deployment_spec: Path,
     deployment_spec_sha256: str,
+    deployment_proxy_info: Path,
+    deployment_proxy_info_sha256: str,
     production_config: Path,
     approved_manifest: Path,
     approved_manifest_sha256: str,
@@ -1621,6 +1716,8 @@ def create_launch_certificate(
         deployment_id=deployment_id,
         deployment_spec=deployment_spec,
         deployment_spec_sha256=deployment_spec_sha256,
+        deployment_proxy_info=deployment_proxy_info,
+        deployment_proxy_info_sha256=deployment_proxy_info_sha256,
         production_config=production_config,
         approved_manifest=approved_manifest,
         approved_manifest_sha256=approved_manifest_sha256,
@@ -1643,6 +1740,7 @@ def _certificate_build_inputs(unsigned: dict[str, Any]) -> dict[str, Any]:
     if not isinstance(deployment, dict) or not isinstance(production, dict) or not isinstance(gates, dict):
         raise LaunchCertificateError("launch_certificate_schema_invalid")
     spec = deployment.get("spec")
+    endpoint = _endpoint_binding(deployment.get("endpoint"), label="launch_endpoint")
     config = production.get("config")
     manifest = production.get("approved_manifest")
     if not isinstance(spec, dict) or not isinstance(config, dict) or not isinstance(manifest, dict):
@@ -1663,6 +1761,8 @@ def _certificate_build_inputs(unsigned: dict[str, Any]) -> dict[str, Any]:
         "deployment_id": deployment.get("id"),
         "deployment_spec": Path(str(spec.get("path"))),
         "deployment_spec_sha256": spec.get("sha256"),
+        "deployment_proxy_info": Path(endpoint["proxy_info"]["path"]),
+        "deployment_proxy_info_sha256": endpoint["proxy_info"]["sha256"],
         "oracle_receipt": Path(str(gate_records["oracle_promotion"].get("path"))),
         "oracle_receipt_sha256": gate_records["oracle_promotion"].get("sha256"),
         "production_config": Path(str(config.get("path"))),
@@ -1723,6 +1823,8 @@ def validate_launch_certificate_for_run(
     deployment_id: str,
     deployment_spec: Path,
     deployment_spec_sha256: str,
+    deployment_proxy_info: Path,
+    deployment_proxy_info_sha256: str,
     readiness_checkpoint: Path,
     readiness_checkpoint_sha256: str,
     capacity_smoke_checkpoint: Path,
@@ -1743,6 +1845,12 @@ def validate_launch_certificate_for_run(
         deployment_spec_sha256,
         label="expected_deployment_spec",
     )
+    endpoint = _load_current_endpoint(
+        deployment_proxy_info,
+        deployment_proxy_info_sha256,
+        deployment_id=deployment_id,
+        deployment_spec=Path(spec_record["path"]),
+    ).binding
     readiness_record, _ = _pinned_bytes(
         readiness_checkpoint,
         readiness_checkpoint_sha256,
@@ -1771,6 +1879,7 @@ def validate_launch_certificate_for_run(
         or production.get("approved_manifest") != {**manifest_record, "count": EXPECTED_TASKS}
         or production.get("requested_lease_start_concurrency") != requested_leases
         or deployment.get("id") != deployment_id
+        or deployment.get("endpoint") != endpoint
         or deployment.get("spec") != spec_record
         or readiness_gate.get("artifact") != readiness_record
         or capacity_gate.get("artifact") != capacity_record
@@ -1801,6 +1910,8 @@ def _add_create_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--deployment-id", required=True)
     parser.add_argument("--deployment-spec", type=Path, required=True)
     parser.add_argument("--deployment-spec-sha256", required=True)
+    parser.add_argument("--deployment-proxy-info", type=Path, required=True)
+    parser.add_argument("--deployment-proxy-info-sha256", required=True)
     parser.add_argument("--production-config", type=Path, required=True)
     parser.add_argument("--approved-manifest", type=Path, required=True)
     parser.add_argument("--approved-manifest-sha256", required=True)
@@ -1826,6 +1937,8 @@ def main(argv: list[str] | None = None) -> int:
     verify_parser.add_argument("--deployment-id", required=True)
     verify_parser.add_argument("--deployment-spec", type=Path, required=True)
     verify_parser.add_argument("--deployment-spec-sha256", required=True)
+    verify_parser.add_argument("--deployment-proxy-info", type=Path, required=True)
+    verify_parser.add_argument("--deployment-proxy-info-sha256", required=True)
     verify_parser.add_argument("--readiness-checkpoint", type=Path, required=True)
     verify_parser.add_argument("--readiness-checkpoint-sha256", required=True)
     verify_parser.add_argument("--capacity-smoke-checkpoint", type=Path, required=True)
@@ -1850,6 +1963,8 @@ def main(argv: list[str] | None = None) -> int:
                 deployment_id=args.deployment_id,
                 deployment_spec=args.deployment_spec,
                 deployment_spec_sha256=args.deployment_spec_sha256,
+                deployment_proxy_info=args.deployment_proxy_info,
+                deployment_proxy_info_sha256=args.deployment_proxy_info_sha256,
                 production_config=args.production_config,
                 approved_manifest=args.approved_manifest,
                 approved_manifest_sha256=args.approved_manifest_sha256,
@@ -1868,6 +1983,8 @@ def main(argv: list[str] | None = None) -> int:
                 deployment_id=args.deployment_id,
                 deployment_spec=args.deployment_spec,
                 deployment_spec_sha256=args.deployment_spec_sha256,
+                deployment_proxy_info=args.deployment_proxy_info,
+                deployment_proxy_info_sha256=args.deployment_proxy_info_sha256,
                 readiness_checkpoint=args.readiness_checkpoint,
                 readiness_checkpoint_sha256=args.readiness_checkpoint_sha256,
                 capacity_smoke_checkpoint=args.capacity_smoke_checkpoint,

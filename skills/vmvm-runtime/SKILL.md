@@ -190,16 +190,27 @@ Use the external SHA-256 of each certificate file in launcher environment
 variables, not the certificate's embedded canonical-body digest. Keep
 certificates outside a Git worktree, and verify the Mobius certificate before
 creating the output directory or contacting inference.
-For Mobius, reject model and direct/base-URL overrides: load only the
+For every role, reject model and direct/base-URL overrides: load only the
 deployment-local `proxy_info.json` whose resolved parent is the same exact
-directory as the certificate-bound `spec.yaml`. The run validator must match
-the live readiness and capacity-smoke artifact paths and file hashes to the
-records embedded in the launch certificate.
+directory as the bound `spec.yaml`. Bind its resolved path and full-file
+SHA-256 plus a canonical secret-free authority digest in readiness, eval
+identity, smoke, TB4, capacity-smoke, and launch-certificate artifacts. Never
+persist its URL, API key, or a standalone hash of the API key in that endpoint
+record. The readiness gate establishes the proxy hash; downstream wrappers
+must reuse that value, rehash before and after each stage, and reject endpoint
+rotation rather than blessing it. The run validator must match the live
+readiness and capacity-smoke artifact paths and file hashes to the records
+embedded in the launch certificate.
 
 When auditing a production trace file interactively, pass
 `audit_traces.py --aggregate-only`; this reports counts and stable problem codes
 without emitting trace IDs or task identifiers. The write-once smoke and TB4
-certificate modes are aggregate-only by construction.
+certificate modes are aggregate-only by construction. Kimi qualification also
+requires every hash-verified captured `/chat/completions` request to specify
+`model=Kimi-K3`, `reasoning_effort=max`, and exactly the two enabled thinking
+flags, and every parsed provider response to identify `Kimi-K3`. Request-side
+evidence proves that max reasoning was requested; provider-side proof that it
+was honored requires separate server attestation.
 
 The required order is readiness and state-reuse gate, two-task transcript
 smoke, full 66-task TB4 pass@1 audit, deployment resize, fresh readiness gate,

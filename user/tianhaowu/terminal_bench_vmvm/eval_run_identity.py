@@ -18,6 +18,11 @@ from typing import Any
 from urllib.parse import urlsplit
 
 import tomli_w
+from deployment_endpoint import (
+    EndpointBindingError,
+    load_deployment_endpoint,
+    validate_endpoint_binding,
+)
 from pydantic_config import cli
 from verifiers.v1.cli.resolve import narrow_config
 from verifiers.v1.configs.eval import EvalConfig
@@ -28,6 +33,13 @@ REVISION_RE = re.compile(r"[0-9a-f]{40}")
 METADATA_ID_RE = re.compile(r"[A-Za-z0-9._:-]+")
 CLEAN_TREE_SHA256 = hashlib.sha256(b"").hexdigest()
 EXPECTED_DENYLIST = frozenset({"logprobs", "prompt_logprobs", "return_token_ids", "top_logprobs"})
+EXPECTED_MODEL_IO_CONTRACT = {
+    "provider_route": "/chat/completions",
+    "request_model": "Kimi-K3",
+    "response_model": "Kimi-K3",
+    "request_reasoning_effort": "max",
+    "request_chat_template_kwargs": {"enable_thinking": True, "preserve_thinking": True},
+}
 MAX_METADATA_BYTES = 64 * 1024 * 1024
 
 
@@ -487,9 +499,11 @@ def _contract(
     if config.get("num_rollouts") != 1:
         raise EvalIdentityError("pass_at_1_required")
     thinking = sampling.get("chat_template_kwargs")
-    if sampling.get("reasoning_effort") != "max" or not isinstance(thinking, dict) or thinking.get(
-        "enable_thinking"
-    ) is not True or thinking.get("preserve_thinking") is not True:
+    expected_thinking = {"enable_thinking": True, "preserve_thinking": True}
+    if (
+        sampling.get("reasoning_effort") != "max"
+        or canonical_json(thinking) != canonical_json(expected_thinking)
+    ):
         raise EvalIdentityError("max_reasoning_contract_required")
     limits = {
         "max_input_tokens": config.get("max_input_tokens"),
@@ -577,10 +591,15 @@ def _validate_smoke_checkpoint_payload(
     deployment_id: str,
     deployment_spec_sha256: str,
     readiness: dict[str, str],
+    endpoint: dict[str, Any],
 ) -> None:
     self_digest = payload.get("smoke_checkpoint_sha256")
     body = {key: value for key, value in payload.items() if key != "smoke_checkpoint_sha256"}
     deployment = payload.get("deployment")
+    try:
+        smoke_endpoint = validate_endpoint_binding(payload.get("endpoint"))
+    except EndpointBindingError as error:
+        raise EvalIdentityError("smoke_checkpoint_endpoint_invalid") from error
     policy = payload.get("audit_policy")
     counts = payload.get("counts")
     if (
@@ -592,10 +611,13 @@ def _validate_smoke_checkpoint_payload(
         or not isinstance(deployment, dict)
         or deployment.get("id") != deployment_id
         or deployment.get("spec_sha256") != deployment_spec_sha256
+        or smoke_endpoint != endpoint
         or not isinstance(policy, dict)
         or policy.get("rollouts_per_task") != 1
         or policy.get("require_reasoning") is not True
         or policy.get("require_model_io") is not True
+        or canonical_json(policy.get("model_io_contract"))
+        != canonical_json(EXPECTED_MODEL_IO_CONTRACT)
         or policy.get("require_token_data") is not False
         or policy.get("require_logprobs") is not False
         or policy.get("max_sequence_tokens") != 262_144
@@ -618,8 +640,11 @@ def _validate_smoke_checkpoint_payload(
 
     for name in ("results", "config", "inputs_manifest", "provenance"):
         _checkpoint_artifact(payload, name)
+    certificate_proxy = _checkpoint_artifact(payload, "proxy_info")
+    if certificate_proxy != endpoint["proxy_info"]:
+        raise EvalIdentityError("smoke_checkpoint_endpoint_mismatch")
     certificate_readiness = _checkpoint_artifact(payload, "readiness_checkpoint")
-    if certificate_readiness["sha256"] != readiness["sha256"]:
+    if certificate_readiness != readiness:
         raise EvalIdentityError("smoke_checkpoint_readiness_mismatch")
     identity_artifact = _checkpoint_artifact(payload, "eval_run_identity")
     preliminary = load_eval_run_identity(Path(identity_artifact["path"]), verify_references=False)
@@ -636,16 +661,20 @@ def _validate_smoke_checkpoint_payload(
         payload.get("eval_run_identity_sha256") != envelope.get("eval_run_identity_sha256")
         or not isinstance(smoke_deployment, dict)
         or smoke_deployment.get("id") != deployment_id
+        or smoke_deployment.get("endpoint") != endpoint
         or not isinstance(smoke_deployment.get("spec"), dict)
         or smoke_deployment["spec"].get("sha256") != deployment_spec_sha256
         or not isinstance(smoke_readiness, dict)
-        or smoke_readiness.get("sha256") != readiness["sha256"]
+        or smoke_readiness != readiness
         or smoke_identity.get("inputs", {}).get("task_file", {}).get("count") != expected_traces
     ):
         raise EvalIdentityError("smoke_checkpoint_identity_mismatch")
 
 
-def _checkpoint_identity(args: argparse.Namespace) -> dict[str, Any]:
+def _checkpoint_identity(
+    args: argparse.Namespace,
+    endpoint: dict[str, Any],
+) -> dict[str, Any]:
     spec = _artifact(args.deployment_spec, args.deployment_spec_sha256, label="deployment_spec")
     readiness = _artifact(
         args.readiness_checkpoint,
@@ -654,6 +683,10 @@ def _checkpoint_identity(args: argparse.Namespace) -> dict[str, Any]:
     )
     readiness_payload = _json_artifact(readiness, label="readiness_checkpoint")
     probe = readiness_payload.get("probe")
+    try:
+        readiness_endpoint = validate_endpoint_binding(readiness_payload.get("endpoint"))
+    except EndpointBindingError as error:
+        raise EvalIdentityError("readiness_checkpoint_endpoint_invalid") from error
     if (
         readiness_payload.get("schema_version") != 1
         or readiness_payload.get("state") != "passed"
@@ -661,6 +694,7 @@ def _checkpoint_identity(args: argparse.Namespace) -> dict[str, Any]:
         or readiness_payload.get("observed_spec_sha256") != spec["sha256"]
         or not isinstance(probe, dict)
         or probe.get("ok") is not True
+        or readiness_endpoint != endpoint
     ):
         raise EvalIdentityError("readiness_checkpoint_not_passed")
 
@@ -678,6 +712,7 @@ def _checkpoint_identity(args: argparse.Namespace) -> dict[str, Any]:
             deployment_id=args.deployment_id,
             deployment_spec_sha256=spec["sha256"],
             readiness=readiness,
+            endpoint=endpoint,
         )
     promotion: dict[str, str] | None = None
     if args.role == "mobius":
@@ -688,10 +723,23 @@ def _checkpoint_identity(args: argparse.Namespace) -> dict[str, Any]:
             args.promotion_certificate_sha256,
             label="promotion_certificate",
         )
+        promotion_payload = _json_artifact(promotion, label="promotion_certificate")
+        promotion_deployment = promotion_payload.get("deployment")
+        try:
+            promotion_endpoint = validate_endpoint_binding(
+                promotion_deployment.get("endpoint")
+                if isinstance(promotion_deployment, dict)
+                else None
+            )
+        except EndpointBindingError as error:
+            raise EvalIdentityError("promotion_certificate_endpoint_invalid") from error
+        if promotion_endpoint != endpoint:
+            raise EvalIdentityError("promotion_certificate_endpoint_mismatch")
     elif args.promotion_certificate is not None or args.promotion_certificate_sha256 is not None:
         raise EvalIdentityError("promotion_certificate_role_invalid")
     return {
         "id": args.deployment_id,
+        "endpoint": endpoint,
         "routing": _routing_identity(args.routing_deployment_id),
         "spec": spec,
         "readiness_checkpoint": readiness,
@@ -923,6 +971,7 @@ def _validate_identity_shape(identity: object) -> dict[str, Any]:
     deployment = identity.get("deployment")
     if not isinstance(deployment, dict) or set(deployment) != {
         "id",
+        "endpoint",
         "routing",
         "spec",
         "readiness_checkpoint",
@@ -933,6 +982,10 @@ def _validate_identity_shape(identity: object) -> dict[str, Any]:
     deployment_id = deployment.get("id")
     if not isinstance(deployment_id, str) or METADATA_ID_RE.fullmatch(deployment_id) is None:
         raise EvalIdentityError("eval_run_identity_schema_invalid")
+    try:
+        validate_endpoint_binding(deployment.get("endpoint"))
+    except EndpointBindingError as error:
+        raise EvalIdentityError("eval_run_identity_schema_invalid") from error
     routing = deployment.get("routing")
     routing_id = routing.get("deployment_id") if isinstance(routing, dict) else None
     if (
@@ -978,7 +1031,8 @@ def _validate_identity_shape(identity: object) -> dict[str, Any]:
         or contract.get("pass_at_1") is not True
         or contract.get("num_rollouts") != 1
         or contract.get("reasoning_effort") != "max"
-        or contract.get("thinking") != {"enable_thinking": True, "preserve_thinking": True}
+        or canonical_json(contract.get("thinking"))
+        != canonical_json({"enable_thinking": True, "preserve_thinking": True})
         or not isinstance(context, dict)
         or set(context) != {"max_input_tokens", "max_output_tokens", "max_total_tokens"}
         or any(value != 262_144 for value in context.values())
@@ -1042,7 +1096,25 @@ def _validate_identity_shape(identity: object) -> dict[str, Any]:
     return identity
 
 
-def _verify_checkpoint_records(identity: dict[str, Any]) -> None:
+def _load_bound_endpoint(identity: dict[str, Any]) -> Any:
+    deployment = identity["deployment"]
+    try:
+        endpoint = validate_endpoint_binding(deployment["endpoint"])
+        observed = load_deployment_endpoint(
+            Path(endpoint["proxy_info"]["path"]),
+            deployment_id=deployment["id"],
+            expected_model=identity["contract"]["model"],
+            deployment_spec=Path(deployment["spec"]["path"]),
+            expected_proxy_info_sha256=endpoint["proxy_info"]["sha256"],
+        )
+    except EndpointBindingError as error:
+        raise EvalIdentityError("deployment_endpoint_invalid") from error
+    if observed.binding != endpoint:
+        raise EvalIdentityError("deployment_endpoint_mismatch")
+    return observed
+
+
+def _verify_checkpoint_records(identity: dict[str, Any], endpoint: dict[str, Any]) -> None:
     deployment = identity["deployment"]
     if not isinstance(deployment, dict):
         raise EvalIdentityError("eval_run_identity_schema_invalid")
@@ -1055,6 +1127,10 @@ def _verify_checkpoint_records(identity: dict[str, Any]) -> None:
             raise EvalIdentityError("eval_run_identity_schema_invalid")
         _artifact(Path(record["path"]), record["sha256"], label=label)
     readiness_payload = _json_artifact(readiness, label="readiness_checkpoint")
+    try:
+        readiness_endpoint = validate_endpoint_binding(readiness_payload.get("endpoint"))
+    except EndpointBindingError as error:
+        raise EvalIdentityError("readiness_checkpoint_endpoint_invalid") from error
     if (
         readiness_payload.get("schema_version") != 1
         or readiness_payload.get("state") != "passed"
@@ -1062,6 +1138,7 @@ def _verify_checkpoint_records(identity: dict[str, Any]) -> None:
         or readiness_payload.get("observed_spec_sha256") != spec["sha256"]
         or not isinstance(readiness_payload.get("probe"), dict)
         or readiness_payload["probe"].get("ok") is not True
+        or readiness_endpoint != endpoint
     ):
         raise EvalIdentityError("readiness_checkpoint_not_passed")
     if identity["role"] == "smoke":
@@ -1077,10 +1154,23 @@ def _verify_checkpoint_records(identity: dict[str, Any]) -> None:
         deployment_id=deployment["id"],
         deployment_spec_sha256=spec["sha256"],
         readiness=readiness,
+        endpoint=endpoint,
     )
     if identity["role"] == "mobius":
         assert isinstance(promotion, dict)
         _artifact(Path(promotion["path"]), promotion["sha256"], label="promotion_certificate")
+        promotion_payload = _json_artifact(promotion, label="promotion_certificate")
+        promotion_deployment = promotion_payload.get("deployment")
+        try:
+            promotion_endpoint = validate_endpoint_binding(
+                promotion_deployment.get("endpoint")
+                if isinstance(promotion_deployment, dict)
+                else None
+            )
+        except EndpointBindingError as error:
+            raise EvalIdentityError("promotion_certificate_endpoint_invalid") from error
+        if promotion_endpoint != endpoint:
+            raise EvalIdentityError("promotion_certificate_endpoint_mismatch")
 
 
 def _verify_source_record(source: object) -> None:
@@ -1120,7 +1210,11 @@ def _verify_source_record(source: object) -> None:
         raise EvalIdentityError("vmvm_source_sha256_mismatch")
 
 
-def _verify_config_and_inputs(identity: dict[str, Any], output_dir: Path) -> dict[str, Any]:
+def _verify_config_and_inputs(
+    identity: dict[str, Any],
+    output_dir: Path,
+    endpoint_client_base_url: str,
+) -> dict[str, Any]:
     config_section = identity["config"]
     inputs = identity["inputs"]
     expected_local_paths = {
@@ -1153,6 +1247,9 @@ def _verify_config_and_inputs(identity: dict[str, Any], output_dir: Path) -> dic
         identity["contract"]["model"],
         identity["deployment"]["routing"]["deployment_id"],
     )
+    client = config.get("client")
+    if not isinstance(client, dict) or client.get("base_url") != endpoint_client_base_url:
+        raise EvalIdentityError("model_endpoint_binding_mismatch")
     if observed_contract != identity["contract"] or any(
         identity["execution"].get(key) != value for key, value in observed_execution.items()
     ):
@@ -1185,6 +1282,8 @@ def _verify_saved_provenance(output_dir: Path, identity: dict[str, Any], identit
         "renderers_tree": source["renderers_tree_sha256"],
         "vmvm_tb_v2": source["vmvm_tb_v2_sha256"],
         "deployment_id": identity["deployment"]["id"],
+        "deployment_endpoint_authority_sha256": identity["deployment"]["endpoint"]["authority_sha256"],
+        "deployment_proxy_info_sha256": identity["deployment"]["endpoint"]["proxy_info"]["sha256"],
         "eval_run_role": identity["role"],
         "eval_run_identity_sha256": identity_sha256,
         "approval_task_file_sha256": identity["inputs"]["task_file"]["sha256"],
@@ -1234,7 +1333,8 @@ def load_eval_run_identity(path: Path, *, verify_references: bool = True) -> dic
             if not isinstance(record["path"], str) or not isinstance(record["sha256"], str):
                 raise EvalIdentityError("eval_run_identity_schema_invalid")
             _artifact(Path(record["path"]), record["sha256"], label=label)
-    _verify_config_and_inputs(identity, path.resolve().parent)
+    endpoint_info = _load_bound_endpoint(identity)
+    _verify_config_and_inputs(identity, path.resolve().parent, endpoint_info.client_base_url)
     dataset = identity["dataset"]
     if not isinstance(dataset, dict):
         raise EvalIdentityError("eval_run_identity_schema_invalid")
@@ -1259,7 +1359,7 @@ def load_eval_run_identity(path: Path, *, verify_references: bool = True) -> dic
             raise EvalIdentityError("dataset_worktree_not_clean")
     else:
         raise EvalIdentityError("eval_run_identity_schema_invalid")
-    _verify_checkpoint_records(identity)
+    _verify_checkpoint_records(identity, endpoint_info.binding)
     assert isinstance(digest, str)
     _verify_saved_provenance(path.resolve().parent, identity, digest)
     return envelope
@@ -1328,6 +1428,8 @@ def _bind_provenance(
         "renderers_tree": source["renderers_tree_sha256"],
         "vmvm_tb_v2": source["vmvm_tb_v2_sha256"],
         "deployment_id": identity["deployment"]["id"],
+        "deployment_endpoint_authority_sha256": identity["deployment"]["endpoint"]["authority_sha256"],
+        "deployment_proxy_info_sha256": identity["deployment"]["endpoint"]["proxy_info"]["sha256"],
         "eval_run_role": identity["role"],
         "eval_run_identity_sha256": identity_sha256,
         "approval_task_file_sha256": identity["inputs"]["task_file"]["sha256"],
@@ -1354,6 +1456,10 @@ def _bind_provenance(
             "renderers_tree": stable["renderers_tree"],
             "vmvm_tb_v2": stable["vmvm_tb_v2"],
             "deployment_id": stable["deployment_id"],
+            "deployment_endpoint_authority_sha256": stable[
+                "deployment_endpoint_authority_sha256"
+            ],
+            "deployment_proxy_info_sha256": stable["deployment_proxy_info_sha256"],
             "eval_run_role": stable["eval_run_role"],
             "eval_run_identity_sha256": stable["eval_run_identity_sha256"],
             "host": args.invocation_host,
@@ -1410,6 +1516,16 @@ def prepare(args: argparse.Namespace) -> str:
         raise EvalIdentityError("slurm_job_id_invalid")
     if not args.vacli_bin.strip():
         raise EvalIdentityError("vacli_bin_invalid")
+    try:
+        endpoint_info = load_deployment_endpoint(
+            args.deployment_proxy_info,
+            deployment_id=args.deployment_id,
+            expected_model=args.expected_model,
+            deployment_spec=args.deployment_spec,
+            expected_proxy_info_sha256=args.deployment_proxy_info_sha256,
+        )
+    except EndpointBindingError as error:
+        raise EvalIdentityError("deployment_endpoint_invalid") from error
     output_dir = args.output_dir.resolve()
     inputs_dir = args.inputs_dir.resolve(strict=True)
     config_path = output_dir / "config.toml"
@@ -1436,10 +1552,13 @@ def prepare(args: argparse.Namespace) -> str:
         args.approved_task_count,
     )
     contract, execution = _contract(config, args.expected_model, args.routing_deployment_id)
+    client = config.get("client")
+    if not isinstance(client, dict) or client.get("base_url") != endpoint_info.client_base_url:
+        raise EvalIdentityError("model_endpoint_binding_mismatch")
     rollout_concurrency = execution["rollout_concurrency"]
     execution["vmvm_environment"] = _effective_vmvm_environment(args, rollout_concurrency)
     source = _source_identity(args)
-    deployment = _checkpoint_identity(args)
+    deployment = _checkpoint_identity(args, endpoint_info.binding)
     dataset = _dataset_identity(config, args)
     resolved_config = _artifact(
         config_path,
@@ -1483,6 +1602,8 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--deployment-spec-sha256", required=True)
     parser.add_argument("--readiness-checkpoint", type=Path, required=True)
     parser.add_argument("--readiness-checkpoint-sha256", required=True)
+    parser.add_argument("--deployment-proxy-info", type=Path, required=True)
+    parser.add_argument("--deployment-proxy-info-sha256", required=True)
     parser.add_argument("--smoke-checkpoint", type=Path)
     parser.add_argument("--smoke-checkpoint-sha256")
     parser.add_argument("--promotion-certificate", type=Path)

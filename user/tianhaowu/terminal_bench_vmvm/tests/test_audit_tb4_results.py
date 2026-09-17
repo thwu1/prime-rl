@@ -15,6 +15,7 @@ from audit_tb4_results import (
     audit_results,
     certify_tb4_results,
 )
+from deployment_endpoint import load_deployment_endpoint
 
 
 def _digest(body: dict) -> str:
@@ -35,6 +36,8 @@ def _file_digest(path: Path) -> str:
 def _supported_trace(slug: str, *, solved: float = 0.0) -> dict:
     request = {
         "model": "Kimi-K3",
+        "reasoning_effort": "max",
+        "chat_template_kwargs": {"enable_thinking": True, "preserve_thinking": True},
         "messages": [{"role": "user", "content": "repair the task"}],
         "tools": [
             {
@@ -152,7 +155,10 @@ def _certificate_fixture(
     manifest = inputs / "manifest.json"
     task_file = inputs / "task_file.txt"
     provenance = tmp_path / "provenance.txt"
-    spec = tmp_path / "deployment.json"
+    deployment_id = "deployment-test"
+    deployment_dir = tmp_path / deployment_id
+    deployment_dir.mkdir()
+    spec = deployment_dir / "spec.yaml"
     readiness = tmp_path / "readiness.json"
     smoke = tmp_path / "smoke.json"
     identity_path = tmp_path / "eval_run_identity.json"
@@ -162,12 +168,35 @@ def _certificate_fixture(
     manifest.write_text("{}\n", encoding="utf-8")
     task_file.write_text("\n".join(sorted(path.name for path in dataset.iterdir())) + "\n")
     spec.write_text('{"schema_version":1}\n', encoding="utf-8")
-    deployment_id = "deployment-test"
+    proxy_info = deployment_dir / "proxy_info.json"
+    proxy_info.write_text(
+        json.dumps(
+            {
+                "host": "127.0.0.1",
+                "port": 8100,
+                "url": "http://127.0.0.1:8100",
+                "api_key": "unit-test-secret",
+                "model": "Kimi-K3",
+                "proxy_jobid": "12345",
+                "extras": {"proxy_type": "litellm", "sticky": True, "redis_port": 6379},
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    endpoint = load_deployment_endpoint(
+        proxy_info,
+        deployment_id=deployment_id,
+        expected_model="Kimi-K3",
+        deployment_spec=spec,
+        expected_proxy_info_sha256=_file_digest(proxy_info),
+    ).binding
     readiness_payload = {
         "schema_version": 1,
         "state": "passed",
         "deployment": deployment_id,
         "observed_spec_sha256": _file_digest(spec),
+        "endpoint": endpoint,
         "probe": {"ok": True},
     }
     readiness.write_text(json.dumps(readiness_payload), encoding="utf-8")
@@ -176,11 +205,13 @@ def _certificate_fixture(
         "state": "passed",
         "ok": True,
         "deployment": {"id": deployment_id, "spec_sha256": _file_digest(spec)},
+        "endpoint": endpoint,
         "audit_policy": {
             "expected_traces": 2,
             "rollouts_per_task": 1,
             "require_reasoning": True,
             "require_model_io": True,
+            "model_io_contract": tb4.EXPECTED_MODEL_IO_CONTRACT,
             "require_token_data": False,
             "require_logprobs": False,
             "max_sequence_tokens": 262144,
@@ -197,7 +228,8 @@ def _certificate_fixture(
             "readiness_checkpoint": {
                 "path": str(readiness),
                 "sha256": _file_digest(readiness),
-            }
+            },
+            "proxy_info": endpoint["proxy_info"],
         },
     }
     smoke_payload["smoke_checkpoint_sha256"] = _digest(smoke_payload)
@@ -239,6 +271,7 @@ def _certificate_fixture(
         },
         "deployment": {
             "id": deployment_id,
+            "endpoint": endpoint,
             "spec": {"path": str(spec), "sha256": _file_digest(spec)},
             "readiness_checkpoint": {
                 "path": str(readiness),
@@ -291,6 +324,8 @@ def _certificate_fixture(
         "renderers_tree": source["renderers_tree_sha256"],
         "vmvm_tb_v2": source["vmvm_tb_v2_sha256"],
         "deployment_id": deployment_id,
+        "deployment_endpoint_authority_sha256": endpoint["authority_sha256"],
+        "deployment_proxy_info_sha256": endpoint["proxy_info"]["sha256"],
         "eval_run_role": role,
         "eval_run_identity_sha256": identity_sha256,
         "host": "test-host",
@@ -307,6 +342,7 @@ def _certificate_fixture(
         "provenance": provenance,
         "readiness": readiness,
         "smoke": smoke,
+        "proxy_info": proxy_info,
     }
 
 
@@ -509,6 +545,8 @@ def test_certificate_is_aggregate_only_self_hashed_and_write_once(
     assert certificate["state"] == "passed"
     assert certificate["ok"] is True
     assert certificate["eval_run_identity_sha256"] == envelope["eval_run_identity_sha256"]
+    assert certificate["endpoint"] == envelope["identity"]["deployment"]["endpoint"]
+    assert certificate["artifacts"]["proxy_info"] == certificate["endpoint"]["proxy_info"]
     assert certificate["counts"] == {
         "observed_traces": 66,
         "supported_tasks": 63,
@@ -529,6 +567,7 @@ def test_certificate_is_aggregate_only_self_hashed_and_write_once(
         "provenance",
         "readiness_checkpoint",
         "smoke_checkpoint",
+        "proxy_info",
     }
     assert certificate["artifacts"]["config"]["sha256"] == _file_digest(paths["config"])
     serialized = json.dumps(certificate, sort_keys=True)
@@ -633,6 +672,68 @@ def test_certificate_rejects_checkpoint_tampering(
     results, checkpoint, envelope, paths = _certificate_fixture(tmp_path, monkeypatch)
     paths["smoke"].write_text('{"schema_version":1,"state":"failed"}\n')
     envelope["identity"]["deployment"]["smoke_checkpoint"]["sha256"] = _file_digest(paths["smoke"])
+
+    with pytest.raises(TB4AuditError, match="smoke_checkpoint_not_passed"):
+        certify_tb4_results(
+            results,
+            certificate_path=checkpoint,
+            min_supported_pass_rate=0.04,
+            max_supported_pass_rate=0.22,
+        )
+
+
+def test_certificate_rejects_legacy_or_mismatched_endpoint(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    results, checkpoint, envelope, _ = _certificate_fixture(tmp_path, monkeypatch)
+    envelope["identity"]["deployment"].pop("endpoint")
+    with pytest.raises(TB4AuditError, match="eval_run_identity_endpoint_invalid"):
+        certify_tb4_results(
+            results,
+            certificate_path=checkpoint,
+            min_supported_pass_rate=0.04,
+            max_supported_pass_rate=0.22,
+        )
+
+    mismatch_dir = tmp_path / "mismatch"
+    mismatch_dir.mkdir()
+    results, checkpoint, envelope, paths = _certificate_fixture(
+        mismatch_dir,
+        monkeypatch,
+    )
+    smoke = json.loads(paths["smoke"].read_text())
+    smoke["endpoint"]["authority_sha256"] = "0" * 64
+    body = {key: value for key, value in smoke.items() if key != "smoke_checkpoint_sha256"}
+    smoke["smoke_checkpoint_sha256"] = _digest(body)
+    paths["smoke"].write_text(json.dumps(smoke))
+    envelope["identity"]["deployment"]["smoke_checkpoint"]["sha256"] = _file_digest(
+        paths["smoke"]
+    )
+    with pytest.raises(TB4AuditError, match="smoke_checkpoint_endpoint_mismatch"):
+        certify_tb4_results(
+            results,
+            certificate_path=checkpoint,
+            min_supported_pass_rate=0.04,
+            max_supported_pass_rate=0.22,
+        )
+
+
+def test_certificate_rejects_type_confused_smoke_model_io_policy(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    results, checkpoint, envelope, paths = _certificate_fixture(tmp_path, monkeypatch)
+    smoke = json.loads(paths["smoke"].read_text())
+    smoke["audit_policy"]["model_io_contract"]["request_chat_template_kwargs"][
+        "enable_thinking"
+    ] = 1
+    body = {key: value for key, value in smoke.items() if key != "smoke_checkpoint_sha256"}
+    smoke["smoke_checkpoint_sha256"] = _digest(body)
+    paths["smoke"].write_text(json.dumps(smoke))
+    envelope["identity"]["deployment"]["smoke_checkpoint"]["sha256"] = _file_digest(
+        paths["smoke"]
+    )
 
     with pytest.raises(TB4AuditError, match="smoke_checkpoint_not_passed"):
         certify_tb4_results(

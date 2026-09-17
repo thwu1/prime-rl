@@ -11,6 +11,7 @@ import math
 import re
 from collections import Counter
 from collections.abc import Iterable, Iterator
+from dataclasses import dataclass
 from pathlib import Path
 
 from openai.types.chat import ChatCompletion
@@ -21,6 +22,30 @@ DEFAULT_MAX_SEQUENCE_TOKENS = 262_144
 FORBIDDEN_MODEL_REQUEST_FIELDS = frozenset({"logprobs", "prompt_logprobs", "return_token_ids", "top_logprobs"})
 REPEATED_KDA_CHARACTER_THRESHOLD = 64
 _SHA256_HEX_CHARS = frozenset("0123456789abcdef")
+
+
+@dataclass(frozen=True, slots=True)
+class CapturedModelIOContract:
+    """Immutable expected semantics for every captured provider exchange."""
+
+    provider_route: str
+    request_model: str
+    response_model: str
+    reasoning_effort: str
+    chat_template_kwargs: tuple[tuple[str, bool], ...]
+
+
+KIMI_K3_MAX_MODEL_IO_CONTRACT = CapturedModelIOContract(
+    provider_route="/chat/completions",
+    request_model="Kimi-K3",
+    response_model="Kimi-K3",
+    reasoning_effort="max",
+    chat_template_kwargs=(
+        ("enable_thinking", True),
+        ("preserve_thinking", True),
+    ),
+)
+MODEL_IO_CONTRACTS = {"kimi-k3-max": KIMI_K3_MAX_MODEL_IO_CONTRACT}
 
 
 class TraceJSONLError(ValueError):
@@ -298,7 +323,12 @@ def _valid_model_response(response: object) -> bool:
     )
 
 
-def _response_node_problems(node: dict, index: int, response: dict) -> list[str]:
+def _response_node_problems(
+    node: dict,
+    index: int,
+    response: dict,
+    model_io_contract: CapturedModelIOContract | None,
+) -> list[str]:
     """Reparse captured response semantics exactly as Verifiers did before graph commit."""
     try:
         if response["kind"] == "exact_provider_json":
@@ -319,6 +349,8 @@ def _response_node_problems(node: dict, index: int, response: dict) -> list[str]
     normalized_node_usage = node_usage.model_dump(mode="json") if node_usage is not None else None
     if parsed_usage != normalized_node_usage:
         problems.append(f"node_{index}_model_io_response_usage_mismatch")
+    if model_io_contract is not None and parsed.model != model_io_contract.response_model:
+        problems.append(f"node_{index}_model_io_response_model_mismatch")
     return problems
 
 
@@ -390,7 +422,10 @@ class _ModelIOReconstructionError(ValueError):
     """A structurally valid request delta could not be safely reconstructed."""
 
 
-def _audit_model_io(nodes: list) -> tuple[list[str], int]:
+def _audit_model_io(
+    nodes: list,
+    model_io_contract: CapturedModelIOContract | None = None,
+) -> tuple[list[str], int]:
     """Validate and reconstruct all sampled-turn provider captures using only stdlib types."""
     problems: list[str] = []
     sampled_ids: list[int] = []
@@ -418,6 +453,8 @@ def _audit_model_io(nodes: list) -> tuple[list[str], int]:
         provider_route = model_io.get("provider_route")
         if not isinstance(provider_route, str) or not provider_route.startswith("/"):
             problems.append(f"node_{index}_model_io_provider_route_invalid")
+        elif model_io_contract is not None and provider_route != model_io_contract.provider_route:
+            problems.append(f"node_{index}_model_io_provider_route_contract_mismatch")
         request = model_io.get("request")
         if not _valid_model_request(request):
             problems.append(f"node_{index}_model_io_request_structure_invalid")
@@ -429,7 +466,7 @@ def _audit_model_io(nodes: list) -> tuple[list[str], int]:
         elif _json_sha256(response["body"]) != response["sha256"]:
             problems.append(f"node_{index}_model_io_response_hash_mismatch")
         else:
-            problems.extend(_response_node_problems(node, index, response))
+            problems.extend(_response_node_problems(node, index, response, model_io_contract))
 
     memo: dict[int, dict] = {}
 
@@ -494,6 +531,22 @@ def _audit_model_io(nodes: list) -> tuple[list[str], int]:
             continue
         if forbidden := sorted(FORBIDDEN_MODEL_REQUEST_FIELDS & request_body.keys()):
             problems.append(f"node_{node_id}_model_io_forbidden_request_fields={forbidden!r}")
+        if model_io_contract is not None:
+            if request_body.get("model") != model_io_contract.request_model:
+                problems.append(f"node_{node_id}_model_io_request_model_mismatch")
+            if request_body.get("reasoning_effort") != model_io_contract.reasoning_effort:
+                problems.append(f"node_{node_id}_model_io_request_reasoning_effort_mismatch")
+            observed_thinking = request_body.get("chat_template_kwargs")
+            expected_thinking = dict(model_io_contract.chat_template_kwargs)
+            if (
+                not isinstance(observed_thinking, dict)
+                or set(observed_thinking) != set(expected_thinking)
+                or any(
+                    observed_thinking[key] is not expected_value
+                    for key, expected_value in model_io_contract.chat_template_kwargs
+                )
+            ):
+                problems.append(f"node_{node_id}_model_io_request_chat_template_kwargs_mismatch")
         tools = request_body.get("tools")
         if isinstance(tools, list) and tools and all(isinstance(tool, dict) and tool for tool in tools):
             found_tool_schemas = True
@@ -510,9 +563,11 @@ def _audit_trace(
     require_token_data: bool = False,
     require_logprobs: bool = False,
     require_model_io: bool = False,
+    model_io_contract: CapturedModelIOContract | None = None,
 ) -> list[str]:
     # Requiring logprobs necessarily opts into exact token-array validation.
     require_token_data = require_token_data or require_logprobs
+    require_model_io = require_model_io or model_io_contract is not None
     problems: list[str] = []
     if trace.get("errors"):
         problems.append("trace_has_errors")
@@ -607,7 +662,7 @@ def _audit_trace(
         problems.append("no_sampled_tokens")
 
     if require_model_io:
-        model_io_problems, _ = _audit_model_io(nodes)
+        model_io_problems, _ = _audit_model_io(nodes, model_io_contract)
         problems.extend(model_io_problems)
 
     if not invalid_parents and not parent_cycle:
@@ -663,8 +718,10 @@ def _summarize_traces(
     require_token_data: bool = False,
     require_model_io: bool = False,
     aggregate_only: bool = False,
+    model_io_contract: CapturedModelIOContract | None = None,
 ) -> tuple[dict, bool]:
     require_token_data = require_token_data or require_logprobs
+    require_model_io = require_model_io or model_io_contract is not None
     trace_count = 0
     sampled_tokens = 0
     model_io_turns = 0
@@ -692,6 +749,7 @@ def _summarize_traces(
             require_token_data=require_token_data,
             require_logprobs=require_logprobs,
             require_model_io=require_model_io,
+            model_io_contract=model_io_contract,
         )
         if problems:
             trace_failure_count += 1
@@ -803,6 +861,11 @@ def main() -> None:
         action="store_true",
         help="omit trace IDs, task identifiers, and failure examples from output",
     )
+    parser.add_argument(
+        "--model-io-contract",
+        choices=tuple(MODEL_IO_CONTRACTS),
+        help="require every captured exchange to satisfy this immutable production contract",
+    )
     args = parser.parse_args()
 
     if args.max_sequence_tokens < 1:
@@ -827,6 +890,7 @@ def main() -> None:
             require_logprobs=args.require_logprobs,
             require_model_io=args.require_model_io,
             aggregate_only=args.aggregate_only,
+            model_io_contract=MODEL_IO_CONTRACTS.get(args.model_io_contract),
         )
     except TraceJSONLError as error:
         parser.error(str(error))

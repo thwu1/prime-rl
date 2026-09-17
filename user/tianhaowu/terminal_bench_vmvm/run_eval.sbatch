@@ -35,6 +35,7 @@ inference_base_url=${INFERENCE_BASE_URL:-}
 inference_deployment_id=${INFERENCE_DEPLOYMENT_ID:-}
 inference_job_id=${INFERENCE_JOB_ID:-}
 inference_proxy_info=${INFERENCE_PROXY_INFO:-}
+inference_proxy_info_sha256=${INFERENCE_PROXY_INFO_SHA256:-}
 eval_model=${EVAL_MODEL:-}
 inference_proxy_url=${INFERENCE_PROXY_URL:-}
 eval_run_role=${EVAL_RUN_ROLE:-}
@@ -152,6 +153,18 @@ if [[ -z "$deployment_spec" || -z "$deployment_spec_sha256" \
     printf 'Deployment spec and readiness checkpoint paths with SHA-256 values are required\n' >&2
     exit 2
 fi
+if [[ -z "$inference_proxy_info" || -z "$inference_proxy_info_sha256" ]]; then
+    printf 'INFERENCE_PROXY_INFO and INFERENCE_PROXY_INFO_SHA256 are required\n' >&2
+    exit 2
+fi
+if [[ ! "$inference_proxy_info_sha256" =~ ^[0-9a-f]{64}$ ]]; then
+    printf 'INFERENCE_PROXY_INFO_SHA256 must be 64 lowercase hexadecimal characters\n' >&2
+    exit 2
+fi
+if [[ -n "$inference_base_url" || -n "$inference_job_id" || -n "$inference_deployment_id" ]]; then
+    printf 'Evaluation requires only the readiness-bound deployment-local INFERENCE_PROXY_INFO endpoint\n' >&2
+    exit 2
+fi
 if [[ "$eval_run_role" == smoke ]]; then
     if [[ -n "$smoke_checkpoint" || -n "$smoke_checkpoint_sha256" ]]; then
         printf 'Smoke-role evaluation cannot depend on a prior smoke checkpoint\n' >&2
@@ -168,23 +181,6 @@ if [[ "$eval_run_role" == mobius ]]; then
     fi
     if [[ "$eval_expected_model" != Kimi-K3 || -n "$eval_model" ]]; then
         printf 'Mobius evaluation requires the certificate-bound Kimi-K3 model without EVAL_MODEL override\n' >&2
-        exit 2
-    fi
-    if [[ -n "$inference_base_url" || -n "$inference_job_id" || -n "$inference_deployment_id" \
-        || -z "$inference_proxy_info" ]]; then
-        printf 'Mobius evaluation requires only the deployment-local INFERENCE_PROXY_INFO endpoint\n' >&2
-        exit 2
-    fi
-    if ! deployment_spec_resolved=$(realpath -e -- "$deployment_spec") \
-        || ! proxy_info_resolved=$(realpath -e -- "$inference_proxy_info"); then
-        printf 'Mobius deployment spec or proxy metadata is unreadable\n' >&2
-        exit 2
-    fi
-    if [[ "$(dirname "$deployment_spec_resolved")" != "$(dirname "$proxy_info_resolved")" \
-        || "$(basename "$(dirname "$deployment_spec_resolved")")" != "$eval_deployment_id" \
-        || "$(basename "$deployment_spec_resolved")" != spec.yaml \
-        || "$(basename "$proxy_info_resolved")" != proxy_info.json ]]; then
-        printf 'Mobius proxy metadata must belong to the certificate-bound deployment directory\n' >&2
         exit 2
     fi
 elif [[ -n "$promotion_certificate" || -n "$promotion_certificate_sha256" ]]; then
@@ -269,49 +265,60 @@ PY
         --readiness-checkpoint-sha256 "$readiness_checkpoint_sha256" \
         --capacity-smoke-checkpoint "$smoke_checkpoint" \
         --capacity-smoke-checkpoint-sha256 "$smoke_checkpoint_sha256" \
+        --deployment-proxy-info "$inference_proxy_info" \
+        --deployment-proxy-info-sha256 "$inference_proxy_info_sha256" \
         --requested-lease-start-concurrency "$effective_lease_start_concurrency" \
         >/dev/null
 fi
 
-if [[ -n "$inference_proxy_info" ]]; then
-    if [[ ! -r "$inference_proxy_info" ]]; then
-        printf 'Cannot read INFERENCE_PROXY_INFO: %s\n' "$inference_proxy_info" >&2
-        exit 2
-    fi
-    proxy_url=$(
-        "$python_bin" -c \
-            'import json, sys; print(json.load(open(sys.argv[1]))["url"])' \
-            "$inference_proxy_info"
+if ! proxy_metadata=$(
+    "$x86_uv" run --no-project --offline --python "$python_bin" \
+        python3 - "$inference_proxy_info" "$inference_proxy_info_sha256" \
+        "$eval_deployment_id" "$eval_expected_model" "$deployment_spec" <<'PY'
+import base64
+import sys
+from pathlib import Path
+
+from deployment_endpoint import load_deployment_endpoint
+
+try:
+    endpoint = load_deployment_endpoint(
+        Path(sys.argv[1]),
+        expected_proxy_info_sha256=sys.argv[2],
+        deployment_id=sys.argv[3],
+        expected_model=sys.argv[4],
+        deployment_spec=Path(sys.argv[5]),
     )
-    proxy_api_key=$(
-        "$python_bin" -c \
-            'import json, sys; print(json.load(open(sys.argv[1]))["api_key"])' \
-            "$inference_proxy_info"
-    )
-    if [[ -z "$proxy_url" || -z "$proxy_api_key" ]]; then
-        printf 'INFERENCE_PROXY_INFO must contain nonempty url and api_key fields\n' >&2
-        exit 2
-    fi
-    proxy_url=${proxy_url%/}
-    if [[ "$proxy_url" == */v1 ]]; then
-        inference_base_url=${inference_base_url:-$proxy_url}
-    else
-        inference_base_url=${inference_base_url:-$proxy_url/v1}
-    fi
-    export OPENAI_API_KEY=$proxy_api_key
+except Exception:
+    print("deployment_endpoint_invalid", file=sys.stderr)
+    raise SystemExit(2)
+print(
+    base64.b64encode(endpoint.client_base_url.encode()).decode(),
+    base64.b64encode(endpoint.api_key.encode()).decode(),
+    sep="\t",
+)
+PY
+); then
+    printf 'Readiness-bound deployment endpoint validation failed\n' >&2
+    exit 2
 fi
+IFS=$'\t' read -r proxy_url_base64 proxy_api_key_base64 proxy_metadata_extra \
+    <<< "$proxy_metadata"
+if [[ -z "$proxy_url_base64" || -z "$proxy_api_key_base64" \
+    || -n "$proxy_metadata_extra" || "$proxy_metadata" == *$'\n'* ]]; then
+    printf 'Deployment endpoint loader returned invalid metadata\n' >&2
+    exit 2
+fi
+if ! inference_base_url=$(printf '%s' "$proxy_url_base64" | base64 --decode) \
+    || ! proxy_api_key=$(printf '%s' "$proxy_api_key_base64" | base64 --decode) \
+    || [[ -z "$inference_base_url" || -z "$proxy_api_key" ]]; then
+    printf 'Deployment endpoint loader returned invalid credentials\n' >&2
+    exit 2
+fi
+export OPENAI_API_KEY=$proxy_api_key
 
 if [[ -n "$resume_dir" ]]; then
     output_dir=$resume_dir
-elif [[ -z "$inference_base_url" ]]; then
-    : "${inference_job_id:?Set INFERENCE_BASE_URL or INFERENCE_JOB_ID}"
-    inference_nodes=$(squeue -h -j "$inference_job_id" -t RUNNING -o '%N')
-    if [[ -z "$inference_nodes" ]]; then
-        printf 'Inference job %s is not running\n' "$inference_job_id" >&2
-        exit 2
-    fi
-    inference_host=$(scontrol show hostnames "$inference_nodes" | head -n 1)
-    inference_base_url="http://${inference_host}:8000/v1"
 fi
 
 mkdir -p "$output_dir" /checkpoint/ram/tianhaowu/terminal_bench_vmvm/logs
@@ -385,6 +392,8 @@ identity_args=(
     --deployment-spec-sha256 "$deployment_spec_sha256"
     --readiness-checkpoint "$readiness_checkpoint"
     --readiness-checkpoint-sha256 "$readiness_checkpoint_sha256"
+    --deployment-proxy-info "$inference_proxy_info"
+    --deployment-proxy-info-sha256 "$inference_proxy_info_sha256"
     --project-root "$project_dir"
     --prime-rl-commit "$prime_rl_commit"
     --prime-rl-tree-sha256 "$prime_rl_tree_sha256"

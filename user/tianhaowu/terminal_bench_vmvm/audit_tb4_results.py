@@ -15,7 +15,19 @@ from contextlib import contextmanager
 from pathlib import Path
 from typing import Any, Iterator
 
-from audit_traces import DEFAULT_MAX_SEQUENCE_TOKENS, TraceJSONLError, _audit_trace, _iter_traces, _task_slug
+from audit_traces import (
+    DEFAULT_MAX_SEQUENCE_TOKENS,
+    KIMI_K3_MAX_MODEL_IO_CONTRACT,
+    TraceJSONLError,
+    _audit_trace,
+    _iter_traces,
+    _task_slug,
+)
+from deployment_endpoint import (
+    EndpointBindingError,
+    load_deployment_endpoint,
+    validate_endpoint_binding,
+)
 from eval_run_identity import EvalIdentityError, canonical_json, load_eval_run_identity
 
 EXPECTED_TASK_COUNT = 66
@@ -28,6 +40,13 @@ EXPECTED_MAX_SUPPORTED_PASS_RATE = 0.22
 EXPECTED_OUTBOUND_BODY_DENYLIST = frozenset(
     {"logprobs", "prompt_logprobs", "return_token_ids", "top_logprobs"}
 )
+EXPECTED_MODEL_IO_CONTRACT = {
+    "provider_route": KIMI_K3_MAX_MODEL_IO_CONTRACT.provider_route,
+    "request_model": KIMI_K3_MAX_MODEL_IO_CONTRACT.request_model,
+    "response_model": KIMI_K3_MAX_MODEL_IO_CONTRACT.response_model,
+    "request_reasoning_effort": KIMI_K3_MAX_MODEL_IO_CONTRACT.reasoning_effort,
+    "request_chat_template_kwargs": dict(KIMI_K3_MAX_MODEL_IO_CONTRACT.chat_template_kwargs),
+}
 EXPECTED_UNSUPPORTED_TASKS = frozenset(
     {
         "fp8-rmsnorm-gemm",
@@ -252,6 +271,7 @@ def audit_results(
                 require_token_data=False,
                 require_logprobs=False,
                 require_model_io=True,
+                model_io_contract=KIMI_K3_MAX_MODEL_IO_CONTRACT,
             )
             if row.get("is_completed") is not True:
                 problems.append("supported_trace_not_completed")
@@ -335,9 +355,8 @@ def _validate_tb4_identity(envelope: dict[str, Any]) -> dict[str, Any]:
         or contract.get("pass_at_1") is not True
         or contract.get("num_rollouts") != 1
         or contract.get("reasoning_effort") != "max"
-        or not isinstance(thinking, dict)
-        or thinking.get("enable_thinking") is not True
-        or thinking.get("preserve_thinking") is not True
+        or canonical_json(thinking)
+        != canonical_json({"enable_thinking": True, "preserve_thinking": True})
         or not isinstance(context, dict)
         or set(context) != {"max_input_tokens", "max_output_tokens", "max_total_tokens"}
         or any(value != DEFAULT_MAX_SEQUENCE_TOKENS for value in context.values())
@@ -362,6 +381,27 @@ def _validate_tb4_identity(envelope: dict[str, Any]) -> dict[str, Any]:
     ):
         raise TB4AuditError("tb4_concurrency_contract_invalid")
     return identity
+
+
+def _validated_endpoint(identity: dict[str, Any]) -> dict[str, Any]:
+    deployment = identity.get("deployment")
+    contract = identity.get("contract")
+    if not isinstance(deployment, dict) or not isinstance(contract, dict):
+        raise TB4AuditError("eval_run_identity_endpoint_invalid")
+    try:
+        endpoint = validate_endpoint_binding(deployment.get("endpoint"))
+        observed = load_deployment_endpoint(
+            Path(endpoint["proxy_info"]["path"]),
+            deployment_id=deployment["id"],
+            expected_model=contract["model"],
+            deployment_spec=Path(deployment["spec"]["path"]),
+            expected_proxy_info_sha256=endpoint["proxy_info"]["sha256"],
+        )
+    except (EndpointBindingError, KeyError, TypeError) as error:
+        raise TB4AuditError("eval_run_identity_endpoint_invalid") from error
+    if observed.binding != endpoint:
+        raise TB4AuditError("eval_run_identity_endpoint_mismatch")
+    return endpoint
 
 
 def _validate_provenance(
@@ -399,6 +439,12 @@ def _validate_provenance(
         "renderers_tree": source.get("renderers_tree_sha256"),
         "vmvm_tb_v2": source.get("vmvm_tb_v2_sha256"),
         "deployment_id": deployment.get("id"),
+        "deployment_endpoint_authority_sha256": deployment.get("endpoint", {}).get(
+            "authority_sha256"
+        ),
+        "deployment_proxy_info_sha256": deployment.get("endpoint", {})
+        .get("proxy_info", {})
+        .get("sha256"),
         "eval_run_role": "tb4",
         "eval_run_identity_sha256": identity_sha256,
         "approval_task_file_sha256": task_file.get("sha256"),
@@ -416,6 +462,7 @@ def _validate_provenance(
 
 def _validate_deployment_checkpoints(
     identity: dict[str, Any],
+    endpoint: dict[str, Any],
 ) -> tuple[tuple[Path, str], tuple[Path, str]]:
     deployment = identity.get("deployment")
     if not isinstance(deployment, dict):
@@ -436,6 +483,12 @@ def _validate_deployment_checkpoints(
         or probe.get("ok") is not True
     ):
         raise TB4AuditError("readiness_checkpoint_not_passed")
+    try:
+        readiness_endpoint = validate_endpoint_binding(readiness_payload.get("endpoint"))
+    except EndpointBindingError as error:
+        raise TB4AuditError("readiness_checkpoint_endpoint_invalid") from error
+    if readiness_endpoint != endpoint:
+        raise TB4AuditError("readiness_checkpoint_endpoint_mismatch")
     smoke_payload = _read_json_object(smoke[0], label="smoke_checkpoint")
     self_digest = smoke_payload.get("smoke_checkpoint_sha256")
     smoke_body = {
@@ -458,11 +511,13 @@ def _validate_deployment_checkpoints(
         or smoke_deployment.get("id") != deployment.get("id")
         or smoke_deployment.get("spec_sha256") != spec["sha256"]
         or not isinstance(smoke_readiness, dict)
-        or smoke_readiness.get("sha256") != readiness[1]
+        or smoke_readiness != {"path": str(readiness[0]), "sha256": readiness[1]}
         or not isinstance(policy, dict)
         or policy.get("rollouts_per_task") != 1
         or policy.get("require_reasoning") is not True
         or policy.get("require_model_io") is not True
+        or canonical_json(policy.get("model_io_contract"))
+        != canonical_json(EXPECTED_MODEL_IO_CONTRACT)
         or policy.get("require_token_data") is not False
         or policy.get("require_logprobs") is not False
         or policy.get("max_sequence_tokens") != DEFAULT_MAX_SEQUENCE_TOKENS
@@ -471,6 +526,13 @@ def _validate_deployment_checkpoints(
         or counts.get("global_problems") != 0
     ):
         raise TB4AuditError("smoke_checkpoint_not_passed")
+    try:
+        smoke_endpoint = validate_endpoint_binding(smoke_payload.get("endpoint"))
+    except EndpointBindingError as error:
+        raise TB4AuditError("smoke_checkpoint_endpoint_invalid") from error
+    smoke_proxy = smoke_artifacts.get("proxy_info") if isinstance(smoke_artifacts, dict) else None
+    if smoke_endpoint != endpoint or smoke_proxy != endpoint["proxy_info"]:
+        raise TB4AuditError("smoke_checkpoint_endpoint_mismatch")
     expected_traces = policy.get("expected_traces")
     positive_counts = (counts.get("traces"), counts.get("tasks"), counts.get("model_io_turns"))
     if (
@@ -578,6 +640,7 @@ def certify_tb4_results(
             raise TB4AuditError("eval_run_identity_changed")
         identity = _validate_tb4_identity(envelope)
         identity_sha256 = envelope["eval_run_identity_sha256"]
+        endpoint = _validated_endpoint(identity)
 
         config_section = identity.get("config")
         inputs_section = identity.get("inputs")
@@ -600,7 +663,7 @@ def certify_tb4_results(
         _require_run_local(task_file, run_dir / "inputs/task_file.txt", label="task_file")
         provenance = _resolved_file(run_dir / "provenance.txt", label="provenance")
         _validate_provenance(provenance, identity=identity, identity_sha256=identity_sha256)
-        readiness, smoke = _validate_deployment_checkpoints(identity)
+        readiness, smoke = _validate_deployment_checkpoints(identity, endpoint)
 
         dataset_path = dataset_section.get("path")
         if not isinstance(dataset_path, str):
@@ -616,6 +679,7 @@ def certify_tb4_results(
             "provenance": provenance,
             "readiness_checkpoint": readiness[0],
             "smoke_checkpoint": smoke[0],
+            "proxy_info": Path(endpoint["proxy_info"]["path"]),
         }
         before = {name: _sha256_file(path, label=name) for name, path in artifact_paths.items()}
         if before["eval_run_identity"] != identity_file_sha256:
@@ -641,6 +705,7 @@ def certify_tb4_results(
             or before["inputs_manifest"] != manifest[1]
             or before["readiness_checkpoint"] != readiness[1]
             or before["smoke_checkpoint"] != smoke[1]
+            or before["proxy_info"] != endpoint["proxy_info"]["sha256"]
         ):
             raise TB4AuditError("identity_artifact_sha256_mismatch")
 
@@ -654,6 +719,7 @@ def certify_tb4_results(
                 "id": deployment["id"],
                 "spec_sha256": deployment["spec"]["sha256"],
             },
+            "endpoint": endpoint,
             "audit_policy": {
                 "expected_tasks": EXPECTED_TASK_COUNT,
                 "expected_supported_tasks": EXPECTED_SUPPORTED_TASK_COUNT,
@@ -667,6 +733,7 @@ def certify_tb4_results(
                 "require_reasoning": True,
                 "require_response": True,
                 "require_model_io": True,
+                "model_io_contract": EXPECTED_MODEL_IO_CONTRACT,
                 "require_tool_schemas": True,
                 "require_tool_call_lineage": True,
                 "require_token_data": False,

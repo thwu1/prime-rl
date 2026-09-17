@@ -15,12 +15,29 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
-from audit_traces import _iter_traces, _read_expected_slugs, _summarize_traces
+from audit_traces import (
+    KIMI_K3_MAX_MODEL_IO_CONTRACT,
+    _iter_traces,
+    _read_expected_slugs,
+    _summarize_traces,
+)
+from deployment_endpoint import (
+    EndpointBindingError,
+    load_deployment_endpoint,
+    validate_endpoint_binding,
+)
 from eval_run_identity import load_eval_run_identity
 
 SHA256_RE = re.compile(r"[0-9a-f]{64}")
 SCHEMA_VERSION = 1
 MAX_SEQUENCE_TOKENS = 262_144
+EXPECTED_MODEL_IO_CONTRACT = {
+    "provider_route": KIMI_K3_MAX_MODEL_IO_CONTRACT.provider_route,
+    "request_model": KIMI_K3_MAX_MODEL_IO_CONTRACT.request_model,
+    "response_model": KIMI_K3_MAX_MODEL_IO_CONTRACT.response_model,
+    "request_reasoning_effort": KIMI_K3_MAX_MODEL_IO_CONTRACT.reasoning_effort,
+    "request_chat_template_kwargs": dict(KIMI_K3_MAX_MODEL_IO_CONTRACT.chat_template_kwargs),
+}
 
 
 class SmokeCertificateError(ValueError):
@@ -71,6 +88,37 @@ def _artifact(path: Path) -> dict[str, str]:
     return {"path": str(resolved), "sha256": _sha256_file(resolved)}
 
 
+def _read_json_object(path: Path, *, label: str) -> dict[str, Any]:
+    try:
+        value = json.loads(path.read_bytes())
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError) as cause:
+        raise SmokeCertificateError(f"{label}_invalid") from cause
+    if not isinstance(value, dict):
+        raise SmokeCertificateError(f"{label}_invalid")
+    return value
+
+
+def _validated_endpoint(identity: dict[str, Any]) -> dict[str, Any]:
+    deployment = identity.get("deployment")
+    contract = identity.get("contract")
+    if not isinstance(deployment, dict) or not isinstance(contract, dict):
+        raise SmokeCertificateError("eval_identity_endpoint_invalid")
+    try:
+        endpoint = validate_endpoint_binding(deployment.get("endpoint"))
+        observed = load_deployment_endpoint(
+            Path(endpoint["proxy_info"]["path"]),
+            deployment_id=deployment["id"],
+            expected_model=contract["model"],
+            deployment_spec=Path(deployment["spec"]["path"]),
+            expected_proxy_info_sha256=endpoint["proxy_info"]["sha256"],
+        )
+    except (EndpointBindingError, KeyError, TypeError) as cause:
+        raise SmokeCertificateError("eval_identity_endpoint_invalid") from cause
+    if observed.binding != endpoint:
+        raise SmokeCertificateError("eval_identity_endpoint_mismatch")
+    return endpoint
+
+
 def _require_contract(identity: dict[str, Any]) -> None:
     if identity.get("role") != "smoke":
         raise SmokeCertificateError("eval_identity_role_invalid")
@@ -93,7 +141,8 @@ def _require_contract(identity: dict[str, Any]) -> None:
         or not 0 < sampling_max_tokens <= MAX_SEQUENCE_TOKENS
         or not isinstance(context, dict)
         or any(context.get(key) != MAX_SEQUENCE_TOKENS for key in ("max_input_tokens", "max_output_tokens", "max_total_tokens"))
-        or thinking != {"enable_thinking": True, "preserve_thinking": True}
+        or _canonical_json(thinking)
+        != _canonical_json({"enable_thinking": True, "preserve_thinking": True})
         or not isinstance(denylist, list)
         or set(denylist) != {"logprobs", "prompt_logprobs", "return_token_ids", "top_logprobs"}
     ):
@@ -210,6 +259,7 @@ def certify_smoke(
             require_token_data=False,
             require_logprobs=False,
             require_model_io=True,
+            model_io_contract=KIMI_K3_MAX_MODEL_IO_CONTRACT,
             max_sequence_tokens=MAX_SEQUENCE_TOKENS,
         )
         if (
@@ -224,6 +274,7 @@ def certify_smoke(
         deployment = identity.get("deployment")
         if not isinstance(deployment, dict):
             raise SmokeCertificateError("eval_identity_deployment_invalid")
+        endpoint = _validated_endpoint(identity)
         execution = identity.get("execution")
         vmvm_environment = execution.get("vmvm_environment") if isinstance(execution, dict) else None
         deployment_id = deployment.get("id")
@@ -255,6 +306,13 @@ def certify_smoke(
         config_record = _identity_artifact(identity, "config", "resolved")
         manifest_record = _identity_artifact(identity, "inputs", "manifest")
         readiness_record = _identity_artifact(identity, "deployment", "readiness_checkpoint")
+        readiness_payload = _read_json_object(Path(readiness_record["path"]), label="readiness_checkpoint")
+        try:
+            readiness_endpoint = validate_endpoint_binding(readiness_payload.get("endpoint"))
+        except EndpointBindingError as cause:
+            raise SmokeCertificateError("readiness_endpoint_invalid") from cause
+        if readiness_endpoint != endpoint:
+            raise SmokeCertificateError("readiness_endpoint_mismatch")
         artifacts = {
             "results": {"path": str(results_path), "sha256": before_results_sha256},
             "eval_run_identity": _artifact(identity_path),
@@ -262,6 +320,7 @@ def certify_smoke(
             "inputs_manifest": manifest_record,
             "provenance": _artifact(run_dir / "provenance.txt"),
             "readiness_checkpoint": readiness_record,
+            "proxy_info": endpoint["proxy_info"],
         }
         for name, record in artifacts.items():
             if _sha256_file(Path(record["path"])) != record["sha256"]:
@@ -279,12 +338,14 @@ def certify_smoke(
                 "id": deployment_id,
                 "spec_sha256": spec["sha256"],
             },
+            "endpoint": endpoint,
             "qualified_execution": execution_fields,
             "audit_policy": {
                 "expected_traces": expected_traces,
                 "rollouts_per_task": 1,
                 "require_reasoning": True,
                 "require_model_io": True,
+                "model_io_contract": EXPECTED_MODEL_IO_CONTRACT,
                 "require_token_data": False,
                 "require_logprobs": False,
                 "max_sequence_tokens": MAX_SEQUENCE_TOKENS,

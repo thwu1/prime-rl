@@ -27,6 +27,12 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Protocol
 
+from deployment_endpoint import (
+    DeploymentEndpoint,
+    EndpointBindingError,
+    load_deployment_endpoint,
+)
+
 DEFAULT_SERVE_SH = Path("/storage/home/tianhaowu/ram_common/vllm_tools/serve_api_v2/serve.sh")
 DEFAULT_DEPLOYMENT_ROOT = Path("/checkpoint/ram/shared/vllm_deployments_v2")
 DEFAULT_PROBE_SCRIPT = Path(__file__).with_name("probe_inference_routes.py")
@@ -44,7 +50,6 @@ TERMINAL_PHASES = frozenset(
     }
 )
 LIVE_PHASES = frozenset({"booting", "draining", "serving"})
-MAX_PROXY_INFO_BYTES = 1 << 20
 STATUS_PATH = "/usr/bin:/bin"
 BEARER_RE = re.compile(r"(?i)\bbearer\s+[^\s\"']+")
 SENSITIVE_RESULT_KEY_FRAGMENTS = frozenset(
@@ -257,26 +262,21 @@ def _status_record(status: StatusObservation) -> dict[str, Any]:
     return asdict(status)
 
 
-def _load_proxy_secret(path: Path) -> str:
-    """Validate readability and retain only the key in memory for redaction."""
-
+def _load_endpoint(
+    config: GateConfig,
+    *,
+    expected_proxy_info_sha256: str | None = None,
+) -> DeploymentEndpoint:
     try:
-        with path.open(encoding="utf-8") as handle:
-            raw = handle.read(MAX_PROXY_INFO_BYTES + 1)
-    except OSError as exc:
-        raise GateError("proxy_info_unreadable") from exc
-    if len(raw) > MAX_PROXY_INFO_BYTES:
-        raise GateError("proxy_info_malformed")
-    try:
-        payload = json.loads(raw)
-    except (json.JSONDecodeError, UnicodeDecodeError) as exc:
-        raise GateError("proxy_info_malformed") from exc
-    if not isinstance(payload, dict):
-        raise GateError("proxy_info_malformed")
-    api_key = payload.get("api_key")
-    if not isinstance(api_key, str) or not api_key:
-        raise GateError("proxy_info_malformed")
-    return api_key
+        return load_deployment_endpoint(
+            config.resolved_proxy_info(),
+            deployment_id=config.deployment,
+            expected_model=config.model,
+            deployment_spec=config.resolved_spec(),
+            expected_proxy_info_sha256=expected_proxy_info_sha256,
+        )
+    except EndpointBindingError as exc:
+        raise GateError(exc.reason) from exc
 
 
 def _hash_spec(path: Path) -> str:
@@ -406,12 +406,18 @@ def _status_command(config: GateConfig) -> list[str]:
     ]
 
 
-def _probe_command(config: GateConfig) -> list[str]:
+def _probe_command(config: GateConfig, proxy_info_sha256: str) -> list[str]:
     return [
         sys.executable,
         str(config.probe_script),
         "--proxy-info",
         str(config.resolved_proxy_info()),
+        "--proxy-info-sha256",
+        proxy_info_sha256,
+        "--deployment-id",
+        config.deployment,
+        "--deployment-spec",
+        str(config.resolved_spec()),
         "--model",
         config.model,
         "--expected-routes",
@@ -466,6 +472,7 @@ def run_gate(
     last_status: StatusObservation | None = None
     proxy_info_readable = False
     observed_spec_sha256: str | None = None
+    endpoint: DeploymentEndpoint | None = None
 
     def persist(
         state: str,
@@ -481,6 +488,7 @@ def run_gate(
             "consecutive_status_unavailable": consecutive_status_unavailable,
             "status_unavailable_reason": status_unavailable_reason,
             "proxy_info_readable": proxy_info_readable,
+            "endpoint": endpoint.binding if endpoint is not None else None,
             "observed_spec_sha256": observed_spec_sha256,
             "last_status": _status_record(last_status) if last_status else None,
         }
@@ -528,10 +536,9 @@ def run_gate(
             else:
                 consecutive = 0
 
-            proxy_secret: str | None = None
             if consecutive >= config.consecutive_polls:
                 try:
-                    proxy_secret = _load_proxy_secret(config.resolved_proxy_info())
+                    endpoint = _load_endpoint(config)
                 except GateError as exc:
                     if exc.reason != "proxy_info_unreadable":
                         raise
@@ -545,20 +552,48 @@ def run_gate(
                 f"stable={consecutive}/{config.consecutive_polls}"
             )
             if proxy_info_readable:
-                assert proxy_secret is not None
+                assert endpoint is not None
                 observed_spec_sha256 = None
                 observed_spec_sha256 = _hash_spec(config.resolved_spec())
                 if observed_spec_sha256 != config.expected_spec_sha256:
                     raise GateError("spec_sha256_mismatch")
                 persist("probing")
-                probe_process = runner(_probe_command(config), config.probe_process_timeout)
+                try:
+                    probe_process = runner(
+                        _probe_command(config, endpoint.proxy_info_sha256),
+                        config.probe_process_timeout,
+                    )
+                except GateError:
+                    try:
+                        _load_endpoint(
+                            config,
+                            expected_proxy_info_sha256=endpoint.proxy_info_sha256,
+                        )
+                    except GateError as exc:
+                        raise GateError("proxy_info_changed") from exc
+                    raise
+                try:
+                    reloaded_endpoint = _load_endpoint(
+                        config,
+                        expected_proxy_info_sha256=endpoint.proxy_info_sha256,
+                    )
+                except GateError as exc:
+                    raise GateError("proxy_info_changed") from exc
+                if reloaded_endpoint.binding != endpoint.binding:
+                    raise GateError("proxy_info_changed")
+                observed_spec_sha256 = None
+                observed_spec_sha256 = _hash_spec(config.resolved_spec())
+                if observed_spec_sha256 != config.expected_spec_sha256:
+                    raise GateError("spec_sha256_mismatch")
                 try:
                     probe_payload = json.loads(probe_process.stdout)
                 except (json.JSONDecodeError, TypeError) as exc:
                     raise GateError("malformed_probe_result") from exc
                 if not isinstance(probe_payload, dict) or not isinstance(probe_payload.get("ok"), bool):
                     raise GateError("malformed_probe_result")
-                safe_probe = _redact_result(probe_payload, proxy_secret)
+                if probe_payload.get("endpoint_authority_sha256") != endpoint.authority_sha256:
+                    raise GateError("probe_endpoint_mismatch")
+                safe_probe = _redact_result(probe_payload, endpoint.api_key)
                 if probe_process.returncode != 0 or probe_payload["ok"] is not True:
                     persist(
                         "failed",

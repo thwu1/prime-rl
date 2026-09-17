@@ -178,6 +178,8 @@ def test_generic_launcher_rejects_task_overrides_and_keeps_dry_run() -> None:
     assert '--deployment-spec-sha256 "$deployment_spec_sha256"' in text
     assert '--readiness-checkpoint "$readiness_checkpoint"' in text
     assert '--readiness-checkpoint-sha256 "$readiness_checkpoint_sha256"' in text
+    assert '--deployment-proxy-info "$inference_proxy_info"' in text
+    assert '--deployment-proxy-info-sha256 "$inference_proxy_info_sha256"' in text
     assert '--capacity-smoke-checkpoint "$smoke_checkpoint"' in text
     assert '--capacity-smoke-checkpoint-sha256 "$smoke_checkpoint_sha256"' in text
     assert '--requested-lease-start-concurrency "$effective_lease_start_concurrency"' in text
@@ -232,6 +234,7 @@ def _launcher_environment(tmp_path: Path) -> tuple[dict[str, str], Path, Path, P
         "INFERENCE_DEPLOYMENT_ID",
         "INFERENCE_JOB_ID",
         "INFERENCE_PROXY_INFO",
+        "INFERENCE_PROXY_INFO_SHA256",
         "INFERENCE_PROXY_URL",
         "RESUME_DIR",
         "EVAL_RUN_ROLE",
@@ -311,6 +314,40 @@ def test_real_launcher_fails_before_endpoint_or_snapshot_without_approval(tmp_pa
     assert not output_dir.exists()
 
 
+def test_real_launcher_requires_readiness_bound_proxy_hash_before_mutation(tmp_path: Path) -> None:
+    env, output_dir, uv_log, python_log = _launcher_environment(tmp_path)
+    env.update(
+        {
+            "EVAL_APPROVED_TASK_FILE": "/opaque/approved",
+            "EVAL_APPROVED_TASK_FILE_SHA256": "a" * 64,
+            "EVAL_DATASET_REVISION": "b" * 40,
+            "EVAL_DEPLOYMENT_ID": "deployment-test",
+            "EVAL_EXPECTED_MODEL": "Kimi-K3",
+            "EVAL_RUN_ROLE": "smoke",
+            "INFERENCE_DEPLOYMENT_SPEC": "/opaque/spec.yaml",
+            "INFERENCE_DEPLOYMENT_SPEC_SHA256": "d" * 64,
+            "INFERENCE_PROXY_INFO": "/opaque/proxy_info.json",
+            "INFERENCE_READINESS_CHECKPOINT": "/opaque/readiness.json",
+            "INFERENCE_READINESS_CHECKPOINT_SHA256": "e" * 64,
+        }
+    )
+    wrapper = Path(__file__).parents[1] / "run_eval.sbatch"
+
+    result = subprocess.run(
+        ["bash", str(wrapper)],
+        env=env,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 2
+    assert result.stderr == "INFERENCE_PROXY_INFO and INFERENCE_PROXY_INFO_SHA256 are required\n"
+    assert not uv_log.exists()
+    assert not python_log.exists()
+    assert not output_dir.exists()
+
+
 @pytest.mark.parametrize(
     ("override", "expected_error"),
     [
@@ -320,7 +357,7 @@ def test_real_launcher_fails_before_endpoint_or_snapshot_without_approval(tmp_pa
         ),
         (
             {"INFERENCE_BASE_URL": "http://not-approved.invalid/v1"},
-            "Mobius evaluation requires only the deployment-local INFERENCE_PROXY_INFO endpoint\n",
+            "Evaluation requires only the readiness-bound deployment-local INFERENCE_PROXY_INFO endpoint\n",
         ),
     ],
 )
@@ -343,6 +380,7 @@ def test_mobius_launcher_rejects_model_and_endpoint_overrides_before_mutation(
             "INFERENCE_DEPLOYMENT_SPEC": "/opaque/spec.yaml",
             "INFERENCE_DEPLOYMENT_SPEC_SHA256": "d" * 64,
             "INFERENCE_PROXY_INFO": "/opaque/proxy_info.json",
+            "INFERENCE_PROXY_INFO_SHA256": "1" * 64,
             "INFERENCE_READINESS_CHECKPOINT": "/opaque/readiness.json",
             "INFERENCE_READINESS_CHECKPOINT_SHA256": "e" * 64,
             "INFERENCE_SMOKE_CHECKPOINT": "/opaque/smoke.json",

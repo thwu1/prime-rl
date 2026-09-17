@@ -250,7 +250,7 @@ deployment-spec digest.
 
 ```bash
 tmux send-keys -t swebench_vmvm:Launcher.0 \
-  "cd /checkpoint/ram/tianhaowu/terminal_bench_vmvm/sources/prime-rl-<commit> && env PROJECT_DIR=\$PWD EVAL_RUN_ROLE=smoke EVAL_DEPLOYMENT_ID=tianhaowu-k3-kda-tb1-low-20260916 EVAL_EXPECTED_MODEL=Kimi-K3 EVAL_APPROVED_TASK_FILE=\$PWD/user/tianhaowu/terminal_bench_vmvm/configs/eval/tb4_kimi_token_smoke.tasks.txt EVAL_APPROVED_TASK_FILE_SHA256=ecdcbc6e4f54b690e64b4566de5eecf33467088c8ca3436738cd7308d4e45b83 EVAL_CONFIG=\$PWD/user/tianhaowu/terminal_bench_vmvm/configs/eval/tb4_kimi_k3_approved_smoke.toml EVAL_DATASET_ARCHIVE=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/downloads/terminal-bench-prebuilt-v4.0.0.tar.gz EVAL_DATASET_ARCHIVE_SHA256=6d2c57cbcb1a75b5cdc0b0f989747fa68cdc65df8ff0a6893045a70ced7e668e EVAL_DATASET_CONTENT_SHA256=564a42a4e2ce0a5efd23758656e4e419b3566a36234dfc09bae1029bc15326b2 INFERENCE_DEPLOYMENT_SPEC=/checkpoint/ram/shared/vllm_deployments_v2/tianhaowu-k3-kda-tb1-low-20260916/spec.yaml INFERENCE_DEPLOYMENT_SPEC_SHA256=a296613aea26c4401385f70e16c81bc363f670203a5b29b7e1eec3bcef086ccf INFERENCE_READINESS_CHECKPOINT=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/gates/k3_kda_tb1_low_readiness_v1.json INFERENCE_READINESS_CHECKPOINT_SHA256=<passed-readiness-file-sha256> INFERENCE_PROXY_INFO=/checkpoint/ram/shared/vllm_deployments_v2/tianhaowu-k3-kda-tb1-low-20260916/proxy_info.json OUTPUT_DIR=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/evals/tb4_kimi_k3_sticky_smoke_v1 VACLI_MAX_CONCURRENT_LEASES=2 sbatch --parsable \$PWD/user/tianhaowu/terminal_bench_vmvm/run_eval.sbatch" C-m
+  "cd /checkpoint/ram/tianhaowu/terminal_bench_vmvm/sources/prime-rl-<commit> && env PROJECT_DIR=\$PWD EVAL_RUN_ROLE=smoke EVAL_DEPLOYMENT_ID=tianhaowu-k3-kda-tb1-low-20260916 EVAL_EXPECTED_MODEL=Kimi-K3 EVAL_APPROVED_TASK_FILE=\$PWD/user/tianhaowu/terminal_bench_vmvm/configs/eval/tb4_kimi_token_smoke.tasks.txt EVAL_APPROVED_TASK_FILE_SHA256=ecdcbc6e4f54b690e64b4566de5eecf33467088c8ca3436738cd7308d4e45b83 EVAL_CONFIG=\$PWD/user/tianhaowu/terminal_bench_vmvm/configs/eval/tb4_kimi_k3_approved_smoke.toml EVAL_DATASET_ARCHIVE=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/downloads/terminal-bench-prebuilt-v4.0.0.tar.gz EVAL_DATASET_ARCHIVE_SHA256=6d2c57cbcb1a75b5cdc0b0f989747fa68cdc65df8ff0a6893045a70ced7e668e EVAL_DATASET_CONTENT_SHA256=564a42a4e2ce0a5efd23758656e4e419b3566a36234dfc09bae1029bc15326b2 INFERENCE_DEPLOYMENT_SPEC=/checkpoint/ram/shared/vllm_deployments_v2/tianhaowu-k3-kda-tb1-low-20260916/spec.yaml INFERENCE_DEPLOYMENT_SPEC_SHA256=a296613aea26c4401385f70e16c81bc363f670203a5b29b7e1eec3bcef086ccf INFERENCE_READINESS_CHECKPOINT=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/gates/k3_kda_tb1_low_readiness_v1.json INFERENCE_READINESS_CHECKPOINT_SHA256=<passed-readiness-file-sha256> INFERENCE_PROXY_INFO=/checkpoint/ram/shared/vllm_deployments_v2/tianhaowu-k3-kda-tb1-low-20260916/proxy_info.json INFERENCE_PROXY_INFO_SHA256=<readiness-bound-proxy-info-sha256> OUTPUT_DIR=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/evals/tb4_kimi_k3_sticky_smoke_v1 VACLI_MAX_CONCURRENT_LEASES=2 sbatch --parsable \$PWD/user/tianhaowu/terminal_bench_vmvm/run_eval.sbatch" C-m
 
 tmux send-keys -t swebench_vmvm:Launcher.0 \
   "cd /checkpoint/ram/tianhaowu/terminal_bench_vmvm/sources/prime-rl-<commit> && env PROJECT_DIR=\$PWD RESULTS_DIR=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/evals/tb4_kimi_k3_sticky_smoke_v1 SMOKE_TASK_FILE=\$PWD/user/tianhaowu/terminal_bench_vmvm/configs/eval/tb4_kimi_token_smoke.tasks.txt SMOKE_TASK_FILE_SHA256=ecdcbc6e4f54b690e64b4566de5eecf33467088c8ca3436738cd7308d4e45b83 SMOKE_EXPECTED_TRACES=2 sbatch --parsable \$PWD/user/tianhaowu/terminal_bench_vmvm/run_trace_smoke_audit.sbatch" C-m
@@ -261,7 +261,7 @@ the full 66-task pass@1 run with the same passed readiness artifact:
 
 ```bash
 tmux send-keys -t swebench_vmvm:Launcher.0 \
-  "cd /checkpoint/ram/tianhaowu/terminal_bench_vmvm/sources/prime-rl-<commit> && env PROJECT_DIR=\$PWD EVAL_RUN_ROLE=tb4 EVAL_DEPLOYMENT_ID=tianhaowu-k3-kda-tb1-low-20260916 EVAL_EXPECTED_MODEL=Kimi-K3 EVAL_APPROVED_TASK_FILE=\$PWD/user/tianhaowu/terminal_bench_vmvm/configs/eval/tb4_qwen_a95b_miniswe.tasks.txt EVAL_APPROVED_TASK_FILE_SHA256=9485011ac4a953f4a4a1c7c5e78550b6d7de6f760a3859dac15a3610cf4ad892 EVAL_CONFIG=\$PWD/user/tianhaowu/terminal_bench_vmvm/configs/eval/tb4_kimi_k3_max_miniswe.toml EVAL_DATASET_ARCHIVE=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/downloads/terminal-bench-prebuilt-v4.0.0.tar.gz EVAL_DATASET_ARCHIVE_SHA256=6d2c57cbcb1a75b5cdc0b0f989747fa68cdc65df8ff0a6893045a70ced7e668e EVAL_DATASET_CONTENT_SHA256=564a42a4e2ce0a5efd23758656e4e419b3566a36234dfc09bae1029bc15326b2 INFERENCE_DEPLOYMENT_SPEC=/checkpoint/ram/shared/vllm_deployments_v2/tianhaowu-k3-kda-tb1-low-20260916/spec.yaml INFERENCE_DEPLOYMENT_SPEC_SHA256=a296613aea26c4401385f70e16c81bc363f670203a5b29b7e1eec3bcef086ccf INFERENCE_READINESS_CHECKPOINT=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/gates/k3_kda_tb1_low_readiness_v1.json INFERENCE_READINESS_CHECKPOINT_SHA256=<passed-readiness-file-sha256> INFERENCE_SMOKE_CHECKPOINT=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/evals/tb4_kimi_k3_sticky_smoke_v1/smoke_checkpoint.json INFERENCE_SMOKE_CHECKPOINT_SHA256=<smoke-checkpoint-file-sha256> INFERENCE_PROXY_INFO=/checkpoint/ram/shared/vllm_deployments_v2/tianhaowu-k3-kda-tb1-low-20260916/proxy_info.json OUTPUT_DIR=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/evals/tb4_kimi_k3_sticky_full_v3 VACLI_MAX_CONCURRENT_LEASES=2 sbatch --parsable \$PWD/user/tianhaowu/terminal_bench_vmvm/run_eval.sbatch" C-m
+  "cd /checkpoint/ram/tianhaowu/terminal_bench_vmvm/sources/prime-rl-<commit> && env PROJECT_DIR=\$PWD EVAL_RUN_ROLE=tb4 EVAL_DEPLOYMENT_ID=tianhaowu-k3-kda-tb1-low-20260916 EVAL_EXPECTED_MODEL=Kimi-K3 EVAL_APPROVED_TASK_FILE=\$PWD/user/tianhaowu/terminal_bench_vmvm/configs/eval/tb4_qwen_a95b_miniswe.tasks.txt EVAL_APPROVED_TASK_FILE_SHA256=9485011ac4a953f4a4a1c7c5e78550b6d7de6f760a3859dac15a3610cf4ad892 EVAL_CONFIG=\$PWD/user/tianhaowu/terminal_bench_vmvm/configs/eval/tb4_kimi_k3_max_miniswe.toml EVAL_DATASET_ARCHIVE=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/downloads/terminal-bench-prebuilt-v4.0.0.tar.gz EVAL_DATASET_ARCHIVE_SHA256=6d2c57cbcb1a75b5cdc0b0f989747fa68cdc65df8ff0a6893045a70ced7e668e EVAL_DATASET_CONTENT_SHA256=564a42a4e2ce0a5efd23758656e4e419b3566a36234dfc09bae1029bc15326b2 INFERENCE_DEPLOYMENT_SPEC=/checkpoint/ram/shared/vllm_deployments_v2/tianhaowu-k3-kda-tb1-low-20260916/spec.yaml INFERENCE_DEPLOYMENT_SPEC_SHA256=a296613aea26c4401385f70e16c81bc363f670203a5b29b7e1eec3bcef086ccf INFERENCE_READINESS_CHECKPOINT=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/gates/k3_kda_tb1_low_readiness_v1.json INFERENCE_READINESS_CHECKPOINT_SHA256=<passed-readiness-file-sha256> INFERENCE_SMOKE_CHECKPOINT=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/evals/tb4_kimi_k3_sticky_smoke_v1/smoke_checkpoint.json INFERENCE_SMOKE_CHECKPOINT_SHA256=<smoke-checkpoint-file-sha256> INFERENCE_PROXY_INFO=/checkpoint/ram/shared/vllm_deployments_v2/tianhaowu-k3-kda-tb1-low-20260916/proxy_info.json INFERENCE_PROXY_INFO_SHA256=<readiness-bound-proxy-info-sha256> OUTPUT_DIR=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/evals/tb4_kimi_k3_sticky_full_v3 VACLI_MAX_CONCURRENT_LEASES=2 sbatch --parsable \$PWD/user/tianhaowu/terminal_bench_vmvm/run_eval.sbatch" C-m
 
 tmux send-keys -t swebench_vmvm:Launcher.0 \
   "cd /checkpoint/ram/tianhaowu/terminal_bench_vmvm/sources/prime-rl-<commit> && env PROJECT_DIR=\$PWD RESULTS_DIR=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/evals/tb4_kimi_k3_sticky_full_v3 sbatch --parsable \$PWD/user/tianhaowu/terminal_bench_vmvm/run_tb4_audit.sbatch" C-m
@@ -272,7 +272,9 @@ Every real launch and resume through `run_eval.sbatch` requires
 deployment spec and passed readiness artifact, one dataset authority, and an
 external approved task file with its lowercase SHA-256. TB4 and Mobius also
 require the externally hashed smoke checkpoint; Mobius additionally requires
-the externally hashed launch certificate. The launcher snapshots all mutable
+the externally hashed launch certificate. Every role must supply the exact
+deployment-local `INFERENCE_PROXY_INFO` path and
+`INFERENCE_PROXY_INFO_SHA256` established by readiness. The launcher snapshots all mutable
 inputs and publishes a self-hashed `eval_run_identity.json` before any model
 call. It binds source/runtime pins, dataset authority, deployment gates,
 pass@1/max-reasoning/256K/capture settings, task count and digest, and effective
@@ -281,16 +283,14 @@ Exact `--dry-run` is the sole approval-free mode and exits before task loading.
 The checked-in full-TB4 manifest is shared by the Kimi and Qwen configs despite
 its historical filename.
 
-`INFERENCE_PROXY_INFO` is the preferred interface for a direct RAM deployment:
-the compute job reads `url` and `api_key` without putting the key in the config,
-submission command, or provenance file. Do not set `INFERENCE_DEPLOYMENT_ID` for
-a per-deployment proxy. Set it only when using a shared gateway route.
-
-For a shared gateway route with no default deployment, also set
-`INFERENCE_DEPLOYMENT_ID`; the launcher passes it as `X-Deployment-Id` without
-embedding any credential in the config. For an HTTPS ingress that is reachable
-only through the corporate forward proxy, set `INFERENCE_PROXY_URL` as well;
-direct VMVM and inference routes continue to run with proxy variables cleared.
+The compute job reads `url` and `api_key` from the hash-pinned proxy file without
+putting the key in the config, submission command, or provenance file. It binds
+the resolved proxy path, full-file hash, and a secret-free authority digest to
+readiness and every downstream certificate. A proxy rotation therefore requires
+a fresh readiness gate; do not substitute a new hash in a smoke, TB4, or resume
+command. Direct/base-URL, inference-job, and shared-gateway deployment overrides
+are rejected for this workflow. `INFERENCE_PROXY_URL` remains available only as
+a transport proxy when the bound HTTPS ingress requires it.
 
 The default config is `configs/eval/tb4_kimi_k3_max_miniswe.toml`: 66 tasks,
 pass@1, mini-swe-agent, `reasoning_effort=max`, one VMVM per rollout, and a
@@ -462,6 +462,9 @@ remain fixed.
 uv run --project user/tianhaowu/terminal_bench_vmvm \
   python user/tianhaowu/terminal_bench_vmvm/probe_inference_routes.py \
   --proxy-info /checkpoint/ram/shared/vllm_deployments_v2/tianhaowu-k3-tb24-nocache-20260916/proxy_info.json \
+  --proxy-info-sha256 <full-proxy-info-file-sha256> \
+  --deployment-id tianhaowu-k3-tb24-nocache-20260916 \
+  --deployment-spec /checkpoint/ram/shared/vllm_deployments_v2/tianhaowu-k3-tb24-nocache-20260916/spec.yaml \
   --model Kimi-K3 \
   --expected-routes 24 \
   --requests 192 \
@@ -485,7 +488,9 @@ discovered backend and fails if routing changes, the target prompt or response
 is not exactly one token, corruption appears, or deterministic target output
 depends on predecessor state. Neither request dialect sends `logprobs`,
 `prompt_logprobs`, `top_logprobs`, or `return_token_ids`; the summary never
-contains response text. `--allow-unverified-affinity` and `--skip-health` exist
+contains response text, credentials, or the raw URL; it reports only the
+secret-free endpoint-authority digest. `--allow-unverified-affinity` and
+`--skip-health` exist
 for diagnosis only and must not be used for the production readiness gate.
 
 The Kimi production config uses the committed, portable oracle-qualified
@@ -502,7 +507,7 @@ Mobius repair set at eight active rollouts and four lease starts:
 
 ```bash
 tmux send-keys -t swebench_vmvm:Launcher.0 \
-  "cd /checkpoint/ram/tianhaowu/terminal_bench_vmvm/sources/prime-rl-<commit> && env PROJECT_DIR=\$PWD EVAL_RUN_ROLE=smoke EVAL_DEPLOYMENT_ID=tianhaowu-k3-kda-tb1-low-20260916 EVAL_EXPECTED_MODEL=Kimi-K3 EVAL_DATASET_REVISION=ac1f30b9ac0e6c6a20a9fe423900d9ed28a6d366 EVAL_APPROVED_TASK_FILE=\$PWD/user/tianhaowu/terminal_bench_vmvm/configs/validate/mobius_repaired_tasks.txt EVAL_APPROVED_TASK_FILE_SHA256=8d7d9377a9bbe6ade2fba7cc0730647d8be82402e225f95ad864a2218647563c EVAL_CONFIG=\$PWD/user/tianhaowu/terminal_bench_vmvm/configs/eval/mobius_kimi_k3_capacity_smoke.toml INFERENCE_DEPLOYMENT_SPEC=/path/to/post-resize-spec.yaml INFERENCE_DEPLOYMENT_SPEC_SHA256=<post-resize-spec-sha256> INFERENCE_READINESS_CHECKPOINT=/path/to/post-resize-readiness.json INFERENCE_READINESS_CHECKPOINT_SHA256=<post-resize-readiness-file-sha256> INFERENCE_PROXY_INFO=/checkpoint/ram/shared/vllm_deployments_v2/tianhaowu-k3-kda-tb1-low-20260916/proxy_info.json OUTPUT_DIR=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/evals/mobius_kimi_k3_capacity_smoke_v1 VACLI_MAX_CONCURRENT_LEASES=4 sbatch --parsable \$PWD/user/tianhaowu/terminal_bench_vmvm/run_eval.sbatch" C-m
+  "cd /checkpoint/ram/tianhaowu/terminal_bench_vmvm/sources/prime-rl-<commit> && env PROJECT_DIR=\$PWD EVAL_RUN_ROLE=smoke EVAL_DEPLOYMENT_ID=tianhaowu-k3-kda-tb1-low-20260916 EVAL_EXPECTED_MODEL=Kimi-K3 EVAL_DATASET_REVISION=ac1f30b9ac0e6c6a20a9fe423900d9ed28a6d366 EVAL_APPROVED_TASK_FILE=\$PWD/user/tianhaowu/terminal_bench_vmvm/configs/validate/mobius_repaired_tasks.txt EVAL_APPROVED_TASK_FILE_SHA256=8d7d9377a9bbe6ade2fba7cc0730647d8be82402e225f95ad864a2218647563c EVAL_CONFIG=\$PWD/user/tianhaowu/terminal_bench_vmvm/configs/eval/mobius_kimi_k3_capacity_smoke.toml INFERENCE_DEPLOYMENT_SPEC=/path/to/post-resize-spec.yaml INFERENCE_DEPLOYMENT_SPEC_SHA256=<post-resize-spec-sha256> INFERENCE_READINESS_CHECKPOINT=/path/to/post-resize-readiness.json INFERENCE_READINESS_CHECKPOINT_SHA256=<post-resize-readiness-file-sha256> INFERENCE_PROXY_INFO=/checkpoint/ram/shared/vllm_deployments_v2/tianhaowu-k3-kda-tb1-low-20260916/proxy_info.json INFERENCE_PROXY_INFO_SHA256=<post-resize-readiness-bound-proxy-info-sha256> OUTPUT_DIR=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/evals/mobius_kimi_k3_capacity_smoke_v1 VACLI_MAX_CONCURRENT_LEASES=4 sbatch --parsable \$PWD/user/tianhaowu/terminal_bench_vmvm/run_eval.sbatch" C-m
 
 tmux send-keys -t swebench_vmvm:Launcher.0 \
   "cd /checkpoint/ram/tianhaowu/terminal_bench_vmvm/sources/prime-rl-<commit> && env PROJECT_DIR=\$PWD RESULTS_DIR=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/evals/mobius_kimi_k3_capacity_smoke_v1 SMOKE_TASK_FILE=\$PWD/user/tianhaowu/terminal_bench_vmvm/configs/validate/mobius_repaired_tasks.txt SMOKE_TASK_FILE_SHA256=8d7d9377a9bbe6ade2fba7cc0730647d8be82402e225f95ad864a2218647563c SMOKE_EXPECTED_TRACES=42 sbatch --parsable \$PWD/user/tianhaowu/terminal_bench_vmvm/run_trace_smoke_audit.sbatch" C-m
@@ -524,6 +529,8 @@ uv run --project user/tianhaowu/terminal_bench_vmvm \
   --deployment-id tianhaowu-k3-kda-tb1-low-20260916 \
   --deployment-spec /path/to/post-resize-spec.yaml \
   --deployment-spec-sha256 <post-resize-spec-sha256> \
+  --deployment-proxy-info /checkpoint/ram/shared/vllm_deployments_v2/tianhaowu-k3-kda-tb1-low-20260916/proxy_info.json \
+  --deployment-proxy-info-sha256 <post-resize-readiness-bound-proxy-info-sha256> \
   --production-config user/tianhaowu/terminal_bench_vmvm/configs/eval/mobius_kimi_k3_max_2500.toml \
   --approved-manifest user/tianhaowu/terminal_bench_vmvm/configs/eval/mobius_valid_tasks_2500.txt \
   --approved-manifest-sha256 d33ef93f9b77ee91a41600934e677ba37988d3b4509e4da05ff1fcf7b4bc3a4b \
@@ -551,7 +558,7 @@ Launch from the same clean detached source path used to create the certificate:
 
 ```bash
 tmux send-keys -t swebench_vmvm:Launcher.0 \
-  "cd /checkpoint/ram/tianhaowu/terminal_bench_vmvm/sources/prime-rl-<commit> && env PROJECT_DIR=\$PWD EVAL_RUN_ROLE=mobius EVAL_DEPLOYMENT_ID=tianhaowu-k3-kda-tb1-low-20260916 EVAL_EXPECTED_MODEL=Kimi-K3 EVAL_DATASET_REVISION=ac1f30b9ac0e6c6a20a9fe423900d9ed28a6d366 EVAL_APPROVED_TASK_FILE=\$PWD/user/tianhaowu/terminal_bench_vmvm/configs/eval/mobius_valid_tasks_2500.txt EVAL_APPROVED_TASK_FILE_SHA256=d33ef93f9b77ee91a41600934e677ba37988d3b4509e4da05ff1fcf7b4bc3a4b EVAL_CONFIG=\$PWD/user/tianhaowu/terminal_bench_vmvm/configs/eval/mobius_kimi_k3_max_2500.toml INFERENCE_DEPLOYMENT_SPEC=/path/to/post-resize-spec.yaml INFERENCE_DEPLOYMENT_SPEC_SHA256=<post-resize-spec-sha256> INFERENCE_READINESS_CHECKPOINT=/path/to/post-resize-readiness.json INFERENCE_READINESS_CHECKPOINT_SHA256=<post-resize-readiness-file-sha256> INFERENCE_SMOKE_CHECKPOINT=/path/to/capacity-smoke/smoke_checkpoint.json INFERENCE_SMOKE_CHECKPOINT_SHA256=<capacity-smoke-file-sha256> EVAL_PROMOTION_CERTIFICATE=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/gates/mobius_launch_<commit>.json EVAL_PROMOTION_CERTIFICATE_SHA256=<launch-certificate-file-sha256> INFERENCE_PROXY_INFO=/checkpoint/ram/shared/vllm_deployments_v2/tianhaowu-k3-kda-tb1-low-20260916/proxy_info.json OUTPUT_DIR=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/evals/mobius_kimi_k3_max_2500_transcript_v2 VACLI_MAX_CONCURRENT_LEASES=4 sbatch --parsable --time=7-00:00:00 \$PWD/user/tianhaowu/terminal_bench_vmvm/run_eval.sbatch" C-m
+  "cd /checkpoint/ram/tianhaowu/terminal_bench_vmvm/sources/prime-rl-<commit> && env PROJECT_DIR=\$PWD EVAL_RUN_ROLE=mobius EVAL_DEPLOYMENT_ID=tianhaowu-k3-kda-tb1-low-20260916 EVAL_EXPECTED_MODEL=Kimi-K3 EVAL_DATASET_REVISION=ac1f30b9ac0e6c6a20a9fe423900d9ed28a6d366 EVAL_APPROVED_TASK_FILE=\$PWD/user/tianhaowu/terminal_bench_vmvm/configs/eval/mobius_valid_tasks_2500.txt EVAL_APPROVED_TASK_FILE_SHA256=d33ef93f9b77ee91a41600934e677ba37988d3b4509e4da05ff1fcf7b4bc3a4b EVAL_CONFIG=\$PWD/user/tianhaowu/terminal_bench_vmvm/configs/eval/mobius_kimi_k3_max_2500.toml INFERENCE_DEPLOYMENT_SPEC=/path/to/post-resize-spec.yaml INFERENCE_DEPLOYMENT_SPEC_SHA256=<post-resize-spec-sha256> INFERENCE_READINESS_CHECKPOINT=/path/to/post-resize-readiness.json INFERENCE_READINESS_CHECKPOINT_SHA256=<post-resize-readiness-file-sha256> INFERENCE_SMOKE_CHECKPOINT=/path/to/capacity-smoke/smoke_checkpoint.json INFERENCE_SMOKE_CHECKPOINT_SHA256=<capacity-smoke-file-sha256> EVAL_PROMOTION_CERTIFICATE=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/gates/mobius_launch_<commit>.json EVAL_PROMOTION_CERTIFICATE_SHA256=<launch-certificate-file-sha256> INFERENCE_PROXY_INFO=/checkpoint/ram/shared/vllm_deployments_v2/tianhaowu-k3-kda-tb1-low-20260916/proxy_info.json INFERENCE_PROXY_INFO_SHA256=<post-resize-readiness-bound-proxy-info-sha256> OUTPUT_DIR=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/evals/mobius_kimi_k3_max_2500_transcript_v2 VACLI_MAX_CONCURRENT_LEASES=4 sbatch --parsable --time=7-00:00:00 \$PWD/user/tianhaowu/terminal_bench_vmvm/run_eval.sbatch" C-m
 ```
 
 The checked-in production starting point is eight active rollouts and four
@@ -567,10 +574,10 @@ Interrupted evals are durable. Resume only their missing or errored rollouts
 with
 `RESUME_DIR=/checkpoint/.../evals/mobius_kimi_k3_max_2500_transcript_v2`, the
 same `EVAL_APPROVED_TASK_FILE{,_SHA256}` pair, and the same
-`INFERENCE_PROXY_INFO=.../proxy_info.json`; the latter is required to reload the
-RAM API key because credentials are deliberately absent from saved config and
-provenance. A resume replays the saved proxy URL, so confirm that the same
-deployment proxy is still live before submitting it.
+`INFERENCE_PROXY_INFO{,_SHA256}` pair; it is required to reload the RAM API key
+because credentials are deliberately absent from saved config and provenance.
+A resume replays the saved proxy URL only after the current file exactly matches
+the readiness-established endpoint binding.
 The saved config is replayed verbatim and successful traces are retained. New
 runs snapshot the source config, task list, and image manifest under
 `OUTPUT_DIR/inputs/`, record SHA-256 digests in `inputs/manifest.json`, and point
@@ -595,7 +602,8 @@ uv run --project user/tianhaowu/terminal_bench_vmvm \
   --expected-task-file /path/to/oracle_passed_tasks.txt \
   --expected-count 2500 \
   --aggregate-only \
-  --require-reasoning
+  --require-reasoning \
+  --model-io-contract kimi-k3-max
 ```
 
 Transcript audit is the default. It rejects missing/duplicate tasks, rollout
@@ -605,6 +613,12 @@ turn over 262,144 total tokens. `--require-token-data` remains an explicit
 legacy/diagnostic mode for traces that intentionally contain exact token IDs,
 masks, and sampling logprobs. Scale only after the default gate passes on a
 fresh smoke run and after measuring stable VMVM lease concurrency.
+
+The Kimi contract checks each hash-verified request for the chat-completions
+route, exact `Kimi-K3` model, `reasoning_effort=max`, and exactly the two
+required thinking flags. It also requires the parsed provider response model to
+be `Kimi-K3`. This proves that max reasoning was requested; provider-side proof
+that it was honored would require server attestation.
 
 For every captured model turn, the audit reparses exact chat-completion JSON or
 the normalized streamed response through Verifiers' own response models and

@@ -10,9 +10,11 @@ from types import SimpleNamespace
 import eval_run_identity
 import pytest
 import tomli_w
+from deployment_endpoint import load_deployment_endpoint
 from eval_run_identity import (
     EvalIdentityError,
     _bind_identity,
+    _bind_provenance,
     _checkpoint_identity,
     _contract,
     _dataset_identity,
@@ -107,6 +109,12 @@ def _identity() -> dict:
         },
         "deployment": {
             "id": "deployment-metadata",
+            "endpoint": {
+                "schema_version": 1,
+                "kind": "deployment_local_proxy_info",
+                "proxy_info": {"path": "/deployment/proxy_info.json", "sha256": artifact_sha256},
+                "authority_sha256": "b" * 64,
+            },
             "routing": {"deployment_id": None, "headers": {}},
             "spec": {"path": "/deployment/spec.yaml", "sha256": artifact_sha256},
             "readiness_checkpoint": {
@@ -142,6 +150,11 @@ def test_eval_identity_is_canonical_write_once_and_resume_exact(tmp_path: Path) 
 
 
 def test_eval_identity_rejects_legacy_and_mismatched_resume(tmp_path: Path) -> None:
+    legacy = _identity()
+    legacy["deployment"].pop("endpoint")
+    with pytest.raises(EvalIdentityError, match="schema_invalid"):
+        _identity_envelope(legacy)
+
     with pytest.raises(EvalIdentityError, match="legacy_resume"):
         _bind_identity(tmp_path, _identity(), resume=True)
 
@@ -150,6 +163,29 @@ def test_eval_identity_rejects_legacy_and_mismatched_resume(tmp_path: Path) -> N
     changed["contract"]["model"] = "other-approved-model"
     with pytest.raises(EvalIdentityError, match="identity_mismatch"):
         _bind_identity(tmp_path, changed, resume=True)
+
+
+def test_eval_provenance_binds_endpoint_hashes_write_once(tmp_path: Path) -> None:
+    identity = _identity()
+    digest = hashlib.sha256(canonical_json(identity)).hexdigest()
+    args = SimpleNamespace(
+        mode="fresh",
+        invocation_host="unit-test-host",
+        slurm_job_id="12345",
+    )
+
+    _bind_provenance(tmp_path, identity, digest, args)
+
+    records = dict(
+        line.split("=", 1)
+        for line in (tmp_path / "provenance.txt").read_text().splitlines()
+    )
+    endpoint = identity["deployment"]["endpoint"]
+    assert records["deployment_endpoint_authority_sha256"] == endpoint["authority_sha256"]
+    assert records["deployment_proxy_info_sha256"] == endpoint["proxy_info"]["sha256"]
+
+    args.mode = "resume"
+    _bind_provenance(tmp_path, identity, digest, args)
 
 
 def test_eval_contract_binds_required_training_and_concurrency_settings() -> None:
@@ -188,6 +224,15 @@ def test_eval_contract_binds_required_training_and_concurrency_settings() -> Non
     with pytest.raises(EvalIdentityError, match="routing_headers_mismatch"):
         _contract(routed, "approved-model")
 
+    for invalid_thinking in (
+        {"enable_thinking": 1, "preserve_thinking": True},
+        {"enable_thinking": True, "preserve_thinking": True, "extra": True},
+    ):
+        unsafe = _resolved_config()
+        unsafe["sampling"]["chat_template_kwargs"] = invalid_thinking
+        with pytest.raises(EvalIdentityError, match="max_reasoning_contract_required"):
+            _contract(unsafe, "approved-model")
+
 
 def test_archive_dataset_requires_explicit_live_tree_digest(tmp_path: Path) -> None:
     dataset = tmp_path / "dataset"
@@ -224,9 +269,33 @@ def test_archive_dataset_requires_explicit_live_tree_digest(tmp_path: Path) -> N
 
 
 def test_checkpoint_chain_is_hashed_and_role_aware(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    spec = tmp_path / "spec.yaml"
-    spec.write_text("version: pinned\n")
     deployment_id = "deployment-metadata"
+    deployment_dir = tmp_path / deployment_id
+    deployment_dir.mkdir()
+    spec = deployment_dir / "spec.yaml"
+    spec.write_text("version: pinned\n")
+    proxy_info = deployment_dir / "proxy_info.json"
+    proxy_info.write_text(
+        json.dumps(
+            {
+                "host": "127.0.0.1",
+                "port": 8100,
+                "url": "http://127.0.0.1:8100",
+                "api_key": "unit-test-secret",
+                "model": "approved-model",
+                "proxy_jobid": "12345",
+                "extras": {"proxy_type": "litellm", "sticky": True, "redis_port": 6379},
+            }
+        )
+        + "\n"
+    )
+    endpoint = load_deployment_endpoint(
+        proxy_info,
+        deployment_id=deployment_id,
+        expected_model="approved-model",
+        deployment_spec=spec,
+        expected_proxy_info_sha256=_sha256(proxy_info),
+    ).binding
     readiness = tmp_path / "readiness.json"
     readiness.write_text(
         json.dumps(
@@ -235,6 +304,7 @@ def test_checkpoint_chain_is_hashed_and_role_aware(tmp_path: Path, monkeypatch: 
                 "state": "passed",
                 "deployment": deployment_id,
                 "observed_spec_sha256": _sha256(spec),
+                "endpoint": endpoint,
                 "probe": {"ok": True},
             }
         )
@@ -243,6 +313,7 @@ def test_checkpoint_chain_is_hashed_and_role_aware(tmp_path: Path, monkeypatch: 
     smoke_identity = _identity()
     smoke_identity["deployment"] = {
         "id": deployment_id,
+        "endpoint": endpoint,
         "routing": {"deployment_id": None, "headers": {}},
         "spec": {"path": str(spec), "sha256": _sha256(spec)},
         "readiness_checkpoint": {"path": str(readiness), "sha256": _sha256(readiness)},
@@ -260,6 +331,7 @@ def test_checkpoint_chain_is_hashed_and_role_aware(tmp_path: Path, monkeypatch: 
     artifacts: dict[str, dict[str, str]] = {
         "eval_run_identity": {"path": str(eval_identity), "sha256": _sha256(eval_identity)},
         "readiness_checkpoint": {"path": str(readiness), "sha256": _sha256(readiness)},
+        "proxy_info": endpoint["proxy_info"],
     }
     for name in ("results", "config", "inputs_manifest", "provenance"):
         path = tmp_path / name
@@ -271,11 +343,13 @@ def test_checkpoint_chain_is_hashed_and_role_aware(tmp_path: Path, monkeypatch: 
         "ok": True,
         "eval_run_identity_sha256": envelope["eval_run_identity_sha256"],
         "deployment": {"id": deployment_id, "spec_sha256": _sha256(spec)},
+        "endpoint": endpoint,
         "audit_policy": {
             "expected_traces": 2,
             "rollouts_per_task": 1,
             "require_reasoning": True,
             "require_model_io": True,
+            "model_io_contract": eval_run_identity.EXPECTED_MODEL_IO_CONTRACT,
             "require_token_data": False,
             "require_logprobs": False,
             "max_sequence_tokens": 262_144,
@@ -310,16 +384,21 @@ def test_checkpoint_chain_is_hashed_and_role_aware(tmp_path: Path, monkeypatch: 
         routing_deployment_id=None,
     )
 
-    deployment = _checkpoint_identity(args)
+    deployment = _checkpoint_identity(args, endpoint)
 
     assert deployment["id"] == deployment_id
+    assert deployment["endpoint"] == endpoint
     assert deployment["smoke_checkpoint"]["sha256"] == _sha256(smoke)
+    mismatched_endpoint = json.loads(json.dumps(endpoint))
+    mismatched_endpoint["authority_sha256"] = "0" * 64
+    with pytest.raises(EvalIdentityError, match="readiness_checkpoint_not_passed"):
+        _checkpoint_identity(args, mismatched_endpoint)
     promotion = tmp_path / "promotion.json"
-    promotion.write_text('{"state":"passed"}\n')
+    promotion.write_text(json.dumps({"state": "passed", "deployment": {"endpoint": endpoint}}) + "\n")
     args.role = "mobius"
     args.promotion_certificate = promotion
     args.promotion_certificate_sha256 = _sha256(promotion)
-    deployment = _checkpoint_identity(args)
+    deployment = _checkpoint_identity(args, endpoint)
     assert deployment["promotion_certificate"]["sha256"] == _sha256(promotion)
     args.role = "tb4"
     args.promotion_certificate = None
@@ -331,10 +410,10 @@ def test_checkpoint_chain_is_hashed_and_role_aware(tmp_path: Path, monkeypatch: 
     smoke.write_text(json.dumps(smoke_payload, sort_keys=True) + "\n")
     args.smoke_checkpoint_sha256 = _sha256(smoke)
     with pytest.raises(EvalIdentityError, match="smoke_checkpoint_not_passed"):
-        _checkpoint_identity(args)
+        _checkpoint_identity(args, endpoint)
     args.role = "smoke"
     with pytest.raises(EvalIdentityError, match="cannot_use_prior_smoke"):
-        _checkpoint_identity(args)
+        _checkpoint_identity(args, endpoint)
 
 
 def test_fresh_resolver_writes_exact_config_before_eval(tmp_path: Path) -> None:

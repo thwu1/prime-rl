@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+from deployment_endpoint import load_deployment_endpoint
 from wait_for_inference_routes import (
     GateConfig,
     GateError,
@@ -39,7 +40,20 @@ class FakeRunner:
         self.calls.append((list(argv), timeout))
         if not self.results:
             raise AssertionError("unexpected command")
-        return self.results.pop(0)
+        result = self.results.pop(0)
+        if "--proxy-info-sha256" in argv and result.stdout:
+            payload = json.loads(result.stdout)
+            if "endpoint_authority_sha256" not in payload:
+                endpoint = load_deployment_endpoint(
+                    Path(argv[argv.index("--proxy-info") + 1]),
+                    deployment_id=argv[argv.index("--deployment-id") + 1],
+                    expected_model=argv[argv.index("--model") + 1],
+                    deployment_spec=Path(argv[argv.index("--deployment-spec") + 1]),
+                    expected_proxy_info_sha256=argv[argv.index("--proxy-info-sha256") + 1],
+                )
+                payload["endpoint_authority_sha256"] = endpoint.authority_sha256
+                result = ProcessResult(result.returncode, json.dumps(payload), result.stderr)
+        return result
 
 
 def _status(
@@ -70,15 +84,21 @@ def _status(
     return ProcessResult(0 if phase == "serving" else 1, json.dumps(payload))
 
 
-def _probe(*, ok: bool = True, returncode: int | None = None) -> ProcessResult:
+def _probe(
+    *,
+    ok: bool = True,
+    returncode: int | None = None,
+    endpoint_authority_sha256: str | None = None,
+) -> ProcessResult:
     payload = {
         "ok": ok,
-        "proxy_base_url": "http://proxy-info-url:8100",
         "coverage": {"ok": ok, "discovered_routes": 24},
         "requests": {"ok": ok, "failed": 0 if ok else 1},
         "future_api_key": "not-a-known-key-name",
         "failure": "Bearer unit-test-secret" if not ok else None,
     }
+    if endpoint_authority_sha256 is not None:
+        payload["endpoint_authority_sha256"] = endpoint_authority_sha256
     return ProcessResult(returncode if returncode is not None else (0 if ok else 1), json.dumps(payload))
 
 
@@ -87,15 +107,27 @@ def _config(tmp_path: Path, **overrides: Any) -> GateConfig:
     probe_script = tmp_path / "probe.py"
     serve_sh.touch()
     probe_script.touch()
-    spec = tmp_path / "spec.yaml"
+    deployment_dir = tmp_path / "test-deployment"
+    deployment_dir.mkdir()
+    spec = deployment_dir / "spec.yaml"
     spec.write_text("immutable: true\n")
-    proxy_info = tmp_path / "proxy_info.json"
+    proxy_info = deployment_dir / "proxy_info.json"
     proxy_info.write_text(
         json.dumps(
             {
+                "host": "proxy-info-url",
+                "port": 8100,
                 "url": "http://proxy-info-url:8100",
                 "api_key": "unit-test-secret",
-                "extras": {"sticky": True},
+                "model": "Kimi-K3",
+                "proxy_jobid": "12345",
+                "extras": {
+                    "proxy_type": "litellm",
+                    "prometheus_port": 8101,
+                    "sticky": True,
+                    "sticky_ttl": 900,
+                    "redis_port": 6379,
+                },
             }
         )
     )
@@ -144,7 +176,10 @@ def test_three_exact_polls_run_strict_probe_and_write_redacted_artifact(
     assert "status-secret" not in persisted
     assert "do-not-copy" not in persisted
     assert "http://proxy-info-url:8100" not in persisted
-    assert artifact["probe"]["proxy_base_url"] == "<redacted>"
+    assert artifact["endpoint"]["kind"] == "deployment_local_proxy_info"
+    assert artifact["endpoint"]["proxy_info"]["path"] == str(config.resolved_proxy_info().resolve())
+    assert artifact["probe"]["endpoint_authority_sha256"] == artifact["endpoint"]["authority_sha256"]
+    assert "proxy_base_url" not in artifact["probe"]
     assert artifact["probe"]["future_api_key"] == "<redacted>"
     assert config.resolved_output().stat().st_mode & 0o777 == 0o600
     assert not list(tmp_path.glob(".gate.json.*.tmp"))
@@ -160,6 +195,9 @@ def test_three_exact_polls_run_strict_probe_and_write_redacted_artifact(
     ]
     probe_argv = runner.calls[-1][0]
     assert probe_argv[:2] == [sys.executable, str(config.probe_script)]
+    assert probe_argv[probe_argv.index("--proxy-info-sha256") + 1] == artifact["endpoint"]["proxy_info"]["sha256"]
+    assert probe_argv[probe_argv.index("--deployment-id") + 1] == config.deployment
+    assert probe_argv[probe_argv.index("--deployment-spec") + 1] == str(config.resolved_spec())
     assert probe_argv[probe_argv.index("--expected-routes") + 1] == "24"
     assert probe_argv[probe_argv.index("--requests") + 1] == "192"
     assert probe_argv[probe_argv.index("--concurrency") + 1] == "24"
@@ -309,6 +347,7 @@ def test_timeout_is_persisted_when_proxy_info_never_becomes_readable(
     assert artifact["state"] == "failed"
     assert artifact["reason"] == "wait_timeout"
     assert artifact["proxy_info_readable"] is False
+    assert artifact["endpoint"] is None
     assert len(runner.calls) == 2
 
 
@@ -329,6 +368,68 @@ def test_probe_failure_is_redacted_and_never_retried(tmp_path: Path) -> None:
     assert "unit-test-secret" not in persisted
     assert "http://proxy-info-url:8100" not in persisted
     assert len(runner.calls) == 2
+
+
+def test_probe_endpoint_digest_must_match_bound_proxy_info(tmp_path: Path) -> None:
+    config = _config(tmp_path, consecutive_polls=1)
+    runner = FakeRunner([_status(), _probe(endpoint_authority_sha256="0" * 64)])
+    clock = FakeClock()
+
+    with pytest.raises(GateError, match="^probe_endpoint_mismatch$"):
+        _run(config, runner, clock)
+
+    artifact = json.loads(config.resolved_output().read_text())
+    assert artifact["state"] == "failed"
+    assert artifact["reason"] == "probe_endpoint_mismatch"
+
+
+def test_proxy_info_is_rehashed_after_probe(tmp_path: Path) -> None:
+    config = _config(tmp_path, consecutive_polls=1)
+    assert config.proxy_info is not None
+
+    class MutatingRunner(FakeRunner):
+        def __call__(self, argv: Sequence[str], timeout: float) -> ProcessResult:
+            result = super().__call__(argv, timeout)
+            if "--proxy-info-sha256" in argv:
+                payload = json.loads(config.proxy_info.read_text())
+                payload["api_key"] = "rotated-unit-test-secret"
+                config.proxy_info.write_text(json.dumps(payload))
+            return result
+
+    runner = MutatingRunner([_status(), _probe()])
+    clock = FakeClock()
+
+    with pytest.raises(GateError, match="^proxy_info_changed$"):
+        _run(config, runner, clock)
+
+    persisted = config.resolved_output().read_text()
+    artifact = json.loads(persisted)
+    assert artifact["state"] == "failed"
+    assert artifact["reason"] == "proxy_info_changed"
+    assert "unit-test-secret" not in persisted
+
+
+def test_spec_is_rehashed_after_probe(tmp_path: Path) -> None:
+    config = _config(tmp_path, consecutive_polls=1)
+    assert config.spec is not None
+
+    class MutatingRunner(FakeRunner):
+        def __call__(self, argv: Sequence[str], timeout: float) -> ProcessResult:
+            result = super().__call__(argv, timeout)
+            if "--proxy-info-sha256" in argv:
+                config.spec.write_text("mutated-during-probe: true\n")
+            return result
+
+    runner = MutatingRunner([_status(), _probe()])
+    clock = FakeClock()
+
+    with pytest.raises(GateError, match="^spec_sha256_mismatch$"):
+        _run(config, runner, clock)
+
+    artifact = json.loads(config.resolved_output().read_text())
+    assert artifact["state"] == "failed"
+    assert artifact["reason"] == "spec_sha256_mismatch"
+    assert artifact["observed_spec_sha256"] == hashlib.sha256(config.spec.read_bytes()).hexdigest()
 
 
 def test_spec_is_rehashed_immediately_before_probe(tmp_path: Path) -> None:

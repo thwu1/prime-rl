@@ -8,6 +8,7 @@ from pathlib import Path
 
 import mobius_launch_certificate as certificate_module
 import pytest
+from deployment_endpoint import load_deployment_endpoint
 from mobius_launch_certificate import (
     LaunchCertificateError,
     create_launch_certificate,
@@ -65,7 +66,7 @@ def _vmvm_sha256(project: Path) -> str:
     return digest.hexdigest()
 
 
-def _tb4_checkpoint(path: Path, deployment_id: str) -> str:
+def _tb4_checkpoint(path: Path, deployment_id: str, endpoint: dict) -> str:
     artifact_paths = {
         name: path.parent / f"tb4-{name}.metadata"
         for name in (
@@ -80,6 +81,7 @@ def _tb4_checkpoint(path: Path, deployment_id: str) -> str:
     for artifact in artifact_paths.values():
         artifact.write_text("aggregate metadata\n")
     artifacts = {name: _artifact(artifact, _sha256(artifact.read_bytes())) for name, artifact in artifact_paths.items()}
+    artifacts["proxy_info"] = endpoint["proxy_info"]
     identity_path = path.parent / "tb4-eval_run_identity.metadata"
     identity = {
         "role": "tb4",
@@ -90,6 +92,7 @@ def _tb4_checkpoint(path: Path, deployment_id: str) -> str:
         },
         "deployment": {
             "id": deployment_id,
+            "endpoint": endpoint,
             "spec": {"path": str(path.parent / "tb4-spec.metadata"), "sha256": "2" * 64},
             "readiness_checkpoint": artifacts["readiness_checkpoint"],
             "smoke_checkpoint": artifacts["smoke_checkpoint"],
@@ -110,12 +113,14 @@ def _tb4_checkpoint(path: Path, deployment_id: str) -> str:
         "ok": True,
         "eval_run_identity_sha256": "1" * 64,
         "deployment": {"id": deployment_id, "spec_sha256": "2" * 64},
+        "endpoint": endpoint,
         "audit_policy": {
             "expected_tasks": 66,
             "expected_supported_tasks": 63,
             "expected_cpu_unsupported_tasks": 3,
             "rollouts_per_task": 1,
             "model": "Kimi-K3",
+            "model_io_contract": certificate_module.EXPECTED_MODEL_IO_CONTRACT,
             "reasoning_effort": "max",
             "max_sequence_tokens": 262_144,
             "rollout_concurrency": 4,
@@ -150,12 +155,18 @@ def _tb4_checkpoint(path: Path, deployment_id: str) -> str:
     return _write_json(path, _flat_certificate(body, "tb4_certificate_sha256"))
 
 
-def _readiness_checkpoint(path: Path, deployment_id: str, spec_sha256: str) -> str:
+def _readiness_checkpoint(
+    path: Path,
+    deployment_id: str,
+    spec_sha256: str,
+    endpoint: dict,
+) -> str:
     return _write_json(
         path,
         {
             "schema_version": 1,
             "deployment": deployment_id,
+            "endpoint": endpoint,
             "expected_routes": 4,
             "required_consecutive_polls": 3,
             "max_consecutive_status_unavailable": 10,
@@ -191,6 +202,7 @@ def _capacity_checkpoint(
     dataset_revision: str,
     image_manifest: Path,
     image_manifest_sha256: str,
+    endpoint: dict,
 ) -> str:
     artifact_paths = {
         name: path.parent / f"capacity-{name}.metadata"
@@ -200,6 +212,7 @@ def _capacity_checkpoint(
         artifact.write_text("aggregate metadata\n")
     artifacts = {name: _artifact(artifact, _sha256(artifact.read_bytes())) for name, artifact in artifact_paths.items()}
     artifacts["readiness_checkpoint"] = _artifact(readiness, readiness_sha256)
+    artifacts["proxy_info"] = endpoint["proxy_info"]
     identity_path = path.parent / "capacity-eval_run_identity.metadata"
     identity = {
         "role": "smoke",
@@ -212,6 +225,7 @@ def _capacity_checkpoint(
         "dataset": {"kind": "git_revision", "revision": dataset_revision},
         "deployment": {
             "id": deployment_id,
+            "endpoint": endpoint,
             "spec": {"path": str(path.parent / "capacity-spec.metadata"), "sha256": spec_sha256},
             "readiness_checkpoint": artifacts["readiness_checkpoint"],
             "smoke_checkpoint": None,
@@ -263,6 +277,7 @@ def _capacity_checkpoint(
         "deployment_spec_sha256": spec_sha256,
         "readiness_checkpoint_sha256": readiness_sha256,
         "deployment": {"id": deployment_id, "spec_sha256": spec_sha256},
+        "endpoint": endpoint,
         "qualified_execution": {
             "rollout_concurrency": 8,
             "multiplex": 8,
@@ -275,6 +290,7 @@ def _capacity_checkpoint(
             "rollouts_per_task": 1,
             "require_reasoning": True,
             "require_model_io": True,
+            "model_io_contract": certificate_module.EXPECTED_MODEL_IO_CONTRACT,
             "require_token_data": False,
             "require_logprobs": False,
             "max_sequence_tokens": 262_144,
@@ -420,6 +436,36 @@ def _fixture(tmp_path: Path) -> tuple[dict[str, object], Path]:
         capture_output=True,
         text=True,
     ).stdout.strip()
+    deployment_id = "deployment-test"
+    deployment_dir = tmp_path / deployment_id
+    deployment_dir.mkdir()
+    spec = deployment_dir / "spec.yaml"
+    spec.write_text("schema_version: 1\nspec:\n  num_endpoints: 4\n")
+    spec_sha256 = _sha256(spec.read_bytes())
+    proxy_info = deployment_dir / "proxy_info.json"
+    proxy_info.write_text(
+        json.dumps(
+            {
+                "host": "127.0.0.1",
+                "port": 8100,
+                "url": "http://127.0.0.1:8100",
+                "api_key": "unit-test-secret",
+                "model": "Kimi-K3",
+                "proxy_jobid": "12345",
+                "extras": {"proxy_type": "litellm", "sticky": True, "redis_port": 6379},
+            }
+        )
+        + "\n"
+    )
+    proxy_info_sha256 = _sha256(proxy_info.read_bytes())
+    endpoint_info = load_deployment_endpoint(
+        proxy_info,
+        deployment_id=deployment_id,
+        expected_model="Kimi-K3",
+        deployment_spec=spec,
+        expected_proxy_info_sha256=proxy_info_sha256,
+    )
+    endpoint = endpoint_info.binding
     manifest = project / "approved.txt"
     manifest.write_text("".join(f"synthetic-entry-{index:04d}\n" for index in range(2_500)))
     manifest_sha256 = _sha256(manifest.read_bytes())
@@ -440,6 +486,7 @@ def _fixture(tmp_path: Path) -> tuple[dict[str, object], Path]:
         "retain_traces = false\n"
         "[client]\n"
         'type = "eval"\n'
+        'base_url = "http://127.0.0.1:8000/v1"\n'
         "capture_model_io = true\n"
         'outbound_body_denylist = ["logprobs", "prompt_logprobs", "top_logprobs", "return_token_ids"]\n'
         "max_connections = 8\n"
@@ -535,14 +582,10 @@ def _fixture(tmp_path: Path) -> tuple[dict[str, object], Path]:
         },
     ]
 
-    deployment_id = "deployment-test"
-    spec = tmp_path / "spec.yaml"
-    spec.write_text("schema_version: 1\nspec:\n  num_endpoints: 4\n")
-    spec_sha256 = _sha256(spec.read_bytes())
     tb4 = tmp_path / "tb4-checkpoint.json"
-    tb4_sha256 = _tb4_checkpoint(tb4, deployment_id)
+    tb4_sha256 = _tb4_checkpoint(tb4, deployment_id, endpoint)
     readiness = tmp_path / "readiness-checkpoint.json"
-    readiness_sha256 = _readiness_checkpoint(readiness, deployment_id, spec_sha256)
+    readiness_sha256 = _readiness_checkpoint(readiness, deployment_id, spec_sha256, endpoint)
     capacity = tmp_path / "capacity-checkpoint.json"
     capacity_sha256 = _capacity_checkpoint(
         capacity,
@@ -553,6 +596,7 @@ def _fixture(tmp_path: Path) -> tuple[dict[str, object], Path]:
         dataset_revision,
         image_manifest,
         image_manifest_sha256,
+        endpoint,
     )
     receipt = tmp_path / "oracle-receipt.json"
     receipt_sha256 = _oracle_receipt(
@@ -578,6 +622,8 @@ def _fixture(tmp_path: Path) -> tuple[dict[str, object], Path]:
         "deployment_id": deployment_id,
         "deployment_spec": spec,
         "deployment_spec_sha256": spec_sha256,
+        "deployment_proxy_info": proxy_info,
+        "deployment_proxy_info_sha256": proxy_info_sha256,
         "production_config": config,
         "approved_manifest": manifest,
         "approved_manifest_sha256": manifest_sha256,
@@ -621,6 +667,8 @@ def _validate_for_run(
         deployment_id=str(arguments["deployment_id"]),
         deployment_spec=Path(arguments["deployment_spec"]),
         deployment_spec_sha256=str(arguments["deployment_spec_sha256"]),
+        deployment_proxy_info=Path(arguments["deployment_proxy_info"]),
+        deployment_proxy_info_sha256=str(arguments["deployment_proxy_info_sha256"]),
         readiness_checkpoint=Path(arguments["readiness_checkpoint"]),
         readiness_checkpoint_sha256=str(arguments["readiness_checkpoint_sha256"]),
         capacity_smoke_checkpoint=Path(arguments["capacity_smoke_checkpoint"]),
@@ -656,6 +704,10 @@ def _create_cli_arguments(arguments: dict[str, object]) -> list[str]:
         str(arguments["deployment_spec"]),
         "--deployment-spec-sha256",
         str(arguments["deployment_spec_sha256"]),
+        "--deployment-proxy-info",
+        str(arguments["deployment_proxy_info"]),
+        "--deployment-proxy-info-sha256",
+        str(arguments["deployment_proxy_info_sha256"]),
         "--production-config",
         str(arguments["production_config"]),
         "--approved-manifest",
@@ -691,6 +743,10 @@ def _verify_cli_arguments(
         str(arguments["deployment_spec"]),
         "--deployment-spec-sha256",
         str(arguments["deployment_spec_sha256"]),
+        "--deployment-proxy-info",
+        str(arguments["deployment_proxy_info"]),
+        "--deployment-proxy-info-sha256",
+        str(arguments["deployment_proxy_info_sha256"]),
         "--readiness-checkpoint",
         str(arguments["readiness_checkpoint"]),
         "--readiness-checkpoint-sha256",
@@ -712,8 +768,13 @@ def test_create_and_verify_launch_certificate_without_task_metadata(
 
     certificate = create_launch_certificate(**arguments)
 
+    assert 'base_url = "http://127.0.0.1:8000/v1"' in Path(arguments["production_config"]).read_text()
     assert certificate["ok"] is True
     assert certificate["state"] == "passed"
+    assert certificate["deployment"]["endpoint"]["proxy_info"] == {
+        "path": str(Path(arguments["deployment_proxy_info"]).resolve()),
+        "sha256": arguments["deployment_proxy_info_sha256"],
+    }
     assert certificate["production"]["approved_manifest"]["count"] == 2_500
     assert certificate["gates"]["capacity_smoke"]["qualified_execution"] == {
         "http_max_connections": 8,
@@ -726,6 +787,7 @@ def test_create_and_verify_launch_certificate_without_task_metadata(
     self_hash = unsigned.pop("launch_certificate_sha256")
     assert self_hash == _sha256(_canonical(unsigned))
     assert "synthetic-entry-" not in output.read_text()
+    assert "unit-test-secret" not in output.read_text()
     assert output.stat().st_mode & 0o777 == 0o444
 
     file_sha256 = _sha256(output.read_bytes())
@@ -774,6 +836,79 @@ def test_rejects_tb4_policy_even_with_valid_self_and_file_hashes(tmp_path: Path)
 
     with pytest.raises(LaunchCertificateError, match="^tb4_policy_invalid$"):
         create_launch_certificate(**arguments)
+
+
+def test_rejects_type_confused_model_io_policy(tmp_path: Path) -> None:
+    arguments, _ = _fixture(tmp_path)
+    path = Path(arguments["tb4_checkpoint"])
+    arguments["tb4_checkpoint_sha256"] = _rewrite_flat(
+        path,
+        "tb4_certificate_sha256",
+        lambda value: value["audit_policy"]["model_io_contract"][
+            "request_chat_template_kwargs"
+        ].__setitem__("enable_thinking", 1),
+    )
+
+    with pytest.raises(LaunchCertificateError, match="^tb4_policy_invalid$"):
+        create_launch_certificate(**arguments)
+
+
+def test_rejects_legacy_or_mismatched_endpoint_chain(tmp_path: Path) -> None:
+    arguments, _ = _fixture(tmp_path)
+    tb4 = Path(arguments["tb4_checkpoint"])
+    arguments["tb4_checkpoint_sha256"] = _rewrite_flat(
+        tb4,
+        "tb4_certificate_sha256",
+        lambda value: value.pop("endpoint"),
+    )
+    with pytest.raises(LaunchCertificateError, match="^tb4_checkpoint_schema_invalid$"):
+        create_launch_certificate(**arguments)
+
+    arguments, _ = _fixture(tmp_path / "mismatch")
+    capacity = Path(arguments["capacity_smoke_checkpoint"])
+    arguments["capacity_smoke_checkpoint_sha256"] = _rewrite_flat(
+        capacity,
+        "smoke_checkpoint_sha256",
+        lambda value: value["endpoint"].__setitem__("authority_sha256", "0" * 64),
+    )
+    with pytest.raises(LaunchCertificateError, match="^capacity_smoke_not_passed$"):
+        create_launch_certificate(**arguments)
+
+
+def test_rejects_changed_current_proxy_artifact(tmp_path: Path) -> None:
+    arguments, _ = _fixture(tmp_path)
+    proxy_info = Path(arguments["deployment_proxy_info"])
+    payload = json.loads(proxy_info.read_text())
+    payload["proxy_jobid"] = "54321"
+    proxy_info.write_text(json.dumps(payload) + "\n")
+
+    with pytest.raises(LaunchCertificateError, match="^deployment_endpoint_invalid$"):
+        create_launch_certificate(**arguments)
+
+
+def test_rejects_proxy_rotation_during_gate_validation(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    arguments, output = _fixture(tmp_path)
+    proxy_info = Path(arguments["deployment_proxy_info"])
+    original_validate_capacity = certificate_module._validate_capacity
+
+    def validate_then_rotate(*args: object, **kwargs: object) -> None:
+        original_validate_capacity(*args, **kwargs)
+        payload = json.loads(proxy_info.read_text())
+        payload["proxy_jobid"] = "54321"
+        proxy_info.write_text(json.dumps(payload) + "\n")
+
+    monkeypatch.setattr(
+        certificate_module,
+        "_validate_capacity",
+        validate_then_rotate,
+    )
+
+    with pytest.raises(LaunchCertificateError, match="^deployment_endpoint_invalid$"):
+        create_launch_certificate(**arguments)
+    assert not output.exists()
 
 
 def test_rejects_oracle_acceptance_even_with_valid_receipt_hashes(tmp_path: Path) -> None:

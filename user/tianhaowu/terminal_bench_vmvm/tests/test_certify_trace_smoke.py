@@ -7,6 +7,7 @@ from pathlib import Path
 
 import pytest
 from certify_trace_smoke import SmokeCertificateError, certify_smoke
+from deployment_endpoint import load_deployment_endpoint
 
 
 def _sha256_bytes(value: bytes) -> str:
@@ -35,6 +36,8 @@ def _json_digest(value: dict) -> str:
 def _trace(trace_id: str, task: str) -> dict:
     request = {
         "model": "Kimi-K3",
+        "reasoning_effort": "max",
+        "chat_template_kwargs": {"enable_thinking": True, "preserve_thinking": True},
         "messages": [{"role": "user", "content": "synthetic"}],
         "tools": [
             {
@@ -113,8 +116,35 @@ def _fixture(tmp_path: Path) -> tuple[Path, Path, str, dict]:
     manifest.write_text("{}\n")
     provenance = run_dir / "provenance.txt"
     provenance.write_text("eval_run_identity_sha256=placeholder\n")
+    deployment_id = "deployment-test"
+    deployment_dir = tmp_path / deployment_id
+    deployment_dir.mkdir()
+    spec = deployment_dir / "spec.yaml"
+    spec.write_text("schema_version: 1\n")
+    proxy_info = deployment_dir / "proxy_info.json"
+    proxy_info.write_text(
+        json.dumps(
+            {
+                "host": "127.0.0.1",
+                "port": 8100,
+                "url": "http://127.0.0.1:8100",
+                "api_key": "unit-test-secret",
+                "model": "Kimi-K3",
+                "proxy_jobid": "12345",
+                "extras": {"proxy_type": "litellm", "sticky": True, "redis_port": 6379},
+            }
+        )
+        + "\n"
+    )
+    endpoint = load_deployment_endpoint(
+        proxy_info,
+        deployment_id=deployment_id,
+        expected_model="Kimi-K3",
+        deployment_spec=spec,
+        expected_proxy_info_sha256=_sha256_bytes(proxy_info.read_bytes()),
+    ).binding
     readiness = tmp_path / "readiness.json"
-    readiness.write_text('{"state":"passed"}\n')
+    readiness.write_text(json.dumps({"state": "passed", "endpoint": endpoint}) + "\n")
     identity_path = run_dir / "eval_run_identity.json"
     identity_path.write_text("{}\n")
     (run_dir / ".writer.lock").touch()
@@ -128,8 +158,9 @@ def _fixture(tmp_path: Path) -> tuple[Path, Path, str, dict]:
             "task_file": _record(task_file, count=2),
         },
         "deployment": {
-            "id": "deployment-test",
-            "spec": {"path": str(tmp_path / "spec.yaml"), "sha256": "a" * 64},
+            "id": deployment_id,
+            "endpoint": endpoint,
+            "spec": _record(spec),
             "readiness_checkpoint": _record(readiness),
             "smoke_checkpoint": None,
         },
@@ -185,6 +216,9 @@ def test_certifies_valid_smoke_without_task_metadata(tmp_path: Path) -> None:
     assert certificate["state"] == "passed"
     assert certificate["counts"]["traces"] == 2
     assert certificate["counts"]["trace_failures"] == 0
+    assert certificate["endpoint"] == envelope["identity"]["deployment"]["endpoint"]
+    assert certificate["artifacts"]["proxy_info"] == certificate["endpoint"]["proxy_info"]
+    assert certificate["audit_policy"]["model_io_contract"]["request_model"] == "Kimi-K3"
     assert "opaque-a" not in json.dumps(certificate)
     body = {key: value for key, value in certificate.items() if key != "smoke_checkpoint_sha256"}
     assert certificate["smoke_checkpoint_sha256"] == _sha256_bytes(
@@ -221,6 +255,39 @@ def test_rejects_trace_failure_without_publishing(tmp_path: Path) -> None:
             identity_loader=lambda *_args, **_kwargs: envelope,
         )
     assert not (run_dir / "smoke_checkpoint.json").exists()
+
+
+def test_rejects_readiness_endpoint_mismatch(tmp_path: Path) -> None:
+    run_dir, task_file, task_sha256, envelope = _fixture(tmp_path)
+    readiness_record = envelope["identity"]["deployment"]["readiness_checkpoint"]
+    readiness = Path(readiness_record["path"])
+    payload = json.loads(readiness.read_text())
+    payload["endpoint"]["authority_sha256"] = "0" * 64
+    readiness.write_text(json.dumps(payload) + "\n")
+    readiness_record["sha256"] = _sha256_bytes(readiness.read_bytes())
+
+    with pytest.raises(SmokeCertificateError, match="^readiness_endpoint_mismatch$"):
+        certify_smoke(
+            run_dir,
+            expected_task_file=task_file,
+            expected_task_file_sha256=task_sha256,
+            expected_traces=2,
+            identity_loader=lambda *_args, **_kwargs: envelope,
+        )
+
+
+def test_rejects_legacy_identity_without_endpoint(tmp_path: Path) -> None:
+    run_dir, task_file, task_sha256, envelope = _fixture(tmp_path)
+    envelope["identity"]["deployment"].pop("endpoint")
+
+    with pytest.raises(SmokeCertificateError, match="^eval_identity_endpoint_invalid$"):
+        certify_smoke(
+            run_dir,
+            expected_task_file=task_file,
+            expected_task_file_sha256=task_sha256,
+            expected_traces=2,
+            identity_loader=lambda *_args, **_kwargs: envelope,
+        )
 
 
 def test_rejects_overwriting_different_checkpoint(tmp_path: Path) -> None:

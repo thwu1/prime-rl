@@ -4,7 +4,13 @@ import sys
 from pathlib import Path
 
 import pytest
-from audit_traces import _audit_trace, _iter_traces, _summarize_traces, main
+from audit_traces import (
+    KIMI_K3_MAX_MODEL_IO_CONTRACT,
+    _audit_trace,
+    _iter_traces,
+    _summarize_traces,
+    main,
+)
 
 
 def _trace(trace_id: str, slug: str, *, valid: bool = True) -> dict:
@@ -64,7 +70,12 @@ def _digest(body: dict) -> str:
 
 def _request(*, tools: list | None = None, **extra: object) -> dict:
     return {
-        "model": "kimi-k3",
+        "model": "Kimi-K3",
+        "reasoning_effort": "max",
+        "chat_template_kwargs": {
+            "enable_thinking": True,
+            "preserve_thinking": True,
+        },
         "messages": [{"role": "user", "content": "inspect the workspace"}],
         "tools": tools
         if tools is not None
@@ -95,7 +106,7 @@ def _exact_response(
         "id": "response-1",
         "object": "chat.completion",
         "created": 1,
-        "model": "kimi-k3",
+        "model": "Kimi-K3",
         "choices": [
             {
                 "index": 0,
@@ -553,6 +564,99 @@ def test_audit_trace_validates_complete_model_io_capture() -> None:
     assert _audit_trace(trace, require_reasoning=True, require_model_io=True) == []
 
 
+def test_strict_kimi_contract_is_valid_and_implies_model_io() -> None:
+    trace = _trace_with_model_io()
+
+    assert (
+        _audit_trace(
+            trace,
+            require_reasoning=True,
+            model_io_contract=KIMI_K3_MAX_MODEL_IO_CONTRACT,
+        )
+        == []
+    )
+
+    trace["nodes"][0].pop("model_io")
+    assert _audit_trace(
+        trace,
+        require_reasoning=True,
+        require_model_io=False,
+        model_io_contract=KIMI_K3_MAX_MODEL_IO_CONTRACT,
+    ) == ["node_0_model_io_missing", "no_model_io_tool_schemas"]
+
+
+@pytest.mark.parametrize(
+    ("field", "value", "problem"),
+    [
+        ("model", "different-model", "node_0_model_io_request_model_mismatch"),
+        (
+            "reasoning_effort",
+            "low",
+            "node_0_model_io_request_reasoning_effort_mismatch",
+        ),
+        (
+            "chat_template_kwargs",
+            {"enable_thinking": True, "preserve_thinking": True, "extra": True},
+            "node_0_model_io_request_chat_template_kwargs_mismatch",
+        ),
+        (
+            "chat_template_kwargs",
+            {"enable_thinking": 1, "preserve_thinking": True},
+            "node_0_model_io_request_chat_template_kwargs_mismatch",
+        ),
+    ],
+)
+def test_strict_kimi_contract_rejects_request_mismatch(
+    field: str,
+    value: object,
+    problem: str,
+) -> None:
+    trace = _trace_with_model_io()
+    request = trace["nodes"][0]["model_io"]["request"]
+    request["body"][field] = value
+    request["sha256"] = _digest(request["body"])
+
+    assert _audit_trace(
+        trace,
+        require_reasoning=True,
+        model_io_contract=KIMI_K3_MAX_MODEL_IO_CONTRACT,
+    ) == [problem]
+
+
+def test_strict_kimi_contract_rejects_provider_route_mismatch() -> None:
+    trace = _trace_with_model_io()
+    trace["nodes"][0]["model_io"]["provider_route"] = "/different"
+
+    assert _audit_trace(
+        trace,
+        require_reasoning=True,
+        model_io_contract=KIMI_K3_MAX_MODEL_IO_CONTRACT,
+    ) == ["node_0_model_io_provider_route_contract_mismatch"]
+
+
+def test_strict_kimi_contract_checks_reconstructed_request_deltas() -> None:
+    trace = _trace_with_model_io()
+    second = _trace("second", "same-task")["nodes"][0]
+    second["parent"] = 0
+    reconstructed = {**_request(), "reasoning_effort": "low"}
+    second["model_io"] = _model_io(reconstructed)
+    second["model_io"]["request"] = {
+        "kind": "delta",
+        "sha256": _digest(reconstructed),
+        "base_node": 0,
+        "set_fields": {"reasoning_effort": "low"},
+        "remove_fields": [],
+        "append_fields": {},
+    }
+    trace["nodes"].append(second)
+
+    assert _audit_trace(
+        trace,
+        require_reasoning=True,
+        model_io_contract=KIMI_K3_MAX_MODEL_IO_CONTRACT,
+    ) == ["node_1_model_io_request_reasoning_effort_mismatch"]
+
+
 def test_audit_trace_reconciles_exact_chat_response_semantics() -> None:
     trace = _trace_with_model_io()
     reasoning_details = [{"type": "reasoning.text", "text": "signed detail"}]
@@ -610,7 +714,7 @@ def test_audit_trace_reconciles_normalized_stream_response_semantics() -> None:
     normalized = {
         "id": "stream-response",
         "created": 1,
-        "model": "kimi-k3",
+        "model": "Kimi-K3",
         "message": {
             "role": "assistant",
             "content": None,
@@ -635,6 +739,68 @@ def test_audit_trace_reconciles_normalized_stream_response_semantics() -> None:
     }
 
     assert _audit_trace(trace, require_reasoning=True, require_model_io=True) == []
+
+
+@pytest.mark.parametrize("kind", ["exact_provider_json", "normalized_stream_response"])
+def test_strict_kimi_contract_rejects_response_model_mismatch(kind: str) -> None:
+    trace = _trace_with_model_io()
+    if kind == "exact_provider_json":
+        response = trace["nodes"][0]["model_io"]["response"]
+        response["body"]["model"] = "different-model"
+    else:
+        response = {
+            "kind": "normalized_stream_response",
+            "body": {
+                "id": "stream-response",
+                "created": 1,
+                "model": "different-model",
+                "message": {
+                    "role": "assistant",
+                    "content": None,
+                    "reasoning_content": "reasoning",
+                    "tool_calls": None,
+                    "provider_state": None,
+                },
+                "finish_reason": "stop",
+                "usage": {
+                    "prompt_tokens": 100,
+                    "completion_tokens": 2,
+                    "cached_input_tokens": None,
+                    "reasoning_tokens": None,
+                    "cost": None,
+                },
+                "tokens": None,
+            },
+        }
+        trace["nodes"][0]["model_io"]["response"] = response
+    response["sha256"] = _digest(response["body"])
+
+    assert _audit_trace(
+        trace,
+        require_reasoning=True,
+        model_io_contract=KIMI_K3_MAX_MODEL_IO_CONTRACT,
+    ) == ["node_0_model_io_response_model_mismatch"]
+
+
+def test_strict_kimi_contract_aggregate_codes_never_echo_observed_values() -> None:
+    trace = _trace_with_model_io()
+    request = trace["nodes"][0]["model_io"]["request"]
+    request["body"]["model"] = "private-observed-value"
+    request["sha256"] = _digest(request["body"])
+
+    summary, failed = _summarize_traces(
+        [trace],
+        expected_slugs=None,
+        expected_count=1,
+        rollouts_per_task=1,
+        require_reasoning=True,
+        aggregate_only=True,
+        model_io_contract=KIMI_K3_MAX_MODEL_IO_CONTRACT,
+    )
+
+    assert failed is True
+    assert "private-observed-value" not in json.dumps(summary, sort_keys=True)
+    assert summary["problem_counts"] == {"node_model_io_request_model_mismatch": 1}
 
 
 def test_audit_trace_rejects_hash_valid_unrelated_provider_response() -> None:
@@ -1023,6 +1189,34 @@ def test_main_requires_model_io_by_default(
     summary = json.loads(capsys.readouterr().out)
     assert summary["trace_failures"] == 0
     assert "model_io_turns" not in summary
+
+
+def test_main_supports_strict_kimi_production_contract(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    results = tmp_path / "results.jsonl"
+    results.write_text(f"{json.dumps(_trace_with_model_io())}\n")
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "audit_traces.py",
+            str(results),
+            "--aggregate-only",
+            "--no-require-model-io",
+            "--model-io-contract",
+            "kimi-k3-max",
+        ],
+    )
+
+    main()
+
+    summary = json.loads(capsys.readouterr().out)
+    assert summary["trace_failures"] == 0
+    assert summary["model_io_turns"] == 1
+    assert "failure_examples" not in summary
 
 
 def test_main_reports_malformed_json_line_without_traceback(
