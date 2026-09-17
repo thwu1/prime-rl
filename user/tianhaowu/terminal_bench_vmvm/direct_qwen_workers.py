@@ -341,6 +341,7 @@ def validate_eval_config(
     retries = config.get("retries")
     rollout_retries = retries.get("rollout") if isinstance(retries, dict) else None
     retry_include = rollout_retries.get("include") if isinstance(rollout_retries, dict) else None
+    retry_exclude = rollout_retries.get("exclude", []) if isinstance(rollout_retries, dict) else None
     allowed_retry_policies = {ROLLOUT_RETRY_POLICY}
     if allow_historical_retry_policy:
         allowed_retry_policies.add(LEGACY_ROLLOUT_RETRY_POLICY)
@@ -351,6 +352,8 @@ def validate_eval_config(
         or not all(isinstance(item, str) for item in retry_include)
         or len(retry_include) != len(set(retry_include))
         or frozenset(retry_include) not in allowed_retry_policies
+        or not isinstance(retry_exclude, list)
+        or retry_exclude
     ):
         raise DirectWorkerError("eval_rollout_retry_policy_mismatch")
     return task_file_sha256
