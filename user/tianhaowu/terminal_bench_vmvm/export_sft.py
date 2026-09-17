@@ -1255,6 +1255,9 @@ def export_sft(options: ExportOptions) -> dict[str, Any]:
                 stop_condition = trace.get("stop_condition")
                 if not isinstance(stop_condition, str) or not stop_condition:
                     raise ExportError("trace_stop_condition_invalid")
+                if options.selection == "pass-only" and reward == 0:
+                    counts["selection_excluded_fail_traces"] += 1
+                    continue
 
                 problems = _audit_trace(
                     trace,
@@ -1266,9 +1269,6 @@ def export_sft(options: ExportOptions) -> dict[str, Any]:
                 )
                 if problems:
                     raise ExportError("trace_validation_failed")
-                if options.selection == "pass-only" and reward == 0:
-                    counts["selection_excluded_fail_traces"] += 1
-                    continue
 
                 raw_nodes = trace.get("nodes")
                 if not isinstance(raw_nodes, list) or not all(isinstance(node, dict) for node in raw_nodes):

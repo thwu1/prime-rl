@@ -628,10 +628,16 @@ run; no routing-epoch field is then added.
 Use `--selection all-outcomes` only when failed trajectories are intentionally
 part of the training recipe. The exporter refuses held evaluator or
 direct-router locks, an existing output, provenance drift, and malformed or
-errored selected traces,
-missing reasoning/model I/O/usage, request or response hash corruption, and a
-provider-reported sequence over 262,144 tokens. It validates the retained
-assistant message and usage against each captured provider response.
+errored source structure. Every row is still covered by source/index identity,
+duplicate, error-list, completion, reward, and stop-condition validation.
+Error rows are counted and excluded. Under `pass-only`, scored failures are
+also counted and excluded before the strict trainability audit; only traces
+eligible for the output corpus can therefore block it for missing reasoning,
+model I/O, or usage. `all-outcomes` applies that strict audit to both passing
+and failing scored traces. Selected traces fail closed on request or response
+hash corruption and any provider-reported sequence over 262,144 tokens. The
+exporter validates each retained assistant message and its usage against the
+captured provider response.
 
 One output row represents one unique sampled assistant node and its root-to-node
 message path. This preserves every genuine generation exactly once even when a

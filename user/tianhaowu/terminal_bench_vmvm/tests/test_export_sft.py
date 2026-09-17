@@ -506,6 +506,57 @@ def test_selection_is_explicit_and_deterministic(
     assert summary["rows"]["total"] == expected_rows
 
 
+def _remove_unproven_tool_reasoning(trace: dict) -> None:
+    node = trace["nodes"][2]
+    node["message"].pop("reasoning_content")
+    response = node["model_io"]["response"]
+    response["body"]["choices"][0]["message"].pop("reasoning")
+    response["sha256"] = _json_sha256(response["body"])
+
+
+def test_pass_only_excludes_untrainable_non_pass_before_strict_audit(tmp_path: Path) -> None:
+    failed = _linear_trace("failed", reward=0, task_name="failed-task")
+    _remove_unproven_tool_reasoning(failed)
+    results = _write_run(
+        tmp_path / "run",
+        [
+            _linear_trace("passed", reward=1, task_name="passed-task"),
+            failed,
+        ],
+    )
+    output = tmp_path / "dataset"
+
+    summary = export_sft(_options(results, output, selection="pass-only", expected_count=2))
+
+    manifest = json.loads((output / "manifest.json").read_text())
+    assert summary["input_traces"] == 2
+    assert summary["selected_traces"] == 1
+    assert summary["rows"]["total"] == 2
+    assert manifest["counts"]["scored_fail_traces"] == 1
+    assert manifest["counts"]["selection_excluded_fail_traces"] == 1
+
+
+@pytest.mark.parametrize(("selection", "reward"), [("pass-only", 1), ("all-outcomes", 0)])
+def test_selected_untrainable_trace_still_fails_closed(tmp_path: Path, selection: str, reward: float) -> None:
+    trace = _linear_trace(reward=reward)
+    _remove_unproven_tool_reasoning(trace)
+    results = _write_run(tmp_path / "run", [trace])
+
+    with pytest.raises(ExportError, match="^trace_validation_failed$"):
+        export_sft(_options(results, tmp_path / "dataset", selection=selection))
+    assert not (tmp_path / "dataset").exists()
+
+
+def test_pass_only_still_validates_basic_non_pass_schema(tmp_path: Path) -> None:
+    trace = _linear_trace(reward=0)
+    trace["stop_condition"] = None
+    results = _write_run(tmp_path / "run", [trace])
+
+    with pytest.raises(ExportError, match="^trace_stop_condition_invalid$"):
+        export_sft(_options(results, tmp_path / "dataset", selection="pass-only"))
+    assert not (tmp_path / "dataset").exists()
+
+
 def test_error_rows_are_excluded_without_inspecting_error_payload(tmp_path: Path) -> None:
     error_trace = {
         "id": "error-trace",
