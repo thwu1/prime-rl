@@ -159,6 +159,7 @@ def test_generic_launcher_rejects_task_overrides_and_keeps_dry_run() -> None:
     assert "--dry-run" in text
     assert "EVAL_APPROVED_TASK_FILE" in text
     assert "EVAL_APPROVED_TASK_FILE_SHA256" in text
+    assert "EVAL_CONFIG_SHA256" in text
     assert "DIRECT_QWEN_APPROVED_TASK_FILE" in text
     assert "DIRECT_QWEN_APPROVED_TASK_FILE_SHA256" in text
     assert "validate_task_approval.py" in text
@@ -189,6 +190,8 @@ def test_generic_launcher_rejects_task_overrides_and_keeps_dry_run() -> None:
     assert "--routing-deployment-id" in text
     assert "INFERENCE_DEPLOYMENT_ID routing must match EVAL_DEPLOYMENT_ID metadata" in text
     assert "EVAL_PROMOTION_CERTIFICATE" in text
+    assert "EVAL_EXPECTED_PRIME_RL_REVISION" in text
+    assert "PROJECT_DIR revision does not match EVAL_EXPECTED_PRIME_RL_REVISION" in text
     assert text.index('python3 "$workflow_dir/mobius_launch_certificate.py" verify') < text.index(
         'python3 "$workflow_dir/eval_run_identity.py"'
     )
@@ -202,7 +205,7 @@ def test_generic_launcher_rejects_task_overrides_and_keeps_dry_run() -> None:
         'python3 "$workflow_dir/eval_run_identity.py"'
     )
     assert text.index('python3 "$workflow_dir/inference_route_guard.py"') < text.index(
-        "from verifiers.v1.cli.eval.main import main; main()' \"${args[@]}\"",
+        'from verifiers.v1.cli.eval.main import main; main()\' "${args[@]}"',
         text.index('python3 "$workflow_dir/eval_run_identity.py"'),
     )
     guard = text[text.index('python3 "$workflow_dir/inference_route_guard.py"') :]
@@ -253,6 +256,7 @@ def _launcher_environment(tmp_path: Path) -> tuple[dict[str, str], Path, Path, P
         "DIRECT_QWEN_APPROVED_TASK_FILE_SHA256",
         "EVAL_APPROVED_TASK_FILE",
         "EVAL_APPROVED_TASK_FILE_SHA256",
+        "EVAL_CONFIG_SHA256",
         "EVAL_MODEL",
         "INFERENCE_BASE_URL",
         "INFERENCE_DEPLOYMENT_ID",
@@ -264,6 +268,7 @@ def _launcher_environment(tmp_path: Path) -> tuple[dict[str, str], Path, Path, P
         "EVAL_RUN_ROLE",
         "EVAL_DEPLOYMENT_ID",
         "EVAL_EXPECTED_MODEL",
+        "EVAL_EXPECTED_PRIME_RL_REVISION",
         "EVAL_DATASET_REVISION",
         "EVAL_DATASET_ARCHIVE",
         "EVAL_DATASET_ARCHIVE_SHA256",
@@ -317,6 +322,26 @@ def test_launcher_dry_run_skips_approval_endpoint_lock_and_snapshot(tmp_path: Pa
     assert not python_log.exists()
     assert not (output_dir / ".writer.lock").exists()
     assert not (output_dir / "inputs").exists()
+
+
+def test_launcher_rejects_wrong_config_hash_before_mutation(tmp_path: Path) -> None:
+    env, output_dir, uv_log, python_log = _launcher_environment(tmp_path)
+    env["EVAL_CONFIG_SHA256"] = "a" * 64
+    wrapper = Path(__file__).parents[1] / "run_eval.sbatch"
+
+    result = subprocess.run(
+        ["bash", str(wrapper), "--dry-run"],
+        env=env,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 2
+    assert result.stderr == "EVAL_CONFIG does not match EVAL_CONFIG_SHA256\n"
+    assert not uv_log.exists()
+    assert not python_log.exists()
+    assert not output_dir.exists()
 
 
 def test_real_launcher_fails_before_endpoint_or_snapshot_without_approval(tmp_path: Path) -> None:
@@ -403,6 +428,54 @@ def test_real_launcher_requires_readiness_bound_proxy_hash_before_mutation(tmp_p
 
     assert result.returncode == 2
     assert result.stderr == "INFERENCE_PROXY_INFO and INFERENCE_PROXY_INFO_SHA256 are required\n"
+    assert not uv_log.exists()
+    assert not python_log.exists()
+    assert not output_dir.exists()
+
+
+def test_guarded_launcher_rejects_wrong_pinned_project_revision_before_mutation(
+    tmp_path: Path,
+) -> None:
+    env, output_dir, uv_log, python_log = _launcher_environment(tmp_path)
+    fake_git = Path(env["PATH"].split(":", 1)[0]) / "git"
+    fake_git.write_text(
+        "#!/bin/bash\n"
+        'if [[ "$*" == *rev-parse* ]]; then\n'
+        "  printf 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\\n'\n"
+        "fi\n"
+    )
+    fake_git.chmod(0o755)
+    env.update(
+        {
+            "EVAL_APPROVED_TASK_FILE": "/opaque/approved",
+            "EVAL_APPROVED_TASK_FILE_SHA256": "a" * 64,
+            "EVAL_DATASET_REVISION": "b" * 40,
+            "EVAL_DEPLOYMENT_ID": "deployment-test",
+            "EVAL_EXPECTED_MODEL": "Kimi-K3",
+            "EVAL_EXPECTED_PRIME_RL_REVISION": "b" * 40,
+            "EVAL_RUN_ROLE": "tb4",
+            "INFERENCE_DEPLOYMENT_SPEC": "/opaque/spec.yaml",
+            "INFERENCE_DEPLOYMENT_SPEC_SHA256": "d" * 64,
+            "INFERENCE_PROXY_INFO": "/opaque/proxy_info.json",
+            "INFERENCE_PROXY_INFO_SHA256": "1" * 64,
+            "INFERENCE_READINESS_CHECKPOINT": "/opaque/readiness.json",
+            "INFERENCE_READINESS_CHECKPOINT_SHA256": "e" * 64,
+            "INFERENCE_SMOKE_CHECKPOINT": "/opaque/smoke.json",
+            "INFERENCE_SMOKE_CHECKPOINT_SHA256": "f" * 64,
+        }
+    )
+    wrapper = Path(__file__).parents[1] / "run_eval.sbatch"
+
+    result = subprocess.run(
+        ["bash", str(wrapper)],
+        env=env,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 2
+    assert result.stderr == ("PROJECT_DIR revision does not match EVAL_EXPECTED_PRIME_RL_REVISION\n")
     assert not uv_log.exists()
     assert not python_log.exists()
     assert not output_dir.exists()

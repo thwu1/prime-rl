@@ -29,6 +29,7 @@ x86_site=${PYTHON_SITE_X86_64:-/checkpoint/ram/tianhaowu/terminal_bench_vmvm/pyt
 x86_uv=${UV_BIN_X86_64:-/storage/home/tianhaowu/.local/x86_64/bin/uv}
 python_bin=${PYTHON_BIN_X86_64:-python3}
 eval_config=${EVAL_CONFIG:-$workflow_dir/configs/eval/tb4_kimi_k3_max_miniswe.toml}
+eval_config_sha256=${EVAL_CONFIG_SHA256:-}
 output_dir=${OUTPUT_DIR:-/checkpoint/ram/tianhaowu/terminal_bench_vmvm/evals/run_${SLURM_JOB_ID}}
 resume_dir=${RESUME_DIR:-}
 inference_base_url=${INFERENCE_BASE_URL:-}
@@ -41,6 +42,7 @@ inference_proxy_url=${INFERENCE_PROXY_URL:-}
 eval_run_role=${EVAL_RUN_ROLE:-}
 eval_deployment_id=${EVAL_DEPLOYMENT_ID:-}
 eval_expected_model=${EVAL_EXPECTED_MODEL:-}
+eval_expected_prime_rl_revision=${EVAL_EXPECTED_PRIME_RL_REVISION:-}
 deployment_spec=${INFERENCE_DEPLOYMENT_SPEC:-}
 deployment_spec_sha256=${INFERENCE_DEPLOYMENT_SPEC_SHA256:-}
 readiness_checkpoint=${INFERENCE_READINESS_CHECKPOINT:-}
@@ -64,6 +66,18 @@ if [[ ! -x "$x86_uv" ]]; then
 fi
 export PYTHONDONTWRITEBYTECODE=1
 export PYTHONPATH="$workflow_dir:$project_dir/environments/vmvm_tb_v2:$project_dir/deps/verifiers:$project_dir/deps/renderers:$project_dir/deps/pydantic-config/src:$x86_site${PYTHONPATH:+:$PYTHONPATH}"
+
+if [[ -n "$eval_config_sha256" ]]; then
+    if [[ ! "$eval_config_sha256" =~ ^[0-9a-f]{64}$ ]]; then
+        printf 'EVAL_CONFIG_SHA256 must be 64 lowercase hexadecimal characters\n' >&2
+        exit 2
+    fi
+    if ! observed_eval_config_sha256=$(sha256sum -- "$eval_config" 2>/dev/null) \
+        || [[ "${observed_eval_config_sha256%% *}" != "$eval_config_sha256" ]]; then
+        printf 'EVAL_CONFIG does not match EVAL_CONFIG_SHA256\n' >&2
+        exit 2
+    fi
+fi
 
 if [[ "$dry_run" -eq 1 ]]; then
     if [[ -n "$resume_dir" ]]; then
@@ -223,6 +237,13 @@ fi
 prime_rl_commit=$(git rev-parse --verify HEAD)
 verifiers_commit=$(git -C deps/verifiers rev-parse --verify HEAD)
 renderers_commit=$(git -C deps/renderers rev-parse --verify HEAD)
+if [[ -n "$eval_expected_prime_rl_revision" ]]; then
+    if [[ ! "$eval_expected_prime_rl_revision" =~ ^[0-9a-f]{40}$ \
+        || "$prime_rl_commit" != "$eval_expected_prime_rl_revision" ]]; then
+        printf 'PROJECT_DIR revision does not match EVAL_EXPECTED_PRIME_RL_REVISION\n' >&2
+        exit 2
+    fi
+fi
 prime_rl_tree_sha256=$(printf '%s' "$prime_rl_status" | sha256sum | cut -d' ' -f1)
 verifiers_tree_sha256=$(printf '%s' "$verifiers_status" | sha256sum | cut -d' ' -f1)
 renderers_tree_sha256=$(printf '%s' "$renderers_status" | sha256sum | cut -d' ' -f1)
