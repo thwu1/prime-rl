@@ -112,15 +112,25 @@ def _run(command: list[str]) -> str:
     return completed.stdout
 
 
+def _normalize_slurm_state(raw: str) -> str | None:
+    state = raw.strip()
+    if re.fullmatch(r"[A-Z][A-Z_]*", state):
+        return state
+    cancelled = re.fullmatch(r"CANCELLED by ([0-9]+)", state)
+    if cancelled is not None:
+        return "CANCELLED"
+    return None
+
+
 def slurm_job_is_terminal(job_id: str) -> bool:
     if re.fullmatch(r"[1-9][0-9]*", job_id) is None:
         raise MigrationError("invalid_source_slurm_job_id")
     if _run(["squeue", "-h", "-j", job_id, "-o", "%T"]).strip():
         return False
-    raw_states = _run(["sacct", "-X", "-n", "-P", "-j", job_id, "--format=State"])
-    states = [line.split("|", 1)[0].split("+", 1)[0].strip() for line in raw_states.splitlines()]
-    states = [state for state in states if state]
-    return bool(states) and all(state in TERMINAL_SLURM_STATES for state in states)
+    raw_states = _run(["sacct", "-X", "-n", "-P", "-j", job_id, "--format=State%64"])
+    raw_states = [line.split("|", 1)[0] for line in raw_states.splitlines() if line.strip()]
+    states = [_normalize_slurm_state(state) for state in raw_states]
+    return bool(states) and all(state is not None and state in TERMINAL_SLURM_STATES for state in states)
 
 
 def _provenance_job_ids(path: Path) -> list[str]:

@@ -15,6 +15,66 @@ def _sha256(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
+@pytest.mark.parametrize(
+    ("raw", "expected"),
+    [
+        ("COMPLETED", "COMPLETED"),
+        ("OUT_OF_MEMORY", "OUT_OF_MEMORY"),
+        ("CANCELLED by 656177", "CANCELLED"),
+        ("  CANCELLED by 0  ", "CANCELLED"),
+        ("RUNNING", "RUNNING"),
+    ],
+)
+def test_normalize_slurm_state_accepts_only_canonical_forms(
+    raw: str,
+    expected: str,
+) -> None:
+    assert migration._normalize_slurm_state(raw) == expected
+
+
+@pytest.mark.parametrize(
+    "raw",
+    [
+        "",
+        "cancelled by 656177",
+        "CANCELLED by root",
+        "CANCELLED by -1",
+        "CANCELLED by 656177 extra",
+        "FAILED by 656177",
+        "CANCELLED+",
+        "OUT_OF_ME+",
+    ],
+)
+def test_normalize_slurm_state_rejects_ambiguous_suffixes(raw: str) -> None:
+    assert migration._normalize_slurm_state(raw) is None
+
+
+def test_slurm_terminal_check_accepts_cancelled_by_numeric_uid(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def fake_run(command: list[str]) -> str:
+        if command[0] == "squeue":
+            return ""
+        assert command[-1] == "--format=State%64"
+        return "CANCELLED by 656177|\n"
+
+    monkeypatch.setattr(migration, "_run", fake_run)
+    assert migration.slurm_job_is_terminal("1448128") is True
+
+
+@pytest.mark.parametrize("state", ["RUNNING", "CANCELLED by root", "COMPLETED+"])
+def test_slurm_terminal_check_fails_closed_on_nonterminal_or_malformed_state(
+    state: str,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        migration,
+        "_run",
+        lambda command: "" if command[0] == "squeue" else f"{state}|\n",
+    )
+    assert migration.slurm_job_is_terminal("1448128") is False
+
+
 def _write_source_run(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
