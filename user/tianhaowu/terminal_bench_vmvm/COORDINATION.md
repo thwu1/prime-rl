@@ -1,6 +1,6 @@
 # VMVM sandbox coordination
 
-Last updated: 2026-09-17 13:30 UTC
+Last updated: 2026-09-17 14:20 UTC
 
 ## First message to the next teammate
 
@@ -39,6 +39,18 @@ this shared branch again.
 Add new rows below this line; do not overwrite another owner's row.
 
 ## Open coordination requests
+
+- **2026-09-17 14:20 UTC, shared trace-certificate hardening:** commit
+  `d0cb44d61` fixes two fail-open cases introduced by the preceding exact-zero
+  reasoning change: an absent/null reasoning marker with no canonical token
+  counter, and an ignored top-level exact-provider counter, can no longer
+  certify a zero-reasoning tool turn. The no-counter exception now requires an
+  explicit empty marker, matching provider/flattened tool calls, and a
+  hash-reconstructed request with both thinking and preservation enabled.
+  Missing/mismatched/normalized ambiguity remains rejected; a valid normalized
+  response with its canonical zero counter remains accepted. Ninety-four
+  focused and 534 full workflow tests pass with Ruff/diff checks clean. This
+  affects certification only and did not mutate any live job or output.
 
 - **2026-09-17 12:38 UTC, use2-3 Kimi/TB4 restart:** endpoint `1739548`
   was preempted at 12:04 UTC; smoke `1739593` then failed closed with zero

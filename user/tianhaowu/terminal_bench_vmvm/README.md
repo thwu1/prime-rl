@@ -673,6 +673,13 @@ assistant node. Hash-valid but unrelated response payloads therefore fail the
 gate. Audit output contains stable problem codes and aggregate counts only,
 never response text.
 
+A tool-call turn without flattened reasoning is exempt only when provider usage
+reports a valid zero reasoning-token count, or when exact provider JSON contains
+an explicit empty reasoning marker and the reconstructed request enabled and
+preserved thinking. Missing or null markers, counters in fields Verifiers does
+not consume, normalized responses without a zero counter, and mismatched tool
+calls fail closed.
+
 Because this workflow intentionally omits token IDs, the previous response's
 provider usage is used as the conservative best-known size when clamping the
 next generation budget. Exact token arrays remain authoritative whenever they

@@ -400,6 +400,61 @@ def test_certifies_valid_smoke_without_task_metadata(tmp_path: Path) -> None:
     )
 
 
+def test_rejects_tool_turn_without_explicit_zero_reasoning_evidence(tmp_path: Path) -> None:
+    run_dir, task_file, task_sha256, envelope = _fixture(tmp_path)
+    results_path = run_dir / "results.jsonl"
+    rows = [json.loads(line) for line in results_path.read_text().splitlines()]
+    node = rows[0]["nodes"][0]
+    node["message"] = {
+        "role": "assistant",
+        "content": None,
+        "reasoning_content": None,
+        "tool_calls": [{"id": "call-1", "name": "shell", "arguments": "{}"}],
+    }
+    node["usage"] = {"prompt_tokens": 8, "completion_tokens": 4}
+    node["finish_reason"] = "tool_calls"
+    response = {
+        "id": "response",
+        "object": "chat.completion",
+        "created": 1,
+        "model": "Kimi-K3",
+        "choices": [
+            {
+                "index": 0,
+                "finish_reason": "tool_calls",
+                "message": {
+                    "role": "assistant",
+                    "content": None,
+                    "tool_calls": [
+                        {
+                            "id": "call-1",
+                            "type": "function",
+                            "function": {"name": "shell", "arguments": "{}"},
+                        }
+                    ],
+                },
+            }
+        ],
+        "usage": {"prompt_tokens": 8, "completion_tokens": 4, "total_tokens": 12},
+    }
+    node["model_io"]["response"] = {
+        "kind": "exact_provider_json",
+        "sha256": _json_digest(response),
+        "body": response,
+    }
+    results_path.write_text("".join(f"{json.dumps(row)}\n" for row in rows))
+    _refresh_guard_receipt(run_dir, envelope)
+
+    with pytest.raises(SmokeCertificateError, match="^trace_audit_failed$"):
+        certify_smoke(
+            run_dir,
+            expected_task_file=task_file,
+            expected_task_file_sha256=task_sha256,
+            expected_traces=2,
+            identity_loader=lambda *_args, **_kwargs: envelope,
+        )
+
+
 def test_certifies_legacy_guard_without_concurrency_telemetry(tmp_path: Path) -> None:
     run_dir, task_file, task_sha256, envelope = _fixture(tmp_path)
     (run_dir / "concurrency_telemetry.json").unlink()
