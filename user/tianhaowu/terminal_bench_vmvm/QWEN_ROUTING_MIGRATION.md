@@ -133,3 +133,22 @@ immutable epoch-2 source only from an isolated worktree pinned to its recorded
 `9aa9dd80e8e455d45ec058563ffddaf8a51b4966`), after re-running that revision's
 manifest audit. Never use the schema-3 branch for this rollback, and never
 merge or overwrite the two result files manually.
+
+## Terminal epoch-3 SFT finalization
+
+After the final epoch-3 evaluator succeeds, submit
+`finalize_qwen_sft.sbatch` as an `afterok` dependency from a clean detached
+snapshot of its exact committed revision. The wrapper accepts no positional
+arguments and has no source or output defaults. Its required environment binds
+the code revision, disjoint source/output roots and destinations, exact source
+provenance digest, expected row count, selection, and deterministic split
+policy.
+
+The finalizer requires x86_64 and a clean source tree with its required runtime
+submodules initialized at the pinned gitlinks. It
+fails if either source lock is held, any provenance-recorded job is nonterminal,
+the run is not validated routing epoch 3, the routing index or SFT output
+already exists, or any code, source, lineage, count, or digest changes. It then
+runs the `label` command followed by `export_sft.py --routing-epoch-index` and
+prints only aggregate counts and hashes. See the SFT export section in
+`README.md` for the complete `afterok` submission template.
