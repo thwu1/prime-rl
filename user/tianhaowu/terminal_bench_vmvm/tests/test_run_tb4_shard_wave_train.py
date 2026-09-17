@@ -163,6 +163,7 @@ class _Harness:
         wave_number: int,
         indices: tuple[int, ...],
         output_root: Path,
+        _stop_requested,
     ) -> dict:
         self.events.append(("launch", indices))
         self.launched.append(indices)
@@ -346,7 +347,9 @@ def test_intent_recovery_adopts_fully_recorded_wave(tmp_path: Path):
         _train, state = train._initialize_or_load(prepared)
         state = train._launch_intent(prepared, state)
     root = prepared.controller_root / "wave-000"
-    harness.launch(prepared, 0, (0,), root)
+    harness.launch(prepared, 0, (0,), root, lambda: False)
+    (root / "wave.json").write_text("{}\n")
+    (root / "wave.json").chmod(0o600)
     harness.launched.clear()
 
     final = _drive(prepared, harness)
@@ -355,7 +358,7 @@ def test_intent_recovery_adopts_fully_recorded_wave(tmp_path: Path):
     assert harness.launched == []
 
 
-def test_intent_recovery_rejects_ambiguous_partial_wave(tmp_path: Path):
+def test_intent_recovery_retires_pre_submission_directory(tmp_path: Path):
     prepared = _prepared(tmp_path, count=1)
     harness = _Harness()
     train._ensure_controller_root(prepared)
@@ -365,12 +368,14 @@ def test_intent_recovery_rejects_ambiguous_partial_wave(tmp_path: Path):
     root = prepared.controller_root / "wave-000"
     root.mkdir(mode=0o700)
 
-    def malformed(*_args):
-        raise train.WaveTrainError("wave_metadata_invalid")
+    final = _drive(prepared, harness)
 
-    with pytest.raises(train.WaveTrainError, match="wave_metadata_invalid"):
-        _drive(prepared, harness, wave_loader=malformed)
-    assert harness.launched == []
+    assert final["state"] == "complete"
+    assert harness.launched == [(0,)]
+    abandoned = list(prepared.controller_root.glob("wave-000-abandoned-*"))
+    assert len(abandoned) == 1
+    receipt = json.loads((abandoned[0] / "abandoned.json").read_text())
+    assert receipt["state"] == "abandoned_before_submission"
 
 
 def test_query_scheduler_combines_squeue_and_sacct():
@@ -434,19 +439,42 @@ def test_exact_tmux_target_is_required_before_launch(tmp_path: Path):
     assert harness.launched == []
 
 
-def _write_exact_wave(prepared: train.PreparedTrain, *, with_job_id: bool = True) -> tuple[Path, dict]:
+def _write_exact_wave(
+    prepared: train.PreparedTrain,
+    *,
+    phases: tuple[str, ...] = ("recorded",),
+) -> tuple[Path, dict]:
     root = prepared.controller_root / "wave-000"
     root.mkdir(parents=True, mode=0o700)
-    index = prepared.selected_indices[0]
-    shard = prepared.shards[index]
-    output_dir = root / f"shard-{index:03d}-attempt-001"
-    environment_path = root / f"shard-{index:03d}.env"
-    environment_raw = train._expected_job_environment(prepared, shard, output_dir)
-    environment_path.write_bytes(environment_raw)
-    environment_path.chmod(0o600)
+    indices = prepared.selected_indices[: len(phases)]
+    jobs = []
+    for index, phase in zip(indices, phases, strict=True):
+        shard = prepared.shards[index]
+        output_dir = root / f"shard-{index:03d}-attempt-001"
+        environment_path = root / f"shard-{index:03d}.env"
+        environment_raw = train._expected_job_environment(prepared, shard, output_dir)
+        environment_path.write_bytes(environment_raw)
+        environment_path.chmod(0o600)
+        token = f"{index + 1:016x}" if phase != "unstarted" else None
+        jobs.append(
+            {
+                "shard_index": index,
+                "task_count": 1,
+                "config_sha256": shard.config_sha256,
+                "task_manifest_sha256": shard.task_manifest_sha256,
+                "environment": {
+                    "path": str(environment_path),
+                    "sha256": _digest(environment_raw),
+                },
+                "output_dir": str(output_dir),
+                "submission_started_at": ("2026-09-17T00:00:00Z" if phase != "unstarted" else None),
+                "submission_token": token,
+                "slurm_job_id": str(12_345 + index) if phase == "recorded" else None,
+            }
+        )
     body = {
         "schema_version": 1,
-        "state": "submitted" if with_job_id else "submitting",
+        "state": "submitted" if set(phases) == {"recorded"} else "submitting",
         "dry_run": False,
         "plan": {
             "path": str(prepared.plan_artifact.path),
@@ -465,23 +493,8 @@ def _write_exact_wave(prepared: train.PreparedTrain, *, with_job_id: bool = True
         },
         "dataset": train._dataset_record(prepared),
         "vmvm_environment": train.EXPECTED_VMVM_ENV,
-        "wave_size": 1,
-        "jobs": [
-            {
-                "shard_index": index,
-                "task_count": 1,
-                "config_sha256": shard.config_sha256,
-                "task_manifest_sha256": shard.task_manifest_sha256,
-                "environment": {
-                    "path": str(environment_path),
-                    "sha256": _digest(environment_raw),
-                },
-                "output_dir": str(output_dir),
-                "submission_started_at": "2026-09-17T00:00:00Z",
-                "submission_token": "0123456789abcdef",
-                "slurm_job_id": "12345" if with_job_id else None,
-            }
-        ],
+        "wave_size": len(indices),
+        "jobs": jobs,
     }
     wave = train._write_once_private_json(root / "wave.json", body, hash_key="wave_sha256")
     return root, wave
@@ -502,9 +515,10 @@ def test_wave_metadata_revalidates_exact_environment(tmp_path: Path):
 
 def test_recovery_rejects_wave_without_durable_job_id(tmp_path: Path):
     prepared = _prepared(tmp_path, count=1)
-    root, _wave = _write_exact_wave(prepared, with_job_id=False)
+    root, expected = _write_exact_wave(prepared, phases=("ambiguous",))
+    assert train._load_wave_metadata(prepared, 0, (0,), root, True) == expected
     with pytest.raises(train.WaveTrainError, match="wave_metadata_invalid"):
-        train._load_wave_metadata(prepared, 0, (0,), root, True)
+        train._load_wave_metadata(prepared, 0, (0,), root, False)
 
 
 def test_state_self_hash_tampering_is_rejected(tmp_path: Path):
@@ -532,7 +546,7 @@ def test_restart_recovers_after_completion_receipt_before_state_update(tmp_path:
         metadata, state = train._initialize_or_load(prepared)
         state = train._launch_intent(prepared, state)
         root = prepared.controller_root / "wave-000"
-        wave = harness.launch(prepared, 0, (0,), root)
+        wave = harness.launch(prepared, 0, (0,), root, lambda: False)
         current = train._current_from_wave(0, (0,), root, wave)
         body = train._state_body(state)
         body["state"] = "observing"
@@ -572,3 +586,128 @@ def test_restart_recovers_initial_state_after_train_write(tmp_path: Path):
 
     assert final["state"] == "complete"
     assert harness.launched == [(0,)]
+
+
+def test_lookup_submission_job_requires_one_exact_name_match():
+    name = "tb4-shard-000-0123456789abcdef"
+
+    def unique(arguments, **_kwargs):
+        if arguments[0] == train.SQUEUE:
+            return subprocess.CompletedProcess(arguments, 0, f"12345|{name}\n", "")
+        return subprocess.CompletedProcess(arguments, 0, f"12345|{name}\n", "")
+
+    assert train.lookup_submission_job(name, "2026-09-17T00:00:00Z", runner=unique) == "12345"
+
+    def duplicate(arguments, **_kwargs):
+        job_id = "12345" if arguments[0] == train.SQUEUE else "12346"
+        return subprocess.CompletedProcess(arguments, 0, f"{job_id}|{name}\n", "")
+
+    with pytest.raises(train.WaveTrainError, match="submission_lookup_not_unique"):
+        train.lookup_submission_job(name, "2026-09-17T00:00:00Z", runner=duplicate)
+
+
+def test_partial_submission_recovers_accepted_job_and_submits_only_tail(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    prepared = _prepared(tmp_path, count=3)
+    root, wave = _write_exact_wave(
+        prepared,
+        phases=("recorded", "ambiguous", "unstarted"),
+    )
+    submitted_names: list[str] = []
+
+    def runner(arguments, **_kwargs):
+        if arguments[0] == "tmux":
+            return subprocess.CompletedProcess(arguments, 0, EXPECTED_TMUX_TARGET + "\n", "")
+        assert arguments[0] == train.DEFAULT_SBATCH
+        submitted_names.append(next(value for value in arguments if value.startswith("--job-name=")))
+        return subprocess.CompletedProcess(arguments, 0, "22000\n", "")
+
+    monkeypatch.setattr(train, "_revalidate_submission_inputs", lambda *_args, **_kwargs: None)
+    recovered = train._resume_partial_wave_submission(
+        prepared,
+        (0, 1, 2),
+        root,
+        wave,
+        ambient_env={"TMUX_PANE": "%1"},
+        command_runner=runner,
+        route_verifier=lambda _prepared: None,
+        submission_lookup=lambda _name, _started: "21000",
+        stop_requested=lambda: False,
+    )
+
+    assert recovered["state"] == "submitted"
+    assert [job["slurm_job_id"] for job in recovered["jobs"]] == ["12345", "21000", "22000"]
+    assert len(submitted_names) == 1
+    assert submitted_names[0].startswith("--job-name=tb4-shard-002-")
+    assert train._load_wave_metadata(prepared, 0, (0, 1, 2), root, False) == recovered
+
+
+def test_completed_receipt_is_preserved_across_route_rollover(tmp_path: Path):
+    prepared = _prepared(tmp_path, count=1)
+    harness = _Harness()
+    harness.scheduler_state = "RUNNING"
+    harness.scheduler_exit_code = None
+    _drive(prepared, harness, stop_event=_StopAfterWait())
+    harness.scheduler_state = "COMPLETED"
+    harness.scheduler_exit_code = "0:0"
+
+    def route_must_not_run(_prepared):
+        raise AssertionError("completed guarded output must be certified before route liveness")
+
+    final = _drive(prepared, harness, route_verifier=route_must_not_run)
+    assert final["state"] == "complete"
+
+
+class _NeverStop:
+    def is_set(self) -> bool:
+        return False
+
+    def wait(self, _timeout: float) -> bool:
+        return False
+
+
+def test_transient_scheduler_failure_is_retried(tmp_path: Path):
+    prepared = _prepared(tmp_path, count=1)
+    harness = _Harness()
+    attempts = 0
+
+    def scheduler(job_ids):
+        nonlocal attempts
+        attempts += 1
+        if attempts < train.MAX_CONSECUTIVE_SCHEDULER_FAILURES:
+            raise train.SchedulerQueryUnavailable("scheduler_query_unavailable")
+        return {job_id: train.SchedulerObservation("COMPLETED", "0:0") for job_id in job_ids}
+
+    final = _drive(
+        prepared,
+        harness,
+        scheduler_reader=scheduler,
+        stop_event=_NeverStop(),
+    )
+    assert final["state"] == "complete"
+    assert attempts == train.MAX_CONSECUTIVE_SCHEDULER_FAILURES
+
+
+def test_scheduler_failure_budget_is_bounded_and_persisted(tmp_path: Path):
+    prepared = _prepared(tmp_path, count=1)
+    harness = _Harness()
+    attempts = 0
+
+    def unavailable(_job_ids):
+        nonlocal attempts
+        attempts += 1
+        raise train.SchedulerQueryUnavailable("scheduler_query_unavailable")
+
+    with pytest.raises(train.WaveTrainError, match="scheduler_query_unavailable"):
+        _drive(
+            prepared,
+            harness,
+            scheduler_reader=unavailable,
+            stop_event=_NeverStop(),
+        )
+    state = json.loads((prepared.controller_root / "state.json").read_text())
+    assert attempts == train.MAX_CONSECUTIVE_SCHEDULER_FAILURES
+    assert state["state"] == "failed"
+    assert state["failure"] == "scheduler_query_unavailable"

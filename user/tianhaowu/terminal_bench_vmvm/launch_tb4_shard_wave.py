@@ -38,6 +38,7 @@ from tb4_shard_workflow import (
 
 SCHEMA_VERSION = 1
 MAX_WAVE_SIZE = 4
+DEFAULT_SUBMISSION_TIMEOUT_SECONDS = 30.0
 EXPECTED_MODEL = "Kimi-K3"
 EXPECTED_VMVM_ENV = {
     "VACLI_MAX_CONCURRENT_LEASES": "2",
@@ -97,6 +98,14 @@ OPTIONAL_SMOKE_ARTIFACT_PATHS = {
 
 class WaveLaunchError(ValueError):
     """The requested wave cannot be launched without weakening its bindings."""
+
+
+class WaveSubmissionInterrupted(WaveLaunchError):
+    """Submission stopped between jobs in response to a controller signal."""
+
+
+class WaveSubmissionOutcomeUnknown(WaveLaunchError):
+    """The scheduler call ended before its acceptance outcome was recorded."""
 
 
 @dataclass(frozen=True)
@@ -1564,10 +1573,19 @@ def launch_wave(
     dry_run: bool = False,
     ambient_env: Mapping[str, str] | None = None,
     command_runner: RunCommand = subprocess.run,
+    stop_requested: Callable[[], bool] | None = None,
+    submission_timeout_seconds: float = DEFAULT_SUBMISSION_TIMEOUT_SECONDS,
 ) -> dict[str, Any]:
     """Validate a complete wave before any submission and publish private metadata."""
 
     environment = os.environ if ambient_env is None else ambient_env
+    if (
+        (stop_requested is not None and not callable(stop_requested))
+        or isinstance(submission_timeout_seconds, bool)
+        or not isinstance(submission_timeout_seconds, (int, float))
+        or not 1 <= submission_timeout_seconds <= 120
+    ):
+        raise WaveLaunchError("submission_control_invalid")
     if "RESUME_DIR" in environment:
         raise WaveLaunchError("resume_forbidden")
     if not isinstance(deployment_id, str) or DEPLOYMENT_RE.fullmatch(deployment_id) is None:
@@ -1768,6 +1786,8 @@ def launch_wave(
 
     try:
         for shard, job in zip(selected, jobs, strict=True):
+            if stop_requested is not None and stop_requested():
+                raise WaveSubmissionInterrupted("submission_interrupted")
             if validate_clean_project(project, runner=command_runner) != revisions:
                 raise WaveLaunchError("project_changed")
             for path, digest, label in (
@@ -1818,6 +1838,10 @@ def launch_wave(
             job["submission_started_at"] = datetime.now(UTC).isoformat().replace("+00:00", "Z")
             body["state"] = "submitting"
             _replace_private_json(output / "wave.json", body)
+            if stop_requested is not None and stop_requested():
+                job["submission_token"] = None
+                job["submission_started_at"] = None
+                raise WaveSubmissionInterrupted("submission_interrupted")
             _stable_artifact(
                 environment_path,
                 job["environment"]["sha256"],
@@ -1836,9 +1860,20 @@ def launch_wave(
                 text=True,
                 cwd=project,
                 env={},
+                timeout=submission_timeout_seconds,
             )
             job["slurm_job_id"] = _parse_job_id(result)
             _replace_private_json(output / "wave.json", body)
+    except WaveSubmissionInterrupted:
+        body["state"] = "submission_interrupted"
+        _replace_private_json(output / "wave.json", body)
+        raise
+    except subprocess.TimeoutExpired as error:
+        # The persisted random submission token permits exact scheduler lookup;
+        # do not label this as a known failure or submit it again.
+        body["state"] = "submitting"
+        _replace_private_json(output / "wave.json", body)
+        raise WaveSubmissionOutcomeUnknown("sbatch_submission_outcome_unknown") from error
     except (OSError, WaveLaunchError) as error:
         body["state"] = "partial_submission_failed"
         _replace_private_json(output / "wave.json", body)

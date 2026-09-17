@@ -18,6 +18,7 @@ import json
 import math
 import os
 import re
+import secrets
 import signal
 import stat
 import subprocess
@@ -53,14 +54,18 @@ from inference_route_guard import (
     verify_live_route_generation,
 )
 from launch_tb4_shard_wave import (
+    DEFAULT_SBATCH,
     DEPLOYMENT_RE,
     EXPECTED_MODEL,
     EXPECTED_VMVM_ENV,
     MAX_WAVE_SIZE,
     PinnedArtifact,
     WaveLaunchError,
+    WaveSubmissionInterrupted,
+    WaveSubmissionOutcomeUnknown,
     _encode_environment,
     _job_environment,
+    _parse_job_id,
     _require_tmux_launcher,
     _selected_dataset,
     _stable_artifact,
@@ -84,6 +89,7 @@ DEFAULT_POLL_INTERVAL_SECONDS = 15.0
 MIN_POLL_INTERVAL_SECONDS = 1.0
 MAX_POLL_INTERVAL_SECONDS = 60.0
 SCHEDULER_TIMEOUT_SECONDS = 30.0
+MAX_CONSECUTIVE_SCHEDULER_FAILURES = 3
 MAX_PRIVATE_JSON_BYTES = 64 * 1024 * 1024
 SQUEUE = "/usr/bin/squeue"
 SACCT = "/usr/bin/sacct"
@@ -126,6 +132,14 @@ FAILED_SLURM_STATES = frozenset(
 
 class WaveTrainError(ValueError):
     """The wave train cannot continue without weakening a required invariant."""
+
+
+class SchedulerQueryUnavailable(WaveTrainError):
+    """A bounded scheduler read failed without proving a job outcome."""
+
+
+class ControllerInterrupted(WaveTrainError):
+    """A signal requested a stop at a safe submission boundary."""
 
 
 @dataclass(frozen=True)
@@ -193,11 +207,15 @@ class ShardEvidence:
 
 
 CommandRunner = Callable[..., subprocess.CompletedProcess[str]]
-LaunchCallback = Callable[[PreparedTrain, int, tuple[int, ...], Path], dict[str, Any]]
+LaunchCallback = Callable[
+    [PreparedTrain, int, tuple[int, ...], Path, Callable[[], bool]],
+    dict[str, Any],
+]
 WaveLoader = Callable[[PreparedTrain, int, tuple[int, ...], Path, bool], dict[str, Any]]
 SchedulerReader = Callable[[Sequence[str]], dict[str, SchedulerObservation]]
 ShardValidator = Callable[[PreparedTrain, PlannedShard, Mapping[str, Any]], ShardEvidence]
 RouteVerifier = Callable[[PreparedTrain], None]
+SubmissionLookup = Callable[[str, str], str | None]
 
 
 def _now() -> str:
@@ -434,15 +452,15 @@ def query_scheduler(
             timeout=SCHEDULER_TIMEOUT_SECONDS,
         )
     except (OSError, subprocess.SubprocessError) as error:
-        raise WaveTrainError("scheduler_query_failed") from error
+        raise SchedulerQueryUnavailable("scheduler_query_unavailable") from error
     if queued.returncode != 0 or len(queued.stdout) > 1024 * 1024:
-        raise WaveTrainError("scheduler_query_failed")
+        raise SchedulerQueryUnavailable("scheduler_query_unavailable")
     observations: dict[str, SchedulerObservation] = {}
     requested_set = set(requested)
     for raw_line in queued.stdout.splitlines():
         if not raw_line.strip():
             continue
-        fields = raw_line.strip().split("|")
+        fields = [field.strip() for field in raw_line.strip().split("|")]
         if len(fields) != 2 or fields[0] not in requested_set or fields[0] in observations:
             raise WaveTrainError("scheduler_response_invalid")
         state = _normalize_slurm_state(fields[1])
@@ -468,14 +486,14 @@ def query_scheduler(
                 timeout=SCHEDULER_TIMEOUT_SECONDS,
             )
         except (OSError, subprocess.SubprocessError) as error:
-            raise WaveTrainError("scheduler_query_failed") from error
+            raise SchedulerQueryUnavailable("scheduler_query_unavailable") from error
         if accounted.returncode != 0 or len(accounted.stdout) > 1024 * 1024:
-            raise WaveTrainError("scheduler_query_failed")
+            raise SchedulerQueryUnavailable("scheduler_query_unavailable")
         missing_set = set(missing)
         for raw_line in accounted.stdout.splitlines():
             if not raw_line.strip():
                 continue
-            fields = raw_line.strip().split("|")
+            fields = [field.strip() for field in raw_line.strip().split("|")]
             if len(fields) != 3 or fields[0] not in missing_set or fields[0] in observations:
                 raise WaveTrainError("scheduler_response_invalid")
             state = _normalize_slurm_state(fields[1])
@@ -486,8 +504,56 @@ def query_scheduler(
                 raise WaveTrainError("scheduler_response_invalid")
             observations[fields[0]] = SchedulerObservation(state=state, exit_code=exit_code)
     if set(observations) != requested_set:
-        raise WaveTrainError("scheduler_job_missing")
+        raise SchedulerQueryUnavailable("scheduler_job_missing")
     return {job_id: observations[job_id] for job_id in requested}
+
+
+def lookup_submission_job(
+    job_name: str,
+    submitted_at: str,
+    *,
+    runner: CommandRunner = subprocess.run,
+) -> str | None:
+    """Resolve one interrupted ``sbatch`` by its persisted random job name."""
+
+    if re.fullmatch(r"tb4-shard-[0-9]{3,}-[0-9a-f]{16}", job_name) is None or not _valid_timestamp(submitted_at):
+        raise WaveTrainError("submission_lookup_invalid")
+    commands = (
+        [SQUEUE, "--noheader", f"--name={job_name}", "--format=%A|%j"],
+        [
+            SACCT,
+            "--noheader",
+            "--parsable2",
+            "--allocations",
+            f"--name={job_name}",
+            f"--starttime={submitted_at[:10]}",
+            "--format=JobIDRaw,JobName",
+        ],
+    )
+    matches: set[str] = set()
+    for command in commands:
+        try:
+            result = runner(
+                command,
+                check=False,
+                capture_output=True,
+                text=True,
+                timeout=SCHEDULER_TIMEOUT_SECONDS,
+            )
+        except (OSError, subprocess.SubprocessError) as error:
+            raise SchedulerQueryUnavailable("submission_lookup_unavailable") from error
+        if result.returncode != 0 or len(result.stdout) > 1024 * 1024:
+            raise SchedulerQueryUnavailable("submission_lookup_unavailable")
+        for raw_line in result.stdout.splitlines():
+            if not raw_line.strip():
+                continue
+            fields = [field.strip() for field in raw_line.strip().split("|")]
+            if len(fields) != 2 or SLURM_JOB_ID_RE.fullmatch(fields[0]) is None or fields[1] != job_name:
+                raise WaveTrainError("submission_lookup_response_invalid")
+            matches.add(fields[0])
+    if len(matches) > 1:
+        raise WaveTrainError("submission_lookup_not_unique")
+    return next(iter(matches), None)
 
 
 def _validate_config(config: WaveTrainConfig) -> None:
@@ -1053,7 +1119,7 @@ def _load_wave_metadata(
         "jobs",
         "wave_sha256",
     }
-    allowed_states = {"submitted", "submitting"} if allow_recovering else {"submitted"}
+    allowed_states = {"submitted", "submitting", "submission_interrupted"} if allow_recovering else {"submitted"}
     expected_deployment = {
         "id": prepared.config.deployment_id,
         "spec_sha256": prepared.deployment_spec.sha256,
@@ -1085,10 +1151,42 @@ def _load_wave_metadata(
         or len(value["jobs"]) != len(indices)
     ):
         raise WaveTrainError("wave_metadata_invalid")
+    submission_phase = 0
     for index, job in zip(indices, value["jobs"], strict=True):
         shard = prepared.shards[index]
         output_dir = output_root / f"shard-{index:03d}-attempt-001"
         environment_path = output_root / f"shard-{index:03d}.env"
+        submitted_at = job.get("submission_started_at") if isinstance(job, dict) else None
+        submission_token = job.get("submission_token") if isinstance(job, dict) else None
+        slurm_job_id = job.get("slurm_job_id") if isinstance(job, dict) else None
+        if (
+            _valid_timestamp(submitted_at)
+            and isinstance(submission_token, str)
+            and TOKEN_RE.fullmatch(submission_token) is not None
+            and isinstance(slurm_job_id, str)
+            and SLURM_JOB_ID_RE.fullmatch(slurm_job_id) is not None
+        ):
+            job_phase = 0
+        elif (
+            value.get("state") in {"submitting", "submission_interrupted"}
+            and _valid_timestamp(submitted_at)
+            and isinstance(submission_token, str)
+            and TOKEN_RE.fullmatch(submission_token) is not None
+            and slurm_job_id is None
+        ):
+            job_phase = 1
+        elif (
+            value.get("state") in {"submitting", "submission_interrupted"}
+            and submitted_at is None
+            and submission_token is None
+            and slurm_job_id is None
+        ):
+            job_phase = 2
+        else:
+            raise WaveTrainError("wave_metadata_invalid")
+        if job_phase < submission_phase or (job_phase == 1 and submission_phase == 1):
+            raise WaveTrainError("wave_metadata_invalid")
+        submission_phase = job_phase
         if (
             not isinstance(job, dict)
             or set(job)
@@ -1110,11 +1208,6 @@ def _load_wave_metadata(
             or job.get("config_sha256") != shard.config_sha256
             or job.get("task_manifest_sha256") != shard.task_manifest_sha256
             or job.get("output_dir") != str(output_dir)
-            or not _valid_timestamp(job.get("submission_started_at"))
-            or not isinstance(job.get("submission_token"), str)
-            or TOKEN_RE.fullmatch(job["submission_token"]) is None
-            or not isinstance(job.get("slurm_job_id"), str)
-            or SLURM_JOB_ID_RE.fullmatch(job["slurm_job_id"]) is None
         ):
             raise WaveTrainError("wave_metadata_invalid")
         expected_raw = _expected_job_environment(prepared, shard, output_dir)
@@ -1132,6 +1225,11 @@ def _load_wave_metadata(
         )
         if resolved_environment != environment_path or observed_raw != expected_raw:
             raise WaveTrainError("wave_environment_invalid")
+    if value["state"] == "submitted" and submission_phase != 0:
+        raise WaveTrainError("wave_metadata_invalid")
+    recorded_job_ids = [job["slurm_job_id"] for job in value["jobs"] if job["slurm_job_id"] is not None]
+    if len(recorded_job_ids) != len(set(recorded_job_ids)):
+        raise WaveTrainError("wave_metadata_invalid")
     return value
 
 
@@ -1620,11 +1718,16 @@ def _default_scheduler_reader(job_ids: Sequence[str]) -> dict[str, SchedulerObse
     return query_scheduler(job_ids)
 
 
+def _default_submission_lookup(job_name: str, submitted_at: str) -> str | None:
+    return lookup_submission_job(job_name, submitted_at)
+
+
 def _default_launch(
     prepared: PreparedTrain,
     _wave_number: int,
     indices: tuple[int, ...],
     output_root: Path,
+    stop_requested: Callable[[], bool],
 ) -> dict[str, Any]:
     config = prepared.config
     try:
@@ -1649,7 +1752,13 @@ def _default_launch(
             dataset_archive_sha256=(prepared.dataset_archive.sha256 if prepared.dataset_archive is not None else None),
             dataset_content_sha256=config.dataset_content_sha256,
             dry_run=False,
+            stop_requested=stop_requested,
+            submission_timeout_seconds=SCHEDULER_TIMEOUT_SECONDS,
         )
+    except WaveSubmissionInterrupted as error:
+        raise ControllerInterrupted("submission_interrupted") from error
+    except WaveSubmissionOutcomeUnknown as error:
+        raise SchedulerQueryUnavailable("submission_outcome_unknown") from error
     except WaveLaunchError as error:
         raise WaveTrainError("wave_submission_failed") from error
 
@@ -1676,6 +1785,243 @@ def _current_from_wave(
     }
 
 
+def _revalidate_submission_inputs(
+    prepared: PreparedTrain,
+    shard: PlannedShard,
+    *,
+    command_runner: CommandRunner,
+) -> None:
+    try:
+        if validate_clean_project(prepared.project, runner=command_runner) != prepared.revisions:
+            raise WaveTrainError("project_changed")
+        for path, digest, label in (
+            (prepared.plan_artifact.path, prepared.plan_artifact.sha256, "plan"),
+            (shard.config, shard.config_sha256, "shard_config"),
+            (shard.task_manifest, shard.task_manifest_sha256, "shard_manifest"),
+            (prepared.deployment_spec.path, prepared.deployment_spec.sha256, "deployment_spec"),
+            (prepared.readiness.path, prepared.readiness.sha256, "readiness_checkpoint"),
+            (prepared.proxy_info.path, prepared.proxy_info.sha256, "proxy_info"),
+            (prepared.smoke.path, prepared.smoke.sha256, "smoke_checkpoint"),
+        ):
+            _stable_artifact(path, digest, label=label)
+        if prepared.dataset_archive is not None:
+            _stable_artifact(
+                prepared.dataset_archive.path,
+                prepared.dataset_archive.sha256,
+                label="dataset_archive",
+            )
+        current_readiness = _stable_artifact(
+            prepared.readiness.path,
+            prepared.readiness.sha256,
+            label="readiness_checkpoint",
+            load_bytes=True,
+        )
+        current_smoke = _stable_artifact(
+            prepared.smoke.path,
+            prepared.smoke.sha256,
+            label="smoke_checkpoint",
+            load_bytes=True,
+        )
+        _validate_generation_bindings(
+            deployment_id=prepared.config.deployment_id,
+            deployment_spec=prepared.deployment_spec,
+            readiness=current_readiness,
+            proxy_info=prepared.proxy_info,
+            smoke=current_smoke,
+        )
+        _validate_dataset(
+            shards=(shard,),
+            dataset_revision=prepared.config.dataset_revision,
+            dataset_archive=prepared.dataset_archive,
+            dataset_content_sha256=prepared.config.dataset_content_sha256,
+            runner=command_runner,
+        )
+    except WaveTrainError:
+        raise
+    except WaveLaunchError as error:
+        raise WaveTrainError("submission_inputs_changed") from error
+
+
+def _retire_pre_submission_directory(
+    prepared: PreparedTrain,
+    wave_number: int,
+    indices: tuple[int, ...],
+    output_root: Path,
+) -> None:
+    """Move aside a provably pre-sbatch directory without reusing its attempts."""
+
+    try:
+        if output_root.is_symlink():
+            raise WaveTrainError("wave_metadata_invalid")
+        root_stat = output_root.stat(follow_symlinks=False)
+        if not stat.S_ISDIR(root_stat.st_mode) or stat.S_IMODE(root_stat.st_mode) != 0o700:
+            raise WaveTrainError("wave_metadata_invalid")
+        wave_path = output_root / "wave.json"
+        if os.path.lexists(wave_path):
+            raise WaveTrainError("wave_metadata_invalid")
+        expected_environments = {
+            f"shard-{index:03d}.env": (
+                prepared.shards[index],
+                output_root / f"shard-{index:03d}-attempt-001",
+            )
+            for index in indices
+        }
+        observed_environment_count = 0
+        for path in output_root.iterdir():
+            if path.name.startswith(".wave.json.") and path.name.endswith(".tmp"):
+                file_stat = path.stat(follow_symlinks=False)
+                if path.is_symlink() or not stat.S_ISREG(file_stat.st_mode) or stat.S_IMODE(file_stat.st_mode) != 0o600:
+                    raise WaveTrainError("wave_metadata_invalid")
+                continue
+            expected = expected_environments.get(path.name)
+            if expected is None:
+                raise WaveTrainError("wave_metadata_invalid")
+            shard, shard_output = expected
+            resolved, raw = _stable_private_bytes(path, label="wave_environment")
+            if resolved != path or raw != _expected_job_environment(prepared, shard, shard_output):
+                raise WaveTrainError("wave_environment_invalid")
+            observed_environment_count += 1
+        abandoned = output_root.with_name(f"wave-{wave_number:03d}-abandoned-{secrets.token_hex(4)}")
+        if abandoned.exists() or abandoned.is_symlink():
+            raise WaveTrainError("wave_abandonment_collision")
+        os.rename(output_root, abandoned)
+        _write_once_private_json(
+            abandoned / "abandoned.json",
+            {
+                "schema_version": SCHEMA_VERSION,
+                "state": "abandoned_before_submission",
+                "wave_number": wave_number,
+                "planned_jobs": len(indices),
+                "observed_environment_files": observed_environment_count,
+                "abandoned_at": _now(),
+            },
+            hash_key="abandoned_sha256",
+        )
+        _fsync_directory(prepared.controller_root)
+    except WaveTrainError:
+        raise
+    except OSError as error:
+        raise WaveTrainError("wave_pre_submission_recovery_failed") from error
+
+
+def _resume_partial_wave_submission(
+    prepared: PreparedTrain,
+    indices: tuple[int, ...],
+    output_root: Path,
+    wave: dict[str, Any],
+    *,
+    ambient_env: Mapping[str, str],
+    command_runner: CommandRunner,
+    route_verifier: RouteVerifier,
+    submission_lookup: SubmissionLookup,
+    stop_requested: Callable[[], bool],
+) -> dict[str, Any]:
+    """Finish a crashed launcher transaction without resubmitting recorded jobs."""
+
+    if wave.get("state") == "submitted":
+        return wave
+    if wave.get("state") not in {"submitting", "submission_interrupted"}:
+        raise WaveTrainError("wave_submission_incomplete")
+    wave_path = output_root / "wave.json"
+    seen_job_ids = {job["slurm_job_id"] for job in wave["jobs"] if isinstance(job.get("slurm_job_id"), str)}
+    try:
+        for index, job in zip(indices, wave["jobs"], strict=True):
+            if job["slurm_job_id"] is not None:
+                continue
+            if stop_requested():
+                raise ControllerInterrupted("submission_interrupted")
+            token = job["submission_token"]
+            if token is not None:
+                recovered = submission_lookup(
+                    f"tb4-shard-{index:03d}-{token}",
+                    job["submission_started_at"],
+                )
+                if recovered is None:
+                    raise SchedulerQueryUnavailable("submission_outcome_unknown")
+                if SLURM_JOB_ID_RE.fullmatch(recovered) is None:
+                    raise WaveTrainError("submission_lookup_response_invalid")
+                if recovered in seen_job_ids:
+                    raise WaveTrainError("submission_lookup_not_unique")
+                job["slurm_job_id"] = recovered
+                seen_job_ids.add(recovered)
+                wave = _replace_private_json(wave_path, wave, hash_key="wave_sha256")
+                continue
+
+            route_verifier(prepared)
+            if stop_requested():
+                raise ControllerInterrupted("submission_interrupted")
+            _require_tmux_launcher(ambient_env, runner=command_runner)
+            if stop_requested():
+                raise ControllerInterrupted("submission_interrupted")
+            shard = prepared.shards[index]
+            _revalidate_submission_inputs(
+                prepared,
+                shard,
+                command_runner=command_runner,
+            )
+            if stop_requested():
+                raise ControllerInterrupted("submission_interrupted")
+            environment_path = Path(job["environment"]["path"])
+            _resolved, raw = _stable_private_bytes(
+                environment_path,
+                label="wave_environment",
+            )
+            if raw != _expected_job_environment(
+                prepared,
+                shard,
+                Path(job["output_dir"]),
+            ):
+                raise WaveTrainError("wave_environment_invalid")
+            token = secrets.token_hex(8)
+            job["submission_token"] = token
+            job["submission_started_at"] = _now()
+            wave["state"] = "submitting"
+            wave = _replace_private_json(wave_path, wave, hash_key="wave_sha256")
+            if stop_requested():
+                job["submission_token"] = None
+                job["submission_started_at"] = None
+                raise ControllerInterrupted("submission_interrupted")
+            result = command_runner(
+                [
+                    DEFAULT_SBATCH,
+                    "--parsable",
+                    f"--job-name=tb4-shard-{index:03d}-{token}",
+                    f"--export-file={environment_path}",
+                    str(prepared.project / "user/tianhaowu/terminal_bench_vmvm/run_eval.sbatch"),
+                ],
+                check=False,
+                capture_output=True,
+                text=True,
+                cwd=prepared.project,
+                env={},
+                timeout=SCHEDULER_TIMEOUT_SECONDS,
+            )
+            submitted_job_id = _parse_job_id(result)
+            if submitted_job_id in seen_job_ids:
+                raise WaveTrainError("submission_job_id_duplicate")
+            job["slurm_job_id"] = submitted_job_id
+            seen_job_ids.add(submitted_job_id)
+            wave = _replace_private_json(wave_path, wave, hash_key="wave_sha256")
+    except SchedulerQueryUnavailable:
+        raise
+    except subprocess.TimeoutExpired as error:
+        wave["state"] = "submitting"
+        _replace_private_json(wave_path, wave, hash_key="wave_sha256")
+        raise SchedulerQueryUnavailable("submission_outcome_unknown") from error
+    except ControllerInterrupted:
+        wave["state"] = "submission_interrupted"
+        _replace_private_json(wave_path, wave, hash_key="wave_sha256")
+        raise
+    except (OSError, WaveLaunchError, WaveTrainError) as error:
+        wave["state"] = "partial_submission_failed"
+        _replace_private_json(wave_path, wave, hash_key="wave_sha256")
+        if isinstance(error, WaveTrainError):
+            raise
+        raise WaveTrainError("wave_submission_incomplete") from error
+    wave["state"] = "submitted"
+    return _replace_private_json(wave_path, wave, hash_key="wave_sha256")
+
+
 def _recover_or_launch_current(
     prepared: PreparedTrain,
     state: Mapping[str, Any],
@@ -1685,6 +2031,8 @@ def _recover_or_launch_current(
     launch_callback: LaunchCallback,
     wave_loader: WaveLoader,
     route_verifier: RouteVerifier,
+    submission_lookup: SubmissionLookup,
+    stop_requested: Callable[[], bool],
 ) -> tuple[dict[str, Any], dict[str, Any]]:
     current = state["current_wave"]
     if not isinstance(current, dict):
@@ -1699,12 +2047,38 @@ def _recover_or_launch_current(
         return dict(state), wave
 
     if output_root.exists() or output_root.is_symlink():
+        if not os.path.lexists(output_root / "wave.json"):
+            _retire_pre_submission_directory(
+                prepared,
+                wave_number,
+                indices,
+                output_root,
+            )
+    if output_root.exists() or output_root.is_symlink():
         wave = wave_loader(prepared, wave_number, indices, output_root, True)
+        wave = _resume_partial_wave_submission(
+            prepared,
+            indices,
+            output_root,
+            wave,
+            ambient_env=ambient_env,
+            command_runner=command_runner,
+            route_verifier=route_verifier,
+            submission_lookup=submission_lookup,
+            stop_requested=stop_requested,
+        )
+        wave = wave_loader(prepared, wave_number, indices, output_root, False)
     else:
         try:
             route_verifier(prepared)
+            if stop_requested():
+                raise ControllerInterrupted("submission_interrupted")
             _require_tmux_launcher(ambient_env, runner=command_runner)
-            wave = launch_callback(prepared, wave_number, indices, output_root)
+            if stop_requested():
+                raise ControllerInterrupted("submission_interrupted")
+            wave = launch_callback(prepared, wave_number, indices, output_root, stop_requested)
+        except ControllerInterrupted:
+            raise
         except WaveTrainError:
             raise
         except (OSError, WaveLaunchError) as error:
@@ -1894,6 +2268,7 @@ def drive_train(
     scheduler_reader: SchedulerReader = _default_scheduler_reader,
     shard_validator: ShardValidator = validate_completed_shard,
     route_verifier: RouteVerifier = _default_route_verifier,
+    submission_lookup: SubmissionLookup = _default_submission_lookup,
     stop_event: threading.Event | None = None,
 ) -> dict[str, Any]:
     """Drive or restart one controller until completion, failure, or signal."""
@@ -1924,29 +2299,48 @@ def drive_train(
             if state["state"] == "interrupted":
                 state = _resume_interrupted(prepared, state)
 
+            scheduler_failures = 0
             while True:
                 if event.is_set():
                     return _interrupt_state(prepared, state)
-                try:
-                    route_verifier(prepared)
-                except WaveTrainError:
-                    raise
-                except Exception as error:
-                    raise WaveTrainError("serving_route_generation_changed") from error
-                if event.is_set():
-                    return _interrupt_state(prepared, state)
                 if state["state"] == "ready":
+                    try:
+                        route_verifier(prepared)
+                    except WaveTrainError:
+                        raise
+                    except Exception as error:
+                        raise WaveTrainError("serving_route_generation_changed") from error
+                    if event.is_set():
+                        return _interrupt_state(prepared, state)
                     state = _launch_intent(prepared, state)
                 if state["state"] == "launching":
-                    state, wave = _recover_or_launch_current(
-                        prepared,
-                        state,
-                        ambient_env=environment,
-                        command_runner=command_runner,
-                        launch_callback=launch_callback,
-                        wave_loader=wave_loader,
-                        route_verifier=route_verifier,
-                    )
+                    try:
+                        state, wave = _recover_or_launch_current(
+                            prepared,
+                            state,
+                            ambient_env=environment,
+                            command_runner=command_runner,
+                            launch_callback=launch_callback,
+                            wave_loader=wave_loader,
+                            route_verifier=route_verifier,
+                            submission_lookup=submission_lookup,
+                            stop_requested=event.is_set,
+                        )
+                    except ControllerInterrupted:
+                        return _interrupt_state(prepared, state)
+                    except SchedulerQueryUnavailable:
+                        scheduler_failures += 1
+                        if scheduler_failures >= MAX_CONSECUTIVE_SCHEDULER_FAILURES:
+                            raise
+                        try:
+                            route_verifier(prepared)
+                        except WaveTrainError:
+                            raise
+                        except Exception as error:
+                            raise WaveTrainError("serving_route_generation_changed") from error
+                        if event.wait(prepared.config.poll_interval_seconds):
+                            return _interrupt_state(prepared, state)
+                        continue
                 else:
                     current = state["current_wave"]
                     assert isinstance(current, dict)
@@ -1968,18 +2362,43 @@ def drive_train(
                         != current
                     ):
                         raise WaveTrainError("wave_state_mismatch")
-                state, completed = _observe_wave(
-                    prepared,
-                    train_sha256,
-                    state,
-                    wave,
-                    scheduler_reader=scheduler_reader,
-                    shard_validator=shard_validator,
-                )
+                if event.is_set():
+                    return _interrupt_state(prepared, state)
+                try:
+                    state, completed = _observe_wave(
+                        prepared,
+                        train_sha256,
+                        state,
+                        wave,
+                        scheduler_reader=scheduler_reader,
+                        shard_validator=shard_validator,
+                    )
+                except SchedulerQueryUnavailable:
+                    scheduler_failures += 1
+                    if scheduler_failures >= MAX_CONSECUTIVE_SCHEDULER_FAILURES:
+                        raise
+                    try:
+                        route_verifier(prepared)
+                    except WaveTrainError:
+                        raise
+                    except Exception as error:
+                        raise WaveTrainError("serving_route_generation_changed") from error
+                    if event.wait(prepared.config.poll_interval_seconds):
+                        return _interrupt_state(prepared, state)
+                    continue
+                scheduler_failures = 0
                 if state["state"] == "complete":
                     return state
                 if completed:
                     continue
+                try:
+                    route_verifier(prepared)
+                except WaveTrainError:
+                    raise
+                except Exception as error:
+                    raise WaveTrainError("serving_route_generation_changed") from error
+                if event.is_set():
+                    return _interrupt_state(prepared, state)
                 if event.wait(prepared.config.poll_interval_seconds):
                     return _interrupt_state(prepared, state)
         except WaveTrainError as error:

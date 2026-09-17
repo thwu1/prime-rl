@@ -650,6 +650,56 @@ def test_fake_submit_uses_existing_run_eval_and_empty_client_environment(tmp_pat
         assert argv[-1].endswith("/run_eval.sbatch")
         assert any(value.startswith("--export-file=") for value in argv)
         assert kwargs["env"] == {}
+        assert kwargs["timeout"] == launcher.DEFAULT_SUBMISSION_TIMEOUT_SECONDS
+
+
+def test_signal_stops_at_submission_boundary_without_an_extra_job(tmp_path: Path, monkeypatch):
+    arguments = _fixture(tmp_path, monkeypatch)
+    calls = 0
+    checks = 0
+
+    def stop_requested():
+        nonlocal checks
+        checks += 1
+        return checks > 2
+
+    def fake_runner(argv, **_kwargs):
+        nonlocal calls
+        calls += 1
+        return subprocess.CompletedProcess(argv, 0, stdout="1001\n", stderr="")
+
+    with pytest.raises(launcher.WaveSubmissionInterrupted, match="submission_interrupted"):
+        launch_wave(
+            **arguments,
+            dry_run=False,
+            command_runner=fake_runner,
+            stop_requested=stop_requested,
+        )
+
+    assert calls == 1
+    metadata = json.loads((arguments["output_root"] / "wave.json").read_text())
+    assert metadata["state"] == "submission_interrupted"
+    assert metadata["jobs"][0]["slurm_job_id"] == "1001"
+    assert all(job["submission_token"] is None for job in metadata["jobs"][1:])
+
+
+def test_sbatch_timeout_preserves_recoverable_submission_intent(tmp_path: Path, monkeypatch):
+    arguments = _fixture(tmp_path, monkeypatch)
+
+    def timeout(argv, **kwargs):
+        raise subprocess.TimeoutExpired(argv, kwargs["timeout"])
+
+    with pytest.raises(
+        launcher.WaveSubmissionOutcomeUnknown,
+        match="sbatch_submission_outcome_unknown",
+    ):
+        launch_wave(**arguments, dry_run=False, command_runner=timeout)
+
+    metadata = json.loads((arguments["output_root"] / "wave.json").read_text())
+    assert metadata["state"] == "submitting"
+    assert metadata["jobs"][0]["submission_token"] is not None
+    assert metadata["jobs"][0]["slurm_job_id"] is None
+    assert all(job["submission_token"] is None for job in metadata["jobs"][1:])
 
 
 def test_rejects_resume_existing_output_and_invalid_wave(tmp_path: Path, monkeypatch):
