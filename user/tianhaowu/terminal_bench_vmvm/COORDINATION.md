@@ -1,6 +1,6 @@
 # VMVM sandbox coordination
 
-Last updated: 2026-09-17 02:40 UTC
+Last updated: 2026-09-17 03:07 UTC
 
 ## First message to the next teammate
 
@@ -78,10 +78,16 @@ Add new rows below this line; do not overwrite another owner's row.
   preserved after 1h52m with only the expected unsupported row durable, freeing
   all 24 routes. The endpoint owner
   has been asked on `fairinternal/ram_common#279` to raise proxy request timeout
-  to at least 7,200 seconds, disable hidden retries, and perform a proxy-only
-  in-place HUP that preserves port and Redis sticky state. After the correction,
-  rerun the 24-route semantic/state-reuse gate, strict capture smoke, and a
-  fresh full TB4. Future local artifacts are isolated under
+  to at least 7,200 seconds and disable hidden retries. A later source/runtime
+  audit corrected the application procedure: the live process sourced the old
+  generator contract at startup, so snapshot/spec update plus outer HUP alone
+  would regenerate 600/2. The durable fix requires updating the pinned source,
+  spec, and runtime proxy config, then rotating only the proxy job so the new
+  driver is loaded; keep all 24 GPU endpoint jobs untouched. Redis/sticky state
+  and proxy identity may reset, so no evaluator may be active. After rotation,
+  verify generated policy 7,200/0 and the new proxy identity, then rerun the
+  24-route semantic/state-reuse gate, strict capture smoke, and a fresh full
+  TB4. Future local artifacts are isolated under
   `configs/eval/servers/cpu-132-021_8103/`; do not reuse or rename the separate
   use2-3 Kimi lane.
 
