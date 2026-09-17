@@ -550,6 +550,16 @@ legacy/diagnostic mode for traces that intentionally contain exact token IDs,
 masks, and sampling logprobs. Scale only after the default gate passes on a
 fresh smoke run and after measuring stable VMVM lease concurrency.
 
+A sampled tool-call turn may omit flattened reasoning only when its hash-bound
+provider response proves either a zero `reasoning_tokens` count or an explicit
+empty reasoning field. The explicit-empty case additionally requires an exact
+provider response, identical captured and flattened tool calls, and a
+hash-valid reconstructed request with both thinking and thinking preservation
+enabled; a missing field is not evidence of emptiness. The audit reports these
+as separate `provider_reported_zero_reasoning_tool_turns` and
+`provider_explicit_empty_reasoning_tool_turns` counters. A trace containing no
+sampled reasoning anywhere still fails closed.
+
 Because this workflow intentionally omits token IDs, the previous response's
 provider usage is used as the conservative best-known size when clamping the
 next generation budget. Exact token arrays remain authoritative whenever they
@@ -557,3 +567,104 @@ are present. New tool output can still increase the next prompt beyond that
 known prefix, so the provider usage returned for every response remains the
 final fail-closed check: a turn above 262,144 tokens is rejected before graph
 commit and cannot enter the retained training corpus.
+
+## SFT export
+
+`results.jsonl` is the immutable source transcript, not a directly loadable SFT
+dataset. After the evaluation is terminal, export either reward-one traces or
+all scored outcomes explicitly:
+
+```bash
+uv run --project user/tianhaowu/terminal_bench_vmvm \
+  python user/tianhaowu/terminal_bench_vmvm/export_sft.py \
+  /path/to/eval/results.jsonl \
+  --output-dir /path/to/new/sft-dataset \
+  --selection pass-only \
+  --expected-count 2500
+```
+
+For a migrated Qwen run, create its final routing-epoch index only after the
+last evaluator job is terminal, then consume it explicitly:
+
+```bash
+uv run --project user/tianhaowu/terminal_bench_vmvm \
+  python user/tianhaowu/terminal_bench_vmvm/export_sft.py \
+  /path/to/migrated-run/results.jsonl \
+  --output-dir /path/to/new/sft-dataset \
+  --selection pass-only \
+  --expected-count 2500 \
+  --routing-epoch-index /path/to/migrated-run/qwen_router_epochs.jsonl
+```
+
+For a production routing-epoch-3 run, use the terminal finalizer instead of
+issuing those two commands independently. It requires explicit, disjoint
+source and output boundaries; an exact clean Prime-RL revision; the expected
+source provenance digest; the terminal row count; selection; and split policy.
+It refuses relative, symlinked, broad, overlapping, or default paths, held
+writer/router locks, an existing routing index or output, nonterminal recorded
+jobs, and any routing/provenance mismatch. It creates the final routing index
+with `migrate_qwen_router_affinity.py label` first and passes that exact index
+to `export_sft.py`. Child output is captured and reduced to aggregate counts,
+hashes, or stable error codes.
+
+Submit from a clean detached x86-capable source snapshot at the finalizer's
+exact commit. The source/output root directories must already exist. Replace
+the angle-bracketed values with audited literal values; do not use command
+substitution in the submission command:
+
+```bash
+sbatch --dependency=afterok:1454171 \
+  --export="FINALIZER_PROJECT_DIR=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/sources/prime-rl-<finalizer-sha>,FINALIZER_EXPECTED_REVISION=<40-hex-finalizer-sha>,FINALIZER_SOURCE_ROOT=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/evals,FINALIZER_SOURCE_DIR=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/evals/<epoch-3-run>,FINALIZER_EXPECTED_PROVENANCE_SHA256=<64-hex-provenance-sha256>,FINALIZER_OUTPUT_ROOT=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/sft,FINALIZER_OUTPUT_DIR=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/sft/qwen-a95b-epoch3-pass-only-<finalizer-prefix>,FINALIZER_EXPECTED_COUNT=2500,FINALIZER_SELECTION=pass-only,FINALIZER_VALIDATION_PERMYRIAD=500,FINALIZER_SPLIT_SALT=terminal-bench-vmvm-sft-v1" \
+  /checkpoint/ram/tianhaowu/terminal_bench_vmvm/sources/prime-rl-<finalizer-sha>/user/tianhaowu/terminal_bench_vmvm/finalize_qwen_sft.sbatch
+```
+
+Slurm copies the wrapper at submission and `afterok` prevents it from starting
+before the evaluator succeeds. The finalizer independently requires every job
+recorded in the source provenance to be terminal, rechecks the clean code
+revision and provenance digest between stages, and never overwrites an index or
+dataset. A partial failure after index publication therefore requires an
+explicit aggregate audit before any operator chooses a new output path; do not
+blindly rerun or remove artifacts.
+
+With that option, the exporter requires an exact one-to-one row-hash mapping,
+binds the full results, index, policy transition, active router manifest, and
+transition-anchored epoch-1 hash list. For a schema-3 admission run it also
+validates the complete cap-32 transition chain and binds the admission
+certificate plus the epoch-2 lineage. Each epoch label is checked against the
+anchored lineage before any output is published. Every emitted SFT row and the
+aggregate manifest carry its routing epoch. Omit the option for a non-migrated
+run; no routing-epoch field is then added.
+
+Use `--selection all-outcomes` only when failed trajectories are intentionally
+part of the training recipe. The exporter refuses held evaluator or
+direct-router locks, an existing output, provenance drift, and malformed or
+errored source structure. Every row is still covered by source/index identity,
+duplicate, error-list, completion, reward, and stop-condition validation.
+Error rows are counted and excluded. Under `pass-only`, scored failures are
+also counted and excluded before the strict trainability audit; only traces
+eligible for the output corpus can therefore block it for missing reasoning,
+model I/O, or usage. `all-outcomes` applies that strict audit to both passing
+and failing scored traces. Selected traces fail closed on request or response
+hash corruption and any provider-reported sequence over 262,144 tokens. The
+exporter validates each retained assistant message and its usage against the
+captured provider response.
+
+One output row represents one unique sampled assistant node and its root-to-node
+message path. This preserves every genuine generation exactly once even when a
+trace branches; expanding every leaf would duplicate shared-prefix targets.
+Prior messages are explicitly non-trainable and prior assistant reasoning is
+removed. The final assistant is the sole trainable message and retains its
+authentic `reasoning_content`, content, and tool calls. Verifiers' compact tool
+calls are normalized to OpenAI function-call objects, and the stable tool schema
+comes from integrity-checked captured requests.
+
+The output is atomically published as `train/train.jsonl`,
+`validation/train.jsonl`, `task-split.json`, and `manifest.json`. Task and trace
+identities in the dataset are opaque SHA-256 values. The manifest binds the raw
+results, resolved and source configs, approved task snapshot, image snapshot,
+input manifest, launcher provenance, exporter source, and every output artifact.
+Console output contains aggregate counts and hashes only.
+
+The exported messages are intended for offline retokenization by the target SFT
+renderer. They do not recreate teacher token IDs or sampling log probabilities,
+which were deliberately not requested from the evaluation endpoint.
