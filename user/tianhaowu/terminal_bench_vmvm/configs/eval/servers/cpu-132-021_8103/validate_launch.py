@@ -34,14 +34,14 @@ EXPECTED_PROXY_NUM_RETRIES = 0
 EXPECTED_TASK_SHA256 = "d33ef93f9b77ee91a41600934e677ba37988d3b4509e4da05ff1fcf7b4bc3a4b"
 EXPECTED_IMAGE_SHA256 = "118157378884021d2fc12dd83e7d9576ca606a5d229a2bd34c203d745212e009"
 EXPECTED_DATASET_REVISION = "ac1f30b9ac0e6c6a20a9fe423900d9ed28a6d366"
-EXPECTED_VERIFIERS_REVISION = "7e3b6885f638c4adffe83ea973c7ae3e838580e8"
+EXPECTED_VERIFIERS_REVISION = "7424b5b1e6b73362001221ee898b267a42547346"
 EXPECTED_RENDERERS_REVISION = "044d9e2541f6a911cacae9da353fc063911ef1f8"
 EXPECTED_PYDANTIC_CONFIG_REVISION = "896ade4e69d8d8dff2d4b0a431b7e1c7c12d638f"
 EXPECTED_TASK_FILE = "user/tianhaowu/terminal_bench_vmvm/configs/eval/mobius_valid_tasks_2500.txt"
 EXPECTED_CONFIG_FILE = (
     "user/tianhaowu/terminal_bench_vmvm/configs/eval/servers/cpu-132-021_8103/mobius_kimi_k3_shared24_2500.toml"
 )
-EXPECTED_CONFIG_SHA256 = "cfe7891a16f175187d2e892f1293471a1626f3ebda33e9f3d9ae8aab223a7937"
+EXPECTED_CONFIG_SHA256 = "f756ca33e32795e4c1d6701f012e1d8063ba7d7463cf415a9fae018e0a4db877"
 EXPECTED_DATASET_DIR = "/checkpoint/ram/tianhaowu/terminal_bench_vmvm/datasets/mobius-ac1f30b9"
 EXPECTED_IMAGE_MANIFEST = "/checkpoint/ram/tianhaowu/terminal_bench_vmvm/mobius_images.json"
 TB4_TASK_FILE = "user/tianhaowu/terminal_bench_vmvm/configs/eval/tb4_qwen_a95b_miniswe.tasks.txt"
@@ -49,7 +49,7 @@ TB4_TASK_SHA256 = "9485011ac4a953f4a4a1c7c5e78550b6d7de6f760a3859dac15a3610cf4ad
 TB4_CONFIG_FILE = (
     "user/tianhaowu/terminal_bench_vmvm/configs/eval/servers/cpu-132-021_8103/tb4_kimi_k3_shared24_miniswe.toml"
 )
-TB4_CONFIG_SHA256 = "aa5349078630181d574a55e15c23b487071f6d29cc77d2d79e92ced6003bcda6"
+TB4_CONFIG_SHA256 = "c540313feb36ae074db8632425401e03e52aa6c0f9cf1c2fdb77ab84a389f5f0"
 TB4_DATASET_DIR = "/checkpoint/ram/tianhaowu/terminal_bench_vmvm/datasets/tb4-prebuilt-v4.0.0/tasks"
 TB4_DATASET_TREE_SHA256 = "1a7ffccd2a221b43fa2f4a745fa6ae2e244c45282d5f5efa895aa902cfe79943"
 TB4_DATASET_FILE_COUNT = 5_939
@@ -661,7 +661,12 @@ def _expected_resolved_config(profile: ProfileContract, resume_dir: Path) -> dic
         "retries": {
             "rollout": {
                 "max_retries": 2,
-                "include": ["ProviderError", "SandboxError", "TunnelError"],
+                "include": [
+                    "ProviderError",
+                    "SandboxError",
+                    "TunnelError",
+                    "InterceptionError",
+                ],
                 "exclude": [],
             }
         },
@@ -838,6 +843,7 @@ def _validate_common_eval_contract(
         "ProviderError",
         "SandboxError",
         "TunnelError",
+        "InterceptionError",
     }:
         _fail("eval_rollout_retries_mismatch")
 

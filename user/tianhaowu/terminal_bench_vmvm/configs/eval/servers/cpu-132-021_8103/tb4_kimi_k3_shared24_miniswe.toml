@@ -73,4 +73,4 @@ scoring = 21600
 
 [retries.rollout]
 max_retries = 2
-include = ["ProviderError", "SandboxError", "TunnelError"]
+include = ["ProviderError", "SandboxError", "TunnelError", "InterceptionError"]

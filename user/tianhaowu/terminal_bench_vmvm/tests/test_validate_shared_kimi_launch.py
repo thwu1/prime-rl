@@ -5,6 +5,7 @@ import json
 import os
 import subprocess
 import sys
+import tomllib
 from pathlib import Path
 from typing import Mapping
 
@@ -344,9 +345,7 @@ def test_validation_metadata_includes_proxy_policy_digest(
 
     captured = capsys.readouterr()
     assert status == 0
-    assert captured.out == (
-        f"{'a' * 64}\t24\t64\t24\t40\t{EXPECTED_CONFIG_SHA256}\t{'b' * 64}\n"
-    )
+    assert captured.out == (f"{'a' * 64}\t24\t64\t24\t40\t{EXPECTED_CONFIG_SHA256}\t{'b' * 64}\n")
     assert captured.err == ""
     assert "test-secret-key" not in captured.out
 
@@ -460,6 +459,29 @@ def test_production_eval_config_matches_shared24_contract() -> None:
     assert launcher.index('"$python_bin" "$server_dir/validate_launch.py"') < launcher.index(
         'mkdir -m 700 -- "$output_dir"'
     )
+
+
+@pytest.mark.parametrize("profile_name", ["mobius", "tb4"])
+def test_shared24_retry_policy_is_narrow(profile_name: str) -> None:
+    project = Path(__file__).parents[4]
+    profile = PROFILES[profile_name]
+    config = tomllib.loads((project / profile.config_file).read_text())
+    rollout = config["retries"]["rollout"]
+
+    assert set(rollout["include"]) == {
+        "ProviderError",
+        "SandboxError",
+        "TunnelError",
+        "InterceptionError",
+    }
+    assert "HarnessError" not in rollout["include"]
+
+    rollout["include"].append("HarnessError")
+    with pytest.raises(
+        SharedKimiValidationError,
+        match="^eval_rollout_retries_mismatch$",
+    ):
+        _validate_common_eval_contract(config, profile, resolved=False)
 
 
 def test_dataset_tree_identity_includes_permission_mode_bits(tmp_path: Path) -> None:

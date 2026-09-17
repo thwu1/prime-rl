@@ -351,8 +351,11 @@ and the image manifest has SHA-256
 
 Mini-swe-agent owns provider-call retries and is explicitly configured for 10
 total attempts. If those are exhausted, TB4 and production retry the complete
-rollout up to twice for `ProviderError`, `SandboxError`, or `TunnelError`; a new
-trace/session can escape a transiently bad sticky backend. For a resumed job,
+rollout up to twice for `ProviderError`, `SandboxError`, `TunnelError`, or the
+narrow `InterceptionError`; a new trace/session can escape a transiently bad
+sticky backend or interception transport. Do not add broad `HarnessError`
+retries: malformed requests and deterministic harness failures must remain
+terminal. For a resumed job,
 pass both `RESUME_DIR` and the same `INFERENCE_PROXY_INFO`. The saved config
 contains the old proxy URL but deliberately no API key, so `RESUME_DIR` alone
 would authenticate with the placeholder key. Confirm the original deployment
