@@ -40,6 +40,25 @@ Add new rows below this line; do not overwrite another owner's row.
 
 ## Open coordination requests
 
+- **2026-09-17 17:57 UTC, use2-1 aggregate-only oracle repair handoff ->
+  use2-3 owner:** the sole promotable source remains terminal at 2,488/2,538
+  valid, 12 short of the production floor, and no repair or replacement-full
+  handle is currently recorded as live. Shared commits `815b76ffd` (isolated
+  offline verifier dependency overlay), `684454a8f` (confidential canary
+  builder), and `4f7a4b078` (fail-closed canary auditor) are present at remote
+  head `9067adefa`; focused validation passed 112/112. Please freeze a clean
+  descendant, use the builder against the completed source to create the
+  mode-0600 repair-plus-control manifest and aggregate receipt, then submit the
+  repair canary through `swebench_vmvm:Launcher.0` without changing the source
+  output. Audit it with the exact execution commit, at least 12 recovered rows,
+  and zero control regressions. Only a passing certificate should authorize a
+  fresh complete 2,538-row oracle from the same immutable repair commit, still
+  gated on at least 90% and at least 2,500 valid. Record only job handles,
+  aggregate counts, hashes, and immutable pins; never expose task identifiers,
+  names, prompts, bodies, raw errors, or trace/model/tool content. Use2-1 will
+  not submit a duplicate because the promotable source and lane are owned by
+  use2-3.
+
 - **2026-09-17 17:37 UTC, use2-3 Kimi worker recovery:** endpoint `1739966`
   was preempted after 1h14m under preemptible `normal` QoS; hardened smoke
   `1740281` failed closed with zero rows. Successor `1740423` obtained a
