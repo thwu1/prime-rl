@@ -33,6 +33,15 @@ FORMAT_VERSION = 1
 SPLIT_BUCKETS = 10_000
 DEFAULT_VALIDATION_PERMYRIAD = 500
 DEFAULT_SPLIT_SALT = "terminal-bench-vmvm-sft-v1"
+ROUTING_EPOCH_INDEX_KIND = "qwen-routing-epoch-index"
+ROUTING_TRANSITION_KIND = "qwen-direct-router-policy-transition"
+ROUTING_EPOCH_INDEX_FILENAME = "qwen_router_epochs.jsonl"
+ROUTING_TRANSITION_FILENAME = "qwen_router_transition.json"
+ROUTING_EPOCH1_ROWS_FILENAME = "qwen_router_epoch1_rows.sha256"
+DIRECT_WORKERS_FILENAME = "direct_workers.json"
+MAX_ROUTING_EPOCH_INDEX_BYTES = 16 * 1024 * 1024
+MAX_ROUTING_TRANSITION_BYTES = 2 * 1024 * 1024
+SHA256_HEX_CHARS = frozenset("0123456789abcdef")
 FORBIDDEN_REQUEST_FIELDS = frozenset({"logprobs", "prompt_logprobs", "return_token_ids", "top_logprobs"})
 REQUIRED_RUN_ARTIFACTS = (
     "config.toml",
@@ -72,6 +81,19 @@ class ExportOptions:
     validation_permyriad: int = DEFAULT_VALIDATION_PERMYRIAD
     split_salt: str = DEFAULT_SPLIT_SALT
     max_sequence_tokens: int = DEFAULT_MAX_SEQUENCE_TOKENS
+    routing_epoch_index: Path | None = None
+
+
+@dataclass(frozen=True)
+class RoutingEpochIndex:
+    artifact: FileArtifact
+    direct_workers_artifact: FileArtifact
+    epoch1_rows_artifact: FileArtifact
+    transition_artifact: FileArtifact
+    results_sha256: str
+    transition_sha256: str
+    row_sha256: tuple[str, ...]
+    routing_epochs: tuple[int, ...]
 
 
 class JSONLSink:
@@ -157,59 +179,86 @@ def _same_file(before: os.stat_result, after: os.stat_result) -> bool:
     )
 
 
-def _read_stable_file(path: Path) -> tuple[bytes, FileArtifact]:
+def _read_stable_file(path: Path, *, max_bytes: int | None = None) -> tuple[bytes, FileArtifact]:
     source, before = _open_regular(path)
     try:
-        body = source.read()
+        body = source.read() if max_bytes is None else source.read(max_bytes + 1)
         after = os.fstat(source.fileno())
     finally:
         source.close()
     if not _same_file(before, after):
         raise ExportError("source_artifact_changed")
+    if max_bytes is not None and len(body) > max_bytes:
+        raise ExportError("source_artifact_too_large")
     return body, FileArtifact(bytes=len(body), sha256=hashlib.sha256(body).hexdigest())
 
 
 @contextmanager
-def _hold_source_writer_lock(run_dir: Path) -> Iterator[None]:
-    """Take a nonblocking shared lock when the evaluator writer lock is present."""
-    path = run_dir / ".writer.lock"
-    if not os.path.lexists(path):
-        yield
-        return
-    flags = os.O_RDWR | os.O_CLOEXEC | os.O_NONBLOCK
-    if hasattr(os, "O_NOFOLLOW"):
-        flags |= os.O_NOFOLLOW
+def _hold_source_locks(run_dir: Path, *, require_router_lock: bool) -> Iterator[None]:
+    """Hold direct-router then evaluator locks so no cutover can begin during export."""
+    descriptors: list[int] = []
     try:
-        fd = os.open(path, flags)
-    except OSError as error:
-        raise ExportError("writer_lock_open_failed") from error
-    try:
-        before = os.fstat(fd)
-        if not stat.S_ISREG(before.st_mode):
-            raise ExportError("writer_lock_not_regular")
-        try:
-            fcntl.flock(fd, fcntl.LOCK_SH | fcntl.LOCK_NB)
-        except BlockingIOError as error:
-            raise ExportError("source_run_is_active") from error
-        after = os.stat(path, follow_symlinks=False)
-        if not stat.S_ISREG(after.st_mode) or (before.st_dev, before.st_ino) != (
-            after.st_dev,
-            after.st_ino,
-        ):
-            raise ExportError("writer_lock_replaced")
+        for filename in (".direct_router.lock", ".writer.lock"):
+            path = run_dir / filename
+            if not os.path.lexists(path):
+                if require_router_lock:
+                    raise ExportError("source_lock_missing")
+                continue
+            flags = os.O_RDWR | os.O_CLOEXEC | os.O_NONBLOCK
+            if hasattr(os, "O_NOFOLLOW"):
+                flags |= os.O_NOFOLLOW
+            try:
+                descriptor = os.open(path, flags)
+            except OSError as error:
+                raise ExportError("source_lock_open_failed") from error
+            descriptors.append(descriptor)
+            before = os.fstat(descriptor)
+            if not stat.S_ISREG(before.st_mode):
+                raise ExportError("source_lock_not_regular")
+            try:
+                fcntl.flock(descriptor, fcntl.LOCK_SH | fcntl.LOCK_NB)
+            except BlockingIOError as error:
+                raise ExportError("source_run_is_active") from error
+            after = os.stat(path, follow_symlinks=False)
+            if not stat.S_ISREG(after.st_mode) or (before.st_dev, before.st_ino) != (
+                after.st_dev,
+                after.st_ino,
+            ):
+                raise ExportError("source_lock_replaced")
         yield
     finally:
-        os.close(fd)
+        for descriptor in reversed(descriptors):
+            os.close(descriptor)
 
 
 def _parse_json_object(body: bytes, code: str) -> dict[str, Any]:
+    def reject_duplicate_keys(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+        value: dict[str, Any] = {}
+        for key, item in pairs:
+            if key in value:
+                raise ValueError("duplicate JSON object key")
+            value[key] = item
+        return value
+
     try:
-        value = json.loads(body)
-    except (UnicodeDecodeError, json.JSONDecodeError) as error:
+        value = json.loads(
+            body,
+            parse_constant=lambda _constant: (_ for _ in ()).throw(ValueError()),
+            object_pairs_hook=reject_duplicate_keys,
+        )
+    except (UnicodeDecodeError, ValueError) as error:
         raise ExportError(code) from error
     if not isinstance(value, dict):
         raise ExportError(code)
     return value
+
+
+def _valid_sha256(value: object) -> bool:
+    return isinstance(value, str) and len(value) == 64 and all(character in SHA256_HEX_CHARS for character in value)
+
+
+def _valid_git_sha(value: object) -> bool:
+    return isinstance(value, str) and len(value) == 40 and all(character in SHA256_HEX_CHARS for character in value)
 
 
 def _validate_run_provenance(run_dir: Path, max_sequence_tokens: int) -> tuple[dict[str, FileArtifact], dict[str, Any]]:
@@ -278,6 +327,275 @@ def _validate_run_provenance(run_dir: Path, max_sequence_tokens: int) -> tuple[d
         "num_rollouts": num_rollouts,
         **limits,
     }
+
+
+def _load_routing_epoch_index(
+    path: Path,
+    *,
+    run_dir: Path,
+    source_artifacts: Mapping[str, FileArtifact],
+) -> RoutingEpochIndex:
+    if path.is_symlink():
+        raise ExportError("routing_epoch_index_symlink_forbidden")
+    try:
+        resolved = path.resolve(strict=True)
+        resolved_run = run_dir.resolve(strict=True)
+    except OSError as error:
+        raise ExportError("routing_epoch_index_path_invalid") from error
+    if resolved.parent != resolved_run or resolved.name != ROUTING_EPOCH_INDEX_FILENAME:
+        raise ExportError("routing_epoch_index_outside_source_run")
+
+    body, artifact = _read_stable_file(resolved, max_bytes=MAX_ROUTING_EPOCH_INDEX_BYTES)
+    if not body or not body.endswith(b"\n"):
+        raise ExportError("routing_epoch_index_invalid")
+    lines = body.splitlines(keepends=True)
+    if any(not line.endswith(b"\n") or not line.strip() for line in lines):
+        raise ExportError("routing_epoch_index_invalid")
+    header = _parse_json_object(lines[0], "routing_epoch_index_header_invalid")
+    if set(header) != {
+        "schema_version",
+        "kind",
+        "results_sha256",
+        "transition_sha256",
+        "row_count",
+    }:
+        raise ExportError("routing_epoch_index_header_invalid")
+    row_count = header.get("row_count")
+    if (
+        isinstance(header.get("schema_version"), bool)
+        or not isinstance(header.get("schema_version"), int)
+        or header["schema_version"] != 1
+        or header.get("kind") != ROUTING_EPOCH_INDEX_KIND
+        or not _valid_sha256(header.get("results_sha256"))
+        or not _valid_sha256(header.get("transition_sha256"))
+        or isinstance(row_count, bool)
+        or not isinstance(row_count, int)
+        or row_count < 0
+        or len(lines) != row_count + 1
+    ):
+        raise ExportError("routing_epoch_index_header_invalid")
+
+    row_sha256: list[str] = []
+    routing_epochs: list[int] = []
+    for expected_row, raw_line in enumerate(lines[1:]):
+        record = _parse_json_object(raw_line, "routing_epoch_index_record_invalid")
+        if set(record) != {"row", "row_sha256", "routing_epoch"}:
+            raise ExportError("routing_epoch_index_record_invalid")
+        row = record.get("row")
+        epoch = record.get("routing_epoch")
+        digest = record.get("row_sha256")
+        if (
+            isinstance(row, bool)
+            or not isinstance(row, int)
+            or row != expected_row
+            or not _valid_sha256(digest)
+            or isinstance(epoch, bool)
+            or not isinstance(epoch, int)
+            or epoch not in {1, 2}
+        ):
+            raise ExportError("routing_epoch_index_record_invalid")
+        row_sha256.append(digest)
+        routing_epochs.append(epoch)
+    if len(row_sha256) != len(set(row_sha256)):
+        raise ExportError("routing_epoch_index_duplicate_row_hash")
+
+    transition_path = resolved_run / ROUTING_TRANSITION_FILENAME
+    transition_body, transition_artifact = _read_stable_file(
+        transition_path,
+        max_bytes=MAX_ROUTING_TRANSITION_BYTES,
+    )
+    transition = _parse_json_object(transition_body, "routing_transition_invalid")
+    if (
+        set(transition)
+        != {
+            "schema_version",
+            "kind",
+            "source",
+            "resume_plan",
+            "from_router",
+            "to_router",
+            "child",
+        }
+        or not isinstance(transition.get("source"), dict)
+        or isinstance(transition.get("schema_version"), bool)
+        or not isinstance(transition.get("schema_version"), int)
+        or transition["schema_version"] != 1
+        or transition.get("kind") != ROUTING_TRANSITION_KIND
+        or transition_artifact.sha256 != header["transition_sha256"]
+    ):
+        raise ExportError("routing_transition_mismatch")
+
+    source = transition["source"]
+    resume_plan = transition.get("resume_plan")
+    from_router = transition.get("from_router")
+    to_router = transition.get("to_router")
+    child = transition.get("child")
+    source_hash_fields = (
+        "config_sha256",
+        "inputs_manifest_sha256",
+        "provenance_sha256",
+        "results_sha256",
+        "direct_workers_sha256",
+    )
+    source_revision_fields = ("prime_rl", "verifiers", "renderers")
+    resume_integer_fields = (
+        "retained_results_size_bytes",
+        "retained_row_count",
+        "owed_rollout_count",
+    )
+    if (
+        set(source)
+        != {
+            "canonical_path",
+            "slurm_job_id",
+            "prime_rl",
+            "verifiers",
+            "renderers",
+            "config_sha256",
+            "inputs_manifest_sha256",
+            "provenance_sha256",
+            "results_sha256",
+            "results_size_bytes",
+            "direct_workers_sha256",
+        }
+        or any(not _valid_sha256(source.get(key)) for key in source_hash_fields)
+        or any(not _valid_git_sha(source.get(key)) for key in source_revision_fields)
+        or not isinstance(source.get("canonical_path"), str)
+        or not Path(source["canonical_path"]).is_absolute()
+        or source["canonical_path"] == str(resolved_run)
+        or not isinstance(source.get("slurm_job_id"), str)
+        or not source["slurm_job_id"].isdigit()
+        or source["slurm_job_id"].startswith("0")
+        or isinstance(source.get("results_size_bytes"), bool)
+        or not isinstance(source.get("results_size_bytes"), int)
+        or source["results_size_bytes"] < 0
+        or not isinstance(resume_plan, dict)
+        or set(resume_plan)
+        != {
+            "retained_results_sha256",
+            "retained_results_size_bytes",
+            "retained_row_count",
+            "owed_rollout_count",
+            "epoch1_row_hashes_sha256",
+        }
+        or not _valid_sha256(resume_plan.get("retained_results_sha256"))
+        or not _valid_sha256(resume_plan.get("epoch1_row_hashes_sha256"))
+        or any(
+            isinstance(resume_plan.get(key), bool) or not isinstance(resume_plan.get(key), int) or resume_plan[key] < 0
+            for key in resume_integer_fields
+        )
+        or resume_plan["owed_rollout_count"] < 1
+        or not isinstance(from_router, dict)
+        or isinstance(from_router.get("manifest_schema_version"), bool)
+        or not isinstance(from_router.get("manifest_schema_version"), int)
+        or from_router
+        != {
+            "manifest_schema_version": 1,
+            "policy": "round_robin",
+            "request_id_headers": [],
+        }
+        or not isinstance(to_router, dict)
+        or set(to_router)
+        != {
+            "manifest_schema_version",
+            "policy",
+            "request_id_headers",
+            "spec_sha256",
+            "endpoint_bundle_sha256",
+            "direct_workers_sha256",
+        }
+        or isinstance(to_router.get("manifest_schema_version"), bool)
+        or not isinstance(to_router.get("manifest_schema_version"), int)
+        or to_router.get("manifest_schema_version") != 2
+        or to_router.get("policy") != "consistent_hash"
+        or to_router.get("request_id_headers") != ["x-session-id"]
+        or not _valid_sha256(to_router.get("spec_sha256"))
+        or not _valid_sha256(to_router.get("endpoint_bundle_sha256"))
+        or not _valid_sha256(to_router.get("direct_workers_sha256"))
+        or not isinstance(child, dict)
+        or set(child)
+        != {
+            "canonical_path",
+            "routing_epoch",
+            "config_sha256",
+            "source_config_sha256",
+            "inputs_manifest_sha256",
+        }
+        or child.get("canonical_path") != str(resolved_run)
+        or isinstance(child.get("routing_epoch"), bool)
+        or not isinstance(child.get("routing_epoch"), int)
+        or child.get("routing_epoch") != 2
+        or child.get("config_sha256") != source_artifacts["config.toml"].sha256
+        or child.get("source_config_sha256") != source_artifacts["inputs/source_config.toml"].sha256
+        or child.get("inputs_manifest_sha256") != source_artifacts["inputs/manifest.json"].sha256
+    ):
+        raise ExportError("routing_transition_invalid")
+
+    direct_workers_body, direct_workers_artifact = _read_stable_file(
+        resolved_run / DIRECT_WORKERS_FILENAME,
+        max_bytes=MAX_ROUTING_TRANSITION_BYTES,
+    )
+    _parse_json_object(direct_workers_body, "routing_direct_workers_invalid")
+    if direct_workers_artifact.sha256 != to_router["direct_workers_sha256"]:
+        raise ExportError("routing_direct_workers_hash_mismatch")
+
+    epoch1_rows_body, epoch1_rows_artifact = _read_stable_file(
+        resolved_run / ROUTING_EPOCH1_ROWS_FILENAME,
+        max_bytes=MAX_ROUTING_EPOCH_INDEX_BYTES,
+    )
+    if epoch1_rows_artifact.sha256 != resume_plan["epoch1_row_hashes_sha256"]:
+        raise ExportError("routing_epoch1_rows_hash_mismatch")
+    if epoch1_rows_body and not epoch1_rows_body.endswith(b"\n"):
+        raise ExportError("routing_epoch1_rows_invalid")
+    try:
+        epoch1_row_hashes = epoch1_rows_body.decode("ascii").splitlines()
+    except UnicodeDecodeError as error:
+        raise ExportError("routing_epoch1_rows_invalid") from error
+    if (
+        any(not _valid_sha256(digest) for digest in epoch1_row_hashes)
+        or len(epoch1_row_hashes) != len(set(epoch1_row_hashes))
+        or len(epoch1_row_hashes) != resume_plan["retained_row_count"]
+    ):
+        raise ExportError("routing_epoch1_rows_invalid")
+    expected_epoch1 = set(epoch1_row_hashes)
+    observed_epoch1 = {digest for digest, epoch in zip(row_sha256, routing_epochs, strict=True) if epoch == 1}
+    if observed_epoch1 != expected_epoch1:
+        raise ExportError("routing_epoch_index_classification_mismatch")
+
+    provenance_body, observed_provenance_artifact = _read_stable_file(resolved_run / "provenance.txt")
+    if observed_provenance_artifact != source_artifacts["provenance.txt"]:
+        raise ExportError("source_provenance_changed")
+    try:
+        provenance_lines = provenance_body.decode("utf-8").splitlines()
+    except UnicodeDecodeError as error:
+        raise ExportError("source_provenance_invalid") from error
+    transition_markers = [
+        value
+        for line in provenance_lines
+        for key, separator, value in (line.partition("="),)
+        if separator and key == "qwen_router_transition_sha256"
+    ]
+    if transition_markers != [header["transition_sha256"]]:
+        raise ExportError("routing_transition_provenance_mismatch")
+    routing_epoch_markers = [
+        value
+        for line in provenance_lines
+        for key, separator, value in (line.partition("="),)
+        if separator and key == "qwen_router_epoch"
+    ]
+    if routing_epoch_markers != ["2"]:
+        raise ExportError("routing_transition_provenance_mismatch")
+
+    return RoutingEpochIndex(
+        artifact=artifact,
+        direct_workers_artifact=direct_workers_artifact,
+        epoch1_rows_artifact=epoch1_rows_artifact,
+        transition_artifact=transition_artifact,
+        results_sha256=header["results_sha256"],
+        transition_sha256=header["transition_sha256"],
+        row_sha256=tuple(row_sha256),
+        routing_epochs=tuple(routing_epochs),
+    )
 
 
 def _reasoning_text(message: Mapping[str, Any]) -> str | None:
@@ -598,6 +916,7 @@ def _target_rows(
     task_sha256: str,
     reward: float,
     tools: list[dict[str, Any]],
+    routing_epoch: int | None,
 ) -> Iterator[dict[str, Any]]:
     raw_nodes = trace.get("nodes")
     if not isinstance(raw_nodes, list) or not all(isinstance(node, dict) for node in raw_nodes):
@@ -616,7 +935,7 @@ def _target_rows(
             or sum(message.get("trainable") is True for message in messages) != 1
         ):
             raise ExportError("target_message_invalid")
-        yield {
+        row = {
             "assistant_target_count": 1,
             "history_reasoning_policy": "strip_all_prior_assistant_reasoning",
             "is_correct": reward > 0,
@@ -633,6 +952,9 @@ def _target_rows(
             "task_id": task_sha256,
             "tools": tools,
         }
+        if routing_epoch is not None:
+            row["routing_epoch"] = routing_epoch
+        yield row
 
 
 def _trace_reward(trace: dict[str, Any]) -> float:
@@ -701,8 +1023,22 @@ def export_sft(options: ExportOptions) -> dict[str, Any]:
     output_parent = options.output_dir.parent
     output_parent.mkdir(parents=True, exist_ok=True)
 
-    with _hold_source_writer_lock(run_dir):
+    with _hold_source_locks(
+        run_dir,
+        require_router_lock=options.routing_epoch_index is not None,
+    ):
         source_artifacts, config_summary = _validate_run_provenance(run_dir, options.max_sequence_tokens)
+        routing_index: RoutingEpochIndex | None = None
+        if options.routing_epoch_index is not None:
+            routing_index = _load_routing_epoch_index(
+                options.routing_epoch_index,
+                run_dir=run_dir,
+                source_artifacts=source_artifacts,
+            )
+            source_artifacts[ROUTING_EPOCH_INDEX_FILENAME] = routing_index.artifact
+            source_artifacts[DIRECT_WORKERS_FILENAME] = routing_index.direct_workers_artifact
+            source_artifacts[ROUTING_EPOCH1_ROWS_FILENAME] = routing_index.epoch1_rows_artifact
+            source_artifacts[ROUTING_TRANSITION_FILENAME] = routing_index.transition_artifact
         source, source_before = _open_regular(options.results)
         temporary = Path(tempfile.mkdtemp(prefix=f".{options.output_dir.name}.", dir=output_parent))
         published = False
@@ -725,6 +1061,15 @@ def export_sft(options: ExportOptions) -> dict[str, Any]:
                     raise ExportError("results_jsonl_unterminated")
                 if not raw_line.strip():
                     raise ExportError("results_jsonl_blank_line")
+                source_trace_sha256 = hashlib.sha256(raw_line).hexdigest()
+                routing_epoch: int | None = None
+                if routing_index is not None:
+                    if source_trace_index >= len(routing_index.row_sha256):
+                        raise ExportError("routing_epoch_index_row_count_mismatch")
+                    if routing_index.row_sha256[source_trace_index] != source_trace_sha256:
+                        raise ExportError("routing_epoch_index_row_hash_mismatch")
+                    routing_epoch = routing_index.routing_epochs[source_trace_index]
+                    counts[f"routing_epoch_{routing_epoch}_input_traces"] += 1
                 try:
                     trace = json.loads(raw_line)
                 except (UnicodeDecodeError, json.JSONDecodeError) as error:
@@ -741,7 +1086,6 @@ def export_sft(options: ExportOptions) -> dict[str, Any]:
                 if trace_id_sha256 in seen_trace_ids:
                     raise ExportError("duplicate_trace_id")
                 seen_trace_ids.add(trace_id_sha256)
-                source_trace_sha256 = hashlib.sha256(raw_line).hexdigest()
                 if source_trace_sha256 in seen_source_rows:
                     raise ExportError("duplicate_trace_row")
                 seen_source_rows.add(source_trace_sha256)
@@ -799,6 +1143,7 @@ def export_sft(options: ExportOptions) -> dict[str, Any]:
                     task_sha256=task_sha256,
                     reward=reward,
                     tools=tools,
+                    routing_epoch=routing_epoch,
                 ):
                     sinks[split].write(row)
                     emitted += 1
@@ -809,11 +1154,20 @@ def export_sft(options: ExportOptions) -> dict[str, Any]:
                 counts["emitted_rows"] += emitted
                 counts[f"{split}_traces"] += 1
                 counts[f"{split}_rows"] += emitted
+                if routing_epoch is not None:
+                    counts[f"routing_epoch_{routing_epoch}_selected_traces"] += 1
+                    counts[f"routing_epoch_{routing_epoch}_emitted_rows"] += emitted
                 split_trace_indices[split] += 1
 
             source_after = os.fstat(source.fileno())
             if not _same_file(source_before, source_after):
                 raise ExportError("results_jsonl_changed")
+            results_sha256 = source_digest.hexdigest()
+            if routing_index is not None:
+                if counts["input_traces"] != len(routing_index.row_sha256):
+                    raise ExportError("routing_epoch_index_row_count_mismatch")
+                if results_sha256 != routing_index.results_sha256:
+                    raise ExportError("routing_epoch_index_results_hash_mismatch")
             if options.expected_count is not None and counts["input_traces"] != options.expected_count:
                 raise ExportError("input_trace_count_mismatch")
             if counts["selected_traces"] == 0:
@@ -827,7 +1181,7 @@ def export_sft(options: ExportOptions) -> dict[str, Any]:
             validation_sink = None
             source_artifacts["results.jsonl"] = FileArtifact(
                 bytes=source_after.st_size,
-                sha256=source_digest.hexdigest(),
+                sha256=results_sha256,
             )
             task_split = {
                 "format_version": FORMAT_VERSION,
@@ -870,6 +1224,22 @@ def export_sft(options: ExportOptions) -> dict[str, Any]:
                     "validation_permyriad": options.validation_permyriad,
                 },
             }
+            if routing_index is not None:
+                manifest["routing_epochs"] = {
+                    "emitted_rows": {
+                        "1": counts["routing_epoch_1_emitted_rows"],
+                        "2": counts["routing_epoch_2_emitted_rows"],
+                    },
+                    "epoch1_row_hashes_sha256": routing_index.epoch1_rows_artifact.sha256,
+                    "index_sha256": routing_index.artifact.sha256,
+                    "input_traces": {
+                        "1": counts["routing_epoch_1_input_traces"],
+                        "2": counts["routing_epoch_2_input_traces"],
+                    },
+                    "results_sha256": routing_index.results_sha256,
+                    "row_mapping": "one unique SHA-256 mapping per physical results.jsonl row",
+                    "transition_sha256": routing_index.transition_sha256,
+                }
             _write_json(temporary / "manifest.json", manifest)
             _fsync_dir(temporary / "train")
             _fsync_dir(temporary / "validation")
@@ -879,7 +1249,7 @@ def export_sft(options: ExportOptions) -> dict[str, Any]:
             os.replace(temporary, options.output_dir)
             _fsync_dir(output_parent)
             published = True
-            return {
+            summary = {
                 "excluded_error_traces": counts["excluded_error_traces"],
                 "input_traces": counts["input_traces"],
                 "output_sha256": {
@@ -896,6 +1266,12 @@ def export_sft(options: ExportOptions) -> dict[str, Any]:
                 "selection": options.selection,
                 "status": "exported",
             }
+            if routing_index is not None:
+                summary["routing_epoch_rows"] = {
+                    "1": counts["routing_epoch_1_emitted_rows"],
+                    "2": counts["routing_epoch_2_emitted_rows"],
+                }
+            return summary
         finally:
             source.close()
             for sink in (train_sink, validation_sink):
@@ -914,6 +1290,11 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--validation-permyriad", type=int, default=DEFAULT_VALIDATION_PERMYRIAD)
     parser.add_argument("--split-salt", default=DEFAULT_SPLIT_SALT)
     parser.add_argument("--max-sequence-tokens", type=int, default=DEFAULT_MAX_SEQUENCE_TOKENS)
+    parser.add_argument(
+        "--routing-epoch-index",
+        type=Path,
+        help="strictly validate and consume a final qwen_router_epochs.jsonl from the source run",
+    )
     return parser.parse_args(argv)
 
 
@@ -927,6 +1308,7 @@ def main(argv: list[str] | None = None) -> int:
         validation_permyriad=args.validation_permyriad,
         split_salt=args.split_salt,
         max_sequence_tokens=args.max_sequence_tokens,
+        routing_epoch_index=args.routing_epoch_index,
     )
     try:
         summary = export_sft(options)

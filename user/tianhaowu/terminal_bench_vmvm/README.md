@@ -573,9 +573,30 @@ uv run --project user/tianhaowu/terminal_bench_vmvm \
   --expected-count 2500
 ```
 
+For a migrated Qwen run, create its final routing-epoch index only after the
+last evaluator job is terminal, then consume it explicitly:
+
+```bash
+uv run --project user/tianhaowu/terminal_bench_vmvm \
+  python user/tianhaowu/terminal_bench_vmvm/export_sft.py \
+  /path/to/migrated-run/results.jsonl \
+  --output-dir /path/to/new/sft-dataset \
+  --selection pass-only \
+  --expected-count 2500 \
+  --routing-epoch-index /path/to/migrated-run/qwen_router_epochs.jsonl
+```
+
+With that option, the exporter requires an exact one-to-one row-hash mapping,
+binds the full results, index, transition, active router manifest, and
+transition-anchored epoch-1 hash list, and verifies each epoch label against
+that anchored set. Every emitted SFT row and the aggregate manifest carry its
+routing epoch. Omit the option for a non-migrated run; no routing-epoch field is
+then added.
+
 Use `--selection all-outcomes` only when failed trajectories are intentionally
-part of the training recipe. The exporter refuses a held evaluator writer lock,
-an existing output, provenance drift, malformed or errored selected traces,
+part of the training recipe. The exporter refuses held evaluator or
+direct-router locks, an existing output, provenance drift, and malformed or
+errored selected traces,
 missing reasoning/model I/O/usage, request or response hash corruption, and a
 provider-reported sequence over 262,144 tokens. It validates the retained
 assistant message and usage against each captured provider response.
