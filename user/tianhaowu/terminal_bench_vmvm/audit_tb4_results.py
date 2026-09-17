@@ -678,12 +678,20 @@ def _validate_deployment_checkpoints(
     identity: dict[str, Any],
     endpoint: dict[str, Any],
     *,
-    expected_routes: int,
-    expected_rollout_concurrency: int,
-    expected_lease_start_concurrency: int,
+    expected_routes: int = EXPECTED_ROUTES_BY_ROLLOUT_CONCURRENCY[
+        EXPECTED_TB4_ROLLOUT_CONCURRENCY
+    ],
+    expected_rollout_concurrency: int = EXPECTED_TB4_ROLLOUT_CONCURRENCY,
+    expected_lease_start_concurrency: int = EXPECTED_TB4_LEASE_START_CONCURRENCY,
 ) -> tuple[tuple[Path, str], tuple[Path, str]]:
     """Revalidate readiness and smoke through the shared qualification gate."""
 
+    if (
+        expected_lease_start_concurrency != EXPECTED_TB4_LEASE_START_CONCURRENCY
+        or EXPECTED_ROUTES_BY_ROLLOUT_CONCURRENCY.get(expected_rollout_concurrency)
+        != expected_routes
+    ):
+        raise TB4AuditError("tb4_concurrency_policy_invalid")
     deployment = identity.get("deployment")
     contract = identity.get("contract")
     if not isinstance(deployment, dict) or not isinstance(contract, dict):
@@ -725,19 +733,29 @@ def _validate_deployment_checkpoints(
         )
     except (KeyError, TypeError, SmokeQualificationError) as error:
         raise TB4AuditError("smoke_checkpoint_not_passed") from error
-    source_smoke_payload = _read_json_object(
-        evidence.source_smoke.path,
-        label="source_smoke_checkpoint",
-    )
-    _validate_smoke_concurrency(
-        source_smoke_payload,
-        expected_rollout_concurrency=expected_rollout_concurrency,
-        expected_lease_start_concurrency=expected_lease_start_concurrency,
-    )
     if (
-        _sha256_file(evidence.source_smoke.path, label="source_smoke_checkpoint")
-        != evidence.source_smoke.sha256
-        or evidence.target_generation != deployment.get("serving_route_generation")
+        expected_rollout_concurrency,
+        expected_lease_start_concurrency,
+    ) != (
+        EXPECTED_TB4_ROLLOUT_CONCURRENCY,
+        EXPECTED_TB4_LEASE_START_CONCURRENCY,
+    ):
+        source_smoke_payload = _read_json_object(
+            evidence.source_smoke.path,
+            label="source_smoke_checkpoint",
+        )
+        _validate_smoke_concurrency(
+            source_smoke_payload,
+            expected_rollout_concurrency=expected_rollout_concurrency,
+            expected_lease_start_concurrency=expected_lease_start_concurrency,
+        )
+        if (
+            _sha256_file(evidence.source_smoke.path, label="source_smoke_checkpoint")
+            != evidence.source_smoke.sha256
+        ):
+            raise TB4AuditError("smoke_checkpoint_endpoint_mismatch")
+    if (
+        evidence.target_generation != deployment.get("serving_route_generation")
         or len(evidence.target_generation["routes"]) != expected_routes
     ):
         raise TB4AuditError("smoke_checkpoint_endpoint_mismatch")

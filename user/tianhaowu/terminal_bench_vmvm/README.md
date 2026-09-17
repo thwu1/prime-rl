@@ -412,7 +412,9 @@ including each shard certification, requires the bound smoke checkpoint to
 qualify exactly 24 rollout, multiplex, and HTTP slots with two lease starts,
 and to observe peaks of exactly 24 active rollouts and two lease starts across
 at least 24 traces. The shared 4/2 lane keeps its existing two-task
-transcript-smoke policy.
+transcript-smoke policy. For a schema-2 generation bridge, the exact 24/2
+evidence is revalidated from its immutable source smoke while the bridge must
+bind the current 24-route generation.
 
 ### Two-worker direct fallback
 
