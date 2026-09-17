@@ -1,6 +1,6 @@
 # VMVM sandbox coordination
 
-Last updated: 2026-09-17 16:14 UTC
+Last updated: 2026-09-17 16:20 UTC
 
 ## First message to the next teammate
 
@@ -51,7 +51,13 @@ Add new rows below this line; do not overwrite another owner's row.
   green. A fresh shared cache window recovered to 75.60%; earlier sub-gate
   windows remain unattributable under >80% external traffic. Continue the run
   and alert on final/clustered infrastructure failures, not recovered retry
-  history alone.
+  history alone. Aggregate log ordinals show 41 logical rollouts used at least
+  one tunnel retry and 13 used both retry allowances, a conservative 16.7%
+  cumulative review trigger, but notices were then quiet for more than 30
+  minutes while 22 rows completed. If retry bursts recur with throughput or
+  lease degradation, the relevant future throttle is task concurrency 64 to
+  32; provider admission 32 and lease-start 2 do not govern reverse-tunnel
+  creation. No current stop threshold is met.
 
 - **2026-09-17 15:30 UTC, use2-1 Qwen shared-metric attribution:** cap-32
   job `1454171` remains live and reached 405 durable rows. Epoch 3 has 146
