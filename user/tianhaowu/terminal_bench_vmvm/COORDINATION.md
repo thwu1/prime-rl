@@ -48,7 +48,8 @@ Add new rows below this line; do not overwrite another owner's row.
   terminal at 03:56 UTC, with 1,686 valid and 40 non-valid. Its initial-run
   ceiling is therefore 2,498, so the immutable run must finish before the one
   permitted same-identity `RERUN_INVALID=1` recovery. Retry-lineage promotion
-  and launch-certificate hardening now passes all 374 workflow tests plus Ruff.
+  and launch-certificate hardening is pushed at `04c792c2d`; all 374 workflow
+  tests plus Ruff pass.
 
 - **2026-09-17 03:18 UTC, use2-3 oracle budget warning:** immutable oracle
   `1737160` had 1,387/2,538 terminal rows, 1,355 valid, 26 ordinary invalid,
