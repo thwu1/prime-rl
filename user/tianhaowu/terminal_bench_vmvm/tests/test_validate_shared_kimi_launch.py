@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
+import subprocess
 import sys
 from pathlib import Path
 from typing import Mapping
@@ -11,17 +13,34 @@ import pytest
 SERVER_DIR = Path(__file__).parents[1] / "configs" / "eval" / "servers" / "cpu-132-021_8103"
 sys.path.insert(0, str(SERVER_DIR))
 
+import validate_launch as validate_launch_module  # noqa: E402
 from validate_launch import (  # noqa: E402
     EXPECTED_CONFIG_FILE,
+    EXPECTED_CONFIG_SHA256,
     EXPECTED_HTTP_CONCURRENCY,
+    EXPECTED_PYDANTIC_CONFIG_REVISION,
+    EXPECTED_RENDERERS_REVISION,
     EXPECTED_ROLLOUT_CONCURRENCY,
     EXPECTED_ROUTES,
+    EXPECTED_VERIFIERS_REVISION,
     EXPECTED_WAITING_REQUESTS,
+    PROFILES,
+    TB4_CONFIG_FILE,
+    TB4_CONFIG_SHA256,
+    TB4_DATASET_DIRECTORY_COUNT,
+    TB4_DATASET_FILE_COUNT,
+    TB4_DATASET_TREE_SHA256,
     HttpResponse,
     ProxyMetadata,
     SharedKimiValidationError,
+    _dataset_tree_identity,
+    _expected_resolved_config,
+    _require_clean_git_worktree,
+    _validate_common_eval_contract,
     validate_deployment,
     validate_eval_config,
+    validate_resume,
+    validate_resume_location,
     validate_runtime_metadata,
 )
 
@@ -91,6 +110,104 @@ def _deployment(tmp_path: Path) -> tuple[Path, Path, str, str]:
             )
         )
     return root, proxy_info, hashlib.sha256(spec).hexdigest(), proxy_url
+
+
+def _toml_scalar(value: object) -> str:
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    if isinstance(value, str):
+        return json.dumps(value)
+    if isinstance(value, (int, float)):
+        return repr(value)
+    if isinstance(value, list):
+        return "[" + ", ".join(_toml_scalar(item) for item in value) + "]"
+    raise AssertionError(f"unsupported fixture value: {type(value).__name__}")
+
+
+def _toml_document(value: Mapping[str, object]) -> str:
+    lines: list[str] = []
+
+    def render(table: Mapping[str, object], prefix: str) -> None:
+        if prefix:
+            lines.append(f"[{prefix}]")
+        for key, item in table.items():
+            if not isinstance(item, dict):
+                lines.append(f"{key} = {_toml_scalar(item)}")
+        lines.append("")
+        for key, item in table.items():
+            if isinstance(item, dict):
+                render(item, f"{prefix}.{key}" if prefix else key)
+
+    render(value, "")
+    return "\n".join(lines)
+
+
+def _resume_fixture(tmp_path: Path, *, profile_name: str = "mobius") -> tuple[Path, Path, ProxyMetadata]:
+    project = Path(__file__).resolve().parents[4]
+    profile = PROFILES[profile_name]
+    resume = (tmp_path / "resume").resolve()
+    inputs = resume / "inputs"
+    inputs.mkdir(parents=True)
+
+    source_config = project / profile.config_file
+    source_snapshot = inputs / "source_config.toml"
+    source_snapshot.write_bytes(source_config.read_bytes())
+    task_source = project / profile.task_file
+    task_snapshot = inputs / "task_file.txt"
+    task_snapshot.write_bytes(task_source.read_bytes())
+
+    manifest: dict[str, dict[str, str]] = {
+        "config": {
+            "source": str(source_config),
+            "snapshot": str(source_snapshot),
+            "sha256": profile.config_sha256,
+        },
+        "task_file": {
+            "source": str(task_source),
+            "snapshot": str(task_snapshot),
+            "sha256": profile.task_sha256,
+        },
+    }
+    if profile.image_manifest is not None and profile.image_sha256 is not None:
+        image_source = Path(profile.image_manifest)
+        image_snapshot = inputs / "image_manifest.json"
+        image_snapshot.write_bytes(image_source.read_bytes())
+        manifest["image_manifest"] = {
+            "source": str(image_source),
+            "snapshot": str(image_snapshot),
+            "sha256": profile.image_sha256,
+        }
+    (inputs / "manifest.json").write_text(json.dumps(manifest))
+    (resume / "config.toml").write_text(_toml_document(_expected_resolved_config(profile, resume)))
+
+    project_revision = subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        cwd=project,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+    proxy = ProxyMetadata(
+        url="http://cpu-132-021:8103",
+        api_key="test-secret-key",
+        proxy_info_sha256="a" * 64,
+    )
+    provenance = {
+        "prime_rl": project_revision,
+        "verifiers": EXPECTED_VERIFIERS_REVISION,
+        "renderers": EXPECTED_RENDERERS_REVISION,
+        "pydantic_config": EXPECTED_PYDANTIC_CONFIG_REVISION,
+        "eval_config_sha256": profile.config_sha256,
+        "inference_base_url": "http://cpu-132-021:8103/v1",
+        "inference_deployment_id": "",
+        "inference_proxy_info_sha256": proxy.proxy_info_sha256,
+        "dataset_tree_sha256": profile.dataset_tree_sha256 or "",
+        "slurm_job_id": "12345",
+        "approval_task_file_sha256": profile.task_sha256,
+        "approval_task_count": str(profile.task_count),
+    }
+    (resume / "provenance.txt").write_text("".join(f"{key}={value}\n" for key, value in provenance.items()))
+    return project, resume, proxy
 
 
 def test_shared_kimi_deployment_and_runtime_metadata_pass(tmp_path: Path) -> None:
@@ -177,3 +294,223 @@ def test_production_eval_config_matches_shared24_contract() -> None:
     project = Path(__file__).parents[4]
 
     validate_eval_config(project, project / EXPECTED_CONFIG_FILE)
+    validate_eval_config(project, project / TB4_CONFIG_FILE, "tb4")
+    assert hashlib.sha256((project / EXPECTED_CONFIG_FILE).read_bytes()).hexdigest() == EXPECTED_CONFIG_SHA256
+    assert hashlib.sha256((project / TB4_CONFIG_FILE).read_bytes()).hexdigest() == TB4_CONFIG_SHA256
+    expected_submodules = {
+        "deps/verifiers": EXPECTED_VERIFIERS_REVISION,
+        "deps/renderers": EXPECTED_RENDERERS_REVISION,
+        "deps/pydantic-config": EXPECTED_PYDANTIC_CONFIG_REVISION,
+    }
+    for path, expected_revision in expected_submodules.items():
+        actual_revision = subprocess.run(
+            ["git", "rev-parse", f"HEAD:{path}"],
+            cwd=project,
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout.strip()
+        assert actual_revision == expected_revision
+    tree_identity = _dataset_tree_identity(Path(PROFILES["tb4"].dataset_dir))
+    assert tree_identity == (
+        TB4_DATASET_TREE_SHA256,
+        TB4_DATASET_FILE_COUNT,
+        TB4_DATASET_DIRECTORY_COUNT,
+    )
+
+
+def test_dataset_tree_identity_includes_permission_mode_bits(tmp_path: Path) -> None:
+    dataset = tmp_path / "dataset"
+    dataset.mkdir(mode=0o755)
+    payload = dataset / "payload"
+    payload.write_bytes(b"same content\n")
+    payload.chmod(0o644)
+    initial = _dataset_tree_identity(dataset)
+
+    payload.chmod(0o755)
+    changed = _dataset_tree_identity(dataset)
+
+    assert initial[1:] == changed[1:] == (1, 0)
+    assert initial[0] != changed[0]
+
+
+def test_clean_git_worktree_rejects_untracked_files(tmp_path: Path) -> None:
+    checkout = tmp_path / "dataset"
+    checkout.mkdir()
+    subprocess.run(["git", "init", "-q"], cwd=checkout, check=True)
+    (checkout / "tracked").write_text("pinned\n")
+    subprocess.run(["git", "add", "tracked"], cwd=checkout, check=True)
+    subprocess.run(
+        ["git", "-c", "user.name=test", "-c", "user.email=test@example.invalid", "commit", "-qm", "fixture"],
+        cwd=checkout,
+        check=True,
+    )
+
+    _require_clean_git_worktree(checkout, git_code="git_invalid", dirty_code="dataset_worktree_dirty")
+    (checkout / "untracked").write_text("drift\n")
+
+    with pytest.raises(SharedKimiValidationError, match="^dataset_worktree_dirty$"):
+        _require_clean_git_worktree(checkout, git_code="git_invalid", dirty_code="dataset_worktree_dirty")
+
+
+def test_resume_location_is_pinned_to_server_profile_lane(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    output_root = tmp_path / "evals"
+    output_root.mkdir()
+    profile = PROFILES["mobius"]
+    valid = output_root / f"{profile.default_output_prefix}12345"
+    valid.mkdir()
+    monkeypatch.setattr(validate_launch_module, "EVAL_OUTPUT_ROOT", output_root)
+
+    assert validate_resume_location(valid, profile) == valid
+
+    outside = tmp_path / valid.name
+    outside.mkdir()
+    with pytest.raises(SharedKimiValidationError, match="^resume_directory_outside_lane$"):
+        validate_resume_location(outside, profile)
+
+    wrong_profile = output_root / f"{PROFILES['tb4'].default_output_prefix}12345"
+    wrong_profile.mkdir()
+    with pytest.raises(SharedKimiValidationError, match="^resume_directory_name_mismatch$"):
+        validate_resume_location(wrong_profile, profile)
+
+
+@pytest.mark.parametrize("profile_name", ["mobius", "tb4"])
+def test_resume_contract_accepts_exact_saved_state(tmp_path: Path, profile_name: str) -> None:
+    project, resume, proxy = _resume_fixture(tmp_path, profile_name=profile_name)
+
+    assert validate_resume(project, resume, profile_name, proxy) == resume
+
+
+@pytest.mark.parametrize(
+    ("path", "replacement"),
+    [
+        (("num_rollouts",), True),
+        (("taskset", "use_declared_images"), 1),
+        (("sampling", "temperature"), True),
+    ],
+)
+def test_resolved_config_comparison_is_type_exact(
+    tmp_path: Path,
+    path: tuple[str, ...],
+    replacement: object,
+) -> None:
+    resume = (tmp_path / "resume").resolve()
+    resume.mkdir()
+    profile = PROFILES["mobius"]
+    config = _expected_resolved_config(profile, resume)
+    target = config
+    for key in path[:-1]:
+        target = target[key]
+    target[path[-1]] = replacement
+
+    with pytest.raises(SharedKimiValidationError, match="^resume_config_contract_mismatch$"):
+        _validate_common_eval_contract(config, profile, resolved=True, resume_dir=resume)
+
+
+@pytest.mark.parametrize(
+    ("mutation", "error"),
+    [
+        ("saved_config", "resume_config_contract_mismatch"),
+        ("source_config", "resume_source_config_hash_mismatch"),
+        ("task_snapshot", "resume_task_snapshot_hash_mismatch"),
+        ("image_snapshot", "resume_image_snapshot_hash_mismatch"),
+        ("manifest", "resume_task_file_record_hash_mismatch"),
+        ("manifest_source", "resume_task_file_source_path_mismatch"),
+        (
+            "provenance",
+            "resume_provenance_inference_proxy_info_sha256_mismatch",
+        ),
+    ],
+)
+def test_resume_contract_rejects_drift(tmp_path: Path, mutation: str, error: str) -> None:
+    project, resume, proxy = _resume_fixture(tmp_path)
+    if mutation == "saved_config":
+        with (resume / "config.toml").open("a") as handle:
+            handle.write("unexpected = true\n")
+    elif mutation == "source_config":
+        with (resume / "inputs" / "source_config.toml").open("ab") as handle:
+            handle.write(b"\n# changed\n")
+    elif mutation == "task_snapshot":
+        with (resume / "inputs" / "task_file.txt").open("ab") as handle:
+            handle.write(b"\n")
+    elif mutation == "image_snapshot":
+        with (resume / "inputs" / "image_manifest.json").open("ab") as handle:
+            handle.write(b"\n")
+    elif mutation in {"manifest", "manifest_source"}:
+        manifest_path = resume / "inputs" / "manifest.json"
+        manifest = json.loads(manifest_path.read_text())
+        if mutation == "manifest":
+            manifest["task_file"]["sha256"] = "b" * 64
+        else:
+            manifest["task_file"]["source"] = manifest["config"]["source"]
+        manifest_path.write_text(json.dumps(manifest))
+    else:
+        provenance = resume / "provenance.txt"
+        provenance.write_text(
+            provenance.read_text().replace(
+                f"inference_proxy_info_sha256={proxy.proxy_info_sha256}",
+                f"inference_proxy_info_sha256={'b' * 64}",
+            )
+        )
+
+    with pytest.raises(SharedKimiValidationError, match=f"^{error}$"):
+        validate_resume(project, resume, "mobius", proxy)
+
+
+def test_shared_launcher_rejects_ambient_generic_resume(tmp_path: Path) -> None:
+    common = SERVER_DIR / "launch_common.sh"
+    env = {"PATH": os.environ["PATH"], "RESUME_DIR": str(tmp_path / "run")}
+
+    result = subprocess.run(
+        ["bash", str(common), "mobius"],
+        env=env,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 2
+    assert result.stderr == "RESUME_DIR is forbidden for the pinned shared Kimi launcher\n"
+
+
+def test_shared_launcher_rejects_resume_with_output_override(tmp_path: Path) -> None:
+    common = SERVER_DIR / "launch_common.sh"
+    env = {
+        "PATH": os.environ["PATH"],
+        "KIMI_SHARED_RESUME_DIR": str(tmp_path / "run"),
+        "OUTPUT_DIR": str(tmp_path / "output"),
+    }
+
+    result = subprocess.run(
+        ["bash", str(common), "mobius"],
+        env=env,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 2
+    assert result.stderr == "OUTPUT_DIR is forbidden for the pinned shared Kimi launcher\n"
+
+
+def test_shared_launcher_rejects_out_of_lane_resume(tmp_path: Path) -> None:
+    common = SERVER_DIR / "launch_common.sh"
+    resume = tmp_path / "mobius_kimi_k3_shared24_cpu-132-021_8103_12345"
+    resume.mkdir()
+    env = {
+        "PATH": os.environ["PATH"],
+        "PROJECT_DIR": str(Path(__file__).resolve().parents[4]),
+        "SLURM_JOB_ID": "67890",
+        "KIMI_SHARED_RESUME_DIR": str(resume),
+    }
+
+    result = subprocess.run(
+        ["bash", str(common), "mobius"],
+        env=env,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 2
+    assert result.stderr == "KIMI_SHARED_RESUME_DIR does not belong to this server/profile lane\n"
