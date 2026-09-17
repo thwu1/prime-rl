@@ -27,11 +27,11 @@ dispatch_seed = 20260822
 
 [policy]
 model = "nvidia/NVIDIA-Nemotron-3-Super-120B-A12B-BF16"
-deployment_id = "slurm-10913801:model-d51eab0d1f979ebc26b546e634a04f450d99158e:vllm-0.22.0"
+deployment_id = "slurm-10952130:model-d51eab0d1f979ebc26b546e634a04f450d99158e:vllm-0.22.0"
 checkpoint_revision = "d51eab0d1f979ebc26b546e634a04f450d99158e"
 server_version = "0.22.0"
-slurm_job_name = "nemotron-super-swebench-h100"
-slurm_job_id = "10913801"
+slurm_job_name = "gdpval-nemo-super-4x8-h100-high"
+slurm_job_id = "10952130"
 slurm_job_id_env = "GDPVAL_POLICY_JOB_ID"
 base_url_env = "GDPVAL_POLICY_BASE_URL"
 api_key_env = "GDPVAL_POLICY_API_KEY"
@@ -50,8 +50,8 @@ sticky_session_header = "x-session-id"
 
 [judge]
 model = "Kimi-K2.6"
-deployment_id = "shared-kimi26:proxy-job-10643065"
-proxy_jobid = "10643065"
+deployment_id = "shared-kimi26:proxy-job-10955144"
+proxy_jobid = "10955144"
 protocol_checkpoint_revision = "2755962d07cb42aa2d988a35bcb65cd4a9c2de82"
 context_window = 262144
 info_path = "/checkpoint/ram/shared/vllm_deployments_v2/shared-kimi26/proxy_info.json"
@@ -81,8 +81,9 @@ exclude_unsupported_artifacts = true
 terminal_failure_policy = "withhold_headline_elo"
 
 [tools]
-require_brave_search = false
+require_brave_search = true
 web_fetch_trust_env = false
+sft_compatibility_aliases = true
 
 [[references]]
 id = "kimi_k26"
