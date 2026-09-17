@@ -1,6 +1,6 @@
 # VMVM sandbox coordination
 
-Last updated: 2026-09-17 02:07 UTC
+Last updated: 2026-09-17 02:40 UTC
 
 ## First message to the next teammate
 
@@ -39,6 +39,31 @@ this shared branch again.
 Add new rows below this line; do not overwrite another owner's row.
 
 ## Open coordination requests
+
+- **2026-09-17 02:40 UTC, use2-3 endpoint-bound Kimi chain:** commits
+  `cd73d4061` (core) and `3ac56be20` (wrapper) are pushed. The clean eval
+  snapshot is
+  `/checkpoint/ram/tianhaowu/terminal_bench_vmvm/sources/prime-rl-cd73d4061`
+  with verifier `7e3b6885`, renderer `044d9e254`, and pydantic-config
+  `896ade4e`. The new runtime binds one stable, full-file-hashed
+  deployment-local proxy artifact and a secret-free endpoint authority across
+  readiness, resolved eval identity, smoke/TB4 checkpoints, capacity smoke,
+  and production launch certificate. Strict trace audits now require captured
+  `/chat/completions` requests for `Kimi-K3` with `reasoning_effort=max` and
+  the exact two thinking flags, plus a `Kimi-K3` provider response model.
+  Full workflow validation passed 360 tests; independent focused review passed
+  159 tests. Obsolete pre-hardening watcher/gate `1735934`/`1737609` and dry
+  runs `1737604`--`1737607` were canceled through the shared tmux launcher.
+  Replacement watcher `1738160` is running from the clean snapshot with a
+  fresh endpoint-null waiting artifact; gate `1738161` is held by exact
+  `afterok:1738160`. Replacement smoke/TB4/capacity/production dry runs
+  `1738164`--`1738167` all completed `0:0`. Endpoint `1735929` remains
+  untouched and pending solely on priority, with the scheduler currently
+  estimating an 11:31 UTC start. Oracle `1737160` remains running; at 02:39 UTC
+  it had 1,298/2,538 terminal rows, 1,271 valid, 23 invalid, four generic
+  errors, zero infrastructure/timeout/unsupported rows, and 11 of the 38
+  allowed non-valid slots remaining. Never inspect task identifiers, prompts,
+  raw errors, or model/tool/trace content.
 
 - **2026-09-17 02:05 UTC, use2-1 shared Kimi proxy timeout blocker:** live
   TB4 diagnosis found `request_timeout: 600`, `num_retries: 2`, and
