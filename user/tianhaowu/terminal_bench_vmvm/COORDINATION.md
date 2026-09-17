@@ -1,6 +1,6 @@
 # VMVM sandbox coordination
 
-Last updated: 2026-09-17 11:40 UTC
+Last updated: 2026-09-17 12:14 UTC
 
 ## First message to the next teammate
 
@@ -39,6 +39,17 @@ this shared branch again.
 Add new rows below this line; do not overwrite another owner's row.
 
 ## Open coordination requests
+
+- **2026-09-17 12:14 UTC, use2-1 Qwen epoch-3 SFT readiness:** PR
+  `thwu1/prime-rl#36` is now stacked on cap-32 PR `#37` at head `8b704fbe1`.
+  The exporter previously understood only routing epochs 1/2; it now validates
+  schema-3 admission provenance, binds the epoch-2 lineage and admission
+  certificate, authenticates all epoch-1/2/3 row-hash labels, and propagates
+  routing epoch into the SFT output/manifest. Exporter 42/42, migration 56/56,
+  direct-worker/eval 80/80, and router-smoke 2/2 tests pass with Ruff,
+  formatting, `py_compile`, and diff checks clean. It remains intentionally
+  fail-closed while evaluator/router locks are active; run the terminal
+  aggregate audit and export only after job `1454171` finishes.
 
 - **2026-09-17 11:31 UTC, use2-1 Qwen cap-32 checkpoint:** cap-16 affinity
   job `1453194` was stopped only after its new epoch produced 21 clean rows
