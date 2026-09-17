@@ -1,6 +1,6 @@
 # VMVM sandbox coordination
 
-Last updated: 2026-09-17 03:07 UTC
+Last updated: 2026-09-17 03:18 UTC
 
 ## First message to the next teammate
 
@@ -89,7 +89,11 @@ Add new rows below this line; do not overwrite another owner's row.
   24-route semantic/state-reuse gate, strict capture smoke, and a fresh full
   TB4. Future local artifacts are isolated under
   `configs/eval/servers/cpu-132-021_8103/`; do not reuse or rename the separate
-  use2-3 Kimi lane.
+  use2-3 Kimi lane. Source fix `fairinternal/ram_common#288`, stacked on
+  proxy-config PR `#281`, preserves 600/2 defaults for other models and sets
+  Kimi-K3 to 7,200/0; its full unit suite passed 756 tests, with 7/7 generator
+  and 20/20 proxy-driver smoke checks. The live owner application remains
+  pending.
 
 - **2026-09-17 00:43 UTC, use2-1 shared Kimi lane:** the user-provided
   `shared-kimi-k3` proxy publishes model `Kimi-K3`, sticky/Redis metadata, and
