@@ -766,7 +766,10 @@ def _validate_source(source: Path) -> tuple[dict[str, Any], dict[str, str], dict
     legacy_manifest = _read_json_object(source / "direct_workers.json")
     upgraded_manifest = direct.upgrade_legacy_manifest(legacy_manifest)
     config_path = source / "config.toml"
-    task_allowlist_sha256 = direct.validate_eval_config(config_path)
+    task_allowlist_sha256 = direct.validate_eval_config(
+        config_path,
+        allow_historical_retry_policy=True,
+    )
     if task_allowlist_sha256 != upgraded_manifest["approved_task_allowlist_sha256"]:
         raise MigrationError("source_task_allowlist_mismatch")
     config = tomllib.loads(config_path.read_text(encoding="utf-8"))
@@ -816,7 +819,10 @@ def _validate_admission_source(source: Path) -> tuple[dict[str, Any], dict[str, 
     if transition is None or provenance.get("qwen_router_epoch") != "2":
         raise MigrationError("source_is_not_routing_epoch2")
     config_path = source / "config.toml"
-    task_allowlist_sha256 = direct.validate_eval_config(config_path)
+    task_allowlist_sha256 = direct.validate_eval_config(
+        config_path,
+        allow_historical_retry_policy=True,
+    )
     if task_allowlist_sha256 != manifest["approved_task_allowlist_sha256"]:
         raise MigrationError("source_task_allowlist_mismatch")
     try:
@@ -1203,7 +1209,10 @@ def migrate_admission(
                     child_provenance,
                     allow_incomplete=allow_incomplete,
                 )
-                approved_sha256 = direct.validate_eval_config(path / "config.toml")
+                approved_sha256 = direct.validate_eval_config(
+                    path / "config.toml",
+                    allow_historical_retry_policy=True,
+                )
                 if approved_sha256 != published_manifest["approved_task_allowlist_sha256"]:
                     raise MigrationError("published_task_allowlist_mismatch")
 

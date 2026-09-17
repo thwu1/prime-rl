@@ -152,6 +152,24 @@ def test_approved_qwen_config_rejects_harness_error_retry(tmp_path: Path) -> Non
         direct.validate_eval_config(config)
 
 
+def test_historical_qwen_retry_policy_requires_explicit_validation_mode(tmp_path: Path) -> None:
+    config = _approved_config(tmp_path)
+    config.write_text(config.read_text().replace(', "InterceptionError"', ""))
+
+    with pytest.raises(direct.DirectWorkerError, match="eval_rollout_retry_policy_mismatch"):
+        direct.validate_eval_config(config)
+
+    assert direct.validate_eval_config(config, allow_historical_retry_policy=True)
+
+
+def test_qwen_retry_policy_rejects_duplicate_entries(tmp_path: Path) -> None:
+    config = _approved_config(tmp_path)
+    config.write_text(config.read_text().replace('"InterceptionError"', '"InterceptionError", "InterceptionError"'))
+
+    with pytest.raises(direct.DirectWorkerError, match="eval_rollout_retry_policy_mismatch"):
+        direct.validate_eval_config(config, allow_historical_retry_policy=True)
+
+
 @pytest.mark.parametrize("field", ["max_connections", "max_keepalive_connections"])
 def test_approved_qwen_config_requires_exact_worker_bounded_http_pool(tmp_path: Path, field: str) -> None:
     config = _approved_config(tmp_path)

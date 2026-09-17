@@ -168,6 +168,7 @@ def _write_source_run(
             f'task_file_sha256 = "{task_sha256}"',
         )
     )
+    source_config_text = source_config_text.replace(', "InterceptionError"', "")
     if production:
         relative_image_manifest = Path("user/fixture/images.json")
         original_image_manifest = original_repository / relative_image_manifest
