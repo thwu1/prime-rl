@@ -45,6 +45,7 @@ REQUIRED_SOURCE_FILES = (
     "config.toml",
     "direct_workers.json",
     "inputs/manifest.json",
+    "inputs/source_config.toml",
     "provenance.txt",
     "results.jsonl",
 )
@@ -345,49 +346,85 @@ def _rewrite_toml_path(text: str, key: str, old: Path, new: Path) -> str:
     return rewritten
 
 
+def _declared_source_matches_record(declared: str, recorded: str) -> bool:
+    declared_path = Path(declared)
+    recorded_path = Path(recorded)
+    if not recorded_path.is_absolute():
+        return False
+    if declared_path.is_absolute():
+        return declared_path.resolve() == recorded_path.resolve()
+    if not declared_path.parts or ".." in declared_path.parts:
+        return False
+    return recorded_path.parts[-len(declared_path.parts) :] == declared_path.parts
+
+
 def _rewrite_child_paths(source: Path, storage: Path, child: Path) -> None:
     config_path = storage / "config.toml"
+    source_config_path = storage / "inputs" / "source_config.toml"
+    epoch1_source_config_path = storage / "inputs" / direct.ROUTING_EPOCH1_SOURCE_CONFIG_FILENAME
+    inputs_manifest_path = storage / "inputs" / "manifest.json"
     try:
         config_text = config_path.read_text(encoding="utf-8")
         config = tomllib.loads(config_text)
+        source_config_text = source_config_path.read_text(encoding="utf-8")
+        source_config = tomllib.loads(source_config_text)
     except (OSError, UnicodeDecodeError, tomllib.TOMLDecodeError) as error:
         raise MigrationError("source_config_invalid") from error
     taskset = config.get("taskset")
-    if not isinstance(taskset, dict):
+    source_taskset = source_config.get("taskset")
+    if not isinstance(taskset, dict) or not isinstance(source_taskset, dict):
         raise MigrationError("source_config_taskset_invalid")
+    inputs_manifest = _read_json_object(inputs_manifest_path)
+    config_record = inputs_manifest.get("config")
+    if not isinstance(config_record, dict) or set(config_record) != {
+        "source",
+        "snapshot",
+        "sha256",
+    }:
+        raise MigrationError("source_inputs_config_record_invalid")
+    if Path(str(config_record.get("snapshot", ""))).resolve() != (
+        source / "inputs" / "source_config.toml"
+    ).resolve() or config_record.get("sha256") != _sha256(source_config_path):
+        raise MigrationError("source_inputs_config_record_mismatch")
+    _copy_file(source_config_path, epoch1_source_config_path)
+
     for key, filename in (("task_file", "task_file.txt"), ("image_manifest", "image_manifest.json")):
-        value = taskset.get(key)
-        if value is None and key == "image_manifest":
+        saved_value = taskset.get(key)
+        source_value = source_taskset.get(key)
+        record = inputs_manifest.get(key)
+        if saved_value is None and source_value is None and key == "image_manifest":
             continue
-        expected = source / "inputs" / filename
-        if not isinstance(value, str) or Path(value).resolve() != expected.resolve():
+        if not isinstance(record, dict) or set(record) != {"source", "snapshot", "sha256"}:
+            raise MigrationError(f"source_inputs_{key}_record_invalid")
+        expected_snapshot = source / "inputs" / filename
+        if (
+            not isinstance(saved_value, str)
+            or Path(saved_value).resolve() != expected_snapshot.resolve()
+            or not isinstance(source_value, str)
+            or not isinstance(record.get("source"), str)
+            or not _declared_source_matches_record(source_value, record["source"])
+            or Path(str(record.get("snapshot", ""))).resolve() != expected_snapshot.resolve()
+        ):
             raise MigrationError(f"source_config_{key}_path_mismatch")
+        child_snapshot = child / "inputs" / filename
         config_text = _rewrite_toml_path(
             config_text,
             key,
-            Path(value),
-            child / "inputs" / filename,
+            Path(saved_value),
+            child_snapshot,
         )
+        source_config_text = _rewrite_toml_path(
+            source_config_text,
+            key,
+            Path(source_value),
+            child_snapshot,
+        )
+        record["source"] = str(child_snapshot)
+        record["snapshot"] = str(child_snapshot)
     _atomic_write(config_path, config_text.encode())
-
-    inputs_manifest_path = storage / "inputs" / "manifest.json"
-    inputs_manifest = _read_json_object(inputs_manifest_path)
-    snapshot_count = 0
-    for record in inputs_manifest.values():
-        if not isinstance(record, dict) or "snapshot" not in record:
-            continue
-        snapshot = record.get("snapshot")
-        if not isinstance(snapshot, str):
-            raise MigrationError("source_inputs_snapshot_invalid")
-        snapshot_path = Path(snapshot)
-        try:
-            relative = snapshot_path.resolve().relative_to((source / "inputs").resolve())
-        except ValueError as error:
-            raise MigrationError("source_inputs_snapshot_outside_run") from error
-        record["snapshot"] = str((child / "inputs" / relative).resolve())
-        snapshot_count += 1
-    if snapshot_count < 2:
-        raise MigrationError("source_inputs_snapshots_incomplete")
+    _atomic_write(source_config_path, source_config_text.encode())
+    config_record["snapshot"] = str(child / "inputs" / "source_config.toml")
+    config_record["sha256"] = _sha256(source_config_path)
     _atomic_write(inputs_manifest_path, _json_bytes(inputs_manifest))
 
 
@@ -502,6 +539,7 @@ def migrate(
             raise MigrationError("source_num_tasks_invalid")
         source_hashes = {
             "config_sha256": _sha256(source / "config.toml"),
+            "source_config_sha256": _sha256(source / "inputs" / "source_config.toml"),
             "inputs_manifest_sha256": _sha256(source / "inputs" / "manifest.json"),
             "provenance_sha256": _sha256(source / "provenance.txt"),
             "results_sha256": _sha256(source / "results.jsonl"),
@@ -579,6 +617,7 @@ def migrate(
                     "canonical_path": str(output),
                     "routing_epoch": 2,
                     "config_sha256": _sha256(temporary / "config.toml"),
+                    "source_config_sha256": _sha256(temporary / "inputs" / "source_config.toml"),
                     "inputs_manifest_sha256": _sha256(temporary / "inputs" / "manifest.json"),
                 },
             }

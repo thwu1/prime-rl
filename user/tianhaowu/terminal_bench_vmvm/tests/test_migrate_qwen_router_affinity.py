@@ -10,6 +10,7 @@ from pathlib import Path
 import direct_qwen_workers as direct
 import migrate_qwen_router_affinity as migration
 import pytest
+from validate_task_approval import validate_approval
 
 
 def _sha256(path: Path) -> str:
@@ -112,41 +113,51 @@ def _write_source_run(
     inputs.mkdir(parents=True)
     (source / ".direct_router.lock").write_bytes(b"")
     (source / ".writer.lock").write_bytes(b"")
+    original_repository = tmp_path / "original-repository"
+    relative_task_file = Path("user/fixture/approved.txt")
+    original_task_file = original_repository / relative_task_file
+    original_task_file.parent.mkdir(parents=True)
+    original_task_file.write_text("fixture-a\nfixture-b\n")
     task_file = inputs / "task_file.txt"
-    task_file.write_text("fixture-a\nfixture-b\n")
+    task_file.write_bytes(original_task_file.read_bytes())
     task_sha256 = _sha256(task_file)
 
-    source_config_path = Path(__file__).parents[1] / "configs" / "eval" / "tb4_qwen_token_smoke.toml"
-    source_config = tomllib.loads(source_config_path.read_text())
+    template_config_path = Path(__file__).parents[1] / "configs" / "eval" / "tb4_qwen_token_smoke.toml"
+    source_config = tomllib.loads(template_config_path.read_text())
     old_task_file = source_config["taskset"]["task_file"]
     old_task_sha256 = source_config["taskset"]["task_file_sha256"]
-    config_text = (
-        source_config_path.read_text()
+    source_config_text = (
+        template_config_path.read_text()
         .replace(
             f'task_file = "{old_task_file}"',
-            f'task_file = "{task_file}"',
+            f'task_file = "{relative_task_file}"',
         )
         .replace(
             f'task_file_sha256 = "{old_task_sha256}"',
             f'task_file_sha256 = "{task_sha256}"',
         )
-        .replace(
-            'base_url = "http://127.0.0.1:8000/v1"',
-            'base_url = "http://127.0.0.1:20001/v1"',
-        )
+    )
+    original_config_path = original_repository / "user" / "fixture" / "config.toml"
+    original_config_path.write_text(source_config_text)
+    config_text = source_config_text.replace(
+        f'task_file = "{relative_task_file}"',
+        f'task_file = "{task_file}"',
+    ).replace(
+        'base_url = "http://127.0.0.1:8000/v1"',
+        'base_url = "http://127.0.0.1:20001/v1"',
     )
     (source / "config.toml").write_text(config_text)
-    (inputs / "source_config.toml").write_text(config_text)
+    (inputs / "source_config.toml").write_text(source_config_text)
     (inputs / "manifest.json").write_text(
         json.dumps(
             {
                 "config": {
-                    "source": str(source_config_path),
+                    "source": str(original_config_path),
                     "snapshot": str(inputs / "source_config.toml"),
                     "sha256": _sha256(inputs / "source_config.toml"),
                 },
                 "task_file": {
-                    "source": str(task_file),
+                    "source": str(original_task_file),
                     "snapshot": str(task_file),
                     "sha256": task_sha256,
                 },
@@ -216,15 +227,28 @@ def test_migrate_is_copy_on_write_and_resume_ready(
     assert (child / "direct_router.epoch-1.log").is_file()
     assert not (child / "direct_router.log").exists()
     assert not (child / direct.MIGRATION_INCOMPLETE_FILENAME).exists()
+    assert (child / "inputs" / direct.ROUTING_EPOCH1_SOURCE_CONFIG_FILENAME).read_bytes() == (
+        source / "inputs" / "source_config.toml"
+    ).read_bytes()
     assert len((child / "results.jsonl").read_text().splitlines()) == 1
     child_config = tomllib.loads((child / "config.toml").read_text())
     assert Path(child_config["taskset"]["task_file"]) == child / "inputs" / "task_file.txt"
     child_inputs_manifest = json.loads((child / "inputs" / "manifest.json").read_text())
     assert Path(child_inputs_manifest["config"]["snapshot"]) == child / "inputs" / "source_config.toml"
+    assert child_inputs_manifest["config"]["sha256"] == _sha256(child / "inputs" / "source_config.toml")
     assert Path(child_inputs_manifest["task_file"]["snapshot"]) == child / "inputs" / "task_file.txt"
+    assert Path(child_inputs_manifest["task_file"]["source"]) == child / "inputs" / "task_file.txt"
     transition = json.loads((child / direct.ROUTING_TRANSITION_FILENAME).read_text())
     assert transition["child"]["config_sha256"] == _sha256(child / "config.toml")
+    assert transition["source"]["source_config_sha256"] == _sha256(source / "inputs" / "source_config.toml")
+    assert transition["child"]["source_config_sha256"] == _sha256(child / "inputs" / "source_config.toml")
     assert transition["child"]["inputs_manifest_sha256"] == _sha256(child / "inputs" / "manifest.json")
+    validate_approval(
+        child / "inputs",
+        child / "inputs" / "task_file.txt",
+        _sha256(child / "inputs" / "task_file.txt"),
+        resume_config=child / "config.toml",
+    )
     assert direct.audit_run_directory(child)["routing_epoch"] == 2
 
     monkeypatch.setattr(

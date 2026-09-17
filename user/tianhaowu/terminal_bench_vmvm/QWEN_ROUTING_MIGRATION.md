@@ -28,6 +28,10 @@ fail-closed protocol:
    byte sequence without printing task IDs or trace content. Record its SHA-256,
    byte length, retained-row count, and aggregate owed-rollout count. Atomically
    install that sequence in the child directory before any new model request.
+   Preserve the original `inputs/source_config.toml` as
+   `inputs/source_config.epoch-1.toml`; rewrite the active source config and
+   saved config to child-local task/image snapshots, then update the input
+   manifest's source/snapshot records and source-config digest consistently.
 4. Preserve the old manifest as `direct_workers.epoch-1.json`. Generate a new
    schema-2 active manifest and a separate transition certificate that bind the
    old-manifest hash, unchanged deployment spec and worker-bundle hashes, and
@@ -49,7 +53,7 @@ The transition certificate should contain exactly these logical records:
 schema_version = 1
 kind = "qwen-direct-router-policy-transition"
 source = { canonical_path, slurm_job_id, prime_rl, verifiers, renderers,
-           config_sha256, inputs_manifest_sha256, provenance_sha256,
+           config_sha256, source_config_sha256, inputs_manifest_sha256, provenance_sha256,
            results_sha256, results_size_bytes, direct_workers_sha256 }
 resume_plan = { retained_results_sha256, retained_results_size_bytes,
                 retained_row_count, owed_rollout_count,
@@ -60,7 +64,7 @@ to_router = { manifest_schema_version, policy = "consistent_hash",
               request_id_headers = ["x-session-id"], spec_sha256,
               endpoint_bundle_sha256, direct_workers_sha256 }
 child = { canonical_path, routing_epoch = 2, config_sha256,
-          inputs_manifest_sha256 }
+          source_config_sha256, inputs_manifest_sha256 }
 ```
 
 All hashes are lowercase SHA-256 over exact file bytes. Paths are canonical.
