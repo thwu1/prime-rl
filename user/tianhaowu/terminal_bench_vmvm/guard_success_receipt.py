@@ -148,7 +148,8 @@ def validate_eval_invocations(
             "host",
             "slurm_job_id",
         }
-        or record.get("schema_version") != 1
+        or type(record.get("schema_version")) is not int
+        or record["schema_version"] != 1
         or record.get("eval_run_identity_sha256") != eval_run_identity_sha256
         or record.get("role") != eval_run_role
         or record.get("resume") is not False

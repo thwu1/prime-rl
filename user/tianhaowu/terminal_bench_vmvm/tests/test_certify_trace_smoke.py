@@ -367,7 +367,14 @@ def test_rejects_missing_or_stale_guard_success_receipt(tmp_path: Path) -> None:
 
 @pytest.mark.parametrize(
     "mutation",
-    ["resume", "multiple", "forged_job", "forged_role", "forged_identity"],
+    [
+        "resume",
+        "multiple",
+        "forged_job",
+        "forged_role",
+        "forged_identity",
+        "bool_schema",
+    ],
 )
 def test_guard_receipt_rejects_invalid_invocation_ledger(
     tmp_path: Path,
@@ -388,8 +395,11 @@ def test_guard_receipt_rejects_invalid_invocation_ledger(
     elif mutation == "forged_role":
         record["role"] = "tb4"
         invocations.write_text(json.dumps(record) + "\n")
-    else:
+    elif mutation == "forged_identity":
         record["eval_run_identity_sha256"] = "f" * 64
+        invocations.write_text(json.dumps(record) + "\n")
+    else:
+        record["schema_version"] = True
         invocations.write_text(json.dumps(record) + "\n")
     receipt_path = run_dir / "route_guard_success.json"
     receipt = json.loads(receipt_path.read_text())
