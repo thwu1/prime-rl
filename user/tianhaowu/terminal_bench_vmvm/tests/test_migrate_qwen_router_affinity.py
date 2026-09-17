@@ -843,6 +843,13 @@ def test_pinned_resume_planner_loads_with_isolated_python_path() -> None:
     )
 
 
+def test_resume_planner_compatibility_is_explicit_and_narrow() -> None:
+    assert migration.COMPATIBLE_RESUME_VERIFIERS_REVISIONS == {
+        migration.EXPECTED_VERIFIERS_REVISION,
+        "7424b5b1e6b73362001221ee898b267a42547346",
+    }
+
+
 def test_fallback_cleans_destination_after_ordinary_validation_failure(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,

@@ -141,6 +141,12 @@ def test_mobius_qwen_production_retention_and_concurrency() -> None:
     assert taskset["task_file"] == ("user/tianhaowu/terminal_bench_vmvm/configs/eval/mobius_valid_tasks_2500.txt")
     assert taskset["task_file_sha256"] == _mobius_task_file_sha256()
     assert taskset["image_manifest_sha256"] == ("118157378884021d2fc12dd83e7d9576ca606a5d229a2bd34c203d745212e009")
+    assert set(config["retries"]["rollout"]["include"]) == {
+        "ProviderError",
+        "SandboxError",
+        "TunnelError",
+        "InterceptionError",
+    }
 
 
 @pytest.mark.parametrize(

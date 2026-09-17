@@ -54,6 +54,12 @@ REQUIRED_SOURCE_FILES = (
 )
 EXPECTED_VERIFIERS_REVISION = direct.ADMISSION_VERIFIERS_REVISION
 EXPECTED_RESUME_MODULE_SHA256 = direct.ADMISSION_RESUME_MODULE_SHA256
+COMPATIBLE_RESUME_VERIFIERS_REVISIONS = frozenset(
+    {
+        EXPECTED_VERIFIERS_REVISION,
+        "7424b5b1e6b73362001221ee898b267a42547346",
+    }
+)
 
 
 class MigrationError(ValueError):
@@ -601,7 +607,11 @@ def _load_verifiers_resume(expected_revision: str):
         ).stdout.strip()
     except (OSError, subprocess.SubprocessError) as error:
         raise MigrationError("verifiers_revision_unavailable") from error
-    if observed != expected_revision or observed != EXPECTED_VERIFIERS_REVISION:
+    # The admission transition remains bound to the historical source revision,
+    # while a later runtime may carry unrelated verifier fixes.  Permit only the
+    # reviewed runtime revision below, and still require byte-for-byte identity
+    # of the resume planner before importing it.
+    if expected_revision != EXPECTED_VERIFIERS_REVISION or observed not in COMPATIBLE_RESUME_VERIFIERS_REVISIONS:
         raise MigrationError("verifiers_revision_mismatch")
     try:
         status = subprocess.run(

@@ -136,6 +136,14 @@ def test_approved_qwen_config_preserves_direct_fallback_contract(tmp_path: Path)
     )
 
 
+def test_approved_qwen_config_requires_interception_retry(tmp_path: Path) -> None:
+    config = _approved_config(tmp_path)
+    config.write_text(config.read_text().replace(', "InterceptionError"', ""))
+
+    with pytest.raises(direct.DirectWorkerError, match="eval_rollout_retry_policy_mismatch"):
+        direct.validate_eval_config(config)
+
+
 @pytest.mark.parametrize("field", ["max_connections", "max_keepalive_connections"])
 def test_approved_qwen_config_requires_exact_worker_bounded_http_pool(tmp_path: Path, field: str) -> None:
     config = _approved_config(tmp_path)
