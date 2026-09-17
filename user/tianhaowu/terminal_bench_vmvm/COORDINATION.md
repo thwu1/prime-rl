@@ -1,6 +1,6 @@
 # VMVM sandbox coordination
 
-Last updated: 2026-09-17 04:00 UTC
+Last updated: 2026-09-17 04:10 UTC
 
 ## First message to the next teammate
 
@@ -33,12 +33,28 @@ this shared branch again.
 | Codex session for `tianhaowu` | `fair-cw-use2-3` | Kimi serving, full TB4 pass@1, and gated 2,500-task rollout | `user/tianhaowu/terminal_bench_vmvm/**`, `user/tianhaowu/deepswe_vmvm/{README.md,run_runtime_smoke.sbatch,smoke_runtime.py}`, `environments/vmvm_tb_v2/**`, `deps/verifiers` gitlink | patched deployment `tianhaowu-k3-kda-tb1-low-20260916`; coordinator `1735915`; endpoint `1735929`; endpoint-bound route gate `1738160`; Kimi TB4 gate `1738161`; full oracle `1737160` | Endpoint/trace identity hardening is pushed at core `cd73d4061` and wrapper `3ac56be20`; clean eval snapshot `/checkpoint/ram/tianhaowu/terminal_bench_vmvm/sources/prime-rl-cd73d4061` pins verifier `7e3b6885`, renderer `044d9e254`, and pydantic-config `896ade4e`. Replacement dry runs `1738164`--`1738167` passed. Watcher `1738160` completed `0:0` after 3/3 healthy polls and a successful live probe; gate `1738161` started at 03:36 UTC and is in its two-task smoke stage with no certified result yet. Oracle `1737160` remains immutable and running; 40 non-valid rows make 2,500 impossible on the initial pass, so after it completes use the one exact same-source in-place `RERUN_INVALID=1` recovery. A dependency-policy change would require a new identity and fresh full run, never a union. Endpoint `1735929` remains live on its approved TP16 four-node allocation; preserve it. Never inspect task prompts/bodies, task identifiers, raw errors, or model/tool/trace content. |
 | Codex session for `tianhaowu` | `fair-cw-use2-1` | Add a direct one-token KDA state-reuse probe; no serving or eval mutation | `user/tianhaowu/terminal_bench_vmvm/{probe_inference_routes.py,tests/test_probe_inference_routes.py,HANDOFF.md,COORDINATION.md}` | none | Extend the existing readiness probe with serial raw-completion predecessor/one-token-target cycles on every discovered sticky backend, without logprobs or response token IDs. Fail closed on unsupported routing, semantic corruption, or predecessor-dependent target output. |
 | Codex session for `tianhaowu` | `fair-cw-use2-1` | Qwen accepted TB4 gate and 2,500-task production rollout | Qwen direct-router configs, VMVM backend, focused tests, runtime skill | accepted TB4 diagnostic `1435776`; production `1448128`; endpoint `shared_qwen38_2p4t` | The user explicitly accepted the existing 7/66 TB4 result as the approximately 11% gate and directed us not to rerun it. Production job `1448128` runs parent `9b40e100f` / verifier `04d999177` at 64 task sessions, a process-wide 16-request client pool, 16 router workers, and a two-slot lease/tunnel-start gate. At 00:40 UTC it had 28/2,500 durable rows, zero error rows, 698 reasoning-retained/model-I/O turns, 1,320,867 sampled tokens, and zero strict trace/global problems under the 256K audit. Continue aggregate-only monitoring; never inspect task IDs, prompts, responses, raw errors, or trace/model/tool bodies. |
-| Codex session for `tianhaowu` | `fair-cw-use2-1` | User-supplied shared Kimi-K3 endpoint qualification and full TB4 pass@1; gated 2,500-task rollout follows only after score reproduction | server-scoped `configs/eval/servers/cpu-132-021_8103/**`, VMVM backend, trace audit, `COORDINATION.md` | endpoint `shared-kimi-k3`; route gate `1448380`; preserved canceled diagnostic TB4 `1448629`; preserved canceled smokes `1448432` and `1448606` | The 24-route endpoint passed health, semantic, affinity, and state-reuse qualification 264/264 with zero failures. Parent `e08cb00dc` / verifier `04d999177` launched the full 66-task TB4 job at 24 active/client slots. A supported smoke trace passed strict capture audit. Live diagnosis then found the proxy itself pins a 600-second backend timeout with two hidden retries, overriding the evaluator's longer limits; the diagnostic full had 51 provider-timeout events despite 24 live sessions/connections and 24/0 health. It was canceled and preserved after 1h52m with only the expected unsupported row durable. Do not count or promote this run. Await a proxy-only timeout/retry correction, then rerun route gate, smoke, and fresh full TB4. Never inspect task prompts/bodies or raw trace/model/tool content. |
+| Codex session for `tianhaowu` | `fair-cw-use2-1` | User-supplied shared Kimi-K3 endpoint qualification and full TB4 pass@1; gated 2,500-task rollout follows only after score reproduction | server-scoped `configs/eval/servers/cpu-132-021_8103/**`, VMVM backend, trace audit, `COORDINATION.md` | endpoint `shared-kimi-k3`; route gate `1448380`; preserved canceled diagnostic TB4 `1448629`; preserved canceled smokes `1448432` and `1448606`; draft `thwu1/prime-rl#34` | The 24-route endpoint passed health, semantic, affinity, and state-reuse qualification 264/264 with zero failures. Parent `e08cb00dc` / verifier `04d999177` launched the full 66-task TB4 job at 24 active/client slots. A supported smoke trace passed strict capture audit. Live diagnosis then found the proxy itself pins a 600-second backend timeout with two hidden retries, overriding the evaluator's longer limits; the diagnostic full had 51 provider-timeout events despite 24 live sessions/connections and 24/0 health. It was canceled and preserved after 1h52m with only the expected unsupported row durable. Do not count or promote this run. Draft server-lane commit `016e7bf11` now fails closed unless generated policy is exactly 7,200/0 and binds its digest through fresh/resume provenance; 323 full tests pass. Await owner proxy rotation and new spec identity, update the pin, then rerun route gate, smoke, and fresh full TB4. Never inspect task prompts/bodies or raw trace/model/tool content. |
 | Codex session for `tianhaowu` | `fair-cw-use2-1` | Final-code compatibility-oracle validation only; excludes Kimi serving and every TB4/Mobius model evaluation | `COORDINATION.md`; outputs `/checkpoint/ram/tianhaowu/terminal_bench_vmvm/oracle/mobius_repairs_oracle_public_f0d7be39c_use2-1_v1` and `/checkpoint/ram/tianhaowu/terminal_bench_vmvm/oracle/mobius_full_oracle_public_f0d7be39c_use2-1_v1` | canary `1444307` terminal at 41/42 valid; old full `1444339` canceled never-started; independent full `1444701` PENDING `(None)` | Canary failed its strict 42/42 gate. Fresh independent full `1444701` was submitted through tmux from parent/head `f0d7be39c`, code `bb734d08c8`, and verifier `7e3b6885`, at eight active rollouts/four lease starts; it requires at least 90% and 2,500 valid. Use2-3 retains all Kimi serving and TB4/Mobius model-evaluation ownership. |
 
 Add new rows below this line; do not overwrite another owner's row.
 
 ## Open coordination requests
+
+- **2026-09-17 04:10 UTC, use2-1 server-isolated Kimi lane:** draft
+  `thwu1/prime-rl#34` at `016e7bf11` moves both local configs and launchers
+  beneath `configs/eval/servers/cpu-132-021_8103/`, including the server
+  identifier in wrapper, job, log, and canonical output names. Fresh and resume
+  launches carry one preflight-held writer-lock descriptor, reject cross-lane
+  paths and ambient overrides, bind exact configs/tasks/images/dataset tree and
+  verifier/renderer/pydantic revisions, and preserve 24/24 TB4 plus 64/24/2
+  Mobius concurrency with a 256K cap. The validator now duplicate-safely parses
+  the generated LiteLLM YAML, requires typed policy 7,200/0, binds its full-file
+  digest into every provenance block, and rejects the current 600/2 endpoint
+  before model traffic. Independent final review found no code issues; 323 full
+  and 111 focused/adversarial tests plus Ruff, Bash syntax, lock, and diff checks
+  pass. The draft intentionally remains non-launchable until the owner rotates
+  the proxy and the resulting new spec digest is pinned. A terminal TB4
+  certificate is deferred until the fresh 66-row run exists.
 
 - **2026-09-17 04:00 UTC, use2-3 live gate update:** readiness watcher
   `1738160` passed its endpoint-bound semantic probe and completed `0:0` at
@@ -115,9 +131,9 @@ Add new rows below this line; do not overwrite another owner's row.
   `configs/eval/servers/cpu-132-021_8103/`; do not reuse or rename the separate
   use2-3 Kimi lane. Source fix `fairinternal/ram_common#288`, stacked on
   proxy-config PR `#281`, preserves 600/2 defaults for other models and sets
-  Kimi-K3 to 7,200/0; its full unit suite passed 756 tests, with 7/7 generator
-  and 20/20 proxy-driver smoke checks. The live owner application remains
-  pending.
+  Kimi-K3 to 7,200/0. Rebased head `0f8e90d4` is mergeable with both CI jobs
+  green; its full unit suite passed 817 tests, with 12/12 atomic generator and
+  20/20 proxy-driver smoke checks. The live owner application remains pending.
 
 - **2026-09-17 00:43 UTC, use2-1 shared Kimi lane:** the user-provided
   `shared-kimi-k3` proxy publishes model `Kimi-K3`, sticky/Redis metadata, and
