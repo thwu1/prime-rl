@@ -512,7 +512,7 @@ lease_ttl = "60s"
 
 [retries.rollout]
 max_retries = 2
-include = ["ProviderError", "SandboxError", "TunnelError"]
+include = ["ProviderError", "SandboxError", "TunnelError", "InterceptionError"]
 """
     )
     source = {

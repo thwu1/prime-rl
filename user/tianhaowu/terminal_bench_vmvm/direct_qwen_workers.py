@@ -274,7 +274,7 @@ def validate_eval_config(
         or not isinstance(retry_include, list)
         or not all(isinstance(item, str) for item in retry_include)
         or set(retry_include)
-        != {"ProviderError", "SandboxError", "TunnelError"}
+        != {"ProviderError", "SandboxError", "TunnelError", "InterceptionError"}
     ):
         raise DirectWorkerError("eval_rollout_retry_policy_mismatch")
     return task_file_sha256

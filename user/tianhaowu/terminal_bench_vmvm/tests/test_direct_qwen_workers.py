@@ -136,6 +136,14 @@ def test_approved_qwen_config_preserves_direct_fallback_contract(tmp_path: Path)
     )
 
 
+def test_approved_qwen_config_requires_interception_retry(tmp_path: Path) -> None:
+    config = _approved_config(tmp_path)
+    config.write_text(config.read_text().replace(', "InterceptionError"', ""))
+
+    with pytest.raises(direct.DirectWorkerError, match="eval_rollout_retry_policy_mismatch"):
+        direct.validate_eval_config(config)
+
+
 def test_approved_qwen_config_rejects_independent_approval_mismatch(tmp_path: Path) -> None:
     config = _approved_config(tmp_path)
     different_allowlist = tmp_path / "external_approval.txt"

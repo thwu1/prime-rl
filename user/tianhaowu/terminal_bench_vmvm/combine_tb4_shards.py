@@ -185,6 +185,7 @@ def _validate_config(
         "ProviderError",
         "SandboxError",
         "TunnelError",
+        "InterceptionError",
     }:
         problems.append("rollout_retries_mismatch")
 

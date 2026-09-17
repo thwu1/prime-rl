@@ -41,6 +41,16 @@ def test_eval_config_captures_model_io(config_path: Path) -> None:
     assert client["outbound_body_denylist"] == OUTBOUND_BODY_DENYLIST
 
 
+@pytest.mark.parametrize("config_path", EVAL_CONFIGS, ids=lambda path: path.name)
+def test_eval_config_retries_interception_failures(config_path: Path) -> None:
+    config = tomllib.loads(config_path.read_text())
+    retries = config.get("retries")
+    if retries is None:
+        return
+
+    assert "InterceptionError" in retries["rollout"]["include"]
+
+
 @pytest.mark.parametrize(
     "filename",
     [
@@ -63,6 +73,7 @@ def test_miniswe_configs_pin_harness_model_retry_policy(filename: str) -> None:
     assert config["harness"]["env"]["MSWEA_MODEL_RETRY_STOP_AFTER_ATTEMPT"] == "10"
     if filename != "tb4_kimi_token_smoke.toml":
         assert "ProviderError" in config["retries"]["rollout"]["include"]
+    assert "InterceptionError" in config["retries"]["rollout"]["include"]
 
 
 def test_mobius_kimi_production_contract() -> None:
@@ -120,6 +131,7 @@ def test_mobius_kimi_production_contract() -> None:
         "ProviderError",
         "SandboxError",
         "TunnelError",
+        "InterceptionError",
     }
 
 
@@ -169,6 +181,12 @@ def test_mobius_qwen_production_retention_and_concurrency() -> None:
     assert taskset["task_file"] == ("user/tianhaowu/terminal_bench_vmvm/configs/eval/mobius_valid_tasks_2500.txt")
     assert taskset["task_file_sha256"] == _mobius_task_file_sha256()
     assert taskset["image_manifest_sha256"] == ("118157378884021d2fc12dd83e7d9576ca606a5d229a2bd34c203d745212e009")
+    assert set(config["retries"]["rollout"]["include"]) == {
+        "ProviderError",
+        "SandboxError",
+        "TunnelError",
+        "InterceptionError",
+    }
 
 
 @pytest.mark.parametrize(
