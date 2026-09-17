@@ -54,17 +54,38 @@ def _label_summary(index: Path, expected_count: int) -> dict:
     }
 
 
-def _export_summary(output: Path, expected_count: int) -> dict:
-    output.mkdir()
-    manifest = b"{}\n"
+def _export_summary(output: Path, expected_count: int, routing_index: Path) -> dict:
+    (output / "train").mkdir(parents=True)
+    (output / "validation").mkdir()
+    train = b"synthetic-train\n"
+    validation = b"synthetic-validation\n"
+    retained_index = routing_index.read_bytes()
+    (output / "train" / "train.jsonl").write_bytes(train)
+    (output / "validation" / "train.jsonl").write_bytes(validation)
+    (output / finalizer.INDEX_FILENAME).write_bytes(retained_index)
+    manifest = (
+        json.dumps(
+            {
+                "artifacts": {
+                    finalizer.INDEX_FILENAME: {
+                        "bytes": len(retained_index),
+                        "sha256": hashlib.sha256(retained_index).hexdigest(),
+                    }
+                }
+            },
+            sort_keys=True,
+        ).encode()
+        + b"\n"
+    )
     (output / "manifest.json").write_bytes(manifest)
     return {
         "excluded_error_traces": 1,
         "input_traces": expected_count,
         "output_sha256": {
             "manifest": hashlib.sha256(manifest).hexdigest(),
-            "train": "c" * 64,
-            "validation": "d" * 64,
+            "routing_epoch_index": hashlib.sha256(retained_index).hexdigest(),
+            "train": hashlib.sha256(train).hexdigest(),
+            "validation": hashlib.sha256(validation).hexdigest(),
         },
         "rows": {"total": 12, "train": 9, "validation": 3},
         "routing_epoch_rows": {"1": 4, "2": 5, "3": 3},
@@ -82,6 +103,12 @@ def test_finalizer_runs_label_before_export_and_emits_only_aggregates(
     monkeypatch.setattr(finalizer.platform, "machine", lambda: "x86_64")
     calls: list[tuple[list[str], str]] = []
     repository_checks: list[tuple[Path, str]] = []
+    source_before = {
+        path.relative_to(options.source_dir): path.read_bytes()
+        for path in options.source_dir.rglob("*")
+        if path.is_file()
+    }
+    external_indexes: list[Path] = []
 
     def validate_repository(path: Path, revision: str) -> Path:
         repository_checks.append((path, revision))
@@ -95,13 +122,17 @@ def test_finalizer_runs_label_before_export_and_emits_only_aggregates(
         calls.append((command, code))
         if code == "routing_index_failed":
             assert command[2] == "label"
-            return _label_summary(options.source_dir / finalizer.INDEX_FILENAME, options.expected_count)
+            index = Path(command[command.index("--output") + 1])
+            assert not index.is_relative_to(options.source_dir)
+            external_indexes.append(index)
+            return _label_summary(index, options.expected_count)
         assert code == "sft_export_failed"
         assert command[1].endswith("export_sft.py")
-        assert command[command.index("--routing-epoch-index") + 1] == str(options.source_dir / finalizer.INDEX_FILENAME)
+        index = Path(command[command.index("--routing-epoch-index") + 1])
+        assert index == external_indexes[0]
         assert command[command.index("--expected-count") + 1] == "3"
         assert command[command.index("--selection") + 1] == "pass-only"
-        return _export_summary(options.output_dir, options.expected_count)
+        return _export_summary(options.output_dir, options.expected_count, index)
 
     summary = finalizer.finalize_qwen_sft(
         options,
@@ -115,6 +146,14 @@ def test_finalizer_runs_label_before_export_and_emits_only_aggregates(
     assert summary["status"] == "finalized"
     assert summary["input_traces"] == 3
     assert summary["routing_epoch_input_traces"] == {"epoch_1": 1, "epoch_2": 1, "epoch_3": 1}
+    assert (options.output_dir / finalizer.INDEX_FILENAME).read_bytes() == b"synthetic-index\n"
+    assert external_indexes and not external_indexes[0].exists()
+    source_after = {
+        path.relative_to(options.source_dir): path.read_bytes()
+        for path in options.source_dir.rglob("*")
+        if path.is_file()
+    }
+    assert source_after == source_before
     encoded = json.dumps(summary)
     assert str(options.source_dir) not in encoded
     assert str(options.output_dir) not in encoded
@@ -128,18 +167,23 @@ def test_finalizer_refuses_busy_source_lock(tmp_path: Path) -> None:
             finalizer._source_locks_available(options.source_dir)
 
 
-@pytest.mark.parametrize("existing", ["index", "output"])
-def test_finalizer_refuses_existing_artifacts(tmp_path: Path, existing: str) -> None:
+def test_finalizer_refuses_existing_output(tmp_path: Path) -> None:
     options, _ = _write_layout(tmp_path)
-    if existing == "index":
-        (options.source_dir / finalizer.INDEX_FILENAME).touch()
-        expected = "routing_index_already_exists"
-    else:
-        options.output_dir.mkdir()
-        expected = "output_path_unsafe"
+    options.output_dir.mkdir()
 
-    with pytest.raises(FinalizationError, match=f"^{expected}$"):
+    with pytest.raises(FinalizationError, match="^output_path_unsafe$"):
         finalizer._resolve_paths(options)
+
+
+def test_finalizer_does_not_claim_or_modify_a_source_sidecar(tmp_path: Path) -> None:
+    options, _ = _write_layout(tmp_path)
+    source_sidecar = options.source_dir / finalizer.INDEX_FILENAME
+    source_sidecar.write_bytes(b"preexisting-source-sidecar\n")
+
+    paths = finalizer._resolve_paths(options)
+
+    assert paths.source_dir == options.source_dir
+    assert source_sidecar.read_bytes() == b"preexisting-source-sidecar\n"
 
 
 def test_finalizer_refuses_broad_or_overlapping_path_boundaries(tmp_path: Path) -> None:

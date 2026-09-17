@@ -18,6 +18,7 @@ import re
 import stat
 import subprocess
 import sys
+import tempfile
 import tomllib
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
@@ -76,7 +77,6 @@ class ResolvedPaths:
     source_dir: Path
     results: Path
     provenance: Path
-    index: Path
     output_root: Path
     output_dir: Path
 
@@ -162,16 +162,12 @@ def _resolve_paths(options: FinalizeOptions) -> ResolvedPaths:
     results = _regular_file(source / "results.jsonl", "source_results_invalid")
     provenance = _regular_file(source / "provenance.txt", "source_provenance_invalid")
     _regular_file(source / "config.toml", "source_config_invalid")
-    index = source / INDEX_FILENAME
-    if os.path.lexists(index):
-        raise FinalizationError("routing_index_already_exists")
     return ResolvedPaths(
         project_dir=project,
         source_root=source_root,
         source_dir=source,
         results=results,
         provenance=provenance,
-        index=index,
         output_root=output_root,
         output_dir=output,
     )
@@ -411,6 +407,7 @@ def _validate_export_summary(
     output_dir: Path,
     expected_count: int,
     selection: Selection,
+    expected_index_sha256: str,
 ) -> None:
     expected_keys = {
         "excluded_error_traces",
@@ -448,13 +445,34 @@ def _validate_export_summary(
     output_hashes = summary.get("output_sha256")
     if (
         not isinstance(output_hashes, dict)
-        or set(output_hashes) != {"manifest", "train", "validation"}
+        or set(output_hashes) != {"manifest", "routing_epoch_index", "train", "validation"}
         or any(SHA256_PATTERN.fullmatch(str(value)) is None for value in output_hashes.values())
+        or output_hashes["routing_epoch_index"] != expected_index_sha256
     ):
         raise FinalizationError("sft_export_summary_invalid")
     published = _canonical_existing_directory(output_dir, "sft_output_invalid")
     manifest = _regular_file(published / "manifest.json", "sft_output_invalid")
-    if _stable_sha256(manifest) != output_hashes["manifest"]:
+    train = _regular_file(published / "train" / "train.jsonl", "sft_output_invalid")
+    validation = _regular_file(published / "validation" / "train.jsonl", "sft_output_invalid")
+    routing_index = _regular_file(published / INDEX_FILENAME, "sft_output_invalid")
+    routing_index_sha256 = _stable_sha256(routing_index)
+    if (
+        _stable_sha256(manifest) != output_hashes["manifest"]
+        or _stable_sha256(train) != output_hashes["train"]
+        or _stable_sha256(validation) != output_hashes["validation"]
+        or routing_index_sha256 != output_hashes["routing_epoch_index"]
+    ):
+        raise FinalizationError("sft_output_digest_mismatch")
+    try:
+        manifest_body = manifest.read_bytes()
+    except OSError as error:
+        raise FinalizationError("sft_output_invalid") from error
+    if hashlib.sha256(manifest_body).hexdigest() != output_hashes["manifest"]:
+        raise FinalizationError("sft_output_digest_mismatch")
+    manifest_value = _parse_json_object(manifest_body, "sft_output_invalid")
+    artifacts = manifest_value.get("artifacts")
+    routing_artifact = artifacts.get(INDEX_FILENAME) if isinstance(artifacts, dict) else None
+    if routing_artifact != {"bytes": routing_index.stat().st_size, "sha256": routing_index_sha256}:
         raise FinalizationError("sft_output_digest_mismatch")
 
 
@@ -478,7 +496,7 @@ def finalize_qwen_sft(
     source_auditor: SourceAuditor = _audit_source,
     command_runner: CommandRunner = _run_json_command,
 ) -> dict[str, Any]:
-    """Create a terminal routing index, then export SFT with that exact index."""
+    """Create an external routing index, then export SFT with that exact index."""
     _validate_options(options)
     project = repository_validator(options.project_dir, options.expected_project_revision)
     paths = _resolve_paths(options)
@@ -493,48 +511,56 @@ def finalize_qwen_sft(
     repository_validator(paths.project_dir, options.expected_project_revision)
 
     workflow = paths.project_dir / "user" / "tianhaowu" / "terminal_bench_vmvm"
-    label_summary = command_runner(
-        [
-            sys.executable,
-            str(workflow / "migrate_qwen_router_affinity.py"),
-            "label",
-            "--run-dir",
-            str(paths.source_dir),
-            "--output",
-            str(paths.index),
-        ],
-        paths.project_dir,
-        "routing_index_failed",
-    )
-    epoch_input_rows = _validate_label_summary(label_summary, paths.index, options.expected_count)
-    repository_validator(paths.project_dir, options.expected_project_revision)
-    if _stable_sha256(paths.provenance, max_bytes=MAX_PROVENANCE_BYTES) != options.expected_provenance_sha256:
-        raise FinalizationError("source_provenance_changed")
+    with tempfile.TemporaryDirectory(prefix=f".{paths.output_dir.name}.routing-", dir=paths.output_root) as staging:
+        index = Path(staging) / INDEX_FILENAME
+        label_summary = command_runner(
+            [
+                sys.executable,
+                str(workflow / "migrate_qwen_router_affinity.py"),
+                "label",
+                "--run-dir",
+                str(paths.source_dir),
+                "--output",
+                str(index),
+            ],
+            paths.project_dir,
+            "routing_index_failed",
+        )
+        epoch_input_rows = _validate_label_summary(label_summary, index, options.expected_count)
+        repository_validator(paths.project_dir, options.expected_project_revision)
+        if _stable_sha256(paths.provenance, max_bytes=MAX_PROVENANCE_BYTES) != options.expected_provenance_sha256:
+            raise FinalizationError("source_provenance_changed")
 
-    export_summary = command_runner(
-        [
-            sys.executable,
-            str(workflow / "export_sft.py"),
-            str(paths.results),
-            "--output-dir",
-            str(paths.output_dir),
-            "--selection",
+        export_summary = command_runner(
+            [
+                sys.executable,
+                str(workflow / "export_sft.py"),
+                str(paths.results),
+                "--output-dir",
+                str(paths.output_dir),
+                "--selection",
+                options.selection,
+                "--expected-count",
+                str(options.expected_count),
+                "--validation-permyriad",
+                str(options.validation_permyriad),
+                "--split-salt",
+                options.split_salt,
+                "--max-sequence-tokens",
+                str(MAX_SEQUENCE_TOKENS),
+                "--routing-epoch-index",
+                str(index),
+            ],
+            paths.project_dir,
+            "sft_export_failed",
+        )
+        _validate_export_summary(
+            export_summary,
+            paths.output_dir,
+            options.expected_count,
             options.selection,
-            "--expected-count",
-            str(options.expected_count),
-            "--validation-permyriad",
-            str(options.validation_permyriad),
-            "--split-salt",
-            options.split_salt,
-            "--max-sequence-tokens",
-            str(MAX_SEQUENCE_TOKENS),
-            "--routing-epoch-index",
-            str(paths.index),
-        ],
-        paths.project_dir,
-        "sft_export_failed",
-    )
-    _validate_export_summary(export_summary, paths.output_dir, options.expected_count, options.selection)
+            label_summary["index_sha256"],
+        )
     repository_validator(paths.project_dir, options.expected_project_revision)
     if _stable_sha256(paths.provenance, max_bytes=MAX_PROVENANCE_BYTES) != options.expected_provenance_sha256:
         raise FinalizationError("source_provenance_changed")

@@ -8,7 +8,13 @@ import direct_qwen_workers as direct_workers
 import pytest
 from audit_traces import _json_sha256
 from datasets import load_dataset
-from export_sft import ExportError, ExportOptions, _split_for_task, export_sft, main
+from export_sft import (
+    ExportError,
+    ExportOptions,
+    _split_for_task,
+    export_sft,
+    main,
+)
 
 
 def _tool(name: str = "terminal") -> dict:
@@ -263,14 +269,18 @@ def _sha256(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
-def _write_run(run_dir: Path, traces: list[dict]) -> Path:
+def _write_run(run_dir: Path, traces: list[dict], *, approved_slugs: list[str] | None = None) -> Path:
     inputs = run_dir / "inputs"
     inputs.mkdir(parents=True)
     source_config = inputs / "source_config.toml"
     task_file = inputs / "task_file.txt"
     image_manifest = inputs / "image_manifest.json"
     source_config.write_text("source = true\n")
-    task_file.write_text("opaque-synthetic-task\n")
+    if approved_slugs is None:
+        approved_slugs = sorted(
+            {str(trace["task"].get("slug") or trace["task"]["name"]).rsplit("/", 1)[-1] for trace in traces}
+        )
+    task_file.write_text("".join(f"{slug}\n" for slug in approved_slugs))
     image_manifest.write_text("{}\n")
     inputs_manifest = {
         "config": {"sha256": _sha256(source_config)},
@@ -295,6 +305,8 @@ def _write_run(run_dir: Path, traces: list[dict]) -> Path:
                 "enable_thinking = true",
                 "preserve_thinking = true",
                 "[taskset]",
+                'id = "terminal-bench-vmvm"',
+                'dataset_revision = "dddddddddddddddddddddddddddddddddddddddd"',
                 f'task_file_sha256 = "{_sha256(task_file)}"',
                 f'image_manifest_sha256 = "{_sha256(image_manifest)}"',
                 "",
@@ -333,7 +345,13 @@ def _read_jsonl(path: Path) -> list[dict]:
     return [json.loads(line) for line in path.read_text().splitlines()]
 
 
-def _write_routing_epoch_index(results: Path, epochs: list[int], *, current_epoch: int = 2) -> Path:
+def _write_routing_epoch_index(
+    results: Path,
+    epochs: list[int],
+    *,
+    current_epoch: int = 2,
+    output_path: Path | None = None,
+) -> Path:
     run_dir = results.parent
     assert current_epoch in {2, 3}
     assert all(epoch in range(1, current_epoch + 1) for epoch in epochs)
@@ -434,7 +452,7 @@ def _write_routing_epoch_index(results: Path, epochs: list[int], *, current_epoc
         "routing_epoch": current_epoch,
         "row_count": len(records),
     }
-    index_path = run_dir / "qwen_router_epochs.jsonl"
+    index_path = output_path or run_dir / "qwen_router_epochs.jsonl"
     index_path.write_text(
         "".join(json.dumps(value, sort_keys=True, separators=(",", ":")) + "\n" for value in (header, *records))
     )
@@ -731,6 +749,8 @@ def test_export_is_byte_deterministic_and_records_provenance_hashes(tmp_path: Pa
     ):
         assert (first / relative).read_bytes() == (second / relative).read_bytes()
     manifest = json.loads((first / "manifest.json").read_text())
+    assert manifest["exporter"]["format_version"] == 2
+    assert json.loads((first / "task-split.json").read_text())["format_version"] == 2
     assert manifest["source_artifacts"]["results.jsonl"]["sha256"] == _sha256(results)
     assert manifest["source_artifacts"]["inputs/task_file.txt"]["sha256"] == _sha256(
         results.parent / "inputs" / "task_file.txt"
@@ -968,7 +988,7 @@ def test_routing_epoch_index_validates_rows_excluded_for_errors(tmp_path: Path) 
         export_sft(_options(results, tmp_path / "dataset", routing_epoch_index=index_path))
 
 
-def test_routing_epoch_index_rejects_duplicate_json_keys_and_external_path(tmp_path: Path) -> None:
+def test_routing_epoch_index_rejects_duplicate_json_keys(tmp_path: Path) -> None:
     results = _write_run(tmp_path / "run", [_linear_trace()])
     index_path = _write_routing_epoch_index(results, [1])
     lines = index_path.read_text().splitlines()
@@ -978,11 +998,43 @@ def test_routing_epoch_index_rejects_duplicate_json_keys_and_external_path(tmp_p
     with pytest.raises(ExportError, match="^routing_epoch_index_header_invalid$"):
         export_sft(_options(results, tmp_path / "duplicate-key", routing_epoch_index=index_path))
 
-    index_path = _write_routing_epoch_index(results, [1])
-    external_index = tmp_path / "qwen_router_epochs.jsonl"
-    external_index.write_bytes(index_path.read_bytes())
-    with pytest.raises(ExportError, match="^routing_epoch_index_outside_source_run$"):
-        export_sft(_options(results, tmp_path / "external-index", routing_epoch_index=external_index))
+
+def test_external_routing_epoch_index_is_bound_and_retained(tmp_path: Path) -> None:
+    results = _write_run(tmp_path / "run", [_linear_trace()])
+    sidecars = tmp_path / "sidecars"
+    sidecars.mkdir()
+    external_index = _write_routing_epoch_index(
+        results,
+        [1],
+        output_path=sidecars / "routing-index.jsonl",
+    )
+    original = external_index.read_bytes()
+    lines = [json.loads(line) for line in original.splitlines()]
+    lines[0]["results_sha256"] = "0" * 64
+    external_index.write_text("".join(json.dumps(line, sort_keys=True, separators=(",", ":")) + "\n" for line in lines))
+    with pytest.raises(ExportError, match="^routing_epoch_index_results_hash_mismatch$"):
+        export_sft(_options(results, tmp_path / "tampered", routing_epoch_index=external_index))
+
+    external_index.write_bytes(original)
+    source_before = {
+        path.relative_to(results.parent): path.read_bytes() for path in results.parent.rglob("*") if path.is_file()
+    }
+    output = tmp_path / "dataset"
+    summary = export_sft(_options(results, output, routing_epoch_index=external_index))
+
+    retained = output / "qwen_router_epochs.jsonl"
+    assert retained.read_bytes() == original
+    assert summary["output_sha256"]["routing_epoch_index"] == _sha256(retained)
+    manifest = json.loads((output / "manifest.json").read_text())
+    assert manifest["artifacts"]["qwen_router_epochs.jsonl"] == {
+        "bytes": len(original),
+        "sha256": _sha256(retained),
+    }
+    assert not (results.parent / "qwen_router_epochs.jsonl").exists()
+    source_after = {
+        path.relative_to(results.parent): path.read_bytes() for path in results.parent.rglob("*") if path.is_file()
+    }
+    assert source_after == source_before
 
 
 def test_exported_split_is_loadable_by_huggingface_datasets(tmp_path: Path) -> None:
@@ -1018,6 +1070,8 @@ def test_task_split_is_grouped_by_opaque_task_hash(tmp_path: Path) -> None:
         _linear_trace("rollout-b", task_name="shared-task"),
     ]
     traces[1]["task"] = copy.deepcopy(traces[0]["task"])
+    traces[1]["task"]["idx"] = 917
+    traces[1]["task"]["prompt"] = "different synthetic metadata"
     results = _write_run(tmp_path / "run", traces)
     output = tmp_path / "dataset"
     options = ExportOptions(
@@ -1030,12 +1084,42 @@ def test_task_split_is_grouped_by_opaque_task_hash(tmp_path: Path) -> None:
     export_sft(options)
 
     task_hash = hashlib.sha256(
-        json.dumps(traces[0]["task"], ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode()
+        b"terminal-bench-vmvm\0dddddddddddddddddddddddddddddddddddddddd\0shared-task"
     ).hexdigest()
     split = _split_for_task(task_hash, salt=options.split_salt, validation_permyriad=5000)
     other = "validation" if split == "train" else "train"
     assert len(_read_jsonl(output / split / "train.jsonl")) == 4
     assert _read_jsonl(output / other / "train.jsonl") == []
+    emitted = _read_jsonl(output / split / "train.jsonl")
+    assert {row["task_id"] for row in emitted} == {task_hash}
+
+
+def test_unknown_task_slug_is_rejected_without_disclosure(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    private_slug = "private-unknown-slug-marker"
+    results = _write_run(
+        tmp_path / "run",
+        [_linear_trace(task_name=f"terminal-bench/{private_slug}")],
+        approved_slugs=["approved-synthetic-task"],
+    )
+
+    status = main(
+        [
+            str(results),
+            "--output-dir",
+            str(tmp_path / "dataset"),
+            "--selection",
+            "pass-only",
+        ]
+    )
+
+    captured = capsys.readouterr()
+    assert status == 2
+    assert private_slug not in captured.out
+    assert private_slug not in captured.err
+    assert json.loads(captured.err) == {"code": "trace_task_slug_not_approved", "status": "error"}
 
 
 def test_active_writer_lock_blocks_export(tmp_path: Path) -> None:

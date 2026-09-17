@@ -1246,11 +1246,17 @@ def label_routing_epochs(
     terminal_check: Callable[[str], bool] = slurm_job_is_terminal,
 ) -> dict[str, Any]:
     run = run_dir.resolve(strict=True)
-    output = output_path.resolve(strict=False)
-    if output.parent != run:
-        raise MigrationError("epoch_index_must_be_inside_run")
-    if output.is_symlink():
+    if output_path.is_symlink():
         raise MigrationError("epoch_index_symlink_forbidden")
+    try:
+        output_parent = output_path.parent.resolve(strict=True)
+    except OSError as error:
+        raise MigrationError("epoch_index_output_invalid") from error
+    if not output_path.name:
+        raise MigrationError("epoch_index_output_invalid")
+    output = output_parent / output_path.name
+    if os.path.lexists(output):
+        raise MigrationError("epoch_index_output_exists")
     direct.reject_incomplete_migration(run)
     with _source_locks(run):
         job_ids = _provenance_job_ids(run / "provenance.txt")

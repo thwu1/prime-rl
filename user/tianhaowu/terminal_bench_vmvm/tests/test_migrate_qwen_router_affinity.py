@@ -1047,7 +1047,10 @@ def test_epoch_index_labels_legacy_membership_after_result_reordering(
     epoch1_row = (child / "results.jsonl").read_bytes()
     epoch2_row = (json.dumps({"task": {"idx": 1}, "errors": []}, sort_keys=True) + "\n").encode()
     (child / "results.jsonl").write_bytes(epoch2_row + epoch1_row)
-    index_path = child / "qwen_router_epochs.jsonl"
+    sidecars = tmp_path / "sidecars"
+    sidecars.mkdir()
+    index_path = sidecars / "qwen_router_epochs.jsonl"
+    source_before = {path.relative_to(child): path.read_bytes() for path in child.rglob("*") if path.is_file()}
 
     summary = migration.label_routing_epochs(
         child,
@@ -1063,3 +1066,5 @@ def test_epoch_index_labels_legacy_membership_after_result_reordering(
     assert index[0]["results_sha256"] == summary["results_sha256"]
     assert [record["routing_epoch"] for record in index[1:]] == [2, 1]
     assert all(set(record) == {"row", "row_sha256", "routing_epoch"} for record in index[1:])
+    source_after = {path.relative_to(child): path.read_bytes() for path in child.rglob("*") if path.is_file()}
+    assert source_after == source_before

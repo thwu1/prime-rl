@@ -30,7 +30,7 @@ from typing import Any, Literal
 import direct_qwen_workers as direct_workers
 from audit_traces import DEFAULT_MAX_SEQUENCE_TOKENS, _audit_trace
 
-FORMAT_VERSION = 1
+FORMAT_VERSION = 2
 SPLIT_BUCKETS = 10_000
 DEFAULT_VALIDATION_PERMYRIAD = 500
 DEFAULT_SPLIT_SALT = "terminal-bench-vmvm-sft-v1"
@@ -90,6 +90,7 @@ class ExportOptions:
 @dataclass(frozen=True)
 class RoutingEpochIndex:
     artifact: FileArtifact
+    body: bytes
     admission_transition_artifact: FileArtifact | None
     direct_workers_artifact: FileArtifact
     epoch1_rows_artifact: FileArtifact
@@ -100,6 +101,13 @@ class RoutingEpochIndex:
     transition_sha256: str
     row_sha256: tuple[str, ...]
     routing_epochs: tuple[int, ...]
+
+
+@dataclass(frozen=True)
+class TaskIdentityContext:
+    taskset_id: str
+    dataset_revision: str
+    approved_slugs: frozenset[str]
 
 
 class JSONLSink:
@@ -267,7 +275,65 @@ def _valid_git_sha(value: object) -> bool:
     return isinstance(value, str) and len(value) == 40 and all(character in SHA256_HEX_CHARS for character in value)
 
 
-def _validate_run_provenance(run_dir: Path, max_sequence_tokens: int) -> tuple[dict[str, FileArtifact], dict[str, Any]]:
+def _task_identity_context(taskset: Mapping[str, Any], task_file_body: bytes) -> TaskIdentityContext:
+    taskset_id = taskset.get("id")
+    dataset_revision = taskset.get("dataset_revision")
+    if (
+        not isinstance(taskset_id, str)
+        or not taskset_id
+        or "\x00" in taskset_id
+        or not _valid_git_sha(dataset_revision)
+    ):
+        raise ExportError("resolved_config_task_identity_invalid")
+    try:
+        task_file_text = task_file_body.decode("utf-8")
+    except UnicodeDecodeError as error:
+        raise ExportError("approved_task_list_invalid") from error
+    approved_slugs: set[str] = set()
+    for line in task_file_text.splitlines():
+        stripped = line.strip()
+        if not stripped or stripped.startswith("#"):
+            continue
+        slug = stripped.split("\t", 1)[0]
+        if not slug or "\x00" in slug:
+            raise ExportError("approved_task_list_invalid")
+        approved_slugs.add(slug)
+    if not approved_slugs:
+        raise ExportError("approved_task_list_invalid")
+    return TaskIdentityContext(
+        taskset_id=taskset_id,
+        dataset_revision=dataset_revision,
+        approved_slugs=frozenset(approved_slugs),
+    )
+
+
+def _opaque_task_slug(task: Mapping[str, Any]) -> str:
+    slug = task.get("slug")
+    if slug is None:
+        name = task.get("name")
+        if not isinstance(name, str):
+            raise ExportError("trace_task_slug_invalid")
+        slug = name.rsplit("/", 1)[-1]
+    if not isinstance(slug, str) or not slug or "\x00" in slug:
+        raise ExportError("trace_task_slug_invalid")
+    return slug
+
+
+def _task_identity_sha256(context: TaskIdentityContext, task: Mapping[str, Any]) -> str:
+    slug = _opaque_task_slug(task)
+    if slug not in context.approved_slugs:
+        raise ExportError("trace_task_slug_not_approved")
+    try:
+        identity = "\x00".join((context.taskset_id, context.dataset_revision, slug)).encode("utf-8")
+    except UnicodeEncodeError as error:
+        raise ExportError("trace_task_slug_invalid") from error
+    return hashlib.sha256(identity).hexdigest()
+
+
+def _validate_run_provenance(
+    run_dir: Path,
+    max_sequence_tokens: int,
+) -> tuple[dict[str, FileArtifact], dict[str, Any], TaskIdentityContext]:
     bodies: dict[str, bytes] = {}
     artifacts: dict[str, FileArtifact] = {}
     for relative in REQUIRED_RUN_ARTIFACTS:
@@ -314,6 +380,7 @@ def _validate_run_provenance(run_dir: Path, max_sequence_tokens: int) -> tuple[d
         raise ExportError("resolved_config_task_digest_mismatch")
     if taskset.get("image_manifest_sha256") != artifacts["inputs/image_manifest.json"].sha256:
         raise ExportError("resolved_config_image_digest_mismatch")
+    task_identity = _task_identity_context(taskset, bodies["inputs/task_file.txt"])
 
     limits: dict[str, int] = {}
     for key in ("max_input_tokens", "max_output_tokens", "max_total_tokens"):
@@ -327,12 +394,18 @@ def _validate_run_provenance(run_dir: Path, max_sequence_tokens: int) -> tuple[d
     num_rollouts = config.get("num_rollouts")
     if isinstance(num_rollouts, bool) or not isinstance(num_rollouts, int) or num_rollouts < 1:
         raise ExportError("resolved_config_rollout_count_invalid")
-    return artifacts, {
-        "capture_model_io": True,
-        "model": model,
-        "num_rollouts": num_rollouts,
-        **limits,
-    }
+    return (
+        artifacts,
+        {
+            "capture_model_io": True,
+            "dataset_revision": task_identity.dataset_revision,
+            "model": model,
+            "num_rollouts": num_rollouts,
+            "taskset_id": task_identity.taskset_id,
+            **limits,
+        },
+        task_identity,
+    )
 
 
 def _parse_epoch2_lineage(body: bytes) -> dict[str, int]:
@@ -363,6 +436,7 @@ def _load_epoch3_routing_provenance(
     resolved_run: Path,
     source_artifacts: Mapping[str, FileArtifact],
     index_artifact: FileArtifact,
+    index_body: bytes,
     header: Mapping[str, Any],
     row_sha256: list[str],
     routing_epochs: list[int],
@@ -439,6 +513,7 @@ def _load_epoch3_routing_provenance(
 
     return RoutingEpochIndex(
         artifact=index_artifact,
+        body=index_body,
         admission_transition_artifact=artifacts[ROUTING_ADMISSION_TRANSITION_FILENAME],
         direct_workers_artifact=artifacts[DIRECT_WORKERS_FILENAME],
         epoch1_rows_artifact=artifacts[ROUTING_EPOCH1_ROWS_FILENAME],
@@ -465,9 +540,6 @@ def _load_routing_epoch_index(
         resolved_run = run_dir.resolve(strict=True)
     except OSError as error:
         raise ExportError("routing_epoch_index_path_invalid") from error
-    if resolved.parent != resolved_run or resolved.name != ROUTING_EPOCH_INDEX_FILENAME:
-        raise ExportError("routing_epoch_index_outside_source_run")
-
     body, artifact = _read_stable_file(resolved, max_bytes=MAX_ROUTING_EPOCH_INDEX_BYTES)
     if not body or not body.endswith(b"\n"):
         raise ExportError("routing_epoch_index_invalid")
@@ -536,6 +608,7 @@ def _load_routing_epoch_index(
             resolved_run=resolved_run,
             source_artifacts=source_artifacts,
             index_artifact=artifact,
+            index_body=body,
             header=header,
             row_sha256=row_sha256,
             routing_epochs=routing_epochs,
@@ -732,6 +805,7 @@ def _load_routing_epoch_index(
 
     return RoutingEpochIndex(
         artifact=artifact,
+        body=body,
         admission_transition_artifact=None,
         direct_workers_artifact=direct_workers_artifact,
         epoch1_rows_artifact=epoch1_rows_artifact,
@@ -1135,6 +1209,15 @@ def _write_json(path: Path, value: object) -> FileArtifact:
     return FileArtifact(bytes=len(body), sha256=hashlib.sha256(body).hexdigest())
 
 
+def _write_bytes(path: Path, body: bytes) -> FileArtifact:
+    flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_CLOEXEC
+    with os.fdopen(os.open(path, flags, 0o600), "wb") as output:
+        output.write(body)
+        output.flush()
+        os.fsync(output.fileno())
+    return FileArtifact(bytes=len(body), sha256=hashlib.sha256(body).hexdigest())
+
+
 def _fsync_dir(path: Path) -> None:
     fd = os.open(path, os.O_RDONLY | os.O_DIRECTORY | os.O_CLOEXEC)
     try:
@@ -1174,7 +1257,10 @@ def export_sft(options: ExportOptions) -> dict[str, Any]:
         run_dir,
         require_router_lock=options.routing_epoch_index is not None,
     ):
-        source_artifacts, config_summary = _validate_run_provenance(run_dir, options.max_sequence_tokens)
+        source_artifacts, config_summary, task_identity = _validate_run_provenance(
+            run_dir,
+            options.max_sequence_tokens,
+        )
         routing_index: RoutingEpochIndex | None = None
         if options.routing_epoch_index is not None:
             routing_index = _load_routing_epoch_index(
@@ -1240,7 +1326,7 @@ def export_sft(options: ExportOptions) -> dict[str, Any]:
                 if source_trace_sha256 in seen_source_rows:
                     raise ExportError("duplicate_trace_row")
                 seen_source_rows.add(source_trace_sha256)
-                task_sha256 = _json_sha256(task)
+                task_sha256 = _task_identity_sha256(task_identity, task)
 
                 errors = trace.get("errors")
                 if not isinstance(errors, list):
@@ -1334,6 +1420,14 @@ def export_sft(options: ExportOptions) -> dict[str, Any]:
                 bytes=source_after.st_size,
                 sha256=results_sha256,
             )
+            retained_routing_index_artifact: FileArtifact | None = None
+            if routing_index is not None:
+                retained_routing_index_artifact = _write_bytes(
+                    temporary / ROUTING_EPOCH_INDEX_FILENAME,
+                    routing_index.body,
+                )
+                if retained_routing_index_artifact != routing_index.artifact:
+                    raise ExportError("routing_epoch_index_copy_mismatch")
             task_split = {
                 "format_version": FORMAT_VERSION,
                 "split_salt": options.split_salt,
@@ -1343,12 +1437,15 @@ def export_sft(options: ExportOptions) -> dict[str, Any]:
             }
             task_split_artifact = _write_json(temporary / "task-split.json", task_split)
 
+            output_artifacts = {
+                "task-split.json": task_split_artifact.as_dict(),
+                "train/train.jsonl": train_artifact.as_dict(),
+                "validation/train.jsonl": validation_artifact.as_dict(),
+            }
+            if retained_routing_index_artifact is not None:
+                output_artifacts[ROUTING_EPOCH_INDEX_FILENAME] = retained_routing_index_artifact.as_dict()
             manifest = {
-                "artifacts": {
-                    "task-split.json": task_split_artifact.as_dict(),
-                    "train/train.jsonl": train_artifact.as_dict(),
-                    "validation/train.jsonl": validation_artifact.as_dict(),
-                },
+                "artifacts": output_artifacts,
                 "config": config_summary,
                 "counts": dict(sorted(counts.items())),
                 "exporter": {
@@ -1364,13 +1461,13 @@ def export_sft(options: ExportOptions) -> dict[str, Any]:
                         "authentic reasoning_content, content, and tool_calls; "
                         "the selected renderer supplies its stop token"
                     ),
-                    "task_identity": "sha256 of canonical source task JSON",
+                    "task_identity": "sha256(taskset id + NUL + dataset revision + NUL + approved opaque task slug)",
                 },
                 "max_sequence_tokens": options.max_sequence_tokens,
                 "selection": options.selection,
                 "source_artifacts": {key: value.as_dict() for key, value in sorted(source_artifacts.items())},
                 "split": {
-                    "policy": "sha256(split_salt + NUL + task_sha256) modulo 10000",
+                    "policy": "sha256(split_salt + NUL + stable task identity SHA-256) modulo 10000",
                     "split_salt": options.split_salt,
                     "validation_permyriad": options.validation_permyriad,
                 },
@@ -1426,6 +1523,9 @@ def export_sft(options: ExportOptions) -> dict[str, Any]:
                 "status": "exported",
             }
             if routing_index is not None:
+                if retained_routing_index_artifact is None:
+                    raise ExportError("routing_epoch_index_copy_missing")
+                summary["output_sha256"]["routing_epoch_index"] = retained_routing_index_artifact.sha256
                 summary["routing_epoch_rows"] = {
                     str(epoch): counts[f"routing_epoch_{epoch}_emitted_rows"]
                     for epoch in range(1, routing_index.current_epoch + 1)
@@ -1452,7 +1552,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument(
         "--routing-epoch-index",
         type=Path,
-        help="strictly validate and consume a final qwen_router_epochs.jsonl from the source run",
+        help="strictly validate and retain a hash-bound qwen_router_epochs.jsonl sidecar",
     )
     return parser.parse_args(argv)
 
