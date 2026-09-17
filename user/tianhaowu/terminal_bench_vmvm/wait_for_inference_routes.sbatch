@@ -34,6 +34,7 @@ fi
 
 project_dir=${PROJECT_DIR:-${SLURM_SUBMIT_DIR:-$PWD}}
 workflow_dir="$project_dir/user/tianhaowu/terminal_bench_vmvm"
+x86_site=${PYTHON_SITE_X86_64:-/checkpoint/ram/tianhaowu/terminal_bench_vmvm/python_x86_64}
 waiter=${WAITER_SCRIPT:-$workflow_dir/wait_for_inference_routes.py}
 gate_output=${GATE_OUTPUT:-/checkpoint/ram/tianhaowu/terminal_bench_vmvm/gates/${DEPLOYMENT_ID}_${SLURM_JOB_ID:-manual}.json}
 
@@ -90,4 +91,5 @@ if [[ -n ${PROXY_INFO_PATH:-} ]]; then
 fi
 
 export PYTHONUNBUFFERED=1
+export PYTHONPATH="$workflow_dir:$x86_site${PYTHONPATH:+:$PYTHONPATH}"
 exec python3 "$waiter" "${args[@]}"

@@ -756,15 +756,26 @@ def test_sbatch_wrapper_is_cpu_only_and_forwards_safe_tunables(tmp_path: Path) -
         assert directive in wrapper_text
     assert "#SBATCH --gres" not in wrapper_text
     assert "#SBATCH --gpus" not in wrapper_text
+    assert (
+        "x86_site=${PYTHON_SITE_X86_64:-"
+        "/checkpoint/ram/tianhaowu/terminal_bench_vmvm/python_x86_64}"
+    ) in wrapper_text
 
     workflow = tmp_path / "user/tianhaowu/terminal_bench_vmvm"
     workflow.mkdir(parents=True)
+    x86_site = tmp_path / "python_x86_64"
+    x86_site.mkdir()
+    (x86_site / "gate_x86_dependency.py").write_text("MARKER = 'x86-site'\n")
+    inherited_site = tmp_path / "inherited_pythonpath"
+    inherited_site.mkdir()
     capture = tmp_path / "capture.json"
     dummy_waiter = workflow / "wait_for_inference_routes.py"
     dummy_waiter.write_text(
-        "import json, os, pathlib, sys\n"
+        "import gate_x86_dependency, json, os, pathlib, sys\n"
         "pathlib.Path(os.environ['CAPTURE']).write_text(json.dumps({"
         "'argv': sys.argv[1:], "
+        "'dependency_marker': gate_x86_dependency.MARKER, "
+        "'pythonpath': os.environ['PYTHONPATH'], "
         "'proxy_names': sorted(k for k in os.environ if k.lower().endswith('_proxy'))"
         "}))\n"
     )
@@ -780,6 +791,8 @@ def test_sbatch_wrapper_is_cpu_only_and_forwards_safe_tunables(tmp_path: Path) -
         "PROBE_REQUESTS": "56",
         "PROBE_CONCURRENCY": "7",
         "CAPTURE": str(capture),
+        "PYTHON_SITE_X86_64": str(x86_site),
+        "PYTHONPATH": str(inherited_site),
         "HTTP_PROXY": "http://forward",
         "https_proxy": "http://forward",
         "CUSTOM_PROXY": "must-not-leak",
@@ -796,6 +809,12 @@ def test_sbatch_wrapper_is_cpu_only_and_forwards_safe_tunables(tmp_path: Path) -
     assert completed.returncode == 0, completed.stderr
     invocation = json.loads(capture.read_text())
     assert invocation["proxy_names"] == []
+    assert invocation["dependency_marker"] == "x86-site"
+    assert invocation["pythonpath"].split(os.pathsep) == [
+        str(workflow),
+        str(x86_site),
+        str(inherited_site),
+    ]
     argv = invocation["argv"]
     assert argv[0] == "deployment-1"
     assert argv[argv.index("--expected-spec-sha256") + 1] == "a" * 64
