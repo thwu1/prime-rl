@@ -312,11 +312,14 @@ def test_eval_controller_is_cpu_only_and_supports_high_vmvm_concurrency() -> Non
 def test_kimi_tb4_gate_sequences_smoke_before_full_evaluation() -> None:
     wrapper = (CONFIG_DIR.parents[1] / "run_kimi_tb4_gate.sbatch").read_text()
 
-    assert "1dc61931e9958733310cb5f351a1041f69ffd9bf" in wrapper
+    assert "cd73d4061e4ab045dc6f778237f18f22a85ad29a" in wrapper
     assert "EVAL_RUN_ROLE=smoke" in wrapper
     assert "EVAL_RUN_ROLE=tb4" in wrapper
     assert "SMOKE_EXPECTED_TRACES=2" in wrapper
     assert "VACLI_MAX_CONCURRENT_LEASES=2" in wrapper
+    assert "validate_endpoint_binding" in wrapper
+    assert 'export INFERENCE_PROXY_INFO_SHA256="$proxy_info_sha256"' in wrapper
+    assert wrapper.count("run_with_proxy_guard") == 5
     assert "run_trace_smoke_audit.sbatch" in wrapper
     assert "run_tb4_audit.sbatch" in wrapper
     assert wrapper.index("EVAL_RUN_ROLE=smoke") < wrapper.index("run_trace_smoke_audit.sbatch")
