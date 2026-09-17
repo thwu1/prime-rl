@@ -5,16 +5,19 @@ from __future__ import annotations
 
 import argparse
 import contextlib
+import copy
 import ctypes
 import errno
 import fcntl
 import hashlib
+import importlib
 import json
 import os
 import re
 import shutil
 import stat
 import subprocess
+import sys
 import tempfile
 import tomllib
 from collections.abc import Callable, Iterator
@@ -49,6 +52,8 @@ REQUIRED_SOURCE_FILES = (
     "provenance.txt",
     "results.jsonl",
 )
+EXPECTED_VERIFIERS_REVISION = direct.ADMISSION_VERIFIERS_REVISION
+EXPECTED_RESUME_MODULE_SHA256 = direct.ADMISSION_RESUME_MODULE_SHA256
 
 
 class MigrationError(ValueError):
@@ -111,6 +116,37 @@ def _run(command: list[str]) -> str:
     except (OSError, subprocess.SubprocessError) as error:
         raise MigrationError(f"slurm_query_failed:{command[0]}") from error
     return completed.stdout
+
+
+def _repository_revision() -> str:
+    repository = Path(__file__).resolve().parents[3]
+    try:
+        revision = subprocess.run(
+            ["git", "-C", str(repository), "rev-parse", "HEAD"],
+            check=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            timeout=30,
+        ).stdout.strip()
+    except (OSError, subprocess.SubprocessError) as error:
+        raise MigrationError("migration_repository_revision_unavailable") from error
+    if re.fullmatch(r"[0-9a-f]{40}", revision) is None:
+        raise MigrationError("migration_repository_revision_invalid")
+    try:
+        status = subprocess.run(
+            ["git", "-C", str(repository), "status", "--porcelain", "--untracked-files=all"],
+            check=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            timeout=30,
+        ).stdout
+    except (OSError, subprocess.SubprocessError) as error:
+        raise MigrationError("migration_repository_status_unavailable") from error
+    if status:
+        raise MigrationError("migration_repository_not_clean")
+    return revision
 
 
 def _normalize_slurm_state(raw: str) -> str | None:
@@ -317,21 +353,51 @@ def _publish_directory(
     destination: Path,
     validate: Callable[[Path, bool], None],
 ) -> None:
+    marker = source / direct.MIGRATION_INCOMPLETE_FILENAME
     try:
-        _rename_noreplace(source, destination)
+        marker_descriptor = os.open(
+            marker,
+            os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_CLOEXEC | os.O_NOFOLLOW,
+            0o600,
+        )
     except OSError as error:
-        if error.errno not in {errno.EINVAL, errno.ENOSYS, errno.EOPNOTSUPP, errno.EXDEV}:
-            raise
-        _publish_with_incomplete_marker(source, destination, validate)
-        return
+        raise MigrationError("staging_incomplete_marker_unavailable") from error
     try:
-        validate(destination, False)
-        _fsync_directory(destination)
-        _fsync_directory(destination.parent)
-    except Exception:
-        with contextlib.suppress(OSError):
-            shutil.rmtree(destination)
-        raise
+        os.write(marker_descriptor, b"qwen-router-migration-v1\n")
+        os.fsync(marker_descriptor)
+        marker_metadata = os.fstat(marker_descriptor)
+        _fsync_tree(source)
+        try:
+            _rename_noreplace(source, destination)
+        except OSError as error:
+            if error.errno not in {errno.EINVAL, errno.ENOSYS, errno.EOPNOTSUPP, errno.EXDEV}:
+                raise
+            os.close(marker_descriptor)
+            marker_descriptor = -1
+            marker.unlink()
+            _fsync_directory(source)
+            _publish_with_incomplete_marker(source, destination, validate)
+            return
+        try:
+            validate(destination, True)
+            published_marker = destination / direct.MIGRATION_INCOMPLETE_FILENAME
+            observed_marker = published_marker.lstat()
+            if (
+                not stat.S_ISREG(observed_marker.st_mode)
+                or observed_marker.st_dev != marker_metadata.st_dev
+                or observed_marker.st_ino != marker_metadata.st_ino
+            ):
+                raise MigrationError("migration_incomplete_marker_changed")
+            published_marker.unlink()
+            _fsync_directory(destination)
+            _fsync_directory(destination.parent)
+        except Exception:
+            with contextlib.suppress(OSError):
+                shutil.rmtree(destination)
+            raise
+    finally:
+        if marker_descriptor >= 0:
+            os.close(marker_descriptor)
 
 
 def _rewrite_toml_path(text: str, key: str, old: Path, new: Path) -> str:
@@ -356,10 +422,24 @@ def _declared_source_matches_record(declared: str, recorded: str) -> bool:
     return recorded_path.parts[-len(declared_path.parts) :] == declared_path.parts
 
 
-def _rewrite_child_paths(source: Path, storage: Path, child: Path) -> None:
+def _rewrite_toml_integer(text: str, key: str, old: int, new: int) -> str:
+    pattern = re.compile(rf"(?m)^(\s*{re.escape(key)}\s*=\s*){old}\s*$")
+    rewritten, count = pattern.subn(rf"\g<1>{new}", text)
+    if count != 1:
+        raise MigrationError(f"source_config_{key}_not_unique")
+    return rewritten
+
+
+def _rewrite_child_paths(
+    source: Path,
+    storage: Path,
+    child: Path,
+    *,
+    archive_source_config_filename: str | None = direct.ROUTING_EPOCH1_SOURCE_CONFIG_FILENAME,
+    provider_concurrency: tuple[int, int] | None = None,
+) -> None:
     config_path = storage / "config.toml"
     source_config_path = storage / "inputs" / "source_config.toml"
-    epoch1_source_config_path = storage / "inputs" / direct.ROUTING_EPOCH1_SOURCE_CONFIG_FILENAME
     inputs_manifest_path = storage / "inputs" / "manifest.json"
     try:
         config_text = config_path.read_text(encoding="utf-8")
@@ -384,7 +464,8 @@ def _rewrite_child_paths(source: Path, storage: Path, child: Path) -> None:
         source / "inputs" / "source_config.toml"
     ).resolve() or config_record.get("sha256") != _sha256(source_config_path):
         raise MigrationError("source_inputs_config_record_mismatch")
-    _copy_file(source_config_path, epoch1_source_config_path)
+    if archive_source_config_filename is not None:
+        _copy_file(source_config_path, storage / "inputs" / archive_source_config_filename)
 
     for key, filename in (("task_file", "task_file.txt"), ("image_manifest", "image_manifest.json")):
         saved_value = taskset.get(key)
@@ -395,6 +476,8 @@ def _rewrite_child_paths(source: Path, storage: Path, child: Path) -> None:
         if not isinstance(record, dict) or set(record) != {"source", "snapshot", "sha256"}:
             raise MigrationError(f"source_inputs_{key}_record_invalid")
         expected_snapshot = source / "inputs" / filename
+        hash_key = f"{key}_sha256"
+        record_sha256 = record.get("sha256")
         if (
             not isinstance(saved_value, str)
             or Path(saved_value).resolve() != expected_snapshot.resolve()
@@ -402,8 +485,15 @@ def _rewrite_child_paths(source: Path, storage: Path, child: Path) -> None:
             or not isinstance(record.get("source"), str)
             or not _declared_source_matches_record(source_value, record["source"])
             or Path(str(record.get("snapshot", ""))).resolve() != expected_snapshot.resolve()
+            or not expected_snapshot.is_file()
+            or expected_snapshot.is_symlink()
+            or not isinstance(record_sha256, str)
+            or re.fullmatch(r"[0-9a-f]{64}", record_sha256) is None
+            or taskset.get(hash_key) != record_sha256
+            or source_taskset.get(hash_key) != record_sha256
+            or _sha256(expected_snapshot) != record_sha256
         ):
-            raise MigrationError(f"source_config_{key}_path_mismatch")
+            raise MigrationError(f"source_config_{key}_snapshot_mismatch")
         child_snapshot = child / "inputs" / filename
         config_text = _rewrite_toml_path(
             config_text,
@@ -419,8 +509,19 @@ def _rewrite_child_paths(source: Path, storage: Path, child: Path) -> None:
         )
         record["source"] = str(child_snapshot)
         record["snapshot"] = str(child_snapshot)
+    if provider_concurrency is not None:
+        old_concurrency, new_concurrency = provider_concurrency
+        for key in ("max_connections", "max_keepalive_connections"):
+            config_text = _rewrite_toml_integer(config_text, key, old_concurrency, new_concurrency)
+            source_config_text = _rewrite_toml_integer(
+                source_config_text,
+                key,
+                old_concurrency,
+                new_concurrency,
+            )
     _atomic_write(config_path, config_text.encode())
     _atomic_write(source_config_path, source_config_text.encode())
+    config_record["source"] = str(child / "inputs" / "source_config.toml")
     config_record["snapshot"] = str(child / "inputs" / "source_config.toml")
     config_record["sha256"] = _sha256(source_config_path)
     _atomic_write(inputs_manifest_path, _json_bytes(inputs_manifest))
@@ -486,6 +587,167 @@ def _plan_retained_results(
     )
 
 
+def _load_verifiers_resume(expected_revision: str):
+    repository = Path(__file__).resolve().parents[3]
+    dependency = repository / "deps" / "verifiers"
+    try:
+        observed = subprocess.run(
+            ["git", "-C", str(dependency), "rev-parse", "HEAD"],
+            check=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            timeout=30,
+        ).stdout.strip()
+    except (OSError, subprocess.SubprocessError) as error:
+        raise MigrationError("verifiers_revision_unavailable") from error
+    if observed != expected_revision or observed != EXPECTED_VERIFIERS_REVISION:
+        raise MigrationError("verifiers_revision_mismatch")
+    try:
+        status = subprocess.run(
+            ["git", "-C", str(dependency), "status", "--porcelain", "--untracked-files=all"],
+            check=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            timeout=30,
+        ).stdout
+    except (OSError, subprocess.SubprocessError) as error:
+        raise MigrationError("verifiers_worktree_status_unavailable") from error
+    if status:
+        raise MigrationError("verifiers_worktree_not_clean")
+    resume_path = dependency / "verifiers" / "v1" / "cli" / "eval" / "resume.py"
+    if not resume_path.is_file() or resume_path.is_symlink() or _sha256(resume_path) != EXPECTED_RESUME_MODULE_SHA256:
+        raise MigrationError("verifiers_resume_module_mismatch")
+    for entry in (
+        dependency,
+        repository / "deps" / "renderers",
+        repository / "deps" / "pydantic-config" / "src",
+    ):
+        value = str(entry)
+        if value not in sys.path:
+            sys.path.insert(0, value)
+    try:
+        importlib.import_module("pydantic_core")
+    except ImportError:
+        staged_site = Path(
+            os.environ.get(
+                "PYTHON_SITE_X86_64",
+                "/checkpoint/ram/tianhaowu/terminal_bench_vmvm/python_x86_64",
+            )
+        )
+        sys.path.insert(0, str(staged_site))
+    try:
+        sys.dont_write_bytecode = True
+        module = importlib.import_module("verifiers.v1.cli.eval.resume")
+    except (ImportError, OSError) as error:
+        raise MigrationError("verifiers_resume_planner_unavailable") from error
+    if Path(module.__file__).resolve() != resume_path.resolve():
+        raise MigrationError("verifiers_resume_module_origin_mismatch")
+    return module
+
+
+def _plan_retained_results_with_verifiers(
+    source_results: Path,
+    retained_output: Path,
+    lineage_output: Path,
+    num_tasks: int,
+    *,
+    verifiers_revision: str,
+    epoch1_hashes: set[str],
+) -> dict[str, Any]:
+    """Materialize exactly the rows selected by the pinned resume planner."""
+    selected_idxs = list(range(num_tasks))
+    selected_payload = "".join(f"{index}\n" for index in selected_idxs).encode()
+    resume = _load_verifiers_resume(verifiers_revision)
+    try:
+        keep, owed = resume.plan(
+            source_results.parent,
+            selected_idxs,
+            1,
+            False,
+            require_exact_tokens=False,
+            require_logprobs=False,
+        )
+    except (OSError, ValueError, KeyError, TypeError) as error:
+        raise MigrationError("verifiers_resume_plan_failed") from error
+    if (
+        not isinstance(keep, list)
+        or any(isinstance(offset, bool) or not isinstance(offset, int) or offset < 0 for offset in keep)
+        or len(keep) != len(set(keep))
+        or not isinstance(owed, dict)
+        or any(
+            isinstance(index, bool) or not isinstance(index, int) or not 0 <= index < num_tasks or count != 1
+            for index, count in owed.items()
+        )
+        or len(keep) + sum(owed.values()) != num_tasks
+    ):
+        raise MigrationError("verifiers_resume_plan_invalid")
+
+    retained_digest = hashlib.sha256()
+    retained_size = 0
+    lineage: list[dict[str, Any]] = []
+    retained_idxs: list[int] = []
+    with source_results.open("rb") as results, retained_output.open("wb") as retained:
+        os.fchmod(retained.fileno(), 0o600)
+        for offset in keep:
+            results.seek(offset)
+            raw = results.readline()
+            if not raw.endswith(b"\n"):
+                raise MigrationError("verifiers_resume_plan_incomplete_row")
+            try:
+                row = json.loads(raw)
+            except (UnicodeDecodeError, json.JSONDecodeError) as error:
+                raise MigrationError("verifiers_resume_plan_invalid_row") from error
+            task = row.get("task") if isinstance(row, dict) else None
+            index = task.get("idx") if isinstance(task, dict) else None
+            if isinstance(index, bool) or not isinstance(index, int) or not 0 <= index < num_tasks or row.get("errors"):
+                raise MigrationError("verifiers_resume_plan_selected_unusable_row")
+            retained.write(raw)
+            retained_digest.update(raw)
+            retained_size += len(raw)
+            digest = hashlib.sha256(raw).hexdigest()
+            retained_idxs.append(index)
+            lineage.append(
+                {
+                    "row_sha256": digest,
+                    "routing_epoch": 1 if digest in epoch1_hashes else 2,
+                }
+            )
+        retained.flush()
+        os.fsync(retained.fileno())
+    digests = [record["row_sha256"] for record in lineage]
+    if len(digests) != len(set(digests)):
+        raise MigrationError("retained_result_row_hash_collision")
+    if not epoch1_hashes.issubset(digests):
+        raise MigrationError("verifiers_resume_plan_dropped_parent_row")
+    if (
+        len(retained_idxs) != len(set(retained_idxs))
+        or set(retained_idxs).intersection(owed)
+        or set(retained_idxs).union(owed) != set(selected_idxs)
+    ):
+        raise MigrationError("verifiers_resume_plan_task_partition_invalid")
+    lineage_payload = b"".join(
+        (json.dumps(record, sort_keys=True, separators=(",", ":")) + "\n").encode() for record in lineage
+    )
+    _atomic_write(lineage_output, lineage_payload)
+    return {
+        "retained_results_sha256": retained_digest.hexdigest(),
+        "retained_results_size_bytes": retained_size,
+        "retained_row_count": len(lineage),
+        "owed_rollout_count": sum(owed.values()),
+        "epoch2_lineage_sha256": hashlib.sha256(lineage_payload).hexdigest(),
+        "selected_idxs_sha256": hashlib.sha256(selected_payload).hexdigest(),
+        "planner_verifiers_revision": verifiers_revision,
+        "planner_module_sha256": EXPECTED_RESUME_MODULE_SHA256,
+        "num_rollouts": 1,
+        "group": False,
+        "require_exact_tokens": False,
+        "require_logprobs": False,
+        "shuffle": False,
+    }
+
+
 def _validate_source(source: Path) -> tuple[dict[str, Any], dict[str, str], dict[str, Any]]:
     for relative in REQUIRED_SOURCE_FILES:
         path = source / relative
@@ -510,6 +772,80 @@ def _validate_source(source: Path) -> tuple[dict[str, Any], dict[str, str], dict
         if re.fullmatch(r"[0-9a-f]{40}", provenance.get(key, "")) is None:
             raise MigrationError(f"source_provenance_{key}_invalid")
     return upgraded_manifest, provenance, config
+
+
+def _validate_admission_source(source: Path) -> tuple[dict[str, Any], dict[str, str], dict[str, Any]]:
+    for relative in REQUIRED_SOURCE_FILES:
+        path = source / relative
+        if not path.is_file() or path.is_symlink():
+            raise MigrationError(f"source_file_missing_or_symlink:{relative}")
+    forbidden = (
+        direct.ADMISSION_TRANSITION_FILENAME,
+        direct.ROUTING_EPOCH2_MANIFEST_FILENAME,
+        direct.ROUTING_EPOCH2_CONFIG_FILENAME,
+        direct.ROUTING_EPOCH2_ROWS_FILENAME,
+        direct.ROUTING_EPOCH2_PROVENANCE_FILENAME,
+    )
+    if any((source / name).exists() or (source / name).is_symlink() for name in forbidden):
+        raise MigrationError("source_admission_epoch_already_present")
+    for name in (
+        direct.ROUTING_EPOCH2_SOURCE_CONFIG_FILENAME,
+        direct.ROUTING_EPOCH2_INPUTS_MANIFEST_FILENAME,
+    ):
+        path = source / "inputs" / name
+        if path.exists() or path.is_symlink():
+            raise MigrationError("source_admission_epoch_already_present")
+
+    manifest_path = source / "direct_workers.json"
+    manifest = direct.validate_saved_manifest(manifest_path)
+    provenance = direct.validate_router_provenance(
+        source / "provenance.txt",
+        _sha256(manifest_path),
+    )
+    transition = direct.validate_routing_transition(source, manifest, provenance)
+    if transition is None or provenance.get("qwen_router_epoch") != "2":
+        raise MigrationError("source_is_not_routing_epoch2")
+    config_path = source / "config.toml"
+    task_allowlist_sha256 = direct.validate_eval_config(config_path)
+    if task_allowlist_sha256 != manifest["approved_task_allowlist_sha256"]:
+        raise MigrationError("source_task_allowlist_mismatch")
+    try:
+        config = tomllib.loads(config_path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeDecodeError, tomllib.TOMLDecodeError) as error:
+        raise MigrationError("source_config_invalid") from error
+    if (
+        config.get("max_concurrent") != direct.MAX_DIRECT_CONCURRENCY
+        or config.get("multiplex") != direct.MAX_DIRECT_CONCURRENCY
+        or not direct._is_plain_int(config.get("num_rollouts"))
+        or config.get("num_rollouts") != 1
+        or config.get("shuffle", False) is not False
+        or direct.provider_concurrency(config) != direct.LEGACY_PRODUCTION_PROVIDER_CONCURRENCY
+        or manifest["router"].get("max_concurrent_requests") != direct.LEGACY_PRODUCTION_PROVIDER_CONCURRENCY
+        or manifest["router"].get("queue_size")
+        != direct.MAX_DIRECT_CONCURRENCY - direct.LEGACY_PRODUCTION_PROVIDER_CONCURRENCY
+    ):
+        raise MigrationError("source_admission_contract_invalid")
+    expected_url = f"http://127.0.0.1:{manifest['router']['port']}/v1"
+    if str(config["client"].get("base_url", "")).rstrip("/") != expected_url:
+        raise MigrationError("source_router_url_mismatch")
+    if str(provenance.get("inference_base_url", "")).rstrip("/") != expected_url:
+        raise MigrationError("source_provenance_url_mismatch")
+    if provenance.get("inference_deployment_id"):
+        raise MigrationError("source_provenance_deployment_id_present")
+    for key in ("prime_rl", "verifiers", "renderers"):
+        if re.fullmatch(r"[0-9a-f]{40}", provenance.get(key, "")) is None:
+            raise MigrationError(f"source_provenance_{key}_invalid")
+    if provenance["verifiers"] != EXPECTED_VERIFIERS_REVISION:
+        raise MigrationError("source_verifiers_revision_mismatch")
+    return manifest, provenance, config
+
+
+def _rewrite_provenance_value(text: str, key: str, old: str, new: str) -> str:
+    pattern = re.compile(rf"(?m)^{re.escape(key)}={re.escape(old)}$")
+    rewritten, count = pattern.subn(f"{key}={new}", text)
+    if count != 1:
+        raise MigrationError(f"source_provenance_{key}_not_unique")
+    return rewritten
 
 
 def migrate(
@@ -604,7 +940,7 @@ def migrate(
                     "request_id_headers": [],
                 },
                 "to_router": {
-                    "manifest_schema_version": direct.ROUTER_MANIFEST_SCHEMA_VERSION,
+                    "manifest_schema_version": direct.AFFINITY_MANIFEST_SCHEMA_VERSION,
                     "policy": direct.ROUTER_POLICY,
                     "request_id_headers": list(direct.ROUTER_REQUEST_ID_HEADERS),
                     "spec_sha256": upgraded_manifest["spec_sha256"],
@@ -659,7 +995,7 @@ def migrate(
             if not temporary.exists():
                 temporary = None
         finally:
-            if temporary is not None:
+            if temporary is not None and temporary.exists():
                 shutil.rmtree(temporary)
 
     return {
@@ -672,6 +1008,215 @@ def migrate(
         "transition_sha256": transition_sha256,
         "router_policy": direct.ROUTER_POLICY,
         "request_id_headers": list(direct.ROUTER_REQUEST_ID_HEADERS),
+    }
+
+
+def migrate_admission(
+    source_dir: Path,
+    output_dir: Path,
+    *,
+    terminal_check: Callable[[str], bool] = slurm_job_is_terminal,
+) -> dict[str, Any]:
+    """Create routing epoch 3 with a 32-request provider admission bound."""
+    source = source_dir.resolve(strict=True)
+    output_parent = output_dir.parent.resolve(strict=True)
+    output = output_parent / output_dir.name
+    if output.exists() or output.is_symlink():
+        raise MigrationError("destination_exists")
+    if output == source or output.is_relative_to(source):
+        raise MigrationError("destination_overlaps_source")
+    direct.reject_incomplete_migration(source)
+
+    with _source_locks(source):
+        job_ids = _provenance_job_ids(source / "provenance.txt")
+        if any(not terminal_check(job_id) for job_id in job_ids):
+            raise MigrationError("source_slurm_job_not_terminal")
+        source_manifest, provenance, config = _validate_admission_source(source)
+        num_tasks = config.get("num_tasks")
+        if isinstance(num_tasks, bool) or not isinstance(num_tasks, int) or num_tasks < 1:
+            raise MigrationError("source_num_tasks_invalid")
+        source_hashes = {
+            "config_sha256": _sha256(source / "config.toml"),
+            "source_config_sha256": _sha256(source / "inputs" / "source_config.toml"),
+            "inputs_manifest_sha256": _sha256(source / "inputs" / "manifest.json"),
+            "provenance_sha256": _sha256(source / "provenance.txt"),
+            "results_sha256": _sha256(source / "results.jsonl"),
+            "direct_workers_sha256": _sha256(source / "direct_workers.json"),
+            "routing_transition_sha256": _sha256(source / direct.ROUTING_TRANSITION_FILENAME),
+        }
+        source_results_size = (source / "results.jsonl").stat().st_size
+        temporary: Path | None = Path(tempfile.mkdtemp(prefix=f".{output.name}.migrate-", dir=output_parent))
+        try:
+            assert temporary is not None
+            _clone_tree(source, temporary)
+            if _sha256(temporary / "results.jsonl") != source_hashes["results_sha256"]:
+                raise MigrationError("copied_results_hash_mismatch")
+
+            epoch2_archives = (
+                (temporary / "config.toml", temporary / direct.ROUTING_EPOCH2_CONFIG_FILENAME),
+                (
+                    temporary / "inputs" / "source_config.toml",
+                    temporary / "inputs" / direct.ROUTING_EPOCH2_SOURCE_CONFIG_FILENAME,
+                ),
+                (
+                    temporary / "inputs" / "manifest.json",
+                    temporary / "inputs" / direct.ROUTING_EPOCH2_INPUTS_MANIFEST_FILENAME,
+                ),
+                (temporary / "provenance.txt", temporary / direct.ROUTING_EPOCH2_PROVENANCE_FILENAME),
+            )
+            for source_path, archive_path in epoch2_archives:
+                _copy_file(source_path, archive_path)
+            old_router_log = temporary / "direct_router.log"
+            if old_router_log.exists():
+                old_router_log.rename(temporary / "direct_router.epoch-2.log")
+            stale_epoch_index = temporary / "qwen_router_epochs.jsonl"
+            if stale_epoch_index.exists():
+                stale_epoch_index.unlink()
+
+            _rewrite_child_paths(
+                source,
+                temporary,
+                output,
+                archive_source_config_filename=None,
+                provider_concurrency=(
+                    direct.LEGACY_PRODUCTION_PROVIDER_CONCURRENCY,
+                    direct.PRODUCTION_PROVIDER_CONCURRENCY,
+                ),
+            )
+
+            epoch2_manifest_path = temporary / direct.ROUTING_EPOCH2_MANIFEST_FILENAME
+            (temporary / "direct_workers.json").replace(epoch2_manifest_path)
+            target_manifest = copy.deepcopy(source_manifest)
+            target_manifest["schema_version"] = direct.ROUTER_MANIFEST_SCHEMA_VERSION
+            target_manifest["router"]["max_concurrent_requests"] = direct.PRODUCTION_PROVIDER_CONCURRENCY
+            target_manifest["router"]["queue_size"] = (
+                direct.MAX_DIRECT_CONCURRENCY - direct.PRODUCTION_PROVIDER_CONCURRENCY
+            )
+            target_manifest["admission"] = {
+                "schema_version": direct.ADMISSION_SCHEMA_VERSION,
+                "rollout_concurrency": direct.MAX_DIRECT_CONCURRENCY,
+                "client_max_connections": direct.PRODUCTION_PROVIDER_CONCURRENCY,
+                "client_max_keepalive_connections": direct.PRODUCTION_PROVIDER_CONCURRENCY,
+                "router_max_concurrent_requests": direct.PRODUCTION_PROVIDER_CONCURRENCY,
+                "router_queue_size": direct.MAX_DIRECT_CONCURRENCY - direct.PRODUCTION_PROVIDER_CONCURRENCY,
+            }
+            active_manifest_path = temporary / "direct_workers.json"
+            _atomic_write(active_manifest_path, _json_bytes(target_manifest))
+            direct.validate_saved_manifest(active_manifest_path)
+
+            retained_temporary = temporary / ".results.retained.tmp"
+            epoch2_rows_path = temporary / direct.ROUTING_EPOCH2_ROWS_FILENAME
+            epoch1_hashes = set(direct._read_epoch1_row_hashes(temporary / direct.ROUTING_EPOCH1_ROWS_FILENAME))
+            resume_plan = _plan_retained_results_with_verifiers(
+                source / "results.jsonl",
+                retained_temporary,
+                epoch2_rows_path,
+                num_tasks,
+                verifiers_revision=provenance["verifiers"],
+                epoch1_hashes=epoch1_hashes,
+            )
+            if resume_plan["owed_rollout_count"] < 1:
+                raise MigrationError("source_has_nothing_to_resume")
+            retained_temporary.replace(temporary / "results.jsonl")
+
+            transition = {
+                "schema_version": 1,
+                "kind": direct.ADMISSION_TRANSITION_KIND,
+                "source": {
+                    "canonical_path": str(source),
+                    "slurm_job_id": job_ids[-1],
+                    "prime_rl": provenance["prime_rl"],
+                    "verifiers": provenance["verifiers"],
+                    "renderers": provenance["renderers"],
+                    **source_hashes,
+                    "results_size_bytes": source_results_size,
+                },
+                "resume_plan": resume_plan,
+                "from_router": {
+                    "manifest_schema_version": direct.AFFINITY_MANIFEST_SCHEMA_VERSION,
+                    "policy": direct.ROUTER_POLICY,
+                    "request_id_headers": list(direct.ROUTER_REQUEST_ID_HEADERS),
+                    "max_concurrent_requests": direct.LEGACY_PRODUCTION_PROVIDER_CONCURRENCY,
+                    "queue_size": direct.MAX_DIRECT_CONCURRENCY - direct.LEGACY_PRODUCTION_PROVIDER_CONCURRENCY,
+                    "spec_sha256": source_manifest["spec_sha256"],
+                    "endpoint_bundle_sha256": source_manifest["endpoint_bundle_sha256"],
+                    "direct_workers_sha256": source_hashes["direct_workers_sha256"],
+                },
+                "to_router": {
+                    "manifest_schema_version": direct.ROUTER_MANIFEST_SCHEMA_VERSION,
+                    "policy": direct.ROUTER_POLICY,
+                    "request_id_headers": list(direct.ROUTER_REQUEST_ID_HEADERS),
+                    "max_concurrent_requests": direct.PRODUCTION_PROVIDER_CONCURRENCY,
+                    "queue_size": direct.MAX_DIRECT_CONCURRENCY - direct.PRODUCTION_PROVIDER_CONCURRENCY,
+                    "spec_sha256": target_manifest["spec_sha256"],
+                    "endpoint_bundle_sha256": target_manifest["endpoint_bundle_sha256"],
+                    "direct_workers_sha256": _sha256(active_manifest_path),
+                },
+                "child": {
+                    "canonical_path": str(output),
+                    "routing_epoch": 3,
+                    "migration_prime_rl": _repository_revision(),
+                    "config_sha256": _sha256(temporary / "config.toml"),
+                    "source_config_sha256": _sha256(temporary / "inputs" / "source_config.toml"),
+                    "inputs_manifest_sha256": _sha256(temporary / "inputs" / "manifest.json"),
+                },
+            }
+            admission_path = temporary / direct.ADMISSION_TRANSITION_FILENAME
+            _atomic_write(admission_path, _json_bytes(transition))
+            admission_sha256 = _sha256(admission_path)
+
+            provenance_path = temporary / "provenance.txt"
+            provenance_text = provenance_path.read_text(encoding="utf-8")
+            if "qwen_router_admission_transition_sha256" in provenance:
+                raise MigrationError("source_provenance_already_has_admission_epoch")
+            provenance_text = _rewrite_provenance_value(
+                provenance_text,
+                "direct_qwen_manifest_sha256",
+                source_hashes["direct_workers_sha256"],
+                transition["to_router"]["direct_workers_sha256"],
+            )
+            provenance_text = _rewrite_provenance_value(provenance_text, "qwen_router_epoch", "2", "3")
+            provenance_text += f"direct_qwen_provider_concurrency={direct.PRODUCTION_PROVIDER_CONCURRENCY}\n"
+            provenance_text += f"qwen_router_admission_transition_sha256={admission_sha256}\n"
+            _atomic_write(provenance_path, provenance_text.encode())
+
+            def validate_published(path: Path, allow_incomplete: bool) -> None:
+                published_manifest = direct.validate_saved_manifest(path / "direct_workers.json")
+                child_provenance = direct.validate_router_provenance(
+                    path / "provenance.txt",
+                    transition["to_router"]["direct_workers_sha256"],
+                    direct.PRODUCTION_PROVIDER_CONCURRENCY,
+                )
+                direct.validate_routing_transition(
+                    path,
+                    published_manifest,
+                    child_provenance,
+                    allow_incomplete=allow_incomplete,
+                )
+                approved_sha256 = direct.validate_eval_config(path / "config.toml")
+                if approved_sha256 != published_manifest["approved_task_allowlist_sha256"]:
+                    raise MigrationError("published_task_allowlist_mismatch")
+
+            _publish_directory(temporary, output, validate_published)
+            if not temporary.exists():
+                temporary = None
+        finally:
+            if temporary is not None and temporary.exists():
+                shutil.rmtree(temporary)
+
+    return {
+        "ok": True,
+        "source": str(source),
+        "output": str(output),
+        "retained_rows": resume_plan["retained_row_count"],
+        "owed_rollouts": resume_plan["owed_rollout_count"],
+        "retained_results_sha256": resume_plan["retained_results_sha256"],
+        "transition_sha256": admission_sha256,
+        "routing_epoch": 3,
+        "router_policy": direct.ROUTER_POLICY,
+        "request_id_headers": list(direct.ROUTER_REQUEST_ID_HEADERS),
+        "provider_concurrency": direct.PRODUCTION_PROVIDER_CONCURRENCY,
+        "queue_size": direct.MAX_DIRECT_CONCURRENCY - direct.PRODUCTION_PROVIDER_CONCURRENCY,
     }
 
 
@@ -695,17 +1240,27 @@ def label_routing_epochs(
         manifest = direct.validate_saved_manifest(run / "direct_workers.json")
         provenance = direct._read_provenance(run / "provenance.txt")
         direct.validate_routing_transition(run, manifest, provenance)
+        current_epoch = int(provenance.get("qwen_router_epoch", "1"))
         epoch1_hashes = set(direct._read_epoch1_row_hashes(run / direct.ROUTING_EPOCH1_ROWS_FILENAME))
+        epoch2_lineage = (
+            direct._read_epoch2_lineage(run / direct.ROUTING_EPOCH2_ROWS_FILENAME) if current_epoch >= 3 else []
+        )
+        epoch2_hashes = {record["row_sha256"] for record in epoch2_lineage}
         results_path = run / "results.jsonl"
         results_sha256 = _sha256(results_path)
         records: list[dict[str, Any]] = []
-        counts = {1: 0, 2: 0}
+        counts = {epoch: 0 for epoch in range(1, current_epoch + 1)}
         with results_path.open("rb") as results:
             for row_number, raw in enumerate(results):
                 if not raw.endswith(b"\n"):
                     raise MigrationError("results_has_incomplete_tail")
                 digest = hashlib.sha256(raw).hexdigest()
-                epoch = 1 if digest in epoch1_hashes else 2
+                if digest in epoch1_hashes:
+                    epoch = 1
+                elif digest in epoch2_hashes:
+                    epoch = 2
+                else:
+                    epoch = current_epoch
                 counts[epoch] += 1
                 records.append(
                     {
@@ -720,20 +1275,24 @@ def label_routing_epochs(
             "kind": "qwen-routing-epoch-index",
             "results_sha256": results_sha256,
             "transition_sha256": transition_sha256,
+            "admission_transition_sha256": (
+                _sha256(run / direct.ADMISSION_TRANSITION_FILENAME) if current_epoch >= 3 else None
+            ),
+            "routing_epoch": current_epoch,
             "row_count": len(records),
         }
         payload = (json.dumps(header, sort_keys=True, separators=(",", ":")) + "\n").encode() + b"".join(
             (json.dumps(record, sort_keys=True, separators=(",", ":")) + "\n").encode() for record in records
         )
         _atomic_write(output, payload)
-    return {
+    summary = {
         "ok": True,
         "results_sha256": results_sha256,
         "rows": len(records),
-        "epoch_1_rows": counts[1],
-        "epoch_2_rows": counts[2],
         "index_sha256": _sha256(output),
     }
+    summary.update({f"epoch_{epoch}_rows": count for epoch, count in counts.items()})
+    return summary
 
 
 def main() -> None:
@@ -742,6 +1301,9 @@ def main() -> None:
     migrate_parser = subparsers.add_parser("migrate")
     migrate_parser.add_argument("--source-dir", type=Path, required=True)
     migrate_parser.add_argument("--output-dir", type=Path, required=True)
+    admission_parser = subparsers.add_parser("migrate-admission")
+    admission_parser.add_argument("--source-dir", type=Path, required=True)
+    admission_parser.add_argument("--output-dir", type=Path, required=True)
     label_parser = subparsers.add_parser("label")
     label_parser.add_argument("--run-dir", type=Path, required=True)
     label_parser.add_argument("--output", type=Path)
@@ -749,6 +1311,8 @@ def main() -> None:
     try:
         if args.command == "migrate":
             summary = migrate(args.source_dir, args.output_dir)
+        elif args.command == "migrate-admission":
+            summary = migrate_admission(args.source_dir, args.output_dir)
         else:
             output = args.output or args.run_dir / "qwen_router_epochs.jsonl"
             summary = label_routing_epochs(args.run_dir, output)

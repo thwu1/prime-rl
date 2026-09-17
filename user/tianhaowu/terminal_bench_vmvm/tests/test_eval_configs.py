@@ -133,8 +133,8 @@ def test_mobius_qwen_production_retention_and_concurrency() -> None:
     assert config["max_total_tokens"] == 262_144
     assert config["sampling"]["max_tokens"] == 32_768
     assert config["retain_traces"] is False
-    assert config["client"]["max_connections"] == 16
-    assert config["client"]["max_keepalive_connections"] == 16
+    assert config["client"]["max_connections"] == 32
+    assert config["client"]["max_keepalive_connections"] == 32
     assert "model.model_kwargs.timeout=15000" in config["harness"]["config_overrides"]
     taskset = config["taskset"]
     assert taskset["dataset_revision"] == "ac1f30b9ac0e6c6a20a9fe423900d9ed28a6d366"
@@ -196,7 +196,7 @@ def test_eval_configs_pin_approved_tasks_and_runtime_contract(
         "tb4_kimi_k3_shared24_miniswe.toml": 24,
     }.get(filename, 8)
     assert config["max_concurrent"] == config["multiplex"] <= maximum_concurrency
-    expected_http_concurrency = 16 if filename == "mobius_qwen_a95b_2500.toml" else config["max_concurrent"]
+    expected_http_concurrency = 32 if filename == "mobius_qwen_a95b_2500.toml" else config["max_concurrent"]
     assert config["client"]["max_connections"] == expected_http_concurrency
     assert config["client"]["max_keepalive_connections"] == expected_http_concurrency
     assert config["client"]["timeout"] == 7_200
@@ -329,6 +329,8 @@ def test_direct_qwen_launcher_is_fail_closed() -> None:
     assert '--max-concurrent-requests "$router_max_concurrent"' in wrapper
     assert '--queue-size "$router_queue_size"' in wrapper
     assert '--queue-timeout-secs "$router_queue_timeout"' in wrapper
+    assert "router_max_concurrent > 32" in wrapper
+    assert 'export DIRECT_QWEN_PROVIDER_CONCURRENCY="$router_max_concurrent"' in wrapper
     assert "VACLI_MAX_CONCURRENT_LEASES=2" in wrapper
     assert "OPENAI_API_KEY=EMPTY" in wrapper
     assert "INFERENCE_PROXY_INFO" in wrapper
@@ -345,6 +347,8 @@ def test_direct_qwen_launcher_is_fail_closed() -> None:
     assert "direct_qwen_router_policy=" in generic_wrapper
     assert "direct_qwen_request_id_headers=" in generic_wrapper
     assert "resume_direct_qwen_manifest_sha256=" in generic_wrapper
+    assert "direct_qwen_provider_concurrency=" in generic_wrapper
+    assert "resume_direct_qwen_provider_concurrency=" in generic_wrapper
 
 
 def test_direct_qwen_router_probe_is_infrastructure_only() -> None:
@@ -356,3 +360,33 @@ def test_direct_qwen_router_probe_is_infrastructure_only() -> None:
     assert "/chat/completions" not in wrapper
     assert "run_eval.sbatch" not in wrapper
     assert "EVAL_CONFIG" not in wrapper
+
+
+def test_qwen_affinity_smoke_uses_real_router_and_eval_client_cap32() -> None:
+    workflow_dir = CONFIG_DIR.parents[1]
+    smoke = (workflow_dir / "smoke_qwen_router_affinity.py").read_text()
+    wrapper = (workflow_dir / "smoke_qwen_router_affinity.sbatch").read_text()
+
+    assert "from verifiers.v1.clients import EvalClientConfig, resolve_client" in smoke
+    assert "client.http.post(" in smoke
+    assert "provider connection pool exceeded its configured bound" in smoke
+    assert '"--max-concurrent-requests"' in smoke
+    assert '"--queue-size"' in smoke
+    assert "--provider-concurrency 32" in wrapper
+    assert "--total-requests 64" in wrapper
+    assert "mobius_qwen_a95b_2500.toml" in wrapper
+    assert '"$router_site/STAGED"' in wrapper
+    assert '"vllm-router=0.1.26"' in wrapper
+    assert '"platform=x86_64-manylinux_2_28"' in wrapper
+    assert '"$router_site/requirements.sha256"' in wrapper
+    assert 'sha256sum "$router_site/requirements.txt"' in wrapper
+
+    migration_wrapper = (workflow_dir / "migrate_qwen_router_admission.sbatch").read_text()
+    assert "#SBATCH --partition=cpu_x86" in migration_wrapper
+    assert '"$(uname -m)" != x86_64' in migration_wrapper
+    assert "source_dir=${SOURCE_DIR:-}" in migration_wrapper
+    assert "output_dir=${OUTPUT_DIR:-}" in migration_wrapper
+    assert "deps/verifiers" in migration_wrapper
+    assert "deps/renderers" in migration_wrapper
+    assert "deps/pydantic-config/src" in migration_wrapper
+    assert "migrate-admission" in migration_wrapper

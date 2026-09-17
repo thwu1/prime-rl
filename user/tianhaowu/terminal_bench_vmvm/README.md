@@ -361,14 +361,17 @@ bash user/tianhaowu/terminal_bench_vmvm/stage_qwen_direct_router.sh
 The router disables retries and uses consistent-hash dispatch across the 16
 pinned workers, keyed only by `x-session-id`. Verifiers sends the same
 `X-Session-ID` trace ID on every turn of a rollout, so its growing prefix stays
-on one worker instead of losing KV-cache locality on every round-robin hop. Its
-configured admission bucket starts at 16 requests and exposes a 48-request
+on one worker instead of losing KV-cache locality on every round-robin hop. The
+production admission epoch uses a 32-connection shared HTTP pool, a router
+bucket of 32 requests, and a 32-request
 queue for production concurrency 64, with a 7,200-second queue timeout and a
 7,500-second backend request deadline. Because vllm-router 0.1.26 refills that
-bucket while requests are still active, the shared evaluator HTTP/1.1 pool is
-the strict backend bound: it permits exactly
-`min(max_concurrent, 16)` connections. This keeps 64 rollout/VMVM sessions
-active while at most 16 model calls reach the router. The production mini-swe
+bucket while requests are still active, the shared evaluator HTTP/1.1 pool—not
+the bucket—is the strict backend bound. This keeps 64 rollout/VMVM sessions
+active while at most 32 model calls reach the router. Manifest schema 3 records
+the rollout, client, router, and queue limits together; resume rejects the old
+production cap-16 schema until it is migrated through the COW admission edge.
+The production mini-swe
 model timeout is 15,000 seconds, covering a full 7,200-second local pool wait
 plus a full provider read with margin while remaining below the rollout limit.
 Simultaneous VMVM lease or reverse-forward setup is capped at two for the
@@ -390,8 +393,8 @@ checked-in launch inputs are:
   `d33ef93f9b77ee91a41600934e677ba37988d3b4509e4da05ff1fcf7b4bc3a4b`.
 
 The smoke uses two slots, TB4 uses eight, and the Mobius production config uses
-64. Multiplexing matches rollout concurrency; each shared HTTP pool matches the
-smaller of rollout concurrency and the 16-worker backend. Every config retains
+64. Multiplexing matches rollout concurrency; the production shared HTTP pool
+is explicitly pinned to 32. Every config retains
 captured model I/O and thinking content, permits 32,768 output tokens per model
 call, and keeps the 262,144-token full-context cap plus the extended VMVM
 timeouts.
@@ -404,24 +407,27 @@ contents.
 
 After an approved run is terminal, first invoke `direct_qwen_workers.py
 --audit-run-dir RUN_DIR`; it validates the non-secret worker manifest, saved
-loopback URL, config snapshot, and credential-free provenance without opening
-the results file for a fresh schema-2 run. For a migrated run it additionally
-hashes result rows, without decoding or printing their content, to prove the
-epoch-1 membership certificate. Then invoke `audit_traces.py` with both
+loopback URL, config snapshot, admission contract, and credential-free
+provenance without opening the results file for a fresh schema-3 run. For a
+migrated run it additionally hashes result rows, without printing their
+content, to prove the epoch-1 and epoch-2 membership certificates. Then invoke
+`audit_traces.py` with both
 `--expected-task-file APPROVED_ALLOWLIST` and the approved expected count. Both
 commands emit summaries only; do not print result rows. Resume only through
 `run_qwen_direct_eval.sbatch`, which reuses the snapshotted endpoint set and
 local port and fails if the live metadata no longer exactly matches.
 
-The direct-worker manifest schema is version 2. It binds both
+The active direct-worker manifest schema is version 3. It binds rollout
+concurrency 64, both client connection limits 32, router admission 32, and
+queue size 32 in one explicit admission record. It also binds both
 `policy = consistent_hash` and the exact singleton
 `request_id_headers = ["x-session-id"]`; the launcher obtains those values from
 the validated manifest-derived runtime file and checks them again before
-starting the router. A schema-1 round-robin output is deliberately not directly
-resumable with this launcher. Do not edit its manifest in place or present a
-mixed-policy run as one routing epoch. See `QWEN_ROUTING_MIGRATION.md` for the
-required copy-on-write transition certificate if preserving legacy good rows
-is operationally necessary.
+starting the router. Historical schema-1 round-robin and schema-2 cap-16
+outputs are deliberately not directly resumable with this launcher. Do not
+edit their manifests in place or present mixed routing/admission epochs as one
+epoch. See `QWEN_ROUTING_MIGRATION.md` for the required copy-on-write
+transition certificates when preserving prior good rows.
 
 ## Transcript capture gate
 

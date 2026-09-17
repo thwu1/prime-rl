@@ -27,7 +27,8 @@ for forbidden in \
     INFERENCE_PROXY_URL \
     DIRECT_QWEN_MANIFEST_SHA256 \
     DIRECT_QWEN_ROUTER_POLICY \
-    DIRECT_QWEN_REQUEST_ID_HEADERS; do
+    DIRECT_QWEN_REQUEST_ID_HEADERS \
+    DIRECT_QWEN_PROVIDER_CONCURRENCY; do
     if [[ -n ${!forbidden:-} ]]; then
         printf '%s is forbidden for the direct-worker launcher\n' "$forbidden" >&2
         exit 2
@@ -156,9 +157,10 @@ router_queue_timeout=${ports[4]}
 router_policy=${ports[5]}
 router_request_id_header=${ports[6]}
 if [[ ! "$router_max_concurrent" =~ ^[1-9][0-9]*$ ]] \
-    || (( router_max_concurrent > 16 )) \
+    || (( router_max_concurrent > 32 )) \
     || [[ ! "$router_queue_size" =~ ^[0-9]+$ ]] \
     || (( router_queue_size >= 64 )) \
+    || (( router_max_concurrent + router_queue_size > 64 )) \
     || [[ ! "$router_queue_timeout" =~ ^[1-9][0-9]*$ ]] \
     || [[ "$router_policy" != consistent_hash ]] \
     || [[ "$router_request_id_header" != x-session-id ]]; then
@@ -230,6 +232,7 @@ export VACLI_MAX_CONCURRENT_LEASES=2
 export DIRECT_QWEN_MANIFEST_SHA256="$manifest_sha256"
 export DIRECT_QWEN_ROUTER_POLICY="$router_policy"
 export DIRECT_QWEN_REQUEST_ID_HEADERS="$router_request_id_header"
+export DIRECT_QWEN_PROVIDER_CONCURRENCY="$router_max_concurrent"
 if [[ -n "$resume_dir" ]]; then
     export RESUME_DIR="$resume_dir"
 else
