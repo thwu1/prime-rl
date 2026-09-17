@@ -32,10 +32,16 @@ dataset_archive_sha256=${EVAL_DATASET_ARCHIVE_SHA256:-6d2c57cbcb1a75b5cdc0b0f989
 dataset_content_sha256=${EVAL_DATASET_CONTENT_SHA256:-564a42a4e2ce0a5efd23758656e4e419b3566a36234dfc09bae1029bc15326b2}
 smoke_output_dir=${SMOKE_OUTPUT_DIR:-/checkpoint/ram/tianhaowu/terminal_bench_vmvm/evals/tb4_kimi_k3_sticky_smoke_62988609e_v1}
 tb4_output_dir=${TB4_OUTPUT_DIR:-/checkpoint/ram/tianhaowu/terminal_bench_vmvm/evals/tb4_kimi_k3_sticky_full_62988609e_v1}
+stop_after_smoke=${KIMI_TB4_STOP_AFTER_SMOKE:-0}
 smoke_task_file="$workflow_dir/configs/eval/tb4_kimi_token_smoke.tasks.txt"
 smoke_task_file_sha256=ecdcbc6e4f54b690e64b4566de5eecf33467088c8ca3436738cd7308d4e45b83
 tb4_task_file="$workflow_dir/configs/eval/tb4_qwen_a95b_miniswe.tasks.txt"
 tb4_task_file_sha256=9485011ac4a953f4a4a1c7c5e78550b6d7de6f760a3859dac15a3610cf4ad892
+
+if [[ "$stop_after_smoke" != 0 && "$stop_after_smoke" != 1 ]]; then
+    printf 'KIMI_TB4_STOP_AFTER_SMOKE must be 0 or 1\n' >&2
+    exit 2
+fi
 
 if [[ "$(git -C "$project_dir" rev-parse HEAD)" != 62988609edd15b5c1bab04861ee126683d0bb1e5 \
     || -n "$(git -C "$project_dir" status --porcelain=v1 --untracked-files=all)" ]]; then
@@ -176,6 +182,10 @@ run_with_proxy_guard env \
 
 smoke_checkpoint="$smoke_output_dir/smoke_checkpoint.json"
 smoke_checkpoint_sha256=$(sha256sum "$smoke_checkpoint" | cut -d' ' -f1)
+if [[ "$stop_after_smoke" == 1 ]]; then
+    printf 'Kimi TB4 smoke gate completed; full evaluation intentionally deferred\n'
+    exit 0
+fi
 export EVAL_RUN_ROLE=tb4
 export EVAL_APPROVED_TASK_FILE="$tb4_task_file"
 export EVAL_APPROVED_TASK_FILE_SHA256="$tb4_task_file_sha256"

@@ -316,6 +316,8 @@ def test_kimi_tb4_gate_sequences_smoke_before_full_evaluation() -> None:
     assert "EVAL_RUN_ROLE=smoke" in wrapper
     assert "EVAL_RUN_ROLE=tb4" in wrapper
     assert "SMOKE_EXPECTED_TRACES=2" in wrapper
+    assert "KIMI_TB4_STOP_AFTER_SMOKE" in wrapper
+    assert 'if [[ "$stop_after_smoke" == 1 ]]' in wrapper
     assert "VACLI_MAX_CONCURRENT_LEASES=2" in wrapper
     assert "validate_endpoint_binding" in wrapper
     assert 'export INFERENCE_PROXY_INFO_SHA256="$proxy_info_sha256"' in wrapper
