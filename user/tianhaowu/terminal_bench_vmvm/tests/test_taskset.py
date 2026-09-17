@@ -25,6 +25,7 @@ from terminal_bench_vmvm.taskset import (
     _network_modes,
     _parse_verifier_reward,
     _test_script_requirements,
+    _verifier_site_bootstrap,
 )
 from verifiers.v1.runtimes import ProgramResult, VMVMConfig, VMVMRuntime
 from vmvm_tb_v2._vacli import backend as vacli_backend
@@ -152,6 +153,30 @@ def test_merge_test_requirements_preserves_compatible_extras() -> None:
     )
 
 
+def test_verifier_site_bootstrap_processes_overlay_pth_files(tmp_path: Path) -> None:
+    bootstrap = tmp_path / "bootstrap"
+    site = tmp_path / "site"
+    extension = tmp_path / "extension"
+    bootstrap.mkdir()
+    site.mkdir()
+    extension.mkdir()
+    (bootstrap / "sitecustomize.py").write_bytes(_verifier_site_bootstrap(str(site)))
+    (site / "extension.pth").write_text(f"{extension}\n")
+    (extension / "overlay_extension.py").write_text("VALUE = 7\n")
+    environment = os.environ.copy()
+    environment["PYTHONPATH"] = f"{bootstrap}:{site}"
+
+    completed = subprocess.run(
+        [sys.executable, "-c", "import overlay_extension; assert overlay_extension.VALUE == 7"],
+        capture_output=True,
+        check=False,
+        env=environment,
+        text=True,
+    )
+
+    assert completed.returncode == 0, completed.stderr
+
+
 def wheel_archive(*names: str) -> bytes:
     output = io.BytesIO()
     with tarfile.open(fileobj=output, mode="w") as archive:
@@ -174,19 +199,24 @@ class DependencyRuntime:
         wheel_names: tuple[str, ...] = ("verifier_helper-1.0-py3-none-any.whl",),
     ) -> None:
         self.installed = installed
+        self.overlay_installed = False
         self.wheel_failure = wheel_failure
         self.source_only = source_only
         self.config = SimpleNamespace(image=image)
         self.wheel_archive = wheel_archive(*wheel_names)
         self.events: list[str] = []
         self.commands: list[str] = []
+        self.environments: list[dict[str, str]] = []
 
     async def run(self, argv: list[str], env: dict[str, str]) -> ProgramResult:
         command = subprocess.list2cmdline(argv)
         self.commands.append(command)
+        self.environments.append(env)
         if argv[:2] == ["python3", "-c"] and "importlib.metadata" in argv[2]:
-            self.events.append("probe")
-            output = "" if self.installed else "".join(f"{requirement}\n" for requirement in argv[3:])
+            overlay_probe = "TERMINAL_BENCH_VERIFIER_SITE" in env
+            self.events.append("overlay-probe" if overlay_probe else "probe")
+            available = self.overlay_installed if overlay_probe else self.installed
+            output = "" if available else "".join(f"{requirement}\n" for requirement in argv[3:])
             return ProgramResult(exit_code=0, stdout=output, stderr="")
         if argv[:2] == ["python3", "-c"] and "sysconfig.get_config_var" in argv[2]:
             self.events.append("fingerprint")
@@ -204,8 +234,13 @@ class DependencyRuntime:
                 stderr="",
             )
         if "PIP_NO_INDEX=1" in command:
-            self.events.append("install")
-            self.installed = True
+            self.events.append("overlay-install")
+            self.overlay_installed = True
+        if argv[:2] == ["sh", "-c"] and argv[2].startswith("rm -rf /tmp/terminal-bench-verifier-site-"):
+            self.events.append("overlay-cleanup")
+            self.overlay_installed = False
+        if "timeout --signal=TERM" in command:
+            self.events.append("verifier")
         if "if test -s /logs/verifier/reward.json" in command:
             return ProgramResult(exit_code=0, stdout="text", stderr="")
         return ProgramResult(exit_code=0, stdout="", stderr="")
@@ -217,6 +252,10 @@ class DependencyRuntime:
         return self.wheel_archive
 
     async def write(self, path: str, data: bytes) -> None:
+        if path.endswith("/sitecustomize.py"):
+            self.events.append("bootstrap-write")
+            assert data.startswith(b"import site\nsite.addsitedir('/tmp/terminal-bench-verifier-site-")
+            return
         self.events.append("archive-write")
         assert data == self.wheel_archive
 
@@ -292,6 +331,30 @@ def test_missing_dependency_probe_honors_versions_extras_and_dependency_closure(
 
     write_distribution(site, "extra-package", "2.1")
     assert asyncio.run(taskset._missing_test_dependencies(task, runtime, ("root-package[feature]==1.0.0",))) == ()
+
+    overlay = tmp_path / "overlay"
+    overlay.mkdir()
+    write_distribution(overlay, "root-package", "1.0", 'extra-package>=2; extra == "feature"')
+    assert asyncio.run(
+        taskset._missing_test_dependencies(
+            task,
+            runtime,
+            ("root-package[feature]==1.0.0",),
+            site_path=str(overlay),
+        )
+    ) == ("root-package[feature]==1.0.0",)
+    write_distribution(overlay, "extra-package", "2.1")
+    assert (
+        asyncio.run(
+            taskset._missing_test_dependencies(
+                task,
+                runtime,
+                ("root-package[feature]==1.0.0",),
+                site_path=str(overlay),
+            )
+        )
+        == ()
+    )
     taskset._cleanup_wheelhouse_cache()
 
 
@@ -603,11 +666,12 @@ def test_verifier_dependencies_prefetch_all_then_install_offline_after_solution(
     assert not any("pip install" in command for command in runtime.commands)
     wheel_command = next(command for command in runtime.commands if " pip wheel " in command)
     assert "--no-deps" not in wheel_command
+    assert "--ignore-installed" in wheel_command
     assert "--only-binary=:all:" in wheel_command
 
     runtime.events.append("solution")
     runtime.installed = False
-    asyncio.run(taskset._install_prefetched_test_dependencies(task, runtime))
+    verifier_site = asyncio.run(taskset._install_prefetched_test_dependencies(task, runtime))
 
     assert runtime.events == [
         "fingerprint",
@@ -616,14 +680,29 @@ def test_verifier_dependencies_prefetch_all_then_install_offline_after_solution(
         "solution",
         "probe",
         "archive-write",
-        "install",
-        "probe",
+        "overlay-install",
+        "bootstrap-write",
+        "overlay-probe",
     ]
+    assert verifier_site is not None
+    assert verifier_site.site_path.startswith("/tmp/terminal-bench-verifier-site-")
+    assert verifier_site.bootstrap_path.startswith("/tmp/terminal-bench-verifier-bootstrap-")
     install_command = next(command for command in runtime.commands if "PIP_NO_INDEX=1" in command)
     assert "--no-index" in install_command
+    assert "--no-deps" in install_command
+    assert "--target" in install_command
     assert "--ignore-installed" not in install_command
-    assert "--find-links" in install_command
-    assert "verifier-helper==1.0" in install_command
+    assert "--break-system-packages" not in install_command
+    assert "/*.whl" in install_command
+    assert "--find-links" not in install_command
+    assert "/sitecustomize.py" in install_command
+    assert "/usercustomize.py" in install_command
+    assert runtime.installed is False
+    assert runtime.overlay_installed is True
+    overlay_probe_envs = [
+        environment for environment in runtime.environments if "TERMINAL_BENCH_VERIFIER_SITE" in environment
+    ]
+    assert overlay_probe_envs == [{"TERMINAL_BENCH_VERIFIER_SITE": verifier_site.site_path}]
     assert any("PIP_NO_INDEX=1" in command for command in root_commands)
     assert controller_archive.exists() is True
     assert runtime not in taskset._prefetched_test_dependencies
@@ -644,7 +723,7 @@ def test_scripted_dependencies_prefetch_full_set_and_restore_post_agent_drift(tm
 
     runtime.events.append("agent")
     runtime.installed = False
-    asyncio.run(taskset._install_prefetched_test_dependencies(task, runtime))
+    verifier_site = asyncio.run(taskset._install_prefetched_test_dependencies(task, runtime))
     assert runtime.events == [
         "fingerprint",
         "wheel",
@@ -652,9 +731,13 @@ def test_scripted_dependencies_prefetch_full_set_and_restore_post_agent_drift(tm
         "agent",
         "probe",
         "archive-write",
-        "install",
-        "probe",
+        "overlay-install",
+        "bootstrap-write",
+        "overlay-probe",
     ]
+    assert verifier_site is not None
+    assert runtime.installed is False
+    assert runtime.overlay_installed is True
     taskset._cleanup_wheelhouse_cache()
 
 
@@ -742,7 +825,7 @@ def test_verifier_dependency_archive_tampering_is_fail_closed(tmp_path: Path) ->
     with pytest.raises(RuntimeError, match="integrity check"):
         asyncio.run(taskset._install_prefetched_test_dependencies(task, runtime))
 
-    assert "install" not in runtime.events
+    assert "overlay-install" not in runtime.events
     assert controller_archive.exists() is True
     taskset._cleanup_wheelhouse_cache()
     assert controller_archive.exists() is False
@@ -969,7 +1052,73 @@ def test_public_agent_offline_verifier_stages_tests_only_after_isolation(
     assert runtime.events.index("wheel") < runtime.events.index("agent")
     assert runtime.events.index("agent") < runtime.events.index("network:no-network:active")
     assert runtime.events.index("network:no-network:active") < runtime.events.index("stage-tests")
-    assert runtime.events.index("stage-tests") < runtime.events.index("install")
+    assert runtime.events.index("stage-tests") < runtime.events.index("overlay-install")
+    assert runtime.events.index("overlay-install") < runtime.events.index("verifier")
+    assert runtime.events.index("verifier") < runtime.events.index("overlay-cleanup")
+    verifier_command = next(command for command in runtime.commands if "timeout --signal=TERM" in command)
+    assert "terminal-bench-verifier-bootstrap-" in verifier_command
+    assert "terminal-bench-verifier-site-" in verifier_command
+    assert "PYTHONPATH=" in verifier_command
+    assert "PATH=" in verifier_command
+    assert runtime.overlay_installed is False
+
+
+@pytest.mark.parametrize("failure_phase", ["configuration", "verifier"])
+def test_verifier_dependency_overlay_cleans_after_pre_run_failure(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    failure_phase: str,
+) -> None:
+    taskset = dependency_taskset(tmp_path)
+    task = dependency_task(tmp_path)
+    task.verifier_workdir = "/app"
+    task.verifier_network_mode = "no-network"
+    if failure_phase == "configuration":
+
+        class BrokenTimeout:
+            def __format__(self, format_spec: str) -> str:
+                raise RuntimeError("verifier configuration failed")
+
+        task.verifier_timeout_sec = BrokenTimeout()
+    else:
+        task.verifier_timeout_sec = 30.0
+    task.verifier_env = {}
+    runtime = DependencyRuntime(installed=False)
+
+    async def configure_network_policy(*args: object, **kwargs: object) -> None:
+        return None
+
+    async def stage_tests(*args: object, **kwargs: object) -> None:
+        return None
+
+    monkeypatch.setattr(taskset, "_configure_network_policy", configure_network_policy)
+    monkeypatch.setattr(taskset, "_stage_directory", stage_tests)
+
+    async def exercise() -> None:
+        await taskset._prefetch_test_dependencies(task, runtime)
+        original_run = runtime.run
+
+        async def fail_verifier(argv: list[str], env: dict[str, str]) -> ProgramResult:
+            if argv[:2] == ["sh", "-c"] and "timeout --signal=TERM" in argv[2]:
+                runtime.events.append("verifier")
+                raise RuntimeError("verifier transport failed")
+            return await original_run(argv, env)
+
+        if failure_phase == "verifier":
+            runtime.run = fail_verifier
+        with pytest.raises(RuntimeError, match="verifier (?:configuration|transport) failed"):
+            await taskset._run_verifier(task, runtime, stage_tests=True)
+        await taskset.close()
+
+    asyncio.run(exercise())
+
+    assert runtime.events.index("overlay-install") < runtime.events.index("overlay-cleanup")
+    if failure_phase == "verifier":
+        assert runtime.events.index("overlay-install") < runtime.events.index("verifier")
+        assert runtime.events.index("verifier") < runtime.events.index("overlay-cleanup")
+    else:
+        assert "verifier" not in runtime.events
+    assert runtime.overlay_installed is False
 
 
 @pytest.mark.parametrize(

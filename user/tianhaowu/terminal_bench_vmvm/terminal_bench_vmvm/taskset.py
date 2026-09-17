@@ -45,6 +45,7 @@ DEFAULT_IMAGE_PREFIX = "vmvm-registry.fbinfra.net/terminal_bench"
 VERIFIER_TIMEOUT_MARKER = "__TERMINAL_BENCH_VERIFIER_TIMEOUT__"
 TEST_DEPENDENCY_MARKER = "Test dependencies prebaked so the verifier runs offline"
 PYTEST_COMPATIBILITY_REQUIREMENT = "pytest==8.3.4"
+_VERIFIER_SITE_ENV = "TERMINAL_BENCH_VERIFIER_SITE"
 _EXACT_PIP_REQUIREMENT_RE = re.compile(r"[A-Za-z0-9][A-Za-z0-9_.-]*(?:\[[A-Za-z0-9_,.-]+\])?==[A-Za-z0-9.!+_-]+")
 _PIP_EXECUTABLE_RE = re.compile(r"pip(?:3(?:\.[0-9]+)?)?")
 _PYTHON_EXECUTABLE_RE = re.compile(r"python(?:3(?:\.[0-9]+)?)?")
@@ -213,6 +214,19 @@ class PrefetchedTestDependencies:
         if self.sha256 != hashlib.sha256(wheel_archive).hexdigest():
             raise RuntimeError("prefetched verifier wheelhouse failed integrity check")
         return wheel_archive
+
+
+@dataclass(frozen=True)
+class VerifierDependencyOverlay:
+    site_path: str
+    bootstrap_path: str
+
+
+def _verifier_site_bootstrap(site_path: str) -> bytes:
+    path = PurePosixPath(site_path)
+    if not path.is_absolute():
+        raise ValueError("verifier dependency site path must be absolute")
+    return f"import site\nsite.addsitedir({str(path)!r})\n".encode()
 
 
 class TerminalBenchTask(HarborTask):
@@ -1316,6 +1330,8 @@ class TerminalBenchVMVMTaskset(
         task: TerminalBenchTask,
         runtime: Runtime,
         requirements: tuple[str, ...] | None = None,
+        *,
+        site_path: str | None = None,
     ) -> tuple[str, ...]:
         if requirements is None:
             requirements = self._test_requirements(task)
@@ -1323,6 +1339,7 @@ class TerminalBenchVMVMTaskset(
             return ()
         probe_code = """
 import importlib.metadata as metadata
+import os
 import sys
 
 try:
@@ -1333,6 +1350,16 @@ except ModuleNotFoundError:
     from pip._vendor.packaging.markers import default_environment
     from pip._vendor.packaging.requirements import Requirement
     from pip._vendor.packaging.utils import canonicalize_name
+
+
+site_path = os.environ.get(__VERIFIER_SITE_ENV__)
+site_distributions = None
+if site_path is not None:
+    site_distributions = {}
+    for distribution in metadata.distributions(path=[site_path]):
+        name = distribution.metadata.get("Name")
+        if name:
+            site_distributions[canonicalize_name(name)] = distribution
 
 
 def requirement_is_satisfied(root_text):
@@ -1349,10 +1376,15 @@ def requirement_is_satisfied(root_text):
             if key in visited:
                 continue
             visited.add(key)
-            try:
-                distribution = metadata.distribution(requirement.name)
-            except metadata.PackageNotFoundError:
-                return False
+            if site_distributions is None:
+                try:
+                    distribution = metadata.distribution(requirement.name)
+                except metadata.PackageNotFoundError:
+                    return False
+            else:
+                distribution = site_distributions.get(canonicalize_name(requirement.name))
+                if distribution is None:
+                    return False
             if requirement.specifier and not requirement.specifier.contains(
                 distribution.version,
                 prereleases=True,
@@ -1378,12 +1410,12 @@ def requirement_is_satisfied(root_text):
 for requirement in sys.argv[1:]:
     if not requirement_is_satisfied(requirement):
         print(requirement)
-""".strip()
+""".replace("__VERIFIER_SITE_ENV__", repr(_VERIFIER_SITE_ENV)).strip()
         # Distribution names are not always import names (for example,
         # psycopg2-binary), so probe package metadata rather than imports.
         available = await runtime.run(
             ["python3", "-c", probe_code, *requirements],
-            {},
+            {_VERIFIER_SITE_ENV: site_path} if site_path is not None else {},
         )
         if available.exit_code != 0:
             return requirements
@@ -1482,6 +1514,7 @@ for requirement in sys.argv[1:]:
                     "wheel",
                     "--quiet",
                     "--no-cache-dir",
+                    "--ignore-installed",
                     "--only-binary=:all:",
                     "--wheel-dir",
                     wheel_dir,
@@ -1712,12 +1745,12 @@ for requirement in sys.argv[1:]:
         self,
         task: TerminalBenchTask,
         runtime: Runtime,
-    ) -> None:
+    ) -> VerifierDependencyOverlay | None:
         prefetched = self._prefetched_test_dependencies.pop(runtime, None)
         if prefetched is None:
             raise RuntimeError(f"{task.name}: isolated verifier dependencies were not prefetched")
         if not prefetched.requirements:
-            return
+            return None
         try:
             try:
                 await asyncio.to_thread(prefetched.verify)
@@ -1732,7 +1765,7 @@ for requirement in sys.argv[1:]:
                 prefetched.requirements,
             )
             if not missing:
-                return
+                return None
 
             try:
                 wheel_archive = await asyncio.to_thread(prefetched.read_verified)
@@ -1742,10 +1775,14 @@ for requirement in sys.argv[1:]:
             nonce = uuid.uuid4().hex[:16]
             archive_path = f"/tmp/terminal-bench-verifier-wheels-{nonce}.tar"
             wheel_dir = f"/tmp/terminal-bench-verifier-wheels-{nonce}"
+            site_dir = f"/tmp/terminal-bench-verifier-site-{nonce}"
+            bootstrap_dir = f"/tmp/terminal-bench-verifier-bootstrap-{nonce}"
+            site_ready = False
             await runtime.write(archive_path, wheel_archive)
             prepared = await self._run_root(
                 runtime,
-                f"rm -rf {shlex.quote(wheel_dir)} && mkdir -p {shlex.quote(wheel_dir)} && "
+                f"rm -rf {shlex.quote(wheel_dir)} {shlex.quote(site_dir)} {shlex.quote(bootstrap_dir)} && "
+                f"mkdir -p {shlex.quote(wheel_dir)} {shlex.quote(site_dir)} {shlex.quote(bootstrap_dir)} && "
                 f"tar -xf {shlex.quote(archive_path)} -C {shlex.quote(wheel_dir)} && "
                 f'test "$(find {shlex.quote(wheel_dir)} -maxdepth 1 -type f '
                 "-name '*.whl' | wc -l)\" -gt 0 && "
@@ -1757,34 +1794,55 @@ for requirement in sys.argv[1:]:
                     f"{task.name}: restoring verifier wheelhouse failed: {(prepared.stdout + prepared.stderr)[-4000:]}"
                 )
             install_command = (
-                "if python3 -m pip install --help 2>/dev/null | "
-                "grep -q -- --break-system-packages; then "
-                "break_system=--break-system-packages; else break_system=; fi; "
                 f"PIP_NO_INDEX=1 python3 -m pip install -q --no-cache-dir "
-                f"--no-index --find-links {shlex.quote(wheel_dir)} "
-                f"$break_system {shlex.join(missing)}"
+                f"--disable-pip-version-check --no-index --no-deps "
+                f"--target {shlex.quote(site_dir)} {shlex.quote(wheel_dir)}/*.whl && "
+                f"test ! -e {shlex.quote(site_dir)}/sitecustomize.py && "
+                f"test ! -e {shlex.quote(site_dir)}/usercustomize.py && "
+                f"chmod -R a+rX {shlex.quote(site_dir)}"
             )
             installed = await self._run_root(runtime, install_command)
             if installed.exit_code != 0:
                 raise RuntimeError(
-                    f"{task.name}: offline verifier dependency install failed for "
-                    f"{missing}: "
+                    f"{task.name}: offline verifier dependency overlay install failed for "
+                    f"{prefetched.requirements}: "
                     f"{(installed.stdout + installed.stderr)[-4000:]}"
                 )
+            bootstrap_path = f"{bootstrap_dir}/sitecustomize.py"
+            await runtime.write(bootstrap_path, _verifier_site_bootstrap(site_dir))
+            bootstrap_ready = await self._run_root(
+                runtime,
+                f"test -f {shlex.quote(bootstrap_path)} && "
+                f'test "$(find {shlex.quote(bootstrap_dir)} -mindepth 1 -maxdepth 1 | wc -l)" -eq 1 && '
+                f"chmod -R a+rX {shlex.quote(bootstrap_dir)}",
+            )
+            if bootstrap_ready.exit_code != 0:
+                raise RuntimeError(f"{task.name}: verifier dependency overlay bootstrap validation failed")
             remaining = await self._missing_test_dependencies(
                 task,
                 runtime,
                 prefetched.requirements,
+                site_path=site_dir,
             )
             if remaining:
                 raise RuntimeError(
-                    f"{task.name}: offline verifier dependency install left requirements unsatisfied: {remaining}"
+                    f"{task.name}: offline verifier dependency overlay left requirements unsatisfied: {remaining}"
                 )
+            site_ready = True
+            return VerifierDependencyOverlay(
+                site_path=site_dir,
+                bootstrap_path=bootstrap_dir,
+            )
         finally:
             if "wheel_dir" in locals() and "archive_path" in locals():
+                cleanup_paths = [wheel_dir, archive_path]
+                if "site_dir" in locals() and not site_ready:
+                    cleanup_paths.append(site_dir)
+                if "bootstrap_dir" in locals() and not site_ready:
+                    cleanup_paths.append(bootstrap_dir)
                 cleaned = await self._run_root(
                     runtime,
-                    f"rm -rf {shlex.quote(wheel_dir)} {shlex.quote(archive_path)}",
+                    f"rm -rf {shlex.join(cleanup_paths)}",
                 )
                 if cleaned.exit_code != 0:
                     logger.warning(
@@ -1824,40 +1882,69 @@ for requirement in sys.argv[1:]:
             )
         # Official separate-verifier images own their sealed test dependencies.
         # Only shared-mode/staged tests need repair for the older Mobius image set.
-        if stage_tests:
-            if isolated_staged_tests:
-                await self._install_prefetched_test_dependencies(task, runtime)
-            else:
-                await self._ensure_test_dependencies(task, runtime)
-        if task.verifier_network_mode == "public":
-            await self._configure_network_policy(
-                task,
-                runtime,
-                task.verifier_network_mode,
-                activate=True,
+        verifier_overlay = None
+        verifier_failed = False
+        try:
+            if stage_tests:
+                if isolated_staged_tests:
+                    verifier_overlay = await self._install_prefetched_test_dependencies(task, runtime)
+                else:
+                    await self._ensure_test_dependencies(task, runtime)
+            if task.verifier_network_mode == "public":
+                await self._configure_network_policy(
+                    task,
+                    runtime,
+                    task.verifier_network_mode,
+                    activate=True,
+                )
+            timeout = f"{task.verifier_timeout_sec:g}s"
+            test_command = "cd /tests && bash test.sh"
+            if verifier_overlay is not None:
+                site_bin = str(PurePosixPath(verifier_overlay.site_path) / "bin")
+                python_path = f"{verifier_overlay.bootstrap_path}:{verifier_overlay.site_path}"
+                test_command = (
+                    f"PATH={shlex.quote(site_bin)}${{PATH:+:$PATH}}; export PATH; "
+                    f"PYTHONPATH={shlex.quote(python_path)}${{PYTHONPATH:+:$PYTHONPATH}}; export PYTHONPATH; "
+                    "cd /tests && bash test.sh"
+                )
+            command = (
+                "mkdir -p /logs/verifier; "
+                "rm -f /logs/verifier/reward.txt /logs/verifier/reward.json; "
+                "set +e; "
+                f"timeout --signal=TERM --kill-after=30s {timeout} sh -c "
+                f"{shlex.quote(test_command)}; "
+                "status=$?; "
+                f'if [ "$status" -eq 124 ]; then printf "\\n{VERIFIER_TIMEOUT_MARKER}\\n"; fi; '
+                'exit "$status"'
             )
-        timeout = f"{task.verifier_timeout_sec:g}s"
-        command = (
-            "mkdir -p /logs/verifier; "
-            "rm -f /logs/verifier/reward.txt /logs/verifier/reward.json; "
-            "set +e; "
-            f"timeout --signal=TERM --kill-after=30s {timeout} sh -c "
-            f"{shlex.quote('cd /tests && bash test.sh')}; "
-            "status=$?; "
-            f'if [ "$status" -eq 124 ]; then printf "\\n{VERIFIER_TIMEOUT_MARKER}\\n"; fi; '
-            'exit "$status"'
-        )
-        verifier_env = dict(task.verifier_env)
-        if not stage_tests:
-            # TB4's sealed verifier images are self-contained and frequently
-            # alias local helper services in /etc/hosts after the shell starts.
-            # A static proxy bypass list cannot see those late aliases, while
-            # Chromium and other subprocesses inherit the bridge proxy and send
-            # the local request off-VM. Keep the proxy variables available, but
-            # bypass them for all verifier traffic in these offline images.
-            verifier_env.setdefault("no_proxy", "*")
-            verifier_env.setdefault("NO_PROXY", "*")
-        result = await runtime.run(["sh", "-c", command], verifier_env)
+            verifier_env = dict(task.verifier_env)
+            if not stage_tests:
+                # TB4's sealed verifier images are self-contained and frequently
+                # alias local helper services in /etc/hosts after the shell starts.
+                # A static proxy bypass list cannot see those late aliases, while
+                # Chromium and other subprocesses inherit the bridge proxy and send
+                # the local request off-VM. Keep the proxy variables available, but
+                # bypass them for all verifier traffic in these offline images.
+                verifier_env.setdefault("no_proxy", "*")
+                verifier_env.setdefault("NO_PROXY", "*")
+            result = await runtime.run(["sh", "-c", command], verifier_env)
+        except BaseException:
+            verifier_failed = True
+            raise
+        finally:
+            if verifier_overlay is not None:
+                cleanup_paths = [verifier_overlay.site_path, verifier_overlay.bootstrap_path]
+                try:
+                    cleaned = await self._run_root(runtime, f"rm -rf {shlex.join(cleanup_paths)}")
+                except BaseException as cleanup_error:
+                    if not verifier_failed:
+                        raise
+                    logger.warning("%s verifier dependency overlay cleanup failed: %s", task.name, cleanup_error)
+                else:
+                    if cleaned.exit_code != 0:
+                        if not verifier_failed:
+                            raise RuntimeError(f"{task.name}: verifier dependency overlay cleanup failed")
+                        logger.warning("%s verifier dependency overlay cleanup failed", task.name)
         output = result.stdout + result.stderr
         timed_out = VERIFIER_TIMEOUT_MARKER in output
         if timed_out:
