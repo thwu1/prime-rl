@@ -516,7 +516,7 @@ rollout = 28800
 
 [retries.rollout]
 max_retries = 2
-include = ["ProviderError", "SandboxError", "TunnelError"]
+include = ["ProviderError", "SandboxError", "TunnelError", "InterceptionError"]
 """
     )
     source = {
