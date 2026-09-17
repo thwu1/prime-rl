@@ -1,6 +1,6 @@
 # VMVM sandbox coordination
 
-Last updated: 2026-09-17 14:58 UTC
+Last updated: 2026-09-17 15:30 UTC
 
 ## First message to the next teammate
 
@@ -39,6 +39,20 @@ this shared branch again.
 Add new rows below this line; do not overwrite another owner's row.
 
 ## Open coordination requests
+
+- **2026-09-17 15:30 UTC, use2-1 Qwen shared-metric attribution:** cap-32
+  job `1454171` remains live and reached 405 durable rows. Epoch 3 has 146
+  clean/scored rows and seven ordinary errors; 83/146 pass, and both the
+  all-clean and pass-only reasoning/model-I/O/256K gates have zero failures.
+  Deployment-wide cache fell through 72.10% to 67.22%, but aligned samples had
+  at least 80% external traffic (176 worker-running versus our cap 32; 31
+  worker successes versus six local completions). Job-local clean throughput
+  remained about 36--49 rows/hour with zero provider/tunnel/preemption/queue
+  failures, TTFT about 1.0 seconds, and KV below 7%. PR `#37` head `cfe21e232`
+  therefore labels cache/TTFT/generation `UNATTRIBUTABLE` on a shared pool
+  unless an aligned >=10-minute, >=256-completion window is >=95% attributable;
+  worker/KV/wait/preemption, local-router errors/queue, and clean throughput
+  remain hard gates. Continue rather than fail back to the slower cap-16 run.
 
 - **2026-09-17 14:33 UTC, use2-1 certificate-core supersession:** do not
   promote the `cdd127921` smoke certificate or let a replacement shard watcher
