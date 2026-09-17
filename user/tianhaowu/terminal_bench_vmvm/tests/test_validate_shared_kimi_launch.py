@@ -24,6 +24,7 @@ from validate_launch import (  # noqa: E402
     EXPECTED_RENDERERS_REVISION,
     EXPECTED_ROLLOUT_CONCURRENCY,
     EXPECTED_ROUTES,
+    EXPECTED_SPEC_SHA256,
     EXPECTED_VERIFIERS_REVISION,
     EXPECTED_WAITING_REQUESTS,
     PROFILES,
@@ -438,6 +439,27 @@ def test_production_eval_config_matches_shared24_contract() -> None:
         TB4_DATASET_FILE_COUNT,
         TB4_DATASET_DIRECTORY_COUNT,
     )
+    launcher = (SERVER_DIR / "launch_common.sh").read_text()
+    assert f"deployment_spec_sha256={EXPECTED_SPEC_SHA256}" in launcher
+    assert "KIMI_SHARED_READINESS_CHECKPOINT is required" in launcher
+    assert "KIMI_SHARED_SMOKE_CHECKPOINT is required" in launcher
+    assert "KIMI_SHARED_PROMOTION_CERTIFICATE is required for Mobius" in launcher
+    assert 'mobius_launch_certificate.py" verify' in launcher
+    assert 'export EVAL_RUN_ROLE="$profile"' in launcher
+    assert 'export EVAL_EXPECTED_PRIME_RL_REVISION="$project_revision"' in launcher
+    assert 'export EVAL_CONFIG_SHA256="$expected_config_sha256"' in launcher
+    assert 'export INFERENCE_READINESS_CHECKPOINT="$readiness_checkpoint"' in launcher
+    assert 'export INFERENCE_SMOKE_CHECKPOINT="$smoke_checkpoint"' in launcher
+    assert 'export INFERENCE_PROXY_INFO="$canonical_proxy_info"' in launcher
+    assert "TB4_EXPECTED_ROLLOUT_CONCURRENCY=24" in launcher
+    assert "TB4_EXPECTED_LEASE_START_CONCURRENCY=2" in launcher
+    assert "EVAL_WRITER_LOCK_FD" not in launcher
+    assert launcher.index('mobius_launch_certificate.py" verify') < launcher.index(
+        '"$python_bin" "$server_dir/validate_launch.py"'
+    )
+    assert launcher.index('"$python_bin" "$server_dir/validate_launch.py"') < launcher.index(
+        'mkdir -m 700 -- "$output_dir"'
+    )
 
 
 def test_dataset_tree_identity_includes_permission_mode_bits(tmp_path: Path) -> None:
@@ -667,7 +689,7 @@ def test_shared_launcher_rejects_resume_with_output_override(tmp_path: Path) -> 
     )
 
     assert result.returncode == 2
-    assert result.stderr == "OUTPUT_DIR is forbidden for the pinned shared Kimi launcher\n"
+    assert result.stderr == "KIMI_SHARED_RESUME_DIR is forbidden for the pinned shared Kimi launcher\n"
 
 
 def test_shared_launcher_rejects_out_of_lane_resume(tmp_path: Path) -> None:
@@ -690,4 +712,4 @@ def test_shared_launcher_rejects_out_of_lane_resume(tmp_path: Path) -> None:
     )
 
     assert result.returncode == 2
-    assert result.stderr == "KIMI_SHARED_RESUME_DIR does not belong to this server/profile lane\n"
+    assert result.stderr == "KIMI_SHARED_RESUME_DIR is forbidden for the pinned shared Kimi launcher\n"

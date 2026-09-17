@@ -23,6 +23,8 @@ results_dir=${RESULTS_DIR:?Set RESULTS_DIR to the completed TB4 snapshot}
 min_rate=0.04
 max_rate=0.22
 max_sequence_tokens=262144
+expected_rollout_concurrency=${TB4_EXPECTED_ROLLOUT_CONCURRENCY:-4}
+expected_lease_start_concurrency=${TB4_EXPECTED_LEASE_START_CONCURRENCY:-2}
 results="$results_dir/results.jsonl"
 checkpoint="$results_dir/checkpoint.json"
 
@@ -49,6 +51,8 @@ args=(
     --min-supported-pass-rate "$min_rate"
     --max-supported-pass-rate "$max_rate"
     --max-sequence-tokens "$max_sequence_tokens"
+    --expected-rollout-concurrency "$expected_rollout_concurrency"
+    --expected-lease-start-concurrency "$expected_lease_start_concurrency"
 )
 
 "$x86_uv" run --no-project --offline --python "$python_bin" python3 "${args[@]}"

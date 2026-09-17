@@ -390,6 +390,25 @@ The evaluator and oracle are network-bound CPU controllers; their checked-in
 Slurm defaults request `cpu_x86`, 8 CPUs, 16 GiB, and no GPUs. Rollout
 concurrency does not require one controller CPU per sandbox.
 
+### Server-pinned 24-route Kimi lane
+
+The `configs/eval/servers/cpu-132-021_8103/` directory is an isolated lane for
+the fixed 24-route deployment. Its launchers accept no generic eval overrides,
+never resume a guarded output, and require private canonical paths through
+`KIMI_SHARED_READINESS_CHECKPOINT` and `KIMI_SHARED_SMOKE_CHECKPOINT`.
+The Mobius launcher additionally requires `KIMI_SHARED_PROMOTION_CERTIFICATE`.
+The server preflight revalidates the pinned deployment spec, all 24 healthy and
+zero unhealthy routes, and the generated LiteLLM policy with request timeout
+7200 and zero retries before delegating to the shared eval-identity and route
+guard.
+
+This lane's TB4 config deliberately uses rollout, multiplex, and HTTP
+concurrency 24 while retaining lease-start concurrency 2. The generic Kimi TB4
+qualification remains at concurrency 4. Shard plans inherit either supported
+contract from their pinned base config; do not substitute the shared value 4
+for this server lane. The server launcher runs the TB4 certificate audit with
+the explicit 24/2 contract after a successful guarded evaluation.
+
 ### Two-worker direct fallback
 
 When the 24-route RAM deployment is unavailable, the checked-in direct-worker

@@ -18,9 +18,5 @@ if (( $# != 0 )); then
     printf 'The shared Kimi TB4 launcher accepts no arguments or eval overrides\n' >&2
     exit 2
 fi
-if [[ -v KIMI_SHARED_WRITER_LOCK_FD ]]; then
-    printf 'KIMI_SHARED_WRITER_LOCK_FD is reserved for the lock helper\n' >&2
-    exit 2
-fi
 server_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 exec bash "$server_dir/launch_common.sh" tb4

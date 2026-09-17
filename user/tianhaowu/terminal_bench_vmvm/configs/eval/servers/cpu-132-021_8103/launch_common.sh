@@ -7,11 +7,6 @@ if (( $# != 1 )) || [[ $1 != mobius && $1 != tb4 ]]; then
     exit 2
 fi
 profile=$1
-internal_writer_lock_fd=${KIMI_SHARED_WRITER_LOCK_FD:-}
-if [[ -v KIMI_SHARED_WRITER_LOCK_FD && "$internal_writer_lock_fd" != 9 ]]; then
-    printf 'KIMI_SHARED_WRITER_LOCK_FD is reserved for the lock helper\n' >&2
-    exit 2
-fi
 
 for forbidden in \
     DIRECT_QWEN_APPROVED_TASK_FILE \
@@ -20,16 +15,31 @@ for forbidden in \
     EVAL_APPROVED_TASK_FILE_SHA256 \
     EVAL_CONFIG \
     EVAL_CONFIG_SHA256 \
-    EVAL_DATASET_TREE_SHA256 \
+    EVAL_DATASET_ARCHIVE \
+    EVAL_DATASET_ARCHIVE_SHA256 \
+    EVAL_DATASET_CONTENT_SHA256 \
+    EVAL_DATASET_REVISION \
+    EVAL_DEPLOYMENT_ID \
+    EVAL_EXPECTED_MODEL \
+    EVAL_EXPECTED_PRIME_RL_REVISION \
     EVAL_MODEL \
-    EVAL_WRITER_LOCK_FD \
+    EVAL_PROMOTION_CERTIFICATE \
+    EVAL_PROMOTION_CERTIFICATE_SHA256 \
+    EVAL_RUN_ROLE \
     INFERENCE_BASE_URL \
     INFERENCE_DEPLOYMENT_ID \
+    INFERENCE_DEPLOYMENT_SPEC \
+    INFERENCE_DEPLOYMENT_SPEC_SHA256 \
     INFERENCE_JOB_ID \
     INFERENCE_PROXY_INFO \
     INFERENCE_PROXY_INFO_SHA256 \
-    INFERENCE_PROXY_LITELLM_CONFIG_SHA256 \
     INFERENCE_PROXY_URL \
+    INFERENCE_READINESS_CHECKPOINT \
+    INFERENCE_READINESS_CHECKPOINT_SHA256 \
+    INFERENCE_SMOKE_CHECKPOINT \
+    INFERENCE_SMOKE_CHECKPOINT_SHA256 \
+    KIMI_SHARED_RESUME_DIR \
+    KIMI_SHARED_WRITER_LOCK_FD \
     OPENAI_API_KEY \
     OUTPUT_DIR \
     RESUME_DIR; do
@@ -42,7 +52,6 @@ if [[ -n ${VACLI_MAX_CONCURRENT_LEASES:-} && ${VACLI_MAX_CONCURRENT_LEASES} != 2
     printf 'VACLI_MAX_CONCURRENT_LEASES must be exactly 2 for shared Kimi\n' >&2
     exit 2
 fi
-
 if [[ ! ${SLURM_JOB_ID:-} =~ ^[1-9][0-9]*$ ]]; then
     printf 'The shared Kimi launcher requires a numeric SLURM_JOB_ID\n' >&2
     exit 2
@@ -53,11 +62,21 @@ workflow_dir="$project_dir/user/tianhaowu/terminal_bench_vmvm"
 server_dir="$workflow_dir/configs/eval/servers/cpu-132-021_8103"
 python_bin=${PYTHON_BIN_X86_64:-python3}
 x86_site=${PYTHON_SITE_X86_64:-/checkpoint/ram/tianhaowu/terminal_bench_vmvm/python_x86_64}
+x86_uv=${UV_BIN_X86_64:-/storage/home/tianhaowu/.local/x86_64/bin/uv}
 actual_server_dir=$(cd -P "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)
 if [[ "$actual_server_dir" != "$server_dir" ]]; then
     printf 'The shared Kimi helper must run from its pinned project tree\n' >&2
     exit 2
 fi
+if [[ ! -x "$x86_uv" || "$(uname -m)" != x86_64 || ! -d "$x86_site/pydantic" ]]; then
+    printf 'Missing pinned x86_64 Python runtime/dependencies\n' >&2
+    exit 2
+fi
+
+deployment_id=shared-kimi-k3
+deployment_root=/checkpoint/ram/shared/vllm_deployments_v2/shared-kimi-k3
+deployment_spec="$deployment_root/spec.yaml"
+deployment_spec_sha256=ab00213a43083eba87f8b5999a3046e8d27ebe42b933ee845fd0cf4928b266e2
 
 case "$profile" in
     mobius)
@@ -68,7 +87,7 @@ case "$profile" in
         expected_rollout_cap=64
         expected_http_cap=24
         expected_waiting_cap=40
-        expected_dataset_tree_sha256=
+        dataset_revision=ac1f30b9ac0e6c6a20a9fe423900d9ed28a6d366
         output_prefix=mobius_kimi_k3_shared24_cpu-132-021_8103_
         ;;
     tb4)
@@ -79,140 +98,131 @@ case "$profile" in
         expected_rollout_cap=24
         expected_http_cap=24
         expected_waiting_cap=0
-        expected_dataset_tree_sha256=1a7ffccd2a221b43fa2f4a745fa6ae2e244c45282d5f5efa895aa902cfe79943
+        dataset_archive=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/downloads/terminal-bench-prebuilt-v4.0.0.tar.gz
+        dataset_archive_sha256=6d2c57cbcb1a75b5cdc0b0f989747fa68cdc65df8ff0a6893045a70ced7e668e
+        dataset_content_sha256=564a42a4e2ce0a5efd23758656e4e419b3566a36234dfc09bae1029bc15326b2
         output_prefix=tb4_kimi_k3_shared24_cpu-132-021_8103_
         ;;
 esac
 
-eval_root=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/evals
-if [[ -L "$eval_root" || ! -d "$eval_root" || "$(realpath -e -- "$eval_root")" != "$eval_root" ]]; then
-    printf 'The canonical evaluation root is unavailable or unsafe\n' >&2
+require_private_artifact() {
+    local configured=$1
+    local label=$2
+    local resolved owner mode digest
+    if [[ -z "$configured" || "$configured" == *$'\n'* || "$configured" == *$'\t'* \
+        || "$configured" != /* || -L "$configured" || ! -f "$configured" ]]; then
+        printf '%s must be a canonical private regular file\n' "$label" >&2
+        return 2
+    fi
+    resolved=$(realpath -e -- "$configured" 2>/dev/null || true)
+    owner=$(stat -Lc '%u' -- "$configured" 2>/dev/null || true)
+    mode=$(stat -Lc '%a' -- "$configured" 2>/dev/null || true)
+    if [[ -z "$resolved" || "$resolved" != "$configured" || "$owner" != "$(id -u)" \
+        || ! "$mode" =~ ^[0-7]{3,4}$ ]]; then
+        printf '%s must be a canonical private regular file\n' "$label" >&2
+        return 2
+    fi
+    if (( (8#$mode & 0077) != 0 )); then
+        printf '%s must be a canonical private regular file\n' "$label" >&2
+        return 2
+    fi
+    digest=$(sha256sum "$resolved" | cut -d' ' -f1)
+    if [[ ! "$digest" =~ ^[0-9a-f]{64}$ ]]; then
+        printf '%s could not be pinned\n' "$label" >&2
+        return 2
+    fi
+    printf '%s\t%s\n' "$resolved" "$digest"
+}
+
+if [[ -z ${KIMI_SHARED_READINESS_CHECKPOINT:-} ]]; then
+    printf 'KIMI_SHARED_READINESS_CHECKPOINT is required\n' >&2
+    exit 2
+fi
+if [[ -z ${KIMI_SHARED_SMOKE_CHECKPOINT:-} ]]; then
+    printf 'KIMI_SHARED_SMOKE_CHECKPOINT is required\n' >&2
+    exit 2
+fi
+if ! readiness_metadata=$(
+    require_private_artifact "$KIMI_SHARED_READINESS_CHECKPOINT" readiness_checkpoint
+); then
+    exit 2
+fi
+if ! smoke_metadata=$(
+    require_private_artifact "$KIMI_SHARED_SMOKE_CHECKPOINT" smoke_checkpoint
+); then
+    exit 2
+fi
+IFS=$'\t' read -r readiness_checkpoint readiness_checkpoint_sha256 readiness_extra <<< "$readiness_metadata"
+IFS=$'\t' read -r smoke_checkpoint smoke_checkpoint_sha256 smoke_extra <<< "$smoke_metadata"
+if [[ -n "$readiness_extra" || -n "$smoke_extra" ]]; then
+    printf 'Pinned checkpoint metadata is invalid\n' >&2
+    exit 2
+fi
+promotion_certificate=
+promotion_certificate_sha256=
+if [[ "$profile" == mobius ]]; then
+    if [[ -z ${KIMI_SHARED_PROMOTION_CERTIFICATE:-} ]]; then
+        printf 'KIMI_SHARED_PROMOTION_CERTIFICATE is required for Mobius\n' >&2
+        exit 2
+    fi
+    if ! promotion_metadata=$(
+        require_private_artifact "$KIMI_SHARED_PROMOTION_CERTIFICATE" promotion_certificate
+    ); then
+        exit 2
+    fi
+    IFS=$'\t' read -r promotion_certificate promotion_certificate_sha256 promotion_extra \
+        <<< "$promotion_metadata"
+    if [[ -n "$promotion_extra" ]]; then
+        printf 'Pinned promotion metadata is invalid\n' >&2
+        exit 2
+    fi
+elif [[ -n ${KIMI_SHARED_PROMOTION_CERTIFICATE:-} ]]; then
+    printf 'KIMI_SHARED_PROMOTION_CERTIFICATE is only valid for Mobius\n' >&2
     exit 2
 fi
 
-lane_resume_dir=
-if [[ -v KIMI_SHARED_RESUME_DIR ]]; then
-    if [[ -z "$KIMI_SHARED_RESUME_DIR" \
-        || "$KIMI_SHARED_RESUME_DIR" != /* \
-        || -L "$KIMI_SHARED_RESUME_DIR" ]]; then
-        printf 'KIMI_SHARED_RESUME_DIR must be a canonical absolute lane directory\n' >&2
-        exit 2
-    fi
-    lane_resume_dir=$(realpath -e -- "$KIMI_SHARED_RESUME_DIR" 2>/dev/null || true)
-    resume_basename=${lane_resume_dir##*/}
-    resume_parent=${lane_resume_dir%/*}
-    resume_suffix=${resume_basename#"$output_prefix"}
-    if [[ -z "$lane_resume_dir" \
-        || "$lane_resume_dir" != "$KIMI_SHARED_RESUME_DIR" \
-        || "$resume_parent" != "$eval_root" \
-        || "$resume_basename" != "$output_prefix$resume_suffix" \
-        || ! "$resume_suffix" =~ ^[1-9][0-9]*$ \
-        || ! -d "$lane_resume_dir" ]]; then
-        printf 'KIMI_SHARED_RESUME_DIR does not belong to this server/profile lane\n' >&2
-        exit 2
-    fi
-    output_dir=$lane_resume_dir
-else
-    output_dir="$eval_root/$output_prefix$SLURM_JOB_ID"
-    if [[ -z "$internal_writer_lock_fd" && ( -e "$output_dir" || -L "$output_dir" ) ]]; then
-        printf 'Fresh shared Kimi output already exists; use KIMI_SHARED_RESUME_DIR\n' >&2
-        exit 2
-    fi
-    if [[ -z "$internal_writer_lock_fd" ]]; then
-        mkdir -m 700 -- "$output_dir"
-    fi
-    if [[ -L "$output_dir" || "$(realpath -e -- "$output_dir")" != "$output_dir" ]]; then
-        printf 'Fresh shared Kimi output is not canonical\n' >&2
-        exit 2
-    fi
-fi
-output_owner=$(stat -Lc '%u' -- "$output_dir")
-output_mode=$(stat -Lc '%a' -- "$output_dir")
-if [[ "$output_owner" != "$(id -u)" ]] || (( (8#$output_mode & 0022) != 0 )); then
-    printf 'The shared Kimi output must be owned by the launch user and not group/world writable\n' >&2
-    exit 2
-fi
-
-writer_lock_path="$output_dir/.writer.lock"
-if [[ -L "$writer_lock_path" ]]; then
-    printf 'Refusing symlink writer lock: %s\n' "$writer_lock_path" >&2
-    exit 2
-fi
-if [[ -z "$internal_writer_lock_fd" ]]; then
-    exec "$python_bin" "$workflow_dir/open_writer_lock.py" \
-        --lock-path "$writer_lock_path" \
-        --env-var KIMI_SHARED_WRITER_LOCK_FD \
-        -- bash "$server_dir/launch_common.sh" "$profile"
-fi
-exec 9>&"$internal_writer_lock_fd"
-writer_lock_fd_path="/proc/$$/fd/9"
-writer_lock_path_identity=$(stat -Lc '%d:%i' -- "$writer_lock_path" 2>/dev/null || true)
-writer_lock_fd_identity=$(stat -Lc '%d:%i' -- "$writer_lock_fd_path" 2>/dev/null || true)
-writer_lock_owner=$(stat -Lc '%u' -- "$writer_lock_fd_path" 2>/dev/null || true)
-writer_lock_mode=$(stat -Lc '%a' -- "$writer_lock_fd_path" 2>/dev/null || true)
-if [[ -L "$writer_lock_path" \
-    || ! -f "$writer_lock_path" \
-    || ! -f "$writer_lock_fd_path" \
-    || -z "$writer_lock_path_identity" \
-    || "$writer_lock_path_identity" != "$writer_lock_fd_identity" \
-    || "$writer_lock_owner" != "$(id -u)" \
-    || ! "$writer_lock_mode" =~ ^[0-7]{3,4}$ ]]; then
-    printf 'Writer lock descriptor must reference the regular non-symlink lock path\n' >&2
-    exit 2
-fi
-if (( (8#$writer_lock_mode & 0022) != 0 )); then
-    printf 'Writer lock descriptor must reference the regular non-symlink lock path\n' >&2
-    exit 2
-fi
-if ! flock -n 9; then
-    printf 'Another evaluator owns %s\n' "$output_dir" >&2
-    exit 2
-fi
-if [[ -L "$writer_lock_path" \
-    || ! -f "$writer_lock_path" \
-    || ! -f "$writer_lock_fd_path" \
-    || "$(stat -Lc '%d:%i' -- "$writer_lock_path" 2>/dev/null || true)" != "$writer_lock_fd_identity" ]]; then
-    printf 'Writer lock path changed while acquiring the lock\n' >&2
-    exit 2
-fi
-
-deployment_root=/checkpoint/ram/shared/vllm_deployments_v2/shared-kimi-k3
 canonical_proxy_info="$deployment_root/proxy_info.json"
 canonical_proxy_litellm_config="$deployment_root/proxy_litellm_config.yaml"
-runtime_dir=$(mktemp -d "${SLURM_TMPDIR:-/tmp}/tb-kimi-shared-${SLURM_JOB_ID:-local}.XXXXXX")
-proxy_snapshot="$runtime_dir/proxy_info.json"
-eval_pid=
-cleanup() {
-    status=$?
-    trap - EXIT INT TERM
-    if [[ -n "$eval_pid" ]] && kill -0 "$eval_pid" 2>/dev/null; then
-        kill -TERM "$eval_pid" 2>/dev/null || true
-        wait "$eval_pid" 2>/dev/null || true
-    fi
-    rm -rf -- "$runtime_dir"
-    exit "$status"
-}
-trap cleanup EXIT INT TERM
-
-if [[ ! -r "$canonical_proxy_info" ]]; then
-    printf 'The canonical shared Kimi proxy_info.json is unavailable\n' >&2
+if [[ ! -r "$canonical_proxy_info" || ! -f "$canonical_proxy_info" || -L "$canonical_proxy_info" ]]; then
+    printf 'The canonical shared Kimi proxy metadata is unavailable\n' >&2
     exit 2
 fi
-install -m 600 "$canonical_proxy_info" "$proxy_snapshot"
-
-validation_args=(
-    --project-dir "$project_dir"
-    --deployment-root "$deployment_root"
-    --proxy-info "$proxy_snapshot"
-    --eval-config "$eval_config"
-    --profile "$profile"
-)
-if [[ -n "$lane_resume_dir" ]]; then
-    validation_args+=(--resume-dir "$lane_resume_dir")
+pinned_proxy_info_sha256=$(sha256sum "$canonical_proxy_info" | cut -d' ' -f1)
+if [[ ! "$pinned_proxy_info_sha256" =~ ^[0-9a-f]{64}$ ]]; then
+    printf 'The canonical shared Kimi proxy metadata could not be pinned\n' >&2
+    exit 2
 fi
+
+if [[ "$profile" == mobius ]]; then
+    PYTHONPATH="$workflow_dir:$project_dir/environments/vmvm_tb_v2:$project_dir/deps/verifiers:$project_dir/deps/renderers:$project_dir/deps/pydantic-config/src:$x86_site${PYTHONPATH:+:$PYTHONPATH}" \
+        "$x86_uv" run --no-project --offline --python "$python_bin" \
+        python3 "$workflow_dir/mobius_launch_certificate.py" verify \
+        "$promotion_certificate" \
+        --certificate-sha256 "$promotion_certificate_sha256" \
+        --production-config "$eval_config" \
+        --approved-manifest "$approved_task_file" \
+        --approved-manifest-sha256 "$approved_task_file_sha256" \
+        --deployment-id "$deployment_id" \
+        --deployment-spec "$deployment_spec" \
+        --deployment-spec-sha256 "$deployment_spec_sha256" \
+        --readiness-checkpoint "$readiness_checkpoint" \
+        --readiness-checkpoint-sha256 "$readiness_checkpoint_sha256" \
+        --capacity-smoke-checkpoint "$smoke_checkpoint" \
+        --capacity-smoke-checkpoint-sha256 "$smoke_checkpoint_sha256" \
+        --deployment-proxy-info "$canonical_proxy_info" \
+        --deployment-proxy-info-sha256 "$pinned_proxy_info_sha256" \
+        --requested-lease-start-concurrency 2 \
+        >/dev/null
+fi
+
 validation_metadata=$(
     PYTHONPATH="$x86_site${PYTHONPATH:+:$PYTHONPATH}" \
-        "$python_bin" "$server_dir/validate_launch.py" "${validation_args[@]}"
+        "$python_bin" "$server_dir/validate_launch.py" \
+        --project-dir "$project_dir" \
+        --deployment-root "$deployment_root" \
+        --proxy-info "$canonical_proxy_info" \
+        --eval-config "$eval_config" \
+        --profile "$profile"
 )
 IFS=$'\t' read -r \
     proxy_info_sha256 route_count rollout_cap active_request_cap waiting_request_cap config_sha256 \
@@ -230,36 +240,66 @@ if [[ ! "$proxy_info_sha256" =~ ^[0-9a-f]{64}$ \
     || "$(sha256sum "$canonical_proxy_litellm_config" | cut -d' ' -f1)" != "$proxy_litellm_config_sha256" \
     || -n "$metadata_extra" \
     || "$validation_metadata" == *$'\n'* \
-    || "$(sha256sum "$proxy_snapshot" | cut -d' ' -f1)" != "$proxy_info_sha256" ]]; then
+    || "$pinned_proxy_info_sha256" != "$proxy_info_sha256" \
+    || "$(sha256sum "$canonical_proxy_info" | cut -d' ' -f1)" != "$proxy_info_sha256" \
+    || "$(sha256sum "$deployment_spec" | cut -d' ' -f1)" != "$deployment_spec_sha256" ]]; then
     printf 'The shared Kimi validator returned invalid metadata\n' >&2
+    exit 2
+fi
+project_revision=$(git -C "$project_dir" rev-parse --verify HEAD)
+if [[ ! "$project_revision" =~ ^[0-9a-f]{40}$ ]]; then
+    printf 'The shared Kimi source revision could not be pinned\n' >&2
+    exit 2
+fi
+
+eval_root=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/evals
+if [[ -L "$eval_root" || ! -d "$eval_root" || "$(realpath -e -- "$eval_root")" != "$eval_root" ]]; then
+    printf 'The canonical evaluation root is unavailable or unsafe\n' >&2
+    exit 2
+fi
+output_dir="$eval_root/$output_prefix$SLURM_JOB_ID"
+if [[ -e "$output_dir" || -L "$output_dir" ]] || ! mkdir -m 700 -- "$output_dir"; then
+    printf 'Fresh shared Kimi output already exists or cannot be created\n' >&2
+    exit 2
+fi
+if [[ -L "$output_dir" || "$(realpath -e -- "$output_dir")" != "$output_dir" ]]; then
+    printf 'Fresh shared Kimi output is not canonical\n' >&2
     exit 2
 fi
 
 export PROJECT_DIR="$project_dir"
+export EVAL_RUN_ROLE="$profile"
+export EVAL_DEPLOYMENT_ID="$deployment_id"
+export EVAL_EXPECTED_MODEL=Kimi-K3
+export EVAL_EXPECTED_PRIME_RL_REVISION="$project_revision"
 export EVAL_CONFIG="$eval_config"
 export EVAL_CONFIG_SHA256="$expected_config_sha256"
 export EVAL_APPROVED_TASK_FILE="$approved_task_file"
 export EVAL_APPROVED_TASK_FILE_SHA256="$approved_task_file_sha256"
-export INFERENCE_PROXY_INFO="$proxy_snapshot"
+export INFERENCE_DEPLOYMENT_SPEC="$deployment_spec"
+export INFERENCE_DEPLOYMENT_SPEC_SHA256="$deployment_spec_sha256"
+export INFERENCE_READINESS_CHECKPOINT="$readiness_checkpoint"
+export INFERENCE_READINESS_CHECKPOINT_SHA256="$readiness_checkpoint_sha256"
+export INFERENCE_SMOKE_CHECKPOINT="$smoke_checkpoint"
+export INFERENCE_SMOKE_CHECKPOINT_SHA256="$smoke_checkpoint_sha256"
+export INFERENCE_PROXY_INFO="$canonical_proxy_info"
 export INFERENCE_PROXY_INFO_SHA256="$proxy_info_sha256"
-export INFERENCE_PROXY_LITELLM_CONFIG_SHA256="$proxy_litellm_config_sha256"
-export EVAL_DATASET_TREE_SHA256="$expected_dataset_tree_sha256"
-export EVAL_WRITER_LOCK_FD=9
+export OUTPUT_DIR="$output_dir"
 export VACLI_MAX_CONCURRENT_LEASES=2
-unset KIMI_SHARED_RESUME_DIR
-unset KIMI_SHARED_WRITER_LOCK_FD
-if [[ -n "$lane_resume_dir" ]]; then
-    RESUME_DIR=$lane_resume_dir
-    export RESUME_DIR
+if [[ "$profile" == mobius ]]; then
+    export EVAL_DATASET_REVISION="$dataset_revision"
+    export EVAL_PROMOTION_CERTIFICATE="$promotion_certificate"
+    export EVAL_PROMOTION_CERTIFICATE_SHA256="$promotion_certificate_sha256"
 else
-    export OUTPUT_DIR="$output_dir"
+    export EVAL_DATASET_ARCHIVE="$dataset_archive"
+    export EVAL_DATASET_ARCHIVE_SHA256="$dataset_archive_sha256"
+    export EVAL_DATASET_CONTENT_SHA256="$dataset_content_sha256"
 fi
 
-bash "$workflow_dir/run_eval.sbatch" &
-eval_pid=$!
-set +e
-wait "$eval_pid"
-status=$?
-set -e
-eval_pid=
-exit "$status"
+bash "$workflow_dir/run_eval.sbatch"
+if [[ "$profile" == tb4 ]]; then
+    RESULTS_DIR="$output_dir" \
+    TB4_EXPECTED_ROLLOUT_CONCURRENCY=24 \
+    TB4_EXPECTED_LEASE_START_CONCURRENCY=2 \
+        bash "$workflow_dir/run_tb4_audit.sbatch"
+fi

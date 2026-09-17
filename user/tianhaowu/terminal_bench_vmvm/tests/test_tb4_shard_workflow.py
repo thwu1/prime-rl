@@ -117,10 +117,23 @@ def test_plan_rejects_non_private_universe(tmp_path: Path):
         create_plan(universe, universe_sha, base, tmp_path / "plan", shard_size=4)
 
 
-def test_current_kimi_base_config_can_seed_a_private_plan(tmp_path: Path):
+@pytest.mark.parametrize(
+    ("relative_config", "expected_concurrency"),
+    [
+        ("configs/eval/tb4_kimi_k3_max_miniswe.toml", 4),
+        ("configs/eval/servers/cpu-132-021_8103/tb4_kimi_k3_shared24_miniswe.toml", 24),
+    ],
+)
+def test_current_kimi_base_config_can_seed_a_private_plan(
+    tmp_path: Path,
+    relative_config: str,
+    expected_concurrency: int,
+):
     workflow_dir = Path(workflow.__file__).resolve().parent
-    base = workflow_dir / "configs/eval/tb4_kimi_k3_max_miniswe.toml"
+    base = workflow_dir / relative_config
     config = tomllib.loads(base.read_text())
+    assert config["max_concurrent"] == expected_concurrency
+    assert config["client"]["max_connections"] == expected_concurrency
     source_manifest = Path(config["taskset"]["task_file"]).resolve(strict=True)
     universe = tmp_path / "private-universe.txt"
     shutil.copyfile(source_manifest, universe)
@@ -251,7 +264,7 @@ def test_merge_publishes_only_complete_certified_partition(tmp_path: Path, monke
     monkeypatch.setattr(
         workflow,
         "_certify_shard",
-        lambda path, _mapping, expected_semantics_sha256: by_receipt[path.resolve()],
+        lambda path, _mapping, **_kwargs: by_receipt[path.resolve()],
     )
     monkeypatch.setattr(
         workflow,
