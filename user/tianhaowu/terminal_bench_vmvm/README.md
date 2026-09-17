@@ -586,6 +586,36 @@ uv run --project user/tianhaowu/terminal_bench_vmvm \
   --routing-epoch-index /path/to/migrated-run/qwen_router_epochs.jsonl
 ```
 
+For a production routing-epoch-3 run, use the terminal finalizer instead of
+issuing those two commands independently. It requires explicit, disjoint
+source and output boundaries; an exact clean Prime-RL revision; the expected
+source provenance digest; the terminal row count; selection; and split policy.
+It refuses relative, symlinked, broad, overlapping, or default paths, held
+writer/router locks, an existing routing index or output, nonterminal recorded
+jobs, and any routing/provenance mismatch. It creates the final routing index
+with `migrate_qwen_router_affinity.py label` first and passes that exact index
+to `export_sft.py`. Child output is captured and reduced to aggregate counts,
+hashes, or stable error codes.
+
+Submit from a clean detached x86-capable source snapshot at the finalizer's
+exact commit. The source/output root directories must already exist. Replace
+the angle-bracketed values with audited literal values; do not use command
+substitution in the submission command:
+
+```bash
+sbatch --dependency=afterok:1454171 \
+  --export="FINALIZER_PROJECT_DIR=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/sources/prime-rl-<finalizer-sha>,FINALIZER_EXPECTED_REVISION=<40-hex-finalizer-sha>,FINALIZER_SOURCE_ROOT=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/evals,FINALIZER_SOURCE_DIR=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/evals/<epoch-3-run>,FINALIZER_EXPECTED_PROVENANCE_SHA256=<64-hex-provenance-sha256>,FINALIZER_OUTPUT_ROOT=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/sft,FINALIZER_OUTPUT_DIR=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/sft/qwen-a95b-epoch3-pass-only-<finalizer-prefix>,FINALIZER_EXPECTED_COUNT=2500,FINALIZER_SELECTION=pass-only,FINALIZER_VALIDATION_PERMYRIAD=500,FINALIZER_SPLIT_SALT=terminal-bench-vmvm-sft-v1" \
+  /checkpoint/ram/tianhaowu/terminal_bench_vmvm/sources/prime-rl-<finalizer-sha>/user/tianhaowu/terminal_bench_vmvm/finalize_qwen_sft.sbatch
+```
+
+Slurm copies the wrapper at submission and `afterok` prevents it from starting
+before the evaluator succeeds. The finalizer independently requires every job
+recorded in the source provenance to be terminal, rechecks the clean code
+revision and provenance digest between stages, and never overwrites an index or
+dataset. A partial failure after index publication therefore requires an
+explicit aggregate audit before any operator chooses a new output path; do not
+blindly rerun or remove artifacts.
+
 With that option, the exporter requires an exact one-to-one row-hash mapping,
 binds the full results, index, policy transition, active router manifest, and
 transition-anchored epoch-1 hash list. For a schema-3 admission run it also
