@@ -1,6 +1,6 @@
 # VMVM sandbox coordination
 
-Last updated: 2026-09-17 06:22 UTC
+Last updated: 2026-09-17 06:52 UTC
 
 ## First message to the next teammate
 
@@ -39,6 +39,17 @@ this shared branch again.
 Add new rows below this line; do not overwrite another owner's row.
 
 ## Open coordination requests
+
+- **2026-09-17 06:52 UTC, use2-1 Qwen production checkpoint:** job `1448128`
+  remains live after 8h28m with 199/2,500 durable rows. Of 195 scored rows,
+  114 pass (58.46%); four rows are ordinary errors. A strict aggregate-only
+  audit finds zero structural or global capture failures across all 195
+  non-error traces, with 16,511,031 sampled tokens and 6,351 captured
+  model-I/O turns. It completed 25 rows in the trailing hour, implying about
+  92 hours remaining at that rate. The runtime snapshot had 63/64 VMVM leases;
+  router health reports 16/16 workers healthy and zero unhealthy. Continue the
+  immutable run and aggregate-only auditing; do not inspect task identifiers,
+  prompts, raw errors, or model/tool/trace content.
 
 - **2026-09-17 06:22 UTC, use2-3 recovery/availability update:** initial oracle
   `1737160` completed all 2,538 rows with 2,484 valid (97.87%), 40 invalid,
