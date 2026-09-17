@@ -28,6 +28,7 @@ for forbidden in \
     INFERENCE_JOB_ID \
     INFERENCE_PROXY_INFO \
     INFERENCE_PROXY_INFO_SHA256 \
+    INFERENCE_PROXY_LITELLM_CONFIG_SHA256 \
     INFERENCE_PROXY_URL \
     OPENAI_API_KEY \
     OUTPUT_DIR \
@@ -51,6 +52,7 @@ project_dir=$(realpath -e -- "${PROJECT_DIR:-${SLURM_SUBMIT_DIR:-$PWD}}")
 workflow_dir="$project_dir/user/tianhaowu/terminal_bench_vmvm"
 server_dir="$workflow_dir/configs/eval/servers/cpu-132-021_8103"
 python_bin=${PYTHON_BIN_X86_64:-python3}
+x86_site=${PYTHON_SITE_X86_64:-/checkpoint/ram/tianhaowu/terminal_bench_vmvm/python_x86_64}
 actual_server_dir=$(cd -P "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)
 if [[ "$actual_server_dir" != "$server_dir" ]]; then
     printf 'The shared Kimi helper must run from its pinned project tree\n' >&2
@@ -176,6 +178,7 @@ fi
 
 deployment_root=/checkpoint/ram/shared/vllm_deployments_v2/shared-kimi-k3
 canonical_proxy_info="$deployment_root/proxy_info.json"
+canonical_proxy_litellm_config="$deployment_root/proxy_litellm_config.yaml"
 runtime_dir=$(mktemp -d "${SLURM_TMPDIR:-/tmp}/tb-kimi-shared-${SLURM_JOB_ID:-local}.XXXXXX")
 proxy_snapshot="$runtime_dir/proxy_info.json"
 eval_pid=
@@ -208,10 +211,12 @@ if [[ -n "$lane_resume_dir" ]]; then
     validation_args+=(--resume-dir "$lane_resume_dir")
 fi
 validation_metadata=$(
-    "$python_bin" "$server_dir/validate_launch.py" "${validation_args[@]}"
+    PYTHONPATH="$x86_site${PYTHONPATH:+:$PYTHONPATH}" \
+        "$python_bin" "$server_dir/validate_launch.py" "${validation_args[@]}"
 )
 IFS=$'\t' read -r \
-    proxy_info_sha256 route_count rollout_cap active_request_cap waiting_request_cap config_sha256 metadata_extra \
+    proxy_info_sha256 route_count rollout_cap active_request_cap waiting_request_cap config_sha256 \
+    proxy_litellm_config_sha256 metadata_extra \
     <<< "$validation_metadata"
 if [[ ! "$proxy_info_sha256" =~ ^[0-9a-f]{64}$ \
     || "$route_count" != 24 \
@@ -219,6 +224,10 @@ if [[ ! "$proxy_info_sha256" =~ ^[0-9a-f]{64}$ \
     || "$active_request_cap" != "$expected_http_cap" \
     || "$waiting_request_cap" != "$expected_waiting_cap" \
     || "$config_sha256" != "$expected_config_sha256" \
+    || ! "$proxy_litellm_config_sha256" =~ ^[0-9a-f]{64}$ \
+    || ! -f "$canonical_proxy_litellm_config" \
+    || -L "$canonical_proxy_litellm_config" \
+    || "$(sha256sum "$canonical_proxy_litellm_config" | cut -d' ' -f1)" != "$proxy_litellm_config_sha256" \
     || -n "$metadata_extra" \
     || "$validation_metadata" == *$'\n'* \
     || "$(sha256sum "$proxy_snapshot" | cut -d' ' -f1)" != "$proxy_info_sha256" ]]; then
@@ -233,6 +242,7 @@ export EVAL_APPROVED_TASK_FILE="$approved_task_file"
 export EVAL_APPROVED_TASK_FILE_SHA256="$approved_task_file_sha256"
 export INFERENCE_PROXY_INFO="$proxy_snapshot"
 export INFERENCE_PROXY_INFO_SHA256="$proxy_info_sha256"
+export INFERENCE_PROXY_LITELLM_CONFIG_SHA256="$proxy_litellm_config_sha256"
 export EVAL_DATASET_TREE_SHA256="$expected_dataset_tree_sha256"
 export EVAL_WRITER_LOCK_FD=9
 export VACLI_MAX_CONCURRENT_LEASES=2

@@ -18,6 +18,8 @@ from validate_launch import (  # noqa: E402
     EXPECTED_CONFIG_FILE,
     EXPECTED_CONFIG_SHA256,
     EXPECTED_HTTP_CONCURRENCY,
+    EXPECTED_PROXY_NUM_RETRIES,
+    EXPECTED_PROXY_REQUEST_TIMEOUT,
     EXPECTED_PYDANTIC_CONFIG_REVISION,
     EXPECTED_RENDERERS_REVISION,
     EXPECTED_ROLLOUT_CONCURRENCY,
@@ -37,12 +39,22 @@ from validate_launch import (  # noqa: E402
     _expected_resolved_config,
     _require_clean_git_worktree,
     _validate_common_eval_contract,
+    main,
     validate_deployment,
     validate_eval_config,
     validate_resume,
     validate_resume_location,
     validate_runtime_metadata,
 )
+
+GOOD_PROXY_LITELLM_CONFIG = b"""\
+model_list: []
+general_settings: {}
+router_settings: {}
+litellm_settings:
+  request_timeout: 7200
+  num_retries: 0
+"""
 
 
 class FakeMetadataTransport:
@@ -78,6 +90,7 @@ def _deployment(tmp_path: Path) -> tuple[Path, Path, str, str]:
             }
         )
     )
+    (root / "proxy_litellm_config.yaml").write_bytes(GOOD_PROXY_LITELLM_CONFIG)
     proxy_url = "http://proxy.example:8103"
     proxy_info = root / "proxy_info.json"
     proxy_info.write_text(
@@ -191,6 +204,7 @@ def _resume_fixture(tmp_path: Path, *, profile_name: str = "mobius") -> tuple[Pa
         url="http://cpu-132-021:8103",
         api_key="test-secret-key",
         proxy_info_sha256="a" * 64,
+        proxy_litellm_config_sha256="b" * 64,
     )
     provenance = {
         "prime_rl": project_revision,
@@ -201,6 +215,7 @@ def _resume_fixture(tmp_path: Path, *, profile_name: str = "mobius") -> tuple[Pa
         "inference_base_url": "http://cpu-132-021:8103/v1",
         "inference_deployment_id": "",
         "inference_proxy_info_sha256": proxy.proxy_info_sha256,
+        "inference_proxy_litellm_config_sha256": proxy.proxy_litellm_config_sha256,
         "dataset_tree_sha256": profile.dataset_tree_sha256 or "",
         "slurm_job_id": "12345",
         "approval_task_file_sha256": profile.task_sha256,
@@ -224,11 +239,115 @@ def test_shared_kimi_deployment_and_runtime_metadata_pass(tmp_path: Path) -> Non
 
     assert proxy.url == proxy_url
     assert proxy.proxy_info_sha256 == hashlib.sha256(proxy_info.read_bytes()).hexdigest()
+    assert proxy.proxy_litellm_config_sha256 == hashlib.sha256(GOOD_PROXY_LITELLM_CONFIG).hexdigest()
     assert len(transport.calls) == 2
     assert all(call[1]["Authorization"] == "Bearer test-secret-key" for call in transport.calls)
     assert EXPECTED_ROLLOUT_CONCURRENCY == 64
     assert EXPECTED_HTTP_CONCURRENCY == EXPECTED_ROUTES == 24
     assert EXPECTED_WAITING_REQUESTS == 40
+    assert EXPECTED_PROXY_REQUEST_TIMEOUT == 7_200
+    assert EXPECTED_PROXY_NUM_RETRIES == 0
+
+
+@pytest.mark.parametrize(
+    ("policy", "error"),
+    [
+        (
+            b"litellm_settings:\n  request_timeout: 600\n  num_retries: 2\n",
+            "proxy_litellm_config_policy_mismatch",
+        ),
+        (
+            b"litellm_settings:\n  request_timeout: 7200\n",
+            "proxy_litellm_config_policy_mismatch",
+        ),
+        (
+            b"litellm_settings:\n  request_timeout: '7200'\n  num_retries: 0\n",
+            "proxy_litellm_config_policy_mismatch",
+        ),
+        (
+            b"litellm_settings:\n  request_timeout: 7200\n  num_retries: false\n",
+            "proxy_litellm_config_policy_mismatch",
+        ),
+        (
+            b"litellm_settings:\n  request_timeout: [\n",
+            "proxy_litellm_config_invalid",
+        ),
+        (
+            b"litellm_settings:\n  request_timeout: 7200\n  request_timeout: 7200\n  num_retries: 0\n",
+            "proxy_litellm_config_invalid",
+        ),
+    ],
+)
+def test_shared_kimi_proxy_policy_fails_closed(tmp_path: Path, policy: bytes, error: str) -> None:
+    root, proxy_info, spec_sha256, proxy_url = _deployment(tmp_path)
+    (root / "proxy_litellm_config.yaml").write_bytes(policy)
+
+    with pytest.raises(SharedKimiValidationError, match=f"^{error}$") as captured:
+        validate_deployment(
+            root,
+            proxy_info,
+            expected_spec_sha256=spec_sha256,
+            expected_proxy_url=proxy_url,
+        )
+
+    assert "test-secret-key" not in str(captured.value)
+    assert policy.decode("utf-8") not in str(captured.value)
+
+
+def test_shared_kimi_proxy_policy_digest_covers_full_file(tmp_path: Path) -> None:
+    root, proxy_info, spec_sha256, proxy_url = _deployment(tmp_path)
+    initial = validate_deployment(
+        root,
+        proxy_info,
+        expected_spec_sha256=spec_sha256,
+        expected_proxy_url=proxy_url,
+    )
+    changed_policy = GOOD_PROXY_LITELLM_CONFIG + b"# semantically inert digest change\n"
+    (root / "proxy_litellm_config.yaml").write_bytes(changed_policy)
+
+    changed = validate_deployment(
+        root,
+        proxy_info,
+        expected_spec_sha256=spec_sha256,
+        expected_proxy_url=proxy_url,
+    )
+
+    assert initial.proxy_litellm_config_sha256 != changed.proxy_litellm_config_sha256
+    assert changed.proxy_litellm_config_sha256 == hashlib.sha256(changed_policy).hexdigest()
+
+
+def test_validation_metadata_includes_proxy_policy_digest(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    proxy = ProxyMetadata(
+        url="http://cpu-132-021:8103",
+        api_key="test-secret-key",
+        proxy_info_sha256="a" * 64,
+        proxy_litellm_config_sha256="b" * 64,
+    )
+    monkeypatch.setattr(validate_launch_module, "validate_launch", lambda *args, **kwargs: proxy)
+
+    status = main(
+        [
+            "--project-dir",
+            "/project",
+            "--deployment-root",
+            "/deployment",
+            "--proxy-info",
+            "/proxy-info",
+            "--eval-config",
+            "/eval-config",
+        ]
+    )
+
+    captured = capsys.readouterr()
+    assert status == 0
+    assert captured.out == (
+        f"{'a' * 64}\t24\t64\t24\t40\t{EXPECTED_CONFIG_SHA256}\t{'b' * 64}\n"
+    )
+    assert captured.err == ""
+    assert "test-secret-key" not in captured.out
 
 
 @pytest.mark.parametrize(
@@ -268,6 +387,7 @@ def test_shared_kimi_runtime_rejects_degraded_route_count() -> None:
         url="http://proxy.example:8103",
         api_key="test-secret-key",
         proxy_info_sha256="a" * 64,
+        proxy_litellm_config_sha256="b" * 64,
     )
 
     with pytest.raises(SharedKimiValidationError, match="^route_health_mismatch$"):
@@ -283,6 +403,7 @@ def test_shared_kimi_runtime_errors_do_not_expose_credentials() -> None:
         url="http://proxy.example:8103",
         api_key="test-secret-key",
         proxy_info_sha256="a" * 64,
+        proxy_litellm_config_sha256="b" * 64,
     )
 
     with pytest.raises(SharedKimiValidationError, match="^models_endpoint_invalid$") as captured:
@@ -381,6 +502,50 @@ def test_resume_contract_accepts_exact_saved_state(tmp_path: Path, profile_name:
     assert validate_resume(project, resume, profile_name, proxy) == resume
 
 
+def test_resume_contract_binds_proxy_policy_digest_in_every_resume_block(tmp_path: Path) -> None:
+    project, resume, proxy = _resume_fixture(tmp_path)
+    profile = PROFILES["mobius"]
+    project_revision = subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        cwd=project,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+    resume_block = {
+        "resume_slurm_job_id": "67890",
+        "resume_prime_rl": project_revision,
+        "resume_verifiers": EXPECTED_VERIFIERS_REVISION,
+        "resume_renderers": EXPECTED_RENDERERS_REVISION,
+        "resume_pydantic_config": EXPECTED_PYDANTIC_CONFIG_REVISION,
+        "resume_eval_config_sha256": profile.config_sha256,
+        "resume_inference_base_url": "http://cpu-132-021:8103/v1",
+        "resume_inference_deployment_id": "",
+        "resume_inference_proxy_info_sha256": proxy.proxy_info_sha256,
+        "resume_inference_proxy_litellm_config_sha256": proxy.proxy_litellm_config_sha256,
+        "resume_dataset_tree_sha256": "",
+        "resume_approval_task_file_sha256": profile.task_sha256,
+        "resume_approval_task_count": str(profile.task_count),
+    }
+    provenance = resume / "provenance.txt"
+    with provenance.open("a") as handle:
+        handle.write("".join(f"{key}={value}\n" for key, value in resume_block.items()))
+
+    assert validate_resume(project, resume, "mobius", proxy) == resume
+
+    provenance.write_text(
+        provenance.read_text().replace(
+            f"resume_inference_proxy_litellm_config_sha256={proxy.proxy_litellm_config_sha256}",
+            f"resume_inference_proxy_litellm_config_sha256={'c' * 64}",
+        )
+    )
+    with pytest.raises(
+        SharedKimiValidationError,
+        match="^resume_provenance_resume_inference_proxy_litellm_config_sha256_mismatch$",
+    ):
+        validate_resume(project, resume, "mobius", proxy)
+
+
 @pytest.mark.parametrize(
     ("path", "replacement"),
     [
@@ -420,6 +585,10 @@ def test_resolved_config_comparison_is_type_exact(
             "provenance",
             "resume_provenance_inference_proxy_info_sha256_mismatch",
         ),
+        (
+            "proxy_policy_provenance",
+            "resume_provenance_inference_proxy_litellm_config_sha256_mismatch",
+        ),
     ],
 )
 def test_resume_contract_rejects_drift(tmp_path: Path, mutation: str, error: str) -> None:
@@ -444,12 +613,20 @@ def test_resume_contract_rejects_drift(tmp_path: Path, mutation: str, error: str
         else:
             manifest["task_file"]["source"] = manifest["config"]["source"]
         manifest_path.write_text(json.dumps(manifest))
-    else:
+    elif mutation == "provenance":
         provenance = resume / "provenance.txt"
         provenance.write_text(
             provenance.read_text().replace(
                 f"inference_proxy_info_sha256={proxy.proxy_info_sha256}",
                 f"inference_proxy_info_sha256={'b' * 64}",
+            )
+        )
+    else:
+        provenance = resume / "provenance.txt"
+        provenance.write_text(
+            provenance.read_text().replace(
+                f"inference_proxy_litellm_config_sha256={proxy.proxy_litellm_config_sha256}",
+                f"inference_proxy_litellm_config_sha256={'c' * 64}",
             )
         )
 

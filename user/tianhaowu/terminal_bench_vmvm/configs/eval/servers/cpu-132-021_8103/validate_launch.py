@@ -20,6 +20,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Mapping, Protocol, Sequence
 
+import yaml
+
 EXPECTED_MODEL = "Kimi-K3"
 EXPECTED_ROUTES = 24
 EXPECTED_ROLLOUT_CONCURRENCY = 64
@@ -27,6 +29,8 @@ EXPECTED_HTTP_CONCURRENCY = 24
 EXPECTED_WAITING_REQUESTS = EXPECTED_ROLLOUT_CONCURRENCY - EXPECTED_HTTP_CONCURRENCY
 EXPECTED_PROXY_URL = "http://cpu-132-021:8103"
 EXPECTED_SPEC_SHA256 = "ab00213a43083eba87f8b5999a3046e8d27ebe42b933ee845fd0cf4928b266e2"
+EXPECTED_PROXY_REQUEST_TIMEOUT = 7_200
+EXPECTED_PROXY_NUM_RETRIES = 0
 EXPECTED_TASK_SHA256 = "d33ef93f9b77ee91a41600934e677ba37988d3b4509e4da05ff1fcf7b4bc3a4b"
 EXPECTED_IMAGE_SHA256 = "118157378884021d2fc12dd83e7d9576ca606a5d229a2bd34c203d745212e009"
 EXPECTED_DATASET_REVISION = "ac1f30b9ac0e6c6a20a9fe423900d9ed28a6d366"
@@ -143,6 +147,7 @@ class ProxyMetadata:
     url: str
     api_key: str
     proxy_info_sha256: str
+    proxy_litellm_config_sha256: str
 
 
 @dataclass(frozen=True)
@@ -232,6 +237,72 @@ def _load_json_file(path: Path, *, code: str) -> tuple[bytes, dict[str, Any]]:
     return raw, _load_json_bytes(raw, code=code)
 
 
+class _UniqueKeySafeLoader(yaml.SafeLoader):
+    """Safe YAML loader that rejects duplicate keys at every mapping level."""
+
+
+def _construct_unique_mapping(
+    loader: _UniqueKeySafeLoader,
+    node: yaml.nodes.MappingNode,
+    deep: bool = False,
+) -> dict[Any, Any]:
+    loader.flatten_mapping(node)
+    mapping: dict[Any, Any] = {}
+    for key_node, value_node in node.value:
+        key = loader.construct_object(key_node, deep=deep)
+        try:
+            duplicate = key in mapping
+        except TypeError as error:
+            raise yaml.constructor.ConstructorError(
+                "while constructing a mapping",
+                node.start_mark,
+                "found an unhashable key",
+                key_node.start_mark,
+            ) from error
+        if duplicate:
+            raise yaml.constructor.ConstructorError(
+                "while constructing a mapping",
+                node.start_mark,
+                "found a duplicate key",
+                key_node.start_mark,
+            )
+        mapping[key] = loader.construct_object(value_node, deep=deep)
+    return mapping
+
+
+_UniqueKeySafeLoader.add_constructor(
+    yaml.resolver.BaseResolver.DEFAULT_MAPPING_TAG,
+    _construct_unique_mapping,
+)
+
+
+def _load_yaml_mapping(raw: bytes, *, code: str) -> dict[str, Any]:
+    try:
+        value = yaml.load(raw.decode("utf-8"), Loader=_UniqueKeySafeLoader)
+    except (UnicodeDecodeError, yaml.YAMLError):
+        _fail(code)
+    if not isinstance(value, dict) or any(not isinstance(key, str) for key in value):
+        _fail(code)
+    return value
+
+
+def _validate_proxy_litellm_config(root: Path) -> str:
+    raw = _read_bytes(
+        root / "proxy_litellm_config.yaml",
+        limit=MAX_CONFIG_BYTES,
+        code="proxy_litellm_config_unreadable",
+    )
+    config = _load_yaml_mapping(raw, code="proxy_litellm_config_invalid")
+    settings = config.get("litellm_settings")
+    if not isinstance(settings, dict):
+        _fail("proxy_litellm_config_policy_mismatch")
+    if not _values_exact(settings.get("request_timeout"), EXPECTED_PROXY_REQUEST_TIMEOUT):
+        _fail("proxy_litellm_config_policy_mismatch")
+    if not _values_exact(settings.get("num_retries"), EXPECTED_PROXY_NUM_RETRIES):
+        _fail("proxy_litellm_config_policy_mismatch")
+    return _sha256(raw)
+
+
 def _sha256(raw: bytes) -> str:
     return hashlib.sha256(raw).hexdigest()
 
@@ -278,6 +349,8 @@ def validate_deployment(
         or proxy_config["sticky_ttl"] != 14_400
     ):
         _fail("proxy_config_contract_mismatch")
+
+    proxy_litellm_config_sha256 = _validate_proxy_litellm_config(root)
 
     proxy_raw, proxy_info = _load_json_file(proxy_info_path, code="proxy_info_invalid")
     _exact_keys(
@@ -375,6 +448,7 @@ def validate_deployment(
         url=url,
         api_key=api_key,
         proxy_info_sha256=_sha256(proxy_raw),
+        proxy_litellm_config_sha256=proxy_litellm_config_sha256,
     )
 
 
@@ -1054,6 +1128,7 @@ def _parse_provenance(path: Path) -> tuple[dict[str, str], list[dict[str, str]]]
         "resume_inference_base_url",
         "resume_inference_deployment_id",
         "resume_inference_proxy_info_sha256",
+        "resume_inference_proxy_litellm_config_sha256",
         "resume_dataset_tree_sha256",
         "resume_approval_task_file_sha256",
         "resume_approval_task_count",
@@ -1085,6 +1160,7 @@ def _validate_provenance(
         "inference_base_url",
         "inference_deployment_id",
         "inference_proxy_info_sha256",
+        "inference_proxy_litellm_config_sha256",
         "dataset_tree_sha256",
         "slurm_job_id",
         "approval_task_file_sha256",
@@ -1101,6 +1177,7 @@ def _validate_provenance(
         "inference_base_url": f"{EXPECTED_PROXY_URL}/v1",
         "inference_deployment_id": "",
         "inference_proxy_info_sha256": proxy.proxy_info_sha256,
+        "inference_proxy_litellm_config_sha256": proxy.proxy_litellm_config_sha256,
         "dataset_tree_sha256": profile.dataset_tree_sha256 or "",
         "approval_task_file_sha256": profile.task_sha256,
         "approval_task_count": str(profile.task_count),
@@ -1120,6 +1197,7 @@ def _validate_provenance(
         "resume_inference_base_url": f"{EXPECTED_PROXY_URL}/v1",
         "resume_inference_deployment_id": "",
         "resume_inference_proxy_info_sha256": proxy.proxy_info_sha256,
+        "resume_inference_proxy_litellm_config_sha256": proxy.proxy_litellm_config_sha256,
         "resume_dataset_tree_sha256": profile.dataset_tree_sha256 or "",
         "resume_approval_task_file_sha256": profile.task_sha256,
         "resume_approval_task_count": str(profile.task_count),
@@ -1292,6 +1370,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 str(profile.http_concurrent),
                 str(profile.max_concurrent - profile.http_concurrent),
                 profile.config_sha256,
+                proxy.proxy_litellm_config_sha256,
             )
         )
     )
