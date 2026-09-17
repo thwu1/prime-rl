@@ -145,17 +145,25 @@ def test_approved_qwen_config_requires_exact_worker_bounded_http_pool(tmp_path: 
         direct.validate_eval_config(config)
 
 
-def test_production_qwen_config_queues_64_rollouts_behind_16_http_connections() -> None:
+def test_production_qwen_config_queues_64_rollouts_behind_32_http_connections() -> None:
     config_path = Path(__file__).parents[1] / "configs" / "eval" / "mobius_qwen_a95b_2500.toml"
     config = tomllib.loads(config_path.read_text())
 
     assert config["max_concurrent"] == 64
     assert config["multiplex"] == 64
-    assert config["client"]["max_connections"] == direct.EXPECTED_ENDPOINTS == 16
-    assert config["client"]["max_keepalive_connections"] == direct.EXPECTED_ENDPOINTS
+    assert config["client"]["max_connections"] == direct.PRODUCTION_PROVIDER_CONCURRENCY == 32
+    assert config["client"]["max_keepalive_connections"] == direct.PRODUCTION_PROVIDER_CONCURRENCY
     assert [
         value for value in config["harness"]["config_overrides"] if value.startswith("model.model_kwargs.timeout=")
     ] == [f"model.model_kwargs.timeout={direct.PRODUCTION_MODEL_TIMEOUT_SECONDS}"]
+
+
+def test_qwen_config_rejects_boolean_num_rollouts(tmp_path: Path) -> None:
+    config = _approved_config(tmp_path)
+    config.write_text(config.read_text().replace("num_rollouts = 1", "num_rollouts = true"))
+
+    with pytest.raises(direct.DirectWorkerError, match="eval_num_rollouts_mismatch"):
+        direct.validate_eval_config(config)
 
 
 def test_production_qwen_config_requires_end_to_end_model_timeout(tmp_path: Path) -> None:
@@ -163,8 +171,8 @@ def test_production_qwen_config_requires_end_to_end_model_timeout(tmp_path: Path
     text = config.read_text()
     text = text.replace("max_concurrent = 2", "max_concurrent = 64")
     text = text.replace("multiplex = 2", "multiplex = 64")
-    text = text.replace("max_connections = 2", "max_connections = 16")
-    text = text.replace("max_keepalive_connections = 2", "max_keepalive_connections = 16")
+    text = text.replace("max_connections = 2", "max_connections = 32")
+    text = text.replace("max_keepalive_connections = 2", "max_keepalive_connections = 32")
     config.write_text(text)
 
     with pytest.raises(direct.DirectWorkerError, match="eval_model_timeout_mismatch"):
@@ -202,9 +210,7 @@ def test_approved_qwen_config_rejects_wrong_allowlist_count(tmp_path: Path) -> N
     config.write_text(
         config.read_text().replace(
             next(
-                line.split('"')[1]
-                for line in config.read_text().splitlines()
-                if line.startswith("task_file_sha256 = ")
+                line.split('"')[1] for line in config.read_text().splitlines() if line.startswith("task_file_sha256 = ")
             ),
             task_hash,
         )
@@ -268,7 +274,12 @@ def test_prepare_snapshots_only_non_secret_worker_metadata(tmp_path: Path, monke
     assert oct(manifest_path.stat().st_mode & 0o777) == "0o600"
 
 
-def test_validate_saved_manifest_rejects_router_retry(tmp_path: Path, monkeypatch) -> None:
+@pytest.mark.parametrize("retry_value", [1, False])
+def test_validate_saved_manifest_rejects_router_retry(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    retry_value: object,
+) -> None:
     _, _, _, workers = _write_deployment(tmp_path)
     manifest = direct._manifest(
         tmp_path,
@@ -288,12 +299,164 @@ def test_validate_saved_manifest_rejects_router_retry(tmp_path: Path, monkeypatc
         ),
     )
     manifest["endpoint_bundle_sha256"] = direct.EXPECTED_ENDPOINT_BUNDLE_SHA256
-    manifest["router"]["retries"] = 1
+    manifest["router"]["retries"] = retry_value
     path = tmp_path / "manifest.json"
     path.write_text(json.dumps(manifest) + "\n")
 
     with pytest.raises(direct.DirectWorkerError, match="router_invalid"):
         direct.validate_saved_manifest(path)
+
+
+@pytest.mark.parametrize(
+    "field",
+    [
+        "rollout_concurrency",
+        "client_max_connections",
+        "client_max_keepalive_connections",
+        "router_max_concurrent_requests",
+        "router_queue_size",
+    ],
+)
+def test_validate_saved_manifest_rejects_admission_drift(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    field: str,
+) -> None:
+    _, _, _, workers = _write_deployment(tmp_path)
+    manifest = direct._manifest(
+        tmp_path,
+        workers,
+        direct.EXPECTED_SPEC_SHA256,
+        direct.EXPECTED_ENDPOINT_BUNDLE_SHA256,
+        "a" * 64,
+        20_001,
+        40_001,
+        2,
+        2,
+    )
+    monkeypatch.setattr(direct, "EXPECTED_ENDPOINTS", len(workers))
+    monkeypatch.setattr(
+        direct,
+        "EXPECTED_ENDPOINT_BUNDLE_SHA256",
+        direct.endpoint_bundle_sha256(
+            [tmp_path / "deployment" / "endpoints" / worker.metadata_file for worker in workers]
+        ),
+    )
+    manifest["endpoint_bundle_sha256"] = direct.EXPECTED_ENDPOINT_BUNDLE_SHA256
+    manifest["admission"][field] += 1
+    path = tmp_path / "manifest.json"
+    path.write_text(json.dumps(manifest) + "\n")
+
+    with pytest.raises(direct.DirectWorkerError, match="manifest_admission_invalid"):
+        direct.validate_saved_manifest(path)
+
+
+def test_validate_saved_manifest_rejects_schema3_production_cap16(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _, _, _, workers = _write_deployment(tmp_path)
+    manifest = direct._manifest(
+        tmp_path,
+        workers,
+        direct.EXPECTED_SPEC_SHA256,
+        direct.EXPECTED_ENDPOINT_BUNDLE_SHA256,
+        "a" * 64,
+        20_001,
+        40_001,
+        direct.MAX_DIRECT_CONCURRENCY,
+        direct.LEGACY_PRODUCTION_PROVIDER_CONCURRENCY,
+    )
+    monkeypatch.setattr(direct, "EXPECTED_ENDPOINTS", len(workers))
+    monkeypatch.setattr(
+        direct,
+        "EXPECTED_ENDPOINT_BUNDLE_SHA256",
+        direct.endpoint_bundle_sha256(
+            [tmp_path / "deployment" / "endpoints" / worker.metadata_file for worker in workers]
+        ),
+    )
+    manifest["endpoint_bundle_sha256"] = direct.EXPECTED_ENDPOINT_BUNDLE_SHA256
+    path = tmp_path / "manifest.json"
+    path.write_text(json.dumps(manifest) + "\n")
+
+    with pytest.raises(direct.DirectWorkerError, match="manifest_production_admission_invalid"):
+        direct.validate_saved_manifest(path)
+
+
+def test_validate_saved_manifest_rejects_admission_above_rollout_limit(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _, _, _, workers = _write_deployment(tmp_path)
+    manifest = direct._manifest(
+        tmp_path,
+        workers,
+        direct.EXPECTED_SPEC_SHA256,
+        direct.EXPECTED_ENDPOINT_BUNDLE_SHA256,
+        "a" * 64,
+        20_001,
+        40_001,
+        direct.MAX_DIRECT_CONCURRENCY,
+        direct.MAX_DIRECT_CONCURRENCY,
+    )
+    monkeypatch.setattr(direct, "EXPECTED_ENDPOINTS", len(workers))
+    monkeypatch.setattr(
+        direct,
+        "EXPECTED_ENDPOINT_BUNDLE_SHA256",
+        direct.endpoint_bundle_sha256(
+            [tmp_path / "deployment" / "endpoints" / worker.metadata_file for worker in workers]
+        ),
+    )
+    manifest["endpoint_bundle_sha256"] = direct.EXPECTED_ENDPOINT_BUNDLE_SHA256
+    manifest["router"]["queue_size"] = 63
+    manifest["admission"]["rollout_concurrency"] = 127
+    manifest["admission"]["router_queue_size"] = 63
+    path = tmp_path / "manifest.json"
+    path.write_text(json.dumps(manifest) + "\n")
+
+    with pytest.raises(direct.DirectWorkerError, match="admission_exceeds_rollout_limit"):
+        direct.validate_saved_manifest(path)
+
+
+def test_validate_saved_manifest_rejects_boolean_admission_schema(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _, _, _, workers = _write_deployment(tmp_path)
+    manifest = direct._manifest(
+        tmp_path,
+        workers,
+        direct.EXPECTED_SPEC_SHA256,
+        direct.EXPECTED_ENDPOINT_BUNDLE_SHA256,
+        "a" * 64,
+        20_001,
+        40_001,
+        2,
+        2,
+    )
+    monkeypatch.setattr(direct, "EXPECTED_ENDPOINTS", len(workers))
+    monkeypatch.setattr(
+        direct,
+        "EXPECTED_ENDPOINT_BUNDLE_SHA256",
+        direct.endpoint_bundle_sha256(
+            [tmp_path / "deployment" / "endpoints" / worker.metadata_file for worker in workers]
+        ),
+    )
+    manifest["endpoint_bundle_sha256"] = direct.EXPECTED_ENDPOINT_BUNDLE_SHA256
+    manifest["admission"]["schema_version"] = True
+    path = tmp_path / "manifest.json"
+    path.write_text(json.dumps(manifest) + "\n")
+
+    with pytest.raises(direct.DirectWorkerError, match="manifest_admission_invalid"):
+        direct.validate_saved_manifest(path)
+
+
+def test_epoch2_lineage_rejects_boolean_routing_epoch(tmp_path: Path) -> None:
+    path = tmp_path / "lineage.jsonl"
+    path.write_text(json.dumps({"row_sha256": "a" * 64, "routing_epoch": True}) + "\n")
+
+    with pytest.raises(direct.DirectWorkerError, match="epoch2_lineage_invalid"):
+        direct._read_epoch2_lineage(path)
 
 
 @pytest.mark.parametrize(
@@ -381,6 +544,7 @@ def test_resume_accepts_only_the_saved_affinity_manifest(
         f"direct_qwen_manifest_sha256={manifest_sha256}\n"
         "direct_qwen_router_policy=consistent_hash\n"
         "direct_qwen_request_id_headers=x-session-id\n"
+        "direct_qwen_provider_concurrency=2\n"
     )
 
     resumed = direct.prepare(
@@ -521,6 +685,7 @@ def test_audit_run_directory_validates_provenance_without_results(tmp_path: Path
         f"direct_qwen_manifest_sha256={manifest_sha256}\n"
         "direct_qwen_router_policy=consistent_hash\n"
         "direct_qwen_request_id_headers=x-session-id\n"
+        "direct_qwen_provider_concurrency=2\n"
     )
 
     summary = direct.audit_run_directory(run_dir)
@@ -555,8 +720,21 @@ def test_audit_run_directory_validates_provenance_without_results(tmp_path: Path
         + f"resume_direct_qwen_manifest_sha256={manifest_sha256}\n"
         + "resume_direct_qwen_router_policy=consistent_hash\n"
         + "resume_direct_qwen_request_id_headers=x-session-id\n"
+        + "resume_direct_qwen_provider_concurrency=2\n"
     )
     assert direct.audit_run_directory(run_dir)["ok"] is True
+
+    provenance_path.write_text(
+        fresh_provenance
+        + "resume_slurm_job_id=124\n"
+        + f"resume_direct_qwen_manifest_sha256={manifest_sha256}\n"
+        + "resume_direct_qwen_router_policy=consistent_hash\n"
+        + "resume_direct_qwen_request_id_headers=x-session-id\n"
+        + "resume_direct_qwen_provider_concurrency=16\n"
+        + "resume_direct_qwen_provider_concurrency=2\n"
+    )
+    with pytest.raises(direct.DirectWorkerError, match="resume_provenance_router_mismatch"):
+        direct.audit_run_directory(run_dir)
 
 
 def test_audit_run_directory_rejects_credential_provenance(tmp_path: Path, monkeypatch) -> None:
@@ -580,7 +758,9 @@ def test_audit_run_directory_rejects_credential_provenance(tmp_path: Path, monke
         2,
     )
     (run_dir / "direct_workers.json").write_text(json.dumps(manifest) + "\n")
-    (run_dir / "config.toml").write_text(_approved_config(tmp_path).read_text().replace("127.0.0.1:8000", "127.0.0.1:20001"))
+    (run_dir / "config.toml").write_text(
+        _approved_config(tmp_path).read_text().replace("127.0.0.1:8000", "127.0.0.1:20001")
+    )
     (run_dir / "provenance.txt").write_text("api_key=forbidden\n")
 
     with pytest.raises(direct.DirectWorkerError, match="contains_credential"):

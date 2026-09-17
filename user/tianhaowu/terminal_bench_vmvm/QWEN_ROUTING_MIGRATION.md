@@ -84,3 +84,52 @@ python user/tianhaowu/terminal_bench_vmvm/migrate_qwen_router_affinity.py label 
 Both commands are wait-free: they fail if any recorded Slurm job is live or
 either writer lock is held. `label` writes only row number, row SHA-256, and
 routing epoch; it never emits task IDs or trace content.
+
+## Provider admission epoch 3
+
+The cap-16 affinity run cannot be edited in place. After every recorded source
+job is terminal, submit the migration on x86 so the pinned Verifiers planner
+and its native dependencies are available. Do not run it on the aarch64 login
+host:
+
+```bash
+sbatch --export=ALL,SOURCE_DIR=/path/to/epoch-2-run,OUTPUT_DIR=/new/path/to/epoch-3-cap32-run \
+  user/tianhaowu/terminal_bench_vmvm/migrate_qwen_router_admission.sbatch
+```
+
+This command calls the pinned Verifiers resume planner with the exact saved
+selection, one rollout, no group scoring, no exact-token requirement, and no
+shuffle. It installs only planner-approved non-error rows. It archives the
+epoch-2 manifest, configs, input manifest, and provenance, retains the complete
+epoch-1-to-2 policy certificate, and adds an admission certificate binding
+those bytes, the ordered row lineage, and the 16/48 to 32/32 transition. The
+source is never modified. The migration refuses a dirty workflow worktree, so
+`migration_prime_rl` identifies the exact committed implementation that
+created the child. Production cap-16 resume is rejected by the new launcher,
+and incomplete publications remain marked and unlaunchable.
+
+Run the real router/client gate on an x86 controller before cutover:
+
+```bash
+sbatch user/tianhaowu/terminal_bench_vmvm/smoke_qwen_router_affinity.sbatch
+```
+
+The gate uses the pinned vllm-router and the real Verifiers EvalClient loaded
+from the production TOML. Sixty-four simultaneous calls are held by local stub
+workers; exactly 32 must reach the backends before release, none may fail, and
+session affinity must remain stable.
+
+Observe cap 32 for at least 10 minutes and 256 completed provider requests.
+Promote it only while all 16 workers remain healthy, non-2xx responses stay
+below 1% and within 0.5 percentage points of baseline, preemptions remain zero,
+backend waiting p95 stays at most two, KV-cache p95/max stay below 60%/75%,
+prefix-cache hits stay at least 75% and within 10 points of baseline, TTFT p95
+stays below twice baseline, and generation throughput improves at least 20%.
+Any health loss, preemption, sustained queue growth, or threshold violation is
+a failback signal. Cancel the epoch-3 writer and preserve it for diagnosis.
+The new launcher intentionally rejects production cap 16, so resume the
+immutable epoch-2 source only from an isolated worktree pinned to its recorded
+`prime_rl` revision (the current source records
+`9aa9dd80e8e455d45ec058563ffddaf8a51b4966`), after re-running that revision's
+manifest audit. Never use the schema-3 branch for this rollback, and never
+merge or overwrite the two result files manually.

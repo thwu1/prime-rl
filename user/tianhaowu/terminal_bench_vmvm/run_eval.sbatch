@@ -38,6 +38,7 @@ inference_proxy_url=${INFERENCE_PROXY_URL:-}
 direct_qwen_manifest_sha256=${DIRECT_QWEN_MANIFEST_SHA256:-}
 direct_qwen_router_policy=${DIRECT_QWEN_ROUTER_POLICY:-}
 direct_qwen_request_id_headers=${DIRECT_QWEN_REQUEST_ID_HEADERS:-}
+direct_qwen_provider_concurrency=${DIRECT_QWEN_PROVIDER_CONCURRENCY:-}
 
 if [[ "$(uname -m)" != x86_64 || ! -d "$x86_site/pydantic" ]]; then
     printf 'Missing x86_64 Python runtime/dependencies\n' >&2
@@ -107,10 +108,13 @@ fi
 direct_qwen_router_metadata=0
 if [[ -n "$direct_qwen_manifest_sha256" \
     || -n "$direct_qwen_router_policy" \
-    || -n "$direct_qwen_request_id_headers" ]]; then
+    || -n "$direct_qwen_request_id_headers" \
+    || -n "$direct_qwen_provider_concurrency" ]]; then
     if [[ ! "$direct_qwen_manifest_sha256" =~ ^[0-9a-f]{64}$ \
         || "$direct_qwen_router_policy" != consistent_hash \
-        || "$direct_qwen_request_id_headers" != x-session-id ]]; then
+        || "$direct_qwen_request_id_headers" != x-session-id \
+        || ! "$direct_qwen_provider_concurrency" =~ ^[1-9][0-9]*$ ]] \
+        || (( direct_qwen_provider_concurrency > 64 )); then
         printf 'Direct Qwen router provenance is incomplete or invalid\n' >&2
         exit 2
     fi
@@ -212,6 +216,7 @@ if [[ -n "$resume_dir" ]]; then
             printf 'resume_direct_qwen_manifest_sha256=%s\n' "$direct_qwen_manifest_sha256"
             printf 'resume_direct_qwen_router_policy=%s\n' "$direct_qwen_router_policy"
             printf 'resume_direct_qwen_request_id_headers=%s\n' "$direct_qwen_request_id_headers"
+            printf 'resume_direct_qwen_provider_concurrency=%s\n' "$direct_qwen_provider_concurrency"
         fi
     } >> "$output_dir/provenance.txt"
 else
@@ -228,6 +233,7 @@ else
             printf 'direct_qwen_manifest_sha256=%s\n' "$direct_qwen_manifest_sha256"
             printf 'direct_qwen_router_policy=%s\n' "$direct_qwen_router_policy"
             printf 'direct_qwen_request_id_headers=%s\n' "$direct_qwen_request_id_headers"
+            printf 'direct_qwen_provider_concurrency=%s\n' "$direct_qwen_provider_concurrency"
         fi
     } > "$output_dir/provenance.txt"
 fi
