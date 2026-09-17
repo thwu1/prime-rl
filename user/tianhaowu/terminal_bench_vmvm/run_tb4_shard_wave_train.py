@@ -1996,7 +1996,12 @@ def _resume_partial_wave_submission(
                 env={},
                 timeout=SCHEDULER_TIMEOUT_SECONDS,
             )
-            submitted_job_id = _parse_job_id(result)
+            try:
+                submitted_job_id = _parse_job_id(result)
+            except WaveLaunchError as error:
+                if result.returncode == 0:
+                    raise SchedulerQueryUnavailable("submission_outcome_unknown") from error
+                raise
             if submitted_job_id in seen_job_ids:
                 raise WaveTrainError("submission_job_id_duplicate")
             job["slurm_job_id"] = submitted_job_id
@@ -2332,15 +2337,10 @@ def drive_train(
                         scheduler_failures += 1
                         if scheduler_failures >= MAX_CONSECUTIVE_SCHEDULER_FAILURES:
                             raise
-                        try:
-                            route_verifier(prepared)
-                        except WaveTrainError:
-                            raise
-                        except Exception as error:
-                            raise WaveTrainError("serving_route_generation_changed") from error
                         if event.wait(prepared.config.poll_interval_seconds):
                             return _interrupt_state(prepared, state)
                         continue
+                    scheduler_failures = 0
                 else:
                     current = state["current_wave"]
                     assert isinstance(current, dict)
@@ -2377,12 +2377,6 @@ def drive_train(
                     scheduler_failures += 1
                     if scheduler_failures >= MAX_CONSECUTIVE_SCHEDULER_FAILURES:
                         raise
-                    try:
-                        route_verifier(prepared)
-                    except WaveTrainError:
-                        raise
-                    except Exception as error:
-                        raise WaveTrainError("serving_route_generation_changed") from error
                     if event.wait(prepared.config.poll_interval_seconds):
                         return _interrupt_state(prepared, state)
                     continue
@@ -2391,12 +2385,6 @@ def drive_train(
                     return state
                 if completed:
                     continue
-                try:
-                    route_verifier(prepared)
-                except WaveTrainError:
-                    raise
-                except Exception as error:
-                    raise WaveTrainError("serving_route_generation_changed") from error
                 if event.is_set():
                     return _interrupt_state(prepared, state)
                 if event.wait(prepared.config.poll_interval_seconds):

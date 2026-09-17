@@ -652,12 +652,27 @@ def test_completed_receipt_is_preserved_across_route_rollover(tmp_path: Path):
     _drive(prepared, harness, stop_event=_StopAfterWait())
     harness.scheduler_state = "COMPLETED"
     harness.scheduler_exit_code = "0:0"
+    scheduler_calls = 0
+
+    def delayed_accounting(job_ids):
+        nonlocal scheduler_calls
+        scheduler_calls += 1
+        if scheduler_calls == 1:
+            raise train.SchedulerQueryUnavailable("scheduler_job_missing")
+        return {job_id: train.SchedulerObservation("COMPLETED", "0:0") for job_id in job_ids}
 
     def route_must_not_run(_prepared):
         raise AssertionError("completed guarded output must be certified before route liveness")
 
-    final = _drive(prepared, harness, route_verifier=route_must_not_run)
+    final = _drive(
+        prepared,
+        harness,
+        route_verifier=route_must_not_run,
+        scheduler_reader=delayed_accounting,
+        stop_event=_NeverStop(),
+    )
     assert final["state"] == "complete"
+    assert scheduler_calls == 2
 
 
 class _NeverStop:

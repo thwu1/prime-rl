@@ -1862,7 +1862,12 @@ def launch_wave(
                 env={},
                 timeout=submission_timeout_seconds,
             )
-            job["slurm_job_id"] = _parse_job_id(result)
+            try:
+                job["slurm_job_id"] = _parse_job_id(result)
+            except WaveLaunchError as error:
+                if result.returncode == 0:
+                    raise WaveSubmissionOutcomeUnknown("sbatch_submission_outcome_unknown") from error
+                raise
             _replace_private_json(output / "wave.json", body)
     except WaveSubmissionInterrupted:
         body["state"] = "submission_interrupted"
