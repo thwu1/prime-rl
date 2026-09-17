@@ -1,6 +1,6 @@
 # VMVM sandbox coordination
 
-Last updated: 2026-09-17 03:18 UTC
+Last updated: 2026-09-17 04:00 UTC
 
 ## First message to the next teammate
 
@@ -30,7 +30,7 @@ this shared branch again.
 
 | Owner | Cluster | Scope | Files | Live resources | State / next gate |
 |---|---|---|---|---|---|
-| Codex session for `tianhaowu` | `fair-cw-use2-3` | Kimi serving, full TB4 pass@1, and gated 2,500-task rollout | `user/tianhaowu/terminal_bench_vmvm/**`, `user/tianhaowu/deepswe_vmvm/{README.md,run_runtime_smoke.sbatch,smoke_runtime.py}`, `environments/vmvm_tb_v2/**`, `deps/verifiers` gitlink | patched deployment `tianhaowu-k3-kda-tb1-low-20260916`; coordinator `1735915`; endpoint `1735929`; route gate `1735934`; dependent Kimi TB4 gate `1737609`; full oracle `1737160` | Oracle identity hardening and its running clean snapshot remain pinned at `fb8b5c1fd`; model-eval identity/certificate hardening is committed at `f7a26fbbc`. Clean detached launch snapshot `/checkpoint/ram/tianhaowu/terminal_bench_vmvm/sources/prime-rl-1dc61931e` pins parent `1dc61931e`, verifier `7e3b6885`, and renderer `044d9e254`. Canary `1737126` passed 41/42 with one ordinary invalid and zero infrastructure/retry/error/cleanup events. Fresh promotable full oracle `1737160` is running at 8 active/4 lease starts, public semantics, 2x multipliers, and hard gates of at least 90% plus 2,500 valid; at 23:58 UTC it had 343/2,538 terminal rows, 337 valid, four ordinary invalid, and two deterministic missing-binary-wheel exclusions, leaving 32 rows of failure allowance. Use2-1 diagnostic `1444701` remains untouched. Endpoint `1735929` is schedulable but remains pending solely on `g3_lowest` priority; do not resubmit or weaken its validated TP16/topology/resource envelope. Job `1737609` is dependency-held on exact readiness job `1735934` and will run/certify the two-task smoke followed by the full 66-task TB4 pass@1 sequence from the clean snapshot. Never inspect task prompts/bodies or raw trace/model/tool content. |
+| Codex session for `tianhaowu` | `fair-cw-use2-3` | Kimi serving, full TB4 pass@1, and gated 2,500-task rollout | `user/tianhaowu/terminal_bench_vmvm/**`, `user/tianhaowu/deepswe_vmvm/{README.md,run_runtime_smoke.sbatch,smoke_runtime.py}`, `environments/vmvm_tb_v2/**`, `deps/verifiers` gitlink | patched deployment `tianhaowu-k3-kda-tb1-low-20260916`; coordinator `1735915`; endpoint `1735929`; endpoint-bound route gate `1738160`; Kimi TB4 gate `1738161`; full oracle `1737160` | Endpoint/trace identity hardening is pushed at core `cd73d4061` and wrapper `3ac56be20`; clean eval snapshot `/checkpoint/ram/tianhaowu/terminal_bench_vmvm/sources/prime-rl-cd73d4061` pins verifier `7e3b6885`, renderer `044d9e254`, and pydantic-config `896ade4e`. Replacement dry runs `1738164`--`1738167` passed. Watcher `1738160` completed `0:0` after 3/3 healthy polls and a successful live probe; gate `1738161` started at 03:36 UTC and is in its two-task smoke stage with no certified result yet. Oracle `1737160` remains immutable and running; 40 non-valid rows make 2,500 impossible on the initial pass, so after it completes use the one exact same-source in-place `RERUN_INVALID=1` recovery. A dependency-policy change would require a new identity and fresh full run, never a union. Endpoint `1735929` remains live on its approved TP16 four-node allocation; preserve it. Never inspect task prompts/bodies, task identifiers, raw errors, or model/tool/trace content. |
 | Codex session for `tianhaowu` | `fair-cw-use2-1` | Add a direct one-token KDA state-reuse probe; no serving or eval mutation | `user/tianhaowu/terminal_bench_vmvm/{probe_inference_routes.py,tests/test_probe_inference_routes.py,HANDOFF.md,COORDINATION.md}` | none | Extend the existing readiness probe with serial raw-completion predecessor/one-token-target cycles on every discovered sticky backend, without logprobs or response token IDs. Fail closed on unsupported routing, semantic corruption, or predecessor-dependent target output. |
 | Codex session for `tianhaowu` | `fair-cw-use2-1` | Qwen accepted TB4 gate and 2,500-task production rollout | Qwen direct-router configs, VMVM backend, focused tests, runtime skill | accepted TB4 diagnostic `1435776`; production `1448128`; endpoint `shared_qwen38_2p4t` | The user explicitly accepted the existing 7/66 TB4 result as the approximately 11% gate and directed us not to rerun it. Production job `1448128` runs parent `9b40e100f` / verifier `04d999177` at 64 task sessions, a process-wide 16-request client pool, 16 router workers, and a two-slot lease/tunnel-start gate. At 00:40 UTC it had 28/2,500 durable rows, zero error rows, 698 reasoning-retained/model-I/O turns, 1,320,867 sampled tokens, and zero strict trace/global problems under the 256K audit. Continue aggregate-only monitoring; never inspect task IDs, prompts, responses, raw errors, or trace/model/tool bodies. |
 | Codex session for `tianhaowu` | `fair-cw-use2-1` | User-supplied shared Kimi-K3 endpoint qualification and full TB4 pass@1; gated 2,500-task rollout follows only after score reproduction | server-scoped `configs/eval/servers/cpu-132-021_8103/**`, VMVM backend, trace audit, `COORDINATION.md` | endpoint `shared-kimi-k3`; route gate `1448380`; preserved canceled diagnostic TB4 `1448629`; preserved canceled smokes `1448432` and `1448606` | The 24-route endpoint passed health, semantic, affinity, and state-reuse qualification 264/264 with zero failures. Parent `e08cb00dc` / verifier `04d999177` launched the full 66-task TB4 job at 24 active/client slots. A supported smoke trace passed strict capture audit. Live diagnosis then found the proxy itself pins a 600-second backend timeout with two hidden retries, overriding the evaluator's longer limits; the diagnostic full had 51 provider-timeout events despite 24 live sessions/connections and 24/0 health. It was canceled and preserved after 1h52m with only the expected unsupported row durable. Do not count or promote this run. Await a proxy-only timeout/retry correction, then rerun route gate, smoke, and fresh full TB4. Never inspect task prompts/bodies or raw trace/model/tool content. |
@@ -39,6 +39,29 @@ this shared branch again.
 Add new rows below this line; do not overwrite another owner's row.
 
 ## Open coordination requests
+
+- **2026-09-17 04:00 UTC, use2-3 live gate update:** readiness watcher
+  `1738160` passed its endpoint-bound semantic probe and completed `0:0` at
+  03:35 UTC. TB4 gate `1738161` began at 03:36 UTC and remains live in the
+  two-task smoke stage; no smoke certificate or full-run identity exists yet.
+  Oracle `1737160` is still the initial invocation: 1,726/2,538 rows were
+  terminal at 03:56 UTC, with 1,686 valid and 40 non-valid. Its initial-run
+  ceiling is therefore 2,498, so the immutable run must finish before the one
+  permitted same-identity `RERUN_INVALID=1` recovery. Retry-lineage promotion
+  and launch-certificate hardening now passes all 374 workflow tests plus Ruff.
+
+- **2026-09-17 03:18 UTC, use2-3 oracle budget warning:** immutable oracle
+  `1737160` had 1,387/2,538 terminal rows, 1,355 valid, 26 ordinary invalid,
+  and six deterministic dependency errors at 02:52 UTC. Aggregate signature
+  matching classifies five errors as unavailable binary-wheel distributions
+  and one as an offline-install failure; none is VMVM infrastructure, timeout,
+  or network failure. Only six additional misses among 1,151 remaining tasks
+  could occur on the first pass; then-current yield projected roughly 2,479
+  valid. Do not mutate the live run. If it ends short, the only existing
+  identity-safe recovery is one exact same-source `RERUN_INVALID=1` invocation
+  in the same output directory, which preserves valid rows and reruns every
+  non-valid row. Never union a separate run. A dependency-policy correction
+  requires a new identity and fresh full run.
 
 - **2026-09-17 02:40 UTC, use2-3 endpoint-bound Kimi chain:** commits
   `cd73d4061` (core) and `3ac56be20` (wrapper) are pushed. The clean eval

@@ -144,8 +144,12 @@ separately. A resumed invocation skips existing terminal results unless
 `RERUN_INVALID=1`; any missing or mismatched identity requires a fresh output
 directory. The full-corpus acceptance gate is at least 90% and at least 2,500
 valid tasks; task failures must be debugged separately from VMVM infrastructure
-failures. Promotion takes the same exclusive `.writer.lock`, so it rejects a
-live oracle or resume rather than reading a changing result set.
+failures. Promotion accepts any number of ordinary resumes but at most one
+`RERUN_INVALID=1` recovery invocation, and binds the strictly validated
+invocation history into the promotion receipt. Invocation records require
+canonical unique Slurm job IDs and strictly increasing timestamps. Promotion
+takes the same exclusive `.writer.lock`, so it rejects a live oracle or resume
+rather than reading a changing result set.
 
 Run `export_oracle_tasks.py` once without `--apply` and review its aggregate
 counts and hashes. The identical apply invocation must include a fresh

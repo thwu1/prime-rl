@@ -214,7 +214,48 @@ def _oracle(
         "oracle_solution_network_mode=public\n"
         f"run_identity_sha256={identity_sha256}\n"
     )
+    (oracle / "invocations.jsonl").write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "run_identity_sha256": identity_sha256,
+                "invoked_at": 1.0,
+                "resume": False,
+                "reuse_completed_rows": True,
+                "rerun_invalid": False,
+                "host": "opaque-host",
+                "slurm_job_id": "1",
+                "source": identity["source"],
+            },
+            sort_keys=True,
+        )
+        + "\n"
+    )
     return oracle
+
+
+def _append_invocation(
+    oracle: Path,
+    *,
+    rerun_invalid: bool = False,
+    reuse_completed_rows: bool = True,
+) -> None:
+    envelope = json.loads((oracle / "run_identity.json").read_text())
+    path = oracle / "invocations.jsonl"
+    count = len(path.read_text().splitlines())
+    record = {
+        "schema_version": 1,
+        "run_identity_sha256": envelope["run_identity_sha256"],
+        "invoked_at": float(count + 1),
+        "resume": True,
+        "reuse_completed_rows": reuse_completed_rows,
+        "rerun_invalid": rerun_invalid,
+        "host": "opaque-resume-host",
+        "slurm_job_id": str(count + 1),
+        "source": envelope["identity"]["source"],
+    }
+    with path.open("a") as handle:
+        handle.write(json.dumps(record, sort_keys=True) + "\n")
 
 
 def _config(
@@ -407,6 +448,10 @@ def test_dry_run_and_apply_replace_new_invalid_without_reordering_survivors(
         {"path": path.name, "sha256": _sha256(path.read_bytes())} for path in sorted(configs)
     ]
     assert payload["oracle_artifacts"] == {
+        "invocations": {
+            "path": str((oracle / "invocations.jsonl").resolve()),
+            "sha256": _sha256((oracle / "invocations.jsonl").read_bytes()),
+        },
         "provenance": {
             "path": "provenance.txt",
             "sha256": _sha256((oracle / "provenance.txt").read_bytes()),
@@ -439,9 +484,11 @@ def test_dry_run_and_apply_replace_new_invalid_without_reordering_survivors(
         "completed": 10,
         "configured_files": 2,
         "expected_total": 10,
+        "invocation_count": 1,
         "oracle_reasons": {"invalid": 1, "valid": 9},
         "passed": 9,
         "removed_invalid": 1,
+        "rerun_invalid_invocation_count": 0,
         "selected": 8,
     }
     assert payload["acceptance"] == {
@@ -555,6 +602,190 @@ def test_receipt_is_not_published_when_apply_fails(
     assert manifest.read_bytes() == original_manifest
     assert [path.read_bytes() for path in configs] == original_configs
     assert not receipt.exists()
+
+
+def test_promotion_attests_one_rerun_invalid_and_normal_resumes(tmp_path: Path) -> None:
+    dataset, _, revision, oracle, manifest, digest, configs, prime_rl_commit = _fixture(
+        tmp_path,
+        valid_indexes=set(range(10)),
+    )
+    _append_invocation(oracle)
+    _append_invocation(oracle, rerun_invalid=True)
+    _append_invocation(oracle)
+
+    summary = export_oracle_tasks.promote(
+        oracle,
+        manifest,
+        dataset_dir=dataset,
+        dataset_revision=revision,
+        expected_current_manifest_sha256=digest,
+        configs=configs,
+        project_root=manifest.parent,
+        expected_total=10,
+        limit=8,
+        minimum_pass_rate=0.9,
+        **_provenance_args(prime_rl_commit),
+    )
+
+    assert summary["invocation_count"] == 4
+    assert summary["rerun_invalid_invocation_count"] == 1
+    assert summary["oracle_invocations_sha256"] == _sha256(
+        (oracle / "invocations.jsonl").read_bytes()
+    )
+
+
+def test_promotion_rejects_legacy_or_unbounded_invocation_lineage(tmp_path: Path) -> None:
+    dataset, _, revision, oracle, manifest, digest, configs, prime_rl_commit = _fixture(
+        tmp_path,
+        valid_indexes=set(range(10)),
+    )
+    arguments = {
+        "dataset_dir": dataset,
+        "dataset_revision": revision,
+        "expected_current_manifest_sha256": digest,
+        "configs": configs,
+        "project_root": manifest.parent,
+        "expected_total": 10,
+        "limit": 8,
+        "minimum_pass_rate": 0.9,
+        **_provenance_args(prime_rl_commit),
+    }
+    (oracle / "invocations.jsonl").unlink()
+    with pytest.raises(PromotionError, match="^oracle_invocations_unreadable$"):
+        export_oracle_tasks.promote(oracle, manifest, **arguments)
+
+    second = tmp_path / "second"
+    second.mkdir()
+    dataset, _, revision, oracle, manifest, digest, configs, prime_rl_commit = _fixture(
+        second,
+        valid_indexes=set(range(10)),
+    )
+    _append_invocation(oracle, rerun_invalid=True)
+    _append_invocation(oracle, rerun_invalid=True)
+    with pytest.raises(PromotionError, match="^oracle_rerun_invalid_limit_exceeded$"):
+        export_oracle_tasks.promote(
+            oracle,
+            manifest,
+            dataset_dir=dataset,
+            dataset_revision=revision,
+            expected_current_manifest_sha256=digest,
+            configs=configs,
+            project_root=manifest.parent,
+            expected_total=10,
+            limit=8,
+            minimum_pass_rate=0.9,
+            **_provenance_args(prime_rl_commit),
+        )
+
+
+def test_promotion_detects_invocation_change_before_return(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    dataset, _, revision, oracle, manifest, digest, configs, prime_rl_commit = _fixture(
+        tmp_path,
+        valid_indexes=set(range(10)),
+    )
+    original_audit_oracle = export_oracle_tasks._audit_oracle
+
+    def audit_then_append(*args: object, **kwargs: object) -> object:
+        result = original_audit_oracle(*args, **kwargs)
+        _append_invocation(oracle)
+        return result
+
+    monkeypatch.setattr(export_oracle_tasks, "_audit_oracle", audit_then_append)
+    with pytest.raises(PromotionError, match="^oracle_invocations_changed$"):
+        export_oracle_tasks.promote(
+            oracle,
+            manifest,
+            dataset_dir=dataset,
+            dataset_revision=revision,
+            expected_current_manifest_sha256=digest,
+            configs=configs,
+            project_root=manifest.parent,
+            expected_total=10,
+            limit=8,
+            minimum_pass_rate=0.9,
+            **_provenance_args(prime_rl_commit),
+        )
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("reuse_completed_rows", False),
+        ("run_identity_sha256", "0" * 64),
+        ("source", {}),
+    ],
+)
+def test_promotion_rejects_tampered_invocation_lineage(
+    tmp_path: Path,
+    field: str,
+    value: object,
+) -> None:
+    dataset, _, revision, oracle, manifest, digest, configs, prime_rl_commit = _fixture(
+        tmp_path,
+        valid_indexes=set(range(10)),
+    )
+    path = oracle / "invocations.jsonl"
+    record = json.loads(path.read_text())
+    record[field] = value
+    path.write_text(json.dumps(record, sort_keys=True) + "\n")
+
+    with pytest.raises(PromotionError, match="^oracle_invocations_invalid$"):
+        export_oracle_tasks.promote(
+            oracle,
+            manifest,
+            dataset_dir=dataset,
+            dataset_revision=revision,
+            expected_current_manifest_sha256=digest,
+            configs=configs,
+            project_root=manifest.parent,
+            expected_total=10,
+            limit=8,
+            minimum_pass_rate=0.9,
+            **_provenance_args(prime_rl_commit),
+        )
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("invoked_at", 1.0),
+        ("slurm_job_id", "01"),
+    ],
+)
+def test_promotion_rejects_noncanonical_invocation_order(
+    tmp_path: Path,
+    field: str,
+    value: object,
+) -> None:
+    dataset, _, revision, oracle, manifest, digest, configs, prime_rl_commit = _fixture(
+        tmp_path,
+        valid_indexes=set(range(10)),
+    )
+    _append_invocation(oracle)
+    path = oracle / "invocations.jsonl"
+    records = [json.loads(line) for line in path.read_text().splitlines()]
+    records[-1][field] = value
+    path.write_text(
+        "".join(json.dumps(record, sort_keys=True) + "\n" for record in records)
+    )
+
+    with pytest.raises(PromotionError, match="^oracle_invocations_invalid$"):
+        export_oracle_tasks.promote(
+            oracle,
+            manifest,
+            dataset_dir=dataset,
+            dataset_revision=revision,
+            expected_current_manifest_sha256=digest,
+            configs=configs,
+            project_root=manifest.parent,
+            expected_total=10,
+            limit=8,
+            minimum_pass_rate=0.9,
+            **_provenance_args(prime_rl_commit),
+        )
 
 
 @pytest.mark.parametrize(

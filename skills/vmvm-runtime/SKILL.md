@@ -174,6 +174,16 @@ digest. A resume may append invocation metadata, but must never rewrite initial
 provenance or reuse a row whose identity differs; legacy unlabeled output needs
 a fresh directory.
 
+If a complete full oracle misses its minimum-valid gate, the only reusable
+recovery is one `RERUN_INVALID=1` invocation from the exact same clean source,
+settings, full task universe, and output directory. It retains valid rows and
+reruns every non-valid row; never union separate output directories. Promotion
+must strictly validate and hash-pin `invocations.jsonl`, require exact source
+and run identity on every record, canonical positive-decimal unique Slurm job
+IDs, strictly increasing invocation timestamps, first/resume ordering, and at
+most one rerun-invalid invocation. A dependency-policy or source change
+requires a new identity and a fresh full oracle rather than an in-place retry.
+
 Apply the same immutable-run rule to model evaluations. Every non-dry launch
 through `terminal_bench_vmvm/run_eval.sbatch` must declare its role (`smoke`,
 `tb4`, or `mobius`), metadata deployment ID, expected model, exact deployment

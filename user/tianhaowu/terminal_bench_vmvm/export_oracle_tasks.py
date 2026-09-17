@@ -64,6 +64,17 @@ ORACLE_REASONS = {
     "unsupported",
     "valid",
 }
+INVOCATION_KEYS = {
+    "host",
+    "invoked_at",
+    "rerun_invalid",
+    "resume",
+    "reuse_completed_rows",
+    "run_identity_sha256",
+    "schema_version",
+    "slurm_job_id",
+    "source",
+}
 
 
 class PromotionError(ValueError):
@@ -348,7 +359,7 @@ def _audit_provenance(
     expected_vmvm_tb_v2_sha256: str,
     expected_run_identity_sha256: str,
     trusted_reference_solution: str,
-) -> str:
+) -> tuple[str, dict[str, str]]:
     if (
         REVISION_RE.fullmatch(expected_prime_rl_commit) is None
         or REVISION_RE.fullmatch(required_prime_rl_ancestor) is None
@@ -426,7 +437,112 @@ def _audit_provenance(
     expected_gitlink = f"160000 commit {expected_verifiers_commit}\tdeps/verifiers"
     if gitlink != expected_gitlink:
         raise PromotionError("oracle_verifier_gitlink_mismatch")
-    return _sha256(raw)
+    return _sha256(raw), records
+
+
+def _unique_json_object(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+    value: dict[str, Any] = {}
+    for key, item in pairs:
+        if key in value:
+            raise ValueError("duplicate JSON object key")
+        value[key] = item
+    return value
+
+
+def _reject_json_constant(value: str) -> None:
+    raise ValueError(f"non-finite JSON constant: {value}")
+
+
+def _audit_invocations(
+    oracle_dir: Path,
+    *,
+    expected_run_identity_sha256: str,
+    expected_source: dict[str, str],
+    initial_provenance: dict[str, str],
+) -> tuple[dict[str, str], int, int]:
+    path = oracle_dir / "invocations.jsonl"
+    raw = _read_bytes(
+        path,
+        limit=MAX_JSON_BYTES,
+        error="oracle_invocations_unreadable",
+    )
+    if not raw or not raw.endswith(b"\n"):
+        raise PromotionError("oracle_invocations_invalid")
+    try:
+        lines = raw.decode("utf-8").splitlines()
+    except UnicodeDecodeError as cause:
+        raise PromotionError("oracle_invocations_invalid") from cause
+    if not lines or any(not line for line in lines):
+        raise PromotionError("oracle_invocations_invalid")
+
+    rerun_invalid_count = 0
+    seen_job_ids: set[str] = set()
+    previous_invoked_at: int | float | None = None
+    first_host: str | None = None
+    first_job_id: str | None = None
+    for index, line in enumerate(lines):
+        try:
+            record = json.loads(
+                line,
+                object_pairs_hook=_unique_json_object,
+                parse_constant=_reject_json_constant,
+            )
+        except (ValueError, RecursionError) as cause:
+            raise PromotionError("oracle_invocations_invalid") from cause
+        if not isinstance(record, dict) or set(record) != INVOCATION_KEYS:
+            raise PromotionError("oracle_invocations_invalid")
+        invoked_at = record.get("invoked_at")
+        host = record.get("host")
+        slurm_job_id = record.get("slurm_job_id")
+        resume = record.get("resume")
+        reuse_completed_rows = record.get("reuse_completed_rows")
+        rerun_invalid = record.get("rerun_invalid")
+        if (
+            type(record.get("schema_version")) is not int
+            or record["schema_version"] != 1
+            or record.get("run_identity_sha256") != expected_run_identity_sha256
+            or record.get("source") != expected_source
+            or isinstance(invoked_at, bool)
+            or not isinstance(invoked_at, (int, float))
+            or not math.isfinite(invoked_at)
+            or invoked_at <= 0
+            or (
+                previous_invoked_at is not None
+                and invoked_at <= previous_invoked_at
+            )
+            or not isinstance(host, str)
+            or not host
+            or host.strip() != host
+            or any(ord(character) < 0x20 or ord(character) == 0x7F for character in host)
+            or not isinstance(slurm_job_id, str)
+            or re.fullmatch(r"[1-9][0-9]*", slurm_job_id) is None
+            or slurm_job_id in seen_job_ids
+            or not isinstance(resume, bool)
+            or resume is not (index > 0)
+            or reuse_completed_rows is not True
+            or not isinstance(rerun_invalid, bool)
+            or (index == 0 and rerun_invalid)
+        ):
+            raise PromotionError("oracle_invocations_invalid")
+        if index == 0:
+            first_host = host
+            first_job_id = slurm_job_id
+        previous_invoked_at = invoked_at
+        seen_job_ids.add(slurm_job_id)
+        rerun_invalid_count += int(rerun_invalid)
+
+    if rerun_invalid_count > 1:
+        raise PromotionError("oracle_rerun_invalid_limit_exceeded")
+    if (
+        first_host != initial_provenance.get("host")
+        or first_job_id != initial_provenance.get("slurm_job_id")
+    ):
+        raise PromotionError("oracle_invocations_provenance_mismatch")
+    return (
+        {"path": str(path.resolve(strict=True)), "sha256": _sha256(raw)},
+        len(lines),
+        rerun_invalid_count,
+    )
 
 
 def _dataset_tasks(dataset_dir: Path, revision: str, expected_total: int) -> list[str]:
@@ -875,7 +991,7 @@ def _promote_locked(
     effective_minimum_prime_rl_ancestor = (
         MINIMUM_ORACLE_PRIME_RL_ANCESTOR if minimum_prime_rl_ancestor is None else minimum_prime_rl_ancestor
     )
-    oracle_provenance_sha256 = _audit_provenance(
+    oracle_provenance_sha256, initial_provenance = _audit_provenance(
         oracle_dir.resolve(),
         project_root,
         expected_prime_rl_commit=expected_prime_rl_commit,
@@ -885,6 +1001,18 @@ def _promote_locked(
         expected_vmvm_tb_v2_sha256=expected_vmvm_tb_v2_sha256,
         expected_run_identity_sha256=run_identity_sha256,
         trusted_reference_solution=trusted_reference_solution,
+    )
+    invocation_source = {
+        "prime_rl_commit": expected_prime_rl_commit,
+        "prime_rl_tree_sha256": CLEAN_TREE_SHA256,
+        "verifiers_commit": expected_verifiers_commit,
+        "vmvm_tb_v2_sha256": expected_vmvm_tb_v2_sha256,
+    }
+    invocation_record, invocation_count, rerun_invalid_invocation_count = _audit_invocations(
+        oracle_dir.resolve(),
+        expected_run_identity_sha256=run_identity_sha256,
+        expected_source=invocation_source,
+        initial_provenance=initial_provenance,
     )
     canonical, valid, passed, pass_rate, oracle_reasons, oracle_results_sha256, oracle_summary_sha256 = _audit_oracle(
         oracle_dir.resolve(),
@@ -934,7 +1062,9 @@ def _promote_locked(
         "dataset_revision": dataset_revision,
         "minimum_pass_rate": minimum_pass_rate,
         "minimum_valid": limit,
+        "invocation_count": invocation_count,
         "oracle_image_manifest_sha256": expected_image_manifest_sha256,
+        "oracle_invocations_sha256": invocation_record["sha256"],
         "oracle_pass_rate": pass_rate,
         "oracle_prime_rl_commit": expected_prime_rl_commit,
         "oracle_provenance_sha256": oracle_provenance_sha256,
@@ -947,11 +1077,24 @@ def _promote_locked(
         "oracle_vmvm_tb_v2_sha256": expected_vmvm_tb_v2_sha256,
         "passed": passed,
         "removed_invalid": limit - len(preserved),
+        "rerun_invalid_invocation_count": rerun_invalid_invocation_count,
         "selected": len(selected),
         "selected_manifest_sha256": selected_sha256,
         "selected_subset_valid": True,
         "trusted_reference_solution": trusted_reference_solution,
     }
+    final_invocation_audit = _audit_invocations(
+        oracle_dir.resolve(),
+        expected_run_identity_sha256=run_identity_sha256,
+        expected_source=invocation_source,
+        initial_provenance=initial_provenance,
+    )
+    if final_invocation_audit != (
+        invocation_record,
+        invocation_count,
+        rerun_invalid_invocation_count,
+    ):
+        raise PromotionError("oracle_invocations_changed")
     if apply:
         if receipt_path is None:
             raise PromotionError("receipt_required_for_apply")
@@ -997,14 +1140,17 @@ def _promote_locked(
                 "completed": expected_total,
                 "configured_files": len(configs),
                 "expected_total": expected_total,
+                "invocation_count": invocation_count,
                 "oracle_reasons": oracle_reasons,
                 "passed": passed,
                 "removed_invalid": limit - len(preserved),
+                "rerun_invalid_invocation_count": rerun_invalid_invocation_count,
                 "selected": len(selected),
             },
             "dataset": {"revision": dataset_revision},
             "image_manifest": {"sha256": expected_image_manifest_sha256},
             "oracle_artifacts": {
+                "invocations": invocation_record,
                 "provenance": {"path": "provenance.txt", "sha256": oracle_provenance_sha256},
                 "results": {"path": "results.jsonl", "sha256": oracle_results_sha256},
                 "run_identity": {

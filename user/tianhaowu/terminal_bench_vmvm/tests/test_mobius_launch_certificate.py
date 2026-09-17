@@ -320,7 +320,34 @@ def _oracle_receipt(
     updated_configs: list[dict[str, str]],
 ) -> str:
     reasons = {"invalid": 18, "valid": 2_520}
+    invocations = path.parent / "oracle-invocations.jsonl"
+    invocations.write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "run_identity_sha256": "b" * 64,
+                "invoked_at": 1.0,
+                "resume": False,
+                "reuse_completed_rows": True,
+                "rerun_invalid": False,
+                "host": "opaque-host",
+                "slurm_job_id": "1",
+                "source": {
+                    "prime_rl_commit": source["prime_rl_commit"],
+                    "prime_rl_tree_sha256": source["prime_rl_tree_sha256"],
+                    "verifiers_commit": source["verifiers_commit"],
+                    "vmvm_tb_v2_sha256": source["vmvm_tb_v2_sha256"],
+                },
+            },
+            sort_keys=True,
+        )
+        + "\n"
+    )
     artifacts = {
+        "invocations": {
+            "path": str(invocations.resolve()),
+            "sha256": _sha256(invocations.read_bytes()),
+        },
         "provenance": {"path": "provenance.txt", "sha256": "9" * 64},
         "results": {"path": "results.jsonl", "sha256": "a" * 64},
         "run_identity": {
@@ -334,9 +361,11 @@ def _oracle_receipt(
         "completed": 2_538,
         "configured_files": 2,
         "expected_total": 2_538,
+        "invocation_count": 1,
         "oracle_reasons": reasons,
         "passed": 2_520,
         "removed_invalid": 3,
+        "rerun_invalid_invocation_count": 0,
         "selected": 2_500,
     }
     acceptance = {
@@ -356,9 +385,11 @@ def _oracle_receipt(
         "configured_files": 2,
         "current_manifest_sha256": "e" * 64,
         "dataset_revision": dataset_revision,
+        "invocation_count": 1,
         "minimum_pass_rate": 0.9,
         "minimum_valid": 2_500,
         "oracle_image_manifest_sha256": image_manifest_sha256,
+        "oracle_invocations_sha256": artifacts["invocations"]["sha256"],
         "oracle_pass_rate": 2_520 / 2_538,
         "oracle_prime_rl_commit": source["prime_rl_commit"],
         "oracle_provenance_sha256": artifacts["provenance"]["sha256"],
@@ -371,6 +402,7 @@ def _oracle_receipt(
         "oracle_vmvm_tb_v2_sha256": source["vmvm_tb_v2_sha256"],
         "passed": 2_520,
         "removed_invalid": 3,
+        "rerun_invalid_invocation_count": 0,
         "selected": 2_500,
         "selected_manifest_sha256": manifest_sha256,
         "selected_subset_valid": True,
@@ -651,6 +683,46 @@ def _rewrite_receipt(path: Path, mutate: Callable[[dict], None]) -> str:
     return digest
 
 
+def _append_oracle_invocation(payload: dict, *, rerun_invalid: bool) -> None:
+    artifact = payload["oracle_artifacts"]["invocations"]
+    path = Path(artifact["path"])
+    count = len(path.read_text().splitlines())
+    source = payload["source"]
+    with path.open("a") as handle:
+        handle.write(
+            json.dumps(
+                {
+                    "schema_version": 1,
+                    "run_identity_sha256": payload["oracle_artifacts"]["run_identity"][
+                        "identity_sha256"
+                    ],
+                    "invoked_at": float(count + 1),
+                    "resume": True,
+                    "reuse_completed_rows": True,
+                    "rerun_invalid": rerun_invalid,
+                    "host": "opaque-resume-host",
+                    "slurm_job_id": str(count + 1),
+                    "source": {
+                        "prime_rl_commit": source["prime_rl_commit"],
+                        "prime_rl_tree_sha256": source["prime_rl_tree_sha256"],
+                        "verifiers_commit": source["verifiers_commit"],
+                        "vmvm_tb_v2_sha256": source["vmvm_tb_v2_sha256"],
+                    },
+                },
+                sort_keys=True,
+            )
+            + "\n"
+        )
+    artifact["sha256"] = _sha256(path.read_bytes())
+    payload["counts"]["invocation_count"] += 1
+    payload["counts"]["rerun_invalid_invocation_count"] += int(rerun_invalid)
+    payload["promotion_summary"]["invocation_count"] += 1
+    payload["promotion_summary"]["rerun_invalid_invocation_count"] += int(
+        rerun_invalid
+    )
+    payload["promotion_summary"]["oracle_invocations_sha256"] = artifact["sha256"]
+
+
 def _validate_for_run(
     arguments: dict[str, object],
     output: Path,
@@ -921,6 +993,121 @@ def test_rejects_oracle_acceptance_even_with_valid_receipt_hashes(tmp_path: Path
 
     with pytest.raises(LaunchCertificateError, match="^oracle_receipt_acceptance_invalid$"):
         create_launch_certificate(**arguments)
+
+
+def test_accepts_one_attested_oracle_rerun_invalid_invocation(tmp_path: Path) -> None:
+    arguments, _ = _fixture(tmp_path)
+    receipt = Path(arguments["oracle_receipt"])
+    arguments["oracle_receipt_sha256"] = _rewrite_receipt(
+        receipt,
+        lambda payload: _append_oracle_invocation(payload, rerun_invalid=True),
+    )
+
+    certificate = create_launch_certificate(**arguments)
+
+    gate = certificate["gates"]["oracle_promotion"]
+    assert gate["invocation_count"] == 2
+    assert gate["rerun_invalid_invocation_count"] == 1
+    assert gate["invocations_sha256"] == json.loads(receipt.read_text())["receipt"][
+        "oracle_artifacts"
+    ]["invocations"]["sha256"]
+
+
+def test_rejects_legacy_or_unbounded_oracle_invocation_lineage(tmp_path: Path) -> None:
+    arguments, _ = _fixture(tmp_path)
+    receipt = Path(arguments["oracle_receipt"])
+    arguments["oracle_receipt_sha256"] = _rewrite_receipt(
+        receipt,
+        lambda payload: payload["oracle_artifacts"].pop("invocations"),
+    )
+    with pytest.raises(LaunchCertificateError, match="^oracle_receipt_artifacts_invalid$"):
+        create_launch_certificate(**arguments)
+
+    second = tmp_path / "second"
+    second.mkdir()
+    arguments, _ = _fixture(second)
+    receipt = Path(arguments["oracle_receipt"])
+
+    def append_two_recoveries(payload: dict) -> None:
+        _append_oracle_invocation(payload, rerun_invalid=True)
+        _append_oracle_invocation(payload, rerun_invalid=True)
+
+    arguments["oracle_receipt_sha256"] = _rewrite_receipt(
+        receipt,
+        append_two_recoveries,
+    )
+    with pytest.raises(LaunchCertificateError, match="^oracle_receipt_counts_invalid$"):
+        create_launch_certificate(**arguments)
+
+
+def test_rejects_changed_oracle_invocation_artifact(tmp_path: Path) -> None:
+    arguments, _ = _fixture(tmp_path)
+    receipt = json.loads(Path(arguments["oracle_receipt"]).read_text())["receipt"]
+    invocation_path = Path(receipt["oracle_artifacts"]["invocations"]["path"])
+    invocation_path.write_bytes(invocation_path.read_bytes() + b"\n")
+
+    with pytest.raises(LaunchCertificateError, match="^oracle_invocations_sha256_mismatch$"):
+        create_launch_certificate(**arguments)
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("invoked_at", 1.0),
+        ("slurm_job_id", "01"),
+    ],
+)
+def test_rejects_noncanonical_oracle_invocation_order(
+    tmp_path: Path,
+    field: str,
+    value: object,
+) -> None:
+    arguments, _ = _fixture(tmp_path)
+    receipt = Path(arguments["oracle_receipt"])
+
+    def mutate(payload: dict) -> None:
+        _append_oracle_invocation(payload, rerun_invalid=False)
+        artifact = payload["oracle_artifacts"]["invocations"]
+        invocation_path = Path(artifact["path"])
+        records = [
+            json.loads(line) for line in invocation_path.read_text().splitlines()
+        ]
+        records[-1][field] = value
+        invocation_path.write_text(
+            "".join(json.dumps(record, sort_keys=True) + "\n" for record in records)
+        )
+        artifact["sha256"] = _sha256(invocation_path.read_bytes())
+        payload["promotion_summary"]["oracle_invocations_sha256"] = artifact[
+            "sha256"
+        ]
+
+    arguments["oracle_receipt_sha256"] = _rewrite_receipt(receipt, mutate)
+
+    with pytest.raises(LaunchCertificateError, match="^oracle_invocations_invalid$"):
+        create_launch_certificate(**arguments)
+
+
+def test_rejects_oracle_invocation_change_during_launch_validation(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    arguments, output = _fixture(tmp_path)
+    receipt = json.loads(Path(arguments["oracle_receipt"]).read_text())["receipt"]
+    invocation_path = Path(receipt["oracle_artifacts"]["invocations"]["path"])
+    original_validate_capacity = certificate_module._validate_capacity
+
+    def validate_then_mutate(*args: object, **kwargs: object) -> None:
+        original_validate_capacity(*args, **kwargs)
+        invocation_path.write_bytes(invocation_path.read_bytes() + b"\n")
+
+    monkeypatch.setattr(
+        certificate_module,
+        "_validate_capacity",
+        validate_then_mutate,
+    )
+    with pytest.raises(LaunchCertificateError, match="^oracle_invocations_sha256_mismatch$"):
+        create_launch_certificate(**arguments)
+    assert not output.exists()
 
 
 def test_rejects_failed_readiness_and_capacity_below_production(tmp_path: Path) -> None:

@@ -52,6 +52,17 @@ EXPECTED_MODEL_IO_CONTRACT = {
 }
 ORACLE_REASONS = frozenset({"error", "infrastructure_error", "invalid", "timeout", "unsupported", "valid"})
 CLEAN_TREE_SHA256 = hashlib.sha256(b"").hexdigest()
+ORACLE_INVOCATION_KEYS = {
+    "host",
+    "invoked_at",
+    "rerun_invalid",
+    "resume",
+    "reuse_completed_rows",
+    "run_identity_sha256",
+    "schema_version",
+    "slurm_job_id",
+    "source",
+}
 
 
 class LaunchCertificateError(ValueError):
@@ -278,6 +289,81 @@ def _load_current_endpoint(
         )
     except EndpointBindingError as cause:
         raise LaunchCertificateError("deployment_endpoint_invalid") from cause
+
+
+def _validate_oracle_invocations(
+    raw: bytes,
+    *,
+    expected_run_identity_sha256: str,
+    expected_source: dict[str, str],
+    expected_count: int,
+    expected_rerun_invalid_count: int,
+) -> None:
+    if not raw or not raw.endswith(b"\n"):
+        raise LaunchCertificateError("oracle_invocations_invalid")
+    try:
+        lines = raw.decode("utf-8").splitlines()
+    except UnicodeDecodeError as cause:
+        raise LaunchCertificateError("oracle_invocations_invalid") from cause
+    if not lines or any(not line for line in lines):
+        raise LaunchCertificateError("oracle_invocations_invalid")
+
+    rerun_invalid_count = 0
+    seen_job_ids: set[str] = set()
+    previous_invoked_at: int | float | None = None
+    for index, line in enumerate(lines):
+        try:
+            record = json.loads(
+                line,
+                object_pairs_hook=_unique_json_object,
+                parse_constant=_reject_json_constant,
+            )
+        except (ValueError, RecursionError) as cause:
+            raise LaunchCertificateError("oracle_invocations_invalid") from cause
+        if not isinstance(record, dict) or set(record) != ORACLE_INVOCATION_KEYS:
+            raise LaunchCertificateError("oracle_invocations_invalid")
+        invoked_at = record.get("invoked_at")
+        host = record.get("host")
+        job_id = record.get("slurm_job_id")
+        resume = record.get("resume")
+        rerun_invalid = record.get("rerun_invalid")
+        if (
+            type(record.get("schema_version")) is not int
+            or record["schema_version"] != 1
+            or record.get("run_identity_sha256") != expected_run_identity_sha256
+            or record.get("source") != expected_source
+            or isinstance(invoked_at, bool)
+            or not isinstance(invoked_at, (int, float))
+            or not math.isfinite(invoked_at)
+            or invoked_at <= 0
+            or (
+                previous_invoked_at is not None
+                and invoked_at <= previous_invoked_at
+            )
+            or not isinstance(host, str)
+            or not host
+            or host.strip() != host
+            or any(ord(character) < 0x20 or ord(character) == 0x7F for character in host)
+            or not isinstance(job_id, str)
+            or re.fullmatch(r"[1-9][0-9]*", job_id) is None
+            or job_id in seen_job_ids
+            or not isinstance(resume, bool)
+            or resume is not (index > 0)
+            or record.get("reuse_completed_rows") is not True
+            or not isinstance(rerun_invalid, bool)
+            or (index == 0 and rerun_invalid)
+        ):
+            raise LaunchCertificateError("oracle_invocations_invalid")
+        previous_invoked_at = invoked_at
+        seen_job_ids.add(job_id)
+        rerun_invalid_count += int(rerun_invalid)
+
+    if (
+        len(lines) != expected_count
+        or rerun_invalid_count != expected_rerun_invalid_count
+        or rerun_invalid_count > 1
+    ):
+        raise LaunchCertificateError("oracle_invocations_count_mismatch")
 
 
 def _verify_flat_self_hash(value: dict[str, Any], field: str, *, label: str) -> str:
@@ -740,6 +826,7 @@ def _validate_oracle_receipt(
 
     oracle_artifacts = receipt.get("oracle_artifacts")
     if not isinstance(oracle_artifacts, dict) or set(oracle_artifacts) != {
+        "invocations",
         "provenance",
         "results",
         "run_identity",
@@ -773,15 +860,37 @@ def _validate_oracle_receipt(
         run_identity.get("identity_sha256"),
         "oracle_run_identity",
     )
+    invocation_artifact = oracle_artifacts.get("invocations")
+    if not isinstance(invocation_artifact, dict) or set(invocation_artifact) != {
+        "path",
+        "sha256",
+    }:
+        raise LaunchCertificateError("oracle_receipt_artifacts_invalid")
+    invocation_path = invocation_artifact.get("path")
+    if not isinstance(invocation_path, str) or not Path(invocation_path).is_absolute():
+        raise LaunchCertificateError("oracle_receipt_artifacts_invalid")
+    resolved_invocations, invocation_raw = _stable_read(
+        Path(invocation_path),
+        label="oracle_invocations",
+    )
+    invocation_sha256 = _require_sha256(
+        invocation_artifact.get("sha256"),
+        "oracle_invocations",
+    )
+    if str(resolved_invocations) != invocation_path or _sha256_bytes(invocation_raw) != invocation_sha256:
+        raise LaunchCertificateError("oracle_invocations_sha256_mismatch")
+    artifact_hashes["invocations"] = invocation_sha256
 
     counts = receipt.get("counts")
     expected_count_keys = {
         "completed",
         "configured_files",
         "expected_total",
+        "invocation_count",
         "oracle_reasons",
         "passed",
         "removed_invalid",
+        "rerun_invalid_invocation_count",
         "selected",
     }
     if not isinstance(counts, dict) or set(counts) != expected_count_keys:
@@ -802,11 +911,25 @@ def _validate_oracle_receipt(
         or counts["selected"] != EXPECTED_TASKS
         or counts["passed"] < EXPECTED_TASKS
         or counts["configured_files"] < 1
+        or counts["invocation_count"] < 1
+        or counts["rerun_invalid_invocation_count"] > 1
         or counts["removed_invalid"] > EXPECTED_TASKS
         or sum(reasons.values()) != EXPECTED_ORACLE_TASKS
         or reasons.get("valid") != counts["passed"]
     ):
         raise LaunchCertificateError("oracle_receipt_counts_invalid")
+    _validate_oracle_invocations(
+        invocation_raw,
+        expected_run_identity_sha256=run_identity_sha256,
+        expected_source={
+            "prime_rl_commit": source["prime_rl_commit"],
+            "prime_rl_tree_sha256": source["prime_rl_tree_sha256"],
+            "verifiers_commit": source["verifiers_commit"],
+            "vmvm_tb_v2_sha256": source["vmvm_tb_v2_sha256"],
+        },
+        expected_count=counts["invocation_count"],
+        expected_rerun_invalid_count=counts["rerun_invalid_invocation_count"],
+    )
 
     acceptance = receipt.get("acceptance")
     expected_acceptance_keys = {
@@ -894,9 +1017,11 @@ def _validate_oracle_receipt(
         "configured_files",
         "current_manifest_sha256",
         "dataset_revision",
+        "invocation_count",
         "minimum_pass_rate",
         "minimum_valid",
         "oracle_image_manifest_sha256",
+        "oracle_invocations_sha256",
         "oracle_pass_rate",
         "oracle_prime_rl_commit",
         "oracle_provenance_sha256",
@@ -909,6 +1034,7 @@ def _validate_oracle_receipt(
         "oracle_vmvm_tb_v2_sha256",
         "passed",
         "removed_invalid",
+        "rerun_invalid_invocation_count",
         "selected",
         "selected_manifest_sha256",
         "selected_subset_valid",
@@ -919,9 +1045,11 @@ def _validate_oracle_receipt(
         "completed": counts["completed"],
         "configured_files": counts["configured_files"],
         "dataset_revision": dataset_revision,
+        "invocation_count": counts["invocation_count"],
         "minimum_pass_rate": acceptance["minimum_pass_rate"],
         "minimum_valid": acceptance["minimum_valid"],
         "oracle_image_manifest_sha256": image_manifest_sha256,
+        "oracle_invocations_sha256": artifact_hashes["invocations"],
         "oracle_pass_rate": observed_rate,
         "oracle_prime_rl_commit": source["prime_rl_commit"],
         "oracle_provenance_sha256": artifact_hashes["provenance"],
@@ -934,6 +1062,7 @@ def _validate_oracle_receipt(
         "oracle_vmvm_tb_v2_sha256": source["vmvm_tb_v2_sha256"],
         "passed": counts["passed"],
         "removed_invalid": counts["removed_invalid"],
+        "rerun_invalid_invocation_count": counts["rerun_invalid_invocation_count"],
         "selected": counts["selected"],
         "selected_manifest_sha256": approved_manifest_sha256,
         "selected_subset_valid": True,
@@ -950,6 +1079,12 @@ def _validate_oracle_receipt(
         "passed": counts["passed"],
         "pass_rate": observed_rate,
         "receipt_sha256": receipt_sha256,
+        "invocations": {
+            "path": invocation_path,
+            "sha256": invocation_sha256,
+        },
+        "invocation_count": counts["invocation_count"],
+        "rerun_invalid_invocation_count": counts["rerun_invalid_invocation_count"],
         "oracle_source": dict(source),
         "production_source": production_source,
     }
@@ -1585,9 +1720,14 @@ def _build_unsigned(
                 "artifact": oracle_record,
                 "dataset_revision": oracle["dataset_revision"],
                 "image_manifest_sha256": oracle["image_manifest_sha256"],
+                "invocation_count": oracle["invocation_count"],
+                "invocations_sha256": oracle["invocations"]["sha256"],
                 "pass_rate": oracle["pass_rate"],
                 "passed": oracle["passed"],
                 "receipt_sha256": oracle["receipt_sha256"],
+                "rerun_invalid_invocation_count": oracle[
+                    "rerun_invalid_invocation_count"
+                ],
             },
             "readiness": {
                 "artifact": readiness_record,
@@ -1624,6 +1764,12 @@ def _build_unsigned(
     ).binding
     if final_endpoint != endpoint:
         raise LaunchCertificateError("deployment_endpoint_changed")
+    final_invocations, _ = _rehash_record(
+        oracle["invocations"],
+        label="oracle_invocations",
+    )
+    if final_invocations != oracle["invocations"]:
+        raise LaunchCertificateError("oracle_invocations_changed")
     return unsigned
 
 
