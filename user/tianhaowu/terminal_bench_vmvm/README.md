@@ -557,3 +557,45 @@ are present. New tool output can still increase the next prompt beyond that
 known prefix, so the provider usage returned for every response remains the
 final fail-closed check: a turn above 262,144 tokens is rejected before graph
 commit and cannot enter the retained training corpus.
+
+## SFT export
+
+`results.jsonl` is the immutable source transcript, not a directly loadable SFT
+dataset. After the evaluation is terminal, export either reward-one traces or
+all scored outcomes explicitly:
+
+```bash
+uv run --project user/tianhaowu/terminal_bench_vmvm \
+  python user/tianhaowu/terminal_bench_vmvm/export_sft.py \
+  /path/to/eval/results.jsonl \
+  --output-dir /path/to/new/sft-dataset \
+  --selection pass-only \
+  --expected-count 2500
+```
+
+Use `--selection all-outcomes` only when failed trajectories are intentionally
+part of the training recipe. The exporter refuses a held evaluator writer lock,
+an existing output, provenance drift, malformed or errored selected traces,
+missing reasoning/model I/O/usage, request or response hash corruption, and a
+provider-reported sequence over 262,144 tokens. It validates the retained
+assistant message and usage against each captured provider response.
+
+One output row represents one unique sampled assistant node and its root-to-node
+message path. This preserves every genuine generation exactly once even when a
+trace branches; expanding every leaf would duplicate shared-prefix targets.
+Prior messages are explicitly non-trainable and prior assistant reasoning is
+removed. The final assistant is the sole trainable message and retains its
+authentic `reasoning_content`, content, and tool calls. Verifiers' compact tool
+calls are normalized to OpenAI function-call objects, and the stable tool schema
+comes from integrity-checked captured requests.
+
+The output is atomically published as `train/train.jsonl`,
+`validation/train.jsonl`, `task-split.json`, and `manifest.json`. Task and trace
+identities in the dataset are opaque SHA-256 values. The manifest binds the raw
+results, resolved and source configs, approved task snapshot, image snapshot,
+input manifest, launcher provenance, exporter source, and every output artifact.
+Console output contains aggregate counts and hashes only.
+
+The exported messages are intended for offline retokenization by the target SFT
+renderer. They do not recreate teacher token IDs or sampling log probabilities,
+which were deliberately not requested from the evaluation endpoint.
