@@ -30,14 +30,14 @@ readiness_checkpoint=${INFERENCE_READINESS_CHECKPOINT:?Set INFERENCE_READINESS_C
 dataset_archive=${EVAL_DATASET_ARCHIVE:-/checkpoint/ram/tianhaowu/terminal_bench_vmvm/downloads/terminal-bench-prebuilt-v4.0.0.tar.gz}
 dataset_archive_sha256=${EVAL_DATASET_ARCHIVE_SHA256:-6d2c57cbcb1a75b5cdc0b0f989747fa68cdc65df8ff0a6893045a70ced7e668e}
 dataset_content_sha256=${EVAL_DATASET_CONTENT_SHA256:-564a42a4e2ce0a5efd23758656e4e419b3566a36234dfc09bae1029bc15326b2}
-smoke_output_dir=${SMOKE_OUTPUT_DIR:-/checkpoint/ram/tianhaowu/terminal_bench_vmvm/evals/tb4_kimi_k3_sticky_smoke_cd73d4061_v1}
-tb4_output_dir=${TB4_OUTPUT_DIR:-/checkpoint/ram/tianhaowu/terminal_bench_vmvm/evals/tb4_kimi_k3_sticky_full_cd73d4061_v1}
+smoke_output_dir=${SMOKE_OUTPUT_DIR:-/checkpoint/ram/tianhaowu/terminal_bench_vmvm/evals/tb4_kimi_k3_sticky_smoke_62988609e_v1}
+tb4_output_dir=${TB4_OUTPUT_DIR:-/checkpoint/ram/tianhaowu/terminal_bench_vmvm/evals/tb4_kimi_k3_sticky_full_62988609e_v1}
 smoke_task_file="$workflow_dir/configs/eval/tb4_kimi_token_smoke.tasks.txt"
 smoke_task_file_sha256=ecdcbc6e4f54b690e64b4566de5eecf33467088c8ca3436738cd7308d4e45b83
 tb4_task_file="$workflow_dir/configs/eval/tb4_qwen_a95b_miniswe.tasks.txt"
 tb4_task_file_sha256=9485011ac4a953f4a4a1c7c5e78550b6d7de6f760a3859dac15a3610cf4ad892
 
-if [[ "$(git -C "$project_dir" rev-parse HEAD)" != cd73d4061e4ab045dc6f778237f18f22a85ad29a \
+if [[ "$(git -C "$project_dir" rev-parse HEAD)" != 62988609edd15b5c1bab04861ee126683d0bb1e5 \
     || -n "$(git -C "$project_dir" status --porcelain=v1 --untracked-files=all)" ]]; then
     printf 'PROJECT_DIR must be the clean approved Kimi evaluation snapshot\n' >&2
     exit 2

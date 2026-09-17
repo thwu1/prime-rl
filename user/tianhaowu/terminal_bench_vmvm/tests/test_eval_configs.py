@@ -312,7 +312,7 @@ def test_eval_controller_is_cpu_only_and_supports_high_vmvm_concurrency() -> Non
 def test_kimi_tb4_gate_sequences_smoke_before_full_evaluation() -> None:
     wrapper = (CONFIG_DIR.parents[1] / "run_kimi_tb4_gate.sbatch").read_text()
 
-    assert "cd73d4061e4ab045dc6f778237f18f22a85ad29a" in wrapper
+    assert "62988609edd15b5c1bab04861ee126683d0bb1e5" in wrapper
     assert "EVAL_RUN_ROLE=smoke" in wrapper
     assert "EVAL_RUN_ROLE=tb4" in wrapper
     assert "SMOKE_EXPECTED_TRACES=2" in wrapper
