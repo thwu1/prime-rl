@@ -20,6 +20,7 @@ from mobius_launch_certificate import (
     main,
     validate_launch_certificate_for_run,
 )
+from vmvm_tb_v2._vacli.concurrency_telemetry import ConcurrencyTelemetry
 
 
 @pytest.fixture(autouse=True)
@@ -305,6 +306,21 @@ def _capacity_checkpoint(
     }
     for artifact in artifact_paths.values():
         artifact.write_text("aggregate metadata\n")
+    artifact_paths["results"].write_text(
+        "".join(
+            json.dumps(
+                {
+                    "timing": {
+                        "setup": {"start": 1.0, "end": 1.25},
+                        "scoring": {"start": 1.75, "end": 2.0},
+                    }
+                },
+                sort_keys=True,
+            )
+            + "\n"
+            for _ in range(8)
+        )
+    )
     artifacts = {name: _artifact(artifact, _sha256(artifact.read_bytes())) for name, artifact in artifact_paths.items()}
     artifacts["readiness_checkpoint"] = _artifact(readiness, readiness_sha256)
     artifacts["proxy_info"] = endpoint["proxy_info"]
@@ -379,6 +395,29 @@ def _capacity_checkpoint(
         )
         + "\n"
     )
+    telemetry = ConcurrencyTelemetry(
+        run_dir / "concurrency_telemetry.json",
+        eval_run_identity_sha256="3" * 64,
+        eval_run_role="smoke",
+        slurm_job_id="1",
+        register_atexit=False,
+    )
+    for _ in range(8):
+        telemetry.vmvm_runtime_started()
+    for _ in range(2):
+        for _ in range(4):
+            telemetry.lease_start_entered()
+        for _ in range(4):
+            telemetry.lease_tunnel_became_ready()
+            telemetry.lease_start_finished()
+            telemetry.vmvm_runtime_became_ready()
+    for _ in range(8):
+        telemetry.vmvm_runtime_stopped()
+    telemetry.publish()
+    artifacts["concurrency_telemetry"] = _artifact(
+        telemetry.path,
+        _sha256(telemetry.path.read_bytes()),
+    )
     guard_receipt_path = run_dir / "route_guard_success.json"
     guard_receipt = build_guard_success_receipt(
         eval_run_identity_sha256="3" * 64,
@@ -393,6 +432,7 @@ def _capacity_checkpoint(
         endpoint=endpoint,
         serving_route_generation=route_generation,
         proxy_policy=proxy_policy,
+        concurrency_telemetry=telemetry.path,
     )
     write_guard_success_receipt(guard_receipt_path, guard_receipt)
     artifacts["eval_invocations"] = _artifact(invocations, _sha256(invocations.read_bytes()))
@@ -418,6 +458,14 @@ def _capacity_checkpoint(
             "http_max_connections": 8,
             "http_max_keepalive_connections": 8,
             "lease_start_concurrency": 4,
+        },
+        "observed_concurrency": {
+            "active_rollout_signal": "completed_trace_lifecycle_timing_overlap",
+            "lease_start_signal": "vacli_lease_start_semaphore_holders",
+            "peak_active_rollouts_lower_bound": 8,
+            "peak_concurrent_lease_startups": 4,
+            "required_peak_active_rollouts_lower_bound": 8,
+            "required_peak_concurrent_lease_startups": 4,
         },
         "audit_policy": {
             "expected_traces": 8,
@@ -622,9 +670,7 @@ def _fixture(
         "      num_retries: 0\n"
     )
     (deployment_dir / "proxy_litellm_config.yaml").write_text(
-        "litellm_settings:\n"
-        "  request_timeout: 7200\n"
-        "  num_retries: 0\n"
+        "litellm_settings:\n  request_timeout: 7200\n  num_retries: 0\n"
     )
     spec_sha256 = _sha256(spec.read_bytes())
     proxy_info = deployment_dir / "proxy_info.json"
@@ -875,9 +921,7 @@ def _append_oracle_invocation(payload: dict, *, rerun_invalid: bool) -> None:
             json.dumps(
                 {
                     "schema_version": 1,
-                    "run_identity_sha256": payload["oracle_artifacts"]["run_identity"][
-                        "identity_sha256"
-                    ],
+                    "run_identity_sha256": payload["oracle_artifacts"]["run_identity"]["identity_sha256"],
                     "invoked_at": float(count + 1),
                     "resume": True,
                     "reuse_completed_rows": True,
@@ -899,9 +943,7 @@ def _append_oracle_invocation(payload: dict, *, rerun_invalid: bool) -> None:
     payload["counts"]["invocation_count"] += 1
     payload["counts"]["rerun_invalid_invocation_count"] += int(rerun_invalid)
     payload["promotion_summary"]["invocation_count"] += 1
-    payload["promotion_summary"]["rerun_invalid_invocation_count"] += int(
-        rerun_invalid
-    )
+    payload["promotion_summary"]["rerun_invalid_invocation_count"] += int(rerun_invalid)
     payload["promotion_summary"]["oracle_invocations_sha256"] = artifact["sha256"]
 
 
@@ -1025,14 +1067,10 @@ def test_create_and_verify_launch_certificate_without_task_metadata(
     assert 'base_url = "http://127.0.0.1:8000/v1"' in Path(arguments["production_config"]).read_text()
     assert certificate["ok"] is True
     assert certificate["state"] == "passed"
-    assert certificate["deployment"]["spec"]["sha256"] != certificate["gates"]["tb4"][
-        "deployment_spec_sha256"
-    ]
+    assert certificate["deployment"]["spec"]["sha256"] != certificate["gates"]["tb4"]["deployment_spec_sha256"]
     assert certificate["gates"]["readiness"]["expected_routes"] == 2
     assert certificate["gates"]["tb4"]["expected_routes"] == 1
-    assert certificate["gates"]["tb4"]["proxy_policy"] != certificate["gates"][
-        "readiness"
-    ]["proxy_policy"]
+    assert certificate["gates"]["tb4"]["proxy_policy"] != certificate["gates"]["readiness"]["proxy_policy"]
     assert certificate["deployment"]["endpoint"]["proxy_info"] == {
         "path": str(Path(arguments["deployment_proxy_info"]).resolve()),
         "sha256": arguments["deployment_proxy_info_sha256"],
@@ -1044,6 +1082,14 @@ def test_create_and_verify_launch_certificate_without_task_metadata(
         "lease_start_concurrency": 4,
         "multiplex": 8,
         "rollout_concurrency": 8,
+    }
+    assert certificate["gates"]["capacity_smoke"]["observed_concurrency"] == {
+        "active_rollout_signal": "completed_trace_lifecycle_timing_overlap",
+        "lease_start_signal": "vacli_lease_start_semaphore_holders",
+        "peak_active_rollouts_lower_bound": 8,
+        "peak_concurrent_lease_startups": 4,
+        "required_peak_active_rollouts_lower_bound": 8,
+        "required_peak_concurrent_lease_startups": 4,
     }
     unsigned = dict(certificate)
     self_hash = unsigned.pop("launch_certificate_sha256")
@@ -1163,9 +1209,9 @@ def test_rejects_type_confused_model_io_policy(tmp_path: Path) -> None:
     arguments["tb4_checkpoint_sha256"] = _rewrite_flat(
         path,
         "tb4_certificate_sha256",
-        lambda value: value["audit_policy"]["model_io_contract"][
-            "request_chat_template_kwargs"
-        ].__setitem__("enable_thinking", 1),
+        lambda value: value["audit_policy"]["model_io_contract"]["request_chat_template_kwargs"].__setitem__(
+            "enable_thinking", 1
+        ),
     )
 
     with pytest.raises(LaunchCertificateError, match="^tb4_policy_invalid$"):
@@ -1255,9 +1301,10 @@ def test_accepts_one_attested_oracle_rerun_invalid_invocation(tmp_path: Path) ->
     gate = certificate["gates"]["oracle_promotion"]
     assert gate["invocation_count"] == 2
     assert gate["rerun_invalid_invocation_count"] == 1
-    assert gate["invocations_sha256"] == json.loads(receipt.read_text())["receipt"][
-        "oracle_artifacts"
-    ]["invocations"]["sha256"]
+    assert (
+        gate["invocations_sha256"]
+        == json.loads(receipt.read_text())["receipt"]["oracle_artifacts"]["invocations"]["sha256"]
+    )
 
 
 def test_rejects_legacy_or_unbounded_oracle_invocation_lineage(tmp_path: Path) -> None:
@@ -1316,17 +1363,11 @@ def test_rejects_noncanonical_oracle_invocation_order(
         _append_oracle_invocation(payload, rerun_invalid=False)
         artifact = payload["oracle_artifacts"]["invocations"]
         invocation_path = Path(artifact["path"])
-        records = [
-            json.loads(line) for line in invocation_path.read_text().splitlines()
-        ]
+        records = [json.loads(line) for line in invocation_path.read_text().splitlines()]
         records[-1][field] = value
-        invocation_path.write_text(
-            "".join(json.dumps(record, sort_keys=True) + "\n" for record in records)
-        )
+        invocation_path.write_text("".join(json.dumps(record, sort_keys=True) + "\n" for record in records))
         artifact["sha256"] = _sha256(invocation_path.read_bytes())
-        payload["promotion_summary"]["oracle_invocations_sha256"] = artifact[
-            "sha256"
-        ]
+        payload["promotion_summary"]["oracle_invocations_sha256"] = artifact["sha256"]
 
     arguments["oracle_receipt_sha256"] = _rewrite_receipt(receipt, mutate)
 
@@ -1380,9 +1421,7 @@ def test_rejects_failed_readiness_and_capacity_below_production(tmp_path: Path) 
     guard_record = capacity_value["artifacts"]["route_guard_success"]
     guard_path = Path(guard_record["path"])
     guard_value = json.loads(guard_path.read_text())
-    guard_value["artifacts"]["eval_run_identity"]["sha256"] = identity_record[
-        "sha256"
-    ]
+    guard_value["artifacts"]["eval_run_identity"]["sha256"] = identity_record["sha256"]
     guard_value.pop("guard_success_receipt_sha256")
     guard_value["guard_success_receipt_sha256"] = _sha256(_canonical(guard_value))
     guard_record["sha256"] = _write_json(guard_path, guard_value)
@@ -1408,6 +1447,44 @@ def test_rejects_capacity_execution_not_bound_to_strict_identity(tmp_path: Path)
     )
 
     with pytest.raises(LaunchCertificateError, match="^capacity_eval_run_identity_invalid$"):
+        create_launch_certificate(**arguments)
+
+
+def test_rejects_capacity_claim_not_bound_to_trace_timing_evidence(tmp_path: Path) -> None:
+    arguments, _ = _fixture(tmp_path)
+    capacity = Path(arguments["capacity_smoke_checkpoint"])
+    arguments["capacity_smoke_checkpoint_sha256"] = _rewrite_flat(
+        capacity,
+        "smoke_checkpoint_sha256",
+        lambda value: value["observed_concurrency"].__setitem__(
+            "peak_active_rollouts_lower_bound",
+            7,
+        ),
+    )
+
+    with pytest.raises(
+        LaunchCertificateError,
+        match="^capacity_trace_concurrency_invalid$",
+    ):
+        create_launch_certificate(**arguments)
+
+
+def test_rejects_capacity_claim_not_bound_to_lease_telemetry(tmp_path: Path) -> None:
+    arguments, _ = _fixture(tmp_path)
+    capacity = Path(arguments["capacity_smoke_checkpoint"])
+    arguments["capacity_smoke_checkpoint_sha256"] = _rewrite_flat(
+        capacity,
+        "smoke_checkpoint_sha256",
+        lambda value: value["observed_concurrency"].__setitem__(
+            "peak_concurrent_lease_startups",
+            3,
+        ),
+    )
+
+    with pytest.raises(
+        LaunchCertificateError,
+        match="^capacity_concurrency_telemetry_invalid$",
+    ):
         create_launch_certificate(**arguments)
 
 

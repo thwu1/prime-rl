@@ -17,7 +17,7 @@ import uuid
 from pathlib import Path, PurePosixPath
 from typing import Any
 
-from audit_traces import KIMI_K3_MAX_MODEL_IO_CONTRACT
+from audit_traces import KIMI_K3_MAX_MODEL_IO_CONTRACT, TraceJSONLError, _iter_traces
 from deployment_endpoint import (
     EndpointBindingError,
     load_deployment_endpoint,
@@ -32,12 +32,18 @@ from eval_run_identity import EvalIdentityError, load_eval_run_identity
 from guard_success_receipt import (
     GuardReceiptError,
     load_guard_success_receipt,
+    validate_eval_invocations,
     validate_guard_success_linkage,
 )
 from inference_route_generation import (
     RouteGenerationError,
     validate_readiness_route_generation,
     validate_route_generation,
+)
+from trace_concurrency import TraceConcurrencyError, measure_peak_active_rollouts
+from vmvm_tb_v2._vacli.concurrency_telemetry import (
+    ConcurrencyTelemetryError,
+    load_concurrency_telemetry_artifact,
 )
 
 SCHEMA_VERSION = 1
@@ -351,10 +357,7 @@ def _validate_oracle_invocations(
             or not isinstance(invoked_at, (int, float))
             or not math.isfinite(invoked_at)
             or invoked_at <= 0
-            or (
-                previous_invoked_at is not None
-                and invoked_at <= previous_invoked_at
-            )
+            or (previous_invoked_at is not None and invoked_at <= previous_invoked_at)
             or not isinstance(host, str)
             or not host
             or host.strip() != host
@@ -373,11 +376,7 @@ def _validate_oracle_invocations(
         seen_job_ids.add(job_id)
         rerun_invalid_count += int(rerun_invalid)
 
-    if (
-        len(lines) != expected_count
-        or rerun_invalid_count != expected_rerun_invalid_count
-        or rerun_invalid_count > 1
-    ):
+    if len(lines) != expected_count or rerun_invalid_count != expected_rerun_invalid_count or rerun_invalid_count > 1:
         raise LaunchCertificateError("oracle_invocations_count_mismatch")
 
 
@@ -601,9 +600,7 @@ def _validate_tb4_checkpoint(
     deployment = value.get("deployment")
     checkpoint_endpoint = _endpoint_binding(value.get("endpoint"), label="tb4_endpoint")
     try:
-        checkpoint_generation = validate_route_generation(
-            value.get("serving_route_generation")
-        )
+        checkpoint_generation = validate_route_generation(value.get("serving_route_generation"))
         checkpoint_proxy_policy = validate_proxy_policy_binding(value.get("proxy_policy"))
     except (RouteGenerationError, DeploymentProxyPolicyError) as cause:
         raise LaunchCertificateError("tb4_checkpoint_schema_invalid") from cause
@@ -1278,6 +1275,7 @@ def _validate_capacity_smoke(
         "proxy_policy",
         "eval_run_identity_sha256",
         "ok",
+        "observed_concurrency",
         "qualified_execution",
         "readiness_checkpoint_sha256",
         "schema_version",
@@ -1294,9 +1292,7 @@ def _validate_capacity_smoke(
     deployment = value.get("deployment")
     checkpoint_endpoint = _endpoint_binding(value.get("endpoint"), label="capacity_endpoint")
     try:
-        checkpoint_generation = validate_route_generation(
-            value.get("serving_route_generation")
-        )
+        checkpoint_generation = validate_route_generation(value.get("serving_route_generation"))
         checkpoint_proxy_policy = validate_proxy_policy_binding(value.get("proxy_policy"))
     except (RouteGenerationError, DeploymentProxyPolicyError) as cause:
         raise LaunchCertificateError("capacity_smoke_schema_invalid") from cause
@@ -1331,7 +1327,42 @@ def _validate_capacity_smoke(
     qualified_execution = {
         key: _require_positive_int(execution.get(key), f"capacity_{key}") for key in sorted(expected_execution_keys)
     }
-
+    observed = value.get("observed_concurrency")
+    expected_observed_keys = {
+        "active_rollout_signal",
+        "lease_start_signal",
+        "peak_active_rollouts_lower_bound",
+        "peak_concurrent_lease_startups",
+        "required_peak_active_rollouts_lower_bound",
+        "required_peak_concurrent_lease_startups",
+    }
+    if (
+        not isinstance(observed, dict)
+        or set(observed) != expected_observed_keys
+        or observed.get("active_rollout_signal") != "completed_trace_lifecycle_timing_overlap"
+        or observed.get("lease_start_signal") != "vacli_lease_start_semaphore_holders"
+    ):
+        raise LaunchCertificateError("capacity_smoke_observed_concurrency_invalid")
+    observed_concurrency = {
+        "active_rollout_signal": observed["active_rollout_signal"],
+        "lease_start_signal": observed["lease_start_signal"],
+        "peak_active_rollouts_lower_bound": _require_positive_int(
+            observed.get("peak_active_rollouts_lower_bound"),
+            "capacity_peak_active_rollouts_lower_bound",
+        ),
+        "peak_concurrent_lease_startups": _require_positive_int(
+            observed.get("peak_concurrent_lease_startups"),
+            "capacity_peak_concurrent_lease_startups",
+        ),
+        "required_peak_active_rollouts_lower_bound": _require_positive_int(
+            observed.get("required_peak_active_rollouts_lower_bound"),
+            "capacity_required_peak_active_rollouts_lower_bound",
+        ),
+        "required_peak_concurrent_lease_startups": _require_positive_int(
+            observed.get("required_peak_concurrent_lease_startups"),
+            "capacity_required_peak_concurrent_lease_startups",
+        ),
+    }
     policy = value.get("audit_policy")
     expected_policy_keys = {
         "expected_traces",
@@ -1388,6 +1419,7 @@ def _validate_capacity_smoke(
     artifacts = value.get("artifacts")
     expected_artifacts = {
         "config",
+        "concurrency_telemetry",
         "eval_run_identity",
         "eval_invocations",
         "inputs_manifest",
@@ -1521,15 +1553,56 @@ def _validate_capacity_smoke(
             endpoint=endpoint,
             serving_route_generation=checkpoint_generation,
             proxy_policy=checkpoint_proxy_policy,
+            require_concurrency_telemetry=True,
         )
     except (OSError, GuardReceiptError) as cause:
         raise LaunchCertificateError("capacity_guard_success_receipt_invalid") from cause
     if guard_artifacts["eval_invocations"] != artifact_records["eval_invocations"]:
         raise LaunchCertificateError("capacity_guard_success_receipt_invalid")
+    try:
+        invocation, invocation_artifact = validate_eval_invocations(
+            artifact_paths["eval_invocations"],
+            eval_run_identity_sha256=value["eval_run_identity_sha256"],
+            eval_run_role="smoke",
+        )
+        if invocation_artifact != artifact_records["eval_invocations"]:
+            raise GuardReceiptError("eval_invocations_changed")
+        telemetry, telemetry_artifact = load_concurrency_telemetry_artifact(
+            artifact_paths["concurrency_telemetry"],
+            eval_run_identity_sha256=value["eval_run_identity_sha256"],
+            eval_run_role="smoke",
+            slurm_job_id=invocation["slurm_job_id"],
+        )
+        if telemetry_artifact != artifact_records["concurrency_telemetry"]:
+            raise GuardReceiptError("concurrency_telemetry_changed")
+    except (OSError, GuardReceiptError, ConcurrencyTelemetryError) as cause:
+        raise LaunchCertificateError("capacity_concurrency_telemetry_invalid") from cause
+    observations = telemetry["observations"]
+    try:
+        rollout_observation = measure_peak_active_rollouts(_iter_traces(artifact_paths["results"]))
+        _, results_sha256 = _stable_file_sha256(
+            artifact_paths["results"],
+            label="capacity_results",
+        )
+    except (OSError, TraceJSONLError, TraceConcurrencyError) as cause:
+        raise LaunchCertificateError("capacity_trace_concurrency_invalid") from cause
+    if (
+        rollout_observation["observed_rollouts"] != expected_traces
+        or rollout_observation["peak_active_rollouts_lower_bound"]
+        != observed_concurrency["peak_active_rollouts_lower_bound"]
+        or results_sha256 != artifact_records["results"]["sha256"]
+    ):
+        raise LaunchCertificateError("capacity_trace_concurrency_invalid")
+    if (
+        observations["peak_concurrent_lease_startups"] != observed_concurrency["peak_concurrent_lease_startups"]
+        or observations["vmvm_runtime_ready"] < expected_traces
+    ):
+        raise LaunchCertificateError("capacity_concurrency_telemetry_invalid")
     return {
         "checkpoint_sha256": checkpoint_sha256,
         "expected_traces": expected_traces,
         "qualified_execution": qualified_execution,
+        "observed_concurrency": observed_concurrency,
         "serving_route_generation": checkpoint_generation,
         "proxy_policy": checkpoint_proxy_policy,
     }
@@ -1581,8 +1654,7 @@ def _validate_production_config(
         or config.get("rich") is not False
         or any(value != EXPECTED_CONTEXT_TOKENS for value in context.values())
         or sampling.get("reasoning_effort") != "max"
-        or _canonical_json(thinking)
-        != _canonical_json({"enable_thinking": True, "preserve_thinking": True})
+        or _canonical_json(thinking) != _canonical_json({"enable_thinking": True, "preserve_thinking": True})
         or client.get("type") != "eval"
         or client.get("capture_model_io") is not True
         or not isinstance(denylist, list)
@@ -1676,6 +1748,7 @@ def _validate_production_config(
 
 def _validate_capacity(
     qualified: dict[str, int],
+    observed: dict[str, Any],
     required: dict[str, int],
     requested_lease_start_concurrency: int,
     expected_traces: int,
@@ -1689,6 +1762,18 @@ def _validate_capacity(
     }
     if any(qualified[key] < minimum for key, minimum in comparisons.items()):
         raise LaunchCertificateError("capacity_smoke_below_production_concurrency")
+    if (
+        observed["required_peak_active_rollouts_lower_bound"] != qualified["rollout_concurrency"]
+        or observed["required_peak_concurrent_lease_startups"] != qualified["lease_start_concurrency"]
+        or observed["peak_active_rollouts_lower_bound"] != qualified["rollout_concurrency"]
+        or observed["peak_concurrent_lease_startups"] != qualified["lease_start_concurrency"]
+    ):
+        raise LaunchCertificateError("capacity_smoke_observed_concurrency_invalid")
+    if (
+        observed["peak_active_rollouts_lower_bound"] < required["rollout_concurrency"]
+        or observed["peak_concurrent_lease_startups"] < requested_lease_start_concurrency
+    ):
+        raise LaunchCertificateError("capacity_smoke_observed_below_production_concurrency")
     if expected_traces < max(comparisons.values()):
         raise LaunchCertificateError("capacity_smoke_task_count_too_small")
 
@@ -1823,6 +1908,7 @@ def _build_unsigned(
     )
     _validate_capacity(
         capacity["qualified_execution"],
+        capacity["observed_concurrency"],
         production_contract["execution"],
         requested_leases,
         capacity["expected_traces"],
@@ -1847,6 +1933,7 @@ def _build_unsigned(
                 "artifact": capacity_record,
                 "checkpoint_sha256": capacity["checkpoint_sha256"],
                 "expected_traces": capacity["expected_traces"],
+                "observed_concurrency": capacity["observed_concurrency"],
                 "qualified_execution": capacity["qualified_execution"],
                 "readiness_checkpoint_sha256": readiness_record["sha256"],
                 "serving_route_generation": capacity["serving_route_generation"],
@@ -1861,9 +1948,7 @@ def _build_unsigned(
                 "pass_rate": oracle["pass_rate"],
                 "passed": oracle["passed"],
                 "receipt_sha256": oracle["receipt_sha256"],
-                "rerun_invalid_invocation_count": oracle[
-                    "rerun_invalid_invocation_count"
-                ],
+                "rerun_invalid_invocation_count": oracle["rerun_invalid_invocation_count"],
             },
             "readiness": {
                 "artifact": readiness_record,

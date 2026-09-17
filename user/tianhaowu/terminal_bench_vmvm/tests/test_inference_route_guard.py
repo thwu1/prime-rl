@@ -22,6 +22,7 @@ from inference_route_guard import (
     run_guarded,
     verify_live_route_generation,
 )
+from vmvm_tb_v2._vacli.concurrency_telemetry import ConcurrencyTelemetry
 from wait_for_inference_routes import ProcessResult
 
 
@@ -311,11 +312,32 @@ def test_guard_receipt_removes_stale_and_binds_final_run_artifacts(
     )
 
     assert not receipt_path.exists()
+    assert plan.concurrency_telemetry == run_dir / "concurrency_telemetry.json"
+    assert plan.slurm_job_id == "1"
     results.write_text('{"aggregate":"result"}\n')
+    with pytest.raises(RouteGuardError, match="^guard_receipt_publish_failed$"):
+        publish_guard_success_receipt(binding, plan)
+    assert not receipt_path.exists()
+
+    telemetry = ConcurrencyTelemetry(
+        plan.concurrency_telemetry,
+        eval_run_identity_sha256=identity_sha256,
+        eval_run_role="smoke",
+        slurm_job_id=plan.slurm_job_id,
+        register_atexit=False,
+    )
+    telemetry.vmvm_runtime_started()
+    telemetry.lease_start_entered()
+    telemetry.lease_tunnel_became_ready()
+    telemetry.lease_start_finished()
+    telemetry.vmvm_runtime_became_ready()
+    telemetry.vmvm_runtime_stopped()
+    telemetry.publish()
     publish_guard_success_receipt(binding, plan)
     receipt = load_guard_success_receipt(receipt_path)
     assert receipt["state"] == "passed"
     assert receipt["artifacts"]["results"]["path"] == str(results)
+    assert receipt["artifacts"]["concurrency_telemetry"]["path"] == str(plan.concurrency_telemetry)
     assert receipt_path.stat().st_mode & 0o777 == 0o600
 
 

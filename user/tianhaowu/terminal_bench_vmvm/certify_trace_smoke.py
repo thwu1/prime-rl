@@ -35,12 +35,18 @@ from eval_run_identity import load_eval_run_identity
 from guard_success_receipt import (
     GuardReceiptError,
     load_guard_success_receipt,
+    validate_eval_invocations,
     validate_guard_success_linkage,
 )
 from inference_route_generation import (
     RouteGenerationError,
     validate_readiness_route_generation,
     validate_route_generation,
+)
+from trace_concurrency import TraceConcurrencyError, measure_peak_active_rollouts
+from vmvm_tb_v2._vacli.concurrency_telemetry import (
+    ConcurrencyTelemetryError,
+    load_concurrency_telemetry_artifact,
 )
 
 SHA256_RE = re.compile(r"[0-9a-f]{64}")
@@ -155,9 +161,11 @@ def _require_contract(identity: dict[str, Any]) -> None:
         or not isinstance(sampling_max_tokens, int)
         or not 0 < sampling_max_tokens <= MAX_SEQUENCE_TOKENS
         or not isinstance(context, dict)
-        or any(context.get(key) != MAX_SEQUENCE_TOKENS for key in ("max_input_tokens", "max_output_tokens", "max_total_tokens"))
-        or _canonical_json(thinking)
-        != _canonical_json({"enable_thinking": True, "preserve_thinking": True})
+        or any(
+            context.get(key) != MAX_SEQUENCE_TOKENS
+            for key in ("max_input_tokens", "max_output_tokens", "max_total_tokens")
+        )
+        or _canonical_json(thinking) != _canonical_json({"enable_thinking": True, "preserve_thinking": True})
         or not isinstance(denylist, list)
         or set(denylist) != {"logprobs", "prompt_logprobs", "return_token_ids", "top_logprobs"}
     ):
@@ -217,6 +225,8 @@ def certify_smoke(
     expected_task_file: Path,
     expected_task_file_sha256: str,
     expected_traces: int,
+    required_rollout_concurrency: int | None = None,
+    required_lease_start_concurrency: int | None = None,
     identity_loader: Callable[..., dict[str, Any]] = load_eval_run_identity,
 ) -> dict[str, Any]:
     """Audit a completed smoke while holding its writer lock."""
@@ -225,6 +235,15 @@ def certify_smoke(
         raise SmokeCertificateError("expected_task_file_sha256_invalid")
     if isinstance(expected_traces, bool) or not isinstance(expected_traces, int) or expected_traces < 1:
         raise SmokeCertificateError("expected_traces_invalid")
+    required_concurrency = (
+        required_rollout_concurrency,
+        required_lease_start_concurrency,
+    )
+    if (required_concurrency[0] is None) != (required_concurrency[1] is None) or any(
+        value is not None and (isinstance(value, bool) or not isinstance(value, int) or value < 1)
+        for value in required_concurrency
+    ):
+        raise SmokeCertificateError("required_concurrency_invalid")
 
     run_dir = run_dir.resolve(strict=True)
     lock_path = run_dir / ".writer.lock"
@@ -278,12 +297,14 @@ def certify_smoke(
             model_io_contract=KIMI_K3_MAX_MODEL_IO_CONTRACT,
             max_sequence_tokens=MAX_SEQUENCE_TOKENS,
         )
-        if (
-            failed
-            or summary.get("model_io_turns", 0) < expected_traces
-            or summary.get("sampled_tokens", 0) < 1
-        ):
+        if failed or summary.get("model_io_turns", 0) < expected_traces or summary.get("sampled_tokens", 0) < 1:
             raise SmokeCertificateError("trace_audit_failed")
+        try:
+            rollout_observation = measure_peak_active_rollouts(_iter_traces(results_path))
+        except TraceConcurrencyError as cause:
+            raise SmokeCertificateError("trace_concurrency_invalid") from cause
+        if rollout_observation["observed_rollouts"] != expected_traces:
+            raise SmokeCertificateError("trace_concurrency_invalid")
         if _sha256_file(results_path) != before_results_sha256:
             raise SmokeCertificateError("results_changed_during_audit")
 
@@ -296,9 +317,7 @@ def certify_smoke(
         deployment_id = deployment.get("id")
         spec = deployment.get("spec")
         try:
-            serving_route_generation = validate_route_generation(
-                deployment.get("serving_route_generation")
-            )
+            serving_route_generation = validate_route_generation(deployment.get("serving_route_generation"))
             proxy_policy = validate_proxy_policy_binding(deployment.get("proxy_policy"))
         except (RouteGenerationError, DeploymentProxyPolicyError) as cause:
             raise SmokeCertificateError("eval_identity_deployment_invalid") from cause
@@ -329,8 +348,7 @@ def certify_smoke(
             ),
         }
         if any(
-            isinstance(value, bool) or not isinstance(value, int) or value < 1
-            for value in execution_fields.values()
+            isinstance(value, bool) or not isinstance(value, int) or value < 1 for value in execution_fields.values()
         ):
             raise SmokeCertificateError("eval_identity_execution_invalid")
 
@@ -350,18 +368,13 @@ def certify_smoke(
                 deployment_id=deployment_id,
                 deployment_spec_sha256=spec["sha256"],
             )
-            readiness_proxy_policy = validate_proxy_policy_binding(
-                readiness_payload.get("proxy_policy")
-            )
+            readiness_proxy_policy = validate_proxy_policy_binding(readiness_payload.get("proxy_policy"))
         except (
             RouteGenerationError,
             DeploymentProxyPolicyError,
         ) as cause:
             raise SmokeCertificateError("readiness_generation_invalid") from cause
-        if (
-            readiness_generation != serving_route_generation
-            or readiness_proxy_policy != proxy_policy
-        ):
+        if readiness_generation != serving_route_generation or readiness_proxy_policy != proxy_policy:
             raise SmokeCertificateError("readiness_generation_mismatch")
         guard_receipt_path = run_dir / "route_guard_success.json"
         try:
@@ -381,9 +394,52 @@ def certify_smoke(
                 endpoint=endpoint,
                 serving_route_generation=serving_route_generation,
                 proxy_policy=proxy_policy,
+                require_concurrency_telemetry=True,
             )
         except (OSError, GuardReceiptError) as cause:
             raise SmokeCertificateError("guard_success_receipt_invalid") from cause
+        try:
+            invocation, invocation_artifact = validate_eval_invocations(
+                Path(guard_artifacts["eval_invocations"]["path"]),
+                eval_run_identity_sha256=identity_sha256,
+                eval_run_role="smoke",
+            )
+            if invocation_artifact != guard_artifacts["eval_invocations"]:
+                raise GuardReceiptError("eval_invocations_changed")
+            concurrency_telemetry_path = run_dir / "concurrency_telemetry.json"
+            telemetry, telemetry_artifact = load_concurrency_telemetry_artifact(
+                concurrency_telemetry_path,
+                eval_run_identity_sha256=identity_sha256,
+                eval_run_role="smoke",
+                slurm_job_id=invocation["slurm_job_id"],
+            )
+            if guard_artifacts.get("concurrency_telemetry") != telemetry_artifact:
+                raise GuardReceiptError("concurrency_telemetry_changed")
+        except (OSError, GuardReceiptError, ConcurrencyTelemetryError) as cause:
+            raise SmokeCertificateError("concurrency_telemetry_invalid") from cause
+        observations = telemetry["observations"]
+        if (
+            rollout_observation["peak_active_rollouts_lower_bound"] > execution_fields["rollout_concurrency"]
+            or observations["peak_concurrent_lease_startups"] > execution_fields["lease_start_concurrency"]
+            or observations["vmvm_runtime_ready"] < expected_traces
+        ):
+            raise SmokeCertificateError("concurrency_telemetry_invalid")
+        if required_rollout_concurrency is not None and (
+            required_rollout_concurrency > execution_fields["rollout_concurrency"]
+            or required_lease_start_concurrency is None
+            or required_lease_start_concurrency > execution_fields["lease_start_concurrency"]
+            or rollout_observation["peak_active_rollouts_lower_bound"] < required_rollout_concurrency
+            or observations["peak_concurrent_lease_startups"] < required_lease_start_concurrency
+        ):
+            raise SmokeCertificateError("observed_concurrency_below_required")
+        observed_concurrency = {
+            "active_rollout_signal": "completed_trace_lifecycle_timing_overlap",
+            "lease_start_signal": "vacli_lease_start_semaphore_holders",
+            "peak_active_rollouts_lower_bound": rollout_observation["peak_active_rollouts_lower_bound"],
+            "peak_concurrent_lease_startups": observations["peak_concurrent_lease_startups"],
+            "required_peak_active_rollouts_lower_bound": required_rollout_concurrency,
+            "required_peak_concurrent_lease_startups": required_lease_start_concurrency,
+        }
         artifacts = {
             "results": {"path": str(results_path), "sha256": before_results_sha256},
             "eval_run_identity": {
@@ -392,6 +448,7 @@ def certify_smoke(
             },
             "eval_invocations": guard_artifacts["eval_invocations"],
             "route_guard_success": _artifact(guard_receipt_path),
+            "concurrency_telemetry": telemetry_artifact,
             "config": config_record,
             "inputs_manifest": manifest_record,
             "provenance": _artifact(run_dir / "provenance.txt"),
@@ -418,6 +475,7 @@ def certify_smoke(
             "serving_route_generation": serving_route_generation,
             "proxy_policy": proxy_policy,
             "qualified_execution": execution_fields,
+            "observed_concurrency": observed_concurrency,
             "audit_policy": {
                 "expected_traces": expected_traces,
                 "rollouts_per_task": 1,
@@ -454,6 +512,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--expected-task-file", type=Path, required=True)
     parser.add_argument("--expected-task-file-sha256", required=True)
     parser.add_argument("--expected-traces", type=int, required=True)
+    parser.add_argument("--required-rollout-concurrency", type=int)
+    parser.add_argument("--required-lease-start-concurrency", type=int)
     args = parser.parse_args(argv)
     try:
         certificate = certify_smoke(
@@ -461,6 +521,8 @@ def main(argv: list[str] | None = None) -> int:
             expected_task_file=args.expected_task_file,
             expected_task_file_sha256=args.expected_task_file_sha256,
             expected_traces=args.expected_traces,
+            required_rollout_concurrency=args.required_rollout_concurrency,
+            required_lease_start_concurrency=args.required_lease_start_concurrency,
         )
     except (OSError, ValueError) as error:
         print(f"smoke_checkpoint_error:{error}", file=sys.stderr)

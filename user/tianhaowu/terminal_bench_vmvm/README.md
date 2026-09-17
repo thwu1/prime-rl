@@ -536,8 +536,13 @@ SHA-256
 `d33ef93f9b77ee91a41600934e677ba37988d3b4509e4da05ff1fcf7b4bc3a4b`).
 Do not launch it directly after TB4. First publish the final oracle promotion
 receipt, resize the same deployment, pass a fresh readiness/state-reuse gate,
-and certify a trace-capacity smoke whose rollout, multiplex, HTTP-pool, and
-effective lease-start concurrency are each at least the production values.
+and certify a trace-capacity smoke whose configured rollout, multiplex,
+HTTP-pool, and effective lease-start concurrency are each at least the
+production values. The evaluator also publishes a mode-0400, aggregate-only
+`concurrency_telemetry.json`. Certification requires the observed overlap of
+completed trace lifecycles to reach configured rollout concurrency and the
+observed peak of vacli lease-start semaphore holders to reach configured
+lease-start concurrency; configured limits alone are not capacity evidence.
 The initial production resize is exactly two routes; submit its waiter with
 `EXPECTED_ROUTES=2`. The launch certificate requires exactly one route for the
 TB4 checkpoint and a strictly larger post-resize route set of at least two; it
@@ -551,7 +556,7 @@ tmux send-keys -t swebench_vmvm:Launcher.0 \
   "cd /checkpoint/ram/tianhaowu/terminal_bench_vmvm/sources/prime-rl-<commit> && env PROJECT_DIR=\$PWD EVAL_RUN_ROLE=smoke EVAL_DEPLOYMENT_ID=tianhaowu-k3-kda-tb1-low-20260916 EVAL_EXPECTED_MODEL=Kimi-K3 EVAL_DATASET_REVISION=ac1f30b9ac0e6c6a20a9fe423900d9ed28a6d366 EVAL_APPROVED_TASK_FILE=\$PWD/user/tianhaowu/terminal_bench_vmvm/configs/validate/mobius_repaired_tasks.txt EVAL_APPROVED_TASK_FILE_SHA256=8d7d9377a9bbe6ade2fba7cc0730647d8be82402e225f95ad864a2218647563c EVAL_CONFIG=\$PWD/user/tianhaowu/terminal_bench_vmvm/configs/eval/mobius_kimi_k3_capacity_smoke.toml INFERENCE_DEPLOYMENT_SPEC=/path/to/post-resize-spec.yaml INFERENCE_DEPLOYMENT_SPEC_SHA256=<post-resize-spec-sha256> INFERENCE_READINESS_CHECKPOINT=/path/to/post-resize-readiness.json INFERENCE_READINESS_CHECKPOINT_SHA256=<post-resize-readiness-file-sha256> INFERENCE_PROXY_INFO=/checkpoint/ram/shared/vllm_deployments_v2/tianhaowu-k3-kda-tb1-low-20260916/proxy_info.json INFERENCE_PROXY_INFO_SHA256=<post-resize-readiness-bound-proxy-info-sha256> OUTPUT_DIR=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/evals/mobius_kimi_k3_capacity_smoke_v1 VACLI_MAX_CONCURRENT_LEASES=4 sbatch --parsable \$PWD/user/tianhaowu/terminal_bench_vmvm/run_eval.sbatch" C-m
 
 tmux send-keys -t swebench_vmvm:Launcher.0 \
-  "cd /checkpoint/ram/tianhaowu/terminal_bench_vmvm/sources/prime-rl-<commit> && env PROJECT_DIR=\$PWD RESULTS_DIR=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/evals/mobius_kimi_k3_capacity_smoke_v1 SMOKE_TASK_FILE=\$PWD/user/tianhaowu/terminal_bench_vmvm/configs/validate/mobius_repaired_tasks.txt SMOKE_TASK_FILE_SHA256=8d7d9377a9bbe6ade2fba7cc0730647d8be82402e225f95ad864a2218647563c SMOKE_EXPECTED_TRACES=42 sbatch --parsable \$PWD/user/tianhaowu/terminal_bench_vmvm/run_trace_smoke_audit.sbatch" C-m
+  "cd /checkpoint/ram/tianhaowu/terminal_bench_vmvm/sources/prime-rl-<commit> && env PROJECT_DIR=\$PWD RESULTS_DIR=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/evals/mobius_kimi_k3_capacity_smoke_v1 SMOKE_TASK_FILE=\$PWD/user/tianhaowu/terminal_bench_vmvm/configs/validate/mobius_repaired_tasks.txt SMOKE_TASK_FILE_SHA256=8d7d9377a9bbe6ade2fba7cc0730647d8be82402e225f95ad864a2218647563c SMOKE_EXPECTED_TRACES=42 SMOKE_REQUIRED_ROLLOUT_CONCURRENCY=8 SMOKE_REQUIRED_LEASE_START_CONCURRENCY=4 sbatch --parsable \$PWD/user/tianhaowu/terminal_bench_vmvm/run_trace_smoke_audit.sbatch" C-m
 ```
 
 Then create one write-once launch certificate outside the Git worktree:
@@ -579,7 +584,9 @@ uv run --project user/tianhaowu/terminal_bench_vmvm \
   --output /checkpoint/ram/tianhaowu/terminal_bench_vmvm/gates/mobius_launch_<commit>.json
 ```
 
-The certificate reconstructs and rehashes every linked gate and run identity;
+The certificate reconstructs and rehashes every linked gate and run identity,
+including the capacity smoke's write-once concurrency telemetry and its measured
+peaks;
 it accepts the oracle execution commit only as an ancestor of the clean
 production commit while requiring exact Verifiers and VMVM source pins. Its
 TB4 gate is fixed at 66 total/63 CPU-supported tasks, four active rollouts, two

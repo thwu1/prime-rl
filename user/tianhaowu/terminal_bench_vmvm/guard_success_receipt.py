@@ -19,8 +19,13 @@ from deployment_proxy_policy import (
     validate_proxy_policy_binding,
 )
 from inference_route_generation import RouteGenerationError, validate_route_generation
+from vmvm_tb_v2._vacli.concurrency_telemetry import (
+    ConcurrencyTelemetryError,
+    load_concurrency_telemetry_artifact,
+)
 
-SCHEMA_VERSION = 1
+LEGACY_SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 MAX_RECEIPT_BYTES = 16 * 1024 * 1024
 MAX_INVOCATIONS_BYTES = 16 * 1024 * 1024
 SHA256_RE = re.compile(r"[0-9a-f]{64}")
@@ -201,6 +206,7 @@ def build_guard_success_receipt(
     endpoint: Any,
     serving_route_generation: Any,
     proxy_policy: Any,
+    concurrency_telemetry: Path | None = None,
 ) -> dict[str, Any]:
     """Hash final artifacts and build a self-hashed success receipt."""
 
@@ -225,7 +231,7 @@ def build_guard_success_receipt(
         DeploymentProxyPolicyError,
     ) as error:
         raise GuardReceiptError("guard_receipt_binding_invalid") from error
-    _, invocation_artifact = validate_eval_invocations(
+    invocation, invocation_artifact = validate_eval_invocations(
         eval_invocations,
         eval_run_identity_sha256=eval_run_identity_sha256,
         eval_run_role=eval_run_role,
@@ -238,19 +244,32 @@ def build_guard_success_receipt(
         "eval_invocations": invocation_artifact,
         "results": artifact_record(results, label="results"),
     }
+    if concurrency_telemetry is not None:
+        try:
+            _, telemetry_artifact = load_concurrency_telemetry_artifact(
+                concurrency_telemetry,
+                eval_run_identity_sha256=eval_run_identity_sha256,
+                eval_run_role=eval_run_role,
+                slurm_job_id=invocation["slurm_job_id"],
+            )
+        except ConcurrencyTelemetryError as error:
+            raise GuardReceiptError("concurrency_telemetry_invalid") from error
+        artifacts["concurrency_telemetry"] = telemetry_artifact
     run_dir = Path(artifacts["results"]["path"]).parent
     expected_paths = {
         "eval_run_identity": run_dir / "eval_run_identity.json",
         "eval_invocations": run_dir / "eval_invocations.jsonl",
         "results": run_dir / "results.jsonl",
     }
+    if concurrency_telemetry is not None:
+        expected_paths["concurrency_telemetry"] = run_dir / "concurrency_telemetry.json"
     if any(Path(artifacts[name]["path"]) != path for name, path in expected_paths.items()):
         raise GuardReceiptError("guard_receipt_artifact_path_mismatch")
     readiness = artifact_record(readiness_checkpoint, label="readiness_checkpoint")
     if readiness["sha256"] != readiness_checkpoint_sha256:
         raise GuardReceiptError("readiness_checkpoint_sha256_mismatch")
     body = {
-        "schema_version": SCHEMA_VERSION,
+        "schema_version": SCHEMA_VERSION if concurrency_telemetry is not None else LEGACY_SCHEMA_VERSION,
         "state": "passed",
         "evaluator_exit_code": 0,
         "completed_at": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
@@ -340,8 +359,10 @@ def load_guard_success_receipt(
         raise GuardReceiptError("guard_receipt_invalid")
     self_hash = value.get("guard_success_receipt_sha256")
     body = {key: item for key, item in value.items() if key != "guard_success_receipt_sha256"}
+    schema_version = value.get("schema_version")
     if (
-        value.get("schema_version") != SCHEMA_VERSION
+        type(schema_version) is not int
+        or schema_version not in {LEGACY_SCHEMA_VERSION, SCHEMA_VERSION}
         or value.get("state") != "passed"
         or value.get("evaluator_exit_code") != 0
         or not isinstance(self_hash, str)
@@ -385,35 +406,54 @@ def load_guard_success_receipt(
     ) as error:
         raise GuardReceiptError("guard_receipt_deployment_invalid") from error
     artifacts_value = value.get("artifacts")
-    if not isinstance(artifacts_value, dict) or set(artifacts_value) != {
+    expected_artifacts = {
         "eval_run_identity",
         "eval_invocations",
         "results",
-    }:
+    }
+    if schema_version == SCHEMA_VERSION:
+        expected_artifacts.add("concurrency_telemetry")
+    if not isinstance(artifacts_value, dict) or set(artifacts_value) != expected_artifacts:
         raise GuardReceiptError("guard_receipt_artifacts_invalid")
     artifacts = {
         name: _validate_artifact(record, label=f"guard_receipt_{name}") for name, record in artifacts_value.items()
     }
     run_dir = resolved.parent
-    if resolved.name != "route_guard_success.json" or {
-        name: Path(record["path"]) for name, record in artifacts.items()
-    } != {
+    expected_paths = {
         "eval_run_identity": run_dir / "eval_run_identity.json",
         "eval_invocations": run_dir / "eval_invocations.jsonl",
         "results": run_dir / "results.jsonl",
-    }:
+    }
+    if schema_version == SCHEMA_VERSION:
+        expected_paths["concurrency_telemetry"] = run_dir / "concurrency_telemetry.json"
+    if (
+        resolved.name != "route_guard_success.json"
+        or {name: Path(record["path"]) for name, record in artifacts.items()} != expected_paths
+    ):
         raise GuardReceiptError("guard_receipt_artifact_path_mismatch")
     for name, record in artifacts.items():
         _, digest = stable_sha256_file(Path(record["path"]), label=name)
         if digest != record["sha256"]:
             raise GuardReceiptError(f"guard_receipt_{name}_sha256_mismatch")
-    _, invocation_artifact = validate_eval_invocations(
+    invocation, invocation_artifact = validate_eval_invocations(
         Path(artifacts["eval_invocations"]["path"]),
         eval_run_identity_sha256=value["eval_run_identity_sha256"],
         eval_run_role=value["eval_run_role"],
     )
     if invocation_artifact != artifacts["eval_invocations"]:
         raise GuardReceiptError("guard_receipt_eval_invocations_sha256_mismatch")
+    if schema_version == SCHEMA_VERSION:
+        try:
+            _, telemetry_artifact = load_concurrency_telemetry_artifact(
+                Path(artifacts["concurrency_telemetry"]["path"]),
+                eval_run_identity_sha256=value["eval_run_identity_sha256"],
+                eval_run_role=value["eval_run_role"],
+                slurm_job_id=invocation["slurm_job_id"],
+            )
+        except ConcurrencyTelemetryError as error:
+            raise GuardReceiptError("guard_receipt_concurrency_telemetry_invalid") from error
+        if telemetry_artifact != artifacts["concurrency_telemetry"]:
+            raise GuardReceiptError("guard_receipt_concurrency_telemetry_sha256_mismatch")
     return {
         **body,
         "deployment": {
@@ -442,6 +482,7 @@ def validate_guard_success_linkage(
     endpoint: dict[str, Any],
     serving_route_generation: dict[str, Any],
     proxy_policy: dict[str, Any],
+    require_concurrency_telemetry: bool = False,
 ) -> dict[str, dict[str, str]]:
     """Require one receipt to describe the exact run and deployment chain."""
 
@@ -456,6 +497,7 @@ def validate_guard_success_linkage(
         not isinstance(artifacts, dict)
         or not isinstance(deployment, dict)
         or not isinstance(invocations, dict)
+        or (require_concurrency_telemetry and "concurrency_telemetry" not in artifacts)
         or receipt.get("eval_run_identity_sha256") != eval_run_identity_sha256
         or receipt.get("eval_run_role") != eval_run_role
         or artifacts.get("eval_run_identity")

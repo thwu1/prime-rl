@@ -40,6 +40,18 @@ from inference_route_generation import (
     RouteGenerationError,
     validate_readiness_route_generation,
 )
+from vmvm_tb_v2._vacli.concurrency_telemetry import (
+    EVAL_IDENTITY_ENV as TELEMETRY_EVAL_IDENTITY_ENV,
+)
+from vmvm_tb_v2._vacli.concurrency_telemetry import (
+    EVAL_ROLE_ENV as TELEMETRY_EVAL_ROLE_ENV,
+)
+from vmvm_tb_v2._vacli.concurrency_telemetry import (
+    SLURM_JOB_ID_ENV as TELEMETRY_SLURM_JOB_ID_ENV,
+)
+from vmvm_tb_v2._vacli.concurrency_telemetry import (
+    TELEMETRY_PATH_ENV,
+)
 from wait_for_inference_routes import (
     DEFAULT_SERVE_SH,
     GateConfig,
@@ -89,6 +101,8 @@ class GuardReceiptPlan:
     eval_invocations: Path
     eval_invocations_sha256: str
     results: Path
+    concurrency_telemetry: Path
+    slurm_job_id: str
 
 
 def _reject_duplicates(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
@@ -288,7 +302,7 @@ def prepare_guard_receipt(
     ):
         raise RouteGuardError("guard_receipt_binding_invalid")
     try:
-        _, invocation_artifact = validate_eval_invocations(
+        invocation, invocation_artifact = validate_eval_invocations(
             invocations_path,
             eval_run_identity_sha256=eval_run_identity_sha256,
             eval_run_role=eval_run_role,
@@ -303,6 +317,9 @@ def prepare_guard_receipt(
         raise RouteGuardError("stale_guard_receipt_remove_failed") from error
     if receipt_path.exists():
         raise RouteGuardError("stale_guard_receipt_remove_failed")
+    concurrency_telemetry = run_dir / "concurrency_telemetry.json"
+    if os.path.lexists(concurrency_telemetry):
+        raise RouteGuardError("concurrency_telemetry_already_exists")
     return GuardReceiptPlan(
         receipt=receipt_path,
         eval_run_identity=identity_path,
@@ -312,6 +329,8 @@ def prepare_guard_receipt(
         eval_invocations=invocations_path,
         eval_invocations_sha256=invocations_sha256,
         results=results_path,
+        concurrency_telemetry=concurrency_telemetry,
+        slurm_job_id=invocation["slurm_job_id"],
     )
 
 
@@ -345,10 +364,12 @@ def publish_guard_success_receipt(
             endpoint=binding.endpoint,
             serving_route_generation=binding.route_generation,
             proxy_policy=binding.proxy_policy,
+            concurrency_telemetry=plan.concurrency_telemetry,
         )
         if (
             receipt["artifacts"]["eval_run_identity"]["sha256"] != plan.eval_run_identity_file_sha256
             or receipt["artifacts"]["eval_invocations"]["sha256"] != plan.eval_invocations_sha256
+            or receipt["artifacts"].get("concurrency_telemetry", {}).get("path") != str(plan.concurrency_telemetry)
         ):
             raise RouteGuardError("guard_receipt_metadata_changed")
         write_guard_success_receipt(plan.receipt, receipt)
@@ -596,6 +617,10 @@ def main() -> None:
             results=args.results,
             receipt=args.success_receipt,
         )
+        os.environ[TELEMETRY_PATH_ENV] = str(receipt_plan.concurrency_telemetry)
+        os.environ[TELEMETRY_EVAL_IDENTITY_ENV] = receipt_plan.eval_run_identity_sha256
+        os.environ[TELEMETRY_EVAL_ROLE_ENV] = receipt_plan.eval_run_role
+        os.environ[TELEMETRY_SLURM_JOB_ID_ENV] = receipt_plan.slurm_job_id
         returncode = run_guarded(
             command,
             binding,

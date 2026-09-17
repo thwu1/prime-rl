@@ -5,6 +5,7 @@ import hashlib
 import json
 from pathlib import Path
 
+import certify_trace_smoke as smoke_module
 import pytest
 from certify_trace_smoke import SmokeCertificateError, certify_smoke
 from deployment_endpoint import load_deployment_endpoint
@@ -18,6 +19,7 @@ from guard_success_receipt import (
 from guard_success_receipt import (
     canonical_json as guard_canonical_json,
 )
+from vmvm_tb_v2._vacli.concurrency_telemetry import ConcurrencyTelemetry
 
 
 def _sha256_bytes(value: bytes) -> str:
@@ -43,7 +45,7 @@ def _json_digest(value: dict) -> str:
     return _sha256_bytes(encoded)
 
 
-def _trace(trace_id: str, task: str) -> dict:
+def _trace(trace_id: str, task: str, *, start: float, end: float) -> dict:
     request = {
         "model": "Kimi-K3",
         "reasoning_effort": "max",
@@ -81,6 +83,10 @@ def _trace(trace_id: str, task: str) -> dict:
     return {
         "id": trace_id,
         "task": {"slug": task},
+        "timing": {
+            "setup": {"start": start, "end": start + 0.25},
+            "scoring": {"start": end - 0.25, "end": end},
+        },
         "nodes": [
             {
                 "parent": None,
@@ -105,7 +111,11 @@ def _trace(trace_id: str, task: str) -> dict:
     }
 
 
-def _fixture(tmp_path: Path) -> tuple[Path, Path, str, dict]:
+def _fixture(
+    tmp_path: Path,
+    *,
+    overlapping_timings: bool = True,
+) -> tuple[Path, Path, str, dict]:
     run_dir = tmp_path / "run"
     inputs = run_dir / "inputs"
     inputs.mkdir(parents=True)
@@ -114,7 +124,19 @@ def _fixture(tmp_path: Path) -> tuple[Path, Path, str, dict]:
     task_sha256 = _sha256_bytes(task_file.read_bytes())
     results = run_dir / "results.jsonl"
     results.write_text(
-        "\n".join(json.dumps(row) for row in (_trace("trace-a", "opaque-a"), _trace("trace-b", "opaque-b"))) + "\n"
+        "\n".join(
+            json.dumps(row)
+            for row in (
+                _trace("trace-a", "opaque-a", start=1.0, end=3.0),
+                _trace(
+                    "trace-b",
+                    "opaque-b",
+                    start=2.0 if overlapping_timings else 3.0,
+                    end=4.0,
+                ),
+            )
+        )
+        + "\n"
     )
     config = run_dir / "config.toml"
     config.write_text('model = "Kimi-K3"\n')
@@ -282,6 +304,23 @@ def _fixture(tmp_path: Path) -> tuple[Path, Path, str, dict]:
         )
         + "\n"
     )
+    telemetry = ConcurrencyTelemetry(
+        run_dir / "concurrency_telemetry.json",
+        eval_run_identity_sha256=envelope["eval_run_identity_sha256"],
+        eval_run_role="smoke",
+        slurm_job_id="1",
+        register_atexit=False,
+    )
+    for _ in range(2):
+        telemetry.vmvm_runtime_started()
+        telemetry.lease_start_entered()
+    for _ in range(2):
+        telemetry.lease_tunnel_became_ready()
+        telemetry.lease_start_finished()
+        telemetry.vmvm_runtime_became_ready()
+    for _ in range(2):
+        telemetry.vmvm_runtime_stopped()
+    telemetry.publish()
     receipt = build_guard_success_receipt(
         eval_run_identity_sha256=envelope["eval_run_identity_sha256"],
         eval_run_role="smoke",
@@ -295,9 +334,32 @@ def _fixture(tmp_path: Path) -> tuple[Path, Path, str, dict]:
         endpoint=endpoint,
         serving_route_generation=serving_route_generation,
         proxy_policy=proxy_policy,
+        concurrency_telemetry=telemetry.path,
     )
     write_guard_success_receipt(run_dir / "route_guard_success.json", receipt)
     return run_dir, task_file, task_sha256, envelope
+
+
+def _refresh_guard_receipt(run_dir: Path, envelope: dict) -> None:
+    receipt_path = run_dir / "route_guard_success.json"
+    previous = json.loads(receipt_path.read_text())
+    deployment = previous["deployment"]
+    receipt = build_guard_success_receipt(
+        eval_run_identity_sha256=envelope["eval_run_identity_sha256"],
+        eval_run_role="smoke",
+        eval_run_identity=run_dir / "eval_run_identity.json",
+        eval_invocations=run_dir / "eval_invocations.jsonl",
+        results=run_dir / "results.jsonl",
+        deployment_id=deployment["id"],
+        deployment_spec_sha256=deployment["spec_sha256"],
+        readiness_checkpoint=Path(deployment["readiness_checkpoint"]["path"]),
+        readiness_checkpoint_sha256=deployment["readiness_checkpoint"]["sha256"],
+        endpoint=deployment["endpoint"],
+        serving_route_generation=deployment["serving_route_generation"],
+        proxy_policy=deployment["proxy_policy"],
+        concurrency_telemetry=run_dir / "concurrency_telemetry.json",
+    )
+    write_guard_success_receipt(receipt_path, receipt)
 
 
 def test_certifies_valid_smoke_without_task_metadata(tmp_path: Path) -> None:
@@ -316,6 +378,14 @@ def test_certifies_valid_smoke_without_task_metadata(tmp_path: Path) -> None:
     assert certificate["counts"]["traces"] == 2
     assert certificate["counts"]["trace_failures"] == 0
     assert certificate["endpoint"] == envelope["identity"]["deployment"]["endpoint"]
+    assert certificate["observed_concurrency"] == {
+        "active_rollout_signal": "completed_trace_lifecycle_timing_overlap",
+        "lease_start_signal": "vacli_lease_start_semaphore_holders",
+        "peak_active_rollouts_lower_bound": 2,
+        "peak_concurrent_lease_startups": 2,
+        "required_peak_active_rollouts_lower_bound": None,
+        "required_peak_concurrent_lease_startups": None,
+    }
     assert certificate["artifacts"]["proxy_info"] == certificate["endpoint"]["proxy_info"]
     assert certificate["audit_policy"]["model_io_contract"]["request_model"] == "Kimi-K3"
     assert "opaque-a" not in json.dumps(certificate)
@@ -337,6 +407,163 @@ def test_rejects_active_writer(tmp_path: Path) -> None:
                 expected_traces=2,
                 identity_loader=lambda *_args, **_kwargs: envelope,
             )
+
+
+def test_rejects_missing_or_below_target_concurrency_evidence(tmp_path: Path) -> None:
+    run_dir, task_file, task_sha256, envelope = _fixture(
+        tmp_path,
+        overlapping_timings=False,
+    )
+    telemetry_path = run_dir / "concurrency_telemetry.json"
+    telemetry_path.unlink()
+    with pytest.raises(SmokeCertificateError, match="^guard_success_receipt_invalid$"):
+        certify_smoke(
+            run_dir,
+            expected_task_file=task_file,
+            expected_task_file_sha256=task_sha256,
+            expected_traces=2,
+            identity_loader=lambda *_args, **_kwargs: envelope,
+        )
+
+    telemetry = ConcurrencyTelemetry(
+        telemetry_path,
+        eval_run_identity_sha256=envelope["eval_run_identity_sha256"],
+        eval_run_role="smoke",
+        slurm_job_id="1",
+        register_atexit=False,
+    )
+    for _ in range(2):
+        telemetry.vmvm_runtime_started()
+        telemetry.lease_start_entered()
+        telemetry.lease_tunnel_became_ready()
+        telemetry.lease_start_finished()
+        telemetry.vmvm_runtime_became_ready()
+        telemetry.vmvm_runtime_stopped()
+    telemetry.publish()
+    _refresh_guard_receipt(run_dir, envelope)
+    with pytest.raises(
+        SmokeCertificateError,
+        match="^observed_concurrency_below_required$",
+    ):
+        certify_smoke(
+            run_dir,
+            expected_task_file=task_file,
+            expected_task_file_sha256=task_sha256,
+            expected_traces=2,
+            required_rollout_concurrency=2,
+            required_lease_start_concurrency=2,
+            identity_loader=lambda *_args, **_kwargs: envelope,
+        )
+
+
+def test_two_task_transcript_smoke_binds_observation_without_claiming_capacity(
+    tmp_path: Path,
+) -> None:
+    run_dir, task_file, task_sha256, envelope = _fixture(
+        tmp_path,
+        overlapping_timings=False,
+    )
+    telemetry_path = run_dir / "concurrency_telemetry.json"
+    telemetry_path.unlink()
+    telemetry = ConcurrencyTelemetry(
+        telemetry_path,
+        eval_run_identity_sha256=envelope["eval_run_identity_sha256"],
+        eval_run_role="smoke",
+        slurm_job_id="1",
+        register_atexit=False,
+    )
+    for _ in range(2):
+        telemetry.vmvm_runtime_started()
+        telemetry.lease_start_entered()
+        telemetry.lease_tunnel_became_ready()
+        telemetry.lease_start_finished()
+        telemetry.vmvm_runtime_became_ready()
+        telemetry.vmvm_runtime_stopped()
+    telemetry.publish()
+    _refresh_guard_receipt(run_dir, envelope)
+
+    certificate = certify_smoke(
+        run_dir,
+        expected_task_file=task_file,
+        expected_task_file_sha256=task_sha256,
+        expected_traces=2,
+        identity_loader=lambda *_args, **_kwargs: envelope,
+    )
+
+    assert certificate["observed_concurrency"]["peak_active_rollouts_lower_bound"] == 1
+    assert certificate["observed_concurrency"]["required_peak_active_rollouts_lower_bound"] is None
+
+
+def test_auxiliary_verifier_vms_do_not_inflate_active_rollout_evidence(
+    tmp_path: Path,
+) -> None:
+    run_dir, task_file, task_sha256, envelope = _fixture(tmp_path)
+    telemetry_path = run_dir / "concurrency_telemetry.json"
+    telemetry_path.unlink()
+    telemetry = ConcurrencyTelemetry(
+        telemetry_path,
+        eval_run_identity_sha256=envelope["eval_run_identity_sha256"],
+        eval_run_role="smoke",
+        slurm_job_id="1",
+        register_atexit=False,
+    )
+    for _ in range(4):
+        telemetry.vmvm_runtime_started()
+    for _ in range(2):
+        for _ in range(2):
+            telemetry.lease_start_entered()
+        for _ in range(2):
+            telemetry.lease_tunnel_became_ready()
+            telemetry.lease_start_finished()
+            telemetry.vmvm_runtime_became_ready()
+    for _ in range(4):
+        telemetry.vmvm_runtime_stopped()
+    telemetry.publish()
+    _refresh_guard_receipt(run_dir, envelope)
+
+    certificate = certify_smoke(
+        run_dir,
+        expected_task_file=task_file,
+        expected_task_file_sha256=task_sha256,
+        expected_traces=2,
+        required_rollout_concurrency=2,
+        required_lease_start_concurrency=2,
+        identity_loader=lambda *_args, **_kwargs: envelope,
+    )
+
+    assert certificate["observed_concurrency"]["peak_active_rollouts_lower_bound"] == 2
+
+
+def test_rejects_telemetry_replacement_after_stable_load(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    run_dir, task_file, task_sha256, envelope = _fixture(tmp_path)
+    original_loader = smoke_module.load_concurrency_telemetry_artifact
+
+    def load_then_replace(*args: object, **kwargs: object) -> tuple[dict, dict[str, str]]:
+        telemetry, artifact = original_loader(*args, **kwargs)
+        telemetry_path = run_dir / "concurrency_telemetry.json"
+        telemetry_path.unlink()
+        telemetry_path.write_bytes(b"replaced\n")
+        return telemetry, artifact
+
+    monkeypatch.setattr(
+        smoke_module,
+        "load_concurrency_telemetry_artifact",
+        load_then_replace,
+    )
+    with pytest.raises(
+        SmokeCertificateError,
+        match="^artifact_hash_mismatch:concurrency_telemetry$",
+    ):
+        certify_smoke(
+            run_dir,
+            expected_task_file=task_file,
+            expected_task_file_sha256=task_sha256,
+            expected_traces=2,
+            identity_loader=lambda *_args, **_kwargs: envelope,
+        )
 
 
 def test_rejects_missing_or_stale_guard_success_receipt(tmp_path: Path) -> None:

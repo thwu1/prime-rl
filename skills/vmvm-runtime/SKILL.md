@@ -264,6 +264,18 @@ four active rollouts and two simultaneous lease starts. Normalize effective
 lease-start concurrency as the smaller of `VACLI_MAX_CONCURRENT_LEASES` and the
 configured rollout concurrency, and bind that value in both the eval identity
 and the downstream certificate.
+Configured limits do not prove achieved capacity. Guarded VMVM evaluators must
+publish the aggregate-only, mode-0400 `concurrency_telemetry.json` at clean
+interpreter exit. It measures the peak count of holders of the vacli lease-start
+semaphore. Independently, the capacity audit measures overlap from each
+completed trace's setup start through scoring end, a conservative lower bound
+on active rollouts. The capacity-smoke certificate must bind and rehash both
+sources, require both measured peaks to reach their configured limits, and the
+Mobius launch certificate must reconstruct the same evidence before it can
+authorize production. Set `SMOKE_REQUIRED_ROLLOUT_CONCURRENCY` and
+`SMOKE_REQUIRED_LEASE_START_CONCURRENCY` on the capacity-smoke audit. Leave both
+unset for the two-task transcript smoke: it binds the observed telemetry but is
+not itself a capacity qualification.
 The launch certificate must prove that TB4 used exactly one route, the
 post-resize deployment-spec digest differs from the TB4 digest, and the
 post-resize spec/readiness route count is strictly larger and at least two.
