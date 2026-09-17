@@ -24,7 +24,10 @@ for forbidden in \
     INFERENCE_DEPLOYMENT_ID \
     INFERENCE_JOB_ID \
     INFERENCE_PROXY_INFO \
-    INFERENCE_PROXY_URL; do
+    INFERENCE_PROXY_URL \
+    DIRECT_QWEN_MANIFEST_SHA256 \
+    DIRECT_QWEN_ROUTER_POLICY \
+    DIRECT_QWEN_REQUEST_ID_HEADERS; do
     if [[ -n ${!forbidden:-} ]]; then
         printf '%s is forbidden for the direct-worker launcher\n' "$forbidden" >&2
         exit 2
@@ -141,7 +144,7 @@ fi
 
 mapfile -t worker_urls < "$urls_file"
 mapfile -t ports < "$ports_file"
-if [[ ${#worker_urls[@]} -ne 16 || ${#ports[@]} -ne 5 ]]; then
+if [[ ${#worker_urls[@]} -ne 16 || ${#ports[@]} -ne 7 ]]; then
     printf 'Direct-worker runtime files are incomplete\n' >&2
     exit 2
 fi
@@ -150,18 +153,28 @@ metrics_port=${ports[1]}
 router_max_concurrent=${ports[2]}
 router_queue_size=${ports[3]}
 router_queue_timeout=${ports[4]}
+router_policy=${ports[5]}
+router_request_id_header=${ports[6]}
 if [[ ! "$router_max_concurrent" =~ ^[1-9][0-9]*$ ]] \
     || (( router_max_concurrent > 16 )) \
     || [[ ! "$router_queue_size" =~ ^[0-9]+$ ]] \
     || (( router_queue_size >= 64 )) \
-    || [[ ! "$router_queue_timeout" =~ ^[1-9][0-9]*$ ]]; then
+    || [[ ! "$router_queue_timeout" =~ ^[1-9][0-9]*$ ]] \
+    || [[ "$router_policy" != consistent_hash ]] \
+    || [[ "$router_request_id_header" != x-session-id ]]; then
     printf 'Direct Qwen router concurrency is invalid\n' >&2
+    exit 2
+fi
+manifest_sha256=$(sha256sum -- "$manifest" | cut -d' ' -f1)
+if [[ ! "$manifest_sha256" =~ ^[0-9a-f]{64}$ ]]; then
+    printf 'Direct Qwen router manifest digest is invalid\n' >&2
     exit 2
 fi
 
 router_args=(
     -c 'from vllm_router.launch_router import main; main()'
-    --policy round_robin
+    --policy "$router_policy"
+    --request-id-headers "$router_request_id_header"
     --host 127.0.0.1
     --port "$router_port"
     --prometheus-host 127.0.0.1
@@ -214,6 +227,9 @@ export OUTPUT_DIR="$output_dir"
 export INFERENCE_BASE_URL="$router_url/v1"
 export OPENAI_API_KEY=EMPTY
 export VACLI_MAX_CONCURRENT_LEASES=2
+export DIRECT_QWEN_MANIFEST_SHA256="$manifest_sha256"
+export DIRECT_QWEN_ROUTER_POLICY="$router_policy"
+export DIRECT_QWEN_REQUEST_ID_HEADERS="$router_request_id_header"
 if [[ -n "$resume_dir" ]]; then
     export RESUME_DIR="$resume_dir"
 else

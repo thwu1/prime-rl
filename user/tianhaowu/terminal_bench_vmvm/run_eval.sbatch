@@ -35,6 +35,9 @@ inference_deployment_id=${INFERENCE_DEPLOYMENT_ID:-}
 inference_proxy_info=${INFERENCE_PROXY_INFO:-}
 eval_model=${EVAL_MODEL:-}
 inference_proxy_url=${INFERENCE_PROXY_URL:-}
+direct_qwen_manifest_sha256=${DIRECT_QWEN_MANIFEST_SHA256:-}
+direct_qwen_router_policy=${DIRECT_QWEN_ROUTER_POLICY:-}
+direct_qwen_request_id_headers=${DIRECT_QWEN_REQUEST_ID_HEADERS:-}
 
 if [[ "$(uname -m)" != x86_64 || ! -d "$x86_site/pydantic" ]]; then
     printf 'Missing x86_64 Python runtime/dependencies\n' >&2
@@ -99,6 +102,19 @@ elif [[ -n "$direct_approved_task_file" ]]; then
 else
     printf 'An external approved task file and lowercase SHA-256 are required\n' >&2
     exit 2
+fi
+
+direct_qwen_router_metadata=0
+if [[ -n "$direct_qwen_manifest_sha256" \
+    || -n "$direct_qwen_router_policy" \
+    || -n "$direct_qwen_request_id_headers" ]]; then
+    if [[ ! "$direct_qwen_manifest_sha256" =~ ^[0-9a-f]{64}$ \
+        || "$direct_qwen_router_policy" != consistent_hash \
+        || "$direct_qwen_request_id_headers" != x-session-id ]]; then
+        printf 'Direct Qwen router provenance is incomplete or invalid\n' >&2
+        exit 2
+    fi
+    direct_qwen_router_metadata=1
 fi
 
 if [[ -n "$inference_proxy_info" ]]; then
@@ -192,6 +208,11 @@ if [[ -n "$resume_dir" ]]; then
         printf 'resume_renderers=%s\n' "$(git -C deps/renderers rev-parse HEAD)"
         printf 'resume_approval_task_file_sha256=%s\n' "$validated_approval_sha256"
         printf 'resume_approval_task_count=%s\n' "$validated_approval_count"
+        if [[ "$direct_qwen_router_metadata" -eq 1 ]]; then
+            printf 'resume_direct_qwen_manifest_sha256=%s\n' "$direct_qwen_manifest_sha256"
+            printf 'resume_direct_qwen_router_policy=%s\n' "$direct_qwen_router_policy"
+            printf 'resume_direct_qwen_request_id_headers=%s\n' "$direct_qwen_request_id_headers"
+        fi
     } >> "$output_dir/provenance.txt"
 else
     {
@@ -203,6 +224,11 @@ else
         printf 'slurm_job_id=%s\n' "$SLURM_JOB_ID"
         printf 'approval_task_file_sha256=%s\n' "$validated_approval_sha256"
         printf 'approval_task_count=%s\n' "$validated_approval_count"
+        if [[ "$direct_qwen_router_metadata" -eq 1 ]]; then
+            printf 'direct_qwen_manifest_sha256=%s\n' "$direct_qwen_manifest_sha256"
+            printf 'direct_qwen_router_policy=%s\n' "$direct_qwen_router_policy"
+            printf 'direct_qwen_request_id_headers=%s\n' "$direct_qwen_request_id_headers"
+        fi
     } > "$output_dir/provenance.txt"
 fi
 

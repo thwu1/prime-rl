@@ -249,6 +249,9 @@ def test_prepare_snapshots_only_non_secret_worker_metadata(tmp_path: Path, monke
 
     assert manifest["spec_sha256"] == spec_sha256
     assert manifest["endpoint_bundle_sha256"] == bundle_sha256
+    assert manifest["schema_version"] == direct.ROUTER_MANIFEST_SCHEMA_VERSION
+    assert manifest["router"]["policy"] == direct.ROUTER_POLICY
+    assert manifest["router"]["request_id_headers"] == list(direct.ROUTER_REQUEST_ID_HEADERS)
     assert len(urls.read_text().splitlines()) == 2
     assert ports.read_text().splitlines() == [
         str(manifest["router"]["port"]),
@@ -256,6 +259,8 @@ def test_prepare_snapshots_only_non_secret_worker_metadata(tmp_path: Path, monke
         "2",
         "0",
         "7200",
+        "consistent_hash",
+        "x-session-id",
     ]
     serialized = manifest_path.read_text().casefold()
     assert "api_key" not in serialized
@@ -291,6 +296,169 @@ def test_validate_saved_manifest_rejects_router_retry(tmp_path: Path, monkeypatc
         direct.validate_saved_manifest(path)
 
 
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("policy", "round_robin"),
+        ("request_id_headers", []),
+        ("request_id_headers", ["x-request-id"]),
+        ("request_id_headers", ["x-session-id", "x-request-id"]),
+    ],
+)
+def test_validate_saved_manifest_rejects_affinity_drift(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    field: str,
+    value: object,
+) -> None:
+    _, _, _, workers = _write_deployment(tmp_path)
+    manifest = direct._manifest(
+        tmp_path,
+        workers,
+        direct.EXPECTED_SPEC_SHA256,
+        direct.EXPECTED_ENDPOINT_BUNDLE_SHA256,
+        "a" * 64,
+        20_001,
+        40_001,
+    )
+    monkeypatch.setattr(direct, "EXPECTED_ENDPOINTS", len(workers))
+    monkeypatch.setattr(
+        direct,
+        "EXPECTED_ENDPOINT_BUNDLE_SHA256",
+        direct.endpoint_bundle_sha256(
+            [tmp_path / "deployment" / "endpoints" / worker.metadata_file for worker in workers]
+        ),
+    )
+    manifest["endpoint_bundle_sha256"] = direct.EXPECTED_ENDPOINT_BUNDLE_SHA256
+    manifest["router"][field] = value
+    path = tmp_path / "manifest.json"
+    path.write_text(json.dumps(manifest) + "\n")
+
+    with pytest.raises(direct.DirectWorkerError, match="router_invalid"):
+        direct.validate_saved_manifest(path)
+
+
+def test_resume_accepts_only_the_saved_affinity_manifest(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    deployment_root, spec_sha256, bundle_sha256, workers = _write_deployment(tmp_path)
+    monkeypatch.setattr(direct, "EXPECTED_SPEC_SHA256", spec_sha256)
+    monkeypatch.setattr(direct, "EXPECTED_ENDPOINT_BUNDLE_SHA256", bundle_sha256)
+    monkeypatch.setattr(direct, "EXPECTED_ENDPOINTS", len(workers))
+    monkeypatch.setattr(
+        direct,
+        "load_workers",
+        lambda _root: (workers, spec_sha256, bundle_sha256),
+    )
+    monkeypatch.setattr(direct, "probe_workers", lambda *_args, **_kwargs: None)
+    config = _approved_config(tmp_path)
+    approved_task_file = tmp_path / "approved_tasks.txt"
+    approved_task_sha256 = hashlib.sha256(approved_task_file.read_bytes()).hexdigest()
+    run_dir = tmp_path / "run"
+    manifest_path = run_dir / "direct_workers.json"
+
+    fresh = direct.prepare(
+        deployment_root,
+        config,
+        manifest_path,
+        tmp_path / "fresh-urls.txt",
+        tmp_path / "fresh-runtime.txt",
+        approved_task_file,
+        approved_task_sha256,
+        resume=False,
+        probe_timeout=1,
+    )
+    config.write_text(
+        config.read_text().replace(
+            "http://127.0.0.1:8000/v1",
+            f"http://127.0.0.1:{fresh['router']['port']}/v1",
+        )
+    )
+    saved_bytes = manifest_path.read_bytes()
+    manifest_sha256 = hashlib.sha256(saved_bytes).hexdigest()
+    (run_dir / "provenance.txt").write_text(
+        f"direct_qwen_manifest_sha256={manifest_sha256}\n"
+        "direct_qwen_router_policy=consistent_hash\n"
+        "direct_qwen_request_id_headers=x-session-id\n"
+    )
+
+    resumed = direct.prepare(
+        deployment_root,
+        config,
+        manifest_path,
+        tmp_path / "resume-urls.txt",
+        tmp_path / "resume-runtime.txt",
+        approved_task_file,
+        approved_task_sha256,
+        resume=True,
+        probe_timeout=1,
+    )
+
+    assert resumed == fresh
+    assert manifest_path.read_bytes() == saved_bytes
+    assert resumed["router"]["policy"] == "consistent_hash"
+    assert resumed["router"]["request_id_headers"] == ["x-session-id"]
+
+
+def test_resume_rejects_legacy_round_robin_manifest_without_rewriting_it(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    deployment_root, spec_sha256, bundle_sha256, workers = _write_deployment(tmp_path)
+    monkeypatch.setattr(direct, "EXPECTED_SPEC_SHA256", spec_sha256)
+    monkeypatch.setattr(direct, "EXPECTED_ENDPOINT_BUNDLE_SHA256", bundle_sha256)
+    monkeypatch.setattr(direct, "EXPECTED_ENDPOINTS", len(workers))
+    monkeypatch.setattr(
+        direct,
+        "load_workers",
+        lambda _root: (workers, spec_sha256, bundle_sha256),
+    )
+    monkeypatch.setattr(direct, "probe_workers", lambda *_args, **_kwargs: None)
+    config = _approved_config(tmp_path)
+    approved_task_file = tmp_path / "approved_tasks.txt"
+    approved_task_sha256 = hashlib.sha256(approved_task_file.read_bytes()).hexdigest()
+    manifest_path = tmp_path / "run" / "direct_workers.json"
+    fresh = direct.prepare(
+        deployment_root,
+        config,
+        manifest_path,
+        tmp_path / "fresh-urls.txt",
+        tmp_path / "fresh-runtime.txt",
+        approved_task_file,
+        approved_task_sha256,
+        resume=False,
+        probe_timeout=1,
+    )
+    config.write_text(
+        config.read_text().replace(
+            "http://127.0.0.1:8000/v1",
+            f"http://127.0.0.1:{fresh['router']['port']}/v1",
+        )
+    )
+    legacy = json.loads(manifest_path.read_text())
+    legacy["schema_version"] = 1
+    legacy["router"]["policy"] = "round_robin"
+    legacy["router"].pop("request_id_headers")
+    manifest_path.write_text(json.dumps(legacy, sort_keys=True) + "\n")
+    legacy_bytes = manifest_path.read_bytes()
+
+    with pytest.raises(direct.DirectWorkerError, match="manifest_schema_mismatch"):
+        direct.prepare(
+            deployment_root,
+            config,
+            manifest_path,
+            tmp_path / "resume-urls.txt",
+            tmp_path / "resume-runtime.txt",
+            approved_task_file,
+            approved_task_sha256,
+            resume=True,
+            probe_timeout=1,
+        )
+
+    assert manifest_path.read_bytes() == legacy_bytes
+
+
 def test_audit_run_directory_validates_provenance_without_results(tmp_path: Path, monkeypatch) -> None:
     _, spec_sha256, bundle_sha256, workers = _write_deployment(tmp_path)
     monkeypatch.setattr(direct, "EXPECTED_SPEC_SHA256", spec_sha256)
@@ -312,7 +480,9 @@ def test_audit_run_directory_validates_provenance_without_results(tmp_path: Path
         40_001,
         2,
     )
-    (run_dir / "direct_workers.json").write_text(json.dumps(manifest) + "\n")
+    manifest_path = run_dir / "direct_workers.json"
+    manifest_path.write_text(json.dumps(manifest) + "\n")
+    manifest_sha256 = hashlib.sha256(manifest_path.read_bytes()).hexdigest()
 
     source = _approved_config(tmp_path)
     source_config = inputs / "source_config.toml"
@@ -348,12 +518,45 @@ def test_audit_run_directory_validates_provenance_without_results(tmp_path: Path
         "inference_base_url=http://127.0.0.1:20001/v1\n"
         "inference_deployment_id=\n"
         "slurm_job_id=123\n"
+        f"direct_qwen_manifest_sha256={manifest_sha256}\n"
+        "direct_qwen_router_policy=consistent_hash\n"
+        "direct_qwen_request_id_headers=x-session-id\n"
     )
 
     summary = direct.audit_run_directory(run_dir)
 
     assert summary["ok"] is True
     assert summary["endpoints"] == 2
+    assert summary["manifest_sha256"] == manifest_sha256
+    assert summary["router_policy"] == "consistent_hash"
+    assert summary["request_id_headers"] == ["x-session-id"]
+
+    provenance_path = run_dir / "provenance.txt"
+    fresh_provenance = provenance_path.read_text()
+    provenance_path.write_text(
+        fresh_provenance.replace(
+            "direct_qwen_router_policy=consistent_hash",
+            "direct_qwen_router_policy=round_robin",
+        )
+    )
+    with pytest.raises(direct.DirectWorkerError, match="provenance_router_mismatch"):
+        direct.audit_run_directory(run_dir)
+
+    provenance_path.write_text(fresh_provenance + "resume_slurm_job_id=124\n")
+    with pytest.raises(
+        direct.DirectWorkerError,
+        match="resume_provenance_router_mismatch",
+    ):
+        direct.audit_run_directory(run_dir)
+
+    provenance_path.write_text(
+        fresh_provenance
+        + "resume_slurm_job_id=124\n"
+        + f"resume_direct_qwen_manifest_sha256={manifest_sha256}\n"
+        + "resume_direct_qwen_router_policy=consistent_hash\n"
+        + "resume_direct_qwen_request_id_headers=x-session-id\n"
+    )
+    assert direct.audit_run_directory(run_dir)["ok"] is True
 
 
 def test_audit_run_directory_rejects_credential_provenance(tmp_path: Path, monkeypatch) -> None:
