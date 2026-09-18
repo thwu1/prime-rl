@@ -86,8 +86,12 @@ Add new rows below this line; do not overwrite another owner's row.
   submit the shard wave only through that corrected launcher. If compatibility
   is not exact, fail closed and rerun the smoke. Reviewed PR `#42` changes
   evaluator internals and is future-only for this active chain; do not mix it
-  into the corrected launcher source. Zero of 66 shards remain launched, and
-  this use2-1 lane made no scheduler mutation.
+  into the corrected launcher source. Likewise, later commit `c48ad2015`
+  changes `terminal_bench_vmvm/taskset.py`, which is inside the evaluator-source
+  digest, so a descendant containing it cannot reuse the 705 smoke. Use an
+  exact clean `ce0b47014`/`398f66d99`-lineage launcher freeze that excludes
+  both changes, or rerun the smoke. Zero of 66 shards remain launched, and this
+  use2-1 lane made no scheduler mutation.
 
 - **2026-09-18 06:44 UTC, minimal Kimi contract follow-up published:** draft
   PR `thwu1/prime-rl#42` at independently approved head `d9a006176` is clean
