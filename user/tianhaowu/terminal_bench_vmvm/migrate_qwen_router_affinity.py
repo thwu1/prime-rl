@@ -181,6 +181,18 @@ def _atomic_write(
         if exclusive:
             try:
                 _rename_noreplace(temporary, path)
+            except OSError as error:
+                if error.errno not in {errno.EINVAL, errno.ENOSYS, errno.EOPNOTSUPP, errno.EXDEV}:
+                    raise
+                try:
+                    os.link(temporary, path, follow_symlinks=False)
+                except FileExistsError as link_error:
+                    raise MigrationError("epoch_index_output_exists") from link_error
+                # The link is the commit point.  Never roll it back if removing
+                # the known temporary hard link fails; staging owners validate
+                # exact entries and clean their private tree before publication.
+                with contextlib.suppress(OSError):
+                    temporary.unlink()
             except MigrationError as error:
                 if str(error) != "destination_exists":
                     raise
