@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import errno
 import fcntl
 import hashlib
 import json
@@ -189,6 +190,33 @@ def _materialize(tmp_path: Path):
         selection_loader=lambda _path, _contract: binding,
     )
     return inputs, contract_path, target, binding, summary
+
+
+def _patch_launch_dependencies(
+    monkeypatch: pytest.MonkeyPatch,
+    contract: dict[str, Any],
+    target: list[direct.Worker],
+    binding: generation.SelectionBinding,
+) -> None:
+    monkeypatch.setattr(generation, "_load_contract", lambda _path=generation.CONTRACT_PATH: contract)
+    monkeypatch.setattr(generation, "_code_state", _code)
+    monkeypatch.setattr(
+        generation.direct,
+        "validate_saved_manifest",
+        lambda path: json.loads(path.read_bytes()),
+    )
+    monkeypatch.setattr(generation, "_load_selection", lambda _path, _contract: binding)
+    monkeypatch.setattr(generation.migration, "slurm_job_is_terminal", lambda _job: True)
+    monkeypatch.setattr(
+        generation.direct,
+        "load_workers",
+        lambda _root, **expected: (
+            target,
+            expected["expected_spec_sha256"],
+            expected["expected_bundle_sha256"],
+        ),
+    )
+    monkeypatch.setattr(generation.direct, "probe_workers", lambda _workers: None)
 
 
 def test_materialize_attests_exact_transition_without_row_or_task_content(tmp_path: Path) -> None:
@@ -390,6 +418,141 @@ def test_publication_failure_rolls_back(tmp_path: Path, monkeypatch: pytest.Monk
             selection_loader=lambda _path, _contract: binding,
         )
     assert not inputs.output_dir.exists()
+
+
+def test_prepare_launch_uses_validated_directory_fallback(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    inputs, contract_path, target, binding, summary = _materialize(tmp_path)
+    contract = json.loads(contract_path.read_bytes())
+    _patch_launch_dependencies(monkeypatch, contract, target, binding)
+    monkeypatch.setattr(
+        generation.migration,
+        "_rename_noreplace",
+        lambda _source, _destination: (_ for _ in ()).throw(OSError(errno.EINVAL, "unsupported")),
+    )
+    run = inputs.repair_run_dir
+    run.mkdir()
+    router_lock = run / ".direct_router.lock"
+    router_lock.touch()
+    router_fd = os.open(router_lock, os.O_RDWR | os.O_CLOEXEC)
+    urls = tmp_path / "urls"
+    ports = tmp_path / "ports"
+    try:
+        fcntl.flock(router_fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        prepared = generation.prepare_launch(
+            inputs.output_dir,
+            run,
+            urls,
+            ports,
+            lock_fd=router_fd,
+            resume=False,
+            contract_path=contract_path,
+        )
+    finally:
+        os.close(router_fd)
+
+    assert prepared == {
+        "ok": True,
+        "resume": False,
+        "target_workers": 24,
+        "transition_sha256": summary["transition_sha256"],
+    }
+    run_bundle = run / generation.RUN_BUNDLE_DIRECTORY
+    assert (run / direct.MIGRATION_INCOMPLETE_FILENAME).is_file()
+    assert not (run_bundle / direct.MIGRATION_INCOMPLETE_FILENAME).exists()
+    assert (run_bundle / generation.TRANSITION_FILENAME).read_bytes() == (
+        inputs.output_dir / generation.TRANSITION_FILENAME
+    ).read_bytes()
+    assert (run / "direct_workers.json").is_file()
+    assert not any(path.name.startswith(f".{generation.RUN_BUNDLE_DIRECTORY}.") for path in run.iterdir())
+
+
+def test_prepare_launch_fallback_preserves_racing_destination(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    inputs, contract_path, target, binding, _summary_value = _materialize(tmp_path)
+    contract = json.loads(contract_path.read_bytes())
+    _patch_launch_dependencies(monkeypatch, contract, target, binding)
+    run = inputs.repair_run_dir
+    run.mkdir()
+    router_lock = run / ".direct_router.lock"
+    router_lock.touch()
+    router_fd = os.open(router_lock, os.O_RDWR | os.O_CLOEXEC)
+    run_bundle = run / generation.RUN_BUNDLE_DIRECTORY
+    original_rename = generation.migration._rename_noreplace
+
+    def collide(source: Path, destination: Path) -> None:
+        if source.is_dir() and destination == run_bundle:
+            destination.mkdir()
+            (destination / "sentinel").write_text("keep\n")
+            raise OSError(errno.EINVAL, "unsupported")
+        original_rename(source, destination)
+
+    monkeypatch.setattr(generation.migration, "_rename_noreplace", collide)
+    try:
+        fcntl.flock(router_fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        with pytest.raises(generation.migration.MigrationError, match="^destination_exists$"):
+            generation.prepare_launch(
+                inputs.output_dir,
+                run,
+                tmp_path / "urls",
+                tmp_path / "ports",
+                lock_fd=router_fd,
+                resume=False,
+                contract_path=contract_path,
+            )
+    finally:
+        os.close(router_fd)
+
+    assert (run_bundle / "sentinel").read_text() == "keep\n"
+    assert not (run / direct.MIGRATION_INCOMPLETE_FILENAME).exists()
+    assert not (run / "direct_workers.json").exists()
+    assert not any(path.name.startswith(f".{generation.RUN_BUNDLE_DIRECTORY}.") for path in run.iterdir())
+
+
+def test_prepare_launch_cleans_only_owned_fallback_artifacts_on_late_failure(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    inputs, contract_path, target, binding, _summary_value = _materialize(tmp_path)
+    contract = json.loads(contract_path.read_bytes())
+    _patch_launch_dependencies(monkeypatch, contract, target, binding)
+    monkeypatch.setattr(
+        generation.migration,
+        "_rename_noreplace",
+        lambda _source, _destination: (_ for _ in ()).throw(OSError(errno.EOPNOTSUPP, "unsupported")),
+    )
+    monkeypatch.setattr(
+        generation,
+        "_copy",
+        lambda _source, _destination: (_ for _ in ()).throw(
+            generation.GenerationMigrationError("injected_manifest_failure")
+        ),
+    )
+    run = inputs.repair_run_dir
+    run.mkdir()
+    router_lock = run / ".direct_router.lock"
+    router_lock.touch()
+    router_fd = os.open(router_lock, os.O_RDWR | os.O_CLOEXEC)
+    try:
+        fcntl.flock(router_fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        with pytest.raises(generation.GenerationMigrationError, match="^injected_manifest_failure$"):
+            generation.prepare_launch(
+                inputs.output_dir,
+                run,
+                tmp_path / "urls",
+                tmp_path / "ports",
+                lock_fd=router_fd,
+                resume=False,
+                contract_path=contract_path,
+            )
+    finally:
+        os.close(router_fd)
+
+    assert {path.name for path in run.iterdir()} == {".direct_router.lock"}
 
 
 def test_launch_commit_and_resume_are_bound_to_transition(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

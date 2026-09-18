@@ -1249,18 +1249,49 @@ def prepare_launch(
         if {entry.name for entry in run.iterdir()} != {".direct_router.lock"}:
             raise GenerationMigrationError("repair_run_not_empty")
         migration._atomic_write(marker, f"qwen-serving-generation-v1\n{transition_sha}\n".encode(), exclusive=True)
+        staging = run / f".{RUN_BUNDLE_DIRECTORY}.{os.getpid()}.tmp"
+        staging_created = False
+        run_bundle_published = False
+        direct_manifest_published = False
         try:
-            staging = run / f".{RUN_BUNDLE_DIRECTORY}.{os.getpid()}.tmp"
             staging.mkdir(mode=0o700)
+            staging_created = True
             migration._clone_tree(bundle, staging)
-            migration._rename_noreplace(staging, run_bundle)
+
+            def validate_run_bundle(path: Path, incomplete: bool) -> None:
+                with migration._source_locks(inputs.source_dir):
+                    _validate_bundle(
+                        path,
+                        BundleInputs(
+                            inputs.source_dir,
+                            inputs.selection_dir,
+                            inputs.deployment_root,
+                            run,
+                            path,
+                        ),
+                        contract,
+                        contract_path=contract_path,
+                        allow_incomplete=incomplete,
+                    )
+
+            migration._publish_directory(staging, run_bundle, validate_run_bundle)
+            run_bundle_published = True
+            if staging.exists():
+                shutil.rmtree(staging)
+            staging_created = False
             _copy(bundle / TARGET_MANIFEST_FILENAME, run / "direct_workers.json")
+            direct_manifest_published = True
             migration._fsync_directory(run)
         except BaseException:
-            with contextlib.suppress(OSError):
-                shutil.rmtree(run_bundle)
-            with contextlib.suppress(OSError):
-                (run / "direct_workers.json").unlink()
+            if staging_created:
+                with contextlib.suppress(OSError):
+                    shutil.rmtree(staging)
+            if run_bundle_published:
+                with contextlib.suppress(OSError):
+                    shutil.rmtree(run_bundle)
+            if direct_manifest_published:
+                with contextlib.suppress(OSError):
+                    (run / "direct_workers.json").unlink()
             with contextlib.suppress(OSError):
                 marker.unlink()
             raise
