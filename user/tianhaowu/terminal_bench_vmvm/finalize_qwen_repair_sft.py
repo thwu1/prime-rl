@@ -25,6 +25,7 @@ from pathlib import Path
 from typing import Any
 
 import direct_qwen_workers as direct
+import export_sft as exporter
 import finalize_qwen_sft as common
 import migrate_qwen_router_affinity as migration
 
@@ -799,13 +800,14 @@ def _validate_export_summary(
         or not all(_is_plain_int(value) and value >= 0 for value in rows.values())
         or rows["total"] != rows["train"] + rows["validation"]
         or not isinstance(output_hashes, dict)
-        or set(output_hashes) != {"manifest", "train", "validation"}
+        or set(output_hashes) != {"manifest", "target_rendering_contract", "train", "validation"}
         or any(not _valid_sha256(value) for value in output_hashes.values())
     ):
         raise RepairFinalizationError("sft_export_summary_invalid")
     expected_files = {
         "manifest.json": output_hashes["manifest"],
         "task-split.json": None,
+        exporter.TARGET_RENDERING_CONTRACT_FILENAME: output_hashes["target_rendering_contract"],
         "train/train.jsonl": output_hashes["train"],
         "validation/train.jsonl": output_hashes["validation"],
     }
@@ -824,9 +826,10 @@ def _validate_export_summary(
     artifacts = manifest.get("artifacts")
     config = manifest.get("config")
     counts = manifest.get("counts")
-    exporter = manifest.get("exporter")
+    exporter_contract = manifest.get("exporter")
     format_contract = manifest.get("format")
     split = manifest.get("split")
+    target_rendering = manifest.get("target_rendering")
     allowed_count_keys = {
         "approved_tasks",
         "input_traces",
@@ -844,13 +847,12 @@ def _validate_export_summary(
         "validation_rows",
     }
     expected_format = {
+        "assistant_finish_reason": "retained verbatim for every sampled assistant message",
         "assistant_tool_calls": "OpenAI function-call objects",
-        "history_assistant_reasoning": "removed",
+        "history_assistant_reasoning": "retained verbatim",
         "loss_mask": "message.trainable; exactly one final assistant message is true",
         "sample_unit": "one unique sampled assistant node with its root-to-node context",
-        "target": (
-            "authentic reasoning_content, content, and tool_calls; the selected renderer supplies its stop token"
-        ),
+        "target": "authentic reasoning_content, content, tool_calls, and finish_reason",
         "task_identity": "sha256(taskset id + NUL + dataset revision + NUL + approved opaque task slug)",
     }
     if (
@@ -865,12 +867,19 @@ def _validate_export_summary(
             "selection",
             "source_artifacts",
             "split",
+            "target_rendering",
         }
         or manifest.get("selection") != "pass-only"
         or not _is_plain_int(manifest.get("max_sequence_tokens"))
         or manifest.get("max_sequence_tokens") != MAX_SEQUENCE_TOKENS
         or not isinstance(artifacts, dict)
-        or set(artifacts) != {"task-split.json", "train/train.jsonl", "validation/train.jsonl"}
+        or set(artifacts)
+        != {
+            "task-split.json",
+            exporter.TARGET_RENDERING_CONTRACT_FILENAME,
+            "train/train.jsonl",
+            "validation/train.jsonl",
+        }
         or not isinstance(config, dict)
         or set(config)
         != {
@@ -893,12 +902,13 @@ def _validate_export_summary(
         }.issubset(counts)
         or not set(counts).issubset(allowed_count_keys)
         or not all(_is_plain_int(value) and value >= 0 for value in counts.values())
-        or not isinstance(exporter, dict)
-        or set(exporter) != {"file_sha256", "format_version"}
-        or not _is_plain_int(exporter.get("format_version"))
-        or exporter.get("format_version") != 2
-        or exporter.get("file_sha256") != expected_exporter_sha256
+        or not isinstance(exporter_contract, dict)
+        or set(exporter_contract) != {"file_sha256", "format_version"}
+        or not _is_plain_int(exporter_contract.get("format_version"))
+        or exporter_contract.get("format_version") != exporter.FORMAT_VERSION
+        or exporter_contract.get("file_sha256") != expected_exporter_sha256
         or format_contract != expected_format
+        or target_rendering != exporter.TARGET_RENDERING_CONTRACT
         or config.get("capture_model_io") is not True
         or config.get("model") != direct.EXPECTED_MODEL
         or config.get("taskset_id") != corpus["taskset_id"]
@@ -916,6 +926,9 @@ def _validate_export_summary(
         or split.get("validation_permyriad") != validation_permyriad
         or split.get("policy") != "sha256(split_salt + NUL + stable task identity SHA-256) modulo 10000"
         or artifacts.get("task-split.json") != observed["task-split.json"]
+        or artifacts.get(exporter.TARGET_RENDERING_CONTRACT_FILENAME)
+        != observed[exporter.TARGET_RENDERING_CONTRACT_FILENAME]
+        or observed[exporter.TARGET_RENDERING_CONTRACT_FILENAME]["sha256"] != exporter.TARGET_RENDERING_CONTRACT_SHA256
         or artifacts.get("train/train.jsonl") != observed["train/train.jsonl"]
         or artifacts.get("validation/train.jsonl") != observed["validation/train.jsonl"]
     ):
@@ -963,6 +976,7 @@ def _validate_published(path: Path, allow_incomplete: bool, expected: Mapping[st
     expected_names = {
         "manifest.json",
         "task-split.json",
+        exporter.TARGET_RENDERING_CONTRACT_FILENAME,
         "train",
         "validation",
         ATTESTATION_FILENAME,

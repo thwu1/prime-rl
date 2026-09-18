@@ -201,6 +201,10 @@ task_file_sha256 = "{task_sha256}"
             artifacts = {
                 "manifest": (output / "manifest.json", b"original-manifest\n"),
                 "routing_epoch_index": (output / chain.common.INDEX_FILENAME, b"index\n"),
+                "target_rendering_contract": (
+                    output / chain.exporter.TARGET_RENDERING_CONTRACT_FILENAME,
+                    b"target-rendering-contract\n",
+                ),
                 "train": (output / "train" / "train.jsonl", b"train\n"),
                 "validation": (output / "validation" / "train.jsonl", b"validation\n"),
             }
@@ -263,6 +267,10 @@ task_file_sha256 = "{task_sha256}"
             _write(output / "manifest.json", manifest_body)
             artifacts = {
                 "task_split": (output / "task-split.json", b"task-split\n"),
+                "target_rendering_contract": (
+                    output / chain.exporter.TARGET_RENDERING_CONTRACT_FILENAME,
+                    b"target-rendering-contract\n",
+                ),
                 "train": (output / "train" / "train.jsonl", b"merged-train\n"),
                 "validation": (output / "validation" / "train.jsonl", b"merged-validation\n"),
             }

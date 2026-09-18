@@ -1,0 +1,20 @@
+{
+  "kind": "terminal-bench-sft-target-rendering",
+  "renderer": {
+    "config": {
+      "enable_thinking": true,
+      "name": "nemotron-3",
+      "normalize_tool_response_wrappers": false,
+      "preserve_all_thinking": true,
+      "preserve_thinking_between_tool_calls": false,
+      "truncate_history_thinking": false,
+      "ultra": false
+    },
+    "repository_revision": "044d9e2541f6a911cacae9da353fc063911ef1f8"
+  },
+  "schema_version": 1,
+  "tokenizer": {
+    "repository": "nvidia/NVIDIA-Nemotron-3-Super-120B-A12B-BF16",
+    "revision": "d51eab0d1f979ebc26b546e634a04f450d99158e"
+  }
+}

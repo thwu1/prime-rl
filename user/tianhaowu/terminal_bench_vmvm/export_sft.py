@@ -31,7 +31,7 @@ from typing import Any, Literal
 import direct_qwen_workers as direct_workers
 from audit_traces import DEFAULT_MAX_SEQUENCE_TOKENS, _audit_trace
 
-FORMAT_VERSION = 2
+FORMAT_VERSION = 3
 SPLIT_BUCKETS = 10_000
 DEFAULT_VALIDATION_PERMYRIAD = 500
 DEFAULT_SPLIT_SALT = "terminal-bench-vmvm-sft-v1"
@@ -52,6 +52,7 @@ REPAIR_STRICT_INVALID_PASS_TASK_FILENAME = "repair_strict_invalid_pass_tasks.txt
 MAX_ROUTING_EPOCH_INDEX_BYTES = 16 * 1024 * 1024
 MAX_ROUTING_TRANSITION_BYTES = 2 * 1024 * 1024
 MAX_REPAIR_SELECTION_BYTES = 16 * 1024 * 1024
+MAX_TARGET_RENDERING_CONTRACT_BYTES = 64 * 1024
 SHA256_HEX_CHARS = frozenset("0123456789abcdef")
 FORBIDDEN_REQUEST_FIELDS = frozenset({"logprobs", "prompt_logprobs", "return_token_ids", "top_logprobs"})
 REQUIRED_RUN_ARTIFACTS = (
@@ -67,6 +68,31 @@ REQUIRED_RUNTIME_SUBMODULES = (
     "deps/renderers",
     "deps/verifiers",
 )
+TARGET_RENDERING_CONTRACT_FILENAME = "target-rendering-contract.json"
+TARGET_RENDERING_CONTRACT_PATH = (
+    Path(__file__).resolve().parent / "configs" / "sft" / TARGET_RENDERING_CONTRACT_FILENAME
+)
+TARGET_RENDERING_CONTRACT_SHA256 = "29740bb5171087055faddc961a620c66235c14e7faad81adfbd1424e56fb7e31"
+TARGET_RENDERING_CONTRACT = {
+    "kind": "terminal-bench-sft-target-rendering",
+    "renderer": {
+        "config": {
+            "enable_thinking": True,
+            "name": "nemotron-3",
+            "normalize_tool_response_wrappers": False,
+            "preserve_all_thinking": True,
+            "preserve_thinking_between_tool_calls": False,
+            "truncate_history_thinking": False,
+            "ultra": False,
+        },
+        "repository_revision": "044d9e2541f6a911cacae9da353fc063911ef1f8",
+    },
+    "schema_version": 1,
+    "tokenizer": {
+        "repository": "nvidia/NVIDIA-Nemotron-3-Super-120B-A12B-BF16",
+        "revision": "d51eab0d1f979ebc26b546e634a04f450d99158e",
+    },
+}
 
 Selection = Literal["pass-only", "all-outcomes"]
 
@@ -125,6 +151,13 @@ class TaskIdentityContext:
     dataset_revision: str
     approved_slugs: frozenset[str]
     approved_slug_order: tuple[str, ...]
+
+
+@dataclass(frozen=True)
+class TargetRenderingContract:
+    artifact: FileArtifact
+    body: bytes
+    value: Mapping[str, Any]
 
 
 @dataclass(frozen=True)
@@ -458,7 +491,12 @@ def _selection_task_order_sha256(approved_slugs: frozenset[str]) -> str:
     return hashlib.sha256(body).hexdigest()
 
 
-def _git_output(repository: Path, arguments: list[str]) -> str:
+def _git_output(
+    repository: Path,
+    arguments: list[str],
+    *,
+    error_code: str = "exclusion_selection_code_invalid",
+) -> str:
     try:
         completed = subprocess.run(
             ["git", "-C", str(repository), *arguments],
@@ -469,10 +507,41 @@ def _git_output(repository: Path, arguments: list[str]) -> str:
             timeout=30,
         )
     except (OSError, subprocess.SubprocessError) as error:
-        raise ExportError("exclusion_selection_code_invalid") from error
+        raise ExportError(error_code) from error
     if completed.stderr:
-        raise ExportError("exclusion_selection_code_invalid")
+        raise ExportError(error_code)
     return completed.stdout
+
+
+def _load_target_rendering_contract() -> TargetRenderingContract:
+    body, artifact = _read_stable_file(
+        TARGET_RENDERING_CONTRACT_PATH,
+        max_bytes=MAX_TARGET_RENDERING_CONTRACT_BYTES,
+    )
+    if artifact.sha256 != TARGET_RENDERING_CONTRACT_SHA256:
+        raise ExportError("target_rendering_contract_hash_mismatch")
+    value = _parse_json_object(body, "target_rendering_contract_invalid")
+    if value != TARGET_RENDERING_CONTRACT:
+        raise ExportError("target_rendering_contract_invalid")
+
+    repository = Path(__file__).resolve().parents[3]
+    record = (
+        _git_output(
+            repository,
+            ["ls-tree", "HEAD", "--", "deps/renderers"],
+            error_code="target_renderer_revision_invalid",
+        )
+        .strip()
+        .split(maxsplit=3)
+    )
+    if (
+        len(record) != 4
+        or record[:2] != ["160000", "commit"]
+        or record[2] != value["renderer"]["repository_revision"]
+        or record[3] != "deps/renderers"
+    ):
+        raise ExportError("target_renderer_revision_invalid")
+    return TargetRenderingContract(artifact=artifact, body=body, value=value)
 
 
 def _validate_selection_code(code: object) -> None:
@@ -1351,7 +1420,10 @@ def _validate_captured_response(node: dict[str, Any]) -> None:
         message.get("tool_calls"), nested=False
     ):
         raise ExportError("captured_response_tool_calls_mismatch")
-    if raw_finish != node.get("finish_reason"):
+    finish_reason = node.get("finish_reason")
+    if not isinstance(finish_reason, str) or not finish_reason:
+        raise ExportError("captured_response_finish_reason_invalid")
+    if raw_finish != finish_reason:
         raise ExportError("captured_response_finish_reason_mismatch")
     _validate_usage(node.get("usage"), body, kind)
 
@@ -1474,7 +1546,10 @@ def _root_path(nodes: list[dict[str, Any]], node_id: int) -> list[int]:
     return path
 
 
-def _normalize_message(message: object, *, target: bool) -> dict[str, Any]:
+def _normalize_message(node: object, *, target: bool) -> dict[str, Any]:
+    if not isinstance(node, dict):
+        raise ExportError("message_invalid")
+    message = node.get("message")
     if not isinstance(message, dict):
         raise ExportError("message_invalid")
     role = message.get("role")
@@ -1487,14 +1562,19 @@ def _normalize_message(message: object, *, target: bool) -> dict[str, Any]:
         normalized: dict[str, Any] = {
             "role": "assistant",
             "content": content or "",
+            "finish_reason": None,
             "trainable": target,
         }
-        if target:
-            reasoning = message.get("reasoning_content")
-            if reasoning is not None:
-                if not isinstance(reasoning, str) or not reasoning.strip():
-                    raise ExportError("target_reasoning_invalid")
-                normalized["reasoning_content"] = reasoning
+        reasoning = message.get("reasoning_content")
+        if reasoning is not None:
+            if not isinstance(reasoning, str):
+                raise ExportError("assistant_reasoning_invalid")
+            normalized["reasoning_content"] = reasoning
+        if node.get("sampled") is True:
+            finish_reason = node.get("finish_reason")
+            if not isinstance(finish_reason, str) or not finish_reason:
+                raise ExportError("assistant_finish_reason_invalid")
+            normalized["finish_reason"] = finish_reason
         calls = message.get("tool_calls")
         if calls:
             if not isinstance(calls, list):
@@ -1535,10 +1615,8 @@ def _target_rows(
     nodes = list(raw_nodes)
     sampled_ids = [index for index, node in enumerate(nodes) if node.get("sampled") is True]
     for target_turn_index, node_id in enumerate(sampled_ids):
-        messages = [
-            _normalize_message(nodes[path_id].get("message"), target=path_id == node_id)
-            for path_id in _root_path(nodes, node_id)
-        ]
+        path = _root_path(nodes, node_id)
+        messages = [_normalize_message(nodes[path_id], target=path_id == node_id) for path_id in path]
         if (
             not messages
             or messages[-1].get("role") != "assistant"
@@ -1546,9 +1624,27 @@ def _target_rows(
             or sum(message.get("trainable") is True for message in messages) != 1
         ):
             raise ExportError("target_message_invalid")
+        source_reasoning_fields = sum(
+            isinstance(nodes[path_id].get("message"), dict) and "reasoning_content" in nodes[path_id]["message"]
+            for path_id in path
+            if nodes[path_id].get("message", {}).get("role") == "assistant"
+        )
+        retained_reasoning_fields = sum(
+            "reasoning_content" in message for message in messages if message.get("role") == "assistant"
+        )
+        source_finish_reasons = sum(
+            nodes[path_id].get("sampled") is True
+            for path_id in path
+            if nodes[path_id].get("message", {}).get("role") == "assistant"
+        )
+        retained_finish_reasons = sum(
+            isinstance(message.get("finish_reason"), str) for message in messages if message.get("role") == "assistant"
+        )
+        if source_reasoning_fields != retained_reasoning_fields or source_finish_reasons != retained_finish_reasons:
+            raise ExportError("transcript_fidelity_mismatch")
         row = {
             "assistant_target_count": 1,
-            "history_reasoning_policy": "strip_all_prior_assistant_reasoning",
+            "history_reasoning_policy": "preserve_all_assistant_reasoning",
             "is_correct": reward > 0,
             "messages": messages,
             "reward": reward,
@@ -1559,9 +1655,16 @@ def _target_rows(
             "source_trajectory_assistant_turn_count": len(sampled_ids),
             "target_assistant_message_index": len(messages) - 1,
             "target_assistant_turn_index": target_turn_index,
-            "target_has_reasoning": "reasoning_content" in messages[-1],
+            "target_finish_reason": messages[-1]["finish_reason"],
+            "target_has_reasoning": bool(str(messages[-1].get("reasoning_content") or "").strip()),
             "task_id": task_sha256,
             "tools": tools,
+            "transcript_fidelity": {
+                "retained_assistant_reasoning_fields": retained_reasoning_fields,
+                "retained_sampled_finish_reasons": retained_finish_reasons,
+                "source_assistant_reasoning_fields": source_reasoning_fields,
+                "source_sampled_finish_reasons": source_finish_reasons,
+            },
         }
         if routing_epoch is not None:
             row["routing_epoch"] = routing_epoch
@@ -1602,6 +1705,7 @@ def _validate_trainable_trace(
         require_token_data=False,
         require_logprobs=False,
         require_model_io=True,
+        require_request_graph_match=True,
     )
     if problems:
         raise ExportError("trace_validation_failed")
@@ -1694,6 +1798,7 @@ def _validate_options(options: ExportOptions) -> None:
 def export_sft(options: ExportOptions) -> dict[str, Any]:
     """Validate and atomically export one run; return only aggregate metadata."""
     _validate_options(options)
+    target_rendering_contract = _load_target_rendering_contract()
     run_dir = options.results.parent
     output_parent = options.output_dir.parent
     output_parent.mkdir(parents=True, exist_ok=True)
@@ -1945,9 +2050,16 @@ def export_sft(options: ExportOptions) -> dict[str, Any]:
                 "validation_task_sha256": sorted(split_task_hashes["validation"]),
             }
             task_split_artifact = _write_json(temporary / "task-split.json", task_split)
+            retained_target_rendering_contract_artifact = _write_bytes(
+                temporary / TARGET_RENDERING_CONTRACT_FILENAME,
+                target_rendering_contract.body,
+            )
+            if retained_target_rendering_contract_artifact != target_rendering_contract.artifact:
+                raise ExportError("target_rendering_contract_copy_mismatch")
 
             output_artifacts = {
                 "task-split.json": task_split_artifact.as_dict(),
+                TARGET_RENDERING_CONTRACT_FILENAME: retained_target_rendering_contract_artifact.as_dict(),
                 "train/train.jsonl": train_artifact.as_dict(),
                 "validation/train.jsonl": validation_artifact.as_dict(),
             }
@@ -1963,13 +2075,11 @@ def export_sft(options: ExportOptions) -> dict[str, Any]:
                 },
                 "format": {
                     "assistant_tool_calls": "OpenAI function-call objects",
-                    "history_assistant_reasoning": "removed",
+                    "assistant_finish_reason": "retained verbatim for every sampled assistant message",
+                    "history_assistant_reasoning": "retained verbatim",
                     "loss_mask": "message.trainable; exactly one final assistant message is true",
                     "sample_unit": "one unique sampled assistant node with its root-to-node context",
-                    "target": (
-                        "authentic reasoning_content, content, and tool_calls; "
-                        "the selected renderer supplies its stop token"
-                    ),
+                    "target": "authentic reasoning_content, content, tool_calls, and finish_reason",
                     "task_identity": "sha256(taskset id + NUL + dataset revision + NUL + approved opaque task slug)",
                 },
                 "max_sequence_tokens": options.max_sequence_tokens,
@@ -1980,6 +2090,7 @@ def export_sft(options: ExportOptions) -> dict[str, Any]:
                     "split_salt": options.split_salt,
                     "validation_permyriad": options.validation_permyriad,
                 },
+                "target_rendering": target_rendering_contract.value,
             }
             if exclusion_selection is not None:
                 manifest["exclusion_selection"] = {
@@ -2018,12 +2129,16 @@ def export_sft(options: ExportOptions) -> dict[str, Any]:
                 manifest["routing_epochs"] = routing_epoch_manifest
             if exclusion_selection is not None:
                 _assert_exclusion_selection_unchanged(exclusion_selection)
+            if _fingerprint_stable_file(TARGET_RENDERING_CONTRACT_PATH) != target_rendering_contract.artifact:
+                raise ExportError("target_rendering_contract_changed")
             _write_json(temporary / "manifest.json", manifest)
             _fsync_dir(temporary / "train")
             _fsync_dir(temporary / "validation")
             _fsync_dir(temporary)
             if exclusion_selection is not None:
                 _assert_exclusion_selection_unchanged(exclusion_selection)
+            if _fingerprint_stable_file(TARGET_RENDERING_CONTRACT_PATH) != target_rendering_contract.artifact:
+                raise ExportError("target_rendering_contract_changed")
             if os.path.lexists(options.output_dir):
                 raise ExportError("output_already_exists")
             os.replace(temporary, options.output_dir)
@@ -2035,6 +2150,7 @@ def export_sft(options: ExportOptions) -> dict[str, Any]:
                 "input_traces": counts["input_traces"],
                 "output_sha256": {
                     "manifest": _read_stable_file(options.output_dir / "manifest.json")[1].sha256,
+                    "target_rendering_contract": retained_target_rendering_contract_artifact.sha256,
                     "train": train_artifact.sha256,
                     "validation": validation_artifact.sha256,
                 },

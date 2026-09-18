@@ -17,6 +17,9 @@ from merge_qwen_sft import (
     REPAIR_SELECTION_KIND,
     REQUIRED_SUBMODULES,
     SPLIT_POLICY,
+    TARGET_RENDERING_CONTRACT,
+    TARGET_RENDERING_CONTRACT_FILENAME,
+    TARGET_RENDERING_CONTRACT_SHA256,
     TASK_IDENTITY,
     MergeError,
     MergeOptions,
@@ -61,6 +64,7 @@ def _row(
         {"content": marker, "role": "user", "trainable": False},
         {
             "content": f"answer-{marker}",
+            "finish_reason": "stop",
             "reasoning_content": f"reasoning-{marker}",
             "role": "assistant",
             "trainable": True,
@@ -69,10 +73,15 @@ def _row(
     if targets == 0:
         messages[-1]["trainable"] = False
     elif targets == 2:
-        messages[0] = {"content": marker, "role": "assistant", "trainable": True}
+        messages[0] = {
+            "content": marker,
+            "finish_reason": "stop",
+            "role": "assistant",
+            "trainable": True,
+        }
     return {
         "assistant_target_count": targets,
-        "history_reasoning_policy": "strip_all_prior_assistant_reasoning",
+        "history_reasoning_policy": "preserve_all_assistant_reasoning",
         "is_correct": reward == 1,
         "messages": messages,
         "reward": reward,
@@ -83,6 +92,7 @@ def _row(
         "source_trajectory_assistant_turn_count": trajectory_turns,
         "target_assistant_message_index": 1,
         "target_assistant_turn_index": turn_index,
+        "target_finish_reason": "stop",
         "target_has_reasoning": True,
         "task_id": task_id,
         "tools": [
@@ -95,6 +105,12 @@ def _row(
                 "type": "function",
             }
         ],
+        "transcript_fidelity": {
+            "retained_assistant_reasoning_fields": 1,
+            "retained_sampled_finish_reasons": 1,
+            "source_assistant_reasoning_fields": 1,
+            "source_sampled_finish_reasons": 1,
+        },
     }
 
 
@@ -145,6 +161,10 @@ def _write_export(
         }
     )
     (root / "task-split.json").write_bytes(task_split_body)
+    target_rendering_body = (json.dumps(TARGET_RENDERING_CONTRACT, indent=2, sort_keys=True) + "\n").encode()
+    assert _sha256(target_rendering_body) == TARGET_RENDERING_CONTRACT_SHA256
+    (root / TARGET_RENDERING_CONTRACT_FILENAME).write_bytes(target_rendering_body)
+    (root / TARGET_RENDERING_CONTRACT_FILENAME).chmod(0o600)
     task_count = len(set(train_tasks) | set(validation_tasks))
     if input_traces is None:
         input_traces = task_count
@@ -165,6 +185,10 @@ def _write_export(
     manifest = {
         "artifacts": {
             "task-split.json": {"bytes": len(task_split_body), "sha256": _sha256(task_split_body)},
+            TARGET_RENDERING_CONTRACT_FILENAME: {
+                "bytes": len(target_rendering_body),
+                "sha256": _sha256(target_rendering_body),
+            },
             "train/train.jsonl": {"bytes": len(train_body), "sha256": _sha256(train_body)},
             "validation/train.jsonl": {
                 "bytes": len(validation_body),
@@ -193,13 +217,12 @@ def _write_export(
         },
         "exporter": {"file_sha256": "e" * 64, "format_version": format_version},
         "format": {
+            "assistant_finish_reason": "retained verbatim for every sampled assistant message",
             "assistant_tool_calls": "OpenAI function-call objects",
-            "history_assistant_reasoning": "removed",
+            "history_assistant_reasoning": "retained verbatim",
             "loss_mask": LOSS_MASK,
             "sample_unit": "one unique sampled assistant node with its root-to-node context",
-            "target": (
-                "authentic reasoning_content, content, and tool_calls; the selected renderer supplies its stop token"
-            ),
+            "target": "authentic reasoning_content, content, tool_calls, and finish_reason",
             "task_identity": TASK_IDENTITY,
         },
         "max_sequence_tokens": max_sequence_tokens,
@@ -210,6 +233,7 @@ def _write_export(
             "split_salt": split_salt,
             "validation_permyriad": validation_permyriad,
         },
+        "target_rendering": TARGET_RENDERING_CONTRACT,
     }
     if routing_epoch is not None:
         routing_index_body = b"synthetic-routing-index\n"
@@ -553,6 +577,7 @@ def test_merge_is_deterministic_redacted_and_preserves_all_rows(tmp_path: Path) 
     for relative in (
         "manifest.json",
         "task-split.json",
+        TARGET_RENDERING_CONTRACT_FILENAME,
         "train/train.jsonl",
         "validation/train.jsonl",
     ):
@@ -571,7 +596,7 @@ def test_merge_is_deterministic_redacted_and_preserves_all_rows(tmp_path: Path) 
     assert not any(task_id in aggregate_output for task_id in task_ids)
     assert "private-" not in aggregate_output
     merged_manifest = json.loads((first / "manifest.json").read_text())
-    assert merged_manifest["schema_version"] == 3
+    assert merged_manifest["schema_version"] == 4
     assert merged_manifest["code"]["exporter_sha256"] == "e" * 64
     assert merged_manifest["code"]["materializer_sha256"] == "b" * 64
     assert merged_manifest["format"]["target"].startswith("authentic reasoning_content")
@@ -585,6 +610,7 @@ def test_merge_is_deterministic_redacted_and_preserves_all_rows(tmp_path: Path) 
     )
     assert set(json.loads((repair / "manifest.json").read_text())["artifacts"]) == {
         "task-split.json",
+        TARGET_RENDERING_CONTRACT_FILENAME,
         "train/train.jsonl",
         "validation/train.jsonl",
     }
@@ -603,6 +629,18 @@ def test_tampered_artifact_is_rejected_without_output(tmp_path: Path) -> None:
             code_provenance=_code_provenance(),
         )
     assert not output.exists()
+
+
+def test_rehashed_target_rendering_contract_is_rejected(tmp_path: Path) -> None:
+    original, repair, selection, selection_sha256, _task_ids = _fixture_exports(tmp_path)
+    modified = {**TARGET_RENDERING_CONTRACT, "schema_version": 2}
+    _replace_export_artifact(repair, TARGET_RENDERING_CONTRACT_FILENAME, _json_bytes(modified))
+
+    with pytest.raises(MergeError, match="^target_rendering_contract_invalid$"):
+        merge_qwen_sft(
+            _options(original, repair, selection, selection_sha256, tmp_path / "merged"),
+            code_provenance=_code_provenance(),
+        )
 
 
 @pytest.mark.parametrize(
@@ -1039,12 +1077,43 @@ def test_rehashed_repair_export_cannot_strip_reasoning_without_updating_flag(tmp
         )
 
 
+@pytest.mark.parametrize(
+    ("field", "value", "error_code"),
+    [
+        ("target_finish_reason", "length", "row_finish_reason_contract_invalid"),
+        ("source_assistant_reasoning_fields", 0, "row_transcript_fidelity_invalid"),
+    ],
+)
+def test_rehashed_repair_export_rejects_fidelity_metadata_drift(
+    tmp_path: Path,
+    field: str,
+    value: object,
+    error_code: str,
+) -> None:
+    original, repair, selection, selection_sha256, _task_ids = _fixture_exports(tmp_path)
+    train_path = repair / "train" / "train.jsonl"
+    rows = [json.loads(line) for line in train_path.read_text().splitlines()]
+    if field == "target_finish_reason":
+        rows[0][field] = value
+    else:
+        rows[0]["transcript_fidelity"][field] = value
+    _replace_export_artifact(repair, "train/train.jsonl", _jsonl(rows))
+
+    with pytest.raises(MergeError, match=f"^{error_code}$"):
+        merge_qwen_sft(
+            _options(original, repair, selection, selection_sha256, tmp_path / "merged"),
+            code_provenance=_code_provenance(),
+        )
+
+
 def test_mixed_authentic_zero_reasoning_turn_is_accepted(tmp_path: Path) -> None:
     original, repair, selection, selection_sha256, _task_ids = _fixture_exports(tmp_path)
     train_path = repair / "train" / "train.jsonl"
     rows = [json.loads(line) for line in train_path.read_text().splitlines()]
     rows[0]["messages"][-1].pop("reasoning_content")
     rows[0]["target_has_reasoning"] = False
+    rows[0]["transcript_fidelity"]["source_assistant_reasoning_fields"] = 0
+    rows[0]["transcript_fidelity"]["retained_assistant_reasoning_fields"] = 0
     _replace_export_artifact(repair, "train/train.jsonl", _jsonl(rows))
 
     summary = merge_qwen_sft(
@@ -1062,6 +1131,8 @@ def test_all_reasoning_stripped_from_task_is_rejected_after_rehash(tmp_path: Pat
     for row in rows:
         row["messages"][-1].pop("reasoning_content")
         row["target_has_reasoning"] = False
+        row["transcript_fidelity"]["source_assistant_reasoning_fields"] = 0
+        row["transcript_fidelity"]["retained_assistant_reasoning_fields"] = 0
     _replace_export_artifact(repair, "train/train.jsonl", _jsonl(rows))
 
     with pytest.raises(MergeError, match="^task_reasoning_contract_invalid$"):
@@ -1113,10 +1184,10 @@ def test_exporter_hash_must_match_pinned_runtime_file(tmp_path: Path) -> None:
     [
         ("config", "capture_model_io", False),
         ("config", "model", "different-model"),
-        ("format", "history_assistant_reasoning", "retained"),
+        ("format", "history_assistant_reasoning", "removed"),
     ],
 )
-def test_full_v2_model_io_and_format_contract_is_required(
+def test_full_v3_model_io_and_format_contract_is_required(
     tmp_path: Path,
     section: str,
     field: str,

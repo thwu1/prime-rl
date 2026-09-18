@@ -27,7 +27,7 @@ def _digest(body: dict) -> str:
 def _supported_trace(slug: str, *, solved: float = 0.0) -> dict:
     request = {
         "model": "Kimi-K3",
-        "messages": [{"role": "user", "content": "repair the task"}],
+        "messages": [],
         "tools": [
             {
                 "type": "function",

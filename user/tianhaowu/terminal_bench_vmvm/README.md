@@ -545,7 +545,10 @@ uv run --project user/tianhaowu/terminal_bench_vmvm \
 Transcript audit is the default. It rejects missing/duplicate tasks, rollout
 errors, missing sampled response content/tool calls, missing reasoning, invalid
 or absent provider usage, malformed parent graphs, and any provider-reported
-turn over 262,144 total tokens. `--require-token-data` remains an explicit
+turn over 262,144 total tokens. When model-I/O capture is required, it also
+normalizes every captured chat request and proves that its message list exactly
+matches the persisted root-to-parent graph path, including historical reasoning,
+tool calls, and tool results. `--require-token-data` remains an explicit
 legacy/diagnostic mode for traces that intentionally contain exact token IDs,
 masks, and sampling logprobs. Scale only after the default gate passes on a
 fresh smoke run and after measuring stable VMVM lease concurrency.
@@ -657,7 +660,7 @@ merger, which rejects later mutation and any repair task outside the selected
 union; every selected strict-invalid pass must still be replaced. Existing
 runtime or output paths are always rejected.
 The repair export keeps mode-0600 copies of the selection manifest and repair
-attestation beside the three base SFT artifacts; the merger requires both
+attestation beside the four base SFT artifacts; the merger requires both
 copies to be byte-identical to the externally hash-pinned inputs and binds
 their digests into the merged manifest.
 
@@ -704,22 +707,29 @@ eligible for the output corpus can therefore block it for missing reasoning,
 model I/O, or usage. `all-outcomes` applies that strict audit to both passing
 and failing scored traces. Selected traces fail closed on request or response
 hash corruption and any provider-reported sequence over 262,144 tokens. The
-exporter validates each retained assistant message and its usage against the
-captured provider response.
+exporter also requires every captured chat request to match the persisted graph
+prompt, then validates each retained assistant message, finish reason, and usage
+against the captured provider response.
 
 One output row represents one unique sampled assistant node and its root-to-node
 message path. This preserves every genuine generation exactly once even when a
 trace branches; expanding every leaf would duplicate shared-prefix targets.
 Prior messages are explicitly non-trainable and prior assistant reasoning is
-removed. The final assistant is the sole trainable message and retains its
-authentic `reasoning_content`, content, and tool calls. Verifiers' compact tool
-calls are normalized to OpenAI function-call objects, and the stable tool schema
-comes from integrity-checked captured requests.
+retained verbatim. The final assistant is the sole trainable message. Every
+sampled assistant keeps its authentic `reasoning_content` and `finish_reason`;
+the row records source-versus-retained fidelity counts, while content and tool
+calls are retained as before. Verifiers' compact tool calls are normalized to
+OpenAI function-call objects, and the stable tool schema comes from
+integrity-checked captured requests.
 
 The output is atomically published as `train/train.jsonl`,
-`validation/train.jsonl`, `task-split.json`, and `manifest.json`, plus the
-validated routing-index sidecar when one is supplied. Task identity is the
-format-v2 SHA-256 of the taskset ID, dataset revision, and explicit approved
+`validation/train.jsonl`, `task-split.json`,
+`target-rendering-contract.json`, and `manifest.json`, plus the validated
+routing-index sidecar when one is supplied. The immutable rendering contract
+pins the Nemotron Super tokenizer revision, renderer repository revision, and
+the exact `nemotron-3` settings that preserve all historical thinking; export,
+finalization, and merge reject a changed contract. Task identity is the
+SHA-256 of the taskset ID, dataset revision, and explicit approved
 task slug separated by NUL bytes; changing a run-local task index does not
 change its split. The manifest binds the raw results, resolved and source
 configs, approved task snapshot, image snapshot, input manifest, launcher

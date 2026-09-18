@@ -612,9 +612,17 @@ def test_exports_one_row_per_unique_sampled_node_and_normalizes_messages(tmp_pat
         }
     ]
     assert second["messages"][2]["trainable"] is False
-    assert "reasoning_content" not in second["messages"][2]
+    assert second["messages"][2]["reasoning_content"] == "first-reasoning"
+    assert second["messages"][2]["finish_reason"] == "tool_calls"
     assert second["messages"][-1]["trainable"] is True
     assert second["messages"][-1]["reasoning_content"] == "second-reasoning"
+    assert second["target_finish_reason"] == "stop"
+    assert second["transcript_fidelity"] == {
+        "retained_assistant_reasoning_fields": 2,
+        "retained_sampled_finish_reasons": 2,
+        "source_assistant_reasoning_fields": 2,
+        "source_sampled_finish_reasons": 2,
+    }
     assert all(sum(message["trainable"] is True for message in row["messages"]) == 1 for row in rows)
     assert rows[0]["task_id"] != "synthetic-task"
     assert rows[0]["source_episode_id"] != "trace-pass"
@@ -763,6 +771,34 @@ def test_captured_response_must_match_retained_reasoning(tmp_path: Path) -> None
         export_sft(_options(results, tmp_path / "dataset"))
 
 
+def test_sampled_finish_reason_is_required(tmp_path: Path) -> None:
+    trace = _linear_trace()
+    trace["nodes"][2].pop("finish_reason")
+    results = _write_run(tmp_path / "run", [trace])
+
+    with pytest.raises(ExportError, match="^captured_response_finish_reason_invalid$"):
+        export_sft(_options(results, tmp_path / "dataset"))
+
+
+def test_captured_request_messages_must_match_the_graph_path(tmp_path: Path) -> None:
+    trace = _linear_trace()
+    request = trace["nodes"][4]["model_io"]["request"]
+    request["append_fields"]["messages"][-1]["content"] = "wire-only tool result"
+    request["sha256"] = _json_sha256(
+        {
+            **trace["nodes"][2]["model_io"]["request"]["body"],
+            "messages": [
+                *trace["nodes"][2]["model_io"]["request"]["body"]["messages"],
+                *request["append_fields"]["messages"],
+            ],
+        }
+    )
+    results = _write_run(tmp_path / "run", [trace])
+
+    with pytest.raises(ExportError, match="^trace_validation_failed$"):
+        export_sft(_options(results, tmp_path / "dataset"))
+
+
 def test_normalized_stream_responses_are_validated_and_exported(tmp_path: Path) -> None:
     trace = _linear_trace()
     for node in trace["nodes"]:
@@ -827,6 +863,18 @@ def test_tool_schema_must_be_stable_across_full_requests(tmp_path: Path) -> None
         "tools": [_tool("different-tool")],
         "messages": [
             *base_request["messages"],
+            {
+                "role": "assistant",
+                "content": None,
+                "reasoning_content": "first-reasoning",
+                "tool_calls": [
+                    {
+                        "id": "call-1",
+                        "type": "function",
+                        "function": {"name": "terminal", "arguments": '{"command":"pwd"}'},
+                    }
+                ],
+            },
             {"role": "tool", "content": "branch-result", "tool_call_id": "call-1"},
         ],
     }
@@ -845,6 +893,17 @@ def test_malformed_tool_arguments_are_rejected(tmp_path: Path) -> None:
     response = node["model_io"]["response"]
     response["body"]["choices"][0]["message"]["tool_calls"][0]["function"]["arguments"] = "{"
     response["sha256"] = _json_sha256(response["body"])
+    second_request = trace["nodes"][4]["model_io"]["request"]
+    second_request["append_fields"]["messages"][0]["tool_calls"][0]["function"]["arguments"] = "{"
+    second_request["sha256"] = _json_sha256(
+        {
+            **node["model_io"]["request"]["body"],
+            "messages": [
+                *node["model_io"]["request"]["body"]["messages"],
+                *second_request["append_fields"]["messages"],
+            ],
+        }
+    )
     results = _write_run(tmp_path / "run", [trace])
 
     with pytest.raises(ExportError, match="^assistant_tool_arguments_not_json$"):
@@ -861,6 +920,17 @@ def test_authentic_zero_reasoning_tool_turn_is_preserved_without_synthesis(tmp_p
     response_message.pop("reasoning")
     response["body"]["usage"]["completion_tokens_details"] = {"reasoning_tokens": 0}
     response["sha256"] = _json_sha256(response["body"])
+    second_request = trace["nodes"][4]["model_io"]["request"]
+    second_request["append_fields"]["messages"][0].pop("reasoning_content")
+    second_request["sha256"] = _json_sha256(
+        {
+            **node["model_io"]["request"]["body"],
+            "messages": [
+                *node["model_io"]["request"]["body"]["messages"],
+                *second_request["append_fields"]["messages"],
+            ],
+        }
+    )
     results = _write_run(tmp_path / "run", [trace])
     output = tmp_path / "dataset"
 
@@ -883,12 +953,18 @@ def test_export_is_byte_deterministic_and_records_provenance_hashes(tmp_path: Pa
         "train/train.jsonl",
         "validation/train.jsonl",
         "task-split.json",
+        exporter.TARGET_RENDERING_CONTRACT_FILENAME,
         "manifest.json",
     ):
         assert (first / relative).read_bytes() == (second / relative).read_bytes()
     manifest = json.loads((first / "manifest.json").read_text())
-    assert manifest["exporter"]["format_version"] == 2
-    assert json.loads((first / "task-split.json").read_text())["format_version"] == 2
+    assert manifest["exporter"]["format_version"] == 3
+    assert json.loads((first / "task-split.json").read_text())["format_version"] == 3
+    assert manifest["target_rendering"] == exporter.TARGET_RENDERING_CONTRACT
+    assert (
+        manifest["artifacts"][exporter.TARGET_RENDERING_CONTRACT_FILENAME]["sha256"]
+        == exporter.TARGET_RENDERING_CONTRACT_SHA256
+    )
     assert manifest["source_artifacts"]["results.jsonl"]["sha256"] == _sha256(results)
     assert manifest["source_artifacts"]["inputs/task_file.txt"]["sha256"] == _sha256(
         results.parent / "inputs" / "task_file.txt"
@@ -896,6 +972,15 @@ def test_export_is_byte_deterministic_and_records_provenance_hashes(tmp_path: Pa
     assert manifest["source_artifacts"]["inputs/image_manifest.json"]["sha256"] == _sha256(
         results.parent / "inputs" / "image_manifest.json"
     )
+
+
+def test_target_rendering_contract_is_immutable(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    modified = tmp_path / exporter.TARGET_RENDERING_CONTRACT_FILENAME
+    modified.write_bytes(exporter.TARGET_RENDERING_CONTRACT_PATH.read_bytes() + b"\n")
+    monkeypatch.setattr(exporter, "TARGET_RENDERING_CONTRACT_PATH", modified)
+
+    with pytest.raises(ExportError, match="^target_rendering_contract_hash_mismatch$"):
+        exporter._load_target_rendering_contract()
 
 
 def test_routing_epoch_index_is_strictly_bound_and_propagated(tmp_path: Path) -> None:
@@ -1196,9 +1281,11 @@ def test_exported_split_is_loadable_by_huggingface_datasets(tmp_path: Path) -> N
         "source_trajectory_assistant_turn_count",
         "target_assistant_message_index",
         "target_assistant_turn_index",
+        "target_finish_reason",
         "target_has_reasoning",
         "task_id",
         "tools",
+        "transcript_fidelity",
     ]
 
 

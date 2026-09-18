@@ -176,9 +176,19 @@ def _write_export(output: Path, source: Path, project: Path, expected_count: int
     (output / "train" / "train.jsonl").write_bytes(train)
     (output / "validation" / "train.jsonl").write_bytes(validation)
     (output / "task-split.json").write_bytes(split)
+    target_contract = (
+        json.dumps(finalizer.exporter.TARGET_RENDERING_CONTRACT, indent=2, sort_keys=True).encode() + b"\n"
+    )
+    assert _sha256(target_contract) == finalizer.exporter.TARGET_RENDERING_CONTRACT_SHA256
+    (output / finalizer.exporter.TARGET_RENDERING_CONTRACT_FILENAME).write_bytes(target_contract)
+    (output / finalizer.exporter.TARGET_RENDERING_CONTRACT_FILENAME).chmod(0o600)
     manifest = {
         "artifacts": {
             "task-split.json": {"bytes": len(split), "sha256": _sha256(split)},
+            finalizer.exporter.TARGET_RENDERING_CONTRACT_FILENAME: {
+                "bytes": len(target_contract),
+                "sha256": _sha256(target_contract),
+            },
             "train/train.jsonl": {"bytes": len(train), "sha256": _sha256(train)},
             "validation/train.jsonl": {"bytes": len(validation), "sha256": _sha256(validation)},
         },
@@ -207,16 +217,15 @@ def _write_export(output: Path, source: Path, project: Path, expected_count: int
             "file_sha256": _artifact(project / "user" / "tianhaowu" / "terminal_bench_vmvm" / "export_sft.py")[
                 "sha256"
             ],
-            "format_version": 2,
+            "format_version": 3,
         },
         "format": {
+            "assistant_finish_reason": "retained verbatim for every sampled assistant message",
             "assistant_tool_calls": "OpenAI function-call objects",
-            "history_assistant_reasoning": "removed",
+            "history_assistant_reasoning": "retained verbatim",
             "loss_mask": "message.trainable; exactly one final assistant message is true",
             "sample_unit": "one unique sampled assistant node with its root-to-node context",
-            "target": (
-                "authentic reasoning_content, content, and tool_calls; the selected renderer supplies its stop token"
-            ),
+            "target": "authentic reasoning_content, content, tool_calls, and finish_reason",
             "task_identity": "sha256(taskset id + NUL + dataset revision + NUL + approved opaque task slug)",
         },
         "max_sequence_tokens": 262_144,
@@ -238,6 +247,7 @@ def _write_export(output: Path, source: Path, project: Path, expected_count: int
             "split_salt": "repair-split-v1",
             "validation_permyriad": 500,
         },
+        "target_rendering": finalizer.exporter.TARGET_RENDERING_CONTRACT,
     }
     manifest_body = json.dumps(manifest, indent=2, sort_keys=True).encode() + b"\n"
     (output / "manifest.json").write_bytes(manifest_body)
@@ -247,6 +257,7 @@ def _write_export(output: Path, source: Path, project: Path, expected_count: int
         "input_traces": expected_count,
         "output_sha256": {
             "manifest": _sha256(manifest_body),
+            "target_rendering_contract": _sha256(target_contract),
             "train": _sha256(train),
             "validation": _sha256(validation),
         },
@@ -333,6 +344,7 @@ def test_finalize_publishes_exact_fresh_repair_attestation(
     assert manifest["source_artifacts"]["direct_workers.json"] == attestation["source_artifacts"]["direct_workers.json"]
     assert set(manifest["artifacts"]) == {
         "task-split.json",
+        finalizer.exporter.TARGET_RENDERING_CONTRACT_FILENAME,
         "train/train.jsonl",
         "validation/train.jsonl",
     }

@@ -27,6 +27,7 @@ from pathlib import Path
 from typing import Any, Literal
 
 import direct_qwen_workers as direct
+import export_sft as exporter
 import migrate_qwen_router_affinity as migration
 
 INDEX_FILENAME = "qwen_router_epochs.jsonl"
@@ -541,7 +542,7 @@ def _validate_export_summary(
     output_hashes = summary.get("output_sha256")
     if (
         not isinstance(output_hashes, dict)
-        or set(output_hashes) != {"manifest", "routing_epoch_index", "train", "validation"}
+        or set(output_hashes) != {"manifest", "routing_epoch_index", "target_rendering_contract", "train", "validation"}
         or any(SHA256_PATTERN.fullmatch(str(value)) is None for value in output_hashes.values())
         or output_hashes["routing_epoch_index"] != expected_index_sha256
     ):
@@ -551,12 +552,19 @@ def _validate_export_summary(
     train = _regular_file(published / "train" / "train.jsonl", "sft_output_invalid")
     validation = _regular_file(published / "validation" / "train.jsonl", "sft_output_invalid")
     routing_index = _regular_file(published / INDEX_FILENAME, "sft_output_invalid")
+    target_rendering_contract = _regular_file(
+        published / exporter.TARGET_RENDERING_CONTRACT_FILENAME,
+        "sft_output_invalid",
+    )
     routing_index_sha256 = _stable_sha256(routing_index)
+    target_rendering_contract_sha256 = _stable_sha256(target_rendering_contract)
     if (
         _stable_sha256(manifest) != output_hashes["manifest"]
         or _stable_sha256(train) != output_hashes["train"]
         or _stable_sha256(validation) != output_hashes["validation"]
         or routing_index_sha256 != output_hashes["routing_epoch_index"]
+        or target_rendering_contract_sha256 != output_hashes["target_rendering_contract"]
+        or target_rendering_contract_sha256 != exporter.TARGET_RENDERING_CONTRACT_SHA256
     ):
         raise FinalizationError("sft_output_digest_mismatch")
     try:
@@ -568,8 +576,20 @@ def _validate_export_summary(
     manifest_value = _parse_json_object(manifest_body, "sft_output_invalid")
     artifacts = manifest_value.get("artifacts")
     routing_artifact = artifacts.get(INDEX_FILENAME) if isinstance(artifacts, dict) else None
+    target_rendering_artifact = (
+        artifacts.get(exporter.TARGET_RENDERING_CONTRACT_FILENAME) if isinstance(artifacts, dict) else None
+    )
     if routing_artifact != {"bytes": routing_index.stat().st_size, "sha256": routing_index_sha256}:
         raise FinalizationError("sft_output_digest_mismatch")
+    if (
+        target_rendering_artifact
+        != {
+            "bytes": target_rendering_contract.stat().st_size,
+            "sha256": target_rendering_contract_sha256,
+        }
+        or manifest_value.get("target_rendering") != exporter.TARGET_RENDERING_CONTRACT
+    ):
+        raise FinalizationError("sft_output_target_rendering_invalid")
     exclusion_manifest = manifest_value.get("exclusion_selection")
     if expected_exclusion_sha256 is None:
         if exclusion_manifest is not None:

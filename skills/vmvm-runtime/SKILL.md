@@ -318,8 +318,9 @@ saved worker manifest and loopback endpoint are revalidated.
 After a terminal 2,500-task Qwen run, use `run_qwen_repair_chain.sbatch`; never
 resume the source in place. The private repair selection is the exact union of
 ordinary missing/error tasks and scored-pass traces that fail the exporter's
-trainability audit (retained reasoning, captured model I/O integrity, and the
-256K context cap). The original pass-only export must consume that same
+trainability audit (retained reasoning, captured model-I/O integrity,
+provider-request messages matching the persisted graph path, and the 256K
+context cap). The original pass-only export must consume that same
 attested selection and exclude exactly those source tasks; the merge requires
 every excluded strict-invalid pass to have a passing repair replacement. Run
 the controller from a clean detached exact revision with clean pinned
@@ -343,6 +344,15 @@ inputs. Child logs are private mode 0600, while console output is restricted to
 aggregate counts, digests, and stable codes. Submit this state change only
 through `swebench_vmvm:Launcher.0` with an `afterany` dependency on the
 producer.
+
+SFT format v3 keeps historical assistant `reasoning_content` and every sampled
+assistant `finish_reason` in each expanded row, with explicit source/retained
+fidelity counts. Every export and merge also carries the immutable
+`target-rendering-contract.json`, which pins the Nemotron Super tokenizer
+revision, the renderer repository revision, and `nemotron-3` settings with
+`preserve_all_thinking=true` and `truncate_history_thinking=false`. Do not train
+from an export whose contract is absent, modified, or inconsistent across merge
+inputs.
 
 `VACLI_IMAGE_PULL_TIMEOUT_SECONDS` bounds each VM-side image pull attempt. The
 DeepSWE launcher derives it from TOML `sandbox_startup_timeout_sec` and uses one

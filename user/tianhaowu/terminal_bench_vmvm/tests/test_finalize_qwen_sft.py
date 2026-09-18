@@ -65,6 +65,11 @@ def _export_summary(output: Path, expected_count: int, routing_index: Path) -> d
     (output / "train" / "train.jsonl").write_bytes(train)
     (output / "validation" / "train.jsonl").write_bytes(validation)
     (output / finalizer.INDEX_FILENAME).write_bytes(retained_index)
+    target_contract = (
+        json.dumps(finalizer.exporter.TARGET_RENDERING_CONTRACT, indent=2, sort_keys=True).encode() + b"\n"
+    )
+    assert hashlib.sha256(target_contract).hexdigest() == finalizer.exporter.TARGET_RENDERING_CONTRACT_SHA256
+    (output / finalizer.exporter.TARGET_RENDERING_CONTRACT_FILENAME).write_bytes(target_contract)
     manifest = (
         json.dumps(
             {
@@ -72,8 +77,13 @@ def _export_summary(output: Path, expected_count: int, routing_index: Path) -> d
                     finalizer.INDEX_FILENAME: {
                         "bytes": len(retained_index),
                         "sha256": hashlib.sha256(retained_index).hexdigest(),
-                    }
-                }
+                    },
+                    finalizer.exporter.TARGET_RENDERING_CONTRACT_FILENAME: {
+                        "bytes": len(target_contract),
+                        "sha256": hashlib.sha256(target_contract).hexdigest(),
+                    },
+                },
+                "target_rendering": finalizer.exporter.TARGET_RENDERING_CONTRACT,
             },
             sort_keys=True,
         ).encode()
@@ -87,6 +97,7 @@ def _export_summary(output: Path, expected_count: int, routing_index: Path) -> d
         "output_sha256": {
             "manifest": hashlib.sha256(manifest).hexdigest(),
             "routing_epoch_index": hashlib.sha256(retained_index).hexdigest(),
+            "target_rendering_contract": hashlib.sha256(target_contract).hexdigest(),
             "train": hashlib.sha256(train).hexdigest(),
             "validation": hashlib.sha256(validation).hexdigest(),
         },

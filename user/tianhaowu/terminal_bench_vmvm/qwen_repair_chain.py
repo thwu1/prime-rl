@@ -22,6 +22,7 @@ from pathlib import Path
 from typing import Any
 
 import direct_qwen_workers as direct
+import export_sft as exporter
 import finalize_qwen_repair_sft as repair_finalizer
 import finalize_qwen_sft as common
 import merge_qwen_sft as merger
@@ -797,7 +798,7 @@ def _validate_merge_summary(summary: dict[str, Any]) -> dict[str, Any]:
         or rows["total"] != rows["train"] + rows["validation"]
         or tasks["total"] != tasks["train"] + tasks["validation"]
         or not isinstance(output_sha256, dict)
-        or set(output_sha256) != {"task_split", "train", "validation"}
+        or set(output_sha256) != {"target_rendering_contract", "task_split", "train", "validation"}
         or not all(_valid_sha256(value) for value in output_sha256.values())
     ):
         raise RepairChainError("merge_summary_invalid")
@@ -814,6 +815,7 @@ def _validate_original_output_hashes(summary: Mapping[str, Any], output: Path) -
     artifact_paths = {
         "manifest": output / "manifest.json",
         "routing_epoch_index": output / common.INDEX_FILENAME,
+        "target_rendering_contract": output / exporter.TARGET_RENDERING_CONTRACT_FILENAME,
         "train": output / "train" / "train.jsonl",
         "validation": output / "validation" / "train.jsonl",
     }
@@ -834,6 +836,7 @@ def _validate_merged_output_hashes(summary: Mapping[str, Any], output: Path) -> 
     declared = summary.get("output_sha256")
     artifact_paths = {
         "task_split": output / "task-split.json",
+        "target_rendering_contract": output / exporter.TARGET_RENDERING_CONTRACT_FILENAME,
         "train": output / "train" / "train.jsonl",
         "validation": output / "validation" / "train.jsonl",
     }

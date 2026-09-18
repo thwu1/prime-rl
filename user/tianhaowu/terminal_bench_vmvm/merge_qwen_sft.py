@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Deterministically merge two validated format-v2 pass-only Qwen SFT exports.
+"""Deterministically merge two validated format-v3 pass-only Qwen SFT exports.
 
 Only aggregate counts, hashes, revisions, and stable error codes are returned or
 logged. Task identifiers are treated as opaque set-membership keys and are never
@@ -25,8 +25,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, BinaryIO, Mapping
 
-FORMAT_VERSION = 2
-MERGE_SCHEMA_VERSION = 3
+FORMAT_VERSION = 3
+MERGE_SCHEMA_VERSION = 4
 MERGE_KIND = "qwen-sft-aggregate-merge"
 REPAIR_SELECTION_KIND = "qwen-aggregate-repair-selection"
 REPAIR_ATTESTATION_KIND = "qwen-direct-repair-attestation"
@@ -52,15 +52,39 @@ LOSS_MASK = "message.trainable; exactly one final assistant message is true"
 TASK_IDENTITY = "sha256(taskset id + NUL + dataset revision + NUL + approved opaque task slug)"
 EXPECTED_MODEL = "Qwen3.8-2.4T-A95B"
 FORMAT_CONTRACT = {
+    "assistant_finish_reason": "retained verbatim for every sampled assistant message",
     "assistant_tool_calls": "OpenAI function-call objects",
-    "history_assistant_reasoning": "removed",
+    "history_assistant_reasoning": "retained verbatim",
     "loss_mask": LOSS_MASK,
     "sample_unit": "one unique sampled assistant node with its root-to-node context",
-    "target": ("authentic reasoning_content, content, and tool_calls; the selected renderer supplies its stop token"),
+    "target": "authentic reasoning_content, content, tool_calls, and finish_reason",
     "task_identity": TASK_IDENTITY,
+}
+TARGET_RENDERING_CONTRACT_FILENAME = "target-rendering-contract.json"
+TARGET_RENDERING_CONTRACT_SHA256 = "29740bb5171087055faddc961a620c66235c14e7faad81adfbd1424e56fb7e31"
+TARGET_RENDERING_CONTRACT = {
+    "kind": "terminal-bench-sft-target-rendering",
+    "renderer": {
+        "config": {
+            "enable_thinking": True,
+            "name": "nemotron-3",
+            "normalize_tool_response_wrappers": False,
+            "preserve_all_thinking": True,
+            "preserve_thinking_between_tool_calls": False,
+            "truncate_history_thinking": False,
+            "ultra": False,
+        },
+        "repository_revision": "044d9e2541f6a911cacae9da353fc063911ef1f8",
+    },
+    "schema_version": 1,
+    "tokenizer": {
+        "repository": "nvidia/NVIDIA-Nemotron-3-Super-120B-A12B-BF16",
+        "revision": "d51eab0d1f979ebc26b546e634a04f450d99158e",
+    },
 }
 REQUIRED_ARTIFACT_PATHS = {
     "task-split.json": Path("task-split.json"),
+    TARGET_RENDERING_CONTRACT_FILENAME: Path(TARGET_RENDERING_CONTRACT_FILENAME),
     "train/train.jsonl": Path("train/train.jsonl"),
     "validation/train.jsonl": Path("validation/train.jsonl"),
 }
@@ -105,9 +129,11 @@ ROW_FIELDS = {
     "source_trajectory_assistant_turn_count",
     "target_assistant_message_index",
     "target_assistant_turn_index",
+    "target_finish_reason",
     "target_has_reasoning",
     "task_id",
     "tools",
+    "transcript_fidelity",
 }
 
 
@@ -165,6 +191,7 @@ class ExportBundle:
     routing_epoch: int | None
     declared_counts: Mapping[str, Any]
     exclusion: ExclusionBinding | None
+    target_rendering_contract_body: bytes
 
     @property
     def tasks(self) -> frozenset[str]:
@@ -535,6 +562,7 @@ def _load_export(path: Path, role: str) -> ExportBundle:
         "selection",
         "source_artifacts",
         "split",
+        "target_rendering",
     }
     if role == "original":
         expected_manifest_keys.add("routing_epochs")
@@ -555,6 +583,7 @@ def _load_export(path: Path, role: str) -> ExportBundle:
         or manifest.get("selection") != "pass-only"
         or manifest.get("max_sequence_tokens") != MAX_SEQUENCE_TOKENS
         or format_contract != FORMAT_CONTRACT
+        or manifest.get("target_rendering") != TARGET_RENDERING_CONTRACT
         or not isinstance(config, dict)
         or set(config)
         != {
@@ -606,6 +635,19 @@ def _load_export(path: Path, role: str) -> ExportBundle:
     for name in set(artifact_values) & set(OPTIONAL_ARTIFACT_PATHS):
         if _fingerprint_regular(root / ARTIFACT_PATHS[name], "artifact_invalid") != artifacts[name]:
             raise MergeError("artifact_hash_mismatch")
+    target_rendering_contract_body, target_rendering_contract_artifact = _read_regular(
+        root / ARTIFACT_PATHS[TARGET_RENDERING_CONTRACT_FILENAME],
+        "target_rendering_contract_invalid",
+        limit=MAX_METADATA_BYTES,
+        required_mode=0o600,
+    )
+    if (
+        target_rendering_contract_artifact != artifacts[TARGET_RENDERING_CONTRACT_FILENAME]
+        or target_rendering_contract_artifact.sha256 != TARGET_RENDERING_CONTRACT_SHA256
+        or _parse_json_object(target_rendering_contract_body, "target_rendering_contract_invalid")
+        != TARGET_RENDERING_CONTRACT
+    ):
+        raise MergeError("target_rendering_contract_invalid")
     task_split_body, task_split_artifact = _read_regular(
         root / ARTIFACT_PATHS["task-split.json"],
         "task_split_invalid",
@@ -751,6 +793,7 @@ def _load_export(path: Path, role: str) -> ExportBundle:
         routing_epoch=routing_epoch,
         declared_counts=counts,
         exclusion=exclusion,
+        target_rendering_contract_body=target_rendering_contract_body,
     )
 
 
@@ -804,10 +847,16 @@ def _validate_messages(messages: object, target_index: int) -> None:
         if message["trainable"]:
             targets.append(index)
         if role == "assistant":
-            if not set(message).issubset({"content", "reasoning_content", "role", "tool_calls", "trainable"}):
+            if "finish_reason" not in message or not set(message).issubset(
+                {"content", "finish_reason", "reasoning_content", "role", "tool_calls", "trainable"}
+            ):
                 raise MergeError("row_message_contract_invalid")
-            if index != target_index and "reasoning_content" in message:
+            reasoning = message.get("reasoning_content")
+            if "reasoning_content" in message and not isinstance(reasoning, str):
                 raise MergeError("row_reasoning_contract_invalid")
+            finish_reason = message.get("finish_reason")
+            if finish_reason is not None and (not isinstance(finish_reason, str) or not finish_reason):
+                raise MergeError("row_finish_reason_contract_invalid")
             tool_calls = message.get("tool_calls")
             if tool_calls is not None:
                 if not isinstance(tool_calls, list) or not tool_calls:
@@ -858,18 +907,44 @@ def _validate_row(
     if (
         not _is_plain_int(target_index)
         or target_index < 0
-        or row.get("history_reasoning_policy") != "strip_all_prior_assistant_reasoning"
+        or row.get("history_reasoning_policy") != "preserve_all_assistant_reasoning"
     ):
         raise MergeError("row_target_invalid")
     _validate_messages(messages, target_index)
     target_has_reasoning = row.get("target_has_reasoning")
     reasoning = messages[target_index].get("reasoning_content")
-    if not isinstance(target_has_reasoning, bool) or (
-        target_has_reasoning and (not isinstance(reasoning, str) or not reasoning.strip())
+    if not isinstance(target_has_reasoning, bool) or target_has_reasoning != bool(str(reasoning or "").strip()):
+        raise MergeError("row_reasoning_contract_invalid")
+    target_finish_reason = row.get("target_finish_reason")
+    if (
+        not isinstance(target_finish_reason, str)
+        or not target_finish_reason
+        or messages[target_index].get("finish_reason") != target_finish_reason
     ):
-        raise MergeError("row_reasoning_contract_invalid")
-    if not target_has_reasoning and "reasoning_content" in messages[target_index]:
-        raise MergeError("row_reasoning_contract_invalid")
+        raise MergeError("row_finish_reason_contract_invalid")
+    fidelity = row.get("transcript_fidelity")
+    fidelity_fields = {
+        "retained_assistant_reasoning_fields",
+        "retained_sampled_finish_reasons",
+        "source_assistant_reasoning_fields",
+        "source_sampled_finish_reasons",
+    }
+    retained_reasoning_fields = sum(
+        "reasoning_content" in message for message in messages if message.get("role") == "assistant"
+    )
+    retained_finish_reasons = sum(
+        isinstance(message.get("finish_reason"), str) for message in messages if message.get("role") == "assistant"
+    )
+    if (
+        not isinstance(fidelity, dict)
+        or set(fidelity) != fidelity_fields
+        or any(not _is_plain_int(fidelity.get(field)) or fidelity[field] < 0 for field in fidelity_fields)
+        or fidelity["source_assistant_reasoning_fields"] != fidelity["retained_assistant_reasoning_fields"]
+        or fidelity["source_sampled_finish_reasons"] != fidelity["retained_sampled_finish_reasons"]
+        or fidelity["retained_assistant_reasoning_fields"] != retained_reasoning_fields
+        or fidelity["retained_sampled_finish_reasons"] != retained_finish_reasons
+    ):
+        raise MergeError("row_transcript_fidelity_invalid")
     _validate_tool_schema(row.get("tools"))
     integer_fields = (
         "source_node_index",
@@ -1628,6 +1703,8 @@ def merge_qwen_sft(
         raise MergeError("output_overlaps_input")
     if original.split != repair.split:
         raise MergeError("split_contract_mismatch")
+    if original.target_rendering_contract_body != repair.target_rendering_contract_body:
+        raise MergeError("target_rendering_contract_mismatch")
     if (original.taskset_id, original.dataset_revision) != (
         repair.taskset_id,
         repair.dataset_revision,
@@ -1799,8 +1876,15 @@ def merge_qwen_sft(
             "validation_task_sha256": sorted(merged_validation_tasks),
         }
         task_split_artifact = _write_exclusive(staging / "task-split.json", _json_bytes(task_split))
+        target_rendering_contract_artifact = _write_exclusive(
+            staging / TARGET_RENDERING_CONTRACT_FILENAME,
+            original.target_rendering_contract_body,
+        )
+        if target_rendering_contract_artifact != original.artifacts[TARGET_RENDERING_CONTRACT_FILENAME]:
+            raise MergeError("target_rendering_contract_copy_mismatch")
         output_artifacts = {
             "task-split.json": task_split_artifact,
+            TARGET_RENDERING_CONTRACT_FILENAME: target_rendering_contract_artifact,
             "train/train.jsonl": train_artifact,
             "validation/train.jsonl": validation_artifact,
         }
@@ -1842,6 +1926,7 @@ def merge_qwen_sft(
             "schema_version": MERGE_SCHEMA_VERSION,
             "selection": "pass-only",
             "split": original.split.as_dict(),
+            "target_rendering": TARGET_RENDERING_CONTRACT,
         }
         manifest_artifact = _write_exclusive(staging / "manifest.json", _json_bytes(merge_manifest))
 
@@ -1877,6 +1962,7 @@ def merge_qwen_sft(
         "ok": True,
         "output_sha256": {
             "task_split": task_split_artifact.sha256,
+            "target_rendering_contract": target_rendering_contract_artifact.sha256,
             "train": train_artifact.sha256,
             "validation": validation_artifact.sha256,
         },

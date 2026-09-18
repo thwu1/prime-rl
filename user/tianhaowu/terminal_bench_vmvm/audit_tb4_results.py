@@ -166,6 +166,7 @@ def audit_results(
                 require_token_data=False,
                 require_logprobs=False,
                 require_model_io=True,
+                require_request_graph_match=True,
             )
             if row.get("is_completed") is not True:
                 problems.append("supported_trace_not_completed")

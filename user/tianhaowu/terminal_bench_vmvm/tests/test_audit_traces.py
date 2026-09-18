@@ -543,6 +543,43 @@ def test_audit_trace_validates_complete_model_io_capture() -> None:
     assert _audit_trace(trace, require_reasoning=True, require_model_io=True) == []
 
 
+def test_audit_trace_requires_captured_request_messages_to_match_graph_path() -> None:
+    trace = _trace_with_model_io()
+    sampled = trace["nodes"][0]
+    sampled["parent"] = 0
+    trace["nodes"] = [
+        {
+            "parent": None,
+            "sampled": False,
+            "token_ids": [],
+            "mask": [],
+            "logprobs": [],
+            "message": {"role": "user", "content": "inspect the workspace"},
+        },
+        sampled,
+    ]
+
+    assert (
+        _audit_trace(
+            trace,
+            require_reasoning=True,
+            require_model_io=True,
+            require_request_graph_match=True,
+        )
+        == []
+    )
+
+    request = sampled["model_io"]["request"]
+    request["body"]["messages"] = [{"role": "user", "content": "wire-only context"}]
+    request["sha256"] = _digest(request["body"])
+    assert _audit_trace(
+        trace,
+        require_reasoning=True,
+        require_model_io=True,
+        require_request_graph_match=True,
+    ) == ["node_1_model_io_request_messages_mismatch"]
+
+
 def test_audit_trace_requires_model_io_on_every_sampled_turn() -> None:
     trace = _trace_with_model_io()
     second = _trace("second", "same-task")["nodes"][0]
