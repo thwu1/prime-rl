@@ -1,16 +1,20 @@
 import copy
 import fcntl
 import hashlib
+import io
 import json
 import stat
 from collections import Counter
 from pathlib import Path
 from typing import Any, Callable
+from zipfile import ZipFile
 
 import audit_oracle_repair_canary as auditor
 import pytest
 from audit_oracle_repair_canary import CanaryAuditError, audit_canary, main
 from build_oracle_repair_canary import build_canary_manifest
+from terminal_bench_vmvm.source_wheels import pack_wheelhouse, validate_policy_wheel_closure
+from terminal_bench_vmvm.taskset import RuntimeWheelFingerprints, TerminalBenchVMVMConfig, TerminalBenchVMVMTaskset
 
 SOURCE_COMMIT = "a" * 40
 CANARY_COMMIT = "b" * 40
@@ -36,6 +40,20 @@ def _ordered_sha256(slugs: list[str]) -> str:
     return hashlib.sha256("".join(f"{slug}\n" for slug in slugs).encode()).hexdigest()
 
 
+def _wheel_file() -> bytes:
+    output = io.BytesIO()
+    with ZipFile(output, "w") as archive:
+        archive.writestr(
+            "verifier_helper-1.0.dist-info/METADATA",
+            "Metadata-Version: 2.1\nName: verifier-helper\nVersion: 1.0\n",
+        )
+        archive.writestr(
+            "verifier_helper-1.0.dist-info/WHEEL",
+            "Wheel-Version: 1.0\nTag: py3-none-any\n",
+        )
+    return output.getvalue()
+
+
 def _write_oracle(
     oracle: Path,
     identity: dict[str, Any],
@@ -45,6 +63,17 @@ def _write_oracle(
     statuses.mkdir(parents=True)
     (oracle / ".writer.lock").touch()
     identity_sha256 = _canonical_sha256(identity)
+    source_wheel_recovery = identity.get("source_wheel_recovery")
+    source_wheel_attestation_sha256 = None
+    source_wheel_attestation_sha256s: list[str] = []
+    if source_wheel_recovery is not None:
+        source_wheel_attestation_sha256s = [
+            entry["attestation_sha256"]
+            for entry in json.loads((oracle / source_wheel_recovery["attestation"]).read_text())["entries"]
+        ]
+        source_wheel_attestation_sha256 = hashlib.sha256(
+            (oracle / source_wheel_recovery["attestation"]).read_bytes()
+        ).hexdigest()
     (oracle / "run_identity.json").write_text(
         json.dumps(
             {
@@ -74,27 +103,26 @@ def _write_oracle(
             "slug": slug,
             "valid": valid,
         }
+        if source_wheel_recovery is not None:
+            row["source_wheel_attestation_sha256s"] = list(source_wheel_attestation_sha256s)
         rows.append(row)
         (statuses / f"{slug}.json").write_text(json.dumps(row, sort_keys=True) + "\n")
     (oracle / "results.jsonl").write_text("".join(json.dumps(row, sort_keys=True) + "\n" for row in rows))
     reasons = Counter(row["reason"] for row in rows)
     passed = sum(row["valid"] for row in rows)
-    (oracle / "summary.json").write_text(
-        json.dumps(
-            {
-                "completed": len(rows),
-                "finished_at": 1234.5,
-                "oracle_network_semantics": network_semantics,
-                "pass_rate": passed / len(rows),
-                "passed": passed,
-                "reasons": dict(reasons),
-                "run_identity_sha256": identity_sha256,
-                "selected": len(rows),
-            },
-            sort_keys=True,
-        )
-        + "\n"
-    )
+    summary = {
+        "completed": len(rows),
+        "finished_at": 1234.5,
+        "oracle_network_semantics": network_semantics,
+        "pass_rate": passed / len(rows),
+        "passed": passed,
+        "reasons": dict(reasons),
+        "run_identity_sha256": identity_sha256,
+        "selected": len(rows),
+    }
+    if source_wheel_attestation_sha256 is not None:
+        summary["source_wheel_attestation_sha256"] = source_wheel_attestation_sha256
+    (oracle / "summary.json").write_text(json.dumps(summary, sort_keys=True) + "\n")
     return rows
 
 
@@ -199,6 +227,7 @@ def _canary_fixture(
     *,
     recovered: int = 2,
     regress_control: bool = False,
+    source_wheel: bool = False,
     mutate_identity: Callable[[dict[str, Any]], None] | None = None,
 ) -> tuple[Path, list[dict[str, Any]]]:
     tasks = task_file.read_text().splitlines()
@@ -220,6 +249,115 @@ def _canary_fixture(
         "verifiers_commit": CANARY_VERIFIERS_COMMIT,
         "vmvm_tb_v2_sha256": CANARY_VMVM_SHA256,
     }
+    canary = tmp_path / "canary-oracle"
+    if source_wheel:
+        wheel = _wheel_file()
+        wheel_name = "verifier_helper-1.0-py3-none-any.whl"
+        policy = tmp_path / "source-wheel-policy.json"
+        policy.write_text(
+            json.dumps(
+                {
+                    "schema_version": 1,
+                    "allowed_hosts": ["files.example.invalid"],
+                    "entries": [
+                        {
+                            "requirements": ["verifier-helper==1.0"],
+                            "image": "registry.invalid/task@sha256:" + "1" * 64,
+                            "build_tools": {
+                                "pip": "24.3.1",
+                                "setuptools": "75.6.0",
+                                "wheel": "0.45.1",
+                            },
+                            "sources": [
+                                {
+                                    "distribution": "verifier-helper",
+                                    "version": "1.0",
+                                    "filename": "verifier-helper-1.0.tar.gz",
+                                    "url": "https://files.example.invalid/verifier-helper-1.0.tar.gz",
+                                    "size": 1,
+                                    "sha256": "2" * 64,
+                                    "wheel_filename": wheel_name,
+                                    "wheel_size": len(wheel),
+                                    "wheel_sha256": hashlib.sha256(wheel).hexdigest(),
+                                }
+                            ],
+                            "binary_wheels": [],
+                        }
+                    ],
+                },
+                sort_keys=True,
+            )
+            + "\n"
+        )
+        canary.mkdir()
+        policy_sha256 = hashlib.sha256(policy.read_bytes()).hexdigest()
+        taskset = TerminalBenchVMVMTaskset(
+            TerminalBenchVMVMConfig(
+                id="terminal-bench-vmvm",
+                dataset_dir=tmp_path,
+                image_prefix="registry.invalid/private",
+                image_tag="private-tag",
+                oracle_source_wheel_policy=policy,
+                oracle_source_wheel_policy_sha256=policy_sha256,
+                oracle_source_wheel_attestation_path=canary / "source_wheel_attestations.json",
+                ignore_dockerfile=True,
+            )
+        )
+        taskset.initialize_source_wheel_attestations(allow_create=True)
+        marker_environment = {
+            "implementation_name": "cpython",
+            "implementation_version": "3.12.0",
+            "os_name": "posix",
+            "platform_machine": "x86_64",
+            "platform_python_implementation": "CPython",
+            "platform_release": "6.8.0",
+            "platform_system": "Linux",
+            "platform_version": "synthetic",
+            "python_full_version": "3.12.0",
+            "python_version": "3.12",
+            "sys_platform": "linux",
+        }
+        build_tools = {"pip": "24.3.1", "setuptools": "75.6.0", "wheel": "0.45.1"}
+        compatibility = ["cpython", [3, 12], "cpython-312-x86_64-linux-gnu", "linux-x86_64", "x86_64"]
+        image = "registry.invalid/task@sha256:" + "1" * 64
+        runtime_evidence = {
+            "marker_environment": marker_environment,
+            "pip_version": "24.3.1",
+            "wheel_compatibility": compatibility,
+            "build_tools": build_tools,
+        }
+        fingerprints = RuntimeWheelFingerprints(
+            image=image,
+            resolution=_canonical_sha256([marker_environment, "24.3.1"]),
+            compatibility=_canonical_sha256([image, marker_environment, "24.3.1", compatibility, build_tools]),
+            build_tools=tuple(sorted(build_tools.items())),
+            toolchain=_canonical_sha256([image, build_tools]),
+            evidence=json.dumps(runtime_evidence, sort_keys=True, separators=(",", ":")),
+        )
+        policy_entry = taskset._source_wheel_policy.entries[0]
+        wheels = {wheel_name: wheel}
+        wheel_evidence = validate_policy_wheel_closure(policy_entry, wheels)
+        taskset._publish_source_wheel_attestation(
+            policy_entry.requirements,
+            fingerprints,
+            policy_entry,
+            pack_wheelhouse(wheels),
+            wheel_evidence,
+            (("verifier-helper", "1.0"),),
+        )
+        identity["source_wheel_recovery"] = {
+            "schema_version": 1,
+            "policy": {
+                "path": str(policy.resolve()),
+                "sha256": policy_sha256,
+            },
+            "attestation": "source_wheel_attestations.json",
+            "artifact_download_network": "public-hash-pinned-https",
+            "builder_lease_limit": 1,
+            "build_network": "no-network",
+            "build_isolation": False,
+            "target_install": "offline-no-index-no-deps",
+        }
     if mutate_identity is not None:
         mutate_identity(identity)
 
@@ -235,7 +373,6 @@ def _canary_fixture(
             valid = recovered_so_far < recovered
             recovered_so_far += int(valid)
         specifications.append((slug, valid, "valid" if valid else "invalid"))
-    canary = tmp_path / "canary-oracle"
     return canary, _write_oracle(canary, identity, specifications)
 
 
@@ -244,6 +381,7 @@ def _inputs(
     *,
     recovered: int = 2,
     regress_control: bool = False,
+    source_wheel: bool = False,
     mutate_identity: Callable[[dict[str, Any]], None] | None = None,
 ) -> tuple[Path, Path, Path, Path, list[dict[str, Any]], list[dict[str, Any]]]:
     source, identity, source_rows = _source_fixture(tmp_path)
@@ -255,6 +393,7 @@ def _inputs(
         task_file,
         recovered=recovered,
         regress_control=regress_control,
+        source_wheel=source_wheel,
         mutate_identity=mutate_identity,
     )
     return source, receipt, task_file, canary, source_rows, canary_rows
@@ -274,6 +413,16 @@ def _audit(
     expected_verifiers_commit: str = CANARY_VERIFIERS_COMMIT,
     expected_vmvm_tb_v2_sha256: str = CANARY_VMVM_SHA256,
 ) -> dict[str, Any]:
+    canary_identity = json.loads((canary / "run_identity.json").read_text())["identity"]
+    recovery = canary_identity.get("source_wheel_recovery")
+    source_wheel_arguments = (
+        {
+            "expected_source_wheel_policy_sha256": recovery["policy"]["sha256"],
+            "expected_source_wheel_attestations": 1,
+        }
+        if recovery is not None
+        else {}
+    )
     return audit_canary(
         source,
         receipt,
@@ -290,6 +439,7 @@ def _audit(
         control_count=2,
         minimum_recovered=minimum_recovered,
         seed="fixed-seed",
+        **source_wheel_arguments,
     )
 
 
@@ -333,6 +483,42 @@ def test_audits_transitions_confidentially_and_writes_self_hashed_certificate(tm
     private_values.extend(row["name"] for row in canary_rows)
     assert not any(value in aggregate_text for value in private_values)
     assert _audit(source, receipt, task_file, canary, certificate)["published"] is False
+
+
+def test_audits_source_wheel_canary_and_binds_immutable_artifacts(tmp_path: Path) -> None:
+    source, receipt, task_file, canary, _, _ = _inputs(tmp_path, source_wheel=True)
+    certificate = tmp_path / "audit.json"
+
+    with pytest.raises(CanaryAuditError, match="source_wheel_recovery_mismatch"):
+        audit_canary(
+            source,
+            receipt,
+            task_file,
+            canary,
+            certificate,
+            expected_source_prime_rl_commit=SOURCE_COMMIT,
+            expected_source_verifiers_commit=SOURCE_VERIFIERS_COMMIT,
+            expected_source_vmvm_tb_v2_sha256=SOURCE_VMVM_SHA256,
+            expected_prime_rl_commit=CANARY_COMMIT,
+            expected_verifiers_commit=CANARY_VERIFIERS_COMMIT,
+            expected_vmvm_tb_v2_sha256=CANARY_VMVM_SHA256,
+            expected_total=8,
+            control_count=2,
+            minimum_recovered=2,
+            seed="fixed-seed",
+        )
+
+    summary = _audit(source, receipt, task_file, canary, certificate)
+
+    assert summary["ok"] is True
+    audit = json.loads(certificate.read_text())["audit"]
+    recovery = audit["artifacts"]["canary"]["source_wheel_recovery"]
+    assert recovery["attestation"]["path"] == "source_wheel_attestations.json"
+    assert len(recovery["wheelhouses"]) == 1
+    assert summary["source_wheel_attestations"] == 1
+    assert audit["contracts"]["canary_source_wheel_recovery_sha256"] == (
+        _canonical_sha256(json.loads((canary / "run_identity.json").read_text())["identity"]["source_wheel_recovery"])
+    )
 
 
 @pytest.mark.parametrize(

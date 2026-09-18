@@ -190,6 +190,46 @@ on every terminal path, and evaluator shutdown deterministically deletes the
 cache. Hidden tests are staged only after verifier network isolation; sandbox
 wheelhouse copies are removed after use.
 
+An oracle-only source-wheel recovery path is available for an independently
+reviewed, digest-pinned exception set. It remains disabled unless
+`ORACLE_SOURCE_WHEEL_POLICY` and `ORACLE_SOURCE_WHEEL_POLICY_SHA256` are both
+set. Each policy entry binds an exact requirement set, target image digest,
+observed `pip`/`setuptools`/`wheel` versions, one source distribution, its
+complete binary-wheel closure, and every input and output filename, size, and
+SHA-256. The adapter tries the ordinary wheel-only path first and consults the
+policy only for a narrowly classified binary-unavailable result; Compose tasks
+and non-oracle setup reject the policy.
+
+The recovery builder downloads only the policy's credential-free HTTPS
+artifacts, verifies them, then activates `no-network` before executing any
+source build. It uses a fresh Python environment with
+`--no-build-isolation --no-index --no-deps`, accepts only the exact approved
+wheel closure, creates a deterministic archive, and proves an offline
+`--no-index --no-deps` install in a clean target VM with the same immutable
+image and runtime fingerprint. A process-wide semaphore limits this exceptional
+builder path to one VMVM lease while normal oracle concurrency continues.
+
+A fresh oracle creates a mode-0400 `source_wheel_attestations.json` and
+content-addressed `source_wheel_cache/` beside its results only after acquiring
+the writer lock. Publications are atomic and include the policy, runtime,
+network/build contract, source, wheel, closure, and archive digests. Every
+source-recovered result row names the attestation entry it consumed. Any resume,
+including `RERUN_INVALID=1`, must additionally pass the previously reviewed
+manifest digest as `ORACLE_SOURCE_WHEEL_ATTESTATION_SHA256`; a missing, changed,
+or orphaned artifact fails closed.
+
+For a promotable repair canary, supply the policy digest and exact nonzero
+attestation count independently to the audit controller as
+`ORACLE_AUDIT_SOURCE_WHEEL_POLICY_SHA256` and
+`ORACLE_AUDIT_SOURCE_WHEEL_ATTESTATIONS`. Pass the same pair to
+`export_oracle_tasks.py` as `--expected-source-wheel-policy-sha256` and
+`--expected-source-wheel-attestations`. The audit requires exact policy and
+manifest hashes, a one-to-one manifest/archive count, and equality between the
+attested entries and the union referenced by result rows. Promotion rehashes
+all wheelhouses and carries the recovery digests into the immutable receipt and
+final launch certificate. Never promote from values inferred only from the run
+itself.
+
 The old Mobius images do not contain every test-only package named by their
 verifier scripts. The adapter extracts only literal exact
 `name[extras]==version` pins from direct `pip install` commands in

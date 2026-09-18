@@ -24,6 +24,9 @@ image_prefix=${IMAGE_PREFIX:-vmvm-registry.fbinfra.net/terminal_bench}
 image_tag=${IMAGE_TAG:-mobius-9b6988a3faf0}
 image_manifest=${IMAGE_MANIFEST:-}
 image_manifest_sha256=${IMAGE_MANIFEST_SHA256:-}
+source_wheel_policy=${ORACLE_SOURCE_WHEEL_POLICY:-}
+source_wheel_policy_sha256=${ORACLE_SOURCE_WHEEL_POLICY_SHA256:-}
+source_wheel_attestation_sha256=${ORACLE_SOURCE_WHEEL_ATTESTATION_SHA256:-}
 task_file=${TASK_FILE:-}
 task_file_sha256=${TASK_FILE_SHA256:-}
 output_dir=${OUTPUT_DIR:-/checkpoint/ram/tianhaowu/terminal_bench_vmvm/oracle/run_${SLURM_JOB_ID}}
@@ -81,6 +84,15 @@ fi
 if [[ ( -n "$image_manifest" && -z "$image_manifest_sha256" ) \
     || ( -z "$image_manifest" && -n "$image_manifest_sha256" ) ]]; then
     printf 'IMAGE_MANIFEST and IMAGE_MANIFEST_SHA256 must be supplied together\n' >&2
+    exit 2
+fi
+if [[ ( -n "$source_wheel_policy" && -z "$source_wheel_policy_sha256" ) \
+    || ( -z "$source_wheel_policy" && -n "$source_wheel_policy_sha256" ) ]]; then
+    printf 'ORACLE_SOURCE_WHEEL_POLICY and ORACLE_SOURCE_WHEEL_POLICY_SHA256 must be supplied together\n' >&2
+    exit 2
+fi
+if [[ -n "$source_wheel_attestation_sha256" && -z "$source_wheel_policy" ]]; then
+    printf 'ORACLE_SOURCE_WHEEL_ATTESTATION_SHA256 requires ORACLE_SOURCE_WHEEL_POLICY\n' >&2
     exit 2
 fi
 if [[ ! "$vacli_lease_retries" =~ ^(0|[1-9][0-9]*)$ \
@@ -181,6 +193,12 @@ if [[ -n "$task_file" ]]; then
 fi
 if [[ -n "$image_manifest" ]]; then
     args+=(--image-manifest "$image_manifest" --image-manifest-sha256 "$image_manifest_sha256")
+fi
+if [[ -n "$source_wheel_policy" ]]; then
+    args+=(--source-wheel-policy "$source_wheel_policy" --source-wheel-policy-sha256 "$source_wheel_policy_sha256")
+fi
+if [[ -n "$source_wheel_attestation_sha256" ]]; then
+    args+=(--source-wheel-attestation-sha256 "$source_wheel_attestation_sha256")
 fi
 if [[ -n "${TASKS:-}" ]]; then
     read -r -a selected_tasks <<< "$TASKS"

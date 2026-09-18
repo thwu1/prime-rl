@@ -142,11 +142,30 @@ python_bin=/usr/bin/python3
 expected_total=${ORACLE_AUDIT_EXPECTED_TOTAL:-2538}
 controls=${ORACLE_AUDIT_CONTROLS:-20}
 minimum_recovered=${ORACLE_AUDIT_MINIMUM_RECOVERED:-12}
+source_wheel_policy_sha256=${ORACLE_AUDIT_SOURCE_WHEEL_POLICY_SHA256:-}
+source_wheel_attestations=${ORACLE_AUDIT_SOURCE_WHEEL_ATTESTATIONS:-}
 seed=${ORACLE_AUDIT_SEED:-oracle-dependency-overlay-v1}
 if [[ ! $expected_total =~ ^[1-9][0-9]*$ \
     || ! $controls =~ ^(0|[1-9][0-9]*)$ \
     || ! $minimum_recovered =~ ^(0|[1-9][0-9]*)$ ]]; then
     fail audit_gate_invalid
+fi
+if [[ ( -n $source_wheel_policy_sha256 && -z $source_wheel_attestations ) \
+    || ( -z $source_wheel_policy_sha256 && -n $source_wheel_attestations ) ]]; then
+    fail source_wheel_gate_invalid
+fi
+if [[ -n $source_wheel_policy_sha256 \
+    && ( ! $source_wheel_policy_sha256 =~ ^[0-9a-f]{64}$ \
+        || ! $source_wheel_attestations =~ ^[1-9][0-9]*$ ) ]]; then
+    fail source_wheel_gate_invalid
+fi
+
+source_wheel_args=()
+if [[ -n $source_wheel_policy_sha256 ]]; then
+    source_wheel_args+=(
+        --expected-source-wheel-policy-sha256 "$source_wheel_policy_sha256"
+        --expected-source-wheel-attestations "$source_wheel_attestations"
+    )
 fi
 
 export PYTHONDONTWRITEBYTECODE=1
@@ -168,4 +187,5 @@ exec "$python_bin" "$controller" \
     --expected-total "$expected_total" \
     --controls "$controls" \
     --minimum-recovered "$minimum_recovered" \
+    "${source_wheel_args[@]}" \
     --seed "$seed"

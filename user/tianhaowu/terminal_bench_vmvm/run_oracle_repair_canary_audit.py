@@ -103,6 +103,8 @@ class ControllerOptions:
     controls: int
     minimum_recovered: int
     seed: str
+    expected_source_wheel_policy_sha256: str | None = None
+    expected_source_wheel_attestations: int | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -834,6 +836,14 @@ def _validate_options(options: ControllerOptions) -> None:
         raise OracleAuditControllerError("controls_invalid")
     if type(options.minimum_recovered) is not int or options.minimum_recovered < 0:
         raise OracleAuditControllerError("minimum_recovered_invalid")
+    if (options.expected_source_wheel_policy_sha256 is None) != (options.expected_source_wheel_attestations is None):
+        raise OracleAuditControllerError("expected_source_wheel_contract_invalid")
+    if options.expected_source_wheel_policy_sha256 is not None and (
+        SHA256_RE.fullmatch(options.expected_source_wheel_policy_sha256) is None
+        or type(options.expected_source_wheel_attestations) is not int
+        or options.expected_source_wheel_attestations < 1
+    ):
+        raise OracleAuditControllerError("expected_source_wheel_contract_invalid")
     if (
         not isinstance(options.seed, str)
         or not options.seed
@@ -881,6 +891,13 @@ def _auditor_command(
         "--seed",
         options.seed,
     )
+    if options.expected_source_wheel_policy_sha256 is not None:
+        command += (
+            "--expected-source-wheel-policy-sha256",
+            options.expected_source_wheel_policy_sha256,
+            "--expected-source-wheel-attestations",
+            str(options.expected_source_wheel_attestations),
+        )
     _validate_provenance_arguments(command)
     return command
 
@@ -960,6 +977,7 @@ def _validate_auditor_outputs(
     staged_certificate: Path,
     source: CheckoutAttestation,
     execution: CheckoutAttestation,
+    options: ControllerOptions,
 ) -> tuple[dict[str, Any], bytes]:
     if result.returncode not in {0, 1} or result.stderr:
         raise OracleAuditControllerError("auditor_rejected_inputs")
@@ -974,6 +992,7 @@ def _validate_auditor_outputs(
         "reason_counts",
         "recovered",
         "repair_candidates",
+        "source_wheel_attestations",
         "state",
         "transitions",
         "unrecovered",
@@ -1006,6 +1025,7 @@ def _validate_auditor_outputs(
     if not isinstance(audit, dict) or _canonical_json_sha256(audit) != envelope.get("audit_sha256"):
         raise OracleAuditControllerError("auditor_certificate_invalid")
     contracts = audit.get("contracts")
+    gates = audit.get("gates")
     expected_source = {
         "prime_rl_commit": source.revision,
         "prime_rl_tree_sha256": hashlib.sha256(b"").hexdigest(),
@@ -1022,6 +1042,10 @@ def _validate_auditor_outputs(
         not isinstance(contracts, dict)
         or contracts.get("source_oracle_source") != expected_source
         or contracts.get("canary_source") != expected_execution
+        or not isinstance(gates, dict)
+        or gates.get("expected_source_wheel_policy_sha256") != options.expected_source_wheel_policy_sha256
+        or gates.get("expected_source_wheel_attestations") != options.expected_source_wheel_attestations
+        or summary.get("source_wheel_attestations") != (options.expected_source_wheel_attestations or 0)
         or audit.get("ok") is not summary["ok"]
         or audit.get("state") != summary["state"]
         or envelope.get("audit_sha256") != summary["audit_sha256"]
@@ -1128,6 +1152,7 @@ def run_controller(
         staged_certificate,
         source,
         execution,
+        options,
     )
     certificate_sha256 = hashlib.sha256(certificate_bytes).hexdigest()
     output = {
@@ -1141,6 +1166,7 @@ def run_controller(
             "vmvm_tb_v2_sha256": execution.vmvm_tb_v2_sha256,
         },
         "minimum_recovered": summary["minimum_recovered"],
+        "source_wheel_attestations": summary["source_wheel_attestations"],
         "ok": summary["ok"],
         "recovered": summary["recovered"],
         "repair_candidates": summary["repair_candidates"],
@@ -1181,6 +1207,8 @@ def _parser() -> StableArgumentParser:
     parser.add_argument("--expected-total", type=int, default=2_538)
     parser.add_argument("--controls", type=int, default=20)
     parser.add_argument("--minimum-recovered", type=int, default=12)
+    parser.add_argument("--expected-source-wheel-policy-sha256")
+    parser.add_argument("--expected-source-wheel-attestations", type=int)
     parser.add_argument("--seed", default="oracle-dependency-overlay-v1")
     return parser
 
@@ -1206,6 +1234,8 @@ def main(argv: list[str] | None = None) -> int:
                 controls=args.controls,
                 minimum_recovered=args.minimum_recovered,
                 seed=args.seed,
+                expected_source_wheel_policy_sha256=args.expected_source_wheel_policy_sha256,
+                expected_source_wheel_attestations=args.expected_source_wheel_attestations,
             )
         )
     except OracleAuditControllerError as error:

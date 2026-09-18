@@ -194,6 +194,28 @@ IDs, strictly increasing invocation timestamps, first/resume ordering, and at
 most one rerun-invalid invocation. A dependency-policy or source change
 requires a new identity and a fresh full oracle rather than an in-place retry.
 
+Keep source builds disabled by default. For an independently reviewed
+oracle-only exception, require the paired
+`ORACLE_SOURCE_WHEEL_POLICY{,_SHA256}` inputs. Each policy entry must bind one
+source distribution, the full binary-wheel closure, exact artifact sizes and
+hashes, an immutable target image, and exact build-tool versions. Attempt this
+path only after the normal `--only-binary=:all:` fetch fails with the narrow
+binary-unavailable signature. Download and hash-check approved HTTPS inputs
+first, activate `no-network`, then build in a fresh Python environment using
+`--no-build-isolation --no-index --no-deps`; validate the exact output closure
+and prove offline installation on a clean target with the same runtime
+fingerprint. Reject Compose and cap the exceptional builder path at one lease.
+
+Publish the source-wheel manifest and content-addressed wheelhouse archives
+atomically as private oracle artifacts after the writer lock. On every resume,
+require the externally reviewed `ORACLE_SOURCE_WHEEL_ATTESTATION_SHA256`; never
+reconstruct or trust it from the output directory. Every recovered row must
+carry its attestation-entry digest. For repair certification and promotion,
+require an independently supplied policy digest and exact nonzero attestation
+count, rehash every archive, and prove that the row-reference union equals the
+manifest entry set. Bind the policy and attestation digests through the canary
+certificate, promotion receipt, and Mobius launch certificate.
+
 Apply the same immutable-run rule to model evaluations. Every non-dry launch
 through `terminal_bench_vmvm/run_eval.sbatch` must declare its role (`smoke`,
 `tb4`, or `mobius`), metadata deployment ID, expected model, exact deployment

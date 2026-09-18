@@ -51,6 +51,9 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument("--image-tag", required=True)
     parser.add_argument("--image-manifest", type=Path)
     parser.add_argument("--image-manifest-sha256")
+    parser.add_argument("--source-wheel-policy", type=Path)
+    parser.add_argument("--source-wheel-policy-sha256")
+    parser.add_argument("--source-wheel-attestation-sha256")
     parser.add_argument("--use-declared-images", action="store_true")
     parser.add_argument("--enable-compose", action="store_true")
     parser.add_argument("--task-file", type=Path)
@@ -136,11 +139,24 @@ def _parse_args() -> argparse.Namespace:
             "--image-manifest-sha256",
             args.image_manifest_sha256,
         ),
+        (
+            "--source-wheel-policy",
+            args.source_wheel_policy,
+            "--source-wheel-policy-sha256",
+            args.source_wheel_policy_sha256,
+        ),
     ):
         if (path is None) != (digest is None):
             parser.error(f"{path_option} and {digest_option} must be supplied together")
         if digest is not None and SHA256_RE.fullmatch(digest) is None:
             parser.error(f"{digest_option} must be a lowercase SHA-256")
+    if (
+        args.source_wheel_attestation_sha256 is not None
+        and SHA256_RE.fullmatch(args.source_wheel_attestation_sha256) is None
+    ):
+        parser.error("--source-wheel-attestation-sha256 must be a lowercase SHA-256")
+    if args.source_wheel_attestation_sha256 is not None and args.source_wheel_policy is None:
+        parser.error("--source-wheel-attestation-sha256 requires --source-wheel-policy")
     if not args.invocation_host.strip():
         parser.error("--invocation-host must be nonempty")
     if not args.slurm_job_id.isdigit():
@@ -355,11 +371,19 @@ def _validate_identity_inputs(args: argparse.Namespace) -> None:
     for path, digest, label in (
         (args.task_file, args.task_file_sha256, "task file"),
         (args.image_manifest, args.image_manifest_sha256, "image manifest"),
+        (args.source_wheel_policy, args.source_wheel_policy_sha256, "source-wheel policy"),
     ):
         if (path is None) != (digest is None):
             raise SystemExit(f"{label} and its SHA-256 must be supplied together")
         if digest is not None and SHA256_RE.fullmatch(digest) is None:
             raise SystemExit(f"{label} SHA-256 must be lowercase hexadecimal")
+    if (
+        args.source_wheel_attestation_sha256 is not None
+        and SHA256_RE.fullmatch(args.source_wheel_attestation_sha256) is None
+    ):
+        raise SystemExit("source-wheel attestation SHA-256 must be lowercase hexadecimal")
+    if args.source_wheel_attestation_sha256 is not None and args.source_wheel_policy is None:
+        raise SystemExit("source-wheel attestation SHA-256 requires a source-wheel policy")
     if not args.invocation_host.strip():
         raise SystemExit("invocation host must be nonempty")
     if not args.slurm_job_id.isdigit():
@@ -383,7 +407,7 @@ def _run_identity(
             raise SystemExit("revision-pinned datasets cannot supply an archive content digest")
     elif dataset_content_sha256 is None or SHA256_RE.fullmatch(dataset_content_sha256) is None:
         raise SystemExit("archive-pinned datasets require a verified content SHA-256")
-    return {
+    identity = {
         "schema_version": RUN_IDENTITY_SCHEMA_VERSION,
         "dataset": {
             "path": str(args.dataset_dir.resolve()),
@@ -446,6 +470,21 @@ def _run_identity(
             "minimum_valid": args.minimum_valid,
         },
     }
+    if args.source_wheel_policy is not None:
+        identity["source_wheel_recovery"] = {
+            "schema_version": 1,
+            "policy": {
+                "path": str(args.source_wheel_policy.resolve()),
+                "sha256": args.source_wheel_policy_sha256,
+            },
+            "attestation": "source_wheel_attestations.json",
+            "artifact_download_network": "public-hash-pinned-https",
+            "builder_lease_limit": 1,
+            "build_network": "no-network",
+            "build_isolation": False,
+            "target_install": "offline-no-index-no-deps",
+        }
+    return identity
 
 
 def _run_identity_envelope(identity: dict) -> dict:
@@ -463,10 +502,13 @@ def _has_prior_run_artifacts(output_dir: Path) -> bool:
         "provenance.txt",
         "results.jsonl",
         "run_config.json",
+        "source_wheel_attestations.json",
         "summary.json",
     )
-    return any((output_dir / name).exists() for name in filenames) or any(
-        (output_dir / "tasks").glob("*.json")
+    return (
+        any((output_dir / name).exists() for name in filenames)
+        or any((output_dir / "tasks").glob("*.json"))
+        or (output_dir / "source_wheel_cache").exists()
     )
 
 
@@ -492,6 +534,23 @@ def _bind_run_identity(output_dir: Path, identity: dict) -> tuple[str, bool]:
         raise SystemExit("existing oracle artifacts have no immutable run identity; use a fresh output directory")
     _atomic_json(path, expected)
     return expected["run_identity_sha256"], True
+
+
+def _can_recover_initial_source_wheel_ledger(output_dir: Path) -> bool:
+    """Allow only the crash window between identity and empty-ledger publication."""
+    try:
+        entries = list(output_dir.iterdir())
+    except OSError:
+        return False
+    allowed = {".writer.lock", "run_identity.json"}
+    if {entry.name for entry in entries} != allowed:
+        return False
+    try:
+        identity_status = (output_dir / "run_identity.json").lstat()
+        lock_status = (output_dir / ".writer.lock").lstat()
+    except OSError:
+        return False
+    return stat.S_ISREG(identity_status.st_mode) and stat.S_ISREG(lock_status.st_mode)
 
 
 def _atomic_json(path: Path, data: dict) -> None:
@@ -583,6 +642,9 @@ def _bind_initial_provenance(
         "oracle_solution_network_mode": network["trusted_reference_solution"],
         "run_identity_sha256": run_identity_sha256,
     }
+    source_wheel_recovery = identity.get("source_wheel_recovery")
+    if source_wheel_recovery is not None:
+        stable["source_wheel_policy_sha256"] = source_wheel_recovery["policy"]["sha256"]
     expected_keys = {*stable, "host", "slurm_job_id"}
     if path.is_file():
         saved = _parse_provenance(path)
@@ -607,6 +669,8 @@ def _bind_initial_provenance(
         "oracle_solution_network_mode": stable["oracle_solution_network_mode"],
         "run_identity_sha256": stable["run_identity_sha256"],
     }
+    if "source_wheel_policy_sha256" in stable:
+        records["source_wheel_policy_sha256"] = stable["source_wheel_policy_sha256"]
     _atomic_text(path, "".join(f"{key}={value}\n" for key, value in records.items()))
 
 
@@ -640,6 +704,9 @@ def _append_invocation(
         "slurm_job_id": args.slurm_job_id,
         "source": identity["source"],
     }
+    if args.source_wheel_policy is not None:
+        record["source_wheel_policy_sha256"] = args.source_wheel_policy_sha256
+        record["expected_source_wheel_attestation_sha256"] = args.source_wheel_attestation_sha256
     with path.open("a") as handle:
         handle.write(json.dumps(record, sort_keys=True, ensure_ascii=False) + "\n")
         handle.flush()
@@ -658,11 +725,7 @@ def _bind_run_config(output_dir: Path, config: dict, *, identity_created: bool) 
         saved_started_at = saved.pop("started_at", None)
         expected = dict(config)
         expected.pop("started_at", None)
-        if (
-            isinstance(saved_started_at, bool)
-            or not isinstance(saved_started_at, (int, float))
-            or saved != expected
-        ):
+        if isinstance(saved_started_at, bool) or not isinstance(saved_started_at, (int, float)) or saved != expected:
             raise SystemExit("oracle run config does not match the immutable run identity")
         return
     if not identity_created:
@@ -681,11 +744,30 @@ def _validate_existing_artifacts(
     tasks: list[TerminalBenchTask],
     run_identity_sha256: str,
     network_semantics: dict[str, str | int],
+    *,
+    source_wheel_policy_enabled: bool = False,
+    source_wheel_attestation_sha256: str | None = None,
+    known_source_wheel_attestation_sha256s: frozenset[str] = frozenset(),
 ) -> dict[str, dict]:
     """Validate every existing result before any completed row can be reused."""
+    if source_wheel_policy_enabled and (
+        not isinstance(source_wheel_attestation_sha256, str)
+        or SHA256_RE.fullmatch(source_wheel_attestation_sha256) is None
+    ):
+        raise SystemExit("current source-wheel attestation is missing or invalid")
     summary_path = output_dir / "summary.json"
     if summary_path.is_file():
-        _require_artifact_identity(_read_result(summary_path), run_identity_sha256, "saved summary")
+        saved_summary = _require_artifact_identity(_read_result(summary_path), run_identity_sha256, "saved summary")
+        saved_attestation = saved_summary.get("source_wheel_attestation_sha256")
+        if source_wheel_policy_enabled:
+            # A preemption can land after a new cache attestation is published
+            # but before the progress summary is refreshed. Completed rows are
+            # validated independently below and the summary is regenerated
+            # under the externally approved current manifest before promotion.
+            if not isinstance(saved_attestation, str) or SHA256_RE.fullmatch(saved_attestation) is None:
+                raise SystemExit("saved summary has an invalid source-wheel attestation")
+        elif "source_wheel_attestation_sha256" in saved_summary:
+            raise SystemExit("saved summary unexpectedly enables source-wheel recovery")
 
     results_path = output_dir / "results.jsonl"
     if results_path.is_file():
@@ -723,6 +805,7 @@ def _validate_existing_artifacts(
         attempts = prior.get("attempts")
         error = prior.get("error")
         error_type = prior.get("error_type")
+        source_attestations = prior.get("source_wheel_attestation_sha256s")
         if (
             not isinstance(valid, bool)
             or not isinstance(reason, str)
@@ -749,6 +832,16 @@ def _validate_existing_artifacts(
             or not (error is None or isinstance(error, str))
             or not (error_type is None or isinstance(error_type, str))
             or ("last_attempt" in prior and not isinstance(prior["last_attempt"], dict))
+            or (not source_wheel_policy_enabled and "source_wheel_attestation_sha256s" in prior)
+            or (
+                source_wheel_policy_enabled
+                and (
+                    not isinstance(source_attestations, list)
+                    or not all(isinstance(digest, str) for digest in source_attestations)
+                    or source_attestations != sorted(set(source_attestations))
+                    or not all(digest in known_source_wheel_attestation_sha256s for digest in source_attestations)
+                )
+            )
         ):
             raise SystemExit(f"saved task result has an invalid terminal status: {path}")
         prior_by_slug[task.slug] = prior
@@ -907,12 +1000,13 @@ def _summary(
     selected: int,
     network_semantics: dict[str, str | int],
     run_identity_sha256: str,
+    source_wheel_attestation_sha256: str | None = None,
 ) -> dict:
     reasons: dict[str, int] = {}
     for result in results:
         reasons[result["reason"]] = reasons.get(result["reason"], 0) + 1
     passed = sum(result["valid"] for result in results)
-    return {
+    summary = {
         "selected": selected,
         "completed": len(results),
         "passed": passed,
@@ -921,6 +1015,9 @@ def _summary(
         "oracle_network_semantics": network_semantics,
         "run_identity_sha256": run_identity_sha256,
     }
+    if source_wheel_attestation_sha256 is not None:
+        summary["source_wheel_attestation_sha256"] = source_wheel_attestation_sha256
+    return summary
 
 
 def _meets_acceptance(summary: dict, minimum_pass_rate: float, minimum_valid: int) -> bool:
@@ -931,6 +1028,13 @@ async def _run(args: argparse.Namespace) -> int:
     _validate_identity_inputs(args)
     dataset_content_sha256 = _validated_dataset_content_sha256(args)
     requested = _requested_tasks(args)
+    output_dir = args.output_dir.resolve()
+    output_dir.mkdir(parents=True, exist_ok=True)
+    lock = (output_dir / ".writer.lock").open("a+")
+    try:
+        fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except BlockingIOError as error:
+        raise SystemExit(f"another oracle runner owns {output_dir}") from error
     taskset = TerminalBenchVMVMTaskset(
         TerminalBenchVMVMConfig(
             id="terminal-bench-vmvm",
@@ -949,6 +1053,12 @@ async def _run(args: argparse.Namespace) -> int:
             timeout_multiplier=args.timeout_multiplier,
             resource_multiplier=args.resource_multiplier,
             oracle_solution_network_mode=args.oracle_solution_network_mode,
+            oracle_source_wheel_policy=args.source_wheel_policy,
+            oracle_source_wheel_policy_sha256=args.source_wheel_policy_sha256,
+            oracle_source_wheel_attestation_path=(
+                output_dir / "source_wheel_attestations.json" if args.source_wheel_policy is not None else None
+            ),
+            oracle_source_wheel_attestation_sha256=args.source_wheel_attestation_sha256,
             ignore_dockerfile=True,
         )
     )
@@ -971,16 +1081,13 @@ async def _run(args: argparse.Namespace) -> int:
         lease_ttl=args.lease_ttl,
         max_session_buffer_size=args.max_session_buffer_size,
     )
-    output_dir = args.output_dir.resolve()
-    output_dir.mkdir(parents=True, exist_ok=True)
-    lock = (output_dir / ".writer.lock").open("a+")
-    try:
-        fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
-    except BlockingIOError as error:
-        raise SystemExit(f"another oracle runner owns {output_dir}") from error
+    taskset.revalidate_source_wheel_attestations()
 
     identity = _run_identity(args, tasks, dataset_content_sha256)
     run_identity_sha256, identity_created = _bind_run_identity(output_dir, identity)
+    taskset.initialize_source_wheel_attestations(
+        allow_create=identity_created or _can_recover_initial_source_wheel_ledger(output_dir)
+    )
     _bind_initial_provenance(
         output_dir,
         identity,
@@ -1030,6 +1137,10 @@ async def _run(args: argparse.Namespace) -> int:
         "selected_tasks": len(tasks),
         "started_at": time.time(),
     }
+    if args.source_wheel_policy is not None:
+        run_config["source_wheel_policy"] = str(args.source_wheel_policy.resolve())
+        run_config["source_wheel_policy_sha256"] = args.source_wheel_policy_sha256
+        run_config["source_wheel_attestation"] = str(output_dir / "source_wheel_attestations.json")
     _bind_run_config(output_dir, run_config, identity_created=identity_created)
 
     prior_by_slug = _validate_existing_artifacts(
@@ -1037,6 +1148,9 @@ async def _run(args: argparse.Namespace) -> int:
         tasks,
         run_identity_sha256,
         network_semantics,
+        source_wheel_policy_enabled=args.source_wheel_policy is not None,
+        source_wheel_attestation_sha256=taskset.source_wheel_attestation_sha256,
+        known_source_wheel_attestation_sha256s=taskset.known_source_wheel_attestation_sha256s,
     )
     status_dir = output_dir / "tasks"
     status_dir.mkdir(exist_ok=True)
@@ -1067,9 +1181,19 @@ async def _run(args: argparse.Namespace) -> int:
     async def one(task: TerminalBenchTask) -> dict:
         async with semaphore:
             logger.info("start idx=%d task=%s", task.idx, task.name)
-            result = await _validate_one(taskset, task, runtime_config, args)
+            source_wheel_attestations: list[str] = []
+            if args.source_wheel_policy is not None:
+                taskset.begin_task_dependency_attestations(task)
+                try:
+                    result = await _validate_one(taskset, task, runtime_config, args)
+                finally:
+                    source_wheel_attestations = taskset.finish_task_dependency_attestations(task)
+            else:
+                result = await _validate_one(taskset, task, runtime_config, args)
             result["oracle_network_semantics"] = network_semantics
             result["run_identity_sha256"] = run_identity_sha256
+            if args.source_wheel_policy is not None:
+                result["source_wheel_attestation_sha256s"] = source_wheel_attestations
             _atomic_json(status_dir / f"{task.slug}.json", result)
             logger.info(
                 "done idx=%d task=%s reason=%s elapsed=%.1fs",
@@ -1089,7 +1213,13 @@ async def _run(args: argparse.Namespace) -> int:
             ordered = [results_by_slug[task.slug] for task in tasks if task.slug in results_by_slug]
             _atomic_json(
                 output_dir / "summary.json",
-                _summary(ordered, len(tasks), network_semantics, run_identity_sha256),
+                _summary(
+                    ordered,
+                    len(tasks),
+                    network_semantics,
+                    run_identity_sha256,
+                    taskset.source_wheel_attestation_sha256,
+                ),
             )
 
         results = [results_by_slug[task.slug] for task in tasks]
@@ -1097,7 +1227,13 @@ async def _run(args: argparse.Namespace) -> int:
             for result in results:
                 handle.write(json.dumps(result, sort_keys=True, ensure_ascii=False) + "\n")
         os.replace(output_dir / "results.jsonl.tmp", output_dir / "results.jsonl")
-        summary = _summary(results, len(tasks), network_semantics, run_identity_sha256)
+        summary = _summary(
+            results,
+            len(tasks),
+            network_semantics,
+            run_identity_sha256,
+            taskset.source_wheel_attestation_sha256,
+        )
         summary["finished_at"] = time.time()
         _atomic_json(output_dir / "summary.json", summary)
         logger.info("oracle summary: %s", json.dumps(summary, sort_keys=True))

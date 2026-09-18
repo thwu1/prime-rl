@@ -90,6 +90,10 @@ ORACLE_INVOCATION_KEYS = {
     "slurm_job_id",
     "source",
 }
+SOURCE_WHEEL_ORACLE_INVOCATION_KEYS = ORACLE_INVOCATION_KEYS | {
+    "expected_source_wheel_attestation_sha256",
+    "source_wheel_policy_sha256",
+}
 
 
 class LaunchCertificateError(ValueError):
@@ -325,6 +329,7 @@ def _validate_oracle_invocations(
     expected_source: dict[str, str],
     expected_count: int,
     expected_rerun_invalid_count: int,
+    source_wheel_policy_sha256: str | None = None,
 ) -> None:
     if not raw or not raw.endswith(b"\n"):
         raise LaunchCertificateError("oracle_invocations_invalid")
@@ -347,7 +352,10 @@ def _validate_oracle_invocations(
             )
         except (ValueError, RecursionError) as cause:
             raise LaunchCertificateError("oracle_invocations_invalid") from cause
-        if not isinstance(record, dict) or set(record) != ORACLE_INVOCATION_KEYS:
+        expected_keys = (
+            ORACLE_INVOCATION_KEYS if source_wheel_policy_sha256 is None else SOURCE_WHEEL_ORACLE_INVOCATION_KEYS
+        )
+        if not isinstance(record, dict) or set(record) != expected_keys:
             raise LaunchCertificateError("oracle_invocations_invalid")
         invoked_at = record.get("invoked_at")
         host = record.get("host")
@@ -359,6 +367,15 @@ def _validate_oracle_invocations(
             or record["schema_version"] != 1
             or record.get("run_identity_sha256") != expected_run_identity_sha256
             or record.get("source") != expected_source
+            or (
+                source_wheel_policy_sha256 is not None
+                and (
+                    record.get("source_wheel_policy_sha256") != source_wheel_policy_sha256
+                    or (index == 0 and record.get("expected_source_wheel_attestation_sha256") is not None)
+                    or (index > 0 and not isinstance(record.get("expected_source_wheel_attestation_sha256"), str))
+                    or (index > 0 and SHA256_RE.fullmatch(record["expected_source_wheel_attestation_sha256"]) is None)
+                )
+            )
             or isinstance(invoked_at, bool)
             or not isinstance(invoked_at, (int, float))
             or not math.isfinite(invoked_at)
@@ -393,6 +410,89 @@ def _verify_flat_self_hash(value: dict[str, Any], field: str, *, label: str) -> 
     if _sha256_bytes(_canonical_json(unsigned)) != digest:
         raise LaunchCertificateError(f"{label}_self_hash_mismatch")
     return digest
+
+
+def _validate_source_wheel_receipt_artifacts(
+    value: object,
+    *,
+    oracle_dir: Path,
+) -> tuple[str, str]:
+    if not isinstance(value, dict) or set(value) != {
+        "policy",
+        "attestation",
+        "wheelhouses",
+    }:
+        raise LaunchCertificateError("oracle_source_wheel_artifacts_invalid")
+    policy = value.get("policy")
+    attestation = value.get("attestation")
+    wheelhouses = value.get("wheelhouses")
+    if (
+        not isinstance(policy, dict)
+        or set(policy) != {"path", "sha256"}
+        or not isinstance(policy.get("path"), str)
+        or not Path(policy["path"]).is_absolute()
+        or not isinstance(attestation, dict)
+        or set(attestation) != {"path", "sha256"}
+        or attestation.get("path") != "source_wheel_attestations.json"
+        or not isinstance(wheelhouses, list)
+    ):
+        raise LaunchCertificateError("oracle_source_wheel_artifacts_invalid")
+    policy_sha256 = _require_sha256(policy.get("sha256"), "oracle_source_wheel_policy")
+    attestation_sha256 = _require_sha256(
+        attestation.get("sha256"),
+        "oracle_source_wheel_attestation",
+    )
+    resolved_policy, observed_policy_sha256 = _stable_file_sha256(
+        Path(policy["path"]),
+        label="oracle_source_wheel_policy",
+    )
+    if str(resolved_policy) != policy["path"] or observed_policy_sha256 != policy_sha256:
+        raise LaunchCertificateError("oracle_source_wheel_policy_mismatch")
+    attestation_path = oracle_dir / attestation["path"]
+    resolved_attestation, observed_attestation_sha256 = _stable_file_sha256(
+        attestation_path,
+        label="oracle_source_wheel_attestation",
+    )
+    if resolved_attestation.parent != oracle_dir or observed_attestation_sha256 != attestation_sha256:
+        raise LaunchCertificateError("oracle_source_wheel_attestation_mismatch")
+    observed_records: list[dict[str, object]] = []
+    seen_paths: set[str] = set()
+    for record in wheelhouses:
+        if (
+            not isinstance(record, dict)
+            or set(record) != {"path", "sha256", "size"}
+            or not isinstance(record.get("path"), str)
+            or re.fullmatch(r"source_wheel_cache/[0-9a-f]{64}\.tar", record["path"]) is None
+            or record["path"] in seen_paths
+            or isinstance(record.get("size"), bool)
+            or not isinstance(record.get("size"), int)
+            or record["size"] < 1
+        ):
+            raise LaunchCertificateError("oracle_source_wheel_artifacts_invalid")
+        expected_sha256 = _require_sha256(
+            record.get("sha256"),
+            "oracle_source_wheel_archive",
+        )
+        archive_path = oracle_dir / record["path"]
+        resolved_archive, observed_sha256 = _stable_file_sha256(
+            archive_path,
+            label="oracle_source_wheel_archive",
+        )
+        try:
+            archive_size = resolved_archive.stat().st_size
+        except OSError as cause:
+            raise LaunchCertificateError("oracle_source_wheel_archive_unreadable") from cause
+        if (
+            resolved_archive.parent != oracle_dir / "source_wheel_cache"
+            or observed_sha256 != expected_sha256
+            or archive_size != record["size"]
+        ):
+            raise LaunchCertificateError("oracle_source_wheel_archive_mismatch")
+        seen_paths.add(record["path"])
+        observed_records.append(record)
+    if observed_records != sorted(observed_records, key=lambda record: str(record["path"])):
+        raise LaunchCertificateError("oracle_source_wheel_artifacts_invalid")
+    return policy_sha256, attestation_sha256
 
 
 def _project_root(path: Path) -> Path:
@@ -891,12 +991,16 @@ def _validate_oracle_receipt(
     production_source = _validate_source(project_root, source)
 
     oracle_artifacts = receipt.get("oracle_artifacts")
-    if not isinstance(oracle_artifacts, dict) or set(oracle_artifacts) != {
+    base_oracle_artifact_keys = {
         "invocations",
         "provenance",
         "results",
         "run_identity",
         "summary",
+    }
+    if not isinstance(oracle_artifacts, dict) or frozenset(oracle_artifacts) not in {
+        frozenset(base_oracle_artifact_keys),
+        frozenset(base_oracle_artifact_keys | {"source_wheel_recovery"}),
     }:
         raise LaunchCertificateError("oracle_receipt_artifacts_invalid")
     artifact_hashes: dict[str, str] = {}
@@ -946,6 +1050,13 @@ def _validate_oracle_receipt(
     if str(resolved_invocations) != invocation_path or _sha256_bytes(invocation_raw) != invocation_sha256:
         raise LaunchCertificateError("oracle_invocations_sha256_mismatch")
     artifact_hashes["invocations"] = invocation_sha256
+    source_wheel_policy_sha256: str | None = None
+    source_wheel_attestation_sha256: str | None = None
+    if "source_wheel_recovery" in oracle_artifacts:
+        source_wheel_policy_sha256, source_wheel_attestation_sha256 = _validate_source_wheel_receipt_artifacts(
+            oracle_artifacts["source_wheel_recovery"],
+            oracle_dir=resolved_invocations.parent,
+        )
 
     counts = receipt.get("counts")
     expected_count_keys = {
@@ -995,6 +1106,7 @@ def _validate_oracle_receipt(
         },
         expected_count=counts["invocation_count"],
         expected_rerun_invalid_count=counts["rerun_invalid_invocation_count"],
+        source_wheel_policy_sha256=source_wheel_policy_sha256,
     )
 
     acceptance = receipt.get("acceptance")
@@ -1106,6 +1218,11 @@ def _validate_oracle_receipt(
         "selected_subset_valid",
         "trusted_reference_solution",
     }
+    if source_wheel_policy_sha256 is not None:
+        expected_summary_keys |= {
+            "source_wheel_attestation_sha256",
+            "source_wheel_policy_sha256",
+        }
     expected_summary = {
         "applied": True,
         "completed": counts["completed"],
@@ -1134,12 +1251,15 @@ def _validate_oracle_receipt(
         "selected_subset_valid": True,
         "trusted_reference_solution": "public",
     }
+    if source_wheel_policy_sha256 is not None:
+        expected_summary["source_wheel_attestation_sha256"] = source_wheel_attestation_sha256
+        expected_summary["source_wheel_policy_sha256"] = source_wheel_policy_sha256
     if not isinstance(summary, dict) or set(summary) != expected_summary_keys:
         raise LaunchCertificateError("oracle_receipt_summary_invalid")
     _require_sha256(summary.get("current_manifest_sha256"), "oracle_current_manifest")
     if any(summary.get(key) != expected for key, expected in expected_summary.items()):
         raise LaunchCertificateError("oracle_receipt_summary_invalid")
-    return {
+    validated = {
         "dataset_revision": dataset_revision,
         "image_manifest_sha256": image_manifest_sha256,
         "passed": counts["passed"],
@@ -1154,6 +1274,12 @@ def _validate_oracle_receipt(
         "oracle_source": dict(source),
         "production_source": production_source,
     }
+    if source_wheel_policy_sha256 is not None:
+        validated["source_wheel_recovery"] = {
+            "policy_sha256": source_wheel_policy_sha256,
+            "attestation_sha256": source_wheel_attestation_sha256,
+        }
+    return validated
 
 
 def _validate_readiness_checkpoint(
@@ -2029,6 +2155,8 @@ def _build_unsigned(
         },
         "state": "passed",
     }
+    if "source_wheel_recovery" in oracle:
+        unsigned["gates"]["oracle_promotion"]["source_wheel_recovery"] = oracle["source_wheel_recovery"]
     final_endpoint = _load_current_endpoint(
         deployment_proxy_info,
         deployment_proxy_info_sha256,

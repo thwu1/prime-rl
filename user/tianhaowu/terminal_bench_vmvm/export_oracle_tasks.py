@@ -18,6 +18,7 @@ import json
 import math
 import os
 import re
+import stat
 import subprocess
 import sys
 import tomllib
@@ -26,11 +27,20 @@ from collections import Counter
 from pathlib import Path
 from typing import Any
 
+from terminal_bench_vmvm.source_wheels import (
+    SOURCE_WHEEL_ATTESTATION_SCHEMA_VERSION,
+    canonical_json,
+    inspect_wheelhouse,
+    load_source_wheel_policy,
+    wheel_evidence_dicts,
+)
+
 SHA256_RE = re.compile(r"[0-9a-f]{64}")
 REVISION_RE = re.compile(r"[0-9a-f]{40}")
 MAX_JSON_BYTES = 64 * 1024 * 1024
 MAX_CONFIG_BYTES = 2 * 1024 * 1024
 MAX_MANIFEST_BYTES = 16 * 1024 * 1024
+MAX_SOURCE_WHEELHOUSE_BYTES = 1024 * 1024 * 1024
 TASKSET_ID = "terminal-bench-vmvm"
 CLEAN_TREE_SHA256 = hashlib.sha256(b"").hexdigest()
 MINIMUM_ORACLE_PRIME_RL_ANCESTOR = "f0e8d1fd55dadedc086feb8833071700ed034f63"
@@ -56,6 +66,7 @@ RUN_IDENTITY_KEYS = {
     "selection",
     "source",
 }
+SOURCE_WHEEL_RUN_IDENTITY_KEYS = RUN_IDENTITY_KEYS | {"source_wheel_recovery"}
 ORACLE_REASONS = {
     "error",
     "infrastructure_error",
@@ -75,10 +86,52 @@ INVOCATION_KEYS = {
     "slurm_job_id",
     "source",
 }
+SOURCE_WHEEL_INVOCATION_KEYS = INVOCATION_KEYS | {
+    "expected_source_wheel_attestation_sha256",
+    "source_wheel_policy_sha256",
+}
 
 
 class PromotionError(ValueError):
     """An oracle run or approval input failed a promotion invariant."""
+
+
+def _source_wheel_recovery(identity: dict[str, Any]) -> dict[str, Any] | None:
+    keys = set(identity)
+    if keys == RUN_IDENTITY_KEYS:
+        return None
+    if keys != SOURCE_WHEEL_RUN_IDENTITY_KEYS:
+        raise PromotionError("oracle_run_identity_invalid")
+    recovery = identity.get("source_wheel_recovery")
+    if not isinstance(recovery, dict) or set(recovery) != {
+        "schema_version",
+        "policy",
+        "attestation",
+        "artifact_download_network",
+        "builder_lease_limit",
+        "build_network",
+        "build_isolation",
+        "target_install",
+    }:
+        raise PromotionError("oracle_source_wheel_identity_invalid")
+    policy = recovery.get("policy")
+    if (
+        recovery.get("schema_version") != 1
+        or not isinstance(policy, dict)
+        or set(policy) != {"path", "sha256"}
+        or not isinstance(policy.get("path"), str)
+        or not Path(policy["path"]).is_absolute()
+        or not isinstance(policy.get("sha256"), str)
+        or SHA256_RE.fullmatch(policy["sha256"]) is None
+        or recovery.get("attestation") != "source_wheel_attestations.json"
+        or recovery.get("artifact_download_network") != "public-hash-pinned-https"
+        or recovery.get("builder_lease_limit") != 1
+        or recovery.get("build_network") != "no-network"
+        or recovery.get("build_isolation") is not False
+        or recovery.get("target_install") != "offline-no-index-no-deps"
+    ):
+        raise PromotionError("oracle_source_wheel_identity_invalid")
+    return recovery
 
 
 def _read_bytes(path: Path, *, limit: int, error: str) -> bytes:
@@ -162,7 +215,7 @@ def _audit_run_identity(
     expected_minimum_pass_rate: float,
     expected_minimum_valid: int,
     trusted_reference_solution: str,
-) -> tuple[str, str, Path]:
+) -> tuple[str, str, Path, dict[str, Any] | None]:
     wrapper, sidecar_sha256 = _json_file_with_sha256(
         oracle_dir / "run_identity.json",
         error="oracle_run_identity_invalid",
@@ -171,8 +224,9 @@ def _audit_run_identity(
         raise PromotionError("oracle_run_identity_invalid")
     identity = wrapper.get("identity")
     identity_sha256 = wrapper.get("run_identity_sha256")
-    if not isinstance(identity, dict) or set(identity) != RUN_IDENTITY_KEYS or not isinstance(identity_sha256, str):
+    if not isinstance(identity, dict) or not isinstance(identity_sha256, str):
         raise PromotionError("oracle_run_identity_invalid")
+    source_wheel_recovery = _source_wheel_recovery(identity)
     canonical_identity = json.dumps(
         identity,
         ensure_ascii=False,
@@ -332,7 +386,22 @@ def _audit_run_identity(
         or not isinstance(execution.get("vacli_container_privileged"), bool)
     ):
         raise PromotionError("oracle_run_identity_invalid")
-    return identity_sha256, sidecar_sha256, resolved_manifest
+    if source_wheel_recovery is not None:
+        policy = source_wheel_recovery["policy"]
+        try:
+            policy_path = Path(policy["path"]).resolve(strict=True)
+        except (OSError, RuntimeError) as cause:
+            raise PromotionError("oracle_source_wheel_policy_unreadable") from cause
+        if str(policy_path) != policy["path"]:
+            raise PromotionError("oracle_source_wheel_identity_invalid")
+        policy_bytes = _read_bytes(
+            policy_path,
+            limit=MAX_CONFIG_BYTES,
+            error="oracle_source_wheel_policy_unreadable",
+        )
+        if _sha256(policy_bytes) != policy["sha256"]:
+            raise PromotionError("oracle_source_wheel_policy_mismatch")
+    return identity_sha256, sidecar_sha256, resolved_manifest, source_wheel_recovery
 
 
 def _git_output(dataset_dir: Path, *args: str, error: str) -> str:
@@ -359,6 +428,7 @@ def _audit_provenance(
     expected_vmvm_tb_v2_sha256: str,
     expected_run_identity_sha256: str,
     trusted_reference_solution: str,
+    source_wheel_policy_sha256: str | None = None,
 ) -> tuple[str, dict[str, str]]:
     if (
         REVISION_RE.fullmatch(expected_prime_rl_commit) is None
@@ -384,7 +454,10 @@ def _audit_provenance(
         if not separator or not key or not value or key in records:
             raise PromotionError("oracle_provenance_invalid")
         records[key] = value
-    if set(records) != PROVENANCE_KEYS:
+    expected_keys = (
+        PROVENANCE_KEYS if source_wheel_policy_sha256 is None else PROVENANCE_KEYS | {"source_wheel_policy_sha256"}
+    )
+    if set(records) != expected_keys:
         raise PromotionError("oracle_provenance_invalid")
     if (
         records["prime_rl"] != expected_prime_rl_commit
@@ -393,6 +466,10 @@ def _audit_provenance(
         or records["vmvm_tb_v2"] != expected_vmvm_tb_v2_sha256
         or records["run_identity_sha256"] != expected_run_identity_sha256
         or records["oracle_solution_network_mode"] != trusted_reference_solution
+        or (
+            source_wheel_policy_sha256 is not None
+            and records.get("source_wheel_policy_sha256") != source_wheel_policy_sha256
+        )
         or not records["host"].strip()
         or not records["slurm_job_id"].isdigit()
     ):
@@ -453,12 +530,360 @@ def _reject_json_constant(value: str) -> None:
     raise ValueError(f"non-finite JSON constant: {value}")
 
 
+def _audit_source_wheel_artifacts(
+    oracle_dir: Path,
+    recovery: dict[str, Any] | None,
+) -> tuple[dict[str, Any] | None, frozenset[str]]:
+    if recovery is None:
+        return None, frozenset()
+    policy_record = recovery["policy"]
+    policy_path = Path(policy_record["path"])
+    try:
+        policy = load_source_wheel_policy(policy_path, policy_record["sha256"])
+    except (OSError, ValueError) as cause:
+        raise PromotionError("oracle_source_wheel_policy_invalid") from cause
+
+    attestation_path = oracle_dir / recovery["attestation"]
+    try:
+        metadata = attestation_path.lstat()
+        resolved_attestation = attestation_path.resolve(strict=True)
+    except (OSError, RuntimeError) as cause:
+        raise PromotionError("oracle_source_wheel_attestation_unreadable") from cause
+    if (
+        not stat.S_ISREG(metadata.st_mode)
+        or stat.S_IMODE(metadata.st_mode) not in {0o400, 0o600}
+        or resolved_attestation.parent != oracle_dir.resolve(strict=True)
+    ):
+        raise PromotionError("oracle_source_wheel_attestation_invalid")
+    raw = _read_bytes(
+        resolved_attestation,
+        limit=MAX_JSON_BYTES,
+        error="oracle_source_wheel_attestation_unreadable",
+    )
+    try:
+        manifest = json.loads(
+            raw,
+            object_pairs_hook=_unique_json_object,
+            parse_constant=_reject_json_constant,
+        )
+    except (UnicodeDecodeError, ValueError, RecursionError) as cause:
+        raise PromotionError("oracle_source_wheel_attestation_invalid") from cause
+    if not isinstance(manifest, dict) or set(manifest) != {
+        "schema_version",
+        "policy_sha256",
+        "entries_sha256",
+        "entries",
+    }:
+        raise PromotionError("oracle_source_wheel_attestation_invalid")
+    entries = manifest.get("entries")
+    if (
+        manifest.get("schema_version") != SOURCE_WHEEL_ATTESTATION_SCHEMA_VERSION
+        or manifest.get("policy_sha256") != policy.sha256
+        or not isinstance(entries, list)
+        or manifest.get("entries_sha256") != _sha256(canonical_json(entries))
+    ):
+        raise PromotionError("oracle_source_wheel_attestation_invalid")
+
+    cache_directory = oracle_dir / "source_wheel_cache"
+    expected_cache_files: set[str] = set()
+    attestation_digests: set[str] = set()
+    wheelhouse_records: list[dict[str, object]] = []
+    for entry in entries:
+        if not isinstance(entry, dict) or set(entry) != {
+            "schema_version",
+            "cache_key_sha256",
+            "policy_sha256",
+            "requirements",
+            "target",
+            "build_contract",
+            "sources",
+            "binary_wheels",
+            "resolution",
+            "wheels",
+            "wheelhouse",
+            "attestation_sha256",
+        }:
+            raise PromotionError("oracle_source_wheel_attestation_invalid")
+        attestation_sha256 = entry.get("attestation_sha256")
+        unsigned = {key: value for key, value in entry.items() if key != "attestation_sha256"}
+        requirements = entry.get("requirements")
+        target = entry.get("target")
+        wheelhouse = entry.get("wheelhouse")
+        runtime = target.get("runtime") if isinstance(target, dict) else None
+        expected_marker_keys = {
+            "implementation_name",
+            "implementation_version",
+            "os_name",
+            "platform_machine",
+            "platform_python_implementation",
+            "platform_release",
+            "platform_system",
+            "platform_version",
+            "python_full_version",
+            "python_version",
+            "sys_platform",
+        }
+        if (
+            entry.get("schema_version") != SOURCE_WHEEL_ATTESTATION_SCHEMA_VERSION
+            or entry.get("policy_sha256") != policy.sha256
+            or not isinstance(attestation_sha256, str)
+            or SHA256_RE.fullmatch(attestation_sha256) is None
+            or _sha256(canonical_json(unsigned)) != attestation_sha256
+            or attestation_sha256 in attestation_digests
+            or not isinstance(requirements, list)
+            or not requirements
+            or not all(isinstance(requirement, str) for requirement in requirements)
+            or not isinstance(target, dict)
+            or set(target)
+            != {
+                "image",
+                "resolution_fingerprint",
+                "compatibility_fingerprint",
+                "toolchain_fingerprint",
+                "runtime",
+            }
+            or not isinstance(target.get("image"), str)
+            or not isinstance(runtime, dict)
+            or set(runtime) != {"marker_environment", "pip_version", "wheel_compatibility", "build_tools"}
+            or not isinstance(runtime.get("marker_environment"), dict)
+            or set(runtime["marker_environment"]) != expected_marker_keys
+            or not all(isinstance(value, str) for value in runtime["marker_environment"].values())
+            or not isinstance(runtime.get("pip_version"), str)
+            or not runtime["pip_version"]
+            or not isinstance(runtime.get("wheel_compatibility"), list)
+            or len(runtime["wheel_compatibility"]) != 5
+            or not isinstance(runtime["wheel_compatibility"][0], str)
+            or not runtime["wheel_compatibility"][0]
+            or not isinstance(runtime["wheel_compatibility"][1], list)
+            or len(runtime["wheel_compatibility"][1]) != 2
+            or not all(
+                not isinstance(value, bool) and isinstance(value, int) and value >= 0
+                for value in runtime["wheel_compatibility"][1]
+            )
+            or not all(isinstance(value, str) and value for value in runtime["wheel_compatibility"][2:])
+            or not isinstance(runtime.get("build_tools"), dict)
+            or set(runtime["build_tools"]) != {"pip", "setuptools", "wheel"}
+            or not all(isinstance(value, str) and value for value in runtime["build_tools"].values())
+            or entry.get("build_contract")
+            != {
+                "artifact_download_network": "public-hash-pinned-https",
+                "builder_lease_limit": 1,
+                "build_network": "no-network",
+                "build_isolation": False,
+                "dependency_resolution": "explicit-policy-artifacts",
+                "isolated_python": True,
+                "staged_inputs": "policy-artifacts-only",
+                "target_install": "offline-no-index-no-deps",
+            }
+            or not isinstance(wheelhouse, dict)
+            or set(wheelhouse) != {"path", "size", "sha256"}
+        ):
+            raise PromotionError("oracle_source_wheel_attestation_invalid")
+        try:
+            build_tools = runtime["build_tools"]
+            policy_entry = policy.entry_for(
+                tuple(requirements),
+                target["image"],
+                tuple(sorted(build_tools.items())),
+            )
+        except (AttributeError, TypeError, RuntimeError) as cause:
+            raise PromotionError("oracle_source_wheel_attestation_policy_mismatch") from cause
+        expected_resolution_fingerprint = _sha256(
+            canonical_json([runtime["marker_environment"], runtime["pip_version"]])
+        )
+        expected_compatibility_fingerprint = _sha256(
+            canonical_json(
+                [
+                    target["image"],
+                    runtime["marker_environment"],
+                    runtime["pip_version"],
+                    runtime["wheel_compatibility"],
+                    runtime["build_tools"],
+                ]
+            )
+        )
+        expected_toolchain_fingerprint = _sha256(canonical_json([target["image"], runtime["build_tools"]]))
+        if (
+            target.get("resolution_fingerprint") != expected_resolution_fingerprint
+            or target.get("compatibility_fingerprint") != expected_compatibility_fingerprint
+            or target.get("toolchain_fingerprint") != expected_toolchain_fingerprint
+        ):
+            raise PromotionError("oracle_source_wheel_attestation_fingerprint_mismatch")
+        cache_key = entry.get("cache_key_sha256")
+        expected_cache_key = _sha256(
+            canonical_json(
+                {
+                    "requirements": requirements,
+                    "image": target["image"],
+                    "resolution_fingerprint": target["resolution_fingerprint"],
+                    "compatibility_fingerprint": target["compatibility_fingerprint"],
+                    "toolchain_fingerprint": target["toolchain_fingerprint"],
+                    "build_tools": build_tools,
+                    "policy_sha256": policy.sha256,
+                }
+            )
+        )
+        expected_relative_path = f"source_wheel_cache/{cache_key}.tar"
+        if (
+            not isinstance(cache_key, str)
+            or SHA256_RE.fullmatch(cache_key) is None
+            or cache_key != expected_cache_key
+            or wheelhouse.get("path") != expected_relative_path
+            or isinstance(wheelhouse.get("size"), bool)
+            or not isinstance(wheelhouse.get("size"), int)
+            or not 0 < wheelhouse["size"] <= MAX_SOURCE_WHEELHOUSE_BYTES
+            or not isinstance(wheelhouse.get("sha256"), str)
+            or SHA256_RE.fullmatch(wheelhouse["sha256"]) is None
+        ):
+            raise PromotionError("oracle_source_wheel_attestation_invalid")
+        archive_path = oracle_dir / expected_relative_path
+        try:
+            archive_metadata = archive_path.lstat()
+            resolved_archive = archive_path.resolve(strict=True)
+        except (OSError, RuntimeError) as cause:
+            raise PromotionError("oracle_source_wheel_archive_unreadable") from cause
+        if (
+            not stat.S_ISREG(archive_metadata.st_mode)
+            or stat.S_IMODE(archive_metadata.st_mode) not in {0o400, 0o600}
+            or resolved_archive.parent != cache_directory.resolve(strict=True)
+        ):
+            raise PromotionError("oracle_source_wheel_archive_invalid")
+        archive = _read_bytes(
+            resolved_archive,
+            limit=MAX_SOURCE_WHEELHOUSE_BYTES,
+            error="oracle_source_wheel_archive_unreadable",
+        )
+        if len(archive) != wheelhouse["size"] or _sha256(archive) != wheelhouse["sha256"]:
+            raise PromotionError("oracle_source_wheel_archive_mismatch")
+        try:
+            evidence = inspect_wheelhouse(archive)
+        except RuntimeError as cause:
+            raise PromotionError("oracle_source_wheel_archive_invalid") from cause
+        expected_wheels = {
+            filename: (distribution, version, size, digest)
+            for distribution, version, filename, size, digest in policy_entry.expected_wheels
+        }
+        observed_wheels = {
+            item.filename: (item.distribution, item.version, item.size, item.sha256) for item in evidence
+        }
+        expected_sources = []
+        for source in policy_entry.sources:
+            source_path = f"/tmp/terminal-bench-source-inputs/{source.filename}"
+            source_requirement = f"{source.distribution} @ file://{source_path}#sha256={source.sha256}"
+            build_argv = [
+                "python3",
+                "-I",
+                "-m",
+                "pip",
+                "wheel",
+                "--quiet",
+                "--disable-pip-version-check",
+                "--no-cache-dir",
+                "--no-index",
+                "--no-deps",
+                "--no-build-isolation",
+                "--wheel-dir",
+                "/tmp/terminal-bench-source-wheels",
+                source_requirement,
+            ]
+            expected_sources.append(
+                {
+                    "policy": {
+                        "distribution": source.distribution,
+                        "version": source.version,
+                        "filename": source.filename,
+                        "url": source.url,
+                        "size": source.size,
+                        "sha256": source.sha256,
+                        "wheel_filename": source.wheel_filename,
+                        "wheel_size": source.wheel_size,
+                        "wheel_sha256": source.wheel_sha256,
+                    },
+                    "consumed_path": source_path,
+                    "built_wheel": source.wheel_filename,
+                    "build_argv_sha256": _sha256(canonical_json(build_argv)),
+                }
+            )
+        expected_binary_wheels = [
+            {
+                "distribution": wheel.distribution,
+                "version": wheel.version,
+                "filename": wheel.filename,
+                "url": wheel.url,
+                "size": wheel.size,
+                "sha256": wheel.sha256,
+            }
+            for wheel in policy_entry.binary_wheels
+        ]
+        expected_closure = [
+            [distribution, version]
+            for distribution, version in sorted(
+                (distribution, version) for distribution, version, *_ in policy_entry.expected_wheels
+            )
+        ]
+        expected_resolution = {
+            "roots": requirements,
+            "closure": expected_closure,
+        }
+        expected_resolution["sha256"] = _sha256(canonical_json(expected_resolution))
+        if (
+            wheel_evidence_dicts(evidence) != entry.get("wheels")
+            or observed_wheels != expected_wheels
+            or entry.get("sources") != expected_sources
+            or entry.get("binary_wheels") != expected_binary_wheels
+            or entry.get("resolution") != expected_resolution
+        ):
+            raise PromotionError("oracle_source_wheel_archive_policy_mismatch")
+        expected_cache_files.add(f"{cache_key}.tar")
+        attestation_digests.add(attestation_sha256)
+        wheelhouse_records.append(
+            {
+                "path": expected_relative_path,
+                "sha256": wheelhouse["sha256"],
+                "size": wheelhouse["size"],
+            }
+        )
+    if expected_cache_files:
+        try:
+            cache_metadata = cache_directory.lstat()
+            observed_cache_files = {entry.name for entry in cache_directory.iterdir()}
+        except OSError as cause:
+            raise PromotionError("oracle_source_wheel_cache_invalid") from cause
+        if (
+            not stat.S_ISDIR(cache_metadata.st_mode)
+            or stat.S_IMODE(cache_metadata.st_mode) != 0o700
+            or observed_cache_files != expected_cache_files
+        ):
+            raise PromotionError("oracle_source_wheel_cache_invalid")
+    else:
+        try:
+            cache_directory.lstat()
+        except FileNotFoundError:
+            pass
+        except OSError as cause:
+            raise PromotionError("oracle_source_wheel_cache_invalid") from cause
+        else:
+            raise PromotionError("oracle_source_wheel_cache_invalid")
+    return (
+        {
+            "policy": {"path": str(policy.path), "sha256": policy.sha256},
+            "attestation": {
+                "path": recovery["attestation"],
+                "sha256": _sha256(raw),
+            },
+            "wheelhouses": sorted(wheelhouse_records, key=lambda item: str(item["path"])),
+        },
+        frozenset(attestation_digests),
+    )
+
+
 def _audit_invocations(
     oracle_dir: Path,
     *,
     expected_run_identity_sha256: str,
     expected_source: dict[str, str],
     initial_provenance: dict[str, str],
+    source_wheel_policy_sha256: str | None = None,
 ) -> tuple[dict[str, str], int, int]:
     path = oracle_dir / "invocations.jsonl"
     raw = _read_bytes(
@@ -489,7 +914,8 @@ def _audit_invocations(
             )
         except (ValueError, RecursionError) as cause:
             raise PromotionError("oracle_invocations_invalid") from cause
-        if not isinstance(record, dict) or set(record) != INVOCATION_KEYS:
+        expected_keys = INVOCATION_KEYS if source_wheel_policy_sha256 is None else SOURCE_WHEEL_INVOCATION_KEYS
+        if not isinstance(record, dict) or set(record) != expected_keys:
             raise PromotionError("oracle_invocations_invalid")
         invoked_at = record.get("invoked_at")
         host = record.get("host")
@@ -502,14 +928,25 @@ def _audit_invocations(
             or record["schema_version"] != 1
             or record.get("run_identity_sha256") != expected_run_identity_sha256
             or record.get("source") != expected_source
+            or (
+                source_wheel_policy_sha256 is not None
+                and (
+                    record.get("source_wheel_policy_sha256") != source_wheel_policy_sha256
+                    or (index == 0 and record.get("expected_source_wheel_attestation_sha256") is not None)
+                    or (
+                        index > 0
+                        and (
+                            not isinstance(record.get("expected_source_wheel_attestation_sha256"), str)
+                            or SHA256_RE.fullmatch(record["expected_source_wheel_attestation_sha256"]) is None
+                        )
+                    )
+                )
+            )
             or isinstance(invoked_at, bool)
             or not isinstance(invoked_at, (int, float))
             or not math.isfinite(invoked_at)
             or invoked_at <= 0
-            or (
-                previous_invoked_at is not None
-                and invoked_at <= previous_invoked_at
-            )
+            or (previous_invoked_at is not None and invoked_at <= previous_invoked_at)
             or not isinstance(host, str)
             or not host
             or host.strip() != host
@@ -533,10 +970,7 @@ def _audit_invocations(
 
     if rerun_invalid_count > 1:
         raise PromotionError("oracle_rerun_invalid_limit_exceeded")
-    if (
-        first_host != initial_provenance.get("host")
-        or first_job_id != initial_provenance.get("slurm_job_id")
-    ):
+    if first_host != initial_provenance.get("host") or first_job_id != initial_provenance.get("slurm_job_id"):
         raise PromotionError("oracle_invocations_provenance_mismatch")
     return (
         {"path": str(path.resolve(strict=True)), "sha256": _sha256(raw)},
@@ -627,6 +1061,8 @@ def _audit_oracle(
     minimum_valid: int,
     expected_run_identity_sha256: str,
     trusted_reference_solution: str,
+    source_wheel_attestation_sha256: str | None = None,
+    known_source_wheel_attestation_sha256s: frozenset[str] = frozenset(),
 ) -> tuple[list[str], set[str], int, float, dict[str, int], str, str]:
     canonical = _dataset_tasks(dataset_dir, dataset_revision, expected_total)
     canonical_set = set(canonical)
@@ -637,6 +1073,7 @@ def _audit_oracle(
     expected_semantics = _expected_semantics(trusted_reference_solution)
     slugs: list[str] = []
     valid: set[str] = set()
+    referenced_source_attestations: set[str] = set()
     reasons: Counter[str] = Counter()
     for expected_index, result in enumerate(results):
         slug = result.get("slug")
@@ -648,6 +1085,7 @@ def _audit_oracle(
         error_type = result.get("error_type")
         elapsed_sec = result.get("elapsed_sec")
         attempts = result.get("attempts")
+        source_attestations = result.get("source_wheel_attestation_sha256s")
         if (
             isinstance(result.get("index"), bool)
             or not isinstance(result.get("index"), int)
@@ -675,11 +1113,25 @@ def _audit_oracle(
             or not isinstance(result.get("infrastructure_failures"), list)
             or ("last_attempt" in result and not isinstance(result["last_attempt"], dict))
             or result.get("run_identity_sha256") != expected_run_identity_sha256
+            or (source_wheel_attestation_sha256 is None and "source_wheel_attestation_sha256s" in result)
+            or (
+                source_wheel_attestation_sha256 is not None
+                and (
+                    not isinstance(source_attestations, list)
+                    or source_attestations != sorted(set(source_attestations))
+                    or not all(
+                        isinstance(digest, str) and digest in known_source_wheel_attestation_sha256s
+                        for digest in source_attestations
+                    )
+                )
+            )
         ):
             raise PromotionError("oracle_result_schema_invalid")
         if result.get("oracle_network_semantics") != expected_semantics:
             raise PromotionError("oracle_result_semantics_mismatch")
         slugs.append(slug)
+        if isinstance(source_attestations, list):
+            referenced_source_attestations.update(source_attestations)
         reasons[reason] += 1
         if is_valid:
             valid.add(slug)
@@ -687,6 +1139,10 @@ def _audit_oracle(
         raise PromotionError("oracle_result_duplicates")
     if slugs != canonical:
         raise PromotionError("oracle_result_universe_or_order_mismatch")
+    if source_wheel_attestation_sha256 is not None and (
+        referenced_source_attestations != known_source_wheel_attestation_sha256s
+    ):
+        raise PromotionError("oracle_source_wheel_recovery_not_exercised")
 
     passed = len(valid)
     pass_rate = passed / expected_total
@@ -713,6 +1169,11 @@ def _audit_oracle(
         or summary.get("reasons") != dict(reasons)
         or summary.get("oracle_network_semantics") != expected_semantics
         or summary.get("run_identity_sha256") != expected_run_identity_sha256
+        or (source_wheel_attestation_sha256 is None and "source_wheel_attestation_sha256" in summary)
+        or (
+            source_wheel_attestation_sha256 is not None
+            and summary.get("source_wheel_attestation_sha256") != source_wheel_attestation_sha256
+        )
     ):
         raise PromotionError("oracle_summary_mismatch")
     summary_rate = summary.get("pass_rate")
@@ -938,6 +1399,8 @@ def _promote_locked(
     trusted_reference_solution: str = "public",
     expected_config_count: int = 2,
     minimum_prime_rl_ancestor: str | None = None,
+    expected_source_wheel_policy_sha256: str | None = None,
+    expected_source_wheel_attestations: int | None = None,
     apply: bool = False,
     receipt: Path | None = None,
 ) -> dict[str, Any]:
@@ -947,6 +1410,14 @@ def _promote_locked(
         raise PromotionError("current_manifest_hash_invalid")
     if SHA256_RE.fullmatch(expected_image_manifest_sha256) is None:
         raise PromotionError("image_manifest_hash_invalid")
+    if (expected_source_wheel_policy_sha256 is None) != (expected_source_wheel_attestations is None):
+        raise PromotionError("source_wheel_contract_invalid")
+    if expected_source_wheel_policy_sha256 is not None and (
+        SHA256_RE.fullmatch(expected_source_wheel_policy_sha256) is None
+        or type(expected_source_wheel_attestations) is not int
+        or expected_source_wheel_attestations < 1
+    ):
+        raise PromotionError("source_wheel_contract_invalid")
     if expected_total < 1 or limit < 1 or limit > expected_total:
         raise PromotionError("task_counts_invalid")
     if not 0.0 <= minimum_pass_rate <= 1.0:
@@ -975,7 +1446,12 @@ def _promote_locked(
         raise PromotionError("current_manifest_count_mismatch")
 
     canonical_at_promotion = _dataset_tasks(dataset_dir, dataset_revision, expected_total)
-    run_identity_sha256, run_identity_file_sha256, run_image_manifest = _audit_run_identity(
+    (
+        run_identity_sha256,
+        run_identity_file_sha256,
+        run_image_manifest,
+        source_wheel_recovery,
+    ) = _audit_run_identity(
         oracle_dir.resolve(),
         dataset_dir,
         dataset_revision,
@@ -987,6 +1463,27 @@ def _promote_locked(
         expected_minimum_pass_rate=minimum_pass_rate,
         expected_minimum_valid=limit,
         trusted_reference_solution=trusted_reference_solution,
+    )
+    source_wheel_artifacts, source_wheel_entry_digests = _audit_source_wheel_artifacts(
+        oracle_dir.resolve(),
+        source_wheel_recovery,
+    )
+    source_wheel_policy_sha256 = (
+        source_wheel_recovery["policy"]["sha256"] if source_wheel_recovery is not None else None
+    )
+    if source_wheel_recovery is None:
+        if expected_source_wheel_policy_sha256 is not None:
+            raise PromotionError("oracle_source_wheel_recovery_missing")
+    elif (
+        expected_source_wheel_policy_sha256 is None
+        or source_wheel_policy_sha256 != expected_source_wheel_policy_sha256
+        or len(source_wheel_entry_digests) != expected_source_wheel_attestations
+        or source_wheel_artifacts is None
+        or len(source_wheel_artifacts["wheelhouses"]) != expected_source_wheel_attestations
+    ):
+        raise PromotionError("oracle_source_wheel_policy_not_approved")
+    source_wheel_attestation_sha256 = (
+        source_wheel_artifacts["attestation"]["sha256"] if source_wheel_artifacts is not None else None
     )
     effective_minimum_prime_rl_ancestor = (
         MINIMUM_ORACLE_PRIME_RL_ANCESTOR if minimum_prime_rl_ancestor is None else minimum_prime_rl_ancestor
@@ -1001,6 +1498,7 @@ def _promote_locked(
         expected_vmvm_tb_v2_sha256=expected_vmvm_tb_v2_sha256,
         expected_run_identity_sha256=run_identity_sha256,
         trusted_reference_solution=trusted_reference_solution,
+        source_wheel_policy_sha256=source_wheel_policy_sha256,
     )
     invocation_source = {
         "prime_rl_commit": expected_prime_rl_commit,
@@ -1013,6 +1511,7 @@ def _promote_locked(
         expected_run_identity_sha256=run_identity_sha256,
         expected_source=invocation_source,
         initial_provenance=initial_provenance,
+        source_wheel_policy_sha256=source_wheel_policy_sha256,
     )
     canonical, valid, passed, pass_rate, oracle_reasons, oracle_results_sha256, oracle_summary_sha256 = _audit_oracle(
         oracle_dir.resolve(),
@@ -1023,6 +1522,8 @@ def _promote_locked(
         minimum_valid=limit,
         expected_run_identity_sha256=run_identity_sha256,
         trusted_reference_solution=trusted_reference_solution,
+        source_wheel_attestation_sha256=source_wheel_attestation_sha256,
+        known_source_wheel_attestation_sha256s=source_wheel_entry_digests,
     )
     canonical_set = set(canonical)
     if not set(current_tasks).issubset(canonical_set):
@@ -1083,11 +1584,15 @@ def _promote_locked(
         "selected_subset_valid": True,
         "trusted_reference_solution": trusted_reference_solution,
     }
+    if source_wheel_artifacts is not None:
+        summary["source_wheel_attestation_sha256"] = source_wheel_attestation_sha256
+        summary["source_wheel_policy_sha256"] = source_wheel_policy_sha256
     final_invocation_audit = _audit_invocations(
         oracle_dir.resolve(),
         expected_run_identity_sha256=run_identity_sha256,
         expected_source=invocation_source,
         initial_provenance=initial_provenance,
+        source_wheel_policy_sha256=source_wheel_policy_sha256,
     )
     if final_invocation_audit != (
         invocation_record,
@@ -1095,6 +1600,11 @@ def _promote_locked(
         rerun_invalid_invocation_count,
     ):
         raise PromotionError("oracle_invocations_changed")
+    if _audit_source_wheel_artifacts(
+        oracle_dir.resolve(),
+        source_wheel_recovery,
+    ) != (source_wheel_artifacts, source_wheel_entry_digests):
+        raise PromotionError("oracle_source_wheel_artifacts_changed")
     if apply:
         if receipt_path is None:
             raise PromotionError("receipt_required_for_apply")
@@ -1126,6 +1636,19 @@ def _promote_locked(
             observed = _read_bytes(path, limit=MAX_CONFIG_BYTES, error="applied_config_unreadable")
             if observed != expected:
                 raise PromotionError("applied_config_mismatch")
+        oracle_artifacts = {
+            "invocations": invocation_record,
+            "provenance": {"path": "provenance.txt", "sha256": oracle_provenance_sha256},
+            "results": {"path": "results.jsonl", "sha256": oracle_results_sha256},
+            "run_identity": {
+                "identity_sha256": run_identity_sha256,
+                "path": "run_identity.json",
+                "sha256": run_identity_file_sha256,
+            },
+            "summary": {"path": "summary.json", "sha256": oracle_summary_sha256},
+        }
+        if source_wheel_artifacts is not None:
+            oracle_artifacts["source_wheel_recovery"] = source_wheel_artifacts
         receipt_payload = {
             "acceptance": {
                 "minimum_pass_rate": minimum_pass_rate,
@@ -1149,17 +1672,7 @@ def _promote_locked(
             },
             "dataset": {"revision": dataset_revision},
             "image_manifest": {"sha256": expected_image_manifest_sha256},
-            "oracle_artifacts": {
-                "invocations": invocation_record,
-                "provenance": {"path": "provenance.txt", "sha256": oracle_provenance_sha256},
-                "results": {"path": "results.jsonl", "sha256": oracle_results_sha256},
-                "run_identity": {
-                    "identity_sha256": run_identity_sha256,
-                    "path": "run_identity.json",
-                    "sha256": run_identity_file_sha256,
-                },
-                "summary": {"path": "summary.json", "sha256": oracle_summary_sha256},
-            },
+            "oracle_artifacts": oracle_artifacts,
             "promotion_summary": dict(summary),
             "schema_version": RECEIPT_SCHEMA_VERSION,
             "source": {
@@ -1204,6 +1717,8 @@ def promote(
     trusted_reference_solution: str = "public",
     expected_config_count: int = 2,
     minimum_prime_rl_ancestor: str | None = None,
+    expected_source_wheel_policy_sha256: str | None = None,
+    expected_source_wheel_attestations: int | None = None,
     apply: bool = False,
     receipt: Path | None = None,
 ) -> dict[str, Any]:
@@ -1237,6 +1752,8 @@ def promote(
             trusted_reference_solution=trusted_reference_solution,
             expected_config_count=expected_config_count,
             minimum_prime_rl_ancestor=minimum_prime_rl_ancestor,
+            expected_source_wheel_policy_sha256=expected_source_wheel_policy_sha256,
+            expected_source_wheel_attestations=expected_source_wheel_attestations,
             apply=apply,
             receipt=receipt,
         )
@@ -1256,6 +1773,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--expected-verifiers-commit", required=True)
     parser.add_argument("--expected-vmvm-tb-v2-sha256", required=True)
     parser.add_argument("--expected-image-manifest-sha256", required=True)
+    parser.add_argument("--expected-source-wheel-policy-sha256")
+    parser.add_argument("--expected-source-wheel-attestations", type=int)
     parser.add_argument("--config", type=Path, action="append", required=True)
     parser.add_argument("--expected-config-count", type=int, default=2)
     parser.add_argument("--project-root", type=Path, default=Path.cwd())
@@ -1291,6 +1810,8 @@ def main(argv: list[str] | None = None) -> int:
             minimum_pass_rate=args.minimum_pass_rate,
             trusted_reference_solution=args.trusted_reference_solution,
             expected_config_count=args.expected_config_count,
+            expected_source_wheel_policy_sha256=args.expected_source_wheel_policy_sha256,
+            expected_source_wheel_attestations=args.expected_source_wheel_attestations,
             apply=args.apply,
             receipt=args.receipt,
         )

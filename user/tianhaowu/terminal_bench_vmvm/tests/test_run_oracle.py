@@ -32,6 +32,9 @@ def _identity_args(tmp_path: Path) -> SimpleNamespace:
         image_tag="dataset-a",
         image_manifest=image_manifest,
         image_manifest_sha256=hashlib.sha256(image_manifest.read_bytes()).hexdigest(),
+        source_wheel_policy=None,
+        source_wheel_policy_sha256=None,
+        source_wheel_attestation_sha256=None,
         use_declared_images=False,
         enable_compose=True,
         offset=0,
@@ -111,6 +114,16 @@ def test_oracle_summary_contains_network_semantics() -> None:
     assert summary["pass_rate"] == 0.5
     assert summary["oracle_network_semantics"] == semantics
     assert summary["run_identity_sha256"] == identity_sha256
+    assert "source_wheel_attestation_sha256" not in summary
+
+    source_summary = run_oracle._summary(
+        [{"valid": True, "reason": "valid"}],
+        1,
+        semantics,
+        identity_sha256,
+        "a" * 64,
+    )
+    assert source_summary["source_wheel_attestation_sha256"] == "a" * 64
 
 
 def test_oracle_run_identity_binds_all_canonical_inputs(tmp_path: Path) -> None:
@@ -149,6 +162,32 @@ def test_oracle_run_identity_binds_all_canonical_inputs(tmp_path: Path) -> None:
     assert run_oracle._bind_run_identity(tmp_path, identity) == (digest, False)
 
 
+def test_oracle_run_identity_binds_source_wheel_policy_but_not_resume_approval(tmp_path: Path) -> None:
+    args = _identity_args(tmp_path)
+    policy = tmp_path / "source-wheel-policy.json"
+    policy.write_text('{"schema_version":1}\n')
+    args.source_wheel_policy = policy
+    args.source_wheel_policy_sha256 = hashlib.sha256(policy.read_bytes()).hexdigest()
+    args.source_wheel_attestation_sha256 = "e" * 64
+
+    identity = run_oracle._run_identity(args, _tasks(), None)
+
+    assert identity["source_wheel_recovery"] == {
+        "schema_version": 1,
+        "policy": {
+            "path": str(policy.resolve()),
+            "sha256": args.source_wheel_policy_sha256,
+        },
+        "attestation": "source_wheel_attestations.json",
+        "artifact_download_network": "public-hash-pinned-https",
+        "builder_lease_limit": 1,
+        "build_network": "no-network",
+        "build_isolation": False,
+        "target_install": "offline-no-index-no-deps",
+    }
+    assert args.source_wheel_attestation_sha256 not in json.dumps(identity)
+
+
 def test_oracle_run_identity_rejects_legacy_results(tmp_path: Path) -> None:
     status_dir = tmp_path / "tasks"
     status_dir.mkdir()
@@ -156,6 +195,19 @@ def test_oracle_run_identity_rejects_legacy_results(tmp_path: Path) -> None:
 
     with pytest.raises(SystemExit, match="no immutable run identity"):
         run_oracle._bind_run_identity(tmp_path, {"schema_version": 1})
+
+
+def test_initial_source_wheel_ledger_crash_window_is_narrowly_recoverable(tmp_path: Path) -> None:
+    identity = run_oracle._run_identity(_identity_args(tmp_path), _tasks(), None)
+    output = tmp_path / "output"
+    output.mkdir()
+    run_oracle._bind_run_identity(output, identity)
+    (output / ".writer.lock").touch()
+
+    assert run_oracle._can_recover_initial_source_wheel_ledger(output) is True
+
+    (output / "run_config.json").write_text("{}\n")
+    assert run_oracle._can_recover_initial_source_wheel_ledger(output) is False
 
 
 def test_oracle_resume_rejects_mismatched_identity_or_unbound_row(tmp_path: Path) -> None:
@@ -208,6 +260,62 @@ def test_oracle_resume_rejects_invalid_terminal_status(tmp_path: Path) -> None:
             tasks,
             digest,
             identity["network_semantics"],
+        )
+
+
+def test_oracle_resume_requires_rows_to_reference_validated_source_wheel_attestations(tmp_path: Path) -> None:
+    tasks = _tasks()
+    identity = run_oracle._run_identity(_identity_args(tmp_path), tasks, None)
+    digest, _ = run_oracle._bind_run_identity(tmp_path, identity)
+    status_dir = tmp_path / "tasks"
+    status_dir.mkdir()
+    status = {
+        "index": 0,
+        "name": "alpha",
+        "slug": "alpha",
+        "image": tasks[0].image,
+        "valid": True,
+        "reason": "valid",
+        "error": None,
+        "error_type": None,
+        "elapsed_sec": 1.0,
+        "attempts": 1,
+        "infrastructure_failures": [],
+        "oracle_network_semantics": identity["network_semantics"],
+        "run_identity_sha256": digest,
+        "source_wheel_attestation_sha256s": ["a" * 64],
+    }
+    (status_dir / "alpha.json").write_text(json.dumps(status) + "\n")
+    stale_summary = run_oracle._summary(
+        [status],
+        len(tasks),
+        identity["network_semantics"],
+        digest,
+        "d" * 64,
+    )
+    (tmp_path / "summary.json").write_text(json.dumps(stale_summary) + "\n")
+
+    assert run_oracle._validate_existing_artifacts(
+        tmp_path,
+        tasks,
+        digest,
+        identity["network_semantics"],
+        source_wheel_policy_enabled=True,
+        source_wheel_attestation_sha256="c" * 64,
+        known_source_wheel_attestation_sha256s=frozenset({"a" * 64}),
+    ) == {"alpha": status}
+
+    status["source_wheel_attestation_sha256s"] = ["b" * 64]
+    (status_dir / "alpha.json").write_text(json.dumps(status) + "\n")
+    with pytest.raises(SystemExit, match="invalid terminal status"):
+        run_oracle._validate_existing_artifacts(
+            tmp_path,
+            tasks,
+            digest,
+            identity["network_semantics"],
+            source_wheel_policy_enabled=True,
+            source_wheel_attestation_sha256="c" * 64,
+            known_source_wheel_attestation_sha256s=frozenset({"a" * 64}),
         )
 
 

@@ -24,7 +24,7 @@ def _ordered_sha256(slugs: list[str]) -> str:
     return hashlib.sha256("".join(f"{slug}\n" for slug in slugs).encode()).hexdigest()
 
 
-def _fixture(tmp_path: Path) -> tuple[Path, list[str], list[dict]]:
+def _fixture(tmp_path: Path, *, source_wheel: bool = False) -> tuple[Path, list[str], list[dict]]:
     oracle = tmp_path / "oracle"
     statuses = oracle / "tasks"
     statuses.mkdir(parents=True)
@@ -51,6 +51,61 @@ def _fixture(tmp_path: Path) -> tuple[Path, list[str], list[dict]]:
         },
         "source": {},
     }
+    source_wheel_attestation_sha256 = None
+    if source_wheel:
+        policy = tmp_path / "source-wheel-policy.json"
+        policy.write_text(
+            json.dumps(
+                {
+                    "schema_version": 1,
+                    "allowed_hosts": ["files.example.invalid"],
+                    "entries": [
+                        {
+                            "requirements": ["verifier-helper==1.0"],
+                            "image": "registry.invalid/task@sha256:" + "1" * 64,
+                            "build_tools": {"pip": "24.3.1", "setuptools": "75.6.0", "wheel": "0.45.1"},
+                            "sources": [
+                                {
+                                    "distribution": "verifier-helper",
+                                    "version": "1.0",
+                                    "filename": "verifier-helper-1.0.tar.gz",
+                                    "url": "https://files.example.invalid/verifier-helper-1.0.tar.gz",
+                                    "size": 1,
+                                    "sha256": "2" * 64,
+                                    "wheel_filename": "verifier_helper-1.0-py3-none-any.whl",
+                                    "wheel_size": 1,
+                                    "wheel_sha256": "3" * 64,
+                                }
+                            ],
+                            "binary_wheels": [],
+                        }
+                    ],
+                },
+                sort_keys=True,
+            )
+            + "\n"
+        )
+        policy_sha256 = hashlib.sha256(policy.read_bytes()).hexdigest()
+        attestation = {
+            "schema_version": 1,
+            "policy_sha256": policy_sha256,
+            "entries_sha256": _canonical_sha256([]),
+            "entries": [],
+        }
+        attestation_path = oracle / "source_wheel_attestations.json"
+        attestation_path.write_text(json.dumps(attestation, sort_keys=True) + "\n")
+        attestation_path.chmod(0o400)
+        source_wheel_attestation_sha256 = hashlib.sha256(attestation_path.read_bytes()).hexdigest()
+        identity["source_wheel_recovery"] = {
+            "schema_version": 1,
+            "policy": {"path": str(policy.resolve()), "sha256": policy_sha256},
+            "attestation": "source_wheel_attestations.json",
+            "artifact_download_network": "public-hash-pinned-https",
+            "builder_lease_limit": 1,
+            "build_network": "no-network",
+            "build_isolation": False,
+            "target_install": "offline-no-index-no-deps",
+        }
     identity_sha256 = _canonical_sha256(identity)
     (oracle / "run_identity.json").write_text(
         json.dumps(
@@ -82,27 +137,26 @@ def _fixture(tmp_path: Path) -> tuple[Path, list[str], list[dict]]:
             "slug": slug,
             "valid": valid,
         }
+        if source_wheel:
+            row["source_wheel_attestation_sha256s"] = []
         rows.append(row)
         (statuses / f"{slug}.json").write_text(json.dumps(row, sort_keys=True) + "\n")
     (oracle / "results.jsonl").write_text("".join(json.dumps(row, sort_keys=True) + "\n" for row in rows))
     reasons = Counter(row["reason"] for row in rows)
     passed = sum(row["valid"] for row in rows)
-    (oracle / "summary.json").write_text(
-        json.dumps(
-            {
-                "completed": len(rows),
-                "finished_at": 1234.5,
-                "oracle_network_semantics": network_semantics,
-                "pass_rate": passed / len(rows),
-                "passed": passed,
-                "reasons": dict(reasons),
-                "run_identity_sha256": identity_sha256,
-                "selected": len(rows),
-            },
-            sort_keys=True,
-        )
-        + "\n"
-    )
+    summary = {
+        "completed": len(rows),
+        "finished_at": 1234.5,
+        "oracle_network_semantics": network_semantics,
+        "pass_rate": passed / len(rows),
+        "passed": passed,
+        "reasons": dict(reasons),
+        "run_identity_sha256": identity_sha256,
+        "selected": len(rows),
+    }
+    if source_wheel_attestation_sha256 is not None:
+        summary["source_wheel_attestation_sha256"] = source_wheel_attestation_sha256
+    (oracle / "summary.json").write_text(json.dumps(summary, sort_keys=True) + "\n")
     return oracle, slugs, rows
 
 
@@ -209,6 +263,28 @@ def test_cli_stdout_is_aggregate_only(tmp_path: Path, capsys: pytest.CaptureFixt
         "source_valid",
         "task_file_sha256",
     }
+
+
+def test_builds_canary_manifest_from_source_wheel_enabled_oracle(tmp_path: Path) -> None:
+    oracle, _, _ = _fixture(tmp_path, source_wheel=True)
+    output = tmp_path / "output"
+    output.mkdir()
+    receipt_path = output / "canary.receipt.json"
+
+    build_canary_manifest(
+        oracle,
+        output / "canary.tasks.txt",
+        receipt_path,
+        expected_total=6,
+        control_count=2,
+        seed="fixed-seed",
+    )
+
+    recovery = json.loads(receipt_path.read_text())["receipt"]["source_oracle"]["source_wheel_recovery"]
+    assert (
+        recovery["attestation"]["sha256"]
+        == hashlib.sha256((oracle / "source_wheel_attestations.json").read_bytes()).hexdigest()
+    )
 
 
 def test_cli_failure_is_stable_and_confidential(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:

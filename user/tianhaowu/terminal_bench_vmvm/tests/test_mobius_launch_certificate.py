@@ -556,31 +556,42 @@ def _oracle_receipt(
     image_manifest_sha256: str,
     source: dict[str, str],
     updated_configs: list[dict[str, str]],
+    source_wheel: bool = False,
 ) -> str:
     reasons = {"invalid": 18, "valid": 2_520}
     invocations = path.parent / "oracle-invocations.jsonl"
-    invocations.write_text(
-        json.dumps(
-            {
-                "schema_version": 1,
-                "run_identity_sha256": "b" * 64,
-                "invoked_at": 1.0,
-                "resume": False,
-                "reuse_completed_rows": True,
-                "rerun_invalid": False,
-                "host": "opaque-host",
-                "slurm_job_id": "1",
-                "source": {
-                    "prime_rl_commit": source["prime_rl_commit"],
-                    "prime_rl_tree_sha256": source["prime_rl_tree_sha256"],
-                    "verifiers_commit": source["verifiers_commit"],
-                    "vmvm_tb_v2_sha256": source["vmvm_tb_v2_sha256"],
-                },
-            },
-            sort_keys=True,
-        )
-        + "\n"
-    )
+    invocation = {
+        "schema_version": 1,
+        "run_identity_sha256": "b" * 64,
+        "invoked_at": 1.0,
+        "resume": False,
+        "reuse_completed_rows": True,
+        "rerun_invalid": False,
+        "host": "opaque-host",
+        "slurm_job_id": "1",
+        "source": {
+            "prime_rl_commit": source["prime_rl_commit"],
+            "prime_rl_tree_sha256": source["prime_rl_tree_sha256"],
+            "verifiers_commit": source["verifiers_commit"],
+            "vmvm_tb_v2_sha256": source["vmvm_tb_v2_sha256"],
+        },
+    }
+    source_wheel_policy_sha256 = None
+    source_wheel_attestation_sha256 = None
+    if source_wheel:
+        policy = path.parent / "source-wheel-policy.json"
+        policy.write_text('{"schema_version":1}\n')
+        source_wheel_policy_sha256 = _sha256(policy.read_bytes())
+        attestation = path.parent / "source_wheel_attestations.json"
+        attestation.write_text('{"schema_version":1}\n')
+        source_wheel_attestation_sha256 = _sha256(attestation.read_bytes())
+        cache = path.parent / "source_wheel_cache"
+        cache.mkdir()
+        archive = cache / ("1" * 64 + ".tar")
+        archive.write_bytes(b"synthetic wheelhouse")
+        invocation["source_wheel_policy_sha256"] = source_wheel_policy_sha256
+        invocation["expected_source_wheel_attestation_sha256"] = None
+    invocations.write_text(json.dumps(invocation, sort_keys=True) + "\n")
     artifacts = {
         "invocations": {
             "path": str(invocations.resolve()),
@@ -595,6 +606,21 @@ def _oracle_receipt(
         },
         "summary": {"path": "summary.json", "sha256": "d" * 64},
     }
+    if source_wheel:
+        artifacts["source_wheel_recovery"] = {
+            "policy": {"path": str(policy.resolve()), "sha256": source_wheel_policy_sha256},
+            "attestation": {
+                "path": "source_wheel_attestations.json",
+                "sha256": source_wheel_attestation_sha256,
+            },
+            "wheelhouses": [
+                {
+                    "path": f"source_wheel_cache/{archive.name}",
+                    "sha256": _sha256(archive.read_bytes()),
+                    "size": archive.stat().st_size,
+                }
+            ],
+        }
     counts = {
         "completed": 2_538,
         "configured_files": 2,
@@ -646,6 +672,9 @@ def _oracle_receipt(
         "selected_subset_valid": True,
         "trusted_reference_solution": "public",
     }
+    if source_wheel:
+        summary["source_wheel_policy_sha256"] = source_wheel_policy_sha256
+        summary["source_wheel_attestation_sha256"] = source_wheel_attestation_sha256
     payload = {
         "acceptance": acceptance,
         "applied_manifest": {
@@ -678,6 +707,7 @@ def _fixture(
     production_routes: int = 2,
     tb4_routes: int = 1,
     no_post_tb4_resize: bool = False,
+    source_wheel: bool = False,
 ) -> tuple[dict[str, object], Path]:
     project = tmp_path / "project"
     project.mkdir(parents=True)
@@ -931,6 +961,7 @@ def _fixture(
         image_manifest_sha256=image_manifest_sha256,
         source=source,
         updated_configs=updated_configs,
+        source_wheel=source_wheel,
     )
     output = tmp_path / "launch-certificate.json"
     arguments: dict[str, object] = {
@@ -1166,6 +1197,28 @@ def test_create_and_verify_launch_certificate_without_task_metadata(
     assert len(_strict_identity_loader) == 4
     with pytest.raises(LaunchCertificateError, match="^launch_inputs_mismatch$"):
         _validate_for_run(arguments, output, file_sha256, requested_leases=3)
+
+
+def test_launch_certificate_binds_source_wheel_recovery_artifacts(
+    tmp_path: Path,
+) -> None:
+    arguments, output = _fixture(tmp_path, source_wheel=True)
+
+    certificate = create_launch_certificate(**arguments)
+
+    receipt = json.loads(Path(arguments["oracle_receipt"]).read_text())["receipt"]
+    receipt_recovery = receipt["oracle_artifacts"]["source_wheel_recovery"]
+    assert certificate["gates"]["oracle_promotion"]["source_wheel_recovery"] == {
+        "attestation_sha256": receipt_recovery["attestation"]["sha256"],
+        "policy_sha256": receipt_recovery["policy"]["sha256"],
+    }
+    certificate_file_sha256 = _sha256(output.read_bytes())
+    assert _validate_for_run(arguments, output, certificate_file_sha256) == certificate
+
+    wheelhouse = Path(arguments["oracle_receipt"]).parent / receipt_recovery["wheelhouses"][0]["path"]
+    wheelhouse.write_bytes(b"changed after certification")
+    with pytest.raises(LaunchCertificateError, match="^oracle_source_wheel_archive_mismatch$"):
+        _validate_for_run(arguments, output, certificate_file_sha256)
 
 
 def test_kimi_launch_rejects_structurally_valid_7200_readiness_policy(tmp_path: Path) -> None:

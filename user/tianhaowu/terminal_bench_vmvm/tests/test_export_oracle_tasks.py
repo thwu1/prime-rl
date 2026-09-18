@@ -3,11 +3,14 @@ from __future__ import annotations
 import fcntl
 import hashlib
 import importlib.util
+import io
 import json
 import subprocess
+import tarfile
 import tomllib
 from collections import Counter
 from pathlib import Path
+from zipfile import ZipFile
 
 import pytest
 
@@ -25,6 +28,176 @@ IMAGE_MANIFEST_SHA256 = hashlib.sha256(IMAGE_MANIFEST_BYTES).hexdigest()
 
 def _sha256(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
+
+
+def _source_wheel_fixture(oracle: Path, policy_path: Path) -> tuple[str, str]:
+    wheel_buffer = io.BytesIO()
+    with ZipFile(wheel_buffer, "w") as wheel:
+        wheel.writestr(
+            "verifier_helper-1.0.dist-info/METADATA",
+            "Metadata-Version: 2.1\nName: verifier-helper\nVersion: 1.0\n",
+        )
+        wheel.writestr(
+            "verifier_helper-1.0.dist-info/WHEEL",
+            "Wheel-Version: 1.0\nTag: py3-none-any\n",
+        )
+    wheel_bytes = wheel_buffer.getvalue()
+    wheel_name = "verifier_helper-1.0-py3-none-any.whl"
+    image = "registry.invalid/task@sha256:" + "1" * 64
+    build_tools = {"pip": "24.3.1", "setuptools": "75.6.0", "wheel": "0.45.1"}
+    policy = {
+        "schema_version": 1,
+        "allowed_hosts": ["files.example.invalid"],
+        "entries": [
+            {
+                "requirements": ["verifier-helper==1.0"],
+                "image": image,
+                "build_tools": build_tools,
+                "sources": [
+                    {
+                        "distribution": "verifier-helper",
+                        "version": "1.0",
+                        "filename": "verifier-helper-1.0.tar.gz",
+                        "url": "https://files.example.invalid/verifier-helper-1.0.tar.gz",
+                        "size": 1,
+                        "sha256": "2" * 64,
+                        "wheel_filename": wheel_name,
+                        "wheel_size": len(wheel_bytes),
+                        "wheel_sha256": _sha256(wheel_bytes),
+                    }
+                ],
+                "binary_wheels": [],
+            }
+        ],
+    }
+    policy_path.write_text(json.dumps(policy, sort_keys=True) + "\n")
+    policy_sha256 = _sha256(policy_path.read_bytes())
+    wheelhouse_buffer = io.BytesIO()
+    with tarfile.open(fileobj=wheelhouse_buffer, mode="w", format=tarfile.USTAR_FORMAT) as archive:
+        member = tarfile.TarInfo(wheel_name)
+        member.size = len(wheel_bytes)
+        member.mode = 0o444
+        archive.addfile(member, io.BytesIO(wheel_bytes))
+    wheelhouse = wheelhouse_buffer.getvalue()
+    marker_environment = {
+        "implementation_name": "cpython",
+        "implementation_version": "3.12.0",
+        "os_name": "posix",
+        "platform_machine": "x86_64",
+        "platform_python_implementation": "CPython",
+        "platform_release": "6.8.0",
+        "platform_system": "Linux",
+        "platform_version": "synthetic",
+        "python_full_version": "3.12.0",
+        "python_version": "3.12",
+        "sys_platform": "linux",
+    }
+    compatibility = ["cpython", [3, 12], "cpython-312-x86_64-linux-gnu", "linux-x86_64", "x86_64"]
+    runtime = {
+        "marker_environment": marker_environment,
+        "pip_version": "24.3.1",
+        "wheel_compatibility": compatibility,
+        "build_tools": build_tools,
+    }
+    target = {
+        "image": image,
+        "resolution_fingerprint": _sha256(export_oracle_tasks.canonical_json([marker_environment, "24.3.1"])),
+        "compatibility_fingerprint": _sha256(
+            export_oracle_tasks.canonical_json([image, marker_environment, "24.3.1", compatibility, build_tools])
+        ),
+        "toolchain_fingerprint": _sha256(export_oracle_tasks.canonical_json([image, build_tools])),
+        "runtime": runtime,
+    }
+    requirements = ["verifier-helper==1.0"]
+    cache_key = _sha256(
+        export_oracle_tasks.canonical_json(
+            {
+                "requirements": requirements,
+                "image": image,
+                "resolution_fingerprint": target["resolution_fingerprint"],
+                "compatibility_fingerprint": target["compatibility_fingerprint"],
+                "toolchain_fingerprint": target["toolchain_fingerprint"],
+                "build_tools": build_tools,
+                "policy_sha256": policy_sha256,
+            }
+        )
+    )
+    source_path = "/tmp/terminal-bench-source-inputs/verifier-helper-1.0.tar.gz"
+    build_argv = [
+        "python3",
+        "-I",
+        "-m",
+        "pip",
+        "wheel",
+        "--quiet",
+        "--disable-pip-version-check",
+        "--no-cache-dir",
+        "--no-index",
+        "--no-deps",
+        "--no-build-isolation",
+        "--wheel-dir",
+        "/tmp/terminal-bench-source-wheels",
+        f"verifier-helper @ file://{source_path}#sha256={'2' * 64}",
+    ]
+    resolution = {"roots": requirements, "closure": [["verifier-helper", "1.0"]]}
+    unsigned = {
+        "schema_version": 1,
+        "cache_key_sha256": cache_key,
+        "policy_sha256": policy_sha256,
+        "requirements": requirements,
+        "target": target,
+        "build_contract": {
+            "artifact_download_network": "public-hash-pinned-https",
+            "builder_lease_limit": 1,
+            "build_network": "no-network",
+            "build_isolation": False,
+            "dependency_resolution": "explicit-policy-artifacts",
+            "isolated_python": True,
+            "staged_inputs": "policy-artifacts-only",
+            "target_install": "offline-no-index-no-deps",
+        },
+        "sources": [
+            {
+                "policy": policy["entries"][0]["sources"][0],
+                "consumed_path": source_path,
+                "built_wheel": wheel_name,
+                "build_argv_sha256": _sha256(export_oracle_tasks.canonical_json(build_argv)),
+            }
+        ],
+        "binary_wheels": [],
+        "resolution": {**resolution, "sha256": _sha256(export_oracle_tasks.canonical_json(resolution))},
+        "wheels": [
+            {
+                "distribution": "verifier-helper",
+                "version": "1.0",
+                "filename": wheel_name,
+                "size": len(wheel_bytes),
+                "sha256": _sha256(wheel_bytes),
+                "universal": True,
+            }
+        ],
+        "wheelhouse": {
+            "path": f"source_wheel_cache/{cache_key}.tar",
+            "size": len(wheelhouse),
+            "sha256": _sha256(wheelhouse),
+        },
+    }
+    entry = {**unsigned, "attestation_sha256": _sha256(export_oracle_tasks.canonical_json(unsigned))}
+    cache = oracle / "source_wheel_cache"
+    cache.mkdir(mode=0o700)
+    archive_path = cache / f"{cache_key}.tar"
+    archive_path.write_bytes(wheelhouse)
+    archive_path.chmod(0o400)
+    attestation = {
+        "schema_version": 1,
+        "policy_sha256": policy_sha256,
+        "entries_sha256": _sha256(export_oracle_tasks.canonical_json([entry])),
+        "entries": [entry],
+    }
+    attestation_path = oracle / "source_wheel_attestations.json"
+    attestation_path.write_text(json.dumps(attestation, sort_keys=True) + "\n")
+    attestation_path.chmod(0o400)
+    return policy_sha256, entry["attestation_sha256"]
 
 
 def _dataset(tmp_path: Path, total: int = 10) -> tuple[Path, list[str], str]:
@@ -71,6 +244,8 @@ def _oracle(
     revision: str,
     image_manifest: Path,
     minimum_valid: int,
+    *,
+    source_wheel: bool = False,
 ) -> Path:
     oracle = tmp_path / "oracle"
     statuses = oracle / "tasks"
@@ -135,6 +310,27 @@ def _oracle(
         },
         "acceptance": {"minimum_pass_rate": 0.9, "minimum_valid": minimum_valid},
     }
+    source_wheel_policy_sha256 = None
+    source_wheel_attestation_sha256 = None
+    source_wheel_entry_sha256 = None
+    if source_wheel:
+        policy = tmp_path / "source-wheel-policy.json"
+        source_wheel_policy_sha256, source_wheel_entry_sha256 = _source_wheel_fixture(oracle, policy)
+        attestation_path = oracle / "source_wheel_attestations.json"
+        source_wheel_attestation_sha256 = _sha256(attestation_path.read_bytes())
+        identity["source_wheel_recovery"] = {
+            "schema_version": 1,
+            "policy": {
+                "path": str(policy.resolve()),
+                "sha256": source_wheel_policy_sha256,
+            },
+            "attestation": "source_wheel_attestations.json",
+            "artifact_download_network": "public-hash-pinned-https",
+            "builder_lease_limit": 1,
+            "build_network": "no-network",
+            "build_isolation": False,
+            "target_install": "offline-no-index-no-deps",
+        }
     identity_bytes = json.dumps(
         identity,
         ensure_ascii=False,
@@ -172,25 +368,25 @@ def _oracle(
             "oracle_network_semantics": semantics,
             "run_identity_sha256": identity_sha256,
         }
+        if source_wheel:
+            result["source_wheel_attestation_sha256s"] = [source_wheel_entry_sha256]
         results.append(result)
         (statuses / f"{task}.json").write_text(json.dumps(result) + "\n")
     (oracle / "results.jsonl").write_text("".join(json.dumps(result) + "\n" for result in results))
     reasons = Counter(result["reason"] for result in results)
-    (oracle / "summary.json").write_text(
-        json.dumps(
-            {
-                "selected": len(tasks),
-                "completed": len(tasks),
-                "passed": len(valid),
-                "pass_rate": len(valid) / len(tasks),
-                "reasons": dict(reasons),
-                "oracle_network_semantics": semantics,
-                "run_identity_sha256": identity_sha256,
-                "finished_at": 1.0,
-            }
-        )
-        + "\n"
-    )
+    summary = {
+        "selected": len(tasks),
+        "completed": len(tasks),
+        "passed": len(valid),
+        "pass_rate": len(valid) / len(tasks),
+        "reasons": dict(reasons),
+        "oracle_network_semantics": semantics,
+        "run_identity_sha256": identity_sha256,
+        "finished_at": 1.0,
+    }
+    if source_wheel_attestation_sha256 is not None:
+        summary["source_wheel_attestation_sha256"] = source_wheel_attestation_sha256
+    (oracle / "summary.json").write_text(json.dumps(summary) + "\n")
     (oracle / "run_config.json").write_text(
         json.dumps(
             {
@@ -204,7 +400,7 @@ def _oracle(
         + "\n"
     )
     (oracle / "oracle_network_semantics.json").write_text(json.dumps(semantics) + "\n")
-    (oracle / "provenance.txt").write_text(
+    provenance = (
         f"prime_rl={prime_rl_commit}\n"
         f"prime_rl_tree={hashlib.sha256(b'').hexdigest()}\n"
         f"verifiers={VERIFIER_COMMIT}\n"
@@ -214,23 +410,24 @@ def _oracle(
         "oracle_solution_network_mode=public\n"
         f"run_identity_sha256={identity_sha256}\n"
     )
-    (oracle / "invocations.jsonl").write_text(
-        json.dumps(
-            {
-                "schema_version": 1,
-                "run_identity_sha256": identity_sha256,
-                "invoked_at": 1.0,
-                "resume": False,
-                "reuse_completed_rows": True,
-                "rerun_invalid": False,
-                "host": "opaque-host",
-                "slurm_job_id": "1",
-                "source": identity["source"],
-            },
-            sort_keys=True,
-        )
-        + "\n"
-    )
+    if source_wheel_policy_sha256 is not None:
+        provenance += f"source_wheel_policy_sha256={source_wheel_policy_sha256}\n"
+    (oracle / "provenance.txt").write_text(provenance)
+    invocation = {
+        "schema_version": 1,
+        "run_identity_sha256": identity_sha256,
+        "invoked_at": 1.0,
+        "resume": False,
+        "reuse_completed_rows": True,
+        "rerun_invalid": False,
+        "host": "opaque-host",
+        "slurm_job_id": "1",
+        "source": identity["source"],
+    }
+    if source_wheel_policy_sha256 is not None:
+        invocation["source_wheel_policy_sha256"] = source_wheel_policy_sha256
+        invocation["expected_source_wheel_attestation_sha256"] = None
+    (oracle / "invocations.jsonl").write_text(json.dumps(invocation, sort_keys=True) + "\n")
     return oracle
 
 
@@ -254,6 +451,12 @@ def _append_invocation(
         "slurm_job_id": str(count + 1),
         "source": envelope["identity"]["source"],
     }
+    recovery = envelope["identity"].get("source_wheel_recovery")
+    if recovery is not None:
+        record["source_wheel_policy_sha256"] = recovery["policy"]["sha256"]
+        record["expected_source_wheel_attestation_sha256"] = hashlib.sha256(
+            (oracle / recovery["attestation"]).read_bytes()
+        ).hexdigest()
     with path.open("a") as handle:
         handle.write(json.dumps(record, sort_keys=True) + "\n")
 
@@ -285,6 +488,7 @@ def _fixture(
     *,
     valid_indexes: set[int],
     limit: int = 8,
+    source_wheel: bool = False,
 ) -> tuple[Path, list[str], str, Path, Path, str, list[Path], str]:
     dataset, tasks, revision = _dataset(tmp_path)
     project = tmp_path / "project"
@@ -342,6 +546,7 @@ def _fixture(
         revision,
         image_manifest,
         limit,
+        source_wheel=source_wheel,
     )
     return dataset, tasks, revision, oracle, manifest, digest, configs, prime_rl_commit
 
@@ -545,7 +750,6 @@ def test_apply_requires_receipt_before_writes(tmp_path: Path) -> None:
         )
     assert manifest.read_bytes() == original_manifest
     assert [path.read_bytes() for path in configs] == original_configs
-
     receipt = tmp_path / "promotion-receipt.json"
     receipt.write_bytes(b"existing receipt\n")
     with pytest.raises(PromotionError, match="^receipt_already_exists$"):
@@ -566,6 +770,53 @@ def test_apply_requires_receipt_before_writes(tmp_path: Path) -> None:
     assert manifest.read_bytes() == original_manifest
     assert [path.read_bytes() for path in configs] == original_configs
     assert receipt.read_bytes() == b"existing receipt\n"
+
+
+def test_promotion_requires_and_binds_approved_source_wheel_policy(tmp_path: Path) -> None:
+    dataset, _, revision, oracle, manifest, digest, configs, prime_rl_commit = _fixture(
+        tmp_path,
+        valid_indexes=set(range(10)),
+        source_wheel=True,
+    )
+    receipt = manifest.parent / "source-wheel-promotion-receipt.json"
+
+    recovery_identity = json.loads((oracle / "run_identity.json").read_text())["identity"]["source_wheel_recovery"]
+    with pytest.raises(PromotionError, match="source_wheel_policy_not_approved"):
+        export_oracle_tasks.promote(
+            oracle,
+            manifest,
+            dataset_dir=dataset,
+            dataset_revision=revision,
+            expected_current_manifest_sha256=digest,
+            configs=configs,
+            project_root=manifest.parent,
+            expected_total=10,
+            limit=8,
+            **_provenance_args(prime_rl_commit),
+        )
+
+    result = export_oracle_tasks.promote(
+        oracle,
+        manifest,
+        dataset_dir=dataset,
+        dataset_revision=revision,
+        expected_current_manifest_sha256=digest,
+        configs=configs,
+        project_root=manifest.parent,
+        expected_total=10,
+        limit=8,
+        expected_source_wheel_policy_sha256=recovery_identity["policy"]["sha256"],
+        expected_source_wheel_attestations=1,
+        apply=True,
+        receipt=receipt,
+        **_provenance_args(prime_rl_commit),
+    )
+
+    payload = json.loads(receipt.read_text())["receipt"]
+    recovery = payload["oracle_artifacts"]["source_wheel_recovery"]
+    assert len(recovery["wheelhouses"]) == 1
+    assert result["source_wheel_policy_sha256"] == recovery["policy"]["sha256"]
+    assert result["source_wheel_attestation_sha256"] == recovery["attestation"]["sha256"]
 
 
 def test_receipt_is_not_published_when_apply_fails(
@@ -629,9 +880,7 @@ def test_promotion_attests_one_rerun_invalid_and_normal_resumes(tmp_path: Path) 
 
     assert summary["invocation_count"] == 4
     assert summary["rerun_invalid_invocation_count"] == 1
-    assert summary["oracle_invocations_sha256"] == _sha256(
-        (oracle / "invocations.jsonl").read_bytes()
-    )
+    assert summary["oracle_invocations_sha256"] == _sha256((oracle / "invocations.jsonl").read_bytes())
 
 
 def test_promotion_rejects_legacy_or_unbounded_invocation_lineage(tmp_path: Path) -> None:
@@ -768,9 +1017,7 @@ def test_promotion_rejects_noncanonical_invocation_order(
     path = oracle / "invocations.jsonl"
     records = [json.loads(line) for line in path.read_text().splitlines()]
     records[-1][field] = value
-    path.write_text(
-        "".join(json.dumps(record, sort_keys=True) + "\n" for record in records)
-    )
+    path.write_text("".join(json.dumps(record, sort_keys=True) + "\n" for record in records))
 
     with pytest.raises(PromotionError, match="^oracle_invocations_invalid$"):
         export_oracle_tasks.promote(

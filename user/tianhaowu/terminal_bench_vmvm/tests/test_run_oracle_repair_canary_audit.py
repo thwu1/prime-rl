@@ -189,6 +189,8 @@ def _child_output(
     execution: controller.CheckoutAttestation,
     *,
     mutate_contract: tuple[str, str] | None = None,
+    expected_source_wheel_policy_sha256: str | None = None,
+    expected_source_wheel_attestations: int | None = None,
 ) -> controller.ChildResult:
     source_contract = _source_contract(source)
     execution_contract = _source_contract(execution)
@@ -202,6 +204,10 @@ def _child_output(
         "contracts": {
             "canary_source": execution_contract,
             "source_oracle_source": source_contract,
+        },
+        "gates": {
+            "expected_source_wheel_attestations": expected_source_wheel_attestations,
+            "expected_source_wheel_policy_sha256": expected_source_wheel_policy_sha256,
         },
         "ok": True,
         "state": "passed",
@@ -219,6 +225,7 @@ def _child_output(
         "reason_counts": {},
         "recovered": 2,
         "repair_candidates": 3,
+        "source_wheel_attestations": expected_source_wheel_attestations or 0,
         "state": "passed",
         "transitions": {},
         "unrecovered": 1,
@@ -287,6 +294,69 @@ def test_controller_passes_all_six_independently_derived_pins_and_keeps_artifact
     assert all(stat.S_IMODE(path.stat().st_mode) == 0o600 for path in private_files)
 
 
+def test_controller_forwards_and_verifies_external_source_wheel_contract(
+    tmp_path: Path,
+) -> None:
+    options, source, execution = _layout(tmp_path)
+    policy_sha256 = "1" * 64
+    options = replace(
+        options,
+        expected_source_wheel_policy_sha256=policy_sha256,
+        expected_source_wheel_attestations=9,
+    )
+    observed_command: tuple[str, ...] | None = None
+
+    def runner(command: Any, _working_directory: Path) -> controller.ChildResult:
+        nonlocal observed_command
+        observed_command = tuple(command)
+        return _child_output(
+            _staged_certificate(command),
+            source,
+            execution,
+            expected_source_wheel_policy_sha256=policy_sha256,
+            expected_source_wheel_attestations=9,
+        )
+
+    summary = controller.run_controller(
+        options,
+        checkout_validator=_validator(source, execution),
+        child_runner=runner,
+    )
+
+    assert observed_command is not None
+    for flag, value in (
+        ("--expected-source-wheel-policy-sha256", policy_sha256),
+        ("--expected-source-wheel-attestations", "9"),
+    ):
+        assert observed_command.count(flag) == 1
+        assert observed_command[observed_command.index(flag) + 1] == value
+    assert summary["source_wheel_attestations"] == 9
+
+
+@pytest.mark.parametrize(
+    ("policy_sha256", "attestations"),
+    [("1" * 64, None), (None, 1), ("not-a-digest", 1), ("1" * 64, 0)],
+)
+def test_rejects_incomplete_or_invalid_external_source_wheel_contract(
+    tmp_path: Path,
+    policy_sha256: str | None,
+    attestations: int | None,
+) -> None:
+    options, _source, _execution = _layout(tmp_path)
+
+    with pytest.raises(
+        controller.OracleAuditControllerError,
+        match="^expected_source_wheel_contract_invalid$",
+    ):
+        controller._validate_options(
+            replace(
+                options,
+                expected_source_wheel_policy_sha256=policy_sha256,
+                expected_source_wheel_attestations=attestations,
+            )
+        )
+
+
 @pytest.mark.parametrize(
     ("target", "key"),
     [
@@ -349,6 +419,7 @@ def test_rejects_swapped_source_and_canary_pins(tmp_path: Path) -> None:
             "reason_counts": {},
             "recovered": 2,
             "repair_candidates": 3,
+            "source_wheel_attestations": 0,
             "state": "passed",
             "transitions": {},
             "unrecovered": 1,
