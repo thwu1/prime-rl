@@ -284,6 +284,11 @@ allowlist is exactly `ProviderError`, `SandboxError`, `TunnelError`, and the
 base `InterceptionError`; broad `HarnessError` retries are forbidden. The
 legacy 65K token-only diagnostic config is not production-qualified and must
 remain rejected by the production run-identity path.
+Schema-1 smoke qualification must require the smoke timeout pair when the
+checkpoint has no required-concurrency claim and the full timeout pair when it
+binds explicit capacity requirements. Shard combination must re-run these
+shared exact full-profile timeout and retry validators; set equality alone does
+not reject duplicate entries, extra fields, or numeric type confusion.
 Independently
 parse `proxy_litellm_config.yaml` with a duplicate-rejecting safe YAML loader,
 reject aliases/merge keys and quoted or tagged type confusion, require the

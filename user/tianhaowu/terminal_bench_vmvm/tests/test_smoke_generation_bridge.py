@@ -634,6 +634,27 @@ def test_historical_readiness_skips_only_live_policy_digest_revalidation(
     assert len(revalidations) == 1
 
 
+def test_two_task_smoke_profile_normalizes_to_full_tb4_target() -> None:
+    config_dir = Path(qualification.__file__).resolve().parent / "configs/eval"
+    smoke = tomllib.loads((config_dir / "tb4_kimi_k3_approved_smoke.toml").read_text())
+    target = tomllib.loads((config_dir / "tb4_kimi_k3_max_miniswe.toml").read_text())
+
+    smoke_contract = qualification._tool_contract(
+        smoke,
+        required_timeout_profile="smoke",
+    )
+    target_contract = qualification._tool_contract(
+        target,
+        required_timeout_profile="full",
+    )
+
+    assert smoke_contract == target_contract
+    with pytest.raises(qualification.SmokeQualificationError, match="contract_invalid"):
+        qualification._tool_contract(smoke, required_timeout_profile="full")
+    with pytest.raises(qualification.SmokeQualificationError, match="contract_invalid"):
+        qualification._tool_contract(target, required_timeout_profile="smoke")
+
+
 def test_target_evaluator_requires_same_source_config_and_contract(tmp_path: Path) -> None:
     workflow = tmp_path / "user/tianhaowu/terminal_bench_vmvm"
     package = workflow / "terminal_bench_vmvm"
