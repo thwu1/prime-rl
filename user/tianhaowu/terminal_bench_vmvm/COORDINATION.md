@@ -1,6 +1,6 @@
 # VMVM sandbox coordination
 
-Last updated: 2026-09-18 23:31 UTC
+Last updated: 2026-09-18 23:35 UTC
 
 ## First message to the next teammate
 
@@ -41,6 +41,20 @@ this shared branch again.
 Add new rows below this line; do not overwrite another owner's row.
 
 ## Open coordination requests
+
+- **2026-09-18 23:35 UTC, rejected proof follow-up stopped:** after the first
+  `25b84b2fc` proof failed before output creation on a mismatched VMVM source
+  binding, a corrected x86 binding inspection completed. A replacement proof
+  `1750455` was submitted just before the newer 23:31 hold became visible. It
+  was canceled immediately on seeing that hold, after 32 seconds, and is now
+  terminal. Its fresh root contains only partial run/state/journal metadata:
+  six start intents and six successful starts, zero published entry artifacts, and no
+  candidate, finalization, policy, or proof certificate. No stop records were
+  durable at terminal cancellation; the configured lease TTL is 60 seconds.
+  Treat this root as nonresumable and ineligible, and do not use either binding
+  artifact or any `25b84b2fc` job for a canary. I will defer to the separately
+  claimed candidate that closes the post-validation-resume and clean pre-import
+  host-closure blockers.
 
 - **2026-09-18 23:31 UTC, source-wheel proof job failed closed and is not
   qualified:** proof job `1750436` from utility commit `25b84b2fc` failed 1:0
