@@ -6,6 +6,7 @@ import hashlib
 import json
 import subprocess
 import sys
+import threading
 import tomllib
 from pathlib import Path
 
@@ -1187,6 +1188,137 @@ def test_epoch_index_atomic_write_never_replaces_existing_output(tmp_path: Path)
         migration._atomic_write(output, b"replacement\n", exclusive=True)
 
     assert output.read_bytes() == b"keep\n"
+
+
+def test_atomic_write_falls_back_to_hard_link_when_renameat2_is_unsupported(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    output = tmp_path / "output.json"
+    monkeypatch.setattr(
+        migration,
+        "_rename_noreplace",
+        lambda _source, _destination: (_ for _ in ()).throw(OSError(errno.EINVAL, "unsupported")),
+    )
+
+    migration._atomic_write(output, b"complete\n", exclusive=True)
+
+    assert output.read_bytes() == b"complete\n"
+    assert output.stat().st_mode & 0o777 == 0o600
+    assert list(tmp_path.iterdir()) == [output]
+
+
+def test_atomic_write_hard_link_fallback_has_one_concurrent_winner(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    output = tmp_path / "output.json"
+    payloads = (b"first-complete\n", b"second-complete\n")
+    barrier = threading.Barrier(2)
+    original_link = migration.os.link
+    outcomes: list[str] = []
+    outcomes_lock = threading.Lock()
+
+    def unsupported_rename(_source: Path, _destination: Path) -> None:
+        raise OSError(errno.EOPNOTSUPP, "unsupported")
+
+    def synchronized_link(source: Path, destination: Path, *, follow_symlinks: bool) -> None:
+        barrier.wait()
+        original_link(source, destination, follow_symlinks=follow_symlinks)
+
+    def write(payload: bytes) -> None:
+        try:
+            migration._atomic_write(output, payload, exclusive=True)
+        except migration.MigrationError as error:
+            outcome = str(error)
+        else:
+            outcome = "success"
+        with outcomes_lock:
+            outcomes.append(outcome)
+
+    monkeypatch.setattr(migration, "_rename_noreplace", unsupported_rename)
+    monkeypatch.setattr(migration.os, "link", synchronized_link)
+    writers = [threading.Thread(target=write, args=(payload,)) for payload in payloads]
+    for writer in writers:
+        writer.start()
+    for writer in writers:
+        writer.join()
+
+    assert sorted(outcomes) == ["epoch_index_output_exists", "success"]
+    assert output.read_bytes() in payloads
+    assert list(tmp_path.iterdir()) == [output]
+
+
+def test_atomic_write_hard_link_fallback_preserves_existing_destination(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    output = tmp_path / "output.json"
+    output.write_bytes(b"keep\n")
+    monkeypatch.setattr(
+        migration,
+        "_rename_noreplace",
+        lambda _source, _destination: (_ for _ in ()).throw(OSError(errno.ENOSYS, "unsupported")),
+    )
+
+    with pytest.raises(migration.MigrationError, match="^epoch_index_output_exists$"):
+        migration._atomic_write(output, b"replacement\n", exclusive=True)
+
+    assert output.read_bytes() == b"keep\n"
+    assert list(tmp_path.iterdir()) == [output]
+
+
+def test_atomic_write_hard_link_commit_survives_temporary_unlink_failure(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    output = tmp_path / "output.json"
+    original_unlink = Path.unlink
+    retained_temporary: list[Path] = []
+
+    def unsupported_rename(_source: Path, _destination: Path) -> None:
+        raise OSError(errno.EXDEV, "unsupported")
+
+    def fail_known_temporary_once(path: Path, *args: object, **kwargs: object) -> None:
+        if path.parent == tmp_path and path != output and not retained_temporary:
+            retained_temporary.append(path)
+            raise OSError(errno.EIO, "injected cleanup failure")
+        original_unlink(path, *args, **kwargs)
+
+    monkeypatch.setattr(migration, "_rename_noreplace", unsupported_rename)
+    monkeypatch.setattr(Path, "unlink", fail_known_temporary_once)
+
+    migration._atomic_write(output, b"complete\n", exclusive=True)
+
+    assert output.read_bytes() == b"complete\n"
+    assert len(retained_temporary) == 1
+    assert retained_temporary[0].read_bytes() == b"complete\n"
+    assert retained_temporary[0].stat().st_ino == output.stat().st_ino
+    original_unlink(retained_temporary[0])
+
+
+def test_atomic_write_hard_link_fallback_propagates_other_link_errors(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    output = tmp_path / "output.json"
+    monkeypatch.setattr(
+        migration,
+        "_rename_noreplace",
+        lambda _source, _destination: (_ for _ in ()).throw(OSError(errno.EINVAL, "unsupported")),
+    )
+    monkeypatch.setattr(
+        migration.os,
+        "link",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(OSError(errno.EACCES, "denied")),
+    )
+
+    with pytest.raises(OSError) as raised:
+        migration._atomic_write(output, b"complete\n", exclusive=True)
+
+    assert raised.value.errno == errno.EACCES
+    assert not output.exists()
+    assert list(tmp_path.iterdir()) == []
 
 
 def test_epoch_index_rejects_output_inside_source(tmp_path: Path) -> None:
