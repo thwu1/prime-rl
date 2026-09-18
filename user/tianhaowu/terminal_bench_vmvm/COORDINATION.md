@@ -1,6 +1,6 @@
 # VMVM sandbox coordination
 
-Last updated: 2026-09-18 08:30 UTC
+Last updated: 2026-09-18 09:23 UTC
 
 ## First message to the next teammate
 
@@ -114,8 +114,8 @@ Add new rows below this line; do not overwrite another owner's row.
   count; adversarial width 25 and lease-start 5 both reject while exact 24/4
   accepts. Full workflow validation passed 743 tests; independent focused
   review passed 145; frozen exact-head x86 smoke `1468739` passed 174/174.
-  Synthetic merge tree `b15b100c3` against current shared base `5dd93dc9c`
-  passed the full 744-test workflow on x86 job `1468774`.
+  Latest shared-base synthetic merge tree `f7ca98b98`, including the oracle
+  and TB4-auth fixes, passed the full 747-test workflow on x86 job `1469450`.
   The config hashes changed, so post-TB4 production requires
   a fresh config-bound oracle promotion, exact-24 readiness, capacity smoke,
   and launch certificate. TB4/Qwen configs, current launch scripts, and the
