@@ -157,6 +157,7 @@ class PrefetchedTestDependencies:
     archive_path: Path | None
     sha256: str | None
     universal: bool
+    resolution_fingerprint: str | None
     compatibility_fingerprint: str | None
 
     @classmethod
@@ -165,6 +166,7 @@ class PrefetchedTestDependencies:
         cache_directory: Path,
         requirements: tuple[str, ...],
         wheel_archive: bytes,
+        resolution_fingerprint: str,
         compatibility_fingerprint: str,
     ) -> "PrefetchedTestDependencies":
         archive_path = cache_directory / f"{uuid.uuid4().hex}.tar"
@@ -191,6 +193,7 @@ class PrefetchedTestDependencies:
             archive_path=archive_path,
             sha256=hashlib.sha256(wheel_archive).hexdigest(),
             universal=all(name.lower().endswith("-none-any.whl") for name in wheel_names),
+            resolution_fingerprint=resolution_fingerprint,
             compatibility_fingerprint=compatibility_fingerprint,
         )
 
@@ -220,6 +223,12 @@ class PrefetchedTestDependencies:
 class VerifierDependencyOverlay:
     site_path: str
     bootstrap_path: str
+
+
+@dataclass(frozen=True)
+class RuntimeWheelFingerprints:
+    resolution: str
+    compatibility: str
 
 
 def _verifier_site_bootstrap(site_path: str) -> bytes:
@@ -779,11 +788,15 @@ class TerminalBenchVMVMTaskset(
         super().__init__(config)
         self._artifact_payloads: dict[str, dict[str, bytes]] = {}
         self._prefetched_test_dependencies: WeakKeyDictionary[Runtime, PrefetchedTestDependencies] = WeakKeyDictionary()
-        self._runtime_wheel_fingerprints: WeakKeyDictionary[Runtime, str] = WeakKeyDictionary()
-        self._universal_wheelhouse_cache: dict[tuple[str, ...], PrefetchedTestDependencies] = {}
+        self._runtime_wheel_fingerprints: WeakKeyDictionary[Runtime, RuntimeWheelFingerprints] = WeakKeyDictionary()
+        # ``none-any`` describes wheel payloads, not the marker-conditioned
+        # dependency closure that pip selected for the runtime.
+        self._universal_wheelhouse_cache: dict[tuple[tuple[str, ...], str], PrefetchedTestDependencies] = {}
         self._compatible_wheelhouse_cache: dict[tuple[tuple[str, ...], str], PrefetchedTestDependencies] = {}
-        self._nonuniversal_wheelhouse_requirements: set[tuple[str, ...]] = set()
-        self._wheelhouse_discovery_flights: dict[tuple[str, ...], asyncio.Task[PrefetchedTestDependencies]] = {}
+        self._nonuniversal_wheelhouse_requirements: set[tuple[tuple[str, ...], str]] = set()
+        self._wheelhouse_discovery_flights: dict[
+            tuple[tuple[str, ...], str], asyncio.Task[PrefetchedTestDependencies]
+        ] = {}
         self._wheelhouse_compatibility_flights: dict[
             tuple[tuple[str, ...], str], asyncio.Task[PrefetchedTestDependencies]
         ] = {}
@@ -1452,7 +1465,7 @@ for requirement in sys.argv[1:]:
         self,
         task: TerminalBenchTask,
         runtime: Runtime,
-    ) -> str:
+    ) -> RuntimeWheelFingerprints:
         cached = self._runtime_wheel_fingerprints.get(runtime)
         if cached is not None:
             return cached
@@ -1460,10 +1473,34 @@ for requirement in sys.argv[1:]:
         if not isinstance(image, str) or not image:
             raise RuntimeError(f"{task.name}: verifier wheel caching requires an exact runtime image reference")
         probe_code = (
-            "import json, platform, sys, sysconfig; "
-            "print(json.dumps([sys.implementation.name, list(sys.version_info[:2]), "
-            "sysconfig.get_config_var('SOABI'), sysconfig.get_platform(), platform.machine()], "
-            "separators=(',', ':')))"
+            "import json, os, pip, platform, sys, sysconfig\n"
+            "def full_version(info):\n"
+            "    value = f'{info.major}.{info.minor}.{info.micro}'\n"
+            "    if info.releaselevel != 'final':\n"
+            "        value += info.releaselevel[0] + str(info.serial)\n"
+            "    return value\n"
+            "marker_environment = {\n"
+            "    'implementation_name': sys.implementation.name,\n"
+            "    'implementation_version': full_version(sys.implementation.version),\n"
+            "    'os_name': os.name,\n"
+            "    'platform_machine': platform.machine(),\n"
+            "    'platform_release': platform.release(),\n"
+            "    'platform_system': platform.system(),\n"
+            "    'platform_version': platform.version(),\n"
+            "    'python_full_version': platform.python_version(),\n"
+            "    'platform_python_implementation': platform.python_implementation(),\n"
+            "    'python_version': '.'.join(platform.python_version_tuple()[:2]),\n"
+            "    'sys_platform': sys.platform,\n"
+            "}\n"
+            "wheel_compatibility = [\n"
+            "    sys.implementation.name, list(sys.version_info[:2]),\n"
+            "    sysconfig.get_config_var('SOABI'), sysconfig.get_platform(), platform.machine(),\n"
+            "]\n"
+            "print(json.dumps({\n"
+            "    'marker_environment': marker_environment,\n"
+            "    'pip_version': pip.__version__,\n"
+            "    'wheel_compatibility': wheel_compatibility,\n"
+            "}, separators=(',', ':'), sort_keys=True))"
         )
         probed = await runtime.run(["python3", "-c", probe_code], {})
         if probed.exit_code != 0 or not probed.stdout.strip():
@@ -1471,22 +1508,68 @@ for requirement in sys.argv[1:]:
                 f"{task.name}: verifier wheel compatibility probe failed: {(probed.stdout + probed.stderr)[-2000:]}"
             )
         try:
-            compatibility = json.loads(probed.stdout.strip())
+            probe = json.loads(probed.stdout.strip())
         except json.JSONDecodeError as error:
             raise RuntimeError(f"{task.name}: verifier wheel compatibility probe returned invalid JSON") from error
+        expected_marker_keys = {
+            "implementation_name",
+            "implementation_version",
+            "os_name",
+            "platform_machine",
+            "platform_release",
+            "platform_system",
+            "platform_version",
+            "python_full_version",
+            "platform_python_implementation",
+            "python_version",
+            "sys_platform",
+        }
+        if not isinstance(probe, dict) or set(probe) != {
+            "marker_environment",
+            "pip_version",
+            "wheel_compatibility",
+        }:
+            raise RuntimeError(f"{task.name}: verifier wheel compatibility probe returned an invalid fingerprint")
+        marker_environment = probe["marker_environment"]
+        pip_version = probe["pip_version"]
+        compatibility = probe["wheel_compatibility"]
+        if (
+            not isinstance(marker_environment, dict)
+            or set(marker_environment) != expected_marker_keys
+            or not all(isinstance(value, str) for value in marker_environment.values())
+            or not isinstance(pip_version, str)
+            or not pip_version
+        ):
+            raise RuntimeError(f"{task.name}: verifier wheel compatibility probe returned an invalid fingerprint")
         if not isinstance(compatibility, list) or len(compatibility) != 5:
             raise RuntimeError(f"{task.name}: verifier wheel compatibility probe returned an invalid fingerprint")
-        fingerprint = hashlib.sha256(
-            json.dumps([image, compatibility], separators=(",", ":"), sort_keys=True).encode()
+        resolution_fingerprint = hashlib.sha256(
+            json.dumps(
+                [marker_environment, pip_version],
+                separators=(",", ":"),
+                sort_keys=True,
+            ).encode()
         ).hexdigest()
-        self._runtime_wheel_fingerprints[runtime] = fingerprint
-        return fingerprint
+        compatibility_fingerprint = hashlib.sha256(
+            json.dumps(
+                [image, marker_environment, pip_version, compatibility],
+                separators=(",", ":"),
+                sort_keys=True,
+            ).encode()
+        ).hexdigest()
+        fingerprints = RuntimeWheelFingerprints(
+            resolution=resolution_fingerprint,
+            compatibility=compatibility_fingerprint,
+        )
+        self._runtime_wheel_fingerprints[runtime] = fingerprints
+        return fingerprints
 
     async def _build_test_dependency_wheelhouse(
         self,
         task: TerminalBenchTask,
         runtime: Runtime,
         requirements: tuple[str, ...],
+        resolution_fingerprint: str,
         compatibility_fingerprint: str,
     ) -> PrefetchedTestDependencies:
         digest = hashlib.sha256("\0".join(requirements).encode()).hexdigest()[:16]
@@ -1559,6 +1642,7 @@ for requirement in sys.argv[1:]:
             self._wheelhouse_cache_path(),
             requirements,
             wheel_archive,
+            resolution_fingerprint,
             compatibility_fingerprint,
         )
 
@@ -1572,27 +1656,29 @@ for requirement in sys.argv[1:]:
         task: TerminalBenchTask,
         runtime: Runtime,
         requirements: tuple[str, ...],
+        fingerprints: RuntimeWheelFingerprints,
     ) -> PrefetchedTestDependencies:
+        resolution_key = (requirements, fingerprints.resolution)
         try:
-            fingerprint = await self._runtime_wheel_fingerprint(task, runtime)
             wheelhouse = await self._build_test_dependency_wheelhouse(
                 task,
                 runtime,
                 requirements,
-                fingerprint,
+                fingerprints.resolution,
+                fingerprints.compatibility,
             )
             async with self._wheelhouse_cache_lock:
                 if wheelhouse.universal:
-                    self._universal_wheelhouse_cache[requirements] = wheelhouse
+                    self._universal_wheelhouse_cache[resolution_key] = wheelhouse
                 else:
-                    self._nonuniversal_wheelhouse_requirements.add(requirements)
-                    self._compatible_wheelhouse_cache[(requirements, fingerprint)] = wheelhouse
+                    self._nonuniversal_wheelhouse_requirements.add(resolution_key)
+                    self._compatible_wheelhouse_cache[(requirements, fingerprints.compatibility)] = wheelhouse
             return wheelhouse
         finally:
             current = asyncio.current_task()
             async with self._wheelhouse_cache_lock:
-                if self._wheelhouse_discovery_flights.get(requirements) is current:
-                    self._wheelhouse_discovery_flights.pop(requirements, None)
+                if self._wheelhouse_discovery_flights.get(resolution_key) is current:
+                    self._wheelhouse_discovery_flights.pop(resolution_key, None)
                 if current is not None:
                     self._wheelhouse_flight_runtimes.pop(current, None)
 
@@ -1601,21 +1687,23 @@ for requirement in sys.argv[1:]:
         task: TerminalBenchTask,
         runtime: Runtime,
         requirements: tuple[str, ...],
-        compatibility_fingerprint: str,
+        fingerprints: RuntimeWheelFingerprints,
     ) -> PrefetchedTestDependencies:
-        key = (requirements, compatibility_fingerprint)
+        resolution_key = (requirements, fingerprints.resolution)
+        key = (requirements, fingerprints.compatibility)
         try:
             wheelhouse = await self._build_test_dependency_wheelhouse(
                 task,
                 runtime,
                 requirements,
-                compatibility_fingerprint,
+                fingerprints.resolution,
+                fingerprints.compatibility,
             )
             async with self._wheelhouse_cache_lock:
                 if wheelhouse.universal:
-                    self._universal_wheelhouse_cache[requirements] = wheelhouse
+                    self._universal_wheelhouse_cache[resolution_key] = wheelhouse
                 else:
-                    self._nonuniversal_wheelhouse_requirements.add(requirements)
+                    self._nonuniversal_wheelhouse_requirements.add(resolution_key)
                     self._compatible_wheelhouse_cache[key] = wheelhouse
             return wheelhouse
         finally:
@@ -1642,14 +1730,15 @@ for requirement in sys.argv[1:]:
         task: TerminalBenchTask,
         runtime: Runtime,
         requirements: tuple[str, ...],
-        compatibility_fingerprint: str | None = None,
+        fingerprints: RuntimeWheelFingerprints | None = None,
     ) -> PrefetchedTestDependencies:
-        fingerprint = compatibility_fingerprint or await self._runtime_wheel_fingerprint(task, runtime)
-        key = (requirements, fingerprint)
+        fingerprints = fingerprints or await self._runtime_wheel_fingerprint(task, runtime)
+        resolution_key = (requirements, fingerprints.resolution)
+        key = (requirements, fingerprints.compatibility)
         async with self._wheelhouse_cache_lock:
             if self._wheelhouse_cache_closed:
                 raise RuntimeError(f"{task.name}: verifier wheelhouse cache is closed")
-            cached = self._universal_wheelhouse_cache.get(requirements)
+            cached = self._universal_wheelhouse_cache.get(resolution_key)
             if cached is None:
                 cached = self._compatible_wheelhouse_cache.get(key)
             flight = self._wheelhouse_compatibility_flights.get(key)
@@ -1659,7 +1748,7 @@ for requirement in sys.argv[1:]:
                         task,
                         runtime,
                         requirements,
-                        fingerprint,
+                        fingerprints,
                     )
                 )
                 flight.add_done_callback(self._consume_wheelhouse_flight_result)
@@ -1674,7 +1763,7 @@ for requirement in sys.argv[1:]:
             current = asyncio.current_task()
             if current is not None and current.cancelling():
                 raise
-            return await self._compatible_wheelhouse(task, runtime, requirements, fingerprint)
+            return await self._compatible_wheelhouse(task, runtime, requirements, fingerprints)
 
     async def _cached_test_dependency_wheelhouse(
         self,
@@ -1682,21 +1771,25 @@ for requirement in sys.argv[1:]:
         runtime: Runtime,
         requirements: tuple[str, ...],
     ) -> PrefetchedTestDependencies:
+        fingerprints = await self._runtime_wheel_fingerprint(task, runtime)
+        resolution_key = (requirements, fingerprints.resolution)
         async with self._wheelhouse_cache_lock:
             if self._wheelhouse_cache_closed:
                 raise RuntimeError(f"{task.name}: verifier wheelhouse cache is closed")
-            cached = self._universal_wheelhouse_cache.get(requirements)
-            flight = self._wheelhouse_discovery_flights.get(requirements)
-            has_nonuniversal = requirements in self._nonuniversal_wheelhouse_requirements
+            cached = self._universal_wheelhouse_cache.get(resolution_key)
+            flight = self._wheelhouse_discovery_flights.get(resolution_key)
+            has_nonuniversal = resolution_key in self._nonuniversal_wheelhouse_requirements
             if cached is None and flight is None and not has_nonuniversal:
-                flight = asyncio.create_task(self._publish_discovered_wheelhouse(task, runtime, requirements))
+                flight = asyncio.create_task(
+                    self._publish_discovered_wheelhouse(task, runtime, requirements, fingerprints)
+                )
                 flight.add_done_callback(self._consume_wheelhouse_flight_result)
-                self._wheelhouse_discovery_flights[requirements] = flight
+                self._wheelhouse_discovery_flights[resolution_key] = flight
                 self._wheelhouse_flight_runtimes[flight] = runtime
         if cached is not None:
             return await self._verified_wheelhouse(task, cached)
         if has_nonuniversal and flight is None:
-            return await self._compatible_wheelhouse(task, runtime, requirements)
+            return await self._compatible_wheelhouse(task, runtime, requirements, fingerprints)
         assert flight is not None
         try:
             discovered = await asyncio.shield(flight)
@@ -1707,14 +1800,13 @@ for requirement in sys.argv[1:]:
             return await self._cached_test_dependency_wheelhouse(task, runtime, requirements)
         if discovered.universal:
             return discovered
-        fingerprint = await self._runtime_wheel_fingerprint(task, runtime)
-        if discovered.compatibility_fingerprint == fingerprint:
+        if discovered.compatibility_fingerprint == fingerprints.compatibility:
             return discovered
         return await self._compatible_wheelhouse(
             task,
             runtime,
             requirements,
-            fingerprint,
+            fingerprints,
         )
 
     async def _prefetch_test_dependencies(
@@ -1731,6 +1823,7 @@ for requirement in sys.argv[1:]:
                 archive_path=None,
                 sha256=None,
                 universal=True,
+                resolution_fingerprint=None,
                 compatibility_fingerprint=None,
             )
             return

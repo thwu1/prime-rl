@@ -198,6 +198,8 @@ class DependencyRuntime:
         source_only: bool = False,
         image: str = "registry.invalid/task@sha256:" + "a" * 64,
         wheel_names: tuple[str, ...] = ("verifier_helper-1.0-py3-none-any.whl",),
+        python_version: tuple[int, int, int] = (3, 12, 0),
+        pip_version: str = "24.3.1",
     ) -> None:
         self.installed = installed
         self.overlay_installed = False
@@ -205,6 +207,8 @@ class DependencyRuntime:
         self.source_only = source_only
         self.config = SimpleNamespace(image=image)
         self.wheel_archive = wheel_archive(*wheel_names)
+        self.python_version = python_version
+        self.pip_version = pip_version
         self.events: list[str] = []
         self.argvs: list[list[str]] = []
         self.commands: list[str] = []
@@ -223,9 +227,35 @@ class DependencyRuntime:
             return ProgramResult(exit_code=0, stdout=output, stderr="")
         if argv[:2] == ["python3", "-c"] and "sysconfig.get_config_var" in argv[2]:
             self.events.append("fingerprint")
+            major, minor, micro = self.python_version
+            marker_environment = {
+                "implementation_name": "cpython",
+                "implementation_version": f"{major}.{minor}.{micro}",
+                "os_name": "posix",
+                "platform_machine": "x86_64",
+                "platform_release": "6.8.0",
+                "platform_system": "Linux",
+                "platform_version": "synthetic-runtime",
+                "python_full_version": f"{major}.{minor}.{micro}",
+                "platform_python_implementation": "CPython",
+                "python_version": f"{major}.{minor}",
+                "sys_platform": "linux",
+            }
             return ProgramResult(
                 exit_code=0,
-                stdout='["cpython",[3,12],"cpython-312-x86_64-linux-gnu","linux-x86_64","x86_64"]\n',
+                stdout=json.dumps(
+                    {
+                        "marker_environment": marker_environment,
+                        "pip_version": self.pip_version,
+                        "wheel_compatibility": [
+                            "cpython",
+                            [major, minor],
+                            f"cpython-{major}{minor}-x86_64-linux-gnu",
+                            "linux-x86_64",
+                            "x86_64",
+                        ],
+                    }
+                ),
                 stderr="",
             )
         if argv[:4] == ["python3", "-m", "pip", "wheel"]:
@@ -822,6 +852,7 @@ def test_verifier_wheelhouse_preparation_always_attempts_cleanup(
                 task,
                 runtime,
                 ("verifier-helper==1.0",),
+                "resolution-fingerprint",
                 "compatibility-fingerprint",
             )
         )
@@ -881,6 +912,42 @@ def test_verifier_dependency_universal_cache_is_single_flight_across_images(tmp_
     asyncio.run(taskset.close())
     assert archive_path.exists() is False
     assert taskset._universal_wheelhouse_cache == {}
+
+
+def test_verifier_dependency_universal_cache_is_scoped_to_marker_environment(tmp_path: Path) -> None:
+    taskset = dependency_taskset(tmp_path)
+    task = dependency_task(tmp_path)
+    runtimes = [
+        DependencyRuntime(
+            image="registry.invalid/python-312@sha256:" + "a" * 64,
+            python_version=(3, 12, 0),
+            wheel_names=(
+                "verifier_helper-1.0-py3-none-any.whl",
+                "modern_dependency-1.0-py3-none-any.whl",
+            ),
+        ),
+        DependencyRuntime(
+            image="registry.invalid/python-311@sha256:" + "b" * 64,
+            python_version=(3, 11, 9),
+            wheel_names=(
+                "verifier_helper-1.0-py3-none-any.whl",
+                "legacy_dependency-1.0-py3-none-any.whl",
+            ),
+        ),
+    ]
+
+    async def prefetch() -> None:
+        await asyncio.gather(*(taskset._prefetch_test_dependencies(task, runtime) for runtime in runtimes))
+
+    asyncio.run(prefetch())
+
+    assert sum(runtime.events.count("wheel") for runtime in runtimes) == 2
+    wheelhouses = [taskset._prefetched_test_dependencies[runtime] for runtime in runtimes]
+    assert wheelhouses[0] is not wheelhouses[1]
+    assert all(wheelhouse.universal is True for wheelhouse in wheelhouses)
+    assert wheelhouses[0].resolution_fingerprint != wheelhouses[1].resolution_fingerprint
+    assert len(taskset._universal_wheelhouse_cache) == 2
+    taskset._cleanup_wheelhouse_cache()
 
 
 def test_verifier_dependency_platform_cache_is_scoped_to_runtime_fingerprint(tmp_path: Path) -> None:

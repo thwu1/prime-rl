@@ -131,9 +131,12 @@ executing sdist build hooks. Move the resulting wheel-only tar to a
 controller temporary directory as mode 0400 so concurrent rollouts do not retain
 archives in RAM and an agent cannot modify the cached bytes. Cache by the exact
 requirement tuple with async single-flight. A wheelhouse containing only
-`*-none-any.whl` files can be shared across images; otherwise scope reuse to the
-runtime image plus its Python implementation/version, SOABI, platform, and
-machine fingerprint. Hash-check every reuse, detach per-runtime references on
+`*-none-any.whl` files can be shared only across runtimes with the same complete
+PEP 508 marker environment and pip version; a platform-neutral wheel can still
+have marker-selected dependencies. Otherwise scope reuse to the exact runtime
+image plus its marker environment, pip version, Python implementation/version,
+SOABI, platform, and machine fingerprint. Hash-check every reuse, detach
+per-runtime references on
 every terminal path, retain controller cache entries for the taskset lifetime,
 and clean each sandbox copy after installation. Deterministically close the
 shared cache when the evaluator or environment server exits; object finalization
