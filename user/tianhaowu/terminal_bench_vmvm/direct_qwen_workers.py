@@ -71,11 +71,7 @@ def _task_allowlist_count(path: Path) -> int:
         lines = path.read_text(encoding="utf-8").splitlines()
     except (OSError, UnicodeDecodeError) as error:
         raise DirectWorkerError("eval_approved_task_file_unreadable") from error
-    tasks = [
-        line.strip().split("\t", 1)[0]
-        for line in lines
-        if line.strip() and not line.lstrip().startswith("#")
-    ]
+    tasks = [line.strip().split("\t", 1)[0] for line in lines if line.strip() and not line.lstrip().startswith("#")]
     if any(not task for task in tasks):
         raise DirectWorkerError("eval_approved_task_file_entry_invalid")
     if len(tasks) != len(set(tasks)):
@@ -177,11 +173,7 @@ def validate_eval_config(
     if isinstance(max_concurrent, bool) or not isinstance(max_concurrent, int) or not 1 <= max_concurrent <= 8:
         raise DirectWorkerError("eval_max_concurrent_invalid")
     multiplex = config.get("multiplex")
-    if (
-        isinstance(multiplex, bool)
-        or not isinstance(multiplex, int)
-        or multiplex != max_concurrent
-    ):
+    if isinstance(multiplex, bool) or not isinstance(multiplex, int) or multiplex != max_concurrent:
         raise DirectWorkerError("eval_multiplex_invalid")
     for field in ("max_input_tokens", "max_output_tokens", "max_total_tokens"):
         value = config.get(field)
@@ -273,8 +265,7 @@ def validate_eval_config(
         or rollout_retries.get("max_retries") != 2
         or not isinstance(retry_include, list)
         or not all(isinstance(item, str) for item in retry_include)
-        or set(retry_include)
-        != {"ProviderError", "SandboxError", "TunnelError", "InterceptionError"}
+        or set(retry_include) != {"ProviderError", "SandboxError", "TunnelError", "InterceptionError"}
     ):
         raise DirectWorkerError("eval_rollout_retry_policy_mismatch")
     return task_file_sha256
@@ -302,12 +293,18 @@ def _probe_worker(worker: Worker, model: str, timeout: float) -> None:
     except (UnicodeDecodeError, json.JSONDecodeError) as error:
         raise DirectWorkerError(f"models_invalid_json:{worker.metadata_file}") from error
     data = payload.get("data") if isinstance(payload, dict) else None
-    model_ids = [item.get("id") for item in data] if isinstance(data, list) and all(isinstance(item, dict) for item in data) else []
+    model_ids = (
+        [item.get("id") for item in data]
+        if isinstance(data, list) and all(isinstance(item, dict) for item in data)
+        else []
+    )
     if model_ids != [model]:
         raise DirectWorkerError(f"models_mismatch:{worker.metadata_file}")
 
 
-def probe_workers(workers: list[Worker], model: str = EXPECTED_MODEL, concurrency: int = 8, timeout: float = 30) -> None:
+def probe_workers(
+    workers: list[Worker], model: str = EXPECTED_MODEL, concurrency: int = 8, timeout: float = 30
+) -> None:
     if not 1 <= concurrency <= 8:
         raise DirectWorkerError("probe_concurrency_invalid")
     with concurrent.futures.ThreadPoolExecutor(max_workers=concurrency) as executor:
@@ -544,7 +541,10 @@ def prepare(
             raise DirectWorkerError("direct_worker_manifest_router_invalid")
         router_port = router.get("port")
         metrics_port = router.get("metrics_port")
-        if not all(isinstance(port, int) and not isinstance(port, bool) and 1 <= port <= 65535 for port in (router_port, metrics_port)):
+        if not all(
+            isinstance(port, int) and not isinstance(port, bool) and 1 <= port <= 65535
+            for port in (router_port, metrics_port)
+        ):
             raise DirectWorkerError("direct_worker_manifest_ports_invalid")
         expected = _manifest(
             deployment_root,
@@ -601,18 +601,21 @@ def main() -> None:
         parser.error("--probe-timeout must be positive")
     try:
         if args.audit_run_dir is not None:
-            if any(
-                value is not None
-                for value in (
-                    args.deployment_root,
-                    args.eval_config,
-                    args.manifest,
-                    args.urls_output,
-                    args.ports_output,
-                    args.approved_task_file,
-                    args.approved_task_file_sha256,
+            if (
+                any(
+                    value is not None
+                    for value in (
+                        args.deployment_root,
+                        args.eval_config,
+                        args.manifest,
+                        args.urls_output,
+                        args.ports_output,
+                        args.approved_task_file,
+                        args.approved_task_file_sha256,
+                    )
                 )
-            ) or args.resume:
+                or args.resume
+            ):
                 parser.error("--audit-run-dir cannot be combined with launch preparation arguments")
             summary = audit_run_directory(args.audit_run_dir)
         else:

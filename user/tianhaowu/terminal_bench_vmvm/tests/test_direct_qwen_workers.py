@@ -166,9 +166,7 @@ def test_approved_qwen_config_rejects_wrong_allowlist_count(tmp_path: Path) -> N
     config.write_text(
         config.read_text().replace(
             next(
-                line.split('"')[1]
-                for line in config.read_text().splitlines()
-                if line.startswith("task_file_sha256 = ")
+                line.split('"')[1] for line in config.read_text().splitlines() if line.startswith("task_file_sha256 = ")
             ),
             task_hash,
         )
@@ -316,7 +314,9 @@ def test_audit_run_directory_rejects_credential_provenance(tmp_path: Path, monke
     task_hash = hashlib.sha256(task_file.read_bytes()).hexdigest()
     manifest = direct._manifest(tmp_path, workers, spec_sha256, bundle_sha256, task_hash, 20_001, 40_001)
     (run_dir / "direct_workers.json").write_text(json.dumps(manifest) + "\n")
-    (run_dir / "config.toml").write_text(_approved_config(tmp_path).read_text().replace("127.0.0.1:8000", "127.0.0.1:20001"))
+    (run_dir / "config.toml").write_text(
+        _approved_config(tmp_path).read_text().replace("127.0.0.1:8000", "127.0.0.1:20001")
+    )
     (run_dir / "provenance.txt").write_text("api_key=forbidden\n")
 
     with pytest.raises(direct.DirectWorkerError, match="contains_credential"):
