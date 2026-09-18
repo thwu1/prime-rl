@@ -4,6 +4,7 @@ import hashlib
 import io
 import json
 import tarfile
+import tomllib
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -30,6 +31,8 @@ from eval_run_identity import (
     _write_resolved_config,
     canonical_json,
     load_eval_run_identity,
+    validate_kimi_retry_contract,
+    validate_kimi_timeout_contract,
 )
 from guard_success_receipt import (
     build_guard_success_receipt,
@@ -74,7 +77,23 @@ def _resolved_config() -> dict:
             "config_overrides": [],
             "runtime": {"type": "vmvm", "session_timeout": 43_200},
         },
-        "timeout": {"rollout": 36_000},
+        "timeout": {
+            "setup": 3_600,
+            "rollout": 36_000,
+            "finalize": 3_600,
+            "scoring": 21_600,
+        },
+        "retries": {
+            "rollout": {
+                "max_retries": 2,
+                "include": [
+                    "ProviderError",
+                    "SandboxError",
+                    "TunnelError",
+                    "InterceptionError",
+                ],
+            }
+        },
     }
 
 
@@ -326,6 +345,158 @@ def test_eval_contract_binds_required_training_and_concurrency_settings() -> Non
         unsafe["sampling"]["chat_template_kwargs"] = invalid_thinking
         with pytest.raises(EvalIdentityError, match="max_reasoning_contract_required"):
             _contract(unsafe, "approved-model")
+
+
+@pytest.mark.parametrize(
+    ("section", "key", "value"),
+    [
+        ("timeout", "setup", 3_599),
+        ("timeout", "setup", True),
+        ("timeout", "finalize", 3_599),
+        ("timeout", "scoring", 21_599),
+        ("client", "connect_timeout", 119),
+    ],
+)
+def test_kimi_timeout_contract_rejects_weakened_fixed_stage(
+    section: str,
+    key: str,
+    value: object,
+) -> None:
+    config = _resolved_config()
+    config[section][key] = value
+
+    with pytest.raises(EvalIdentityError, match="^kimi_timeout_contract_invalid$"):
+        validate_kimi_timeout_contract(config)
+
+
+def test_kimi_timeout_contract_accepts_pydantic_resolved_exact_floats() -> None:
+    config_path = Path(__file__).parents[1] / "configs/eval/tb4_kimi_k3_max_miniswe.toml"
+    config = eval_run_identity.EvalConfig.model_validate(tomllib.loads(config_path.read_text())).model_dump(
+        mode="json", exclude_none=True
+    )
+
+    assert isinstance(config["timeout"]["rollout"], float)
+    validate_kimi_timeout_contract(config, required_profile="full")
+    validate_kimi_retry_contract(config)
+
+
+@pytest.mark.parametrize(
+    ("rollout_timeout", "session_timeout"),
+    [
+        (28_799, 32_400),
+        (28_800, 32_401),
+        (35_999, 43_200),
+        (36_000, 43_199),
+        (28_800, 43_200),
+        (36_000, 32_400),
+    ],
+)
+def test_kimi_timeout_contract_rejects_unreviewed_or_swapped_pair(
+    rollout_timeout: int,
+    session_timeout: int,
+) -> None:
+    config = _resolved_config()
+    config["timeout"]["rollout"] = rollout_timeout
+    config["harness"]["runtime"]["session_timeout"] = session_timeout
+
+    with pytest.raises(EvalIdentityError, match="^kimi_timeout_contract_invalid$"):
+        validate_kimi_timeout_contract(config)
+
+
+def test_kimi_timeout_contract_distinguishes_smoke_and_full_profiles() -> None:
+    full = _resolved_config()
+    full["client"]["timeout"] = 43_200
+    full["harness"]["config_overrides"] = ["model.model_kwargs.timeout=43200"]
+    validate_kimi_timeout_contract(full, required_profile="full")
+    with pytest.raises(EvalIdentityError, match="^kimi_timeout_contract_invalid$"):
+        validate_kimi_timeout_contract(full, required_profile="smoke")
+
+    smoke = _resolved_config()
+    smoke["client"]["timeout"] = 43_200
+    smoke["harness"]["config_overrides"] = ["model.model_kwargs.timeout=43200"]
+    smoke["timeout"]["rollout"] = 28_800
+    smoke["harness"]["runtime"]["session_timeout"] = 32_400
+    validate_kimi_timeout_contract(smoke, required_profile="smoke")
+    with pytest.raises(EvalIdentityError, match="^kimi_timeout_contract_invalid$"):
+        validate_kimi_timeout_contract(smoke, required_profile="full")
+
+
+def test_kimi_eval_role_selects_approved_smoke_or_full_timeout_profile() -> None:
+    config = _resolved_config()
+    config["model"] = "Kimi-K3"
+    config["client"]["timeout"] = 43_200
+    config["harness"]["config_overrides"] = ["model.model_kwargs.timeout=43200"]
+    config["taskset"] = {}
+
+    with pytest.raises(EvalIdentityError, match="^kimi_timeout_contract_invalid$"):
+        _contract(config, "Kimi-K3", role="smoke")
+    _contract(config, "Kimi-K3", role="tb4")
+
+    config["taskset"]["dataset_revision"] = "1" * 40
+    _contract(config, "Kimi-K3", role="smoke")
+
+    config["taskset"].pop("dataset_revision")
+    config["timeout"]["rollout"] = 28_800
+    config["harness"]["runtime"]["session_timeout"] = 32_400
+    _contract(config, "Kimi-K3", role="smoke")
+    with pytest.raises(EvalIdentityError, match="^kimi_timeout_contract_invalid$"):
+        _contract(config, "Kimi-K3", role="tb4")
+
+
+@pytest.mark.parametrize(
+    "rollout_retries",
+    [
+        {"max_retries": 1, "include": ["ProviderError", "SandboxError", "TunnelError", "InterceptionError"]},
+        {"max_retries": True, "include": ["ProviderError", "SandboxError", "TunnelError", "InterceptionError"]},
+        {"max_retries": 2, "include": []},
+        {"max_retries": 2, "include": ["ProviderError", "SandboxError", "TunnelError"]},
+        {
+            "max_retries": 2,
+            "include": [
+                "ProviderError",
+                "SandboxError",
+                "TunnelError",
+                "HarnessError",
+            ],
+        },
+        {
+            "max_retries": 2,
+            "include": [
+                "ProviderError",
+                "SandboxError",
+                "TunnelError",
+                "InterceptionError",
+                "UnknownError",
+            ],
+        },
+        {
+            "max_retries": 2,
+            "include": [
+                "ProviderError",
+                "SandboxError",
+                "TunnelError",
+                "InterceptionError",
+            ],
+            "exclude": ["InterceptionError"],
+        },
+    ],
+)
+def test_kimi_retry_contract_rejects_broad_missing_or_swapped_policy(
+    rollout_retries: dict[str, object],
+) -> None:
+    config = _resolved_config()
+    config["retries"]["rollout"] = rollout_retries
+
+    with pytest.raises(EvalIdentityError, match="^kimi_retry_contract_invalid$"):
+        validate_kimi_retry_contract(config)
+
+
+def test_kimi_retry_contract_rejects_missing_policy() -> None:
+    config = _resolved_config()
+    config.pop("retries")
+
+    with pytest.raises(EvalIdentityError, match="^kimi_retry_contract_invalid$"):
+        validate_kimi_retry_contract(config)
 
 
 def test_archive_dataset_requires_explicit_live_tree_digest(tmp_path: Path) -> None:

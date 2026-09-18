@@ -1054,7 +1054,13 @@ def _fixture(
         'type = "vmvm"\n'
         "session_timeout = 43200\n"
         "[timeout]\n"
+        "setup = 3600\n"
         "rollout = 36000\n"
+        "finalize = 3600\n"
+        "scoring = 21600\n"
+        "[retries.rollout]\n"
+        "max_retries = 2\n"
+        'include = ["ProviderError", "SandboxError", "TunnelError", "InterceptionError"]\n'
     )
     config_sha256 = _sha256(config.read_bytes())
     second_config = configs / "mobius_qwen.toml"
@@ -2037,6 +2043,26 @@ def test_rejects_capacity_smoke_from_a_different_workload_contract(
             "model.model_kwargs.timeout=36000",
             "production_timeout_contract_invalid",
         ),
+        ("setup = 3600", "setup = 3599", "production_timeout_contract_invalid"),
+        ("finalize = 3600", "finalize = 3599", "production_timeout_contract_invalid"),
+        ("scoring = 21600", "scoring = 21599", "production_timeout_contract_invalid"),
+        ("connect_timeout = 120", "connect_timeout = 119", "production_timeout_contract_invalid"),
+        ("max_retries = 2", "max_retries = 1", "production_retry_contract_invalid"),
+        (
+            'include = ["ProviderError", "SandboxError", "TunnelError", "InterceptionError"]',
+            'include = ["ProviderError", "SandboxError", "TunnelError", "HarnessError"]',
+            "production_retry_contract_invalid",
+        ),
+        (
+            'include = ["ProviderError", "SandboxError", "TunnelError", "InterceptionError"]',
+            'include = ["ProviderError", "SandboxError", "TunnelError"]',
+            "production_retry_contract_invalid",
+        ),
+        (
+            'include = ["ProviderError", "SandboxError", "TunnelError", "InterceptionError"]',
+            'include = ["ProviderError", "SandboxError", "TunnelError", "InterceptionError", "UnknownError"]',
+            "production_retry_contract_invalid",
+        ),
     ],
 )
 def test_rejects_invalid_production_config_even_when_receipt_matches(
@@ -2075,6 +2101,48 @@ def test_rejects_invalid_production_config_even_when_receipt_matches(
 
     arguments["oracle_receipt_sha256"] = _rewrite_receipt(receipt, update_config_hash)
     with pytest.raises(LaunchCertificateError, match=f"^{error}$"):
+        create_launch_certificate(**arguments)
+
+
+def test_rejects_smoke_timeout_pair_for_mobius_production(tmp_path: Path) -> None:
+    arguments, _ = _fixture(tmp_path)
+    config = Path(arguments["production_config"])
+    config.write_text(
+        config.read_text()
+        .replace("rollout = 36000", "rollout = 28800")
+        .replace("session_timeout = 43200", "session_timeout = 32400")
+    )
+    config_sha256 = _sha256(config.read_bytes())
+    project = config.parents[1]
+    subprocess.run(["git", "-C", str(project), "add", str(config)], check=True)
+    subprocess.run(
+        [
+            "git",
+            "-C",
+            str(project),
+            "-c",
+            "user.name=Test",
+            "-c",
+            "user.email=test@example.invalid",
+            "commit",
+            "-qm",
+            "changed fixture",
+        ],
+        check=True,
+    )
+    receipt = Path(arguments["oracle_receipt"])
+
+    def update_config_hash(payload: dict) -> None:
+        for record in payload["updated_configs"]:
+            if record["path"].endswith("mobius_kimi.toml"):
+                record["sha256"] = config_sha256
+
+    arguments["oracle_receipt_sha256"] = _rewrite_receipt(receipt, update_config_hash)
+
+    with pytest.raises(
+        LaunchCertificateError,
+        match="^production_timeout_contract_invalid$",
+    ):
         create_launch_certificate(**arguments)
 
 

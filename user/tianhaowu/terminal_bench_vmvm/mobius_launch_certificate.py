@@ -32,6 +32,7 @@ from deployment_proxy_policy import (
 from eval_run_identity import (
     EvalIdentityError,
     load_eval_run_identity,
+    validate_kimi_retry_contract,
     validate_kimi_timeout_contract,
 )
 from guard_success_receipt import (
@@ -1806,11 +1807,13 @@ def _validate_production_config(
     if not isinstance(runtime, dict):
         raise LaunchCertificateError("production_vmvm_contract_invalid")
     try:
-        timeout_contract = validate_kimi_timeout_contract(config)
+        timeout_contract = validate_kimi_timeout_contract(config, required_profile="full")
     except EvalIdentityError as cause:
         raise LaunchCertificateError("production_timeout_contract_invalid") from cause
-    if timeout_contract["rollout_timeout"] < 36_000 or timeout_contract["session_timeout"] < 43_200:
-        raise LaunchCertificateError("production_timeout_contract_invalid")
+    try:
+        validate_kimi_retry_contract(config)
+    except EvalIdentityError as cause:
+        raise LaunchCertificateError("production_retry_contract_invalid") from cause
 
     context = {
         "max_input_tokens": config.get("max_input_tokens"),

@@ -20,6 +20,7 @@ from tb4_shard_workflow import (
     _config_semantics_sha256,
     _hold_writer_lock,
     _scan_results,
+    _validate_base_config,
     create_plan,
     load_plan,
     merge_multigen_shards,
@@ -93,7 +94,14 @@ type = "vmvm"
 session_timeout = 43200
 
 [timeout]
+setup = 3600
 rollout = 36000
+finalize = 3600
+scoring = 21600
+
+[retries.rollout]
+max_retries = 2
+include = ["ProviderError", "SandboxError", "TunnelError", "InterceptionError"]
 '''
     )
     return path
@@ -254,6 +262,75 @@ def test_current_kimi_base_config_can_seed_a_private_plan(tmp_path: Path):
     )
     assert plan["universe"]["task_count"] == 66
     assert plan["shard_count"] == 17
+
+
+@pytest.mark.parametrize(
+    ("section", "key", "value"),
+    [
+        ("timeout", "setup", 3_599),
+        ("timeout", "rollout", 28_800),
+        ("timeout", "finalize", 3_599),
+        ("timeout", "scoring", 21_599),
+        ("client", "connect_timeout", 119),
+        ("harness.runtime", "session_timeout", 32_400),
+    ],
+)
+def test_full_tb4_base_config_rejects_weakened_or_smoke_timeout_profile(
+    tmp_path: Path,
+    section: str,
+    key: str,
+    value: int,
+) -> None:
+    universe, universe_sha, _ = _universe(tmp_path)
+    config = tomllib.loads(_base_config(tmp_path, universe, universe_sha).read_text())
+    target = config["harness"]["runtime"] if section == "harness.runtime" else config[section]
+    target[key] = value
+
+    with pytest.raises(ShardWorkflowError, match="^base_config_contract_invalid$"):
+        _validate_base_config(config, universe_sha)
+
+
+def test_full_tb4_base_config_rejects_complete_smoke_timeout_pair(tmp_path: Path) -> None:
+    universe, universe_sha, _ = _universe(tmp_path)
+    config = tomllib.loads(_base_config(tmp_path, universe, universe_sha).read_text())
+    config["timeout"]["rollout"] = 28_800
+    config["harness"]["runtime"]["session_timeout"] = 32_400
+
+    with pytest.raises(ShardWorkflowError, match="^base_config_contract_invalid$"):
+        _validate_base_config(config, universe_sha)
+
+
+@pytest.mark.parametrize(
+    "rollout_retries",
+    [
+        {"max_retries": 1, "include": ["ProviderError", "SandboxError", "TunnelError", "InterceptionError"]},
+        {"max_retries": 2, "include": ["ProviderError", "SandboxError", "TunnelError"]},
+        {
+            "max_retries": 2,
+            "include": ["ProviderError", "SandboxError", "TunnelError", "HarnessError"],
+        },
+        {
+            "max_retries": 2,
+            "include": [
+                "ProviderError",
+                "SandboxError",
+                "TunnelError",
+                "InterceptionError",
+                "UnknownError",
+            ],
+        },
+    ],
+)
+def test_full_tb4_base_config_rejects_broad_missing_or_swapped_retries(
+    tmp_path: Path,
+    rollout_retries: dict[str, object],
+) -> None:
+    universe, universe_sha, _ = _universe(tmp_path)
+    config = tomllib.loads(_base_config(tmp_path, universe, universe_sha).read_text())
+    config["retries"]["rollout"] = rollout_retries
+
+    with pytest.raises(ShardWorkflowError, match="^base_config_contract_invalid$"):
+        _validate_base_config(config, universe_sha)
 
 
 def test_load_plan_rejects_artifact_tamper(tmp_path: Path):

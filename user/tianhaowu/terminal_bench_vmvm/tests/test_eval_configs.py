@@ -4,6 +4,8 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
+from eval_run_identity import EvalIdentityError, _contract
+from verifiers.v1.configs.eval import EvalConfig
 from verifiers.v1.retries import RolloutRetryConfig, should_retry
 
 CONFIG_DIR = Path(__file__).parents[1] / "configs" / "eval"
@@ -39,11 +41,25 @@ BASE_ROLLOUT_RETRY_ERRORS = {
 }
 KIMI_ROLLOUT_RETRY_ERRORS = BASE_ROLLOUT_RETRY_ERRORS | {"InterceptionError"}
 QWEN_ROLLOUT_RETRY_ERRORS = BASE_ROLLOUT_RETRY_ERRORS | {"InterceptionError"}
+KIMI_TOKEN_SMOKE_RETRY_ERRORS = KIMI_ROLLOUT_RETRY_ERRORS - {"ProviderError"}
+PRODUCTION_KIMI_CONFIG_ROLES = [
+    ("mobius_kimi_k3_capacity_smoke.toml", "smoke"),
+    ("mobius_kimi_k3_max_2500.toml", "mobius"),
+    ("tb4_kimi_k3_approved_smoke.toml", "smoke"),
+    ("tb4_kimi_k3_direct_a.toml", "tb4"),
+    ("tb4_kimi_k3_direct_b.toml", "tb4"),
+    ("tb4_kimi_k3_max_miniswe.toml", "tb4"),
+]
 
 
 def _mobius_task_file_sha256() -> str:
     with MOBIUS_TASK_FILE.open("rb") as handle:
         return hashlib.file_digest(handle, "sha256").hexdigest()
+
+
+def _resolved_eval_config(filename: str) -> dict:
+    raw = tomllib.loads((CONFIG_DIR / filename).read_text())
+    return EvalConfig.model_validate(raw).model_dump(mode="json", exclude_none=True)
 
 
 @pytest.mark.parametrize("config_path", EVAL_CONFIGS, ids=lambda path: path.name)
@@ -59,6 +75,77 @@ def test_eval_config_captures_model_io(config_path: Path) -> None:
 
     assert client["capture_model_io"] is True
     assert client["outbound_body_denylist"] == OUTBOUND_BODY_DENYLIST
+
+
+@pytest.mark.parametrize(
+    ("filename", "rollout_timeout", "session_timeout", "retry_exceptions"),
+    [
+        ("mobius_kimi_k3_capacity_smoke.toml", 36_000, 43_200, KIMI_ROLLOUT_RETRY_ERRORS),
+        ("mobius_kimi_k3_max_2500.toml", 36_000, 43_200, KIMI_ROLLOUT_RETRY_ERRORS),
+        ("tb4_kimi_k3_approved_smoke.toml", 28_800, 32_400, KIMI_ROLLOUT_RETRY_ERRORS),
+        ("tb4_kimi_k3_direct_a.toml", 36_000, 43_200, KIMI_ROLLOUT_RETRY_ERRORS),
+        ("tb4_kimi_k3_direct_b.toml", 36_000, 43_200, KIMI_ROLLOUT_RETRY_ERRORS),
+        ("tb4_kimi_k3_max_miniswe.toml", 36_000, 43_200, KIMI_ROLLOUT_RETRY_ERRORS),
+        ("tb4_kimi_token_smoke.toml", 28_800, 32_400, KIMI_TOKEN_SMOKE_RETRY_ERRORS),
+    ],
+)
+def test_kimi_configs_pin_exact_timeout_and_retry_contract(
+    filename: str,
+    rollout_timeout: int,
+    session_timeout: int,
+    retry_exceptions: set[str],
+) -> None:
+    config = tomllib.loads((CONFIG_DIR / filename).read_text())
+
+    assert config["client"]["timeout"] == 43_200
+    assert config["client"]["connect_timeout"] == 120
+    assert config["harness"]["config_overrides"].count("model.model_kwargs.timeout=43200") == 1
+    assert config["harness"]["runtime"]["session_timeout"] == session_timeout
+    assert config["timeout"] == {
+        "setup": 3_600,
+        "rollout": rollout_timeout,
+        "finalize": 3_600,
+        "scoring": 21_600,
+    }
+    rollout_retries = config["retries"]["rollout"]
+    assert rollout_retries["max_retries"] == 2
+    assert len(rollout_retries["include"]) == len(retry_exceptions)
+    assert set(rollout_retries["include"]) == retry_exceptions
+    assert "HarnessError" not in rollout_retries["include"]
+
+
+@pytest.mark.parametrize(("filename", "role"), PRODUCTION_KIMI_CONFIG_ROLES)
+def test_each_production_kimi_config_passes_its_real_role_contract(filename: str, role: str) -> None:
+    config = _resolved_eval_config(filename)
+
+    _contract(config, "Kimi-K3", role=role)
+
+
+def test_legacy_token_smoke_is_not_production_run_identity_qualified() -> None:
+    config = _resolved_eval_config("tb4_kimi_token_smoke.toml")
+
+    with pytest.raises(EvalIdentityError, match="^kimi_retry_contract_invalid$"):
+        _contract(config, "Kimi-K3", role="smoke")
+
+
+def test_checked_in_kimi_configs_reject_cross_profile_and_retry_policy() -> None:
+    smoke = _resolved_eval_config("tb4_kimi_k3_approved_smoke.toml")
+    with pytest.raises(EvalIdentityError, match="^kimi_timeout_contract_invalid$"):
+        _contract(smoke, "Kimi-K3", role="tb4")
+
+    full = _resolved_eval_config("tb4_kimi_k3_max_miniswe.toml")
+    with pytest.raises(EvalIdentityError, match="^kimi_timeout_contract_invalid$"):
+        _contract(full, "Kimi-K3", role="smoke")
+
+    missing = _resolved_eval_config("tb4_kimi_k3_max_miniswe.toml")
+    missing["retries"]["rollout"]["include"].remove("InterceptionError")
+    with pytest.raises(EvalIdentityError, match="^kimi_retry_contract_invalid$"):
+        _contract(missing, "Kimi-K3", role="tb4")
+
+    broad = _resolved_eval_config("tb4_kimi_k3_max_miniswe.toml")
+    broad["retries"]["rollout"]["include"][-1] = "HarnessError"
+    with pytest.raises(EvalIdentityError, match="^kimi_retry_contract_invalid$"):
+        _contract(broad, "Kimi-K3", role="tb4")
 
 
 @pytest.mark.parametrize(
@@ -126,7 +213,7 @@ def test_mobius_kimi_production_contract() -> None:
     assert client["max_connections"] == config["max_concurrent"]
     assert client["max_keepalive_connections"] == config["max_concurrent"]
     assert client["timeout"] == 43_200
-    assert client["connect_timeout"] >= 120
+    assert client["connect_timeout"] == 120
     assert client["outbound_body_denylist"] == OUTBOUND_BODY_DENYLIST
 
     sampling = config["sampling"]
@@ -148,18 +235,18 @@ def test_mobius_kimi_production_contract() -> None:
 
     runtime = config["harness"]["runtime"]
     assert runtime["type"] == "vmvm"
-    assert runtime["session_timeout"] >= 43_200
+    assert runtime["session_timeout"] == 43_200
     assert runtime["lease_ttl"] == "60s"
 
     timeouts = config["timeout"]
-    assert timeouts["setup"] >= 3_600
-    assert timeouts["rollout"] >= 36_000
+    assert timeouts["setup"] == 3_600
+    assert timeouts["rollout"] == 36_000
     assert timeouts["rollout"] < runtime["session_timeout"] <= client["timeout"]
-    assert timeouts["finalize"] >= 3_600
-    assert timeouts["scoring"] >= 21_600
+    assert timeouts["finalize"] == 3_600
+    assert timeouts["scoring"] == 21_600
 
     rollout_retries = config["retries"]["rollout"]
-    assert rollout_retries["max_retries"] >= 2
+    assert rollout_retries["max_retries"] == 2
     assert set(rollout_retries["include"]) == {
         "ProviderError",
         "SandboxError",
@@ -184,8 +271,8 @@ def test_mobius_kimi_capacity_smoke_matches_production_lane() -> None:
     assert config["client"]["max_connections"] == 8
     assert config["client"]["max_keepalive_connections"] == 8
     assert config["client"]["timeout"] == 43_200
-    assert config["harness"]["runtime"]["session_timeout"] >= 43_200
-    assert config["timeout"]["rollout"] >= 36_000
+    assert config["harness"]["runtime"]["session_timeout"] == 43_200
+    assert config["timeout"]["rollout"] == 36_000
     assert config["timeout"]["rollout"] < config["harness"]["runtime"]["session_timeout"] <= config["client"]["timeout"]
     assert config["client"]["outbound_body_denylist"] == OUTBOUND_BODY_DENYLIST
     assert config["sampling"]["reasoning_effort"] == "max"
@@ -318,6 +405,16 @@ def test_kimi_tb4_config_pins_single_route_qualification_concurrency() -> None:
     assert config["multiplex"] == 4
     assert config["client"]["max_connections"] == 4
     assert config["client"]["max_keepalive_connections"] == 4
+
+
+def test_documented_kimi_direct_launches_pin_the_exact_project_revision() -> None:
+    workflow_dir = CONFIG_DIR.parents[1]
+    for document in (workflow_dir / "README.md", workflow_dir / "HANDOFF.md"):
+        launch_lines = [
+            line for line in document.read_text().splitlines() if "run_eval.sbatch" in line and "kimi" in line.lower()
+        ]
+        assert launch_lines
+        assert all("EVAL_EXPECTED_PRIME_RL_REVISION=<commit>" in line for line in launch_lines)
 
 
 @pytest.mark.parametrize(
