@@ -182,7 +182,10 @@ digests, the exact 15-overlap/1-retired/9-added transition, and all 24 current
 workers. The fresh repair run is then fixed to 96 rollout/VMVM sessions,
 `consistent_hash`, `x-session-id`, 48 active provider requests, a 48-request
 queue, four simultaneous VMVM lease starts, 32 GiB of controller memory, and
-the existing 256K total-context cap.
+the existing 256K total-context cap. Immediately before invoking the evaluator,
+the controller performs one task-free VACLI lease and tunnel-readiness preflight,
+always releases that lease, and fails with a stable aggregate code before fanout
+if the host cannot establish the tunnel.
 
 The controller supplies the resulting private bundle to
 `run_qwen_direct_eval.sbatch`. Initial launch remains incomplete until the

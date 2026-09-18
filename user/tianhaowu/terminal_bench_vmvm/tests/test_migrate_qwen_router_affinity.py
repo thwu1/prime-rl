@@ -878,6 +878,8 @@ def test_resume_planner_compatibility_is_explicit_and_narrow() -> None:
         migration.EXPECTED_VERIFIERS_REVISION,
         "bb2c42dace0aeecd177e2834f3c87a1d438aed44",
         "7d23d73f018a70709f4297e558e0f77b678b7b5c",
+        "fbfbe91d987e0f5bdbcae3eef8c0a272ab9805d5",
+        "08a3bf6df2e4f2e04dc1d33e1ee78b7e4da22697",
     }
 
 

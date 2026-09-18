@@ -10,6 +10,7 @@ import re
 import stat
 import tempfile
 import threading
+import time
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Any, Iterator, Protocol
@@ -289,12 +290,20 @@ class LeaseStartConcurrencyLimiter:
         *,
         measured: bool,
         cancel_event: threading.Event | None = None,
+        timeout: float | None = None,
     ) -> bool:
+        deadline = None if timeout is None else time.monotonic() + timeout
         with self._condition:
             while self._value == 0:
                 if cancel_event is not None and cancel_event.is_set():
                     return False
-                self._condition.wait(timeout=0.1 if cancel_event is not None else None)
+                remaining = None if deadline is None else deadline - time.monotonic()
+                if remaining is not None and remaining <= 0:
+                    return False
+                wait = remaining
+                if cancel_event is not None:
+                    wait = 0.1 if remaining is None else min(0.1, remaining)
+                self._condition.wait(timeout=wait)
             if cancel_event is not None and cancel_event.is_set():
                 return False
             self._value -= 1
@@ -318,10 +327,15 @@ class LeaseStartConcurrencyLimiter:
                 self._value += 1
                 self._condition.notify()
 
-    def acquire(self, cancel_event: threading.Event | None = None) -> bool:
+    def acquire(
+        self,
+        cancel_event: threading.Event | None = None,
+        *,
+        timeout: float | None = None,
+    ) -> bool:
         """Acquire one measured lease-start permit."""
 
-        return self._acquire(measured=True, cancel_event=cancel_event)
+        return self._acquire(measured=True, cancel_event=cancel_event, timeout=timeout)
 
     def release(self) -> None:
         """Release one measured lease-start permit."""

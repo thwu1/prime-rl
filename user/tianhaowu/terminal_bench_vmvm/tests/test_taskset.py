@@ -77,6 +77,7 @@ from verifiers.v1.runtimes import (
 from vmvm_tb_v2._vacli import backend as vacli_backend
 from vmvm_tb_v2._vacli.backend import (
     VacliHostTunnel,
+    VacliLease,
     VacliVMVMBackend,
     _setup_bridge_proxy,
     _VacliNetworkIsolation,
@@ -4981,6 +4982,122 @@ def test_vmvm_host_tunnel_setup_uses_and_releases_shared_vacli_slot(monkeypatch)
     assert backend.open_host_tunnel(1234)[0] is tunnel
     await_probe()
     assert (telemetry.enters, telemetry.finishes) == (3, 3)
+
+
+def test_vacli_lease_setup_slot_acquisition_is_bounded(tmp_path: Path, monkeypatch) -> None:
+    observed: list[float | None] = []
+
+    class SaturatedSemaphore:
+        def acquire(self, *, timeout: float | None = None) -> bool:
+            observed.append(timeout)
+            return False
+
+        def release(self) -> None:
+            pytest.fail("an unacquired setup slot must not be released")
+
+    monkeypatch.setattr(vacli_backend, "_lease_concurrency", SaturatedSemaphore())
+    lease = VacliLease(
+        "async_opaque",
+        tmp_path / "lease.log",
+        setup_slot_timeout=0.25,
+        subprocess_mod=SimpleNamespace(STDOUT=subprocess.STDOUT),
+    )
+
+    with pytest.raises(BackendInitError, match="^timed out waiting for a vacli setup slot$"):
+        lease.start()
+
+    assert observed == [0.25]
+
+
+@pytest.mark.parametrize("replacement", ["regular", "symlink"])
+def test_vacli_lease_rejects_replaced_precreated_log_before_truncation(
+    tmp_path: Path,
+    replacement: str,
+) -> None:
+    log_path = tmp_path / "lease.log"
+    log_path.write_bytes(b"")
+    log_path.chmod(0o600)
+    metadata = log_path.stat()
+    expected_identity = (metadata.st_dev, metadata.st_ino)
+    target = tmp_path / "must-not-change"
+    target.write_bytes(b"opaque-preserved\n")
+    log_path.unlink()
+    if replacement == "regular":
+        log_path.write_bytes(b"opaque-replacement\n")
+        log_path.chmod(0o600)
+    else:
+        log_path.symlink_to(target)
+    spawned = False
+
+    def popen(*_args, **_kwargs):
+        nonlocal spawned
+        spawned = True
+
+    lease = VacliLease(
+        "async_opaque",
+        log_path,
+        expected_log_identity=expected_identity,
+        setup_slot_timeout=0.25,
+        subprocess_mod=SimpleNamespace(Popen=popen, STDOUT=subprocess.STDOUT),
+    )
+
+    with pytest.raises(BackendInitError, match="^vacli log"):
+        lease.start()
+
+    assert spawned is False
+    assert target.read_bytes() == b"opaque-preserved\n"
+    if replacement == "regular":
+        assert log_path.read_bytes() == b"opaque-replacement\n"
+
+
+def test_vacli_lease_rejects_log_replacement_while_waiting_for_tunnel(tmp_path: Path) -> None:
+    log_path = tmp_path / "lease.log"
+    log_path.write_bytes(b"")
+    log_path.chmod(0o600)
+    metadata = log_path.stat()
+
+    class Process:
+        pid = 2_147_483_000
+        returncode: int | None = None
+
+        def poll(self) -> int | None:
+            return self.returncode
+
+        def wait(self, timeout: float | None = None) -> int:
+            self.returncode = 0
+            return 0
+
+    process = Process()
+
+    def popen(_command, **kwargs):
+        kwargs["stdout"].write(b'[{"vm_port":22,"local_port":12345}]\n')
+        kwargs["stdout"].flush()
+        return process
+
+    lease = VacliLease(
+        "async_opaque",
+        log_path,
+        expected_log_identity=(metadata.st_dev, metadata.st_ino),
+        setup_slot_timeout=0.25,
+        subprocess_mod=SimpleNamespace(
+            Popen=popen,
+            STDOUT=subprocess.STDOUT,
+            TimeoutExpired=subprocess.TimeoutExpired,
+        ),
+    )
+    lease.start()
+    target = tmp_path / "forged-tunnel.log"
+    target.write_bytes(b'[{"vm_port":22,"local_port":54321}]\n')
+    log_path.unlink()
+    log_path.symlink_to(target)
+    try:
+        with pytest.raises(BackendInitError, match="^vacli log could not be read safely$"):
+            lease.wait_for_tunnel()
+    finally:
+        process.returncode = 0
+        lease.cleanup()
+
+    assert target.read_bytes() == b'[{"vm_port":22,"local_port":54321}]\n'
 
 
 def test_vmvm_sidecar_exec_classifies_ssh_exit_255_as_transport_failure() -> None:
