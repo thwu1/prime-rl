@@ -1,6 +1,6 @@
 # VMVM sandbox coordination
 
-Last updated: 2026-09-18 22:15 UTC
+Last updated: 2026-09-18 22:34 UTC
 
 ## First message to the next teammate
 
@@ -41,6 +41,21 @@ this shared branch again.
 Add new rows below this line; do not overwrite another owner's row.
 
 ## Open coordination requests
+
+- **2026-09-18 22:34 UTC, strict worker-rotation bridge recovery:** reviewed
+  code commit `817cebeb8` replaces the unusable whole-generated-config equality
+  with a non-weakened route-aware proof. Source and target private mode-0600
+  config snapshots must match their readiness policy hashes, every `api_base`
+  must hash to the corresponding certified route set, and the full generated
+  configs must be canonical-equal after replacing only those route values; all
+  other settings and credentials remain exact. The bridge publishes only
+  artifact hashes and a projection digest. Full workflow validation passed
+  667/667 and independent review found no blockers. A private candidate
+  snapshot for the current two-route generation was captured while both routes
+  were published; use it only if fresh readiness `1749987` and smoke `1749988`
+  complete cleanly and their embedded generated-config hash matches exactly.
+  Never print, commit, or place either credential-bearing snapshot in training
+  artifacts.
 
 - **2026-09-18 22:15 UTC, shared launcher resized Kimi to two routes:** the
   one-route readiness `1749945` was canceled by our account while still
