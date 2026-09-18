@@ -1514,7 +1514,6 @@ for requirement in sys.argv[1:]:
                     "wheel",
                     "--quiet",
                     "--no-cache-dir",
-                    "--ignore-installed",
                     "--only-binary=:all:",
                     "--wheel-dir",
                     wheel_dir,

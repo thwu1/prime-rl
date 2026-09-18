@@ -1,4 +1,5 @@
 import asyncio
+import ensurepip
 import gc
 import hashlib
 import io
@@ -205,10 +206,12 @@ class DependencyRuntime:
         self.config = SimpleNamespace(image=image)
         self.wheel_archive = wheel_archive(*wheel_names)
         self.events: list[str] = []
+        self.argvs: list[list[str]] = []
         self.commands: list[str] = []
         self.environments: list[dict[str, str]] = []
 
     async def run(self, argv: list[str], env: dict[str, str]) -> ProgramResult:
+        self.argvs.append(list(argv))
         command = subprocess.list2cmdline(argv)
         self.commands.append(command)
         self.environments.append(env)
@@ -665,9 +668,24 @@ def test_verifier_dependencies_prefetch_all_then_install_offline_after_solution(
     assert runtime.events == ["fingerprint", "wheel", "archive-read"]
     assert not any("pip install" in command for command in runtime.commands)
     wheel_command = next(command for command in runtime.commands if " pip wheel " in command)
+    wheel_argv = next(argv for argv in runtime.argvs if argv[:4] == ["python3", "-m", "pip", "wheel"])
     assert "--no-deps" not in wheel_command
-    assert "--ignore-installed" in wheel_command
+    assert "--ignore-installed" not in wheel_command
     assert "--only-binary=:all:" in wheel_command
+
+    bundled_pip = next((Path(ensurepip.__file__).parent / "_bundled").glob("pip-*.whl"))
+    environment = os.environ.copy()
+    environment["PYTHONPATH"] = os.pathsep.join((str(bundled_pip), environment.get("PYTHONPATH", ""))).rstrip(
+        os.pathsep
+    )
+    parsed = subprocess.run(
+        [sys.executable, *wheel_argv[1:], "--help"],
+        capture_output=True,
+        check=False,
+        env=environment,
+        text=True,
+    )
+    assert parsed.returncode == 0, parsed.stderr
 
     runtime.events.append("solution")
     runtime.installed = False
