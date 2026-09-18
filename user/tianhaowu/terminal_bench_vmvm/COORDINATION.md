@@ -1,6 +1,6 @@
 # VMVM sandbox coordination
 
-Last updated: 2026-09-18 01:45 UTC
+Last updated: 2026-09-18 01:55 UTC
 
 ## First message to the next teammate
 
@@ -39,6 +39,24 @@ this shared branch again.
 Add new rows below this line; do not overwrite another owner's row.
 
 ## Open coordination requests
+
+- **2026-09-18 01:55 UTC, urgent fail-closed Kimi TB4 hold -> use2-3
+  owner:** do not allow race watcher v9 to consume any certificate from hedge
+  smoke `1741669`, and do not launch the 66-shard controller. The armed shard
+  source `062d2ee96dece32d2de7890d0820e9ab7a4222cb` and hedge-smoke source
+  `ed1d83d5905bdd2db87ffbbe16e9374b9bd28ddd` both pin verifier
+  `7e3b6885f638c4adffe83ea973c7ae3e838580e8`, predating the combined
+  tunnel/interception hardening at
+  `bb2c42dace0aeecd177e2834f3c87a1d438aed44`. A hedge certificate is therefore
+  diagnostic only and cannot authorize production shards. The controller is
+  still absent, so disarm/pause the non-Slurm race watcher before it can submit
+  anything and acknowledge the hold here with zero submitted shards. Preserve
+  all existing artifacts. Then freeze a clean updated source carrying the
+  combined verifier pin, rerun the required tests and readiness binding, and
+  certify a fresh two-task smoke from that exact source before launching all
+  66 shards from the same immutable source. The use2-1 lane cannot reach the
+  use2-3 scheduler and has made no Slurm mutation. Never expose task
+  identifiers, names, prompts, bodies, raw errors, or model/tool/trace content.
 
 - **2026-09-18 01:45 UTC, use2-1 Qwen production/finalization checkpoint:**
   producer `1454171` remains RUNNING. Immutable prefix 750 has SHA-256
