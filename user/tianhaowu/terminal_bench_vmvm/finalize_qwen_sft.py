@@ -15,7 +15,6 @@ import json
 import os
 import platform
 import re
-import shutil
 import stat
 import subprocess
 import sys
@@ -280,18 +279,15 @@ def _stable_sha256(path: Path, *, max_bytes: int | None = None) -> str:
     return digest.hexdigest()
 
 
-def _fsync_directory(path: Path) -> None:
-    flags = os.O_RDONLY | os.O_CLOEXEC | os.O_DIRECTORY
-    if hasattr(os, "O_NOFOLLOW"):
-        flags |= os.O_NOFOLLOW
-    descriptor = os.open(path, flags)
-    try:
-        os.fsync(descriptor)
-    finally:
-        os.close(descriptor)
+def _validate_published_directory(path: Path, _incomplete: bool) -> None:
+    _canonical_existing_directory(path, "sft_output_invalid")
 
 
-def _publish_output(staged: Path, destination: Path) -> None:
+def _publish_output(
+    staged: Path,
+    destination: Path,
+    validate: Callable[[Path, bool], None] | None = None,
+) -> None:
     if os.path.lexists(destination):
         raise FinalizationError("output_already_exists")
     try:
@@ -300,26 +296,14 @@ def _publish_output(staged: Path, destination: Path) -> None:
         raise FinalizationError("output_publish_failed") from error
     if not stat.S_ISDIR(staged_metadata.st_mode):
         raise FinalizationError("output_publish_failed")
+    if validate is None:
+        validate = _validate_published_directory
     try:
-        migration._rename_noreplace(staged, destination)
+        migration._publish_directory(staged, destination, validate)
     except migration.MigrationError as error:
         code = "output_already_exists" if str(error) == "destination_exists" else "output_publish_failed"
         raise FinalizationError(code) from error
     except OSError as error:
-        raise FinalizationError("output_publish_failed") from error
-    try:
-        _fsync_directory(destination.parent)
-    except OSError as error:
-        try:
-            destination_metadata = destination.lstat()
-            if stat.S_ISDIR(destination_metadata.st_mode) and (
-                destination_metadata.st_dev,
-                destination_metadata.st_ino,
-            ) == (staged_metadata.st_dev, staged_metadata.st_ino):
-                shutil.rmtree(destination)
-                _fsync_directory(destination.parent)
-        except OSError:
-            pass
         raise FinalizationError("output_publish_failed") from error
 
 
@@ -730,7 +714,18 @@ def finalize_qwen_sft(
             or stat.S_IMODE(exclusion_path.stat().st_mode) != 0o600
         ):
             raise FinalizationError("exclusion_selection_changed")
-        _publish_output(staged_output, paths.output_dir)
+        _publish_output(
+            staged_output,
+            paths.output_dir,
+            lambda path, _incomplete: _validate_export_summary(
+                export_summary,
+                path,
+                options.expected_count,
+                options.selection,
+                label_summary["index_sha256"],
+                exclusion_sha256,
+            ),
+        )
 
     return {
         "approved_tasks": export_summary["approved_tasks"],

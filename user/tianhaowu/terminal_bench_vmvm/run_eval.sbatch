@@ -39,6 +39,8 @@ direct_qwen_manifest_sha256=${DIRECT_QWEN_MANIFEST_SHA256:-}
 direct_qwen_router_policy=${DIRECT_QWEN_ROUTER_POLICY:-}
 direct_qwen_request_id_headers=${DIRECT_QWEN_REQUEST_ID_HEADERS:-}
 direct_qwen_provider_concurrency=${DIRECT_QWEN_PROVIDER_CONCURRENCY:-}
+direct_qwen_generation_transition_sha256=${DIRECT_QWEN_GENERATION_TRANSITION_SHA256:-}
+direct_qwen_capacity_smoke_sha256=${DIRECT_QWEN_CAPACITY_SMOKE_SHA256:-}
 
 if [[ "$(uname -m)" != x86_64 || ! -d "$x86_site/pydantic" ]]; then
     printf 'Missing x86_64 Python runtime/dependencies\n' >&2
@@ -119,6 +121,17 @@ if [[ -n "$direct_qwen_manifest_sha256" \
         exit 2
     fi
     direct_qwen_router_metadata=1
+fi
+if [[ -n "$direct_qwen_generation_transition_sha256" ]]; then
+    if [[ "$direct_qwen_router_metadata" -ne 1 \
+        || ! "$direct_qwen_generation_transition_sha256" =~ ^[0-9a-f]{64}$ \
+        || ! "$direct_qwen_capacity_smoke_sha256" =~ ^[0-9a-f]{64}$ ]]; then
+        printf 'Direct Qwen serving-generation provenance is invalid\n' >&2
+        exit 2
+    fi
+elif [[ -n "$direct_qwen_capacity_smoke_sha256" ]]; then
+    printf 'Direct Qwen capacity-smoke provenance has no serving generation\n' >&2
+    exit 2
 fi
 
 if [[ -n "$inference_proxy_info" ]]; then
@@ -217,6 +230,12 @@ if [[ -n "$resume_dir" ]]; then
             printf 'resume_direct_qwen_router_policy=%s\n' "$direct_qwen_router_policy"
             printf 'resume_direct_qwen_request_id_headers=%s\n' "$direct_qwen_request_id_headers"
             printf 'resume_direct_qwen_provider_concurrency=%s\n' "$direct_qwen_provider_concurrency"
+            if [[ -n "$direct_qwen_generation_transition_sha256" ]]; then
+                printf 'resume_qwen_serving_generation_transition_sha256=%s\n' \
+                    "$direct_qwen_generation_transition_sha256"
+                printf 'resume_qwen_serving_generation_capacity_smoke_sha256=%s\n' \
+                    "$direct_qwen_capacity_smoke_sha256"
+            fi
         fi
     } >> "$output_dir/provenance.txt"
 else
@@ -234,8 +253,23 @@ else
             printf 'direct_qwen_router_policy=%s\n' "$direct_qwen_router_policy"
             printf 'direct_qwen_request_id_headers=%s\n' "$direct_qwen_request_id_headers"
             printf 'direct_qwen_provider_concurrency=%s\n' "$direct_qwen_provider_concurrency"
+            if [[ -n "$direct_qwen_generation_transition_sha256" ]]; then
+                printf 'qwen_serving_generation_transition_sha256=%s\n' \
+                    "$direct_qwen_generation_transition_sha256"
+                printf 'qwen_serving_generation_capacity_smoke_sha256=%s\n' \
+                    "$direct_qwen_capacity_smoke_sha256"
+            fi
         fi
     } > "$output_dir/provenance.txt"
+fi
+
+if [[ -z "$resume_dir" && -n "$direct_qwen_generation_transition_sha256" ]]; then
+    "$x86_uv" run --no-project --offline --python "$python_bin" \
+        python3 "$workflow_dir/migrate_qwen_serving_generation.py" commit-launch \
+        --run-dir "$output_dir" \
+        --expected-transition-sha256 "$direct_qwen_generation_transition_sha256" \
+        --router-lock-fd 8 \
+        --writer-lock-fd 9
 fi
 
 unset HTTP_PROXY HTTPS_PROXY http_proxy https_proxy ALL_PROXY all_proxy

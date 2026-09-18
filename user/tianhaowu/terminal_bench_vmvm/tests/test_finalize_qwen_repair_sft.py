@@ -467,6 +467,52 @@ def test_runtime_origin_is_bound_to_loaded_modules(tmp_path: Path) -> None:
         finalizer._validate_runtime_origin(tmp_path)
 
 
+def test_generation_repair_audit_requires_exact_current24_contract(tmp_path: Path) -> None:
+    options, selection_body = _write_layout(tmp_path)
+    selection = finalizer._load_repair_selection(
+        options.repair_selection_manifest,
+        _sha256(selection_body),
+        options.expected_count,
+    )
+    contract = finalizer.generation._load_contract()
+    artifacts = {
+        name: {"bytes": 1, "sha256": "8" * 64}
+        for name in (*finalizer.SOURCE_ARTIFACTS, *finalizer.GENERATION_SOURCE_ARTIFACTS)
+    }
+    artifacts["inputs/task_file.txt"]["sha256"] = selection.task_file_sha256
+    artifacts[finalizer.generation.CAPACITY_SMOKE_FILENAME]["sha256"] = "7" * 64
+    routing = {
+        "capacity_smoke_sha256": "7" * 64,
+        "endpoint_bundle_sha256": contract["target_generation"]["endpoint_bundle_sha256"],
+        "manifest_schema_version": 3,
+        "provider_concurrency": 48,
+        "queue_size": 48,
+        "request_id_headers": ["x-session-id"],
+        "rollout_concurrency": 96,
+        "router_policy": "consistent_hash",
+        "routing_epoch": 1,
+        "serving_generation": 2,
+        "serving_generation_transition_sha256": "9" * 64,
+        "spec_sha256": contract["target_generation"]["spec_sha256"],
+        "worker_count": 24,
+        "vmvm_lease_concurrency": 4,
+    }
+    audit = {
+        "artifacts": artifacts,
+        "routing": routing,
+        "corpus": {
+            "dataset_revision": "a" * 40,
+            "task_count": options.expected_count,
+            "task_file_sha256": selection.task_file_sha256,
+            "taskset_id": "terminal-bench-vmvm",
+        },
+    }
+    finalizer._validate_source_audit(audit, selection, options.expected_count)
+    audit["routing"] = {**routing, "worker_count": 16}
+    with pytest.raises(finalizer.RepairFinalizationError, match="^source_audit_invalid$"):
+        finalizer._validate_source_audit(audit, selection, options.expected_count)
+
+
 def test_selection_rejects_extra_metadata(tmp_path: Path) -> None:
     options, selection_body = _write_layout(tmp_path)
     selection = json.loads(selection_body)

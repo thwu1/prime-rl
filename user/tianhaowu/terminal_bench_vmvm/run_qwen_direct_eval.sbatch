@@ -7,7 +7,7 @@
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=8
-#SBATCH --mem=16G
+#SBATCH --mem=32G
 #SBATCH --no-requeue
 #SBATCH --output=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/logs/qwen_direct_%j.log
 #SBATCH --error=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/logs/qwen_direct_%j.log
@@ -28,7 +28,9 @@ for forbidden in \
     DIRECT_QWEN_MANIFEST_SHA256 \
     DIRECT_QWEN_ROUTER_POLICY \
     DIRECT_QWEN_REQUEST_ID_HEADERS \
-    DIRECT_QWEN_PROVIDER_CONCURRENCY; do
+    DIRECT_QWEN_PROVIDER_CONCURRENCY \
+    DIRECT_QWEN_GENERATION_TRANSITION_SHA256 \
+    DIRECT_QWEN_CAPACITY_SMOKE_SHA256; do
     if [[ -n ${!forbidden:-} ]]; then
         printf '%s is forbidden for the direct-worker launcher\n' "$forbidden" >&2
         exit 2
@@ -49,6 +51,7 @@ python_bin=${PYTHON_BIN_X86_64:-python3}
 resume_dir=${RESUME_DIR:-}
 approved_task_file=${DIRECT_QWEN_APPROVED_TASK_FILE:-}
 approved_task_file_sha256=${DIRECT_QWEN_APPROVED_TASK_FILE_SHA256:-}
+serving_generation_bundle=${QWEN_SERVING_GENERATION_BUNDLE:-}
 
 if [[ -z "$approved_task_file" || -z "$approved_task_file_sha256" ]]; then
     printf '%s\n' \
@@ -59,6 +62,10 @@ fi
 if [[ -n "$resume_dir" ]]; then
     output_dir=$resume_dir
     eval_config="$resume_dir/config.toml"
+    if [[ -z "$serving_generation_bundle" \
+        && -d "$resume_dir/serving_generation_shared_qwen38_2p4t_e5ddc652" ]]; then
+        serving_generation_bundle="$resume_dir/serving_generation_shared_qwen38_2p4t_e5ddc652"
+    fi
 else
     output_dir=${OUTPUT_DIR:-/checkpoint/ram/tianhaowu/terminal_bench_vmvm/evals/qwen_direct_${SLURM_JOB_ID}}
     eval_config=${EVAL_CONFIG:-}
@@ -127,25 +134,54 @@ while IFS= read -r variable_name; do
     fi
 done < <(compgen -e)
 
-prepare_args=(
-    "$workflow_dir/direct_qwen_workers.py"
-    --deployment-root "$deployment_root"
-    --eval-config "$eval_config"
-    --manifest "$manifest"
-    --urls-output "$urls_file"
-    --ports-output "$ports_file"
-    --approved-task-file "$approved_task_file"
-    --approved-task-file-sha256 "$approved_task_file_sha256"
-)
-if [[ -n "$resume_dir" ]]; then
-    prepare_args+=(--resume)
+if [[ -n "$serving_generation_bundle" ]]; then
+    prepare_args=(
+        "$workflow_dir/migrate_qwen_serving_generation.py"
+        prepare-launch
+        --bundle-dir "$serving_generation_bundle"
+        --run-dir "$output_dir"
+        --urls-output "$urls_file"
+        --ports-output "$ports_file"
+        --router-lock-fd 8
+    )
+    if [[ -n "$resume_dir" ]]; then
+        prepare_args+=(--resume)
+    fi
+else
+    prepare_args=(
+        "$workflow_dir/direct_qwen_workers.py"
+        --deployment-root "$deployment_root"
+        --eval-config "$eval_config"
+        --manifest "$manifest"
+        --urls-output "$urls_file"
+        --ports-output "$ports_file"
+        --approved-task-file "$approved_task_file"
+        --approved-task-file-sha256 "$approved_task_file_sha256"
+    )
+    if [[ -n "$resume_dir" ]]; then
+        prepare_args+=(--resume)
+    fi
 fi
-"$x86_uv" run --no-project --offline --python "$python_bin" \
-    python3 "${prepare_args[@]}"
+"$x86_uv" run --no-project --offline --python "$python_bin" python3 "${prepare_args[@]}"
+if [[ -n "$serving_generation_bundle" && -z "$resume_dir" ]]; then
+    eval_config="$output_dir/serving_generation_shared_qwen38_2p4t_e5ddc652/repair_generation_config.toml"
+fi
 
 mapfile -t worker_urls < "$urls_file"
 mapfile -t ports < "$ports_file"
-if [[ ${#worker_urls[@]} -ne 16 || ${#ports[@]} -ne 7 ]]; then
+expected_worker_count=16
+expected_port_fields=7
+expected_vmvm_lease_concurrency=2
+generation_transition_sha256=
+if [[ -n "$serving_generation_bundle" ]]; then
+    expected_worker_count=24
+    expected_port_fields=9
+    expected_router_max_concurrent=48
+    expected_router_queue_size=48
+    expected_rollout_concurrency=96
+    expected_vmvm_lease_concurrency=4
+fi
+if [[ ${#worker_urls[@]} -ne "$expected_worker_count" || ${#ports[@]} -ne "$expected_port_fields" ]]; then
     printf 'Direct-worker runtime files are incomplete\n' >&2
     exit 2
 fi
@@ -156,14 +192,31 @@ router_queue_size=${ports[3]}
 router_queue_timeout=${ports[4]}
 router_policy=${ports[5]}
 router_request_id_header=${ports[6]}
+if [[ -n "$serving_generation_bundle" ]]; then
+    if [[ ${ports[7]} != 24 || ! ${ports[8]} =~ ^[0-9a-f]{64}$ ]]; then
+        printf 'Serving-generation runtime metadata is invalid\n' >&2
+        exit 2
+    fi
+    generation_transition_sha256=${ports[8]}
+fi
 if [[ ! "$router_max_concurrent" =~ ^[1-9][0-9]*$ ]] \
-    || (( router_max_concurrent > 32 )) \
     || [[ ! "$router_queue_size" =~ ^[0-9]+$ ]] \
-    || (( router_queue_size >= 64 )) \
-    || (( router_max_concurrent + router_queue_size > 64 )) \
     || [[ ! "$router_queue_timeout" =~ ^[1-9][0-9]*$ ]] \
     || [[ "$router_policy" != consistent_hash ]] \
     || [[ "$router_request_id_header" != x-session-id ]]; then
+    printf 'Direct Qwen router concurrency is invalid\n' >&2
+    exit 2
+fi
+if [[ -n "$serving_generation_bundle" ]]; then
+    if (( router_max_concurrent != expected_router_max_concurrent \
+        || router_queue_size != expected_router_queue_size \
+        || router_max_concurrent + router_queue_size != expected_rollout_concurrency )); then
+        printf 'Serving-generation router capacity is invalid\n' >&2
+        exit 2
+    fi
+elif (( router_max_concurrent > 32 \
+    || router_queue_size >= 64 \
+    || router_max_concurrent + router_queue_size > 64 )); then
     printf 'Direct Qwen router concurrency is invalid\n' >&2
     exit 2
 fi
@@ -214,25 +267,46 @@ for attempt in $(seq 1 60); do
             | awk '$1 == "vllm_router_active_workers" {print $2}' \
             | tail -n 1
     ) || true
-    if [[ "$models_ready" -eq 1 && "$active_workers" == 16 ]]; then
+    if [[ "$models_ready" -eq 1 && "$active_workers" == "$expected_worker_count" ]]; then
         break
     fi
     if [[ "$attempt" -eq 60 ]]; then
-        printf 'Direct Qwen router did not expose exactly 16 active workers\n' >&2
+        printf 'Direct Qwen router did not expose the exact worker generation\n' >&2
         exit 2
     fi
     sleep 5
 done
 
+capacity_smoke_sha256=
+if [[ -n "$generation_transition_sha256" ]]; then
+    if [[ -z "$resume_dir" ]]; then
+        "$x86_uv" run --no-project --offline --python "$python_bin" \
+            python3 "$workflow_dir/migrate_qwen_serving_generation.py" capacity-smoke \
+            --run-dir "$output_dir" \
+            --base-url "$router_url/v1" \
+            --expected-transition-sha256 "$generation_transition_sha256" \
+            --router-lock-fd 8
+    fi
+    capacity_smoke_sha256=$(sha256sum -- "$output_dir/capacity_smoke.json" | cut -d' ' -f1)
+    if [[ ! "$capacity_smoke_sha256" =~ ^[0-9a-f]{64}$ ]]; then
+        printf 'Serving-generation capacity certificate is invalid\n' >&2
+        exit 2
+    fi
+fi
+
 export PROJECT_DIR="$project_dir"
 export OUTPUT_DIR="$output_dir"
 export INFERENCE_BASE_URL="$router_url/v1"
 export OPENAI_API_KEY=EMPTY
-export VACLI_MAX_CONCURRENT_LEASES=2
+export VACLI_MAX_CONCURRENT_LEASES="$expected_vmvm_lease_concurrency"
 export DIRECT_QWEN_MANIFEST_SHA256="$manifest_sha256"
 export DIRECT_QWEN_ROUTER_POLICY="$router_policy"
 export DIRECT_QWEN_REQUEST_ID_HEADERS="$router_request_id_header"
 export DIRECT_QWEN_PROVIDER_CONCURRENCY="$router_max_concurrent"
+if [[ -n "$generation_transition_sha256" ]]; then
+    export DIRECT_QWEN_GENERATION_TRANSITION_SHA256="$generation_transition_sha256"
+    export DIRECT_QWEN_CAPACITY_SMOKE_SHA256="$capacity_smoke_sha256"
+fi
 if [[ -n "$resume_dir" ]]; then
     export RESUME_DIR="$resume_dir"
 else

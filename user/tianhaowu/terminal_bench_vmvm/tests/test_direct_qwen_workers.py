@@ -200,6 +200,35 @@ def test_production_qwen_config_queues_64_rollouts_behind_32_http_connections() 
     ] == [f"model.model_kwargs.timeout={direct.PRODUCTION_MODEL_TIMEOUT_SECONDS}"]
 
 
+@pytest.mark.parametrize(
+    ("rollout_concurrency", "provider_concurrency_value", "expected_queue"),
+    [(2, 2, 0), (8, 8, 0), (64, 32, 32)],
+)
+def test_old16_manifest_capacities_remain_supported(
+    tmp_path: Path,
+    rollout_concurrency: int,
+    provider_concurrency_value: int,
+    expected_queue: int,
+) -> None:
+    deployment, spec_sha256, bundle_sha256, workers = _write_deployment(tmp_path, count=16)
+
+    manifest = direct._manifest(
+        deployment,
+        workers,
+        spec_sha256,
+        bundle_sha256,
+        "a" * 64,
+        20_001,
+        40_001,
+        rollout_concurrency,
+        provider_concurrency_value,
+        direct.ROUTER_MANIFEST_SCHEMA_VERSION,
+    )
+
+    assert manifest["router"]["max_concurrent_requests"] == provider_concurrency_value
+    assert manifest["router"]["queue_size"] == expected_queue
+
+
 def test_qwen_config_rejects_boolean_num_rollouts(tmp_path: Path) -> None:
     config = _approved_config(tmp_path)
     config.write_text(config.read_text().replace("num_rollouts = 1", "num_rollouts = true"))

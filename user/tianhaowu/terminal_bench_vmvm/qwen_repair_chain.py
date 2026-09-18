@@ -10,6 +10,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import logging
 import os
 import re
 import stat
@@ -25,6 +26,7 @@ import direct_qwen_workers as direct
 import finalize_qwen_repair_sft as repair_finalizer
 import finalize_qwen_sft as common
 import merge_qwen_sft as merger
+import migrate_qwen_serving_generation as generation
 
 EXPECTED_ORIGINAL_COUNT = 2_500
 MAX_SEQUENCE_TOKENS = 262_144
@@ -32,6 +34,15 @@ MAX_CHILD_SUMMARY_BYTES = 1 << 20
 SHA256_PATTERN = re.compile(r"[0-9a-f]{64}")
 GIT_SHA_PATTERN = re.compile(r"[0-9a-f]{40}")
 STAGE_PATTERN = re.compile(r"[a-z][a-z0-9_]*")
+VMVM_TENANT_PATTERN = re.compile(r"[a-z][a-z0-9_]{0,63}")
+VMVM_LEASE_TTL_PATTERN = re.compile(r"[1-9][0-9]*s")
+VMVM_PREFLIGHT_LOG_FILENAME = "vmvm_lease_preflight.log"
+VMVM_PREFLIGHT_MARKER_FILENAME = "vmvm_lease_preflight.json"
+VMVM_PREFLIGHT_TUNNEL_TIMEOUT_SECONDS = 120.0
+VMVM_PREFLIGHT_CLEANUP_TIMEOUT_SECONDS = 45.0
+VMVM_PREFLIGHT_SLOT_TIMEOUT_SECONDS = 5.0
+VMVM_PREFLIGHT_PROCESS_TIMEOUT_SECONDS = 180.0
+VMVM_PREFLIGHT_SUBCOMMAND = "_vmvm-lease-preflight"
 DIRECT_FORBIDDEN_ENV = frozenset(
     {
         "INFERENCE_BASE_URL",
@@ -43,6 +54,9 @@ DIRECT_FORBIDDEN_ENV = frozenset(
         "DIRECT_QWEN_ROUTER_POLICY",
         "DIRECT_QWEN_REQUEST_ID_HEADERS",
         "DIRECT_QWEN_PROVIDER_CONCURRENCY",
+        "DIRECT_QWEN_GENERATION_TRANSITION_SHA256",
+        "DIRECT_QWEN_CAPACITY_SMOKE_SHA256",
+        "QWEN_SERVING_GENERATION_BUNDLE",
         "RESUME_DIR",
     }
 )
@@ -121,6 +135,7 @@ class FileState:
 
 ChildRunner = Callable[[ChildCommand, Path], dict[str, Any] | None]
 ProjectValidator = Callable[[Path, str], ProjectAttestation]
+LeasePreflight = Callable[[Path, Path], None]
 
 
 def _is_plain_int(value: object) -> bool:
@@ -537,6 +552,156 @@ def _open_private_log(path: Path):
         raise RepairChainError("child_log_create_failed") from error
 
 
+def _vmvm_preflight_settings(config_path: Path) -> tuple[str, str]:
+    try:
+        config = tomllib.loads(_read_bytes(config_path, "vmvm_lease_preflight_failed", limit=1 << 20).decode("utf-8"))
+        harness = config.get("harness")
+        runtime = harness.get("runtime") if isinstance(harness, dict) else None
+        tenant_id = runtime.get("tenant_id") if isinstance(runtime, dict) else None
+        lease_ttl = runtime.get("lease_ttl") if isinstance(runtime, dict) else None
+    except (OSError, UnicodeDecodeError, tomllib.TOMLDecodeError, RepairChainError):
+        raise RepairChainError("vmvm_lease_preflight_failed") from None
+    if (
+        not isinstance(runtime, dict)
+        or runtime.get("type") != "vmvm"
+        or not isinstance(tenant_id, str)
+        or VMVM_TENANT_PATTERN.fullmatch(tenant_id) is None
+        or not isinstance(lease_ttl, str)
+        or VMVM_LEASE_TTL_PATTERN.fullmatch(lease_ttl) is None
+    ):
+        raise RepairChainError("vmvm_lease_preflight_failed") from None
+    return tenant_id, lease_ttl
+
+
+def _vmvm_preflight_marker() -> dict[str, object]:
+    return {
+        "cleanup_timeout_seconds": int(VMVM_PREFLIGHT_CLEANUP_TIMEOUT_SECONDS),
+        "lease_count": 1,
+        "status": "passed",
+        "task_access": False,
+        "tunnel_count": 1,
+        "tunnel_timeout_seconds": int(VMVM_PREFLIGHT_TUNNEL_TIMEOUT_SECONDS),
+    }
+
+
+def _perform_vmvm_lease_preflight(
+    config_path: Path,
+    log_dir: Path,
+    *,
+    lease_factory: Callable[..., Any] | None = None,
+) -> None:
+    """Prove that one task-free VACLI lease can expose its SSH tunnel."""
+    tenant_id, lease_ttl = _vmvm_preflight_settings(config_path)
+    backend_logger: logging.Logger | None = None
+    if lease_factory is None:
+        try:
+            from vmvm_tb_v2._vacli import backend as vacli_backend
+        except Exception:
+            raise RepairChainError("vmvm_lease_preflight_failed") from None
+        lease_factory = vacli_backend.VacliLease
+        backend_logger = vacli_backend.logger
+
+    log_path = log_dir / VMVM_PREFLIGHT_LOG_FILENAME
+    marker_path = log_dir / VMVM_PREFLIGHT_MARKER_FILENAME
+    try:
+        with _open_private_log(log_path) as handle:
+            opened = os.fstat(handle.fileno())
+            log_identity = (opened.st_dev, opened.st_ino)
+    except (OSError, RepairChainError):
+        raise RepairChainError("vmvm_lease_preflight_failed") from None
+
+    logger_disabled = backend_logger.disabled if backend_logger is not None else False
+    if backend_logger is not None:
+        backend_logger.disabled = True
+    lease: Any = None
+    failed = False
+    try:
+        try:
+            lease = lease_factory(
+                tenant_id,
+                log_path,
+                lease_ttl=lease_ttl,
+                tunnel_ready_timeout=VMVM_PREFLIGHT_TUNNEL_TIMEOUT_SECONDS,
+                cleanup_timeout=VMVM_PREFLIGHT_CLEANUP_TIMEOUT_SECONDS,
+                expected_log_identity=log_identity,
+                setup_slot_timeout=VMVM_PREFLIGHT_SLOT_TIMEOUT_SECONDS,
+            )
+            lease.start()
+            lease.wait_for_tunnel()
+        except Exception:
+            failed = True
+        finally:
+            if lease is not None:
+                try:
+                    lease.cleanup()
+                except Exception:
+                    failed = True
+    finally:
+        if backend_logger is not None:
+            backend_logger.disabled = logger_disabled
+
+    try:
+        metadata = log_path.lstat()
+        if (
+            not stat.S_ISREG(metadata.st_mode)
+            or (metadata.st_dev, metadata.st_ino) != log_identity
+            or stat.S_IMODE(metadata.st_mode) != 0o600
+        ):
+            failed = True
+    except OSError:
+        failed = True
+    if failed:
+        raise RepairChainError("vmvm_lease_preflight_failed") from None
+    try:
+        _write_private_summary(
+            marker_path,
+            _vmvm_preflight_marker(),
+        )
+    except RepairChainError:
+        raise RepairChainError("vmvm_lease_preflight_failed") from None
+
+
+def _run_vmvm_lease_preflight(config_path: Path, log_dir: Path) -> None:
+    """Run the lease probe in a killable child so the complete gate is bounded."""
+    environment = dict(os.environ)
+    environment["VACLI_MAX_CONCURRENT_LEASES"] = "1"
+    try:
+        completed = subprocess.run(
+            [
+                sys.executable,
+                str(Path(__file__).resolve()),
+                VMVM_PREFLIGHT_SUBCOMMAND,
+                str(config_path),
+                str(log_dir),
+            ],
+            cwd=str(Path(__file__).resolve().parents[3]),
+            env=environment,
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            check=False,
+            timeout=VMVM_PREFLIGHT_PROCESS_TIMEOUT_SECONDS,
+        )
+    except (OSError, subprocess.SubprocessError):
+        raise RepairChainError("vmvm_lease_preflight_failed") from None
+    if completed.returncode != 0:
+        raise RepairChainError("vmvm_lease_preflight_failed")
+    try:
+        marker_path = _regular_file(
+            log_dir / VMVM_PREFLIGHT_MARKER_FILENAME,
+            "vmvm_lease_preflight_failed",
+            mode=0o600,
+        )
+        marker = _parse_json_object(
+            _read_bytes(marker_path, "vmvm_lease_preflight_failed", limit=4096),
+            "vmvm_lease_preflight_failed",
+        )
+    except RepairChainError:
+        raise RepairChainError("vmvm_lease_preflight_failed") from None
+    if marker != _vmvm_preflight_marker():
+        raise RepairChainError("vmvm_lease_preflight_failed")
+
+
 def _run_child(command: ChildCommand, log_dir: Path) -> dict[str, Any] | None:
     if STAGE_PATTERN.fullmatch(command.stage) is None or not command.argv:
         raise RepairChainError("child_command_invalid")
@@ -575,6 +740,7 @@ def _direct_environment(
     project: Path,
     repair_dir: Path,
     selection_dir: Path,
+    generation_dir: Path,
     task_sha256: str,
     environment: Mapping[str, str],
 ) -> dict[str, str]:
@@ -587,14 +753,57 @@ def _direct_environment(
     result.update(
         {
             "OUTPUT_DIR": str(repair_dir),
-            "EVAL_CONFIG": str(selection_dir / "repair_config.toml"),
+            "EVAL_CONFIG": str(generation_dir / generation.GENERATION_CONFIG_FILENAME),
             "DIRECT_QWEN_APPROVED_TASK_FILE": str(selection_dir / "repair_tasks.txt"),
             "DIRECT_QWEN_APPROVED_TASK_FILE_SHA256": task_sha256,
             "OPENAI_API_KEY": "EMPTY",
-            "VACLI_MAX_CONCURRENT_LEASES": "2",
+            "QWEN_SERVING_GENERATION_BUNDLE": str(generation_dir),
+            "VACLI_MAX_CONCURRENT_LEASES": str(generation.VMVM_LEASE_CONCURRENCY),
         }
     )
     return result
+
+
+def _validate_generation_summary(
+    summary: Mapping[str, Any],
+    generation_dir: Path,
+    repair_count: int,
+) -> str:
+    transition_sha256 = summary.get("transition_sha256")
+    if (
+        set(summary)
+        != {
+            "added_workers",
+            "ok",
+            "overlap_workers",
+            "repair_union_count",
+            "retired_workers",
+            "server_identifier",
+            "source_rows",
+            "status",
+            "target_workers",
+            "transition_sha256",
+        }
+        or summary.get("ok") is not True
+        or summary.get("status") != "materialized"
+        or summary.get("server_identifier") != "shared_qwen38_2p4t_e5ddc652"
+        or summary.get("source_rows") != 1_392
+        or summary.get("repair_union_count") != repair_count
+        or summary.get("target_workers") != 24
+        or summary.get("overlap_workers") != 15
+        or summary.get("retired_workers") != 1
+        or summary.get("added_workers") != 9
+        or not _valid_sha256(transition_sha256)
+    ):
+        raise RepairChainError("generation_transition_summary_invalid")
+    transition = _regular_file(
+        generation_dir / generation.TRANSITION_FILENAME,
+        "generation_transition_invalid",
+        mode=0o600,
+    )
+    if _sha256(transition, "generation_transition_invalid") != transition_sha256:
+        raise RepairChainError("generation_transition_invalid")
+    return str(transition_sha256)
 
 
 def _require_summary(value: dict[str, Any] | None, code: str) -> dict[str, Any]:
@@ -893,6 +1102,7 @@ def run_repair_chain(
     *,
     runner: ChildRunner = _run_child,
     project_validator: ProjectValidator = _default_project_validator,
+    lease_preflight: LeasePreflight = _run_vmvm_lease_preflight,
     environment: Mapping[str, str] | None = None,
 ) -> dict[str, Any]:
     """Execute one fresh chain without overwriting any source or destination."""
@@ -908,6 +1118,7 @@ def run_repair_chain(
     _private_directory(log_dir)
     selection_dir = paths.runtime_dir / "selection"
     repair_dir = paths.runtime_dir / "repair-run"
+    generation_dir = selection_dir / generation.RUN_BUNDLE_DIRECTORY
     repair_source: Path | None = None
     repair_snapshot: Mapping[str, FileState] | None = None
     selection_snapshot: Mapping[str, FileState] | None = None
@@ -916,6 +1127,7 @@ def run_repair_chain(
     repair_count = 0
     missing_or_errored_count = 0
     strict_invalid_pass_count = 0
+    generation_transition_sha256: str | None = None
     materialize_command = ChildCommand(
         stage="materialize",
         argv=(
@@ -954,11 +1166,64 @@ def run_repair_chain(
             repair_task_sha256,
             selection_manifest_sha256,
         ) = _validate_materializer_summary(materialize_summary, options, attestation, selection_dir)
-        selection_snapshot = _snapshot_tree(selection_dir) if repair_count else None
 
         if repair_count:
             assert repair_task_sha256 is not None
             assert selection_manifest_sha256 is not None
+            contract = generation._load_contract()
+            target_deployment_root = Path(
+                child_environment.get(
+                    "DIRECT_QWEN_DEPLOYMENT_ROOT",
+                    contract["target_generation"]["deployment_root"],
+                )
+            )
+            generation_command = ChildCommand(
+                stage="materialize_generation",
+                argv=(
+                    sys.executable,
+                    str(paths.workflow_dir / "migrate_qwen_serving_generation.py"),
+                    "materialize",
+                    "--source-dir",
+                    str(paths.source_dir),
+                    "--selection-dir",
+                    str(selection_dir),
+                    "--deployment-root",
+                    str(target_deployment_root),
+                    "--repair-run-dir",
+                    str(repair_dir),
+                    "--output-dir",
+                    str(generation_dir),
+                ),
+                environment=child_environment,
+            )
+            generation_summary = _require_summary(
+                _run_stage(
+                    runner,
+                    generation_command,
+                    log_dir,
+                    paths,
+                    options,
+                    attestation,
+                    project_validator,
+                    original_snapshot,
+                ),
+                "generation_transition_summary_invalid",
+            )
+            generation_transition_sha256 = _validate_generation_summary(
+                generation_summary,
+                generation_dir,
+                repair_count,
+            )
+            selection_snapshot = _snapshot_tree(selection_dir)
+            try:
+                lease_preflight(
+                    generation_dir / generation.GENERATION_CONFIG_FILENAME,
+                    log_dir,
+                )
+            finally:
+                _assert_snapshot(paths.source_dir, original_snapshot, "original_source_changed")
+                _assert_snapshot(selection_dir, selection_snapshot, "repair_selection_changed")
+                _validate_attestation(project_validator, paths, options, attestation)
             direct_command = ChildCommand(
                 stage="repair_eval",
                 argv=("/bin/bash", str(paths.workflow_dir / "run_qwen_direct_eval.sbatch")),
@@ -966,6 +1231,7 @@ def run_repair_chain(
                     paths.project_dir,
                     repair_dir,
                     selection_dir,
+                    generation_dir,
                     repair_task_sha256,
                     environment or os.environ,
                 ),
@@ -1275,6 +1541,7 @@ def run_repair_chain(
             raise RepairChainError("merged_output_invalid")
         _validate_merged_output_hashes(merge_summary, paths.merged_output_dir)
         result = {
+            "generation_transition_sha256": generation_transition_sha256,
             "merged": merged_public,
             "ok": True,
             "original": original_public,
@@ -1329,9 +1596,27 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     return parser.parse_args(argv)
 
 
-def main(argv: list[str] | None = None) -> int:
+def _vmvm_preflight_main(argv: list[str]) -> int:
+    if len(argv) != 2:
+        return 2
+    config_path = Path(argv[0])
+    log_dir = Path(argv[1])
     try:
-        args = parse_args(argv)
+        if not _is_normalized_absolute(config_path):
+            raise RepairChainError("vmvm_lease_preflight_failed")
+        _canonical_directory(log_dir, "vmvm_lease_preflight_failed")
+        _perform_vmvm_lease_preflight(config_path, log_dir)
+    except Exception:
+        return 2
+    return 0
+
+
+def main(argv: list[str] | None = None) -> int:
+    effective_argv = list(sys.argv[1:] if argv is None else argv)
+    if effective_argv and effective_argv[0] == VMVM_PREFLIGHT_SUBCOMMAND:
+        return _vmvm_preflight_main(effective_argv[1:])
+    try:
+        args = parse_args(effective_argv)
         summary = run_repair_chain(
             RepairChainOptions(
                 project_dir=args.project_dir,

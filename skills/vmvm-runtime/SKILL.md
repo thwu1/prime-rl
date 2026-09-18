@@ -344,6 +344,29 @@ aggregate counts, digests, and stable codes. Submit this state change only
 through `swebench_vmvm:Launcher.0` with an `afterany` dependency on the
 producer.
 
+If the source's pinned worker set is no longer available, the repair controller
+must keep that source immutable and create a role-bound serving-generation
+bundle before launching the fresh repair run. The source role remains the exact
+16-worker epoch-3 contract; the repair role uses only the exact 24-worker
+contract in
+`configs/eval/servers/shared_qwen38_2p4t_e5ddc652/repair_generation.json`.
+`migrate_qwen_serving_generation.py` binds the terminal source's complete
+artifact digests and ordered row hashes, the repair selection, both full worker
+manifests, the 15/1/9 overlap/retired/added transition, and the clean code tree.
+The direct launcher then requires 24 healthy workers, 96 rollout/VMVM sessions,
+`consistent_hash`, `x-session-id`, 48 active provider requests, a 48-request
+queue, and four simultaneous VMVM lease starts. It publishes a fresh run-local
+bundle behind an incomplete marker and runs a 96-request concurrent capacity
+smoke without retaining response bodies. The resulting private certificate
+binds the exact transition, worker manifest, spec/bundle, routing capacity,
+aggregate success count, and measured client concurrency. The launcher validates
+that certificate plus config/input/provenance snapshots while holding both
+launcher locks, and removes the marker only at commit. A resume revalidates the
+immutable bundle, source, current deployment, saved run inputs, certificate,
+and absence of another writer. Never infer or accept a 16-or-24 worker range,
+overwrite the old server config, or launch directly from an uncommitted
+transition.
+
 `VACLI_IMAGE_PULL_TIMEOUT_SECONDS` bounds each VM-side image pull attempt. The
 DeepSWE launcher derives it from TOML `sandbox_startup_timeout_sec` and uses one
 hour by default; keep the command/session ceiling separate because verification

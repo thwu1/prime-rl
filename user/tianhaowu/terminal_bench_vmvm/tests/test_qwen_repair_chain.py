@@ -4,6 +4,7 @@ import hashlib
 import json
 import os
 import stat
+import subprocess
 import sys
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -181,10 +182,31 @@ task_file_sha256 = "{task_sha256}"
                 "task_file_sha256": task_sha256,
                 "task_index_order_sha256": "7" * 64,
             }
+        if command.stage == "materialize_generation":
+            output = _argument(command, "--output-dir")
+            output.mkdir()
+            transition_body = b'{"synthetic":"generation-transition"}\n'
+            _write(output / chain.generation.TRANSITION_FILENAME, transition_body)
+            return {
+                "added_workers": 9,
+                "ok": True,
+                "overlap_workers": 15,
+                "repair_union_count": self.repair_count,
+                "retired_workers": 1,
+                "server_identifier": "shared_qwen38_2p4t_e5ddc652",
+                "source_rows": 1_392,
+                "status": "materialized",
+                "target_workers": 24,
+                "transition_sha256": _sha256(transition_body),
+            }
         if command.stage == "repair_eval":
             assert command.argv[0] == "/bin/bash"
-            assert command.environment["VACLI_MAX_CONCURRENT_LEASES"] == "2"
+            assert command.environment["VACLI_MAX_CONCURRENT_LEASES"] == "4"
             assert command.environment["OPENAI_API_KEY"] == "EMPTY"
+            assert command.environment["QWEN_SERVING_GENERATION_BUNDLE"].endswith(chain.generation.RUN_BUNDLE_DIRECTORY)
+            assert command.environment["EVAL_CONFIG"].endswith(
+                f"{chain.generation.RUN_BUNDLE_DIRECTORY}/{chain.generation.GENERATION_CONFIG_FILENAME}"
+            )
             repair_dir = Path(command.environment["OUTPUT_DIR"])
             if self.mutate_selection:
                 selection_file = Path(command.environment["DIRECT_QWEN_APPROVED_TASK_FILE"])
@@ -277,6 +299,11 @@ task_file_sha256 = "{task_sha256}"
             }
         raise AssertionError("unexpected stage")
 
+    def lease_preflight(self, config_path: Path, log_dir: Path) -> None:
+        assert config_path.name == chain.generation.GENERATION_CONFIG_FILENAME
+        assert log_dir.name == "logs"
+        self.stages.append("vmvm_lease_preflight")
+
 
 def _layout(tmp_path: Path) -> tuple[chain.RepairChainOptions, chain.ProjectAttestation, dict[Path, bytes]]:
     source_root = tmp_path / "sources" / "evals"
@@ -355,6 +382,7 @@ def test_repair_chain_success(tmp_path: Path) -> None:
         options,
         runner=runner,
         project_validator=lambda _project, _revision: attestation,
+        lease_preflight=runner.lease_preflight,
         environment={"PATH": os.environ["PATH"], "SLURM_JOB_ID": "456"},
     )
 
@@ -362,6 +390,8 @@ def test_repair_chain_success(tmp_path: Path) -> None:
     assert summary["repair_count"] == 2
     assert runner.stages == [
         "materialize",
+        "materialize_generation",
+        "vmvm_lease_preflight",
         "repair_eval",
         "finalize_original",
         "finalize_repair",
@@ -391,6 +421,7 @@ def test_repair_chain_preserves_recoverable_partial_tail_through_merge(tmp_path:
         options,
         runner=runner,
         project_validator=lambda _project, _revision: attestation,
+        lease_preflight=runner.lease_preflight,
         environment={"PATH": os.environ["PATH"], "SLURM_JOB_ID": "456"},
     )
 
@@ -411,6 +442,7 @@ def test_repair_chain_zero_owed_finalizes_original_only(tmp_path: Path) -> None:
         options,
         runner=runner,
         project_validator=lambda _project, _revision: attestation,
+        lease_preflight=runner.lease_preflight,
         environment={"PATH": os.environ["PATH"], "SLURM_JOB_ID": "456"},
     )
 
@@ -447,6 +479,210 @@ def test_child_failure_is_redacted_and_logs_are_private(tmp_path: Path) -> None:
     assert all(secret in path.read_text() for path in logs)
 
 
+def _preflight_config(tmp_path: Path) -> tuple[Path, Path]:
+    config_path = tmp_path / "generation" / chain.generation.GENERATION_CONFIG_FILENAME
+    log_dir = tmp_path / "private" / "logs"
+    config_path.parent.mkdir(parents=True)
+    log_dir.mkdir(parents=True)
+    config_path.write_text(
+        """
+[harness.runtime]
+type = "vmvm"
+tenant_id = "async_opaque"
+lease_ttl = "60s"
+""".lstrip()
+    )
+    return config_path, log_dir
+
+
+def test_vmvm_lease_preflight_is_task_free_bounded_and_private(tmp_path: Path) -> None:
+    config_path, log_dir = _preflight_config(tmp_path)
+    calls: list[tuple[str, object]] = []
+
+    class Lease:
+        def __init__(self, tenant_id: str, log_path: Path, **kwargs: object) -> None:
+            calls.append(("construct", (tenant_id, log_path, kwargs)))
+
+        def start(self) -> None:
+            calls.append(("start", None))
+
+        def wait_for_tunnel(self) -> int:
+            calls.append(("wait_for_tunnel", None))
+            return 12345
+
+        def cleanup(self) -> None:
+            calls.append(("cleanup", None))
+
+    chain._perform_vmvm_lease_preflight(config_path, log_dir, lease_factory=Lease)
+
+    assert [name for name, _value in calls] == ["construct", "start", "wait_for_tunnel", "cleanup"]
+    tenant_id, log_path, kwargs = calls[0][1]
+    assert tenant_id == "async_opaque"
+    assert log_path == log_dir / chain.VMVM_PREFLIGHT_LOG_FILENAME
+    assert kwargs == {
+        "cleanup_timeout": chain.VMVM_PREFLIGHT_CLEANUP_TIMEOUT_SECONDS,
+        "expected_log_identity": (
+            (log_dir / chain.VMVM_PREFLIGHT_LOG_FILENAME).stat().st_dev,
+            (log_dir / chain.VMVM_PREFLIGHT_LOG_FILENAME).stat().st_ino,
+        ),
+        "lease_ttl": "60s",
+        "setup_slot_timeout": chain.VMVM_PREFLIGHT_SLOT_TIMEOUT_SECONDS,
+        "tunnel_ready_timeout": chain.VMVM_PREFLIGHT_TUNNEL_TIMEOUT_SECONDS,
+    }
+    marker = json.loads((log_dir / chain.VMVM_PREFLIGHT_MARKER_FILENAME).read_text())
+    assert marker == {
+        "cleanup_timeout_seconds": 45,
+        "lease_count": 1,
+        "status": "passed",
+        "task_access": False,
+        "tunnel_count": 1,
+        "tunnel_timeout_seconds": 120,
+    }
+    assert stat.S_IMODE((log_dir / chain.VMVM_PREFLIGHT_LOG_FILENAME).stat().st_mode) == 0o600
+    assert stat.S_IMODE((log_dir / chain.VMVM_PREFLIGHT_MARKER_FILENAME).stat().st_mode) == 0o600
+
+
+def test_vmvm_lease_preflight_process_is_bounded_and_isolated(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    config_path, log_dir = _preflight_config(tmp_path)
+    observed: dict[str, object] = {}
+
+    def run(argv: list[str], **kwargs: object) -> subprocess.CompletedProcess[bytes]:
+        observed["argv"] = argv
+        observed.update(kwargs)
+        chain._write_private_summary(
+            log_dir / chain.VMVM_PREFLIGHT_MARKER_FILENAME,
+            chain._vmvm_preflight_marker(),
+        )
+        return subprocess.CompletedProcess(argv, 0)
+
+    monkeypatch.setattr(chain.subprocess, "run", run)
+    chain._run_vmvm_lease_preflight(config_path, log_dir)
+
+    assert observed["argv"] == [
+        sys.executable,
+        str(Path(chain.__file__).resolve()),
+        chain.VMVM_PREFLIGHT_SUBCOMMAND,
+        str(config_path),
+        str(log_dir),
+    ]
+    assert observed["timeout"] == chain.VMVM_PREFLIGHT_PROCESS_TIMEOUT_SECONDS
+    assert observed["stdin"] is subprocess.DEVNULL
+    assert observed["stdout"] is subprocess.DEVNULL
+    assert observed["stderr"] is subprocess.DEVNULL
+    assert observed["check"] is False
+    assert observed["env"]["VACLI_MAX_CONCURRENT_LEASES"] == "1"
+
+
+def test_vmvm_lease_preflight_process_timeout_is_redacted(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    config_path, log_dir = _preflight_config(tmp_path)
+    secret = "opaque_session_auth_task_payload"
+
+    def timeout(argv: list[str], **_kwargs: object) -> subprocess.CompletedProcess[bytes]:
+        raise subprocess.TimeoutExpired(argv, chain.VMVM_PREFLIGHT_PROCESS_TIMEOUT_SECONDS, output=secret)
+
+    monkeypatch.setattr(chain.subprocess, "run", timeout)
+    with pytest.raises(chain.RepairChainError, match="^vmvm_lease_preflight_failed$") as failure:
+        chain._run_vmvm_lease_preflight(config_path, log_dir)
+
+    assert secret not in str(failure.value)
+    assert not (log_dir / chain.VMVM_PREFLIGHT_MARKER_FILENAME).exists()
+
+
+@pytest.mark.parametrize("failure_stage", ["start", "wait_for_tunnel", "cleanup"])
+def test_vmvm_lease_preflight_redacts_failures_and_always_cleans_up(
+    tmp_path: Path,
+    failure_stage: str,
+) -> None:
+    config_path, log_dir = _preflight_config(tmp_path)
+    calls: list[str] = []
+    secret = "sessionid_auth_token_private_log_tail_opaque_task"
+
+    class Lease:
+        def __init__(self, *_args: object, **_kwargs: object) -> None:
+            calls.append("construct")
+
+        def start(self) -> None:
+            calls.append("start")
+            if failure_stage == "start":
+                raise RuntimeError(secret)
+
+        def wait_for_tunnel(self) -> int:
+            calls.append("wait_for_tunnel")
+            if failure_stage == "wait_for_tunnel":
+                raise RuntimeError(secret)
+            return 12345
+
+        def cleanup(self) -> None:
+            calls.append("cleanup")
+            if failure_stage == "cleanup":
+                raise RuntimeError(secret)
+
+    with pytest.raises(chain.RepairChainError, match="^vmvm_lease_preflight_failed$") as failure:
+        chain._perform_vmvm_lease_preflight(config_path, log_dir, lease_factory=Lease)
+
+    assert secret not in str(failure.value)
+    assert calls[-1] == "cleanup"
+    assert not (log_dir / chain.VMVM_PREFLIGHT_MARKER_FILENAME).exists()
+
+
+@pytest.mark.parametrize("collision", ["file", "symlink"])
+def test_vmvm_lease_preflight_refuses_log_collision(tmp_path: Path, collision: str) -> None:
+    config_path, log_dir = _preflight_config(tmp_path)
+    log_path = log_dir / chain.VMVM_PREFLIGHT_LOG_FILENAME
+    if collision == "file":
+        log_path.write_bytes(b"opaque-existing\n")
+    else:
+        target = tmp_path / "opaque-target"
+        target.write_bytes(b"opaque-target\n")
+        log_path.symlink_to(target)
+    constructed = False
+
+    def lease_factory(*_args: object, **_kwargs: object) -> None:
+        nonlocal constructed
+        constructed = True
+
+    with pytest.raises(chain.RepairChainError, match="^vmvm_lease_preflight_failed$"):
+        chain._perform_vmvm_lease_preflight(config_path, log_dir, lease_factory=lease_factory)
+
+    assert constructed is False
+    assert not (log_dir / chain.VMVM_PREFLIGHT_MARKER_FILENAME).exists()
+
+
+def test_vmvm_lease_preflight_failure_blocks_repair_fanout(tmp_path: Path) -> None:
+    options, attestation, _source_bytes = _layout(tmp_path)
+    runner = FakeRunner(2, options.source_dir, attestation)
+
+    def fail_preflight(_config_path: Path, _log_dir: Path) -> None:
+        runner.stages.append("vmvm_lease_preflight")
+        raise chain.RepairChainError("vmvm_lease_preflight_failed")
+
+    with pytest.raises(chain.RepairChainError, match="^vmvm_lease_preflight_failed$"):
+        chain.run_repair_chain(
+            options,
+            runner=runner,
+            project_validator=lambda _project, _revision: attestation,
+            lease_preflight=fail_preflight,
+            environment={"PATH": os.environ["PATH"], "SLURM_JOB_ID": "456"},
+        )
+
+    assert runner.stages == ["materialize", "materialize_generation", "vmvm_lease_preflight"]
+    assert not options.original_export_dir.exists()
+    assert not options.repair_export_dir.exists()
+    assert not options.merged_output_dir.exists()
+
+
+def test_qwen_repair_wrapper_has_no_hardcoded_node_selector() -> None:
+    wrapper = Path(chain.__file__).with_name("run_qwen_repair_chain.sbatch").read_text()
+    assert "#SBATCH --nodelist" not in wrapper
+    assert "#SBATCH --exclude" not in wrapper
+
+
 def test_repair_chain_rejects_existing_output_without_running_child(tmp_path: Path) -> None:
     options, attestation, _source_bytes = _layout(tmp_path)
     options.merged_output_dir.mkdir()
@@ -457,6 +693,7 @@ def test_repair_chain_rejects_existing_output_without_running_child(tmp_path: Pa
             options,
             runner=runner,
             project_validator=lambda _project, _revision: attestation,
+            lease_preflight=runner.lease_preflight,
             environment={"PATH": os.environ["PATH"], "SLURM_JOB_ID": "456"},
         )
 
@@ -473,6 +710,7 @@ def test_repair_chain_detects_source_mutation(tmp_path: Path) -> None:
             options,
             runner=runner,
             project_validator=lambda _project, _revision: attestation,
+            lease_preflight=runner.lease_preflight,
             environment={"PATH": os.environ["PATH"], "SLURM_JOB_ID": "456"},
         )
 
@@ -489,9 +727,15 @@ def test_repair_chain_detects_selection_mutation(tmp_path: Path) -> None:
             options,
             runner=runner,
             project_validator=lambda _project, _revision: attestation,
+            lease_preflight=runner.lease_preflight,
             environment={"PATH": os.environ["PATH"], "SLURM_JOB_ID": "456"},
         )
-    assert runner.stages == ["materialize", "repair_eval"]
+    assert runner.stages == [
+        "materialize",
+        "materialize_generation",
+        "vmvm_lease_preflight",
+        "repair_eval",
+    ]
     assert not options.original_export_dir.exists()
 
 
@@ -521,6 +765,7 @@ def test_repair_chain_rejects_export_mutation_between_finalization_and_merge(
             options,
             runner=runner,
             project_validator=lambda _project, _revision: attestation,
+            lease_preflight=runner.lease_preflight,
             environment={"PATH": os.environ["PATH"], "SLURM_JOB_ID": "456"},
         )
 
@@ -551,6 +796,7 @@ def test_repair_chain_revalidates_project_before_direct_repair(tmp_path: Path) -
             options,
             runner=runner,
             project_validator=validate,
+            lease_preflight=runner.lease_preflight,
             environment={"PATH": os.environ["PATH"], "SLURM_JOB_ID": "456"},
         )
 
@@ -569,6 +815,7 @@ def test_repair_chain_source_snapshot_rejects_symlink(tmp_path: Path) -> None:
             options,
             runner=runner,
             project_validator=lambda _project, _revision: attestation,
+            lease_preflight=runner.lease_preflight,
             environment={"PATH": os.environ["PATH"], "SLURM_JOB_ID": "456"},
         )
 
