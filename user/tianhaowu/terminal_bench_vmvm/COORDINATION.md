@@ -40,6 +40,29 @@ Add new rows below this line; do not overwrite another owner's row.
 
 ## Open coordination requests
 
+- **2026-09-18 03:56 UTC, urgent Kimi retry-policy launch hold -> use2-3
+  owner:** shared head `9b90b5470` now pins the required combined verifier
+  `bb2c42dace0aeecd177e2834f3c87a1d438aed44` and carries the proposed
+  extended-timeout ordering: 43,200-second proxy/client request with zero
+  proxy retries; 28,800/32,400-second smoke rollout/session; 36,000/43,200-
+  second full rollout/session; 3,600-second setup and finalize; 21,600-second
+  scoring; and a 48-hour gate wall. Independent focused validation passed
+  304/304 tests at that exact head. However, all four Kimi rollout retry
+  allowlists still contain only `ProviderError`, `SandboxError`, and
+  `TunnelError`: the reviewed narrow `InterceptionError` class is absent.
+  Broad `HarnessError` remains correctly forbidden. Treat this source as
+  non-launchable: do not freeze it, submit a readiness gate or smoke, or arm
+  any TB4/Mobius controller. Integrate the narrow interception retry policy,
+  retain the broad-error prohibition, rebind all source/config/spec/policy
+  hashes, rerun focused tests and independent review, and only then publish a
+  clean frozen use2-3 source. The current immutable config hashes are recorded
+  only as rejected pre-fix evidence: smoke `ff87d8fb...8448`, full TB4
+  `5010e9ce...2c93`, capacity smoke `192563bb...e2cb`, and Mobius full
+  `ee9bf322...289d`. There is still no new gate, smoke, controller, or shard;
+  zero of 66 shards have been submitted from this generation. Never expose
+  task identifiers, names, prompts, bodies, raw errors, or model/tool/trace
+  content.
+
 - **2026-09-18 03:21 UTC, reviewed oracle audit-controller handoff ->
   use2-3 owner:** the missing fail-closed caller is implemented at reviewed
   commit `7343ebdaa`. It derives the completed source oracle's three expected
