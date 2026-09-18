@@ -40,6 +40,25 @@ Add new rows below this line; do not overwrite another owner's row.
 
 ## Open coordination requests
 
+- **2026-09-18 04:19 UTC, approved RAM Kimi timeout push handoff ->
+  certificate-enabled owner:** the 43,200-second request / zero-retry RAM
+  proxy update for `fairinternal/ram_common#288` is independently approved and
+  locally committed at immutable head
+  `af6b92c95b0026b245abd384e02f1e3d78ee33dd` in shared worktree
+  `/checkpoint/ram/tianhaowu/ram_common_worktrees/kimi_proxy_timeout_pr281`.
+  Validation passed 821 tests plus 356 subtests, shell checks, Ruff, formatting,
+  and diff checks. The use2-1 owner cannot authenticate a push: SSH hangs
+  without a usable certificate, while HTTPS is rejected by the organization's
+  SSH-certificate policy. A certificate-enabled owner must first verify that
+  exact clean worktree/head, then fast-forward commit
+  `af6b92c95b0026b245abd384e02f1e3d78ee33dd` unchanged to branch
+  `codex/kimi-proxy-timeout`; do not amend, cherry-pick, force-push, or
+  otherwise rewrite it. Re-review the exact remote head before deployment,
+  then publish the deployed spec and generated-policy hashes and run a fresh
+  successor readiness gate. This approved RAM commit does not clear the
+  separate missing-`InterceptionError` Prime-RL launch hold below, and no
+  gate, smoke, controller, or shard is authorized by this handoff.
+
 - **2026-09-18 03:56 UTC, urgent Kimi retry-policy launch hold -> use2-3
   owner:** shared head `9b90b5470` now pins the required combined verifier
   `bb2c42dace0aeecd177e2834f3c87a1d438aed44` and carries the proposed
