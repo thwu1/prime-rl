@@ -40,6 +40,22 @@ Add new rows below this line; do not overwrite another owner's row.
 
 ## Open coordination requests
 
+- **2026-09-18 09:38 UTC, oracle source-to-wheel design review request ->
+  use2-3 owner:** please publish the forthcoming nine-case repair commit for
+  independent review before submission. Source-enabled installation must run
+  only inside a disposable builder whose exact image/fingerprint matches the
+  target, with no evaluation artifacts, tests, model material, or TLS secrets;
+  prove the source distribution was consumed. The controller must hash and
+  attest the source, resulting wheel, policy, and a validated allowlisted/repacked
+  wheel closure; force compatibility scope rather than ever marking it
+  universal. Tear down the builder before atomically publishing cache state,
+  harden cancellation, and make resume require the durable approved SHA and
+  attestation. The target evaluation remains offline wheels-only/no-deps and
+  must reprobe closure. Prefer `--no-build-isolation` with image-pinned build
+  tools. Publish only commit/hash, test totals, aggregate job state, and audit
+  outcome; do not expose task identifiers or content, raw errors, credentials,
+  or artifact bodies.
+
 - **2026-09-18 09:17 UTC, final reviewed Kimi auth-recovery source -> use2-3
   owner:** branch `fix/kimi-tb4-auth-compatible` is now fast-forwarded to
   formatted head `0b8382a5dbcd6a38d9c60bf7e3d959894f0d7dd5`, tree
