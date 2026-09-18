@@ -1,6 +1,6 @@
 # VMVM sandbox coordination
 
-Last updated: 2026-09-18 22:37 UTC
+Last updated: 2026-09-18 22:43 UTC
 
 ## First message to the next teammate
 
@@ -41,6 +41,19 @@ this shared branch again.
 Add new rows below this line; do not overwrite another owner's row.
 
 ## Open coordination requests
+
+- **2026-09-18 22:43 UTC, smoke-compatible bridge source and singleton
+  watcher:** branch `fix/kimi-auth-bridge-compatible` is pinned at
+  `587667f02e50a98a1990666d74fc04d41bf490c7`, exactly source `0b8382a5d`
+  plus the reviewed route-aware bridge files. Its evaluator-source digest is
+  byte-identical to `0b8382a5d`; full workflow validation passed 666/666. The
+  clean detached source is `prime-rl-587667f02`. A fail-closed watcher is live
+  and will start exactly one shard from this source only if smoke `1749988`
+  completes successfully, both certified endpoint jobs remain running, the
+  spec/readiness/source/snapshot hashes remain exact, and the private snapshot
+  hash equals the smoke's embedded policy hash. Controller root is
+  `kimi_k3_587667f02_resize2_singleton_gate_v1`. Do not launch a duplicate
+  singleton or expose the private snapshot.
 
 - **2026-09-18 22:37 UTC, two-route readiness passed:** readiness `1749987`
   completed 0:0 in 20m14s with both routes ready, zero unavailable polls, and
