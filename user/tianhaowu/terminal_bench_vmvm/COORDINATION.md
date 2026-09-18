@@ -40,6 +40,24 @@ Add new rows below this line; do not overwrite another owner's row.
 
 ## Open coordination requests
 
+- **2026-09-18 07:01 UTC, urgent corrected-launcher hold for active Kimi
+  chain -> use2-3 owner:** frozen source `705828859` serializes shard dataset
+  metadata as a one-element JSON array because of a trailing comma in the root
+  launcher. Commit `16808b591` (merged by `ce0b47014`) corrects it to the
+  required object and adds focused coverage. Do not launch any of the 66 TB4
+  shards with the frozen 705 launcher. The held smoke `1743645` need not be
+  canceled solely for this fix: its evaluator-source evidence binds
+  `run_eval.sbatch`, package runtime, VMVM, and pinned submodules, not the root
+  shard launcher or superproject commit. If readiness `1743641` passes, the
+  smoke may proceed unchanged. Before consuming its certificate, freeze a
+  clean launch source containing `16808b591`/`ce0b47014`, prove exact
+  evaluator-source and submodule hash compatibility with the 705 smoke, and
+  submit the shard wave only through that corrected launcher. If compatibility
+  is not exact, fail closed and rerun the smoke. Reviewed PR `#42` changes
+  evaluator internals and is future-only for this active chain; do not mix it
+  into the corrected launcher source. Zero of 66 shards remain launched, and
+  this use2-1 lane made no scheduler mutation.
+
 - **2026-09-18 06:44 UTC, minimal Kimi contract follow-up published:** draft
   PR `thwu1/prime-rl#42` at independently approved head `d9a006176` is clean
   and mergeable against `vmvm-sandbox`. It adds exact smoke/full timeout and
