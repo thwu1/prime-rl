@@ -346,6 +346,16 @@ def _contains_json_null(value: object) -> bool:
     return False
 
 
+def _contains_nonfinite_number(value: object) -> bool:
+    if isinstance(value, float):
+        return not math.isfinite(value)
+    if isinstance(value, dict):
+        return any(_contains_nonfinite_number(item) for item in value.values())
+    if isinstance(value, list):
+        return any(_contains_nonfinite_number(item) for item in value)
+    return False
+
+
 def _json_bytes(value: object) -> bytes:
     try:
         return (
@@ -827,7 +837,9 @@ def _validate_tool_call(value: object) -> None:
         or not isinstance(function.get("arguments"), str)
     ):
         raise MergeError("row_tool_contract_invalid")
-    _parse_json(function["arguments"].encode("utf-8"), "row_tool_contract_invalid")
+    arguments = _parse_json_object(function["arguments"].encode("utf-8"), "row_tool_contract_invalid")
+    if _contains_json_null(arguments) or _contains_nonfinite_number(arguments):
+        raise MergeError("row_tool_contract_invalid")
 
 
 def _validate_tool_schema(value: object) -> None:
@@ -874,10 +886,10 @@ def _validate_messages(messages: object, target_index: int) -> None:
             if "reasoning_content" in message and not isinstance(reasoning, str):
                 raise MergeError("row_reasoning_contract_invalid")
             finish_reason = message.get("finish_reason")
-            if finish_reason is not None and (not isinstance(finish_reason, str) or not finish_reason):
-                raise MergeError("row_finish_reason_contract_invalid")
             if finish_reason == "length":
                 raise MergeError("row_finish_reason_length")
+            if finish_reason is not None and finish_reason not in {"stop", "tool_calls"}:
+                raise MergeError("row_finish_reason_contract_invalid")
             tool_calls = message.get("tool_calls")
             if tool_calls is not None:
                 if not isinstance(tool_calls, list) or not tool_calls:

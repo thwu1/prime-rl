@@ -5,11 +5,14 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
+from datasets import Dataset
 from renderers import Nemotron3RendererConfig
 from renderers.base import RenderedTokens
+from renderers.nemotron3 import Nemotron3Renderer
 
 from prime_rl.configs.sft import SFTDataConfig
 from prime_rl.trainer.sft import export_preflight
+from prime_rl.trainer.sft.data import SFTDataset
 from prime_rl.trainer.sft.export_preflight import SFTPreflightError
 
 
@@ -17,10 +20,42 @@ class SyntheticTokenizer:
     eos_token_id = 99
 
 
+class CharacterTokenizer:
+    name_or_path = "nvidia/NVIDIA-Nemotron-3-Super-120B-A12B-BF16"
+    unk_token_id = 0
+    eos_token_id = 2
+    is_fast = True
+    _special_tokens = {
+        "<|im_start|>": 1,
+        "<|im_end|>": 2,
+        "<|endoftext|>": 3,
+        "<think>": 4,
+        "</think>": 5,
+        "<tool_call>": 6,
+        "</tool_call>": 7,
+        "<tool_response>": 8,
+        "</tool_response>": 9,
+    }
+
+    def convert_tokens_to_ids(self, token: str) -> int:
+        return self._special_tokens.get(token, self.unk_token_id)
+
+    def encode(self, text: str, *, add_special_tokens: bool) -> list[int]:
+        assert add_special_tokens is False
+        return [1_000 + ord(character) for character in text]
+
+    def __call__(self, text: str, *, add_special_tokens: bool, return_offsets_mapping: bool) -> dict:
+        assert add_special_tokens is False
+        assert return_offsets_mapping is True
+        return {
+            "input_ids": self.encode(text, add_special_tokens=False),
+            "offset_mapping": [(index, index + 1) for index in range(len(text))],
+        }
+
+
 class SyntheticRenderer:
-    def __init__(self, *, retain_reasoning: bool = True, corrupt_mask: bool = False):
+    def __init__(self, *, retain_reasoning: bool = True):
         self.retain_reasoning = retain_reasoning
-        self.corrupt_mask = corrupt_mask
 
     def render(self, messages, *, tools=None, add_generation_prompt=False):
         del tools
@@ -51,12 +86,13 @@ class SyntheticRenderer:
                 tokens.append(99)
                 indices.append(index)
                 sampled.append(True)
+                tokens.append(11)
+                indices.append(index)
+                sampled.append(False)
         if add_generation_prompt:
             tokens.append(70)
             indices.append(-1)
             sampled.append(False)
-        if self.corrupt_mask and sampled:
-            sampled[-1] = False
         return RenderedTokens(
             token_ids=tokens,
             message_indices=indices,
@@ -150,12 +186,20 @@ def test_render_preflight_requires_reasoning_sensitive_renderer() -> None:
         )
 
 
-def test_render_preflight_rejects_incorrect_sampled_loss_mask() -> None:
+def test_render_preflight_rejects_incorrect_sampled_loss_mask(monkeypatch: pytest.MonkeyPatch) -> None:
+    renderer = SyntheticRenderer()
+
+    def incorrect_training_sample(*_args, **_kwargs):
+        rendered = renderer.render(_row()["messages"])
+        return rendered.token_ids, [False] * len(rendered.token_ids)
+
+    monkeypatch.setattr(export_preflight, "build_training_sample", incorrect_training_sample)
+
     with pytest.raises(SFTPreflightError, match="^row_loss_mask_invalid$"):
         export_preflight._validate_and_render_row(
             _row(),
             SyntheticTokenizer(),
-            SyntheticRenderer(corrupt_mask=True),
+            renderer,
             262_144,
         )
 
@@ -163,6 +207,95 @@ def test_render_preflight_rejects_incorrect_sampled_loss_mask() -> None:
 def test_render_preflight_rejects_overlong_row() -> None:
     with pytest.raises(SFTPreflightError, match="^row_render_contract_invalid$"):
         export_preflight._validate_and_render_row(_row(), SyntheticTokenizer(), SyntheticRenderer(), 3)
+
+
+@pytest.mark.parametrize(
+    "arguments",
+    ["[]", "null", '{"value":null}', '{"value":NaN}', '{"value":1e400}', '{"value":1,"value":2}'],
+)
+def test_render_preflight_rejects_lossy_tool_arguments(arguments: str) -> None:
+    row = _row()
+    row["messages"][-1]["tool_calls"] = [
+        {
+            "id": "call-1",
+            "type": "function",
+            "function": {"name": "terminal", "arguments": arguments},
+        }
+    ]
+
+    with pytest.raises(SFTPreflightError, match="^row_tool_arguments_invalid$"):
+        export_preflight._validate_and_render_row(
+            row,
+            SyntheticTokenizer(),
+            SyntheticRenderer(),
+            262_144,
+        )
+
+
+def test_render_preflight_rejects_unknown_finish_reason() -> None:
+    row = _row()
+    row["messages"][-1]["finish_reason"] = "content_filter"
+    row["target_finish_reason"] = "content_filter"
+
+    with pytest.raises(SFTPreflightError, match="^row_finish_reason_contract_invalid$"):
+        export_preflight._validate_and_render_row(
+            row,
+            SyntheticTokenizer(),
+            SyntheticRenderer(),
+            262_144,
+        )
+
+
+def test_real_nemotron_renderer_matches_sft_dataset_mask_and_trailing_newline() -> None:
+    tokenizer = CharacterTokenizer()
+    renderer = Nemotron3Renderer(
+        tokenizer,
+        Nemotron3RendererConfig.model_validate(
+            export_preflight.EXPECTED_TARGET_RENDERING_CONTRACT["renderer"]["config"]
+        ),
+    )
+    row = _row()
+
+    summary = export_preflight._validate_and_render_row(row, tokenizer, renderer, 262_144)
+    prepared = export_preflight._prepare_messages(row["messages"])
+    rendered = renderer.render(prepared, tools=row["tools"])
+    target_sampled = [
+        index
+        for index, (message_index, sampled) in enumerate(
+            zip(rendered.message_indices, rendered.sampled_mask, strict=True)
+        )
+        if message_index == row["target_assistant_message_index"] and sampled
+    ]
+
+    assert summary.rows == 1
+    assert rendered.token_ids[target_sampled[-1]] == tokenizer.eos_token_id
+    assert rendered.token_ids[-1] == 1_000 + ord("\n")
+    assert rendered.sampled_mask[-1] is False
+
+    dataset = SFTDataset(
+        Dataset.from_list([row]),
+        tokenizer=tokenizer,
+        renderer=renderer,
+        shuffle=False,
+        seq_len=262_144,
+        max_examples=1,
+        max_epochs=1,
+        attested_export=True,
+    )
+    sample = next(iter(dataset))
+    _token_ids, expected_mask = export_preflight.build_training_sample(
+        renderer,
+        prepared,
+        role_to_mask=lambda message: export_preflight._message_is_trainable(
+            message,
+            export_preflight.LossMaskConfig(),
+        ),
+        tools=row["tools"],
+    )
+
+    assert sample["input_ids"] == rendered.token_ids[:-1]
+    assert sample["target_ids"] == rendered.token_ids[1:]
+    assert sample["loss_mask"] == expected_mask[1:]
 
 
 def test_training_config_is_bound_to_exact_tokenizer_renderer_and_loss_mask(tmp_path: Path) -> None:
@@ -305,15 +438,23 @@ def test_training_start_rechecks_attested_code_provenance(tmp_path: Path, monkey
         root=root,
         manifest=artifact,
         artifacts={name: artifact for name in export_preflight.REQUIRED_EXPORT_ARTIFACTS},
-        manifest_value={},
+        manifest_value={"counts": {"emitted_rows": 1, "train_rows": 1, "validation_rows": 0}},
         target_rendering=export_preflight.EXPECTED_TARGET_RENDERING_CONTRACT,
     )
     monkeypatch.setattr(export_preflight, "_format_v3_root", lambda _data: root)
     monkeypatch.setattr(export_preflight, "_load_export_binding", lambda *_args: binding)
     monkeypatch.setattr(export_preflight, "_repository_provenance", lambda *_args: attestation["code"])
+    monkeypatch.setattr(export_preflight, "_render_export", lambda _binding: attestation["rendering"])
 
     assert export_preflight.validate_sft_training_preflight(config) is True
 
+    changed_rendering = copy.deepcopy(attestation["rendering"])
+    changed_rendering["rendered_tokens"] += 1
+    monkeypatch.setattr(export_preflight, "_render_export", lambda _binding: changed_rendering)
+    with pytest.raises(SFTPreflightError, match="^attested_rendering_mismatch$"):
+        export_preflight.validate_sft_training_preflight(config)
+
+    monkeypatch.setattr(export_preflight, "_render_export", lambda _binding: attestation["rendering"])
     changed_code = copy.deepcopy(attestation["code"])
     changed_code["source"][export_preflight.CODE_PATHS[0]] = {"bytes": 1, "sha256": "f" * 64}
     monkeypatch.setattr(export_preflight, "_repository_provenance", lambda *_args: changed_code)

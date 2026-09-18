@@ -710,12 +710,15 @@ hash corruption and any provider-reported sequence over 262,144 tokens. The
 exporter also requires every captured chat request to match the persisted graph
 prompt, then validates each retained assistant message, finish reason, and usage
 against the captured provider response. Only the exact `/chat/completions`
-route is accepted. Unknown message fields/content parts, opaque
-`provider_state` or `reasoning_details`, and any selected sampled turn ending
-with `finish_reason=length` are rejected because the current SFT renderer cannot
-preserve those states faithfully. Tool definitions require the canonical
-OpenAI `type="function"` envelope and null-free JSON Schema values; the loader
-removes only null padding introduced by Arrow's cross-row struct widening.
+route is accepted. Assistant `content` may be absent when Verifiers'
+`exclude_none` serializer omits it. Unknown message fields/content parts,
+non-null `provider_state` or `reasoning_details`, and sampled finish reasons
+other than `stop` or `tool_calls` are rejected because the current SFT renderer
+cannot preserve those states faithfully. Tool definitions require the
+canonical OpenAI `type="function"` envelope and null-free JSON Schema values.
+Tool-call arguments must be duplicate-free, finite, null-free JSON objects.
+The loader removes only null padding introduced by Arrow's cross-row struct
+widening.
 
 One output row represents one unique sampled assistant node and its root-to-node
 message path. This preserves every genuine generation exactly once even when a
@@ -758,15 +761,17 @@ uv run python user/tianhaowu/terminal_bench_vmvm/preflight_sft.py \
   --output /absolute/path/to/corpus/sft-render-preflight.json
 ```
 
-The command renders every row, verifies that historical reasoning changes the
-token stream, proves the loss mask covers only the selected assistant target,
-and rejects a rendered row over 262,144 tokens. It records only aggregate
-counts and hashes. Pin the resulting file and digest in every format-v3 train
-or validation data block with `preflight_attestation` and
+The command renders every row, verifies that retained reasoning changes the
+token stream and target reasoning changes trainable tokens, proves the loss
+mask matches the selected assistant's renderer attribution, and rejects a
+rendered row over 262,144 tokens. It records only aggregate counts and hashes.
+Pin the resulting file and digest in every format-v3 train or validation data
+block with `preflight_attestation` and
 `preflight_attestation_sha256`. The trainer rehashes the attestation, export
-manifest and all declared artifacts, then rechecks the Prime-RL revision,
-loader sources, renderer gitlink, rendering/tokenization dependency versions, tokenizer revision,
-renderer config, loss mask, data path, and sequence length before model setup.
+manifest and all declared artifacts, then independently rerenders every row and
+rechecks the Prime-RL revision, loader sources, renderer gitlink,
+rendering/tokenization dependency versions, tokenizer revision, renderer
+config, loss mask, data path, and sequence length before model setup.
 Format-v3 rows are also rejected in the dataset loader unless this startup gate
 has succeeded. The target tokenizer block must use the repository and revision
 from `target-rendering-contract.json`, with `trust_remote_code = false`; the

@@ -29,7 +29,7 @@ from pathlib import Path
 from typing import Any, Literal
 
 import direct_qwen_workers as direct_workers
-from audit_traces import DEFAULT_MAX_SEQUENCE_TOKENS, _audit_trace
+from audit_traces import DEFAULT_MAX_SEQUENCE_TOKENS, TRAINABLE_FINISH_REASONS, _audit_trace, _valid_tool_arguments
 
 FORMAT_VERSION = 3
 SPLIT_BUCKETS = 10_000
@@ -1345,7 +1345,13 @@ def _flat_tool_calls(calls: object, *, nested: bool) -> list[tuple[str, str, str
         call_id = call.get("id")
         name = function.get("name")
         arguments = function.get("arguments")
-        if not all(isinstance(value, str) for value in (call_id, name, arguments)):
+        if (
+            not isinstance(call_id, str)
+            or not call_id
+            or not isinstance(name, str)
+            or not name
+            or not _valid_tool_arguments(arguments)
+        ):
             raise ExportError("captured_response_tool_calls_invalid")
         flattened.append((call_id, name, arguments))
     return flattened
@@ -1425,8 +1431,16 @@ def _validate_captured_response(node: dict[str, Any]) -> None:
         raise ExportError("captured_response_invalid")
     if raw_message.get("role") != "assistant":
         raise ExportError("captured_response_invalid")
-    allowed_raw_message_keys = {"role", "content", "tool_calls", "reasoning", "reasoning_content"}
-    if not {"role", "content"}.issubset(raw_message) or not set(raw_message).issubset(allowed_raw_message_keys):
+    allowed_raw_message_keys = {
+        "role",
+        "content",
+        "provider_state",
+        "reasoning",
+        "reasoning_content",
+        "reasoning_details",
+        "tool_calls",
+    }
+    if "role" not in raw_message or not set(raw_message).issubset(allowed_raw_message_keys):
         raise ExportError("captured_response_invalid")
     if "reasoning" in raw_message and "reasoning_content" in raw_message:
         raise ExportError("captured_response_invalid")
@@ -1434,7 +1448,11 @@ def _validate_captured_response(node: dict[str, Any]) -> None:
     message = node.get("message")
     if not isinstance(message, dict):
         raise ExportError("captured_response_message_mismatch")
-    if any(field in raw_message or field in message for field in ("provider_state", "reasoning_details")):
+    if any(
+        source.get(field) is not None
+        for source in (raw_message, message)
+        for field in ("provider_state", "reasoning_details")
+    ):
         raise ExportError("unsupported_assistant_state")
     if _content_text(raw_message.get("content")) != _content_text(message.get("content")):
         raise ExportError("captured_response_message_mismatch")
@@ -1473,10 +1491,8 @@ def _normalize_tool_call(call: object) -> dict[str, Any]:
         or not isinstance(arguments, str)
     ):
         raise ExportError("assistant_tool_call_invalid")
-    try:
-        json.loads(arguments)
-    except json.JSONDecodeError as error:
-        raise ExportError("assistant_tool_arguments_not_json") from error
+    if not _valid_tool_arguments(arguments):
+        raise ExportError("assistant_tool_arguments_not_json")
     return {
         "id": call_id,
         "type": "function",
@@ -1593,14 +1609,24 @@ def _normalize_message(node: object, *, target: bool) -> dict[str, Any]:
     if role not in {"system", "user", "assistant", "tool"}:
         raise ExportError("message_invalid")
     allowed_keys = {
-        "assistant": {"role", "content", "reasoning_content", "tool_calls"},
+        "assistant": {
+            "role",
+            "content",
+            "provider_state",
+            "reasoning_content",
+            "reasoning_details",
+            "tool_calls",
+        },
         "system": {"role", "content"},
         "tool": {"role", "content", "name", "tool_call_id"},
         "user": {"role", "content"},
     }[role]
-    if not {"role", "content"}.issubset(message) or not set(message).issubset(allowed_keys):
+    required_keys = {"role"} if role == "assistant" else {"role", "content"}
+    if not required_keys.issubset(message) or not set(message).issubset(allowed_keys):
         raise ExportError("message_invalid")
     if role == "assistant":
+        if any(message.get(field) is not None for field in ("provider_state", "reasoning_details")):
+            raise ExportError("unsupported_assistant_state")
         if content is not None and not isinstance(content, str):
             raise ExportError("message_content_invalid")
         normalized: dict[str, Any] = {
@@ -1616,7 +1642,7 @@ def _normalize_message(node: object, *, target: bool) -> dict[str, Any]:
             normalized["reasoning_content"] = reasoning
         if node.get("sampled") is True:
             finish_reason = node.get("finish_reason")
-            if not isinstance(finish_reason, str) or not finish_reason:
+            if finish_reason not in TRAINABLE_FINISH_REASONS:
                 raise ExportError("assistant_finish_reason_invalid")
             normalized["finish_reason"] = finish_reason
         calls = message.get("tool_calls")
@@ -1732,7 +1758,7 @@ def _trace_reward(trace: dict[str, Any]) -> float:
 
 def _contains_unsupported_provider_state(value: object) -> bool:
     if isinstance(value, dict):
-        return any(key in value for key in ("provider_state", "reasoning_details")) or any(
+        return any(value.get(key) is not None for key in ("provider_state", "reasoning_details")) or any(
             _contains_unsupported_provider_state(item) for item in value.values()
         )
     if isinstance(value, list):
@@ -1754,6 +1780,26 @@ def _validate_trainable_trace(
     stop_condition = trace.get("stop_condition")
     if not isinstance(stop_condition, str) or not stop_condition:
         raise ExportError("trace_stop_condition_invalid")
+    raw_nodes = trace.get("nodes")
+    if not isinstance(raw_nodes, list) or not all(isinstance(node, dict) for node in raw_nodes):
+        raise ExportError("message_graph_invalid")
+    nodes = list(raw_nodes)
+    for node in nodes:
+        message = node.get("message")
+        if isinstance(message, dict) and message.get("role") == "assistant":
+            calls = message.get("tool_calls")
+            if isinstance(calls, list):
+                for call in calls:
+                    _normalize_tool_call(call)
+        if node.get("sampled") is not True:
+            continue
+        finish_reason = node.get("finish_reason")
+        if not isinstance(finish_reason, str) or not finish_reason:
+            raise ExportError("captured_response_finish_reason_invalid")
+        if finish_reason == "length":
+            raise ExportError("sampled_finish_reason_length")
+        if finish_reason not in TRAINABLE_FINISH_REASONS:
+            raise ExportError("assistant_finish_reason_invalid")
     problems = _audit_trace(
         trace,
         require_reasoning=True,
@@ -1765,15 +1811,9 @@ def _validate_trainable_trace(
     )
     if problems:
         raise ExportError("trace_validation_failed")
-    raw_nodes = trace.get("nodes")
-    if not isinstance(raw_nodes, list) or not all(isinstance(node, dict) for node in raw_nodes):
-        raise ExportError("message_graph_invalid")
-    nodes = list(raw_nodes)
     for node in nodes:
         if node.get("sampled") is True:
             _validate_captured_response(node)
-            if node.get("finish_reason") == "length":
-                raise ExportError("sampled_finish_reason_length")
     tools = _stable_trace_tools(nodes)
     probe_rows = list(
         _target_rows(

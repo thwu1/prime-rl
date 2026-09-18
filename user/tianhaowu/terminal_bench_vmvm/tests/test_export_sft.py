@@ -17,6 +17,8 @@ from export_sft import (
     export_sft,
     main,
 )
+from verifiers.v1.dialects.chat import message_to_wire
+from verifiers.v1.types import AssistantMessage, ToolCall
 
 
 def _tool(name: str = "terminal") -> dict:
@@ -630,6 +632,43 @@ def test_exports_one_row_per_unique_sampled_node_and_normalizes_messages(tmp_pat
     assert "routing_epochs" not in json.loads((output / "manifest.json").read_text())
 
 
+def test_export_accepts_pinned_verifiers_exclude_none_assistant_serialization(tmp_path: Path) -> None:
+    trace = _linear_trace()
+    assistant = AssistantMessage(
+        reasoning_content="first-reasoning",
+        tool_calls=[ToolCall(id="call-1", name="terminal", arguments='{"command":"pwd"}')],
+    )
+    serialized = assistant.model_dump(mode="json", exclude_none=True)
+    assert "content" not in serialized
+    trace["nodes"][2]["message"] = serialized
+    first_response = trace["nodes"][2]["model_io"]["response"]
+    first_response["body"]["choices"][0]["message"].pop("content")
+    first_response["sha256"] = _json_sha256(first_response["body"])
+
+    wire = message_to_wire(assistant)
+    assert wire["content"] is None
+    second_request = trace["nodes"][4]["model_io"]["request"]
+    second_request["append_fields"]["messages"][0] = wire
+    second_request["sha256"] = _json_sha256(
+        {
+            **trace["nodes"][2]["model_io"]["request"]["body"],
+            "messages": [
+                *trace["nodes"][2]["model_io"]["request"]["body"]["messages"],
+                *second_request["append_fields"]["messages"],
+            ],
+        }
+    )
+    results = _write_run(tmp_path / "run", [trace])
+    output = tmp_path / "dataset"
+
+    export_sft(_options(results, output))
+
+    rows = _read_jsonl(output / "train" / "train.jsonl")
+    assert rows[0]["messages"][-1]["content"] == ""
+    assert rows[0]["messages"][-1]["reasoning_content"] == "first-reasoning"
+    assert rows[0]["messages"][-1]["tool_calls"][0]["function"]["arguments"] == '{"command":"pwd"}'
+
+
 def test_branched_trace_does_not_duplicate_shared_prefix_targets(tmp_path: Path) -> None:
     results = _write_run(tmp_path / "run", [_branched_trace()])
     output = tmp_path / "dataset"
@@ -793,16 +832,56 @@ def test_sampled_length_finish_reason_is_not_trainable(tmp_path: Path) -> None:
         export_sft(_options(results, tmp_path / "dataset"))
 
 
+def test_unknown_sampled_finish_reason_is_not_trainable(tmp_path: Path) -> None:
+    trace = _linear_trace()
+    node = trace["nodes"][2]
+    node["finish_reason"] = "content_filter"
+    response = node["model_io"]["response"]
+    response["body"]["choices"][0]["finish_reason"] = "content_filter"
+    response["sha256"] = _json_sha256(response["body"])
+    results = _write_run(tmp_path / "run", [trace])
+
+    with pytest.raises(ExportError, match="^assistant_finish_reason_invalid$"):
+        export_sft(_options(results, tmp_path / "dataset"))
+
+
 @pytest.mark.parametrize("field", ["provider_state", "reasoning_details"])
-def test_unsupported_provider_reasoning_state_is_rejected(tmp_path: Path, field: str) -> None:
+@pytest.mark.parametrize("value", [{"opaque": "synthetic"}, []])
+def test_unsupported_provider_reasoning_state_is_rejected(tmp_path: Path, field: str, value: object) -> None:
     trace = _linear_trace()
     response = trace["nodes"][2]["model_io"]["response"]
-    response["body"]["choices"][0]["message"][field] = {"opaque": "synthetic"}
+    response["body"]["choices"][0]["message"][field] = value
     response["sha256"] = _json_sha256(response["body"])
     results = _write_run(tmp_path / "run", [trace])
 
     with pytest.raises(ExportError, match="^unsupported_assistant_state$"):
         export_sft(_options(results, tmp_path / "dataset"))
+
+
+@pytest.mark.parametrize("field", ["provider_state", "reasoning_details"])
+def test_null_provider_reasoning_state_is_tolerated(tmp_path: Path, field: str) -> None:
+    trace = _linear_trace()
+    node = trace["nodes"][2]
+    node["message"][field] = None
+    response = node["model_io"]["response"]
+    response["body"]["choices"][0]["message"][field] = None
+    response["sha256"] = _json_sha256(response["body"])
+    second_request = trace["nodes"][4]["model_io"]["request"]
+    second_request["append_fields"]["messages"][0][field] = None
+    second_request["sha256"] = _json_sha256(
+        {
+            **node["model_io"]["request"]["body"],
+            "messages": [
+                *node["model_io"]["request"]["body"]["messages"],
+                *second_request["append_fields"]["messages"],
+            ],
+        }
+    )
+    results = _write_run(tmp_path / "run", [trace])
+
+    summary = export_sft(_options(results, tmp_path / "dataset"))
+
+    assert summary["rows"]["total"] == 2
 
 
 @pytest.mark.parametrize("field", ["provider_state", "reasoning_details"])
@@ -960,6 +1039,15 @@ def test_malformed_tool_arguments_are_rejected(tmp_path: Path) -> None:
 
     with pytest.raises(ExportError, match="^assistant_tool_arguments_not_json$"):
         export_sft(_options(results, tmp_path / "dataset"))
+
+
+@pytest.mark.parametrize(
+    "arguments",
+    ["[]", "null", '{"value":null}', '{"value":NaN}', '{"value":1e400}', '{"value":1,"value":2}'],
+)
+def test_tool_arguments_require_strict_finite_null_free_json_object(arguments: str) -> None:
+    with pytest.raises(ExportError, match="^assistant_tool_arguments_not_json$"):
+        exporter._normalize_tool_call({"id": "call-1", "name": "terminal", "arguments": arguments})
 
 
 def test_authentic_zero_reasoning_tool_turn_is_preserved_without_synthesis(tmp_path: Path) -> None:

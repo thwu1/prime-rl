@@ -5,7 +5,7 @@ from collections import Counter
 from pathlib import Path
 
 import pytest
-from audit_traces import _audit_trace, _iter_traces, _summarize_traces, main
+from audit_traces import _audit_trace, _iter_traces, _summarize_traces, _valid_tool_arguments, main
 
 
 def _trace(trace_id: str, slug: str, *, valid: bool = True) -> dict:
@@ -587,6 +587,30 @@ def test_audit_trace_requires_exact_chat_completions_route() -> None:
     assert _audit_trace(trace, require_reasoning=True, require_model_io=True) == [
         "node_0_model_io_provider_route_invalid"
     ]
+
+
+@pytest.mark.parametrize(
+    ("arguments", "valid"),
+    [
+        ('{"command":"pwd"}', True),
+        ('{"items":[1,false,""],"nested":{}}', True),
+        ("[]", False),
+        ("null", False),
+        ('{"value":null}', False),
+        ('{"value":NaN}', False),
+        ('{"value":1e400}', False),
+        ('{"value":1,"value":2}', False),
+    ],
+)
+def test_tool_arguments_are_strict_finite_null_free_json_objects(arguments: str, valid: bool) -> None:
+    assert _valid_tool_arguments(arguments) is valid
+
+
+def test_audit_trace_rejects_unknown_finish_reason() -> None:
+    trace = _trace_with_model_io()
+    trace["nodes"][0]["finish_reason"] = "content_filter"
+
+    assert "node_0_finish_reason_invalid" in _audit_trace(trace, require_reasoning=True, require_model_io=True)
 
 
 @pytest.mark.parametrize(

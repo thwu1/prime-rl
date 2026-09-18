@@ -1121,6 +1121,45 @@ def test_rehashed_repair_export_rejects_sampled_length_finish_reason(tmp_path: P
         )
 
 
+def test_rehashed_repair_export_rejects_unknown_finish_reason(tmp_path: Path) -> None:
+    original, repair, selection, selection_sha256, _task_ids = _fixture_exports(tmp_path)
+    train_path = repair / "train" / "train.jsonl"
+    rows = [json.loads(line) for line in train_path.read_text().splitlines()]
+    rows[0]["messages"][-1]["finish_reason"] = "content_filter"
+    rows[0]["target_finish_reason"] = "content_filter"
+    _replace_export_artifact(repair, "train/train.jsonl", _jsonl(rows))
+
+    with pytest.raises(MergeError, match="^row_finish_reason_contract_invalid$"):
+        merge_qwen_sft(
+            _options(original, repair, selection, selection_sha256, tmp_path / "merged"),
+            code_provenance=_code_provenance(),
+        )
+
+
+@pytest.mark.parametrize(
+    "arguments",
+    ["[]", "null", '{"value":null}', '{"value":NaN}', '{"value":1e400}', '{"value":1,"value":2}'],
+)
+def test_rehashed_repair_export_rejects_lossy_tool_arguments(tmp_path: Path, arguments: str) -> None:
+    original, repair, selection, selection_sha256, _task_ids = _fixture_exports(tmp_path)
+    train_path = repair / "train" / "train.jsonl"
+    rows = [json.loads(line) for line in train_path.read_text().splitlines()]
+    rows[0]["messages"][-1]["tool_calls"] = [
+        {
+            "id": "call-1",
+            "type": "function",
+            "function": {"name": "terminal", "arguments": arguments},
+        }
+    ]
+    _replace_export_artifact(repair, "train/train.jsonl", _jsonl(rows))
+
+    with pytest.raises(MergeError, match="^row_tool_contract_invalid$"):
+        merge_qwen_sft(
+            _options(original, repair, selection, selection_sha256, tmp_path / "merged"),
+            code_provenance=_code_provenance(),
+        )
+
+
 def test_rehashed_repair_export_rejects_tool_without_function_type(tmp_path: Path) -> None:
     original, repair, selection, selection_sha256, _task_ids = _fixture_exports(tmp_path)
     train_path = repair / "train" / "train.jsonl"

@@ -17,6 +17,7 @@ DEFAULT_MAX_SEQUENCE_TOKENS = 262_144
 FORBIDDEN_MODEL_REQUEST_FIELDS = frozenset({"logprobs", "prompt_logprobs", "return_token_ids", "top_logprobs"})
 REPEATED_KDA_CHARACTER_THRESHOLD = 64
 _SHA256_HEX_CHARS = frozenset("0123456789abcdef")
+TRAINABLE_FINISH_REASONS = frozenset({"stop", "tool_calls"})
 
 
 class TraceJSONLError(ValueError):
@@ -50,6 +51,41 @@ def _valid_content(value: object) -> bool:
     return True
 
 
+def _valid_tool_arguments(value: object) -> bool:
+    if not isinstance(value, str):
+        return False
+
+    def reject_duplicates(pairs: list[tuple[str, object]]) -> dict[str, object]:
+        result: dict[str, object] = {}
+        for key, item in pairs:
+            if key in result:
+                raise ValueError("duplicate key")
+            result[key] = item
+        return result
+
+    try:
+        parsed = json.loads(
+            value,
+            object_pairs_hook=reject_duplicates,
+            parse_constant=lambda _constant: (_ for _ in ()).throw(ValueError()),
+        )
+    except (TypeError, ValueError):
+        return False
+
+    def valid_json_value(item: object) -> bool:
+        if item is None:
+            return False
+        if isinstance(item, float):
+            return math.isfinite(item)
+        if isinstance(item, dict):
+            return all(valid_json_value(child) for child in item.values())
+        if isinstance(item, list):
+            return all(valid_json_value(child) for child in item)
+        return isinstance(item, (bool, int, str))
+
+    return isinstance(parsed, dict) and valid_json_value(parsed)
+
+
 def _has_whitespace_separated_run(text: str, character: str, threshold: int) -> bool:
     """Detect a repeated character separated by whitespace, without joining unrelated text."""
     pattern = rf"{re.escape(character)}(?:\s*{re.escape(character)}){{{threshold - 1},}}"
@@ -67,10 +103,18 @@ def _message_problems(node: dict, index: int) -> list[str]:
     allowed_keys = {
         "system": {"role", "content"},
         "user": {"role", "content"},
-        "assistant": {"role", "content", "reasoning_content", "tool_calls"},
+        "assistant": {
+            "role",
+            "content",
+            "provider_state",
+            "reasoning_content",
+            "reasoning_details",
+            "tool_calls",
+        },
         "tool": {"role", "content", "tool_call_id", "name"},
     }[role]
-    if not {"role", "content"}.issubset(message) or not set(message).issubset(allowed_keys):
+    required_keys = {"role"} if role == "assistant" else {"role", "content"}
+    if not required_keys.issubset(message) or not set(message).issubset(allowed_keys):
         problems.append(f"node_{index}_message_keys_invalid")
     if node.get("sampled") is True and role != "assistant":
         problems.append(f"node_{index}_sampled_message_not_assistant")
@@ -87,7 +131,7 @@ def _message_problems(node: dict, index: int) -> list[str]:
         content = message.get("content")
         reasoning = message.get("reasoning_content")
         tool_calls = message.get("tool_calls")
-        if "provider_state" in message or "reasoning_details" in message:
+        if any(message.get(field) is not None for field in ("provider_state", "reasoning_details")):
             problems.append(f"node_{index}_unsupported_assistant_state")
         if content is not None and not isinstance(content, str):
             problems.append(f"node_{index}_assistant_content_invalid")
@@ -107,6 +151,8 @@ def _message_problems(node: dict, index: int) -> list[str]:
                     value = call.get(field)
                     if not isinstance(value, str) or (field != "arguments" and not value):
                         problems.append(f"node_{index}_tool_call_{call_index}_{field}_invalid")
+                if not _valid_tool_arguments(call.get("arguments")):
+                    problems.append(f"node_{index}_tool_call_{call_index}_arguments_json_invalid")
                 call_id = call.get("id")
                 if isinstance(call_id, str) and call_id:
                     if call_id in seen_call_ids:
@@ -119,6 +165,9 @@ def _message_problems(node: dict, index: int) -> list[str]:
         ):
             problems.append(f"node_{index}_assistant_payload_empty")
         if node.get("sampled") is True:
+            finish_reason = node.get("finish_reason")
+            if finish_reason is not None and finish_reason not in TRAINABLE_FINISH_REASONS:
+                problems.append(f"node_{index}_finish_reason_invalid")
             repeated_characters = {"@": "at", "!": "bang"}
             for field_name, text in (("content", content), ("reasoning", reasoning)):
                 if not isinstance(text, str):
@@ -471,7 +520,7 @@ def _prompt_tool_calls(value: object, *, wire: bool) -> list[dict] | None:
             or not call_id
             or not isinstance(name, str)
             or not name
-            or not isinstance(arguments, str)
+            or not _valid_tool_arguments(arguments)
         ):
             raise ValueError("tool_calls")
         normalized.append({"id": call_id, "name": name, "arguments": arguments})
@@ -516,12 +565,21 @@ def _prompt_messages(messages: object, *, wire: bool) -> list[dict]:
             continue
         if role != "assistant":
             raise ValueError("message")
-        allowed = {"role", "content", "tool_calls", "reasoning_content"}
+        allowed = {
+            "role",
+            "content",
+            "provider_state",
+            "reasoning_details",
+            "tool_calls",
+            "reasoning_content",
+        }
         if wire:
             allowed.add("reasoning")
-        if not {"role", "content"}.issubset(message) or not set(message).issubset(allowed):
+        if "role" not in message or not set(message).issubset(allowed):
             raise ValueError("message")
         if wire and "reasoning" in message and "reasoning_content" in message:
+            raise ValueError("message")
+        if any(message.get(field) is not None for field in ("provider_state", "reasoning_details")):
             raise ValueError("message")
         content = message.get("content")
         if content is not None and not isinstance(content, str):

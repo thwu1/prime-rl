@@ -170,6 +170,16 @@ def _contains_json_null(value: object) -> bool:
     return False
 
 
+def _contains_nonfinite_number(value: object) -> bool:
+    if isinstance(value, float):
+        return not math.isfinite(value)
+    if isinstance(value, dict):
+        return any(_contains_nonfinite_number(item) for item in value.values())
+    if isinstance(value, list):
+        return any(_contains_nonfinite_number(item) for item in value)
+    return False
+
+
 def _same_file(before: os.stat_result, after: os.stat_result) -> bool:
     return (before.st_dev, before.st_ino, before.st_size, before.st_mtime_ns) == (
         after.st_dev,
@@ -250,13 +260,6 @@ def _parse_json_object(body: bytes, code: str) -> dict[str, Any]:
     if not isinstance(value, dict):
         raise SFTPreflightError(code)
     return value
-
-
-def _parse_json_value(body: bytes, code: str) -> Any:
-    try:
-        return json.loads(body, parse_constant=lambda _value: (_ for _ in ()).throw(ValueError()))
-    except (UnicodeDecodeError, ValueError) as error:
-        raise SFTPreflightError(code) from error
 
 
 def _artifact(value: object, code: str) -> FileArtifact:
@@ -352,7 +355,9 @@ def _validate_tool_call(value: object) -> None:
         or not isinstance(function.get("arguments"), str)
     ):
         raise SFTPreflightError("row_tool_contract_invalid")
-    _parse_json_value(function["arguments"].encode(), "row_tool_arguments_invalid")
+    arguments = _parse_json_object(function["arguments"].encode(), "row_tool_arguments_invalid")
+    if _contains_json_null(arguments) or _contains_nonfinite_number(arguments):
+        raise SFTPreflightError("row_tool_arguments_invalid")
 
 
 def _validate_tools(value: object) -> list[dict[str, Any]]:
@@ -403,10 +408,10 @@ def _validate_messages(value: object, target_index: int) -> tuple[list[dict[str,
                 if not isinstance(message["reasoning_content"], str):
                     raise SFTPreflightError("row_reasoning_contract_invalid")
             finish_reason = message.get("finish_reason")
-            if finish_reason is not None and (not isinstance(finish_reason, str) or not finish_reason):
-                raise SFTPreflightError("row_finish_reason_contract_invalid")
             if finish_reason == "length":
                 raise SFTPreflightError("row_finish_reason_length")
+            if finish_reason is not None and finish_reason not in {"stop", "tool_calls"}:
+                raise SFTPreflightError("row_finish_reason_contract_invalid")
             calls = message.get("tool_calls")
             if calls is not None:
                 if not isinstance(calls, list) or not calls:
@@ -473,7 +478,8 @@ def _validate_and_render_row(
     if row.get("history_reasoning_policy") != "preserve_all_assistant_reasoning":
         raise SFTPreflightError("row_reasoning_contract_invalid")
     target = messages[target_index]
-    if row.get("target_finish_reason") != target.get("finish_reason"):
+    target_finish_reason = row.get("target_finish_reason")
+    if target_finish_reason not in {"stop", "tool_calls"} or target_finish_reason != target.get("finish_reason"):
         raise SFTPreflightError("row_finish_reason_contract_invalid")
     if row.get("target_has_reasoning") != bool(str(target.get("reasoning_content") or "").strip()):
         raise SFTPreflightError("row_reasoning_contract_invalid")
@@ -517,19 +523,20 @@ def _validate_and_render_row(
         message_index == target_index and sampled
         for message_index, sampled in zip(rendered.message_indices, rendered.sampled_mask, strict=True)
     ]
-    prompt_messages = prepared[:target_index] or [{"role": "system", "content": ""}]
-    prompt_tokens = renderer.render(prompt_messages, tools=tools, add_generation_prompt=True).token_ids
-    expected_loss_mask = [False] * len(prompt_tokens) + [True] * (len(rendered.token_ids) - len(prompt_tokens))
+    target_sampled_indices = [index for index, selected in enumerate(attributed_target_mask) if selected]
     if (
-        len(prompt_tokens) >= len(rendered.token_ids)
-        or rendered.token_ids[: len(prompt_tokens)] != prompt_tokens
-        or attributed_target_mask != expected_loss_mask
+        not target_sampled_indices
         or token_ids != rendered.token_ids
-        or loss_mask != expected_loss_mask
+        or loss_mask != attributed_target_mask
         or not any(loss_mask[1:])
     ):
         raise SFTPreflightError("row_loss_mask_invalid")
-    if tokenizer.eos_token_id is None or token_ids[-1] != tokenizer.eos_token_id:
+    last_target_sampled = target_sampled_indices[-1]
+    if (
+        tokenizer.eos_token_id is None
+        or token_ids[last_target_sampled] != tokenizer.eos_token_id
+        or any(rendered.sampled_mask[last_target_sampled + 1 :])
+    ):
         raise SFTPreflightError("row_eos_contract_invalid")
     rendered_reasoning = 0
     nonempty_reasoning = 0
@@ -540,8 +547,18 @@ def _validate_and_render_row(
         nonempty_reasoning += 1
         without_reasoning = copy.deepcopy(prepared)
         del without_reasoning[index]["reasoning_content"]
-        if renderer.render(without_reasoning, tools=tools).token_ids == rendered.token_ids:
+        without_ids, without_mask = build_training_sample(
+            renderer,
+            without_reasoning,
+            role_to_mask=lambda item: _message_is_trainable(item, LossMaskConfig()),
+            tools=tools,
+        )
+        if without_ids == rendered.token_ids:
             raise SFTPreflightError("row_reasoning_not_rendered")
+        if message["trainable"] and [
+            token for token, selected in zip(without_ids, without_mask, strict=True) if selected
+        ] == [token for token, selected in zip(token_ids, loss_mask, strict=True) if selected]:
+            raise SFTPreflightError("row_reasoning_not_trainable")
         rendered_reasoning += 1
     return RenderingSummary(
         rows=1,
@@ -572,7 +589,12 @@ def _scan_split(
             digest.update(raw_line)
             size += len(raw_line)
             row = _parse_json_object(raw_line, "export_row_invalid")
-            row_summary = _validate_and_render_row(row, tokenizer, renderer, max_sequence_tokens)
+            try:
+                row_summary = _validate_and_render_row(row, tokenizer, renderer, max_sequence_tokens)
+            except SFTPreflightError:
+                raise
+            except Exception:
+                raise SFTPreflightError("row_render_failed") from None
             summary = RenderingSummary(
                 rows=summary.rows + 1,
                 rendered_tokens=summary.rendered_tokens + row_summary.rendered_tokens,
@@ -588,6 +610,54 @@ def _scan_split(
     if not _same_file(before, after) or FileArtifact(size, digest.hexdigest()) != expected:
         raise SFTPreflightError("export_split_digest_mismatch")
     return summary
+
+
+def _render_export(binding: ExportBinding) -> dict[str, Any]:
+    tokenizer_contract = EXPECTED_TARGET_RENDERING_CONTRACT["tokenizer"]
+    renderer_contract = EXPECTED_TARGET_RENDERING_CONTRACT["renderer"]
+    tokenizer = AutoTokenizer.from_pretrained(
+        tokenizer_contract["repository"],
+        revision=tokenizer_contract["revision"],
+        trust_remote_code=tokenizer_contract["trust_remote_code"],
+    )
+    renderer_config = Nemotron3RendererConfig.model_validate(renderer_contract["config"])
+    renderer = create_renderer(tokenizer, renderer_config)
+    max_tokens = EXPECTED_TARGET_RENDERING_CONTRACT["max_sequence_tokens"]
+    summaries = {
+        split: _scan_split(
+            binding.root / split / "train.jsonl",
+            binding.artifacts[f"{split}/train.jsonl"],
+            tokenizer,
+            renderer,
+            max_tokens,
+        )
+        for split in ("train", "validation")
+    }
+    total = RenderingSummary(
+        rows=sum(summary.rows for summary in summaries.values()),
+        rendered_tokens=sum(summary.rendered_tokens for summary in summaries.values()),
+        max_rendered_tokens=max(summary.max_rendered_tokens for summary in summaries.values()),
+        trainable_tokens=sum(summary.trainable_tokens for summary in summaries.values()),
+        reasoning_fields=sum(summary.reasoning_fields for summary in summaries.values()),
+        nonempty_reasoning_fields=sum(summary.nonempty_reasoning_fields for summary in summaries.values()),
+        reasoning_fields_rendered=sum(summary.reasoning_fields_rendered for summary in summaries.values()),
+    )
+    return {**total.as_dict(), "splits": {name: summary.as_dict() for name, summary in summaries.items()}}
+
+
+def _validate_rendering_counts(binding: ExportBinding, rendering: Mapping[str, Any]) -> None:
+    counts = binding.manifest_value.get("counts")
+    splits = rendering.get("splits")
+    if (
+        not isinstance(counts, dict)
+        or not isinstance(splits, dict)
+        or not isinstance(splits.get("train"), dict)
+        or not isinstance(splits.get("validation"), dict)
+        or counts.get("emitted_rows") != rendering.get("rows")
+        or counts.get("train_rows") != splits["train"].get("rows")
+        or counts.get("validation_rows") != splits["validation"].get("rows")
+    ):
+        raise SFTPreflightError("export_row_count_mismatch")
 
 
 def _run_git(project: Path, arguments: list[str], code: str) -> str:
@@ -682,45 +752,10 @@ def create_sft_preflight_attestation(
     _canonical_directory(output.parent, "attestation_path_invalid")
     binding = _load_export_binding(export_root, expected_manifest_sha256)
     code = _repository_provenance(project_dir, expected_project_revision)
-    tokenizer_contract = EXPECTED_TARGET_RENDERING_CONTRACT["tokenizer"]
-    renderer_contract = EXPECTED_TARGET_RENDERING_CONTRACT["renderer"]
-    tokenizer = AutoTokenizer.from_pretrained(
-        tokenizer_contract["repository"],
-        revision=tokenizer_contract["revision"],
-        trust_remote_code=tokenizer_contract["trust_remote_code"],
-    )
-    renderer_config = Nemotron3RendererConfig.model_validate(renderer_contract["config"])
-    renderer = create_renderer(tokenizer, renderer_config)
-    max_tokens = EXPECTED_TARGET_RENDERING_CONTRACT["max_sequence_tokens"]
-    summaries = {
-        split: _scan_split(
-            binding.root / split / "train.jsonl",
-            binding.artifacts[f"{split}/train.jsonl"],
-            tokenizer,
-            renderer,
-            max_tokens,
-        )
-        for split in ("train", "validation")
-    }
-    total = RenderingSummary(
-        rows=sum(summary.rows for summary in summaries.values()),
-        rendered_tokens=sum(summary.rendered_tokens for summary in summaries.values()),
-        max_rendered_tokens=max(summary.max_rendered_tokens for summary in summaries.values()),
-        trainable_tokens=sum(summary.trainable_tokens for summary in summaries.values()),
-        reasoning_fields=sum(summary.reasoning_fields for summary in summaries.values()),
-        nonempty_reasoning_fields=sum(summary.nonempty_reasoning_fields for summary in summaries.values()),
-        reasoning_fields_rendered=sum(summary.reasoning_fields_rendered for summary in summaries.values()),
-    )
-    if total.rows < 1 or total.trainable_tokens < 1:
+    rendering = _render_export(binding)
+    if rendering["rows"] < 1 or rendering["trainable_tokens"] < 1:
         raise SFTPreflightError("export_has_no_trainable_rows")
-    counts = binding.manifest_value.get("counts")
-    if (
-        not isinstance(counts, dict)
-        or counts.get("emitted_rows") != total.rows
-        or counts.get("train_rows") != summaries["train"].rows
-        or counts.get("validation_rows") != summaries["validation"].rows
-    ):
-        raise SFTPreflightError("export_row_count_mismatch")
+    _validate_rendering_counts(binding, rendering)
     if _repository_provenance(project_dir, expected_project_revision) != code:
         raise SFTPreflightError("project_changed_during_preflight")
     rebound = _load_export_binding(binding.root, binding.manifest.sha256)
@@ -734,16 +769,17 @@ def create_sft_preflight_attestation(
             "root": str(binding.root),
         },
         "kind": ATTESTATION_KIND,
-        "rendering": {
-            **total.as_dict(),
-            "splits": {name: summary.as_dict() for name, summary in summaries.items()},
-        },
+        "rendering": rendering,
         "schema_version": ATTESTATION_SCHEMA_VERSION,
         "target_rendering": EXPECTED_TARGET_RENDERING_CONTRACT,
     }
     _validate_attestation_value(value)
     artifact = _write_attestation(output, value)
-    return {"attestation_sha256": artifact.sha256, "rendering": total.as_dict(), "status": "attested"}
+    return {
+        "attestation_sha256": artifact.sha256,
+        "rendering": {key: item for key, item in rendering.items() if key != "splits"},
+        "status": "attested",
+    }
 
 
 def _format_v3_root(data: SFTDataConfig) -> Path | None:
@@ -938,4 +974,13 @@ def validate_sft_training_preflight(config: SFTConfig) -> bool:
     _validate_config_binding(config, data_configs, attestation)
     if format_v3_roots and format_v3_roots != {binding.root}:
         raise SFTPreflightError("training_data_contract_mismatch")
+    observed_rendering = _render_export(binding)
+    if observed_rendering != attestation["rendering"]:
+        raise SFTPreflightError("attested_rendering_mismatch")
+    _validate_rendering_counts(binding, observed_rendering)
+    rebound = _load_export_binding(binding.root, binding.manifest.sha256)
+    if rebound.manifest != binding.manifest or rebound.artifacts != binding.artifacts:
+        raise SFTPreflightError("attested_export_changed")
+    if _repository_provenance(project, attestation["code"]["project_revision"]) != observed_code:
+        raise SFTPreflightError("attested_code_changed")
     return True
