@@ -23,6 +23,8 @@ def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--discovery-input", type=Path, required=True)
     parser.add_argument("--discovery-input-sha256", required=True)
+    parser.add_argument("--expected-entry-count", type=int, required=True)
+    parser.add_argument("--expected-missing-evidence-sha256", required=True)
     parser.add_argument("--output-dir", type=Path, required=True)
     parser.add_argument("--resume-state-sha256")
     parser.add_argument("--max-concurrent-entries", type=int, default=2)
@@ -37,6 +39,19 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument("--vacli-max-pull-retries", type=int, required=True)
     parser.add_argument("--vacli-image-pull-timeout-seconds", type=int, required=True)
     parser.add_argument("--vacli-container-privileged", type=int, choices=(0, 1), required=True)
+    parser.add_argument("--project-dir", type=Path, required=True)
+    parser.add_argument("--canonical-launcher-path", type=Path, required=True)
+    parser.add_argument("--executed-launcher-path", type=Path, required=True)
+    parser.add_argument("--uv-path", type=Path, required=True)
+    parser.add_argument("--python-path", type=Path, required=True)
+    parser.add_argument("--python-stdlib-path", type=Path, required=True)
+    parser.add_argument("--site-packages-path", type=Path, required=True)
+    parser.add_argument("--vacli-path", type=Path, required=True)
+    parser.add_argument("--launcher-sha256", required=True)
+    parser.add_argument("--uv-sha256", required=True)
+    parser.add_argument("--python-sha256", required=True)
+    parser.add_argument("--python-runtime-manifest-sha256", required=True)
+    parser.add_argument("--site-packages-manifest-sha256", required=True)
     parser.add_argument("--source-commit", required=True)
     parser.add_argument("--base-runtime-commit", required=True)
     parser.add_argument("--source-git-tree", required=True)
@@ -79,6 +94,21 @@ def main() -> int:
         input_path=args.discovery_input,
         input_sha256=args.discovery_input_sha256,
         output_dir=args.output_dir,
+        expected_entry_count=args.expected_entry_count,
+        expected_missing_evidence_sha256=args.expected_missing_evidence_sha256,
+        project_dir=args.project_dir,
+        canonical_launcher_path=args.canonical_launcher_path,
+        executed_launcher_path=args.executed_launcher_path,
+        uv_path=args.uv_path,
+        python_path=args.python_path,
+        python_stdlib_path=args.python_stdlib_path,
+        site_packages_path=args.site_packages_path,
+        vacli_path=args.vacli_path,
+        launcher_sha256=args.launcher_sha256,
+        uv_sha256=args.uv_sha256,
+        python_sha256=args.python_sha256,
+        python_runtime_manifest_sha256=args.python_runtime_manifest_sha256,
+        site_packages_manifest_sha256=args.site_packages_manifest_sha256,
         base_runtime_commit=args.base_runtime_commit,
         source_commit=args.source_commit,
         source_git_tree=args.source_git_tree,
@@ -127,8 +157,10 @@ def main() -> int:
                 },
                 "hashes": {
                     "discovery_input_sha256": result["input_sha256"],
+                    "missing_evidence_sha256": result["missing_evidence_sha256"],
                     "policy_sha256": result["policy_sha256"],
                     "proof_sha256": result["proof_sha256"],
+                    "finalization_sha256": result["finalization_sha256"],
                     "state_sha256": result["state_sha256"],
                 },
             },
