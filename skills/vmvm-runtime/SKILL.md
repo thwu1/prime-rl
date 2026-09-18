@@ -326,14 +326,23 @@ the controller from a clean detached exact revision with clean pinned
 submodules, an externally pinned source task-file digest and provenance digest,
 and new, absolute, disjoint runtime/export paths. It calls the direct evaluator
 as a shell program in the same allocation, exports original and repair sources
-pass-only, and atomically merges the two attested corpora. A zero-owed plan
-publishes the original export only. Treat task entries as opaque and never add
-semantic or name-based filtering. The selection manifest, its union/category
-files, and the repair export's copied selection and attestation sidecars must
-remain regular mode-0600 files and byte-identical to their pinned inputs. Child
-logs are private mode 0600, while console output is restricted to aggregate
-counts, digests, and stable codes. Submit this state change only through
-`swebench_vmvm:Launcher.0` with an `afterany` dependency on the producer.
+pass-only, and atomically merges the two attested corpora. A malformed final
+append without a newline is retained in the immutable physical source and its
+digest, but is omitted from logical routing/export rows only when the repair
+selection accounts for an owed task; complete malformed rows still fail. A
+valid final JSON object remains a logical row even without its newline. Repair
+exports cross-bind each task name and index to the evaluator order of the
+approved repair universe. Before merge, the controller binds both finalized
+export manifests and complete export-tree digests; the merger rejects any
+later tree mutation and any repair task outside the selected union. A
+zero-owed plan publishes the original export only. Treat task entries as opaque
+and never add semantic or name-based filtering. The selection manifest, its
+union/category files, and the repair export's copied selection and attestation
+sidecars must remain regular mode-0600 files and byte-identical to their pinned
+inputs. Child logs are private mode 0600, while console output is restricted to
+aggregate counts, digests, and stable codes. Submit this state change only
+through `swebench_vmvm:Launcher.0` with an `afterany` dependency on the
+producer.
 
 `VACLI_IMAGE_PULL_TIMEOUT_SECONDS` bounds each VM-side image pull attempt. The
 DeepSWE launcher derives it from TOML `sandbox_startup_timeout_sec` and uses one

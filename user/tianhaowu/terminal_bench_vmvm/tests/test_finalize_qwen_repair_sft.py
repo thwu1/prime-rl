@@ -277,6 +277,7 @@ def test_finalize_publishes_exact_fresh_repair_attestation(
     def run_command(command: list[str], _cwd: Path, code: str) -> dict:
         assert code == "sft_export_failed"
         assert "--routing-epoch-index" not in command
+        assert command.count("--require-task-index-binding") == 1
         output = Path(command[command.index("--output-dir") + 1])
         return _write_export(output, options.source_dir, options.project_dir, options.expected_count)
 

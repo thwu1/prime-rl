@@ -24,6 +24,7 @@ from typing import Any
 import direct_qwen_workers as direct
 import finalize_qwen_repair_sft as repair_finalizer
 import finalize_qwen_sft as common
+import merge_qwen_sft as merger
 
 EXPECTED_ORIGINAL_COUNT = 2_500
 MAX_SEQUENCE_TOKENS = 262_144
@@ -492,6 +493,30 @@ def _assert_snapshot(root: Path, expected: Mapping[str, FileState], code: str) -
         raise RepairChainError(code)
 
 
+def _bind_export_tree(root: Path, expected_manifest_sha256: str, code: str) -> str:
+    if not _valid_sha256(expected_manifest_sha256):
+        raise RepairChainError(code)
+    manifest = _regular_file(root / "manifest.json", code)
+    if _sha256(manifest, code) != expected_manifest_sha256:
+        raise RepairChainError(code)
+    try:
+        tree_sha256 = merger._export_tree_sha256(root, code)
+    except merger.MergeError as error:
+        raise RepairChainError(code) from error
+    if _sha256(manifest, code) != expected_manifest_sha256:
+        raise RepairChainError(code)
+    return tree_sha256
+
+
+def _assert_export_tree(root: Path, expected_sha256: str, code: str) -> None:
+    try:
+        observed = merger._export_tree_sha256(root, code)
+    except merger.MergeError as error:
+        raise RepairChainError(code) from error
+    if observed != expected_sha256:
+        raise RepairChainError(code)
+
+
 def _private_directory(path: Path) -> None:
     try:
         path.mkdir(mode=0o700)
@@ -886,6 +911,8 @@ def run_repair_chain(
     repair_source: Path | None = None
     repair_snapshot: Mapping[str, FileState] | None = None
     selection_snapshot: Mapping[str, FileState] | None = None
+    original_export_tree_sha256: str | None = None
+    repair_export_tree_sha256: str | None = None
     repair_count = 0
     missing_or_errored_count = 0
     strict_invalid_pass_count = 0
@@ -1045,6 +1072,11 @@ def run_repair_chain(
             original_summary,
             paths.original_export_dir,
         )
+        original_export_tree_sha256 = _bind_export_tree(
+            paths.original_export_dir,
+            original_output_sha256["manifest"],
+            "original_export_invalid",
+        )
         original_public["output_sha256"] = original_output_sha256
 
         if repair_count == 0:
@@ -1118,6 +1150,12 @@ def run_repair_chain(
             ),
             "repair_finalizer_summary_invalid",
         )
+        assert original_export_tree_sha256 is not None
+        _assert_export_tree(
+            paths.original_export_dir,
+            original_export_tree_sha256,
+            "original_export_changed",
+        )
         repair_public = _validate_finalizer_summary(
             repair_summary,
             repair_count,
@@ -1138,6 +1176,11 @@ def run_repair_chain(
         repair_manifest_sha256 = _sha256(repair_manifest, "repair_export_invalid")
         if repair_summary.get("manifest_sha256") != repair_manifest_sha256:
             raise RepairChainError("repair_export_invalid")
+        repair_export_tree_sha256 = _bind_export_tree(
+            paths.repair_export_dir,
+            repair_manifest_sha256,
+            "repair_export_invalid",
+        )
         repair_public["attestation_sha256"] = attestation_sha256
         repair_public["manifest_sha256"] = repair_manifest_sha256
         for copy_name, source_name in repair_finalizer.SELECTION_SOURCE_FILENAMES.items():
@@ -1157,6 +1200,7 @@ def run_repair_chain(
             ):
                 raise RepairChainError("repair_selection_copy_invalid")
 
+        assert repair_export_tree_sha256 is not None
         merge_command = ChildCommand(
             stage="merge",
             argv=(
@@ -1164,8 +1208,16 @@ def run_repair_chain(
                 str(paths.workflow_dir / "merge_qwen_sft.py"),
                 "--original-export-dir",
                 str(paths.original_export_dir),
+                "--original-export-manifest-sha256",
+                original_output_sha256["manifest"],
+                "--original-export-tree-sha256",
+                original_export_tree_sha256,
                 "--repair-export-dir",
                 str(paths.repair_export_dir),
+                "--repair-export-manifest-sha256",
+                repair_manifest_sha256,
+                "--repair-export-tree-sha256",
+                repair_export_tree_sha256,
                 "--repair-selection-manifest",
                 str(selection_manifest),
                 "--repair-selection-manifest-sha256",
@@ -1199,6 +1251,16 @@ def run_repair_chain(
                 selection_dir,
             ),
             "merge_summary_invalid",
+        )
+        _assert_export_tree(
+            paths.original_export_dir,
+            original_export_tree_sha256,
+            "original_export_changed",
+        )
+        _assert_export_tree(
+            paths.repair_export_dir,
+            repair_export_tree_sha256,
+            "repair_export_changed",
         )
         merged_public = _validate_merge_summary(merge_summary)
         if merged_public["tasks"]["total"] != original_public["selected_traces"] + repair_public[
@@ -1234,6 +1296,18 @@ def run_repair_chain(
             _assert_snapshot(repair_source, repair_snapshot, "repair_source_changed")
         if repair_count and selection_snapshot is not None:
             _assert_snapshot(selection_dir, selection_snapshot, "repair_selection_changed")
+        if original_export_tree_sha256 is not None:
+            _assert_export_tree(
+                paths.original_export_dir,
+                original_export_tree_sha256,
+                "original_export_changed",
+            )
+        if repair_export_tree_sha256 is not None:
+            _assert_export_tree(
+                paths.repair_export_dir,
+                repair_export_tree_sha256,
+                "repair_export_changed",
+            )
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:

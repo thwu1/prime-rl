@@ -65,13 +65,17 @@ def _source_run(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> tuple[Path, 
 
     rows = (
         {
-            "task": {"idx": 2, "slug": identifiers[0]},
+            "task": {"idx": 2, "name": f"suite/{identifiers[0]}"},
             "errors": [],
             "rewards": {"solved": 0},
             "is_completed": True,
             "stop_condition": "synthetic_complete",
         },
-        {"task": {"idx": 0, "slug": identifiers[1]}, "errors": [{"type": "SyntheticError"}], "rewards": {}},
+        {
+            "task": {"idx": 0, "name": f"suite/{identifiers[1]}"},
+            "errors": [{"type": "SyntheticError"}],
+            "rewards": {},
+        },
     )
     (source / "results.jsonl").write_bytes(b"".join((json.dumps(row, sort_keys=True) + "\n").encode() for row in rows))
 
@@ -260,6 +264,7 @@ def test_materialize_rejects_invalid_name_even_when_slug_is_present(
 ) -> None:
     source, approval, approval_sha256, _source_bytes = _source_run(tmp_path, monkeypatch)
     rows = [json.loads(line) for line in (source / "results.jsonl").read_text().splitlines()]
+    rows[0]["task"]["slug"] = rows[0]["task"]["name"].rsplit("/", 1)[-1]
     rows[0]["task"]["name"] = None
     (source / "results.jsonl").write_bytes(b"".join((json.dumps(row, sort_keys=True) + "\n").encode() for row in rows))
 
@@ -271,6 +276,110 @@ def test_materialize_rejects_invalid_name_even_when_slug_is_present(
             tmp_path / "repair-invalid-name",
             terminal_check=lambda _job_id: True,
         )
+
+
+def test_materialize_rejects_slug_only_identity(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    source, approval, approval_sha256, _source_bytes = _source_run(tmp_path, monkeypatch)
+    rows = [json.loads(line) for line in (source / "results.jsonl").read_text().splitlines()]
+    name = rows[0]["task"].pop("name")
+    rows[0]["task"]["slug"] = name.rsplit("/", 1)[-1]
+    (source / "results.jsonl").write_bytes(b"".join((json.dumps(row, sort_keys=True) + "\n").encode() for row in rows))
+
+    with pytest.raises(repair.RepairMaterializationError, match="^source_results_identity_invalid$"):
+        repair.materialize(
+            source,
+            approval,
+            approval_sha256,
+            tmp_path / "repair-slug-only",
+            terminal_check=lambda _job_id: True,
+        )
+
+
+@pytest.mark.parametrize("tail", [b'{"task":{"idx":1', b"   "])
+def test_materialize_ignores_only_malformed_unterminated_final_append(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    tail: bytes,
+) -> None:
+    source, approval, approval_sha256, _source_bytes = _source_run(tmp_path, monkeypatch)
+    results = source / "results.jsonl"
+    results.write_bytes(results.read_bytes() + tail)
+    source_results = results.read_bytes()
+
+    summary = repair.materialize(
+        source,
+        approval,
+        approval_sha256,
+        tmp_path / "repair-truncated-tail",
+        terminal_check=lambda _job_id: True,
+    )
+
+    assert summary["missing_or_errored_count"] == 2
+    assert summary["approved_repair_count"] == 2
+    manifest = json.loads((tmp_path / "repair-truncated-tail" / repair.MANIFEST_FILENAME).read_text())
+    assert manifest["source"]["artifacts"]["results"] == {
+        "sha256": hashlib.sha256(source_results).hexdigest(),
+        "size_bytes": len(source_results),
+    }
+    assert results.read_bytes() == source_results
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        b'{"task":\n',
+        b'{"task":\n{"task":{"idx":1}}\n',
+    ],
+)
+def test_materialize_rejects_malformed_complete_or_interior_row(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    body: bytes,
+) -> None:
+    source, approval, approval_sha256, _source_bytes = _source_run(tmp_path, monkeypatch)
+    results = source / "results.jsonl"
+    results.write_bytes(results.read_bytes() + body)
+
+    with pytest.raises(repair.RepairMaterializationError, match="^resume_plan_failed$"):
+        repair.materialize(
+            source,
+            approval,
+            approval_sha256,
+            tmp_path / "repair-malformed-row",
+            terminal_check=lambda _job_id: True,
+        )
+
+
+def test_materialize_keeps_valid_unterminated_final_row(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    source, approval, approval_sha256, _source_bytes = _source_run(tmp_path, monkeypatch)
+    final = {
+        "task": {"idx": 1, "name": "suite/m-missing"},
+        "errors": [],
+        "rewards": {"solved": 0},
+        "is_completed": True,
+        "stop_condition": "synthetic_complete",
+    }
+    results = source / "results.jsonl"
+    results.write_bytes(results.read_bytes() + json.dumps(final, sort_keys=True).encode())
+    source_results = results.read_bytes()
+
+    summary = repair.materialize(
+        source,
+        approval,
+        approval_sha256,
+        tmp_path / "repair-valid-tail",
+        terminal_check=lambda _job_id: True,
+    )
+
+    assert summary["missing_or_errored_count"] == 1
+    assert summary["approved_repair_count"] == 1
+    assert results.read_bytes() == source_results
 
 
 @pytest.mark.parametrize("lock_name", [".writer.lock", ".direct_router.lock"])

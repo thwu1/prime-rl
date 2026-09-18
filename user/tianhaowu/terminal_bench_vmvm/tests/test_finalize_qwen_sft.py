@@ -45,6 +45,7 @@ def _write_layout(tmp_path: Path, *, expected_count: int = 3) -> tuple[FinalizeO
 def _label_summary(index: Path, expected_count: int) -> dict:
     index.write_bytes(b"synthetic-index\n")
     return {
+        "ignored_incomplete_tail": False,
         "ok": True,
         "results_sha256": "b" * 64,
         "rows": expected_count,
@@ -97,6 +98,15 @@ def _export_summary(output: Path, expected_count: int, routing_index: Path) -> d
     }
 
 
+def test_label_summary_rejects_unattested_incomplete_tail(tmp_path: Path) -> None:
+    index = tmp_path / "qwen_router_epochs.jsonl"
+    summary = _label_summary(index, 2)
+    summary["ignored_incomplete_tail"] = True
+
+    with pytest.raises(FinalizationError, match="^routing_index_summary_invalid$"):
+        finalizer._validate_label_summary(summary, index, 3)
+
+
 def test_finalizer_runs_label_before_export_and_emits_only_aggregates(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -125,6 +135,7 @@ def test_finalizer_runs_label_before_export_and_emits_only_aggregates(
         calls.append((command, code))
         if code == "routing_index_failed":
             assert command[2] == "label"
+            assert "--repair-selection-manifest" not in command
             index = Path(command[command.index("--output") + 1])
             assert not index.is_relative_to(options.source_dir)
             external_indexes.append(index)
@@ -186,6 +197,8 @@ def test_finalizer_passes_private_exclusion_and_rejects_toctou(
 
     def run_command(command: list[str], _cwd: Path, code: str) -> dict:
         if code == "routing_index_failed":
+            assert command[command.index("--repair-selection-manifest") + 1] == str(selection)
+            assert command[command.index("--repair-selection-manifest-sha256") + 1] == digest
             index = Path(command[command.index("--output") + 1])
             return _label_summary(index, options.expected_count)
         assert command[command.index("--exclusion-selection-manifest") + 1] == str(selection)
@@ -246,6 +259,7 @@ def test_finalizer_accounts_for_attested_missing_source_row(
         if code == "routing_index_failed":
             index = Path(command[command.index("--output") + 1])
             summary = _label_summary(index, 2)
+            summary["ignored_incomplete_tail"] = True
             summary["epoch_1_rows"] = 0
             summary["epoch_2_rows"] = 0
             summary["epoch_3_rows"] = 2

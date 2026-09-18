@@ -634,9 +634,13 @@ errored rows. Use `run_qwen_repair_chain.sbatch` from a clean detached checkout
 at the exact controller revision. The controller derives the approved task file
 only from the immutable source snapshot, requires its externally supplied
 SHA-256 and exactly 2,500 opaque entries, and uses the pinned resume planner to
-select only missing or errored indices. Scored failures are retained in the
-original source and are not regenerated. The chain performs no semantic task
-inspection, classification, or name-based filtering.
+select missing/error indices plus scored passes that fail the exact SFT
+trainability audit. Scored failures are retained in the original source and
+are not regenerated. A decode-failing final fragment without a newline remains
+in the immutable source digest but is omitted from the logical row stream and
+left owed; complete malformed rows fail closed, while a valid final JSON object
+remains a logical row even without a newline. The chain performs no semantic
+task inspection, classification, or name-based filtering.
 
 The controller creates a fresh schema-3 direct run inside a private runtime
 directory, with 64 rollout sessions, a 32-request provider/router cap, a
@@ -646,7 +650,12 @@ allocation; it never submits a child Slurm job. The original and repair sources
 are hash-checked before and after every subsequent stage. Pass-only original
 and repair exports are published atomically, then `merge_qwen_sft.py` publishes
 the final corpus atomically after proving the exports are disjoint and bound to
-the same split contract. Existing runtime or output paths are always rejected.
+the same split contract. Repair traces are name/index-bound to the evaluator
+order of the approved repair universe. The controller passes the exact
+post-finalization manifest and complete tree digests for both exports to the
+merger, which rejects later mutation and any repair task outside the selected
+union; every selected strict-invalid pass must still be replaced. Existing
+runtime or output paths are always rejected.
 The repair export keeps mode-0600 copies of the selection manifest and repair
 attestation beside the three base SFT artifacts; the merger requires both
 copies to be byte-identical to the externally hash-pinned inputs and binds

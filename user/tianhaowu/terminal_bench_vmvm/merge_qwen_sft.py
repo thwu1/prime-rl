@@ -26,7 +26,7 @@ from pathlib import Path
 from typing import Any, BinaryIO, Mapping
 
 FORMAT_VERSION = 2
-MERGE_SCHEMA_VERSION = 2
+MERGE_SCHEMA_VERSION = 3
 MERGE_KIND = "qwen-sft-aggregate-merge"
 REPAIR_SELECTION_KIND = "qwen-aggregate-repair-selection"
 REPAIR_ATTESTATION_KIND = "qwen-direct-repair-attestation"
@@ -255,7 +255,11 @@ class RowIdentity:
 @dataclass(frozen=True, slots=True)
 class MergeOptions:
     original_export_dir: Path
+    original_export_manifest_sha256: str
+    original_export_tree_sha256: str
     repair_export_dir: Path
+    repair_export_manifest_sha256: str
+    repair_export_tree_sha256: str
     repair_selection_manifest: Path
     repair_selection_manifest_sha256: str
     repair_attestation_manifest: Path
@@ -428,6 +432,47 @@ def _canonical_directory(path: Path, code: str) -> Path:
     if not stat.S_ISDIR(metadata.st_mode) or resolved != normalized:
         raise MergeError(code)
     return resolved
+
+
+def _export_tree_sha256(path: Path, code: str) -> str:
+    root = _canonical_directory(path, code)
+    records: list[tuple[str, str, int, int, str]] = []
+    try:
+        root_metadata = root.lstat()
+    except OSError as error:
+        raise MergeError(code) from error
+    records.append(("directory", ".", stat.S_IMODE(root_metadata.st_mode), 0, ""))
+    pending = [root]
+    while pending:
+        directory = pending.pop()
+        try:
+            with os.scandir(directory) as iterator:
+                entries = sorted(iterator, key=lambda entry: entry.name)
+        except OSError as error:
+            raise MergeError(code) from error
+        for entry in entries:
+            entry_path = Path(entry.path)
+            relative = entry_path.relative_to(root).as_posix()
+            try:
+                metadata = entry.stat(follow_symlinks=False)
+            except OSError as error:
+                raise MergeError(code) from error
+            mode = stat.S_IMODE(metadata.st_mode)
+            if stat.S_ISDIR(metadata.st_mode):
+                try:
+                    if entry_path.resolve(strict=True) != entry_path:
+                        raise MergeError(code)
+                except OSError as error:
+                    raise MergeError(code) from error
+                records.append(("directory", relative, mode, 0, ""))
+                pending.append(entry_path)
+            elif stat.S_ISREG(metadata.st_mode):
+                artifact = _fingerprint_regular(entry_path, code)
+                records.append(("file", relative, mode, artifact.bytes, artifact.sha256))
+            else:
+                raise MergeError(code)
+    payload = json.dumps(records, ensure_ascii=True, separators=(",", ":"), sort_keys=False).encode() + b"\n"
+    return hashlib.sha256(payload).hexdigest()
 
 
 def _resolve_output(path: Path) -> tuple[Path, Path]:
@@ -1488,11 +1533,12 @@ def _publish_noreplace(staging: Path, output: Path) -> None:
     _fsync_directory(output.parent)
 
 
-def _bundle_manifest_binding(bundle: ExportBundle) -> dict[str, Any]:
+def _bundle_manifest_binding(bundle: ExportBundle, tree_sha256: str) -> dict[str, Any]:
     return {
         "artifacts": {name: bundle.artifacts[name].as_dict() for name in sorted(bundle.artifacts)},
         "manifest": bundle.manifest.as_dict(),
         "source_task_file": bundle.source_artifacts["inputs/task_file.txt"].as_dict(),
+        "tree_sha256": tree_sha256,
     }
 
 
@@ -1509,17 +1555,20 @@ def _counts(stats: BundleStats) -> dict[str, int]:
 
 def _validate_sources_unchanged(
     bundles: tuple[ExportBundle, ExportBundle],
+    expected_tree_sha256: tuple[str, str],
     repair_selection: RepairSelection,
     repair_attestation_path: Path,
     repair_attestation_artifact: FileArtifact,
     repair_root: Path,
 ) -> None:
-    for bundle in bundles:
+    for bundle, tree_sha256 in zip(bundles, expected_tree_sha256, strict=True):
         if _fingerprint_regular(bundle.root / "manifest.json", "source_changed") != bundle.manifest:
             raise MergeError("source_changed")
         for name, expected in bundle.artifacts.items():
             if _fingerprint_regular(bundle.root / ARTIFACT_PATHS[name], "source_changed") != expected:
                 raise MergeError("source_changed")
+        if _export_tree_sha256(bundle.root, "source_changed") != tree_sha256:
+            raise MergeError("source_changed")
     for name, path in repair_selection.selection_paths.items():
         if (
             _fingerprint_regular(path, "source_changed", required_mode=0o600)
@@ -1553,9 +1602,21 @@ def merge_qwen_sft(
     output_parent, output = _resolve_output(options.output_dir)
     if os.path.lexists(output):
         raise MergeError("destination_exists")
+    bindings = {
+        "original_manifest": options.original_export_manifest_sha256,
+        "original_tree": options.original_export_tree_sha256,
+        "repair_manifest": options.repair_export_manifest_sha256,
+        "repair_tree": options.repair_export_tree_sha256,
+    }
+    if any(not isinstance(value, str) or SHA256_PATTERN.fullmatch(value) is None for value in bindings.values()):
+        raise MergeError("export_binding_invalid")
 
     original = _load_export(options.original_export_dir, "original")
     repair = _load_export(options.repair_export_dir, "repair")
+    if original.manifest.sha256 != options.original_export_manifest_sha256:
+        raise MergeError("original_manifest_binding_mismatch")
+    if repair.manifest.sha256 != options.repair_export_manifest_sha256:
+        raise MergeError("repair_manifest_binding_mismatch")
     if original.root == repair.root:
         raise MergeError("input_exports_overlap")
     if (
@@ -1621,6 +1682,8 @@ def merge_qwen_sft(
         raise MergeError("original_excluded_task_retained")
     if not strict_invalid_pass_task_ids.issubset(repair.tasks):
         raise MergeError("strict_invalid_pass_not_replaced")
+    if not repair.tasks.issubset(union_task_ids):
+        raise MergeError("repair_task_not_selected")
     attestation_path = options.repair_attestation_manifest
     if not attestation_path.is_absolute():
         attestation_path = Path.cwd() / attestation_path
@@ -1681,6 +1744,10 @@ def merge_qwen_sft(
         or attestation.submodules != code["submodules"]
     ):
         raise MergeError("repair_code_provenance_mismatch")
+    if _export_tree_sha256(original.root, "original_export_snapshot_invalid") != options.original_export_tree_sha256:
+        raise MergeError("original_export_snapshot_mismatch")
+    if _export_tree_sha256(repair.root, "repair_export_snapshot_invalid") != options.repair_export_tree_sha256:
+        raise MergeError("repair_export_snapshot_mismatch")
 
     staging: Path | None = Path(tempfile.mkdtemp(prefix=f".{output.name}.merge-", dir=output_parent))
     train_sink: ArtifactSink | None = None
@@ -1761,8 +1828,8 @@ def merge_qwen_sft(
                 "repair": _counts(repair_stats),
             },
             "inputs": {
-                "original": _bundle_manifest_binding(original),
-                "repair": _bundle_manifest_binding(repair),
+                "original": _bundle_manifest_binding(original, options.original_export_tree_sha256),
+                "repair": _bundle_manifest_binding(repair, options.repair_export_tree_sha256),
                 "repair_attestation_manifest": attestation.artifact.as_dict(),
                 "repair_bundle_sidecars": {
                     REPAIR_ATTESTATION_COPY_FILENAME: bundled_attestation.as_dict(),
@@ -1780,6 +1847,7 @@ def merge_qwen_sft(
 
         _validate_sources_unchanged(
             (original, repair),
+            (options.original_export_tree_sha256, options.repair_export_tree_sha256),
             selection,
             attestation_path,
             attestation.artifact,
@@ -1828,7 +1896,11 @@ def merge_qwen_sft(
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = StableArgumentParser(description=__doc__)
     parser.add_argument("--original-export-dir", type=Path, required=True)
+    parser.add_argument("--original-export-manifest-sha256", required=True)
+    parser.add_argument("--original-export-tree-sha256", required=True)
     parser.add_argument("--repair-export-dir", type=Path, required=True)
+    parser.add_argument("--repair-export-manifest-sha256", required=True)
+    parser.add_argument("--repair-export-tree-sha256", required=True)
     parser.add_argument("--repair-selection-manifest", type=Path, required=True)
     parser.add_argument("--repair-selection-manifest-sha256", required=True)
     parser.add_argument("--repair-attestation-manifest", type=Path, required=True)
@@ -1845,7 +1917,11 @@ def main(argv: list[str] | None = None) -> int:
         summary = merge_qwen_sft(
             MergeOptions(
                 original_export_dir=args.original_export_dir,
+                original_export_manifest_sha256=args.original_export_manifest_sha256,
+                original_export_tree_sha256=args.original_export_tree_sha256,
                 repair_export_dir=args.repair_export_dir,
+                repair_export_manifest_sha256=args.repair_export_manifest_sha256,
+                repair_export_tree_sha256=args.repair_export_tree_sha256,
                 repair_selection_manifest=args.repair_selection_manifest,
                 repair_selection_manifest_sha256=args.repair_selection_manifest_sha256,
                 repair_attestation_manifest=args.repair_attestation_manifest,

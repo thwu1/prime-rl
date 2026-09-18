@@ -48,6 +48,8 @@ class FakeRunner:
     attestation: chain.ProjectAttestation
     mutate_source: bool = False
     mutate_selection: bool = False
+    mutate_original_export_on_merge: bool = False
+    mutate_repair_export_on_merge: bool = False
     stages: list[str] = field(default_factory=list)
 
     def __call__(self, command: chain.ChildCommand, _log_dir: Path) -> dict[str, Any] | None:
@@ -233,6 +235,28 @@ task_file_sha256 = "{task_sha256}"
             summary["manifest_sha256"] = _sha256(manifest_body)
             return summary
         if command.stage == "merge":
+            original_export = _argument(command, "--original-export-dir")
+            repair_export = _argument(command, "--repair-export-dir")
+            assert str(_argument(command, "--original-export-manifest-sha256")) == _sha256(
+                (original_export / "manifest.json").read_bytes()
+            )
+            assert str(_argument(command, "--repair-export-manifest-sha256")) == _sha256(
+                (repair_export / "manifest.json").read_bytes()
+            )
+            assert str(_argument(command, "--original-export-tree-sha256")) == chain.merger._export_tree_sha256(
+                original_export,
+                "test_original_export_invalid",
+            )
+            assert str(_argument(command, "--repair-export-tree-sha256")) == chain.merger._export_tree_sha256(
+                repair_export,
+                "test_repair_export_invalid",
+            )
+            if self.mutate_original_export_on_merge:
+                _write(original_export / "late-extra", b"late mutation\n")
+                return None
+            if self.mutate_repair_export_on_merge:
+                _write(repair_export / "late-extra", b"late mutation\n")
+                return None
             output = _argument(command, "--output-dir")
             output.mkdir()
             manifest_body = b"merged-manifest\n"
@@ -352,6 +376,33 @@ def test_repair_chain_success(tmp_path: Path) -> None:
     } == source_bytes
 
 
+def test_repair_chain_preserves_recoverable_partial_tail_through_merge(tmp_path: Path) -> None:
+    options, attestation, _source_bytes = _layout(tmp_path)
+    results = options.source_dir / "results.jsonl"
+    results.write_bytes(results.read_bytes() + b'{"task":{"idx":2499')
+    source_bytes = {
+        path.relative_to(options.source_dir): path.read_bytes()
+        for path in options.source_dir.rglob("*")
+        if path.is_file()
+    }
+    runner = FakeRunner(2, options.source_dir, attestation)
+
+    summary = chain.run_repair_chain(
+        options,
+        runner=runner,
+        project_validator=lambda _project, _revision: attestation,
+        environment={"PATH": os.environ["PATH"], "SLURM_JOB_ID": "456"},
+    )
+
+    assert summary["status"] == "merged"
+    assert options.merged_output_dir.is_dir()
+    assert {
+        path.relative_to(options.source_dir): path.read_bytes()
+        for path in options.source_dir.rglob("*")
+        if path.is_file()
+    } == source_bytes
+
+
 def test_repair_chain_zero_owed_finalizes_original_only(tmp_path: Path) -> None:
     options, attestation, _source_bytes = _layout(tmp_path)
     runner = FakeRunner(0, options.source_dir, attestation)
@@ -442,6 +493,39 @@ def test_repair_chain_detects_selection_mutation(tmp_path: Path) -> None:
         )
     assert runner.stages == ["materialize", "repair_eval"]
     assert not options.original_export_dir.exists()
+
+
+@pytest.mark.parametrize(
+    ("role", "error_code"),
+    [
+        ("original", "original_export_changed"),
+        ("repair", "repair_export_changed"),
+    ],
+)
+def test_repair_chain_rejects_export_mutation_between_finalization_and_merge(
+    tmp_path: Path,
+    role: str,
+    error_code: str,
+) -> None:
+    options, attestation, _source_bytes = _layout(tmp_path)
+    runner = FakeRunner(
+        2,
+        options.source_dir,
+        attestation,
+        mutate_original_export_on_merge=role == "original",
+        mutate_repair_export_on_merge=role == "repair",
+    )
+
+    with pytest.raises(chain.RepairChainError, match=f"^{error_code}$"):
+        chain.run_repair_chain(
+            options,
+            runner=runner,
+            project_validator=lambda _project, _revision: attestation,
+            environment={"PATH": os.environ["PATH"], "SLURM_JOB_ID": "456"},
+        )
+
+    assert runner.stages[-1] == "merge"
+    assert not options.merged_output_dir.exists()
 
 
 def test_repair_chain_revalidates_project_before_direct_repair(tmp_path: Path) -> None:

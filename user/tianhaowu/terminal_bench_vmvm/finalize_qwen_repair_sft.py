@@ -1113,6 +1113,7 @@ def finalize_qwen_repair_sft(
                     options.split_salt,
                     "--max-sequence-tokens",
                     str(MAX_SEQUENCE_TOKENS),
+                    "--require-task-index-binding",
                 ],
                 paths.project_dir,
                 "sft_export_failed",

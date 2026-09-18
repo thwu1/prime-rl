@@ -19,6 +19,32 @@ def _sha256(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
+def _tail_selection(tmp_path: Path, results: Path) -> tuple[Path, str]:
+    selection = tmp_path / "repair_manifest.json"
+    body = (
+        json.dumps(
+            {
+                "kind": migration.REPAIR_SELECTION_KIND,
+                "schema_version": migration.REPAIR_SELECTION_SCHEMA_VERSION,
+                "selection": {"missing_or_errored_count": 1},
+                "source": {
+                    "artifacts": {
+                        "results": {
+                            "sha256": _sha256(results),
+                            "size_bytes": results.stat().st_size,
+                        }
+                    }
+                },
+            },
+            sort_keys=True,
+        )
+        + "\n"
+    ).encode()
+    selection.write_bytes(body)
+    selection.chmod(0o600)
+    return selection, hashlib.sha256(body).hexdigest()
+
+
 @pytest.mark.parametrize(
     ("raw", "expected"),
     [
@@ -1070,6 +1096,87 @@ def test_epoch_index_labels_legacy_membership_after_result_reordering(
     assert all(set(record) == {"row", "row_sha256", "routing_epoch"} for record in index[1:])
     source_after = {path.relative_to(child): path.read_bytes() for path in child.rglob("*") if path.is_file()}
     assert source_after == source_before
+
+
+@pytest.mark.parametrize("tail", [b'{"task":{"idx":1', b"   "])
+def test_epoch_index_ignores_attested_malformed_final_fragment_without_mutating_source(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    tail: bytes,
+) -> None:
+    source, _, _, _, _ = _write_source_run(tmp_path, monkeypatch)
+    child = tmp_path / "child"
+    migration.migrate(source, child, terminal_check=lambda _job_id: True)
+    results = child / "results.jsonl"
+    results.write_bytes(results.read_bytes() + tail)
+    source_before = results.read_bytes()
+    selection, selection_sha256 = _tail_selection(tmp_path, results)
+
+    summary = migration.label_routing_epochs(
+        child,
+        tmp_path / "qwen_router_epochs.jsonl",
+        repair_selection_manifest=selection,
+        repair_selection_manifest_sha256=selection_sha256,
+        terminal_check=lambda _job_id: True,
+    )
+
+    assert summary["ignored_incomplete_tail"] is True
+    assert summary["rows"] == 1
+    assert summary["results_sha256"] == _sha256(results)
+    assert results.read_bytes() == source_before
+
+
+@pytest.mark.parametrize(
+    ("tail", "with_selection", "error_code"),
+    [
+        (b'{"task":{"idx":1', False, "results_has_incomplete_tail"),
+        (b'{"task":\n', True, "results_invalid_complete_row"),
+        (b'{"task":\n{"task":{"idx":1}}\n', True, "results_invalid_complete_row"),
+    ],
+)
+def test_epoch_index_rejects_unattested_or_nonfinal_malformed_content(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    tail: bytes,
+    with_selection: bool,
+    error_code: str,
+) -> None:
+    source, _, _, _, _ = _write_source_run(tmp_path, monkeypatch)
+    child = tmp_path / "child"
+    migration.migrate(source, child, terminal_check=lambda _job_id: True)
+    results = child / "results.jsonl"
+    results.write_bytes(results.read_bytes() + tail)
+    selection, selection_sha256 = _tail_selection(tmp_path, results)
+
+    with pytest.raises(migration.MigrationError, match=f"^{error_code}$"):
+        migration.label_routing_epochs(
+            child,
+            tmp_path / "qwen_router_epochs.jsonl",
+            repair_selection_manifest=selection if with_selection else None,
+            repair_selection_manifest_sha256=selection_sha256 if with_selection else None,
+            terminal_check=lambda _job_id: True,
+        )
+
+
+def test_epoch_index_retains_valid_unterminated_final_row(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    source, _, _, _, _ = _write_source_run(tmp_path, monkeypatch)
+    child = tmp_path / "child"
+    migration.migrate(source, child, terminal_check=lambda _job_id: True)
+    results = child / "results.jsonl"
+    final = json.dumps({"task": {"idx": 1}, "errors": []}, sort_keys=True).encode()
+    results.write_bytes(results.read_bytes() + final)
+
+    summary = migration.label_routing_epochs(
+        child,
+        tmp_path / "qwen_router_epochs.jsonl",
+        terminal_check=lambda _job_id: True,
+    )
+
+    assert summary["ignored_incomplete_tail"] is False
+    assert summary["rows"] == 2
 
 
 def test_epoch_index_atomic_write_never_replaces_existing_output(tmp_path: Path) -> None:

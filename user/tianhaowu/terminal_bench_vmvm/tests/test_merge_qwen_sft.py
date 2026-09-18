@@ -20,6 +20,7 @@ from merge_qwen_sft import (
     TASK_IDENTITY,
     MergeError,
     MergeOptions,
+    _export_tree_sha256,
     merge_qwen_sft,
 )
 
@@ -32,12 +33,17 @@ def _json_bytes(value: object) -> bytes:
     return (json.dumps(value, allow_nan=False, indent=2, sort_keys=True) + "\n").encode()
 
 
+_TASK_SLUG_BY_ID: dict[str, str] = {}
+
+
 def _task_id(label: str, *, split: str = "train") -> str:
     for counter in range(100_000):
-        task_id = _sha256(f"{label}-{counter}".encode())
+        slug = f"{label}-{counter}"
+        task_id = _sha256(f"synthetic-taskset\0{'7' * 40}\0{slug}".encode())
         digest = hashlib.sha256(f"unit-test-split\0{task_id}".encode()).digest()
         observed = "validation" if int.from_bytes(digest[:8], "big") % 10_000 < 500 else "train"
         if observed == split:
+            _TASK_SLUG_BY_ID[task_id] = slug
             return task_id
     raise AssertionError("unable to construct task ID for split")
 
@@ -249,14 +255,18 @@ def _write_repair_selection(
         + json.loads((repair_export / "task-split.json").read_text())["validation_task_sha256"]
     )
     if strict_slugs is None:
-        repair_task_ids.extend(
+        missing_slugs = [_TASK_SLUG_BY_ID[task_id] for task_id in repair_task_ids]
+        missing_slugs.extend(
             f"opaque-unselected-{index:04d}" for index in range(repair_task_count - len(repair_task_ids))
         )
-        missing_slugs = repair_task_ids
         strict_slugs = []
     else:
         assert len(strict_slugs) <= repair_task_count
-        missing_slugs = [f"opaque-unselected-{index:04d}" for index in range(repair_task_count - len(strict_slugs))]
+        strict_ids = {_sha256(f"synthetic-taskset\0{'7' * 40}\0{slug}".encode()) for slug in strict_slugs}
+        available = [_TASK_SLUG_BY_ID[task_id] for task_id in repair_task_ids if task_id not in strict_ids]
+        missing_count = repair_task_count - len(strict_slugs)
+        missing_slugs = available[:missing_count]
+        missing_slugs.extend(f"opaque-unselected-{index:04d}" for index in range(missing_count - len(missing_slugs)))
     union_slugs = sorted([*missing_slugs, *strict_slugs])
     union_body = "".join(f"{slug}\n" for slug in union_slugs).encode()
     missing_body = "".join(f"{slug}\n" for slug in sorted(missing_slugs)).encode()
@@ -468,7 +478,11 @@ def _options(
     attestation_copy.chmod(0o600)
     return MergeOptions(
         original_export_dir=original,
+        original_export_manifest_sha256=_sha256((original / "manifest.json").read_bytes()),
+        original_export_tree_sha256=_export_tree_sha256(original, "test_original_export_invalid"),
         repair_export_dir=repair,
+        repair_export_manifest_sha256=_sha256((repair / "manifest.json").read_bytes()),
+        repair_export_tree_sha256=_export_tree_sha256(repair, "test_repair_export_invalid"),
         repair_selection_manifest=selection,
         repair_selection_manifest_sha256=selection_sha256,
         repair_attestation_manifest=attestation,
@@ -557,9 +571,18 @@ def test_merge_is_deterministic_redacted_and_preserves_all_rows(tmp_path: Path) 
     assert not any(task_id in aggregate_output for task_id in task_ids)
     assert "private-" not in aggregate_output
     merged_manifest = json.loads((first / "manifest.json").read_text())
+    assert merged_manifest["schema_version"] == 3
     assert merged_manifest["code"]["exporter_sha256"] == "e" * 64
     assert merged_manifest["code"]["materializer_sha256"] == "b" * 64
     assert merged_manifest["format"]["target"].startswith("authentic reasoning_content")
+    assert merged_manifest["inputs"]["original"]["tree_sha256"] == _export_tree_sha256(
+        original,
+        "test_original_export_invalid",
+    )
+    assert merged_manifest["inputs"]["repair"]["tree_sha256"] == _export_tree_sha256(
+        repair,
+        "test_repair_export_invalid",
+    )
     assert set(json.loads((repair / "manifest.json").read_text())["artifacts"]) == {
         "task-split.json",
         "train/train.jsonl",
@@ -580,6 +603,49 @@ def test_tampered_artifact_is_rejected_without_output(tmp_path: Path) -> None:
             code_provenance=_code_provenance(),
         )
     assert not output.exists()
+
+
+@pytest.mark.parametrize(
+    ("role", "error_code"),
+    [
+        ("original", "original_export_snapshot_mismatch"),
+        ("repair", "repair_export_snapshot_mismatch"),
+    ],
+)
+def test_finalized_export_tree_snapshot_rejects_late_extra_file(
+    tmp_path: Path,
+    role: str,
+    error_code: str,
+) -> None:
+    original, repair, selection, selection_sha256, _task_ids = _fixture_exports(tmp_path)
+    options = _options(original, repair, selection, selection_sha256, tmp_path / "merged")
+    target = original if role == "original" else repair
+    (target / "late-extra").write_bytes(b"late mutation\n")
+
+    with pytest.raises(MergeError, match=f"^{error_code}$"):
+        merge_qwen_sft(options, code_provenance=_code_provenance())
+
+
+@pytest.mark.parametrize(
+    ("field", "error_code"),
+    [
+        ("original_export_manifest_sha256", "original_manifest_binding_mismatch"),
+        ("repair_export_manifest_sha256", "repair_manifest_binding_mismatch"),
+    ],
+)
+def test_finalized_export_manifest_digest_is_mandatory(
+    tmp_path: Path,
+    field: str,
+    error_code: str,
+) -> None:
+    original, repair, selection, selection_sha256, _task_ids = _fixture_exports(tmp_path)
+    options = replace(
+        _options(original, repair, selection, selection_sha256, tmp_path / "merged"),
+        **{field: "0" * 64},
+    )
+
+    with pytest.raises(MergeError, match=f"^{error_code}$"):
+        merge_qwen_sft(options, code_provenance=_code_provenance())
 
 
 def test_repair_selection_tamper_is_rejected(tmp_path: Path) -> None:
@@ -700,6 +766,29 @@ def test_strict_invalid_pass_missing_repair_fails_closed(tmp_path: Path) -> None
     with pytest.raises(MergeError, match="^strict_invalid_pass_not_replaced$"):
         merge_qwen_sft(
             _options(original, repair, selection, digest, tmp_path / "merged"),
+            code_provenance=_code_provenance(),
+        )
+
+
+def test_repair_export_cannot_include_task_outside_selected_union(tmp_path: Path) -> None:
+    original, repair, selection, selection_sha256, _task_ids = _fixture_exports(tmp_path)
+    split_path = repair / "task-split.json"
+    split = json.loads(split_path.read_text())
+    selected_task_id = split["train_task_sha256"][0]
+    unrelated_task_id = _task_id("unrelated-repair", split="train")
+    rows = [json.loads(line) for line in (repair / "train" / "train.jsonl").read_text().splitlines()]
+    for row in rows:
+        if row["task_id"] == selected_task_id:
+            row["task_id"] = unrelated_task_id
+    _replace_export_artifact(repair, "train/train.jsonl", _jsonl(rows))
+    split["train_task_sha256"] = sorted(
+        unrelated_task_id if task_id == selected_task_id else task_id for task_id in split["train_task_sha256"]
+    )
+    _replace_export_artifact(repair, "task-split.json", _json_bytes(split))
+
+    with pytest.raises(MergeError, match="^repair_task_not_selected$"):
+        merge_qwen_sft(
+            _options(original, repair, selection, selection_sha256, tmp_path / "merged"),
             code_provenance=_code_provenance(),
         )
 
@@ -852,7 +941,11 @@ def test_task_overlap_between_train_and_validation_is_rejected(tmp_path: Path) -
         merge_qwen_sft(
             MergeOptions(
                 original_export_dir=original,
+                original_export_manifest_sha256="0" * 64,
+                original_export_tree_sha256="0" * 64,
                 repair_export_dir=original,
+                repair_export_manifest_sha256="0" * 64,
+                repair_export_tree_sha256="0" * 64,
                 repair_selection_manifest=tmp_path / "unused.json",
                 repair_selection_manifest_sha256="0" * 64,
                 repair_attestation_manifest=tmp_path / "unused-attestation.json",

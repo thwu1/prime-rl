@@ -420,11 +420,11 @@ def _strict_invalid_pass_indices(
         before = os.fstat(descriptor)
         with os.fdopen(descriptor, "rb") as handle:
             for raw_line in handle:
-                if not raw_line.endswith(b"\n") or not raw_line.strip():
-                    raise RepairMaterializationError("source_results_invalid")
                 try:
                     trace = json.loads(raw_line)
                 except (UnicodeDecodeError, ValueError) as error:
+                    if not raw_line.endswith(b"\n"):
+                        break
                     raise RepairMaterializationError("source_results_invalid") from error
                 task = trace.get("task") if isinstance(trace, dict) else None
                 index = task.get("idx") if isinstance(task, dict) else None

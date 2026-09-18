@@ -54,6 +54,9 @@ REQUIRED_SOURCE_FILES = (
 )
 EXPECTED_VERIFIERS_REVISION = direct.ADMISSION_VERIFIERS_REVISION
 EXPECTED_RESUME_MODULE_SHA256 = direct.ADMISSION_RESUME_MODULE_SHA256
+REPAIR_SELECTION_KIND = "qwen-aggregate-repair-selection"
+REPAIR_SELECTION_SCHEMA_VERSION = 2
+MAX_REPAIR_SELECTION_BYTES = 1 << 20
 COMPATIBLE_RESUME_VERIFIERS_REVISIONS = frozenset(
     {
         EXPECTED_VERIFIERS_REVISION,
@@ -72,6 +75,83 @@ def _sha256(path: Path) -> str:
         for chunk in iter(lambda: handle.read(1 << 20), b""):
             digest.update(chunk)
     return digest.hexdigest()
+
+
+def _repair_selection_allows_incomplete_tail(
+    path: Path | None,
+    expected_sha256: str | None,
+    results_path: Path,
+) -> bool:
+    if (path is None) != (expected_sha256 is None):
+        raise MigrationError("repair_selection_arguments_invalid")
+    if path is None:
+        return False
+    if not isinstance(expected_sha256, str) or re.fullmatch(r"[0-9a-f]{64}", expected_sha256) is None:
+        raise MigrationError("repair_selection_digest_invalid")
+    absolute = path if path.is_absolute() else Path.cwd() / path
+    normalized = Path(os.path.normpath(absolute))
+    try:
+        if normalized.resolve(strict=True) != normalized:
+            raise MigrationError("repair_selection_invalid")
+        descriptor = os.open(normalized, os.O_RDONLY | os.O_CLOEXEC | os.O_NOFOLLOW)
+    except (OSError, RuntimeError) as error:
+        raise MigrationError("repair_selection_invalid") from error
+    try:
+        handle = os.fdopen(descriptor, "rb")
+    except (OSError, ValueError) as error:
+        with contextlib.suppress(OSError):
+            os.close(descriptor)
+        raise MigrationError("repair_selection_invalid") from error
+    try:
+        with handle:
+            before = os.fstat(handle.fileno())
+            if not stat.S_ISREG(before.st_mode) or stat.S_IMODE(before.st_mode) != 0o600:
+                raise MigrationError("repair_selection_invalid")
+            body = handle.read(MAX_REPAIR_SELECTION_BYTES + 1)
+            after = os.fstat(handle.fileno())
+    except OSError as error:
+        raise MigrationError("repair_selection_invalid") from error
+    if (
+        len(body) > MAX_REPAIR_SELECTION_BYTES
+        or (before.st_dev, before.st_ino, before.st_size, before.st_mtime_ns)
+        != (after.st_dev, after.st_ino, after.st_size, after.st_mtime_ns)
+        or hashlib.sha256(body).hexdigest() != expected_sha256
+    ):
+        raise MigrationError("repair_selection_digest_mismatch")
+    try:
+        manifest = json.loads(body)
+    except (UnicodeDecodeError, json.JSONDecodeError) as error:
+        raise MigrationError("repair_selection_invalid") from error
+    selection = manifest.get("selection") if isinstance(manifest, dict) else None
+    source = manifest.get("source") if isinstance(manifest, dict) else None
+    artifacts = source.get("artifacts") if isinstance(source, dict) else None
+    results = artifacts.get("results") if isinstance(artifacts, dict) else None
+    missing_count = selection.get("missing_or_errored_count") if isinstance(selection, dict) else None
+    results_size = results.get("size_bytes") if isinstance(results, dict) else None
+    if (
+        not isinstance(manifest, dict)
+        or manifest.get("kind") != REPAIR_SELECTION_KIND
+        or manifest.get("schema_version") != REPAIR_SELECTION_SCHEMA_VERSION
+        or isinstance(missing_count, bool)
+        or not isinstance(missing_count, int)
+        or missing_count < 0
+        or not isinstance(results, dict)
+        or set(results) != {"sha256", "size_bytes"}
+        or not isinstance(results.get("sha256"), str)
+        or re.fullmatch(r"[0-9a-f]{64}", results["sha256"]) is None
+        or isinstance(results_size, bool)
+        or not isinstance(results_size, int)
+        or results_size < 0
+    ):
+        raise MigrationError("repair_selection_invalid")
+    try:
+        observed_results_size = results_path.stat().st_size
+        observed_results_sha256 = _sha256(results_path)
+    except OSError as error:
+        raise MigrationError("source_results_unreadable") from error
+    if results["sha256"] != observed_results_sha256 or results_size != observed_results_size:
+        raise MigrationError("repair_selection_invalid")
+    return missing_count > 0
 
 
 def _json_bytes(value: object) -> bytes:
@@ -1257,6 +1337,8 @@ def label_routing_epochs(
     run_dir: Path,
     output_path: Path,
     *,
+    repair_selection_manifest: Path | None = None,
+    repair_selection_manifest_sha256: str | None = None,
     terminal_check: Callable[[str], bool] = slurm_job_is_terminal,
 ) -> dict[str, Any]:
     run = run_dir.resolve(strict=True)
@@ -1289,12 +1371,25 @@ def label_routing_epochs(
         epoch2_hashes = {record["row_sha256"] for record in epoch2_lineage}
         results_path = run / "results.jsonl"
         results_sha256 = _sha256(results_path)
+        allow_incomplete_final_fragment = _repair_selection_allows_incomplete_tail(
+            repair_selection_manifest,
+            repair_selection_manifest_sha256,
+            results_path,
+        )
         records: list[dict[str, Any]] = []
         counts = {epoch: 0 for epoch in range(1, current_epoch + 1)}
+        ignored_incomplete_tail = False
         with results_path.open("rb") as results:
             for row_number, raw in enumerate(results):
-                if not raw.endswith(b"\n"):
-                    raise MigrationError("results_has_incomplete_tail")
+                try:
+                    json.loads(raw)
+                except (UnicodeDecodeError, json.JSONDecodeError) as error:
+                    if allow_incomplete_final_fragment and not raw.endswith(b"\n"):
+                        ignored_incomplete_tail = True
+                        break
+                    if not raw.endswith(b"\n"):
+                        raise MigrationError("results_has_incomplete_tail") from error
+                    raise MigrationError("results_invalid_complete_row") from error
                 digest = hashlib.sha256(raw).hexdigest()
                 if digest in epoch1_hashes:
                     epoch = 1
@@ -1331,6 +1426,7 @@ def label_routing_epochs(
         "ok": True,
         "results_sha256": results_sha256,
         "rows": len(records),
+        "ignored_incomplete_tail": ignored_incomplete_tail,
         "index_sha256": _sha256(output),
     }
     summary.update({f"epoch_{epoch}_rows": count for epoch, count in counts.items()})
@@ -1349,6 +1445,8 @@ def main() -> None:
     label_parser = subparsers.add_parser("label")
     label_parser.add_argument("--run-dir", type=Path, required=True)
     label_parser.add_argument("--output", type=Path, required=True)
+    label_parser.add_argument("--repair-selection-manifest", type=Path)
+    label_parser.add_argument("--repair-selection-manifest-sha256")
     args = parser.parse_args()
     try:
         if args.command == "migrate":
@@ -1356,7 +1454,12 @@ def main() -> None:
         elif args.command == "migrate-admission":
             summary = migrate_admission(args.source_dir, args.output_dir)
         else:
-            summary = label_routing_epochs(args.run_dir, args.output)
+            summary = label_routing_epochs(
+                args.run_dir,
+                args.output,
+                repair_selection_manifest=args.repair_selection_manifest,
+                repair_selection_manifest_sha256=args.repair_selection_manifest_sha256,
+            )
     except (OSError, MigrationError, direct.DirectWorkerError) as error:
         parser.error(str(error))
     print(json.dumps(summary, sort_keys=True))

@@ -428,6 +428,7 @@ def _validate_label_summary(
     allow_missing: bool = False,
 ) -> dict[str, int]:
     expected_keys = {
+        "ignored_incomplete_tail",
         "ok",
         "results_sha256",
         "rows",
@@ -441,7 +442,10 @@ def _validate_label_summary(
     counts = {f"epoch_{epoch}": summary.get(f"epoch_{epoch}_rows") for epoch in range(1, 4)}
     if (
         not all(_is_plain_int(value) and value >= 0 for value in counts.values())
+        or not isinstance(summary.get("ignored_incomplete_tail"), bool)
         or not _is_plain_int(summary.get("rows"))
+        or (summary["ignored_incomplete_tail"] and not allow_missing)
+        or (summary["ignored_incomplete_tail"] and summary["rows"] >= expected_count)
         or (summary["rows"] > expected_count if allow_missing else summary["rows"] != expected_count)
         or sum(counts.values()) != summary["rows"]
         or counts["epoch_3"] < 1
@@ -642,16 +646,26 @@ def finalize_qwen_sft(
         staging_dir = Path(staging)
         index = staging_dir / INDEX_FILENAME
         staged_output = staging_dir / "dataset"
+        label_command = [
+            sys.executable,
+            str(workflow / "migrate_qwen_router_affinity.py"),
+            "label",
+            "--run-dir",
+            str(paths.source_dir),
+            "--output",
+            str(index),
+        ]
+        if exclusion_path is not None:
+            label_command.extend(
+                [
+                    "--repair-selection-manifest",
+                    str(exclusion_path),
+                    "--repair-selection-manifest-sha256",
+                    str(exclusion_sha256),
+                ]
+            )
         label_summary = command_runner(
-            [
-                sys.executable,
-                str(workflow / "migrate_qwen_router_affinity.py"),
-                "label",
-                "--run-dir",
-                str(paths.source_dir),
-                "--output",
-                str(index),
-            ],
+            label_command,
             paths.project_dir,
             "routing_index_failed",
         )

@@ -100,6 +100,7 @@ class ExportOptions:
     routing_epoch_index: Path | None = None
     exclusion_selection_manifest: Path | None = None
     exclusion_selection_manifest_sha256: str | None = None
+    require_task_index_binding: bool = False
 
 
 @dataclass(frozen=True)
@@ -384,6 +385,8 @@ def _opaque_task_slug(
 ) -> str:
     slug = task.get("slug")
     derived: str | None = None
+    if evaluator_order is not None and "name" not in task:
+        raise ExportError("trace_task_name_invalid")
     if "name" in task:
         name = task["name"]
         if not isinstance(name, str) or not name or "\x00" in name:
@@ -1671,6 +1674,8 @@ def _validate_options(options: ExportOptions) -> None:
         raise ExportError("split_salt_invalid")
     if options.max_sequence_tokens < 1:
         raise ExportError("max_sequence_tokens_invalid")
+    if not isinstance(options.require_task_index_binding, bool):
+        raise ExportError("task_index_binding_invalid")
     if (options.exclusion_selection_manifest is None) != (options.exclusion_selection_manifest_sha256 is None):
         raise ExportError("exclusion_selection_arguments_invalid")
     if options.exclusion_selection_manifest is not None and (
@@ -1745,13 +1750,21 @@ def export_sft(options: ExportOptions) -> dict[str, Any]:
             seen_missing_or_error_slugs: set[str] = set()
             seen_strict_invalid_pass_slugs: set[str] = set()
             source_digest = hashlib.sha256()
+            ignored_incomplete_tail = False
 
             for source_trace_index, raw_line in enumerate(source):
                 source_digest.update(raw_line)
-                if not raw_line.endswith(b"\n"):
-                    raise ExportError("results_jsonl_unterminated")
-                if not raw_line.strip():
-                    raise ExportError("results_jsonl_blank_line")
+                try:
+                    trace = json.loads(raw_line)
+                except (UnicodeDecodeError, json.JSONDecodeError) as error:
+                    if exclusion_selection is not None and not raw_line.endswith(b"\n"):
+                        ignored_incomplete_tail = True
+                        break
+                    if not raw_line.strip():
+                        raise ExportError("results_jsonl_blank_line") from error
+                    if not raw_line.endswith(b"\n"):
+                        raise ExportError("results_jsonl_unterminated") from error
+                    raise ExportError("results_jsonl_invalid") from error
                 source_trace_sha256 = hashlib.sha256(raw_line).hexdigest()
                 routing_epoch: int | None = None
                 if routing_index is not None:
@@ -1761,10 +1774,6 @@ def export_sft(options: ExportOptions) -> dict[str, Any]:
                         raise ExportError("routing_epoch_index_row_hash_mismatch")
                     routing_epoch = routing_index.routing_epochs[source_trace_index]
                     counts[f"routing_epoch_{routing_epoch}_input_traces"] += 1
-                try:
-                    trace = json.loads(raw_line)
-                except (UnicodeDecodeError, json.JSONDecodeError) as error:
-                    raise ExportError("results_jsonl_invalid") from error
                 if not isinstance(trace, dict):
                     raise ExportError("trace_not_object")
                 counts["input_traces"] += 1
@@ -1782,7 +1791,11 @@ def export_sft(options: ExportOptions) -> dict[str, Any]:
                 seen_source_rows.add(source_trace_sha256)
                 task_slug = _opaque_task_slug(
                     task,
-                    evaluator_order=(task_identity.approved_slug_order if exclusion_selection is not None else None),
+                    evaluator_order=(
+                        task_identity.approved_slug_order
+                        if exclusion_selection is not None or options.require_task_index_binding
+                        else None
+                    ),
                 )
                 if exclusion_selection is not None and task_slug in seen_task_slugs:
                     raise ExportError("duplicate_task_trace")
@@ -1895,6 +1908,7 @@ def export_sft(options: ExportOptions) -> dict[str, Any]:
                 if (
                     seen_strict_invalid_pass_slugs != exclusion_selection.strict_invalid_pass_slugs
                     or unseen != expected_unseen
+                    or (ignored_incomplete_tail and not unseen)
                     or seen_task_slugs - exclusion_selection.union_slugs
                     != task_identity.approved_slugs - exclusion_selection.union_slugs
                     or counts["input_traces"] + len(unseen) != exclusion_selection.approved_task_count
@@ -2076,6 +2090,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     )
     parser.add_argument("--exclusion-selection-manifest", type=Path)
     parser.add_argument("--exclusion-selection-manifest-sha256")
+    parser.add_argument("--require-task-index-binding", action="store_true")
     return parser.parse_args(argv)
 
 
@@ -2092,6 +2107,7 @@ def main(argv: list[str] | None = None) -> int:
         routing_epoch_index=args.routing_epoch_index,
         exclusion_selection_manifest=args.exclusion_selection_manifest,
         exclusion_selection_manifest_sha256=args.exclusion_selection_manifest_sha256,
+        require_task_index_binding=args.require_task_index_binding,
     )
     try:
         summary = export_sft(options)

@@ -459,6 +459,7 @@ def _options(
     routing_epoch_index: Path | None = None,
     exclusion_selection_manifest: Path | None = None,
     exclusion_selection_manifest_sha256: str | None = None,
+    require_task_index_binding: bool = False,
 ):
     return ExportOptions(
         results=results,
@@ -469,6 +470,7 @@ def _options(
         routing_epoch_index=routing_epoch_index,
         exclusion_selection_manifest=exclusion_selection_manifest,
         exclusion_selection_manifest_sha256=exclusion_selection_manifest_sha256,
+        require_task_index_binding=require_task_index_binding,
     )
 
 
@@ -1269,6 +1271,202 @@ def test_task_identity_accepts_production_name_only_shape(tmp_path: Path) -> Non
 
     summary = export_sft(_options(results, tmp_path / "dataset", selection="pass-only"))
     assert summary["selected_traces"] == 1
+
+
+@pytest.mark.parametrize("index", [None, 0])
+def test_required_task_index_binding_rejects_missing_or_wrong_index(
+    tmp_path: Path,
+    index: int | None,
+) -> None:
+    trace = _linear_trace(task_name="synthetic-task")
+    trace["task"] = {"name": "synthetic-suite/synthetic-task"}
+    if index is not None:
+        trace["task"]["idx"] = index
+    results = _write_run(
+        tmp_path / "run",
+        [trace],
+        approved_slugs=["synthetic-task", "other-task"],
+    )
+
+    with pytest.raises(ExportError, match="^trace_task_identity_mismatch$"):
+        export_sft(
+            _options(
+                results,
+                tmp_path / "dataset",
+                selection="pass-only",
+                require_task_index_binding=True,
+            )
+        )
+
+
+def test_required_task_index_binding_accepts_repair_evaluator_order(tmp_path: Path) -> None:
+    trace = _linear_trace(task_name="synthetic-task")
+    trace["task"] = {"idx": 1, "name": "synthetic-suite/synthetic-task"}
+    results = _write_run(
+        tmp_path / "run",
+        [trace],
+        approved_slugs=["synthetic-task", "other-task"],
+    )
+
+    summary = export_sft(
+        _options(
+            results,
+            tmp_path / "dataset",
+            selection="pass-only",
+            require_task_index_binding=True,
+        )
+    )
+
+    assert summary["selected_traces"] == 1
+
+
+def test_required_task_index_binding_rejects_slug_only_identity(tmp_path: Path) -> None:
+    trace = _linear_trace(task_name="synthetic-task")
+    trace["task"] = {"idx": 1, "slug": "synthetic-task"}
+    results = _write_run(
+        tmp_path / "run",
+        [trace],
+        approved_slugs=["synthetic-task", "other-task"],
+    )
+
+    with pytest.raises(ExportError, match="^trace_task_name_invalid$"):
+        export_sft(
+            _options(
+                results,
+                tmp_path / "dataset",
+                selection="pass-only",
+                require_task_index_binding=True,
+            )
+        )
+
+
+def test_attested_exclusion_rejects_slug_only_identity(tmp_path: Path) -> None:
+    approved = ["opaque-missing", "opaque-valid"]
+    valid = _name_only_trace("trace-valid", "opaque-valid", 1)
+    valid["task"] = {"idx": 1, "slug": "opaque-valid"}
+    results = _write_run(tmp_path / "run", [valid], approved_slugs=approved)
+    routing = _write_routing_epoch_index(results, [2])
+    selection, digest = _write_exclusion_selection(
+        results,
+        missing_or_errored={"opaque-missing"},
+        strict_invalid_pass=set(),
+    )
+
+    with pytest.raises(ExportError, match="^trace_task_name_invalid$"):
+        export_sft(
+            _options(
+                results,
+                tmp_path / "dataset",
+                selection="pass-only",
+                expected_count=2,
+                routing_epoch_index=routing,
+                exclusion_selection_manifest=selection,
+                exclusion_selection_manifest_sha256=digest,
+            )
+        )
+
+
+def test_export_ignores_attested_malformed_final_fragment_and_hashes_full_source(
+    tmp_path: Path,
+) -> None:
+    approved = ["opaque-missing", "opaque-valid"]
+    valid = _name_only_trace("trace-valid", "opaque-valid", 1)
+    results = _write_run(tmp_path / "run", [valid], approved_slugs=approved)
+    routing = _write_routing_epoch_index(results, [2])
+    results.write_bytes(results.read_bytes() + b'{"task":{"idx":0')
+    index_rows = [json.loads(line) for line in routing.read_text().splitlines()]
+    index_rows[0]["results_sha256"] = _sha256(results)
+    routing.write_text("".join(json.dumps(row, sort_keys=True, separators=(",", ":")) + "\n" for row in index_rows))
+    selection, digest = _write_exclusion_selection(
+        results,
+        missing_or_errored={"opaque-missing"},
+        strict_invalid_pass=set(),
+    )
+    source_before = results.read_bytes()
+
+    summary = export_sft(
+        _options(
+            results,
+            tmp_path / "dataset",
+            selection="pass-only",
+            expected_count=2,
+            routing_epoch_index=routing,
+            exclusion_selection_manifest=selection,
+            exclusion_selection_manifest_sha256=digest,
+        )
+    )
+
+    assert summary["input_traces"] == 1
+    assert summary["exclusion"]["missing_tasks"] == 1
+    manifest = json.loads((tmp_path / "dataset" / "manifest.json").read_text())
+    assert manifest["source_artifacts"]["results.jsonl"] == {
+        "bytes": len(source_before),
+        "sha256": hashlib.sha256(source_before).hexdigest(),
+    }
+    assert results.read_bytes() == source_before
+
+
+def test_export_retains_valid_unterminated_final_row(tmp_path: Path) -> None:
+    results = _write_run(tmp_path / "run", [_linear_trace()])
+    results.write_bytes(results.read_bytes().removesuffix(b"\n"))
+    routing = _write_routing_epoch_index(results, [2])
+
+    summary = export_sft(
+        _options(
+            results,
+            tmp_path / "dataset",
+            selection="pass-only",
+            expected_count=1,
+            routing_epoch_index=routing,
+        )
+    )
+
+    assert summary["input_traces"] == 1
+    assert summary["selected_traces"] == 1
+
+
+def test_export_rejects_unattested_malformed_final_fragment(tmp_path: Path) -> None:
+    results = _write_run(tmp_path / "run", [_linear_trace()])
+    results.write_bytes(results.read_bytes() + b'{"task":{"idx":0')
+
+    with pytest.raises(ExportError, match="^results_jsonl_unterminated$"):
+        export_sft(_options(results, tmp_path / "dataset", selection="pass-only"))
+
+
+@pytest.mark.parametrize(
+    "tail",
+    [
+        b'{"task":\n',
+        b'{"task":\n{"task":{"idx":0}}\n',
+    ],
+)
+def test_export_rejects_complete_or_interior_malformed_content_even_with_exclusion(
+    tmp_path: Path,
+    tail: bytes,
+) -> None:
+    approved = ["opaque-missing", "opaque-valid"]
+    valid = _name_only_trace("trace-valid", "opaque-valid", 1)
+    results = _write_run(tmp_path / "run", [valid], approved_slugs=approved)
+    results.write_bytes(results.read_bytes() + tail)
+    routing = _write_routing_epoch_index(results, [2] * len(results.read_bytes().splitlines(keepends=True)))
+    selection, digest = _write_exclusion_selection(
+        results,
+        missing_or_errored={"opaque-missing"},
+        strict_invalid_pass=set(),
+    )
+
+    with pytest.raises(ExportError, match="^results_jsonl_invalid$"):
+        export_sft(
+            _options(
+                results,
+                tmp_path / "dataset",
+                selection="pass-only",
+                expected_count=2,
+                routing_epoch_index=routing,
+                exclusion_selection_manifest=selection,
+                exclusion_selection_manifest_sha256=digest,
+            )
+        )
 
 
 def test_task_identity_rejects_mismatched_name_and_slug(tmp_path: Path) -> None:
