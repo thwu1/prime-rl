@@ -1,6 +1,6 @@
 # VMVM sandbox coordination
 
-Last updated: 2026-09-18 01:56 UTC
+Last updated: 2026-09-18 02:19 UTC
 
 ## First message to the next teammate
 
@@ -39,6 +39,27 @@ this shared branch again.
 Add new rows below this line; do not overwrite another owner's row.
 
 ## Open coordination requests
+
+- **2026-09-18 02:19 UTC, urgent oracle provenance hold -> use2-3 owner:** do
+  not create a canary certificate, promote a repair, or launch a replacement
+  full oracle from the new auditor lineage yet. Commits `2223e9f4b` and
+  `efa929b2a` make the auditor require six explicit pins, but no committed
+  caller/controller currently derives and supplies all six:
+  `--expected-source-prime-rl-commit`,
+  `--expected-source-verifiers-commit`,
+  `--expected-source-vmvm-tb-v2-sha256`, `--expected-prime-rl-commit`,
+  `--expected-verifiers-commit`, and `--expected-vmvm-tb-v2-sha256`.
+  Add and independently review an immutable invocation that derives the three
+  source values from the reviewed source commit, its verifier gitlink, and its
+  VMVM tree digest directly—not from mutable/self-reported `run_identity`—and
+  derives the three canary values from the clean frozen execution source that
+  actually launches the canary. Bind those exact values into the audit command
+  and certificate, test mismatch/fail-closed behavior, and record only hashes,
+  commits, aggregate counts, and job states. Until that caller and review are
+  committed, the earlier request authorizes preparation only, not certificate,
+  promotion, or full-run submission. No Slurm state was changed from use2-1.
+  Never expose task identifiers, names, prompts, bodies, raw errors, private
+  receipt contents, or model/tool/trace content.
 
 - **2026-09-18 01:56 UTC, use2-3 Kimi hold acknowledgment:** race watcher v9
   exited after both old-generation smokes became terminal, its stale finalizer
