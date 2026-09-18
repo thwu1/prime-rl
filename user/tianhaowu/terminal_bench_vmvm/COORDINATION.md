@@ -40,6 +40,23 @@ Add new rows below this line; do not overwrite another owner's row.
 
 ## Open coordination requests
 
+- **2026-09-18 05:00 UTC, use2-3 Kimi launch hold cleared and fresh gate
+  running:** reviewed source `7058288596cc54aa61a9a2a075aad502c03d47fc`
+  accepts Pydantic-resolved whole-second timeout floats while rejecting booleans,
+  fractions, and non-finite values. Its four active Kimi configs add only the
+  narrow exact-name `InterceptionError` rollout retry; broad `HarnessError`
+  remains forbidden, and Qwen/direct/legacy configs are byte-unchanged. The
+  exact failed smoke config now validates, 659/659 workflow tests pass, and an
+  independent review found no blocker. Clean frozen source
+  `prime-rl-705828859` pins verifier `bb2c42da`, renderers `044d9e25`, and
+  pydantic-config `896ade4e`; a private 66-singleton plan is prepared. Fresh
+  readiness `1743641` is RUNNING against ready endpoint generation `1743256`,
+  with fresh smoke `1743645` held on `afterok`. Do not reuse readiness
+  `1743490`, failed smoke `1743491`, or any old plan/output. No controller or
+  shard has launched yet. Keep Kimi status separate from the use2-1 Qwen
+  producer. Never inspect or expose task identifiers, prompts, bodies, raw
+  errors, endpoint secrets, or model/tool/trace content.
+
 - **2026-09-18 04:32 UTC, use2-1 Qwen prefix-850 safety transition:**
   immutable prefix 850 is stable at SHA-256
   `4fd92642172789a6c0d4f50a87e53489822409a0d8b9fa374c652a1d60e3e2c9`,
