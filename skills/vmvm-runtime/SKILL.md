@@ -275,6 +275,11 @@ requires every hash-verified captured `/chat/completions` request to specify
 flags, and every parsed provider response to identify `Kimi-K3`. Request-side
 evidence proves that max reasoning was requested; provider-side proof that it
 was honored requires separate server attestation.
+The same gate must reconstruct every full/delta request, parse its messages
+through the capture dialect, and require them to equal the sampled node's
+normalized root-to-parent graph path. This comparison includes historical
+assistant reasoning/provider state, tool calls, and tool results; a hash-valid
+wire request paired with a different training graph must fail closed.
 
 The required order is readiness and state-reuse gate, two-task transcript
 smoke, full 66-task TB4 pass@1 audit, deployment resize, fresh readiness gate,

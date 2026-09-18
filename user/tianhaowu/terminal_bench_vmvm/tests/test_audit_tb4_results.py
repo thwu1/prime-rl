@@ -43,7 +43,7 @@ def _supported_trace(slug: str, *, solved: float = 0.0) -> dict:
         "model": "Kimi-K3",
         "reasoning_effort": "max",
         "chat_template_kwargs": {"enable_thinking": True, "preserve_thinking": True},
-        "messages": [{"role": "user", "content": "repair the task"}],
+        "messages": [],
         "tools": [
             {
                 "type": "function",

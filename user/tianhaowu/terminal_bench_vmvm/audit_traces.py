@@ -15,8 +15,15 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from openai.types.chat import ChatCompletion
-from verifiers.v1.dialects.chat import response_from_wire
-from verifiers.v1.types import AssistantMessage, Response, Usage
+from verifiers.v1.dialects.chat import ChatDialect, response_from_wire
+from verifiers.v1.types import (
+    AssistantMessage,
+    Response,
+    SystemMessage,
+    ToolMessage,
+    Usage,
+    UserMessage,
+)
 
 DEFAULT_MAX_SEQUENCE_TOKENS = 262_144
 FORBIDDEN_MODEL_REQUEST_FIELDS = frozenset({"logprobs", "prompt_logprobs", "return_token_ids", "top_logprobs"})
@@ -495,6 +502,66 @@ def _model_io_base_is_ancestor(nodes: list, node_id: int, base_node: int) -> boo
     return False
 
 
+def _graph_prompt_messages(nodes: list, node_id: int) -> list[dict] | None:
+    """Return the normalized root-to-parent messages for one sampled node."""
+    path: list[int] = []
+    seen: set[int] = set()
+    current = nodes[node_id].get("parent")
+    while current is not None:
+        if (
+            isinstance(current, bool)
+            or not isinstance(current, int)
+            or not 0 <= current < len(nodes)
+            or current in seen
+        ):
+            return None
+        seen.add(current)
+        path.append(current)
+        ancestor = nodes[current]
+        if not isinstance(ancestor, dict):
+            return None
+        current = ancestor.get("parent")
+    path.reverse()
+
+    message_types = {
+        "assistant": AssistantMessage,
+        "system": SystemMessage,
+        "tool": ToolMessage,
+        "user": UserMessage,
+    }
+    normalized: list[dict] = []
+    try:
+        for path_id in path:
+            message = nodes[path_id].get("message")
+            if not isinstance(message, dict):
+                return None
+            message_type = message_types.get(message.get("role"))
+            if message_type is None:
+                return None
+            normalized.append(message_type.model_validate(message).model_dump(mode="json"))
+    except (TypeError, ValueError):
+        return None
+    return normalized
+
+
+def _request_graph_message_problem(nodes: list, node_id: int, request_body: dict) -> str | None:
+    """Prove the persisted graph prompt matches the provider-visible chat request."""
+    raw_messages = request_body.get("messages")
+    if not isinstance(raw_messages, list):
+        return "model_io_request_messages_invalid"
+    try:
+        request_messages, _tools = ChatDialect().parse_request(request_body)
+    except (AttributeError, KeyError, TypeError, ValueError):
+        return "model_io_request_messages_invalid"
+    graph_messages = _graph_prompt_messages(nodes, node_id)
+    if graph_messages is None:
+        return "model_io_request_messages_invalid"
+    normalized_request = [message.model_dump(mode="json") for message in request_messages]
+    if normalized_request != graph_messages:
+        return "model_io_request_messages_mismatch"
+    return None
+
+
 class _ModelIOReconstructionError(ValueError):
     """A structurally valid request delta could not be safely reconstructed."""
 
@@ -502,6 +569,7 @@ class _ModelIOReconstructionError(ValueError):
 def _audit_model_io(
     nodes: list,
     model_io_contract: CapturedModelIOContract | None = None,
+    require_request_graph_match: bool = False,
 ) -> tuple[list[str], int, dict[int, dict]]:
     """Validate and reconstruct all sampled-turn provider captures using only stdlib types."""
     problems: list[str] = []
@@ -624,6 +692,9 @@ def _audit_model_io(
                 )
             ):
                 problems.append(f"node_{node_id}_model_io_request_chat_template_kwargs_mismatch")
+        if require_request_graph_match and model_io.get("provider_route") == "/chat/completions":
+            if message_problem := _request_graph_message_problem(nodes, node_id, request_body):
+                problems.append(f"node_{node_id}_{message_problem}")
         tools = request_body.get("tools")
         if isinstance(tools, list) and tools and all(isinstance(tool, dict) and tool for tool in tools):
             found_tool_schemas = True
@@ -641,10 +712,11 @@ def _audit_trace(
     require_logprobs: bool = False,
     require_model_io: bool = False,
     model_io_contract: CapturedModelIOContract | None = None,
+    require_request_graph_match: bool = False,
 ) -> list[str]:
     # Requiring logprobs necessarily opts into exact token-array validation.
     require_token_data = require_token_data or require_logprobs
-    require_model_io = require_model_io or model_io_contract is not None
+    require_model_io = require_model_io or model_io_contract is not None or require_request_graph_match
     problems: list[str] = []
     if trace.get("errors"):
         problems.append("trace_has_errors")
@@ -658,6 +730,7 @@ def _audit_trace(
         model_io_problems, _model_io_turns, reconstructed_requests = _audit_model_io(
             nodes,
             model_io_contract,
+            require_request_graph_match,
         )
 
     max_branch_tokens, invalid_parents, parent_cycle = _max_branch_tokens(nodes)
@@ -804,9 +877,10 @@ def _summarize_traces(
     require_model_io: bool = False,
     aggregate_only: bool = False,
     model_io_contract: CapturedModelIOContract | None = None,
+    require_request_graph_match: bool = False,
 ) -> tuple[dict, bool]:
     require_token_data = require_token_data or require_logprobs
-    require_model_io = require_model_io or model_io_contract is not None
+    require_model_io = require_model_io or model_io_contract is not None or require_request_graph_match
     trace_count = 0
     sampled_tokens = 0
     model_io_turns = 0
@@ -835,6 +909,7 @@ def _summarize_traces(
             require_logprobs=require_logprobs,
             require_model_io=require_model_io,
             model_io_contract=model_io_contract,
+            require_request_graph_match=require_request_graph_match,
         )
         if problems:
             trace_failure_count += 1
@@ -922,6 +997,12 @@ def main() -> None:
         help="require and integrity-check exact provider request/response capture for every sampled turn",
     )
     parser.add_argument(
+        "--require-request-graph-match",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="require each captured chat request's messages to match the persisted graph prompt path",
+    )
+    parser.add_argument(
         "--require-token-data",
         action=argparse.BooleanOptionalAction,
         default=False,
@@ -976,6 +1057,10 @@ def main() -> None:
             require_model_io=args.require_model_io,
             aggregate_only=args.aggregate_only,
             model_io_contract=MODEL_IO_CONTRACTS.get(args.model_io_contract),
+            require_request_graph_match=(
+                args.require_request_graph_match
+                and (args.require_model_io or args.model_io_contract is not None)
+            ),
         )
     except TraceJSONLError as error:
         parser.error(str(error))

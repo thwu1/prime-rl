@@ -771,6 +771,14 @@ assistant node. Hash-valid but unrelated response payloads therefore fail the
 gate. Audit output contains stable problem codes and aggregate counts only,
 never response text.
 
+The audit also reconstructs every full/delta captured request, parses its
+messages through the same chat dialect, and requires the normalized request to
+equal the sampled node's root-to-parent graph path. This covers historical
+assistant reasoning/provider state, tool calls, and tool results, so a
+hash-valid wire request paired with different graph context cannot pass the
+training gate. `--no-require-request-graph-match` is diagnostic only and must
+not be used for qualification, certification, or export.
+
 A tool-call turn without flattened reasoning is exempt only when provider usage
 reports a valid zero reasoning-token count, or when exact provider JSON contains
 an explicit empty reasoning marker and the reconstructed request enabled and

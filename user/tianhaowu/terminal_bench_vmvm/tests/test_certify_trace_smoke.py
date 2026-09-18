@@ -50,7 +50,7 @@ def _trace(trace_id: str, task: str, *, start: float, end: float) -> dict:
         "model": "Kimi-K3",
         "reasoning_effort": "max",
         "chat_template_kwargs": {"enable_thinking": True, "preserve_thinking": True},
-        "messages": [{"role": "user", "content": "synthetic"}],
+        "messages": [],
         "tools": [
             {
                 "type": "function",

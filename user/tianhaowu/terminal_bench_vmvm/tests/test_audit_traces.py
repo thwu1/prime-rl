@@ -9,6 +9,7 @@ from audit_traces import (
     _audit_trace,
     _captured_zero_reasoning_tool_turn,
     _iter_traces,
+    _request_graph_message_problem,
     _summarize_traces,
     main,
 )
@@ -77,7 +78,7 @@ def _request(*, tools: list | None = None, **extra: object) -> dict:
             "enable_thinking": True,
             "preserve_thinking": True,
         },
-        "messages": [{"role": "user", "content": "inspect the workspace"}],
+        "messages": [],
         "tools": tools
         if tools is not None
         else [
@@ -563,6 +564,94 @@ def test_audit_trace_validates_complete_model_io_capture() -> None:
     trace = _trace_with_model_io()
 
     assert _audit_trace(trace, require_reasoning=True, require_model_io=True) == []
+
+
+def test_audit_trace_requires_captured_request_messages_to_match_graph_path() -> None:
+    trace = _trace_with_model_io()
+
+    assert (
+        _audit_trace(
+            trace,
+            require_reasoning=True,
+            require_model_io=True,
+            require_request_graph_match=True,
+        )
+        == []
+    )
+
+    request = trace["nodes"][0]["model_io"]["request"]
+    request["body"]["messages"] = [{"role": "user", "content": "wire-only context"}]
+    request["sha256"] = _digest(request["body"])
+
+    assert _audit_trace(
+        trace,
+        require_reasoning=True,
+        require_model_io=True,
+        require_request_graph_match=True,
+    ) == ["node_0_model_io_request_messages_mismatch"]
+
+
+def test_request_graph_match_covers_historical_reasoning_tool_calls_and_results() -> None:
+    nodes = [
+        {
+            "parent": None,
+            "message": {"role": "user", "content": "inspect the workspace"},
+        },
+        {
+            "parent": 0,
+            "message": {
+                "role": "assistant",
+                "content": None,
+                "reasoning_content": "I need the shell.",
+                "tool_calls": [
+                    {"id": "call-1", "name": "bash", "arguments": '{"cmd":"pwd"}'}
+                ],
+            },
+        },
+        {
+            "parent": 1,
+            "message": {
+                "role": "tool",
+                "tool_call_id": "call-1",
+                "name": "bash",
+                "content": "/workspace\n",
+            },
+        },
+        {
+            "parent": 2,
+            "message": {
+                "role": "assistant",
+                "content": "done",
+                "reasoning_content": "The path is correct.",
+            },
+        },
+    ]
+    request = _request()
+    request["messages"] = [
+        {"role": "user", "content": "inspect the workspace"},
+        {
+            "role": "assistant",
+            "content": None,
+            "reasoning_content": "I need the shell.",
+            "tool_calls": [
+                {
+                    "id": "call-1",
+                    "type": "function",
+                    "function": {"name": "bash", "arguments": '{"cmd":"pwd"}'},
+                }
+            ],
+        },
+        {"role": "tool", "tool_call_id": "call-1", "content": "/workspace\n"},
+    ]
+
+    assert _request_graph_message_problem(nodes, 3, request) is None
+
+    request["messages"][1]["reasoning_content"] = "different hidden reasoning"
+    assert _request_graph_message_problem(nodes, 3, request) == "model_io_request_messages_mismatch"
+
+    request["messages"][1]["reasoning_content"] = "I need the shell."
+    request["messages"][2]["content"] = "different tool result"
+    assert _request_graph_message_problem(nodes, 3, request) == "model_io_request_messages_mismatch"
 
 
 def test_strict_kimi_contract_is_valid_and_implies_model_io() -> None:
@@ -1221,7 +1310,7 @@ def test_audit_trace_reconstructs_and_hashes_model_request_deltas() -> None:
         "base_node": 0,
         "set_fields": {"temperature": 0.7},
         "remove_fields": ["seed"],
-        "append_fields": {"messages": second_request["messages"][1:]},
+        "append_fields": {"messages": second_request["messages"][len(base_request["messages"]) :]},
     }
     trace["nodes"].append(second)
 

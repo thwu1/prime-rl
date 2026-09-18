@@ -293,6 +293,7 @@ def audit_results(
                 require_logprobs=False,
                 require_model_io=True,
                 model_io_contract=KIMI_K3_MAX_MODEL_IO_CONTRACT,
+                require_request_graph_match=True,
             )
             if row.get("is_completed") is not True:
                 problems.append("supported_trace_not_completed")

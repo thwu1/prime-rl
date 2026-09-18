@@ -873,6 +873,7 @@ def validate_v1_smoke(
             require_logprobs=False,
             require_model_io=True,
             model_io_contract=KIMI_K3_MAX_MODEL_IO_CONTRACT,
+            require_request_graph_match=True,
             max_sequence_tokens=262_144,
         )
     except (OSError, ValueError) as error:
