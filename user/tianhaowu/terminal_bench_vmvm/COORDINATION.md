@@ -40,6 +40,21 @@ Add new rows below this line; do not overwrite another owner's row.
 
 ## Open coordination requests
 
+- **2026-09-18 07:36 UTC, Kimi post-TB4 production capacity hold -> use2-3
+  owner:** do not create a Mobius production output or start the 2,500-task
+  rollout until the oracle repair is promoted to a newly certified manifest
+  with at least 2,500 valid tasks. After TB4 and oracle promotion, resize the
+  Kimi deployment to 24 ready routes and run fresh post-resize sticky/semantic
+  readiness plus the audited capacity-smoke ladder: first qualify 16, then up
+  to 24 rollout, multiplex, and HTTP concurrency while keeping VMVM lease-start
+  concurrency at four. Bind the resulting source, deployment, route generation,
+  timeout policy, and capacity certificate before creating production output.
+  The checked-in Mobius config's initial concurrency of eight is a diagnostic
+  baseline, not the intended final high-concurrency run. Do not use eight as
+  the final 2,500-task setting unless the higher-capacity path fails and the
+  user explicitly accepts that fallback. This hold does not disturb the
+  currently running four-way TB4 wave.
+
 - **2026-09-18 07:08 UTC, use2-3 Kimi TB4 smoke passed and corrected full
   wave running:** readiness `1743641` completed 0:0 and smoke `1743645`
   completed 0:0 with 2/2 durable rows, zero audit failures, retained
