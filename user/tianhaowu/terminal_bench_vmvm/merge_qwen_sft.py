@@ -30,6 +30,8 @@ MERGE_SCHEMA_VERSION = 1
 MERGE_KIND = "qwen-sft-aggregate-merge"
 REPAIR_SELECTION_KIND = "qwen-aggregate-repair-selection"
 REPAIR_ATTESTATION_KIND = "qwen-direct-repair-attestation"
+REPAIR_SELECTION_COPY_FILENAME = "repair_selection_manifest.json"
+REPAIR_ATTESTATION_COPY_FILENAME = "qwen_repair_attestation.json"
 MAX_SEQUENCE_TOKENS = 262_144
 MAX_METADATA_BYTES = 16 * 1024 * 1024
 MAX_JSONL_ROW_BYTES = 128 * 1024 * 1024
@@ -38,6 +40,15 @@ GIT_SHA_PATTERN = re.compile(r"[0-9a-f]{40}")
 SPLIT_POLICY = "sha256(split_salt + NUL + stable task identity SHA-256) modulo 10000"
 LOSS_MASK = "message.trainable; exactly one final assistant message is true"
 TASK_IDENTITY = "sha256(taskset id + NUL + dataset revision + NUL + approved opaque task slug)"
+EXPECTED_MODEL = "Qwen3.8-2.4T-A95B"
+FORMAT_CONTRACT = {
+    "assistant_tool_calls": "OpenAI function-call objects",
+    "history_assistant_reasoning": "removed",
+    "loss_mask": LOSS_MASK,
+    "sample_unit": "one unique sampled assistant node with its root-to-node context",
+    "target": ("authentic reasoning_content, content, and tool_calls; the selected renderer supplies its stop token"),
+    "task_identity": TASK_IDENTITY,
+}
 REQUIRED_ARTIFACT_PATHS = {
     "task-split.json": Path("task-split.json"),
     "train/train.jsonl": Path("train/train.jsonl"),
@@ -71,6 +82,23 @@ REQUIRED_SUBMODULES = (
 )
 AT_FDCWD = -100
 RENAME_NOREPLACE = 1
+ROW_FIELDS = {
+    "assistant_target_count",
+    "history_reasoning_policy",
+    "is_correct",
+    "messages",
+    "reward",
+    "source_episode_id",
+    "source_node_index",
+    "source_split_row_index",
+    "source_trace_index",
+    "source_trajectory_assistant_turn_count",
+    "target_assistant_message_index",
+    "target_assistant_turn_index",
+    "target_has_reasoning",
+    "task_id",
+    "tools",
+}
 
 
 class MergeError(RuntimeError):
@@ -119,6 +147,7 @@ class ExportBundle:
     train_tasks: frozenset[str]
     validation_tasks: frozenset[str]
     source_artifacts: Mapping[str, FileArtifact]
+    exporter_sha256: str
     taskset_id: str
     dataset_revision: str
     input_traces: int
@@ -159,6 +188,10 @@ class RepairSelection:
     source_artifacts: Mapping[str, FileArtifact]
     source_task_count: int
     source_routing_epoch: int
+    repair_config_sha256: str
+    materializer_sha256: str
+    repository_revision: str
+    submodules: Mapping[str, str]
 
 
 @dataclass(frozen=True, slots=True)
@@ -169,6 +202,19 @@ class RepairAttestation:
     task_file_sha256: str
     taskset_id: str
     dataset_revision: str
+    repository_revision: str
+    submodules: Mapping[str, str]
+
+
+@dataclass(frozen=True, slots=True)
+class RowIdentity:
+    task_id: str
+    source_episode_id: str
+    source_node_index: int
+    source_split_row_index: int
+    source_trace_index: int
+    source_trajectory_assistant_turn_count: int
+    target_assistant_turn_index: int
 
 
 @dataclass(frozen=True, slots=True)
@@ -381,6 +427,12 @@ def _task_ids(value: object) -> frozenset[str]:
     return frozenset(value)
 
 
+def _split_for_task(task_id: str, contract: SplitContract) -> str:
+    digest = hashlib.sha256(f"{contract.split_salt}\0{task_id}".encode("utf-8")).digest()
+    bucket = int.from_bytes(digest[:8], "big") % 10_000
+    return "validation" if bucket < contract.validation_permyriad else "train"
+
+
 def _load_export(path: Path, role: str) -> ExportBundle:
     root = _canonical_directory(path, f"{role}_export_invalid")
     manifest_body, manifest_artifact = _read_regular(
@@ -389,20 +441,48 @@ def _load_export(path: Path, role: str) -> ExportBundle:
         limit=MAX_METADATA_BYTES,
     )
     manifest = _parse_json_object(manifest_body, f"{role}_manifest_invalid")
+    expected_manifest_keys = {
+        "artifacts",
+        "config",
+        "counts",
+        "exporter",
+        "format",
+        "max_sequence_tokens",
+        "selection",
+        "source_artifacts",
+        "split",
+    }
+    if role == "original":
+        expected_manifest_keys.add("routing_epochs")
+    if set(manifest) != expected_manifest_keys:
+        raise MergeError(f"{role}_manifest_contract_invalid")
     exporter = manifest.get("exporter")
     format_contract = manifest.get("format")
     split_value = manifest.get("split")
     config = manifest.get("config")
     if (
         not isinstance(exporter, dict)
+        or set(exporter) != {"file_sha256", "format_version"}
         or exporter.get("format_version") != FORMAT_VERSION
+        or not isinstance(exporter.get("file_sha256"), str)
+        or SHA256_PATTERN.fullmatch(exporter["file_sha256"]) is None
         or manifest.get("selection") != "pass-only"
         or manifest.get("max_sequence_tokens") != MAX_SEQUENCE_TOKENS
-        or not isinstance(format_contract, dict)
-        or format_contract.get("loss_mask") != LOSS_MASK
-        or format_contract.get("task_identity") != TASK_IDENTITY
+        or format_contract != FORMAT_CONTRACT
         or not isinstance(config, dict)
+        or set(config)
+        != {
+            "capture_model_io",
+            "dataset_revision",
+            "max_input_tokens",
+            "max_output_tokens",
+            "max_total_tokens",
+            "model",
+            "num_rollouts",
+            "taskset_id",
+        }
         or config.get("capture_model_io") is not True
+        or config.get("model") != EXPECTED_MODEL
         or config.get("max_input_tokens") != MAX_SEQUENCE_TOKENS
         or config.get("max_output_tokens") != MAX_SEQUENCE_TOKENS
         or config.get("max_total_tokens") != MAX_SEQUENCE_TOKENS
@@ -429,11 +509,10 @@ def _load_export(path: Path, role: str) -> ExportBundle:
     )
 
     artifact_values = manifest.get("artifacts")
-    if (
-        not isinstance(artifact_values, dict)
-        or not set(REQUIRED_ARTIFACT_PATHS).issubset(artifact_values)
-        or not set(artifact_values).issubset(ARTIFACT_PATHS)
-    ):
+    expected_artifacts = set(REQUIRED_ARTIFACT_PATHS)
+    if role == "original":
+        expected_artifacts.update(OPTIONAL_ARTIFACT_PATHS)
+    if not isinstance(artifact_values, dict) or set(artifact_values) != expected_artifacts:
         raise MergeError(f"{role}_manifest_artifacts_invalid")
     artifacts = {
         name: _artifact_record(artifact_values[name], f"{role}_manifest_artifacts_invalid") for name in artifact_values
@@ -469,6 +548,10 @@ def _load_export(path: Path, role: str) -> ExportBundle:
         raise MergeError("task_split_overlap")
     if not train_tasks and not validation_tasks:
         raise MergeError("task_split_empty")
+    if any(_split_for_task(task_id, split) != "train" for task_id in train_tasks) or any(
+        _split_for_task(task_id, split) != "validation" for task_id in validation_tasks
+    ):
+        raise MergeError("task_split_assignment_invalid")
     counts = manifest.get("counts")
     source_artifact_values = manifest.get("source_artifacts")
     if not isinstance(counts, dict) or not isinstance(source_artifact_values, dict):
@@ -477,7 +560,7 @@ def _load_export(path: Path, role: str) -> ExportBundle:
         name: _artifact_record(record, f"{role}_manifest_source_artifacts_invalid")
         for name, record in source_artifact_values.items()
     }
-    if "inputs/task_file.txt" not in source_artifacts:
+    if not set(SELECTION_SOURCE_ARTIFACTS.values()).issubset(source_artifacts):
         raise MergeError(f"{role}_manifest_source_artifacts_invalid")
     input_traces = counts.get("input_traces")
     if not _is_plain_int(input_traces) or input_traces < len(train_tasks | validation_tasks):
@@ -495,6 +578,7 @@ def _load_export(path: Path, role: str) -> ExportBundle:
             or any(not _is_plain_int(value) or value < 0 for value in routing_inputs.values())
             or sum(routing_inputs.values()) != input_traces
             or "qwen_router_epochs.jsonl" not in source_artifacts
+            or source_artifacts["qwen_router_epochs.jsonl"] != artifacts["qwen_router_epochs.jsonl"]
         ):
             raise MergeError("original_routing_evidence_invalid")
         routing_epoch = 3
@@ -507,6 +591,7 @@ def _load_export(path: Path, role: str) -> ExportBundle:
         train_tasks=train_tasks,
         validation_tasks=validation_tasks,
         source_artifacts=source_artifacts,
+        exporter_sha256=exporter["file_sha256"],
         taskset_id=config["taskset_id"],
         dataset_revision=config["dataset_revision"],
         input_traces=input_traces,
@@ -515,8 +600,91 @@ def _load_export(path: Path, role: str) -> ExportBundle:
     )
 
 
-def _validate_row(raw_line: bytes, expected_tasks: frozenset[str]) -> str:
+def _validate_tool_call(value: object) -> None:
+    if not isinstance(value, dict) or set(value) != {"function", "id", "type"}:
+        raise MergeError("row_tool_contract_invalid")
+    function = value.get("function")
+    if (
+        value.get("type") != "function"
+        or not isinstance(value.get("id"), str)
+        or not value["id"]
+        or not isinstance(function, dict)
+        or set(function) != {"arguments", "name"}
+        or not isinstance(function.get("name"), str)
+        or not function["name"]
+        or not isinstance(function.get("arguments"), str)
+    ):
+        raise MergeError("row_tool_contract_invalid")
+    _parse_json(function["arguments"].encode("utf-8"), "row_tool_contract_invalid")
+
+
+def _validate_tool_schema(value: object) -> None:
+    if not isinstance(value, list) or not value:
+        raise MergeError("row_tool_contract_invalid")
+    for tool in value:
+        function = tool.get("function") if isinstance(tool, dict) else None
+        if (
+            not isinstance(tool, dict)
+            or tool.get("type", "function") != "function"
+            or not isinstance(function, dict)
+            or not isinstance(function.get("name"), str)
+            or not function["name"]
+            or not isinstance(function.get("description", ""), str)
+            or not isinstance(function.get("parameters", {}), dict)
+            or (function.get("strict") is not None and not isinstance(function["strict"], bool))
+        ):
+            raise MergeError("row_tool_contract_invalid")
+
+
+def _validate_messages(messages: object, target_index: int) -> None:
+    if not isinstance(messages, list) or not messages or target_index != len(messages) - 1:
+        raise MergeError("row_target_invalid")
+    targets: list[int] = []
+    for index, message in enumerate(messages):
+        if not isinstance(message, dict) or not isinstance(message.get("trainable"), bool):
+            raise MergeError("row_target_invalid")
+        role = message.get("role")
+        content = message.get("content")
+        if role not in {"assistant", "system", "tool", "user"} or not isinstance(content, str):
+            raise MergeError("row_message_contract_invalid")
+        if message["trainable"]:
+            targets.append(index)
+        if role == "assistant":
+            if not set(message).issubset({"content", "reasoning_content", "role", "tool_calls", "trainable"}):
+                raise MergeError("row_message_contract_invalid")
+            if index != target_index and "reasoning_content" in message:
+                raise MergeError("row_reasoning_contract_invalid")
+            tool_calls = message.get("tool_calls")
+            if tool_calls is not None:
+                if not isinstance(tool_calls, list) or not tool_calls:
+                    raise MergeError("row_tool_contract_invalid")
+                for tool_call in tool_calls:
+                    _validate_tool_call(tool_call)
+        elif role == "tool":
+            if not set(message).issubset({"content", "name", "role", "tool_call_id", "trainable"}):
+                raise MergeError("row_message_contract_invalid")
+            if not isinstance(message.get("tool_call_id"), str) or not message["tool_call_id"]:
+                raise MergeError("row_tool_contract_invalid")
+            if "name" in message and not isinstance(message["name"], str):
+                raise MergeError("row_tool_contract_invalid")
+        elif set(message) != {"content", "role", "trainable"}:
+            raise MergeError("row_message_contract_invalid")
+    if len(targets) != 1 or targets[0] != target_index or messages[target_index].get("role") != "assistant":
+        raise MergeError("row_target_invalid")
+
+
+def _validate_row(
+    raw_line: bytes,
+    expected_tasks: frozenset[str],
+    *,
+    require_routing_epoch: bool,
+) -> RowIdentity:
     row = _parse_json_object(raw_line, "row_invalid")
+    expected_fields = set(ROW_FIELDS)
+    if require_routing_epoch:
+        expected_fields.add("routing_epoch")
+    if set(row) != expected_fields:
+        raise MergeError("row_contract_invalid")
     task_id = row.get("task_id")
     reward = row.get("reward")
     messages = row.get("messages")
@@ -532,23 +700,47 @@ def _validate_row(raw_line: bytes, expected_tasks: frozenset[str]) -> str:
         raise MergeError("row_not_pass")
     if not _is_plain_int(row.get("assistant_target_count")) or row["assistant_target_count"] != 1:
         raise MergeError("row_target_invalid")
-    if not isinstance(messages, list) or not messages:
-        raise MergeError("row_target_invalid")
-    targets: list[int] = []
-    for index, message in enumerate(messages):
-        if not isinstance(message, dict) or not isinstance(message.get("trainable"), bool):
-            raise MergeError("row_target_invalid")
-        if message["trainable"]:
-            targets.append(index)
+    target_index = row.get("target_assistant_message_index")
     if (
-        len(targets) != 1
-        or messages[targets[0]].get("role") != "assistant"
-        or targets[0] != len(messages) - 1
-        or not _is_plain_int(row.get("target_assistant_message_index"))
-        or row["target_assistant_message_index"] != targets[0]
+        not _is_plain_int(target_index)
+        or target_index < 0
+        or row.get("history_reasoning_policy") != "strip_all_prior_assistant_reasoning"
+        or row.get("target_has_reasoning") is not True
     ):
         raise MergeError("row_target_invalid")
-    return task_id
+    _validate_messages(messages, target_index)
+    reasoning = messages[target_index].get("reasoning_content")
+    if not isinstance(reasoning, str) or not reasoning.strip():
+        raise MergeError("row_reasoning_contract_invalid")
+    _validate_tool_schema(row.get("tools"))
+    integer_fields = (
+        "source_node_index",
+        "source_split_row_index",
+        "source_trace_index",
+        "source_trajectory_assistant_turn_count",
+        "target_assistant_turn_index",
+    )
+    if any(not _is_plain_int(row.get(field)) or row[field] < 0 for field in integer_fields):
+        raise MergeError("row_source_contract_invalid")
+    if (
+        row["source_trajectory_assistant_turn_count"] < 1
+        or row["target_assistant_turn_index"] >= row["source_trajectory_assistant_turn_count"]
+        or not isinstance(row.get("source_episode_id"), str)
+        or SHA256_PATTERN.fullmatch(row["source_episode_id"]) is None
+    ):
+        raise MergeError("row_source_contract_invalid")
+    if require_routing_epoch:
+        if not _is_plain_int(row.get("routing_epoch")) or row["routing_epoch"] not in {1, 2, 3}:
+            raise MergeError("row_routing_contract_invalid")
+    return RowIdentity(
+        task_id=task_id,
+        source_episode_id=row["source_episode_id"],
+        source_node_index=row["source_node_index"],
+        source_split_row_index=row["source_split_row_index"],
+        source_trace_index=row["source_trace_index"],
+        source_trajectory_assistant_turn_count=row["source_trajectory_assistant_turn_count"],
+        target_assistant_turn_index=row["target_assistant_turn_index"],
+    )
 
 
 def _copy_split(
@@ -564,6 +756,9 @@ def _copy_split(
     size = 0
     rows = 0
     seen_tasks: set[str] = set()
+    task_rows: dict[str, list[RowIdentity]] = {}
+    closed_tasks: set[str] = set()
+    current_task: str | None = None
     try:
         while True:
             raw_line = handle.readline(MAX_JSONL_ROW_BYTES + 1)
@@ -575,7 +770,21 @@ def _copy_split(
             size += len(raw_line)
             if not raw_line.endswith(b"\n") or not raw_line.strip():
                 raise MergeError("jsonl_invalid")
-            seen_tasks.add(_validate_row(raw_line, expected_tasks))
+            identity = _validate_row(
+                raw_line,
+                expected_tasks,
+                require_routing_epoch=bundle.role == "original",
+            )
+            if _split_for_task(identity.task_id, bundle.split) != split_name:
+                raise MergeError("row_split_assignment_invalid")
+            if identity.task_id != current_task:
+                if identity.task_id in closed_tasks:
+                    raise MergeError("task_rows_not_contiguous")
+                if current_task is not None:
+                    closed_tasks.add(current_task)
+                current_task = identity.task_id
+            seen_tasks.add(identity.task_id)
+            task_rows.setdefault(identity.task_id, []).append(identity)
             sink.write(raw_line)
             rows += 1
         after = os.fstat(handle.fileno())
@@ -590,6 +799,39 @@ def _copy_split(
         raise MergeError("artifact_hash_mismatch")
     if seen_tasks != set(expected_tasks):
         raise MergeError("task_split_membership_invalid")
+    seen_episode_ids: set[str] = set()
+    seen_trace_indices: set[int] = set()
+    seen_split_indices: set[int] = set()
+    for identities in task_rows.values():
+        first = identities[0]
+        if (
+            len(identities) != first.source_trajectory_assistant_turn_count
+            or [item.target_assistant_turn_index for item in identities] != list(range(len(identities)))
+            or any(
+                (
+                    item.source_episode_id,
+                    item.source_split_row_index,
+                    item.source_trace_index,
+                    item.source_trajectory_assistant_turn_count,
+                )
+                != (
+                    first.source_episode_id,
+                    first.source_split_row_index,
+                    first.source_trace_index,
+                    first.source_trajectory_assistant_turn_count,
+                )
+                for item in identities
+            )
+            or [item.source_node_index for item in identities]
+            != sorted({item.source_node_index for item in identities})
+            or first.source_episode_id in seen_episode_ids
+            or first.source_trace_index in seen_trace_indices
+            or first.source_split_row_index in seen_split_indices
+        ):
+            raise MergeError("task_row_group_invalid")
+        seen_episode_ids.add(first.source_episode_id)
+        seen_trace_indices.add(first.source_trace_index)
+        seen_split_indices.add(first.source_split_row_index)
     return SplitStats(rows=rows, tasks=len(seen_tasks), artifact=observed)
 
 
@@ -735,6 +977,10 @@ def _load_repair_selection(path: Path, expected_sha256: str) -> RepairSelection:
         source_artifacts=source_artifacts,
         source_task_count=source["task_count"],
         source_routing_epoch=source["routing_epoch"],
+        repair_config_sha256=config["sha256"],
+        materializer_sha256=code["materializer_sha256"],
+        repository_revision=code["repository_revision"],
+        submodules={name: code["submodules"][name] for name in sorted(code["submodules"])},
     )
 
 
@@ -831,6 +1077,8 @@ def _load_repair_attestation(
         task_file_sha256=corpus["task_file_sha256"],
         taskset_id=corpus["taskset_id"],
         dataset_revision=corpus["dataset_revision"],
+        repository_revision=code["repository_revision"],
+        submodules={name: code["submodules"][name] for name in sorted(code["submodules"])},
     )
 
 
@@ -889,8 +1137,14 @@ def _repository_provenance(project_dir: Path, expected_revision: str) -> dict[st
             raise MergeError("submodule_revision_mismatch")
         revisions[relative] = observed
     merger = project / "user" / "tianhaowu" / "terminal_bench_vmvm" / "merge_qwen_sft.py"
+    exporter = project / "user" / "tianhaowu" / "terminal_bench_vmvm" / "export_sft.py"
+    materializer = project / "user" / "tianhaowu" / "terminal_bench_vmvm" / "materialize_qwen_repair.py"
     merger_artifact = _fingerprint_regular(merger, "merger_code_invalid")
+    exporter_artifact = _fingerprint_regular(exporter, "exporter_code_invalid")
+    materializer_artifact = _fingerprint_regular(materializer, "materializer_code_invalid")
     return {
+        "exporter_sha256": exporter_artifact.sha256,
+        "materializer_sha256": materializer_artifact.sha256,
         "merger_sha256": merger_artifact.sha256,
         "repository_revision": head,
         "submodules": revisions,
@@ -898,11 +1152,21 @@ def _repository_provenance(project_dir: Path, expected_revision: str) -> dict[st
 
 
 def _validate_code_provenance(value: Mapping[str, Any]) -> dict[str, Any]:
-    if set(value) != {"merger_sha256", "repository_revision", "submodules"}:
+    if set(value) != {
+        "exporter_sha256",
+        "materializer_sha256",
+        "merger_sha256",
+        "repository_revision",
+        "submodules",
+    }:
         raise MergeError("code_provenance_invalid")
     submodules = value.get("submodules")
     if (
-        not isinstance(value.get("merger_sha256"), str)
+        not isinstance(value.get("exporter_sha256"), str)
+        or SHA256_PATTERN.fullmatch(value["exporter_sha256"]) is None
+        or not isinstance(value.get("materializer_sha256"), str)
+        or SHA256_PATTERN.fullmatch(value["materializer_sha256"]) is None
+        or not isinstance(value.get("merger_sha256"), str)
         or SHA256_PATTERN.fullmatch(value["merger_sha256"]) is None
         or not isinstance(value.get("repository_revision"), str)
         or GIT_SHA_PATTERN.fullmatch(value["repository_revision"]) is None
@@ -915,6 +1179,8 @@ def _validate_code_provenance(value: Mapping[str, Any]) -> dict[str, Any]:
     ):
         raise MergeError("code_provenance_invalid")
     return {
+        "exporter_sha256": value["exporter_sha256"],
+        "materializer_sha256": value["materializer_sha256"],
         "merger_sha256": value["merger_sha256"],
         "repository_revision": value["repository_revision"],
         "submodules": {name: submodules[name] for name in sorted(submodules)},
@@ -1010,6 +1276,7 @@ def _validate_sources_unchanged(
     repair_selection_artifact: FileArtifact,
     repair_attestation_path: Path,
     repair_attestation_artifact: FileArtifact,
+    repair_root: Path,
 ) -> None:
     for bundle in bundles:
         if _fingerprint_regular(bundle.root / "manifest.json", "source_changed") != bundle.manifest:
@@ -1028,6 +1295,13 @@ def _validate_sources_unchanged(
         != repair_attestation_artifact
     ):
         raise MergeError("source_changed")
+    bundled_sidecars = {
+        REPAIR_SELECTION_COPY_FILENAME: repair_selection_artifact,
+        REPAIR_ATTESTATION_COPY_FILENAME: repair_attestation_artifact,
+    }
+    for name, expected in bundled_sidecars.items():
+        if _fingerprint_regular(repair_root / name, "source_changed", required_mode=0o600) != expected:
+            raise MergeError("source_changed")
 
 
 def merge_qwen_sft(
@@ -1088,9 +1362,26 @@ def merge_qwen_sft(
         options.repair_attestation_manifest_sha256,
         selection.artifact.sha256,
     )
+    bundled_selection = _fingerprint_regular(
+        repair.root / REPAIR_SELECTION_COPY_FILENAME,
+        "repair_selection_copy_invalid",
+        required_mode=0o600,
+    )
+    bundled_attestation = _fingerprint_regular(
+        repair.root / REPAIR_ATTESTATION_COPY_FILENAME,
+        "repair_attestation_copy_invalid",
+        required_mode=0o600,
+    )
+    if bundled_selection != selection.artifact:
+        raise MergeError("repair_selection_copy_mismatch")
+    if bundled_attestation != attestation.artifact:
+        raise MergeError("repair_attestation_copy_mismatch")
+    repair_config_artifact = repair.source_artifacts.get("inputs/source_config.toml")
     if (
         selection.task_count != repair.input_traces
         or selection.task_file_sha256 != repair.source_artifacts["inputs/task_file.txt"].sha256
+        or repair_config_artifact is None
+        or repair_config_artifact.sha256 != selection.repair_config_sha256
         or attestation.task_count != repair.input_traces
         or attestation.task_file_sha256 != selection.task_file_sha256
         or (attestation.taskset_id, attestation.dataset_revision) != (repair.taskset_id, repair.dataset_revision)
@@ -1101,6 +1392,20 @@ def merge_qwen_sft(
         code = _validate_code_provenance(_repository_provenance(options.project_dir, options.expected_project_revision))
     else:
         code = _validate_code_provenance(code_provenance)
+    if GIT_SHA_PATTERN.fullmatch(options.expected_project_revision) is None:
+        raise MergeError("project_revision_invalid")
+    if code["repository_revision"] != options.expected_project_revision:
+        raise MergeError("project_revision_mismatch")
+    if original.exporter_sha256 != code["exporter_sha256"] or repair.exporter_sha256 != code["exporter_sha256"]:
+        raise MergeError("exporter_code_mismatch")
+    if (
+        selection.materializer_sha256 != code["materializer_sha256"]
+        or selection.repository_revision != code["repository_revision"]
+        or selection.submodules != code["submodules"]
+        or attestation.repository_revision != code["repository_revision"]
+        or attestation.submodules != code["submodules"]
+    ):
+        raise MergeError("repair_code_provenance_mismatch")
 
     staging: Path | None = Path(tempfile.mkdtemp(prefix=f".{output.name}.merge-", dir=output_parent))
     train_sink: ArtifactSink | None = None
@@ -1175,10 +1480,7 @@ def merge_qwen_sft(
                 "file_sha256": code["merger_sha256"],
                 "format_version": FORMAT_VERSION,
             },
-            "format": {
-                "loss_mask": LOSS_MASK,
-                "task_identity": TASK_IDENTITY,
-            },
+            "format": FORMAT_CONTRACT,
             "input_counts": {
                 "original": _counts(original_stats),
                 "repair": _counts(repair_stats),
@@ -1187,6 +1489,10 @@ def merge_qwen_sft(
                 "original": _bundle_manifest_binding(original),
                 "repair": _bundle_manifest_binding(repair),
                 "repair_attestation_manifest": attestation.artifact.as_dict(),
+                "repair_bundle_sidecars": {
+                    REPAIR_ATTESTATION_COPY_FILENAME: bundled_attestation.as_dict(),
+                    REPAIR_SELECTION_COPY_FILENAME: bundled_selection.as_dict(),
+                },
                 "repair_selection_manifest": selection.artifact.as_dict(),
             },
             "kind": MERGE_KIND,
@@ -1203,6 +1509,7 @@ def merge_qwen_sft(
             selection.artifact,
             attestation_path,
             attestation.artifact,
+            repair.root,
         )
         if code_provenance is None:
             if (
