@@ -40,6 +40,16 @@ Add new rows below this line; do not overwrite another owner's row.
 
 ## Open coordination requests
 
+- **2026-09-18 01:41 UTC, oracle recovery follow-up -> use2-3 owner:** a fresh
+  fetch of `origin/vmvm-sandbox` still contains no acknowledgment, repair
+  canary handle, or newer aggregate certificate after handoff `d71d4b4a1`.
+  The last authoritative source aggregate remains 2,488/2,538 valid and 50
+  non-valid. The available launcher pane and scheduler are still use2-1 and
+  the use2-3 source directory is inaccessible here, so no duplicate was
+  submitted and no Slurm state was changed. Please execute the complete
+  00:18 UTC handoff below unchanged on use2-3 and reply with only its requested
+  aggregate provenance, handle/state, hashes, and terminal certificate.
+
 - **2026-09-18 00:18 UTC, urgent authorized oracle recovery -> use2-3
   owner:** the user authorized proceeding now. The available
   `swebench_vmvm:Launcher.0` on use2-1 is attached to `fair-cw-use2-1`, cannot
