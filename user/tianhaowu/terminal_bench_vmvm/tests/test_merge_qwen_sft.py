@@ -7,6 +7,7 @@ from dataclasses import replace
 from pathlib import Path
 
 import merge_qwen_sft as merger
+import migrate_qwen_serving_generation as generation
 import pytest
 import sft_run_identity
 from merge_qwen_sft import (
@@ -15,6 +16,7 @@ from merge_qwen_sft import (
     MAX_SEQUENCE_TOKENS,
     REPAIR_ATTESTATION_COPY_FILENAME,
     REPAIR_ATTESTATION_SCHEMA_VERSION,
+    REPAIR_GENERATION_ATTESTATION_SCHEMA_VERSION,
     REPAIR_SELECTION_COPY_FILENAME,
     REPAIR_SELECTION_KIND,
     REQUIRED_SUBMODULES,
@@ -26,6 +28,7 @@ from merge_qwen_sft import (
     MergeError,
     MergeOptions,
     _export_tree_sha256,
+    _load_repair_attestation,
     merge_qwen_sft,
 )
 
@@ -1091,6 +1094,51 @@ def test_repair_attestation_must_be_private_regular_file(tmp_path: Path) -> None
 
     with pytest.raises(MergeError, match="^repair_attestation_invalid$"):
         merge_qwen_sft(options, code_provenance=_code_provenance())
+
+
+def test_generation_repair_attestation_binds_exact_current24_contract(tmp_path: Path) -> None:
+    original, repair, selection, selection_sha256, _task_ids = _fixture_exports(tmp_path)
+    options = _options(original, repair, selection, selection_sha256, tmp_path / "merged")
+    attestation = json.loads(options.repair_attestation_manifest.read_text())
+    contract = generation._load_contract()
+    transition_relative = f"{generation.RUN_BUNDLE_DIRECTORY}/{generation.TRANSITION_FILENAME}"
+    for name in {
+        f"{generation.RUN_BUNDLE_DIRECTORY}/{item}"
+        for item in (
+            *sorted(generation.BUNDLE_FILES),
+            generation.TRANSITION_FILENAME,
+        )
+    }:
+        attestation["source_artifacts"][name] = {"bytes": 1, "sha256": "8" * 64}
+    attestation["source_artifacts"][generation.CAPACITY_SMOKE_FILENAME] = {
+        "bytes": 1,
+        "sha256": "7" * 64,
+    }
+    attestation["schema_version"] = REPAIR_GENERATION_ATTESTATION_SCHEMA_VERSION
+    attestation["routing"].update(
+        {
+            "capacity_smoke_sha256": "7" * 64,
+            "endpoint_bundle_sha256": contract["target_generation"]["endpoint_bundle_sha256"],
+            "provider_concurrency": generation.PROVIDER_CONCURRENCY,
+            "queue_size": generation.QUEUE_SIZE,
+            "rollout_concurrency": generation.ROLLOUT_CONCURRENCY,
+            "serving_generation": 2,
+            "serving_generation_transition_sha256": "9" * 64,
+            "spec_sha256": contract["target_generation"]["spec_sha256"],
+            "worker_count": 24,
+            "vmvm_lease_concurrency": generation.VMVM_LEASE_CONCURRENCY,
+        }
+    )
+    attestation["source_artifacts"][transition_relative]["sha256"] = "9" * 64
+    body = _json_bytes(attestation)
+    options.repair_attestation_manifest.write_bytes(body)
+    loaded = _load_repair_attestation(
+        options.repair_attestation_manifest,
+        _sha256(body),
+        selection_sha256,
+    )
+    assert loaded.schema_version == REPAIR_GENERATION_ATTESTATION_SCHEMA_VERSION
+    assert loaded.serving_generation_transition_sha256 == "9" * 64
 
 
 def test_repair_attestation_binds_direct_workers_artifact(tmp_path: Path) -> None:

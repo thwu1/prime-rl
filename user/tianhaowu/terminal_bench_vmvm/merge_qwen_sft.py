@@ -25,6 +25,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, BinaryIO, Mapping
 
+import migrate_qwen_serving_generation as generation
 import sft_run_identity
 
 FORMAT_VERSION = 3
@@ -37,6 +38,7 @@ REPAIR_ATTESTATION_SCHEMA_VERSION = 2
 SANDOQ_REPAIR_ATTESTATION_KIND = "qwen-sandoq-native-repair-attestation"
 SANDOQ_REPAIR_ATTESTATION_SCHEMA_VERSION = 3
 VMVM_TO_SANDOQ_TRANSITION_KIND = "vmvm-epoch3-to-sandoq-native-repair-v1"
+REPAIR_GENERATION_ATTESTATION_SCHEMA_VERSION = 3
 REPAIR_SELECTION_COPY_FILENAME = "repair_selection_manifest.json"
 REPAIR_SELECTION_TASK_COPY_FILENAME = "repair_selection_tasks.txt"
 REPAIR_SELECTION_MISSING_ERROR_COPY_FILENAME = "repair_selection_missing_or_errored_tasks.txt"
@@ -296,6 +298,8 @@ class RepairAttestation:
     strict_invalid_pass_count: int
     repair_union_indices_sha256: str
     provider_transition: Mapping[str, Any] | None
+    schema_version: int
+    serving_generation_transition_sha256: str | None
 
 
 @dataclass(frozen=True, slots=True)
@@ -1550,6 +1554,8 @@ def _load_repair_attestation(
             strict_invalid_pass_count=selection["strict_invalid_pass_count"],
             repair_union_indices_sha256=selection["union_indices_sha256"],
             provider_transition=dict(transition),
+            schema_version=SANDOQ_REPAIR_ATTESTATION_SCHEMA_VERSION,
+            serving_generation_transition_sha256=None,
         )
     if set(manifest) != {
         "code",
@@ -1567,31 +1573,56 @@ def _load_repair_attestation(
     corpus = manifest.get("corpus")
     code = manifest.get("code")
     selection = manifest.get("selection")
+    schema_version = manifest.get("schema_version")
+    generation_role = schema_version == REPAIR_GENERATION_ATTESTATION_SCHEMA_VERSION
+    generation_artifacts = {
+        f"{generation.RUN_BUNDLE_DIRECTORY}/{name}"
+        for name in (*sorted(generation.BUNDLE_FILES), generation.TRANSITION_FILENAME)
+    }
+    generation_artifacts.add(generation.CAPACITY_SMOKE_FILENAME)
+    expected_source_artifacts = set(ATTESTED_SOURCE_ARTIFACTS) | (generation_artifacts if generation_role else set())
+    expected_routing_fields = {
+        "manifest_schema_version",
+        "provider_concurrency",
+        "queue_size",
+        "request_id_headers",
+        "router_policy",
+        "routing_epoch",
+    }
+    if generation_role:
+        expected_routing_fields |= {
+            "capacity_smoke_sha256",
+            "endpoint_bundle_sha256",
+            "rollout_concurrency",
+            "serving_generation",
+            "serving_generation_transition_sha256",
+            "spec_sha256",
+            "worker_count",
+            "vmvm_lease_concurrency",
+        }
+    expected_provider_concurrency = generation.PROVIDER_CONCURRENCY if generation_role else 32
+    expected_queue_size = generation.QUEUE_SIZE if generation_role else 32
     if (
         manifest.get("kind") != REPAIR_ATTESTATION_KIND
-        or not _is_plain_int(manifest.get("schema_version"))
-        or manifest["schema_version"] != REPAIR_ATTESTATION_SCHEMA_VERSION
+        or not _is_plain_int(schema_version)
+        or schema_version
+        not in {
+            REPAIR_ATTESTATION_SCHEMA_VERSION,
+            REPAIR_GENERATION_ATTESTATION_SCHEMA_VERSION,
+        }
         or manifest.get("repair_selection_manifest_sha256") != repair_selection_sha256
         or not isinstance(source_values, dict)
-        or set(source_values) != set(ATTESTED_SOURCE_ARTIFACTS)
+        or set(source_values) != expected_source_artifacts
         or not isinstance(routing, dict)
-        or set(routing)
-        != {
-            "manifest_schema_version",
-            "provider_concurrency",
-            "queue_size",
-            "request_id_headers",
-            "router_policy",
-            "routing_epoch",
-        }
+        or set(routing) != expected_routing_fields
         or not _is_plain_int(routing.get("routing_epoch"))
         or routing["routing_epoch"] != 1
         or not _is_plain_int(routing.get("manifest_schema_version"))
         or routing["manifest_schema_version"] != 3
         or not _is_plain_int(routing.get("provider_concurrency"))
-        or routing["provider_concurrency"] != 32
+        or routing["provider_concurrency"] != expected_provider_concurrency
         or not _is_plain_int(routing.get("queue_size"))
-        or routing["queue_size"] != 32
+        or routing["queue_size"] != expected_queue_size
         or routing.get("router_policy") != "consistent_hash"
         or routing.get("request_id_headers") != ["x-session-id"]
         or not isinstance(corpus, dict)
@@ -1639,9 +1670,34 @@ def _load_repair_attestation(
         or selection["union_task_file_sha256"] != corpus.get("task_file_sha256")
     ):
         raise MergeError("repair_attestation_contract_invalid")
+    serving_generation_transition_sha256: str | None = None
+    if generation_role:
+        contract = generation._load_contract()
+        serving_generation_transition_sha256 = routing.get("serving_generation_transition_sha256")
+        transition_relative = f"{generation.RUN_BUNDLE_DIRECTORY}/{generation.TRANSITION_FILENAME}"
+        capacity_artifact = source_values.get(generation.CAPACITY_SMOKE_FILENAME)
+        if (
+            not isinstance(routing.get("capacity_smoke_sha256"), str)
+            or SHA256_PATTERN.fullmatch(routing["capacity_smoke_sha256"]) is None
+            or routing.get("provider_concurrency") != generation.PROVIDER_CONCURRENCY
+            or routing.get("queue_size") != generation.QUEUE_SIZE
+            or routing.get("rollout_concurrency") != generation.ROLLOUT_CONCURRENCY
+            or routing.get("serving_generation") != 2
+            or routing.get("worker_count") != contract["target_generation"]["worker_count"]
+            or routing.get("vmvm_lease_concurrency") != generation.VMVM_LEASE_CONCURRENCY
+            or routing.get("spec_sha256") != contract["target_generation"]["spec_sha256"]
+            or routing.get("endpoint_bundle_sha256") != contract["target_generation"]["endpoint_bundle_sha256"]
+            or not isinstance(serving_generation_transition_sha256, str)
+            or SHA256_PATTERN.fullmatch(serving_generation_transition_sha256) is None
+            or not isinstance(capacity_artifact, dict)
+            or capacity_artifact.get("sha256") != routing["capacity_smoke_sha256"]
+            or not isinstance(source_values.get(transition_relative), dict)
+            or source_values[transition_relative].get("sha256") != serving_generation_transition_sha256
+        ):
+            raise MergeError("repair_attestation_contract_invalid")
     source_artifacts = {
         name: _artifact_record(source_values[name], "repair_attestation_contract_invalid")
-        for name in ATTESTED_SOURCE_ARTIFACTS
+        for name in expected_source_artifacts
     }
     if source_artifacts["inputs/task_file.txt"].sha256 != corpus["task_file_sha256"]:
         raise MergeError("repair_attestation_contract_invalid")
@@ -1658,6 +1714,8 @@ def _load_repair_attestation(
         strict_invalid_pass_count=selection["strict_invalid_pass_count"],
         repair_union_indices_sha256=selection["union_indices_sha256"],
         provider_transition=None,
+        schema_version=schema_version,
+        serving_generation_transition_sha256=serving_generation_transition_sha256,
     )
 
 
@@ -2025,6 +2083,13 @@ def merge_qwen_sft(
             raise MergeError("provider_transition_mismatch")
     elif attestation.provider_transition is not None:
         raise MergeError("provider_transition_mismatch")
+    else:
+        production_source_sha256 = generation._load_contract()["source_generation"]["artifacts"]["results.jsonl"][
+            "sha256"
+        ]
+        requires_generation = selection.source_artifacts["results.jsonl"].sha256 == production_source_sha256
+        if requires_generation != (attestation.schema_version == REPAIR_GENERATION_ATTESTATION_SCHEMA_VERSION):
+            raise MergeError("repair_serving_generation_role_mismatch")
     bundled_selection = {
         name: _fingerprint_regular(
             repair.root / name,

@@ -585,9 +585,17 @@ def test_direct_qwen_launcher_is_fail_closed() -> None:
     assert '--max-concurrent-requests "$router_max_concurrent"' in wrapper
     assert '--queue-size "$router_queue_size"' in wrapper
     assert '--queue-timeout-secs "$router_queue_timeout"' in wrapper
-    assert "router_max_concurrent > 32" in wrapper
+    assert "router_max_concurrent != expected_router_max_concurrent" in wrapper
+    assert "router_queue_size != expected_router_queue_size" in wrapper
+    assert "expected_rollout_concurrency=96" in wrapper
+    assert "expected_router_max_concurrent=48" in wrapper
+    assert "expected_router_queue_size=48" in wrapper
     assert 'export DIRECT_QWEN_PROVIDER_CONCURRENCY="$router_max_concurrent"' in wrapper
-    assert "VACLI_MAX_CONCURRENT_LEASES=2" in wrapper
+    assert 'export VACLI_MAX_CONCURRENT_LEASES="$expected_vmvm_lease_concurrency"' in wrapper
+    assert "expected_vmvm_lease_concurrency=4" in wrapper
+    assert "capacity-smoke" in wrapper
+    assert "repair_generation_config.toml" in wrapper
+    assert "#SBATCH --mem=32G" in wrapper
     assert "OPENAI_API_KEY=EMPTY" in wrapper
     assert "INFERENCE_PROXY_INFO" in wrapper
     assert "direct_workers.json" in wrapper
@@ -632,6 +640,15 @@ def test_direct_qwen_launcher_is_fail_closed() -> None:
     assert "4890302104d76220cef791c86d2009168597d35f" in wrapper
     assert "4890302104d76220cef791c86d2009168597d35f" in driver
     assert wrapper.index("approved clean source closure") < wrapper.index('"$workflow_dir/direct_qwen_workers.py"')
+
+    generic_wrapper = (workflow_dir / "run_eval.sbatch").read_text()
+    assert "direct_qwen_manifest_sha256=" in generic_wrapper
+    assert "direct_qwen_router_policy=" in generic_wrapper
+    assert "direct_qwen_request_id_headers=" in generic_wrapper
+    assert "resume_direct_qwen_manifest_sha256=" in generic_wrapper
+    assert "direct_qwen_provider_concurrency=" in generic_wrapper
+    assert "resume_direct_qwen_provider_concurrency=" in generic_wrapper
+    assert "qwen_serving_generation_capacity_smoke_sha256=" in generic_wrapper
 
 
 def test_direct_qwen_router_probe_is_infrastructure_only() -> None:

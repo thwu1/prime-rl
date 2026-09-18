@@ -28,6 +28,7 @@ import direct_qwen_workers as direct
 import export_sft as exporter
 import finalize_qwen_sft as common
 import migrate_qwen_router_affinity as migration
+import migrate_qwen_serving_generation as generation
 import sft_run_identity
 
 ATTESTATION_FILENAME = "qwen_repair_attestation.json"
@@ -36,6 +37,7 @@ ATTESTATION_SCHEMA_VERSION = 2
 SANDOQ_ATTESTATION_KIND = "qwen-sandoq-native-repair-attestation"
 SANDOQ_ATTESTATION_SCHEMA_VERSION = 3
 VMVM_TO_SANDOQ_TRANSITION_KIND = "vmvm-epoch3-to-sandoq-native-repair-v1"
+GENERATION_ATTESTATION_SCHEMA_VERSION = 3
 SELECTION_COPY_FILENAME = "repair_selection_manifest.json"
 SELECTION_TASK_COPY_FILENAME = "repair_selection_tasks.txt"
 SELECTION_MISSING_ERROR_COPY_FILENAME = "repair_selection_missing_or_errored_tasks.txt"
@@ -63,6 +65,13 @@ SANDOQ_SOURCE_ARTIFACTS = (
     "results.jsonl",
     "direct_workers.json",
     sft_run_identity.EVAL_RUN_IDENTITY_FILENAME,
+)
+GENERATION_SOURCE_ARTIFACTS = (
+    generation.CAPACITY_SMOKE_FILENAME,
+    *(
+        f"{generation.RUN_BUNDLE_DIRECTORY}/{name}"
+        for name in (*sorted(generation.BUNDLE_FILES), generation.TRANSITION_FILENAME)
+    ),
 )
 SELECTION_SOURCE_ARTIFACTS = frozenset(
     {
@@ -489,6 +498,8 @@ def _source_artifacts(
     sandbox_provider: str = "vmvm",
 ) -> dict[str, dict[str, int | str]]:
     relatives = SOURCE_ARTIFACTS if sandbox_provider == "vmvm" else SANDOQ_SOURCE_ARTIFACTS
+    if sandbox_provider == "vmvm" and (source / generation.RUN_BUNDLE_DIRECTORY).is_dir():
+        relatives = (*relatives, *GENERATION_SOURCE_ARTIFACTS)
     return {
         relative: _file_artifact(
             source / relative,
@@ -505,6 +516,8 @@ def _locked_source_artifacts(
     sandbox_provider: str = "vmvm",
 ) -> dict[str, dict[str, int | str]]:
     relatives = LOCKED_SOURCE_ARTIFACTS if sandbox_provider == "vmvm" else SANDOQ_LOCKED_SOURCE_ARTIFACTS
+    if sandbox_provider == "vmvm" and (source / generation.RUN_BUNDLE_DIRECTORY).is_dir():
+        relatives = (*relatives, *GENERATION_SOURCE_ARTIFACTS)
     return {
         relative: _file_artifact(
             source / relative,
@@ -513,6 +526,15 @@ def _locked_source_artifacts(
         )[1]
         for relative in relatives
     }
+
+
+def _selection_requires_generation(repair_selection: RepairSelection) -> bool:
+    selection = _parse_json(repair_selection.body, "repair_selection_invalid")
+    source = selection.get("source")
+    artifacts = source.get("artifacts") if isinstance(source, dict) else None
+    results = artifacts.get("results") if isinstance(artifacts, dict) else None
+    contract = generation._load_contract()
+    return results == contract["source_generation"]["artifacts"]["results.jsonl"]
 
 
 def _audit_source(
@@ -528,6 +550,17 @@ def _audit_source(
     except common.FinalizationError as error:
         raise RepairFinalizationError(error.code) from error
     artifacts = _source_artifacts(source, sandbox_provider=sandbox_provider)
+    generation_present = sandbox_provider == "vmvm" and (source / generation.RUN_BUNDLE_DIRECTORY).is_dir()
+    transition: dict[str, Any] | None = None
+    if generation_present:
+        transition = _parse_json(
+            _file_artifact(
+                source / generation.RUN_BUNDLE_DIRECTORY / generation.TRANSITION_FILENAME,
+                "source_generation_transition_invalid",
+                max_bytes=MAX_MANIFEST_BYTES,
+            )[0],
+            "source_generation_transition_invalid",
+        )
     if artifacts["provenance.txt"]["sha256"] != expected_provenance_sha256:
         raise RepairFinalizationError("source_provenance_digest_mismatch")
     if artifacts["inputs/task_file.txt"]["sha256"] != repair_selection.task_file_sha256:
@@ -537,7 +570,20 @@ def _audit_source(
         "source_config_unreadable",
         max_bytes=MAX_MANIFEST_BYTES,
     )
-    if sandbox_provider == "vmvm" and source_config_artifact["sha256"] != repair_selection.config_sha256:
+    transition_artifacts = transition.get("artifacts") if transition is not None else None
+    generation_config_artifact = (
+        transition_artifacts.get(generation.GENERATION_CONFIG_FILENAME)
+        if isinstance(transition_artifacts, dict)
+        else None
+    )
+    if generation_present and (
+        not isinstance(generation_config_artifact, dict) or not _valid_sha256(generation_config_artifact.get("sha256"))
+    ):
+        raise RepairFinalizationError("source_generation_transition_invalid")
+    expected_source_config_sha256 = (
+        generation_config_artifact["sha256"] if generation_present else repair_selection.config_sha256
+    )
+    if sandbox_provider == "vmvm" and source_config_artifact["sha256"] != expected_source_config_sha256:
         raise RepairFinalizationError("source_config_digest_mismatch")
     try:
         config_body, _config_artifact = _file_artifact(
@@ -611,17 +657,25 @@ def _audit_source(
                 "transition_kind": VMVM_TO_SANDOQ_TRANSITION_KIND,
             },
         }
+    expected_max_concurrent = generation.ROLLOUT_CONCURRENCY if generation_present else direct.MAX_DIRECT_CONCURRENCY
     if (
         config.get("num_tasks") != expected_count
         or config.get("num_rollouts") != 1
-        or config.get("max_concurrent") != direct.MAX_DIRECT_CONCURRENCY
-        or config.get("multiplex") != direct.MAX_DIRECT_CONCURRENCY
+        or config.get("max_concurrent") != expected_max_concurrent
+        or config.get("multiplex") != expected_max_concurrent
         or any(
             config.get(key) != MAX_SEQUENCE_TOKENS
             for key in ("max_input_tokens", "max_output_tokens", "max_total_tokens")
         )
         or not isinstance(client, dict)
         or client.get("capture_model_io") is not True
+        or (
+            generation_present
+            and (
+                client.get("max_connections") != generation.PROVIDER_CONCURRENCY
+                or client.get("max_keepalive_connections") != generation.PROVIDER_CONCURRENCY
+            )
+        )
         or not isinstance(sampling, dict)
         or sampling.get("max_tokens") != 32_768
         or not isinstance(chat, dict)
@@ -640,9 +694,21 @@ def _audit_source(
         or source_config.get("num_tasks") != expected_count
     ):
         raise RepairFinalizationError("source_contract_invalid")
+    if _selection_requires_generation(repair_selection) != generation_present:
+        raise RepairFinalizationError("source_generation_transition_missing")
+    if generation_present:
+        assert transition is not None
+        transition_selection = transition.get("repair_selection")
+        if (
+            not isinstance(transition_selection, dict)
+            or transition_selection.get("manifest_sha256") != repair_selection.sha256
+            or transition_selection.get("task_file_sha256") != repair_selection.task_file_sha256
+            or transition_selection.get("union_indices_sha256") != repair_selection.repair_union_indices_sha256
+        ):
+            raise RepairFinalizationError("source_generation_selection_mismatch")
     try:
-        summary = direct.audit_run_directory(source)
-    except (OSError, ValueError, direct.DirectWorkerError) as error:
+        summary = generation.audit_repair_run(source) if generation_present else direct.audit_run_directory(source)
+    except (OSError, ValueError, direct.DirectWorkerError, generation.GenerationMigrationError) as error:
         raise RepairFinalizationError("source_routing_provenance_invalid") from error
     routing = {
         "routing_epoch": summary.get("routing_epoch"),
@@ -660,6 +726,38 @@ def _audit_source(
         "router_policy": direct.ROUTER_POLICY,
         "request_id_headers": list(direct.ROUTER_REQUEST_ID_HEADERS),
     }
+    if generation_present:
+        routing.update(
+            {
+                "serving_generation": summary.get("serving_generation"),
+                "capacity_smoke_sha256": summary.get("capacity_smoke_sha256"),
+                "rollout_concurrency": summary.get("rollout_concurrency"),
+                "serving_generation_transition_sha256": summary.get("serving_generation_transition_sha256"),
+                "spec_sha256": summary.get("spec_sha256"),
+                "endpoint_bundle_sha256": summary.get("endpoint_bundle_sha256"),
+                "worker_count": summary.get("endpoints"),
+                "vmvm_lease_concurrency": summary.get("vmvm_lease_concurrency"),
+            }
+        )
+        contract = generation._load_contract()
+        expected_routing.update(
+            {
+                "capacity_smoke_sha256": artifacts[generation.CAPACITY_SMOKE_FILENAME]["sha256"],
+                "provider_concurrency": generation.PROVIDER_CONCURRENCY,
+                "queue_size": generation.QUEUE_SIZE,
+                "rollout_concurrency": generation.ROLLOUT_CONCURRENCY,
+                "serving_generation": 2,
+                "serving_generation_transition_sha256": _file_artifact(
+                    source / generation.RUN_BUNDLE_DIRECTORY / generation.TRANSITION_FILENAME,
+                    "source_generation_transition_invalid",
+                    capture_body=False,
+                )[1]["sha256"],
+                "spec_sha256": contract["target_generation"]["spec_sha256"],
+                "endpoint_bundle_sha256": contract["target_generation"]["endpoint_bundle_sha256"],
+                "worker_count": contract["target_generation"]["worker_count"],
+                "vmvm_lease_concurrency": generation.VMVM_LEASE_CONCURRENCY,
+            }
+        )
     if summary.get("ok") is not True or routing != expected_routing:
         raise RepairFinalizationError("source_not_fresh_schema3_repair")
     dataset_revision = taskset.get("dataset_revision")
@@ -712,6 +810,7 @@ def _validate_runtime_origin(project: Path) -> Path:
         Path(__file__).resolve(strict=True): workflow / "finalize_qwen_repair_sft.py",
         Path(common.__file__).resolve(strict=True): workflow / "finalize_qwen_sft.py",
         Path(direct.__file__).resolve(strict=True): workflow / "direct_qwen_workers.py",
+        Path(generation.__file__).resolve(strict=True): workflow / "migrate_qwen_serving_generation.py",
         Path(migration.__file__).resolve(strict=True): workflow / "migrate_qwen_router_affinity.py",
     }
     if Path(__file__).resolve(strict=True).parents[3] != project:
@@ -826,10 +925,28 @@ def _validate_source_audit(
     artifacts = audit.get("artifacts")
     routing = audit.get("routing")
     corpus = audit.get("corpus")
+    generation_role = isinstance(routing, dict) and "serving_generation" in routing
+    if generation_role:
+        contract = generation._load_contract()
+        expected_routing.update(
+            {
+                "capacity_smoke_sha256": routing.get("capacity_smoke_sha256"),
+                "endpoint_bundle_sha256": contract["target_generation"]["endpoint_bundle_sha256"],
+                "provider_concurrency": generation.PROVIDER_CONCURRENCY,
+                "queue_size": generation.QUEUE_SIZE,
+                "rollout_concurrency": generation.ROLLOUT_CONCURRENCY,
+                "serving_generation": 2,
+                "serving_generation_transition_sha256": routing.get("serving_generation_transition_sha256"),
+                "spec_sha256": contract["target_generation"]["spec_sha256"],
+                "worker_count": contract["target_generation"]["worker_count"],
+                "vmvm_lease_concurrency": generation.VMVM_LEASE_CONCURRENCY,
+            }
+        )
+    expected_artifacts = set(SOURCE_ARTIFACTS) | (set(GENERATION_SOURCE_ARTIFACTS) if generation_role else set())
     if (
         set(audit) != {"artifacts", "routing", "corpus"}
         or not isinstance(artifacts, dict)
-        or set(artifacts) != set(SOURCE_ARTIFACTS)
+        or set(artifacts) != expected_artifacts
         or not all(
             isinstance(record, dict)
             and set(record) == {"bytes", "sha256"}
@@ -839,6 +956,13 @@ def _validate_source_audit(
             for record in artifacts.values()
         )
         or routing != expected_routing
+        or (
+            generation_role
+            and (
+                not _valid_sha256(routing.get("serving_generation_transition_sha256"))
+                or not _valid_sha256(routing.get("capacity_smoke_sha256"))
+            )
+        )
         or not _is_plain_int(routing.get("routing_epoch"))
         or not _is_plain_int(routing.get("manifest_schema_version"))
         or not _is_plain_int(routing.get("provider_concurrency"))
@@ -1276,13 +1400,15 @@ def finalize_qwen_repair_sft(
     try:
         with _hold_source_locks(
             paths.source_dir,
-            require_router_lock=sandbox_provider == "vmvm",
+            require_router_lock=True,
         ):
             locked_source_before = _locked_source_artifacts(
                 paths.source_dir,
                 sandbox_provider=sandbox_provider,
             )
             source_names = SOURCE_ARTIFACTS if sandbox_provider == "vmvm" else SANDOQ_SOURCE_ARTIFACTS
+            if sandbox_provider == "vmvm" and (paths.source_dir / generation.RUN_BUNDLE_DIRECTORY).is_dir():
+                source_names = (*source_names, *GENERATION_SOURCE_ARTIFACTS)
             source_before = {relative: locked_source_before[relative] for relative in source_names}
             audit = source_auditor(
                 paths.source_dir,
@@ -1340,16 +1466,20 @@ def finalize_qwen_repair_sft(
             }
             manifest_sources = manifest["source_artifacts"]
             if sandbox_provider == "vmvm":
-                if (
-                    "direct_workers.json" in manifest_sources
-                    and manifest_sources["direct_workers.json"] != source_before["direct_workers.json"]
-                ):
-                    raise RepairFinalizationError("sft_source_artifact_mismatch")
-                manifest_sources["direct_workers.json"] = source_before["direct_workers.json"]
+                for relative, artifact in source_before.items():
+                    if relative in manifest_sources and manifest_sources[relative] != artifact:
+                        raise RepairFinalizationError("sft_source_artifact_mismatch")
+                    manifest_sources[relative] = artifact
             manifest_artifact = _replace_manifest(staged_output / "manifest.json", manifest)
             output_artifacts["manifest.json"] = manifest_artifact
 
             attestation: dict[str, Any] = {
+                "kind": ATTESTATION_KIND,
+                "schema_version": (
+                    GENERATION_ATTESTATION_SCHEMA_VERSION
+                    if "serving_generation" in audit["routing"]
+                    else ATTESTATION_SCHEMA_VERSION
+                ),
                 "repair_selection_manifest_sha256": repair_selection.sha256,
                 "selection": {
                     "missing_or_errored_count": repair_selection.missing_or_errored_count,

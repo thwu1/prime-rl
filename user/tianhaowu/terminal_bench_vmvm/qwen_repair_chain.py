@@ -26,6 +26,7 @@ import export_sft as exporter
 import finalize_qwen_repair_sft as repair_finalizer
 import finalize_qwen_sft as common
 import merge_qwen_sft as merger
+import migrate_qwen_serving_generation as generation
 
 EXPECTED_ORIGINAL_COUNT = 2_500
 MAX_SEQUENCE_TOKENS = 262_144
@@ -44,6 +45,9 @@ DIRECT_FORBIDDEN_ENV = frozenset(
         "DIRECT_QWEN_ROUTER_POLICY",
         "DIRECT_QWEN_REQUEST_ID_HEADERS",
         "DIRECT_QWEN_PROVIDER_CONCURRENCY",
+        "DIRECT_QWEN_GENERATION_TRANSITION_SHA256",
+        "DIRECT_QWEN_CAPACITY_SMOKE_SHA256",
+        "QWEN_SERVING_GENERATION_BUNDLE",
         "RESUME_DIR",
     }
 )
@@ -576,6 +580,7 @@ def _direct_environment(
     project: Path,
     repair_dir: Path,
     selection_dir: Path,
+    generation_dir: Path,
     task_sha256: str,
     environment: Mapping[str, str],
 ) -> dict[str, str]:
@@ -588,14 +593,57 @@ def _direct_environment(
     result.update(
         {
             "OUTPUT_DIR": str(repair_dir),
-            "EVAL_CONFIG": str(selection_dir / "repair_config.toml"),
+            "EVAL_CONFIG": str(generation_dir / generation.GENERATION_CONFIG_FILENAME),
             "DIRECT_QWEN_APPROVED_TASK_FILE": str(selection_dir / "repair_tasks.txt"),
             "DIRECT_QWEN_APPROVED_TASK_FILE_SHA256": task_sha256,
             "OPENAI_API_KEY": "EMPTY",
-            "VACLI_MAX_CONCURRENT_LEASES": "2",
+            "QWEN_SERVING_GENERATION_BUNDLE": str(generation_dir),
+            "VACLI_MAX_CONCURRENT_LEASES": str(generation.VMVM_LEASE_CONCURRENCY),
         }
     )
     return result
+
+
+def _validate_generation_summary(
+    summary: Mapping[str, Any],
+    generation_dir: Path,
+    repair_count: int,
+) -> str:
+    transition_sha256 = summary.get("transition_sha256")
+    if (
+        set(summary)
+        != {
+            "added_workers",
+            "ok",
+            "overlap_workers",
+            "repair_union_count",
+            "retired_workers",
+            "server_identifier",
+            "source_rows",
+            "status",
+            "target_workers",
+            "transition_sha256",
+        }
+        or summary.get("ok") is not True
+        or summary.get("status") != "materialized"
+        or summary.get("server_identifier") != "shared_qwen38_2p4t_e5ddc652"
+        or summary.get("source_rows") != 1_392
+        or summary.get("repair_union_count") != repair_count
+        or summary.get("target_workers") != 24
+        or summary.get("overlap_workers") != 15
+        or summary.get("retired_workers") != 1
+        or summary.get("added_workers") != 9
+        or not _valid_sha256(transition_sha256)
+    ):
+        raise RepairChainError("generation_transition_summary_invalid")
+    transition = _regular_file(
+        generation_dir / generation.TRANSITION_FILENAME,
+        "generation_transition_invalid",
+        mode=0o600,
+    )
+    if _sha256(transition, "generation_transition_invalid") != transition_sha256:
+        raise RepairChainError("generation_transition_invalid")
+    return str(transition_sha256)
 
 
 def _require_summary(value: dict[str, Any] | None, code: str) -> dict[str, Any]:
@@ -911,6 +959,7 @@ def run_repair_chain(
     _private_directory(log_dir)
     selection_dir = paths.runtime_dir / "selection"
     repair_dir = paths.runtime_dir / "repair-run"
+    generation_dir = selection_dir / generation.RUN_BUNDLE_DIRECTORY
     repair_source: Path | None = None
     repair_snapshot: Mapping[str, FileState] | None = None
     selection_snapshot: Mapping[str, FileState] | None = None
@@ -919,6 +968,7 @@ def run_repair_chain(
     repair_count = 0
     missing_or_errored_count = 0
     strict_invalid_pass_count = 0
+    generation_transition_sha256: str | None = None
     materialize_command = ChildCommand(
         stage="materialize",
         argv=(
@@ -957,11 +1007,55 @@ def run_repair_chain(
             repair_task_sha256,
             selection_manifest_sha256,
         ) = _validate_materializer_summary(materialize_summary, options, attestation, selection_dir)
-        selection_snapshot = _snapshot_tree(selection_dir) if repair_count else None
 
         if repair_count:
             assert repair_task_sha256 is not None
             assert selection_manifest_sha256 is not None
+            contract = generation._load_contract()
+            target_deployment_root = Path(
+                child_environment.get(
+                    "DIRECT_QWEN_DEPLOYMENT_ROOT",
+                    contract["target_generation"]["deployment_root"],
+                )
+            )
+            generation_command = ChildCommand(
+                stage="materialize_generation",
+                argv=(
+                    sys.executable,
+                    str(paths.workflow_dir / "migrate_qwen_serving_generation.py"),
+                    "materialize",
+                    "--source-dir",
+                    str(paths.source_dir),
+                    "--selection-dir",
+                    str(selection_dir),
+                    "--deployment-root",
+                    str(target_deployment_root),
+                    "--repair-run-dir",
+                    str(repair_dir),
+                    "--output-dir",
+                    str(generation_dir),
+                ),
+                environment=child_environment,
+            )
+            generation_summary = _require_summary(
+                _run_stage(
+                    runner,
+                    generation_command,
+                    log_dir,
+                    paths,
+                    options,
+                    attestation,
+                    project_validator,
+                    original_snapshot,
+                ),
+                "generation_transition_summary_invalid",
+            )
+            generation_transition_sha256 = _validate_generation_summary(
+                generation_summary,
+                generation_dir,
+                repair_count,
+            )
+            selection_snapshot = _snapshot_tree(selection_dir)
             direct_command = ChildCommand(
                 stage="repair_eval",
                 argv=("/bin/bash", str(paths.workflow_dir / "run_qwen_direct_eval.sbatch")),
@@ -969,6 +1063,7 @@ def run_repair_chain(
                     paths.project_dir,
                     repair_dir,
                     selection_dir,
+                    generation_dir,
                     repair_task_sha256,
                     environment or os.environ,
                 ),
@@ -1278,6 +1373,7 @@ def run_repair_chain(
             raise RepairChainError("merged_output_invalid")
         _validate_merged_output_hashes(merge_summary, paths.merged_output_dir)
         result = {
+            "generation_transition_sha256": generation_transition_sha256,
             "merged": merged_public,
             "ok": True,
             "original": original_public,

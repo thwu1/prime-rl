@@ -58,6 +58,12 @@ eval_dataset_archive=${EVAL_DATASET_ARCHIVE:-}
 eval_dataset_archive_sha256=${EVAL_DATASET_ARCHIVE_SHA256:-}
 eval_dataset_content_sha256=${EVAL_DATASET_CONTENT_SHA256:-}
 unset PYTHONPATH PYTHONHOME
+direct_qwen_manifest_sha256=${DIRECT_QWEN_MANIFEST_SHA256:-}
+direct_qwen_router_policy=${DIRECT_QWEN_ROUTER_POLICY:-}
+direct_qwen_request_id_headers=${DIRECT_QWEN_REQUEST_ID_HEADERS:-}
+direct_qwen_provider_concurrency=${DIRECT_QWEN_PROVIDER_CONCURRENCY:-}
+direct_qwen_generation_transition_sha256=${DIRECT_QWEN_GENERATION_TRANSITION_SHA256:-}
+direct_qwen_capacity_smoke_sha256=${DIRECT_QWEN_CAPACITY_SMOKE_SHA256:-}
 
 if [[ "$(uname -m)" != x86_64 || ! -d "$x86_site/pydantic" ]]; then
     printf 'Missing x86_64 Python runtime/dependencies\n' >&2
@@ -233,6 +239,17 @@ if [[ -n "$eval_expected_prime_rl_revision" ]]; then
         printf 'PROJECT_DIR revision does not match EVAL_EXPECTED_PRIME_RL_REVISION\n' >&2
         exit 2
     fi
+fi
+if [[ -n "$direct_qwen_generation_transition_sha256" ]]; then
+    if [[ "$direct_qwen_router_metadata" -ne 1 \
+        || ! "$direct_qwen_generation_transition_sha256" =~ ^[0-9a-f]{64}$ \
+        || ! "$direct_qwen_capacity_smoke_sha256" =~ ^[0-9a-f]{64}$ ]]; then
+        printf 'Direct Qwen serving-generation provenance is invalid\n' >&2
+        exit 2
+    fi
+elif [[ -n "$direct_qwen_capacity_smoke_sha256" ]]; then
+    printf 'Direct Qwen capacity-smoke provenance has no serving generation\n' >&2
+    exit 2
 fi
 
 if ! sandbox_provider=$(python3 - "$eval_config" <<'PY'
@@ -619,6 +636,60 @@ if [[ "$validated_approval_sha256" != "$approved_task_file_sha256" \
     exit 2
 fi
 
+if [[ -n "$resume_dir" ]]; then
+    {
+        printf 'resume_slurm_job_id=%s\n' "$SLURM_JOB_ID"
+        printf 'resume_prime_rl=%s\n' "$(git rev-parse HEAD)"
+        printf 'resume_verifiers=%s\n' "$(git -C deps/verifiers rev-parse HEAD)"
+        printf 'resume_renderers=%s\n' "$(git -C deps/renderers rev-parse HEAD)"
+        printf 'resume_approval_task_file_sha256=%s\n' "$validated_approval_sha256"
+        printf 'resume_approval_task_count=%s\n' "$validated_approval_count"
+        if [[ "$direct_qwen_router_metadata" -eq 1 ]]; then
+            printf 'resume_direct_qwen_manifest_sha256=%s\n' "$direct_qwen_manifest_sha256"
+            printf 'resume_direct_qwen_router_policy=%s\n' "$direct_qwen_router_policy"
+            printf 'resume_direct_qwen_request_id_headers=%s\n' "$direct_qwen_request_id_headers"
+            printf 'resume_direct_qwen_provider_concurrency=%s\n' "$direct_qwen_provider_concurrency"
+            if [[ -n "$direct_qwen_generation_transition_sha256" ]]; then
+                printf 'resume_qwen_serving_generation_transition_sha256=%s\n' \
+                    "$direct_qwen_generation_transition_sha256"
+                printf 'resume_qwen_serving_generation_capacity_smoke_sha256=%s\n' \
+                    "$direct_qwen_capacity_smoke_sha256"
+            fi
+        fi
+    } >> "$output_dir/provenance.txt"
+else
+    {
+        printf 'prime_rl=%s\n' "$(git rev-parse HEAD)"
+        printf 'verifiers=%s\n' "$(git -C deps/verifiers rev-parse HEAD)"
+        printf 'renderers=%s\n' "$(git -C deps/renderers rev-parse HEAD)"
+        printf 'inference_base_url=%s\n' "$inference_base_url"
+        printf 'inference_deployment_id=%s\n' "$inference_deployment_id"
+        printf 'slurm_job_id=%s\n' "$SLURM_JOB_ID"
+        printf 'approval_task_file_sha256=%s\n' "$validated_approval_sha256"
+        printf 'approval_task_count=%s\n' "$validated_approval_count"
+        if [[ "$direct_qwen_router_metadata" -eq 1 ]]; then
+            printf 'direct_qwen_manifest_sha256=%s\n' "$direct_qwen_manifest_sha256"
+            printf 'direct_qwen_router_policy=%s\n' "$direct_qwen_router_policy"
+            printf 'direct_qwen_request_id_headers=%s\n' "$direct_qwen_request_id_headers"
+            printf 'direct_qwen_provider_concurrency=%s\n' "$direct_qwen_provider_concurrency"
+            if [[ -n "$direct_qwen_generation_transition_sha256" ]]; then
+                printf 'qwen_serving_generation_transition_sha256=%s\n' \
+                    "$direct_qwen_generation_transition_sha256"
+                printf 'qwen_serving_generation_capacity_smoke_sha256=%s\n' \
+                    "$direct_qwen_capacity_smoke_sha256"
+            fi
+        fi
+    } > "$output_dir/provenance.txt"
+fi
+
+if [[ -z "$resume_dir" && -n "$direct_qwen_generation_transition_sha256" ]]; then
+    "$x86_uv" run --no-project --offline --python "$python_bin" \
+        python3 "$workflow_dir/migrate_qwen_serving_generation.py" commit-launch \
+        --run-dir "$output_dir" \
+        --expected-transition-sha256 "$direct_qwen_generation_transition_sha256" \
+        --router-lock-fd 8 \
+        --writer-lock-fd 9
+fi
 unset HTTP_PROXY HTTPS_PROXY http_proxy https_proxy ALL_PROXY all_proxy
 if [[ -n "$inference_proxy_url" && "$sandbox_provider" != sandoq ]]; then
     export HTTP_PROXY="$inference_proxy_url"
