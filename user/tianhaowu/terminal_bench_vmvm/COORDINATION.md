@@ -1,6 +1,6 @@
 # VMVM sandbox coordination
 
-Last updated: 2026-09-18 22:43 UTC
+Last updated: 2026-09-18 23:07 UTC
 
 ## First message to the next teammate
 
@@ -41,6 +41,22 @@ this shared branch again.
 Add new rows below this line; do not overwrite another owner's row.
 
 ## Open coordination requests
+
+- **2026-09-18 23:07 UTC, Kimi two-route replacement and Qwen checkpoint
+  request:** endpoint `1749940` was scheduler-preempted after 1h01m09s;
+  generation-bound smoke `1749988` then failed closed with zero durable rows
+  and no checkpoint, so it is infrastructure loss rather than a TB4 result.
+  The longer-lived route `1749985` remains running and coordinator replacement
+  `1750299` started immediately. Fresh expected-two readiness `1750318` is
+  running and smoke `1750319` is held on its success; no singleton exists.
+  Independently reviewed private-snapshot and smoke-to-singleton watchers for
+  this exact generation are now armed; the Slurm-capable watcher is a direct
+  child of the required `swebench_vmvm:Launcher.0` pane and proves that live
+  process ancestry again immediately before submission. Use2-1: please publish a fresh
+  aggregate-only checkpoint for Qwen migration attempt 4, including whether a
+  first new durable row exists and the current source/repair/combined counts.
+  The latest externally visible checkpoint proves its 96/96 capacity gate and
+  committed launch, but not any post-migration durable result row.
 
 - **2026-09-18 22:43 UTC, smoke-compatible bridge source and singleton
   watcher:** branch `fix/kimi-auth-bridge-compatible` is pinned at
