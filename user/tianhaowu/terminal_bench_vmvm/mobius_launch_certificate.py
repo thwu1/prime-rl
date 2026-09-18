@@ -1935,15 +1935,16 @@ def _validate_capacity(
         raise LaunchCertificateError("capacity_smoke_concurrency_contract_invalid")
     if len({required[key] for key in steady_state_keys}) != 1:
         raise LaunchCertificateError("production_concurrency_contract_invalid")
-    comparisons = {
-        "http_max_connections": required["http_max_connections"],
-        "http_max_keepalive_connections": required["http_max_keepalive_connections"],
-        "multiplex": required["multiplex"],
-        "rollout_concurrency": required["rollout_concurrency"],
-        "lease_start_concurrency": requested_lease_start_concurrency,
-    }
-    if any(qualified[key] < minimum for key, minimum in comparisons.items()):
+    steady_state_comparisons = {key: required[key] for key in steady_state_keys}
+    if any(qualified[key] < minimum for key, minimum in steady_state_comparisons.items()):
         raise LaunchCertificateError("capacity_smoke_below_production_concurrency")
+    if any(qualified[key] != expected for key, expected in steady_state_comparisons.items()):
+        raise LaunchCertificateError("capacity_smoke_above_production_concurrency")
+    qualified_lease_start_concurrency = qualified["lease_start_concurrency"]
+    if qualified_lease_start_concurrency < requested_lease_start_concurrency:
+        raise LaunchCertificateError("capacity_smoke_below_production_concurrency")
+    if qualified_lease_start_concurrency != requested_lease_start_concurrency:
+        raise LaunchCertificateError("capacity_smoke_lease_start_concurrency_mismatch")
     if (
         observed["required_peak_active_rollouts_lower_bound"] != qualified["rollout_concurrency"]
         or observed["required_peak_concurrent_lease_startups"] != qualified["lease_start_concurrency"]
@@ -1956,7 +1957,7 @@ def _validate_capacity(
         or observed["peak_concurrent_lease_startups"] < requested_lease_start_concurrency
     ):
         raise LaunchCertificateError("capacity_smoke_observed_below_production_concurrency")
-    if expected_traces < max(comparisons.values()):
+    if expected_traces < max(*steady_state_comparisons.values(), requested_lease_start_concurrency):
         raise LaunchCertificateError("capacity_smoke_task_count_too_small")
 
 

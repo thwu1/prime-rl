@@ -1996,6 +1996,74 @@ def test_rejects_capacity_smoke_with_misaligned_steady_state_concurrency() -> No
         )
 
 
+def test_rejects_capacity_smoke_above_production_concurrency() -> None:
+    qualified = {
+        "http_max_connections": 25,
+        "http_max_keepalive_connections": 25,
+        "multiplex": 25,
+        "rollout_concurrency": 25,
+        "lease_start_concurrency": 4,
+    }
+    observed = {
+        "peak_active_rollouts_lower_bound": 25,
+        "peak_concurrent_lease_startups": 4,
+        "required_peak_active_rollouts_lower_bound": 25,
+        "required_peak_concurrent_lease_startups": 4,
+    }
+    required = {
+        "http_max_connections": 24,
+        "http_max_keepalive_connections": 24,
+        "multiplex": 24,
+        "rollout_concurrency": 24,
+    }
+
+    with pytest.raises(
+        LaunchCertificateError,
+        match="^capacity_smoke_above_production_concurrency$",
+    ):
+        certificate_module._validate_capacity(
+            qualified,
+            observed,
+            required,
+            requested_lease_start_concurrency=4,
+            expected_traces=42,
+        )
+
+
+def test_rejects_capacity_smoke_lease_start_above_production() -> None:
+    qualified = {
+        "http_max_connections": 24,
+        "http_max_keepalive_connections": 24,
+        "multiplex": 24,
+        "rollout_concurrency": 24,
+        "lease_start_concurrency": 5,
+    }
+    observed = {
+        "peak_active_rollouts_lower_bound": 24,
+        "peak_concurrent_lease_startups": 5,
+        "required_peak_active_rollouts_lower_bound": 24,
+        "required_peak_concurrent_lease_startups": 5,
+    }
+    required = {
+        "http_max_connections": 24,
+        "http_max_keepalive_connections": 24,
+        "multiplex": 24,
+        "rollout_concurrency": 24,
+    }
+
+    with pytest.raises(
+        LaunchCertificateError,
+        match="^capacity_smoke_lease_start_concurrency_mismatch$",
+    ):
+        certificate_module._validate_capacity(
+            qualified,
+            observed,
+            required,
+            requested_lease_start_concurrency=4,
+            expected_traces=42,
+        )
+
+
 def test_rejects_capacity_execution_not_bound_to_strict_identity(tmp_path: Path) -> None:
     arguments, _ = _fixture(tmp_path)
     capacity = Path(arguments["capacity_smoke_checkpoint"])
