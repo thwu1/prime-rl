@@ -1,6 +1,6 @@
 # VMVM sandbox coordination
 
-Last updated: 2026-09-18 03:00 UTC
+Last updated: 2026-09-18 03:21 UTC
 
 ## First message to the next teammate
 
@@ -39,6 +39,40 @@ this shared branch again.
 Add new rows below this line; do not overwrite another owner's row.
 
 ## Open coordination requests
+
+- **2026-09-18 03:21 UTC, reviewed oracle audit-controller handoff ->
+  use2-3 owner:** the missing fail-closed caller is implemented at reviewed
+  commit `7343ebdaa`. It derives the completed source oracle's three expected
+  pins directly from a separately supplied exact clean detached source commit,
+  its `deps/verifiers` gitlink, and the deterministic VMVM tree digest. It
+  independently derives the canary's three pins from the exact clean detached
+  execution checkout. It passes all six required auditor flags and never uses
+  either `run_identity.json` to derive an expected value. Pre- and post-audit
+  checks require HEAD/index equality, default index flags, and byte/blob
+  equality for every tracked regular, executable, and symlink in both
+  Prime-RL trees and verifier checkouts; the controller, auditor, imported
+  builder/exporter, and launcher are additionally bound to exact execution
+  blobs and origins. All Git probes use fixed `/usr/bin/git`, a closed
+  configuration environment, and a safe PATH. The auditor stages only private
+  mode-0600 artifacts, and the controller publishes the requested certificate
+  atomically without overwrite only after the second complete attestation.
+  Direct `sbatch path/to/run_oracle_repair_canary_audit.sbatch` is forbidden:
+  Slurm's spool copy intentionally fails launcher-origin validation. From
+  exactly `swebench_vmvm:Launcher.0`, submit explicit resource and dependency
+  arguments with `sbatch --wrap='exec /bin/bash
+  <canonical-frozen-execution-checkout>/user/tianhaowu/terminal_bench_vmvm/run_oracle_repair_canary_audit.sbatch'`,
+  as documented in `README.md`; the wrap path must be absolute, canonical,
+  regular, non-symlinked, and tracked at the execution commit. Independent
+  review approved the controller after adversarial copied/symlink launcher,
+  hostile Git environment, assume-unchanged/skip-worktree, arbitrary runtime,
+  verifier, six-pin, swapped-pin, omission, and TOCTOU tests. Validation passed
+  75/75 focused tests plus Ruff, format, Bash syntax, and diff checks; a fresh
+  detached self-attestation proved 1,467 Prime-RL and 652 verifier entries.
+  No Slurm job, live output, task content, or certificate was created here.
+  This closes only the missing-caller implementation hold: keep promotion and
+  replacement-full launch blocked until use2-3 obtains a passing fresh canary
+  certificate with at least 12 recoveries and zero control regressions from
+  the exact frozen execution source.
 
 - **2026-09-18 03:00 UTC, Kimi timeout policy hold:**
   `fairinternal/ram_common#288` has been returned to draft after the protected
@@ -1456,6 +1490,7 @@ Add new rows below this line; do not overwrite another owner's row.
 | Codex session for `tianhaowu` (use2-3) | Production-input and 256K-budget hardening | Parent `21616acc3`, verifier `7e895431`; exact clean Mobius dataset commit is enforced before task loading, mini-swe owns 10 per-call attempts, full Kimi runs retry exhausted provider failures at rollout level, and provider usage now supplies the no-token-ID lower bound for subsequent request budgets. X86 dry-run job `1733122` completed in 9s with the exact 2,500-task config; 102 workflow and 48 focused verifier tests passed. |
 | Codex session for `tianhaowu` (use2-3) | Generic VMVM exact-once command recovery and task-free live contract smoke | Verifier `005e59bd`; runtime reconnects on `broken_pipe`, collects the pending FIFO command without replay, fails closed on lost state, and caps recovery at five attempts. Job `1734663` completed 0:0 in 1m59s after an injected vacli tunnel kill: one tunnel resume, intact FIFO shell, `RECOVERED` output, and marker count exactly one. Launcher preflights `1734443` (wrong-arch `uv`) and `1734510` (stale missing dependency path) failed before leasing; normal-path job `1734598` and first recovery job `1734613` completed 0:0. Relevant verifier tests 71/71, workflow tests 143/143, Ruff and shell syntax checks passed. |
 | Codex session for `tianhaowu` (use2-3) | Harbor network-policy enforcement for VMVM | Parent `c0ae13263`, verifier `15e22ca5`; all Mobius and TB4 policies parse with Harbor 0.14.0 precedence. Task-free canary `1735508` preserved the main reverse tunnel and Compose aliases while blocking external DNS, gateway-proxy egress, and sidecar tunnel access. Final validation: 194 workflow, 33 focused backend/taskset, and 8 verifier runtime tests. |
+| Codex session for `tianhaowu` (cross-cluster, no scheduler mutation) | Fail-closed six-pin oracle repair audit controller | Reviewed controller `7343ebdaa` independently derives source and execution commit/verifier/VMVM pins, proves full tracked Prime-RL and verifier trees pre/post, binds exact audit runtime scripts, and requires canonical `sbatch --wrap` execution. Independent review approved; 75 focused tests and exact detached 1,467+652-entry self-attestation passed. No certificate, evaluation, or Slurm job was created. |
 
 ## Known non-overlap boundaries
 
