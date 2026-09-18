@@ -63,6 +63,93 @@ def _clock():
     return read, advance
 
 
+def _candidate_config(tmp_path: Path, candidates: tuple[Path, ...]) -> finalizer.CandidateControllerConfig:
+    controller = _controller_config(tmp_path)
+    return finalizer.CandidateControllerConfig(
+        controller_root=controller.controller_root,
+        project_dir=controller.project_dir,
+        project_revision=controller.project_revision,
+        plan_path=controller.plan_path,
+        plan_sha256=controller.plan_sha256,
+        deployment_id=controller.deployment_id,
+        deployment_spec_path=controller.deployment_spec_path,
+        deployment_spec_sha256=controller.deployment_spec_sha256,
+        readiness_path=controller.readiness_path,
+        readiness_sha256=controller.readiness_sha256,
+        proxy_info_path=controller.proxy_info_path,
+        proxy_info_sha256=controller.proxy_info_sha256,
+        smoke_checkpoint_candidates=candidates,
+        dataset_revision=controller.dataset_revision,
+        wave_size=controller.wave_size,
+        controller_poll_interval_seconds=controller.poll_interval_seconds,
+    )
+
+
+def test_candidate_mode_derives_train_hash_from_trusted_winner(tmp_path: Path, monkeypatch):
+    candidates = (tmp_path / "smoke-a.json", tmp_path / "smoke-b.json")
+    for index, candidate in enumerate(candidates):
+        candidate.write_bytes(f"smoke-{index}\n".encode())
+        candidate.chmod(0o600)
+    config = _candidate_config(tmp_path, candidates)
+
+    def body(prepared):
+        return {
+            "smoke_path": str(prepared.config.smoke_checkpoint_path),
+            "smoke_sha256": prepared.config.smoke_checkpoint_sha256,
+        }
+
+    winner_sha = hashlib.sha256(candidates[1].read_bytes()).hexdigest()
+    winner_body = {"smoke_path": str(candidates[1]), "smoke_sha256": winner_sha}
+    expected_train_sha = hashlib.sha256(finalizer.canonical_json(winner_body)).hexdigest()
+    reads = iter((WaveTrainError("train_unavailable"), {**winner_body, "train_sha256": expected_train_sha}))
+
+    def load(*_args, **_kwargs):
+        value = next(reads)
+        if isinstance(value, Exception):
+            raise value
+        return value, "0" * 64
+
+    monkeypatch.setattr(finalizer, "_load_private_json", load)
+    monkeypatch.setattr(finalizer, "prepare_train", lambda controller, **_kwargs: SimpleNamespace(config=controller))
+    monkeypatch.setattr(finalizer, "_train_body", body)
+    clock, sleep = _clock()
+
+    controller, train_sha256 = finalizer.resolve_candidate_controller(
+        config,
+        wait_poll_seconds=1,
+        wait_timeout_seconds=10,
+        command_runner=lambda *_args, **_kwargs: None,
+        sleep=sleep,
+        clock=clock,
+    )
+
+    assert controller.smoke_checkpoint_path == candidates[1]
+    assert controller.smoke_checkpoint_sha256 == winner_sha
+    assert train_sha256 == expected_train_sha
+    assert clock() == 1
+
+
+def test_candidate_mode_rejects_self_consistent_untrusted_train(tmp_path: Path, monkeypatch):
+    candidate = tmp_path / "smoke.json"
+    candidate.write_text("smoke\n")
+    candidate.chmod(0o600)
+    config = _candidate_config(tmp_path, (candidate,))
+    monkeypatch.setattr(
+        finalizer,
+        "_load_private_json",
+        lambda *_args, **_kwargs: ({"substituted": True, "train_sha256": "a" * 64}, "0" * 64),
+    )
+    monkeypatch.setattr(finalizer, "prepare_train", lambda controller, **_kwargs: SimpleNamespace(config=controller))
+    monkeypatch.setattr(
+        finalizer,
+        "_train_body",
+        lambda prepared: {"smoke_path": str(prepared.config.smoke_checkpoint_path)},
+    )
+
+    with pytest.raises(finalizer.FinalizationError, match="trusted_train_match_missing"):
+        finalizer.resolve_candidate_controller(config, wait_poll_seconds=1)
+
+
 def test_wait_requires_hash_valid_complete_state(tmp_path: Path, monkeypatch):
     config = _config(tmp_path, wait_for_completion=True, wait_timeout_seconds=10)
     states = iter(({"state": "observing"}, {"state": "complete", "state_sha256": "a" * 64}))

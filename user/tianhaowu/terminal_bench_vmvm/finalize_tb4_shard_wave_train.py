@@ -31,6 +31,7 @@ from run_tb4_shard_wave_train import (
     _load_completion,
     _load_private_json,
     _load_wave_metadata,
+    _stable_private_bytes,
     _train_body,
     _validate_completed_history,
     _validate_state,
@@ -79,6 +80,29 @@ class FinalizerConfig:
     wait_timeout_seconds: float | None = None
     lock_poll_seconds: float = DEFAULT_LOCK_POLL_SECONDS
     lock_timeout_seconds: float = DEFAULT_LOCK_TIMEOUT_SECONDS
+
+
+@dataclass(frozen=True)
+class CandidateControllerConfig:
+    controller_root: Path
+    project_dir: Path
+    project_revision: str
+    plan_path: Path
+    plan_sha256: str
+    deployment_id: str
+    deployment_spec_path: Path
+    deployment_spec_sha256: str
+    readiness_path: Path
+    readiness_sha256: str
+    proxy_info_path: Path
+    proxy_info_sha256: str
+    smoke_checkpoint_candidates: tuple[Path, ...]
+    dataset_revision: str | None = None
+    dataset_archive_path: Path | None = None
+    dataset_archive_sha256: str | None = None
+    dataset_content_sha256: str | None = None
+    wave_size: int = EXPECTED_WAVE_SIZE
+    controller_poll_interval_seconds: float = 15.0
 
 
 @dataclass(frozen=True)
@@ -137,6 +161,107 @@ def _load_state(controller_root: Path) -> dict[str, Any]:
     except (OSError, WaveTrainError) as error:
         raise FinalizationError("controller_state_unavailable") from error
     return state
+
+
+def _candidate_controller(
+    config: CandidateControllerConfig,
+    smoke_checkpoint: Path,
+    smoke_checkpoint_sha256: str,
+) -> WaveTrainConfig:
+    return WaveTrainConfig(
+        controller_root=config.controller_root,
+        project_dir=config.project_dir,
+        project_revision=config.project_revision,
+        plan_path=config.plan_path,
+        plan_sha256=config.plan_sha256,
+        deployment_id=config.deployment_id,
+        deployment_spec_path=config.deployment_spec_path,
+        deployment_spec_sha256=config.deployment_spec_sha256,
+        readiness_path=config.readiness_path,
+        readiness_sha256=config.readiness_sha256,
+        proxy_info_path=config.proxy_info_path,
+        proxy_info_sha256=config.proxy_info_sha256,
+        smoke_checkpoint_path=smoke_checkpoint,
+        smoke_checkpoint_sha256=smoke_checkpoint_sha256,
+        dataset_revision=config.dataset_revision,
+        dataset_archive_path=config.dataset_archive_path,
+        dataset_archive_sha256=config.dataset_archive_sha256,
+        dataset_content_sha256=config.dataset_content_sha256,
+        first_shard_index=0,
+        shard_count=EXPECTED_TASK_COUNT,
+        wave_size=config.wave_size,
+        poll_interval_seconds=config.controller_poll_interval_seconds,
+    )
+
+
+def resolve_candidate_controller(
+    config: CandidateControllerConfig,
+    *,
+    wait_poll_seconds: float = DEFAULT_WAIT_POLL_SECONDS,
+    wait_timeout_seconds: float | None = None,
+    command_runner: Callable[..., Any] = subprocess.run,
+    sleep: Sleep = time.sleep,
+    clock: Clock = time.monotonic,
+) -> tuple[WaveTrainConfig, str]:
+    """Match a new controller to one trusted, independently validated smoke candidate."""
+
+    timing = FinalizerConfig(
+        controller=_candidate_controller(config, Path("/invalid"), "0" * 64),
+        expected_train_sha256="0" * 64,
+        output_dir=Path("/invalid"),
+        wait_for_completion=True,
+        wait_poll_seconds=wait_poll_seconds,
+        wait_timeout_seconds=wait_timeout_seconds,
+    )
+    _validate_wait_config(timing)
+    candidates = config.smoke_checkpoint_candidates
+    if (
+        not candidates
+        or len(candidates) != len(set(candidates))
+        or any(not path.is_absolute() or path.is_symlink() for path in candidates)
+    ):
+        raise FinalizationError("smoke_candidate_set_invalid")
+    started = clock()
+    train_path = config.controller_root / "train.json"
+    consecutive_failures = 0
+    while True:
+        try:
+            train, _train_file_sha256 = _load_private_json(
+                train_path,
+                label="train_metadata",
+                hash_key="train_sha256",
+            )
+        except (OSError, WaveTrainError):
+            consecutive_failures = consecutive_failures + 1 if train_path.exists() else 0
+            if consecutive_failures >= MAX_CONSECUTIVE_STATE_READ_FAILURES:
+                raise FinalizationError("train_metadata_invalid") from None
+        else:
+            matches: list[tuple[WaveTrainConfig, str]] = []
+            for candidate in candidates:
+                try:
+                    resolved, raw = _stable_private_bytes(candidate, label="smoke_checkpoint")
+                    if resolved != candidate:
+                        raise FinalizationError("smoke_candidate_set_invalid")
+                    controller = _candidate_controller(
+                        config,
+                        candidate,
+                        hashlib.sha256(raw).hexdigest(),
+                    )
+                    prepared = prepare_train(controller, command_runner=command_runner)
+                    body = _train_body(prepared)
+                    train_sha256 = hashlib.sha256(canonical_json(body)).hexdigest()
+                    if train == {**body, "train_sha256": train_sha256}:
+                        matches.append((controller, train_sha256))
+                except (OSError, FinalizationError, WaveTrainError):
+                    continue
+            if len(matches) != 1:
+                raise FinalizationError(
+                    "trusted_train_match_ambiguous" if len(matches) > 1 else "trusted_train_match_missing"
+                )
+            return matches[0]
+        if wait_timeout_seconds is not None and clock() - started >= wait_timeout_seconds:
+            raise FinalizationError("controller_wait_timeout")
+        sleep(wait_poll_seconds)
 
 
 def wait_for_complete_state(
@@ -499,7 +624,7 @@ def _positive_float(value: str) -> float:
 def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--controller-root", type=Path, required=True)
-    parser.add_argument("--train-sha256", required=True)
+    parser.add_argument("--train-sha256")
     parser.add_argument("--project-dir", type=Path, required=True)
     parser.add_argument("--project-revision", required=True)
     parser.add_argument("--plan", type=Path, required=True)
@@ -511,8 +636,14 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--readiness-checkpoint-sha256", required=True)
     parser.add_argument("--proxy-info", type=Path, required=True)
     parser.add_argument("--proxy-info-sha256", required=True)
-    parser.add_argument("--smoke-checkpoint", type=Path, required=True)
-    parser.add_argument("--smoke-checkpoint-sha256", required=True)
+    parser.add_argument("--smoke-checkpoint", type=Path)
+    parser.add_argument("--smoke-checkpoint-sha256")
+    parser.add_argument(
+        "--smoke-checkpoint-candidate",
+        type=Path,
+        action="append",
+        help="trusted possible winner path; repeat for race participants",
+    )
     dataset = parser.add_mutually_exclusive_group(required=True)
     dataset.add_argument("--dataset-revision")
     dataset.add_argument("--dataset-archive", type=Path)
@@ -529,9 +660,8 @@ def _parser() -> argparse.ArgumentParser:
     return parser
 
 
-def main(argv: Sequence[str] | None = None) -> int:
-    args = _parser().parse_args(argv)
-    controller = WaveTrainConfig(
+def _candidate_config_from_args(args: argparse.Namespace) -> CandidateControllerConfig:
+    return CandidateControllerConfig(
         controller_root=args.controller_root,
         project_dir=args.project_dir,
         project_revision=args.project_revision,
@@ -544,28 +674,61 @@ def main(argv: Sequence[str] | None = None) -> int:
         readiness_sha256=args.readiness_checkpoint_sha256,
         proxy_info_path=args.proxy_info,
         proxy_info_sha256=args.proxy_info_sha256,
-        smoke_checkpoint_path=args.smoke_checkpoint,
-        smoke_checkpoint_sha256=args.smoke_checkpoint_sha256,
+        smoke_checkpoint_candidates=tuple(args.smoke_checkpoint_candidate or ()),
         dataset_revision=args.dataset_revision,
         dataset_archive_path=args.dataset_archive,
         dataset_archive_sha256=args.dataset_archive_sha256,
         dataset_content_sha256=args.dataset_content_sha256,
-        first_shard_index=0,
-        shard_count=EXPECTED_TASK_COUNT,
         wave_size=args.wave_size,
-        poll_interval_seconds=args.controller_poll_interval_seconds,
+        controller_poll_interval_seconds=args.controller_poll_interval_seconds,
     )
-    config = FinalizerConfig(
-        controller=controller,
-        expected_train_sha256=args.train_sha256,
-        output_dir=args.output_dir,
-        wait_for_completion=args.wait_for_completion,
-        wait_poll_seconds=args.wait_poll_seconds,
-        wait_timeout_seconds=args.wait_timeout_seconds,
-        lock_poll_seconds=args.lock_poll_seconds,
-        lock_timeout_seconds=args.lock_timeout_seconds,
+
+
+def main(argv: Sequence[str] | None = None) -> int:
+    parser = _parser()
+    args = parser.parse_args(argv)
+    candidate_mode = bool(args.smoke_checkpoint_candidate)
+    explicit_values = (
+        args.train_sha256,
+        args.smoke_checkpoint,
+        args.smoke_checkpoint_sha256,
     )
+    if candidate_mode:
+        if any(value is not None for value in explicit_values):
+            parser.error("candidate mode cannot use explicit smoke/train arguments")
+        if not args.wait_for_completion:
+            parser.error("candidate mode requires --wait-for-completion")
+    elif any(value is None for value in explicit_values):
+        parser.error("explicit mode requires --train-sha256 and the smoke checkpoint path/hash")
     try:
+        candidate_config = _candidate_config_from_args(args)
+        if candidate_mode:
+            controller, train_sha256 = resolve_candidate_controller(
+                candidate_config,
+                wait_poll_seconds=args.wait_poll_seconds,
+                wait_timeout_seconds=args.wait_timeout_seconds,
+                command_runner=subprocess.run,
+            )
+        else:
+            assert args.smoke_checkpoint is not None
+            assert args.smoke_checkpoint_sha256 is not None
+            assert args.train_sha256 is not None
+            controller = _candidate_controller(
+                candidate_config,
+                args.smoke_checkpoint,
+                args.smoke_checkpoint_sha256,
+            )
+            train_sha256 = args.train_sha256
+        config = FinalizerConfig(
+            controller=controller,
+            expected_train_sha256=train_sha256,
+            output_dir=args.output_dir,
+            wait_for_completion=args.wait_for_completion,
+            wait_poll_seconds=args.wait_poll_seconds,
+            wait_timeout_seconds=args.wait_timeout_seconds,
+            lock_poll_seconds=args.lock_poll_seconds,
+            lock_timeout_seconds=args.lock_timeout_seconds,
+        )
         summary = finalize_wave_train(config, command_runner=subprocess.run)
     except (OSError, FinalizationError, ShardWorkflowError, WaveTrainError) as error:
         print(f"tb4_wave_train_finalize_error:{_safe_error(str(error))}", file=sys.stderr)
