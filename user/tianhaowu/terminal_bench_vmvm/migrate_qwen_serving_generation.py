@@ -471,7 +471,7 @@ def _target_manifest(
     workers: list[direct.Worker],
     task_sha256: str,
     repair_run: Path,
-) -> tuple[dict[str, Any], str]:
+) -> dict[str, Any]:
     router_port, metrics_port = direct.derive_ports(repair_run)
     return {
         "admission": {
@@ -1453,7 +1453,7 @@ def main() -> None:
             )
         else:
             summary = audit_repair_run(args.run_dir)
-    except (OSError, ValueError, GenerationMigrationError) as error:
+    except (OSError, ValueError, GenerationMigrationError, migration.MigrationError) as error:
         code = error.code if isinstance(error, GenerationMigrationError) else "generation_transition_failed"
         print(json.dumps({"code": code, "status": "error"}, sort_keys=True), file=os.sys.stderr)
         raise SystemExit(2) from None
