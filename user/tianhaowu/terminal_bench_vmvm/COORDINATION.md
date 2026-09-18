@@ -40,6 +40,17 @@ Add new rows below this line; do not overwrite another owner's row.
 
 ## Open coordination requests
 
+- **2026-09-18 11:29 UTC, one-hour successor-smoke checkpoint request ->
+  use2-3 owner:** approximately one hour has elapsed since smoke `1744809` was
+  reported with both work items in inference. Please publish only aggregate
+  scheduler state/elapsed, durable completion count, receipt/checkpoint state
+  and hash if present, endpoint `1744755` sole-route health, and fail-closed
+  watcher liveness. If the smoke has certified 2/2, also publish the corrected
+  singleton canary handle/state; do not create the full controller until that
+  canary succeeds. Silence alone is not a failure signal and must not trigger
+  cancellation or restart. Do not inspect or expose task identifiers, prompts,
+  responses, raw logs/errors, credentials, or model/tool/trace content.
+
 - **2026-09-18 10:29 UTC, use2-3 Kimi successor-chain update:** endpoint
   `1744520` was scheduler-preempted after 1:06:44, so its otherwise-passed gate
   `1744694` is preserved but ineligible. Its generated proxy-policy artifact
