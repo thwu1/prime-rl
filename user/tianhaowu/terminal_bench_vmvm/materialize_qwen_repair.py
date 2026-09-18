@@ -10,6 +10,7 @@ import os
 import re
 import shutil
 import stat
+import subprocess
 import tempfile
 import tomllib
 from collections.abc import Callable
@@ -26,6 +27,11 @@ TASK_FILENAME = "repair_tasks.txt"
 CONFIG_FILENAME = "repair_config.toml"
 MANIFEST_FILENAME = "repair_manifest.json"
 MAX_TASK_FILE_BYTES = 16 * 1024 * 1024
+REQUIRED_RUNTIME_SUBMODULES = (
+    "deps/pydantic-config",
+    "deps/renderers",
+    "deps/verifiers",
+)
 CONFIG_TEMPLATE = Path(__file__).resolve().parent / "configs" / "eval" / "mobius_qwen_a95b_2500.toml"
 SOURCE_ARTIFACTS = {
     "config": Path("config.toml"),
@@ -97,6 +103,79 @@ def _fingerprint_regular(path: Path, label: str) -> dict[str, int | str]:
     return {"sha256": digest.hexdigest(), "size_bytes": size}
 
 
+def _git_output(path: Path, arguments: list[str]) -> str:
+    try:
+        completed = subprocess.run(
+            ["git", "-C", str(path), *arguments],
+            check=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            timeout=30,
+        )
+    except (OSError, subprocess.SubprocessError) as error:
+        raise RepairMaterializationError("code_provenance_unavailable") from error
+    if completed.stderr:
+        raise RepairMaterializationError("code_provenance_unavailable")
+    return completed.stdout
+
+
+def _code_provenance() -> dict[str, Any]:
+    repository = Path(__file__).resolve().parents[3]
+    revision = migration._repository_revision()
+    submodules: dict[str, str] = {}
+    for relative in REQUIRED_RUNTIME_SUBMODULES:
+        record = _git_output(repository, ["ls-tree", revision, "--", relative]).strip()
+        fields = record.split(maxsplit=3)
+        if (
+            len(fields) != 4
+            or fields[0] != "160000"
+            or fields[1] != "commit"
+            or re.fullmatch(r"[0-9a-f]{40}", fields[2]) is None
+            or fields[3] != relative
+        ):
+            raise RepairMaterializationError("code_provenance_invalid")
+        submodule = repository / relative
+        observed = _git_output(submodule, ["rev-parse", "HEAD"]).strip()
+        status = _git_output(submodule, ["status", "--porcelain=v1", "--untracked-files=all"])
+        if observed != fields[2] or status:
+            raise RepairMaterializationError("code_provenance_invalid")
+        submodules[relative] = observed
+    return {
+        "materializer_sha256": _fingerprint_regular(Path(__file__).resolve(), "materializer")["sha256"],
+        "repository_revision": revision,
+        "submodules": submodules,
+    }
+
+
+def _validated_code_provenance(value: object) -> dict[str, Any]:
+    if not isinstance(value, dict) or set(value) != {
+        "materializer_sha256",
+        "repository_revision",
+        "submodules",
+    }:
+        raise RepairMaterializationError("code_provenance_invalid")
+    submodules = value.get("submodules")
+    if (
+        not isinstance(value.get("materializer_sha256"), str)
+        or re.fullmatch(r"[0-9a-f]{64}", value["materializer_sha256"]) is None
+        or not isinstance(value.get("repository_revision"), str)
+        or re.fullmatch(r"[0-9a-f]{40}", value["repository_revision"]) is None
+        or not isinstance(submodules, dict)
+        or set(submodules) != set(REQUIRED_RUNTIME_SUBMODULES)
+        or any(
+            not isinstance(revision, str) or re.fullmatch(r"[0-9a-f]{40}", revision) is None
+            for revision in submodules.values()
+        )
+    ):
+        raise RepairMaterializationError("code_provenance_invalid")
+    return {
+        "materializer_sha256": value["materializer_sha256"],
+        "repository_revision": value["repository_revision"],
+        "submodules": {name: submodules[name] for name in sorted(submodules)},
+    }
+
+
 def _source_fingerprints(source: Path) -> dict[str, dict[str, int | str]]:
     return {
         label: _fingerprint_regular(source / relative, f"source_{label}")
@@ -127,9 +206,50 @@ def _task_records(data: bytes, label: str) -> list[TaskRecord]:
     return records
 
 
-def _task_index_order(records: list[TaskRecord]) -> list[TaskRecord]:
-    """Match TerminalBenchVMVMTaskset.load_tasks, which sorts task directories."""
-    return sorted(records, key=lambda record: record.identifier)
+def _taskset_records_in_evaluator_order(
+    source_config: dict[str, Any],
+    records: list[TaskRecord],
+) -> list[TaskRecord]:
+    taskset = source_config.get("taskset")
+    dataset_value = taskset.get("dataset_dir") if isinstance(taskset, dict) else None
+    if not isinstance(dataset_value, str) or not dataset_value:
+        raise RepairMaterializationError("source_dataset_invalid")
+    dataset_path = Path(dataset_value)
+    if not dataset_path.is_absolute():
+        dataset_path = Path.cwd() / dataset_path
+    try:
+        dataset = dataset_path.resolve(strict=True)
+        metadata = dataset_path.lstat()
+    except (OSError, RuntimeError) as error:
+        raise RepairMaterializationError("source_dataset_invalid") from error
+    if not stat.S_ISDIR(metadata.st_mode) or dataset != dataset_path:
+        raise RepairMaterializationError("source_dataset_invalid")
+
+    by_identifier = {record.identifier: record for record in records}
+    ordered: list[TaskRecord] = []
+    try:
+        for candidate in sorted(dataset.iterdir()):
+            record = by_identifier.get(candidate.name)
+            if record is None:
+                continue
+            candidate_metadata = candidate.lstat()
+            task_toml = candidate / "task.toml"
+            instruction = candidate / "instruction.md"
+            if (
+                not stat.S_ISDIR(candidate_metadata.st_mode)
+                or candidate.resolve(strict=True) != candidate
+                or not stat.S_ISREG(task_toml.lstat().st_mode)
+                or task_toml.resolve(strict=True) != task_toml
+                or not stat.S_ISREG(instruction.lstat().st_mode)
+                or instruction.resolve(strict=True) != instruction
+            ):
+                raise RepairMaterializationError("source_dataset_invalid")
+            ordered.append(record)
+    except OSError as error:
+        raise RepairMaterializationError("source_dataset_invalid") from error
+    if len(ordered) != len(records) or {record.identifier for record in ordered} != set(by_identifier):
+        raise RepairMaterializationError("source_dataset_task_mapping_invalid")
+    return ordered
 
 
 def _parse_toml(data: bytes, label: str) -> dict[str, Any]:
@@ -337,13 +457,13 @@ def _validate_published(
 
 def materialize(
     source_dir: Path,
-    approved_non_security_task_file: Path,
-    approved_non_security_task_file_sha256: str,
+    approved_task_file: Path,
+    approved_task_file_sha256: str,
     output_dir: Path,
     *,
     terminal_check: Callable[[str], bool] = migration.slurm_job_is_terminal,
 ) -> dict[str, int | str | bool]:
-    if re.fullmatch(r"[0-9a-f]{64}", approved_non_security_task_file_sha256) is None:
+    if re.fullmatch(r"[0-9a-f]{64}", approved_task_file_sha256) is None:
         raise RepairMaterializationError("approval_sha256_invalid")
     try:
         source = source_dir.resolve(strict=True)
@@ -357,11 +477,11 @@ def materialize(
         raise RepairMaterializationError("destination_overlaps_source")
 
     approval_bytes = _read_regular(
-        approved_non_security_task_file,
+        approved_task_file,
         "approval_task_file",
         limit=MAX_TASK_FILE_BYTES,
     )
-    if _sha256_bytes(approval_bytes) != approved_non_security_task_file_sha256:
+    if _sha256_bytes(approval_bytes) != approved_task_file_sha256:
         raise RepairMaterializationError("approval_sha256_mismatch")
     approval_records = _task_records(approval_bytes, "approval_task_file")
     approved_identifiers = {record.identifier for record in approval_records}
@@ -388,10 +508,13 @@ def materialize(
                 "source_task_file",
                 limit=MAX_TASK_FILE_BYTES,
             )
-            source_records = _task_index_order(_task_records(source_task_bytes, "source_task_file"))
-            source_identifiers = {record.identifier for record in source_records}
-            if not approved_identifiers.issubset(source_identifiers):
-                raise RepairMaterializationError("approval_outside_source")
+            source_records = _task_records(source_task_bytes, "source_task_file")
+            if (
+                approval_bytes != source_task_bytes
+                or approved_task_file_sha256 != source_fingerprints["task_file"]["sha256"]
+                or approval_records != source_records
+            ):
+                raise RepairMaterializationError("approval_source_mismatch")
 
             source_config_bytes = _read_regular(
                 source / "config.toml",
@@ -402,16 +525,31 @@ def materialize(
             num_tasks = source_config.get("num_tasks")
             if isinstance(num_tasks, bool) or not isinstance(num_tasks, int) or num_tasks != len(source_records):
                 raise RepairMaterializationError("source_task_count_mismatch")
+            ordered_source_records = _taskset_records_in_evaluator_order(source_config, source_records)
+            task_index_order_sha256 = _sha256_bytes(
+                "".join(
+                    f"{index}\0{record.identifier}\n" for index, record in enumerate(ordered_source_records)
+                ).encode()
+            )
 
             retained_count, owed_indices = _plan_owed(source, num_tasks)
-            selected_indices = [
-                index
-                for index, record in enumerate(source_records)
-                if index in owed_indices and record.identifier in approved_identifiers
-            ]
-            if not selected_indices:
-                raise RepairMaterializationError("nothing_approved_to_repair")
-            selected_records = [source_records[index] for index in selected_indices]
+            if not owed_indices:
+                if (
+                    _source_fingerprints(source) != source_fingerprints
+                    or _taskset_records_in_evaluator_order(source_config, source_records) != ordered_source_records
+                ):
+                    raise RepairMaterializationError("source_changed_during_materialization")
+                return {
+                    "approved_repair_count": 0,
+                    "approved_task_file_sha256": approved_task_file_sha256,
+                    "missing_or_errored_count": 0,
+                    "ok": True,
+                    "status": "nothing_to_repair",
+                    "task_index_order_sha256": task_index_order_sha256,
+                }
+            code_provenance = _validated_code_provenance(_code_provenance())
+            selected_indices = [index for index in range(num_tasks) if index in owed_indices]
+            selected_records = [ordered_source_records[index] for index in selected_indices]
             task_bytes = "".join(f"{record.identifier}\n" for record in selected_records).encode()
             task_sha256 = _sha256_bytes(task_bytes)
 
@@ -451,9 +589,10 @@ def materialize(
             retry_policy_bytes = "".join(f"{name}\n" for name in sorted(direct.ROLLOUT_RETRY_POLICY)).encode()
             manifest = {
                 "approval": {
-                    "non_security_universe_count": len(approval_records),
-                    "non_security_universe_sha256": approved_non_security_task_file_sha256,
+                    "approved_task_count": len(approval_records),
+                    "approved_task_file_sha256": approved_task_file_sha256,
                 },
+                "code": code_provenance,
                 "config": {
                     "capture_model_io": True,
                     "enable_thinking": True,
@@ -469,16 +608,15 @@ def materialize(
                 "kind": MANIFEST_KIND,
                 "planner": {
                     "contract_verifiers_revision": direct.ADMISSION_VERIFIERS_REVISION,
-                    "index_order": "lexicographic opaque task identifier",
                     "missing_or_errored_count": len(owed_indices),
                     "module_sha256": direct.ADMISSION_RESUME_MODULE_SHA256,
                     "retained_count": retained_count,
-                    "selected_task_count": num_tasks,
+                    "approved_task_count": num_tasks,
+                    "task_index_order_sha256": task_index_order_sha256,
                 },
                 "schema_version": SCHEMA_VERSION,
                 "selection": {
                     "approved_repair_count": len(selected_records),
-                    "excluded_outside_approval_count": len(owed_indices) - len(selected_records),
                     "task_file_sha256": task_sha256,
                 },
                 "source": {
@@ -489,7 +627,11 @@ def materialize(
             }
             manifest_bytes = _json_bytes(manifest)
 
-            if _source_fingerprints(source) != source_fingerprints:
+            if (
+                _source_fingerprints(source) != source_fingerprints
+                or _taskset_records_in_evaluator_order(source_config, source_records) != ordered_source_records
+                or _validated_code_provenance(_code_provenance()) != code_provenance
+            ):
                 raise RepairMaterializationError("source_changed_during_materialization")
 
             staging: Path | None = Path(tempfile.mkdtemp(prefix=f".{output.name}.repair-", dir=output_parent))
@@ -523,26 +665,27 @@ def materialize(
     return {
         "approved_repair_count": len(selected_records),
         "config_sha256": config_sha256,
-        "excluded_outside_approval_count": len(owed_indices) - len(selected_records),
         "manifest_sha256": _sha256_bytes(manifest_bytes),
         "missing_or_errored_count": len(owed_indices),
         "ok": True,
+        "status": "materialized",
         "task_file_sha256": task_sha256,
+        "task_index_order_sha256": task_index_order_sha256,
     }
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--source-dir", type=Path, required=True)
-    parser.add_argument("--approved-non-security-task-file", type=Path, required=True)
-    parser.add_argument("--approved-non-security-task-file-sha256", required=True)
+    parser.add_argument("--approved-task-file", type=Path, required=True)
+    parser.add_argument("--approved-task-file-sha256", required=True)
     parser.add_argument("--output-dir", type=Path, required=True)
     args = parser.parse_args()
     try:
         summary = materialize(
             args.source_dir,
-            args.approved_non_security_task_file,
-            args.approved_non_security_task_file_sha256,
+            args.approved_task_file,
+            args.approved_task_file_sha256,
             args.output_dir,
         )
     except (OSError, RepairMaterializationError) as error:

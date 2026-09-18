@@ -1,0 +1,1288 @@
+#!/usr/bin/env python3
+"""Deterministically merge two validated format-v2 pass-only Qwen SFT exports.
+
+Only aggregate counts, hashes, revisions, and stable error codes are returned or
+logged. Task identifiers are treated as opaque set-membership keys and are never
+included in the merge manifest or process output.
+"""
+
+from __future__ import annotations
+
+import argparse
+import ctypes
+import errno
+import hashlib
+import json
+import math
+import os
+import re
+import shutil
+import stat
+import subprocess
+import sys
+import tempfile
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Any, BinaryIO, Mapping
+
+FORMAT_VERSION = 2
+MERGE_SCHEMA_VERSION = 1
+MERGE_KIND = "qwen-sft-aggregate-merge"
+REPAIR_SELECTION_KIND = "qwen-aggregate-repair-selection"
+REPAIR_ATTESTATION_KIND = "qwen-direct-repair-attestation"
+MAX_SEQUENCE_TOKENS = 262_144
+MAX_METADATA_BYTES = 16 * 1024 * 1024
+MAX_JSONL_ROW_BYTES = 128 * 1024 * 1024
+SHA256_PATTERN = re.compile(r"[0-9a-f]{64}")
+GIT_SHA_PATTERN = re.compile(r"[0-9a-f]{40}")
+SPLIT_POLICY = "sha256(split_salt + NUL + stable task identity SHA-256) modulo 10000"
+LOSS_MASK = "message.trainable; exactly one final assistant message is true"
+TASK_IDENTITY = "sha256(taskset id + NUL + dataset revision + NUL + approved opaque task slug)"
+REQUIRED_ARTIFACT_PATHS = {
+    "task-split.json": Path("task-split.json"),
+    "train/train.jsonl": Path("train/train.jsonl"),
+    "validation/train.jsonl": Path("validation/train.jsonl"),
+}
+OPTIONAL_ARTIFACT_PATHS = {
+    "qwen_router_epochs.jsonl": Path("qwen_router_epochs.jsonl"),
+}
+ARTIFACT_PATHS = REQUIRED_ARTIFACT_PATHS | OPTIONAL_ARTIFACT_PATHS
+ATTESTED_SOURCE_ARTIFACTS = (
+    "config.toml",
+    "inputs/task_file.txt",
+    "provenance.txt",
+    "results.jsonl",
+    "direct_workers.json",
+)
+SELECTION_SOURCE_ARTIFACTS = {
+    "config": "config.toml",
+    "direct_workers": "direct_workers.json",
+    "image_manifest": "inputs/image_manifest.json",
+    "inputs_manifest": "inputs/manifest.json",
+    "provenance": "provenance.txt",
+    "results": "results.jsonl",
+    "source_config": "inputs/source_config.toml",
+    "task_file": "inputs/task_file.txt",
+}
+REQUIRED_SUBMODULES = (
+    "deps/pydantic-config",
+    "deps/renderers",
+    "deps/verifiers",
+)
+AT_FDCWD = -100
+RENAME_NOREPLACE = 1
+
+
+class MergeError(RuntimeError):
+    """A fail-closed merge error represented by a non-sensitive stable code."""
+
+    def __init__(self, code: str):
+        super().__init__(code)
+        self.code = code
+
+
+class StableArgumentParser(argparse.ArgumentParser):
+    def error(self, _message: str) -> None:
+        raise MergeError("arguments_invalid")
+
+
+@dataclass(frozen=True, slots=True)
+class FileArtifact:
+    bytes: int
+    sha256: str
+
+    def as_dict(self) -> dict[str, int | str]:
+        return {"bytes": self.bytes, "sha256": self.sha256}
+
+
+@dataclass(frozen=True, slots=True)
+class SplitContract:
+    policy: str
+    split_salt: str
+    validation_permyriad: int
+
+    def as_dict(self) -> dict[str, int | str]:
+        return {
+            "policy": self.policy,
+            "split_salt": self.split_salt,
+            "validation_permyriad": self.validation_permyriad,
+        }
+
+
+@dataclass(frozen=True, slots=True)
+class ExportBundle:
+    role: str
+    root: Path
+    manifest: FileArtifact
+    artifacts: Mapping[str, FileArtifact]
+    split: SplitContract
+    train_tasks: frozenset[str]
+    validation_tasks: frozenset[str]
+    source_artifacts: Mapping[str, FileArtifact]
+    taskset_id: str
+    dataset_revision: str
+    input_traces: int
+    routing_epoch: int | None
+    declared_counts: Mapping[str, Any]
+
+    @property
+    def tasks(self) -> frozenset[str]:
+        return self.train_tasks | self.validation_tasks
+
+
+@dataclass(frozen=True, slots=True)
+class SplitStats:
+    rows: int
+    tasks: int
+    artifact: FileArtifact
+
+
+@dataclass(frozen=True, slots=True)
+class BundleStats:
+    train: SplitStats
+    validation: SplitStats
+
+    @property
+    def rows(self) -> int:
+        return self.train.rows + self.validation.rows
+
+    @property
+    def tasks(self) -> int:
+        return self.train.tasks + self.validation.tasks
+
+
+@dataclass(frozen=True, slots=True)
+class RepairSelection:
+    artifact: FileArtifact
+    task_count: int
+    task_file_sha256: str
+    source_artifacts: Mapping[str, FileArtifact]
+    source_task_count: int
+    source_routing_epoch: int
+
+
+@dataclass(frozen=True, slots=True)
+class RepairAttestation:
+    artifact: FileArtifact
+    source_artifacts: Mapping[str, FileArtifact]
+    task_count: int
+    task_file_sha256: str
+    taskset_id: str
+    dataset_revision: str
+
+
+@dataclass(frozen=True, slots=True)
+class MergeOptions:
+    original_export_dir: Path
+    repair_export_dir: Path
+    repair_selection_manifest: Path
+    repair_selection_manifest_sha256: str
+    repair_attestation_manifest: Path
+    repair_attestation_manifest_sha256: str
+    output_dir: Path
+    project_dir: Path
+    expected_project_revision: str
+
+
+class ArtifactSink:
+    """Exclusive mode-0600 writer that hashes the exact bytes persisted."""
+
+    def __init__(self, path: Path):
+        path.parent.mkdir(mode=0o700, parents=True, exist_ok=False)
+        descriptor = os.open(
+            path,
+            os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_CLOEXEC | os.O_NOFOLLOW,
+            0o600,
+        )
+        os.fchmod(descriptor, 0o600)
+        self._handle = os.fdopen(descriptor, "wb")
+        self._digest = hashlib.sha256()
+        self._bytes = 0
+
+    def write(self, data: bytes) -> None:
+        self._handle.write(data)
+        self._digest.update(data)
+        self._bytes += len(data)
+
+    def close(self) -> FileArtifact:
+        self._handle.flush()
+        os.fsync(self._handle.fileno())
+        self._handle.close()
+        return FileArtifact(bytes=self._bytes, sha256=self._digest.hexdigest())
+
+    def abort(self) -> None:
+        if not self._handle.closed:
+            self._handle.close()
+
+
+def _is_plain_int(value: object) -> bool:
+    return isinstance(value, int) and not isinstance(value, bool)
+
+
+def _json_bytes(value: object) -> bytes:
+    try:
+        return (
+            json.dumps(
+                value,
+                allow_nan=False,
+                ensure_ascii=False,
+                indent=2,
+                sort_keys=True,
+            )
+            + "\n"
+        ).encode("utf-8")
+    except (TypeError, ValueError) as error:
+        raise MergeError("output_not_strict_json") from error
+
+
+def _parse_json(body: bytes, code: str) -> Any:
+    def reject_duplicates(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+        value: dict[str, Any] = {}
+        for key, item in pairs:
+            if key in value:
+                raise ValueError("duplicate key")
+            value[key] = item
+        return value
+
+    try:
+        return json.loads(
+            body,
+            parse_constant=lambda _constant: (_ for _ in ()).throw(ValueError()),
+            object_pairs_hook=reject_duplicates,
+        )
+    except (UnicodeDecodeError, ValueError) as error:
+        raise MergeError(code) from error
+
+
+def _parse_json_object(body: bytes, code: str) -> dict[str, Any]:
+    value = _parse_json(body, code)
+    if not isinstance(value, dict):
+        raise MergeError(code)
+    return value
+
+
+def _open_regular(path: Path, code: str) -> tuple[BinaryIO, os.stat_result]:
+    descriptor = -1
+    try:
+        descriptor = os.open(path, os.O_RDONLY | os.O_CLOEXEC | os.O_NOFOLLOW)
+        metadata = os.fstat(descriptor)
+    except OSError as error:
+        if descriptor >= 0:
+            os.close(descriptor)
+        raise MergeError(code) from error
+    if not stat.S_ISREG(metadata.st_mode):
+        os.close(descriptor)
+        raise MergeError(code)
+    return os.fdopen(descriptor, "rb"), metadata
+
+
+def _same_file(before: os.stat_result, after: os.stat_result) -> bool:
+    return (
+        before.st_dev,
+        before.st_ino,
+        before.st_size,
+        before.st_mtime_ns,
+    ) == (
+        after.st_dev,
+        after.st_ino,
+        after.st_size,
+        after.st_mtime_ns,
+    )
+
+
+def _read_regular(
+    path: Path,
+    code: str,
+    *,
+    limit: int,
+    required_mode: int | None = None,
+) -> tuple[bytes, FileArtifact]:
+    handle, before = _open_regular(path, code)
+    if required_mode is not None and stat.S_IMODE(before.st_mode) != required_mode:
+        handle.close()
+        raise MergeError(code)
+    try:
+        body = handle.read(limit + 1)
+        after = os.fstat(handle.fileno())
+    except OSError as error:
+        raise MergeError(code) from error
+    finally:
+        handle.close()
+    if not _same_file(before, after):
+        raise MergeError("source_changed")
+    if len(body) > limit:
+        raise MergeError(code)
+    return body, FileArtifact(bytes=len(body), sha256=hashlib.sha256(body).hexdigest())
+
+
+def _fingerprint_regular(path: Path, code: str, *, required_mode: int | None = None) -> FileArtifact:
+    handle, before = _open_regular(path, code)
+    if required_mode is not None and stat.S_IMODE(before.st_mode) != required_mode:
+        handle.close()
+        raise MergeError(code)
+    digest = hashlib.sha256()
+    size = 0
+    try:
+        while chunk := handle.read(1 << 20):
+            digest.update(chunk)
+            size += len(chunk)
+        after = os.fstat(handle.fileno())
+    except OSError as error:
+        raise MergeError(code) from error
+    finally:
+        handle.close()
+    if not _same_file(before, after):
+        raise MergeError("source_changed")
+    return FileArtifact(bytes=size, sha256=digest.hexdigest())
+
+
+def _canonical_directory(path: Path, code: str) -> Path:
+    absolute = path if path.is_absolute() else Path.cwd() / path
+    normalized = Path(os.path.normpath(absolute))
+    try:
+        metadata = normalized.lstat()
+        resolved = normalized.resolve(strict=True)
+    except OSError as error:
+        raise MergeError(code) from error
+    if not stat.S_ISDIR(metadata.st_mode) or resolved != normalized:
+        raise MergeError(code)
+    return resolved
+
+
+def _resolve_output(path: Path) -> tuple[Path, Path]:
+    absolute = path if path.is_absolute() else Path.cwd() / path
+    normalized = Path(os.path.normpath(absolute))
+    if not normalized.name:
+        raise MergeError("output_path_invalid")
+    parent = _canonical_directory(normalized.parent, "output_parent_invalid")
+    output = parent / normalized.name
+    if output != normalized or output == parent:
+        raise MergeError("output_path_invalid")
+    return parent, output
+
+
+def _artifact_record(value: object, code: str) -> FileArtifact:
+    if not isinstance(value, dict) or set(value) != {"bytes", "sha256"}:
+        raise MergeError(code)
+    size = value.get("bytes")
+    digest = value.get("sha256")
+    if not _is_plain_int(size) or size < 0 or not isinstance(digest, str) or SHA256_PATTERN.fullmatch(digest) is None:
+        raise MergeError(code)
+    return FileArtifact(bytes=size, sha256=digest)
+
+
+def _task_ids(value: object) -> frozenset[str]:
+    if not isinstance(value, list) or any(
+        not isinstance(item, str) or SHA256_PATTERN.fullmatch(item) is None for item in value
+    ):
+        raise MergeError("task_split_invalid")
+    if value != sorted(value) or len(value) != len(set(value)):
+        raise MergeError("task_split_invalid")
+    return frozenset(value)
+
+
+def _load_export(path: Path, role: str) -> ExportBundle:
+    root = _canonical_directory(path, f"{role}_export_invalid")
+    manifest_body, manifest_artifact = _read_regular(
+        root / "manifest.json",
+        f"{role}_manifest_invalid",
+        limit=MAX_METADATA_BYTES,
+    )
+    manifest = _parse_json_object(manifest_body, f"{role}_manifest_invalid")
+    exporter = manifest.get("exporter")
+    format_contract = manifest.get("format")
+    split_value = manifest.get("split")
+    config = manifest.get("config")
+    if (
+        not isinstance(exporter, dict)
+        or exporter.get("format_version") != FORMAT_VERSION
+        or manifest.get("selection") != "pass-only"
+        or manifest.get("max_sequence_tokens") != MAX_SEQUENCE_TOKENS
+        or not isinstance(format_contract, dict)
+        or format_contract.get("loss_mask") != LOSS_MASK
+        or format_contract.get("task_identity") != TASK_IDENTITY
+        or not isinstance(config, dict)
+        or config.get("capture_model_io") is not True
+        or config.get("max_input_tokens") != MAX_SEQUENCE_TOKENS
+        or config.get("max_output_tokens") != MAX_SEQUENCE_TOKENS
+        or config.get("max_total_tokens") != MAX_SEQUENCE_TOKENS
+        or not _is_plain_int(config.get("num_rollouts"))
+        or config["num_rollouts"] != 1
+        or not isinstance(config.get("taskset_id"), str)
+        or not config["taskset_id"]
+        or "\x00" in config["taskset_id"]
+        or not isinstance(config.get("dataset_revision"), str)
+        or GIT_SHA_PATTERN.fullmatch(config["dataset_revision"]) is None
+        or not isinstance(split_value, dict)
+        or split_value.get("policy") != SPLIT_POLICY
+        or not isinstance(split_value.get("split_salt"), str)
+        or not split_value["split_salt"]
+        or "\x00" in split_value["split_salt"]
+        or not _is_plain_int(split_value.get("validation_permyriad"))
+        or not 0 <= split_value["validation_permyriad"] < 10_000
+    ):
+        raise MergeError(f"{role}_manifest_contract_invalid")
+    split = SplitContract(
+        policy=SPLIT_POLICY,
+        split_salt=split_value["split_salt"],
+        validation_permyriad=split_value["validation_permyriad"],
+    )
+
+    artifact_values = manifest.get("artifacts")
+    if (
+        not isinstance(artifact_values, dict)
+        or not set(REQUIRED_ARTIFACT_PATHS).issubset(artifact_values)
+        or not set(artifact_values).issubset(ARTIFACT_PATHS)
+    ):
+        raise MergeError(f"{role}_manifest_artifacts_invalid")
+    artifacts = {
+        name: _artifact_record(artifact_values[name], f"{role}_manifest_artifacts_invalid") for name in artifact_values
+    }
+    for name in set(artifact_values) & set(OPTIONAL_ARTIFACT_PATHS):
+        if _fingerprint_regular(root / ARTIFACT_PATHS[name], "artifact_invalid") != artifacts[name]:
+            raise MergeError("artifact_hash_mismatch")
+    task_split_body, task_split_artifact = _read_regular(
+        root / ARTIFACT_PATHS["task-split.json"],
+        "task_split_invalid",
+        limit=MAX_METADATA_BYTES,
+    )
+    if task_split_artifact != artifacts["task-split.json"]:
+        raise MergeError("artifact_hash_mismatch")
+    task_split = _parse_json_object(task_split_body, "task_split_invalid")
+    if (
+        set(task_split)
+        != {
+            "format_version",
+            "split_salt",
+            "validation_permyriad",
+            "train_task_sha256",
+            "validation_task_sha256",
+        }
+        or task_split.get("format_version") != FORMAT_VERSION
+        or task_split.get("split_salt") != split.split_salt
+        or task_split.get("validation_permyriad") != split.validation_permyriad
+    ):
+        raise MergeError("task_split_invalid")
+    train_tasks = _task_ids(task_split.get("train_task_sha256"))
+    validation_tasks = _task_ids(task_split.get("validation_task_sha256"))
+    if train_tasks & validation_tasks:
+        raise MergeError("task_split_overlap")
+    if not train_tasks and not validation_tasks:
+        raise MergeError("task_split_empty")
+    counts = manifest.get("counts")
+    source_artifact_values = manifest.get("source_artifacts")
+    if not isinstance(counts, dict) or not isinstance(source_artifact_values, dict):
+        raise MergeError(f"{role}_manifest_counts_invalid")
+    source_artifacts = {
+        name: _artifact_record(record, f"{role}_manifest_source_artifacts_invalid")
+        for name, record in source_artifact_values.items()
+    }
+    if "inputs/task_file.txt" not in source_artifacts:
+        raise MergeError(f"{role}_manifest_source_artifacts_invalid")
+    input_traces = counts.get("input_traces")
+    if not _is_plain_int(input_traces) or input_traces < len(train_tasks | validation_tasks):
+        raise MergeError(f"{role}_manifest_counts_invalid")
+    routing_epoch: int | None = None
+    if role == "original":
+        routing = manifest.get("routing_epochs")
+        routing_inputs = routing.get("input_traces") if isinstance(routing, dict) else None
+        if (
+            not isinstance(routing, dict)
+            or not _is_plain_int(routing.get("current_epoch"))
+            or routing["current_epoch"] != 3
+            or not isinstance(routing_inputs, dict)
+            or set(routing_inputs) != {"1", "2", "3"}
+            or any(not _is_plain_int(value) or value < 0 for value in routing_inputs.values())
+            or sum(routing_inputs.values()) != input_traces
+            or "qwen_router_epochs.jsonl" not in source_artifacts
+        ):
+            raise MergeError("original_routing_evidence_invalid")
+        routing_epoch = 3
+    return ExportBundle(
+        role=role,
+        root=root,
+        manifest=manifest_artifact,
+        artifacts=artifacts,
+        split=split,
+        train_tasks=train_tasks,
+        validation_tasks=validation_tasks,
+        source_artifacts=source_artifacts,
+        taskset_id=config["taskset_id"],
+        dataset_revision=config["dataset_revision"],
+        input_traces=input_traces,
+        routing_epoch=routing_epoch,
+        declared_counts=counts,
+    )
+
+
+def _validate_row(raw_line: bytes, expected_tasks: frozenset[str]) -> str:
+    row = _parse_json_object(raw_line, "row_invalid")
+    task_id = row.get("task_id")
+    reward = row.get("reward")
+    messages = row.get("messages")
+    if not isinstance(task_id, str) or SHA256_PATTERN.fullmatch(task_id) is None or task_id not in expected_tasks:
+        raise MergeError("row_task_membership_invalid")
+    if (
+        isinstance(reward, bool)
+        or not isinstance(reward, (int, float))
+        or not math.isfinite(reward)
+        or float(reward) != 1.0
+        or row.get("is_correct") is not True
+    ):
+        raise MergeError("row_not_pass")
+    if not _is_plain_int(row.get("assistant_target_count")) or row["assistant_target_count"] != 1:
+        raise MergeError("row_target_invalid")
+    if not isinstance(messages, list) or not messages:
+        raise MergeError("row_target_invalid")
+    targets: list[int] = []
+    for index, message in enumerate(messages):
+        if not isinstance(message, dict) or not isinstance(message.get("trainable"), bool):
+            raise MergeError("row_target_invalid")
+        if message["trainable"]:
+            targets.append(index)
+    if (
+        len(targets) != 1
+        or messages[targets[0]].get("role") != "assistant"
+        or targets[0] != len(messages) - 1
+        or not _is_plain_int(row.get("target_assistant_message_index"))
+        or row["target_assistant_message_index"] != targets[0]
+    ):
+        raise MergeError("row_target_invalid")
+    return task_id
+
+
+def _copy_split(
+    bundle: ExportBundle,
+    split_name: str,
+    expected_tasks: frozenset[str],
+    sink: ArtifactSink,
+) -> SplitStats:
+    artifact_name = "train/train.jsonl" if split_name == "train" else "validation/train.jsonl"
+    expected_artifact = bundle.artifacts[artifact_name]
+    handle, before = _open_regular(bundle.root / ARTIFACT_PATHS[artifact_name], "artifact_invalid")
+    digest = hashlib.sha256()
+    size = 0
+    rows = 0
+    seen_tasks: set[str] = set()
+    try:
+        while True:
+            raw_line = handle.readline(MAX_JSONL_ROW_BYTES + 1)
+            if not raw_line:
+                break
+            if len(raw_line) > MAX_JSONL_ROW_BYTES:
+                raise MergeError("row_too_large")
+            digest.update(raw_line)
+            size += len(raw_line)
+            if not raw_line.endswith(b"\n") or not raw_line.strip():
+                raise MergeError("jsonl_invalid")
+            seen_tasks.add(_validate_row(raw_line, expected_tasks))
+            sink.write(raw_line)
+            rows += 1
+        after = os.fstat(handle.fileno())
+    except OSError as error:
+        raise MergeError("artifact_invalid") from error
+    finally:
+        handle.close()
+    if not _same_file(before, after):
+        raise MergeError("source_changed")
+    observed = FileArtifact(bytes=size, sha256=digest.hexdigest())
+    if observed != expected_artifact:
+        raise MergeError("artifact_hash_mismatch")
+    if seen_tasks != set(expected_tasks):
+        raise MergeError("task_split_membership_invalid")
+    return SplitStats(rows=rows, tasks=len(seen_tasks), artifact=observed)
+
+
+def _validate_declared_counts(bundle: ExportBundle, stats: BundleStats) -> None:
+    counts = bundle.declared_counts
+    expected = {
+        "emitted_rows": stats.rows,
+        "selected_traces": stats.tasks,
+        "selected_pass_traces": stats.tasks,
+        "train_rows": stats.train.rows,
+        "train_traces": stats.train.tasks,
+        "validation_rows": stats.validation.rows,
+        "validation_traces": stats.validation.tasks,
+    }
+    if any(not _is_plain_int(counts.get(key, 0)) or counts.get(key, 0) != value for key, value in expected.items()):
+        raise MergeError(f"{bundle.role}_manifest_counts_invalid")
+    selected_failures = counts.get("selected_fail_traces", 0)
+    if not _is_plain_int(selected_failures) or selected_failures != 0:
+        raise MergeError(f"{bundle.role}_manifest_counts_invalid")
+
+
+def _selection_artifact_record(value: object) -> FileArtifact:
+    if not isinstance(value, dict) or set(value) != {"sha256", "size_bytes"}:
+        raise MergeError("repair_selection_contract_invalid")
+    size = value.get("size_bytes")
+    digest = value.get("sha256")
+    if not _is_plain_int(size) or size < 0 or not isinstance(digest, str) or SHA256_PATTERN.fullmatch(digest) is None:
+        raise MergeError("repair_selection_contract_invalid")
+    return FileArtifact(bytes=size, sha256=digest)
+
+
+def _load_repair_selection(path: Path, expected_sha256: str) -> RepairSelection:
+    if SHA256_PATTERN.fullmatch(expected_sha256) is None:
+        raise MergeError("repair_selection_digest_invalid")
+    body, artifact = _read_regular(path, "repair_selection_invalid", limit=MAX_METADATA_BYTES)
+    if artifact.sha256 != expected_sha256:
+        raise MergeError("repair_selection_digest_mismatch")
+    manifest = _parse_json_object(body, "repair_selection_invalid")
+    approval = manifest.get("approval")
+    code = manifest.get("code")
+    config = manifest.get("config")
+    selection = manifest.get("selection")
+    planner = manifest.get("planner")
+    source = manifest.get("source")
+    if (
+        set(manifest) != {"approval", "code", "config", "kind", "planner", "schema_version", "selection", "source"}
+        or manifest.get("kind") != REPAIR_SELECTION_KIND
+        or not _is_plain_int(manifest.get("schema_version"))
+        or manifest["schema_version"] != 1
+        or not isinstance(approval, dict)
+        or set(approval) != {"approved_task_count", "approved_task_file_sha256"}
+        or not _is_plain_int(approval.get("approved_task_count"))
+        or approval["approved_task_count"] < 1
+        or not isinstance(approval.get("approved_task_file_sha256"), str)
+        or SHA256_PATTERN.fullmatch(approval["approved_task_file_sha256"]) is None
+        or not isinstance(code, dict)
+        or set(code) != {"materializer_sha256", "repository_revision", "submodules"}
+        or not isinstance(code.get("materializer_sha256"), str)
+        or SHA256_PATTERN.fullmatch(code["materializer_sha256"]) is None
+        or not isinstance(code.get("repository_revision"), str)
+        or GIT_SHA_PATTERN.fullmatch(code["repository_revision"]) is None
+        or not isinstance(code.get("submodules"), dict)
+        or set(code["submodules"]) != set(REQUIRED_SUBMODULES)
+        or any(
+            not isinstance(revision, str) or GIT_SHA_PATTERN.fullmatch(revision) is None
+            for revision in code["submodules"].values()
+        )
+        or not isinstance(config, dict)
+        or set(config)
+        != {
+            "capture_model_io",
+            "enable_thinking",
+            "max_concurrent",
+            "max_total_tokens",
+            "preserve_thinking",
+            "provider_concurrency",
+            "retry_class_count",
+            "retry_policy_sha256",
+            "sha256",
+            "template_sha256",
+        }
+        or config.get("capture_model_io") is not True
+        or config.get("enable_thinking") is not True
+        or config.get("preserve_thinking") is not True
+        or config.get("max_concurrent") != 64
+        or config.get("max_total_tokens") != MAX_SEQUENCE_TOKENS
+        or config.get("provider_concurrency") != 32
+        or not _is_plain_int(config.get("retry_class_count"))
+        or config["retry_class_count"] < 1
+        or any(
+            not isinstance(config.get(name), str) or SHA256_PATTERN.fullmatch(config[name]) is None
+            for name in ("retry_policy_sha256", "sha256", "template_sha256")
+        )
+        or not isinstance(selection, dict)
+        or set(selection) != {"approved_repair_count", "task_file_sha256"}
+        or not _is_plain_int(selection.get("approved_repair_count"))
+        or selection["approved_repair_count"] < 1
+        or not isinstance(selection.get("task_file_sha256"), str)
+        or SHA256_PATTERN.fullmatch(selection["task_file_sha256"]) is None
+        or not isinstance(planner, dict)
+        or set(planner)
+        != {
+            "approved_task_count",
+            "contract_verifiers_revision",
+            "missing_or_errored_count",
+            "module_sha256",
+            "retained_count",
+            "task_index_order_sha256",
+        }
+        or not _is_plain_int(planner.get("approved_task_count"))
+        or not _is_plain_int(planner.get("missing_or_errored_count"))
+        or not _is_plain_int(planner.get("retained_count"))
+        or planner["missing_or_errored_count"] != selection["approved_repair_count"]
+        or not isinstance(planner.get("contract_verifiers_revision"), str)
+        or GIT_SHA_PATTERN.fullmatch(planner["contract_verifiers_revision"]) is None
+        or not isinstance(planner.get("module_sha256"), str)
+        or SHA256_PATTERN.fullmatch(planner["module_sha256"]) is None
+        or not isinstance(planner.get("task_index_order_sha256"), str)
+        or SHA256_PATTERN.fullmatch(planner["task_index_order_sha256"]) is None
+        or not isinstance(source, dict)
+        or set(source) != {"artifacts", "routing_epoch", "task_count"}
+        or not _is_plain_int(source.get("routing_epoch"))
+        or source["routing_epoch"] != 3
+        or not _is_plain_int(source.get("task_count"))
+        or source["task_count"] < 1
+        or not isinstance(source.get("artifacts"), dict)
+        or set(source["artifacts"]) != set(SELECTION_SOURCE_ARTIFACTS)
+        or approval["approved_task_count"] != source["task_count"]
+        or planner["approved_task_count"] != source["task_count"]
+        or planner["retained_count"] + planner["missing_or_errored_count"] != source["task_count"]
+    ):
+        raise MergeError("repair_selection_contract_invalid")
+    source_artifacts = {
+        SELECTION_SOURCE_ARTIFACTS[label]: _selection_artifact_record(record)
+        for label, record in source["artifacts"].items()
+    }
+    if source_artifacts["inputs/task_file.txt"].sha256 != approval["approved_task_file_sha256"]:
+        raise MergeError("repair_selection_contract_invalid")
+    return RepairSelection(
+        artifact=artifact,
+        task_count=selection["approved_repair_count"],
+        task_file_sha256=selection["task_file_sha256"],
+        source_artifacts=source_artifacts,
+        source_task_count=source["task_count"],
+        source_routing_epoch=source["routing_epoch"],
+    )
+
+
+def _load_repair_attestation(
+    path: Path,
+    expected_sha256: str,
+    repair_selection_sha256: str,
+) -> RepairAttestation:
+    if SHA256_PATTERN.fullmatch(expected_sha256) is None:
+        raise MergeError("repair_attestation_digest_invalid")
+    body, artifact = _read_regular(
+        path,
+        "repair_attestation_invalid",
+        limit=MAX_METADATA_BYTES,
+        required_mode=0o600,
+    )
+    if artifact.sha256 != expected_sha256:
+        raise MergeError("repair_attestation_digest_mismatch")
+    manifest = _parse_json_object(body, "repair_attestation_invalid")
+    if set(manifest) != {
+        "code",
+        "corpus",
+        "kind",
+        "repair_selection_manifest_sha256",
+        "routing",
+        "schema_version",
+        "source_artifacts",
+    }:
+        raise MergeError("repair_attestation_contract_invalid")
+    source_values = manifest.get("source_artifacts")
+    routing = manifest.get("routing")
+    corpus = manifest.get("corpus")
+    code = manifest.get("code")
+    if (
+        manifest.get("kind") != REPAIR_ATTESTATION_KIND
+        or not _is_plain_int(manifest.get("schema_version"))
+        or manifest["schema_version"] != 1
+        or manifest.get("repair_selection_manifest_sha256") != repair_selection_sha256
+        or not isinstance(source_values, dict)
+        or set(source_values) != set(ATTESTED_SOURCE_ARTIFACTS)
+        or not isinstance(routing, dict)
+        or set(routing)
+        != {
+            "manifest_schema_version",
+            "provider_concurrency",
+            "queue_size",
+            "request_id_headers",
+            "router_policy",
+            "routing_epoch",
+        }
+        or not _is_plain_int(routing.get("routing_epoch"))
+        or routing["routing_epoch"] != 1
+        or not _is_plain_int(routing.get("manifest_schema_version"))
+        or routing["manifest_schema_version"] != 3
+        or not _is_plain_int(routing.get("provider_concurrency"))
+        or routing["provider_concurrency"] != 32
+        or not _is_plain_int(routing.get("queue_size"))
+        or routing["queue_size"] != 32
+        or routing.get("router_policy") != "consistent_hash"
+        or routing.get("request_id_headers") != ["x-session-id"]
+        or not isinstance(corpus, dict)
+        or set(corpus) != {"dataset_revision", "task_count", "task_file_sha256", "taskset_id"}
+        or not _is_plain_int(corpus.get("task_count"))
+        or corpus["task_count"] < 1
+        or not isinstance(corpus.get("task_file_sha256"), str)
+        or SHA256_PATTERN.fullmatch(corpus["task_file_sha256"]) is None
+        or not isinstance(corpus.get("taskset_id"), str)
+        or not corpus["taskset_id"]
+        or "\x00" in corpus["taskset_id"]
+        or not isinstance(corpus.get("dataset_revision"), str)
+        or GIT_SHA_PATTERN.fullmatch(corpus["dataset_revision"]) is None
+        or not isinstance(code, dict)
+        or set(code) != {"repository_revision", "submodules"}
+        or not isinstance(code.get("repository_revision"), str)
+        or GIT_SHA_PATTERN.fullmatch(code["repository_revision"]) is None
+        or not isinstance(code.get("submodules"), dict)
+        or set(code["submodules"]) != set(REQUIRED_SUBMODULES)
+        or any(
+            not isinstance(revision, str) or GIT_SHA_PATTERN.fullmatch(revision) is None
+            for revision in code["submodules"].values()
+        )
+    ):
+        raise MergeError("repair_attestation_contract_invalid")
+    source_artifacts = {
+        name: _artifact_record(source_values[name], "repair_attestation_contract_invalid")
+        for name in ATTESTED_SOURCE_ARTIFACTS
+    }
+    if source_artifacts["inputs/task_file.txt"].sha256 != corpus["task_file_sha256"]:
+        raise MergeError("repair_attestation_contract_invalid")
+    return RepairAttestation(
+        artifact=artifact,
+        source_artifacts=source_artifacts,
+        task_count=corpus["task_count"],
+        task_file_sha256=corpus["task_file_sha256"],
+        taskset_id=corpus["taskset_id"],
+        dataset_revision=corpus["dataset_revision"],
+    )
+
+
+def _run_git(project: Path, arguments: list[str], code: str) -> str:
+    try:
+        completed = subprocess.run(
+            ["git", "-C", str(project), *arguments],
+            check=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            timeout=30,
+        )
+    except (OSError, subprocess.SubprocessError) as error:
+        raise MergeError(code) from error
+    if completed.stderr:
+        raise MergeError(code)
+    return completed.stdout
+
+
+def _repository_provenance(project_dir: Path, expected_revision: str) -> dict[str, Any]:
+    if GIT_SHA_PATTERN.fullmatch(expected_revision) is None:
+        raise MergeError("project_revision_invalid")
+    project = _canonical_directory(project_dir, "project_invalid")
+    top_level = _run_git(project, ["rev-parse", "--show-toplevel"], "project_revision_unavailable").strip()
+    head = _run_git(project, ["rev-parse", "HEAD"], "project_revision_unavailable").strip()
+    status = _run_git(
+        project,
+        ["status", "--porcelain=v1", "--untracked-files=all"],
+        "project_status_unavailable",
+    )
+    if top_level != str(project) or head != expected_revision:
+        raise MergeError("project_revision_mismatch")
+    if status:
+        raise MergeError("project_not_clean")
+    revisions: dict[str, str] = {}
+    for relative in REQUIRED_SUBMODULES:
+        record = _run_git(project, ["ls-tree", head, "--", relative], "submodule_revision_unavailable").strip()
+        fields = record.split(maxsplit=3)
+        if (
+            len(fields) != 4
+            or fields[0] != "160000"
+            or fields[1] != "commit"
+            or GIT_SHA_PATTERN.fullmatch(fields[2]) is None
+            or fields[3] != relative
+        ):
+            raise MergeError("submodule_revision_invalid")
+        submodule = project / relative
+        observed = _run_git(submodule, ["rev-parse", "HEAD"], "submodule_revision_unavailable").strip()
+        submodule_status = _run_git(
+            submodule,
+            ["status", "--porcelain=v1", "--untracked-files=all"],
+            "submodule_revision_unavailable",
+        )
+        if observed != fields[2] or submodule_status:
+            raise MergeError("submodule_revision_mismatch")
+        revisions[relative] = observed
+    merger = project / "user" / "tianhaowu" / "terminal_bench_vmvm" / "merge_qwen_sft.py"
+    merger_artifact = _fingerprint_regular(merger, "merger_code_invalid")
+    return {
+        "merger_sha256": merger_artifact.sha256,
+        "repository_revision": head,
+        "submodules": revisions,
+    }
+
+
+def _validate_code_provenance(value: Mapping[str, Any]) -> dict[str, Any]:
+    if set(value) != {"merger_sha256", "repository_revision", "submodules"}:
+        raise MergeError("code_provenance_invalid")
+    submodules = value.get("submodules")
+    if (
+        not isinstance(value.get("merger_sha256"), str)
+        or SHA256_PATTERN.fullmatch(value["merger_sha256"]) is None
+        or not isinstance(value.get("repository_revision"), str)
+        or GIT_SHA_PATTERN.fullmatch(value["repository_revision"]) is None
+        or not isinstance(submodules, dict)
+        or set(submodules) != set(REQUIRED_SUBMODULES)
+        or any(
+            not isinstance(revision, str) or GIT_SHA_PATTERN.fullmatch(revision) is None
+            for revision in submodules.values()
+        )
+    ):
+        raise MergeError("code_provenance_invalid")
+    return {
+        "merger_sha256": value["merger_sha256"],
+        "repository_revision": value["repository_revision"],
+        "submodules": {name: submodules[name] for name in sorted(submodules)},
+    }
+
+
+def _write_exclusive(path: Path, body: bytes) -> FileArtifact:
+    descriptor = os.open(
+        path,
+        os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_CLOEXEC | os.O_NOFOLLOW,
+        0o600,
+    )
+    os.fchmod(descriptor, 0o600)
+    try:
+        with os.fdopen(descriptor, "wb") as handle:
+            handle.write(body)
+            handle.flush()
+            os.fsync(handle.fileno())
+    except OSError as error:
+        raise MergeError("output_write_failed") from error
+    return FileArtifact(bytes=len(body), sha256=hashlib.sha256(body).hexdigest())
+
+
+def _fsync_directory(path: Path) -> None:
+    descriptor = os.open(path, os.O_RDONLY | os.O_CLOEXEC | os.O_DIRECTORY | os.O_NOFOLLOW)
+    try:
+        os.fsync(descriptor)
+    finally:
+        os.close(descriptor)
+
+
+def _fsync_tree(root: Path) -> None:
+    directories = [root]
+    for current, names, files in os.walk(root, topdown=True, followlinks=False):
+        current_path = Path(current)
+        for name in names:
+            child = current_path / name
+            if child.is_symlink() or not child.is_dir():
+                raise MergeError("output_tree_invalid")
+            directories.append(child)
+        for name in files:
+            child = current_path / name
+            metadata = child.lstat()
+            if not stat.S_ISREG(metadata.st_mode) or stat.S_IMODE(metadata.st_mode) != 0o600:
+                raise MergeError("output_mode_invalid")
+    for directory in reversed(directories):
+        os.chmod(directory, 0o700)
+        _fsync_directory(directory)
+
+
+def _publish_noreplace(staging: Path, output: Path) -> None:
+    libc = ctypes.CDLL(None, use_errno=True)
+    renameat2 = getattr(libc, "renameat2", None)
+    if renameat2 is None:
+        raise MergeError("atomic_publish_unavailable")
+    result = renameat2(
+        AT_FDCWD,
+        os.fsencode(staging),
+        AT_FDCWD,
+        os.fsencode(output),
+        RENAME_NOREPLACE,
+    )
+    if result != 0:
+        error_number = ctypes.get_errno()
+        if error_number == errno.EEXIST:
+            raise MergeError("destination_exists")
+        raise MergeError("atomic_publish_failed")
+    _fsync_directory(output.parent)
+
+
+def _bundle_manifest_binding(bundle: ExportBundle) -> dict[str, Any]:
+    return {
+        "artifacts": {name: bundle.artifacts[name].as_dict() for name in sorted(bundle.artifacts)},
+        "manifest": bundle.manifest.as_dict(),
+        "source_task_file": bundle.source_artifacts["inputs/task_file.txt"].as_dict(),
+    }
+
+
+def _counts(stats: BundleStats) -> dict[str, int]:
+    return {
+        "rows": stats.rows,
+        "tasks": stats.tasks,
+        "train_rows": stats.train.rows,
+        "train_tasks": stats.train.tasks,
+        "validation_rows": stats.validation.rows,
+        "validation_tasks": stats.validation.tasks,
+    }
+
+
+def _validate_sources_unchanged(
+    bundles: tuple[ExportBundle, ExportBundle],
+    repair_selection_path: Path,
+    repair_selection_artifact: FileArtifact,
+    repair_attestation_path: Path,
+    repair_attestation_artifact: FileArtifact,
+) -> None:
+    for bundle in bundles:
+        if _fingerprint_regular(bundle.root / "manifest.json", "source_changed") != bundle.manifest:
+            raise MergeError("source_changed")
+        for name, expected in bundle.artifacts.items():
+            if _fingerprint_regular(bundle.root / ARTIFACT_PATHS[name], "source_changed") != expected:
+                raise MergeError("source_changed")
+    if _fingerprint_regular(repair_selection_path, "source_changed") != repair_selection_artifact:
+        raise MergeError("source_changed")
+    if (
+        _fingerprint_regular(
+            repair_attestation_path,
+            "source_changed",
+            required_mode=0o600,
+        )
+        != repair_attestation_artifact
+    ):
+        raise MergeError("source_changed")
+
+
+def merge_qwen_sft(
+    options: MergeOptions,
+    *,
+    code_provenance: Mapping[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Validate, merge, and atomically publish two SFT exports."""
+    output_parent, output = _resolve_output(options.output_dir)
+    if os.path.lexists(output):
+        raise MergeError("destination_exists")
+
+    original = _load_export(options.original_export_dir, "original")
+    repair = _load_export(options.repair_export_dir, "repair")
+    if original.root == repair.root:
+        raise MergeError("input_exports_overlap")
+    if (
+        output == original.root
+        or output.is_relative_to(original.root)
+        or output == repair.root
+        or output.is_relative_to(repair.root)
+    ):
+        raise MergeError("output_overlaps_input")
+    if original.split != repair.split:
+        raise MergeError("split_contract_mismatch")
+    if (original.taskset_id, original.dataset_revision) != (
+        repair.taskset_id,
+        repair.dataset_revision,
+    ):
+        raise MergeError("task_namespace_mismatch")
+    if original.tasks & repair.tasks:
+        raise MergeError("source_task_overlap")
+    merged_train_tasks = original.train_tasks | repair.train_tasks
+    merged_validation_tasks = original.validation_tasks | repair.validation_tasks
+    if merged_train_tasks & merged_validation_tasks:
+        raise MergeError("merged_task_split_overlap")
+
+    try:
+        selection_path = options.repair_selection_manifest.resolve(strict=True)
+    except (OSError, RuntimeError) as error:
+        raise MergeError("repair_selection_invalid") from error
+    selection = _load_repair_selection(
+        selection_path,
+        options.repair_selection_manifest_sha256,
+    )
+    if (
+        selection.source_task_count != original.input_traces
+        or selection.source_routing_epoch != original.routing_epoch
+        or any(original.source_artifacts.get(name) != artifact for name, artifact in selection.source_artifacts.items())
+    ):
+        raise MergeError("repair_selection_original_mismatch")
+    attestation_path = options.repair_attestation_manifest
+    if not attestation_path.is_absolute():
+        attestation_path = Path.cwd() / attestation_path
+    attestation_path = Path(os.path.normpath(attestation_path))
+    attestation = _load_repair_attestation(
+        attestation_path,
+        options.repair_attestation_manifest_sha256,
+        selection.artifact.sha256,
+    )
+    if (
+        selection.task_count != repair.input_traces
+        or selection.task_file_sha256 != repair.source_artifacts["inputs/task_file.txt"].sha256
+        or attestation.task_count != repair.input_traces
+        or attestation.task_file_sha256 != selection.task_file_sha256
+        or (attestation.taskset_id, attestation.dataset_revision) != (repair.taskset_id, repair.dataset_revision)
+        or any(repair.source_artifacts.get(name) != artifact for name, artifact in attestation.source_artifacts.items())
+    ):
+        raise MergeError("repair_attestation_export_mismatch")
+    if code_provenance is None:
+        code = _validate_code_provenance(_repository_provenance(options.project_dir, options.expected_project_revision))
+    else:
+        code = _validate_code_provenance(code_provenance)
+
+    staging: Path | None = Path(tempfile.mkdtemp(prefix=f".{output.name}.merge-", dir=output_parent))
+    train_sink: ArtifactSink | None = None
+    validation_sink: ArtifactSink | None = None
+    try:
+        assert staging is not None
+        train_sink = ArtifactSink(staging / "train" / "train.jsonl")
+        validation_sink = ArtifactSink(staging / "validation" / "train.jsonl")
+        original_train = _copy_split(original, "train", original.train_tasks, train_sink)
+        repair_train = _copy_split(repair, "train", repair.train_tasks, train_sink)
+        original_validation = _copy_split(
+            original,
+            "validation",
+            original.validation_tasks,
+            validation_sink,
+        )
+        repair_validation = _copy_split(
+            repair,
+            "validation",
+            repair.validation_tasks,
+            validation_sink,
+        )
+        train_artifact = train_sink.close()
+        train_sink = None
+        validation_artifact = validation_sink.close()
+        validation_sink = None
+        original_stats = BundleStats(train=original_train, validation=original_validation)
+        repair_stats = BundleStats(train=repair_train, validation=repair_validation)
+        _validate_declared_counts(original, original_stats)
+        _validate_declared_counts(repair, repair_stats)
+        output_stats = BundleStats(
+            train=SplitStats(
+                rows=original_train.rows + repair_train.rows,
+                tasks=len(merged_train_tasks),
+                artifact=train_artifact,
+            ),
+            validation=SplitStats(
+                rows=original_validation.rows + repair_validation.rows,
+                tasks=len(merged_validation_tasks),
+                artifact=validation_artifact,
+            ),
+        )
+
+        task_split = {
+            "format_version": FORMAT_VERSION,
+            "split_salt": original.split.split_salt,
+            "train_task_sha256": sorted(merged_train_tasks),
+            "validation_permyriad": original.split.validation_permyriad,
+            "validation_task_sha256": sorted(merged_validation_tasks),
+        }
+        task_split_artifact = _write_exclusive(staging / "task-split.json", _json_bytes(task_split))
+        output_artifacts = {
+            "task-split.json": task_split_artifact,
+            "train/train.jsonl": train_artifact,
+            "validation/train.jsonl": validation_artifact,
+        }
+        merge_manifest = {
+            "artifacts": {name: output_artifacts[name].as_dict() for name in sorted(output_artifacts)},
+            "code": code,
+            "counts": {
+                "emitted_rows": output_stats.rows,
+                "input_traces": output_stats.tasks,
+                "selected_fail_traces": 0,
+                "selected_pass_traces": output_stats.tasks,
+                "selected_traces": output_stats.tasks,
+                "train_rows": output_stats.train.rows,
+                "train_traces": output_stats.train.tasks,
+                "validation_rows": output_stats.validation.rows,
+                "validation_traces": output_stats.validation.tasks,
+            },
+            "exporter": {
+                "file_sha256": code["merger_sha256"],
+                "format_version": FORMAT_VERSION,
+            },
+            "format": {
+                "loss_mask": LOSS_MASK,
+                "task_identity": TASK_IDENTITY,
+            },
+            "input_counts": {
+                "original": _counts(original_stats),
+                "repair": _counts(repair_stats),
+            },
+            "inputs": {
+                "original": _bundle_manifest_binding(original),
+                "repair": _bundle_manifest_binding(repair),
+                "repair_attestation_manifest": attestation.artifact.as_dict(),
+                "repair_selection_manifest": selection.artifact.as_dict(),
+            },
+            "kind": MERGE_KIND,
+            "max_sequence_tokens": MAX_SEQUENCE_TOKENS,
+            "schema_version": MERGE_SCHEMA_VERSION,
+            "selection": "pass-only",
+            "split": original.split.as_dict(),
+        }
+        manifest_artifact = _write_exclusive(staging / "manifest.json", _json_bytes(merge_manifest))
+
+        _validate_sources_unchanged(
+            (original, repair),
+            selection_path,
+            selection.artifact,
+            attestation_path,
+            attestation.artifact,
+        )
+        if code_provenance is None:
+            if (
+                _validate_code_provenance(
+                    _repository_provenance(options.project_dir, options.expected_project_revision)
+                )
+                != code
+            ):
+                raise MergeError("code_provenance_changed")
+        _fsync_tree(staging)
+        _publish_noreplace(staging, output)
+        staging = None
+    finally:
+        if train_sink is not None:
+            train_sink.abort()
+        if validation_sink is not None:
+            validation_sink.abort()
+        if staging is not None and staging.exists():
+            shutil.rmtree(staging)
+
+    return {
+        "manifest_sha256": manifest_artifact.sha256,
+        "ok": True,
+        "output_sha256": {
+            "task_split": task_split_artifact.sha256,
+            "train": train_artifact.sha256,
+            "validation": validation_artifact.sha256,
+        },
+        "rows": {
+            "total": output_stats.rows,
+            "train": output_stats.train.rows,
+            "validation": output_stats.validation.rows,
+        },
+        "tasks": {
+            "total": output_stats.tasks,
+            "train": output_stats.train.tasks,
+            "validation": output_stats.validation.tasks,
+        },
+    }
+
+
+def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
+    parser = StableArgumentParser(description=__doc__)
+    parser.add_argument("--original-export-dir", type=Path, required=True)
+    parser.add_argument("--repair-export-dir", type=Path, required=True)
+    parser.add_argument("--repair-selection-manifest", type=Path, required=True)
+    parser.add_argument("--repair-selection-manifest-sha256", required=True)
+    parser.add_argument("--repair-attestation-manifest", type=Path, required=True)
+    parser.add_argument("--repair-attestation-manifest-sha256", required=True)
+    parser.add_argument("--output-dir", type=Path, required=True)
+    parser.add_argument("--project-dir", type=Path, required=True)
+    parser.add_argument("--expected-project-revision", required=True)
+    return parser.parse_args(argv)
+
+
+def main(argv: list[str] | None = None) -> int:
+    try:
+        args = parse_args(argv)
+        summary = merge_qwen_sft(
+            MergeOptions(
+                original_export_dir=args.original_export_dir,
+                repair_export_dir=args.repair_export_dir,
+                repair_selection_manifest=args.repair_selection_manifest,
+                repair_selection_manifest_sha256=args.repair_selection_manifest_sha256,
+                repair_attestation_manifest=args.repair_attestation_manifest,
+                repair_attestation_manifest_sha256=args.repair_attestation_manifest_sha256,
+                output_dir=args.output_dir,
+                project_dir=args.project_dir,
+                expected_project_revision=args.expected_project_revision,
+            )
+        )
+    except MergeError as error:
+        print(json.dumps({"code": error.code, "status": "error"}, sort_keys=True), file=sys.stderr)
+        return 2
+    except Exception:
+        print(json.dumps({"code": "internal_error", "status": "error"}, sort_keys=True), file=sys.stderr)
+        return 2
+    print(json.dumps(summary, allow_nan=False, sort_keys=True))
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

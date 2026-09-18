@@ -1,0 +1,653 @@
+from __future__ import annotations
+
+import hashlib
+import json
+import stat
+from dataclasses import replace
+from pathlib import Path
+
+import pytest
+from merge_qwen_sft import (
+    FORMAT_VERSION,
+    LOSS_MASK,
+    MAX_SEQUENCE_TOKENS,
+    REPAIR_SELECTION_KIND,
+    REQUIRED_SUBMODULES,
+    SPLIT_POLICY,
+    TASK_IDENTITY,
+    MergeError,
+    MergeOptions,
+    merge_qwen_sft,
+)
+
+
+def _sha256(data: bytes) -> str:
+    return hashlib.sha256(data).hexdigest()
+
+
+def _json_bytes(value: object) -> bytes:
+    return (json.dumps(value, allow_nan=False, indent=2, sort_keys=True) + "\n").encode()
+
+
+def _task_id(label: str) -> str:
+    return _sha256(label.encode())
+
+
+def _row(task_id: str, marker: str, *, reward: int = 1, targets: int = 1) -> dict:
+    messages = [
+        {"content": marker, "role": "user", "trainable": False},
+        {
+            "content": f"answer-{marker}",
+            "reasoning_content": f"reasoning-{marker}",
+            "role": "assistant",
+            "trainable": True,
+        },
+    ]
+    if targets == 0:
+        messages[-1]["trainable"] = False
+    elif targets == 2:
+        messages[0] = {"content": marker, "role": "assistant", "trainable": True}
+    return {
+        "assistant_target_count": targets,
+        "is_correct": reward == 1,
+        "messages": messages,
+        "reward": reward,
+        "target_assistant_message_index": 1,
+        "task_id": task_id,
+    }
+
+
+def _jsonl(rows: list[dict]) -> bytes:
+    return b"".join(
+        json.dumps(row, allow_nan=False, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode() + b"\n"
+        for row in rows
+    )
+
+
+def _write_export(
+    root: Path,
+    *,
+    train_rows: list[dict],
+    validation_rows: list[dict],
+    split_salt: str = "unit-test-split",
+    validation_permyriad: int = 500,
+    max_sequence_tokens: int = MAX_SEQUENCE_TOKENS,
+    format_version: int = FORMAT_VERSION,
+    selection: str = "pass-only",
+    input_traces: int | None = None,
+    source_task_file_sha256: str | None = None,
+    taskset_id: str = "synthetic-taskset",
+    dataset_revision: str = "7" * 40,
+) -> Path:
+    (root / "train").mkdir(parents=True)
+    (root / "validation").mkdir()
+    train_body = _jsonl(train_rows)
+    validation_body = _jsonl(validation_rows)
+    (root / "train" / "train.jsonl").write_bytes(train_body)
+    (root / "validation" / "train.jsonl").write_bytes(validation_body)
+    train_tasks = sorted({row["task_id"] for row in train_rows})
+    validation_tasks = sorted({row["task_id"] for row in validation_rows})
+    task_split_body = _json_bytes(
+        {
+            "format_version": format_version,
+            "split_salt": split_salt,
+            "train_task_sha256": train_tasks,
+            "validation_permyriad": validation_permyriad,
+            "validation_task_sha256": validation_tasks,
+        }
+    )
+    (root / "task-split.json").write_bytes(task_split_body)
+    task_count = len(set(train_tasks) | set(validation_tasks))
+    if input_traces is None:
+        input_traces = task_count
+    if source_task_file_sha256 is None:
+        source_task_file_sha256 = _sha256(
+            "".join(f"{task}\n" for task in sorted(set(train_tasks) | set(validation_tasks))).encode()
+        )
+    source_artifacts = {
+        "config.toml": {"bytes": 101, "sha256": "1" * 64},
+        "direct_workers.json": {"bytes": 102, "sha256": "2" * 64},
+        "inputs/image_manifest.json": {"bytes": 104, "sha256": "5" * 64},
+        "inputs/manifest.json": {"bytes": 105, "sha256": "6" * 64},
+        "inputs/source_config.toml": {"bytes": 106, "sha256": "a" * 64},
+        "inputs/task_file.txt": {"bytes": input_traces, "sha256": source_task_file_sha256},
+        "provenance.txt": {"bytes": 103, "sha256": "3" * 64},
+        "results.jsonl": {"bytes": len(train_body) + len(validation_body), "sha256": "4" * 64},
+    }
+    manifest = {
+        "artifacts": {
+            "task-split.json": {"bytes": len(task_split_body), "sha256": _sha256(task_split_body)},
+            "train/train.jsonl": {"bytes": len(train_body), "sha256": _sha256(train_body)},
+            "validation/train.jsonl": {
+                "bytes": len(validation_body),
+                "sha256": _sha256(validation_body),
+            },
+        },
+        "counts": {
+            "emitted_rows": len(train_rows) + len(validation_rows),
+            "input_traces": input_traces,
+            "selected_pass_traces": task_count,
+            "selected_traces": task_count,
+            "train_rows": len(train_rows),
+            "train_traces": len(train_tasks),
+            "validation_rows": len(validation_rows),
+            "validation_traces": len(validation_tasks),
+        },
+        "config": {
+            "capture_model_io": True,
+            "dataset_revision": dataset_revision,
+            "max_input_tokens": MAX_SEQUENCE_TOKENS,
+            "max_output_tokens": MAX_SEQUENCE_TOKENS,
+            "max_total_tokens": MAX_SEQUENCE_TOKENS,
+            "num_rollouts": 1,
+            "taskset_id": taskset_id,
+        },
+        "exporter": {"file_sha256": "e" * 64, "format_version": format_version},
+        "format": {"loss_mask": LOSS_MASK, "task_identity": TASK_IDENTITY},
+        "max_sequence_tokens": max_sequence_tokens,
+        "selection": selection,
+        "source_artifacts": source_artifacts,
+        "split": {
+            "policy": SPLIT_POLICY,
+            "split_salt": split_salt,
+            "validation_permyriad": validation_permyriad,
+        },
+    }
+    (root / "manifest.json").write_bytes(_json_bytes(manifest))
+    return root
+
+
+def _write_repair_selection(path: Path, original_export: Path, repair_export: Path) -> str:
+    original_manifest_path = original_export / "manifest.json"
+    original_manifest = json.loads(original_manifest_path.read_text())
+    repair_manifest = json.loads((repair_export / "manifest.json").read_text())
+    repair_task_count = repair_manifest["counts"]["input_traces"]
+    original_selected_count = original_manifest["counts"]["selected_traces"]
+    source_task_count = original_selected_count + repair_task_count
+    original_manifest["counts"]["input_traces"] = source_task_count
+    original_manifest["routing_epochs"] = {
+        "current_epoch": 3,
+        "input_traces": {"1": 0, "2": 0, "3": source_task_count},
+    }
+    original_manifest["source_artifacts"]["qwen_router_epochs.jsonl"] = {
+        "bytes": source_task_count,
+        "sha256": "7" * 64,
+    }
+    original_manifest_path.write_bytes(_json_bytes(original_manifest))
+    task_file_sha256 = repair_manifest["source_artifacts"]["inputs/task_file.txt"]["sha256"]
+    selection_source_artifacts = {
+        "config": "config.toml",
+        "direct_workers": "direct_workers.json",
+        "image_manifest": "inputs/image_manifest.json",
+        "inputs_manifest": "inputs/manifest.json",
+        "provenance": "provenance.txt",
+        "results": "results.jsonl",
+        "source_config": "inputs/source_config.toml",
+        "task_file": "inputs/task_file.txt",
+    }
+    body = _json_bytes(
+        {
+            "approval": {
+                "approved_task_count": source_task_count,
+                "approved_task_file_sha256": original_manifest["source_artifacts"]["inputs/task_file.txt"]["sha256"],
+            },
+            "code": {
+                "materializer_sha256": "b" * 64,
+                "repository_revision": "c" * 40,
+                "submodules": {name: "d" * 40 for name in REQUIRED_SUBMODULES},
+            },
+            "config": {
+                "capture_model_io": True,
+                "enable_thinking": True,
+                "max_concurrent": 64,
+                "max_total_tokens": MAX_SEQUENCE_TOKENS,
+                "preserve_thinking": True,
+                "provider_concurrency": 32,
+                "retry_class_count": 4,
+                "retry_policy_sha256": "e" * 64,
+                "sha256": "f" * 64,
+                "template_sha256": "0" * 64,
+            },
+            "kind": REPAIR_SELECTION_KIND,
+            "planner": {
+                "approved_task_count": source_task_count,
+                "contract_verifiers_revision": "1" * 40,
+                "missing_or_errored_count": repair_task_count,
+                "module_sha256": "2" * 64,
+                "retained_count": original_selected_count,
+                "task_index_order_sha256": "3" * 64,
+            },
+            "schema_version": 1,
+            "selection": {
+                "approved_repair_count": repair_task_count,
+                "task_file_sha256": task_file_sha256,
+            },
+            "source": {
+                "artifacts": {
+                    label: {
+                        "sha256": original_manifest["source_artifacts"][artifact]["sha256"],
+                        "size_bytes": original_manifest["source_artifacts"][artifact]["bytes"],
+                    }
+                    for label, artifact in selection_source_artifacts.items()
+                },
+                "routing_epoch": 3,
+                "task_count": source_task_count,
+            },
+        }
+    )
+    path.write_bytes(body)
+    return _sha256(body)
+
+
+def _write_repair_attestation(path: Path, repair_export: Path, selection_sha256: str) -> str:
+    repair_manifest = json.loads((repair_export / "manifest.json").read_text())
+    source_artifacts = repair_manifest["source_artifacts"]
+    attested_names = (
+        "config.toml",
+        "inputs/task_file.txt",
+        "provenance.txt",
+        "results.jsonl",
+        "direct_workers.json",
+    )
+    config = repair_manifest["config"]
+    body = _json_bytes(
+        {
+            "code": {
+                "repository_revision": "9" * 40,
+                "submodules": {name: "8" * 40 for name in REQUIRED_SUBMODULES},
+            },
+            "corpus": {
+                "dataset_revision": config["dataset_revision"],
+                "task_count": repair_manifest["counts"]["input_traces"],
+                "task_file_sha256": source_artifacts["inputs/task_file.txt"]["sha256"],
+                "taskset_id": config["taskset_id"],
+            },
+            "kind": "qwen-direct-repair-attestation",
+            "repair_selection_manifest_sha256": selection_sha256,
+            "routing": {
+                "manifest_schema_version": 3,
+                "provider_concurrency": 32,
+                "queue_size": 32,
+                "request_id_headers": ["x-session-id"],
+                "router_policy": "consistent_hash",
+                "routing_epoch": 1,
+            },
+            "schema_version": 1,
+            "source_artifacts": {name: source_artifacts[name] for name in attested_names},
+        }
+    )
+    path.write_bytes(body)
+    path.chmod(0o600)
+    return _sha256(body)
+
+
+def _code_provenance() -> dict:
+    return {
+        "merger_sha256": "b" * 64,
+        "repository_revision": "c" * 40,
+        "submodules": {name: "d" * 40 for name in REQUIRED_SUBMODULES},
+    }
+
+
+def _options(
+    original: Path,
+    repair: Path,
+    selection: Path,
+    selection_sha256: str,
+    output: Path,
+) -> MergeOptions:
+    attestation = selection.with_name(f"{selection.stem}-attestation.json")
+    attestation_sha256 = _write_repair_attestation(attestation, repair, selection_sha256)
+    return MergeOptions(
+        original_export_dir=original,
+        repair_export_dir=repair,
+        repair_selection_manifest=selection,
+        repair_selection_manifest_sha256=selection_sha256,
+        repair_attestation_manifest=attestation,
+        repair_attestation_manifest_sha256=attestation_sha256,
+        output_dir=output,
+        project_dir=output.parent,
+        expected_project_revision="c" * 40,
+    )
+
+
+def _fixture_exports(tmp_path: Path) -> tuple[Path, Path, Path, str, set[str]]:
+    original_train = _task_id("original-train")
+    original_validation = _task_id("original-validation")
+    repair_train = _task_id("repair-train")
+    repair_validation = _task_id("repair-validation")
+    original = _write_export(
+        tmp_path / "original",
+        train_rows=[
+            _row(original_train, "private-original-turn-one"),
+            _row(original_train, "private-original-turn-two"),
+        ],
+        validation_rows=[_row(original_validation, "private-original-validation")],
+    )
+    repair = _write_export(
+        tmp_path / "repair",
+        train_rows=[
+            _row(repair_train, "private-repair-turn-one"),
+            _row(repair_train, "private-repair-turn-two"),
+        ],
+        validation_rows=[_row(repair_validation, "private-repair-validation")],
+    )
+    selection = tmp_path / "repair-selection.json"
+    selection_sha256 = _write_repair_selection(selection, original, repair)
+    return (
+        original,
+        repair,
+        selection,
+        selection_sha256,
+        {original_train, original_validation, repair_train, repair_validation},
+    )
+
+
+def test_merge_is_deterministic_redacted_and_preserves_all_rows(tmp_path: Path) -> None:
+    original, repair, selection, selection_sha256, task_ids = _fixture_exports(tmp_path)
+    source_bytes = {
+        path: path.read_bytes()
+        for root in (original, repair)
+        for path in (
+            root / "manifest.json",
+            root / "task-split.json",
+            root / "train" / "train.jsonl",
+            root / "validation" / "train.jsonl",
+        )
+    }
+
+    first = tmp_path / "merged-first"
+    second = tmp_path / "merged-second"
+    first_summary = merge_qwen_sft(
+        _options(original, repair, selection, selection_sha256, first),
+        code_provenance=_code_provenance(),
+    )
+    second_summary = merge_qwen_sft(
+        _options(original, repair, selection, selection_sha256, second),
+        code_provenance=_code_provenance(),
+    )
+
+    for relative in (
+        "manifest.json",
+        "task-split.json",
+        "train/train.jsonl",
+        "validation/train.jsonl",
+    ):
+        assert (first / relative).read_bytes() == (second / relative).read_bytes()
+        assert stat.S_IMODE((first / relative).stat().st_mode) == 0o600
+    assert (first / "train" / "train.jsonl").read_bytes() == (original / "train" / "train.jsonl").read_bytes() + (
+        repair / "train" / "train.jsonl"
+    ).read_bytes()
+    assert (first / "validation" / "train.jsonl").read_bytes() == (
+        original / "validation" / "train.jsonl"
+    ).read_bytes() + (repair / "validation" / "train.jsonl").read_bytes()
+    assert first_summary == second_summary
+    assert first_summary["rows"] == {"total": 6, "train": 4, "validation": 2}
+    assert first_summary["tasks"] == {"total": 4, "train": 2, "validation": 2}
+    aggregate_output = json.dumps(first_summary, sort_keys=True) + (first / "manifest.json").read_text()
+    assert not any(task_id in aggregate_output for task_id in task_ids)
+    assert "private-" not in aggregate_output
+    assert source_bytes == {path: path.read_bytes() for path in source_bytes}
+
+
+def test_tampered_artifact_is_rejected_without_output(tmp_path: Path) -> None:
+    original, repair, selection, selection_sha256, _task_ids = _fixture_exports(tmp_path)
+    train = repair / "train" / "train.jsonl"
+    train.write_bytes(train.read_bytes().replace(b"private-repair-turn-one", b"tampered-repair-turn-one"))
+    output = tmp_path / "merged"
+
+    with pytest.raises(MergeError, match="^artifact_hash_mismatch$"):
+        merge_qwen_sft(
+            _options(original, repair, selection, selection_sha256, output),
+            code_provenance=_code_provenance(),
+        )
+    assert not output.exists()
+
+
+def test_repair_selection_tamper_is_rejected(tmp_path: Path) -> None:
+    original, repair, selection, selection_sha256, _task_ids = _fixture_exports(tmp_path)
+    selection.write_bytes(selection.read_bytes() + b" ")
+
+    with pytest.raises(MergeError, match="^repair_selection_digest_mismatch$"):
+        merge_qwen_sft(
+            _options(original, repair, selection, selection_sha256, tmp_path / "merged"),
+            code_provenance=_code_provenance(),
+        )
+
+
+def test_repair_pass_only_export_may_be_smaller_than_selected_run(tmp_path: Path) -> None:
+    original = _write_export(
+        tmp_path / "original",
+        train_rows=[_row(_task_id("original"), "original")],
+        validation_rows=[],
+    )
+    repair = _write_export(
+        tmp_path / "repair",
+        train_rows=[_row(_task_id("repair-pass"), "repair-pass")],
+        validation_rows=[],
+        input_traces=2,
+        source_task_file_sha256="f" * 64,
+    )
+    selection = tmp_path / "selection.json"
+    digest = _write_repair_selection(selection, original, repair)
+
+    summary = merge_qwen_sft(
+        _options(original, repair, selection, digest, tmp_path / "merged"),
+        code_provenance=_code_provenance(),
+    )
+
+    assert summary["tasks"]["total"] == 2
+
+
+def test_repair_selection_must_bind_repair_source_task_file(tmp_path: Path) -> None:
+    original, repair, selection, _selection_sha256, _task_ids = _fixture_exports(tmp_path)
+    value = json.loads(selection.read_text())
+    value["selection"]["task_file_sha256"] = "0" * 64
+    selection.write_bytes(_json_bytes(value))
+
+    with pytest.raises(MergeError, match="^repair_attestation_export_mismatch$"):
+        merge_qwen_sft(
+            _options(original, repair, selection, _sha256(selection.read_bytes()), tmp_path / "merged"),
+            code_provenance=_code_provenance(),
+        )
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("routing_epoch", 3),
+        ("manifest_schema_version", 2),
+        ("provider_concurrency", 64),
+        ("queue_size", 0),
+        ("router_policy", "round_robin"),
+        ("request_id_headers", []),
+    ],
+)
+def test_repair_attestation_requires_fresh_cap32_consistent_hash_router(
+    tmp_path: Path,
+    field: str,
+    value: object,
+) -> None:
+    original, repair, selection, selection_sha256, _task_ids = _fixture_exports(tmp_path)
+    options = _options(original, repair, selection, selection_sha256, tmp_path / "merged")
+    attestation = json.loads(options.repair_attestation_manifest.read_text())
+    attestation["routing"][field] = value
+    body = _json_bytes(attestation)
+    options.repair_attestation_manifest.write_bytes(body)
+    options.repair_attestation_manifest.chmod(0o600)
+    options = replace(options, repair_attestation_manifest_sha256=_sha256(body))
+
+    with pytest.raises(MergeError, match="^repair_attestation_contract_invalid$"):
+        merge_qwen_sft(options, code_provenance=_code_provenance())
+
+
+def test_repair_attestation_must_be_private_regular_file(tmp_path: Path) -> None:
+    original, repair, selection, selection_sha256, _task_ids = _fixture_exports(tmp_path)
+    options = _options(original, repair, selection, selection_sha256, tmp_path / "merged")
+    options.repair_attestation_manifest.chmod(0o644)
+
+    with pytest.raises(MergeError, match="^repair_attestation_invalid$"):
+        merge_qwen_sft(options, code_provenance=_code_provenance())
+
+
+def test_repair_attestation_binds_direct_workers_artifact(tmp_path: Path) -> None:
+    original, repair, selection, selection_sha256, _task_ids = _fixture_exports(tmp_path)
+    options = _options(original, repair, selection, selection_sha256, tmp_path / "merged")
+    attestation = json.loads(options.repair_attestation_manifest.read_text())
+    attestation["source_artifacts"]["direct_workers.json"]["sha256"] = "0" * 64
+    body = _json_bytes(attestation)
+    options.repair_attestation_manifest.write_bytes(body)
+    options.repair_attestation_manifest.chmod(0o600)
+    options = replace(options, repair_attestation_manifest_sha256=_sha256(body))
+
+    with pytest.raises(MergeError, match="^repair_attestation_export_mismatch$"):
+        merge_qwen_sft(options, code_provenance=_code_provenance())
+
+
+def test_repair_selection_must_bind_the_original_export_source(tmp_path: Path) -> None:
+    original_a = _write_export(
+        tmp_path / "original-a",
+        train_rows=[_row(_task_id("original-a"), "original-a")],
+        validation_rows=[],
+    )
+    original_b = _write_export(
+        tmp_path / "original-b",
+        train_rows=[_row(_task_id("original-b"), "original-b")],
+        validation_rows=[],
+    )
+    repair = _write_export(
+        tmp_path / "repair",
+        train_rows=[_row(_task_id("repair"), "repair")],
+        validation_rows=[],
+    )
+    selection_a = tmp_path / "selection-a.json"
+    selection_a_sha256 = _write_repair_selection(selection_a, original_a, repair)
+    _write_repair_selection(tmp_path / "selection-b.json", original_b, repair)
+
+    with pytest.raises(MergeError, match="^repair_selection_original_mismatch$"):
+        merge_qwen_sft(
+            _options(original_b, repair, selection_a, selection_a_sha256, tmp_path / "merged"),
+            code_provenance=_code_provenance(),
+        )
+
+
+def test_original_export_requires_complete_epoch3_routing_evidence(tmp_path: Path) -> None:
+    original, repair, selection, selection_sha256, _task_ids = _fixture_exports(tmp_path)
+    manifest_path = original / "manifest.json"
+    manifest = json.loads(manifest_path.read_text())
+    manifest["routing_epochs"]["current_epoch"] = 2
+    manifest_path.write_bytes(_json_bytes(manifest))
+
+    with pytest.raises(MergeError, match="^original_routing_evidence_invalid$"):
+        merge_qwen_sft(
+            _options(original, repair, selection, selection_sha256, tmp_path / "merged"),
+            code_provenance=_code_provenance(),
+        )
+
+
+def test_task_overlap_across_sources_is_rejected(tmp_path: Path) -> None:
+    shared = _task_id("shared")
+    original = _write_export(
+        tmp_path / "original",
+        train_rows=[_row(shared, "original")],
+        validation_rows=[],
+    )
+    repair = _write_export(
+        tmp_path / "repair",
+        train_rows=[_row(shared, "repair")],
+        validation_rows=[],
+    )
+    selection = tmp_path / "selection.json"
+    digest = _write_repair_selection(selection, original, repair)
+
+    with pytest.raises(MergeError, match="^source_task_overlap$"):
+        merge_qwen_sft(
+            _options(original, repair, selection, digest, tmp_path / "merged"),
+            code_provenance=_code_provenance(),
+        )
+
+
+def test_task_overlap_between_train_and_validation_is_rejected(tmp_path: Path) -> None:
+    shared = _task_id("shared-split")
+    original = _write_export(
+        tmp_path / "original",
+        train_rows=[_row(shared, "train")],
+        validation_rows=[_row(shared, "validation")],
+    )
+
+    with pytest.raises(MergeError, match="^task_split_overlap$"):
+        merge_qwen_sft(
+            _options(
+                original,
+                original,
+                tmp_path / "unused.json",
+                "0" * 64,
+                tmp_path / "merged",
+            ),
+            code_provenance=_code_provenance(),
+        )
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("split_salt", "different-split"),
+        ("validation_permyriad", 1000),
+        ("max_sequence_tokens", 131_072),
+        ("format_version", 1),
+        ("selection", "all-outcomes"),
+        ("taskset_id", "different-taskset"),
+    ],
+)
+def test_split_and_format_contract_mismatch_is_rejected(tmp_path: Path, field: str, value: object) -> None:
+    original_task = _task_id("original")
+    repair_task = _task_id("repair")
+    original = _write_export(
+        tmp_path / "original",
+        train_rows=[_row(original_task, "original")],
+        validation_rows=[],
+    )
+    kwargs = {field: value}
+    repair = _write_export(
+        tmp_path / "repair",
+        train_rows=[_row(repair_task, "repair")],
+        validation_rows=[],
+        **kwargs,
+    )
+    selection = tmp_path / "selection.json"
+    digest = _write_repair_selection(selection, original, repair)
+
+    with pytest.raises(MergeError):
+        merge_qwen_sft(
+            _options(original, repair, selection, digest, tmp_path / "merged"),
+            code_provenance=_code_provenance(),
+        )
+
+
+@pytest.mark.parametrize(
+    ("row", "error_code"),
+    [
+        (_row(_task_id("repair-fail"), "failed", reward=0), "row_not_pass"),
+        (_row(_task_id("repair-no-target"), "no-target", targets=0), "row_target_invalid"),
+        (_row(_task_id("repair-two-targets"), "two-targets", targets=2), "row_target_invalid"),
+    ],
+)
+def test_non_pass_or_invalid_target_rows_are_rejected(tmp_path: Path, row: dict, error_code: str) -> None:
+    original = _write_export(
+        tmp_path / "original",
+        train_rows=[_row(_task_id("original"), "original")],
+        validation_rows=[],
+    )
+    repair = _write_export(
+        tmp_path / "repair",
+        train_rows=[row],
+        validation_rows=[],
+    )
+    selection = tmp_path / "selection.json"
+    digest = _write_repair_selection(selection, original, repair)
+
+    with pytest.raises(MergeError, match=f"^{error_code}$"):
+        merge_qwen_sft(
+            _options(original, repair, selection, digest, tmp_path / "merged"),
+            code_provenance=_code_provenance(),
+        )
