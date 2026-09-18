@@ -624,6 +624,11 @@ def test_dry_run_is_private_exact_and_never_submits(tmp_path: Path, monkeypatch,
     output = arguments["output_root"]
     assert wave["state"] == "validated"
     assert wave["wave_size"] == 4
+    assert wave["dataset"] == {
+        "kind": "archive",
+        "archive_sha256": arguments["dataset_archive_sha256"],
+        "content_sha256": arguments["dataset_content_sha256"],
+    }
     assert stat.S_IMODE(output.stat().st_mode) == 0o700
     assert all(stat.S_IMODE(path.stat().st_mode) == 0o600 for path in output.iterdir())
     for job in wave["jobs"]:
@@ -651,6 +656,11 @@ def test_fake_submit_uses_existing_run_eval_and_empty_client_environment(tmp_pat
     wave = launch_wave(**arguments, dry_run=False, command_runner=fake_runner)
 
     assert wave["state"] == "submitted"
+    assert wave["dataset"] == {
+        "kind": "archive",
+        "archive_sha256": arguments["dataset_archive_sha256"],
+        "content_sha256": arguments["dataset_content_sha256"],
+    }
     assert len(calls) == 4
     for argv, kwargs in calls:
         assert argv[0] == launcher.DEFAULT_SBATCH

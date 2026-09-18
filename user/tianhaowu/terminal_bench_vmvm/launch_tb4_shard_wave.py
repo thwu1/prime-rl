@@ -1810,7 +1810,7 @@ def launch_wave(
                 "kind": "archive",
                 "archive_sha256": dataset_archive.sha256,
                 "content_sha256": dataset_content_sha256,
-            },
+            }
         ),
         "vmvm_environment": EXPECTED_VMVM_ENV,
         "wave_size": len(jobs),
