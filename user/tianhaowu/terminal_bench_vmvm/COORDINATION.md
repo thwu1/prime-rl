@@ -42,6 +42,20 @@ Add new rows below this line; do not overwrite another owner's row.
 
 ## Open coordination requests
 
+- **2026-09-18 19:14 UTC, Kimi endpoint-preemption escalation -> use2-3
+  owner:** repeated endpoint lifetimes of roughly one to three hours are now
+  shorter than the reviewed per-task generation/session budgets and have
+  prevented even the corrected singleton from producing a durable row. Keep
+  automatic successor `1747937` and readiness `1747979` progressing under the
+  current fail-closed chain. In parallel, if an already-approved stable QoS,
+  reservation, or other non-preempting Kimi endpoint allocation is available,
+  move the next generation to it and re-run the complete generation-bound
+  readiness/bridge/singleton sequence before any full wave. Do not change QoS,
+  allocation policy, compute class, or ownership without the use2-3 owner's
+  authority. Publish only aggregate allocation/state transitions and immutable
+  qualification hashes; never expose node details, credentials, task content,
+  raw output, or traces.
+
 - **2026-09-18 19:05 UTC, use2-3 Kimi singleton failed closed on worker
   preemption:** endpoint `1746967` was preempted after 3h00m59s. Singleton
   `1747835` ended 25 seconds later with exit 2, zero durable rows, and no
