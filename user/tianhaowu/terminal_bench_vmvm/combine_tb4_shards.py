@@ -27,6 +27,11 @@ from audit_tb4_results import (
     audit_results,
 )
 from audit_traces import TraceJSONLError, _task_slug
+from eval_run_identity import (
+    EvalIdentityError,
+    validate_kimi_retry_contract,
+    validate_kimi_timeout_contract,
+)
 
 WORKFLOW_DIR = Path(__file__).resolve().parent
 CONFIG_DIR = WORKFLOW_DIR / "configs" / "eval"
@@ -177,16 +182,11 @@ def _validate_config(
         if not isinstance(env, dict) or env.get("MSWEA_MODEL_RETRY_STOP_AFTER_ATTEMPT") != "10":
             problems.append("harness_model_retry_policy_mismatch")
 
-    retry = config.get("retries")
-    rollout = retry.get("rollout") if isinstance(retry, dict) else None
-    if not isinstance(rollout, dict):
-        problems.append("rollout_retries_missing")
-    elif rollout.get("max_retries") != 2 or set(rollout.get("include") or []) != {
-        "ProviderError",
-        "SandboxError",
-        "TunnelError",
-    }:
-        problems.append("rollout_retries_mismatch")
+    try:
+        validate_kimi_timeout_contract(config, required_profile="full")
+        validate_kimi_retry_contract(config)
+    except EvalIdentityError as error:
+        problems.append(str(error))
 
     if problems:
         raise CombineError(f"{spec.name} config invalid: {', '.join(problems)}")

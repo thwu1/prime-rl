@@ -32,6 +32,8 @@ from deployment_proxy_policy import (
 from eval_run_identity import (
     EvalIdentityError,
     load_eval_run_identity,
+    validate_kimi_retry_contract,
+    validate_kimi_steady_state_concurrency_contract,
     validate_kimi_timeout_contract,
 )
 from guard_success_receipt import (
@@ -69,6 +71,7 @@ EXPECTED_TB4_MIN_PASS_RATE = 0.04
 EXPECTED_TB4_MAX_PASS_RATE = 0.22
 EXPECTED_TB4_ROLLOUT_CONCURRENCY = 4
 EXPECTED_TB4_LEASE_START_CONCURRENCY = 2
+EXPECTED_MOBIUS_LEASE_START_CONCURRENCY = 4
 EXPECTED_DENYLIST = frozenset({"logprobs", "prompt_logprobs", "return_token_ids", "top_logprobs"})
 EXPECTED_MODEL_IO_CONTRACT = {
     "provider_route": KIMI_K3_MAX_MODEL_IO_CONTRACT.provider_route,
@@ -1655,11 +1658,17 @@ def _validate_production_config(
     if not isinstance(runtime, dict):
         raise LaunchCertificateError("production_vmvm_contract_invalid")
     try:
-        timeout_contract = validate_kimi_timeout_contract(config)
+        timeout_contract = validate_kimi_timeout_contract(config, required_profile="full")
     except EvalIdentityError as cause:
         raise LaunchCertificateError("production_timeout_contract_invalid") from cause
-    if timeout_contract["rollout_timeout"] < 36_000 or timeout_contract["session_timeout"] < 43_200:
-        raise LaunchCertificateError("production_timeout_contract_invalid")
+    try:
+        validate_kimi_retry_contract(config)
+    except EvalIdentityError as cause:
+        raise LaunchCertificateError("production_retry_contract_invalid") from cause
+    try:
+        execution = validate_kimi_steady_state_concurrency_contract(config)
+    except EvalIdentityError as cause:
+        raise LaunchCertificateError("production_concurrency_contract_invalid") from cause
 
     context = {
         "max_input_tokens": config.get("max_input_tokens"),
@@ -1734,21 +1743,6 @@ def _validate_production_config(
     if image_record["sha256"] != expected_image_manifest_sha256:
         raise LaunchCertificateError("production_image_manifest_sha256_mismatch")
 
-    execution = {
-        "http_max_connections": _require_positive_int(
-            client.get("max_connections"),
-            "production_http_max_connections",
-        ),
-        "http_max_keepalive_connections": _require_positive_int(
-            client.get("max_keepalive_connections"),
-            "production_http_max_keepalive_connections",
-        ),
-        "multiplex": _require_positive_int(config.get("multiplex"), "production_multiplex"),
-        "rollout_concurrency": _require_positive_int(
-            config.get("max_concurrent"),
-            "production_rollout_concurrency",
-        ),
-    }
     return {
         "capture_model_io": True,
         "context_tokens": context,
@@ -1780,15 +1774,26 @@ def _validate_capacity(
     requested_lease_start_concurrency: int,
     expected_traces: int,
 ) -> None:
-    comparisons = {
-        "http_max_connections": required["http_max_connections"],
-        "http_max_keepalive_connections": required["http_max_keepalive_connections"],
-        "multiplex": required["multiplex"],
-        "rollout_concurrency": required["rollout_concurrency"],
-        "lease_start_concurrency": requested_lease_start_concurrency,
-    }
-    if any(qualified[key] < minimum for key, minimum in comparisons.items()):
+    steady_state_keys = (
+        "http_max_connections",
+        "http_max_keepalive_connections",
+        "multiplex",
+        "rollout_concurrency",
+    )
+    if len({qualified[key] for key in steady_state_keys}) != 1:
+        raise LaunchCertificateError("capacity_smoke_concurrency_contract_invalid")
+    if len({required[key] for key in steady_state_keys}) != 1:
+        raise LaunchCertificateError("production_concurrency_contract_invalid")
+    steady_state_comparisons = {key: required[key] for key in steady_state_keys}
+    if any(qualified[key] < minimum for key, minimum in steady_state_comparisons.items()):
         raise LaunchCertificateError("capacity_smoke_below_production_concurrency")
+    if any(qualified[key] != expected for key, expected in steady_state_comparisons.items()):
+        raise LaunchCertificateError("capacity_smoke_above_production_concurrency")
+    qualified_lease_start_concurrency = qualified["lease_start_concurrency"]
+    if qualified_lease_start_concurrency < requested_lease_start_concurrency:
+        raise LaunchCertificateError("capacity_smoke_below_production_concurrency")
+    if qualified_lease_start_concurrency != requested_lease_start_concurrency:
+        raise LaunchCertificateError("capacity_smoke_lease_start_concurrency_mismatch")
     if (
         observed["required_peak_active_rollouts_lower_bound"] != qualified["rollout_concurrency"]
         or observed["required_peak_concurrent_lease_startups"] != qualified["lease_start_concurrency"]
@@ -1801,7 +1806,7 @@ def _validate_capacity(
         or observed["peak_concurrent_lease_startups"] < requested_lease_start_concurrency
     ):
         raise LaunchCertificateError("capacity_smoke_observed_below_production_concurrency")
-    if expected_traces < max(comparisons.values()):
+    if expected_traces < max(*steady_state_comparisons.values(), requested_lease_start_concurrency):
         raise LaunchCertificateError("capacity_smoke_task_count_too_small")
 
 
@@ -1859,6 +1864,8 @@ def _build_unsigned(
         requested_lease_start_concurrency,
         "requested_lease_start_concurrency",
     )
+    if requested_leases != EXPECTED_MOBIUS_LEASE_START_CONCURRENCY:
+        raise LaunchCertificateError("production_lease_start_concurrency_invalid")
     spec_record, spec_raw = _pinned_bytes(
         deployment_spec,
         deployment_spec_sha256,
@@ -1942,6 +1949,8 @@ def _build_unsigned(
         raise LaunchCertificateError("post_tb4_route_count_not_increased")
     if tb4["deployment_spec_sha256"] == spec_record["sha256"]:
         raise LaunchCertificateError("post_tb4_deployment_spec_not_changed")
+    if readiness["expected_routes"] < production_contract["execution"]["rollout_concurrency"]:
+        raise LaunchCertificateError("post_tb4_route_count_below_production_concurrency")
     try:
         revalidate_deployment_proxy_policy(
             Path(spec_record["path"]),

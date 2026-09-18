@@ -38,7 +38,11 @@ from deployment_proxy_policy import (
     deployment_proxy_policy_snapshot,
     deployment_spec_policy_snapshot,
 )
-from eval_run_identity import EvalIdentityError, validate_kimi_timeout_contract
+from eval_run_identity import (
+    EvalIdentityError,
+    validate_kimi_retry_contract,
+    validate_kimi_timeout_contract,
+)
 
 SCHEMA_VERSION = 1
 PLAN_ALGORITHM = "ordered-contiguous-v1"
@@ -332,7 +336,8 @@ def _validate_base_config(config: dict[str, Any], universe_sha256: str) -> str:
     ):
         raise ShardWorkflowError("base_config_contract_invalid")
     try:
-        validate_kimi_timeout_contract(config)
+        validate_kimi_timeout_contract(config, required_profile="full")
+        validate_kimi_retry_contract(config)
     except EvalIdentityError as error:
         raise ShardWorkflowError("base_config_contract_invalid") from error
     for key in ("max_concurrent", "multiplex"):

@@ -7,6 +7,7 @@ from pathlib import Path
 
 import certify_trace_smoke as smoke_module
 import pytest
+import smoke_qualification as qualification
 from certify_trace_smoke import SmokeCertificateError, certify_smoke
 from deployment_endpoint import load_deployment_endpoint
 from deployment_proxy_policy import load_deployment_proxy_policy
@@ -366,6 +367,160 @@ def _refresh_guard_receipt(
         concurrency_telemetry=(run_dir / "concurrency_telemetry.json" if include_concurrency_telemetry else None),
     )
     write_guard_success_receipt(receipt_path, receipt)
+
+
+def _install_capacity_evaluator_contract(
+    tmp_path: Path,
+    run_dir: Path,
+    task_file: Path,
+    task_sha256: str,
+    envelope: dict,
+) -> None:
+    workflow = Path(smoke_module.__file__).resolve().parent
+    config_text = (workflow / "configs/eval/mobius_kimi_k3_capacity_smoke.toml").read_text()
+    config_text = (
+        config_text.replace("num_tasks = 42", "num_tasks = 2")
+        .replace("max_concurrent = 24", "max_concurrent = 2")
+        .replace("multiplex = 24", "multiplex = 2")
+        .replace("max_connections = 24", "max_connections = 2")
+        .replace("max_keepalive_connections = 24", "max_keepalive_connections = 2")
+        .replace(
+            'task_file = "user/tianhaowu/terminal_bench_vmvm/configs/validate/mobius_repaired_tasks.txt"',
+            f'task_file = "{task_file.resolve()}"',
+        )
+        .replace(
+            'task_file_sha256 = "8d7d9377a9bbe6ade2fba7cc0730647d8be82402e225f95ad864a2218647563c"',
+            f'task_file_sha256 = "{task_sha256}"',
+        )
+    )
+    config = run_dir / "config.toml"
+    config.write_text(config_text)
+    source_config = run_dir / "inputs/source_config.toml"
+    source_config.write_text(config_text)
+    manifest = run_dir / "inputs/manifest.json"
+    manifest.write_text(
+        json.dumps(
+            {
+                "config": {"source": str(source_config.resolve()), **_record(config)},
+                "task_file": {"source": str(task_file.resolve()), **_record(task_file)},
+            },
+            sort_keys=True,
+        )
+        + "\n"
+    )
+    (run_dir / "provenance.txt").write_text("host=test-host\nslurm_job_id=1\n")
+
+    project = tmp_path / "project"
+    evaluator = project / "user/tianhaowu/terminal_bench_vmvm/terminal_bench_vmvm"
+    vmvm = project / "environments/vmvm_tb_v2/vmvm_tb_v2"
+    evaluator.mkdir(parents=True)
+    vmvm.mkdir(parents=True)
+    (evaluator / "taskset.py").write_text("VALUE = 1\n")
+    (vmvm / "runtime.py").write_text("VALUE = 2\n")
+    (evaluator.parent / "run_eval.sbatch").write_text("#!/bin/bash\n")
+
+    identity = envelope["identity"]
+    identity["source"] = {
+        "project_root": str(project.resolve()),
+        "prime_rl_commit": "1" * 40,
+        "prime_rl_tree_sha256": "0" * 64,
+        "verifiers_commit": "2" * 40,
+        "verifiers_tree_sha256": "0" * 64,
+        "renderers_commit": "3" * 40,
+        "renderers_tree_sha256": "0" * 64,
+        "vmvm_tb_v2_sha256": "4" * 64,
+    }
+    identity["config"] = {
+        "source": _record(source_config),
+        "resolved": _record(config),
+    }
+    identity["inputs"]["manifest"] = _record(manifest)
+    identity_sha256 = _json_digest(identity)
+    envelope["eval_run_identity_sha256"] = identity_sha256
+    (run_dir / "eval_run_identity.json").write_text(json.dumps(envelope, sort_keys=True) + "\n")
+    (run_dir / "eval_invocations.jsonl").write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "eval_run_identity_sha256": identity_sha256,
+                "role": "smoke",
+                "resume": False,
+                "host": "test-host",
+                "slurm_job_id": "1",
+            }
+        )
+        + "\n"
+    )
+    telemetry_path = run_dir / "concurrency_telemetry.json"
+    telemetry_path.unlink()
+    telemetry = ConcurrencyTelemetry(
+        telemetry_path,
+        eval_run_identity_sha256=identity_sha256,
+        eval_run_role="smoke",
+        slurm_job_id="1",
+        register_atexit=False,
+    )
+    for _ in range(2):
+        telemetry.vmvm_runtime_started()
+        telemetry.lease_start_entered()
+    for _ in range(2):
+        telemetry.lease_tunnel_became_ready()
+        telemetry.lease_start_finished()
+        telemetry.vmvm_runtime_became_ready()
+    for _ in range(2):
+        telemetry.vmvm_runtime_stopped()
+    telemetry.publish()
+    _refresh_guard_receipt(run_dir, envelope)
+
+
+def test_capacity_smoke_full_profile_certifies_qualifies_and_matches_target(
+    tmp_path: Path,
+) -> None:
+    run_dir, task_file, task_sha256, envelope = _fixture(tmp_path)
+    _install_capacity_evaluator_contract(
+        tmp_path,
+        run_dir,
+        task_file,
+        task_sha256,
+        envelope,
+    )
+
+    certify_smoke(
+        run_dir,
+        expected_task_file=task_file,
+        expected_task_file_sha256=task_sha256,
+        expected_traces=2,
+        required_rollout_concurrency=2,
+        required_lease_start_concurrency=2,
+        identity_loader=lambda *_args, **_kwargs: envelope,
+    )
+    identity = envelope["identity"]
+    deployment = identity["deployment"]
+    smoke = run_dir / "smoke_checkpoint.json"
+    evidence = qualification.validate_smoke_qualification(
+        smoke,
+        _sha256_bytes(smoke.read_bytes()),
+        deployment_id=deployment["id"],
+        deployment_spec_path=Path(deployment["spec"]["path"]),
+        deployment_spec_sha256=deployment["spec"]["sha256"],
+        readiness_path=Path(deployment["readiness_checkpoint"]["path"]),
+        readiness_sha256=deployment["readiness_checkpoint"]["sha256"],
+        proxy_info_path=Path(deployment["endpoint"]["proxy_info"]["path"]),
+        proxy_info_sha256=deployment["endpoint"]["proxy_info"]["sha256"],
+        model="Kimi-K3",
+        identity_loader=lambda *_args, **_kwargs: envelope,
+    )
+
+    target = {
+        "role": "tb4",
+        "source": identity["source"],
+        "config": identity["config"],
+        "contract": identity["contract"],
+    }
+    qualification.validate_target_evaluator_compatibility(
+        target,
+        evidence.evaluator_evidence,
+    )
 
 
 def test_certifies_valid_smoke_without_task_metadata(tmp_path: Path) -> None:

@@ -239,13 +239,28 @@ and stable hashes of the eval identity, invocation ledger, and results. Smoke,
 TB4, capacity, and launch certificates must rehash and link this receipt. The same guard must revalidate
 `proxy_info.json` and the generated LiteLLM policy on every poll.
 
+Every Kimi launch must set `EVAL_EXPECTED_PRIME_RL_REVISION` to the full
+lowercase 40-hex commit of its clean `PROJECT_DIR`; omission, malformed values,
+or a mismatch must fail before evaluation starts.
+
 Kimi deployment specs must contain typed integer
 `spec.proxy.config.request_timeout: 43200` and `num_retries: 0`. Kimi eval
-configs must use the same 43,200-second evaluator-client timeout and exact
-`model.model_kwargs.timeout=43200` mini-swe override, with both
-`rollout_timeout < harness-model/client/proxy timeout` and
-`rollout_timeout < session_timeout <= client/proxy timeout`, so an owned
-rollout/session boundary fires before an HTTP read timeout. Independently
+configs must use exactly 43,200 seconds for the evaluator client and
+`model.model_kwargs.timeout`, exactly 120 seconds for connect, and exactly
+3,600/3,600/21,600 seconds for setup/finalize/scoring. The approved TB4 smoke
+uses the exact rollout/session pair 28,800/32,400 seconds; full TB4, capacity
+smoke, and Mobius production use exactly 36,000/43,200 seconds. Reject mixed
+or intermediate pairs. Their whole-rollout retry count is exactly two and the
+allowlist is exactly `ProviderError`, `SandboxError`, `TunnelError`, and the
+base `InterceptionError`; broad `HarnessError` retries are forbidden. The
+legacy 65K token-only diagnostic config is not production-qualified and must
+remain rejected by the production run-identity path.
+Schema-1 smoke qualification must require the smoke timeout pair when the
+checkpoint has no required-concurrency claim and the full timeout pair when it
+binds explicit capacity requirements. Shard combination must re-run these
+shared exact full-profile timeout and retry validators; set equality alone does
+not reject duplicate entries, extra fields, or numeric type confusion.
+Independently
 parse `proxy_litellm_config.yaml` with a duplicate-rejecting safe YAML loader,
 reject aliases/merge keys and quoted or tagged type confusion, require the
 same typed values, and bind its
@@ -291,11 +306,15 @@ unset for the two-task transcript smoke: it binds the observed telemetry but is
 not itself a capacity qualification.
 The launch certificate must prove that TB4 used exactly one route, the
 post-resize deployment-spec digest differs from the TB4 digest, and the
-post-resize spec/readiness route count is strictly larger and at least two.
-The initial production target is exactly two routes, so invoke the
-post-resize waiter with `EXPECTED_ROUTES=2` before the concurrency-eight,
-lease-starts-four capacity smoke. A route-generation change invalidates the
-current eval identity; do not resume guarded Kimi outputs at all.
+post-resize spec/readiness route count is strictly larger and at least the
+production rollout concurrency.
+The production target is exactly 24 ready routes, so invoke the post-resize
+waiter with `EXPECTED_ROUTES=24` before the concurrency-24, lease-starts-four
+capacity smoke. Keep rollout, multiplex, and both HTTP pool limits aligned at
+24, while setting `VACLI_MAX_CONCURRENT_LEASES=4` explicitly. The launch
+certificate rejects a readiness/spec route count below production rollout
+concurrency. A route-generation change invalidates the current eval identity;
+do not resume guarded Kimi outputs at all.
 
 Pier's DeepSWE adapter supports prebuilt agent images and the benchmark's
 separate verifier Dockerfiles. It validates the Dockerfile, starts its `FROM`

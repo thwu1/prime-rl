@@ -25,7 +25,6 @@ from deployment_endpoint import (
     validate_endpoint_binding,
 )
 from deployment_proxy_policy import (
-    KIMI_REQUEST_TIMEOUT,
     DeploymentProxyPolicyError,
     request_timeout_for_model,
     revalidate_deployment_proxy_policy,
@@ -65,28 +64,31 @@ EXPECTED_MODEL_IO_CONTRACT = {
     "request_chat_template_kwargs": {"enable_thinking": True, "preserve_thinking": True},
 }
 MAX_METADATA_BYTES = 64 * 1024 * 1024
-KIMI_MIN_ROLLOUT_TIMEOUT_SECONDS = 28_800
-KIMI_MIN_SESSION_TIMEOUT_SECONDS = 32_400
-KIMI_MIN_CONNECT_TIMEOUT_SECONDS = 120
+KIMI_REQUEST_TIMEOUT_SECONDS = 43_200
+KIMI_CONNECT_TIMEOUT_SECONDS = 120
+KIMI_SETUP_TIMEOUT_SECONDS = 3_600
+KIMI_FINALIZE_TIMEOUT_SECONDS = 3_600
+KIMI_SCORING_TIMEOUT_SECONDS = 21_600
+KIMI_TIMEOUT_PROFILES = {
+    "smoke": {"rollout_timeout": 28_800, "session_timeout": 32_400},
+    "full": {"rollout_timeout": 36_000, "session_timeout": 43_200},
+}
+KIMI_FULL_RETRY_EXCEPTIONS = frozenset({"ProviderError", "SandboxError", "TunnelError", "InterceptionError"})
 
 
 class EvalIdentityError(ValueError):
     """The proposed evaluation cannot be bound to immutable provenance."""
 
 
-def _whole_timeout_seconds(value: Any) -> int:
-    if (
-        isinstance(value, bool)
-        or not isinstance(value, (int, float))
-        or not math.isfinite(value)
-        or int(value) != value
-    ):
-        raise EvalIdentityError("kimi_timeout_contract_invalid")
-    return int(value)
+def validate_kimi_timeout_contract(
+    config: dict[str, Any],
+    *,
+    required_profile: str | None = None,
+) -> dict[str, int | float]:
+    """Validate one exact, reviewed timeout envelope for Kimi generations."""
 
-
-def validate_kimi_timeout_contract(config: dict[str, Any]) -> dict[str, int]:
-    """Validate the nested timeout envelope required by slow Kimi generations."""
+    if required_profile is not None and required_profile not in KIMI_TIMEOUT_PROFILES:
+        raise EvalIdentityError("kimi_timeout_profile_invalid")
 
     client = config.get("client")
     harness = config.get("harness")
@@ -100,30 +102,105 @@ def validate_kimi_timeout_contract(config: dict[str, Any]) -> dict[str, int]:
     ):
         raise EvalIdentityError("kimi_timeout_contract_invalid")
     assert isinstance(client, dict) and isinstance(timeouts, dict) and isinstance(runtime, dict)
-    harness_timeout_override = f"model.model_kwargs.timeout={KIMI_REQUEST_TIMEOUT}"
+    harness_timeout_override = f"model.model_kwargs.timeout={KIMI_REQUEST_TIMEOUT_SECONDS}"
     harness_timeout_entries = [value for value in overrides if value.startswith("model.model_kwargs.timeout=")]
-    request_timeout = _whole_timeout_seconds(client.get("timeout"))
-    connect_timeout = _whole_timeout_seconds(client.get("connect_timeout"))
-    rollout_timeout = _whole_timeout_seconds(timeouts.get("rollout"))
-    session_timeout = _whole_timeout_seconds(runtime.get("session_timeout"))
+    request_timeout = client.get("timeout")
+    connect_timeout = client.get("connect_timeout")
+    setup_timeout = timeouts.get("setup")
+    rollout_timeout = timeouts.get("rollout")
+    finalize_timeout = timeouts.get("finalize")
+    scoring_timeout = timeouts.get("scoring")
+    session_timeout = runtime.get("session_timeout")
+    observed_profile = {
+        "rollout_timeout": rollout_timeout,
+        "session_timeout": session_timeout,
+    }
+    allowed_profiles = (
+        {required_profile: KIMI_TIMEOUT_PROFILES[required_profile]}
+        if required_profile is not None
+        else KIMI_TIMEOUT_PROFILES
+    )
+
+    def exact_number(value: object, expected: int) -> bool:
+        return (
+            not isinstance(value, bool)
+            and isinstance(value, (int, float))
+            and math.isfinite(value)
+            and value == expected
+        )
+
     if (
-        request_timeout != KIMI_REQUEST_TIMEOUT
+        not exact_number(request_timeout, KIMI_REQUEST_TIMEOUT_SECONDS)
         or harness_timeout_entries != [harness_timeout_override]
-        or connect_timeout < KIMI_MIN_CONNECT_TIMEOUT_SECONDS
-        or rollout_timeout < KIMI_MIN_ROLLOUT_TIMEOUT_SECONDS
-        or session_timeout < KIMI_MIN_SESSION_TIMEOUT_SECONDS
-        or rollout_timeout >= session_timeout
-        or rollout_timeout >= KIMI_REQUEST_TIMEOUT
-        or session_timeout > request_timeout
+        or not exact_number(connect_timeout, KIMI_CONNECT_TIMEOUT_SECONDS)
+        or not exact_number(setup_timeout, KIMI_SETUP_TIMEOUT_SECONDS)
+        or not any(exact_number(rollout_timeout, profile["rollout_timeout"]) for profile in allowed_profiles.values())
+        or not exact_number(finalize_timeout, KIMI_FINALIZE_TIMEOUT_SECONDS)
+        or not exact_number(scoring_timeout, KIMI_SCORING_TIMEOUT_SECONDS)
+        or not any(exact_number(session_timeout, profile["session_timeout"]) for profile in allowed_profiles.values())
+        or observed_profile not in allowed_profiles.values()
     ):
         raise EvalIdentityError("kimi_timeout_contract_invalid")
     return {
         "request_timeout": request_timeout,
-        "harness_request_timeout": KIMI_REQUEST_TIMEOUT,
+        "harness_request_timeout": KIMI_REQUEST_TIMEOUT_SECONDS,
         "connect_timeout": connect_timeout,
+        "setup_timeout": setup_timeout,
         "rollout_timeout": rollout_timeout,
+        "finalize_timeout": finalize_timeout,
+        "scoring_timeout": scoring_timeout,
         "session_timeout": session_timeout,
     }
+
+
+def validate_kimi_retry_contract(config: dict[str, Any]) -> dict[str, Any]:
+    """Require the narrow, bounded whole-rollout retry policy reviewed for Kimi."""
+
+    retries = config.get("retries")
+    rollout = retries.get("rollout") if isinstance(retries, dict) else None
+    expected = KIMI_FULL_RETRY_EXCEPTIONS
+    include = rollout.get("include") if isinstance(rollout, dict) else None
+    exclude = rollout.get("exclude") if isinstance(rollout, dict) else None
+    if (
+        not isinstance(retries, dict)
+        or set(retries) != {"rollout"}
+        or not isinstance(rollout, dict)
+        or not {"max_retries", "include"}.issubset(rollout)
+        or not set(rollout).issubset({"max_retries", "include", "exclude"})
+        or type(rollout.get("max_retries")) is not int
+        or rollout["max_retries"] != 2
+        or not isinstance(include, list)
+        or any(not isinstance(value, str) for value in include)
+        or len(include) != len(expected)
+        or len(set(include)) != len(include)
+        or set(include) != expected
+        or exclude not in (None, [])
+    ):
+        raise EvalIdentityError("kimi_retry_contract_invalid")
+    return {
+        "max_retries": 2,
+        "include": sorted(expected),
+        "exclude": [],
+    }
+
+
+def validate_kimi_steady_state_concurrency_contract(config: dict[str, Any]) -> dict[str, int]:
+    """Require aligned rollout, multiplex, and HTTP capacity for Mobius Kimi runs."""
+
+    client = config.get("client")
+    if not isinstance(client, dict):
+        raise EvalIdentityError("kimi_steady_state_concurrency_invalid")
+    execution = {
+        "http_max_connections": client.get("max_connections"),
+        "http_max_keepalive_connections": client.get("max_keepalive_connections"),
+        "multiplex": config.get("multiplex"),
+        "rollout_concurrency": config.get("max_concurrent"),
+    }
+    if any(type(value) is not int or value < 1 for value in execution.values()):
+        raise EvalIdentityError("kimi_steady_state_concurrency_invalid")
+    if len(set(execution.values())) != 1:
+        raise EvalIdentityError("kimi_steady_state_concurrency_mismatch")
+    return execution
 
 
 def canonical_json(value: dict[str, Any]) -> bytes:
@@ -568,6 +645,8 @@ def _contract(
     config: dict[str, Any],
     expected_model: str,
     routing_deployment_id: str | None = None,
+    *,
+    role: str | None = None,
 ) -> tuple[dict[str, Any], dict[str, Any]]:
     client = config.get("client")
     sampling = config.get("sampling")
@@ -578,8 +657,19 @@ def _contract(
     model = config.get("model")
     if not expected_model or model != expected_model:
         raise EvalIdentityError("model_contract_mismatch")
+    require_kimi_steady_state_concurrency = role == "mobius"
     if model == "Kimi-K3":
-        validate_kimi_timeout_contract(config)
+        required_profile: str | None = None
+        if role in {"tb4", "mobius"}:
+            required_profile = "full"
+        elif role == "smoke":
+            taskset = config.get("taskset")
+            if not isinstance(taskset, dict):
+                raise EvalIdentityError("resolved_contract_invalid")
+            require_kimi_steady_state_concurrency = taskset.get("dataset_revision") is not None
+            required_profile = "full" if require_kimi_steady_state_concurrency else "smoke"
+        validate_kimi_timeout_contract(config, required_profile=required_profile)
+        validate_kimi_retry_contract(config)
     if config.get("num_rollouts") != 1:
         raise EvalIdentityError("pass_at_1_required")
     thinking = sampling.get("chat_template_kwargs")
@@ -622,6 +712,8 @@ def _contract(
     ):
         if not isinstance(value, int) or isinstance(value, bool) or value < 1:
             raise EvalIdentityError(f"{label}_invalid")
+    if model == "Kimi-K3" and require_kimi_steady_state_concurrency:
+        validate_kimi_steady_state_concurrency_contract(config)
     runtime = harness.get("runtime")
     if not isinstance(runtime, dict) or runtime.get("type") != "vmvm":
         raise EvalIdentityError("vmvm_runtime_required")
@@ -1524,6 +1616,7 @@ def _verify_config_and_inputs(
         config,
         identity["contract"]["model"],
         identity["deployment"]["routing"]["deployment_id"],
+        role=identity["role"],
     )
     client = config.get("client")
     if not isinstance(client, dict) or client.get("base_url") != endpoint_client_base_url:
@@ -1844,7 +1937,12 @@ def prepare(args: argparse.Namespace) -> str:
         args.approved_task_file_sha256,
         args.approved_task_count,
     )
-    contract, execution = _contract(config, args.expected_model, args.routing_deployment_id)
+    contract, execution = _contract(
+        config,
+        args.expected_model,
+        args.routing_deployment_id,
+        role=args.role,
+    )
     client = config.get("client")
     if not isinstance(client, dict) or client.get("base_url") != endpoint_info.client_base_url:
         raise EvalIdentityError("model_endpoint_binding_mismatch")

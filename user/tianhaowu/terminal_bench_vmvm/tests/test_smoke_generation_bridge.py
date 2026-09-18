@@ -452,6 +452,27 @@ def test_worker_only_rotation_rejects_proxy_or_coordinator_change() -> None:
     assert not qualification._worker_only_rotation(source, source)
 
 
+def test_two_task_smoke_profile_normalizes_to_full_tb4_target() -> None:
+    config_dir = Path(qualification.__file__).resolve().parent / "configs/eval"
+    smoke = tomllib.loads((config_dir / "tb4_kimi_k3_approved_smoke.toml").read_text())
+    target = tomllib.loads((config_dir / "tb4_kimi_k3_max_miniswe.toml").read_text())
+
+    smoke_contract = qualification._tool_contract(
+        smoke,
+        required_timeout_profile="smoke",
+    )
+    target_contract = qualification._tool_contract(
+        target,
+        required_timeout_profile="full",
+    )
+
+    assert smoke_contract == target_contract
+    with pytest.raises(qualification.SmokeQualificationError, match="contract_invalid"):
+        qualification._tool_contract(smoke, required_timeout_profile="full")
+    with pytest.raises(qualification.SmokeQualificationError, match="contract_invalid"):
+        qualification._tool_contract(target, required_timeout_profile="smoke")
+
+
 def test_target_evaluator_requires_same_source_config_and_contract(tmp_path: Path) -> None:
     workflow = tmp_path / "user/tianhaowu/terminal_bench_vmvm"
     package = workflow / "terminal_bench_vmvm"
@@ -507,16 +528,19 @@ MSWEA_MODEL_RETRY_STOP_AFTER_ATTEMPT = "10"
 
 [harness.runtime]
 type = "vmvm"
-session_timeout = 32400
+session_timeout = 43200
 tenant_id = "tenant"
 lease_ttl = "60s"
 
 [timeout]
-rollout = 28800
+setup = 3600
+rollout = 36000
+finalize = 3600
+scoring = 21600
 
 [retries.rollout]
 max_retries = 2
-include = ["ProviderError", "SandboxError", "TunnelError"]
+include = ["ProviderError", "SandboxError", "TunnelError", "InterceptionError"]
 """
     )
     source = {

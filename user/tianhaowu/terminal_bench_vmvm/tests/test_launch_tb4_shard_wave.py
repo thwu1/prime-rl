@@ -83,7 +83,14 @@ type = "vmvm"
 session_timeout = 43200
 
 [timeout]
+setup = 3600
 rollout = 36000
+finalize = 3600
+scoring = 21600
+
+[retries.rollout]
+max_retries = 2
+include = ["ProviderError", "SandboxError", "TunnelError", "InterceptionError"]
 '''
     )
     plan_dir = tmp_path / "plan"

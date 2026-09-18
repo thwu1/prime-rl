@@ -157,6 +157,11 @@ if [[ -z "$eval_deployment_id" || -z "$eval_expected_model" ]]; then
     printf 'EVAL_DEPLOYMENT_ID and EVAL_EXPECTED_MODEL are required metadata\n' >&2
     exit 2
 fi
+if [[ "$eval_expected_model" == Kimi-K3 \
+    && ! "$eval_expected_prime_rl_revision" =~ ^[0-9a-f]{40}$ ]]; then
+    printf 'Kimi evaluations require EVAL_EXPECTED_PRIME_RL_REVISION as 40 lowercase hexadecimal characters\n' >&2
+    exit 2
+fi
 if [[ -n "$inference_deployment_id" ]]; then
     if [[ ! "$inference_deployment_id" =~ ^[A-Za-z0-9._:-]+$ ]]; then
         printf 'Invalid INFERENCE_DEPLOYMENT_ID: %s\n' "$inference_deployment_id" >&2
