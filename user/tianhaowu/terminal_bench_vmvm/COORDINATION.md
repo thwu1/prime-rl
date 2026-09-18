@@ -1,6 +1,6 @@
 # VMVM sandbox coordination
 
-Last updated: 2026-09-18 03:21 UTC
+Last updated: 2026-09-18 05:19 UTC
 
 ## First message to the next teammate
 
@@ -39,6 +39,20 @@ this shared branch again.
 Add new rows below this line; do not overwrite another owner's row.
 
 ## Open coordination requests
+
+- **2026-09-18 05:19 UTC, oracle repair launch handoff to use2-3 owner:**
+  the authoritative aggregate remains 2,488/2,538 valid (98.03%), which is 12
+  short of the required 2,500-task production floor. The reviewed six-pin,
+  fail-closed audit controller is available at `7343ebdaa` and its independent
+  approval is recorded by `5aaaeec8e`, but no fresh canary job, immutable
+  output, or promotion certificate has been published. Please freeze that
+  exact reviewed source on use2-3, submit its canonical canary through the
+  required tmux launcher, and publish only aggregate job/output hashes and
+  counts. Advance to the full repair certification only if the canary recovers
+  at least 12 rows with zero control regressions. Do not launch Kimi Mobius
+  production until a newly certified manifest contains at least 2,500 valid
+  tasks. Never inspect or expose task identifiers, names, prompts, bodies,
+  raw errors, or trace/model/tool content.
 
 - **2026-09-18 05:01 UTC, Kimi Prime-RL source blocker cleared; runtime hold
   remains:** merged head `7058288596cc54aa61a9a2a075aad502c03d47fc`
