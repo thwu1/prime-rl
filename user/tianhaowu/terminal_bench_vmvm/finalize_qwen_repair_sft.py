@@ -30,7 +30,17 @@ import migrate_qwen_router_affinity as migration
 
 ATTESTATION_FILENAME = "qwen_repair_attestation.json"
 ATTESTATION_KIND = "qwen-direct-repair-attestation"
+ATTESTATION_SCHEMA_VERSION = 2
 SELECTION_COPY_FILENAME = "repair_selection_manifest.json"
+SELECTION_TASK_COPY_FILENAME = "repair_selection_tasks.txt"
+SELECTION_MISSING_ERROR_COPY_FILENAME = "repair_selection_missing_or_errored_tasks.txt"
+SELECTION_STRICT_INVALID_PASS_COPY_FILENAME = "repair_selection_strict_invalid_pass_tasks.txt"
+SELECTION_SOURCE_FILENAMES = {
+    SELECTION_COPY_FILENAME: "repair_manifest.json",
+    SELECTION_TASK_COPY_FILENAME: "repair_tasks.txt",
+    SELECTION_MISSING_ERROR_COPY_FILENAME: "repair_missing_or_errored_tasks.txt",
+    SELECTION_STRICT_INVALID_PASS_COPY_FILENAME: "repair_strict_invalid_pass_tasks.txt",
+}
 MAX_MANIFEST_BYTES = 1 << 20
 MAX_SEQUENCE_TOKENS = 262_144
 SHA256_PATTERN = common.SHA256_PATTERN
@@ -94,12 +104,19 @@ class RepairFinalizeOptions:
 class RepairSelection:
     body: bytes
     sha256: str
+    selection_bodies: Mapping[str, bytes]
+    selection_artifacts: Mapping[str, Mapping[str, int | str]]
+    selection_paths: Mapping[str, Path]
     config_sha256: str
     task_file_sha256: str
+    repair_union_indices_sha256: str
     task_count: int
+    missing_or_errored_count: int
+    strict_invalid_pass_count: int
     approved_task_count: int
     template_sha256: str
     materializer_sha256: str
+    exporter_sha256: str
     repository_revision: str
     submodules: Mapping[str, str]
 
@@ -132,6 +149,7 @@ def _file_artifact(
     *,
     max_bytes: int | None = None,
     capture_body: bool = True,
+    required_mode: int | None = None,
 ) -> tuple[bytes, dict[str, int | str]]:
     flags = os.O_RDONLY | os.O_CLOEXEC
     if hasattr(os, "O_NOFOLLOW"):
@@ -143,6 +161,8 @@ def _file_artifact(
     try:
         before = os.fstat(descriptor)
         if not stat.S_ISREG(before.st_mode):
+            raise RepairFinalizationError(code)
+        if required_mode is not None and stat.S_IMODE(before.st_mode) != required_mode:
             raise RepairFinalizationError(code)
         digest = hashlib.sha256()
         body = bytearray()
@@ -190,10 +210,29 @@ def _parse_json(body: bytes, code: str) -> dict[str, Any]:
     return value
 
 
+def _selection_slugs(body: bytes, *, allow_empty: bool) -> tuple[str, ...]:
+    if body and not body.endswith(b"\n"):
+        raise RepairFinalizationError("repair_selection_invalid")
+    try:
+        values = body.decode("utf-8").splitlines()
+    except UnicodeDecodeError as error:
+        raise RepairFinalizationError("repair_selection_invalid") from error
+    if any(not value or value.strip() != value or "\t" in value or "\x00" in value for value in values):
+        raise RepairFinalizationError("repair_selection_invalid")
+    if len(values) != len(set(values)) or (not allow_empty and not values):
+        raise RepairFinalizationError("repair_selection_invalid")
+    return tuple(values)
+
+
 def _load_repair_selection(path: Path, expected_sha256: str, expected_count: int) -> RepairSelection:
     if not _valid_sha256(expected_sha256):
         raise RepairFinalizationError("repair_selection_digest_invalid")
-    body, artifact = _file_artifact(path, "repair_selection_unreadable", max_bytes=MAX_MANIFEST_BYTES)
+    body, artifact = _file_artifact(
+        path,
+        "repair_selection_unreadable",
+        max_bytes=MAX_MANIFEST_BYTES,
+        required_mode=0o600,
+    )
     if artifact["sha256"] != expected_sha256:
         raise RepairFinalizationError("repair_selection_digest_mismatch")
     manifest = _parse_json(body, "repair_selection_invalid")
@@ -207,9 +246,20 @@ def _load_repair_selection(path: Path, expected_sha256: str, expected_count: int
         set(manifest) != {"approval", "code", "config", "kind", "planner", "schema_version", "selection", "source"}
         or manifest.get("kind") != "qwen-aggregate-repair-selection"
         or not _is_plain_int(manifest.get("schema_version"))
-        or manifest.get("schema_version") != 1
+        or manifest.get("schema_version") != 2
         or not isinstance(selection, dict)
-        or set(selection) != {"approved_repair_count", "task_file_sha256"}
+        or set(selection)
+        != {
+            "approved_repair_count",
+            "missing_or_errored_count",
+            "missing_or_errored_indices_sha256",
+            "missing_or_errored_task_file_sha256",
+            "repair_union_indices_sha256",
+            "strict_invalid_pass_count",
+            "strict_invalid_pass_indices_sha256",
+            "strict_invalid_pass_task_file_sha256",
+            "task_file_sha256",
+        }
         or not isinstance(config, dict)
         or set(config)
         != {
@@ -237,16 +287,19 @@ def _load_repair_selection(path: Path, expected_sha256: str, expected_count: int
         or not isinstance(approval, dict)
         or set(approval) != {"approved_task_count", "approved_task_file_sha256"}
         or not isinstance(code, dict)
-        or set(code) != {"materializer_sha256", "repository_revision", "submodules"}
+        or set(code) != {"exporter_sha256", "materializer_sha256", "repository_revision", "submodules"}
         or not isinstance(source, dict)
         or set(source) != {"artifacts", "routing_epoch", "task_count"}
     ):
         raise RepairFinalizationError("repair_selection_invalid")
     task_count = selection.get("approved_repair_count")
+    missing_or_errored_count = selection.get("missing_or_errored_count")
+    strict_invalid_pass_count = selection.get("strict_invalid_pass_count")
     approved_task_count = approval.get("approved_task_count")
     task_file_sha256 = selection.get("task_file_sha256")
     config_sha256 = config.get("sha256")
     materializer_sha256 = code.get("materializer_sha256")
+    exporter_sha256 = code.get("exporter_sha256")
     repository_revision = code.get("repository_revision")
     submodules = code.get("submodules")
     source_artifacts = source.get("artifacts")
@@ -254,6 +307,11 @@ def _load_repair_selection(path: Path, expected_sha256: str, expected_count: int
     if (
         not _is_plain_int(task_count)
         or task_count != expected_count
+        or not _is_plain_int(missing_or_errored_count)
+        or not _is_plain_int(strict_invalid_pass_count)
+        or missing_or_errored_count < 0
+        or strict_invalid_pass_count < 0
+        or missing_or_errored_count + strict_invalid_pass_count != task_count
         or not _is_plain_int(approved_task_count)
         or approved_task_count < task_count
         or not isinstance(source_artifacts, dict)
@@ -266,15 +324,24 @@ def _load_repair_selection(path: Path, expected_sha256: str, expected_count: int
             and record["size_bytes"] >= 0
             for record in source_artifacts.values()
         )
-        or approval.get("approved_task_file_sha256")
-        != source_artifacts.get("task_file", {}).get("sha256")
+        or approval.get("approved_task_file_sha256") != source_artifacts.get("task_file", {}).get("sha256")
         or not _valid_sha256(approval.get("approved_task_file_sha256"))
         or not _is_plain_int(planner.get("approved_task_count"))
         or planner.get("approved_task_count") != approved_task_count
         or not _is_plain_int(planner.get("missing_or_errored_count"))
-        or planner.get("missing_or_errored_count") != task_count
+        or planner.get("missing_or_errored_count") != missing_or_errored_count
         or not _is_plain_int(planner.get("retained_count"))
-        or planner["retained_count"] + task_count != approved_task_count
+        or planner["retained_count"] + missing_or_errored_count != approved_task_count
+        or any(
+            not _valid_sha256(selection.get(name))
+            for name in (
+                "missing_or_errored_indices_sha256",
+                "missing_or_errored_task_file_sha256",
+                "repair_union_indices_sha256",
+                "strict_invalid_pass_indices_sha256",
+                "strict_invalid_pass_task_file_sha256",
+            )
+        )
         or not _valid_sha256(planner.get("task_index_order_sha256"))
         or planner.get("contract_verifiers_revision") != direct.ADMISSION_VERIFIERS_REVISION
         or planner.get("module_sha256") != direct.ADMISSION_RESUME_MODULE_SHA256
@@ -294,6 +361,7 @@ def _load_repair_selection(path: Path, expected_sha256: str, expected_count: int
         or config.get("retry_policy_sha256") != hashlib.sha256(retry_policy_bytes).hexdigest()
         or not _valid_sha256(config.get("template_sha256"))
         or not _valid_sha256(materializer_sha256)
+        or not _valid_sha256(exporter_sha256)
         or not _valid_git_sha(repository_revision)
         or not isinstance(submodules, dict)
         or set(submodules) != set(common.REQUIRED_RUNTIME_SUBMODULES)
@@ -304,15 +372,59 @@ def _load_repair_selection(path: Path, expected_sha256: str, expected_count: int
         or source.get("task_count") != approved_task_count
     ):
         raise RepairFinalizationError("repair_selection_contract_mismatch")
+    selection_bodies: dict[str, bytes] = {SELECTION_COPY_FILENAME: body}
+    selection_artifacts: dict[str, Mapping[str, int | str]] = {SELECTION_COPY_FILENAME: artifact}
+    selection_paths: dict[str, Path] = {SELECTION_COPY_FILENAME: path}
+    for copy_name, source_name in SELECTION_SOURCE_FILENAMES.items():
+        if copy_name == SELECTION_COPY_FILENAME:
+            continue
+        selected_body, selected_artifact = _file_artifact(
+            path.parent / source_name,
+            "repair_selection_invalid",
+            max_bytes=MAX_MANIFEST_BYTES,
+            required_mode=0o600,
+        )
+        selection_bodies[copy_name] = selected_body
+        selection_artifacts[copy_name] = selected_artifact
+        selection_paths[copy_name] = path.parent / source_name
+    union_slugs = _selection_slugs(selection_bodies[SELECTION_TASK_COPY_FILENAME], allow_empty=False)
+    missing_slugs = _selection_slugs(
+        selection_bodies[SELECTION_MISSING_ERROR_COPY_FILENAME],
+        allow_empty=True,
+    )
+    strict_slugs = _selection_slugs(
+        selection_bodies[SELECTION_STRICT_INVALID_PASS_COPY_FILENAME],
+        allow_empty=True,
+    )
+    if (
+        len(union_slugs) != task_count
+        or len(missing_slugs) != missing_or_errored_count
+        or len(strict_slugs) != strict_invalid_pass_count
+        or set(missing_slugs) & set(strict_slugs)
+        or set(union_slugs) != set(missing_slugs) | set(strict_slugs)
+        or selection_artifacts[SELECTION_TASK_COPY_FILENAME]["sha256"] != task_file_sha256
+        or selection_artifacts[SELECTION_MISSING_ERROR_COPY_FILENAME]["sha256"]
+        != selection["missing_or_errored_task_file_sha256"]
+        or selection_artifacts[SELECTION_STRICT_INVALID_PASS_COPY_FILENAME]["sha256"]
+        != selection["strict_invalid_pass_task_file_sha256"]
+    ):
+        raise RepairFinalizationError("repair_selection_contract_mismatch")
     return RepairSelection(
         body=body,
         sha256=expected_sha256,
+        selection_bodies=selection_bodies,
+        selection_artifacts=selection_artifacts,
+        selection_paths=selection_paths,
         config_sha256=str(config_sha256),
         task_file_sha256=str(task_file_sha256),
+        repair_union_indices_sha256=str(selection["repair_union_indices_sha256"]),
         task_count=task_count,
+        missing_or_errored_count=missing_or_errored_count,
+        strict_invalid_pass_count=strict_invalid_pass_count,
         approved_task_count=approved_task_count,
         template_sha256=str(config["template_sha256"]),
         materializer_sha256=str(materializer_sha256),
+        exporter_sha256=str(exporter_sha256),
         repository_revision=str(repository_revision),
         submodules=dict(submodules),
     )
@@ -418,7 +530,10 @@ def _audit_source(
         or config.get("num_rollouts") != 1
         or config.get("max_concurrent") != direct.MAX_DIRECT_CONCURRENCY
         or config.get("multiplex") != direct.MAX_DIRECT_CONCURRENCY
-        or any(config.get(key) != MAX_SEQUENCE_TOKENS for key in ("max_input_tokens", "max_output_tokens", "max_total_tokens"))
+        or any(
+            config.get(key) != MAX_SEQUENCE_TOKENS
+            for key in ("max_input_tokens", "max_output_tokens", "max_total_tokens")
+        )
         or not isinstance(client, dict)
         or client.get("capture_model_io") is not True
         or not isinstance(sampling, dict)
@@ -462,10 +577,7 @@ def _audit_source(
     if summary.get("ok") is not True or routing != expected_routing:
         raise RepairFinalizationError("source_not_fresh_schema3_repair")
     dataset_revision = taskset.get("dataset_revision")
-    if (
-        not isinstance(dataset_revision, str)
-        or not _valid_git_sha(dataset_revision)
-    ):
+    if not isinstance(dataset_revision, str) or not _valid_git_sha(dataset_revision):
         raise RepairFinalizationError("source_corpus_identity_invalid")
     return {
         "artifacts": artifacts,
@@ -546,14 +658,33 @@ def _validate_selection_code(
         "repair_template_unreadable",
         capture_body=False,
     )[1]
+    exporter = _file_artifact(
+        workflow / "export_sft.py",
+        "project_exporter_invalid",
+        capture_body=False,
+    )[1]
     if (
         workflow.parents[2] != project
         or selection.repository_revision != expected_revision
         or selection.submodules != submodules
         or selection.materializer_sha256 != materializer["sha256"]
+        or selection.exporter_sha256 != exporter["sha256"]
         or selection.template_sha256 != template["sha256"]
     ):
         raise RepairFinalizationError("repair_selection_code_mismatch")
+
+
+def _validate_selection_unchanged(selection: RepairSelection) -> None:
+    for name, path in selection.selection_paths.items():
+        _body, artifact = _file_artifact(
+            path,
+            "repair_selection_changed",
+            max_bytes=MAX_MANIFEST_BYTES,
+            capture_body=False,
+            required_mode=0o600,
+        )
+        if artifact != selection.selection_artifacts[name]:
+            raise RepairFinalizationError("repair_selection_changed")
 
 
 def _validate_source_audit(
@@ -639,6 +770,7 @@ def _validate_export_summary(
     expected_exporter_sha256: str,
 ) -> tuple[dict[str, Any], dict[str, dict[str, int | str]]]:
     expected_keys = {
+        "approved_tasks",
         "excluded_error_traces",
         "input_traces",
         "output_sha256",
@@ -652,6 +784,7 @@ def _validate_export_summary(
     if (
         not _is_plain_int(summary.get("input_traces"))
         or summary.get("input_traces") != expected_count
+        or summary.get("approved_tasks") != expected_count
         or not _is_plain_int(summary.get("selected_traces"))
         or not 0 <= summary["selected_traces"] <= expected_count
         or not _is_plain_int(summary.get("excluded_error_traces"))
@@ -695,6 +828,7 @@ def _validate_export_summary(
     format_contract = manifest.get("format")
     split = manifest.get("split")
     allowed_count_keys = {
+        "approved_tasks",
         "input_traces",
         "excluded_error_traces",
         "scored_pass_traces",
@@ -715,14 +849,23 @@ def _validate_export_summary(
         "loss_mask": "message.trainable; exactly one final assistant message is true",
         "sample_unit": "one unique sampled assistant node with its root-to-node context",
         "target": (
-            "authentic reasoning_content, content, and tool_calls; "
-            "the selected renderer supplies its stop token"
+            "authentic reasoning_content, content, and tool_calls; the selected renderer supplies its stop token"
         ),
         "task_identity": "sha256(taskset id + NUL + dataset revision + NUL + approved opaque task slug)",
     }
     if (
         set(manifest)
-        != {"artifacts", "config", "counts", "exporter", "format", "max_sequence_tokens", "selection", "source_artifacts", "split"}
+        != {
+            "artifacts",
+            "config",
+            "counts",
+            "exporter",
+            "format",
+            "max_sequence_tokens",
+            "selection",
+            "source_artifacts",
+            "split",
+        }
         or manifest.get("selection") != "pass-only"
         or not _is_plain_int(manifest.get("max_sequence_tokens"))
         or manifest.get("max_sequence_tokens") != MAX_SEQUENCE_TOKENS
@@ -741,7 +884,13 @@ def _validate_export_summary(
             "taskset_id",
         }
         or not isinstance(counts, dict)
-        or not {"input_traces", "scored_pass_traces", "selected_traces", "selected_pass_traces", "emitted_rows"}.issubset(counts)
+        or not {
+            "input_traces",
+            "scored_pass_traces",
+            "selected_traces",
+            "selected_pass_traces",
+            "emitted_rows",
+        }.issubset(counts)
         or not set(counts).issubset(allowed_count_keys)
         or not all(_is_plain_int(value) and value >= 0 for value in counts.values())
         or not isinstance(exporter, dict)
@@ -765,8 +914,7 @@ def _validate_export_summary(
         or split.get("split_salt") != split_salt
         or not _is_plain_int(split.get("validation_permyriad"))
         or split.get("validation_permyriad") != validation_permyriad
-        or split.get("policy")
-        != "sha256(split_salt + NUL + stable task identity SHA-256) modulo 10000"
+        or split.get("policy") != "sha256(split_salt + NUL + stable task identity SHA-256) modulo 10000"
         or artifacts.get("task-split.json") != observed["task-split.json"]
         or artifacts.get("train/train.jsonl") != observed["train/train.jsonl"]
         or artifacts.get("validation/train.jsonl") != observed["validation/train.jsonl"]
@@ -774,6 +922,7 @@ def _validate_export_summary(
         raise RepairFinalizationError("sft_output_contract_invalid")
     if (
         counts["input_traces"] != expected_count
+        or counts.get("approved_tasks") != expected_count
         or counts["input_traces"]
         != counts.get("scored_pass_traces", 0)
         + counts.get("scored_fail_traces", 0)
@@ -816,8 +965,8 @@ def _validate_published(path: Path, allow_incomplete: bool, expected: Mapping[st
         "task-split.json",
         "train",
         "validation",
-        SELECTION_COPY_FILENAME,
         ATTESTATION_FILENAME,
+        *SELECTION_SOURCE_FILENAMES,
     }
     if allow_incomplete:
         expected_names.add(direct.MIGRATION_INCOMPLETE_FILENAME)
@@ -911,9 +1060,7 @@ def finalize_qwen_repair_sft(
         options.expected_count,
     )
     try:
-        submodules = _validate_submodule_revisions(
-            submodule_reader(project, options.expected_project_revision)
-        )
+        submodules = _validate_submodule_revisions(submodule_reader(project, options.expected_project_revision))
     except common.FinalizationError as error:
         raise RepairFinalizationError(error.code) from error
     _validate_selection_code(
@@ -980,7 +1127,10 @@ def finalize_qwen_repair_sft(
                 options.split_salt,
                 str(exporter_sha256),
             )
-            selection_artifact = _write_exclusive(staged_output / SELECTION_COPY_FILENAME, repair_selection.body)
+            selection_copy_artifacts = {
+                name: _write_exclusive(staged_output / name, body)
+                for name, body in repair_selection.selection_bodies.items()
+            }
             manifest_sources = manifest["source_artifacts"]
             if (
                 "direct_workers.json" in manifest_sources
@@ -993,8 +1143,15 @@ def finalize_qwen_repair_sft(
 
             attestation = {
                 "kind": ATTESTATION_KIND,
-                "schema_version": 1,
+                "schema_version": ATTESTATION_SCHEMA_VERSION,
                 "repair_selection_manifest_sha256": repair_selection.sha256,
+                "selection": {
+                    "missing_or_errored_count": repair_selection.missing_or_errored_count,
+                    "strict_invalid_pass_count": repair_selection.strict_invalid_pass_count,
+                    "union_count": repair_selection.task_count,
+                    "union_indices_sha256": repair_selection.repair_union_indices_sha256,
+                    "union_task_file_sha256": repair_selection.task_file_sha256,
+                },
                 "source_artifacts": source_before,
                 "routing": audit["routing"],
                 "corpus": audit["corpus"],
@@ -1007,7 +1164,7 @@ def finalize_qwen_repair_sft(
                 staged_output / ATTESTATION_FILENAME,
                 _json_bytes(attestation),
             )
-            output_artifacts[SELECTION_COPY_FILENAME] = selection_artifact
+            output_artifacts.update(selection_copy_artifacts)
             output_artifacts[ATTESTATION_FILENAME] = attestation_artifact
             for directory in (staged_output, staged_output / "train", staged_output / "validation"):
                 os.chmod(directory, 0o700)
@@ -1017,6 +1174,7 @@ def finalize_qwen_repair_sft(
 
             if _locked_source_artifacts(paths.source_dir) != locked_source_before:
                 raise RepairFinalizationError("source_changed_during_finalization")
+            _validate_selection_unchanged(repair_selection)
             _validate_repository_call(
                 repository_validator,
                 paths.project_dir,
@@ -1032,6 +1190,7 @@ def finalize_qwen_repair_sft(
                 raise RepairFinalizationError("publish_failed") from error
             published = True
         return {
+            "approved_tasks": export_summary["approved_tasks"],
             "attestation_sha256": attestation_artifact["sha256"],
             "excluded_error_traces": export_summary["excluded_error_traces"],
             "input_traces": export_summary["input_traces"],

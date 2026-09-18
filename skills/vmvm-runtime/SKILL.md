@@ -315,20 +315,25 @@ approval path and digest must be supplied independently through
 config's pinned task-file digest. Resume only through the direct wrapper so the
 saved worker manifest and loopback endpoint are revalidated.
 
-After a terminal 2,500-task Qwen run, repair only missing or errored rows with
-`run_qwen_repair_chain.sbatch`; never resume the source in place. Run the
-controller from a clean detached exact revision with clean pinned submodules,
-an externally pinned source task-file digest and provenance digest, and new,
-absolute, disjoint runtime/export paths. It calls the direct evaluator as a
-shell program in the same allocation, exports original and repair sources
+After a terminal 2,500-task Qwen run, use `run_qwen_repair_chain.sbatch`; never
+resume the source in place. The private repair selection is the exact union of
+ordinary missing/error tasks and scored-pass traces that fail the exporter's
+trainability audit (retained reasoning, captured model I/O integrity, and the
+256K context cap). The original pass-only export must consume that same
+attested selection and exclude exactly those source tasks; the merge requires
+every excluded strict-invalid pass to have a passing repair replacement. Run
+the controller from a clean detached exact revision with clean pinned
+submodules, an externally pinned source task-file digest and provenance digest,
+and new, absolute, disjoint runtime/export paths. It calls the direct evaluator
+as a shell program in the same allocation, exports original and repair sources
 pass-only, and atomically merges the two attested corpora. A zero-owed plan
 publishes the original export only. Treat task entries as opaque and never add
-semantic or name-based filtering. The repair export's selection and
-attestation sidecars must remain regular mode-0600 files, byte-identical to the
-externally pinned inputs. Child logs are private mode 0600, while
-console output is restricted to aggregate counts, digests, and stable codes.
-Submit this state change only through `swebench_vmvm:Launcher.0` with an
-`afterany` dependency on the producer.
+semantic or name-based filtering. The selection manifest, its union/category
+files, and the repair export's copied selection and attestation sidecars must
+remain regular mode-0600 files and byte-identical to their pinned inputs. Child
+logs are private mode 0600, while console output is restricted to aggregate
+counts, digests, and stable codes. Submit this state change only through
+`swebench_vmvm:Launcher.0` with an `afterany` dependency on the producer.
 
 `VACLI_IMAGE_PULL_TIMEOUT_SECONDS` bounds each VM-side image pull attempt. The
 DeepSWE launcher derives it from TOML `sandbox_startup_timeout_sec` and uses one

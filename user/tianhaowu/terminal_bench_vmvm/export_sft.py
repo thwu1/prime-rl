@@ -17,6 +17,7 @@ import math
 import os
 import shutil
 import stat
+import subprocess
 import sys
 import tempfile
 import tomllib
@@ -42,8 +43,15 @@ ROUTING_ADMISSION_TRANSITION_FILENAME = "qwen_router_admission_transition.json"
 ROUTING_EPOCH1_ROWS_FILENAME = "qwen_router_epoch1_rows.sha256"
 ROUTING_EPOCH2_LINEAGE_FILENAME = "qwen_router_epoch2_lineage.jsonl"
 DIRECT_WORKERS_FILENAME = "direct_workers.json"
+REPAIR_SELECTION_KIND = "qwen-aggregate-repair-selection"
+REPAIR_SELECTION_SCHEMA_VERSION = 2
+REPAIR_SELECTION_MANIFEST_FILENAME = "repair_manifest.json"
+REPAIR_SELECTION_TASK_FILENAME = "repair_tasks.txt"
+REPAIR_MISSING_ERROR_TASK_FILENAME = "repair_missing_or_errored_tasks.txt"
+REPAIR_STRICT_INVALID_PASS_TASK_FILENAME = "repair_strict_invalid_pass_tasks.txt"
 MAX_ROUTING_EPOCH_INDEX_BYTES = 16 * 1024 * 1024
 MAX_ROUTING_TRANSITION_BYTES = 2 * 1024 * 1024
+MAX_REPAIR_SELECTION_BYTES = 16 * 1024 * 1024
 SHA256_HEX_CHARS = frozenset("0123456789abcdef")
 FORBIDDEN_REQUEST_FIELDS = frozenset({"logprobs", "prompt_logprobs", "return_token_ids", "top_logprobs"})
 REQUIRED_RUN_ARTIFACTS = (
@@ -53,6 +61,11 @@ REQUIRED_RUN_ARTIFACTS = (
     "inputs/source_config.toml",
     "inputs/task_file.txt",
     "inputs/image_manifest.json",
+)
+REQUIRED_RUNTIME_SUBMODULES = (
+    "deps/pydantic-config",
+    "deps/renderers",
+    "deps/verifiers",
 )
 
 Selection = Literal["pass-only", "all-outcomes"]
@@ -85,6 +98,8 @@ class ExportOptions:
     split_salt: str = DEFAULT_SPLIT_SALT
     max_sequence_tokens: int = DEFAULT_MAX_SEQUENCE_TOKENS
     routing_epoch_index: Path | None = None
+    exclusion_selection_manifest: Path | None = None
+    exclusion_selection_manifest_sha256: str | None = None
 
 
 @dataclass(frozen=True)
@@ -108,6 +123,24 @@ class TaskIdentityContext:
     taskset_id: str
     dataset_revision: str
     approved_slugs: frozenset[str]
+    approved_slug_order: tuple[str, ...]
+
+
+@dataclass(frozen=True)
+class ExclusionSelection:
+    manifest_path: Path
+    manifest_artifact: FileArtifact
+    artifact_paths: Mapping[str, Path]
+    artifacts: Mapping[str, FileArtifact]
+    approved_task_count: int
+    missing_or_errored_slugs: frozenset[str]
+    strict_invalid_pass_slugs: frozenset[str]
+    union_slugs: frozenset[str]
+    source_artifacts: Mapping[str, FileArtifact]
+
+    @property
+    def count(self) -> int:
+        return len(self.union_slugs)
 
 
 class JSONLSink:
@@ -193,8 +226,16 @@ def _same_file(before: os.stat_result, after: os.stat_result) -> bool:
     )
 
 
-def _read_stable_file(path: Path, *, max_bytes: int | None = None) -> tuple[bytes, FileArtifact]:
+def _read_stable_file(
+    path: Path,
+    *,
+    max_bytes: int | None = None,
+    required_mode: int | None = None,
+) -> tuple[bytes, FileArtifact]:
     source, before = _open_regular(path)
+    if required_mode is not None and stat.S_IMODE(before.st_mode) != required_mode:
+        source.close()
+        raise ExportError("source_artifact_mode_invalid")
     try:
         body = source.read() if max_bytes is None else source.read(max_bytes + 1)
         after = os.fstat(source.fileno())
@@ -205,6 +246,25 @@ def _read_stable_file(path: Path, *, max_bytes: int | None = None) -> tuple[byte
     if max_bytes is not None and len(body) > max_bytes:
         raise ExportError("source_artifact_too_large")
     return body, FileArtifact(bytes=len(body), sha256=hashlib.sha256(body).hexdigest())
+
+
+def _fingerprint_stable_file(path: Path, *, required_mode: int | None = None) -> FileArtifact:
+    source, before = _open_regular(path)
+    if required_mode is not None and stat.S_IMODE(before.st_mode) != required_mode:
+        source.close()
+        raise ExportError("source_artifact_mode_invalid")
+    digest = hashlib.sha256()
+    size = 0
+    try:
+        while chunk := source.read(1 << 20):
+            digest.update(chunk)
+            size += len(chunk)
+        after = os.fstat(source.fileno())
+    finally:
+        source.close()
+    if not _same_file(before, after):
+        raise ExportError("source_artifact_changed")
+    return FileArtifact(bytes=size, sha256=digest.hexdigest())
 
 
 @contextmanager
@@ -313,13 +373,39 @@ def _task_identity_context(
         taskset_id=taskset_id,
         dataset_revision=dataset_revision,
         approved_slugs=frozenset(approved_slugs),
+        approved_slug_order=tuple(sorted(approved_slugs)),
     )
 
 
-def _opaque_task_slug(task: Mapping[str, Any]) -> str:
+def _opaque_task_slug(
+    task: Mapping[str, Any],
+    *,
+    evaluator_order: tuple[str, ...] | None = None,
+) -> str:
     slug = task.get("slug")
-    if not isinstance(slug, str) or not slug or "\x00" in slug:
+    derived: str | None = None
+    if "name" in task:
+        name = task["name"]
+        if not isinstance(name, str) or not name or "\x00" in name:
+            raise ExportError("trace_task_name_invalid")
+        derived = name.rsplit("/", 1)[-1]
+        if not derived or derived in {".", ".."}:
+            raise ExportError("trace_task_name_invalid")
+    if slug is None:
+        slug = derived
+    elif derived is not None and slug != derived:
+        raise ExportError("trace_task_identity_mismatch")
+    if not isinstance(slug, str) or not slug or "\x00" in slug or "/" in slug or slug in {".", ".."}:
         raise ExportError("trace_task_slug_invalid")
+    if evaluator_order is not None:
+        index = task.get("idx")
+        if (
+            isinstance(index, bool)
+            or not isinstance(index, int)
+            or not 0 <= index < len(evaluator_order)
+            or evaluator_order[index] != slug
+        ):
+            raise ExportError("trace_task_identity_mismatch")
     return slug
 
 
@@ -332,6 +418,296 @@ def _task_identity_sha256(context: TaskIdentityContext, task: Mapping[str, Any])
     except UnicodeEncodeError as error:
         raise ExportError("trace_task_slug_invalid") from error
     return hashlib.sha256(identity).hexdigest()
+
+
+def _selection_artifact(value: object) -> FileArtifact:
+    if not isinstance(value, dict) or set(value) != {"sha256", "size_bytes"}:
+        raise ExportError("exclusion_selection_invalid")
+    size = value.get("size_bytes")
+    digest = value.get("sha256")
+    if isinstance(size, bool) or not isinstance(size, int) or size < 0 or not _valid_sha256(digest):
+        raise ExportError("exclusion_selection_invalid")
+    return FileArtifact(bytes=size, sha256=digest)
+
+
+def _selection_task_slugs(body: bytes, *, allow_empty: bool) -> tuple[str, ...]:
+    if body and not body.endswith(b"\n"):
+        raise ExportError("exclusion_selection_invalid")
+    try:
+        lines = body.decode("utf-8").splitlines()
+    except UnicodeDecodeError as error:
+        raise ExportError("exclusion_selection_invalid") from error
+    if any(not line or line.strip() != line or "\t" in line or "\x00" in line for line in lines):
+        raise ExportError("exclusion_selection_invalid")
+    if len(lines) != len(set(lines)) or (not allow_empty and not lines):
+        raise ExportError("exclusion_selection_invalid")
+    return tuple(lines)
+
+
+def _selection_indices_sha256(slugs: frozenset[str], approved_slugs: frozenset[str]) -> str:
+    ordered = sorted(approved_slugs)
+    body = "".join(f"{index}\n" for index, slug in enumerate(ordered) if slug in slugs).encode()
+    return hashlib.sha256(body).hexdigest()
+
+
+def _selection_task_order_sha256(approved_slugs: frozenset[str]) -> str:
+    body = "".join(f"{index}\0{slug}\n" for index, slug in enumerate(sorted(approved_slugs))).encode()
+    return hashlib.sha256(body).hexdigest()
+
+
+def _git_output(repository: Path, arguments: list[str]) -> str:
+    try:
+        completed = subprocess.run(
+            ["git", "-C", str(repository), *arguments],
+            check=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            timeout=30,
+        )
+    except (OSError, subprocess.SubprocessError) as error:
+        raise ExportError("exclusion_selection_code_invalid") from error
+    if completed.stderr:
+        raise ExportError("exclusion_selection_code_invalid")
+    return completed.stdout
+
+
+def _validate_selection_code(code: object) -> None:
+    if not isinstance(code, dict) or set(code) != {
+        "exporter_sha256",
+        "materializer_sha256",
+        "repository_revision",
+        "submodules",
+    }:
+        raise ExportError("exclusion_selection_invalid")
+    repository = Path(__file__).resolve().parents[3]
+    revision = code.get("repository_revision")
+    submodules = code.get("submodules")
+    materializer = Path(__file__).resolve().parent / "materialize_qwen_repair.py"
+    if (
+        not _valid_git_sha(revision)
+        or not _valid_sha256(code.get("exporter_sha256"))
+        or code["exporter_sha256"] != _fingerprint_stable_file(Path(__file__).resolve()).sha256
+        or not _valid_sha256(code.get("materializer_sha256"))
+        or code["materializer_sha256"] != _fingerprint_stable_file(materializer).sha256
+        or not isinstance(submodules, dict)
+        or set(submodules) != set(REQUIRED_RUNTIME_SUBMODULES)
+        or any(not _valid_git_sha(value) for value in submodules.values())
+        or _git_output(repository, ["rev-parse", "HEAD"]).strip() != revision
+    ):
+        raise ExportError("exclusion_selection_code_invalid")
+    for relative, expected in submodules.items():
+        record = _git_output(repository, ["ls-tree", revision, "--", relative]).strip().split(maxsplit=3)
+        if len(record) != 4 or record[:3] != ["160000", "commit", expected] or record[3] != relative:
+            raise ExportError("exclusion_selection_code_invalid")
+        submodule = repository / relative
+        if _git_output(submodule, ["rev-parse", "HEAD"]).strip() != expected or _git_output(
+            submodule, ["status", "--porcelain=v1", "--untracked-files=all"]
+        ):
+            raise ExportError("exclusion_selection_code_invalid")
+
+
+def _load_exclusion_selection(
+    path: Path,
+    expected_sha256: str,
+    *,
+    source_artifacts: Mapping[str, FileArtifact],
+    task_identity: TaskIdentityContext,
+) -> ExclusionSelection:
+    if not _valid_sha256(expected_sha256):
+        raise ExportError("exclusion_selection_digest_invalid")
+    absolute = path if path.is_absolute() else Path.cwd() / path
+    normalized = Path(os.path.normpath(absolute))
+    try:
+        resolved = normalized.resolve(strict=True)
+        metadata = normalized.lstat()
+    except OSError as error:
+        raise ExportError("exclusion_selection_invalid") from error
+    if resolved != normalized or not stat.S_ISREG(metadata.st_mode) or stat.S_IMODE(metadata.st_mode) != 0o600:
+        raise ExportError("exclusion_selection_invalid")
+    body, manifest_artifact = _read_stable_file(
+        resolved,
+        max_bytes=MAX_REPAIR_SELECTION_BYTES,
+        required_mode=0o600,
+    )
+    if manifest_artifact.sha256 != expected_sha256:
+        raise ExportError("exclusion_selection_digest_mismatch")
+    manifest = _parse_json_object(body, "exclusion_selection_invalid")
+    approval = manifest.get("approval")
+    code = manifest.get("code")
+    config = manifest.get("config")
+    planner = manifest.get("planner")
+    selection = manifest.get("selection")
+    source = manifest.get("source")
+    if (
+        set(manifest) != {"approval", "code", "config", "kind", "planner", "schema_version", "selection", "source"}
+        or manifest.get("kind") != REPAIR_SELECTION_KIND
+        or manifest.get("schema_version") != REPAIR_SELECTION_SCHEMA_VERSION
+        or not isinstance(approval, dict)
+        or set(approval) != {"approved_task_count", "approved_task_file_sha256"}
+        or not isinstance(config, dict)
+        or set(config)
+        != {
+            "capture_model_io",
+            "enable_thinking",
+            "max_concurrent",
+            "max_total_tokens",
+            "preserve_thinking",
+            "provider_concurrency",
+            "retry_class_count",
+            "retry_policy_sha256",
+            "sha256",
+            "template_sha256",
+        }
+        or not isinstance(planner, dict)
+        or set(planner)
+        != {
+            "approved_task_count",
+            "contract_verifiers_revision",
+            "missing_or_errored_count",
+            "module_sha256",
+            "retained_count",
+            "task_index_order_sha256",
+        }
+        or not isinstance(selection, dict)
+        or set(selection)
+        != {
+            "approved_repair_count",
+            "missing_or_errored_count",
+            "missing_or_errored_indices_sha256",
+            "missing_or_errored_task_file_sha256",
+            "repair_union_indices_sha256",
+            "strict_invalid_pass_count",
+            "strict_invalid_pass_indices_sha256",
+            "strict_invalid_pass_task_file_sha256",
+            "task_file_sha256",
+        }
+        or not isinstance(source, dict)
+        or set(source) != {"artifacts", "routing_epoch", "task_count"}
+    ):
+        raise ExportError("exclusion_selection_invalid")
+    approved_count = approval.get("approved_task_count")
+    union_count = selection.get("approved_repair_count")
+    missing_count = selection.get("missing_or_errored_count")
+    strict_count = selection.get("strict_invalid_pass_count")
+    retained_count = planner.get("retained_count")
+    if (
+        isinstance(approved_count, bool)
+        or not isinstance(approved_count, int)
+        or approved_count != len(task_identity.approved_slugs)
+        or approval.get("approved_task_file_sha256") != source_artifacts["inputs/task_file.txt"].sha256
+        or planner.get("approved_task_count") != approved_count
+        or isinstance(retained_count, bool)
+        or not isinstance(retained_count, int)
+        or isinstance(missing_count, bool)
+        or not isinstance(missing_count, int)
+        or isinstance(strict_count, bool)
+        or not isinstance(strict_count, int)
+        or isinstance(union_count, bool)
+        or not isinstance(union_count, int)
+        or min(retained_count, missing_count, strict_count, union_count) < 0
+        or union_count < 1
+        or retained_count + missing_count != approved_count
+        or missing_count + strict_count != union_count
+        or union_count > approved_count
+        or planner.get("missing_or_errored_count") != missing_count
+        or planner.get("contract_verifiers_revision") != direct_workers.ADMISSION_VERIFIERS_REVISION
+        or planner.get("module_sha256") != direct_workers.ADMISSION_RESUME_MODULE_SHA256
+        or planner.get("task_index_order_sha256") != _selection_task_order_sha256(task_identity.approved_slugs)
+        or source.get("routing_epoch") != 3
+        or source.get("task_count") != approved_count
+        or config.get("capture_model_io") is not True
+        or config.get("enable_thinking") is not True
+        or config.get("preserve_thinking") is not True
+        or config.get("max_concurrent") != direct_workers.MAX_DIRECT_CONCURRENCY
+        or config.get("provider_concurrency") != direct_workers.PRODUCTION_PROVIDER_CONCURRENCY
+        or config.get("max_total_tokens") != DEFAULT_MAX_SEQUENCE_TOKENS
+        or config.get("retry_class_count") != len(direct_workers.ROLLOUT_RETRY_POLICY)
+        or any(not _valid_sha256(config.get(name)) for name in ("retry_policy_sha256", "sha256", "template_sha256"))
+    ):
+        raise ExportError("exclusion_selection_contract_invalid")
+    retry_bytes = "".join(f"{name}\n" for name in sorted(direct_workers.ROLLOUT_RETRY_POLICY)).encode()
+    if config["retry_policy_sha256"] != hashlib.sha256(retry_bytes).hexdigest():
+        raise ExportError("exclusion_selection_contract_invalid")
+    _validate_selection_code(code)
+
+    source_values = source.get("artifacts")
+    source_names = {
+        "config": "config.toml",
+        "direct_workers": DIRECT_WORKERS_FILENAME,
+        "image_manifest": "inputs/image_manifest.json",
+        "inputs_manifest": "inputs/manifest.json",
+        "provenance": "provenance.txt",
+        "results": "results.jsonl",
+        "source_config": "inputs/source_config.toml",
+        "task_file": "inputs/task_file.txt",
+    }
+    if not isinstance(source_values, dict) or set(source_values) != set(source_names):
+        raise ExportError("exclusion_selection_contract_invalid")
+    selection_sources = {source_names[name]: _selection_artifact(record) for name, record in source_values.items()}
+    if any(source_artifacts.get(name) != artifact for name, artifact in selection_sources.items()):
+        raise ExportError("exclusion_selection_source_mismatch")
+
+    artifact_paths = {
+        "task_file": resolved.parent / REPAIR_SELECTION_TASK_FILENAME,
+        "missing_or_errored_task_file": resolved.parent / REPAIR_MISSING_ERROR_TASK_FILENAME,
+        "strict_invalid_pass_task_file": resolved.parent / REPAIR_STRICT_INVALID_PASS_TASK_FILENAME,
+    }
+    artifact_bodies: dict[str, bytes] = {}
+    artifacts: dict[str, FileArtifact] = {}
+    for name, artifact_path in artifact_paths.items():
+        artifact_bodies[name], artifacts[name] = _read_stable_file(
+            artifact_path,
+            max_bytes=MAX_REPAIR_SELECTION_BYTES,
+            required_mode=0o600,
+        )
+    union_order = _selection_task_slugs(artifact_bodies["task_file"], allow_empty=False)
+    missing_order = _selection_task_slugs(artifact_bodies["missing_or_errored_task_file"], allow_empty=True)
+    strict_order = _selection_task_slugs(artifact_bodies["strict_invalid_pass_task_file"], allow_empty=True)
+    union = frozenset(union_order)
+    missing = frozenset(missing_order)
+    strict = frozenset(strict_order)
+    evaluator_order = {slug: index for index, slug in enumerate(sorted(task_identity.approved_slugs))}
+    if (
+        len(union_order) != union_count
+        or len(missing_order) != missing_count
+        or len(strict_order) != strict_count
+        or missing & strict
+        or union != missing | strict
+        or not union.issubset(task_identity.approved_slugs)
+        or list(union_order) != sorted(union, key=evaluator_order.__getitem__)
+        or list(missing_order) != sorted(missing, key=evaluator_order.__getitem__)
+        or list(strict_order) != sorted(strict, key=evaluator_order.__getitem__)
+        or artifacts["task_file"].sha256 != selection.get("task_file_sha256")
+        or artifacts["missing_or_errored_task_file"].sha256 != selection.get("missing_or_errored_task_file_sha256")
+        or artifacts["strict_invalid_pass_task_file"].sha256 != selection.get("strict_invalid_pass_task_file_sha256")
+        or selection.get("missing_or_errored_indices_sha256")
+        != _selection_indices_sha256(missing, task_identity.approved_slugs)
+        or selection.get("strict_invalid_pass_indices_sha256")
+        != _selection_indices_sha256(strict, task_identity.approved_slugs)
+        or selection.get("repair_union_indices_sha256")
+        != _selection_indices_sha256(union, task_identity.approved_slugs)
+    ):
+        raise ExportError("exclusion_selection_contract_invalid")
+    return ExclusionSelection(
+        manifest_path=resolved,
+        manifest_artifact=manifest_artifact,
+        artifact_paths=artifact_paths,
+        artifacts=artifacts,
+        approved_task_count=approved_count,
+        missing_or_errored_slugs=missing,
+        strict_invalid_pass_slugs=strict,
+        union_slugs=union,
+        source_artifacts=selection_sources,
+    )
+
+
+def _assert_exclusion_selection_unchanged(selection: ExclusionSelection) -> None:
+    if _fingerprint_stable_file(selection.manifest_path, required_mode=0o600) != selection.manifest_artifact:
+        raise ExportError("exclusion_selection_changed")
+    for name, path in selection.artifact_paths.items():
+        if _fingerprint_stable_file(path, required_mode=0o600) != selection.artifacts[name]:
+            raise ExportError("exclusion_selection_changed")
 
 
 def _validate_run_provenance(
@@ -1204,6 +1580,53 @@ def _trace_reward(trace: dict[str, Any]) -> float:
     return reward
 
 
+def _validate_trainable_trace(
+    trace: dict[str, Any],
+    *,
+    reward: float,
+    max_sequence_tokens: int,
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """Apply the exact strict validation used before any SFT row is emitted."""
+    if trace.get("is_completed") is not True:
+        raise ExportError("trace_not_completed")
+    stop_condition = trace.get("stop_condition")
+    if not isinstance(stop_condition, str) or not stop_condition:
+        raise ExportError("trace_stop_condition_invalid")
+    problems = _audit_trace(
+        trace,
+        require_reasoning=True,
+        max_sequence_tokens=max_sequence_tokens,
+        require_token_data=False,
+        require_logprobs=False,
+        require_model_io=True,
+    )
+    if problems:
+        raise ExportError("trace_validation_failed")
+    raw_nodes = trace.get("nodes")
+    if not isinstance(raw_nodes, list) or not all(isinstance(node, dict) for node in raw_nodes):
+        raise ExportError("message_graph_invalid")
+    nodes = list(raw_nodes)
+    for node in nodes:
+        if node.get("sampled") is True:
+            _validate_captured_response(node)
+    tools = _stable_trace_tools(nodes)
+    probe_rows = list(
+        _target_rows(
+            trace,
+            source_trace_index=0,
+            source_split_row_index=0,
+            source_trace_sha256="0" * 64,
+            task_sha256="0" * 64,
+            reward=reward,
+            tools=tools,
+            routing_epoch=None,
+        )
+    )
+    if not probe_rows:
+        raise ExportError("trace_has_no_sft_targets")
+    return nodes, tools
+
+
 def _split_for_task(task_sha256: str, *, salt: str, validation_permyriad: int) -> str:
     digest = hashlib.sha256(f"{salt}\0{task_sha256}".encode("utf-8")).digest()
     bucket = int.from_bytes(digest[:8], "big") % SPLIT_BUCKETS
@@ -1248,6 +1671,12 @@ def _validate_options(options: ExportOptions) -> None:
         raise ExportError("split_salt_invalid")
     if options.max_sequence_tokens < 1:
         raise ExportError("max_sequence_tokens_invalid")
+    if (options.exclusion_selection_manifest is None) != (options.exclusion_selection_manifest_sha256 is None):
+        raise ExportError("exclusion_selection_arguments_invalid")
+    if options.exclusion_selection_manifest is not None and (
+        options.selection != "pass-only" or options.routing_epoch_index is None
+    ):
+        raise ExportError("exclusion_selection_arguments_invalid")
     if os.path.lexists(options.output_dir):
         raise ExportError("output_already_exists")
     try:
@@ -1287,6 +1716,17 @@ def export_sft(options: ExportOptions) -> dict[str, Any]:
                 source_artifacts[ROUTING_ADMISSION_TRANSITION_FILENAME] = routing_index.admission_transition_artifact
             if routing_index.epoch2_lineage_artifact is not None:
                 source_artifacts[ROUTING_EPOCH2_LINEAGE_FILENAME] = routing_index.epoch2_lineage_artifact
+        results_artifact = _fingerprint_stable_file(options.results)
+        source_artifacts["results.jsonl"] = results_artifact
+        exclusion_selection: ExclusionSelection | None = None
+        if options.exclusion_selection_manifest is not None:
+            assert options.exclusion_selection_manifest_sha256 is not None
+            exclusion_selection = _load_exclusion_selection(
+                options.exclusion_selection_manifest,
+                options.exclusion_selection_manifest_sha256,
+                source_artifacts=source_artifacts,
+                task_identity=task_identity,
+            )
         source, source_before = _open_regular(options.results)
         temporary = Path(tempfile.mkdtemp(prefix=f".{options.output_dir.name}.", dir=output_parent))
         published = False
@@ -1301,6 +1741,9 @@ def export_sft(options: ExportOptions) -> dict[str, Any]:
             split_trace_indices = {"train": 0, "validation": 0}
             seen_trace_ids: set[str] = set()
             seen_source_rows: set[str] = set()
+            seen_task_slugs: set[str] = set()
+            seen_missing_or_error_slugs: set[str] = set()
+            seen_strict_invalid_pass_slugs: set[str] = set()
             source_digest = hashlib.sha256()
 
             for source_trace_index, raw_line in enumerate(source):
@@ -1337,18 +1780,56 @@ def export_sft(options: ExportOptions) -> dict[str, Any]:
                 if source_trace_sha256 in seen_source_rows:
                     raise ExportError("duplicate_trace_row")
                 seen_source_rows.add(source_trace_sha256)
+                task_slug = _opaque_task_slug(
+                    task,
+                    evaluator_order=(task_identity.approved_slug_order if exclusion_selection is not None else None),
+                )
+                if exclusion_selection is not None and task_slug in seen_task_slugs:
+                    raise ExportError("duplicate_task_trace")
+                seen_task_slugs.add(task_slug)
                 task_sha256 = _task_identity_sha256(task_identity, task)
 
                 errors = trace.get("errors")
                 if not isinstance(errors, list):
                     raise ExportError("trace_errors_invalid")
+                if exclusion_selection is not None and task_slug in exclusion_selection.union_slugs:
+                    if task_slug in exclusion_selection.missing_or_errored_slugs:
+                        if not errors:
+                            raise ExportError("exclusion_selection_category_mismatch")
+                        seen_missing_or_error_slugs.add(task_slug)
+                        counts["excluded_error_traces"] += 1
+                    else:
+                        if errors:
+                            raise ExportError("exclusion_selection_category_mismatch")
+                        try:
+                            reward = _trace_reward(trace)
+                        except ExportError as error:
+                            raise ExportError("exclusion_selection_category_mismatch") from error
+                        if reward != 1.0:
+                            raise ExportError("exclusion_selection_category_mismatch")
+                        counts["scored_pass_traces"] += 1
+                        try:
+                            _validate_trainable_trace(
+                                trace,
+                                reward=reward,
+                                max_sequence_tokens=options.max_sequence_tokens,
+                            )
+                        except ExportError:
+                            pass
+                        else:
+                            raise ExportError("exclusion_selection_category_mismatch")
+                        seen_strict_invalid_pass_slugs.add(task_slug)
+                    counts["exclusion_selected_traces"] += 1
+                    continue
                 if errors:
+                    if exclusion_selection is not None:
+                        raise ExportError("exclusion_selection_incomplete")
                     counts["excluded_error_traces"] += 1
                     continue
-                if trace.get("is_completed") is not True:
-                    raise ExportError("trace_not_completed")
                 reward = _trace_reward(trace)
                 counts["scored_pass_traces" if reward > 0 else "scored_fail_traces"] += 1
+                if trace.get("is_completed") is not True:
+                    raise ExportError("trace_not_completed")
                 stop_condition = trace.get("stop_condition")
                 if not isinstance(stop_condition, str) or not stop_condition:
                     raise ExportError("trace_stop_condition_invalid")
@@ -1356,25 +1837,11 @@ def export_sft(options: ExportOptions) -> dict[str, Any]:
                     counts["selection_excluded_fail_traces"] += 1
                     continue
 
-                problems = _audit_trace(
+                _nodes, tools = _validate_trainable_trace(
                     trace,
-                    require_reasoning=True,
+                    reward=reward,
                     max_sequence_tokens=options.max_sequence_tokens,
-                    require_token_data=False,
-                    require_logprobs=False,
-                    require_model_io=True,
                 )
-                if problems:
-                    raise ExportError("trace_validation_failed")
-
-                raw_nodes = trace.get("nodes")
-                if not isinstance(raw_nodes, list) or not all(isinstance(node, dict) for node in raw_nodes):
-                    raise ExportError("message_graph_invalid")
-                nodes = list(raw_nodes)
-                for node in nodes:
-                    if node.get("sampled") is True:
-                        _validate_captured_response(node)
-                tools = _stable_trace_tools(nodes)
                 split = _split_for_task(
                     task_sha256,
                     salt=options.split_salt,
@@ -1411,13 +1878,33 @@ def export_sft(options: ExportOptions) -> dict[str, Any]:
             if not _same_file(source_before, source_after):
                 raise ExportError("results_jsonl_changed")
             results_sha256 = source_digest.hexdigest()
+            if FileArtifact(bytes=source_after.st_size, sha256=results_sha256) != results_artifact:
+                raise ExportError("results_jsonl_changed")
             if routing_index is not None:
                 if counts["input_traces"] != len(routing_index.row_sha256):
                     raise ExportError("routing_epoch_index_row_count_mismatch")
                 if results_sha256 != routing_index.results_sha256:
                     raise ExportError("routing_epoch_index_results_hash_mismatch")
-            if options.expected_count is not None and counts["input_traces"] != options.expected_count:
-                raise ExportError("input_trace_count_mismatch")
+            if exclusion_selection is None:
+                if options.expected_count is not None and counts["input_traces"] != options.expected_count:
+                    raise ExportError("input_trace_count_mismatch")
+                counts["approved_tasks"] = len(task_identity.approved_slugs)
+            else:
+                unseen = task_identity.approved_slugs - seen_task_slugs
+                expected_unseen = exclusion_selection.missing_or_errored_slugs - seen_missing_or_error_slugs
+                if (
+                    seen_strict_invalid_pass_slugs != exclusion_selection.strict_invalid_pass_slugs
+                    or unseen != expected_unseen
+                    or seen_task_slugs - exclusion_selection.union_slugs
+                    != task_identity.approved_slugs - exclusion_selection.union_slugs
+                    or counts["input_traces"] + len(unseen) != exclusion_selection.approved_task_count
+                    or options.expected_count != exclusion_selection.approved_task_count
+                ):
+                    raise ExportError("exclusion_selection_accounting_mismatch")
+                counts["approved_tasks"] = exclusion_selection.approved_task_count
+                counts["exclusion_missing_tasks"] = len(unseen)
+                counts["exclusion_missing_or_errored_tasks"] = len(exclusion_selection.missing_or_errored_slugs)
+                counts["exclusion_strict_invalid_pass_tasks"] = len(exclusion_selection.strict_invalid_pass_slugs)
             if counts["selected_traces"] == 0:
                 raise ExportError("no_selected_traces")
             if split_task_hashes["train"] & split_task_hashes["validation"]:
@@ -1427,10 +1914,7 @@ def export_sft(options: ExportOptions) -> dict[str, Any]:
             train_sink = None
             validation_artifact = validation_sink.close()
             validation_sink = None
-            source_artifacts["results.jsonl"] = FileArtifact(
-                bytes=source_after.st_size,
-                sha256=results_sha256,
-            )
+            source_artifacts["results.jsonl"] = results_artifact
             retained_routing_index_artifact: FileArtifact | None = None
             if routing_index is not None:
                 retained_routing_index_artifact = _write_bytes(
@@ -1483,6 +1967,17 @@ def export_sft(options: ExportOptions) -> dict[str, Any]:
                     "validation_permyriad": options.validation_permyriad,
                 },
             }
+            if exclusion_selection is not None:
+                manifest["exclusion_selection"] = {
+                    "artifacts": {
+                        name: artifact.as_dict() for name, artifact in sorted(exclusion_selection.artifacts.items())
+                    },
+                    "approved_task_count": exclusion_selection.approved_task_count,
+                    "manifest": exclusion_selection.manifest_artifact.as_dict(),
+                    "missing_or_errored_count": len(exclusion_selection.missing_or_errored_slugs),
+                    "strict_invalid_pass_count": len(exclusion_selection.strict_invalid_pass_slugs),
+                    "union_count": exclusion_selection.count,
+                }
             if routing_index is not None:
                 routing_epoch_manifest = {
                     "current_epoch": routing_index.current_epoch,
@@ -1507,16 +2002,21 @@ def export_sft(options: ExportOptions) -> dict[str, Any]:
                 if routing_index.epoch2_lineage_artifact is not None:
                     routing_epoch_manifest["epoch2_lineage_sha256"] = routing_index.epoch2_lineage_artifact.sha256
                 manifest["routing_epochs"] = routing_epoch_manifest
+            if exclusion_selection is not None:
+                _assert_exclusion_selection_unchanged(exclusion_selection)
             _write_json(temporary / "manifest.json", manifest)
             _fsync_dir(temporary / "train")
             _fsync_dir(temporary / "validation")
             _fsync_dir(temporary)
+            if exclusion_selection is not None:
+                _assert_exclusion_selection_unchanged(exclusion_selection)
             if os.path.lexists(options.output_dir):
                 raise ExportError("output_already_exists")
             os.replace(temporary, options.output_dir)
             _fsync_dir(output_parent)
             published = True
             summary = {
+                "approved_tasks": counts.get("approved_tasks", counts["input_traces"]),
                 "excluded_error_traces": counts["excluded_error_traces"],
                 "input_traces": counts["input_traces"],
                 "output_sha256": {
@@ -1533,6 +2033,15 @@ def export_sft(options: ExportOptions) -> dict[str, Any]:
                 "selection": options.selection,
                 "status": "exported",
             }
+            if exclusion_selection is not None:
+                summary["exclusion"] = {
+                    "excluded_present_traces": counts["exclusion_selected_traces"],
+                    "missing_tasks": counts["exclusion_missing_tasks"],
+                    "missing_or_errored_count": counts["exclusion_missing_or_errored_tasks"],
+                    "selection_manifest_sha256": exclusion_selection.manifest_artifact.sha256,
+                    "strict_invalid_pass_count": counts["exclusion_strict_invalid_pass_tasks"],
+                    "union_count": exclusion_selection.count,
+                }
             if routing_index is not None:
                 if retained_routing_index_artifact is None:
                     raise ExportError("routing_epoch_index_copy_missing")
@@ -1565,6 +2074,8 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         type=Path,
         help="strictly validate and retain a hash-bound qwen_router_epochs.jsonl sidecar",
     )
+    parser.add_argument("--exclusion-selection-manifest", type=Path)
+    parser.add_argument("--exclusion-selection-manifest-sha256")
     return parser.parse_args(argv)
 
 
@@ -1579,6 +2090,8 @@ def main(argv: list[str] | None = None) -> int:
         split_salt=args.split_salt,
         max_sequence_tokens=args.max_sequence_tokens,
         routing_epoch_index=args.routing_epoch_index,
+        exclusion_selection_manifest=args.exclusion_selection_manifest,
+        exclusion_selection_manifest_sha256=args.exclusion_selection_manifest_sha256,
     )
     try:
         summary = export_sft(options)

@@ -26,11 +26,21 @@ from pathlib import Path
 from typing import Any, BinaryIO, Mapping
 
 FORMAT_VERSION = 2
-MERGE_SCHEMA_VERSION = 1
+MERGE_SCHEMA_VERSION = 2
 MERGE_KIND = "qwen-sft-aggregate-merge"
 REPAIR_SELECTION_KIND = "qwen-aggregate-repair-selection"
 REPAIR_ATTESTATION_KIND = "qwen-direct-repair-attestation"
+REPAIR_ATTESTATION_SCHEMA_VERSION = 2
 REPAIR_SELECTION_COPY_FILENAME = "repair_selection_manifest.json"
+REPAIR_SELECTION_TASK_COPY_FILENAME = "repair_selection_tasks.txt"
+REPAIR_SELECTION_MISSING_ERROR_COPY_FILENAME = "repair_selection_missing_or_errored_tasks.txt"
+REPAIR_SELECTION_STRICT_INVALID_PASS_COPY_FILENAME = "repair_selection_strict_invalid_pass_tasks.txt"
+REPAIR_SELECTION_SOURCE_FILES = {
+    REPAIR_SELECTION_COPY_FILENAME: "repair_manifest.json",
+    REPAIR_SELECTION_TASK_COPY_FILENAME: "repair_tasks.txt",
+    REPAIR_SELECTION_MISSING_ERROR_COPY_FILENAME: "repair_missing_or_errored_tasks.txt",
+    REPAIR_SELECTION_STRICT_INVALID_PASS_COPY_FILENAME: "repair_strict_invalid_pass_tasks.txt",
+}
 REPAIR_ATTESTATION_COPY_FILENAME = "qwen_repair_attestation.json"
 MAX_SEQUENCE_TOKENS = 262_144
 MAX_METADATA_BYTES = 16 * 1024 * 1024
@@ -151,12 +161,24 @@ class ExportBundle:
     taskset_id: str
     dataset_revision: str
     input_traces: int
+    approved_tasks: int
     routing_epoch: int | None
     declared_counts: Mapping[str, Any]
+    exclusion: ExclusionBinding | None
 
     @property
     def tasks(self) -> frozenset[str]:
         return self.train_tasks | self.validation_tasks
+
+
+@dataclass(frozen=True, slots=True)
+class ExclusionBinding:
+    manifest: FileArtifact
+    artifacts: Mapping[str, FileArtifact]
+    approved_task_count: int
+    missing_or_errored_count: int
+    strict_invalid_pass_count: int
+    union_count: int
 
 
 @dataclass(frozen=True, slots=True)
@@ -185,11 +207,20 @@ class RepairSelection:
     artifact: FileArtifact
     task_count: int
     task_file_sha256: str
+    repair_union_indices_sha256: str
+    missing_or_errored_count: int
+    strict_invalid_pass_count: int
+    union_slugs: frozenset[str]
+    missing_or_errored_slugs: frozenset[str]
+    strict_invalid_pass_slugs: frozenset[str]
+    selection_artifacts: Mapping[str, FileArtifact]
+    selection_paths: Mapping[str, Path]
     source_artifacts: Mapping[str, FileArtifact]
     source_task_count: int
     source_routing_epoch: int
     repair_config_sha256: str
     materializer_sha256: str
+    exporter_sha256: str
     repository_revision: str
     submodules: Mapping[str, str]
 
@@ -204,6 +235,9 @@ class RepairAttestation:
     dataset_revision: str
     repository_revision: str
     submodules: Mapping[str, str]
+    missing_or_errored_count: int
+    strict_invalid_pass_count: int
+    repair_union_indices_sha256: str
 
 
 @dataclass(frozen=True, slots=True)
@@ -434,6 +468,10 @@ def _split_for_task(task_id: str, contract: SplitContract) -> str:
     return "validation" if bucket < contract.validation_permyriad else "train"
 
 
+def _task_identity_sha256(taskset_id: str, dataset_revision: str, slug: str) -> str:
+    return hashlib.sha256(f"{taskset_id}\0{dataset_revision}\0{slug}".encode("utf-8")).hexdigest()
+
+
 def _load_export(path: Path, role: str) -> ExportBundle:
     root = _canonical_directory(path, f"{role}_export_invalid")
     manifest_body, manifest_artifact = _read_regular(
@@ -455,6 +493,8 @@ def _load_export(path: Path, role: str) -> ExportBundle:
     }
     if role == "original":
         expected_manifest_keys.add("routing_epochs")
+        if "exclusion_selection" in manifest:
+            expected_manifest_keys.add("exclusion_selection")
     if set(manifest) != expected_manifest_keys:
         raise MergeError(f"{role}_manifest_contract_invalid")
     exporter = manifest.get("exporter")
@@ -564,8 +604,74 @@ def _load_export(path: Path, role: str) -> ExportBundle:
     if not set(SELECTION_SOURCE_ARTIFACTS.values()).issubset(source_artifacts):
         raise MergeError(f"{role}_manifest_source_artifacts_invalid")
     input_traces = counts.get("input_traces")
-    if not _is_plain_int(input_traces) or input_traces < len(train_tasks | validation_tasks):
+    approved_tasks = counts.get("approved_tasks", input_traces)
+    if (
+        not _is_plain_int(input_traces)
+        or input_traces < len(train_tasks | validation_tasks)
+        or not _is_plain_int(approved_tasks)
+        or approved_tasks < input_traces
+        or (role == "repair" and approved_tasks != input_traces)
+    ):
         raise MergeError(f"{role}_manifest_counts_invalid")
+    exclusion: ExclusionBinding | None = None
+    if "exclusion_selection" in manifest:
+        value = manifest["exclusion_selection"]
+        artifact_values = value.get("artifacts") if isinstance(value, dict) else None
+        if (
+            not isinstance(value, dict)
+            or set(value)
+            != {
+                "approved_task_count",
+                "artifacts",
+                "manifest",
+                "missing_or_errored_count",
+                "strict_invalid_pass_count",
+                "union_count",
+            }
+            or not isinstance(artifact_values, dict)
+            or set(artifact_values) != {"missing_or_errored_task_file", "strict_invalid_pass_task_file", "task_file"}
+        ):
+            raise MergeError(f"{role}_exclusion_contract_invalid")
+        manifest_binding = _artifact_record(value.get("manifest"), f"{role}_exclusion_contract_invalid")
+        exclusion_artifacts = {
+            name: _artifact_record(record, f"{role}_exclusion_contract_invalid")
+            for name, record in artifact_values.items()
+        }
+        count_values = {
+            name: value.get(name)
+            for name in (
+                "approved_task_count",
+                "missing_or_errored_count",
+                "strict_invalid_pass_count",
+                "union_count",
+            )
+        }
+        missing_tasks = counts.get("exclusion_missing_tasks")
+        excluded_present = counts.get("exclusion_selected_traces")
+        if (
+            any(not _is_plain_int(item) or item < 0 for item in count_values.values())
+            or "approved_tasks" not in counts
+            or count_values["approved_task_count"] != approved_tasks
+            or count_values["missing_or_errored_count"] + count_values["strict_invalid_pass_count"]
+            != count_values["union_count"]
+            or counts.get("exclusion_missing_or_errored_tasks") != count_values["missing_or_errored_count"]
+            or counts.get("exclusion_strict_invalid_pass_tasks") != count_values["strict_invalid_pass_count"]
+            or not _is_plain_int(missing_tasks)
+            or missing_tasks < 0
+            or not _is_plain_int(excluded_present)
+            or excluded_present < 0
+            or input_traces + missing_tasks != approved_tasks
+            or excluded_present + missing_tasks != count_values["union_count"]
+        ):
+            raise MergeError(f"{role}_exclusion_contract_invalid")
+        exclusion = ExclusionBinding(
+            manifest=manifest_binding,
+            artifacts=exclusion_artifacts,
+            approved_task_count=count_values["approved_task_count"],
+            missing_or_errored_count=count_values["missing_or_errored_count"],
+            strict_invalid_pass_count=count_values["strict_invalid_pass_count"],
+            union_count=count_values["union_count"],
+        )
     routing_epoch: int | None = None
     if role == "original":
         routing = manifest.get("routing_epochs")
@@ -596,8 +702,10 @@ def _load_export(path: Path, role: str) -> ExportBundle:
         taskset_id=config["taskset_id"],
         dataset_revision=config["dataset_revision"],
         input_traces=input_traces,
+        approved_tasks=approved_tasks,
         routing_epoch=routing_epoch,
         declared_counts=counts,
+        exclusion=exclusion,
     )
 
 
@@ -871,10 +979,29 @@ def _selection_artifact_record(value: object) -> FileArtifact:
     return FileArtifact(bytes=size, sha256=digest)
 
 
+def _selection_slugs(body: bytes, *, allow_empty: bool) -> tuple[str, ...]:
+    if body and not body.endswith(b"\n"):
+        raise MergeError("repair_selection_contract_invalid")
+    try:
+        values = body.decode("utf-8").splitlines()
+    except UnicodeDecodeError as error:
+        raise MergeError("repair_selection_contract_invalid") from error
+    if any(not value or value.strip() != value or "\t" in value or "\x00" in value for value in values):
+        raise MergeError("repair_selection_contract_invalid")
+    if len(values) != len(set(values)) or (not allow_empty and not values):
+        raise MergeError("repair_selection_contract_invalid")
+    return tuple(values)
+
+
 def _load_repair_selection(path: Path, expected_sha256: str) -> RepairSelection:
     if SHA256_PATTERN.fullmatch(expected_sha256) is None:
         raise MergeError("repair_selection_digest_invalid")
-    body, artifact = _read_regular(path, "repair_selection_invalid", limit=MAX_METADATA_BYTES)
+    body, artifact = _read_regular(
+        path,
+        "repair_selection_invalid",
+        limit=MAX_METADATA_BYTES,
+        required_mode=0o600,
+    )
     if artifact.sha256 != expected_sha256:
         raise MergeError("repair_selection_digest_mismatch")
     manifest = _parse_json_object(body, "repair_selection_invalid")
@@ -888,7 +1015,7 @@ def _load_repair_selection(path: Path, expected_sha256: str) -> RepairSelection:
         set(manifest) != {"approval", "code", "config", "kind", "planner", "schema_version", "selection", "source"}
         or manifest.get("kind") != REPAIR_SELECTION_KIND
         or not _is_plain_int(manifest.get("schema_version"))
-        or manifest["schema_version"] != 1
+        or manifest["schema_version"] != 2
         or not isinstance(approval, dict)
         or set(approval) != {"approved_task_count", "approved_task_file_sha256"}
         or not _is_plain_int(approval.get("approved_task_count"))
@@ -896,7 +1023,9 @@ def _load_repair_selection(path: Path, expected_sha256: str) -> RepairSelection:
         or not isinstance(approval.get("approved_task_file_sha256"), str)
         or SHA256_PATTERN.fullmatch(approval["approved_task_file_sha256"]) is None
         or not isinstance(code, dict)
-        or set(code) != {"materializer_sha256", "repository_revision", "submodules"}
+        or set(code) != {"exporter_sha256", "materializer_sha256", "repository_revision", "submodules"}
+        or not isinstance(code.get("exporter_sha256"), str)
+        or SHA256_PATTERN.fullmatch(code["exporter_sha256"]) is None
         or not isinstance(code.get("materializer_sha256"), str)
         or SHA256_PATTERN.fullmatch(code["materializer_sha256"]) is None
         or not isinstance(code.get("repository_revision"), str)
@@ -934,11 +1063,38 @@ def _load_repair_selection(path: Path, expected_sha256: str) -> RepairSelection:
             for name in ("retry_policy_sha256", "sha256", "template_sha256")
         )
         or not isinstance(selection, dict)
-        or set(selection) != {"approved_repair_count", "task_file_sha256"}
+        or set(selection)
+        != {
+            "approved_repair_count",
+            "missing_or_errored_count",
+            "missing_or_errored_indices_sha256",
+            "missing_or_errored_task_file_sha256",
+            "repair_union_indices_sha256",
+            "strict_invalid_pass_count",
+            "strict_invalid_pass_indices_sha256",
+            "strict_invalid_pass_task_file_sha256",
+            "task_file_sha256",
+        }
         or not _is_plain_int(selection.get("approved_repair_count"))
         or selection["approved_repair_count"] < 1
+        or not _is_plain_int(selection.get("missing_or_errored_count"))
+        or selection["missing_or_errored_count"] < 0
+        or not _is_plain_int(selection.get("strict_invalid_pass_count"))
+        or selection["strict_invalid_pass_count"] < 0
+        or selection["missing_or_errored_count"] + selection["strict_invalid_pass_count"]
+        != selection["approved_repair_count"]
         or not isinstance(selection.get("task_file_sha256"), str)
         or SHA256_PATTERN.fullmatch(selection["task_file_sha256"]) is None
+        or any(
+            not isinstance(selection.get(name), str) or SHA256_PATTERN.fullmatch(selection[name]) is None
+            for name in (
+                "missing_or_errored_indices_sha256",
+                "missing_or_errored_task_file_sha256",
+                "repair_union_indices_sha256",
+                "strict_invalid_pass_indices_sha256",
+                "strict_invalid_pass_task_file_sha256",
+            )
+        )
         or not isinstance(planner, dict)
         or set(planner)
         != {
@@ -952,7 +1108,7 @@ def _load_repair_selection(path: Path, expected_sha256: str) -> RepairSelection:
         or not _is_plain_int(planner.get("approved_task_count"))
         or not _is_plain_int(planner.get("missing_or_errored_count"))
         or not _is_plain_int(planner.get("retained_count"))
-        or planner["missing_or_errored_count"] != selection["approved_repair_count"]
+        or planner["missing_or_errored_count"] != selection["missing_or_errored_count"]
         or not isinstance(planner.get("contract_verifiers_revision"), str)
         or GIT_SHA_PATTERN.fullmatch(planner["contract_verifiers_revision"]) is None
         or not isinstance(planner.get("module_sha256"), str)
@@ -978,15 +1134,61 @@ def _load_repair_selection(path: Path, expected_sha256: str) -> RepairSelection:
     }
     if source_artifacts["inputs/task_file.txt"].sha256 != approval["approved_task_file_sha256"]:
         raise MergeError("repair_selection_contract_invalid")
+    selection_paths = {
+        copy_name: (path if copy_name == REPAIR_SELECTION_COPY_FILENAME else path.parent / source_name)
+        for copy_name, source_name in REPAIR_SELECTION_SOURCE_FILES.items()
+    }
+    selection_artifacts: dict[str, FileArtifact] = {REPAIR_SELECTION_COPY_FILENAME: artifact}
+    selection_bodies: dict[str, bytes] = {REPAIR_SELECTION_COPY_FILENAME: body}
+    for copy_name, source_path in selection_paths.items():
+        if copy_name == REPAIR_SELECTION_COPY_FILENAME:
+            continue
+        selected_body, selected_artifact = _read_regular(
+            source_path,
+            "repair_selection_invalid",
+            limit=MAX_METADATA_BYTES,
+            required_mode=0o600,
+        )
+        selection_bodies[copy_name] = selected_body
+        selection_artifacts[copy_name] = selected_artifact
+    union_slugs = frozenset(_selection_slugs(selection_bodies[REPAIR_SELECTION_TASK_COPY_FILENAME], allow_empty=False))
+    missing_slugs = frozenset(
+        _selection_slugs(selection_bodies[REPAIR_SELECTION_MISSING_ERROR_COPY_FILENAME], allow_empty=True)
+    )
+    strict_slugs = frozenset(
+        _selection_slugs(selection_bodies[REPAIR_SELECTION_STRICT_INVALID_PASS_COPY_FILENAME], allow_empty=True)
+    )
+    if (
+        len(union_slugs) != selection["approved_repair_count"]
+        or len(missing_slugs) != selection["missing_or_errored_count"]
+        or len(strict_slugs) != selection["strict_invalid_pass_count"]
+        or missing_slugs & strict_slugs
+        or union_slugs != missing_slugs | strict_slugs
+        or selection_artifacts[REPAIR_SELECTION_TASK_COPY_FILENAME].sha256 != selection["task_file_sha256"]
+        or selection_artifacts[REPAIR_SELECTION_MISSING_ERROR_COPY_FILENAME].sha256
+        != selection["missing_or_errored_task_file_sha256"]
+        or selection_artifacts[REPAIR_SELECTION_STRICT_INVALID_PASS_COPY_FILENAME].sha256
+        != selection["strict_invalid_pass_task_file_sha256"]
+    ):
+        raise MergeError("repair_selection_contract_invalid")
     return RepairSelection(
         artifact=artifact,
         task_count=selection["approved_repair_count"],
         task_file_sha256=selection["task_file_sha256"],
+        repair_union_indices_sha256=selection["repair_union_indices_sha256"],
+        missing_or_errored_count=selection["missing_or_errored_count"],
+        strict_invalid_pass_count=selection["strict_invalid_pass_count"],
+        union_slugs=union_slugs,
+        missing_or_errored_slugs=missing_slugs,
+        strict_invalid_pass_slugs=strict_slugs,
+        selection_artifacts=selection_artifacts,
+        selection_paths=selection_paths,
         source_artifacts=source_artifacts,
         source_task_count=source["task_count"],
         source_routing_epoch=source["routing_epoch"],
         repair_config_sha256=config["sha256"],
         materializer_sha256=code["materializer_sha256"],
+        exporter_sha256=code["exporter_sha256"],
         repository_revision=code["repository_revision"],
         submodules={name: code["submodules"][name] for name in sorted(code["submodules"])},
     )
@@ -1014,6 +1216,7 @@ def _load_repair_attestation(
         "kind",
         "repair_selection_manifest_sha256",
         "routing",
+        "selection",
         "schema_version",
         "source_artifacts",
     }:
@@ -1022,10 +1225,11 @@ def _load_repair_attestation(
     routing = manifest.get("routing")
     corpus = manifest.get("corpus")
     code = manifest.get("code")
+    selection = manifest.get("selection")
     if (
         manifest.get("kind") != REPAIR_ATTESTATION_KIND
         or not _is_plain_int(manifest.get("schema_version"))
-        or manifest["schema_version"] != 1
+        or manifest["schema_version"] != REPAIR_ATTESTATION_SCHEMA_VERSION
         or manifest.get("repair_selection_manifest_sha256") != repair_selection_sha256
         or not isinstance(source_values, dict)
         or set(source_values) != set(ATTESTED_SOURCE_ARTIFACTS)
@@ -1070,6 +1274,28 @@ def _load_repair_attestation(
             not isinstance(revision, str) or GIT_SHA_PATTERN.fullmatch(revision) is None
             for revision in code["submodules"].values()
         )
+        or not isinstance(selection, dict)
+        or set(selection)
+        != {
+            "missing_or_errored_count",
+            "strict_invalid_pass_count",
+            "union_count",
+            "union_indices_sha256",
+            "union_task_file_sha256",
+        }
+        or not _is_plain_int(selection.get("missing_or_errored_count"))
+        or selection["missing_or_errored_count"] < 0
+        or not _is_plain_int(selection.get("strict_invalid_pass_count"))
+        or selection["strict_invalid_pass_count"] < 0
+        or not _is_plain_int(selection.get("union_count"))
+        or selection["union_count"] < 1
+        or selection["missing_or_errored_count"] + selection["strict_invalid_pass_count"] != selection["union_count"]
+        or selection["union_count"] != corpus.get("task_count")
+        or not isinstance(selection.get("union_indices_sha256"), str)
+        or SHA256_PATTERN.fullmatch(selection["union_indices_sha256"]) is None
+        or not isinstance(selection.get("union_task_file_sha256"), str)
+        or SHA256_PATTERN.fullmatch(selection["union_task_file_sha256"]) is None
+        or selection["union_task_file_sha256"] != corpus.get("task_file_sha256")
     ):
         raise MergeError("repair_attestation_contract_invalid")
     source_artifacts = {
@@ -1087,6 +1313,9 @@ def _load_repair_attestation(
         dataset_revision=corpus["dataset_revision"],
         repository_revision=code["repository_revision"],
         submodules={name: code["submodules"][name] for name in sorted(code["submodules"])},
+        missing_or_errored_count=selection["missing_or_errored_count"],
+        strict_invalid_pass_count=selection["strict_invalid_pass_count"],
+        repair_union_indices_sha256=selection["union_indices_sha256"],
     )
 
 
@@ -1280,8 +1509,7 @@ def _counts(stats: BundleStats) -> dict[str, int]:
 
 def _validate_sources_unchanged(
     bundles: tuple[ExportBundle, ExportBundle],
-    repair_selection_path: Path,
-    repair_selection_artifact: FileArtifact,
+    repair_selection: RepairSelection,
     repair_attestation_path: Path,
     repair_attestation_artifact: FileArtifact,
     repair_root: Path,
@@ -1292,8 +1520,12 @@ def _validate_sources_unchanged(
         for name, expected in bundle.artifacts.items():
             if _fingerprint_regular(bundle.root / ARTIFACT_PATHS[name], "source_changed") != expected:
                 raise MergeError("source_changed")
-    if _fingerprint_regular(repair_selection_path, "source_changed") != repair_selection_artifact:
-        raise MergeError("source_changed")
+    for name, path in repair_selection.selection_paths.items():
+        if (
+            _fingerprint_regular(path, "source_changed", required_mode=0o600)
+            != repair_selection.selection_artifacts[name]
+        ):
+            raise MergeError("source_changed")
     if (
         _fingerprint_regular(
             repair_attestation_path,
@@ -1304,7 +1536,7 @@ def _validate_sources_unchanged(
     ):
         raise MergeError("source_changed")
     bundled_sidecars = {
-        REPAIR_SELECTION_COPY_FILENAME: repair_selection_artifact,
+        **repair_selection.selection_artifacts,
         REPAIR_ATTESTATION_COPY_FILENAME: repair_attestation_artifact,
     }
     for name, expected in bundled_sidecars.items():
@@ -1356,11 +1588,39 @@ def merge_qwen_sft(
         options.repair_selection_manifest_sha256,
     )
     if (
-        selection.source_task_count != original.input_traces
+        selection.source_task_count != original.approved_tasks
         or selection.source_routing_epoch != original.routing_epoch
         or any(original.source_artifacts.get(name) != artifact for name, artifact in selection.source_artifacts.items())
     ):
         raise MergeError("repair_selection_original_mismatch")
+    expected_exclusion_artifacts = {
+        "task_file": selection.selection_artifacts[REPAIR_SELECTION_TASK_COPY_FILENAME],
+        "missing_or_errored_task_file": selection.selection_artifacts[REPAIR_SELECTION_MISSING_ERROR_COPY_FILENAME],
+        "strict_invalid_pass_task_file": selection.selection_artifacts[
+            REPAIR_SELECTION_STRICT_INVALID_PASS_COPY_FILENAME
+        ],
+    }
+    if (
+        original.exclusion is None
+        or original.exclusion.manifest != selection.artifact
+        or original.exclusion.artifacts != expected_exclusion_artifacts
+        or original.exclusion.approved_task_count != selection.source_task_count
+        or original.exclusion.missing_or_errored_count != selection.missing_or_errored_count
+        or original.exclusion.strict_invalid_pass_count != selection.strict_invalid_pass_count
+        or original.exclusion.union_count != selection.task_count
+    ):
+        raise MergeError("original_exclusion_selection_mismatch")
+    union_task_ids = frozenset(
+        _task_identity_sha256(original.taskset_id, original.dataset_revision, slug) for slug in selection.union_slugs
+    )
+    strict_invalid_pass_task_ids = frozenset(
+        _task_identity_sha256(original.taskset_id, original.dataset_revision, slug)
+        for slug in selection.strict_invalid_pass_slugs
+    )
+    if original.tasks & union_task_ids:
+        raise MergeError("original_excluded_task_retained")
+    if not strict_invalid_pass_task_ids.issubset(repair.tasks):
+        raise MergeError("strict_invalid_pass_not_replaced")
     attestation_path = options.repair_attestation_manifest
     if not attestation_path.is_absolute():
         attestation_path = Path.cwd() / attestation_path
@@ -1370,17 +1630,20 @@ def merge_qwen_sft(
         options.repair_attestation_manifest_sha256,
         selection.artifact.sha256,
     )
-    bundled_selection = _fingerprint_regular(
-        repair.root / REPAIR_SELECTION_COPY_FILENAME,
-        "repair_selection_copy_invalid",
-        required_mode=0o600,
-    )
+    bundled_selection = {
+        name: _fingerprint_regular(
+            repair.root / name,
+            "repair_selection_copy_invalid",
+            required_mode=0o600,
+        )
+        for name in selection.selection_artifacts
+    }
     bundled_attestation = _fingerprint_regular(
         repair.root / REPAIR_ATTESTATION_COPY_FILENAME,
         "repair_attestation_copy_invalid",
         required_mode=0o600,
     )
-    if bundled_selection != selection.artifact:
+    if bundled_selection != selection.selection_artifacts:
         raise MergeError("repair_selection_copy_mismatch")
     if bundled_attestation != attestation.artifact:
         raise MergeError("repair_attestation_copy_mismatch")
@@ -1392,6 +1655,9 @@ def merge_qwen_sft(
         or repair_config_artifact.sha256 != selection.repair_config_sha256
         or attestation.task_count != repair.input_traces
         or attestation.task_file_sha256 != selection.task_file_sha256
+        or attestation.missing_or_errored_count != selection.missing_or_errored_count
+        or attestation.strict_invalid_pass_count != selection.strict_invalid_pass_count
+        or attestation.repair_union_indices_sha256 != selection.repair_union_indices_sha256
         or (attestation.taskset_id, attestation.dataset_revision) != (repair.taskset_id, repair.dataset_revision)
         or any(repair.source_artifacts.get(name) != artifact for name, artifact in attestation.source_artifacts.items())
     ):
@@ -1408,6 +1674,7 @@ def merge_qwen_sft(
         raise MergeError("exporter_code_mismatch")
     if (
         selection.materializer_sha256 != code["materializer_sha256"]
+        or selection.exporter_sha256 != code["exporter_sha256"]
         or selection.repository_revision != code["repository_revision"]
         or selection.submodules != code["submodules"]
         or attestation.repository_revision != code["repository_revision"]
@@ -1499,7 +1766,7 @@ def merge_qwen_sft(
                 "repair_attestation_manifest": attestation.artifact.as_dict(),
                 "repair_bundle_sidecars": {
                     REPAIR_ATTESTATION_COPY_FILENAME: bundled_attestation.as_dict(),
-                    REPAIR_SELECTION_COPY_FILENAME: bundled_selection.as_dict(),
+                    **{name: artifact.as_dict() for name, artifact in sorted(bundled_selection.items())},
                 },
                 "repair_selection_manifest": selection.artifact.as_dict(),
             },
@@ -1513,8 +1780,7 @@ def merge_qwen_sft(
 
         _validate_sources_unchanged(
             (original, repair),
-            selection_path,
-            selection.artifact,
+            selection,
             attestation_path,
             attestation.artifact,
             repair.root,

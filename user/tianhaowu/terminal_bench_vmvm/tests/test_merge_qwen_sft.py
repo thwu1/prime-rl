@@ -12,6 +12,7 @@ from merge_qwen_sft import (
     LOSS_MASK,
     MAX_SEQUENCE_TOKENS,
     REPAIR_ATTESTATION_COPY_FILENAME,
+    REPAIR_ATTESTATION_SCHEMA_VERSION,
     REPAIR_SELECTION_COPY_FILENAME,
     REPAIR_SELECTION_KIND,
     REQUIRED_SUBMODULES,
@@ -232,20 +233,58 @@ def _replace_export_artifact(root: Path, relative: str, body: bytes) -> None:
     manifest_path.write_bytes(_json_bytes(manifest))
 
 
-def _write_repair_selection(path: Path, original_export: Path, repair_export: Path) -> str:
+def _write_repair_selection(
+    path: Path,
+    original_export: Path,
+    repair_export: Path,
+    *,
+    strict_slugs: list[str] | None = None,
+) -> str:
     original_manifest_path = original_export / "manifest.json"
     original_manifest = json.loads(original_manifest_path.read_text())
     repair_manifest = json.loads((repair_export / "manifest.json").read_text())
     repair_task_count = repair_manifest["counts"]["input_traces"]
+    repair_task_ids = sorted(
+        json.loads((repair_export / "task-split.json").read_text())["train_task_sha256"]
+        + json.loads((repair_export / "task-split.json").read_text())["validation_task_sha256"]
+    )
+    if strict_slugs is None:
+        repair_task_ids.extend(
+            f"opaque-unselected-{index:04d}" for index in range(repair_task_count - len(repair_task_ids))
+        )
+        missing_slugs = repair_task_ids
+        strict_slugs = []
+    else:
+        assert len(strict_slugs) <= repair_task_count
+        missing_slugs = [f"opaque-unselected-{index:04d}" for index in range(repair_task_count - len(strict_slugs))]
+    union_slugs = sorted([*missing_slugs, *strict_slugs])
+    union_body = "".join(f"{slug}\n" for slug in union_slugs).encode()
+    missing_body = "".join(f"{slug}\n" for slug in sorted(missing_slugs)).encode()
+    strict_body = "".join(f"{slug}\n" for slug in sorted(strict_slugs)).encode()
+    for filename, file_body in (
+        ("repair_tasks.txt", union_body),
+        ("repair_missing_or_errored_tasks.txt", missing_body),
+        ("repair_strict_invalid_pass_tasks.txt", strict_body),
+    ):
+        selected_path = path.parent / filename
+        selected_path.write_bytes(file_body)
+        selected_path.chmod(0o600)
     original_selected_count = original_manifest["counts"]["selected_traces"]
     source_task_count = original_selected_count + repair_task_count
     original_manifest["counts"]["input_traces"] = source_task_count
+    original_manifest["counts"]["approved_tasks"] = source_task_count
+    original_manifest["counts"]["exclusion_missing_tasks"] = 0
+    original_manifest["counts"]["exclusion_missing_or_errored_tasks"] = len(missing_slugs)
+    original_manifest["counts"]["exclusion_selected_traces"] = repair_task_count
+    original_manifest["counts"]["exclusion_strict_invalid_pass_tasks"] = len(strict_slugs)
     original_manifest["routing_epochs"] = {
         "current_epoch": 3,
         "input_traces": {"1": 0, "2": 0, "3": source_task_count},
     }
     original_manifest_path.write_bytes(_json_bytes(original_manifest))
-    task_file_sha256 = repair_manifest["source_artifacts"]["inputs/task_file.txt"]["sha256"]
+    task_file_sha256 = _sha256(union_body)
+    repair_manifest["source_artifacts"]["inputs/task_file.txt"]["sha256"] = task_file_sha256
+    (repair_export / "manifest.json").write_bytes(_json_bytes(repair_manifest))
     selection_source_artifacts = {
         "config": "config.toml",
         "direct_workers": "direct_workers.json",
@@ -263,6 +302,7 @@ def _write_repair_selection(path: Path, original_export: Path, repair_export: Pa
                 "approved_task_file_sha256": original_manifest["source_artifacts"]["inputs/task_file.txt"]["sha256"],
             },
             "code": {
+                "exporter_sha256": "e" * 64,
                 "materializer_sha256": "b" * 64,
                 "repository_revision": "c" * 40,
                 "submodules": {name: "d" * 40 for name in REQUIRED_SUBMODULES},
@@ -283,14 +323,21 @@ def _write_repair_selection(path: Path, original_export: Path, repair_export: Pa
             "planner": {
                 "approved_task_count": source_task_count,
                 "contract_verifiers_revision": "1" * 40,
-                "missing_or_errored_count": repair_task_count,
+                "missing_or_errored_count": len(missing_slugs),
                 "module_sha256": "2" * 64,
-                "retained_count": original_selected_count,
+                "retained_count": source_task_count - len(missing_slugs),
                 "task_index_order_sha256": "3" * 64,
             },
-            "schema_version": 1,
+            "schema_version": 2,
             "selection": {
                 "approved_repair_count": repair_task_count,
+                "missing_or_errored_count": len(missing_slugs),
+                "missing_or_errored_indices_sha256": "4" * 64,
+                "missing_or_errored_task_file_sha256": _sha256(missing_body),
+                "repair_union_indices_sha256": "5" * 64,
+                "strict_invalid_pass_count": len(strict_slugs),
+                "strict_invalid_pass_indices_sha256": _sha256(b""),
+                "strict_invalid_pass_task_file_sha256": _sha256(strict_body),
                 "task_file_sha256": task_file_sha256,
             },
             "source": {
@@ -307,10 +354,36 @@ def _write_repair_selection(path: Path, original_export: Path, repair_export: Pa
         }
     )
     path.write_bytes(body)
+    path.chmod(0o600)
+    original_manifest = json.loads(original_manifest_path.read_text())
+    original_manifest["exclusion_selection"] = {
+        "approved_task_count": source_task_count,
+        "artifacts": {
+            "task_file": {"bytes": len(union_body), "sha256": _sha256(union_body)},
+            "missing_or_errored_task_file": {
+                "bytes": len(missing_body),
+                "sha256": _sha256(missing_body),
+            },
+            "strict_invalid_pass_task_file": {
+                "bytes": len(strict_body),
+                "sha256": _sha256(strict_body),
+            },
+        },
+        "manifest": {"bytes": len(body), "sha256": _sha256(body)},
+        "missing_or_errored_count": len(missing_slugs),
+        "strict_invalid_pass_count": len(strict_slugs),
+        "union_count": repair_task_count,
+    }
+    original_manifest_path.write_bytes(_json_bytes(original_manifest))
     return _sha256(body)
 
 
-def _write_repair_attestation(path: Path, repair_export: Path, selection_sha256: str) -> str:
+def _write_repair_attestation(
+    path: Path,
+    repair_export: Path,
+    selection_path: Path,
+    selection_sha256: str,
+) -> str:
     repair_manifest = json.loads((repair_export / "manifest.json").read_text())
     source_artifacts = repair_manifest["source_artifacts"]
     attested_names = (
@@ -321,6 +394,8 @@ def _write_repair_attestation(path: Path, repair_export: Path, selection_sha256:
         "direct_workers.json",
     )
     config = repair_manifest["config"]
+    selection_manifest = json.loads(selection_path.read_text())
+    selection_counts = selection_manifest["selection"]
     body = _json_bytes(
         {
             "code": {
@@ -343,7 +418,14 @@ def _write_repair_attestation(path: Path, repair_export: Path, selection_sha256:
                 "router_policy": "consistent_hash",
                 "routing_epoch": 1,
             },
-            "schema_version": 1,
+            "schema_version": REPAIR_ATTESTATION_SCHEMA_VERSION,
+            "selection": {
+                "missing_or_errored_count": selection_counts["missing_or_errored_count"],
+                "strict_invalid_pass_count": selection_counts["strict_invalid_pass_count"],
+                "union_count": repair_manifest["counts"]["input_traces"],
+                "union_indices_sha256": selection_counts["repair_union_indices_sha256"],
+                "union_task_file_sha256": source_artifacts["inputs/task_file.txt"]["sha256"],
+            },
             "source_artifacts": {name: source_artifacts[name] for name in attested_names},
         }
     )
@@ -370,10 +452,17 @@ def _options(
     output: Path,
 ) -> MergeOptions:
     attestation = selection.with_name(f"{selection.stem}-attestation.json")
-    attestation_sha256 = _write_repair_attestation(attestation, repair, selection_sha256)
-    selection_copy = repair / REPAIR_SELECTION_COPY_FILENAME
-    selection_copy.write_bytes(selection.read_bytes())
-    selection_copy.chmod(0o600)
+    attestation_sha256 = _write_repair_attestation(attestation, repair, selection, selection_sha256)
+    source_names = {
+        REPAIR_SELECTION_COPY_FILENAME: selection.name,
+        "repair_selection_tasks.txt": "repair_tasks.txt",
+        "repair_selection_missing_or_errored_tasks.txt": "repair_missing_or_errored_tasks.txt",
+        "repair_selection_strict_invalid_pass_tasks.txt": "repair_strict_invalid_pass_tasks.txt",
+    }
+    for copy_name, source_name in source_names.items():
+        selection_copy = repair / copy_name
+        selection_copy.write_bytes((selection.parent / source_name).read_bytes())
+        selection_copy.chmod(0o600)
     attestation_copy = repair / REPAIR_ATTESTATION_COPY_FILENAME
     attestation_copy.write_bytes(attestation.read_bytes())
     attestation_copy.chmod(0o600)
@@ -529,13 +618,99 @@ def test_repair_pass_only_export_may_be_smaller_than_selected_run(tmp_path: Path
     assert summary["tasks"]["total"] == 2
 
 
+def test_original_exclusion_accounts_for_attested_missing_physical_row(tmp_path: Path) -> None:
+    original, repair, selection, selection_sha256, _task_ids = _fixture_exports(tmp_path)
+    manifest_path = original / "manifest.json"
+    manifest = json.loads(manifest_path.read_text())
+    manifest["counts"]["input_traces"] -= 1
+    manifest["counts"]["exclusion_missing_tasks"] = 1
+    manifest["counts"]["exclusion_selected_traces"] -= 1
+    manifest["routing_epochs"]["input_traces"]["3"] -= 1
+    manifest_path.write_bytes(_json_bytes(manifest))
+
+    summary = merge_qwen_sft(
+        _options(original, repair, selection, selection_sha256, tmp_path / "merged"),
+        code_provenance=_code_provenance(),
+    )
+
+    assert summary["tasks"]["total"] == 4
+
+
+def test_original_exclusion_rejects_inconsistent_missing_accounting(tmp_path: Path) -> None:
+    original, repair, selection, selection_sha256, _task_ids = _fixture_exports(tmp_path)
+    manifest_path = original / "manifest.json"
+    manifest = json.loads(manifest_path.read_text())
+    manifest["counts"]["exclusion_missing_tasks"] = 1
+    manifest_path.write_bytes(_json_bytes(manifest))
+
+    with pytest.raises(MergeError, match="^original_exclusion_contract_invalid$"):
+        merge_qwen_sft(
+            _options(original, repair, selection, selection_sha256, tmp_path / "merged"),
+            code_provenance=_code_provenance(),
+        )
+
+
+def test_strict_invalid_pass_requires_exact_repair_replacement(tmp_path: Path) -> None:
+    slug = "strict-invalid"
+    namespace = "synthetic-taskset"
+    revision = "7" * 40
+    replacement_id = _sha256(f"{namespace}\0{revision}\0{slug}".encode())
+    split = (
+        "validation"
+        if int.from_bytes(hashlib.sha256(f"unit-test-split\0{replacement_id}".encode()).digest()[:8], "big") % 10_000
+        < 500
+        else "train"
+    )
+    original = _write_export(
+        tmp_path / "original",
+        train_rows=[_row(_task_id("original"), "original")],
+        validation_rows=[],
+        routing_epoch=3,
+    )
+    repair = _write_export(
+        tmp_path / "repair",
+        train_rows=[_row(replacement_id, "replacement")] if split == "train" else [],
+        validation_rows=[_row(replacement_id, "replacement")] if split == "validation" else [],
+    )
+    selection = tmp_path / "selection.json"
+    digest = _write_repair_selection(selection, original, repair, strict_slugs=[slug])
+
+    summary = merge_qwen_sft(
+        _options(original, repair, selection, digest, tmp_path / "merged"),
+        code_provenance=_code_provenance(),
+    )
+    assert summary["tasks"]["total"] == 2
+
+
+def test_strict_invalid_pass_missing_repair_fails_closed(tmp_path: Path) -> None:
+    original = _write_export(
+        tmp_path / "original",
+        train_rows=[_row(_task_id("original"), "original")],
+        validation_rows=[],
+        routing_epoch=3,
+    )
+    repair = _write_export(
+        tmp_path / "repair",
+        train_rows=[_row(_task_id("different-repair"), "different-repair")],
+        validation_rows=[],
+    )
+    selection = tmp_path / "selection.json"
+    digest = _write_repair_selection(selection, original, repair, strict_slugs=["strict-invalid"])
+
+    with pytest.raises(MergeError, match="^strict_invalid_pass_not_replaced$"):
+        merge_qwen_sft(
+            _options(original, repair, selection, digest, tmp_path / "merged"),
+            code_provenance=_code_provenance(),
+        )
+
+
 def test_repair_selection_must_bind_repair_source_task_file(tmp_path: Path) -> None:
     original, repair, selection, _selection_sha256, _task_ids = _fixture_exports(tmp_path)
     value = json.loads(selection.read_text())
     value["selection"]["task_file_sha256"] = "0" * 64
     selection.write_bytes(_json_bytes(value))
 
-    with pytest.raises(MergeError, match="^repair_attestation_export_mismatch$"):
+    with pytest.raises(MergeError, match="^repair_selection_contract_invalid$"):
         merge_qwen_sft(
             _options(original, repair, selection, _sha256(selection.read_bytes()), tmp_path / "merged"),
             code_provenance=_code_provenance(),
@@ -921,7 +1096,7 @@ def test_selection_code_is_cross_bound_to_runtime(tmp_path: Path, field: str) ->
     selection.write_bytes(_json_bytes(manifest))
     digest = _sha256(selection.read_bytes())
 
-    with pytest.raises(MergeError, match="^repair_code_provenance_mismatch$"):
+    with pytest.raises(MergeError, match="^original_exclusion_selection_mismatch$"):
         merge_qwen_sft(
             _options(original, repair, selection, digest, tmp_path / "merged"),
             code_provenance=_code_provenance(),
@@ -962,7 +1137,7 @@ def test_selection_config_hash_is_bound_to_repair_source_config(tmp_path: Path) 
     selection.write_bytes(_json_bytes(manifest))
     digest = _sha256(selection.read_bytes())
 
-    with pytest.raises(MergeError, match="^repair_attestation_export_mismatch$"):
+    with pytest.raises(MergeError, match="^original_exclusion_selection_mismatch$"):
         merge_qwen_sft(
             _options(original, repair, selection, digest, tmp_path / "merged"),
             code_provenance=_code_provenance(),

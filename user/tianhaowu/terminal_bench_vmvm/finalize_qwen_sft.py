@@ -70,6 +70,8 @@ class FinalizeOptions:
     selection: Selection
     validation_permyriad: int
     split_salt: str
+    exclusion_selection_manifest: Path | None = None
+    expected_exclusion_selection_manifest_sha256: str | None = None
 
 
 @dataclass(frozen=True)
@@ -418,7 +420,13 @@ def _run_json_command(command: list[str], cwd: Path, code: str) -> dict[str, Any
     return _parse_json_object(completed.stdout, code)
 
 
-def _validate_label_summary(summary: Mapping[str, Any], index: Path, expected_count: int) -> dict[str, int]:
+def _validate_label_summary(
+    summary: Mapping[str, Any],
+    index: Path,
+    expected_count: int,
+    *,
+    allow_missing: bool = False,
+) -> dict[str, int]:
     expected_keys = {
         "ok",
         "results_sha256",
@@ -434,8 +442,8 @@ def _validate_label_summary(summary: Mapping[str, Any], index: Path, expected_co
     if (
         not all(_is_plain_int(value) and value >= 0 for value in counts.values())
         or not _is_plain_int(summary.get("rows"))
-        or summary["rows"] != expected_count
-        or sum(counts.values()) != expected_count
+        or (summary["rows"] > expected_count if allow_missing else summary["rows"] != expected_count)
+        or sum(counts.values()) != summary["rows"]
         or counts["epoch_3"] < 1
         or SHA256_PATTERN.fullmatch(str(summary.get("results_sha256"))) is None
         or SHA256_PATTERN.fullmatch(str(summary.get("index_sha256"))) is None
@@ -453,8 +461,10 @@ def _validate_export_summary(
     expected_count: int,
     selection: Selection,
     expected_index_sha256: str,
+    expected_exclusion_sha256: str | None = None,
 ) -> None:
     expected_keys = {
+        "approved_tasks",
         "excluded_error_traces",
         "input_traces",
         "output_sha256",
@@ -464,13 +474,50 @@ def _validate_export_summary(
         "selection",
         "status",
     }
+    if expected_exclusion_sha256 is not None:
+        expected_keys.add("exclusion")
     if set(summary) != expected_keys or summary.get("status") != "exported" or summary.get("selection") != selection:
         raise FinalizationError("sft_export_summary_invalid")
-    count_keys = ("excluded_error_traces", "input_traces", "selected_traces")
+    count_keys = ("approved_tasks", "excluded_error_traces", "input_traces", "selected_traces")
     if not all(_is_plain_int(summary.get(key)) and summary[key] >= 0 for key in count_keys):
         raise FinalizationError("sft_export_summary_invalid")
-    if summary["input_traces"] != expected_count or summary["selected_traces"] > expected_count:
+    if (
+        summary["approved_tasks"] != expected_count
+        or summary["input_traces"] > expected_count
+        or summary["selected_traces"] > expected_count
+        or (expected_exclusion_sha256 is None and summary["input_traces"] != expected_count)
+    ):
         raise FinalizationError("sft_export_summary_invalid")
+    if expected_exclusion_sha256 is not None:
+        exclusion = summary.get("exclusion")
+        if (
+            not isinstance(exclusion, dict)
+            or set(exclusion)
+            != {
+                "excluded_present_traces",
+                "missing_tasks",
+                "missing_or_errored_count",
+                "selection_manifest_sha256",
+                "strict_invalid_pass_count",
+                "union_count",
+            }
+            or any(
+                not _is_plain_int(exclusion.get(key)) or exclusion[key] < 0
+                for key in (
+                    "excluded_present_traces",
+                    "missing_tasks",
+                    "missing_or_errored_count",
+                    "strict_invalid_pass_count",
+                    "union_count",
+                )
+            )
+            or exclusion["selection_manifest_sha256"] != expected_exclusion_sha256
+            or exclusion["missing_or_errored_count"] + exclusion["strict_invalid_pass_count"]
+            != exclusion["union_count"]
+            or exclusion["excluded_present_traces"] + exclusion["missing_tasks"] != exclusion["union_count"]
+            or summary["input_traces"] + exclusion["missing_tasks"] != expected_count
+        ):
+            raise FinalizationError("sft_export_summary_invalid")
     rows = summary.get("rows")
     if (
         not isinstance(rows, dict)
@@ -519,6 +566,19 @@ def _validate_export_summary(
     routing_artifact = artifacts.get(INDEX_FILENAME) if isinstance(artifacts, dict) else None
     if routing_artifact != {"bytes": routing_index.stat().st_size, "sha256": routing_index_sha256}:
         raise FinalizationError("sft_output_digest_mismatch")
+    exclusion_manifest = manifest_value.get("exclusion_selection")
+    if expected_exclusion_sha256 is None:
+        if exclusion_manifest is not None:
+            raise FinalizationError("sft_output_exclusion_invalid")
+    elif (
+        not isinstance(exclusion_manifest, dict)
+        or exclusion_manifest.get("manifest", {}).get("sha256") != expected_exclusion_sha256
+        or exclusion_manifest.get("approved_task_count") != expected_count
+        or exclusion_manifest.get("union_count") != summary["exclusion"]["union_count"]
+        or exclusion_manifest.get("missing_or_errored_count") != summary["exclusion"]["missing_or_errored_count"]
+        or exclusion_manifest.get("strict_invalid_pass_count") != summary["exclusion"]["strict_invalid_pass_count"]
+    ):
+        raise FinalizationError("sft_output_exclusion_invalid")
 
 
 def _validate_options(options: FinalizeOptions) -> None:
@@ -532,6 +592,14 @@ def _validate_options(options: FinalizeOptions) -> None:
         raise FinalizationError("validation_permyriad_invalid")
     if not options.split_salt or "\x00" in options.split_salt:
         raise FinalizationError("split_salt_invalid")
+    if (options.exclusion_selection_manifest is None) != (options.expected_exclusion_selection_manifest_sha256 is None):
+        raise FinalizationError("exclusion_selection_arguments_invalid")
+    if options.exclusion_selection_manifest is not None and options.selection != "pass-only":
+        raise FinalizationError("exclusion_selection_arguments_invalid")
+    if options.expected_exclusion_selection_manifest_sha256 is not None and (
+        SHA256_PATTERN.fullmatch(options.expected_exclusion_selection_manifest_sha256) is None
+    ):
+        raise FinalizationError("exclusion_selection_digest_invalid")
 
 
 def finalize_qwen_sft(
@@ -547,6 +615,17 @@ def finalize_qwen_sft(
     paths = _resolve_paths(options)
     if paths.project_dir != project:
         raise FinalizationError("project_path_mismatch")
+    exclusion_path: Path | None = None
+    exclusion_sha256 = options.expected_exclusion_selection_manifest_sha256
+    if options.exclusion_selection_manifest is not None:
+        exclusion_path = _regular_file(
+            options.exclusion_selection_manifest,
+            "exclusion_selection_invalid",
+        )
+        if stat.S_IMODE(exclusion_path.stat().st_mode) != 0o600:
+            raise FinalizationError("exclusion_selection_invalid")
+        if _stable_sha256(exclusion_path, max_bytes=MAX_PROVENANCE_BYTES) != exclusion_sha256:
+            raise FinalizationError("exclusion_selection_digest_mismatch")
     _source_locks_available(paths.source_dir)
     source_auditor(
         paths.source_dir,
@@ -576,31 +655,48 @@ def finalize_qwen_sft(
             paths.project_dir,
             "routing_index_failed",
         )
-        epoch_input_rows = _validate_label_summary(label_summary, index, options.expected_count)
+        epoch_input_rows = _validate_label_summary(
+            label_summary,
+            index,
+            options.expected_count,
+            allow_missing=exclusion_path is not None,
+        )
         repository_validator(paths.project_dir, options.expected_project_revision)
         if _stable_sha256(paths.provenance, max_bytes=MAX_PROVENANCE_BYTES) != options.expected_provenance_sha256:
             raise FinalizationError("source_provenance_changed")
 
+        export_command = [
+            sys.executable,
+            str(workflow / "export_sft.py"),
+            str(paths.results),
+            "--output-dir",
+            str(staged_output),
+            "--selection",
+            options.selection,
+            "--expected-count",
+            str(options.expected_count),
+            "--validation-permyriad",
+            str(options.validation_permyriad),
+            "--split-salt",
+            options.split_salt,
+            "--max-sequence-tokens",
+            str(MAX_SEQUENCE_TOKENS),
+            "--routing-epoch-index",
+            str(index),
+        ]
+        if exclusion_path is not None:
+            if _stable_sha256(exclusion_path, max_bytes=MAX_PROVENANCE_BYTES) != exclusion_sha256:
+                raise FinalizationError("exclusion_selection_changed")
+            export_command.extend(
+                [
+                    "--exclusion-selection-manifest",
+                    str(exclusion_path),
+                    "--exclusion-selection-manifest-sha256",
+                    str(exclusion_sha256),
+                ]
+            )
         export_summary = command_runner(
-            [
-                sys.executable,
-                str(workflow / "export_sft.py"),
-                str(paths.results),
-                "--output-dir",
-                str(staged_output),
-                "--selection",
-                options.selection,
-                "--expected-count",
-                str(options.expected_count),
-                "--validation-permyriad",
-                str(options.validation_permyriad),
-                "--split-salt",
-                options.split_salt,
-                "--max-sequence-tokens",
-                str(MAX_SEQUENCE_TOKENS),
-                "--routing-epoch-index",
-                str(index),
-            ],
+            export_command,
             paths.project_dir,
             "sft_export_failed",
         )
@@ -610,13 +706,20 @@ def finalize_qwen_sft(
             options.expected_count,
             options.selection,
             label_summary["index_sha256"],
+            exclusion_sha256,
         )
         repository_validator(paths.project_dir, options.expected_project_revision)
         if _stable_sha256(paths.provenance, max_bytes=MAX_PROVENANCE_BYTES) != options.expected_provenance_sha256:
             raise FinalizationError("source_provenance_changed")
+        if exclusion_path is not None and (
+            _stable_sha256(exclusion_path, max_bytes=MAX_PROVENANCE_BYTES) != exclusion_sha256
+            or stat.S_IMODE(exclusion_path.stat().st_mode) != 0o600
+        ):
+            raise FinalizationError("exclusion_selection_changed")
         _publish_output(staged_output, paths.output_dir)
 
     return {
+        "approved_tasks": export_summary["approved_tasks"],
         "excluded_error_traces": export_summary["excluded_error_traces"],
         "input_traces": export_summary["input_traces"],
         "output_sha256": export_summary["output_sha256"],
@@ -626,6 +729,7 @@ def finalize_qwen_sft(
         "selected_traces": export_summary["selected_traces"],
         "selection": options.selection,
         "status": "finalized",
+        **({"exclusion": export_summary["exclusion"]} if "exclusion" in export_summary else {}),
     }
 
 
@@ -642,6 +746,8 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--selection", choices=("pass-only", "all-outcomes"), required=True)
     parser.add_argument("--validation-permyriad", type=int, required=True)
     parser.add_argument("--split-salt", required=True)
+    parser.add_argument("--exclusion-selection-manifest", type=Path)
+    parser.add_argument("--expected-exclusion-selection-manifest-sha256")
     return parser.parse_args(argv)
 
 
@@ -660,6 +766,8 @@ def main(argv: list[str] | None = None) -> int:
             selection=args.selection,
             validation_permyriad=args.validation_permyriad,
             split_salt=args.split_salt,
+            exclusion_selection_manifest=args.exclusion_selection_manifest,
+            expected_exclusion_selection_manifest_sha256=args.expected_exclusion_selection_manifest_sha256,
         )
         summary = finalize_qwen_sft(options)
     except FinalizationError as error:

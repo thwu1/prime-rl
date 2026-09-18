@@ -19,11 +19,14 @@ from pathlib import Path
 from typing import Any
 
 import direct_qwen_workers as direct
+import export_sft as exporter
 import migrate_qwen_router_affinity as migration
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 MANIFEST_KIND = "qwen-aggregate-repair-selection"
 TASK_FILENAME = "repair_tasks.txt"
+MISSING_ERROR_TASK_FILENAME = "repair_missing_or_errored_tasks.txt"
+STRICT_INVALID_PASS_TASK_FILENAME = "repair_strict_invalid_pass_tasks.txt"
 CONFIG_FILENAME = "repair_config.toml"
 MANIFEST_FILENAME = "repair_manifest.json"
 MAX_TASK_FILE_BYTES = 16 * 1024 * 1024
@@ -142,6 +145,10 @@ def _code_provenance() -> dict[str, Any]:
             raise RepairMaterializationError("code_provenance_invalid")
         submodules[relative] = observed
     return {
+        "exporter_sha256": _fingerprint_regular(
+            Path(__file__).resolve().parent / "export_sft.py",
+            "exporter",
+        )["sha256"],
         "materializer_sha256": _fingerprint_regular(Path(__file__).resolve(), "materializer")["sha256"],
         "repository_revision": revision,
         "submodules": submodules,
@@ -150,6 +157,7 @@ def _code_provenance() -> dict[str, Any]:
 
 def _validated_code_provenance(value: object) -> dict[str, Any]:
     if not isinstance(value, dict) or set(value) != {
+        "exporter_sha256",
         "materializer_sha256",
         "repository_revision",
         "submodules",
@@ -157,7 +165,9 @@ def _validated_code_provenance(value: object) -> dict[str, Any]:
         raise RepairMaterializationError("code_provenance_invalid")
     submodules = value.get("submodules")
     if (
-        not isinstance(value.get("materializer_sha256"), str)
+        not isinstance(value.get("exporter_sha256"), str)
+        or re.fullmatch(r"[0-9a-f]{64}", value["exporter_sha256"]) is None
+        or not isinstance(value.get("materializer_sha256"), str)
         or re.fullmatch(r"[0-9a-f]{64}", value["materializer_sha256"]) is None
         or not isinstance(value.get("repository_revision"), str)
         or re.fullmatch(r"[0-9a-f]{40}", value["repository_revision"]) is None
@@ -170,6 +180,7 @@ def _validated_code_provenance(value: object) -> dict[str, Any]:
     ):
         raise RepairMaterializationError("code_provenance_invalid")
     return {
+        "exporter_sha256": value["exporter_sha256"],
         "materializer_sha256": value["materializer_sha256"],
         "repository_revision": value["repository_revision"],
         "submodules": {name: submodules[name] for name in sorted(submodules)},
@@ -385,6 +396,98 @@ def _plan_owed(source: Path, num_tasks: int) -> tuple[int, set[int]]:
     return len(keep), set(owed)
 
 
+def _indices_bytes(indices: set[int]) -> bytes:
+    return "".join(f"{index}\n" for index in sorted(indices)).encode()
+
+
+def _selected_task_bytes(records: list[TaskRecord], indices: set[int]) -> bytes:
+    return "".join(f"{records[index].identifier}\n" for index in range(len(records)) if index in indices).encode()
+
+
+def _strict_invalid_pass_indices(
+    source: Path,
+    ordered_records: list[TaskRecord],
+    missing_or_errored_indices: set[int],
+) -> set[int]:
+    """Find scored passes rejected by the exact exporter trainability contract."""
+    results_path = source / SOURCE_ARTIFACTS["results"]
+    descriptor = _open_regular(results_path, "source_results")
+    seen: set[int] = set()
+    errored: set[int] = set()
+    invalid_passes: set[int] = set()
+    evaluator_order = tuple(record.identifier for record in ordered_records)
+    try:
+        before = os.fstat(descriptor)
+        with os.fdopen(descriptor, "rb") as handle:
+            for raw_line in handle:
+                if not raw_line.endswith(b"\n") or not raw_line.strip():
+                    raise RepairMaterializationError("source_results_invalid")
+                try:
+                    trace = json.loads(raw_line)
+                except (UnicodeDecodeError, ValueError) as error:
+                    raise RepairMaterializationError("source_results_invalid") from error
+                task = trace.get("task") if isinstance(trace, dict) else None
+                index = task.get("idx") if isinstance(task, dict) else None
+                try:
+                    slug = (
+                        exporter._opaque_task_slug(task, evaluator_order=evaluator_order)
+                        if isinstance(task, dict)
+                        else None
+                    )
+                except exporter.ExportError as error:
+                    raise RepairMaterializationError("source_results_identity_invalid") from error
+                if (
+                    isinstance(index, bool)
+                    or not isinstance(index, int)
+                    or not 0 <= index < len(ordered_records)
+                    or index in seen
+                    or slug != ordered_records[index].identifier
+                ):
+                    raise RepairMaterializationError("source_results_identity_invalid")
+                seen.add(index)
+                errors = trace.get("errors")
+                if not isinstance(errors, list):
+                    raise RepairMaterializationError("source_results_invalid")
+                if errors:
+                    errored.add(index)
+                    continue
+                try:
+                    reward = exporter._trace_reward(trace)
+                except exporter.ExportError as error:
+                    raise RepairMaterializationError("source_results_invalid") from error
+                if reward == 0.0:
+                    stop_condition = trace.get("stop_condition")
+                    if (
+                        trace.get("is_completed") is not True
+                        or not isinstance(stop_condition, str)
+                        or not stop_condition
+                    ):
+                        raise RepairMaterializationError("source_results_invalid")
+                    continue
+                try:
+                    exporter._validate_trainable_trace(
+                        trace,
+                        reward=reward,
+                        max_sequence_tokens=262_144,
+                    )
+                except exporter.ExportError:
+                    invalid_passes.add(index)
+            after = os.fstat(handle.fileno())
+    except OSError as error:
+        raise RepairMaterializationError("source_results_unreadable") from error
+    if (before.st_dev, before.st_ino, before.st_size, before.st_mtime_ns) != (
+        after.st_dev,
+        after.st_ino,
+        after.st_size,
+        after.st_mtime_ns,
+    ):
+        raise RepairMaterializationError("source_changed_during_materialization")
+    missing = set(range(len(ordered_records))) - seen
+    if errored | missing != missing_or_errored_indices or errored & missing:
+        raise RepairMaterializationError("resume_plan_source_mismatch")
+    return invalid_passes
+
+
 def _validate_source_contract(summary: dict[str, Any]) -> None:
     if (
         summary.get("ok") is not True
@@ -405,36 +508,76 @@ def _validate_published(
     allow_incomplete: bool,
     *,
     expected_task_bytes: bytes,
+    expected_missing_error_task_bytes: bytes,
+    expected_strict_invalid_pass_task_bytes: bytes,
     expected_config_bytes: bytes,
     expected_manifest_bytes: bytes,
     approved_identifiers: set[str],
     image_manifest: Path,
     image_manifest_sha256: str,
 ) -> None:
-    expected_names = {TASK_FILENAME, CONFIG_FILENAME, MANIFEST_FILENAME}
+    expected_names = {
+        TASK_FILENAME,
+        MISSING_ERROR_TASK_FILENAME,
+        STRICT_INVALID_PASS_TASK_FILENAME,
+        CONFIG_FILENAME,
+        MANIFEST_FILENAME,
+    }
     if allow_incomplete:
         expected_names.add(direct.MIGRATION_INCOMPLETE_FILENAME)
     if {entry.name for entry in output.iterdir()} != expected_names:
         raise RepairMaterializationError("published_artifacts_invalid")
     task_path = output / TASK_FILENAME
+    missing_error_task_path = output / MISSING_ERROR_TASK_FILENAME
+    strict_invalid_pass_task_path = output / STRICT_INVALID_PASS_TASK_FILENAME
     config_path = output / CONFIG_FILENAME
     manifest_path = output / MANIFEST_FILENAME
-    for path in (task_path, config_path, manifest_path):
+    for path in (
+        task_path,
+        missing_error_task_path,
+        strict_invalid_pass_task_path,
+        config_path,
+        manifest_path,
+    ):
         metadata = path.lstat()
         if not stat.S_ISREG(metadata.st_mode) or stat.S_IMODE(metadata.st_mode) != 0o600:
             raise RepairMaterializationError("published_artifact_mode_invalid")
     task_bytes = _read_regular(task_path, "published_task_file", limit=MAX_TASK_FILE_BYTES)
     config_bytes = _read_regular(config_path, "published_config", limit=1 << 20)
     manifest_bytes = _read_regular(manifest_path, "published_manifest", limit=1 << 20)
+    missing_error_task_bytes = _read_regular(
+        missing_error_task_path,
+        "published_missing_error_task_file",
+        limit=MAX_TASK_FILE_BYTES,
+    )
+    strict_invalid_pass_task_bytes = _read_regular(
+        strict_invalid_pass_task_path,
+        "published_strict_invalid_pass_task_file",
+        limit=MAX_TASK_FILE_BYTES,
+    )
     if (
         task_bytes != expected_task_bytes
+        or missing_error_task_bytes != expected_missing_error_task_bytes
+        or strict_invalid_pass_task_bytes != expected_strict_invalid_pass_task_bytes
         or config_bytes != expected_config_bytes
         or manifest_bytes != expected_manifest_bytes
     ):
         raise RepairMaterializationError("published_artifact_hash_mismatch")
     records = _task_records(task_bytes, "published_task_file")
+    missing_records = (
+        _task_records(missing_error_task_bytes, "published_missing_error_task_file") if missing_error_task_bytes else []
+    )
+    strict_records = (
+        _task_records(strict_invalid_pass_task_bytes, "published_strict_invalid_pass_task_file")
+        if strict_invalid_pass_task_bytes
+        else []
+    )
     if any(record.identifier not in approved_identifiers for record in records):
         raise RepairMaterializationError("published_task_outside_approval")
+    if {record.identifier for record in missing_records} & {record.identifier for record in strict_records} or {
+        record.identifier for record in records
+    } != {record.identifier for record in missing_records} | {record.identifier for record in strict_records}:
+        raise RepairMaterializationError("published_task_partition_invalid")
     task_sha256 = _sha256_bytes(task_bytes)
     config = _parse_toml(config_bytes, "published_config")
     _validate_repair_config(
@@ -533,7 +676,18 @@ def materialize(
             )
 
             retained_count, owed_indices = _plan_owed(source, num_tasks)
-            if not owed_indices:
+            strict_invalid_pass_indices = _strict_invalid_pass_indices(
+                source,
+                ordered_source_records,
+                owed_indices,
+            )
+            if strict_invalid_pass_indices & owed_indices:
+                raise RepairMaterializationError("repair_selection_partition_invalid")
+            selected_index_set = owed_indices | strict_invalid_pass_indices
+            missing_or_errored_indices_sha256 = _sha256_bytes(_indices_bytes(owed_indices))
+            strict_invalid_pass_indices_sha256 = _sha256_bytes(_indices_bytes(strict_invalid_pass_indices))
+            repair_union_indices_sha256 = _sha256_bytes(_indices_bytes(selected_index_set))
+            if not selected_index_set:
                 if (
                     _source_fingerprints(source) != source_fingerprints
                     or _taskset_records_in_evaluator_order(source_config, source_records) != ordered_source_records
@@ -544,14 +698,23 @@ def materialize(
                     "approved_task_file_sha256": approved_task_file_sha256,
                     "missing_or_errored_count": 0,
                     "ok": True,
+                    "repair_union_indices_sha256": repair_union_indices_sha256,
                     "status": "nothing_to_repair",
+                    "strict_invalid_pass_count": 0,
                     "task_index_order_sha256": task_index_order_sha256,
                 }
             code_provenance = _validated_code_provenance(_code_provenance())
-            selected_indices = [index for index in range(num_tasks) if index in owed_indices]
+            selected_indices = [index for index in range(num_tasks) if index in selected_index_set]
             selected_records = [ordered_source_records[index] for index in selected_indices]
             task_bytes = "".join(f"{record.identifier}\n" for record in selected_records).encode()
             task_sha256 = _sha256_bytes(task_bytes)
+            missing_error_task_bytes = _selected_task_bytes(ordered_source_records, owed_indices)
+            strict_invalid_pass_task_bytes = _selected_task_bytes(
+                ordered_source_records,
+                strict_invalid_pass_indices,
+            )
+            missing_error_task_sha256 = _sha256_bytes(missing_error_task_bytes)
+            strict_invalid_pass_task_sha256 = _sha256_bytes(strict_invalid_pass_task_bytes)
 
             image_manifest = source / SOURCE_ARTIFACTS["image_manifest"]
             source_taskset = source_config.get("taskset")
@@ -617,6 +780,13 @@ def materialize(
                 "schema_version": SCHEMA_VERSION,
                 "selection": {
                     "approved_repair_count": len(selected_records),
+                    "missing_or_errored_count": len(owed_indices),
+                    "missing_or_errored_indices_sha256": missing_or_errored_indices_sha256,
+                    "missing_or_errored_task_file_sha256": missing_error_task_sha256,
+                    "repair_union_indices_sha256": repair_union_indices_sha256,
+                    "strict_invalid_pass_count": len(strict_invalid_pass_indices),
+                    "strict_invalid_pass_indices_sha256": strict_invalid_pass_indices_sha256,
+                    "strict_invalid_pass_task_file_sha256": strict_invalid_pass_task_sha256,
                     "task_file_sha256": task_sha256,
                 },
                 "source": {
@@ -638,6 +808,11 @@ def materialize(
             try:
                 assert staging is not None
                 migration._atomic_write(staging / TASK_FILENAME, task_bytes)
+                migration._atomic_write(staging / MISSING_ERROR_TASK_FILENAME, missing_error_task_bytes)
+                migration._atomic_write(
+                    staging / STRICT_INVALID_PASS_TASK_FILENAME,
+                    strict_invalid_pass_task_bytes,
+                )
                 migration._atomic_write(staging / CONFIG_FILENAME, config_bytes)
                 migration._atomic_write(staging / MANIFEST_FILENAME, manifest_bytes)
 
@@ -646,6 +821,8 @@ def materialize(
                         path,
                         allow_incomplete,
                         expected_task_bytes=task_bytes,
+                        expected_missing_error_task_bytes=missing_error_task_bytes,
+                        expected_strict_invalid_pass_task_bytes=strict_invalid_pass_task_bytes,
                         expected_config_bytes=config_bytes,
                         expected_manifest_bytes=manifest_bytes,
                         approved_identifiers=approved_identifiers,
@@ -668,7 +845,9 @@ def materialize(
         "manifest_sha256": _sha256_bytes(manifest_bytes),
         "missing_or_errored_count": len(owed_indices),
         "ok": True,
+        "repair_union_indices_sha256": repair_union_indices_sha256,
         "status": "materialized",
+        "strict_invalid_pass_count": len(strict_invalid_pass_indices),
         "task_file_sha256": task_sha256,
         "task_index_order_sha256": task_index_order_sha256,
     }

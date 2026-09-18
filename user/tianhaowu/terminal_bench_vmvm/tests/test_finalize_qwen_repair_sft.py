@@ -66,6 +66,7 @@ def _write_layout(tmp_path: Path, *, expected_count: int = 2) -> tuple[finalizer
             "approved_task_file_sha256": approved_task_sha256,
         },
         "code": {
+            "exporter_sha256": _sha256(exporter_body),
             "materializer_sha256": _sha256(materializer_body),
             "repository_revision": "a" * 40,
             "submodules": {
@@ -97,9 +98,16 @@ def _write_layout(tmp_path: Path, *, expected_count: int = 2) -> tuple[finalizer
             "retained_count": 1,
             "task_index_order_sha256": "7" * 64,
         },
-        "schema_version": 1,
+        "schema_version": 2,
         "selection": {
             "approved_repair_count": expected_count,
+            "missing_or_errored_count": expected_count,
+            "missing_or_errored_indices_sha256": "1" * 64,
+            "missing_or_errored_task_file_sha256": task_sha256,
+            "repair_union_indices_sha256": "2" * 64,
+            "strict_invalid_pass_count": 0,
+            "strict_invalid_pass_indices_sha256": _sha256(b""),
+            "strict_invalid_pass_task_file_sha256": _sha256(b""),
             "task_file_sha256": task_sha256,
         },
         "source": {
@@ -112,6 +120,15 @@ def _write_layout(tmp_path: Path, *, expected_count: int = 2) -> tuple[finalizer
     selection_path = tmp_path / "repair" / "repair_manifest.json"
     selection_path.parent.mkdir()
     selection_path.write_bytes(selection_body)
+    selection_path.chmod(0o600)
+    for filename, body in (
+        ("repair_tasks.txt", task_body),
+        ("repair_missing_or_errored_tasks.txt", task_body),
+        ("repair_strict_invalid_pass_tasks.txt", b""),
+    ):
+        selected = selection_path.parent / filename
+        selected.write_bytes(body)
+        selected.chmod(0o600)
     options = finalizer.RepairFinalizeOptions(
         project_dir=project,
         expected_project_revision="a" * 40,
@@ -176,6 +193,7 @@ def _write_export(output: Path, source: Path, project: Path, expected_count: int
             "taskset_id": "terminal-bench-vmvm",
         },
         "counts": {
+            "approved_tasks": expected_count,
             "emitted_rows": 2,
             "excluded_error_traces": 1,
             "input_traces": expected_count,
@@ -186,9 +204,9 @@ def _write_export(output: Path, source: Path, project: Path, expected_count: int
             "train_traces": 1,
         },
         "exporter": {
-            "file_sha256": _artifact(
-                project / "user" / "tianhaowu" / "terminal_bench_vmvm" / "export_sft.py"
-            )["sha256"],
+            "file_sha256": _artifact(project / "user" / "tianhaowu" / "terminal_bench_vmvm" / "export_sft.py")[
+                "sha256"
+            ],
             "format_version": 2,
         },
         "format": {
@@ -197,8 +215,7 @@ def _write_export(output: Path, source: Path, project: Path, expected_count: int
             "loss_mask": "message.trainable; exactly one final assistant message is true",
             "sample_unit": "one unique sampled assistant node with its root-to-node context",
             "target": (
-                "authentic reasoning_content, content, and tool_calls; "
-                "the selected renderer supplies its stop token"
+                "authentic reasoning_content, content, and tool_calls; the selected renderer supplies its stop token"
             ),
             "task_identity": "sha256(taskset id + NUL + dataset revision + NUL + approved opaque task slug)",
         },
@@ -225,6 +242,7 @@ def _write_export(output: Path, source: Path, project: Path, expected_count: int
     manifest_body = json.dumps(manifest, indent=2, sort_keys=True).encode() + b"\n"
     (output / "manifest.json").write_bytes(manifest_body)
     return {
+        "approved_tasks": expected_count,
         "excluded_error_traces": 1,
         "input_traces": expected_count,
         "output_sha256": {
@@ -286,15 +304,28 @@ def test_finalize_publishes_exact_fresh_repair_attestation(
         "repair_selection_manifest_sha256",
         "source_artifacts",
         "routing",
+        "selection",
         "corpus",
         "code",
     }
     assert attestation["kind"] == "qwen-direct-repair-attestation"
+    assert attestation["schema_version"] == finalizer.ATTESTATION_SCHEMA_VERSION
     assert attestation["routing"]["routing_epoch"] == 1
     assert attestation["routing"]["manifest_schema_version"] == 3
     assert attestation["routing"]["provider_concurrency"] == 32
     assert attestation["routing"]["router_policy"] == "consistent_hash"
     assert attestation["routing"]["request_id_headers"] == ["x-session-id"]
+    assert attestation["selection"] == {
+        "missing_or_errored_count": options.expected_count,
+        "strict_invalid_pass_count": 0,
+        "union_count": options.expected_count,
+        "union_indices_sha256": "2" * 64,
+        "union_task_file_sha256": _sha256((options.source_dir / "inputs/task_file.txt").read_bytes()),
+    }
+    for copy_name, source_name in finalizer.SELECTION_SOURCE_FILENAMES.items():
+        assert (options.output_dir / copy_name).read_bytes() == (
+            options.repair_selection_manifest.parent / source_name
+        ).read_bytes()
     assert set(attestation["source_artifacts"]) == set(finalizer.SOURCE_ARTIFACTS)
     manifest = json.loads((options.output_dir / "manifest.json").read_bytes())
     assert manifest["source_artifacts"]["results.jsonl"] == attestation["source_artifacts"]["results.jsonl"]
@@ -383,12 +414,19 @@ task_file_sha256 = "{task_file_sha256}"
     selection = finalizer.RepairSelection(
         body=b"{}\n",
         sha256="f" * 64,
+        selection_bodies={},
+        selection_artifacts={},
+        selection_paths={},
         config_sha256=_sha256(config.encode()),
         task_file_sha256=task_file_sha256,
+        repair_union_indices_sha256="1" * 64,
         task_count=options.expected_count,
+        missing_or_errored_count=options.expected_count,
+        strict_invalid_pass_count=0,
         approved_task_count=options.expected_count,
         template_sha256="e" * 64,
         materializer_sha256="d" * 64,
+        exporter_sha256="f" * 64,
         repository_revision="a" * 40,
         submodules={
             "deps/pydantic-config": "c" * 40,
@@ -441,6 +479,90 @@ def test_selection_rejects_extra_metadata(tmp_path: Path) -> None:
             _sha256(body),
             options.expected_count,
         )
+
+
+def test_selection_accepts_exact_mixed_category_union(tmp_path: Path) -> None:
+    options, selection_body = _write_layout(tmp_path)
+    selection = json.loads(selection_body)
+    missing_body = b"opaque-a\n"
+    strict_body = b"opaque-b\n"
+    (options.repair_selection_manifest.parent / "repair_missing_or_errored_tasks.txt").write_bytes(missing_body)
+    (options.repair_selection_manifest.parent / "repair_strict_invalid_pass_tasks.txt").write_bytes(strict_body)
+    selection["planner"]["missing_or_errored_count"] = 1
+    selection["planner"]["retained_count"] = 2
+    selection["selection"]["missing_or_errored_count"] = 1
+    selection["selection"]["missing_or_errored_task_file_sha256"] = _sha256(missing_body)
+    selection["selection"]["strict_invalid_pass_count"] = 1
+    selection["selection"]["strict_invalid_pass_task_file_sha256"] = _sha256(strict_body)
+    body = json.dumps(selection, indent=2, sort_keys=True).encode() + b"\n"
+    options.repair_selection_manifest.write_bytes(body)
+
+    loaded = finalizer._load_repair_selection(
+        options.repair_selection_manifest,
+        _sha256(body),
+        options.expected_count,
+    )
+
+    assert loaded.missing_or_errored_count == 1
+    assert loaded.strict_invalid_pass_count == 1
+    assert loaded.task_count == 2
+
+
+@pytest.mark.parametrize("mutation", ["missing", "extra", "public-mode"])
+def test_selection_rejects_missing_extra_or_non_private_category_file(
+    tmp_path: Path,
+    mutation: str,
+) -> None:
+    options, selection_body = _write_layout(tmp_path)
+    category = options.repair_selection_manifest.parent / "repair_missing_or_errored_tasks.txt"
+    if mutation == "missing":
+        category.unlink()
+    elif mutation == "extra":
+        category.write_bytes(category.read_bytes() + b"opaque-extra\n")
+        category.chmod(0o600)
+    else:
+        category.chmod(0o644)
+
+    with pytest.raises(
+        finalizer.RepairFinalizationError,
+        match="^repair_selection_(?:invalid|contract_mismatch)$",
+    ):
+        finalizer._load_repair_selection(
+            options.repair_selection_manifest,
+            _sha256(selection_body),
+            options.expected_count,
+        )
+
+
+def test_selection_toctou_leaves_no_canonical_output(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    options, _selection_body = _write_layout(tmp_path)
+    monkeypatch.setattr(finalizer.platform, "machine", lambda: "x86_64")
+
+    def run_command(command: list[str], _cwd: Path, _code: str) -> dict:
+        output = Path(command[command.index("--output-dir") + 1])
+        summary = _write_export(output, options.source_dir, options.project_dir, options.expected_count)
+        category = options.repair_selection_manifest.parent / "repair_missing_or_errored_tasks.txt"
+        category.write_bytes(category.read_bytes() + b"opaque-tamper\n")
+        category.chmod(0o600)
+        return summary
+
+    with pytest.raises(finalizer.RepairFinalizationError, match="^repair_selection_changed$"):
+        finalizer.finalize_qwen_repair_sft(
+            options,
+            repository_validator=lambda path, _revision: path,
+            source_auditor=lambda source, *_args: _audit(source, options),
+            command_runner=run_command,
+            submodule_reader=lambda _project, _revision: {
+                "deps/pydantic-config": "c" * 40,
+                "deps/renderers": "d" * 40,
+                "deps/verifiers": "e" * 40,
+            },
+            runtime_validator=lambda project: project / "user" / "tianhaowu" / "terminal_bench_vmvm",
+        )
+    assert not options.output_dir.exists()
 
 
 def test_main_emits_only_stable_error(monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture) -> None:

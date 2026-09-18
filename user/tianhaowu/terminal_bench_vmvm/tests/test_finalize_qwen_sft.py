@@ -3,6 +3,7 @@ import hashlib
 import json
 import subprocess
 import sys
+from dataclasses import replace
 from pathlib import Path
 
 import finalize_qwen_sft as finalizer
@@ -79,6 +80,7 @@ def _export_summary(output: Path, expected_count: int, routing_index: Path) -> d
     )
     (output / "manifest.json").write_bytes(manifest)
     return {
+        "approved_tasks": expected_count,
         "excluded_error_traces": 1,
         "input_traces": expected_count,
         "output_sha256": {
@@ -163,6 +165,124 @@ def test_finalizer_runs_label_before_export_and_emits_only_aggregates(
     encoded = json.dumps(summary)
     assert str(options.source_dir) not in encoded
     assert str(options.output_dir) not in encoded
+
+
+def test_finalizer_passes_private_exclusion_and_rejects_toctou(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    base, _ = _write_layout(tmp_path)
+    selection = tmp_path / "private" / "selection" / "repair_manifest.json"
+    selection.parent.mkdir(parents=True)
+    selection.write_bytes(b"synthetic-selection\n")
+    selection.chmod(0o600)
+    digest = hashlib.sha256(selection.read_bytes()).hexdigest()
+    options = replace(
+        base,
+        exclusion_selection_manifest=selection,
+        expected_exclusion_selection_manifest_sha256=digest,
+    )
+    monkeypatch.setattr(finalizer.platform, "machine", lambda: "x86_64")
+
+    def run_command(command: list[str], _cwd: Path, code: str) -> dict:
+        if code == "routing_index_failed":
+            index = Path(command[command.index("--output") + 1])
+            return _label_summary(index, options.expected_count)
+        assert command[command.index("--exclusion-selection-manifest") + 1] == str(selection)
+        assert command[command.index("--exclusion-selection-manifest-sha256") + 1] == digest
+        index = Path(command[command.index("--routing-epoch-index") + 1])
+        output = Path(command[command.index("--output-dir") + 1])
+        summary = _export_summary(output, options.expected_count, index)
+        summary["exclusion"] = {
+            "excluded_present_traces": 1,
+            "missing_tasks": 0,
+            "missing_or_errored_count": 1,
+            "selection_manifest_sha256": digest,
+            "strict_invalid_pass_count": 0,
+            "union_count": 1,
+        }
+        manifest = json.loads((output / "manifest.json").read_text())
+        manifest["exclusion_selection"] = {
+            "approved_task_count": options.expected_count,
+            "manifest": {"bytes": selection.stat().st_size, "sha256": digest},
+            "union_count": 1,
+            "missing_or_errored_count": 1,
+            "strict_invalid_pass_count": 0,
+        }
+        (output / "manifest.json").write_text(json.dumps(manifest, sort_keys=True) + "\n")
+        summary["output_sha256"]["manifest"] = hashlib.sha256((output / "manifest.json").read_bytes()).hexdigest()
+        selection.write_bytes(b"mutated-selection\n")
+        selection.chmod(0o600)
+        return summary
+
+    with pytest.raises(FinalizationError, match="^exclusion_selection_changed$"):
+        finalizer.finalize_qwen_sft(
+            options,
+            repository_validator=lambda path, _revision: path,
+            source_auditor=lambda *_args: {"routing_epoch": 3},
+            command_runner=run_command,
+        )
+    assert not options.output_dir.exists()
+
+
+def test_finalizer_accounts_for_attested_missing_source_row(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    base, _ = _write_layout(tmp_path)
+    selection = tmp_path / "private" / "selection" / "repair_manifest.json"
+    selection.parent.mkdir(parents=True)
+    selection.write_bytes(b"synthetic-selection\n")
+    selection.chmod(0o600)
+    digest = hashlib.sha256(selection.read_bytes()).hexdigest()
+    options = replace(
+        base,
+        exclusion_selection_manifest=selection,
+        expected_exclusion_selection_manifest_sha256=digest,
+    )
+    monkeypatch.setattr(finalizer.platform, "machine", lambda: "x86_64")
+
+    def run_command(command: list[str], _cwd: Path, code: str) -> dict:
+        if code == "routing_index_failed":
+            index = Path(command[command.index("--output") + 1])
+            summary = _label_summary(index, 2)
+            summary["epoch_1_rows"] = 0
+            summary["epoch_2_rows"] = 0
+            summary["epoch_3_rows"] = 2
+            return summary
+        index = Path(command[command.index("--routing-epoch-index") + 1])
+        output = Path(command[command.index("--output-dir") + 1])
+        summary = _export_summary(output, options.expected_count, index)
+        summary["input_traces"] = 2
+        summary["exclusion"] = {
+            "excluded_present_traces": 0,
+            "missing_tasks": 1,
+            "missing_or_errored_count": 1,
+            "selection_manifest_sha256": digest,
+            "strict_invalid_pass_count": 0,
+            "union_count": 1,
+        }
+        manifest = json.loads((output / "manifest.json").read_text())
+        manifest["exclusion_selection"] = {
+            "approved_task_count": options.expected_count,
+            "manifest": {"bytes": selection.stat().st_size, "sha256": digest},
+            "union_count": 1,
+            "missing_or_errored_count": 1,
+            "strict_invalid_pass_count": 0,
+        }
+        (output / "manifest.json").write_text(json.dumps(manifest, sort_keys=True) + "\n")
+        summary["output_sha256"]["manifest"] = hashlib.sha256((output / "manifest.json").read_bytes()).hexdigest()
+        return summary
+
+    summary = finalizer.finalize_qwen_sft(
+        options,
+        repository_validator=lambda path, _revision: path,
+        source_auditor=lambda *_args: {"routing_epoch": 3},
+        command_runner=run_command,
+    )
+    assert summary["approved_tasks"] == 3
+    assert summary["input_traces"] == 2
+    assert summary["exclusion"]["missing_tasks"] == 1
 
 
 def test_finalizer_cleans_staged_export_when_late_repository_check_fails(

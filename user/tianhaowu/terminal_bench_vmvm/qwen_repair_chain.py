@@ -99,6 +99,7 @@ class ProjectAttestation:
     revision: str
     submodules: Mapping[str, str]
     materializer_sha256: str
+    exporter_sha256: str
     repair_template_sha256: str
 
 
@@ -346,6 +347,10 @@ def _default_project_validator(project: Path, revision: str) -> ProjectAttestati
             workflow / "materialize_qwen_repair.py",
             "project_materializer_invalid",
         ),
+        exporter_sha256=_sha256(
+            workflow / "export_sft.py",
+            "project_exporter_invalid",
+        ),
         repair_template_sha256=_sha256(
             workflow / "configs" / "eval" / "mobius_qwen_a95b_2500.toml",
             "project_repair_template_invalid",
@@ -378,6 +383,7 @@ def _validate_attestation(
         or set(attestation.submodules) != set(common.REQUIRED_RUNTIME_SUBMODULES)
         or any(GIT_SHA_PATTERN.fullmatch(value) is None for value in attestation.submodules.values())
         or not _valid_sha256(attestation.materializer_sha256)
+        or not _valid_sha256(attestation.exporter_sha256)
         or not _valid_sha256(attestation.repair_template_sha256)
         or (expected is not None and attestation != expected)
     ):
@@ -577,14 +583,19 @@ def _validate_materializer_summary(
     options: RepairChainOptions,
     attestation: ProjectAttestation,
     selection_dir: Path,
-) -> tuple[int, str | None, str | None]:
+) -> tuple[int, int, int, str | None, str | None]:
     count = summary.get("approved_repair_count")
     missing = summary.get("missing_or_errored_count")
+    strict_invalid = summary.get("strict_invalid_pass_count")
     if (
         summary.get("ok") is not True
         or not _is_plain_int(count)
         or not 0 <= count <= EXPECTED_ORIGINAL_COUNT
-        or missing != count
+        or not _is_plain_int(missing)
+        or not _is_plain_int(strict_invalid)
+        or min(missing, strict_invalid) < 0
+        or missing + strict_invalid != count
+        or not _valid_sha256(summary.get("repair_union_indices_sha256"))
         or not _valid_sha256(summary.get("task_index_order_sha256"))
     ):
         raise RepairChainError("materialize_summary_invalid")
@@ -595,7 +606,7 @@ def _validate_materializer_summary(
             or os.path.lexists(selection_dir)
         ):
             raise RepairChainError("materialize_summary_invalid")
-        return 0, None, None
+        return 0, 0, 0, None, None
     if (
         summary.get("status") != "materialized"
         or not _valid_sha256(summary.get("task_file_sha256"))
@@ -607,8 +618,20 @@ def _validate_materializer_summary(
     task_file = _regular_file(selection / "repair_tasks.txt", "repair_selection_invalid", mode=0o600)
     config_file = _regular_file(selection / "repair_config.toml", "repair_selection_invalid", mode=0o600)
     manifest_file = _regular_file(selection / "repair_manifest.json", "repair_selection_invalid", mode=0o600)
+    missing_file = _regular_file(
+        selection / "repair_missing_or_errored_tasks.txt",
+        "repair_selection_invalid",
+        mode=0o600,
+    )
+    strict_file = _regular_file(
+        selection / "repair_strict_invalid_pass_tasks.txt",
+        "repair_selection_invalid",
+        mode=0o600,
+    )
     if {entry.name for entry in selection.iterdir()} != {
         "repair_tasks.txt",
+        "repair_missing_or_errored_tasks.txt",
+        "repair_strict_invalid_pass_tasks.txt",
         "repair_config.toml",
         "repair_manifest.json",
     }:
@@ -620,6 +643,8 @@ def _validate_materializer_summary(
         or manifest_sha256 != summary["manifest_sha256"]
         or _sha256(config_file, "repair_selection_invalid") != summary["config_sha256"]
         or _task_record_count(task_file) != count
+        or (_task_record_count(missing_file) if missing else missing_file.stat().st_size) != missing
+        or (_task_record_count(strict_file) if strict_invalid else strict_file.stat().st_size) != strict_invalid
     ):
         raise RepairChainError("repair_selection_invalid")
     try:
@@ -635,8 +660,12 @@ def _validate_materializer_summary(
         or repair_selection.repository_revision != attestation.revision
         or dict(repair_selection.submodules) != dict(attestation.submodules)
         or repair_selection.materializer_sha256 != attestation.materializer_sha256
+        or repair_selection.exporter_sha256 != attestation.exporter_sha256
         or repair_selection.template_sha256 != attestation.repair_template_sha256
         or repair_selection.task_file_sha256 != task_sha256
+        or repair_selection.repair_union_indices_sha256 != summary["repair_union_indices_sha256"]
+        or repair_selection.missing_or_errored_count != missing
+        or repair_selection.strict_invalid_pass_count != strict_invalid
     ):
         raise RepairChainError("repair_selection_attestation_mismatch")
     config = _load_source_config(config_file)
@@ -666,19 +695,24 @@ def _validate_materializer_summary(
         or taskset.get("task_file_sha256") != task_sha256
     ):
         raise RepairChainError("repair_generation_contract_invalid")
-    return count, task_sha256, manifest_sha256
+    return count, missing, strict_invalid, task_sha256, manifest_sha256
 
 
 def _validate_finalizer_summary(
     summary: dict[str, Any],
     expected_count: int,
     code: str,
+    *,
+    expected_exclusion: tuple[int, int, str] | None = None,
 ) -> dict[str, Any]:
     rows = summary.get("rows")
     if (
         summary.get("status") != "finalized"
         or summary.get("selection") != "pass-only"
-        or summary.get("input_traces") != expected_count
+        or summary.get("approved_tasks") != expected_count
+        or not _is_plain_int(summary.get("input_traces"))
+        or not 0 <= summary["input_traces"] <= expected_count
+        or (expected_exclusion is None and summary["input_traces"] != expected_count)
         or not _is_plain_int(summary.get("selected_traces"))
         or not 0 <= summary["selected_traces"] <= expected_count
         or not isinstance(rows, dict)
@@ -687,11 +721,40 @@ def _validate_finalizer_summary(
         or rows["total"] != rows["train"] + rows["validation"]
     ):
         raise RepairChainError(code)
-    return {
+    public = {
+        "approved_tasks": summary["approved_tasks"],
         "input_traces": summary["input_traces"],
         "rows": dict(rows),
         "selected_traces": summary["selected_traces"],
     }
+    if expected_exclusion is not None:
+        expected_missing, expected_strict, expected_sha256 = expected_exclusion
+        exclusion = summary.get("exclusion")
+        if (
+            not isinstance(exclusion, dict)
+            or set(exclusion)
+            != {
+                "excluded_present_traces",
+                "missing_tasks",
+                "missing_or_errored_count",
+                "selection_manifest_sha256",
+                "strict_invalid_pass_count",
+                "union_count",
+            }
+            or exclusion.get("missing_or_errored_count") != expected_missing
+            or exclusion.get("strict_invalid_pass_count") != expected_strict
+            or exclusion.get("union_count") != expected_missing + expected_strict
+            or exclusion.get("selection_manifest_sha256") != expected_sha256
+            or not _is_plain_int(exclusion.get("missing_tasks"))
+            or not _is_plain_int(exclusion.get("excluded_present_traces"))
+            or exclusion["missing_tasks"] + exclusion["excluded_present_traces"] != exclusion["union_count"]
+            or summary["input_traces"] + exclusion["missing_tasks"] != expected_count
+        ):
+            raise RepairChainError(code)
+        public["exclusion"] = dict(exclusion)
+    elif "exclusion" in summary:
+        raise RepairChainError(code)
+    return public
 
 
 def _validate_merge_summary(summary: dict[str, Any]) -> dict[str, Any]:
@@ -784,6 +847,8 @@ def _run_stage(
     original_snapshot: Mapping[str, FileState],
     repair_snapshot: Mapping[str, FileState] | None = None,
     repair_dir: Path | None = None,
+    selection_snapshot: Mapping[str, FileState] | None = None,
+    selection_dir: Path | None = None,
 ) -> dict[str, Any] | None:
     _validate_attestation(project_validator, paths, options, attestation)
     try:
@@ -792,6 +857,8 @@ def _run_stage(
         _assert_snapshot(paths.source_dir, original_snapshot, "original_source_changed")
         if repair_snapshot is not None and repair_dir is not None:
             _assert_snapshot(repair_dir, repair_snapshot, "repair_source_changed")
+        if selection_snapshot is not None and selection_dir is not None:
+            _assert_snapshot(selection_dir, selection_snapshot, "repair_selection_changed")
         _validate_attestation(project_validator, paths, options, attestation)
     return summary
 
@@ -818,6 +885,10 @@ def run_repair_chain(
     repair_dir = paths.runtime_dir / "repair-run"
     repair_source: Path | None = None
     repair_snapshot: Mapping[str, FileState] | None = None
+    selection_snapshot: Mapping[str, FileState] | None = None
+    repair_count = 0
+    missing_or_errored_count = 0
+    strict_invalid_pass_count = 0
     materialize_command = ChildCommand(
         stage="materialize",
         argv=(
@@ -849,12 +920,14 @@ def run_repair_chain(
             ),
             "materialize_summary_invalid",
         )
-        repair_count, repair_task_sha256, selection_manifest_sha256 = _validate_materializer_summary(
-            materialize_summary,
-            options,
-            attestation,
-            selection_dir,
-        )
+        (
+            repair_count,
+            missing_or_errored_count,
+            strict_invalid_pass_count,
+            repair_task_sha256,
+            selection_manifest_sha256,
+        ) = _validate_materializer_summary(materialize_summary, options, attestation, selection_dir)
+        selection_snapshot = _snapshot_tree(selection_dir) if repair_count else None
 
         if repair_count:
             assert repair_task_sha256 is not None
@@ -880,6 +953,8 @@ def run_repair_chain(
                 attestation,
                 project_validator,
                 original_snapshot,
+                selection_snapshot=selection_snapshot,
+                selection_dir=selection_dir,
             )
             repair_source = _canonical_directory(repair_dir, "repair_source_invalid")
             repair_provenance = _regular_file(
@@ -896,34 +971,45 @@ def run_repair_chain(
             repair_provenance_sha256 = None
             repair_snapshot = None
 
+        original_argv = [
+            sys.executable,
+            str(paths.workflow_dir / "finalize_qwen_sft.py"),
+            "--project-dir",
+            str(paths.project_dir),
+            "--expected-project-revision",
+            options.expected_project_revision,
+            "--source-root",
+            str(paths.source_root),
+            "--source-dir",
+            str(paths.source_dir),
+            "--expected-provenance-sha256",
+            options.expected_provenance_sha256,
+            "--output-root",
+            str(paths.output_root),
+            "--output-dir",
+            str(paths.original_export_dir),
+            "--expected-count",
+            str(EXPECTED_ORIGINAL_COUNT),
+            "--selection",
+            "pass-only",
+            "--validation-permyriad",
+            str(options.validation_permyriad),
+            "--split-salt",
+            options.split_salt,
+        ]
+        if repair_count:
+            assert selection_manifest_sha256 is not None
+            original_argv.extend(
+                [
+                    "--exclusion-selection-manifest",
+                    str(selection_dir / "repair_manifest.json"),
+                    "--expected-exclusion-selection-manifest-sha256",
+                    selection_manifest_sha256,
+                ]
+            )
         original_command = ChildCommand(
             stage="finalize_original",
-            argv=(
-                sys.executable,
-                str(paths.workflow_dir / "finalize_qwen_sft.py"),
-                "--project-dir",
-                str(paths.project_dir),
-                "--expected-project-revision",
-                options.expected_project_revision,
-                "--source-root",
-                str(paths.source_root),
-                "--source-dir",
-                str(paths.source_dir),
-                "--expected-provenance-sha256",
-                options.expected_provenance_sha256,
-                "--output-root",
-                str(paths.output_root),
-                "--output-dir",
-                str(paths.original_export_dir),
-                "--expected-count",
-                str(EXPECTED_ORIGINAL_COUNT),
-                "--selection",
-                "pass-only",
-                "--validation-permyriad",
-                str(options.validation_permyriad),
-                "--split-salt",
-                options.split_salt,
-            ),
+            argv=tuple(original_argv),
             environment=child_environment,
         )
         original_summary = _require_summary(
@@ -938,6 +1024,8 @@ def run_repair_chain(
                 original_snapshot,
                 repair_snapshot,
                 repair_source,
+                selection_snapshot,
+                selection_dir if repair_count else None,
             ),
             "original_finalizer_summary_invalid",
         )
@@ -945,6 +1033,13 @@ def run_repair_chain(
             original_summary,
             EXPECTED_ORIGINAL_COUNT,
             "original_finalizer_summary_invalid",
+            expected_exclusion=(
+                missing_or_errored_count,
+                strict_invalid_pass_count,
+                str(selection_manifest_sha256),
+            )
+            if repair_count
+            else None,
         )
         original_output_sha256 = _validate_original_output_hashes(
             original_summary,
@@ -960,6 +1055,8 @@ def run_repair_chain(
                 "original": original_public,
                 "project_revision": options.expected_project_revision,
                 "repair_count": 0,
+                "missing_or_errored_count": 0,
+                "strict_invalid_pass_count": 0,
                 "source_approval_sha256": options.approved_task_file_sha256,
                 "source_provenance_sha256": options.expected_provenance_sha256,
                 "status": "finalized_without_repair",
@@ -1016,6 +1113,8 @@ def run_repair_chain(
                 original_snapshot,
                 repair_snapshot,
                 repair_source,
+                selection_snapshot,
+                selection_dir,
             ),
             "repair_finalizer_summary_invalid",
         )
@@ -1041,13 +1140,22 @@ def run_repair_chain(
             raise RepairChainError("repair_export_invalid")
         repair_public["attestation_sha256"] = attestation_sha256
         repair_public["manifest_sha256"] = repair_manifest_sha256
-        selection_copy = _regular_file(
-            paths.repair_export_dir / repair_finalizer.SELECTION_COPY_FILENAME,
-            "repair_selection_copy_invalid",
-            mode=0o600,
-        )
-        if _sha256(selection_copy, "repair_selection_copy_invalid") != selection_manifest_sha256:
-            raise RepairChainError("repair_selection_copy_invalid")
+        for copy_name, source_name in repair_finalizer.SELECTION_SOURCE_FILENAMES.items():
+            selection_copy = _regular_file(
+                paths.repair_export_dir / copy_name,
+                "repair_selection_copy_invalid",
+                mode=0o600,
+            )
+            selection_source = _regular_file(
+                selection_dir / source_name,
+                "repair_selection_invalid",
+                mode=0o600,
+            )
+            if _sha256(selection_copy, "repair_selection_copy_invalid") != _sha256(
+                selection_source,
+                "repair_selection_invalid",
+            ):
+                raise RepairChainError("repair_selection_copy_invalid")
 
         merge_command = ChildCommand(
             stage="merge",
@@ -1087,6 +1195,8 @@ def run_repair_chain(
                 original_snapshot,
                 repair_snapshot,
                 repair_source,
+                selection_snapshot,
+                selection_dir,
             ),
             "merge_summary_invalid",
         )
@@ -1109,6 +1219,8 @@ def run_repair_chain(
             "project_revision": options.expected_project_revision,
             "repair": repair_public,
             "repair_count": repair_count,
+            "missing_or_errored_count": missing_or_errored_count,
+            "strict_invalid_pass_count": strict_invalid_pass_count,
             "repair_selection_manifest_sha256": selection_manifest_sha256,
             "source_approval_sha256": options.approved_task_file_sha256,
             "source_provenance_sha256": options.expected_provenance_sha256,
@@ -1120,6 +1232,8 @@ def run_repair_chain(
         _assert_snapshot(paths.source_dir, original_snapshot, "original_source_changed")
         if repair_source is not None and repair_snapshot is not None:
             _assert_snapshot(repair_source, repair_snapshot, "repair_source_changed")
+        if repair_count and selection_snapshot is not None:
+            _assert_snapshot(selection_dir, selection_snapshot, "repair_selection_changed")
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:

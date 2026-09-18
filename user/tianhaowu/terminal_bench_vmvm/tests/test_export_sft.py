@@ -2,9 +2,11 @@ import copy
 import fcntl
 import hashlib
 import json
+import subprocess
 from pathlib import Path
 
 import direct_qwen_workers as direct_workers
+import export_sft as exporter
 import pytest
 from audit_traces import _json_sha256
 from datasets import load_dataset
@@ -274,6 +276,125 @@ def _sha256(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
+def _selection_index_sha256(slugs: set[str], approved: list[str]) -> str:
+    return hashlib.sha256(
+        "".join(f"{index}\n" for index, slug in enumerate(sorted(approved)) if slug in slugs).encode()
+    ).hexdigest()
+
+
+def _write_exclusion_selection(
+    results: Path,
+    *,
+    missing_or_errored: set[str],
+    strict_invalid_pass: set[str],
+) -> tuple[Path, str]:
+    run = results.parent
+    approved = [line for line in (run / "inputs/task_file.txt").read_text().splitlines() if line]
+    order = {slug: index for index, slug in enumerate(sorted(approved))}
+    union = missing_or_errored | strict_invalid_pass
+    selection_dir = run.parent / "selection"
+    selection_dir.mkdir()
+    bodies = {
+        "repair_tasks.txt": "".join(f"{slug}\n" for slug in sorted(union, key=order.__getitem__)).encode(),
+        "repair_missing_or_errored_tasks.txt": "".join(
+            f"{slug}\n" for slug in sorted(missing_or_errored, key=order.__getitem__)
+        ).encode(),
+        "repair_strict_invalid_pass_tasks.txt": "".join(
+            f"{slug}\n" for slug in sorted(strict_invalid_pass, key=order.__getitem__)
+        ).encode(),
+    }
+    for filename, body in bodies.items():
+        path = selection_dir / filename
+        path.write_bytes(body)
+        path.chmod(0o600)
+    repository = Path(exporter.__file__).resolve().parents[3]
+    revision = subprocess.check_output(["git", "-C", str(repository), "rev-parse", "HEAD"], text=True).strip()
+    submodules = {}
+    for relative in exporter.REQUIRED_RUNTIME_SUBMODULES:
+        record = subprocess.check_output(
+            ["git", "-C", str(repository), "ls-tree", revision, "--", relative],
+            text=True,
+        ).strip()
+        submodules[relative] = record.split()[2]
+    source_names = {
+        "config": "config.toml",
+        "direct_workers": "direct_workers.json",
+        "image_manifest": "inputs/image_manifest.json",
+        "inputs_manifest": "inputs/manifest.json",
+        "provenance": "provenance.txt",
+        "results": "results.jsonl",
+        "source_config": "inputs/source_config.toml",
+        "task_file": "inputs/task_file.txt",
+    }
+    retry_bytes = "".join(f"{name}\n" for name in sorted(direct_workers.ROLLOUT_RETRY_POLICY)).encode()
+    manifest = {
+        "approval": {
+            "approved_task_count": len(approved),
+            "approved_task_file_sha256": _sha256(run / "inputs/task_file.txt"),
+        },
+        "code": {
+            "exporter_sha256": _sha256(Path(exporter.__file__)),
+            "materializer_sha256": _sha256(Path(exporter.__file__).with_name("materialize_qwen_repair.py")),
+            "repository_revision": revision,
+            "submodules": submodules,
+        },
+        "config": {
+            "capture_model_io": True,
+            "enable_thinking": True,
+            "max_concurrent": direct_workers.MAX_DIRECT_CONCURRENCY,
+            "max_total_tokens": 262_144,
+            "preserve_thinking": True,
+            "provider_concurrency": direct_workers.PRODUCTION_PROVIDER_CONCURRENCY,
+            "retry_class_count": len(direct_workers.ROLLOUT_RETRY_POLICY),
+            "retry_policy_sha256": hashlib.sha256(retry_bytes).hexdigest(),
+            "sha256": "a" * 64,
+            "template_sha256": "b" * 64,
+        },
+        "kind": exporter.REPAIR_SELECTION_KIND,
+        "planner": {
+            "approved_task_count": len(approved),
+            "contract_verifiers_revision": direct_workers.ADMISSION_VERIFIERS_REVISION,
+            "missing_or_errored_count": len(missing_or_errored),
+            "module_sha256": direct_workers.ADMISSION_RESUME_MODULE_SHA256,
+            "retained_count": len(approved) - len(missing_or_errored),
+            "task_index_order_sha256": hashlib.sha256(
+                "".join(f"{index}\0{slug}\n" for index, slug in enumerate(sorted(approved))).encode()
+            ).hexdigest(),
+        },
+        "schema_version": exporter.REPAIR_SELECTION_SCHEMA_VERSION,
+        "selection": {
+            "approved_repair_count": len(union),
+            "missing_or_errored_count": len(missing_or_errored),
+            "missing_or_errored_indices_sha256": _selection_index_sha256(missing_or_errored, approved),
+            "missing_or_errored_task_file_sha256": hashlib.sha256(
+                bodies["repair_missing_or_errored_tasks.txt"]
+            ).hexdigest(),
+            "repair_union_indices_sha256": _selection_index_sha256(union, approved),
+            "strict_invalid_pass_count": len(strict_invalid_pass),
+            "strict_invalid_pass_indices_sha256": _selection_index_sha256(strict_invalid_pass, approved),
+            "strict_invalid_pass_task_file_sha256": hashlib.sha256(
+                bodies["repair_strict_invalid_pass_tasks.txt"]
+            ).hexdigest(),
+            "task_file_sha256": hashlib.sha256(bodies["repair_tasks.txt"]).hexdigest(),
+        },
+        "source": {
+            "artifacts": {
+                label: {
+                    "sha256": _sha256(run / relative),
+                    "size_bytes": (run / relative).stat().st_size,
+                }
+                for label, relative in source_names.items()
+            },
+            "routing_epoch": 3,
+            "task_count": len(approved),
+        },
+    }
+    manifest_path = selection_dir / "repair_manifest.json"
+    manifest_path.write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n")
+    manifest_path.chmod(0o600)
+    return manifest_path, _sha256(manifest_path)
+
+
 def _write_run(run_dir: Path, traces: list[dict], *, approved_slugs: list[str] | None = None) -> Path:
     inputs = run_dir / "inputs"
     inputs.mkdir(parents=True)
@@ -336,6 +457,8 @@ def _options(
     selection: str = "all-outcomes",
     expected_count: int | None = None,
     routing_epoch_index: Path | None = None,
+    exclusion_selection_manifest: Path | None = None,
+    exclusion_selection_manifest_sha256: str | None = None,
 ):
     return ExportOptions(
         results=results,
@@ -344,6 +467,8 @@ def _options(
         expected_count=expected_count,
         validation_permyriad=0,
         routing_epoch_index=routing_epoch_index,
+        exclusion_selection_manifest=exclusion_selection_manifest,
+        exclusion_selection_manifest_sha256=exclusion_selection_manifest_sha256,
     )
 
 
@@ -1133,7 +1258,7 @@ def test_unknown_task_slug_is_rejected_without_disclosure(
     assert json.loads(captured.err) == {"code": "trace_task_slug_not_approved", "status": "error"}
 
 
-def test_task_identity_requires_explicit_slug(tmp_path: Path) -> None:
+def test_task_identity_accepts_production_name_only_shape(tmp_path: Path) -> None:
     trace = _linear_trace(task_name="synthetic-task")
     trace["task"].pop("slug")
     results = _write_run(
@@ -1142,8 +1267,252 @@ def test_task_identity_requires_explicit_slug(tmp_path: Path) -> None:
         approved_slugs=["synthetic-task"],
     )
 
-    with pytest.raises(ExportError, match="^trace_task_slug_invalid$"):
+    summary = export_sft(_options(results, tmp_path / "dataset", selection="pass-only"))
+    assert summary["selected_traces"] == 1
+
+
+def test_task_identity_rejects_mismatched_name_and_slug(tmp_path: Path) -> None:
+    trace = _linear_trace(task_name="synthetic-task")
+    trace["task"]["name"] = "suite/different-task"
+    results = _write_run(tmp_path / "run", [trace], approved_slugs=["synthetic-task"])
+
+    with pytest.raises(ExportError, match="^trace_task_identity_mismatch$"):
         export_sft(_options(results, tmp_path / "dataset", selection="pass-only"))
+
+
+@pytest.mark.parametrize("invalid_name", [None, "", "synthetic-task/", "\x00synthetic-task", 7])
+def test_task_identity_rejects_invalid_present_name_even_with_valid_slug(
+    tmp_path: Path,
+    invalid_name: object,
+) -> None:
+    trace = _linear_trace(task_name="synthetic-task")
+    trace["task"]["name"] = invalid_name
+    results = _write_run(tmp_path / "run", [trace], approved_slugs=["synthetic-task"])
+
+    with pytest.raises(ExportError, match="^trace_task_name_invalid$"):
+        export_sft(_options(results, tmp_path / "dataset", selection="pass-only"))
+
+
+def test_attested_exclusion_cross_binds_name_to_evaluator_index(tmp_path: Path) -> None:
+    approved = ["opaque-a", "opaque-b"]
+    error = _name_only_trace("trace-error", "opaque-a", 1)
+    error["errors"] = [{"type": "SyntheticError"}]
+    valid = _name_only_trace("trace-valid", "opaque-b", 1)
+    results = _write_run(tmp_path / "run", [error, valid], approved_slugs=approved)
+    routing = _write_routing_epoch_index(results, [2, 2], current_epoch=2)
+    selection, digest = _write_exclusion_selection(
+        results,
+        missing_or_errored={"opaque-a"},
+        strict_invalid_pass=set(),
+    )
+
+    with pytest.raises(ExportError, match="^trace_task_identity_mismatch$"):
+        export_sft(
+            _options(
+                results,
+                tmp_path / "dataset",
+                selection="pass-only",
+                expected_count=2,
+                routing_epoch_index=routing,
+                exclusion_selection_manifest=selection,
+                exclusion_selection_manifest_sha256=digest,
+            )
+        )
+
+
+def _name_only_trace(trace_id: str, slug: str, index: int, *, reward: float = 1.0) -> dict:
+    trace = _linear_trace(trace_id=trace_id, reward=reward, task_name=slug)
+    trace["task"] = {"idx": index, "name": f"synthetic-suite/{slug}"}
+    return trace
+
+
+def test_attested_exclusion_unions_errors_missing_and_multiple_strict_invalid_passes(
+    tmp_path: Path,
+) -> None:
+    error_slug = "opaque-a7c3"
+    fail_slug = "opaque-b8d4"
+    invalid_cap_slug = "opaque-c9e5"
+    invalid_io_slug = "opaque-d0f6"
+    invalid_reasoning_slug = "opaque-e1a7"
+    missing_slug = "opaque-f2b8"
+    valid_slug = "opaque-03c9"
+    approved = [
+        error_slug,
+        fail_slug,
+        invalid_cap_slug,
+        invalid_io_slug,
+        invalid_reasoning_slug,
+        missing_slug,
+        valid_slug,
+    ]
+    index = {slug: position for position, slug in enumerate(sorted(approved))}
+    error = _name_only_trace("trace-error", error_slug, index[error_slug])
+    error["errors"] = [{"type": "SyntheticError"}]
+    failed = _name_only_trace("trace-fail", fail_slug, index[fail_slug], reward=0.0)
+    invalid_cap = _name_only_trace("trace-cap", invalid_cap_slug, index[invalid_cap_slug])
+    cap_node = invalid_cap["nodes"][2]
+    cap_node["usage"]["prompt_tokens"] = 262_144
+    cap_response = cap_node["model_io"]["response"]
+    cap_response["body"]["usage"]["prompt_tokens"] = 262_144
+    cap_response["body"]["usage"]["total_tokens"] = 262_149
+    cap_response["sha256"] = _json_sha256(cap_response["body"])
+    invalid_io = _name_only_trace("trace-io", invalid_io_slug, index[invalid_io_slug])
+    invalid_io["nodes"][2]["model_io"]["response"]["sha256"] = "0" * 64
+    invalid_reasoning = _name_only_trace(
+        "trace-reasoning",
+        invalid_reasoning_slug,
+        index[invalid_reasoning_slug],
+    )
+    invalid_reasoning["nodes"][2]["message"].pop("reasoning_content")
+    valid = _name_only_trace("trace-valid", valid_slug, index[valid_slug])
+    traces = [error, failed, invalid_cap, invalid_io, invalid_reasoning, valid]
+    results = _write_run(tmp_path / "run", traces, approved_slugs=approved)
+    routing = _write_routing_epoch_index(results, [2] * len(traces), current_epoch=2)
+    selection, selection_sha256 = _write_exclusion_selection(
+        results,
+        missing_or_errored={error_slug, missing_slug},
+        strict_invalid_pass={invalid_cap_slug, invalid_io_slug, invalid_reasoning_slug},
+    )
+
+    summary = export_sft(
+        _options(
+            results,
+            tmp_path / "dataset",
+            selection="pass-only",
+            expected_count=len(approved),
+            routing_epoch_index=routing,
+            exclusion_selection_manifest=selection,
+            exclusion_selection_manifest_sha256=selection_sha256,
+        )
+    )
+
+    assert summary["approved_tasks"] == len(approved)
+    assert summary["input_traces"] == len(traces)
+    assert summary["selected_traces"] == 1
+    assert summary["exclusion"] == {
+        "excluded_present_traces": 4,
+        "missing_tasks": 1,
+        "missing_or_errored_count": 2,
+        "selection_manifest_sha256": selection_sha256,
+        "strict_invalid_pass_count": 3,
+        "union_count": 5,
+    }
+    serialized = json.dumps(summary, sort_keys=True)
+    assert all(slug not in serialized for slug in approved)
+
+
+def test_attested_exclusion_rejects_selected_scored_failure(tmp_path: Path) -> None:
+    approved = ["fail", "valid"]
+    traces = [
+        _name_only_trace("trace-fail", "fail", 0, reward=0.0),
+        _name_only_trace("trace-valid", "valid", 1),
+    ]
+    results = _write_run(tmp_path / "run", traces, approved_slugs=approved)
+    routing = _write_routing_epoch_index(results, [2, 2], current_epoch=2)
+    selection, digest = _write_exclusion_selection(
+        results,
+        missing_or_errored=set(),
+        strict_invalid_pass={"fail"},
+    )
+
+    with pytest.raises(ExportError, match="^exclusion_selection_category_mismatch$"):
+        export_sft(
+            _options(
+                results,
+                tmp_path / "dataset",
+                selection="pass-only",
+                expected_count=2,
+                routing_epoch_index=routing,
+                exclusion_selection_manifest=selection,
+                exclusion_selection_manifest_sha256=digest,
+            )
+        )
+
+
+def test_attested_exclusion_rejects_selected_trainable_pass(tmp_path: Path) -> None:
+    approved = ["selected", "valid"]
+    traces = [
+        _name_only_trace("trace-selected", "selected", 0),
+        _name_only_trace("trace-valid", "valid", 1),
+    ]
+    results = _write_run(tmp_path / "run", traces, approved_slugs=approved)
+    routing = _write_routing_epoch_index(results, [2, 2], current_epoch=2)
+    selection, digest = _write_exclusion_selection(
+        results,
+        missing_or_errored=set(),
+        strict_invalid_pass={"selected"},
+    )
+
+    with pytest.raises(ExportError, match="^exclusion_selection_category_mismatch$"):
+        export_sft(
+            _options(
+                results,
+                tmp_path / "dataset",
+                selection="pass-only",
+                expected_count=2,
+                routing_epoch_index=routing,
+                exclusion_selection_manifest=selection,
+                exclusion_selection_manifest_sha256=digest,
+            )
+        )
+
+
+def test_attested_exclusion_does_not_hide_unselected_invalid_pass(tmp_path: Path) -> None:
+    approved = ["error", "invalid", "valid"]
+    error = _name_only_trace("trace-error", "error", 0)
+    error["errors"] = [{"type": "SyntheticError"}]
+    invalid = _name_only_trace("trace-invalid", "invalid", 1)
+    invalid["nodes"][2].pop("model_io")
+    valid = _name_only_trace("trace-valid", "valid", 2)
+    results = _write_run(tmp_path / "run", [error, invalid, valid], approved_slugs=approved)
+    routing = _write_routing_epoch_index(results, [2, 2, 2], current_epoch=2)
+    selection, digest = _write_exclusion_selection(
+        results,
+        missing_or_errored={"error"},
+        strict_invalid_pass=set(),
+    )
+
+    with pytest.raises(ExportError, match="^trace_validation_failed$"):
+        export_sft(
+            _options(
+                results,
+                tmp_path / "dataset",
+                selection="pass-only",
+                expected_count=3,
+                routing_epoch_index=routing,
+                exclusion_selection_manifest=selection,
+                exclusion_selection_manifest_sha256=digest,
+            )
+        )
+
+
+def test_attested_exclusion_rejects_tampered_category_file(tmp_path: Path) -> None:
+    approved = ["error", "valid"]
+    error = _name_only_trace("trace-error", "error", 0)
+    error["errors"] = [{"type": "SyntheticError"}]
+    valid = _name_only_trace("trace-valid", "valid", 1)
+    results = _write_run(tmp_path / "run", [error, valid], approved_slugs=approved)
+    routing = _write_routing_epoch_index(results, [2, 2], current_epoch=2)
+    selection, digest = _write_exclusion_selection(
+        results,
+        missing_or_errored={"error"},
+        strict_invalid_pass=set(),
+    )
+    (selection.parent / "repair_missing_or_errored_tasks.txt").write_text("error\nvalid\n")
+    (selection.parent / "repair_missing_or_errored_tasks.txt").chmod(0o600)
+
+    with pytest.raises(ExportError, match="^exclusion_selection_contract_invalid$"):
+        export_sft(
+            _options(
+                results,
+                tmp_path / "dataset",
+                selection="pass-only",
+                expected_count=2,
+                routing_epoch_index=routing,
+                exclusion_selection_manifest=selection,
+                exclusion_selection_manifest_sha256=digest,
+            )
+        )
 
 
 def test_approved_task_list_rejects_duplicate_slugs(tmp_path: Path) -> None:

@@ -32,6 +32,7 @@ def _argument(command: chain.ChildCommand, name: str) -> Path:
 
 def _finalizer_summary(expected_count: int) -> dict[str, Any]:
     return {
+        "approved_tasks": expected_count,
         "input_traces": expected_count,
         "rows": {"total": 3, "train": 2, "validation": 1},
         "selected_traces": 2,
@@ -46,6 +47,7 @@ class FakeRunner:
     source: Path
     attestation: chain.ProjectAttestation
     mutate_source: bool = False
+    mutate_selection: bool = False
     stages: list[str] = field(default_factory=list)
 
     def __call__(self, command: chain.ChildCommand, _log_dir: Path) -> dict[str, Any] | None:
@@ -59,7 +61,9 @@ class FakeRunner:
                     "approved_task_file_sha256": _sha256((self.source / "inputs" / "task_file.txt").read_bytes()),
                     "missing_or_errored_count": 0,
                     "ok": True,
+                    "repair_union_indices_sha256": _sha256(b""),
                     "status": "nothing_to_repair",
+                    "strict_invalid_pass_count": 0,
                     "task_index_order_sha256": "7" * 64,
                 }
             output = _argument(command, "--output-dir")
@@ -69,6 +73,8 @@ class FakeRunner:
             task_file = output / "repair_tasks.txt"
             config_file = output / "repair_config.toml"
             manifest_file = output / "repair_manifest.json"
+            missing_file = output / "repair_missing_or_errored_tasks.txt"
+            strict_file = output / "repair_strict_invalid_pass_tasks.txt"
             config_body = f"""
 model = "{direct.EXPECTED_MODEL}"
 num_tasks = {self.repair_count}
@@ -100,6 +106,7 @@ task_file_sha256 = "{task_sha256}"
                     "approved_task_file_sha256": source_task_sha256,
                 },
                 "code": {
+                    "exporter_sha256": self.attestation.exporter_sha256,
                     "materializer_sha256": self.attestation.materializer_sha256,
                     "repository_revision": self.attestation.revision,
                     "submodules": dict(self.attestation.submodules),
@@ -127,9 +134,16 @@ task_file_sha256 = "{task_sha256}"
                     "retained_count": chain.EXPECTED_ORIGINAL_COUNT - self.repair_count,
                     "task_index_order_sha256": "7" * 64,
                 },
-                "schema_version": 1,
+                "schema_version": 2,
                 "selection": {
                     "approved_repair_count": self.repair_count,
+                    "missing_or_errored_count": self.repair_count,
+                    "missing_or_errored_indices_sha256": "4" * 64,
+                    "missing_or_errored_task_file_sha256": task_sha256,
+                    "repair_union_indices_sha256": "5" * 64,
+                    "strict_invalid_pass_count": 0,
+                    "strict_invalid_pass_indices_sha256": _sha256(b""),
+                    "strict_invalid_pass_task_file_sha256": _sha256(b""),
                     "task_file_sha256": task_sha256,
                 },
                 "source": {
@@ -147,6 +161,8 @@ task_file_sha256 = "{task_sha256}"
             manifest_body = json.dumps(manifest, indent=2, sort_keys=True).encode() + b"\n"
             for path, body in (
                 (task_file, task_body),
+                (missing_file, task_body),
+                (strict_file, b""),
                 (config_file, config_body),
                 (manifest_file, manifest_body),
             ):
@@ -157,7 +173,9 @@ task_file_sha256 = "{task_sha256}"
                 "manifest_sha256": _sha256(manifest_body),
                 "missing_or_errored_count": self.repair_count,
                 "ok": True,
+                "repair_union_indices_sha256": "5" * 64,
                 "status": "materialized",
+                "strict_invalid_pass_count": 0,
                 "task_file_sha256": task_sha256,
                 "task_index_order_sha256": "7" * 64,
             }
@@ -166,11 +184,16 @@ task_file_sha256 = "{task_sha256}"
             assert command.environment["VACLI_MAX_CONCURRENT_LEASES"] == "2"
             assert command.environment["OPENAI_API_KEY"] == "EMPTY"
             repair_dir = Path(command.environment["OUTPUT_DIR"])
+            if self.mutate_selection:
+                selection_file = Path(command.environment["DIRECT_QWEN_APPROVED_TASK_FILE"])
+                selection_file.write_bytes(selection_file.read_bytes() + b"opaque-tamper\n")
             repair_dir.mkdir()
             _write(repair_dir / "provenance.txt", b"repair-provenance\n")
             _write(repair_dir / "results.jsonl", b"repair-results\n")
             return None
         if command.stage == "finalize_original":
+            has_exclusion = "--exclusion-selection-manifest" in command.argv
+            assert has_exclusion is (self.repair_count > 0)
             output = _argument(command, "--output-dir")
             output.mkdir()
             artifacts = {
@@ -182,6 +205,17 @@ task_file_sha256 = "{task_sha256}"
             for path, body in artifacts.values():
                 _write(path, body)
             summary = _finalizer_summary(chain.EXPECTED_ORIGINAL_COUNT)
+            if self.repair_count:
+                summary["exclusion"] = {
+                    "excluded_present_traces": self.repair_count,
+                    "missing_tasks": 0,
+                    "missing_or_errored_count": self.repair_count,
+                    "selection_manifest_sha256": _sha256(
+                        _argument(command, "--exclusion-selection-manifest").read_bytes()
+                    ),
+                    "strict_invalid_pass_count": 0,
+                    "union_count": self.repair_count,
+                }
             summary["output_sha256"] = {name: _sha256(body) for name, (_path, body) in artifacts.items()}
             return summary
         if command.stage == "finalize_repair":
@@ -189,9 +223,10 @@ task_file_sha256 = "{task_sha256}"
             output.mkdir()
             attestation_body = b"repair-attestation\n"
             manifest_body = b"repair-manifest\n"
-            selection_body = _argument(command, "--repair-selection-manifest").read_bytes()
+            selection_manifest = _argument(command, "--repair-selection-manifest")
             _write(output / repair_finalizer.ATTESTATION_FILENAME, attestation_body)
-            _write(output / repair_finalizer.SELECTION_COPY_FILENAME, selection_body)
+            for copy_name, source_name in repair_finalizer.SELECTION_SOURCE_FILENAMES.items():
+                _write(output / copy_name, (selection_manifest.parent / source_name).read_bytes())
             _write(output / "manifest.json", manifest_body)
             summary = _finalizer_summary(self.repair_count)
             summary["attestation_sha256"] = _sha256(attestation_body)
@@ -281,6 +316,7 @@ chat_template_kwargs = {{ enable_thinking = true, preserve_thinking = true }}
         revision=options.expected_project_revision,
         submodules={name: "c" * 40 for name in chain.common.REQUIRED_RUNTIME_SUBMODULES},
         materializer_sha256="b" * 64,
+        exporter_sha256="e" * 64,
         repair_template_sha256="6" * 64,
     )
     source_bytes = {path.relative_to(source): path.read_bytes() for path in source.rglob("*") if path.is_file()}
@@ -393,6 +429,21 @@ def test_repair_chain_detects_source_mutation(tmp_path: Path) -> None:
     assert not options.original_export_dir.exists()
 
 
+def test_repair_chain_detects_selection_mutation(tmp_path: Path) -> None:
+    options, attestation, _source_bytes = _layout(tmp_path)
+    runner = FakeRunner(2, options.source_dir, attestation, mutate_selection=True)
+
+    with pytest.raises(chain.RepairChainError, match="^repair_selection_changed$"):
+        chain.run_repair_chain(
+            options,
+            runner=runner,
+            project_validator=lambda _project, _revision: attestation,
+            environment={"PATH": os.environ["PATH"], "SLURM_JOB_ID": "456"},
+        )
+    assert runner.stages == ["materialize", "repair_eval"]
+    assert not options.original_export_dir.exists()
+
+
 def test_repair_chain_revalidates_project_before_direct_repair(tmp_path: Path) -> None:
     options, attestation, _source_bytes = _layout(tmp_path)
     runner = FakeRunner(1, options.source_dir, attestation)
@@ -407,6 +458,7 @@ def test_repair_chain_revalidates_project_before_direct_repair(tmp_path: Path) -
             revision=attestation.revision,
             submodules=attestation.submodules,
             materializer_sha256="d" * 64,
+            exporter_sha256=attestation.exporter_sha256,
             repair_template_sha256=attestation.repair_template_sha256,
         )
 
