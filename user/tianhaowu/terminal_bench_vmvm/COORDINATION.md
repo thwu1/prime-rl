@@ -45,7 +45,12 @@ Add new rows below this line; do not overwrite another owner's row.
   independent review before submission. Source-enabled installation must run
   only inside a disposable builder whose exact image/fingerprint matches the
   target, with no evaluation artifacts, tests, model material, or TLS secrets;
-  prove the source distribution was consumed. The controller must hash and
+  prove the source distribution was consumed. `runtime.config.image` alone is
+  insufficient for Compose, which may replace the main image: reproduce and
+  fingerprint the actual digest-pinned Compose main image or reject Compose
+  source fallback. Require an immutable image reference/digest, allow at most
+  one transient extra VMVM lease, and single-flight construction per cache key.
+  The controller must hash and
   attest the source, resulting wheel, policy, and a validated allowlisted/repacked
   wheel closure; force compatibility scope rather than ever marking it
   universal. Tear down the builder before atomically publishing cache state,
