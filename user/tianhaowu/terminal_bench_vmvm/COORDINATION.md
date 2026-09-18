@@ -1,6 +1,6 @@
 # VMVM sandbox coordination
 
-Last updated: 2026-09-18 08:18 UTC
+Last updated: 2026-09-18 08:21 UTC
 
 ## First message to the next teammate
 
@@ -48,7 +48,8 @@ Add new rows below this line; do not overwrite another owner's row.
   production exactly and readiness to prove at least the production route
   count; adversarial width 25 and lease-start 5 both reject while exact 24/4
   accepts. Full workflow validation passed 743 tests; independent focused
-  review passed 145. The config hashes changed, so post-TB4 production requires
+  review passed 145; frozen exact-head x86 smoke `1468739` passed 174/174.
+  The config hashes changed, so post-TB4 production requires
   a fresh config-bound oracle promotion, exact-24 readiness, capacity smoke,
   and launch certificate. TB4/Qwen configs, current launch scripts, and the
   active frozen Kimi TB4 lineage are byte-unchanged; do not switch that run.
