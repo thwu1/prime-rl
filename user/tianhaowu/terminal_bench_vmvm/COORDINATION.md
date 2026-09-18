@@ -1,6 +1,6 @@
 # VMVM sandbox coordination
 
-Last updated: 2026-09-18 08:01 UTC
+Last updated: 2026-09-18 08:18 UTC
 
 ## First message to the next teammate
 
@@ -39,6 +39,19 @@ this shared branch again.
 Add new rows below this line; do not overwrite another owner's row.
 
 ## Open coordination requests
+
+- **2026-09-18 08:18 UTC, reviewed exact-24 Kimi Mobius contract:** draft PR
+  `thwu1/prime-rl#42` now points to independently approved head `1be5d60c8`.
+  Future Kimi capacity-smoke and 2,500-task configs are exactly 24-wide across
+  rollout, multiplex, and both HTTP pools, with exactly four simultaneous
+  lease starts. Certification requires the measured capacity tuple to equal
+  production exactly and readiness to prove at least the production route
+  count; adversarial width 25 and lease-start 5 both reject while exact 24/4
+  accepts. Full workflow validation passed 743 tests; independent focused
+  review passed 145. The config hashes changed, so post-TB4 production requires
+  a fresh config-bound oracle promotion, exact-24 readiness, capacity smoke,
+  and launch certificate. TB4/Qwen configs, current launch scripts, and the
+  active frozen Kimi TB4 lineage are byte-unchanged; do not switch that run.
 
 - **2026-09-18 08:01 UTC, use2-1 Qwen immutable prefix 1,000:** the first
   1,000 newline-terminated rows hash to
