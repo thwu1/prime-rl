@@ -26,6 +26,55 @@ from prime_rl.utils.chat_template import (
 from prime_rl.utils.logger import get_logger
 
 STACKING_DATASET_BUCKET_TIMEOUT = 10
+FORMAT_V3_MARKER_COLUMNS = frozenset(
+    {
+        "assistant_target_count",
+        "history_reasoning_policy",
+        "target_assistant_message_index",
+        "target_finish_reason",
+        "transcript_fidelity",
+    }
+)
+
+
+def _drop_dataset_schema_nulls(value):
+    if isinstance(value, dict):
+        return {key: _drop_dataset_schema_nulls(value[key]) for key in sorted(value) if value[key] is not None}
+    if isinstance(value, list):
+        return [_drop_dataset_schema_nulls(item) for item in value if item is not None]
+    return value
+
+
+def _canonicalize_attested_messages(messages: object) -> list[dict]:
+    if not isinstance(messages, list):
+        raise ValueError("Format-v3 messages must be a list")
+    normalized: list[dict] = []
+    allowed = {
+        "assistant": {"content", "finish_reason", "reasoning_content", "role", "tool_calls", "trainable"},
+        "system": {"content", "role", "trainable"},
+        "tool": {"content", "name", "role", "tool_call_id", "trainable"},
+        "user": {"content", "role", "trainable"},
+    }
+    for message in messages:
+        if not isinstance(message, dict) or message.get("role") not in allowed:
+            raise ValueError("Format-v3 message is invalid")
+        role = message["role"]
+        if any(key not in allowed[role] and value is not None for key, value in message.items()):
+            raise ValueError("Format-v3 message contains an unsupported field")
+        normalized.append(
+            {
+                key: _drop_dataset_schema_nulls(value)
+                for key, value in message.items()
+                if key in allowed[role] and (value is not None or key in {"content", "finish_reason"})
+            }
+        )
+    return normalized
+
+
+def _canonicalize_attested_tools(tools: object) -> list[dict]:
+    if not isinstance(tools, list):
+        raise ValueError("Format-v3 tools must be a list")
+    return [_drop_dataset_schema_nulls(tool) for tool in tools]
 
 
 class Sample(TypedDict):
@@ -147,6 +196,7 @@ class SFTDataset(StatefulIterableDataset):
         max_examples: int | None = None,
         max_epochs: int | None = None,
         renderer: Renderer | None = None,
+        attested_export: bool = False,
     ):
         super().__init__()
         self.logger = get_logger()
@@ -161,7 +211,11 @@ class SFTDataset(StatefulIterableDataset):
         self.max_examples = max_examples
         self.max_epochs = max_epochs
         self.renderer = renderer
+        self.attested_export = attested_export
         self._warned_chat_template_kwargs = False
+
+        if FORMAT_V3_MARKER_COLUMNS & set(self.dataset.column_names) and not attested_export:
+            raise ValueError("Format-v3 SFT exports require a validated preflight attestation")
 
         if self.tokenizer is None:
             self.logger.warning("No tokenizer provided, will not process examples")
@@ -190,7 +244,12 @@ class SFTDataset(StatefulIterableDataset):
             # `messages` takes precedence over explicit split fields and is interpreted
             # as a whole-chat training sample with an empty prompt.
             if "messages" in example:
-                messages = normalize_messages(example["messages"], default_role="assistant")
+                source_messages = (
+                    _canonicalize_attested_messages(example["messages"])
+                    if self.attested_export
+                    else example["messages"]
+                )
+                messages = normalize_messages(source_messages, default_role="assistant")
             elif "prompt" in example and "completion" in example:
                 messages = normalize_messages(example["prompt"], default_role="user") + normalize_messages(
                     example["completion"], default_role="assistant"
@@ -214,29 +273,46 @@ class SFTDataset(StatefulIterableDataset):
         # Parse available tools, if present - assumes OAI format
         # Reference: https://platform.openai.com/docs/guides/function-calling#function-tool-example
         # Accepts either `tools` or `tool_defs` (the verifiers rollout format),
-        # as either a JSON-encoded string of a list or a list of dicts. Tools
-        # arriving in the verifiers shape are converted to OAI form so any
-        # downstream chat template can consume them.
+        # as either a JSON-encoded string of a list or a list of dicts.
         raw_tools = example.get("tools", example.get("tool_defs"))
         if not raw_tools:
             tools = []
         else:
             if isinstance(raw_tools, str):
                 raw_tools = json.loads(raw_tools)
-            tools = [
-                t
-                if isinstance(t, dict) and t.get("type") == "function" and "function" in t
-                else {
-                    "type": "function",
-                    "function": {
-                        "name": t.get("name"),
-                        "description": t.get("description"),
-                        "parameters": t.get("parameters"),
-                        **({} if t.get("strict") is None else {"strict": t["strict"]}),
-                    },
-                }
-                for t in raw_tools
-            ]
+            if self.attested_export:
+                raw_tools = _canonicalize_attested_tools(raw_tools)
+                if not isinstance(raw_tools, list) or any(
+                    not isinstance(tool, dict)
+                    or set(tool) != {"type", "function"}
+                    or tool.get("type") != "function"
+                    or not isinstance(tool.get("function"), dict)
+                    or not {"name", "description", "parameters"}.issubset(tool["function"])
+                    or not set(tool["function"]).issubset({"name", "description", "parameters", "strict"})
+                    or not isinstance(tool["function"].get("name"), str)
+                    or not tool["function"]["name"]
+                    or not isinstance(tool["function"].get("description"), str)
+                    or not isinstance(tool["function"].get("parameters"), dict)
+                    or (tool["function"].get("strict") is not None and not isinstance(tool["function"]["strict"], bool))
+                    for tool in raw_tools
+                ):
+                    raise ValueError("Format-v3 tools must use the canonical OpenAI function envelope")
+                tools = raw_tools
+            else:
+                tools = [
+                    t
+                    if isinstance(t, dict) and t.get("type") == "function" and "function" in t
+                    else {
+                        "type": "function",
+                        "function": {
+                            "name": t.get("name"),
+                            "description": t.get("description"),
+                            "parameters": t.get("parameters"),
+                            **({} if t.get("strict") is None else {"strict": t["strict"]}),
+                        },
+                    }
+                    for t in raw_tools
+                ]
 
         if self.renderer is not None:
             if example.get("chat_template_kwargs") and not self._warned_chat_template_kwargs:
@@ -646,6 +722,7 @@ def setup_dataset(
     max_epochs: int | None = None,
     raw_dataset: Dataset | None = None,
     renderer: Renderer | None = None,
+    attested_export: bool = False,
 ) -> StatefulIterableDataset:
     if config.type == "fake":
         return FakeDataset(
@@ -665,6 +742,7 @@ def setup_dataset(
             non_dp_size=non_dp_size,
             max_epochs=max_epochs,
             renderer=renderer,
+            attested_export=attested_export,
         )
     else:
         raise ValueError(f"Invalid dataset type: {config.type}")

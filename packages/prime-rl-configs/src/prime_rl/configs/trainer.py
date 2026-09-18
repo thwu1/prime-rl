@@ -268,6 +268,9 @@ class TokenizerConfig(BaseConfig):
     name: str | None = None
     """Tokenizer name or path. If None, the model's default tokenizer is used."""
 
+    revision: str | None = None
+    """Immutable model-hub revision used to load the tokenizer."""
+
     trust_remote_code: bool | None = None
     """Trust remote code when initializing the tokenizer. If None, inherits the model's ``trust_remote_code`` setting."""
 

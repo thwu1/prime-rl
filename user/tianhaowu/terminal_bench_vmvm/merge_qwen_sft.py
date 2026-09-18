@@ -61,9 +61,13 @@ FORMAT_CONTRACT = {
     "task_identity": TASK_IDENTITY,
 }
 TARGET_RENDERING_CONTRACT_FILENAME = "target-rendering-contract.json"
-TARGET_RENDERING_CONTRACT_SHA256 = "29740bb5171087055faddc961a620c66235c14e7faad81adfbd1424e56fb7e31"
+TARGET_RENDERING_CONTRACT_SHA256 = "305d66d12152b6de0f045a4fff3bd53adaaac173bcf8bbdc766efe4ceab3e981"
 TARGET_RENDERING_CONTRACT = {
+    "dataset_format_version": 3,
     "kind": "terminal-bench-sft-target-rendering",
+    "loss_mask": {"assistant": True, "system": False, "tool": False, "user": False},
+    "max_sequence_tokens": MAX_SEQUENCE_TOKENS,
+    "pack_function": "fixed_stack",
     "renderer": {
         "config": {
             "enable_thinking": True,
@@ -76,10 +80,11 @@ TARGET_RENDERING_CONTRACT = {
         },
         "repository_revision": "044d9e2541f6a911cacae9da353fc063911ef1f8",
     },
-    "schema_version": 1,
+    "schema_version": 2,
     "tokenizer": {
         "repository": "nvidia/NVIDIA-Nemotron-3-Super-120B-A12B-BF16",
         "revision": "d51eab0d1f979ebc26b546e634a04f450d99158e",
+        "trust_remote_code": False,
     },
 }
 REQUIRED_ARTIFACT_PATHS = {
@@ -329,6 +334,16 @@ class ArtifactSink:
 
 def _is_plain_int(value: object) -> bool:
     return isinstance(value, int) and not isinstance(value, bool)
+
+
+def _contains_json_null(value: object) -> bool:
+    if value is None:
+        return True
+    if isinstance(value, dict):
+        return any(_contains_json_null(item) for item in value.values())
+    if isinstance(value, list):
+        return any(_contains_json_null(item) for item in value)
+    return False
 
 
 def _json_bytes(value: object) -> bytes:
@@ -822,13 +837,17 @@ def _validate_tool_schema(value: object) -> None:
         function = tool.get("function") if isinstance(tool, dict) else None
         if (
             not isinstance(tool, dict)
-            or tool.get("type", "function") != "function"
+            or set(tool) != {"type", "function"}
+            or tool.get("type") != "function"
             or not isinstance(function, dict)
+            or not {"description", "name", "parameters"}.issubset(function)
+            or not set(function).issubset({"description", "name", "parameters", "strict"})
             or not isinstance(function.get("name"), str)
             or not function["name"]
-            or not isinstance(function.get("description", ""), str)
-            or not isinstance(function.get("parameters", {}), dict)
-            or (function.get("strict") is not None and not isinstance(function["strict"], bool))
+            or not isinstance(function.get("description"), str)
+            or not isinstance(function.get("parameters"), dict)
+            or _contains_json_null(function["parameters"])
+            or ("strict" in function and not isinstance(function["strict"], bool))
         ):
             raise MergeError("row_tool_contract_invalid")
 
@@ -857,6 +876,8 @@ def _validate_messages(messages: object, target_index: int) -> None:
             finish_reason = message.get("finish_reason")
             if finish_reason is not None and (not isinstance(finish_reason, str) or not finish_reason):
                 raise MergeError("row_finish_reason_contract_invalid")
+            if finish_reason == "length":
+                raise MergeError("row_finish_reason_length")
             tool_calls = message.get("tool_calls")
             if tool_calls is not None:
                 if not isinstance(tool_calls, list) or not tool_calls:

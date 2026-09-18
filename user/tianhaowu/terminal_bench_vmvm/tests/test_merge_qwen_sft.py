@@ -633,7 +633,7 @@ def test_tampered_artifact_is_rejected_without_output(tmp_path: Path) -> None:
 
 def test_rehashed_target_rendering_contract_is_rejected(tmp_path: Path) -> None:
     original, repair, selection, selection_sha256, _task_ids = _fixture_exports(tmp_path)
-    modified = {**TARGET_RENDERING_CONTRACT, "schema_version": 2}
+    modified = {**TARGET_RENDERING_CONTRACT, "schema_version": 3}
     _replace_export_artifact(repair, TARGET_RENDERING_CONTRACT_FILENAME, _json_bytes(modified))
 
     with pytest.raises(MergeError, match="^target_rendering_contract_invalid$"):
@@ -1100,6 +1100,35 @@ def test_rehashed_repair_export_rejects_fidelity_metadata_drift(
     _replace_export_artifact(repair, "train/train.jsonl", _jsonl(rows))
 
     with pytest.raises(MergeError, match=f"^{error_code}$"):
+        merge_qwen_sft(
+            _options(original, repair, selection, selection_sha256, tmp_path / "merged"),
+            code_provenance=_code_provenance(),
+        )
+
+
+def test_rehashed_repair_export_rejects_sampled_length_finish_reason(tmp_path: Path) -> None:
+    original, repair, selection, selection_sha256, _task_ids = _fixture_exports(tmp_path)
+    train_path = repair / "train" / "train.jsonl"
+    rows = [json.loads(line) for line in train_path.read_text().splitlines()]
+    rows[0]["messages"][-1]["finish_reason"] = "length"
+    rows[0]["target_finish_reason"] = "length"
+    _replace_export_artifact(repair, "train/train.jsonl", _jsonl(rows))
+
+    with pytest.raises(MergeError, match="^row_finish_reason_length$"):
+        merge_qwen_sft(
+            _options(original, repair, selection, selection_sha256, tmp_path / "merged"),
+            code_provenance=_code_provenance(),
+        )
+
+
+def test_rehashed_repair_export_rejects_tool_without_function_type(tmp_path: Path) -> None:
+    original, repair, selection, selection_sha256, _task_ids = _fixture_exports(tmp_path)
+    train_path = repair / "train" / "train.jsonl"
+    rows = [json.loads(line) for line in train_path.read_text().splitlines()]
+    rows[0]["tools"][0].pop("type")
+    _replace_export_artifact(repair, "train/train.jsonl", _jsonl(rows))
+
+    with pytest.raises(MergeError, match="^row_tool_contract_invalid$"):
         merge_qwen_sft(
             _options(original, repair, selection, selection_sha256, tmp_path / "merged"),
             code_provenance=_code_provenance(),

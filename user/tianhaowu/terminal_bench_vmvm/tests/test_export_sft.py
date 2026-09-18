@@ -780,6 +780,58 @@ def test_sampled_finish_reason_is_required(tmp_path: Path) -> None:
         export_sft(_options(results, tmp_path / "dataset"))
 
 
+def test_sampled_length_finish_reason_is_not_trainable(tmp_path: Path) -> None:
+    trace = _linear_trace()
+    node = trace["nodes"][2]
+    node["finish_reason"] = "length"
+    response = node["model_io"]["response"]
+    response["body"]["choices"][0]["finish_reason"] = "length"
+    response["sha256"] = _json_sha256(response["body"])
+    results = _write_run(tmp_path / "run", [trace])
+
+    with pytest.raises(ExportError, match="^sampled_finish_reason_length$"):
+        export_sft(_options(results, tmp_path / "dataset"))
+
+
+@pytest.mark.parametrize("field", ["provider_state", "reasoning_details"])
+def test_unsupported_provider_reasoning_state_is_rejected(tmp_path: Path, field: str) -> None:
+    trace = _linear_trace()
+    response = trace["nodes"][2]["model_io"]["response"]
+    response["body"]["choices"][0]["message"][field] = {"opaque": "synthetic"}
+    response["sha256"] = _json_sha256(response["body"])
+    results = _write_run(tmp_path / "run", [trace])
+
+    with pytest.raises(ExportError, match="^unsupported_assistant_state$"):
+        export_sft(_options(results, tmp_path / "dataset"))
+
+
+@pytest.mark.parametrize("field", ["provider_state", "reasoning_details"])
+def test_unsupported_provider_state_is_rejected_anywhere_in_selected_trace(tmp_path: Path, field: str) -> None:
+    trace = _linear_trace()
+    trace["nodes"][2][field] = {"opaque": "synthetic"}
+    results = _write_run(tmp_path / "run", [trace])
+
+    with pytest.raises(ExportError, match="^unsupported_assistant_state$"):
+        export_sft(_options(results, tmp_path / "dataset"))
+
+
+def test_tool_schema_requires_explicit_function_type(tmp_path: Path) -> None:
+    del tmp_path
+    tool = _tool()
+    tool.pop("type")
+
+    with pytest.raises(ExportError, match="^tool_schema_invalid$"):
+        exporter._normalize_tools([tool])
+
+
+def test_tool_schema_rejects_ambiguous_json_null_padding() -> None:
+    tool = _tool()
+    tool["function"]["parameters"]["properties"]["command"]["default"] = None
+
+    with pytest.raises(ExportError, match="^tool_schema_invalid$"):
+        exporter._normalize_tools([tool])
+
+
 def test_captured_request_messages_must_match_the_graph_path(tmp_path: Path) -> None:
     trace = _linear_trace()
     request = trace["nodes"][4]["model_io"]["request"]

@@ -72,9 +72,13 @@ TARGET_RENDERING_CONTRACT_FILENAME = "target-rendering-contract.json"
 TARGET_RENDERING_CONTRACT_PATH = (
     Path(__file__).resolve().parent / "configs" / "sft" / TARGET_RENDERING_CONTRACT_FILENAME
 )
-TARGET_RENDERING_CONTRACT_SHA256 = "29740bb5171087055faddc961a620c66235c14e7faad81adfbd1424e56fb7e31"
+TARGET_RENDERING_CONTRACT_SHA256 = "305d66d12152b6de0f045a4fff3bd53adaaac173bcf8bbdc766efe4ceab3e981"
 TARGET_RENDERING_CONTRACT = {
+    "dataset_format_version": 3,
     "kind": "terminal-bench-sft-target-rendering",
+    "loss_mask": {"assistant": True, "system": False, "tool": False, "user": False},
+    "max_sequence_tokens": DEFAULT_MAX_SEQUENCE_TOKENS,
+    "pack_function": "fixed_stack",
     "renderer": {
         "config": {
             "enable_thinking": True,
@@ -87,10 +91,11 @@ TARGET_RENDERING_CONTRACT = {
         },
         "repository_revision": "044d9e2541f6a911cacae9da353fc063911ef1f8",
     },
-    "schema_version": 1,
+    "schema_version": 2,
     "tokenizer": {
         "repository": "nvidia/NVIDIA-Nemotron-3-Super-120B-A12B-BF16",
         "revision": "d51eab0d1f979ebc26b546e634a04f450d99158e",
+        "trust_remote_code": False,
     },
 }
 
@@ -229,6 +234,16 @@ def _canonical_json_bytes(value: object) -> bytes:
 
 def _json_sha256(value: object) -> str:
     return hashlib.sha256(_canonical_json_bytes(value)).hexdigest()
+
+
+def _contains_json_null(value: object) -> bool:
+    if value is None:
+        return True
+    if isinstance(value, dict):
+        return any(_contains_json_null(item) for item in value.values())
+    if isinstance(value, list):
+        return any(_contains_json_null(item) for item in value)
+    return False
 
 
 def _open_regular(path: Path):
@@ -1283,16 +1298,6 @@ def _reasoning_text(message: Mapping[str, Any]) -> str | None:
         value = message.get(key)
         if isinstance(value, str) and value:
             return value
-    details = message.get("reasoning_details")
-    if isinstance(details, list):
-        parts = []
-        for detail in details:
-            if not isinstance(detail, dict):
-                continue
-            value = detail.get("text") or detail.get("summary")
-            if isinstance(value, str) and value:
-                parts.append(value)
-        return "\n".join(parts) or None
     return None
 
 
@@ -1304,7 +1309,12 @@ def _content_text(content: object) -> str:
     if isinstance(content, list):
         parts = []
         for part in content:
-            if not (isinstance(part, dict) and part.get("type") == "text" and isinstance(part.get("text"), str)):
+            if not (
+                isinstance(part, dict)
+                and set(part) == {"type", "text"}
+                and part.get("type") == "text"
+                and isinstance(part.get("text"), str)
+            ):
                 raise ExportError("captured_response_content_invalid")
             parts.append(part["text"])
         return "".join(parts)
@@ -1320,9 +1330,16 @@ def _flat_tool_calls(calls: object, *, nested: bool) -> list[tuple[str, str, str
     for call in calls:
         if not isinstance(call, dict):
             raise ExportError("captured_response_tool_calls_invalid")
-        if nested and call.get("type") != "function":
-            raise ExportError("captured_response_tool_calls_invalid")
-        function = call.get("function") if nested else call
+        if nested:
+            if set(call) != {"id", "type", "function"} or call.get("type") != "function":
+                raise ExportError("captured_response_tool_calls_invalid")
+            function = call.get("function")
+            if not isinstance(function, dict) or set(function) != {"name", "arguments"}:
+                raise ExportError("captured_response_tool_calls_invalid")
+        else:
+            if set(call) != {"id", "name", "arguments"}:
+                raise ExportError("captured_response_tool_calls_invalid")
+            function = call
         if not isinstance(function, dict):
             raise ExportError("captured_response_tool_calls_invalid")
         call_id = call.get("id")
@@ -1408,10 +1425,17 @@ def _validate_captured_response(node: dict[str, Any]) -> None:
         raise ExportError("captured_response_invalid")
     if raw_message.get("role") != "assistant":
         raise ExportError("captured_response_invalid")
+    allowed_raw_message_keys = {"role", "content", "tool_calls", "reasoning", "reasoning_content"}
+    if not {"role", "content"}.issubset(raw_message) or not set(raw_message).issubset(allowed_raw_message_keys):
+        raise ExportError("captured_response_invalid")
+    if "reasoning" in raw_message and "reasoning_content" in raw_message:
+        raise ExportError("captured_response_invalid")
 
     message = node.get("message")
     if not isinstance(message, dict):
         raise ExportError("captured_response_message_mismatch")
+    if any(field in raw_message or field in message for field in ("provider_state", "reasoning_details")):
+        raise ExportError("unsupported_assistant_state")
     if _content_text(raw_message.get("content")) != _content_text(message.get("content")):
         raise ExportError("captured_response_message_mismatch")
     if (_reasoning_text(raw_message) or "") != (message.get("reasoning_content") or ""):
@@ -1465,10 +1489,14 @@ def _normalize_tools(tools: object) -> list[dict[str, Any]]:
         raise ExportError("tool_schema_missing")
     normalized: list[dict[str, Any]] = []
     for tool in tools:
-        if not isinstance(tool, dict) or tool.get("type", "function") != "function":
+        if not isinstance(tool, dict) or set(tool) != {"type", "function"} or tool.get("type") != "function":
             raise ExportError("tool_schema_invalid")
         function = tool.get("function")
-        if not isinstance(function, dict):
+        if (
+            not isinstance(function, dict)
+            or not {"name"}.issubset(function)
+            or not set(function).issubset({"name", "description", "parameters", "strict"})
+        ):
             raise ExportError("tool_schema_invalid")
         name = function.get("name")
         description = function.get("description", "")
@@ -1479,10 +1507,18 @@ def _normalize_tools(tools: object) -> list[dict[str, Any]]:
             or not name
             or not isinstance(description, str)
             or not isinstance(parameters, dict)
+            or _contains_json_null(parameters)
             or (strict is not None and not isinstance(strict, bool))
         ):
             raise ExportError("tool_schema_invalid")
-        normalized.append(copy.deepcopy(tool))
+        normalized_function = {
+            "description": description,
+            "name": name,
+            "parameters": copy.deepcopy(parameters),
+        }
+        if strict is not None:
+            normalized_function["strict"] = strict
+        normalized.append({"type": "function", "function": normalized_function})
     _canonical_json_bytes(normalized)
     return normalized
 
@@ -1555,6 +1591,14 @@ def _normalize_message(node: object, *, target: bool) -> dict[str, Any]:
     role = message.get("role")
     content = message.get("content")
     if role not in {"system", "user", "assistant", "tool"}:
+        raise ExportError("message_invalid")
+    allowed_keys = {
+        "assistant": {"role", "content", "reasoning_content", "tool_calls"},
+        "system": {"role", "content"},
+        "tool": {"role", "content", "name", "tool_call_id"},
+        "user": {"role", "content"},
+    }[role]
+    if not {"role", "content"}.issubset(message) or not set(message).issubset(allowed_keys):
         raise ExportError("message_invalid")
     if role == "assistant":
         if content is not None and not isinstance(content, str):
@@ -1686,6 +1730,16 @@ def _trace_reward(trace: dict[str, Any]) -> float:
     return reward
 
 
+def _contains_unsupported_provider_state(value: object) -> bool:
+    if isinstance(value, dict):
+        return any(key in value for key in ("provider_state", "reasoning_details")) or any(
+            _contains_unsupported_provider_state(item) for item in value.values()
+        )
+    if isinstance(value, list):
+        return any(_contains_unsupported_provider_state(item) for item in value)
+    return False
+
+
 def _validate_trainable_trace(
     trace: dict[str, Any],
     *,
@@ -1693,6 +1747,8 @@ def _validate_trainable_trace(
     max_sequence_tokens: int,
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     """Apply the exact strict validation used before any SFT row is emitted."""
+    if _contains_unsupported_provider_state(trace):
+        raise ExportError("unsupported_assistant_state")
     if trace.get("is_completed") is not True:
         raise ExportError("trace_not_completed")
     stop_condition = trace.get("stop_condition")
@@ -1716,6 +1772,8 @@ def _validate_trainable_trace(
     for node in nodes:
         if node.get("sampled") is True:
             _validate_captured_response(node)
+            if node.get("finish_reason") == "length":
+                raise ExportError("sampled_finish_reason_length")
     tools = _stable_trace_tools(nodes)
     probe_rows = list(
         _target_rows(

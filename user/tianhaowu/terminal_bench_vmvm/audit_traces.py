@@ -13,9 +13,6 @@ from collections import Counter
 from collections.abc import Iterable, Iterator
 from pathlib import Path
 
-from verifiers.v1.dialects.chat import ChatDialect
-from verifiers.v1.types import AssistantMessage, SystemMessage, ToolMessage, UserMessage
-
 DEFAULT_MAX_SEQUENCE_TOKENS = 262_144
 FORBIDDEN_MODEL_REQUEST_FIELDS = frozenset({"logprobs", "prompt_logprobs", "return_token_ids", "top_logprobs"})
 REPEATED_KDA_CHARACTER_THRESHOLD = 64
@@ -67,6 +64,14 @@ def _message_problems(node: dict, index: int) -> list[str]:
     role = message.get("role")
     if role not in {"system", "user", "assistant", "tool"}:
         return [f"node_{index}_message_role_invalid"]
+    allowed_keys = {
+        "system": {"role", "content"},
+        "user": {"role", "content"},
+        "assistant": {"role", "content", "reasoning_content", "tool_calls"},
+        "tool": {"role", "content", "tool_call_id", "name"},
+    }[role]
+    if not {"role", "content"}.issubset(message) or not set(message).issubset(allowed_keys):
+        problems.append(f"node_{index}_message_keys_invalid")
     if node.get("sampled") is True and role != "assistant":
         problems.append(f"node_{index}_sampled_message_not_assistant")
 
@@ -82,6 +87,8 @@ def _message_problems(node: dict, index: int) -> list[str]:
         content = message.get("content")
         reasoning = message.get("reasoning_content")
         tool_calls = message.get("tool_calls")
+        if "provider_state" in message or "reasoning_details" in message:
+            problems.append(f"node_{index}_unsupported_assistant_state")
         if content is not None and not isinstance(content, str):
             problems.append(f"node_{index}_assistant_content_invalid")
         if reasoning is not None and not isinstance(reasoning, str):
@@ -94,6 +101,8 @@ def _message_problems(node: dict, index: int) -> list[str]:
                 if not isinstance(call, dict):
                     problems.append(f"node_{index}_tool_call_{call_index}_not_an_object")
                     continue
+                if set(call) != {"id", "name", "arguments"}:
+                    problems.append(f"node_{index}_tool_call_{call_index}_keys_invalid")
                 for field in ("id", "name", "arguments"):
                     value = call.get(field)
                     if not isinstance(value, str) or (field != "arguments" and not value):
@@ -409,8 +418,135 @@ def _model_io_base_is_ancestor(nodes: list, node_id: int, base_node: int) -> boo
     return False
 
 
+def _prompt_content(value: object) -> object:
+    if isinstance(value, str):
+        return value
+    if not isinstance(value, list):
+        raise ValueError("content")
+    normalized: list[dict] = []
+    for part in value:
+        if not isinstance(part, dict):
+            raise ValueError("content")
+        if part.get("type") == "text" and set(part) == {"type", "text"} and isinstance(part.get("text"), str):
+            normalized.append({"type": "text", "text": part["text"]})
+            continue
+        image_url = part.get("image_url")
+        if (
+            part.get("type") == "image_url"
+            and set(part) == {"type", "image_url"}
+            and isinstance(image_url, dict)
+            and set(image_url) == {"url"}
+            and isinstance(image_url.get("url"), str)
+        ):
+            normalized.append({"type": "image_url", "image_url": {"url": image_url["url"]}})
+            continue
+        raise ValueError("content")
+    return normalized
+
+
+def _prompt_tool_calls(value: object, *, wire: bool) -> list[dict] | None:
+    if value is None:
+        return None
+    if not isinstance(value, list):
+        raise ValueError("tool_calls")
+    normalized: list[dict] = []
+    for call in value:
+        if not isinstance(call, dict):
+            raise ValueError("tool_calls")
+        if wire:
+            if set(call) != {"id", "type", "function"} or call.get("type") != "function":
+                raise ValueError("tool_calls")
+            function = call.get("function")
+            if not isinstance(function, dict) or set(function) != {"name", "arguments"}:
+                raise ValueError("tool_calls")
+        else:
+            if set(call) != {"id", "name", "arguments"}:
+                raise ValueError("tool_calls")
+            function = call
+        call_id = call.get("id")
+        name = function.get("name")
+        arguments = function.get("arguments")
+        if (
+            not isinstance(call_id, str)
+            or not call_id
+            or not isinstance(name, str)
+            or not name
+            or not isinstance(arguments, str)
+        ):
+            raise ValueError("tool_calls")
+        normalized.append({"id": call_id, "name": name, "arguments": arguments})
+    return normalized
+
+
+def _prompt_messages(messages: object, *, wire: bool) -> list[dict]:
+    if not isinstance(messages, list):
+        raise ValueError("messages")
+    tool_names: dict[str, str] = {}
+    normalized: list[dict] = []
+    for message in messages:
+        if not isinstance(message, dict):
+            raise ValueError("message")
+        role = message.get("role")
+        if role in {"system", "user"}:
+            if set(message) != {"role", "content"}:
+                raise ValueError("message")
+            normalized.append({"role": role, "content": _prompt_content(message["content"])})
+            continue
+        if role == "tool":
+            if not {"role", "content", "tool_call_id"}.issubset(message) or not set(message).issubset(
+                {"role", "content", "tool_call_id", "name"}
+            ):
+                raise ValueError("message")
+            call_id = message.get("tool_call_id")
+            if not isinstance(call_id, str) or not call_id:
+                raise ValueError("message")
+            name = message.get("name")
+            if name is None:
+                name = tool_names.get(call_id)
+            if name is not None and (not isinstance(name, str) or not name):
+                raise ValueError("message")
+            normalized.append(
+                {
+                    "role": "tool",
+                    "content": _prompt_content(message["content"]),
+                    "tool_call_id": call_id,
+                    "name": name,
+                }
+            )
+            continue
+        if role != "assistant":
+            raise ValueError("message")
+        allowed = {"role", "content", "tool_calls", "reasoning_content"}
+        if wire:
+            allowed.add("reasoning")
+        if not {"role", "content"}.issubset(message) or not set(message).issubset(allowed):
+            raise ValueError("message")
+        if wire and "reasoning" in message and "reasoning_content" in message:
+            raise ValueError("message")
+        content = message.get("content")
+        if content is not None and not isinstance(content, str):
+            raise ValueError("message")
+        normalized_message = {"role": "assistant", "content": content}
+        reasoning_field = "reasoning" if wire and "reasoning" in message else "reasoning_content"
+        if reasoning_field in message:
+            reasoning = message[reasoning_field]
+            if reasoning is not None and not isinstance(reasoning, str):
+                raise ValueError("message")
+            normalized_message["reasoning_content"] = reasoning
+        calls = None
+        if "tool_calls" in message:
+            calls = _prompt_tool_calls(message["tool_calls"], wire=wire)
+            normalized_message["tool_calls"] = calls
+        normalized.append(normalized_message)
+        for call in calls or []:
+            if call["id"] in tool_names:
+                raise ValueError("tool_calls")
+            tool_names[call["id"]] = call["name"]
+    return normalized
+
+
 def _graph_prompt_messages(nodes: list, node_id: int) -> list[dict] | None:
-    """Return the normalized root-to-parent messages for one sampled node."""
+    """Return the exhaustively validated root-to-parent messages."""
     path: list[int] = []
     seen: set[int] = set()
     current = nodes[node_id].get("parent")
@@ -430,40 +566,22 @@ def _graph_prompt_messages(nodes: list, node_id: int) -> list[dict] | None:
         current = ancestor.get("parent")
     path.reverse()
 
-    message_types = {
-        "assistant": AssistantMessage,
-        "system": SystemMessage,
-        "tool": ToolMessage,
-        "user": UserMessage,
-    }
-    normalized: list[dict] = []
     try:
-        for path_id in path:
-            message = nodes[path_id].get("message")
-            if not isinstance(message, dict):
-                return None
-            message_type = message_types.get(message.get("role"))
-            if message_type is None:
-                return None
-            normalized.append(message_type.model_validate(message).model_dump(mode="json"))
-    except (TypeError, ValueError):
+        return _prompt_messages([nodes[path_id].get("message") for path_id in path], wire=False)
+    except ValueError:
         return None
-    return normalized
 
 
 def _request_graph_message_problem(nodes: list, node_id: int, request_body: dict) -> str | None:
     """Prove the persisted graph prompt matches the provider-visible chat request."""
-    if not isinstance(request_body.get("messages"), list):
-        return "model_io_request_messages_invalid"
     try:
-        request_messages, _tools = ChatDialect().parse_request(request_body)
-    except (AttributeError, KeyError, TypeError, ValueError):
+        request_messages = _prompt_messages(request_body.get("messages"), wire=True)
+    except ValueError:
         return "model_io_request_messages_invalid"
     graph_messages = _graph_prompt_messages(nodes, node_id)
     if graph_messages is None:
         return "model_io_request_messages_invalid"
-    normalized_request = [message.model_dump(mode="json") for message in request_messages]
-    if normalized_request != graph_messages:
+    if request_messages != graph_messages:
         return "model_io_request_messages_mismatch"
     return None
 
@@ -502,7 +620,7 @@ def _audit_model_io(
             continue
 
         provider_route = model_io.get("provider_route")
-        if not isinstance(provider_route, str) or not provider_route.startswith("/"):
+        if provider_route != "/chat/completions":
             problems.append(f"node_{index}_model_io_provider_route_invalid")
         request = model_io.get("request")
         if not _valid_model_request(request):

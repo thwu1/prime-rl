@@ -14,6 +14,9 @@ from finalize_qwen_sft import FinalizationError, FinalizeOptions
 def _write_layout(tmp_path: Path, *, expected_count: int = 3) -> tuple[FinalizeOptions, str]:
     project = tmp_path / "project"
     project.mkdir()
+    workflow = project / "user" / "tianhaowu" / "terminal_bench_vmvm"
+    workflow.mkdir(parents=True)
+    (workflow / "export_sft.py").write_bytes(b"synthetic-exporter\n")
     source_root = tmp_path / "evals"
     source = source_root / "epoch3"
     source.mkdir(parents=True)
@@ -22,9 +25,28 @@ def _write_layout(tmp_path: Path, *, expected_count: int = 3) -> tuple[FinalizeO
     (source / ".direct_router.lock").touch()
     (source / ".writer.lock").touch()
     (source / "results.jsonl").write_bytes(b"synthetic\n")
-    (source / "config.toml").write_text(f"num_tasks = {expected_count}\nnum_rollouts = 1\n")
+    (source / "inputs").mkdir()
+    (source / "config.toml").write_text(
+        f"num_tasks = {expected_count}\n"
+        "num_rollouts = 1\n"
+        "max_input_tokens = 262144\n"
+        "max_output_tokens = 262144\n"
+        "max_total_tokens = 262144\n"
+        'model = "Qwen3.8-2.4T-A95B"\n'
+        "[client]\n"
+        "capture_model_io = true\n"
+        "[taskset]\n"
+        'id = "terminal-bench-vmvm"\n'
+        f'dataset_revision = "{"d" * 40}"\n'
+    )
     provenance = b"synthetic-provenance\n"
     (source / "provenance.txt").write_bytes(provenance)
+    for relative in finalizer.SOURCE_EXPORT_ARTIFACTS:
+        path = source / relative
+        if relative in {"config.toml", "provenance.txt", "results.jsonl", finalizer.INDEX_FILENAME}:
+            continue
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(f"synthetic-{relative}\n".encode())
     provenance_sha256 = hashlib.sha256(provenance).hexdigest()
     options = FinalizeOptions(
         project_dir=project,
@@ -56,7 +78,7 @@ def _label_summary(index: Path, expected_count: int) -> dict:
     }
 
 
-def _export_summary(output: Path, expected_count: int, routing_index: Path) -> dict:
+def _export_summary(output: Path, expected_count: int, routing_index: Path, source: Path, project: Path) -> dict:
     (output / "train").mkdir(parents=True)
     (output / "validation").mkdir()
     train = b"synthetic-train\n"
@@ -70,18 +92,113 @@ def _export_summary(output: Path, expected_count: int, routing_index: Path) -> d
     )
     assert hashlib.sha256(target_contract).hexdigest() == finalizer.exporter.TARGET_RENDERING_CONTRACT_SHA256
     (output / finalizer.exporter.TARGET_RENDERING_CONTRACT_FILENAME).write_bytes(target_contract)
+    train_tasks = ["a" * 64]
+    validation_tasks = ["b" * 64]
+    task_split = (
+        json.dumps(
+            {
+                "format_version": finalizer.exporter.FORMAT_VERSION,
+                "split_salt": "synthetic-split-v1",
+                "train_task_sha256": train_tasks,
+                "validation_permyriad": 500,
+                "validation_task_sha256": validation_tasks,
+            },
+            indent=2,
+            sort_keys=True,
+        ).encode()
+        + b"\n"
+    )
+    (output / "task-split.json").write_bytes(task_split)
+    source_artifacts = {
+        relative: {
+            "bytes": path.stat().st_size,
+            "sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
+        }
+        for relative in finalizer.SOURCE_EXPORT_ARTIFACTS
+        for path in [routing_index if relative == finalizer.INDEX_FILENAME else source / relative]
+    }
+    artifacts = {
+        finalizer.INDEX_FILENAME: {
+            "bytes": len(retained_index),
+            "sha256": hashlib.sha256(retained_index).hexdigest(),
+        },
+        "task-split.json": {"bytes": len(task_split), "sha256": hashlib.sha256(task_split).hexdigest()},
+        finalizer.exporter.TARGET_RENDERING_CONTRACT_FILENAME: {
+            "bytes": len(target_contract),
+            "sha256": hashlib.sha256(target_contract).hexdigest(),
+        },
+        "train/train.jsonl": {"bytes": len(train), "sha256": hashlib.sha256(train).hexdigest()},
+        "validation/train.jsonl": {
+            "bytes": len(validation),
+            "sha256": hashlib.sha256(validation).hexdigest(),
+        },
+    }
+    counts = {
+        "approved_tasks": expected_count,
+        "emitted_rows": 12,
+        "excluded_error_traces": 1,
+        "input_traces": expected_count,
+        "routing_epoch_1_emitted_rows": 4,
+        "routing_epoch_1_input_traces": 1,
+        "routing_epoch_1_selected_traces": 1,
+        "routing_epoch_2_emitted_rows": 0,
+        "routing_epoch_2_input_traces": 1,
+        "routing_epoch_2_selected_traces": 0,
+        "routing_epoch_3_emitted_rows": 8,
+        "routing_epoch_3_input_traces": expected_count - 2,
+        "routing_epoch_3_selected_traces": 1,
+        "scored_fail_traces": 0,
+        "scored_pass_traces": expected_count - 1,
+        "selected_fail_traces": 0,
+        "selected_pass_traces": expected_count - 1,
+        "selected_traces": expected_count - 1,
+        "selection_excluded_fail_traces": 0,
+        "train_rows": 9,
+        "train_traces": 1,
+        "validation_rows": 3,
+        "validation_traces": 1,
+    }
     manifest = (
         json.dumps(
             {
-                "artifacts": {
-                    finalizer.INDEX_FILENAME: {
-                        "bytes": len(retained_index),
-                        "sha256": hashlib.sha256(retained_index).hexdigest(),
-                    },
-                    finalizer.exporter.TARGET_RENDERING_CONTRACT_FILENAME: {
-                        "bytes": len(target_contract),
-                        "sha256": hashlib.sha256(target_contract).hexdigest(),
-                    },
+                "artifacts": artifacts,
+                "config": {
+                    "capture_model_io": True,
+                    "dataset_revision": "d" * 40,
+                    "max_input_tokens": 262144,
+                    "max_output_tokens": 262144,
+                    "max_total_tokens": 262144,
+                    "model": "Qwen3.8-2.4T-A95B",
+                    "num_rollouts": 1,
+                    "taskset_id": "terminal-bench-vmvm",
+                },
+                "counts": counts,
+                "exporter": {
+                    "file_sha256": hashlib.sha256(
+                        (project / "user" / "tianhaowu" / "terminal_bench_vmvm" / "export_sft.py").read_bytes()
+                    ).hexdigest(),
+                    "format_version": finalizer.exporter.FORMAT_VERSION,
+                },
+                "format": finalizer.FORMAT_CONTRACT,
+                "max_sequence_tokens": 262144,
+                "routing_epochs": {
+                    "admission_transition_sha256": source_artifacts["qwen_router_admission_transition.json"]["sha256"],
+                    "current_epoch": 3,
+                    "emitted_rows": {"1": 4, "2": 0, "3": 8},
+                    "epoch1_row_hashes_sha256": source_artifacts["qwen_router_epoch1_rows.sha256"]["sha256"],
+                    "epoch2_lineage_sha256": source_artifacts["qwen_router_epoch2_lineage.jsonl"]["sha256"],
+                    "index_sha256": source_artifacts[finalizer.INDEX_FILENAME]["sha256"],
+                    "input_traces": {"1": 1, "2": 1, "3": expected_count - 2},
+                    "results_sha256": source_artifacts["results.jsonl"]["sha256"],
+                    "row_mapping": "one unique SHA-256 mapping per physical results.jsonl row",
+                    "transition_sha256": source_artifacts["qwen_router_transition.json"]["sha256"],
+                },
+                "selection": "pass-only",
+                "source_artifacts": source_artifacts,
+                "split": {
+                    "policy": "sha256(split_salt + NUL + stable task identity SHA-256) modulo 10000",
+                    "split_salt": "synthetic-split-v1",
+                    "validation_permyriad": 500,
                 },
                 "target_rendering": finalizer.exporter.TARGET_RENDERING_CONTRACT,
             },
@@ -102,7 +219,7 @@ def _export_summary(output: Path, expected_count: int, routing_index: Path) -> d
             "validation": hashlib.sha256(validation).hexdigest(),
         },
         "rows": {"total": 12, "train": 9, "validation": 3},
-        "routing_epoch_rows": {"1": 4, "2": 5, "3": 3},
+        "routing_epoch_rows": {"1": 4, "2": 0, "3": 8},
         "selected_traces": expected_count - 1,
         "selection": "pass-only",
         "status": "exported",
@@ -161,7 +278,7 @@ def test_finalizer_runs_label_before_export_and_emits_only_aggregates(
         assert staged_output != options.output_dir
         assert staged_output.parent == index.parent
         staged_outputs.append(staged_output)
-        return _export_summary(staged_output, options.expected_count, index)
+        return _export_summary(staged_output, options.expected_count, index, options.source_dir, options.project_dir)
 
     summary = finalizer.finalize_qwen_sft(
         options,
@@ -216,7 +333,7 @@ def test_finalizer_passes_private_exclusion_and_rejects_toctou(
         assert command[command.index("--exclusion-selection-manifest-sha256") + 1] == digest
         index = Path(command[command.index("--routing-epoch-index") + 1])
         output = Path(command[command.index("--output-dir") + 1])
-        summary = _export_summary(output, options.expected_count, index)
+        summary = _export_summary(output, options.expected_count, index, options.source_dir, options.project_dir)
         summary["exclusion"] = {
             "excluded_present_traces": 1,
             "missing_tasks": 0,
@@ -226,8 +343,21 @@ def test_finalizer_passes_private_exclusion_and_rejects_toctou(
             "union_count": 1,
         }
         manifest = json.loads((output / "manifest.json").read_text())
+        manifest["counts"].update(
+            {
+                "exclusion_missing_tasks": 0,
+                "exclusion_missing_or_errored_tasks": 1,
+                "exclusion_selected_traces": 1,
+                "exclusion_strict_invalid_pass_tasks": 0,
+            }
+        )
         manifest["exclusion_selection"] = {
             "approved_task_count": options.expected_count,
+            "artifacts": {
+                "missing_or_errored_task_file": {"bytes": 1, "sha256": "1" * 64},
+                "strict_invalid_pass_task_file": {"bytes": 0, "sha256": "2" * 64},
+                "task_file": {"bytes": 1, "sha256": "3" * 64},
+            },
             "manifest": {"bytes": selection.stat().st_size, "sha256": digest},
             "union_count": 1,
             "missing_or_errored_count": 1,
@@ -277,8 +407,9 @@ def test_finalizer_accounts_for_attested_missing_source_row(
             return summary
         index = Path(command[command.index("--routing-epoch-index") + 1])
         output = Path(command[command.index("--output-dir") + 1])
-        summary = _export_summary(output, options.expected_count, index)
+        summary = _export_summary(output, options.expected_count, index, options.source_dir, options.project_dir)
         summary["input_traces"] = 2
+        summary["excluded_error_traces"] = 0
         summary["exclusion"] = {
             "excluded_present_traces": 0,
             "missing_tasks": 1,
@@ -288,8 +419,27 @@ def test_finalizer_accounts_for_attested_missing_source_row(
             "union_count": 1,
         }
         manifest = json.loads((output / "manifest.json").read_text())
+        manifest["counts"].update(
+            {
+                "excluded_error_traces": 0,
+                "exclusion_missing_tasks": 1,
+                "exclusion_missing_or_errored_tasks": 1,
+                "exclusion_selected_traces": 0,
+                "exclusion_strict_invalid_pass_tasks": 0,
+                "input_traces": 2,
+                "routing_epoch_1_input_traces": 0,
+                "routing_epoch_2_input_traces": 0,
+                "routing_epoch_3_input_traces": 2,
+            }
+        )
+        manifest["routing_epochs"]["input_traces"] = {"1": 0, "2": 0, "3": 2}
         manifest["exclusion_selection"] = {
             "approved_task_count": options.expected_count,
+            "artifacts": {
+                "missing_or_errored_task_file": {"bytes": 1, "sha256": "1" * 64},
+                "strict_invalid_pass_task_file": {"bytes": 0, "sha256": "2" * 64},
+                "task_file": {"bytes": 1, "sha256": "3" * 64},
+            },
             "manifest": {"bytes": selection.stat().st_size, "sha256": digest},
             "union_count": 1,
             "missing_or_errored_count": 1,
@@ -336,7 +486,7 @@ def test_finalizer_cleans_staged_export_when_late_repository_check_fails(
             return _label_summary(index, options.expected_count)
         index = Path(command[command.index("--routing-epoch-index") + 1])
         staged_output = Path(command[command.index("--output-dir") + 1])
-        return _export_summary(staged_output, options.expected_count, index)
+        return _export_summary(staged_output, options.expected_count, index, options.source_dir, options.project_dir)
 
     with pytest.raises(FinalizationError, match="^project_not_clean$"):
         finalizer.finalize_qwen_sft(
@@ -368,7 +518,7 @@ def test_finalizer_cleans_staged_export_when_summary_validation_fails(
             return _label_summary(index, options.expected_count)
         index = Path(command[command.index("--routing-epoch-index") + 1])
         staged_output = Path(command[command.index("--output-dir") + 1])
-        summary = _export_summary(staged_output, options.expected_count, index)
+        summary = _export_summary(staged_output, options.expected_count, index, options.source_dir, options.project_dir)
         summary["selected_traces"] = options.expected_count + 1
         return summary
 
@@ -382,6 +532,44 @@ def test_finalizer_cleans_staged_export_when_summary_validation_fails(
 
     assert not options.output_dir.exists()
     assert not list(options.output_dir.parent.glob(f".{options.output_dir.name}.finalize-*"))
+
+
+def test_original_finalizer_rejects_rehashed_incomplete_format_v3_manifest(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    options, _ = _write_layout(tmp_path)
+    monkeypatch.setattr(finalizer.platform, "machine", lambda: "x86_64")
+
+    def run_command(command: list[str], _cwd: Path, code: str) -> dict:
+        if code == "routing_index_failed":
+            index = Path(command[command.index("--output") + 1])
+            return _label_summary(index, options.expected_count)
+        index = Path(command[command.index("--routing-epoch-index") + 1])
+        staged_output = Path(command[command.index("--output-dir") + 1])
+        summary = _export_summary(
+            staged_output,
+            options.expected_count,
+            index,
+            options.source_dir,
+            options.project_dir,
+        )
+        manifest_path = staged_output / "manifest.json"
+        manifest = json.loads(manifest_path.read_text())
+        manifest.pop("format")
+        manifest_path.write_text(json.dumps(manifest, sort_keys=True) + "\n")
+        summary["output_sha256"]["manifest"] = hashlib.sha256(manifest_path.read_bytes()).hexdigest()
+        return summary
+
+    with pytest.raises(FinalizationError, match="^sft_output_contract_invalid$"):
+        finalizer.finalize_qwen_sft(
+            options,
+            repository_validator=lambda path, _revision: path,
+            source_auditor=lambda *_args: {"routing_epoch": 3},
+            command_runner=run_command,
+        )
+
+    assert not options.output_dir.exists()
 
 
 def test_publish_output_never_replaces_existing_destination(tmp_path: Path) -> None:

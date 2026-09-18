@@ -580,6 +580,78 @@ def test_audit_trace_requires_captured_request_messages_to_match_graph_path() ->
     ) == ["node_1_model_io_request_messages_mismatch"]
 
 
+def test_audit_trace_requires_exact_chat_completions_route() -> None:
+    trace = _trace_with_model_io()
+    trace["nodes"][0]["model_io"]["provider_route"] = "/v1/chat/completions"
+
+    assert _audit_trace(trace, require_reasoning=True, require_model_io=True) == [
+        "node_0_model_io_provider_route_invalid"
+    ]
+
+
+@pytest.mark.parametrize(
+    "mutation",
+    ["unknown_role", "unknown_message_key", "unknown_content_part", "unknown_tool_call_key"],
+)
+def test_audit_trace_rejects_lossy_graph_wire_message_shapes(mutation: str) -> None:
+    trace = _trace_with_model_io()
+    sampled = trace["nodes"][0]
+    sampled["parent"] = 0
+    graph_message: dict = {"role": "user", "content": "inspect the workspace"}
+    trace["nodes"] = [
+        {
+            "parent": None,
+            "sampled": False,
+            "token_ids": [],
+            "mask": [],
+            "logprobs": [],
+            "message": graph_message,
+        },
+        sampled,
+    ]
+    wire_message = sampled["model_io"]["request"]["body"]["messages"][0]
+    if mutation == "unknown_role":
+        wire_message["role"] = "developer"
+    elif mutation == "unknown_message_key":
+        wire_message["opaque"] = True
+    elif mutation == "unknown_content_part":
+        wire_message["content"] = [{"type": "input_text", "text": "inspect the workspace"}]
+    else:
+        graph_message.clear()
+        graph_message.update(
+            {
+                "role": "assistant",
+                "content": "",
+                "tool_calls": [{"id": "call-1", "name": "bash", "arguments": "{}", "opaque": True}],
+            }
+        )
+        wire_message.clear()
+        wire_message.update(
+            {
+                "role": "assistant",
+                "content": "",
+                "tool_calls": [
+                    {
+                        "id": "call-1",
+                        "type": "function",
+                        "function": {"name": "bash", "arguments": "{}"},
+                    }
+                ],
+            }
+        )
+    request = sampled["model_io"]["request"]
+    request["sha256"] = _digest(request["body"])
+
+    problems = _audit_trace(
+        trace,
+        require_reasoning=True,
+        require_model_io=True,
+        require_request_graph_match=True,
+    )
+
+    assert "node_1_model_io_request_messages_invalid" in problems
+
+
 def test_audit_trace_requires_model_io_on_every_sampled_turn() -> None:
     trace = _trace_with_model_io()
     second = _trace("second", "same-task")["nodes"][0]

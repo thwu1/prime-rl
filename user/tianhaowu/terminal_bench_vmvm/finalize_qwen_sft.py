@@ -41,6 +41,30 @@ REQUIRED_RUNTIME_SUBMODULES = (
     "deps/renderers",
     "deps/verifiers",
 )
+SOURCE_EXPORT_ARTIFACTS = (
+    "config.toml",
+    "provenance.txt",
+    "inputs/manifest.json",
+    "inputs/source_config.toml",
+    "inputs/task_file.txt",
+    "inputs/image_manifest.json",
+    "results.jsonl",
+    "direct_workers.json",
+    "qwen_router_epochs.jsonl",
+    "qwen_router_transition.json",
+    "qwen_router_admission_transition.json",
+    "qwen_router_epoch1_rows.sha256",
+    "qwen_router_epoch2_lineage.jsonl",
+)
+FORMAT_CONTRACT = {
+    "assistant_finish_reason": "retained verbatim for every sampled assistant message",
+    "assistant_tool_calls": "OpenAI function-call objects",
+    "history_assistant_reasoning": "retained verbatim",
+    "loss_mask": "message.trainable; exactly one final assistant message is true",
+    "sample_unit": "one unique sampled assistant node with its root-to-node context",
+    "target": "authentic reasoning_content, content, tool_calls, and finish_reason",
+    "task_identity": "sha256(taskset id + NUL + dataset revision + NUL + approved opaque task slug)",
+}
 
 Selection = Literal["pass-only", "all-outcomes"]
 
@@ -281,6 +305,38 @@ def _stable_sha256(path: Path, *, max_bytes: int | None = None) -> str:
     return digest.hexdigest()
 
 
+def _file_artifact(path: Path, code: str) -> dict[str, int | str]:
+    file_path = _regular_file(path, code)
+    try:
+        before = file_path.stat()
+        digest = _stable_sha256(file_path)
+        after = file_path.stat()
+    except OSError as error:
+        raise FinalizationError(code) from error
+    identity = lambda value: (value.st_dev, value.st_ino, value.st_size, value.st_mtime_ns)
+    if identity(before) != identity(after):
+        raise FinalizationError(code)
+    return {"bytes": before.st_size, "sha256": digest}
+
+
+def _artifact_record(value: object, code: str) -> dict[str, int | str]:
+    if not isinstance(value, dict) or set(value) != {"bytes", "sha256"}:
+        raise FinalizationError(code)
+    size = value.get("bytes")
+    digest = value.get("sha256")
+    if not _is_plain_int(size) or size < 0 or not isinstance(digest, str) or SHA256_PATTERN.fullmatch(digest) is None:
+        raise FinalizationError(code)
+    return {"bytes": size, "sha256": digest}
+
+
+def _expected_source_artifacts(source: Path, routing_index: Path) -> dict[str, dict[str, int | str]]:
+    paths = {
+        relative: routing_index if relative == INDEX_FILENAME else source / relative
+        for relative in SOURCE_EXPORT_ARTIFACTS
+    }
+    return {relative: _file_artifact(path, "source_artifact_unreadable") for relative, path in paths.items()}
+
+
 def _fsync_directory(path: Path) -> None:
     flags = os.O_RDONLY | os.O_CLOEXEC | os.O_DIRECTORY
     if hasattr(os, "O_NOFOLLOW"):
@@ -466,6 +522,10 @@ def _validate_export_summary(
     expected_count: int,
     selection: Selection,
     expected_index_sha256: str,
+    source_artifacts: Mapping[str, Mapping[str, int | str]],
+    expected_exporter_sha256: str,
+    validation_permyriad: int,
+    split_salt: str,
     expected_exclusion_sha256: str | None = None,
 ) -> None:
     expected_keys = {
@@ -548,59 +608,280 @@ def _validate_export_summary(
     ):
         raise FinalizationError("sft_export_summary_invalid")
     published = _canonical_existing_directory(output_dir, "sft_output_invalid")
-    manifest = _regular_file(published / "manifest.json", "sft_output_invalid")
-    train = _regular_file(published / "train" / "train.jsonl", "sft_output_invalid")
-    validation = _regular_file(published / "validation" / "train.jsonl", "sft_output_invalid")
-    routing_index = _regular_file(published / INDEX_FILENAME, "sft_output_invalid")
-    target_rendering_contract = _regular_file(
-        published / exporter.TARGET_RENDERING_CONTRACT_FILENAME,
-        "sft_output_invalid",
-    )
-    routing_index_sha256 = _stable_sha256(routing_index)
-    target_rendering_contract_sha256 = _stable_sha256(target_rendering_contract)
+    split_directories = {
+        name: _canonical_existing_directory(published / name, "sft_output_invalid") for name in ("train", "validation")
+    }
+    if {entry.name for entry in published.iterdir()} != {
+        "manifest.json",
+        "task-split.json",
+        INDEX_FILENAME,
+        exporter.TARGET_RENDERING_CONTRACT_FILENAME,
+        "train",
+        "validation",
+    } or any(
+        {entry.name for entry in directory.iterdir()} != {"train.jsonl"} for directory in split_directories.values()
+    ):
+        raise FinalizationError("sft_output_contract_invalid")
+    expected_output_paths = {
+        "manifest.json": published / "manifest.json",
+        "task-split.json": published / "task-split.json",
+        INDEX_FILENAME: published / INDEX_FILENAME,
+        exporter.TARGET_RENDERING_CONTRACT_FILENAME: published / exporter.TARGET_RENDERING_CONTRACT_FILENAME,
+        "train/train.jsonl": published / "train" / "train.jsonl",
+        "validation/train.jsonl": published / "validation" / "train.jsonl",
+    }
+    observed = {name: _file_artifact(path, "sft_output_invalid") for name, path in expected_output_paths.items()}
     if (
-        _stable_sha256(manifest) != output_hashes["manifest"]
-        or _stable_sha256(train) != output_hashes["train"]
-        or _stable_sha256(validation) != output_hashes["validation"]
-        or routing_index_sha256 != output_hashes["routing_epoch_index"]
-        or target_rendering_contract_sha256 != output_hashes["target_rendering_contract"]
-        or target_rendering_contract_sha256 != exporter.TARGET_RENDERING_CONTRACT_SHA256
+        observed["manifest.json"]["sha256"] != output_hashes["manifest"]
+        or observed["train/train.jsonl"]["sha256"] != output_hashes["train"]
+        or observed["validation/train.jsonl"]["sha256"] != output_hashes["validation"]
+        or observed[INDEX_FILENAME]["sha256"] != output_hashes["routing_epoch_index"]
+        or observed[exporter.TARGET_RENDERING_CONTRACT_FILENAME]["sha256"] != output_hashes["target_rendering_contract"]
+        or observed[exporter.TARGET_RENDERING_CONTRACT_FILENAME]["sha256"] != exporter.TARGET_RENDERING_CONTRACT_SHA256
     ):
         raise FinalizationError("sft_output_digest_mismatch")
     try:
-        manifest_body = manifest.read_bytes()
+        manifest_body = expected_output_paths["manifest.json"].read_bytes()
+        split_body = expected_output_paths["task-split.json"].read_bytes()
+        target_rendering_body = expected_output_paths[exporter.TARGET_RENDERING_CONTRACT_FILENAME].read_bytes()
     except OSError as error:
         raise FinalizationError("sft_output_invalid") from error
-    if hashlib.sha256(manifest_body).hexdigest() != output_hashes["manifest"]:
-        raise FinalizationError("sft_output_digest_mismatch")
     manifest_value = _parse_json_object(manifest_body, "sft_output_invalid")
+    task_split = _parse_json_object(split_body, "sft_output_task_split_invalid")
+    target_rendering_value = _parse_json_object(target_rendering_body, "sft_output_target_rendering_invalid")
     artifacts = manifest_value.get("artifacts")
-    routing_artifact = artifacts.get(INDEX_FILENAME) if isinstance(artifacts, dict) else None
-    target_rendering_artifact = (
-        artifacts.get(exporter.TARGET_RENDERING_CONTRACT_FILENAME) if isinstance(artifacts, dict) else None
-    )
-    if routing_artifact != {"bytes": routing_index.stat().st_size, "sha256": routing_index_sha256}:
-        raise FinalizationError("sft_output_digest_mismatch")
+    config = manifest_value.get("config")
+    counts = manifest_value.get("counts")
+    exporter_contract = manifest_value.get("exporter")
+    split = manifest_value.get("split")
+    routing = manifest_value.get("routing_epochs")
+    expected_manifest_keys = {
+        "artifacts",
+        "config",
+        "counts",
+        "exporter",
+        "format",
+        "max_sequence_tokens",
+        "routing_epochs",
+        "selection",
+        "source_artifacts",
+        "split",
+        "target_rendering",
+    }
+    if expected_exclusion_sha256 is not None:
+        expected_manifest_keys.add("exclusion_selection")
+    expected_artifact_names = {
+        "task-split.json",
+        INDEX_FILENAME,
+        exporter.TARGET_RENDERING_CONTRACT_FILENAME,
+        "train/train.jsonl",
+        "validation/train.jsonl",
+    }
+    allowed_count_keys = {
+        "approved_tasks",
+        "emitted_rows",
+        "excluded_error_traces",
+        "input_traces",
+        "scored_fail_traces",
+        "scored_pass_traces",
+        "selected_fail_traces",
+        "selected_pass_traces",
+        "selected_traces",
+        "selection_excluded_fail_traces",
+        "train_rows",
+        "train_traces",
+        "validation_rows",
+        "validation_traces",
+        *(
+            f"routing_epoch_{epoch}_{suffix}"
+            for epoch in range(1, 4)
+            for suffix in ("input_traces", "selected_traces", "emitted_rows")
+        ),
+    }
+    if expected_exclusion_sha256 is not None:
+        allowed_count_keys.update(
+            {
+                "exclusion_missing_tasks",
+                "exclusion_missing_or_errored_tasks",
+                "exclusion_selected_traces",
+                "exclusion_strict_invalid_pass_tasks",
+            }
+        )
     if (
-        target_rendering_artifact
-        != {
-            "bytes": target_rendering_contract.stat().st_size,
-            "sha256": target_rendering_contract_sha256,
-        }
+        set(manifest_value) != expected_manifest_keys
+        or manifest_value.get("selection") != selection
+        or manifest_value.get("max_sequence_tokens") != MAX_SEQUENCE_TOKENS
+        or manifest_value.get("format") != FORMAT_CONTRACT
         or manifest_value.get("target_rendering") != exporter.TARGET_RENDERING_CONTRACT
+        or target_rendering_value != exporter.TARGET_RENDERING_CONTRACT
+        or not isinstance(artifacts, dict)
+        or set(artifacts) != expected_artifact_names
+        or any(
+            _artifact_record(record, "sft_output_contract_invalid") != observed[name]
+            for name, record in artifacts.items()
+        )
+        or not isinstance(exporter_contract, dict)
+        or set(exporter_contract) != {"file_sha256", "format_version"}
+        or exporter_contract.get("format_version") != exporter.FORMAT_VERSION
+        or exporter_contract.get("file_sha256") != expected_exporter_sha256
+        or not isinstance(config, dict)
+        or set(config)
+        != {
+            "capture_model_io",
+            "dataset_revision",
+            "max_input_tokens",
+            "max_output_tokens",
+            "max_total_tokens",
+            "model",
+            "num_rollouts",
+            "taskset_id",
+        }
+        or config.get("capture_model_io") is not True
+        or config.get("model") != direct.EXPECTED_MODEL
+        or config.get("num_rollouts") != 1
+        or any(
+            config.get(key) != MAX_SEQUENCE_TOKENS
+            for key in ("max_input_tokens", "max_output_tokens", "max_total_tokens")
+        )
+        or not isinstance(config.get("taskset_id"), str)
+        or not config["taskset_id"]
+        or not isinstance(config.get("dataset_revision"), str)
+        or GIT_SHA_PATTERN.fullmatch(config["dataset_revision"]) is None
+        or not isinstance(counts, dict)
+        or not {
+            "approved_tasks",
+            "emitted_rows",
+            "excluded_error_traces",
+            "input_traces",
+            "scored_pass_traces",
+            "selected_pass_traces",
+            "selected_traces",
+            "train_rows",
+            "validation_rows",
+        }.issubset(counts)
+        or not set(counts).issubset(allowed_count_keys)
+        or any(not _is_plain_int(value) or value < 0 for value in counts.values())
+        or not isinstance(split, dict)
+        or set(split) != {"policy", "split_salt", "validation_permyriad"}
+        or split.get("policy") != "sha256(split_salt + NUL + stable task identity SHA-256) modulo 10000"
+        or split.get("split_salt") != split_salt
+        or split.get("validation_permyriad") != validation_permyriad
     ):
-        raise FinalizationError("sft_output_target_rendering_invalid")
+        raise FinalizationError("sft_output_contract_invalid")
+    if (
+        set(task_split)
+        != {"format_version", "split_salt", "train_task_sha256", "validation_permyriad", "validation_task_sha256"}
+        or task_split.get("format_version") != exporter.FORMAT_VERSION
+        or task_split.get("split_salt") != split_salt
+        or task_split.get("validation_permyriad") != validation_permyriad
+        or not isinstance(task_split.get("train_task_sha256"), list)
+        or not isinstance(task_split.get("validation_task_sha256"), list)
+        or any(SHA256_PATTERN.fullmatch(str(value)) is None for value in task_split["train_task_sha256"])
+        or any(SHA256_PATTERN.fullmatch(str(value)) is None for value in task_split["validation_task_sha256"])
+        or task_split["train_task_sha256"] != sorted(set(task_split["train_task_sha256"]))
+        or task_split["validation_task_sha256"] != sorted(set(task_split["validation_task_sha256"]))
+        or set(task_split["train_task_sha256"]) & set(task_split["validation_task_sha256"])
+        or len(task_split["train_task_sha256"]) != counts.get("train_traces", 0)
+        or len(task_split["validation_task_sha256"]) != counts.get("validation_traces", 0)
+    ):
+        raise FinalizationError("sft_output_task_split_invalid")
+    if (
+        counts["approved_tasks"] != expected_count
+        or counts["input_traces"] != summary["input_traces"]
+        or counts["selected_traces"] != summary["selected_traces"]
+        or counts["excluded_error_traces"] != summary["excluded_error_traces"]
+        or counts["input_traces"]
+        != counts.get("scored_pass_traces", 0) + counts.get("scored_fail_traces", 0) + counts["excluded_error_traces"]
+        or counts["selected_traces"] != counts.get("selected_pass_traces", 0) + counts.get("selected_fail_traces", 0)
+        or (selection == "pass-only" and counts.get("selected_fail_traces", 0) != 0)
+        or (selection == "pass-only" and counts.get("selected_pass_traces", 0) != counts.get("scored_pass_traces", 0))
+        or counts["emitted_rows"] != rows["total"]
+        or counts["train_rows"] != rows["train"]
+        or counts["validation_rows"] != rows["validation"]
+        or counts.get("train_traces", 0) + counts.get("validation_traces", 0) != counts["selected_traces"]
+    ):
+        raise FinalizationError("sft_output_counts_invalid")
+    manifest_sources = manifest_value.get("source_artifacts")
+    if (
+        not isinstance(manifest_sources, dict)
+        or set(manifest_sources) != set(SOURCE_EXPORT_ARTIFACTS)
+        or {name: _artifact_record(record, "sft_source_artifact_invalid") for name, record in manifest_sources.items()}
+        != dict(source_artifacts)
+    ):
+        raise FinalizationError("sft_source_artifact_mismatch")
+    routing_inputs = routing.get("input_traces") if isinstance(routing, dict) else None
+    routing_emitted = routing.get("emitted_rows") if isinstance(routing, dict) else None
+    routing_selected = {str(epoch): counts.get(f"routing_epoch_{epoch}_selected_traces", 0) for epoch in range(1, 4)}
+    expected_routing_keys = {
+        "admission_transition_sha256",
+        "current_epoch",
+        "emitted_rows",
+        "epoch1_row_hashes_sha256",
+        "epoch2_lineage_sha256",
+        "index_sha256",
+        "input_traces",
+        "results_sha256",
+        "row_mapping",
+        "transition_sha256",
+    }
+    if (
+        not isinstance(routing, dict)
+        or set(routing) != expected_routing_keys
+        or routing.get("current_epoch") != 3
+        or routing.get("row_mapping") != "one unique SHA-256 mapping per physical results.jsonl row"
+        or not isinstance(routing_inputs, dict)
+        or not isinstance(routing_emitted, dict)
+        or set(routing_inputs) != {"1", "2", "3"}
+        or set(routing_emitted) != {"1", "2", "3"}
+        or any(not _is_plain_int(value) or value < 0 for value in (*routing_inputs.values(), *routing_emitted.values()))
+        or sum(routing_inputs.values()) != counts["input_traces"]
+        or sum(routing_emitted.values()) != counts["emitted_rows"]
+        or routing_emitted != routing_rows
+        or sum(routing_selected.values()) != counts["selected_traces"]
+        or any((routing_selected[epoch] == 0) != (routing_emitted[epoch] == 0) for epoch in ("1", "2", "3"))
+        or routing_inputs != {str(epoch): counts.get(f"routing_epoch_{epoch}_input_traces", 0) for epoch in range(1, 4)}
+        or routing_emitted
+        != {str(epoch): counts.get(f"routing_epoch_{epoch}_emitted_rows", 0) for epoch in range(1, 4)}
+        or routing.get("index_sha256") != source_artifacts[INDEX_FILENAME]["sha256"]
+        or routing.get("results_sha256") != source_artifacts["results.jsonl"]["sha256"]
+        or routing.get("transition_sha256") != source_artifacts["qwen_router_transition.json"]["sha256"]
+        or routing.get("admission_transition_sha256")
+        != source_artifacts["qwen_router_admission_transition.json"]["sha256"]
+        or routing.get("epoch1_row_hashes_sha256") != source_artifacts["qwen_router_epoch1_rows.sha256"]["sha256"]
+        or routing.get("epoch2_lineage_sha256") != source_artifacts["qwen_router_epoch2_lineage.jsonl"]["sha256"]
+    ):
+        raise FinalizationError("sft_output_routing_invalid")
     exclusion_manifest = manifest_value.get("exclusion_selection")
     if expected_exclusion_sha256 is None:
         if exclusion_manifest is not None:
             raise FinalizationError("sft_output_exclusion_invalid")
     elif (
         not isinstance(exclusion_manifest, dict)
+        or set(exclusion_manifest)
+        != {
+            "approved_task_count",
+            "artifacts",
+            "manifest",
+            "missing_or_errored_count",
+            "strict_invalid_pass_count",
+            "union_count",
+        }
         or exclusion_manifest.get("manifest", {}).get("sha256") != expected_exclusion_sha256
         or exclusion_manifest.get("approved_task_count") != expected_count
         or exclusion_manifest.get("union_count") != summary["exclusion"]["union_count"]
         or exclusion_manifest.get("missing_or_errored_count") != summary["exclusion"]["missing_or_errored_count"]
         or exclusion_manifest.get("strict_invalid_pass_count") != summary["exclusion"]["strict_invalid_pass_count"]
+        or not isinstance(exclusion_manifest.get("artifacts"), dict)
+        or set(exclusion_manifest["artifacts"])
+        != {"missing_or_errored_task_file", "strict_invalid_pass_task_file", "task_file"}
+        or any(
+            _artifact_record(record, "sft_output_exclusion_invalid")["bytes"] < 0
+            for record in exclusion_manifest["artifacts"].values()
+        )
+        or counts.get("exclusion_missing_tasks") != summary["exclusion"]["missing_tasks"]
+        or counts.get("exclusion_missing_or_errored_tasks") != summary["exclusion"]["missing_or_errored_count"]
+        or counts.get("exclusion_selected_traces") != summary["exclusion"]["excluded_present_traces"]
+        or counts.get("exclusion_strict_invalid_pass_tasks") != summary["exclusion"]["strict_invalid_pass_count"]
     ):
         raise FinalizationError("sft_output_exclusion_invalid")
 
@@ -659,6 +940,7 @@ def finalize_qwen_sft(
     repository_validator(paths.project_dir, options.expected_project_revision)
 
     workflow = paths.project_dir / "user" / "tianhaowu" / "terminal_bench_vmvm"
+    expected_exporter_sha256 = _stable_sha256(workflow / "export_sft.py")
     with tempfile.TemporaryDirectory(
         prefix=f".{paths.output_dir.name}.finalize-",
         dir=paths.output_dir.parent,
@@ -734,12 +1016,17 @@ def finalize_qwen_sft(
             paths.project_dir,
             "sft_export_failed",
         )
+        source_artifacts = _expected_source_artifacts(paths.source_dir, index)
         _validate_export_summary(
             export_summary,
             staged_output,
             options.expected_count,
             options.selection,
             label_summary["index_sha256"],
+            source_artifacts,
+            expected_exporter_sha256,
+            options.validation_permyriad,
+            options.split_salt,
             exclusion_sha256,
         )
         repository_validator(paths.project_dir, options.expected_project_revision)

@@ -354,6 +354,22 @@ revision, the renderer repository revision, and `nemotron-3` settings with
 from an export whose contract is absent, modified, or inconsistent across merge
 inputs.
 
+Treat only exact `/chat/completions` captures as trainable. The format-v3
+exporter rejects unknown graph/wire message structure, unsupported
+`provider_state`/`reasoning_details`, sampled `finish_reason=length`, and tool
+schemas without an explicit `type="function"` envelope.
+
+Run `user/tianhaowu/terminal_bench_vmvm/preflight_sft.py` against the finalized
+export and its expected manifest SHA before SFT. Store the mode-0600 output
+outside the source checkout, then set `preflight_attestation` and
+`preflight_attestation_sha256` in every format-v3 SFT data block. Use the exact
+tokenizer repository/revision and renderer config in the target contract and a
+sequence length no smaller than the attested maximum row and no larger than
+262,144, with `pack_function="fixed_stack"` so a concatenation boundary cannot
+truncate a target. The trainer rechecks all export artifacts, code hashes, project and
+renderer revisions, dependency versions, and config bindings at startup;
+format-v3 rows cannot bypass the gate through the generic SFT loader.
+
 `VACLI_IMAGE_PULL_TIMEOUT_SECONDS` bounds each VM-side image pull attempt. The
 DeepSWE launcher derives it from TOML `sandbox_startup_timeout_sec` and uses one
 hour by default; keep the command/session ceiling separate because verification

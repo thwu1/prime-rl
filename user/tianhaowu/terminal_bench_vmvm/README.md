@@ -709,7 +709,13 @@ and failing scored traces. Selected traces fail closed on request or response
 hash corruption and any provider-reported sequence over 262,144 tokens. The
 exporter also requires every captured chat request to match the persisted graph
 prompt, then validates each retained assistant message, finish reason, and usage
-against the captured provider response.
+against the captured provider response. Only the exact `/chat/completions`
+route is accepted. Unknown message fields/content parts, opaque
+`provider_state` or `reasoning_details`, and any selected sampled turn ending
+with `finish_reason=length` are rejected because the current SFT renderer cannot
+preserve those states faithfully. Tool definitions require the canonical
+OpenAI `type="function"` envelope and null-free JSON Schema values; the loader
+removes only null padding introduced by Arrow's cross-row struct widening.
 
 One output row represents one unique sampled assistant node and its root-to-node
 message path. This preserves every genuine generation exactly once even when a
@@ -739,3 +745,44 @@ aggregate counts and hashes only.
 The exported messages are intended for offline retokenization by the target SFT
 renderer. They do not recreate teacher token IDs or sampling log probabilities,
 which were deliberately not requested from the evaluation endpoint.
+
+Before training format-v3 output, run the rendering preflight from the exact
+clean, detached Prime-RL revision that will launch the trainer:
+
+```bash
+uv run python user/tianhaowu/terminal_bench_vmvm/preflight_sft.py \
+  --export-root /absolute/path/to/corpus \
+  --expected-manifest-sha256 MANIFEST_SHA256 \
+  --project-dir /absolute/path/to/prime-rl \
+  --expected-project-revision PRIME_RL_COMMIT \
+  --output /absolute/path/to/corpus/sft-render-preflight.json
+```
+
+The command renders every row, verifies that historical reasoning changes the
+token stream, proves the loss mask covers only the selected assistant target,
+and rejects a rendered row over 262,144 tokens. It records only aggregate
+counts and hashes. Pin the resulting file and digest in every format-v3 train
+or validation data block with `preflight_attestation` and
+`preflight_attestation_sha256`. The trainer rehashes the attestation, export
+manifest and all declared artifacts, then rechecks the Prime-RL revision,
+loader sources, renderer gitlink, rendering/tokenization dependency versions, tokenizer revision,
+renderer config, loss mask, data path, and sequence length before model setup.
+Format-v3 rows are also rejected in the dataset loader unless this startup gate
+has succeeded. The target tokenizer block must use the repository and revision
+from `target-rendering-contract.json`, with `trust_remote_code = false`; the
+renderer block must exactly match its `renderer.config` object.
+
+```toml
+[tokenizer]
+name = "nvidia/NVIDIA-Nemotron-3-Super-120B-A12B-BF16"
+revision = "d51eab0d1f979ebc26b546e634a04f450d99158e"
+trust_remote_code = false
+
+[data]
+type = "sft"
+name = "/absolute/path/to/corpus/train"
+seq_len = 262144
+pack_function = "fixed_stack"
+preflight_attestation = "/absolute/path/to/corpus/sft-render-preflight.json"
+preflight_attestation_sha256 = "PREFLIGHT_SHA256"
+```

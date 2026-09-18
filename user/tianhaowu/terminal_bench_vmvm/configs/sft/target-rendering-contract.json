@@ -1,5 +1,14 @@
 {
+  "dataset_format_version": 3,
   "kind": "terminal-bench-sft-target-rendering",
+  "loss_mask": {
+    "assistant": true,
+    "system": false,
+    "tool": false,
+    "user": false
+  },
+  "max_sequence_tokens": 262144,
+  "pack_function": "fixed_stack",
   "renderer": {
     "config": {
       "enable_thinking": true,
@@ -12,9 +21,10 @@
     },
     "repository_revision": "044d9e2541f6a911cacae9da353fc063911ef1f8"
   },
-  "schema_version": 1,
+  "schema_version": 2,
   "tokenizer": {
     "repository": "nvidia/NVIDIA-Nemotron-3-Super-120B-A12B-BF16",
-    "revision": "d51eab0d1f979ebc26b546e634a04f450d99158e"
+    "revision": "d51eab0d1f979ebc26b546e634a04f450d99158e",
+    "trust_remote_code": false
   }
 }
