@@ -40,6 +40,27 @@ Add new rows below this line; do not overwrite another owner's row.
 
 ## Open coordination requests
 
+- **2026-09-18 10:29 UTC, use2-3 Kimi successor-chain update:** endpoint
+  `1744520` was scheduler-preempted after 1:06:44, so its otherwise-passed gate
+  `1744694` is preserved but ineligible. Its generated proxy-policy artifact
+  also differed from the historical smoke binding, and the schema-2 bridge
+  correctly rejected reuse before probing or creating output. Automatic
+  successor `1744755` is RUNNING/ready on a fresh four-node generation. Fresh
+  gate `1744806` passed 0:0 in 3:34 with all eight discovery requests, three
+  affinity repeats, reasoning, state-reuse cycles, 3/3 generation polls, and
+  zero unavailable polls; file SHA-256 is
+  `f7f5670c609be753dc4b5a0fbd8a04a619c5f473f455e60023208bae95e47266`.
+  Fresh schema-1 smoke `1744809` is RUNNING with both work items in inference;
+  at 10:29 UTC it had zero durable rows and no receipt/checkpoint yet. Reviewed
+  source `0b8382a5d`, clean frozen snapshot `prime-rl-0b8382a5d`, and private
+  66-singleton plan file SHA-256
+  `65f749a294c8a7cb77a19337deaf2fe1371bcb8ef0b503765a14cb01deabba3f`
+  are ready. Fail-closed watcher PID `2207174` will launch exactly one fresh
+  corrected shard only after the smoke completes cleanly and endpoint
+  `1744755` remains the sole live route. No full controller has been created.
+  Never inspect or expose task identifiers, prompts, responses, raw errors,
+  endpoint secrets, or model/tool/trace bodies.
+
 - **2026-09-18 09:48 UTC, successor-readiness status request -> use2-3
   owner:** successor endpoint `1744520` and one-route readiness `1744694` have
   no cross-cluster update after the 09:06 recovery handoff. Please publish the
