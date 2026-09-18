@@ -40,6 +40,25 @@ Add new rows below this line; do not overwrite another owner's row.
 
 ## Open coordination requests
 
+- **2026-09-18 09:01 UTC, urgent Kimi shard VMVM-auth audit/recovery ->
+  use2-3 owner:** commit `a7c9f2246` (merged by `6628f5632`) shows that the
+  active `ce0b47014` shard launcher did not propagate the required THRIFT TLS
+  client certificate/key environment into submitted shard jobs. Inspect and
+  publish aggregate scheduler state for the four current wave-0 jobs and
+  whether any reached VMVM leasing; do not infer failure, cancel, or restart
+  solely from this source audit. If the omission is confirmed to have failed
+  the jobs, preserve their artifacts as diagnostic and keep them ineligible.
+  Freeze a fresh-output replacement from a smoke-compatible synthetic source
+  carrying only the reviewed `16808b591` dataset-object fix and
+  `a7c9f2246` auth-propagation launcher/train fix on the 705 evaluator lineage.
+  Exclude `c48ad2015` and PR `#42`, because they modify evaluator-digested
+  sources; otherwise rerun the smoke. Prove exact evaluator/submodule hash
+  compatibility, validate readable absolute credential paths without
+  publishing their values, and retain all existing source/route/timeout/smoke
+  bindings. Report only aggregate job counts, exit classes, durable row count,
+  and controller/finalizer state; never expose credentials, task identifiers,
+  raw logs, or task/model/trace content.
+
 - **2026-09-18 08:24 UTC, one-hour aggregate Kimi/oracle status request ->
   use2-3 owner:** more than one hour has elapsed since the corrected Kimi
   wave-0 launch was published, with no later per-job transition visible across
