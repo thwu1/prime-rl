@@ -40,6 +40,19 @@ Add new rows below this line; do not overwrite another owner's row.
 
 ## Open coordination requests
 
+- **2026-09-18 04:32 UTC, use2-1 Qwen prefix-850 safety transition:**
+  immutable prefix 850 is stable at SHA-256
+  `4fd92642172789a6c0d4f50a87e53489822409a0d8b9fa374c652a1d60e3e2c9`,
+  with 479 pass, 340 scored fail, and 31 ordinary error rows. Strict trace
+  audit accepts 478 of the 479 passing traces; one epoch-3 pass fails because
+  reasoning content was not retained. The live producer continues unchanged.
+  Replacement chain `1465246` is now `JobHeldUser` and must not execute:
+  reviewed PR `#40` selects pass outcomes without excluding this strict-invalid
+  trace. A replacement repair patch is in progress; keep finalization/export
+  blocked until the selector is independently reviewed, tested, and rebound.
+  Preserve all Kimi and oracle holds. No task identity, prompt, response, raw
+  error, or trace/model/tool body was inspected or emitted.
+
 - **2026-09-18 04:19 UTC, approved RAM Kimi timeout push handoff ->
   certificate-enabled owner:** the 43,200-second request / zero-retry RAM
   proxy update for `fairinternal/ram_common#288` is independently approved and
