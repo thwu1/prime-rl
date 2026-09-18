@@ -184,6 +184,25 @@ def validate_kimi_retry_contract(config: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def validate_kimi_steady_state_concurrency_contract(config: dict[str, Any]) -> dict[str, int]:
+    """Require aligned rollout, multiplex, and HTTP capacity for Mobius Kimi runs."""
+
+    client = config.get("client")
+    if not isinstance(client, dict):
+        raise EvalIdentityError("kimi_steady_state_concurrency_invalid")
+    execution = {
+        "http_max_connections": client.get("max_connections"),
+        "http_max_keepalive_connections": client.get("max_keepalive_connections"),
+        "multiplex": config.get("multiplex"),
+        "rollout_concurrency": config.get("max_concurrent"),
+    }
+    if any(type(value) is not int or value < 1 for value in execution.values()):
+        raise EvalIdentityError("kimi_steady_state_concurrency_invalid")
+    if len(set(execution.values())) != 1:
+        raise EvalIdentityError("kimi_steady_state_concurrency_mismatch")
+    return execution
+
+
 def canonical_json(value: dict[str, Any]) -> bytes:
     return json.dumps(
         value,
@@ -638,6 +657,7 @@ def _contract(
     model = config.get("model")
     if not expected_model or model != expected_model:
         raise EvalIdentityError("model_contract_mismatch")
+    require_kimi_steady_state_concurrency = role == "mobius"
     if model == "Kimi-K3":
         required_profile: str | None = None
         if role in {"tb4", "mobius"}:
@@ -646,7 +666,8 @@ def _contract(
             taskset = config.get("taskset")
             if not isinstance(taskset, dict):
                 raise EvalIdentityError("resolved_contract_invalid")
-            required_profile = "full" if taskset.get("dataset_revision") is not None else "smoke"
+            require_kimi_steady_state_concurrency = taskset.get("dataset_revision") is not None
+            required_profile = "full" if require_kimi_steady_state_concurrency else "smoke"
         validate_kimi_timeout_contract(config, required_profile=required_profile)
         validate_kimi_retry_contract(config)
     if config.get("num_rollouts") != 1:
@@ -691,6 +712,8 @@ def _contract(
     ):
         if not isinstance(value, int) or isinstance(value, bool) or value < 1:
             raise EvalIdentityError(f"{label}_invalid")
+    if model == "Kimi-K3" and require_kimi_steady_state_concurrency:
+        validate_kimi_steady_state_concurrency_contract(config)
     runtime = harness.get("runtime")
     if not isinstance(runtime, dict) or runtime.get("type") != "vmvm":
         raise EvalIdentityError("vmvm_runtime_required")

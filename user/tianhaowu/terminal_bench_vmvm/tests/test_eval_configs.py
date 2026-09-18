@@ -120,6 +120,21 @@ def test_each_production_kimi_config_passes_its_real_role_contract(filename: str
     _contract(config, "Kimi-K3", role=role)
 
 
+@pytest.mark.parametrize(
+    ("filename", "role"),
+    [
+        ("mobius_kimi_k3_capacity_smoke.toml", "smoke"),
+        ("mobius_kimi_k3_max_2500.toml", "mobius"),
+    ],
+)
+def test_mobius_kimi_roles_reject_misaligned_steady_state_concurrency(filename: str, role: str) -> None:
+    config = _resolved_eval_config(filename)
+    config["client"]["max_keepalive_connections"] -= 1
+
+    with pytest.raises(EvalIdentityError, match="^kimi_steady_state_concurrency_mismatch$"):
+        _contract(config, "Kimi-K3", role=role)
+
+
 def test_legacy_token_smoke_is_not_production_run_identity_qualified() -> None:
     config = _resolved_eval_config("tb4_kimi_token_smoke.toml")
 
@@ -200,8 +215,8 @@ def test_mobius_kimi_production_contract() -> None:
     assert config["model"] == "Kimi-K3"
     assert config["num_tasks"] == 2_500
     assert config["num_rollouts"] == 1
-    assert config["max_concurrent"] == 8
-    assert config["multiplex"] == 8
+    assert config["max_concurrent"] == 24
+    assert config["multiplex"] == 24
     assert config["max_input_tokens"] == 262_144
     assert config["max_output_tokens"] == 262_144
     assert config["max_total_tokens"] == 262_144
@@ -261,14 +276,14 @@ def test_mobius_kimi_capacity_smoke_matches_production_lane() -> None:
     assert config["num_tasks"] == 42
     assert config["num_rollouts"] == 1
     assert config["max_turns"] == 8
-    assert config["max_concurrent"] == config["multiplex"] == 8
+    assert config["max_concurrent"] == config["multiplex"] == 24
     assert config["max_input_tokens"] == 262_144
     assert config["max_output_tokens"] == 262_144
     assert config["max_total_tokens"] == 262_144
     assert config["retain_traces"] is False
     assert config["client"]["capture_model_io"] is True
-    assert config["client"]["max_connections"] == 8
-    assert config["client"]["max_keepalive_connections"] == 8
+    assert config["client"]["max_connections"] == 24
+    assert config["client"]["max_keepalive_connections"] == 24
     assert config["client"]["timeout"] == 43_200
     assert config["harness"]["runtime"]["session_timeout"] == 43_200
     assert config["timeout"]["rollout"] == 36_000
@@ -305,42 +320,51 @@ def test_mobius_qwen_production_retention_and_concurrency() -> None:
 
 
 @pytest.mark.parametrize(
-    ("filename", "expected_count", "expected_sha256"),
+    ("filename", "expected_count", "expected_sha256", "expected_concurrency"),
     [
         (
             "tb4_qwen_token_smoke.toml",
             2,
             "4ae515a77f33746ecb598ab6c670612265bd1ef726eb6ca7f16cc81f5e191c25",
+            2,
         ),
         (
             "tb4_kimi_k3_approved_smoke.toml",
             2,
             "ecdcbc6e4f54b690e64b4566de5eecf33467088c8ca3436738cd7308d4e45b83",
+            2,
         ),
         (
             "tb4_qwen_a95b_miniswe.toml",
             66,
             "9485011ac4a953f4a4a1c7c5e78550b6d7de6f760a3859dac15a3610cf4ad892",
+            8,
         ),
         (
             "tb4_kimi_k3_max_miniswe.toml",
             66,
             "9485011ac4a953f4a4a1c7c5e78550b6d7de6f760a3859dac15a3610cf4ad892",
+            4,
         ),
         (
             "mobius_kimi_k3_capacity_smoke.toml",
             42,
             "8d7d9377a9bbe6ade2fba7cc0730647d8be82402e225f95ad864a2218647563c",
+            24,
         ),
         (
             "mobius_qwen_a95b_2500.toml",
             2_500,
             _mobius_task_file_sha256(),
+            8,
         ),
     ],
 )
 def test_eval_configs_pin_approved_tasks_and_runtime_contract(
-    filename: str, expected_count: int, expected_sha256: str
+    filename: str,
+    expected_count: int,
+    expected_sha256: str,
+    expected_concurrency: int,
 ) -> None:
     config = tomllib.loads((CONFIG_DIR / filename).read_text())
 
@@ -352,7 +376,7 @@ def test_eval_configs_pin_approved_tasks_and_runtime_contract(
         "enable_thinking": True,
         "preserve_thinking": True,
     }
-    assert config["max_concurrent"] == config["multiplex"] <= 8
+    assert config["max_concurrent"] == config["multiplex"] == expected_concurrency
     assert config["client"]["max_connections"] == config["max_concurrent"]
     assert config["client"]["max_keepalive_connections"] == config["max_concurrent"]
     expected_client_timeout = 43_200 if "kimi" in filename else 7_200

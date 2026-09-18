@@ -374,7 +374,7 @@ def _capacity_checkpoint(
                 sort_keys=True,
             )
             + "\n"
-            for _ in range(8)
+            for _ in range(24)
         )
     )
     artifacts = {name: _artifact(artifact, _sha256(artifact.read_bytes())) for name, artifact in artifact_paths.items()}
@@ -386,7 +386,7 @@ def _capacity_checkpoint(
         "config": {"resolved": artifacts["config"]},
         "inputs": {
             "manifest": artifacts["inputs_manifest"],
-            "task_file": {**artifacts["inputs_manifest"], "count": 8},
+            "task_file": {**artifacts["inputs_manifest"], "count": 24},
             "image_manifest": _artifact(image_manifest, image_manifest_sha256),
         },
         "dataset": {"kind": "git_revision", "revision": dataset_revision},
@@ -400,10 +400,10 @@ def _capacity_checkpoint(
             "smoke_checkpoint": None,
         },
         "execution": {
-            "rollout_concurrency": 8,
-            "multiplex": 8,
-            "http_max_connections": 8,
-            "http_max_keepalive_connections": 8,
+            "rollout_concurrency": 24,
+            "multiplex": 24,
+            "http_max_connections": 24,
+            "http_max_keepalive_connections": 24,
             "vmvm_environment": {"lease_start_concurrency": 4},
         },
         "contract": {
@@ -458,16 +458,16 @@ def _capacity_checkpoint(
         slurm_job_id="1",
         register_atexit=False,
     )
-    for _ in range(8):
+    for _ in range(24):
         telemetry.vmvm_runtime_started()
-    for _ in range(2):
+    for _ in range(6):
         for _ in range(4):
             telemetry.lease_start_entered()
         for _ in range(4):
             telemetry.lease_tunnel_became_ready()
             telemetry.lease_start_finished()
             telemetry.vmvm_runtime_became_ready()
-    for _ in range(8):
+    for _ in range(24):
         telemetry.vmvm_runtime_stopped()
     telemetry.publish()
     artifacts["concurrency_telemetry"] = _artifact(
@@ -509,22 +509,22 @@ def _capacity_checkpoint(
         "serving_route_generation": route_generation,
         "proxy_policy": proxy_policy,
         "qualified_execution": {
-            "rollout_concurrency": 8,
-            "multiplex": 8,
-            "http_max_connections": 8,
-            "http_max_keepalive_connections": 8,
+            "rollout_concurrency": 24,
+            "multiplex": 24,
+            "http_max_connections": 24,
+            "http_max_keepalive_connections": 24,
             "lease_start_concurrency": 4,
         },
         "observed_concurrency": {
             "active_rollout_signal": "completed_trace_lifecycle_timing_overlap",
             "lease_start_signal": "vacli_lease_start_semaphore_holders",
-            "peak_active_rollouts_lower_bound": 8,
+            "peak_active_rollouts_lower_bound": 24,
             "peak_concurrent_lease_startups": 4,
-            "required_peak_active_rollouts_lower_bound": 8,
+            "required_peak_active_rollouts_lower_bound": 24,
             "required_peak_concurrent_lease_startups": 4,
         },
         "audit_policy": {
-            "expected_traces": 8,
+            "expected_traces": 24,
             "rollouts_per_task": 1,
             "require_reasoning": True,
             "require_model_io": True,
@@ -534,10 +534,10 @@ def _capacity_checkpoint(
             "max_sequence_tokens": 262_144,
         },
         "counts": {
-            "traces": 8,
-            "tasks": 8,
+            "traces": 24,
+            "tasks": 24,
             "sampled_tokens": 100,
-            "model_io_turns": 8,
+            "model_io_turns": 24,
             "trace_failures": 0,
             "global_problems": 0,
         },
@@ -675,7 +675,7 @@ def _oracle_receipt(
 def _fixture(
     tmp_path: Path,
     *,
-    production_routes: int = 2,
+    production_routes: int = 24,
     tb4_routes: int = 1,
     no_post_tb4_resize: bool = False,
 ) -> tuple[dict[str, object], Path]:
@@ -778,11 +778,11 @@ def _fixture(
         'model = "Kimi-K3"\n'
         "num_tasks = 2500\n"
         "num_rollouts = 1\n"
-        "max_concurrent = 8\n"
+        "max_concurrent = 24\n"
         "max_input_tokens = 262144\n"
         "max_output_tokens = 262144\n"
         "max_total_tokens = 262144\n"
-        "multiplex = 8\n"
+        "multiplex = 24\n"
         "rich = false\n"
         "retain_traces = false\n"
         "[client]\n"
@@ -790,8 +790,8 @@ def _fixture(
         'base_url = "http://127.0.0.1:8000/v1"\n'
         "capture_model_io = true\n"
         'outbound_body_denylist = ["logprobs", "prompt_logprobs", "top_logprobs", "return_token_ids"]\n'
-        "max_connections = 8\n"
-        "max_keepalive_connections = 8\n"
+        "max_connections = 24\n"
+        "max_keepalive_connections = 24\n"
         "timeout = 43200\n"
         "connect_timeout = 120\n"
         "[sampling]\n"
@@ -1137,7 +1137,7 @@ def test_create_and_verify_launch_certificate_without_task_metadata(
     assert certificate["ok"] is True
     assert certificate["state"] == "passed"
     assert certificate["deployment"]["spec"]["sha256"] != certificate["gates"]["tb4"]["deployment_spec_sha256"]
-    assert certificate["gates"]["readiness"]["expected_routes"] == 2
+    assert certificate["gates"]["readiness"]["expected_routes"] == 24
     assert certificate["gates"]["tb4"]["expected_routes"] == 1
     assert certificate["gates"]["tb4"]["proxy_policy"] != certificate["gates"]["readiness"]["proxy_policy"]
     assert certificate["deployment"]["endpoint"]["proxy_info"] == {
@@ -1146,18 +1146,18 @@ def test_create_and_verify_launch_certificate_without_task_metadata(
     }
     assert certificate["production"]["approved_manifest"]["count"] == 2_500
     assert certificate["gates"]["capacity_smoke"]["qualified_execution"] == {
-        "http_max_connections": 8,
-        "http_max_keepalive_connections": 8,
+        "http_max_connections": 24,
+        "http_max_keepalive_connections": 24,
         "lease_start_concurrency": 4,
-        "multiplex": 8,
-        "rollout_concurrency": 8,
+        "multiplex": 24,
+        "rollout_concurrency": 24,
     }
     assert certificate["gates"]["capacity_smoke"]["observed_concurrency"] == {
         "active_rollout_signal": "completed_trace_lifecycle_timing_overlap",
         "lease_start_signal": "vacli_lease_start_semaphore_holders",
-        "peak_active_rollouts_lower_bound": 8,
+        "peak_active_rollouts_lower_bound": 24,
         "peak_concurrent_lease_startups": 4,
-        "required_peak_active_rollouts_lower_bound": 8,
+        "required_peak_active_rollouts_lower_bound": 24,
         "required_peak_concurrent_lease_startups": 4,
     }
     unsigned = dict(certificate)
@@ -1172,6 +1172,17 @@ def test_create_and_verify_launch_certificate_without_task_metadata(
     assert len(_strict_identity_loader) == 4
     with pytest.raises(LaunchCertificateError, match="^launch_inputs_mismatch$"):
         _validate_for_run(arguments, output, file_sha256, requested_leases=3)
+
+
+def test_create_rejects_nonstandard_production_lease_start_concurrency(tmp_path: Path) -> None:
+    arguments, _ = _fixture(tmp_path)
+    arguments["requested_lease_start_concurrency"] = 3
+
+    with pytest.raises(
+        LaunchCertificateError,
+        match="^production_lease_start_concurrency_invalid$",
+    ):
+        create_launch_certificate(**arguments)
 
 
 def test_kimi_launch_rejects_structurally_valid_7200_readiness_policy(tmp_path: Path) -> None:
@@ -1234,6 +1245,16 @@ def test_rejects_post_tb4_route_count_below_two(tmp_path: Path) -> None:
     arguments, _ = _fixture(tmp_path, production_routes=1)
 
     with pytest.raises(LaunchCertificateError, match="^post_tb4_route_count_too_small$"):
+        create_launch_certificate(**arguments)
+
+
+def test_rejects_route_count_below_production_concurrency(tmp_path: Path) -> None:
+    arguments, _ = _fixture(tmp_path, production_routes=23)
+
+    with pytest.raises(
+        LaunchCertificateError,
+        match="^post_tb4_route_count_below_production_concurrency$",
+    ):
         create_launch_certificate(**arguments)
 
 
@@ -1533,7 +1554,14 @@ def test_rejects_failed_readiness_and_capacity_below_production(tmp_path: Path) 
     identity_record = capacity_value["artifacts"]["eval_run_identity"]
     identity_path = Path(identity_record["path"])
     identity = json.loads(identity_path.read_text())
-    identity["identity"]["execution"]["rollout_concurrency"] = 7
+    for key in (
+        "http_max_connections",
+        "http_max_keepalive_connections",
+        "multiplex",
+        "rollout_concurrency",
+    ):
+        identity["identity"]["execution"][key] = 23
+        capacity_value["qualified_execution"][key] = 23
     _write_json(identity_path, identity)
     identity_record["sha256"] = _sha256(identity_path.read_bytes())
     guard_record = capacity_value["artifacts"]["route_guard_success"]
@@ -1543,7 +1571,6 @@ def test_rejects_failed_readiness_and_capacity_below_production(tmp_path: Path) 
     guard_value.pop("guard_success_receipt_sha256")
     guard_value["guard_success_receipt_sha256"] = _sha256(_canonical(guard_value))
     guard_record["sha256"] = _write_json(guard_path, guard_value)
-    capacity_value["qualified_execution"]["rollout_concurrency"] = 7
     arguments["capacity_smoke_checkpoint_sha256"] = _write_json(
         capacity,
         _flat_certificate(capacity_value, "smoke_checkpoint_sha256"),
@@ -1555,13 +1582,47 @@ def test_rejects_failed_readiness_and_capacity_below_production(tmp_path: Path) 
         create_launch_certificate(**arguments)
 
 
+def test_rejects_capacity_smoke_with_misaligned_steady_state_concurrency() -> None:
+    qualified = {
+        "http_max_connections": 25,
+        "http_max_keepalive_connections": 24,
+        "multiplex": 24,
+        "rollout_concurrency": 24,
+        "lease_start_concurrency": 4,
+    }
+    observed = {
+        "peak_active_rollouts_lower_bound": 24,
+        "peak_concurrent_lease_startups": 4,
+        "required_peak_active_rollouts_lower_bound": 24,
+        "required_peak_concurrent_lease_startups": 4,
+    }
+    required = {
+        "http_max_connections": 24,
+        "http_max_keepalive_connections": 24,
+        "multiplex": 24,
+        "rollout_concurrency": 24,
+    }
+
+    with pytest.raises(
+        LaunchCertificateError,
+        match="^capacity_smoke_concurrency_contract_invalid$",
+    ):
+        certificate_module._validate_capacity(
+            qualified,
+            observed,
+            required,
+            requested_lease_start_concurrency=4,
+            expected_traces=42,
+        )
+
+
 def test_rejects_capacity_execution_not_bound_to_strict_identity(tmp_path: Path) -> None:
     arguments, _ = _fixture(tmp_path)
     capacity = Path(arguments["capacity_smoke_checkpoint"])
     arguments["capacity_smoke_checkpoint_sha256"] = _rewrite_flat(
         capacity,
         "smoke_checkpoint_sha256",
-        lambda value: value["qualified_execution"].__setitem__("rollout_concurrency", 9),
+        lambda value: value["qualified_execution"].__setitem__("rollout_concurrency", 25),
     )
 
     with pytest.raises(LaunchCertificateError, match="^capacity_eval_run_identity_invalid$"):
@@ -1576,7 +1637,7 @@ def test_rejects_capacity_claim_not_bound_to_trace_timing_evidence(tmp_path: Pat
         "smoke_checkpoint_sha256",
         lambda value: value["observed_concurrency"].__setitem__(
             "peak_active_rollouts_lower_bound",
-            7,
+            23,
         ),
     )
 
@@ -1667,6 +1728,7 @@ def test_rejects_capacity_smoke_from_a_different_workload_contract(
         ("finalize = 3600", "finalize = 3599", "production_timeout_contract_invalid"),
         ("scoring = 21600", "scoring = 21599", "production_timeout_contract_invalid"),
         ("connect_timeout = 120", "connect_timeout = 119", "production_timeout_contract_invalid"),
+        ("max_connections = 24", "max_connections = 23", "production_concurrency_contract_invalid"),
         ("max_retries = 2", "max_retries = 1", "production_retry_contract_invalid"),
         (
             'include = ["ProviderError", "SandboxError", "TunnelError", "InterceptionError"]',

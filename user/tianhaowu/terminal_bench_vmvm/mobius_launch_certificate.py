@@ -33,6 +33,7 @@ from eval_run_identity import (
     EvalIdentityError,
     load_eval_run_identity,
     validate_kimi_retry_contract,
+    validate_kimi_steady_state_concurrency_contract,
     validate_kimi_timeout_contract,
 )
 from guard_success_receipt import (
@@ -70,6 +71,7 @@ EXPECTED_TB4_MIN_PASS_RATE = 0.04
 EXPECTED_TB4_MAX_PASS_RATE = 0.22
 EXPECTED_TB4_ROLLOUT_CONCURRENCY = 4
 EXPECTED_TB4_LEASE_START_CONCURRENCY = 2
+EXPECTED_MOBIUS_LEASE_START_CONCURRENCY = 4
 EXPECTED_DENYLIST = frozenset({"logprobs", "prompt_logprobs", "return_token_ids", "top_logprobs"})
 EXPECTED_MODEL_IO_CONTRACT = {
     "provider_route": KIMI_K3_MAX_MODEL_IO_CONTRACT.provider_route,
@@ -1663,6 +1665,10 @@ def _validate_production_config(
         validate_kimi_retry_contract(config)
     except EvalIdentityError as cause:
         raise LaunchCertificateError("production_retry_contract_invalid") from cause
+    try:
+        execution = validate_kimi_steady_state_concurrency_contract(config)
+    except EvalIdentityError as cause:
+        raise LaunchCertificateError("production_concurrency_contract_invalid") from cause
 
     context = {
         "max_input_tokens": config.get("max_input_tokens"),
@@ -1737,21 +1743,6 @@ def _validate_production_config(
     if image_record["sha256"] != expected_image_manifest_sha256:
         raise LaunchCertificateError("production_image_manifest_sha256_mismatch")
 
-    execution = {
-        "http_max_connections": _require_positive_int(
-            client.get("max_connections"),
-            "production_http_max_connections",
-        ),
-        "http_max_keepalive_connections": _require_positive_int(
-            client.get("max_keepalive_connections"),
-            "production_http_max_keepalive_connections",
-        ),
-        "multiplex": _require_positive_int(config.get("multiplex"), "production_multiplex"),
-        "rollout_concurrency": _require_positive_int(
-            config.get("max_concurrent"),
-            "production_rollout_concurrency",
-        ),
-    }
     return {
         "capture_model_io": True,
         "context_tokens": context,
@@ -1783,6 +1774,16 @@ def _validate_capacity(
     requested_lease_start_concurrency: int,
     expected_traces: int,
 ) -> None:
+    steady_state_keys = (
+        "http_max_connections",
+        "http_max_keepalive_connections",
+        "multiplex",
+        "rollout_concurrency",
+    )
+    if len({qualified[key] for key in steady_state_keys}) != 1:
+        raise LaunchCertificateError("capacity_smoke_concurrency_contract_invalid")
+    if len({required[key] for key in steady_state_keys}) != 1:
+        raise LaunchCertificateError("production_concurrency_contract_invalid")
     comparisons = {
         "http_max_connections": required["http_max_connections"],
         "http_max_keepalive_connections": required["http_max_keepalive_connections"],
@@ -1862,6 +1863,8 @@ def _build_unsigned(
         requested_lease_start_concurrency,
         "requested_lease_start_concurrency",
     )
+    if requested_leases != EXPECTED_MOBIUS_LEASE_START_CONCURRENCY:
+        raise LaunchCertificateError("production_lease_start_concurrency_invalid")
     spec_record, spec_raw = _pinned_bytes(
         deployment_spec,
         deployment_spec_sha256,
@@ -1945,6 +1948,8 @@ def _build_unsigned(
         raise LaunchCertificateError("post_tb4_route_count_not_increased")
     if tb4["deployment_spec_sha256"] == spec_record["sha256"]:
         raise LaunchCertificateError("post_tb4_deployment_spec_not_changed")
+    if readiness["expected_routes"] < production_contract["execution"]["rollout_concurrency"]:
+        raise LaunchCertificateError("post_tb4_route_count_below_production_concurrency")
     try:
         revalidate_deployment_proxy_policy(
             Path(spec_record["path"]),

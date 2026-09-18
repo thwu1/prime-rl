@@ -380,10 +380,10 @@ def _install_capacity_evaluator_contract(
     config_text = (workflow / "configs/eval/mobius_kimi_k3_capacity_smoke.toml").read_text()
     config_text = (
         config_text.replace("num_tasks = 42", "num_tasks = 2")
-        .replace("max_concurrent = 8", "max_concurrent = 2")
-        .replace("multiplex = 8", "multiplex = 2")
-        .replace("max_connections = 8", "max_connections = 2")
-        .replace("max_keepalive_connections = 8", "max_keepalive_connections = 2")
+        .replace("max_concurrent = 24", "max_concurrent = 2")
+        .replace("multiplex = 24", "multiplex = 2")
+        .replace("max_connections = 24", "max_connections = 2")
+        .replace("max_keepalive_connections = 24", "max_keepalive_connections = 2")
         .replace(
             'task_file = "user/tianhaowu/terminal_bench_vmvm/configs/validate/mobius_repaired_tasks.txt"',
             f'task_file = "{task_file.resolve()}"',

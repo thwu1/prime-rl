@@ -303,11 +303,15 @@ unset for the two-task transcript smoke: it binds the observed telemetry but is
 not itself a capacity qualification.
 The launch certificate must prove that TB4 used exactly one route, the
 post-resize deployment-spec digest differs from the TB4 digest, and the
-post-resize spec/readiness route count is strictly larger and at least two.
-The initial production target is exactly two routes, so invoke the
-post-resize waiter with `EXPECTED_ROUTES=2` before the concurrency-eight,
-lease-starts-four capacity smoke. A route-generation change invalidates the
-current eval identity; do not resume guarded Kimi outputs at all.
+post-resize spec/readiness route count is strictly larger and at least the
+production rollout concurrency.
+The production target is exactly 24 ready routes, so invoke the post-resize
+waiter with `EXPECTED_ROUTES=24` before the concurrency-24, lease-starts-four
+capacity smoke. Keep rollout, multiplex, and both HTTP pool limits aligned at
+24, while setting `VACLI_MAX_CONCURRENT_LEASES=4` explicitly. The launch
+certificate rejects a readiness/spec route count below production rollout
+concurrency. A route-generation change invalidates the current eval identity;
+do not resume guarded Kimi outputs at all.
 
 Pier's DeepSWE adapter supports prebuilt agent images and the benchmark's
 separate verifier Dockerfiles. It validates the Dockerfile, starts its `FROM`

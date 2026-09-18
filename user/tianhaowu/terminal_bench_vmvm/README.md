@@ -635,28 +635,29 @@ manifest at
 SHA-256
 `d33ef93f9b77ee91a41600934e677ba37988d3b4509e4da05ff1fcf7b4bc3a4b`).
 Do not launch it directly after TB4. First publish the final oracle promotion
-receipt, resize the same deployment, pass a fresh readiness/state-reuse gate,
-and certify a trace-capacity smoke whose configured rollout, multiplex,
-HTTP-pool, and effective lease-start concurrency are each at least the
-production values. The evaluator also publishes a mode-0400, aggregate-only
-`concurrency_telemetry.json`. Certification requires the observed overlap of
+receipt, resize the same deployment to exactly 24 ready routes, pass a fresh
+readiness/state-reuse gate, and certify a trace-capacity smoke whose configured
+rollout, multiplex, and HTTP-pool concurrency are aligned at 24 while effective
+lease-start concurrency remains four. The evaluator also publishes a mode-0400,
+aggregate-only `concurrency_telemetry.json`. Certification requires the observed overlap of
 completed trace lifecycles to reach configured rollout concurrency and the
 observed peak of vacli lease-start semaphore holders to reach configured
 lease-start concurrency; configured limits alone are not capacity evidence.
-The initial production resize is exactly two routes; submit its waiter with
-`EXPECTED_ROUTES=2`. The launch certificate requires exactly one route for the
-TB4 checkpoint and a strictly larger post-resize route set of at least two; it
-also rejects a post-resize spec identical to the TB4 spec or a readiness/spec
-route-count mismatch.
+Submit the post-resize waiter with `EXPECTED_ROUTES=24`. The launch certificate
+requires exactly one route for the TB4 checkpoint and requires the post-resize
+readiness/spec route count to cover the production rollout concurrency. It also
+rejects a post-resize spec identical to the TB4 spec, a readiness/spec
+route-count mismatch, or misaligned production and capacity-smoke steady-state
+concurrency knobs.
 The checked-in capacity-smoke config exercises the already validated 42-case
-Mobius repair set at eight active rollouts and four lease starts:
+Mobius repair set at 24 active rollouts and four lease starts:
 
 ```bash
 tmux send-keys -t swebench_vmvm:Launcher.0 \
   "cd /checkpoint/ram/tianhaowu/terminal_bench_vmvm/sources/prime-rl-<commit> && env PROJECT_DIR=\$PWD EVAL_EXPECTED_PRIME_RL_REVISION=<commit> EVAL_RUN_ROLE=smoke EVAL_DEPLOYMENT_ID=tianhaowu-k3-kda-tb1-low-20260916 EVAL_EXPECTED_MODEL=Kimi-K3 EVAL_DATASET_REVISION=ac1f30b9ac0e6c6a20a9fe423900d9ed28a6d366 EVAL_APPROVED_TASK_FILE=\$PWD/user/tianhaowu/terminal_bench_vmvm/configs/validate/mobius_repaired_tasks.txt EVAL_APPROVED_TASK_FILE_SHA256=8d7d9377a9bbe6ade2fba7cc0730647d8be82402e225f95ad864a2218647563c EVAL_CONFIG=\$PWD/user/tianhaowu/terminal_bench_vmvm/configs/eval/mobius_kimi_k3_capacity_smoke.toml INFERENCE_DEPLOYMENT_SPEC=/path/to/post-resize-spec.yaml INFERENCE_DEPLOYMENT_SPEC_SHA256=<post-resize-spec-sha256> INFERENCE_READINESS_CHECKPOINT=/path/to/post-resize-readiness.json INFERENCE_READINESS_CHECKPOINT_SHA256=<post-resize-readiness-file-sha256> INFERENCE_PROXY_INFO=/checkpoint/ram/shared/vllm_deployments_v2/tianhaowu-k3-kda-tb1-low-20260916/proxy_info.json INFERENCE_PROXY_INFO_SHA256=<post-resize-readiness-bound-proxy-info-sha256> OUTPUT_DIR=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/evals/mobius_kimi_k3_capacity_smoke_v1 VACLI_MAX_CONCURRENT_LEASES=4 sbatch --parsable \$PWD/user/tianhaowu/terminal_bench_vmvm/run_eval.sbatch" C-m
 
 tmux send-keys -t swebench_vmvm:Launcher.0 \
-  "cd /checkpoint/ram/tianhaowu/terminal_bench_vmvm/sources/prime-rl-<commit> && env PROJECT_DIR=\$PWD RESULTS_DIR=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/evals/mobius_kimi_k3_capacity_smoke_v1 SMOKE_TASK_FILE=\$PWD/user/tianhaowu/terminal_bench_vmvm/configs/validate/mobius_repaired_tasks.txt SMOKE_TASK_FILE_SHA256=8d7d9377a9bbe6ade2fba7cc0730647d8be82402e225f95ad864a2218647563c SMOKE_EXPECTED_TRACES=42 SMOKE_REQUIRED_ROLLOUT_CONCURRENCY=8 SMOKE_REQUIRED_LEASE_START_CONCURRENCY=4 sbatch --parsable \$PWD/user/tianhaowu/terminal_bench_vmvm/run_trace_smoke_audit.sbatch" C-m
+  "cd /checkpoint/ram/tianhaowu/terminal_bench_vmvm/sources/prime-rl-<commit> && env PROJECT_DIR=\$PWD RESULTS_DIR=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/evals/mobius_kimi_k3_capacity_smoke_v1 SMOKE_TASK_FILE=\$PWD/user/tianhaowu/terminal_bench_vmvm/configs/validate/mobius_repaired_tasks.txt SMOKE_TASK_FILE_SHA256=8d7d9377a9bbe6ade2fba7cc0730647d8be82402e225f95ad864a2218647563c SMOKE_EXPECTED_TRACES=42 SMOKE_REQUIRED_ROLLOUT_CONCURRENCY=24 SMOKE_REQUIRED_LEASE_START_CONCURRENCY=4 sbatch --parsable \$PWD/user/tianhaowu/terminal_bench_vmvm/run_trace_smoke_audit.sbatch" C-m
 ```
 
 Then create one write-once launch certificate outside the Git worktree:
@@ -709,11 +710,11 @@ tmux send-keys -t swebench_vmvm:Launcher.0 \
   "cd /checkpoint/ram/tianhaowu/terminal_bench_vmvm/sources/prime-rl-<commit> && env PROJECT_DIR=\$PWD EVAL_EXPECTED_PRIME_RL_REVISION=<commit> EVAL_RUN_ROLE=mobius EVAL_DEPLOYMENT_ID=tianhaowu-k3-kda-tb1-low-20260916 EVAL_EXPECTED_MODEL=Kimi-K3 EVAL_DATASET_REVISION=ac1f30b9ac0e6c6a20a9fe423900d9ed28a6d366 EVAL_APPROVED_TASK_FILE=\$PWD/user/tianhaowu/terminal_bench_vmvm/configs/eval/mobius_valid_tasks_2500.txt EVAL_APPROVED_TASK_FILE_SHA256=d33ef93f9b77ee91a41600934e677ba37988d3b4509e4da05ff1fcf7b4bc3a4b EVAL_CONFIG=\$PWD/user/tianhaowu/terminal_bench_vmvm/configs/eval/mobius_kimi_k3_max_2500.toml INFERENCE_DEPLOYMENT_SPEC=/path/to/post-resize-spec.yaml INFERENCE_DEPLOYMENT_SPEC_SHA256=<post-resize-spec-sha256> INFERENCE_READINESS_CHECKPOINT=/path/to/post-resize-readiness.json INFERENCE_READINESS_CHECKPOINT_SHA256=<post-resize-readiness-file-sha256> INFERENCE_SMOKE_CHECKPOINT=/path/to/capacity-smoke/smoke_checkpoint.json INFERENCE_SMOKE_CHECKPOINT_SHA256=<capacity-smoke-file-sha256> EVAL_PROMOTION_CERTIFICATE=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/gates/mobius_launch_<commit>.json EVAL_PROMOTION_CERTIFICATE_SHA256=<launch-certificate-file-sha256> INFERENCE_PROXY_INFO=/checkpoint/ram/shared/vllm_deployments_v2/tianhaowu-k3-kda-tb1-low-20260916/proxy_info.json INFERENCE_PROXY_INFO_SHA256=<post-resize-readiness-bound-proxy-info-sha256> OUTPUT_DIR=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/evals/mobius_kimi_k3_max_2500_transcript_v2 VACLI_MAX_CONCURRENT_LEASES=4 sbatch --parsable --time=7-00:00:00 \$PWD/user/tianhaowu/terminal_bench_vmvm/run_eval.sbatch" C-m
 ```
 
-The checked-in production starting point is eight active rollouts and four
-simultaneous lease starts. Qualify it with the patched full TB4 run, then use
-audited capacity smokes to raise steady-state concurrency to 16 and at most 24
-after the deployment has 24 ready routes; keep lease starts at four. Update the
-config before creating the production output directory. The oracle-only 64/32 result does not qualify model
+The checked-in production point is 24 active rollouts and four simultaneous
+lease starts. Launch it only after the deployment has exactly 24 ready routes
+and the capacity smoke has measured all 24 active rollouts plus four concurrent
+lease starts. Keep `VACLI_MAX_CONCURRENT_LEASES=4` explicit for both runs. The
+oracle-only 64/32 result does not qualify model
 trace generation: it has no per-rollout model-interception tunnel or Compose
 sidecars.
 
