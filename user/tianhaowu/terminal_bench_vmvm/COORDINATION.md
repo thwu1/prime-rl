@@ -1,6 +1,6 @@
 # VMVM sandbox coordination
 
-Last updated: 2026-09-18 06:44 UTC
+Last updated: 2026-09-18 08:30 UTC
 
 ## First message to the next teammate
 
@@ -32,13 +32,70 @@ this shared branch again.
 |---|---|---|---|---|---|
 | Codex session for `tianhaowu` | `fair-cw-use2-3` | Kimi serving, full TB4 pass@1, and gated 2,500-task rollout | `user/tianhaowu/terminal_bench_vmvm/**`, `user/tianhaowu/deepswe_vmvm/{README.md,run_runtime_smoke.sbatch,smoke_runtime.py}`, `environments/vmvm_tb_v2/**`, `deps/verifiers` gitlink | deployment `tianhaowu-k3-kda-tb1-low-20260916`; coordinator `1735915`; proxy `1738769`; live endpoint `1742917`; no valid current gate/smoke | Endpoint `1741165` was scheduler-preempted after 5h35m despite a seven-day allocation. Its primary smoke timed out at 1/2, and hedge `1741669` reached 1/2 before route loss; both have zero receipts/checkpoints and are permanently ineligible, with no shards launched. Successor `1742917` automatically started on the same four nodes at 01:31 UTC, became ready by 01:45, and has a full seven-day allocation; reload watcher v2 verified the exact one-route proxy update. The 7,200-second non-streaming client/proxy caps caused observed retry amplification and cannot cover a 32,768-token Kimi response at measured throughput, so do not spend this generation on the unchanged smoke. A coherent longer-timeout source/policy is under isolated implementation and will require a fresh spec hash, readiness gate, smoke, output root, controller, and finalizer. Shared commits through `515526c2d` contain the reviewed fail-closed race finalizer, but the old watcher was stopped after its generation failed. Never reuse failed attempts. Oracle remains 2,488/2,538 valid; its repair auditor lineage fix is under review, so do not start Mobius production yet. Never inspect task prompts/bodies, task identifiers, raw errors, or model/tool/trace content. |
 | Codex session for `tianhaowu` | `fair-cw-use2-1` | Add a direct one-token KDA state-reuse probe; no serving or eval mutation | `user/tianhaowu/terminal_bench_vmvm/{probe_inference_routes.py,tests/test_probe_inference_routes.py,HANDOFF.md,COORDINATION.md}` | none | Extend the existing readiness probe with serial raw-completion predecessor/one-token-target cycles on every discovered sticky backend, without logprobs or response token IDs. Fail closed on unsupported routing, semantic corruption, or predecessor-dependent target output. |
-| Codex session for `tianhaowu` | `fair-cw-use2-1` | Qwen accepted TB4 gate and 2,500-task production rollout | Qwen direct-router configs, VMVM backend, repair/export controller, focused tests, runtime skill | accepted TB4 diagnostic `1435776`; round-robin epoch `1448128` terminal; cap-16 affinity epoch `1453194` terminal; cap-32 affinity producer `1454171` running; obsolete held finalizer `1457232` canceled; x86 controller smoke `1465227` completed; replacement chain `1465246` dependency-pending; endpoint `shared_qwen38_2p4t`; PRs `thwu1/prime-rl#35`, `#36`, `#37`, `#38`, `#39`, and `#40`; verifier PR `thwu1/verifiers#2` | The user explicitly accepted the existing 7/66 TB4 result as the approximately 11% gate and directed us not to rerun it. The live producer retains 64 task sessions, 32 client/provider slots, two lease starts, fail-closed `consistent_hash` / `x-session-id`, and a 256K cap. Immutable prefix 800 has SHA-256 `b346e763913de81837ce4624ad96e1eabbfd597d20d9f4431e651467d3052ad5`; all 454 passing traces are strict-clean for reasoning, model-I/O, and 256K requirements. At the 02:54 UTC snapshot the producer was RUNNING with 802 durable rows: 455 pass, 316 scored fail, 31 error, and zero malformed, for a 59.014% eligible pass rate. Epoch-3 throughput was 33.98 rows/hour with an approximately 50-hour ETA. Reviewed PR `#40` head `4e8080aff` is independently approved; x86 smoke `1465227` completed successfully with 82 tests. Replacement chain `1465246` is pending on `afterany:1454171`; obsolete held job `1457232` is canceled and must not be used. The replacement performs aggregate-selected fresh repair and provenance-checked pass-only SFT export after the producer terminates. Broad `HarnessError` retry and retry exclusions remain forbidden. Never inspect task IDs, prompts, responses, raw errors, or trace/model/tool bodies. |
+| Codex session for `tianhaowu` | `fair-cw-use2-1` | Qwen accepted TB4 gate and 2,500-task production rollout | Qwen direct-router configs, VMVM backend, repair/export controller, focused tests, runtime skill | accepted TB4 diagnostic `1435776`; cap-32 affinity producer `1454171` running; exact-head x86 smoke `1468446` completed; reviewed replacement chain `1468451` dependency-pending; obsolete chains `1457232` and `1465246` canceled; endpoint `shared_qwen38_2p4t`; PRs `thwu1/prime-rl#35`, `#36`, `#37`, `#38`, `#39`, and `#40`; verifier PR `thwu1/verifiers#2` | The user explicitly accepted the existing 7/66 TB4 result as the approximately 11% gate and directed us not to rerun it. The live producer retains 64 task sessions, 32 client/provider slots, two lease starts, fail-closed `consistent_hash` / `x-session-id`, and a 256K cap. Immutable prefix 1,000 has SHA-256 `7862f68057aecc9c2bdb22a15e5cbe21ec03aa10059a625e2fa1316e4c347117`: 583 pass, 381 scored fail, 36 ordinary error, zero invalid, for a 60.48% scored pass rate. Exact SFT trainability validation accepts 581/583 passing traces and quarantines two; the audit covers 41,220,772 sampled completion tokens and 19,358 captured model-I/O turns. At 08:01 UTC the producer remained healthy and RUNNING with 1,002 durable rows, recent throughput approximately 47 rows/hour, and approximately 32 hours remaining. Draft PR `#40` is independently approved at exact head `fe813c0f6`; frozen-source x86 smoke `1468446` passed 249/249, and replacement controller `1468451` is pending on `afterany:1454171`. Obsolete held controller `1465246` was canceled only after the replacement was verified dependency-held. Broad `HarnessError` retry and retry exclusions remain forbidden. Never inspect task IDs, prompts, responses, raw errors, or trace/model/tool bodies. |
 | Codex session for `tianhaowu` | `fair-cw-use2-1` | User-supplied shared Kimi-K3 endpoint qualification and full TB4 pass@1; gated 2,500-task rollout follows only after score reproduction | server-scoped `configs/eval/servers/cpu-132-021_8103/**`, VMVM backend, trace audit, `COORDINATION.md` | endpoint `shared-kimi-k3`; route gate `1448380`; preserved canceled diagnostic TB4 `1448629`; preserved canceled smokes `1448432` and `1448606`; draft `thwu1/prime-rl#34`; proxy fix `fairinternal/ram_common#288` | The endpoint currently reports 23 healthy / 1 unhealthy routes, while correct model discovery and consistent sticky metadata with TTL 14,400 remain present. The proxy still serves a 600-second timeout with two retries and the live spec declares neither field, so this endpoint remains non-launchable. The old diagnostic full was canceled and preserved; do not count or resume it. Draft PR `#34` head `22b4172f1` is rebased on current shared core, preserves the separate `cpu-132-021_8103` folder and hardened gate pin, composes schema-v2 bridge validation with exact 24-request/2-lease evidence, and passes 328 affected plus 625 full tests. It requires exact 7,200/0 and 24/0, rejects resume, and makes both full and shard certification prove type-safe 24 rollout/multiplex/HTTP concurrency, observed peak 24, and lease-start concurrency 2; shared 4/2 remains compatible. PR `ram_common#288` is green/mergeable but still lacks the required human approval and deployment. Await a reviewed combined live revision, fresh 24/0 policy/sticky qualification, then launch a fresh TB4. Never inspect task prompts/bodies or raw trace/model/tool content. |
 | Codex session for `tianhaowu` | `fair-cw-use2-1` | Final-code compatibility-oracle validation only; excludes Kimi serving and every TB4/Mobius model evaluation | `COORDINATION.md`; outputs `/checkpoint/ram/tianhaowu/terminal_bench_vmvm/oracle/mobius_repairs_oracle_public_f0d7be39c_use2-1_v1` and `/checkpoint/ram/tianhaowu/terminal_bench_vmvm/oracle/mobius_full_oracle_public_f0d7be39c_use2-1_v1` | canary `1444307` terminal at 41/42 valid; old full `1444339` canceled never-started; independent full `1444701` terminal canceled | Canary failed its strict 42/42 gate. Independent full `1444701`, submitted through tmux from parent/head `f0d7be39c`, code `bb734d08c8`, and verifier `7e3b6885`, ran for 3:16:06 and was canceled without promotion. The use2-3 aggregate remains 2,488/2,538 valid, so its repair gate is still 12 short of a 2,500-task production manifest. Use2-3 retains all Kimi serving and TB4/Mobius model-evaluation ownership. |
 
 Add new rows below this line; do not overwrite another owner's row.
 
 ## Open coordination requests
+
+- **2026-09-18 08:24 UTC, one-hour aggregate Kimi/oracle status request ->
+  use2-3 owner:** more than one hour has elapsed since the corrected Kimi
+  wave-0 launch was published, with no later per-job transition visible across
+  clusters. Please report exact running, pending, completed, and failed counts
+  for its four fresh jobs; controller/finalizer liveness; aggregate durable
+  accepted-row count; endpoint generation health; and current oracle V3 canary
+  and auditor states. If any certificate or checkpoint exists, include only
+  its aggregate state and hash. Silence is not evidence of failure: do not
+  cancel, retry, or otherwise mutate healthy work solely because this request
+  exists. Do not inspect or expose task identifiers, prompts, responses, raw
+  errors, logs, or model/tool/trace content.
+
+- **2026-09-18 08:18 UTC, reviewed exact-24 Kimi Mobius contract:** draft PR
+  `thwu1/prime-rl#42` now points to independently approved head `1be5d60c8`.
+  Future Kimi capacity-smoke and 2,500-task configs are exactly 24-wide across
+  rollout, multiplex, and both HTTP pools, with exactly four simultaneous
+  lease starts. Certification requires the measured capacity tuple to equal
+  production exactly and readiness to prove at least the production route
+  count; adversarial width 25 and lease-start 5 both reject while exact 24/4
+  accepts. Full workflow validation passed 743 tests; independent focused
+  review passed 145; frozen exact-head x86 smoke `1468739` passed 174/174.
+  Synthetic merge tree `b15b100c3` against current shared base `5dd93dc9c`
+  passed the full 744-test workflow on x86 job `1468774`.
+  The config hashes changed, so post-TB4 production requires
+  a fresh config-bound oracle promotion, exact-24 readiness, capacity smoke,
+  and launch certificate. TB4/Qwen configs, current launch scripts, and the
+  active frozen Kimi TB4 lineage are byte-unchanged; do not switch that run.
+
+- **2026-09-18 08:01 UTC, use2-1 Qwen immutable prefix 1,000:** the first
+  1,000 newline-terminated rows hash to
+  `7862f68057aecc9c2bdb22a15e5cbe21ec03aa10059a625e2fa1316e4c347117`.
+  They contain 583 pass, 381 scored fail, 36 ordinary error, and zero invalid
+  score records (60.48% of scored rows pass; 58.30% of all rows). Exact
+  reasoning/model-I/O/262,144-token validation accepts 581/583 passing traces;
+  two remain quarantined for the reviewed repair chain. The passing-trace
+  audit covers 41,220,772 sampled completion tokens and 19,358 captured
+  model-I/O turns. Producer `1454171` was RUNNING with 1,002 rows after the
+  closed-prefix recheck; recent throughput was approximately 47 rows/hour.
+  Replacement controller `1468451` remains dependency-held. No task identity,
+  prompt, response, raw error, or trace/model/tool body was inspected or
+  emitted.
+
+- **2026-09-18 07:36 UTC, Kimi post-TB4 production capacity hold -> use2-3
+  owner:** do not create a Mobius production output or start the 2,500-task
+  rollout until the oracle repair is promoted to a newly certified manifest
+  with at least 2,500 valid tasks. After TB4 and oracle promotion, resize the
+  Kimi deployment to 24 ready routes and run fresh post-resize sticky/semantic
+  readiness plus the audited capacity-smoke ladder: first qualify 16, then up
+  to 24 rollout, multiplex, and HTTP concurrency while keeping VMVM lease-start
+  concurrency at four. Bind the resulting source, deployment, route generation,
+  timeout policy, and capacity certificate before creating production output.
+  The checked-in Mobius config's initial concurrency of eight is a diagnostic
+  baseline, not the intended final high-concurrency run. Do not use eight as
+  the final 2,500-task setting unless the higher-capacity path fails and the
+  user explicitly accepts that fallback. This hold does not disturb the
+  currently running four-way TB4 wave.
 
 - **2026-09-18 07:08 UTC, use2-3 Kimi TB4 smoke passed and corrected full
   wave running:** readiness `1743641` completed 0:0 and smoke `1743645`
@@ -86,8 +143,12 @@ Add new rows below this line; do not overwrite another owner's row.
   submit the shard wave only through that corrected launcher. If compatibility
   is not exact, fail closed and rerun the smoke. Reviewed PR `#42` changes
   evaluator internals and is future-only for this active chain; do not mix it
-  into the corrected launcher source. Zero of 66 shards remain launched, and
-  this use2-1 lane made no scheduler mutation.
+  into the corrected launcher source. Likewise, later commit `c48ad2015`
+  changes `terminal_bench_vmvm/taskset.py`, which is inside the evaluator-source
+  digest, so a descendant containing it cannot reuse the 705 smoke. Use an
+  exact clean `ce0b47014`/`398f66d99`-lineage launcher freeze that excludes
+  both changes, or rerun the smoke. Zero of 66 shards remain launched, and this
+  use2-1 lane made no scheduler mutation.
 
 - **2026-09-18 06:44 UTC, minimal Kimi contract follow-up published:** draft
   PR `thwu1/prime-rl#42` at independently approved head `d9a006176` is clean
