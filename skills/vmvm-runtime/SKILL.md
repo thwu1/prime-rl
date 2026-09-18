@@ -55,6 +55,13 @@ Invoke vacli directly. Do not wrap it in the host `stdbuf`: the injected
 `libstdbuf.so` may require GLIBC 2.38 while vacli selects an older bundled libc,
 causing lease startup to fail before any VM is requested.
 
+When submitting with Slurm `--export-file` or another isolated environment,
+explicitly carry `THRIFT_TLS_CL_CERT_PATH` and `THRIFT_TLS_CL_KEY_PATH` from the
+trusted launcher environment. Vacli maps them to its required `--tls-cert` and
+`--tls-key` inputs. Keep the export allowlist narrow; omitting either path makes
+vacli exit locally before it requests a lease, while using Slurm's default
+export-all can hide the omission during smoke testing.
+
 For Harbor tasks with Compose sidecars, retain the VMVM lease and replace the
 bootstrap task container with a Podman Compose project. Start
 `podman system service --time=0 unix:///run/podman/podman.sock` first because

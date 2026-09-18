@@ -59,6 +59,7 @@ from launch_tb4_shard_wave import (
     EXPECTED_MODEL,
     EXPECTED_VMVM_ENV,
     MAX_WAVE_SIZE,
+    REQUIRED_VACLI_AUTH_ENV,
     PinnedArtifact,
     WaveLaunchError,
     WaveSubmissionInterrupted,
@@ -69,6 +70,7 @@ from launch_tb4_shard_wave import (
     _require_tmux_launcher,
     _selected_dataset,
     _stable_artifact,
+    _vacli_auth_environment,
     _validate_dataset,
     _validate_generation_bindings,
     launch_wave,
@@ -186,6 +188,7 @@ class PreparedTrain:
     dataset_archive: PinnedArtifact | None
     generation_sha256: str
     route_binding: RouteBinding
+    submission_environment: dict[str, str]
 
 
 @dataclass(frozen=True)
@@ -604,13 +607,21 @@ def _validate_config(config: WaveTrainConfig) -> None:
 def prepare_train(
     config: WaveTrainConfig,
     *,
+    ambient_env: Mapping[str, str] | None = None,
     command_runner: CommandRunner = subprocess.run,
 ) -> PreparedTrain:
     """Resolve and validate every immutable controller input before use."""
 
+    environment = os.environ if ambient_env is None else ambient_env
     _validate_config(config)
-    if "RESUME_DIR" in os.environ:
+    if "RESUME_DIR" in environment:
         raise WaveTrainError("resume_forbidden")
+    try:
+        submission_environment = _vacli_auth_environment(environment)
+    except WaveLaunchError as error:
+        raise WaveTrainError("vacli_auth_environment_invalid") from error
+    if "TMUX_PANE" in environment:
+        submission_environment["TMUX_PANE"] = environment["TMUX_PANE"]
     try:
         if config.controller_root.is_symlink():
             raise WaveTrainError("controller_root_invalid")
@@ -729,6 +740,7 @@ def prepare_train(
         dataset_archive=dataset_archive,
         generation_sha256=generation_sha256,
         route_binding=route_binding,
+        submission_environment=submission_environment,
     )
 
 
@@ -1083,6 +1095,9 @@ def _expected_job_environment(
             dataset_revision=prepared.config.dataset_revision,
             dataset_archive=prepared.dataset_archive,
             dataset_content_sha256=prepared.config.dataset_content_sha256,
+            vacli_auth_environment={
+                key: prepared.submission_environment[key] for key in REQUIRED_VACLI_AUTH_ENV
+            },
         )
     )
 
@@ -1752,6 +1767,7 @@ def _default_launch(
             dataset_archive_sha256=(prepared.dataset_archive.sha256 if prepared.dataset_archive is not None else None),
             dataset_content_sha256=config.dataset_content_sha256,
             dry_run=False,
+            ambient_env=prepared.submission_environment,
             stop_requested=stop_requested,
             submission_timeout_seconds=SCHEDULER_TIMEOUT_SECONDS,
         )
@@ -2405,10 +2421,15 @@ def run_wave_train(
     command_runner: CommandRunner = subprocess.run,
     stop_event: threading.Event | None = None,
 ) -> dict[str, Any]:
-    prepared = prepare_train(config, command_runner=command_runner)
+    environment = os.environ if ambient_env is None else ambient_env
+    prepared = prepare_train(
+        config,
+        ambient_env=environment,
+        command_runner=command_runner,
+    )
     return drive_train(
         prepared,
-        ambient_env=ambient_env,
+        ambient_env=environment,
         command_runner=command_runner,
         stop_event=stop_event,
     )
