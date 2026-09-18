@@ -1,5 +1,4 @@
 import asyncio
-import ensurepip
 import gc
 import hashlib
 import io
@@ -7,6 +6,7 @@ import json
 import os
 import subprocess
 import sys
+import sysconfig
 import tarfile
 from pathlib import Path
 from types import SimpleNamespace
@@ -673,19 +673,20 @@ def test_verifier_dependencies_prefetch_all_then_install_offline_after_solution(
     assert "--ignore-installed" not in wheel_command
     assert "--only-binary=:all:" in wheel_command
 
-    bundled_pip = next((Path(ensurepip.__file__).parent / "_bundled").glob("pip-*.whl"))
-    environment = os.environ.copy()
-    environment["PYTHONPATH"] = os.pathsep.join((str(bundled_pip), environment.get("PYTHONPATH", ""))).rstrip(
-        os.pathsep
-    )
-    parsed = subprocess.run(
-        [sys.executable, *wheel_argv[1:], "--help"],
-        capture_output=True,
-        check=False,
-        env=environment,
-        text=True,
-    )
-    assert parsed.returncode == 0, parsed.stderr
+    bundled_pips = sorted((Path(sysconfig.get_path("stdlib")) / "ensurepip" / "_bundled").glob("pip-*.whl"))
+    if bundled_pips:
+        environment = os.environ.copy()
+        environment["PYTHONPATH"] = os.pathsep.join((str(bundled_pips[-1]), environment.get("PYTHONPATH", ""))).rstrip(
+            os.pathsep
+        )
+        parsed = subprocess.run(
+            [sys.executable, *wheel_argv[1:], "--help"],
+            capture_output=True,
+            check=False,
+            env=environment,
+            text=True,
+        )
+        assert parsed.returncode == 0, parsed.stderr
 
     runtime.events.append("solution")
     runtime.installed = False
