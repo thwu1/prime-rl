@@ -213,7 +213,12 @@ def _linear_trace(trace_id: str = "trace-pass", *, reward: float = 1.0, task_nam
     ]
     return {
         "id": trace_id,
-        "task": {"idx": 0, "name": task_name, "prompt": "synthetic-question"},
+        "task": {
+            "idx": 0,
+            "name": task_name,
+            "prompt": "synthetic-question",
+            "slug": task_name.rsplit("/", 1)[-1],
+        },
         "nodes": nodes,
         "rewards": {"solved": reward},
         "metrics": {},
@@ -293,6 +298,7 @@ def _write_run(run_dir: Path, traces: list[dict], *, approved_slugs: list[str] |
         "\n".join(
             [
                 'model = "synthetic-model"',
+                f"num_tasks = {len(approved_slugs)}",
                 "num_rollouts = 1",
                 "max_input_tokens = 262144",
                 "max_output_tokens = 262144",
@@ -578,7 +584,12 @@ def test_pass_only_still_validates_basic_non_pass_schema(tmp_path: Path) -> None
 def test_error_rows_are_excluded_without_inspecting_error_payload(tmp_path: Path) -> None:
     error_trace = {
         "id": "error-trace",
-        "task": {"idx": 1, "name": "error-task", "prompt": "private-marker"},
+        "task": {
+            "idx": 1,
+            "name": "error-task",
+            "prompt": "private-marker",
+            "slug": "error-task",
+        },
         "nodes": [],
         "rewards": {},
         "is_completed": True,
@@ -1120,6 +1131,39 @@ def test_unknown_task_slug_is_rejected_without_disclosure(
     assert private_slug not in captured.out
     assert private_slug not in captured.err
     assert json.loads(captured.err) == {"code": "trace_task_slug_not_approved", "status": "error"}
+
+
+def test_task_identity_requires_explicit_slug(tmp_path: Path) -> None:
+    trace = _linear_trace(task_name="synthetic-task")
+    trace["task"].pop("slug")
+    results = _write_run(
+        tmp_path / "run",
+        [trace],
+        approved_slugs=["synthetic-task"],
+    )
+
+    with pytest.raises(ExportError, match="^trace_task_slug_invalid$"):
+        export_sft(_options(results, tmp_path / "dataset", selection="pass-only"))
+
+
+def test_approved_task_list_rejects_duplicate_slugs(tmp_path: Path) -> None:
+    results = _write_run(
+        tmp_path / "run",
+        [_linear_trace()],
+        approved_slugs=["synthetic-task", "synthetic-task"],
+    )
+
+    with pytest.raises(ExportError, match="^approved_task_list_duplicates$"):
+        export_sft(_options(results, tmp_path / "dataset", selection="pass-only"))
+
+
+def test_approved_task_list_must_match_configured_task_count(tmp_path: Path) -> None:
+    results = _write_run(tmp_path / "run", [_linear_trace()])
+    config = results.parent / "config.toml"
+    config.write_text(config.read_text().replace("num_tasks = 1", "num_tasks = 2"))
+
+    with pytest.raises(ExportError, match="^approved_task_list_count_mismatch$"):
+        export_sft(_options(results, tmp_path / "dataset", selection="pass-only"))
 
 
 def test_active_writer_lock_blocks_export(tmp_path: Path) -> None:

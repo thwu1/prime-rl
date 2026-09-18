@@ -10,7 +10,31 @@ from pathlib import Path
 import direct_qwen_workers as direct
 import materialize_qwen_repair as repair
 import pytest
-from verifiers.v1.cli.eval import resume as resume_planner
+
+
+class _ResumePlanner:
+    @staticmethod
+    def plan(
+        source: Path,
+        selected_idxs: list[int],
+        num_rollouts: int,
+        group: bool,
+        **_kwargs,
+    ) -> tuple[list[int], dict[int, int]]:
+        assert num_rollouts == 1
+        assert group is False
+        selected = set(selected_idxs)
+        keep_by_index: dict[int, int] = {}
+        with (source / "results.jsonl").open("rb") as results:
+            while raw := results.readline():
+                offset = results.tell() - len(raw)
+                row = json.loads(raw)
+                index = row["task"]["idx"]
+                if index in selected and not row.get("errors") and index not in keep_by_index:
+                    keep_by_index[index] = offset
+        keep = [keep_by_index[index] for index in selected_idxs if index in keep_by_index]
+        owed = {index: 1 for index in selected_idxs if index not in keep_by_index}
+        return keep, owed
 
 
 def _sha256(data: bytes) -> str:
@@ -56,8 +80,8 @@ def _source_run(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> tuple[Path, 
     (source / "provenance.txt").write_text("slurm_job_id=123\n")
 
     rows = (
-        {"task": {"idx": 0}, "errors": [], "rewards": {"solved": 0}},
-        {"task": {"idx": 1}, "errors": [{"type": "SyntheticError"}], "rewards": {}},
+        {"task": {"idx": 0}, "errors": [{"type": "SyntheticError"}], "rewards": {}},
+        {"task": {"idx": 1}, "errors": [], "rewards": {"solved": 0}},
     )
     (source / "results.jsonl").write_bytes(b"".join((json.dumps(row, sort_keys=True) + "\n").encode() for row in rows))
 
@@ -80,7 +104,7 @@ def _source_run(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> tuple[Path, 
             "routing_epoch": 3,
         },
     )
-    monkeypatch.setattr(repair, "_load_resume_planner", lambda: resume_planner)
+    monkeypatch.setattr(repair, "_load_resume_planner", lambda: _ResumePlanner)
     source_bytes = {path.relative_to(source): path.read_bytes() for path in source.rglob("*") if path.is_file()}
     return source, approval, approval_sha256, source_bytes
 
@@ -128,6 +152,7 @@ def test_materialize_selects_only_approved_missing_or_errored_tasks(
     manifest = json.loads(manifest_bytes)
     assert manifest["planner"]["retained_count"] == 1
     assert manifest["planner"]["missing_or_errored_count"] == 2
+    assert manifest["planner"]["index_order"] == "lexicographic opaque task identifier"
     assert manifest["approval"]["non_security_universe_count"] == 2
     assert manifest["selection"]["approved_repair_count"] == 1
     assert manifest["selection"]["excluded_outside_approval_count"] == 1

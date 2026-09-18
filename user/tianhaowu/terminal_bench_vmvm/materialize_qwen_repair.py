@@ -127,6 +127,11 @@ def _task_records(data: bytes, label: str) -> list[TaskRecord]:
     return records
 
 
+def _task_index_order(records: list[TaskRecord]) -> list[TaskRecord]:
+    """Match TerminalBenchVMVMTaskset.load_tasks, which sorts task directories."""
+    return sorted(records, key=lambda record: record.identifier)
+
+
 def _parse_toml(data: bytes, label: str) -> dict[str, Any]:
     try:
         value = tomllib.loads(data.decode("utf-8"))
@@ -383,7 +388,7 @@ def materialize(
                 "source_task_file",
                 limit=MAX_TASK_FILE_BYTES,
             )
-            source_records = _task_records(source_task_bytes, "source_task_file")
+            source_records = _task_index_order(_task_records(source_task_bytes, "source_task_file"))
             source_identifiers = {record.identifier for record in source_records}
             if not approved_identifiers.issubset(source_identifiers):
                 raise RepairMaterializationError("approval_outside_source")
@@ -464,6 +469,7 @@ def materialize(
                 "kind": MANIFEST_KIND,
                 "planner": {
                     "contract_verifiers_revision": direct.ADMISSION_VERIFIERS_REVISION,
+                    "index_order": "lexicographic opaque task identifier",
                     "missing_or_errored_count": len(owed_indices),
                     "module_sha256": direct.ADMISSION_RESUME_MODULE_SHA256,
                     "retained_count": retained_count,

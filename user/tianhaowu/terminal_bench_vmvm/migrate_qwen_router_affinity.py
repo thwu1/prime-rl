@@ -78,7 +78,13 @@ def _json_bytes(value: object) -> bytes:
     return (json.dumps(value, indent=2, sort_keys=True) + "\n").encode()
 
 
-def _atomic_write(path: Path, payload: bytes, mode: int = 0o600) -> None:
+def _atomic_write(
+    path: Path,
+    payload: bytes,
+    mode: int = 0o600,
+    *,
+    exclusive: bool = False,
+) -> None:
     descriptor, temporary_name = tempfile.mkstemp(
         dir=path.parent,
         prefix=f".{path.name}.",
@@ -91,7 +97,15 @@ def _atomic_write(path: Path, payload: bytes, mode: int = 0o600) -> None:
             handle.write(payload)
             handle.flush()
             os.fsync(handle.fileno())
-        os.replace(temporary, path)
+        if exclusive:
+            try:
+                _rename_noreplace(temporary, path)
+            except MigrationError as error:
+                if str(error) != "destination_exists":
+                    raise
+                raise MigrationError("epoch_index_output_exists") from error
+        else:
+            os.replace(temporary, path)
     except BaseException:
         with contextlib.suppress(OSError):
             os.close(descriptor)
@@ -1255,6 +1269,8 @@ def label_routing_epochs(
     if not output_path.name:
         raise MigrationError("epoch_index_output_invalid")
     output = output_parent / output_path.name
+    if output.is_relative_to(run):
+        raise MigrationError("epoch_index_output_overlaps_source")
     if os.path.lexists(output):
         raise MigrationError("epoch_index_output_exists")
     direct.reject_incomplete_migration(run)
@@ -1309,7 +1325,8 @@ def label_routing_epochs(
         payload = (json.dumps(header, sort_keys=True, separators=(",", ":")) + "\n").encode() + b"".join(
             (json.dumps(record, sort_keys=True, separators=(",", ":")) + "\n").encode() for record in records
         )
-        _atomic_write(output, payload)
+        _atomic_write(output, payload, exclusive=True)
+        _fsync_directory(output_parent)
     summary = {
         "ok": True,
         "results_sha256": results_sha256,
@@ -1331,7 +1348,7 @@ def main() -> None:
     admission_parser.add_argument("--output-dir", type=Path, required=True)
     label_parser = subparsers.add_parser("label")
     label_parser.add_argument("--run-dir", type=Path, required=True)
-    label_parser.add_argument("--output", type=Path)
+    label_parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
     try:
         if args.command == "migrate":
@@ -1339,8 +1356,7 @@ def main() -> None:
         elif args.command == "migrate-admission":
             summary = migrate_admission(args.source_dir, args.output_dir)
         else:
-            output = args.output or args.run_dir / "qwen_router_epochs.jsonl"
-            summary = label_routing_epochs(args.run_dir, output)
+            summary = label_routing_epochs(args.run_dir, args.output)
     except (OSError, MigrationError, direct.DirectWorkerError) as error:
         parser.error(str(error))
     print(json.dumps(summary, sort_keys=True))

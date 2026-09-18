@@ -593,7 +593,7 @@ uv run --project user/tianhaowu/terminal_bench_vmvm \
   --output-dir /path/to/new/sft-dataset \
   --selection pass-only \
   --expected-count 2500 \
-  --routing-epoch-index /path/to/migrated-run/qwen_router_epochs.jsonl
+  --routing-epoch-index /path/to/private-sidecars/qwen_router_epochs.jsonl
 ```
 
 For a production routing-epoch-3 run, use the terminal finalizer instead of
@@ -601,11 +601,13 @@ issuing those two commands independently. It requires explicit, disjoint
 source and output boundaries; an exact clean Prime-RL revision; the expected
 source provenance digest; the terminal row count; selection; and split policy.
 It refuses relative, symlinked, broad, overlapping, or default paths, held
-writer/router locks, an existing routing index or output, nonterminal recorded
-jobs, and any routing/provenance mismatch. It creates the final routing index
-with `migrate_qwen_router_affinity.py label` first and passes that exact index
-to `export_sft.py`. Child output is captured and reduced to aggregate counts,
-hashes, or stable error codes.
+writer/router locks, an existing output, nonterminal recorded jobs, and any
+routing/provenance mismatch. It creates the routing index in a private staging
+directory, passes that exact index to `export_sft.py`, retains it in the
+published corpus, and never writes to the source run. The complete corpus is
+published only after all repository, provenance, and artifact checks pass.
+Child output is captured and reduced to aggregate counts, hashes, or stable
+error codes.
 
 Submit from a clean detached x86-capable source snapshot at the finalizer's
 exact commit. The source/output root directories must already exist. Replace
@@ -659,11 +661,14 @@ calls are normalized to OpenAI function-call objects, and the stable tool schema
 comes from integrity-checked captured requests.
 
 The output is atomically published as `train/train.jsonl`,
-`validation/train.jsonl`, `task-split.json`, and `manifest.json`. Task and trace
-identities in the dataset are opaque SHA-256 values. The manifest binds the raw
-results, resolved and source configs, approved task snapshot, image snapshot,
-input manifest, launcher provenance, exporter source, and every output artifact.
-Console output contains aggregate counts and hashes only.
+`validation/train.jsonl`, `task-split.json`, and `manifest.json`, plus the
+validated routing-index sidecar when one is supplied. Task identity is the
+format-v2 SHA-256 of the taskset ID, dataset revision, and explicit approved
+task slug separated by NUL bytes; changing a run-local task index does not
+change its split. The manifest binds the raw results, resolved and source
+configs, approved task snapshot, image snapshot, input manifest, launcher
+provenance, exporter source, and every output artifact. Console output contains
+aggregate counts and hashes only.
 
 The exported messages are intended for offline retokenization by the target SFT
 renderer. They do not recreate teacher token IDs or sampling log probabilities,

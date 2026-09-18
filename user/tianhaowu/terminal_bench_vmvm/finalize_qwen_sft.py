@@ -15,6 +15,7 @@ import json
 import os
 import platform
 import re
+import shutil
 import stat
 import subprocess
 import sys
@@ -26,6 +27,7 @@ from pathlib import Path
 from typing import Any, Literal
 
 import direct_qwen_workers as direct
+import migrate_qwen_router_affinity as migration
 
 INDEX_FILENAME = "qwen_router_epochs.jsonl"
 MAX_CHILD_OUTPUT_BYTES = 1 << 20
@@ -276,6 +278,49 @@ def _stable_sha256(path: Path, *, max_bytes: int | None = None) -> str:
     return digest.hexdigest()
 
 
+def _fsync_directory(path: Path) -> None:
+    flags = os.O_RDONLY | os.O_CLOEXEC | os.O_DIRECTORY
+    if hasattr(os, "O_NOFOLLOW"):
+        flags |= os.O_NOFOLLOW
+    descriptor = os.open(path, flags)
+    try:
+        os.fsync(descriptor)
+    finally:
+        os.close(descriptor)
+
+
+def _publish_output(staged: Path, destination: Path) -> None:
+    if os.path.lexists(destination):
+        raise FinalizationError("output_already_exists")
+    try:
+        staged_metadata = staged.lstat()
+    except OSError as error:
+        raise FinalizationError("output_publish_failed") from error
+    if not stat.S_ISDIR(staged_metadata.st_mode):
+        raise FinalizationError("output_publish_failed")
+    try:
+        migration._rename_noreplace(staged, destination)
+    except migration.MigrationError as error:
+        code = "output_already_exists" if str(error) == "destination_exists" else "output_publish_failed"
+        raise FinalizationError(code) from error
+    except OSError as error:
+        raise FinalizationError("output_publish_failed") from error
+    try:
+        _fsync_directory(destination.parent)
+    except OSError as error:
+        try:
+            destination_metadata = destination.lstat()
+            if stat.S_ISDIR(destination_metadata.st_mode) and (
+                destination_metadata.st_dev,
+                destination_metadata.st_ino,
+            ) == (staged_metadata.st_dev, staged_metadata.st_ino):
+                shutil.rmtree(destination)
+                _fsync_directory(destination.parent)
+        except OSError:
+            pass
+        raise FinalizationError("output_publish_failed") from error
+
+
 def _source_locks_available(source_dir: Path) -> None:
     descriptors: list[int] = []
     try:
@@ -511,8 +556,13 @@ def finalize_qwen_sft(
     repository_validator(paths.project_dir, options.expected_project_revision)
 
     workflow = paths.project_dir / "user" / "tianhaowu" / "terminal_bench_vmvm"
-    with tempfile.TemporaryDirectory(prefix=f".{paths.output_dir.name}.routing-", dir=paths.output_root) as staging:
-        index = Path(staging) / INDEX_FILENAME
+    with tempfile.TemporaryDirectory(
+        prefix=f".{paths.output_dir.name}.finalize-",
+        dir=paths.output_dir.parent,
+    ) as staging:
+        staging_dir = Path(staging)
+        index = staging_dir / INDEX_FILENAME
+        staged_output = staging_dir / "dataset"
         label_summary = command_runner(
             [
                 sys.executable,
@@ -537,7 +587,7 @@ def finalize_qwen_sft(
                 str(workflow / "export_sft.py"),
                 str(paths.results),
                 "--output-dir",
-                str(paths.output_dir),
+                str(staged_output),
                 "--selection",
                 options.selection,
                 "--expected-count",
@@ -556,14 +606,15 @@ def finalize_qwen_sft(
         )
         _validate_export_summary(
             export_summary,
-            paths.output_dir,
+            staged_output,
             options.expected_count,
             options.selection,
             label_summary["index_sha256"],
         )
-    repository_validator(paths.project_dir, options.expected_project_revision)
-    if _stable_sha256(paths.provenance, max_bytes=MAX_PROVENANCE_BYTES) != options.expected_provenance_sha256:
-        raise FinalizationError("source_provenance_changed")
+        repository_validator(paths.project_dir, options.expected_project_revision)
+        if _stable_sha256(paths.provenance, max_bytes=MAX_PROVENANCE_BYTES) != options.expected_provenance_sha256:
+            raise FinalizationError("source_provenance_changed")
+        _publish_output(staged_output, paths.output_dir)
 
     return {
         "excluded_error_traces": export_summary["excluded_error_traces"],

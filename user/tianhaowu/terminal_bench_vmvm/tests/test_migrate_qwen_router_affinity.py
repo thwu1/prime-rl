@@ -429,9 +429,11 @@ def test_migrate_admission_is_copy_on_write_and_preserves_full_lineage(
     retained = (epoch3 / "results.jsonl").read_bytes()
     epoch3_row = (json.dumps({"task": {"idx": 1}, "errors": []}, sort_keys=True) + "\n").encode()
     (epoch3 / "results.jsonl").write_bytes(epoch3_row + retained)
+    sidecars = tmp_path / "epoch3-sidecars"
+    sidecars.mkdir()
     label_summary = migration.label_routing_epochs(
         epoch3,
-        epoch3 / "qwen_router_epochs.jsonl",
+        sidecars / "qwen_router_epochs.jsonl",
         terminal_check=lambda _job_id: True,
     )
     assert label_summary["epoch_1_rows"] == 1
@@ -1068,3 +1070,21 @@ def test_epoch_index_labels_legacy_membership_after_result_reordering(
     assert all(set(record) == {"row", "row_sha256", "routing_epoch"} for record in index[1:])
     source_after = {path.relative_to(child): path.read_bytes() for path in child.rglob("*") if path.is_file()}
     assert source_after == source_before
+
+
+def test_epoch_index_atomic_write_never_replaces_existing_output(tmp_path: Path) -> None:
+    output = tmp_path / "qwen_router_epochs.jsonl"
+    output.write_bytes(b"keep\n")
+
+    with pytest.raises(migration.MigrationError, match="^epoch_index_output_exists$"):
+        migration._atomic_write(output, b"replacement\n", exclusive=True)
+
+    assert output.read_bytes() == b"keep\n"
+
+
+def test_epoch_index_rejects_output_inside_source(tmp_path: Path) -> None:
+    source = tmp_path / "source"
+    source.mkdir()
+
+    with pytest.raises(migration.MigrationError, match="^epoch_index_output_overlaps_source$"):
+        migration.label_routing_epochs(source, source / "qwen_router_epochs.jsonl")

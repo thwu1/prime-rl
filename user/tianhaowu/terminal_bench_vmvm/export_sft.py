@@ -275,7 +275,12 @@ def _valid_git_sha(value: object) -> bool:
     return isinstance(value, str) and len(value) == 40 and all(character in SHA256_HEX_CHARS for character in value)
 
 
-def _task_identity_context(taskset: Mapping[str, Any], task_file_body: bytes) -> TaskIdentityContext:
+def _task_identity_context(
+    taskset: Mapping[str, Any],
+    task_file_body: bytes,
+    *,
+    expected_task_count: int,
+) -> TaskIdentityContext:
     taskset_id = taskset.get("id")
     dataset_revision = taskset.get("dataset_revision")
     if (
@@ -297,9 +302,13 @@ def _task_identity_context(taskset: Mapping[str, Any], task_file_body: bytes) ->
         slug = stripped.split("\t", 1)[0]
         if not slug or "\x00" in slug:
             raise ExportError("approved_task_list_invalid")
+        if slug in approved_slugs:
+            raise ExportError("approved_task_list_duplicates")
         approved_slugs.add(slug)
     if not approved_slugs:
         raise ExportError("approved_task_list_invalid")
+    if len(approved_slugs) != expected_task_count:
+        raise ExportError("approved_task_list_count_mismatch")
     return TaskIdentityContext(
         taskset_id=taskset_id,
         dataset_revision=dataset_revision,
@@ -309,11 +318,6 @@ def _task_identity_context(taskset: Mapping[str, Any], task_file_body: bytes) ->
 
 def _opaque_task_slug(task: Mapping[str, Any]) -> str:
     slug = task.get("slug")
-    if slug is None:
-        name = task.get("name")
-        if not isinstance(name, str):
-            raise ExportError("trace_task_slug_invalid")
-        slug = name.rsplit("/", 1)[-1]
     if not isinstance(slug, str) or not slug or "\x00" in slug:
         raise ExportError("trace_task_slug_invalid")
     return slug
@@ -380,7 +384,14 @@ def _validate_run_provenance(
         raise ExportError("resolved_config_task_digest_mismatch")
     if taskset.get("image_manifest_sha256") != artifacts["inputs/image_manifest.json"].sha256:
         raise ExportError("resolved_config_image_digest_mismatch")
-    task_identity = _task_identity_context(taskset, bodies["inputs/task_file.txt"])
+    num_tasks = config.get("num_tasks")
+    if isinstance(num_tasks, bool) or not isinstance(num_tasks, int) or num_tasks < 1:
+        raise ExportError("resolved_config_task_count_invalid")
+    task_identity = _task_identity_context(
+        taskset,
+        bodies["inputs/task_file.txt"],
+        expected_task_count=num_tasks,
+    )
 
     limits: dict[str, int] = {}
     for key in ("max_input_tokens", "max_output_tokens", "max_total_tokens"):

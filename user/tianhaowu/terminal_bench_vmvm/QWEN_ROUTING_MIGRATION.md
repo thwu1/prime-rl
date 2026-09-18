@@ -78,12 +78,14 @@ python user/tianhaowu/terminal_bench_vmvm/migrate_qwen_router_affinity.py migrat
   --output-dir /new/path/to/affinity-epoch2-output
 
 python user/tianhaowu/terminal_bench_vmvm/migrate_qwen_router_affinity.py label \
-  --run-dir /new/path/to/affinity-epoch2-output
+  --run-dir /new/path/to/affinity-epoch2-output \
+  --output /separate/private/path/qwen_router_epochs.jsonl
 ```
 
 Both commands are wait-free: they fail if any recorded Slurm job is live or
 either writer lock is held. `label` writes only row number, row SHA-256, and
-routing epoch; it never emits task IDs or trace content.
+routing epoch to the exclusive output path; it never emits task IDs or trace
+content and need not modify the source run.
 
 ## Provider admission epoch 3
 

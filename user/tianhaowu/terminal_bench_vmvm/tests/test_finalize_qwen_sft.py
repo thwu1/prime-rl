@@ -109,6 +109,7 @@ def test_finalizer_runs_label_before_export_and_emits_only_aggregates(
         if path.is_file()
     }
     external_indexes: list[Path] = []
+    staged_outputs: list[Path] = []
 
     def validate_repository(path: Path, revision: str) -> Path:
         repository_checks.append((path, revision))
@@ -132,7 +133,11 @@ def test_finalizer_runs_label_before_export_and_emits_only_aggregates(
         assert index == external_indexes[0]
         assert command[command.index("--expected-count") + 1] == "3"
         assert command[command.index("--selection") + 1] == "pass-only"
-        return _export_summary(options.output_dir, options.expected_count, index)
+        staged_output = Path(command[command.index("--output-dir") + 1])
+        assert staged_output != options.output_dir
+        assert staged_output.parent == index.parent
+        staged_outputs.append(staged_output)
+        return _export_summary(staged_output, options.expected_count, index)
 
     summary = finalizer.finalize_qwen_sft(
         options,
@@ -148,6 +153,7 @@ def test_finalizer_runs_label_before_export_and_emits_only_aggregates(
     assert summary["routing_epoch_input_traces"] == {"epoch_1": 1, "epoch_2": 1, "epoch_3": 1}
     assert (options.output_dir / finalizer.INDEX_FILENAME).read_bytes() == b"synthetic-index\n"
     assert external_indexes and not external_indexes[0].exists()
+    assert staged_outputs and not staged_outputs[0].exists()
     source_after = {
         path.relative_to(options.source_dir): path.read_bytes()
         for path in options.source_dir.rglob("*")
@@ -157,6 +163,116 @@ def test_finalizer_runs_label_before_export_and_emits_only_aggregates(
     encoded = json.dumps(summary)
     assert str(options.source_dir) not in encoded
     assert str(options.output_dir) not in encoded
+
+
+def test_finalizer_cleans_staged_export_when_late_repository_check_fails(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    options, _ = _write_layout(tmp_path)
+    monkeypatch.setattr(finalizer.platform, "machine", lambda: "x86_64")
+    source_before = {
+        path.relative_to(options.source_dir): path.read_bytes()
+        for path in options.source_dir.rglob("*")
+        if path.is_file()
+    }
+    repository_checks = 0
+
+    def validate_repository(path: Path, _revision: str) -> Path:
+        nonlocal repository_checks
+        repository_checks += 1
+        if repository_checks == 4:
+            raise FinalizationError("project_not_clean")
+        return path
+
+    def run_command(command: list[str], _cwd: Path, code: str) -> dict:
+        if code == "routing_index_failed":
+            index = Path(command[command.index("--output") + 1])
+            return _label_summary(index, options.expected_count)
+        index = Path(command[command.index("--routing-epoch-index") + 1])
+        staged_output = Path(command[command.index("--output-dir") + 1])
+        return _export_summary(staged_output, options.expected_count, index)
+
+    with pytest.raises(FinalizationError, match="^project_not_clean$"):
+        finalizer.finalize_qwen_sft(
+            options,
+            repository_validator=validate_repository,
+            source_auditor=lambda *_args: {"routing_epoch": 3},
+            command_runner=run_command,
+        )
+
+    assert not options.output_dir.exists()
+    assert not list(options.output_dir.parent.glob(f".{options.output_dir.name}.finalize-*"))
+    assert {
+        path.relative_to(options.source_dir): path.read_bytes()
+        for path in options.source_dir.rglob("*")
+        if path.is_file()
+    } == source_before
+
+
+def test_finalizer_cleans_staged_export_when_summary_validation_fails(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    options, _ = _write_layout(tmp_path)
+    monkeypatch.setattr(finalizer.platform, "machine", lambda: "x86_64")
+
+    def run_command(command: list[str], _cwd: Path, code: str) -> dict:
+        if code == "routing_index_failed":
+            index = Path(command[command.index("--output") + 1])
+            return _label_summary(index, options.expected_count)
+        index = Path(command[command.index("--routing-epoch-index") + 1])
+        staged_output = Path(command[command.index("--output-dir") + 1])
+        summary = _export_summary(staged_output, options.expected_count, index)
+        summary["selected_traces"] = options.expected_count + 1
+        return summary
+
+    with pytest.raises(FinalizationError, match="^sft_export_summary_invalid$"):
+        finalizer.finalize_qwen_sft(
+            options,
+            repository_validator=lambda path, _revision: path,
+            source_auditor=lambda *_args: {"routing_epoch": 3},
+            command_runner=run_command,
+        )
+
+    assert not options.output_dir.exists()
+    assert not list(options.output_dir.parent.glob(f".{options.output_dir.name}.finalize-*"))
+
+
+def test_publish_output_never_replaces_existing_destination(tmp_path: Path) -> None:
+    staged = tmp_path / "staged"
+    staged.mkdir()
+    (staged / "artifact").write_text("new\n")
+    destination = tmp_path / "destination"
+    destination.mkdir()
+    sentinel = destination / "sentinel"
+    sentinel.write_text("keep\n")
+
+    with pytest.raises(FinalizationError, match="^output_already_exists$"):
+        finalizer._publish_output(staged, destination)
+
+    assert (staged / "artifact").read_text() == "new\n"
+    assert sentinel.read_text() == "keep\n"
+
+
+def test_publish_output_removes_its_directory_when_parent_fsync_fails(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    staged = tmp_path / "staged"
+    staged.mkdir()
+    (staged / "artifact").write_text("new\n")
+    destination = tmp_path / "destination"
+    monkeypatch.setattr(
+        finalizer,
+        "_fsync_directory",
+        lambda _path: (_ for _ in ()).throw(OSError("synthetic fsync failure")),
+    )
+
+    with pytest.raises(FinalizationError, match="^output_publish_failed$"):
+        finalizer._publish_output(staged, destination)
+
+    assert not destination.exists()
 
 
 def test_finalizer_refuses_busy_source_lock(tmp_path: Path) -> None:
