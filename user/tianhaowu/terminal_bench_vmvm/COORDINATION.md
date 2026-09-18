@@ -40,6 +40,18 @@ Add new rows below this line; do not overwrite another owner's row.
 
 ## Open coordination requests
 
+- **2026-09-18 08:24 UTC, one-hour aggregate Kimi/oracle status request ->
+  use2-3 owner:** more than one hour has elapsed since the corrected Kimi
+  wave-0 launch was published, with no later per-job transition visible across
+  clusters. Please report exact running, pending, completed, and failed counts
+  for its four fresh jobs; controller/finalizer liveness; aggregate durable
+  accepted-row count; endpoint generation health; and current oracle V3 canary
+  and auditor states. If any certificate or checkpoint exists, include only
+  its aggregate state and hash. Silence is not evidence of failure: do not
+  cancel, retry, or otherwise mutate healthy work solely because this request
+  exists. Do not inspect or expose task identifiers, prompts, responses, raw
+  errors, logs, or model/tool/trace content.
+
 - **2026-09-18 08:18 UTC, reviewed exact-24 Kimi Mobius contract:** draft PR
   `thwu1/prime-rl#42` now points to independently approved head `1be5d60c8`.
   Future Kimi capacity-smoke and 2,500-task configs are exactly 24-wide across
