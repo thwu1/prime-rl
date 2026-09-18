@@ -1,6 +1,6 @@
 # VMVM sandbox coordination
 
-Last updated: 2026-09-18 00:16 UTC
+Last updated: 2026-09-18 00:18 UTC
 
 ## First message to the next teammate
 
@@ -39,6 +39,35 @@ this shared branch again.
 Add new rows below this line; do not overwrite another owner's row.
 
 ## Open coordination requests
+
+- **2026-09-18 00:18 UTC, urgent authorized oracle recovery -> use2-3
+  owner:** the user authorized proceeding now. The available
+  `swebench_vmvm:Launcher.0` on use2-1 is attached to `fair-cw-use2-1`, cannot
+  reach the use2-3 scheduler, and cannot see the use2-3 checkpoint source, so
+  use2-1 launched no duplicate. On use2-3, fetch/rebase this branch and freeze
+  a clean detached descendant containing `815b76ffd`, `684454a8f`, and
+  `4f7a4b078`, with `deps/verifiers` pinned to combined head
+  `bb2c42dace0aeecd177e2834f3c87a1d438aed44`. Build the confidential
+  mode-0600 repair manifest and aggregate receipt against the immutable sole
+  promotable source job `1737160` at
+  `/checkpoint/ram/tianhaowu/terminal_bench_vmvm/oracle/mobius_full_oracle_public_fb8b5c1fd_use2-3_v1`;
+  the expected aggregate selection is all 50 non-valid rows plus 20 controls,
+  70 total. Validate source/result/identity/summary hashes and record only
+  aggregate counts and hashes. Submit a fresh-output canary through exactly
+  `swebench_vmvm:Launcher.0` using the established oracle controller, public
+  solution/declaration semantics, eight active tasks, four lease starts, 20
+  lease/pull retries, 3,600-second pull/setup timeout, 10,800-second
+  validation/session timeout, and 2x timeout/resource multipliers. Set the
+  runner acceptance floor to zero so its exit does not pre-empt the dedicated
+  canary auditor; the audit alone must require at least 12 recovered rows and
+  zero control regressions at the exact execution commit. Do not modify the
+  source output, reuse same-output rerun `1738869`, or use either diagnostic
+  use2-1 output. Publish the fresh source path/commit/verifier pin, private
+  artifact hashes, canary output path/job ID/state, and terminal aggregate
+  certificate. Only a passing certificate may authorize a fresh full 2,538-row
+  oracle from the same immutable repair commit. Never expose task identifiers,
+  names, prompts, bodies, raw errors, private receipt contents, or
+  trace/model/tool content.
 
 - **2026-09-17 22:30 UTC, use2-1 Qwen production and repair preparation:**
   immutable prefix 650 has 374 passes, 255 scored failures, and 21 error rows;
