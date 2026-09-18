@@ -264,7 +264,10 @@ The inspector accepts explicit paths for `--launcher`, `--uv`, `--python`,
 only their canonical hashes. Run it with the same exact Python and fixed
 `PYTHONPATH` and `PYTHONSAFEPATH=1` startup planned for the job, then copy its reviewed hashes into the
 `SOURCE_WHEEL_PROOF_*_SHA256` inputs; do not derive those inputs inside the
-proof launch.
+proof launch. Submit the proof with an explicit `--wrap` that executes the
+canonical tracked launcher. Directly passing the launcher to `sbatch` is
+forbidden because Slurm executes a spool copy, which intentionally fails the
+launcher-origin check.
 
 ```bash
 umask 077
@@ -288,7 +291,19 @@ env \
   VACLI_LEASE_RETRIES=1 \
   VACLI_MAX_CONCURRENT_LEASES=6 \
   sbatch --parsable \
-  /path/to/clean-reviewed-checkout/user/tianhaowu/terminal_bench_vmvm/run_source_wheel_proof.sbatch
+  --job-name=tb-wheel-proof \
+  --partition=cpu_x86 \
+  --qos=cpu_x86_lowest \
+  --account=ram \
+  --time=12:00:00 \
+  --nodes=1 \
+  --ntasks=1 \
+  --cpus-per-task=6 \
+  --mem=12G \
+  --no-requeue \
+  --output=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/logs/source_wheel_proof_%j.log \
+  --error=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/logs/source_wheel_proof_%j.log \
+  --wrap='exec /bin/bash /path/to/clean-reviewed-checkout/user/tianhaowu/terminal_bench_vmvm/run_source_wheel_proof.sbatch'
 ```
 
 For an interrupted proof, review and hash `proof_state.json` externally, then
