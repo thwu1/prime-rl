@@ -8,9 +8,6 @@ import hashlib
 import os
 import re
 import stat
-import subprocess
-import sys
-import sysconfig
 import uuid
 from collections.abc import Awaitable, Callable
 from dataclasses import asdict, dataclass, field
@@ -18,6 +15,7 @@ from pathlib import Path, PurePosixPath
 from typing import Protocol
 from urllib.parse import unquote, urlsplit
 
+import source_wheel_proof_bootstrap as proof_bootstrap
 from verifiers.v1.runtimes import ProgramResult, Runtime, VMVMConfig, make_runtime
 
 from terminal_bench_vmvm.source_wheels import (
@@ -48,12 +46,13 @@ from terminal_bench_vmvm.source_wheels import (
 from terminal_bench_vmvm.taskset import _SOURCE_WHEEL_CLOSURE_CODE, _SOURCE_WHEEL_DOWNLOAD_CODE
 
 DISCOVERY_INPUT_SCHEMA_VERSION = 1
-PROOF_SCHEMA_VERSION = 2
-STATE_SCHEMA_VERSION = 2
+PROOF_SCHEMA_VERSION = 3
+STATE_SCHEMA_VERSION = 3
 RUN_IDENTITY_SCHEMA_VERSION = 2
 CANDIDATE_SCHEMA_VERSION = 2
 ATTEMPT_JOURNAL_SCHEMA_VERSION = 1
-FINALIZATION_SCHEMA_VERSION = 1
+POST_RUN_VALIDATION_SCHEMA_VERSION = 1
+FINALIZATION_SCHEMA_VERSION = 2
 APPROVED_BASE_RUNTIME_COMMIT = "ceb9356c98c72e51568e7bb4658a540cb1492254"
 REQUIRED_DISCOVERY_ENTRIES = 9
 MAX_CONCURRENT_ENTRIES = 3
@@ -534,332 +533,38 @@ def _read_private(path: Path, error_code: str) -> bytes:
     return payload
 
 
-def _stable_file_digest(path: Path, code: str, *, executable: bool = False) -> tuple[int, int, str]:
-    try:
-        descriptor = os.open(path, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0))
-    except OSError as error:
-        raise SourceWheelProofError(code) from error
-    try:
-        before = os.fstat(descriptor)
-        if not stat.S_ISREG(before.st_mode) or (executable and before.st_mode & 0o111 == 0):
-            raise SourceWheelProofError(code)
-        digest = hashlib.sha256()
-        while chunk := os.read(descriptor, 1024 * 1024):
-            digest.update(chunk)
-        after = os.fstat(descriptor)
-    finally:
-        os.close(descriptor)
-    if (
-        before.st_dev,
-        before.st_ino,
-        before.st_mode,
-        before.st_nlink,
-        before.st_size,
-        before.st_mtime_ns,
-        before.st_ctime_ns,
-    ) != (
-        after.st_dev,
-        after.st_ino,
-        after.st_mode,
-        after.st_nlink,
-        after.st_size,
-        after.st_mtime_ns,
-        after.st_ctime_ns,
-    ):
-        raise SourceWheelProofError(code)
-    return stat.S_IMODE(before.st_mode), before.st_size, digest.hexdigest()
-
-
-def canonical_tree_manifest_sha256(root: Path) -> str:
-    """Hash a complete directory tree without following directory symlinks."""
-    try:
-        resolved_root = root.resolve(strict=True)
-        root_status = resolved_root.lstat()
-    except OSError as error:
-        raise SourceWheelProofError("runtime_manifest_invalid") from error
-    if root != resolved_root or not stat.S_ISDIR(root_status.st_mode):
-        raise SourceWheelProofError("runtime_manifest_invalid")
-    records: list[list[object]] = [["directory", ".", stat.S_IMODE(root_status.st_mode)]]
-
-    def visit(directory: Path, relative: PurePosixPath) -> None:
-        try:
-            before = directory.lstat()
-            entries = sorted(os.scandir(directory), key=lambda item: item.name)
-        except OSError as error:
-            raise SourceWheelProofError("runtime_manifest_invalid") from error
-        names = [entry.name for entry in entries]
-        for entry in entries:
-            child = Path(entry.path)
-            child_relative = relative / entry.name
-            try:
-                status = child.lstat()
-            except OSError as error:
-                raise SourceWheelProofError("runtime_manifest_invalid") from error
-            if stat.S_ISDIR(status.st_mode):
-                records.append(["directory", child_relative.as_posix(), stat.S_IMODE(status.st_mode)])
-                visit(child, child_relative)
-                continue
-            if stat.S_ISREG(status.st_mode):
-                mode, size, digest = _stable_file_digest(child, "runtime_manifest_invalid")
-                records.append(["file", child_relative.as_posix(), mode, size, digest])
-                continue
-            if stat.S_ISLNK(status.st_mode):
-                try:
-                    target = os.readlink(child)
-                    resolved_target = child.resolve(strict=True)
-                except OSError as error:
-                    raise SourceWheelProofError("runtime_manifest_invalid") from error
-                if not resolved_target.is_file():
-                    raise SourceWheelProofError("runtime_manifest_invalid")
-                mode, size, digest = _stable_file_digest(resolved_target, "runtime_manifest_invalid")
-                records.append(
-                    [
-                        "symlink",
-                        child_relative.as_posix(),
-                        stat.S_IMODE(status.st_mode),
-                        target,
-                        str(resolved_target),
-                        mode,
-                        size,
-                        digest,
-                    ]
-                )
-                try:
-                    after_link = child.lstat()
-                    after_target = os.readlink(child)
-                except OSError as error:
-                    raise SourceWheelProofError("runtime_manifest_invalid") from error
-                if (
-                    status.st_dev,
-                    status.st_ino,
-                    status.st_mode,
-                    status.st_mtime_ns,
-                    status.st_ctime_ns,
-                    target,
-                ) != (
-                    after_link.st_dev,
-                    after_link.st_ino,
-                    after_link.st_mode,
-                    after_link.st_mtime_ns,
-                    after_link.st_ctime_ns,
-                    after_target,
-                ):
-                    raise SourceWheelProofError("runtime_manifest_changed")
-                continue
-            raise SourceWheelProofError("runtime_manifest_invalid")
-        try:
-            after = directory.lstat()
-            after_names = sorted(entry.name for entry in os.scandir(directory))
-        except OSError as error:
-            raise SourceWheelProofError("runtime_manifest_invalid") from error
-        if names != after_names or (
-            before.st_dev,
-            before.st_ino,
-            before.st_mode,
-            before.st_mtime_ns,
-            before.st_ctime_ns,
-        ) != (
-            after.st_dev,
-            after.st_ino,
-            after.st_mode,
-            after.st_mtime_ns,
-            after.st_ctime_ns,
-        ):
-            raise SourceWheelProofError("runtime_manifest_changed")
-
-    visit(resolved_root, PurePosixPath())
-    return sha256_bytes(canonical_json({"schema_version": 1, "records": records}))
-
-
-def python_runtime_manifest_sha256(python_path: Path, python_stdlib_path: Path) -> str:
-    try:
-        executable = Path(sys.executable).resolve(strict=True)
-        stdlib = Path(sysconfig.get_path("stdlib")).resolve(strict=True)
-    except (OSError, TypeError) as error:
-        raise SourceWheelProofError("python_runtime_invalid") from error
-    if executable != python_path or stdlib != python_stdlib_path:
-        raise SourceWheelProofError("python_runtime_invalid")
-    _, _, executable_sha256 = _stable_file_digest(executable, "python_runtime_invalid", executable=True)
-    payload = {
-        "schema_version": 1,
-        "kind": "python-stdlib-runtime-manifest",
-        "executable": str(executable),
-        "executable_sha256": executable_sha256,
-        "stdlib": str(stdlib),
-        "stdlib_tree_sha256": canonical_tree_manifest_sha256(stdlib),
-        "implementation": sys.implementation.name,
-        "cache_tag": sys.implementation.cache_tag,
-        "version": list(sys.version_info[:5]),
-        "platform": sysconfig.get_platform(),
-        "soabi": sysconfig.get_config_var("SOABI"),
-        "multiarch": sysconfig.get_config_var("MULTIARCH"),
-        "startup_flags": {
-            "no_site": bool(sys.flags.no_site),
-            "no_user_site": bool(sys.flags.no_user_site),
-            "safe_path": bool(sys.flags.safe_path),
-            "dont_write_bytecode": bool(sys.dont_write_bytecode),
-        },
-    }
-    return sha256_bytes(canonical_json(payload))
-
-
-def _python_sources_sha256(directory: Path) -> str:
-    try:
-        root = directory.resolve(strict=True)
-        paths = sorted(root.glob("*.py"), key=lambda path: path.name)
-    except OSError as error:
-        raise SourceWheelProofError("vmvm_runtime_source_invalid") from error
-    if directory != root or not paths:
-        raise SourceWheelProofError("vmvm_runtime_source_invalid")
-    records = []
-    for path in paths:
-        mode, size, digest = _stable_file_digest(path, "vmvm_runtime_source_invalid")
-        records.append([path.name, mode, size, digest])
-    return sha256_bytes(canonical_json({"schema_version": 1, "files": records}))
-
-
-def _git_output(project_dir: Path, *arguments: str) -> str:
-    environment = os.environ.copy()
-    for name in (
-        "GIT_DIR",
-        "GIT_WORK_TREE",
-        "GIT_INDEX_FILE",
-        "GIT_OBJECT_DIRECTORY",
-        "GIT_ALTERNATE_OBJECT_DIRECTORIES",
-    ):
-        environment.pop(name, None)
-    environment.update(
-        {
-            "GIT_CONFIG_GLOBAL": "/dev/null",
-            "GIT_CONFIG_SYSTEM": "/dev/null",
-            "GIT_OPTIONAL_LOCKS": "0",
-            "GIT_TERMINAL_PROMPT": "0",
-            "LC_ALL": "C",
-        }
-    )
-    try:
-        result = subprocess.run(
-            ["/usr/bin/git", "-C", str(project_dir), *arguments],
-            check=False,
-            stdin=subprocess.DEVNULL,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.DEVNULL,
-            env=environment,
-        )
-    except OSError as error:
-        raise SourceWheelProofError("source_checkout_invalid") from error
-    if result.returncode != 0:
-        raise SourceWheelProofError("source_checkout_invalid")
-    try:
-        return result.stdout.decode("utf-8").strip()
-    except UnicodeDecodeError as error:
-        raise SourceWheelProofError("source_checkout_invalid") from error
-
-
-def _expected_pythonpath(config: SourceWheelProofConfig) -> str:
-    project = config.project_dir
-    return ":".join(
-        str(path)
-        for path in (
-            project / "user/tianhaowu/terminal_bench_vmvm",
-            project / "environments/vmvm_tb_v2",
-            project / "deps/verifiers",
-            project / "deps/renderers",
-            project / "deps/pydantic-config/src",
-            config.site_packages_path,
-        )
-    )
-
-
 def validate_execution_environment(config: SourceWheelProofConfig) -> None:
     config.validate()
     try:
-        project = config.project_dir.resolve(strict=True)
-        canonical_launcher = config.canonical_launcher_path.resolve(strict=True)
-        executed_launcher = config.executed_launcher_path.resolve(strict=True)
-        uv_path = config.uv_path.resolve(strict=True)
-        python_path = config.python_path.resolve(strict=True)
-        python_stdlib = config.python_stdlib_path.resolve(strict=True)
-        site_packages = config.site_packages_path.resolve(strict=True)
-        vacli_path = config.vacli_path.resolve(strict=True)
-    except OSError as error:
-        raise SourceWheelProofError("execution_binding_invalid") from error
-    expected_launcher = project / "user/tianhaowu/terminal_bench_vmvm/run_source_wheel_proof.sbatch"
-    if (
-        project != config.project_dir
-        or canonical_launcher != config.canonical_launcher_path
-        or canonical_launcher != expected_launcher
-        or executed_launcher != canonical_launcher
-        or executed_launcher != config.executed_launcher_path
-        or uv_path != config.uv_path
-        or python_path != config.python_path
-        or python_stdlib != config.python_stdlib_path
-        or site_packages != config.site_packages_path
-        or vacli_path != config.vacli_path
-    ):
-        raise SourceWheelProofError("execution_binding_invalid")
-    expected_python_environment = {
-        "PYTHONPATH": _expected_pythonpath(config),
-        "PYTHONNOUSERSITE": "1",
-        "PYTHONDONTWRITEBYTECODE": "1",
-        "PYTHONSAFEPATH": "1",
-    }
-    observed_python_environment = {name: value for name, value in os.environ.items() if name.startswith("PYTHON")}
-    if (
-        os.environ.get("PATH") != "/usr/bin:/bin"
-        or observed_python_environment != expected_python_environment
-        or any(os.environ.get(name) for name in ("VIRTUAL_ENV", "CONDA_PREFIX", "LD_PRELOAD", "LD_LIBRARY_PATH"))
-    ):
-        raise SourceWheelProofError("execution_environment_not_sanitized")
-    file_bindings = (
-        (canonical_launcher, config.launcher_sha256, False),
-        (executed_launcher, config.launcher_sha256, False),
-        (uv_path, config.uv_sha256, True),
-        (python_path, config.python_sha256, True),
-        (vacli_path, config.vacli_binary_sha256, True),
-    )
-    for path, expected_sha256, executable in file_bindings:
-        _, _, observed_sha256 = _stable_file_digest(path, "execution_tool_invalid", executable=executable)
-        if observed_sha256 != expected_sha256:
-            raise SourceWheelProofError("execution_tool_sha256_mismatch")
-    if os.environ.get("VACLI_BIN") != str(vacli_path):
-        raise SourceWheelProofError("execution_environment_not_sanitized")
-    if (
-        python_runtime_manifest_sha256(config.python_path, config.python_stdlib_path)
-        != config.python_runtime_manifest_sha256
-    ):
-        raise SourceWheelProofError("python_runtime_manifest_mismatch")
-    if canonical_tree_manifest_sha256(site_packages) != config.site_packages_manifest_sha256:
-        raise SourceWheelProofError("site_packages_manifest_mismatch")
-    if _python_sources_sha256(project / "environments/vmvm_tb_v2/vmvm_tb_v2/_vacli") != config.vmvm_tb_v2_sha256:
-        raise SourceWheelProofError("vmvm_runtime_source_mismatch")
-    if _git_output(project, "rev-parse", "--verify", "HEAD") != config.source_commit:
-        raise SourceWheelProofError("source_checkout_mismatch")
-    if _git_output(project, "rev-parse", "--verify", "HEAD^{tree}") != config.source_git_tree:
-        raise SourceWheelProofError("source_checkout_mismatch")
-    if _git_output(project, "status", "--porcelain=v1", "--untracked-files=all", "--ignore-submodules=none"):
-        raise SourceWheelProofError("source_checkout_not_clean")
-    if (
-        _git_output(project, "merge-base", config.base_runtime_commit, config.source_commit)
-        != config.base_runtime_commit
-    ):
-        raise SourceWheelProofError("source_base_invalid")
-    dependencies = {
-        "deps/verifiers": config.verifiers_commit,
-        "deps/renderers": config.renderers_commit,
-        "deps/pydantic-config": config.pydantic_config_commit,
-    }
-    for relative, expected_commit in dependencies.items():
-        dependency = project / relative
-        if not (dependency / ".git").is_file():
-            raise SourceWheelProofError("source_dependency_invalid")
-        tree_record = _git_output(project, "ls-tree", "HEAD", relative).split()
-        if len(tree_record) != 4 or tree_record[:2] != ["160000", "commit"] or tree_record[2] != expected_commit:
-            raise SourceWheelProofError("source_dependency_invalid")
-        if _git_output(dependency, "rev-parse", "--verify", "HEAD") != expected_commit:
-            raise SourceWheelProofError("source_dependency_invalid")
-        if _git_output(dependency, "status", "--porcelain=v1", "--untracked-files=all"):
-            raise SourceWheelProofError("source_dependency_invalid")
+        proof_bootstrap.validate_execution_bindings(
+            proof_bootstrap.ExecutionBindings(
+                project_dir=config.project_dir,
+                canonical_launcher_path=config.canonical_launcher_path,
+                executed_launcher_path=config.executed_launcher_path,
+                uv_path=config.uv_path,
+                python_path=config.python_path,
+                python_stdlib_path=config.python_stdlib_path,
+                site_packages_path=config.site_packages_path,
+                vacli_path=config.vacli_path,
+                launcher_sha256=config.launcher_sha256,
+                uv_sha256=config.uv_sha256,
+                python_sha256=config.python_sha256,
+                python_runtime_manifest_sha256=config.python_runtime_manifest_sha256,
+                site_packages_manifest_sha256=config.site_packages_manifest_sha256,
+                base_runtime_commit=config.base_runtime_commit,
+                source_commit=config.source_commit,
+                source_git_tree=config.source_git_tree,
+                source_tree_sha256=config.source_tree_sha256,
+                verifiers_commit=config.verifiers_commit,
+                renderers_commit=config.renderers_commit,
+                pydantic_config_commit=config.pydantic_config_commit,
+                vmvm_tb_v2_sha256=config.vmvm_tb_v2_sha256,
+                vacli_binary_sha256=config.vacli_binary_sha256,
+            ),
+            require_attestation=True,
+        )
+    except proof_bootstrap.BindingError as error:
+        raise SourceWheelProofError(error.code) from error
 
 
 def _require_exact_keys(value: object, keys: set[str], code: str) -> dict[str, object]:
@@ -2373,6 +2078,7 @@ class ProofStore:
         self.candidate_path = self.output_dir / "source_wheel_candidate.json"
         self.state_path = self.output_dir / "proof_state.json"
         self.journal_path = self.output_dir / "attempt_journal"
+        self.post_validation_path = self.output_dir / "post_run_validation.json"
         self.finalization_path = self.output_dir / "finalization.json"
         self.proof_path = self.output_dir / "source_wheel_proof.json"
         self.final_policy_path = self.output_dir / "source_wheel_policy.json"
@@ -2476,6 +2182,7 @@ class ProofStore:
             self.identity_path.name,
             self.candidate_path.name,
             self.state_path.name,
+            self.post_validation_path.name,
             self.proof_path.name,
             self.final_policy_path.name,
             self.finalization_path.name,
@@ -2559,6 +2266,7 @@ class ProofStore:
             "invocations": [{"host": self.config.invocation_host, "slurm_job_id": self.config.slurm_job_id}],
             "completed": {},
             "attempt_journal": self._journal().snapshot(),
+            "post_run_validation": None,
             "telemetry": {
                 "attested_runtime_starts": 0,
                 "peak_starting_runtimes": 0,
@@ -2577,11 +2285,13 @@ class ProofStore:
             "invocations",
             "completed",
             "attempt_journal",
+            "post_run_validation",
             "telemetry",
         }
         if not isinstance(state, dict) or set(state) != fields:
             raise SourceWheelProofError("proof_state_invalid")
         completed = state["completed"]
+        post_validation = state["post_run_validation"]
         telemetry = state["telemetry"]
         if (
             state["schema_version"] != STATE_SCHEMA_VERSION
@@ -2604,6 +2314,19 @@ class ProofStore:
             or len({invocation["slurm_job_id"] for invocation in state["invocations"]}) != len(state["invocations"])
             or not isinstance(completed, dict)
             or not set(completed).issubset(self.entry_map)
+            or (
+                post_validation is not None
+                and (
+                    not isinstance(post_validation, dict)
+                    or set(post_validation)
+                    != {
+                        "prevalidation_state_sha256",
+                        "record_sha256",
+                        "validation_id_sha256",
+                    }
+                    or not all(_valid_sha256(value) for value in post_validation.values())
+                )
+            )
             or not isinstance(telemetry, dict)
             or set(telemetry)
             != {
@@ -2642,12 +2365,26 @@ class ProofStore:
                 state = self._validate_state(strict_json_loads(payload))
             except (UnicodeDecodeError, ValueError, RecursionError) as error:
                 raise SourceWheelProofError("proof_state_invalid") from error
+            completed = set(state["completed"])
+            post_validation_exists = self.post_validation_path.exists()
+            if state["post_run_validation"] is not None and not post_validation_exists:
+                raise SourceWheelProofError("post_run_validation_record_missing")
+            if post_validation_exists:
+                if completed != set(self.entry_map):
+                    raise SourceWheelProofError("post_run_validation_record_invalid")
+                self.state = state
+                self._reconcile_post_run_validation()
+                state = self.state
+            elif completed == set(self.entry_map):
+                raise SourceWheelProofError("completed_state_not_post_validated")
             if self.finalization_path.exists():
-                if set(state["completed"]) != set(self.entry_map):
+                if completed != set(self.entry_map) or state["post_run_validation"] is None:
                     raise SourceWheelProofError("finalization_record_invalid")
                 return state
             if self.proof_path.exists() or self.final_policy_path.exists():
                 raise SourceWheelProofError("finalization_record_missing")
+            if state["post_run_validation"] is not None:
+                return state
             invocations = list(state["invocations"])
             if any(invocation["slurm_job_id"] == self.config.slurm_job_id for invocation in invocations):
                 raise SourceWheelProofError("invocation_already_recorded")
@@ -2685,6 +2422,8 @@ class ProofStore:
         return self.journal
 
     def publish_entry(self, key: str, proof: dict[str, object], telemetry: dict[str, int]) -> None:
+        if self.state["post_run_validation"] is not None or self.post_validation_path.exists():
+            raise SourceWheelProofError("post_run_validation_already_recorded")
         if key in self.completed:
             if self.completed[key] != proof:
                 raise SourceWheelProofError("completed_entry_changed")
@@ -2711,12 +2450,101 @@ class ProofStore:
         self._write_state(self.state)
 
     def record_peak_entries(self, peak: int) -> None:
+        if self.state["post_run_validation"] is not None or self.post_validation_path.exists():
+            if peak > int(self.state["telemetry"]["peak_concurrent_entries"]):  # type: ignore[index]
+                raise SourceWheelProofError("post_run_validation_already_recorded")
+            return
         prior = self.state["telemetry"]
         assert isinstance(prior, dict)
         previous = int(prior["peak_concurrent_entries"])
         if peak > previous:
             prior["peak_concurrent_entries"] = peak
             self._write_state(self.state)
+
+    def _post_validation_core(self, prevalidation_state: dict[str, object]) -> dict[str, object]:
+        if prevalidation_state.get("post_run_validation") is not None:
+            raise SourceWheelProofError("post_run_validation_record_invalid")
+        if set(self.completed) != set(self.entry_map):
+            raise SourceWheelProofError("proof_incomplete")
+        self._journal().validate_exact(self.completed)
+        journal = self._journal().snapshot()
+        if prevalidation_state.get("attempt_journal") != journal:
+            raise SourceWheelProofError("attempt_journal_state_mismatch")
+        invocations = prevalidation_state.get("invocations")
+        if not isinstance(invocations, list) or not invocations:
+            raise SourceWheelProofError("post_run_validation_record_invalid")
+        return {
+            "schema_version": POST_RUN_VALIDATION_SCHEMA_VERSION,
+            "kind": "source-wheel-proof-post-run-validation",
+            "validation_result": "passed",
+            "run_identity_sha256": self.identity_sha256,
+            "discovery_input_sha256": self.discovery.sha256,
+            "entries_sha256": self.entries_sha256,
+            "entry_count": len(self.entry_map),
+            "prevalidation_state_sha256": sha256_bytes(canonical_json(prevalidation_state) + b"\n"),
+            "completed_sha256": sha256_bytes(canonical_json(prevalidation_state["completed"])),
+            "attempt_journal": journal,
+            "validation_invocation_sha256": sha256_bytes(canonical_json(invocations[-1])),
+            "environment_binding_sha256": sha256_bytes(
+                canonical_json(
+                    {
+                        "source": self.identity["source"],
+                        "execution": self.identity["execution"],
+                    }
+                )
+            ),
+        }
+
+    def _validated_post_run_record(
+        self,
+        prevalidation_state: dict[str, object],
+    ) -> tuple[dict[str, object], bytes, dict[str, str]]:
+        core = self._post_validation_core(prevalidation_state)
+        validation_id_sha256 = sha256_bytes(canonical_json(core))
+        record = {**core, "validation_id_sha256": validation_id_sha256}
+        payload = canonical_json(record) + b"\n"
+        receipt = {
+            "prevalidation_state_sha256": core["prevalidation_state_sha256"],
+            "record_sha256": sha256_bytes(payload),
+            "validation_id_sha256": validation_id_sha256,
+        }
+        return record, payload, receipt  # type: ignore[return-value]
+
+    def _reconcile_post_run_validation(self) -> None:
+        if not self.post_validation_path.exists():
+            raise SourceWheelProofError("post_run_validation_record_missing")
+        current_receipt = self.state["post_run_validation"]
+        prevalidation_state = dict(self.state)
+        prevalidation_state["post_run_validation"] = None
+        _, expected_payload, expected_receipt = self._validated_post_run_record(prevalidation_state)
+        observed_payload = _read_private(
+            self.post_validation_path,
+            "post_run_validation_record_not_private",
+        )
+        if (
+            stat.S_IMODE(self.post_validation_path.lstat().st_mode) != 0o400
+            or observed_payload != expected_payload
+        ):
+            raise SourceWheelProofError("post_run_validation_record_invalid")
+        if current_receipt is None:
+            self.state["post_run_validation"] = expected_receipt
+            self._write_state(self.state)
+        elif current_receipt != expected_receipt:
+            raise SourceWheelProofError("post_run_validation_record_invalid")
+
+    def record_post_run_validation(self) -> None:
+        if set(self.completed) != set(self.entry_map):
+            raise SourceWheelProofError("proof_incomplete")
+        if self.post_validation_path.exists():
+            self._reconcile_post_run_validation()
+            return
+        if self.state["post_run_validation"] is not None:
+            raise SourceWheelProofError("post_run_validation_record_missing")
+        prevalidation_state = dict(self.state)
+        _, payload, receipt = self._validated_post_run_record(prevalidation_state)
+        self._ensure_exact_artifact(self.post_validation_path, payload)
+        self.state["post_run_validation"] = receipt
+        self._write_state(self.state)
 
     def _final_policy_payload(self) -> bytes:
         entries = [
@@ -2752,6 +2580,10 @@ class ProofStore:
         self._journal().validate_exact(self.completed)
         if self.state["attempt_journal"] != self._journal().snapshot():
             raise SourceWheelProofError("attempt_journal_state_mismatch")
+        self._reconcile_post_run_validation()
+        post_validation = self.state["post_run_validation"]
+        if not isinstance(post_validation, dict):
+            raise SourceWheelProofError("post_run_validation_record_missing")
         policy_payload = self._final_policy_payload()
         try:
             policy = self._validate_final_policy(policy_payload)
@@ -2775,6 +2607,7 @@ class ProofStore:
             "source_wheel_policy_sha256": policy_sha256,
             "entry_count": len(ordered),
             "attempt_journal": self._journal().snapshot(),
+            "post_run_validation": post_validation,
         }
         finalization_id_sha256 = sha256_bytes(canonical_json(finalization_core))
         core = {
@@ -2787,6 +2620,7 @@ class ProofStore:
             "state_sha256": state_sha256,
             "source_wheel_policy_sha256": policy_sha256,
             "finalization_id_sha256": finalization_id_sha256,
+            "post_run_validation": post_validation,
             "entry_count": len(ordered),
             "proof_runtime_starts": len(ordered) * RUNTIMES_PER_ENTRY,
             "runtime_roles_per_entry": ["target", "builder_a", "builder_b"],
@@ -2816,6 +2650,7 @@ class ProofStore:
             "policy_sha256": policy_sha256,
             "proof_sha256": sha256_bytes(proof_payload),
             "finalization_sha256": sha256_bytes(finalization_payload),
+            "post_validation_sha256": post_validation["record_sha256"],
             "state_sha256": state_sha256,
             "peak_live_runtimes": int(telemetry["peak_live_runtimes"]),
             "peak_concurrent_entries": int(telemetry["peak_concurrent_entries"]),
@@ -2859,10 +2694,10 @@ async def run_source_wheel_proof(
     *,
     runtime_factory: RuntimeFactory = _runtime_factory,
 ) -> dict[str, object]:
-    discovery, _ = load_private_discovery_input(config)
     if runtime_factory is _runtime_factory:
         validate_execution_environment(config)
         validate_vacli_environment(config)
+    discovery, _ = load_private_discovery_input(config)
     with ProofStore(config, discovery) as store:
         runner = SourceWheelProofRunner(
             config,
@@ -2879,6 +2714,7 @@ async def run_source_wheel_proof(
         if runtime_factory is _runtime_factory:
             validate_execution_environment(config)
             validate_vacli_environment(config)
+        store.record_post_run_validation()
         return store.publish_final()
 
 

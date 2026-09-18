@@ -7,16 +7,32 @@ import argparse
 import asyncio
 import json
 import logging
+import os
+import re
 import signal
+import sys
 from pathlib import Path
+from types import ModuleType
 
-from terminal_bench_vmvm.source_wheel_proof import (
-    MAX_CONCURRENT_ENTRIES,
-    SourceWheelProofConfig,
-    SourceWheelProofError,
-    aggregate_failure,
-    run_source_wheel_proof,
-)
+MAX_CONCURRENT_ENTRIES = 3
+SHA256_RE = re.compile(r"[0-9a-f]{64}")
+
+
+def _require_bootstrap() -> None:
+    attestation = os.environ.get("SOURCE_WHEEL_PROOF_BOOTSTRAP_ATTESTATION_SHA256", "")
+    if not (
+        SHA256_RE.fullmatch(attestation)
+        and sys.flags.isolated
+        and sys.flags.no_site
+        and sys.flags.no_user_site
+        and sys.flags.safe_path
+        and sys.dont_write_bytecode
+        and "site" not in sys.modules
+        and "sitecustomize" not in sys.modules
+        and "usercustomize" not in sys.modules
+    ):
+        print(json.dumps({"status": "failed", "error_code": "bootstrap_required"}, sort_keys=True))
+        raise SystemExit(1)
 
 
 def _parse_args() -> argparse.Namespace:
@@ -69,7 +85,7 @@ def _parse_args() -> argparse.Namespace:
     return args
 
 
-async def _run(config: SourceWheelProofConfig) -> dict[str, object]:
+async def _run(config: object, proof_module: ModuleType) -> dict[str, object]:
     current = asyncio.current_task()
     assert current is not None
     loop = asyncio.get_running_loop()
@@ -81,16 +97,19 @@ async def _run(config: SourceWheelProofConfig) -> dict[str, object]:
         except NotImplementedError:
             pass
     try:
-        return await run_source_wheel_proof(config)
+        return await proof_module.run_source_wheel_proof(config)
     finally:
         for caught in installed:
             loop.remove_signal_handler(caught)
 
 
 def main() -> int:
+    _require_bootstrap()
+    import terminal_bench_vmvm.source_wheel_proof as proof_module
+
     args = _parse_args()
     logging.disable(logging.CRITICAL)
-    config = SourceWheelProofConfig(
+    config = proof_module.SourceWheelProofConfig(
         input_path=args.discovery_input,
         input_sha256=args.discovery_input_sha256,
         output_dir=args.output_dir,
@@ -135,15 +154,21 @@ def main() -> int:
         vacli_container_privileged=args.vacli_container_privileged,
     )
     try:
-        result = asyncio.run(_run(config))
+        result = asyncio.run(_run(config, proof_module))
     except (KeyboardInterrupt, asyncio.CancelledError):
-        print(json.dumps(aggregate_failure(args.output_dir, "cancelled"), sort_keys=True), flush=True)
+        print(
+            json.dumps(proof_module.aggregate_failure(args.output_dir, "cancelled"), sort_keys=True),
+            flush=True,
+        )
         return 130
-    except SourceWheelProofError as error:
-        print(json.dumps(aggregate_failure(args.output_dir, error.code), sort_keys=True), flush=True)
+    except proof_module.SourceWheelProofError as error:
+        print(json.dumps(proof_module.aggregate_failure(args.output_dir, error.code), sort_keys=True), flush=True)
         return 1
     except BaseException:
-        print(json.dumps(aggregate_failure(args.output_dir, "unexpected_failure"), sort_keys=True), flush=True)
+        print(
+            json.dumps(proof_module.aggregate_failure(args.output_dir, "unexpected_failure"), sort_keys=True),
+            flush=True,
+        )
         return 1
     print(
         json.dumps(
@@ -161,6 +186,7 @@ def main() -> int:
                     "policy_sha256": result["policy_sha256"],
                     "proof_sha256": result["proof_sha256"],
                     "finalization_sha256": result["finalization_sha256"],
+                    "post_validation_sha256": result["post_validation_sha256"],
                     "state_sha256": result["state_sha256"],
                 },
             },

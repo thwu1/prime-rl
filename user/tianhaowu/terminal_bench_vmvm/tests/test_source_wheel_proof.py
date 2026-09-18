@@ -6,6 +6,7 @@ import io
 import json
 import os
 import stat
+import subprocess
 import sys
 import sysconfig
 import tarfile
@@ -15,6 +16,7 @@ from types import SimpleNamespace
 from zipfile import ZipFile
 
 import pytest
+import source_wheel_proof_bootstrap as proof_bootstrap
 import terminal_bench_vmvm.source_wheel_proof as source_wheel_proof
 from terminal_bench_vmvm.source_wheel_proof import (
     APPROVED_BASE_RUNTIME_COMMIT,
@@ -33,12 +35,9 @@ from terminal_bench_vmvm.source_wheel_proof import (
     SourceWheelProofConfig,
     SourceWheelProofError,
     SourceWheelProofRunner,
-    _python_sources_sha256,
     aggregate_failure,
-    canonical_tree_manifest_sha256,
     compare_build_payloads,
     load_private_discovery_input,
-    python_runtime_manifest_sha256,
     run_source_wheel_proof,
     validate_execution_environment,
     validate_vacli_environment,
@@ -459,6 +458,7 @@ def test_nine_entry_discovery_emits_policy_with_exactly_twenty_seven_starts(
         ".writer.lock": 0o600,
         "attempt_journal": 0o700,
         "finalization.json": 0o400,
+        "post_run_validation.json": 0o400,
         "proof_state.json": 0o600,
         "run_identity.json": 0o400,
         "source_wheel_candidate.json": 0o400,
@@ -498,9 +498,23 @@ def test_nine_entry_discovery_emits_policy_with_exactly_twenty_seven_starts(
     assert proof["source_wheel_policy_sha256"] == sha256_bytes((output / "source_wheel_policy.json").read_bytes())
     finalization_payload = (output / "finalization.json").read_bytes()
     finalization = json.loads(finalization_payload)
+    post_validation_payload = (output / "post_run_validation.json").read_bytes()
+    post_validation = json.loads(post_validation_payload)
     assert result["finalization_sha256"] == sha256_bytes(finalization_payload)
     assert finalization["proof_file_sha256"] == sha256_bytes((output / "source_wheel_proof.json").read_bytes())
     assert finalization["source_wheel_policy_sha256"] == proof["source_wheel_policy_sha256"]
+    assert finalization["post_run_validation"] == state["post_run_validation"]
+    assert proof["post_run_validation"] == state["post_run_validation"]
+    assert state["post_run_validation"]["record_sha256"] == sha256_bytes(post_validation_payload)
+    assert post_validation["validation_id_sha256"] == state["post_run_validation"][
+        "validation_id_sha256"
+    ]
+    prevalidation_state = dict(state)
+    prevalidation_state["post_run_validation"] = None
+    assert post_validation["prevalidation_state_sha256"] == sha256_bytes(
+        canonical_json(prevalidation_state) + b"\n"
+    )
+    assert post_validation["attempt_journal"] == state["attempt_journal"]
     assert len(policy["entries"]) == 9
     assert all(entry["build_tools"] == BUILD_TOOLS for entry in policy["entries"])
     assert all(len(entry["binary_wheels"]) == 1 for entry in policy["entries"])
@@ -577,6 +591,117 @@ def test_final_artifacts_without_finalization_record_fail_closed(tmp_path: Path)
     resumed_fleet = FakeFleet(artifacts)
 
     with pytest.raises(SourceWheelProofError, match="^finalization_record_missing$"):
+        asyncio.run(
+            run_source_wheel_proof(
+                _config(
+                    discovery,
+                    output,
+                    resume_state_sha256=sha256_bytes(state_path.read_bytes()),
+                    slurm_job_id="12346",
+                ),
+                runtime_factory=resumed_fleet.factory,
+            )
+        )
+    assert resumed_fleet.start_count == 0
+
+
+def test_completed_state_without_post_validation_cannot_launder_zero_start_resume(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    discovery, artifacts = _write_discovery(tmp_path, 9)
+    output = tmp_path / "proof"
+    initial_fleet = FakeFleet(artifacts)
+    initial_factory = initial_fleet.factory
+    validation_calls = 0
+
+    def fail_post_validation(_: SourceWheelProofConfig) -> None:
+        nonlocal validation_calls
+        validation_calls += 1
+        if validation_calls == 2:
+            raise SourceWheelProofError("synthetic_post_validation_failure")
+
+    monkeypatch.setattr(source_wheel_proof, "_runtime_factory", initial_factory)
+    monkeypatch.setattr(source_wheel_proof, "validate_execution_environment", fail_post_validation)
+    monkeypatch.setattr(source_wheel_proof, "validate_vacli_environment", lambda _: None)
+    with pytest.raises(SourceWheelProofError, match="^synthetic_post_validation_failure$"):
+        asyncio.run(run_source_wheel_proof(_config(discovery, output), runtime_factory=initial_factory))
+
+    assert initial_fleet.start_count == 27
+    assert validation_calls == 2
+    assert not (output / "post_run_validation.json").exists()
+    state_path = output / "proof_state.json"
+    state = json.loads(state_path.read_bytes())
+    assert state["post_run_validation"] is None
+    assert len(state["completed"]) == 9
+    resumed_fleet = FakeFleet(artifacts)
+    resumed_factory = resumed_fleet.factory
+    monkeypatch.setattr(source_wheel_proof, "_runtime_factory", resumed_factory)
+    monkeypatch.setattr(source_wheel_proof, "validate_execution_environment", lambda _: None)
+
+    with pytest.raises(SourceWheelProofError, match="^completed_state_not_post_validated$"):
+        asyncio.run(
+            run_source_wheel_proof(
+                _config(
+                    discovery,
+                    output,
+                    resume_state_sha256=sha256_bytes(state_path.read_bytes()),
+                    slurm_job_id="12346",
+                ),
+                runtime_factory=resumed_factory,
+            )
+        )
+    assert resumed_fleet.start_count == 0
+    assert not (output / "finalization.json").exists()
+    assert not (output / "source_wheel_policy.json").exists()
+
+
+def test_post_validation_record_reconciles_state_update_crash(tmp_path: Path) -> None:
+    discovery, artifacts = _write_discovery(tmp_path, 9)
+    output = tmp_path / "proof"
+    original = asyncio.run(
+        run_source_wheel_proof(_config(discovery, output), runtime_factory=FakeFleet(artifacts).factory)
+    )
+    for name in ("finalization.json", "source_wheel_proof.json", "source_wheel_policy.json"):
+        (output / name).unlink()
+    state_path = output / "proof_state.json"
+    state = json.loads(state_path.read_bytes())
+    state["post_run_validation"] = None
+    state_path.write_bytes(canonical_json(state) + b"\n")
+    state_path.chmod(0o600)
+    resumed_fleet = FakeFleet(artifacts)
+
+    result = asyncio.run(
+        run_source_wheel_proof(
+            _config(
+                discovery,
+                output,
+                resume_state_sha256=sha256_bytes(state_path.read_bytes()),
+                slurm_job_id="12346",
+            ),
+            runtime_factory=resumed_fleet.factory,
+        )
+    )
+
+    assert result == original
+    assert resumed_fleet.start_count == 0
+
+
+def test_post_validation_state_without_immutable_record_fails_closed(tmp_path: Path) -> None:
+    discovery, artifacts = _write_discovery(tmp_path, 9)
+    output = tmp_path / "proof"
+    asyncio.run(run_source_wheel_proof(_config(discovery, output), runtime_factory=FakeFleet(artifacts).factory))
+    for name in (
+        "finalization.json",
+        "source_wheel_proof.json",
+        "source_wheel_policy.json",
+        "post_run_validation.json",
+    ):
+        (output / name).unlink()
+    state_path = output / "proof_state.json"
+    resumed_fleet = FakeFleet(artifacts)
+
+    with pytest.raises(SourceWheelProofError, match="^post_run_validation_record_missing$"):
         asyncio.run(
             run_source_wheel_proof(
                 _config(
@@ -871,6 +996,7 @@ def test_execution_environment_rejects_tool_site_and_inherited_python_drift(
         dependency = project / relative
         dependency.mkdir(parents=True)
         (dependency / ".git").write_text("gitdir: synthetic\n")
+    (project / "deps/pydantic-config/src").mkdir()
     uv_path = tmp_path / "uv"
     vacli_path = tmp_path / "vacli"
     for path, payload in ((uv_path, b"pinned uv\n"), (vacli_path, b"pinned vacli\n")):
@@ -891,9 +1017,9 @@ def test_execution_environment_rejects_tool_site_and_inherited_python_drift(
         launcher_sha256=sha256_bytes(launcher.read_bytes()),
         uv_sha256=sha256_bytes(uv_path.read_bytes()),
         python_sha256=sha256_bytes(python_path.read_bytes()),
-        python_runtime_manifest_sha256=python_runtime_manifest_sha256(python_path, python_stdlib),
-        site_packages_manifest_sha256=canonical_tree_manifest_sha256(site_packages),
-        vmvm_tb_v2_sha256=_python_sources_sha256(vmvm_source),
+        python_runtime_manifest_sha256="9" * 64,
+        site_packages_manifest_sha256=proof_bootstrap.canonical_tree_manifest_sha256(site_packages),
+        vmvm_tb_v2_sha256=proof_bootstrap.python_sources_sha256(vmvm_source),
         vacli_binary_sha256=sha256_bytes(vacli_path.read_bytes()),
     )
     dependency_commits = {
@@ -918,7 +1044,8 @@ def test_execution_environment_rejects_tool_site_and_inherited_python_drift(
             return f"160000 commit {dependency_commits[relative]}\t{relative}"
         raise AssertionError("unexpected Git probe")
 
-    monkeypatch.setattr(source_wheel_proof, "_git_output", fake_git)
+    monkeypatch.setattr(proof_bootstrap, "git_output", fake_git)
+    monkeypatch.setattr(proof_bootstrap, "_validate_bootstrap_flags", lambda: None)
     for name in tuple(os.environ):
         if name.startswith("PYTHON"):
             monkeypatch.delenv(name, raising=False)
@@ -928,8 +1055,32 @@ def test_execution_environment_rejects_tool_site_and_inherited_python_drift(
     monkeypatch.setenv("PYTHONNOUSERSITE", "1")
     monkeypatch.setenv("PYTHONDONTWRITEBYTECODE", "1")
     monkeypatch.setenv("PYTHONSAFEPATH", "1")
-    monkeypatch.setenv("PYTHONPATH", source_wheel_proof._expected_pythonpath(config))
     monkeypatch.setenv("VACLI_BIN", str(vacli_path.resolve()))
+    import_roots = proof_bootstrap.expected_import_roots(project, site_packages)
+    zip_path = python_stdlib.parent / f"python{sys.version_info.major}{sys.version_info.minor}.zip"
+    stdlib_sys_path = [str(zip_path), str(python_stdlib)]
+    lib_dynload = python_stdlib / "lib-dynload"
+    if lib_dynload.is_dir():
+        stdlib_sys_path.append(str(lib_dynload))
+    monkeypatch.setattr(sys, "path", [*(str(path) for path in import_roots), *stdlib_sys_path])
+    bindings = proof_bootstrap.ExecutionBindings(
+        **{
+            field: getattr(config, field)
+            for field in proof_bootstrap.ExecutionBindings.__dataclass_fields__
+        }
+    )
+    runtime_manifest = proof_bootstrap.python_runtime_manifest_sha256(
+        python_path,
+        python_stdlib,
+        import_roots,
+        proof_bootstrap._import_root_bindings(bindings, import_roots),
+    )
+    config = replace(config, python_runtime_manifest_sha256=runtime_manifest)
+    bindings = replace(bindings, python_runtime_manifest_sha256=runtime_manifest)
+    monkeypatch.setenv(
+        proof_bootstrap.BOOTSTRAP_ATTESTATION_ENV,
+        proof_bootstrap.bootstrap_attestation_sha256(bindings, runtime_manifest),
+    )
 
     validate_execution_environment(config)
     noncanonical_launchers = {
@@ -1027,3 +1178,89 @@ def test_resume_revalidates_completed_entries_and_runs_only_missing_work(tmp_pat
     assert result["runtime_starts"] == 27
     assert resumed_fleet.start_count == 24
     assert len(json.loads((output / "source_wheel_policy.json").read_bytes())["entries"]) == 9
+
+
+def test_readme_uses_exact_clean_tmux_wrap_launcher_form() -> None:
+    workflow = Path(__file__).resolve().parents[1]
+    readme = (workflow / "README.md").read_text()
+    launcher = (workflow / "run_source_wheel_proof.sbatch").read_text()
+
+    assert "tmux send-keys -t source-wheel-proof" in readme
+    assert '"/usr/bin/env -i PATH=/usr/bin:/bin' in readme
+    assert "/usr/bin/sbatch --parsable --export=ALL" in readme
+    assert (
+        "--wrap='exec /bin/bash --noprofile --norc "
+        "/path/to/clean-reviewed-checkout/user/tianhaowu/terminal_bench_vmvm/"
+        "run_source_wheel_proof.sbatch'\" C-m"
+    ) in readme
+    assert "exec \"$python_bin\" -I -S -B" in launcher
+    assert '"$workflow_dir/source_wheel_proof_bootstrap.py" run' in launcher
+    assert "uv run --no-project" not in launcher
+    for rejected in ("BASH_ENV", "LD_PRELOAD"):
+        assert rejected in (launcher + readme)
+    assert "declare -F" in launcher
+
+
+def test_bootstrap_requires_isolated_no_site_python_before_import_roots() -> None:
+    bootstrap = Path(__file__).resolve().parents[1] / "source_wheel_proof_bootstrap.py"
+    probe = """
+import importlib.util, sys
+spec = importlib.util.spec_from_file_location("proof_bootstrap_probe", sys.argv[1])
+module = importlib.util.module_from_spec(spec)
+sys.modules[spec.name] = module
+spec.loader.exec_module(module)
+try:
+    module._validate_bootstrap_flags()
+except module.BindingError:
+    raise SystemExit(17)
+raise SystemExit(0)
+"""
+    clean_environment = {"PATH": "/usr/bin:/bin", "PYTHONPATH": "/untrusted/import/root"}
+
+    isolated = subprocess.run(
+        [sys.executable, "-I", "-S", "-B", "-c", probe, str(bootstrap)],
+        check=False,
+        capture_output=True,
+        env=clean_environment,
+    )
+    unsafe = subprocess.run(
+        [sys.executable, "-S", "-B", "-c", probe, str(bootstrap)],
+        check=False,
+        capture_output=True,
+        env={"PATH": "/usr/bin:/bin"},
+    )
+
+    assert isolated.returncode == 0
+    assert unsafe.returncode == 17
+
+
+def test_execution_validation_precedes_private_input_load(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    discovery, artifacts = _write_discovery(tmp_path, 9)
+    fleet = FakeFleet(artifacts)
+    factory = fleet.factory
+    private_input_loaded = False
+
+    def reject_environment(_: SourceWheelProofConfig) -> None:
+        raise SourceWheelProofError("synthetic_pre_import_rejection")
+
+    def observe_private_input(_: SourceWheelProofConfig) -> None:
+        nonlocal private_input_loaded
+        private_input_loaded = True
+        raise AssertionError("private input loaded before environment validation")
+
+    monkeypatch.setattr(source_wheel_proof, "_runtime_factory", factory)
+    monkeypatch.setattr(source_wheel_proof, "validate_execution_environment", reject_environment)
+    monkeypatch.setattr(source_wheel_proof, "load_private_discovery_input", observe_private_input)
+
+    with pytest.raises(SourceWheelProofError, match="^synthetic_pre_import_rejection$"):
+        asyncio.run(
+            run_source_wheel_proof(
+                _config(discovery, tmp_path / "proof"),
+                runtime_factory=factory,
+            )
+        )
+    assert private_input_loaded is False
+    assert fleet.start_count == 0
