@@ -1,3 +1,4 @@
+import errno
 import fcntl
 import hashlib
 import json
@@ -397,16 +398,74 @@ def test_publish_output_removes_its_directory_when_parent_fsync_fails(
     staged.mkdir()
     (staged / "artifact").write_text("new\n")
     destination = tmp_path / "destination"
+    original_fsync = finalizer.migration._fsync_directory
+
+    def fail_published_parent(path: Path) -> None:
+        if path == destination.parent and destination.exists():
+            raise OSError("synthetic fsync failure")
+        original_fsync(path)
+
     monkeypatch.setattr(
-        finalizer,
+        finalizer.migration,
         "_fsync_directory",
-        lambda _path: (_ for _ in ()).throw(OSError("synthetic fsync failure")),
+        fail_published_parent,
     )
 
     with pytest.raises(FinalizationError, match="^output_publish_failed$"):
         finalizer._publish_output(staged, destination)
 
     assert not destination.exists()
+
+
+def test_publish_output_uses_validated_fallback_when_renameat2_is_unsupported(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    staged = tmp_path / "staged"
+    staged.mkdir()
+    (staged / "artifact").write_text("new\n")
+    destination = tmp_path / "destination"
+    validation_states: list[bool] = []
+    monkeypatch.setattr(
+        finalizer.migration,
+        "_rename_noreplace",
+        lambda _source, _destination: (_ for _ in ()).throw(OSError(errno.EINVAL, "unsupported")),
+    )
+
+    def validate(path: Path, incomplete: bool) -> None:
+        validation_states.append(incomplete)
+        assert (path / "artifact").read_text() == "new\n"
+        assert (path / finalizer.direct.MIGRATION_INCOMPLETE_FILENAME).is_file()
+
+    finalizer._publish_output(staged, destination, validate)
+
+    assert validation_states == [True]
+    assert (destination / "artifact").read_text() == "new\n"
+    assert not (destination / finalizer.direct.MIGRATION_INCOMPLETE_FILENAME).exists()
+    assert (staged / "artifact").read_text() == "new\n"
+
+
+def test_publish_output_fallback_preserves_racing_destination(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    staged = tmp_path / "staged"
+    staged.mkdir()
+    (staged / "artifact").write_text("new\n")
+    destination = tmp_path / "destination"
+
+    def collide(_source: Path, observed_destination: Path) -> None:
+        observed_destination.mkdir()
+        (observed_destination / "sentinel").write_text("keep\n")
+        raise OSError(errno.EINVAL, "unsupported")
+
+    monkeypatch.setattr(finalizer.migration, "_rename_noreplace", collide)
+
+    with pytest.raises(FinalizationError, match="^output_already_exists$"):
+        finalizer._publish_output(staged, destination)
+
+    assert (destination / "sentinel").read_text() == "keep\n"
+    assert (staged / "artifact").read_text() == "new\n"
 
 
 def test_finalizer_refuses_busy_source_lock(tmp_path: Path) -> None:
