@@ -300,16 +300,38 @@ def test_materialize_sanitizes_target_probe_failure(tmp_path: Path) -> None:
     assert not inputs.output_dir.exists()
 
 
+@pytest.mark.parametrize(
+    ("direct_error", "expected_category", "forbidden"),
+    [
+        (
+            "worker_unreachable:https://credential@worker.invalid/private-metadata.json:PermissionError",
+            "worker_unreachable",
+            ("credential", "private-metadata", "worker.invalid"),
+        ),
+        (
+            "secretcredentialtoken",
+            "direct_worker_error",
+            ("secretcredentialtoken",),
+        ),
+        (
+            "cpu_131_159",
+            "direct_worker_error",
+            ("cpu_131_159",),
+        ),
+    ],
+)
 def test_cli_sanitizes_unhandled_direct_worker_failure(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
+    direct_error: str,
+    expected_category: str,
+    forbidden: tuple[str, ...],
 ) -> None:
-    secret = "https://credential@worker.invalid/private-metadata.json"
     monkeypatch.setattr(
         generation,
         "materialize",
-        lambda _inputs: (_ for _ in ()).throw(direct.DirectWorkerError(f"worker_unreachable:{secret}:PermissionError")),
+        lambda _inputs: (_ for _ in ()).throw(direct.DirectWorkerError(direct_error)),
     )
     monkeypatch.setattr(
         os.sys,
@@ -335,13 +357,11 @@ def test_cli_sanitizes_unhandled_direct_worker_failure(
     assert raised.value.code == 2
     assert captured.out == ""
     assert json.loads(captured.err) == {
-        "category": "worker_unreachable",
+        "category": expected_category,
         "code": "generation_transition_failed",
         "status": "error",
     }
-    assert secret not in captured.err
-    assert "credential" not in captured.err
-    assert "private-metadata" not in captured.err
+    assert all(value not in captured.err for value in forbidden)
     assert "Traceback" not in captured.err
 
 

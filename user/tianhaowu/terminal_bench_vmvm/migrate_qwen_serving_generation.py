@@ -44,7 +44,39 @@ SCHEMA_VERSION = 1
 MAX_METADATA_BYTES = 16 << 20
 SHA256 = re.compile(r"[0-9a-f]{64}")
 GIT_SHA = re.compile(r"[0-9a-f]{40}")
-SAFE_ERROR_CATEGORY = re.compile(r"[a-z][a-z0-9_]{0,95}")
+DIRECT_ERROR_CATEGORIES = frozenset(
+    {
+        "duplicate_endpoint",
+        "endpoint_bundle_sha256_mismatch",
+        "endpoints_directory_missing_or_symlink",
+        "health_status",
+        "metadata_fields_invalid",
+        "metadata_host_invalid",
+        "metadata_invalid_json",
+        "metadata_not_object",
+        "metadata_port_invalid",
+        "metadata_started_at_invalid",
+        "metadata_too_large",
+        "models_invalid_json",
+        "models_mismatch",
+        "models_response_too_large",
+        "models_status",
+        "probe_concurrency_invalid",
+        "spec_missing_or_symlink",
+        "spec_sha256_mismatch",
+        "unexpected_endpoint_directory_entry",
+        "worker_unreachable",
+    }
+)
+DIRECT_ERROR_FAMILIES = (
+    ("admission_transition_", "admission_transition_validation"),
+    ("direct_worker_", "direct_worker_validation"),
+    ("eval_", "eval_config_validation"),
+    ("external_task_approval_", "external_task_approval_validation"),
+    ("legacy_", "legacy_contract_validation"),
+    ("resume_", "resume_contract_validation"),
+    ("routing_transition_", "routing_transition_validation"),
+)
 SOURCE_FILES = {
     "source_config.toml": "config.toml",
     "source_direct_workers.json": "direct_workers.json",
@@ -98,10 +130,13 @@ def _direct_error(code: str, error: direct.DirectWorkerError) -> GenerationMigra
     raw_category = str(error).partition(":")[0]
     if raw_category.startswith("endpoint_count="):
         category = "endpoint_count_mismatch"
-    elif SAFE_ERROR_CATEGORY.fullmatch(raw_category) is not None:
+    elif raw_category in DIRECT_ERROR_CATEGORIES:
         category = raw_category
     else:
-        category = "direct_worker_error"
+        category = next(
+            (mapped for prefix, mapped in DIRECT_ERROR_FAMILIES if raw_category.startswith(prefix)),
+            "direct_worker_error",
+        )
     return GenerationMigrationError(code, category=category)
 
 
