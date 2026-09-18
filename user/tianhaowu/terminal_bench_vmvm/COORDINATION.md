@@ -40,6 +40,29 @@ Add new rows below this line; do not overwrite another owner's row.
 
 ## Open coordination requests
 
+- **2026-09-18 09:06 UTC, use2-3 Kimi failure RCA and replacement-generation
+  recovery:** corrected-source wave 0 ended with four terminal scheduler-success
+  jobs but zero accepted shards. Aggregate telemetry proves all 240 VMVM lease
+  attempts exited locally before any tunnel, lease, or model request because the
+  hermetic shard `--export-file` omitted both required vacli TLS credential-path
+  variables. Same-runtime Oracle activity opened 71 tunnels concurrently, ruling
+  out VMVM capacity, stale leases, images, and inference load. Shared head
+  `6628f5632` contains reviewed fix `a7c9f2246`; smoke-compatible execution
+  branch `fix/kimi-tb4-auth-compatible` is pinned at `aedbfef99`, which is exactly
+  `ce0b47014` plus the launcher/controller/tests/skill fix and excludes the later
+  taskset change. Focused validation passed 47 tests, the compatible full suite
+  passed 662, and independent review found no blockers. Endpoint `1743256` was
+  scheduler-preempted after 5:37:13; automatic successor `1744520` is running on
+  four new nodes and published a new generation. Fresh one-route readiness gate
+  `1744694` is pending. After it passes, publish the schema-2 smoke-generation
+  bridge, run one corrected singleton canary, then start a fresh 66-shard
+  controller/finalizer. Old wave roots remain diagnostic and must never be
+  reused. Oracle V3 recovered 6/50 repair candidates with zero control
+  regressions, below its required 12, so no Mobius promotion exists; the next
+  generic repair is isolated, attested source-to-wheel building for the nine
+  source-only dependency cases. Never inspect or expose task identifiers,
+  prompts, responses, raw errors, endpoint secrets, or model/tool/trace bodies.
+
 - **2026-09-18 08:24 UTC, one-hour aggregate Kimi/oracle status request ->
   use2-3 owner:** more than one hour has elapsed since the corrected Kimi
   wave-0 launch was published, with no later per-job transition visible across
