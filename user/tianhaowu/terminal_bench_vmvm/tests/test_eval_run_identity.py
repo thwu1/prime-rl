@@ -282,6 +282,21 @@ def test_eval_contract_binds_required_training_and_concurrency_settings() -> Non
     kimi["client"]["timeout"] = 43_200
     kimi["harness"]["config_overrides"] = ["model.model_kwargs.timeout=43200"]
     _contract(kimi, "Kimi-K3")
+    resolved_kimi = _resolved_config()
+    resolved_kimi["model"] = "Kimi-K3"
+    resolved_kimi["client"]["timeout"] = 43_200.0
+    resolved_kimi["client"]["connect_timeout"] = 120.0
+    resolved_kimi["timeout"]["rollout"] = 28_800.0
+    resolved_kimi["harness"]["runtime"]["session_timeout"] = 32_400.0
+    resolved_kimi["harness"]["config_overrides"] = ["model.model_kwargs.timeout=43200"]
+    _contract(resolved_kimi, "Kimi-K3")
+    for invalid_timeout in (True, 43_200.5, float("nan"), float("inf")):
+        invalid_kimi = _resolved_config()
+        invalid_kimi["model"] = "Kimi-K3"
+        invalid_kimi["client"]["timeout"] = invalid_timeout
+        invalid_kimi["harness"]["config_overrides"] = ["model.model_kwargs.timeout=43200"]
+        with pytest.raises(EvalIdentityError, match="kimi_timeout_contract_invalid"):
+            _contract(invalid_kimi, "Kimi-K3")
     for section, key, value in (
         ("client", "timeout", 7_200),
         ("timeout", "rollout", 43_200),

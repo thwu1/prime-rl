@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import math
 import os
 import re
 import stat
@@ -73,6 +74,17 @@ class EvalIdentityError(ValueError):
     """The proposed evaluation cannot be bound to immutable provenance."""
 
 
+def _whole_timeout_seconds(value: Any) -> int:
+    if (
+        isinstance(value, bool)
+        or not isinstance(value, (int, float))
+        or not math.isfinite(value)
+        or int(value) != value
+    ):
+        raise EvalIdentityError("kimi_timeout_contract_invalid")
+    return int(value)
+
+
 def validate_kimi_timeout_contract(config: dict[str, Any]) -> dict[str, int]:
     """Validate the nested timeout envelope required by slow Kimi generations."""
 
@@ -89,22 +101,16 @@ def validate_kimi_timeout_contract(config: dict[str, Any]) -> dict[str, int]:
         raise EvalIdentityError("kimi_timeout_contract_invalid")
     assert isinstance(client, dict) and isinstance(timeouts, dict) and isinstance(runtime, dict)
     harness_timeout_override = f"model.model_kwargs.timeout={KIMI_REQUEST_TIMEOUT}"
-    harness_timeout_entries = [
-        value for value in overrides if value.startswith("model.model_kwargs.timeout=")
-    ]
-    request_timeout = client.get("timeout")
-    connect_timeout = client.get("connect_timeout")
-    rollout_timeout = timeouts.get("rollout")
-    session_timeout = runtime.get("session_timeout")
+    harness_timeout_entries = [value for value in overrides if value.startswith("model.model_kwargs.timeout=")]
+    request_timeout = _whole_timeout_seconds(client.get("timeout"))
+    connect_timeout = _whole_timeout_seconds(client.get("connect_timeout"))
+    rollout_timeout = _whole_timeout_seconds(timeouts.get("rollout"))
+    session_timeout = _whole_timeout_seconds(runtime.get("session_timeout"))
     if (
-        type(request_timeout) is not int
-        or request_timeout != KIMI_REQUEST_TIMEOUT
+        request_timeout != KIMI_REQUEST_TIMEOUT
         or harness_timeout_entries != [harness_timeout_override]
-        or type(connect_timeout) is not int
         or connect_timeout < KIMI_MIN_CONNECT_TIMEOUT_SECONDS
-        or type(rollout_timeout) is not int
         or rollout_timeout < KIMI_MIN_ROLLOUT_TIMEOUT_SECONDS
-        or type(session_timeout) is not int
         or session_timeout < KIMI_MIN_SESSION_TIMEOUT_SECONDS
         or rollout_timeout >= session_timeout
         or rollout_timeout >= KIMI_REQUEST_TIMEOUT
