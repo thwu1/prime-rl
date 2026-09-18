@@ -118,7 +118,11 @@ def _task_allowlist_count(path: Path) -> int:
     return len(tasks)
 
 
-def provider_concurrency(config: dict[str, Any]) -> int:
+def provider_concurrency(
+    config: dict[str, Any],
+    *,
+    expected_capacity: tuple[int, int] | None = None,
+) -> int:
     """Return the explicitly pinned HTTP/provider concurrency for an eval."""
     max_concurrent = config.get("max_concurrent")
     client = config.get("client")
@@ -138,6 +142,11 @@ def provider_concurrency(config: dict[str, Any]) -> int:
     if values[0] != values[1]:
         raise DirectWorkerError("eval_client_provider_concurrency_mismatch")
     value = values[0]
+    if expected_capacity is not None:
+        expected_rollouts, expected_provider = expected_capacity
+        if (max_concurrent, value) != (expected_rollouts, expected_provider):
+            raise DirectWorkerError("eval_client_provider_concurrency_invalid")
+        return value
     allowed = (
         {LEGACY_PRODUCTION_PROVIDER_CONCURRENCY, PRODUCTION_PROVIDER_CONCURRENCY}
         if max_concurrent == MAX_DIRECT_CONCURRENCY
@@ -226,6 +235,7 @@ def validate_eval_config(
     approved_task_file: Path | None = None,
     approved_task_file_sha256: str | None = None,
     allow_historical_retry_policy: bool = False,
+    expected_capacity: tuple[int, int] | None = None,
 ) -> str:
     try:
         config = tomllib.loads(path.read_text(encoding="utf-8"))
@@ -240,10 +250,12 @@ def validate_eval_config(
     if isinstance(num_tasks, bool) or not isinstance(num_tasks, int) or num_tasks < 1:
         raise DirectWorkerError("eval_num_tasks_invalid")
     max_concurrent = config.get("max_concurrent")
+    expected_rollouts = expected_capacity[0] if expected_capacity is not None else None
     if (
         isinstance(max_concurrent, bool)
         or not isinstance(max_concurrent, int)
-        or not 1 <= max_concurrent <= MAX_DIRECT_CONCURRENCY
+        or (expected_rollouts is None and not 1 <= max_concurrent <= MAX_DIRECT_CONCURRENCY)
+        or (expected_rollouts is not None and max_concurrent != expected_rollouts)
     ):
         raise DirectWorkerError("eval_max_concurrent_invalid")
     multiplex = config.get("multiplex")
@@ -302,7 +314,7 @@ def validate_eval_config(
     # vllm-router 0.1.26 implements ``max_concurrent_requests`` with a
     # replenishing token bucket, not a strict in-flight semaphore.  The one
     # shared HTTP/1.1 pool is therefore the authoritative provider bound.
-    provider_concurrency(config)
+    provider_concurrency(config, expected_capacity=expected_capacity)
 
     sampling = config.get("sampling")
     if not isinstance(sampling, dict):
@@ -328,7 +340,7 @@ def validate_eval_config(
     config_overrides = harness.get("config_overrides")
     if not isinstance(config_overrides, list) or not all(isinstance(value, str) for value in config_overrides):
         raise DirectWorkerError("eval_harness_config_overrides_invalid")
-    if max_concurrent == MAX_DIRECT_CONCURRENCY:
+    if expected_capacity is not None or max_concurrent == MAX_DIRECT_CONCURRENCY:
         timeout_overrides = [value for value in config_overrides if value.startswith("model.model_kwargs.timeout=")]
         if timeout_overrides != [f"model.model_kwargs.timeout={PRODUCTION_MODEL_TIMEOUT_SECONDS}"]:
             raise DirectWorkerError("eval_model_timeout_mismatch")

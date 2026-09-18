@@ -181,10 +181,31 @@ task_file_sha256 = "{task_sha256}"
                 "task_file_sha256": task_sha256,
                 "task_index_order_sha256": "7" * 64,
             }
+        if command.stage == "materialize_generation":
+            output = _argument(command, "--output-dir")
+            output.mkdir()
+            transition_body = b'{"synthetic":"generation-transition"}\n'
+            _write(output / chain.generation.TRANSITION_FILENAME, transition_body)
+            return {
+                "added_workers": 9,
+                "ok": True,
+                "overlap_workers": 15,
+                "repair_union_count": self.repair_count,
+                "retired_workers": 1,
+                "server_identifier": "shared_qwen38_2p4t_e5ddc652",
+                "source_rows": 1_392,
+                "status": "materialized",
+                "target_workers": 24,
+                "transition_sha256": _sha256(transition_body),
+            }
         if command.stage == "repair_eval":
             assert command.argv[0] == "/bin/bash"
-            assert command.environment["VACLI_MAX_CONCURRENT_LEASES"] == "2"
+            assert command.environment["VACLI_MAX_CONCURRENT_LEASES"] == "4"
             assert command.environment["OPENAI_API_KEY"] == "EMPTY"
+            assert command.environment["QWEN_SERVING_GENERATION_BUNDLE"].endswith(chain.generation.RUN_BUNDLE_DIRECTORY)
+            assert command.environment["EVAL_CONFIG"].endswith(
+                f"{chain.generation.RUN_BUNDLE_DIRECTORY}/{chain.generation.GENERATION_CONFIG_FILENAME}"
+            )
             repair_dir = Path(command.environment["OUTPUT_DIR"])
             if self.mutate_selection:
                 selection_file = Path(command.environment["DIRECT_QWEN_APPROVED_TASK_FILE"])
@@ -362,6 +383,7 @@ def test_repair_chain_success(tmp_path: Path) -> None:
     assert summary["repair_count"] == 2
     assert runner.stages == [
         "materialize",
+        "materialize_generation",
         "repair_eval",
         "finalize_original",
         "finalize_repair",
@@ -491,7 +513,7 @@ def test_repair_chain_detects_selection_mutation(tmp_path: Path) -> None:
             project_validator=lambda _project, _revision: attestation,
             environment={"PATH": os.environ["PATH"], "SLURM_JOB_ID": "456"},
         )
-    assert runner.stages == ["materialize", "repair_eval"]
+    assert runner.stages == ["materialize", "materialize_generation", "repair_eval"]
     assert not options.original_export_dir.exists()
 
 

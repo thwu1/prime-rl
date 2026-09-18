@@ -170,6 +170,31 @@ merge or overwrite the two result files manually.
 
 ## Terminal epoch-3 SFT finalization
 
+When the terminal epoch-3 source cannot be resumed because its exact worker set
+has changed, keep that source immutable and use the fresh repair continuation
+implemented by `qwen_repair_chain.py`. Its server-specific contract lives at
+`configs/eval/servers/shared_qwen38_2p4t_e5ddc652/repair_generation.json`; it
+does not replace the historical 16-worker launcher contract. Before the repair
+evaluator starts, `migrate_qwen_serving_generation.py materialize` verifies the
+exact 1,392-row source prefix, per-row hash order, saved source/config
+snapshots, old and new full worker manifests, clean source/submodule/tree
+digests, the exact 15-overlap/1-retired/9-added transition, and all 24 current
+workers. The fresh repair run is then fixed to 96 rollout/VMVM sessions,
+`consistent_hash`, `x-session-id`, 48 active provider requests, a 48-request
+queue, four simultaneous VMVM lease starts, 32 GiB of controller memory, and
+the existing 256K total-context cap.
+
+The controller supplies the resulting private bundle to
+`run_qwen_direct_eval.sbatch`. Initial launch remains incomplete until the
+run-local manifest, config/input snapshots, and provenance all validate while
+the router and writer locks are held. Before commit, 96 concurrent one-token
+requests must all pass through the local router; only aggregate hashes, counts,
+timing, and the measured client concurrency are retained in the private
+capacity certificate. Resume additionally rejects a changed source or
+deployment, a changed transition or certificate, an incomplete launch, or any
+concurrent writer. Continue using the normal repair exclusion/export/merge
+chain; do not reinterpret this as an epoch-4 append to the frozen source.
+
 After the final epoch-3 evaluator succeeds, submit
 `finalize_qwen_sft.sbatch` as an `afterok` dependency from a clean detached
 snapshot of its exact committed revision. The wrapper accepts no positional
