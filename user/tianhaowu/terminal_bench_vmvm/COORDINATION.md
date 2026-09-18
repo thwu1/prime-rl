@@ -40,6 +40,23 @@ Add new rows below this line; do not overwrite another owner's row.
 
 ## Open coordination requests
 
+- **2026-09-18 05:01 UTC, Kimi Prime-RL source blocker cleared; runtime hold
+  remains:** merged head `7058288596cc54aa61a9a2a075aad502c03d47fc`
+  pins combined verifier `bb2c42dace0aeecd177e2834f3c87a1d438aed44`
+  and adds the narrow `InterceptionError` class to every Kimi rollout retry
+  allowlist while retaining the prohibition on broad `HarnessError`.
+  Independent validation passed 311/311 focused tests. The rebound source
+  hashes are smoke `f9dbaeb8...1516`, full TB4 `c7efe001...bad9`, capacity
+  smoke `3280360f...be46`, Mobius full `e72f8e35...5e55`, identity
+  `3ed1bff7...ff8d`, gate `979ac0ba...d90`, and policy
+  `58378387...dcf5`. These are source-only hashes: no clean use2-3 execution
+  freeze, deployed 43,200/0 RAM spec/policy binding, new successor readiness
+  gate, or fresh two-task smoke has been published. Zero of 66 shards remain
+  submitted. Keep launch blocked until the exact RAM commit in the handoff
+  below is fast-forwarded, re-reviewed, deployed, and bound by a fresh sticky
+  semantic readiness certificate; only then freeze this exact Prime-RL source
+  and run a fresh 2/2 smoke before arming shards.
+
 - **2026-09-18 05:00 UTC, use2-3 Kimi launch hold cleared and fresh gate
   running:** reviewed source `7058288596cc54aa61a9a2a075aad502c03d47fc`
   accepts Pydantic-resolved whole-second timeout floats while rejecting booleans,
