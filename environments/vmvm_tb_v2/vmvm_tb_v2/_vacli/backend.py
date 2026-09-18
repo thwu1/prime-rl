@@ -38,6 +38,7 @@ import os
 import re
 import shlex
 import signal
+import stat
 import subprocess
 import tarfile
 import tempfile
@@ -252,14 +253,21 @@ class VacliLease:
         cleanup_timeout: float = DEFAULT_VACLI_CLEANUP_TIMEOUT,
         subprocess_mod: Any = None,
         image_url: str | None = None,
+        expected_log_identity: tuple[int, int] | None = None,
+        setup_slot_timeout: float | None = None,
     ) -> None:
         self.tenant_id = tenant_id
         self.log_path = log_path
         self.lease_ttl = lease_ttl
         self.tunnel_ready_timeout = tunnel_ready_timeout
         self.cleanup_timeout = cleanup_timeout
+        self.setup_slot_timeout = tunnel_ready_timeout if setup_slot_timeout is None else setup_slot_timeout
+        if not math.isfinite(self.setup_slot_timeout) or self.setup_slot_timeout <= 0:
+            raise ValueError("setup_slot_timeout must be positive and finite")
         self._sp = subprocess_mod or subprocess
         self._image_url = image_url
+        self._expected_log_identity = expected_log_identity
+        self._log_identity: tuple[int, int] | None = None
         self.proc: Any = None
         self.ssh_port: int | None = None
         self._cleaned_up = False
@@ -271,7 +279,8 @@ class VacliLease:
         atexit.register(self.cleanup)
 
     def start(self) -> None:
-        _lease_concurrency.acquire()
+        if not _lease_concurrency.acquire(timeout=self.setup_slot_timeout):
+            raise BackendInitError("timed out waiting for a vacli setup slot")
         self._concurrency_held = True
         cmd = [
             VACLI_BIN,
@@ -290,11 +299,11 @@ class VacliLease:
         # inside the VM uses vmvm-registry.fbinfra.net mirror instead.
         logger.info(f"vacli: leasing VMVM (tenant={self.tenant_id}); log={self.log_path}")
         try:
-            # `with open(...)` closes the parent's fd after Popen returns;
+            # `_open_log_for_write()` closes the parent's fd after Popen returns;
             # the child has already inherited its own dup'd copy via Popen
             # (stdout=log_fh), so closing here is safe and avoids holding
             # one fd open per lease for the backend's lifetime.
-            with open(self.log_path, "wb") as log_fh:
+            with self._open_log_for_write() as log_fh:
                 # New process group via `process_group=0` (added in Python 3.11):
                 # a Ctrl-C in our terminal doesn't go straight to vacli; we want
                 # to SIGTERM it ourselves so cleanup is ordered. Prefer this over
@@ -334,7 +343,7 @@ class VacliLease:
                         f"vacli died before tunnel was ready (exit {self.proc.returncode}). Tail of log:\n{tail}"
                     )
                 try:
-                    text = self.log_path.read_text(errors="replace")
+                    text = self._read_verified_log_text()
                 except FileNotFoundError:
                     text = ""
                 # Capture the LeaseVmResponse once (needed later for resume).
@@ -396,6 +405,8 @@ class VacliLease:
         _old_log = self.log_path
         base = self.log_path.name.split(".resume")[0]
         self.log_path = self.log_path.with_name(f"{base}.resume{self._resume_count}.log")
+        self._expected_log_identity = None
+        self._log_identity = None
         try:
             _old_log.unlink()
         except (FileNotFoundError, OSError):
@@ -417,10 +428,12 @@ class VacliLease:
         ]
         logger.info("vacli.restart_tunnel: resuming session (attempt %d)", self._resume_count)
         # Respect the shared setup cap (released by wait_for_tunnel's finally).
-        _lease_concurrency.acquire()
+        if not _lease_concurrency.acquire(timeout=self.setup_slot_timeout):
+            logger.warning("vacli.restart_tunnel: setup slot timed out")
+            return None
         self._concurrency_held = True
         try:
-            with open(self.log_path, "wb") as log_fh:
+            with self._open_log_for_write() as log_fh:
                 _popen_kwargs = dict(stdout=log_fh, stderr=self._sp.STDOUT, process_group=0)
                 if self._sp is subprocess:
                     _popen_kwargs["preexec_fn"] = _child_pdeathsig
@@ -470,9 +483,67 @@ class VacliLease:
             except ValueError:
                 pass
 
+    def _open_log_for_write(self):
+        flags = os.O_WRONLY | os.O_CREAT | os.O_CLOEXEC
+        if hasattr(os, "O_NOFOLLOW"):
+            flags |= os.O_NOFOLLOW
+        if hasattr(os, "O_NONBLOCK"):
+            flags |= os.O_NONBLOCK
+        try:
+            descriptor = os.open(self.log_path, flags, 0o600)
+        except OSError as error:
+            raise BackendInitError("vacli log could not be opened safely") from error
+        try:
+            metadata = os.fstat(descriptor)
+            path_metadata = self.log_path.lstat()
+            identity = (metadata.st_dev, metadata.st_ino)
+            if (
+                not stat.S_ISREG(metadata.st_mode)
+                or (path_metadata.st_dev, path_metadata.st_ino) != identity
+                or (self._expected_log_identity is not None and identity != self._expected_log_identity)
+                or (self._expected_log_identity is not None and stat.S_IMODE(metadata.st_mode) != 0o600)
+            ):
+                raise BackendInitError("vacli log is not a verified private regular file")
+            os.fchmod(descriptor, 0o600)
+            os.ftruncate(descriptor, 0)
+            self._log_identity = identity
+            return os.fdopen(descriptor, "wb")
+        except Exception:
+            os.close(descriptor)
+            raise
+
+    def _read_verified_log_text(self) -> str:
+        if self._log_identity is None:
+            raise BackendInitError("vacli log identity is unavailable")
+        flags = os.O_RDONLY | os.O_CLOEXEC
+        if hasattr(os, "O_NOFOLLOW"):
+            flags |= os.O_NOFOLLOW
+        if hasattr(os, "O_NONBLOCK"):
+            flags |= os.O_NONBLOCK
+        try:
+            descriptor = os.open(self.log_path, flags)
+        except OSError as error:
+            raise BackendInitError("vacli log could not be read safely") from error
+        try:
+            metadata = os.fstat(descriptor)
+            path_metadata = self.log_path.lstat()
+            if (
+                not stat.S_ISREG(metadata.st_mode)
+                or (metadata.st_dev, metadata.st_ino) != self._log_identity
+                or (path_metadata.st_dev, path_metadata.st_ino) != self._log_identity
+                or stat.S_IMODE(metadata.st_mode) != 0o600
+            ):
+                raise BackendInitError("vacli log identity changed")
+            with os.fdopen(descriptor, "r", errors="replace") as handle:
+                descriptor = -1
+                return handle.read()
+        finally:
+            if descriptor >= 0:
+                os.close(descriptor)
+
     def _log_tail(self, n: int) -> str:
         try:
-            lines = self.log_path.read_text(errors="replace").splitlines()
+            lines = self._read_verified_log_text().splitlines()
         except FileNotFoundError:
             return "(log file not found)"
         return "\n".join("  " + ln for ln in lines[-n:])

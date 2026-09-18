@@ -647,6 +647,9 @@ directory, with 96 rollout sessions, a 48-request provider/router cap, a
 48-request queue, four simultaneous VMVM lease starts, 32 GiB of controller
 memory, and a 262,144-token total context cap. A 96-request concurrent capacity
 smoke must produce a private, transition-bound certificate before evaluation.
+Before invoking the evaluator, the controller also requires one task-free VACLI
+lease to expose its SSH tunnel within a fixed timeout, records only a private
+aggregate success marker, and releases the lease before the 96-way fanout.
 It invokes
 `run_qwen_direct_eval.sbatch` as a shell program in the controller's existing
 allocation; it never submits a child Slurm job. The original and repair sources
