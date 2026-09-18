@@ -8,6 +8,9 @@ import hashlib
 import os
 import re
 import stat
+import subprocess
+import sys
+import sysconfig
 import uuid
 from collections.abc import Awaitable, Callable
 from dataclasses import asdict, dataclass, field
@@ -45,11 +48,14 @@ from terminal_bench_vmvm.source_wheels import (
 from terminal_bench_vmvm.taskset import _SOURCE_WHEEL_CLOSURE_CODE, _SOURCE_WHEEL_DOWNLOAD_CODE
 
 DISCOVERY_INPUT_SCHEMA_VERSION = 1
-PROOF_SCHEMA_VERSION = 1
-STATE_SCHEMA_VERSION = 1
-RUN_IDENTITY_SCHEMA_VERSION = 1
-CANDIDATE_SCHEMA_VERSION = 1
+PROOF_SCHEMA_VERSION = 2
+STATE_SCHEMA_VERSION = 2
+RUN_IDENTITY_SCHEMA_VERSION = 2
+CANDIDATE_SCHEMA_VERSION = 2
+ATTEMPT_JOURNAL_SCHEMA_VERSION = 1
+FINALIZATION_SCHEMA_VERSION = 1
 APPROVED_BASE_RUNTIME_COMMIT = "ceb9356c98c72e51568e7bb4658a540cb1492254"
+REQUIRED_DISCOVERY_ENTRIES = 9
 MAX_CONCURRENT_ENTRIES = 3
 RUNTIMES_PER_ENTRY = 3
 MAX_PIP_REPORT_BYTES = 16 * 1024 * 1024
@@ -193,7 +199,7 @@ class SourceWheelProofError(RuntimeError):
 
 class ProofRuntime(Protocol):
     config: VMVMConfig
-    descriptor: str | None
+    backend: object
 
     async def start(self) -> None: ...
 
@@ -218,6 +224,21 @@ class SourceWheelProofConfig:
     input_path: Path
     input_sha256: str
     output_dir: Path
+    expected_entry_count: int
+    expected_missing_evidence_sha256: str
+    project_dir: Path
+    canonical_launcher_path: Path
+    executed_launcher_path: Path
+    uv_path: Path
+    python_path: Path
+    python_stdlib_path: Path
+    site_packages_path: Path
+    vacli_path: Path
+    launcher_sha256: str
+    uv_sha256: str
+    python_sha256: str
+    python_runtime_manifest_sha256: str
+    site_packages_manifest_sha256: str
     base_runtime_commit: str
     source_commit: str
     source_git_tree: str
@@ -237,13 +258,15 @@ class SourceWheelProofConfig:
     max_session_buffer_size: int = 67_108_864
     tenant_id: str = "async_2347641"
     lease_ttl: str = "60s"
-    vacli_lease_retries: int = 20
+    vacli_lease_retries: int = 1
     vacli_max_concurrent_leases: int = 6
     vacli_max_pull_retries: int = 20
     vacli_image_pull_timeout_seconds: int = 3_600
     vacli_container_privileged: int = 1
 
     def validate(self) -> None:
+        if self.expected_entry_count != REQUIRED_DISCOVERY_ENTRIES:
+            raise SourceWheelProofError("expected_entry_count_invalid")
         if SHA256_RE.fullmatch(self.input_sha256) is None:
             raise SourceWheelProofError("input_sha256_invalid")
         if self.resume_state_sha256 is not None and SHA256_RE.fullmatch(self.resume_state_sha256) is None:
@@ -262,7 +285,17 @@ class SourceWheelProofConfig:
             raise SourceWheelProofError("base_runtime_revision_invalid")
         if self.source_tree_sha256 != CLEAN_TREE_SHA256:
             raise SourceWheelProofError("source_tree_not_clean")
-        if SHA256_RE.fullmatch(self.vmvm_tb_v2_sha256) is None or SHA256_RE.fullmatch(self.vacli_binary_sha256) is None:
+        bound_hashes = (
+            self.expected_missing_evidence_sha256,
+            self.launcher_sha256,
+            self.uv_sha256,
+            self.python_sha256,
+            self.python_runtime_manifest_sha256,
+            self.site_packages_manifest_sha256,
+            self.vmvm_tb_v2_sha256,
+            self.vacli_binary_sha256,
+        )
+        if any(SHA256_RE.fullmatch(digest) is None for digest in bound_hashes):
             raise SourceWheelProofError("runtime_source_sha256_invalid")
         if not self.invocation_host.strip() or not self.slurm_job_id.isdigit() or int(self.slurm_job_id) < 1:
             raise SourceWheelProofError("invocation_identity_invalid")
@@ -274,7 +307,7 @@ class SourceWheelProofConfig:
             raise SourceWheelProofError("runtime_buffer_invalid")
         if not self.tenant_id or not self.lease_ttl:
             raise SourceWheelProofError("runtime_identity_invalid")
-        if self.vacli_lease_retries < 0 or self.vacli_max_pull_retries < 0:
+        if self.vacli_lease_retries != 1 or self.vacli_max_pull_retries < 0:
             raise SourceWheelProofError("vacli_retry_invalid")
         if self.vacli_max_concurrent_leases < 1 or self.vacli_image_pull_timeout_seconds < 1:
             raise SourceWheelProofError("vacli_limit_invalid")
@@ -341,6 +374,7 @@ class DiscoveryEntry:
 class DiscoveryManifest:
     path: Path
     sha256: str
+    missing_required_evidence_sha256: str
     allowed_hosts: tuple[str, ...]
     provenance_sha256: str
     entries: tuple[DiscoveryEntry, ...]
@@ -457,10 +491,13 @@ def _runtime_factory(config: VMVMConfig, name: str) -> ProofRuntime:
 
 
 def _lease_identity_sha256(runtime: ProofRuntime) -> str:
-    descriptor = runtime.descriptor
-    if not isinstance(descriptor, str) or not descriptor:
+    try:
+        identity = getattr(runtime.backend, "lease_identity_sha256")
+    except Exception as error:
+        raise SourceWheelProofError("runtime_lease_identity_missing") from error
+    if not isinstance(identity, str) or SHA256_RE.fullmatch(identity) is None:
         raise SourceWheelProofError("runtime_lease_identity_missing")
-    return sha256_bytes(canonical_json(["vmvm-lease", descriptor]))
+    return identity
 
 
 def _private_regular_file(path: Path) -> bool:
@@ -476,14 +513,353 @@ def _read_private(path: Path, error_code: str) -> bytes:
         after = path.lstat()
     except OSError as error:
         raise SourceWheelProofError(error_code) from error
-    if (before.st_dev, before.st_ino, before.st_size, before.st_mtime_ns) != (
+    if (
+        before.st_dev,
+        before.st_ino,
+        before.st_mode,
+        before.st_nlink,
+        before.st_size,
+        before.st_mtime_ns,
+        before.st_ctime_ns,
+    ) != (
         after.st_dev,
         after.st_ino,
+        after.st_mode,
+        after.st_nlink,
         after.st_size,
         after.st_mtime_ns,
+        after.st_ctime_ns,
     ):
         raise SourceWheelProofError(error_code)
     return payload
+
+
+def _stable_file_digest(path: Path, code: str, *, executable: bool = False) -> tuple[int, int, str]:
+    try:
+        descriptor = os.open(path, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0))
+    except OSError as error:
+        raise SourceWheelProofError(code) from error
+    try:
+        before = os.fstat(descriptor)
+        if not stat.S_ISREG(before.st_mode) or (executable and before.st_mode & 0o111 == 0):
+            raise SourceWheelProofError(code)
+        digest = hashlib.sha256()
+        while chunk := os.read(descriptor, 1024 * 1024):
+            digest.update(chunk)
+        after = os.fstat(descriptor)
+    finally:
+        os.close(descriptor)
+    if (
+        before.st_dev,
+        before.st_ino,
+        before.st_mode,
+        before.st_nlink,
+        before.st_size,
+        before.st_mtime_ns,
+        before.st_ctime_ns,
+    ) != (
+        after.st_dev,
+        after.st_ino,
+        after.st_mode,
+        after.st_nlink,
+        after.st_size,
+        after.st_mtime_ns,
+        after.st_ctime_ns,
+    ):
+        raise SourceWheelProofError(code)
+    return stat.S_IMODE(before.st_mode), before.st_size, digest.hexdigest()
+
+
+def canonical_tree_manifest_sha256(root: Path) -> str:
+    """Hash a complete directory tree without following directory symlinks."""
+    try:
+        resolved_root = root.resolve(strict=True)
+        root_status = resolved_root.lstat()
+    except OSError as error:
+        raise SourceWheelProofError("runtime_manifest_invalid") from error
+    if root != resolved_root or not stat.S_ISDIR(root_status.st_mode):
+        raise SourceWheelProofError("runtime_manifest_invalid")
+    records: list[list[object]] = [["directory", ".", stat.S_IMODE(root_status.st_mode)]]
+
+    def visit(directory: Path, relative: PurePosixPath) -> None:
+        try:
+            before = directory.lstat()
+            entries = sorted(os.scandir(directory), key=lambda item: item.name)
+        except OSError as error:
+            raise SourceWheelProofError("runtime_manifest_invalid") from error
+        names = [entry.name for entry in entries]
+        for entry in entries:
+            child = Path(entry.path)
+            child_relative = relative / entry.name
+            try:
+                status = child.lstat()
+            except OSError as error:
+                raise SourceWheelProofError("runtime_manifest_invalid") from error
+            if stat.S_ISDIR(status.st_mode):
+                records.append(["directory", child_relative.as_posix(), stat.S_IMODE(status.st_mode)])
+                visit(child, child_relative)
+                continue
+            if stat.S_ISREG(status.st_mode):
+                mode, size, digest = _stable_file_digest(child, "runtime_manifest_invalid")
+                records.append(["file", child_relative.as_posix(), mode, size, digest])
+                continue
+            if stat.S_ISLNK(status.st_mode):
+                try:
+                    target = os.readlink(child)
+                    resolved_target = child.resolve(strict=True)
+                except OSError as error:
+                    raise SourceWheelProofError("runtime_manifest_invalid") from error
+                if not resolved_target.is_file():
+                    raise SourceWheelProofError("runtime_manifest_invalid")
+                mode, size, digest = _stable_file_digest(resolved_target, "runtime_manifest_invalid")
+                records.append(
+                    [
+                        "symlink",
+                        child_relative.as_posix(),
+                        stat.S_IMODE(status.st_mode),
+                        target,
+                        str(resolved_target),
+                        mode,
+                        size,
+                        digest,
+                    ]
+                )
+                try:
+                    after_link = child.lstat()
+                    after_target = os.readlink(child)
+                except OSError as error:
+                    raise SourceWheelProofError("runtime_manifest_invalid") from error
+                if (
+                    status.st_dev,
+                    status.st_ino,
+                    status.st_mode,
+                    status.st_mtime_ns,
+                    status.st_ctime_ns,
+                    target,
+                ) != (
+                    after_link.st_dev,
+                    after_link.st_ino,
+                    after_link.st_mode,
+                    after_link.st_mtime_ns,
+                    after_link.st_ctime_ns,
+                    after_target,
+                ):
+                    raise SourceWheelProofError("runtime_manifest_changed")
+                continue
+            raise SourceWheelProofError("runtime_manifest_invalid")
+        try:
+            after = directory.lstat()
+            after_names = sorted(entry.name for entry in os.scandir(directory))
+        except OSError as error:
+            raise SourceWheelProofError("runtime_manifest_invalid") from error
+        if names != after_names or (
+            before.st_dev,
+            before.st_ino,
+            before.st_mode,
+            before.st_mtime_ns,
+            before.st_ctime_ns,
+        ) != (
+            after.st_dev,
+            after.st_ino,
+            after.st_mode,
+            after.st_mtime_ns,
+            after.st_ctime_ns,
+        ):
+            raise SourceWheelProofError("runtime_manifest_changed")
+
+    visit(resolved_root, PurePosixPath())
+    return sha256_bytes(canonical_json({"schema_version": 1, "records": records}))
+
+
+def python_runtime_manifest_sha256(python_path: Path, python_stdlib_path: Path) -> str:
+    try:
+        executable = Path(sys.executable).resolve(strict=True)
+        stdlib = Path(sysconfig.get_path("stdlib")).resolve(strict=True)
+    except (OSError, TypeError) as error:
+        raise SourceWheelProofError("python_runtime_invalid") from error
+    if executable != python_path or stdlib != python_stdlib_path:
+        raise SourceWheelProofError("python_runtime_invalid")
+    _, _, executable_sha256 = _stable_file_digest(executable, "python_runtime_invalid", executable=True)
+    payload = {
+        "schema_version": 1,
+        "kind": "python-stdlib-runtime-manifest",
+        "executable": str(executable),
+        "executable_sha256": executable_sha256,
+        "stdlib": str(stdlib),
+        "stdlib_tree_sha256": canonical_tree_manifest_sha256(stdlib),
+        "implementation": sys.implementation.name,
+        "cache_tag": sys.implementation.cache_tag,
+        "version": list(sys.version_info[:5]),
+        "platform": sysconfig.get_platform(),
+        "soabi": sysconfig.get_config_var("SOABI"),
+        "multiarch": sysconfig.get_config_var("MULTIARCH"),
+        "startup_flags": {
+            "no_site": bool(sys.flags.no_site),
+            "no_user_site": bool(sys.flags.no_user_site),
+            "safe_path": bool(sys.flags.safe_path),
+            "dont_write_bytecode": bool(sys.dont_write_bytecode),
+        },
+    }
+    return sha256_bytes(canonical_json(payload))
+
+
+def _python_sources_sha256(directory: Path) -> str:
+    try:
+        root = directory.resolve(strict=True)
+        paths = sorted(root.glob("*.py"), key=lambda path: path.name)
+    except OSError as error:
+        raise SourceWheelProofError("vmvm_runtime_source_invalid") from error
+    if directory != root or not paths:
+        raise SourceWheelProofError("vmvm_runtime_source_invalid")
+    records = []
+    for path in paths:
+        mode, size, digest = _stable_file_digest(path, "vmvm_runtime_source_invalid")
+        records.append([path.name, mode, size, digest])
+    return sha256_bytes(canonical_json({"schema_version": 1, "files": records}))
+
+
+def _git_output(project_dir: Path, *arguments: str) -> str:
+    environment = os.environ.copy()
+    for name in (
+        "GIT_DIR",
+        "GIT_WORK_TREE",
+        "GIT_INDEX_FILE",
+        "GIT_OBJECT_DIRECTORY",
+        "GIT_ALTERNATE_OBJECT_DIRECTORIES",
+    ):
+        environment.pop(name, None)
+    environment.update(
+        {
+            "GIT_CONFIG_GLOBAL": "/dev/null",
+            "GIT_CONFIG_SYSTEM": "/dev/null",
+            "GIT_OPTIONAL_LOCKS": "0",
+            "GIT_TERMINAL_PROMPT": "0",
+            "LC_ALL": "C",
+        }
+    )
+    try:
+        result = subprocess.run(
+            ["/usr/bin/git", "-C", str(project_dir), *arguments],
+            check=False,
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
+            env=environment,
+        )
+    except OSError as error:
+        raise SourceWheelProofError("source_checkout_invalid") from error
+    if result.returncode != 0:
+        raise SourceWheelProofError("source_checkout_invalid")
+    try:
+        return result.stdout.decode("utf-8").strip()
+    except UnicodeDecodeError as error:
+        raise SourceWheelProofError("source_checkout_invalid") from error
+
+
+def _expected_pythonpath(config: SourceWheelProofConfig) -> str:
+    project = config.project_dir
+    return ":".join(
+        str(path)
+        for path in (
+            project / "user/tianhaowu/terminal_bench_vmvm",
+            project / "environments/vmvm_tb_v2",
+            project / "deps/verifiers",
+            project / "deps/renderers",
+            project / "deps/pydantic-config/src",
+            config.site_packages_path,
+        )
+    )
+
+
+def validate_execution_environment(config: SourceWheelProofConfig) -> None:
+    config.validate()
+    try:
+        project = config.project_dir.resolve(strict=True)
+        canonical_launcher = config.canonical_launcher_path.resolve(strict=True)
+        executed_launcher = config.executed_launcher_path.resolve(strict=True)
+        uv_path = config.uv_path.resolve(strict=True)
+        python_path = config.python_path.resolve(strict=True)
+        python_stdlib = config.python_stdlib_path.resolve(strict=True)
+        site_packages = config.site_packages_path.resolve(strict=True)
+        vacli_path = config.vacli_path.resolve(strict=True)
+    except OSError as error:
+        raise SourceWheelProofError("execution_binding_invalid") from error
+    expected_launcher = project / "user/tianhaowu/terminal_bench_vmvm/run_source_wheel_proof.sbatch"
+    if (
+        project != config.project_dir
+        or canonical_launcher != config.canonical_launcher_path
+        or canonical_launcher != expected_launcher
+        or executed_launcher != canonical_launcher
+        or executed_launcher != config.executed_launcher_path
+        or uv_path != config.uv_path
+        or python_path != config.python_path
+        or python_stdlib != config.python_stdlib_path
+        or site_packages != config.site_packages_path
+        or vacli_path != config.vacli_path
+    ):
+        raise SourceWheelProofError("execution_binding_invalid")
+    expected_python_environment = {
+        "PYTHONPATH": _expected_pythonpath(config),
+        "PYTHONNOUSERSITE": "1",
+        "PYTHONDONTWRITEBYTECODE": "1",
+        "PYTHONSAFEPATH": "1",
+    }
+    observed_python_environment = {name: value for name, value in os.environ.items() if name.startswith("PYTHON")}
+    if (
+        os.environ.get("PATH") != "/usr/bin:/bin"
+        or observed_python_environment != expected_python_environment
+        or any(os.environ.get(name) for name in ("VIRTUAL_ENV", "CONDA_PREFIX", "LD_PRELOAD", "LD_LIBRARY_PATH"))
+    ):
+        raise SourceWheelProofError("execution_environment_not_sanitized")
+    file_bindings = (
+        (canonical_launcher, config.launcher_sha256, False),
+        (executed_launcher, config.launcher_sha256, False),
+        (uv_path, config.uv_sha256, True),
+        (python_path, config.python_sha256, True),
+        (vacli_path, config.vacli_binary_sha256, True),
+    )
+    for path, expected_sha256, executable in file_bindings:
+        _, _, observed_sha256 = _stable_file_digest(path, "execution_tool_invalid", executable=executable)
+        if observed_sha256 != expected_sha256:
+            raise SourceWheelProofError("execution_tool_sha256_mismatch")
+    if os.environ.get("VACLI_BIN") != str(vacli_path):
+        raise SourceWheelProofError("execution_environment_not_sanitized")
+    if (
+        python_runtime_manifest_sha256(config.python_path, config.python_stdlib_path)
+        != config.python_runtime_manifest_sha256
+    ):
+        raise SourceWheelProofError("python_runtime_manifest_mismatch")
+    if canonical_tree_manifest_sha256(site_packages) != config.site_packages_manifest_sha256:
+        raise SourceWheelProofError("site_packages_manifest_mismatch")
+    if _python_sources_sha256(project / "environments/vmvm_tb_v2/vmvm_tb_v2/_vacli") != config.vmvm_tb_v2_sha256:
+        raise SourceWheelProofError("vmvm_runtime_source_mismatch")
+    if _git_output(project, "rev-parse", "--verify", "HEAD") != config.source_commit:
+        raise SourceWheelProofError("source_checkout_mismatch")
+    if _git_output(project, "rev-parse", "--verify", "HEAD^{tree}") != config.source_git_tree:
+        raise SourceWheelProofError("source_checkout_mismatch")
+    if _git_output(project, "status", "--porcelain=v1", "--untracked-files=all", "--ignore-submodules=none"):
+        raise SourceWheelProofError("source_checkout_not_clean")
+    if (
+        _git_output(project, "merge-base", config.base_runtime_commit, config.source_commit)
+        != config.base_runtime_commit
+    ):
+        raise SourceWheelProofError("source_base_invalid")
+    dependencies = {
+        "deps/verifiers": config.verifiers_commit,
+        "deps/renderers": config.renderers_commit,
+        "deps/pydantic-config": config.pydantic_config_commit,
+    }
+    for relative, expected_commit in dependencies.items():
+        dependency = project / relative
+        if not (dependency / ".git").is_file():
+            raise SourceWheelProofError("source_dependency_invalid")
+        tree_record = _git_output(project, "ls-tree", "HEAD", relative).split()
+        if len(tree_record) != 4 or tree_record[:2] != ["160000", "commit"] or tree_record[2] != expected_commit:
+            raise SourceWheelProofError("source_dependency_invalid")
+        if _git_output(dependency, "rev-parse", "--verify", "HEAD") != expected_commit:
+            raise SourceWheelProofError("source_dependency_invalid")
+        if _git_output(dependency, "status", "--porcelain=v1", "--untracked-files=all"):
+            raise SourceWheelProofError("source_dependency_invalid")
 
 
 def _require_exact_keys(value: object, keys: set[str], code: str) -> dict[str, object]:
@@ -638,9 +1014,9 @@ def load_private_discovery_input(config: SourceWheelProofConfig) -> tuple[Discov
         or REVISION_RE.fullmatch(provenance["dataset_revision"]) is None
         or not _valid_sha256(provenance["image_manifest_sha256"])
         or not _valid_sha256(provenance["oracle_results_sha256"])
+        or sha256_bytes(canonical_json(missing)) != config.expected_missing_evidence_sha256
         or not isinstance(value["entries"], list)
-        or not value["entries"]
-        or len(value["entries"]) > MAX_WHEEL_FILES
+        or len(value["entries"]) != config.expected_entry_count
     ):
         raise SourceWheelProofError("discovery_input_invalid")
     allowed_hosts = set(hosts)
@@ -704,6 +1080,7 @@ def load_private_discovery_input(config: SourceWheelProofConfig) -> tuple[Discov
         DiscoveryManifest(
             path=path,
             sha256=config.input_sha256,
+            missing_required_evidence_sha256=config.expected_missing_evidence_sha256,
             allowed_hosts=tuple(hosts),
             provenance_sha256=sha256_bytes(canonical_json(provenance)),
             entries=tuple(entries),
@@ -851,12 +1228,232 @@ async def _gather_cancel_on_error(*awaitables: Awaitable[object]) -> list[object
         raise
 
 
+class AttemptJournal:
+    """Immutable, hash-chained write-ahead records for every runtime start."""
+
+    _EVENTS = {
+        "start_intent",
+        "start_succeeded",
+        "start_failed",
+        "start_indeterminate",
+        "stop_succeeded",
+        "stop_failed",
+    }
+
+    def __init__(self, path: Path, run_identity_sha256: str) -> None:
+        self.path = path
+        self.run_identity_sha256 = run_identity_sha256
+        self.records: list[dict[str, object]] = []
+        if self.path.exists():
+            status = self.path.lstat()
+            if not stat.S_ISDIR(status.st_mode) or stat.S_IMODE(status.st_mode) != 0o700:
+                raise SourceWheelProofError("attempt_journal_not_private")
+        else:
+            self.path.mkdir(mode=0o700)
+            self.path.chmod(0o700)
+        self._load()
+
+    def _load(self) -> None:
+        for child in self.path.iterdir():
+            if re.fullmatch(r"\.[0-9]{8}\.json\.\d+\.[0-9a-f]{32}\.tmp", child.name):
+                if regular_private_file(child):
+                    child.unlink()
+                    continue
+            if re.fullmatch(r"[0-9]{8}\.json", child.name) is None:
+                raise SourceWheelProofError("attempt_journal_invalid")
+        paths = sorted(self.path.glob("*.json"))
+        previous = "0" * 64
+        for sequence, path in enumerate(paths, 1):
+            if path.name != f"{sequence:08d}.json" or stat.S_IMODE(path.lstat().st_mode) != 0o400:
+                raise SourceWheelProofError("attempt_journal_invalid")
+            payload = _read_private(path, "attempt_journal_invalid")
+            try:
+                record = strict_json_loads(payload)
+            except (UnicodeDecodeError, ValueError, RecursionError) as error:
+                raise SourceWheelProofError("attempt_journal_invalid") from error
+            fields = {
+                "schema_version",
+                "sequence",
+                "previous_record_sha256",
+                "run_identity_sha256",
+                "event",
+                "attempt_sha256",
+                "entry_key_sha256",
+                "role",
+                "lease_identity_sha256",
+                "record_sha256",
+            }
+            if not isinstance(record, dict) or set(record) != fields:
+                raise SourceWheelProofError("attempt_journal_invalid")
+            core = {name: value for name, value in record.items() if name != "record_sha256"}
+            event = record["event"]
+            lease_identity = record["lease_identity_sha256"]
+            if (
+                record["schema_version"] != ATTEMPT_JOURNAL_SCHEMA_VERSION
+                or record["sequence"] != sequence
+                or record["previous_record_sha256"] != previous
+                or record["run_identity_sha256"] != self.run_identity_sha256
+                or event not in self._EVENTS
+                or not _valid_sha256(record["attempt_sha256"])
+                or not _valid_sha256(record["entry_key_sha256"])
+                or record["role"] not in {"target", "builder_a", "builder_b"}
+                or (lease_identity is not None and not _valid_sha256(lease_identity))
+                or (event == "start_succeeded" and lease_identity is None)
+                or (event in {"start_intent", "start_failed", "start_indeterminate"} and lease_identity is not None)
+                or record["record_sha256"] != sha256_bytes(canonical_json(core))
+                or payload != canonical_json(record) + b"\n"
+            ):
+                raise SourceWheelProofError("attempt_journal_invalid")
+            previous = record["record_sha256"]
+            self.records.append(record)
+
+    def _append(
+        self,
+        event: str,
+        attempt_sha256: str,
+        entry_key_sha256: str,
+        role: str,
+        lease_identity_sha256: str | None,
+    ) -> None:
+        sequence = len(self.records) + 1
+        core = {
+            "schema_version": ATTEMPT_JOURNAL_SCHEMA_VERSION,
+            "sequence": sequence,
+            "previous_record_sha256": (self.records[-1]["record_sha256"] if self.records else "0" * 64),
+            "run_identity_sha256": self.run_identity_sha256,
+            "event": event,
+            "attempt_sha256": attempt_sha256,
+            "entry_key_sha256": entry_key_sha256,
+            "role": role,
+            "lease_identity_sha256": lease_identity_sha256,
+        }
+        record = {**core, "record_sha256": sha256_bytes(canonical_json(core))}
+        path = self.path / f"{sequence:08d}.json"
+        atomic_write_bytes(path, canonical_json(record) + b"\n", mode=0o400)
+        path.chmod(0o400)
+        self.records.append(record)
+
+    def begin_start(self, entry_key_sha256: str, role: str) -> str:
+        attempt_sha256 = sha256_bytes(os.urandom(32))
+        self._append("start_intent", attempt_sha256, entry_key_sha256, role, None)
+        return attempt_sha256
+
+    def finish_start(
+        self,
+        attempt_sha256: str,
+        entry_key_sha256: str,
+        role: str,
+        *,
+        outcome: str,
+        lease_identity_sha256: str | None,
+    ) -> None:
+        if outcome not in {"start_succeeded", "start_failed", "start_indeterminate"}:
+            raise SourceWheelProofError("attempt_journal_invalid")
+        self._append(outcome, attempt_sha256, entry_key_sha256, role, lease_identity_sha256)
+
+    def finish_stop(
+        self,
+        attempt_sha256: str,
+        entry_key_sha256: str,
+        role: str,
+        lease_identity_sha256: str | None,
+        *,
+        succeeded: bool,
+    ) -> None:
+        self._append(
+            "stop_succeeded" if succeeded else "stop_failed",
+            attempt_sha256,
+            entry_key_sha256,
+            role,
+            lease_identity_sha256,
+        )
+
+    def snapshot(self) -> dict[str, object]:
+        return {
+            "record_count": len(self.records),
+            "head_sha256": self.records[-1]["record_sha256"] if self.records else "0" * 64,
+            "start_intents": sum(record["event"] == "start_intent" for record in self.records),
+            "successful_starts": sum(record["event"] == "start_succeeded" for record in self.records),
+        }
+
+    def validate_exact(self, completed: dict[str, dict[str, object]]) -> None:
+        attempts: dict[str, list[dict[str, object]]] = {}
+        for record in self.records:
+            attempts.setdefault(str(record["attempt_sha256"]), []).append(record)
+        expected: dict[tuple[str, str], str] = {}
+        for key, proof in completed.items():
+            for role, lease_identity in proof["lease_identity_sha256s"].items():
+                expected[(key, role)] = lease_identity
+        observed: dict[tuple[str, str], str] = {}
+        for records in attempts.values():
+            if len(records) != 3:
+                raise SourceWheelProofError("attempt_journal_incomplete")
+            intent, started, stopped = records
+            identity = (intent["entry_key_sha256"], intent["role"])
+            if (
+                intent["event"] != "start_intent"
+                or started["event"] != "start_succeeded"
+                or stopped["event"] != "stop_succeeded"
+                or any(
+                    record["entry_key_sha256"] != identity[0]
+                    or record["role"] != identity[1]
+                    or record["attempt_sha256"] != intent["attempt_sha256"]
+                    for record in records
+                )
+                or started["lease_identity_sha256"] != stopped["lease_identity_sha256"]
+                or identity in observed
+            ):
+                raise SourceWheelProofError("attempt_journal_prevents_exact_start_count")
+            observed[identity] = str(started["lease_identity_sha256"])
+        if observed != expected:
+            raise SourceWheelProofError("attempt_journal_prevents_exact_start_count")
+
+
 async def _start_runtimes_uninterruptibly(
-    runtimes: list[ProofRuntime],
+    runtimes: list[tuple[str, ProofRuntime, str]],
     telemetry: RuntimeTelemetry,
-) -> None:
+    journal: AttemptJournal,
+    entry_key_sha256: str,
+) -> dict[str, str]:
+    identities: dict[str, str] = {}
+
+    async def start_one(role: str, runtime: ProofRuntime, attempt_sha256: str) -> None:
+        try:
+            await telemetry.start(runtime)
+        except BaseException:
+            journal.finish_start(
+                attempt_sha256,
+                entry_key_sha256,
+                role,
+                outcome="start_failed",
+                lease_identity_sha256=None,
+            )
+            raise
+        try:
+            identity = _lease_identity_sha256(runtime)
+        except BaseException:
+            journal.finish_start(
+                attempt_sha256,
+                entry_key_sha256,
+                role,
+                outcome="start_indeterminate",
+                lease_identity_sha256=None,
+            )
+            raise
+        journal.finish_start(
+            attempt_sha256,
+            entry_key_sha256,
+            role,
+            outcome="start_succeeded",
+            lease_identity_sha256=identity,
+        )
+        identities[role] = identity
+
     async def start_all() -> list[object]:
-        return await asyncio.gather(*(telemetry.start(runtime) for runtime in runtimes), return_exceptions=True)
+        return await asyncio.gather(
+            *(start_one(role, runtime, attempt) for role, runtime, attempt in runtimes),
+            return_exceptions=True,
+        )
 
     task = asyncio.create_task(start_all())
     cancellation: asyncio.CancelledError | None = None
@@ -870,14 +1467,45 @@ async def _start_runtimes_uninterruptibly(
         raise cancellation
     if any(isinstance(result, BaseException) for result in results):
         raise SourceWheelProofError("runtime_start_failed")
+    return identities
 
 
 async def _stop_runtimes_uninterruptibly(
-    runtimes: list[ProofRuntime],
+    runtimes: list[tuple[str, ProofRuntime, str]],
     telemetry: RuntimeTelemetry,
+    journal: AttemptJournal,
+    entry_key_sha256: str,
 ) -> bool:
+    async def stop_one(role: str, runtime: ProofRuntime, attempt_sha256: str) -> None:
+        lease_identity = None
+        try:
+            lease_identity = _lease_identity_sha256(runtime)
+        except SourceWheelProofError:
+            pass
+        try:
+            await telemetry.stop(runtime)
+        except BaseException:
+            journal.finish_stop(
+                attempt_sha256,
+                entry_key_sha256,
+                role,
+                lease_identity,
+                succeeded=False,
+            )
+            raise
+        journal.finish_stop(
+            attempt_sha256,
+            entry_key_sha256,
+            role,
+            lease_identity,
+            succeeded=True,
+        )
+
     async def stop_all() -> list[object]:
-        return await asyncio.gather(*(telemetry.stop(runtime) for runtime in runtimes), return_exceptions=True)
+        return await asyncio.gather(
+            *(stop_one(role, runtime, attempt) for role, runtime, attempt in runtimes),
+            return_exceptions=True,
+        )
 
     task = asyncio.create_task(stop_all())
     cancellation: asyncio.CancelledError | None = None
@@ -925,11 +1553,13 @@ class SourceWheelProofRunner:
         self,
         config: SourceWheelProofConfig,
         discovery: DiscoveryManifest,
+        journal: AttemptJournal,
         *,
         runtime_factory: RuntimeFactory = _runtime_factory,
     ) -> None:
         self.config = config
         self.discovery = discovery
+        self.journal = journal
         self.runtime_factory = runtime_factory
         self.telemetry = RuntimeTelemetry()
         self._entry_semaphore = asyncio.Semaphore(config.max_concurrent_entries)
@@ -1286,18 +1916,21 @@ class SourceWheelProofRunner:
             key = entry_key_sha256(self.discovery.sha256, entry)
             runtime_config = self.config.runtime_config(entry.image)
             runtimes: list[ProofRuntime] = []
+            attempts: list[tuple[str, ProofRuntime, str]] = []
             error: BaseException | None = None
             result: dict[str, object] | None = None
             try:
                 for role in ("target", "builder-a", "builder-b"):
                     runtimes.append(self.runtime_factory(runtime_config, f"source-proof-{key[:12]}-{role}"))
                 target, builder_a, builder_b = runtimes
-                await _start_runtimes_uninterruptibly(runtimes, self.telemetry)
-                lease_identities = {
-                    "target": _lease_identity_sha256(target),
-                    "builder_a": _lease_identity_sha256(builder_a),
-                    "builder_b": _lease_identity_sha256(builder_b),
-                }
+                for role, runtime in zip(("target", "builder_a", "builder_b"), runtimes, strict=True):
+                    attempts.append((role, runtime, self.journal.begin_start(key, role)))
+                lease_identities = await _start_runtimes_uninterruptibly(
+                    attempts,
+                    self.telemetry,
+                    self.journal,
+                    key,
+                )
                 if len(set(lease_identities.values())) != RUNTIMES_PER_ENTRY:
                     raise SourceWheelProofError("runtime_lease_identity_duplicate")
                 await _gather_cancel_on_error(
@@ -1379,7 +2012,12 @@ class SourceWheelProofRunner:
             except BaseException as caught:
                 error = caught
             try:
-                cleanup_ok = await _stop_runtimes_uninterruptibly(runtimes, self.telemetry)
+                cleanup_ok = await _stop_runtimes_uninterruptibly(
+                    attempts,
+                    self.telemetry,
+                    self.journal,
+                    key,
+                )
             finally:
                 async with self._entry_lock:
                     self._active_entries -= 1
@@ -1734,6 +2372,8 @@ class ProofStore:
         self.identity_path = self.output_dir / "run_identity.json"
         self.candidate_path = self.output_dir / "source_wheel_candidate.json"
         self.state_path = self.output_dir / "proof_state.json"
+        self.journal_path = self.output_dir / "attempt_journal"
+        self.finalization_path = self.output_dir / "finalization.json"
         self.proof_path = self.output_dir / "source_wheel_proof.json"
         self.final_policy_path = self.output_dir / "source_wheel_policy.json"
         self.lock_path = self.output_dir / ".writer.lock"
@@ -1744,6 +2384,7 @@ class ProofStore:
         self.entry_map = _expected_entry_keys(discovery)
         self.entries_sha256 = sha256_bytes(canonical_json(sorted(self.entry_map)))
         self.state: dict[str, object] = {}
+        self.journal: AttemptJournal | None = None
 
     def _run_identity(self) -> dict[str, object]:
         implementation = Path(__file__).read_bytes()
@@ -1751,6 +2392,8 @@ class ProofStore:
         return {
             "schema_version": RUN_IDENTITY_SCHEMA_VERSION,
             "discovery_input_sha256": self.discovery.sha256,
+            "expected_entry_count": self.config.expected_entry_count,
+            "missing_required_evidence_sha256": self.discovery.missing_required_evidence_sha256,
             "discovery_provenance_sha256": self.discovery.provenance_sha256,
             "discovery_entries_sha256": sha256_bytes(
                 canonical_json([entry.input_entry_sha256 for entry in self.discovery.entries])
@@ -1767,6 +2410,13 @@ class ProofStore:
                 "renderers_commit": self.config.renderers_commit,
                 "pydantic_config_commit": self.config.pydantic_config_commit,
                 "vmvm_tb_v2_sha256": self.config.vmvm_tb_v2_sha256,
+            },
+            "execution": {
+                "canonical_launcher_sha256": self.config.launcher_sha256,
+                "uv_sha256": self.config.uv_sha256,
+                "python_executable_sha256": self.config.python_sha256,
+                "python_runtime_manifest_sha256": self.config.python_runtime_manifest_sha256,
+                "site_packages_manifest_sha256": self.config.site_packages_manifest_sha256,
                 "vacli_binary_sha256": self.config.vacli_binary_sha256,
             },
             "runtime": {
@@ -1797,6 +2447,7 @@ class ProofStore:
             "runnable": False,
             "run_identity_sha256": self.identity_sha256,
             "discovery_input_sha256": self.discovery.sha256,
+            "missing_required_evidence_sha256": self.discovery.missing_required_evidence_sha256,
             "entries_sha256": self.entries_sha256,
             "entry_count": len(self.entry_map),
             "required_runtime_starts": len(self.entry_map) * RUNTIMES_PER_ENTRY,
@@ -1827,6 +2478,8 @@ class ProofStore:
             self.state_path.name,
             self.proof_path.name,
             self.final_policy_path.name,
+            self.finalization_path.name,
+            self.journal_path.name,
             self.lock_path.name,
         }
         temporary_pattern = re.compile(
@@ -1835,6 +2488,8 @@ class ProofStore:
         validation_pattern = re.compile(r"\.source_wheel_policy\.validation\.\d+\.[0-9a-f]{32}\.tmp")
         for child in self.output_dir.iterdir():
             if child.name in artifact_names:
+                if child == self.journal_path and (not child.is_dir() or stat.S_IMODE(child.lstat().st_mode) != 0o700):
+                    raise SourceWheelProofError("attempt_journal_not_private")
                 continue
             if (
                 temporary_pattern.fullmatch(child.name) or validation_pattern.fullmatch(child.name)
@@ -1881,6 +2536,7 @@ class ProofStore:
             self._validate_output_contents()
             self._ensure_exact_artifact(self.identity_path, self.identity_payload)
             self._ensure_exact_artifact(self.candidate_path, self._candidate_payload())
+            self.journal = AttemptJournal(self.journal_path, self.identity_sha256)
             self.state = self._load_or_create_state()
         except BaseException:
             handle.close()
@@ -1902,6 +2558,7 @@ class ProofStore:
             "entry_count": len(self.entry_map),
             "invocations": [{"host": self.config.invocation_host, "slurm_job_id": self.config.slurm_job_id}],
             "completed": {},
+            "attempt_journal": self._journal().snapshot(),
             "telemetry": {
                 "attested_runtime_starts": 0,
                 "peak_starting_runtimes": 0,
@@ -1919,6 +2576,7 @@ class ProofStore:
             "entry_count",
             "invocations",
             "completed",
+            "attempt_journal",
             "telemetry",
         }
         if not isinstance(state, dict) or set(state) != fields:
@@ -1963,11 +2621,14 @@ class ProofStore:
             or telemetry.get("peak_concurrent_entries", 0) > self.config.max_concurrent_entries
         ):
             raise SourceWheelProofError("proof_state_invalid")
+        if state["attempt_journal"] != self._journal().snapshot():
+            raise SourceWheelProofError("attempt_journal_state_mismatch")
         for key, proof in completed.items():
             _validate_entry_proof(key, proof, self.discovery, self.entry_map[key])
         lease_hashes = [digest for proof in completed.values() for digest in proof["lease_identity_sha256s"].values()]
         if len(lease_hashes) != len(set(lease_hashes)):
             raise SourceWheelProofError("proof_state_lease_identity_duplicate")
+        self._journal().validate_exact(completed)
         return state
 
     def _load_or_create_state(self) -> dict[str, object]:
@@ -1981,8 +2642,12 @@ class ProofStore:
                 state = self._validate_state(strict_json_loads(payload))
             except (UnicodeDecodeError, ValueError, RecursionError) as error:
                 raise SourceWheelProofError("proof_state_invalid") from error
-            if self.proof_path.exists() and self.final_policy_path.exists():
+            if self.finalization_path.exists():
+                if set(state["completed"]) != set(self.entry_map):
+                    raise SourceWheelProofError("finalization_record_invalid")
                 return state
+            if self.proof_path.exists() or self.final_policy_path.exists():
+                raise SourceWheelProofError("finalization_record_missing")
             invocations = list(state["invocations"])
             if any(invocation["slurm_job_id"] == self.config.slurm_job_id for invocation in invocations):
                 raise SourceWheelProofError("invocation_already_recorded")
@@ -1992,11 +2657,14 @@ class ProofStore:
             return state
         if self.config.resume_state_sha256 is not None:
             raise SourceWheelProofError("resume_state_missing")
+        if self._journal().records:
+            raise SourceWheelProofError("attempt_journal_incomplete")
         state = self._initial_state()
         self._write_state(state)
         return state
 
     def _write_state(self, state: dict[str, object]) -> None:
+        state["attempt_journal"] = self._journal().snapshot()
         atomic_write_bytes(
             self.state_path,
             canonical_json(state) + b"\n",
@@ -2010,6 +2678,11 @@ class ProofStore:
         value = self.state["completed"]
         assert isinstance(value, dict)
         return value  # type: ignore[return-value]
+
+    def _journal(self) -> AttemptJournal:
+        if self.journal is None:
+            raise SourceWheelProofError("attempt_journal_invalid")
+        return self.journal
 
     def publish_entry(self, key: str, proof: dict[str, object], telemetry: dict[str, int]) -> None:
         if key in self.completed:
@@ -2040,8 +2713,10 @@ class ProofStore:
     def record_peak_entries(self, peak: int) -> None:
         prior = self.state["telemetry"]
         assert isinstance(prior, dict)
-        prior["peak_concurrent_entries"] = max(int(prior["peak_concurrent_entries"]), peak)
-        self._write_state(self.state)
+        previous = int(prior["peak_concurrent_entries"])
+        if peak > previous:
+            prior["peak_concurrent_entries"] = peak
+            self._write_state(self.state)
 
     def _final_policy_payload(self) -> bytes:
         entries = [
@@ -2074,6 +2749,9 @@ class ProofStore:
     def publish_final(self) -> dict[str, object]:
         if set(self.completed) != set(self.entry_map):
             raise SourceWheelProofError("proof_incomplete")
+        self._journal().validate_exact(self.completed)
+        if self.state["attempt_journal"] != self._journal().snapshot():
+            raise SourceWheelProofError("attempt_journal_state_mismatch")
         policy_payload = self._final_policy_payload()
         try:
             policy = self._validate_final_policy(policy_payload)
@@ -2087,14 +2765,28 @@ class ProofStore:
         ordered = [self.completed[key] for key in sorted(self.completed)]
         telemetry = self.state["telemetry"]
         assert isinstance(telemetry, dict)
+        finalization_core = {
+            "schema_version": FINALIZATION_SCHEMA_VERSION,
+            "kind": "source-wheel-proof-finalization",
+            "run_identity_sha256": self.identity_sha256,
+            "discovery_input_sha256": self.discovery.sha256,
+            "missing_required_evidence_sha256": self.discovery.missing_required_evidence_sha256,
+            "state_sha256": state_sha256,
+            "source_wheel_policy_sha256": policy_sha256,
+            "entry_count": len(ordered),
+            "attempt_journal": self._journal().snapshot(),
+        }
+        finalization_id_sha256 = sha256_bytes(canonical_json(finalization_core))
         core = {
             "schema_version": PROOF_SCHEMA_VERSION,
             "kind": "source-wheel-reproducibility-proof",
             "run_identity_sha256": self.identity_sha256,
             "discovery_input_sha256": self.discovery.sha256,
+            "missing_required_evidence_sha256": self.discovery.missing_required_evidence_sha256,
             "entries_sha256": self.entries_sha256,
             "state_sha256": state_sha256,
             "source_wheel_policy_sha256": policy_sha256,
+            "finalization_id_sha256": finalization_id_sha256,
             "entry_count": len(ordered),
             "proof_runtime_starts": len(ordered) * RUNTIMES_PER_ENTRY,
             "runtime_roles_per_entry": ["target", "builder_a", "builder_b"],
@@ -2102,18 +2794,28 @@ class ProofStore:
             "max_live_runtimes": self.config.max_live_runtimes,
             "telemetry": telemetry,
             "source": self.identity["source"],
+            "execution": self.identity["execution"],
             "entries": ordered,
         }
         proof = {**core, "proof_sha256": sha256_bytes(canonical_json(core))}
         proof_payload = canonical_json(proof) + b"\n"
+        finalization = {
+            **finalization_core,
+            "finalization_id_sha256": finalization_id_sha256,
+            "proof_file_sha256": sha256_bytes(proof_payload),
+        }
+        finalization_payload = canonical_json(finalization) + b"\n"
+        self._ensure_exact_artifact(self.finalization_path, finalization_payload)
         self._ensure_exact_artifact(self.proof_path, proof_payload)
         self._ensure_exact_artifact(self.final_policy_path, policy_payload)
         return {
             "entries": len(ordered),
             "runtime_starts": len(ordered) * RUNTIMES_PER_ENTRY,
             "input_sha256": self.discovery.sha256,
+            "missing_evidence_sha256": self.discovery.missing_required_evidence_sha256,
             "policy_sha256": policy_sha256,
             "proof_sha256": sha256_bytes(proof_payload),
+            "finalization_sha256": sha256_bytes(finalization_payload),
             "state_sha256": state_sha256,
             "peak_live_runtimes": int(telemetry["peak_live_runtimes"]),
             "peak_concurrent_entries": int(telemetry["peak_concurrent_entries"]),
@@ -2130,7 +2832,9 @@ def validate_vacli_environment(config: SourceWheelProofConfig) -> None:
     }
     if any(os.environ.get(name) != value for name, value in expected.items()):
         raise SourceWheelProofError("vacli_environment_mismatch")
-    vacli_path = Path(os.environ.get("VACLI_BIN", "/public/fbpkgs/x86_64/vacli/stable/vacli"))
+    vacli_path = Path(os.environ.get("VACLI_BIN", ""))
+    if vacli_path != config.vacli_path:
+        raise SourceWheelProofError("vacli_binary_invalid")
     try:
         digest = hashlib.sha256()
         with vacli_path.open("rb") as handle:
@@ -2157,9 +2861,15 @@ async def run_source_wheel_proof(
 ) -> dict[str, object]:
     discovery, _ = load_private_discovery_input(config)
     if runtime_factory is _runtime_factory:
+        validate_execution_environment(config)
         validate_vacli_environment(config)
     with ProofStore(config, discovery) as store:
-        runner = SourceWheelProofRunner(config, discovery, runtime_factory=runtime_factory)
+        runner = SourceWheelProofRunner(
+            config,
+            discovery,
+            store._journal(),
+            runtime_factory=runtime_factory,
+        )
 
         def publish(key: str, proof: dict[str, object], telemetry: dict[str, int]) -> None:
             store.publish_entry(key, proof, telemetry)
@@ -2167,6 +2877,7 @@ async def run_source_wheel_proof(
         await runner.run_pending(store.completed, publish)
         store.record_peak_entries(runner.peak_entries)
         if runtime_factory is _runtime_factory:
+            validate_execution_environment(config)
             validate_vacli_environment(config)
         return store.publish_final()
 

@@ -215,7 +215,9 @@ is intentionally incomplete: it binds the target images, exact requirement
 sets, source URLs, sizes, hashes, and corpus provenance, but it does not claim
 target toolchains, binary closure artifacts, or output-wheel hashes. Keep it as
 a regular mode-0600 file in a mode-0700 directory and provide its independently
-computed SHA-256. Use a new mode-0700 proof output directory.
+computed SHA-256. The launch approval must separately require exactly nine
+entries and pin the canonical JSON digest of the complete
+`missing_required_evidence` list. Use a new mode-0700 proof output directory.
 
 Initialize `deps/verifiers`, `deps/renderers`, and `deps/pydantic-config` at
 their recorded gitlinks in that checkout; the launcher rejects absent, moved,
@@ -235,14 +237,34 @@ only the proven wheelhouse and performs an offline install and closure check.
 The launcher defaults to two entries and six live VMVMs; three entries and nine
 VMVMs are hard caps. It emits only aggregate counts, hashes, and stable error
 codes. Before any proof completes it publishes a non-runnable candidate and an
-atomic checkpoint. Only after every entry passes does it publish the runnable
-`source_wheel_policy.json` and its proof certificate as read-only private
-artifacts. Cancellation and errors cancel and drain sibling work and stop every
-created lease before returning. The certificate binds the approved base runtime
-commit, reviewed utility commit and Git tree, exact verifier/rendering/config
-submodule commits, VMVM source and resolved vacli binary digests, and distinct
-role-keyed hashes of the three resolved lease identities; raw lease identifiers
-are never printed.
+atomic checkpoint. A mode-0700 journal publishes immutable, hash-chained
+mode-0400 intent, start-result, lease-identity-hash, and stop-result records
+around every VMVM start. Resume fails closed if those records are incomplete or
+cannot account exactly for every completed entry, so retried or indeterminate
+starts cannot be hidden by the 27-start certificate. Only after every entry
+passes and a second source/tool validation succeeds does it write an immutable
+`finalization.json`, reconcile the proof certificate, and publish the runnable
+`source_wheel_policy.json` last. This makes record-only, proof-only, and
+policy-only interrupted publication states deterministic to recover.
+
+The launch approval also pins the canonical launcher bytes, exact `uv`, Python,
+and vacli executables, the complete Python stdlib/runtime manifest, the staged
+site-packages manifest, and the VMVM backend sources. Generate the aggregate
+hash candidates on the target x86 runtime with
+`inspect_source_wheel_proof_environment.py`, review them independently, and
+pass the approved values explicitly. The launcher clears inherited Python
+environment state and replaces `PATH` and `PYTHONPATH` with fixed allowlists.
+The proof rehashes every execution binding and revalidates the source commit,
+tree, three clean submodule gitlinks, and VMVM sources after all leases stop but
+before finalization. The certificate binds every approved digest and distinct
+role-keyed hashes derived from vacli's real session identity; container IDs,
+runtime names, and raw lease identifiers are never accepted or printed.
+The inspector accepts explicit paths for `--launcher`, `--uv`, `--python`,
+`--python-stdlib`, `--site-packages`, `--vacli`, and `--vmvm-source` and emits
+only their canonical hashes. Run it with the same exact Python and fixed
+`PYTHONPATH` and `PYTHONSAFEPATH=1` startup planned for the job, then copy its reviewed hashes into the
+`SOURCE_WHEEL_PROOF_*_SHA256` inputs; do not derive those inputs inside the
+proof launch.
 
 ```bash
 umask 077
@@ -250,10 +272,20 @@ env \
   PROJECT_DIR=/path/to/clean-reviewed-checkout \
   SOURCE_WHEEL_PROOF_INPUT=/path/to/private/probe-input.json \
   SOURCE_WHEEL_PROOF_INPUT_SHA256=<independently-reviewed-input-sha256> \
+  SOURCE_WHEEL_PROOF_EXPECTED_ENTRY_COUNT=9 \
+  SOURCE_WHEEL_PROOF_MISSING_EVIDENCE_SHA256=<reviewed-canonical-list-sha256> \
   SOURCE_WHEEL_PROOF_OUTPUT_DIR=/path/to/new-private-proof-directory \
   SOURCE_WHEEL_PROOF_BASE_RUNTIME_REVISION=ceb9356c98c72e51568e7bb4658a540cb1492254 \
   SOURCE_WHEEL_PROOF_SOURCE_REVISION=<reviewed-full-utility-commit> \
+  SOURCE_WHEEL_PROOF_LAUNCHER_SHA256=<reviewed-launcher-sha256> \
+  SOURCE_WHEEL_PROOF_UV_SHA256=<reviewed-uv-sha256> \
+  SOURCE_WHEEL_PROOF_PYTHON_SHA256=<reviewed-python-sha256> \
+  SOURCE_WHEEL_PROOF_PYTHON_RUNTIME_MANIFEST_SHA256=<reviewed-runtime-manifest-sha256> \
+  SOURCE_WHEEL_PROOF_SITE_PACKAGES_MANIFEST_SHA256=<reviewed-site-manifest-sha256> \
+  SOURCE_WHEEL_PROOF_VMVM_TB_V2_SHA256=<reviewed-vmvm-source-sha256> \
+  SOURCE_WHEEL_PROOF_VACLI_BINARY_SHA256=<reviewed-vacli-sha256> \
   SOURCE_WHEEL_PROOF_MAX_CONCURRENT_ENTRIES=2 \
+  VACLI_LEASE_RETRIES=1 \
   VACLI_MAX_CONCURRENT_LEASES=6 \
   sbatch --parsable \
   /path/to/clean-reviewed-checkout/user/tianhaowu/terminal_bench_vmvm/run_source_wheel_proof.sbatch
@@ -263,9 +295,10 @@ For an interrupted proof, review and hash `proof_state.json` externally, then
 repeat the same launch with
 `SOURCE_WHEEL_PROOF_STATE_SHA256=<reviewed-state-sha256>`. Do not infer this
 value from an unreviewed output directory. The resume path revalidates every
-completed entry and skips it. A complete nine-entry proof therefore contains
-nine clean-target validations, eighteen source builds, and exactly 27 proof
-runtime starts.
+completed entry and skips it only when the immutable attempt journal ends at an
+entry boundary. Any unmatched or failed start requires a fresh output
+directory. A complete nine-entry proof therefore contains nine clean-target
+validations, eighteen source builds, and exactly 27 proof runtime starts.
 
 A fresh oracle creates a mode-0400 `source_wheel_attestations.json` and
 content-addressed `source_wheel_cache/` beside its results only after acquiring

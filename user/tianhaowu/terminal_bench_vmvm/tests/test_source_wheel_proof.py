@@ -4,13 +4,18 @@ import asyncio
 import hashlib
 import io
 import json
+import os
 import stat
+import sys
+import sysconfig
 import tarfile
 from dataclasses import dataclass, replace
 from pathlib import Path
+from types import SimpleNamespace
 from zipfile import ZipFile
 
 import pytest
+import terminal_bench_vmvm.source_wheel_proof as source_wheel_proof
 from terminal_bench_vmvm.source_wheel_proof import (
     APPROVED_BASE_RUNTIME_COMMIT,
     BINARY_DIR,
@@ -24,11 +29,18 @@ from terminal_bench_vmvm.source_wheel_proof import (
     WHEEL_DIR,
     WHEEL_DIRECTORY_PROBE,
     BuildResult,
+    ProofStore,
     SourceWheelProofConfig,
     SourceWheelProofError,
+    SourceWheelProofRunner,
+    _python_sources_sha256,
     aggregate_failure,
+    canonical_tree_manifest_sha256,
     compare_build_payloads,
+    load_private_discovery_input,
+    python_runtime_manifest_sha256,
     run_source_wheel_proof,
+    validate_execution_environment,
     validate_vacli_environment,
 )
 from terminal_bench_vmvm.source_wheels import (
@@ -39,6 +51,12 @@ from terminal_bench_vmvm.source_wheels import (
 )
 from terminal_bench_vmvm.taskset import _SOURCE_WHEEL_CLOSURE_CODE, _SOURCE_WHEEL_DOWNLOAD_CODE
 from verifiers.v1.runtimes import ProgramResult, VMVMConfig
+from vmvm_tb_v2._vacli.backend import (
+    BackendInitError,
+    VacliVMVMBackend,
+    _extract_vacli_lease_response,
+    _vacli_lease_identity_sha256,
+)
 
 BUILD_TOOLS = {"pip": "24.3.1", "setuptools": "75.6.0", "wheel": "0.45.1"}
 
@@ -182,10 +200,27 @@ def _write_discovery(
 
 
 def _config(discovery: Path, output: Path, **changes: object) -> SourceWheelProofConfig:
+    missing = json.loads(discovery.read_bytes())["missing_required_evidence"]
+    project = Path.cwd().resolve()
     config = SourceWheelProofConfig(
         input_path=discovery,
         input_sha256=sha256_bytes(discovery.read_bytes()),
         output_dir=output,
+        expected_entry_count=9,
+        expected_missing_evidence_sha256=sha256_bytes(canonical_json(missing)),
+        project_dir=project,
+        canonical_launcher_path=project / "unused-launcher",
+        executed_launcher_path=project / "unused-launcher",
+        uv_path=project / "unused-uv",
+        python_path=Path(sys.executable).resolve(),
+        python_stdlib_path=Path(sysconfig.get_path("stdlib")).resolve(),
+        site_packages_path=project / "unused-site-packages",
+        vacli_path=project / "unused-vacli",
+        launcher_sha256="6" * 64,
+        uv_sha256="7" * 64,
+        python_sha256="8" * 64,
+        python_runtime_manifest_sha256="9" * 64,
+        site_packages_manifest_sha256="0" * 64,
         base_runtime_commit=APPROVED_BASE_RUNTIME_COMMIT,
         source_commit="a" * 40,
         source_git_tree="1" * 40,
@@ -269,7 +304,11 @@ class FakeRuntime:
         self.fleet = fleet
         self.config = config
         self.name = name
-        self.descriptor = "duplicate-lease" if fleet.duplicate_descriptors else f"lease-{name}"
+        raw_identity = "duplicate-lease" if fleet.duplicate_descriptors else f"lease-{name}"
+        self.descriptor = "container-id-must-not-be-used"
+        self.backend = SimpleNamespace(
+            lease_identity_sha256=sha256_bytes(canonical_json(["vacli-session-identity-v1", raw_identity]))
+        )
         self.files: dict[str, bytes] = {}
         self.started = False
         self.stopped = False
@@ -418,6 +457,8 @@ def test_nine_entry_discovery_emits_policy_with_exactly_twenty_seven_starts(
     assert stat.S_IMODE(output.stat().st_mode) == 0o700
     expected_modes = {
         ".writer.lock": 0o600,
+        "attempt_journal": 0o700,
+        "finalization.json": 0o400,
         "proof_state.json": 0o600,
         "run_identity.json": 0o400,
         "source_wheel_candidate.json": 0o400,
@@ -436,6 +477,12 @@ def test_nine_entry_discovery_emits_policy_with_exactly_twenty_seven_starts(
     assert candidate["required_runtime_starts"] == 27
     assert proof["proof_runtime_starts"] == 27
     assert state["telemetry"]["attested_runtime_starts"] == 27
+    assert state["attempt_journal"]["start_intents"] == 27
+    assert state["attempt_journal"]["successful_starts"] == 27
+    assert state["attempt_journal"]["record_count"] == 81
+    journal_files = sorted((output / "attempt_journal").iterdir())
+    assert len(journal_files) == 81
+    assert all(stat.S_IMODE(path.stat().st_mode) == 0o400 for path in journal_files)
     assert proof["source"]["approved_base_runtime_commit"] == APPROVED_BASE_RUNTIME_COMMIT
     assert proof["source"]["commit"] == "a" * 40
     assert proof["source"]["git_tree"] == "1" * 40
@@ -446,8 +493,14 @@ def test_nine_entry_discovery_emits_policy_with_exactly_twenty_seven_starts(
     assert proof["source"]["renderers_commit"] == "c" * 40
     assert proof["source"]["pydantic_config_commit"] == "d" * 40
     assert proof["source"]["vmvm_tb_v2_sha256"] == "e" * 64
-    assert proof["source"]["vacli_binary_sha256"] == "f" * 64
+    assert proof["execution"]["vacli_binary_sha256"] == "f" * 64
+    assert proof["execution"] == identity["execution"]
     assert proof["source_wheel_policy_sha256"] == sha256_bytes((output / "source_wheel_policy.json").read_bytes())
+    finalization_payload = (output / "finalization.json").read_bytes()
+    finalization = json.loads(finalization_payload)
+    assert result["finalization_sha256"] == sha256_bytes(finalization_payload)
+    assert finalization["proof_file_sha256"] == sha256_bytes((output / "source_wheel_proof.json").read_bytes())
+    assert finalization["source_wheel_policy_sha256"] == proof["source_wheel_policy_sha256"]
     assert len(policy["entries"]) == 9
     assert all(entry["build_tools"] == BUILD_TOOLS for entry in policy["entries"])
     assert all(len(entry["binary_wheels"]) == 1 for entry in policy["entries"])
@@ -455,6 +508,8 @@ def test_nine_entry_discovery_emits_policy_with_exactly_twenty_seven_starts(
     assert all(len(set(entry["lease_identity_sha256s"].values())) == 3 for entry in proof["entries"])
     assert len({digest for entry in proof["entries"] for digest in entry["lease_identity_sha256s"].values()}) == 27
     assert b"lease-source-proof" not in (output / "source_wheel_proof.json").read_bytes()
+    assert b"lease-source-proof" not in b"".join(path.read_bytes() for path in journal_files)
+    assert b"container-id-must-not-be-used" not in (output / "source_wheel_proof.json").read_bytes()
 
     state_sha256 = sha256_bytes((output / "proof_state.json").read_bytes())
     resumed_fleet = FakeFleet(artifacts)
@@ -472,13 +527,82 @@ def test_nine_entry_discovery_emits_policy_with_exactly_twenty_seven_starts(
     assert "https://" not in aggregate
 
 
+@pytest.mark.parametrize(
+    "retained",
+    [
+        frozenset(),
+        frozenset({"source_wheel_proof.json"}),
+        frozenset({"source_wheel_policy.json"}),
+    ],
+)
+def test_finalization_record_reconciles_every_partial_publication(
+    tmp_path: Path,
+    retained: frozenset[str],
+) -> None:
+    discovery, artifacts = _write_discovery(tmp_path, 9)
+    output = tmp_path / "proof"
+    original = asyncio.run(
+        run_source_wheel_proof(_config(discovery, output), runtime_factory=FakeFleet(artifacts).factory)
+    )
+    for name in {"source_wheel_proof.json", "source_wheel_policy.json"} - retained:
+        (output / name).unlink()
+    state_path = output / "proof_state.json"
+    resumed_fleet = FakeFleet(artifacts)
+
+    result = asyncio.run(
+        run_source_wheel_proof(
+            _config(
+                discovery,
+                output,
+                resume_state_sha256=sha256_bytes(state_path.read_bytes()),
+                slurm_job_id="12346",
+            ),
+            runtime_factory=resumed_fleet.factory,
+        )
+    )
+
+    assert result == original
+    assert resumed_fleet.start_count == 0
+    assert (output / "finalization.json").is_file()
+    assert (output / "source_wheel_proof.json").is_file()
+    assert (output / "source_wheel_policy.json").is_file()
+
+
+def test_final_artifacts_without_finalization_record_fail_closed(tmp_path: Path) -> None:
+    discovery, artifacts = _write_discovery(tmp_path, 9)
+    output = tmp_path / "proof"
+    asyncio.run(run_source_wheel_proof(_config(discovery, output), runtime_factory=FakeFleet(artifacts).factory))
+    (output / "finalization.json").unlink()
+    state_path = output / "proof_state.json"
+    resumed_fleet = FakeFleet(artifacts)
+
+    with pytest.raises(SourceWheelProofError, match="^finalization_record_missing$"):
+        asyncio.run(
+            run_source_wheel_proof(
+                _config(
+                    discovery,
+                    output,
+                    resume_state_sha256=sha256_bytes(state_path.read_bytes()),
+                    slurm_job_id="12346",
+                ),
+                runtime_factory=resumed_fleet.factory,
+            )
+        )
+    assert resumed_fleet.start_count == 0
+
+
 def test_cancellation_stops_every_started_runtime_and_leaves_resumable_state(tmp_path: Path) -> None:
-    discovery, artifacts = _write_discovery(tmp_path, 1)
+    discovery, artifacts = _write_discovery(tmp_path, 9)
     output = tmp_path / "proof"
 
     async def scenario() -> FakeFleet:
         fleet = FakeFleet(artifacts, block_builds=True)
-        proof = asyncio.create_task(run_source_wheel_proof(_config(discovery, output), runtime_factory=fleet.factory))
+        proof = asyncio.create_task(
+            run_source_wheel_proof(
+                _config(discovery, output, max_concurrent_entries=1, vacli_max_concurrent_leases=3),
+                runtime_factory=fleet.factory,
+            )
+        )
         await asyncio.wait_for(fleet.two_builds_entered.wait(), timeout=2)
         proof.cancel()
         with pytest.raises(asyncio.CancelledError):
@@ -493,16 +617,59 @@ def test_cancellation_stops_every_started_runtime_and_leaves_resumable_state(tmp
     state = output / "proof_state.json"
     assert stat.S_IMODE(state.stat().st_mode) == 0o600
     assert json.loads(state.read_bytes())["completed"] == {}
+    with pytest.raises(SourceWheelProofError, match="^attempt_journal_state_mismatch$"):
+        asyncio.run(
+            run_source_wheel_proof(
+                _config(
+                    discovery,
+                    output,
+                    resume_state_sha256=sha256_bytes(state.read_bytes()),
+                    slurm_job_id="12346",
+                    max_concurrent_entries=1,
+                    vacli_max_concurrent_leases=3,
+                ),
+                runtime_factory=FakeFleet(artifacts).factory,
+            )
+        )
+    journal_records = [json.loads(path.read_bytes()) for path in sorted((output / "attempt_journal").iterdir())]
+    state_payload = json.loads(state.read_bytes())
+    state_payload["attempt_journal"] = {
+        "record_count": len(journal_records),
+        "head_sha256": journal_records[-1]["record_sha256"],
+        "start_intents": sum(record["event"] == "start_intent" for record in journal_records),
+        "successful_starts": sum(record["event"] == "start_succeeded" for record in journal_records),
+    }
+    state.write_bytes(canonical_json(state_payload) + b"\n")
+    state.chmod(0o600)
+    with pytest.raises(SourceWheelProofError, match="^attempt_journal_prevents_exact_start_count$"):
+        asyncio.run(
+            run_source_wheel_proof(
+                _config(
+                    discovery,
+                    output,
+                    resume_state_sha256=sha256_bytes(state.read_bytes()),
+                    slurm_job_id="12346",
+                    max_concurrent_entries=1,
+                    vacli_max_concurrent_leases=3,
+                ),
+                runtime_factory=FakeFleet(artifacts).factory,
+            )
+        )
 
 
 def test_cancellation_drains_runtime_start_before_stopping_leases(tmp_path: Path) -> None:
-    discovery, artifacts = _write_discovery(tmp_path, 1)
+    discovery, artifacts = _write_discovery(tmp_path, 9)
 
     async def scenario() -> FakeFleet:
         fleet = FakeFleet(artifacts, block_starts=True)
         proof = asyncio.create_task(
             run_source_wheel_proof(
-                _config(discovery, tmp_path / "proof"),
+                _config(
+                    discovery,
+                    tmp_path / "proof",
+                    max_concurrent_entries=1,
+                    vacli_max_concurrent_leases=3,
+                ),
                 runtime_factory=fleet.factory,
             )
         )
@@ -523,13 +690,18 @@ def test_cancellation_drains_runtime_start_before_stopping_leases(tmp_path: Path
 
 
 def test_duplicate_resolved_lease_identity_fails_and_stops_all_runtimes(tmp_path: Path) -> None:
-    discovery, artifacts = _write_discovery(tmp_path, 1)
+    discovery, artifacts = _write_discovery(tmp_path, 9)
     fleet = FakeFleet(artifacts, duplicate_descriptors=True)
 
     with pytest.raises(SourceWheelProofError, match="^runtime_lease_identity_duplicate$"):
         asyncio.run(
             run_source_wheel_proof(
-                _config(discovery, tmp_path / "proof"),
+                _config(
+                    discovery,
+                    tmp_path / "proof",
+                    max_concurrent_entries=1,
+                    vacli_max_concurrent_leases=3,
+                ),
                 runtime_factory=fleet.factory,
             )
         )
@@ -537,6 +709,60 @@ def test_duplicate_resolved_lease_identity_fails_and_stops_all_runtimes(tmp_path
     assert fleet.start_count == 3
     assert fleet.live == 0
     assert all(runtime.stopped for runtime in fleet.runtimes)
+
+
+def test_real_vacli_session_shape_produces_stable_secret_independent_identity() -> None:
+    first = json.dumps(
+        {
+            "sessionId": {"cell": "synthetic", "id": "session-a"},
+            "auth_token": {"token": "secret-a"},
+        }
+    )
+    rotated_token = json.dumps(
+        {
+            "sessionId": {"id": "session-a", "cell": "synthetic"},
+            "auth_token": {"token": "secret-b"},
+        }
+    )
+    different_session = json.dumps(
+        {
+            "sessionId": {"cell": "synthetic", "id": "session-b"},
+            "auth_token": {"token": "secret-a"},
+        }
+    )
+
+    assert _vacli_lease_identity_sha256(first) == _vacli_lease_identity_sha256(rotated_token)
+    assert _vacli_lease_identity_sha256(first) != _vacli_lease_identity_sha256(different_session)
+    extracted = _extract_vacli_lease_response(f"prefix {rotated_token} trailing diagnostics")
+    assert extracted is not None
+    assert extracted[1] == _vacli_lease_identity_sha256(first)
+    backend = object.__new__(VacliVMVMBackend)
+    backend._lease = SimpleNamespace(session_identity_sha256=extracted[1])
+    assert backend.lease_identity_sha256 == extracted[1]
+    backend._lease = SimpleNamespace(session_identity_sha256=None)
+    with pytest.raises(BackendInitError, match="session identity is unavailable"):
+        _ = backend.lease_identity_sha256
+    with pytest.raises(BackendInitError, match="session identity"):
+        _vacli_lease_identity_sha256(
+            json.dumps({"sessionId": "container-like-fallback", "auth_token": {"token": "secret"}})
+        )
+
+
+def test_discovery_requires_external_exact_nine_entry_and_missing_evidence_bindings(tmp_path: Path) -> None:
+    short_discovery, _ = _write_discovery(tmp_path / "short", 8)
+    with pytest.raises(SourceWheelProofError, match="^discovery_input_invalid$"):
+        load_private_discovery_input(_config(short_discovery, tmp_path / "short-output"))
+
+    discovery, _ = _write_discovery(tmp_path / "exact", 9)
+    config = _config(discovery, tmp_path / "exact-output")
+    payload = json.loads(discovery.read_bytes())
+    payload["missing_required_evidence"].append("unexpected-evidence-field")
+    discovery.write_bytes(canonical_json(payload) + b"\n")
+    discovery.chmod(0o600)
+    with pytest.raises(SourceWheelProofError, match="^discovery_input_invalid$"):
+        load_private_discovery_input(replace(config, input_sha256=sha256_bytes(discovery.read_bytes())))
+    with pytest.raises(SourceWheelProofError, match="^expected_entry_count_invalid$"):
+        replace(config, expected_entry_count=8).validate()
 
 
 def test_reproducibility_and_concurrency_contracts_fail_closed(tmp_path: Path) -> None:
@@ -564,6 +790,8 @@ def test_reproducibility_and_concurrency_contracts_fail_closed(tmp_path: Path) -
         _config(discovery, tmp_path / "proof", max_concurrent_entries=4).validate()
     with pytest.raises(SourceWheelProofError, match="^base_runtime_revision_invalid$"):
         _config(discovery, tmp_path / "proof", base_runtime_commit="f" * 40).validate()
+    with pytest.raises(SourceWheelProofError, match="^vacli_retry_invalid$"):
+        _config(discovery, tmp_path / "proof", vacli_lease_retries=2).validate()
     with pytest.raises(
         SourceWheelProofError,
         match="^vacli_lease_concurrency_exceeds_runtime_cap$",
@@ -577,7 +805,7 @@ def test_reproducibility_and_concurrency_contracts_fail_closed(tmp_path: Path) -
 
 
 def test_hard_cap_runs_three_entries_with_at_most_nine_live_runtimes(tmp_path: Path) -> None:
-    discovery, artifacts = _write_discovery(tmp_path, 3)
+    discovery, artifacts = _write_discovery(tmp_path, 9)
     fleet = FakeFleet(artifacts)
     config = _config(
         discovery,
@@ -588,7 +816,7 @@ def test_hard_cap_runs_three_entries_with_at_most_nine_live_runtimes(tmp_path: P
 
     result = asyncio.run(run_source_wheel_proof(config, runtime_factory=fleet.factory))
 
-    assert result["runtime_starts"] == 9
+    assert result["runtime_starts"] == 27
     assert result["peak_live_runtimes"] == 9
     assert result["peak_concurrent_entries"] == 3
     assert fleet.peak_live == 9
@@ -604,7 +832,7 @@ def test_vacli_environment_and_binary_are_exactly_bound(
     binary.chmod(0o700)
     for name, value in {
         "VACLI_BIN": str(binary),
-        "VACLI_LEASE_RETRIES": "20",
+        "VACLI_LEASE_RETRIES": "1",
         "VACLI_MAX_CONCURRENT_LEASES": "6",
         "VACLI_MAX_PULL_RETRIES": "20",
         "VACLI_IMAGE_PULL_TIMEOUT_SECONDS": "3600",
@@ -614,6 +842,7 @@ def test_vacli_environment_and_binary_are_exactly_bound(
     config = _config(
         discovery,
         tmp_path / "proof",
+        vacli_path=binary,
         vacli_binary_sha256=sha256_bytes(binary.read_bytes()),
     )
 
@@ -623,13 +852,125 @@ def test_vacli_environment_and_binary_are_exactly_bound(
         validate_vacli_environment(config)
 
 
+def test_execution_environment_rejects_tool_site_and_inherited_python_drift(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    discovery, _ = _write_discovery(tmp_path / "input", 9)
+    project = (tmp_path / "project").resolve()
+    launcher = project / "user/tianhaowu/terminal_bench_vmvm/run_source_wheel_proof.sbatch"
+    vmvm_source = project / "environments/vmvm_tb_v2/vmvm_tb_v2/_vacli"
+    site_packages = (tmp_path / "site-packages").resolve()
+    launcher.parent.mkdir(parents=True)
+    vmvm_source.mkdir(parents=True)
+    site_packages.mkdir()
+    launcher.write_bytes(b"pinned launcher\n")
+    (vmvm_source / "backend.py").write_bytes(b"pinned runtime\n")
+    (site_packages / "dependency.py").write_bytes(b"pinned dependency\n")
+    for relative in ("deps/verifiers", "deps/renderers", "deps/pydantic-config"):
+        dependency = project / relative
+        dependency.mkdir(parents=True)
+        (dependency / ".git").write_text("gitdir: synthetic\n")
+    uv_path = tmp_path / "uv"
+    vacli_path = tmp_path / "vacli"
+    for path, payload in ((uv_path, b"pinned uv\n"), (vacli_path, b"pinned vacli\n")):
+        path.write_bytes(payload)
+        path.chmod(0o700)
+    python_path = Path(sys.executable).resolve()
+    python_stdlib = Path(sysconfig.get_path("stdlib")).resolve()
+    config = replace(
+        _config(discovery, tmp_path / "proof"),
+        project_dir=project,
+        canonical_launcher_path=launcher,
+        executed_launcher_path=launcher,
+        uv_path=uv_path.resolve(),
+        python_path=python_path,
+        python_stdlib_path=python_stdlib,
+        site_packages_path=site_packages,
+        vacli_path=vacli_path.resolve(),
+        launcher_sha256=sha256_bytes(launcher.read_bytes()),
+        uv_sha256=sha256_bytes(uv_path.read_bytes()),
+        python_sha256=sha256_bytes(python_path.read_bytes()),
+        python_runtime_manifest_sha256=python_runtime_manifest_sha256(python_path, python_stdlib),
+        site_packages_manifest_sha256=canonical_tree_manifest_sha256(site_packages),
+        vmvm_tb_v2_sha256=_python_sources_sha256(vmvm_source),
+        vacli_binary_sha256=sha256_bytes(vacli_path.read_bytes()),
+    )
+    dependency_commits = {
+        "deps/verifiers": config.verifiers_commit,
+        "deps/renderers": config.renderers_commit,
+        "deps/pydantic-config": config.pydantic_config_commit,
+    }
+
+    def fake_git(path: Path, *arguments: str) -> str:
+        if arguments == ("rev-parse", "--verify", "HEAD"):
+            if path == project:
+                return config.source_commit
+            return dependency_commits[str(path.relative_to(project))]
+        if arguments == ("rev-parse", "--verify", "HEAD^{tree}"):
+            return config.source_git_tree
+        if arguments[0] == "status":
+            return ""
+        if arguments[0] == "merge-base":
+            return config.base_runtime_commit
+        if arguments[:2] == ("ls-tree", "HEAD"):
+            relative = arguments[2]
+            return f"160000 commit {dependency_commits[relative]}\t{relative}"
+        raise AssertionError("unexpected Git probe")
+
+    monkeypatch.setattr(source_wheel_proof, "_git_output", fake_git)
+    for name in tuple(os.environ):
+        if name.startswith("PYTHON"):
+            monkeypatch.delenv(name, raising=False)
+    for name in ("VIRTUAL_ENV", "CONDA_PREFIX", "LD_PRELOAD", "LD_LIBRARY_PATH"):
+        monkeypatch.delenv(name, raising=False)
+    monkeypatch.setenv("PATH", "/usr/bin:/bin")
+    monkeypatch.setenv("PYTHONNOUSERSITE", "1")
+    monkeypatch.setenv("PYTHONDONTWRITEBYTECODE", "1")
+    monkeypatch.setenv("PYTHONSAFEPATH", "1")
+    monkeypatch.setenv("PYTHONPATH", source_wheel_proof._expected_pythonpath(config))
+    monkeypatch.setenv("VACLI_BIN", str(vacli_path.resolve()))
+
+    validate_execution_environment(config)
+    noncanonical_launchers = {
+        "copied": tmp_path / "copied_launcher.sbatch",
+        "symlinked": tmp_path / "symlinked_launcher.sbatch",
+        "spooled": tmp_path / "slurm_spool" / "job_script",
+    }
+    noncanonical_launchers["copied"].write_bytes(launcher.read_bytes())
+    noncanonical_launchers["copied"].chmod(0o600)
+    noncanonical_launchers["symlinked"].symlink_to(launcher)
+    noncanonical_launchers["spooled"].parent.mkdir()
+    noncanonical_launchers["spooled"].write_bytes(launcher.read_bytes())
+    noncanonical_launchers["spooled"].chmod(0o600)
+    for noncanonical_launcher in noncanonical_launchers.values():
+        with pytest.raises(SourceWheelProofError, match="^execution_binding_invalid$"):
+            validate_execution_environment(replace(config, executed_launcher_path=noncanonical_launcher))
+    for field in ("launcher_sha256", "uv_sha256", "python_sha256", "vacli_binary_sha256"):
+        with pytest.raises(SourceWheelProofError, match="^execution_tool_sha256_mismatch$"):
+            validate_execution_environment(replace(config, **{field: "a" * 64}))
+    with pytest.raises(SourceWheelProofError, match="^python_runtime_manifest_mismatch$"):
+        validate_execution_environment(replace(config, python_runtime_manifest_sha256="a" * 64))
+    with pytest.raises(SourceWheelProofError, match="^site_packages_manifest_mismatch$"):
+        validate_execution_environment(replace(config, site_packages_manifest_sha256="a" * 64))
+    with pytest.raises(SourceWheelProofError, match="^vmvm_runtime_source_mismatch$"):
+        validate_execution_environment(replace(config, vmvm_tb_v2_sha256="a" * 64))
+    monkeypatch.setenv("PYTHONHOME", "/untrusted")
+    with pytest.raises(SourceWheelProofError, match="^execution_environment_not_sanitized$"):
+        validate_execution_environment(config)
+    monkeypatch.delenv("PYTHONHOME")
+    (site_packages / "dependency.py").write_bytes(b"changed dependency\n")
+    with pytest.raises(SourceWheelProofError, match="^site_packages_manifest_mismatch$"):
+        validate_execution_environment(config)
+
+
 def test_resume_requires_exact_external_state_hash(tmp_path: Path) -> None:
-    discovery, artifacts = _write_discovery(tmp_path, 1)
+    discovery, artifacts = _write_discovery(tmp_path, 9)
     output = tmp_path / "proof"
     result = asyncio.run(
         run_source_wheel_proof(_config(discovery, output), runtime_factory=FakeFleet(artifacts).factory)
     )
-    assert result["runtime_starts"] == 3
+    assert result["runtime_starts"] == 27
 
     resumed = _config(
         discovery,
@@ -642,29 +983,47 @@ def test_resume_requires_exact_external_state_hash(tmp_path: Path) -> None:
 
 
 def test_resume_revalidates_completed_entries_and_runs_only_missing_work(tmp_path: Path) -> None:
-    discovery, artifacts = _write_discovery(tmp_path, 3)
+    discovery, artifacts = _write_discovery(tmp_path, 9)
     output = tmp_path / "proof"
-    asyncio.run(run_source_wheel_proof(_config(discovery, output), runtime_factory=FakeFleet(artifacts).factory))
+    initial_config = _config(
+        discovery,
+        output,
+        max_concurrent_entries=1,
+        vacli_max_concurrent_leases=3,
+    )
+    parsed, _ = load_private_discovery_input(initial_config)
+    initial_fleet = FakeFleet(artifacts)
+    with ProofStore(initial_config, parsed) as store:
+        runner = SourceWheelProofRunner(
+            initial_config,
+            parsed,
+            store._journal(),
+            runtime_factory=initial_fleet.factory,
+        )
+        key, proof = asyncio.run(runner._prove_entry(parsed.entries[0]))
+        store.publish_entry(
+            key,
+            proof,
+            {
+                **runner.telemetry.as_dict(),
+                "peak_concurrent_entries": runner.peak_entries,
+            },
+        )
 
-    (output / "source_wheel_policy.json").unlink()
-    (output / "source_wheel_proof.json").unlink()
+    assert initial_fleet.start_count == 3
     state_path = output / "proof_state.json"
-    state = json.loads(state_path.read_bytes())
-    state_path.chmod(0o600)
-    state["completed"].pop(next(iter(state["completed"])))
-    state["telemetry"]["attested_runtime_starts"] = 6
-    state_path.write_bytes(canonical_json(state) + b"\n")
-    state_path.chmod(0o600)
     resumed_fleet = FakeFleet(artifacts)
     config = _config(
         discovery,
         output,
         resume_state_sha256=sha256_bytes(state_path.read_bytes()),
         slurm_job_id="12346",
+        max_concurrent_entries=1,
+        vacli_max_concurrent_leases=3,
     )
 
     result = asyncio.run(run_source_wheel_proof(config, runtime_factory=resumed_fleet.factory))
 
-    assert result["runtime_starts"] == 9
-    assert resumed_fleet.start_count == 3
-    assert len(json.loads((output / "source_wheel_policy.json").read_bytes())["entries"]) == 3
+    assert result["runtime_starts"] == 27
+    assert resumed_fleet.start_count == 24
+    assert len(json.loads((output / "source_wheel_policy.json").read_bytes())["entries"]) == 9

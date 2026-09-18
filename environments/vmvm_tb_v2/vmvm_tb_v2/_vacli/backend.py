@@ -29,6 +29,7 @@ from __future__ import annotations
 import asyncio
 import atexit
 import ctypes
+import hashlib
 import io
 import ipaddress
 import json
@@ -141,16 +142,52 @@ _lease_concurrency = LeaseStartConcurrencyLimiter(MAX_CONCURRENT_LEASES, TELEMET
 # [{"vm_port":22,"local_port":10000}]
 _TUNNEL_RE = re.compile(r'\[\s*\{[^]]*"vm_port"\s*:\s*22[^]]*\}\s*\]')
 
-# vacli prints the LeaseVmResponse as a single JSON line, e.g.:
-# {"sessionId":{...},"auth_token":{...}}
-# We capture it so a dropped tunnel can be re-established to the SAME VM via
-# `lease --resume-with-session <json>` (no re-lease; container + files intact).
-_LEASE_RESP_RE = re.compile(r'\{"sessionId":.*"auth_token":\{[^}]*\}\}')
-
 # Container IDs come from parsing untrusted stdout (podman over ssh); we
 # interpolate them into shell commands below, so reject anything that isn't
 # the expected hex form before storing.
 _CONTAINER_ID_RE = re.compile(r"^[a-f0-9]{12,64}$")
+_SHA256_RE = re.compile(r"^[a-f0-9]{64}$")
+
+
+def _vacli_lease_identity_sha256(lease_response: str) -> str:
+    """Hash only vacli's real session identity, never a container or local name."""
+    try:
+        response = json.loads(lease_response)
+    except (json.JSONDecodeError, TypeError) as error:
+        raise BackendInitError("vacli returned an invalid lease response") from error
+    if not isinstance(response, dict) or not isinstance(response.get("auth_token"), dict):
+        raise BackendInitError("vacli returned an invalid lease response")
+    session_id = response.get("sessionId")
+    if not isinstance(session_id, dict) or not session_id:
+        raise BackendInitError("vacli returned an invalid session identity")
+    try:
+        canonical = json.dumps(
+            session_id,
+            allow_nan=False,
+            ensure_ascii=False,
+            separators=(",", ":"),
+            sort_keys=True,
+        ).encode()
+    except (TypeError, ValueError) as error:
+        raise BackendInitError("vacli returned an invalid session identity") from error
+    return hashlib.sha256(b"vacli-session-identity-v1\0" + canonical).hexdigest()
+
+
+def _extract_vacli_lease_response(line: str) -> tuple[str, str] | None:
+    """Extract a complete LeaseVmResponse JSON object from one vacli log line."""
+    decoder = json.JSONDecoder()
+    for offset, character in enumerate(line):
+        if character != "{":
+            continue
+        try:
+            response, end = decoder.raw_decode(line, offset)
+        except json.JSONDecodeError:
+            continue
+        if not isinstance(response, dict) or "sessionId" not in response or "auth_token" not in response:
+            continue
+        serialized = line[offset:end]
+        return serialized, _vacli_lease_identity_sha256(serialized)
+    return None
 
 
 def _validate_container_id(cid: str) -> str:
@@ -268,6 +305,7 @@ class VacliLease:
         # Raw LeaseVmResponse JSON (captured from the lease log) — input to
         # `--resume-with-session` when re-establishing a dropped tunnel.
         self.lease_response: str | None = None
+        self.session_identity_sha256: str | None = None
         self._resume_count = 0
         atexit.register(self.cleanup)
 
@@ -340,11 +378,10 @@ class VacliLease:
                 # Capture the LeaseVmResponse once (needed later for resume).
                 if self.lease_response is None:
                     for _line in text.splitlines():
-                        if '"sessionId"' in _line and '"auth_token"' in _line:
-                            _m = _LEASE_RESP_RE.search(_line)
-                            if _m:
-                                self.lease_response = _m.group(0)
-                                break
+                        captured = _extract_vacli_lease_response(_line)
+                        if captured is not None:
+                            self.lease_response, self.session_identity_sha256 = captured
+                            break
                 for match in _TUNNEL_RE.finditer(text):
                     try:
                         tunnels = json.loads(match.group(0))
@@ -982,6 +1019,13 @@ class VacliVMVMBackend:
             # leased VM.
             self.destroy()
             raise
+
+    @property
+    def lease_identity_sha256(self) -> str:
+        identity = self._lease.session_identity_sha256
+        if not isinstance(identity, str) or _SHA256_RE.fullmatch(identity) is None:
+            raise BackendInitError("vacli lease session identity is unavailable")
+        return identity
 
     def _open_session(self, run_entrypoint: bool = True) -> None:
         """Set up the persistent shell for the current container.
