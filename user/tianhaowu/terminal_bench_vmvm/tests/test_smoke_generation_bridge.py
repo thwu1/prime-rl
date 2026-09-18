@@ -507,16 +507,19 @@ MSWEA_MODEL_RETRY_STOP_AFTER_ATTEMPT = "10"
 
 [harness.runtime]
 type = "vmvm"
-session_timeout = 32400
+session_timeout = 43200
 tenant_id = "tenant"
 lease_ttl = "60s"
 
 [timeout]
-rollout = 28800
+setup = 3600
+rollout = 36000
+finalize = 3600
+scoring = 21600
 
 [retries.rollout]
 max_retries = 2
-include = ["ProviderError", "SandboxError", "TunnelError"]
+include = ["ProviderError", "SandboxError", "TunnelError", "InterceptionError"]
 """
     )
     source = {
