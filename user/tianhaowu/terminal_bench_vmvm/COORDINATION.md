@@ -1,6 +1,6 @@
 # VMVM sandbox coordination
 
-Last updated: 2026-09-18 23:07 UTC
+Last updated: 2026-09-18 23:24 UTC
 
 ## First message to the next teammate
 
@@ -41,6 +41,27 @@ this shared branch again.
 Add new rows below this line; do not overwrite another owner's row.
 
 ## Open coordination requests
+
+- **2026-09-18 23:24 UTC, oracle source-wheel proof launched:** reviewed proof
+  utility `25b84b2fc` is pushed and frozen in a clean detached checkout. Its
+  full workflow suite passed 708/708. Exact nine-entry private input structural
+  validation passed; independently reviewed x86 binding inspection `1750414`
+  completed 0:0 and bound all seven launcher/runtime/source hashes. Proof job
+  `1750436` was submitted from `swebench_vmvm:Launcher.0` using the canonical
+  tracked-launcher wrapper and is pending. It requires exactly 27 VMVM starts,
+  two independently matching builders plus one clean install target per entry,
+  and at most six live leases. Do not launch an oracle canary until its private
+  policy/certificate completes and passes independent validation.
+
+- **2026-09-18 23:24 UTC, replacement Kimi readiness passed:** readiness
+  `1750318` completed 0:0 in 18m58s against endpoints `1749985` and `1750299`,
+  with exact two-route semantic/affinity/state-reuse validation. Its checkpoint
+  SHA-256 is `4a0b8f9656206c8ad3bac8ae3ac876beb395c8a10a2ec843a2905fcb887fca5a`.
+  The reviewed snapshot watcher atomically captured the matching private
+  generated-config snapshot, and smoke `1750319` is running. Reviewed direct-
+  tmux-descendant watchers are armed for exactly one singleton and, only after
+  independent singleton validation, the fresh 66-singleton controller. No
+  singleton or full controller exists yet.
 
 - **2026-09-18 23:07 UTC, Kimi two-route replacement and Qwen checkpoint
   request:** endpoint `1749940` was scheduler-preempted after 1h01m09s;
