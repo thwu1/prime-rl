@@ -302,16 +302,33 @@ LiteLLM deadline is too short for a model turn. It validates and snapshots all
 loopback-only consistent-hash `vllm-router` with retries disabled. Stage that
 router into its separate versioned x86 directory with
 `stage_qwen_direct_router.sh`; never add it to or overwrite the live evaluator
-dependency directory. Keep Qwen rollout concurrency, multiplexing, HTTP pools,
-router admission, and aggregate VMVM concurrency at eight or less. Do not run
-the fallback concurrently with another VMVM evaluation that already consumes
-that budget. The launcher must reject configs without an externally approved,
+dependency directory. The TB4 gate uses eight rollout slots. The qualified
+2,500-task production config keeps 64 rollout/VMVM sessions active while the
+shared HTTP pool and router admission are both capped at 32 with a bounded
+32-request queue; simultaneous VMVM lease setup stays capped at two. Do not run
+either route concurrently with another VMVM evaluation that consumes its
+measured budget. The launcher must reject configs without an externally approved,
 SHA-256-pinned task allowlist and must never accept inline task selections. The
 approval path and digest must be supplied independently through
 `DIRECT_QWEN_APPROVED_TASK_FILE` and
 `DIRECT_QWEN_APPROVED_TASK_FILE_SHA256`; require their contents to match the
 config's pinned task-file digest. Resume only through the direct wrapper so the
 saved worker manifest and loopback endpoint are revalidated.
+
+After a terminal 2,500-task Qwen run, repair only missing or errored rows with
+`run_qwen_repair_chain.sbatch`; never resume the source in place. Run the
+controller from a clean detached exact revision with clean pinned submodules,
+an externally pinned source task-file digest and provenance digest, and new,
+absolute, disjoint runtime/export paths. It calls the direct evaluator as a
+shell program in the same allocation, exports original and repair sources
+pass-only, and atomically merges the two attested corpora. A zero-owed plan
+publishes the original export only. Treat task entries as opaque and never add
+semantic or name-based filtering. The repair export's selection and
+attestation sidecars must remain regular mode-0600 files, byte-identical to the
+externally pinned inputs. Child logs are private mode 0600, while
+console output is restricted to aggregate counts, digests, and stable codes.
+Submit this state change only through `swebench_vmvm:Launcher.0` with an
+`afterany` dependency on the producer.
 
 `VACLI_IMAGE_PULL_TIMEOUT_SECONDS` bounds each VM-side image pull attempt. The
 DeepSWE launcher derives it from TOML `sandbox_startup_timeout_sec` and uses one

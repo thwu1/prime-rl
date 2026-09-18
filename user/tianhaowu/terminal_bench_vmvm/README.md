@@ -615,9 +615,8 @@ the angle-bracketed values with audited literal values; do not use command
 substitution in the submission command:
 
 ```bash
-sbatch --dependency=afterok:1454171 \
-  --export="FINALIZER_PROJECT_DIR=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/sources/prime-rl-<finalizer-sha>,FINALIZER_EXPECTED_REVISION=<40-hex-finalizer-sha>,FINALIZER_SOURCE_ROOT=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/evals,FINALIZER_SOURCE_DIR=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/evals/<epoch-3-run>,FINALIZER_EXPECTED_PROVENANCE_SHA256=<64-hex-provenance-sha256>,FINALIZER_OUTPUT_ROOT=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/sft,FINALIZER_OUTPUT_DIR=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/sft/qwen-a95b-epoch3-pass-only-<finalizer-prefix>,FINALIZER_EXPECTED_COUNT=2500,FINALIZER_SELECTION=pass-only,FINALIZER_VALIDATION_PERMYRIAD=500,FINALIZER_SPLIT_SALT=terminal-bench-vmvm-sft-v1" \
-  /checkpoint/ram/tianhaowu/terminal_bench_vmvm/sources/prime-rl-<finalizer-sha>/user/tianhaowu/terminal_bench_vmvm/finalize_qwen_sft.sbatch
+tmux send-keys -t swebench_vmvm:Launcher.0 \
+  "sbatch --dependency=afterok:PRODUCER_JOB_ID --export=ALL,FINALIZER_PROJECT_DIR=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/sources/prime-rl-FINALIZER_SHA,FINALIZER_EXPECTED_REVISION=FINALIZER_REVISION_40_HEX,FINALIZER_SOURCE_ROOT=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/evals,FINALIZER_SOURCE_DIR=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/evals/EPOCH_3_RUN,FINALIZER_EXPECTED_PROVENANCE_SHA256=PROVENANCE_SHA256_64_HEX,FINALIZER_OUTPUT_ROOT=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/sft,FINALIZER_OUTPUT_DIR=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/sft/FINAL_EXPORT,FINALIZER_EXPECTED_COUNT=2500,FINALIZER_SELECTION=pass-only,FINALIZER_VALIDATION_PERMYRIAD=500,FINALIZER_SPLIT_SALT=terminal-bench-vmvm-sft-v1 /checkpoint/ram/tianhaowu/terminal_bench_vmvm/sources/prime-rl-FINALIZER_SHA/user/tianhaowu/terminal_bench_vmvm/finalize_qwen_sft.sbatch" C-m
 ```
 
 Slurm copies the wrapper at submission and `afterok` prevents it from starting
@@ -627,6 +626,54 @@ revision and provenance digest between stages, and never overwrites an index or
 dataset. A partial failure after index publication therefore requires an
 explicit aggregate audit before any operator chooses a new output path; do not
 blindly rerun or remove artifacts.
+
+### Qwen missing/error repair chain
+
+Do not resume a terminal production Qwen source in place to repair missing or
+errored rows. Use `run_qwen_repair_chain.sbatch` from a clean detached checkout
+at the exact controller revision. The controller derives the approved task file
+only from the immutable source snapshot, requires its externally supplied
+SHA-256 and exactly 2,500 opaque entries, and uses the pinned resume planner to
+select only missing or errored indices. Scored failures are retained in the
+original source and are not regenerated. The chain performs no semantic task
+inspection, classification, or name-based filtering.
+
+The controller creates a fresh schema-3 direct run inside a private runtime
+directory, with 64 rollout sessions, a 32-request provider/router cap, a
+32-request queue, and a 262,144-token total context cap. It invokes
+`run_qwen_direct_eval.sbatch` as a shell program in the controller's existing
+allocation; it never submits a child Slurm job. The original and repair sources
+are hash-checked before and after every subsequent stage. Pass-only original
+and repair exports are published atomically, then `merge_qwen_sft.py` publishes
+the final corpus atomically after proving the exports are disjoint and bound to
+the same split contract. Existing runtime or output paths are always rejected.
+The repair export keeps mode-0600 copies of the selection manifest and repair
+attestation beside the three base SFT artifacts; the merger requires both
+copies to be byte-identical to the externally hash-pinned inputs and binds
+their digests into the merged manifest.
+
+If the planner finds zero owed rows, the controller publishes only the original
+pass-only export and returns `finalized_without_repair`; the repair and merged
+destinations remain absent. Otherwise success is `merged`, and all three export
+directories are present. A failed intermediate stage can leave an attested
+original or repair export, but never a final merged directory; use fresh paths
+for another attempt and do not delete or overwrite the evidence.
+
+All child stdout and stderr are retained under the private runtime directory as
+mode-0600 logs. Scheduler output contains only aggregate counts, SHA-256 values,
+and stable error codes. It never forwards task identifiers, prompts, trace rows,
+model responses, reasoning, tool payloads, or child errors.
+
+Submit only through `swebench_vmvm:Launcher.0`, after replacing every uppercase
+placeholder with an audited literal. Use `afterany` because a terminal producer
+may legitimately contain the missing/error rows that this chain repairs. The
+three roots must already exist and must be absolute, pairwise-disjoint, narrow
+boundaries; every attempt and output directory must be new.
+
+```bash
+tmux send-keys -t swebench_vmvm:Launcher.0 \
+  "sbatch --parsable --dependency=afterany:PRODUCER_JOB_ID --export=ALL,QWEN_CHAIN_PROJECT_DIR=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/sources/prime-rl-CONTROLLER_SHA,QWEN_CHAIN_EXPECTED_REVISION=CONTROLLER_REVISION_40_HEX,QWEN_CHAIN_SOURCE_ROOT=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/evals,QWEN_CHAIN_SOURCE_DIR=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/evals/ORIGINAL_RUN,QWEN_CHAIN_APPROVED_TASK_FILE_SHA256=APPROVAL_SHA256_64_HEX,QWEN_CHAIN_EXPECTED_PROVENANCE_SHA256=PROVENANCE_SHA256_64_HEX,QWEN_CHAIN_RUNTIME_ROOT=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/repair-runtime,QWEN_CHAIN_RUNTIME_DIR=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/repair-runtime/ATTEMPT,QWEN_CHAIN_OUTPUT_ROOT=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/sft,QWEN_CHAIN_ORIGINAL_EXPORT_DIR=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/sft/ORIGINAL_EXPORT,QWEN_CHAIN_REPAIR_EXPORT_DIR=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/sft/REPAIR_EXPORT,QWEN_CHAIN_MERGED_OUTPUT_DIR=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/sft/MERGED_EXPORT,QWEN_CHAIN_VALIDATION_PERMYRIAD=500,QWEN_CHAIN_SPLIT_SALT=terminal-bench-vmvm-sft-v1 /checkpoint/ram/tianhaowu/terminal_bench_vmvm/sources/prime-rl-CONTROLLER_SHA/user/tianhaowu/terminal_bench_vmvm/run_qwen_repair_chain.sbatch" C-m
+```
 
 With that option, the exporter requires an exact one-to-one row-hash mapping,
 binds the full results, index, policy transition, active router manifest, and
