@@ -231,12 +231,20 @@ exact 27-start proof. Publish a non-runnable candidate first, then the final run
 and proof only after every entry passes. Keep the output directory mode 0700,
 use atomic private artifacts, and emit only aggregate counts, hashes, and stable
 error codes. Before launch, use `inspect_source_wheel_proof_environment.py` on
-the target x86 runtime and independently approve the canonical launcher, uv,
-Python executable, Python stdlib/runtime manifest, staged site-packages
-manifest, VMVM source, and vacli hashes. The launcher must replace inherited
-`PATH` and `PYTHONPATH` and clear Python home/user/virtual-environment controls.
-Revalidate those bindings plus the source commit/tree and all three clean
-gitlinks after every lease stops and before publishing final artifacts.
+the target x86 runtime under the pinned Python's `-I -S -B` mode and
+independently approve the canonical launcher, uv, Python executable, complete
+stdlib/import-closure manifest, staged site-packages manifest, VMVM source, and
+vacli hashes. Submit the canonical launcher from tmux through `/usr/bin/env -i`,
+an explicit allowlist, `sbatch --export=ALL`, and a `--wrap` that uses
+`/bin/bash --noprofile --norc`; never pass the launcher file directly to
+`sbatch`. The launcher rejects Bash startup hooks, exported functions,
+dynamic-loader injection, and inherited Python/uv controls. Its stdlib-only
+bootstrap validates every import root before adding it to `sys.path`, without
+processing `.pth` or customization modules. Revalidate those bindings plus the
+source commit/tree and all three clean gitlinks after every lease stops, write
+an immutable state-and-journal-bound post-run validation receipt, and only then
+publish final artifacts. A completed state without that receipt must fail
+closed on resume.
 
 Bind the approved runtime base, utility commit/tree, three dependency gitlinks,
 all execution hashes, and distinct target/builder identity hashes derived only

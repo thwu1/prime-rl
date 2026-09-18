@@ -243,52 +243,56 @@ around every VMVM start. Resume fails closed if those records are incomplete or
 cannot account exactly for every completed entry, so retried or indeterminate
 starts cannot be hidden by the 27-start certificate. Only after every entry
 passes and a second source/tool validation succeeds does it write an immutable
-`finalization.json`, reconcile the proof certificate, and publish the runnable
-`source_wheel_policy.json` last. This makes record-only, proof-only, and
-policy-only interrupted publication states deterministic to recover.
+`post_run_validation.json` receipt bound to the exact state and journal head.
+It then writes `finalization.json`, reconciles the proof certificate, and
+publishes the runnable `source_wheel_policy.json` last. A complete state without
+that validation receipt cannot resume into publication. Receipt-only,
+finalization-only, proof-only, and policy-only crash states are deterministic to
+recover.
 
 The launch approval also pins the canonical launcher bytes, exact `uv`, Python,
 and vacli executables, the complete Python stdlib/runtime manifest, the staged
 site-packages manifest, and the VMVM backend sources. Generate the aggregate
 hash candidates on the target x86 runtime with
 `inspect_source_wheel_proof_environment.py`, review them independently, and
-pass the approved values explicitly. The launcher clears inherited Python
-environment state and replaces `PATH` and `PYTHONPATH` with fixed allowlists.
+pass the approved values explicitly. Submit from tmux through a fresh `env -i`
+allowlist. The launcher rejects Bash startup hooks, exported functions,
+dynamic-loader controls, and Python or uv environment injection. It starts the
+pinned Python with `-I -S -B`; the stdlib-only bootstrap validates the source,
+tools, stdlib, site packages, and every effective import root before adding
+those roots to `sys.path`. It never processes `.pth`, `sitecustomize`, or
+`usercustomize`.
 The proof rehashes every execution binding and revalidates the source commit,
 tree, three clean submodule gitlinks, and VMVM sources after all leases stop but
 before finalization. The certificate binds every approved digest and distinct
 role-keyed hashes derived from vacli's real session identity; container IDs,
 runtime names, and raw lease identifiers are never accepted or printed.
-The inspector accepts explicit paths for `--launcher`, `--uv`, `--python`,
-`--python-stdlib`, `--site-packages`, `--vacli`, and `--vmvm-source` and emits
-only their canonical hashes. Run it with the same exact Python and fixed
-`PYTHONPATH` and `PYTHONSAFEPATH=1` startup planned for the job, then copy its reviewed hashes into the
-`SOURCE_WHEEL_PROOF_*_SHA256` inputs; do not derive those inputs inside the
-proof launch.
+The inspector accepts explicit paths for `--project-dir`, `--launcher`, `--uv`,
+`--python`, `--python-stdlib`, `--site-packages`, `--vacli`, and
+`--vmvm-source`, and emits only their canonical hashes. Invoke it with the exact
+pinned Python as `-I -S -B`, then copy its independently reviewed hashes into
+the `SOURCE_WHEEL_PROOF_*_SHA256` inputs; never derive those inputs inside the
+proof launch. Submit with the exact clean-environment `--wrap` form below.
+Passing the launcher file directly to `sbatch` is forbidden because Slurm
+executes a spool copy, which fails the launcher-origin check.
 
 ```bash
-umask 077
-env \
-  PROJECT_DIR=/path/to/clean-reviewed-checkout \
-  SOURCE_WHEEL_PROOF_INPUT=/path/to/private/probe-input.json \
-  SOURCE_WHEEL_PROOF_INPUT_SHA256=<independently-reviewed-input-sha256> \
-  SOURCE_WHEEL_PROOF_EXPECTED_ENTRY_COUNT=9 \
-  SOURCE_WHEEL_PROOF_MISSING_EVIDENCE_SHA256=<reviewed-canonical-list-sha256> \
-  SOURCE_WHEEL_PROOF_OUTPUT_DIR=/path/to/new-private-proof-directory \
-  SOURCE_WHEEL_PROOF_BASE_RUNTIME_REVISION=ceb9356c98c72e51568e7bb4658a540cb1492254 \
-  SOURCE_WHEEL_PROOF_SOURCE_REVISION=<reviewed-full-utility-commit> \
-  SOURCE_WHEEL_PROOF_LAUNCHER_SHA256=<reviewed-launcher-sha256> \
-  SOURCE_WHEEL_PROOF_UV_SHA256=<reviewed-uv-sha256> \
-  SOURCE_WHEEL_PROOF_PYTHON_SHA256=<reviewed-python-sha256> \
-  SOURCE_WHEEL_PROOF_PYTHON_RUNTIME_MANIFEST_SHA256=<reviewed-runtime-manifest-sha256> \
-  SOURCE_WHEEL_PROOF_SITE_PACKAGES_MANIFEST_SHA256=<reviewed-site-manifest-sha256> \
-  SOURCE_WHEEL_PROOF_VMVM_TB_V2_SHA256=<reviewed-vmvm-source-sha256> \
-  SOURCE_WHEEL_PROOF_VACLI_BINARY_SHA256=<reviewed-vacli-sha256> \
-  SOURCE_WHEEL_PROOF_MAX_CONCURRENT_ENTRIES=2 \
-  VACLI_LEASE_RETRIES=1 \
-  VACLI_MAX_CONCURRENT_LEASES=6 \
-  sbatch --parsable \
-  /path/to/clean-reviewed-checkout/user/tianhaowu/terminal_bench_vmvm/run_source_wheel_proof.sbatch
+/usr/bin/env -i PATH=/usr/bin:/bin /path/to/pinned/python -I -S -B \
+  /path/to/clean-reviewed-checkout/user/tianhaowu/terminal_bench_vmvm/inspect_source_wheel_proof_environment.py \
+  --project-dir /path/to/clean-reviewed-checkout \
+  --launcher /path/to/clean-reviewed-checkout/user/tianhaowu/terminal_bench_vmvm/run_source_wheel_proof.sbatch \
+  --uv /path/to/pinned/uv \
+  --python /path/to/pinned/python \
+  --python-stdlib /path/to/pinned/python-stdlib \
+  --site-packages /path/to/pinned/site-packages \
+  --vacli /path/to/pinned/vacli \
+  --vmvm-source /path/to/clean-reviewed-checkout/environments/vmvm_tb_v2/vmvm_tb_v2/_vacli
+```
+
+```bash
+tmux new-session -d -s source-wheel-proof
+tmux send-keys -t source-wheel-proof \
+  "/usr/bin/env -i PATH=/usr/bin:/bin HOME=/storage/home/tianhaowu USER=tianhaowu LOGNAME=tianhaowu PROJECT_DIR=/path/to/clean-reviewed-checkout SOURCE_WHEEL_PROOF_INPUT=/path/to/private/probe-input.json SOURCE_WHEEL_PROOF_INPUT_SHA256=<independently-reviewed-input-sha256> SOURCE_WHEEL_PROOF_EXPECTED_ENTRY_COUNT=9 SOURCE_WHEEL_PROOF_MISSING_EVIDENCE_SHA256=<reviewed-canonical-list-sha256> SOURCE_WHEEL_PROOF_OUTPUT_DIR=/path/to/new-private-proof-directory SOURCE_WHEEL_PROOF_BASE_RUNTIME_REVISION=ceb9356c98c72e51568e7bb4658a540cb1492254 SOURCE_WHEEL_PROOF_SOURCE_REVISION=<reviewed-full-utility-commit> SOURCE_WHEEL_PROOF_LAUNCHER_SHA256=<reviewed-launcher-sha256> SOURCE_WHEEL_PROOF_UV_SHA256=<reviewed-uv-sha256> SOURCE_WHEEL_PROOF_PYTHON_SHA256=<reviewed-python-sha256> SOURCE_WHEEL_PROOF_PYTHON_RUNTIME_MANIFEST_SHA256=<reviewed-runtime-manifest-sha256> SOURCE_WHEEL_PROOF_SITE_PACKAGES_MANIFEST_SHA256=<reviewed-site-manifest-sha256> SOURCE_WHEEL_PROOF_VMVM_TB_V2_SHA256=<reviewed-vmvm-source-sha256> SOURCE_WHEEL_PROOF_VACLI_BINARY_SHA256=<reviewed-vacli-sha256> SOURCE_WHEEL_PROOF_MAX_CONCURRENT_ENTRIES=2 PYTHON_BIN_X86_64=/path/to/pinned/python PYTHON_STDLIB_X86_64=/path/to/pinned/python-stdlib PYTHON_SITE_X86_64=/path/to/pinned/site-packages UV_BIN_X86_64=/path/to/pinned/uv VACLI_BIN=/path/to/pinned/vacli VACLI_LEASE_RETRIES=1 VACLI_MAX_CONCURRENT_LEASES=6 THRIFT_TLS_CL_CERT_PATH=/path/to/trusted/client.crt THRIFT_TLS_CL_KEY_PATH=/path/to/trusted/client.key /usr/bin/sbatch --parsable --export=ALL --job-name=tb-wheel-proof --partition=cpu_x86 --qos=cpu_x86_lowest --account=ram --time=12:00:00 --nodes=1 --ntasks=1 --cpus-per-task=6 --mem=12G --no-requeue --output=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/logs/source_wheel_proof_%j.log --error=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/logs/source_wheel_proof_%j.log --wrap='exec /bin/bash --noprofile --norc /path/to/clean-reviewed-checkout/user/tianhaowu/terminal_bench_vmvm/run_source_wheel_proof.sbatch'" C-m
 ```
 
 For an interrupted proof, review and hash `proof_state.json` externally, then

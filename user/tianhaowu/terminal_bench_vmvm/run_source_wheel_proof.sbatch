@@ -15,6 +15,36 @@
 set -euo pipefail
 umask 077
 
+if [[ ${PATH:-} != /usr/bin:/bin || -n ${BASH_ENV+x} || -n ${ENV+x} \
+    || -n ${LD_PRELOAD:-} || -n ${LD_LIBRARY_PATH:-} \
+    || -n ${VIRTUAL_ENV:-} || -n ${CONDA_PREFIX:-} ]]; then
+    printf 'Launcher requires the documented clean submission environment\n' >&2
+    exit 2
+fi
+if declare -F | /usr/bin/grep -q .; then
+    printf 'Exported shell functions are forbidden\n' >&2
+    exit 2
+fi
+for variable in ${!LD_@}; do
+    printf 'Inherited dynamic-loader environment is forbidden\n' >&2
+    exit 2
+done
+for variable in ${!PYTHON@}; do
+    case "$variable" in
+        PYTHON_BIN_X86_64 | PYTHON_SITE_X86_64 | PYTHON_STDLIB_X86_64) ;;
+        *)
+            printf 'Inherited Python environment is forbidden\n' >&2
+            exit 2
+            ;;
+    esac
+done
+for variable in ${!UV_@}; do
+    if [[ "$variable" != UV_BIN_X86_64 ]]; then
+        printf 'Inherited uv environment is forbidden\n' >&2
+        exit 2
+    fi
+done
+
 project_dir_input=${PROJECT_DIR:-${SLURM_SUBMIT_DIR:-$PWD}}
 project_dir=$(/usr/bin/readlink -f -- "$project_dir_input")
 workflow_dir="$project_dir/user/tianhaowu/terminal_bench_vmvm"
@@ -36,6 +66,7 @@ vmvm_tb_v2_sha256=${SOURCE_WHEEL_PROOF_VMVM_TB_V2_SHA256:-}
 vacli_binary_sha256=${SOURCE_WHEEL_PROOF_VACLI_BINARY_SHA256:-}
 max_concurrent_entries=${SOURCE_WHEEL_PROOF_MAX_CONCURRENT_ENTRIES:-2}
 python_bin_input=${PYTHON_BIN_X86_64:-/usr/bin/python3}
+python_stdlib_input=${PYTHON_STDLIB_X86_64:-}
 x86_uv=${UV_BIN_X86_64:-/storage/home/tianhaowu/.local/x86_64/bin/uv}
 x86_site=${PYTHON_SITE_X86_64:-/checkpoint/ram/tianhaowu/terminal_bench_vmvm/python_x86_64}
 vacli_bin_input=${VACLI_BIN:-/public/fbpkgs/x86_64/vacli/stable/vacli}
@@ -62,7 +93,8 @@ if [[ -z "$discovery_input" || -z "$discovery_input_sha256" || -z "$output_dir" 
     || -z "$expected_source_revision" || -z "$expected_missing_evidence_sha256" \
     || -z "$launcher_sha256" || -z "$uv_sha256" || -z "$python_sha256" \
     || -z "$python_runtime_manifest_sha256" || -z "$site_packages_manifest_sha256" \
-    || -z "$vmvm_tb_v2_sha256" || -z "$vacli_binary_sha256" ]]; then
+    || -z "$vmvm_tb_v2_sha256" || -z "$vacli_binary_sha256" \
+    || -z "$python_stdlib_input" ]]; then
     printf 'Proof input, output, and source-revision bindings are required\n' >&2
     exit 2
 fi
@@ -132,10 +164,12 @@ if [[ "$executed_launcher" != "$canonical_launcher" || -L "$canonical_launcher" 
 fi
 x86_uv=$(readlink -f -- "$x86_uv")
 python_bin=$(readlink -f -- "$python_bin_input")
+python_stdlib=$(readlink -f -- "$python_stdlib_input")
 x86_site=$(readlink -f -- "$x86_site")
 vacli_bin=$(readlink -f -- "$vacli_bin_input")
 if [[ ! -f "$canonical_launcher" || ! -f "$executed_launcher" || ! -x "$x86_uv" \
-    || ! -x "$python_bin" || ! -d "$x86_site/pydantic" || ! -x "$vacli_bin" ]]; then
+    || ! -x "$python_bin" || ! -d "$python_stdlib" \
+    || ! -d "$x86_site/pydantic" || ! -x "$vacli_bin" ]]; then
     printf 'Missing staged x86_64 Python runtime\n' >&2
     exit 2
 fi
@@ -147,13 +181,6 @@ if [[ "$(sha256sum "$canonical_launcher" | cut -d' ' -f1)" != "$launcher_sha256"
     printf 'Pinned execution tool digest mismatch\n' >&2
     exit 2
 fi
-python_stdlib=$("$python_bin" -I -S -c 'import sysconfig; print(sysconfig.get_path("stdlib"))')
-python_stdlib=$(readlink -f -- "$python_stdlib")
-if [[ ! -d "$python_stdlib" ]]; then
-    printf 'Pinned Python standard library is unavailable\n' >&2
-    exit 2
-fi
-
 cd "$project_dir"
 source_status=$(git status --porcelain=v1 --untracked-files=all)
 if [[ -n "$source_status" ]]; then
@@ -194,7 +221,6 @@ invocation_host=$(hostname)
 mkdir -p /checkpoint/ram/tianhaowu/terminal_bench_vmvm/logs
 
 export VACLI_BIN="$vacli_bin"
-export PYTHONPATH="$workflow_dir:$project_dir/environments/vmvm_tb_v2:$project_dir/deps/verifiers:$project_dir/deps/renderers:$project_dir/deps/pydantic-config/src:$x86_site"
 export VACLI_LEASE_RETRIES="$vacli_lease_retries"
 export VACLI_MAX_CONCURRENT_LEASES="$vacli_max_concurrent_leases"
 export VACLI_MAX_PULL_RETRIES="$vacli_max_pull_retries"
@@ -248,18 +274,31 @@ if [[ -n "$resume_state_sha256" ]]; then
     args+=(--resume-state-sha256 "$resume_state_sha256")
 fi
 
-exec "$x86_uv" run --no-project --offline --python "$python_bin" \
-    /usr/bin/env -u PYTHONHOME -u PYTHONSTARTUP -u PYTHONUSERBASE -u VIRTUAL_ENV -u CONDA_PREFIX \
-    -u LD_PRELOAD -u LD_LIBRARY_PATH \
-    PATH=/usr/bin:/bin \
-    PYTHONPATH="$PYTHONPATH" \
-    PYTHONNOUSERSITE=1 \
-    PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONSAFEPATH=1 \
-    VACLI_BIN="$VACLI_BIN" \
-    VACLI_LEASE_RETRIES="$VACLI_LEASE_RETRIES" \
-    VACLI_MAX_CONCURRENT_LEASES="$VACLI_MAX_CONCURRENT_LEASES" \
-    VACLI_MAX_PULL_RETRIES="$VACLI_MAX_PULL_RETRIES" \
-    VACLI_IMAGE_PULL_TIMEOUT_SECONDS="$VACLI_IMAGE_PULL_TIMEOUT_SECONDS" \
-    VACLI_CONTAINER_PRIVILEGED="$VACLI_CONTAINER_PRIVILEGED" \
-    "$python_bin" "$workflow_dir/prove_source_wheel_policy.py" "${args[@]}"
+bootstrap_args=(
+    --project-dir "$project_dir"
+    --canonical-launcher-path "$canonical_launcher"
+    --executed-launcher-path "$executed_launcher"
+    --uv-path "$x86_uv"
+    --python-path "$python_bin"
+    --python-stdlib-path "$python_stdlib"
+    --site-packages-path "$x86_site"
+    --vacli-path "$vacli_bin"
+    --launcher-sha256 "$launcher_sha256"
+    --uv-sha256 "$uv_sha256"
+    --python-sha256 "$python_sha256"
+    --python-runtime-manifest-sha256 "$python_runtime_manifest_sha256"
+    --site-packages-manifest-sha256 "$site_packages_manifest_sha256"
+    --base-runtime-commit "$base_runtime_revision"
+    --source-commit "$source_commit"
+    --source-git-tree "$source_git_tree"
+    --source-tree-sha256 "$source_tree_sha256"
+    --verifiers-commit "$verifiers_commit"
+    --renderers-commit "$renderers_commit"
+    --pydantic-config-commit "$pydantic_config_commit"
+    --vmvm-tb-v2-sha256 "$vmvm_tb_v2_sha256"
+    --vacli-binary-sha256 "$vacli_binary_sha256"
+    --main-script "$workflow_dir/prove_source_wheel_policy.py"
+)
+
+exec "$python_bin" -I -S -B "$workflow_dir/source_wheel_proof_bootstrap.py" run \
+    "${bootstrap_args[@]}" -- "${args[@]}"
