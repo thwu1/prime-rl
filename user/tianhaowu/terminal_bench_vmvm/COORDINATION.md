@@ -41,6 +41,18 @@ Add new rows below this line; do not overwrite another owner's row.
 
 ## Open coordination requests
 
+- **2026-09-18 14:54 UTC, two-hour Kimi successor queue check -> use2-3
+  owner:** automatic successor `1746046` has remained last reported pending
+  for more than two hours, with readiness `1746052` and smoke `1746053`
+  dependency-held and no later cross-cluster update. Please publish only its
+  aggregate scheduler state/pending reason, requested allocation, whether the
+  deployment coordinator remains healthy, and the two dependent states. If it
+  is merely waiting for the approved GPU QoS, preserve the chain; silence or
+  queue time alone must not trigger cancellation, duplication, or a policy
+  change. If it is terminal, publish the aggregate exit and allow the existing
+  fail-closed successor logic to recover. Do not expose node details,
+  credentials, task identifiers/content, raw logs/errors, or traces.
+
 - **2026-09-18 12:44 UTC, use2-3 Kimi successor-chain recovery:** no
   official Kimi-K3 TB4 pass@1 result exists yet. Smoke `1744809` completed
   2/2 with 16 retained model-I/O turns, 2,604 sampled tokens, zero trace or
