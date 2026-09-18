@@ -264,6 +264,21 @@ four active rollouts and two simultaneous lease starts. Normalize effective
 lease-start concurrency as the smaller of `VACLI_MAX_CONCURRENT_LEASES` and the
 configured rollout concurrency, and bind that value in both the eval identity
 and the downstream certificate.
+The server-pinned `cpu-132-021_8103` lane is a separate 24-route contract: its
+TB4 config uses 24 active rollouts, 24 HTTP connections, zero queued requests,
+and two simultaneous lease starts. Its launcher requires explicit private
+readiness and smoke checkpoint paths, plus a promotion-certificate path for
+Mobius, and rejects resume. TB4 shard plans derive their accepted rollout and
+HTTP concurrency from the pinned base config, allowing only the shared value 4
+or this server-lane value 24; never rewrite a server shard to the shared value
+4. Run its TB4 certificate audit with expected rollout concurrency 24 and
+lease-start concurrency 2. The 24/2 audit and every shard certificate require
+the bound smoke checkpoint to qualify exactly 24 rollout, multiplex, and HTTP
+slots with two lease starts, and to observe peaks of exactly 24 active rollouts
+and two lease starts across at least 24 traces. The shared 4/2 lane keeps its
+existing two-task transcript-smoke policy. A schema-2 bridge must retain that
+exact evidence in its immutable source smoke and bind the current 24-route
+generation.
 Configured limits do not prove achieved capacity. Guarded VMVM evaluators must
 publish the aggregate-only, mode-0400 `concurrency_telemetry.json` at clean
 interpreter exit. It measures the peak count of holders of the vacli lease-start

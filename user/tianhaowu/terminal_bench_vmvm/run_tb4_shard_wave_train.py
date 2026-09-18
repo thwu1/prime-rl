@@ -75,10 +75,12 @@ from launch_tb4_shard_wave import (
     validate_clean_project,
 )
 from tb4_shard_workflow import (
+    EXPECTED_LEASE_START_CONCURRENCY,
     CertifiedShard,
     PlannedShard,
     ShardWorkflowError,
     _certify_shard,
+    _plan_rollout_concurrency,
     canonical_json,
     load_plan,
 )
@@ -1349,6 +1351,8 @@ def validate_completed_shard(
             receipt_path,
             {shard.task_manifest_sha256: shard},
             expected_semantics_sha256=prepared.plan["base_config"]["semantics_sha256"],
+            expected_rollout_concurrency=_plan_rollout_concurrency(prepared.plan),
+            expected_lease_start_concurrency=EXPECTED_LEASE_START_CONCURRENCY,
         )
     except (OSError, ShardWorkflowError) as error:
         raise WaveTrainError("shard_guarded_artifacts_invalid") from error

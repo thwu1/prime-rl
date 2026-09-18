@@ -11,7 +11,7 @@ import pytest
 import run_tb4_shard_wave_train as train
 from inference_route_guard import RouteBinding
 from launch_tb4_shard_wave import EXPECTED_TMUX_TARGET, PinnedArtifact
-from tb4_shard_workflow import PlannedShard
+from tb4_shard_workflow import PlannedShard, ShardWorkflowError
 
 
 def _digest(value: bytes) -> str:
@@ -143,6 +143,52 @@ def _prepared(tmp_path: Path, *, count: int = 5) -> train.PreparedTrain:
         generation_sha256=_digest(train.canonical_json(generation)),
         route_binding=route,
     )
+
+
+@pytest.mark.parametrize("rollout_concurrency", [4, 24])
+def test_completed_shard_certification_uses_plan_concurrency(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    rollout_concurrency: int,
+) -> None:
+    prepared = _prepared(tmp_path, count=1)
+    shard = prepared.shards[0]
+    output_dir = tmp_path / "shard-000-attempt-001"
+    output_dir.mkdir()
+    writer_lock = output_dir / ".writer.lock"
+    writer_lock.write_bytes(b"")
+    writer_lock.chmod(0o600)
+    observed: dict[str, int] = {}
+
+    monkeypatch.setattr(
+        train,
+        "_plan_rollout_concurrency",
+        lambda plan: rollout_concurrency,
+    )
+
+    def reject_shard(*_args, **kwargs):
+        observed.update(
+            {
+                "rollouts": kwargs["expected_rollout_concurrency"],
+                "lease_starts": kwargs["expected_lease_start_concurrency"],
+            }
+        )
+        raise ShardWorkflowError("expected_test_stop")
+
+    monkeypatch.setattr(train, "_certify_shard", reject_shard)
+
+    with pytest.raises(train.WaveTrainError, match="^shard_guarded_artifacts_invalid$"):
+        train.validate_completed_shard(
+            prepared,
+            shard,
+            {
+                "shard_index": shard.index,
+                "slurm_job_id": "12345",
+                "output_dir": str(output_dir.resolve()),
+            },
+        )
+
+    assert observed == {"rollouts": rollout_concurrency, "lease_starts": 2}
 
 
 class _Harness:

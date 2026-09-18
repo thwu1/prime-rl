@@ -42,6 +42,8 @@ EXPECTED_SUPPORTED_TASK_COUNT = 63
 EXPECTED_UNSUPPORTED_TASK_COUNT = 3
 EXPECTED_ROLLOUT_CONCURRENCY = 4
 EXPECTED_LEASE_START_CONCURRENCY = 2
+SUPPORTED_ROLLOUT_CONCURRENCIES = frozenset({4, 24})
+EXPECTED_ROUTES_BY_ROLLOUT_CONCURRENCY = {4: 1, 24: 24}
 DEFAULT_MAX_SEQUENCE_TOKENS = 262_144
 TASKSET_ID = "terminal-bench-vmvm"
 EXPECTED_DENYLIST = frozenset({"logprobs", "prompt_logprobs", "return_token_ids", "top_logprobs"})
@@ -274,6 +276,22 @@ def _config_semantics_sha256(config: dict[str, Any]) -> str:
     return _sha256_bytes(canonical_json(_config_semantics(config)))
 
 
+def _rollout_concurrency(config: dict[str, Any]) -> int:
+    client = config.get("client")
+    rollout_concurrency = config.get("max_concurrent")
+    if (
+        not isinstance(client, dict)
+        or not isinstance(rollout_concurrency, int)
+        or isinstance(rollout_concurrency, bool)
+        or rollout_concurrency not in SUPPORTED_ROLLOUT_CONCURRENCIES
+        or config.get("multiplex") != rollout_concurrency
+        or client.get("max_connections") != rollout_concurrency
+        or client.get("max_keepalive_connections") != rollout_concurrency
+    ):
+        raise ShardWorkflowError("base_config_contract_invalid")
+    return rollout_concurrency
+
+
 def _validate_base_config(config: dict[str, Any], universe_sha256: str) -> str:
     taskset = config.get("taskset")
     if (
@@ -321,13 +339,14 @@ def _validate_base_config(config: dict[str, Any], universe_sha256: str) -> str:
         or runtime.get("type") != "vmvm"
     ):
         raise ShardWorkflowError("base_config_contract_invalid")
-    for key in ("max_concurrent", "multiplex"):
-        if config.get(key) != EXPECTED_ROLLOUT_CONCURRENCY:
-            raise ShardWorkflowError("base_config_contract_invalid")
-    for key in ("max_connections", "max_keepalive_connections"):
-        if client.get(key) != EXPECTED_ROLLOUT_CONCURRENCY:
-            raise ShardWorkflowError("base_config_contract_invalid")
+    _rollout_concurrency(config)
     return _config_semantics_sha256(config)
+
+
+def _plan_rollout_concurrency(plan: dict[str, Any]) -> int:
+    base_path = Path(plan["base_config"]["path"])
+    _, base_raw = _stable_read(base_path, label="plan_base_config", require_private=True)
+    return _rollout_concurrency(_read_toml(base_raw, label="plan_base_config"))
 
 
 def _render_shard_config(
@@ -741,7 +760,10 @@ def _certify_shard(
     shards_by_manifest: dict[str, PlannedShard],
     *,
     expected_semantics_sha256: str,
+    expected_rollout_concurrency: int,
+    expected_lease_start_concurrency: int,
 ) -> CertifiedShard:
+    from audit_tb4_results import TB4AuditError, _validate_deployment_checkpoints
     from eval_run_identity import EvalIdentityError, load_eval_run_identity
     from guard_success_receipt import (
         GuardReceiptError,
@@ -773,14 +795,26 @@ def _certify_shard(
     vmvm_environment = execution.get("vmvm_environment") if isinstance(execution, dict) else None
     if (
         not isinstance(execution, dict)
-        or execution.get("rollout_concurrency") != EXPECTED_ROLLOUT_CONCURRENCY
-        or execution.get("multiplex") != EXPECTED_ROLLOUT_CONCURRENCY
-        or execution.get("http_max_connections") != EXPECTED_ROLLOUT_CONCURRENCY
-        or execution.get("http_max_keepalive_connections") != EXPECTED_ROLLOUT_CONCURRENCY
+        or execution.get("rollout_concurrency") != expected_rollout_concurrency
+        or execution.get("multiplex") != expected_rollout_concurrency
+        or execution.get("http_max_connections") != expected_rollout_concurrency
+        or execution.get("http_max_keepalive_connections") != expected_rollout_concurrency
         or not isinstance(vmvm_environment, dict)
-        or vmvm_environment.get("lease_start_concurrency") != EXPECTED_LEASE_START_CONCURRENCY
+        or vmvm_environment.get("lease_start_concurrency") != expected_lease_start_concurrency
     ):
         raise ShardWorkflowError("shard_execution_contract_invalid")
+    try:
+        _validate_deployment_checkpoints(
+            identity,
+            deployment.get("endpoint"),
+            expected_routes=EXPECTED_ROUTES_BY_ROLLOUT_CONCURRENCY[
+                expected_rollout_concurrency
+            ],
+            expected_rollout_concurrency=expected_rollout_concurrency,
+            expected_lease_start_concurrency=expected_lease_start_concurrency,
+        )
+    except TB4AuditError as error:
+        raise ShardWorkflowError("shard_deployment_checkpoint_invalid") from error
     task_record = inputs.get("task_file")
     resolved_config_record = config_section.get("resolved")
     source_config_record = config_section.get("source")
@@ -845,7 +879,11 @@ def _certify_shard(
         raise ShardWorkflowError("shard_results_sha256_mismatch")
     route_generation = deployment["serving_route_generation"]
     routes = route_generation.get("routes") if isinstance(route_generation, dict) else None
-    if not isinstance(routes, list) or not routes:
+    if (
+        not isinstance(routes, list)
+        or len(routes)
+        != EXPECTED_ROUTES_BY_ROLLOUT_CONCURRENCY[expected_rollout_concurrency]
+    ):
         raise ShardWorkflowError("shard_route_generation_invalid")
     return CertifiedShard(
         spec=spec,
@@ -923,6 +961,8 @@ def merge_shards(
     """Publish a full result only from one certified success per planned shard."""
 
     plan, planned = load_plan(plan_path)
+    rollout_concurrency = _plan_rollout_concurrency(plan)
+    lease_start_concurrency = EXPECTED_LEASE_START_CONCURRENCY
     if len(success_receipts) != len(planned):
         raise ShardWorkflowError("success_receipt_count_mismatch")
     resolved_receipts: list[Path] = []
@@ -966,6 +1006,8 @@ def merge_shards(
                 receipt_path,
                 shards_by_manifest,
                 expected_semantics_sha256=plan["base_config"]["semantics_sha256"],
+                expected_rollout_concurrency=rollout_concurrency,
+                expected_lease_start_concurrency=lease_start_concurrency,
             )
             index = certified.spec.index
             if index in certified_by_index:
@@ -1097,8 +1139,8 @@ def merge_shards(
                     "model": EXPECTED_MODEL,
                     "reasoning_effort": "max",
                     "max_sequence_tokens": max_sequence_tokens,
-                    "rollout_concurrency": EXPECTED_ROLLOUT_CONCURRENCY,
-                    "lease_start_concurrency": EXPECTED_LEASE_START_CONCURRENCY,
+                    "rollout_concurrency": rollout_concurrency,
+                    "lease_start_concurrency": lease_start_concurrency,
                     "require_reasoning": True,
                     "require_response": True,
                     "require_model_io": True,
@@ -1179,7 +1221,12 @@ def _checkpoint_artifact(value: Any, *, label: str) -> tuple[Path, str]:
     return path, value["sha256"]
 
 
-def _validate_aggregate_sections(value: dict[str, Any]) -> tuple[int, float, float]:
+def _validate_aggregate_sections(
+    value: dict[str, Any],
+    *,
+    rollout_concurrency: int,
+    lease_start_concurrency: int,
+) -> tuple[int, float, float]:
     expected_policy = {
         "expected_tasks": EXPECTED_TASK_COUNT,
         "expected_supported_tasks": EXPECTED_SUPPORTED_TASK_COUNT,
@@ -1188,8 +1235,8 @@ def _validate_aggregate_sections(value: dict[str, Any]) -> tuple[int, float, flo
         "model": EXPECTED_MODEL,
         "reasoning_effort": "max",
         "max_sequence_tokens": DEFAULT_MAX_SEQUENCE_TOKENS,
-        "rollout_concurrency": EXPECTED_ROLLOUT_CONCURRENCY,
-        "lease_start_concurrency": EXPECTED_LEASE_START_CONCURRENCY,
+        "rollout_concurrency": rollout_concurrency,
+        "lease_start_concurrency": lease_start_concurrency,
         "require_reasoning": True,
         "require_response": True,
         "require_model_io": True,
@@ -1308,7 +1355,6 @@ def validate_sharded_checkpoint(
         or value.get("combined_trace_count") != EXPECTED_TASK_COUNT
     ):
         raise ShardWorkflowError("sharded_checkpoint_invalid")
-    supported_passes, supported_rate, all_rate = _validate_aggregate_sections(value)
     plan_record = value.get("plan")
     if (
         not isinstance(plan_record, dict)
@@ -1327,6 +1373,13 @@ def validate_sharded_checkpoint(
         or plan["base_config"]["semantics_sha256"] != value.get("config_semantics_sha256")
     ):
         raise ShardWorkflowError("sharded_checkpoint_plan_mismatch")
+    rollout_concurrency = _plan_rollout_concurrency(plan)
+    lease_start_concurrency = EXPECTED_LEASE_START_CONCURRENCY
+    supported_passes, supported_rate, all_rate = _validate_aggregate_sections(
+        value,
+        rollout_concurrency=rollout_concurrency,
+        lease_start_concurrency=lease_start_concurrency,
+    )
     deployment = value.get("deployment")
     if (
         not isinstance(deployment, dict)
@@ -1416,6 +1469,8 @@ def validate_sharded_checkpoint(
                 receipt_path,
                 shards_by_manifest,
                 expected_semantics_sha256=plan["base_config"]["semantics_sha256"],
+                expected_rollout_concurrency=rollout_concurrency,
+                expected_lease_start_concurrency=lease_start_concurrency,
             )
             index = certified.spec.index
             record = records_by_index.get(index)

@@ -54,6 +54,8 @@ EXPECTED_SUPPORTED_TASK_COUNT = 63
 EXPECTED_MODEL = "Kimi-K3"
 EXPECTED_TB4_ROLLOUT_CONCURRENCY = 4
 EXPECTED_TB4_LEASE_START_CONCURRENCY = 2
+SUPPORTED_TB4_ROLLOUT_CONCURRENCIES = frozenset({4, 24})
+EXPECTED_ROUTES_BY_ROLLOUT_CONCURRENCY = {4: 1, 24: 24}
 EXPECTED_MIN_SUPPORTED_PASS_RATE = 0.04
 EXPECTED_MAX_SUPPORTED_PASS_RATE = 0.22
 EXPECTED_OUTBOUND_BODY_DENYLIST = frozenset({"logprobs", "prompt_logprobs", "return_token_ids", "top_logprobs"})
@@ -350,7 +352,12 @@ def audit_results(
     return summary, not summary["ok"]
 
 
-def _validate_tb4_identity(envelope: dict[str, Any]) -> dict[str, Any]:
+def _validate_tb4_identity(
+    envelope: dict[str, Any],
+    *,
+    expected_rollout_concurrency: int,
+    expected_lease_start_concurrency: int,
+) -> dict[str, Any]:
     identity = envelope.get("identity")
     if not isinstance(identity, dict) or identity.get("role") != "tb4":
         raise TB4AuditError("tb4_eval_identity_required")
@@ -392,12 +399,12 @@ def _validate_tb4_identity(envelope: dict[str, Any]) -> dict[str, Any]:
         raise TB4AuditError("eval_run_identity_contract_invalid")
     vmvm_environment = execution.get("vmvm_environment")
     if (
-        execution.get("rollout_concurrency") != EXPECTED_TB4_ROLLOUT_CONCURRENCY
-        or execution.get("multiplex") != EXPECTED_TB4_ROLLOUT_CONCURRENCY
-        or execution.get("http_max_connections") != EXPECTED_TB4_ROLLOUT_CONCURRENCY
-        or execution.get("http_max_keepalive_connections") != EXPECTED_TB4_ROLLOUT_CONCURRENCY
+        execution.get("rollout_concurrency") != expected_rollout_concurrency
+        or execution.get("multiplex") != expected_rollout_concurrency
+        or execution.get("http_max_connections") != expected_rollout_concurrency
+        or execution.get("http_max_keepalive_connections") != expected_rollout_concurrency
         or not isinstance(vmvm_environment, dict)
-        or vmvm_environment.get("lease_start_concurrency") != EXPECTED_TB4_LEASE_START_CONCURRENCY
+        or vmvm_environment.get("lease_start_concurrency") != expected_lease_start_concurrency
     ):
         raise TB4AuditError("tb4_concurrency_contract_invalid")
     return identity
@@ -476,9 +483,80 @@ def _validate_provenance(
         raise TB4AuditError("provenance_mismatch")
 
 
+def _validate_smoke_concurrency(
+    smoke_payload: dict[str, Any],
+    *,
+    expected_rollout_concurrency: int,
+    expected_lease_start_concurrency: int,
+) -> None:
+    expected_concurrency = (
+        expected_rollout_concurrency,
+        expected_lease_start_concurrency,
+    )
+    if expected_concurrency == (
+        EXPECTED_TB4_ROLLOUT_CONCURRENCY,
+        EXPECTED_TB4_LEASE_START_CONCURRENCY,
+    ):
+        return
+    if expected_concurrency != (24, EXPECTED_TB4_LEASE_START_CONCURRENCY):
+        raise TB4AuditError("smoke_checkpoint_concurrency_invalid")
+
+    expected_execution = {
+        "rollout_concurrency": expected_rollout_concurrency,
+        "multiplex": expected_rollout_concurrency,
+        "http_max_connections": expected_rollout_concurrency,
+        "http_max_keepalive_connections": expected_rollout_concurrency,
+        "lease_start_concurrency": expected_lease_start_concurrency,
+    }
+    qualified_execution = smoke_payload.get("qualified_execution")
+    if (
+        not isinstance(qualified_execution, dict)
+        or set(qualified_execution) != set(expected_execution)
+        or any(type(value) is not int for value in qualified_execution.values())
+        or qualified_execution != expected_execution
+    ):
+        raise TB4AuditError("smoke_checkpoint_qualified_execution_invalid")
+
+    expected_observation = {
+        "active_rollout_signal": "completed_trace_lifecycle_timing_overlap",
+        "lease_start_signal": "vacli_lease_start_semaphore_holders",
+        "peak_active_rollouts_lower_bound": expected_rollout_concurrency,
+        "peak_concurrent_lease_startups": expected_lease_start_concurrency,
+        "required_peak_active_rollouts_lower_bound": expected_rollout_concurrency,
+        "required_peak_concurrent_lease_startups": expected_lease_start_concurrency,
+    }
+    observed_concurrency = smoke_payload.get("observed_concurrency")
+    observed_counts = (
+        "peak_active_rollouts_lower_bound",
+        "peak_concurrent_lease_startups",
+        "required_peak_active_rollouts_lower_bound",
+        "required_peak_concurrent_lease_startups",
+    )
+    policy = smoke_payload.get("audit_policy")
+    counts = smoke_payload.get("counts")
+    if (
+        not isinstance(observed_concurrency, dict)
+        or set(observed_concurrency) != set(expected_observation)
+        or any(type(observed_concurrency.get(key)) is not int for key in observed_counts)
+        or observed_concurrency != expected_observation
+        or not isinstance(policy, dict)
+        or not isinstance(counts, dict)
+        or not isinstance(policy.get("expected_traces"), int)
+        or isinstance(policy.get("expected_traces"), bool)
+        or policy["expected_traces"] < expected_rollout_concurrency
+        or counts.get("traces") != policy["expected_traces"]
+        or counts.get("tasks") != policy["expected_traces"]
+    ):
+        raise TB4AuditError("smoke_checkpoint_observed_concurrency_invalid")
+
+
 def _validate_deployment_checkpoints_legacy(
     identity: dict[str, Any],
     endpoint: dict[str, Any],
+    *,
+    expected_routes: int,
+    expected_rollout_concurrency: int,
+    expected_lease_start_concurrency: int,
 ) -> tuple[tuple[Path, str], tuple[Path, str]]:
     deployment = identity.get("deployment")
     if not isinstance(deployment, dict):
@@ -524,6 +602,7 @@ def _validate_deployment_checkpoints_legacy(
         readiness_endpoint != endpoint
         or readiness_generation != identity_generation
         or readiness_proxy_policy != identity_proxy_policy
+        or len(readiness_generation["routes"]) != expected_routes
     ):
         raise TB4AuditError("readiness_checkpoint_endpoint_mismatch")
     smoke_payload = _read_json_object(smoke[0], label="smoke_checkpoint")
@@ -558,6 +637,11 @@ def _validate_deployment_checkpoints_legacy(
         or counts.get("global_problems") != 0
     ):
         raise TB4AuditError("smoke_checkpoint_not_passed")
+    _validate_smoke_concurrency(
+        smoke_payload,
+        expected_rollout_concurrency=expected_rollout_concurrency,
+        expected_lease_start_concurrency=expected_lease_start_concurrency,
+    )
     try:
         smoke_endpoint = validate_endpoint_binding(smoke_payload.get("endpoint"))
         smoke_generation = validate_route_generation(smoke_payload.get("serving_route_generation"))
@@ -593,9 +677,21 @@ def _validate_deployment_checkpoints_legacy(
 def _validate_deployment_checkpoints(
     identity: dict[str, Any],
     endpoint: dict[str, Any],
+    *,
+    expected_routes: int = EXPECTED_ROUTES_BY_ROLLOUT_CONCURRENCY[
+        EXPECTED_TB4_ROLLOUT_CONCURRENCY
+    ],
+    expected_rollout_concurrency: int = EXPECTED_TB4_ROLLOUT_CONCURRENCY,
+    expected_lease_start_concurrency: int = EXPECTED_TB4_LEASE_START_CONCURRENCY,
 ) -> tuple[tuple[Path, str], tuple[Path, str]]:
     """Revalidate readiness and smoke through the shared qualification gate."""
 
+    if (
+        expected_lease_start_concurrency != EXPECTED_TB4_LEASE_START_CONCURRENCY
+        or EXPECTED_ROUTES_BY_ROLLOUT_CONCURRENCY.get(expected_rollout_concurrency)
+        != expected_routes
+    ):
+        raise TB4AuditError("tb4_concurrency_policy_invalid")
     deployment = identity.get("deployment")
     contract = identity.get("contract")
     if not isinstance(deployment, dict) or not isinstance(contract, dict):
@@ -611,7 +707,13 @@ def _validate_deployment_checkpoints(
     )
     smoke_payload = _read_json_object(smoke[0], label="smoke_checkpoint")
     if smoke_payload.get("schema_version") == 1:
-        return _validate_deployment_checkpoints_legacy(identity, endpoint)
+        return _validate_deployment_checkpoints_legacy(
+            identity,
+            endpoint,
+            expected_routes=expected_routes,
+            expected_rollout_concurrency=expected_rollout_concurrency,
+            expected_lease_start_concurrency=expected_lease_start_concurrency,
+        )
     proxy_info = endpoint.get("proxy_info")
     if not isinstance(proxy_info, dict):
         raise TB4AuditError("deployment_identity_invalid")
@@ -631,7 +733,31 @@ def _validate_deployment_checkpoints(
         )
     except (KeyError, TypeError, SmokeQualificationError) as error:
         raise TB4AuditError("smoke_checkpoint_not_passed") from error
-    if evidence.target_generation != deployment.get("serving_route_generation"):
+    if (
+        expected_rollout_concurrency,
+        expected_lease_start_concurrency,
+    ) != (
+        EXPECTED_TB4_ROLLOUT_CONCURRENCY,
+        EXPECTED_TB4_LEASE_START_CONCURRENCY,
+    ):
+        source_smoke_payload = _read_json_object(
+            evidence.source_smoke.path,
+            label="source_smoke_checkpoint",
+        )
+        _validate_smoke_concurrency(
+            source_smoke_payload,
+            expected_rollout_concurrency=expected_rollout_concurrency,
+            expected_lease_start_concurrency=expected_lease_start_concurrency,
+        )
+        if (
+            _sha256_file(evidence.source_smoke.path, label="source_smoke_checkpoint")
+            != evidence.source_smoke.sha256
+        ):
+            raise TB4AuditError("smoke_checkpoint_endpoint_mismatch")
+    if (
+        evidence.target_generation != deployment.get("serving_route_generation")
+        or len(evidence.target_generation["routes"]) != expected_routes
+    ):
         raise TB4AuditError("smoke_checkpoint_endpoint_mismatch")
     return readiness, smoke
 
@@ -692,6 +818,8 @@ def certify_tb4_results(
     min_supported_pass_rate: float,
     max_supported_pass_rate: float,
     max_sequence_tokens: int = DEFAULT_MAX_SEQUENCE_TOKENS,
+    expected_rollout_concurrency: int = EXPECTED_TB4_ROLLOUT_CONCURRENCY,
+    expected_lease_start_concurrency: int = EXPECTED_TB4_LEASE_START_CONCURRENCY,
 ) -> dict[str, Any]:
     """Validate and atomically bind a completed TB4 run without exporting example data."""
 
@@ -717,6 +845,12 @@ def certify_tb4_results(
         or max_supported_pass_rate != EXPECTED_MAX_SUPPORTED_PASS_RATE
     ):
         raise TB4AuditError("tb4_score_bounds_mismatch")
+    if (
+        expected_rollout_concurrency not in SUPPORTED_TB4_ROLLOUT_CONCURRENCIES
+        or expected_lease_start_concurrency != EXPECTED_TB4_LEASE_START_CONCURRENCY
+        or expected_lease_start_concurrency > expected_rollout_concurrency
+    ):
+        raise TB4AuditError("tb4_concurrency_policy_invalid")
 
     with _hold_writer_lock(run_dir):
         identity_path = _resolved_file(run_dir / "eval_run_identity.json", label="eval_run_identity")
@@ -727,7 +861,11 @@ def certify_tb4_results(
             raise TB4AuditError("eval_run_identity_invalid") from error
         if _sha256_file(identity_path, label="eval_run_identity") != identity_file_sha256:
             raise TB4AuditError("eval_run_identity_changed")
-        identity = _validate_tb4_identity(envelope)
+        identity = _validate_tb4_identity(
+            envelope,
+            expected_rollout_concurrency=expected_rollout_concurrency,
+            expected_lease_start_concurrency=expected_lease_start_concurrency,
+        )
         identity_sha256 = envelope["eval_run_identity_sha256"]
         endpoint = _validated_endpoint(identity)
 
@@ -752,7 +890,15 @@ def certify_tb4_results(
         _require_run_local(task_file, run_dir / "inputs/task_file.txt", label="task_file")
         provenance = _resolved_file(run_dir / "provenance.txt", label="provenance")
         _validate_provenance(provenance, identity=identity, identity_sha256=identity_sha256)
-        readiness, smoke = _validate_deployment_checkpoints(identity, endpoint)
+        readiness, smoke = _validate_deployment_checkpoints(
+            identity,
+            endpoint,
+            expected_routes=EXPECTED_ROUTES_BY_ROLLOUT_CONCURRENCY[
+                expected_rollout_concurrency
+            ],
+            expected_rollout_concurrency=expected_rollout_concurrency,
+            expected_lease_start_concurrency=expected_lease_start_concurrency,
+        )
         deployment = identity["deployment"]
         guard_receipt_path = run_dir / "route_guard_success.json"
         guarded_results_sha256 = _sha256_file(results, label="results")
@@ -846,8 +992,8 @@ def certify_tb4_results(
                 "model": EXPECTED_MODEL,
                 "reasoning_effort": "max",
                 "max_sequence_tokens": max_sequence_tokens,
-                "rollout_concurrency": EXPECTED_TB4_ROLLOUT_CONCURRENCY,
-                "lease_start_concurrency": EXPECTED_TB4_LEASE_START_CONCURRENCY,
+                "rollout_concurrency": expected_rollout_concurrency,
+                "lease_start_concurrency": expected_lease_start_concurrency,
                 "require_reasoning": True,
                 "require_response": True,
                 "require_model_io": True,
@@ -924,6 +1070,16 @@ def main() -> None:
         type=Path,
         help="publish an aggregate-only, write-once TB4 certificate using run identity inputs",
     )
+    parser.add_argument(
+        "--expected-rollout-concurrency",
+        type=int,
+        default=EXPECTED_TB4_ROLLOUT_CONCURRENCY,
+    )
+    parser.add_argument(
+        "--expected-lease-start-concurrency",
+        type=int,
+        default=EXPECTED_TB4_LEASE_START_CONCURRENCY,
+    )
     args = parser.parse_args()
     if args.max_sequence_tokens < 1:
         parser.error("--max-sequence-tokens must be positive")
@@ -945,6 +1101,8 @@ def main() -> None:
                 min_supported_pass_rate=args.min_supported_pass_rate,
                 max_supported_pass_rate=args.max_supported_pass_rate,
                 max_sequence_tokens=args.max_sequence_tokens,
+                expected_rollout_concurrency=args.expected_rollout_concurrency,
+                expected_lease_start_concurrency=args.expected_lease_start_concurrency,
             )
             failed = False
         else:

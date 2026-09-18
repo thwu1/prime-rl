@@ -152,6 +152,7 @@ def _certificate_fixture(
     monkeypatch: pytest.MonkeyPatch,
     *,
     role: str = "tb4",
+    expected_rollout_concurrency: int = 4,
 ) -> tuple[Path, Path, dict, dict[str, Path]]:
     dataset, results, _ = _fixture(tmp_path, passes=8)
     inputs = tmp_path / "inputs"
@@ -209,7 +210,13 @@ def _certificate_fixture(
         deployment_spec=spec,
         expected_proxy_info_sha256=_file_digest(proxy_info),
     ).binding
-    backend = f"backend-sha256:{hashlib.sha256(b'http://worker-0:8000/v1').hexdigest()}"
+    expected_routes = tb4.EXPECTED_ROUTES_BY_ROLLOUT_CONCURRENCY[
+        expected_rollout_concurrency
+    ]
+    backends = [
+        f"backend-sha256:{hashlib.sha256(f'http://worker-{index}:8000/v1'.encode()).hexdigest()}"
+        for index in range(expected_routes)
+    ]
     serving_route_generation = {
         "schema_version": 2,
         "coordinator": {
@@ -222,10 +229,11 @@ def _certificate_fixture(
         },
         "routes": [
             {
-                "slurm_job_id": "12345",
+                "slurm_job_id": str(12345 + index),
                 "started_at": "2026-09-17T01:00:00Z",
                 "backend_sha256": backend,
             }
+            for index, backend in enumerate(backends)
         ],
     }
     proxy_policy = load_deployment_proxy_policy(
@@ -240,13 +248,13 @@ def _certificate_fixture(
         "endpoint": endpoint,
         "proxy_policy": proxy_policy,
         "serving_route_generation": serving_route_generation,
-        "expected_routes": 1,
+        "expected_routes": expected_routes,
         "last_status": {
             "schema_version": 4,
             "deployment_id": deployment_id,
             "phase": "serving",
-            "desired": 1,
-            "ready": 1,
+            "desired": expected_routes,
+            "ready": expected_routes,
             "running_not_ready": 0,
             "pending": 0,
             "coordinator_incarnation": serving_route_generation["coordinator"],
@@ -258,9 +266,9 @@ def _certificate_fixture(
             "endpoint_authority_sha256": endpoint["authority_sha256"],
             "coverage": {
                 "ok": True,
-                "expected_routes": 1,
-                "discovered_routes": 1,
-                "backends": [backend],
+                "expected_routes": expected_routes,
+                "discovered_routes": expected_routes,
+                "backends": sorted(backends),
             },
         },
     }
@@ -299,6 +307,31 @@ def _certificate_fixture(
             "proxy_info": endpoint["proxy_info"],
         },
     }
+    if expected_rollout_concurrency == 24:
+        smoke_payload["audit_policy"]["expected_traces"] = 24
+        smoke_payload["counts"].update(
+            {
+                "traces": 24,
+                "tasks": 24,
+                "sampled_tokens": 24,
+                "model_io_turns": 24,
+            }
+        )
+        smoke_payload["qualified_execution"] = {
+            "rollout_concurrency": 24,
+            "multiplex": 24,
+            "http_max_connections": 24,
+            "http_max_keepalive_connections": 24,
+            "lease_start_concurrency": 2,
+        }
+        smoke_payload["observed_concurrency"] = {
+            "active_rollout_signal": "completed_trace_lifecycle_timing_overlap",
+            "lease_start_signal": "vacli_lease_start_semaphore_holders",
+            "peak_active_rollouts_lower_bound": 24,
+            "peak_concurrent_lease_startups": 2,
+            "required_peak_active_rollouts_lower_bound": 24,
+            "required_peak_concurrent_lease_startups": 2,
+        }
     smoke_payload["smoke_checkpoint_sha256"] = _digest(smoke_payload)
     smoke.write_text(json.dumps(smoke_payload), encoding="utf-8")
 
@@ -370,10 +403,10 @@ def _certificate_fixture(
             "sampling_max_tokens": 32768,
         },
         "execution": {
-            "rollout_concurrency": 4,
-            "multiplex": 4,
-            "http_max_connections": 4,
-            "http_max_keepalive_connections": 4,
+            "rollout_concurrency": expected_rollout_concurrency,
+            "multiplex": expected_rollout_concurrency,
+            "http_max_connections": expected_rollout_concurrency,
+            "http_max_keepalive_connections": expected_rollout_concurrency,
             "vmvm_environment": {"lease_start_concurrency": 2},
         },
     }
@@ -634,6 +667,9 @@ def test_certificate_is_aggregate_only_self_hashed_and_write_once(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     results, checkpoint, envelope, paths = _certificate_fixture(tmp_path, monkeypatch)
+    shared_smoke = json.loads(paths["smoke"].read_text())
+    assert "qualified_execution" not in shared_smoke
+    assert "observed_concurrency" not in shared_smoke
 
     certificate = certify_tb4_results(
         results,
@@ -692,6 +728,94 @@ def test_certificate_is_aggregate_only_self_hashed_and_write_once(
         )
         == certificate
     )
+
+
+def test_certificate_accepts_exact_server_smoke_concurrency(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    results, checkpoint, _, _ = _certificate_fixture(
+        tmp_path,
+        monkeypatch,
+        expected_rollout_concurrency=24,
+    )
+
+    certificate = certify_tb4_results(
+        results,
+        certificate_path=checkpoint,
+        min_supported_pass_rate=0.04,
+        max_supported_pass_rate=0.22,
+        expected_rollout_concurrency=24,
+        expected_lease_start_concurrency=2,
+    )
+
+    assert certificate["audit_policy"]["rollout_concurrency"] == 24
+    assert certificate["audit_policy"]["lease_start_concurrency"] == 2
+    assert len(certificate["serving_route_generation"]["routes"]) == 24
+
+
+@pytest.mark.parametrize(
+    ("tamper", "error"),
+    [
+        ("missing_qualified", "smoke_checkpoint_qualified_execution_invalid"),
+        ("mismatched_http", "smoke_checkpoint_qualified_execution_invalid"),
+        ("missing_observed", "smoke_checkpoint_observed_concurrency_invalid"),
+        ("lower_observed_rollouts", "smoke_checkpoint_observed_concurrency_invalid"),
+        ("lower_observed_leases", "smoke_checkpoint_observed_concurrency_invalid"),
+        ("mismatched_required", "smoke_checkpoint_observed_concurrency_invalid"),
+        ("insufficient_traces", "smoke_checkpoint_observed_concurrency_invalid"),
+        ("type_confused_execution", "smoke_checkpoint_qualified_execution_invalid"),
+        ("type_confused_observation", "smoke_checkpoint_observed_concurrency_invalid"),
+    ],
+)
+def test_server_certificate_rejects_unproven_smoke_concurrency(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    tamper: str,
+    error: str,
+) -> None:
+    results, checkpoint, envelope, paths = _certificate_fixture(
+        tmp_path,
+        monkeypatch,
+        expected_rollout_concurrency=24,
+    )
+    smoke = json.loads(paths["smoke"].read_text())
+    if tamper == "missing_qualified":
+        smoke.pop("qualified_execution")
+    elif tamper == "mismatched_http":
+        smoke["qualified_execution"]["http_max_connections"] = 4
+    elif tamper == "missing_observed":
+        smoke.pop("observed_concurrency")
+    elif tamper == "lower_observed_rollouts":
+        smoke["observed_concurrency"]["peak_active_rollouts_lower_bound"] = 23
+    elif tamper == "lower_observed_leases":
+        smoke["observed_concurrency"]["peak_concurrent_lease_startups"] = 1
+    elif tamper == "mismatched_required":
+        smoke["observed_concurrency"]["required_peak_active_rollouts_lower_bound"] = 4
+    elif tamper == "insufficient_traces":
+        smoke["audit_policy"]["expected_traces"] = 23
+        smoke["counts"]["traces"] = 23
+        smoke["counts"]["tasks"] = 23
+    elif tamper == "type_confused_execution":
+        smoke["qualified_execution"]["rollout_concurrency"] = 24.0
+    else:
+        smoke["observed_concurrency"]["peak_active_rollouts_lower_bound"] = 24.0
+    body = {key: value for key, value in smoke.items() if key != "smoke_checkpoint_sha256"}
+    smoke["smoke_checkpoint_sha256"] = _digest(body)
+    paths["smoke"].write_text(json.dumps(smoke))
+    envelope["identity"]["deployment"]["smoke_checkpoint"]["sha256"] = _file_digest(
+        paths["smoke"]
+    )
+
+    with pytest.raises(TB4AuditError, match=f"^{error}$"):
+        certify_tb4_results(
+            results,
+            certificate_path=checkpoint,
+            min_supported_pass_rate=0.04,
+            max_supported_pass_rate=0.22,
+            expected_rollout_concurrency=24,
+            expected_lease_start_concurrency=2,
+        )
 
 
 def test_certificate_rejects_non_tb4_identity(

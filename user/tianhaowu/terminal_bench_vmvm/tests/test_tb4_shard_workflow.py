@@ -8,6 +8,9 @@ import stat
 import tomllib
 from pathlib import Path
 
+import audit_tb4_results
+import eval_run_identity
+import guard_success_receipt
 import pytest
 import tb4_shard_workflow as workflow
 from tb4_shard_workflow import (
@@ -117,10 +120,23 @@ def test_plan_rejects_non_private_universe(tmp_path: Path):
         create_plan(universe, universe_sha, base, tmp_path / "plan", shard_size=4)
 
 
-def test_current_kimi_base_config_can_seed_a_private_plan(tmp_path: Path):
+@pytest.mark.parametrize(
+    ("relative_config", "expected_concurrency"),
+    [
+        ("configs/eval/tb4_kimi_k3_max_miniswe.toml", 4),
+        ("configs/eval/servers/cpu-132-021_8103/tb4_kimi_k3_shared24_miniswe.toml", 24),
+    ],
+)
+def test_current_kimi_base_config_can_seed_a_private_plan(
+    tmp_path: Path,
+    relative_config: str,
+    expected_concurrency: int,
+):
     workflow_dir = Path(workflow.__file__).resolve().parent
-    base = workflow_dir / "configs/eval/tb4_kimi_k3_max_miniswe.toml"
+    base = workflow_dir / relative_config
     config = tomllib.loads(base.read_text())
+    assert config["max_concurrent"] == expected_concurrency
+    assert config["client"]["max_connections"] == expected_concurrency
     source_manifest = Path(config["taskset"]["task_file"]).resolve(strict=True)
     universe = tmp_path / "private-universe.txt"
     shutil.copyfile(source_manifest, universe)
@@ -191,6 +207,82 @@ def test_writer_lock_is_acquired_once_and_rejects_an_active_writer(tmp_path: Pat
                 pass
 
 
+def test_certify_shard_validates_bound_server_smoke_concurrency(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    receipt_path = tmp_path / "route_guard_success.json"
+    identity_path = tmp_path / "eval_run_identity.json"
+    _private_write(receipt_path, b"{}\n")
+    _private_write(identity_path, b"{}\n")
+    identity = {
+        "role": "tb4",
+        "inputs": {},
+        "config": {},
+        "deployment": {"endpoint": {}},
+        "execution": {
+            "rollout_concurrency": 24,
+            "multiplex": 24,
+            "http_max_connections": 24,
+            "http_max_keepalive_connections": 24,
+            "vmvm_environment": {"lease_start_concurrency": 2},
+        },
+    }
+    monkeypatch.setattr(
+        guard_success_receipt,
+        "load_guard_success_receipt",
+        lambda _path: {"artifacts": {"eval_run_identity": {"path": str(identity_path)}}},
+    )
+    monkeypatch.setattr(
+        eval_run_identity,
+        "load_eval_run_identity",
+        lambda _path, *, verify_references: {"identity": identity},
+    )
+    observed: dict[str, object] = {}
+
+    def reject_checkpoint(
+        actual_identity: dict,
+        endpoint: dict,
+        *,
+        expected_routes: int,
+        expected_rollout_concurrency: int,
+        expected_lease_start_concurrency: int,
+    ) -> None:
+        observed.update(
+            {
+                "identity": actual_identity,
+                "endpoint": endpoint,
+                "routes": expected_routes,
+                "rollouts": expected_rollout_concurrency,
+                "lease_starts": expected_lease_start_concurrency,
+            }
+        )
+        raise audit_tb4_results.TB4AuditError("smoke_checkpoint_observed_concurrency_invalid")
+
+    monkeypatch.setattr(
+        audit_tb4_results,
+        "_validate_deployment_checkpoints",
+        reject_checkpoint,
+    )
+
+    with pytest.raises(ShardWorkflowError, match="^shard_deployment_checkpoint_invalid$"):
+        workflow._certify_shard(
+            receipt_path,
+            {},
+            expected_semantics_sha256="0" * 64,
+            expected_rollout_concurrency=24,
+            expected_lease_start_concurrency=2,
+        )
+
+    assert observed == {
+        "identity": identity,
+        "endpoint": {},
+        "routes": 24,
+        "rollouts": 24,
+        "lease_starts": 2,
+    }
+
+
 def test_merge_publishes_only_complete_certified_partition(tmp_path: Path, monkeypatch):
     plan, plan_dir, identifiers = _make_plan(tmp_path, shard_size=22)
     _loaded, shards = load_plan(plan_dir / "plan.json")
@@ -251,7 +343,7 @@ def test_merge_publishes_only_complete_certified_partition(tmp_path: Path, monke
     monkeypatch.setattr(
         workflow,
         "_certify_shard",
-        lambda path, _mapping, expected_semantics_sha256: by_receipt[path.resolve()],
+        lambda path, _mapping, **_kwargs: by_receipt[path.resolve()],
     )
     monkeypatch.setattr(
         workflow,

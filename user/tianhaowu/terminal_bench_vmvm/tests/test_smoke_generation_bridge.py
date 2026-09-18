@@ -743,3 +743,81 @@ def test_tb4_audit_dispatches_schema_two_bridge_through_shared_validator(
     assert len(calls) == 1
     assert observed_readiness == (readiness.path, readiness.sha256)
     assert observed_smoke == (smoke.path, smoke.sha256)
+
+
+@pytest.mark.parametrize("observed_rollouts", [24, 23])
+def test_tb4_audit_enforces_server_capacity_through_schema_two_bridge(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    observed_rollouts: int,
+) -> None:
+    spec = _artifact(tmp_path / "spec.yaml", b"spec")
+    readiness = _artifact(tmp_path / "readiness.json", b"{}")
+    bridge_artifact = _artifact(tmp_path / "bridge.json", b'{"schema_version":2}\n')
+    proxy = _artifact(tmp_path / "proxy_info.json", b"opaque")
+    generation = _generation(*(f"http://worker-{index}:8000/v1" for index in range(24)))
+    endpoint = _endpoint(proxy)
+    source_payload = {
+        "audit_policy": {"expected_traces": 24},
+        "counts": {"traces": 24, "tasks": 24},
+        "qualified_execution": {
+            "rollout_concurrency": 24,
+            "multiplex": 24,
+            "http_max_connections": 24,
+            "http_max_keepalive_connections": 24,
+            "lease_start_concurrency": 2,
+        },
+        "observed_concurrency": {
+            "active_rollout_signal": "completed_trace_lifecycle_timing_overlap",
+            "lease_start_signal": "vacli_lease_start_semaphore_holders",
+            "peak_active_rollouts_lower_bound": observed_rollouts,
+            "peak_concurrent_lease_startups": 2,
+            "required_peak_active_rollouts_lower_bound": 24,
+            "required_peak_concurrent_lease_startups": 2,
+        },
+    }
+    source_smoke = _artifact(
+        tmp_path / "source-smoke.json",
+        json.dumps(source_payload).encode(),
+    )
+    monkeypatch.setattr(
+        audit_tb4_results,
+        "validate_smoke_qualification",
+        lambda *_args, **_kwargs: SimpleNamespace(
+            source_smoke=source_smoke,
+            target_generation=generation,
+        ),
+    )
+    identity = {
+        "contract": {"model": "Kimi-K3"},
+        "deployment": {
+            "id": "deployment-test",
+            "spec": spec.record,
+            "readiness_checkpoint": readiness.record,
+            "smoke_checkpoint": bridge_artifact.record,
+            "serving_route_generation": generation,
+        },
+    }
+
+    if observed_rollouts == 24:
+        observed_readiness, observed_smoke = audit_tb4_results._validate_deployment_checkpoints(
+            identity,
+            endpoint,
+            expected_routes=24,
+            expected_rollout_concurrency=24,
+            expected_lease_start_concurrency=2,
+        )
+        assert observed_readiness == (readiness.path, readiness.sha256)
+        assert observed_smoke == (bridge_artifact.path, bridge_artifact.sha256)
+    else:
+        with pytest.raises(
+            audit_tb4_results.TB4AuditError,
+            match="^smoke_checkpoint_observed_concurrency_invalid$",
+        ):
+            audit_tb4_results._validate_deployment_checkpoints(
+                identity,
+                endpoint,
+                expected_routes=24,
+                expected_rollout_concurrency=24,
+                expected_lease_start_concurrency=2,
+            )
