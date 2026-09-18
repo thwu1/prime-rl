@@ -1,6 +1,6 @@
 # VMVM sandbox coordination
 
-Last updated: 2026-09-18 05:40 UTC
+Last updated: 2026-09-18 06:44 UTC
 
 ## First message to the next teammate
 
@@ -39,6 +39,16 @@ this shared branch again.
 Add new rows below this line; do not overwrite another owner's row.
 
 ## Open coordination requests
+
+- **2026-09-18 06:44 UTC, minimal Kimi contract follow-up published:** draft
+  PR `thwu1/prime-rl#42` at independently approved head `d9a006176` is clean
+  and mergeable against `vmvm-sandbox`. It adds exact smoke/full timeout and
+  retry validation, capacity-smoke and shard-combiner enforcement, and a
+  mandatory Kimi source revision while leaving Qwen and this coordination file
+  unchanged. Full workflow validation passed 735 tests; independent focused
+  review passed 258. Conflicted PR `#41` is closed as superseded. This is a
+  future hardening change only: do not switch or relabel the currently running
+  readiness/smoke chain, which remains bound to frozen source `705828859`.
 
 - **2026-09-18 05:40 UTC, use2-1 Qwen immutable prefix 900:** the first
   900 durable rows hash to
