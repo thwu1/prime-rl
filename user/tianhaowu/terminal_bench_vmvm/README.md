@@ -213,6 +213,44 @@ Require all 42 canary rows to be terminal, at least 41 valid, and zero
 infrastructure, timeout, generic-error, or cleanup failures before submitting
 the full run.
 
+### Repair-canary audit controller
+
+Never invoke `audit_oracle_repair_canary.py` directly for a promotable repair.
+Use `run_oracle_repair_canary_audit.sbatch` from the established
+`swebench_vmvm:Launcher.0` pane. The controller requires two distinct,
+detached, clean checkouts: the exact reviewed source checkout that produced the
+completed full oracle, and the exact frozen execution checkout that produced
+the repair canary. Both verifier submodules must be initialized and detached at
+their recorded gitlinks.
+
+The caller derives each checkout's Prime-RL commit, verifier gitlink, and
+deterministic VMVM source digest directly from Git and checked-out bytes. It
+passes all six values explicitly to the auditor, binds the controller and
+auditor scripts to the execution commit, and repeats every checkout and input
+check after the audit. The auditor writes only to a private staging directory;
+the caller publishes the mode-0600 certificate without overwrite only after
+that second check succeeds. Neither expected provenance tuple is derived from
+`run_identity.json`.
+
+Do not submit the launcher file directly with `sbatch`: Slurm would execute a
+spool copy, and the exact-origin check intentionally rejects that copy. Submit
+explicit resources and a wrap command that executes the canonical launcher in
+place. After replacing every placeholder with a new canonical path and the two
+independently reviewed full commit IDs, type this only through the launcher
+pane:
+
+```bash
+tmux send-keys -t swebench_vmvm:Launcher.0 \
+  "cd <detached-execution-checkout> && umask 077 && env ORACLE_AUDIT_SOURCE_PROJECT_DIR=<detached-source-checkout> ORACLE_AUDIT_SOURCE_REVISION=<source-commit> ORACLE_AUDIT_EXECUTION_PROJECT_DIR=<detached-execution-checkout> ORACLE_AUDIT_EXECUTION_REVISION=<execution-commit> ORACLE_AUDIT_SOURCE_DIR=<completed-source-oracle> ORACLE_AUDIT_BUILDER_RECEIPT=<private-builder-receipt> ORACLE_AUDIT_TASK_FILE=<private-task-file> ORACLE_AUDIT_CANARY_DIR=<completed-canary> ORACLE_AUDIT_RUNTIME_ROOT=<private-runtime-root> ORACLE_AUDIT_RUNTIME_DIR=<fresh-private-runtime-dir> ORACLE_AUDIT_CERTIFICATE_ROOT=<private-certificate-root> ORACLE_AUDIT_CERTIFICATE=<fresh-certificate-path> sbatch --parsable --export=ALL --dependency=afterany:<canary-job-id> --job-name=oracle-repair-audit --partition=cpu_x86 --qos=cpu_x86_lowest --account=ram --time=00:30:00 --nodes=1 --ntasks=1 --cpus-per-task=2 --mem=4G --no-requeue --output=<private-log-root>/oracle_repair_audit_%j.log --error=<private-log-root>/oracle_repair_audit_%j.log --wrap='exec /bin/bash <detached-execution-checkout>/user/tianhaowu/terminal_bench_vmvm/run_oracle_repair_canary_audit.sbatch'" C-m
+```
+
+The task file and builder receipt must already be regular mode-0600 files.
+Runtime logs, the controller attestation, staged certificate, summary, and
+published certificate are also mode 0600. A pre-existing runtime or certificate
+path, an active oracle writer, a moved or dirty checkout, a missing verifier
+gitlink, any VMVM digest drift, or any source/canary provenance mismatch fails
+closed without publishing the requested certificate.
+
 Validate TB4 with its official digest-pinned images and Compose sidecars by
 setting `USE_DECLARED_IMAGES=1` and `ENABLE_COMPOSE=1`:
 
