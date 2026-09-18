@@ -1,8 +1,10 @@
 import hashlib
 import tomllib
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
+from verifiers.v1.retries import RolloutRetryConfig, should_retry
 
 CONFIG_DIR = Path(__file__).parents[1] / "configs" / "eval"
 EVAL_CONFIGS = sorted(CONFIG_DIR.glob("*.toml"))
@@ -19,6 +21,23 @@ OUTBOUND_BODY_DENYLIST = [
     "return_token_ids",
 ]
 MOBIUS_TASK_FILE = CONFIG_DIR / "mobius_valid_tasks_2500.txt"
+ACTIVE_KIMI_CONFIGS = [
+    "mobius_kimi_k3_capacity_smoke.toml",
+    "mobius_kimi_k3_max_2500.toml",
+    "tb4_kimi_k3_approved_smoke.toml",
+    "tb4_kimi_k3_max_miniswe.toml",
+]
+ACTIVE_QWEN_CONFIGS = [
+    "mobius_qwen_a95b_2500.toml",
+    "tb4_qwen_a95b_miniswe.toml",
+    "tb4_qwen_token_smoke.toml",
+]
+BASE_ROLLOUT_RETRY_ERRORS = {
+    "ProviderError",
+    "SandboxError",
+    "TunnelError",
+}
+KIMI_ROLLOUT_RETRY_ERRORS = BASE_ROLLOUT_RETRY_ERRORS | {"InterceptionError"}
 
 
 def _mobius_task_file_sha256() -> str:
@@ -65,6 +84,27 @@ def test_miniswe_configs_pin_harness_model_retry_policy(filename: str) -> None:
         assert config["harness"]["config_overrides"].count("model.model_kwargs.timeout=43200") == 1
     if filename != "tb4_kimi_token_smoke.toml":
         assert "ProviderError" in config["retries"]["rollout"]["include"]
+
+
+@pytest.mark.parametrize("filename", ACTIVE_KIMI_CONFIGS + ACTIVE_QWEN_CONFIGS)
+def test_active_rollout_retry_policy_is_model_specific(filename: str) -> None:
+    config = tomllib.loads((CONFIG_DIR / filename).read_text())
+    rollout_retries = config["retries"]["rollout"]
+
+    assert rollout_retries["max_retries"] == 2
+    expected_by_model = {
+        "Kimi-K3": KIMI_ROLLOUT_RETRY_ERRORS,
+        "Qwen3.8-2.4T-A95B": BASE_ROLLOUT_RETRY_ERRORS,
+    }
+    expected = expected_by_model[config["model"]]
+    assert set(rollout_retries["include"]) == expected
+    assert "HarnessError" not in rollout_retries["include"]
+
+    retry = RolloutRetryConfig.model_validate(rollout_retries)
+    interception_trace = SimpleNamespace(error=SimpleNamespace(type="InterceptionError"))
+    harness_trace = SimpleNamespace(error=SimpleNamespace(type="HarnessError"))
+    assert should_retry(interception_trace, retry) is (config["model"] == "Kimi-K3")
+    assert should_retry(harness_trace, retry) is False
 
 
 def test_mobius_kimi_production_contract() -> None:
@@ -122,6 +162,7 @@ def test_mobius_kimi_production_contract() -> None:
     assert set(rollout_retries["include"]) == {
         "ProviderError",
         "SandboxError",
+        "InterceptionError",
         "TunnelError",
     }
 

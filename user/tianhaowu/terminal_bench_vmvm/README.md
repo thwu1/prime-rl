@@ -435,7 +435,10 @@ exact VMVM subset is therefore 63 tasks.
 The Kimi configs explicitly give mini-swe-agent 10 total attempts for each
 provider call. If all of those attempts fail, the full TB4 and Mobius configs
 retry the whole rollout up to twice under a new trace/session ID; this can move
-the retry away from a transiently bad sticky backend. The transparent
+the retry away from a transiently bad sticky backend. Active Kimi smoke and
+production configs also retry the narrow `InterceptionError` boundary, while
+the broad `HarnessError` remains forbidden. `TunnelError` is listed separately
+because whole-rollout matching uses exact error type names. The transparent
 `EvalClient` itself does not own a retry loop, and LiteLLM must keep
 `num_retries=0`; these harness-level attempts do not authorize hidden proxy
 retries.
