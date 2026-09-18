@@ -215,6 +215,7 @@ class RowIdentity:
     source_trace_index: int
     source_trajectory_assistant_turn_count: int
     target_assistant_turn_index: int
+    target_has_reasoning: bool
 
 
 @dataclass(frozen=True, slots=True)
@@ -705,12 +706,16 @@ def _validate_row(
         not _is_plain_int(target_index)
         or target_index < 0
         or row.get("history_reasoning_policy") != "strip_all_prior_assistant_reasoning"
-        or row.get("target_has_reasoning") is not True
     ):
         raise MergeError("row_target_invalid")
     _validate_messages(messages, target_index)
+    target_has_reasoning = row.get("target_has_reasoning")
     reasoning = messages[target_index].get("reasoning_content")
-    if not isinstance(reasoning, str) or not reasoning.strip():
+    if not isinstance(target_has_reasoning, bool) or (
+        target_has_reasoning and (not isinstance(reasoning, str) or not reasoning.strip())
+    ):
+        raise MergeError("row_reasoning_contract_invalid")
+    if not target_has_reasoning and "reasoning_content" in messages[target_index]:
         raise MergeError("row_reasoning_contract_invalid")
     _validate_tool_schema(row.get("tools"))
     integer_fields = (
@@ -740,6 +745,7 @@ def _validate_row(
         source_trace_index=row["source_trace_index"],
         source_trajectory_assistant_turn_count=row["source_trajectory_assistant_turn_count"],
         target_assistant_turn_index=row["target_assistant_turn_index"],
+        target_has_reasoning=target_has_reasoning,
     )
 
 
@@ -829,6 +835,8 @@ def _copy_split(
             or first.source_split_row_index in seen_split_indices
         ):
             raise MergeError("task_row_group_invalid")
+        if not any(item.target_has_reasoning for item in identities):
+            raise MergeError("task_reasoning_contract_invalid")
         seen_episode_ids.add(first.source_episode_id)
         seen_trace_indices.add(first.source_trace_index)
         seen_split_indices.add(first.source_split_row_index)

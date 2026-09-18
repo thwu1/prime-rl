@@ -757,24 +757,46 @@ def test_non_pass_or_invalid_target_rows_are_rejected(tmp_path: Path, row: dict,
         )
 
 
-@pytest.mark.parametrize(
-    ("rewrite_flag", "error_code"),
-    [(False, "row_reasoning_contract_invalid"), (True, "row_target_invalid")],
-)
-def test_rehashed_repair_export_cannot_strip_target_reasoning(
-    tmp_path: Path,
-    rewrite_flag: bool,
-    error_code: str,
-) -> None:
+def test_rehashed_repair_export_cannot_strip_reasoning_without_updating_flag(tmp_path: Path) -> None:
     original, repair, selection, selection_sha256, _task_ids = _fixture_exports(tmp_path)
     train_path = repair / "train" / "train.jsonl"
     rows = [json.loads(line) for line in train_path.read_text().splitlines()]
     rows[0]["messages"][-1].pop("reasoning_content")
-    if rewrite_flag:
-        rows[0]["target_has_reasoning"] = False
     _replace_export_artifact(repair, "train/train.jsonl", _jsonl(rows))
 
-    with pytest.raises(MergeError, match=f"^{error_code}$"):
+    with pytest.raises(MergeError, match="^row_reasoning_contract_invalid$"):
+        merge_qwen_sft(
+            _options(original, repair, selection, selection_sha256, tmp_path / "merged"),
+            code_provenance=_code_provenance(),
+        )
+
+
+def test_mixed_authentic_zero_reasoning_turn_is_accepted(tmp_path: Path) -> None:
+    original, repair, selection, selection_sha256, _task_ids = _fixture_exports(tmp_path)
+    train_path = repair / "train" / "train.jsonl"
+    rows = [json.loads(line) for line in train_path.read_text().splitlines()]
+    rows[0]["messages"][-1].pop("reasoning_content")
+    rows[0]["target_has_reasoning"] = False
+    _replace_export_artifact(repair, "train/train.jsonl", _jsonl(rows))
+
+    summary = merge_qwen_sft(
+        _options(original, repair, selection, selection_sha256, tmp_path / "merged"),
+        code_provenance=_code_provenance(),
+    )
+
+    assert summary["tasks"] == {"total": 4, "train": 2, "validation": 2}
+
+
+def test_all_reasoning_stripped_from_task_is_rejected_after_rehash(tmp_path: Path) -> None:
+    original, repair, selection, selection_sha256, _task_ids = _fixture_exports(tmp_path)
+    train_path = repair / "train" / "train.jsonl"
+    rows = [json.loads(line) for line in train_path.read_text().splitlines()]
+    for row in rows:
+        row["messages"][-1].pop("reasoning_content")
+        row["target_has_reasoning"] = False
+    _replace_export_artifact(repair, "train/train.jsonl", _jsonl(rows))
+
+    with pytest.raises(MergeError, match="^task_reasoning_contract_invalid$"):
         merge_qwen_sft(
             _options(original, repair, selection, selection_sha256, tmp_path / "merged"),
             code_provenance=_code_provenance(),
