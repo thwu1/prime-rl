@@ -12,6 +12,7 @@ from deployment_proxy_policy import (
     revalidate_deployment_proxy_policy,
     validate_deployment_proxy_policy_snapshot,
     validate_proxy_policy_binding,
+    validate_worker_rotation_proxy_configs,
 )
 from deployment_proxy_policy import (
     load_deployment_proxy_policy as _load_deployment_proxy_policy,
@@ -73,9 +74,7 @@ def test_policy_binds_only_typed_values_and_generated_file_hash(tmp_path: Path) 
 def test_policy_timeout_is_explicitly_model_scoped(tmp_path: Path) -> None:
     spec, generated = _files(tmp_path)
     spec.write_text(spec.read_text().replace("request_timeout: 43200", "request_timeout: 7200"))
-    generated.write_text(
-        generated.read_text().replace("request_timeout: 43200", "request_timeout: 7200")
-    )
+    generated.write_text(generated.read_text().replace("request_timeout: 43200", "request_timeout: 7200"))
 
     qwen = _load_deployment_proxy_policy(
         spec,
@@ -333,3 +332,112 @@ def test_policy_binding_rejects_legacy_and_type_confusion(tmp_path: Path) -> Non
     confused["schema_version"] = True
     with pytest.raises(DeploymentProxyPolicyError, match="proxy_policy_binding_invalid"):
         validate_proxy_policy_binding(confused)
+
+
+def _rotation_snapshot(path: Path, backend: str, *, cooldown: int = 10) -> None:
+    path.write_text(
+        "model_list:\n"
+        "  - model_name: Kimi-K3\n"
+        "    litellm_params:\n"
+        "      model: openai/Kimi-K3\n"
+        f"      api_base: {backend}\n"
+        "      api_key: private-test-key\n"
+        "    model_info:\n"
+        "      mode: chat\n"
+        "litellm_settings:\n"
+        "  request_timeout: 43200\n"
+        "  num_retries: 0\n"
+        "router_settings:\n"
+        f"  cooldown_time: {cooldown}\n"
+        "general_settings:\n"
+        "  master_key: private-master-key\n"
+    )
+    path.chmod(0o600)
+
+
+def _rotation_policy(live_path: Path, snapshot: Path) -> dict[str, object]:
+    return {
+        "schema_version": 1,
+        "request_timeout": 43_200,
+        "num_retries": 0,
+        "proxy_litellm_config": {
+            "path": str(live_path.resolve()),
+            "sha256": _sha256(snapshot),
+        },
+    }
+
+
+def test_worker_rotation_policy_proves_only_route_urls_changed(tmp_path: Path) -> None:
+    from inference_route_generation import canonical_backend_identifier
+
+    source_backend = "http://worker-old.invalid:8000/v1"
+    target_backend = "http://worker-new.invalid:8000/v1"
+    source_snapshot = tmp_path / "source.yaml"
+    target_snapshot = tmp_path / "target.yaml"
+    live_path = tmp_path / "live-proxy-config.yaml"
+    _rotation_snapshot(source_snapshot, source_backend)
+    _rotation_snapshot(target_snapshot, target_backend)
+    source = _rotation_policy(live_path, source_snapshot)
+    target = _rotation_policy(live_path, target_snapshot)
+
+    projection = validate_worker_rotation_proxy_configs(
+        source_snapshot=source_snapshot,
+        source_binding=source,
+        source_backends=[canonical_backend_identifier(source_backend)],
+        target_snapshot=target_snapshot,
+        target_binding=target,
+        target_backends=[canonical_backend_identifier(target_backend)],
+    )
+    assert len(projection) == 64
+
+    _rotation_snapshot(target_snapshot, target_backend, cooldown=11)
+    changed_target = _rotation_policy(live_path, target_snapshot)
+    with pytest.raises(
+        DeploymentProxyPolicyError,
+        match="worker_rotation_proxy_config_mismatch",
+    ):
+        validate_worker_rotation_proxy_configs(
+            source_snapshot=source_snapshot,
+            source_binding=source,
+            source_backends=[canonical_backend_identifier(source_backend)],
+            target_snapshot=target_snapshot,
+            target_binding=changed_target,
+            target_backends=[canonical_backend_identifier(target_backend)],
+        )
+
+
+def test_worker_rotation_policy_rejects_route_mismatch_and_nonprivate_snapshot(
+    tmp_path: Path,
+) -> None:
+    from inference_route_generation import canonical_backend_identifier
+
+    source_backend = "http://worker-old.invalid:8000/v1"
+    target_backend = "http://worker-new.invalid:8000/v1"
+    source_snapshot = tmp_path / "source.yaml"
+    target_snapshot = tmp_path / "target.yaml"
+    live_path = tmp_path / "live-proxy-config.yaml"
+    _rotation_snapshot(source_snapshot, source_backend)
+    _rotation_snapshot(target_snapshot, target_backend)
+    source = _rotation_policy(live_path, source_snapshot)
+    target = _rotation_policy(live_path, target_snapshot)
+
+    with pytest.raises(DeploymentProxyPolicyError, match="route_mismatch"):
+        validate_worker_rotation_proxy_configs(
+            source_snapshot=source_snapshot,
+            source_binding=source,
+            source_backends=[canonical_backend_identifier("http://different.invalid:8000/v1")],
+            target_snapshot=target_snapshot,
+            target_binding=target,
+            target_backends=[canonical_backend_identifier(target_backend)],
+        )
+
+    source_snapshot.chmod(0o640)
+    with pytest.raises(DeploymentProxyPolicyError, match="source_proxy_config_snapshot_invalid"):
+        validate_worker_rotation_proxy_configs(
+            source_snapshot=source_snapshot,
+            source_binding=source,
+            source_backends=[canonical_backend_identifier(source_backend)],
+            target_snapshot=target_snapshot,
+            target_binding=target,
+            target_backends=[canonical_backend_identifier(target_backend)],
+        )

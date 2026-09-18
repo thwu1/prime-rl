@@ -318,14 +318,19 @@ tmux send-keys -t swebench_vmvm:Launcher.0 \
 
 If only the backend worker generation rotates before launch, a completed
 schema-1 smoke may be qualified for the new generation without changing or
-relabeling that smoke. First pass a fresh readiness gate for the replacement
-workers, then publish a separate schema-2 bridge:
+relabeling that smoke. While the source generation is still live, preserve its
+exact generated `proxy_litellm_config.yaml` as a private mode-0600 snapshot;
+its SHA-256 must equal the policy digest embedded in the eventual smoke
+certificate. The snapshot contains credentials and must never be printed,
+committed, or placed in training artifacts. First pass a fresh readiness gate
+for the replacement workers, then publish a separate schema-2 bridge:
 
 ```bash
 python user/tianhaowu/terminal_bench_vmvm/create_smoke_generation_bridge.py \
   --output /path/to/write-once/smoke_generation_bridge.json \
   --source-smoke-checkpoint /path/to/source-smoke/smoke_checkpoint.json \
   --source-smoke-checkpoint-sha256 <source-smoke-file-sha256> \
+  --source-proxy-config-snapshot /path/to/private/source-proxy-config.yaml \
   --deployment-id <deployment-id> \
   --deployment-spec /path/to/deployment/spec.yaml \
   --deployment-spec-sha256 <exact-spec-sha256> \
@@ -339,9 +344,13 @@ Use the resulting file and its external SHA-256 as
 `INFERENCE_SMOKE_CHECKPOINT` and `INFERENCE_SMOKE_CHECKPOINT_SHA256`. The
 bridge is accepted only when the deployment ID, spec path/hash, model,
 coordinator incarnation, proxy incarnation, proxy-info path/hash, endpoint
-authority, and parsed proxy policy remain exact. The source and target route
-sets must differ, so this mechanism cannot certify a proxy, coordinator,
-policy, model, or deployment rotation. It recursively revalidates the source
+authority, and parsed proxy policy remain exact. It also snapshots the target
+generated config privately and proves the source and target configs are
+canonical-equal after replacing only the route `api_base` values; every other
+setting and secret must be byte-semantically equal, and both route URL sets
+must hash to their readiness generations. The source and target route sets
+must differ, so this mechanism cannot certify a proxy, coordinator, policy,
+model, or deployment rotation. It recursively revalidates the source
 schema-1 smoke, its identity, configuration, results hashes, guard receipt,
 single non-resume invocation, and evaluator/model-I/O/tool/thinking contract.
 
@@ -351,8 +360,10 @@ thinking flags, and an actual function-tool call followed by its tool result;
 both responses must report the exact model and nonempty reasoning. The bridge
 stores only request/response SHA-256 values and aggregate pass facts, never
 messages, reasoning, tool arguments, endpoint URLs, or credentials. The file
-is mode 0444, self-hashed, and write-once. A changed source artifact, duplicate
-JSON key, type mismatch, missing backend, or proxy-info rotation fails closed.
+is mode 0444, self-hashed, and write-once; both credential-bearing config
+snapshots remain separate mode-0600 files referenced only by path and SHA-256.
+A changed source artifact, duplicate key, type mismatch, missing backend,
+non-route proxy-config change, or proxy-info rotation fails closed.
 Every shard still performs its own fresh route guard against the target
 generation. Cross-generation resume remains forbidden: restart an interrupted
 shard in a new output directory with a newly validated bridge and guard.
