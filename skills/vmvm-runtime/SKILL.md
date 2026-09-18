@@ -206,6 +206,35 @@ first, activate `no-network`, then build in a fresh Python environment using
 and prove offline installation on a clean target with the same runtime
 fingerprint. Reject Compose and cap the exceptional builder path at one lease.
 
+Before enabling the policy, run
+`terminal_bench_vmvm/run_source_wheel_proof.sbatch` from a clean reviewed
+checkout against the private, hash-pinned discovery input. The input is
+non-runnable and must not predeclare the target toolchain, binary closure, or
+source-wheel output hashes. Pin the full reviewed utility commit with
+`SOURCE_WHEEL_PROOF_SOURCE_REVISION` and the approved base runtime revision with
+`SOURCE_WHEEL_PROOF_BASE_RUNTIME_REVISION`. Initialize `deps/verifiers`,
+`deps/renderers`, and `deps/pydantic-config` at their exact gitlinks; the wrapper
+rejects missing or dirty dependency worktrees. For each entry, start exactly
+three fresh
+digest-pinned VMVMs: two disposable builders and one clean target. Build the
+source independently under `no-network` in both builders, use the first output
+only as the source candidate for wheel-only dependency resolution in the still
+public second builder, validate every discovered HTTPS wheel before isolation,
+and require byte-identical source wheels and canonical wheelhouses. The clean
+target must be isolated before receiving the archive and must prove the exact
+closure with an offline install.
+
+Default to two entries and six live VMVMs; never exceed three entries and nine
+VMVMs. Publish a non-runnable candidate first, then the final runnable policy
+and proof only after every entry passes. Keep the output directory mode 0700,
+use atomic private artifacts, and emit only aggregate counts, hashes, and stable
+error codes. Bind the approved runtime base, utility commit/tree, three
+dependency gitlinks, VMVM source and resolved vacli binary digests, and distinct
+hashed target/builder lease identities in the private certificate. On
+cancellation or failure, cancel and drain sibling operations and stop every
+created lease. Resume only with an externally reviewed SHA-256
+of `proof_state.json`, never a value trusted from the same unreviewed output.
+
 Publish the source-wheel manifest and content-addressed wheelhouse archives
 atomically as private oracle artifacts after the writer lock. On every resume,
 require the externally reviewed `ORACLE_SOURCE_WHEEL_ATTESTATION_SHA256`; never
