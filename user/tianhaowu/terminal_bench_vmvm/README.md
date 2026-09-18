@@ -209,6 +209,64 @@ wheel closure, creates a deterministic archive, and proves an offline
 image and runtime fingerprint. A process-wide semaphore limits this exceptional
 builder path to one VMVM lease while normal oracle concurrency continues.
 
+The runnable policy must first be discovered and proven from the private,
+digest-pinned probe input with `run_source_wheel_proof.sbatch`. The probe input
+is intentionally incomplete: it binds the target images, exact requirement
+sets, source URLs, sizes, hashes, and corpus provenance, but it does not claim
+target toolchains, binary closure artifacts, or output-wheel hashes. Keep it as
+a regular mode-0600 file in a mode-0700 directory and provide its independently
+computed SHA-256. Use a new mode-0700 proof output directory.
+
+Initialize `deps/verifiers`, `deps/renderers`, and `deps/pydantic-config` at
+their recorded gitlinks in that checkout; the launcher rejects absent, moved,
+or dirty dependency worktrees.
+
+Each input entry starts exactly three fresh VMVMs from the same image: two
+disposable builders and one clean install target. The first builder downloads
+and validates the pinned source, enters `no-network`, and builds a resolver
+seed. The second builder uses only that wheel as the source candidate while it
+discovers the platform-specific wheel-only dependency closure; every selected
+HTTPS artifact is downloaded, hash-checked, and metadata-checked before that
+builder is isolated. Both builders then produce and validate the complete
+closure offline. Their independently built source wheels and canonical
+wheelhouses must be byte-identical. The already-isolated clean target receives
+only the proven wheelhouse and performs an offline install and closure check.
+
+The launcher defaults to two entries and six live VMVMs; three entries and nine
+VMVMs are hard caps. It emits only aggregate counts, hashes, and stable error
+codes. Before any proof completes it publishes a non-runnable candidate and an
+atomic checkpoint. Only after every entry passes does it publish the runnable
+`source_wheel_policy.json` and its proof certificate as read-only private
+artifacts. Cancellation and errors cancel and drain sibling work and stop every
+created lease before returning. The certificate binds the approved base runtime
+commit, reviewed utility commit and Git tree, exact verifier/rendering/config
+submodule commits, VMVM source and resolved vacli binary digests, and distinct
+role-keyed hashes of the three resolved lease identities; raw lease identifiers
+are never printed.
+
+```bash
+umask 077
+env \
+  PROJECT_DIR=/path/to/clean-reviewed-checkout \
+  SOURCE_WHEEL_PROOF_INPUT=/path/to/private/probe-input.json \
+  SOURCE_WHEEL_PROOF_INPUT_SHA256=<independently-reviewed-input-sha256> \
+  SOURCE_WHEEL_PROOF_OUTPUT_DIR=/path/to/new-private-proof-directory \
+  SOURCE_WHEEL_PROOF_BASE_RUNTIME_REVISION=ceb9356c98c72e51568e7bb4658a540cb1492254 \
+  SOURCE_WHEEL_PROOF_SOURCE_REVISION=<reviewed-full-utility-commit> \
+  SOURCE_WHEEL_PROOF_MAX_CONCURRENT_ENTRIES=2 \
+  VACLI_MAX_CONCURRENT_LEASES=6 \
+  sbatch --parsable \
+  /path/to/clean-reviewed-checkout/user/tianhaowu/terminal_bench_vmvm/run_source_wheel_proof.sbatch
+```
+
+For an interrupted proof, review and hash `proof_state.json` externally, then
+repeat the same launch with
+`SOURCE_WHEEL_PROOF_STATE_SHA256=<reviewed-state-sha256>`. Do not infer this
+value from an unreviewed output directory. The resume path revalidates every
+completed entry and skips it. A complete nine-entry proof therefore contains
+nine clean-target validations, eighteen source builds, and exactly 27 proof
+runtime starts.
+
 A fresh oracle creates a mode-0400 `source_wheel_attestations.json` and
 content-addressed `source_wheel_cache/` beside its results only after acquiring
 the writer lock. Publications are atomic and include the policy, runtime,
