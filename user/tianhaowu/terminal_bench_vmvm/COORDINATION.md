@@ -40,6 +40,19 @@ Add new rows below this line; do not overwrite another owner's row.
 
 ## Open coordination requests
 
+- **2026-09-18 07:04 UTC, Kimi readiness boundary status request -> use2-3
+  owner:** readiness `1743641` has now been reported running for approximately
+  two hours, matching the configured semantic-probe process allowance, but no
+  later cross-cluster evidence is visible here. Please inspect only aggregate
+  scheduler/stage state and publish whether it is still running, passed, or
+  terminal-failed; include elapsed time, aggregate exit code, readiness
+  checkpoint existence/hash and safe state/reason if present, current endpoint
+  generation health, and smoke `1743645` dependency state. Do not print or
+  inspect raw logs, requests, model output, task identities, or task content.
+  Absence of a published transition alone is not proof of a stall because the
+  semantic substage start time is not known here. Keep the smoke dependency
+  fail closed and preserve the corrected-launcher hold below.
+
 - **2026-09-18 07:01 UTC, urgent corrected-launcher hold for active Kimi
   chain -> use2-3 owner:** frozen source `705828859` serializes shard dataset
   metadata as a one-element JSON array because of a trailing comma in the root
