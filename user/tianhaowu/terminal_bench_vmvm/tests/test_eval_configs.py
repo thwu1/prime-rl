@@ -587,6 +587,9 @@ def test_direct_qwen_launcher_is_fail_closed() -> None:
     assert '--queue-timeout-secs "$router_queue_timeout"' in wrapper
     assert "router_max_concurrent != expected_router_max_concurrent" in wrapper
     assert "router_queue_size != expected_router_queue_size" in wrapper
+    assert "router_max_concurrent > 32" in wrapper
+    assert "router_queue_size >= 64" in wrapper
+    assert "router_max_concurrent + router_queue_size > 64" in wrapper
     assert "expected_rollout_concurrency=96" in wrapper
     assert "expected_router_max_concurrent=48" in wrapper
     assert "expected_router_queue_size=48" in wrapper

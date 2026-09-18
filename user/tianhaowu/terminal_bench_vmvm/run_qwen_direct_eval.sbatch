@@ -272,9 +272,6 @@ mapfile -t worker_urls < "$urls_file"
 mapfile -t ports < "$ports_file"
 expected_worker_count=16
 expected_port_fields=7
-expected_router_max_concurrent=32
-expected_router_queue_size=32
-expected_rollout_concurrency=64
 expected_vmvm_lease_concurrency=2
 generation_transition_sha256=
 if [[ -n "$serving_generation_bundle" ]]; then
@@ -304,13 +301,23 @@ if [[ -n "$serving_generation_bundle" ]]; then
     generation_transition_sha256=${ports[8]}
 fi
 if [[ ! "$router_max_concurrent" =~ ^[1-9][0-9]*$ ]] \
-    || (( router_max_concurrent != expected_router_max_concurrent )) \
     || [[ ! "$router_queue_size" =~ ^[0-9]+$ ]] \
-    || (( router_queue_size != expected_router_queue_size )) \
-    || (( router_max_concurrent + router_queue_size != expected_rollout_concurrency )) \
     || [[ ! "$router_queue_timeout" =~ ^[1-9][0-9]*$ ]] \
     || [[ "$router_policy" != consistent_hash ]] \
     || [[ "$router_request_id_header" != x-session-id ]]; then
+    printf 'Direct Qwen router concurrency is invalid\n' >&2
+    exit 2
+fi
+if [[ -n "$serving_generation_bundle" ]]; then
+    if (( router_max_concurrent != expected_router_max_concurrent \
+        || router_queue_size != expected_router_queue_size \
+        || router_max_concurrent + router_queue_size != expected_rollout_concurrency )); then
+        printf 'Serving-generation router capacity is invalid\n' >&2
+        exit 2
+    fi
+elif (( router_max_concurrent > 32 \
+    || router_queue_size >= 64 \
+    || router_max_concurrent + router_queue_size > 64 )); then
     printf 'Direct Qwen router concurrency is invalid\n' >&2
     exit 2
 fi

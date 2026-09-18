@@ -1171,8 +1171,11 @@ remains a logical row even without a newline. The chain performs no semantic
 task inspection, classification, or name-based filtering.
 
 The controller creates a fresh schema-3 direct run inside a private runtime
-directory, with 64 rollout sessions, a 32-request provider/router cap, a
-32-request queue, and a 262,144-token total context cap. It invokes
+directory, with 96 rollout sessions, a 48-request provider/router cap, a
+48-request queue, four simultaneous VMVM lease starts, 32 GiB of controller
+memory, and a 262,144-token total context cap. A 96-request concurrent capacity
+smoke must produce a private, transition-bound certificate before evaluation.
+It invokes
 `run_qwen_direct_eval.sbatch` as a shell program in the controller's existing
 allocation; it never submits a child Slurm job. The original and repair sources
 are hash-checked before and after every subsequent stage. Pass-only original
