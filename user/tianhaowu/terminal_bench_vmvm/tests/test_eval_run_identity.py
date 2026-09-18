@@ -4,6 +4,7 @@ import hashlib
 import io
 import json
 import tarfile
+import tomllib
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -30,6 +31,8 @@ from eval_run_identity import (
     _write_resolved_config,
     canonical_json,
     load_eval_run_identity,
+    validate_kimi_retry_contract,
+    validate_kimi_timeout_contract,
 )
 from guard_success_receipt import (
     build_guard_success_receipt,
@@ -74,7 +77,23 @@ def _resolved_config() -> dict:
             "config_overrides": [],
             "runtime": {"type": "vmvm", "session_timeout": 43_200},
         },
-        "timeout": {"rollout": 36_000},
+        "timeout": {
+            "setup": 3_600,
+            "rollout": 36_000,
+            "finalize": 3_600,
+            "scoring": 21_600,
+        },
+        "retries": {
+            "rollout": {
+                "max_retries": 2,
+                "include": [
+                    "ProviderError",
+                    "SandboxError",
+                    "TunnelError",
+                    "InterceptionError",
+                ],
+            }
+        },
     }
 
 
@@ -183,10 +202,13 @@ def test_eval_identity_is_canonical_write_once_and_resume_exact(tmp_path: Path) 
     digest = _bind_identity(tmp_path, identity, resume=False)
 
     assert digest == hashlib.sha256(canonical_json(identity)).hexdigest()
-    assert load_eval_run_identity(
-        tmp_path / "eval_run_identity.json",
-        verify_references=False,
-    ) == expected
+    assert (
+        load_eval_run_identity(
+            tmp_path / "eval_run_identity.json",
+            verify_references=False,
+        )
+        == expected
+    )
     assert _bind_identity(tmp_path, identity, resume=True) == digest
     with pytest.raises(EvalIdentityError, match="already_exists"):
         _bind_identity(tmp_path, identity, resume=False)
@@ -229,10 +251,7 @@ def test_eval_provenance_binds_endpoint_hashes_write_once(tmp_path: Path) -> Non
 
     _bind_provenance(tmp_path, identity, digest, args)
 
-    records = dict(
-        line.split("=", 1)
-        for line in (tmp_path / "provenance.txt").read_text().splitlines()
-    )
+    records = dict(line.split("=", 1) for line in (tmp_path / "provenance.txt").read_text().splitlines())
     endpoint = identity["deployment"]["endpoint"]
     assert records["deployment_endpoint_authority_sha256"] == endpoint["authority_sha256"]
     assert records["deployment_proxy_info_sha256"] == endpoint["proxy_info"]["sha256"]
@@ -313,6 +332,167 @@ def test_eval_contract_binds_required_training_and_concurrency_settings() -> Non
             _contract(unsafe, "approved-model")
 
 
+@pytest.mark.parametrize(
+    ("section", "key", "value"),
+    [
+        ("timeout", "setup", 3_599),
+        ("timeout", "setup", True),
+        ("timeout", "finalize", 3_599),
+        ("timeout", "scoring", 21_599),
+        ("client", "connect_timeout", 119),
+    ],
+)
+def test_kimi_timeout_contract_rejects_weakened_fixed_stage(
+    section: str,
+    key: str,
+    value: object,
+) -> None:
+    config = _resolved_config()
+    config[section][key] = value
+
+    with pytest.raises(EvalIdentityError, match="^kimi_timeout_contract_invalid$"):
+        validate_kimi_timeout_contract(config)
+
+
+def test_kimi_timeout_contract_accepts_pydantic_resolved_exact_floats() -> None:
+    config_path = Path(__file__).parents[1] / "configs/eval/tb4_kimi_k3_max_miniswe.toml"
+    config = eval_run_identity.EvalConfig.model_validate(tomllib.loads(config_path.read_text())).model_dump(
+        mode="json", exclude_none=True
+    )
+
+    assert isinstance(config["timeout"]["rollout"], float)
+    validate_kimi_timeout_contract(config, required_profile="full")
+    validate_kimi_retry_contract(config)
+
+
+@pytest.mark.parametrize(
+    ("rollout_timeout", "session_timeout"),
+    [
+        (28_799, 32_400),
+        (28_800, 32_401),
+        (35_999, 43_200),
+        (36_000, 43_199),
+        (28_800, 43_200),
+        (36_000, 32_400),
+    ],
+)
+def test_kimi_timeout_contract_rejects_unreviewed_or_swapped_pair(
+    rollout_timeout: int,
+    session_timeout: int,
+) -> None:
+    config = _resolved_config()
+    config["timeout"]["rollout"] = rollout_timeout
+    config["harness"]["runtime"]["session_timeout"] = session_timeout
+
+    with pytest.raises(EvalIdentityError, match="^kimi_timeout_contract_invalid$"):
+        validate_kimi_timeout_contract(config)
+
+
+def test_kimi_timeout_contract_distinguishes_smoke_and_full_profiles() -> None:
+    full = _resolved_config()
+    full["client"]["timeout"] = 43_200
+    full["harness"]["config_overrides"] = ["model.model_kwargs.timeout=43200"]
+    validate_kimi_timeout_contract(full, required_profile="full")
+    with pytest.raises(EvalIdentityError, match="^kimi_timeout_contract_invalid$"):
+        validate_kimi_timeout_contract(full, required_profile="smoke")
+
+    smoke = _resolved_config()
+    smoke["client"]["timeout"] = 43_200
+    smoke["harness"]["config_overrides"] = ["model.model_kwargs.timeout=43200"]
+    smoke["timeout"]["rollout"] = 28_800
+    smoke["harness"]["runtime"]["session_timeout"] = 32_400
+    validate_kimi_timeout_contract(smoke, required_profile="smoke")
+    with pytest.raises(EvalIdentityError, match="^kimi_timeout_contract_invalid$"):
+        validate_kimi_timeout_contract(smoke, required_profile="full")
+
+
+def test_kimi_eval_role_selects_approved_smoke_or_full_timeout_profile() -> None:
+    config = _resolved_config()
+    config["model"] = "Kimi-K3"
+    config["client"]["timeout"] = 43_200
+    config["harness"]["config_overrides"] = ["model.model_kwargs.timeout=43200"]
+    config["taskset"] = {}
+
+    with pytest.raises(EvalIdentityError, match="^kimi_timeout_contract_invalid$"):
+        _contract(config, "Kimi-K3", role="smoke")
+    _contract(config, "Kimi-K3", role="tb4")
+
+    config["taskset"]["dataset_revision"] = "1" * 40
+    _contract(config, "Kimi-K3", role="smoke")
+
+    config["taskset"].pop("dataset_revision")
+    config["timeout"]["rollout"] = 28_800
+    config["harness"]["runtime"]["session_timeout"] = 32_400
+    _contract(config, "Kimi-K3", role="smoke")
+    with pytest.raises(EvalIdentityError, match="^kimi_timeout_contract_invalid$"):
+        _contract(config, "Kimi-K3", role="tb4")
+
+
+@pytest.mark.parametrize(
+    "rollout_retries",
+    [
+        {"max_retries": 1, "include": ["ProviderError", "SandboxError", "TunnelError", "InterceptionError"]},
+        {"max_retries": True, "include": ["ProviderError", "SandboxError", "TunnelError", "InterceptionError"]},
+        {"max_retries": 2, "include": []},
+        {"max_retries": 2, "include": ["ProviderError", "SandboxError", "TunnelError"]},
+        {
+            "max_retries": 2,
+            "include": [
+                "ProviderError",
+                "SandboxError",
+                "TunnelError",
+                "HarnessError",
+            ],
+        },
+        {
+            "max_retries": 2,
+            "include": [
+                "ProviderError",
+                "SandboxError",
+                "TunnelError",
+                "InterceptionError",
+                "UnknownError",
+            ],
+        },
+        {
+            "max_retries": 2,
+            "include": [
+                "ProviderError",
+                "SandboxError",
+                "TunnelError",
+                "InterceptionError",
+            ],
+            "exclude": ["InterceptionError"],
+        },
+    ],
+)
+def test_kimi_retry_contract_rejects_broad_missing_or_swapped_policy(
+    rollout_retries: dict[str, object],
+) -> None:
+    config = _resolved_config()
+    config["retries"]["rollout"] = rollout_retries
+
+    with pytest.raises(EvalIdentityError, match="^kimi_retry_contract_invalid$"):
+        validate_kimi_retry_contract(config)
+
+
+def test_kimi_retry_contract_allows_only_explicit_token_smoke_omission() -> None:
+    config = _resolved_config()
+    config["retries"]["rollout"]["include"].remove("ProviderError")
+
+    with pytest.raises(EvalIdentityError, match="^kimi_retry_contract_invalid$"):
+        validate_kimi_retry_contract(config)
+    validate_kimi_retry_contract(config, allow_provider_omission=True)
+
+
+def test_kimi_retry_contract_rejects_missing_policy() -> None:
+    config = _resolved_config()
+    config.pop("retries")
+
+    with pytest.raises(EvalIdentityError, match="^kimi_retry_contract_invalid$"):
+        validate_kimi_retry_contract(config)
+
+
 def test_archive_dataset_requires_explicit_live_tree_digest(tmp_path: Path) -> None:
     dataset = tmp_path / "dataset"
     dataset.mkdir()
@@ -352,19 +532,9 @@ def test_checkpoint_chain_is_hashed_and_role_aware(tmp_path: Path, monkeypatch: 
     deployment_dir = tmp_path / deployment_id
     deployment_dir.mkdir()
     spec = deployment_dir / "spec.yaml"
-    spec.write_text(
-        "spec:\n"
-        "  proxy:\n"
-        "    config:\n"
-        "      request_timeout: 43200\n"
-        "      num_retries: 0\n"
-    )
+    spec.write_text("spec:\n  proxy:\n    config:\n      request_timeout: 43200\n      num_retries: 0\n")
     generated_proxy_config = deployment_dir / "proxy_litellm_config.yaml"
-    generated_proxy_config.write_text(
-        "litellm_settings:\n"
-        "  request_timeout: 43200\n"
-        "  num_retries: 0\n"
-    )
+    generated_proxy_config.write_text("litellm_settings:\n  request_timeout: 43200\n  num_retries: 0\n")
     proxy_info = deployment_dir / "proxy_info.json"
     proxy_info.write_text(
         json.dumps(
@@ -615,19 +785,9 @@ def test_checkpoint_chain_is_hashed_and_role_aware(tmp_path: Path, monkeypatch: 
     historical_spec.write_bytes(deployment_spec_policy_snapshot(_sha256(spec), proxy_policy))
     historical_policy.write_bytes(deployment_proxy_policy_snapshot(proxy_policy))
     spec.write_text(
-        "spec:\n"
-        "  num_endpoints: 24\n"
-        "  proxy:\n"
-        "    config:\n"
-        "      request_timeout: 43200\n"
-        "      num_retries: 0\n"
+        "spec:\n  num_endpoints: 24\n  proxy:\n    config:\n      request_timeout: 43200\n      num_retries: 0\n"
     )
-    generated_proxy_config.write_text(
-        "litellm_settings:\n"
-        "  request_timeout: 43200\n"
-        "  num_retries: 0\n"
-        "model_list: []\n"
-    )
+    generated_proxy_config.write_text("litellm_settings:\n  request_timeout: 43200\n  num_retries: 0\nmodel_list: []\n")
     with pytest.raises(EvalIdentityError, match="deployment_spec_sha256_mismatch"):
         _verify_checkpoint_records(smoke_identity, endpoint)
     _verify_checkpoint_records(
@@ -663,9 +823,7 @@ def test_fresh_resolver_writes_exact_config_before_eval(tmp_path: Path) -> None:
             "base_url": "http://127.0.0.1:1/v1",
             "api_key_var": "OPENAI_API_KEY",
             "capture_model_io": True,
-            "outbound_body_denylist": sorted(
-                ["logprobs", "prompt_logprobs", "return_token_ids", "top_logprobs"]
-            ),
+            "outbound_body_denylist": sorted(["logprobs", "prompt_logprobs", "return_token_ids", "top_logprobs"]),
             "max_connections": 1,
             "max_keepalive_connections": 1,
         },

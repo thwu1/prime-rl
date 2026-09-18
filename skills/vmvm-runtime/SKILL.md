@@ -238,11 +238,16 @@ TB4, capacity, and launch certificates must rehash and link this receipt. The sa
 
 Kimi deployment specs must contain typed integer
 `spec.proxy.config.request_timeout: 43200` and `num_retries: 0`. Kimi eval
-configs must use the same 43,200-second evaluator-client timeout and exact
-`model.model_kwargs.timeout=43200` mini-swe override, with both
-`rollout_timeout < harness-model/client/proxy timeout` and
-`rollout_timeout < session_timeout <= client/proxy timeout`, so an owned
-rollout/session boundary fires before an HTTP read timeout. Independently
+configs must use exactly 43,200 seconds for the evaluator client and
+`model.model_kwargs.timeout`, exactly 120 seconds for connect, and exactly
+3,600/3,600/21,600 seconds for setup/finalize/scoring. The approved TB4 smoke
+uses the exact rollout/session pair 28,800/32,400 seconds; full TB4, capacity
+smoke, and Mobius production use exactly 36,000/43,200 seconds. Reject mixed
+or intermediate pairs. Their whole-rollout retry count is exactly two and the
+allowlist is exactly `ProviderError`, `SandboxError`, `TunnelError`, and the
+base `InterceptionError`; broad `HarnessError` retries are forbidden. Only the
+small token-only diagnostic smoke may intentionally omit `ProviderError`.
+Independently
 parse `proxy_litellm_config.yaml` with a duplicate-rejecting safe YAML loader,
 reject aliases/merge keys and quoted or tagged type confusion, require the
 same typed values, and bind its

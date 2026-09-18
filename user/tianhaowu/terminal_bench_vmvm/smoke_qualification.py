@@ -338,7 +338,11 @@ def _expected_model_contract(model: str) -> dict[str, Any]:
     }
 
 
-def _tool_contract(config: Mapping[str, Any]) -> dict[str, Any]:
+def _tool_contract(
+    config: Mapping[str, Any],
+    *,
+    required_timeout_profile: str | None = None,
+) -> dict[str, Any]:
     harness = config.get("harness")
     client = config.get("client")
     sampling = config.get("sampling")
@@ -383,6 +387,20 @@ def _tool_contract(config: Mapping[str, Any]) -> dict[str, Any]:
     harness_environment = harness.get("env")
     if not isinstance(taskset, dict) or not isinstance(retries, dict) or not isinstance(harness_environment, dict):
         raise SmokeQualificationError("smoke_evaluator_contract_invalid")
+    try:
+        # Delayed to preserve the eval_run_identity -> smoke_qualification import order.
+        from eval_run_identity import (
+            validate_kimi_retry_contract,
+            validate_kimi_timeout_contract,
+        )
+
+        validate_kimi_timeout_contract(
+            dict(config),
+            required_profile=required_timeout_profile,
+        )
+        validate_kimi_retry_contract(dict(config))
+    except (ImportError, ValueError) as error:
+        raise SmokeQualificationError("smoke_evaluator_contract_invalid") from error
     normalized = copy.deepcopy(dict(config))
     for key in (
         "output_dir",
@@ -545,7 +563,7 @@ def _evaluator_evidence(
         "resolved_config": config_artifact.record,
         "identity_contract": contract,
         "model_io_contract": model_io_contract,
-        "tool_contract": _tool_contract(config),
+        "tool_contract": _tool_contract(config, required_timeout_profile="smoke"),
     }
 
 
@@ -611,7 +629,10 @@ def validate_target_evaluator_compatibility(
         parsed = tomllib.loads(resolved.raw.decode("utf-8"))
     except (UnicodeDecodeError, tomllib.TOMLDecodeError) as error:
         raise SmokeQualificationError("target_evaluator_config_invalid") from error
-    if not _same_json(_tool_contract(parsed), evaluator_evidence.get("tool_contract")):
+    if not _same_json(
+        _tool_contract(parsed, required_timeout_profile="full"),
+        evaluator_evidence.get("tool_contract"),
+    ):
         raise SmokeQualificationError("target_evaluator_config_mismatch")
 
 

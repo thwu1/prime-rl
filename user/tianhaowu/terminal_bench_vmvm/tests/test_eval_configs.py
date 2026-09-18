@@ -19,6 +19,13 @@ OUTBOUND_BODY_DENYLIST = [
     "return_token_ids",
 ]
 MOBIUS_TASK_FILE = CONFIG_DIR / "mobius_valid_tasks_2500.txt"
+KIMI_FULL_RETRY_EXCEPTIONS = {
+    "ProviderError",
+    "SandboxError",
+    "TunnelError",
+    "InterceptionError",
+}
+KIMI_TOKEN_SMOKE_RETRY_EXCEPTIONS = KIMI_FULL_RETRY_EXCEPTIONS - {"ProviderError"}
 
 
 def _mobius_task_file_sha256() -> str:
@@ -49,6 +56,43 @@ def test_eval_config_retries_interception_failures(config_path: Path) -> None:
         return
 
     assert "InterceptionError" in retries["rollout"]["include"]
+
+
+@pytest.mark.parametrize(
+    ("filename", "rollout_timeout", "session_timeout", "retry_exceptions"),
+    [
+        ("mobius_kimi_k3_capacity_smoke.toml", 36_000, 43_200, KIMI_FULL_RETRY_EXCEPTIONS),
+        ("mobius_kimi_k3_max_2500.toml", 36_000, 43_200, KIMI_FULL_RETRY_EXCEPTIONS),
+        ("tb4_kimi_k3_approved_smoke.toml", 28_800, 32_400, KIMI_FULL_RETRY_EXCEPTIONS),
+        ("tb4_kimi_k3_direct_a.toml", 36_000, 43_200, KIMI_FULL_RETRY_EXCEPTIONS),
+        ("tb4_kimi_k3_direct_b.toml", 36_000, 43_200, KIMI_FULL_RETRY_EXCEPTIONS),
+        ("tb4_kimi_k3_max_miniswe.toml", 36_000, 43_200, KIMI_FULL_RETRY_EXCEPTIONS),
+        ("tb4_kimi_token_smoke.toml", 28_800, 32_400, KIMI_TOKEN_SMOKE_RETRY_EXCEPTIONS),
+    ],
+)
+def test_kimi_configs_pin_exact_timeout_and_retry_contract(
+    filename: str,
+    rollout_timeout: int,
+    session_timeout: int,
+    retry_exceptions: set[str],
+) -> None:
+    config = tomllib.loads((CONFIG_DIR / filename).read_text())
+
+    assert config["client"]["timeout"] == 43_200
+    assert config["client"]["connect_timeout"] == 120
+    assert config["harness"]["config_overrides"].count("model.model_kwargs.timeout=43200") == 1
+    assert config["harness"]["runtime"]["session_timeout"] == session_timeout
+    assert config["timeout"] == {
+        "setup": 3_600,
+        "rollout": rollout_timeout,
+        "finalize": 3_600,
+        "scoring": 21_600,
+    }
+    rollout_retries = config["retries"]["rollout"]
+    assert rollout_retries["max_retries"] == 2
+    assert len(rollout_retries["include"]) == len(retry_exceptions)
+    assert set(rollout_retries["include"]) == retry_exceptions
+    assert "HarnessError" not in rollout_retries["include"]
 
 
 @pytest.mark.parametrize(
@@ -96,7 +140,7 @@ def test_mobius_kimi_production_contract() -> None:
     assert client["max_connections"] == config["max_concurrent"]
     assert client["max_keepalive_connections"] == config["max_concurrent"]
     assert client["timeout"] == 43_200
-    assert client["connect_timeout"] >= 120
+    assert client["connect_timeout"] == 120
     assert client["outbound_body_denylist"] == OUTBOUND_BODY_DENYLIST
 
     sampling = config["sampling"]
@@ -118,18 +162,18 @@ def test_mobius_kimi_production_contract() -> None:
 
     runtime = config["harness"]["runtime"]
     assert runtime["type"] == "vmvm"
-    assert runtime["session_timeout"] >= 43_200
+    assert runtime["session_timeout"] == 43_200
     assert runtime["lease_ttl"] == "60s"
 
     timeouts = config["timeout"]
-    assert timeouts["setup"] >= 3_600
-    assert timeouts["rollout"] >= 36_000
+    assert timeouts["setup"] == 3_600
+    assert timeouts["rollout"] == 36_000
     assert timeouts["rollout"] < runtime["session_timeout"] <= client["timeout"]
-    assert timeouts["finalize"] >= 3_600
-    assert timeouts["scoring"] >= 21_600
+    assert timeouts["finalize"] == 3_600
+    assert timeouts["scoring"] == 21_600
 
     rollout_retries = config["retries"]["rollout"]
-    assert rollout_retries["max_retries"] >= 2
+    assert rollout_retries["max_retries"] == 2
     assert set(rollout_retries["include"]) == {
         "ProviderError",
         "SandboxError",
@@ -154,13 +198,9 @@ def test_mobius_kimi_capacity_smoke_matches_production_lane() -> None:
     assert config["client"]["max_connections"] == 8
     assert config["client"]["max_keepalive_connections"] == 8
     assert config["client"]["timeout"] == 43_200
-    assert config["harness"]["runtime"]["session_timeout"] >= 43_200
-    assert config["timeout"]["rollout"] >= 36_000
-    assert (
-        config["timeout"]["rollout"]
-        < config["harness"]["runtime"]["session_timeout"]
-        <= config["client"]["timeout"]
-    )
+    assert config["harness"]["runtime"]["session_timeout"] == 43_200
+    assert config["timeout"]["rollout"] == 36_000
+    assert config["timeout"]["rollout"] < config["harness"]["runtime"]["session_timeout"] <= config["client"]["timeout"]
     assert config["client"]["outbound_body_denylist"] == OUTBOUND_BODY_DENYLIST
     assert config["sampling"]["reasoning_effort"] == "max"
     assert config["sampling"]["chat_template_kwargs"] == {
@@ -170,9 +210,7 @@ def test_mobius_kimi_capacity_smoke_matches_production_lane() -> None:
     taskset = config["taskset"]
     assert taskset["dataset_revision"] == "ac1f30b9ac0e6c6a20a9fe423900d9ed28a6d366"
     assert taskset["task_file_sha256"] == "8d7d9377a9bbe6ade2fba7cc0730647d8be82402e225f95ad864a2218647563c"
-    assert taskset["image_manifest_sha256"] == (
-        "118157378884021d2fc12dd83e7d9576ca606a5d229a2bd34c203d745212e009"
-    )
+    assert taskset["image_manifest_sha256"] == ("118157378884021d2fc12dd83e7d9576ca606a5d229a2bd34c203d745212e009")
 
 
 def test_mobius_qwen_production_retention_and_concurrency() -> None:
@@ -254,7 +292,7 @@ def test_eval_configs_pin_approved_tasks_and_runtime_contract(
     expected_client_timeout = 43_200 if "kimi" in filename else 7_200
     assert config["client"]["timeout"] == expected_client_timeout
     assert config["harness"]["runtime"]["type"] == "vmvm"
-    assert config["timeout"]["setup"] >= 3_600
+    assert config["timeout"]["setup"] == 3_600
     expected_rollout_timeout = 28_800
     assert config["timeout"]["rollout"] >= expected_rollout_timeout
     if "kimi" in filename:
@@ -264,8 +302,8 @@ def test_eval_configs_pin_approved_tasks_and_runtime_contract(
             <= config["client"]["timeout"]
         )
         assert config["timeout"]["rollout"] < 43_200 <= config["client"]["timeout"]
-    assert config["timeout"]["finalize"] >= 3_600
-    assert config["timeout"]["scoring"] >= 21_600
+    assert config["timeout"]["finalize"] == 3_600
+    assert config["timeout"]["scoring"] == 21_600
 
     taskset = config["taskset"]
     assert "tasks" not in taskset
@@ -339,12 +377,23 @@ def test_eval_controller_is_cpu_only_and_supports_high_vmvm_concurrency() -> Non
     assert "#SBATCH --gres" not in text
     assert "#SBATCH --gpus" not in text
     assert 'python3 "$workflow_dir/eval_run_identity.py"' in text
-    assert "--mode \"$identity_mode\"" in text
+    assert "Kimi evaluations require EVAL_EXPECTED_PRIME_RL_REVISION" in text
+    assert '--mode "$identity_mode"' in text
     assert "eval_run_identity_sha256" in text
     # This bounds only simultaneous lease *bring-up*. The slot is released as
     # soon as each tunnel is ready, so the evaluator can still reach 64 active
     # rollouts without stampeding vacli with 64 setup requests at once.
     assert "VACLI_MAX_CONCURRENT_LEASES=${VACLI_MAX_CONCURRENT_LEASES:-32}" in text
+
+
+def test_documented_kimi_direct_launches_pin_the_exact_project_revision() -> None:
+    workflow_dir = CONFIG_DIR.parents[1]
+    for document in (workflow_dir / "README.md", workflow_dir / "HANDOFF.md"):
+        launch_lines = [
+            line for line in document.read_text().splitlines() if "run_eval.sbatch" in line and "kimi" in line.lower()
+        ]
+        assert launch_lines
+        assert all("EVAL_EXPECTED_PRIME_RL_REVISION=<commit>" in line for line in launch_lines)
 
 
 def test_kimi_tb4_gate_sequences_smoke_before_full_evaluation() -> None:

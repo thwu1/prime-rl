@@ -191,6 +191,7 @@ def test_generic_launcher_rejects_task_overrides_and_keeps_dry_run() -> None:
     assert "INFERENCE_DEPLOYMENT_ID routing must match EVAL_DEPLOYMENT_ID metadata" in text
     assert "EVAL_PROMOTION_CERTIFICATE" in text
     assert "EVAL_EXPECTED_PRIME_RL_REVISION" in text
+    assert "Kimi evaluations require EVAL_EXPECTED_PRIME_RL_REVISION" in text
     assert "PROJECT_DIR revision does not match EVAL_EXPECTED_PRIME_RL_REVISION" in text
     assert text.index('python3 "$workflow_dir/mobius_launch_certificate.py" verify') < text.index(
         'python3 "$workflow_dir/eval_run_identity.py"'
@@ -408,6 +409,72 @@ def test_real_launcher_requires_readiness_bound_proxy_hash_before_mutation(tmp_p
             "EVAL_DATASET_REVISION": "b" * 40,
             "EVAL_DEPLOYMENT_ID": "deployment-test",
             "EVAL_EXPECTED_MODEL": "Kimi-K3",
+            "EVAL_EXPECTED_PRIME_RL_REVISION": "a" * 40,
+            "EVAL_RUN_ROLE": "smoke",
+            "INFERENCE_DEPLOYMENT_SPEC": "/opaque/spec.yaml",
+            "INFERENCE_DEPLOYMENT_SPEC_SHA256": "d" * 64,
+            "INFERENCE_PROXY_INFO": "/opaque/proxy_info.json",
+            "INFERENCE_READINESS_CHECKPOINT": "/opaque/readiness.json",
+            "INFERENCE_READINESS_CHECKPOINT_SHA256": "e" * 64,
+        }
+    )
+    wrapper = Path(__file__).parents[1] / "run_eval.sbatch"
+
+    result = subprocess.run(
+        ["bash", str(wrapper)],
+        env=env,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 2
+    assert result.stderr == "INFERENCE_PROXY_INFO and INFERENCE_PROXY_INFO_SHA256 are required\n"
+    assert not uv_log.exists()
+    assert not python_log.exists()
+    assert not output_dir.exists()
+
+
+def test_kimi_launcher_requires_exact_project_revision_pin_before_mutation(tmp_path: Path) -> None:
+    env, output_dir, uv_log, python_log = _launcher_environment(tmp_path)
+    env.update(
+        {
+            "EVAL_APPROVED_TASK_FILE": "/opaque/approved",
+            "EVAL_APPROVED_TASK_FILE_SHA256": "a" * 64,
+            "EVAL_DATASET_REVISION": "b" * 40,
+            "EVAL_DEPLOYMENT_ID": "deployment-test",
+            "EVAL_EXPECTED_MODEL": "Kimi-K3",
+            "EVAL_RUN_ROLE": "smoke",
+        }
+    )
+    wrapper = Path(__file__).parents[1] / "run_eval.sbatch"
+
+    result = subprocess.run(
+        ["bash", str(wrapper)],
+        env=env,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 2
+    assert result.stderr == (
+        "Kimi evaluations require EVAL_EXPECTED_PRIME_RL_REVISION as 40 lowercase hexadecimal characters\n"
+    )
+    assert not uv_log.exists()
+    assert not python_log.exists()
+    assert not output_dir.exists()
+
+
+def test_non_kimi_launcher_keeps_revision_pin_optional(tmp_path: Path) -> None:
+    env, output_dir, uv_log, python_log = _launcher_environment(tmp_path)
+    env.update(
+        {
+            "EVAL_APPROVED_TASK_FILE": "/opaque/approved",
+            "EVAL_APPROVED_TASK_FILE_SHA256": "a" * 64,
+            "EVAL_DATASET_REVISION": "b" * 40,
+            "EVAL_DEPLOYMENT_ID": "deployment-test",
+            "EVAL_EXPECTED_MODEL": "another-model",
             "EVAL_RUN_ROLE": "smoke",
             "INFERENCE_DEPLOYMENT_SPEC": "/opaque/spec.yaml",
             "INFERENCE_DEPLOYMENT_SPEC_SHA256": "d" * 64,
@@ -507,6 +574,7 @@ def test_mobius_launcher_rejects_model_and_endpoint_overrides_before_mutation(
             "EVAL_DATASET_REVISION": "b" * 40,
             "EVAL_DEPLOYMENT_ID": "deployment-test",
             "EVAL_EXPECTED_MODEL": "Kimi-K3",
+            "EVAL_EXPECTED_PRIME_RL_REVISION": "a" * 40,
             "EVAL_PROMOTION_CERTIFICATE": "/opaque/certificate",
             "EVAL_PROMOTION_CERTIFICATE_SHA256": "c" * 64,
             "EVAL_RUN_ROLE": "mobius",
