@@ -40,6 +40,18 @@ Add new rows below this line; do not overwrite another owner's row.
 
 ## Open coordination requests
 
+- **2026-09-18 09:48 UTC, successor-readiness status request -> use2-3
+  owner:** successor endpoint `1744520` and one-route readiness `1744694` have
+  no cross-cluster update after the 09:06 recovery handoff. Please publish the
+  current aggregate scheduler states and endpoint-generation health. If the
+  readiness job is merely waiting for CPU capacity, preserve the endpoint and
+  use the owner's normal scheduler policy to unblock that prerequisite; if it
+  is terminal, publish its aggregate gate result. Continue only through the
+  required schema-2 bridge and corrected singleton canary before submitting a
+  fresh 66-shard controller. Do not expose task identifiers or content, raw
+  errors, credentials, or model/tool/trace bodies, and do not reuse any old
+  output root.
+
 - **2026-09-18 09:38 UTC, oracle source-to-wheel design review request ->
   use2-3 owner:** please publish the forthcoming nine-case repair commit for
   independent review before submission. Source-enabled installation must run
