@@ -204,13 +204,28 @@ def _validate_identity_contract(identity: dict[str, Any], *, error: str) -> None
         raise CanaryAuditError(error)
 
 
-def _load_full_source(oracle_dir: Path, expected_total: int) -> OracleSnapshot:
+def _load_full_source(
+    oracle_dir: Path,
+    expected_total: int,
+    *,
+    expected_prime_rl_commit: str,
+    expected_verifiers_commit: str,
+    expected_vmvm_tb_v2_sha256: str,
+) -> OracleSnapshot:
     try:
         identity, identity_sha256, identity_file_sha256, identity_path, identity_raw = builder._run_identity(
             oracle_dir,
             expected_total,
         )
         _validate_identity_contract(identity, error="source_run_identity_invalid")
+        expected_source = {
+            "prime_rl_commit": expected_prime_rl_commit,
+            "prime_rl_tree_sha256": CLEAN_TREE_SHA256,
+            "verifiers_commit": expected_verifiers_commit,
+            "vmvm_tb_v2_sha256": expected_vmvm_tb_v2_sha256,
+        }
+        if identity["source"] != expected_source:
+            raise CanaryAuditError("source_provenance_mismatch")
         selection = identity["selection"]
         results, reasons, results_sha256, results_path, results_raw = builder._results(
             oracle_dir,
@@ -585,6 +600,9 @@ def audit_canary(
     canary_dir: Path,
     certificate: Path,
     *,
+    expected_source_prime_rl_commit: str,
+    expected_source_verifiers_commit: str,
+    expected_source_vmvm_tb_v2_sha256: str,
     expected_prime_rl_commit: str,
     expected_verifiers_commit: str,
     expected_vmvm_tb_v2_sha256: str,
@@ -593,6 +611,12 @@ def audit_canary(
     minimum_recovered: int = DEFAULT_MINIMUM_RECOVERED,
     seed: str = DEFAULT_SEED,
 ) -> dict[str, Any]:
+    if not _is_revision(expected_source_prime_rl_commit):
+        raise CanaryAuditError("expected_source_prime_rl_commit_invalid")
+    if not _is_revision(expected_source_verifiers_commit):
+        raise CanaryAuditError("expected_source_verifiers_commit_invalid")
+    if not _is_sha256(expected_source_vmvm_tb_v2_sha256):
+        raise CanaryAuditError("expected_source_vmvm_tb_v2_sha256_invalid")
     if not _is_revision(expected_prime_rl_commit):
         raise CanaryAuditError("expected_prime_rl_commit_invalid")
     if not _is_revision(expected_verifiers_commit):
@@ -645,7 +669,13 @@ def audit_canary(
                 if str(cause) == "oracle_writer_active":
                     raise CanaryAuditError(f"{label}_writer_active") from cause
                 raise CanaryAuditError(f"{label}_writer_lock_invalid") from cause
-        source = _load_full_source(source_oracle_dir, expected_total)
+        source = _load_full_source(
+            source_oracle_dir,
+            expected_total,
+            expected_prime_rl_commit=expected_source_prime_rl_commit,
+            expected_verifiers_commit=expected_source_verifiers_commit,
+            expected_vmvm_tb_v2_sha256=expected_source_vmvm_tb_v2_sha256,
+        )
         task_file, task_raw, tasks, task_sha256 = _task_file(task_file)
         receipt_path, receipt_raw, builder_receipt_sha256 = _builder_receipt(
             builder_receipt,
@@ -796,6 +826,9 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("task_file", type=Path)
     parser.add_argument("canary_dir", type=Path)
     parser.add_argument("certificate", type=Path)
+    parser.add_argument("--expected-source-prime-rl-commit", required=True)
+    parser.add_argument("--expected-source-verifiers-commit", required=True)
+    parser.add_argument("--expected-source-vmvm-tb-v2-sha256", required=True)
     parser.add_argument("--expected-prime-rl-commit", required=True)
     parser.add_argument("--expected-verifiers-commit", required=True)
     parser.add_argument("--expected-vmvm-tb-v2-sha256", required=True)
@@ -811,6 +844,9 @@ def main(argv: list[str] | None = None) -> int:
             args.task_file,
             args.canary_dir,
             args.certificate,
+            expected_source_prime_rl_commit=args.expected_source_prime_rl_commit,
+            expected_source_verifiers_commit=args.expected_source_verifiers_commit,
+            expected_source_vmvm_tb_v2_sha256=args.expected_source_vmvm_tb_v2_sha256,
             expected_prime_rl_commit=args.expected_prime_rl_commit,
             expected_verifiers_commit=args.expected_verifiers_commit,
             expected_vmvm_tb_v2_sha256=args.expected_vmvm_tb_v2_sha256,

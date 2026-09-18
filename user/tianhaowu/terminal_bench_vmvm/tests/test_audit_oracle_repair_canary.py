@@ -98,7 +98,13 @@ def _write_oracle(
     return rows
 
 
-def _source_fixture(tmp_path: Path) -> tuple[Path, dict[str, Any], list[dict[str, Any]]]:
+def _source_fixture(
+    tmp_path: Path,
+    *,
+    prime_rl_commit: str = SOURCE_COMMIT,
+    verifiers_commit: str = SOURCE_VERIFIERS_COMMIT,
+    vmvm_tb_v2_sha256: str = SOURCE_VMVM_SHA256,
+) -> tuple[Path, dict[str, Any], list[dict[str, Any]]]:
     slugs = [f"secret-task-{index}" for index in range(8)]
     identity = {
         "acceptance": {"minimum_pass_rate": 0.9, "minimum_valid": 7},
@@ -149,10 +155,10 @@ def _source_fixture(tmp_path: Path) -> tuple[Path, dict[str, Any], list[dict[str
             "task_file": {"path": None, "sha256": None},
         },
         "source": {
-            "prime_rl_commit": SOURCE_COMMIT,
+            "prime_rl_commit": prime_rl_commit,
             "prime_rl_tree_sha256": CLEAN_TREE_SHA256,
-            "verifiers_commit": SOURCE_VERIFIERS_COMMIT,
-            "vmvm_tb_v2_sha256": SOURCE_VMVM_SHA256,
+            "verifiers_commit": verifiers_commit,
+            "vmvm_tb_v2_sha256": vmvm_tb_v2_sha256,
         },
     }
     specifications = []
@@ -262,6 +268,9 @@ def _audit(
     certificate: Path,
     *,
     minimum_recovered: int = 2,
+    expected_source_prime_rl_commit: str = SOURCE_COMMIT,
+    expected_source_verifiers_commit: str = SOURCE_VERIFIERS_COMMIT,
+    expected_source_vmvm_tb_v2_sha256: str = SOURCE_VMVM_SHA256,
     expected_verifiers_commit: str = CANARY_VERIFIERS_COMMIT,
     expected_vmvm_tb_v2_sha256: str = CANARY_VMVM_SHA256,
 ) -> dict[str, Any]:
@@ -271,6 +280,9 @@ def _audit(
         task_file,
         canary,
         certificate,
+        expected_source_prime_rl_commit=expected_source_prime_rl_commit,
+        expected_source_verifiers_commit=expected_source_verifiers_commit,
+        expected_source_vmvm_tb_v2_sha256=expected_source_vmvm_tb_v2_sha256,
         expected_prime_rl_commit=CANARY_COMMIT,
         expected_verifiers_commit=expected_verifiers_commit,
         expected_vmvm_tb_v2_sha256=expected_vmvm_tb_v2_sha256,
@@ -430,6 +442,35 @@ def test_rejects_unreviewed_execution_source_pin(
 
 
 @pytest.mark.parametrize(
+    ("prime_rl_commit", "verifiers_commit", "vmvm_tb_v2_sha256"),
+    [
+        ("1" * 40, SOURCE_VERIFIERS_COMMIT, SOURCE_VMVM_SHA256),
+        (SOURCE_COMMIT, "2" * 40, SOURCE_VMVM_SHA256),
+        (SOURCE_COMMIT, SOURCE_VERIFIERS_COMMIT, "3" * 64),
+    ],
+)
+def test_rejects_fully_self_consistent_rebuilt_source_with_untrusted_pin(
+    tmp_path: Path,
+    prime_rl_commit: str,
+    verifiers_commit: str,
+    vmvm_tb_v2_sha256: str,
+) -> None:
+    source, identity, source_rows = _source_fixture(
+        tmp_path,
+        prime_rl_commit=prime_rl_commit,
+        verifiers_commit=verifiers_commit,
+        vmvm_tb_v2_sha256=vmvm_tb_v2_sha256,
+    )
+    task_file, receipt = _builder_artifacts(tmp_path, source)
+    canary, _ = _canary_fixture(tmp_path, identity, source_rows, task_file)
+    certificate = tmp_path / "audit.json"
+
+    with pytest.raises(CanaryAuditError, match="^source_provenance_mismatch$"):
+        _audit(source, receipt, task_file, canary, certificate)
+    assert not certificate.exists()
+
+
+@pytest.mark.parametrize(
     ("expected_verifiers_commit", "expected_vmvm_tb_v2_sha256", "error"),
     [
         ("not-a-revision", CANARY_VMVM_SHA256, "expected_verifiers_commit_invalid"),
@@ -454,6 +495,34 @@ def test_rejects_malformed_execution_source_pin(
             expected_verifiers_commit=expected_verifiers_commit,
             expected_vmvm_tb_v2_sha256=expected_vmvm_tb_v2_sha256,
         )
+
+
+@pytest.mark.parametrize(
+    ("keyword", "value", "error"),
+    [
+        ("expected_source_prime_rl_commit", "not-a-revision", "expected_source_prime_rl_commit_invalid"),
+        (
+            "expected_source_verifiers_commit",
+            "not-a-revision",
+            "expected_source_verifiers_commit_invalid",
+        ),
+        (
+            "expected_source_vmvm_tb_v2_sha256",
+            "not-a-sha256",
+            "expected_source_vmvm_tb_v2_sha256_invalid",
+        ),
+    ],
+)
+def test_rejects_malformed_trusted_source_pin(
+    tmp_path: Path,
+    keyword: str,
+    value: str,
+    error: str,
+) -> None:
+    source, receipt, task_file, canary, _, _ = _inputs(tmp_path)
+
+    with pytest.raises(CanaryAuditError, match=f"^{error}$"):
+        _audit(source, receipt, task_file, canary, tmp_path / "audit.json", **{keyword: value})
 
 
 def test_rejects_tampered_builder_artifacts(tmp_path: Path) -> None:
@@ -533,6 +602,12 @@ def test_cli_reports_aggregates_only_and_uses_gate_exit_status(
             str(task_file),
             str(canary),
             str(certificate),
+            "--expected-source-prime-rl-commit",
+            SOURCE_COMMIT,
+            "--expected-source-verifiers-commit",
+            SOURCE_VERIFIERS_COMMIT,
+            "--expected-source-vmvm-tb-v2-sha256",
+            SOURCE_VMVM_SHA256,
             "--expected-prime-rl-commit",
             CANARY_COMMIT,
             "--expected-verifiers-commit",
