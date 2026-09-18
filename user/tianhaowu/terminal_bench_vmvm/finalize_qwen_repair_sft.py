@@ -1,0 +1,1100 @@
+#!/usr/bin/env python3
+"""Finalize one fresh direct Qwen repair run as an attested pass-only SFT corpus.
+
+Only aggregate counts, digests, and stable error codes are emitted. Task
+identifiers and trace content are never written to stdout or stderr.
+"""
+
+from __future__ import annotations
+
+import argparse
+import fcntl
+import hashlib
+import json
+import os
+import platform
+import shutil
+import stat
+import sys
+import tempfile
+import tomllib
+from collections.abc import Callable, Iterator, Mapping
+from contextlib import contextmanager, suppress
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Any
+
+import direct_qwen_workers as direct
+import finalize_qwen_sft as common
+import migrate_qwen_router_affinity as migration
+
+ATTESTATION_FILENAME = "qwen_repair_attestation.json"
+ATTESTATION_KIND = "qwen-direct-repair-attestation"
+SELECTION_COPY_FILENAME = "repair_selection_manifest.json"
+MAX_MANIFEST_BYTES = 1 << 20
+MAX_SEQUENCE_TOKENS = 262_144
+SHA256_PATTERN = common.SHA256_PATTERN
+SOURCE_ARTIFACTS = (
+    "config.toml",
+    "inputs/task_file.txt",
+    "provenance.txt",
+    "results.jsonl",
+    "direct_workers.json",
+)
+SELECTION_SOURCE_ARTIFACTS = frozenset(
+    {
+        "config",
+        "direct_workers",
+        "inputs_manifest",
+        "source_config",
+        "provenance",
+        "results",
+        "task_file",
+        "image_manifest",
+    }
+)
+LOCKED_SOURCE_ARTIFACTS = (
+    *SOURCE_ARTIFACTS,
+    "inputs/manifest.json",
+    "inputs/source_config.toml",
+    "inputs/image_manifest.json",
+)
+
+
+class RepairFinalizationError(RuntimeError):
+    """A fail-closed repair finalization error represented by a stable code."""
+
+    def __init__(self, code: str):
+        super().__init__(code)
+        self.code = code
+
+
+class StableArgumentParser(argparse.ArgumentParser):
+    def error(self, _message: str) -> None:
+        raise RepairFinalizationError("arguments_invalid")
+
+
+@dataclass(frozen=True)
+class RepairFinalizeOptions:
+    project_dir: Path
+    expected_project_revision: str
+    source_root: Path
+    source_dir: Path
+    expected_provenance_sha256: str
+    repair_selection_manifest: Path
+    expected_repair_selection_manifest_sha256: str
+    output_root: Path
+    output_dir: Path
+    expected_count: int
+    validation_permyriad: int
+    split_salt: str
+
+
+@dataclass(frozen=True)
+class RepairSelection:
+    body: bytes
+    sha256: str
+    config_sha256: str
+    task_file_sha256: str
+    task_count: int
+    approved_task_count: int
+    template_sha256: str
+    materializer_sha256: str
+    repository_revision: str
+    submodules: Mapping[str, str]
+
+
+RepositoryValidator = Callable[[Path, str], Path]
+CommandRunner = Callable[[list[str], Path, str], dict[str, Any]]
+SourceAuditor = Callable[[Path, int, str, RepairSelection], dict[str, Any]]
+RuntimeValidator = Callable[[Path], Path]
+
+
+def _is_plain_int(value: object) -> bool:
+    return isinstance(value, int) and not isinstance(value, bool)
+
+
+def _valid_sha256(value: object) -> bool:
+    return isinstance(value, str) and SHA256_PATTERN.fullmatch(value) is not None
+
+
+def _valid_git_sha(value: object) -> bool:
+    return isinstance(value, str) and common.GIT_SHA_PATTERN.fullmatch(value) is not None
+
+
+def _json_bytes(value: object) -> bytes:
+    return json.dumps(value, indent=2, sort_keys=True, ensure_ascii=False, allow_nan=False).encode() + b"\n"
+
+
+def _file_artifact(
+    path: Path,
+    code: str,
+    *,
+    max_bytes: int | None = None,
+    capture_body: bool = True,
+) -> tuple[bytes, dict[str, int | str]]:
+    flags = os.O_RDONLY | os.O_CLOEXEC
+    if hasattr(os, "O_NOFOLLOW"):
+        flags |= os.O_NOFOLLOW
+    try:
+        descriptor = os.open(path, flags)
+    except OSError as error:
+        raise RepairFinalizationError(code) from error
+    try:
+        before = os.fstat(descriptor)
+        if not stat.S_ISREG(before.st_mode):
+            raise RepairFinalizationError(code)
+        digest = hashlib.sha256()
+        body = bytearray()
+        size = 0
+        while True:
+            chunk = os.read(descriptor, 1 << 20)
+            if not chunk:
+                break
+            size += len(chunk)
+            if max_bytes is not None and size > max_bytes:
+                raise RepairFinalizationError(code)
+            digest.update(chunk)
+            if capture_body:
+                body.extend(chunk)
+        after = os.fstat(descriptor)
+    except OSError as error:
+        raise RepairFinalizationError(code) from error
+    finally:
+        os.close(descriptor)
+    identity = (before.st_dev, before.st_ino, before.st_size, before.st_mtime_ns)
+    if identity != (after.st_dev, after.st_ino, after.st_size, after.st_mtime_ns):
+        raise RepairFinalizationError(code)
+    return bytes(body), {"bytes": size, "sha256": digest.hexdigest()}
+
+
+def _parse_json(body: bytes, code: str) -> dict[str, Any]:
+    def reject_duplicates(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+        result: dict[str, Any] = {}
+        for key, value in pairs:
+            if key in result:
+                raise ValueError("duplicate key")
+            result[key] = value
+        return result
+
+    try:
+        value = json.loads(
+            body,
+            parse_constant=lambda _constant: (_ for _ in ()).throw(ValueError()),
+            object_pairs_hook=reject_duplicates,
+        )
+    except (UnicodeDecodeError, ValueError) as error:
+        raise RepairFinalizationError(code) from error
+    if not isinstance(value, dict):
+        raise RepairFinalizationError(code)
+    return value
+
+
+def _load_repair_selection(path: Path, expected_sha256: str, expected_count: int) -> RepairSelection:
+    if not _valid_sha256(expected_sha256):
+        raise RepairFinalizationError("repair_selection_digest_invalid")
+    body, artifact = _file_artifact(path, "repair_selection_unreadable", max_bytes=MAX_MANIFEST_BYTES)
+    if artifact["sha256"] != expected_sha256:
+        raise RepairFinalizationError("repair_selection_digest_mismatch")
+    manifest = _parse_json(body, "repair_selection_invalid")
+    selection = manifest.get("selection")
+    config = manifest.get("config")
+    planner = manifest.get("planner")
+    approval = manifest.get("approval")
+    code = manifest.get("code")
+    source = manifest.get("source")
+    if (
+        set(manifest) != {"approval", "code", "config", "kind", "planner", "schema_version", "selection", "source"}
+        or manifest.get("kind") != "qwen-aggregate-repair-selection"
+        or not _is_plain_int(manifest.get("schema_version"))
+        or manifest.get("schema_version") != 1
+        or not isinstance(selection, dict)
+        or set(selection) != {"approved_repair_count", "task_file_sha256"}
+        or not isinstance(config, dict)
+        or set(config)
+        != {
+            "capture_model_io",
+            "enable_thinking",
+            "max_concurrent",
+            "max_total_tokens",
+            "preserve_thinking",
+            "provider_concurrency",
+            "retry_class_count",
+            "retry_policy_sha256",
+            "sha256",
+            "template_sha256",
+        }
+        or not isinstance(planner, dict)
+        or set(planner)
+        != {
+            "approved_task_count",
+            "contract_verifiers_revision",
+            "missing_or_errored_count",
+            "module_sha256",
+            "retained_count",
+            "task_index_order_sha256",
+        }
+        or not isinstance(approval, dict)
+        or set(approval) != {"approved_task_count", "approved_task_file_sha256"}
+        or not isinstance(code, dict)
+        or set(code) != {"materializer_sha256", "repository_revision", "submodules"}
+        or not isinstance(source, dict)
+        or set(source) != {"artifacts", "routing_epoch", "task_count"}
+    ):
+        raise RepairFinalizationError("repair_selection_invalid")
+    task_count = selection.get("approved_repair_count")
+    approved_task_count = approval.get("approved_task_count")
+    task_file_sha256 = selection.get("task_file_sha256")
+    config_sha256 = config.get("sha256")
+    materializer_sha256 = code.get("materializer_sha256")
+    repository_revision = code.get("repository_revision")
+    submodules = code.get("submodules")
+    source_artifacts = source.get("artifacts")
+    retry_policy_bytes = "".join(f"{name}\n" for name in sorted(direct.ROLLOUT_RETRY_POLICY)).encode()
+    if (
+        not _is_plain_int(task_count)
+        or task_count != expected_count
+        or not _is_plain_int(approved_task_count)
+        or approved_task_count < task_count
+        or not isinstance(source_artifacts, dict)
+        or set(source_artifacts) != SELECTION_SOURCE_ARTIFACTS
+        or not all(
+            isinstance(record, dict)
+            and set(record) == {"sha256", "size_bytes"}
+            and _valid_sha256(record["sha256"])
+            and _is_plain_int(record["size_bytes"])
+            and record["size_bytes"] >= 0
+            for record in source_artifacts.values()
+        )
+        or approval.get("approved_task_file_sha256")
+        != source_artifacts.get("task_file", {}).get("sha256")
+        or not _valid_sha256(approval.get("approved_task_file_sha256"))
+        or not _is_plain_int(planner.get("approved_task_count"))
+        or planner.get("approved_task_count") != approved_task_count
+        or not _is_plain_int(planner.get("missing_or_errored_count"))
+        or planner.get("missing_or_errored_count") != task_count
+        or not _is_plain_int(planner.get("retained_count"))
+        or planner["retained_count"] + task_count != approved_task_count
+        or not _valid_sha256(planner.get("task_index_order_sha256"))
+        or planner.get("contract_verifiers_revision") != direct.ADMISSION_VERIFIERS_REVISION
+        or planner.get("module_sha256") != direct.ADMISSION_RESUME_MODULE_SHA256
+        or not _valid_sha256(task_file_sha256)
+        or not _valid_sha256(config_sha256)
+        or config.get("capture_model_io") is not True
+        or config.get("enable_thinking") is not True
+        or config.get("preserve_thinking") is not True
+        or not _is_plain_int(config.get("max_concurrent"))
+        or config.get("max_concurrent") != direct.MAX_DIRECT_CONCURRENCY
+        or not _is_plain_int(config.get("provider_concurrency"))
+        or config.get("provider_concurrency") != direct.PRODUCTION_PROVIDER_CONCURRENCY
+        or not _is_plain_int(config.get("max_total_tokens"))
+        or config.get("max_total_tokens") != MAX_SEQUENCE_TOKENS
+        or not _is_plain_int(config.get("retry_class_count"))
+        or config.get("retry_class_count") != len(direct.ROLLOUT_RETRY_POLICY)
+        or config.get("retry_policy_sha256") != hashlib.sha256(retry_policy_bytes).hexdigest()
+        or not _valid_sha256(config.get("template_sha256"))
+        or not _valid_sha256(materializer_sha256)
+        or not _valid_git_sha(repository_revision)
+        or not isinstance(submodules, dict)
+        or set(submodules) != set(common.REQUIRED_RUNTIME_SUBMODULES)
+        or any(not _valid_git_sha(revision) for revision in submodules.values())
+        or not _is_plain_int(source.get("routing_epoch"))
+        or source.get("routing_epoch") != 3
+        or not _is_plain_int(source.get("task_count"))
+        or source.get("task_count") != approved_task_count
+    ):
+        raise RepairFinalizationError("repair_selection_contract_mismatch")
+    return RepairSelection(
+        body=body,
+        sha256=expected_sha256,
+        config_sha256=str(config_sha256),
+        task_file_sha256=str(task_file_sha256),
+        task_count=task_count,
+        approved_task_count=approved_task_count,
+        template_sha256=str(config["template_sha256"]),
+        materializer_sha256=str(materializer_sha256),
+        repository_revision=str(repository_revision),
+        submodules=dict(submodules),
+    )
+
+
+@contextmanager
+def _hold_source_locks(source: Path) -> Iterator[None]:
+    descriptors: list[int] = []
+    try:
+        for filename in (".direct_router.lock", ".writer.lock"):
+            path = source / filename
+            flags = os.O_RDWR | os.O_CLOEXEC | os.O_NONBLOCK
+            if hasattr(os, "O_NOFOLLOW"):
+                flags |= os.O_NOFOLLOW
+            try:
+                descriptor = os.open(path, flags)
+            except OSError as error:
+                raise RepairFinalizationError("source_lock_invalid") from error
+            descriptors.append(descriptor)
+            before = os.fstat(descriptor)
+            if not stat.S_ISREG(before.st_mode):
+                raise RepairFinalizationError("source_lock_invalid")
+            try:
+                fcntl.flock(descriptor, fcntl.LOCK_SH | fcntl.LOCK_NB)
+            except BlockingIOError as error:
+                raise RepairFinalizationError("source_run_active") from error
+            try:
+                after = path.stat(follow_symlinks=False)
+            except OSError as error:
+                raise RepairFinalizationError("source_lock_invalid") from error
+            if not stat.S_ISREG(after.st_mode) or (before.st_dev, before.st_ino) != (after.st_dev, after.st_ino):
+                raise RepairFinalizationError("source_lock_invalid")
+        yield
+    finally:
+        for descriptor in reversed(descriptors):
+            os.close(descriptor)
+
+
+def _source_artifacts(source: Path) -> dict[str, dict[str, int | str]]:
+    return {
+        relative: _file_artifact(
+            source / relative,
+            "source_artifact_unreadable",
+            capture_body=False,
+        )[1]
+        for relative in SOURCE_ARTIFACTS
+    }
+
+
+def _locked_source_artifacts(source: Path) -> dict[str, dict[str, int | str]]:
+    return {
+        relative: _file_artifact(
+            source / relative,
+            "source_artifact_unreadable",
+            capture_body=False,
+        )[1]
+        for relative in LOCKED_SOURCE_ARTIFACTS
+    }
+
+
+def _audit_source(
+    source: Path,
+    expected_count: int,
+    expected_provenance_sha256: str,
+    repair_selection: RepairSelection,
+) -> dict[str, Any]:
+    if not _valid_sha256(expected_provenance_sha256):
+        raise RepairFinalizationError("expected_provenance_digest_invalid")
+    artifacts = _source_artifacts(source)
+    if artifacts["provenance.txt"]["sha256"] != expected_provenance_sha256:
+        raise RepairFinalizationError("source_provenance_digest_mismatch")
+    if artifacts["inputs/task_file.txt"]["sha256"] != repair_selection.task_file_sha256:
+        raise RepairFinalizationError("source_task_digest_mismatch")
+    source_config_body, source_config_artifact = _file_artifact(
+        source / "inputs" / "source_config.toml",
+        "source_config_unreadable",
+        max_bytes=MAX_MANIFEST_BYTES,
+    )
+    if source_config_artifact["sha256"] != repair_selection.config_sha256:
+        raise RepairFinalizationError("source_config_digest_mismatch")
+    try:
+        config_body, _config_artifact = _file_artifact(
+            source / "config.toml",
+            "source_config_invalid",
+            max_bytes=MAX_MANIFEST_BYTES,
+        )
+        config = tomllib.loads(config_body.decode("utf-8"))
+    except (OSError, UnicodeDecodeError, tomllib.TOMLDecodeError) as error:
+        raise RepairFinalizationError("source_config_invalid") from error
+    try:
+        source_config = tomllib.loads(source_config_body.decode("utf-8"))
+    except (UnicodeDecodeError, tomllib.TOMLDecodeError) as error:
+        raise RepairFinalizationError("source_config_invalid") from error
+    client = config.get("client")
+    sampling = config.get("sampling")
+    chat = sampling.get("chat_template_kwargs") if isinstance(sampling, dict) else None
+    retries = config.get("retries")
+    rollout = retries.get("rollout") if isinstance(retries, dict) else None
+    retry_include = rollout.get("include") if isinstance(rollout, dict) else None
+    taskset = config.get("taskset")
+    if (
+        config.get("num_tasks") != expected_count
+        or config.get("num_rollouts") != 1
+        or config.get("max_concurrent") != direct.MAX_DIRECT_CONCURRENCY
+        or config.get("multiplex") != direct.MAX_DIRECT_CONCURRENCY
+        or any(config.get(key) != MAX_SEQUENCE_TOKENS for key in ("max_input_tokens", "max_output_tokens", "max_total_tokens"))
+        or not isinstance(client, dict)
+        or client.get("capture_model_io") is not True
+        or not isinstance(sampling, dict)
+        or sampling.get("max_tokens") != 32_768
+        or not isinstance(chat, dict)
+        or chat.get("enable_thinking") is not True
+        or chat.get("preserve_thinking") is not True
+        or not isinstance(rollout, dict)
+        or rollout.get("max_retries") != 2
+        or not isinstance(retry_include, list)
+        or not all(isinstance(value, str) for value in retry_include)
+        or len(retry_include) != len(set(retry_include))
+        or frozenset(retry_include) != direct.ROLLOUT_RETRY_POLICY
+        or rollout.get("exclude", []) != []
+        or not isinstance(taskset, dict)
+        or taskset.get("id") != "terminal-bench-vmvm"
+        or taskset.get("task_file_sha256") != repair_selection.task_file_sha256
+        or source_config.get("num_tasks") != expected_count
+    ):
+        raise RepairFinalizationError("source_contract_invalid")
+    try:
+        summary = direct.audit_run_directory(source)
+    except (OSError, ValueError, direct.DirectWorkerError) as error:
+        raise RepairFinalizationError("source_routing_provenance_invalid") from error
+    routing = {
+        "routing_epoch": summary.get("routing_epoch"),
+        "manifest_schema_version": summary.get("manifest_schema_version"),
+        "provider_concurrency": summary.get("provider_concurrency"),
+        "queue_size": summary.get("queue_size"),
+        "router_policy": summary.get("router_policy"),
+        "request_id_headers": summary.get("request_id_headers"),
+    }
+    expected_routing = {
+        "routing_epoch": 1,
+        "manifest_schema_version": direct.ROUTER_MANIFEST_SCHEMA_VERSION,
+        "provider_concurrency": direct.PRODUCTION_PROVIDER_CONCURRENCY,
+        "queue_size": direct.MAX_DIRECT_CONCURRENCY - direct.PRODUCTION_PROVIDER_CONCURRENCY,
+        "router_policy": direct.ROUTER_POLICY,
+        "request_id_headers": list(direct.ROUTER_REQUEST_ID_HEADERS),
+    }
+    if summary.get("ok") is not True or routing != expected_routing:
+        raise RepairFinalizationError("source_not_fresh_schema3_repair")
+    dataset_revision = taskset.get("dataset_revision")
+    if (
+        not isinstance(dataset_revision, str)
+        or not _valid_git_sha(dataset_revision)
+    ):
+        raise RepairFinalizationError("source_corpus_identity_invalid")
+    return {
+        "artifacts": artifacts,
+        "corpus": {
+            "task_count": expected_count,
+            "task_file_sha256": repair_selection.task_file_sha256,
+            "taskset_id": "terminal-bench-vmvm",
+            "dataset_revision": dataset_revision,
+        },
+        "routing": routing,
+    }
+
+
+def _submodule_revisions(project: Path, expected_revision: str) -> dict[str, str]:
+    revisions: dict[str, str] = {}
+    for relative in common.REQUIRED_RUNTIME_SUBMODULES:
+        record = common._run_git(
+            project,
+            ["ls-tree", expected_revision, "--", relative],
+            "project_submodules_unavailable",
+        ).strip()
+        fields = record.split(maxsplit=3)
+        if (
+            len(fields) != 4
+            or fields[0] != "160000"
+            or fields[1] != "commit"
+            or common.GIT_SHA_PATTERN.fullmatch(fields[2]) is None
+            or fields[3] != relative
+        ):
+            raise RepairFinalizationError("project_submodules_invalid")
+        revisions[relative] = fields[2]
+    return revisions
+
+
+def _validate_submodule_revisions(revisions: Mapping[str, str]) -> dict[str, str]:
+    if set(revisions) != set(common.REQUIRED_RUNTIME_SUBMODULES) or any(
+        not _valid_git_sha(value) for value in revisions.values()
+    ):
+        raise RepairFinalizationError("project_submodules_invalid")
+    return dict(revisions)
+
+
+def _validate_runtime_origin(project: Path) -> Path:
+    workflow = project / "user" / "tianhaowu" / "terminal_bench_vmvm"
+    expected_modules = {
+        Path(__file__).resolve(strict=True): workflow / "finalize_qwen_repair_sft.py",
+        Path(common.__file__).resolve(strict=True): workflow / "finalize_qwen_sft.py",
+        Path(direct.__file__).resolve(strict=True): workflow / "direct_qwen_workers.py",
+        Path(migration.__file__).resolve(strict=True): workflow / "migrate_qwen_router_affinity.py",
+    }
+    if Path(__file__).resolve(strict=True).parents[3] != project:
+        raise RepairFinalizationError("runtime_origin_mismatch")
+    for observed, expected in expected_modules.items():
+        try:
+            expected_resolved = expected.resolve(strict=True)
+            metadata = expected.lstat()
+        except OSError as error:
+            raise RepairFinalizationError("runtime_origin_mismatch") from error
+        if observed != expected_resolved or not stat.S_ISREG(metadata.st_mode) or expected_resolved != expected:
+            raise RepairFinalizationError("runtime_origin_mismatch")
+    return workflow
+
+
+def _validate_selection_code(
+    selection: RepairSelection,
+    project: Path,
+    workflow: Path,
+    expected_revision: str,
+    submodules: Mapping[str, str],
+) -> None:
+    materializer = _file_artifact(
+        workflow / "materialize_qwen_repair.py",
+        "materializer_unreadable",
+        capture_body=False,
+    )[1]
+    template = _file_artifact(
+        workflow / "configs" / "eval" / "mobius_qwen_a95b_2500.toml",
+        "repair_template_unreadable",
+        capture_body=False,
+    )[1]
+    if (
+        workflow.parents[2] != project
+        or selection.repository_revision != expected_revision
+        or selection.submodules != submodules
+        or selection.materializer_sha256 != materializer["sha256"]
+        or selection.template_sha256 != template["sha256"]
+    ):
+        raise RepairFinalizationError("repair_selection_code_mismatch")
+
+
+def _validate_source_audit(
+    audit: Mapping[str, Any],
+    repair_selection: RepairSelection,
+    expected_count: int,
+) -> None:
+    expected_routing = {
+        "routing_epoch": 1,
+        "manifest_schema_version": direct.ROUTER_MANIFEST_SCHEMA_VERSION,
+        "provider_concurrency": direct.PRODUCTION_PROVIDER_CONCURRENCY,
+        "queue_size": direct.MAX_DIRECT_CONCURRENCY - direct.PRODUCTION_PROVIDER_CONCURRENCY,
+        "router_policy": direct.ROUTER_POLICY,
+        "request_id_headers": list(direct.ROUTER_REQUEST_ID_HEADERS),
+    }
+    artifacts = audit.get("artifacts")
+    routing = audit.get("routing")
+    corpus = audit.get("corpus")
+    if (
+        set(audit) != {"artifacts", "routing", "corpus"}
+        or not isinstance(artifacts, dict)
+        or set(artifacts) != set(SOURCE_ARTIFACTS)
+        or not all(
+            isinstance(record, dict)
+            and set(record) == {"bytes", "sha256"}
+            and _is_plain_int(record["bytes"])
+            and record["bytes"] >= 0
+            and _valid_sha256(record["sha256"])
+            for record in artifacts.values()
+        )
+        or routing != expected_routing
+        or not _is_plain_int(routing.get("routing_epoch"))
+        or not _is_plain_int(routing.get("manifest_schema_version"))
+        or not _is_plain_int(routing.get("provider_concurrency"))
+        or not _is_plain_int(routing.get("queue_size"))
+        or not isinstance(corpus, dict)
+        or set(corpus) != {"task_count", "task_file_sha256", "taskset_id", "dataset_revision"}
+        or not _is_plain_int(corpus.get("task_count"))
+        or corpus.get("task_count") != expected_count
+        or corpus.get("task_file_sha256") != repair_selection.task_file_sha256
+        or corpus.get("taskset_id") != "terminal-bench-vmvm"
+        or not _valid_git_sha(corpus.get("dataset_revision"))
+    ):
+        raise RepairFinalizationError("source_audit_invalid")
+
+
+def _write_exclusive(path: Path, body: bytes) -> dict[str, int | str]:
+    flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_CLOEXEC
+    if hasattr(os, "O_NOFOLLOW"):
+        flags |= os.O_NOFOLLOW
+    try:
+        with os.fdopen(os.open(path, flags, 0o600), "wb") as handle:
+            handle.write(body)
+            handle.flush()
+            os.fsync(handle.fileno())
+    except OSError as error:
+        raise RepairFinalizationError("staging_write_failed") from error
+    return {"bytes": len(body), "sha256": hashlib.sha256(body).hexdigest()}
+
+
+def _replace_manifest(path: Path, value: Mapping[str, Any]) -> dict[str, int | str]:
+    body = _json_bytes(value)
+    temporary = path.with_name(f".{path.name}.{os.getpid()}.tmp")
+    artifact = _write_exclusive(temporary, body)
+    try:
+        os.replace(temporary, path)
+        migration._fsync_directory(path.parent)
+    except OSError as error:
+        if temporary.exists():
+            temporary.unlink()
+        raise RepairFinalizationError("staging_manifest_write_failed") from error
+    return artifact
+
+
+def _validate_export_summary(
+    summary: Mapping[str, Any],
+    output: Path,
+    expected_count: int,
+    source_artifacts: Mapping[str, Mapping[str, int | str]],
+    corpus: Mapping[str, Any],
+    validation_permyriad: int,
+    split_salt: str,
+    expected_exporter_sha256: str,
+) -> tuple[dict[str, Any], dict[str, dict[str, int | str]]]:
+    expected_keys = {
+        "excluded_error_traces",
+        "input_traces",
+        "output_sha256",
+        "rows",
+        "selected_traces",
+        "selection",
+        "status",
+    }
+    if set(summary) != expected_keys or summary.get("status") != "exported" or summary.get("selection") != "pass-only":
+        raise RepairFinalizationError("sft_export_summary_invalid")
+    if (
+        not _is_plain_int(summary.get("input_traces"))
+        or summary.get("input_traces") != expected_count
+        or not _is_plain_int(summary.get("selected_traces"))
+        or not 0 <= summary["selected_traces"] <= expected_count
+        or not _is_plain_int(summary.get("excluded_error_traces"))
+        or not 0 <= summary["excluded_error_traces"] <= expected_count
+    ):
+        raise RepairFinalizationError("sft_export_summary_invalid")
+    rows = summary.get("rows")
+    output_hashes = summary.get("output_sha256")
+    if (
+        not isinstance(rows, dict)
+        or set(rows) != {"total", "train", "validation"}
+        or not all(_is_plain_int(value) and value >= 0 for value in rows.values())
+        or rows["total"] != rows["train"] + rows["validation"]
+        or not isinstance(output_hashes, dict)
+        or set(output_hashes) != {"manifest", "train", "validation"}
+        or any(not _valid_sha256(value) for value in output_hashes.values())
+    ):
+        raise RepairFinalizationError("sft_export_summary_invalid")
+    expected_files = {
+        "manifest.json": output_hashes["manifest"],
+        "task-split.json": None,
+        "train/train.jsonl": output_hashes["train"],
+        "validation/train.jsonl": output_hashes["validation"],
+    }
+    observed: dict[str, dict[str, int | str]] = {}
+    for relative, expected_sha256 in expected_files.items():
+        _body, artifact = _file_artifact(
+            output / relative,
+            "sft_output_invalid",
+            capture_body=False,
+        )
+        if expected_sha256 is not None and artifact["sha256"] != expected_sha256:
+            raise RepairFinalizationError("sft_output_digest_mismatch")
+        observed[relative] = artifact
+    manifest_body, _manifest_artifact = _file_artifact(output / "manifest.json", "sft_output_invalid")
+    manifest = _parse_json(manifest_body, "sft_output_invalid")
+    artifacts = manifest.get("artifacts")
+    config = manifest.get("config")
+    counts = manifest.get("counts")
+    exporter = manifest.get("exporter")
+    format_contract = manifest.get("format")
+    split = manifest.get("split")
+    allowed_count_keys = {
+        "input_traces",
+        "excluded_error_traces",
+        "scored_pass_traces",
+        "scored_fail_traces",
+        "selection_excluded_fail_traces",
+        "selected_traces",
+        "selected_pass_traces",
+        "selected_fail_traces",
+        "emitted_rows",
+        "train_traces",
+        "train_rows",
+        "validation_traces",
+        "validation_rows",
+    }
+    expected_format = {
+        "assistant_tool_calls": "OpenAI function-call objects",
+        "history_assistant_reasoning": "removed",
+        "loss_mask": "message.trainable; exactly one final assistant message is true",
+        "sample_unit": "one unique sampled assistant node with its root-to-node context",
+        "target": (
+            "authentic reasoning_content, content, and tool_calls; "
+            "the selected renderer supplies its stop token"
+        ),
+        "task_identity": "sha256(taskset id + NUL + dataset revision + NUL + approved opaque task slug)",
+    }
+    if (
+        set(manifest)
+        != {"artifacts", "config", "counts", "exporter", "format", "max_sequence_tokens", "selection", "source_artifacts", "split"}
+        or manifest.get("selection") != "pass-only"
+        or not _is_plain_int(manifest.get("max_sequence_tokens"))
+        or manifest.get("max_sequence_tokens") != MAX_SEQUENCE_TOKENS
+        or not isinstance(artifacts, dict)
+        or set(artifacts) != {"task-split.json", "train/train.jsonl", "validation/train.jsonl"}
+        or not isinstance(config, dict)
+        or set(config)
+        != {
+            "capture_model_io",
+            "dataset_revision",
+            "max_input_tokens",
+            "max_output_tokens",
+            "max_total_tokens",
+            "model",
+            "num_rollouts",
+            "taskset_id",
+        }
+        or not isinstance(counts, dict)
+        or not {"input_traces", "scored_pass_traces", "selected_traces", "selected_pass_traces", "emitted_rows"}.issubset(counts)
+        or not set(counts).issubset(allowed_count_keys)
+        or not all(_is_plain_int(value) and value >= 0 for value in counts.values())
+        or not isinstance(exporter, dict)
+        or set(exporter) != {"file_sha256", "format_version"}
+        or not _is_plain_int(exporter.get("format_version"))
+        or exporter.get("format_version") != 2
+        or exporter.get("file_sha256") != expected_exporter_sha256
+        or format_contract != expected_format
+        or config.get("capture_model_io") is not True
+        or config.get("model") != direct.EXPECTED_MODEL
+        or config.get("taskset_id") != corpus["taskset_id"]
+        or config.get("dataset_revision") != corpus["dataset_revision"]
+        or not _is_plain_int(config.get("num_rollouts"))
+        or config.get("num_rollouts") != 1
+        or any(
+            not _is_plain_int(config.get(key)) or config.get(key) != MAX_SEQUENCE_TOKENS
+            for key in ("max_input_tokens", "max_output_tokens", "max_total_tokens")
+        )
+        or not isinstance(split, dict)
+        or set(split) != {"policy", "split_salt", "validation_permyriad"}
+        or split.get("split_salt") != split_salt
+        or not _is_plain_int(split.get("validation_permyriad"))
+        or split.get("validation_permyriad") != validation_permyriad
+        or split.get("policy")
+        != "sha256(split_salt + NUL + stable task identity SHA-256) modulo 10000"
+        or artifacts.get("task-split.json") != observed["task-split.json"]
+        or artifacts.get("train/train.jsonl") != observed["train/train.jsonl"]
+        or artifacts.get("validation/train.jsonl") != observed["validation/train.jsonl"]
+    ):
+        raise RepairFinalizationError("sft_output_contract_invalid")
+    if (
+        counts["input_traces"] != expected_count
+        or counts["input_traces"]
+        != counts.get("scored_pass_traces", 0)
+        + counts.get("scored_fail_traces", 0)
+        + counts.get("excluded_error_traces", 0)
+        or counts["selected_traces"] != counts["selected_pass_traces"]
+        or counts["selected_traces"] != counts["scored_pass_traces"]
+        or counts.get("selected_fail_traces", 0) != 0
+        or counts.get("selection_excluded_fail_traces", 0) != counts.get("scored_fail_traces", 0)
+        or counts["emitted_rows"] != rows["total"]
+        or counts.get("train_rows", 0) != rows["train"]
+        or counts.get("validation_rows", 0) != rows["validation"]
+        or counts.get("train_traces", 0) + counts.get("validation_traces", 0) != counts["selected_traces"]
+        or counts["selected_traces"] != summary["selected_traces"]
+        or counts.get("excluded_error_traces", 0) != summary["excluded_error_traces"]
+    ):
+        raise RepairFinalizationError("sft_output_counts_invalid")
+    manifest_sources = manifest.get("source_artifacts")
+    if not isinstance(manifest_sources, dict):
+        raise RepairFinalizationError("sft_output_contract_invalid")
+    expected_export_sources = {
+        relative: source_artifacts[relative]
+        for relative in (
+            "config.toml",
+            "provenance.txt",
+            "inputs/manifest.json",
+            "inputs/source_config.toml",
+            "inputs/task_file.txt",
+            "inputs/image_manifest.json",
+            "results.jsonl",
+        )
+    }
+    if manifest_sources != expected_export_sources:
+        raise RepairFinalizationError("sft_source_artifact_mismatch")
+    return manifest, observed
+
+
+def _validate_published(path: Path, allow_incomplete: bool, expected: Mapping[str, Mapping[str, int | str]]) -> None:
+    expected_names = {
+        "manifest.json",
+        "task-split.json",
+        "train",
+        "validation",
+        SELECTION_COPY_FILENAME,
+        ATTESTATION_FILENAME,
+    }
+    if allow_incomplete:
+        expected_names.add(direct.MIGRATION_INCOMPLETE_FILENAME)
+    if {entry.name for entry in path.iterdir()} != expected_names:
+        raise RepairFinalizationError("published_artifacts_invalid")
+    for directory in (path, path / "train", path / "validation"):
+        metadata = directory.lstat()
+        if not stat.S_ISDIR(metadata.st_mode) or stat.S_IMODE(metadata.st_mode) != 0o700:
+            raise RepairFinalizationError("published_artifact_mode_invalid")
+    if {entry.name for entry in (path / "train").iterdir()} != {"train.jsonl"} or {
+        entry.name for entry in (path / "validation").iterdir()
+    } != {"train.jsonl"}:
+        raise RepairFinalizationError("published_artifacts_invalid")
+    for relative, artifact in expected.items():
+        target = path / relative
+        metadata = target.lstat()
+        if not stat.S_ISREG(metadata.st_mode) or stat.S_IMODE(metadata.st_mode) != 0o600:
+            raise RepairFinalizationError("published_artifact_mode_invalid")
+        _body, observed = _file_artifact(
+            target,
+            "published_artifact_invalid",
+            capture_body=False,
+        )
+        if observed != artifact:
+            raise RepairFinalizationError("published_artifact_digest_mismatch")
+
+
+def _validate_options(options: RepairFinalizeOptions) -> None:
+    if platform.machine() != "x86_64":
+        raise RepairFinalizationError("x86_64_required")
+    if not _is_plain_int(options.expected_count) or options.expected_count < 1:
+        raise RepairFinalizationError("expected_count_invalid")
+    if not _is_plain_int(options.validation_permyriad) or not 0 <= options.validation_permyriad < 10_000:
+        raise RepairFinalizationError("validation_permyriad_invalid")
+    if not options.split_salt or "\x00" in options.split_salt:
+        raise RepairFinalizationError("split_salt_invalid")
+    if not _valid_git_sha(options.expected_project_revision):
+        raise RepairFinalizationError("project_revision_invalid")
+
+
+def _validate_repository_call(
+    validator: RepositoryValidator,
+    project: Path,
+    expected_revision: str,
+) -> Path:
+    try:
+        return validator(project, expected_revision)
+    except common.FinalizationError as error:
+        raise RepairFinalizationError(error.code) from error
+
+
+def finalize_qwen_repair_sft(
+    options: RepairFinalizeOptions,
+    *,
+    repository_validator: RepositoryValidator = common._validate_repository,
+    source_auditor: SourceAuditor = _audit_source,
+    command_runner: CommandRunner = common._run_json_command,
+    submodule_reader: Callable[[Path, str], dict[str, str]] = _submodule_revisions,
+    runtime_validator: RuntimeValidator = _validate_runtime_origin,
+) -> dict[str, Any]:
+    """Validate and atomically publish an attested pass-only repair corpus."""
+    _validate_options(options)
+    project = _validate_repository_call(
+        repository_validator,
+        options.project_dir,
+        options.expected_project_revision,
+    )
+    base_options = common.FinalizeOptions(
+        project_dir=options.project_dir,
+        expected_project_revision=options.expected_project_revision,
+        source_root=options.source_root,
+        source_dir=options.source_dir,
+        expected_provenance_sha256=options.expected_provenance_sha256,
+        output_root=options.output_root,
+        output_dir=options.output_dir,
+        expected_count=options.expected_count,
+        selection="pass-only",
+        validation_permyriad=options.validation_permyriad,
+        split_salt=options.split_salt,
+    )
+    try:
+        paths = common._resolve_paths(base_options)
+    except common.FinalizationError as error:
+        raise RepairFinalizationError(error.code) from error
+    if paths.project_dir != project:
+        raise RepairFinalizationError("project_path_mismatch")
+    workflow = runtime_validator(project)
+    repair_selection = _load_repair_selection(
+        options.repair_selection_manifest,
+        options.expected_repair_selection_manifest_sha256,
+        options.expected_count,
+    )
+    try:
+        submodules = _validate_submodule_revisions(
+            submodule_reader(project, options.expected_project_revision)
+        )
+    except common.FinalizationError as error:
+        raise RepairFinalizationError(error.code) from error
+    _validate_selection_code(
+        repair_selection,
+        project,
+        workflow,
+        options.expected_project_revision,
+        submodules,
+    )
+    exporter_sha256 = _file_artifact(
+        workflow / "export_sft.py",
+        "project_exporter_invalid",
+        capture_body=False,
+    )[1]["sha256"]
+    staging = Path(tempfile.mkdtemp(prefix=f".{paths.output_dir.name}.repair-sft-", dir=paths.output_root))
+    staged_output = staging / "corpus"
+    published = False
+    try:
+        with _hold_source_locks(paths.source_dir):
+            locked_source_before = _locked_source_artifacts(paths.source_dir)
+            source_before = {relative: locked_source_before[relative] for relative in SOURCE_ARTIFACTS}
+            audit = source_auditor(
+                paths.source_dir,
+                options.expected_count,
+                options.expected_provenance_sha256,
+                repair_selection,
+            )
+            if audit.get("artifacts") != source_before:
+                raise RepairFinalizationError("source_audit_artifact_mismatch")
+            _validate_source_audit(audit, repair_selection, options.expected_count)
+            _validate_repository_call(
+                repository_validator,
+                paths.project_dir,
+                options.expected_project_revision,
+            )
+            export_summary = command_runner(
+                [
+                    sys.executable,
+                    str(workflow / "export_sft.py"),
+                    str(paths.results),
+                    "--output-dir",
+                    str(staged_output),
+                    "--selection",
+                    "pass-only",
+                    "--expected-count",
+                    str(options.expected_count),
+                    "--validation-permyriad",
+                    str(options.validation_permyriad),
+                    "--split-salt",
+                    options.split_salt,
+                    "--max-sequence-tokens",
+                    str(MAX_SEQUENCE_TOKENS),
+                ],
+                paths.project_dir,
+                "sft_export_failed",
+            )
+            manifest, output_artifacts = _validate_export_summary(
+                export_summary,
+                staged_output,
+                options.expected_count,
+                locked_source_before,
+                audit["corpus"],
+                options.validation_permyriad,
+                options.split_salt,
+                str(exporter_sha256),
+            )
+            selection_artifact = _write_exclusive(staged_output / SELECTION_COPY_FILENAME, repair_selection.body)
+            manifest_sources = manifest["source_artifacts"]
+            if (
+                "direct_workers.json" in manifest_sources
+                and manifest_sources["direct_workers.json"] != source_before["direct_workers.json"]
+            ):
+                raise RepairFinalizationError("sft_source_artifact_mismatch")
+            manifest_sources["direct_workers.json"] = source_before["direct_workers.json"]
+            manifest_artifact = _replace_manifest(staged_output / "manifest.json", manifest)
+            output_artifacts["manifest.json"] = manifest_artifact
+
+            attestation = {
+                "kind": ATTESTATION_KIND,
+                "schema_version": 1,
+                "repair_selection_manifest_sha256": repair_selection.sha256,
+                "source_artifacts": source_before,
+                "routing": audit["routing"],
+                "corpus": audit["corpus"],
+                "code": {
+                    "repository_revision": options.expected_project_revision,
+                    "submodules": submodules,
+                },
+            }
+            attestation_artifact = _write_exclusive(
+                staged_output / ATTESTATION_FILENAME,
+                _json_bytes(attestation),
+            )
+            output_artifacts[SELECTION_COPY_FILENAME] = selection_artifact
+            output_artifacts[ATTESTATION_FILENAME] = attestation_artifact
+            for directory in (staged_output, staged_output / "train", staged_output / "validation"):
+                os.chmod(directory, 0o700)
+            for relative in output_artifacts:
+                os.chmod(staged_output / relative, 0o600)
+            migration._fsync_tree(staged_output)
+
+            if _locked_source_artifacts(paths.source_dir) != locked_source_before:
+                raise RepairFinalizationError("source_changed_during_finalization")
+            _validate_repository_call(
+                repository_validator,
+                paths.project_dir,
+                options.expected_project_revision,
+            )
+
+            def validate_published(path: Path, allow_incomplete: bool) -> None:
+                _validate_published(path, allow_incomplete, output_artifacts)
+
+            try:
+                migration._publish_directory(staged_output, paths.output_dir, validate_published)
+            except migration.MigrationError as error:
+                raise RepairFinalizationError("publish_failed") from error
+            published = True
+        return {
+            "attestation_sha256": attestation_artifact["sha256"],
+            "excluded_error_traces": export_summary["excluded_error_traces"],
+            "input_traces": export_summary["input_traces"],
+            "manifest_sha256": manifest_artifact["sha256"],
+            "rows": export_summary["rows"],
+            "selected_traces": export_summary["selected_traces"],
+            "selection": "pass-only",
+            "status": "finalized",
+        }
+    finally:
+        if not published and staged_output.exists():
+            with suppress(OSError):
+                shutil.rmtree(staged_output)
+        if staging.exists():
+            with suppress(OSError):
+                shutil.rmtree(staging)
+
+
+def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
+    parser = StableArgumentParser(description=__doc__)
+    parser.add_argument("--project-dir", type=Path, required=True)
+    parser.add_argument("--expected-project-revision", required=True)
+    parser.add_argument("--source-root", type=Path, required=True)
+    parser.add_argument("--source-dir", type=Path, required=True)
+    parser.add_argument("--expected-provenance-sha256", required=True)
+    parser.add_argument("--repair-selection-manifest", type=Path, required=True)
+    parser.add_argument("--expected-repair-selection-manifest-sha256", required=True)
+    parser.add_argument("--output-root", type=Path, required=True)
+    parser.add_argument("--output-dir", type=Path, required=True)
+    parser.add_argument("--expected-count", type=int, required=True)
+    parser.add_argument("--validation-permyriad", type=int, required=True)
+    parser.add_argument("--split-salt", required=True)
+    return parser.parse_args(argv)
+
+
+def main(argv: list[str] | None = None) -> int:
+    try:
+        args = parse_args(argv)
+        summary = finalize_qwen_repair_sft(
+            RepairFinalizeOptions(
+                project_dir=args.project_dir,
+                expected_project_revision=args.expected_project_revision,
+                source_root=args.source_root,
+                source_dir=args.source_dir,
+                expected_provenance_sha256=args.expected_provenance_sha256,
+                repair_selection_manifest=args.repair_selection_manifest,
+                expected_repair_selection_manifest_sha256=args.expected_repair_selection_manifest_sha256,
+                output_root=args.output_root,
+                output_dir=args.output_dir,
+                expected_count=args.expected_count,
+                validation_permyriad=args.validation_permyriad,
+                split_salt=args.split_salt,
+            )
+        )
+    except RepairFinalizationError as error:
+        print(json.dumps({"code": error.code, "status": "error"}, sort_keys=True), file=sys.stderr)
+        return 2
+    except Exception:
+        print(json.dumps({"code": "finalization_failed", "status": "error"}, sort_keys=True), file=sys.stderr)
+        return 2
+    print(json.dumps(summary, allow_nan=False, sort_keys=True))
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
