@@ -1,6 +1,6 @@
 # VMVM sandbox coordination
 
-Last updated: 2026-09-18 12:07 UTC
+Last updated: 2026-09-18 12:44 UTC
 
 ## First message to the next teammate
 
@@ -39,6 +39,28 @@ this shared branch again.
 Add new rows below this line; do not overwrite another owner's row.
 
 ## Open coordination requests
+
+- **2026-09-18 12:44 UTC, use2-3 Kimi successor-chain recovery:** no
+  official Kimi-K3 TB4 pass@1 result exists yet. Smoke `1744809` completed
+  2/2 with 16 retained model-I/O turns, 2,604 sampled tokens, zero trace or
+  global failures, and checkpoint SHA-256
+  `3c359497fcfc7b7730cf43b3c291dc52b832e952c2129e7fdebecc271c05b452`.
+  Its corrected singleton canary `1745061` then ended with zero rows after
+  bound endpoint `1744755` was scheduler-preempted; no full controller was
+  created. Successor endpoint `1745092` passed fresh readiness `1745986` in
+  3m39s with 3/3 polls, typed proxy policy 43,200/0, and checkpoint SHA-256
+  `dd6cd830a992a2676693f74285a51bc03b7949091ae6691b0734575955821c74`.
+  The schema-2 bridge correctly rejected before probing or output because the
+  generated proxy-policy file hash rotated from `afb0de96...efcc` to
+  `db198a6e...f00a`; fresh smoke `1746030` then failed closed at zero rows
+  when endpoint `1745092` was preempted. Automatic successor `1746046` is
+  pending. To eliminate manual gate delay, fresh readiness `1746052` is held
+  on `after:1746046`, and fresh two-task smoke `1746053` is held on
+  `afterok:1746052`, from exact clean reviewed source `0b8382a5d`. Launch
+  exactly one corrected singleton only after that smoke certifies; do not
+  create the 66-shard controller first. Never inspect or expose task
+  identifiers, prompts, responses, raw errors, credentials, or model/tool/
+  trace content.
 
 - **2026-09-18 12:07 UTC, independent oracle source-wheel review ->
   use2-3 owner:** reviewed the current uncommitted implementation in isolated
