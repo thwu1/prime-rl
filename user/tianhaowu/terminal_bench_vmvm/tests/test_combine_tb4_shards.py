@@ -127,6 +127,83 @@ def test_committed_direct_shards_are_exact_and_pinned():
     assert EXPECTED_UNSUPPORTED_TASKS.issubset(task_sets[0] | task_sets[1])
 
 
+@pytest.mark.parametrize(
+    "mutation",
+    [
+        "duplicate_include",
+        "extra_include",
+        "nonempty_exclude",
+        "float_max_retries",
+        "extra_rollout_key",
+        "extra_retry_scope",
+    ],
+)
+def test_combiner_rejects_nonexact_kimi_retry_contract(mutation: str) -> None:
+    spec = SHARD_SPECS[0]
+    config = _read_toml(spec.config)
+    rollout = config["retries"]["rollout"]
+    if mutation == "duplicate_include":
+        rollout["include"].append("ProviderError")
+    elif mutation == "extra_include":
+        rollout["include"].append("HarnessError")
+    elif mutation == "nonempty_exclude":
+        rollout["exclude"] = ["InterceptionError"]
+    elif mutation == "float_max_retries":
+        rollout["max_retries"] = 2.0
+    elif mutation == "extra_rollout_key":
+        rollout["unexpected"] = True
+    else:
+        config["retries"]["setup"] = {"max_retries": 1}
+
+    with pytest.raises(CombineError, match="kimi_retry_contract_invalid"):
+        _validate_config(
+            config,
+            spec,
+            task_file=None,
+            dataset_dir=Path(config["taskset"]["dataset_dir"]).resolve(),
+        )
+
+
+@pytest.mark.parametrize(
+    ("mutation", "value"),
+    [
+        ("request", 43_199),
+        ("connect", 119),
+        ("setup", 3_599),
+        ("finalize", 3_599),
+        ("scoring", 21_599),
+        ("rollout", 35_999),
+        ("session", 43_199),
+        ("smoke_profile", None),
+    ],
+)
+def test_combiner_rejects_nonexact_or_smoke_kimi_timeout_profile(
+    mutation: str,
+    value: int | None,
+) -> None:
+    spec = SHARD_SPECS[0]
+    config = _read_toml(spec.config)
+    if mutation == "request":
+        config["client"]["timeout"] = value
+    elif mutation == "connect":
+        config["client"]["connect_timeout"] = value
+    elif mutation in {"setup", "finalize", "scoring", "rollout"}:
+        config["timeout"][mutation] = value
+    elif mutation == "session":
+        config["harness"]["runtime"]["session_timeout"] = value
+    else:
+        config["timeout"]["rollout"] = 28_800
+        config["harness"]["runtime"]["session_timeout"] = 32_400
+
+    with pytest.raises(CombineError, match="kimi_timeout_contract_invalid"):
+        _validate_config(
+            config,
+            spec,
+            task_file=None,
+            dataset_dir=Path(config["taskset"]["dataset_dir"]).resolve(),
+        )
+
+
 def test_combine_validates_and_atomically_publishes(tmp_path: Path, monkeypatch):
     dataset_dir = _dataset(tmp_path)
     shards = tuple(_write_shard(tmp_path, spec, dataset_dir) for spec in SHARD_SPECS)

@@ -515,6 +515,7 @@ def _evaluator_evidence(
     config_artifact: Artifact,
     *,
     model: str,
+    required_timeout_profile: str,
 ) -> dict[str, Any]:
     raw = config_artifact.raw
     if raw is None:
@@ -563,7 +564,10 @@ def _evaluator_evidence(
         "resolved_config": config_artifact.record,
         "identity_contract": contract,
         "model_io_contract": model_io_contract,
-        "tool_contract": _tool_contract(config, required_timeout_profile="smoke"),
+        "tool_contract": _tool_contract(
+            config,
+            required_timeout_profile=required_timeout_profile,
+        ),
     }
 
 
@@ -1050,6 +1054,11 @@ def validate_v1_smoke(
         policy,
         artifact_records["config"],
         model=model,
+        required_timeout_profile=(
+            "full"
+            if isinstance(observed, dict) and observed.get("required_peak_active_rollouts_lower_bound") is not None
+            else "smoke"
+        ),
     )
     for name, artifact in artifact_records.items():
         load_artifact(
