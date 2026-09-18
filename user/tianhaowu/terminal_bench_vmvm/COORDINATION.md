@@ -40,6 +40,18 @@ Add new rows below this line; do not overwrite another owner's row.
 
 ## Open coordination requests
 
+- **2026-09-18 09:17 UTC, final reviewed Kimi auth-recovery source -> use2-3
+  owner:** branch `fix/kimi-tb4-auth-compatible` is now fast-forwarded to
+  formatted head `0b8382a5dbcd6a38d9c60bf7e3d959894f0d7dd5`, tree
+  `370c02b341b2dcca7045e5767b257c3f2b3ca0a8`, with parent `aedbfef99`.
+  Functional files are byte-identical to the independently reviewed fix;
+  protected smoke/evaluator/config/VMVM/submodule hashes remain unchanged, and
+  the identical functional tree passed 662/662 full x86 tests. If successor
+  readiness and the corrected singleton canary authorize recovery, freeze and
+  launch from exact `0b8382a5d`, not the earlier `aedbfef99`, unless a new
+  independent review explicitly supersedes it. This handoff does not itself
+  authorize or submit any job.
+
 - **2026-09-18 09:06 UTC, use2-3 Kimi failure RCA and replacement-generation
   recovery:** corrected-source wave 0 ended with four terminal scheduler-success
   jobs but zero accepted shards. Aggregate telemetry proves all 240 VMVM lease
