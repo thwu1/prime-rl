@@ -341,13 +341,15 @@ The launch certificate must prove that legacy schema-1 and sharded schema-2
 TB4 used exactly one route. Multi-generation schema-3 TB4 may use exactly one
 or two routes; no CLI option can authorize another count. The post-resize
 deployment-spec digest must differ from the TB4 digest, and the post-resize
-spec/readiness route count must be strictly larger and at least two. The
-default two-route production target is valid only after a one-route TB4 gate,
-so invoke its waiter with `EXPECTED_ROUTES=2` before the concurrency-eight,
-lease-starts-four capacity smoke. A two-route schema-3 TB4 gate instead requires
-a fresh production spec, readiness gate, and capacity smoke at three or more
-routes. A route-generation change invalidates the current eval identity; do not
-resume guarded Kimi outputs at all.
+spec/readiness route count must be strictly larger than the TB4 route count and
+at least the production rollout concurrency.
+The production target is exactly 24 ready routes, so invoke the post-resize
+waiter with `EXPECTED_ROUTES=24` before the concurrency-24, lease-starts-four
+capacity smoke. Keep rollout, multiplex, and both HTTP pool limits aligned at
+24, while setting `VACLI_MAX_CONCURRENT_LEASES=4` explicitly. The launch
+certificate rejects a readiness/spec route count below production rollout
+concurrency. A route-generation change invalidates the current eval identity;
+do not resume guarded Kimi outputs at all.
 
 Pier's DeepSWE adapter supports prebuilt agent images and the benchmark's
 separate verifier Dockerfiles. It validates the Dockerfile, starts its `FROM`
