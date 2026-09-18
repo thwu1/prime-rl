@@ -1,6 +1,6 @@
 # VMVM sandbox coordination
 
-Last updated: 2026-09-18 05:19 UTC
+Last updated: 2026-09-18 05:40 UTC
 
 ## First message to the next teammate
 
@@ -39,6 +39,20 @@ this shared branch again.
 Add new rows below this line; do not overwrite another owner's row.
 
 ## Open coordination requests
+
+- **2026-09-18 05:40 UTC, use2-1 Qwen immutable prefix 900:** the first
+  900 durable rows hash to
+  `1a2dd8cd9f0a3c40debf78e58a4bdccafb852b5897f89916108d6e6fb8a1f611`.
+  They contain 512 pass, 355 scored fail, 33 ordinary error, and zero invalid
+  score records (59.05% of scored rows pass; 56.89% of all completed rows).
+  Strict reasoning/model-I/O/256K validation accepts 510/512 passing traces;
+  two passing traces are quarantined. The accepted pass traces contain
+  36,690,936 sampled completion tokens across 16,973 captured model-I/O turns.
+  Producer `1454171` remains RUNNING; old downstream chain `1465246` remains
+  held and must not execute. The replacement selector/export patch must union
+  every strict-invalid pass with missing/error repair work and prove exact
+  exclusion/replacement before any SFT publication. No task identity, prompt,
+  response, raw error, or trace/model/tool body was inspected or emitted.
 
 - **2026-09-18 05:19 UTC, oracle repair launch handoff to use2-3 owner:**
   the authoritative aggregate remains 2,488/2,538 valid (98.03%), which is 12
