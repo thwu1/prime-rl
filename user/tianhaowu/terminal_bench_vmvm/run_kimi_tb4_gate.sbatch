@@ -21,6 +21,7 @@ if (( $# != 0 )); then
 fi
 
 project_dir=${PROJECT_DIR:?Set PROJECT_DIR to the clean detached source snapshot}
+expected_project_revision=${EVAL_EXPECTED_PRIME_RL_REVISION:?Set EVAL_EXPECTED_PRIME_RL_REVISION to the reviewed source snapshot}
 workflow_dir="$project_dir/user/tianhaowu/terminal_bench_vmvm"
 export PYTHONPATH="$workflow_dir${PYTHONPATH:+:$PYTHONPATH}"
 deployment_id=${EVAL_DEPLOYMENT_ID:?Set EVAL_DEPLOYMENT_ID}
@@ -43,9 +44,10 @@ if [[ "$stop_after_smoke" != 0 && "$stop_after_smoke" != 1 ]]; then
     exit 2
 fi
 
-if [[ "$(git -C "$project_dir" rev-parse HEAD)" != ed1d83d5905bdd2db87ffbbe16e9374b9bd28ddd \
+if [[ ! "$expected_project_revision" =~ ^[0-9a-f]{40}$ \
+    || "$(git -C "$project_dir" rev-parse HEAD)" != "$expected_project_revision" \
     || -n "$(git -C "$project_dir" status --porcelain=v1 --untracked-files=all)" ]]; then
-    printf 'PROJECT_DIR must be the clean approved Kimi evaluation snapshot\n' >&2
+    printf 'PROJECT_DIR must match the clean caller-pinned Kimi evaluation snapshot\n' >&2
     exit 2
 fi
 if [[ ! -s "$readiness_checkpoint" ]]; then
@@ -146,6 +148,7 @@ unset EVAL_MODEL EVAL_PROMOTION_CERTIFICATE EVAL_PROMOTION_CERTIFICATE_SHA256
 unset EVAL_DATASET_REVISION INFERENCE_BASE_URL INFERENCE_DEPLOYMENT_ID INFERENCE_JOB_ID
 unset INFERENCE_PROXY_INFO INFERENCE_PROXY_INFO_SHA256 INFERENCE_PROXY_URL RESUME_DIR
 export PROJECT_DIR="$project_dir"
+export EVAL_EXPECTED_PRIME_RL_REVISION="$expected_project_revision"
 export EVAL_DEPLOYMENT_ID="$deployment_id"
 export EVAL_EXPECTED_MODEL=Kimi-K3
 export EVAL_DATASET_ARCHIVE="$dataset_archive"

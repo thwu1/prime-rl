@@ -237,14 +237,22 @@ TB4, capacity, and launch certificates must rehash and link this receipt. The sa
 `proxy_info.json` and the generated LiteLLM policy on every poll.
 
 Kimi deployment specs must contain typed integer
-`spec.proxy.config.request_timeout: 7200` and `num_retries: 0`. Independently
+`spec.proxy.config.request_timeout: 43200` and `num_retries: 0`. Kimi eval
+configs must use the same 43,200-second evaluator-client timeout and exact
+`model.model_kwargs.timeout=43200` mini-swe override, with both
+`rollout_timeout < harness-model/client/proxy timeout` and
+`rollout_timeout < session_timeout <= client/proxy timeout`, so an owned
+rollout/session boundary fires before an HTTP read timeout. Independently
 parse `proxy_litellm_config.yaml` with a duplicate-rejecting safe YAML loader,
 reject aliases/merge keys and quoted or tagged type confusion, require the
 same typed values, and bind its
 full-file SHA-256 without recording its URL, key, or contents. That generated
-file is mutable across an intentional resize: retain each readiness/certificate
-generation's own hash, compare stable policy values across generations, and
-only require the current file to match the currently active readiness record.
+file is mutable across an intentional resize. The sharded TB4 finalizer must
+snapshot the historical deployment spec and secret-free canonical proxy-policy
+evidence bound to the generated file's original hash. Revalidate historical
+shard and smoke evidence against those frozen files after resize; require the
+live files only for the currently active readiness record. Never copy proxy
+credentials into the historical bundle.
 
 When auditing a production trace file interactively, pass
 `audit_traces.py --aggregate-only`; this reports counts and stable problem codes

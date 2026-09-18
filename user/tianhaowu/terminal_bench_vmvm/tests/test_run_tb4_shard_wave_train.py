@@ -78,7 +78,7 @@ def _prepared(tmp_path: Path, *, count: int = 5) -> train.PreparedTrain:
     }
     policy = {
         "schema_version": 1,
-        "request_timeout": 7200,
+        "request_timeout": 43200,
         "num_retries": 0,
         "proxy_litellm_config": {
             "path": str(tmp_path / "proxy-policy.yaml"),

@@ -494,7 +494,13 @@ def _load_and_validate_checkpoint(
         members = {path.name: path.stat(follow_symlinks=False) for path in output.iterdir()}
     except OSError as error:
         raise FinalizationError("merge_output_invalid") from error
-    if set(members) != {"results.jsonl", "audit_summary.json", "checkpoint.json"} or any(
+    if set(members) != {
+        "results.jsonl",
+        "audit_summary.json",
+        "checkpoint.json",
+        "deployment_spec.yaml",
+        "proxy_policy.json",
+    } or any(
         not stat.S_ISREG(metadata.st_mode) or stat.S_IMODE(metadata.st_mode) != 0o600 for metadata in members.values()
     ):
         raise FinalizationError("merge_output_invalid")

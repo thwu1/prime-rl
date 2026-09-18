@@ -167,12 +167,12 @@ def _config(tmp_path: Path, **overrides: Any) -> GateConfig:
         "spec:\n"
         "  proxy:\n"
         "    config:\n"
-        "      request_timeout: 7200\n"
+        "      request_timeout: 43200\n"
         "      num_retries: 0\n"
     )
     (deployment_dir / "proxy_litellm_config.yaml").write_text(
         "litellm_settings:\n"
-        "  request_timeout: 7200\n"
+        "  request_timeout: 43200\n"
         "  num_retries: 0\n"
     )
     proxy_info = deployment_dir / "proxy_info.json"

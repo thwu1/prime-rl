@@ -24,8 +24,10 @@ from deployment_endpoint import (
     validate_endpoint_binding,
 )
 from deployment_proxy_policy import (
+    REQUIRED_REQUEST_TIMEOUT,
     DeploymentProxyPolicyError,
     revalidate_deployment_proxy_policy,
+    validate_deployment_proxy_policy_snapshot,
     validate_proxy_policy_binding,
 )
 from guard_success_receipt import (
@@ -61,10 +63,60 @@ EXPECTED_MODEL_IO_CONTRACT = {
     "request_chat_template_kwargs": {"enable_thinking": True, "preserve_thinking": True},
 }
 MAX_METADATA_BYTES = 64 * 1024 * 1024
+KIMI_MIN_ROLLOUT_TIMEOUT_SECONDS = 28_800
+KIMI_MIN_SESSION_TIMEOUT_SECONDS = 32_400
+KIMI_MIN_CONNECT_TIMEOUT_SECONDS = 120
 
 
 class EvalIdentityError(ValueError):
     """The proposed evaluation cannot be bound to immutable provenance."""
+
+
+def validate_kimi_timeout_contract(config: dict[str, Any]) -> dict[str, int]:
+    """Validate the nested timeout envelope required by slow Kimi generations."""
+
+    client = config.get("client")
+    harness = config.get("harness")
+    timeouts = config.get("timeout")
+    runtime = harness.get("runtime") if isinstance(harness, dict) else None
+    overrides = harness.get("config_overrides") if isinstance(harness, dict) else None
+    if (
+        not all(isinstance(value, dict) for value in (client, timeouts, runtime))
+        or not isinstance(overrides, list)
+        or any(not isinstance(value, str) for value in overrides)
+    ):
+        raise EvalIdentityError("kimi_timeout_contract_invalid")
+    assert isinstance(client, dict) and isinstance(timeouts, dict) and isinstance(runtime, dict)
+    harness_timeout_override = f"model.model_kwargs.timeout={REQUIRED_REQUEST_TIMEOUT}"
+    harness_timeout_entries = [
+        value for value in overrides if value.startswith("model.model_kwargs.timeout=")
+    ]
+    request_timeout = client.get("timeout")
+    connect_timeout = client.get("connect_timeout")
+    rollout_timeout = timeouts.get("rollout")
+    session_timeout = runtime.get("session_timeout")
+    if (
+        type(request_timeout) is not int
+        or request_timeout != REQUIRED_REQUEST_TIMEOUT
+        or harness_timeout_entries != [harness_timeout_override]
+        or type(connect_timeout) is not int
+        or connect_timeout < KIMI_MIN_CONNECT_TIMEOUT_SECONDS
+        or type(rollout_timeout) is not int
+        or rollout_timeout < KIMI_MIN_ROLLOUT_TIMEOUT_SECONDS
+        or type(session_timeout) is not int
+        or session_timeout < KIMI_MIN_SESSION_TIMEOUT_SECONDS
+        or rollout_timeout >= session_timeout
+        or rollout_timeout >= REQUIRED_REQUEST_TIMEOUT
+        or session_timeout > request_timeout
+    ):
+        raise EvalIdentityError("kimi_timeout_contract_invalid")
+    return {
+        "request_timeout": request_timeout,
+        "harness_request_timeout": REQUIRED_REQUEST_TIMEOUT,
+        "connect_timeout": connect_timeout,
+        "rollout_timeout": rollout_timeout,
+        "session_timeout": session_timeout,
+    }
 
 
 def canonical_json(value: dict[str, Any]) -> bytes:
@@ -519,6 +571,8 @@ def _contract(
     model = config.get("model")
     if not expected_model or model != expected_model:
         raise EvalIdentityError("model_contract_mismatch")
+    if model == "Kimi-K3":
+        validate_kimi_timeout_contract(config)
     if config.get("num_rollouts") != 1:
         raise EvalIdentityError("pass_at_1_required")
     thinking = sampling.get("chat_template_kwargs")
@@ -614,6 +668,8 @@ def _validate_smoke_checkpoint_payload(
     endpoint: dict[str, Any],
     serving_route_generation: dict[str, Any],
     proxy_policy: dict[str, Any],
+    deployment_spec_snapshot: Path | None = None,
+    proxy_policy_snapshot: Path | None = None,
 ) -> None:
     self_digest = payload.get("smoke_checkpoint_sha256")
     body = {key: value for key, value in payload.items() if key != "smoke_checkpoint_sha256"}
@@ -687,7 +743,18 @@ def _validate_smoke_checkpoint_payload(
     smoke_identity = preliminary["identity"]
     if smoke_identity.get("role") != "smoke":
         raise EvalIdentityError("smoke_checkpoint_identity_role_invalid")
-    envelope = load_eval_run_identity(Path(identity_artifact["path"]), verify_references=True)
+    if deployment_spec_snapshot is None:
+        envelope = load_eval_run_identity(
+            Path(identity_artifact["path"]),
+            verify_references=True,
+        )
+    else:
+        envelope = load_eval_run_identity(
+            Path(identity_artifact["path"]),
+            verify_references=True,
+            deployment_spec_snapshot=deployment_spec_snapshot,
+            proxy_policy_snapshot=proxy_policy_snapshot,
+        )
     smoke_identity = envelope["identity"]
     smoke_deployment = smoke_identity.get("deployment")
     smoke_readiness = smoke_deployment.get("readiness_checkpoint") if isinstance(smoke_deployment, dict) else None
@@ -1233,7 +1300,13 @@ def _load_bound_endpoint(identity: dict[str, Any]) -> Any:
     return observed
 
 
-def _verify_checkpoint_records(identity: dict[str, Any], endpoint: dict[str, Any]) -> None:
+def _verify_checkpoint_records(
+    identity: dict[str, Any],
+    endpoint: dict[str, Any],
+    *,
+    deployment_spec_snapshot: Path | None = None,
+    proxy_policy_snapshot: Path | None = None,
+) -> None:
     deployment = identity["deployment"]
     if not isinstance(deployment, dict):
         raise EvalIdentityError("eval_run_identity_schema_invalid")
@@ -1241,10 +1314,17 @@ def _verify_checkpoint_records(identity: dict[str, Any], endpoint: dict[str, Any
     readiness = deployment.get("readiness_checkpoint")
     smoke = deployment.get("smoke_checkpoint")
     promotion = deployment.get("promotion_certificate")
+    if (deployment_spec_snapshot is None) != (proxy_policy_snapshot is None):
+        raise EvalIdentityError("deployment_snapshot_incomplete")
     for label, record in (("deployment_spec", spec), ("readiness_checkpoint", readiness)):
         if not isinstance(record, dict) or set(record) != {"path", "sha256"}:
             raise EvalIdentityError("eval_run_identity_schema_invalid")
-        _artifact(Path(record["path"]), record["sha256"], label=label)
+        source_path = (
+            deployment_spec_snapshot
+            if label == "deployment_spec" and deployment_spec_snapshot is not None
+            else Path(record["path"])
+        )
+        _artifact(source_path, record["sha256"], label=label)
     readiness_payload = _json_artifact(readiness, label="readiness_checkpoint")
     try:
         readiness_endpoint = validate_endpoint_binding(readiness_payload.get("endpoint"))
@@ -1254,6 +1334,13 @@ def _verify_checkpoint_records(identity: dict[str, Any], endpoint: dict[str, Any
             deployment_spec_sha256=spec["sha256"],
         )
         readiness_proxy_policy = validate_proxy_policy_binding(readiness_payload.get("proxy_policy"))
+        if deployment_spec_snapshot is not None and proxy_policy_snapshot is not None:
+            validate_deployment_proxy_policy_snapshot(
+                deployment_spec_snapshot,
+                proxy_policy_snapshot,
+                expected_spec_sha256=spec["sha256"],
+                expected_binding=readiness_proxy_policy,
+            )
     except (
         EndpointBindingError,
         RouteGenerationError,
@@ -1289,9 +1376,20 @@ def _verify_checkpoint_records(identity: dict[str, Any], endpoint: dict[str, Any
             endpoint=endpoint,
             serving_route_generation=readiness_generation,
             proxy_policy=readiness_proxy_policy,
+            deployment_spec_snapshot=deployment_spec_snapshot,
+            proxy_policy_snapshot=proxy_policy_snapshot,
         )
     else:
         try:
+
+            def identity_loader(path: Path, *, verify_references: bool) -> dict[str, Any]:
+                return load_eval_run_identity(
+                    path,
+                    verify_references=verify_references,
+                    deployment_spec_snapshot=deployment_spec_snapshot,
+                    proxy_policy_snapshot=proxy_policy_snapshot,
+                )
+
             evidence = validate_smoke_qualification(
                 Path(smoke["path"]),
                 smoke["sha256"],
@@ -1303,7 +1401,9 @@ def _verify_checkpoint_records(identity: dict[str, Any], endpoint: dict[str, Any
                 proxy_info_path=Path(endpoint["proxy_info"]["path"]),
                 proxy_info_sha256=endpoint["proxy_info"]["sha256"],
                 model=identity["contract"]["model"],
-                identity_loader=load_eval_run_identity,
+                identity_loader=identity_loader,
+                deployment_spec_snapshot=deployment_spec_snapshot,
+                proxy_policy_snapshot=proxy_policy_snapshot,
             )
             validate_target_evaluator_compatibility(identity, evidence.evaluator_evidence)
         except SmokeQualificationError as error:
@@ -1418,6 +1518,12 @@ def _verify_config_and_inputs(
         identity["execution"].get(key) != value for key, value in observed_execution.items()
     ):
         raise EvalIdentityError("eval_config_contract_mismatch")
+    if (
+        observed_contract["model"] == "Kimi-K3"
+        and identity["deployment"]["proxy_policy"]["request_timeout"]
+        != validate_kimi_timeout_contract(config)["request_timeout"]
+    ):
+        raise EvalIdentityError("deployment_proxy_timeout_mismatch")
 
     taskset = config.get("taskset")
     dataset = identity["dataset"]
@@ -1463,7 +1569,13 @@ def _verify_saved_provenance(output_dir: Path, identity: dict[str, Any], identit
         raise EvalIdentityError("eval_provenance_mismatch")
 
 
-def load_eval_run_identity(path: Path, *, verify_references: bool = True) -> dict[str, Any]:
+def load_eval_run_identity(
+    path: Path,
+    *,
+    verify_references: bool = True,
+    deployment_spec_snapshot: Path | None = None,
+    proxy_policy_snapshot: Path | None = None,
+) -> dict[str, Any]:
     raw = _read_bytes(path, label="eval_run_identity")
     try:
         envelope = json.loads(raw)
@@ -1523,7 +1635,12 @@ def load_eval_run_identity(path: Path, *, verify_references: bool = True) -> dic
             raise EvalIdentityError("dataset_worktree_not_clean")
     else:
         raise EvalIdentityError("eval_run_identity_schema_invalid")
-    _verify_checkpoint_records(identity, endpoint_info.binding)
+    _verify_checkpoint_records(
+        identity,
+        endpoint_info.binding,
+        deployment_spec_snapshot=deployment_spec_snapshot,
+        proxy_policy_snapshot=proxy_policy_snapshot,
+    )
     assert isinstance(digest, str)
     _verify_saved_provenance(path.resolve().parent, identity, digest)
     return envelope
@@ -1721,6 +1838,11 @@ def prepare(args: argparse.Namespace) -> str:
     execution["vmvm_environment"] = _effective_vmvm_environment(args, rollout_concurrency)
     source = _source_identity(args)
     deployment = _checkpoint_identity(args, endpoint_info.binding)
+    if (
+        contract["model"] == "Kimi-K3"
+        and deployment["proxy_policy"]["request_timeout"] != validate_kimi_timeout_contract(config)["request_timeout"]
+    ):
+        raise EvalIdentityError("deployment_proxy_timeout_mismatch")
     dataset = _dataset_identity(config, args)
     resolved_config = _artifact(
         config_path,

@@ -11,7 +11,10 @@ import eval_run_identity
 import pytest
 import tomli_w
 from deployment_endpoint import load_deployment_endpoint
-from deployment_proxy_policy import load_deployment_proxy_policy
+from deployment_proxy_policy import (
+    deployment_proxy_policy_snapshot,
+    load_deployment_proxy_policy,
+)
 from eval_run_identity import (
     EvalIdentityError,
     _bind_identity,
@@ -22,6 +25,7 @@ from eval_run_identity import (
     _effective_vmvm_environment,
     _identity_envelope,
     _tree_digest,
+    _verify_checkpoint_records,
     _write_resolved_config,
     canonical_json,
     load_eval_run_identity,
@@ -57,13 +61,19 @@ def _resolved_config() -> dict:
             ],
             "max_connections": 4,
             "max_keepalive_connections": 4,
+            "timeout": 43_200,
+            "connect_timeout": 120,
         },
         "sampling": {
             "max_tokens": 32_768,
             "reasoning_effort": "max",
             "chat_template_kwargs": {"enable_thinking": True, "preserve_thinking": True},
         },
-        "harness": {"runtime": {"type": "vmvm", "session_timeout": 43_200}},
+        "harness": {
+            "config_overrides": ["model.model_kwargs.timeout=43200"],
+            "runtime": {"type": "vmvm", "session_timeout": 43_200},
+        },
+        "timeout": {"rollout": 36_000},
     }
 
 
@@ -140,7 +150,7 @@ def _identity() -> dict:
             },
             "proxy_policy": {
                 "schema_version": 1,
-                "request_timeout": 7200,
+                "request_timeout": 43200,
                 "num_retries": 0,
                 "proxy_litellm_config": {
                     "path": "/deployment/proxy_litellm_config.yaml",
@@ -261,6 +271,27 @@ def test_eval_contract_binds_required_training_and_concurrency_settings() -> Non
     with pytest.raises(EvalIdentityError, match="routing_headers_mismatch"):
         _contract(routed, "approved-model")
 
+    kimi = _resolved_config()
+    kimi["model"] = "Kimi-K3"
+    _contract(kimi, "Kimi-K3")
+    for section, key, value in (
+        ("client", "timeout", 7_200),
+        ("timeout", "rollout", 43_200),
+        ("harness.runtime", "session_timeout", 35_999),
+    ):
+        unsafe = _resolved_config()
+        unsafe["model"] = "Kimi-K3"
+        target = unsafe["harness"]["runtime"] if section == "harness.runtime" else unsafe[section]
+        target[key] = value
+        with pytest.raises(EvalIdentityError, match="kimi_timeout_contract_invalid"):
+            _contract(unsafe, "Kimi-K3")
+
+    unsafe = _resolved_config()
+    unsafe["model"] = "Kimi-K3"
+    unsafe["harness"]["config_overrides"] = ["model.model_kwargs.timeout=36000"]
+    with pytest.raises(EvalIdentityError, match="kimi_timeout_contract_invalid"):
+        _contract(unsafe, "Kimi-K3")
+
     for invalid_thinking in (
         {"enable_thinking": 1, "preserve_thinking": True},
         {"enable_thinking": True, "preserve_thinking": True, "extra": True},
@@ -314,13 +345,13 @@ def test_checkpoint_chain_is_hashed_and_role_aware(tmp_path: Path, monkeypatch: 
         "spec:\n"
         "  proxy:\n"
         "    config:\n"
-        "      request_timeout: 7200\n"
+        "      request_timeout: 43200\n"
         "      num_retries: 0\n"
     )
     generated_proxy_config = deployment_dir / "proxy_litellm_config.yaml"
     generated_proxy_config.write_text(
         "litellm_settings:\n"
-        "  request_timeout: 7200\n"
+        "  request_timeout: 43200\n"
         "  num_retries: 0\n"
     )
     proxy_info = deployment_dir / "proxy_info.json"
@@ -564,6 +595,33 @@ def test_checkpoint_chain_is_hashed_and_role_aware(tmp_path: Path, monkeypatch: 
     args.role = "smoke"
     with pytest.raises(EvalIdentityError, match="cannot_use_prior_smoke"):
         _checkpoint_identity(args, endpoint)
+
+    historical_spec = tmp_path / "historical-spec.yaml"
+    historical_policy = tmp_path / "historical-policy.json"
+    historical_spec.write_bytes(spec.read_bytes())
+    historical_policy.write_bytes(deployment_proxy_policy_snapshot(proxy_policy))
+    spec.write_text(
+        "spec:\n"
+        "  num_endpoints: 24\n"
+        "  proxy:\n"
+        "    config:\n"
+        "      request_timeout: 43200\n"
+        "      num_retries: 0\n"
+    )
+    generated_proxy_config.write_text(
+        "litellm_settings:\n"
+        "  request_timeout: 43200\n"
+        "  num_retries: 0\n"
+        "model_list: []\n"
+    )
+    with pytest.raises(EvalIdentityError, match="deployment_spec_sha256_mismatch"):
+        _verify_checkpoint_records(smoke_identity, endpoint)
+    _verify_checkpoint_records(
+        smoke_identity,
+        endpoint,
+        deployment_spec_snapshot=historical_spec,
+        proxy_policy_snapshot=historical_policy,
+    )
 
 
 def test_fresh_resolver_writes_exact_config_before_eval(tmp_path: Path) -> None:

@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import hashlib
+import json
 import os
 import re
 import stat
@@ -17,7 +18,7 @@ from yaml.events import AliasEvent
 from yaml.nodes import MappingNode
 
 POLICY_SCHEMA_VERSION = 1
-REQUIRED_REQUEST_TIMEOUT = 7200
+REQUIRED_REQUEST_TIMEOUT = 43_200
 REQUIRED_NUM_RETRIES = 0
 MAX_YAML_BYTES = 4 * 1024 * 1024
 SHA256_RE = re.compile(r"[0-9a-f]{64}")
@@ -255,3 +256,46 @@ def revalidate_deployment_proxy_policy(
     if observed != expected:
         raise DeploymentProxyPolicyError("proxy_policy_changed")
     return observed
+
+
+def validate_deployment_proxy_policy_snapshot(
+    deployment_spec_snapshot: Path,
+    proxy_policy_snapshot: Path,
+    *,
+    expected_spec_sha256: str,
+    expected_binding: Any,
+) -> dict[str, Any]:
+    """Validate immutable historical policy bytes without requiring their old live paths."""
+
+    expected = validate_proxy_policy_binding(expected_binding)
+    _, spec_text, spec_sha256 = _read_stable_yaml(
+        deployment_spec_snapshot,
+        label="deployment_spec_snapshot",
+    )
+    if spec_sha256 != expected_spec_sha256:
+        raise DeploymentProxyPolicyError("deployment_spec_snapshot_sha256_mismatch")
+    _validate_policy_text(
+        spec_text,
+        generated=False,
+        label="deployment_spec_snapshot_policy",
+    )
+    _, snapshot_text, _ = _read_stable_yaml(
+        proxy_policy_snapshot,
+        label="proxy_policy_snapshot",
+    )
+    if snapshot_text.encode() != deployment_proxy_policy_snapshot(expected):
+        raise DeploymentProxyPolicyError("proxy_policy_snapshot_mismatch")
+    return expected
+
+
+def deployment_proxy_policy_snapshot(binding: Any) -> bytes:
+    """Return secret-free canonical historical policy evidence."""
+
+    policy = validate_proxy_policy_binding(binding)
+    value = {
+        "schema_version": POLICY_SCHEMA_VERSION,
+        "request_timeout": REQUIRED_REQUEST_TIMEOUT,
+        "num_retries": REQUIRED_NUM_RETRIES,
+        "source_sha256": policy["proxy_litellm_config"]["sha256"],
+    }
+    return json.dumps(value, sort_keys=True, separators=(",", ":")).encode() + b"\n"

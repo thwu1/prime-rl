@@ -722,11 +722,11 @@ def _fixture(
         f"  num_endpoints: {production_routes}\n"
         "  proxy:\n"
         "    config:\n"
-        "      request_timeout: 7200\n"
+        "      request_timeout: 43200\n"
         "      num_retries: 0\n"
     )
     (deployment_dir / "proxy_litellm_config.yaml").write_text(
-        "litellm_settings:\n  request_timeout: 7200\n  num_retries: 0\n"
+        "litellm_settings:\n  request_timeout: 43200\n  num_retries: 0\n"
     )
     spec_sha256 = _sha256(spec.read_bytes())
     proxy_info = deployment_dir / "proxy_info.json"
@@ -791,6 +791,8 @@ def _fixture(
         'outbound_body_denylist = ["logprobs", "prompt_logprobs", "top_logprobs", "return_token_ids"]\n'
         "max_connections = 8\n"
         "max_keepalive_connections = 8\n"
+        "timeout = 43200\n"
+        "connect_timeout = 120\n"
         "[sampling]\n"
         "max_tokens = 32768\n"
         'reasoning_effort = "max"\n'
@@ -805,8 +807,12 @@ def _fixture(
         f'image_manifest_sha256 = "{image_manifest_sha256}"\n'
         "[harness]\n"
         'id = "mini-swe-agent"\n'
+        'config_overrides = ["model.model_kwargs.timeout=43200"]\n'
         "[harness.runtime]\n"
         'type = "vmvm"\n'
+        "session_timeout = 43200\n"
+        "[timeout]\n"
+        "rollout = 36000\n"
     )
     config_sha256 = _sha256(config.read_bytes())
     second_config = configs / "mobius_qwen.toml"
@@ -1616,6 +1622,26 @@ def test_rejects_capacity_smoke_from_a_different_workload_contract(
     [
         ('model = "Kimi-K3"', 'model = "other"', "production_model_contract_invalid"),
         ("max_tokens = 32768", "max_tokens = 262145", "production_model_contract_invalid"),
+        (
+            "timeout = 43200\nconnect_timeout = 120",
+            "timeout = 36000\nconnect_timeout = 120",
+            "production_timeout_contract_invalid",
+        ),
+        (
+            "session_timeout = 43200",
+            "session_timeout = 36000",
+            "production_timeout_contract_invalid",
+        ),
+        (
+            "rollout = 36000",
+            "rollout = 43200",
+            "production_timeout_contract_invalid",
+        ),
+        (
+            "model.model_kwargs.timeout=43200",
+            "model.model_kwargs.timeout=36000",
+            "production_timeout_contract_invalid",
+        ),
     ],
 )
 def test_rejects_invalid_production_config_even_when_receipt_matches(

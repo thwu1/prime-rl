@@ -28,7 +28,11 @@ from deployment_proxy_policy import (
     revalidate_deployment_proxy_policy,
     validate_proxy_policy_binding,
 )
-from eval_run_identity import EvalIdentityError, load_eval_run_identity
+from eval_run_identity import (
+    EvalIdentityError,
+    load_eval_run_identity,
+    validate_kimi_timeout_contract,
+)
 from guard_success_receipt import (
     GuardReceiptError,
     load_guard_success_receipt,
@@ -1640,6 +1644,12 @@ def _validate_production_config(
     runtime = harness.get("runtime")
     if not isinstance(runtime, dict):
         raise LaunchCertificateError("production_vmvm_contract_invalid")
+    try:
+        timeout_contract = validate_kimi_timeout_contract(config)
+    except EvalIdentityError as cause:
+        raise LaunchCertificateError("production_timeout_contract_invalid") from cause
+    if timeout_contract["rollout_timeout"] < 36_000 or timeout_contract["session_timeout"] < 43_200:
+        raise LaunchCertificateError("production_timeout_contract_invalid")
 
     context = {
         "max_input_tokens": config.get("max_input_tokens"),
@@ -1748,6 +1758,7 @@ def _validate_production_config(
         "sampling_max_tokens": sampling_max_tokens,
         "task_file_sha256": approved_manifest_sha256,
         "thinking": {"enable_thinking": True, "preserve_thinking": True},
+        "timeouts": timeout_contract,
         "vmvm": True,
     }
 

@@ -61,6 +61,8 @@ def test_miniswe_configs_pin_harness_model_retry_policy(filename: str) -> None:
     # field is not consumed. mini-swe-agent owns provider retries instead.
     assert "max_retries" not in config["client"]
     assert config["harness"]["env"]["MSWEA_MODEL_RETRY_STOP_AFTER_ATTEMPT"] == "10"
+    if "kimi" in filename:
+        assert config["harness"]["config_overrides"].count("model.model_kwargs.timeout=43200") == 1
     if filename != "tb4_kimi_token_smoke.toml":
         assert "ProviderError" in config["retries"]["rollout"]["include"]
 
@@ -82,7 +84,7 @@ def test_mobius_kimi_production_contract() -> None:
     assert client["capture_model_io"] is True
     assert client["max_connections"] == config["max_concurrent"]
     assert client["max_keepalive_connections"] == config["max_concurrent"]
-    assert client["timeout"] >= 7_200
+    assert client["timeout"] == 43_200
     assert client["connect_timeout"] >= 120
     assert client["outbound_body_denylist"] == OUTBOUND_BODY_DENYLIST
 
@@ -111,6 +113,7 @@ def test_mobius_kimi_production_contract() -> None:
     timeouts = config["timeout"]
     assert timeouts["setup"] >= 3_600
     assert timeouts["rollout"] >= 36_000
+    assert timeouts["rollout"] < runtime["session_timeout"] <= client["timeout"]
     assert timeouts["finalize"] >= 3_600
     assert timeouts["scoring"] >= 21_600
 
@@ -138,6 +141,14 @@ def test_mobius_kimi_capacity_smoke_matches_production_lane() -> None:
     assert config["client"]["capture_model_io"] is True
     assert config["client"]["max_connections"] == 8
     assert config["client"]["max_keepalive_connections"] == 8
+    assert config["client"]["timeout"] == 43_200
+    assert config["harness"]["runtime"]["session_timeout"] >= 43_200
+    assert config["timeout"]["rollout"] >= 36_000
+    assert (
+        config["timeout"]["rollout"]
+        < config["harness"]["runtime"]["session_timeout"]
+        <= config["client"]["timeout"]
+    )
     assert config["client"]["outbound_body_denylist"] == OUTBOUND_BODY_DENYLIST
     assert config["sampling"]["reasoning_effort"] == "max"
     assert config["sampling"]["chat_template_kwargs"] == {
@@ -222,10 +233,19 @@ def test_eval_configs_pin_approved_tasks_and_runtime_contract(
     assert config["max_concurrent"] == config["multiplex"] <= 8
     assert config["client"]["max_connections"] == config["max_concurrent"]
     assert config["client"]["max_keepalive_connections"] == config["max_concurrent"]
-    assert config["client"]["timeout"] == 7_200
+    expected_client_timeout = 43_200 if "kimi" in filename else 7_200
+    assert config["client"]["timeout"] == expected_client_timeout
     assert config["harness"]["runtime"]["type"] == "vmvm"
     assert config["timeout"]["setup"] >= 3_600
-    assert config["timeout"]["rollout"] >= 28_800
+    expected_rollout_timeout = 28_800
+    assert config["timeout"]["rollout"] >= expected_rollout_timeout
+    if "kimi" in filename:
+        assert (
+            config["timeout"]["rollout"]
+            < config["harness"]["runtime"]["session_timeout"]
+            <= config["client"]["timeout"]
+        )
+        assert config["timeout"]["rollout"] < 43_200 <= config["client"]["timeout"]
     assert config["timeout"]["finalize"] >= 3_600
     assert config["timeout"]["scoring"] >= 21_600
 
@@ -312,7 +332,10 @@ def test_eval_controller_is_cpu_only_and_supports_high_vmvm_concurrency() -> Non
 def test_kimi_tb4_gate_sequences_smoke_before_full_evaluation() -> None:
     wrapper = (CONFIG_DIR.parents[1] / "run_kimi_tb4_gate.sbatch").read_text()
 
-    assert "ed1d83d5905bdd2db87ffbbe16e9374b9bd28ddd" in wrapper
+    assert "EVAL_EXPECTED_PRIME_RL_REVISION:?" in wrapper
+    assert '!= "$expected_project_revision"' in wrapper
+    assert 'export EVAL_EXPECTED_PRIME_RL_REVISION="$expected_project_revision"' in wrapper
+    assert "ed1d83d5905bdd2db87ffbbe16e9374b9bd28ddd" not in wrapper
     assert "EVAL_RUN_ROLE=smoke" in wrapper
     assert "EVAL_RUN_ROLE=tb4" in wrapper
     assert "SMOKE_EXPECTED_TRACES=2" in wrapper

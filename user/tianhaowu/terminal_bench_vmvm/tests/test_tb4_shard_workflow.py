@@ -62,6 +62,8 @@ capture_model_io = true
 outbound_body_denylist = ["logprobs", "prompt_logprobs", "return_token_ids", "top_logprobs"]
 max_connections = 4
 max_keepalive_connections = 4
+timeout = 43200
+connect_timeout = 120
 headers = {{}}
 
 [sampling]
@@ -79,8 +81,13 @@ task_file_sha256 = "{universe_sha256}"
 dataset_dir = "/private/dataset"
 
 [harness]
+config_overrides = ["model.model_kwargs.timeout=43200"]
 [harness.runtime]
 type = "vmvm"
+session_timeout = 43200
+
+[timeout]
+rollout = 36000
 '''
     )
     return path
@@ -203,6 +210,15 @@ def test_merge_publishes_only_complete_certified_partition(tmp_path: Path, monke
 
     receipt_paths: list[Path] = []
     by_receipt: dict[Path, CertifiedShard] = {}
+    deployment_spec = tmp_path / "deployment" / "spec.yaml"
+    deployment_spec.parent.mkdir()
+    deployment_spec.write_text(
+        "spec:\n  proxy:\n    config:\n      request_timeout: 43200\n      num_retries: 0\n"
+    )
+    proxy_config = deployment_spec.parent / "proxy_litellm_config.yaml"
+    proxy_config.write_text(
+        "litellm_settings:\n  request_timeout: 43200\n  num_retries: 0\n"
+    )
     semantics = {
         "source": {"same": True},
         "dataset": {"path": str(dataset)},
@@ -211,9 +227,17 @@ def test_merge_publishes_only_complete_certified_partition(tmp_path: Path, monke
         "resolved_config_semantics_sha256": "a" * 64,
         "deployment": {
             "id": "deployment-test",
-            "spec_sha256": "c" * 64,
+            "spec_sha256": hashlib.sha256(deployment_spec.read_bytes()).hexdigest(),
             "routing": {"same": True},
-            "proxy_policy": {"same": True},
+            "proxy_policy": {
+                "schema_version": 1,
+                "request_timeout": 43_200,
+                "num_retries": 0,
+                "proxy_litellm_config": {
+                    "path": str(proxy_config.resolve()),
+                    "sha256": hashlib.sha256(proxy_config.read_bytes()).hexdigest(),
+                },
+            },
         },
     }
     for shard in shards:
@@ -244,15 +268,29 @@ def test_merge_publishes_only_complete_certified_partition(tmp_path: Path, monke
             expected_routes=1,
             trace_ids=frozenset(row["id"] for row in rows),
             identity_semantics=semantics,
+            deployment_spec=deployment_spec.resolve(),
+            deployment_spec_sha256=hashlib.sha256(deployment_spec.read_bytes()).hexdigest(),
+            proxy_config=proxy_config.resolve(),
+            proxy_config_sha256=hashlib.sha256(proxy_config.read_bytes()).hexdigest(),
         )
         receipt_paths.append(receipt)
         by_receipt[receipt.resolve()] = certified
 
-    monkeypatch.setattr(
-        workflow,
-        "_certify_shard",
-        lambda path, _mapping, expected_semantics_sha256: by_receipt[path.resolve()],
-    )
+    historical_snapshots: list[tuple[Path | None, Path | None]] = []
+
+    def certify(
+        path: Path,
+        _mapping: object,
+        *,
+        expected_semantics_sha256: str,
+        deployment_spec_snapshot: Path | None = None,
+        proxy_policy_snapshot: Path | None = None,
+    ) -> CertifiedShard:
+        assert expected_semantics_sha256
+        historical_snapshots.append((deployment_spec_snapshot, proxy_policy_snapshot))
+        return by_receipt[path.resolve()]
+
+    monkeypatch.setattr(workflow, "_certify_shard", certify)
     monkeypatch.setattr(
         workflow,
         "_run_full_audit",
@@ -285,9 +323,14 @@ def test_merge_publishes_only_complete_certified_partition(tmp_path: Path, monke
     assert len((output / "results.jsonl").read_text().splitlines()) == 66
     assert stat.S_IMODE(output.stat().st_mode) == 0o700
     assert all(stat.S_IMODE(path.stat().st_mode) == 0o600 for path in output.iterdir())
+    deployment_spec.write_text("spec:\n  num_endpoints: 24\n")
+    proxy_config.write_text("litellm_settings:\n  request_timeout: 43200\n  num_retries: 0\n  model_list: []\n")
     validated = validate_sharded_checkpoint(receipt, deployment_id="deployment-test")
     assert validated["sharded"] is True
     assert validated["shard_count"] == len(shards)
+    assert historical_snapshots[: len(shards)] == [(None, None)] * len(shards)
+    assert all(spec == output / "deployment_spec.yaml" for spec, _ in historical_snapshots[len(shards) :])
+    assert all(proxy == output / "proxy_policy.json" for _, proxy in historical_snapshots[len(shards) :])
 
     tampered = json.loads(json.dumps(receipt))
     tampered["shards"][0]["route_generation_sha256"] = "0" * 64
@@ -296,6 +339,14 @@ def test_merge_publishes_only_complete_certified_partition(tmp_path: Path, monke
     tampered["tb4_certificate_sha256"] = hashlib.sha256(workflow.canonical_json(unsigned)).hexdigest()
     with pytest.raises(ShardWorkflowError, match="sharded_checkpoint_shard_mismatch"):
         validate_sharded_checkpoint(tampered, deployment_id="deployment-test")
+
+    proxy_policy_snapshot = output / "proxy_policy.json"
+    proxy_policy_snapshot.write_bytes(proxy_policy_snapshot.read_bytes() + b"{}\n")
+    with pytest.raises(
+        ShardWorkflowError,
+        match="sharded_checkpoint_proxy_policy_sha256_mismatch",
+    ):
+        validate_sharded_checkpoint(receipt, deployment_id="deployment-test")
 
 
 def test_merge_rejects_missing_success_receipt_before_output(tmp_path: Path):

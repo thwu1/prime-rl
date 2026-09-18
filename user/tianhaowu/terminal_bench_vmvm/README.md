@@ -249,10 +249,15 @@ prefix caching enabled and begins with rollout concurrency four on its one
 route. VMVM lease creation remains capped at two until a clean post-fix smoke
 and full TB4 run qualify a higher rate.
 
-Run every command from one clean detached source snapshot. First submit the
-approved two-task transcript smoke. `INFERENCE_READINESS_CHECKPOINT_SHA256` is
-the external file SHA-256 of the completed readiness JSON, not its embedded
-deployment-spec digest.
+Run every command from one clean detached source snapshot. The combined Kimi
+interceptor/verifier revision must be the exact `deps/verifiers` gitlink of
+that reviewed superproject commit. `run_kimi_tb4_gate.sbatch` has no embedded
+source hash: its caller must set `EVAL_EXPECTED_PRIME_RL_REVISION` to the full
+40-hex commit of `PROJECT_DIR`, and both the wrapper and `run_eval.sbatch`
+fail closed if the clean checkout differs. First submit the approved two-task
+transcript smoke. `INFERENCE_READINESS_CHECKPOINT_SHA256` is the external file
+SHA-256 of the completed readiness JSON, not its embedded deployment-spec
+digest.
 
 ```bash
 tmux send-keys -t swebench_vmvm:Launcher.0 \
@@ -356,16 +361,22 @@ command. Direct/base-URL, inference-job, and shared-gateway deployment overrides
 are rejected for this workflow. `INFERENCE_PROXY_URL` remains available only as
 a transport proxy when the bound HTTPS ingress requires it.
 
-The deployment spec must set integer `spec.proxy.config.request_timeout: 7200`
+The deployment spec must set integer `spec.proxy.config.request_timeout: 43200`
 and integer `num_retries: 0`. Readiness independently parses the generated
 `proxy_litellm_config.yaml`, requires the same values, and records only those
 values plus the full-file SHA-256 and path—never its URL or key. Both YAML
 documents are parsed semantically with duplicate keys, aliases, merge keys,
 quoted numeric values, tags, and non-integer values rejected. The evaluator
-guard revalidates that file throughout the run. The file hash is scoped to its
-readiness generation: a deliberate resize may rewrite it, so a historical TB4
-certificate retains its original hash while post-resize readiness binds the
-new one.
+guard revalidates that file throughout the run. Kimi configs use the same
+43,200-second timeout for both the evaluator client and mini-swe-agent's model
+client. The rollout limit is strictly below both HTTP-client limits and the
+VMVM session limit, while the session limit is no greater than the
+client/proxy limit. This makes an owned rollout boundary fire before an HTTP
+read timeout.
+The policy file is scoped to its readiness generation: a deliberate resize may
+rewrite both live policy files, so the sharded TB4 finalizer privately snapshots
+the historical spec plus secret-free canonical policy evidence bound to the
+original generated-file hash. Post-resize readiness binds the new live files.
 
 The default config is `configs/eval/tb4_kimi_k3_max_miniswe.toml`: 66 tasks,
 pass@1, mini-swe-agent, `reasoning_effort=max`, one VMVM per rollout, and a

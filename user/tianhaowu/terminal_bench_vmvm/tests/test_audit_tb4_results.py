@@ -176,13 +176,13 @@ def _certificate_fixture(
         "spec:\n"
         "  proxy:\n"
         "    config:\n"
-        "      request_timeout: 7200\n"
+        "      request_timeout: 43200\n"
         "      num_retries: 0\n",
         encoding="utf-8",
     )
     (deployment_dir / "proxy_litellm_config.yaml").write_text(
         "litellm_settings:\n"
-        "  request_timeout: 7200\n"
+        "  request_timeout: 43200\n"
         "  num_retries: 0\n",
         encoding="utf-8",
     )

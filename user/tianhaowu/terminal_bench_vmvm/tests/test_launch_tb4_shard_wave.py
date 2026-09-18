@@ -57,6 +57,8 @@ capture_model_io = true
 outbound_body_denylist = ["logprobs", "prompt_logprobs", "return_token_ids", "top_logprobs"]
 max_connections = 4
 max_keepalive_connections = 4
+timeout = 43200
+connect_timeout = 120
 headers = {{}}
 
 [sampling]
@@ -75,8 +77,13 @@ dataset_dir = "{dataset}"
 use_declared_images = true
 
 [harness]
+config_overrides = ["model.model_kwargs.timeout=43200"]
 [harness.runtime]
 type = "vmvm"
+session_timeout = 43200
+
+[timeout]
+rollout = 36000
 '''
     )
     plan_dir = tmp_path / "plan"
@@ -133,9 +140,9 @@ def _make_bindings(
     deployment_dir = tmp_path / deployment_id
     deployment_dir.mkdir()
     spec = deployment_dir / "spec.yaml"
-    spec.write_text("spec:\n  proxy:\n    config:\n      request_timeout: 7200\n      num_retries: 0\n")
+    spec.write_text("spec:\n  proxy:\n    config:\n      request_timeout: 43200\n      num_retries: 0\n")
     policy_config = deployment_dir / "proxy_litellm_config.yaml"
-    policy_config.write_text("litellm_settings:\n  request_timeout: 7200\n  num_retries: 0\n")
+    policy_config.write_text("litellm_settings:\n  request_timeout: 43200\n  num_retries: 0\n")
     proxy = deployment_dir / "proxy_info.json"
     proxy.write_text(
         json.dumps(
@@ -165,7 +172,7 @@ def _make_bindings(
     generation = _generation()
     policy = {
         "schema_version": 1,
-        "request_timeout": 7200,
+        "request_timeout": 43200,
         "num_retries": 0,
         "proxy_litellm_config": _record(policy_config),
     }

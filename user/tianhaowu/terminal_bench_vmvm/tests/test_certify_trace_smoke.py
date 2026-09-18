@@ -148,9 +148,9 @@ def _fixture(
     deployment_dir = tmp_path / deployment_id
     deployment_dir.mkdir()
     spec = deployment_dir / "spec.yaml"
-    spec.write_text("spec:\n  proxy:\n    config:\n      request_timeout: 7200\n      num_retries: 0\n")
+    spec.write_text("spec:\n  proxy:\n    config:\n      request_timeout: 43200\n      num_retries: 0\n")
     (deployment_dir / "proxy_litellm_config.yaml").write_text(
-        "litellm_settings:\n  request_timeout: 7200\n  num_retries: 0\n"
+        "litellm_settings:\n  request_timeout: 43200\n  num_retries: 0\n"
     )
     proxy_info = deployment_dir / "proxy_info.json"
     proxy_info.write_text(

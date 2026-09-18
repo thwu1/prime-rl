@@ -470,7 +470,7 @@ type = "eval"
 api_key_var = "OPENAI_API_KEY"
 capture_model_io = true
 outbound_body_denylist = ["logprobs", "prompt_logprobs", "return_token_ids", "top_logprobs"]
-timeout = 7200
+timeout = 43200
 connect_timeout = 120
 
 [sampling]
@@ -498,6 +498,7 @@ config_overrides = [
   "environment.environment_class=local",
   "environment.timeout=600",
   "model.model_kwargs.drop_params=true",
+  "model.model_kwargs.timeout=43200",
   "model.model_kwargs.parallel_tool_calls=true",
 ]
 
@@ -509,6 +510,9 @@ type = "vmvm"
 session_timeout = 32400
 tenant_id = "tenant"
 lease_ttl = "60s"
+
+[timeout]
+rollout = 28800
 
 [retries.rollout]
 max_retries = 2
@@ -609,9 +613,9 @@ def test_eval_identity_dispatches_schema_two_bridge_through_shared_validator(
     deployment_dir = tmp_path / deployment_id
     deployment_dir.mkdir()
     spec = deployment_dir / "spec.yaml"
-    spec.write_text("spec:\n  proxy:\n    config:\n      request_timeout: 7200\n      num_retries: 0\n")
+    spec.write_text("spec:\n  proxy:\n    config:\n      request_timeout: 43200\n      num_retries: 0\n")
     proxy_config = deployment_dir / "proxy_litellm_config.yaml"
-    proxy_config.write_text("litellm_settings:\n  request_timeout: 7200\n  num_retries: 0\n")
+    proxy_config.write_text("litellm_settings:\n  request_timeout: 43200\n  num_retries: 0\n")
     proxy = deployment_dir / "proxy_info.json"
     proxy.write_text(
         json.dumps(
@@ -637,7 +641,7 @@ def test_eval_identity_dispatches_schema_two_bridge_through_shared_validator(
     generation = _generation("http://worker-new:8000/v1")
     policy = {
         "schema_version": 1,
-        "request_timeout": 7200,
+        "request_timeout": 43200,
         "num_retries": 0,
         "proxy_litellm_config": {
             "path": str(proxy_config.resolve()),

@@ -270,6 +270,8 @@ def validate_readiness(
     deployment_id: str,
     deployment_spec: Artifact,
     endpoint: dict[str, Any],
+    deployment_spec_snapshot: Path | None = None,
+    proxy_policy_snapshot: Path | None = None,
 ) -> tuple[dict[str, Any], dict[str, Any]]:
     payload = load_json_artifact(readiness, label="readiness_checkpoint")
     validate_proxy_policy_binding, revalidate_deployment_proxy_policy = _proxy_policy_helpers()
@@ -281,11 +283,24 @@ def validate_readiness(
             deployment_spec_sha256=deployment_spec.sha256,
         )
         proxy_policy = validate_proxy_policy_binding(payload.get("proxy_policy"))
-        revalidate_deployment_proxy_policy(
-            deployment_spec.path,
-            expected_spec_sha256=deployment_spec.sha256,
-            expected_binding=proxy_policy,
-        )
+        if (deployment_spec_snapshot is None) != (proxy_policy_snapshot is None):
+            raise ValueError("deployment_snapshot_incomplete")
+        if deployment_spec_snapshot is None:
+            revalidate_deployment_proxy_policy(
+                deployment_spec.path,
+                expected_spec_sha256=deployment_spec.sha256,
+                expected_binding=proxy_policy,
+            )
+        else:
+            from deployment_proxy_policy import validate_deployment_proxy_policy_snapshot
+
+            assert proxy_policy_snapshot is not None
+            validate_deployment_proxy_policy_snapshot(
+                deployment_spec_snapshot,
+                proxy_policy_snapshot,
+                expected_spec_sha256=deployment_spec.sha256,
+                expected_binding=proxy_policy,
+            )
     except (
         EndpointBindingError,
         RouteGenerationError,
@@ -333,6 +348,8 @@ def _tool_contract(config: Mapping[str, Any]) -> dict[str, Any]:
         or len(set(overrides)) != len(overrides)
         or "environment.environment_class=local" not in overrides
         or "model.model_kwargs.drop_params=true" not in overrides
+        or [item for item in overrides if item.startswith("model.model_kwargs.timeout=")]
+        != ["model.model_kwargs.timeout=43200"]
         or "model.model_kwargs.parallel_tool_calls=true" not in overrides
         or not isinstance(runtime, dict)
         or runtime.get("type") != "vmvm"
@@ -1148,6 +1165,8 @@ def _validate_bridge(
     proxy_policy: dict[str, Any],
     model: str,
     identity_loader: IdentityLoader | None,
+    deployment_spec_snapshot: Path | None = None,
+    proxy_policy_snapshot: Path | None = None,
 ) -> QualificationEvidence:
     if stat.S_IMODE(bridge.path.stat().st_mode) != 0o444:
         raise SmokeQualificationError("smoke_bridge_not_immutable")
@@ -1197,11 +1216,26 @@ def _validate_bridge(
         or set(target) != {"endpoint", "serving_route_generation", "readiness_checkpoint"}
     ):
         raise SmokeQualificationError("smoke_bridge_invalid")
-    bridge_spec = artifact_from_record(
-        artifacts["deployment_spec"],
-        label="bridge_deployment_spec",
-        expected=deployment_spec,
-    )
+    if deployment_spec_snapshot is None:
+        bridge_spec = artifact_from_record(
+            artifacts["deployment_spec"],
+            label="bridge_deployment_spec",
+            expected=deployment_spec,
+        )
+    else:
+        bridge_spec_record = artifacts["deployment_spec"]
+        if not isinstance(bridge_spec_record, dict) or bridge_spec_record != deployment_spec.record:
+            raise SmokeQualificationError("bridge_deployment_spec_mismatch")
+        snapshot = load_artifact(
+            deployment_spec_snapshot,
+            deployment_spec.sha256,
+            label="bridge_deployment_spec_snapshot",
+        )
+        bridge_spec = Artifact(
+            path=deployment_spec.path,
+            sha256=snapshot.sha256,
+            raw=snapshot.raw,
+        )
     bridge_readiness = artifact_from_record(
         artifacts["target_readiness_checkpoint"],
         label="bridge_target_readiness",
@@ -1249,6 +1283,8 @@ def _validate_bridge(
         deployment_id=deployment_id,
         deployment_spec=deployment_spec,
         endpoint=source_endpoint,
+        deployment_spec_snapshot=deployment_spec_snapshot,
+        proxy_policy_snapshot=proxy_policy_snapshot,
     )
     if not _same_json(source_ready_generation, source_generation) or not _same_json(source_policy, proxy_policy):
         raise SmokeQualificationError("smoke_bridge_source_mismatch")
@@ -1271,11 +1307,23 @@ def _validate_bridge(
         generation=generation,
         model=model,
     )
-    final_spec = load_artifact(
-        deployment_spec.path,
-        deployment_spec.sha256,
-        label="deployment_spec",
-    )
+    if deployment_spec_snapshot is None:
+        final_spec = load_artifact(
+            deployment_spec.path,
+            deployment_spec.sha256,
+            label="deployment_spec",
+        )
+    else:
+        snapshot = load_artifact(
+            deployment_spec_snapshot,
+            deployment_spec.sha256,
+            label="deployment_spec_snapshot",
+        )
+        final_spec = Artifact(
+            path=deployment_spec.path,
+            sha256=snapshot.sha256,
+            raw=snapshot.raw,
+        )
     final_readiness = load_artifact(
         readiness.path,
         readiness.sha256,
@@ -1312,6 +1360,8 @@ def _validate_bridge(
         deployment_id=deployment_id,
         deployment_spec=final_spec,
         endpoint=final_endpoint,
+        deployment_spec_snapshot=deployment_spec_snapshot,
+        proxy_policy_snapshot=proxy_policy_snapshot,
     )
     if (
         not _same_json(final_endpoint, endpoint)
@@ -1355,16 +1405,36 @@ def validate_smoke_qualification(
     proxy_info_sha256: str,
     model: str,
     identity_loader: IdentityLoader | None = None,
+    deployment_spec_snapshot: Path | None = None,
+    proxy_policy_snapshot: Path | None = None,
 ) -> QualificationEvidence:
     """Validate either an exact-generation v1 smoke or a schema-v2 bridge."""
 
     if model != "Kimi-K3":
         raise SmokeQualificationError("smoke_qualification_model_invalid")
-    deployment_spec = load_artifact(
-        deployment_spec_path,
-        deployment_spec_sha256,
-        label="deployment_spec",
-    )
+    if (deployment_spec_snapshot is None) != (proxy_policy_snapshot is None):
+        raise SmokeQualificationError("deployment_snapshot_incomplete")
+    if deployment_spec_snapshot is None:
+        deployment_spec = load_artifact(
+            deployment_spec_path,
+            deployment_spec_sha256,
+            label="deployment_spec",
+        )
+    else:
+        snapshot = load_artifact(
+            deployment_spec_snapshot,
+            deployment_spec_sha256,
+            label="deployment_spec_snapshot",
+        )
+        try:
+            live_path = deployment_spec_path.resolve(strict=True)
+        except (OSError, RuntimeError) as error:
+            raise SmokeQualificationError("deployment_spec_unreadable") from error
+        deployment_spec = Artifact(
+            path=live_path,
+            sha256=snapshot.sha256,
+            raw=snapshot.raw,
+        )
     readiness = load_artifact(
         readiness_path,
         readiness_sha256,
@@ -1392,6 +1462,8 @@ def validate_smoke_qualification(
         deployment_id=deployment_id,
         deployment_spec=deployment_spec,
         endpoint=endpoint,
+        deployment_spec_snapshot=deployment_spec_snapshot,
+        proxy_policy_snapshot=proxy_policy_snapshot,
     )
     qualification = load_artifact(
         qualification_path,
@@ -1435,6 +1507,8 @@ def validate_smoke_qualification(
             proxy_policy=proxy_policy,
             model=model,
             identity_loader=identity_loader,
+            deployment_spec_snapshot=deployment_spec_snapshot,
+            proxy_policy_snapshot=proxy_policy_snapshot,
         )
     raise SmokeQualificationError("smoke_qualification_schema_invalid")
 
