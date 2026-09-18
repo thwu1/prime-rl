@@ -24,6 +24,7 @@ from deployment_endpoint import (
     validate_endpoint_binding,
 )
 from deployment_proxy_policy import (
+    KIMI_REQUEST_TIMEOUT,
     DeploymentProxyPolicyError,
     revalidate_deployment_proxy_policy,
     validate_proxy_policy_binding,
@@ -611,7 +612,10 @@ def _validate_tb4_checkpoint(
     checkpoint_endpoint = _endpoint_binding(value.get("endpoint"), label="tb4_endpoint")
     try:
         checkpoint_generation = validate_route_generation(value.get("serving_route_generation"))
-        checkpoint_proxy_policy = validate_proxy_policy_binding(value.get("proxy_policy"))
+        checkpoint_proxy_policy = validate_proxy_policy_binding(
+            value.get("proxy_policy"),
+            expected_request_timeout=KIMI_REQUEST_TIMEOUT,
+        )
     except (RouteGenerationError, DeploymentProxyPolicyError) as cause:
         raise LaunchCertificateError("tb4_checkpoint_schema_invalid") from cause
     if len(checkpoint_generation["routes"]) != 1:
@@ -1209,7 +1213,10 @@ def _validate_readiness_checkpoint(
             deployment_id=deployment_id,
             deployment_spec_sha256=deployment_spec_sha256,
         )
-        proxy_policy = validate_proxy_policy_binding(value.get("proxy_policy"))
+        proxy_policy = validate_proxy_policy_binding(
+            value.get("proxy_policy"),
+            expected_request_timeout=KIMI_REQUEST_TIMEOUT,
+        )
     except (RouteGenerationError, DeploymentProxyPolicyError) as cause:
         raise LaunchCertificateError("readiness_checkpoint_schema_invalid") from cause
     last_status = value.get("last_status")
@@ -1303,7 +1310,10 @@ def _validate_capacity_smoke(
     checkpoint_endpoint = _endpoint_binding(value.get("endpoint"), label="capacity_endpoint")
     try:
         checkpoint_generation = validate_route_generation(value.get("serving_route_generation"))
-        checkpoint_proxy_policy = validate_proxy_policy_binding(value.get("proxy_policy"))
+        checkpoint_proxy_policy = validate_proxy_policy_binding(
+            value.get("proxy_policy"),
+            expected_request_timeout=KIMI_REQUEST_TIMEOUT,
+        )
     except (RouteGenerationError, DeploymentProxyPolicyError) as cause:
         raise LaunchCertificateError("capacity_smoke_schema_invalid") from cause
     if (
@@ -1937,6 +1947,7 @@ def _build_unsigned(
             Path(spec_record["path"]),
             expected_spec_sha256=spec_record["sha256"],
             expected_binding=readiness["proxy_policy"],
+            expected_request_timeout=KIMI_REQUEST_TIMEOUT,
         )
     except DeploymentProxyPolicyError as cause:
         raise LaunchCertificateError("deployment_proxy_policy_changed") from cause
@@ -2031,6 +2042,7 @@ def _build_unsigned(
             Path(spec_record["path"]),
             expected_spec_sha256=spec_record["sha256"],
             expected_binding=readiness["proxy_policy"],
+            expected_request_timeout=KIMI_REQUEST_TIMEOUT,
         )
     except DeploymentProxyPolicyError as cause:
         raise LaunchCertificateError("deployment_proxy_policy_changed") from cause

@@ -13,6 +13,7 @@ import tomli_w
 from deployment_endpoint import load_deployment_endpoint
 from deployment_proxy_policy import (
     deployment_proxy_policy_snapshot,
+    deployment_spec_policy_snapshot,
     load_deployment_proxy_policy,
 )
 from eval_run_identity import (
@@ -61,7 +62,7 @@ def _resolved_config() -> dict:
             ],
             "max_connections": 4,
             "max_keepalive_connections": 4,
-            "timeout": 43_200,
+            "timeout": 7_200,
             "connect_timeout": 120,
         },
         "sampling": {
@@ -70,7 +71,7 @@ def _resolved_config() -> dict:
             "chat_template_kwargs": {"enable_thinking": True, "preserve_thinking": True},
         },
         "harness": {
-            "config_overrides": ["model.model_kwargs.timeout=43200"],
+            "config_overrides": [],
             "runtime": {"type": "vmvm", "session_timeout": 43_200},
         },
         "timeout": {"rollout": 36_000},
@@ -150,7 +151,7 @@ def _identity() -> dict:
             },
             "proxy_policy": {
                 "schema_version": 1,
-                "request_timeout": 43200,
+                "request_timeout": 7200,
                 "num_retries": 0,
                 "proxy_litellm_config": {
                     "path": "/deployment/proxy_litellm_config.yaml",
@@ -201,6 +202,11 @@ def test_eval_identity_rejects_legacy_and_mismatched_resume(tmp_path: Path) -> N
     legacy_generation["deployment"].pop("serving_route_generation")
     with pytest.raises(EvalIdentityError, match="schema_invalid"):
         _identity_envelope(legacy_generation)
+
+    wrong_model_timeout = _identity()
+    wrong_model_timeout["contract"]["model"] = "Kimi-K3"
+    with pytest.raises(EvalIdentityError, match="schema_invalid"):
+        _identity_envelope(wrong_model_timeout)
 
     with pytest.raises(EvalIdentityError, match="legacy_resume"):
         _bind_identity(tmp_path, _identity(), resume=True)
@@ -273,6 +279,8 @@ def test_eval_contract_binds_required_training_and_concurrency_settings() -> Non
 
     kimi = _resolved_config()
     kimi["model"] = "Kimi-K3"
+    kimi["client"]["timeout"] = 43_200
+    kimi["harness"]["config_overrides"] = ["model.model_kwargs.timeout=43200"]
     _contract(kimi, "Kimi-K3")
     for section, key, value in (
         ("client", "timeout", 7_200),
@@ -281,6 +289,8 @@ def test_eval_contract_binds_required_training_and_concurrency_settings() -> Non
     ):
         unsafe = _resolved_config()
         unsafe["model"] = "Kimi-K3"
+        unsafe["client"]["timeout"] = 43_200
+        unsafe["harness"]["config_overrides"] = ["model.model_kwargs.timeout=43200"]
         target = unsafe["harness"]["runtime"] if section == "harness.runtime" else unsafe[section]
         target[key] = value
         with pytest.raises(EvalIdentityError, match="kimi_timeout_contract_invalid"):
@@ -288,6 +298,7 @@ def test_eval_contract_binds_required_training_and_concurrency_settings() -> Non
 
     unsafe = _resolved_config()
     unsafe["model"] = "Kimi-K3"
+    unsafe["client"]["timeout"] = 43_200
     unsafe["harness"]["config_overrides"] = ["model.model_kwargs.timeout=36000"]
     with pytest.raises(EvalIdentityError, match="kimi_timeout_contract_invalid"):
         _contract(unsafe, "Kimi-K3")
@@ -362,7 +373,7 @@ def test_checkpoint_chain_is_hashed_and_role_aware(tmp_path: Path, monkeypatch: 
                 "port": 8100,
                 "url": "http://127.0.0.1:8100",
                 "api_key": "unit-test-secret",
-                "model": "approved-model",
+                "model": "Kimi-K3",
                 "proxy_jobid": "12345",
                 "extras": {"proxy_type": "litellm", "sticky": True, "redis_port": 6379},
             }
@@ -372,7 +383,7 @@ def test_checkpoint_chain_is_hashed_and_role_aware(tmp_path: Path, monkeypatch: 
     endpoint = load_deployment_endpoint(
         proxy_info,
         deployment_id=deployment_id,
-        expected_model="approved-model",
+        expected_model="Kimi-K3",
         deployment_spec=spec,
         expected_proxy_info_sha256=_sha256(proxy_info),
     ).binding
@@ -398,6 +409,7 @@ def test_checkpoint_chain_is_hashed_and_role_aware(tmp_path: Path, monkeypatch: 
     proxy_policy = load_deployment_proxy_policy(
         spec,
         expected_spec_sha256=_sha256(spec),
+        expected_request_timeout=43_200,
     )
     readiness = tmp_path / "readiness.json"
     readiness.write_text(
@@ -438,6 +450,7 @@ def test_checkpoint_chain_is_hashed_and_role_aware(tmp_path: Path, monkeypatch: 
         + "\n"
     )
     smoke_identity = _identity()
+    smoke_identity["contract"]["model"] = "Kimi-K3"
     smoke_identity["deployment"] = {
         "id": deployment_id,
         "endpoint": endpoint,
@@ -551,6 +564,7 @@ def test_checkpoint_chain_is_hashed_and_role_aware(tmp_path: Path, monkeypatch: 
         promotion_certificate=None,
         promotion_certificate_sha256=None,
         routing_deployment_id=None,
+        expected_model="Kimi-K3",
     )
 
     deployment = _checkpoint_identity(args, endpoint)
@@ -596,9 +610,9 @@ def test_checkpoint_chain_is_hashed_and_role_aware(tmp_path: Path, monkeypatch: 
     with pytest.raises(EvalIdentityError, match="cannot_use_prior_smoke"):
         _checkpoint_identity(args, endpoint)
 
-    historical_spec = tmp_path / "historical-spec.yaml"
+    historical_spec = tmp_path / "historical-spec-policy.json"
     historical_policy = tmp_path / "historical-policy.json"
-    historical_spec.write_bytes(spec.read_bytes())
+    historical_spec.write_bytes(deployment_spec_policy_snapshot(_sha256(spec), proxy_policy))
     historical_policy.write_bytes(deployment_proxy_policy_snapshot(proxy_policy))
     spec.write_text(
         "spec:\n"

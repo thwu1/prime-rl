@@ -25,7 +25,7 @@ from pathlib import Path
 from typing import Any, Mapping, Protocol
 
 from deployment_endpoint import EndpointBindingError, load_deployment_endpoint
-from deployment_proxy_policy import validate_proxy_policy_binding
+from deployment_proxy_policy import request_timeout_for_model, validate_proxy_policy_binding
 from eval_run_identity import load_eval_run_identity
 from inference_route_generation import canonical_backend_identifier, validate_route_generation
 from smoke_qualification import (
@@ -566,7 +566,10 @@ def _source_context(
             expected_proxy_info_sha256=deployment["endpoint"]["proxy_info"]["sha256"],
         ).binding
         generation = validate_route_generation(deployment["serving_route_generation"])
-        proxy_policy = validate_proxy_policy_binding(deployment["proxy_policy"])
+        proxy_policy = validate_proxy_policy_binding(
+            deployment["proxy_policy"],
+            expected_request_timeout=request_timeout_for_model(model),
+        )
     except (KeyError, TypeError, ValueError, EndpointBindingError) as error:
         raise GenerationBridgeError("source_smoke_context_invalid") from error
     ready_generation, ready_policy = validate_readiness(
@@ -574,6 +577,7 @@ def _source_context(
         deployment_id=deployment["id"],
         deployment_spec=target_spec,
         endpoint=endpoint,
+        model=model,
     )
     if ready_generation != generation or ready_policy != proxy_policy:
         raise GenerationBridgeError("source_smoke_context_mismatch")
@@ -657,6 +661,7 @@ def create_bridge(
         deployment_id=deployment_id,
         deployment_spec=spec,
         endpoint=target_endpoint,
+        model=model,
     )
     (
         source_readiness,
@@ -723,6 +728,7 @@ def create_bridge(
         deployment_id=deployment_id,
         deployment_spec=spec,
         endpoint=reloaded_endpoint,
+        model=model,
     )
     if (
         reloaded_endpoint != target_endpoint

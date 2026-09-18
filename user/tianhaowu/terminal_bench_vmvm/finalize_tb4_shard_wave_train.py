@@ -498,7 +498,7 @@ def _load_and_validate_checkpoint(
         "results.jsonl",
         "audit_summary.json",
         "checkpoint.json",
-        "deployment_spec.yaml",
+        "deployment_spec_policy.json",
         "proxy_policy.json",
     } or any(
         not stat.S_ISREG(metadata.st_mode) or stat.S_IMODE(metadata.st_mode) != 0o600 for metadata in members.values()

@@ -18,14 +18,12 @@ from yaml.events import AliasEvent
 from yaml.nodes import MappingNode
 
 POLICY_SCHEMA_VERSION = 1
-REQUIRED_REQUEST_TIMEOUT = 43_200
+DEFAULT_REQUEST_TIMEOUT = 7_200
+KIMI_REQUEST_TIMEOUT = 43_200
 REQUIRED_NUM_RETRIES = 0
 MAX_YAML_BYTES = 4 * 1024 * 1024
 SHA256_RE = re.compile(r"[0-9a-f]{64}")
-REQUIRED_POLICY = {
-    "request_timeout": REQUIRED_REQUEST_TIMEOUT,
-    "num_retries": REQUIRED_NUM_RETRIES,
-}
+SUPPORTED_REQUEST_TIMEOUTS = frozenset({DEFAULT_REQUEST_TIMEOUT, KIMI_REQUEST_TIMEOUT})
 YAML_MERGE_TAG = "tag:yaml.org,2002:merge"
 
 
@@ -133,8 +131,27 @@ def _nested_mapping(value: dict[Any, Any], key: str, *, label: str) -> dict[Any,
     return nested
 
 
-def _validate_exact_policy(value: dict[Any, Any], *, label: str) -> None:
-    for key, expected in REQUIRED_POLICY.items():
+def request_timeout_for_model(model: str) -> int:
+    return KIMI_REQUEST_TIMEOUT if model == "Kimi-K3" else DEFAULT_REQUEST_TIMEOUT
+
+
+def _require_supported_timeout(value: Any) -> int:
+    if type(value) is not int or value not in SUPPORTED_REQUEST_TIMEOUTS:
+        raise DeploymentProxyPolicyError("expected_request_timeout_invalid")
+    return value
+
+
+def _validate_exact_policy(
+    value: dict[Any, Any],
+    *,
+    expected_request_timeout: int,
+    label: str,
+) -> None:
+    expected_request_timeout = _require_supported_timeout(expected_request_timeout)
+    for key, expected in {
+        "request_timeout": expected_request_timeout,
+        "num_retries": REQUIRED_NUM_RETRIES,
+    }.items():
         if key not in value:
             raise DeploymentProxyPolicyError(f"{label}_invalid")
         observed = value.get(key)
@@ -142,7 +159,13 @@ def _validate_exact_policy(value: dict[Any, Any], *, label: str) -> None:
             raise DeploymentProxyPolicyError(f"{label}_invalid")
 
 
-def _validate_policy_text(text: str, *, generated: bool, label: str) -> None:
+def _validate_policy_text(
+    text: str,
+    *,
+    generated: bool,
+    expected_request_timeout: int,
+    label: str,
+) -> None:
     document = _load_yaml_mapping(text, label=label)
     if generated:
         config = _nested_mapping(document, "litellm_settings", label=label)
@@ -150,13 +173,18 @@ def _validate_policy_text(text: str, *, generated: bool, label: str) -> None:
         spec = _nested_mapping(document, "spec", label=label)
         proxy = _nested_mapping(spec, "proxy", label=label)
         config = _nested_mapping(proxy, "config", label=label)
-    _validate_exact_policy(config, label=label)
+    _validate_exact_policy(
+        config,
+        expected_request_timeout=expected_request_timeout,
+        label=label,
+    )
 
 
 def validate_deployment_spec_proxy_policy(
     deployment_spec: Path,
     *,
     expected_spec_sha256: str,
+    expected_request_timeout: int,
 ) -> Path:
     """Validate the typed policy in spec.yaml and return its deployment directory."""
 
@@ -165,7 +193,12 @@ def validate_deployment_spec_proxy_policy(
     resolved, text, observed_sha256 = _read_stable_yaml(deployment_spec, label="deployment_spec")
     if observed_sha256 != expected_spec_sha256:
         raise DeploymentProxyPolicyError("deployment_spec_sha256_mismatch")
-    _validate_policy_text(text, generated=False, label="deployment_proxy_policy")
+    _validate_policy_text(
+        text,
+        generated=False,
+        expected_request_timeout=expected_request_timeout,
+        label="deployment_proxy_policy",
+    )
     return resolved.parent
 
 
@@ -173,21 +206,28 @@ def load_deployment_proxy_policy(
     deployment_spec: Path,
     *,
     expected_spec_sha256: str,
+    expected_request_timeout: int,
 ) -> dict[str, Any]:
     """Validate spec and generated config, returning only policy values and a file hash."""
 
     deployment_dir = validate_deployment_spec_proxy_policy(
         deployment_spec,
         expected_spec_sha256=expected_spec_sha256,
+        expected_request_timeout=expected_request_timeout,
     )
     config_path, generated, generated_sha256 = _read_stable_yaml(
         deployment_dir / "proxy_litellm_config.yaml",
         label="proxy_litellm_config",
     )
-    _validate_policy_text(generated, generated=True, label="generated_proxy_policy")
+    _validate_policy_text(
+        generated,
+        generated=True,
+        expected_request_timeout=expected_request_timeout,
+        label="generated_proxy_policy",
+    )
     return {
         "schema_version": POLICY_SCHEMA_VERSION,
-        "request_timeout": REQUIRED_REQUEST_TIMEOUT,
+        "request_timeout": expected_request_timeout,
         "num_retries": REQUIRED_NUM_RETRIES,
         "proxy_litellm_config": {
             "path": str(config_path),
@@ -196,7 +236,11 @@ def load_deployment_proxy_policy(
     }
 
 
-def validate_proxy_policy_binding(value: Any) -> dict[str, Any]:
+def validate_proxy_policy_binding(
+    value: Any,
+    *,
+    expected_request_timeout: int | None = None,
+) -> dict[str, Any]:
     """Validate one persisted secret-free generated proxy policy binding."""
 
     if not isinstance(value, dict) or set(value) != {
@@ -213,12 +257,15 @@ def validate_proxy_policy_binding(value: Any) -> dict[str, Any]:
         or schema_version != POLICY_SCHEMA_VERSION
     ):
         raise DeploymentProxyPolicyError("proxy_policy_binding_invalid")
+    if expected_request_timeout is not None:
+        expected_request_timeout = _require_supported_timeout(expected_request_timeout)
     request_timeout = value.get("request_timeout")
     num_retries = value.get("num_retries")
     if (
         not isinstance(request_timeout, int)
         or isinstance(request_timeout, bool)
-        or request_timeout != REQUIRED_REQUEST_TIMEOUT
+        or request_timeout not in SUPPORTED_REQUEST_TIMEOUTS
+        or (expected_request_timeout is not None and request_timeout != expected_request_timeout)
         or not isinstance(num_retries, int)
         or isinstance(num_retries, bool)
         or num_retries != REQUIRED_NUM_RETRIES
@@ -236,7 +283,7 @@ def validate_proxy_policy_binding(value: Any) -> dict[str, Any]:
         raise DeploymentProxyPolicyError("proxy_policy_binding_invalid")
     return {
         "schema_version": POLICY_SCHEMA_VERSION,
-        "request_timeout": REQUIRED_REQUEST_TIMEOUT,
+        "request_timeout": request_timeout,
         "num_retries": REQUIRED_NUM_RETRIES,
         "proxy_litellm_config": dict(artifact),
     }
@@ -247,11 +294,16 @@ def revalidate_deployment_proxy_policy(
     *,
     expected_spec_sha256: str,
     expected_binding: Any,
+    expected_request_timeout: int | None = None,
 ) -> dict[str, Any]:
-    expected = validate_proxy_policy_binding(expected_binding)
+    expected = validate_proxy_policy_binding(
+        expected_binding,
+        expected_request_timeout=expected_request_timeout,
+    )
     observed = load_deployment_proxy_policy(
         deployment_spec,
         expected_spec_sha256=expected_spec_sha256,
+        expected_request_timeout=expected["request_timeout"],
     )
     if observed != expected:
         raise DeploymentProxyPolicyError("proxy_policy_changed")
@@ -268,17 +320,15 @@ def validate_deployment_proxy_policy_snapshot(
     """Validate immutable historical policy bytes without requiring their old live paths."""
 
     expected = validate_proxy_policy_binding(expected_binding)
-    _, spec_text, spec_sha256 = _read_stable_yaml(
+    _, spec_snapshot_text, _ = _read_stable_yaml(
         deployment_spec_snapshot,
         label="deployment_spec_snapshot",
     )
-    if spec_sha256 != expected_spec_sha256:
-        raise DeploymentProxyPolicyError("deployment_spec_snapshot_sha256_mismatch")
-    _validate_policy_text(
-        spec_text,
-        generated=False,
-        label="deployment_spec_snapshot_policy",
-    )
+    if spec_snapshot_text.encode() != deployment_spec_policy_snapshot(
+        expected_spec_sha256,
+        expected,
+    ):
+        raise DeploymentProxyPolicyError("deployment_spec_snapshot_mismatch")
     _, snapshot_text, _ = _read_stable_yaml(
         proxy_policy_snapshot,
         label="proxy_policy_snapshot",
@@ -294,8 +344,26 @@ def deployment_proxy_policy_snapshot(binding: Any) -> bytes:
     policy = validate_proxy_policy_binding(binding)
     value = {
         "schema_version": POLICY_SCHEMA_VERSION,
-        "request_timeout": REQUIRED_REQUEST_TIMEOUT,
+        "request_timeout": policy["request_timeout"],
         "num_retries": REQUIRED_NUM_RETRIES,
         "source_sha256": policy["proxy_litellm_config"]["sha256"],
+    }
+    return json.dumps(value, sort_keys=True, separators=(",", ":")).encode() + b"\n"
+
+
+def deployment_spec_policy_snapshot(
+    source_sha256: str,
+    binding: Any,
+) -> bytes:
+    """Return canonical allowlisted spec evidence without copying arbitrary siblings."""
+
+    if not isinstance(source_sha256, str) or SHA256_RE.fullmatch(source_sha256) is None:
+        raise DeploymentProxyPolicyError("deployment_spec_sha256_invalid")
+    policy = validate_proxy_policy_binding(binding)
+    value = {
+        "schema_version": POLICY_SCHEMA_VERSION,
+        "request_timeout": policy["request_timeout"],
+        "num_retries": policy["num_retries"],
+        "source_sha256": source_sha256,
     }
     return json.dumps(value, sort_keys=True, separators=(",", ":")).encode() + b"\n"

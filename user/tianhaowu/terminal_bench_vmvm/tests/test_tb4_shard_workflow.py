@@ -214,6 +214,7 @@ def test_merge_publishes_only_complete_certified_partition(tmp_path: Path, monke
     deployment_spec.parent.mkdir()
     deployment_spec.write_text(
         "spec:\n  proxy:\n    config:\n      request_timeout: 43200\n      num_retries: 0\n"
+        "credential_sibling: must-not-be-copied\n"
     )
     proxy_config = deployment_spec.parent / "proxy_litellm_config.yaml"
     proxy_config.write_text(
@@ -329,7 +330,11 @@ def test_merge_publishes_only_complete_certified_partition(tmp_path: Path, monke
     assert validated["sharded"] is True
     assert validated["shard_count"] == len(shards)
     assert historical_snapshots[: len(shards)] == [(None, None)] * len(shards)
-    assert all(spec == output / "deployment_spec.yaml" for spec, _ in historical_snapshots[len(shards) :])
+    assert all(
+        spec == output / "deployment_spec_policy.json"
+        for spec, _ in historical_snapshots[len(shards) :]
+    )
+    assert b"must-not-be-copied" not in (output / "deployment_spec_policy.json").read_bytes()
     assert all(proxy == output / "proxy_policy.json" for _, proxy in historical_snapshots[len(shards) :])
 
     tampered = json.loads(json.dumps(receipt))

@@ -375,8 +375,13 @@ client/proxy limit. This makes an owned rollout boundary fire before an HTTP
 read timeout.
 The policy file is scoped to its readiness generation: a deliberate resize may
 rewrite both live policy files, so the sharded TB4 finalizer privately snapshots
-the historical spec plus secret-free canonical policy evidence bound to the
-original generated-file hash. Post-resize readiness binds the new live files.
+two canonical allowlisted records: one binds the historical spec hash and typed
+policy, and one binds the original generated-file hash and typed policy. Raw
+spec or generated-config bytes are never retained. Post-resize readiness binds
+the new live files.
+This timeout is selected from the exact requested model: unrelated/Qwen
+readiness remains pinned to its existing 7,200-second policy and cannot be
+cross-certified against a Kimi artifact.
 
 The default config is `configs/eval/tb4_kimi_k3_max_miniswe.toml`: 66 tasks,
 pass@1, mini-swe-agent, `reasoning_effort=max`, one VMVM per rollout, and a

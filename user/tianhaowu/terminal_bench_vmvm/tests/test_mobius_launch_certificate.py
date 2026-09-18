@@ -756,6 +756,7 @@ def _fixture(
     proxy_policy = load_deployment_proxy_policy(
         spec,
         expected_spec_sha256=spec_sha256,
+        expected_request_timeout=43_200,
     )
     tb4_proxy_policy = {
         **proxy_policy,
@@ -1165,6 +1166,20 @@ def test_create_and_verify_launch_certificate_without_task_metadata(
     assert len(_strict_identity_loader) == 4
     with pytest.raises(LaunchCertificateError, match="^launch_inputs_mismatch$"):
         _validate_for_run(arguments, output, file_sha256, requested_leases=3)
+
+
+def test_kimi_launch_rejects_structurally_valid_7200_readiness_policy(tmp_path: Path) -> None:
+    arguments, _ = _fixture(tmp_path)
+    readiness = json.loads(Path(arguments["readiness_checkpoint"]).read_text())
+    readiness["proxy_policy"]["request_timeout"] = 7_200
+
+    with pytest.raises(LaunchCertificateError, match="readiness_checkpoint_schema_invalid"):
+        certificate_module._validate_readiness_checkpoint(
+            readiness,
+            deployment_id=str(arguments["deployment_id"]),
+            deployment_spec_sha256=str(arguments["deployment_spec_sha256"]),
+            endpoint=readiness["endpoint"],
+        )
 
 
 def test_create_and_reconstruct_launch_certificate_with_sharded_tb4(

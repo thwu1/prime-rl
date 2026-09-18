@@ -5,13 +5,25 @@ from pathlib import Path
 
 import pytest
 from deployment_proxy_policy import (
+    KIMI_REQUEST_TIMEOUT,
     DeploymentProxyPolicyError,
     deployment_proxy_policy_snapshot,
-    load_deployment_proxy_policy,
+    deployment_spec_policy_snapshot,
     revalidate_deployment_proxy_policy,
     validate_deployment_proxy_policy_snapshot,
     validate_proxy_policy_binding,
 )
+from deployment_proxy_policy import (
+    load_deployment_proxy_policy as _load_deployment_proxy_policy,
+)
+
+
+def load_deployment_proxy_policy(spec: Path, *, expected_spec_sha256: str):
+    return _load_deployment_proxy_policy(
+        spec,
+        expected_spec_sha256=expected_spec_sha256,
+        expected_request_timeout=KIMI_REQUEST_TIMEOUT,
+    )
 
 
 def _sha256(path: Path) -> str:
@@ -56,6 +68,46 @@ def test_policy_binds_only_typed_values_and_generated_file_hash(tmp_path: Path) 
         )
         == binding
     )
+
+
+def test_policy_timeout_is_explicitly_model_scoped(tmp_path: Path) -> None:
+    spec, generated = _files(tmp_path)
+    spec.write_text(spec.read_text().replace("request_timeout: 43200", "request_timeout: 7200"))
+    generated.write_text(
+        generated.read_text().replace("request_timeout: 43200", "request_timeout: 7200")
+    )
+
+    qwen = _load_deployment_proxy_policy(
+        spec,
+        expected_spec_sha256=_sha256(spec),
+        expected_request_timeout=7_200,
+    )
+    assert qwen["request_timeout"] == 7_200
+    qwen_spec_snapshot = tmp_path / "qwen-spec-policy.json"
+    qwen_proxy_snapshot = tmp_path / "qwen-proxy-policy.json"
+    qwen_spec_snapshot.write_bytes(deployment_spec_policy_snapshot(_sha256(spec), qwen))
+    qwen_proxy_snapshot.write_bytes(deployment_proxy_policy_snapshot(qwen))
+    assert (
+        validate_deployment_proxy_policy_snapshot(
+            qwen_spec_snapshot,
+            qwen_proxy_snapshot,
+            expected_spec_sha256=_sha256(spec),
+            expected_binding=qwen,
+        )
+        == qwen
+    )
+    with pytest.raises(DeploymentProxyPolicyError, match="deployment_proxy_policy_invalid"):
+        _load_deployment_proxy_policy(
+            spec,
+            expected_spec_sha256=_sha256(spec),
+            expected_request_timeout=KIMI_REQUEST_TIMEOUT,
+        )
+    with pytest.raises(DeploymentProxyPolicyError, match="expected_request_timeout_invalid"):
+        _load_deployment_proxy_policy(
+            spec,
+            expected_spec_sha256=_sha256(spec),
+            expected_request_timeout=36_000,
+        )
 
 
 def test_unrelated_policy_siblings_are_allowed(tmp_path: Path) -> None:
@@ -113,12 +165,15 @@ def test_generated_policy_and_hash_are_revalidated(tmp_path: Path) -> None:
 
 def test_historical_policy_snapshot_survives_live_file_replacement(tmp_path: Path) -> None:
     spec, generated = _files(tmp_path)
-    binding = load_deployment_proxy_policy(spec, expected_spec_sha256=_sha256(spec))
+    spec.write_text(spec.read_text() + "credential_sibling: must-not-be-copied\n")
+    source_spec_sha256 = _sha256(spec)
+    binding = load_deployment_proxy_policy(spec, expected_spec_sha256=source_spec_sha256)
     snapshot_spec = tmp_path / "snapshot-spec.yaml"
     snapshot_generated = tmp_path / "snapshot-policy.json"
-    snapshot_spec.write_bytes(spec.read_bytes())
+    snapshot_spec.write_bytes(deployment_spec_policy_snapshot(source_spec_sha256, binding))
     snapshot_generated.write_bytes(deployment_proxy_policy_snapshot(binding))
     assert b"secret-that-must-not-be-copied" not in snapshot_generated.read_bytes()
+    assert b"must-not-be-copied" not in snapshot_spec.read_bytes()
     spec.write_text("spec:\n  num_endpoints: 24\n")
     generated.write_text("litellm_settings:\n  request_timeout: 43200\n  num_retries: 0\n  model_list: []\n")
 
@@ -126,7 +181,7 @@ def test_historical_policy_snapshot_survives_live_file_replacement(tmp_path: Pat
         validate_deployment_proxy_policy_snapshot(
             snapshot_spec,
             snapshot_generated,
-            expected_spec_sha256=_sha256(snapshot_spec),
+            expected_spec_sha256=source_spec_sha256,
             expected_binding=binding,
         )
         == binding
@@ -139,7 +194,7 @@ def test_historical_policy_snapshot_survives_live_file_replacement(tmp_path: Pat
         validate_deployment_proxy_policy_snapshot(
             snapshot_spec,
             snapshot_generated,
-            expected_spec_sha256=_sha256(snapshot_spec),
+            expected_spec_sha256=source_spec_sha256,
             expected_binding=binding,
         )
 

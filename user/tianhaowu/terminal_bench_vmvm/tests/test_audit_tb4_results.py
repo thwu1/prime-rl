@@ -231,6 +231,7 @@ def _certificate_fixture(
     proxy_policy = load_deployment_proxy_policy(
         spec,
         expected_spec_sha256=_file_digest(spec),
+        expected_request_timeout=43_200,
     )
     readiness_payload = {
         "schema_version": 1,

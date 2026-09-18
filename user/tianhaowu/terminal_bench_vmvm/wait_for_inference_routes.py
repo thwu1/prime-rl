@@ -35,6 +35,7 @@ from deployment_endpoint import (
 from deployment_proxy_policy import (
     DeploymentProxyPolicyError,
     load_deployment_proxy_policy,
+    request_timeout_for_model,
     revalidate_deployment_proxy_policy,
     validate_deployment_spec_proxy_policy,
 )
@@ -553,6 +554,7 @@ def run_gate(
         _atomic_write_json(output, artifact)
         return artifact
 
+    expected_request_timeout = request_timeout_for_model(config.model)
     try:
         while True:
             if polls and monotonic() >= deadline:
@@ -565,6 +567,7 @@ def run_gate(
                 validate_deployment_spec_proxy_policy(
                     config.resolved_spec(),
                     expected_spec_sha256=config.expected_spec_sha256,
+                    expected_request_timeout=expected_request_timeout,
                 )
             except DeploymentProxyPolicyError as exc:
                 raise GateError("deployment_proxy_policy_invalid") from exc
@@ -637,6 +640,7 @@ def run_gate(
                         proxy_policy = load_deployment_proxy_policy(
                             config.resolved_spec(),
                             expected_spec_sha256=config.expected_spec_sha256,
+                            expected_request_timeout=expected_request_timeout,
                         )
                     except DeploymentProxyPolicyError as exc:
                         if str(exc) != "proxy_litellm_config_unreadable":
@@ -748,6 +752,7 @@ def run_gate(
                         config.resolved_spec(),
                         expected_spec_sha256=config.expected_spec_sha256,
                         expected_binding=proxy_policy,
+                        expected_request_timeout=expected_request_timeout,
                     )
                 except DeploymentProxyPolicyError as exc:
                     raise GateError("deployment_proxy_policy_changed") from exc

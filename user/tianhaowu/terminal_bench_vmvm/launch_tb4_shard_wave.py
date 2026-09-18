@@ -24,7 +24,7 @@ from deployment_endpoint import (
     load_deployment_endpoint,
     validate_endpoint_binding,
 )
-from deployment_proxy_policy import REQUIRED_REQUEST_TIMEOUT
+from deployment_proxy_policy import KIMI_REQUEST_TIMEOUT
 from inference_route_generation import (
     RouteGenerationError,
     validate_readiness_route_generation,
@@ -260,7 +260,7 @@ def _proxy_policy(value: Any) -> dict[str, Any]:
         or type(value.get("schema_version")) is not int
         or value["schema_version"] != 1
         or type(value.get("request_timeout")) is not int
-        or value["request_timeout"] != REQUIRED_REQUEST_TIMEOUT
+        or value["request_timeout"] != KIMI_REQUEST_TIMEOUT
         or type(value.get("num_retries")) is not int
         or value["num_retries"] != 0
     ):

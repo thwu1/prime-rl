@@ -248,11 +248,13 @@ reject aliases/merge keys and quoted or tagged type confusion, require the
 same typed values, and bind its
 full-file SHA-256 without recording its URL, key, or contents. That generated
 file is mutable across an intentional resize. The sharded TB4 finalizer must
-snapshot the historical deployment spec and secret-free canonical proxy-policy
-evidence bound to the generated file's original hash. Revalidate historical
-shard and smoke evidence against those frozen files after resize; require the
-live files only for the currently active readiness record. Never copy proxy
-credentials into the historical bundle.
+snapshot canonical allowlisted evidence binding the historical spec hash,
+typed policy, and generated file's original hash; never copy either raw file.
+Revalidate historical shard and smoke evidence against those frozen files
+after resize; require the live files only for the currently active readiness
+record. Enforce the model-bound timeout while retaining the existing
+7,200-second policy for unrelated/Qwen readiness rather than changing a global
+default. Never copy proxy credentials into the historical bundle.
 
 When auditing a production trace file interactively, pass
 `audit_traces.py --aggregate-only`; this reports counts and stable problem codes

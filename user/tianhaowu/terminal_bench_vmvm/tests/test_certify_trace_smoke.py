@@ -196,6 +196,7 @@ def _fixture(
     proxy_policy = load_deployment_proxy_policy(
         spec,
         expected_spec_sha256=_sha256_bytes(spec.read_bytes()),
+        expected_request_timeout=43_200,
     )
     readiness = tmp_path / "readiness.json"
     readiness.write_text(

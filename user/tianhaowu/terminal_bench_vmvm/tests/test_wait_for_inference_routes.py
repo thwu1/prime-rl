@@ -156,6 +156,8 @@ def _backends(count: int) -> list[str]:
 
 
 def _config(tmp_path: Path, **overrides: Any) -> GateConfig:
+    model = str(overrides.get("model", "Kimi-K3"))
+    request_timeout = 43_200 if model == "Kimi-K3" else 7_200
     serve_sh = tmp_path / "serve.sh"
     probe_script = tmp_path / "probe.py"
     serve_sh.touch()
@@ -167,12 +169,12 @@ def _config(tmp_path: Path, **overrides: Any) -> GateConfig:
         "spec:\n"
         "  proxy:\n"
         "    config:\n"
-        "      request_timeout: 43200\n"
+        f"      request_timeout: {request_timeout}\n"
         "      num_retries: 0\n"
     )
     (deployment_dir / "proxy_litellm_config.yaml").write_text(
         "litellm_settings:\n"
-        "  request_timeout: 43200\n"
+        f"  request_timeout: {request_timeout}\n"
         "  num_retries: 0\n"
     )
     proxy_info = deployment_dir / "proxy_info.json"
@@ -183,7 +185,7 @@ def _config(tmp_path: Path, **overrides: Any) -> GateConfig:
                 "port": 8100,
                 "url": "http://proxy-info-url:8100",
                 "api_key": "unit-test-secret",
-                "model": "Kimi-K3",
+                "model": model,
                 "proxy_jobid": "12345",
                 "extras": {
                     "proxy_type": "litellm",
@@ -197,6 +199,7 @@ def _config(tmp_path: Path, **overrides: Any) -> GateConfig:
     )
     values: dict[str, Any] = {
         "deployment": "test-deployment",
+        "model": model,
         "expected_spec_sha256": hashlib.sha256(spec.read_bytes()).hexdigest(),
         "serve_sh": serve_sh,
         "probe_script": probe_script,
@@ -277,6 +280,38 @@ def test_three_exact_polls_run_strict_probe_and_write_redacted_artifact(
     assert "--skip-health" not in probe_argv
     assert all("logprob" not in argument for argument in probe_argv)
     assert "return_token_ids" not in probe_argv
+
+
+def test_qwen_readiness_keeps_7200_policy_and_crossed_kimi_policy_fails(tmp_path: Path) -> None:
+    qwen_root = tmp_path / "qwen"
+    qwen_root.mkdir()
+    qwen = _config(qwen_root, model="Qwen3-Coder-480B-A35B-Instruct-FP8")
+    runner = FakeRunner(
+        [
+            _status(coord_ticks=10),
+            _status(coord_ticks=11),
+            _status(coord_ticks=12),
+            _probe(),
+            _status(coord_ticks=13),
+        ]
+    )
+    artifact = _run(qwen, runner, FakeClock())
+    assert artifact["proxy_policy"]["request_timeout"] == 7_200
+
+    crossed_root = tmp_path / "crossed"
+    crossed_root.mkdir()
+    crossed = _config(crossed_root)
+    crossed.resolved_spec().write_text(
+        crossed.resolved_spec().read_text().replace("request_timeout: 43200", "request_timeout: 7200")
+    )
+    crossed = GateConfig(
+        **{
+            **crossed.__dict__,
+            "expected_spec_sha256": hashlib.sha256(crossed.resolved_spec().read_bytes()).hexdigest(),
+        }
+    )
+    with pytest.raises(GateError, match="deployment_proxy_policy_invalid"):
+        _run(crossed, FakeRunner([]), FakeClock())
 
 
 def test_nonready_poll_resets_consecutive_streak(tmp_path: Path) -> None:

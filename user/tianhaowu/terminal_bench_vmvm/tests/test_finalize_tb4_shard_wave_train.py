@@ -438,7 +438,7 @@ def _write_output(output: Path, value: dict) -> bytes:
     for name, payload in (
         ("results.jsonl", b"results\n"),
         ("audit_summary.json", b"{}\n"),
-        ("deployment_spec.yaml", b"spec: {}\n"),
+        ("deployment_spec_policy.json", b"{}\n"),
         ("proxy_policy.json", b"{}\n"),
         ("checkpoint.json", raw),
     ):

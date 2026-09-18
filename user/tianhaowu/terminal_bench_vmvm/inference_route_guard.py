@@ -25,6 +25,7 @@ from deployment_endpoint import (
 )
 from deployment_proxy_policy import (
     DeploymentProxyPolicyError,
+    request_timeout_for_model,
     revalidate_deployment_proxy_policy,
     validate_proxy_policy_binding,
 )
@@ -192,11 +193,16 @@ def load_route_binding(
             deployment_spec_sha256=deployment_spec_sha256,
         )
         readiness_endpoint = validate_endpoint_binding(payload.get("endpoint"))
-        proxy_policy = validate_proxy_policy_binding(payload.get("proxy_policy"))
+        expected_request_timeout = request_timeout_for_model(expected_model)
+        proxy_policy = validate_proxy_policy_binding(
+            payload.get("proxy_policy"),
+            expected_request_timeout=expected_request_timeout,
+        )
         revalidate_deployment_proxy_policy(
             resolved_spec,
             expected_spec_sha256=deployment_spec_sha256,
             expected_binding=proxy_policy,
+            expected_request_timeout=expected_request_timeout,
         )
         endpoint = load_deployment_endpoint(
             proxy_info,
@@ -413,6 +419,7 @@ def verify_live_route_generation(
             binding.deployment_spec,
             expected_spec_sha256=binding.deployment_spec_sha256,
             expected_binding=binding.proxy_policy,
+            expected_request_timeout=request_timeout_for_model(binding.expected_model),
         )
     except DeploymentProxyPolicyError as error:
         raise RouteGuardError("deployment_proxy_policy_changed") from error
@@ -420,6 +427,7 @@ def verify_live_route_generation(
         deployment=binding.deployment_id,
         expected_spec_sha256=binding.deployment_spec_sha256,
         expected_routes=binding.expected_routes,
+        model=binding.expected_model,
         serve_sh=serve_sh,
         spec=binding.deployment_spec,
         output=Path("unused-route-guard-output.json"),

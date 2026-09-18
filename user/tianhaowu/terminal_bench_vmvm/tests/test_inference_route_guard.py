@@ -64,13 +64,20 @@ def _status(
     return ProcessResult(0, json.dumps(payload))
 
 
-def _binding(tmp_path: Path) -> tuple[RouteBinding, list[dict[str, Any]]]:
+def _binding(
+    tmp_path: Path,
+    *,
+    model: str = "Kimi-K3",
+) -> tuple[RouteBinding, list[dict[str, Any]]]:
+    request_timeout = 43_200 if model == "Kimi-K3" else 7_200
     deployment_dir = tmp_path / "deployment-test"
     deployment_dir.mkdir()
     spec = deployment_dir / "spec.yaml"
-    spec.write_text("spec:\n  proxy:\n    config:\n      request_timeout: 43200\n      num_retries: 0\n")
+    spec.write_text(
+        f"spec:\n  proxy:\n    config:\n      request_timeout: {request_timeout}\n      num_retries: 0\n"
+    )
     (deployment_dir / "proxy_litellm_config.yaml").write_text(
-        "litellm_settings:\n  request_timeout: 43200\n  num_retries: 0\n"
+        f"litellm_settings:\n  request_timeout: {request_timeout}\n  num_retries: 0\n"
     )
     proxy_info = deployment_dir / "proxy_info.json"
     proxy_info.write_text(
@@ -80,7 +87,7 @@ def _binding(tmp_path: Path) -> tuple[RouteBinding, list[dict[str, Any]]]:
                 "port": 8100,
                 "url": "http://proxy-host:8100",
                 "api_key": "unit-test-secret",
-                "model": "Kimi-K3",
+                "model": model,
                 "proxy_jobid": "999",
                 "extras": {"proxy_type": "litellm", "sticky": True, "redis_port": 6379},
             }
@@ -89,7 +96,7 @@ def _binding(tmp_path: Path) -> tuple[RouteBinding, list[dict[str, Any]]]:
     endpoint = load_deployment_endpoint(
         proxy_info,
         deployment_id="deployment-test",
-        expected_model="Kimi-K3",
+        expected_model=model,
         deployment_spec=spec,
         expected_proxy_info_sha256=_sha256(proxy_info),
     ).binding
@@ -118,7 +125,11 @@ def _binding(tmp_path: Path) -> tuple[RouteBinding, list[dict[str, Any]]]:
             "first_ready_at": "2026-09-17T00:30:00Z",
         },
     )
-    policy = load_deployment_proxy_policy(spec, expected_spec_sha256=_sha256(spec))
+    policy = load_deployment_proxy_policy(
+        spec,
+        expected_spec_sha256=_sha256(spec),
+        expected_request_timeout=request_timeout,
+    )
     readiness = tmp_path / "readiness.json"
     readiness.write_text(
         json.dumps(
@@ -165,7 +176,7 @@ def _binding(tmp_path: Path) -> tuple[RouteBinding, list[dict[str, Any]]]:
             readiness_checkpoint_sha256=_sha256(readiness),
             proxy_info=proxy_info,
             proxy_info_sha256=_sha256(proxy_info),
-            expected_model="Kimi-K3",
+            expected_model=model,
         ),
         endpoints,
     )
@@ -187,6 +198,19 @@ def test_live_guard_accepts_only_the_bound_job_and_backend_set(tmp_path: Path) -
             runner=lambda _argv, _timeout: _status(rotated),
             serve_sh=tmp_path / "serve.sh",
         )
+
+
+def test_qwen_route_binding_preserves_7200_policy(tmp_path: Path) -> None:
+    binding, endpoints = _binding(
+        tmp_path,
+        model="Qwen3-Coder-480B-A35B-Instruct-FP8",
+    )
+    assert binding.proxy_policy["request_timeout"] == 7_200
+    verify_live_route_generation(
+        binding,
+        runner=lambda _argv, _timeout: _status(endpoints),
+        serve_sh=tmp_path / "serve.sh",
+    )
 
     with pytest.raises(RouteGuardError, match="serving_route_generation_changed"):
         verify_live_route_generation(

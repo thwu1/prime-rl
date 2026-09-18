@@ -24,8 +24,9 @@ from deployment_endpoint import (
     validate_endpoint_binding,
 )
 from deployment_proxy_policy import (
-    REQUIRED_REQUEST_TIMEOUT,
+    KIMI_REQUEST_TIMEOUT,
     DeploymentProxyPolicyError,
+    request_timeout_for_model,
     revalidate_deployment_proxy_policy,
     validate_deployment_proxy_policy_snapshot,
     validate_proxy_policy_binding,
@@ -87,7 +88,7 @@ def validate_kimi_timeout_contract(config: dict[str, Any]) -> dict[str, int]:
     ):
         raise EvalIdentityError("kimi_timeout_contract_invalid")
     assert isinstance(client, dict) and isinstance(timeouts, dict) and isinstance(runtime, dict)
-    harness_timeout_override = f"model.model_kwargs.timeout={REQUIRED_REQUEST_TIMEOUT}"
+    harness_timeout_override = f"model.model_kwargs.timeout={KIMI_REQUEST_TIMEOUT}"
     harness_timeout_entries = [
         value for value in overrides if value.startswith("model.model_kwargs.timeout=")
     ]
@@ -97,7 +98,7 @@ def validate_kimi_timeout_contract(config: dict[str, Any]) -> dict[str, int]:
     session_timeout = runtime.get("session_timeout")
     if (
         type(request_timeout) is not int
-        or request_timeout != REQUIRED_REQUEST_TIMEOUT
+        or request_timeout != KIMI_REQUEST_TIMEOUT
         or harness_timeout_entries != [harness_timeout_override]
         or type(connect_timeout) is not int
         or connect_timeout < KIMI_MIN_CONNECT_TIMEOUT_SECONDS
@@ -106,13 +107,13 @@ def validate_kimi_timeout_contract(config: dict[str, Any]) -> dict[str, int]:
         or type(session_timeout) is not int
         or session_timeout < KIMI_MIN_SESSION_TIMEOUT_SECONDS
         or rollout_timeout >= session_timeout
-        or rollout_timeout >= REQUIRED_REQUEST_TIMEOUT
+        or rollout_timeout >= KIMI_REQUEST_TIMEOUT
         or session_timeout > request_timeout
     ):
         raise EvalIdentityError("kimi_timeout_contract_invalid")
     return {
         "request_timeout": request_timeout,
-        "harness_request_timeout": REQUIRED_REQUEST_TIMEOUT,
+        "harness_request_timeout": KIMI_REQUEST_TIMEOUT,
         "connect_timeout": connect_timeout,
         "rollout_timeout": rollout_timeout,
         "session_timeout": session_timeout,
@@ -819,11 +820,16 @@ def _checkpoint_identity(
             deployment_id=args.deployment_id,
             deployment_spec_sha256=spec["sha256"],
         )
-        proxy_policy = validate_proxy_policy_binding(readiness_payload.get("proxy_policy"))
+        expected_request_timeout = request_timeout_for_model(args.expected_model)
+        proxy_policy = validate_proxy_policy_binding(
+            readiness_payload.get("proxy_policy"),
+            expected_request_timeout=expected_request_timeout,
+        )
         revalidate_deployment_proxy_policy(
             Path(spec["path"]),
             expected_spec_sha256=spec["sha256"],
             expected_binding=proxy_policy,
+            expected_request_timeout=expected_request_timeout,
         )
     except (
         EndpointBindingError,
@@ -1165,7 +1171,7 @@ def _validate_identity_shape(identity: object) -> dict[str, Any]:
     try:
         validate_endpoint_binding(deployment.get("endpoint"))
         validate_route_generation(deployment.get("serving_route_generation"))
-        validate_proxy_policy_binding(deployment.get("proxy_policy"))
+        proxy_policy = validate_proxy_policy_binding(deployment.get("proxy_policy"))
     except (
         EndpointBindingError,
         RouteGenerationError,
@@ -1228,6 +1234,8 @@ def _validate_identity_shape(identity: object) -> dict[str, Any]:
         or contract.get("outbound_body_denylist") != sorted(EXPECTED_DENYLIST)
         or contract.get("retain_traces") is not False
     ):
+        raise EvalIdentityError("eval_run_identity_schema_invalid")
+    if proxy_policy["request_timeout"] != request_timeout_for_model(model):
         raise EvalIdentityError("eval_run_identity_schema_invalid")
 
     execution = identity.get("execution")
@@ -1319,12 +1327,8 @@ def _verify_checkpoint_records(
     for label, record in (("deployment_spec", spec), ("readiness_checkpoint", readiness)):
         if not isinstance(record, dict) or set(record) != {"path", "sha256"}:
             raise EvalIdentityError("eval_run_identity_schema_invalid")
-        source_path = (
-            deployment_spec_snapshot
-            if label == "deployment_spec" and deployment_spec_snapshot is not None
-            else Path(record["path"])
-        )
-        _artifact(source_path, record["sha256"], label=label)
+        if label != "deployment_spec" or deployment_spec_snapshot is None:
+            _artifact(Path(record["path"]), record["sha256"], label=label)
     readiness_payload = _json_artifact(readiness, label="readiness_checkpoint")
     try:
         readiness_endpoint = validate_endpoint_binding(readiness_payload.get("endpoint"))
@@ -1333,7 +1337,11 @@ def _verify_checkpoint_records(
             deployment_id=deployment.get("id"),
             deployment_spec_sha256=spec["sha256"],
         )
-        readiness_proxy_policy = validate_proxy_policy_binding(readiness_payload.get("proxy_policy"))
+        expected_request_timeout = request_timeout_for_model(identity["contract"]["model"])
+        readiness_proxy_policy = validate_proxy_policy_binding(
+            readiness_payload.get("proxy_policy"),
+            expected_request_timeout=expected_request_timeout,
+        )
         if deployment_spec_snapshot is not None and proxy_policy_snapshot is not None:
             validate_deployment_proxy_policy_snapshot(
                 deployment_spec_snapshot,
@@ -1518,10 +1526,10 @@ def _verify_config_and_inputs(
         identity["execution"].get(key) != value for key, value in observed_execution.items()
     ):
         raise EvalIdentityError("eval_config_contract_mismatch")
+    expected_request_timeout = request_timeout_for_model(observed_contract["model"])
     if (
-        observed_contract["model"] == "Kimi-K3"
-        and identity["deployment"]["proxy_policy"]["request_timeout"]
-        != validate_kimi_timeout_contract(config)["request_timeout"]
+        identity["deployment"]["proxy_policy"]["request_timeout"] != expected_request_timeout
+        or config["client"].get("timeout") != expected_request_timeout
     ):
         raise EvalIdentityError("deployment_proxy_timeout_mismatch")
 
@@ -1838,9 +1846,10 @@ def prepare(args: argparse.Namespace) -> str:
     execution["vmvm_environment"] = _effective_vmvm_environment(args, rollout_concurrency)
     source = _source_identity(args)
     deployment = _checkpoint_identity(args, endpoint_info.binding)
+    expected_request_timeout = request_timeout_for_model(contract["model"])
     if (
-        contract["model"] == "Kimi-K3"
-        and deployment["proxy_policy"]["request_timeout"] != validate_kimi_timeout_contract(config)["request_timeout"]
+        deployment["proxy_policy"]["request_timeout"] != expected_request_timeout
+        or config["client"].get("timeout") != expected_request_timeout
     ):
         raise EvalIdentityError("deployment_proxy_timeout_mismatch")
     dataset = _dataset_identity(config, args)

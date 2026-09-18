@@ -34,7 +34,10 @@ from pathlib import Path
 from typing import Any, BinaryIO, Iterator, Sequence
 from urllib.parse import urlsplit
 
-from deployment_proxy_policy import deployment_proxy_policy_snapshot
+from deployment_proxy_policy import (
+    deployment_proxy_policy_snapshot,
+    deployment_spec_policy_snapshot,
+)
 from eval_run_identity import EvalIdentityError, validate_kimi_timeout_contract
 
 SCHEMA_VERSION = 1
@@ -1039,6 +1042,10 @@ def merge_shards(
         proxy_policy_snapshot_raw = deployment_proxy_policy_snapshot(
             certified_by_index[0].identity_semantics["deployment"]["proxy_policy"]
         )
+        deployment_spec_snapshot_raw = deployment_spec_policy_snapshot(
+            deployment_spec_sha256,
+            certified_by_index[0].identity_semantics["deployment"]["proxy_policy"],
+        )
 
         resolved_output = output_dir.resolve(strict=False)
         if resolved_output.exists():
@@ -1099,9 +1106,9 @@ def merge_shards(
             audit_raw = json.dumps(summary, indent=2, sort_keys=True).encode("utf-8") + b"\n"
             audit_path = temporary / "audit_summary.json"
             _private_write(audit_path, audit_raw)
-            deployment_spec_snapshot = temporary / "deployment_spec.yaml"
+            deployment_spec_snapshot = temporary / "deployment_spec_policy.json"
             proxy_policy_snapshot = temporary / "proxy_policy.json"
-            _private_write(deployment_spec_snapshot, deployment_spec_raw)
+            _private_write(deployment_spec_snapshot, deployment_spec_snapshot_raw)
             _private_write(proxy_policy_snapshot, proxy_policy_snapshot_raw)
             shard_records = [
                 {
@@ -1195,8 +1202,8 @@ def merge_shards(
                         "sha256": _sha256_bytes(audit_raw),
                     },
                     "deployment_spec": {
-                        "path": str(resolved_output / "deployment_spec.yaml"),
-                        "sha256": deployment_spec_sha256,
+                        "path": str(resolved_output / "deployment_spec_policy.json"),
+                        "sha256": _sha256_bytes(deployment_spec_snapshot_raw),
                     },
                     "proxy_policy": {
                         "path": str(resolved_output / "proxy_policy.json"),
@@ -1420,7 +1427,7 @@ def validate_sharded_checkpoint(
         artifacts["audit_summary"],
         label="sharded_checkpoint_audit",
     )
-    deployment_spec_snapshot, deployment_spec_sha256 = _checkpoint_artifact(
+    deployment_spec_snapshot, _deployment_spec_snapshot_sha256 = _checkpoint_artifact(
         artifacts["deployment_spec"],
         label="sharded_checkpoint_deployment_spec",
     )
@@ -1431,7 +1438,7 @@ def validate_sharded_checkpoint(
     if (
         combined_path.name != "results.jsonl"
         or audit_path.name != "audit_summary.json"
-        or deployment_spec_snapshot.name != "deployment_spec.yaml"
+        or deployment_spec_snapshot.name != "deployment_spec_policy.json"
         or proxy_policy_snapshot.name != "proxy_policy.json"
         or combined_path.parent != audit_path.parent
         or any(
@@ -1443,7 +1450,6 @@ def validate_sharded_checkpoint(
                 proxy_policy_snapshot,
             )
         )
-        or deployment_spec_sha256 != deployment["spec_sha256"]
     ):
         raise ShardWorkflowError("sharded_checkpoint_artifacts_invalid")
 
