@@ -55,6 +55,8 @@ def _prepared(tmp_path: Path, *, count: int = 5) -> train.PreparedTrain:
     proxy_info = _artifact(tmp_path / "proxy.json", b"proxy\n")
     smoke = _artifact(tmp_path / "smoke.json", b"smoke\n")
     archive = _artifact(tmp_path / "dataset.tar", b"archive\n")
+    tls_cert = _artifact(tmp_path / "client.crt", b"test certificate\n")
+    tls_key = _artifact(tmp_path / "client.key", b"test key\n")
     dataset = tmp_path / "dataset"
     dataset.mkdir()
     generation = {
@@ -142,6 +144,11 @@ def _prepared(tmp_path: Path, *, count: int = 5) -> train.PreparedTrain:
         dataset_archive=archive,
         generation_sha256=_digest(train.canonical_json(generation)),
         route_binding=route,
+        submission_environment={
+            "THRIFT_TLS_CL_CERT_PATH": str(tls_cert.path),
+            "THRIFT_TLS_CL_KEY_PATH": str(tls_key.path),
+            "TMUX_PANE": "%1",
+        },
     )
 
 

@@ -573,6 +573,10 @@ def _fixture(tmp_path: Path, monkeypatch, *, with_telemetry: bool = False):
     workflow = project / "user/tianhaowu/terminal_bench_vmvm"
     workflow.mkdir(parents=True)
     (workflow / "run_eval.sbatch").write_text("#!/bin/bash\n")
+    tls_cert = tmp_path / "client.crt"
+    tls_key = tmp_path / "client.key"
+    tls_cert.write_text("test certificate\n")
+    tls_key.write_text("test key\n")
     revisions = {"prime_rl": "a" * 40, "verifiers": "b" * 40, "renderers": "c" * 40}
     monkeypatch.setattr(launcher, "validate_clean_project", lambda *_args, **_kwargs: revisions)
     monkeypatch.setattr(launcher, "_require_tmux_launcher", lambda *_args, **_kwargs: None)
@@ -595,7 +599,10 @@ def _fixture(tmp_path: Path, monkeypatch, *, with_telemetry: bool = False):
         "dataset_archive_path": archive,
         "dataset_archive_sha256": archive_sha256,
         "dataset_content_sha256": content_sha256,
-        "ambient_env": {},
+        "ambient_env": {
+            "THRIFT_TLS_CL_CERT_PATH": str(tls_cert),
+            "THRIFT_TLS_CL_KEY_PATH": str(tls_key),
+        },
     }
 
 
@@ -639,6 +646,11 @@ def test_dry_run_is_private_exact_and_never_submits(tmp_path: Path, monkeypatch,
         assert values["EVAL_EXPECTED_PRIME_RL_REVISION"] == "a" * 40
         assert values["EVAL_CONFIG_SHA256"] == job["config_sha256"]
         assert {key: values[key] for key in EXPECTED_VMVM_ENV} == EXPECTED_VMVM_ENV
+        assert {
+            key: values[key] for key in launcher.REQUIRED_VACLI_AUTH_ENV
+        } == {
+            key: arguments["ambient_env"][key] for key in launcher.REQUIRED_VACLI_AUTH_ENV
+        }
         assert "RESUME_DIR" not in values
         assert "EVAL_MODEL" not in values
         assert "INFERENCE_BASE_URL" not in values
@@ -668,6 +680,31 @@ def test_fake_submit_uses_existing_run_eval_and_empty_client_environment(tmp_pat
         assert any(value.startswith("--export-file=") for value in argv)
         assert kwargs["env"] == {}
         assert kwargs["timeout"] == launcher.DEFAULT_SUBMISSION_TIMEOUT_SECONDS
+
+
+@pytest.mark.parametrize(
+    "ambient_env",
+    [
+        {},
+        {"THRIFT_TLS_CL_CERT_PATH": "/missing/cert"},
+        {
+            "THRIFT_TLS_CL_CERT_PATH": "relative/cert",
+            "THRIFT_TLS_CL_KEY_PATH": "relative/key",
+        },
+    ],
+)
+def test_rejects_missing_or_invalid_vacli_auth_environment(
+    tmp_path: Path,
+    monkeypatch,
+    ambient_env: dict[str, str],
+):
+    arguments = _fixture(tmp_path, monkeypatch)
+    arguments["ambient_env"] = ambient_env
+
+    with pytest.raises(WaveLaunchError, match="vacli_auth_environment_invalid"):
+        launch_wave(**arguments, dry_run=True)
+
+    assert not arguments["output_root"].exists()
 
 
 def test_signal_stops_at_submission_boundary_without_an_extra_job(tmp_path: Path, monkeypatch):

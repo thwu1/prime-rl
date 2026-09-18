@@ -52,6 +52,10 @@ EXPECTED_VMVM_ENV = {
     "VACLI_IMAGE_PULL_TIMEOUT_SECONDS": "3600",
     "VACLI_CONTAINER_PRIVILEGED": "1",
 }
+REQUIRED_VACLI_AUTH_ENV = (
+    "THRIFT_TLS_CL_CERT_PATH",
+    "THRIFT_TLS_CL_KEY_PATH",
+)
 DEFAULT_VACLI_BIN = "/public/fbpkgs/x86_64/vacli/stable/vacli"
 DEFAULT_X86_SITE = "/checkpoint/ram/tianhaowu/terminal_bench_vmvm/python_x86_64"
 DEFAULT_X86_UV = "/storage/home/tianhaowu/.local/x86_64/bin/uv"
@@ -1265,6 +1269,27 @@ def _encode_environment(values: Mapping[str, str]) -> bytes:
     return b"".join(records)
 
 
+def _vacli_auth_environment(environment: Mapping[str, str]) -> dict[str, str]:
+    values: dict[str, str] = {}
+    for key in REQUIRED_VACLI_AUTH_ENV:
+        value = environment.get(key)
+        if (
+            not isinstance(value, str)
+            or not value
+            or any(character in value for character in "\x00\r\n")
+            or not Path(value).is_absolute()
+        ):
+            raise WaveLaunchError("vacli_auth_environment_invalid")
+        try:
+            status = Path(value).stat()
+        except OSError as error:
+            raise WaveLaunchError("vacli_auth_environment_invalid") from error
+        if not stat.S_ISREG(status.st_mode) or not os.access(value, os.R_OK):
+            raise WaveLaunchError("vacli_auth_environment_invalid")
+        values[key] = value
+    return values
+
+
 def _job_environment(
     *,
     project_dir: Path,
@@ -1279,7 +1304,11 @@ def _job_environment(
     dataset_revision: str | None,
     dataset_archive: PinnedArtifact | None,
     dataset_content_sha256: str | None,
+    vacli_auth_environment: Mapping[str, str],
 ) -> dict[str, str]:
+    if set(vacli_auth_environment) != set(REQUIRED_VACLI_AUTH_ENV):
+        raise WaveLaunchError("vacli_auth_environment_invalid")
+    validated_vacli_auth = _vacli_auth_environment(vacli_auth_environment)
     values = {
         "PATH": "/usr/local/bin:/usr/bin:/bin",
         "LANG": "C.UTF-8",
@@ -1306,6 +1335,7 @@ def _job_environment(
         "UV_BIN_X86_64": DEFAULT_X86_UV,
         "PYTHON_BIN_X86_64": "python3",
         **EXPECTED_VMVM_ENV,
+        **validated_vacli_auth,
     }
     if dataset_revision is not None:
         values["EVAL_DATASET_REVISION"] = dataset_revision
@@ -1630,6 +1660,7 @@ def launch_wave(
         raise WaveLaunchError("submission_control_invalid")
     if "RESUME_DIR" in environment:
         raise WaveLaunchError("resume_forbidden")
+    vacli_auth_environment = _vacli_auth_environment(environment)
     if not isinstance(deployment_id, str) or DEPLOYMENT_RE.fullmatch(deployment_id) is None:
         raise WaveLaunchError("deployment_id_invalid")
     if REVISION_RE.fullmatch(project_revision) is None:
@@ -1765,6 +1796,7 @@ def launch_wave(
             dataset_revision=dataset_revision,
             dataset_archive=dataset_archive,
             dataset_content_sha256=dataset_content_sha256,
+            vacli_auth_environment=vacli_auth_environment,
         )
         encoded_environment = _encode_environment(environment_values)
         _private_write(env_path, encoded_environment)
