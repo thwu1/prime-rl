@@ -506,14 +506,10 @@ def test_nine_entry_discovery_emits_policy_with_exactly_twenty_seven_starts(
     assert finalization["post_run_validation"] == state["post_run_validation"]
     assert proof["post_run_validation"] == state["post_run_validation"]
     assert state["post_run_validation"]["record_sha256"] == sha256_bytes(post_validation_payload)
-    assert post_validation["validation_id_sha256"] == state["post_run_validation"][
-        "validation_id_sha256"
-    ]
+    assert post_validation["validation_id_sha256"] == state["post_run_validation"]["validation_id_sha256"]
     prevalidation_state = dict(state)
     prevalidation_state["post_run_validation"] = None
-    assert post_validation["prevalidation_state_sha256"] == sha256_bytes(
-        canonical_json(prevalidation_state) + b"\n"
-    )
+    assert post_validation["prevalidation_state_sha256"] == sha256_bytes(canonical_json(prevalidation_state) + b"\n")
     assert post_validation["attempt_journal"] == state["attempt_journal"]
     assert len(policy["entries"]) == 9
     assert all(entry["build_tools"] == BUILD_TOOLS for entry in policy["entries"])
@@ -1064,10 +1060,7 @@ def test_execution_environment_rejects_tool_site_and_inherited_python_drift(
         stdlib_sys_path.append(str(lib_dynload))
     monkeypatch.setattr(sys, "path", [*(str(path) for path in import_roots), *stdlib_sys_path])
     bindings = proof_bootstrap.ExecutionBindings(
-        **{
-            field: getattr(config, field)
-            for field in proof_bootstrap.ExecutionBindings.__dataclass_fields__
-        }
+        **{field: getattr(config, field) for field in proof_bootstrap.ExecutionBindings.__dataclass_fields__}
     )
     runtime_manifest = proof_bootstrap.python_runtime_manifest_sha256(
         python_path,
@@ -1193,7 +1186,7 @@ def test_readme_uses_exact_clean_tmux_wrap_launcher_form() -> None:
         "/path/to/clean-reviewed-checkout/user/tianhaowu/terminal_bench_vmvm/"
         "run_source_wheel_proof.sbatch'\" C-m"
     ) in readme
-    assert "exec \"$python_bin\" -I -S -B" in launcher
+    assert 'exec "$python_bin" -I -S -B' in launcher
     assert '"$workflow_dir/source_wheel_proof_bootstrap.py" run' in launcher
     assert "uv run --no-project" not in launcher
     for rejected in ("BASH_ENV", "LD_PRELOAD"):

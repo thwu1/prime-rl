@@ -2521,10 +2521,7 @@ class ProofStore:
             self.post_validation_path,
             "post_run_validation_record_not_private",
         )
-        if (
-            stat.S_IMODE(self.post_validation_path.lstat().st_mode) != 0o400
-            or observed_payload != expected_payload
-        ):
+        if stat.S_IMODE(self.post_validation_path.lstat().st_mode) != 0o400 or observed_payload != expected_payload:
             raise SourceWheelProofError("post_run_validation_record_invalid")
         if current_receipt is None:
             self.state["post_run_validation"] = expected_receipt

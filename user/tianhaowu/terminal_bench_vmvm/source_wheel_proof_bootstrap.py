@@ -419,9 +419,7 @@ def _validate_environment() -> None:
         "PYTHONDONTWRITEBYTECODE": "1",
         "PYTHONSAFEPATH": "1",
     }
-    observed_python_environment = {
-        name: value for name, value in os.environ.items() if name.startswith("PYTHON")
-    }
+    observed_python_environment = {name: value for name, value in os.environ.items() if name.startswith("PYTHON")}
     forbidden = (
         "BASH_ENV",
         "ENV",
@@ -461,8 +459,8 @@ def _import_root_bindings(bindings: ExecutionBindings, import_roots: tuple[Path,
 def validate_pre_import_bindings(bindings: ExecutionBindings) -> tuple[Path, ...]:
     _validate_bootstrap_flags()
     _validate_environment()
-    project, canonical_launcher, uv_path, python_path, python_stdlib, site_packages, vacli_path = (
-        _resolved_bindings(bindings)
+    project, canonical_launcher, uv_path, python_path, python_stdlib, site_packages, vacli_path = _resolved_bindings(
+        bindings
     )
     digests = (
         bindings.launcher_sha256,
@@ -509,7 +507,10 @@ def validate_pre_import_bindings(bindings: ExecutionBindings) -> tuple[Path, ...
         raise BindingError("source_checkout_mismatch")
     if git_output(project, "status", "--porcelain=v1", "--untracked-files=all", "--ignore-submodules=none"):
         raise BindingError("source_checkout_not_clean")
-    if git_output(project, "merge-base", bindings.base_runtime_commit, bindings.source_commit) != bindings.base_runtime_commit:
+    if (
+        git_output(project, "merge-base", bindings.base_runtime_commit, bindings.source_commit)
+        != bindings.base_runtime_commit
+    ):
         raise BindingError("source_base_invalid")
     dependencies = {
         "deps/verifiers": bindings.verifiers_commit,
@@ -619,12 +620,7 @@ def _add_binding_arguments(parser: argparse.ArgumentParser) -> None:
 
 
 def _bindings_from_args(args: argparse.Namespace) -> ExecutionBindings:
-    return ExecutionBindings(
-        **{
-            field: getattr(args, field)
-            for field in ExecutionBindings.__dataclass_fields__
-        }
-    )
+    return ExecutionBindings(**{field: getattr(args, field) for field in ExecutionBindings.__dataclass_fields__})
 
 
 def _inspect(args: argparse.Namespace) -> dict[str, object]:
@@ -757,7 +753,9 @@ def main() -> int:
         print(json.dumps({"status": "failed", "error_code": error.code}, sort_keys=True), flush=True)
         return 1
     except BaseException:
-        print(json.dumps({"status": "failed", "error_code": "bootstrap_unexpected_failure"}, sort_keys=True), flush=True)
+        print(
+            json.dumps({"status": "failed", "error_code": "bootstrap_unexpected_failure"}, sort_keys=True), flush=True
+        )
         return 1
 
 
