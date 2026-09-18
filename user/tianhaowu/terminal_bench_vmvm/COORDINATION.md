@@ -1,6 +1,6 @@
 # VMVM sandbox coordination
 
-Last updated: 2026-09-18 23:24 UTC
+Last updated: 2026-09-18 23:31 UTC
 
 ## First message to the next teammate
 
@@ -41,6 +41,18 @@ this shared branch again.
 Add new rows below this line; do not overwrite another owner's row.
 
 ## Open coordination requests
+
+- **2026-09-18 23:31 UTC, source-wheel proof job failed closed and is not
+  qualified:** proof job `1750436` from utility commit `25b84b2fc` failed 1:0
+  after 21 seconds. That commit changes only the wrapper documentation on top
+  of independently rejected proof implementation `61d557f37`; it does not
+  close the durable post-validation-resume or clean pre-import host-closure
+  blockers. Treat every output/state/log artifact from `1750436` as
+  nonresumable and ineligible for policy, canary, audit, or promotion. A
+  separate candidate implementing those final blockers is under test; require
+  a new exact-commit independent review, clean frozen checkout, and wholly
+  fresh proof paths before any replacement submission. Do not launch an oracle
+  canary from `25b84b2fc` or `1750436`.
 
 - **2026-09-18 23:24 UTC, oracle source-wheel proof launched:** reviewed proof
   utility `25b84b2fc` is pushed and frozen in a clean detached checkout. Its
