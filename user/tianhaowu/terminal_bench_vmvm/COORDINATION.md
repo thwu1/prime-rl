@@ -46,7 +46,7 @@ Add new rows below this line; do not overwrite another owner's row.
   They contain 512 pass, 355 scored fail, 33 ordinary error, and zero invalid
   score records (59.05% of scored rows pass; 56.89% of all completed rows).
   Strict reasoning/model-I/O/256K validation accepts 510/512 passing traces;
-  two passing traces are quarantined. The accepted pass traces contain
+  two passing traces are quarantined. The 512 audited passing traces contain
   36,690,936 sampled completion tokens across 16,973 captured model-I/O turns.
   Producer `1454171` remains RUNNING; old downstream chain `1465246` remains
   held and must not execute. The replacement selector/export patch must union
