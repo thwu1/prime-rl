@@ -357,6 +357,8 @@ def _load_canary_identity(
     tasks: list[str],
     source: OracleSnapshot,
     expected_prime_rl_commit: str,
+    expected_verifiers_commit: str,
+    expected_vmvm_tb_v2_sha256: str,
 ) -> tuple[dict[str, Any], str, str, Path, bytes]:
     try:
         path, raw = builder._source_artifact(
@@ -409,6 +411,16 @@ def _load_canary_identity(
     if not isinstance(source_contract, dict) or not isinstance(canary_source, dict):
         raise CanaryAuditError("canary_source_contract_invalid")
     source_keys = {"prime_rl_commit", "prime_rl_tree_sha256", "verifiers_commit", "vmvm_tb_v2_sha256"}
+    # The completed source keeps its original provenance, while a compatibility
+    # canary may intentionally exercise reviewed verifier or VMVM changes. Bind
+    # every component of that execution source explicitly instead of mixing the
+    # old source pins with unreviewed canary revisions.
+    expected_canary_source = {
+        "prime_rl_commit": expected_prime_rl_commit,
+        "prime_rl_tree_sha256": CLEAN_TREE_SHA256,
+        "verifiers_commit": expected_verifiers_commit,
+        "vmvm_tb_v2_sha256": expected_vmvm_tb_v2_sha256,
+    }
     if (
         set(source_contract) != source_keys
         or set(canary_source) != source_keys
@@ -416,13 +428,8 @@ def _load_canary_identity(
         or source_contract.get("prime_rl_tree_sha256") != CLEAN_TREE_SHA256
         or not _is_revision(source_contract.get("verifiers_commit"))
         or not _is_sha256(source_contract.get("vmvm_tb_v2_sha256"))
-        or canary_source.get("prime_rl_commit") != expected_prime_rl_commit
+        or canary_source != expected_canary_source
         or canary_source.get("prime_rl_commit") == source_contract.get("prime_rl_commit")
-        or canary_source.get("prime_rl_tree_sha256") != CLEAN_TREE_SHA256
-        or not _is_revision(canary_source.get("verifiers_commit"))
-        or not _is_sha256(canary_source.get("vmvm_tb_v2_sha256"))
-        or canary_source.get("verifiers_commit") != source_contract.get("verifiers_commit")
-        or canary_source.get("vmvm_tb_v2_sha256") != source_contract.get("vmvm_tb_v2_sha256")
     ):
         raise CanaryAuditError("canary_source_contract_invalid")
     if (
@@ -443,6 +450,8 @@ def _load_canary(
     tasks: list[str],
     source: OracleSnapshot,
     expected_prime_rl_commit: str,
+    expected_verifiers_commit: str,
+    expected_vmvm_tb_v2_sha256: str,
 ) -> OracleSnapshot:
     identity, identity_sha256, identity_file_sha256, identity_path, identity_raw = _load_canary_identity(
         canary_dir,
@@ -451,6 +460,8 @@ def _load_canary(
         tasks=tasks,
         source=source,
         expected_prime_rl_commit=expected_prime_rl_commit,
+        expected_verifiers_commit=expected_verifiers_commit,
+        expected_vmvm_tb_v2_sha256=expected_vmvm_tb_v2_sha256,
     )
     try:
         results, reasons, results_sha256, results_path, results_raw = builder._results(
@@ -575,6 +586,8 @@ def audit_canary(
     certificate: Path,
     *,
     expected_prime_rl_commit: str,
+    expected_verifiers_commit: str,
+    expected_vmvm_tb_v2_sha256: str,
     expected_total: int = DEFAULT_EXPECTED_TOTAL,
     control_count: int = DEFAULT_CONTROL_COUNT,
     minimum_recovered: int = DEFAULT_MINIMUM_RECOVERED,
@@ -582,6 +595,10 @@ def audit_canary(
 ) -> dict[str, Any]:
     if not _is_revision(expected_prime_rl_commit):
         raise CanaryAuditError("expected_prime_rl_commit_invalid")
+    if not _is_revision(expected_verifiers_commit):
+        raise CanaryAuditError("expected_verifiers_commit_invalid")
+    if not _is_sha256(expected_vmvm_tb_v2_sha256):
+        raise CanaryAuditError("expected_vmvm_tb_v2_sha256_invalid")
     if type(expected_total) is not int or expected_total < 1:
         raise CanaryAuditError("expected_total_invalid")
     if type(control_count) is not int or control_count < 0:
@@ -655,6 +672,8 @@ def audit_canary(
             tasks=tasks,
             source=source,
             expected_prime_rl_commit=expected_prime_rl_commit,
+            expected_verifiers_commit=expected_verifiers_commit,
+            expected_vmvm_tb_v2_sha256=expected_vmvm_tb_v2_sha256,
         )
         transitions, reason_counts = _transition_counts(source, canary)
         control_regressions = transitions["source_valid_to_nonvalid"]
@@ -778,6 +797,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("canary_dir", type=Path)
     parser.add_argument("certificate", type=Path)
     parser.add_argument("--expected-prime-rl-commit", required=True)
+    parser.add_argument("--expected-verifiers-commit", required=True)
+    parser.add_argument("--expected-vmvm-tb-v2-sha256", required=True)
     parser.add_argument("--expected-total", type=int, default=DEFAULT_EXPECTED_TOTAL)
     parser.add_argument("--controls", type=int, default=DEFAULT_CONTROL_COUNT)
     parser.add_argument("--minimum-recovered", type=int, default=DEFAULT_MINIMUM_RECOVERED)
@@ -791,6 +812,8 @@ def main(argv: list[str] | None = None) -> int:
             args.canary_dir,
             args.certificate,
             expected_prime_rl_commit=args.expected_prime_rl_commit,
+            expected_verifiers_commit=args.expected_verifiers_commit,
+            expected_vmvm_tb_v2_sha256=args.expected_vmvm_tb_v2_sha256,
             expected_total=args.expected_total,
             control_count=args.controls,
             minimum_recovered=args.minimum_recovered,

@@ -14,6 +14,10 @@ from build_oracle_repair_canary import build_canary_manifest
 
 SOURCE_COMMIT = "a" * 40
 CANARY_COMMIT = "b" * 40
+SOURCE_VERIFIERS_COMMIT = "c" * 40
+CANARY_VERIFIERS_COMMIT = "e" * 40
+SOURCE_VMVM_SHA256 = "d" * 64
+CANARY_VMVM_SHA256 = "f" * 64
 CLEAN_TREE_SHA256 = hashlib.sha256(b"").hexdigest()
 
 
@@ -147,8 +151,8 @@ def _source_fixture(tmp_path: Path) -> tuple[Path, dict[str, Any], list[dict[str
         "source": {
             "prime_rl_commit": SOURCE_COMMIT,
             "prime_rl_tree_sha256": CLEAN_TREE_SHA256,
-            "verifiers_commit": "c" * 40,
-            "vmvm_tb_v2_sha256": "d" * 64,
+            "verifiers_commit": SOURCE_VERIFIERS_COMMIT,
+            "vmvm_tb_v2_sha256": SOURCE_VMVM_SHA256,
         },
     }
     specifications = []
@@ -207,6 +211,8 @@ def _canary_fixture(
     identity["source"] = {
         **identity["source"],
         "prime_rl_commit": CANARY_COMMIT,
+        "verifiers_commit": CANARY_VERIFIERS_COMMIT,
+        "vmvm_tb_v2_sha256": CANARY_VMVM_SHA256,
     }
     if mutate_identity is not None:
         mutate_identity(identity)
@@ -256,6 +262,8 @@ def _audit(
     certificate: Path,
     *,
     minimum_recovered: int = 2,
+    expected_verifiers_commit: str = CANARY_VERIFIERS_COMMIT,
+    expected_vmvm_tb_v2_sha256: str = CANARY_VMVM_SHA256,
 ) -> dict[str, Any]:
     return audit_canary(
         source,
@@ -264,6 +272,8 @@ def _audit(
         canary,
         certificate,
         expected_prime_rl_commit=CANARY_COMMIT,
+        expected_verifiers_commit=expected_verifiers_commit,
+        expected_vmvm_tb_v2_sha256=expected_vmvm_tb_v2_sha256,
         expected_total=8,
         control_count=2,
         minimum_recovered=minimum_recovered,
@@ -286,6 +296,18 @@ def test_audits_transitions_confidentially_and_writes_self_hashed_certificate(tm
     assert stat.S_IMODE(certificate.stat().st_mode) == 0o600
     envelope = json.loads(certificate.read_text())
     assert envelope["audit_sha256"] == _canonical_sha256(envelope["audit"])
+    assert envelope["audit"]["contracts"]["source_oracle_source"] == {
+        "prime_rl_commit": SOURCE_COMMIT,
+        "prime_rl_tree_sha256": CLEAN_TREE_SHA256,
+        "verifiers_commit": SOURCE_VERIFIERS_COMMIT,
+        "vmvm_tb_v2_sha256": SOURCE_VMVM_SHA256,
+    }
+    assert envelope["audit"]["contracts"]["canary_source"] == {
+        "prime_rl_commit": CANARY_COMMIT,
+        "prime_rl_tree_sha256": CLEAN_TREE_SHA256,
+        "verifiers_commit": CANARY_VERIFIERS_COMMIT,
+        "vmvm_tb_v2_sha256": CANARY_VMVM_SHA256,
+    }
     assert envelope["audit"]["transitions"] == {
         "source_nonvalid_to_nonvalid": 1,
         "source_nonvalid_to_valid": 2,
@@ -342,6 +364,14 @@ def test_publishes_failed_certificate_for_gate_failure(
             "canary_selection_identity_invalid",
         ),
         (lambda identity: identity["source"].update(prime_rl_commit="e" * 40), "canary_source_contract_invalid"),
+        (
+            lambda identity: identity["source"].update(verifiers_commit="1" * 40),
+            "canary_source_contract_invalid",
+        ),
+        (
+            lambda identity: identity["source"].update(vmvm_tb_v2_sha256="2" * 64),
+            "canary_source_contract_invalid",
+        ),
         (lambda identity: identity["dataset"].update(revision="f" * 40), "canary_benchmark_contract_invalid"),
         (lambda identity: identity["images"].update(tag="changed"), "canary_benchmark_contract_invalid"),
         (
@@ -369,6 +399,61 @@ def test_rejects_mismatched_canary_identity(
     with pytest.raises(CanaryAuditError, match=f"^{error}$"):
         _audit(source, receipt, task_file, canary, certificate)
     assert not certificate.exists()
+
+
+@pytest.mark.parametrize(
+    ("expected_verifiers_commit", "expected_vmvm_tb_v2_sha256"),
+    [
+        ("1" * 40, CANARY_VMVM_SHA256),
+        (CANARY_VERIFIERS_COMMIT, "2" * 64),
+    ],
+)
+def test_rejects_unreviewed_execution_source_pin(
+    tmp_path: Path,
+    expected_verifiers_commit: str,
+    expected_vmvm_tb_v2_sha256: str,
+) -> None:
+    source, receipt, task_file, canary, _, _ = _inputs(tmp_path)
+    certificate = tmp_path / "audit.json"
+
+    with pytest.raises(CanaryAuditError, match="^canary_source_contract_invalid$"):
+        _audit(
+            source,
+            receipt,
+            task_file,
+            canary,
+            certificate,
+            expected_verifiers_commit=expected_verifiers_commit,
+            expected_vmvm_tb_v2_sha256=expected_vmvm_tb_v2_sha256,
+        )
+    assert not certificate.exists()
+
+
+@pytest.mark.parametrize(
+    ("expected_verifiers_commit", "expected_vmvm_tb_v2_sha256", "error"),
+    [
+        ("not-a-revision", CANARY_VMVM_SHA256, "expected_verifiers_commit_invalid"),
+        (CANARY_VERIFIERS_COMMIT, "not-a-sha256", "expected_vmvm_tb_v2_sha256_invalid"),
+    ],
+)
+def test_rejects_malformed_execution_source_pin(
+    tmp_path: Path,
+    expected_verifiers_commit: str,
+    expected_vmvm_tb_v2_sha256: str,
+    error: str,
+) -> None:
+    source, receipt, task_file, canary, _, _ = _inputs(tmp_path)
+
+    with pytest.raises(CanaryAuditError, match=f"^{error}$"):
+        _audit(
+            source,
+            receipt,
+            task_file,
+            canary,
+            tmp_path / "audit.json",
+            expected_verifiers_commit=expected_verifiers_commit,
+            expected_vmvm_tb_v2_sha256=expected_vmvm_tb_v2_sha256,
+        )
 
 
 def test_rejects_tampered_builder_artifacts(tmp_path: Path) -> None:
@@ -450,6 +535,10 @@ def test_cli_reports_aggregates_only_and_uses_gate_exit_status(
             str(certificate),
             "--expected-prime-rl-commit",
             CANARY_COMMIT,
+            "--expected-verifiers-commit",
+            CANARY_VERIFIERS_COMMIT,
+            "--expected-vmvm-tb-v2-sha256",
+            CANARY_VMVM_SHA256,
             "--expected-total",
             "8",
             "--controls",
