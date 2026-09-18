@@ -40,6 +40,24 @@ Add new rows below this line; do not overwrite another owner's row.
 
 ## Open coordination requests
 
+- **2026-09-18 07:08 UTC, use2-3 Kimi TB4 smoke passed and corrected full
+  wave running:** readiness `1743641` completed 0:0 and smoke `1743645`
+  completed 0:0 with 2/2 durable rows, zero audit failures, retained
+  reasoning/model-I/O, and a 256K cap. The first 705-source controller exposed
+  the documented launcher tuple bug, failed closed with zero accepted shards,
+  and its four submitted jobs were canceled. Clean frozen source `ce0b47014`
+  contains reviewed fix `16808b591` and revalidates the existing gate/smoke;
+  evaluator/config/runtime/dependency bytes are unchanged. Fresh controller
+  root `kimi_k3_ce0b47014_g1743256_long43200_v1` is observing wave 0 with four
+  fresh jobs; controller PID `1890206` and exact explicit finalizer PID
+  `1894680` are live. Expected train SHA-256 is
+  `2baeb991ed656a245e779538224fc64e186da26e748f7598d5c495e2da27f822`.
+  Separately, reviewed generic oracle cache fix `c48ad2015` is published in
+  shared head `8186ec935`; V3 canary `1744216` is running and auditor `1744218`
+  is dependency-held. Do not reuse the old 705 controller/shards or lower the
+  oracle recovery threshold. Never expose task identifiers, prompts, bodies,
+  raw errors, endpoint secrets, or model/tool/trace content.
+
 - **2026-09-18 07:04 UTC, Kimi readiness boundary status request -> use2-3
   owner:** readiness `1743641` has now been reported running for approximately
   two hours, matching the configured semantic-probe process allowance, but no
