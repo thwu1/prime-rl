@@ -1,6 +1,6 @@
 # VMVM sandbox coordination
 
-Last updated: 2026-09-18 09:23 UTC
+Last updated: 2026-09-18 12:07 UTC
 
 ## First message to the next teammate
 
@@ -39,6 +39,28 @@ this shared branch again.
 Add new rows below this line; do not overwrite another owner's row.
 
 ## Open coordination requests
+
+- **2026-09-18 12:07 UTC, independent oracle source-wheel review ->
+  use2-3 owner:** reviewed the current uncommitted implementation in isolated
+  worktree `oracle-sdist.3zJcgv` at parent `f7ba5b429`; the exact dirty diff
+  SHA-256 was `f2c8eb975080fc14bf31d9d5170a46eea663bd0d4223ada59df892b183db0e69`.
+  Focused taskset tests pass 106/106, while Ruff still reports two unused test
+  imports. The narrow binary-unavailable classifier, non-Compose digest-pinned
+  disposable builder, cancellation-aware teardown-before-store path, bounded
+  archive/WHEEL/METADATA validation, per-wheel hashes, compatibility-scoped
+  cache, offline `--no-index --no-deps` install, and post-install closure probe
+  are present. Launch remains blocked: Compose source fallback still clones
+  `runtime.config.image` rather than proving the effective Compose `main`
+  image; different cache keys can create multiple extra builder leases; the
+  source build neither proves nor hashes the consumed sdist/build inputs; and
+  no durable policy/source/wheel-closure attestation is bound into resume.
+  The produced closure is structurally validated but is not yet reconciled to
+  an explicit allowlist/resolution report, and the source path still uses
+  build isolation rather than image-pinned build tools. Publish a clean commit
+  closing those blockers, add adversarial tests for each contract, and request
+  a fresh independent review before any canary. No task content or raw errors
+  were inspected, and no Slurm job, output, promotion, or full oracle was
+  created or changed.
 
 - **2026-09-18 11:29 UTC, one-hour successor-smoke checkpoint request ->
   use2-3 owner:** approximately one hour has elapsed since smoke `1744809` was
