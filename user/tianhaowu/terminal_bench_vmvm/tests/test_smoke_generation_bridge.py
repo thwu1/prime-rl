@@ -9,6 +9,7 @@ from typing import Any, Mapping
 
 import audit_tb4_results
 import create_smoke_generation_bridge as bridge
+import deployment_proxy_policy
 import eval_run_identity
 import launch_tb4_shard_wave
 import pytest
@@ -197,6 +198,32 @@ def _endpoint(proxy: qualification.Artifact) -> dict[str, Any]:
     }
 
 
+def _proxy_config_snapshot(path: Path, backend: str) -> qualification.Artifact:
+    path.write_text(
+        "model_list:\n"
+        "  - model_name: Kimi-K3\n"
+        "    litellm_params:\n"
+        "      model: openai/Kimi-K3\n"
+        f"      api_base: {backend}\n"
+        "      api_key: private-test-key\n"
+        "    model_info:\n"
+        "      mode: chat\n"
+        "litellm_settings:\n"
+        "  request_timeout: 43200\n"
+        "  num_retries: 0\n"
+        "router_settings:\n"
+        "  routing_strategy: consistent-hashing\n"
+        "general_settings:\n"
+        "  master_key: private-master-key\n"
+    )
+    path.chmod(0o600)
+    return qualification.Artifact(
+        path=path.resolve(),
+        sha256=hashlib.sha256(path.read_bytes()).hexdigest(),
+        raw=None,
+    )
+
+
 def _probe(endpoint: dict[str, Any], generation: dict[str, Any]) -> dict[str, Any]:
     backend = generation["routes"][0]["backend_sha256"]
     body = {
@@ -250,6 +277,14 @@ def test_bridge_payload_is_separate_self_hashed_and_worker_only(tmp_path: Path) 
     endpoint = _endpoint(proxy)
     source_generation = _generation("http://worker-old:8000/v1")
     target_generation = _generation("http://worker-new:8000/v1")
+    source_proxy_config = _proxy_config_snapshot(
+        tmp_path / "source-proxy-config.yaml",
+        "http://worker-old:8000/v1",
+    )
+    target_proxy_config = _proxy_config_snapshot(
+        tmp_path / "target-proxy-config.yaml",
+        "http://worker-new:8000/v1",
+    )
     policy = {"schema_version": 1}
     evidence = {"source": {}, "evaluator_source": {"opaque": "bound"}}
 
@@ -265,6 +300,9 @@ def test_bridge_payload_is_separate_self_hashed_and_worker_only(tmp_path: Path) 
         target_readiness=target_readiness,
         target_endpoint=endpoint,
         target_generation=target_generation,
+        source_proxy_config_snapshot=source_proxy_config,
+        target_proxy_config_snapshot=target_proxy_config,
+        proxy_config_projection_sha256="c" * 64,
         evaluator_evidence=evidence,
         probe=_probe(endpoint, target_generation),
     )
@@ -299,7 +337,39 @@ def test_bridge_validator_recurses_and_rejects_proxy_rotation(
     endpoint = _endpoint(proxy)
     source_generation = _generation("http://worker-old:8000/v1")
     target_generation = _generation("http://worker-new:8000/v1")
-    policy = {"schema_version": 1}
+    source_proxy_config = _proxy_config_snapshot(
+        tmp_path / "source-proxy-config.yaml",
+        "http://worker-old:8000/v1",
+    )
+    target_proxy_config = _proxy_config_snapshot(
+        tmp_path / "target-proxy-config.yaml",
+        "http://worker-new:8000/v1",
+    )
+    live_proxy_config = tmp_path / "proxy_litellm_config.yaml"
+    policy = {
+        "schema_version": 1,
+        "request_timeout": 43_200,
+        "num_retries": 0,
+        "proxy_litellm_config": {
+            "path": str(live_proxy_config.resolve()),
+            "sha256": target_proxy_config.sha256,
+        },
+    }
+    source_policy = {
+        **policy,
+        "proxy_litellm_config": {
+            **policy["proxy_litellm_config"],
+            "sha256": source_proxy_config.sha256,
+        },
+    }
+    projection_sha256 = deployment_proxy_policy.validate_worker_rotation_proxy_configs(
+        source_snapshot=source_proxy_config.path,
+        source_binding=source_policy,
+        source_backends=[source_generation["routes"][0]["backend_sha256"]],
+        target_snapshot=target_proxy_config.path,
+        target_binding=policy,
+        target_backends=[target_generation["routes"][0]["backend_sha256"]],
+    )
     evidence = {"source": {}, "evaluator_source": {"opaque": "bound"}}
     calls: list[str] = []
     monkeypatch.setattr(
@@ -308,6 +378,14 @@ def test_bridge_validator_recurses_and_rejects_proxy_rotation(
         lambda artifact, **_kwargs: (
             source_generation if artifact.path == source_readiness.path else target_generation,
             policy,
+        ),
+    )
+    monkeypatch.setattr(
+        qualification,
+        "validate_historical_readiness",
+        lambda artifact, **_kwargs: (
+            source_generation,
+            source_policy,
         ),
     )
     monkeypatch.setattr(
@@ -338,6 +416,9 @@ def test_bridge_validator_recurses_and_rejects_proxy_rotation(
         target_readiness=target_readiness,
         target_endpoint=endpoint,
         target_generation=target_generation,
+        source_proxy_config_snapshot=source_proxy_config,
+        target_proxy_config_snapshot=target_proxy_config,
+        proxy_config_projection_sha256=projection_sha256,
         evaluator_evidence=evidence,
         probe=_probe(endpoint, target_generation),
     )
@@ -439,6 +520,19 @@ def test_strict_json_rejects_duplicates_and_write_once_never_overwrites(tmp_path
         bridge._write_once(output, {"schema_version": 3})
 
 
+def test_private_proxy_snapshot_is_mode_0600_and_write_once(tmp_path: Path) -> None:
+    snapshot = (tmp_path / "private" / "proxy.yaml").resolve()
+    raw = b"private generated proxy config\n"
+
+    bridge._write_private_snapshot(snapshot, raw)
+
+    assert snapshot.read_bytes() == raw
+    assert snapshot.stat().st_mode & 0o777 == 0o600
+    bridge._write_private_snapshot(snapshot, raw)
+    with pytest.raises(bridge.GenerationBridgeError, match="already_exists"):
+        bridge._write_private_snapshot(snapshot, b"different\n")
+
+
 def test_worker_only_rotation_rejects_proxy_or_coordinator_change() -> None:
     source = _generation("http://worker-old:8000/v1")
     target = _generation("http://worker-new:8000/v1")
@@ -450,6 +544,94 @@ def test_worker_only_rotation_rejects_proxy_or_coordinator_change() -> None:
     changed["coordinator"]["slurm_job_id"] = "999"
     assert not qualification._worker_only_rotation(source, changed)
     assert not qualification._worker_only_rotation(source, source)
+
+
+def test_historical_readiness_skips_only_live_policy_digest_revalidation(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    deployment_id = "deployment-test"
+    spec = _artifact(tmp_path / "spec.yaml", b"historical-spec\n")
+    proxy = _artifact(tmp_path / "proxy_info.json", b"opaque-proxy\n")
+    endpoint = _endpoint(proxy)
+    generation = _generation("http://worker-old:8000/v1")
+    policy = {
+        "schema_version": 1,
+        "request_timeout": 43_200,
+        "num_retries": 0,
+        "proxy_litellm_config": {
+            "path": str((tmp_path / "proxy_litellm_config.yaml").resolve()),
+            "sha256": "a" * 64,
+        },
+    }
+    readiness_body = {
+        "schema_version": 1,
+        "state": "passed",
+        "deployment": deployment_id,
+        "expected_routes": 1,
+        "observed_spec_sha256": spec.sha256,
+        "endpoint": endpoint,
+        "proxy_policy": policy,
+        "serving_route_generation": generation,
+        "last_status": {
+            "schema_version": 4,
+            "deployment_id": deployment_id,
+            "phase": "serving",
+            "desired": 1,
+            "ready": 1,
+            "running_not_ready": 0,
+            "pending": 0,
+            "coordinator_incarnation": generation["coordinator"],
+            "coord_ticks_completed": 2,
+            "serving_route_generation": generation,
+        },
+        "probe": {
+            "ok": True,
+            "endpoint_authority_sha256": endpoint["authority_sha256"],
+            "coverage": {
+                "ok": True,
+                "expected_routes": 1,
+                "discovered_routes": 1,
+                "backends": [generation["routes"][0]["backend_sha256"]],
+            },
+        },
+    }
+    readiness = _artifact(
+        tmp_path / "historical-readiness.json",
+        json.dumps(readiness_body, sort_keys=True).encode() + b"\n",
+    )
+    revalidations: list[dict[str, Any]] = []
+
+    def revalidate(*_args: Any, **kwargs: Any) -> None:
+        revalidations.append(kwargs)
+        raise ValueError("live generated policy digest rotated")
+
+    monkeypatch.setattr(
+        qualification,
+        "_proxy_policy_helpers",
+        lambda: (lambda value, **_kwargs: value, revalidate),
+    )
+
+    with pytest.raises(qualification.SmokeQualificationError, match="readiness_checkpoint_invalid"):
+        qualification.validate_readiness(
+            readiness,
+            deployment_id=deployment_id,
+            deployment_spec=spec,
+            endpoint=endpoint,
+            model="Kimi-K3",
+        )
+    assert len(revalidations) == 1
+
+    observed_generation, observed_policy = qualification.validate_historical_readiness(
+        readiness,
+        deployment_id=deployment_id,
+        deployment_spec=spec,
+        endpoint=endpoint,
+        model="Kimi-K3",
+    )
+    assert observed_generation == generation
+    assert observed_policy == policy
+    assert len(revalidations) == 1
 
 
 def test_target_evaluator_requires_same_source_config_and_contract(tmp_path: Path) -> None:

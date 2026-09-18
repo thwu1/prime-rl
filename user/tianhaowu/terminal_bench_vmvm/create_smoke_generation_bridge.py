@@ -25,7 +25,12 @@ from pathlib import Path
 from typing import Any, Mapping, Protocol
 
 from deployment_endpoint import EndpointBindingError, load_deployment_endpoint
-from deployment_proxy_policy import request_timeout_for_model, validate_proxy_policy_binding
+from deployment_proxy_policy import (
+    DeploymentProxyPolicyError,
+    request_timeout_for_model,
+    validate_proxy_policy_binding,
+    validate_worker_rotation_proxy_configs,
+)
 from eval_run_identity import load_eval_run_identity
 from inference_route_generation import canonical_backend_identifier, validate_route_generation
 from smoke_qualification import (
@@ -36,6 +41,7 @@ from smoke_qualification import (
     load_artifact,
     load_json_artifact,
     sha256_bytes,
+    validate_historical_readiness,
     validate_readiness,
     validate_smoke_qualification,
     validate_v1_smoke,
@@ -522,6 +528,44 @@ def _write_once(path: Path, payload: dict[str, Any]) -> None:
         temporary.unlink(missing_ok=True)
 
 
+def _write_private_snapshot(path: Path, raw: bytes) -> None:
+    """Atomically preserve credential-bearing proxy config as mode 0600."""
+
+    if not path.is_absolute() or str(path) != str(path.resolve(strict=False)):
+        raise GenerationBridgeError("proxy_config_snapshot_path_invalid")
+    if path.exists() or path.is_symlink():
+        if path.is_symlink():
+            raise GenerationBridgeError("proxy_config_snapshot_invalid")
+        try:
+            existing = path.read_bytes()
+            mode = stat.S_IMODE(path.stat(follow_symlinks=False).st_mode)
+        except OSError as error:
+            raise GenerationBridgeError("proxy_config_snapshot_unreadable") from error
+        if existing == raw and mode == 0o600:
+            return
+        raise GenerationBridgeError("proxy_config_snapshot_already_exists")
+    path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+    descriptor, temporary_name = tempfile.mkstemp(dir=path.parent, prefix=f".{path.name}.")
+    temporary = Path(temporary_name)
+    try:
+        with os.fdopen(descriptor, "wb") as handle:
+            handle.write(raw)
+            handle.flush()
+            os.fchmod(handle.fileno(), 0o600)
+            os.fsync(handle.fileno())
+        try:
+            os.link(temporary, path)
+        except FileExistsError as error:
+            raise GenerationBridgeError("proxy_config_snapshot_already_exists") from error
+        directory = os.open(path.parent, os.O_RDONLY)
+        try:
+            os.fsync(directory)
+        finally:
+            os.close(directory)
+    finally:
+        temporary.unlink(missing_ok=True)
+
+
 def _source_context(
     source_smoke: Artifact,
     *,
@@ -572,7 +616,7 @@ def _source_context(
         )
     except (KeyError, TypeError, ValueError, EndpointBindingError) as error:
         raise GenerationBridgeError("source_smoke_context_invalid") from error
-    ready_generation, ready_policy = validate_readiness(
+    ready_generation, ready_policy = validate_historical_readiness(
         source_readiness,
         deployment_id=deployment["id"],
         deployment_spec=target_spec,
@@ -599,6 +643,7 @@ def create_bridge(
     output_path: Path,
     source_smoke_path: Path,
     source_smoke_sha256: str,
+    source_proxy_config_snapshot_path: Path,
     deployment_id: str,
     deployment_spec_path: Path,
     deployment_spec_sha256: str,
@@ -673,7 +718,6 @@ def create_bridge(
     if (
         source_endpoint != target_endpoint
         or source_endpoint["proxy_info"] != target_endpoint["proxy_info"]
-        or source_policy != target_policy
         or source_generation.get("coordinator") != target_generation.get("coordinator")
         or source_generation.get("proxy") != target_generation.get("proxy")
         or source_generation == target_generation
@@ -737,6 +781,39 @@ def create_bridge(
     ):
         raise GenerationBridgeError("target_generation_changed_during_probe")
 
+    source_proxy_config_snapshot = load_artifact(
+        source_proxy_config_snapshot_path,
+        source_policy["proxy_litellm_config"]["sha256"],
+        label="source_proxy_config_snapshot",
+        load_bytes=True,
+    )
+    target_live_proxy_config = load_artifact(
+        Path(target_policy["proxy_litellm_config"]["path"]),
+        target_policy["proxy_litellm_config"]["sha256"],
+        label="target_live_proxy_config",
+        load_bytes=True,
+    )
+    assert target_live_proxy_config.raw is not None
+    target_snapshot_path = output_path.with_name(f"{output_path.name}.target-proxy-config.yaml")
+    _write_private_snapshot(target_snapshot_path, target_live_proxy_config.raw)
+    target_proxy_config_snapshot = load_artifact(
+        target_snapshot_path.resolve(strict=True),
+        target_policy["proxy_litellm_config"]["sha256"],
+        label="target_proxy_config_snapshot",
+        load_bytes=True,
+    )
+    try:
+        proxy_config_projection_sha256 = validate_worker_rotation_proxy_configs(
+            source_snapshot=source_proxy_config_snapshot.path,
+            source_binding=source_policy,
+            source_backends=[route["backend_sha256"] for route in source_generation["routes"]],
+            target_snapshot=target_proxy_config_snapshot.path,
+            target_binding=target_policy,
+            target_backends=[route["backend_sha256"] for route in target_generation["routes"]],
+        )
+    except DeploymentProxyPolicyError as error:
+        raise GenerationBridgeError("worker_rotation_proxy_config_invalid") from error
+
     bridge = build_bridge_payload(
         deployment_id=deployment_id,
         deployment_spec=spec,
@@ -749,6 +826,9 @@ def create_bridge(
         target_readiness=target_readiness,
         target_endpoint=target_endpoint,
         target_generation=target_generation,
+        source_proxy_config_snapshot=source_proxy_config_snapshot,
+        target_proxy_config_snapshot=target_proxy_config_snapshot,
+        proxy_config_projection_sha256=proxy_config_projection_sha256,
         evaluator_evidence=evaluator_evidence,
         probe=probe,
     )
@@ -781,6 +861,7 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--source-smoke-checkpoint", type=Path, required=True)
     parser.add_argument("--source-smoke-checkpoint-sha256", required=True)
+    parser.add_argument("--source-proxy-config-snapshot", type=Path, required=True)
     parser.add_argument("--deployment-id", required=True)
     parser.add_argument("--deployment-spec", type=Path, required=True)
     parser.add_argument("--deployment-spec-sha256", required=True)
@@ -800,6 +881,7 @@ def main(argv: list[str] | None = None) -> int:
             output_path=args.output,
             source_smoke_path=args.source_smoke_checkpoint,
             source_smoke_sha256=args.source_smoke_checkpoint_sha256,
+            source_proxy_config_snapshot_path=args.source_proxy_config_snapshot,
             deployment_id=args.deployment_id,
             deployment_spec_path=args.deployment_spec,
             deployment_spec_sha256=args.deployment_spec_sha256,

@@ -264,7 +264,7 @@ def _default_identity_loader(path: Path, *, verify_references: bool) -> dict[str
     return load_eval_run_identity(path, verify_references=verify_references)
 
 
-def validate_readiness(
+def _validate_readiness(
     readiness: Artifact,
     *,
     deployment_id: str,
@@ -273,6 +273,7 @@ def validate_readiness(
     model: str,
     deployment_spec_snapshot: Path | None = None,
     proxy_policy_snapshot: Path | None = None,
+    revalidate_live_proxy_policy: bool,
 ) -> tuple[dict[str, Any], dict[str, Any]]:
     payload = load_json_artifact(readiness, label="readiness_checkpoint")
     validate_proxy_policy_binding, revalidate_deployment_proxy_policy = _proxy_policy_helpers()
@@ -292,7 +293,11 @@ def validate_readiness(
         )
         if (deployment_spec_snapshot is None) != (proxy_policy_snapshot is None):
             raise ValueError("deployment_snapshot_incomplete")
-        if deployment_spec_snapshot is None:
+        if not revalidate_live_proxy_policy and deployment_spec_snapshot is not None:
+            raise ValueError("historical_readiness_snapshot_invalid")
+        if not revalidate_live_proxy_policy:
+            pass
+        elif deployment_spec_snapshot is None:
             revalidate_deployment_proxy_policy(
                 deployment_spec.path,
                 expected_spec_sha256=deployment_spec.sha256,
@@ -328,6 +333,57 @@ def validate_readiness(
     ):
         raise SmokeQualificationError("readiness_checkpoint_not_passed")
     return generation, proxy_policy
+
+
+def validate_readiness(
+    readiness: Artifact,
+    *,
+    deployment_id: str,
+    deployment_spec: Artifact,
+    endpoint: dict[str, Any],
+    model: str,
+    deployment_spec_snapshot: Path | None = None,
+    proxy_policy_snapshot: Path | None = None,
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    """Validate a current readiness checkpoint and its live proxy policy."""
+
+    return _validate_readiness(
+        readiness,
+        deployment_id=deployment_id,
+        deployment_spec=deployment_spec,
+        endpoint=endpoint,
+        model=model,
+        deployment_spec_snapshot=deployment_spec_snapshot,
+        proxy_policy_snapshot=proxy_policy_snapshot,
+        revalidate_live_proxy_policy=True,
+    )
+
+
+def validate_historical_readiness(
+    readiness: Artifact,
+    *,
+    deployment_id: str,
+    deployment_spec: Artifact,
+    endpoint: dict[str, Any],
+    model: str,
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    """Validate readiness embedded in an immutable, hash-linked smoke.
+
+    A worker rotation necessarily rewrites the live generated proxy config.
+    This narrowly scoped validator verifies the historical binding and every
+    other readiness invariant without comparing that old whole-file digest to
+    the current mutable file. Callers must first obtain ``readiness`` from the
+    immutable source smoke's authenticated artifact graph.
+    """
+
+    return _validate_readiness(
+        readiness,
+        deployment_id=deployment_id,
+        deployment_spec=deployment_spec,
+        endpoint=endpoint,
+        model=model,
+        revalidate_live_proxy_policy=False,
+    )
 
 
 def _expected_model_contract(model: str) -> dict[str, Any]:
@@ -1193,6 +1249,7 @@ def _validate_bridge(
             "deployment_spec_sha256",
             "model",
             "proxy_policy",
+            "proxy_config_projection_sha256",
             "artifacts",
             "source",
             "target",
@@ -1209,6 +1266,8 @@ def _validate_bridge(
         or payload.get("deployment_spec_sha256") != deployment_spec.sha256
         or payload.get("model") != model
         or not _same_json(payload.get("proxy_policy"), proxy_policy)
+        or not isinstance(payload.get("proxy_config_projection_sha256"), str)
+        or SHA256_RE.fullmatch(payload["proxy_config_projection_sha256"]) is None
         or payload.get("smoke_qualification_sha256") != sha256_bytes(canonical_json(body))
         or not isinstance(artifacts, dict)
         or set(artifacts)
@@ -1217,6 +1276,8 @@ def _validate_bridge(
             "target_readiness_checkpoint",
             "deployment_spec",
             "proxy_info",
+            "source_proxy_config_snapshot",
+            "target_proxy_config_snapshot",
         }
         or not isinstance(source, dict)
         or set(source) != {"endpoint", "serving_route_generation", "readiness_checkpoint"}
@@ -1281,17 +1342,41 @@ def _validate_bridge(
         or not _worker_only_rotation(source_generation, generation)
     ):
         raise SmokeQualificationError("smoke_bridge_not_worker_only_rotation")
-    source_ready_generation, source_policy = validate_readiness(
+    source_ready_generation, source_policy = validate_historical_readiness(
         source_readiness,
         deployment_id=deployment_id,
         deployment_spec=deployment_spec,
         endpoint=source_endpoint,
         model=model,
-        deployment_spec_snapshot=deployment_spec_snapshot,
-        proxy_policy_snapshot=proxy_policy_snapshot,
     )
-    if not _same_json(source_ready_generation, source_generation) or not _same_json(source_policy, proxy_policy):
+    if not _same_json(source_ready_generation, source_generation):
         raise SmokeQualificationError("smoke_bridge_source_mismatch")
+    source_proxy_config_snapshot = artifact_from_record(
+        artifacts["source_proxy_config_snapshot"],
+        label="bridge_source_proxy_config_snapshot",
+    )
+    target_proxy_config_snapshot = artifact_from_record(
+        artifacts["target_proxy_config_snapshot"],
+        label="bridge_target_proxy_config_snapshot",
+    )
+    from deployment_proxy_policy import (
+        DeploymentProxyPolicyError,
+        validate_worker_rotation_proxy_configs,
+    )
+
+    try:
+        projection_sha256 = validate_worker_rotation_proxy_configs(
+            source_snapshot=source_proxy_config_snapshot.path,
+            source_binding=source_policy,
+            source_backends=[route["backend_sha256"] for route in source_generation["routes"]],
+            target_snapshot=target_proxy_config_snapshot.path,
+            target_binding=proxy_policy,
+            target_backends=[route["backend_sha256"] for route in generation["routes"]],
+        )
+    except DeploymentProxyPolicyError as error:
+        raise SmokeQualificationError("smoke_bridge_proxy_config_mismatch") from error
+    if projection_sha256 != payload["proxy_config_projection_sha256"]:
+        raise SmokeQualificationError("smoke_bridge_proxy_config_mismatch")
     _, evaluator_evidence = validate_v1_smoke(
         source_smoke,
         deployment_id=deployment_id,
@@ -1363,10 +1448,22 @@ def _validate_bridge(
         deployment_spec_snapshot=deployment_spec_snapshot,
         proxy_policy_snapshot=proxy_policy_snapshot,
     )
+    try:
+        final_projection_sha256 = validate_worker_rotation_proxy_configs(
+            source_snapshot=source_proxy_config_snapshot.path,
+            source_binding=source_policy,
+            source_backends=[route["backend_sha256"] for route in source_generation["routes"]],
+            target_snapshot=target_proxy_config_snapshot.path,
+            target_binding=final_policy,
+            target_backends=[route["backend_sha256"] for route in final_generation["routes"]],
+        )
+    except DeploymentProxyPolicyError as error:
+        raise SmokeQualificationError("smoke_bridge_proxy_config_mismatch") from error
     if (
         not _same_json(final_endpoint, endpoint)
         or not _same_json(final_generation, generation)
         or not _same_json(final_policy, proxy_policy)
+        or final_projection_sha256 != payload["proxy_config_projection_sha256"]
         or not _same_json(
             _evaluator_source_evidence(evaluator_evidence["source"]),
             evaluator_evidence["evaluator_source"],
@@ -1522,6 +1619,9 @@ def build_bridge_payload(
     target_readiness: Artifact,
     target_endpoint: dict[str, Any],
     target_generation: dict[str, Any],
+    source_proxy_config_snapshot: Artifact,
+    target_proxy_config_snapshot: Artifact,
+    proxy_config_projection_sha256: str,
     evaluator_evidence: dict[str, Any],
     probe: dict[str, Any],
 ) -> dict[str, Any]:
@@ -1536,11 +1636,14 @@ def build_bridge_payload(
         "deployment_spec_sha256": deployment_spec.sha256,
         "model": model,
         "proxy_policy": proxy_policy,
+        "proxy_config_projection_sha256": proxy_config_projection_sha256,
         "artifacts": {
             "source_smoke_checkpoint": source_smoke.record,
             "target_readiness_checkpoint": target_readiness.record,
             "deployment_spec": deployment_spec.record,
             "proxy_info": target_endpoint["proxy_info"],
+            "source_proxy_config_snapshot": source_proxy_config_snapshot.record,
+            "target_proxy_config_snapshot": target_proxy_config_snapshot.record,
         },
         "source": {
             "endpoint": source_endpoint,

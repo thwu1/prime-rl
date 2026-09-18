@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import copy
 import hashlib
 import json
 import os
@@ -287,6 +288,137 @@ def validate_proxy_policy_binding(
         "num_retries": REQUIRED_NUM_RETRIES,
         "proxy_litellm_config": dict(artifact),
     }
+
+
+def _private_snapshot(path: Path, *, expected_sha256: str, label: str) -> tuple[Path, str]:
+    resolved, text, observed_sha256 = _read_stable_yaml(path, label=label)
+    try:
+        mode = stat.S_IMODE(resolved.stat(follow_symlinks=False).st_mode)
+    except OSError as error:
+        raise DeploymentProxyPolicyError(f"{label}_unreadable") from error
+    if mode != 0o600 or observed_sha256 != expected_sha256:
+        raise DeploymentProxyPolicyError(f"{label}_invalid")
+    return resolved, text
+
+
+def _worker_route_projection(
+    text: str,
+    *,
+    expected_backends: list[str],
+    label: str,
+) -> bytes:
+    """Canonicalize a generated config after replacing only worker URLs."""
+
+    from inference_route_generation import canonical_backend_identifier
+
+    document = _load_yaml_mapping(text, label=label)
+    model_list = document.get("model_list")
+    if not isinstance(model_list, list) or len(model_list) != len(expected_backends):
+        raise DeploymentProxyPolicyError(f"{label}_invalid")
+    projected_entries: list[dict[Any, Any]] = []
+    observed_backends: list[str] = []
+    for raw_entry in model_list:
+        if not isinstance(raw_entry, dict):
+            raise DeploymentProxyPolicyError(f"{label}_invalid")
+        entry = copy.deepcopy(raw_entry)
+        params = entry.get("litellm_params")
+        if not isinstance(params, dict):
+            raise DeploymentProxyPolicyError(f"{label}_invalid")
+        api_base = params.get("api_base")
+        if not isinstance(api_base, str) or not api_base:
+            raise DeploymentProxyPolicyError(f"{label}_invalid")
+        try:
+            observed_backends.append(canonical_backend_identifier(api_base))
+        except ValueError as error:
+            raise DeploymentProxyPolicyError(f"{label}_invalid") from error
+        params["api_base"] = "<worker-route>"
+        projected_entries.append(entry)
+    if sorted(observed_backends) != sorted(expected_backends):
+        raise DeploymentProxyPolicyError(f"{label}_route_mismatch")
+    try:
+        projected_entries.sort(
+            key=lambda value: json.dumps(
+                value,
+                sort_keys=True,
+                separators=(",", ":"),
+                allow_nan=False,
+            )
+        )
+        projected = copy.deepcopy(document)
+        projected["model_list"] = projected_entries
+        return json.dumps(
+            projected,
+            sort_keys=True,
+            separators=(",", ":"),
+            allow_nan=False,
+        ).encode()
+    except (TypeError, ValueError) as error:
+        raise DeploymentProxyPolicyError(f"{label}_invalid") from error
+
+
+def validate_worker_rotation_proxy_configs(
+    *,
+    source_snapshot: Path,
+    source_binding: Any,
+    source_backends: list[str],
+    target_snapshot: Path,
+    target_binding: Any,
+    target_backends: list[str],
+) -> str:
+    """Prove two generated configs differ only in worker backend URLs.
+
+    Snapshot files contain proxy credentials and therefore must be private
+    mode-0600 files. Only the resulting secret-free projection digest may be
+    placed in a bridge artifact.
+    """
+
+    source_policy = validate_proxy_policy_binding(source_binding)
+    target_policy = validate_proxy_policy_binding(
+        target_binding,
+        expected_request_timeout=source_policy["request_timeout"],
+    )
+    if (
+        source_policy["schema_version"] != target_policy["schema_version"]
+        or source_policy["num_retries"] != target_policy["num_retries"]
+        or source_policy["proxy_litellm_config"]["path"] != target_policy["proxy_litellm_config"]["path"]
+        or len(source_backends) != len(target_backends)
+    ):
+        raise DeploymentProxyPolicyError("worker_rotation_proxy_policy_mismatch")
+    _, source_text = _private_snapshot(
+        source_snapshot,
+        expected_sha256=source_policy["proxy_litellm_config"]["sha256"],
+        label="source_proxy_config_snapshot",
+    )
+    _, target_text = _private_snapshot(
+        target_snapshot,
+        expected_sha256=target_policy["proxy_litellm_config"]["sha256"],
+        label="target_proxy_config_snapshot",
+    )
+    _validate_policy_text(
+        source_text,
+        generated=True,
+        expected_request_timeout=source_policy["request_timeout"],
+        label="source_proxy_config_snapshot",
+    )
+    _validate_policy_text(
+        target_text,
+        generated=True,
+        expected_request_timeout=target_policy["request_timeout"],
+        label="target_proxy_config_snapshot",
+    )
+    source_projection = _worker_route_projection(
+        source_text,
+        expected_backends=source_backends,
+        label="source_proxy_config_snapshot",
+    )
+    target_projection = _worker_route_projection(
+        target_text,
+        expected_backends=target_backends,
+        label="target_proxy_config_snapshot",
+    )
+    if source_projection != target_projection:
+        raise DeploymentProxyPolicyError("worker_rotation_proxy_config_mismatch")
+    return hashlib.sha256(source_projection).hexdigest()
 
 
 def revalidate_deployment_proxy_policy(
