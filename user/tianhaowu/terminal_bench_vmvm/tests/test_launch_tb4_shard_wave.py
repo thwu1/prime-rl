@@ -646,9 +646,7 @@ def test_dry_run_is_private_exact_and_never_submits(tmp_path: Path, monkeypatch,
         assert values["EVAL_EXPECTED_PRIME_RL_REVISION"] == "a" * 40
         assert values["EVAL_CONFIG_SHA256"] == job["config_sha256"]
         assert {key: values[key] for key in EXPECTED_VMVM_ENV} == EXPECTED_VMVM_ENV
-        assert {
-            key: values[key] for key in launcher.REQUIRED_VACLI_AUTH_ENV
-        } == {
+        assert {key: values[key] for key in launcher.REQUIRED_VACLI_AUTH_ENV} == {
             key: arguments["ambient_env"][key] for key in launcher.REQUIRED_VACLI_AUTH_ENV
         }
         assert "RESUME_DIR" not in values

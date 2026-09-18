@@ -1095,9 +1095,7 @@ def _expected_job_environment(
             dataset_revision=prepared.config.dataset_revision,
             dataset_archive=prepared.dataset_archive,
             dataset_content_sha256=prepared.config.dataset_content_sha256,
-            vacli_auth_environment={
-                key: prepared.submission_environment[key] for key in REQUIRED_VACLI_AUTH_ENV
-            },
+            vacli_auth_environment={key: prepared.submission_environment[key] for key in REQUIRED_VACLI_AUTH_ENV},
         )
     )
 
