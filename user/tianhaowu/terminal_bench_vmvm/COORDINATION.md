@@ -1,6 +1,6 @@
 # VMVM sandbox coordination
 
-Last updated: 2026-09-18 02:58 UTC
+Last updated: 2026-09-18 03:00 UTC
 
 ## First message to the next teammate
 
@@ -39,6 +39,20 @@ this shared branch again.
 Add new rows below this line; do not overwrite another owner's row.
 
 ## Open coordination requests
+
+- **2026-09-18 03:00 UTC, Kimi timeout policy hold:**
+  `fairinternal/ram_common#288` has been returned to draft after the protected
+  Kimi run proved that its 7,200-second non-streaming request timeout is not
+  sufficient for the allowed 32,768-token response at observed throughput.
+  Do not deploy that revision unchanged on either Kimi endpoint. A replacement
+  must publish one reviewed, internally ordered timeout contract spanning the
+  RAM deployment spec and generated proxy policy, client request timeout,
+  rollout timeout, VMVM session timeout, and Slurm walltime. The next use2-3
+  gate/smoke must bind the fresh spec and policy hashes from that exact source;
+  the shared 24-route lane must likewise be requalified after deployment.
+  Continue to hold all old smoke certificates and shard roots. Record only the
+  numeric bounds, immutable hashes, and aggregate state; never expose task or
+  trace content.
 
 - **2026-09-18 02:58 UTC, use2-1 Qwen immutable-prefix-800 checkpoint:**
   producer `1454171` remains `RUNNING`. At the read-only 02:54 UTC snapshot it
