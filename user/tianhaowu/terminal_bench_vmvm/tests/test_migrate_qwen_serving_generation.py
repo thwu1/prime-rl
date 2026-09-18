@@ -269,6 +269,82 @@ def test_materialize_rejects_nonterminal_or_concurrent_source(tmp_path: Path) ->
             invoke(True)
 
 
+def test_materialize_sanitizes_target_probe_failure(tmp_path: Path) -> None:
+    inputs, contract_path, target, binding = _layout(tmp_path)
+    contract = json.loads(contract_path.read_bytes())
+
+    def unavailable(_workers: list[direct.Worker]) -> None:
+        raise direct.DirectWorkerError(
+            "worker_unreachable:https://credential@worker.invalid/private-metadata.json:PermissionError"
+        )
+
+    with pytest.raises(generation.GenerationMigrationError) as raised:
+        generation.materialize(
+            inputs,
+            contract_path=contract_path,
+            terminal_check=lambda _job: True,
+            source_auditor=lambda _source: _summary(contract),
+            worker_loader=lambda _root, **expected: (
+                target,
+                expected["expected_spec_sha256"],
+                expected["expected_bundle_sha256"],
+            ),
+            worker_probe=unavailable,
+            code_state=_code,
+            source_manifest_validator=lambda path: json.loads(path.read_bytes()),
+            selection_loader=lambda _path, _contract: binding,
+        )
+    assert raised.value.code == "target_generation_unavailable"
+    assert raised.value.category == "worker_unreachable"
+    assert str(raised.value) == "target_generation_unavailable"
+    assert not inputs.output_dir.exists()
+
+
+def test_cli_sanitizes_unhandled_direct_worker_failure(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    secret = "https://credential@worker.invalid/private-metadata.json"
+    monkeypatch.setattr(
+        generation,
+        "materialize",
+        lambda _inputs: (_ for _ in ()).throw(direct.DirectWorkerError(f"worker_unreachable:{secret}:PermissionError")),
+    )
+    monkeypatch.setattr(
+        os.sys,
+        "argv",
+        [
+            "migrate_qwen_serving_generation.py",
+            "materialize",
+            "--source-dir",
+            str(tmp_path / "source"),
+            "--selection-dir",
+            str(tmp_path / "selection"),
+            "--deployment-root",
+            str(tmp_path / "deployment"),
+            "--repair-run-dir",
+            str(tmp_path / "repair"),
+            "--output-dir",
+            str(tmp_path / "output"),
+        ],
+    )
+    with pytest.raises(SystemExit) as raised:
+        generation.main()
+    captured = capsys.readouterr()
+    assert raised.value.code == 2
+    assert captured.out == ""
+    assert json.loads(captured.err) == {
+        "category": "worker_unreachable",
+        "code": "generation_transition_failed",
+        "status": "error",
+    }
+    assert secret not in captured.err
+    assert "credential" not in captured.err
+    assert "private-metadata" not in captured.err
+    assert "Traceback" not in captured.err
+
+
 def test_publication_failure_rolls_back(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     inputs, contract_path, target, binding = _layout(tmp_path)
     contract = json.loads(contract_path.read_bytes())

@@ -44,6 +44,7 @@ SCHEMA_VERSION = 1
 MAX_METADATA_BYTES = 16 << 20
 SHA256 = re.compile(r"[0-9a-f]{64}")
 GIT_SHA = re.compile(r"[0-9a-f]{40}")
+SAFE_ERROR_CATEGORY = re.compile(r"[a-z][a-z0-9_]{0,95}")
 SOURCE_FILES = {
     "source_config.toml": "config.toml",
     "source_direct_workers.json": "direct_workers.json",
@@ -87,9 +88,21 @@ RUNTIME_FILES = (
 
 
 class GenerationMigrationError(RuntimeError):
-    def __init__(self, code: str):
+    def __init__(self, code: str, *, category: str | None = None):
         super().__init__(code)
         self.code = code
+        self.category = category
+
+
+def _direct_error(code: str, error: direct.DirectWorkerError) -> GenerationMigrationError:
+    raw_category = str(error).partition(":")[0]
+    if raw_category.startswith("endpoint_count="):
+        category = "endpoint_count_mismatch"
+    elif SAFE_ERROR_CATEGORY.fullmatch(raw_category) is not None:
+        category = raw_category
+    else:
+        category = "direct_worker_error"
+    return GenerationMigrationError(code, category=category)
 
 
 class StableArgumentParser(argparse.ArgumentParser):
@@ -540,7 +553,9 @@ def _validate_generation_config(path: Path, task_file: Path, task_sha256: str) -
             expected_capacity=(ROLLOUT_CONCURRENCY, PROVIDER_CONCURRENCY),
         )
         config = tomllib.loads(path.read_text(encoding="utf-8"))
-    except (OSError, UnicodeDecodeError, tomllib.TOMLDecodeError, direct.DirectWorkerError) as error:
+    except direct.DirectWorkerError as error:
+        raise _direct_error("repair_generation_config_invalid", error) from error
+    except (OSError, UnicodeDecodeError, tomllib.TOMLDecodeError) as error:
         raise GenerationMigrationError("repair_generation_config_invalid") from error
     if any(config.get(key) != 262_144 for key in ("max_input_tokens", "max_output_tokens", "max_total_tokens")):
         raise GenerationMigrationError("repair_generation_config_invalid")
@@ -572,7 +587,10 @@ def _validate_bundle(
     source_manifest_validator = source_manifest_validator or direct.validate_saved_manifest
     selection_loader = selection_loader or _load_selection
     if not allow_incomplete:
-        direct.reject_incomplete_migration(bundle)
+        try:
+            direct.reject_incomplete_migration(bundle)
+        except direct.DirectWorkerError as error:
+            raise _direct_error("transition_incomplete", error) from error
     transition, transition_artifact = _read_json_artifact(bundle / TRANSITION_FILENAME, "transition_invalid")
     expected_names = {*BUNDLE_FILES, TRANSITION_FILENAME}
     if allow_incomplete:
@@ -640,7 +658,9 @@ def _validate_bundle(
 
     try:
         source_manifest = source_manifest_validator(bundle / SOURCE_MANIFEST_FILENAME)
-    except (OSError, ValueError, direct.DirectWorkerError) as error:
+    except direct.DirectWorkerError as error:
+        raise _direct_error("source_manifest_invalid", error) from error
+    except (OSError, ValueError) as error:
         raise GenerationMigrationError("source_manifest_invalid") from error
     source_workers = _workers(source_manifest)
     target_manifest = _read_json(bundle / TARGET_MANIFEST_FILENAME, "target_manifest_invalid")
@@ -740,7 +760,10 @@ def materialize(
         with migration._source_locks(source):
             if any(not terminal_check(job) for job in migration._provenance_job_ids(source / "provenance.txt")):
                 raise GenerationMigrationError("source_job_not_terminal")
-            summary = source_auditor(source)
+            try:
+                summary = source_auditor(source)
+            except direct.DirectWorkerError as error:
+                raise _direct_error("source_routing_contract_invalid", error) from error
             if (
                 summary.get("ok") is not True
                 or summary.get("routing_epoch") != 3
@@ -757,13 +780,16 @@ def materialize(
             if _source_artifacts(source) != contract["source_generation"]["artifacts"]:
                 raise GenerationMigrationError("source_artifact_mismatch")
             selection_binding = selection_loader(selection, contract)
-            workers, spec, endpoint_bundle = worker_loader(
-                deployment,
-                expected_spec_sha256=contract["target_generation"]["spec_sha256"],
-                expected_bundle_sha256=contract["target_generation"]["endpoint_bundle_sha256"],
-                expected_count=24,
-            )
-            worker_probe(workers)
+            try:
+                workers, spec, endpoint_bundle = worker_loader(
+                    deployment,
+                    expected_spec_sha256=contract["target_generation"]["spec_sha256"],
+                    expected_bundle_sha256=contract["target_generation"]["endpoint_bundle_sha256"],
+                    expected_count=24,
+                )
+                worker_probe(workers)
+            except direct.DirectWorkerError as error:
+                raise _direct_error("target_generation_unavailable", error) from error
             if (len(workers), spec, endpoint_bundle) != (
                 24,
                 contract["target_generation"]["spec_sha256"],
@@ -1131,7 +1157,7 @@ def _live_target(
         )
         direct.probe_workers(workers)
     except direct.DirectWorkerError as error:
-        raise GenerationMigrationError("target_generation_unavailable") from error
+        raise _direct_error("target_generation_unavailable", error) from error
     expected = _target_manifest(
         contract,
         inputs.deployment_root,
@@ -1265,7 +1291,7 @@ def _validate_run_inputs(run: Path, transition: Mapping[str, Any], transition_sh
             PROVIDER_CONCURRENCY,
         )
     except direct.DirectWorkerError as error:
-        raise GenerationMigrationError("run_provenance_invalid") from error
+        raise _direct_error("run_provenance_invalid", error) from error
     router_port = _read_json(run / "direct_workers.json", "run_manifest_invalid")["router"]["port"]
     required = {
         "direct_qwen_manifest_sha256": manifest_sha,
@@ -1346,7 +1372,10 @@ def commit_launch(
 
 def audit_repair_run(run_dir: Path, *, contract_path: Path = CONTRACT_PATH) -> dict[str, Any]:
     run = _directory(run_dir, "repair_run_path_invalid")
-    direct.reject_incomplete_migration(run)
+    try:
+        direct.reject_incomplete_migration(run)
+    except direct.DirectWorkerError as error:
+        raise _direct_error("run_transition_incomplete", error) from error
     bundle = _directory(run / RUN_BUNDLE_DIRECTORY, "run_transition_invalid")
     contract = _load_contract(contract_path)
     inputs = _bundle_inputs(bundle, contract)
@@ -1364,15 +1393,16 @@ def audit_repair_run(run_dir: Path, *, contract_path: Path = CONTRACT_PATH) -> d
     capacity_sha = _validate_run_inputs(run, transition, transition_sha)
     task_file = run / "inputs" / "task_file.txt"
     task_sha = _artifact(task_file, "run_inputs_invalid")["sha256"]
-    if (
-        direct.validate_eval_config(
+    try:
+        validated_task_sha = direct.validate_eval_config(
             run / "config.toml",
             approved_task_file=task_file,
             approved_task_file_sha256=task_sha,
             expected_capacity=(ROLLOUT_CONCURRENCY, PROVIDER_CONCURRENCY),
         )
-        != task_sha
-    ):
+    except direct.DirectWorkerError as error:
+        raise _direct_error("run_config_invalid", error) from error
+    if validated_task_sha != task_sha:
         raise GenerationMigrationError("run_config_invalid")
     results = _artifact(run / "results.jsonl", "run_results_invalid")
     return {
@@ -1454,8 +1484,20 @@ def main() -> None:
         else:
             summary = audit_repair_run(args.run_dir)
     except (OSError, ValueError, GenerationMigrationError, migration.MigrationError) as error:
-        code = error.code if isinstance(error, GenerationMigrationError) else "generation_transition_failed"
-        print(json.dumps({"code": code, "status": "error"}, sort_keys=True), file=os.sys.stderr)
+        if isinstance(error, GenerationMigrationError):
+            code = error.code
+            category = error.category
+        elif isinstance(error, direct.DirectWorkerError):
+            sanitized = _direct_error("generation_transition_failed", error)
+            code = sanitized.code
+            category = sanitized.category
+        else:
+            code = "generation_transition_failed"
+            category = None
+        payload = {"code": code, "status": "error"}
+        if category is not None:
+            payload["category"] = category
+        print(json.dumps(payload, sort_keys=True), file=os.sys.stderr)
         raise SystemExit(2) from None
     print(json.dumps(summary, allow_nan=False, sort_keys=True))
 
