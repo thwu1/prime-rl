@@ -440,6 +440,19 @@ def test_production_eval_config_matches_shared24_contract() -> None:
     )
     launcher = (SERVER_DIR / "launch_common.sh").read_text()
     assert f"deployment_spec_sha256={EXPECTED_SPEC_SHA256}" in launcher
+    for profile_name, expected_hash in (
+        ("mobius", EXPECTED_CONFIG_SHA256),
+        ("tb4", TB4_CONFIG_SHA256),
+    ):
+        case_marker = f"    {profile_name})\n"
+        assert launcher.count(case_marker) == 1
+        case_body = launcher.split(case_marker, 1)[1].split("        ;;\n", 1)[0]
+        config_hash_assignments = [
+            line.strip().split("=", 1)[1]
+            for line in case_body.splitlines()
+            if line.strip().startswith("expected_config_sha256=")
+        ]
+        assert config_hash_assignments == [expected_hash]
     assert "KIMI_SHARED_READINESS_CHECKPOINT is required" in launcher
     assert "KIMI_SHARED_SMOKE_CHECKPOINT is required" in launcher
     assert "KIMI_SHARED_PROMOTION_CERTIFICATE is required for Mobius" in launcher

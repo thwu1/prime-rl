@@ -83,7 +83,7 @@ case "$profile" in
         eval_config="$server_dir/mobius_kimi_k3_shared24_2500.toml"
         approved_task_file="$workflow_dir/configs/eval/mobius_valid_tasks_2500.txt"
         approved_task_file_sha256=d33ef93f9b77ee91a41600934e677ba37988d3b4509e4da05ff1fcf7b4bc3a4b
-        expected_config_sha256=cfe7891a16f175187d2e892f1293471a1626f3ebda33e9f3d9ae8aab223a7937
+        expected_config_sha256=f756ca33e32795e4c1d6701f012e1d8063ba7d7463cf415a9fae018e0a4db877
         expected_rollout_cap=64
         expected_http_cap=24
         expected_waiting_cap=40
@@ -94,7 +94,7 @@ case "$profile" in
         eval_config="$server_dir/tb4_kimi_k3_shared24_miniswe.toml"
         approved_task_file="$workflow_dir/configs/eval/tb4_qwen_a95b_miniswe.tasks.txt"
         approved_task_file_sha256=9485011ac4a953f4a4a1c7c5e78550b6d7de6f760a3859dac15a3610cf4ad892
-        expected_config_sha256=aa5349078630181d574a55e15c23b487071f6d29cc77d2d79e92ced6003bcda6
+        expected_config_sha256=c540313feb36ae074db8632425401e03e52aa6c0f9cf1c2fdb77ab84a389f5f0
         expected_rollout_cap=24
         expected_http_cap=24
         expected_waiting_cap=0
