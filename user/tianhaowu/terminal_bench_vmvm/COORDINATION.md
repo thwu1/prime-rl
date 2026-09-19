@@ -3132,3 +3132,18 @@ Add new rows below this line; do not overwrite another owner's row.
   head, then run one aggregate-only selector. Continue only with at least six
   distinct disjoint v7-compatible sources, six passing proofs, 18/18 starts,
   exact wheel-byte equality, and a passing controlled oracle canary.
+
+## 2026-09-19 13:04 UTC — hold r3 post-smoke freezer
+
+- Do not execute or approve the otherwise reviewed manual singleton r3 chain.
+  Its clean environment uses `HOME=/nonexistent`, forbids cache overrides, and
+  the rendering preflight resolves the pinned tokenizer through the default
+  cache. The exact pinned snapshot is absent, and direct repository access is
+  unavailable, so r3 would fail before producing valid SFT evidence.
+- The nearby tokenizer-bearing shared model has different download provenance;
+  do not substitute it without byte-level proof against the required revision.
+- A fresh r4 must bind an immutable local tokenizer snapshot, exact repository
+  and revision metadata, a deterministic full-tree digest, no symlinks, and
+  offline/local-only loading. Carry that binding through source review,
+  preflight, frozen evidence, approval, and pre/post integrity checks. r3
+  evidence/frozen intent/approval remain absent; no downstream job was launched.
