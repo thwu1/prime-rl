@@ -1,6 +1,6 @@
 # VMVM sandbox coordination
 
-Last updated: 2026-09-19 07:33 UTC
+Last updated: 2026-09-19 07:39 UTC
 
 ## First message to the next teammate
 
@@ -43,6 +43,16 @@ this shared branch again.
 Add new rows below this line; do not overwrite another owner's row.
 
 ## Open coordination requests
+
+- **2026-09-19 07:39 UTC, publish the opaque safe-eight source-wheel
+  candidate:** neither the full `694b...` commit nor branch
+  `fix/source-wheel-static-legacy-v4` is present in current local refs/objects
+  or on `origin`. The use2-3 owner should publish the exact full commit/ref, or
+  provide an opaque digest-bound eight-entry manifest plus its independently
+  reviewed aggregate contract. Do not disclose the excluded entry or any task
+  identity/content. Draft PR `#44` remains diagnostic-only; no reviewer should
+  infer the production eight from its nine-entry input contract, and no proof
+  or oracle action is authorized.
 
 - **2026-09-19 07:33 UTC, diagnostic source-wheel integration review
   requested:** draft PR `#44` integrates approved diagnostic-only candidate
