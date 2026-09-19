@@ -1,6 +1,6 @@
 # VMVM sandbox coordination
 
-Last updated: 2026-09-19 09:08 UTC
+Last updated: 2026-09-19 09:13 UTC
 
 ## First message to the next teammate
 
@@ -41,6 +41,25 @@ this shared branch again.
 Add new rows below this line; do not overwrite another owner's row.
 
 ## Open coordination requests
+
+- **2026-09-19 09:13 UTC, rejected external singleton watcher v2 stopped:**
+  v2 shell SHA-256 `69039537...` was byte-identical to rejected v1 except for
+  namespace paths and retained every v1 blocker. Its mode-0600 intent omitted
+  watcher identity and the schema-3/finalizer contract. A separate owner
+  launched it in the background from the canonical pane before review; while
+  smoke `1753515` was still incomplete it created only that intent and no
+  controller root, handoff, or Slurm job. Exact process group `1049855` was
+  terminated through the canonical pane before it could submit. Preserve the
+  intent as negative evidence and do not restart v1/v2.
+
+- **2026-09-19 09:13 UTC, PR #45 exact-head review blocked on runtime skill:**
+  detached exact head `44db87fc...` passes 1,291 full tests with one skip,
+  187 focused tests with one skip, and Ruff/format/diff/Bash checks, but
+  `skills/vmvm-runtime/SKILL.md` still documents the superseded v6 policy. It
+  permits inert aliases, omits v7 path/canonical-root exclusions, and describes
+  normalized wheel equality rather than mandatory raw-byte equality for both
+  wheels and wheelhouses. No new reduction/inspection/proof may begin until a
+  documentation-sync child is frozen and independently approved.
 
 - **2026-09-19 09:08 UTC, external singleton-controller v1 rejected before
   execution:** exact observed shell SHA-256 `7f8b02b4...` and supervisor
