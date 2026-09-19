@@ -29,6 +29,7 @@ from pathlib import Path
 from typing import Any, Literal
 
 import direct_qwen_workers as direct_workers
+import sft_run_identity
 from audit_traces import (
     DEFAULT_MAX_SEQUENCE_TOKENS,
     TRAINABLE_FINISH_REASONS,
@@ -862,7 +863,12 @@ def _validate_optional_image_manifest(
 def _validate_run_provenance(
     run_dir: Path,
     max_sequence_tokens: int,
-) -> tuple[dict[str, FileArtifact], dict[str, Any], TaskIdentityContext]:
+) -> tuple[
+    dict[str, FileArtifact],
+    dict[str, Any],
+    TaskIdentityContext,
+    sft_run_identity.SftRunIdentity | None,
+]:
     bodies: dict[str, bytes] = {}
     artifacts: dict[str, FileArtifact] = {}
     for relative in REQUIRED_RUN_ARTIFACTS:
@@ -928,6 +934,26 @@ def _validate_run_provenance(
     num_rollouts = config.get("num_rollouts")
     if isinstance(num_rollouts, bool) or not isinstance(num_rollouts, int) or num_rollouts < 1:
         raise ExportError("resolved_config_rollout_count_invalid")
+    try:
+        run_identity = sft_run_identity.load_sft_run_identity(
+            run_dir,
+            artifacts,
+            bodies["config.toml"],
+        )
+    except sft_run_identity.SftRunIdentityError as error:
+        raise ExportError(error.code) from error
+    if run_identity is not None:
+        artifacts[sft_run_identity.EVAL_RUN_IDENTITY_FILENAME] = FileArtifact(
+            bytes=run_identity.artifact.bytes,
+            sha256=run_identity.artifact.sha256,
+        )
+        for relative, artifact in run_identity.bound_artifacts.items():
+            if relative in artifacts:
+                raise ExportError("eval_run_identity_artifact_collision")
+            artifacts[relative] = FileArtifact(
+                bytes=artifact.bytes,
+                sha256=artifact.sha256,
+            )
     return (
         artifacts,
         {
@@ -939,6 +965,7 @@ def _validate_run_provenance(
             **limits,
         },
         task_identity,
+        run_identity,
     )
 
 
@@ -1987,10 +2014,12 @@ def export_sft(options: ExportOptions) -> dict[str, Any]:
         run_dir,
         require_router_lock=options.routing_epoch_index is not None,
     ):
-        source_artifacts, config_summary, task_identity = _validate_run_provenance(
+        source_artifacts, config_summary, task_identity, run_identity = _validate_run_provenance(
             run_dir,
             options.max_sequence_tokens,
         )
+        if run_identity is not None and run_identity.provider == "sandoq" and options.routing_epoch_index is not None:
+            raise ExportError("sandoq_routing_epoch_forbidden")
         routing_index: RoutingEpochIndex | None = None
         if options.routing_epoch_index is not None:
             routing_index = _load_routing_epoch_index(
@@ -2281,6 +2310,11 @@ def export_sft(options: ExportOptions) -> dict[str, Any]:
                 },
                 "target_rendering": target_rendering_contract.value,
             }
+            if run_identity is not None:
+                manifest["eval_run_identity"] = run_identity.manifest_value(
+                    selected_traces=counts["selected_traces"],
+                    excluded_error_traces=counts["excluded_error_traces"],
+                )
             if exclusion_selection is not None:
                 manifest["exclusion_selection"] = {
                     "artifacts": {
@@ -2352,6 +2386,9 @@ def export_sft(options: ExportOptions) -> dict[str, Any]:
                 "selection": options.selection,
                 "status": "exported",
             }
+            if run_identity is not None:
+                summary["eval_run_identity_sha256"] = run_identity.eval_run_identity_sha256
+                summary["sandbox_provider"] = run_identity.provider
             if exclusion_selection is not None:
                 summary["exclusion"] = {
                     "excluded_present_traces": counts["exclusion_selected_traces"],

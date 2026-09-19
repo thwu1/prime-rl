@@ -320,6 +320,59 @@ def test_finalizer_runs_label_before_export_and_emits_only_aggregates(
     assert str(options.output_dir) not in encoded
 
 
+def test_sandoq_finalizer_skips_vmvm_router_labeling(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    options, _ = _write_layout(tmp_path)
+    config = options.source_dir / "config.toml"
+    config.write_text(config.read_text() + '[harness.runtime]\ntype = "sandoq"\n')
+    (options.source_dir / "eval_run_identity.json").write_text("{}\n")
+    monkeypatch.setattr(finalizer.platform, "machine", lambda: "x86_64")
+    calls: list[list[str]] = []
+
+    def run_command(command: list[str], _cwd: Path, code: str) -> dict:
+        calls.append(command)
+        assert code == "sft_export_failed"
+        assert "--routing-epoch-index" not in command
+        output = Path(command[command.index("--output-dir") + 1])
+        output.mkdir()
+        return {
+            "approved_tasks": 3,
+            "eval_run_identity_sha256": "a" * 64,
+            "excluded_error_traces": 0,
+            "input_traces": 3,
+            "output_sha256": {},
+            "rows": {"total": 3, "train": 3, "validation": 0},
+            "sandbox_provider": "sandoq",
+            "selected_traces": 3,
+            "selection": "pass-only",
+            "status": "exported",
+        }
+
+    validated: list[object] = []
+
+    def validate_summary(*args, **_kwargs) -> None:
+        validated.append(args[4])
+        assert args[4] is None
+
+    monkeypatch.setattr(finalizer, "_validate_export_summary", validate_summary)
+    summary = finalizer.finalize_qwen_sft(
+        options,
+        repository_validator=lambda path, _revision: path,
+        source_auditor=lambda *_args: {
+            "eval_run_identity_sha256": "a" * 64,
+            "sandbox_provider": "sandoq",
+        },
+        command_runner=run_command,
+    )
+
+    assert len(calls) == 1
+    assert validated == [None]
+    assert summary["sandbox_provider"] == "sandoq"
+    assert "routing_epoch_rows" not in summary
+
+
 def test_finalizer_passes_private_exclusion_and_rejects_toctou(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,

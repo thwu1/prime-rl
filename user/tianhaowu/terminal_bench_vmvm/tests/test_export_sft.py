@@ -2286,6 +2286,82 @@ def test_existing_output_is_never_overwritten(tmp_path: Path) -> None:
     assert marker.read_text() == "keep"
 
 
+def test_sandoq_export_propagates_identity_cleanup_and_preserves_reasoning(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    results = _write_run(tmp_path / "run", [_linear_trace()])
+    with (results.parent / "config.toml").open("a") as config:
+        config.write('[harness.runtime]\ntype = "sandoq"\n')
+    artifact = exporter.sft_run_identity.IdentityArtifact(bytes=100, sha256="a" * 64)
+    binding = exporter.sft_run_identity.SftRunIdentity(
+        artifact=artifact,
+        eval_run_identity_sha256="b" * 64,
+        provider="sandoq",
+        compatibility_sha256="c" * 64,
+        provenance={
+            "artifact": artifact.as_dict(),
+            "compatibility": {},
+            "compatibility_sha256": "c" * 64,
+            "concurrency": {},
+            "environment": {},
+            "eval_run_identity_sha256": "b" * 64,
+            "role": "qwen-direct",
+            "runtime": {},
+            "sandbox_provider": "sandoq",
+            "schema_version": 1,
+            "source": {},
+        },
+    )
+    monkeypatch.setattr(
+        exporter.sft_run_identity,
+        "load_sft_run_identity",
+        lambda *_args, **_kwargs: binding,
+    )
+    output = tmp_path / "dataset"
+
+    summary = export_sft(_options(results, output, expected_count=1))
+
+    manifest = json.loads((output / "manifest.json").read_text())
+    rows = _read_jsonl(output / "train" / "train.jsonl")
+    assert summary["sandbox_provider"] == "sandoq"
+    assert "routing_epochs" not in manifest
+    assert manifest["eval_run_identity"]["cleanup"] == {
+        "cleanup_implied_successful_traces": 1,
+        "excluded_error_traces": 0,
+        "must_succeed": True,
+        "selected_error_free_traces": 1,
+        "semantics": "runtime teardown failure is captured as trace.error",
+    }
+    assert rows[-1]["messages"][-1]["reasoning_content"] == "second-reasoning"
+    assert manifest["source_artifacts"]["eval_run_identity.json"] == artifact.as_dict()
+
+
+def test_sandoq_export_rejects_vmvm_routing_epoch_sidecar(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    results = _write_run(tmp_path / "run", [_linear_trace()])
+    with (results.parent / "config.toml").open("a") as config:
+        config.write('[harness.runtime]\ntype = "sandoq"\n')
+    index = _write_routing_epoch_index(results, [3], current_epoch=3)
+    binding = exporter.sft_run_identity.SftRunIdentity(
+        artifact=exporter.sft_run_identity.IdentityArtifact(bytes=1, sha256="a" * 64),
+        eval_run_identity_sha256="b" * 64,
+        provider="sandoq",
+        compatibility_sha256="c" * 64,
+        provenance={},
+    )
+    monkeypatch.setattr(
+        exporter.sft_run_identity,
+        "load_sft_run_identity",
+        lambda *_args, **_kwargs: binding,
+    )
+
+    with pytest.raises(ExportError, match="^sandoq_routing_epoch_forbidden$"):
+        export_sft(_options(results, tmp_path / "dataset", routing_epoch_index=index))
+
+
 def test_cli_failure_is_redacted(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     private_marker = "private-prompt-and-error-marker"
     trace = _linear_trace()

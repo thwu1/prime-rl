@@ -29,6 +29,7 @@ from typing import Any, Literal
 import direct_qwen_workers as direct
 import export_sft as exporter
 import migrate_qwen_router_affinity as migration
+import sft_run_identity
 
 INDEX_FILENAME = "qwen_router_epochs.jsonl"
 MAX_CHILD_OUTPUT_BYTES = 1 << 20
@@ -55,6 +56,17 @@ SOURCE_EXPORT_ARTIFACTS = (
     "qwen_router_admission_transition.json",
     "qwen_router_epoch1_rows.sha256",
     "qwen_router_epoch2_lineage.jsonl",
+)
+SANDOQ_SOURCE_EXPORT_ARTIFACTS = (
+    "config.toml",
+    "provenance.txt",
+    "inputs/manifest.json",
+    "inputs/source_config.toml",
+    "inputs/task_file.txt",
+    "inputs/image_manifest.json",
+    "results.jsonl",
+    "direct_workers.json",
+    sft_run_identity.EVAL_RUN_IDENTITY_FILENAME,
 )
 FORMAT_CONTRACT = {
     "assistant_finish_reason": "retained verbatim for every sampled assistant message",
@@ -329,11 +341,20 @@ def _artifact_record(value: object, code: str) -> dict[str, int | str]:
     return {"bytes": size, "sha256": digest}
 
 
-def _expected_source_artifacts(source: Path, routing_index: Path) -> dict[str, dict[str, int | str]]:
-    paths = {
-        relative: routing_index if relative == INDEX_FILENAME else source / relative
-        for relative in SOURCE_EXPORT_ARTIFACTS
-    }
+def _expected_source_artifacts(
+    source: Path,
+    routing_index: Path | None,
+    *,
+    sandbox_provider: str = "vmvm",
+) -> dict[str, dict[str, int | str]]:
+    if sandbox_provider not in {"vmvm", "sandoq"}:
+        raise FinalizationError("sandbox_provider_invalid")
+    relatives = list(SOURCE_EXPORT_ARTIFACTS if sandbox_provider == "vmvm" else SANDOQ_SOURCE_EXPORT_ARTIFACTS)
+    if sandbox_provider == "vmvm" and os.path.lexists(source / sft_run_identity.EVAL_RUN_IDENTITY_FILENAME):
+        relatives.append(sft_run_identity.EVAL_RUN_IDENTITY_FILENAME)
+    paths = {relative: routing_index if relative == INDEX_FILENAME else source / relative for relative in relatives}
+    if any(path is None for path in paths.values()):
+        raise FinalizationError("routing_index_missing")
     return {relative: _file_artifact(path, "source_artifact_unreadable") for relative, path in paths.items()}
 
 
@@ -380,10 +401,11 @@ def _publish_output(staged: Path, destination: Path) -> None:
         raise FinalizationError("output_publish_failed") from error
 
 
-def _source_locks_available(source_dir: Path) -> None:
+def _source_locks_available(source_dir: Path, *, require_router_lock: bool = True) -> None:
     descriptors: list[int] = []
     try:
-        for filename in (".direct_router.lock", ".writer.lock"):
+        filenames = (".direct_router.lock", ".writer.lock") if require_router_lock else (".writer.lock",)
+        for filename in filenames:
             path = source_dir / filename
             flags = os.O_RDWR | os.O_CLOEXEC | os.O_NONBLOCK
             if hasattr(os, "O_NOFOLLOW"):
@@ -407,6 +429,15 @@ def _source_locks_available(source_dir: Path) -> None:
                 os.close(descriptor)
 
 
+def _source_sandbox_provider(source_dir: Path) -> str:
+    try:
+        body = (source_dir / "config.toml").read_bytes()
+        provider = sft_run_identity._runtime_provider(body)
+    except (OSError, sft_run_identity.SftRunIdentityError) as error:
+        raise FinalizationError("source_config_invalid") from error
+    return provider or "vmvm"
+
+
 def _audit_source(source_dir: Path, expected_count: int, expected_provenance_sha256: str) -> dict[str, Any]:
     if SHA256_PATTERN.fullmatch(expected_provenance_sha256) is None:
         raise FinalizationError("expected_provenance_digest_invalid")
@@ -419,6 +450,28 @@ def _audit_source(source_dir: Path, expected_count: int, expected_provenance_sha
         raise FinalizationError("source_config_invalid") from error
     if config.get("num_tasks") != expected_count or config.get("num_rollouts") != 1:
         raise FinalizationError("source_expected_count_mismatch")
+    sandbox_provider = _source_sandbox_provider(source_dir)
+    if sandbox_provider == "sandoq":
+        try:
+            _artifacts, config_summary, _task_identity, run_identity = exporter._validate_run_provenance(
+                source_dir,
+                MAX_SEQUENCE_TOKENS,
+            )
+        except (OSError, ValueError, exporter.ExportError) as error:
+            raise FinalizationError("source_eval_run_identity_invalid") from error
+        if (
+            run_identity is None
+            or run_identity.provider != "sandoq"
+            or config_summary.get("model") != direct.EXPECTED_MODEL
+            or run_identity.provenance.get("cleanup") is not None
+        ):
+            raise FinalizationError("source_eval_run_identity_invalid")
+        if _stable_sha256(provenance, max_bytes=MAX_PROVENANCE_BYTES) != expected_provenance_sha256:
+            raise FinalizationError("source_provenance_changed")
+        return {
+            "eval_run_identity_sha256": run_identity.eval_run_identity_sha256,
+            "sandbox_provider": "sandoq",
+        }
     try:
         summary = direct.audit_run_directory(source_dir)
     except (OSError, ValueError, direct.DirectWorkerError) as error:
@@ -433,7 +486,19 @@ def _audit_source(source_dir: Path, expected_count: int, expected_provenance_sha
         raise FinalizationError("source_not_routing_epoch_3")
     if _stable_sha256(provenance, max_bytes=MAX_PROVENANCE_BYTES) != expected_provenance_sha256:
         raise FinalizationError("source_provenance_changed")
-    return summary
+    result = {**summary, "sandbox_provider": "vmvm"}
+    if os.path.lexists(source_dir / sft_run_identity.EVAL_RUN_IDENTITY_FILENAME):
+        try:
+            _artifacts, _config_summary, _task_identity, run_identity = exporter._validate_run_provenance(
+                source_dir,
+                MAX_SEQUENCE_TOKENS,
+            )
+        except (OSError, ValueError, exporter.ExportError) as error:
+            raise FinalizationError("source_eval_run_identity_invalid") from error
+        if run_identity is None or run_identity.provider != "vmvm":
+            raise FinalizationError("source_eval_run_identity_invalid")
+        result["eval_run_identity_sha256"] = run_identity.eval_run_identity_sha256
+    return result
 
 
 def _parse_json_object(body: bytes, code: str) -> dict[str, Any]:
@@ -516,18 +581,294 @@ def _validate_label_summary(
     return counts
 
 
+def _validate_sandoq_export_summary(
+    summary: Mapping[str, Any],
+    output_dir: Path,
+    expected_count: int,
+    selection: Selection,
+    source_artifacts: Mapping[str, Mapping[str, int | str]],
+    expected_exporter_sha256: str,
+    validation_permyriad: int,
+    split_salt: str,
+) -> None:
+    expected_summary_keys = {
+        "approved_tasks",
+        "eval_run_identity_sha256",
+        "excluded_error_traces",
+        "input_traces",
+        "output_sha256",
+        "rows",
+        "sandbox_provider",
+        "selected_traces",
+        "selection",
+        "status",
+    }
+    if (
+        set(summary) != expected_summary_keys
+        or summary.get("status") != "exported"
+        or summary.get("selection") != selection
+        or summary.get("sandbox_provider") != "sandoq"
+        or not isinstance(summary.get("eval_run_identity_sha256"), str)
+        or SHA256_PATTERN.fullmatch(summary["eval_run_identity_sha256"]) is None
+        or any(
+            not _is_plain_int(summary.get(key)) or summary[key] < 0
+            for key in ("approved_tasks", "excluded_error_traces", "input_traces", "selected_traces")
+        )
+        or summary["approved_tasks"] != expected_count
+        or summary["input_traces"] != expected_count
+        or summary["selected_traces"] > expected_count
+    ):
+        raise FinalizationError("sft_export_summary_invalid")
+    rows = summary.get("rows")
+    output_hashes = summary.get("output_sha256")
+    if (
+        not isinstance(rows, dict)
+        or set(rows) != {"total", "train", "validation"}
+        or any(not _is_plain_int(value) or value < 0 for value in rows.values())
+        or rows["total"] != rows["train"] + rows["validation"]
+        or not isinstance(output_hashes, dict)
+        or set(output_hashes) != {"manifest", "target_rendering_contract", "train", "validation"}
+        or any(SHA256_PATTERN.fullmatch(str(value)) is None for value in output_hashes.values())
+    ):
+        raise FinalizationError("sft_export_summary_invalid")
+    published = _canonical_existing_directory(output_dir, "sft_output_invalid")
+    split_directories = {
+        name: _canonical_existing_directory(published / name, "sft_output_invalid") for name in ("train", "validation")
+    }
+    expected_names = {
+        "manifest.json",
+        "task-split.json",
+        exporter.TARGET_RENDERING_CONTRACT_FILENAME,
+        "train",
+        "validation",
+    }
+    if {entry.name for entry in published.iterdir()} != expected_names or any(
+        {entry.name for entry in directory.iterdir()} != {"train.jsonl"} for directory in split_directories.values()
+    ):
+        raise FinalizationError("sft_output_contract_invalid")
+    paths = {
+        "manifest.json": published / "manifest.json",
+        "task-split.json": published / "task-split.json",
+        exporter.TARGET_RENDERING_CONTRACT_FILENAME: published / exporter.TARGET_RENDERING_CONTRACT_FILENAME,
+        "train/train.jsonl": published / "train" / "train.jsonl",
+        "validation/train.jsonl": published / "validation" / "train.jsonl",
+    }
+    observed = {name: _file_artifact(path, "sft_output_invalid") for name, path in paths.items()}
+    if (
+        observed["manifest.json"]["sha256"] != output_hashes["manifest"]
+        or observed["train/train.jsonl"]["sha256"] != output_hashes["train"]
+        or observed["validation/train.jsonl"]["sha256"] != output_hashes["validation"]
+        or observed[exporter.TARGET_RENDERING_CONTRACT_FILENAME]["sha256"] != output_hashes["target_rendering_contract"]
+        or observed[exporter.TARGET_RENDERING_CONTRACT_FILENAME]["sha256"] != exporter.TARGET_RENDERING_CONTRACT_SHA256
+    ):
+        raise FinalizationError("sft_output_digest_mismatch")
+    try:
+        manifest = _parse_json_object(paths["manifest.json"].read_bytes(), "sft_output_invalid")
+        task_split = _parse_json_object(paths["task-split.json"].read_bytes(), "sft_output_task_split_invalid")
+        target_rendering = _parse_json_object(
+            paths[exporter.TARGET_RENDERING_CONTRACT_FILENAME].read_bytes(),
+            "sft_output_target_rendering_invalid",
+        )
+    except OSError as error:
+        raise FinalizationError("sft_output_invalid") from error
+    expected_manifest_keys = {
+        "artifacts",
+        "config",
+        "counts",
+        "eval_run_identity",
+        "exporter",
+        "format",
+        "max_sequence_tokens",
+        "selection",
+        "source_artifacts",
+        "split",
+        "target_rendering",
+    }
+    artifacts = manifest.get("artifacts")
+    config = manifest.get("config")
+    counts = manifest.get("counts")
+    exporter_contract = manifest.get("exporter")
+    split = manifest.get("split")
+    allowed_count_keys = {
+        "approved_tasks",
+        "emitted_rows",
+        "excluded_error_traces",
+        "input_traces",
+        "scored_fail_traces",
+        "scored_pass_traces",
+        "selected_fail_traces",
+        "selected_pass_traces",
+        "selected_traces",
+        "selection_excluded_fail_traces",
+        "train_rows",
+        "train_traces",
+        "validation_rows",
+        "validation_traces",
+    }
+    if (
+        set(manifest) != expected_manifest_keys
+        or manifest.get("selection") != selection
+        or manifest.get("max_sequence_tokens") != MAX_SEQUENCE_TOKENS
+        or manifest.get("format") != FORMAT_CONTRACT
+        or manifest.get("target_rendering") != exporter.TARGET_RENDERING_CONTRACT
+        or target_rendering != exporter.TARGET_RENDERING_CONTRACT
+        or not isinstance(artifacts, dict)
+        or set(artifacts)
+        != {
+            "task-split.json",
+            exporter.TARGET_RENDERING_CONTRACT_FILENAME,
+            "train/train.jsonl",
+            "validation/train.jsonl",
+        }
+        or any(
+            _artifact_record(record, "sft_output_contract_invalid") != observed[name]
+            for name, record in artifacts.items()
+        )
+        or not isinstance(exporter_contract, dict)
+        or set(exporter_contract) != {"file_sha256", "format_version"}
+        or exporter_contract.get("file_sha256") != expected_exporter_sha256
+        or exporter_contract.get("format_version") != exporter.FORMAT_VERSION
+        or not isinstance(config, dict)
+        or set(config)
+        != {
+            "capture_model_io",
+            "dataset_revision",
+            "max_input_tokens",
+            "max_output_tokens",
+            "max_total_tokens",
+            "model",
+            "num_rollouts",
+            "taskset_id",
+        }
+        or config.get("capture_model_io") is not True
+        or config.get("model") != direct.EXPECTED_MODEL
+        or config.get("num_rollouts") != 1
+        or any(
+            config.get(key) != MAX_SEQUENCE_TOKENS
+            for key in ("max_input_tokens", "max_output_tokens", "max_total_tokens")
+        )
+        or not isinstance(config.get("taskset_id"), str)
+        or not config["taskset_id"]
+        or not isinstance(config.get("dataset_revision"), str)
+        or GIT_SHA_PATTERN.fullmatch(config["dataset_revision"]) is None
+        or not isinstance(counts, dict)
+        or not {
+            "approved_tasks",
+            "emitted_rows",
+            "excluded_error_traces",
+            "input_traces",
+            "scored_pass_traces",
+            "selected_pass_traces",
+            "selected_traces",
+            "train_rows",
+            "validation_rows",
+        }.issubset(counts)
+        or not set(counts).issubset(allowed_count_keys)
+        or any(not _is_plain_int(value) or value < 0 for value in counts.values())
+        or not isinstance(split, dict)
+        or set(split) != {"policy", "split_salt", "validation_permyriad"}
+        or split.get("policy") != "sha256(split_salt + NUL + stable task identity SHA-256) modulo 10000"
+        or split.get("split_salt") != split_salt
+        or split.get("validation_permyriad") != validation_permyriad
+    ):
+        raise FinalizationError("sft_output_contract_invalid")
+    if (
+        set(task_split)
+        != {
+            "format_version",
+            "split_salt",
+            "train_task_sha256",
+            "validation_permyriad",
+            "validation_task_sha256",
+        }
+        or task_split.get("format_version") != exporter.FORMAT_VERSION
+        or task_split.get("split_salt") != split_salt
+        or task_split.get("validation_permyriad") != validation_permyriad
+        or not isinstance(task_split.get("train_task_sha256"), list)
+        or not isinstance(task_split.get("validation_task_sha256"), list)
+        or any(SHA256_PATTERN.fullmatch(str(value)) is None for value in task_split["train_task_sha256"])
+        or any(SHA256_PATTERN.fullmatch(str(value)) is None for value in task_split["validation_task_sha256"])
+        or task_split["train_task_sha256"] != sorted(set(task_split["train_task_sha256"]))
+        or task_split["validation_task_sha256"] != sorted(set(task_split["validation_task_sha256"]))
+        or set(task_split["train_task_sha256"]) & set(task_split["validation_task_sha256"])
+        or len(task_split["train_task_sha256"]) != counts.get("train_traces", 0)
+        or len(task_split["validation_task_sha256"]) != counts.get("validation_traces", 0)
+    ):
+        raise FinalizationError("sft_output_task_split_invalid")
+    if (
+        counts["approved_tasks"] != expected_count
+        or counts["input_traces"] != summary["input_traces"]
+        or counts["selected_traces"] != summary["selected_traces"]
+        or counts["excluded_error_traces"] != summary["excluded_error_traces"]
+        or counts["input_traces"]
+        != counts.get("scored_pass_traces", 0) + counts.get("scored_fail_traces", 0) + counts["excluded_error_traces"]
+        or counts["selected_traces"] != counts.get("selected_pass_traces", 0) + counts.get("selected_fail_traces", 0)
+        or (selection == "pass-only" and counts.get("selected_fail_traces", 0) != 0)
+        or (selection == "pass-only" and counts.get("selected_pass_traces", 0) != counts.get("scored_pass_traces", 0))
+        or counts["emitted_rows"] != rows["total"]
+        or counts["train_rows"] != rows["train"]
+        or counts["validation_rows"] != rows["validation"]
+        or counts.get("train_traces", 0) + counts.get("validation_traces", 0) != counts["selected_traces"]
+    ):
+        raise FinalizationError("sft_output_counts_invalid")
+    manifest_sources = manifest.get("source_artifacts")
+    if (
+        not isinstance(manifest_sources, dict)
+        or set(manifest_sources) != set(SANDOQ_SOURCE_EXPORT_ARTIFACTS)
+        or {name: _artifact_record(record, "sft_source_artifact_invalid") for name, record in manifest_sources.items()}
+        != dict(source_artifacts)
+    ):
+        raise FinalizationError("sft_source_artifact_mismatch")
+    try:
+        run_identity = sft_run_identity.validate_manifest_identity(
+            manifest.get("eval_run_identity"),
+            counts=counts,
+        )
+    except sft_run_identity.SftRunIdentityError as error:
+        raise FinalizationError(error.code) from error
+    if (
+        run_identity is None
+        or run_identity.get("sandbox_provider") != "sandoq"
+        or run_identity.get("eval_run_identity_sha256") != summary["eval_run_identity_sha256"]
+        or run_identity.get("artifact") != source_artifacts[sft_run_identity.EVAL_RUN_IDENTITY_FILENAME]
+    ):
+        raise FinalizationError("sft_run_identity_mismatch")
+    try:
+        sft_run_identity.validate_manifest_source_artifacts(
+            run_identity,
+            source_artifacts,
+        )
+    except sft_run_identity.SftRunIdentityError as error:
+        raise FinalizationError(error.code) from error
+
+
 def _validate_export_summary(
     summary: Mapping[str, Any],
     output_dir: Path,
     expected_count: int,
     selection: Selection,
-    expected_index_sha256: str,
+    expected_index_sha256: str | None,
     source_artifacts: Mapping[str, Mapping[str, int | str]],
     expected_exporter_sha256: str,
     validation_permyriad: int,
     split_salt: str,
     expected_exclusion_sha256: str | None = None,
 ) -> None:
+    if expected_index_sha256 is None:
+        if expected_exclusion_sha256 is not None:
+            raise FinalizationError("sandoq_exclusion_selection_forbidden")
+        _validate_sandoq_export_summary(
+            summary,
+            output_dir,
+            expected_count,
+            selection,
+            source_artifacts,
+            expected_exporter_sha256,
+            validation_permyriad,
+            split_salt,
+        )
+        return
+    has_run_identity = sft_run_identity.EVAL_RUN_IDENTITY_FILENAME in source_artifacts
     expected_keys = {
         "approved_tasks",
         "excluded_error_traces",
@@ -541,7 +882,15 @@ def _validate_export_summary(
     }
     if expected_exclusion_sha256 is not None:
         expected_keys.add("exclusion")
+    if has_run_identity:
+        expected_keys.update({"eval_run_identity_sha256", "sandbox_provider"})
     if set(summary) != expected_keys or summary.get("status") != "exported" or summary.get("selection") != selection:
+        raise FinalizationError("sft_export_summary_invalid")
+    if has_run_identity and (
+        summary.get("sandbox_provider") != "vmvm"
+        or not isinstance(summary.get("eval_run_identity_sha256"), str)
+        or SHA256_PATTERN.fullmatch(summary["eval_run_identity_sha256"]) is None
+    ):
         raise FinalizationError("sft_export_summary_invalid")
     count_keys = ("approved_tasks", "excluded_error_traces", "input_traces", "selected_traces")
     if not all(_is_plain_int(summary.get(key)) and summary[key] >= 0 for key in count_keys):
@@ -672,6 +1021,8 @@ def _validate_export_summary(
     }
     if expected_exclusion_sha256 is not None:
         expected_manifest_keys.add("exclusion_selection")
+    if has_run_identity:
+        expected_manifest_keys.add("eval_run_identity")
     expected_artifact_names = {
         "task-split.json",
         INDEX_FILENAME,
@@ -821,11 +1172,35 @@ def _validate_export_summary(
     manifest_sources = manifest_value.get("source_artifacts")
     if (
         not isinstance(manifest_sources, dict)
-        or set(manifest_sources) != set(SOURCE_EXPORT_ARTIFACTS)
+        or set(manifest_sources) != set(source_artifacts)
         or {name: _artifact_record(record, "sft_source_artifact_invalid") for name, record in manifest_sources.items()}
         != dict(source_artifacts)
     ):
         raise FinalizationError("sft_source_artifact_mismatch")
+    try:
+        run_identity = sft_run_identity.validate_manifest_identity(
+            manifest_value.get("eval_run_identity"),
+            counts=counts,
+        )
+    except sft_run_identity.SftRunIdentityError as error:
+        raise FinalizationError(error.code) from error
+    if has_run_identity:
+        if (
+            run_identity is None
+            or run_identity.get("sandbox_provider") != "vmvm"
+            or run_identity.get("eval_run_identity_sha256") != summary["eval_run_identity_sha256"]
+            or run_identity.get("artifact") != source_artifacts[sft_run_identity.EVAL_RUN_IDENTITY_FILENAME]
+        ):
+            raise FinalizationError("sft_run_identity_mismatch")
+        try:
+            sft_run_identity.validate_manifest_source_artifacts(
+                run_identity,
+                source_artifacts,
+            )
+        except sft_run_identity.SftRunIdentityError as error:
+            raise FinalizationError(error.code) from error
+    elif run_identity is not None:
+        raise FinalizationError("sft_run_identity_mismatch")
     routing_inputs = routing.get("input_traces") if isinstance(routing, dict) else None
     routing_emitted = routing.get("emitted_rows") if isinstance(routing, dict) else None
     routing_selected = {str(epoch): counts.get(f"routing_epoch_{epoch}_selected_traces", 0) for epoch in range(1, 4)}
@@ -937,6 +1312,9 @@ def finalize_qwen_sft(
     paths = _resolve_paths(options)
     if paths.project_dir != project:
         raise FinalizationError("project_path_mismatch")
+    sandbox_provider = _source_sandbox_provider(paths.source_dir)
+    if sandbox_provider == "sandoq" and options.exclusion_selection_manifest is not None:
+        raise FinalizationError("sandoq_exclusion_selection_forbidden")
     exclusion_path: Path | None = None
     exclusion_sha256 = options.expected_exclusion_selection_manifest_sha256
     if options.exclusion_selection_manifest is not None:
@@ -948,12 +1326,17 @@ def finalize_qwen_sft(
             raise FinalizationError("exclusion_selection_invalid")
         if _stable_sha256(exclusion_path, max_bytes=MAX_PROVENANCE_BYTES) != exclusion_sha256:
             raise FinalizationError("exclusion_selection_digest_mismatch")
-    _source_locks_available(paths.source_dir)
-    source_auditor(
+    _source_locks_available(
+        paths.source_dir,
+        require_router_lock=sandbox_provider == "vmvm",
+    )
+    source_summary = source_auditor(
         paths.source_dir,
         options.expected_count,
         options.expected_provenance_sha256,
     )
+    if source_summary.get("sandbox_provider", "vmvm") != sandbox_provider:
+        raise FinalizationError("source_sandbox_provider_mismatch")
     repository_validator(paths.project_dir, options.expected_project_revision)
 
     workflow = paths.project_dir / "user" / "tianhaowu" / "terminal_bench_vmvm"
@@ -963,40 +1346,44 @@ def finalize_qwen_sft(
         dir=paths.output_dir.parent,
     ) as staging:
         staging_dir = Path(staging)
-        index = staging_dir / INDEX_FILENAME
+        index: Path | None = None
         staged_output = staging_dir / "dataset"
-        label_command = [
-            sys.executable,
-            str(workflow / "migrate_qwen_router_affinity.py"),
-            "label",
-            "--run-dir",
-            str(paths.source_dir),
-            "--output",
-            str(index),
-        ]
-        if exclusion_path is not None:
-            label_command.extend(
-                [
-                    "--repair-selection-manifest",
-                    str(exclusion_path),
-                    "--repair-selection-manifest-sha256",
-                    str(exclusion_sha256),
-                ]
+        label_summary: dict[str, Any] | None = None
+        epoch_input_rows: dict[str, int] | None = None
+        if sandbox_provider == "vmvm":
+            index = staging_dir / INDEX_FILENAME
+            label_command = [
+                sys.executable,
+                str(workflow / "migrate_qwen_router_affinity.py"),
+                "label",
+                "--run-dir",
+                str(paths.source_dir),
+                "--output",
+                str(index),
+            ]
+            if exclusion_path is not None:
+                label_command.extend(
+                    [
+                        "--repair-selection-manifest",
+                        str(exclusion_path),
+                        "--repair-selection-manifest-sha256",
+                        str(exclusion_sha256),
+                    ]
+                )
+            label_summary = command_runner(
+                label_command,
+                paths.project_dir,
+                "routing_index_failed",
             )
-        label_summary = command_runner(
-            label_command,
-            paths.project_dir,
-            "routing_index_failed",
-        )
-        epoch_input_rows = _validate_label_summary(
-            label_summary,
-            index,
-            options.expected_count,
-            allow_missing=exclusion_path is not None,
-        )
-        repository_validator(paths.project_dir, options.expected_project_revision)
-        if _stable_sha256(paths.provenance, max_bytes=MAX_PROVENANCE_BYTES) != options.expected_provenance_sha256:
-            raise FinalizationError("source_provenance_changed")
+            epoch_input_rows = _validate_label_summary(
+                label_summary,
+                index,
+                options.expected_count,
+                allow_missing=exclusion_path is not None,
+            )
+            repository_validator(paths.project_dir, options.expected_project_revision)
+            if _stable_sha256(paths.provenance, max_bytes=MAX_PROVENANCE_BYTES) != options.expected_provenance_sha256:
+                raise FinalizationError("source_provenance_changed")
 
         export_command = [
             sys.executable,
@@ -1014,9 +1401,9 @@ def finalize_qwen_sft(
             options.split_salt,
             "--max-sequence-tokens",
             str(MAX_SEQUENCE_TOKENS),
-            "--routing-epoch-index",
-            str(index),
         ]
+        if index is not None:
+            export_command.extend(["--routing-epoch-index", str(index)])
         if exclusion_path is not None:
             if _stable_sha256(exclusion_path, max_bytes=MAX_PROVENANCE_BYTES) != exclusion_sha256:
                 raise FinalizationError("exclusion_selection_changed")
@@ -1033,13 +1420,17 @@ def finalize_qwen_sft(
             paths.project_dir,
             "sft_export_failed",
         )
-        source_artifacts = _expected_source_artifacts(paths.source_dir, index)
+        source_artifacts = _expected_source_artifacts(
+            paths.source_dir,
+            index,
+            sandbox_provider=sandbox_provider,
+        )
         _validate_export_summary(
             export_summary,
             staged_output,
             options.expected_count,
             options.selection,
-            label_summary["index_sha256"],
+            label_summary["index_sha256"] if label_summary is not None else None,
             source_artifacts,
             expected_exporter_sha256,
             options.validation_permyriad,
@@ -1056,19 +1447,27 @@ def finalize_qwen_sft(
             raise FinalizationError("exclusion_selection_changed")
         _publish_output(staged_output, paths.output_dir)
 
-    return {
+    summary: dict[str, Any] = {
         "approved_tasks": export_summary["approved_tasks"],
         "excluded_error_traces": export_summary["excluded_error_traces"],
         "input_traces": export_summary["input_traces"],
         "output_sha256": export_summary["output_sha256"],
-        "routing_epoch_input_traces": epoch_input_rows,
-        "routing_epoch_rows": export_summary["routing_epoch_rows"],
         "rows": export_summary["rows"],
         "selected_traces": export_summary["selected_traces"],
         "selection": options.selection,
         "status": "finalized",
         **({"exclusion": export_summary["exclusion"]} if "exclusion" in export_summary else {}),
     }
+    if sandbox_provider == "vmvm":
+        summary["routing_epoch_input_traces"] = epoch_input_rows
+        summary["routing_epoch_rows"] = export_summary["routing_epoch_rows"]
+        if "eval_run_identity_sha256" in export_summary:
+            summary["eval_run_identity_sha256"] = export_summary["eval_run_identity_sha256"]
+            summary["sandbox_provider"] = "vmvm"
+    else:
+        summary["eval_run_identity_sha256"] = export_summary["eval_run_identity_sha256"]
+        summary["sandbox_provider"] = "sandoq"
+    return summary
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:

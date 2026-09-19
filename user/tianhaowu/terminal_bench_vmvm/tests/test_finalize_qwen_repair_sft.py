@@ -364,6 +364,106 @@ def test_finalize_publishes_exact_fresh_repair_attestation(
     }
 
 
+def test_sandoq_repair_uses_named_provider_transition_without_routing_epoch(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    options, _selection_body = _write_layout(tmp_path)
+    (options.source_dir / "config.toml").write_text('[harness.runtime]\ntype = "sandoq"\n')
+    (options.source_dir / "eval_run_identity.json").write_text("{}\n")
+    monkeypatch.setattr(finalizer.platform, "machine", lambda: "x86_64")
+    provider = {
+        "eval_run_identity_sha256": "1" * 64,
+        "identity_compatibility_sha256": "2" * 64,
+        "sandbox_provider": "sandoq",
+        "transition_kind": finalizer.VMVM_TO_SANDOQ_TRANSITION_KIND,
+    }
+
+    def audit_source(source: Path, *_args: object) -> dict:
+        return {
+            "artifacts": finalizer._source_artifacts(
+                source,
+                sandbox_provider="sandoq",
+            ),
+            "corpus": {
+                "task_count": options.expected_count,
+                "task_file_sha256": _artifact(source / "inputs/task_file.txt")["sha256"],
+                "taskset_id": "terminal-bench-vmvm",
+                "dataset_revision": "b" * 40,
+            },
+            "provider": provider,
+        }
+
+    def run_command(command: list[str], _cwd: Path, code: str) -> dict:
+        assert code == "sft_export_failed"
+        assert "--routing-epoch-index" not in command
+        output = Path(command[command.index("--output-dir") + 1])
+        (output / "train").mkdir(parents=True)
+        (output / "validation").mkdir()
+        (output / "manifest.json").write_text("{}\n")
+        return {
+            "approved_tasks": options.expected_count,
+            "eval_run_identity_sha256": provider["eval_run_identity_sha256"],
+            "excluded_error_traces": 1,
+            "input_traces": options.expected_count,
+            "output_sha256": {},
+            "rows": {"total": 1, "train": 1, "validation": 0},
+            "sandbox_provider": "sandoq",
+            "selected_traces": 1,
+            "selection": "pass-only",
+            "status": "exported",
+        }
+
+    def validate_export(
+        summary: dict,
+        _output: Path,
+        _expected_count: int,
+        source_artifacts: dict,
+        _corpus: dict,
+        _validation_permyriad: int,
+        _split_salt: str,
+        _exporter_sha256: str,
+        observed_provider: dict,
+    ) -> tuple[dict, dict]:
+        assert observed_provider == provider
+        return {"source_artifacts": dict(source_artifacts)}, {"manifest.json": _artifact(_output / "manifest.json")}
+
+    monkeypatch.setattr(finalizer, "_validate_export_summary", validate_export)
+    monkeypatch.setattr(
+        finalizer.migration,
+        "_publish_directory",
+        lambda staged, output, _validator: staged.rename(output),
+    )
+    summary = finalizer.finalize_qwen_repair_sft(
+        options,
+        repository_validator=lambda path, _revision: path,
+        source_auditor=audit_source,
+        command_runner=run_command,
+        submodule_reader=lambda _project, _revision: {
+            "deps/pydantic-config": "c" * 40,
+            "deps/renderers": "d" * 40,
+            "deps/verifiers": "e" * 40,
+        },
+        runtime_validator=lambda project: project / "user" / "tianhaowu" / "terminal_bench_vmvm",
+    )
+
+    attestation = json.loads((options.output_dir / finalizer.ATTESTATION_FILENAME).read_text())
+    assert summary["sandbox_provider"] == "sandoq"
+    assert attestation["kind"] == finalizer.SANDOQ_ATTESTATION_KIND
+    assert attestation["schema_version"] == finalizer.SANDOQ_ATTESTATION_SCHEMA_VERSION
+    assert "routing" not in attestation
+    assert attestation["provider_transition"] == {
+        "cleanup_implied_successful_traces": 1,
+        "cleanup_must_succeed": True,
+        "kind": finalizer.VMVM_TO_SANDOQ_TRANSITION_KIND,
+        "repair_eval_run_identity_sha256": "1" * 64,
+        "repair_identity_compatibility_sha256": "2" * 64,
+        "repair_sandbox_provider": "sandoq",
+        "schema_version": 1,
+        "source_sandbox_provider": "vmvm",
+    }
+
+
 def test_late_repository_failure_leaves_no_canonical_output(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
