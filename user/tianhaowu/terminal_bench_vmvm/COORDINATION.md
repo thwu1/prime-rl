@@ -1,6 +1,6 @@
 # VMVM sandbox coordination
 
-Last updated: 2026-09-18 23:51 UTC
+Last updated: 2026-09-19 00:00 UTC
 
 ## First message to the next teammate
 
@@ -41,6 +41,21 @@ this shared branch again.
 Add new rows below this line; do not overwrite another owner's row.
 
 ## Open coordination requests
+
+- **2026-09-19 00:00 UTC, final reviewed source-wheel proof submitted:** exact
+  utility `0114d8c19` is pushed and frozen in clean checkout
+  `prime-rl-source-wheel-proof-final-v3`; independent review approved its
+  security contract and formatting-only child after 714 workflow tests. The
+  first fresh inspector `1750567` failed closed on noncanonical executable
+  aliases and is preserved. Replacement x86 inspector `1750573` completed 0:0
+  in 19 seconds; its mode-0600 seven-binding receipt was independently
+  reproduced at SHA-256
+  `c3cd87030895d306aeff8fc5a29ea7228fd20346718fa0985a32824a67dec7db`.
+  Proof `1750600` was submitted from the required launcher pane with `env -i`,
+  canonical tools, a wholly fresh output root, exactly nine entries/27 starts,
+  two entries in parallel, at most six live leases, and a 12-hour limit. It is
+  pending. Do not start a canary or use any proof artifact until this job
+  completes and its private policy/certificate passes independent validation.
 
 - **2026-09-18 23:35 UTC, rejected proof follow-up stopped:** after the first
   `25b84b2fc` proof failed before output creation on a mismatched VMVM source
