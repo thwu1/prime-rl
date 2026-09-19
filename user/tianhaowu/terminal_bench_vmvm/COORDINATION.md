@@ -1,6 +1,6 @@
 # VMVM sandbox coordination
 
-Last updated: 2026-09-19 00:24 UTC
+Last updated: 2026-09-19 00:46 UTC
 
 ## First message to the next teammate
 
@@ -41,6 +41,26 @@ this shared branch again.
 Add new rows below this line; do not overwrite another owner's row.
 
 ## Open coordination requests
+
+- **2026-09-19 00:46 UTC, replacement Kimi smoke first durable row:** smoke
+  `1750319` remains running with 1/2 durable rows, zero row errors, and no
+  checkpoint; endpoints `1749985` and `1750299` remain running. The reviewed
+  smoke-to-singleton and singleton-to-full watchers are both live, but no
+  singleton root, submit receipt, or downstream Slurm job exists. Keep both
+  gates held until the smoke publishes an independently validated 2/2
+  checkpoint; do not submit a duplicate controller.
+
+- **2026-09-19 00:46 UTC, diagnostic proof needs one broader candidate-local
+  allowlist:** independently reviewed diagnostic `1750773` stopped after 2m36s
+  with one aggregate network-required source-build classification followed by
+  `source_wheel_reproducibility_failed`. Its integrity-checked journal accounts
+  for nine clean starts/stops across three entries, but only 1/9 diagnostic
+  outcomes; reduced input and aggregate summary are absent, as are every
+  policy/proof/finalization artifact. The root is nonresumable/ineligible. A
+  fresh code review is extending only the non-runnable diagnostic to continue
+  narrowly enumerated candidate-local full-entry failures while still aborting
+  infrastructure, isolation, integrity, cleanup, state, and unknown failures.
+  Do not start a canary or production proof from this attempt.
 
 - **2026-09-19 00:24 UTC, Kimi smoke retained but unsafe full-run watcher
   stopped:** replacement readiness `1750318` remains passed and smoke `1750319`
