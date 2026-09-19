@@ -1,6 +1,6 @@
 # VMVM sandbox coordination
 
-Last updated: 2026-09-19 23:16 UTC
+Last updated: 2026-09-19 23:23 UTC
 
 ## First message to the next teammate
 
@@ -41,6 +41,26 @@ this shared branch again.
 Add new rows below this line; do not overwrite another owner's row.
 
 ## Open coordination requests
+
+- **2026-09-19 23:23 UTC, task-free diagnostic v2 exact commit rejected:**
+  do not launch `8df1a94e7`. The wrapper applies a no-symlink pathname check to
+  `/proc/self/fd/N`, so it unconditionally rejects its own bound probe/uv
+  descriptors; Python likewise uses `O_NOFOLLOW` on bound probe/source/site
+  proc-fd paths, and the supervisor reopens rather than reuses the inherited
+  output-parent descriptor. Valid-child journals are count-checked but their
+  recorded renewer PID/PGID identities are not proved absent, and a cleanup
+  failure does not stop later cells from launching. The finalizer accepts
+  impossible phase evidence and does not fully validate the original launch
+  authorization or bind its own authorized bundle record. Imported source/site
+  remain owner-writable between parent attestation and child import, and raw
+  scratch deletion ignores failures. A corrected child must add descriptor-
+  aware end-to-end subprocess tests, external renewer absence checks with
+  immediate stop, stage-specific phase invariants, complete launch/finalizer
+  semantic binding, execution-adjacent child attestation or sealed snapshots,
+  and verified cleanup. The current canonical pane is alive, but it lacks
+  `X2P_PROXY_URL`; no authorization or launch is possible until the complete
+  three-value X2P tuple is explicitly established and bound. All v2 result,
+  reservation, receipt, log, and scratch namespaces remain absent.
 
 - **2026-09-19 23:16 UTC, explicit image-pull hardening approved; fresh
   watcher preparation only:** exact RAM commit
