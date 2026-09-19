@@ -39,6 +39,7 @@ from terminal_bench_vmvm.taskset import (
     _test_script_requirements,
     _verifier_site_bootstrap,
 )
+from verifiers.v1.errors import SandboxError
 from verifiers.v1.runtimes import ProgramResult, VMVMConfig, VMVMRuntime
 from vmvm_tb_v2._vacli import backend as vacli_backend
 from vmvm_tb_v2._vacli.backend import (
@@ -49,6 +50,20 @@ from vmvm_tb_v2._vacli.backend import (
 )
 from vmvm_tb_v2._vacli.concurrency_telemetry import LeaseStartConcurrencyLimiter
 from vmvm_tb_v2._vacli.types import BackendInitError
+
+
+class _VerifierRuntime:
+    def __init__(self, attempt: int, *, stop_error: str | None = None) -> None:
+        self.attempt = attempt
+        self.descriptor = f"verifier-{attempt}"
+        self.stop_error = stop_error
+
+    async def start(self) -> None:
+        return None
+
+    async def stop(self) -> None:
+        if self.stop_error is not None:
+            raise RuntimeError(self.stop_error)
 
 
 def test_environment_workdir_defaults_and_tracks_relative_updates(tmp_path: Path) -> None:
@@ -875,6 +890,86 @@ def test_public_oracle_isolates_before_separate_artifact_collection(
 
     assert asyncio.run(taskset.validate(task, object())) is True
     assert events == ["solution", "isolation", "artifacts", "verifier"]
+
+
+def test_separate_verifier_retries_successful_score_after_teardown_failure(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    taskset = TerminalBenchVMVMTaskset(
+        TerminalBenchVMVMConfig(
+            id="terminal-bench-vmvm",
+            dataset_dir=tmp_path,
+            verifier_runtime_retries=1,
+        )
+    )
+    verifiers = [
+        _VerifierRuntime(1, stop_error="stop boom"),
+        _VerifierRuntime(2),
+    ]
+    events: list[str] = []
+
+    def verifier_runtime(task, runtime, name):
+        verifier = verifiers.pop(0)
+        events.append(f"start-attempt-{verifier.attempt}")
+        return verifier
+
+    async def run_verifier(*args, **kwargs):
+        return ProgramResult(exit_code=0, stdout="", stderr=""), False, 1.0, {"solved": 1.0}
+
+    async def cleanup(task, trace, verifier) -> None:
+        assert trace is None
+        events.append(f"cleanup-attempt-{verifier.attempt}")
+        if verifier.attempt == 1:
+            raise RuntimeError("cleanup boom")
+
+    monkeypatch.setattr(taskset, "_verifier_runtime", verifier_runtime)
+    monkeypatch.setattr(taskset, "_run_verifier", run_verifier)
+    monkeypatch.setattr(taskset, "cleanup", cleanup)
+    task = SimpleNamespace(name="test", verifier_tests_baked=True)
+
+    outcome = asyncio.run(taskset._score_separate(task, object(), {}, "trace"))
+
+    assert outcome[2:6] == (1.0, {"solved": 1.0}, "verifier-2", 2)
+    assert len(outcome[6]) == 1
+    assert "taskset cleanup RuntimeError: cleanup boom" in outcome[6][0]
+    assert "runtime stop RuntimeError: stop boom" in outcome[6][0]
+    assert events == [
+        "start-attempt-1",
+        "cleanup-attempt-1",
+        "start-attempt-2",
+        "cleanup-attempt-2",
+    ]
+
+
+def test_separate_verifier_teardown_failure_exhaustion_is_sandbox_error(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    taskset = TerminalBenchVMVMTaskset(
+        TerminalBenchVMVMConfig(
+            id="terminal-bench-vmvm",
+            dataset_dir=tmp_path,
+            verifier_runtime_retries=0,
+        )
+    )
+    verifier = _VerifierRuntime(1)
+
+    async def run_verifier(*args, **kwargs):
+        return ProgramResult(exit_code=0, stdout="", stderr=""), False, 1.0, {"solved": 1.0}
+
+    async def cleanup(task, trace, runtime) -> None:
+        raise RuntimeError("cleanup boom")
+
+    monkeypatch.setattr(taskset, "_verifier_runtime", lambda task, runtime, name: verifier)
+    monkeypatch.setattr(taskset, "_run_verifier", run_verifier)
+    monkeypatch.setattr(taskset, "cleanup", cleanup)
+    task = SimpleNamespace(name="test", verifier_tests_baked=True)
+
+    with pytest.raises(SandboxError) as error:
+        asyncio.run(taskset._score_separate(task, object(), {}, "trace"))
+
+    assert "attempt 1: taskset cleanup RuntimeError: cleanup boom" in str(error.value)
 
 
 def test_verifier_dependencies_prefetch_all_then_install_offline_after_solution(

@@ -473,6 +473,93 @@ def test_oracle_attempt_cleans_taskset_before_runtime_stop_on_cancellation(monke
     assert events[-2:] == ["taskset-cleanup", "runtime-stop"]
 
 
+def test_oracle_attempt_rejects_success_after_both_teardown_failures(monkeypatch) -> None:
+    events: list[str] = []
+
+    class Runtime:
+        descriptor = "runtime"
+
+        async def start(self) -> None:
+            events.append("runtime-start")
+
+        async def stop(self) -> None:
+            events.append("runtime-stop")
+            raise RuntimeError("stop boom")
+
+    class Taskset:
+        async def setup_oracle(self, task, runtime) -> None:
+            events.append("taskset-setup")
+
+        async def validate(self, task, runtime) -> bool:
+            events.append("validate")
+            return True
+
+        async def cleanup(self, task, trace, runtime) -> None:
+            assert trace is None
+            events.append("taskset-cleanup")
+            raise RuntimeError("cleanup boom")
+
+    runtime = Runtime()
+    monkeypatch.setattr(run_oracle, "resolve_runtime_config", lambda config, task: config)
+    monkeypatch.setattr(run_oracle, "make_runtime", lambda config, name: runtime)
+
+    with pytest.raises(run_oracle.SandboxError) as error:
+        asyncio.run(
+            run_oracle._attempt(
+                Taskset(),
+                SimpleNamespace(idx=0, name="test"),
+                SimpleNamespace(),
+                setup_timeout=30,
+                validate_timeout=30,
+                attempt=1,
+            )
+        )
+
+    assert "taskset cleanup RuntimeError: cleanup boom" in str(error.value)
+    assert "runtime stop RuntimeError: stop boom" in str(error.value)
+    assert events[-2:] == ["taskset-cleanup", "runtime-stop"]
+
+
+def test_oracle_cleanup_failure_is_classified_as_infrastructure_error(monkeypatch) -> None:
+    class Runtime:
+        descriptor = "runtime"
+
+        async def start(self) -> None:
+            return None
+
+        async def stop(self) -> None:
+            return None
+
+    class Taskset:
+        async def setup_oracle(self, task, runtime) -> None:
+            return None
+
+        async def validate(self, task, runtime) -> bool:
+            return True
+
+        async def cleanup(self, task, trace, runtime) -> None:
+            raise RuntimeError("cleanup boom")
+
+    monkeypatch.setattr(run_oracle, "resolve_runtime_config", lambda config, task: config)
+    monkeypatch.setattr(run_oracle, "make_runtime", lambda config, name: Runtime())
+    task = SimpleNamespace(idx=0, name="test", slug="test", image="image")
+    args = SimpleNamespace(infra_retries=0, setup_timeout=30, validate_timeout=30)
+
+    result = asyncio.run(run_oracle._validate_one(Taskset(), task, SimpleNamespace(), args))
+
+    assert result["valid"] is False
+    assert result["reason"] == "infrastructure_error"
+    assert result["error_type"] == "SandboxError"
+    assert "taskset cleanup RuntimeError: cleanup boom" in result["error"]
+    assert result["infrastructure_failures"] == [
+        {
+            "attempt": 1,
+            "error_type": "SandboxError",
+            "error": result["error"],
+        }
+    ]
+
+
 def test_oracle_main_translates_sigterm_to_graceful_interrupt(monkeypatch) -> None:
     installed: dict[int, object] = {}
 

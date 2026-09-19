@@ -862,30 +862,41 @@ async def _attempt(
     )
     started = time.time()
     descriptor = None
-    cleanup_error = None
+    outcome: tuple[bool, dict] | None = None
+    cleanup_failures: list[str] = []
     try:
         await asyncio.wait_for(runtime.start(), timeout=setup_timeout)
         descriptor = runtime.descriptor
         await asyncio.wait_for(taskset.setup_oracle(task, runtime), timeout=setup_timeout)
         valid = await asyncio.wait_for(taskset.validate(task, runtime), timeout=validate_timeout)
-        return bool(valid), {
-            "attempt": attempt,
-            "runtime": descriptor,
-            "elapsed_sec": round(time.time() - started, 3),
-        }
+        outcome = (
+            bool(valid),
+            {
+                "attempt": attempt,
+                "runtime": descriptor,
+                "elapsed_sec": round(time.time() - started, 3),
+            },
+        )
     finally:
         try:
             try:
                 await taskset.cleanup(task, None, runtime)
             except Exception as error:
-                cleanup_error = f"{type(error).__name__}: {error}"
-                logger.warning("%s taskset cleanup failed: %s", task.name, cleanup_error)
+                failure = f"taskset cleanup {type(error).__name__}: {error}"
+                cleanup_failures.append(failure)
+                logger.warning("%s %s", task.name, failure)
         finally:
             try:
                 await asyncio.shield(runtime.stop())
             except Exception as error:
-                cleanup_error = f"{type(error).__name__}: {error}"
-                logger.warning("%s cleanup failed: %s", task.name, cleanup_error)
+                failure = f"runtime stop {type(error).__name__}: {error}"
+                cleanup_failures.append(failure)
+                logger.warning("%s %s", task.name, failure)
+    if cleanup_failures:
+        raise SandboxError(f"{task.name}: oracle teardown failed: {'; '.join(cleanup_failures)}")
+    if outcome is None:
+        raise AssertionError("oracle attempt completed without an outcome")
+    return outcome
 
 
 async def _validate_one(
@@ -1206,6 +1217,7 @@ async def _run(args: argparse.Namespace) -> int:
 
     logger.info("selected=%d resumed=%d pending=%d", len(tasks), len(results_by_slug), len(pending))
     futures = [asyncio.create_task(one(task)) for task in pending]
+    results: list[dict]
     try:
         for future in asyncio.as_completed(futures):
             result = await future
@@ -1223,28 +1235,29 @@ async def _run(args: argparse.Namespace) -> int:
             )
 
         results = [results_by_slug[task.slug] for task in tasks]
-        with (output_dir / "results.jsonl.tmp").open("w") as handle:
-            for result in results:
-                handle.write(json.dumps(result, sort_keys=True, ensure_ascii=False) + "\n")
-        os.replace(output_dir / "results.jsonl.tmp", output_dir / "results.jsonl")
-        summary = _summary(
-            results,
-            len(tasks),
-            network_semantics,
-            run_identity_sha256,
-            taskset.source_wheel_attestation_sha256,
-        )
-        summary["finished_at"] = time.time()
-        _atomic_json(output_dir / "summary.json", summary)
-        logger.info("oracle summary: %s", json.dumps(summary, sort_keys=True))
-        accepted = _meets_acceptance(summary, args.minimum_pass_rate, args.minimum_valid)
-        return 0 if accepted else 2
     finally:
         for future in futures:
             future.cancel()
         if futures:
             await asyncio.gather(*futures, return_exceptions=True)
         await taskset.close()
+
+    with (output_dir / "results.jsonl.tmp").open("w") as handle:
+        for result in results:
+            handle.write(json.dumps(result, sort_keys=True, ensure_ascii=False) + "\n")
+    os.replace(output_dir / "results.jsonl.tmp", output_dir / "results.jsonl")
+    summary = _summary(
+        results,
+        len(tasks),
+        network_semantics,
+        run_identity_sha256,
+        taskset.source_wheel_attestation_sha256,
+    )
+    summary["finished_at"] = time.time()
+    _atomic_json(output_dir / "summary.json", summary)
+    logger.info("oracle summary: %s", json.dumps(summary, sort_keys=True))
+    accepted = _meets_acceptance(summary, args.minimum_pass_rate, args.minimum_valid)
+    return 0 if accepted else 2
 
 
 def main() -> None:

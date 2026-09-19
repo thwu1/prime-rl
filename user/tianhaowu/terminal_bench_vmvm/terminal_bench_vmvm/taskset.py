@@ -3244,6 +3244,7 @@ for requirement in sys.argv[1:]:
             outcome = None
             descriptor = None
             failure = None
+            cleanup_failures: list[str] = []
             try:
                 await verifier.start()
                 descriptor = verifier.descriptor
@@ -3276,20 +3277,19 @@ for requirement in sys.argv[1:]:
                     try:
                         await self.cleanup(task, None, verifier)
                     except Exception as cleanup_error:
-                        if outcome is None:
-                            failure = (
-                                f"{failure}; taskset cleanup failed: {cleanup_error}" if failure else str(cleanup_error)
-                            )
-                        else:
-                            logger.warning("%s verifier taskset cleanup failed: %s", task.name, cleanup_error)
+                        detail = f"taskset cleanup {type(cleanup_error).__name__}: {cleanup_error}"
+                        cleanup_failures.append(detail)
+                        logger.warning("%s verifier %s", task.name, detail)
                 finally:
                     try:
                         await verifier.stop()
                     except Exception as cleanup_error:
-                        if outcome is None:
-                            failure = f"{failure}; cleanup failed: {cleanup_error}" if failure else str(cleanup_error)
-                        else:
-                            logger.warning("%s verifier cleanup failed: %s", task.name, cleanup_error)
+                        detail = f"runtime stop {type(cleanup_error).__name__}: {cleanup_error}"
+                        cleanup_failures.append(detail)
+                        logger.warning("%s verifier %s", task.name, detail)
+            if cleanup_failures:
+                failure = "; ".join(([failure] if failure else []) + cleanup_failures)
+                outcome = None
             if outcome is not None:
                 return (*outcome, descriptor, attempt, failures)
             failures.append(failure or "verifier failed without an error")
@@ -3301,8 +3301,9 @@ for requirement in sys.argv[1:]:
                     self.config.verifier_runtime_retries + 1,
                     failures[-1],
                 )
+        detail = "; ".join(f"attempt {index}: {value}" for index, value in enumerate(failures, start=1))
         raise SandboxError(
-            f"{task.name}: verifier VMVM failed after {self.config.verifier_runtime_retries + 1} attempts"
+            f"{task.name}: verifier VMVM failed after {self.config.verifier_runtime_retries + 1} attempts: {detail}"
         )
 
     @reward(weight=1.0)
