@@ -1810,6 +1810,17 @@ def _validate_trainable_trace(
         require_request_graph_match=True,
     )
     if problems:
+        response_semantic_suffixes = (
+            "_model_io_response_semantics_invalid",
+            "_model_io_response_message_mismatch",
+            "_model_io_response_finish_reason_mismatch",
+            "_model_io_response_usage_mismatch",
+            "_model_io_response_model_mismatch",
+        )
+        if all(problem.endswith(response_semantic_suffixes) for problem in problems):
+            for node in nodes:
+                if node.get("sampled") is True:
+                    _validate_captured_response(node)
         raise ExportError("trace_validation_failed")
     for node in nodes:
         if node.get("sampled") is True:

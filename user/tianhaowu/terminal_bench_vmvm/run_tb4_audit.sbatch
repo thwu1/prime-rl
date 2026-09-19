@@ -16,52 +16,41 @@ set -euo pipefail
 
 project_dir=${PROJECT_DIR:-${SLURM_SUBMIT_DIR:-$PWD}}
 workflow_dir="$project_dir/user/tianhaowu/terminal_bench_vmvm"
+x86_site=${PYTHON_SITE_X86_64:-/checkpoint/ram/tianhaowu/terminal_bench_vmvm/python_x86_64}
+x86_uv=${UV_BIN_X86_64:-/storage/home/tianhaowu/.local/x86_64/bin/uv}
 python_bin=${PYTHON_BIN_X86_64:-python3}
 results_dir=${RESULTS_DIR:?Set RESULTS_DIR to the completed TB4 snapshot}
-dataset_dir=${TB4_DATASET_DIR:-/checkpoint/ram/tianhaowu/terminal_bench_vmvm/datasets/tb4-prebuilt-v4.0.0/tasks}
-task_file=${TB4_TASK_FILE:-}
-min_rate=${TB4_MIN_SUPPORTED_PASS_RATE:-0.04}
-max_rate=${TB4_MAX_SUPPORTED_PASS_RATE:-0.22}
-max_sequence_tokens=${TB4_MAX_SEQUENCE_TOKENS:-262144}
+min_rate=0.04
+max_rate=0.22
+max_sequence_tokens=262144
 results="$results_dir/results.jsonl"
 checkpoint="$results_dir/checkpoint.json"
-temporary="$checkpoint.tmp.$SLURM_JOB_ID"
 
 if [[ ! -s "$results" ]]; then
     printf 'Missing or empty TB4 results: %s\n' "$results" >&2
     exit 2
 fi
-if [[ -e "$results_dir/.writer.lock" ]] && flock -n "$results_dir/.writer.lock" true 2>/dev/null; then
-    :
-elif [[ -e "$results_dir/.writer.lock" ]]; then
-    printf 'TB4 evaluator still owns %s\n' "$results_dir" >&2
+if [[ ! -x "$x86_uv" ]]; then
+    printf 'Missing x86_64 uv binary: %s\n' "$x86_uv" >&2
+    exit 2
+fi
+if [[ "$(uname -m)" != x86_64 || ! -d "$x86_site/pydantic" ]]; then
+    printf 'Missing x86_64 Python runtime/dependencies\n' >&2
     exit 2
 fi
 
-cleanup() {
-    rm -f -- "$temporary"
-}
-trap cleanup EXIT
-
 export PYTHONDONTWRITEBYTECODE=1
-export PYTHONPATH="$workflow_dir:$project_dir/deps/verifiers:$project_dir/deps/renderers:$project_dir/deps/pydantic-config/src${PYTHONPATH:+:$PYTHONPATH}"
+export PYTHONPATH="$workflow_dir:$project_dir/environments/vmvm_tb_v2:$project_dir/deps/verifiers:$project_dir/deps/renderers:$project_dir/deps/pydantic-config/src:$x86_site${PYTHONPATH:+:$PYTHONPATH}"
 
 args=(
     "$workflow_dir/audit_tb4_results.py"
     "$results"
-    --dataset-dir "$dataset_dir"
+    --certificate "$checkpoint"
     --min-supported-pass-rate "$min_rate"
     --max-supported-pass-rate "$max_rate"
     --max-sequence-tokens "$max_sequence_tokens"
 )
-if [[ -n "$task_file" ]]; then
-    args+=(--task-file "$task_file")
-fi
 
-"$python_bin" "${args[@]}" > "$temporary"
-"$python_bin" -c \
-    'import json, sys; assert json.load(open(sys.argv[1], encoding="utf-8"))["ok"] is True' \
-    "$temporary"
-mv -- "$temporary" "$checkpoint"
-trap - EXIT
+"$x86_uv" run --no-project --offline --python "$python_bin" python3 "${args[@]}"
 printf 'Published strict TB4 checkpoint: %s\n' "$checkpoint"
+printf 'Use checkpoint_file_sha256 above for EVAL_TB4_CERTIFICATE_SHA256; tb4_certificate_sha256 is the internal body digest.\n'

@@ -56,7 +56,9 @@ bash user/tianhaowu/terminal_bench_vmvm/fetch_tb4.sh
 The dependency target defaults to
 `/checkpoint/ram/tianhaowu/terminal_bench_vmvm/python_x86_64`. Slurm jobs add
 the local source trees ahead of it in `PYTHONPATH`, so code edits take effect
-without rebuilding that layer.
+without rebuilding that layer. The route gate runs the `serve_api_v2` status
+module with its compute-node Python rather than executing `serve.sh`, whose
+checkout virtualenv may have been materialized for the ARM64 login node.
 
 `vmvm-sandbox` intentionally does not check out the 2,538 task directories.
 Materialize the pinned repaired corpus as a detached worktree instead:
@@ -127,18 +129,38 @@ uv run --project user/tianhaowu/terminal_bench_vmvm \
 ## Oracle validation
 
 Smoke one task first by putting its directory slug in a text file and setting
-`TASK_FILE`. Then run the full set:
+the `TASK_FILE{,_SHA256}` pair. Then run the full set:
 
 ```bash
 tmux send-keys -t swebench_vmvm:Launcher.0 \
-  "env DATASET_DIR=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/datasets/mobius-ac1f30b9 MINIMUM_VALID=2500 sbatch --parsable user/tianhaowu/terminal_bench_vmvm/run_oracle.sbatch" C-m
+  "cd /checkpoint/ram/tianhaowu/terminal_bench_vmvm/sources/prime-rl-<commit> && env PROJECT_DIR=\$PWD OUTPUT_DIR=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/oracle/mobius_full_oracle_public_<commit>_v1 DATASET_DIR=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/datasets/mobius-ac1f30b9 DATASET_REVISION=ac1f30b9ac0e6c6a20a9fe423900d9ed28a6d366 IMAGE_MANIFEST=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/mobius_images.json IMAGE_MANIFEST_SHA256=118157378884021d2fc12dd83e7d9576ca606a5d229a2bd34c203d745212e009 ORACLE_SOLUTION_NETWORK_MODE=public MAX_CONCURRENT=8 VACLI_LEASE_RETRIES=20 VACLI_MAX_CONCURRENT_LEASES=4 VACLI_MAX_PULL_RETRIES=20 VACLI_IMAGE_PULL_TIMEOUT_SECONDS=3600 VACLI_CONTAINER_PRIVILEGED=1 TIMEOUT_MULTIPLIER=2 RESOURCE_MULTIPLIER=2 MINIMUM_PASS_RATE=0.9 MINIMUM_VALID=2500 sbatch --parsable \$PWD/user/tianhaowu/terminal_bench_vmvm/run_oracle.sbatch" C-m
 ```
 
 `run_oracle.py` writes one atomic JSON result per task plus `results.jsonl` and
-`summary.json`. A resumed invocation skips existing terminal results unless
-`RERUN_INVALID=1`. The full-corpus acceptance gate is at least 90% and at least
-2,500 valid tasks; task failures must be debugged separately from VMVM
-infrastructure failures.
+`summary.json`. Before any row can be reused, it verifies an immutable
+`run_identity.json` that binds the clean dataset revision (or official archive
+and extracted-tree digest), ordered task selection, task/image manifests,
+source and runtime pins, network semantics, execution settings, and acceptance
+thresholds. Initial provenance is write-once and later invocations are recorded
+separately. A resumed invocation skips existing terminal results unless
+`RERUN_INVALID=1`; any missing or mismatched identity requires a fresh output
+directory. The full-corpus acceptance gate is at least 90% and at least 2,500
+valid tasks; task failures must be debugged separately from VMVM infrastructure
+failures. Promotion accepts any number of ordinary resumes but at most one
+`RERUN_INVALID=1` recovery invocation, and binds the strictly validated
+invocation history into the promotion receipt. Invocation records require
+canonical unique Slurm job IDs and strictly increasing timestamps. Promotion
+takes the same exclusive `.writer.lock`, so it rejects a live oracle or resume
+rather than reading a changing result set.
+
+Run `export_oracle_tasks.py` once without `--apply` and review its aggregate
+counts and hashes. The identical apply invocation must include a fresh
+`--receipt /checkpoint/.../oracle_promotion_<commit>.json` path outside the Git
+worktree. Apply mode atomically updates the approved 2,500-task manifest and
+its configured hashes, then publishes a mode-0444, self-hashed receipt binding
+the final oracle artifacts, immutable run identity, acceptance thresholds,
+dataset/image/runtime pins, selected manifest, and updated configs. An existing
+receipt path fails closed; it is never overwritten.
 
 Strict oracle validation applies the declared agent policy to `solve.sh` and
 is the default. Some legacy reference solutions download build dependencies
@@ -168,6 +190,46 @@ on every terminal path, and evaluator shutdown deterministically deletes the
 cache. Hidden tests are staged only after verifier network isolation; sandbox
 wheelhouse copies are removed after use.
 
+An oracle-only source-wheel recovery path is available for an independently
+reviewed, digest-pinned exception set. It remains disabled unless
+`ORACLE_SOURCE_WHEEL_POLICY` and `ORACLE_SOURCE_WHEEL_POLICY_SHA256` are both
+set. Each policy entry binds an exact requirement set, target image digest,
+observed `pip`/`setuptools`/`wheel` versions, one source distribution, its
+complete binary-wheel closure, and every input and output filename, size, and
+SHA-256. The adapter tries the ordinary wheel-only path first and consults the
+policy only for a narrowly classified binary-unavailable result; Compose tasks
+and non-oracle setup reject the policy.
+
+The recovery builder downloads only the policy's credential-free HTTPS
+artifacts, verifies them, then activates `no-network` before executing any
+source build. It uses a fresh Python environment with
+`--no-build-isolation --no-index --no-deps`, accepts only the exact approved
+wheel closure, creates a deterministic archive, and proves an offline
+`--no-index --no-deps` install in a clean target VM with the same immutable
+image and runtime fingerprint. A process-wide semaphore limits this exceptional
+builder path to one VMVM lease while normal oracle concurrency continues.
+
+A fresh oracle creates a mode-0400 `source_wheel_attestations.json` and
+content-addressed `source_wheel_cache/` beside its results only after acquiring
+the writer lock. Publications are atomic and include the policy, runtime,
+network/build contract, source, wheel, closure, and archive digests. Every
+source-recovered result row names the attestation entry it consumed. Any resume,
+including `RERUN_INVALID=1`, must additionally pass the previously reviewed
+manifest digest as `ORACLE_SOURCE_WHEEL_ATTESTATION_SHA256`; a missing, changed,
+or orphaned artifact fails closed.
+
+For a promotable repair canary, supply the policy digest and exact nonzero
+attestation count independently to the audit controller as
+`ORACLE_AUDIT_SOURCE_WHEEL_POLICY_SHA256` and
+`ORACLE_AUDIT_SOURCE_WHEEL_ATTESTATIONS`. Pass the same pair to
+`export_oracle_tasks.py` as `--expected-source-wheel-policy-sha256` and
+`--expected-source-wheel-attestations`. The audit requires exact policy and
+manifest hashes, a one-to-one manifest/archive count, and equality between the
+attested entries and the union referenced by result rows. Promotion rehashes
+all wheelhouses and carries the recovery digests into the immutable receipt and
+final launch certificate. Never promote from values inferred only from the run
+itself.
+
 The old Mobius images do not contain every test-only package named by their
 verifier scripts. The adapter extracts only literal exact
 `name[extras]==version` pins from direct `pip install` commands in
@@ -184,8 +246,50 @@ fixtures before consuming the prior 2,500-task manifest:
 
 ```bash
 tmux send-keys -t swebench_vmvm:Launcher.0 \
-  "env TASK_FILE=\$PWD/user/tianhaowu/terminal_bench_vmvm/configs/validate/mobius_repaired_tasks.txt OUTPUT_DIR=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/oracle/mobius_repairs_ac1f30b9 DATASET_DIR=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/datasets/mobius-ac1f30b9 MINIMUM_PASS_RATE=1 MINIMUM_VALID=42 sbatch --parsable user/tianhaowu/terminal_bench_vmvm/run_oracle.sbatch" C-m
+  "cd /checkpoint/ram/tianhaowu/terminal_bench_vmvm/sources/prime-rl-<commit> && env PROJECT_DIR=\$PWD TASK_FILE=\$PWD/user/tianhaowu/terminal_bench_vmvm/configs/validate/mobius_repaired_tasks.txt TASK_FILE_SHA256=8d7d9377a9bbe6ade2fba7cc0730647d8be82402e225f95ad864a2218647563c OUTPUT_DIR=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/oracle/mobius_repairs_identity_<commit>_v1 DATASET_DIR=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/datasets/mobius-ac1f30b9 DATASET_REVISION=ac1f30b9ac0e6c6a20a9fe423900d9ed28a6d366 IMAGE_MANIFEST=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/mobius_images.json IMAGE_MANIFEST_SHA256=118157378884021d2fc12dd83e7d9576ca606a5d229a2bd34c203d745212e009 ORACLE_SOLUTION_NETWORK_MODE=public MAX_CONCURRENT=8 VACLI_LEASE_RETRIES=20 VACLI_MAX_CONCURRENT_LEASES=4 VACLI_MAX_PULL_RETRIES=20 VACLI_IMAGE_PULL_TIMEOUT_SECONDS=3600 VACLI_CONTAINER_PRIVILEGED=1 TIMEOUT_MULTIPLIER=2 RESOURCE_MULTIPLIER=2 MINIMUM_PASS_RATE=0.9 MINIMUM_VALID=41 sbatch --parsable \$PWD/user/tianhaowu/terminal_bench_vmvm/run_oracle.sbatch" C-m
 ```
+
+Require all 42 canary rows to be terminal, at least 41 valid, and zero
+infrastructure, timeout, generic-error, or cleanup failures before submitting
+the full run.
+
+### Repair-canary audit controller
+
+Never invoke `audit_oracle_repair_canary.py` directly for a promotable repair.
+Use `run_oracle_repair_canary_audit.sbatch` from the established
+`swebench_vmvm:Launcher.0` pane. The controller requires two distinct,
+detached, clean checkouts: the exact reviewed source checkout that produced the
+completed full oracle, and the exact frozen execution checkout that produced
+the repair canary. Both verifier submodules must be initialized and detached at
+their recorded gitlinks.
+
+The caller derives each checkout's Prime-RL commit, verifier gitlink, and
+deterministic VMVM source digest directly from Git and checked-out bytes. It
+passes all six values explicitly to the auditor, binds the controller and
+auditor scripts to the execution commit, and repeats every checkout and input
+check after the audit. The auditor writes only to a private staging directory;
+the caller publishes the mode-0600 certificate without overwrite only after
+that second check succeeds. Neither expected provenance tuple is derived from
+`run_identity.json`.
+
+Do not submit the launcher file directly with `sbatch`: Slurm would execute a
+spool copy, and the exact-origin check intentionally rejects that copy. Submit
+explicit resources and a wrap command that executes the canonical launcher in
+place. After replacing every placeholder with a new canonical path and the two
+independently reviewed full commit IDs, type this only through the launcher
+pane:
+
+```bash
+tmux send-keys -t swebench_vmvm:Launcher.0 \
+  "cd <detached-execution-checkout> && umask 077 && env ORACLE_AUDIT_SOURCE_PROJECT_DIR=<detached-source-checkout> ORACLE_AUDIT_SOURCE_REVISION=<source-commit> ORACLE_AUDIT_EXECUTION_PROJECT_DIR=<detached-execution-checkout> ORACLE_AUDIT_EXECUTION_REVISION=<execution-commit> ORACLE_AUDIT_SOURCE_DIR=<completed-source-oracle> ORACLE_AUDIT_BUILDER_RECEIPT=<private-builder-receipt> ORACLE_AUDIT_TASK_FILE=<private-task-file> ORACLE_AUDIT_CANARY_DIR=<completed-canary> ORACLE_AUDIT_RUNTIME_ROOT=<private-runtime-root> ORACLE_AUDIT_RUNTIME_DIR=<fresh-private-runtime-dir> ORACLE_AUDIT_CERTIFICATE_ROOT=<private-certificate-root> ORACLE_AUDIT_CERTIFICATE=<fresh-certificate-path> sbatch --parsable --export=ALL --dependency=afterany:<canary-job-id> --job-name=oracle-repair-audit --partition=cpu_x86 --qos=cpu_x86_lowest --account=ram --time=00:30:00 --nodes=1 --ntasks=1 --cpus-per-task=2 --mem=4G --no-requeue --output=<private-log-root>/oracle_repair_audit_%j.log --error=<private-log-root>/oracle_repair_audit_%j.log --wrap='exec /bin/bash <detached-execution-checkout>/user/tianhaowu/terminal_bench_vmvm/run_oracle_repair_canary_audit.sbatch'" C-m
+```
+
+The task file and builder receipt must already be regular mode-0600 files.
+Runtime logs, the controller attestation, staged certificate, summary, and
+published certificate are also mode 0600. A pre-existing runtime or certificate
+path, an active oracle writer, a moved or dirty checkout, a missing verifier
+gitlink, any VMVM digest drift, or any source/canary provenance mismatch fails
+closed without publishing the requested certificate.
 
 Validate TB4 with its official digest-pinned images and Compose sidecars by
 setting `USE_DECLARED_IMAGES=1` and `ENABLE_COMPOSE=1`:
@@ -194,6 +298,12 @@ setting `USE_DECLARED_IMAGES=1` and `ENABLE_COMPOSE=1`:
 tmux send-keys -t swebench_vmvm:Launcher.0 \
   "sbatch --parsable --export=ALL,DATASET_DIR=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/datasets/tb4-prebuilt-v4.0.0/tasks,USE_DECLARED_IMAGES=1,ENABLE_COMPOSE=1,MAX_CONCURRENT=8 user/tianhaowu/terminal_bench_vmvm/run_oracle.sbatch" C-m
 ```
+
+For the exact standard TB4 path, the launcher binds the official release
+archive SHA-256 and verifies that every extracted task path, type, mode, size,
+file byte, and symlink target matches its `tasks/` payload before loading any
+task. Other non-Git datasets must supply an explicit
+`DATASET_ARCHIVE{,_SHA256}` pair.
 
 The model-facing TB4 inputs remain byte-for-byte official. Oracle-only setup
 applies one compatibility constraint for `cad-model`: `build123d==0.10.0`
@@ -205,52 +315,167 @@ not injected into agent rollouts or verifier containers.
 
 After `fetch_tb4.sh` verifies the prebuilt release, wait for every intended
 route to be healthy, zero routes to be unhealthy, and a clean per-route
-semantic plus state-reuse soak. Never treat `/health` alone as readiness.
+semantic plus state-reuse soak. The vulnerable, unallocated
+`tianhaowu-k3-tb24-nocache-20260916` deployment was archived on 2026-09-16.
+Its replacement, `tianhaowu-k3-kda-tb1-low-20260916`, uses the digest-pinned
+ARM64 fix from RAM PR `#285` together with `PIECEWISE` graphs. It starts at one
+route on the cluster-default `g3_lowest` QoS so TB4 can qualify the patched
+runtime and VMVM capacity before any scale-up; never treat `/health` alone as
+readiness.
+Sticky headers make backend affinity observable. The patched deployment keeps
+prefix caching enabled and begins with rollout concurrency four on its one
+route. VMVM lease creation remains capped at two until a clean post-fix smoke
+and full TB4 run qualify a higher rate.
 
-### Shared 24-route Kimi deployment
-
-The preferred `shared-kimi-k3` deployment publishes 24 sticky Kimi-K3 routes
-and its credential through `proxy_info.json`. The readiness gate must establish
-exactly 24 healthy routes, zero unhealthy routes, stable per-session affinity,
-and clean one-token state reuse before the transcript smoke or full run starts.
-The evaluator automatically sends both stable rollout-session headers. Pass the
-credential file only; do not set `INFERENCE_DEPLOYMENT_ID` because this proxy
-already has a default Kimi-K3 deployment.
-
-After the approved two-task transcript smoke and strict trace audit pass, submit
-one fresh pass@1 run. The dedicated config uses 24 rollout and HTTP slots, keeps
-VMVM lease/tunnel setup capped at two, preserves the 256K total context budget,
-and allows a queued model call up to 15,000 seconds without changing the
-existing VMVM session or rollout deadlines.
+Run every command from one clean detached source snapshot. The combined Kimi
+interceptor/verifier revision must be the exact `deps/verifiers` gitlink of
+that reviewed superproject commit. `run_kimi_tb4_gate.sbatch` has no embedded
+source hash: its caller must set `EVAL_EXPECTED_PRIME_RL_REVISION` to the full
+40-hex commit of `PROJECT_DIR`, and both the wrapper and `run_eval.sbatch`
+fail closed if the clean checkout differs. First submit the approved two-task
+transcript smoke. `INFERENCE_READINESS_CHECKPOINT_SHA256` is the external file
+SHA-256 of the completed readiness JSON, not its embedded deployment-spec
+digest.
 
 ```bash
 tmux send-keys -t swebench_vmvm:Launcher.0 \
-  "cd /path/to/clean/prime-rl-worktree && env -u INFERENCE_BASE_URL -u INFERENCE_DEPLOYMENT_ID -u INFERENCE_JOB_ID -u INFERENCE_PROXY_URL -u RESUME_DIR PROJECT_DIR=\$PWD EVAL_APPROVED_TASK_FILE=\$PWD/user/tianhaowu/terminal_bench_vmvm/configs/eval/tb4_qwen_a95b_miniswe.tasks.txt EVAL_APPROVED_TASK_FILE_SHA256=9485011ac4a953f4a4a1c7c5e78550b6d7de6f760a3859dac15a3610cf4ad892 EVAL_CONFIG=\$PWD/user/tianhaowu/terminal_bench_vmvm/configs/eval/tb4_kimi_k3_shared24_miniswe.toml INFERENCE_PROXY_INFO=/checkpoint/ram/shared/vllm_deployments_v2/shared-kimi-k3/proxy_info.json OUTPUT_DIR=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/evals/tb4_kimi_k3_shared24_full_v1 VACLI_MAX_CONCURRENT_LEASES=2 sbatch --parsable --time=7-00:00:00 user/tianhaowu/terminal_bench_vmvm/run_eval.sbatch" C-m
+  "cd /checkpoint/ram/tianhaowu/terminal_bench_vmvm/sources/prime-rl-<commit> && env PROJECT_DIR=\$PWD EVAL_RUN_ROLE=smoke EVAL_DEPLOYMENT_ID=tianhaowu-k3-kda-tb1-low-20260916 EVAL_EXPECTED_MODEL=Kimi-K3 EVAL_APPROVED_TASK_FILE=\$PWD/user/tianhaowu/terminal_bench_vmvm/configs/eval/tb4_kimi_token_smoke.tasks.txt EVAL_APPROVED_TASK_FILE_SHA256=ecdcbc6e4f54b690e64b4566de5eecf33467088c8ca3436738cd7308d4e45b83 EVAL_CONFIG=\$PWD/user/tianhaowu/terminal_bench_vmvm/configs/eval/tb4_kimi_k3_approved_smoke.toml EVAL_DATASET_ARCHIVE=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/downloads/terminal-bench-prebuilt-v4.0.0.tar.gz EVAL_DATASET_ARCHIVE_SHA256=6d2c57cbcb1a75b5cdc0b0f989747fa68cdc65df8ff0a6893045a70ced7e668e EVAL_DATASET_CONTENT_SHA256=564a42a4e2ce0a5efd23758656e4e419b3566a36234dfc09bae1029bc15326b2 INFERENCE_DEPLOYMENT_SPEC=/checkpoint/ram/shared/vllm_deployments_v2/tianhaowu-k3-kda-tb1-low-20260916/spec.yaml INFERENCE_DEPLOYMENT_SPEC_SHA256=<readiness-bound-spec-sha256> INFERENCE_READINESS_CHECKPOINT=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/gates/k3_kda_tb1_low_readiness_v1.json INFERENCE_READINESS_CHECKPOINT_SHA256=<passed-readiness-file-sha256> INFERENCE_PROXY_INFO=/checkpoint/ram/shared/vllm_deployments_v2/tianhaowu-k3-kda-tb1-low-20260916/proxy_info.json INFERENCE_PROXY_INFO_SHA256=<readiness-bound-proxy-info-sha256> OUTPUT_DIR=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/evals/tb4_kimi_k3_sticky_smoke_v1 VACLI_MAX_CONCURRENT_LEASES=2 sbatch --parsable \$PWD/user/tianhaowu/terminal_bench_vmvm/run_eval.sbatch" C-m
+
+tmux send-keys -t swebench_vmvm:Launcher.0 \
+  "cd /checkpoint/ram/tianhaowu/terminal_bench_vmvm/sources/prime-rl-<commit> && env PROJECT_DIR=\$PWD RESULTS_DIR=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/evals/tb4_kimi_k3_sticky_smoke_v1 SMOKE_TASK_FILE=\$PWD/user/tianhaowu/terminal_bench_vmvm/configs/eval/tb4_kimi_token_smoke.tasks.txt SMOKE_TASK_FILE_SHA256=ecdcbc6e4f54b690e64b4566de5eecf33467088c8ca3436738cd7308d4e45b83 SMOKE_EXPECTED_TRACES=2 sbatch --parsable \$PWD/user/tianhaowu/terminal_bench_vmvm/run_trace_smoke_audit.sbatch" C-m
 ```
 
-Every real launch and resume through `run_eval.sbatch` requires an external
-approved task file plus its lowercase SHA-256. The launcher snapshots the
-selection, binds the source and resolved configs to that digest and task count,
-records approval metadata in provenance, and rejects inline tasks or CLI
-overrides. Exact `--dry-run` is the sole approval-free mode and exits before
-task loading. The checked-in full-TB4 manifest is shared by the Kimi and Qwen
-configs despite its historical filename.
+After that audit publishes `smoke_checkpoint.json`, hash the file and launch
+the full 66-task pass@1 run with the same passed readiness artifact:
 
-`INFERENCE_PROXY_INFO` is the preferred interface for a direct RAM deployment:
-the compute job reads `url` and `api_key` without putting the key in the config,
-submission command, or provenance file. Do not set `INFERENCE_DEPLOYMENT_ID` for
-a per-deployment proxy. Set it only when using a shared gateway route.
+```bash
+tmux send-keys -t swebench_vmvm:Launcher.0 \
+  "cd /checkpoint/ram/tianhaowu/terminal_bench_vmvm/sources/prime-rl-<commit> && env PROJECT_DIR=\$PWD EVAL_RUN_ROLE=tb4 EVAL_DEPLOYMENT_ID=tianhaowu-k3-kda-tb1-low-20260916 EVAL_EXPECTED_MODEL=Kimi-K3 EVAL_APPROVED_TASK_FILE=\$PWD/user/tianhaowu/terminal_bench_vmvm/configs/eval/tb4_qwen_a95b_miniswe.tasks.txt EVAL_APPROVED_TASK_FILE_SHA256=9485011ac4a953f4a4a1c7c5e78550b6d7de6f760a3859dac15a3610cf4ad892 EVAL_CONFIG=\$PWD/user/tianhaowu/terminal_bench_vmvm/configs/eval/tb4_kimi_k3_max_miniswe.toml EVAL_DATASET_ARCHIVE=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/downloads/terminal-bench-prebuilt-v4.0.0.tar.gz EVAL_DATASET_ARCHIVE_SHA256=6d2c57cbcb1a75b5cdc0b0f989747fa68cdc65df8ff0a6893045a70ced7e668e EVAL_DATASET_CONTENT_SHA256=564a42a4e2ce0a5efd23758656e4e419b3566a36234dfc09bae1029bc15326b2 INFERENCE_DEPLOYMENT_SPEC=/checkpoint/ram/shared/vllm_deployments_v2/tianhaowu-k3-kda-tb1-low-20260916/spec.yaml INFERENCE_DEPLOYMENT_SPEC_SHA256=<readiness-bound-spec-sha256> INFERENCE_READINESS_CHECKPOINT=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/gates/k3_kda_tb1_low_readiness_v1.json INFERENCE_READINESS_CHECKPOINT_SHA256=<passed-readiness-file-sha256> INFERENCE_SMOKE_CHECKPOINT=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/evals/tb4_kimi_k3_sticky_smoke_v1/smoke_checkpoint.json INFERENCE_SMOKE_CHECKPOINT_SHA256=<smoke-checkpoint-file-sha256> INFERENCE_PROXY_INFO=/checkpoint/ram/shared/vllm_deployments_v2/tianhaowu-k3-kda-tb1-low-20260916/proxy_info.json INFERENCE_PROXY_INFO_SHA256=<readiness-bound-proxy-info-sha256> OUTPUT_DIR=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/evals/tb4_kimi_k3_sticky_full_v3 VACLI_MAX_CONCURRENT_LEASES=2 sbatch --parsable \$PWD/user/tianhaowu/terminal_bench_vmvm/run_eval.sbatch" C-m
 
-For a shared gateway route with no default deployment, also set
-`INFERENCE_DEPLOYMENT_ID`; the launcher passes it as `X-Deployment-Id` without
-embedding any credential in the config. For an HTTPS ingress that is reachable
-only through the corporate forward proxy, set `INFERENCE_PROXY_URL` as well;
-direct VMVM and inference routes continue to run with proxy variables cleared.
+tmux send-keys -t swebench_vmvm:Launcher.0 \
+  "cd /checkpoint/ram/tianhaowu/terminal_bench_vmvm/sources/prime-rl-<commit> && env PROJECT_DIR=\$PWD RESULTS_DIR=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/evals/tb4_kimi_k3_sticky_full_v3 sbatch --parsable \$PWD/user/tianhaowu/terminal_bench_vmvm/run_tb4_audit.sbatch" C-m
+```
 
-The shared config is `configs/eval/tb4_kimi_k3_shared24_miniswe.toml`: 66
-tasks, pass@1, mini-swe-agent, `reasoning_effort=max`, one VMVM per rollout,
-and a 256 Ki-token total context cap. It uses rollout concurrency 24 and an
-HTTP connection/keepalive pool of 24. Keep vacli lease bring-up bounded at two
+If only the backend worker generation rotates before launch, a completed
+schema-1 smoke may be qualified for the new generation without changing or
+relabeling that smoke. While the source generation is still live, preserve its
+exact generated `proxy_litellm_config.yaml` as a private mode-0600 snapshot;
+its SHA-256 must equal the policy digest embedded in the eventual smoke
+certificate. The snapshot contains credentials and must never be printed,
+committed, or placed in training artifacts. First pass a fresh readiness gate
+for the replacement workers, then publish a separate schema-2 bridge:
+
+```bash
+python user/tianhaowu/terminal_bench_vmvm/create_smoke_generation_bridge.py \
+  --output /path/to/write-once/smoke_generation_bridge.json \
+  --source-smoke-checkpoint /path/to/source-smoke/smoke_checkpoint.json \
+  --source-smoke-checkpoint-sha256 <source-smoke-file-sha256> \
+  --source-proxy-config-snapshot /path/to/private/source-proxy-config.yaml \
+  --deployment-id <deployment-id> \
+  --deployment-spec /path/to/deployment/spec.yaml \
+  --deployment-spec-sha256 <exact-spec-sha256> \
+  --target-readiness-checkpoint /path/to/fresh-readiness.json \
+  --target-readiness-checkpoint-sha256 <fresh-readiness-file-sha256> \
+  --proxy-info /path/to/deployment/proxy_info.json \
+  --proxy-info-sha256 <unchanged-proxy-info-sha256>
+```
+
+Use the resulting file and its external SHA-256 as
+`INFERENCE_SMOKE_CHECKPOINT` and `INFERENCE_SMOKE_CHECKPOINT_SHA256`. The
+bridge is accepted only when the deployment ID, spec path/hash, model,
+coordinator incarnation, proxy incarnation, proxy-info path/hash, endpoint
+authority, and parsed proxy policy remain exact. It also snapshots the target
+generated config privately and proves the source and target configs are
+canonical-equal after replacing only the route `api_base` values; every other
+setting and secret must be byte-semantically equal, and both route URL sets
+must hash to their readiness generations. The source and target route sets
+must differ, so this mechanism cannot certify a proxy, coordinator, policy,
+model, or deployment rotation. It recursively revalidates the source
+schema-1 smoke, its identity, configuration, results hashes, guard receipt,
+single non-resume invocation, and evaluator/model-I/O/tool/thinking contract.
+
+The fresh bridge probe reuses readiness's sticky representative session for
+every target backend. On each backend it sends `reasoning_effort=max`, both
+thinking flags, and an actual function-tool call followed by its tool result;
+both responses must report the exact model and nonempty reasoning. The bridge
+stores only request/response SHA-256 values and aggregate pass facts, never
+messages, reasoning, tool arguments, endpoint URLs, or credentials. The file
+is mode 0444, self-hashed, and write-once; both credential-bearing config
+snapshots remain separate mode-0600 files referenced only by path and SHA-256.
+A changed source artifact, duplicate key, type mismatch, missing backend,
+non-route proxy-config change, or proxy-info rotation fails closed.
+Every shard still performs its own fresh route guard against the target
+generation. Cross-generation resume remains forbidden: restart an interrupted
+shard in a new output directory with a newly validated bridge and guard.
+
+Every real launch through `run_eval.sbatch` requires
+`EVAL_RUN_ROLE`, `EVAL_DEPLOYMENT_ID`, `EVAL_EXPECTED_MODEL`, an exact
+deployment spec and passed readiness artifact, one dataset authority, and an
+external approved task file with its lowercase SHA-256. TB4 and Mobius also
+require the externally hashed smoke checkpoint; Mobius additionally requires
+the externally hashed launch certificate. Every role must supply the exact
+deployment-local `INFERENCE_PROXY_INFO` path and
+`INFERENCE_PROXY_INFO_SHA256` established by readiness. The launcher snapshots all mutable
+inputs and publishes a self-hashed `eval_run_identity.json` before any model
+call. It binds source/runtime pins, dataset authority, deployment gates,
+pass@1/max-reasoning/256K/capture settings, task count and digest, and effective
+execution concurrency. Readiness also binds each positive Slurm endpoint job
+ID, worker start time, and SHA-256 digest of its backend API base, plus the
+coordinator job/start-time incarnation and proxy job/first-ready stamp. Status
+must use schema v4, the proxy job must match `proxy_info.json`, and coordinator
+ticks must strictly advance between same-incarnation readiness observations
+and across the semantic probe. The semantic probe must observe exactly those
+backend digests, and the waiter rechecks the same serving generation after the probe.
+`run_eval.sbatch` checks that generation before model traffic, every 10 seconds
+while the evaluator is alive, requires tick progress within 30 seconds, and
+checks once after it exits; a route change, preemption, stalled coordinator,
+surviving child process, or guard termination signal kills and waits for the
+entire evaluator process group. Before spawning, the guard removes any stale
+`route_guard_success.json`. Only a zero exit followed by the final route check
+and stable hashes of `eval_run_identity.json`, `eval_invocations.jsonl`, and
+`results.jsonl` publishes a fresh atomic mode-0600 receipt. Smoke and TB4
+certification require and rehash that exact receipt chain. Guarded Kimi smoke,
+TB4, and Mobius runs reject every nonempty `RESUME_DIR`; an interrupted run
+requires a fresh output directory and a new single-invocation receipt.
+Exact `--dry-run` is the sole approval-free mode and exits before task loading.
+The checked-in full-TB4 manifest is shared by the Kimi and Qwen configs despite
+its historical filename.
+
+The compute job reads `url` and `api_key` from the hash-pinned proxy file without
+putting the key in the config, submission command, or provenance file. It binds
+the resolved proxy path, full-file hash, and a secret-free authority digest to
+readiness and every downstream certificate. A proxy rotation therefore requires
+a fresh readiness gate; do not substitute a new hash in a smoke, TB4, or Mobius
+command. Direct/base-URL, inference-job, and shared-gateway deployment overrides
+are rejected for this workflow. `INFERENCE_PROXY_URL` remains available only as
+a transport proxy when the bound HTTPS ingress requires it.
+
+The deployment spec must set integer `spec.proxy.config.request_timeout: 43200`
+and integer `num_retries: 0`. Readiness independently parses the generated
+`proxy_litellm_config.yaml`, requires the same values, and records only those
+values plus the full-file SHA-256 and path—never its URL or key. Both YAML
+documents are parsed semantically with duplicate keys, aliases, merge keys,
+quoted numeric values, tags, and non-integer values rejected. The evaluator
+guard revalidates that file throughout the run. Kimi configs use the same
+43,200-second timeout for both the evaluator client and mini-swe-agent's model
+client. The rollout limit is strictly below both HTTP-client limits and the
+VMVM session limit, while the session limit is no greater than the
+client/proxy limit. This makes an owned rollout boundary fire before an HTTP
+read timeout.
+The policy file is scoped to its readiness generation: a deliberate resize may
+rewrite both live policy files, so the sharded TB4 finalizer privately snapshots
+two canonical allowlisted records: one binds the historical spec hash and typed
+policy, and one binds the original generated-file hash and typed policy. Raw
+spec or generated-config bytes are never retained. Post-resize readiness binds
+the new live files.
+This timeout is selected from the exact requested model: unrelated/Qwen
+readiness remains pinned to its existing 7,200-second policy and cannot be
+cross-certified against a Kimi artifact.
+
+The default config is `configs/eval/tb4_kimi_k3_max_miniswe.toml`: 66 tasks,
+pass@1, mini-swe-agent, `reasoning_effort=max`, one VMVM per rollout, and a
+256 Ki-token total context cap. It uses rollout concurrency four and an HTTP
+connection/keepalive pool of four. Keep vacli lease bring-up bounded at two
 for this qualification run. All 11 TB4 tasks that declare Docker Compose
 sidecars use the compose-capable VMVM path;
 they are not skipped or downgraded to a single-container approximation. The
@@ -261,17 +486,17 @@ exact VMVM subset is therefore 63 tasks.
 The Kimi configs explicitly give mini-swe-agent 10 total attempts for each
 provider call. If all of those attempts fail, the full TB4 and Mobius configs
 retry the whole rollout up to twice under a new trace/session ID; this can move
-the retry away from a transiently bad sticky backend. The transparent
-`EvalClient` itself does not own a retry loop.
+the retry away from a transiently bad sticky backend. Active Kimi smoke and
+production configs also retry the narrow `InterceptionError` boundary, while
+the broad `HarnessError` remains forbidden. `TunnelError` is listed separately
+because whole-rollout matching uses exact error type names. The transparent
+`EvalClient` itself does not own a retry loop, and LiteLLM must keep
+`num_retries=0`; these harness-level attempts do not authorize hidden proxy
+retries.
 
 The evaluator and oracle are network-bound CPU controllers; their checked-in
 Slurm defaults request `cpu_x86`, 8 CPUs, 16 GiB, and no GPUs. Rollout
 concurrency does not require one controller CPU per sandbox.
-
-The single-route `tb4_kimi_k3_max_miniswe.toml` remains available only for the
-digest-pinned `tianhaowu-k3-kda-tb1-low-20260916` fallback. It stays at four
-rollout and HTTP slots and must pass its own one-route readiness gate before
-use.
 
 ### Two-worker direct fallback
 
@@ -302,24 +527,14 @@ do not resume or merge them. The measured fallback limit is now four rollouts
 per worker (eight aggregate) and two concurrent lease bring-ups per controller
 (four aggregate).
 
-Submit only through the launcher tmux after both workers pass a fresh
-no-logprob semantic and model-I/O smoke:
+The pinned ports are not currently live, so there is no authorized direct
+fallback launch command. If they are restored, each worker must first receive
+its own externally hashed deployment-spec, readiness, and transcript-smoke
+artifacts and then use the same `EVAL_RUN_ROLE=tb4` identity ceremony as the
+primary route. Canceled `_v1`/`_v2` artifacts are not resume inputs.
 
-As of 2026-09-16 09:52 UTC both pinned ports refused TCP connections. Do not
-submit these commands until both allocations are restored and pass the fresh
-smoke. All replacement paths are `_v3`; canceled `_v1`/`_v2` artifacts are not
-resume inputs.
-
-```bash
-tmux send-keys -t swebench_vmvm:Launcher.0 \
-  "cd /storage/home/tianhaowu/prime-rl && env OPENAI_API_KEY=EMPTY EVAL_APPROVED_TASK_FILE=\$PWD/user/tianhaowu/terminal_bench_vmvm/configs/eval/tb4_kimi_k3_direct_a.tasks.txt EVAL_APPROVED_TASK_FILE_SHA256=d0f7c0297a82edf79f3e966ffd830fb418ea90c9faa7c4f3d288d5c7bacd1365 INFERENCE_BASE_URL=http://g3-138-137:32317/v1 EVAL_CONFIG=\$PWD/user/tianhaowu/terminal_bench_vmvm/configs/eval/tb4_kimi_k3_direct_a.toml OUTPUT_DIR=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/evals/tb4_kimi_k3_direct_a_v3 VACLI_MAX_CONCURRENT_LEASES=2 sbatch --parsable user/tianhaowu/terminal_bench_vmvm/run_eval.sbatch" C-m
-
-tmux send-keys -t swebench_vmvm:Launcher.0 \
-  "cd /storage/home/tianhaowu/prime-rl && env OPENAI_API_KEY=EMPTY EVAL_APPROVED_TASK_FILE=\$PWD/user/tianhaowu/terminal_bench_vmvm/configs/eval/tb4_kimi_k3_direct_b.tasks.txt EVAL_APPROVED_TASK_FILE_SHA256=485c1a038efc72a4eddf4928758c74d31827ebb7624108cee63e503df0fa02ec INFERENCE_BASE_URL=http://g3-146-243:32499/v1 EVAL_CONFIG=\$PWD/user/tianhaowu/terminal_bench_vmvm/configs/eval/tb4_kimi_k3_direct_b.toml OUTPUT_DIR=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/evals/tb4_kimi_k3_direct_b_v3 VACLI_MAX_CONCURRENT_LEASES=2 sbatch --parsable user/tianhaowu/terminal_bench_vmvm/run_eval.sbatch" C-m
-```
-
-Each shard remains its own resumable evaluator output. A resume replays the
-saved direct URL and takes no overrides; never resume a shard against the other
+Each shard remains its own single-invocation evaluator output. Never resume a
+partial shard; restart it in a fresh output directory after revalidating its
 worker. After both finish, publish a separate, audit-only combined artifact:
 
 ```bash
@@ -337,8 +552,8 @@ snapshotted task/config hashes, exact worker URLs, matching code revisions,
 66-task TB4 reasoning/model-I/O/KDA/score audit in a temporary directory and
 atomically publishes `results.jsonl`, `checkpoint.json`, and
 `merge_manifest.json` only when every check passes. The combined directory is
-not resumable because task indices are local to each shard; resume the source
-shards instead.
+not resumable because task indices are local to each shard; rerun any failed
+source shard in a fresh directory instead.
 
 ### Qwen 16-worker direct fallback
 
@@ -358,25 +573,13 @@ that directory, stage it at its separate versioned path:
 bash user/tianhaowu/terminal_bench_vmvm/stage_qwen_direct_router.sh
 ```
 
-The router disables retries and uses consistent-hash dispatch across the 16
-pinned workers, keyed only by `x-session-id`. Verifiers sends the same
-`X-Session-ID` trace ID on every turn of a rollout, so its growing prefix stays
-on one worker instead of losing KV-cache locality on every round-robin hop. The
-production admission epoch uses a 32-connection shared HTTP pool, a router
-bucket of 32 requests, and a 32-request
-queue for production concurrency 64, with a 7,200-second queue timeout and a
-7,500-second backend request deadline. Because vllm-router 0.1.26 refills that
-bucket while requests are still active, the shared evaluator HTTP/1.1 pool—not
-the bucket—is the strict backend bound. This keeps 64 rollout/VMVM sessions
-active while at most 32 model calls reach the router. Manifest schema 3 records
-the rollout, client, router, and queue limits together; resume rejects the old
-production cap-16 schema until it is migrated through the COW admission edge.
-The production mini-swe
-model timeout is 15,000 seconds, covering a full 7,200-second local pool wait
-plus a full provider read with margin while remaining below the rollout limit.
-Simultaneous VMVM lease or reverse-forward setup is capped at two for the
-production canary; the shared slot is released after setup, not held for the
-tunnel lifetime.
+The router uses consistent hashing on the rollout's `X-Session-ID`, disables
+router retries, admits at most eight requests with no overflow queue, and sets
+its request deadline above the evaluator's 7,200-second deadline. The direct
+launcher requires rollout concurrency, multiplexing, and HTTP pools to agree
+at eight or less. It also forces `VACLI_MAX_CONCURRENT_LEASES=8`; do not run it
+alongside another VMVM evaluation if that would raise aggregate active VMVM
+concurrency above eight.
 
 The full 66-task TB4 set and 2,500-task oracle-valid Mobius production set,
 including all task categories, are approved for the direct Qwen route. The
@@ -392,12 +595,10 @@ checked-in launch inputs are:
   `mobius_valid_tasks_2500.txt`, SHA-256
   `d33ef93f9b77ee91a41600934e677ba37988d3b4509e4da05ff1fcf7b4bc3a4b`.
 
-The smoke uses two slots, TB4 uses eight, and the Mobius production config uses
-64. Multiplexing matches rollout concurrency; the production shared HTTP pool
-is explicitly pinned to 32. Every config retains
-captured model I/O and thinking content, permits 32,768 output tokens per model
-call, and keeps the 262,144-token full-context cap plus the extended VMVM
-timeouts.
+The smoke uses two slots; both production configs use eight. Every config
+matches its HTTP pools and multiplexing to that concurrency, retains captured
+model I/O and thinking content, permits 32,768 output tokens per model call,
+and keeps the 262,144-token full-context cap plus the extended VMVM timeouts.
 The direct launcher still requires the selected manifest path and exact digest
 to be supplied independently through `DIRECT_QWEN_APPROVED_TASK_FILE` and
 `DIRECT_QWEN_APPROVED_TASK_FILE_SHA256`. `EVAL_CONFIG` must select that same
@@ -407,27 +608,12 @@ contents.
 
 After an approved run is terminal, first invoke `direct_qwen_workers.py
 --audit-run-dir RUN_DIR`; it validates the non-secret worker manifest, saved
-loopback URL, config snapshot, admission contract, and credential-free
-provenance without opening the results file for a fresh schema-3 run. For a
-migrated run it additionally hashes result rows, without printing their
-content, to prove the epoch-1 and epoch-2 membership certificates. Then invoke
-`audit_traces.py` with both
+loopback URL, config snapshot, and credential-free provenance without opening
+the results file. Then invoke `audit_traces.py` with both
 `--expected-task-file APPROVED_ALLOWLIST` and the approved expected count. Both
 commands emit summaries only; do not print result rows. Resume only through
 `run_qwen_direct_eval.sbatch`, which reuses the snapshotted endpoint set and
 local port and fails if the live metadata no longer exactly matches.
-
-The active direct-worker manifest schema is version 3. It binds rollout
-concurrency 64, both client connection limits 32, router admission 32, and
-queue size 32 in one explicit admission record. It also binds both
-`policy = consistent_hash` and the exact singleton
-`request_id_headers = ["x-session-id"]`; the launcher obtains those values from
-the validated manifest-derived runtime file and checks them again before
-starting the router. Historical schema-1 round-robin and schema-2 cap-16
-outputs are deliberately not directly resumable with this launcher. Do not
-edit their manifests in place or present mixed routing/admission epochs as one
-epoch. See `QWEN_ROUTING_MIGRATION.md` for the required copy-on-write
-transition certificates when preserving prior good rows.
 
 ## Transcript capture gate
 
@@ -461,6 +647,9 @@ remain fixed.
 uv run --project user/tianhaowu/terminal_bench_vmvm \
   python user/tianhaowu/terminal_bench_vmvm/probe_inference_routes.py \
   --proxy-info /checkpoint/ram/shared/vllm_deployments_v2/tianhaowu-k3-tb24-nocache-20260916/proxy_info.json \
+  --proxy-info-sha256 <full-proxy-info-file-sha256> \
+  --deployment-id tianhaowu-k3-tb24-nocache-20260916 \
+  --deployment-spec /checkpoint/ram/shared/vllm_deployments_v2/tianhaowu-k3-tb24-nocache-20260916/spec.yaml \
   --model Kimi-K3 \
   --expected-routes 24 \
   --requests 192 \
@@ -484,7 +673,9 @@ discovered backend and fails if routing changes, the target prompt or response
 is not exactly one token, corruption appears, or deterministic target output
 depends on predecessor state. Neither request dialect sends `logprobs`,
 `prompt_logprobs`, `top_logprobs`, or `return_token_ids`; the summary never
-contains response text. `--allow-unverified-affinity` and `--skip-health` exist
+contains response text, credentials, or the raw URL; it reports only the
+secret-free endpoint-authority digest. `--allow-unverified-affinity` and
+`--skip-health` exist
 for diagnosis only and must not be used for the production readiness gate.
 
 The Kimi production config uses the committed, portable oracle-qualified
@@ -492,30 +683,95 @@ manifest at
 `configs/eval/mobius_valid_tasks_2500.txt` (49,334 bytes, 2,500 lines,
 SHA-256
 `d33ef93f9b77ee91a41600934e677ba37988d3b4509e4da05ff1fcf7b4bc3a4b`).
-The launcher snapshots and hash-checks it before the production run:
+Do not launch it directly after TB4. First publish the final oracle promotion
+receipt, resize the same deployment, pass a fresh readiness/state-reuse gate,
+and certify a trace-capacity smoke whose configured rollout, multiplex,
+HTTP-pool, and effective lease-start concurrency are each at least the
+production values. The evaluator also publishes a mode-0400, aggregate-only
+`concurrency_telemetry.json`. Certification requires the observed overlap of
+completed trace lifecycles to reach configured rollout concurrency and the
+observed peak of vacli lease-start semaphore holders to reach configured
+lease-start concurrency; configured limits alone are not capacity evidence.
+The initial production resize is exactly two routes; submit its waiter with
+`EXPECTED_ROUTES=2`. The launch certificate requires exactly one route for the
+TB4 checkpoint and a strictly larger post-resize route set of at least two; it
+also rejects a post-resize spec identical to the TB4 spec or a readiness/spec
+route-count mismatch.
+The checked-in capacity-smoke config exercises the already validated 42-case
+Mobius repair set at eight active rollouts and four lease starts:
 
 ```bash
 tmux send-keys -t swebench_vmvm:Launcher.0 \
-  "cd /storage/home/tianhaowu/prime-rl && env EVAL_APPROVED_TASK_FILE=\$PWD/user/tianhaowu/terminal_bench_vmvm/configs/eval/mobius_valid_tasks_2500.txt EVAL_APPROVED_TASK_FILE_SHA256=d33ef93f9b77ee91a41600934e677ba37988d3b4509e4da05ff1fcf7b4bc3a4b EVAL_CONFIG=\$PWD/user/tianhaowu/terminal_bench_vmvm/configs/eval/mobius_kimi_k3_max_2500.toml INFERENCE_PROXY_INFO=/checkpoint/ram/shared/vllm_deployments_v2/tianhaowu-k3-kda-tb1-low-20260916/proxy_info.json OUTPUT_DIR=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/evals/mobius_kimi_k3_max_2500_transcript_v2 VACLI_MAX_CONCURRENT_LEASES=4 sbatch --parsable --time=7-00:00:00 user/tianhaowu/terminal_bench_vmvm/run_eval.sbatch" C-m
+  "cd /checkpoint/ram/tianhaowu/terminal_bench_vmvm/sources/prime-rl-<commit> && env PROJECT_DIR=\$PWD EVAL_RUN_ROLE=smoke EVAL_DEPLOYMENT_ID=tianhaowu-k3-kda-tb1-low-20260916 EVAL_EXPECTED_MODEL=Kimi-K3 EVAL_DATASET_REVISION=ac1f30b9ac0e6c6a20a9fe423900d9ed28a6d366 EVAL_APPROVED_TASK_FILE=\$PWD/user/tianhaowu/terminal_bench_vmvm/configs/validate/mobius_repaired_tasks.txt EVAL_APPROVED_TASK_FILE_SHA256=8d7d9377a9bbe6ade2fba7cc0730647d8be82402e225f95ad864a2218647563c EVAL_CONFIG=\$PWD/user/tianhaowu/terminal_bench_vmvm/configs/eval/mobius_kimi_k3_capacity_smoke.toml INFERENCE_DEPLOYMENT_SPEC=/path/to/post-resize-spec.yaml INFERENCE_DEPLOYMENT_SPEC_SHA256=<post-resize-spec-sha256> INFERENCE_READINESS_CHECKPOINT=/path/to/post-resize-readiness.json INFERENCE_READINESS_CHECKPOINT_SHA256=<post-resize-readiness-file-sha256> INFERENCE_PROXY_INFO=/checkpoint/ram/shared/vllm_deployments_v2/tianhaowu-k3-kda-tb1-low-20260916/proxy_info.json INFERENCE_PROXY_INFO_SHA256=<post-resize-readiness-bound-proxy-info-sha256> OUTPUT_DIR=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/evals/mobius_kimi_k3_capacity_smoke_v1 VACLI_MAX_CONCURRENT_LEASES=4 sbatch --parsable \$PWD/user/tianhaowu/terminal_bench_vmvm/run_eval.sbatch" C-m
+
+tmux send-keys -t swebench_vmvm:Launcher.0 \
+  "cd /checkpoint/ram/tianhaowu/terminal_bench_vmvm/sources/prime-rl-<commit> && env PROJECT_DIR=\$PWD RESULTS_DIR=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/evals/mobius_kimi_k3_capacity_smoke_v1 SMOKE_TASK_FILE=\$PWD/user/tianhaowu/terminal_bench_vmvm/configs/validate/mobius_repaired_tasks.txt SMOKE_TASK_FILE_SHA256=8d7d9377a9bbe6ade2fba7cc0730647d8be82402e225f95ad864a2218647563c SMOKE_EXPECTED_TRACES=42 SMOKE_REQUIRED_ROLLOUT_CONCURRENCY=8 SMOKE_REQUIRED_LEASE_START_CONCURRENCY=4 sbatch --parsable \$PWD/user/tianhaowu/terminal_bench_vmvm/run_trace_smoke_audit.sbatch" C-m
+```
+
+Then create one write-once launch certificate outside the Git worktree:
+
+```bash
+uv run --project user/tianhaowu/terminal_bench_vmvm \
+  python user/tianhaowu/terminal_bench_vmvm/mobius_launch_certificate.py create \
+  --tb4-checkpoint /path/to/tb4-run/checkpoint.json \
+  --tb4-checkpoint-sha256 <tb4-checkpoint-file-sha256> \
+  --oracle-receipt /path/to/oracle-promotion-receipt.json \
+  --oracle-receipt-sha256 <oracle-receipt-file-sha256> \
+  --readiness-checkpoint /path/to/post-resize-readiness.json \
+  --readiness-checkpoint-sha256 <post-resize-readiness-file-sha256> \
+  --capacity-smoke-checkpoint /path/to/capacity-smoke/smoke_checkpoint.json \
+  --capacity-smoke-checkpoint-sha256 <capacity-smoke-file-sha256> \
+  --deployment-id tianhaowu-k3-kda-tb1-low-20260916 \
+  --deployment-spec /path/to/post-resize-spec.yaml \
+  --deployment-spec-sha256 <post-resize-spec-sha256> \
+  --deployment-proxy-info /checkpoint/ram/shared/vllm_deployments_v2/tianhaowu-k3-kda-tb1-low-20260916/proxy_info.json \
+  --deployment-proxy-info-sha256 <post-resize-readiness-bound-proxy-info-sha256> \
+  --production-config user/tianhaowu/terminal_bench_vmvm/configs/eval/mobius_kimi_k3_max_2500.toml \
+  --approved-manifest user/tianhaowu/terminal_bench_vmvm/configs/eval/mobius_valid_tasks_2500.txt \
+  --approved-manifest-sha256 d33ef93f9b77ee91a41600934e677ba37988d3b4509e4da05ff1fcf7b4bc3a4b \
+  --requested-lease-start-concurrency 4 \
+  --output /checkpoint/ram/tianhaowu/terminal_bench_vmvm/gates/mobius_launch_<commit>.json
+```
+
+The certificate reconstructs and rehashes every linked gate and run identity,
+including the capacity smoke's write-once concurrency telemetry and its measured
+peaks;
+it accepts the oracle execution commit only as an ancestor of the clean
+production commit while requiring exact Verifiers and VMVM source pins. Its
+TB4 gate is fixed at 66 total/63 CPU-supported tasks, four active rollouts, two
+lease starts, and a supported pass rate from 4% through 22%. The production
+launcher revalidates the complete certificate against its live inputs before
+creating an output directory or contacting inference.
+
+Mobius launch does not accept `EVAL_MODEL`, `INFERENCE_BASE_URL`,
+`INFERENCE_JOB_ID`, or shared-gateway deployment overrides. It requires the
+deployment-local `proxy_info.json` in the same exact directory as the
+certificate-bound `spec.yaml`, and requires `EVAL_EXPECTED_MODEL=Kimi-K3`.
+The launch validator also requires the exact post-resize readiness and capacity
+smoke paths and file hashes embedded in the certificate; a different but valid
+checkpoint cannot be substituted.
+
+Launch from the same clean detached source path used to create the certificate:
+
+```bash
+tmux send-keys -t swebench_vmvm:Launcher.0 \
+  "cd /checkpoint/ram/tianhaowu/terminal_bench_vmvm/sources/prime-rl-<commit> && env PROJECT_DIR=\$PWD EVAL_RUN_ROLE=mobius EVAL_DEPLOYMENT_ID=tianhaowu-k3-kda-tb1-low-20260916 EVAL_EXPECTED_MODEL=Kimi-K3 EVAL_DATASET_REVISION=ac1f30b9ac0e6c6a20a9fe423900d9ed28a6d366 EVAL_APPROVED_TASK_FILE=\$PWD/user/tianhaowu/terminal_bench_vmvm/configs/eval/mobius_valid_tasks_2500.txt EVAL_APPROVED_TASK_FILE_SHA256=d33ef93f9b77ee91a41600934e677ba37988d3b4509e4da05ff1fcf7b4bc3a4b EVAL_CONFIG=\$PWD/user/tianhaowu/terminal_bench_vmvm/configs/eval/mobius_kimi_k3_max_2500.toml INFERENCE_DEPLOYMENT_SPEC=/path/to/post-resize-spec.yaml INFERENCE_DEPLOYMENT_SPEC_SHA256=<post-resize-spec-sha256> INFERENCE_READINESS_CHECKPOINT=/path/to/post-resize-readiness.json INFERENCE_READINESS_CHECKPOINT_SHA256=<post-resize-readiness-file-sha256> INFERENCE_SMOKE_CHECKPOINT=/path/to/capacity-smoke/smoke_checkpoint.json INFERENCE_SMOKE_CHECKPOINT_SHA256=<capacity-smoke-file-sha256> EVAL_PROMOTION_CERTIFICATE=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/gates/mobius_launch_<commit>.json EVAL_PROMOTION_CERTIFICATE_SHA256=<launch-certificate-file-sha256> INFERENCE_PROXY_INFO=/checkpoint/ram/shared/vllm_deployments_v2/tianhaowu-k3-kda-tb1-low-20260916/proxy_info.json INFERENCE_PROXY_INFO_SHA256=<post-resize-readiness-bound-proxy-info-sha256> OUTPUT_DIR=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/evals/mobius_kimi_k3_max_2500_transcript_v2 VACLI_MAX_CONCURRENT_LEASES=4 sbatch --parsable --time=7-00:00:00 \$PWD/user/tianhaowu/terminal_bench_vmvm/run_eval.sbatch" C-m
 ```
 
 The checked-in production starting point is eight active rollouts and four
 simultaneous lease starts. Qualify it with the patched full TB4 run, then use
 audited capacity smokes to raise steady-state concurrency to 16 and at most 24
 after the deployment has 24 ready routes; keep lease starts at four. Update the
-config before creating the production output directory because a resume replays
-its saved config verbatim. The oracle-only 64/32 result does not qualify model
+config before creating the production output directory. The oracle-only 64/32 result does not qualify model
 trace generation: it has no per-rollout model-interception tunnel or Compose
 sidecars.
 
-Interrupted evals are durable. Resume only their missing or errored rollouts
-with
-`RESUME_DIR=/checkpoint/.../evals/mobius_kimi_k3_max_2500_transcript_v2`, the
-same `EVAL_APPROVED_TASK_FILE{,_SHA256}` pair, and the same
-`INFERENCE_PROXY_INFO=.../proxy_info.json`; the latter is required to reload the
-RAM API key because credentials are deliberately absent from saved config and
-provenance. A resume replays the saved proxy URL, so confirm that the same
-deployment proxy is still live before submitting it.
+Interrupted guarded Kimi evals remain diagnostic evidence only. Do not reuse
+their partial rows: `run_eval.sbatch` rejects nonempty `RESUME_DIR` before it
+can mutate identity or invocation metadata. Revalidate readiness and restart
+in a fresh output directory. The guard receipt requires exactly one invocation
+record with `resume=false`, the matching role and identity digest, and a
+canonical positive Slurm job ID.
 The saved config is replayed verbatim and successful traces are retained. New
 runs snapshot the source config, task list, and image manifest under
 `OUTPUT_DIR/inputs/`, record SHA-256 digests in `inputs/manifest.json`, and point
@@ -539,7 +795,9 @@ uv run --project user/tianhaowu/terminal_bench_vmvm \
   /path/to/results.jsonl \
   --expected-task-file /path/to/oracle_passed_tasks.txt \
   --expected-count 2500 \
-  --require-reasoning
+  --aggregate-only \
+  --require-reasoning \
+  --model-io-contract kimi-k3-max
 ```
 
 Transcript audit is the default. It rejects missing/duplicate tasks, rollout
@@ -553,15 +811,26 @@ legacy/diagnostic mode for traces that intentionally contain exact token IDs,
 masks, and sampling logprobs. Scale only after the default gate passes on a
 fresh smoke run and after measuring stable VMVM lease concurrency.
 
-A sampled tool-call turn may omit flattened reasoning only when its hash-bound
-provider response proves either a zero `reasoning_tokens` count or an explicit
-empty reasoning field. The explicit-empty case additionally requires an exact
-provider response, identical captured and flattened tool calls, and a
-hash-valid reconstructed request with both thinking and thinking preservation
-enabled; a missing field is not evidence of emptiness. The audit reports these
-as separate `provider_reported_zero_reasoning_tool_turns` and
-`provider_explicit_empty_reasoning_tool_turns` counters. A trace containing no
-sampled reasoning anywhere still fails closed.
+The Kimi contract checks each hash-verified request for the chat-completions
+route, exact `Kimi-K3` model, `reasoning_effort=max`, and exactly the two
+required thinking flags. It also requires the parsed provider response model to
+be `Kimi-K3`. This proves that max reasoning was requested; provider-side proof
+that it was honored would require server attestation.
+
+For every captured model turn, the audit reparses exact chat-completion JSON or
+the normalized streamed response through Verifiers' own response models and
+requires the resulting assistant message, reasoning details, tool calls,
+provider state, finish reason, and normalized usage to equal the persisted
+assistant node. Hash-valid but unrelated response payloads therefore fail the
+gate. Audit output contains stable problem codes and aggregate counts only,
+never response text.
+
+A tool-call turn without flattened reasoning is exempt only when provider usage
+reports a valid zero reasoning-token count, or when exact provider JSON contains
+an explicit empty reasoning marker and the reconstructed request enabled and
+preserved thinking. Missing or null markers, counters in fields Verifiers does
+not consume, normalized responses without a zero counter, and mismatched tool
+calls fail closed.
 
 Because this workflow intentionally omits token IDs, the previous response's
 provider usage is used as the conservative best-known size when clamping the

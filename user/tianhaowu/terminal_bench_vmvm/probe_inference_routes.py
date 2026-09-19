@@ -22,6 +22,9 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Mapping, Protocol, Sequence
 
+from deployment_endpoint import SHA256_RE, EndpointBindingError, load_deployment_endpoint
+from inference_route_generation import RouteGenerationError, canonical_backend_identifier
+
 BACKEND_HEADER = "x-litellm-model-api-base"
 SESSION_HEADERS = ("X-LiteLLM-Session-ID", "X-Session-ID")
 FORBIDDEN_REQUEST_FIELDS = frozenset({"logprobs", "prompt_logprobs", "top_logprobs", "return_token_ids"})
@@ -32,11 +35,12 @@ STATE_REUSE_TARGET_PROMPT = "A"
 
 @dataclass(frozen=True)
 class ProxyInfo:
-    base_url: str
+    base_url: str = field(repr=False)
     api_key: str = field(repr=False)
     served_model: str | None = None
     sticky: bool | None = None
     redis_port: int | None = None
+    endpoint_authority_sha256: str | None = None
 
 
 @dataclass(frozen=True)
@@ -176,44 +180,32 @@ class RawCompletionResult:
         return not self.problems
 
 
-def load_proxy_info(path: Path) -> ProxyInfo:
-    """Read URL and credential without logging or returning the source object."""
+def load_proxy_info(
+    path: Path,
+    *,
+    expected_sha256: str,
+    deployment_id: str,
+    expected_model: str,
+    deployment_spec: Path,
+) -> ProxyInfo:
+    """Load the runtime secret through the strict deployment endpoint binder."""
 
-    try:
-        with path.open(encoding="utf-8") as handle:
-            value = json.load(handle)
-    except (OSError, json.JSONDecodeError) as exc:
-        raise ValueError(f"could not read proxy info at {path}: {exc}") from exc
-    if not isinstance(value, dict):
-        raise ValueError("proxy info must be a JSON object")
-
-    base_url = value.get("url")
-    api_key = value.get("api_key")
-    if not isinstance(base_url, str) or not base_url.strip():
-        raise ValueError("proxy info must contain a nonempty string 'url'")
-    if not isinstance(api_key, str) or not api_key:
-        raise ValueError("proxy info must contain a nonempty string 'api_key'")
-    served_model = value.get("model")
-    if served_model is not None and not isinstance(served_model, str):
-        raise ValueError("proxy info 'model' must be a string when present")
-
-    extras = value.get("extras", {})
-    if not isinstance(extras, dict):
-        raise ValueError("proxy info 'extras' must be an object when present")
-    sticky_value = extras.get("sticky")
-    sticky = sticky_value if isinstance(sticky_value, bool) else None
-    redis_value = extras.get("redis_port")
-    redis_port = (
-        redis_value
-        if isinstance(redis_value, int) and not isinstance(redis_value, bool) and 1 <= redis_value <= 65535
-        else None
+    endpoint = load_deployment_endpoint(
+        path,
+        deployment_id=deployment_id,
+        expected_model=expected_model,
+        deployment_spec=deployment_spec,
+        expected_proxy_info_sha256=expected_sha256,
     )
+    sticky = endpoint.routing_metadata.get("sticky")
+    redis_port = endpoint.routing_metadata.get("redis_port")
     return ProxyInfo(
-        base_url=_validate_base_url(base_url.strip()),
-        api_key=api_key,
-        served_model=served_model,
-        sticky=sticky,
-        redis_port=redis_port,
+        base_url=endpoint.proxy_base_url,
+        api_key=endpoint.api_key,
+        served_model=endpoint.served_model,
+        sticky=sticky if isinstance(sticky, bool) else None,
+        redis_port=redis_port if isinstance(redis_port, int) and not isinstance(redis_port, bool) else None,
+        endpoint_authority_sha256=endpoint.authority_sha256,
     )
 
 
@@ -486,10 +478,10 @@ def _backend_identifier(raw_backend: str) -> tuple[str, str | None]:
     """Return a safe comparable API-base value without leaking embedded credentials."""
 
     try:
-        return _validate_base_url(raw_backend), None
-    except ValueError:
-        digest = hashlib.sha256(raw_backend.encode()).hexdigest()[:16]
-        return f"invalid-backend-{digest}", "invalid_backend_header"
+        identifier = canonical_backend_identifier(raw_backend)
+    except RouteGenerationError:
+        return "invalid-backend", "invalid_backend_header"
+    return identifier, None
 
 
 def _attempted_retries(headers: Mapping[str, str]) -> tuple[int | None, str | None]:
@@ -532,7 +524,7 @@ def _send_completion(
             timeout=config.request_timeout,
         )
     except Exception as exc:  # The summary, rather than a traceback, is the gate.
-        problem = _redact(f"transport_error:{type(exc).__name__}:{exc}", proxy.api_key)
+        problem = f"transport_error:{type(exc).__name__}"
         return RequestResult(
             phase=spec.phase,
             request_index=spec.request_index,
@@ -642,7 +634,7 @@ def _send_raw_completion(
             timeout=config.request_timeout,
         )
     except Exception as exc:  # The summary, rather than a traceback, is the gate.
-        problem = _redact(f"transport_error:{type(exc).__name__}:{exc}", proxy.api_key)
+        problem = f"transport_error:{type(exc).__name__}"
         return RawCompletionResult(
             request_index=spec.request_index,
             cycle_index=spec.cycle_index,
@@ -795,7 +787,7 @@ def _health_check(
     try:
         response = transport.request("GET", health_url, headers=headers, body=None, timeout=timeout)
     except Exception as exc:
-        problem = _redact(f"transport_error:{type(exc).__name__}:{exc}", proxy.api_key)
+        problem = f"transport_error:{type(exc).__name__}"
         return {
             "ok": False,
             "status_code": None,
@@ -1027,7 +1019,7 @@ def _build_summary(
             "require_shared_affinity": config.require_shared_affinity,
             "session_prefix": config.session_prefix,
         },
-        "proxy_base_url": proxy.base_url,
+        "endpoint_authority_sha256": proxy.endpoint_authority_sha256,
         "health": health,
         "coverage": {
             "ok": coverage_ok,
@@ -1075,9 +1067,15 @@ def run_probe(
         served_model=proxy.served_model,
         sticky=proxy.sticky,
         redis_port=proxy.redis_port,
+        endpoint_authority_sha256=proxy.endpoint_authority_sha256,
     )
     if not proxy.api_key:
         raise ValueError("api_key must be nonempty")
+    if (
+        not isinstance(proxy.endpoint_authority_sha256, str)
+        or SHA256_RE.fullmatch(proxy.endpoint_authority_sha256) is None
+    ):
+        raise ValueError("endpoint_authority_sha256 must be a lowercase SHA-256")
     if proxy.served_model is not None and proxy.served_model != config.model:
         raise ValueError(f"proxy serves model {proxy.served_model!r}, not requested model {config.model!r}")
     if config.require_shared_affinity:
@@ -1220,6 +1218,9 @@ def _parser() -> argparse.ArgumentParser:
         )
     )
     parser.add_argument("--proxy-info", required=True, type=Path)
+    parser.add_argument("--proxy-info-sha256", required=True)
+    parser.add_argument("--deployment-id", required=True)
+    parser.add_argument("--deployment-spec", required=True, type=Path)
     parser.add_argument("--model", required=True)
     parser.add_argument("--expected-routes", required=True, type=int)
     parser.add_argument(
@@ -1272,7 +1273,13 @@ def main(argv: Sequence[str] | None = None) -> int:
     args = _parser().parse_args(argv)
     proxy: ProxyInfo | None = None
     try:
-        proxy = load_proxy_info(args.proxy_info)
+        proxy = load_proxy_info(
+            args.proxy_info,
+            expected_sha256=args.proxy_info_sha256,
+            deployment_id=args.deployment_id,
+            expected_model=args.model,
+            deployment_spec=args.deployment_spec,
+        )
         config = ProbeConfig(
             model=args.model,
             expected_routes=args.expected_routes,
@@ -1293,11 +1300,21 @@ def main(argv: Sequence[str] | None = None) -> int:
             ),
         )
         summary = run_probe(proxy, config)
+        reloaded = load_proxy_info(
+            args.proxy_info,
+            expected_sha256=args.proxy_info_sha256,
+            deployment_id=args.deployment_id,
+            expected_model=args.model,
+            deployment_spec=args.deployment_spec,
+        )
+        if reloaded.endpoint_authority_sha256 != proxy.endpoint_authority_sha256:
+            raise EndpointBindingError("proxy_info_unstable")
         exit_code = 0 if summary["ok"] else 1
     except Exception as exc:
         secret = proxy.api_key if proxy is not None else ""
         summary = {
             "ok": False,
+            "endpoint_authority_sha256": (proxy.endpoint_authority_sha256 if proxy is not None else None),
             "fatal_error": _redact(f"{type(exc).__name__}: {exc}", secret),
         }
         exit_code = 2

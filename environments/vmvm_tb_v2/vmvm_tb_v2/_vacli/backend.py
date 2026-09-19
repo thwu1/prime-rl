@@ -48,6 +48,7 @@ from dataclasses import dataclass, field
 from pathlib import Path, PurePosixPath
 from typing import Any, Literal
 
+from .concurrency_telemetry import TELEMETRY, LeaseStartConcurrencyLimiter
 from .session import AsyncSession, SessionOutput
 from .types import BackendInitError, BashResult
 
@@ -90,9 +91,8 @@ def _child_pdeathsig() -> None:
         _libc.prctl(_PR_SET_PDEATHSIG, signal.SIGTERM)
 
 
-# Cap concurrent in-flight vacli setup operations per process: bursts of
-# simultaneous lease or reverse-forward setup trigger FAAS tunnel timeouts.
-# The historical lease-named environment variable remains the public knob.
+# Cap concurrent in-flight vacli leases per process: bursts of simultaneous
+# lease attempts trigger FAAS tunnel-setup timeouts. Tune via env if needed.
 MAX_CONCURRENT_LEASES = int(os.environ.get("VACLI_MAX_CONCURRENT_LEASES", "16"))
 # Retries for `podman pull` inside the VM when DockerHub returns 429
 # (toomanyrequests). The vmvm-registry mirror path needs no retries; this only
@@ -135,7 +135,7 @@ def _install_threaded_child_watcher() -> None:
     asyncio.get_child_watcher = _get_watcher
 
 
-_lease_concurrency = threading.BoundedSemaphore(MAX_CONCURRENT_LEASES)
+_lease_concurrency = LeaseStartConcurrencyLimiter(MAX_CONCURRENT_LEASES, TELEMETRY)
 
 # Tunnel mapping line emitted by vacli on stdout, e.g.:
 # [{"vm_port":22,"local_port":10000}]
@@ -263,6 +263,7 @@ class VacliLease:
         self.proc: Any = None
         self.ssh_port: int | None = None
         self._cleaned_up = False
+        self._concurrency_state_lock = threading.Lock()
         self._concurrency_held = False
         # Raw LeaseVmResponse JSON (captured from the lease log) — input to
         # `--resume-with-session` when re-establishing a dropped tunnel.
@@ -271,8 +272,7 @@ class VacliLease:
         atexit.register(self.cleanup)
 
     def start(self) -> None:
-        _lease_concurrency.acquire()
-        self._concurrency_held = True
+        self._acquire_concurrency_slot()
         cmd = [
             VACLI_BIN,
             "--x2p",
@@ -353,6 +353,8 @@ class VacliLease:
                     for t in tunnels:
                         if t.get("vm_port") == 22:
                             self.ssh_port = int(t["local_port"])
+                            if TELEMETRY is not None:
+                                TELEMETRY.lease_tunnel_became_ready()
                             logger.info(f"vacli: tunnel ready, ssh port = {self.ssh_port}")
                             return self.ssh_port
                 time.sleep(1)
@@ -416,9 +418,8 @@ class VacliLease:
             "--release-on-exit",
         ]
         logger.info("vacli.restart_tunnel: resuming session (attempt %d)", self._resume_count)
-        # Respect the shared setup cap (released by wait_for_tunnel's finally).
-        _lease_concurrency.acquire()
-        self._concurrency_held = True
+        # Respect the bring-up concurrency cap (released by wait_for_tunnel's finally).
+        self._acquire_concurrency_slot()
         try:
             with open(self.log_path, "wb") as log_fh:
                 _popen_kwargs = dict(stdout=log_fh, stderr=self._sp.STDOUT, process_group=0)
@@ -461,10 +462,19 @@ class VacliLease:
         # Defensive: release if start() succeeded but wait_for_tunnel never ran.
         self._release_concurrency_slot()
 
+    def _acquire_concurrency_slot(self) -> None:
+        _lease_concurrency.acquire()
+        with self._concurrency_state_lock:
+            self._concurrency_held = True
+
     def _release_concurrency_slot(self) -> None:
-        """Release the process-global vacli setup slot if held. Idempotent."""
-        if self._concurrency_held:
-            self._concurrency_held = False
+        """Release the `_lease_concurrency` slot if held. Idempotent."""
+        release = False
+        with self._concurrency_state_lock:
+            if self._concurrency_held:
+                self._concurrency_held = False
+                release = True
+        if release:
             try:
                 _lease_concurrency.release()
             except ValueError:
@@ -858,6 +868,7 @@ class VacliVMVMBackend:
         self._sp = config.subprocess_mod or subprocess
         self.init_start_time = time.perf_counter()
         self._destroyed = False
+        self._telemetry_runtime_active = False
         # Random nonces keep multiple backends on the same host from sharing
         # ssh control sockets / vacli log files.
         nonce = uuid.uuid4().hex[:8]
@@ -901,6 +912,9 @@ class VacliVMVMBackend:
         # Structured record of transient bring-up retries (recovered) so the
         # rollout's jsonl can show how many re-leases it took to come up.
         self.bringup_retries: list = []
+        if TELEMETRY is not None:
+            TELEMETRY.vmvm_runtime_started()
+            self._telemetry_runtime_active = True
         try:
             # Retry lease bring-up with jittered backoff: concurrent launches
             # race on Configerator init -> "vacli died before tunnel was ready"
@@ -961,6 +975,8 @@ class VacliVMVMBackend:
             # in the container netns. Export the gateway proxy as the first thing
             # the (non-login) session does, so solve.sh subprocesses inherit it.
             self._open_session(run_entrypoint=True)
+            if TELEMETRY is not None:
+                TELEMETRY.vmvm_runtime_became_ready()
         except Exception:
             # Roll back any partial state so an init failure doesn't leak a
             # leased VM.
@@ -2317,6 +2333,10 @@ class VacliVMVMBackend:
         if self._destroyed:
             return
         self._destroyed = True
+        if getattr(self, "_telemetry_runtime_active", False):
+            self._telemetry_runtime_active = False
+            if TELEMETRY is not None:
+                TELEMETRY.vmvm_runtime_stopped()
         for tunnel in list(self._host_tunnels):
             try:
                 self.close_host_tunnel(tunnel)

@@ -27,12 +27,11 @@ The local backend package must be importable by the CPU evaluator:
 export PYTHONPATH="$PWD/environments/vmvm_tb_v2${PYTHONPATH:+:$PYTHONPATH}"
 ```
 
-`VACLI_MAX_CONCURRENT_LEASES` limits simultaneous lease and reverse-forward
-setup through one process-wide slot pool. A slot is released as soon as setup
-and its readiness probe complete, so it does not cap the number of active
-VMVMs or live host tunnels. For a high-fanout run, set the evaluator's worker
-count to the desired active concurrency. The DeepSWE launchers default to 113
-active trials while capping simultaneous VMVM setup at 32; set
+`VACLI_MAX_CONCURRENT_LEASES` limits only simultaneous lease bring-up. It does
+not cap the number of active VMVMs after their tunnels are ready. For a
+high-fanout run, set the evaluator's worker count to the desired active
+concurrency. The DeepSWE launchers default to 113 active trials while capping
+simultaneous VMVM lease acquisition at 32; set
 `VACLI_MAX_CONCURRENT_LEASES` explicitly to override that startup fanout.
 
 Do not run VMVM evaluation drivers on a login node. Validate the real provider
@@ -55,6 +54,13 @@ x86-specific binary or a dependency tree staged for x86_64.
 Invoke vacli directly. Do not wrap it in the host `stdbuf`: the injected
 `libstdbuf.so` may require GLIBC 2.38 while vacli selects an older bundled libc,
 causing lease startup to fail before any VM is requested.
+
+When submitting with Slurm `--export-file` or another isolated environment,
+explicitly carry `THRIFT_TLS_CL_CERT_PATH` and `THRIFT_TLS_CL_KEY_PATH` from the
+trusted launcher environment. Vacli maps them to its required `--tls-cert` and
+`--tls-key` inputs. Keep the export allowlist narrow; omitting either path makes
+vacli exit locally before it requests a lease, while using Slurm's default
+export-all can hide the omission during smoke testing.
 
 For Harbor tasks with Compose sidecars, retain the VMVM lease and replace the
 bootstrap task container with a Podman Compose project. Start
@@ -132,9 +138,12 @@ executing sdist build hooks. Move the resulting wheel-only tar to a
 controller temporary directory as mode 0400 so concurrent rollouts do not retain
 archives in RAM and an agent cannot modify the cached bytes. Cache by the exact
 requirement tuple with async single-flight. A wheelhouse containing only
-`*-none-any.whl` files can be shared across images; otherwise scope reuse to the
-runtime image plus its Python implementation/version, SOABI, platform, and
-machine fingerprint. Hash-check every reuse, detach per-runtime references on
+`*-none-any.whl` files can be shared only across runtimes with the same complete
+PEP 508 marker environment and pip version; a platform-neutral wheel can still
+have marker-selected dependencies. Otherwise scope reuse to the exact runtime
+image plus its marker environment, pip version, Python implementation/version,
+SOABI, platform, and machine fingerprint. Hash-check every reuse, detach
+per-runtime references on
 every terminal path, retain controller cache entries for the taskset lifetime,
 and clean each sandbox copy after installation. Deterministically close the
 shared cache when the evaluator or environment server exits; object finalization
@@ -164,6 +173,158 @@ resuming any task rows, records it in run/task/summary provenance, and then
 activates the task's declared policy before artifact collection or verification.
 Never expose this override to model setup or rollouts, and report strict-policy
 and compatibility-oracle results separately.
+
+Treat an oracle output directory as one immutable run. Before loading tasks,
+bind either an exact clean Git dataset revision or a digest-pinned release
+archive whose task-tree payload exactly matches the extracted dataset. Also
+bind the ordered task selection, task/image-manifest hashes, clean source and
+runtime pins, network semantics, timeouts, concurrency, and acceptance gates in
+`run_identity.json`. Every durable task row and summary must carry that identity
+digest. A resume may append invocation metadata, but must never rewrite initial
+provenance or reuse a row whose identity differs; legacy unlabeled output needs
+a fresh directory.
+
+If a complete full oracle misses its minimum-valid gate, the only reusable
+recovery is one `RERUN_INVALID=1` invocation from the exact same clean source,
+settings, full task universe, and output directory. It retains valid rows and
+reruns every non-valid row; never union separate output directories. Promotion
+must strictly validate and hash-pin `invocations.jsonl`, require exact source
+and run identity on every record, canonical positive-decimal unique Slurm job
+IDs, strictly increasing invocation timestamps, first/resume ordering, and at
+most one rerun-invalid invocation. A dependency-policy or source change
+requires a new identity and a fresh full oracle rather than an in-place retry.
+
+Keep source builds disabled by default. For an independently reviewed
+oracle-only exception, require the paired
+`ORACLE_SOURCE_WHEEL_POLICY{,_SHA256}` inputs. Each policy entry must bind one
+source distribution, the full binary-wheel closure, exact artifact sizes and
+hashes, an immutable target image, and exact build-tool versions. Attempt this
+path only after the normal `--only-binary=:all:` fetch fails with the narrow
+binary-unavailable signature. Download and hash-check approved HTTPS inputs
+first, activate `no-network`, then build in a fresh Python environment using
+`--no-build-isolation --no-index --no-deps`; validate the exact output closure
+and prove offline installation on a clean target with the same runtime
+fingerprint. Reject Compose and cap the exceptional builder path at one lease.
+
+Publish the source-wheel manifest and content-addressed wheelhouse archives
+atomically as private oracle artifacts after the writer lock. On every resume,
+require the externally reviewed `ORACLE_SOURCE_WHEEL_ATTESTATION_SHA256`; never
+reconstruct or trust it from the output directory. Every recovered row must
+carry its attestation-entry digest. For repair certification and promotion,
+require an independently supplied policy digest and exact nonzero attestation
+count, rehash every archive, and prove that the row-reference union equals the
+manifest entry set. Bind the policy and attestation digests through the canary
+certificate, promotion receipt, and Mobius launch certificate.
+
+Apply the same immutable-run rule to model evaluations. Every non-dry launch
+through `terminal_bench_vmvm/run_eval.sbatch` must declare its role (`smoke`,
+`tb4`, or `mobius`), metadata deployment ID, expected model, exact deployment
+spec and passed readiness checkpoint with external file hashes, dataset
+authority, and an independently approved task manifest. The launcher publishes
+`eval_run_identity.json` before the first model call. Guarded Kimi smoke, TB4,
+and Mobius runs must reject nonempty `RESUME_DIR` before mutating output,
+identity, or invocation metadata; interrupted runs require a fresh output
+directory. Their guard receipt must bind exactly one well-formed invocation
+record with `resume=false`, matching role/identity, and a canonical positive
+Slurm job ID. A TB4 run additionally
+requires the passed two-task transcript-smoke checkpoint. A Mobius run requires
+the post-resize capacity-smoke checkpoint and a write-once launch certificate
+that independently reconstructs the full chain: final oracle promotion receipt,
+qualified TB4 result, post-resize readiness, capacity smoke, production config,
+2,500-task manifest, dataset/image pins, and effective lease-start concurrency.
+Use the external SHA-256 of each certificate file in launcher environment
+variables, not the certificate's embedded canonical-body digest. Keep
+certificates outside a Git worktree, and verify the Mobius certificate before
+creating the output directory or contacting inference.
+For every role, reject model and direct/base-URL overrides: load only the
+deployment-local `proxy_info.json` whose resolved parent is the same exact
+directory as the bound `spec.yaml`. Bind its resolved path and full-file
+SHA-256 plus a canonical secret-free authority digest in readiness, eval
+identity, smoke, TB4, capacity-smoke, and launch-certificate artifacts. Never
+persist its URL, API key, or a standalone hash of the API key in that endpoint
+record. The readiness gate establishes the proxy hash; downstream wrappers
+must reuse that value, rehash before and after each stage, and reject endpoint
+rotation rather than blessing it. The run validator must match the live
+readiness and capacity-smoke artifact paths and file hashes to the records
+embedded in the launch certificate.
+Also bind the exact serving generation from status schema v4: each canonical
+positive Slurm endpoint job ID, worker `started_at`, and SHA-256 digest of its
+status-derived backend API base; the coordinator job ID and `started_at`; and
+the proxy job ID and `first_ready_at`. Require the status proxy job to match
+`proxy_info.json`, use one backend-URL canonicalizer for status and probe
+headers, and reject regressing coordinator ticks. The readiness probe's
+discovered backend digests must exactly match that set. Require strict tick
+advancement between same-incarnation readiness polls and across the probe;
+during evaluation, require progress within 30 seconds at the ten-second poll
+cadence. Readiness must obtain the same status generation again after the semantic probe. Every
+non-dry evaluator must verify the generation before model traffic, poll it
+throughout the evaluator lifetime, and check it after child exit; terminate
+and wait for the evaluator process group on route change, unavailable status,
+endpoint preemption, a surviving descendant after leader exit, SIGTERM, or
+SIGINT. Ignore repeated termination signals during cleanup. Remove any stale
+guard receipt before spawn and publish a fresh atomic mode-0600
+`route_guard_success.json` only after child exit zero, final route verification,
+and stable hashes of the eval identity, invocation ledger, and results. Smoke,
+TB4, capacity, and launch certificates must rehash and link this receipt. The same guard must revalidate
+`proxy_info.json` and the generated LiteLLM policy on every poll.
+
+Kimi deployment specs must contain typed integer
+`spec.proxy.config.request_timeout: 43200` and `num_retries: 0`. Kimi eval
+configs must use the same 43,200-second evaluator-client timeout and exact
+`model.model_kwargs.timeout=43200` mini-swe override, with both
+`rollout_timeout < harness-model/client/proxy timeout` and
+`rollout_timeout < session_timeout <= client/proxy timeout`, so an owned
+rollout/session boundary fires before an HTTP read timeout. Independently
+parse `proxy_litellm_config.yaml` with a duplicate-rejecting safe YAML loader,
+reject aliases/merge keys and quoted or tagged type confusion, require the
+same typed values, and bind its
+full-file SHA-256 without recording its URL, key, or contents. That generated
+file is mutable across an intentional resize. The sharded TB4 finalizer must
+snapshot canonical allowlisted evidence binding the historical spec hash,
+typed policy, and generated file's original hash; never copy either raw file.
+Revalidate historical shard and smoke evidence against those frozen files
+after resize; require the live files only for the currently active readiness
+record. Enforce the model-bound timeout while retaining the existing
+7,200-second policy for unrelated/Qwen readiness rather than changing a global
+default. Never copy proxy credentials into the historical bundle.
+
+When auditing a production trace file interactively, pass
+`audit_traces.py --aggregate-only`; this reports counts and stable problem codes
+without emitting trace IDs or task identifiers. The write-once smoke and TB4
+certificate modes are aggregate-only by construction. Kimi qualification also
+requires every hash-verified captured `/chat/completions` request to specify
+`model=Kimi-K3`, `reasoning_effort=max`, and exactly the two enabled thinking
+flags, and every parsed provider response to identify `Kimi-K3`. Request-side
+evidence proves that max reasoning was requested; provider-side proof that it
+was honored requires separate server attestation.
+
+The required order is readiness and state-reuse gate, two-task transcript
+smoke, full 66-task TB4 pass@1 audit, deployment resize, fresh readiness gate,
+capacity smoke at or above production concurrency, Mobius launch-certificate
+creation, and only then the 2,500-task rollout. The full TB4 qualification uses
+four active rollouts and two simultaneous lease starts. Normalize effective
+lease-start concurrency as the smaller of `VACLI_MAX_CONCURRENT_LEASES` and the
+configured rollout concurrency, and bind that value in both the eval identity
+and the downstream certificate.
+Configured limits do not prove achieved capacity. Guarded VMVM evaluators must
+publish the aggregate-only, mode-0400 `concurrency_telemetry.json` at clean
+interpreter exit. It measures the peak count of holders of the vacli lease-start
+semaphore. Independently, the capacity audit measures overlap from each
+completed trace's setup start through scoring end, a conservative lower bound
+on active rollouts. The capacity-smoke certificate must bind and rehash both
+sources, require both measured peaks to reach their configured limits, and the
+Mobius launch certificate must reconstruct the same evidence before it can
+authorize production. Set `SMOKE_REQUIRED_ROLLOUT_CONCURRENCY` and
+`SMOKE_REQUIRED_LEASE_START_CONCURRENCY` on the capacity-smoke audit. Leave both
+unset for the two-task transcript smoke: it binds the observed telemetry but is
+not itself a capacity qualification.
+The launch certificate must prove that TB4 used exactly one route, the
+post-resize deployment-spec digest differs from the TB4 digest, and the
+post-resize spec/readiness route count is strictly larger and at least two.
+The initial production target is exactly two routes, so invoke the
+post-resize waiter with `EXPECTED_ROUTES=2` before the concurrency-eight,
+lease-starts-four capacity smoke. A route-generation change invalidates the
+current eval identity; do not resume guarded Kimi outputs at all.
 
 Pier's DeepSWE adapter supports prebuilt agent images and the benchmark's
 separate verifier Dockerfiles. It validates the Dockerfile, starts its `FROM`
@@ -239,13 +400,11 @@ host tunnel. A transfer started after `open_host_tunnel()` can block behind the
 SSH control connection; making the tunnel the last setup step avoids that stall.
 
 Keep model-provider retries inside the individual model call. Transport errors,
-HTTP 429, and HTTP 5xx responses may be retried there. If those retries exhaust
-inside a VMVM host-endpoint context, probe the workload-to-host HTTP path with
-proxies disabled before teardown: preserve the provider error while the path is
-reachable, and classify it as a tunnel failure only when that post-failure probe
-cannot reach the endpoint. A fresh whole-rollout attempt is reserved for this
-confirmed tunnel loss or a confirmed lost VM/container before any result was
-persisted.
+HTTP 429, and HTTP 5xx responses may be retried there, but exhausting those
+retries is not evidence that the sandbox was lost and must not replay the whole
+rollout. Score or surface the terminal provider failure according to the
+benchmark contract. A fresh whole-rollout attempt is reserved for a confirmed
+lost VM or container before any result was persisted.
 Classify provider-specific context-limit wording before generic retry handling.
 In particular, Nemotron/vLLM may report that the model's "context length is
 only" a given size and ask to "reduce the length of the input prompt". That is
@@ -302,12 +461,10 @@ LiteLLM deadline is too short for a model turn. It validates and snapshots all
 loopback-only consistent-hash `vllm-router` with retries disabled. Stage that
 router into its separate versioned x86 directory with
 `stage_qwen_direct_router.sh`; never add it to or overwrite the live evaluator
-dependency directory. The TB4 gate uses eight rollout slots. The qualified
-2,500-task production config keeps 64 rollout/VMVM sessions active while the
-shared HTTP pool and router admission are both capped at 32 with a bounded
-32-request queue; simultaneous VMVM lease setup stays capped at two. Do not run
-either route concurrently with another VMVM evaluation that consumes its
-measured budget. The launcher must reject configs without an externally approved,
+dependency directory. Keep Qwen rollout concurrency, multiplexing, HTTP pools,
+router admission, and aggregate VMVM concurrency at eight or less. Do not run
+the fallback concurrently with another VMVM evaluation that already consumes
+that budget. The launcher must reject configs without an externally approved,
 SHA-256-pinned task allowlist and must never accept inline task selections. The
 approval path and digest must be supplied independently through
 `DIRECT_QWEN_APPROVED_TASK_FILE` and

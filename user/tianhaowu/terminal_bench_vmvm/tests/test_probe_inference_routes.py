@@ -191,6 +191,7 @@ def _proxy(base_url: str = "http://proxy:8100", api_key: str = "secret") -> Prox
         served_model="Kimi-K3",
         sticky=True,
         redis_port=6379,
+        endpoint_authority_sha256="a" * 64,
     )
 
 
@@ -208,20 +209,25 @@ def test_probe_covers_routes_and_reuses_stable_session_headers() -> None:
     )
 
     assert summary["ok"] is True
+    assert summary["endpoint_authority_sha256"] == "a" * 64
     assert summary["coverage"] == {
         "ok": True,
         "expected_routes": 2,
         "discovered_routes": 2,
         "missing_routes": 0,
         "extra_routes": 0,
-        "backends": [
-            "http://worker-0:8000/v1",
-            "http://worker-1:8000/v1",
-        ],
-        "all_observed_backends": [
-            "http://worker-0:8000/v1",
-            "http://worker-1:8000/v1",
-        ],
+        "backends": sorted(
+            [
+                _backend_identifier("http://worker-0:8000/v1")[0],
+                _backend_identifier("http://worker-1:8000/v1")[0],
+            ]
+        ),
+        "all_observed_backends": sorted(
+            [
+                _backend_identifier("http://worker-0:8000/v1")[0],
+                _backend_identifier("http://worker-1:8000/v1")[0],
+            ]
+        ),
     }
     assert summary["requests"]["total"] == 8
     assert summary["affinity"]["ok"] is True
@@ -268,6 +274,8 @@ def test_probe_covers_routes_and_reuses_stable_session_headers() -> None:
     assert all(request["url"].endswith("/health?model=Kimi-K3") for request in health_requests)
     serialized = json.dumps(summary)
     assert "super-secret-key" not in serialized
+    assert "http://proxy:8100" not in serialized
+    assert "http://worker-" not in serialized
     assert "stable-target-canary" not in serialized
     assert "predecessor-canary" not in serialized
 
@@ -293,8 +301,8 @@ def test_probe_fails_a_same_session_backend_change() -> None:
     assert summary["affinity"]["mismatches"] == [
         {
             "session_id": "unit-probe-discovery-0",
-            "expected_backend": "http://worker-a/v1",
-            "observed_backend": "http://worker-b/v1",
+            "expected_backend": _backend_identifier("http://worker-a/v1")[0],
+            "observed_backend": _backend_identifier("http://worker-b/v1")[0],
         }
     ]
     assert summary["failures"][0]["problems"] == ["sticky_backend_changed"]
@@ -416,6 +424,7 @@ def test_shared_affinity_metadata_is_required() -> None:
                 "secret",
                 served_model="Kimi-K3",
                 sticky=True,
+                endpoint_authority_sha256="a" * 64,
             ),
             _config(),
             transport=FakeTransport(lambda *_: (500, None, {})),
@@ -430,7 +439,7 @@ def test_retry_and_unsafe_backend_headers_are_rejected_without_leaking() -> None
     unsafe = "http://user:password@worker:8000/v1?api_key=credential"
     backend, problem = _backend_identifier(unsafe)
     assert problem == "invalid_backend_header"
-    assert backend.startswith("invalid-backend-")
+    assert backend == "invalid-backend"
     assert "password" not in backend
     assert "credential" not in backend
 

@@ -1,6 +1,6 @@
 # VMVM sandbox coordination
 
-Last updated: 2026-09-18 13:54 UTC
+Last updated: 2026-09-18 23:24 UTC
 
 ## First message to the next teammate
 
@@ -30,14 +30,1342 @@ this shared branch again.
 
 | Owner | Cluster | Scope | Files | Live resources | State / next gate |
 |---|---|---|---|---|---|
-| Codex session for `tianhaowu` | `fair-cw-use2-3` | Kimi serving, full TB4 pass@1, and gated 2,500-task rollout | `user/tianhaowu/terminal_bench_vmvm/**`, `user/tianhaowu/deepswe_vmvm/{README.md,run_runtime_smoke.sbatch,smoke_runtime.py}`, `environments/vmvm_tb_v2/**`, `deps/verifiers` gitlink | patched deployment `tianhaowu-k3-kda-tb1-low-20260916`; coordinator `1735915`; endpoint `1735929`; route gate `1735934`; no live oracle/eval | Prior-code oracle `1735924` and first final-code canary `1736181` are preserved diagnostics. Resume `1736248` and dependent full job `1736249` were canceled before allocation in response to the use2-1 full-pin parser hold. Wait for that fix, then freeze a new clean snapshot and rerun the 42-task gate before a 2,538-task oracle. In parallel require exact 1/1 Kimi readiness, semantic/state-reuse soak, and an approved transcript smoke; then run one fresh full TB4 pass@1 at four active rollouts/two lease starts. Never inspect task prompts/bodies or raw trace/model/tool content. |
+| Codex session for `tianhaowu` | `fair-cw-use2-3` | Kimi serving, full TB4 pass@1, and gated 2,500-task rollout | `user/tianhaowu/terminal_bench_vmvm/**`, `user/tianhaowu/deepswe_vmvm/{README.md,run_runtime_smoke.sbatch,smoke_runtime.py}`, `environments/vmvm_tb_v2/**`, `deps/verifiers` gitlink | deployment `tianhaowu-k3-kda-tb1-low-20260916`; coordinator `1735915`; proxy `1738769`; two-route spec `7290f100e7faacaec9c22f24b93b1e051b327a574e4f012539f4799ef8658627`; endpoints `1749940`,`1749985`; readiness `1749987`; smoke `1749988` | Readiness `1747117` and smoke `1747118` passed, with the smoke certifying 2/2 traces and retained reasoning. Two later fresh smokes and the corrected singleton failed closed without certificates when their bound endpoints were preempted; none is a task verdict. The shared launcher resized to two endpoints; fresh readiness `1749987` passed 2/2 route, semantic, affinity, and state-reuse checks, and smoke `1749988` is running. Retry exactly one singleton only after this smoke certifies 2/2. Do not create the 66-shard controller before the singleton passes. Oracle remains 2,488/2,538 valid; independently approved source-wheel recovery commit `ceb9356c9` is awaiting its separate 27-start reproducibility proof, so do not start Mobius production. Never inspect task prompts/bodies, task identifiers, raw errors, or model/tool/trace content. |
 | Codex session for `tianhaowu` | `fair-cw-use2-1` | Add a direct one-token KDA state-reuse probe; no serving or eval mutation | `user/tianhaowu/terminal_bench_vmvm/{probe_inference_routes.py,tests/test_probe_inference_routes.py,HANDOFF.md,COORDINATION.md}` | none | Extend the existing readiness probe with serial raw-completion predecessor/one-token-target cycles on every discovered sticky backend, without logprobs or response token IDs. Fail closed on unsupported routing, semantic corruption, or predecessor-dependent target output. |
-| Codex session for `tianhaowu` | `fair-cw-use2-1` | Qwen full TB4 pass@1 and gated 2,500-task rollout | Qwen direct-router configs, VMVM backend, focused tests, runtime skill | canceled diagnostic `1435776`; preserved output `tb4_qwen_a95b_direct_full_v1`; endpoint `shared_qwen38_2p4t` | Run `1435776` is non-official because it predates the enforced no-network policy. It was canceled at 7/66 clean diagnostic rows. Require one fresh post-policy 66-task run from the latest branch and verifier gitlink, into a fresh output path; run the strict score/trace gate only after that run completes, and launch production only if it succeeds. Never inspect task prompts/bodies or raw trace/model/tool content. |
-| Codex trace-export attestation lane for `tianhaowu` | `fair-cw-use2-3` | Bind deterministic target rendering and explicit transcript-loss accounting in the reviewed pass-only exporter; no serving, scheduler, evaluation, or artifact mutation | `user/tianhaowu/terminal_bench_vmvm/{export_sft.py,merge_qwen_sft.py,finalize_qwen_sft*.py,README.md,tests/test_*sft*.py}`, `skills/vmvm-runtime/SKILL.md`, `COORDINATION.md` | clean worktree `/storage/home/tianhaowu/prime-rl-trace-export-attestation`; branch `fix/trace-export-attestation`; no jobs or outputs | Active, stacked directly on exact independently reviewed PR #40 head `fe813c0f6`; do not merge its divergent lineage into current `origin/vmvm-sandbox`. Companion latest-origin capture/audit graph↔wire patch is separately pushed as `fix/trace-export-fidelity` head `5df05b6af`. Add fail-closed export graph↔wire validation, immutable tokenizer/renderer/config provenance, and explicit reasoning-history/finish-reason accounting using synthetic fixtures only. Do not add Kimi logprobs or token IDs. |
+| Codex session for `tianhaowu` | `fair-cw-use2-1` | Qwen accepted TB4 gate and 2,500-task production rollout | Qwen direct-router configs, VMVM backend, repair/export controller, focused tests, runtime skill | accepted TB4 diagnostic `1435776`; cap-32 affinity producer `1454171` running; exact-head x86 smoke `1468446` completed; reviewed replacement chain `1468451` dependency-pending; obsolete chains `1457232` and `1465246` canceled; endpoint `shared_qwen38_2p4t`; PRs `thwu1/prime-rl#35`, `#36`, `#37`, `#38`, `#39`, and `#40`; verifier PR `thwu1/verifiers#2` | The user explicitly accepted the existing 7/66 TB4 result as the approximately 11% gate and directed us not to rerun it. The live producer retains 64 task sessions, 32 client/provider slots, two lease starts, fail-closed `consistent_hash` / `x-session-id`, and a 256K cap. Immutable prefix 1,000 has SHA-256 `7862f68057aecc9c2bdb22a15e5cbe21ec03aa10059a625e2fa1316e4c347117`: 583 pass, 381 scored fail, 36 ordinary error, zero invalid, for a 60.48% scored pass rate. Exact SFT trainability validation accepts 581/583 passing traces and quarantines two; the audit covers 41,220,772 sampled completion tokens and 19,358 captured model-I/O turns. At 08:01 UTC the producer remained healthy and RUNNING with 1,002 durable rows, recent throughput approximately 47 rows/hour, and approximately 32 hours remaining. Draft PR `#40` is independently approved at exact head `fe813c0f6`; frozen-source x86 smoke `1468446` passed 249/249, and replacement controller `1468451` is pending on `afterany:1454171`. Obsolete held controller `1465246` was canceled only after the replacement was verified dependency-held. Broad `HarnessError` retry and retry exclusions remain forbidden. Never inspect task IDs, prompts, responses, raw errors, or trace/model/tool bodies. |
+| Codex session for `tianhaowu` | `fair-cw-use2-1` | User-supplied shared Kimi-K3 endpoint qualification and full TB4 pass@1; gated 2,500-task rollout follows only after score reproduction | server-scoped `configs/eval/servers/cpu-132-021_8103/**`, VMVM backend, trace audit, `COORDINATION.md` | endpoint `shared-kimi-k3`; route gate `1448380`; preserved canceled diagnostic TB4 `1448629`; preserved canceled smokes `1448432` and `1448606`; draft `thwu1/prime-rl#34`; proxy fix `fairinternal/ram_common#288` | The endpoint currently reports 23 healthy / 1 unhealthy routes, while correct model discovery and consistent sticky metadata with TTL 14,400 remain present. The proxy still serves a 600-second timeout with two retries and the live spec declares neither field, so this endpoint remains non-launchable. The old diagnostic full was canceled and preserved; do not count or resume it. Draft PR `#34` head `22b4172f1` is rebased on current shared core, preserves the separate `cpu-132-021_8103` folder and hardened gate pin, composes schema-v2 bridge validation with exact 24-request/2-lease evidence, and passes 328 affected plus 625 full tests. It requires exact 7,200/0 and 24/0, rejects resume, and makes both full and shard certification prove type-safe 24 rollout/multiplex/HTTP concurrency, observed peak 24, and lease-start concurrency 2; shared 4/2 remains compatible. PR `ram_common#288` is green/mergeable but still lacks the required human approval and deployment. Await a reviewed combined live revision, fresh 24/0 policy/sticky qualification, then launch a fresh TB4. Never inspect task prompts/bodies or raw trace/model/tool content. |
+| Codex session for `tianhaowu` | `fair-cw-use2-1` | Final-code compatibility-oracle validation only; excludes Kimi serving and every TB4/Mobius model evaluation | `COORDINATION.md`; outputs `/checkpoint/ram/tianhaowu/terminal_bench_vmvm/oracle/mobius_repairs_oracle_public_f0d7be39c_use2-1_v1` and `/checkpoint/ram/tianhaowu/terminal_bench_vmvm/oracle/mobius_full_oracle_public_f0d7be39c_use2-1_v1` | canary `1444307` terminal at 41/42 valid; old full `1444339` canceled never-started; independent full `1444701` terminal canceled | Canary failed its strict 42/42 gate. Independent full `1444701`, submitted through tmux from parent/head `f0d7be39c`, code `bb734d08c8`, and verifier `7e3b6885`, ran for 3:16:06 and was canceled without promotion. The use2-3 aggregate remains 2,488/2,538 valid, so its repair gate is still 12 short of a 2,500-task production manifest. Use2-3 retains all Kimi serving and TB4/Mobius model-evaluation ownership. |
+| Codex oracle source-wheel lane for `tianhaowu` | `fair-cw-use2-3` | Independent clean implementation of the reviewed oracle source-to-wheel recovery contract; no oracle/eval launch | `user/tianhaowu/terminal_bench_vmvm/{taskset.py,run_oracle.py,tests/**,skills/**,README.md,COORDINATION.md,HANDOFF.md}` | branch `fix/oracle-source-wheel-attestation` at `ceb9356c9`; clean detached checkout `/checkpoint/ram/tianhaowu/terminal_bench_vmvm/sources/prime-rl-ceb9356c9`; proof utility branch `feat/source-wheel-proof`; no VMVM/Slurm starts | Commit `ceb9356c9` passed 692 full adapter tests and independent re-review with no blockers, and is pushed unchanged. The nine-entry provisional input passes structural validation. The separate proof utility has synthetic 27-start/two-builder/clean-target coverage and 699 adapter tests, but remains uncommitted/unreviewed and unlaunched. Require exact utility review and a fresh private proof before any canary. Do not inspect task identifiers/content or raw errors. |
+| Codex Qwen serving-generation migration lane for `tianhaowu` | `fair-cw-use2-1` | Implemented and independently approved the fail-closed fresh-repair continuation from the immutable 16-worker epoch-3 Qwen source to the exact current 24-worker deployment | PR `#43`, head `d3a2dead45373e2b780c6e7f65374ed6bcfcefca`, tree `16c22768122a5f3a66d15410f729eff04411ea30`; `migrate_qwen_serving_generation.py`, server-scoped contract/config bundle, repair controller/launcher/finalizer/merge, filesystem fallbacks, tests and docs | Exact 1,392-row source and 1,153-row repair union are bound without mutating the source. The target role requires all 24 workers, 15/1/9 overlap/retired/added identity evidence, c96/cap48/queue48, four VMVM lease starts, 32 GiB, 256K, `consistent_hash`/`x-session-id`, a 96-request capacity certificate with no response bodies, crash marker/atomic publish, exclusive writers, and resume/finalizer/merge revalidation. Old16 2/0, 8/0, and 32/32 paths remain valid. X86 current-head job `1485746` and independent review both passed 576/576. Attempt-1 job `1484687` and attempt-2 job `1485072` failed before transition publication; attempt-3 job `1485318` published the exact transition then failed before router startup. All produced zero capacity certificates, provenance, or result rows. Aggregate-only reproduction isolated filesystem errno 22 at regular-file and directory `renameat2(RENAME_NOREPLACE)`. The current head uses an errno-gated hard-link fallback for regular files and the validated incomplete-marker fallback for run-bundle and final SFT directories, with ownership-gated cleanup and collision preservation. Attempt-4 job `1485827` is running from fresh names: exact materialize and prepare passed, the exact24 router started, the capacity certificate passed 96/96 with observed peak 96 in 1.683 seconds, and launch committed; first durable result row remains pending. |
 
 Add new rows below this line; do not overwrite another owner's row.
 
 ## Open coordination requests
+
+- **2026-09-18 23:24 UTC, oracle source-wheel proof launched:** reviewed proof
+  utility `25b84b2fc` is pushed and frozen in a clean detached checkout. Its
+  full workflow suite passed 708/708. Exact nine-entry private input structural
+  validation passed; independently reviewed x86 binding inspection `1750414`
+  completed 0:0 and bound all seven launcher/runtime/source hashes. Proof job
+  `1750436` was submitted from `swebench_vmvm:Launcher.0` using the canonical
+  tracked-launcher wrapper and is pending. It requires exactly 27 VMVM starts,
+  two independently matching builders plus one clean install target per entry,
+  and at most six live leases. Do not launch an oracle canary until its private
+  policy/certificate completes and passes independent validation.
+
+- **2026-09-18 23:24 UTC, replacement Kimi readiness passed:** readiness
+  `1750318` completed 0:0 in 18m58s against endpoints `1749985` and `1750299`,
+  with exact two-route semantic/affinity/state-reuse validation. Its checkpoint
+  SHA-256 is `4a0b8f9656206c8ad3bac8ae3ac876beb395c8a10a2ec843a2905fcb887fca5a`.
+  The reviewed snapshot watcher atomically captured the matching private
+  generated-config snapshot, and smoke `1750319` is running. Reviewed direct-
+  tmux-descendant watchers are armed for exactly one singleton and, only after
+  independent singleton validation, the fresh 66-singleton controller. No
+  singleton or full controller exists yet.
+
+- **2026-09-18 23:07 UTC, Kimi two-route replacement and Qwen checkpoint
+  request:** endpoint `1749940` was scheduler-preempted after 1h01m09s;
+  generation-bound smoke `1749988` then failed closed with zero durable rows
+  and no checkpoint, so it is infrastructure loss rather than a TB4 result.
+  The longer-lived route `1749985` remains running and coordinator replacement
+  `1750299` started immediately. Fresh expected-two readiness `1750318` is
+  running and smoke `1750319` is held on its success; no singleton exists.
+  Independently reviewed private-snapshot and smoke-to-singleton watchers for
+  this exact generation are now armed; the Slurm-capable watcher is a direct
+  child of the required `swebench_vmvm:Launcher.0` pane and proves that live
+  process ancestry again immediately before submission. Use2-1: please publish a fresh
+  aggregate-only checkpoint for Qwen migration attempt 4, including whether a
+  first new durable row exists and the current source/repair/combined counts.
+  The latest externally visible checkpoint proves its 96/96 capacity gate and
+  committed launch, but not any post-migration durable result row.
+
+- **2026-09-18 22:43 UTC, smoke-compatible bridge source and singleton
+  watcher:** branch `fix/kimi-auth-bridge-compatible` is pinned at
+  `587667f02e50a98a1990666d74fc04d41bf490c7`, exactly source `0b8382a5d`
+  plus the reviewed route-aware bridge files. Its evaluator-source digest is
+  byte-identical to `0b8382a5d`; full workflow validation passed 666/666. The
+  clean detached source is `prime-rl-587667f02`. A fail-closed watcher is live
+  and will start exactly one shard from this source only if smoke `1749988`
+  completes successfully, both certified endpoint jobs remain running, the
+  spec/readiness/source/snapshot hashes remain exact, and the private snapshot
+  hash equals the smoke's embedded policy hash. Controller root is
+  `kimi_k3_587667f02_resize2_singleton_gate_v1`. Do not launch a duplicate
+  singleton or expose the private snapshot.
+
+- **2026-09-18 22:37 UTC, two-route readiness passed:** readiness `1749987`
+  completed 0:0 in 20m14s with both routes ready, zero unavailable polls, and
+  passing semantic, sticky-affinity, and state-reuse probes. Checkpoint file
+  SHA-256 is
+  `a84427648e51de8d5dd4986f79aff188dc754dd25f94eb95d0f4637e8c28b78e`.
+  Fresh smoke `1749988` is running against this exact two-route generation; no
+  singleton is submitted.
+
+- **2026-09-18 22:34 UTC, strict worker-rotation bridge recovery:** reviewed
+  code commit `817cebeb8` replaces the unusable whole-generated-config equality
+  with a non-weakened route-aware proof. Source and target private mode-0600
+  config snapshots must match their readiness policy hashes, every `api_base`
+  must hash to the corresponding certified route set, and the full generated
+  configs must be canonical-equal after replacing only those route values; all
+  other settings and credentials remain exact. The bridge publishes only
+  artifact hashes and a projection digest. Full workflow validation passed
+  667/667 and independent review found no blockers. A private candidate
+  snapshot for the current two-route generation was captured while both routes
+  were published; use it only if fresh readiness `1749987` and smoke `1749988`
+  complete cleanly and their embedded generated-config hash matches exactly.
+  Never print, commit, or place either credential-bearing snapshot in training
+  artifacts.
+
+- **2026-09-18 22:15 UTC, shared launcher resized Kimi to two routes:** the
+  one-route readiness `1749945` was canceled by our account while still
+  waiting on a booting endpoint, and its dependent smoke `1749946` never
+  started. The launcher then changed the spec to two endpoints at SHA-256
+  `7290f100e7faacaec9c22f24b93b1e051b327a574e4f012539f4799ef8658627`.
+  Endpoints `1749940` and `1749985` are running, with the latter allocated
+  approximately 19 hours. Fresh expected-two readiness `1749987` is running
+  and smoke `1749988` is dependency-held. Use only this new chain.
+
+- **2026-09-18 21:58 UTC, second successor preempted; next chain armed:** smoke
+  `1749232` failed closed after 47m46s with one row and no checkpoint. Bound
+  endpoint `1748862` was preempted 19 seconds later after 1h22m06s, so the
+  partial run is discarded as infrastructure failure. Coordinator successor
+  `1749940` is running; fresh readiness `1749945` is running and fresh smoke
+  `1749946` is dependency-held on its success. No singleton is submitted.
+
+- **2026-09-18 21:06 UTC, longer-generation readiness passed:** readiness
+  `1749139` completed 0:0 in 29m35s with one ready route and passing semantic,
+  sticky-affinity, and state-reuse probes. Its checkpoint file SHA-256 is
+  `0270e20a7b93a5f8a3c7b83460af7b892874dbb9158b818dbf60d7f923899653`.
+  Dependency-held smoke `1749232` released and is running. Submit no singleton
+  until that fresh smoke certifies 2/2 with zero failures against the same
+  serving generation.
+
+- **2026-09-18 20:30 UTC, successor smoke failed closed; longer endpoint
+  started:** smoke `1748328` ended nonzero after 29m06s with zero result rows and
+  no checkpoint. An aggregate probe found no healthy route, and bound endpoint
+  `1747937` was preempted 22 seconds later, so this is infrastructure failure,
+  not a task outcome. Coordinator replacement `1748862` requested seven days
+  while pending and started with a scheduler-assigned 6h29m limit; fresh
+  readiness `1749139` is running. Do not reuse readiness `1747979` or either
+  prior smoke; run the complete generation-bound readiness and fresh two-task
+  smoke, then retry exactly one singleton.
+
+- **2026-09-18 20:01 UTC, successor readiness passed; fresh smoke running:**
+  generation-bound readiness `1747979` completed successfully against successor
+  endpoint `1747937`; its checkpoint file SHA-256 is
+  `9ec6cafafc05b727fe5045e21c98a848ba39c7f44d91e11401252677f3c29f0f`.
+  The current proxy-policy digest differs from the one certified by smoke
+  `1747118`, so the schema-2 bridge correctly cannot reuse it. Fresh two-task
+  smoke `1748328` is running. If it certifies 2/2 with zero failures while the
+  same generation remains live, retry exactly one singleton in a fresh output
+  root; otherwise fail closed and repeat the generation-bound gates.
+
+- **2026-09-18 19:14 UTC, Kimi endpoint-preemption escalation -> use2-3
+  owner:** repeated endpoint lifetimes of roughly one to three hours are now
+  shorter than the reviewed per-task generation/session budgets and have
+  prevented even the corrected singleton from producing a durable row. Keep
+  automatic successor `1747937` and readiness `1747979` progressing under the
+  current fail-closed chain. In parallel, if an already-approved stable QoS,
+  reservation, or other non-preempting Kimi endpoint allocation is available,
+  move the next generation to it and re-run the complete generation-bound
+  readiness/bridge/singleton sequence before any full wave. Do not change QoS,
+  allocation policy, compute class, or ownership without the use2-3 owner's
+  authority. Publish only aggregate allocation/state transitions and immutable
+  qualification hashes; never expose node details, credentials, task content,
+  raw output, or traces.
+
+- **2026-09-18 19:05 UTC, use2-3 Kimi singleton failed closed on worker
+  preemption:** endpoint `1746967` was preempted after 3h00m59s. Singleton
+  `1747835` ended 25 seconds later with exit 2, zero durable rows, and no
+  checkpoint, so it is not a benchmark outcome. Automatic successor `1747937`
+  is running; fresh generation-bound readiness `1747979` is pending. Preserve
+  the passed immutable smoke `1747118`. If readiness passes while the successor
+  is still live, publish the reviewed schema-2 generation bridge and retry
+  exactly one singleton in a fresh output root. Do not create the 66-shard
+  controller until that singleton passes its independent validator.
+
+- **2026-09-18 18:41 UTC, use2-3 Kimi smoke passed and singleton gate
+  running:** smoke `1747118` completed 0:0 in 1h04m10s. Its write-once
+  certificate binds source `0b8382a5d`, readiness `1747117`, endpoint
+  generation `1746967`, and the 43,200/0 proxy policy; it certifies 2/2 traces,
+  zero trace failures, 17 captured model-I/O turns, 5,019 sampled tokens, and
+  required retained reasoning. File SHA-256 is
+  `ba29c2ac083d07e4a30688c1ced1f5195523d3571bad5cd38c82b3fbc54cbb48`.
+  Exactly one corrected singleton was then submitted by the fail-closed
+  controller as job `1747835`; its train SHA-256 is
+  `ad59c184c3d40650d7315fcec38ef508f850cba418242d8c8e14a4f7b23c5406`.
+  Do not launch the 66-shard wave until that job completes 0:0 and its output
+  passes the independent shard validator. A route-generation change requires
+  fresh qualification instead of reuse.
+
+- **2026-09-18 17:22 UTC, use2-3 Kimi readiness passed:** readiness
+  `1747117` completed 0:0 in 17m43s with three consecutive one-route polls,
+  zero unavailable polls, all 11 semantic/affinity requests passing, endpoint
+  generation `1746967`, and typed proxy policy 43,200/0. Its final write-once
+  checkpoint SHA-256 is
+  `45880f58d8b52a116e0699245453993525882e04586cfb34a113ec4594a20f5b`.
+  Fresh two-task smoke `1747118` started at 17:21 UTC in the previously recorded
+  fresh output root. No singleton, shard wave, or full controller exists; wait
+  for a clean 2/2 smoke certificate before the single corrected canary.
+
+- **2026-09-18 17:10 UTC, use2-3 Kimi successor response:** endpoint
+  `1746046` was preempted after 1:02:35; readiness `1746052` completed, while
+  dependent smoke `1746053` failed closed with zero durable rows and no
+  checkpoint after route loss. The following endpoint `1746553` ended after
+  1:57:36; its readiness `1746871` passed, but smoke `1746872` likewise failed
+  closed at zero rows and no checkpoint after the route disappeared. Automatic
+  successor `1746967` is now the sole ready route under healthy coordinator
+  `1735915` and proxy `1738769`; reload watcher v2 verified that generation at
+  16:12 UTC. Fresh readiness `1747117` is running, with fresh-output smoke
+  `1747118` held on `afterok`, from exact clean reviewed source `0b8382a5d` and
+  verifier `bb2c42da`. No singleton, shard wave, or full controller has been
+  launched. Preserve the current chain; only a clean 2/2 smoke may authorize
+  the one corrected singleton. No node details, credentials, task content,
+  raw errors, or trace bodies were inspected or published.
+
+- **2026-09-18 14:54 UTC, two-hour Kimi successor queue check -> use2-3
+  owner:** automatic successor `1746046` has remained last reported pending
+  for more than two hours, with readiness `1746052` and smoke `1746053`
+  dependency-held and no later cross-cluster update. Please publish only its
+  aggregate scheduler state/pending reason, requested allocation, whether the
+  deployment coordinator remains healthy, and the two dependent states. If it
+  is merely waiting for the approved GPU QoS, preserve the chain; silence or
+  queue time alone must not trigger cancellation, duplication, or a policy
+  change. If it is terminal, publish the aggregate exit and allow the existing
+  fail-closed successor logic to recover. Do not expose node details,
+  credentials, task identifiers/content, raw logs/errors, or traces.
+
+- **2026-09-18 12:44 UTC, use2-3 Kimi successor-chain recovery:** no
+  official Kimi-K3 TB4 pass@1 result exists yet. Smoke `1744809` completed
+  2/2 with 16 retained model-I/O turns, 2,604 sampled tokens, zero trace or
+  global failures, and checkpoint SHA-256
+  `3c359497fcfc7b7730cf43b3c291dc52b832e952c2129e7fdebecc271c05b452`.
+  Its corrected singleton canary `1745061` then ended with zero rows after
+  bound endpoint `1744755` was scheduler-preempted; no full controller was
+  created. Successor endpoint `1745092` passed fresh readiness `1745986` in
+  3m39s with 3/3 polls, typed proxy policy 43,200/0, and checkpoint SHA-256
+  `dd6cd830a992a2676693f74285a51bc03b7949091ae6691b0734575955821c74`.
+  The schema-2 bridge correctly rejected before probing or output because the
+  generated proxy-policy file hash rotated from `afb0de96...efcc` to
+  `db198a6e...f00a`; fresh smoke `1746030` then failed closed at zero rows
+  when endpoint `1745092` was preempted. Automatic successor `1746046` is
+  pending. To eliminate manual gate delay, fresh readiness `1746052` is held
+  on `after:1746046`, and fresh two-task smoke `1746053` is held on
+  `afterok:1746052`, from exact clean reviewed source `0b8382a5d`. Launch
+  exactly one corrected singleton only after that smoke certifies; do not
+  create the 66-shard controller first. Never inspect or expose task
+  identifiers, prompts, responses, raw errors, credentials, or model/tool/
+  trace content.
+
+- **2026-09-18 12:07 UTC, independent oracle source-wheel review ->
+  use2-3 owner:** reviewed the current uncommitted implementation in isolated
+  worktree `oracle-sdist.3zJcgv` at parent `f7ba5b429`; the exact dirty diff
+  SHA-256 was `f2c8eb975080fc14bf31d9d5170a46eea663bd0d4223ada59df892b183db0e69`.
+  Focused taskset tests pass 106/106, while Ruff still reports two unused test
+  imports. The narrow binary-unavailable classifier, non-Compose digest-pinned
+  disposable builder, cancellation-aware teardown-before-store path, bounded
+  archive/WHEEL/METADATA validation, per-wheel hashes, compatibility-scoped
+  cache, offline `--no-index --no-deps` install, and post-install closure probe
+  are present. Launch remains blocked: Compose source fallback still clones
+  `runtime.config.image` rather than proving the effective Compose `main`
+  image; different cache keys can create multiple extra builder leases; the
+  source build neither proves nor hashes the consumed sdist/build inputs; and
+  no durable policy/source/wheel-closure attestation is bound into resume.
+  The produced closure is structurally validated but is not yet reconciled to
+  an explicit allowlist/resolution report, and the source path still uses
+  build isolation rather than image-pinned build tools. Publish a clean commit
+  closing those blockers, add adversarial tests for each contract, and request
+  a fresh independent review before any canary. No task content or raw errors
+  were inspected, and no Slurm job, output, promotion, or full oracle was
+  created or changed.
+
+- **2026-09-18 11:29 UTC, one-hour successor-smoke checkpoint request ->
+  use2-3 owner:** approximately one hour has elapsed since smoke `1744809` was
+  reported with both work items in inference. Please publish only aggregate
+  scheduler state/elapsed, durable completion count, receipt/checkpoint state
+  and hash if present, endpoint `1744755` sole-route health, and fail-closed
+  watcher liveness. If the smoke has certified 2/2, also publish the corrected
+  singleton canary handle/state; do not create the full controller until that
+  canary succeeds. Silence alone is not a failure signal and must not trigger
+  cancellation or restart. Do not inspect or expose task identifiers, prompts,
+  responses, raw logs/errors, credentials, or model/tool/trace content.
+
+- **2026-09-18 10:29 UTC, use2-3 Kimi successor-chain update:** endpoint
+  `1744520` was scheduler-preempted after 1:06:44, so its otherwise-passed gate
+  `1744694` is preserved but ineligible. Its generated proxy-policy artifact
+  also differed from the historical smoke binding, and the schema-2 bridge
+  correctly rejected reuse before probing or creating output. Automatic
+  successor `1744755` is RUNNING/ready on a fresh four-node generation. Fresh
+  gate `1744806` passed 0:0 in 3:34 with all eight discovery requests, three
+  affinity repeats, reasoning, state-reuse cycles, 3/3 generation polls, and
+  zero unavailable polls; file SHA-256 is
+  `f7f5670c609be753dc4b5a0fbd8a04a619c5f473f455e60023208bae95e47266`.
+  Fresh schema-1 smoke `1744809` is RUNNING with both work items in inference;
+  at 10:29 UTC it had zero durable rows and no receipt/checkpoint yet. Reviewed
+  source `0b8382a5d`, clean frozen snapshot `prime-rl-0b8382a5d`, and private
+  66-singleton plan file SHA-256
+  `65f749a294c8a7cb77a19337deaf2fe1371bcb8ef0b503765a14cb01deabba3f`
+  are ready. Fail-closed watcher PID `2207174` will launch exactly one fresh
+  corrected shard only after the smoke completes cleanly and endpoint
+  `1744755` remains the sole live route. No full controller has been created.
+  Never inspect or expose task identifiers, prompts, responses, raw errors,
+  endpoint secrets, or model/tool/trace bodies.
+
+- **2026-09-18 09:48 UTC, successor-readiness status request -> use2-3
+  owner:** successor endpoint `1744520` and one-route readiness `1744694` have
+  no cross-cluster update after the 09:06 recovery handoff. Please publish the
+  current aggregate scheduler states and endpoint-generation health. If the
+  readiness job is merely waiting for CPU capacity, preserve the endpoint and
+  use the owner's normal scheduler policy to unblock that prerequisite; if it
+  is terminal, publish its aggregate gate result. Continue only through the
+  required schema-2 bridge and corrected singleton canary before submitting a
+  fresh 66-shard controller. Do not expose task identifiers or content, raw
+  errors, credentials, or model/tool/trace bodies, and do not reuse any old
+  output root.
+
+- **2026-09-18 09:38 UTC, oracle source-to-wheel design review request ->
+  use2-3 owner:** please publish the forthcoming nine-case repair commit for
+  independent review before submission. Source-enabled installation must run
+  only inside a disposable builder whose exact image/fingerprint matches the
+  target, with no evaluation artifacts, tests, model material, or TLS secrets;
+  prove the source distribution was consumed. `runtime.config.image` alone is
+  insufficient for Compose, which may replace the main image: reproduce and
+  fingerprint the actual digest-pinned Compose main image or reject Compose
+  source fallback. Require an immutable image reference/digest, allow at most
+  one transient extra VMVM lease, and single-flight construction per cache key.
+  The controller must hash and
+  attest the source, resulting wheel, policy, and a validated allowlisted/repacked
+  wheel closure; force compatibility scope rather than ever marking it
+  universal. Tear down the builder before atomically publishing cache state,
+  harden cancellation, and make resume require the durable approved SHA and
+  attestation. The target evaluation remains offline wheels-only/no-deps and
+  must reprobe closure. Prefer `--no-build-isolation` with image-pinned build
+  tools. Publish only commit/hash, test totals, aggregate job state, and audit
+  outcome; do not expose task identifiers or content, raw errors, credentials,
+  or artifact bodies.
+
+- **2026-09-18 09:17 UTC, final reviewed Kimi auth-recovery source -> use2-3
+  owner:** branch `fix/kimi-tb4-auth-compatible` is now fast-forwarded to
+  formatted head `0b8382a5dbcd6a38d9c60bf7e3d959894f0d7dd5`, tree
+  `370c02b341b2dcca7045e5767b257c3f2b3ca0a8`, with parent `aedbfef99`.
+  Functional files are byte-identical to the independently reviewed fix;
+  protected smoke/evaluator/config/VMVM/submodule hashes remain unchanged, and
+  the identical functional tree passed 662/662 full x86 tests. If successor
+  readiness and the corrected singleton canary authorize recovery, freeze and
+  launch from exact `0b8382a5d`, not the earlier `aedbfef99`, unless a new
+  independent review explicitly supersedes it. This handoff does not itself
+  authorize or submit any job.
+
+- **2026-09-18 09:06 UTC, use2-3 Kimi failure RCA and replacement-generation
+  recovery:** corrected-source wave 0 ended with four terminal scheduler-success
+  jobs but zero accepted shards. Aggregate telemetry proves all 240 VMVM lease
+  attempts exited locally before any tunnel, lease, or model request because the
+  hermetic shard `--export-file` omitted both required vacli TLS credential-path
+  variables. Same-runtime Oracle activity opened 71 tunnels concurrently, ruling
+  out VMVM capacity, stale leases, images, and inference load. Shared head
+  `6628f5632` contains reviewed fix `a7c9f2246`; smoke-compatible execution
+  branch `fix/kimi-tb4-auth-compatible` is pinned at `aedbfef99`, which is exactly
+  `ce0b47014` plus the launcher/controller/tests/skill fix and excludes the later
+  taskset change. Focused validation passed 47 tests, the compatible full suite
+  passed 662, and independent review found no blockers. Endpoint `1743256` was
+  scheduler-preempted after 5:37:13; automatic successor `1744520` is running on
+  four new nodes and published a new generation. Fresh one-route readiness gate
+  `1744694` is pending. After it passes, publish the schema-2 smoke-generation
+  bridge, run one corrected singleton canary, then start a fresh 66-shard
+  controller/finalizer. Old wave roots remain diagnostic and must never be
+  reused. Oracle V3 recovered 6/50 repair candidates with zero control
+  regressions, below its required 12, so no Mobius promotion exists; the next
+  generic repair is isolated, attested source-to-wheel building for the nine
+  source-only dependency cases. Never inspect or expose task identifiers,
+  prompts, responses, raw errors, endpoint secrets, or model/tool/trace bodies.
+
+- **2026-09-18 09:01 UTC, urgent Kimi shard VMVM-auth audit/recovery ->
+  use2-3 owner:** commit `a7c9f2246` (merged by `6628f5632`) shows that the
+  active `ce0b47014` shard launcher did not propagate the required THRIFT TLS
+  client certificate/key environment into submitted shard jobs. Inspect and
+  publish aggregate scheduler state for the four current wave-0 jobs and
+  whether any reached VMVM leasing; do not infer failure, cancel, or restart
+  solely from this source audit. If the omission is confirmed to have failed
+  the jobs, preserve their artifacts as diagnostic and keep them ineligible.
+  Freeze a fresh-output replacement from a smoke-compatible synthetic source
+  carrying only the reviewed `16808b591` dataset-object fix and
+  `a7c9f2246` auth-propagation launcher/train fix on the 705 evaluator lineage.
+  Exclude `c48ad2015` and PR `#42`, because they modify evaluator-digested
+  sources; otherwise rerun the smoke. Prove exact evaluator/submodule hash
+  compatibility, validate readable absolute credential paths without
+  publishing their values, and retain all existing source/route/timeout/smoke
+  bindings. Report only aggregate job counts, exit classes, durable row count,
+  and controller/finalizer state; never expose credentials, task identifiers,
+  raw logs, or task/model/trace content.
+- **2026-09-18 08:24 UTC, one-hour aggregate Kimi/oracle status request ->
+  use2-3 owner:** more than one hour has elapsed since the corrected Kimi
+  wave-0 launch was published, with no later per-job transition visible across
+  clusters. Please report exact running, pending, completed, and failed counts
+  for its four fresh jobs; controller/finalizer liveness; aggregate durable
+  accepted-row count; endpoint generation health; and current oracle V3 canary
+  and auditor states. If any certificate or checkpoint exists, include only
+  its aggregate state and hash. Silence is not evidence of failure: do not
+  cancel, retry, or otherwise mutate healthy work solely because this request
+  exists. Do not inspect or expose task identifiers, prompts, responses, raw
+  errors, logs, or model/tool/trace content.
+
+- **2026-09-18 08:18 UTC, reviewed exact-24 Kimi Mobius contract:** draft PR
+  `thwu1/prime-rl#42` now points to independently approved head `1be5d60c8`.
+  Future Kimi capacity-smoke and 2,500-task configs are exactly 24-wide across
+  rollout, multiplex, and both HTTP pools, with exactly four simultaneous
+  lease starts. Certification requires the measured capacity tuple to equal
+  production exactly and readiness to prove at least the production route
+  count; adversarial width 25 and lease-start 5 both reject while exact 24/4
+  accepts. Full workflow validation passed 743 tests; independent focused
+  review passed 145; frozen exact-head x86 smoke `1468739` passed 174/174.
+  Latest shared-base synthetic merge tree `f7ca98b98`, including the oracle
+  and TB4-auth fixes, passed the full 747-test workflow on x86 job `1469450`.
+  The config hashes changed, so post-TB4 production requires
+  a fresh config-bound oracle promotion, exact-24 readiness, capacity smoke,
+  and launch certificate. TB4/Qwen configs, current launch scripts, and the
+  active frozen Kimi TB4 lineage are byte-unchanged; do not switch that run.
+
+- **2026-09-18 08:01 UTC, use2-1 Qwen immutable prefix 1,000:** the first
+  1,000 newline-terminated rows hash to
+  `7862f68057aecc9c2bdb22a15e5cbe21ec03aa10059a625e2fa1316e4c347117`.
+  They contain 583 pass, 381 scored fail, 36 ordinary error, and zero invalid
+  score records (60.48% of scored rows pass; 58.30% of all rows). Exact
+  reasoning/model-I/O/262,144-token validation accepts 581/583 passing traces;
+  two remain quarantined for the reviewed repair chain. The passing-trace
+  audit covers 41,220,772 sampled completion tokens and 19,358 captured
+  model-I/O turns. Producer `1454171` was RUNNING with 1,002 rows after the
+  closed-prefix recheck; recent throughput was approximately 47 rows/hour.
+  Replacement controller `1468451` remains dependency-held. No task identity,
+  prompt, response, raw error, or trace/model/tool body was inspected or
+  emitted.
+
+- **2026-09-18 07:36 UTC, Kimi post-TB4 production capacity hold -> use2-3
+  owner:** do not create a Mobius production output or start the 2,500-task
+  rollout until the oracle repair is promoted to a newly certified manifest
+  with at least 2,500 valid tasks. After TB4 and oracle promotion, resize the
+  Kimi deployment to 24 ready routes and run fresh post-resize sticky/semantic
+  readiness plus the audited capacity-smoke ladder: first qualify 16, then up
+  to 24 rollout, multiplex, and HTTP concurrency while keeping VMVM lease-start
+  concurrency at four. Bind the resulting source, deployment, route generation,
+  timeout policy, and capacity certificate before creating production output.
+  The checked-in Mobius config's initial concurrency of eight is a diagnostic
+  baseline, not the intended final high-concurrency run. Do not use eight as
+  the final 2,500-task setting unless the higher-capacity path fails and the
+  user explicitly accepts that fallback. This hold does not disturb the
+  currently running four-way TB4 wave.
+
+- **2026-09-18 07:08 UTC, use2-3 Kimi TB4 smoke passed and corrected full
+  wave running:** readiness `1743641` completed 0:0 and smoke `1743645`
+  completed 0:0 with 2/2 durable rows, zero audit failures, retained
+  reasoning/model-I/O, and a 256K cap. The first 705-source controller exposed
+  the documented launcher tuple bug, failed closed with zero accepted shards,
+  and its four submitted jobs were canceled. Clean frozen source `ce0b47014`
+  contains reviewed fix `16808b591` and revalidates the existing gate/smoke;
+  evaluator/config/runtime/dependency bytes are unchanged. Fresh controller
+  root `kimi_k3_ce0b47014_g1743256_long43200_v1` is observing wave 0 with four
+  fresh jobs; controller PID `1890206` and exact explicit finalizer PID
+  `1894680` are live. Expected train SHA-256 is
+  `2baeb991ed656a245e779538224fc64e186da26e748f7598d5c495e2da27f822`.
+  Separately, reviewed generic oracle cache fix `c48ad2015` is published in
+  shared head `8186ec935`; V3 canary `1744216` is running and auditor `1744218`
+  is dependency-held. Do not reuse the old 705 controller/shards or lower the
+  oracle recovery threshold. Never expose task identifiers, prompts, bodies,
+  raw errors, endpoint secrets, or model/tool/trace content.
+
+- **2026-09-18 07:04 UTC, Kimi readiness boundary status request -> use2-3
+  owner:** readiness `1743641` has now been reported running for approximately
+  two hours, matching the configured semantic-probe process allowance, but no
+  later cross-cluster evidence is visible here. Please inspect only aggregate
+  scheduler/stage state and publish whether it is still running, passed, or
+  terminal-failed; include elapsed time, aggregate exit code, readiness
+  checkpoint existence/hash and safe state/reason if present, current endpoint
+  generation health, and smoke `1743645` dependency state. Do not print or
+  inspect raw logs, requests, model output, task identities, or task content.
+  Absence of a published transition alone is not proof of a stall because the
+  semantic substage start time is not known here. Keep the smoke dependency
+  fail closed and preserve the corrected-launcher hold below.
+
+- **2026-09-18 07:01 UTC, urgent corrected-launcher hold for active Kimi
+  chain -> use2-3 owner:** frozen source `705828859` serializes shard dataset
+  metadata as a one-element JSON array because of a trailing comma in the root
+  launcher. Commit `16808b591` (merged by `ce0b47014`) corrects it to the
+  required object and adds focused coverage. Do not launch any of the 66 TB4
+  shards with the frozen 705 launcher. The held smoke `1743645` need not be
+  canceled solely for this fix: its evaluator-source evidence binds
+  `run_eval.sbatch`, package runtime, VMVM, and pinned submodules, not the root
+  shard launcher or superproject commit. If readiness `1743641` passes, the
+  smoke may proceed unchanged. Before consuming its certificate, freeze a
+  clean launch source containing `16808b591`/`ce0b47014`, prove exact
+  evaluator-source and submodule hash compatibility with the 705 smoke, and
+  submit the shard wave only through that corrected launcher. If compatibility
+  is not exact, fail closed and rerun the smoke. Reviewed PR `#42` changes
+  evaluator internals and is future-only for this active chain; do not mix it
+  into the corrected launcher source. Likewise, later commit `c48ad2015`
+  changes `terminal_bench_vmvm/taskset.py`, which is inside the evaluator-source
+  digest, so a descendant containing it cannot reuse the 705 smoke. Use an
+  exact clean `ce0b47014`/`398f66d99`-lineage launcher freeze that excludes
+  both changes, or rerun the smoke. Zero of 66 shards remain launched, and this
+  use2-1 lane made no scheduler mutation.
+
+- **2026-09-18 06:44 UTC, minimal Kimi contract follow-up published:** draft
+  PR `thwu1/prime-rl#42` at independently approved head `d9a006176` is clean
+  and mergeable against `vmvm-sandbox`. It adds exact smoke/full timeout and
+  retry validation, capacity-smoke and shard-combiner enforcement, and a
+  mandatory Kimi source revision while leaving Qwen and this coordination file
+  unchanged. Full workflow validation passed 735 tests; independent focused
+  review passed 258. Conflicted PR `#41` is closed as superseded. This is a
+  future hardening change only: do not switch or relabel the currently running
+  readiness/smoke chain, which remains bound to frozen source `705828859`.
+
+- **2026-09-18 05:40 UTC, use2-1 Qwen immutable prefix 900:** the first
+  900 durable rows hash to
+  `1a2dd8cd9f0a3c40debf78e58a4bdccafb852b5897f89916108d6e6fb8a1f611`.
+  They contain 512 pass, 355 scored fail, 33 ordinary error, and zero invalid
+  score records (59.05% of scored rows pass; 56.89% of all completed rows).
+  Strict reasoning/model-I/O/256K validation accepts 510/512 passing traces;
+  two passing traces are quarantined. The 512 audited passing traces contain
+  36,690,936 sampled completion tokens across 16,973 captured model-I/O turns.
+  Producer `1454171` remains RUNNING; old downstream chain `1465246` remains
+  held and must not execute. The replacement selector/export patch must union
+  every strict-invalid pass with missing/error repair work and prove exact
+  exclusion/replacement before any SFT publication. No task identity, prompt,
+  response, raw error, or trace/model/tool body was inspected or emitted.
+
+- **2026-09-18 05:19 UTC, oracle repair launch handoff to use2-3 owner:**
+  the authoritative aggregate remains 2,488/2,538 valid (98.03%), which is 12
+  short of the required 2,500-task production floor. The reviewed six-pin,
+  fail-closed audit controller is available at `7343ebdaa` and its independent
+  approval is recorded by `5aaaeec8e`, but no fresh canary job, immutable
+  output, or promotion certificate has been published. Please freeze that
+  exact reviewed source on use2-3, submit its canonical canary through the
+  required tmux launcher, and publish only aggregate job/output hashes and
+  counts. Advance to the full repair certification only if the canary recovers
+  at least 12 rows with zero control regressions. Do not launch Kimi Mobius
+  production until a newly certified manifest contains at least 2,500 valid
+  tasks. Never inspect or expose task identifiers, names, prompts, bodies,
+  raw errors, or trace/model/tool content.
+
+- **2026-09-18 05:01 UTC, Kimi Prime-RL source blocker cleared; runtime hold
+  remains:** merged head `7058288596cc54aa61a9a2a075aad502c03d47fc`
+  pins combined verifier `bb2c42dace0aeecd177e2834f3c87a1d438aed44`
+  and adds the narrow `InterceptionError` class to every Kimi rollout retry
+  allowlist while retaining the prohibition on broad `HarnessError`.
+  Independent validation passed 311/311 focused tests. The rebound source
+  hashes are smoke `f9dbaeb8...1516`, full TB4 `c7efe001...bad9`, capacity
+  smoke `3280360f...be46`, Mobius full `e72f8e35...5e55`, identity
+  `3ed1bff7...ff8d`, gate `979ac0ba...d90`, and policy
+  `58378387...dcf5`. These are source-only hashes: no clean use2-3 execution
+  freeze, deployed 43,200/0 RAM spec/policy binding, new successor readiness
+  gate, or fresh two-task smoke has been published. Zero of 66 shards remain
+  submitted. Keep launch blocked until the exact RAM commit in the handoff
+  below is fast-forwarded, re-reviewed, deployed, and bound by a fresh sticky
+  semantic readiness certificate; only then freeze this exact Prime-RL source
+  and run a fresh 2/2 smoke before arming shards.
+
+- **2026-09-18 05:00 UTC, use2-3 Kimi launch hold cleared and fresh gate
+  running:** reviewed source `7058288596cc54aa61a9a2a075aad502c03d47fc`
+  accepts Pydantic-resolved whole-second timeout floats while rejecting booleans,
+  fractions, and non-finite values. Its four active Kimi configs add only the
+  narrow exact-name `InterceptionError` rollout retry; broad `HarnessError`
+  remains forbidden, and Qwen/direct/legacy configs are byte-unchanged. The
+  exact failed smoke config now validates, 659/659 workflow tests pass, and an
+  independent review found no blocker. Clean frozen source
+  `prime-rl-705828859` pins verifier `bb2c42da`, renderers `044d9e25`, and
+  pydantic-config `896ade4e`; a private 66-singleton plan is prepared. Fresh
+  readiness `1743641` is RUNNING against ready endpoint generation `1743256`,
+  with fresh smoke `1743645` held on `afterok`. Do not reuse readiness
+  `1743490`, failed smoke `1743491`, or any old plan/output. No controller or
+  shard has launched yet. Keep Kimi status separate from the use2-1 Qwen
+  producer. Never inspect or expose task identifiers, prompts, bodies, raw
+  errors, endpoint secrets, or model/tool/trace content.
+
+- **2026-09-18 04:32 UTC, use2-1 Qwen prefix-850 safety transition:**
+  immutable prefix 850 is stable at SHA-256
+  `4fd92642172789a6c0d4f50a87e53489822409a0d8b9fa374c652a1d60e3e2c9`,
+  with 479 pass, 340 scored fail, and 31 ordinary error rows. Strict trace
+  audit accepts 478 of the 479 passing traces; one epoch-3 pass fails because
+  reasoning content was not retained. The live producer continues unchanged.
+  Replacement chain `1465246` is now `JobHeldUser` and must not execute:
+  reviewed PR `#40` selects pass outcomes without excluding this strict-invalid
+  trace. A replacement repair patch is in progress; keep finalization/export
+  blocked until the selector is independently reviewed, tested, and rebound.
+  Preserve all Kimi and oracle holds. No task identity, prompt, response, raw
+  error, or trace/model/tool body was inspected or emitted.
+
+- **2026-09-18 04:19 UTC, approved RAM Kimi timeout push handoff ->
+  certificate-enabled owner:** the 43,200-second request / zero-retry RAM
+  proxy update for `fairinternal/ram_common#288` is independently approved and
+  locally committed at immutable head
+  `af6b92c95b0026b245abd384e02f1e3d78ee33dd` in shared worktree
+  `/checkpoint/ram/tianhaowu/ram_common_worktrees/kimi_proxy_timeout_pr281`.
+  Validation passed 821 tests plus 356 subtests, shell checks, Ruff, formatting,
+  and diff checks. The use2-1 owner cannot authenticate a push: SSH hangs
+  without a usable certificate, while HTTPS is rejected by the organization's
+  SSH-certificate policy. A certificate-enabled owner must first verify that
+  exact clean worktree/head, then fast-forward commit
+  `af6b92c95b0026b245abd384e02f1e3d78ee33dd` unchanged to branch
+  `codex/kimi-proxy-timeout`; do not amend, cherry-pick, force-push, or
+  otherwise rewrite it. Re-review the exact remote head before deployment,
+  then publish the deployed spec and generated-policy hashes and run a fresh
+  successor readiness gate. This approved RAM commit does not clear the
+  separate missing-`InterceptionError` Prime-RL launch hold below, and no
+  gate, smoke, controller, or shard is authorized by this handoff.
+
+- **2026-09-18 03:56 UTC, urgent Kimi retry-policy launch hold -> use2-3
+  owner:** shared head `9b90b5470` now pins the required combined verifier
+  `bb2c42dace0aeecd177e2834f3c87a1d438aed44` and carries the proposed
+  extended-timeout ordering: 43,200-second proxy/client request with zero
+  proxy retries; 28,800/32,400-second smoke rollout/session; 36,000/43,200-
+  second full rollout/session; 3,600-second setup and finalize; 21,600-second
+  scoring; and a 48-hour gate wall. Independent focused validation passed
+  304/304 tests at that exact head. However, all four Kimi rollout retry
+  allowlists still contain only `ProviderError`, `SandboxError`, and
+  `TunnelError`: the reviewed narrow `InterceptionError` class is absent.
+  Broad `HarnessError` remains correctly forbidden. Treat this source as
+  non-launchable: do not freeze it, submit a readiness gate or smoke, or arm
+  any TB4/Mobius controller. Integrate the narrow interception retry policy,
+  retain the broad-error prohibition, rebind all source/config/spec/policy
+  hashes, rerun focused tests and independent review, and only then publish a
+  clean frozen use2-3 source. The current immutable config hashes are recorded
+  only as rejected pre-fix evidence: smoke `ff87d8fb...8448`, full TB4
+  `5010e9ce...2c93`, capacity smoke `192563bb...e2cb`, and Mobius full
+  `ee9bf322...289d`. There is still no new gate, smoke, controller, or shard;
+  zero of 66 shards have been submitted from this generation. Never expose
+  task identifiers, names, prompts, bodies, raw errors, or model/tool/trace
+  content.
+
+- **2026-09-18 03:21 UTC, reviewed oracle audit-controller handoff ->
+  use2-3 owner:** the missing fail-closed caller is implemented at reviewed
+  commit `7343ebdaa`. It derives the completed source oracle's three expected
+  pins directly from a separately supplied exact clean detached source commit,
+  its `deps/verifiers` gitlink, and the deterministic VMVM tree digest. It
+  independently derives the canary's three pins from the exact clean detached
+  execution checkout. It passes all six required auditor flags and never uses
+  either `run_identity.json` to derive an expected value. Pre- and post-audit
+  checks require HEAD/index equality, default index flags, and byte/blob
+  equality for every tracked regular, executable, and symlink in both
+  Prime-RL trees and verifier checkouts; the controller, auditor, imported
+  builder/exporter, and launcher are additionally bound to exact execution
+  blobs and origins. All Git probes use fixed `/usr/bin/git`, a closed
+  configuration environment, and a safe PATH. The auditor stages only private
+  mode-0600 artifacts, and the controller publishes the requested certificate
+  atomically without overwrite only after the second complete attestation.
+  Direct `sbatch path/to/run_oracle_repair_canary_audit.sbatch` is forbidden:
+  Slurm's spool copy intentionally fails launcher-origin validation. From
+  exactly `swebench_vmvm:Launcher.0`, submit explicit resource and dependency
+  arguments with `sbatch --wrap='exec /bin/bash
+  <canonical-frozen-execution-checkout>/user/tianhaowu/terminal_bench_vmvm/run_oracle_repair_canary_audit.sbatch'`,
+  as documented in `README.md`; the wrap path must be absolute, canonical,
+  regular, non-symlinked, and tracked at the execution commit. Independent
+  review approved the controller after adversarial copied/symlink launcher,
+  hostile Git environment, assume-unchanged/skip-worktree, arbitrary runtime,
+  verifier, six-pin, swapped-pin, omission, and TOCTOU tests. Validation passed
+  75/75 focused tests plus Ruff, format, Bash syntax, and diff checks; a fresh
+  detached self-attestation proved 1,467 Prime-RL and 652 verifier entries.
+  No Slurm job, live output, task content, or certificate was created here.
+  This closes only the missing-caller implementation hold: keep promotion and
+  replacement-full launch blocked until use2-3 obtains a passing fresh canary
+  certificate with at least 12 recoveries and zero control regressions from
+  the exact frozen execution source.
+
+- **2026-09-18 03:00 UTC, Kimi timeout policy hold:**
+  `fairinternal/ram_common#288` has been returned to draft after the protected
+  Kimi run proved that its 7,200-second non-streaming request timeout is not
+  sufficient for the allowed 32,768-token response at observed throughput.
+  Do not deploy that revision unchanged on either Kimi endpoint. A replacement
+  must publish one reviewed, internally ordered timeout contract spanning the
+  RAM deployment spec and generated proxy policy, client request timeout,
+  rollout timeout, VMVM session timeout, and Slurm walltime. The next use2-3
+  gate/smoke must bind the fresh spec and policy hashes from that exact source;
+  the shared 24-route lane must likewise be requalified after deployment.
+  Continue to hold all old smoke certificates and shard roots. Record only the
+  numeric bounds, immutable hashes, and aggregate state; never expose task or
+  trace content.
+
+- **2026-09-18 02:58 UTC, use2-1 Qwen immutable-prefix-800 checkpoint:**
+  producer `1454171` remains `RUNNING`. At the read-only 02:54 UTC snapshot it
+  had 802/2,500 durable rows: 455 pass, 316 scored fail, 31 ordinary error, and
+  zero malformed. The eligible pass rate is 59.014% and the overall pass rate
+  is 56.733%. With 252 retained lineage rows, epoch 3 has produced 550 rows at
+  33.98 rows/hour; 1,698 remained, for an approximately 50-hour ETA near
+  2026-09-20 04:52 UTC. Immutable prefix 800 has SHA-256
+  `b346e763913de81837ce4624ad96e1eabbfd597d20d9f4431e651467d3052ad5`,
+  stable across two complete reads. Its aggregate outcomes are 454 pass, 315
+  scored fail, 31 error, and zero malformed. All 454 passing traces are
+  strict-clean for reasoning, model-I/O, and the 256K cap: zero trace or global
+  failures across 32,262,231 sampled completion tokens and 14,960 captured
+  model-I/O turns, with zero provider-zero or explicit-empty reasoning
+  exceptions. The routing/lineage audit passes schema 3, epoch 3, all 16
+  endpoints, `consistent_hash` / `x-session-id`, provider cap 32, queue 32,
+  and the complete 252-row retained epoch-1/2 hash lineage. Replacement chain
+  `1465246` remains `PENDING (Dependency)` on exact
+  `afterany:1454171(unfulfilled)`. Preserve the producer, the replacement
+  chain, all Kimi holds, and the oracle provenance hold. No task identities,
+  names, prompts, raw errors, or trace/model/tool bodies were inspected or
+  emitted, and no Slurm or output mutation occurred.
+
+- **2026-09-18 02:19 UTC, urgent oracle provenance hold -> use2-3 owner:** do
+  not create a canary certificate, promote a repair, or launch a replacement
+  full oracle from the new auditor lineage yet. Commits `2223e9f4b` and
+  `efa929b2a` make the auditor require six explicit pins, but no committed
+  caller/controller currently derives and supplies all six:
+  `--expected-source-prime-rl-commit`,
+  `--expected-source-verifiers-commit`,
+  `--expected-source-vmvm-tb-v2-sha256`, `--expected-prime-rl-commit`,
+  `--expected-verifiers-commit`, and `--expected-vmvm-tb-v2-sha256`.
+  Add and independently review an immutable invocation that derives the three
+  source values from the reviewed source commit, its verifier gitlink, and its
+  VMVM tree digest directly—not from mutable/self-reported `run_identity`—and
+  derives the three canary values from the clean frozen execution source that
+  actually launches the canary. Bind those exact values into the audit command
+  and certificate, test mismatch/fail-closed behavior, and record only hashes,
+  commits, aggregate counts, and job states. Until that caller and review are
+  committed, the earlier request authorizes preparation only, not certificate,
+  promotion, or full-run submission. No Slurm state was changed from use2-1.
+  Never expose task identifiers, names, prompts, bodies, raw errors, private
+  receipt contents, or model/tool/trace content.
+
+- **2026-09-18 01:56 UTC, use2-3 Kimi hold acknowledgment:** race watcher v9
+  exited after both old-generation smokes became terminal, its stale finalizer
+  waiter was stopped, the controller/final output roots remain absent, and
+  zero shards were submitted. Endpoint `1741165` was preempted and hedge
+  `1741669` failed closed at 1/2 with no certificate. Successor `1742917` is
+  ready, but no gate or smoke has been launched against it. The next immutable
+  source will pin combined verifier `bb2c42da` and the reviewed extended-timeout
+  contract; it will receive a fresh readiness binding, smoke, controller, and
+  output root. Old artifacts remain preserved and diagnostic only.
+
+- **2026-09-18 01:55 UTC, urgent fail-closed Kimi TB4 hold -> use2-3
+  owner:** do not allow race watcher v9 to consume any certificate from hedge
+  smoke `1741669`, and do not launch the 66-shard controller. The armed shard
+  source `062d2ee96dece32d2de7890d0820e9ab7a4222cb` and hedge-smoke source
+  `ed1d83d5905bdd2db87ffbbe16e9374b9bd28ddd` both pin verifier
+  `7e3b6885f638c4adffe83ea973c7ae3e838580e8`, predating the combined
+  tunnel/interception hardening at
+  `bb2c42dace0aeecd177e2834f3c87a1d438aed44`. A hedge certificate is therefore
+  diagnostic only and cannot authorize production shards. The controller is
+  still absent, so disarm/pause the non-Slurm race watcher before it can submit
+  anything and acknowledge the hold here with zero submitted shards. Preserve
+  all existing artifacts. Then freeze a clean updated source carrying the
+  combined verifier pin, rerun the required tests and readiness binding, and
+  certify a fresh two-task smoke from that exact source before launching all
+  66 shards from the same immutable source. The use2-1 lane cannot reach the
+  use2-3 scheduler and has made no Slurm mutation. Never expose task
+  identifiers, names, prompts, bodies, raw errors, or model/tool/trace content.
+
+- **2026-09-18 01:45 UTC, use2-1 Qwen production/finalization checkpoint:**
+  producer `1454171` remains RUNNING. Immutable prefix 750 has SHA-256
+  `c37ec6fd6d8950b54e5e8bb7f976976ea689c6d2d083a9005f841ccc6c7f71e3`,
+  and all 430 passing traces pass the strict reasoning/model-I/O/256K audit.
+  Reviewed PR `#40` head `4e8080aff` is independently approved. X86 smoke
+  `1465227` completed successfully with 82 tests. Replacement chain `1465246`
+  is pending on `afterany:1454171`; obsolete held finalizer `1457232` was
+  canceled and must not be consumed. Preserve the live producer and use only
+  the replacement chain for aggregate-selected repair and final SFT export.
+  No task identities, content, raw errors, or trace/model/tool bodies were
+  inspected or emitted.
+
+- **2026-09-18 01:41 UTC, oracle recovery follow-up -> use2-3 owner:** a fresh
+  fetch of `origin/vmvm-sandbox` still contains no acknowledgment, repair
+  canary handle, or newer aggregate certificate after handoff `d71d4b4a1`.
+  The last authoritative source aggregate remains 2,488/2,538 valid and 50
+  non-valid. The available launcher pane and scheduler are still use2-1 and
+  the use2-3 source directory is inaccessible here, so no duplicate was
+  submitted and no Slurm state was changed. Please execute the complete
+  00:18 UTC handoff below unchanged on use2-3 and reply with only its requested
+  aggregate provenance, handle/state, hashes, and terminal certificate.
+
+- **2026-09-18 00:18 UTC, urgent authorized oracle recovery -> use2-3
+  owner:** the user authorized proceeding now. The available
+  `swebench_vmvm:Launcher.0` on use2-1 is attached to `fair-cw-use2-1`, cannot
+  reach the use2-3 scheduler, and cannot see the use2-3 checkpoint source, so
+  use2-1 launched no duplicate. On use2-3, fetch/rebase this branch and freeze
+  a clean detached descendant containing `815b76ffd`, `684454a8f`, and
+  `4f7a4b078`, with `deps/verifiers` pinned to combined head
+  `bb2c42dace0aeecd177e2834f3c87a1d438aed44`. Build the confidential
+  mode-0600 repair manifest and aggregate receipt against the immutable sole
+  promotable source job `1737160` at
+  `/checkpoint/ram/tianhaowu/terminal_bench_vmvm/oracle/mobius_full_oracle_public_fb8b5c1fd_use2-3_v1`;
+  the expected aggregate selection is all 50 non-valid rows plus 20 controls,
+  70 total. Validate source/result/identity/summary hashes and record only
+  aggregate counts and hashes. Submit a fresh-output canary through exactly
+  `swebench_vmvm:Launcher.0` using the established oracle controller, public
+  solution/declaration semantics, eight active tasks, four lease starts, 20
+  lease/pull retries, 3,600-second pull/setup timeout, 10,800-second
+  validation/session timeout, and 2x timeout/resource multipliers. Set the
+  runner acceptance floor to zero so its exit does not pre-empt the dedicated
+  canary auditor; the audit alone must require at least 12 recovered rows and
+  zero control regressions at the exact execution commit. Do not modify the
+  source output, reuse same-output rerun `1738869`, or use either diagnostic
+  use2-1 output. Publish the fresh source path/commit/verifier pin, private
+  artifact hashes, canary output path/job ID/state, and terminal aggregate
+  certificate. Only a passing certificate may authorize a fresh full 2,538-row
+  oracle from the same immutable repair commit. Never expose task identifiers,
+  names, prompts, bodies, raw errors, private receipt contents, or
+  trace/model/tool content.
+
+- **2026-09-18 00:18 UTC, use2-1 Qwen production and repair preparation:**
+  immutable prefix 700 (SHA-256 `fff673af...c0775`) has 405 passes, 270 scored
+  failures, and 25 error rows; the eligible pass rate is 60.00%. All 405 pass
+  traces satisfy strict reasoning/model-I/O/256K capture requirements, totaling
+  28,514,272 sampled completion tokens and 13,194 captured turns. Complete
+  lineage is 231 epoch-1, 21 epoch-2, and 448 epoch-3 rows. Job `1454171`
+  remains RUNNING at 13h24m, with approximately 33.4 new epoch-3 rows/hour and
+  an approximately 54-hour ETA to 2,500. Trace-side cached-prompt attribution
+  is zero and therefore does not establish cache hits. Verifier PR `#2`
+  (`7424b5b1`) and prime-rl PR `#38` (`c8db9112`) passed independent review.
+  Combined verifier PR `#2` (`bb2c42da`) preserves both VMVM tunnel hardening
+  and interception attribution. PR `#38` (`0521a5f66`), PR `#34`
+  (`003bab6b3`), and stacked cap-32 PR `#39` (`73a8cb9ee`) pin it; independent
+  review passed with 353 workflow tests and 37 combined verifier tests. Do not
+  alter the live run. Prepare a separate,
+  aggregate-selected repair run after terminal completion, then export the
+  final pass-only SFT corpus from provenance-checked original plus repair
+  artifacts. Finalizer `1457232` remains a preliminary source-only export.
+
+- **2026-09-17 17:57 UTC, use2-1 aggregate-only oracle repair handoff ->
+  use2-3 owner:** the sole promotable source remains terminal at 2,488/2,538
+  valid, 12 short of the production floor, and no repair or replacement-full
+  handle is currently recorded as live. Shared commits `815b76ffd` (isolated
+  offline verifier dependency overlay), `684454a8f` (confidential canary
+  builder), and `4f7a4b078` (fail-closed canary auditor) are present at remote
+  head `9067adefa`; focused validation passed 112/112. Please freeze a clean
+  descendant, use the builder against the completed source to create the
+  mode-0600 repair-plus-control manifest and aggregate receipt, then submit the
+  repair canary through `swebench_vmvm:Launcher.0` without changing the source
+  output. Audit it with the exact execution commit, at least 12 recovered rows,
+  and zero control regressions. Only a passing certificate should authorize a
+  fresh complete 2,538-row oracle from the same immutable repair commit, still
+  gated on at least 90% and at least 2,500 valid. Record only job handles,
+  aggregate counts, hashes, and immutable pins; never expose task identifiers,
+  names, prompts, bodies, raw errors, or trace/model/tool content. Use2-1 will
+  not submit a duplicate because the promotable source and lane are owned by
+  use2-3.
+
+- **2026-09-17 17:37 UTC, use2-3 Kimi worker recovery:** endpoint `1739966`
+  was preempted after 1h14m under preemptible `normal` QoS; hardened smoke
+  `1740281` failed closed with zero rows. Successor `1740423` obtained a
+  protected allocation but stalled at exactly 86% CUDA-graph capture for 16
+  minutes versus a 100-second healthy baseline; it and unused gate/smoke
+  `1740438/1740439` were canceled after a bounded 31m49s diagnostic window.
+  Replacement `1740541` is now running on `g3_lowest` with a 4h53m allocation.
+  Fresh gate `1740545`, hardened smoke `1740548`, proxy reload, and the all-66
+  wave train are dependency/watcher bound to that generation. Shared commit
+  `062d2ee96` adds an independently reviewed, write-once schema-v2
+  worker-generation bridge with an every-backend max-reasoning/tool probe; 574
+  workflow tests pass. It becomes usable only after the first hardened v1
+  smoke completes and only while proxy/spec/policy bindings remain exact.
+
+- **2026-09-17 16:24 UTC, use2-3 authoritative Kimi execution:** endpoint
+  `1739966` started with a 3h51m allocation after an in-place Slurm
+  `TimeLimit=7d, TimeMin=2h` request preserved backfill eligibility. Fresh
+  gate `1740198` passed after the generated proxy config was confirmed to
+  contain exactly the new route and proxy `1738769` was HUPed. The obsolete
+  cdd-core smoke `1740204` was canceled at zero rows. Hardened smoke `1740281`
+  is now running from clean core `ed1d83d59` through wrapper/controller
+  `0518511e7`. A reviewed exact-pane wave train will launch all 66 singleton
+  shards four at a time only after that smoke certifies, and will stop on any
+  scheduler ambiguity, artifact failure, or route change. Controller commits
+  `517a035f5`, `111df49e0`, and `f5148a721` passed 563 workflow tests and an
+  independent no-blocker review. Serving-source commit `a724933` adds
+  backward-compatible worker `time_min` support and passed 761 unit tests plus
+  329 subtests; it is locally committed but not yet deployed.
+
+- **2026-09-17 18:12 UTC, use2-1 Qwen production/error-handling
+  checkpoint:** job `1454171` reached immutable fixed prefix 500 (596,283,466
+  bytes; SHA-256 `205bba2cf9502e03f37fe6a3a781ee5848530f00b4155d4c88725e45b1e241e0`).
+  Across the complete lineage, 291/488 scored rows pass (59.63%); epoch 3 has
+  236 clean/scored rows, 142 passes, and 12 ordinary error rows. All 142 pass traces pass strict
+  reasoning/model-I/O/256K audit. Two rows record a prior-attempt tunnel error
+  followed by a final HarnessError; neither is terminal tunnel exhaustion.
+  Twenty-five recent completions had no recurrence; one process census dipped
+  to 60 leases and immediately refilled to 64
+  leases with no dead/zombie processes, and provider/router health stayed
+  green. The latest shared cache window measured 73.79%; earlier sub-gate
+  windows remain unattributable under >80% external traffic. Continue the run
+  and alert on final/clustered infrastructure failures, not recovered retry
+  history alone. Aggregate log ordinals show 41 logical rollouts used at least
+  one tunnel retry and 13 used both retry allowances, a conservative 16.7%
+  cumulative review trigger, but notices were then quiet for more than 30
+  minutes while 22 rows completed. If retry bursts recur with throughput or
+  lease degradation, the relevant future throttle is task concurrency 64 to
+  32; provider admission 32 and lease-start 2 do not govern reverse-tunnel
+  creation. No current stop threshold is met. All progress/error aggregates
+  now use one fixed-prefix file snapshot per report; an earlier 431-row
+  incremental tail estimate was one error high because a live append crossed
+  two separate reads.
+
+- **2026-09-17 15:30 UTC, use2-1 Qwen shared-metric attribution:** cap-32
+  job `1454171` remains live and reached 405 durable rows. Epoch 3 has 146
+  clean/scored rows and seven ordinary errors; 83/146 pass, and both the
+  all-clean and pass-only reasoning/model-I/O/256K gates have zero failures.
+  Deployment-wide cache fell through 72.10% to 67.22%, but aligned samples had
+  at least 80% external traffic (176 worker-running versus our cap 32; 31
+  worker successes versus six local completions). Job-local clean throughput
+  remained about 36--49 rows/hour with zero provider/tunnel/preemption/queue
+  failures, TTFT about 1.0 seconds, and KV below 7%. PR `#37` head `cfe21e232`
+  therefore labels cache/TTFT/generation `UNATTRIBUTABLE` on a shared pool
+  unless an aligned >=10-minute, >=256-completion window is >=95% attributable;
+  worker/KV/wait/preemption, local-router errors/queue, and clean throughput
+  remain hard gates. Continue rather than fail back to the slower cap-16 run.
+
+- **2026-09-17 14:33 UTC, use2-1 certificate-core supersession:** do not
+  promote the `cdd127921` smoke certificate or let a replacement shard watcher
+  launch against that core. Review found that its exact-provider zero-reasoning
+  predicate accepted absent/null reasoning evidence and a non-canonical
+  top-level token counter. Shared commit `d0cb44d61` closes both fail-open cases
+  with 94 focused and 534 full tests. Re-pin the replacement gate/smoke/watcher
+  to a clean descendant containing `d0cb44d61`, then issue a fresh certificate
+  before launching singleton shards. The prior 2/2 smoke remains useful
+  diagnostic evidence but is not production-authoritative under the hardened
+  certificate contract.
+
+- **2026-09-17 14:29 UTC, use2-3 Kimi/TB4 recovery chain:** route gate
+  `1739822` passed, and completed smoke `1739834` was post-certified from its
+  immutable artifacts: 2/2 traces, 16 captured turns, 2,959 sampled tokens,
+  and zero strict audit problems. Core `cdd127921` contains the reviewed
+  fail-closed certificate fix; wrapper `f90958308` approves that exact core.
+  Initial singleton jobs `1739963`, `1739964`, `1739965`, and `1739967` all
+  stopped before inference with zero rows because successor endpoint `1739966`
+  entered pending state and changed the live route generation. Do not resume
+  or reuse them. Successor `1739966` is pending at normal QoS with a two-hour
+  limit; gate `1739992` depends on its start, and smoke `1739994` depends on a
+  successful fresh gate. An exact-pane watcher is armed to validate the new
+  certificate chain and submit fresh singleton indices 0--3 into a new output
+  root. Continue aggregate-only monitoring.
+
+- **2026-09-17 14:20 UTC, shared trace-certificate hardening:** commit
+  `d0cb44d61` fixes two fail-open cases introduced by the preceding exact-zero
+  reasoning change: an absent/null reasoning marker with no canonical token
+  counter, and an ignored top-level exact-provider counter, can no longer
+  certify a zero-reasoning tool turn. The no-counter exception now requires an
+  explicit empty marker, matching provider/flattened tool calls, and a
+  hash-reconstructed request with both thinking and preservation enabled.
+  Missing/mismatched/normalized ambiguity remains rejected; a valid normalized
+  response with its canonical zero counter remains accepted. Ninety-four
+  focused and 534 full workflow tests pass with Ruff/diff checks clean. This
+  affects certification only and did not mutate any live job or output.
+
+- **2026-09-17 12:38 UTC, use2-3 Kimi/TB4 restart:** endpoint `1739548`
+  was preempted at 12:04 UTC; smoke `1739593` then failed closed with zero
+  durable rows and no success receipt/checkpoint. Replacement endpoint
+  `1739704` is now running. Fresh readiness `1739765` and smoke `1739766` are
+  dependency-chained, with smoke pinned to clean core `731d69980`. The old live
+  coordinator has the empty-to-ready proxy reload bug, so compare the generated
+  proxy backend with the endpoint artifact and manually HUP proxy `1738769`
+  after publication. The new fail-closed singleton-wave launcher and its
+  queued-time source/config pins pass 44 focused tests plus Ruff, format, Bash,
+  and diff checks; an independent review found no launch blocker. Once the
+  smoke certificate exists, launch shard indices 0--3 from a clean snapshot,
+  never with `RESUME_DIR`, and preserve only individually receipted shards.
+
+- **2026-09-17 13:17 UTC, use2-1 Qwen epoch-3 SFT readiness:** PR
+  `thwu1/prime-rl#36` is stacked on cap-32 PR `#37` at head `9d7c424c0`.
+  The exporter previously understood only routing epochs 1/2; it now validates
+  schema-3 admission provenance, binds the epoch-2 lineage and admission
+  certificate, authenticates all epoch-1/2/3 row-hash labels, and propagates
+  routing epoch into the SFT output/manifest. It now also classifies a
+  hash-valid exact-provider explicit-empty reasoning tool turn only when the
+  empty marker, tool calls, and preserved-thinking request all agree; missing,
+  mismatched, normalized, or whole-trace-zero cases still fail closed. The
+  full 412-test suite and focused 42-test audit suite pass. Dependency job
+  `1457232`, pinned to detached clean head/submodules and the exact live
+  provenance digest, will label the final epochs and export a pass-only,
+  task-disjoint 95/5 SFT dataset only after job `1454171` exits successfully.
+  The routing index and output do not yet exist, as required.
+
+- **2026-09-17 11:31 UTC, use2-1 Qwen cap-32 checkpoint:** cap-16 affinity
+  job `1453194` was stopped only after its new epoch produced 21 clean rows
+  plus four ordinary errors; 16/21 passed, and all 21 clean traces passed the
+  strict reasoning/model-I/O/256K audit. Copy-on-write epoch 3 retained the
+  resulting 252 clean rows and left both older outputs immutable. Cap-32 job
+  `1454171` is running at 64 task sessions, 32 provider admissions/connections,
+  and 16 consistent-hash workers. Its provider gate measured about 1,269
+  generation tokens/s, 89.05% cache hits, 14/16 active workers, and zero
+  non-2xx responses or preemptions over 439 completed calls. The first three
+  epoch-3 completions were ordinary resumed-straggler errors. At 11:37 UTC the
+  first clean epoch-3 trace completed, passed its task, and passed strict
+  reasoning/model-I/O/256K audit with zero trace/global issues, 45,760 sampled
+  tokens, and 20 captured turns. A fresh provider window reached 91.19% cache
+  hits with zero failures over 1,145 calls, so PR `thwu1/prime-rl#37` is now
+  ready for review. Continue aggregate-only monitoring; do not restart or
+  inspect task identifiers/content.
+
+- **2026-09-17 09:57 UTC, use2-3 Kimi/TB4 and oracle checkpoint:**
+  readiness/semantic route gate `1739467` completed successfully, and guarded
+  TB4 evaluation `1739469` is running. The evaluation is pinned to clean core
+  `62988609e` and wrapper `ef22c74cd`; the route-gate runtime corrections are
+  on the shared branch through `5f43fbf2f`. The live proxy's stale route was
+  cleared manually with `SIGHUP`. A serving-source correction exists only as
+  local commit `3e758ca` and has not been pushed, so that fix is not yet
+  reproducible from the shared branch. The oracle currently has 2,488/2,538
+  valid rows, below the 2,500 acceptance floor; the isolated repair canary is
+  still pending and there is no promotable oracle result yet. Do not claim a
+  TB4 score before the guarded evaluation and its terminal audit complete, and
+  do not start the 2,500-task Kimi rollout from the current oracle state.
+
+- **2026-09-17 08:32 UTC, use2-1 Qwen affinity cutover:** round-robin job
+  `1448128` was stopped cleanly at 237 durable rows: 231 non-error traces, 133
+  passes, and six ordinary errors. All 231 retained traces passed strict
+  reasoning/model-I/O/256K capture audit. Commit `9aa9dd80e` and PR
+  `thwu1/prime-rl#35` add fail-closed `consistent_hash` / `x-session-id`, a
+  tested copy-on-write routing-epoch migration, and provenance validation; 305
+  workflow tests and a real 64-session x three-turn router smoke passed. The
+  immutable parent remains untouched. Migrated child `_9aa9dd80e_v3` certifies
+  231 retained plus 2,269 owed rows, and resume job `1453194` is live with
+  64/64 leases and 16/16 healthy workers. Separately, PR
+  `thwu1/prime-rl#36` adds the graph-aware Harbor-to-text-SFT exporter; its 294
+  tests pass. Measure post-cutover cache and throughput before claiming a
+  speedup.
+
+- **2026-09-17 06:52 UTC, use2-1 Qwen production checkpoint:** job `1448128`
+  remains live after 8h28m with 199/2,500 durable rows. Of 195 scored rows,
+  114 pass (58.46%); four rows are ordinary errors. A strict aggregate-only
+  audit finds zero structural or global capture failures across all 195
+  non-error traces, with 16,511,031 sampled tokens and 6,351 captured
+  model-I/O turns. It completed 25 rows in the trailing hour, implying about
+  92 hours remaining at that rate. The runtime snapshot had 63/64 VMVM leases;
+  router health reports 16/16 workers healthy and zero unhealthy. Continue the
+  immutable run and aggregate-only auditing; do not inspect task identifiers,
+  prompts, raw errors, or model/tool/trace content.
+
+- **2026-09-17 06:22 UTC, use2-3 recovery/availability update:** initial oracle
+  `1737160` completed all 2,538 rows with 2,484 valid (97.87%), 40 invalid,
+  14 generic errors, and zero infrastructure/timeout/unsupported rows. Its
+  writer lock released cleanly; the exact same-source, same-output one-time
+  `RERUN_INVALID=1` job `1738869` started through tmux. Invocation lineage is
+  now two records with one resume, one invalid rerun, matching identity, and
+  strictly increasing timestamps. Separately, endpoint `1738483` was also
+  preempted after 1h44m; replacement `1738822` is pending. `g3_lowest` is the
+  best authorized QoS but cannot provide multi-hour continuity. The new route
+  guard is correctness protection only; a reviewed cross-generation resume
+  contract or protected allocation is required before the seven-day rollout.
+
+- **2026-09-17 05:58 UTC, use2-3 Kimi proxy correction:** this lane also
+  inherited LiteLLM's unsafe `request_timeout=600` / `num_retries=2` policy.
+  A clean local serving source at `94181e1` combines pinned KDA runtime parent
+  `a3f5baf` with reviewed `ram_common` PRs 281/288. Its 752 unit tests, 12
+  generator checks, 20 proxy-driver checks, Ruff, and shell syntax pass. The
+  live deployment source and spec are now pinned to that commit with exact
+  `7200/0`; old proxy `1738297` was canceled through tmux and replacement
+  `1738769` is serving the corrected generated policy. Worker `1738483` stayed
+  live. The proxy-info file hash rotated, so every old readiness/eval artifact
+  is intentionally unusable. Fresh route-generation binding is being added
+  before relaunch.
+
+- **2026-09-17 04:25 UTC, use2-3 endpoint preemption:** endpoint `1735929`
+  was preempted with `DerivedExitCode=0:9` at 04:12 UTC. Its previously passed
+  readiness therefore no longer attests the coordinator-launched replacement
+  `1738483`. TB4 gate `1738161` still had a zero-byte smoke result, no smoke
+  certificate, and no full identity; it was canceled through
+  `swebench_vmvm:Launcher.0` at 04:23 UTC and is not evidence. A fresh chain
+  will use new output paths only after readiness binds the exact backend job
+  generation and the evaluator monitors that generation for rotation. The
+  authoritative post-TB4 scale target is two routes with production/capacity
+  concurrency eight and lease-start concurrency four.
+
+- **2026-09-17 04:10 UTC, use2-1 server-isolated Kimi lane:** draft
+  `thwu1/prime-rl#34` at `016e7bf11` moves both local configs and launchers
+  beneath `configs/eval/servers/cpu-132-021_8103/`, including the server
+  identifier in wrapper, job, log, and canonical output names. Fresh and resume
+  launches carry one preflight-held writer-lock descriptor, reject cross-lane
+  paths and ambient overrides, bind exact configs/tasks/images/dataset tree and
+  verifier/renderer/pydantic revisions, and preserve 24/24 TB4 plus 64/24/2
+  Mobius concurrency with a 256K cap. The validator now duplicate-safely parses
+  the generated LiteLLM YAML, requires typed policy 7,200/0, binds its full-file
+  digest into every provenance block, and rejects the current 600/2 endpoint
+  before model traffic. Independent final review found no code issues; 323 full
+  and 111 focused/adversarial tests plus Ruff, Bash syntax, lock, and diff checks
+  pass. The draft intentionally remains non-launchable until the owner rotates
+  the proxy and the resulting new spec digest is pinned. A terminal TB4
+  certificate is deferred until the fresh 66-row run exists.
+
+- **2026-09-17 04:00 UTC, use2-3 live gate update:** readiness watcher
+  `1738160` passed its endpoint-bound semantic probe and completed `0:0` at
+  03:35 UTC. TB4 gate `1738161` began at 03:36 UTC and remains live in the
+  two-task smoke stage; no smoke certificate or full-run identity exists yet.
+  Oracle `1737160` is still the initial invocation: 1,726/2,538 rows were
+  terminal at 03:56 UTC, with 1,686 valid and 40 non-valid. Its initial-run
+  ceiling is therefore 2,498, so the immutable run must finish before the one
+  permitted same-identity `RERUN_INVALID=1` recovery. Retry-lineage promotion
+  and launch-certificate hardening is pushed at `04c792c2d`; all 374 workflow
+  tests plus Ruff pass.
+
+- **2026-09-17 03:18 UTC, use2-3 oracle budget warning:** immutable oracle
+  `1737160` had 1,387/2,538 terminal rows, 1,355 valid, 26 ordinary invalid,
+  and six deterministic dependency errors at 02:52 UTC. Aggregate signature
+  matching classifies five errors as unavailable binary-wheel distributions
+  and one as an offline-install failure; none is VMVM infrastructure, timeout,
+  or network failure. Only six additional misses among 1,151 remaining tasks
+  could occur on the first pass; then-current yield projected roughly 2,479
+  valid. Do not mutate the live run. If it ends short, the only existing
+  identity-safe recovery is one exact same-source `RERUN_INVALID=1` invocation
+  in the same output directory, which preserves valid rows and reruns every
+  non-valid row. Never union a separate run. A dependency-policy correction
+  requires a new identity and fresh full run.
+
+- **2026-09-17 02:40 UTC, use2-3 endpoint-bound Kimi chain:** commits
+  `cd73d4061` (core) and `3ac56be20` (wrapper) are pushed. The clean eval
+  snapshot is
+  `/checkpoint/ram/tianhaowu/terminal_bench_vmvm/sources/prime-rl-cd73d4061`
+  with verifier `7e3b6885`, renderer `044d9e254`, and pydantic-config
+  `896ade4e`. The new runtime binds one stable, full-file-hashed
+  deployment-local proxy artifact and a secret-free endpoint authority across
+  readiness, resolved eval identity, smoke/TB4 checkpoints, capacity smoke,
+  and production launch certificate. Strict trace audits now require captured
+  `/chat/completions` requests for `Kimi-K3` with `reasoning_effort=max` and
+  the exact two thinking flags, plus a `Kimi-K3` provider response model.
+  Full workflow validation passed 360 tests; independent focused review passed
+  159 tests. Obsolete pre-hardening watcher/gate `1735934`/`1737609` and dry
+  runs `1737604`--`1737607` were canceled through the shared tmux launcher.
+  Replacement watcher `1738160` is running from the clean snapshot with a
+  fresh endpoint-null waiting artifact; gate `1738161` is held by exact
+  `afterok:1738160`. Replacement smoke/TB4/capacity/production dry runs
+  `1738164`--`1738167` all completed `0:0`. Endpoint `1735929` remains
+  untouched and pending solely on priority, with the scheduler currently
+  estimating an 11:31 UTC start. Oracle `1737160` remains running; at 02:39 UTC
+  it had 1,298/2,538 terminal rows, 1,271 valid, 23 invalid, four generic
+  errors, zero infrastructure/timeout/unsupported rows, and 11 of the 38
+  allowed non-valid slots remaining. Never inspect task identifiers, prompts,
+  raw errors, or model/tool/trace content.
+
+- **2026-09-17 02:05 UTC, use2-1 shared Kimi proxy timeout blocker:** live
+  TB4 diagnosis found `request_timeout: 600`, `num_retries: 2`, and
+  `retry_after: 1` in the deployed LiteLLM proxy configuration. These settings
+  abort a long backend generation at ten minutes and can consume roughly 30
+  minutes across hidden attempts before returning one retryable provider
+  timeout, regardless of the evaluator's 7,200/15,000-second limits. At 01:56
+  UTC diagnostic full `1448629` had 51 timeout events but still held exactly 24
+  VMVM sessions, 48 SSH tunnel processes, and 24 established proxy sockets;
+  endpoint health was 24/0, with no durable supported result yet. Treat this
+  run as diagnostic and do not promote its eventual score. It was canceled and
+  preserved after 1h52m with only the expected unsupported row durable, freeing
+  all 24 routes. The endpoint owner
+  has been asked on `fairinternal/ram_common#279` to raise proxy request timeout
+  to at least 7,200 seconds and disable hidden retries. A later source/runtime
+  audit corrected the application procedure: the live process sourced the old
+  generator contract at startup, so snapshot/spec update plus outer HUP alone
+  would regenerate 600/2. The durable fix requires updating the pinned source,
+  spec, and runtime proxy config, then rotating only the proxy job so the new
+  driver is loaded; keep all 24 GPU endpoint jobs untouched. Redis/sticky state
+  and proxy identity may reset, so no evaluator may be active. After rotation,
+  verify generated policy 7,200/0 and the new proxy identity, then rerun the
+  24-route semantic/state-reuse gate, strict capture smoke, and a fresh full
+  TB4. Future local artifacts are isolated under
+  `configs/eval/servers/cpu-132-021_8103/`; do not reuse or rename the separate
+  use2-3 Kimi lane. Source fix `fairinternal/ram_common#288`, stacked on
+  proxy-config PR `#281`, preserves 600/2 defaults for other models and sets
+  Kimi-K3 to 7,200/0. Rebased head `0f8e90d4` is mergeable with both CI jobs
+  green; its full unit suite passed 817 tests, with 12/12 atomic generator and
+  20/20 proxy-driver smoke checks. The live owner application remains pending.
+
+- **2026-09-17 00:43 UTC, use2-1 shared Kimi lane:** the user-provided
+  `shared-kimi-k3` proxy publishes model `Kimi-K3`, sticky/Redis metadata, and
+  a credential only through its live `proxy_info.json`; no deployment header
+  is set and no credential is committed. Gate `1448380` completed `0:0` with
+  24/24 healthy routes, zero unhealthy routes, 264/264 semantic and affinity
+  requests, 72/72 sticky checks, 144/144 one-token state-reuse checks, and zero
+  failures. Its aggregate certificate is
+  `/checkpoint/ram/tianhaowu/terminal_bench_vmvm/gates/shared_kimi_k3_24route_20260916_v1.json`;
+  the serving spec SHA-256 is
+  `ab00213a43083eba87f8b5999a3046e8d27ebe42b933ee845fd0cf4928b266e2`.
+  Shared24 config parent `e08cb00dc`, verifier `04d999177`, and renderer
+  `044d9e254` pin 66 pass@1 tasks, 24 active/client slots, two simultaneous
+  setup starts, 256K context, reasoning-max capture, exact model I/O, and a
+  15,000-second model timeout; config SHA-256 is
+  `aa5349078630181d574a55e15c23b487071f6d29cc77d2d79e92ced6003bcda6`.
+  Task-free dry-run `1448462` completed `0:0`. Smoke `1448606` produced one
+  supported strict-clean trace with 1,298 sampled tokens, eight model-I/O
+  turns, and zero trace/global problems; both redundant smokes `1448432` and
+  `1448606` were intentionally canceled with outputs preserved after that gate
+  passed. Full job `1448629` writes
+  `/checkpoint/ram/tianhaowu/terminal_bench_vmvm/evals/tb4_kimi_k3_shared24_full_e08cb00dc_v1`;
+  it is running at 24-way concurrency and the endpoint remains 24 healthy/zero
+  unhealthy. Its first durable row is a structurally valid expected
+  CPU-unsupported result. Monitor aggregate-only and strictly audit the first
+  supported full trace before trusting the eventual score.
+
+- **2026-09-17 00:43 UTC, use2-1 Qwen production:** the user explicitly
+  accepted the prior 7/66 Qwen TB4 result as the approximately 11% gate and
+  directed us not to rerun it. Current production job `1448128` writes
+  `/checkpoint/ram/tianhaowu/terminal_bench_vmvm/evals/mobius_qwen_a95b_2500_c64_tunnelcap2_9b40e100f_v5`
+  from parent `9b40e100f` / verifier `04d999177`. It sustains 62--64 live VMVM
+  leases at configured task concurrency 64 while saturating the hard-capped
+  16-request client/router path across all 16 healthy model workers. At 00:40
+  UTC it had 28/2,500 durable rows, zero task errors, 698
+  reasoning-retained/model-I/O turns, 1,320,867 sampled tokens, and zero strict
+  trace/global problems under the 256K audit. Continue aggregate-only
+  monitoring; tunnel retry log occurrences are recovering and have produced no
+  failed durable rows.
+
+- **2026-09-16 23:58 UTC, use2-3 oracle dependency exclusions:** aggregate-only
+  monitoring found two `RuntimeError` rows in promotable oracle `1737160` by
+  343/2,538 completions. Both have zero VMVM infrastructure failures and map,
+  without exposing task names or raw errors, to pip's deterministic no-matching
+  binary-distribution signature during verifier wheel prefetch. Fixed-signature
+  checks found no DNS, HTTP, SSL, proxy, connection, timeout, OOM, or wheel-build
+  failure. Independent review confirms they may safely consume the 38-row
+  exclusion budget; only valid rows enter the production manifest. Do not
+  restart or alter the immutable live run. Same-source `RERUN_INVALID=1` is
+  available only if the terminal run misses 2,500 valid, but it reruns every
+  non-valid row. A future-source improvement may type deterministic no-wheel
+  resolution as unsupported and retry only positively transient prefetch
+  failures; it cannot be applied to this identity-bound run.
+
+- **2026-09-16 23:38 UTC, use2-3 live gate/scheduler audit:** promotable
+  oracle `1737160` is running normally; its aggregate-only summary reached
+  215/2,538 terminal rows with 211 valid, four ordinary invalid, and no other
+  reason category. An independent read-only audit confirmed endpoint `1735929`
+  remains `PENDING/Priority` with no scheduler start estimate, but its request
+  is schedulable and already minimal for the protected Kimi-K3/TP16 fidelity:
+  one endpoint, four topology-local nodes, 16 GPUs, 900 GiB/node, and seven
+  days. `g3_lowest` is the best allowed effective priority; changing QoS,
+  shrinking resources, or canceling/resubmitting would worsen priority, risk
+  correctness, or lose queue age. Readiness watcher `1735934` remains live and
+  dependent TB4 gate `1737609` still has the exact `afterok:1735934` edge. The
+  watcher expires 2026-09-23 13:36 UTC; replace the watcher/dependency chain
+  only if the endpoint approaches that deadline. No Slurm state was changed.
+
+- **2026-09-16 23:21 UTC, use2-3 automatic Kimi TB4 gate:** pushed
+  `run_kimi_tb4_gate.sbatch` at `8ff3b0eeb` after 326 workflow tests, Ruff,
+  shell syntax, and diff checks passed. Through `swebench_vmvm:Launcher.0`,
+  submitted job `1737609` with `afterok:1735934`; it is pending on that exact
+  readiness dependency with a 48-hour limit. It pins clean source
+  `1dc61931e`, the current deployment/spec, official TB4 archive/tree digests,
+  approved 2-task and 66-task manifests, two simultaneous lease starts, and
+  fresh output directories. On readiness success it runs and certifies the
+  transcript smoke, then runs and certifies the full TB4 pass@1 evaluation.
+  Any failed stage stops the chain before the next stage. Short x86 dry-run
+  preflights `1737604`--`1737607` are independently queued and touch no model
+  endpoint.
+
+- **2026-09-16 22:50 UTC, use2-3 immutable model-eval gate:** commit
+  `f7a26fbbc` implements the shared
+  worktree now implements and independently tests immutable evaluation
+  identities, write-once transcript-smoke and full-TB4 certificates, a
+  write-once oracle-promotion receipt, and a reconstructing Mobius launch
+  certificate. `run_eval.sbatch` validates the Mobius certificate against its
+  exact config, approved 2,500-task manifest, post-resize spec, deployment ID,
+  readiness/capacity artifacts, and normalized lease-start concurrency before
+  creating an output directory or contacting inference. Model/base-URL
+  overrides are rejected and the proxy metadata must resolve beside the
+  certificate-bound spec. Captured provider responses are reparsed with
+  Verifiers and reconciled to persisted assistant nodes; production audit has
+  an aggregate-only output mode. The checked-in Mobius capacity smoke uses 42
+  previously validated cases at eight active rollouts/four lease starts. The
+  separately owned direct-Qwen wrapper retains its isolated, manifest-validated
+  driver instead of bypassing the Kimi identity gates. All 325 workflow tests,
+  Ruff, shell syntax, and diff checks pass. At this poll,
+  endpoint `1735929` and promotable oracle `1737160` remain pending on priority;
+  readiness watcher `1735934` is live at 554 polls with zero ready routes. No
+  model evaluation has started. Publish a clean descendant snapshot before the
+  first smoke, and preserve the gate order: two-task smoke, 66-task TB4,
+  post-resize readiness, 42-case capacity smoke, launch certificate, then
+  2,500-task production.
+
+- **2026-09-16 20:59 UTC, use2-3 oracle backfill adjustment:** after an
+  independent read-only scheduler/runtime audit, pending promotable oracle job
+  `1737160` was updated in place through `swebench_vmvm:Launcher.0` from a
+  48-hour to a 24-hour outer Slurm limit. Its expected runtime is 7.2--11.4
+  hours, so the new limit retains more than 2x margin while fitting inside the
+  cluster's 48-hour backfill window. The job ID, clean source snapshot, output
+  directory, identity-bound execution settings, and acceptance gates are
+  unchanged. Immediately after the update it remained pending with reason
+  `(None)`; do not reduce the limit further or raise it after allocation.
+
+- **2026-09-16 19:46 UTC, use2-3 promotable full oracle:** canary `1737126`
+  completed 42/42 in 11m17s with 41 valid, one ordinary invalid, one immutable
+  identity, and zero infrastructure errors, timeouts, generic errors, retries,
+  or cleanup failures. It exited 0 and authorized the full gate. Fresh full job
+  `1737160` writes
+  `/checkpoint/ram/tianhaowu/terminal_bench_vmvm/oracle/mobius_full_oracle_public_fb8b5c1fd_use2-3_v1`.
+  It uses the same exact source/dataset/image pins and public/declaration
+  semantics at the measured stable 8-active/4-lease lane with 2x multipliers;
+  acceptance requires at least 90% and at least 2,500 valid among all 2,538
+  terminal rows. It is the sole promotable full oracle; do not duplicate,
+  mutate, or merge it with diagnostic `1444701`.
+
+- **2026-09-16 19:30 UTC, use2-3 promotable-oracle canary:** independently
+  approved hardening is pushed as `fb8b5c1fd6901e7dd6879d9a125e0d3b1c27cb41`;
+  its clean detached snapshot at
+  `/checkpoint/ram/tianhaowu/terminal_bench_vmvm/sources/prime-rl-fb8b5c1fd`
+  pins verifier `7e3b6885f638c4adffe83ea973c7ae3e838580e8`. Canary
+  `1737126` writes fresh output
+  `/checkpoint/ram/tianhaowu/terminal_bench_vmvm/oracle/mobius_repairs_identity_fb8b5c1fd_use2-3_v1`.
+  It binds the exact clean Mobius revision, 42-row manifest and hash, immutable
+  image manifest, public trusted-solution semantics, 8 active tasks, 4 lease
+  starts, normalized lease/pull controls, 2x multipliers, and a 41-valid gate.
+  Do not duplicate or mutate it. A fresh full run will be submitted only after
+  aggregate-only review confirms 42 terminal rows, at least 41 valid, and zero
+  infrastructure, timeout, generic-error, or cleanup failures.
+
+- **2026-09-16 19:07 UTC, use2-3 provenance integration:** the immutable oracle
+  identity patch now binds the clean dataset revision (or verified official
+  archive/tree), exact selection and manifest hashes, source/runtime pins,
+  network semantics, execution settings, and acceptance gates before any row
+  reuse. Initial provenance is write-once, invocation history is append-only,
+  task/summary/config rows carry the identity digest, malformed resumed rows
+  fail closed, and promotion now takes the oracle's nonblocking exclusive
+  writer lock. The final independent review found no blocking fail-open; all
+  271 workflow tests, Ruff, shell syntax, and diff checks pass. The historical promotion command
+  below must additionally include
+  `--expected-image-manifest-sha256 118157378884021d2fc12dd83e7d9576ca606a5d229a2bd34c203d745212e009`.
+  Diagnostic job `1444701` remains read-only and cannot be promoted.
+
+- **2026-09-16 18:31 UTC, use2-3 provenance ownership:** repeated remote
+  syncs through `77da78ebf` found no implementation behind the in-review
+  launch-provenance note. Under the existing use2-3 workflow claim I am taking
+  the bounded oracle identity/resume fix in `run_oracle.py`,
+  `run_oracle.sbatch`, `export_oracle_tasks.py`, their focused tests, and the
+  workflow documentation. The patch will bind the exact clean dataset
+  revision, task selection, image manifest, source/verifier/VMVM pins, and
+  network semantics before reusing any row. Diagnostic job `1444701` remains
+  untouched and no replacement will launch until the patch is reviewed and
+  tested. Please avoid a parallel implementation and review the pushed commit
+  instead.
+
+- **2026-09-16 18:24 UTC, use2-3 owner -> use2-1:** pulled through
+  `b795e0740`; the final parser workflow passes 260/260 locally, Ruff is clean,
+  the 2/66/2,500 approval manifests and image manifest match their pinned
+  hashes, and the Mobius worktree is clean at `ac1f30b9`. I acknowledge
+  `1444701` as the sole running full oracle and will not duplicate it. Its
+  dataset-revision omission makes it diagnostic only; please publish the
+  in-review fail-closed launch-provenance patch before any fresh promotable
+  oracle. On use2-3, deployment `tianhaowu-k3-kda-tb1-low-20260916` remains
+  healthy-but-queued at 0/1, and gate `1735934` continues normal polling with
+  zero status failures. No Kimi model evaluation has been submitted.
+
+- **2026-09-16 17:08 UTC, use2-1 oracle lane:** canceled never-started
+  dependent full job `1444339` through tmux and submitted fresh independent
+  full oracle `1444701` through tmux. It is currently `PENDING (None)`, writes
+  `/checkpoint/ram/tianhaowu/terminal_bench_vmvm/oracle/mobius_full_oracle_public_f0d7be39c_use2-1_v1`,
+  pins parent/head `f0d7be39c`, code `bb734d08c8`, and verifier `7e3b6885`,
+  runs at eight active rollouts/four lease starts, and gates on at least 90%
+  plus 2,500 valid. Monitoring remains aggregate-only.
+
+- **2026-09-16 16:35 UTC, use2-1 formal oracle handoff request -> use2-3:**
+  local count-only reproduction found 9/2,538 binary-wheel-unresolvable tasks,
+  with intersection 0/42 against the repaired canary and 9/2,500 against the
+  current production manifest. Therefore the final canary on `bb734d08c8`
+  remains strict 42/42; the fresh full oracle remains at least 90% and at least
+  2,500 valid before replacement promotion. At least 37 remote polls after the
+  prior request recorded no owner update and no live oracle or model-evaluation
+  job. Please either (a) submit and record the fresh final canary plus
+  dependency-held full job now, including exact absolute output directories
+  and immutable pins, or (b) explicitly release oracle scope to use2-1. Use2-1
+  will not launch unilaterally. Include no task identifiers, names, content, or
+  raw output.
+
+- **2026-09-16 16:02 UTC, use2-1 final-parser gate -> use2-3:** pull code
+  `bb734d08c8` at remote head `f0d7be39c` with verifier `7e3b6885`, rerun the
+  aggregate binary-wheel preflight, and report only the exclusion intersections
+  with the 42-task canary and current 2,500-task manifest. Freeze a new clean
+  snapshot, set the canary expected-valid threshold from those counts (at most
+  41/42, not 42/42), then submit a fresh full 2,538-task oracle dependency-held
+  on that canary. The full gate remains at least 90% and at least 2,500 valid.
+  Record both exact absolute output directories, immutable parent/verifier
+  pins, aggregate state, and the replacement promoter handoff path. Include no
+  task identifiers, names, content, or raw output; launch no Qwen/Kimi model
+  evaluation before the gates pass.
 
 - **2026-09-16 15:56 UTC, use2-1 full-pin parser repair complete:** source
   patch `bb734d08c8bf6eb875e063be3bb55e397f5201e7` is based on
@@ -630,32 +1958,56 @@ Add new rows below this line; do not overwrite another owner's row.
 
 ## Live evaluation state
 
-- **2026-09-16 20:54 UTC, use2-1 Qwen owner:** the user accepted the existing
-  Qwen TB4 gate (`7/66`, above the requested approximately 11% threshold) and
-  explicitly directed us not to rerun it. Diagnostic Mobius job `1447547`
-  reached exactly 64 active task sessions from parent `22f8f2172` / verifier
-  `8e99bd3d13b89cc2720b08b2a5b5f588ad6939ad`, but was canceled and preserved
-  after its first four durable rows were all zero-node connection failures.
-  Review found that vllm-router 0.1.26 implements its advertised concurrency
-  bound as a refilling token bucket, so long generations can exceed the 16
-  pinned workers despite `max-concurrent-requests=16`. Replacement job
-  `1447684` ran from parent `f8c77c8e6` in a fresh output directory. It again
-  measured 64 active task sessions and proved the shared EvalClient HTTP pool
-  stayed hard-capped at 16, but was canceled and preserved after its first
-  eight rows were all zero-node `HarnessError`s. Reverse-forward creation had
-  a separate uncapped thundering herd, and a dead forward after launch was not
-  reclassified as retriable tunnel infrastructure. Fresh job `1448128` runs
-  parent `9b40e100f` / verifier `04d999177`; one process-wide two-slot gate now
-  serializes lease plus host-tunnel starts, failed bodies get a proxy-free
-  tunnel liveness check before classification, and LiteLLM has a 15,000-second
-  timeout. It reached 64/64 sessions with exactly 16 upstream connections and
-  zero concrete tunnel/connection failures; the first durable trace is pending.
-  The no-network fix also has a completed one-task behavioral proof (64,761
-  sampled tokens, 20 captured model-I/O turns, reasoning retained). Relevant
-  verifier/runtime tests pass 16/16 and workflow tests pass 265/265. Per-task
-  rollout/session ceilings remain 10/12 hours and total context remains capped
-  at 256K. Monitor only aggregate counters: do not inspect task IDs, prompts,
-  responses, raw errors, or trace/model/tool bodies.
+- **2026-09-16 18:56 UTC, use2-1 full-oracle 25% milestone:** diagnostic job
+  `1444701` remains `RUNNING` with 640/2,538 parseable durable statuses: 629
+  valid, eight ordinary invalid, and three generic errors. Unsupported,
+  timeout, infrastructure-error, retry, recovered-infrastructure,
+  cleanup-failure, malformed, schema, and network-semantics counts remain
+  zero. Overall throughput is 5.882 tasks/minute despite the concurrent Qwen
+  c64 rollout; no aggregate VMVM-contention signal is present. Eleven of the
+  38 nonvalid slots permitted by the 2,500-valid gate are consumed. This run
+  remains diagnostic-only pending the launch-bound provenance patch and a
+  fresh full run.
+- **2026-09-16 17:52 UTC, use2-1 full-oracle 10% milestone:** job `1444701`
+  remains `RUNNING` with 256/2,538 parseable durable statuses: 252 valid and
+  four ordinary invalid. Unsupported, timeout, generic-error,
+  infrastructure-error, retry, recovered-infrastructure, cleanup-failure,
+  malformed, schema, and network-semantics counts remain zero. Measured
+  overall throughput is 5.804 tasks/minute. This run remains diagnostic-only
+  because its sidecars do not launch-bind the dataset revision; a separate
+  fail-closed provenance patch is under review before any fresh promotable
+  full run.
+- **2026-09-16 17:19 UTC, use2-1 full-oracle monitor:** independent full
+  oracle `1444701` is `RUNNING` on `cpu-128-111`. Its first aggregate snapshot
+  has 23/2,538 parseable durable statuses: 21 valid and two ordinary invalid,
+  with zero unsupported, timeout, generic-error, infrastructure-error,
+  infrastructure-retry, recovered-infrastructure, cleanup-failure, malformed,
+  schema, or network-semantics events. Launch-bound provenance is exact for
+  source, verifier, VMVM, and network semantics: clean
+  parent `f0d7be39c4a991304aa21bdfe55b25861700150f` containing parser repair
+  `bb734d08c8bf6eb875e063be3bb55e397f5201e7`, verifier
+  `7e3b6885f638c4adffe83ea973c7ae3e838580e8`, VMVM digest
+  `a9a1dd18de729b984a8b38c55254cae978dec1a9d302c20e95bbdb2748bc0a8c`,
+  and public trusted-solution / declared-verifier semantics. The dataset path
+  independently resolves to clean commit
+  `ac1f30b9ac0e6c6a20a9fe423900d9ed28a6d366` with all 2,538 eligible tasks and
+  no tracked-file mutation after launch, but this runner's immutable sidecars
+  do not record the dataset revision; the eventual promoter dry-run must
+  therefore verify the exact current dataset plus result universe/order, and
+  the launch-time binding gap must remain documented. Monitoring remains
+  aggregate-only; no task identifiers, content, error text, or raw rows were
+  inspected.
+- **2026-09-16 17:03 UTC, use2-1 oracle monitor:** final-parser repair
+  canary `1444307` is terminal and failed the strict acceptance gate: 42/42
+  rows completed, 41 valid, one ordinary invalid (97.619%), with zero
+  unsupported, timeout, generic-error, infrastructure-error, recovered-infra,
+  infrastructure-retry, or cleanup-failure events. It ran from clean parent
+  `f0d7be39c`, verifier `7e3b6885`, VMVM tree `2c240795`, and dataset
+  `ac1f30b9`. The dependent full job `1444339` never started and remains
+  `PENDING (DependencyNeverSatisfied)`; its fresh output path does not exist.
+  Neither job was mutated, no oracle promotion dry-run was attempted, and
+  monitoring remained aggregate-only without inspecting task identifiers,
+  bodies, errors, or traces.
 - Patched deployment `tianhaowu-k3-kda-tb1-low-20260916` is the only active
   Kimi candidate. Coordinator `1735915` is running and endpoint job `1735929`
   is pending for priority at 0/1 on approved `g3_lowest` QoS. The source tree
@@ -731,6 +2083,7 @@ Add new rows below this line; do not overwrite another owner's row.
 | Codex session for `tianhaowu` (use2-3) | Production-input and 256K-budget hardening | Parent `21616acc3`, verifier `7e895431`; exact clean Mobius dataset commit is enforced before task loading, mini-swe owns 10 per-call attempts, full Kimi runs retry exhausted provider failures at rollout level, and provider usage now supplies the no-token-ID lower bound for subsequent request budgets. X86 dry-run job `1733122` completed in 9s with the exact 2,500-task config; 102 workflow and 48 focused verifier tests passed. |
 | Codex session for `tianhaowu` (use2-3) | Generic VMVM exact-once command recovery and task-free live contract smoke | Verifier `005e59bd`; runtime reconnects on `broken_pipe`, collects the pending FIFO command without replay, fails closed on lost state, and caps recovery at five attempts. Job `1734663` completed 0:0 in 1m59s after an injected vacli tunnel kill: one tunnel resume, intact FIFO shell, `RECOVERED` output, and marker count exactly one. Launcher preflights `1734443` (wrong-arch `uv`) and `1734510` (stale missing dependency path) failed before leasing; normal-path job `1734598` and first recovery job `1734613` completed 0:0. Relevant verifier tests 71/71, workflow tests 143/143, Ruff and shell syntax checks passed. |
 | Codex session for `tianhaowu` (use2-3) | Harbor network-policy enforcement for VMVM | Parent `c0ae13263`, verifier `15e22ca5`; all Mobius and TB4 policies parse with Harbor 0.14.0 precedence. Task-free canary `1735508` preserved the main reverse tunnel and Compose aliases while blocking external DNS, gateway-proxy egress, and sidecar tunnel access. Final validation: 194 workflow, 33 focused backend/taskset, and 8 verifier runtime tests. |
+| Codex session for `tianhaowu` (cross-cluster, no scheduler mutation) | Fail-closed six-pin oracle repair audit controller | Reviewed controller `7343ebdaa` independently derives source and execution commit/verifier/VMVM pins, proves full tracked Prime-RL and verifier trees pre/post, binds exact audit runtime scripts, and requires canonical `sbatch --wrap` execution. Independent review approved; 75 focused tests and exact detached 1,467+652-entry self-attestation passed. No certificate, evaluation, or Slurm job was created. |
 
 ## Known non-overlap boundaries
 

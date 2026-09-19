@@ -1,12 +1,16 @@
 from __future__ import annotations
 
+import fcntl
 import hashlib
 import importlib.util
+import io
 import json
 import subprocess
+import tarfile
 import tomllib
 from collections import Counter
 from pathlib import Path
+from zipfile import ZipFile
 
 import pytest
 
@@ -18,10 +22,182 @@ SPEC.loader.exec_module(export_oracle_tasks)
 PromotionError = export_oracle_tasks.PromotionError
 VERIFIER_COMMIT = "a" * 40
 VMVM_TB_V2_SHA256 = "b" * 64
+IMAGE_MANIFEST_BYTES = b'{"images":{}}\n'
+IMAGE_MANIFEST_SHA256 = hashlib.sha256(IMAGE_MANIFEST_BYTES).hexdigest()
 
 
 def _sha256(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
+
+
+def _source_wheel_fixture(oracle: Path, policy_path: Path) -> tuple[str, str]:
+    wheel_buffer = io.BytesIO()
+    with ZipFile(wheel_buffer, "w") as wheel:
+        wheel.writestr(
+            "verifier_helper-1.0.dist-info/METADATA",
+            "Metadata-Version: 2.1\nName: verifier-helper\nVersion: 1.0\n",
+        )
+        wheel.writestr(
+            "verifier_helper-1.0.dist-info/WHEEL",
+            "Wheel-Version: 1.0\nTag: py3-none-any\n",
+        )
+    wheel_bytes = wheel_buffer.getvalue()
+    wheel_name = "verifier_helper-1.0-py3-none-any.whl"
+    image = "registry.invalid/task@sha256:" + "1" * 64
+    build_tools = {"pip": "24.3.1", "setuptools": "75.6.0", "wheel": "0.45.1"}
+    policy = {
+        "schema_version": 1,
+        "allowed_hosts": ["files.example.invalid"],
+        "entries": [
+            {
+                "requirements": ["verifier-helper==1.0"],
+                "image": image,
+                "build_tools": build_tools,
+                "sources": [
+                    {
+                        "distribution": "verifier-helper",
+                        "version": "1.0",
+                        "filename": "verifier-helper-1.0.tar.gz",
+                        "url": "https://files.example.invalid/verifier-helper-1.0.tar.gz",
+                        "size": 1,
+                        "sha256": "2" * 64,
+                        "wheel_filename": wheel_name,
+                        "wheel_size": len(wheel_bytes),
+                        "wheel_sha256": _sha256(wheel_bytes),
+                    }
+                ],
+                "binary_wheels": [],
+            }
+        ],
+    }
+    policy_path.write_text(json.dumps(policy, sort_keys=True) + "\n")
+    policy_sha256 = _sha256(policy_path.read_bytes())
+    wheelhouse_buffer = io.BytesIO()
+    with tarfile.open(fileobj=wheelhouse_buffer, mode="w", format=tarfile.USTAR_FORMAT) as archive:
+        member = tarfile.TarInfo(wheel_name)
+        member.size = len(wheel_bytes)
+        member.mode = 0o444
+        archive.addfile(member, io.BytesIO(wheel_bytes))
+    wheelhouse = wheelhouse_buffer.getvalue()
+    marker_environment = {
+        "implementation_name": "cpython",
+        "implementation_version": "3.12.0",
+        "os_name": "posix",
+        "platform_machine": "x86_64",
+        "platform_python_implementation": "CPython",
+        "platform_release": "6.8.0",
+        "platform_system": "Linux",
+        "platform_version": "synthetic",
+        "python_full_version": "3.12.0",
+        "python_version": "3.12",
+        "sys_platform": "linux",
+    }
+    compatibility = ["cpython", [3, 12], "cpython-312-x86_64-linux-gnu", "linux-x86_64", "x86_64"]
+    runtime = {
+        "marker_environment": marker_environment,
+        "pip_version": "24.3.1",
+        "wheel_compatibility": compatibility,
+        "build_tools": build_tools,
+    }
+    target = {
+        "image": image,
+        "resolution_fingerprint": _sha256(export_oracle_tasks.canonical_json([marker_environment, "24.3.1"])),
+        "compatibility_fingerprint": _sha256(
+            export_oracle_tasks.canonical_json([image, marker_environment, "24.3.1", compatibility, build_tools])
+        ),
+        "toolchain_fingerprint": _sha256(export_oracle_tasks.canonical_json([image, build_tools])),
+        "runtime": runtime,
+    }
+    requirements = ["verifier-helper==1.0"]
+    cache_key = _sha256(
+        export_oracle_tasks.canonical_json(
+            {
+                "requirements": requirements,
+                "image": image,
+                "resolution_fingerprint": target["resolution_fingerprint"],
+                "compatibility_fingerprint": target["compatibility_fingerprint"],
+                "toolchain_fingerprint": target["toolchain_fingerprint"],
+                "build_tools": build_tools,
+                "policy_sha256": policy_sha256,
+            }
+        )
+    )
+    source_path = "/tmp/terminal-bench-source-inputs/verifier-helper-1.0.tar.gz"
+    build_argv = [
+        "python3",
+        "-I",
+        "-m",
+        "pip",
+        "wheel",
+        "--quiet",
+        "--disable-pip-version-check",
+        "--no-cache-dir",
+        "--no-index",
+        "--no-deps",
+        "--no-build-isolation",
+        "--wheel-dir",
+        "/tmp/terminal-bench-source-wheels",
+        f"verifier-helper @ file://{source_path}#sha256={'2' * 64}",
+    ]
+    resolution = {"roots": requirements, "closure": [["verifier-helper", "1.0"]]}
+    unsigned = {
+        "schema_version": 1,
+        "cache_key_sha256": cache_key,
+        "policy_sha256": policy_sha256,
+        "requirements": requirements,
+        "target": target,
+        "build_contract": {
+            "artifact_download_network": "public-hash-pinned-https",
+            "builder_lease_limit": 1,
+            "build_network": "no-network",
+            "build_isolation": False,
+            "dependency_resolution": "explicit-policy-artifacts",
+            "isolated_python": True,
+            "staged_inputs": "policy-artifacts-only",
+            "target_install": "offline-no-index-no-deps",
+        },
+        "sources": [
+            {
+                "policy": policy["entries"][0]["sources"][0],
+                "consumed_path": source_path,
+                "built_wheel": wheel_name,
+                "build_argv_sha256": _sha256(export_oracle_tasks.canonical_json(build_argv)),
+            }
+        ],
+        "binary_wheels": [],
+        "resolution": {**resolution, "sha256": _sha256(export_oracle_tasks.canonical_json(resolution))},
+        "wheels": [
+            {
+                "distribution": "verifier-helper",
+                "version": "1.0",
+                "filename": wheel_name,
+                "size": len(wheel_bytes),
+                "sha256": _sha256(wheel_bytes),
+                "universal": True,
+            }
+        ],
+        "wheelhouse": {
+            "path": f"source_wheel_cache/{cache_key}.tar",
+            "size": len(wheelhouse),
+            "sha256": _sha256(wheelhouse),
+        },
+    }
+    entry = {**unsigned, "attestation_sha256": _sha256(export_oracle_tasks.canonical_json(unsigned))}
+    cache = oracle / "source_wheel_cache"
+    cache.mkdir(mode=0o700)
+    archive_path = cache / f"{cache_key}.tar"
+    archive_path.write_bytes(wheelhouse)
+    archive_path.chmod(0o400)
+    attestation = {
+        "schema_version": 1,
+        "policy_sha256": policy_sha256,
+        "entries_sha256": _sha256(export_oracle_tasks.canonical_json([entry])),
+        "entries": [entry],
+    }
+    attestation_path = oracle / "source_wheel_attestations.json"
+    attestation_path.write_text(json.dumps(attestation, sort_keys=True) + "\n")
+    attestation_path.chmod(0o400)
+    return policy_sha256, entry["attestation_sha256"]
 
 
 def _dataset(tmp_path: Path, total: int = 10) -> tuple[Path, list[str], str]:
@@ -65,43 +241,152 @@ def _oracle(
     tasks: list[str],
     valid: set[str],
     prime_rl_commit: str,
+    revision: str,
+    image_manifest: Path,
+    minimum_valid: int,
+    *,
+    source_wheel: bool = False,
 ) -> Path:
     oracle = tmp_path / "oracle"
     statuses = oracle / "tasks"
     statuses.mkdir(parents=True)
+    (oracle / ".writer.lock").touch()
     semantics = {
         "schema_version": 1,
         "trusted_reference_solution": "public",
         "verifier": "declared",
     }
+    identity = {
+        "schema_version": 1,
+        "dataset": {
+            "path": str(dataset.resolve()),
+            "revision": revision,
+            "archive": {"path": None, "sha256": None},
+            "content_sha256": None,
+        },
+        "selection": {
+            "count": len(tasks),
+            "ordered_task_slugs_sha256": _sha256("".join(f"{task}\n" for task in tasks).encode()),
+            "offset": 0,
+            "limit": None,
+            "task_file": {"path": None, "sha256": None},
+        },
+        "images": {
+            "prefix": "vmvm-registry.invalid/terminal-bench",
+            "tag": "mobius-pinned",
+            "manifest": {
+                "path": str(image_manifest.resolve()),
+                "sha256": IMAGE_MANIFEST_SHA256,
+            },
+            "use_declared_images": False,
+            "enable_compose": False,
+        },
+        "source": {
+            "prime_rl_commit": prime_rl_commit,
+            "prime_rl_tree_sha256": hashlib.sha256(b"").hexdigest(),
+            "verifiers_commit": VERIFIER_COMMIT,
+            "vmvm_tb_v2_sha256": VMVM_TB_V2_SHA256,
+        },
+        "network_semantics": semantics,
+        "execution": {
+            "max_concurrent": 8,
+            "infra_retries": 2,
+            "setup_timeout_sec": 3600.0,
+            "validate_timeout_sec": 10800.0,
+            "session_timeout_sec": 10800.0,
+            "tenant_id": "test-tenant",
+            "lease_ttl": "60s",
+            "max_session_buffer_size": 67_108_864,
+            "verifier_runtime_retries": 2,
+            "vacli_lease_retries": 20,
+            "vacli_max_concurrent_leases": 4,
+            "vacli_max_pull_retries": 20,
+            "vacli_image_pull_timeout_seconds": 3600,
+            "vacli_container_privileged": True,
+            "timeout_multiplier": 2.0,
+            "resource_multiplier": 2.0,
+            "runtime_image": "python:3.12-slim",
+            "runtime_workdir": "/app",
+        },
+        "acceptance": {"minimum_pass_rate": 0.9, "minimum_valid": minimum_valid},
+    }
+    source_wheel_policy_sha256 = None
+    source_wheel_attestation_sha256 = None
+    source_wheel_entry_sha256 = None
+    if source_wheel:
+        policy = tmp_path / "source-wheel-policy.json"
+        source_wheel_policy_sha256, source_wheel_entry_sha256 = _source_wheel_fixture(oracle, policy)
+        attestation_path = oracle / "source_wheel_attestations.json"
+        source_wheel_attestation_sha256 = _sha256(attestation_path.read_bytes())
+        identity["source_wheel_recovery"] = {
+            "schema_version": 1,
+            "policy": {
+                "path": str(policy.resolve()),
+                "sha256": source_wheel_policy_sha256,
+            },
+            "attestation": "source_wheel_attestations.json",
+            "artifact_download_network": "public-hash-pinned-https",
+            "builder_lease_limit": 1,
+            "build_network": "no-network",
+            "build_isolation": False,
+            "target_install": "offline-no-index-no-deps",
+        }
+    identity_bytes = json.dumps(
+        identity,
+        ensure_ascii=False,
+        allow_nan=False,
+        sort_keys=True,
+        separators=(",", ":"),
+    ).encode()
+    identity_sha256 = _sha256(identity_bytes)
+    (oracle / "run_identity.json").write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "run_identity_sha256": identity_sha256,
+                "identity": identity,
+            },
+            sort_keys=True,
+        )
+        + "\n"
+    )
     results = []
     for index, task in enumerate(tasks):
         passed = task in valid
         result = {
             "index": index,
+            "name": task,
             "slug": task,
+            "image": f"registry.example/tasks@sha256:{index:064x}",
             "valid": passed,
             "reason": "valid" if passed else "invalid",
+            "error": None,
+            "error_type": None,
+            "elapsed_sec": 1.0,
+            "attempts": 1,
+            "infrastructure_failures": [],
             "oracle_network_semantics": semantics,
+            "run_identity_sha256": identity_sha256,
         }
+        if source_wheel:
+            result["source_wheel_attestation_sha256s"] = [source_wheel_entry_sha256]
         results.append(result)
         (statuses / f"{task}.json").write_text(json.dumps(result) + "\n")
     (oracle / "results.jsonl").write_text("".join(json.dumps(result) + "\n" for result in results))
     reasons = Counter(result["reason"] for result in results)
-    (oracle / "summary.json").write_text(
-        json.dumps(
-            {
-                "selected": len(tasks),
-                "completed": len(tasks),
-                "passed": len(valid),
-                "pass_rate": len(valid) / len(tasks),
-                "reasons": dict(reasons),
-                "oracle_network_semantics": semantics,
-                "finished_at": 1.0,
-            }
-        )
-        + "\n"
-    )
+    summary = {
+        "selected": len(tasks),
+        "completed": len(tasks),
+        "passed": len(valid),
+        "pass_rate": len(valid) / len(tasks),
+        "reasons": dict(reasons),
+        "oracle_network_semantics": semantics,
+        "run_identity_sha256": identity_sha256,
+        "finished_at": 1.0,
+    }
+    if source_wheel_attestation_sha256 is not None:
+        summary["source_wheel_attestation_sha256"] = source_wheel_attestation_sha256
+    (oracle / "summary.json").write_text(json.dumps(summary) + "\n")
     (oracle / "run_config.json").write_text(
         json.dumps(
             {
@@ -109,12 +394,13 @@ def _oracle(
                 "selected_tasks": len(tasks),
                 "oracle_solution_network_mode": "public",
                 "oracle_network_semantics": semantics,
+                "run_identity_sha256": identity_sha256,
             }
         )
         + "\n"
     )
     (oracle / "oracle_network_semantics.json").write_text(json.dumps(semantics) + "\n")
-    (oracle / "provenance.txt").write_text(
+    provenance = (
         f"prime_rl={prime_rl_commit}\n"
         f"prime_rl_tree={hashlib.sha256(b'').hexdigest()}\n"
         f"verifiers={VERIFIER_COMMIT}\n"
@@ -122,17 +408,78 @@ def _oracle(
         "host=opaque-host\n"
         "slurm_job_id=1\n"
         "oracle_solution_network_mode=public\n"
+        f"run_identity_sha256={identity_sha256}\n"
     )
+    if source_wheel_policy_sha256 is not None:
+        provenance += f"source_wheel_policy_sha256={source_wheel_policy_sha256}\n"
+    (oracle / "provenance.txt").write_text(provenance)
+    invocation = {
+        "schema_version": 1,
+        "run_identity_sha256": identity_sha256,
+        "invoked_at": 1.0,
+        "resume": False,
+        "reuse_completed_rows": True,
+        "rerun_invalid": False,
+        "host": "opaque-host",
+        "slurm_job_id": "1",
+        "source": identity["source"],
+    }
+    if source_wheel_policy_sha256 is not None:
+        invocation["source_wheel_policy_sha256"] = source_wheel_policy_sha256
+        invocation["expected_source_wheel_attestation_sha256"] = None
+    (oracle / "invocations.jsonl").write_text(json.dumps(invocation, sort_keys=True) + "\n")
     return oracle
 
 
-def _config(path: Path, task_file: str, digest: str, count: int) -> None:
+def _append_invocation(
+    oracle: Path,
+    *,
+    rerun_invalid: bool = False,
+    reuse_completed_rows: bool = True,
+) -> None:
+    envelope = json.loads((oracle / "run_identity.json").read_text())
+    path = oracle / "invocations.jsonl"
+    count = len(path.read_text().splitlines())
+    record = {
+        "schema_version": 1,
+        "run_identity_sha256": envelope["run_identity_sha256"],
+        "invoked_at": float(count + 1),
+        "resume": True,
+        "reuse_completed_rows": reuse_completed_rows,
+        "rerun_invalid": rerun_invalid,
+        "host": "opaque-resume-host",
+        "slurm_job_id": str(count + 1),
+        "source": envelope["identity"]["source"],
+    }
+    recovery = envelope["identity"].get("source_wheel_recovery")
+    if recovery is not None:
+        record["source_wheel_policy_sha256"] = recovery["policy"]["sha256"]
+        record["expected_source_wheel_attestation_sha256"] = hashlib.sha256(
+            (oracle / recovery["attestation"]).read_bytes()
+        ).hexdigest()
+    with path.open("a") as handle:
+        handle.write(json.dumps(record, sort_keys=True) + "\n")
+
+
+def _config(
+    path: Path,
+    task_file: str,
+    digest: str,
+    count: int,
+    dataset: Path,
+    revision: str,
+    image_manifest: Path,
+) -> None:
     path.write_text(
         f"num_tasks = {count}\n"
         "[taskset]\n"
         'id = "terminal-bench-vmvm"\n'
+        f'dataset_dir = "{dataset.resolve()}"\n'
+        f'dataset_revision = "{revision}"\n'
         f'task_file = "{task_file}"\n'
         f'task_file_sha256 = "{digest}"\n'
+        f'image_manifest = "{image_manifest.resolve()}"\n'
+        f'image_manifest_sha256 = "{IMAGE_MANIFEST_SHA256}"\n'
     )
 
 
@@ -141,6 +488,7 @@ def _fixture(
     *,
     valid_indexes: set[int],
     limit: int = 8,
+    source_wheel: bool = False,
 ) -> tuple[Path, list[str], str, Path, Path, str, list[Path], str]:
     dataset, tasks, revision = _dataset(tmp_path)
     project = tmp_path / "project"
@@ -149,9 +497,11 @@ def _fixture(
     current_bytes = "".join(f"{task}\n" for task in tasks[:limit]).encode()
     manifest.write_bytes(current_bytes)
     digest = _sha256(current_bytes)
+    image_manifest = tmp_path / "image-manifest.json"
+    image_manifest.write_bytes(IMAGE_MANIFEST_BYTES)
     configs = [project / "kimi.toml", project / "qwen.toml"]
     for config in configs:
-        _config(config, manifest.name, digest, limit)
+        _config(config, manifest.name, digest, limit, dataset, revision, image_manifest)
     subprocess.run(["git", "init", "-q", str(project)], check=True)
     subprocess.run(["git", "-C", str(project), "add", "."], check=True)
     subprocess.run(
@@ -193,6 +543,10 @@ def _fixture(
         tasks,
         {tasks[index] for index in valid_indexes},
         prime_rl_commit,
+        revision,
+        image_manifest,
+        limit,
+        source_wheel=source_wheel,
     )
     return dataset, tasks, revision, oracle, manifest, digest, configs, prime_rl_commit
 
@@ -204,6 +558,7 @@ def _provenance_args(prime_rl_commit: str) -> dict[str, str]:
         "minimum_prime_rl_ancestor": prime_rl_commit,
         "expected_verifiers_commit": VERIFIER_COMMIT,
         "expected_vmvm_tb_v2_sha256": VMVM_TB_V2_SHA256,
+        "expected_image_manifest_sha256": IMAGE_MANIFEST_SHA256,
     }
 
 
@@ -219,8 +574,17 @@ def test_dry_run_and_apply_replace_new_invalid_without_reordering_survivors(
     manifest.write_bytes(original_manifest)
     digest = _sha256(original_manifest)
     for config in configs:
-        _config(config, manifest.name, digest, 8)
+        _config(
+            config,
+            manifest.name,
+            digest,
+            8,
+            dataset,
+            revision,
+            tmp_path / "image-manifest.json",
+        )
     original_configs = [path.read_bytes() for path in configs]
+    receipt = manifest.parent / "promotion-receipt.json"
     arguments = {
         "dataset_dir": dataset,
         "dataset_revision": revision,
@@ -233,7 +597,7 @@ def test_dry_run_and_apply_replace_new_invalid_without_reordering_survivors(
         **_provenance_args(prime_rl_commit),
     }
 
-    checked = export_oracle_tasks.promote(oracle, manifest, **arguments)
+    checked = export_oracle_tasks.promote(oracle, manifest, receipt=receipt, **arguments)
 
     assert checked["applied"] is False
     assert checked["completed"] == 10
@@ -243,8 +607,15 @@ def test_dry_run_and_apply_replace_new_invalid_without_reordering_survivors(
     assert checked["selected_subset_valid"] is True
     assert manifest.read_bytes() == original_manifest
     assert [path.read_bytes() for path in configs] == original_configs
+    assert not receipt.exists()
 
-    applied = export_oracle_tasks.promote(oracle, manifest, apply=True, **arguments)
+    applied = export_oracle_tasks.promote(
+        oracle,
+        manifest,
+        apply=True,
+        receipt=receipt,
+        **arguments,
+    )
 
     assert applied["applied"] is True
     assert manifest.read_text().splitlines() == [
@@ -255,6 +626,413 @@ def test_dry_run_and_apply_replace_new_invalid_without_reordering_survivors(
     for config in configs:
         parsed = tomllib.loads(config.read_text())
         assert parsed["taskset"]["task_file_sha256"] == applied["selected_manifest_sha256"]
+
+    envelope = json.loads(receipt.read_bytes())
+    assert set(envelope) == {"receipt", "receipt_sha256", "schema_version"}
+    assert envelope["schema_version"] == 1
+    payload = envelope["receipt"]
+    canonical_payload = json.dumps(
+        payload,
+        ensure_ascii=False,
+        allow_nan=False,
+        sort_keys=True,
+        separators=(",", ":"),
+    ).encode()
+    assert envelope["receipt_sha256"] == _sha256(canonical_payload)
+    assert applied["receipt_sha256"] == envelope["receipt_sha256"]
+    expected_summary = dict(applied)
+    del expected_summary["receipt_sha256"]
+    assert payload["promotion_summary"] == expected_summary
+    assert payload["schema_version"] == 1
+    assert payload["artifact_type"] == "terminal_bench_vmvm_oracle_promotion_receipt"
+    assert payload["applied_manifest"] == {
+        "path": manifest.name,
+        "sha256": applied["selected_manifest_sha256"],
+    }
+    assert payload["updated_configs"] == [
+        {"path": path.name, "sha256": _sha256(path.read_bytes())} for path in sorted(configs)
+    ]
+    assert payload["oracle_artifacts"] == {
+        "invocations": {
+            "path": str((oracle / "invocations.jsonl").resolve()),
+            "sha256": _sha256((oracle / "invocations.jsonl").read_bytes()),
+        },
+        "provenance": {
+            "path": "provenance.txt",
+            "sha256": _sha256((oracle / "provenance.txt").read_bytes()),
+        },
+        "results": {
+            "path": "results.jsonl",
+            "sha256": _sha256((oracle / "results.jsonl").read_bytes()),
+        },
+        "run_identity": {
+            "identity_sha256": applied["oracle_run_identity_sha256"],
+            "path": "run_identity.json",
+            "sha256": _sha256((oracle / "run_identity.json").read_bytes()),
+        },
+        "summary": {
+            "path": "summary.json",
+            "sha256": _sha256((oracle / "summary.json").read_bytes()),
+        },
+    }
+    assert payload["dataset"] == {"revision": revision}
+    assert payload["image_manifest"] == {"sha256": IMAGE_MANIFEST_SHA256}
+    assert payload["source"] == {
+        "minimum_prime_rl_ancestor": prime_rl_commit,
+        "prime_rl_commit": prime_rl_commit,
+        "prime_rl_tree_sha256": hashlib.sha256(b"").hexdigest(),
+        "required_prime_rl_ancestor": prime_rl_commit,
+        "verifiers_commit": VERIFIER_COMMIT,
+        "vmvm_tb_v2_sha256": VMVM_TB_V2_SHA256,
+    }
+    assert payload["counts"] == {
+        "completed": 10,
+        "configured_files": 2,
+        "expected_total": 10,
+        "invocation_count": 1,
+        "oracle_reasons": {"invalid": 1, "valid": 9},
+        "passed": 9,
+        "removed_invalid": 1,
+        "rerun_invalid_invocation_count": 0,
+        "selected": 8,
+    }
+    assert payload["acceptance"] == {
+        "minimum_pass_rate": 0.9,
+        "minimum_valid": 8,
+        "observed_pass_rate": 0.9,
+        "oracle_network_semantics": {
+            "schema_version": 1,
+            "trusted_reference_solution": "public",
+            "verifier": "declared",
+        },
+        "selected_subset_valid": True,
+    }
+    assert receipt.stat().st_mode & 0o777 == 0o444
+    assert "opaque-" not in receipt.read_text()
+
+    applied_manifest = manifest.read_bytes()
+    applied_configs = [path.read_bytes() for path in configs]
+    receipt_bytes = receipt.read_bytes()
+    with pytest.raises(PromotionError, match="^receipt_already_exists$"):
+        export_oracle_tasks.promote(
+            oracle,
+            manifest,
+            apply=True,
+            receipt=receipt,
+            **arguments,
+        )
+    assert manifest.read_bytes() == applied_manifest
+    assert [path.read_bytes() for path in configs] == applied_configs
+    assert receipt.read_bytes() == receipt_bytes
+
+
+def test_apply_requires_receipt_before_writes(tmp_path: Path) -> None:
+    dataset, _, revision, oracle, manifest, digest, configs, prime_rl_commit = _fixture(
+        tmp_path,
+        valid_indexes=set(range(10)),
+    )
+    original_manifest = manifest.read_bytes()
+    original_configs = [path.read_bytes() for path in configs]
+
+    with pytest.raises(PromotionError, match="^receipt_required_for_apply$"):
+        export_oracle_tasks.promote(
+            oracle,
+            manifest,
+            dataset_dir=dataset,
+            dataset_revision=revision,
+            expected_current_manifest_sha256=digest,
+            configs=configs,
+            project_root=manifest.parent,
+            expected_total=10,
+            limit=8,
+            apply=True,
+            **_provenance_args(prime_rl_commit),
+        )
+    assert manifest.read_bytes() == original_manifest
+    assert [path.read_bytes() for path in configs] == original_configs
+    receipt = tmp_path / "promotion-receipt.json"
+    receipt.write_bytes(b"existing receipt\n")
+    with pytest.raises(PromotionError, match="^receipt_already_exists$"):
+        export_oracle_tasks.promote(
+            oracle,
+            manifest,
+            dataset_dir=dataset,
+            dataset_revision=revision,
+            expected_current_manifest_sha256=digest,
+            configs=configs,
+            project_root=manifest.parent,
+            expected_total=10,
+            limit=8,
+            apply=True,
+            receipt=receipt,
+            **_provenance_args(prime_rl_commit),
+        )
+    assert manifest.read_bytes() == original_manifest
+    assert [path.read_bytes() for path in configs] == original_configs
+    assert receipt.read_bytes() == b"existing receipt\n"
+
+
+def test_promotion_requires_and_binds_approved_source_wheel_policy(tmp_path: Path) -> None:
+    dataset, _, revision, oracle, manifest, digest, configs, prime_rl_commit = _fixture(
+        tmp_path,
+        valid_indexes=set(range(10)),
+        source_wheel=True,
+    )
+    receipt = manifest.parent / "source-wheel-promotion-receipt.json"
+
+    recovery_identity = json.loads((oracle / "run_identity.json").read_text())["identity"]["source_wheel_recovery"]
+    with pytest.raises(PromotionError, match="source_wheel_policy_not_approved"):
+        export_oracle_tasks.promote(
+            oracle,
+            manifest,
+            dataset_dir=dataset,
+            dataset_revision=revision,
+            expected_current_manifest_sha256=digest,
+            configs=configs,
+            project_root=manifest.parent,
+            expected_total=10,
+            limit=8,
+            **_provenance_args(prime_rl_commit),
+        )
+
+    result = export_oracle_tasks.promote(
+        oracle,
+        manifest,
+        dataset_dir=dataset,
+        dataset_revision=revision,
+        expected_current_manifest_sha256=digest,
+        configs=configs,
+        project_root=manifest.parent,
+        expected_total=10,
+        limit=8,
+        expected_source_wheel_policy_sha256=recovery_identity["policy"]["sha256"],
+        expected_source_wheel_attestations=1,
+        apply=True,
+        receipt=receipt,
+        **_provenance_args(prime_rl_commit),
+    )
+
+    payload = json.loads(receipt.read_text())["receipt"]
+    recovery = payload["oracle_artifacts"]["source_wheel_recovery"]
+    assert len(recovery["wheelhouses"]) == 1
+    assert result["source_wheel_policy_sha256"] == recovery["policy"]["sha256"]
+    assert result["source_wheel_attestation_sha256"] == recovery["attestation"]["sha256"]
+
+
+def test_receipt_is_not_published_when_apply_fails(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    dataset, _, revision, oracle, manifest, digest, configs, prime_rl_commit = _fixture(
+        tmp_path,
+        valid_indexes=set(range(10)),
+    )
+    original_manifest = manifest.read_bytes()
+    original_configs = [path.read_bytes() for path in configs]
+    receipt = tmp_path / "promotion-receipt.json"
+
+    def fail_apply(_: list[tuple[Path, bytes]]) -> None:
+        raise PromotionError("synthetic_apply_failure")
+
+    monkeypatch.setattr(export_oracle_tasks, "_replace_files", fail_apply)
+    with pytest.raises(PromotionError, match="^synthetic_apply_failure$"):
+        export_oracle_tasks.promote(
+            oracle,
+            manifest,
+            dataset_dir=dataset,
+            dataset_revision=revision,
+            expected_current_manifest_sha256=digest,
+            configs=configs,
+            project_root=manifest.parent,
+            expected_total=10,
+            limit=8,
+            apply=True,
+            receipt=receipt,
+            **_provenance_args(prime_rl_commit),
+        )
+    assert manifest.read_bytes() == original_manifest
+    assert [path.read_bytes() for path in configs] == original_configs
+    assert not receipt.exists()
+
+
+def test_promotion_attests_one_rerun_invalid_and_normal_resumes(tmp_path: Path) -> None:
+    dataset, _, revision, oracle, manifest, digest, configs, prime_rl_commit = _fixture(
+        tmp_path,
+        valid_indexes=set(range(10)),
+    )
+    _append_invocation(oracle)
+    _append_invocation(oracle, rerun_invalid=True)
+    _append_invocation(oracle)
+
+    summary = export_oracle_tasks.promote(
+        oracle,
+        manifest,
+        dataset_dir=dataset,
+        dataset_revision=revision,
+        expected_current_manifest_sha256=digest,
+        configs=configs,
+        project_root=manifest.parent,
+        expected_total=10,
+        limit=8,
+        minimum_pass_rate=0.9,
+        **_provenance_args(prime_rl_commit),
+    )
+
+    assert summary["invocation_count"] == 4
+    assert summary["rerun_invalid_invocation_count"] == 1
+    assert summary["oracle_invocations_sha256"] == _sha256((oracle / "invocations.jsonl").read_bytes())
+
+
+def test_promotion_rejects_legacy_or_unbounded_invocation_lineage(tmp_path: Path) -> None:
+    dataset, _, revision, oracle, manifest, digest, configs, prime_rl_commit = _fixture(
+        tmp_path,
+        valid_indexes=set(range(10)),
+    )
+    arguments = {
+        "dataset_dir": dataset,
+        "dataset_revision": revision,
+        "expected_current_manifest_sha256": digest,
+        "configs": configs,
+        "project_root": manifest.parent,
+        "expected_total": 10,
+        "limit": 8,
+        "minimum_pass_rate": 0.9,
+        **_provenance_args(prime_rl_commit),
+    }
+    (oracle / "invocations.jsonl").unlink()
+    with pytest.raises(PromotionError, match="^oracle_invocations_unreadable$"):
+        export_oracle_tasks.promote(oracle, manifest, **arguments)
+
+    second = tmp_path / "second"
+    second.mkdir()
+    dataset, _, revision, oracle, manifest, digest, configs, prime_rl_commit = _fixture(
+        second,
+        valid_indexes=set(range(10)),
+    )
+    _append_invocation(oracle, rerun_invalid=True)
+    _append_invocation(oracle, rerun_invalid=True)
+    with pytest.raises(PromotionError, match="^oracle_rerun_invalid_limit_exceeded$"):
+        export_oracle_tasks.promote(
+            oracle,
+            manifest,
+            dataset_dir=dataset,
+            dataset_revision=revision,
+            expected_current_manifest_sha256=digest,
+            configs=configs,
+            project_root=manifest.parent,
+            expected_total=10,
+            limit=8,
+            minimum_pass_rate=0.9,
+            **_provenance_args(prime_rl_commit),
+        )
+
+
+def test_promotion_detects_invocation_change_before_return(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    dataset, _, revision, oracle, manifest, digest, configs, prime_rl_commit = _fixture(
+        tmp_path,
+        valid_indexes=set(range(10)),
+    )
+    original_audit_oracle = export_oracle_tasks._audit_oracle
+
+    def audit_then_append(*args: object, **kwargs: object) -> object:
+        result = original_audit_oracle(*args, **kwargs)
+        _append_invocation(oracle)
+        return result
+
+    monkeypatch.setattr(export_oracle_tasks, "_audit_oracle", audit_then_append)
+    with pytest.raises(PromotionError, match="^oracle_invocations_changed$"):
+        export_oracle_tasks.promote(
+            oracle,
+            manifest,
+            dataset_dir=dataset,
+            dataset_revision=revision,
+            expected_current_manifest_sha256=digest,
+            configs=configs,
+            project_root=manifest.parent,
+            expected_total=10,
+            limit=8,
+            minimum_pass_rate=0.9,
+            **_provenance_args(prime_rl_commit),
+        )
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("reuse_completed_rows", False),
+        ("run_identity_sha256", "0" * 64),
+        ("source", {}),
+    ],
+)
+def test_promotion_rejects_tampered_invocation_lineage(
+    tmp_path: Path,
+    field: str,
+    value: object,
+) -> None:
+    dataset, _, revision, oracle, manifest, digest, configs, prime_rl_commit = _fixture(
+        tmp_path,
+        valid_indexes=set(range(10)),
+    )
+    path = oracle / "invocations.jsonl"
+    record = json.loads(path.read_text())
+    record[field] = value
+    path.write_text(json.dumps(record, sort_keys=True) + "\n")
+
+    with pytest.raises(PromotionError, match="^oracle_invocations_invalid$"):
+        export_oracle_tasks.promote(
+            oracle,
+            manifest,
+            dataset_dir=dataset,
+            dataset_revision=revision,
+            expected_current_manifest_sha256=digest,
+            configs=configs,
+            project_root=manifest.parent,
+            expected_total=10,
+            limit=8,
+            minimum_pass_rate=0.9,
+            **_provenance_args(prime_rl_commit),
+        )
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("invoked_at", 1.0),
+        ("slurm_job_id", "01"),
+    ],
+)
+def test_promotion_rejects_noncanonical_invocation_order(
+    tmp_path: Path,
+    field: str,
+    value: object,
+) -> None:
+    dataset, _, revision, oracle, manifest, digest, configs, prime_rl_commit = _fixture(
+        tmp_path,
+        valid_indexes=set(range(10)),
+    )
+    _append_invocation(oracle)
+    path = oracle / "invocations.jsonl"
+    records = [json.loads(line) for line in path.read_text().splitlines()]
+    records[-1][field] = value
+    path.write_text("".join(json.dumps(record, sort_keys=True) + "\n" for record in records))
+
+    with pytest.raises(PromotionError, match="^oracle_invocations_invalid$"):
+        export_oracle_tasks.promote(
+            oracle,
+            manifest,
+            dataset_dir=dataset,
+            dataset_revision=revision,
+            expected_current_manifest_sha256=digest,
+            configs=configs,
+            project_root=manifest.parent,
+            expected_total=10,
+            limit=8,
+            minimum_pass_rate=0.9,
+            **_provenance_args(prime_rl_commit),
+        )
 
 
 @pytest.mark.parametrize(
@@ -299,6 +1077,7 @@ def test_rejects_incomplete_or_incoherent_oracle_before_writes(tmp_path: Path) -
         valid_indexes=set(range(10)),
     )
     original = manifest.read_bytes()
+    receipt = tmp_path / "promotion-receipt.json"
     lines = (oracle / "results.jsonl").read_text().splitlines(keepends=True)
     (oracle / "results.jsonl").write_text("".join(lines[:-1]))
 
@@ -314,9 +1093,11 @@ def test_rejects_incomplete_or_incoherent_oracle_before_writes(tmp_path: Path) -
             expected_total=10,
             limit=8,
             apply=True,
+            receipt=receipt,
             **_provenance_args(prime_rl_commit),
         )
     assert manifest.read_bytes() == original
+    assert not receipt.exists()
 
 
 def test_rejects_unapproved_current_hash_and_config_drift(tmp_path: Path) -> None:
@@ -338,7 +1119,16 @@ def test_rejects_unapproved_current_hash_and_config_drift(tmp_path: Path) -> Non
             **_provenance_args(prime_rl_commit),
         )
 
-    _config(configs[0], manifest.name, "1" * 64, 8)
+    _config(
+        configs[0],
+        manifest.name,
+        "1" * 64,
+        8,
+        dataset,
+        revision,
+        tmp_path / "image-manifest.json",
+    )
+    receipt = tmp_path / "promotion-receipt.json"
     with pytest.raises(PromotionError, match="^config_current_hash_mismatch$"):
         export_oracle_tasks.promote(
             oracle,
@@ -351,6 +1141,55 @@ def test_rejects_unapproved_current_hash_and_config_drift(tmp_path: Path) -> Non
             expected_total=10,
             limit=8,
             apply=True,
+            receipt=receipt,
+            **_provenance_args(prime_rl_commit),
+        )
+    assert not receipt.exists()
+
+    _config(
+        configs[0],
+        manifest.name,
+        digest,
+        8,
+        dataset,
+        "f" * 40,
+        tmp_path / "image-manifest.json",
+    )
+    with pytest.raises(PromotionError, match="^config_dataset_mismatch$"):
+        export_oracle_tasks.promote(
+            oracle,
+            manifest,
+            dataset_dir=dataset,
+            dataset_revision=revision,
+            expected_current_manifest_sha256=digest,
+            configs=configs,
+            project_root=manifest.parent,
+            expected_total=10,
+            limit=8,
+            **_provenance_args(prime_rl_commit),
+        )
+
+    _config(
+        configs[0],
+        manifest.name,
+        digest,
+        8,
+        dataset,
+        revision,
+        tmp_path / "image-manifest.json",
+    )
+    configs[0].write_text(configs[0].read_text().replace(IMAGE_MANIFEST_SHA256, "0" * 64))
+    with pytest.raises(PromotionError, match="^config_image_manifest_hash_mismatch$"):
+        export_oracle_tasks.promote(
+            oracle,
+            manifest,
+            dataset_dir=dataset,
+            dataset_revision=revision,
+            expected_current_manifest_sha256=digest,
+            configs=configs,
+            project_root=manifest.parent,
+            expected_total=10,
+            limit=8,
             **_provenance_args(prime_rl_commit),
         )
 
@@ -381,6 +1220,117 @@ def test_rejects_dirty_or_mismatched_oracle_provenance(tmp_path: Path) -> None:
             limit=8,
             **_provenance_args(prime_rl_commit),
         )
+
+
+def test_rejects_missing_or_tampered_run_identity(tmp_path: Path) -> None:
+    dataset, _, revision, oracle, manifest, digest, configs, prime_rl_commit = _fixture(
+        tmp_path,
+        valid_indexes=set(range(10)),
+    )
+    arguments = {
+        "dataset_dir": dataset,
+        "dataset_revision": revision,
+        "expected_current_manifest_sha256": digest,
+        "configs": configs,
+        "project_root": manifest.parent,
+        "expected_total": 10,
+        "limit": 8,
+        **_provenance_args(prime_rl_commit),
+    }
+    identity_path = oracle / "run_identity.json"
+    original = identity_path.read_bytes()
+    identity_path.unlink()
+    with pytest.raises(PromotionError, match="^oracle_run_identity_invalid$"):
+        export_oracle_tasks.promote(oracle, manifest, **arguments)
+
+    identity_path.write_bytes(original)
+    wrapper = json.loads(identity_path.read_text())
+    wrapper["identity"]["dataset"]["revision"] = "f" * 40
+    identity_path.write_text(json.dumps(wrapper) + "\n")
+    with pytest.raises(PromotionError, match="^oracle_run_identity_hash_mismatch$"):
+        export_oracle_tasks.promote(oracle, manifest, **arguments)
+
+
+def test_rejects_result_without_bound_run_identity(tmp_path: Path) -> None:
+    dataset, _, revision, oracle, manifest, digest, configs, prime_rl_commit = _fixture(
+        tmp_path,
+        valid_indexes=set(range(10)),
+    )
+    rows = (oracle / "results.jsonl").read_text().splitlines()
+    first = json.loads(rows[0])
+    del first["run_identity_sha256"]
+    rows[0] = json.dumps(first)
+    (oracle / "results.jsonl").write_text("\n".join(rows) + "\n")
+
+    with pytest.raises(PromotionError, match="^oracle_result_schema_invalid$"):
+        export_oracle_tasks.promote(
+            oracle,
+            manifest,
+            dataset_dir=dataset,
+            dataset_revision=revision,
+            expected_current_manifest_sha256=digest,
+            configs=configs,
+            project_root=manifest.parent,
+            expected_total=10,
+            limit=8,
+            **_provenance_args(prime_rl_commit),
+        )
+
+
+def test_rejects_malformed_or_divergent_terminal_rows(tmp_path: Path) -> None:
+    dataset, tasks, revision, oracle, manifest, digest, configs, prime_rl_commit = _fixture(
+        tmp_path,
+        valid_indexes=set(range(10)),
+    )
+    arguments = {
+        "dataset_dir": dataset,
+        "dataset_revision": revision,
+        "expected_current_manifest_sha256": digest,
+        "configs": configs,
+        "project_root": manifest.parent,
+        "expected_total": 10,
+        "limit": 8,
+        **_provenance_args(prime_rl_commit),
+    }
+    results_path = oracle / "results.jsonl"
+    original_results = results_path.read_bytes()
+    rows = results_path.read_text().splitlines()
+    first = json.loads(rows[0])
+    first["index"] = False
+    rows[0] = json.dumps(first)
+    results_path.write_text("\n".join(rows) + "\n")
+    with pytest.raises(PromotionError, match="^oracle_result_schema_invalid$"):
+        export_oracle_tasks.promote(oracle, manifest, **arguments)
+
+    results_path.write_bytes(original_results)
+    status_path = oracle / "tasks" / f"{tasks[0]}.json"
+    status = json.loads(status_path.read_text())
+    status["attempts"] = 2
+    status_path.write_text(json.dumps(status) + "\n")
+    with pytest.raises(PromotionError, match="^oracle_status_mismatch$"):
+        export_oracle_tasks.promote(oracle, manifest, **arguments)
+
+
+def test_rejects_promotion_while_oracle_writer_is_active(tmp_path: Path) -> None:
+    dataset, _, revision, oracle, manifest, digest, configs, prime_rl_commit = _fixture(
+        tmp_path,
+        valid_indexes=set(range(10)),
+    )
+    with (oracle / ".writer.lock").open("rb") as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        with pytest.raises(PromotionError, match="^oracle_writer_active$"):
+            export_oracle_tasks.promote(
+                oracle,
+                manifest,
+                dataset_dir=dataset,
+                dataset_revision=revision,
+                expected_current_manifest_sha256=digest,
+                configs=configs,
+                project_root=manifest.parent,
+                expected_total=10,
+                limit=8,
+                **_provenance_args(prime_rl_commit),
+            )
 
 
 def test_rejects_required_ancestor_before_lifecycle_baseline(tmp_path: Path) -> None:
@@ -447,39 +1397,56 @@ def test_cli_emits_metadata_only(
         "MINIMUM_ORACLE_PRIME_RL_ANCESTOR",
         prime_rl_commit,
     )
-    status = export_oracle_tasks.main(
-        [
-            str(oracle),
-            str(manifest),
-            "--dataset-dir",
-            str(dataset),
-            "--dataset-revision",
-            revision,
-            "--expected-current-manifest-sha256",
-            digest,
-            "--expected-prime-rl-commit",
-            prime_rl_commit,
-            "--required-prime-rl-ancestor",
-            prime_rl_commit,
-            "--expected-verifiers-commit",
-            VERIFIER_COMMIT,
-            "--expected-vmvm-tb-v2-sha256",
-            VMVM_TB_V2_SHA256,
-            "--config",
-            str(configs[0]),
-            "--config",
-            str(configs[1]),
-            "--project-root",
-            str(manifest.parent),
-            "--expected-total",
-            "10",
-            "--limit",
-            "8",
-        ]
-    )
+    arguments = [
+        str(oracle),
+        str(manifest),
+        "--dataset-dir",
+        str(dataset),
+        "--dataset-revision",
+        revision,
+        "--expected-current-manifest-sha256",
+        digest,
+        "--expected-prime-rl-commit",
+        prime_rl_commit,
+        "--required-prime-rl-ancestor",
+        prime_rl_commit,
+        "--expected-verifiers-commit",
+        VERIFIER_COMMIT,
+        "--expected-vmvm-tb-v2-sha256",
+        VMVM_TB_V2_SHA256,
+        "--expected-image-manifest-sha256",
+        IMAGE_MANIFEST_SHA256,
+        "--config",
+        str(configs[0]),
+        "--config",
+        str(configs[1]),
+        "--project-root",
+        str(manifest.parent),
+        "--expected-total",
+        "10",
+        "--limit",
+        "8",
+    ]
+    status = export_oracle_tasks.main(arguments)
 
     assert status == 0
     output = capsys.readouterr()
     assert "opaque-" not in output.out
     assert output.err == ""
     assert json.loads(output.out)["selected_subset_valid"] is True
+
+    with pytest.raises(SystemExit, match="^2$"):
+        export_oracle_tasks.main([*arguments, "--apply"])
+    output = capsys.readouterr()
+    assert output.out == ""
+    assert "--receipt is required with --apply" in output.err
+
+    receipt = tmp_path / "promotion-receipt.json"
+    status = export_oracle_tasks.main([*arguments, "--apply", "--receipt", str(receipt)])
+    assert status == 0
+    output = capsys.readouterr()
+    assert "opaque-" not in output.out
+    assert output.err == ""
+    summary = json.loads(output.out)
+    assert summary["applied"] is True
+    assert summary["receipt_sha256"] == json.loads(receipt.read_text())["receipt_sha256"]

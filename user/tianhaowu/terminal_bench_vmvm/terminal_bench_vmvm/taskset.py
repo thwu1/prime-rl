@@ -16,10 +16,11 @@ import hashlib
 import json
 import logging
 import math
+import os
 import re
 import shlex
+import stat
 import subprocess
-import tarfile
 import tempfile
 import tomllib
 import uuid
@@ -38,6 +39,27 @@ from verifiers.v1.task import TaskResources, TaskTimeout
 from verifiers.v1.tasksets.harbor_v1 import HarborConfig, HarborTask, HarborTaskset
 from verifiers.v1.tasksets.harbor_v1.taskset import Author, make_tar, parse_resources
 
+from terminal_bench_vmvm.source_wheels import (
+    SOURCE_WHEEL_ATTESTATION_SCHEMA_VERSION,
+    BinaryWheelPolicy,
+    SourceArtifactPolicy,
+    SourceWheelPolicyEntry,
+    WheelEvidence,
+    atomic_write_bytes,
+    canonical_json,
+    inspect_source_distribution,
+    inspect_wheel,
+    inspect_wheelhouse,
+    is_digest_pinned_image,
+    load_source_wheel_policy,
+    pack_wheelhouse,
+    regular_private_file,
+    sha256_bytes,
+    strict_json_loads,
+    validate_policy_wheel_closure,
+    wheel_evidence_dicts,
+)
+
 logger = logging.getLogger("terminal_bench_vmvm")
 
 DEFAULT_DATASET_REVISION = "9b6988a3faf0"
@@ -45,6 +67,7 @@ DEFAULT_IMAGE_PREFIX = "vmvm-registry.fbinfra.net/terminal_bench"
 VERIFIER_TIMEOUT_MARKER = "__TERMINAL_BENCH_VERIFIER_TIMEOUT__"
 TEST_DEPENDENCY_MARKER = "Test dependencies prebaked so the verifier runs offline"
 PYTEST_COMPATIBILITY_REQUIREMENT = "pytest==8.3.4"
+_VERIFIER_SITE_ENV = "TERMINAL_BENCH_VERIFIER_SITE"
 _EXACT_PIP_REQUIREMENT_RE = re.compile(r"[A-Za-z0-9][A-Za-z0-9_.-]*(?:\[[A-Za-z0-9_,.-]+\])?==[A-Za-z0-9.!+_-]+")
 _PIP_EXECUTABLE_RE = re.compile(r"pip(?:3(?:\.[0-9]+)?)?")
 _PYTHON_EXECUTABLE_RE = re.compile(r"python(?:3(?:\.[0-9]+)?)?")
@@ -85,6 +108,109 @@ _EXECUTING_SHELL_WRAPPERS = {
     "zsh",
 }
 _SHELL_PUNCTUATION_RE = re.compile(r"&>>|&&|\|\||>>|>&|>\||&>|<<<|<<|<&|<>|[;&|<>()]")
+_SOURCE_WHEEL_CACHE_FILE_RE = re.compile(r"[0-9a-f]{64}\.tar")
+_SOURCE_WHEEL_CACHE_TEMP_RE = re.compile(r"\.[0-9a-f]{64}\.tar\.[1-9][0-9]*\.[0-9a-f]{32}\.tmp")
+_BINARY_UNAVAILABLE_MARKERS = (
+    "could not find a version that satisfies the requirement",
+    "no matching distribution found for",
+)
+_PIP_NOTICE_PREFIXES = ("[notice]",)
+_SOURCE_WHEEL_DOWNLOAD_CODE = """
+import hashlib
+import os
+import sys
+import urllib.request
+from urllib.parse import urlsplit
+
+url, destination, expected_size, expected_sha256 = sys.argv[1:]
+expected_size = int(expected_size)
+temporary = destination + ".partial"
+digest = hashlib.sha256()
+size = 0
+try:
+    with urllib.request.urlopen(url, timeout=300) as response, open(temporary, "xb") as output:
+        final_url = urlsplit(response.geturl())
+        requested_url = urlsplit(url)
+        if final_url.scheme != "https" or final_url.hostname != requested_url.hostname:
+            raise RuntimeError("download redirected outside the approved HTTPS host")
+        while True:
+            chunk = response.read(1024 * 1024)
+            if not chunk:
+                break
+            size += len(chunk)
+            if size > expected_size:
+                raise RuntimeError("download exceeded approved size")
+            digest.update(chunk)
+            output.write(chunk)
+        output.flush()
+        os.fsync(output.fileno())
+    if size != expected_size or digest.hexdigest() != expected_sha256:
+        raise RuntimeError("download did not match approved size and SHA-256")
+    os.replace(temporary, destination)
+finally:
+    try:
+        os.unlink(temporary)
+    except FileNotFoundError:
+        pass
+""".strip()
+_SOURCE_WHEEL_CLOSURE_CODE = """
+import importlib.metadata as metadata
+import json
+import sys
+
+try:
+    from packaging.markers import default_environment
+    from packaging.requirements import Requirement
+    from packaging.utils import canonicalize_name
+except ModuleNotFoundError:
+    from pip._vendor.packaging.markers import default_environment
+    from pip._vendor.packaging.requirements import Requirement
+    from pip._vendor.packaging.utils import canonicalize_name
+
+site_path = sys.argv[1]
+distributions = {}
+for distribution in metadata.distributions(path=[site_path]):
+    name = distribution.metadata.get("Name")
+    version = distribution.version
+    if not name or not version:
+        raise RuntimeError("installed wheel has incomplete metadata")
+    canonical_name = canonicalize_name(name)
+    if canonical_name in distributions:
+        raise RuntimeError("installed wheel closure contains duplicate distributions")
+    distributions[canonical_name] = distribution
+
+pending = [(Requirement(root), frozenset(Requirement(root).extras)) for root in sys.argv[2:]]
+resolved = set()
+visited = set()
+while pending:
+    requirement, parent_extras = pending.pop()
+    name = canonicalize_name(requirement.name)
+    key = (name, str(requirement.specifier), tuple(sorted(parent_extras)))
+    if key in visited:
+        continue
+    visited.add(key)
+    distribution = distributions.get(name)
+    if distribution is None or (
+        requirement.specifier
+        and not requirement.specifier.contains(distribution.version, prereleases=True)
+    ):
+        raise RuntimeError("wheel closure does not satisfy an exact requirement")
+    resolved.add((name, distribution.version))
+    environments = []
+    for extra in parent_extras or {""}:
+        environment = default_environment()
+        environment["extra"] = extra
+        environments.append(environment)
+    for dependency_text in distribution.requires or ():
+        dependency = Requirement(dependency_text)
+        if dependency.marker is not None and not any(
+            dependency.marker.evaluate(environment) for environment in environments
+        ):
+            continue
+        pending.append((dependency, frozenset(dependency.extras)))
+
+print(json.dumps(sorted([name, version] for name, version in resolved), separators=(",", ":")))
+""".strip()
 
 # Reference-solution-only compatibility constraints. These never enter model
 # rollouts or verifier containers. build123d 0.10.0 permits ocp_gordon>=0.1.17,
@@ -135,6 +261,18 @@ class TerminalBenchVMVMConfig(HarborConfig):
     oracle_solution_network_mode: Literal["declared", "public"] = "declared"
     """Network policy for trusted reference solutions; model rollouts always use the declared policy."""
 
+    oracle_source_wheel_policy: Path | None = None
+    """Hash-pinned allowlist for oracle-only source-to-wheel recovery."""
+
+    oracle_source_wheel_policy_sha256: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
+    """Required content digest for ``oracle_source_wheel_policy``."""
+
+    oracle_source_wheel_attestation_path: Path | None = None
+    """Durable source/wheel attestation ledger inside the oracle output."""
+
+    oracle_source_wheel_attestation_sha256: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
+    """Required ledger digest when resuming a source-enabled oracle."""
+
 
 class ArtifactSpec(vf.StrictBaseModel):
     source: str
@@ -156,7 +294,10 @@ class PrefetchedTestDependencies:
     archive_path: Path | None
     sha256: str | None
     universal: bool
+    resolution_fingerprint: str | None
     compatibility_fingerprint: str | None
+    wheel_evidence: tuple[WheelEvidence, ...] = ()
+    source_attestation_sha256: str | None = None
 
     @classmethod
     def store(
@@ -164,23 +305,13 @@ class PrefetchedTestDependencies:
         cache_directory: Path,
         requirements: tuple[str, ...],
         wheel_archive: bytes,
+        resolution_fingerprint: str,
         compatibility_fingerprint: str,
     ) -> "PrefetchedTestDependencies":
         archive_path = cache_directory / f"{uuid.uuid4().hex}.tar"
         try:
-            archive_path.touch(mode=0o600, exist_ok=False)
-            archive_path.write_bytes(wheel_archive)
-            wheel_names: list[str] = []
-            with tarfile.open(archive_path, mode="r:") as archive:
-                for member in archive.getmembers():
-                    parts = PurePosixPath(member.name).parts
-                    if member.isdir() and not parts:
-                        continue
-                    if not member.isfile() or len(parts) != 1 or not parts[0].lower().endswith(".whl"):
-                        raise RuntimeError("prefetched verifier wheelhouse contained an invalid archive member")
-                    wheel_names.append(parts[0])
-            if not wheel_names:
-                raise RuntimeError("prefetched verifier wheelhouse archive was empty")
+            wheel_evidence = inspect_wheelhouse(wheel_archive)
+            atomic_write_bytes(archive_path, wheel_archive, mode=0o400)
             archive_path.chmod(0o400)
         except Exception:
             archive_path.unlink(missing_ok=True)
@@ -188,9 +319,11 @@ class PrefetchedTestDependencies:
         return cls(
             requirements=requirements,
             archive_path=archive_path,
-            sha256=hashlib.sha256(wheel_archive).hexdigest(),
-            universal=all(name.lower().endswith("-none-any.whl") for name in wheel_names),
+            sha256=sha256_bytes(wheel_archive),
+            universal=all(item.universal for item in wheel_evidence),
+            resolution_fingerprint=resolution_fingerprint,
             compatibility_fingerprint=compatibility_fingerprint,
+            wheel_evidence=wheel_evidence,
         )
 
     def verify(self) -> None:
@@ -213,6 +346,29 @@ class PrefetchedTestDependencies:
         if self.sha256 != hashlib.sha256(wheel_archive).hexdigest():
             raise RuntimeError("prefetched verifier wheelhouse failed integrity check")
         return wheel_archive
+
+
+@dataclass(frozen=True)
+class VerifierDependencyOverlay:
+    site_path: str
+    bootstrap_path: str
+
+
+@dataclass(frozen=True)
+class RuntimeWheelFingerprints:
+    image: str
+    resolution: str
+    compatibility: str
+    build_tools: tuple[tuple[str, str], ...]
+    toolchain: str
+    evidence: str = ""
+
+
+def _verifier_site_bootstrap(site_path: str) -> bytes:
+    path = PurePosixPath(site_path)
+    if not path.is_absolute():
+        raise ValueError("verifier dependency site path must be absolute")
+    return f"import site\nsite.addsitedir({str(path)!r})\n".encode()
 
 
 class TerminalBenchTask(HarborTask):
@@ -494,6 +650,20 @@ def _requirement_name(requirement: str) -> str:
     return re.sub(r"[-_.]+", "-", name).lower()
 
 
+def _binary_distribution_unavailable(result: ProgramResult) -> bool:
+    """Recognize only pip's deterministic no-binary-candidate result."""
+    if result.exit_code == 0:
+        return False
+    lines = [line.strip().lower() for line in (result.stdout + result.stderr).splitlines() if line.strip()]
+    output = "\n".join(lines)
+    if not all(marker in output for marker in _BINARY_UNAVAILABLE_MARKERS):
+        return False
+    return all(
+        line.startswith(_PIP_NOTICE_PREFIXES) or any(marker in line for marker in _BINARY_UNAVAILABLE_MARKERS)
+        for line in lines
+    )
+
+
 def _merge_test_requirements(*groups: tuple[str, ...]) -> tuple[str, ...]:
     requirements: list[str] = []
     requirements_by_name: dict[str, list[str]] = {}
@@ -763,20 +933,50 @@ class TerminalBenchVMVMTaskset(
 
     def __init__(self, config: TerminalBenchVMVMConfig) -> None:
         super().__init__(config)
+        policy_fields = (
+            config.oracle_source_wheel_policy,
+            config.oracle_source_wheel_policy_sha256,
+            config.oracle_source_wheel_attestation_path,
+        )
+        if any(value is not None for value in policy_fields) and any(value is None for value in policy_fields):
+            raise ValueError(
+                "oracle source-wheel policy, policy SHA-256, and attestation path must be supplied together"
+            )
+        if config.oracle_source_wheel_attestation_sha256 is not None and config.oracle_source_wheel_policy is None:
+            raise ValueError("oracle source-wheel attestation SHA-256 requires a source-wheel policy")
+        self._source_wheel_policy = (
+            load_source_wheel_policy(
+                config.oracle_source_wheel_policy,
+                config.oracle_source_wheel_policy_sha256,
+            )
+            if config.oracle_source_wheel_policy is not None and config.oracle_source_wheel_policy_sha256 is not None
+            else None
+        )
+        self._source_wheel_attestation_path = config.oracle_source_wheel_attestation_path
+        self._source_wheel_expected_attestation_sha256 = config.oracle_source_wheel_attestation_sha256
+        self._source_wheel_attestations: dict[str, dict[str, object]] = {}
+        self._source_wheel_manifest_initial_sha256: str | None = None
+        self._source_builder_semaphore = asyncio.Semaphore(1)
+        self._task_source_wheel_attestations: dict[str, set[str]] = {}
         self._artifact_payloads: dict[str, dict[str, bytes]] = {}
         self._prefetched_test_dependencies: WeakKeyDictionary[Runtime, PrefetchedTestDependencies] = WeakKeyDictionary()
-        self._runtime_wheel_fingerprints: WeakKeyDictionary[Runtime, str] = WeakKeyDictionary()
-        self._universal_wheelhouse_cache: dict[tuple[str, ...], PrefetchedTestDependencies] = {}
-        self._compatible_wheelhouse_cache: dict[tuple[tuple[str, ...], str], PrefetchedTestDependencies] = {}
-        self._nonuniversal_wheelhouse_requirements: set[tuple[str, ...]] = set()
-        self._wheelhouse_discovery_flights: dict[tuple[str, ...], asyncio.Task[PrefetchedTestDependencies]] = {}
+        self._runtime_wheel_fingerprints: WeakKeyDictionary[Runtime, RuntimeWheelFingerprints] = WeakKeyDictionary()
+        # ``none-any`` describes wheel payloads, not the marker-conditioned
+        # dependency closure that pip selected for the runtime.
+        self._universal_wheelhouse_cache: dict[tuple[tuple[str, ...], str, str], PrefetchedTestDependencies] = {}
+        self._compatible_wheelhouse_cache: dict[tuple[tuple[str, ...], str, str, str], PrefetchedTestDependencies] = {}
+        self._nonuniversal_wheelhouse_requirements: set[tuple[tuple[str, ...], str, str]] = set()
+        self._wheelhouse_discovery_flights: dict[
+            tuple[tuple[str, ...], str, str], asyncio.Task[PrefetchedTestDependencies]
+        ] = {}
         self._wheelhouse_compatibility_flights: dict[
-            tuple[tuple[str, ...], str], asyncio.Task[PrefetchedTestDependencies]
+            tuple[tuple[str, ...], str, str, str], asyncio.Task[PrefetchedTestDependencies]
         ] = {}
         self._wheelhouse_flight_runtimes: dict[asyncio.Task[PrefetchedTestDependencies], Runtime] = {}
         self._wheelhouse_cache_lock = asyncio.Lock()
         self._wheelhouse_cache_directory: tempfile.TemporaryDirectory[str] | None = None
         self._wheelhouse_cache_closed = False
+        self._load_source_wheel_attestations()
 
     def _wheelhouse_cache_path(self) -> Path:
         if self._wheelhouse_cache_closed:
@@ -787,6 +987,556 @@ class TerminalBenchVMVMTaskset(
             )
         return Path(self._wheelhouse_cache_directory.name)
 
+    @property
+    def source_wheel_policy_sha256(self) -> str | None:
+        return self._source_wheel_policy.sha256 if self._source_wheel_policy is not None else None
+
+    @property
+    def source_wheel_attestation_sha256(self) -> str | None:
+        path = self._source_wheel_attestation_path
+        if path is None or not path.is_file():
+            return None
+        payload = path.read_bytes()
+        if payload != self._source_wheel_manifest_payload(self._source_wheel_attestations):
+            raise RuntimeError("durable source-wheel attestation changed unexpectedly")
+        return hashlib.sha256(payload).hexdigest()
+
+    @property
+    def known_source_wheel_attestation_sha256s(self) -> frozenset[str]:
+        return frozenset(str(entry["attestation_sha256"]) for entry in self._source_wheel_attestations.values())
+
+    def begin_task_dependency_attestations(self, task: TerminalBenchTask) -> None:
+        if task.slug in self._task_source_wheel_attestations:
+            raise RuntimeError(f"{task.name}: dependency attestation collection is already active")
+        self._task_source_wheel_attestations[task.slug] = set()
+
+    def finish_task_dependency_attestations(self, task: TerminalBenchTask) -> list[str]:
+        return sorted(self._task_source_wheel_attestations.pop(task.slug, set()))
+
+    def _policy_cache_salt(self) -> str:
+        return self.source_wheel_policy_sha256 or "binary-only"
+
+    @staticmethod
+    def _source_policy_evidence(source: SourceArtifactPolicy) -> dict[str, object]:
+        return {
+            "distribution": source.distribution,
+            "version": source.version,
+            "filename": source.filename,
+            "url": source.url,
+            "size": source.size,
+            "sha256": source.sha256,
+            "wheel_filename": source.wheel_filename,
+            "wheel_size": source.wheel_size,
+            "wheel_sha256": source.wheel_sha256,
+        }
+
+    @staticmethod
+    def _binary_wheel_policy_evidence(wheel: BinaryWheelPolicy) -> dict[str, object]:
+        return {
+            "distribution": wheel.distribution,
+            "version": wheel.version,
+            "filename": wheel.filename,
+            "url": wheel.url,
+            "size": wheel.size,
+            "sha256": wheel.sha256,
+        }
+
+    @staticmethod
+    def _source_cache_key_data(
+        requirements: tuple[str, ...],
+        fingerprints: RuntimeWheelFingerprints,
+        policy_sha256: str,
+    ) -> dict[str, object]:
+        return {
+            "requirements": list(requirements),
+            "image": fingerprints.image,
+            "resolution_fingerprint": fingerprints.resolution,
+            "compatibility_fingerprint": fingerprints.compatibility,
+            "toolchain_fingerprint": fingerprints.toolchain,
+            "build_tools": dict(fingerprints.build_tools),
+            "policy_sha256": policy_sha256,
+        }
+
+    @classmethod
+    def _source_cache_key(
+        cls,
+        requirements: tuple[str, ...],
+        fingerprints: RuntimeWheelFingerprints,
+        policy_sha256: str,
+    ) -> str:
+        return hashlib.sha256(
+            canonical_json(cls._source_cache_key_data(requirements, fingerprints, policy_sha256))
+        ).hexdigest()
+
+    def _source_wheel_manifest_payload(
+        self,
+        entries: dict[str, dict[str, object]],
+    ) -> bytes:
+        assert self._source_wheel_policy is not None
+        ordered_entries = [entries[key] for key in sorted(entries)]
+        manifest = {
+            "schema_version": SOURCE_WHEEL_ATTESTATION_SCHEMA_VERSION,
+            "policy_sha256": self._source_wheel_policy.sha256,
+            "entries_sha256": hashlib.sha256(canonical_json(ordered_entries)).hexdigest(),
+            "entries": ordered_entries,
+        }
+        return canonical_json(manifest) + b"\n"
+
+    def _validated_source_wheel_attestation(
+        self,
+        raw: object,
+    ) -> tuple[str, PrefetchedTestDependencies]:
+        if self._source_wheel_policy is None or self._source_wheel_attestation_path is None:
+            raise RuntimeError("source-wheel attestation exists without an active policy")
+        if not isinstance(raw, dict) or set(raw) != {
+            "schema_version",
+            "cache_key_sha256",
+            "policy_sha256",
+            "requirements",
+            "target",
+            "build_contract",
+            "sources",
+            "binary_wheels",
+            "resolution",
+            "wheels",
+            "wheelhouse",
+            "attestation_sha256",
+        }:
+            raise RuntimeError("source-wheel attestation entry has an invalid schema")
+        if raw["schema_version"] != SOURCE_WHEEL_ATTESTATION_SCHEMA_VERSION:
+            raise RuntimeError("source-wheel attestation entry has an unsupported schema")
+        attestation_sha256 = raw["attestation_sha256"]
+        core = {key: value for key, value in raw.items() if key != "attestation_sha256"}
+        if (
+            not isinstance(attestation_sha256, str)
+            or attestation_sha256 != hashlib.sha256(canonical_json(core)).hexdigest()
+        ):
+            raise RuntimeError("source-wheel attestation entry digest mismatch")
+        requirements_raw = raw["requirements"]
+        target = raw["target"]
+        if (
+            not isinstance(requirements_raw, list)
+            or not all(isinstance(item, str) for item in requirements_raw)
+            or not isinstance(target, dict)
+            or set(target)
+            != {
+                "image",
+                "resolution_fingerprint",
+                "compatibility_fingerprint",
+                "toolchain_fingerprint",
+                "runtime",
+            }
+            or not all(
+                isinstance(target.get(key), str) and re.fullmatch(r"[0-9a-f]{64}", target[key])
+                for key in ("resolution_fingerprint", "compatibility_fingerprint", "toolchain_fingerprint")
+            )
+            or not isinstance(target.get("image"), str)
+            or not is_digest_pinned_image(target["image"])
+            or raw["policy_sha256"] != self._source_wheel_policy.sha256
+        ):
+            raise RuntimeError("source-wheel attestation target is invalid")
+        runtime_evidence = target["runtime"]
+        expected_marker_keys = {
+            "implementation_name",
+            "implementation_version",
+            "os_name",
+            "platform_machine",
+            "platform_python_implementation",
+            "platform_release",
+            "platform_system",
+            "platform_version",
+            "python_full_version",
+            "python_version",
+            "sys_platform",
+        }
+        if (
+            not isinstance(runtime_evidence, dict)
+            or set(runtime_evidence) != {"marker_environment", "pip_version", "wheel_compatibility", "build_tools"}
+            or not isinstance(runtime_evidence["marker_environment"], dict)
+            or set(runtime_evidence["marker_environment"]) != expected_marker_keys
+            or not all(isinstance(value, str) for value in runtime_evidence["marker_environment"].values())
+            or not isinstance(runtime_evidence["pip_version"], str)
+            or not runtime_evidence["pip_version"]
+            or not isinstance(runtime_evidence["wheel_compatibility"], list)
+            or len(runtime_evidence["wheel_compatibility"]) != 5
+            or not isinstance(runtime_evidence["wheel_compatibility"][0], str)
+            or not runtime_evidence["wheel_compatibility"][0]
+            or not isinstance(runtime_evidence["wheel_compatibility"][1], list)
+            or len(runtime_evidence["wheel_compatibility"][1]) != 2
+            or not all(
+                not isinstance(value, bool) and isinstance(value, int) and value >= 0
+                for value in runtime_evidence["wheel_compatibility"][1]
+            )
+            or not all(isinstance(value, str) and value for value in runtime_evidence["wheel_compatibility"][2:])
+            or not isinstance(runtime_evidence["build_tools"], dict)
+            or set(runtime_evidence["build_tools"]) != {"pip", "setuptools", "wheel"}
+            or not all(isinstance(value, str) and value for value in runtime_evidence["build_tools"].values())
+        ):
+            raise RuntimeError("source-wheel attestation runtime evidence is invalid")
+        expected_resolution_fingerprint = hashlib.sha256(
+            canonical_json([runtime_evidence["marker_environment"], runtime_evidence["pip_version"]])
+        ).hexdigest()
+        expected_compatibility_fingerprint = hashlib.sha256(
+            canonical_json(
+                [
+                    target["image"],
+                    runtime_evidence["marker_environment"],
+                    runtime_evidence["pip_version"],
+                    runtime_evidence["wheel_compatibility"],
+                    runtime_evidence["build_tools"],
+                ]
+            )
+        ).hexdigest()
+        expected_toolchain_fingerprint = hashlib.sha256(
+            canonical_json([target["image"], runtime_evidence["build_tools"]])
+        ).hexdigest()
+        if (
+            target["resolution_fingerprint"] != expected_resolution_fingerprint
+            or target["compatibility_fingerprint"] != expected_compatibility_fingerprint
+            or target["toolchain_fingerprint"] != expected_toolchain_fingerprint
+        ):
+            raise RuntimeError("source-wheel attestation runtime fingerprints do not match their evidence")
+        if raw["build_contract"] != {
+            "artifact_download_network": "public-hash-pinned-https",
+            "builder_lease_limit": 1,
+            "build_network": "no-network",
+            "build_isolation": False,
+            "dependency_resolution": "explicit-policy-artifacts",
+            "isolated_python": True,
+            "staged_inputs": "policy-artifacts-only",
+            "target_install": "offline-no-index-no-deps",
+        }:
+            raise RuntimeError("source-wheel attestation build contract is invalid")
+        requirements = tuple(requirements_raw)
+        fingerprints = RuntimeWheelFingerprints(
+            image=target["image"],
+            resolution=target["resolution_fingerprint"],
+            compatibility=target["compatibility_fingerprint"],
+            build_tools=tuple(sorted(runtime_evidence["build_tools"].items())),
+            toolchain=target["toolchain_fingerprint"],
+            evidence=canonical_json(runtime_evidence).decode(),
+        )
+        cache_key = self._source_cache_key(requirements, fingerprints, self._source_wheel_policy.sha256)
+        if raw["cache_key_sha256"] != cache_key:
+            raise RuntimeError("source-wheel attestation cache-key mismatch")
+        policy_entry = self._source_wheel_policy.entry_for(
+            requirements,
+            fingerprints.image,
+            fingerprints.build_tools,
+        )
+        expected_sources = [self._source_consumption_evidence(source) for source in policy_entry.sources]
+        expected_binary_wheels = [self._binary_wheel_policy_evidence(wheel) for wheel in policy_entry.binary_wheels]
+        if raw["sources"] != expected_sources or raw["binary_wheels"] != expected_binary_wheels:
+            raise RuntimeError("source-wheel attestation does not match the approved policy artifacts")
+        expected_closure = [
+            [distribution, version]
+            for distribution, version in sorted(
+                (distribution, version) for distribution, version, *_ in policy_entry.expected_wheels
+            )
+        ]
+        resolution = raw["resolution"]
+        if (
+            not isinstance(resolution, dict)
+            or set(resolution) != {"roots", "closure", "sha256"}
+            or resolution.get("roots") != list(requirements)
+            or resolution.get("closure") != expected_closure
+            or resolution.get("sha256")
+            != hashlib.sha256(canonical_json({"roots": list(requirements), "closure": expected_closure})).hexdigest()
+        ):
+            raise RuntimeError("source-wheel attestation resolution report is invalid")
+        wheelhouse = raw["wheelhouse"]
+        expected_relative_path = f"source_wheel_cache/{cache_key}.tar"
+        if (
+            not isinstance(wheelhouse, dict)
+            or set(wheelhouse) != {"path", "size", "sha256"}
+            or wheelhouse.get("path") != expected_relative_path
+            or isinstance(wheelhouse.get("size"), bool)
+            or not isinstance(wheelhouse.get("size"), int)
+            or wheelhouse["size"] < 1
+            or not isinstance(wheelhouse.get("sha256"), str)
+            or re.fullmatch(r"[0-9a-f]{64}", wheelhouse["sha256"]) is None
+        ):
+            raise RuntimeError("source-wheel attestation wheelhouse record is invalid")
+        archive_path = self._source_wheel_attestation_path.parent / expected_relative_path
+        if not regular_private_file(archive_path):
+            raise RuntimeError("source-wheel attested wheelhouse is missing or not a private regular file")
+        archive = archive_path.read_bytes()
+        if len(archive) != wheelhouse["size"] or sha256_bytes(archive) != wheelhouse["sha256"]:
+            raise RuntimeError("source-wheel attested wheelhouse failed independent integrity validation")
+        evidence = inspect_wheelhouse(archive)
+        if wheel_evidence_dicts(evidence) != raw["wheels"]:
+            raise RuntimeError("source-wheel attested wheel evidence does not match the wheelhouse")
+        expected_wheels = {
+            filename: (distribution, version, size, digest)
+            for distribution, version, filename, size, digest in policy_entry.expected_wheels
+        }
+        if {
+            item.filename: (item.distribution, item.version, item.size, item.sha256) for item in evidence
+        } != expected_wheels:
+            raise RuntimeError("source-wheel attested closure does not match the approved policy")
+        return cache_key, PrefetchedTestDependencies(
+            requirements=requirements,
+            archive_path=archive_path,
+            sha256=wheelhouse["sha256"],
+            universal=False,
+            resolution_fingerprint=fingerprints.resolution,
+            compatibility_fingerprint=fingerprints.compatibility,
+            wheel_evidence=evidence,
+            source_attestation_sha256=attestation_sha256,
+        )
+
+    def _load_source_wheel_attestations(self) -> None:
+        path = self._source_wheel_attestation_path
+        if path is None:
+            return
+        expected_sha256 = self._source_wheel_expected_attestation_sha256
+        cache_directory = path.parent / "source_wheel_cache"
+        manifest_temporary_re = re.compile(rf"\.{re.escape(path.name)}\.[1-9][0-9]*\.[0-9a-f]{{32}}\.tmp")
+        try:
+            staged_manifests = [entry for entry in path.parent.iterdir() if manifest_temporary_re.fullmatch(entry.name)]
+        except OSError as error:
+            raise ValueError("source-wheel attestation directory is unreadable") from error
+        for staged_manifest in staged_manifests:
+            if not regular_private_file(staged_manifest):
+                raise ValueError("source-wheel attestation has an unsafe interrupted publication")
+            staged_manifest.unlink()
+        if not path.exists():
+            if expected_sha256 is not None:
+                raise ValueError("approved source-wheel attestation is missing")
+            self._discard_orphaned_source_wheel_cache(cache_directory, frozenset())
+            return
+        if expected_sha256 is None:
+            raise ValueError("resuming source-wheel recovery requires the approved attestation SHA-256")
+        if not regular_private_file(path):
+            raise ValueError("source-wheel attestation must be a private regular file")
+        payload = path.read_bytes()
+        observed_sha256 = sha256_bytes(payload)
+        if observed_sha256 != expected_sha256:
+            raise ValueError("source-wheel attestation SHA-256 mismatch")
+        try:
+            manifest = strict_json_loads(payload)
+        except (UnicodeDecodeError, ValueError, RecursionError) as error:
+            raise ValueError("source-wheel attestation is not valid JSON") from error
+        if not isinstance(manifest, dict) or set(manifest) != {
+            "schema_version",
+            "policy_sha256",
+            "entries_sha256",
+            "entries",
+        }:
+            raise ValueError("source-wheel attestation manifest has an invalid schema")
+        entries = manifest["entries"]
+        if (
+            manifest["schema_version"] != SOURCE_WHEEL_ATTESTATION_SCHEMA_VERSION
+            or self._source_wheel_policy is None
+            or manifest["policy_sha256"] != self._source_wheel_policy.sha256
+            or not isinstance(entries, list)
+            or manifest["entries_sha256"] != hashlib.sha256(canonical_json(entries)).hexdigest()
+        ):
+            raise ValueError("source-wheel attestation manifest failed independent validation")
+        loaded: dict[str, dict[str, object]] = {}
+        for raw_entry in entries:
+            cache_key, wheelhouse = self._validated_source_wheel_attestation(raw_entry)
+            if cache_key in loaded:
+                raise ValueError("source-wheel attestation manifest contains a duplicate cache key")
+            loaded[cache_key] = raw_entry
+            compatible_key = (
+                wheelhouse.requirements,
+                wheelhouse.compatibility_fingerprint or "",
+                self._source_wheel_policy.sha256,
+                str(raw_entry["target"]["toolchain_fingerprint"]),
+            )
+            self._compatible_wheelhouse_cache[compatible_key] = wheelhouse
+            self._nonuniversal_wheelhouse_requirements.add(
+                (
+                    wheelhouse.requirements,
+                    wheelhouse.resolution_fingerprint or "",
+                    self._source_wheel_policy.sha256,
+                )
+            )
+        expected_cache_files = {f"{cache_key}.tar" for cache_key in loaded}
+        self._discard_orphaned_source_wheel_cache(
+            cache_directory,
+            frozenset(expected_cache_files),
+        )
+        self._source_wheel_attestations = loaded
+        self._source_wheel_manifest_initial_sha256 = observed_sha256
+
+    @staticmethod
+    def _discard_orphaned_source_wheel_cache(
+        cache_directory: Path,
+        expected_filenames: frozenset[str],
+    ) -> None:
+        try:
+            cache_status = cache_directory.lstat()
+        except FileNotFoundError:
+            if expected_filenames:
+                raise ValueError("source-wheel cache directory is missing")
+            return
+        try:
+            entries = list(cache_directory.iterdir())
+        except OSError as error:
+            raise ValueError("source-wheel cache directory is unreadable") from error
+        if not stat.S_ISDIR(cache_status.st_mode) or stat.S_IMODE(cache_status.st_mode) != 0o700:
+            raise ValueError("source-wheel cache directory must be a private real directory")
+        observed = {entry.name for entry in entries}
+        if not expected_filenames.issubset(observed):
+            raise ValueError("source-wheel cache directory is missing an attested archive")
+        for entry in entries:
+            if entry.name in expected_filenames:
+                continue
+            if not (
+                _SOURCE_WHEEL_CACHE_FILE_RE.fullmatch(entry.name) or _SOURCE_WHEEL_CACHE_TEMP_RE.fullmatch(entry.name)
+            ) or not regular_private_file(entry):
+                raise ValueError("source-wheel cache directory contains an unsafe unreferenced artifact")
+            entry.unlink()
+        directory_descriptor = os.open(cache_directory, os.O_RDONLY | getattr(os, "O_DIRECTORY", 0))
+        try:
+            os.fsync(directory_descriptor)
+        finally:
+            os.close(directory_descriptor)
+
+    def revalidate_source_wheel_attestations(self) -> None:
+        path = self._source_wheel_attestation_path
+        initial_sha256 = self._source_wheel_manifest_initial_sha256
+        if path is None:
+            return
+        if initial_sha256 is None:
+            if path.exists():
+                raise RuntimeError("source-wheel attestation appeared before the oracle writer lock was acquired")
+            return
+        if not regular_private_file(path) or sha256_bytes(path.read_bytes()) != initial_sha256:
+            raise RuntimeError("source-wheel attestation changed before the oracle writer lock was acquired")
+
+    def initialize_source_wheel_attestations(self, *, allow_create: bool) -> None:
+        path = self._source_wheel_attestation_path
+        if path is None:
+            return
+        if path.exists():
+            self.revalidate_source_wheel_attestations()
+            return
+        if not allow_create:
+            raise RuntimeError(
+                "resuming source-wheel recovery requires an approved attestation, including an empty one"
+            )
+        payload = self._source_wheel_manifest_payload({})
+        atomic_write_bytes(path, payload, mode=0o400)
+        self._source_wheel_manifest_initial_sha256 = sha256_bytes(payload)
+
+    def _publish_source_wheel_attestation(
+        self,
+        requirements: tuple[str, ...],
+        fingerprints: RuntimeWheelFingerprints,
+        policy_entry: SourceWheelPolicyEntry,
+        wheel_archive: bytes,
+        wheel_evidence: tuple[WheelEvidence, ...],
+        resolution_closure: tuple[tuple[str, str], ...],
+    ) -> PrefetchedTestDependencies:
+        if self._source_wheel_policy is None or self._source_wheel_attestation_path is None:
+            raise RuntimeError("source-wheel recovery cannot publish without a durable policy and attestation path")
+        cache_key = self._source_cache_key(requirements, fingerprints, self._source_wheel_policy.sha256)
+        existing = self._source_wheel_attestations.get(cache_key)
+        if existing is not None:
+            _, wheelhouse = self._validated_source_wheel_attestation(existing)
+            return wheelhouse
+        expected_resolution_closure = tuple(
+            sorted((distribution, version) for distribution, version, *_ in policy_entry.expected_wheels)
+        )
+        if resolution_closure != expected_resolution_closure:
+            raise RuntimeError("source-built wheel resolution does not match the approved policy closure")
+        relative_path = f"source_wheel_cache/{cache_key}.tar"
+        cache_directory = self._source_wheel_attestation_path.parent / "source_wheel_cache"
+        cache_directory.mkdir(mode=0o700, parents=True, exist_ok=True)
+        cache_status = cache_directory.lstat()
+        if not stat.S_ISDIR(cache_status.st_mode) or stat.S_IMODE(cache_status.st_mode) != 0o700:
+            raise RuntimeError("source-wheel cache directory must be a private real directory")
+        archive_path = self._source_wheel_attestation_path.parent / relative_path
+        archive_sha256 = sha256_bytes(wheel_archive)
+        resolution = {
+            "roots": list(requirements),
+            "closure": [[distribution, version] for distribution, version in resolution_closure],
+        }
+        core: dict[str, object] = {
+            "schema_version": SOURCE_WHEEL_ATTESTATION_SCHEMA_VERSION,
+            "cache_key_sha256": cache_key,
+            "policy_sha256": self._source_wheel_policy.sha256,
+            "requirements": list(requirements),
+            "target": {
+                "image": fingerprints.image,
+                "resolution_fingerprint": fingerprints.resolution,
+                "compatibility_fingerprint": fingerprints.compatibility,
+                "toolchain_fingerprint": fingerprints.toolchain,
+                "runtime": json.loads(fingerprints.evidence),
+            },
+            "build_contract": {
+                "artifact_download_network": "public-hash-pinned-https",
+                "builder_lease_limit": 1,
+                "build_network": "no-network",
+                "build_isolation": False,
+                "dependency_resolution": "explicit-policy-artifacts",
+                "isolated_python": True,
+                "staged_inputs": "policy-artifacts-only",
+                "target_install": "offline-no-index-no-deps",
+            },
+            "sources": [self._source_consumption_evidence(source) for source in policy_entry.sources],
+            "binary_wheels": [self._binary_wheel_policy_evidence(wheel) for wheel in policy_entry.binary_wheels],
+            "resolution": {
+                **resolution,
+                "sha256": hashlib.sha256(canonical_json(resolution)).hexdigest(),
+            },
+            "wheels": wheel_evidence_dicts(wheel_evidence),
+            "wheelhouse": {
+                "path": relative_path,
+                "size": len(wheel_archive),
+                "sha256": archive_sha256,
+            },
+        }
+        entry = {
+            **core,
+            "attestation_sha256": hashlib.sha256(canonical_json(core)).hexdigest(),
+        }
+        published_archive = False
+        manifest: bytes | None = None
+        try:
+            if self._source_wheel_attestation_path.exists():
+                if not regular_private_file(
+                    self._source_wheel_attestation_path
+                ) or self._source_wheel_attestation_path.read_bytes() != self._source_wheel_manifest_payload(
+                    self._source_wheel_attestations
+                ):
+                    raise RuntimeError("durable source-wheel attestation changed before publication")
+            atomic_write_bytes(archive_path, wheel_archive, mode=0o400)
+            published_archive = True
+            entries = {**self._source_wheel_attestations, cache_key: entry}
+            manifest = self._source_wheel_manifest_payload(entries)
+            atomic_write_bytes(
+                self._source_wheel_attestation_path,
+                manifest,
+                mode=0o400,
+                replace=self._source_wheel_attestation_path.exists(),
+            )
+        except BaseException:
+            if published_archive:
+                try:
+                    manifest_references_archive = (
+                        manifest is not None and self._source_wheel_attestation_path.read_bytes() == manifest
+                    )
+                except OSError:
+                    manifest_references_archive = True
+                if not manifest_references_archive:
+                    archive_path.unlink(missing_ok=True)
+            raise
+        self._source_wheel_attestations[cache_key] = entry
+        return PrefetchedTestDependencies(
+            requirements=requirements,
+            archive_path=archive_path,
+            sha256=archive_sha256,
+            universal=False,
+            resolution_fingerprint=fingerprints.resolution,
+            compatibility_fingerprint=fingerprints.compatibility,
+            wheel_evidence=wheel_evidence,
+            source_attestation_sha256=str(entry["attestation_sha256"]),
+        )
+
     def _cleanup_wheelhouse_cache(self) -> None:
         self._prefetched_test_dependencies.clear()
         self._runtime_wheel_fingerprints.clear()
@@ -796,6 +1546,7 @@ class TerminalBenchVMVMTaskset(
         self._wheelhouse_discovery_flights.clear()
         self._wheelhouse_compatibility_flights.clear()
         self._wheelhouse_flight_runtimes.clear()
+        self._task_source_wheel_attestations.clear()
         directory = self._wheelhouse_cache_directory
         self._wheelhouse_cache_directory = None
         if directory is not None:
@@ -1013,6 +1764,8 @@ class TerminalBenchVMVMTaskset(
     async def setup(self, task: TerminalBenchTask, runtime: Runtime) -> None:
         # Model rollouts always use the task's declared network policy.  The
         # oracle compatibility option is intentionally invisible here.
+        if self._source_wheel_policy is not None:
+            raise RuntimeError("source-wheel recovery is restricted to trusted oracle execution")
         await self._setup(task, runtime, oracle_solution_network_mode="declared")
 
     async def setup_oracle(self, task: TerminalBenchTask, runtime: Runtime) -> None:
@@ -1316,6 +2069,8 @@ class TerminalBenchVMVMTaskset(
         task: TerminalBenchTask,
         runtime: Runtime,
         requirements: tuple[str, ...] | None = None,
+        *,
+        site_path: str | None = None,
     ) -> tuple[str, ...]:
         if requirements is None:
             requirements = self._test_requirements(task)
@@ -1323,6 +2078,7 @@ class TerminalBenchVMVMTaskset(
             return ()
         probe_code = """
 import importlib.metadata as metadata
+import os
 import sys
 
 try:
@@ -1333,6 +2089,16 @@ except ModuleNotFoundError:
     from pip._vendor.packaging.markers import default_environment
     from pip._vendor.packaging.requirements import Requirement
     from pip._vendor.packaging.utils import canonicalize_name
+
+
+site_path = os.environ.get(__VERIFIER_SITE_ENV__)
+site_distributions = None
+if site_path is not None:
+    site_distributions = {}
+    for distribution in metadata.distributions(path=[site_path]):
+        name = distribution.metadata.get("Name")
+        if name:
+            site_distributions[canonicalize_name(name)] = distribution
 
 
 def requirement_is_satisfied(root_text):
@@ -1349,10 +2115,15 @@ def requirement_is_satisfied(root_text):
             if key in visited:
                 continue
             visited.add(key)
-            try:
-                distribution = metadata.distribution(requirement.name)
-            except metadata.PackageNotFoundError:
-                return False
+            if site_distributions is None:
+                try:
+                    distribution = metadata.distribution(requirement.name)
+                except metadata.PackageNotFoundError:
+                    return False
+            else:
+                distribution = site_distributions.get(canonicalize_name(requirement.name))
+                if distribution is None:
+                    return False
             if requirement.specifier and not requirement.specifier.contains(
                 distribution.version,
                 prereleases=True,
@@ -1378,12 +2149,12 @@ def requirement_is_satisfied(root_text):
 for requirement in sys.argv[1:]:
     if not requirement_is_satisfied(requirement):
         print(requirement)
-""".strip()
+""".replace("__VERIFIER_SITE_ENV__", repr(_VERIFIER_SITE_ENV)).strip()
         # Distribution names are not always import names (for example,
         # psycopg2-binary), so probe package metadata rather than imports.
         available = await runtime.run(
             ["python3", "-c", probe_code, *requirements],
-            {},
+            {_VERIFIER_SITE_ENV: site_path} if site_path is not None else {},
         )
         if available.exit_code != 0:
             return requirements
@@ -1420,7 +2191,7 @@ for requirement in sys.argv[1:]:
         self,
         task: TerminalBenchTask,
         runtime: Runtime,
-    ) -> str:
+    ) -> RuntimeWheelFingerprints:
         cached = self._runtime_wheel_fingerprints.get(runtime)
         if cached is not None:
             return cached
@@ -1428,10 +2199,42 @@ for requirement in sys.argv[1:]:
         if not isinstance(image, str) or not image:
             raise RuntimeError(f"{task.name}: verifier wheel caching requires an exact runtime image reference")
         probe_code = (
-            "import json, platform, sys, sysconfig; "
-            "print(json.dumps([sys.implementation.name, list(sys.version_info[:2]), "
-            "sysconfig.get_config_var('SOABI'), sysconfig.get_platform(), platform.machine()], "
-            "separators=(',', ':')))"
+            "import importlib.metadata as metadata\n"
+            "import json, os, pip, platform, sys, sysconfig\n"
+            "def full_version(info):\n"
+            "    value = f'{info.major}.{info.minor}.{info.micro}'\n"
+            "    if info.releaselevel != 'final':\n"
+            "        value += info.releaselevel[0] + str(info.serial)\n"
+            "    return value\n"
+            "marker_environment = {\n"
+            "    'implementation_name': sys.implementation.name,\n"
+            "    'implementation_version': full_version(sys.implementation.version),\n"
+            "    'os_name': os.name,\n"
+            "    'platform_machine': platform.machine(),\n"
+            "    'platform_release': platform.release(),\n"
+            "    'platform_system': platform.system(),\n"
+            "    'platform_version': platform.version(),\n"
+            "    'python_full_version': platform.python_version(),\n"
+            "    'platform_python_implementation': platform.python_implementation(),\n"
+            "    'python_version': '.'.join(platform.python_version_tuple()[:2]),\n"
+            "    'sys_platform': sys.platform,\n"
+            "}\n"
+            "wheel_compatibility = [\n"
+            "    sys.implementation.name, list(sys.version_info[:2]),\n"
+            "    sysconfig.get_config_var('SOABI'), sysconfig.get_platform(), platform.machine(),\n"
+            "]\n"
+            "build_tools = {}\n"
+            "for distribution in ('pip', 'setuptools', 'wheel'):\n"
+            "    try:\n"
+            "        build_tools[distribution] = metadata.version(distribution)\n"
+            "    except metadata.PackageNotFoundError:\n"
+            "        build_tools[distribution] = '<missing>'\n"
+            "print(json.dumps({\n"
+            "    'marker_environment': marker_environment,\n"
+            "    'pip_version': pip.__version__,\n"
+            "    'wheel_compatibility': wheel_compatibility,\n"
+            "    'build_tools': build_tools,\n"
+            "}, separators=(',', ':'), sort_keys=True))"
         )
         probed = await runtime.run(["python3", "-c", probe_code], {})
         if probed.exit_code != 0 or not probed.stdout.strip():
@@ -1439,27 +2242,105 @@ for requirement in sys.argv[1:]:
                 f"{task.name}: verifier wheel compatibility probe failed: {(probed.stdout + probed.stderr)[-2000:]}"
             )
         try:
-            compatibility = json.loads(probed.stdout.strip())
+            probe = json.loads(probed.stdout.strip())
         except json.JSONDecodeError as error:
             raise RuntimeError(f"{task.name}: verifier wheel compatibility probe returned invalid JSON") from error
-        if not isinstance(compatibility, list) or len(compatibility) != 5:
+        expected_marker_keys = {
+            "implementation_name",
+            "implementation_version",
+            "os_name",
+            "platform_machine",
+            "platform_release",
+            "platform_system",
+            "platform_version",
+            "python_full_version",
+            "platform_python_implementation",
+            "python_version",
+            "sys_platform",
+        }
+        if not isinstance(probe, dict) or set(probe) != {
+            "build_tools",
+            "marker_environment",
+            "pip_version",
+            "wheel_compatibility",
+        }:
             raise RuntimeError(f"{task.name}: verifier wheel compatibility probe returned an invalid fingerprint")
-        fingerprint = hashlib.sha256(
-            json.dumps([image, compatibility], separators=(",", ":"), sort_keys=True).encode()
+        marker_environment = probe["marker_environment"]
+        pip_version = probe["pip_version"]
+        compatibility = probe["wheel_compatibility"]
+        build_tools_raw = probe["build_tools"]
+        if (
+            not isinstance(marker_environment, dict)
+            or set(marker_environment) != expected_marker_keys
+            or not all(isinstance(value, str) for value in marker_environment.values())
+            or not isinstance(pip_version, str)
+            or not pip_version
+            or not isinstance(build_tools_raw, dict)
+            or set(build_tools_raw) != {"pip", "setuptools", "wheel"}
+            or not all(isinstance(value, str) and value for value in build_tools_raw.values())
+        ):
+            raise RuntimeError(f"{task.name}: verifier wheel compatibility probe returned an invalid fingerprint")
+        if (
+            not isinstance(compatibility, list)
+            or len(compatibility) != 5
+            or not isinstance(compatibility[0], str)
+            or not compatibility[0]
+            or not isinstance(compatibility[1], list)
+            or len(compatibility[1]) != 2
+            or not all(
+                not isinstance(value, bool) and isinstance(value, int) and value >= 0 for value in compatibility[1]
+            )
+            or not all(isinstance(value, str) and value for value in compatibility[2:])
+        ):
+            raise RuntimeError(f"{task.name}: verifier wheel compatibility probe returned an invalid fingerprint")
+        resolution_fingerprint = hashlib.sha256(
+            json.dumps(
+                [marker_environment, pip_version],
+                separators=(",", ":"),
+                sort_keys=True,
+            ).encode()
         ).hexdigest()
-        self._runtime_wheel_fingerprints[runtime] = fingerprint
-        return fingerprint
+        compatibility_fingerprint = hashlib.sha256(
+            json.dumps(
+                [image, marker_environment, pip_version, compatibility, build_tools_raw],
+                separators=(",", ":"),
+                sort_keys=True,
+            ).encode()
+        ).hexdigest()
+        build_tools = tuple(sorted(build_tools_raw.items()))
+        toolchain_fingerprint = hashlib.sha256(
+            json.dumps(
+                [image, build_tools_raw],
+                separators=(",", ":"),
+                sort_keys=True,
+            ).encode()
+        ).hexdigest()
+        fingerprints = RuntimeWheelFingerprints(
+            image=image,
+            resolution=resolution_fingerprint,
+            compatibility=compatibility_fingerprint,
+            build_tools=build_tools,
+            toolchain=toolchain_fingerprint,
+            evidence=canonical_json(probe).decode(),
+        )
+        self._runtime_wheel_fingerprints[runtime] = fingerprints
+        return fingerprints
 
     async def _build_test_dependency_wheelhouse(
         self,
         task: TerminalBenchTask,
         runtime: Runtime,
         requirements: tuple[str, ...],
+        resolution_fingerprint: str,
         compatibility_fingerprint: str,
     ) -> PrefetchedTestDependencies:
+        fingerprints = await self._runtime_wheel_fingerprint(task, runtime)
+        if fingerprints.resolution != resolution_fingerprint or fingerprints.compatibility != compatibility_fingerprint:
+            raise RuntimeError(f"{task.name}: verifier wheel fingerprint changed during cache construction")
         digest = hashlib.sha256("\0".join(requirements).encode()).hexdigest()[:16]
         wheel_dir = f"/tmp/terminal-bench-verifier-wheels-{digest}-{uuid.uuid4().hex[:12]}"
         archive_path = f"{wheel_dir}.tar"
+        built: ProgramResult | None = None
         try:
             prepared = await self._run_root(
                 runtime,
@@ -1490,9 +2371,16 @@ for requirement in sys.argv[1:]:
                 {},
             )
             if built.exit_code != 0:
-                raise RuntimeError(
-                    f"{task.name}: verifier wheel prefetch failed for {requirements}: "
-                    f"{(built.stdout + built.stderr)[-4000:]}"
+                if self._source_wheel_policy is None or not _binary_distribution_unavailable(built):
+                    raise RuntimeError(
+                        f"{task.name}: verifier wheel prefetch failed for {requirements}: "
+                        f"{(built.stdout + built.stderr)[-4000:]}"
+                    )
+                return await self._build_source_dependency_wheelhouse(
+                    task,
+                    runtime,
+                    requirements,
+                    fingerprints,
                 )
             archived = await self._run_root(
                 runtime,
@@ -1527,7 +2415,366 @@ for requirement in sys.argv[1:]:
             self._wheelhouse_cache_path(),
             requirements,
             wheel_archive,
+            resolution_fingerprint,
             compatibility_fingerprint,
+        )
+
+    @staticmethod
+    async def _start_builder_uninterruptibly(builder: Runtime) -> None:
+        start_task = asyncio.create_task(builder.start())
+        cancellation: asyncio.CancelledError | None = None
+        while not start_task.done():
+            try:
+                await asyncio.shield(start_task)
+            except asyncio.CancelledError as error:
+                cancellation = error
+        start_task.result()
+        if cancellation is not None:
+            raise cancellation
+
+    @staticmethod
+    async def _stop_builder_uninterruptibly(builder: Runtime) -> None:
+        stop_task = asyncio.create_task(builder.stop())
+        cancellation: asyncio.CancelledError | None = None
+        while not stop_task.done():
+            try:
+                await asyncio.shield(stop_task)
+            except asyncio.CancelledError as error:
+                cancellation = error
+        stop_task.result()
+        if cancellation is not None:
+            raise cancellation
+
+    @staticmethod
+    def _source_consumption_evidence(source: SourceArtifactPolicy) -> dict[str, object]:
+        source_path = f"/tmp/terminal-bench-source-inputs/{source.filename}"
+        wheel_dir = "/tmp/terminal-bench-source-wheels"
+        source_requirement = f"{source.distribution} @ file://{source_path}#sha256={source.sha256}"
+        argv = [
+            "python3",
+            "-I",
+            "-m",
+            "pip",
+            "wheel",
+            "--quiet",
+            "--disable-pip-version-check",
+            "--no-cache-dir",
+            "--no-index",
+            "--no-deps",
+            "--no-build-isolation",
+            "--wheel-dir",
+            wheel_dir,
+            source_requirement,
+        ]
+        return {
+            "policy": TerminalBenchVMVMTaskset._source_policy_evidence(source),
+            "consumed_path": source_path,
+            "built_wheel": source.wheel_filename,
+            "build_argv_sha256": hashlib.sha256(canonical_json(argv)).hexdigest(),
+        }
+
+    def _new_source_builder(
+        self,
+        task: TerminalBenchTask,
+        runtime: Runtime,
+        fingerprints: RuntimeWheelFingerprints,
+        cache_key: str,
+    ) -> Runtime:
+        if not isinstance(runtime, VMVMRuntime):
+            raise RuntimeError(f"{task.name}: source-wheel recovery requires VMVMRuntime")
+        if self.config.enable_compose and _compose_path(Path(task.task_dir)) is not None:
+            raise RuntimeError(
+                f"{task.name}: source-wheel recovery rejects Compose because the effective main image is unbound"
+            )
+        fallback_image = getattr(runtime.config, "fallback_image", None)
+        if fallback_image is not None:
+            raise RuntimeError(f"{task.name}: source-wheel recovery rejects runtime image fallback")
+        if runtime.config.image != fingerprints.image or not is_digest_pinned_image(fingerprints.image):
+            raise RuntimeError(f"{task.name}: source-wheel recovery requires the target's exact digest-pinned image")
+        builder_config = runtime.config.model_copy(
+            update={
+                "image": fingerprints.image,
+                "fallback_image": None,
+                "workdir": "/",
+            }
+        )
+        return make_runtime(builder_config, name=f"tb-wheel-builder-{cache_key[:16]}")
+
+    async def _download_source_policy_artifact(
+        self,
+        task: TerminalBenchTask,
+        builder: Runtime,
+        destination_dir: str,
+        artifact: SourceArtifactPolicy | BinaryWheelPolicy,
+    ) -> bytes:
+        destination = f"{destination_dir}/{artifact.filename}"
+        downloaded = await builder.run(
+            [
+                "python3",
+                "-I",
+                "-c",
+                _SOURCE_WHEEL_DOWNLOAD_CODE,
+                artifact.url,
+                destination,
+                str(artifact.size),
+                artifact.sha256,
+            ],
+            {},
+        )
+        if downloaded.exit_code != 0:
+            raise RuntimeError(
+                f"{task.name}: approved source-wheel input download failed: "
+                f"{(downloaded.stdout + downloaded.stderr)[-2000:]}"
+            )
+        payload = await builder.read(destination)
+        if len(payload) != artifact.size or sha256_bytes(payload) != artifact.sha256:
+            raise RuntimeError(f"{task.name}: approved source-wheel input failed controller-side integrity validation")
+        if isinstance(artifact, SourceArtifactPolicy):
+            inspect_source_distribution(artifact, payload)
+        else:
+            evidence = inspect_wheel(artifact.filename, payload)
+            if (
+                evidence.distribution != artifact.distribution
+                or evidence.version != artifact.version
+                or evidence.size != artifact.size
+                or evidence.sha256 != artifact.sha256
+            ):
+                raise RuntimeError(f"{task.name}: approved binary wheel input failed metadata validation")
+        return payload
+
+    async def _build_policy_wheels_in_builder(
+        self,
+        task: TerminalBenchTask,
+        builder: Runtime,
+        policy_entry: SourceWheelPolicyEntry,
+    ) -> tuple[dict[str, bytes], tuple[tuple[str, str], ...]]:
+        input_dir = "/tmp/terminal-bench-source-inputs"
+        wheel_dir = "/tmp/terminal-bench-source-wheels"
+        site_dir = "/tmp/terminal-bench-source-site"
+        prepared = await self._run_root(
+            builder,
+            f"rm -rf {input_dir} {wheel_dir} {site_dir} && "
+            f"mkdir -p {input_dir} {wheel_dir} {site_dir} && chmod 1777 {input_dir} {wheel_dir} {site_dir}",
+        )
+        if prepared.exit_code != 0:
+            raise RuntimeError(f"{task.name}: preparing the disposable source-wheel builder failed")
+        try:
+            binary_payloads: dict[str, bytes] = {}
+            for source in policy_entry.sources:
+                await self._download_source_policy_artifact(task, builder, input_dir, source)
+            for wheel in policy_entry.binary_wheels:
+                binary_payloads[wheel.filename] = await self._download_source_policy_artifact(
+                    task,
+                    builder,
+                    input_dir,
+                    wheel,
+                )
+                await builder.write(f"{wheel_dir}/{wheel.filename}", binary_payloads[wheel.filename])
+
+            await builder.configure_network_policy("no-network")
+            await builder.activate_network_policy()
+
+            for source in policy_entry.sources:
+                source_path = f"{input_dir}/{source.filename}"
+                source_payload = await builder.read(source_path)
+                inspect_source_distribution(source, source_payload)
+                source_requirement = f"{source.distribution} @ file://{source_path}#sha256={source.sha256}"
+                built = await builder.run(
+                    [
+                        "python3",
+                        "-I",
+                        "-m",
+                        "pip",
+                        "wheel",
+                        "--quiet",
+                        "--disable-pip-version-check",
+                        "--no-cache-dir",
+                        "--no-index",
+                        "--no-deps",
+                        "--no-build-isolation",
+                        "--wheel-dir",
+                        wheel_dir,
+                        source_requirement,
+                    ],
+                    {},
+                )
+                if built.exit_code != 0:
+                    raise RuntimeError(
+                        f"{task.name}: approved source distribution build failed: "
+                        f"{(built.stdout + built.stderr)[-2000:]}"
+                    )
+            expected_wheel_names = [item[2] for item in policy_entry.expected_wheels]
+            checked = await self._run_root(
+                builder,
+                f"test \"$(find {wheel_dir} -maxdepth 1 -type f -name '*.whl' | wc -l)\" "
+                f"-eq {len(expected_wheel_names)} && "
+                f"test -z \"$(find {wheel_dir} -mindepth 1 -maxdepth 1 ! -type f -o -type f ! -name '*.whl')\"",
+            )
+            if checked.exit_code != 0:
+                raise RuntimeError(f"{task.name}: source-built wheel directory has an unexpected closure")
+            wheels = {filename: await builder.read(f"{wheel_dir}/{filename}") for filename in expected_wheel_names}
+            validate_policy_wheel_closure(policy_entry, wheels)
+            installed = await self._run_root(
+                builder,
+                f"PIP_NO_INDEX=1 python3 -m pip install --quiet --disable-pip-version-check "
+                f"--no-cache-dir --no-index --no-deps --target {site_dir} {wheel_dir}/*.whl",
+            )
+            if installed.exit_code != 0:
+                raise RuntimeError(f"{task.name}: source-built wheel closure could not be installed offline")
+            resolved = await builder.run(
+                [
+                    "python3",
+                    "-I",
+                    "-c",
+                    _SOURCE_WHEEL_CLOSURE_CODE,
+                    site_dir,
+                    *policy_entry.requirements,
+                ],
+                {},
+            )
+            if resolved.exit_code != 0:
+                raise RuntimeError(f"{task.name}: source-built wheel resolution closure validation failed")
+            try:
+                raw_closure = json.loads(resolved.stdout)
+            except json.JSONDecodeError as error:
+                raise RuntimeError(f"{task.name}: source-built wheel resolution report is invalid") from error
+            if not isinstance(raw_closure, list) or not all(
+                isinstance(item, list) and len(item) == 2 and all(isinstance(value, str) and value for value in item)
+                for item in raw_closure
+            ):
+                raise RuntimeError(f"{task.name}: source-built wheel resolution report is invalid")
+            closure = tuple((item[0], item[1]) for item in raw_closure)
+            expected_closure = tuple(
+                sorted((distribution, version) for distribution, version, *_ in policy_entry.expected_wheels)
+            )
+            if closure != expected_closure:
+                raise RuntimeError(
+                    f"{task.name}: source-built wheel resolution contains missing or non-allowlisted distributions"
+                )
+            return wheels, closure
+        finally:
+            cleaned = await self._run_root(builder, f"rm -rf {input_dir} {wheel_dir} {site_dir}")
+            if cleaned.exit_code != 0:
+                raise RuntimeError(f"{task.name}: disposable source-wheel workspace cleanup failed")
+
+    async def _validate_policy_wheels_on_target(
+        self,
+        task: TerminalBenchTask,
+        runtime: Runtime,
+        policy_entry: SourceWheelPolicyEntry,
+        wheel_archive: bytes,
+    ) -> tuple[tuple[str, str], ...]:
+        nonce = uuid.uuid4().hex
+        archive_path = f"/tmp/terminal-bench-source-wheel-validation-{nonce}.tar"
+        wheel_dir = f"/tmp/terminal-bench-source-wheel-validation-{nonce}"
+        site_dir = f"/tmp/terminal-bench-source-wheel-site-{nonce}"
+        try:
+            await runtime.write(archive_path, wheel_archive)
+            prepared = await self._run_root(
+                runtime,
+                f"rm -rf {shlex.quote(wheel_dir)} {shlex.quote(site_dir)} && "
+                f"mkdir -p {shlex.quote(wheel_dir)} {shlex.quote(site_dir)} && "
+                f"tar -C {shlex.quote(wheel_dir)} -xf {shlex.quote(archive_path)}",
+            )
+            if prepared.exit_code != 0:
+                raise RuntimeError(f"{task.name}: staging source-built wheels on the clean target failed")
+            installed = await self._run_root(
+                runtime,
+                f"PIP_NO_INDEX=1 python3 -m pip install --quiet --disable-pip-version-check "
+                f"--no-cache-dir --no-index --no-deps --target {shlex.quote(site_dir)} "
+                f"{shlex.quote(wheel_dir)}/*.whl",
+            )
+            if installed.exit_code != 0:
+                raise RuntimeError(
+                    f"{task.name}: source-built wheel closure could not be installed on the clean target"
+                )
+            resolved = await runtime.run(
+                [
+                    "python3",
+                    "-I",
+                    "-c",
+                    _SOURCE_WHEEL_CLOSURE_CODE,
+                    site_dir,
+                    *policy_entry.requirements,
+                ],
+                {},
+            )
+            if resolved.exit_code != 0:
+                raise RuntimeError(f"{task.name}: clean-target wheel resolution validation failed")
+            try:
+                raw_closure = json.loads(resolved.stdout)
+            except json.JSONDecodeError as error:
+                raise RuntimeError(f"{task.name}: clean-target wheel resolution report is invalid") from error
+            if not isinstance(raw_closure, list) or not all(
+                isinstance(item, list) and len(item) == 2 and all(isinstance(value, str) and value for value in item)
+                for item in raw_closure
+            ):
+                raise RuntimeError(f"{task.name}: clean-target wheel resolution report is invalid")
+            closure = tuple((item[0], item[1]) for item in raw_closure)
+            expected_closure = tuple(
+                sorted((distribution, version) for distribution, version, *_ in policy_entry.expected_wheels)
+            )
+            if closure != expected_closure:
+                raise RuntimeError(
+                    f"{task.name}: clean-target wheel resolution contains missing or non-allowlisted distributions"
+                )
+            return closure
+        finally:
+            cleaned = await self._run_root(
+                runtime,
+                f"rm -rf {shlex.quote(archive_path)} {shlex.quote(wheel_dir)} {shlex.quote(site_dir)}",
+            )
+            if cleaned.exit_code != 0:
+                raise RuntimeError(f"{task.name}: clean-target source-wheel validation cleanup failed")
+
+    async def _build_source_dependency_wheelhouse(
+        self,
+        task: TerminalBenchTask,
+        runtime: Runtime,
+        requirements: tuple[str, ...],
+        fingerprints: RuntimeWheelFingerprints,
+    ) -> PrefetchedTestDependencies:
+        policy = self._source_wheel_policy
+        if policy is None:
+            raise RuntimeError(f"{task.name}: source-wheel recovery requires an approved policy")
+        policy_entry = policy.entry_for(requirements, fingerprints.image, fingerprints.build_tools)
+        cache_key = self._source_cache_key(requirements, fingerprints, policy.sha256)
+        builder = self._new_source_builder(task, runtime, fingerprints, cache_key)
+        wheels: dict[str, bytes] | None = None
+        resolution_closure: tuple[tuple[str, str], ...] | None = None
+        async with self._source_builder_semaphore:
+            try:
+                await self._start_builder_uninterruptibly(builder)
+                builder_fingerprints = await self._runtime_wheel_fingerprint(task, builder)
+                if builder_fingerprints != fingerprints:
+                    raise RuntimeError(
+                        f"{task.name}: disposable source-wheel builder does not match the target fingerprint"
+                    )
+                wheels, resolution_closure = await self._build_policy_wheels_in_builder(task, builder, policy_entry)
+            finally:
+                self._runtime_wheel_fingerprints.pop(builder, None)
+                await self._stop_builder_uninterruptibly(builder)
+        if wheels is None or resolution_closure is None:
+            raise RuntimeError(f"{task.name}: source-wheel builder produced no closure")
+        wheel_evidence = validate_policy_wheel_closure(policy_entry, wheels)
+        wheel_archive = pack_wheelhouse(wheels)
+        if inspect_wheelhouse(wheel_archive) != wheel_evidence:
+            raise RuntimeError(f"{task.name}: repacked source-wheel closure failed validation")
+        target_resolution_closure = await self._validate_policy_wheels_on_target(
+            task,
+            runtime,
+            policy_entry,
+            wheel_archive,
+        )
+        if target_resolution_closure != resolution_closure:
+            raise RuntimeError(f"{task.name}: builder and clean-target wheel resolution disagree")
+        return self._publish_source_wheel_attestation(
+            requirements,
+            fingerprints,
+            policy_entry,
+            wheel_archive,
+            wheel_evidence,
+            target_resolution_closure,
         )
 
     @staticmethod
@@ -1540,27 +2787,36 @@ for requirement in sys.argv[1:]:
         task: TerminalBenchTask,
         runtime: Runtime,
         requirements: tuple[str, ...],
+        fingerprints: RuntimeWheelFingerprints,
     ) -> PrefetchedTestDependencies:
+        policy_salt = self._policy_cache_salt()
+        resolution_key = (requirements, fingerprints.resolution, policy_salt)
+        compatible_key = (
+            requirements,
+            fingerprints.compatibility,
+            policy_salt,
+            fingerprints.toolchain,
+        )
         try:
-            fingerprint = await self._runtime_wheel_fingerprint(task, runtime)
             wheelhouse = await self._build_test_dependency_wheelhouse(
                 task,
                 runtime,
                 requirements,
-                fingerprint,
+                fingerprints.resolution,
+                fingerprints.compatibility,
             )
             async with self._wheelhouse_cache_lock:
                 if wheelhouse.universal:
-                    self._universal_wheelhouse_cache[requirements] = wheelhouse
+                    self._universal_wheelhouse_cache[resolution_key] = wheelhouse
                 else:
-                    self._nonuniversal_wheelhouse_requirements.add(requirements)
-                    self._compatible_wheelhouse_cache[(requirements, fingerprint)] = wheelhouse
+                    self._nonuniversal_wheelhouse_requirements.add(resolution_key)
+                    self._compatible_wheelhouse_cache[compatible_key] = wheelhouse
             return wheelhouse
         finally:
             current = asyncio.current_task()
             async with self._wheelhouse_cache_lock:
-                if self._wheelhouse_discovery_flights.get(requirements) is current:
-                    self._wheelhouse_discovery_flights.pop(requirements, None)
+                if self._wheelhouse_discovery_flights.get(resolution_key) is current:
+                    self._wheelhouse_discovery_flights.pop(resolution_key, None)
                 if current is not None:
                     self._wheelhouse_flight_runtimes.pop(current, None)
 
@@ -1569,21 +2825,29 @@ for requirement in sys.argv[1:]:
         task: TerminalBenchTask,
         runtime: Runtime,
         requirements: tuple[str, ...],
-        compatibility_fingerprint: str,
+        fingerprints: RuntimeWheelFingerprints,
     ) -> PrefetchedTestDependencies:
-        key = (requirements, compatibility_fingerprint)
+        policy_salt = self._policy_cache_salt()
+        resolution_key = (requirements, fingerprints.resolution, policy_salt)
+        key = (
+            requirements,
+            fingerprints.compatibility,
+            policy_salt,
+            fingerprints.toolchain,
+        )
         try:
             wheelhouse = await self._build_test_dependency_wheelhouse(
                 task,
                 runtime,
                 requirements,
-                compatibility_fingerprint,
+                fingerprints.resolution,
+                fingerprints.compatibility,
             )
             async with self._wheelhouse_cache_lock:
                 if wheelhouse.universal:
-                    self._universal_wheelhouse_cache[requirements] = wheelhouse
+                    self._universal_wheelhouse_cache[resolution_key] = wheelhouse
                 else:
-                    self._nonuniversal_wheelhouse_requirements.add(requirements)
+                    self._nonuniversal_wheelhouse_requirements.add(resolution_key)
                     self._compatible_wheelhouse_cache[key] = wheelhouse
             return wheelhouse
         finally:
@@ -1610,14 +2874,21 @@ for requirement in sys.argv[1:]:
         task: TerminalBenchTask,
         runtime: Runtime,
         requirements: tuple[str, ...],
-        compatibility_fingerprint: str | None = None,
+        fingerprints: RuntimeWheelFingerprints | None = None,
     ) -> PrefetchedTestDependencies:
-        fingerprint = compatibility_fingerprint or await self._runtime_wheel_fingerprint(task, runtime)
-        key = (requirements, fingerprint)
+        fingerprints = fingerprints or await self._runtime_wheel_fingerprint(task, runtime)
+        policy_salt = self._policy_cache_salt()
+        resolution_key = (requirements, fingerprints.resolution, policy_salt)
+        key = (
+            requirements,
+            fingerprints.compatibility,
+            policy_salt,
+            fingerprints.toolchain,
+        )
         async with self._wheelhouse_cache_lock:
             if self._wheelhouse_cache_closed:
                 raise RuntimeError(f"{task.name}: verifier wheelhouse cache is closed")
-            cached = self._universal_wheelhouse_cache.get(requirements)
+            cached = self._universal_wheelhouse_cache.get(resolution_key)
             if cached is None:
                 cached = self._compatible_wheelhouse_cache.get(key)
             flight = self._wheelhouse_compatibility_flights.get(key)
@@ -1627,7 +2898,7 @@ for requirement in sys.argv[1:]:
                         task,
                         runtime,
                         requirements,
-                        fingerprint,
+                        fingerprints,
                     )
                 )
                 flight.add_done_callback(self._consume_wheelhouse_flight_result)
@@ -1642,7 +2913,7 @@ for requirement in sys.argv[1:]:
             current = asyncio.current_task()
             if current is not None and current.cancelling():
                 raise
-            return await self._compatible_wheelhouse(task, runtime, requirements, fingerprint)
+            return await self._compatible_wheelhouse(task, runtime, requirements, fingerprints)
 
     async def _cached_test_dependency_wheelhouse(
         self,
@@ -1650,21 +2921,29 @@ for requirement in sys.argv[1:]:
         runtime: Runtime,
         requirements: tuple[str, ...],
     ) -> PrefetchedTestDependencies:
+        fingerprints = await self._runtime_wheel_fingerprint(task, runtime)
+        resolution_key = (
+            requirements,
+            fingerprints.resolution,
+            self._policy_cache_salt(),
+        )
         async with self._wheelhouse_cache_lock:
             if self._wheelhouse_cache_closed:
                 raise RuntimeError(f"{task.name}: verifier wheelhouse cache is closed")
-            cached = self._universal_wheelhouse_cache.get(requirements)
-            flight = self._wheelhouse_discovery_flights.get(requirements)
-            has_nonuniversal = requirements in self._nonuniversal_wheelhouse_requirements
+            cached = self._universal_wheelhouse_cache.get(resolution_key)
+            flight = self._wheelhouse_discovery_flights.get(resolution_key)
+            has_nonuniversal = resolution_key in self._nonuniversal_wheelhouse_requirements
             if cached is None and flight is None and not has_nonuniversal:
-                flight = asyncio.create_task(self._publish_discovered_wheelhouse(task, runtime, requirements))
+                flight = asyncio.create_task(
+                    self._publish_discovered_wheelhouse(task, runtime, requirements, fingerprints)
+                )
                 flight.add_done_callback(self._consume_wheelhouse_flight_result)
-                self._wheelhouse_discovery_flights[requirements] = flight
+                self._wheelhouse_discovery_flights[resolution_key] = flight
                 self._wheelhouse_flight_runtimes[flight] = runtime
         if cached is not None:
             return await self._verified_wheelhouse(task, cached)
         if has_nonuniversal and flight is None:
-            return await self._compatible_wheelhouse(task, runtime, requirements)
+            return await self._compatible_wheelhouse(task, runtime, requirements, fingerprints)
         assert flight is not None
         try:
             discovered = await asyncio.shield(flight)
@@ -1675,14 +2954,13 @@ for requirement in sys.argv[1:]:
             return await self._cached_test_dependency_wheelhouse(task, runtime, requirements)
         if discovered.universal:
             return discovered
-        fingerprint = await self._runtime_wheel_fingerprint(task, runtime)
-        if discovered.compatibility_fingerprint == fingerprint:
+        if discovered.compatibility_fingerprint == fingerprints.compatibility:
             return discovered
         return await self._compatible_wheelhouse(
             task,
             runtime,
             requirements,
-            fingerprint,
+            fingerprints,
         )
 
     async def _prefetch_test_dependencies(
@@ -1699,25 +2977,29 @@ for requirement in sys.argv[1:]:
                 archive_path=None,
                 sha256=None,
                 universal=True,
+                resolution_fingerprint=None,
                 compatibility_fingerprint=None,
             )
             return
-        self._prefetched_test_dependencies[runtime] = await self._cached_test_dependency_wheelhouse(
+        prefetched = await self._cached_test_dependency_wheelhouse(
             task,
             runtime,
             requirements,
         )
+        self._prefetched_test_dependencies[runtime] = prefetched
+        if prefetched.source_attestation_sha256 is not None:
+            self._task_source_wheel_attestations.setdefault(task.slug, set()).add(prefetched.source_attestation_sha256)
 
     async def _install_prefetched_test_dependencies(
         self,
         task: TerminalBenchTask,
         runtime: Runtime,
-    ) -> None:
+    ) -> VerifierDependencyOverlay | None:
         prefetched = self._prefetched_test_dependencies.pop(runtime, None)
         if prefetched is None:
             raise RuntimeError(f"{task.name}: isolated verifier dependencies were not prefetched")
         if not prefetched.requirements:
-            return
+            return None
         try:
             try:
                 await asyncio.to_thread(prefetched.verify)
@@ -1732,7 +3014,7 @@ for requirement in sys.argv[1:]:
                 prefetched.requirements,
             )
             if not missing:
-                return
+                return None
 
             try:
                 wheel_archive = await asyncio.to_thread(prefetched.read_verified)
@@ -1742,10 +3024,14 @@ for requirement in sys.argv[1:]:
             nonce = uuid.uuid4().hex[:16]
             archive_path = f"/tmp/terminal-bench-verifier-wheels-{nonce}.tar"
             wheel_dir = f"/tmp/terminal-bench-verifier-wheels-{nonce}"
+            site_dir = f"/tmp/terminal-bench-verifier-site-{nonce}"
+            bootstrap_dir = f"/tmp/terminal-bench-verifier-bootstrap-{nonce}"
+            site_ready = False
             await runtime.write(archive_path, wheel_archive)
             prepared = await self._run_root(
                 runtime,
-                f"rm -rf {shlex.quote(wheel_dir)} && mkdir -p {shlex.quote(wheel_dir)} && "
+                f"rm -rf {shlex.quote(wheel_dir)} {shlex.quote(site_dir)} {shlex.quote(bootstrap_dir)} && "
+                f"mkdir -p {shlex.quote(wheel_dir)} {shlex.quote(site_dir)} {shlex.quote(bootstrap_dir)} && "
                 f"tar -xf {shlex.quote(archive_path)} -C {shlex.quote(wheel_dir)} && "
                 f'test "$(find {shlex.quote(wheel_dir)} -maxdepth 1 -type f '
                 "-name '*.whl' | wc -l)\" -gt 0 && "
@@ -1757,34 +3043,55 @@ for requirement in sys.argv[1:]:
                     f"{task.name}: restoring verifier wheelhouse failed: {(prepared.stdout + prepared.stderr)[-4000:]}"
                 )
             install_command = (
-                "if python3 -m pip install --help 2>/dev/null | "
-                "grep -q -- --break-system-packages; then "
-                "break_system=--break-system-packages; else break_system=; fi; "
                 f"PIP_NO_INDEX=1 python3 -m pip install -q --no-cache-dir "
-                f"--no-index --find-links {shlex.quote(wheel_dir)} "
-                f"$break_system {shlex.join(missing)}"
+                f"--disable-pip-version-check --no-index --no-deps "
+                f"--target {shlex.quote(site_dir)} {shlex.quote(wheel_dir)}/*.whl && "
+                f"test ! -e {shlex.quote(site_dir)}/sitecustomize.py && "
+                f"test ! -e {shlex.quote(site_dir)}/usercustomize.py && "
+                f"chmod -R a+rX {shlex.quote(site_dir)}"
             )
             installed = await self._run_root(runtime, install_command)
             if installed.exit_code != 0:
                 raise RuntimeError(
-                    f"{task.name}: offline verifier dependency install failed for "
-                    f"{missing}: "
+                    f"{task.name}: offline verifier dependency overlay install failed for "
+                    f"{prefetched.requirements}: "
                     f"{(installed.stdout + installed.stderr)[-4000:]}"
                 )
+            bootstrap_path = f"{bootstrap_dir}/sitecustomize.py"
+            await runtime.write(bootstrap_path, _verifier_site_bootstrap(site_dir))
+            bootstrap_ready = await self._run_root(
+                runtime,
+                f"test -f {shlex.quote(bootstrap_path)} && "
+                f'test "$(find {shlex.quote(bootstrap_dir)} -mindepth 1 -maxdepth 1 | wc -l)" -eq 1 && '
+                f"chmod -R a+rX {shlex.quote(bootstrap_dir)}",
+            )
+            if bootstrap_ready.exit_code != 0:
+                raise RuntimeError(f"{task.name}: verifier dependency overlay bootstrap validation failed")
             remaining = await self._missing_test_dependencies(
                 task,
                 runtime,
                 prefetched.requirements,
+                site_path=site_dir,
             )
             if remaining:
                 raise RuntimeError(
-                    f"{task.name}: offline verifier dependency install left requirements unsatisfied: {remaining}"
+                    f"{task.name}: offline verifier dependency overlay left requirements unsatisfied: {remaining}"
                 )
+            site_ready = True
+            return VerifierDependencyOverlay(
+                site_path=site_dir,
+                bootstrap_path=bootstrap_dir,
+            )
         finally:
             if "wheel_dir" in locals() and "archive_path" in locals():
+                cleanup_paths = [wheel_dir, archive_path]
+                if "site_dir" in locals() and not site_ready:
+                    cleanup_paths.append(site_dir)
+                if "bootstrap_dir" in locals() and not site_ready:
+                    cleanup_paths.append(bootstrap_dir)
                 cleaned = await self._run_root(
                     runtime,
-                    f"rm -rf {shlex.quote(wheel_dir)} {shlex.quote(archive_path)}",
+                    f"rm -rf {shlex.join(cleanup_paths)}",
                 )
                 if cleaned.exit_code != 0:
                     logger.warning(
@@ -1824,40 +3131,69 @@ for requirement in sys.argv[1:]:
             )
         # Official separate-verifier images own their sealed test dependencies.
         # Only shared-mode/staged tests need repair for the older Mobius image set.
-        if stage_tests:
-            if isolated_staged_tests:
-                await self._install_prefetched_test_dependencies(task, runtime)
-            else:
-                await self._ensure_test_dependencies(task, runtime)
-        if task.verifier_network_mode == "public":
-            await self._configure_network_policy(
-                task,
-                runtime,
-                task.verifier_network_mode,
-                activate=True,
+        verifier_overlay = None
+        verifier_failed = False
+        try:
+            if stage_tests:
+                if isolated_staged_tests:
+                    verifier_overlay = await self._install_prefetched_test_dependencies(task, runtime)
+                else:
+                    await self._ensure_test_dependencies(task, runtime)
+            if task.verifier_network_mode == "public":
+                await self._configure_network_policy(
+                    task,
+                    runtime,
+                    task.verifier_network_mode,
+                    activate=True,
+                )
+            timeout = f"{task.verifier_timeout_sec:g}s"
+            test_command = "cd /tests && bash test.sh"
+            if verifier_overlay is not None:
+                site_bin = str(PurePosixPath(verifier_overlay.site_path) / "bin")
+                python_path = f"{verifier_overlay.bootstrap_path}:{verifier_overlay.site_path}"
+                test_command = (
+                    f"PATH={shlex.quote(site_bin)}${{PATH:+:$PATH}}; export PATH; "
+                    f"PYTHONPATH={shlex.quote(python_path)}${{PYTHONPATH:+:$PYTHONPATH}}; export PYTHONPATH; "
+                    "cd /tests && bash test.sh"
+                )
+            command = (
+                "mkdir -p /logs/verifier; "
+                "rm -f /logs/verifier/reward.txt /logs/verifier/reward.json; "
+                "set +e; "
+                f"timeout --signal=TERM --kill-after=30s {timeout} sh -c "
+                f"{shlex.quote(test_command)}; "
+                "status=$?; "
+                f'if [ "$status" -eq 124 ]; then printf "\\n{VERIFIER_TIMEOUT_MARKER}\\n"; fi; '
+                'exit "$status"'
             )
-        timeout = f"{task.verifier_timeout_sec:g}s"
-        command = (
-            "mkdir -p /logs/verifier; "
-            "rm -f /logs/verifier/reward.txt /logs/verifier/reward.json; "
-            "set +e; "
-            f"timeout --signal=TERM --kill-after=30s {timeout} sh -c "
-            f"{shlex.quote('cd /tests && bash test.sh')}; "
-            "status=$?; "
-            f'if [ "$status" -eq 124 ]; then printf "\\n{VERIFIER_TIMEOUT_MARKER}\\n"; fi; '
-            'exit "$status"'
-        )
-        verifier_env = dict(task.verifier_env)
-        if not stage_tests:
-            # TB4's sealed verifier images are self-contained and frequently
-            # alias local helper services in /etc/hosts after the shell starts.
-            # A static proxy bypass list cannot see those late aliases, while
-            # Chromium and other subprocesses inherit the bridge proxy and send
-            # the local request off-VM. Keep the proxy variables available, but
-            # bypass them for all verifier traffic in these offline images.
-            verifier_env.setdefault("no_proxy", "*")
-            verifier_env.setdefault("NO_PROXY", "*")
-        result = await runtime.run(["sh", "-c", command], verifier_env)
+            verifier_env = dict(task.verifier_env)
+            if not stage_tests:
+                # TB4's sealed verifier images are self-contained and frequently
+                # alias local helper services in /etc/hosts after the shell starts.
+                # A static proxy bypass list cannot see those late aliases, while
+                # Chromium and other subprocesses inherit the bridge proxy and send
+                # the local request off-VM. Keep the proxy variables available, but
+                # bypass them for all verifier traffic in these offline images.
+                verifier_env.setdefault("no_proxy", "*")
+                verifier_env.setdefault("NO_PROXY", "*")
+            result = await runtime.run(["sh", "-c", command], verifier_env)
+        except BaseException:
+            verifier_failed = True
+            raise
+        finally:
+            if verifier_overlay is not None:
+                cleanup_paths = [verifier_overlay.site_path, verifier_overlay.bootstrap_path]
+                try:
+                    cleaned = await self._run_root(runtime, f"rm -rf {shlex.join(cleanup_paths)}")
+                except BaseException as cleanup_error:
+                    if not verifier_failed:
+                        raise
+                    logger.warning("%s verifier dependency overlay cleanup failed: %s", task.name, cleanup_error)
+                else:
+                    if cleaned.exit_code != 0:
+                        if not verifier_failed:
+                            raise RuntimeError(f"{task.name}: verifier dependency overlay cleanup failed")
+                        logger.warning("%s verifier dependency overlay cleanup failed", task.name)
         output = result.stdout + result.stderr
         timed_out = VERIFIER_TIMEOUT_MARKER in output
         if timed_out:

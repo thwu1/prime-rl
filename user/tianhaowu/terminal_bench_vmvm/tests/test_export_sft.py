@@ -64,6 +64,9 @@ def _response(
         ]
     return {
         "id": "synthetic-response",
+        "object": "chat.completion",
+        "created": 1,
+        "model": "synthetic-model",
         "choices": [{"index": 0, "message": message, "finish_reason": finish_reason}],
         "usage": {
             "prompt_tokens": prompt_tokens,
@@ -953,6 +956,9 @@ def test_normalized_stream_responses_are_validated_and_exported(tmp_path: Path) 
                 for call in raw_message["tool_calls"]
             ]
         body = {
+            "id": exact["body"]["id"],
+            "created": exact["body"]["created"],
+            "model": exact["body"]["model"],
             "message": message,
             "finish_reason": choice["finish_reason"],
             "usage": copy.deepcopy(node["usage"]),
