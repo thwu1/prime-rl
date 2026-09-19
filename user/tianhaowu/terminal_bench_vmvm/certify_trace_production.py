@@ -1170,9 +1170,32 @@ def _validate_submission_attestation(
     reservation = value.get("reservation")
     job = value.get("job")
     submission = authorization.get("audit_submission")
+    reservation_identity = (
+        reservation.get("identity") if isinstance(reservation, dict) else None
+    )
+    identity_keys = {
+        "device",
+        "inode",
+        "owner_uid",
+        "parent_device",
+        "parent_inode",
+    }
     if (
         not isinstance(submission, dict)
-        or reservation != {"path": submission.get("reservation_dir"), "mode": "0500"}
+        or not isinstance(reservation, dict)
+        or set(reservation) != {"identity", "mode", "path"}
+        or reservation.get("path") != submission.get("reservation_dir")
+        or reservation.get("mode") != "0500"
+        or not isinstance(reservation_identity, dict)
+        or set(reservation_identity) != identity_keys
+        or any(
+            type(reservation_identity.get(key)) is not int
+            or reservation_identity[key] < 0
+            for key in identity_keys
+        )
+        or reservation_identity.get("inode") == 0
+        or reservation_identity.get("parent_inode") == 0
+        or reservation_identity.get("owner_uid") != os.getuid()
         or not isinstance(job, dict)
         or job.get("cluster") != submission.get("cluster")
         or job.get("name") != submission.get("job_name")

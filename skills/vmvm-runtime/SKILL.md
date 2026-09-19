@@ -487,9 +487,13 @@ authorized bytes into a write-sealed memfd and invoke fd 7 through `env -i`.
 The stdlib-only submit controller uses one exact held
 `/usr/bin/sbatch --export=NONE` call, sends captured wrapper bytes on stdin,
 binds literal `Command=(null)` plus token/job/user/resource identity, releases
-once, and seals the permit/receipt before batch setup. Known-job failure gets at
-most one exact-ID cancellation and six stable terminal/empty-queue views;
-identity conflict is latched across partial reads/signals and forbids control.
+once, and seals the permit/receipt before batch setup. Keep the created
+reservation and its parent anchored by dirfd for the entire lifecycle, bind
+their device/inode identities into the v2 admission chain and immutable batch
+arguments, and require the batch bootstrap to match both identities. Known-job
+failure gets at most one exact-ID cancellation and six stable
+terminal/empty-queue views; identity conflict is latched across partial
+reads/signals and forbids control.
 The local `sbatch` process group must also be boundedly reaped on every exit.
 The batch bootstrap uses a fresh sealed
 pycache with Python `-I -S -B` and executes user-owned native extensions only

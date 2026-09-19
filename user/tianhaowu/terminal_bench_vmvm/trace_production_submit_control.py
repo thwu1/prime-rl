@@ -21,14 +21,15 @@ from pathlib import Path
 from typing import Any
 
 AUTHORIZATION_TYPE = "terminal_bench_vmvm_production_trace_audit_authorization_v2"
-INTENT_TYPE = "terminal_bench_vmvm_production_trace_audit_launch_intent_v1"
+INTENT_TYPE = "terminal_bench_vmvm_production_trace_audit_launch_intent_v2"
 HELD_AUTHORIZATION_TYPE = (
-    "terminal_bench_vmvm_production_trace_audit_held_authorization_v1"
+    "terminal_bench_vmvm_production_trace_audit_held_authorization_v2"
 )
-RECEIPT_TYPE = "terminal_bench_vmvm_production_trace_audit_submission_receipt_v1"
-PERMIT_TYPE = "terminal_bench_vmvm_production_trace_audit_activation_permit_v1"
-FAILURE_TYPE = "terminal_bench_vmvm_production_trace_audit_submission_failure_v1"
+RECEIPT_TYPE = "terminal_bench_vmvm_production_trace_audit_submission_receipt_v2"
+PERMIT_TYPE = "terminal_bench_vmvm_production_trace_audit_activation_permit_v2"
+FAILURE_TYPE = "terminal_bench_vmvm_production_trace_audit_submission_failure_v2"
 SCHEMA_VERSION = 1
+ADMISSION_SCHEMA_VERSION = 2
 OWNER = "tianhaowu"
 OWNER_UID = 656177
 OWNER_USER_ID = f"{OWNER}({OWNER_UID})"
@@ -157,6 +158,92 @@ def _signature(value: os.stat_result) -> tuple[int, ...]:
         value.st_mtime_ns,
         value.st_ctime_ns,
     )
+
+
+@dataclass
+class ReservationAnchor:
+    path: Path
+    parent_path: Path
+    parent_fd: int
+    descriptor: int
+    parent_identity: tuple[int, int]
+    identity: tuple[int, int]
+
+    def record(self) -> dict[str, int]:
+        return {
+            "device": self.identity[0],
+            "inode": self.identity[1],
+            "owner_uid": OWNER_UID,
+            "parent_device": self.parent_identity[0],
+            "parent_inode": self.parent_identity[1],
+        }
+
+    def batch_arguments(self) -> list[str]:
+        record = self.record()
+        return [
+            str(record["device"]),
+            str(record["inode"]),
+            str(record["parent_device"]),
+            str(record["parent_inode"]),
+        ]
+
+    def revalidate(self, *, expected_mode: int) -> None:
+        fresh_parent = -1
+        fresh_reservation = -1
+        try:
+            parent_status = os.fstat(self.parent_fd)
+            reservation_status = os.fstat(self.descriptor)
+            visible_status = os.stat(
+                self.path.name,
+                dir_fd=self.parent_fd,
+                follow_symlinks=False,
+            )
+            fresh_parent = os.open(
+                self.parent_path,
+                os.O_RDONLY | os.O_DIRECTORY | os.O_CLOEXEC | os.O_NOFOLLOW,
+            )
+            fresh_parent_status = os.fstat(fresh_parent)
+            fresh_reservation = os.open(
+                self.path.name,
+                os.O_RDONLY | os.O_DIRECTORY | os.O_CLOEXEC | os.O_NOFOLLOW,
+                dir_fd=fresh_parent,
+            )
+            fresh_reservation_status = os.fstat(fresh_reservation)
+        except OSError as error:
+            raise SubmissionError("reservation_changed") from error
+        finally:
+            if fresh_reservation >= 0:
+                os.close(fresh_reservation)
+            if fresh_parent >= 0:
+                os.close(fresh_parent)
+        if (
+            not stat.S_ISDIR(parent_status.st_mode)
+            or stat.S_IMODE(parent_status.st_mode) != 0o700
+            or parent_status.st_uid != OWNER_UID
+            or (parent_status.st_dev, parent_status.st_ino) != self.parent_identity
+            or (fresh_parent_status.st_dev, fresh_parent_status.st_ino)
+            != self.parent_identity
+            or not stat.S_ISDIR(reservation_status.st_mode)
+            or stat.S_IMODE(reservation_status.st_mode) != expected_mode
+            or reservation_status.st_uid != OWNER_UID
+            or (reservation_status.st_dev, reservation_status.st_ino) != self.identity
+            or (visible_status.st_dev, visible_status.st_ino) != self.identity
+            or (fresh_reservation_status.st_dev, fresh_reservation_status.st_ino)
+            != self.identity
+        ):
+            fail("reservation_changed")
+
+    def close(self) -> None:
+        for field in ("descriptor", "parent_fd"):
+            descriptor = getattr(self, field)
+            if descriptor < 0:
+                continue
+            try:
+                os.close(descriptor)
+            except OSError:
+                pass
+            finally:
+                setattr(self, field, -1)
 
 
 def stable_bytes(
@@ -393,46 +480,85 @@ def _sync_directory(path: Path) -> None:
         os.close(descriptor)
 
 
-def create_reservation(path: Path) -> None:
+def create_reservation(path: Path) -> ReservationAnchor:
+    parent_fd = -1
+    reservation_fd = -1
     try:
         parent = path.parent.resolve(strict=True)
-        metadata = parent.stat(follow_symlinks=False)
-        if (
-            path != parent / path.name
-            or path.is_symlink()
-            or os.path.lexists(path)
-            or not stat.S_ISDIR(metadata.st_mode)
-            or stat.S_IMODE(metadata.st_mode) != 0o700
-            or metadata.st_uid != OWNER_UID
-        ):
+        if path != parent / path.name or not path.name:
             fail("reservation_not_fresh")
         parent_fd = os.open(
             parent, os.O_RDONLY | os.O_DIRECTORY | os.O_CLOEXEC | os.O_NOFOLLOW
         )
+        parent_status = os.fstat(parent_fd)
+        if (
+            not stat.S_ISDIR(parent_status.st_mode)
+            or stat.S_IMODE(parent_status.st_mode) != 0o700
+            or parent_status.st_uid != OWNER_UID
+        ):
+            fail("reservation_not_fresh")
         try:
-            os.mkdir(path.name, 0o700, dir_fd=parent_fd)
-            os.fsync(parent_fd)
-        finally:
-            os.close(parent_fd)
+            os.stat(path.name, dir_fd=parent_fd, follow_symlinks=False)
+        except FileNotFoundError:
+            pass
+        else:
+            fail("reservation_not_fresh")
+        os.mkdir(path.name, 0o700, dir_fd=parent_fd)
+        reservation_fd = os.open(
+            path.name,
+            os.O_RDONLY | os.O_DIRECTORY | os.O_CLOEXEC | os.O_NOFOLLOW,
+            dir_fd=parent_fd,
+        )
+        reservation_status = os.fstat(reservation_fd)
+        visible_status = os.stat(
+            path.name,
+            dir_fd=parent_fd,
+            follow_symlinks=False,
+        )
+        if (
+            not stat.S_ISDIR(reservation_status.st_mode)
+            or stat.S_IMODE(reservation_status.st_mode) != 0o700
+            or reservation_status.st_uid != OWNER_UID
+            or (reservation_status.st_dev, reservation_status.st_ino)
+            != (visible_status.st_dev, visible_status.st_ino)
+        ):
+            fail("reservation_not_fresh")
+        os.fsync(parent_fd)
+        anchor = ReservationAnchor(
+            path=path,
+            parent_path=parent,
+            parent_fd=parent_fd,
+            descriptor=reservation_fd,
+            parent_identity=(parent_status.st_dev, parent_status.st_ino),
+            identity=(reservation_status.st_dev, reservation_status.st_ino),
+        )
+        anchor.revalidate(expected_mode=0o700)
+        parent_fd = -1
+        reservation_fd = -1
+        return anchor
     except SubmissionError:
         raise
-    except OSError as error:
+    except (OSError, RuntimeError) as error:
         raise SubmissionError("reservation_not_fresh") from error
+    finally:
+        if reservation_fd >= 0:
+            os.close(reservation_fd)
+        if parent_fd >= 0:
+            os.close(parent_fd)
 
 
-def publish_once(root: Path, name: str, raw: bytes, mode: int = 0o400) -> str:
+def publish_once(
+    anchor: ReservationAnchor,
+    name: str,
+    raw: bytes,
+    mode: int = 0o400,
+) -> str:
     descriptor = -1
-    root_fd = -1
     temporary = f".{name}.{os.getpid()}.{os.urandom(8).hex()}.tmp"
     try:
-        root_fd = os.open(
-            root, os.O_RDONLY | os.O_DIRECTORY | os.O_CLOEXEC | os.O_NOFOLLOW
-        )
-        status = os.fstat(root_fd)
-        if stat.S_IMODE(status.st_mode) != 0o700 or status.st_uid != OWNER_UID:
-            fail("reservation_invalid")
+        anchor.revalidate(expected_mode=0o700)
         try:
-            os.stat(name, dir_fd=root_fd, follow_symlinks=False)
+            os.stat(name, dir_fd=anchor.descriptor, follow_symlinks=False)
         except FileNotFoundError:
             pass
         else:
@@ -441,7 +567,7 @@ def publish_once(root: Path, name: str, raw: bytes, mode: int = 0o400) -> str:
             temporary,
             os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_CLOEXEC | os.O_NOFOLLOW,
             mode,
-            dir_fd=root_fd,
+            dir_fd=anchor.descriptor,
         )
         offset = 0
         while offset < len(raw):
@@ -456,21 +582,14 @@ def publish_once(root: Path, name: str, raw: bytes, mode: int = 0o400) -> str:
         os.link(
             temporary,
             name,
-            src_dir_fd=root_fd,
-            dst_dir_fd=root_fd,
+            src_dir_fd=anchor.descriptor,
+            dst_dir_fd=anchor.descriptor,
             follow_symlinks=False,
         )
-        os.unlink(temporary, dir_fd=root_fd)
+        os.unlink(temporary, dir_fd=anchor.descriptor)
         temporary = ""
-        os.fsync(root_fd)
-        fresh_root = os.open(
-            root, os.O_RDONLY | os.O_DIRECTORY | os.O_CLOEXEC | os.O_NOFOLLOW
-        )
-        try:
-            if _signature(os.fstat(fresh_root))[:2] != _signature(status)[:2]:
-                fail("reservation_changed")
-        finally:
-            os.close(fresh_root)
+        os.fsync(anchor.descriptor)
+        anchor.revalidate(expected_mode=0o700)
     except SubmissionError:
         raise
     except OSError as error:
@@ -478,13 +597,11 @@ def publish_once(root: Path, name: str, raw: bytes, mode: int = 0o400) -> str:
     finally:
         if descriptor >= 0:
             os.close(descriptor)
-        if root_fd >= 0:
-            if temporary:
-                try:
-                    os.unlink(temporary, dir_fd=root_fd)
-                except OSError:
-                    pass
-            os.close(root_fd)
+        if temporary:
+            try:
+                os.unlink(temporary, dir_fd=anchor.descriptor)
+            except OSError:
+                pass
     return sha256_bytes(raw)
 
 
@@ -1746,63 +1863,30 @@ def validate_python(
         )
 
 
-def _seal_reservation(root: Path, committed: dict[str, bool]) -> None:
+def _seal_reservation(
+    anchor: ReservationAnchor,
+    committed: dict[str, bool],
+) -> None:
     blocked = {signal.SIGINT, signal.SIGTERM, signal.SIGHUP}
     previous = signal.pthread_sigmask(signal.SIG_BLOCK, blocked)
-    root_fd = -1
-    parent_fd = -1
     try:
-        root_fd = os.open(
-            root, os.O_RDONLY | os.O_DIRECTORY | os.O_CLOEXEC | os.O_NOFOLLOW
-        )
-        parent_fd = os.open(
-            root.parent, os.O_RDONLY | os.O_DIRECTORY | os.O_CLOEXEC | os.O_NOFOLLOW
-        )
-        root_identity = _signature(os.fstat(root_fd))[:2]
-        parent_identity = _signature(os.fstat(parent_fd))[:2]
-        os.fsync(root_fd)
-        os.fchmod(root_fd, 0o500)
+        anchor.revalidate(expected_mode=0o700)
+        os.fsync(anchor.descriptor)
+        os.fchmod(anchor.descriptor, 0o500)
         # Mode 0500 is the batch admission point.  Record it while handled
         # signals remain blocked and before any later operation can fail.
         committed["value"] = True
-        os.fsync(root_fd)
-        os.fsync(parent_fd)
-        fresh_root = os.open(
-            root, os.O_RDONLY | os.O_DIRECTORY | os.O_CLOEXEC | os.O_NOFOLLOW
-        )
-        fresh_parent = os.open(
-            root.parent,
-            os.O_RDONLY | os.O_DIRECTORY | os.O_CLOEXEC | os.O_NOFOLLOW,
-        )
+        os.fsync(anchor.descriptor)
+        os.fsync(anchor.parent_fd)
         try:
-            visible_root = os.fstat(fresh_root)
-            visible_parent = os.fstat(fresh_parent)
-        finally:
-            os.close(fresh_root)
-            os.close(fresh_parent)
-        if (
-            _signature(visible_root)[:2] != root_identity
-            or _signature(visible_parent)[:2] != parent_identity
-            or stat.S_IMODE(visible_root.st_mode) != 0o500
-        ):
-            raise LifecycleError("reservation_commit_ambiguous")
+            anchor.revalidate(expected_mode=0o500)
+        except SubmissionError as error:
+            raise LifecycleError("reservation_commit_ambiguous") from error
     except OSError as error:
         if committed["value"]:
             raise LifecycleError("reservation_commit_ambiguous") from error
         raise
     finally:
-        if root_fd >= 0:
-            try:
-                os.close(root_fd)
-            except OSError:
-                if not committed["value"]:
-                    raise
-        if parent_fd >= 0:
-            try:
-                os.close(parent_fd)
-            except OSError:
-                if not committed["value"]:
-                    raise
         try:
             signal.pthread_sigmask(signal.SIG_SETMASK, previous)
         except OSError:
@@ -1811,7 +1895,7 @@ def _seal_reservation(root: Path, committed: dict[str, bool]) -> None:
 
 
 def _publish_success(
-    root: Path,
+    anchor: ReservationAnchor,
     receipt_raw: bytes,
     permit_raw: bytes,
     committed: dict[str, bool],
@@ -1822,10 +1906,8 @@ def _publish_success(
         fail("success_commit_state_invalid")
     expected_before = {"held_authorization.json", "launch_intent.json"}
     try:
-        if (
-            stat.S_IMODE(root.stat(follow_symlinks=False).st_mode) != 0o700
-            or {entry.name for entry in os.scandir(root)} != expected_before
-        ):
+        anchor.revalidate(expected_mode=0o700)
+        if {entry.name for entry in os.scandir(anchor.descriptor)} != expected_before:
             fail("success_publication_invalid")
     except (OSError, RuntimeError) as error:
         raise SubmissionError("success_publication_invalid") from error
@@ -1833,42 +1915,37 @@ def _publish_success(
     previous_mask = signal.pthread_sigmask(signal.SIG_BLOCK, blocked)
     success_entries = {"activation_permit.json", "submission_receipt.json"}
     try:
-        publish_once(root, "submission_receipt.json", receipt_raw)
-        publish_once(root, "activation_permit.json", permit_raw)
+        publish_once(anchor, "submission_receipt.json", receipt_raw)
+        publish_once(anchor, "activation_permit.json", permit_raw)
         if {
-            entry.name for entry in os.scandir(root)
+            entry.name for entry in os.scandir(anchor.descriptor)
         } != expected_before | success_entries:
             fail("success_publication_invalid")
-        _seal_reservation(root, committed)
+        anchor.revalidate(expected_mode=0o700)
+        _seal_reservation(anchor, committed)
         # No fallible operation belongs after the durable mode transition.
     except BaseException as primary:
         if committed["value"]:
             raise
         rollback_failed = False
-        root_fd = -1
         try:
-            root_fd = os.open(
-                root, os.O_RDONLY | os.O_DIRECTORY | os.O_CLOEXEC | os.O_NOFOLLOW
-            )
             for name in sorted(success_entries):
                 try:
-                    os.unlink(name, dir_fd=root_fd)
+                    os.unlink(name, dir_fd=anchor.descriptor)
                 except FileNotFoundError:
                     pass
                 except OSError:
                     rollback_failed = True
             try:
-                os.fsync(root_fd)
+                os.fsync(anchor.descriptor)
             except OSError:
+                rollback_failed = True
+            try:
+                anchor.revalidate(expected_mode=0o700)
+            except SubmissionError:
                 rollback_failed = True
         except OSError:
             rollback_failed = True
-        finally:
-            if root_fd >= 0:
-                try:
-                    os.close(root_fd)
-                except OSError:
-                    rollback_failed = True
         if rollback_failed:
             raise LifecycleError("success_publication_rollback_failed") from primary
         raise
@@ -1889,12 +1966,13 @@ def _safe_exception_code(error: BaseException | None) -> str:
 def _failure_body(
     authorization_path: Path,
     authorization_sha256: str,
+    reservation_identity: Mapping[str, int],
     code: str,
     cancellation: Mapping[str, Any] | None,
 ) -> bytes:
     return _envelope(
         {
-            "schema_version": SCHEMA_VERSION,
+            "schema_version": ADMISSION_SCHEMA_VERSION,
             "artifact_type": FAILURE_TYPE,
             "state": "failed",
             "code": code if SAFE_CODE_RE.fullmatch(code) else "submission_failed",
@@ -1902,6 +1980,7 @@ def _failure_body(
                 "path": str(authorization_path),
                 "sha256": authorization_sha256,
             },
+            "reservation_identity": dict(reservation_identity),
             "cancellation": dict(cancellation or {}),
             "promotion_authorized": False,
         },
@@ -1962,7 +2041,8 @@ def submit(
         fail("audit_output_already_exists")
     if scheduler_name_matches(submission["job_name"], submission["cluster"], runner):
         fail("scheduler_name_not_fresh")
-    create_reservation(root)
+    reservation_anchor = create_reservation(root)
+    reservation_identity = reservation_anchor.record()
     committed = {"value": False}
     job_id: str | None = None
     direct_candidate: str | None = None
@@ -1981,7 +2061,7 @@ def submit(
         old_handlers[handled] = signal.signal(handled, interrupted)
     try:
         intent_body = {
-            "schema_version": SCHEMA_VERSION,
+            "schema_version": ADMISSION_SCHEMA_VERSION,
             "artifact_type": INTENT_TYPE,
             "state": "reserved",
             "audit_authorization": {
@@ -1992,9 +2072,14 @@ def submit(
             "wrapper_sha256": wrapper_sha256,
             "source_manifest_sha256": source_digest,
             "policy": submission["policy"],
+            "reservation_identity": reservation_identity,
         }
         intent_raw = _envelope(intent_body, "launch_intent_sha256")
-        intent_sha256 = publish_once(root, "launch_intent.json", intent_raw)
+        intent_sha256 = publish_once(
+            reservation_anchor,
+            "launch_intent.json",
+            intent_raw,
+        )
 
         # This is the final mutable-input/name gate adjacent to the sole sbatch.
         if (
@@ -2031,9 +2116,13 @@ def submit(
         blocked = {signal.SIGINT, signal.SIGTERM, signal.SIGHUP}
         previous_mask = signal.pthread_sigmask(signal.SIG_BLOCK, blocked)
         try:
+            reservation_anchor.revalidate(expected_mode=0o700)
             submission_attempted = True
             outcome, returncode, stdout = sbatch_invoker(
-                _sbatch_command(authorization, batch_arguments),
+                _sbatch_command(
+                    authorization,
+                    [*batch_arguments, *reservation_anchor.batch_arguments()],
+                ),
                 wrapper,
                 scheduler_environment,
             )
@@ -2088,8 +2177,9 @@ def submit(
             raise LifecycleError("scheduler_identity_conflict")
         if held_after["converged"] is not True:
             raise LifecycleError("held_identity_not_converged")
+        reservation_anchor.revalidate(expected_mode=0o700)
         held_body = {
-            "schema_version": SCHEMA_VERSION,
+            "schema_version": ADMISSION_SCHEMA_VERSION,
             "artifact_type": HELD_AUTHORIZATION_TYPE,
             "state": "held_authorized",
             "audit_authorization": {
@@ -2105,9 +2195,14 @@ def submit(
             "held": held,
             "held_after_authorization": held_after,
             "wrapper_sha256": wrapper_sha256,
+            "reservation_identity": reservation_identity,
         }
         held_raw = _envelope(held_body, "held_authorization_sha256")
-        held_sha256 = publish_once(root, "held_authorization.json", held_raw)
+        held_sha256 = publish_once(
+            reservation_anchor,
+            "held_authorization.json",
+            held_raw,
+        )
 
         precontrol, precontrol_conflicts = _precontrol_identity(
             authorization,
@@ -2135,6 +2230,7 @@ def submit(
             raise LifecycleError("scheduler_identity_conflict")
         if final_held["converged"] is not True:
             raise LifecycleError("held_state_lost_before_release")
+        reservation_anchor.revalidate(expected_mode=0o700)
         release = runner(
             ["/usr/bin/scontrol", "-M", submission["cluster"], "release", job_id],
             QUERY_TIMEOUT_SECONDS,
@@ -2161,6 +2257,7 @@ def submit(
             raise LifecycleError("scheduler_identity_conflict")
         if activation["converged"] is not True:
             raise LifecycleError("activation_not_converged")
+        reservation_anchor.revalidate(expected_mode=0o700)
 
         if (
             load_authorization(authorization_path, authorization_sha256)
@@ -2188,7 +2285,7 @@ def submit(
         ):
             raise LifecycleError("audit_output_already_exists")
         receipt_body = {
-            "schema_version": SCHEMA_VERSION,
+            "schema_version": ADMISSION_SCHEMA_VERSION,
             "artifact_type": RECEIPT_TYPE,
             "state": "submitted",
             "audit_authorization": {
@@ -2209,13 +2306,14 @@ def submit(
             "submission_visibility": visibility,
             "source_manifest_sha256": source_digest,
             "wrapper_sha256": wrapper_sha256,
+            "reservation_identity": reservation_identity,
             "promotion_authorized": False,
         }
         receipt_raw = _envelope(receipt_body, "submission_receipt_sha256")
         receipt_sha256 = sha256_bytes(receipt_raw)
         permit_raw = _envelope(
             {
-                "schema_version": SCHEMA_VERSION,
+                "schema_version": ADMISSION_SCHEMA_VERSION,
                 "artifact_type": PERMIT_TYPE,
                 "state": "activated",
                 "audit_authorization": {
@@ -2228,13 +2326,19 @@ def submit(
                 },
                 "job_id_sha256": sha256_bytes(job_id.encode("ascii")),
                 "job_name_sha256": sha256_bytes(submission["job_name"].encode("ascii")),
+                "reservation_identity": reservation_identity,
             },
             "activation_permit_sha256",
         )
         blocked = {signal.SIGINT, signal.SIGTERM, signal.SIGHUP}
         previous_mask = signal.pthread_sigmask(signal.SIG_BLOCK, blocked)
         try:
-            _publish_success(root, receipt_raw, permit_raw, committed)
+            _publish_success(
+                reservation_anchor,
+                receipt_raw,
+                permit_raw,
+                committed,
+            )
         finally:
             signal.pthread_sigmask(signal.SIG_SETMASK, previous_mask)
         return {
@@ -2313,39 +2417,57 @@ def submit(
                         primary = LifecycleError(
                             "cancellation_unconfirmed", cancellation
                         )
-            if (
-                root.exists()
-                and stat.S_IMODE(root.stat(follow_symlinks=False).st_mode) == 0o700
-            ):
+            try:
+                reservation_anchor.revalidate(expected_mode=0o700)
+            except SubmissionError:
+                if (
+                    isinstance(primary, LifecycleError)
+                    and str(primary) == "cancellation_unconfirmed"
+                ):
+                    primary.evidence["reservation_identity_status"] = "changed"
+                else:
+                    primary = LifecycleError(
+                        "reservation_changed",
+                        {"cancellation": dict(cancellation or {})},
+                    )
+            else:
                 if any(
-                    (root / name).exists()
+                    name
+                    in {
+                        entry.name
+                        for entry in os.scandir(reservation_anchor.descriptor)
+                    }
                     for name in ("submission_receipt.json", "activation_permit.json")
                 ):
                     raise SubmissionError("success_publication_ambiguous")
                 code = _safe_exception_code(primary)
                 publish_once(
-                    root,
+                    reservation_anchor,
                     "submission_failure.json",
                     _failure_body(
                         authorization_path,
                         authorization_sha256,
+                        reservation_identity,
                         code,
                         cancellation,
                     ),
                 )
-                _seal_reservation(root, committed)
+                _seal_reservation(reservation_anchor, committed)
         finally:
             signal.pthread_sigmask(signal.SIG_SETMASK, previous_mask)
         if primary is None:
             fail("submission_failed")
         raise primary
     finally:
-        for handled, previous_handler in old_handlers.items():
-            try:
-                signal.signal(handled, previous_handler)
-            except (OSError, ValueError):
-                if not committed["value"]:
-                    raise
+        try:
+            for handled, previous_handler in old_handlers.items():
+                try:
+                    signal.signal(handled, previous_handler)
+                except (OSError, ValueError):
+                    if not committed["value"]:
+                        raise
+        finally:
+            reservation_anchor.close()
 
 
 def _descriptor_bytes(descriptor: int, expected_sha256: str, *, sealed: bool) -> bytes:

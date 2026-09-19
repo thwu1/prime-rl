@@ -15,7 +15,7 @@ import stat
 import subprocess
 import sys
 import sysconfig
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from pathlib import Path, PurePosixPath
 from typing import Any
 
@@ -23,16 +23,17 @@ SHA256_RE = re.compile(r"[0-9a-f]{64}")
 REVISION_RE = re.compile(r"[0-9a-f]{40}")
 MAX_AUTHORIZATION_BYTES = 2 * 1024 * 1024
 MAX_TREE_ENTRIES = 200_000
-SUBMISSION_INTENT_TYPE = "terminal_bench_vmvm_production_trace_audit_launch_intent_v1"
+SUBMISSION_INTENT_TYPE = "terminal_bench_vmvm_production_trace_audit_launch_intent_v2"
 SUBMISSION_HELD_TYPE = (
-    "terminal_bench_vmvm_production_trace_audit_held_authorization_v1"
+    "terminal_bench_vmvm_production_trace_audit_held_authorization_v2"
 )
 SUBMISSION_RECEIPT_TYPE = (
-    "terminal_bench_vmvm_production_trace_audit_submission_receipt_v1"
+    "terminal_bench_vmvm_production_trace_audit_submission_receipt_v2"
 )
 SUBMISSION_PERMIT_TYPE = (
-    "terminal_bench_vmvm_production_trace_audit_activation_permit_v1"
+    "terminal_bench_vmvm_production_trace_audit_activation_permit_v2"
 )
+ADMISSION_SCHEMA_VERSION = 2
 HELD_TIMEOUT_SECONDS = 982
 FINAL_HELD_TIMEOUT_SECONDS = 40
 ACTIVATION_TIMEOUT_SECONDS = 742
@@ -178,6 +179,59 @@ def stable_bytes(
     return body, digest
 
 
+def _stable_bytes_at(
+    directory_fd: int,
+    name: str,
+    *,
+    code: str,
+    maximum: int,
+    expected_mode: int,
+    expected_uid: int,
+) -> tuple[bytes, str]:
+    descriptor = -1
+    try:
+        if not name or "/" in name or name in {".", ".."}:
+            fail(code)
+        descriptor = os.open(
+            name,
+            os.O_RDONLY | getattr(os, "O_CLOEXEC", 0) | getattr(os, "O_NOFOLLOW", 0),
+            dir_fd=directory_fd,
+        )
+        before = os.fstat(descriptor)
+        if (
+            not stat.S_ISREG(before.st_mode)
+            or before.st_nlink != 1
+            or before.st_size < 1
+            or before.st_size > maximum
+            or stat.S_IMODE(before.st_mode) != expected_mode
+            or before.st_uid != expected_uid
+        ):
+            fail(code)
+        chunks: list[bytes] = []
+        remaining = before.st_size
+        while remaining:
+            chunk = os.read(descriptor, min(1 << 20, remaining))
+            if not chunk:
+                fail(code)
+            chunks.append(chunk)
+            remaining -= len(chunk)
+        after = os.fstat(descriptor)
+        visible = os.stat(name, dir_fd=directory_fd, follow_symlinks=False)
+    except BootstrapError:
+        raise
+    except OSError as error:
+        raise BootstrapError(code) from error
+    finally:
+        if descriptor >= 0:
+            os.close(descriptor)
+    body = b"".join(chunks)
+    if _signature(before) != _signature(after) or _signature(after) != _signature(
+        visible
+    ):
+        fail(code)
+    return body, hashlib.sha256(body).hexdigest()
+
+
 def _descriptor_sha256(descriptor: int, size: int) -> str:
     digest = hashlib.sha256()
     offset = 0
@@ -283,10 +337,14 @@ def load_authorization(path: Path, expected_sha256: str) -> dict[str, Any]:
 
 
 def _load_envelope(
-    path: Path, kind: str, hash_field: str
+    directory_fd: int,
+    name: str,
+    kind: str,
+    hash_field: str,
 ) -> tuple[dict[str, Any], str]:
-    raw, digest = stable_bytes(
-        path,
+    raw, digest = _stable_bytes_at(
+        directory_fd,
+        name,
         code="submission_admission_invalid",
         maximum=2 * 1024 * 1024,
         expected_mode=0o400,
@@ -297,12 +355,45 @@ def _load_envelope(
     embedded = body.pop(hash_field, None)
     if (
         raw != json.dumps(value, indent=2, sort_keys=True).encode("utf-8") + b"\n"
-        or value.get("schema_version") != 1
+        or value.get("schema_version") != ADMISSION_SCHEMA_VERSION
         or value.get("artifact_type") != kind
         or embedded != hashlib.sha256(canonical_json(body)).hexdigest()
     ):
         fail("submission_admission_invalid")
     return value, digest
+
+
+def _reservation_identity(
+    status: os.stat_result,
+    parent_status: os.stat_result,
+) -> dict[str, int]:
+    return {
+        "device": status.st_dev,
+        "inode": status.st_ino,
+        "owner_uid": status.st_uid,
+        "parent_device": parent_status.st_dev,
+        "parent_inode": parent_status.st_ino,
+    }
+
+
+def _validate_reservation_identity(value: object) -> dict[str, int]:
+    keys = {
+        "device",
+        "inode",
+        "owner_uid",
+        "parent_device",
+        "parent_inode",
+    }
+    if (
+        not isinstance(value, dict)
+        or set(value) != keys
+        or any(type(value.get(key)) is not int or value[key] < 0 for key in keys)
+        or value.get("inode") == 0
+        or value.get("parent_inode") == 0
+        or value.get("owner_uid") != os.getuid()
+    ):
+        fail("submission_admission_invalid")
+    return dict(value)
 
 
 def _validate_phase_certificate(
@@ -368,6 +459,7 @@ def validate_submission_admission(
     reservation: Path,
     job_id: str,
     job_name: str,
+    expected_reservation_identity: Mapping[str, int],
 ) -> dict[str, Any]:
     submission = authorization.get("audit_submission")
     if (
@@ -377,12 +469,59 @@ def validate_submission_admission(
         or not re.fullmatch(r"[1-9][0-9]{0,19}", job_id)
     ):
         fail("submission_admission_invalid")
+    expected_identity = _validate_reservation_identity(expected_reservation_identity)
+    parent_fd = -1
+    reservation_fd = -1
+    fresh_parent_fd = -1
+    fresh_reservation_fd = -1
+
+    def close_descriptors() -> None:
+        nonlocal parent_fd, reservation_fd, fresh_parent_fd, fresh_reservation_fd
+        for descriptor in (
+            fresh_reservation_fd,
+            fresh_parent_fd,
+            reservation_fd,
+            parent_fd,
+        ):
+            if descriptor >= 0:
+                try:
+                    os.close(descriptor)
+                except OSError:
+                    pass
+        fresh_reservation_fd = -1
+        fresh_parent_fd = -1
+        reservation_fd = -1
+        parent_fd = -1
+
     try:
-        if reservation.resolve(strict=True) != reservation or reservation.is_symlink():
+        parent = reservation.parent
+        if (
+            not reservation.is_absolute()
+            or Path(os.path.normpath(reservation)) != reservation
+            or not reservation.name
+            or parent.resolve(strict=True) != parent
+            or parent.is_symlink()
+        ):
             fail("submission_admission_invalid")
-        status = reservation.stat(follow_symlinks=False)
-        children = {entry.name for entry in os.scandir(reservation)}
+        parent_fd = os.open(
+            parent,
+            os.O_RDONLY | os.O_DIRECTORY | os.O_CLOEXEC | os.O_NOFOLLOW,
+        )
+        parent_status = os.fstat(parent_fd)
+        reservation_fd = os.open(
+            reservation.name,
+            os.O_RDONLY | os.O_DIRECTORY | os.O_CLOEXEC | os.O_NOFOLLOW,
+            dir_fd=parent_fd,
+        )
+        status = os.fstat(reservation_fd)
+        visible_status = os.stat(
+            reservation.name,
+            dir_fd=parent_fd,
+            follow_symlinks=False,
+        )
+        children = {entry.name for entry in os.scandir(reservation_fd)}
     except (OSError, RuntimeError) as error:
+        close_descriptors()
         raise BootstrapError("submission_admission_invalid") from error
     expected_children = {
         "activation_permit.json",
@@ -394,29 +533,43 @@ def validate_submission_admission(
         not stat.S_ISDIR(status.st_mode)
         or stat.S_IMODE(status.st_mode) != 0o500
         or status.st_uid != os.getuid()
+        or not stat.S_ISDIR(parent_status.st_mode)
+        or stat.S_IMODE(parent_status.st_mode) != 0o700
+        or parent_status.st_uid != os.getuid()
+        or _signature(status)[:2] != _signature(visible_status)[:2]
+        or _reservation_identity(status, parent_status) != expected_identity
         or children != expected_children
     ):
+        close_descriptors()
         fail("submission_admission_invalid")
-    intent, intent_sha = _load_envelope(
-        reservation / "launch_intent.json",
-        SUBMISSION_INTENT_TYPE,
-        "launch_intent_sha256",
-    )
-    held, held_sha = _load_envelope(
-        reservation / "held_authorization.json",
-        SUBMISSION_HELD_TYPE,
-        "held_authorization_sha256",
-    )
-    receipt, receipt_sha = _load_envelope(
-        reservation / "submission_receipt.json",
-        SUBMISSION_RECEIPT_TYPE,
-        "submission_receipt_sha256",
-    )
-    permit, permit_sha = _load_envelope(
-        reservation / "activation_permit.json",
-        SUBMISSION_PERMIT_TYPE,
-        "activation_permit_sha256",
-    )
+    try:
+        intent, intent_sha = _load_envelope(
+            reservation_fd,
+            "launch_intent.json",
+            SUBMISSION_INTENT_TYPE,
+            "launch_intent_sha256",
+        )
+        held, held_sha = _load_envelope(
+            reservation_fd,
+            "held_authorization.json",
+            SUBMISSION_HELD_TYPE,
+            "held_authorization_sha256",
+        )
+        receipt, receipt_sha = _load_envelope(
+            reservation_fd,
+            "submission_receipt.json",
+            SUBMISSION_RECEIPT_TYPE,
+            "submission_receipt_sha256",
+        )
+        permit, permit_sha = _load_envelope(
+            reservation_fd,
+            "activation_permit.json",
+            SUBMISSION_PERMIT_TYPE,
+            "activation_permit_sha256",
+        )
+    except BaseException:
+        close_descriptors()
+        raise
     auth_record = {"path": str(authorization_path), "sha256": authorization_sha256}
     expected_job = {"cluster": submission["cluster"], "id": job_id, "name": job_name}
     expected_wrapper_sha256 = authorization["source"]["artifacts"][
@@ -431,6 +584,7 @@ def validate_submission_admission(
             "job_name_sha256",
             "launch_intent_sha256",
             "policy",
+            "reservation_identity",
             "schema_version",
             "source_manifest_sha256",
             "state",
@@ -445,6 +599,7 @@ def validate_submission_admission(
             "held_authorization_sha256",
             "intent_sha256",
             "job",
+            "reservation_identity",
             "schema_version",
             "state",
             "wrapper_sha256",
@@ -462,6 +617,7 @@ def validate_submission_admission(
             "job",
             "promotion_authorized",
             "release",
+            "reservation_identity",
             "schema_version",
             "source_manifest_sha256",
             "state",
@@ -476,6 +632,7 @@ def validate_submission_admission(
             "audit_authorization",
             "job_id_sha256",
             "job_name_sha256",
+            "reservation_identity",
             "schema_version",
             "state",
             "submission_receipt",
@@ -486,6 +643,10 @@ def validate_submission_admission(
         or permit.get("state") != "activated"
         or any(
             value.get("audit_authorization") != auth_record
+            for value in (intent, held, receipt, permit)
+        )
+        or any(
+            value.get("reservation_identity") != expected_identity
             for value in (intent, held, receipt, permit)
         )
         or intent.get("policy") != submission.get("policy")
@@ -521,57 +682,91 @@ def validate_submission_admission(
         or permit.get("job_name_sha256")
         != hashlib.sha256(job_name.encode("ascii")).hexdigest()
     ):
+        close_descriptors()
         fail("submission_admission_invalid")
-    _validate_phase_certificate(
-        receipt.get("held"),
-        timeout_seconds=HELD_TIMEOUT_SECONDS,
-        allowed_states=frozenset({"PENDING"}),
-    )
-    _validate_phase_certificate(
-        receipt.get("held_after_authorization"),
-        timeout_seconds=FINAL_HELD_TIMEOUT_SECONDS,
-        allowed_states=frozenset({"PENDING"}),
-    )
-    _validate_phase_certificate(
-        receipt.get("held_before_release"),
-        timeout_seconds=FINAL_HELD_TIMEOUT_SECONDS,
-        allowed_states=frozenset({"PENDING"}),
-    )
-    _validate_phase_certificate(
-        receipt.get("activation"),
-        timeout_seconds=ACTIVATION_TIMEOUT_SECONDS,
-        allowed_states=frozenset({"PENDING", "CONFIGURING", "RUNNING"}),
-    )
     try:
-        final_status = reservation.stat(follow_symlinks=False)
-        final_children = {entry.name for entry in os.scandir(reservation)}
-    except OSError as error:
+        _validate_phase_certificate(
+            receipt.get("held"),
+            timeout_seconds=HELD_TIMEOUT_SECONDS,
+            allowed_states=frozenset({"PENDING"}),
+        )
+        _validate_phase_certificate(
+            receipt.get("held_after_authorization"),
+            timeout_seconds=FINAL_HELD_TIMEOUT_SECONDS,
+            allowed_states=frozenset({"PENDING"}),
+        )
+        _validate_phase_certificate(
+            receipt.get("held_before_release"),
+            timeout_seconds=FINAL_HELD_TIMEOUT_SECONDS,
+            allowed_states=frozenset({"PENDING"}),
+        )
+        _validate_phase_certificate(
+            receipt.get("activation"),
+            timeout_seconds=ACTIVATION_TIMEOUT_SECONDS,
+            allowed_states=frozenset({"PENDING", "CONFIGURING", "RUNNING"}),
+        )
+    except BaseException:
+        close_descriptors()
+        raise
+    try:
+        final_parent_status = os.fstat(parent_fd)
+        final_status = os.fstat(reservation_fd)
+        final_visible_status = os.stat(
+            reservation.name,
+            dir_fd=parent_fd,
+            follow_symlinks=False,
+        )
+        final_children = {entry.name for entry in os.scandir(reservation_fd)}
+        fresh_parent_fd = os.open(
+            parent,
+            os.O_RDONLY | os.O_DIRECTORY | os.O_CLOEXEC | os.O_NOFOLLOW,
+        )
+        fresh_parent_status = os.fstat(fresh_parent_fd)
+        fresh_reservation_fd = os.open(
+            reservation.name,
+            os.O_RDONLY | os.O_DIRECTORY | os.O_CLOEXEC | os.O_NOFOLLOW,
+            dir_fd=fresh_parent_fd,
+        )
+        fresh_status = os.fstat(fresh_reservation_fd)
+    except (OSError, RuntimeError) as error:
+        close_descriptors()
         raise BootstrapError("submission_admission_invalid") from error
-    if (
-        _signature(final_status) != _signature(status)
-        or final_children != expected_children
-    ):
-        fail("submission_admission_changed")
-    return {
-        "reservation": {"path": str(reservation), "mode": "0500"},
-        "intent": {
-            "path": str(reservation / "launch_intent.json"),
-            "sha256": intent_sha,
-        },
-        "held_authorization": {
-            "path": str(reservation / "held_authorization.json"),
-            "sha256": held_sha,
-        },
-        "submission_receipt": {
-            "path": str(reservation / "submission_receipt.json"),
-            "sha256": receipt_sha,
-        },
-        "activation_permit": {
-            "path": str(reservation / "activation_permit.json"),
-            "sha256": permit_sha,
-        },
-        "job": expected_job,
-    }
+    try:
+        if (
+            _signature(final_parent_status)[:2] != _signature(parent_status)[:2]
+            or _signature(final_status) != _signature(status)
+            or _signature(final_visible_status)[:2] != _signature(status)[:2]
+            or _signature(fresh_parent_status)[:2] != _signature(parent_status)[:2]
+            or _signature(fresh_status)[:2] != _signature(status)[:2]
+            or final_children != expected_children
+        ):
+            fail("submission_admission_changed")
+        return {
+            "reservation": {
+                "identity": expected_identity,
+                "mode": "0500",
+                "path": str(reservation),
+            },
+            "intent": {
+                "path": str(reservation / "launch_intent.json"),
+                "sha256": intent_sha,
+            },
+            "held_authorization": {
+                "path": str(reservation / "held_authorization.json"),
+                "sha256": held_sha,
+            },
+            "submission_receipt": {
+                "path": str(reservation / "submission_receipt.json"),
+                "sha256": receipt_sha,
+            },
+            "activation_permit": {
+                "path": str(reservation / "activation_permit.json"),
+                "sha256": permit_sha,
+            },
+            "job": expected_job,
+        }
+    finally:
+        close_descriptors()
 
 
 def tree_manifest_sha256(
@@ -1084,14 +1279,22 @@ def _runtime_roots(source: dict[str, Any]) -> tuple[Path, Path, Path, dict[Path,
 
 
 class _VerifiedSourceLoader(importlib.abc.Loader):
-    def __init__(self, path: Path, expected_sha256: str) -> None:
+    def __init__(
+        self,
+        path: Path,
+        expected_sha256: str,
+        verify_origin: Callable[[], None] | None = None,
+    ) -> None:
         self.path = path
         self.expected_sha256 = expected_sha256
+        self.verify_origin = verify_origin
 
     def create_module(self, _spec: object) -> None:
         return None
 
     def exec_module(self, module: object) -> None:
+        if self.verify_origin is not None:
+            self.verify_origin()
         body, _digest = stable_bytes(
             self.path,
             code="verified_import_changed",
@@ -1107,6 +1310,8 @@ class _VerifiedSourceLoader(importlib.abc.Loader):
             raise
         except BaseException:
             fail("verified_import_execution_failed")
+        if self.verify_origin is not None:
+            self.verify_origin()
         stable_bytes(
             self.path,
             code="verified_import_changed",
@@ -1125,12 +1330,14 @@ class _VerifiedExtensionLoader(importlib.abc.Loader):
         expected_sha256: str,
         descriptor: int,
         delegate: importlib.abc.Loader,
+        verify_origin: Callable[[], None] | None = None,
     ) -> None:
         self.fullname = fullname
         self.path = path
         self.expected_sha256 = expected_sha256
         self.descriptor = descriptor
         self.delegate = delegate
+        self.verify_origin = verify_origin
 
     def _verify(self) -> None:
         try:
@@ -1154,6 +1361,8 @@ class _VerifiedExtensionLoader(importlib.abc.Loader):
             fail("verified_extension_changed")
 
     def create_module(self, spec: object) -> object | None:
+        if self.verify_origin is not None:
+            self.verify_origin()
         self._verify()
         create = getattr(self.delegate, "create_module", None)
         if not callable(create):
@@ -1163,9 +1372,13 @@ class _VerifiedExtensionLoader(importlib.abc.Loader):
         except BaseException:
             fail("verified_extension_load_failed")
         self._verify()
+        if self.verify_origin is not None:
+            self.verify_origin()
         return module
 
     def exec_module(self, module: object) -> None:
+        if self.verify_origin is not None:
+            self.verify_origin()
         self._verify()
         execute = getattr(self.delegate, "exec_module", None)
         if not callable(execute):
@@ -1175,6 +1388,8 @@ class _VerifiedExtensionLoader(importlib.abc.Loader):
         except BaseException:
             fail("verified_extension_load_failed")
         self._verify()
+        if self.verify_origin is not None:
+            self.verify_origin()
 
 
 class _VerifiedImportFinder(importlib.abc.MetaPathFinder):
@@ -1190,6 +1405,42 @@ class _VerifiedImportFinder(importlib.abc.MetaPathFinder):
         self.original_meta_path = original_meta_path
         self.expected_sys_path = expected_sys_path
         self.sealed_extensions: dict[str, tuple[int, Path, str]] = {}
+        self.protected_descriptors: dict[Path, tuple[int, tuple[int, ...]]] = {}
+        try:
+            for root in protected:
+                if (
+                    not root.is_absolute()
+                    or Path(os.path.normpath(root)) != root
+                    or root.resolve(strict=True) != root
+                    or root.is_symlink()
+                ):
+                    fail("verified_import_origin_invalid")
+                descriptor = os.open(
+                    root,
+                    os.O_RDONLY | os.O_DIRECTORY | os.O_CLOEXEC | os.O_NOFOLLOW,
+                )
+                status = os.fstat(descriptor)
+                if not stat.S_ISDIR(status.st_mode):
+                    os.close(descriptor)
+                    fail("verified_import_origin_invalid")
+                self.protected_descriptors[root] = (
+                    descriptor,
+                    _signature(status),
+                )
+        except BaseException:
+            self.close()
+            raise
+        self.manifest_directories: set[Path] = set()
+        for candidate in files:
+            for root in protected:
+                if candidate == root or candidate.is_relative_to(root):
+                    parent = candidate.parent
+                    while parent == root or parent.is_relative_to(root):
+                        self.manifest_directories.add(parent)
+                        if parent == root:
+                            break
+                        parent = parent.parent
+                    break
 
     def close(self) -> None:
         for descriptor, _path, _sha256 in self.sealed_extensions.values():
@@ -1198,6 +1449,71 @@ class _VerifiedImportFinder(importlib.abc.MetaPathFinder):
             except OSError:
                 pass
         self.sealed_extensions.clear()
+        for descriptor, _identity in self.protected_descriptors.values():
+            try:
+                os.close(descriptor)
+            except OSError:
+                pass
+        self.protected_descriptors.clear()
+
+    def _revalidate_protected_roots(self) -> None:
+        for root, (descriptor, identity) in self.protected_descriptors.items():
+            fresh = -1
+            try:
+                if root.resolve(strict=True) != root or root.is_symlink():
+                    fail("verified_import_origin_invalid")
+                held_status = os.fstat(descriptor)
+                fresh = os.open(
+                    root,
+                    os.O_RDONLY | os.O_DIRECTORY | os.O_CLOEXEC | os.O_NOFOLLOW,
+                )
+                fresh_status = os.fstat(fresh)
+            except BootstrapError:
+                raise
+            except (OSError, RuntimeError) as error:
+                raise BootstrapError("verified_import_origin_invalid") from error
+            finally:
+                if fresh >= 0:
+                    os.close(fresh)
+            if (
+                not stat.S_ISDIR(held_status.st_mode)
+                or not stat.S_ISDIR(fresh_status.st_mode)
+                or _signature(held_status) != identity
+                or _signature(fresh_status) != identity
+            ):
+                fail("verified_import_origin_invalid")
+
+    def _protected_path(self, raw: str | os.PathLike[str]) -> Path | None:
+        path = Path(raw)
+        normalized = Path(os.path.normpath(path))
+        lexical_roots = tuple(
+            root for root in self.protected if path == root or path.is_relative_to(root)
+        )
+        try:
+            resolved = path.resolve(strict=True)
+        except (OSError, RuntimeError) as error:
+            raise BootstrapError("verified_import_origin_invalid") from error
+        resolved_roots = tuple(
+            root
+            for root in self.protected
+            if resolved == root or resolved.is_relative_to(root)
+        )
+        if lexical_roots or resolved_roots:
+            self._revalidate_protected_roots()
+            if (
+                not path.is_absolute()
+                or normalized != path
+                or resolved != path
+                or lexical_roots != resolved_roots
+            ):
+                fail("verified_import_origin_invalid")
+            return path
+        return None
+
+    def _verify_manifest_file(self, path: Path, expected_sha256: str) -> None:
+        resolved = self._protected_path(path)
+        if resolved is None or self.files.get(resolved) != expected_sha256:
+            fail("unmanifested_import_forbidden")
 
     def find_spec(
         self,
@@ -1206,26 +1522,37 @@ class _VerifiedImportFinder(importlib.abc.MetaPathFinder):
         target: object = None,
     ) -> object | None:
         del target
+        self._revalidate_protected_roots()
         try:
             spec = importlib.machinery.PathFinder.find_spec(fullname, path)
         except (ImportError, OSError, ValueError) as error:
             raise BootstrapError("verified_import_resolution_failed") from error
-        if spec is None or spec.origin in {None, "built-in", "frozen"}:
+        self._revalidate_protected_roots()
+        if spec is None:
             return spec
-        origin = Path(spec.origin)
-        try:
-            resolved = origin.resolve(strict=True)
-        except (OSError, RuntimeError) as error:
-            raise BootstrapError("verified_import_origin_invalid") from error
-        if not any(
-            resolved == root or resolved.is_relative_to(root) for root in self.protected
-        ):
+        locations = spec.submodule_search_locations
+        if locations is not None:
+            for location in locations:
+                resolved_location = self._protected_path(location)
+                if (
+                    resolved_location is not None
+                    and resolved_location not in self.manifest_directories
+                ):
+                    fail("unmanifested_import_forbidden")
+        if spec.origin in {None, "built-in", "frozen"}:
+            return spec
+        resolved = self._protected_path(spec.origin)
+        if resolved is None:
             return spec
         expected_sha256 = self.files.get(resolved)
         if expected_sha256 is None or resolved.suffix == ".pyc":
             fail("unmanifested_import_forbidden")
         if resolved.suffix == ".py":
-            spec.loader = _VerifiedSourceLoader(resolved, expected_sha256)
+            spec.loader = _VerifiedSourceLoader(
+                resolved,
+                expected_sha256,
+                lambda: self._verify_manifest_file(resolved, expected_sha256),
+            )
             spec.cached = None
             return spec
         if any(
@@ -1250,6 +1577,7 @@ class _VerifiedImportFinder(importlib.abc.MetaPathFinder):
                 expected_sha256,
                 descriptor,
                 delegate,
+                lambda: self._verify_manifest_file(resolved, expected_sha256),
             )
             spec.origin = sealed_path
             spec.cached = None
@@ -1331,10 +1659,22 @@ def _install_import_guard(
         normalized = Path(os.path.normpath(path))
         if normalized == pycache_prefix or normalized.is_relative_to(pycache_prefix):
             return
-        if not any(
-            normalized == root or normalized.is_relative_to(root) for root in protected
-        ):
+        lexical_roots = tuple(
+            root for root in protected if path == root or path.is_relative_to(root)
+        )
+        if not lexical_roots:
             return
+        try:
+            resolved = path.resolve(strict=True)
+        except (OSError, RuntimeError) as error:
+            raise BootstrapError("verified_import_origin_invalid") from error
+        resolved_roots = tuple(
+            root
+            for root in protected
+            if resolved == root or resolved.is_relative_to(root)
+        )
+        if normalized != path or resolved != path or resolved_roots != lexical_roots:
+            fail("verified_import_origin_invalid")
         if normalized.suffix == ".pyc" or normalized.name in FORBIDDEN_IMPORT_NAMES:
             fail("forbidden_import_artifact_open")
 
@@ -1352,6 +1692,7 @@ def _validate_import_origins(
         or tuple(sys.path) != finder.expected_sys_path
     ):
         fail("verified_import_guard_changed")
+    finder._revalidate_protected_roots()
     allowed = (*protected, stdlib)
     for module in tuple(sys.modules.values()):
         origin = getattr(module, "__file__", None)
@@ -1359,7 +1700,8 @@ def _validate_import_origins(
             continue
         sealed = finder.sealed_extensions.get(origin)
         if sealed is not None:
-            descriptor, _canonical_path, expected_sha256 = sealed
+            descriptor, canonical_path, expected_sha256 = sealed
+            finder._verify_manifest_file(canonical_path, expected_sha256)
             status = os.fstat(descriptor)
             if _descriptor_sha256(descriptor, status.st_size) != expected_sha256:
                 fail("verified_extension_changed")
@@ -1429,6 +1771,7 @@ def run(
     reservation: Path,
     audit_job_id: str,
     audit_job_name: str,
+    expected_reservation_identity: Mapping[str, int],
 ) -> int:
     authorization = load_authorization(authorization_path, authorization_sha256)
     submission_attestation = validate_submission_admission(
@@ -1438,6 +1781,7 @@ def run(
         reservation,
         audit_job_id,
         audit_job_name,
+        expected_reservation_identity,
     )
     source = authorization.get("source")
     if not isinstance(source, dict):
@@ -1509,6 +1853,7 @@ def run(
             reservation,
             audit_job_id,
             audit_job_name,
+            expected_reservation_identity,
         )
         if observed != submission_attestation:
             fail("submission_admission_changed")
@@ -1542,7 +1887,7 @@ def run(
 
 
 def main() -> int:
-    if len(sys.argv) != 9:
+    if len(sys.argv) != 13:
         fail("arguments_invalid")
     authorization_path = Path(sys.argv[1])
     authorization_sha256 = sys.argv[2]
@@ -1555,8 +1900,24 @@ def main() -> int:
     reservation = Path(sys.argv[6])
     audit_job_id = sys.argv[7]
     audit_job_name = sys.argv[8]
-    if controller_fd < 3 or SHA256_RE.fullmatch(controller_sha256) is None:
+    raw_identity = sys.argv[9:13]
+    if (
+        controller_fd < 3
+        or SHA256_RE.fullmatch(controller_sha256) is None
+        or any(
+            re.fullmatch(r"(?:0|[1-9][0-9]{0,19})", item) is None
+            for item in raw_identity
+        )
+    ):
         fail("arguments_invalid")
+    expected_reservation_identity = {
+        "device": int(raw_identity[0]),
+        "inode": int(raw_identity[1]),
+        "owner_uid": os.getuid(),
+        "parent_device": int(raw_identity[2]),
+        "parent_inode": int(raw_identity[3]),
+    }
+    _validate_reservation_identity(expected_reservation_identity)
     return run(
         authorization_path,
         authorization_sha256,
@@ -1566,6 +1927,7 @@ def main() -> int:
         reservation,
         audit_job_id,
         audit_job_name,
+        expected_reservation_identity,
     )
 
 

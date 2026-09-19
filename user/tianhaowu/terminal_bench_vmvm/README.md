@@ -1169,13 +1169,15 @@ requires two exact held views (including literal `Command=(null)`, token comment
 job/user/workdir/resources, no allocation/start/steps), publishes held
 authorization, revalidates immediately before one release, and requires two
 non-held activation views. It publishes the receipt and permit, fsyncs them,
-and seals the reservation `0500` as the only commit point. Every known-job
-precommit failure performs at most one exact-ID cancellation and requires six
-stable terminal views with both live queues empty; explicit identity conflict
-is latched across partial scheduler reads and signals, forbids scheduler
-control, and seals an ambiguous failure. The local `sbatch` process group is
-also boundedly reaped on timeout, interruption, and normal return so a child
-cannot outlive an unknown submission result. There is no resubmit path.
+keeps the newly created reservation and its parent open by dirfd, binds their
+device/inode identities into the v2 admission records and immutable Slurm
+arguments, and seals that same reservation `0500` as the only commit point.
+Every known-job precommit failure performs at most one exact-ID cancellation and
+requires six stable terminal views with both live queues empty; explicit
+identity conflict is latched across partial scheduler reads and signals, forbids
+scheduler control, and seals an ambiguous failure. The local `sbatch` process
+group is also boundedly reaped on timeout, interruption, and normal return so a
+child cannot outlive an unknown submission result. There is no resubmit path.
 
 The released batch performs no setup until the sealed permit/receipt chain is
 present. It then rejects

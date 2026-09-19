@@ -570,8 +570,20 @@ def _fixture(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict[str, Any]:
         path.chmod(0o400)
         submission_records[label] = _record(path)
     reservation.chmod(0o500)
+    reservation_status = reservation.stat(follow_symlinks=False)
+    reservation_parent_status = reservation.parent.stat(follow_symlinks=False)
     submission_attestation = {
-        "reservation": {"path": str(reservation), "mode": "0500"},
+        "reservation": {
+            "identity": {
+                "device": reservation_status.st_dev,
+                "inode": reservation_status.st_ino,
+                "owner_uid": os.getuid(),
+                "parent_device": reservation_parent_status.st_dev,
+                "parent_inode": reservation_parent_status.st_ino,
+            },
+            "path": str(reservation),
+            "mode": "0500",
+        },
         **submission_records,
         "job": {
             "cluster": "test-cluster",

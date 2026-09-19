@@ -4,6 +4,7 @@ import fcntl
 import hashlib
 import json
 import os
+import shutil
 import signal
 import stat
 from pathlib import Path
@@ -493,12 +494,56 @@ def test_invoke_sbatch_reaps_process_group_on_base_exception(
     assert events == [(4321, signal.SIGTERM), ("proved", 4321)]
 
 
+def test_reservation_anchor_rejects_name_replacement_between_publications(
+    tmp_path: Path,
+) -> None:
+    reservation = tmp_path / "reservation"
+    anchor = submit.create_reservation(reservation)
+    displaced = tmp_path / "displaced"
+    try:
+        submit.publish_once(anchor, "launch_intent.json", b"intent\n")
+        reservation.rename(displaced)
+        reservation.mkdir(mode=0o700)
+
+        with pytest.raises(submit.SubmissionError, match="^reservation_changed$"):
+            submit.publish_once(anchor, "held_authorization.json", b"held\n")
+        assert list(reservation.iterdir()) == []
+        assert {path.name for path in displaced.iterdir()} == {"launch_intent.json"}
+    finally:
+        anchor.close()
+
+
+def test_reservation_anchor_rejects_parent_replacement_between_phases(
+    tmp_path: Path,
+) -> None:
+    parent = tmp_path / "parent"
+    parent.mkdir(mode=0o700)
+    reservation = parent / "reservation"
+    anchor = submit.create_reservation(reservation)
+    displaced = tmp_path / "displaced"
+    try:
+        submit.publish_once(anchor, "launch_intent.json", b"intent\n")
+        parent.rename(displaced)
+        parent.mkdir(mode=0o700)
+        replacement = parent / "reservation"
+        replacement.mkdir(mode=0o700)
+
+        with pytest.raises(submit.SubmissionError, match="^reservation_changed$"):
+            anchor.revalidate(expected_mode=0o700)
+        assert list(replacement.iterdir()) == []
+        assert {path.name for path in (displaced / "reservation").iterdir()} == {
+            "launch_intent.json"
+        }
+    finally:
+        anchor.close()
+
+
 def test_success_publication_rolls_back_partial_admission(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     reservation = tmp_path / "reservation"
-    reservation.mkdir(mode=0o700)
+    anchor = submit.create_reservation(reservation)
     for name in ("held_authorization.json", "launch_intent.json"):
         path = reservation / name
         path.write_bytes(b"{}\n")
@@ -506,25 +551,33 @@ def test_success_publication_rolls_back_partial_admission(
     original = submit.publish_once
     calls = 0
 
-    def fail_second(root: Path, name: str, raw: bytes, mode: int = 0o400) -> str:
+    def fail_second(
+        observed_anchor: submit.ReservationAnchor,
+        name: str,
+        raw: bytes,
+        mode: int = 0o400,
+    ) -> str:
         nonlocal calls
         calls += 1
         if calls == 2:
             raise submit.SubmissionError("injected_publication_failure")
-        return original(root, name, raw, mode)
+        return original(observed_anchor, name, raw, mode)
 
     monkeypatch.setattr(submit, "publish_once", fail_second)
     committed = {"value": False}
-    with pytest.raises(submit.SubmissionError, match="^injected_publication_failure$"):
-        submit._publish_success(
-            reservation.resolve(), b"receipt\n", b"permit\n", committed
-        )
-    assert committed == {"value": False}
-    assert stat.S_IMODE(reservation.stat().st_mode) == 0o700
-    assert {path.name for path in reservation.iterdir()} == {
-        "held_authorization.json",
-        "launch_intent.json",
-    }
+    try:
+        with pytest.raises(
+            submit.SubmissionError, match="^injected_publication_failure$"
+        ):
+            submit._publish_success(anchor, b"receipt\n", b"permit\n", committed)
+        assert committed == {"value": False}
+        assert stat.S_IMODE(reservation.stat().st_mode) == 0o700
+        assert {path.name for path in reservation.iterdir()} == {
+            "held_authorization.json",
+            "launch_intent.json",
+        }
+    finally:
+        anchor.close()
 
 
 def test_success_publication_never_rolls_back_after_admission_commit(
@@ -532,34 +585,38 @@ def test_success_publication_never_rolls_back_after_admission_commit(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     reservation = tmp_path / "reservation"
-    reservation.mkdir(mode=0o700)
+    anchor = submit.create_reservation(reservation)
     for name in ("held_authorization.json", "launch_intent.json"):
         path = reservation / name
         path.write_bytes(b"{}\n")
         path.chmod(0o400)
 
-    def ambiguous_commit(root: Path, committed: dict[str, bool]) -> None:
-        root.chmod(0o500)
+    def ambiguous_commit(
+        observed_anchor: submit.ReservationAnchor,
+        committed: dict[str, bool],
+    ) -> None:
+        os.fchmod(observed_anchor.descriptor, 0o500)
         committed["value"] = True
         raise submit.LifecycleError("reservation_commit_ambiguous")
 
     monkeypatch.setattr(submit, "_seal_reservation", ambiguous_commit)
     committed = {"value": False}
-    with pytest.raises(
-        submit.LifecycleError,
-        match="^reservation_commit_ambiguous$",
-    ):
-        submit._publish_success(
-            reservation.resolve(), b"receipt\n", b"permit\n", committed
-        )
-    assert committed == {"value": True}
-    assert stat.S_IMODE(reservation.stat().st_mode) == 0o500
-    assert {path.name for path in reservation.iterdir()} == {
-        "activation_permit.json",
-        "held_authorization.json",
-        "launch_intent.json",
-        "submission_receipt.json",
-    }
+    try:
+        with pytest.raises(
+            submit.LifecycleError,
+            match="^reservation_commit_ambiguous$",
+        ):
+            submit._publish_success(anchor, b"receipt\n", b"permit\n", committed)
+        assert committed == {"value": True}
+        assert stat.S_IMODE(reservation.stat().st_mode) == 0o500
+        assert {path.name for path in reservation.iterdir()} == {
+            "activation_permit.json",
+            "held_authorization.json",
+            "launch_intent.json",
+            "submission_receipt.json",
+        }
+    finally:
+        anchor.close()
 
 
 def test_untrusted_exception_text_never_becomes_failure_code() -> None:
@@ -603,7 +660,7 @@ def test_reservation_commit_flag_is_set_at_admission_before_postcommit_fsync(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     root = tmp_path / "reservation"
-    root.mkdir(mode=0o700)
+    anchor = submit.create_reservation(root)
     committed = {"value": False}
     original = submit.os.fsync
     calls = 0
@@ -616,10 +673,15 @@ def test_reservation_commit_flag_is_set_at_admission_before_postcommit_fsync(
         original(descriptor)
 
     monkeypatch.setattr(submit.os, "fsync", fail_before_commit)
-    with pytest.raises(submit.LifecycleError, match="^reservation_commit_ambiguous$"):
-        submit._seal_reservation(root.resolve(), committed)
-    assert committed["value"] is True
-    assert stat.S_IMODE(root.stat().st_mode) == 0o500
+    try:
+        with pytest.raises(
+            submit.LifecycleError, match="^reservation_commit_ambiguous$"
+        ):
+            submit._seal_reservation(anchor, committed)
+        assert committed["value"] is True
+        assert stat.S_IMODE(root.stat().st_mode) == 0o500
+    finally:
+        anchor.close()
 
 
 def test_wrapper_gate_exceeds_release_activation_and_publication_bounds() -> None:
@@ -701,7 +763,7 @@ def test_submit_is_one_shot_held_release_then_sealed_commit(
     reservation = tmp_path / "reservation"
     assert result["state"] == "submitted"
     assert len(sbatch_calls) == 1 and sbatch_calls[0][1] == wrapper
-    assert sbatch_calls[0][0][-2:] == ["-", "batch-arg"]
+    assert sbatch_calls[0][0][-6:-4] == ["-", "batch-arg"]
     assert release_calls == [
         ("/usr/bin/scontrol", "-M", "test-cluster", "release", "123")
     ]
@@ -712,6 +774,24 @@ def test_submit_is_one_shot_held_release_then_sealed_commit(
         "launch_intent.json",
         "submission_receipt.json",
     }
+    intent = json.loads((reservation / "launch_intent.json").read_bytes())
+    reservation_identity = intent["reservation_identity"]
+    for name, artifact_type in (
+        ("launch_intent.json", submit.INTENT_TYPE),
+        ("held_authorization.json", submit.HELD_AUTHORIZATION_TYPE),
+        ("submission_receipt.json", submit.RECEIPT_TYPE),
+        ("activation_permit.json", submit.PERMIT_TYPE),
+    ):
+        record = json.loads((reservation / name).read_bytes())
+        assert record["schema_version"] == submit.ADMISSION_SCHEMA_VERSION
+        assert record["artifact_type"] == artifact_type
+        assert record["reservation_identity"] == reservation_identity
+    assert sbatch_calls[0][0][-4:] == [
+        str(reservation_identity["device"]),
+        str(reservation_identity["inode"]),
+        str(reservation_identity["parent_device"]),
+        str(reservation_identity["parent_inode"]),
+    ]
     attestation = bootstrap.validate_submission_admission(
         tmp_path / "authorization.json",
         "b" * 64,
@@ -719,12 +799,43 @@ def test_submit_is_one_shot_held_release_then_sealed_commit(
         reservation.resolve(),
         "123",
         authorization["audit_submission"]["job_name"],
+        reservation_identity,
     )
     assert attestation["job"] == {
         "cluster": "test-cluster",
         "id": "123",
         "name": "trace-production-audit-0123456789abcdef",
     }
+    with pytest.raises(
+        bootstrap.BootstrapError, match="^submission_admission_invalid$"
+    ):
+        bootstrap.validate_submission_admission(
+            tmp_path / "authorization.json",
+            "b" * 64,
+            authorization,
+            reservation.resolve(),
+            "123",
+            authorization["audit_submission"]["job_name"],
+            {**reservation_identity, "inode": reservation_identity["inode"] + 1},
+        )
+    displaced_admission = tmp_path / "displaced-admission"
+    reservation.rename(displaced_admission)
+    shutil.copytree(displaced_admission, reservation)
+    with pytest.raises(
+        bootstrap.BootstrapError, match="^submission_admission_invalid$"
+    ):
+        bootstrap.validate_submission_admission(
+            tmp_path / "authorization.json",
+            "b" * 64,
+            authorization,
+            reservation.resolve(),
+            "123",
+            authorization["audit_submission"]["job_name"],
+            reservation_identity,
+        )
+    reservation.chmod(0o700)
+    shutil.rmtree(reservation)
+    displaced_admission.rename(reservation)
     reservation.chmod(0o700)
     receipt_path = reservation / "submission_receipt.json"
     receipt = json.loads(receipt_path.read_bytes())
@@ -753,7 +864,90 @@ def test_submit_is_one_shot_held_release_then_sealed_commit(
             reservation.resolve(),
             "123",
             authorization["audit_submission"]["job_name"],
+            reservation_identity,
         )
+
+
+def test_submit_rejects_reservation_replacement_before_release(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    authorization = _authorization(tmp_path)
+    wrapper = b"#!/usr/bin/bash\nexit 0\n"
+    wrapper_sha = hashlib.sha256(wrapper).hexdigest()
+    authorization["source"]["artifacts"]["production_audit_wrapper"]["sha256"] = (
+        wrapper_sha
+    )
+    (tmp_path / "run").mkdir()
+    wrapper_path = (
+        tmp_path
+        / "source/user/tianhaowu/terminal_bench_vmvm/run_trace_production_audit.sbatch"
+    )
+    wrapper_path.parent.mkdir(parents=True)
+    wrapper_path.write_bytes(wrapper)
+    wrapper_path.chmod(0o644)
+    monkeypatch.setattr(submit, "load_authorization", lambda *_args: authorization)
+    monkeypatch.setattr(submit, "validate_python", lambda *_args: None)
+    monkeypatch.setattr(submit, "validate_source", lambda *_args: {"source": "a" * 64})
+    monkeypatch.setattr(submit, "stable_bytes", lambda *_args, **_kwargs: wrapper)
+    monkeypatch.setattr(submit, "scheduler_name_matches", lambda *_args: [])
+    monkeypatch.setattr(
+        submit,
+        "resolve_submission",
+        lambda *_args, **_kwargs: ("123", True, {"polls": 1, "zero_rounds": 0}),
+    )
+    monkeypatch.setattr(
+        submit, "_precontrol_identity", lambda *_args, **_kwargs: ("exact", ())
+    )
+    cancelled: list[str] = []
+
+    def cancel(*_args: object, **_kwargs: object) -> dict[str, object]:
+        cancelled.append("123")
+        return {"confirmed": True}
+
+    monkeypatch.setattr(submit, "cancel_and_prove", cancel)
+    phases = 0
+    reservation = tmp_path / "reservation"
+    displaced = tmp_path / "displaced"
+
+    def poll(*_args: object, **kwargs: object) -> dict[str, Any]:
+        nonlocal phases
+        phases += 1
+        result = _phase(state="PENDING", timeout=int(kwargs["timeout"]))
+        if phases == 3:
+            reservation.rename(displaced)
+            reservation.mkdir(mode=0o700)
+        return result
+
+    monkeypatch.setattr(submit, "poll_phase", poll)
+    release_calls: list[tuple[str, ...]] = []
+
+    def runner(argv, _timeout):
+        release_calls.append(tuple(argv))
+        return submit.CommandResult(0, b"", b"")
+
+    with pytest.raises(submit.LifecycleError, match="^reservation_changed$"):
+        submit.submit(
+            tmp_path / "authorization.json",
+            "b" * 64,
+            wrapper,
+            wrapper_sha,
+            Path("/usr/bin/python3.12"),
+            "c" * 64,
+            ["batch-arg"],
+            "/synthetic/cert",
+            "/synthetic/key",
+            runner=runner,
+            sbatch_invoker=lambda *_args: ("completed", 0, b"123;test-cluster\n"),
+        )
+
+    assert cancelled == ["123"]
+    assert release_calls == []
+    assert list(reservation.iterdir()) == []
+    assert {path.name for path in displaced.iterdir()} == {
+        "held_authorization.json",
+        "launch_intent.json",
+    }
 
 
 def test_interrupted_sbatch_reconciles_no_job_before_sealed_failure(
@@ -810,6 +1004,17 @@ def test_interrupted_sbatch_reconciles_no_job_before_sealed_failure(
     assert reconciliations == 1
     assert stat.S_IMODE(reservation.stat().st_mode) == 0o500
     failure = json.loads((reservation / "submission_failure.json").read_bytes())
+    reservation_status = reservation.stat(follow_symlinks=False)
+    parent_status = reservation.parent.stat(follow_symlinks=False)
+    assert failure["schema_version"] == submit.ADMISSION_SCHEMA_VERSION
+    assert failure["artifact_type"] == submit.FAILURE_TYPE
+    assert failure["reservation_identity"] == {
+        "device": reservation_status.st_dev,
+        "inode": reservation_status.st_ino,
+        "owner_uid": os.getuid(),
+        "parent_device": parent_status.st_dev,
+        "parent_inode": parent_status.st_ino,
+    }
     assert failure["code"] == "submission_interrupted"
     assert failure["cancellation"] == {
         "cancel_attempts": 0,

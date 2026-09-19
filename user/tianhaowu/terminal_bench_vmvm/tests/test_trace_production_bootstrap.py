@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import importlib
 import os
 import stat
 import subprocess
@@ -174,11 +175,100 @@ def test_verified_finder_rejects_unmanifested_shadow(
     shadow.chmod(0o644)
     monkeypatch.setattr(sys, "path", [str(tmp_path)])
     finder = bootstrap._VerifiedImportFinder((tmp_path,), {})
-    with pytest.raises(
-        bootstrap.BootstrapError,
-        match="^unmanifested_import_forbidden$",
-    ):
-        finder.find_spec("shadowed")
+    try:
+        with pytest.raises(
+            bootstrap.BootstrapError,
+            match="^unmanifested_import_forbidden$",
+        ):
+            finder.find_spec("shadowed")
+    finally:
+        finder.close()
+
+
+def test_verified_finder_rejects_final_symlink_without_executing_body(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    protected = tmp_path / "protected"
+    protected.mkdir()
+    marker = tmp_path / "executed"
+    outside = tmp_path / "outside.py"
+    outside.write_text(f"from pathlib import Path\nPath({str(marker)!r}).touch()\n")
+    module_name = "trace_v8_final_symlink"
+    (protected / f"{module_name}.py").symlink_to(outside)
+    finder = bootstrap._VerifiedImportFinder((protected,), {})
+    monkeypatch.setattr(sys, "path", [str(protected), *sys.path])
+    monkeypatch.setattr(sys, "meta_path", [finder, *sys.meta_path])
+    try:
+        with pytest.raises(
+            bootstrap.BootstrapError,
+            match="^verified_import_origin_invalid$",
+        ):
+            importlib.import_module(module_name)
+        assert not marker.exists()
+    finally:
+        sys.modules.pop(module_name, None)
+        finder.close()
+
+
+def test_verified_finder_rejects_replaced_root_without_executing_body(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    protected = tmp_path / "protected"
+    protected.mkdir()
+    marker = tmp_path / "executed"
+    module_name = "trace_v8_replaced_root"
+    source = protected / f"{module_name}.py"
+    body = f"from pathlib import Path\nPath({str(marker)!r}).touch()\n"
+    source.write_text(body)
+    finder = bootstrap._VerifiedImportFinder((protected,), {source: _digest(source)})
+    monkeypatch.setattr(sys, "path", [str(protected), *sys.path])
+    try:
+        spec = finder.find_spec(module_name)
+        assert spec is not None and spec.loader is not None
+        module = importlib.util.module_from_spec(spec)
+        protected.rename(tmp_path / "displaced")
+        protected.mkdir()
+        (protected / source.name).write_text(body)
+        with pytest.raises(
+            bootstrap.BootstrapError,
+            match="^verified_import_origin_invalid$",
+        ):
+            spec.loader.exec_module(module)
+        assert not marker.exists()
+    finally:
+        finder.close()
+
+
+def test_verified_finder_rejects_escaped_namespace_without_executing_body(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    protected = tmp_path / "protected"
+    protected.mkdir()
+    module_name = "trace_v8_namespace"
+    outside_namespace = tmp_path / "outside" / module_name
+    outside_namespace.mkdir(parents=True)
+    marker = tmp_path / "executed"
+    (outside_namespace / "payload.py").write_text(
+        f"from pathlib import Path\nPath({str(marker)!r}).touch()\n"
+    )
+    (protected / module_name).symlink_to(outside_namespace, target_is_directory=True)
+    finder = bootstrap._VerifiedImportFinder((protected,), {})
+    monkeypatch.setattr(sys, "path", [str(protected), *sys.path])
+    monkeypatch.setattr(sys, "meta_path", [finder, *sys.meta_path])
+    try:
+        with pytest.raises(
+            bootstrap.BootstrapError,
+            match="^verified_import_origin_invalid$",
+        ):
+            importlib.import_module(f"{module_name}.payload")
+        assert not marker.exists()
+    finally:
+        sys.modules.pop(f"{module_name}.payload", None)
+        sys.modules.pop(module_name, None)
+        finder.close()
 
 
 def test_native_extension_capture_is_sealed_before_delegate_execution(
@@ -267,6 +357,9 @@ def test_wrapper_bootstrap_contract_forbids_ambient_import_paths() -> None:
     assert "TRACE_SUBMITTER_SEALED_FD" in submitter
     assert '"$python_path" -I -S -B -c "$loader"' in wrapper
     assert 'PYTHONPYCACHEPREFIX="$pycache_prefix"' in wrapper
+    assert "if (( $# != 20 ))" in wrapper
+    assert '"$reservation_device" "$reservation_inode"' in wrapper
+    assert '"$reservation_parent_device" "$reservation_parent_inode"' in wrapper
     assert "PYTHONPATH=" not in wrapper
     assert "PYTHONHOME" in wrapper and "sitecustomize.py" in wrapper
     assert "BASH_ENV" in wrapper and "BASH_FUNC_" in wrapper

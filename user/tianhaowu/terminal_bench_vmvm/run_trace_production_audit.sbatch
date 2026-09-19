@@ -31,7 +31,7 @@ fi
 for variable in "${!BASH_FUNC_@}" "${!LD_@}" "${!UV_@}" "${!GIT_@}"; do
     [[ -z $variable ]] || fail ambient_environment_forbidden
 done
-if (( $# != 16 )) || [[ ! ${SLURM_JOB_ID:-} =~ ^[1-9][0-9]{0,19}$ ]]; then
+if (( $# != 20 )) || [[ ! ${SLURM_JOB_ID:-} =~ ^[1-9][0-9]{0,19}$ ]]; then
     fail allocation_or_arguments_invalid
 fi
 
@@ -51,6 +51,10 @@ readonly tls_certificate=${13}
 readonly tls_key=${14}
 readonly reservation=${15}
 readonly expected_job_name=${16}
+readonly reservation_device=${17}
+readonly reservation_inode=${18}
+readonly reservation_parent_device=${19}
+readonly reservation_parent_inode=${20}
 
 if [[ ! $authorization_sha256 =~ ^[0-9a-f]{64}$ \
     || ! $submitter_sha256 =~ ^[0-9a-f]{64}$ \
@@ -59,7 +63,11 @@ if [[ ! $authorization_sha256 =~ ^[0-9a-f]{64}$ \
     || ! $controller_sha256 =~ ^[0-9a-f]{64}$ \
     || ! $submission_controller_sha256 =~ ^[0-9a-f]{64}$ \
     || ! $python_sha256 =~ ^[0-9a-f]{64}$ \
-    || ! $revision =~ ^[0-9a-f]{40}$ || ! $tree =~ ^[0-9a-f]{40}$ ]]; then
+    || ! $revision =~ ^[0-9a-f]{40}$ || ! $tree =~ ^[0-9a-f]{40}$ \
+    || ! $reservation_device =~ ^(0|[1-9][0-9]{0,19})$ \
+    || ! $reservation_inode =~ ^[1-9][0-9]{0,19}$ \
+    || ! $reservation_parent_device =~ ^(0|[1-9][0-9]{0,19})$ \
+    || ! $reservation_parent_inode =~ ^[1-9][0-9]{0,19}$ ]]; then
     fail expected_identity_invalid
 fi
 for path in "$authorization" "$project_dir" "$python_path" "$tls_certificate" "$tls_key" "$reservation"; do
@@ -96,8 +104,8 @@ while :; do
         fail submission_failed
     fi
     if [[ -d $reservation && ! -L $reservation \
-        && $(/usr/bin/stat -Lc '%a:%u:%h' -- "$reservation" 2>/dev/null) \
-            == "500:$(/usr/bin/id -u):1" ]]; then
+        && $(/usr/bin/stat -Lc '%d:%i:%a:%u:%h' -- "$reservation" 2>/dev/null) \
+            == "$reservation_device:$reservation_inode:500:$(/usr/bin/id -u):1" ]]; then
         break
     fi
     (( SECONDS < admission_deadline )) || fail submission_admission_timeout
@@ -241,7 +249,9 @@ set +e
     THRIFT_TLS_CL_CERT_PATH="$tls_certificate" THRIFT_TLS_CL_KEY_PATH="$tls_key" \
     "$python_path" -I -S -B -c "$loader" 8 "$bootstrap" \
     "$authorization" "$authorization_sha256" 9 "$controller_sha256" "$pycache_prefix" \
-    "$reservation" "$SLURM_JOB_ID" "$SLURM_JOB_NAME"
+    "$reservation" "$SLURM_JOB_ID" "$SLURM_JOB_NAME" \
+    "$reservation_device" "$reservation_inode" \
+    "$reservation_parent_device" "$reservation_parent_inode"
 audit_rc=$?
 set -e
 (( audit_rc == 0 )) || exit "$audit_rc"
