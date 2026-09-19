@@ -3100,3 +3100,20 @@ Add new rows below this line; do not overwrite another owner's row.
   approval are absent. Freeze only after exact 2/2 plus `COMPLETED 0:0`; then
   independently review the generated exact-provider certificate and two-row SFT
   export/preflight before any singleton submission.
+
+## 2026-09-19 12:20 UTC — request source-wheel claim reconciliation
+
+- Independent aggregate-only comparison rejects the active pre-v7 replacement
+  direction: despite focused tests, it retains older schemas and weaker archive,
+  metadata-path, and byte-equality rules. Do not integrate or execute it.
+- The published additive selector `800a5600` is the only direction that keeps
+  grammar v7 unchanged. Its 13 focused tests pass, but it has synthetic evidence
+  only and is not yet eligible for a private reduction or proof.
+- Before execution, the active owner should explicitly hand off or reconcile
+  onto latest shared and add: complete unresolved-population provenance; six
+  certified prior-recovery bindings; selector receipt and input/output/provenance
+  hashes in proof and promotion identity; tamper/staleness/completeness tests;
+  and an end-to-end selector-to-v7-proof test. Re-review the exact integrated
+  head, then run one aggregate-only selector. Continue only with at least six
+  distinct disjoint v7-compatible sources, six passing proofs, 18/18 starts,
+  exact wheel-byte equality, and a passing controlled oracle canary.
