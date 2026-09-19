@@ -6,7 +6,7 @@ import stat
 import sys
 import tomllib
 from pathlib import Path
-from types import SimpleNamespace
+from types import ModuleType, SimpleNamespace
 from typing import Any
 
 import pytest
@@ -16,6 +16,8 @@ if str(WORKFLOW) not in sys.path:
     sys.path.insert(0, str(WORKFLOW))
 
 import kimi_smoke_timeout_recovery_control as control  # noqa: E402
+
+JOB_NAME = "k3-smoke-recovery-" + "1" * 24
 
 
 class Clock:
@@ -33,6 +35,7 @@ def _plan() -> dict[str, Any]:
     root = "/source"
     return {
         "source_smoke": {
+            "artifacts": {},
             "job_id": control.SOURCE_JOB_ID,
             "job_name": "legacy-smoke",
             "run_dir": "/source-run",
@@ -43,6 +46,7 @@ def _plan() -> dict[str, Any]:
                 "sha256": "a" * 64,
             },
             "log_dir": "/logs",
+            "global_lock": "/private/recovery.lock",
             "project_root": root,
         },
     }
@@ -64,7 +68,7 @@ class PhaseRunner:
     def __call__(self, argv: list[str] | tuple[str, ...], _timeout: float) -> control.CommandResult:
         executable = argv[0]
         job_id = "123"
-        job_name = "recovery"
+        job_name = JOB_NAME
         user_id = "someone(9)" if self.conflicting_user else control.EXPECTED_USER_ID
         if executable == "/usr/bin/scontrol" and "show" in argv:
             values = {
@@ -85,7 +89,8 @@ class PhaseRunner:
                 "NodeList": "" if self.held else "node1",
                 "Requeue": "0",
                 "Restarts": "0",
-                "Command": _plan()["recovery"]["job_wrapper"]["path"],
+                "Command": "(null)",
+                "Comment": control._job_comment(job_name),
                 "WorkDir": "/source",
                 "StdOut": "/logs/recovery_123.log",
                 "StdErr": "/logs/recovery_123.log",
@@ -118,7 +123,7 @@ class PhaseRunner:
 @pytest.mark.parametrize("held", [True, False])
 def test_full_scheduler_phase_accepts_exact_held_and_activation(held: bool) -> None:
     mismatches, conflicts, state = control._scheduler_phase_evidence(
-        _plan(), "123", "recovery", held=held, runner=PhaseRunner(held=held)
+        _plan(), "123", JOB_NAME, held=held, runner=PhaseRunner(held=held)
     )
 
     assert mismatches == set()
@@ -127,7 +132,7 @@ def test_full_scheduler_phase_accepts_exact_held_and_activation(held: bool) -> N
 
 
 def test_sbatch_command_is_exactly_one_held_fresh_allocation() -> None:
-    command = control._sbatch_command(_plan(), "recovery", Path("/private/environment.bin"))
+    command = control._sbatch_command(_plan(), JOB_NAME, 9)
 
     assert command[0] == "/usr/bin/sbatch"
     assert command.count("--hold") == 1
@@ -137,8 +142,9 @@ def test_sbatch_command_is_exactly_one_held_fresh_allocation() -> None:
     assert "--cpus-per-task=8" in command
     assert "--mem=16G" in command
     assert "--time=2-00:00:00" in command
-    assert "--export-file=/private/environment.bin" in command
-    assert command[-1] == _plan()["recovery"]["job_wrapper"]["path"]
+    assert "--export-file=/proc/self/fd/9" in command
+    assert "--export=NONE" not in command
+    assert command[-1] == "-"
 
 
 def test_proxy_binding_requires_exact_model_job_and_deployment_local_path(tmp_path: Path) -> None:
@@ -188,7 +194,7 @@ def test_held_identity_rejects_relaxed_or_conflicting_fields(overrides: dict[str
     mismatches, _conflicts, _state = control._scheduler_phase_evidence(
         _plan(),
         "123",
-        "recovery",
+        JOB_NAME,
         held=True,
         runner=PhaseRunner(held=True, scontrol_overrides=overrides),
     )
@@ -203,7 +209,7 @@ def test_poll_identity_requires_two_complete_views_and_spans_deadline() -> None:
     result = control._poll_identity(
         _plan(),
         "123",
-        "recovery",
+        JOB_NAME,
         held=True,
         timeout=10,
         runner=runner,
@@ -239,7 +245,7 @@ def test_explicit_identity_conflict_never_controls_job() -> None:
     with pytest.raises(control.LifecycleError, match="cancellation_unconfirmed") as raised:
         control.cancel_and_prove(
             "123",
-            "recovery",
+            JOB_NAME,
             _plan(),
             direct_provenance=True,
             runner=runner,
@@ -266,15 +272,21 @@ class UnavailableIdentityRunner:
             self.cancelled = True
             return control.CommandResult(0, "", "")
         if executable == "/usr/bin/squeue":
+            if "--name" in argv:
+                return control.CommandResult(0, f"123|{JOB_NAME}\n", "")
+            if "--steps" in argv:
+                return control.CommandResult(0, "", "")
             if self.cancelled:
                 return control.CommandResult(0, "", "")
-            return control.CommandResult(0, "123|recovery|tianhaowu\n", "")
+            return control.CommandResult(0, f"123|{JOB_NAME}|tianhaowu|PENDING\n", "")
         if executable == "/usr/bin/sacct" and "--allocations" in argv:
             state = "CANCELLED" if self.cancelled else "PENDING"
-            return control.CommandResult(0, f"123|recovery|tianhaowu|{state}\n", "")
+            if "--name" in argv:
+                return control.CommandResult(0, f"123|{JOB_NAME}\n", "")
+            return control.CommandResult(0, f"123|{JOB_NAME}|tianhaowu|{state}|0:0|0\n", "")
         if executable == "/usr/bin/sacct":
             state = "CANCELLED" if self.cancelled else "PENDING"
-            return control.CommandResult(0, f"123|{state}\n", "")
+            return control.CommandResult(0, f"123|{state}|0:0\n", "")
         raise AssertionError(argv)
 
 
@@ -284,7 +296,7 @@ def test_direct_sbatch_provenance_allows_one_cancel_after_identity_unavailable()
 
     evidence = control.cancel_and_prove(
         "123",
-        "recovery",
+        JOB_NAME,
         _plan(),
         direct_provenance=True,
         runner=runner,
@@ -305,7 +317,7 @@ def test_name_only_candidate_is_never_cancelled_when_identity_unavailable() -> N
     with pytest.raises(control.LifecycleError, match="cancellation_unconfirmed") as raised:
         control.cancel_and_prove(
             "123",
-            "recovery",
+            JOB_NAME,
             _plan(),
             direct_provenance=False,
             runner=runner,
@@ -329,7 +341,7 @@ def test_ambiguous_submission_requires_six_zero_observations(monkeypatch: pytest
 
     monkeypatch.setattr(control, "scheduler_name_matches", no_matches)
     candidate, evidence = control.resolve_submission_visibility(
-        "recovery",
+        JOB_NAME,
         None,
         runner=lambda _argv, _timeout: control.CommandResult(0, "", ""),
         sleeper=clock.sleep,
@@ -337,8 +349,8 @@ def test_ambiguous_submission_requires_six_zero_observations(monkeypatch: pytest
     )
 
     assert candidate is None
-    assert calls == control.TERMINAL_PROOF_ROUNDS
-    assert evidence == {"polls": control.TERMINAL_PROOF_ROUNDS, "zero_rounds": 6}
+    assert calls == 30
+    assert evidence == {"polls": 30, "zero_rounds": 30, "unavailable_rounds": 0}
 
 
 def test_writer_lock_replacement_is_detected(tmp_path: Path) -> None:
@@ -453,8 +465,11 @@ def test_trigger_uses_six_samples_and_at_least_120_seconds(tmp_path: Path, monke
             "output_dir": str(tmp_path / "kimi_smoke_recovery_output"),
             "reservation_dir": str(tmp_path / "kimi_smoke_recovery_reservation"),
             "log_dir": str(tmp_path / "kimi_smoke_recovery_logs"),
+            "global_lock": str(tmp_path / "recovery.lock"),
         },
     }
+    Path(plan["recovery"]["global_lock"]).write_bytes(b"")
+    os.chmod(plan["recovery"]["global_lock"], 0o600)
     artifact_path = run / "artifact"
     artifact_path.write_bytes(b"fixed")
     artifact = control.stable_file(artifact_path.resolve(), code="test")
@@ -578,9 +593,10 @@ def test_hardened_batch_is_fresh_two_and_clean_environment_only() -> None:
     assert "KIMI_SMOKE_RECOVERY_SELECTION+x" in raw
     assert "KIMI_SMOKE_COMPOSITE_OUTPUT_DIR+x" in raw
     assert "exec /usr/bin/env -i" in raw
-    assert '"$PYTHON_BIN_X86_64" -I -S -B' in raw
+    assert '"$python_fd_path" -I -S -B' in raw
     assert "RECOVERY_ACTIVATION_PERMIT" in raw
     assert 'exec {controller_fd}<"$controller"' in raw
+    assert 'exec {python_fd}<"$PYTHON_BIN_X86_64"' in raw
     assert '"$controller_fd_path" run-job' in raw
     assert control.ADMISSION_TIMEOUT_SECONDS > (
         control.ACTIVATION_TIMEOUT_SECONDS + 6 * control.COMMAND_TIMEOUT_SECONDS
@@ -615,3 +631,145 @@ def test_publication_modes_are_private(tmp_path: Path) -> None:
     with pytest.raises(control.RecoveryControlError, match="publication_target_exists"):
         control.atomic_write_once(path.resolve(), b"replacement\n", mode=0o400)
     assert path.read_bytes() == b"{}\n"
+
+
+def test_authorization_producer_matches_batch_schema(tmp_path: Path) -> None:
+    records: list[control.StableFile] = []
+    for name in ("plan", "review", "trigger", "intent"):
+        path = tmp_path / name
+        path.write_bytes(name.encode("ascii"))
+        records.append(control.stable_file(path.resolve(), code="test"))
+    body = control._authorization_body(
+        plan_artifact=records[0],
+        review_artifact=records[1],
+        trigger_artifact=records[2],
+        token="1" * 24,
+        job_name=JOB_NAME,
+        static={"closure": "a" * 64},
+        job_id="123",
+        held={"converged": True},
+        held_after_authorization={"converged": True},
+        intent=records[3],
+    )
+    value = control.strict_json(control.envelope(body, "authorization_sha256"), code="test")
+
+    assert set(value) == control.AUTHORIZATION_FIELDS
+    assert value["held_after_authorization"] == {"converged": True}
+
+
+def test_atomic_trigger_directory_never_leaves_partial_target(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    parent = tmp_path / "private"
+    parent.mkdir(mode=0o700)
+    target = parent / "kimi_smoke_terminal_quiescence_test" / "terminal_quiescence_gate.json"
+
+    def fail_rename(_parent_fd: int, _source: str, _target: str) -> None:
+        raise control.RecoveryControlError("synthetic_rename_failure")
+
+    monkeypatch.setattr(control, "_rename_noreplace", fail_rename)
+    with pytest.raises(control.RecoveryControlError, match="synthetic_rename_failure"):
+        control.atomic_publish_single_file_directory(target.resolve(strict=False), b"{}\n")
+
+    assert not target.parent.exists()
+    assert list(parent.iterdir()) == []
+
+
+def test_sealed_memfd_is_immutable() -> None:
+    descriptor = control.sealed_memfd(b"fixed", "test-capture")
+    try:
+        required = (
+            control.fcntl.F_SEAL_SEAL
+            | control.fcntl.F_SEAL_SHRINK
+            | control.fcntl.F_SEAL_GROW
+            | control.fcntl.F_SEAL_WRITE
+        )
+        assert control.fcntl.fcntl(descriptor, control.fcntl.F_GET_SEALS) == required
+        assert os.pread(descriptor, 5, 0) == b"fixed"
+        with pytest.raises(OSError):
+            os.pwrite(descriptor, b"other", 0)
+    finally:
+        os.close(descriptor)
+
+
+def test_global_lock_is_exclusive_and_identity_bound(tmp_path: Path) -> None:
+    path = tmp_path / "recovery.lock"
+    path.write_bytes(b"")
+    os.chmod(path, 0o600)
+    plan = {"recovery": {"global_lock": str(path.resolve())}}
+    handle, identity = control.acquire_global_lock(plan)
+    try:
+        control.validate_global_lock(plan, handle, identity)
+        with pytest.raises(control.RecoveryControlError, match="recovery_global_lock_busy"):
+            control.acquire_global_lock(plan)
+    finally:
+        handle.close()
+
+
+def test_pinned_file_detects_path_replacement(tmp_path: Path) -> None:
+    path = tmp_path / "artifact"
+    path.write_bytes(b"fixed")
+    pinned = control.pin_file(path.resolve(), code="pinned_changed")
+    replacement = tmp_path / "replacement"
+    replacement.write_bytes(b"fixed")
+    os.replace(replacement, path)
+    try:
+        with pytest.raises(control.RecoveryControlError, match="pinned_changed"):
+            pinned.validate(code="pinned_changed")
+    finally:
+        pinned.close()
+
+
+def test_captured_source_loader_executes_captured_bytes(tmp_path: Path) -> None:
+    path = tmp_path / "module.py"
+    path.write_text("value = 2\n", encoding="utf-8")
+    module = ModuleType("captured_test")
+    loader = control._CapturedSourceLoader(path.resolve(), b"value = 1\n")
+
+    loader.exec_module(module)
+
+    assert module.value == 1
+
+
+def test_exclusive_name_proof_spans_full_minute(monkeypatch: pytest.MonkeyPatch) -> None:
+    clock = Clock()
+    calls = 0
+
+    def exact(_name: str, *, runner: Any) -> list[str]:
+        nonlocal calls
+        del runner
+        calls += 1
+        return ["123"]
+
+    monkeypatch.setattr(control, "scheduler_name_matches", exact)
+    evidence = control.prove_exclusive_name(
+        JOB_NAME,
+        "123",
+        runner=lambda _argv, _timeout: control.CommandResult(0, "", ""),
+        sleeper=clock.sleep,
+        clock=clock,
+    )
+
+    assert clock.value == 60
+    assert calls == 30
+    assert evidence == {"polls": 30, "zero_extra_rounds": 30}
+
+
+def test_commit_marker_forbids_failure_publication(tmp_path: Path) -> None:
+    reservation = tmp_path / "kimi_smoke_recovery_reservation"
+    reservation.mkdir(mode=0o700)
+    plan = {"recovery": {"reservation_dir": str(reservation.resolve())}}
+    paths = control._reservation_paths(plan)
+    paths["commit"].write_bytes(b"committed\n")
+    os.chmod(paths["commit"], 0o400)
+    artifact = control.stable_file(paths["commit"].resolve(), code="test", mode=0o400)
+
+    with pytest.raises(control.RecoveryControlError, match="success_publication_ambiguous"):
+        control._publish_failure(
+            paths,
+            code="synthetic_failure",
+            plan_artifact=artifact,
+            review_artifact=artifact,
+            trigger_artifact=artifact,
+            cancellation=None,
+            lifecycle=None,
+        )
+    assert not paths["failure"].exists()

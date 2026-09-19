@@ -108,11 +108,17 @@ stable_hash "$UV_BIN_X86_64" "$UV_BIN_X86_64_SHA256" 755 || abort
 spooled_sha=$(/usr/bin/sha256sum -- "${BASH_SOURCE[0]}" 2>/dev/null) || abort
 [[ "${spooled_sha%%  *}" == "$RECOVERY_JOB_WRAPPER_SHA256" ]] || abort
 exec {controller_fd}<"$controller" || abort
+exec {python_fd}<"$PYTHON_BIN_X86_64" || abort
 controller_fd_path="/proc/self/fd/$controller_fd"
+python_fd_path="/proc/self/fd/$python_fd"
 controller_fd_metadata=$(/usr/bin/stat -Lc '%F|%a|%h|%u' -- "$controller_fd_path" 2>/dev/null) || abort
 [[ "$controller_fd_metadata" == 'regular file|500|1|656177' ]] || abort
 controller_fd_digest=$(/usr/bin/sha256sum -- "$controller_fd_path" 2>/dev/null) || abort
 [[ "${controller_fd_digest%%  *}" == "$RECOVERY_CONTROLLER_SHA256" ]] || abort
+python_fd_metadata=$(/usr/bin/stat -Lc '%F|%a|%h|%u' -- "$python_fd_path" 2>/dev/null) || abort
+[[ "$python_fd_metadata" == 'regular file|755|1|0' ]] || abort
+python_fd_digest=$(/usr/bin/sha256sum -- "$python_fd_path" 2>/dev/null) || abort
+[[ "${python_fd_digest%%  *}" == "$PYTHON_BIN_X86_64_SHA256" ]] || abort
 
 exec /usr/bin/env -i \
     HOME="$HOME" LANG=C LC_ALL=C LOGNAME=tianhaowu PATH=/usr/bin:/bin USER=tianhaowu \
@@ -150,5 +156,5 @@ exec /usr/bin/env -i \
     RECOVERY_JOB_WRAPPER_SHA256="$RECOVERY_JOB_WRAPPER_SHA256" \
     RECOVERY_WRAPPER_SHA256="$RECOVERY_WRAPPER_SHA256" \
     SLURM_JOB_ID="$SLURM_JOB_ID" SLURM_JOB_NAME="$SLURM_JOB_NAME" \
-    "$PYTHON_BIN_X86_64" -I -S -B "$controller_fd_path" run-job \
+    "$python_fd_path" -I -S -B "$controller_fd_path" run-job \
     --plan "$RECOVERY_PLAN" --review "$RECOVERY_REVIEW" --trigger "$RECOVERY_TRIGGER"

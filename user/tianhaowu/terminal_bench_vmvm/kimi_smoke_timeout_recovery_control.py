@@ -9,8 +9,13 @@ identifiers, scheduler records, endpoint addresses, or trace bodies.
 from __future__ import annotations
 
 import argparse
+import ctypes
+import errno
 import fcntl
 import hashlib
+import importlib.abc
+import importlib.machinery
+import importlib.metadata
 import json
 import math
 import os
@@ -31,7 +36,7 @@ from datetime import UTC, datetime
 from pathlib import Path, PurePosixPath
 from typing import Any
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 PLAN_KIND = "kimi_smoke_fresh_two_recovery_plan"
 REVIEW_KIND = "kimi_smoke_fresh_two_recovery_review"
 RUNTIME_KIND = "kimi_smoke_recovery_runtime_manifest"
@@ -41,6 +46,7 @@ AUTHORIZATION_KIND = "kimi_smoke_fresh_two_held_authorization"
 PERMIT_KIND = "kimi_smoke_fresh_two_activation_permit"
 SUBMISSION_KIND = "kimi_smoke_fresh_two_submission_receipt"
 FAILURE_KIND = "kimi_smoke_fresh_two_submission_failure"
+COMMIT_KIND = "kimi_smoke_fresh_two_submission_commit"
 
 OWNER = "tianhaowu"
 OWNER_UID = 656177
@@ -66,6 +72,7 @@ POLL_SECONDS = 2
 TERMINAL_PROOF_ROUNDS = 6
 COMMAND_TIMEOUT_SECONDS = 20
 MAX_FILE_BYTES = 256 * 1024 * 1024
+RENAME_NOREPLACE = 1
 ISOLATED_STDLIB_PATHS = [
     "/usr/lib/python312.zip",
     "/usr/lib/python3.12",
@@ -102,6 +109,26 @@ DANGEROUS_ENV_PREFIXES = (
     "LD_",
     "PYTHON",
     "SBATCH_",
+)
+AUTHORIZATION_FIELDS = frozenset(
+    {
+        "authorization_sha256",
+        "held",
+        "held_after_authorization",
+        "intent",
+        "job",
+        "job_id_sha256",
+        "job_name_sha256",
+        "kind",
+        "launch_token_sha256",
+        "plan",
+        "policy",
+        "review",
+        "schema_version",
+        "state",
+        "static",
+        "trigger",
+    }
 )
 
 
@@ -142,11 +169,43 @@ class StableFile:
         return {"path": str(self.path), "sha256": self.sha256}
 
 
+@dataclass
+class PinnedFile:
+    artifact: StableFile
+    descriptor: int
+
+    def validate(self, *, code: str) -> None:
+        try:
+            descriptor_status = os.fstat(self.descriptor)
+            visible_status = os.stat(self.artifact.path, follow_symlinks=False)
+        except OSError as error:
+            raise RecoveryControlError(code) from error
+        if (
+            self.artifact.path.is_symlink()
+            or _signature(descriptor_status) != self.artifact.signature
+            or _signature(visible_status) != self.artifact.signature
+        ):
+            fail(code)
+
+    def close(self) -> None:
+        if self.descriptor >= 0:
+            os.close(self.descriptor)
+            self.descriptor = -1
+
+
 @dataclass(frozen=True)
 class CommandResult:
     returncode: int
     stdout: str
     stderr: str
+
+
+@dataclass(frozen=True)
+class ReviewedClosure:
+    roots: tuple[Path, ...]
+    bodies: Mapping[Path, bytes]
+    hashes: Mapping[Path, str]
+    digest: str
 
 
 Runner = Callable[[Sequence[str], float], CommandResult]
@@ -259,6 +318,33 @@ def stable_file(
     return StableFile(path, raw, sha256_bytes(raw), _signature(final))
 
 
+def pin_file(
+    path: Path,
+    *,
+    code: str,
+    mode: int | None = None,
+    uid: int | None = OWNER_UID,
+    maximum: int = MAX_FILE_BYTES,
+) -> PinnedFile:
+    artifact = stable_file(path, code=code, mode=mode, uid=uid, maximum=maximum)
+    descriptor = -1
+    try:
+        descriptor = os.open(path, os.O_RDONLY | os.O_CLOEXEC | os.O_NOFOLLOW)
+        pinned = PinnedFile(artifact=artifact, descriptor=descriptor)
+        pinned.validate(code=code)
+        if sha256_bytes(os.pread(descriptor, len(artifact.raw), 0)) != artifact.sha256:
+            fail(code)
+        return pinned
+    except RecoveryControlError:
+        if descriptor >= 0:
+            os.close(descriptor)
+        raise
+    except OSError as error:
+        if descriptor >= 0:
+            os.close(descriptor)
+        raise RecoveryControlError(code) from error
+
+
 def stable_directory(path: Path, *, code: str, mode: int, uid: int = OWNER_UID) -> tuple[int, ...]:
     try:
         if not path.is_absolute() or path.is_symlink() or path.resolve(strict=True) != path:
@@ -271,6 +357,22 @@ def stable_directory(path: Path, *, code: str, mode: int, uid: int = OWNER_UID) 
     if not stat.S_ISDIR(metadata.st_mode) or stat.S_IMODE(metadata.st_mode) != mode or metadata.st_uid != uid:
         fail(code)
     return _signature(metadata)
+
+
+def validate_directory_descriptor(path: Path, descriptor: int, *, code: str, mode: int) -> None:
+    try:
+        held = os.fstat(descriptor)
+        visible = os.stat(path, follow_symlinks=False)
+    except OSError as error:
+        raise RecoveryControlError(code) from error
+    if (
+        path.is_symlink()
+        or not stat.S_ISDIR(held.st_mode)
+        or stat.S_IMODE(held.st_mode) != mode
+        or held.st_uid != OWNER_UID
+        or (held.st_dev, held.st_ino) != (visible.st_dev, visible.st_ino)
+    ):
+        fail(code)
 
 
 def strict_envelope(path: Path, *, kind: str, hash_field: str, code: str) -> tuple[dict[str, Any], StableFile]:
@@ -356,6 +458,153 @@ def atomic_write_once(path: Path, raw: bytes, *, mode: int) -> str:
     if stable_file(path, code="publication_changed", mode=mode).sha256 != digest:
         fail("publication_changed")
     return digest
+
+
+def _rename_noreplace(parent_fd: int, source: str, target: str) -> None:
+    """Atomically rename one sibling without replacing an existing target."""
+
+    libc = ctypes.CDLL(None, use_errno=True)
+    renameat2 = getattr(libc, "renameat2", None)
+    if renameat2 is None:
+        fail("atomic_rename_unavailable")
+    renameat2.argtypes = [ctypes.c_int, ctypes.c_char_p, ctypes.c_int, ctypes.c_char_p, ctypes.c_uint]
+    renameat2.restype = ctypes.c_int
+    result = renameat2(
+        parent_fd,
+        os.fsencode(source),
+        parent_fd,
+        os.fsencode(target),
+        RENAME_NOREPLACE,
+    )
+    if result != 0:
+        observed = ctypes.get_errno()
+        if observed == errno.EEXIST:
+            fail("publication_target_exists")
+        raise RecoveryControlError("atomic_rename_failed") from OSError(observed, os.strerror(observed))
+
+
+def atomic_publish_single_file_directory(path: Path, raw: bytes) -> str:
+    """Publish a complete private one-file directory in one rename operation."""
+
+    parent = path.parent
+    grandparent = parent.parent.resolve(strict=True)
+    if not path.is_absolute() or path != parent / path.name or parent != grandparent / parent.name:
+        fail("trigger_namespace_not_fresh")
+    stable_directory(grandparent, code="trigger_parent_invalid", mode=0o700)
+    parent_fd = os.open(grandparent, os.O_RDONLY | os.O_DIRECTORY | os.O_CLOEXEC | os.O_NOFOLLOW)
+    temporary = f".{parent.name}.{secrets.token_hex(12)}.tmp"
+    renamed = False
+    blocked = {signal.SIGINT, signal.SIGTERM, signal.SIGHUP}
+    previous_mask = signal.pthread_sigmask(signal.SIG_BLOCK, blocked)
+    try:
+        if os.path.lexists(parent):
+            fail("trigger_namespace_not_fresh")
+        os.mkdir(temporary, 0o700, dir_fd=parent_fd)
+        temporary_path = grandparent / temporary
+        atomic_write_once(temporary_path / path.name, raw, mode=0o400)
+        sync_directory(temporary_path)
+        _rename_noreplace(parent_fd, temporary, parent.name)
+        renamed = True
+        os.fsync(parent_fd)
+    except BaseException:
+        if not renamed:
+            temporary_fd = -1
+            try:
+                temporary_fd = os.open(
+                    temporary,
+                    os.O_RDONLY | os.O_DIRECTORY | os.O_CLOEXEC | os.O_NOFOLLOW,
+                    dir_fd=parent_fd,
+                )
+                os.unlink(path.name, dir_fd=temporary_fd)
+            except OSError:
+                pass
+            finally:
+                if temporary_fd >= 0:
+                    os.close(temporary_fd)
+            try:
+                os.rmdir(temporary, dir_fd=parent_fd)
+            except OSError:
+                pass
+        raise
+    finally:
+        os.close(parent_fd)
+        signal.pthread_sigmask(signal.SIG_SETMASK, previous_mask)
+    published = stable_file(path, code="trigger_publication_invalid", mode=0o400)
+    if published.raw != raw:
+        fail("trigger_publication_invalid")
+    stable_directory(parent, code="trigger_publication_invalid", mode=0o700)
+    return published.sha256
+
+
+def sealed_memfd(raw: bytes, name: str, *, executable: bool = False) -> int:
+    """Return a content-sealed anonymous descriptor containing ``raw``."""
+
+    descriptor = -1
+    required = fcntl.F_SEAL_SEAL | fcntl.F_SEAL_SHRINK | fcntl.F_SEAL_GROW | fcntl.F_SEAL_WRITE
+    try:
+        descriptor = os.memfd_create(name, os.MFD_CLOEXEC | os.MFD_ALLOW_SEALING)
+        view = memoryview(raw)
+        while view:
+            written = os.write(descriptor, view)
+            if written <= 0:
+                fail("sealed_capture_failed")
+            view = view[written:]
+        os.fchmod(descriptor, 0o500 if executable else 0o400)
+        fcntl.fcntl(descriptor, fcntl.F_ADD_SEALS, required)
+        status = os.fstat(descriptor)
+        if (
+            not stat.S_ISREG(status.st_mode)
+            or status.st_nlink != 0
+            or status.st_size != len(raw)
+            or fcntl.fcntl(descriptor, fcntl.F_GET_SEALS) != required
+            or sha256_bytes(os.pread(descriptor, status.st_size, 0)) != sha256_bytes(raw)
+        ):
+            fail("sealed_capture_failed")
+        return descriptor
+    except RecoveryControlError:
+        if descriptor >= 0:
+            os.close(descriptor)
+        raise
+    except OSError as error:
+        if descriptor >= 0:
+            os.close(descriptor)
+        raise RecoveryControlError("sealed_capture_failed") from error
+
+
+def executed_controller_sha256() -> str:
+    """Hash the bytes used for this interpreter's controller invocation."""
+
+    descriptor = -1
+    try:
+        descriptor = os.open(__file__, os.O_RDONLY | os.O_CLOEXEC)
+        before = os.fstat(descriptor)
+        if not stat.S_ISREG(before.st_mode) or before.st_size < 1 or before.st_size > MAX_FILE_BYTES:
+            fail("executed_controller_invalid")
+        raw = b""
+        while len(raw) < before.st_size:
+            block = os.read(descriptor, min(1 << 20, before.st_size - len(raw)))
+            if not block:
+                fail("executed_controller_invalid")
+            raw += block
+        after = os.fstat(descriptor)
+    except RecoveryControlError:
+        raise
+    except OSError as error:
+        raise RecoveryControlError("executed_controller_invalid") from error
+    finally:
+        if descriptor >= 0:
+            os.close(descriptor)
+    if _signature(before) != _signature(after):
+        fail("executed_controller_invalid")
+    return sha256_bytes(raw)
+
+
+def validate_executed_controller(plan_path: Path) -> None:
+    plan, _artifact = load_plan(plan_path)
+    record = _artifact_record(plan["recovery"]["controller"], code="executed_controller_invalid")
+    canonical = stable_file(Path(record["path"]), code="executed_controller_invalid", mode=0o500)
+    if canonical.sha256 != record["sha256"] or executed_controller_sha256() != canonical.sha256:
+        fail("executed_controller_invalid")
 
 
 def clean_command_environment() -> dict[str, str]:
@@ -480,7 +729,22 @@ def load_plan(path: Path) -> tuple[dict[str, Any], StableFile]:
         fail("recovery_plan_invalid")
     if owner != {"name": OWNER, "uid": OWNER_UID, "user_id": EXPECTED_USER_ID}:
         fail("recovery_plan_invalid")
-    if set(source) != {"job_id", "job_name", "run_dir", "source_revision"}:
+    if set(source) != {"artifacts", "job_id", "job_name", "run_dir", "source_revision"}:
+        fail("recovery_plan_invalid")
+    source_artifacts = source.get("artifacts")
+    required_source_artifacts = {
+        "config_file",
+        "eval_invocations",
+        "eval_run_identity",
+        "results",
+        "route_guard_success",
+        "task_file",
+    }
+    if not isinstance(source_artifacts, dict) or set(source_artifacts) != required_source_artifacts:
+        fail("recovery_plan_invalid")
+    for record in source_artifacts.values():
+        _artifact_record(record, code="recovery_plan_invalid")
+    if source_artifacts["task_file"]["sha256"] != FRESH_TWO_TASK_SHA256:
         fail("recovery_plan_invalid")
     if (
         set(launcher) != {"pane_id", "pane_pid", "session_id", "socket", "target", "tmux"}
@@ -529,6 +793,7 @@ def load_plan(path: Path) -> tuple[dict[str, Any], StableFile]:
         "deployment_id",
         "deployment_spec",
         "endpoints_dir",
+        "global_lock",
         "job_wrapper",
         "log_dir",
         "output_dir",
@@ -562,7 +827,7 @@ def load_plan(path: Path) -> tuple[dict[str, Any], StableFile]:
         or recovery["recovery_wrapper"]["sha256"] != RECOVERY_WRAPPER_SHA256
     ):
         fail("recovery_plan_invalid")
-    for key in ("project_root", "endpoints_dir", "log_dir", "output_dir", "reservation_dir"):
+    for key in ("project_root", "endpoints_dir", "global_lock", "log_dir", "output_dir", "reservation_dir"):
         if not isinstance(recovery.get(key), str) or not Path(recovery[key]).is_absolute():
             fail("recovery_plan_invalid")
     if (
@@ -735,15 +1000,18 @@ def validate_source(plan: Mapping[str, Any]) -> dict[str, str]:
         "config_file": root / "user/tianhaowu/terminal_bench_vmvm/configs/eval/tb4_kimi_k3_fresh_smoke12h.toml",
         "task_file": root / "user/tianhaowu/terminal_bench_vmvm/configs/eval/tb4_kimi_token_smoke.tasks.txt",
     }
+    artifact_hashes: dict[str, str] = {}
     for key, expected_path in expected_paths.items():
         record = _artifact_record(recovery[key], code="source_artifact_invalid")
         artifact = stable_file(Path(record["path"]), code="source_artifact_invalid", uid=OWNER_UID)
         if artifact.sha256 != record["sha256"] or artifact.path != expected_path:
             fail("source_artifact_invalid")
+        artifact_hashes[key] = artifact.sha256
     return {
         "revision": revision,
         "tree": tree,
         "gitlinks_sha256": sha256_bytes(canonical_json(gitlinks)),
+        "artifacts_sha256": sha256_bytes(canonical_json(artifact_hashes)),
     }
 
 
@@ -860,6 +1128,7 @@ def validate_runtime_manifest(plan: Mapping[str, Any]) -> dict[str, str]:
         fail("runtime_auth_invalid")
     return {
         "manifest_sha256": artifact.sha256,
+        "entries_sha256": sha256_bytes(canonical_json(entries)),
         "python_sha256": python.sha256,
         "uv_sha256": uv.sha256,
         "vacli_sha256": vacli.sha256,
@@ -1280,50 +1549,340 @@ def route_idle_snapshot(
     }
 
 
-def _source_artifacts(run_dir: Path) -> dict[str, StableFile]:
-    names = (
-        "eval_run_identity.json",
-        "eval_invocations.jsonl",
-        "results.jsonl",
-        "route_guard_success.json",
-    )
-    return {name: stable_file(run_dir / name, code="source_run_invalid", uid=OWNER_UID) for name in names}
+def _pin_source_artifacts(plan: Mapping[str, Any]) -> dict[str, PinnedFile]:
+    run_dir = Path(plan["source_smoke"]["run_dir"])
+    records = plan["source_smoke"]["artifacts"]
+    names = {
+        "eval_run_identity": run_dir / "eval_run_identity.json",
+        "eval_invocations": run_dir / "eval_invocations.jsonl",
+        "results": run_dir / "results.jsonl",
+        "route_guard_success": run_dir / "route_guard_success.json",
+        "task_file": Path(records["task_file"]["path"]),
+        "config_file": Path(records["config_file"]["path"]),
+    }
+    pinned: dict[str, PinnedFile] = {}
+    try:
+        for name, path in names.items():
+            record = _artifact_record(records[name], code="source_run_invalid")
+            if str(path) != record["path"]:
+                fail("source_run_invalid")
+            item = pin_file(path, code="source_run_invalid", uid=OWNER_UID)
+            if item.artifact.sha256 != record["sha256"]:
+                fail("source_run_invalid")
+            pinned[name] = item
+        return pinned
+    except BaseException:
+        for item in pinned.values():
+            item.close()
+        raise
 
 
 def _source_artifact_digest(artifacts: Mapping[str, StableFile]) -> str:
     return sha256_bytes(canonical_json({name: item.record for name, item in sorted(artifacts.items())}))
 
 
-def activate_reviewed_imports(plan: Mapping[str, Any]) -> tuple[Path, ...]:
-    """Add only validated source and runtime roots after isolated startup."""
+def _tracked_paths(repository: Path, *pathspecs: str) -> list[Path]:
+    raw = git_output(repository, "ls-files", "-z", "--", *pathspecs)
+    relatives = [item for item in raw.split("\0") if item]
+    if len(relatives) != len(set(relatives)) or any("\n" in item or "\r" in item for item in relatives):
+        fail("source_capture_invalid")
+    paths: list[Path] = []
+    for relative in relatives:
+        candidate = repository / relative
+        if PurePosixPath(relative).is_absolute() or ".." in PurePosixPath(relative).parts:
+            fail("source_capture_invalid")
+        paths.append(candidate)
+    return paths
 
-    recovery = plan["recovery"]
-    runtime_manifest, _ = strict_envelope(
+
+def capture_reviewed_closure(plan: Mapping[str, Any]) -> ReviewedClosure:
+    """Capture the exact import closure before any reviewed module executes."""
+
+    source_binding = validate_source(plan)
+    runtime_binding = validate_runtime_manifest(plan)
+    root = Path(plan["recovery"]["project_root"])
+    manifest, _artifact = strict_envelope(
         Path(plan["runtime"]["manifest"]["path"]),
         kind=RUNTIME_KIND,
         hash_field="manifest_sha256",
         code="runtime_manifest_invalid",
     )
-    root = Path(recovery["project_root"])
-    paths = (
+    runtime_root = Path(manifest["root"])
+    roots = (
         root / "user/tianhaowu/terminal_bench_vmvm",
         root / "environments/vmvm_tb_v2",
         root / "deps/verifiers",
         root / "deps/renderers",
         root / "deps/pydantic-config/src",
-        Path(runtime_manifest["root"]),
+        runtime_root,
     )
-    for path in paths:
-        if not path.is_absolute() or not path.is_dir() or path.is_symlink():
+    for path in roots:
+        if not path.is_absolute() or path.is_symlink() or not path.is_dir():
             fail("runtime_import_path_invalid")
+    source_paths = _tracked_paths(
+        root,
+        "user/tianhaowu/terminal_bench_vmvm",
+        "environments/vmvm_tb_v2",
+    )
+    for relative in ("deps/verifiers", "deps/renderers"):
+        child = root / relative
+        source_paths.extend(_tracked_paths(child))
+    pydantic_child = root / "deps/pydantic-config"
+    source_paths.extend(_tracked_paths(pydantic_child, "src"))
+    bodies: dict[Path, bytes] = {}
+    hashes: dict[Path, str] = {}
+
+    def capture(path: Path, *, mode: int | None) -> None:
+        artifact = stable_file(path, code="reviewed_closure_changed", mode=mode, uid=OWNER_UID)
+        if artifact.path in bodies:
+            fail("reviewed_closure_invalid")
+        bodies[artifact.path] = artifact.raw
+        hashes[artifact.path] = artifact.sha256
+
+    for path in source_paths:
+        capture(path, mode=None)
+    entries = manifest.get("entries")
+    if not isinstance(entries, list):
+        fail("runtime_manifest_invalid")
+    for entry in entries:
+        if not isinstance(entry, dict) or not isinstance(entry.get("path"), str):
+            fail("runtime_manifest_invalid")
+        path = runtime_root / entry["path"]
+        capture(path, mode=0o400)
+        if hashes[path] != entry.get("sha256") or len(bodies[path]) != entry.get("size"):
+            fail("runtime_manifest_invalid")
+    if not bodies:
+        fail("reviewed_closure_invalid")
+    manifest_rows = [
+        {"path": str(path), "sha256": hashes[path], "size": len(bodies[path])} for path in sorted(bodies, key=str)
+    ]
+    digest = sha256_bytes(
+        canonical_json(
+            {
+                "files": manifest_rows,
+                "runtime": runtime_binding,
+                "source": source_binding,
+            }
+        )
+    )
+    return ReviewedClosure(roots=roots, bodies=bodies, hashes=hashes, digest=digest)
+
+
+class _CapturedSourceLoader(importlib.abc.Loader):
+    def __init__(self, path: Path, raw: bytes) -> None:
+        self.path = path
+        self.raw = raw
+
+    def create_module(self, _spec: object) -> None:
+        return None
+
+    def exec_module(self, module: object) -> None:
+        try:
+            code = compile(self.raw, str(self.path), "exec", dont_inherit=True)
+            exec(code, module.__dict__)  # type: ignore[attr-defined]
+        except RecoveryControlError:
+            raise
+        except BaseException as error:
+            raise RecoveryControlError("reviewed_import_execution_failed") from error
+
+
+class _CapturedExtensionLoader(importlib.abc.Loader):
+    def __init__(self, descriptor: int, digest: str, delegate: importlib.abc.Loader) -> None:
+        self.descriptor = descriptor
+        self.digest = digest
+        self.delegate = delegate
+
+    def _validate(self) -> None:
+        try:
+            status = os.fstat(self.descriptor)
+            seals = fcntl.fcntl(self.descriptor, fcntl.F_GET_SEALS)
+        except OSError as error:
+            raise RecoveryControlError("reviewed_extension_changed") from error
+        required = fcntl.F_SEAL_SEAL | fcntl.F_SEAL_SHRINK | fcntl.F_SEAL_GROW | fcntl.F_SEAL_WRITE
+        if (
+            status.st_nlink != 0
+            or seals != required
+            or sha256_bytes(os.pread(self.descriptor, status.st_size, 0)) != self.digest
+        ):
+            fail("reviewed_extension_changed")
+
+    def create_module(self, spec: object) -> object | None:
+        self._validate()
+        create = getattr(self.delegate, "create_module", None)
+        try:
+            value = create(spec) if callable(create) else None
+        except BaseException as error:
+            raise RecoveryControlError("reviewed_extension_load_failed") from error
+        self._validate()
+        return value
+
+    def exec_module(self, module: object) -> None:
+        self._validate()
+        execute = getattr(self.delegate, "exec_module", None)
+        if not callable(execute):
+            fail("reviewed_extension_load_failed")
+        try:
+            execute(module)
+        except BaseException as error:
+            raise RecoveryControlError("reviewed_extension_load_failed") from error
+        self._validate()
+
+
+class _CapturedDistribution(importlib.metadata.Distribution):
+    def __init__(self, root: Path, metadata_dir: Path, finder: "_CapturedImportFinder") -> None:
+        self.root = root
+        self.metadata_dir = metadata_dir
+        self.finder = finder
+
+    def read_text(self, filename: str) -> str | None:
+        path = self.metadata_dir / filename
+        raw = self.finder.closure.bodies.get(path)
+        if raw is None:
+            return None
+        try:
+            return raw.decode("utf-8")
+        except UnicodeDecodeError as error:
+            raise RecoveryControlError("reviewed_metadata_invalid") from error
+
+    def locate_file(self, path: str | os.PathLike[str]) -> Path:
+        relative = PurePosixPath(os.fspath(path))
+        if relative.is_absolute() or ".." in relative.parts:
+            fail("unmanifested_distribution_resource")
+        candidate = self.root / relative
+        raw = self.finder.closure.bodies.get(candidate)
+        if raw is None:
+            fail("unmanifested_distribution_resource")
+        descriptor = sealed_memfd(raw, "kimi-smoke-distribution-resource")
+        self.finder.descriptors.append(descriptor)
+        return Path(f"/proc/self/fd/{descriptor}")
+
+
+class _CapturedImportFinder(importlib.abc.MetaPathFinder):
+    def __init__(self, closure: ReviewedClosure, original_meta_path: tuple[object, ...]) -> None:
+        self.closure = closure
+        self.original_meta_path = original_meta_path
+        self.expected_path: tuple[str, ...] = ()
+        self.descriptors: list[int] = []
+        self.extension_paths: dict[str, str] = {}
+        self.distributions: list[_CapturedDistribution] = []
+        for root in closure.roots:
+            metadata_dirs = {
+                next(
+                    (
+                        parent
+                        for parent in (path, *path.parents)
+                        if parent.parent == root and parent.name.endswith(".dist-info")
+                    ),
+                    None,
+                )
+                for path in closure.bodies
+                if path == root or path.is_relative_to(root)
+            }
+            for metadata_dir in sorted((item for item in metadata_dirs if item is not None), key=str):
+                self.distributions.append(_CapturedDistribution(root, metadata_dir, self))
+
+    def close(self) -> None:
+        for descriptor in self.descriptors:
+            try:
+                os.close(descriptor)
+            except OSError:
+                pass
+        self.descriptors.clear()
+
+    def find_distributions(self, context: object = None) -> Sequence[importlib.metadata.Distribution]:
+        requested = getattr(context, "name", None)
+        if not requested:
+            return tuple(self.distributions)
+        normalized = re.sub(r"[-_.]+", "-", str(requested)).casefold()
+        return tuple(
+            distribution
+            for distribution in self.distributions
+            if re.sub(r"[-_.]+", "-", str(distribution.metadata.get("Name", ""))).casefold() == normalized
+        )
+
+    def find_spec(self, fullname: str, path: object = None, target: object = None) -> object | None:
+        del target
+        try:
+            spec = importlib.machinery.PathFinder.find_spec(fullname, path)
+        except (ImportError, OSError, ValueError) as error:
+            raise RecoveryControlError("reviewed_import_resolution_failed") from error
+        if spec is None or spec.origin in {"built-in", "frozen"}:
+            return spec
+        if spec.origin is None:
+            locations = tuple(Path(item) for item in (spec.submodule_search_locations or ()))
+            protected_locations = [
+                item
+                for item in locations
+                if any(item == root or item.is_relative_to(root) for root in self.closure.roots)
+            ]
+            if not protected_locations:
+                return spec
+            if len(protected_locations) != len(locations) or any(
+                item.is_symlink()
+                or not item.is_dir()
+                or not any(path.is_relative_to(item) for path in self.closure.bodies)
+                for item in protected_locations
+            ):
+                fail("unmanifested_import_forbidden")
+            return spec
+        try:
+            origin = Path(spec.origin).resolve(strict=True)
+        except (OSError, RuntimeError) as error:
+            raise RecoveryControlError("reviewed_import_origin_invalid") from error
+        if not any(origin == root or origin.is_relative_to(root) for root in self.closure.roots):
+            return spec
+        raw = self.closure.bodies.get(origin)
+        digest = self.closure.hashes.get(origin)
+        if raw is None or digest is None or origin.suffix == ".pyc":
+            fail("unmanifested_import_forbidden")
+        if origin.suffix == ".py":
+            spec.loader = _CapturedSourceLoader(origin, raw)
+            spec.cached = None
+            return spec
+        if any(str(origin).endswith(suffix) for suffix in importlib.machinery.EXTENSION_SUFFIXES):
+            descriptor = sealed_memfd(raw, f"kimi-smoke-extension-{fullname.rsplit('.', 1)[-1]}")
+            sealed_path = f"/proc/self/fd/{descriptor}"
+            delegate = importlib.machinery.ExtensionFileLoader(fullname, sealed_path)
+            spec.loader = _CapturedExtensionLoader(descriptor, digest, delegate)
+            spec.origin = sealed_path
+            spec.cached = None
+            self.descriptors.append(descriptor)
+            self.extension_paths[sealed_path] = digest
+            return spec
+        fail("unmanifested_import_forbidden")
+
+
+def activate_reviewed_imports(plan: Mapping[str, Any]) -> tuple[ReviewedClosure, _CapturedImportFinder]:
+    """Install an in-memory, content-addressed loader for reviewed code."""
+
     if sys.path != ISOLATED_STDLIB_PATHS:
         fail("runtime_import_path_invalid")
-    sys.path[:] = [str(path) for path in paths] + ISOLATED_STDLIB_PATHS
+    allowed_meta = {
+        importlib.machinery.BuiltinImporter,
+        importlib.machinery.FrozenImporter,
+        importlib.machinery.PathFinder,
+    }
+    if len(sys.meta_path) != len(allowed_meta) or set(sys.meta_path) != allowed_meta:
+        fail("runtime_import_hook_invalid")
+    closure = capture_reviewed_closure(plan)
+    for root in closure.roots:
+        sys.path_importer_cache.pop(str(root), None)
+    delegates = tuple(item for item in sys.meta_path if item is not importlib.machinery.PathFinder)
+    finder = _CapturedImportFinder(closure, delegates)
+    sys.path[:] = [str(path) for path in closure.roots] + ISOLATED_STDLIB_PATHS
+    finder.expected_path = tuple(sys.path)
+    sys.meta_path[:] = [finder, *delegates]
     sys.dont_write_bytecode = True
-    return paths
+    return closure, finder
 
 
-def validate_reviewed_imports(baseline: set[str], allowed_roots: Sequence[Path]) -> None:
+def validate_reviewed_imports(
+    baseline: set[str],
+    closure: ReviewedClosure,
+    finder: _CapturedImportFinder,
+) -> None:
+    if tuple(sys.meta_path) != (finder, *finder.original_meta_path) or tuple(sys.path) != finder.expected_path:
+        fail("reviewed_import_guard_changed")
     stdlib_roots = tuple(
         Path(path).resolve() for path in ("/usr/lib/python3.12", "/usr/local/lib/python3.12") if Path(path).is_dir()
     )
@@ -1332,12 +1891,16 @@ def validate_reviewed_imports(baseline: set[str], allowed_roots: Sequence[Path])
         origin = getattr(module, "__file__", None)
         if origin is None:
             continue
+        if origin in finder.extension_paths:
+            continue
         try:
             path = Path(origin).resolve(strict=True)
         except (OSError, RuntimeError) as error:
             raise RecoveryControlError("reviewed_import_origin_invalid") from error
-        if not any(path.is_relative_to(root) for root in (*allowed_roots, *stdlib_roots)):
+        if not any(path.is_relative_to(root) for root in (*closure.roots, *stdlib_roots)):
             fail("reviewed_import_origin_invalid")
+        if any(path.is_relative_to(root) for root in closure.roots) and path not in closure.bodies:
+            fail("unmanifested_import_forbidden")
 
 
 def classify_legacy_source_rows(
@@ -1393,16 +1956,24 @@ def classify_legacy_source_rows(
     }
 
 
-def validate_source_run(plan: Mapping[str, Any]) -> tuple[dict[str, StableFile], dict[str, int]]:
-    """Validate the guard-linked legacy run and classify rows without exposing them."""
-
+def _validate_source_run_pinned(
+    plan: Mapping[str, Any],
+    pinned: Mapping[str, PinnedFile],
+) -> tuple[dict[str, StableFile], dict[str, int]]:
     run_dir = Path(plan["source_smoke"]["run_dir"])
     stable_directory(run_dir, code="source_run_invalid", mode=0o700)
     if any(child.name.startswith("smoke_checkpoint") and child.name.endswith(".json") for child in os.scandir(run_dir)):
         fail("successful_smoke_already_certified")
     runtime_before = validate_runtime_manifest(plan)
     source_before = validate_source(plan)
-    artifacts = _source_artifacts(run_dir)
+    artifacts = {
+        "config_file": pinned["config_file"].artifact,
+        "eval_run_identity.json": pinned["eval_run_identity"].artifact,
+        "eval_invocations.jsonl": pinned["eval_invocations"].artifact,
+        "results.jsonl": pinned["results"].artifact,
+        "route_guard_success.json": pinned["route_guard_success"].artifact,
+        "task_file": pinned["task_file"].artifact,
+    }
     protected_modules = {
         "audit_traces",
         "deployment_endpoint",
@@ -1417,7 +1988,9 @@ def validate_source_run(plan: Mapping[str, Any]) -> tuple[dict[str, StableFile],
         fail("reviewed_import_collision")
     baseline = set(sys.modules)
     previous_path = list(sys.path)
-    allowed_roots = activate_reviewed_imports(plan)
+    previous_meta_path = list(sys.meta_path)
+    previous_importer_cache = dict(sys.path_importer_cache)
+    closure, finder = activate_reviewed_imports(plan)
     try:
         import smoke_timeout_recovery as recovery_module
 
@@ -1428,18 +2001,26 @@ def validate_source_run(plan: Mapping[str, Any]) -> tuple[dict[str, StableFile],
         task_record = source["identity"].get("inputs", {}).get("task_file")
         if not isinstance(task_record, dict):
             fail("source_run_invalid")
-        task = stable_file(Path(task_record.get("path", "")), code="source_task_invalid", uid=OWNER_UID)
-        if task.sha256 != task_record.get("sha256") or task_record.get("count") != EXPECTED_TASKS:
+        task = pinned["task_file"].artifact
+        config_record = source["identity"].get("config", {}).get("source")
+        if (
+            task.record != {"path": task_record.get("path"), "sha256": task_record.get("sha256")}
+            or task.sha256 != FRESH_TWO_TASK_SHA256
+            or task_record.get("count") != EXPECTED_TASKS
+            or config_record != pinned["config_file"].artifact.record
+        ):
             fail("source_task_invalid")
         source_rows = source["rows"]
         counts = classify_legacy_source_rows(recovery_module, task.raw, source_rows)
         identity_source = source["identity"].get("source")
-        invocation = recovery_module.validate_eval_invocations(
+        invocation, invocation_record = recovery_module.validate_eval_invocations(
             artifacts["eval_invocations.jsonl"].path,
             eval_run_identity_sha256=source["identity_sha256"],
             eval_run_role="smoke",
-        )[0]
-        validate_reviewed_imports(baseline, allowed_roots)
+        )
+        validate_reviewed_imports(baseline, closure, finder)
+        if capture_reviewed_closure(plan).digest != closure.digest:
+            fail("reviewed_closure_changed")
     except RecoveryControlError:
         raise
     except (ImportError, KeyError, OSError, RuntimeError, TypeError, ValueError) as error:
@@ -1448,16 +2029,49 @@ def validate_source_run(plan: Mapping[str, Any]) -> tuple[dict[str, StableFile],
         for name in set(sys.modules) - baseline:
             sys.modules.pop(name, None)
         sys.path[:] = previous_path
+        sys.meta_path[:] = previous_meta_path
+        sys.path_importer_cache.clear()
+        sys.path_importer_cache.update(previous_importer_cache)
+        finder.close()
+    identity_deployment = source["identity"].get("deployment")
+    recovery = plan["recovery"]
     if (
         not isinstance(identity_source, dict)
         or identity_source.get("prime_rl_commit") != LEGACY_SOURCE_REVISION
         or invocation.get("slurm_job_id") != SOURCE_JOB_ID
         or invocation.get("resume") is not False
+        or invocation_record != pinned["eval_invocations"].artifact.record
+        or not isinstance(identity_deployment, dict)
+        or identity_deployment.get("id") != recovery["deployment_id"]
+        or identity_deployment.get("spec") != recovery["deployment_spec"]
+        or identity_deployment.get("readiness_checkpoint") != recovery["readiness_checkpoint"]
+        or not isinstance(identity_deployment.get("endpoint"), dict)
+        or identity_deployment.get("endpoint", {}).get("proxy_info") != recovery["proxy_info"]
+        or sha256_bytes(canonical_json(identity_deployment.get("serving_route_generation")))
+        != recovery["route_generation_sha256"]
     ):
         fail("source_run_invalid")
     if validate_runtime_manifest(plan) != runtime_before or validate_source(plan) != source_before:
         fail("source_runtime_changed")
     return artifacts, counts
+
+
+def validate_source_run(plan: Mapping[str, Any]) -> tuple[dict[str, StableFile], dict[str, int]]:
+    """Validate fixed source bytes while keeping every source artifact pinned."""
+
+    run_dir = Path(plan["source_smoke"]["run_dir"])
+    stable_directory(run_dir, code="source_run_invalid", mode=0o700)
+    if any(child.name.startswith("smoke_checkpoint") and child.name.endswith(".json") for child in os.scandir(run_dir)):
+        fail("successful_smoke_already_certified")
+    pinned = _pin_source_artifacts(plan)
+    try:
+        result = _validate_source_run_pinned(plan, pinned)
+        for item in pinned.values():
+            item.validate(code="source_artifacts_changed")
+        return result
+    finally:
+        for item in pinned.values():
+            item.close()
 
 
 def acquire_writer_lock(run_dir: Path) -> tuple[Any, tuple[int, ...]]:
@@ -1493,6 +2107,71 @@ def acquire_writer_lock(run_dir: Path) -> tuple[Any, tuple[int, ...]]:
         if descriptor >= 0:
             os.close(descriptor)
     return handle, _signature(metadata)
+
+
+def acquire_global_lock(plan: Mapping[str, Any]) -> tuple[Any, tuple[int, ...]]:
+    path = Path(plan["recovery"]["global_lock"])
+    descriptor = -1
+    try:
+        if not path.is_absolute() or path.is_symlink() or path.resolve(strict=True) != path:
+            fail("recovery_global_lock_invalid")
+        descriptor = os.open(path, os.O_RDWR | os.O_CLOEXEC | os.O_NOFOLLOW)
+        metadata = os.fstat(descriptor)
+        visible = os.stat(path, follow_symlinks=False)
+        if (
+            not stat.S_ISREG(metadata.st_mode)
+            or stat.S_IMODE(metadata.st_mode) != 0o600
+            or metadata.st_uid != OWNER_UID
+            or metadata.st_nlink != 1
+            or metadata.st_size != 0
+            or _signature(metadata) != _signature(visible)
+        ):
+            fail("recovery_global_lock_invalid")
+        fcntl.flock(descriptor, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        handle = os.fdopen(descriptor, "r+b", closefd=True)
+        descriptor = -1
+        return handle, _signature(metadata)
+    except BlockingIOError as error:
+        raise RecoveryControlError("recovery_global_lock_busy") from error
+    except RecoveryControlError:
+        raise
+    except OSError as error:
+        raise RecoveryControlError("recovery_global_lock_invalid") from error
+    finally:
+        if descriptor >= 0:
+            os.close(descriptor)
+
+
+def validate_global_lock(plan: Mapping[str, Any], handle: Any, expected: tuple[int, ...]) -> None:
+    path = Path(plan["recovery"]["global_lock"])
+    try:
+        held = _signature(os.fstat(handle.fileno()))
+        visible = _signature(os.stat(path, follow_symlinks=False))
+    except OSError as error:
+        raise RecoveryControlError("recovery_global_lock_changed") from error
+    if path.is_symlink() or held != expected or visible != expected:
+        fail("recovery_global_lock_changed")
+
+
+def acquire_recovery_locks_with_wait(
+    plan: Mapping[str, Any],
+    *,
+    timeout: float = 60,
+) -> tuple[Any, tuple[int, ...], Any, tuple[int, ...]]:
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        source_lock: Any | None = None
+        try:
+            source_lock, source_signature = acquire_writer_lock(Path(plan["source_smoke"]["run_dir"]))
+            global_lock, global_signature = acquire_global_lock(plan)
+            return source_lock, source_signature, global_lock, global_signature
+        except RecoveryControlError as error:
+            if source_lock is not None:
+                source_lock.close()
+            if str(error) not in {"source_writer_active", "recovery_global_lock_busy"}:
+                raise
+        time.sleep(1)
+    fail("recovery_locks_unavailable")
 
 
 def validate_writer_lock_identity(run_dir: Path, handle: Any, expected_signature: tuple[int, ...]) -> None:
@@ -1633,6 +2312,11 @@ def certify_trigger(
     validate_external_inputs(plan)
     source_dir = Path(plan["source_smoke"]["run_dir"])
     lock, lock_signature = acquire_writer_lock(source_dir)
+    try:
+        global_lock, global_lock_signature = acquire_global_lock(plan)
+    except BaseException:
+        lock.close()
+        raise
     started = clock()
     try:
         reference_digest: str | None = None
@@ -1642,6 +2326,7 @@ def certify_trigger(
         terminal: dict[str, Any] | None = None
         route: dict[str, Any] | None = None
         for index in range(QUIESCENCE_SAMPLES):
+            validate_global_lock(plan, global_lock, global_lock_signature)
             terminal = source_terminal_snapshot(plan, runner=runner)
             artifacts, observed_counts = validate_source_run(plan)
             route = route_idle_snapshot(plan, runner=runner, fetcher=fetcher)
@@ -1668,6 +2353,7 @@ def certify_trigger(
         validate_source(plan)
         validate_external_inputs(plan)
         validate_writer_lock_identity(source_dir, lock, lock_signature)
+        validate_global_lock(plan, global_lock, global_lock_signature)
         terminal = source_terminal_snapshot(plan, runner=runner)
         final_artifacts, final_counts = validate_source_run(plan)
         route = route_idle_snapshot(plan, runner=runner, fetcher=fetcher)
@@ -1726,10 +2412,9 @@ def certify_trigger(
             or os.path.lexists(parent)
         ):
             fail("trigger_namespace_not_fresh")
-        _mkdir_fresh(parent)
-        atomic_write_once(output_path, raw, mode=0o400)
+        atomic_publish_single_file_directory(output_path, raw)
         validate_writer_lock_identity(source_dir, lock, lock_signature)
-        sync_directory(grandparent)
+        validate_global_lock(plan, global_lock, global_lock_signature)
         stable_directory(parent, code="trigger_publication_invalid", mode=0o700)
         published = stable_file(output_path, code="trigger_publication_invalid", mode=0o400)
         if published.sha256 != sha256_bytes(raw):
@@ -1744,6 +2429,7 @@ def certify_trigger(
         }
     finally:
         lock.close()
+        global_lock.close()
 
 
 def load_trigger(path: Path, *, plan: StableFile) -> tuple[dict[str, Any], StableFile]:
@@ -2045,7 +2731,14 @@ def scheduler_name_matches(
     return sorted(set(candidates), key=int)
 
 
-def _sbatch_command(plan: Mapping[str, Any], job_name: str, environment_file: Path) -> list[str]:
+def _job_comment(job_name: str) -> str:
+    prefix = "k3-smoke-recovery-"
+    if not job_name.startswith(prefix) or re.fullmatch(r"[0-9a-f]{24}", job_name[len(prefix) :]) is None:
+        fail("job_name_invalid")
+    return f"k3-smoke-{sha256_bytes(job_name.encode('ascii'))[:32]}"
+
+
+def _sbatch_command(plan: Mapping[str, Any], job_name: str, environment_fd: int) -> list[str]:
     recovery = plan["recovery"]
     return [
         "/usr/bin/sbatch",
@@ -2053,6 +2746,7 @@ def _sbatch_command(plan: Mapping[str, Any], job_name: str, environment_file: Pa
         CLUSTER,
         "--parsable",
         "--hold",
+        f"--comment={_job_comment(job_name)}",
         f"--job-name={job_name}",
         f"--chdir={recovery['project_root']}",
         "--partition=cpu_x86",
@@ -2067,30 +2761,34 @@ def _sbatch_command(plan: Mapping[str, Any], job_name: str, environment_file: Pa
         f"--output={Path(recovery['log_dir']) / 'recovery_%j.log'}",
         f"--error={Path(recovery['log_dir']) / 'recovery_%j.log'}",
         "--open-mode=truncate",
-        f"--export-file={environment_file}",
-        recovery["job_wrapper"]["path"],
+        f"--export-file=/proc/self/fd/{environment_fd}",
+        "-",
     ]
 
 
-def invoke_sbatch(command: Sequence[str]) -> tuple[str, int, str]:
+def invoke_sbatch(
+    command: Sequence[str],
+    wrapper: bytes,
+    descriptors: Sequence[int],
+) -> tuple[str, int, str]:
     """Run the sole sbatch call in a bounded process group."""
 
-    process: subprocess.Popen[str] | None = None
+    process: subprocess.Popen[bytes] | None = None
     try:
         process = subprocess.Popen(
             list(command),
-            stdin=subprocess.DEVNULL,
+            stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             env=clean_command_environment(),
-            text=True,
+            pass_fds=tuple(descriptors),
             start_new_session=True,
         )
     except OSError as error:
         raise RecoveryControlError("sbatch_start_failed") from error
     outcome = "completed"
     try:
-        stdout, stderr = process.communicate(timeout=60)
+        stdout, stderr = process.communicate(input=wrapper, timeout=60)
     except subprocess.TimeoutExpired:
         outcome = "timeout"
         blocked = signal.pthread_sigmask(signal.SIG_BLOCK, {signal.SIGINT, signal.SIGTERM, signal.SIGHUP})
@@ -2125,9 +2823,42 @@ def invoke_sbatch(command: Sequence[str]) -> tuple[str, int, str]:
         raise
     if process.poll() is None:
         fail("sbatch_cleanup_unproven")
+    _prove_process_group_empty(process.pid)
     if len(stdout) > 4096 or len(stderr) > 4096:
         fail("sbatch_output_oversize")
-    return outcome, int(process.returncode), stdout
+    if stderr:
+        fail("sbatch_stderr_nonempty")
+    try:
+        decoded = stdout.decode("ascii")
+    except UnicodeDecodeError as error:
+        raise RecoveryControlError("sbatch_output_invalid") from error
+    return outcome, int(process.returncode), decoded
+
+
+def _prove_process_group_empty(process_group: int) -> None:
+    consecutive = 0
+    deadline = time.monotonic() + 60
+    termination_sent = False
+    while time.monotonic() < deadline:
+        try:
+            os.killpg(process_group, 0)
+        except ProcessLookupError:
+            consecutive += 1
+            if consecutive >= TERMINAL_PROOF_ROUNDS:
+                return
+        except OSError as error:
+            raise RecoveryControlError("sbatch_process_group_unproven") from error
+        else:
+            consecutive = 0
+            try:
+                os.killpg(process_group, signal.SIGTERM if not termination_sent else signal.SIGKILL)
+            except ProcessLookupError:
+                pass
+            except OSError as error:
+                raise RecoveryControlError("sbatch_process_group_unproven") from error
+            termination_sent = True
+        time.sleep(0.05)
+    fail("sbatch_process_group_unproven")
 
 
 def parse_sbatch_response(outcome: str, returncode: int, stdout: str) -> str | None:
@@ -2152,29 +2883,77 @@ def resolve_submission_visibility(
     deadline = clock() + 60
     polls = 0
     zero_rounds = 0
+    unavailable_rounds = 0
     while clock() < deadline:
-        matches = scheduler_name_matches(job_name, runner=runner)
+        try:
+            matches = scheduler_name_matches(job_name, runner=runner)
+        except RecoveryControlError:
+            unavailable_rounds += 1
+            matches = None
         polls += 1
-        if direct_candidate is not None:
+        if matches is None:
+            pass
+        elif direct_candidate is not None:
             if matches == [direct_candidate]:
-                return direct_candidate, {"polls": polls, "zero_rounds": zero_rounds}
+                return direct_candidate, {
+                    "polls": polls,
+                    "zero_rounds": zero_rounds,
+                    "unavailable_rounds": unavailable_rounds,
+                }
             if matches and matches != [direct_candidate]:
                 fail("sbatch_submission_ambiguous")
         else:
             if len(matches) == 1:
-                return matches[0], {"polls": polls, "zero_rounds": zero_rounds}
+                return matches[0], {
+                    "polls": polls,
+                    "zero_rounds": zero_rounds,
+                    "unavailable_rounds": unavailable_rounds,
+                }
             if len(matches) > 1:
                 fail("sbatch_submission_ambiguous")
             zero_rounds += 1
-            if zero_rounds >= TERMINAL_PROOF_ROUNDS:
-                return None, {"polls": polls, "zero_rounds": zero_rounds}
         remaining = deadline - clock()
         if remaining <= 0:
             break
         sleeper(min(POLL_SECONDS, remaining))
     if direct_candidate is not None:
         fail("sbatch_submission_visibility_unproven")
+    if zero_rounds >= TERMINAL_PROOF_ROUNDS and unavailable_rounds == 0:
+        return None, {
+            "polls": polls,
+            "zero_rounds": zero_rounds,
+            "unavailable_rounds": unavailable_rounds,
+        }
     fail("sbatch_submission_ambiguity_unresolved")
+
+
+def prove_exclusive_name(
+    job_name: str,
+    job_id: str,
+    *,
+    runner: Runner,
+    sleeper: Callable[[float], None],
+    clock: Callable[[], float],
+) -> dict[str, int]:
+    """For a full minute, prove that the launch name resolves only to the exact job."""
+
+    deadline = clock() + 60
+    polls = 0
+    zero_extra_rounds = 0
+    while clock() < deadline:
+        matches = scheduler_name_matches(job_name, runner=runner)
+        polls += 1
+        extras = [candidate for candidate in matches if candidate != job_id]
+        if extras or job_id not in matches:
+            fail("scheduler_name_exclusivity_unproven")
+        zero_extra_rounds += 1
+        remaining = deadline - clock()
+        if remaining <= 0:
+            break
+        sleeper(min(POLL_SECONDS, remaining))
+    if zero_extra_rounds < TERMINAL_PROOF_ROUNDS:
+        fail("scheduler_name_exclusivity_unproven")
+    return {"polls": polls, "zero_extra_rounds": zero_extra_rounds}
 
 
 def _identity_mismatches(
@@ -2190,7 +2969,8 @@ def _identity_mismatches(
         "JobId": job_id,
         "JobName": job_name,
         "UserId": EXPECTED_USER_ID,
-        "Command": recovery["job_wrapper"]["path"],
+        "Command": "(null)",
+        "Comment": _job_comment(job_name),
         "WorkDir": recovery["project_root"],
         "StdOut": str(Path(recovery["log_dir"]) / f"recovery_{job_id}.log"),
         "StdErr": str(Path(recovery["log_dir"]) / f"recovery_{job_id}.log"),
@@ -2206,7 +2986,7 @@ def _identity_mismatches(
     mismatches = {key for key, expected_value in expected.items() if record.get(key) != expected_value}
     conflicts = {
         key
-        for key in ("Command", "JobId", "JobName", "UserId", "WorkDir")
+        for key in ("Command", "Comment", "JobId", "JobName", "UserId", "WorkDir")
         if record.get(key) not in {None, "", expected[key]}
     }
     state = scheduler_state(record.get("JobState", ""))
@@ -2463,7 +3243,7 @@ def _terminal_snapshot(
     plan: Mapping[str, Any],
     *,
     runner: Runner,
-) -> tuple[str, str, tuple[tuple[str, str], ...], tuple[str, ...]]:
+) -> tuple[str, str, tuple[str, ...], tuple[str, ...]]:
     conflicts: set[str] = set()
     try:
         record = scontrol_record(job_id, runner=runner)
@@ -2474,89 +3254,131 @@ def _terminal_snapshot(
             ("JobId", job_id),
             ("JobName", job_name),
             ("UserId", EXPECTED_USER_ID),
-            ("Command", plan["recovery"]["job_wrapper"]["path"]),
+            ("Command", "(null)"),
+            ("Comment", _job_comment(job_name)),
             ("WorkDir", plan["recovery"]["project_root"]),
         ):
             observed = record.get(field)
             if observed not in {None, "", expected}:
                 conflicts.add(field)
-    queue = _parse_pipe_rows(
-        runner(
-            [
-                "/usr/bin/squeue",
-                "-M",
-                CLUSTER,
-                "--noheader",
-                "--jobs",
-                job_id,
-                "--format=%A|%j|%u",
-            ],
-            COMMAND_TIMEOUT_SECONDS,
-        ),
-        width=3,
-        code="terminal_queue_unavailable",
-    )
-    for observed_id, observed_name, observed_user in queue:
+    try:
+        queue = _parse_pipe_rows(
+            runner(
+                [
+                    "/usr/bin/squeue",
+                    "-M",
+                    CLUSTER,
+                    "--noheader",
+                    "--jobs",
+                    job_id,
+                    "--format=%A|%j|%u|%T",
+                ],
+                COMMAND_TIMEOUT_SECONDS,
+            ),
+            width=4,
+            code="terminal_queue_unavailable",
+        )
+        step_queue = _parse_pipe_rows(
+            runner(
+                [
+                    "/usr/bin/squeue",
+                    "-M",
+                    CLUSTER,
+                    "--steps",
+                    "--noheader",
+                    "--jobs",
+                    job_id,
+                    "--format=%i|%j|%u|%T",
+                ],
+                COMMAND_TIMEOUT_SECONDS,
+            ),
+            width=4,
+            code="terminal_queue_unavailable",
+        )
+        allocations = _parse_pipe_rows(
+            runner(
+                [
+                    "/usr/bin/sacct",
+                    "-M",
+                    CLUSTER,
+                    "--noheader",
+                    "--parsable2",
+                    "--allocations",
+                    "-j",
+                    job_id,
+                    "--format=JobIDRaw,JobName,User,State,ExitCode,Restarts",
+                ],
+                COMMAND_TIMEOUT_SECONDS,
+            ),
+            width=6,
+            code="terminal_accounting_unavailable",
+        )
+        all_rows = _parse_pipe_rows(
+            runner(
+                [
+                    "/usr/bin/sacct",
+                    "-M",
+                    CLUSTER,
+                    "--noheader",
+                    "--parsable2",
+                    "-j",
+                    job_id,
+                    "--format=JobIDRaw,State,ExitCode",
+                ],
+                COMMAND_TIMEOUT_SECONDS,
+            ),
+            width=3,
+            code="terminal_accounting_unavailable",
+        )
+    except RecoveryControlError:
+        return "unavailable", "UNKNOWN", (), ()
+    for observed_id, observed_name, observed_user, _state in queue:
         if observed_id != job_id:
             conflicts.add("JobId")
         if observed_name != job_name:
             conflicts.add("JobName")
         if observed_user != OWNER:
             conflicts.add("UserId")
-    allocations = _parse_pipe_rows(
-        runner(
-            [
-                "/usr/bin/sacct",
-                "-M",
-                CLUSTER,
-                "--noheader",
-                "--parsable2",
-                "--allocations",
-                "-j",
-                job_id,
-                "--format=JobIDRaw,JobName,User,State",
-            ],
-            COMMAND_TIMEOUT_SECONDS,
-        ),
-        width=4,
-        code="terminal_accounting_unavailable",
-    )
-    all_rows = _parse_pipe_rows(
-        runner(
-            [
-                "/usr/bin/sacct",
-                "-M",
-                CLUSTER,
-                "--noheader",
-                "--parsable2",
-                "-j",
-                job_id,
-                "--format=JobIDRaw,State",
-            ],
-            COMMAND_TIMEOUT_SECONDS,
-        ),
-        width=2,
-        code="terminal_accounting_unavailable",
-    )
-    for observed_id, observed_name, observed_user, _state in allocations:
+    for observed_id, _observed_name, observed_user, _state in step_queue:
+        if observed_id != job_id and not observed_id.startswith(f"{job_id}."):
+            conflicts.add("JobId")
+        if observed_user != OWNER:
+            conflicts.add("UserId")
+    for observed_id, observed_name, observed_user, _state, _exit_code, _restarts in allocations:
         if observed_id != job_id:
             conflicts.add("JobId")
         if observed_name != job_name:
             conflicts.add("JobName")
         if observed_user != OWNER:
             conflicts.add("UserId")
-    for observed_id, _state in all_rows:
+    for observed_id, _state, _exit_code in all_rows:
         if observed_id != job_id and not observed_id.startswith(f"{job_id}."):
             conflicts.add("JobId")
     if conflicts:
         return "conflict", "UNKNOWN", (), tuple(sorted(conflicts))
-    if queue:
+    if queue or step_queue:
         return "active", "UNKNOWN", (), ()
     if len(allocations) != 1 or allocations[0][:3] != [job_id, job_name, OWNER] or not all_rows:
         return "incomplete", "UNKNOWN", (), ()
     state = scheduler_state(allocations[0][3])
-    signature = tuple((row[0], scheduler_state(row[1])) for row in all_rows)
-    if state in TERMINAL_STATES and all(item[1] in TERMINAL_STATES for item in signature):
+    signature = (
+        sha256_bytes(
+            canonical_json(
+                {
+                    "allocation": allocations,
+                    "rows": all_rows,
+                    "queue_rows": len(queue),
+                    "step_queue_rows": len(step_queue),
+                }
+            )
+        ),
+    )
+    if (
+        state in TERMINAL_STATES
+        and allocations[0][4]
+        and allocations[0][5] == "0"
+        and all(scheduler_state(row[1]) in TERMINAL_STATES and bool(row[2]) for row in all_rows)
+    ):
         return "terminal", state, signature, ()
     return "active", state, signature, ()
 
@@ -2589,7 +3411,8 @@ def cancel_and_prove(
                 ("JobId", job_id),
                 ("JobName", job_name),
                 ("UserId", EXPECTED_USER_ID),
-                ("Command", plan["recovery"]["job_wrapper"]["path"]),
+                ("Command", "(null)"),
+                ("Comment", _job_comment(job_name)),
                 ("WorkDir", plan["recovery"]["project_root"]),
             ):
                 observed = record.get(field)
@@ -2640,7 +3463,7 @@ def cancel_and_prove(
         )
     deadline = clock() + CANCEL_TERMINAL_TIMEOUT_SECONDS
     consecutive = 0
-    previous: tuple[tuple[str, str], ...] | None = None
+    previous: tuple[str, ...] | None = None
     polls = 0
     final_state = pre_state
     while clock() < deadline:
@@ -2661,6 +3484,13 @@ def cancel_and_prove(
         consecutive = consecutive + 1 if status == "terminal" and signature == previous else int(status == "terminal")
         previous = signature if status == "terminal" else None
         if consecutive >= TERMINAL_PROOF_ROUNDS:
+            name_proof = prove_exclusive_name(
+                job_name,
+                job_id,
+                runner=runner,
+                sleeper=sleeper,
+                clock=clock,
+            )
             return {
                 "identity_status": "exact" if identity_exact else "direct_provenance_fallback",
                 "identity_polls": identity_polls,
@@ -2670,6 +3500,7 @@ def cancel_and_prove(
                 "terminal_state": final_state,
                 "terminal_polls": polls,
                 "terminal_consecutive": consecutive,
+                "name_exclusivity": name_proof,
             }
         remaining = deadline - clock()
         if remaining <= 0:
@@ -2700,6 +3531,7 @@ def _reservation_paths(plan: Mapping[str, Any]) -> dict[str, Path]:
         "permit": reservation / "activation_permit.json",
         "receipt": reservation / "submission_receipt.json",
         "failure": reservation / "submission_failure.json",
+        "commit": reservation.parent / f"{reservation.name}.commit.json",
     }
 
 
@@ -2715,9 +3547,11 @@ def _validate_trigger_current(
     *,
     runner: Runner,
     fetcher: Fetcher,
+    writer_lock: tuple[Any, tuple[int, ...]] | None = None,
 ) -> None:
     run_dir = Path(plan["source_smoke"]["run_dir"])
-    lock, lock_signature = acquire_writer_lock(run_dir)
+    owns_lock = writer_lock is None
+    lock, lock_signature = acquire_writer_lock(run_dir) if writer_lock is None else writer_lock
     try:
         expected_lock_sha = trigger.get("quiescence", {}).get("writer_lock_identity_sha256")
         if sha256_bytes(canonical_json(lock_signature)) != expected_lock_sha:
@@ -2738,11 +3572,16 @@ def _validate_trigger_current(
         ):
             fail("terminal_trigger_stale")
     finally:
-        lock.close()
+        if owns_lock:
+            lock.close()
 
 
 def _static_digest(plan: Mapping[str, Any]) -> dict[str, str]:
     return {
+        "controller": plan["recovery"]["controller"]["sha256"],
+        "job_wrapper": plan["recovery"]["job_wrapper"]["sha256"],
+        "recovery_wrapper": plan["recovery"]["recovery_wrapper"]["sha256"],
+        "closure": capture_reviewed_closure(plan).digest,
         "runtime": sha256_bytes(canonical_json(validate_runtime_manifest(plan))),
         "source": sha256_bytes(canonical_json(validate_source(plan))),
         "inputs": sha256_bytes(canonical_json(validate_external_inputs(plan))),
@@ -2759,6 +3598,7 @@ def _authorization_body(
     static: Mapping[str, str],
     job_id: str,
     held: Mapping[str, Any],
+    held_after_authorization: Mapping[str, Any],
     intent: StableFile,
 ) -> dict[str, Any]:
     return {
@@ -2774,6 +3614,7 @@ def _authorization_body(
         "job_name_sha256": sha256_bytes(job_name.encode("ascii")),
         "intent": intent.record,
         "held": dict(held),
+        "held_after_authorization": dict(held_after_authorization),
         "static": dict(static),
         "policy": {"fresh_two_only": True, "resume": False, "legacy_rows_reused": 0},
     }
@@ -2799,6 +3640,23 @@ def _seal_reservation(path: Path) -> None:
     stable_directory(path, code="reservation_seal_failed", mode=0o500)
 
 
+def _unseal_uncommitted_reservation(paths: Mapping[str, Path]) -> None:
+    if os.path.lexists(paths["commit"]):
+        fail("success_publication_ambiguous")
+    try:
+        status = paths["root"].stat(follow_symlinks=False)
+    except OSError as error:
+        raise RecoveryControlError("failure_publication_conflict") from error
+    if not stat.S_ISDIR(status.st_mode) or status.st_uid != OWNER_UID:
+        fail("failure_publication_conflict")
+    mode = stat.S_IMODE(status.st_mode)
+    if mode == 0o500:
+        os.chmod(paths["root"], 0o700, follow_symlinks=False)
+        sync_directory(paths["root"])
+    elif mode != 0o700:
+        fail("failure_publication_conflict")
+
+
 def _publish_failure(
     paths: Mapping[str, Path],
     *,
@@ -2809,12 +3667,18 @@ def _publish_failure(
     cancellation: Mapping[str, Any] | None,
     lifecycle: Mapping[str, Any] | None,
 ) -> str:
+    _unseal_uncommitted_reservation(paths)
     try:
         root_mode = stat.S_IMODE(paths["root"].stat(follow_symlinks=False).st_mode)
     except OSError as error:
         raise RecoveryControlError("failure_publication_conflict") from error
-    if root_mode == 0o500:
+    if root_mode != 0o700:
         fail("failure_publication_conflict")
+    partial: dict[str, str] = {}
+    for name in ("intent", "environment", "authorization", "permit", "receipt"):
+        path = paths[name]
+        if os.path.lexists(path):
+            partial[name] = stable_file(path, code="failure_publication_conflict", mode=0o400).sha256
     body = {
         "schema_version": SCHEMA_VERSION,
         "kind": FAILURE_KIND,
@@ -2825,6 +3689,7 @@ def _publish_failure(
         "trigger": trigger_artifact.record,
         "cancellation": dict(cancellation or {}),
         "lifecycle": dict(lifecycle or {}),
+        "partial_artifacts_sha256": sha256_bytes(canonical_json(partial)),
         "promotion_authorized": False,
     }
     digest, _ = _publish_reservation_file(paths["failure"], body, "failure_sha256")
@@ -2841,7 +3706,7 @@ def launch(
     fetcher: Fetcher = fetch_http,
     sleeper: Callable[[float], None] = time.sleep,
     clock: Callable[[], float] = time.monotonic,
-    sbatch_invoker: Callable[[Sequence[str]], tuple[str, int, str]] = invoke_sbatch,
+    sbatch_invoker: Callable[[Sequence[str], bytes, Sequence[int]], tuple[str, int, str]] = invoke_sbatch,
     invocation_validator: Callable[[Mapping[str, Any]], None] = validate_invocation,
 ) -> dict[str, Any]:
     """Submit exactly one held fresh-two job and commit admission after revalidation."""
@@ -2863,22 +3728,49 @@ def launch(
         controller_sha256=controller.sha256,
         wrapper_sha256=wrapper.sha256,
     )
-    _validate_trigger_current(plan, trigger, runner=runner, fetcher=fetcher)
-    static = _static_digest(plan)
-    recovery = plan["recovery"]
-    for path in (Path(recovery["output_dir"]), Path(recovery["reservation_dir"]), Path(recovery["log_dir"])):
-        if os.path.lexists(path):
-            fail("launch_namespace_not_fresh")
-    paths = _reservation_paths(plan)
+    source_lock, source_lock_signature = acquire_writer_lock(Path(plan["source_smoke"]["run_dir"]))
+    try:
+        global_lock, global_lock_signature = acquire_global_lock(plan)
+    except BaseException:
+        source_lock.close()
+        raise
+    try:
+        _validate_trigger_current(
+            plan,
+            trigger,
+            runner=runner,
+            fetcher=fetcher,
+            writer_lock=(source_lock, source_lock_signature),
+        )
+        validate_global_lock(plan, global_lock, global_lock_signature)
+        static = _static_digest(plan)
+        recovery = plan["recovery"]
+        paths = _reservation_paths(plan)
+        for path in (
+            Path(recovery["output_dir"]),
+            Path(recovery["reservation_dir"]),
+            Path(recovery["log_dir"]),
+            paths["commit"],
+        ):
+            if os.path.lexists(path):
+                fail("launch_namespace_not_fresh")
+    except BaseException:
+        source_lock.close()
+        global_lock.close()
+        raise
     job_id: str | None = None
     job_name: str | None = None
     direct_provenance = False
+    submission_attempted = False
     committed = False
     held_evidence: Mapping[str, Any] | None = None
     held_after_authorization_evidence: Mapping[str, Any] | None = None
+    held_before_release_evidence: Mapping[str, Any] | None = None
     activation_evidence: Mapping[str, Any] | None = None
     submission_visibility: Mapping[str, Any] | None = None
     release_outcome = "not_attempted"
+    reservation_fd = -1
+    reservation_parent_fd = -1
     handled_signals = (signal.SIGINT, signal.SIGTERM, signal.SIGHUP)
     previous_handlers: dict[signal.Signals, Any] = {}
 
@@ -2890,6 +3782,14 @@ def launch(
         previous_handlers[handled_signal] = signal.signal(handled_signal, interrupted)
     try:
         _mkdir_fresh(paths["root"])
+        reservation_fd = os.open(
+            paths["root"],
+            os.O_RDONLY | os.O_DIRECTORY | os.O_CLOEXEC | os.O_NOFOLLOW,
+        )
+        reservation_parent_fd = os.open(
+            paths["root"].parent,
+            os.O_RDONLY | os.O_DIRECTORY | os.O_CLOEXEC | os.O_NOFOLLOW,
+        )
         _mkdir_fresh(Path(recovery["log_dir"]))
         token = secrets.token_hex(12)
         job_name = f"k3-smoke-recovery-{token}"
@@ -2917,12 +3817,20 @@ def launch(
             "job_name_sha256": sha256_bytes(job_name.encode("ascii")),
             "launch_token_sha256": sha256_bytes(token.encode("ascii")),
             "environment_sha256": sha256_bytes(environment_raw),
+            "job_wrapper_sha256": wrapper.sha256,
             "static": static,
             "policy": {"held_submission": True, "launches": 1, "fresh_two_only": True},
         }
         intent_sha, _ = _publish_reservation_file(paths["intent"], intent, "intent_sha256")
         atomic_write_once(paths["environment"], environment_raw, mode=0o400)
-        _validate_trigger_current(plan, trigger, runner=runner, fetcher=fetcher)
+        _validate_trigger_current(
+            plan,
+            trigger,
+            runner=runner,
+            fetcher=fetcher,
+            writer_lock=(source_lock, source_lock_signature),
+        )
+        validate_global_lock(plan, global_lock, global_lock_signature)
         if _static_digest(plan) != static:
             fail("static_bindings_changed")
         if os.path.lexists(recovery["output_dir"]):
@@ -2934,17 +3842,32 @@ def launch(
             or stable_file(wrapper.path, code="job_wrapper_changed", mode=0o500).sha256 != wrapper.sha256
         ):
             fail("launch_code_changed")
-        outcome, returncode, stdout = sbatch_invoker(_sbatch_command(plan, job_name, paths["environment"]))
-        candidate = parse_sbatch_response(outcome, returncode, stdout)
-        direct_provenance = candidate is not None
-        job_id, visibility = resolve_submission_visibility(
-            job_name,
-            candidate,
-            runner=runner,
-            sleeper=sleeper,
-            clock=clock,
-        )
-        submission_visibility = visibility
+        environment_fd = sealed_memfd(environment_raw, "kimi-smoke-recovery-environment")
+        previous_mask = signal.pthread_sigmask(signal.SIG_BLOCK, set(handled_signals))
+        try:
+            submission_attempted = True
+            outcome, returncode, stdout = sbatch_invoker(
+                _sbatch_command(plan, job_name, environment_fd),
+                wrapper.raw,
+                (environment_fd,),
+            )
+            candidate = parse_sbatch_response(outcome, returncode, stdout)
+            if candidate is not None:
+                job_id = candidate
+                direct_provenance = True
+            resolved, visibility = resolve_submission_visibility(
+                job_name,
+                candidate,
+                runner=runner,
+                sleeper=sleeper,
+                clock=clock,
+            )
+            if resolved is not None:
+                job_id = resolved
+            submission_visibility = visibility
+        finally:
+            os.close(environment_fd)
+            signal.pthread_sigmask(signal.SIG_SETMASK, previous_mask)
         if job_id is None:
             if outcome == "completed" and returncode == 0:
                 fail("sbatch_success_without_job")
@@ -2966,26 +3889,18 @@ def launch(
         if held["converged"] is not True:
             raise LifecycleError("held_identity_not_converged")
         validate_phase_certificate(held, state="PENDING", timeout=HELD_TIMEOUT_SECONDS)
-        _validate_trigger_current(plan, trigger, runner=runner, fetcher=fetcher)
+        _validate_trigger_current(
+            plan,
+            trigger,
+            runner=runner,
+            fetcher=fetcher,
+            writer_lock=(source_lock, source_lock_signature),
+        )
+        validate_global_lock(plan, global_lock, global_lock_signature)
         if _static_digest(plan) != static:
             raise LifecycleError("static_bindings_changed")
         if os.path.lexists(recovery["output_dir"]):
             raise LifecycleError("launch_namespace_not_fresh")
-        intent_artifact = stable_file(paths["intent"], code="launch_intent_changed", mode=0o400)
-        authorization_body = _authorization_body(
-            plan_artifact=plan_artifact,
-            review_artifact=review_artifact,
-            trigger_artifact=trigger_artifact,
-            token=token,
-            job_name=job_name,
-            static=static,
-            job_id=job_id,
-            held=held,
-            intent=intent_artifact,
-        )
-        authorization_sha, authorization_raw = _publish_reservation_file(
-            paths["authorization"], authorization_body, "authorization_sha256"
-        )
         held_after = _poll_identity(
             plan,
             job_id,
@@ -2998,8 +3913,38 @@ def launch(
         )
         held_after_authorization_evidence = held_after
         if held_after["converged"] is not True or held_after["explicit_conflict_fields"]:
-            raise LifecycleError("held_state_lost_after_authorization")
+            raise LifecycleError("held_state_lost_during_authorization")
         validate_phase_certificate(held_after, state="PENDING", timeout=10)
+        intent_artifact = stable_file(paths["intent"], code="launch_intent_changed", mode=0o400)
+        authorization_body = _authorization_body(
+            plan_artifact=plan_artifact,
+            review_artifact=review_artifact,
+            trigger_artifact=trigger_artifact,
+            token=token,
+            job_name=job_name,
+            static=static,
+            job_id=job_id,
+            held=held,
+            held_after_authorization=held_after,
+            intent=intent_artifact,
+        )
+        authorization_sha, authorization_raw = _publish_reservation_file(
+            paths["authorization"], authorization_body, "authorization_sha256"
+        )
+        held_before_release = _poll_identity(
+            plan,
+            job_id,
+            job_name,
+            held=True,
+            timeout=10,
+            runner=runner,
+            sleeper=sleeper,
+            clock=clock,
+        )
+        held_before_release_evidence = held_before_release
+        if held_before_release["converged"] is not True or held_before_release["explicit_conflict_fields"]:
+            raise LifecycleError("held_state_lost_after_authorization")
+        validate_phase_certificate(held_before_release, state="PENDING", timeout=10)
         release_result = runner(
             ["/usr/bin/scontrol", "-M", CLUSTER, "release", job_id],
             COMMAND_TIMEOUT_SECONDS,
@@ -3027,7 +3972,14 @@ def launch(
         if activation["converged"] is not True:
             raise LifecycleError("activation_not_converged")
         validate_phase_certificate(activation, state="RUNNING", timeout=ACTIVATION_TIMEOUT_SECONDS)
-        _validate_trigger_current(plan, trigger, runner=runner, fetcher=fetcher)
+        _validate_trigger_current(
+            plan,
+            trigger,
+            runner=runner,
+            fetcher=fetcher,
+            writer_lock=(source_lock, source_lock_signature),
+        )
+        validate_global_lock(plan, global_lock, global_lock_signature)
         post_static = _static_digest(plan)
         if post_static != static:
             raise LifecycleError("static_bindings_changed")
@@ -3059,6 +4011,7 @@ def launch(
             "job": {"cluster": CLUSTER, "id": job_id, "name": job_name},
             "held": held,
             "held_after_authorization": held_after,
+            "held_before_release": held_before_release,
             "release": {"attempts": 1, "outcome": release_outcome},
             "activation": activation,
             "static": post_static,
@@ -3070,17 +4023,96 @@ def launch(
             },
         }
         receipt_raw = envelope(receipt_body, "submission_receipt_sha256")
+        receipt_sha = sha256_bytes(receipt_raw)
+        commit_body = {
+            "schema_version": SCHEMA_VERSION,
+            "kind": COMMIT_KIND,
+            "state": "committed",
+            "authorization": {"path": str(paths["authorization"]), "sha256": authorization_sha},
+            "activation_permit": {"path": str(paths["permit"]), "sha256": permit_sha},
+            "submission_receipt": {"path": str(paths["receipt"]), "sha256": receipt_sha},
+            "intent_sha256": intent_sha,
+            "environment_sha256": sha256_bytes(environment_raw),
+            "job_id_sha256": sha256_bytes(job_id.encode("ascii")),
+            "job_name_sha256": sha256_bytes(job_name.encode("ascii")),
+            "static": post_static,
+            "policy": {"marker_last": True, "promotion_authorized": False},
+        }
+        commit_raw = envelope(commit_body, "commit_sha256")
         blocked = {signal.SIGINT, signal.SIGTERM, signal.SIGHUP}
         previous = signal.pthread_sigmask(signal.SIG_BLOCK, blocked)
         try:
-            atomic_write_once(paths["receipt"], receipt_raw, mode=0o400)
-            atomic_write_once(paths["permit"], permit_raw, mode=0o400)
-            sync_directory(paths["root"])
-            os.chmod(paths["root"], 0o500, follow_symlinks=False)
+            if atomic_write_once(paths["receipt"], receipt_raw, mode=0o400) != receipt_sha:
+                raise LifecycleError("admission_artifact_precommit_mismatch")
+            if atomic_write_once(paths["permit"], permit_raw, mode=0o400) != permit_sha:
+                raise LifecycleError("admission_artifact_precommit_mismatch")
+            if (
+                stable_file(paths["intent"], code="launch_intent_changed", mode=0o400).sha256 != intent_sha
+                or stable_file(paths["environment"], code="slurm_environment_invalid", mode=0o400).sha256
+                != sha256_bytes(environment_raw)
+                or stable_file(paths["authorization"], code="authorization_changed", mode=0o400).sha256
+                != authorization_sha
+                or stable_file(paths["receipt"], code="submission_receipt_invalid", mode=0o400).sha256 != receipt_sha
+                or stable_file(paths["permit"], code="activation_permit_invalid", mode=0o400).sha256 != permit_sha
+                or stable_file(controller.path, code="controller_changed", mode=0o500).sha256 != controller.sha256
+                or stable_file(wrapper.path, code="job_wrapper_changed", mode=0o500).sha256 != wrapper.sha256
+            ):
+                raise LifecycleError("admission_artifact_precommit_mismatch")
+            _seal_reservation(paths["root"])
+            validate_directory_descriptor(
+                paths["root"],
+                reservation_fd,
+                code="reservation_identity_changed",
+                mode=0o500,
+            )
+            validate_directory_descriptor(
+                paths["root"].parent,
+                reservation_parent_fd,
+                code="reservation_parent_changed",
+                mode=0o700,
+            )
+            fresh_plan, fresh_plan_artifact = load_plan(plan_artifact.path)
+            fresh_trigger, fresh_trigger_artifact = load_trigger(
+                trigger_artifact.path,
+                plan=fresh_plan_artifact,
+            )
+            fresh_review_artifact = load_review(
+                review_artifact.path,
+                plan=fresh_plan_artifact,
+                trigger=fresh_trigger_artifact,
+                controller_sha256=controller.sha256,
+                wrapper_sha256=wrapper.sha256,
+            )
+            if (
+                fresh_plan != plan
+                or fresh_plan_artifact.record != plan_artifact.record
+                or fresh_trigger != trigger
+                or fresh_trigger_artifact.record != trigger_artifact.record
+                or fresh_review_artifact.record != review_artifact.record
+            ):
+                raise LifecycleError("admission_envelope_changed")
+            _validate_trigger_current(
+                fresh_plan,
+                fresh_trigger,
+                runner=runner,
+                fetcher=fetcher,
+                writer_lock=(source_lock, source_lock_signature),
+            )
+            validate_global_lock(fresh_plan, global_lock, global_lock_signature)
+            if _static_digest(plan) != post_static or os.path.lexists(recovery["output_dir"]):
+                raise LifecycleError("static_bindings_changed")
+            phase_mismatches, phase_conflicts, phase_state = _scheduler_phase_evidence(
+                plan,
+                job_id,
+                job_name,
+                held=False,
+                runner=runner,
+            )
+            if phase_mismatches or phase_conflicts or phase_state != "RUNNING":
+                raise LifecycleError("job_scheduler_admission_invalid")
+            if atomic_write_once(paths["commit"], commit_raw, mode=0o400) != sha256_bytes(commit_raw):
+                raise LifecycleError("admission_publication_failed")
             committed = True
-            sync_directory(paths["root"])
-            sync_directory(paths["root"].parent)
-            stable_directory(paths["root"], code="reservation_seal_failed", mode=0o500)
         finally:
             signal.pthread_sigmask(signal.SIG_SETMASK, previous)
         if not committed:
@@ -3090,17 +4122,46 @@ def launch(
             "mode": "fresh_two",
             "tasks": EXPECTED_TASKS,
             "legacy_rows_reused": 0,
-            "submission_receipt_sha256": sha256_bytes(receipt_raw),
+            "submission_receipt_sha256": receipt_sha,
+            "submission_commit_sha256": sha256_bytes(commit_raw),
         }
     except BaseException:
         primary = sys.exception()
         if primary is None:
             primary = RecoveryControlError("recovery_control_failed")
-        if committed:
+        if committed or os.path.lexists(paths["commit"]):
+            committed = True
             raise
         previous_mask = signal.pthread_sigmask(signal.SIG_BLOCK, set(handled_signals))
         cancellation: Mapping[str, Any] | None = None
         try:
+            if submission_attempted and job_id is None and job_name is not None:
+                try:
+                    recovered, recovery_visibility = resolve_submission_visibility(
+                        job_name,
+                        None,
+                        runner=runner,
+                        sleeper=sleeper,
+                        clock=clock,
+                    )
+                    submission_visibility = recovery_visibility
+                    if recovered is not None:
+                        job_id = recovered
+                    else:
+                        cancellation = {
+                            "identity_status": "no_submission",
+                            "cancel_attempts": 0,
+                            "submission_visibility": recovery_visibility,
+                        }
+                except BaseException:
+                    primary = LifecycleError(
+                        "cancellation_unconfirmed",
+                        cancellation={
+                            "identity_status": "unavailable",
+                            "cancel_attempts": 0,
+                        },
+                    )
+                    cancellation = primary.cancellation
             if job_id is not None and job_name is not None:
                 try:
                     cancellation = cancel_and_prove(
@@ -3115,11 +4176,16 @@ def launch(
                 except LifecycleError as error:
                     primary = error
                     cancellation = error.cancellation
-            if (
-                os.path.lexists(paths["root"])
-                and not paths["root"].is_symlink()
-                and stat.S_IMODE(paths["root"].stat(follow_symlinks=False).st_mode) == 0o700
-            ):
+                except BaseException:
+                    primary = LifecycleError(
+                        "cancellation_unconfirmed",
+                        cancellation={
+                            "identity_status": "unavailable",
+                            "cancel_attempts": 0,
+                        },
+                    )
+                    cancellation = primary.cancellation
+            if os.path.lexists(paths["root"]) and not paths["root"].is_symlink():
                 code = str(primary)
                 if SAFE_CODE_RE.fullmatch(code) is None:
                     code = "recovery_control_failed"
@@ -3134,6 +4200,7 @@ def launch(
                         "activation": activation_evidence,
                         "held": held_evidence,
                         "held_after_authorization": held_after_authorization_evidence,
+                        "held_before_release": held_before_release_evidence,
                         "job": (
                             {
                                 "direct_sbatch_provenance": direct_provenance,
@@ -3159,6 +4226,12 @@ def launch(
         if committed:
             for handled_signal, previous_handler in previous_handlers.items():
                 signal.signal(handled_signal, previous_handler)
+        if reservation_fd >= 0:
+            os.close(reservation_fd)
+        if reservation_parent_fd >= 0:
+            os.close(reservation_parent_fd)
+        source_lock.close()
+        global_lock.close()
 
 
 def verify_job_admission(plan_path: Path, review_path: Path, trigger_path: Path) -> dict[str, Any]:
@@ -3184,8 +4257,15 @@ def verify_job_admission(plan_path: Path, review_path: Path, trigger_path: Path)
     if timeout != ADMISSION_TIMEOUT_SECONDS:
         fail("admission_timeout_invalid")
     deadline = time.monotonic() + timeout
-    while time.monotonic() < deadline and stat.S_IMODE(paths["root"].stat(follow_symlinks=False).st_mode) != 0o500:
+    while time.monotonic() < deadline and not os.path.lexists(paths["commit"]):
         time.sleep(1)
+    stable_directory(paths["commit"].parent, code="submission_commit_invalid", mode=0o700)
+    commit_value, commit = strict_envelope(
+        paths["commit"],
+        kind=COMMIT_KIND,
+        hash_field="commit_sha256",
+        code="submission_commit_invalid",
+    )
     stable_directory(paths["root"], code="reservation_not_committed", mode=0o500)
     permit_value, permit = strict_envelope(
         paths["permit"],
@@ -3249,6 +4329,7 @@ def verify_job_admission(plan_path: Path, review_path: Path, trigger_path: Path)
     expected_intent_keys = {
         "environment_sha256",
         "intent_sha256",
+        "job_wrapper_sha256",
         "job_name_sha256",
         "kind",
         "launch_token_sha256",
@@ -3260,24 +4341,7 @@ def verify_job_admission(plan_path: Path, review_path: Path, trigger_path: Path)
         "static",
         "trigger",
     }
-    expected_authorization_keys = {
-        "authorization_sha256",
-        "held",
-        "held_after_authorization",
-        "intent",
-        "job",
-        "job_id_sha256",
-        "job_name_sha256",
-        "kind",
-        "launch_token_sha256",
-        "plan",
-        "policy",
-        "review",
-        "schema_version",
-        "state",
-        "static",
-        "trigger",
-    }
+    expected_authorization_keys = AUTHORIZATION_FIELDS
     expected_permit_keys = {
         "authorization",
         "job_name_sha256",
@@ -3294,6 +4358,8 @@ def verify_job_admission(plan_path: Path, review_path: Path, trigger_path: Path)
         "authorization",
         "environment_sha256",
         "held",
+        "held_after_authorization",
+        "held_before_release",
         "intent_sha256",
         "job",
         "job_id_sha256",
@@ -3310,11 +4376,36 @@ def verify_job_admission(plan_path: Path, review_path: Path, trigger_path: Path)
         "submission_visibility",
         "trigger",
     }
+    expected_commit_keys = {
+        "activation_permit",
+        "authorization",
+        "commit_sha256",
+        "environment_sha256",
+        "intent_sha256",
+        "job_id_sha256",
+        "job_name_sha256",
+        "kind",
+        "policy",
+        "schema_version",
+        "state",
+        "static",
+        "submission_receipt",
+    }
     if (
         set(intent_value) != expected_intent_keys
         or set(authorization_value) != expected_authorization_keys
         or set(permit_value) != expected_permit_keys
         or set(receipt_value) != expected_receipt_keys
+        or set(commit_value) != expected_commit_keys
+        or commit_value.get("state") != "committed"
+        or commit_value.get("authorization") != authorization.record
+        or commit_value.get("activation_permit") != permit.record
+        or commit_value.get("submission_receipt") != receipt.record
+        or commit_value.get("intent_sha256") != intent.sha256
+        or commit_value.get("environment_sha256") != environment.sha256
+        or commit_value.get("job_id_sha256") != sha256_bytes(job_id.encode("ascii"))
+        or commit_value.get("job_name_sha256") != sha256_bytes(job_name.encode("ascii"))
+        or commit_value.get("policy") != {"marker_last": True, "promotion_authorized": False}
         or receipt.path != Path(os.environ.get("RECOVERY_SUBMISSION_RECEIPT", ""))
         or plan_artifact.sha256 != os.environ.get("RECOVERY_PLAN_SHA256")
         or str(plan_artifact.path) != os.environ.get("RECOVERY_PLAN")
@@ -3323,6 +4414,7 @@ def verify_job_admission(plan_path: Path, review_path: Path, trigger_path: Path)
         or str(authorization.path) != os.environ.get("RECOVERY_AUTHORIZATION")
         or str(permit.path) != os.environ.get("RECOVERY_ACTIVATION_PERMIT")
         or intent_value.get("environment_sha256") != environment.sha256
+        or intent_value.get("job_wrapper_sha256") != wrapper.sha256
         or receipt_value.get("state") != "submitted"
         or intent_value.get("state") != "reserved"
         or authorization_value.get("state") != "held_authorized"
@@ -3342,6 +4434,7 @@ def verify_job_admission(plan_path: Path, review_path: Path, trigger_path: Path)
         or authorization_value.get("trigger") != trigger.record
         or authorization_value.get("intent") != intent.record
         or authorization_value.get("held") != receipt_value.get("held")
+        or authorization_value.get("held_after_authorization") != receipt_value.get("held_after_authorization")
         or receipt_value.get("job_id_sha256") != sha256_bytes(job_id.encode("ascii"))
         or authorization_value.get("job_id_sha256") != sha256_bytes(job_id.encode("ascii"))
         or authorization_value.get("job") != {"cluster": CLUSTER, "id": job_id, "name": job_name}
@@ -3354,6 +4447,7 @@ def verify_job_admission(plan_path: Path, review_path: Path, trigger_path: Path)
         or intent_value.get("launch_token_sha256") != sha256_bytes(token.encode("ascii"))
         or receipt_value.get("held", {}).get("converged") is not True
         or receipt_value.get("activation", {}).get("converged") is not True
+        or receipt_value.get("held_before_release", {}).get("converged") is not True
         or receipt_value.get("release") != {"attempts": 1, "outcome": "completed"}
         or receipt_value.get("policy")
         != {
@@ -3369,22 +4463,36 @@ def verify_job_admission(plan_path: Path, review_path: Path, trigger_path: Path)
         fail("job_admission_invalid")
     validate_phase_certificate(receipt_value.get("held"), state="PENDING", timeout=HELD_TIMEOUT_SECONDS)
     validate_phase_certificate(receipt_value.get("held_after_authorization"), state="PENDING", timeout=10)
+    validate_phase_certificate(receipt_value.get("held_before_release"), state="PENDING", timeout=10)
     validate_phase_certificate(receipt_value.get("activation"), state="RUNNING", timeout=ACTIVATION_TIMEOUT_SECONDS)
     phase_mismatches, phase_conflicts, phase_state = _scheduler_phase_evidence(
         plan, job_id, job_name, held=False, runner=run_command
     )
     if phase_mismatches or phase_conflicts or phase_state != "RUNNING":
         fail("job_scheduler_admission_invalid")
-    _validate_trigger_current(plan, trigger_value, runner=run_command, fetcher=fetch_http)
-    static = _static_digest(plan)
-    if (
-        static != receipt_value.get("static")
-        or static != permit_value.get("static")
-        or static != authorization_value.get("static")
-        or static != intent_value.get("static")
-        or os.path.lexists(plan["recovery"]["output_dir"])
-    ):
-        fail("static_bindings_changed")
+    source_lock, source_signature, global_lock, global_signature = acquire_recovery_locks_with_wait(plan)
+    try:
+        _validate_trigger_current(
+            plan,
+            trigger_value,
+            runner=run_command,
+            fetcher=fetch_http,
+            writer_lock=(source_lock, source_signature),
+        )
+        validate_global_lock(plan, global_lock, global_signature)
+        static = _static_digest(plan)
+        if (
+            static != receipt_value.get("static")
+            or static != permit_value.get("static")
+            or static != authorization_value.get("static")
+            or static != intent_value.get("static")
+            or static != commit_value.get("static")
+            or os.path.lexists(plan["recovery"]["output_dir"])
+        ):
+            fail("static_bindings_changed")
+    finally:
+        source_lock.close()
+        global_lock.close()
     return {"state": "admitted", "tasks": EXPECTED_TASKS, "mode": "fresh_two"}
 
 
@@ -3538,7 +4646,9 @@ def validate_recovery_output(plan: Mapping[str, Any]) -> StableFile:
         fail("reviewed_import_collision")
     baseline = set(sys.modules)
     previous_path = list(sys.path)
-    allowed_roots = activate_reviewed_imports(plan)
+    previous_meta_path = list(sys.meta_path)
+    previous_importer_cache = dict(sys.path_importer_cache)
+    closure, finder = activate_reviewed_imports(plan)
     try:
         import eval_run_identity
         import smoke_qualification
@@ -3556,7 +4666,9 @@ def validate_recovery_output(plan: Mapping[str, Any]) -> StableFile:
             model="Kimi-K3",
             identity_loader=eval_run_identity.load_eval_run_identity,
         )
-        validate_reviewed_imports(baseline, allowed_roots)
+        validate_reviewed_imports(baseline, closure, finder)
+        if capture_reviewed_closure(plan).digest != closure.digest:
+            fail("reviewed_closure_changed")
     except RecoveryControlError:
         raise
     except (ImportError, OSError, RuntimeError, ValueError) as error:
@@ -3565,6 +4677,10 @@ def validate_recovery_output(plan: Mapping[str, Any]) -> StableFile:
         for name in set(sys.modules) - baseline:
             sys.modules.pop(name, None)
         sys.path[:] = previous_path
+        sys.meta_path[:] = previous_meta_path
+        sys.path_importer_cache.clear()
+        sys.path_importer_cache.update(previous_importer_cache)
+        finder.close()
     if evidence.schema_version != 1:
         fail("recovery_output_invalid")
     return checkpoint
@@ -3615,6 +4731,7 @@ def _parser() -> argparse.ArgumentParser:
 def main(argv: Sequence[str] | None = None) -> int:
     args = _parser().parse_args(argv)
     try:
+        validate_executed_controller(args.plan)
         if args.command == "certify-trigger":
             result = certify_trigger(args.plan, args.output)
         elif args.command == "launch":
