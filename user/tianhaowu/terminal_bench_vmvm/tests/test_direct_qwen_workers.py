@@ -78,6 +78,26 @@ def test_load_workers_validates_exact_metadata_and_hashes(tmp_path: Path) -> Non
     assert bundle_sha256 == direct.endpoint_bundle_sha256(sorted((root / "endpoints").iterdir()))
 
 
+def test_post_eval_generation_rejects_dead_reduced_or_drifted_service(tmp_path: Path, monkeypatch) -> None:
+    root, spec_sha256, bundle_sha256, workers = _write_deployment(tmp_path)
+    monkeypatch.setattr(direct, "EXPECTED_SPEC_SHA256", spec_sha256)
+    monkeypatch.setattr(direct, "EXPECTED_ENDPOINT_BUNDLE_SHA256", bundle_sha256)
+    monkeypatch.setattr(direct, "EXPECTED_ENDPOINTS", len(workers))
+    manifest_path = tmp_path / "manifest.json"
+    manifest_path.write_text(
+        json.dumps(direct._manifest(root, workers, spec_sha256, bundle_sha256, "a" * 64, 20001, 40001, 2)) + "\n"
+    )
+
+    with pytest.raises(direct.DirectWorkerError, match="not_live"):
+        direct.validate_post_eval_generation(manifest_path, root, router_alive=False, active_workers=2)
+    with pytest.raises(direct.DirectWorkerError, match="worker_count_drift"):
+        direct.validate_post_eval_generation(manifest_path, root, router_alive=True, active_workers=1)
+
+    (root / "spec.yaml").write_text("model: drifted\n")
+    with pytest.raises(direct.DirectWorkerError, match="serving_generation_drift"):
+        direct.validate_post_eval_generation(manifest_path, root, router_alive=True, active_workers=2)
+
+
 def test_load_workers_rejects_metadata_change(tmp_path: Path) -> None:
     root, spec_sha256, bundle_sha256, _ = _write_deployment(tmp_path)
     endpoint = root / "endpoints" / "100.json"
@@ -100,7 +120,6 @@ def test_load_workers_rejects_metadata_change(tmp_path: Path) -> None:
         "tb4_qwen_token_smoke.toml",
         "tb4_qwen_a95b_miniswe.toml",
         "mobius_qwen_a95b_2500.toml",
-        "mobius_qwen_a95b_2500_sandoq.toml",
     ],
 )
 def test_approved_qwen_configs_can_use_direct_fallback(filename: str, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -120,6 +139,36 @@ def test_approved_qwen_configs_can_use_direct_fallback(filename: str, monkeypatc
         )
         == task_hash
     )
+
+
+def test_full_sandoq_config_fails_closed_on_aggregate_compose_count(monkeypatch: pytest.MonkeyPatch) -> None:
+    config_dir = Path(__file__).parents[1] / "configs" / "eval"
+    repository_root = config_dir.parents[4]
+    config_path = config_dir / "mobius_qwen_a95b_2500_sandoq.toml"
+    config = tomllib.loads(config_path.read_text())
+    task_file = repository_root / config["taskset"]["task_file"]
+    monkeypatch.chdir(repository_root)
+
+    with pytest.raises(direct.DirectWorkerError, match=r"eval_sandoq_compose_tasks_unsupported:1$"):
+        direct.validate_eval_config(
+            config_path,
+            approved_task_file=task_file,
+            approved_task_file_sha256=config["taskset"]["task_file_sha256"],
+        )
+
+
+def test_sandoq_ramp_prefixes_have_no_compose_tasks(tmp_path: Path) -> None:
+    config_dir = Path(__file__).parents[1] / "configs" / "eval"
+    repository_root = config_dir.parents[4]
+    config = tomllib.loads((config_dir / "mobius_qwen_a95b_2500_sandoq.toml").read_text())
+    source = repository_root / config["taskset"]["task_file"]
+    dataset_dir = Path(config["taskset"]["dataset_dir"])
+    lines = source.read_bytes().splitlines(keepends=True)
+
+    for count in (2, 8, 24):
+        selected = tmp_path / f"prefix-{count}.txt"
+        selected.write_bytes(b"".join(lines[:count]))
+        assert direct.sandoq_compose_task_count(dataset_dir, selected) == 0
 
 
 def test_empty_inline_task_selection_is_still_forbidden(tmp_path: Path) -> None:

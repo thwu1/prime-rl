@@ -351,9 +351,11 @@ def certify(
             "deleted_and_verified",
             "assignments_acquired",
             "assignment_release_rows",
+            "assignment_cancellation_rows",
             "cleanup_gateway_retry_count",
             "assignments_cleanup_verified",
             "assignment_event_order_high_water",
+            "assignment_measured_high_water",
             "outer_sessions_created",
             "outer_sessions_deleted",
             "outer_session_high_water",
@@ -388,9 +390,12 @@ def certify(
             )
             or cleanup["recorded_outer_sessions"] < 1
             or cleanup.get("outer_session_high_water", 0) < pool
+            or cleanup.get("assignment_measured_high_water") != rollout
+            or cleanup["assignment_measured_high_water"] > cleanup.get("outer_session_high_water", 0)
             or cleanup.get("assignments_acquired", 0) < expected_count
             or cleanup.get("assignments_cleanup_verified") != cleanup.get("assignments_acquired")
-            or cleanup.get("assignment_release_rows") != cleanup.get("assignments_acquired")
+            or cleanup.get("assignment_release_rows", 0) + cleanup.get("assignment_cancellation_rows", 0)
+            != cleanup.get("assignments_acquired")
             or cleanup.get("outer_sessions_created") != cleanup.get("recorded_outer_sessions")
             or cleanup.get("outer_sessions_deleted") != cleanup.get("recorded_outer_sessions")
             or any(
@@ -421,8 +426,10 @@ def certify(
                 "recorded_outer_sessions": cleanup["recorded_outer_sessions"],
                 "verified_http_404": cleanup["verified_http_404"],
                 "assignment_event_order_high_water": cleanup["assignment_event_order_high_water"],
+                "assignment_measured_high_water": cleanup["assignment_measured_high_water"],
                 "outer_session_high_water": cleanup["outer_session_high_water"],
                 "assignment_attempts": cleanup["assignments_acquired"],
+                "assignment_cancellations": cleanup["assignment_cancellation_rows"],
                 "extra_assignment_attempts": cleanup["assignments_acquired"] - expected_count,
                 "gateway_close_warnings": cleanup.get("gateway_close_warnings", 0),
                 "recovered_poisoned_assignments": cleanup["recovered_poisoned_assignments"],

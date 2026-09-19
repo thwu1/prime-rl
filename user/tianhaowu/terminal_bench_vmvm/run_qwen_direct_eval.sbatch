@@ -3,7 +3,7 @@
 #SBATCH --partition=cpu_x86
 #SBATCH --qos=cpu_x86_lowest
 #SBATCH --account=ram
-#SBATCH --time=2-00:00:00
+#SBATCH --time=7-00:00:00
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=8
@@ -47,11 +47,13 @@ workflow_dir="$project_dir/user/tianhaowu/terminal_bench_vmvm"
 deployment_root=${DIRECT_QWEN_DEPLOYMENT_ROOT:-/checkpoint/ram/shared/vllm_deployments_v2/shared_qwen38_2p4t}
 router_site=${DIRECT_ROUTER_SITE:-/checkpoint/ram/tianhaowu/terminal_bench_vmvm/vllm_router_x86_64_0.1.26}
 x86_site=${PYTHON_SITE_X86_64:-/checkpoint/ram/tianhaowu/terminal_bench_vmvm/python_x86_64}
+sandoq_site=${SANDOQ_PYTHON_SITE_X86_64:-/checkpoint/ram/tianhaowu/terminal_bench_vmvm/sandoq_x86_64_ram_prime_f7313db4}
 x86_uv=${UV_BIN_X86_64:-/storage/home/tianhaowu/.local/x86_64/bin/uv}
 python_bin=${PYTHON_BIN_X86_64:-python3}
 resume_dir=${RESUME_DIR:-}
 approved_task_file=${DIRECT_QWEN_APPROVED_TASK_FILE:-}
 approved_task_file_sha256=${DIRECT_QWEN_APPROVED_TASK_FILE_SHA256:-}
+unset PYTHONPATH PYTHONHOME
 
 if [[ -z "$approved_task_file" || -z "$approved_task_file_sha256" ]]; then
     printf '%s\n' \
@@ -136,6 +138,59 @@ if [[ ! -r "$eval_config" ]]; then
     exit 2
 fi
 cd "$project_dir"
+
+if [[ "$sandbox_provider" == sandoq ]]; then
+    if [[ -n "$(git status --porcelain=v1 --untracked-files=all)" \
+        || -n "$(git -C deps/verifiers status --porcelain=v1 --untracked-files=all)" \
+        || -n "$(git -C deps/renderers status --porcelain=v1 --untracked-files=all)" \
+        || -n "$(git -C deps/sandoq-provider status --porcelain=v1 --untracked-files=all)" \
+        || "$(git -C deps/sandoq-provider rev-parse HEAD)" != 4890302104d76220cef791c86d2009168597d35f ]]; then
+        printf 'Sandoq direct wrapper requires the approved clean source closure\n' >&2
+        exit 2
+    fi
+    if [[ ! -d "$sandoq_site/sandoq_client" ]]; then
+        printf 'Missing pinned x86_64 Sandoq client site\n' >&2
+        exit 2
+    fi
+    wrapper_sandoq_site_sha256=$(
+        "$x86_uv" run --no-project --offline --python "$python_bin" python3 - "$sandoq_site" <<'PY'
+import hashlib
+import sys
+from pathlib import Path
+root = Path(sys.argv[1])
+digest = hashlib.sha256()
+paths = sorted(
+    (path for path in root.rglob("*") if path.is_file() and path.suffix != ".pyc" and not path.name.startswith(".")),
+    key=lambda path: path.relative_to(root).as_posix(),
+)
+for path in paths:
+    digest.update(f"{hashlib.sha256(path.read_bytes()).hexdigest()}  {path.relative_to(root).as_posix()}\n".encode())
+print(digest.hexdigest())
+PY
+    )
+    if [[ "$wrapper_sandoq_site_sha256" != 852f66db48c06e3928c6a5ff974c94bb21c93511342b205c2b7d1b99e73c3d6b ]]; then
+        printf 'Sandoq staged dependency tree does not match the approved closure\n' >&2
+        exit 2
+    fi
+    wrapper_sandoq_client_version=$(
+        "$x86_uv" run --no-project --offline --python "$python_bin" python3 - "$sandoq_site" <<'PY'
+import importlib.metadata as metadata
+import sys
+distributions = [
+    distribution
+    for distribution in metadata.distributions(path=[sys.argv[1]])
+    if distribution.metadata["Name"].lower().replace("_", "-") == "sandoq-client"
+]
+if len(distributions) != 1:
+    raise SystemExit(2)
+print(distributions[0].version)
+PY
+    )
+    if [[ "$wrapper_sandoq_client_version" != 0.4.0.2026.8.20.58304.0+hga81e4ca4d312 ]]; then
+        printf 'Sandoq client version does not match the approved pin\n' >&2
+        exit 2
+    fi
+fi
 
 mkdir -p "$output_dir" /checkpoint/ram/tianhaowu/terminal_bench_vmvm/logs
 exec 8>"$output_dir/.direct_router.lock"
@@ -298,6 +353,47 @@ if [[ "$sandbox_provider" == sandoq && "$preflight_only" -eq 1 ]]; then
     rmdir -- "$output_dir" 2>/dev/null || true
 fi
 if [[ "$sandbox_provider" == sandoq && "$preflight_only" -eq 0 ]]; then
+    if [[ -z "$router_pid" ]] || ! kill -0 "$router_pid" 2>/dev/null; then
+        printf 'Direct Qwen router was not live at certification\n' >&2
+        exit 2
+    fi
+    if ! curl --noproxy '*' --fail --silent --show-error --max-time 10 \
+        "$router_url/v1/models" >/dev/null; then
+        printf 'Direct Qwen router health failed at certification\n' >&2
+        exit 2
+    fi
+    final_active_workers=$(
+        curl --noproxy '*' --fail --silent --show-error --max-time 10 "$metrics_url" \
+            | awk '$1 == "vllm_router_active_workers" {print $2}' \
+            | tail -n 1
+    )
+    if [[ "$final_active_workers" != 24 ]]; then
+        printf 'Direct Qwen router no longer has exactly 24 active workers\n' >&2
+        exit 2
+    fi
+    final_generation=$(
+        PYTHONPATH="$workflow_dir" \
+            "$x86_uv" run --no-project --offline --python "$python_bin" \
+            python3 - "$manifest" "$deployment_root" <<'PY'
+import sys
+from pathlib import Path
+from direct_qwen_workers import validate_post_eval_generation
+
+manifest_path = Path(sys.argv[1])
+print(
+    validate_post_eval_generation(
+        manifest_path,
+        Path(sys.argv[2]),
+        router_alive=True,
+        active_workers=24,
+    )
+)
+PY
+    )
+    if [[ "$final_generation" != "$manifest_sha256" ]]; then
+        printf 'Direct Qwen serving generation drifted during evaluation\n' >&2
+        exit 2
+    fi
     certificate_args=(
         "$workflow_dir/certify_direct_qwen_sandoq.py"
         --run-dir "$output_dir" --expected-task-file "$approved_task_file" \

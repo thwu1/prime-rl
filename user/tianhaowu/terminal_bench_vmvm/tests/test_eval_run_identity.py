@@ -210,7 +210,7 @@ def _sandoq_identity() -> dict:
         "host_tunnel": "sandoq",
         "guest_tunnel_url": "http://127.0.0.1:8485",
         "expected_environment": "oci-runner-firecracker-tunnel-pull",
-        "ecr_token_file": "/storage/home/tianhaowu/.config/oci-runner/ecr-token",
+        "ecr_token_file": "/run/secrets/ecr-token",
     }
     contract, execution = _contract(config, "approved-model", sandbox_provider="sandoq")
     execution["sandoq_environment"] = {
@@ -282,6 +282,7 @@ def test_sandoq_identity_shape_rejects_backend_and_manifest_mismatch() -> None:
         (("execution", "runtime", "type"), "vmvm"),
         (("source", "derived_image_manifest_sha256"), "7" * 64),
         (("execution", "sandoq_environment", "create_deadline"), "31m"),
+        (("execution", "runtime", "ecr_token_file"), "/run/secrets/another-token"),
         (("execution", "cleanup_must_succeed"), False),
     ):
         mismatched = json.loads(json.dumps(identity))

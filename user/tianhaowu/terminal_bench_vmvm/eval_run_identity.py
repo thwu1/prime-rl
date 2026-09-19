@@ -786,7 +786,8 @@ def _contract(
         or runtime.get("network_access") is not False
         or runtime.get("host_tunnel") != "sandoq"
         or runtime.get("expected_environment") != "oci-runner-firecracker-tunnel-pull"
-        or runtime.get("ecr_token_file") != "/storage/home/tianhaowu/.config/oci-runner/ecr-token"
+        or not isinstance(runtime.get("ecr_token_file"), str)
+        or not Path(runtime["ecr_token_file"]).is_absolute()
         or runtime.get("guest_tunnel_url") != "http://127.0.0.1:8485"
     ):
         raise EvalIdentityError("sandoq_runtime_contract_invalid")
@@ -1705,6 +1706,7 @@ def _validate_identity_shape(identity: object) -> dict[str, Any]:
             or not isinstance(environment.get("pool_wal"), str)
             or not isinstance(environment.get("pool_event_log"), str)
             or environment.get("allow_dockerhub_fallback") is not False
+            or runtime.get("ecr_token_file") != environment.get("ecr_token_file")
             or not _validate_positive_integer(environment.get("pool_size"))
             or not isinstance(environment.get("pool_min_size"), int)
             or environment["pool_min_size"] < 0
@@ -2523,6 +2525,8 @@ def prepare(args: argparse.Namespace) -> str:
         execution["vmvm_environment"] = _effective_vmvm_environment(args, rollout_concurrency)
     else:
         execution["sandoq_environment"] = _effective_sandoq_environment(args, rollout_concurrency, output_dir)
+        if execution["runtime"].get("ecr_token_file") != execution["sandoq_environment"]["ecr_token_file"]:
+            raise EvalIdentityError("sandoq_ecr_token_file_invalid")
     source = _source_identity(args)
     if args.sandbox_provider == "sandoq" and (
         inputs["image_manifest"] is None
@@ -2617,6 +2621,8 @@ def _prepare_direct_qwen(args: argparse.Namespace) -> str:
         sandbox_provider="sandoq",
     )
     execution["sandoq_environment"] = _effective_sandoq_environment(args, execution["rollout_concurrency"], output_dir)
+    if execution["runtime"].get("ecr_token_file") != execution["sandoq_environment"]["ecr_token_file"]:
+        raise EvalIdentityError("sandoq_ecr_token_file_invalid")
     source = _source_identity(args)
     if (
         inputs["image_manifest"] is None

@@ -364,10 +364,14 @@ directory. Do not set `RESUME_DIR` or rebind partial rows to another proxy.
 Use `materialize_sandoq_ramp.py` with the approved 2,500-line allowlist SHA and
 the exact SHA of `configs/eval/mobius_qwen_a95b_2500_sandoq.toml`. Materialize
 each stage into a new directory; existing task, config, or receipt paths are
-rejected. Run stages strictly in the order 2, 8, 24, then 2,500. The stage
+rejected. Qualify stages strictly in the order 2, 8, then 24. The stage
 contract is respectively rollout/client/pool 2/2/2, 8/8/8, 24/24/24, and
-64/32/64. Do not attempt the 2,500 stage until the 24-stage certificate exists;
-the currently observed 24-capacity shortfall remains a production blocker.
+64/32/64 for the reserved full-stage shape. The canonical full selection has
+one Compose task, while the native Sandoq taskset intentionally supports only
+single-container tasks, so the 2,500 stage fails closed. It must not launch
+until a separately certified disjoint/exhaustive mixed-provider workflow is in
+place. The currently observed 24-capacity shortfall also remains a production
+blocker.
 
 For every invocation of `run_qwen_direct_eval.sbatch`, set
 `EVAL_CONFIG`, `DIRECT_QWEN_APPROVED_TASK_FILE`, and its SHA to that stage's
@@ -376,6 +380,11 @@ materialized files. Also set `SANDOQ_RAMP_RECEIPT` and
 `SANDOQ_PREDECESSOR_CERTIFICATE` and its SHA. Always use a fresh `OUTPUT_DIR`;
 Sandoq resume is rejected. The launcher uses the workflow's configured token
 paths, a node-local job-scoped pool socket, and output-local recovery logs.
+The x86 compute environment cannot mint replacement ECR credentials. The
+2/8/24 stages therefore require an operator-verified freshly minted static ECR
+token and completion within its lifetime; file mtime is not issuance proof.
+Do not run a long/full stage until a login-side or service-managed atomic token
+rotator and an evaluator-side freshness watchdog are implemented and proven.
 
 Treat Slurm logs, `pool_events.jsonl`, the pool WAL, the raw cleanup audit, and
 the node-local drain marker as private operational evidence. After the

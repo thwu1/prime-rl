@@ -74,6 +74,8 @@ def sanitize(
         or drain.get("schema_version") != 3
         or drain.get("reason") != "final_client_departure"
         or drain.get("failures") != {}
+        or not _is_int(drain.get("event_records_dropped"))
+        or drain.get("event_records_dropped") != 0
         or not isinstance(drain.get("deleted"), list)
         or any(
             not isinstance(entry, dict)
@@ -84,9 +86,12 @@ def sanitize(
     ):
         raise CleanupAuditError("pool_drain_not_verified")
     acquired_counts: Counter[str] = Counter()
+    assignment_outer: dict[str, str] = {}
     release_counts: Counter[str] = Counter()
+    cancellation_counts: Counter[str] = Counter()
     active_assignments: set[str] = set()
     assignment_high_water = 0
+    measured_assignment_high_water = 0
     release_rows = 0
     cleanup_gateway_retry_count = 0
     pool_drained = 0
@@ -114,25 +119,61 @@ def sanitize(
         if event_name == "assignment_acquired":
             if not isinstance(assignment_id, str) or not assignment_id:
                 raise CleanupAuditError("pool_event_assignment_identity_invalid")
+            if not isinstance(outer_id, str) or not outer_id:
+                raise CleanupAuditError("pool_event_outer_identity_invalid")
             acquired_counts[assignment_id] += 1
+            assignment_outer[assignment_id] = outer_id
             active_assignments.add(assignment_id)
             assignment_high_water = max(assignment_high_water, len(active_assignments))
+            measured_active = event.get("active_assignment_count")
+            if not _is_int(measured_active) or measured_active < 1:
+                raise CleanupAuditError("active_assignment_count_invalid")
+            measured_assignment_high_water = max(measured_assignment_high_water, measured_active)
         elif event_name == "assignment_release_failed":
             raise CleanupAuditError("assignment_release_failure_recorded")
+        elif event_name == "assignment_cancelled":
+            if (
+                not isinstance(assignment_id, str)
+                or not isinstance(outer_id, str)
+                or assignment_outer.get(assignment_id) != outer_id
+                or event.get("cancellation_verified") is not True
+                or event.get("status") is not None
+                or bool(event.get("error"))
+            ):
+                raise CleanupAuditError("assignment_cancellation_not_verified")
+            cancellation_counts[assignment_id] += 1
+            active_assignments.discard(assignment_id)
         elif event_name == "assignment_released":
             release_rows += 1
+            status = event.get("status")
             verified = (
-                event.get("nested_recycle_verified") is True
-                or (event.get("poisoned") is True and event.get("outer_deletion_verified_http_status") == 404)
-                or event.get("verified_http_status") == 404
+                (
+                    status == "recycled"
+                    and event.get("nested_recycle_verified") is True
+                    and event.get("poisoned") is not True
+                    and not event.get("error")
+                )
+                or (
+                    status == "retired"
+                    and event.get("nested_recycle_verified") is True
+                    and event.get("poisoned") is not True
+                    and event.get("outer_deletion_verified_http_status") == 404
+                    and not event.get("error")
+                )
+                or (
+                    status == "poisoned"
+                    and event.get("poisoned") is True
+                    and event.get("outer_deletion_verified_http_status") == 404
+                )
             )
             if (
                 not isinstance(assignment_id, str)
+                or not isinstance(outer_id, str)
+                or assignment_outer.get(assignment_id) != outer_id
                 or not verified
-                or (bool(event.get("error")) and event.get("status") != "poisoned")
-                or event.get("status") in {"release_in_progress", "already_released"}
-                or not isinstance(event.get("cleanup_gateway_retry_count", 0), int)
+                or not _is_int(event.get("cleanup_gateway_retry_count", 0))
                 or event.get("cleanup_gateway_retry_count", 0) < 0
+                or not _is_int(event.get("cleanup_gateway_retry_exhausted_count", 0))
                 or event.get("cleanup_gateway_retry_exhausted_count", 0) != 0
             ):
                 raise CleanupAuditError("assignment_cleanup_not_verified")
@@ -144,15 +185,21 @@ def sanitize(
         elif event_name == "pool_drain_incomplete":
             raise CleanupAuditError("pool_drain_incomplete")
         elif event_name == "pool_drained":
-            if event.get("reason") != "final_client_departure" or event.get("failures") != {}:
+            if (
+                event.get("reason") != "final_client_departure"
+                or event.get("failures") != {}
+                or not _is_int(event.get("event_records_dropped"))
+                or event.get("event_records_dropped") != 0
+            ):
                 raise CleanupAuditError("pool_drain_event_invalid")
             pool_drained += 1
         elif event_name == "gateway_close_failed":
             gateway_close_warnings += 1
     if (
         not acquired_counts
-        or acquired_counts != release_counts
+        or acquired_counts != release_counts + cancellation_counts
         or any(count != 1 for count in acquired_counts.values())
+        or any(count != 1 for count in (release_counts + cancellation_counts).values())
         or active_assignments
         or pool_drained != 1
     ):
@@ -211,9 +258,11 @@ def sanitize(
         "deleted_and_verified": deleted_and_verified,
         "assignments_acquired": len(acquired_counts),
         "assignment_release_rows": release_rows,
+        "assignment_cancellation_rows": sum(cancellation_counts.values()),
         "cleanup_gateway_retry_count": cleanup_gateway_retry_count,
-        "assignments_cleanup_verified": len(release_counts),
+        "assignments_cleanup_verified": len(release_counts) + len(cancellation_counts),
         "assignment_event_order_high_water": assignment_high_water,
+        "assignment_measured_high_water": measured_assignment_high_water,
         "outer_sessions_created": len(outer_created),
         "outer_sessions_deleted": len(outer_created & outer_deleted),
         "outer_session_high_water": outer_high_water,

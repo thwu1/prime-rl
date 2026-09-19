@@ -523,6 +523,14 @@ def test_eval_controller_is_cpu_only_and_supports_high_vmvm_concurrency() -> Non
     # soon as each tunnel is ready, so the evaluator can still reach 64 active
     # rollouts without stampeding vacli with 64 setup requests at once.
     assert "VACLI_MAX_CONCURRENT_LEASES=${VACLI_MAX_CONCURRENT_LEASES:-32}" in text
+    assert "get_gateway_adapter" in text
+    assert "create_client(config)" in text
+    assert "verify_references=True" in text
+    assert "verify_pool_cleanup.py" in text
+    assert "sanitize_sandoq_cleanup_audit.py" in text
+    assert text.index("worktrees must all be clean") < text.index("create_client(config)")
+    assert text.index("approved cutover source") < text.index("create_client(config)")
+    assert text.index("approved closure") < text.index("create_client(config)")
 
 
 def test_kimi_tb4_gate_sequences_smoke_before_full_evaluation() -> None:
@@ -564,6 +572,8 @@ def test_direct_qwen_launcher_is_fail_closed() -> None:
     workflow_dir = CONFIG_DIR.parents[1]
     wrapper = (workflow_dir / "run_qwen_direct_eval.sbatch").read_text()
     driver = (workflow_dir / "run_direct_qwen_eval_driver.sh").read_text()
+
+    assert "#SBATCH --time=7-00:00:00" in wrapper
 
     assert '--policy "$router_policy"' in wrapper
     assert '--request-id-headers "$router_request_id_header"' in wrapper
@@ -615,6 +625,13 @@ def test_direct_qwen_launcher_is_fail_closed() -> None:
     assert "verify_references=True" in driver
     assert "verify_pool_cleanup.py" in driver
     assert "sanitize_sandoq_cleanup_audit.py" in driver
+    assert "router was not live at certification" in wrapper
+    assert "no longer has exactly 24 active workers" in wrapper
+    assert "serving generation drifted during evaluation" in wrapper
+    assert "validate_post_eval_generation" in wrapper
+    assert "4890302104d76220cef791c86d2009168597d35f" in wrapper
+    assert "4890302104d76220cef791c86d2009168597d35f" in driver
+    assert wrapper.index("approved clean source closure") < wrapper.index('"$workflow_dir/direct_qwen_workers.py"')
 
 
 def test_direct_qwen_router_probe_is_infrastructure_only() -> None:

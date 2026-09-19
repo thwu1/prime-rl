@@ -57,21 +57,7 @@ eval_dataset_revision=${EVAL_DATASET_REVISION:-}
 eval_dataset_archive=${EVAL_DATASET_ARCHIVE:-}
 eval_dataset_archive_sha256=${EVAL_DATASET_ARCHIVE_SHA256:-}
 eval_dataset_content_sha256=${EVAL_DATASET_CONTENT_SHA256:-}
-
-if ! sandbox_provider=$(python3 - "$eval_config" <<'PY'
-import sys
-import tomllib
-with open(sys.argv[1], "rb") as handle:
-    print(tomllib.load(handle).get("harness", {}).get("runtime", {}).get("type", ""))
-PY
-); then
-    printf 'Could not read sandbox provider from EVAL_CONFIG\n' >&2
-    exit 2
-fi
-if [[ "$sandbox_provider" != vmvm && "$sandbox_provider" != sandoq ]]; then
-    printf 'EVAL_CONFIG must select an explicit vmvm or sandoq runtime\n' >&2
-    exit 2
-fi
+unset PYTHONPATH PYTHONHOME
 
 if [[ "$(uname -m)" != x86_64 || ! -d "$x86_site/pydantic" ]]; then
     printf 'Missing x86_64 Python runtime/dependencies\n' >&2
@@ -82,14 +68,7 @@ if [[ ! -x "$x86_uv" ]]; then
     exit 2
 fi
 export PYTHONDONTWRITEBYTECODE=1
-export PYTHONPATH="$workflow_dir:$project_dir/environments/vmvm_tb_v2:$project_dir/deps/verifiers:$project_dir/deps/renderers:$project_dir/deps/pydantic-config/src:$x86_site${PYTHONPATH:+:$PYTHONPATH}"
-if [[ "$sandbox_provider" == sandoq ]]; then
-    if [[ ! -d "$sandoq_site/sandoq_client" ]]; then
-        printf 'Missing pinned x86_64 Sandoq client site\n' >&2
-        exit 2
-    fi
-    export PYTHONPATH="$sandoq_provider_root/extensions/sandoq:$sandoq_site:$PYTHONPATH"
-fi
+export PYTHONPATH="$workflow_dir:$project_dir/environments/vmvm_tb_v2:$project_dir/deps/verifiers:$project_dir/deps/renderers:$project_dir/deps/pydantic-config/src:$x86_site"
 
 if [[ -n "$eval_config_sha256" ]]; then
     if [[ ! "$eval_config_sha256" =~ ^[0-9a-f]{64}$ ]]; then
@@ -247,6 +226,35 @@ if [[ ( -n "$eval_dataset_revision" && -n "$eval_dataset_archive" ) \
     printf 'Supply exactly one dataset authority: EVAL_DATASET_REVISION or archive tuple\n' >&2
     exit 2
 fi
+if [[ -n "$eval_expected_prime_rl_revision" ]]; then
+    prime_rl_commit=$(git -C "$project_dir" rev-parse --verify HEAD)
+    if [[ ! "$eval_expected_prime_rl_revision" =~ ^[0-9a-f]{40}$ \
+        || "$prime_rl_commit" != "$eval_expected_prime_rl_revision" ]]; then
+        printf 'PROJECT_DIR revision does not match EVAL_EXPECTED_PRIME_RL_REVISION\n' >&2
+        exit 2
+    fi
+fi
+
+if ! sandbox_provider=$(python3 - "$eval_config" <<'PY'
+import sys
+import tomllib
+with open(sys.argv[1], "rb") as handle:
+    print(tomllib.load(handle).get("harness", {}).get("runtime", {}).get("type", ""))
+PY
+); then
+    printf 'Could not read sandbox provider from EVAL_CONFIG\n' >&2
+    exit 2
+fi
+if [[ "$sandbox_provider" != vmvm && "$sandbox_provider" != sandoq ]]; then
+    printf 'EVAL_CONFIG must select an explicit vmvm or sandoq runtime\n' >&2
+    exit 2
+fi
+if [[ "$sandbox_provider" == sandoq ]]; then
+    if [[ ! -d "$sandoq_site/sandoq_client" ]]; then
+        printf 'Missing pinned x86_64 Sandoq client site\n' >&2
+        exit 2
+    fi
+fi
 
 if [[ "$sandbox_provider" == vmvm ]]; then
     export VACLI_LEASE_RETRIES=${VACLI_LEASE_RETRIES:-20}
@@ -260,7 +268,7 @@ else
         printf 'SANDOQ_TUNNEL_HTTPS_PROXY overrides are forbidden for guarded Sandoq runs\n' >&2
         exit 2
     fi
-    unset SANDOQ_TUNNEL_HTTPS_PROXY
+    unset SANDOQ_TUNNEL_HTTPS_PROXY HTTP_PROXY HTTPS_PROXY http_proxy https_proxy ALL_PROXY all_proxy
     read -r sandoq_capacity sandoq_create_workers sandoq_bootstrap_workers \
         sandoq_drain_workers sandoq_renew_workers < <(python3 - "$eval_config" <<'PY'
 import sys
@@ -345,13 +353,6 @@ fi
 prime_rl_commit=$(git rev-parse --verify HEAD)
 verifiers_commit=$(git -C deps/verifiers rev-parse --verify HEAD)
 renderers_commit=$(git -C deps/renderers rev-parse --verify HEAD)
-if [[ -n "$eval_expected_prime_rl_revision" ]]; then
-    if [[ ! "$eval_expected_prime_rl_revision" =~ ^[0-9a-f]{40}$ \
-        || "$prime_rl_commit" != "$eval_expected_prime_rl_revision" ]]; then
-        printf 'PROJECT_DIR revision does not match EVAL_EXPECTED_PRIME_RL_REVISION\n' >&2
-        exit 2
-    fi
-fi
 prime_rl_tree_sha256=$(printf '%s' "$prime_rl_status" | sha256sum | cut -d' ' -f1)
 verifiers_tree_sha256=$(printf '%s' "$verifiers_status" | sha256sum | cut -d' ' -f1)
 renderers_tree_sha256=$(printf '%s' "$renderers_status" | sha256sum | cut -d' ' -f1)
@@ -365,12 +366,24 @@ derived_image_manifest_sha256=
 if [[ "$sandbox_provider" == sandoq ]]; then
     sandoq_provider_commit=$(git -C deps/sandoq-provider rev-parse --verify HEAD)
     sandoq_provider_tree=$(git -C deps/sandoq-provider rev-parse HEAD^{tree})
-    if [[ "$sandoq_provider_commit" != 87af542d465a9a801b1a82df54eb1507c3d8f4e0 ]]; then
+    if [[ "$sandoq_provider_commit" != 4890302104d76220cef791c86d2009168597d35f ]]; then
         printf 'Sandoq provider revision is not the approved cutover source\n' >&2
         exit 2
     fi
     sandoq_client_version=$("$x86_uv" run --no-project --offline --python "$python_bin" \
-        python3 -c 'import importlib.metadata as m; print(m.version("sandoq-client"))')
+        python3 - "$sandoq_site" <<'PY'
+import importlib.metadata as metadata
+import sys
+distributions = [
+    distribution
+    for distribution in metadata.distributions(path=[sys.argv[1]])
+    if distribution.metadata["Name"].lower().replace("_", "-") == "sandoq-client"
+]
+if len(distributions) != 1:
+    raise SystemExit(2)
+print(distributions[0].version)
+PY
+    )
     if [[ "$sandoq_client_version" != 0.4.0.2026.8.20.58304.0+hga81e4ca4d312 ]]; then
         printf 'Sandoq client version does not match the approved pin\n' >&2
         exit 2
@@ -406,6 +419,40 @@ PY
         printf 'Sandoq config requires a pinned derived image manifest SHA-256\n' >&2
         exit 2
     fi
+    export PYTHONPATH="$sandoq_provider_root/extensions/sandoq:$sandoq_site:$PYTHONPATH"
+    "$x86_uv" run --no-project --offline --python "$python_bin" python3 - "$eval_config" <<'PY'
+import asyncio
+import contextlib
+import os
+import sys
+import tomllib
+
+from sandoq_provider.ecr import _read_token_file
+from sandoq_provider.gateway import close_gateway_adapters, get_gateway_adapter
+from verifiers.v1.runtimes.sandoq import SandoqConfig, create_client
+
+with open(sys.argv[1], "rb") as handle:
+    config = SandoqConfig.model_validate(tomllib.load(handle)["harness"]["runtime"])
+_read_token_file(config.ecr_token_file)
+client = create_client(config)
+try:
+    adapter = get_gateway_adapter("https://sandoq.eks-prod.cf.aws.metafb.cloud", os.environ["SANDOQ_OWNER"])
+    summary = adapter.transport_summary()
+    if summary.mode not in {"direct", "proxy"}:
+        raise RuntimeError("unsupported Sandoq transport mode")
+    response = adapter.request_json(
+        "GET", "https://sandoq.eks-prod.cf.aws.metafb.cloud/healthz", timeout=15.0
+    )
+    if response.status_code != 200:
+        raise RuntimeError("Sandoq gateway health check failed")
+finally:
+    close = getattr(client, "aclose", None)
+    if close is not None:
+        with contextlib.suppress(Exception):
+            asyncio.run(close())
+    with contextlib.suppress(Exception):
+        close_gateway_adapters()
+PY
 fi
 
 if [[ "$eval_run_role" == mobius ]]; then
@@ -709,6 +756,16 @@ if [[ ! "$eval_run_identity_sha256" =~ ^[0-9a-f]{64}$ ]]; then
     printf 'Eval identity binder returned invalid metadata\n' >&2
     exit 2
 fi
+"$x86_uv" run --no-project --offline --python "$python_bin" \
+    python3 - "$output_dir/eval_run_identity.json" "$eval_run_identity_sha256" <<'PY'
+import sys
+from pathlib import Path
+from eval_run_identity import load_eval_run_identity
+
+envelope = load_eval_run_identity(Path(sys.argv[1]), verify_references=True)
+if envelope["eval_run_identity_sha256"] != sys.argv[2]:
+    raise SystemExit(2)
+PY
 
 args=(--resume "$output_dir")
 guard_command=(
@@ -748,4 +805,6 @@ set -e
     --event-log "$OCI_RUNNER_POOL_EVENT_LOG" --wal "$OCI_RUNNER_POOL_WAL" \
     --drain-marker "${OCI_RUNNER_POOL_SOCKET%.sock}.drained.json" \
     --output "$output_dir/sandoq_cleanup_audit.json"
+rm -f -- "$output_dir/pool_cleanup_audit.json" "$OCI_RUNNER_POOL_EVENT_LOG" \
+    "$OCI_RUNNER_POOL_WAL" "${OCI_RUNNER_POOL_SOCKET%.sock}.drained.json"
 exit "$eval_status"

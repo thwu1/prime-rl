@@ -118,6 +118,23 @@ def _task_allowlist_count(path: Path) -> int:
     return len(tasks)
 
 
+def sandoq_compose_task_count(dataset_dir: Path, task_file: Path) -> int:
+    """Return only the aggregate count of selected tasks requiring Compose."""
+    if not dataset_dir.is_absolute() or not dataset_dir.is_dir():
+        raise DirectWorkerError("eval_sandoq_dataset_unavailable")
+    compose_names = ("docker-compose.yaml", "docker-compose.yml", "compose.yaml", "compose.yml")
+    count = 0
+    for line in task_file.read_text(encoding="utf-8").splitlines():
+        if not line.strip() or line.lstrip().startswith("#"):
+            continue
+        task_name = line.strip().split("\t", 1)[0]
+        if not task_name or Path(task_name).name != task_name:
+            raise DirectWorkerError("eval_sandoq_task_name_invalid")
+        environment_dir = dataset_dir / task_name / "environment"
+        count += any((environment_dir / name).is_file() for name in compose_names)
+    return count
+
+
 def provider_concurrency(config: dict[str, Any]) -> int:
     """Return the explicitly pinned HTTP/provider concurrency for an eval."""
     max_concurrent = config.get("max_concurrent")
@@ -345,6 +362,11 @@ def validate_eval_config(
         or not Path(runtime["ecr_token_file"]).is_absolute()
     ):
         raise DirectWorkerError("eval_sandoq_runtime_invalid")
+    if runtime.get("type") == "sandoq":
+        dataset_dir = Path(taskset.get("dataset_dir", ""))
+        compose_count = sandoq_compose_task_count(dataset_dir, task_file)
+        if compose_count:
+            raise DirectWorkerError(f"eval_sandoq_compose_tasks_unsupported:{compose_count}")
     harness_env = harness.get("env")
     if not isinstance(harness_env, dict) or harness_env.get("MSWEA_MODEL_RETRY_STOP_AFTER_ATTEMPT") != "10":
         raise DirectWorkerError("eval_model_retry_policy_mismatch")
@@ -631,6 +653,32 @@ def validate_saved_manifest(path: Path) -> dict[str, Any]:
         ):
             raise DirectWorkerError("direct_worker_manifest_production_admission_invalid")
     return manifest
+
+
+def validate_post_eval_generation(
+    manifest_path: Path,
+    deployment_root: Path,
+    *,
+    router_alive: bool,
+    active_workers: int,
+) -> str:
+    """Revalidate immutable serving inputs immediately before certification."""
+    if not router_alive:
+        raise DirectWorkerError("direct_router_not_live_at_certification")
+    if active_workers != EXPECTED_ENDPOINTS:
+        raise DirectWorkerError("direct_router_worker_count_drift")
+    manifest = validate_saved_manifest(manifest_path)
+    try:
+        workers, spec_sha256, bundle_sha256 = load_workers(deployment_root)
+    except DirectWorkerError as error:
+        raise DirectWorkerError("direct_serving_generation_drift") from error
+    if (
+        len(workers) != EXPECTED_ENDPOINTS
+        or spec_sha256 != manifest["spec_sha256"]
+        or bundle_sha256 != manifest["endpoint_bundle_sha256"]
+    ):
+        raise DirectWorkerError("direct_serving_generation_drift")
+    return hashlib.sha256(manifest_path.read_bytes()).hexdigest()
 
 
 def _read_provenance(path: Path) -> dict[str, str]:

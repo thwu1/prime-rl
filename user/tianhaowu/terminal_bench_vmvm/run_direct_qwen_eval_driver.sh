@@ -25,6 +25,7 @@ approved_task_file=${DIRECT_QWEN_APPROVED_TASK_FILE:?Missing direct Qwen task ap
 approved_task_file_sha256=${DIRECT_QWEN_APPROVED_TASK_FILE_SHA256:?Missing direct Qwen task approval hash}
 deployment_root=${DIRECT_QWEN_DEPLOYMENT_ROOT:-/checkpoint/ram/shared/vllm_deployments_v2/shared_qwen38_2p4t}
 worker_manifest="$output_dir/direct_workers.json"
+unset PYTHONPATH PYTHONHOME
 
 if [[ -n ${EVAL_RUN_ROLE:-} || -n ${EVAL_MODEL:-} || -n ${EVAL_APPROVED_TASK_FILE:-} \
     || -n ${INFERENCE_DEPLOYMENT_ID:-} || -n ${INFERENCE_JOB_ID:-} \
@@ -94,10 +95,7 @@ PY
 )
 
 export PYTHONDONTWRITEBYTECODE=1
-export PYTHONPATH="$workflow_dir:$project_dir/environments/vmvm_tb_v2:$project_dir/deps/verifiers:$project_dir/deps/renderers:$project_dir/deps/pydantic-config/src:$x86_site${PYTHONPATH:+:$PYTHONPATH}"
-if [[ "$sandbox_provider" == sandoq ]]; then
-    export PYTHONPATH="$project_dir/deps/sandoq-provider/extensions/sandoq:$sandoq_site:$PYTHONPATH"
-fi
+export PYTHONPATH="$workflow_dir:$project_dir/environments/vmvm_tb_v2:$project_dir/deps/verifiers:$project_dir/deps/renderers:$project_dir/deps/pydantic-config/src:$x86_site"
 cd "$project_dir"
 
 if [[ -n "$(git status --porcelain=v1 --untracked-files=all)" \
@@ -108,7 +106,7 @@ if [[ -n "$(git status --porcelain=v1 --untracked-files=all)" \
 fi
 if [[ "$sandbox_provider" == sandoq \
     && ( -n "$(git -C deps/sandoq-provider status --porcelain=v1 --untracked-files=all)" \
-        || "$(git -C deps/sandoq-provider rev-parse HEAD)" != 87af542d465a9a801b1a82df54eb1507c3d8f4e0 ) ]]; then
+        || "$(git -C deps/sandoq-provider rev-parse HEAD)" != 4890302104d76220cef791c86d2009168597d35f ) ]]; then
     printf 'Sandoq provider must be the approved clean source\n' >&2
     exit 2
 fi
@@ -170,12 +168,6 @@ if [[ "$sandbox_provider" == sandoq ]]; then
         printf 'Sandoq ECR token file must be regular, non-symlink, and mode 0600\n' >&2
         exit 2
     fi
-    sandoq_client_version=$("$x86_uv" run --no-project --offline --python "$python_bin" \
-        python3 -c 'import importlib.metadata as m; print(m.version("sandoq-client"))')
-    if [[ "$sandoq_client_version" != 0.4.0.2026.8.20.58304.0+hga81e4ca4d312 ]]; then
-        printf 'Sandoq client version does not match the approved pin\n' >&2
-        exit 2
-    fi
     sandoq_site_sha256=$("$x86_uv" run --no-project --offline --python "$python_bin" \
         python3 - "$sandoq_site" <<'PY'
 import hashlib
@@ -193,6 +185,25 @@ PY
         printf 'Sandoq staged dependency tree does not match the approved closure\n' >&2
         exit 2
     fi
+    sandoq_client_version=$("$x86_uv" run --no-project --offline --python "$python_bin" \
+        python3 - "$sandoq_site" <<'PY'
+import importlib.metadata as metadata
+import sys
+distributions = [
+    distribution
+    for distribution in metadata.distributions(path=[sys.argv[1]])
+    if distribution.metadata["Name"].lower().replace("_", "-") == "sandoq-client"
+]
+if len(distributions) != 1:
+    raise SystemExit(2)
+print(distributions[0].version)
+PY
+    )
+    if [[ "$sandoq_client_version" != 0.4.0.2026.8.20.58304.0+hga81e4ca4d312 ]]; then
+        printf 'Sandoq client version does not match the approved pin\n' >&2
+        exit 2
+    fi
+    export PYTHONPATH="$project_dir/deps/sandoq-provider/extensions/sandoq:$sandoq_site:$PYTHONPATH"
     "$x86_uv" run --no-project --offline --python "$python_bin" python3 - "$eval_config" <<'PY'
 import asyncio
 import contextlib
