@@ -113,9 +113,7 @@ async def test_sandoq_no_network_requires_explicit_firecracker_tunnel(
     )
     task = SimpleNamespace(name="opaque-task")
 
-    monkeypatch.setenv(
-        "OCI_RUNNER_ENVIRONMENT", "oci-runner-firecracker-tunnel-pull"
-    )
+    monkeypatch.setenv("OCI_RUNNER_ENVIRONMENT", "oci-runner-firecracker-tunnel-pull")
     monkeypatch.setenv("OCI_RUNNER_TASK_NETWORK", "host")
     monkeypatch.setenv("OCI_RUNNER_USE_ECR", "1")
     monkeypatch.setenv(
@@ -147,15 +145,11 @@ async def test_sandoq_no_network_requires_explicit_firecracker_tunnel(
         "OCI_RUNNER_POOL_RENEW_WORKERS": "2",
     }.items():
         monkeypatch.setenv(key, value)
-    await TerminalBenchVMVMTaskset._configure_network_policy(
-        task, runtime, "no-network", activate=False
-    )
+    await TerminalBenchVMVMTaskset._configure_network_policy(task, runtime, "no-network", activate=False)
 
     monkeypatch.setenv("OCI_RUNNER_TASK_NETWORK", "none")
     with pytest.raises(UnsupportedTaskError, match="Sandoq no-network requires"):
-        await TerminalBenchVMVMTaskset._configure_network_policy(
-            task, runtime, "no-network", activate=False
-        )
+        await TerminalBenchVMVMTaskset._configure_network_policy(task, runtime, "no-network", activate=False)
 
 
 def test_separate_verifier_clones_sandoq_runtime_config() -> None:
@@ -174,9 +168,7 @@ def test_separate_verifier_clones_sandoq_runtime_config() -> None:
         verifier_resources=SimpleNamespace(model_dump=lambda **_kwargs: {}),
     )
 
-    verifier = TerminalBenchVMVMTaskset._verifier_runtime(
-        task, runtime, "opaque-verifier"
-    )
+    verifier = TerminalBenchVMVMTaskset._verifier_runtime(task, runtime, "opaque-verifier")
 
     assert isinstance(verifier, SandoqRuntime)
     assert verifier.config.image == task.verifier_image

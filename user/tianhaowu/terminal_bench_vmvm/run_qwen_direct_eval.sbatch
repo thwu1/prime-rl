@@ -71,6 +71,18 @@ else
     fi
 fi
 
+sandbox_provider=$(python3 - "$eval_config" <<'PY'
+import sys
+import tomllib
+with open(sys.argv[1], "rb") as handle:
+    print(tomllib.load(handle).get("harness", {}).get("runtime", {}).get("type", ""))
+PY
+)
+if [[ "$sandbox_provider" == sandoq && -n "$resume_dir" ]]; then
+    printf 'Sandoq direct Qwen runs require fresh output\n' >&2
+    exit 2
+fi
+
 if [[ "$(uname -m)" != x86_64 || ! -d "$x86_site/pydantic" ]]; then
     printf 'Missing x86_64 evaluator runtime/dependencies\n' >&2
     exit 2
@@ -250,3 +262,18 @@ fi
 eval_pid=$!
 wait "$eval_pid"
 eval_pid=
+if [[ "$sandbox_provider" == sandoq && "$preflight_only" -eq 0 ]]; then
+    expected_count=$(python3 - "$eval_config" <<'PY'
+import sys
+import tomllib
+with open(sys.argv[1], "rb") as handle:
+    print(tomllib.load(handle)["num_tasks"])
+PY
+)
+    "$x86_uv" run --no-project --offline --python "$python_bin" \
+        python3 "$workflow_dir/certify_direct_qwen_sandoq.py" \
+        --run-dir "$output_dir" --expected-task-file "$approved_task_file" \
+        --expected-task-file-sha256 "$approved_task_file_sha256" \
+        --expected-count "$expected_count" \
+        --output "$output_dir/direct_qwen_sandoq_certificate.json" >/dev/null
+fi

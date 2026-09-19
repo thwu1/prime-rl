@@ -604,6 +604,7 @@ def test_direct_qwen_launcher_is_fail_closed() -> None:
     assert "--role qwen-direct --sandbox-provider sandoq" in driver
     assert 'args=(--resume "$output_dir")' in driver
     assert "eval_run_identity.py" in driver
+    assert "certify_direct_qwen_sandoq.py" in wrapper
     assert "OCI_RUNNER_POOL_MIN_SIZE=0" in driver
 
 

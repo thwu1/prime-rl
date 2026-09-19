@@ -9,6 +9,14 @@ import direct_qwen_workers as direct
 import pytest
 
 
+def test_production_worker_generation_is_exactly_the_certified_24_routes() -> None:
+    assert direct.EXPECTED_ENDPOINTS == 24
+    assert direct.EXPECTED_SPEC_SHA256 == ("e5ddc652b1e3dbb99ed65b44b276cf9d9b8ae866b5a4471db42cf0c732a64007")
+    assert direct.EXPECTED_ENDPOINT_BUNDLE_SHA256 == (
+        "db0095649feda5d1c8ea66a434c6486a6c91d6b4519664701a26dab44c7a83a0"
+    )
+
+
 def _write_deployment(tmp_path: Path, count: int = 2) -> tuple[Path, str, str, list[direct.Worker]]:
     root = tmp_path / "deployment"
     endpoints = root / "endpoints"
