@@ -202,12 +202,25 @@ and non-oracle setup reject the policy.
 
 The recovery builder downloads only the policy's credential-free HTTPS
 artifacts, verifies them, then activates `no-network` before executing any
-source build. It uses a fresh Python environment with
-`--no-build-isolation --no-index --no-deps`, accepts only the exact approved
-wheel closure, creates a deterministic archive, and proves an offline
-`--no-index --no-deps` install in a clean target VM with the same immutable
-image and runtime fingerprint. A process-wide semaphore limits this exceptional
-builder path to one VMVM lease while normal oracle concurrency continues.
+source build. It creates a fresh no-system-site Python environment, installs
+the exact hash-pinned build-tool and full transitive build-dependency wheel
+closure offline with `--no-index --no-deps`, and attests every local
+distribution, location, and installed-file manifest. Supported legacy sources
+must have one statically provable top-level `setuptools.setup(...)` call with a
+literal `setup_requires`; `setup.cfg`, `pyproject.toml`, aliases, `**kwargs`,
+dynamic calls, and ambiguous declarations fail closed. The setup backend runs
+directly under the venv Python's real `-I -S` isolated/no-site mode after
+network isolation, rather than through a pip child that could lose the isolated
+flag. It manually adds only the attested venv-local site roots, so `.pth` and
+customization modules are never processed. The build binds fixed
+`SOURCE_DATE_EPOCH`, timezone, locale, `HOME`, `TMPDIR`, `PATH`, work directory,
+and umask controls compatible with isolated Python. It reattests the complete
+environment after the backend returns and rejects any mutation. It retains raw
+wheel byte equality as the final reproducibility gate, creates a deterministic
+archive, and proves an offline `--no-index --no-deps` install in a clean target
+VM with the same immutable image and runtime fingerprint. A process-wide
+semaphore limits this exceptional builder path to one VMVM lease while normal
+oracle concurrency continues.
 
 The runnable policy must first be discovered and proven from the private,
 digest-pinned probe input with `run_source_wheel_proof.sbatch`. The probe input
@@ -230,9 +243,16 @@ seed. The second builder uses only that wheel as the source candidate while it
 discovers the platform-specific wheel-only dependency closure; every selected
 HTTPS artifact is downloaded, hash-checked, and metadata-checked before that
 builder is isolated. Both builders then produce and validate the complete
-closure offline. Their independently built source wheels and canonical
-wheelhouses must be byte-identical. The already-isolated clean target receives
-only the proven wheelhouse and performs an offline install and closure check.
+closure offline in separately created no-system-site environments. Each
+environment attests its exact build-tool and transitive dependency wheels,
+local distribution locations, import path, and installed-file manifests. The
+real setup backend runs under isolated/no-site Python with only those attested
+site roots and the fixed build environment, work directory, and umask, then
+must reproduce the pre-build environment attestation. Their independently
+built source wheels and canonical wheelhouses must be byte-identical; residual
+package nondeterminism is rejected, not normalized. The already-isolated clean
+target receives only the proven wheelhouse and performs an offline install and
+closure check.
 
 The launcher defaults to two entries and six live VMVMs; three entries and nine
 VMVMs are hard caps. It emits only aggregate counts, hashes, and stable error

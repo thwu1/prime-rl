@@ -14,8 +14,16 @@ import pytest
 from audit_oracle_repair_canary import CanaryAuditError, audit_canary, main
 from build_oracle_repair_canary import build_canary_manifest
 from terminal_bench_vmvm.source_wheels import (
+    SOURCE_BUILD_ENVIRONMENT_SCHEMA_VERSION,
+    SOURCE_BUILD_UMASK,
+    SOURCE_WHEEL_POLICY_SCHEMA_VERSION,
+    SOURCE_WHEEL_RECOVERY_SCHEMA_VERSION,
+    build_dependency_artifact_records,
+    canonical_json,
     pack_wheelhouse,
+    sha256_bytes,
     source_build_environment_record,
+    source_build_environment_variables,
     validate_policy_wheel_closure,
 )
 from terminal_bench_vmvm.taskset import RuntimeWheelFingerprints, TerminalBenchVMVMConfig, TerminalBenchVMVMTaskset
@@ -56,6 +64,25 @@ def _wheel_file() -> bytes:
             "Wheel-Version: 1.0\nTag: py3-none-any\n",
         )
     return output.getvalue()
+
+
+def _build_dependency_records() -> list[dict[str, object]]:
+    return [
+        {
+            "distribution": distribution,
+            "version": version,
+            "filename": f"{distribution}-{version}-py3-none-any.whl",
+            "url": f"https://files.example.invalid/{distribution}-{version}-py3-none-any.whl",
+            "size": 1,
+            "sha256": hashlib.sha256(f"{distribution}=={version}".encode()).hexdigest(),
+        }
+        for distribution, version in (
+            ("packaging", "24.2"),
+            ("pip", "24.3.1"),
+            ("setuptools", "75.6.0"),
+            ("wheel", "0.45.1"),
+        )
+    ]
 
 
 def _write_oracle(
@@ -261,7 +288,7 @@ def _canary_fixture(
         policy.write_text(
             json.dumps(
                 {
-                    "schema_version": 2,
+                    "schema_version": SOURCE_WHEEL_POLICY_SCHEMA_VERSION,
                     "allowed_hosts": ["files.example.invalid"],
                     "entries": [
                         {
@@ -283,7 +310,7 @@ def _canary_fixture(
                                     "wheel_filename": wheel_name,
                                     "wheel_size": len(wheel),
                                     "wheel_sha256": hashlib.sha256(wheel).hexdigest(),
-                                    "build_dependencies": [],
+                                    "build_dependencies": _build_dependency_records(),
                                 }
                             ],
                             "binary_wheels": [],
@@ -340,6 +367,8 @@ def _canary_fixture(
             evidence=json.dumps(runtime_evidence, sort_keys=True, separators=(",", ":")),
         )
         policy_entry = taskset._source_wheel_policy.entries[0]
+        build_dependencies = policy_entry.sources[0].build_dependencies
+        build_dependency_artifacts = build_dependency_artifact_records(build_dependencies)
         wheels = {wheel_name: wheel}
         wheel_evidence = validate_policy_wheel_closure(policy_entry, wheels)
         taskset._publish_source_wheel_attestation(
@@ -353,19 +382,38 @@ def _canary_fixture(
                 source_build_environment_record(
                     build_env_dir="/tmp/terminal-bench-source-build-env",
                     expected_build_tools=tuple(sorted(build_tools.items())),
+                    build_dependencies=build_dependencies,
                     attestation={
-                        "schema_version": 1,
+                        "schema_version": SOURCE_BUILD_ENVIRONMENT_SCHEMA_VERSION,
                         "executable": "/tmp/terminal-bench-source-build-env/bin/python",
                         "prefix": "/tmp/terminal-bench-source-build-env",
                         "base_prefix": "/usr",
                         "isolated": True,
+                        "system_site_packages": False,
+                        "site_packages": ["/tmp/terminal-bench-source-build-env/lib/python3.12/site-packages"],
+                        "sys_path_sha256": "5" * 64,
+                        "pyvenv_cfg_sha256": "6" * 64,
+                        "artifact_closure_sha256": sha256_bytes(canonical_json(build_dependency_artifacts)),
+                        "installed_distributions": [
+                            {
+                                "distribution": wheel.distribution,
+                                "version": wheel.version,
+                                "location": "lib/python3.12/site-packages",
+                                "file_count": 1,
+                                "files_sha256": "7" * 64,
+                            }
+                            for wheel in sorted(
+                                build_dependencies,
+                                key=lambda item: item.distribution,
+                            )
+                        ],
                         "build_tools": build_tools,
                     },
                 ),
             ),
         )
         identity["source_wheel_recovery"] = {
-            "schema_version": 1,
+            "schema_version": SOURCE_WHEEL_RECOVERY_SCHEMA_VERSION,
             "policy": {
                 "path": str(policy.resolve()),
                 "sha256": policy_sha256,
@@ -373,8 +421,14 @@ def _canary_fixture(
             "attestation": "source_wheel_attestations.json",
             "artifact_download_network": "public-hash-pinned-https",
             "builder_lease_limit": 1,
+            "build_dependency_install": "no-system-site-venv-offline-exact-wheel-closure",
+            "build_dependency_resolution": "public-binary-only-exact-transitive-policy-closure",
             "build_network": "no-network",
-            "build_isolation": False,
+            "build_isolation": True,
+            "deterministic_environment_sha256": sha256_bytes(canonical_json(source_build_environment_variables())),
+            "source_build_python": "venv-python-isolated-no-site-direct-static-setup",
+            "source_build_umask": f"{SOURCE_BUILD_UMASK:04o}",
+            "system_site_packages": False,
             "target_install": "offline-no-index-no-deps",
         }
     if mutate_identity is not None:
