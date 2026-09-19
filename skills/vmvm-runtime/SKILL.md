@@ -259,7 +259,11 @@ snapshot canonical allowlisted evidence binding the historical spec hash,
 typed policy, and generated file's original hash; never copy either raw file.
 Revalidate historical shard and smoke evidence against those frozen files
 after resize; require the live files only for the currently active readiness
-record. Enforce the model-bound timeout while retaining the existing
+record. When reusing a sharded checkpoint, require its results, audit summary,
+deployment-policy snapshot, and every generation policy snapshot to resolve to
+their exact canonical filenames directly inside the reused output directory;
+same-named valid artifacts in another directory are not interchangeable.
+Enforce the model-bound timeout while retaining the existing
 7,200-second policy for unrelated/Qwen readiness rather than changing a global
 default. Never copy proxy credentials into the historical bundle.
 

@@ -11,6 +11,7 @@ from pathlib import Path
 
 import eval_run_identity
 import guard_success_receipt
+import mobius_launch_certificate
 import pytest
 import tb4_shard_workflow as workflow
 from tb4_shard_workflow import (
@@ -104,6 +105,112 @@ def _make_plan(tmp_path: Path, *, shard_size: int = 4):
     output = tmp_path / "plan"
     plan = create_plan(universe, universe_sha, base, output, shard_size=shard_size)
     return plan, output, identifiers
+
+
+def _refresh_checkpoint_hash(value: dict) -> None:
+    body = {key: item for key, item in value.items() if key != "tb4_certificate_sha256"}
+    value["tb4_certificate_sha256"] = hashlib.sha256(workflow.canonical_json(body)).hexdigest()
+
+
+def _verify_artifact_root_regressions(
+    checkpoint: dict,
+    output: Path,
+    *,
+    multigen: bool,
+) -> None:
+    validator = validate_multigen_sharded_checkpoint if multigen else validate_sharded_checkpoint
+    copied_output = output.with_name(f"{output.name}-copy")
+    shutil.copytree(output, copied_output)
+    copied_checkpoint = json.loads((copied_output / "checkpoint.json").read_text())
+    copied_records = [
+        copied_checkpoint["artifacts"]["results"],
+        copied_checkpoint["artifacts"]["audit_summary"],
+        copied_checkpoint["artifacts"]["deployment_spec"],
+        *(
+            copied_checkpoint["artifacts"]["proxy_policies"]
+            if multigen
+            else [copied_checkpoint["artifacts"]["proxy_policy"]]
+        ),
+    ]
+    assert all(Path(record["path"]).parent == output for record in copied_records)
+    assert all((copied_output / Path(record["path"]).name).is_file() for record in copied_records)
+    assert all(
+        stat.S_IMODE((copied_output / Path(record["path"]).name).stat().st_mode) == 0o600 for record in copied_records
+    )
+
+    with pytest.raises(ShardWorkflowError, match="sharded_checkpoint_artifacts_invalid"):
+        validator(
+            copied_checkpoint,
+            deployment_id="deployment-test",
+            artifact_root=copied_output,
+        )
+
+    redirects: list[tuple[str, str]] = [
+        ("results", "results.jsonl"),
+        ("audit_summary", "audit_summary.json"),
+        ("deployment_spec", "deployment_spec_policy.json"),
+    ]
+    if multigen:
+        redirects.extend(
+            (f"proxy_policy:{item['policy_sha256']}", Path(item["path"]).name)
+            for item in checkpoint["artifacts"]["proxy_policies"]
+        )
+    else:
+        redirects.append(("proxy_policy", "proxy_policy.json"))
+    for target, filename in redirects:
+        redirected = json.loads(json.dumps(checkpoint))
+        if target.startswith("proxy_policy:"):
+            policy_sha256 = target.removeprefix("proxy_policy:")
+            for item in redirected["artifacts"]["proxy_policies"]:
+                if item["policy_sha256"] == policy_sha256:
+                    item["path"] = str(copied_output / filename)
+            for record in redirected["shards"]:
+                if record["proxy_policy_sha256"] == policy_sha256:
+                    record["proxy_policy_artifact"]["path"] = str(copied_output / filename)
+        else:
+            redirected["artifacts"][target]["path"] = str(copied_output / filename)
+        _refresh_checkpoint_hash(redirected)
+        with pytest.raises(ShardWorkflowError, match="sharded_checkpoint_artifacts_invalid"):
+            validator(
+                redirected,
+                deployment_id="deployment-test",
+                artifact_root=output,
+            )
+
+    lexical_alias = json.loads(json.dumps(checkpoint))
+    lexical_alias["artifacts"]["results"]["path"] = str(output / ".." / output.name / "results.jsonl")
+    _refresh_checkpoint_hash(lexical_alias)
+    assert (
+        validator(
+            lexical_alias,
+            deployment_id="deployment-test",
+            artifact_root=output,
+        )["certificate_sha256"]
+        == lexical_alias["tb4_certificate_sha256"]
+    )
+
+    root_alias = output.with_name(f"{output.name}-alias")
+    root_alias.symlink_to(output, target_is_directory=True)
+    assert (
+        validator(
+            checkpoint,
+            deployment_id="deployment-test",
+            artifact_root=root_alias,
+        )["certificate_sha256"]
+        == checkpoint["tb4_certificate_sha256"]
+    )
+
+    result_alias = output.with_name(f"{output.name}-results-link.jsonl")
+    result_alias.symlink_to(output / "results.jsonl")
+    linked_result = json.loads(json.dumps(checkpoint))
+    linked_result["artifacts"]["results"]["path"] = str(result_alias)
+    _refresh_checkpoint_hash(linked_result)
+    with pytest.raises(ShardWorkflowError, match="sharded_checkpoint_results_unreadable"):
+        validator(
+            linked_result,
+            deployment_id="deployment-test",
+            artifact_root=output,
+        )
 
 
 def test_plan_is_private_deterministic_and_exact(tmp_path: Path):
@@ -443,13 +550,27 @@ def test_merge_publishes_only_complete_certified_partition(tmp_path: Path, monke
     assert all(stat.S_IMODE(path.stat().st_mode) == 0o600 for path in output.iterdir())
     deployment_spec.write_text("spec:\n  num_endpoints: 24\n")
     proxy_config.write_text("litellm_settings:\n  request_timeout: 43200\n  num_retries: 0\n  model_list: []\n")
-    validated = validate_sharded_checkpoint(receipt, deployment_id="deployment-test")
+    validated = validate_sharded_checkpoint(
+        receipt,
+        deployment_id="deployment-test",
+        artifact_root=output,
+    )
     assert validated["sharded"] is True
     assert validated["shard_count"] == len(shards)
     assert historical_snapshots[: len(shards)] == [(None, None)] * len(shards)
     assert all(spec == output / "deployment_spec_policy.json" for spec, _ in historical_snapshots[len(shards) :])
     assert b"must-not-be-copied" not in (output / "deployment_spec_policy.json").read_bytes()
     assert all(proxy == output / "proxy_policy.json" for _, proxy in historical_snapshots[len(shards) :])
+    assert (
+        mobius_launch_certificate._validate_tb4_checkpoint(
+            receipt,
+            "deployment-test",
+            {},
+            output,
+        )
+        == validated
+    )
+    _verify_artifact_root_regressions(receipt, output, multigen=False)
 
     tampered = json.loads(json.dumps(receipt))
     tampered["shards"][0]["route_generation_sha256"] = "0" * 64
@@ -457,7 +578,11 @@ def test_merge_publishes_only_complete_certified_partition(tmp_path: Path, monke
     unsigned.pop("tb4_certificate_sha256")
     tampered["tb4_certificate_sha256"] = hashlib.sha256(workflow.canonical_json(unsigned)).hexdigest()
     with pytest.raises(ShardWorkflowError, match="sharded_checkpoint_shard_mismatch"):
-        validate_sharded_checkpoint(tampered, deployment_id="deployment-test")
+        validate_sharded_checkpoint(
+            tampered,
+            deployment_id="deployment-test",
+            artifact_root=output,
+        )
 
     proxy_policy_snapshot = output / "proxy_policy.json"
     proxy_policy_snapshot.write_bytes(proxy_policy_snapshot.read_bytes() + b"{}\n")
@@ -465,7 +590,11 @@ def test_merge_publishes_only_complete_certified_partition(tmp_path: Path, monke
         ShardWorkflowError,
         match="sharded_checkpoint_proxy_policy_sha256_mismatch",
     ):
-        validate_sharded_checkpoint(receipt, deployment_id="deployment-test")
+        validate_sharded_checkpoint(
+            receipt,
+            deployment_id="deployment-test",
+            artifact_root=output,
+        )
 
 
 def test_multigen_merge_and_checkpoint_allow_distinct_proxy_config_snapshots(tmp_path: Path, monkeypatch):
@@ -722,10 +851,15 @@ def test_multigen_merge_and_checkpoint_allow_distinct_proxy_config_snapshots(tmp
         receipt["deployment"]["proxy_policy_sha256s"]
     )
     live_proxy_config.write_text("litellm_settings:\n  request_timeout: 43200\n  num_retries: 0\n  rotated: true\n")
-    validated = validate_multigen_sharded_checkpoint(receipt, deployment_id="deployment-test")
+    validated = validate_multigen_sharded_checkpoint(
+        receipt,
+        deployment_id="deployment-test",
+        artifact_root=output,
+    )
     assert validated["sharded"] is True
     assert validated["shard_count"] == 66
     assert validated["proxy_policy_sha256s"] == receipt["deployment"]["proxy_policy_sha256s"]
+    _verify_artifact_root_regressions(receipt, output, multigen=True)
 
 
 def test_merge_rejects_missing_success_receipt_before_output(tmp_path: Path):
