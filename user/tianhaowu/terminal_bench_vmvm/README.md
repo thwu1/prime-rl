@@ -743,7 +743,14 @@ If selection is not uniquely eligible, use the same wrapper with
 `KIMI_SMOKE_RECOVERY_MODE=fresh-two` and a new output directory. The fallback
 `tb4_kimi_k3_fresh_smoke12h.toml` reruns both pinned tasks with two aligned
 rollout/HTTP/VMVM slots and the same 12-hour limits. Neither path reuses or
-modifies the incomplete run.
+modifies the incomplete run. Before starting `run_eval.sbatch`, the wrapper's
+dedicated `verify-fresh-two` preflight rejects selection/composite variables,
+any resume variable, an existing output path, a task/config outside the exact
+clean reviewed checkout, changed route inputs, or changed VMVM launch settings.
+It binds the exact Prime-RL commit, Verifiers/Renderers gitlinks, tracked VMVM
+tree and runtime digest, and the hashed workflow/VMVM Python and launcher
+closure. The fresh-two path therefore has no dependency on the original run or
+its incomplete results.
 
 Selection is a read-only operation on the completed source run. Supply a new
 namespace outside both run directories:

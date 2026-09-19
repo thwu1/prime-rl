@@ -28,6 +28,7 @@ from audit_traces import (
     _summarize_traces,
 )
 from eval_run_identity import (
+    _vmvm_source_sha256,
     load_eval_run_identity,
     validate_kimi_recovery_smoke_contract,
     validate_kimi_timeout_contract,
@@ -47,7 +48,13 @@ MAX_ARTIFACT_BYTES = 256 * 1024 * 1024
 MAX_SEQUENCE_TOKENS = 262_144
 SHA256_RE = re.compile(r"[0-9a-f]{64}")
 REVISION_RE = re.compile(r"[0-9a-f]{40}")
+DEPLOYMENT_ID_RE = re.compile(r"[A-Za-z0-9._:-]+")
 RECOVERY_POLICY_SUFFIXES = frozenset({".py", ".sbatch", ".sh"})
+FRESH_TWO_CONFIG_RELATIVE = Path("user/tianhaowu/terminal_bench_vmvm/configs/eval/tb4_kimi_k3_fresh_smoke12h.toml")
+FRESH_TWO_TASK_RELATIVE = Path("user/tianhaowu/terminal_bench_vmvm/configs/eval/tb4_kimi_token_smoke.tasks.txt")
+FRESH_TWO_TASK_SHA256 = "ecdcbc6e4f54b690e64b4566de5eecf33467088c8ca3436738cd7308d4e45b83"
+REVIEWED_VACLI_BIN = "/public/fbpkgs/x86_64/vacli/stable/vacli"
+CLEAN_TREE_SHA256 = hashlib.sha256(b"").hexdigest()
 RECOVERY_POLICY_REQUIRED_FILES = frozenset(
     {
         "user/tianhaowu/terminal_bench_vmvm/audit_traces.py",
@@ -106,6 +113,7 @@ class Selection:
 
 
 IdentityLoader = Callable[..., dict[str, Any]]
+SourceBindingLoader = Callable[[Path, str], dict[str, Any]]
 
 
 def canonical_json(value: Any) -> bytes:
@@ -265,11 +273,12 @@ def _recovery_policy_files(project_root: Path) -> list[Path]:
         "--",
         "user/tianhaowu/terminal_bench_vmvm",
     ).splitlines()
-    vmvm_root = project_root / "environments/vmvm_tb_v2"
-    vmvm_files = [
-        f"environments/vmvm_tb_v2/{relative}"
-        for relative in _git_output(vmvm_root, "ls-files", "--", "vmvm_tb_v2").splitlines()
-    ]
+    vmvm_files = _git_output(
+        project_root,
+        "ls-files",
+        "--",
+        "environments/vmvm_tb_v2/vmvm_tb_v2",
+    ).splitlines()
     relative_files = sorted(
         relative for relative in (*workflow_files, *vmvm_files) if Path(relative).suffix in RECOVERY_POLICY_SUFFIXES
     )
@@ -284,11 +293,22 @@ def _recovery_policy_files(project_root: Path) -> list[Path]:
     return [project_root / relative for relative in relative_files]
 
 
-def _recovery_source_binding(
-    project_root: Path,
-    expected_commit: str,
-    source_identity: Mapping[str, Any],
-) -> dict[str, Any]:
+def _gitlink_commit(project_root: Path, expected_commit: str, relative: str) -> str:
+    record = _git_output(project_root, "ls-tree", expected_commit, "--", relative).strip().split()
+    if len(record) != 4 or record[:2] != ["160000", "commit"] or record[3] != relative:
+        raise SmokeRecoveryError("recovery_source_mismatch")
+    repository = project_root / relative
+    if (
+        _git_output(repository, "rev-parse", "--verify", "HEAD").strip() != record[2]
+        or _git_output(repository, "status", "--porcelain=v1", "--untracked-files=all").strip()
+    ):
+        raise SmokeRecoveryError("recovery_source_mismatch")
+    return record[2]
+
+
+def _project_source_binding(project_root: Path, expected_commit: str) -> dict[str, Any]:
+    """Bind one clean reviewed checkout and the Python/launcher closure it will run."""
+
     try:
         root = project_root.resolve(strict=True)
     except (OSError, RuntimeError) as error:
@@ -297,21 +317,19 @@ def _recovery_source_binding(
         not root.is_dir()
         or not isinstance(expected_commit, str)
         or REVISION_RE.fullmatch(expected_commit) is None
-        or source_identity.get("project_root") != str(root)
-        or source_identity.get("prime_rl_commit") != expected_commit
         or _git_output(root, "rev-parse", "--verify", "HEAD").strip() != expected_commit
         or _git_output(root, "status", "--porcelain=v1", "--untracked-files=all").strip()
     ):
         raise SmokeRecoveryError("recovery_source_mismatch")
-    vmvm_root = root / "environments/vmvm_tb_v2"
+    verifiers_commit = _gitlink_commit(root, expected_commit, "deps/verifiers")
+    renderers_commit = _gitlink_commit(root, expected_commit, "deps/renderers")
     vmvm_tree = _git_output(root, "ls-tree", expected_commit, "--", "environments/vmvm_tb_v2").strip().split()
-    if (
-        len(vmvm_tree) != 4
-        or vmvm_tree[:2] != ["160000", "commit"]
-        or _git_output(vmvm_root, "rev-parse", "--verify", "HEAD").strip() != vmvm_tree[2]
-        or _git_output(vmvm_root, "status", "--porcelain=v1", "--untracked-files=all").strip()
-    ):
+    if len(vmvm_tree) != 4 or vmvm_tree[:2] != ["040000", "tree"] or vmvm_tree[3] != "environments/vmvm_tb_v2":
         raise SmokeRecoveryError("recovery_source_mismatch")
+    try:
+        vmvm_source_sha256 = _vmvm_source_sha256(root)
+    except (OSError, RuntimeError, ValueError) as error:
+        raise SmokeRecoveryError("recovery_source_invalid") from error
     records: dict[str, str] = {}
     aggregate = hashlib.sha256()
     for path in _recovery_policy_files(root):
@@ -323,21 +341,35 @@ def _recovery_source_binding(
         "schema_version": 1,
         "project_root": str(root),
         "prime_rl_commit": expected_commit,
-        "vmvm_commit": vmvm_tree[2],
+        "vmvm_tree": vmvm_tree[2],
         "files": records,
         "closure_sha256": aggregate.hexdigest(),
         "source_dependencies": {
-            key: source_identity.get(key)
-            for key in (
-                "prime_rl_tree_sha256",
-                "verifiers_commit",
-                "verifiers_tree_sha256",
-                "renderers_commit",
-                "renderers_tree_sha256",
-                "vmvm_tb_v2_sha256",
-            )
+            "prime_rl_tree_sha256": CLEAN_TREE_SHA256,
+            "verifiers_commit": verifiers_commit,
+            "verifiers_tree_sha256": CLEAN_TREE_SHA256,
+            "renderers_commit": renderers_commit,
+            "renderers_tree_sha256": CLEAN_TREE_SHA256,
+            "vmvm_tb_v2_sha256": vmvm_source_sha256,
         },
     }
+
+
+def _recovery_source_binding(
+    project_root: Path,
+    expected_commit: str,
+    source_identity: Mapping[str, Any],
+) -> dict[str, Any]:
+    policy = _project_source_binding(project_root, expected_commit)
+    root = Path(policy["project_root"])
+    dependencies = policy["source_dependencies"]
+    if (
+        source_identity.get("project_root") != str(root)
+        or source_identity.get("prime_rl_commit") != expected_commit
+        or any(source_identity.get(key) != value for key, value in dependencies.items())
+    ):
+        raise SmokeRecoveryError("recovery_source_mismatch")
+    return policy
 
 
 def _trace_slug(trace: Mapping[str, Any]) -> str:
@@ -1038,6 +1070,137 @@ def validate_recovery_launch(
     }
 
 
+def validate_fresh_two_launch(
+    output_dir: Path,
+    task_file: Path,
+    task_file_sha256: str,
+    config_file: Path,
+    config_file_sha256: str,
+    *,
+    project_root: Path,
+    expected_prime_rl_commit: str,
+    deployment_id: str,
+    deployment_spec: Path,
+    deployment_spec_sha256: str,
+    readiness_checkpoint: Path,
+    readiness_checkpoint_sha256: str,
+    proxy_info: Path,
+    proxy_info_sha256: str,
+    vacli_bin: str,
+    vacli_max_concurrent_leases: str,
+    vacli_lease_retries: str,
+    vacli_max_pull_retries: str,
+    vacli_image_pull_timeout_seconds: str,
+    vacli_container_privileged: str,
+    source_binding_loader: SourceBindingLoader = _project_source_binding,
+    environ: Mapping[str, str] = os.environ,
+) -> dict[str, Any]:
+    """Validate the independent fresh-two fallback before any run state exists."""
+
+    if any(
+        name in environ
+        for name in (
+            "RESUME_DIR",
+            "KIMI_SMOKE_RECOVERY_SELECTION",
+            "KIMI_SMOKE_COMPOSITE_OUTPUT_DIR",
+        )
+    ):
+        raise SmokeRecoveryError("fresh_two_state_forbidden")
+    task = _artifact(task_file, label="fresh_two_task_file", read=True)
+    config = _artifact(config_file, label="fresh_two_config", read=True)
+    spec = _artifact(deployment_spec, label="deployment_spec")
+    readiness = _artifact(readiness_checkpoint, label="readiness_checkpoint")
+    proxy = _artifact(proxy_info, label="proxy_info")
+    try:
+        root = project_root.resolve(strict=True)
+        parent = output_dir.parent.resolve(strict=True)
+        expected_task = (root / FRESH_TWO_TASK_RELATIVE).resolve(strict=True)
+        expected_config = (root / FRESH_TWO_CONFIG_RELATIVE).resolve(strict=True)
+        parsed = tomllib.loads((config.raw or b"").decode("utf-8"))
+    except (OSError, RuntimeError, UnicodeDecodeError, tomllib.TOMLDecodeError) as error:
+        raise SmokeRecoveryError("fresh_two_launch_binding_invalid") from error
+    normalized_output = parent / output_dir.name
+    taskset = parsed.get("taskset") if isinstance(parsed, dict) else None
+    declared_task = taskset.get("task_file") if isinstance(taskset, dict) else None
+    if not isinstance(declared_task, str) or not declared_task:
+        raise SmokeRecoveryError("fresh_two_config_invalid")
+    try:
+        declared_task_path = (
+            Path(declared_task).resolve(strict=True)
+            if Path(declared_task).is_absolute()
+            else (root / declared_task).resolve(strict=True)
+        )
+        validate_kimi_timeout_contract(parsed, required_profile="recovery")
+        validate_kimi_recovery_smoke_contract(parsed)
+        _manifest_entries(task.raw or b"", expected_count=2)
+    except (OSError, RuntimeError, ValueError) as error:
+        raise SmokeRecoveryError("fresh_two_config_invalid") from error
+    if (
+        not output_dir.is_absolute()
+        or str(output_dir) != str(normalized_output)
+        or os.path.lexists(output_dir)
+        or normalized_output.is_relative_to(root)
+        or task.path != expected_task
+        or task.sha256 != FRESH_TWO_TASK_SHA256
+        or task_file_sha256 != task.sha256
+        or config.path != expected_config
+        or config_file_sha256 != config.sha256
+        or parsed.get("model") != "Kimi-K3"
+        or parsed.get("num_tasks") != 2
+        or any(
+            parsed.get(key) != MAX_SEQUENCE_TOKENS
+            for key in ("max_input_tokens", "max_output_tokens", "max_total_tokens")
+        )
+        or not isinstance(taskset, dict)
+        or taskset.get("task_file_sha256") != task.sha256
+        or declared_task_path != task.path
+        or not isinstance(deployment_id, str)
+        or DEPLOYMENT_ID_RE.fullmatch(deployment_id) is None
+        or spec.sha256 != deployment_spec_sha256
+        or readiness.sha256 != readiness_checkpoint_sha256
+        or proxy.sha256 != proxy_info_sha256
+    ):
+        raise SmokeRecoveryError("fresh_two_launch_binding_invalid")
+    if (
+        vacli_bin != REVIEWED_VACLI_BIN
+        or vacli_max_concurrent_leases != "2"
+        or vacli_lease_retries != "20"
+        or vacli_max_pull_retries != "20"
+        or vacli_image_pull_timeout_seconds != "3600"
+        or vacli_container_privileged != "1"
+    ):
+        raise SmokeRecoveryError("fresh_two_vmvm_environment_mismatch")
+    policy = source_binding_loader(root, expected_prime_rl_commit)
+    if (
+        not isinstance(policy, dict)
+        or policy.get("project_root") != str(root)
+        or policy.get("prime_rl_commit") != expected_prime_rl_commit
+        or not isinstance(policy.get("closure_sha256"), str)
+        or SHA256_RE.fullmatch(policy["closure_sha256"]) is None
+    ):
+        raise SmokeRecoveryError("recovery_source_mismatch")
+    return {
+        "ok": True,
+        "state": "launch_eligible",
+        "mode": "fresh_two",
+        "counts": {"tasks": 2, "expected_traces": 2},
+        "source": {
+            "prime_rl_commit": expected_prime_rl_commit,
+            "closure_sha256": policy["closure_sha256"],
+        },
+        "route_inputs_sha256": _sha256_bytes(
+            canonical_json(
+                {
+                    "deployment_id": deployment_id,
+                    "deployment_spec_sha256": spec.sha256,
+                    "readiness_checkpoint_sha256": readiness.sha256,
+                    "proxy_info_sha256": proxy.sha256,
+                }
+            )
+        ),
+    }
+
+
 def _validate_combined_rows(
     original_manifest: FileArtifact,
     selection: Selection,
@@ -1533,6 +1696,27 @@ def main(argv: list[str] | None = None) -> int:
     verify.add_argument("--vacli-max-pull-retries", required=True)
     verify.add_argument("--vacli-image-pull-timeout-seconds", required=True)
     verify.add_argument("--vacli-container-privileged", required=True)
+    fresh = subparsers.add_parser("verify-fresh-two")
+    fresh.add_argument("--output-dir", type=Path, required=True)
+    fresh.add_argument("--task-file", type=Path, required=True)
+    fresh.add_argument("--task-file-sha256", required=True)
+    fresh.add_argument("--config-file", type=Path, required=True)
+    fresh.add_argument("--config-file-sha256", required=True)
+    fresh.add_argument("--project-root", type=Path, required=True)
+    fresh.add_argument("--expected-prime-rl-commit", required=True)
+    fresh.add_argument("--deployment-id", required=True)
+    fresh.add_argument("--deployment-spec", type=Path, required=True)
+    fresh.add_argument("--deployment-spec-sha256", required=True)
+    fresh.add_argument("--readiness-checkpoint", type=Path, required=True)
+    fresh.add_argument("--readiness-checkpoint-sha256", required=True)
+    fresh.add_argument("--proxy-info", type=Path, required=True)
+    fresh.add_argument("--proxy-info-sha256", required=True)
+    fresh.add_argument("--vacli-bin", required=True)
+    fresh.add_argument("--vacli-max-concurrent-leases", required=True)
+    fresh.add_argument("--vacli-lease-retries", required=True)
+    fresh.add_argument("--vacli-max-pull-retries", required=True)
+    fresh.add_argument("--vacli-image-pull-timeout-seconds", required=True)
+    fresh.add_argument("--vacli-container-privileged", required=True)
     combine = subparsers.add_parser("combine")
     combine.add_argument("--selection", type=Path, required=True)
     combine.add_argument("--recovery-checkpoint", type=Path, required=True)
@@ -1558,6 +1742,29 @@ def main(argv: list[str] | None = None) -> int:
         elif args.command == "verify-launch":
             output = validate_recovery_launch(
                 args.selection,
+                args.output_dir,
+                args.task_file,
+                args.task_file_sha256,
+                args.config_file,
+                args.config_file_sha256,
+                project_root=args.project_root,
+                expected_prime_rl_commit=args.expected_prime_rl_commit,
+                deployment_id=args.deployment_id,
+                deployment_spec=args.deployment_spec,
+                deployment_spec_sha256=args.deployment_spec_sha256,
+                readiness_checkpoint=args.readiness_checkpoint,
+                readiness_checkpoint_sha256=args.readiness_checkpoint_sha256,
+                proxy_info=args.proxy_info,
+                proxy_info_sha256=args.proxy_info_sha256,
+                vacli_bin=args.vacli_bin,
+                vacli_max_concurrent_leases=args.vacli_max_concurrent_leases,
+                vacli_lease_retries=args.vacli_lease_retries,
+                vacli_max_pull_retries=args.vacli_max_pull_retries,
+                vacli_image_pull_timeout_seconds=args.vacli_image_pull_timeout_seconds,
+                vacli_container_privileged=args.vacli_container_privileged,
+            )
+        elif args.command == "verify-fresh-two":
+            output = validate_fresh_two_launch(
                 args.output_dir,
                 args.task_file,
                 args.task_file_sha256,

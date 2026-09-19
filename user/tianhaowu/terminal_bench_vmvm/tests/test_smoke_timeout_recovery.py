@@ -3,6 +3,8 @@ from __future__ import annotations
 import copy
 import hashlib
 import json
+import shutil
+import subprocess
 import tomllib
 from pathlib import Path
 from types import SimpleNamespace
@@ -94,6 +96,24 @@ def _row(trace: dict) -> recovery.TraceRow:
 def _artifact(path: Path, raw: bytes) -> recovery.FileArtifact:
     path.write_bytes(raw)
     return recovery.FileArtifact(path.resolve(), hashlib.sha256(raw).hexdigest(), raw)
+
+
+def _git(repository: Path, *args: str) -> str:
+    return subprocess.run(
+        ["git", "-C", str(repository), *args],
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+
+
+def _commit_repository(repository: Path) -> str:
+    _git(repository, "init", "-q")
+    _git(repository, "config", "user.email", "smoke-recovery@example.invalid")
+    _git(repository, "config", "user.name", "Smoke Recovery Test")
+    _git(repository, "add", "-A")
+    _git(repository, "commit", "-q", "-m", "fixture")
+    return _git(repository, "rev-parse", "HEAD")
 
 
 def test_selector_derives_only_missing_line_and_keeps_identifiers_out_of_attestation(tmp_path: Path) -> None:
@@ -528,6 +548,110 @@ def test_materialized_one_task_config_passes_real_snapshot_and_approval(tmp_path
     assert parsed["taskset"]["task_file_sha256"] == task_sha256
 
 
+def test_fresh_two_fallback_real_prelaunch_snapshot_and_approval(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    source_root = Path(recovery.__file__).resolve().parents[3]
+    project = tmp_path / "reviewed-project"
+    project.mkdir()
+    copied = set(recovery.RECOVERY_POLICY_REQUIRED_FILES) | {
+        recovery.FRESH_TWO_CONFIG_RELATIVE.as_posix(),
+        recovery.FRESH_TWO_TASK_RELATIVE.as_posix(),
+    }
+    for relative in sorted(copied):
+        destination = project / relative
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(source_root / relative, destination)
+    vmvm_relative = Path("environments/vmvm_tb_v2/vmvm_tb_v2/_vacli/runtime.py")
+    vmvm_path = project / vmvm_relative
+    vmvm_path.parent.mkdir(parents=True, exist_ok=True)
+    vmvm_path.write_text("RUNTIME_FIXTURE = True\n")
+    for relative in (Path("deps/verifiers"), Path("deps/renderers")):
+        dependency = project / relative
+        dependency.mkdir(parents=True)
+        (dependency / "source.py").write_text("SOURCE_FIXTURE = True\n")
+        _commit_repository(dependency)
+    expected_commit = _commit_repository(project)
+
+    task = (project / recovery.FRESH_TWO_TASK_RELATIVE).resolve()
+    config = (project / recovery.FRESH_TWO_CONFIG_RELATIVE).resolve()
+    task_sha256 = hashlib.sha256(task.read_bytes()).hexdigest()
+    config_sha256 = hashlib.sha256(config.read_bytes()).hexdigest()
+    assert task_sha256 == recovery.FRESH_TWO_TASK_SHA256
+    artifact_root = tmp_path / "route-inputs"
+    artifact_root.mkdir()
+    spec = _artifact(artifact_root / "spec.yaml", b"spec\n")
+    readiness = _artifact(artifact_root / "readiness.json", b"{}\n")
+    proxy = _artifact(artifact_root / "proxy.json", b"{}\n")
+    output_dir = (tmp_path / "fresh-two-output").resolve()
+
+    launch = recovery.validate_fresh_two_launch(
+        output_dir,
+        task,
+        task_sha256,
+        config,
+        config_sha256,
+        project_root=project,
+        expected_prime_rl_commit=expected_commit,
+        deployment_id="deployment",
+        deployment_spec=spec.path,
+        deployment_spec_sha256=spec.sha256,
+        readiness_checkpoint=readiness.path,
+        readiness_checkpoint_sha256=readiness.sha256,
+        proxy_info=proxy.path,
+        proxy_info_sha256=proxy.sha256,
+        vacli_bin=recovery.REVIEWED_VACLI_BIN,
+        vacli_max_concurrent_leases="2",
+        vacli_lease_retries="20",
+        vacli_max_pull_retries="20",
+        vacli_image_pull_timeout_seconds="3600",
+        vacli_container_privileged="1",
+        environ={},
+    )
+    monkeypatch.chdir(project)
+    records = snapshot(config, tmp_path / "fresh-two-inputs")
+    observed_sha256, observed_count = validate_approval(
+        tmp_path / "fresh-two-inputs",
+        task,
+        task_sha256,
+    )
+
+    assert launch["state"] == "launch_eligible"
+    assert launch["mode"] == "fresh_two"
+    assert launch["counts"] == {"tasks": 2, "expected_traces": 2}
+    assert "deployment" not in json.dumps(launch)
+    assert observed_sha256 == task_sha256
+    assert observed_count == 2
+    assert records["task_file"]["source"] == str(task)
+    assert not output_dir.exists()
+
+    with pytest.raises(recovery.SmokeRecoveryError, match="^fresh_two_state_forbidden$"):
+        recovery.validate_fresh_two_launch(
+            output_dir,
+            task,
+            task_sha256,
+            config,
+            config_sha256,
+            project_root=project,
+            expected_prime_rl_commit=expected_commit,
+            deployment_id="deployment",
+            deployment_spec=spec.path,
+            deployment_spec_sha256=spec.sha256,
+            readiness_checkpoint=readiness.path,
+            readiness_checkpoint_sha256=readiness.sha256,
+            proxy_info=proxy.path,
+            proxy_info_sha256=proxy.sha256,
+            vacli_bin=recovery.REVIEWED_VACLI_BIN,
+            vacli_max_concurrent_leases="2",
+            vacli_lease_retries="20",
+            vacli_max_pull_retries="20",
+            vacli_image_pull_timeout_seconds="3600",
+            vacli_container_privileged="1",
+            environ={"KIMI_SMOKE_RECOVERY_SELECTION": "/forbidden"},
+        )
+
+
 def test_recovery_wrapper_is_48h_fresh_only_and_reuses_guarded_launcher() -> None:
     wrapper = (Path(recovery.__file__).parent / "run_kimi_smoke_recovery.sbatch").read_text()
 
@@ -539,6 +663,9 @@ def test_recovery_wrapper_is_48h_fresh_only_and_reuses_guarded_launcher() -> Non
     assert "--expected-prime-rl-commit" in wrapper
     assert "--vacli-image-pull-timeout-seconds" in wrapper
     assert "tb4_kimi_k3_fresh_smoke12h.toml" in wrapper
+    assert "verify-fresh-two" in wrapper
+    assert "unset KIMI_SMOKE_RECOVERY_SELECTION" not in wrapper
+    assert wrapper.index("${KIMI_SMOKE_RECOVERY_SELECTION+x}") < wrapper.index("verify-fresh-two")
     assert "SMOKE_REQUIRE_EXACT_PROVIDER_JSON=1" in wrapper
     assert "sbatch " not in wrapper
     assert "scancel " not in wrapper
