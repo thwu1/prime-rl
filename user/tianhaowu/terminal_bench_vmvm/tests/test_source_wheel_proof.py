@@ -40,6 +40,7 @@ from terminal_bench_vmvm.source_wheel_proof import (
     SourceWheelProofConfig,
     SourceWheelProofError,
     SourceWheelProofRunner,
+    aggregate_diagnostic_failure,
     aggregate_failure,
     compare_build_payloads,
     load_private_discovery_input,
@@ -80,6 +81,21 @@ from vmvm_tb_v2._vacli.backend import (
 )
 
 BUILD_TOOLS = {"pip": "24.3.1", "setuptools": "75.6.0", "wheel": "0.45.1"}
+DIAGNOSTIC_FAILURE_COUNT_KEYS = {
+    "candidate_failures",
+    "entries_checked",
+    "peak_concurrent_entries",
+    "peak_live_runtimes",
+    "runtime_starts",
+    "successful_entries",
+}
+DIAGNOSTIC_OUTPUT_MODES = {
+    ".writer.lock": 0o600,
+    "attempt_journal": 0o700,
+    "candidate_diagnostics_state.json": 0o600,
+    "run_identity.json": 0o400,
+    "source_wheel_candidate.json": 0o400,
+}
 
 
 def _wheel_file(distribution: str, version: str, *requirements: str) -> bytes:
@@ -453,6 +469,53 @@ def _config(discovery: Path, output: Path, **changes: object) -> SourceWheelProo
         slurm_job_id="12345",
     )
     return replace(config, **changes)
+
+
+def _proof_cli_args(config: SourceWheelProofConfig) -> SimpleNamespace:
+    values = dict(config.__dict__)
+    values.update(
+        discovery_input=config.input_path,
+        discovery_input_sha256=config.input_sha256,
+    )
+    return SimpleNamespace(**values)
+
+
+def _diagnostic_failure_state_payload() -> bytes:
+    return (
+        canonical_json(
+            {
+                "schema_version": 1,
+                "kind": "source-wheel-candidate-diagnostics-state",
+                "outcomes": {
+                    "private-entry-identity": {
+                        "status": "candidate_rejected",
+                        "error_code": "wheel_zip_structure_invalid",
+                    },
+                    "second-private-entry-identity": {"status": "passed", "error_code": None},
+                },
+                "run_identity_sha256": "a" * 64,
+                "discovery_input_sha256": "b" * 64,
+                "entries_sha256": "c" * 64,
+                "entry_count": 9,
+                "invocation": {"host": "/private/diagnostic/path"},
+                "status": "aborted",
+                "failure_counts": {"wheel_zip_structure_invalid": 1},
+                "attempt_journal": {
+                    "record_count": 18,
+                    "head_sha256": "d" * 64,
+                    "start_intents": 6,
+                    "successful_starts": 6,
+                },
+                "telemetry": {
+                    "attested_runtime_starts": 6,
+                    "peak_starting_runtimes": 2,
+                    "peak_live_runtimes": 3,
+                    "peak_concurrent_entries": 1,
+                },
+            }
+        )
+        + b"\n"
+    )
 
 
 def _fingerprint_payload() -> str:
@@ -1016,6 +1079,9 @@ def test_candidate_diagnostics_aggregate_only_candidate_local_failures(tmp_path:
     assert not (output / "source_wheel_proof.json").exists()
     assert not (output / "source_wheel_policy.json").exists()
     assert json.loads((output / "source_wheel_candidate.json").read_bytes())["diagnostic_only"] is True
+    assert stat.S_ISDIR(output.lstat().st_mode)
+    assert stat.S_IMODE(output.lstat().st_mode) == 0o700
+    assert {path.name: stat.S_IMODE(path.lstat().st_mode) for path in output.iterdir()} == DIAGNOSTIC_OUTPUT_MODES
 
     public_summary = proof_cli.diagnostic_public_summary(result)
     assert set(public_summary) == {"status", "counts", "failure_counts"}
@@ -1041,6 +1107,194 @@ def test_candidate_diagnostics_aggregate_only_candidate_local_failures(tmp_path:
                 runtime_factory=FakeFleet(artifacts).factory,
             )
         )
+
+
+@pytest.mark.parametrize(
+    "preseeded_variant",
+    (
+        "empty_directory",
+        ".writer.lock",
+        "attempt_journal",
+        "candidate_diagnostics_state.json",
+        "finalization.json",
+        "post_run_validation.json",
+        "proof_state.json",
+        "run_identity.json",
+        "source_wheel_candidate.json",
+        "source_wheel_proof.json",
+        "source_wheel_policy.json",
+        "unknown.json",
+        "regular_file",
+        "symlink",
+        "symlink_to_file",
+        "broken_symlink",
+    ),
+)
+def test_candidate_diagnostics_require_a_wholly_absent_output_root(
+    tmp_path: Path,
+    preseeded_variant: str,
+) -> None:
+    discovery, artifacts = _write_discovery(tmp_path, 9)
+    output = tmp_path / "diagnostics"
+    if preseeded_variant == "regular_file":
+        output.write_text("not a directory\n")
+        output.chmod(0o600)
+    elif preseeded_variant in {"symlink", "symlink_to_file", "broken_symlink"}:
+        target = tmp_path / "diagnostics-target"
+        if preseeded_variant == "symlink":
+            target.mkdir(mode=0o700)
+        elif preseeded_variant == "symlink_to_file":
+            target.write_text("not a directory\n")
+        output.symlink_to(target, target_is_directory=True)
+    else:
+        output.mkdir(mode=0o700)
+        output.chmod(0o700)
+        if preseeded_variant != "empty_directory":
+            artifact = output / preseeded_variant
+            if preseeded_variant == "attempt_journal":
+                artifact.mkdir(mode=0o700)
+            else:
+                artifact.write_text("{}\n")
+                artifact.chmod(
+                    0o600
+                    if preseeded_variant in {".writer.lock", "candidate_diagnostics_state.json", "proof_state.json"}
+                    else 0o400
+                )
+    fleet = FakeFleet(artifacts)
+
+    with pytest.raises(SourceWheelProofError, match="^candidate_diagnostics_output_not_fresh$"):
+        asyncio.run(
+            run_source_wheel_proof(
+                _config(discovery, output, candidate_diagnostics_only=True),
+                runtime_factory=fleet.factory,
+            )
+        )
+
+    assert fleet.start_count == 0
+    failure = aggregate_diagnostic_failure(output, "candidate_diagnostics_output_not_fresh")
+    assert set(failure) == {"status", "error_code", "counts"}
+    assert set(failure["counts"]) == DIAGNOSTIC_FAILURE_COUNT_KEYS
+    assert all(type(value) is int and value == 0 for value in failure["counts"].values())
+
+
+@pytest.mark.parametrize(
+    "forbidden_artifact",
+    (
+        "finalization.json",
+        "post_run_validation.json",
+        "source_wheel_policy.json",
+        "source_wheel_proof.json",
+    ),
+)
+def test_candidate_diagnostics_reject_proof_artifacts_added_during_run(
+    tmp_path: Path,
+    forbidden_artifact: str,
+) -> None:
+    discovery, _ = _write_discovery(tmp_path, 9)
+    config = _config(discovery, tmp_path / "diagnostics", candidate_diagnostics_only=True)
+    parsed, _ = load_private_discovery_input(config)
+
+    with ProofStore(config, parsed) as store:
+        forbidden = config.output_dir / forbidden_artifact
+        forbidden.write_text("{}\n")
+        forbidden.chmod(0o400)
+        with pytest.raises(SourceWheelProofError, match="^candidate_diagnostics_proof_artifact_forbidden$"):
+            store.record_diagnostic_abort(
+                {
+                    "successful_runtime_starts": 0,
+                    "peak_starting_runtimes": 0,
+                    "peak_live_runtimes": 0,
+                    "peak_concurrent_entries": 0,
+                }
+            )
+
+
+def test_candidate_diagnostics_reject_nonprivate_final_output_root(tmp_path: Path) -> None:
+    discovery, _ = _write_discovery(tmp_path, 9)
+    config = _config(discovery, tmp_path / "diagnostics", candidate_diagnostics_only=True)
+    parsed, _ = load_private_discovery_input(config)
+
+    with ProofStore(config, parsed) as store:
+        config.output_dir.chmod(0o755)
+        with pytest.raises(SourceWheelProofError, match="^candidate_diagnostics_output_invalid$"):
+            store.record_diagnostic_abort(
+                {
+                    "successful_runtime_starts": 0,
+                    "peak_starting_runtimes": 0,
+                    "peak_live_runtimes": 0,
+                    "peak_concurrent_entries": 0,
+                }
+            )
+
+
+@pytest.mark.parametrize(
+    ("mutation", "expected_code"),
+    (
+        ("delete_candidate", "candidate_diagnostics_output_invalid"),
+        ("delete_identity", "candidate_diagnostics_output_invalid"),
+        ("delete_journal", "candidate_diagnostics_output_invalid"),
+        ("delete_lock", "candidate_diagnostics_output_invalid"),
+        ("identity_symlink", "candidate_diagnostics_output_invalid"),
+        ("identity_wrong_mode", "candidate_diagnostics_output_invalid"),
+        ("unknown_artifact", "output_directory_contains_unknown_artifact"),
+    ),
+)
+def test_candidate_diagnostics_enforce_exact_final_membership(
+    tmp_path: Path,
+    mutation: str,
+    expected_code: str,
+) -> None:
+    discovery, _ = _write_discovery(tmp_path, 9)
+    config = _config(discovery, tmp_path / "diagnostics", candidate_diagnostics_only=True)
+    parsed, _ = load_private_discovery_input(config)
+
+    with ProofStore(config, parsed) as store:
+        if mutation == "delete_candidate":
+            store.candidate_path.unlink()
+        elif mutation == "delete_identity":
+            store.identity_path.unlink()
+        elif mutation == "delete_journal":
+            store.journal_path.rmdir()
+        elif mutation == "delete_lock":
+            store.lock_path.unlink()
+        elif mutation == "identity_symlink":
+            store.identity_path.unlink()
+            store.identity_path.symlink_to(store.candidate_path)
+        elif mutation == "identity_wrong_mode":
+            store.identity_path.chmod(0o600)
+        else:
+            unknown = store.output_dir / "unknown.json"
+            unknown.write_text("{}\n")
+            unknown.chmod(0o400)
+        with pytest.raises(SourceWheelProofError, match=f"^{expected_code}$"):
+            store.record_diagnostic_abort(
+                {
+                    "successful_runtime_starts": 0,
+                    "peak_starting_runtimes": 0,
+                    "peak_live_runtimes": 0,
+                    "peak_concurrent_entries": 0,
+                }
+            )
+
+
+def test_candidate_diagnostics_reject_replaced_final_output_root(tmp_path: Path) -> None:
+    discovery, _ = _write_discovery(tmp_path, 9)
+    config = _config(discovery, tmp_path / "diagnostics", candidate_diagnostics_only=True)
+    parsed, _ = load_private_discovery_input(config)
+
+    with ProofStore(config, parsed) as store:
+        moved_output = tmp_path / "moved-diagnostics"
+        store.output_dir.rename(moved_output)
+        store.output_dir.symlink_to(moved_output, target_is_directory=True)
+        with pytest.raises(SourceWheelProofError, match="^candidate_diagnostics_output_invalid$"):
+            store.record_diagnostic_abort(
+                {
+                    "successful_runtime_starts": 0,
+                    "peak_starting_runtimes": 0,
+                    "peak_live_runtimes": 0,
+                    "peak_concurrent_entries": 0,
+                }
+            )
 
 
 @pytest.mark.parametrize(
@@ -1132,11 +1386,322 @@ def test_candidate_diagnostics_abort_non_candidate_failures(
     state = json.loads((output / "candidate_diagnostics_state.json").read_bytes())
     assert state["status"] == "aborted"
     assert state["attempt_journal"]["record_count"] == len(list((output / "attempt_journal").iterdir()))
-    assert not (output / "source_wheel_proof.json").exists()
-    assert not (output / "source_wheel_policy.json").exists()
-    public_failure = aggregate_failure(output, expected_code)
+    assert stat.S_ISDIR(output.lstat().st_mode)
+    assert stat.S_IMODE(output.lstat().st_mode) == 0o700
+    assert {path.name: stat.S_IMODE(path.lstat().st_mode) for path in output.iterdir()} == DIAGNOSTIC_OUTPUT_MODES
+    public_failure = aggregate_diagnostic_failure(output, expected_code)
+    assert set(public_failure) == {"status", "error_code", "counts"}
     assert public_failure["error_code"] == expected_code
-    assert "synthetic private" not in json.dumps(public_failure, sort_keys=True)
+    assert isinstance(public_failure["counts"], dict)
+    assert set(public_failure["counts"]) == DIAGNOSTIC_FAILURE_COUNT_KEYS
+    assert all(type(value) is int for value in public_failure["counts"].values())
+    serialized_failure = json.dumps(public_failure, sort_keys=True)
+    assert "state_sha256" not in serialized_failure
+    assert "synthetic private" not in serialized_failure
+    assert (
+        proof_cli.failure_public_summary(
+            SimpleNamespace(candidate_diagnostics_only=True, output_dir=output),
+            source_wheel_proof,
+            expected_code,
+        )
+        == public_failure
+    )
+
+
+@pytest.mark.parametrize("malformed_state", (False, True))
+def test_candidate_diagnostics_failure_stdout_has_only_public_counts(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    malformed_state: bool,
+) -> None:
+    discovery, _ = _write_discovery(tmp_path, 9)
+    output = tmp_path / "diagnostics"
+    output.mkdir(mode=0o700)
+    state_path = output / "candidate_diagnostics_state.json"
+    state = json.loads(_diagnostic_failure_state_payload())
+    if malformed_state:
+        state["outcomes"]["private-entry-identity"]["error_code"] = ["/private/error/code"]
+    state_path.write_bytes(canonical_json(state) + b"\n")
+    state_path.chmod(0o600)
+    config = _config(discovery, output, candidate_diagnostics_only=True)
+
+    async def fail_diagnostics(*_: object) -> dict[str, object]:
+        raise SourceWheelProofError("runtime_cleanup_failed")
+
+    monkeypatch.setattr(proof_cli, "_require_bootstrap", lambda: None)
+    monkeypatch.setattr(proof_cli, "_parse_args", lambda: _proof_cli_args(config))
+    monkeypatch.setattr(proof_cli, "_run", fail_diagnostics)
+    monkeypatch.setattr(proof_cli.logging, "disable", lambda _: None)
+
+    assert proof_cli.main() == 1
+
+    captured = capsys.readouterr()
+    assert captured.err == ""
+    summary = json.loads(captured.out)
+    assert set(summary) == {"status", "error_code", "counts"}
+    assert summary["status"] == "failed"
+    assert summary["error_code"] == "runtime_cleanup_failed"
+    assert set(summary["counts"]) == DIAGNOSTIC_FAILURE_COUNT_KEYS
+    expected_counts = (
+        {name: 0 for name in DIAGNOSTIC_FAILURE_COUNT_KEYS}
+        if malformed_state
+        else {
+            "candidate_failures": 1,
+            "entries_checked": 2,
+            "peak_concurrent_entries": 1,
+            "peak_live_runtimes": 3,
+            "runtime_starts": 6,
+            "successful_entries": 1,
+        }
+    )
+    assert summary["counts"] == expected_counts
+    assert all(type(value) is int for value in summary["counts"].values())
+    assert "private-entry-identity" not in captured.out
+    assert "/private/diagnostic/path" not in captured.out
+    assert "/private/error/code" not in captured.out
+    assert "a" * 64 not in captured.out
+
+
+def test_candidate_diagnostic_failure_ignores_untrusted_counts(tmp_path: Path) -> None:
+    output = tmp_path / "diagnostics"
+    output.mkdir(mode=0o700)
+    state_path = output / "candidate_diagnostics_state.json"
+    state_path.write_bytes(
+        canonical_json(
+            {
+                "outcomes": {"private-entry-identity": {"status": "candidate_rejected"}},
+                "telemetry": {"attested_runtime_starts": 10**100},
+                "private_path": "/private/diagnostic/path",
+            }
+        )
+        + b"\n"
+    )
+    state_path.chmod(0o600)
+
+    summary = aggregate_diagnostic_failure(output, "runtime_cleanup_failed")
+
+    assert set(summary) == {"status", "error_code", "counts"}
+    assert set(summary["counts"]) == DIAGNOSTIC_FAILURE_COUNT_KEYS
+    assert all(type(value) is int and value == 0 for value in summary["counts"].values())
+    assert "private-entry-identity" not in json.dumps(summary, sort_keys=True)
+    assert "/private/diagnostic/path" not in json.dumps(summary, sort_keys=True)
+
+    for private_code in ("/private/error/code", "private_task_identity"):
+        unstable_code = aggregate_diagnostic_failure(output, private_code)
+        assert unstable_code["error_code"] == "unexpected_failure"
+        assert private_code not in json.dumps(unstable_code, sort_keys=True)
+
+    for mutation in (
+        "unhashable_status",
+        "inconsistent_complete",
+        "boolean_failure_count",
+        "impossible_peaks",
+        "journal_mismatch",
+    ):
+        state = json.loads(_diagnostic_failure_state_payload())
+        if mutation == "unhashable_status":
+            state["status"] = ["/private/status"]
+        elif mutation == "inconsistent_complete":
+            state["status"] = "complete"
+        elif mutation == "boolean_failure_count":
+            state["failure_counts"]["wheel_zip_structure_invalid"] = True
+        elif mutation == "impossible_peaks":
+            state["telemetry"]["peak_live_runtimes"] = 0
+        else:
+            state["attempt_journal"]["successful_starts"] = 5
+        state_path.write_bytes(canonical_json(state) + b"\n")
+        summary = aggregate_diagnostic_failure(output, "runtime_cleanup_failed")
+        assert all(type(value) is int and value == 0 for value in summary["counts"].values())
+
+
+def test_candidate_diagnostic_failure_state_open_is_nonblocking(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    output = tmp_path / "diagnostics"
+    output.mkdir(mode=0o700)
+    state_path = output / "candidate_diagnostics_state.json"
+    os.mkfifo(state_path, mode=0o600)
+    original_open = os.open
+    observed_nonblocking = False
+
+    def checked_open(path: os.PathLike[str] | str, flags: int, *args: object, **kwargs: object) -> int:
+        nonlocal observed_nonblocking
+        if Path(path) == state_path:
+            observed_nonblocking = True
+            assert flags & os.O_NONBLOCK
+        return original_open(path, flags, *args, **kwargs)
+
+    monkeypatch.setattr(source_wheel_proof.os, "open", checked_open)
+
+    summary = aggregate_diagnostic_failure(output, "runtime_cleanup_failed")
+
+    assert observed_nonblocking
+    assert all(type(value) is int and value == 0 for value in summary["counts"].values())
+
+
+def test_candidate_diagnostic_failure_state_close_error_is_contained(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    output = tmp_path / "diagnostics"
+    output.mkdir(mode=0o700)
+    state_path = output / "candidate_diagnostics_state.json"
+    state_path.write_bytes(_diagnostic_failure_state_payload())
+    state_path.chmod(0o600)
+    original_open = os.open
+    original_close = os.close
+    diagnostic_descriptors: set[int] = set()
+
+    def tracked_open(path: os.PathLike[str] | str, flags: int, *args: object, **kwargs: object) -> int:
+        descriptor = original_open(path, flags, *args, **kwargs)
+        if Path(path) == state_path:
+            diagnostic_descriptors.add(descriptor)
+        return descriptor
+
+    def failing_close(descriptor: int) -> None:
+        original_close(descriptor)
+        if descriptor in diagnostic_descriptors:
+            raise OSError("synthetic private close detail")
+
+    monkeypatch.setattr(source_wheel_proof.os, "open", tracked_open)
+    monkeypatch.setattr(source_wheel_proof.os, "close", failing_close)
+
+    summary = aggregate_diagnostic_failure(output, "runtime_cleanup_failed")
+
+    assert diagnostic_descriptors
+    assert all(type(value) is int and value == 0 for value in summary["counts"].values())
+    assert "synthetic private" not in json.dumps(summary, sort_keys=True)
+
+
+@pytest.mark.parametrize("state_kind", ("hardlink", "oversize", "symlink"))
+def test_candidate_diagnostic_failure_rejects_untrusted_state_file(
+    tmp_path: Path,
+    state_kind: str,
+) -> None:
+    output = tmp_path / "diagnostics"
+    output.mkdir(mode=0o700)
+    state_path = output / "candidate_diagnostics_state.json"
+    if state_kind == "oversize":
+        state_path.write_bytes(b"x" * (source_wheel_proof.MAX_DIAGNOSTIC_STATE_BYTES + 1))
+    else:
+        target = tmp_path / "diagnostic-state-target.json"
+        target.write_bytes(_diagnostic_failure_state_payload())
+        target.chmod(0o600)
+        if state_kind == "hardlink":
+            os.link(target, state_path)
+        else:
+            state_path.symlink_to(target)
+    if state_kind == "oversize":
+        state_path.chmod(0o600)
+
+    summary = aggregate_diagnostic_failure(output, "runtime_cleanup_failed")
+
+    assert set(summary) == {"status", "error_code", "counts"}
+    assert all(type(value) is int and value == 0 for value in summary["counts"].values())
+
+
+def test_candidate_diagnostic_failure_uses_runtime_output_path(tmp_path: Path) -> None:
+    physical_parent = tmp_path / "physical"
+    physical_child = physical_parent / "child"
+    physical_child.mkdir(parents=True)
+    lexical_parent = tmp_path / "lexical"
+    lexical_parent.mkdir()
+    link = lexical_parent / "link"
+    link.symlink_to(physical_child, target_is_directory=True)
+    output = physical_parent / "diagnostics"
+    output.mkdir(mode=0o700)
+    output.chmod(0o700)
+    state_path = output / "candidate_diagnostics_state.json"
+    state_path.write_bytes(_diagnostic_failure_state_payload())
+    state_path.chmod(0o600)
+
+    reported_output = link / ".." / "diagnostics"
+    summary = aggregate_diagnostic_failure(reported_output, "runtime_cleanup_failed")
+
+    assert summary["counts"]["entries_checked"] == 2
+    assert summary["counts"]["runtime_starts"] == 6
+
+
+def test_candidate_diagnostics_failure_stdout_contains_summary_errors(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    discovery, _ = _write_discovery(tmp_path, 9)
+    config = _config(discovery, tmp_path / "diagnostics", candidate_diagnostics_only=True)
+
+    async def fail_diagnostics(*_: object) -> dict[str, object]:
+        raise SourceWheelProofError("runtime_cleanup_failed")
+
+    def fail_summary(*_: object) -> dict[str, object]:
+        raise RuntimeError("synthetic private summary detail")
+
+    monkeypatch.setattr(proof_cli, "_require_bootstrap", lambda: None)
+    monkeypatch.setattr(proof_cli, "_parse_args", lambda: _proof_cli_args(config))
+    monkeypatch.setattr(proof_cli, "_run", fail_diagnostics)
+    monkeypatch.setattr(proof_cli.logging, "disable", lambda _: None)
+    monkeypatch.setattr(source_wheel_proof, "aggregate_diagnostic_failure", fail_summary)
+
+    assert proof_cli.main() == 1
+
+    captured = capsys.readouterr()
+    assert captured.err == ""
+    summary = json.loads(captured.out)
+    assert set(summary) == {"status", "error_code", "counts"}
+    assert summary["error_code"] == "unexpected_failure"
+    assert set(summary["counts"]) == DIAGNOSTIC_FAILURE_COUNT_KEYS
+    assert all(type(value) is int and value == 0 for value in summary["counts"].values())
+    assert "synthetic private summary detail" not in captured.out
+
+
+@pytest.mark.parametrize("diagnostic_only", (False, True))
+def test_bootstrap_failure_stdout_preserves_mode_contract(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    diagnostic_only: bool,
+) -> None:
+    monkeypatch.delenv("SOURCE_WHEEL_PROOF_BOOTSTRAP_ATTESTATION_SHA256", raising=False)
+    argv = ["prove_source_wheel_policy.py"]
+    if diagnostic_only:
+        argv.append("--candidate-diagnostics-only")
+    monkeypatch.setattr(sys, "argv", argv)
+
+    with pytest.raises(SystemExit, match="^1$"):
+        proof_cli._require_bootstrap()
+
+    captured = capsys.readouterr()
+    assert captured.err == ""
+    summary = json.loads(captured.out)
+    assert summary["status"] == "failed"
+    assert summary["error_code"] == "bootstrap_required"
+    if diagnostic_only:
+        assert set(summary) == {"status", "error_code", "counts"}
+        assert set(summary["counts"]) == DIAGNOSTIC_FAILURE_COUNT_KEYS
+        assert all(type(value) is int and value == 0 for value in summary["counts"].values())
+    else:
+        assert summary == {"status": "failed", "error_code": "bootstrap_required"}
+
+
+def test_failure_public_summary_preserves_production_aggregate(tmp_path: Path) -> None:
+    output = tmp_path / "proof"
+    output.mkdir(mode=0o700)
+    state_path = output / "proof_state.json"
+    payload = canonical_json({"completed": {"private-entry-identity": {}}}) + b"\n"
+    state_path.write_bytes(payload)
+    state_path.chmod(0o600)
+
+    assert proof_cli.failure_public_summary(
+        SimpleNamespace(candidate_diagnostics_only=False, output_dir=output),
+        source_wheel_proof,
+        "runtime_cleanup_failed",
+    ) == {
+        "status": "failed",
+        "error_code": "runtime_cleanup_failed",
+        "state_sha256": sha256_bytes(payload),
+        "completed_entries": 1,
+    }
 
 
 def test_aggregate_failure_does_not_escape_state_read_errors(

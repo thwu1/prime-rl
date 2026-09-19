@@ -82,9 +82,64 @@ MAX_CONCURRENT_ENTRIES = 3
 RUNTIMES_PER_ENTRY = 3
 MAX_PIP_REPORT_BYTES = 16 * 1024 * 1024
 MAX_DISCOVERY_INPUT_BYTES = 16 * 1024 * 1024
+MAX_DIAGNOSTIC_STATE_BYTES = 1024 * 1024
 SHA256_RE = re.compile(r"[0-9a-f]{64}")
 REVISION_RE = re.compile(r"[0-9a-f]{40}")
 REQUIREMENT_RE = re.compile(r"[A-Za-z0-9][A-Za-z0-9_.-]*(?:\[[A-Za-z0-9_,.-]+\])?==[A-Za-z0-9.!+_-]+")
+DIAGNOSTIC_PUBLIC_ERROR_CODES = (
+    frozenset(
+        """
+    attempt_journal_incomplete attempt_journal_invalid attempt_journal_not_private
+    attempt_journal_prevents_exact_start_count attempt_journal_state_mismatch base_runtime_revision_invalid
+    binary_closure_size_invalid binary_download_failed binary_filename_duplicate binary_integrity_failed
+    binary_metadata_mismatch binary_resolution_failed binary_url_invalid binary_wheel_invalid
+    binding_inspection_invalid binding_invalid bootstrap_required build_dependency_closure_size_invalid
+    build_dependency_download_failed build_dependency_filename_duplicate build_dependency_integrity_failed
+    build_dependency_metadata_mismatch build_dependency_offline_install_failed build_dependency_policy_missing
+    build_dependency_resolution_closure_invalid build_dependency_resolution_failed
+    build_dependency_resolution_report_invalid build_dependency_roots_invalid build_dependency_url_invalid
+    build_dependency_wheel_invalid builder_cleanup_failed builder_closure_failed builder_offline_install_failed
+    builder_prepare_failed builder_result_invalid builder_wheel_closure_invalid builder_wheel_semantics_invalid
+    cancelled candidate_diagnostics_coverage_invalid candidate_diagnostics_mode_invalid
+    candidate_diagnostics_output_invalid candidate_diagnostics_output_not_fresh
+    candidate_diagnostics_proof_artifact_forbidden candidate_diagnostics_resume_forbidden
+    candidate_diagnostics_state_invalid closure_policy_mismatch closure_report_invalid completed_entry_changed
+    completed_state_not_post_validated cross_builder_reproducibility_failed
+    declared_build_requirements_mismatch discovery_entry_duplicate discovery_entry_invalid
+    discovery_entry_key_duplicate discovery_input_invalid discovery_input_not_private
+    discovery_input_sha256_mismatch discovery_input_size_invalid discovery_source_invalid
+    entry_concurrency_invalid entry_proof_failed execution_binding_invalid execution_environment_not_sanitized
+    execution_tool_invalid execution_tool_sha256_mismatch expected_entry_count_invalid final_policy_invalid
+    finalization_record_invalid finalization_record_missing input_sha256_invalid invocation_already_recorded
+    invocation_identity_invalid output_artifact_mismatch output_directory_contains_unknown_artifact
+    output_directory_create_failed output_directory_not_private output_lock_invalid output_writer_active
+    post_run_validation_already_recorded post_run_validation_record_invalid post_run_validation_record_missing
+    post_run_validation_record_not_private proof_incomplete proof_main_script_invalid proof_state_entry_invalid
+    proof_state_invalid proof_state_lease_identity_duplicate proof_state_not_private
+    python_bootstrap_attestation_mismatch python_bootstrap_flags_invalid python_bootstrap_site_loaded
+    python_import_closure_invalid python_runtime_invalid python_runtime_manifest_mismatch
+    resolution_report_invalid resolution_source_seed_mismatch resolution_source_seed_missing
+    resume_state_missing resume_state_sha256_invalid resume_state_sha256_mismatch resume_state_sha256_required
+    runtime_buffer_invalid runtime_cleanup_failed runtime_factory_invalid runtime_fingerprint_failed
+    runtime_fingerprint_invalid runtime_fingerprint_mismatch runtime_identity_invalid
+    runtime_lease_identity_duplicate runtime_lease_identity_missing runtime_manifest_changed
+    runtime_manifest_invalid runtime_source_sha256_invalid runtime_start_failed runtime_timeout_invalid
+    site_packages_manifest_mismatch source_base_invalid source_build_declaration_validation_failed
+    source_build_environment_attest_failed source_build_environment_changed
+    source_build_environment_create_failed source_build_failed source_build_output_invalid
+    source_checkout_invalid source_checkout_mismatch source_checkout_not_clean source_dependency_invalid
+    source_distribution_invalid source_download_failed source_integrity_failed source_revision_invalid
+    source_tree_not_clean source_wheel_reproducibility_failed target_cleanup_failed target_closure_failed
+    target_offline_install_failed target_stage_failed target_wheelhouse_invalid unexpected_failure
+    vacli_binary_invalid vacli_environment_mismatch vacli_lease_concurrency_exceeds_runtime_cap
+    vacli_limit_invalid vacli_privilege_invalid vacli_retry_invalid vmvm_runtime_source_invalid
+    vmvm_runtime_source_mismatch wheel_directory_integrity_failed wheel_directory_probe_failed
+    wheel_directory_report_invalid wheel_directory_size_invalid wheelhouse_member_invalid
+    wheelhouse_repack_failed
+    """.split()
+    )
+    | SOURCE_WHEEL_CANDIDATE_ERROR_CODES
+)
 SAFE_FILENAME_RE = re.compile(r"[A-Za-z0-9][A-Za-z0-9_.+-]*")
 CLEAN_TREE_SHA256 = hashlib.sha256(b"").hexdigest()
 
@@ -560,6 +615,25 @@ def _lease_identity_sha256(runtime: ProofRuntime) -> str:
 
 def _private_regular_file(path: Path) -> bool:
     return regular_private_file(path) and stat.S_IMODE(path.parent.lstat().st_mode) == 0o700
+
+
+def _diagnostic_output_dir(path: Path) -> Path:
+    absolute = path if path.is_absolute() else Path.cwd() / path
+    return absolute.parent.resolve() / absolute.name
+
+
+def _require_fresh_diagnostic_output(path: Path) -> Path:
+    try:
+        output_dir = _diagnostic_output_dir(path)
+    except (OSError, RuntimeError) as error:
+        raise SourceWheelProofError("output_directory_create_failed") from error
+    try:
+        output_dir.lstat()
+    except FileNotFoundError:
+        return output_dir
+    except OSError as error:
+        raise SourceWheelProofError("output_directory_create_failed") from error
+    raise SourceWheelProofError("candidate_diagnostics_output_not_fresh")
 
 
 def _read_private(path: Path, error_code: str) -> bytes:
@@ -2826,7 +2900,11 @@ class ProofStore:
     ) -> None:
         self.config = config
         self.discovery = discovery
-        self.output_dir = config.output_dir.resolve()
+        self.output_dir = (
+            _require_fresh_diagnostic_output(config.output_dir)
+            if config.candidate_diagnostics_only
+            else config.output_dir.resolve()
+        )
         self.identity_path = self.output_dir / "run_identity.json"
         self.candidate_path = self.output_dir / "source_wheel_candidate.json"
         self.state_path = self.output_dir / (
@@ -2975,22 +3053,27 @@ class ProofStore:
         path.chmod(mode)
 
     def _validate_output_contents(self) -> None:
-        artifact_names = {
-            self.identity_path.name,
-            self.candidate_path.name,
-            self.state_path.name,
+        if self.config.candidate_diagnostics_only:
+            self._validate_diagnostic_output_root()
+        artifact_names = {self.identity_path.name, self.candidate_path.name, self.state_path.name}
+        proof_artifact_names = {
             self.post_validation_path.name,
             self.proof_path.name,
             self.final_policy_path.name,
             self.finalization_path.name,
-            self.journal_path.name,
-            self.lock_path.name,
         }
+        if not self.config.candidate_diagnostics_only:
+            artifact_names.update(proof_artifact_names)
+        artifact_names.update({self.journal_path.name, self.lock_path.name})
         temporary_pattern = re.compile(
             rf"\.({'|'.join(re.escape(name) for name in sorted(artifact_names))})\.\d+\.[0-9a-f]{{32}}\.tmp"
         )
         validation_pattern = re.compile(r"\.source_wheel_policy\.validation\.\d+\.[0-9a-f]{32}\.tmp")
         for child in self.output_dir.iterdir():
+            if self.config.candidate_diagnostics_only and (
+                child.name in proof_artifact_names or validation_pattern.fullmatch(child.name)
+            ):
+                raise SourceWheelProofError("candidate_diagnostics_proof_artifact_forbidden")
             if child.name in artifact_names:
                 if child == self.journal_path and (not child.is_dir() or stat.S_IMODE(child.lstat().st_mode) != 0o700):
                     raise SourceWheelProofError("attempt_journal_not_private")
@@ -3002,8 +3085,51 @@ class ProofStore:
                 continue
             raise SourceWheelProofError("output_directory_contains_unknown_artifact")
 
+    def _validate_diagnostic_output_root(self) -> None:
+        try:
+            root_status = self.output_dir.lstat()
+        except OSError as error:
+            raise SourceWheelProofError("candidate_diagnostics_output_invalid") from error
+        if not stat.S_ISDIR(root_status.st_mode) or stat.S_IMODE(root_status.st_mode) != 0o700:
+            raise SourceWheelProofError("candidate_diagnostics_output_invalid")
+
+    def _validate_exact_diagnostic_output(self) -> None:
+        if not self.config.candidate_diagnostics_only:
+            raise SourceWheelProofError("candidate_diagnostics_state_invalid")
+        self._validate_output_contents()
+        expected_modes = {
+            self.identity_path.name: 0o400,
+            self.candidate_path.name: 0o400,
+            self.state_path.name: 0o600,
+            self.lock_path.name: 0o600,
+        }
+        if {child.name for child in self.output_dir.iterdir()} != {
+            *expected_modes,
+            self.journal_path.name,
+        }:
+            raise SourceWheelProofError("candidate_diagnostics_output_invalid")
+        if any(
+            not regular_private_file(self.output_dir / name)
+            or stat.S_IMODE((self.output_dir / name).lstat().st_mode) != mode
+            for name, mode in expected_modes.items()
+        ):
+            raise SourceWheelProofError("candidate_diagnostics_output_invalid")
+        journal_status = self.journal_path.lstat()
+        if not stat.S_ISDIR(journal_status.st_mode) or stat.S_IMODE(journal_status.st_mode) != 0o700:
+            raise SourceWheelProofError("candidate_diagnostics_output_invalid")
+        self._validate_diagnostic_output_root()
+
     def __enter__(self) -> ProofStore:
-        if self.output_dir.exists():
+        if self.config.candidate_diagnostics_only:
+            try:
+                self.output_dir.mkdir(mode=0o700)
+                self.output_dir.chmod(0o700)
+            except FileExistsError as error:
+                raise SourceWheelProofError("candidate_diagnostics_output_not_fresh") from error
+            except OSError as error:
+                raise SourceWheelProofError("output_directory_create_failed") from error
+            self._validate_diagnostic_output_root()
+        elif self.output_dir.exists():
             status = self.output_dir.lstat()
             if not stat.S_ISDIR(status.st_mode) or stat.S_IMODE(status.st_mode) != 0o700:
                 raise SourceWheelProofError("output_directory_not_private")
@@ -3229,6 +3355,8 @@ class ProofStore:
         return state
 
     def _write_state(self, state: dict[str, object]) -> None:
+        if self.config.candidate_diagnostics_only:
+            self._validate_output_contents()
         state["attempt_journal"] = self._journal().snapshot()
         atomic_write_bytes(
             self.state_path,
@@ -3335,6 +3463,7 @@ class ProofStore:
         self.state["status"] = "aborted"
         self._record_diagnostic_telemetry(telemetry)
         self._write_state(self.state)
+        self._validate_exact_diagnostic_output()
 
     def complete_diagnostics(
         self,
@@ -3369,6 +3498,7 @@ class ProofStore:
         self.state["failure_counts"] = expected_failure_counts
         self._record_diagnostic_telemetry(telemetry)
         self._write_state(self.state)
+        self._validate_exact_diagnostic_output()
 
     def _post_validation_core(self, prevalidation_state: dict[str, object]) -> dict[str, object]:
         if prevalidation_state.get("post_run_validation") is not None:
@@ -3600,6 +3730,8 @@ async def run_source_wheel_proof(
     *,
     runtime_factory: RuntimeFactory = _runtime_factory,
 ) -> dict[str, object]:
+    if config.candidate_diagnostics_only:
+        _require_fresh_diagnostic_output(config.output_dir)
     if runtime_factory is _runtime_factory:
         validate_execution_environment(config)
         validate_vacli_environment(config)
@@ -3688,3 +3820,194 @@ def aggregate_failure(output_dir: Path, code: str) -> dict[str, object]:
         elif isinstance(state, dict) and isinstance(state.get("outcomes"), dict):
             summary["checked_entries"] = len(state["outcomes"])
     return summary
+
+
+def _read_diagnostic_failure_state(path: Path) -> bytes | None:
+    try:
+        descriptor = os.open(
+            path,
+            os.O_RDONLY | os.O_NONBLOCK | getattr(os, "O_NOFOLLOW", 0),
+        )
+    except OSError:
+        return None
+    payload: bytes | None = None
+    try:
+        state_status = os.fstat(descriptor)
+        if (
+            stat.S_ISREG(state_status.st_mode)
+            and stat.S_IMODE(state_status.st_mode) in {0o400, 0o600}
+            and state_status.st_nlink == 1
+            and 0 < state_status.st_size <= MAX_DIAGNOSTIC_STATE_BYTES
+        ):
+            observed = os.read(descriptor, MAX_DIAGNOSTIC_STATE_BYTES + 1)
+            final_status = os.fstat(descriptor)
+            if len(observed) == state_status.st_size and (
+                state_status.st_dev,
+                state_status.st_ino,
+                state_status.st_mode,
+                state_status.st_nlink,
+                state_status.st_size,
+                state_status.st_mtime_ns,
+                state_status.st_ctime_ns,
+            ) == (
+                final_status.st_dev,
+                final_status.st_ino,
+                final_status.st_mode,
+                final_status.st_nlink,
+                final_status.st_size,
+                final_status.st_mtime_ns,
+                final_status.st_ctime_ns,
+            ):
+                payload = observed
+    except (OSError, MemoryError):
+        payload = None
+    try:
+        os.close(descriptor)
+    except OSError:
+        return None
+    return payload
+
+
+def aggregate_diagnostic_failure(output_dir: Path, code: str) -> dict[str, object]:
+    if not isinstance(code, str) or code not in DIAGNOSTIC_PUBLIC_ERROR_CODES:
+        code = "unexpected_failure"
+    counts = {
+        "entries_checked": 0,
+        "candidate_failures": 0,
+        "successful_entries": 0,
+        "runtime_starts": 0,
+        "peak_live_runtimes": 0,
+        "peak_concurrent_entries": 0,
+    }
+    if code == "candidate_diagnostics_output_not_fresh":
+        return {"status": "failed", "error_code": code, "counts": counts}
+    try:
+        diagnostic_output = _diagnostic_output_dir(output_dir)
+        root_status = diagnostic_output.lstat()
+        if not stat.S_ISDIR(root_status.st_mode) or stat.S_IMODE(root_status.st_mode) != 0o700:
+            return {"status": "failed", "error_code": code, "counts": counts}
+        state_path = diagnostic_output / "candidate_diagnostics_state.json"
+    except (OSError, RuntimeError):
+        return {"status": "failed", "error_code": code, "counts": counts}
+    payload = _read_diagnostic_failure_state(state_path)
+    if payload is None:
+        return {"status": "failed", "error_code": code, "counts": counts}
+    try:
+        state = strict_json_loads(payload)
+    except (UnicodeDecodeError, ValueError, RecursionError, MemoryError):
+        return {"status": "failed", "error_code": code, "counts": counts}
+    state_fields = {
+        "schema_version",
+        "kind",
+        "run_identity_sha256",
+        "discovery_input_sha256",
+        "entries_sha256",
+        "entry_count",
+        "invocation",
+        "status",
+        "outcomes",
+        "failure_counts",
+        "attempt_journal",
+        "telemetry",
+    }
+    if (
+        not isinstance(state, dict)
+        or set(state) != state_fields
+        or state.get("schema_version") != DIAGNOSTIC_STATE_SCHEMA_VERSION
+        or state.get("kind") != "source-wheel-candidate-diagnostics-state"
+        or state.get("entry_count") != REQUIRED_DISCOVERY_ENTRIES
+        or not isinstance(state.get("status"), str)
+        or state["status"] not in {"running", "aborted", "complete"}
+        or not isinstance(state.get("outcomes"), dict)
+        or len(state["outcomes"]) > REQUIRED_DISCOVERY_ENTRIES
+        or not isinstance(state.get("failure_counts"), dict)
+        or not isinstance(state.get("telemetry"), dict)
+    ):
+        return {"status": "failed", "error_code": code, "counts": counts}
+    observed_failures: dict[str, int] = {}
+    successful_entries = 0
+    candidate_failures = 0
+    for outcome in state["outcomes"].values():
+        if not isinstance(outcome, dict) or set(outcome) != {"status", "error_code"}:
+            return {"status": "failed", "error_code": code, "counts": counts}
+        if outcome == {"status": "passed", "error_code": None}:
+            successful_entries += 1
+            continue
+        error_code = outcome.get("error_code")
+        if (
+            outcome.get("status") != "candidate_rejected"
+            or not isinstance(error_code, str)
+            or error_code not in SOURCE_WHEEL_CANDIDATE_ERROR_CODES
+        ):
+            return {"status": "failed", "error_code": code, "counts": counts}
+        candidate_failures += 1
+        observed_failures[error_code] = observed_failures.get(error_code, 0) + 1
+    failure_counts = state["failure_counts"]
+    if any(type(value) is not int or value < 1 for value in failure_counts.values()) or failure_counts != dict(
+        sorted(observed_failures.items())
+    ):
+        return {"status": "failed", "error_code": code, "counts": counts}
+    telemetry = state["telemetry"]
+    attempt_journal = state["attempt_journal"]
+    telemetry_limits = {
+        "attested_runtime_starts": REQUIRED_DISCOVERY_ENTRIES * RUNTIMES_PER_ENTRY,
+        "peak_starting_runtimes": MAX_CONCURRENT_ENTRIES * RUNTIMES_PER_ENTRY,
+        "peak_live_runtimes": MAX_CONCURRENT_ENTRIES * RUNTIMES_PER_ENTRY,
+        "peak_concurrent_entries": MAX_CONCURRENT_ENTRIES,
+    }
+    journal_count_names = {"record_count", "start_intents", "successful_starts"}
+    if (
+        set(telemetry) != set(telemetry_limits)
+        or any(
+            isinstance(telemetry[name], bool)
+            or not isinstance(telemetry[name], int)
+            or not 0 <= telemetry[name] <= limit
+            for name, limit in telemetry_limits.items()
+        )
+        or not isinstance(attempt_journal, dict)
+        or set(attempt_journal) != {*journal_count_names, "head_sha256"}
+        or not _valid_sha256(attempt_journal.get("head_sha256"))
+        or any(type(attempt_journal.get(name)) is not int or attempt_journal[name] < 0 for name in journal_count_names)
+    ):
+        return {
+            "status": "failed",
+            "error_code": code,
+            "counts": {name: 0 for name in counts},
+        }
+    checked_entries = successful_entries + candidate_failures
+    runtime_starts = telemetry["attested_runtime_starts"]
+    peak_concurrent_entries = telemetry["peak_concurrent_entries"]
+    peak_starting_runtimes = telemetry["peak_starting_runtimes"]
+    peak_live_runtimes = telemetry["peak_live_runtimes"]
+    if (
+        runtime_starts < checked_entries * RUNTIMES_PER_ENTRY
+        or peak_live_runtimes > runtime_starts
+        or attempt_journal["successful_starts"] < checked_entries * RUNTIMES_PER_ENTRY
+        or attempt_journal["successful_starts"] > runtime_starts
+        or attempt_journal["start_intents"] < runtime_starts
+        or attempt_journal["record_count"] < attempt_journal["start_intents"] + attempt_journal["successful_starts"]
+        or (
+            runtime_starts > 0
+            and (peak_starting_runtimes == 0 or peak_live_runtimes == 0 or peak_concurrent_entries == 0)
+        )
+        or peak_starting_runtimes > peak_concurrent_entries * RUNTIMES_PER_ENTRY
+        or peak_live_runtimes > peak_concurrent_entries * RUNTIMES_PER_ENTRY
+        or (
+            state["status"] == "complete"
+            and (
+                checked_entries != REQUIRED_DISCOVERY_ENTRIES
+                or runtime_starts != REQUIRED_DISCOVERY_ENTRIES * RUNTIMES_PER_ENTRY
+                or attempt_journal["start_intents"] != REQUIRED_DISCOVERY_ENTRIES * RUNTIMES_PER_ENTRY
+                or attempt_journal["successful_starts"] != REQUIRED_DISCOVERY_ENTRIES * RUNTIMES_PER_ENTRY
+                or attempt_journal["record_count"] != REQUIRED_DISCOVERY_ENTRIES * RUNTIMES_PER_ENTRY * 3
+            )
+        )
+    ):
+        return {"status": "failed", "error_code": code, "counts": counts}
+    counts["successful_entries"] = successful_entries
+    counts["candidate_failures"] = candidate_failures
+    counts["entries_checked"] = checked_entries
+    counts["runtime_starts"] = runtime_starts
+    counts["peak_live_runtimes"] = peak_live_runtimes
+    counts["peak_concurrent_entries"] = peak_concurrent_entries
+    return {"status": "failed", "error_code": code, "counts": counts}

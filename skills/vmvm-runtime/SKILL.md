@@ -289,9 +289,11 @@ rejections; dependency integrity, runtime, environment, cleanup, and unknown
 errors still abort. It must cover all nine entries and exactly 27 clean starts,
 print only stable-code counts, and publish no proof or policy. Treat its zero
 exit as diagnostic completion rather than proof success. Diagnostic state and
-the private journal may retain hashed identities for audit, but never emit
-identities, source text, or raw errors. Diagnostic mode cannot resume, and each
-rerun requires another fresh directory. Before launch, use
+the private journal may retain hashed identities for audit, but both success
+and failure stdout must contain only status, a stable error code when relevant,
+and nonidentifying integer counts—never hashes, identities, paths, source text,
+or raw errors. Diagnostic mode cannot resume or reuse even an empty existing
+output root, and each rerun requires another fresh path. Before launch, use
 `inspect_source_wheel_proof_environment.py` on
 the target x86 runtime under the pinned Python's `-I -S -B` mode and
 independently approve the canonical launcher, uv, Python executable, complete

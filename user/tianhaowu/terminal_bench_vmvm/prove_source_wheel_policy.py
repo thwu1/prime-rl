@@ -16,6 +16,22 @@ from types import ModuleType
 
 MAX_CONCURRENT_ENTRIES = 3
 SHA256_RE = re.compile(r"[0-9a-f]{64}")
+DIAGNOSTIC_FAILURE_COUNT_NAMES = (
+    "entries_checked",
+    "candidate_failures",
+    "successful_entries",
+    "runtime_starts",
+    "peak_live_runtimes",
+    "peak_concurrent_entries",
+)
+
+
+def empty_diagnostic_failure(code: str) -> dict[str, object]:
+    return {
+        "status": "failed",
+        "error_code": code,
+        "counts": {name: 0 for name in DIAGNOSTIC_FAILURE_COUNT_NAMES},
+    }
 
 
 def _require_bootstrap() -> None:
@@ -31,7 +47,10 @@ def _require_bootstrap() -> None:
         and "sitecustomize" not in sys.modules
         and "usercustomize" not in sys.modules
     ):
-        print(json.dumps({"status": "failed", "error_code": "bootstrap_required"}, sort_keys=True))
+        summary = {"status": "failed", "error_code": "bootstrap_required"}
+        if "--candidate-diagnostics-only" in sys.argv[1:]:
+            summary = empty_diagnostic_failure("bootstrap_required")
+        print(json.dumps(summary, sort_keys=True))
         raise SystemExit(1)
 
 
@@ -119,6 +138,23 @@ def diagnostic_public_summary(result: dict[str, object]) -> dict[str, object]:
     }
 
 
+def failure_public_summary(args: argparse.Namespace, proof_module: ModuleType, code: str) -> dict[str, object]:
+    if args.candidate_diagnostics_only:
+        return proof_module.aggregate_diagnostic_failure(args.output_dir, code)
+    return proof_module.aggregate_failure(args.output_dir, code)
+
+
+def print_failure_public_summary(args: argparse.Namespace, proof_module: ModuleType, code: str) -> None:
+    if not args.candidate_diagnostics_only:
+        print(json.dumps(failure_public_summary(args, proof_module, code), sort_keys=True), flush=True)
+        return
+    try:
+        payload = json.dumps(failure_public_summary(args, proof_module, code), sort_keys=True)
+    except BaseException:
+        payload = json.dumps(empty_diagnostic_failure("unexpected_failure"), sort_keys=True)
+    print(payload, flush=True)
+
+
 def main() -> int:
     _require_bootstrap()
     import terminal_bench_vmvm.source_wheel_proof as proof_module
@@ -173,19 +209,13 @@ def main() -> int:
     try:
         result = asyncio.run(_run(config, proof_module))
     except (KeyboardInterrupt, asyncio.CancelledError):
-        print(
-            json.dumps(proof_module.aggregate_failure(args.output_dir, "cancelled"), sort_keys=True),
-            flush=True,
-        )
+        print_failure_public_summary(args, proof_module, "cancelled")
         return 130
     except proof_module.SourceWheelProofError as error:
-        print(json.dumps(proof_module.aggregate_failure(args.output_dir, error.code), sort_keys=True), flush=True)
+        print_failure_public_summary(args, proof_module, error.code)
         return 1
     except BaseException:
-        print(
-            json.dumps(proof_module.aggregate_failure(args.output_dir, "unexpected_failure"), sort_keys=True),
-            flush=True,
-        )
+        print_failure_public_summary(args, proof_module, "unexpected_failure")
         return 1
     if result.get("diagnostic_only") is True:
         print(json.dumps(diagnostic_public_summary(result), sort_keys=True), flush=True)
