@@ -105,8 +105,8 @@ if [[ -z "$inspection_receipt_input" || -z "$inspection_receipt_sha256" \
     printf 'Proof input, output, and source-revision bindings are required\n' >&2
     exit 2
 fi
-if [[ "$expected_entry_count" != 8 ]]; then
-    printf 'SOURCE_WHEEL_PROOF_EXPECTED_ENTRY_COUNT must be exactly 8\n' >&2
+if [[ "$expected_entry_count" != 6 ]]; then
+    printf 'SOURCE_WHEEL_PROOF_EXPECTED_ENTRY_COUNT must be exactly 6\n' >&2
     exit 2
 fi
 if [[ ! "$slurm_job_id" =~ ^[1-9][0-9]*$ ]]; then

@@ -265,10 +265,10 @@ clean reviewed checkout; it invokes the canonical
 discovery input. The input is
 non-runnable and must not predeclare the target toolchain, binary closure, or
 source-wheel output hashes. Use the reviewed reducer to derive the exact
-eight-entry static-grammar subset from the digest-pinned nine-entry probe; it
+six-entry static-grammar subset from the digest-pinned nine-entry probe; it
 must fetch each distinct pinned HTTPS source once, validate its size and SHA-256,
 retain original objects and order, and publish only aggregate counts, hashes,
-grammar identifiers, and stable codes. Require exactly eight entries and
+grammar identifiers, and stable codes. Require exactly six entries and
 externally pin the canonical `missing_required_evidence` list. Pin the full reviewed utility commit with
 `SOURCE_WHEEL_PROOF_SOURCE_REVISION` and the approved base runtime revision with
 `SOURCE_WHEEL_PROOF_BASE_RUNTIME_REVISION`. Initialize `deps/verifiers`,
@@ -309,7 +309,7 @@ never resume an output created under a different identity or schema.
 
 Default to two entries and six live VMVMs; never exceed three entries and nine
 VMVMs. Set `VACLI_LEASE_RETRIES=1`; a hidden backend re-lease would violate the
-exact 24-start proof. Publish a non-runnable candidate first, then the final runnable policy
+exact 18-start proof. Publish a non-runnable candidate first, then the final runnable policy
 and proof only after every entry passes. Keep the output directory mode 0700,
 use atomic private artifacts, and emit only aggregate counts, hashes, and stable
 error codes. Before launch, use `inspect_source_wheel_proof_environment.py` on
@@ -347,7 +347,7 @@ from vacli's real session identity in the private certificate. Never substitute
 a container ID or runtime name. Record immutable, hash-chained start intent,
 result, lease hash, and stop result events around every start. A resume with an
 incomplete, failed, indeterminate, or unaccounted prior start must fail rather
-than undercount the exact 24 starts. Resume only with an externally reviewed
+than undercount the exact 18 starts. Resume only with an externally reviewed
 SHA-256 of `proof_state.json`, never a value trusted from the same unreviewed
 output. Final publication writes an immutable finalization record first and
 uses it to reconcile any missing proof or policy file after a crash; the

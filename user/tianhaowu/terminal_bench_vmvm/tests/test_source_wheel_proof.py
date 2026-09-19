@@ -319,7 +319,7 @@ def _write_discovery(
 def _write_reducer_input(
     tmp_path: Path,
     *,
-    rejected_count: int = 1,
+    rejected_count: int = 3,
 ) -> tuple[Path, dict[str, bytes], dict[str, object]]:
     payload, artifacts = _discovery_payload(9)
     document = json.loads(payload)
@@ -329,6 +329,20 @@ def _write_reducer_input(
         artifact.binary_url.replace(artifact.binary_filename, artifact.source_filename): artifact.source
         for artifact in artifacts.values()
     }
+    rejected_setups = (
+        "from setuptools import setup\nsetup(name={distribution!r}, version='1.0', use_scm_version=True)\n",
+        "from setuptools import setup\nsetup(name={distribution!r}, version='1.0', cffi_modules=['build.py:ffi'])\n",
+        "from setuptools import Extension, setup\n"
+        "extension = Extension('example.extension', sources=['wrapper.c'])\n"
+        "setup(name={distribution!r}, version='1.0', ext_modules=[extension])\n",
+        "import os\n"
+        "from setuptools import setup\n"
+        "def readme(path: os.system('external-command')):\n"
+        "    return open(path).read()\n"
+        "setup(name={distribution!r}, version='1.0', long_description=readme('README'))\n",
+    )
+    if not 0 <= rejected_count <= len(rejected_setups):
+        raise ValueError("unsupported synthetic rejection count")
     for index in range(1, rejected_count + 1):
         raw_entry = entries[-index]
         assert isinstance(raw_entry, dict)
@@ -337,13 +351,7 @@ def _write_reducer_input(
         distribution = source["distribution"]
         assert isinstance(distribution, str)
         metadata = f"Metadata-Version: 2.1\nName: {distribution}\nVersion: 1.0\n".encode()
-        setup = (
-            "import os\n"
-            "from setuptools import setup\n"
-            "def readme(path: os.system('external-command')):\n"
-            "    return open(path).read()\n"
-            f"setup(name={distribution!r}, version='1.0', long_description=readme('README'))\n"
-        ).encode()
+        setup = rejected_setups[index - 1].format(distribution=distribution).encode()
         archive_payload = io.BytesIO()
         with tarfile.open(fileobj=archive_payload, mode="w:gz") as archive:
             for name, member_payload in (
@@ -373,7 +381,7 @@ def _config(discovery: Path, output: Path, **changes: object) -> SourceWheelProo
         input_path=discovery,
         input_sha256=sha256_bytes(discovery.read_bytes()),
         output_dir=output,
-        expected_entry_count=8,
+        expected_entry_count=6,
         expected_missing_evidence_sha256=sha256_bytes(canonical_json(missing)),
         project_dir=project,
         inspection_receipt_path=project / "unused-inspection-receipt.json",
@@ -451,22 +459,23 @@ def test_probe_input_reducer_is_networkless_private_and_idempotent(
     second_payload = (second_output / REDUCED_INPUT_FILENAME).read_bytes()
     assert first_payload == second_payload == canonical_json(first_document) + b"\n"
     assert first_receipt == second_receipt
+    assert first_receipt["schema_version"] == 2
     assert (first_output / REDUCTION_RECEIPT_FILENAME).read_bytes() == canonical_json(first_receipt) + b"\n"
     assert stat.S_IMODE(first_output.stat().st_mode) == 0o700
     assert stat.S_IMODE((first_output / REDUCED_INPUT_FILENAME).stat().st_mode) == 0o600
     assert stat.S_IMODE((first_output / REDUCTION_RECEIPT_FILENAME).stat().st_mode) == 0o600
-    assert first_document["entries"] == original["entries"][:-1]
+    assert first_document["entries"] == original["entries"][:-3]
     assert all(first_document[key] == original[key] for key in original if key != "entries")
     reduced_path = first_output / REDUCED_INPUT_FILENAME
     reduced_manifest, _ = load_private_discovery_input(_config(reduced_path, tmp_path / "unused-proof"))
-    assert len(reduced_manifest.entries) == 8
+    assert len(reduced_manifest.entries) == 6
     assert first_receipt["counts"] == {
         "input_entries": 9,
-        "output_entries": 8,
-        "excluded_entries": 1,
+        "output_entries": 6,
+        "excluded_entries": 3,
         "distinct_sources": 9,
-        "accepted_sources": 8,
-        "rejected_sources": 1,
+        "accepted_sources": 6,
+        "rejected_sources": 3,
         "source_fetches": 9,
     }
     assert first_fetch_counts == fetch_counts
@@ -482,7 +491,7 @@ def test_probe_input_reducer_is_networkless_private_and_idempotent(
     [
         ("duplicate_json_key", "input_invalid"),
         ("payload_mismatch", "source_download_integrity_mismatch"),
-        ("two_rejected", "grammar_cardinality_invalid"),
+        ("four_rejected", "grammar_cardinality_invalid"),
     ],
 )
 def test_probe_input_reducer_rejects_adversarial_inputs_without_output(
@@ -492,7 +501,7 @@ def test_probe_input_reducer_rejects_adversarial_inputs_without_output(
 ) -> None:
     input_path, payloads_by_url, _ = _write_reducer_input(
         tmp_path,
-        rejected_count=2 if mutation == "two_rejected" else 1,
+        rejected_count=4 if mutation == "four_rejected" else 3,
     )
     if mutation == "duplicate_json_key":
         payload = input_path.read_bytes().replace(b'"complete":false', b'"complete":false,"complete":false', 1)
@@ -1054,30 +1063,30 @@ class FakeRuntime:
         self.files[path] = data
 
 
-def test_eight_entry_discovery_emits_policy_with_exactly_twenty_four_starts(
+def test_six_entry_discovery_emits_policy_with_exactly_eighteen_starts(
     tmp_path: Path,
 ) -> None:
-    discovery, artifacts = _write_discovery(tmp_path, 8)
+    discovery, artifacts = _write_discovery(tmp_path, 6)
     output = tmp_path / "proof"
     fleet = FakeFleet(artifacts)
 
     result = asyncio.run(run_source_wheel_proof(_config(discovery, output), runtime_factory=fleet.factory))
 
-    assert result["entries"] == 8
-    assert result["runtime_starts"] == 24
+    assert result["entries"] == 6
+    assert result["runtime_starts"] == 18
     assert result["peak_live_runtimes"] == 6
     assert result["peak_concurrent_entries"] == 2
-    assert fleet.start_count == 24
+    assert fleet.start_count == 18
     assert fleet.peak_live == 6
     assert fleet.live == 0
-    assert len(fleet.runtimes) == 24
+    assert len(fleet.runtimes) == 18
     assert all(runtime.stopped and runtime.network_active for runtime in fleet.runtimes)
-    assert sum(runtime.build_count for runtime in fleet.runtimes) == 16
-    assert fleet.source_download_count == 16
-    assert fleet.binary_download_count == 8
-    assert fleet.build_dependency_download_count == 35
-    assert fleet.resolution_count == 8
-    assert fleet.build_dependency_resolution_count == 8
+    assert sum(runtime.build_count for runtime in fleet.runtimes) == 12
+    assert fleet.source_download_count == 12
+    assert fleet.binary_download_count == 6
+    assert fleet.build_dependency_download_count == 27
+    assert fleet.resolution_count == 6
+    assert fleet.build_dependency_resolution_count == 6
     assert all(runtime.build_count == 0 for runtime in fleet.runtimes if runtime.name.endswith("-target"))
     assert all(runtime.build_count == 1 for runtime in fleet.runtimes if "-builder-" in runtime.name)
 
@@ -1102,8 +1111,9 @@ def test_eight_entry_discovery_emits_policy_with_exactly_twenty_four_starts(
     policy = json.loads((output / "source_wheel_policy.json").read_bytes())
     state = json.loads((output / "proof_state.json").read_bytes())
     assert candidate["runnable"] is False
-    assert candidate["required_runtime_starts"] == 24
+    assert candidate["required_runtime_starts"] == 18
     assert "byte_identical_raw_wheel_sets_and_packed_wheelhouses" in candidate["required_proofs"]
+    assert identity["schema_version"] == 10
     assert "schema_bound_semantically_identical_wheels" in candidate["required_proofs"]
     assert identity["contract_schemas"]["source_build_environment"] == SOURCE_BUILD_ENVIRONMENT_SCHEMA_VERSION
     assert identity["contract_schemas"]["wheel_semantic_digest"] == WHEEL_SEMANTIC_DIGEST_SCHEMA_VERSION
@@ -1117,13 +1127,13 @@ def test_eight_entry_discovery_emits_policy_with_exactly_twenty_four_starts(
     assert identity["source_build_execution"]["source_import_precedence"] == "stdlib-attested-sites-source-root"
     assert identity["source_build_execution"]["setup_py_grammar"] == SETUP_PY_GRAMMAR_ID
     assert identity["source_build_execution"]["setup_cfg_grammar"] == SETUP_CFG_GRAMMAR_ID
-    assert proof["proof_runtime_starts"] == 24
-    assert state["telemetry"]["attested_runtime_starts"] == 24
-    assert state["attempt_journal"]["start_intents"] == 24
-    assert state["attempt_journal"]["successful_starts"] == 24
-    assert state["attempt_journal"]["record_count"] == 72
+    assert proof["proof_runtime_starts"] == 18
+    assert state["telemetry"]["attested_runtime_starts"] == 18
+    assert state["attempt_journal"]["start_intents"] == 18
+    assert state["attempt_journal"]["successful_starts"] == 18
+    assert state["attempt_journal"]["record_count"] == 54
     journal_files = sorted((output / "attempt_journal").iterdir())
-    assert len(journal_files) == 72
+    assert len(journal_files) == 54
     assert all(stat.S_IMODE(path.stat().st_mode) == 0o400 for path in journal_files)
     assert proof["source"]["approved_base_runtime_commit"] == APPROVED_BASE_RUNTIME_COMMIT
     assert proof["source"]["commit"] == "a" * 40
@@ -1156,11 +1166,11 @@ def test_eight_entry_discovery_emits_policy_with_exactly_twenty_four_starts(
     prevalidation_state["post_run_validation"] = None
     assert post_validation["prevalidation_state_sha256"] == sha256_bytes(canonical_json(prevalidation_state) + b"\n")
     assert post_validation["attempt_journal"] == state["attempt_journal"]
-    assert len(policy["entries"]) == 8
+    assert len(policy["entries"]) == 6
     assert all(entry["build_tools"] == BUILD_TOOLS for entry in policy["entries"])
     assert all(len(entry["binary_wheels"]) == 1 for entry in policy["entries"])
-    assert sum(len(entry["sources"][0]["build_dependencies"]) for entry in policy["entries"]) == 35
-    assert sum(entry["resolution"]["build_dependencies"]["binary_artifact_count"] for entry in proof["entries"]) == 35
+    assert sum(len(entry["sources"][0]["build_dependencies"]) for entry in policy["entries"]) == 27
+    assert sum(entry["resolution"]["build_dependencies"]["binary_artifact_count"] for entry in proof["entries"]) == 27
     assert (
         sum(len(entry["resolution"]["build_dependencies"]["declared_build_requirements"]) for entry in proof["entries"])
         == 3
@@ -1168,7 +1178,7 @@ def test_eight_entry_discovery_emits_policy_with_exactly_twenty_four_starts(
     assert all(entry["cross_builder"]["wheel_bytes_equal"] for entry in proof["entries"])
     assert all(entry["cross_builder"]["wheel_semantics_equal"] for entry in proof["entries"])
     assert all(len(set(entry["lease_identity_sha256s"].values())) == 3 for entry in proof["entries"])
-    assert len({digest for entry in proof["entries"] for digest in entry["lease_identity_sha256s"].values()}) == 24
+    assert len({digest for entry in proof["entries"] for digest in entry["lease_identity_sha256s"].values()}) == 18
     assert b"lease-source-proof" not in (output / "source_wheel_proof.json").read_bytes()
     assert b"lease-source-proof" not in b"".join(path.read_bytes() for path in journal_files)
     assert b"container-id-must-not-be-used" not in (output / "source_wheel_proof.json").read_bytes()
@@ -1268,7 +1278,7 @@ def test_prove_entry_preserves_primary_when_runtime_cleanup_fails(
     failure_type: type[BaseException],
     cleanup_raises: bool,
 ) -> None:
-    discovery_path, _ = _write_discovery(tmp_path, 8)
+    discovery_path, _ = _write_discovery(tmp_path, 6)
     config = _config(discovery_path, tmp_path / "proof")
     discovery, _ = load_private_discovery_input(config)
     failure = failure_type("entry failed")
@@ -1314,7 +1324,7 @@ def test_prove_entry_surfaces_runtime_cleanup_failure_after_success(
     monkeypatch: pytest.MonkeyPatch,
     cleanup_raises: bool,
 ) -> None:
-    discovery_path, artifacts = _write_discovery(tmp_path, 8)
+    discovery_path, artifacts = _write_discovery(tmp_path, 6)
     output = tmp_path / "proof"
     config = _config(discovery_path, output)
     discovery, _ = load_private_discovery_input(config)
@@ -1342,7 +1352,7 @@ def test_static_metadata_parser_failure_has_stable_aggregate_code(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    discovery, artifacts = _write_discovery(tmp_path, 8)
+    discovery, artifacts = _write_discovery(tmp_path, 6)
     output = tmp_path / "proof"
     fleet = FakeFleet(artifacts)
 
@@ -1368,7 +1378,7 @@ def test_static_metadata_parser_failure_has_stable_aggregate_code(
 
 
 def test_semantically_equal_timestamp_variants_fail_before_publication(tmp_path: Path) -> None:
-    discovery, artifacts = _write_discovery(tmp_path, 8)
+    discovery, artifacts = _write_discovery(tmp_path, 6)
     first_image = next(iter(artifacts))
     alternate = _retime_wheel(artifacts[first_image].source_wheel, (2024, 4, 4, 4, 4, 4))
     assert alternate != artifacts[first_image].source_wheel
@@ -1386,7 +1396,7 @@ def test_semantically_equal_timestamp_variants_fail_before_publication(tmp_path:
 
 
 def test_proof_state_rejects_raw_builder_or_wheelhouse_mismatch(tmp_path: Path) -> None:
-    discovery_path, artifacts = _write_discovery(tmp_path, 8)
+    discovery_path, artifacts = _write_discovery(tmp_path, 6)
     output = tmp_path / "proof"
     asyncio.run(
         run_source_wheel_proof(
@@ -1438,7 +1448,7 @@ def test_finalization_record_reconciles_every_partial_publication(
     tmp_path: Path,
     retained: frozenset[str],
 ) -> None:
-    discovery, artifacts = _write_discovery(tmp_path, 8)
+    discovery, artifacts = _write_discovery(tmp_path, 6)
     output = tmp_path / "proof"
     original = asyncio.run(
         run_source_wheel_proof(_config(discovery, output), runtime_factory=FakeFleet(artifacts).factory)
@@ -1468,7 +1478,7 @@ def test_finalization_record_reconciles_every_partial_publication(
 
 
 def test_final_artifacts_without_finalization_record_fail_closed(tmp_path: Path) -> None:
-    discovery, artifacts = _write_discovery(tmp_path, 8)
+    discovery, artifacts = _write_discovery(tmp_path, 6)
     output = tmp_path / "proof"
     asyncio.run(run_source_wheel_proof(_config(discovery, output), runtime_factory=FakeFleet(artifacts).factory))
     (output / "finalization.json").unlink()
@@ -1494,7 +1504,7 @@ def test_completed_state_without_post_validation_cannot_launder_zero_start_resum
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    discovery, artifacts = _write_discovery(tmp_path, 8)
+    discovery, artifacts = _write_discovery(tmp_path, 6)
     output = tmp_path / "proof"
     initial_fleet = FakeFleet(artifacts)
     initial_factory = initial_fleet.factory
@@ -1512,13 +1522,13 @@ def test_completed_state_without_post_validation_cannot_launder_zero_start_resum
     with pytest.raises(SourceWheelProofError, match="^synthetic_post_validation_failure$"):
         asyncio.run(run_source_wheel_proof(_config(discovery, output), runtime_factory=initial_factory))
 
-    assert initial_fleet.start_count == 24
+    assert initial_fleet.start_count == 18
     assert validation_calls == 2
     assert not (output / "post_run_validation.json").exists()
     state_path = output / "proof_state.json"
     state = json.loads(state_path.read_bytes())
     assert state["post_run_validation"] is None
-    assert len(state["completed"]) == 8
+    assert len(state["completed"]) == 6
     resumed_fleet = FakeFleet(artifacts)
     resumed_factory = resumed_fleet.factory
     monkeypatch.setattr(source_wheel_proof, "_runtime_factory", resumed_factory)
@@ -1542,7 +1552,7 @@ def test_completed_state_without_post_validation_cannot_launder_zero_start_resum
 
 
 def test_post_validation_record_reconciles_state_update_crash(tmp_path: Path) -> None:
-    discovery, artifacts = _write_discovery(tmp_path, 8)
+    discovery, artifacts = _write_discovery(tmp_path, 6)
     output = tmp_path / "proof"
     original = asyncio.run(
         run_source_wheel_proof(_config(discovery, output), runtime_factory=FakeFleet(artifacts).factory)
@@ -1573,7 +1583,7 @@ def test_post_validation_record_reconciles_state_update_crash(tmp_path: Path) ->
 
 
 def test_post_validation_state_without_immutable_record_fails_closed(tmp_path: Path) -> None:
-    discovery, artifacts = _write_discovery(tmp_path, 8)
+    discovery, artifacts = _write_discovery(tmp_path, 6)
     output = tmp_path / "proof"
     asyncio.run(run_source_wheel_proof(_config(discovery, output), runtime_factory=FakeFleet(artifacts).factory))
     for name in (
@@ -1602,7 +1612,7 @@ def test_post_validation_state_without_immutable_record_fails_closed(tmp_path: P
 
 
 def test_cancellation_stops_every_started_runtime_and_leaves_resumable_state(tmp_path: Path) -> None:
-    discovery, artifacts = _write_discovery(tmp_path, 8)
+    discovery, artifacts = _write_discovery(tmp_path, 6)
     output = tmp_path / "proof"
 
     async def scenario() -> FakeFleet:
@@ -1668,7 +1678,7 @@ def test_cancellation_stops_every_started_runtime_and_leaves_resumable_state(tmp
 
 
 def test_cancellation_drains_runtime_start_before_stopping_leases(tmp_path: Path) -> None:
-    discovery, artifacts = _write_discovery(tmp_path, 8)
+    discovery, artifacts = _write_discovery(tmp_path, 6)
 
     async def scenario() -> FakeFleet:
         fleet = FakeFleet(artifacts, block_starts=True)
@@ -1700,7 +1710,7 @@ def test_cancellation_drains_runtime_start_before_stopping_leases(tmp_path: Path
 
 
 def test_duplicate_resolved_lease_identity_fails_and_stops_all_runtimes(tmp_path: Path) -> None:
-    discovery, artifacts = _write_discovery(tmp_path, 8)
+    discovery, artifacts = _write_discovery(tmp_path, 6)
     fleet = FakeFleet(artifacts, duplicate_descriptors=True)
 
     with pytest.raises(SourceWheelProofError, match="^runtime_lease_identity_duplicate$"):
@@ -1758,12 +1768,12 @@ def test_real_vacli_session_shape_produces_stable_secret_independent_identity() 
         )
 
 
-def test_discovery_requires_external_exact_eight_entry_and_missing_evidence_bindings(tmp_path: Path) -> None:
-    short_discovery, _ = _write_discovery(tmp_path / "short", 7)
+def test_discovery_requires_external_exact_six_entry_and_missing_evidence_bindings(tmp_path: Path) -> None:
+    short_discovery, _ = _write_discovery(tmp_path / "short", 5)
     with pytest.raises(SourceWheelProofError, match="^discovery_input_invalid$"):
         load_private_discovery_input(_config(short_discovery, tmp_path / "short-output"))
 
-    discovery, _ = _write_discovery(tmp_path / "exact", 8)
+    discovery, _ = _write_discovery(tmp_path / "exact", 6)
     config = _config(discovery, tmp_path / "exact-output")
     payload = json.loads(discovery.read_bytes())
     payload["missing_required_evidence"].append("unexpected-evidence-field")
@@ -1772,7 +1782,7 @@ def test_discovery_requires_external_exact_eight_entry_and_missing_evidence_bind
     with pytest.raises(SourceWheelProofError, match="^discovery_input_invalid$"):
         load_private_discovery_input(replace(config, input_sha256=sha256_bytes(discovery.read_bytes())))
     with pytest.raises(SourceWheelProofError, match="^expected_entry_count_invalid$"):
-        replace(config, expected_entry_count=9).validate()
+        replace(config, expected_entry_count=7).validate()
 
 
 def test_reproducibility_and_concurrency_contracts_fail_closed(tmp_path: Path) -> None:
@@ -1865,7 +1875,7 @@ def test_reproducibility_and_concurrency_contracts_fail_closed(tmp_path: Path) -
 
 
 def test_hard_cap_runs_three_entries_with_at_most_nine_live_runtimes(tmp_path: Path) -> None:
-    discovery, artifacts = _write_discovery(tmp_path, 8)
+    discovery, artifacts = _write_discovery(tmp_path, 6)
     fleet = FakeFleet(artifacts)
     config = _config(
         discovery,
@@ -1876,7 +1886,7 @@ def test_hard_cap_runs_three_entries_with_at_most_nine_live_runtimes(tmp_path: P
 
     result = asyncio.run(run_source_wheel_proof(config, runtime_factory=fleet.factory))
 
-    assert result["runtime_starts"] == 24
+    assert result["runtime_starts"] == 18
     assert result["peak_live_runtimes"] == 9
     assert result["peak_concurrent_entries"] == 3
     assert fleet.peak_live == 9
@@ -2117,12 +2127,12 @@ def test_execution_environment_rejects_tool_site_and_inherited_python_drift(
 
 
 def test_resume_requires_exact_external_state_hash(tmp_path: Path) -> None:
-    discovery, artifacts = _write_discovery(tmp_path, 8)
+    discovery, artifacts = _write_discovery(tmp_path, 6)
     output = tmp_path / "proof"
     result = asyncio.run(
         run_source_wheel_proof(_config(discovery, output), runtime_factory=FakeFleet(artifacts).factory)
     )
-    assert result["runtime_starts"] == 24
+    assert result["runtime_starts"] == 18
 
     resumed = _config(
         discovery,
@@ -2135,7 +2145,7 @@ def test_resume_requires_exact_external_state_hash(tmp_path: Path) -> None:
 
 
 def test_resume_revalidates_completed_entries_and_runs_only_missing_work(tmp_path: Path) -> None:
-    discovery, artifacts = _write_discovery(tmp_path, 8)
+    discovery, artifacts = _write_discovery(tmp_path, 6)
     output = tmp_path / "proof"
     initial_config = _config(
         discovery,
@@ -2176,9 +2186,9 @@ def test_resume_revalidates_completed_entries_and_runs_only_missing_work(tmp_pat
 
     result = asyncio.run(run_source_wheel_proof(config, runtime_factory=resumed_fleet.factory))
 
-    assert result["runtime_starts"] == 24
-    assert resumed_fleet.start_count == 21
-    assert len(json.loads((output / "source_wheel_policy.json").read_bytes())["entries"]) == 8
+    assert result["runtime_starts"] == 18
+    assert resumed_fleet.start_count == 15
+    assert len(json.loads((output / "source_wheel_policy.json").read_bytes())["entries"]) == 6
 
 
 def test_readme_uses_hash_bound_in_allocation_clean_wrapper() -> None:
@@ -2201,6 +2211,7 @@ def test_readme_uses_hash_bound_in_allocation_clean_wrapper() -> None:
     assert "SOURCE_WHEEL_PROOF_INSPECTION_RECEIPT=" in readme
     assert "SOURCE_WHEEL_PROOF_INSPECTION_RECEIPT_SHA256=" in readme
     assert "SOURCE_WHEEL_PROOF_EXPECTED_HOST=<reviewed-inspector-host>" in readme
+    assert "SOURCE_WHEEL_PROOF_EXPECTED_ENTRY_COUNT=6" in readme
     assert "--nodelist=<reviewed-inspector-host>" in readme
     assert "`invocation_host`" in readme
     for required in (
@@ -2215,6 +2226,8 @@ def test_readme_uses_hash_bound_in_allocation_clean_wrapper() -> None:
     assert 'exec /usr/bin/env -i "${clean_environment[@]}" /bin/bash "$canonical_launcher"' in clean_wrapper
     assert "LD_LIBRARY_PATH" not in clean_wrapper
     assert 'exec "$python_bin" -I -S -B' in launcher
+    assert '[[ "$expected_entry_count" != 6 ]]' in launcher
+    assert "must be exactly 6" in launcher
     assert '"$workflow_dir/source_wheel_proof_bootstrap.py" run' in launcher
     assert "uv run --no-project" not in launcher
     for rejected in ("BASH_ENV", "LD_PRELOAD"):
@@ -2266,7 +2279,7 @@ def test_clean_wrapper_removes_allocation_loader_injection(tmp_path: Path) -> No
         "SOURCE_WHEEL_PROOF_INSPECTION_RECEIPT": str(inspection_receipt),
         "SOURCE_WHEEL_PROOF_INSPECTION_RECEIPT_SHA256": sha256_bytes(inspection_receipt.read_bytes()),
         "SOURCE_WHEEL_PROOF_EXPECTED_HOST": os.uname().nodename,
-        "SOURCE_WHEEL_PROOF_EXPECTED_ENTRY_COUNT": "8",
+        "SOURCE_WHEEL_PROOF_EXPECTED_ENTRY_COUNT": "6",
         "SOURCE_WHEEL_PROOF_MISSING_EVIDENCE_SHA256": "3" * 64,
         "SOURCE_WHEEL_PROOF_CLEAN_WRAPPER_SHA256": sha256_bytes(clean_wrapper.read_bytes()),
         "SOURCE_WHEEL_PROOF_LAUNCHER_SHA256": "4" * 64,
@@ -2361,7 +2374,7 @@ def test_execution_validation_precedes_private_input_load(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    discovery, artifacts = _write_discovery(tmp_path, 8)
+    discovery, artifacts = _write_discovery(tmp_path, 6)
     fleet = FakeFleet(artifacts)
     factory = fleet.factory
     private_input_loaded = False
