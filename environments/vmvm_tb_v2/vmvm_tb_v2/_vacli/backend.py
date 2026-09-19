@@ -2502,7 +2502,7 @@ class VacliVMVMBackend:
             raise RuntimeError("open_host_tunnel called before container init")
         if not 1 <= local_port <= 65535:
             raise ValueError(f"invalid local port: {local_port}")
-        with _lease_concurrency:
+        with _lease_concurrency.unmeasured_permit():
             return self._open_host_tunnel(local_port)
 
     def _open_host_tunnel(self, local_port: int) -> tuple[VacliHostTunnel, str]:

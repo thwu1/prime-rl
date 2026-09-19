@@ -274,6 +274,7 @@ def _certificate_fixture(
             "require_reasoning": True,
             "require_model_io": True,
             "model_io_contract": tb4.EXPECTED_MODEL_IO_CONTRACT,
+            "require_request_graph_match": True,
             "require_token_data": False,
             "require_logprobs": False,
             "max_sequence_tokens": 262144,
@@ -673,6 +674,7 @@ def test_certificate_is_aggregate_only_self_hashed_and_write_once(
         "proxy_info",
     }
     assert certificate["artifacts"]["config"]["sha256"] == _file_digest(paths["config"])
+    assert certificate["audit_policy"]["require_request_graph_match"] is True
     serialized = json.dumps(certificate, sort_keys=True)
     for forbidden in (
         "failure_examples",
@@ -739,7 +741,7 @@ def test_certificate_rejects_weakened_model_contract(
         )
 
 
-@pytest.mark.parametrize("tamper", ["self_hash", "policy", "counts"])
+@pytest.mark.parametrize("tamper", ["self_hash", "policy", "graph_policy", "counts"])
 def test_certificate_rejects_smoke_integrity_tampering(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -751,6 +753,8 @@ def test_certificate_rejects_smoke_integrity_tampering(
         smoke["smoke_checkpoint_sha256"] = "0" * 64
     elif tamper == "policy":
         smoke["audit_policy"]["require_model_io"] = False
+    elif tamper == "graph_policy":
+        smoke["audit_policy"]["require_request_graph_match"] = False
     else:
         smoke["counts"]["trace_failures"] = 1
     if tamper != "self_hash":

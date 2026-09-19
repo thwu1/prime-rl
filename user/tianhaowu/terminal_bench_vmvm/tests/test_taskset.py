@@ -8,6 +8,7 @@ import subprocess
 import sys
 import sysconfig
 import tarfile
+import threading
 from pathlib import Path
 from types import SimpleNamespace
 from weakref import ref
@@ -46,6 +47,7 @@ from vmvm_tb_v2._vacli.backend import (
     _setup_bridge_proxy,
     _VacliNetworkIsolation,
 )
+from vmvm_tb_v2._vacli.concurrency_telemetry import LeaseStartConcurrencyLimiter
 from vmvm_tb_v2._vacli.types import BackendInitError
 
 
@@ -1999,55 +2001,72 @@ def test_vmvm_root_exec_classifies_ssh_exit_255_as_transport_failure() -> None:
 
 
 def test_vmvm_host_tunnel_setup_uses_and_releases_shared_vacli_slot(monkeypatch) -> None:
-    class RecordingBoundedSemaphore:
+    class RecordingTelemetry:
         def __init__(self) -> None:
-            self.held = 0
-            self.acquisitions = 0
+            self.enters = 0
+            self.finishes = 0
 
-        def acquire(self) -> None:
-            assert self.held == 0
-            self.held = 1
-            self.acquisitions += 1
+        def lease_start_entered(self) -> None:
+            self.enters += 1
 
-        def release(self) -> None:
-            assert self.held == 1
-            self.held = 0
+        def lease_start_finished(self) -> None:
+            self.finishes += 1
 
-        def __enter__(self):
-            self.acquire()
-            return self
-
-        def __exit__(self, exc_type, exc_value, traceback) -> None:
-            self.release()
-
-    semaphore = RecordingBoundedSemaphore()
-    monkeypatch.setattr(vacli_backend, "_lease_concurrency", semaphore)
+    telemetry = RecordingTelemetry()
+    limiter = LeaseStartConcurrencyLimiter(1, telemetry)
+    monkeypatch.setattr(vacli_backend, "_lease_concurrency", limiter)
     backend = object.__new__(VacliVMVMBackend)
     backend._destroyed = False
     backend._container_id = "a" * 12
     tunnel = VacliHostTunnel("10.89.0.1", 42000, 1234, 99)
+    probes: list[tuple[threading.Thread, threading.Event]] = []
+
+    def assert_shared_slot_is_held() -> None:
+        started = threading.Event()
+        acquired = threading.Event()
+
+        def acquire_measured() -> None:
+            started.set()
+            limiter.acquire()
+            acquired.set()
+            limiter.release()
+
+        probe = threading.Thread(target=acquire_measured)
+        probe.start()
+        assert started.wait(timeout=2)
+        assert not acquired.wait(timeout=0.05)
+        assert (telemetry.enters, telemetry.finishes) == (len(probes), len(probes))
+        probes.append((probe, acquired))
+
+    def await_probe() -> None:
+        probe, acquired = probes[-1]
+        assert acquired.wait(timeout=2)
+        probe.join(timeout=2)
+        assert not probe.is_alive()
 
     def succeed(local_port: int) -> tuple[VacliHostTunnel, str]:
-        assert semaphore.held == 1
+        assert_shared_slot_is_held()
         return tunnel, f"http://10.89.0.1:{local_port}"
 
     backend._open_host_tunnel = succeed
     assert backend.open_host_tunnel(1234) == (tunnel, "http://10.89.0.1:1234")
-    assert semaphore.held == 0
+    await_probe()
+    assert (telemetry.enters, telemetry.finishes) == (1, 1)
 
     def fail(local_port: int) -> tuple[VacliHostTunnel, str]:
-        assert semaphore.held == 1
+        assert_shared_slot_is_held()
         raise BackendInitError(f"failed to expose {local_port}")
 
     backend._open_host_tunnel = fail
     with pytest.raises(BackendInitError, match="failed to expose"):
         backend.open_host_tunnel(1234)
-    assert semaphore.held == 0
+    await_probe()
+    assert (telemetry.enters, telemetry.finishes) == (2, 2)
 
     backend._open_host_tunnel = succeed
     assert backend.open_host_tunnel(1234)[0] is tunnel
-    assert semaphore.held == 0
-    assert semaphore.acquisitions == 3
+    await_probe()
+    assert (telemetry.enters, telemetry.finishes) == (3, 3)
 
 
 def test_vmvm_sidecar_exec_classifies_ssh_exit_255_as_transport_failure() -> None:

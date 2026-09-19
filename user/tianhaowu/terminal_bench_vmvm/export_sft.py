@@ -1812,6 +1812,7 @@ def _validate_trainable_trace(
     if problems:
         response_semantic_suffixes = (
             "_model_io_response_semantics_invalid",
+            "_model_io_response_finish_reason_invalid",
             "_model_io_response_message_mismatch",
             "_model_io_response_finish_reason_mismatch",
             "_model_io_response_usage_mismatch",

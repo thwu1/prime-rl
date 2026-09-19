@@ -888,6 +888,34 @@ def test_audit_trace_requires_captured_request_messages_to_match_graph_path() ->
     ) == ["node_1_model_io_request_messages_mismatch"]
 
 
+@pytest.mark.parametrize("finish_reason", ["content_filter", "function_call", "length", "unknown"])
+def test_strict_graph_audit_rejects_hash_valid_untrainable_raw_finish_reason(finish_reason: str) -> None:
+    trace = _trace_with_model_io()
+    sampled = trace["nodes"][0]
+    sampled["parent"] = 0
+    trace["nodes"] = [
+        {
+            "parent": None,
+            "sampled": False,
+            "token_ids": [],
+            "mask": [],
+            "logprobs": [],
+            "message": {"role": "user", "content": "inspect the workspace"},
+        },
+        sampled,
+    ]
+    response = sampled["model_io"]["response"]
+    response["body"]["choices"][0]["finish_reason"] = finish_reason
+    response["sha256"] = _digest(response["body"])
+
+    assert _audit_trace(
+        trace,
+        require_reasoning=True,
+        require_model_io=True,
+        require_request_graph_match=True,
+    ) == ["node_1_model_io_response_finish_reason_invalid"]
+
+
 def test_audit_trace_requires_exact_chat_completions_route() -> None:
     trace = _trace_with_model_io()
     trace["nodes"][0]["model_io"]["provider_route"] = "/v1/chat/completions"

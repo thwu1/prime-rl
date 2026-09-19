@@ -332,6 +332,14 @@ def test_merge_publishes_only_complete_certified_partition(tmp_path: Path, monke
     assert b"must-not-be-copied" not in (output / "deployment_spec_policy.json").read_bytes()
     assert all(proxy == output / "proxy_policy.json" for _, proxy in historical_snapshots[len(shards) :])
 
+    weakened_policy = json.loads(json.dumps(receipt))
+    weakened_policy["audit_policy"]["require_request_graph_match"] = False
+    unsigned = dict(weakened_policy)
+    unsigned.pop("tb4_certificate_sha256")
+    weakened_policy["tb4_certificate_sha256"] = hashlib.sha256(workflow.canonical_json(unsigned)).hexdigest()
+    with pytest.raises(ShardWorkflowError, match="sharded_checkpoint_policy_invalid"):
+        validate_sharded_checkpoint(weakened_policy, deployment_id="deployment-test")
+
     tampered = json.loads(json.dumps(receipt))
     tampered["shards"][0]["route_generation_sha256"] = "0" * 64
     unsigned = dict(tampered)

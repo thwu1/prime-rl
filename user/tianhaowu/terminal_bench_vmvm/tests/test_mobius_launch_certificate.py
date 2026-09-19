@@ -259,6 +259,7 @@ def _tb4_checkpoint(
             "require_reasoning": True,
             "require_response": True,
             "require_model_io": True,
+            "require_request_graph_match": True,
             "require_tool_schemas": True,
             "require_tool_call_lineage": True,
             "require_token_data": False,
@@ -529,6 +530,7 @@ def _capacity_checkpoint(
             "require_reasoning": True,
             "require_model_io": True,
             "model_io_contract": certificate_module.EXPECTED_MODEL_IO_CONTRACT,
+            "require_request_graph_match": True,
             "require_token_data": False,
             "require_logprobs": False,
             "max_sequence_tokens": 262_144,
@@ -1365,6 +1367,32 @@ def test_rejects_tb4_policy_even_with_valid_self_and_file_hashes(tmp_path: Path)
     )
 
     with pytest.raises(LaunchCertificateError, match="^tb4_policy_invalid$"):
+        create_launch_certificate(**arguments)
+
+
+def test_rejects_tb4_without_strict_graph_wire_policy(tmp_path: Path) -> None:
+    arguments, _ = _fixture(tmp_path)
+    path = Path(arguments["tb4_checkpoint"])
+    arguments["tb4_checkpoint_sha256"] = _rewrite_flat(
+        path,
+        "tb4_certificate_sha256",
+        lambda value: value["audit_policy"].__setitem__("require_request_graph_match", False),
+    )
+
+    with pytest.raises(LaunchCertificateError, match="^tb4_policy_invalid$"):
+        create_launch_certificate(**arguments)
+
+
+def test_rejects_capacity_smoke_without_strict_graph_wire_policy(tmp_path: Path) -> None:
+    arguments, _ = _fixture(tmp_path)
+    path = Path(arguments["capacity_smoke_checkpoint"])
+    arguments["capacity_smoke_checkpoint_sha256"] = _rewrite_flat(
+        path,
+        "smoke_checkpoint_sha256",
+        lambda value: value["audit_policy"].__setitem__("require_request_graph_match", False),
+    )
+
+    with pytest.raises(LaunchCertificateError, match="^capacity_smoke_policy_invalid$"):
         create_launch_certificate(**arguments)
 
 

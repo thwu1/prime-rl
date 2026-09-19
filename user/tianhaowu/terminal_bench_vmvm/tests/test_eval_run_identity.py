@@ -537,6 +537,7 @@ def test_checkpoint_chain_is_hashed_and_role_aware(tmp_path: Path, monkeypatch: 
             "require_reasoning": True,
             "require_model_io": True,
             "model_io_contract": eval_run_identity.EXPECTED_MODEL_IO_CONTRACT,
+            "require_request_graph_match": True,
             "require_token_data": False,
             "require_logprobs": False,
             "max_sequence_tokens": 262_144,
@@ -603,6 +604,15 @@ def test_checkpoint_chain_is_hashed_and_role_aware(tmp_path: Path, monkeypatch: 
     args.role = "tb4"
     args.promotion_certificate = None
     args.promotion_certificate_sha256 = None
+    smoke_payload["audit_policy"]["require_request_graph_match"] = False
+    smoke_payload["smoke_checkpoint_sha256"] = hashlib.sha256(
+        canonical_json({key: value for key, value in smoke_payload.items() if key != "smoke_checkpoint_sha256"})
+    ).hexdigest()
+    smoke.write_text(json.dumps(smoke_payload, sort_keys=True) + "\n")
+    args.smoke_checkpoint_sha256 = _sha256(smoke)
+    with pytest.raises(EvalIdentityError, match="smoke_checkpoint_not_passed"):
+        _checkpoint_identity(args, endpoint)
+    smoke_payload["audit_policy"]["require_request_graph_match"] = True
     smoke_payload["counts"]["trace_failures"] = 1
     smoke_payload["smoke_checkpoint_sha256"] = hashlib.sha256(
         canonical_json({key: value for key, value in smoke_payload.items() if key != "smoke_checkpoint_sha256"})

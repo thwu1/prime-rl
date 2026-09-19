@@ -719,6 +719,7 @@ def validate_v1_smoke(
             "require_reasoning",
             "require_model_io",
             "model_io_contract",
+            "require_request_graph_match",
             "require_token_data",
             "require_logprobs",
             "max_sequence_tokens",
@@ -727,6 +728,7 @@ def validate_v1_smoke(
         or policy["rollouts_per_task"] != 1
         or policy.get("require_reasoning") is not True
         or policy.get("require_model_io") is not True
+        or policy.get("require_request_graph_match") is not True
         or not _same_json(
             policy.get("model_io_contract"),
             _expected_model_contract(model),
@@ -873,6 +875,7 @@ def validate_v1_smoke(
             require_logprobs=False,
             require_model_io=True,
             model_io_contract=KIMI_K3_MAX_MODEL_IO_CONTRACT,
+            require_request_graph_match=True,
             max_sequence_tokens=262_144,
         )
     except (OSError, ValueError) as error:

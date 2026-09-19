@@ -813,6 +813,17 @@ def test_captured_response_must_match_retained_reasoning(tmp_path: Path) -> None
         export_sft(_options(results, tmp_path / "dataset"))
 
 
+def test_hash_valid_untrainable_raw_finish_reason_is_rejected(tmp_path: Path) -> None:
+    trace = _linear_trace()
+    response = trace["nodes"][2]["model_io"]["response"]
+    response["body"]["choices"][0]["finish_reason"] = "length"
+    response["sha256"] = _json_sha256(response["body"])
+    results = _write_run(tmp_path / "run", [trace])
+
+    with pytest.raises(ExportError, match="^captured_response_finish_reason_mismatch$"):
+        export_sft(_options(results, tmp_path / "dataset"))
+
+
 def test_sampled_finish_reason_is_required(tmp_path: Path) -> None:
     trace = _linear_trace()
     trace["nodes"][2].pop("finish_reason")

@@ -391,15 +391,26 @@ def _response_node_problems(
     model_io_contract: CapturedModelIOContract | None,
 ) -> list[str]:
     """Reparse captured response semantics exactly as Verifiers did before graph commit."""
+    body = response["body"]
+    if response["kind"] == "exact_provider_json":
+        choices = body.get("choices")
+        if not isinstance(choices, list) or len(choices) != 1 or not isinstance(choices[0], dict):
+            return [f"node_{index}_model_io_response_semantics_invalid"]
+        raw_finish_reason = choices[0].get("finish_reason")
+    else:
+        raw_finish_reason = body.get("finish_reason")
+    if raw_finish_reason not in TRAINABLE_FINISH_REASONS:
+        return [f"node_{index}_model_io_response_finish_reason_invalid"]
+
     try:
         node_message_body = node.get("message")
         if isinstance(node_message_body, dict) and node_message_body.get("reasoning_details") is None:
             node_message_body = dict(node_message_body)
             node_message_body.pop("reasoning_details", None)
         if response["kind"] == "exact_provider_json":
-            parsed = response_from_wire(ChatCompletion.model_validate(response["body"]))
+            parsed = response_from_wire(ChatCompletion.model_validate(body))
         else:
-            parsed = Response.model_validate(response["body"])
+            parsed = Response.model_validate(body)
         node_message = AssistantMessage.model_validate(node_message_body)
         node_usage = Usage.model_validate(node["usage"]) if node.get("usage") is not None else None
     except (AttributeError, IndexError, KeyError, TypeError, ValueError):

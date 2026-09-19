@@ -7,6 +7,7 @@ from pathlib import Path
 
 import certify_trace_smoke as smoke_module
 import pytest
+import smoke_qualification as qualification
 from certify_trace_smoke import SmokeCertificateError, certify_smoke
 from deployment_endpoint import load_deployment_endpoint
 from deployment_proxy_policy import load_deployment_proxy_policy
@@ -90,6 +91,14 @@ def _trace(trace_id: str, task: str, *, start: float, end: float) -> dict:
         "nodes": [
             {
                 "parent": None,
+                "sampled": False,
+                "token_ids": [],
+                "mask": [],
+                "logprobs": [],
+                "message": {"role": "user", "content": "synthetic"},
+            },
+            {
+                "parent": 0,
                 "sampled": True,
                 "token_ids": [],
                 "mask": [],
@@ -106,7 +115,7 @@ def _trace(trace_id: str, task: str, *, start: float, end: float) -> dict:
                         "body": response,
                     },
                 },
-            }
+            },
         ],
     }
 
@@ -141,7 +150,7 @@ def _fixture(
     config = run_dir / "config.toml"
     config.write_text('model = "Kimi-K3"\n')
     manifest = inputs / "manifest.json"
-    manifest.write_text("{}\n")
+    manifest.write_text('{"config":{},"task_file":{}}\n')
     provenance = run_dir / "provenance.txt"
     provenance.write_text("eval_run_identity_sha256=placeholder\n")
     deployment_id = "deployment-test"
@@ -288,7 +297,7 @@ def _fixture(
     }
     envelope = {
         "schema_version": 1,
-        "eval_run_identity_sha256": "b" * 64,
+        "eval_run_identity_sha256": _json_digest(identity),
         "identity": identity,
     }
     invocations = run_dir / "eval_invocations.jsonl"
@@ -394,6 +403,7 @@ def test_certifies_valid_smoke_without_task_metadata(tmp_path: Path) -> None:
     }
     assert certificate["artifacts"]["proxy_info"] == certificate["endpoint"]["proxy_info"]
     assert certificate["audit_policy"]["model_io_contract"]["request_model"] == "Kimi-K3"
+    assert certificate["audit_policy"]["require_request_graph_match"] is True
     assert "opaque-a" not in json.dumps(certificate)
     body = {key: value for key, value in certificate.items() if key != "smoke_checkpoint_sha256"}
     assert certificate["smoke_checkpoint_sha256"] == _sha256_bytes(
@@ -401,11 +411,81 @@ def test_certifies_valid_smoke_without_task_metadata(tmp_path: Path) -> None:
     )
 
 
+def test_rejects_hash_valid_request_that_diverges_from_graph(tmp_path: Path) -> None:
+    run_dir, task_file, task_sha256, envelope = _fixture(tmp_path)
+    results_path = run_dir / "results.jsonl"
+    rows = [json.loads(line) for line in results_path.read_text().splitlines()]
+    request = rows[0]["nodes"][1]["model_io"]["request"]
+    request["body"]["messages"] = [{"role": "user", "content": "wire-only context"}]
+    request["sha256"] = _json_digest(request["body"])
+    results_path.write_text("".join(f"{json.dumps(row)}\n" for row in rows))
+    _refresh_guard_receipt(run_dir, envelope)
+
+    with pytest.raises(SmokeCertificateError, match="^trace_audit_failed$"):
+        certify_smoke(
+            run_dir,
+            expected_task_file=task_file,
+            expected_task_file_sha256=task_sha256,
+            expected_traces=2,
+            identity_loader=lambda *_args, **_kwargs: envelope,
+        )
+
+
+def test_smoke_qualification_reaudits_hash_valid_graph_wire_divergence(tmp_path: Path) -> None:
+    run_dir, task_file, task_sha256, envelope = _fixture(tmp_path)
+    certificate = certify_smoke(
+        run_dir,
+        expected_task_file=task_file,
+        expected_task_file_sha256=task_sha256,
+        expected_traces=2,
+        identity_loader=lambda *_args, **_kwargs: envelope,
+    )
+    results_path = run_dir / "results.jsonl"
+    rows = [json.loads(line) for line in results_path.read_text().splitlines()]
+    request = rows[0]["nodes"][1]["model_io"]["request"]
+    request["body"]["messages"] = [{"role": "user", "content": "wire-only context"}]
+    request["sha256"] = _json_digest(request["body"])
+    results_path.write_text("".join(f"{json.dumps(row)}\n" for row in rows))
+    _refresh_guard_receipt(run_dir, envelope)
+
+    certificate["artifacts"]["results"] = _record(results_path)
+    certificate["artifacts"]["route_guard_success"] = _record(run_dir / "route_guard_success.json")
+    certificate_body = {key: value for key, value in certificate.items() if key != "smoke_checkpoint_sha256"}
+    certificate["smoke_checkpoint_sha256"] = _sha256_bytes(smoke_module._canonical_json(certificate_body))
+    smoke_path = run_dir / "smoke_checkpoint.json"
+    smoke_path.chmod(0o600)
+    smoke_path.write_text(json.dumps(certificate, sort_keys=True) + "\n")
+    smoke_path.chmod(0o444)
+
+    identity = envelope["identity"]
+    deployment = identity["deployment"]
+    spec_path = Path(deployment["spec"]["path"])
+    readiness_path = Path(deployment["readiness_checkpoint"]["path"])
+    with pytest.raises(qualification.SmokeQualificationError, match="^smoke_trace_audit_failed$"):
+        qualification.validate_v1_smoke(
+            qualification.Artifact(smoke_path.resolve(), _sha256_bytes(smoke_path.read_bytes())),
+            deployment_id=deployment["id"],
+            deployment_spec=qualification.Artifact(
+                spec_path.resolve(),
+                deployment["spec"]["sha256"],
+            ),
+            readiness=qualification.Artifact(
+                readiness_path.resolve(),
+                deployment["readiness_checkpoint"]["sha256"],
+            ),
+            endpoint=deployment["endpoint"],
+            generation=deployment["serving_route_generation"],
+            proxy_policy=deployment["proxy_policy"],
+            model="Kimi-K3",
+            identity_loader=lambda *_args, **_kwargs: envelope,
+        )
+
+
 def test_rejects_tool_turn_without_explicit_zero_reasoning_evidence(tmp_path: Path) -> None:
     run_dir, task_file, task_sha256, envelope = _fixture(tmp_path)
     results_path = run_dir / "results.jsonl"
     rows = [json.loads(line) for line in results_path.read_text().splitlines()]
-    node = rows[0]["nodes"][0]
+    node = rows[0]["nodes"][1]
     node["message"] = {
         "role": "assistant",
         "content": None,
@@ -749,7 +829,7 @@ def test_guard_receipt_rejects_invalid_invocation_ledger(
 def test_rejects_trace_failure_without_publishing(tmp_path: Path) -> None:
     run_dir, task_file, task_sha256, envelope = _fixture(tmp_path)
     rows = [json.loads(line) for line in (run_dir / "results.jsonl").read_text().splitlines()]
-    rows[0]["nodes"][0]["message"]["reasoning_content"] = ""
+    rows[0]["nodes"][1]["message"]["reasoning_content"] = ""
     (run_dir / "results.jsonl").write_text("\n".join(json.dumps(row) for row in rows) + "\n")
 
     with pytest.raises(SmokeCertificateError, match="^trace_audit_failed$"):

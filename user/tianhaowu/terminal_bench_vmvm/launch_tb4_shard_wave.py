@@ -934,6 +934,7 @@ def _validate_generation_bindings_legacy(
         or policy.get("rollouts_per_task") != 1
         or policy.get("require_reasoning") is not True
         or policy.get("require_model_io") is not True
+        or policy.get("require_request_graph_match") is not True
         or canonical_json(policy.get("model_io_contract")) != canonical_json(EXPECTED_MODEL_IO_CONTRACT)
         or policy.get("require_token_data") is not False
         or policy.get("require_logprobs") is not False

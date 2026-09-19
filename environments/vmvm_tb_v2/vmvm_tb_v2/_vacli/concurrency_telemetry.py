@@ -10,8 +10,9 @@ import re
 import stat
 import tempfile
 import threading
+from contextlib import contextmanager
 from pathlib import Path
-from typing import Any, Protocol
+from typing import Any, Iterator, Protocol
 
 SCHEMA_VERSION = 1
 MAX_TELEMETRY_BYTES = 1024 * 1024
@@ -283,13 +284,13 @@ class LeaseStartConcurrencyLimiter:
         self._condition = threading.Condition(threading.Lock())
         self._telemetry = telemetry
 
-    def acquire(self) -> bool:
+    def _acquire(self, *, measured: bool) -> bool:
         with self._condition:
             while self._value == 0:
                 self._condition.wait()
             self._value -= 1
             try:
-                if self._telemetry is not None:
+                if measured and self._telemetry is not None:
                     self._telemetry.lease_start_entered()
             except BaseException:
                 self._value += 1
@@ -297,16 +298,36 @@ class LeaseStartConcurrencyLimiter:
                 raise
             return True
 
-    def release(self) -> None:
+    def _release(self, *, measured: bool) -> None:
         with self._condition:
             if self._value >= self._initial_value:
                 raise ValueError("Semaphore released too many times")
             try:
-                if self._telemetry is not None:
+                if measured and self._telemetry is not None:
                     self._telemetry.lease_start_finished()
             finally:
                 self._value += 1
                 self._condition.notify()
+
+    def acquire(self) -> bool:
+        """Acquire one measured lease-start permit."""
+
+        return self._acquire(measured=True)
+
+    def release(self) -> None:
+        """Release one measured lease-start permit."""
+
+        self._release(measured=True)
+
+    @contextmanager
+    def unmeasured_permit(self) -> Iterator[None]:
+        """Share capacity without reporting a lease-start telemetry holder."""
+
+        self._acquire(measured=False)
+        try:
+            yield
+        finally:
+            self._release(measured=False)
 
 
 def load_concurrency_telemetry_artifact(
