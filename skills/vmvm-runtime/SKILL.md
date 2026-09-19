@@ -475,6 +475,41 @@ flags, and every parsed provider response to identify `Kimi-K3`. Request-side
 evidence proves that max reasoning was requested; provider-side proof that it
 was honored requires separate server attestation.
 
+Do not treat an interactive summary or zero evaluator exit as a production
+trace certificate. After the fresh Mobius allocation is terminal, require an
+independently authored mode-0400 authorization binding the exact run,
+launch/oracle/input artifacts, clean source/runtime import closure, and full
+terminal Slurm allocation/step/requeue identity plus two stable empty allocation
+and step queue views. The authorization also precommits the unique audit job,
+fresh reservation/log paths, resources, and stdin wrapper transport. Never
+execute `submit_trace_production_audit.sh` by mutable pathname: capture its exact
+authorized bytes into a write-sealed memfd and invoke fd 7 through `env -i`.
+The stdlib-only submit controller uses one exact held
+`/usr/bin/sbatch --export=NONE` call, sends captured wrapper bytes on stdin,
+binds literal `Command=(null)` plus token/job/user/resource identity, releases
+once, and seals the permit/receipt before batch setup. Known-job failure gets at
+most one exact-ID cancellation and six stable terminal/empty-queue views;
+identity conflict is latched across partial reads/signals and forbids control.
+The local `sbatch` process group must also be boundedly reaped on every exit.
+The batch bootstrap uses a fresh sealed
+pycache with Python `-I -S -B` and executes user-owned native extensions only
+from write-sealed memfds. The certifier holds dirfd-backed inputs and the writer
+lock, audits one immutable results snapshot with clean-stop plus strict
+reasoning/model-I/O/request-graph/262,144 checks, performs its last terminal
+query adjacent to publication, then commits the authoritative mode-0444
+completion marker last. The resulting certificate proves trace fidelity only.
+Its qualified rollout projection must bind 2,500 tasks, exact 24-way
+rollout/multiplex/HTTP concurrency, four VMVM lease starts, the reviewed full
+Kimi timeout envelope, max reasoning, 262,144-token limits, durable model-I/O,
+and the exact VMVM source digest, with the bounded-cancellation backend and
+Terminal-Bench taskset bytes bound directly in the executable source closure.
+SFT readiness still requires the downstream format-v3 export manifest and
+schema-v2 immutable-local-tokenizer-tree preflight attestation.
+These checked-in audit scripts are inert until the complete live qualification
+chain has produced a fresh non-resume run and an external authorization. Never
+reuse a plan or authorization after its inference generation is lost,
+preempted, or replaced.
+
 The required order is readiness and state-reuse gate, two-task transcript
 smoke, full 66-task TB4 pass@1 audit, deployment resize, fresh readiness gate,
 capacity smoke at exactly production concurrency, Mobius launch-certificate
