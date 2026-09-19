@@ -791,6 +791,7 @@ def _audit_model_io(
     model_io_contract: CapturedModelIOContract | None = None,
     *,
     require_request_graph_match: bool = False,
+    require_exact_provider_json: bool = False,
 ) -> tuple[list[str], int, dict[int, dict]]:
     """Validate and reconstruct all sampled-turn provider captures."""
     problems: list[str] = []
@@ -831,10 +832,13 @@ def _audit_model_io(
         response = model_io.get("response")
         if not _valid_model_response(response):
             problems.append(f"node_{index}_model_io_response_structure_invalid")
-        elif _json_sha256(response["body"]) != response["sha256"]:
-            problems.append(f"node_{index}_model_io_response_hash_mismatch")
         else:
-            problems.extend(_response_node_problems(node, index, response, model_io_contract))
+            if require_exact_provider_json and response["kind"] != "exact_provider_json":
+                problems.append("normalized_stream_response_disallowed")
+            if _json_sha256(response["body"]) != response["sha256"]:
+                problems.append(f"node_{index}_model_io_response_hash_mismatch")
+            else:
+                problems.extend(_response_node_problems(node, index, response, model_io_contract))
 
     memo: dict[int, dict] = {}
 
@@ -942,10 +946,13 @@ def _audit_trace(
     model_io_contract: CapturedModelIOContract | None = None,
     require_request_graph_match: bool = False,
     observations: Counter[str] | None = None,
+    require_exact_provider_json: bool = False,
 ) -> list[str]:
     # Requiring logprobs necessarily opts into exact token-array validation.
     require_token_data = require_token_data or require_logprobs
-    require_model_io = require_model_io or model_io_contract is not None or require_request_graph_match
+    require_model_io = (
+        require_model_io or model_io_contract is not None or require_request_graph_match or require_exact_provider_json
+    )
     problems: list[str] = []
     if trace.get("errors"):
         problems.append("trace_has_errors")
@@ -960,6 +967,7 @@ def _audit_trace(
             nodes,
             model_io_contract,
             require_request_graph_match=require_request_graph_match,
+            require_exact_provider_json=require_exact_provider_json,
         )
 
     max_branch_tokens, invalid_parents, parent_cycle = _max_branch_tokens(nodes)
@@ -1112,9 +1120,12 @@ def _summarize_traces(
     aggregate_only: bool = False,
     model_io_contract: CapturedModelIOContract | None = None,
     require_request_graph_match: bool = False,
+    require_exact_provider_json: bool = False,
 ) -> tuple[dict, bool]:
     require_token_data = require_token_data or require_logprobs
-    require_model_io = require_model_io or model_io_contract is not None or require_request_graph_match
+    require_model_io = (
+        require_model_io or model_io_contract is not None or require_request_graph_match or require_exact_provider_json
+    )
     trace_count = 0
     sampled_tokens = 0
     model_io_turns = 0
@@ -1145,6 +1156,7 @@ def _summarize_traces(
             require_model_io=require_model_io,
             model_io_contract=model_io_contract,
             require_request_graph_match=require_request_graph_match,
+            require_exact_provider_json=require_exact_provider_json,
             observations=reasoning_observations,
         )
         if problems:
@@ -1246,6 +1258,12 @@ def main() -> None:
         help="require each captured chat request's messages to match the persisted graph prompt path",
     )
     parser.add_argument(
+        "--require-exact-provider-json",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+        help="reject normalized streaming responses that do not retain the exact provider JSON",
+    )
+    parser.add_argument(
         "--require-token-data",
         action=argparse.BooleanOptionalAction,
         default=False,
@@ -1301,6 +1319,7 @@ def main() -> None:
             aggregate_only=args.aggregate_only,
             model_io_contract=MODEL_IO_CONTRACTS.get(args.model_io_contract),
             require_request_graph_match=args.require_request_graph_match and args.require_model_io,
+            require_exact_provider_json=args.require_exact_provider_json,
         )
     except TraceJSONLError as error:
         parser.error(str(error))

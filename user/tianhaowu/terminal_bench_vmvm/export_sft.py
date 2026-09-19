@@ -67,8 +67,8 @@ REQUIRED_RUN_ARTIFACTS = (
     "inputs/manifest.json",
     "inputs/source_config.toml",
     "inputs/task_file.txt",
-    "inputs/image_manifest.json",
 )
+IMAGE_MANIFEST_ARTIFACT = "inputs/image_manifest.json"
 REQUIRED_RUNTIME_SUBMODULES = (
     "deps/pydantic-config",
     "deps/renderers",
@@ -138,6 +138,7 @@ class ExportOptions:
     exclusion_selection_manifest: Path | None = None
     exclusion_selection_manifest_sha256: str | None = None
     require_task_index_binding: bool = False
+    require_exact_provider_json: bool = False
 
 
 @dataclass(frozen=True)
@@ -803,6 +804,61 @@ def _assert_exclusion_selection_unchanged(selection: ExclusionSelection) -> None
             raise ExportError("exclusion_selection_changed")
 
 
+def _validate_optional_image_manifest(
+    run_dir: Path,
+    inputs_manifest: Mapping[str, Any],
+    taskset: Mapping[str, Any],
+    bodies: dict[str, bytes],
+    artifacts: dict[str, FileArtifact],
+) -> None:
+    """Accept only a completely absent or completely bound image manifest."""
+
+    image_path = run_dir / IMAGE_MANIFEST_ARTIFACT
+    path_declared = "image_manifest" in taskset
+    digest_declared = "image_manifest_sha256" in taskset
+    manifest_declared = "image_manifest" in inputs_manifest
+    snapshot_present = os.path.lexists(image_path)
+
+    if not any((path_declared, digest_declared, manifest_declared, snapshot_present)):
+        return
+    if not all((path_declared, digest_declared, manifest_declared, snapshot_present)):
+        raise ExportError("image_manifest_binding_invalid")
+
+    record = inputs_manifest["image_manifest"]
+    configured_path = taskset["image_manifest"]
+    configured_digest = taskset["image_manifest_sha256"]
+    if (
+        not isinstance(record, dict)
+        or set(record) != {"source", "snapshot", "sha256"}
+        or not isinstance(record.get("source"), str)
+        or not record["source"]
+        or not isinstance(record.get("snapshot"), str)
+        or not record["snapshot"]
+        or not _valid_sha256(record.get("sha256"))
+        or not isinstance(configured_path, str)
+        or not configured_path
+        or not _valid_sha256(configured_digest)
+    ):
+        raise ExportError("image_manifest_binding_invalid")
+
+    try:
+        body, artifact = _read_stable_file(image_path)
+        expected_path = image_path.resolve(strict=True)
+        manifest_path = Path(record["snapshot"]).resolve(strict=True)
+        resolved_config_path = Path(configured_path).resolve(strict=True)
+    except (ExportError, OSError, RuntimeError) as error:
+        raise ExportError("image_manifest_binding_invalid") from error
+    if (
+        manifest_path != expected_path
+        or resolved_config_path != expected_path
+        or record["sha256"] != artifact.sha256
+        or configured_digest != artifact.sha256
+    ):
+        raise ExportError("image_manifest_binding_invalid")
+    bodies[IMAGE_MANIFEST_ARTIFACT] = body
+    artifacts[IMAGE_MANIFEST_ARTIFACT] = artifact
+
+
 def _validate_run_provenance(
     run_dir: Path,
     max_sequence_tokens: int,
@@ -818,7 +874,6 @@ def _validate_run_provenance(
     expected_snapshots = {
         "config": "inputs/source_config.toml",
         "task_file": "inputs/task_file.txt",
-        "image_manifest": "inputs/image_manifest.json",
     }
     for key, relative in expected_snapshots.items():
         record = inputs_manifest.get(key)
@@ -851,8 +906,7 @@ def _validate_run_provenance(
         raise ExportError("resolved_config_taskset_invalid")
     if taskset.get("task_file_sha256") != artifacts["inputs/task_file.txt"].sha256:
         raise ExportError("resolved_config_task_digest_mismatch")
-    if taskset.get("image_manifest_sha256") != artifacts["inputs/image_manifest.json"].sha256:
-        raise ExportError("resolved_config_image_digest_mismatch")
+    _validate_optional_image_manifest(run_dir, inputs_manifest, taskset, bodies, artifacts)
     num_tasks = config.get("num_tasks")
     if isinstance(num_tasks, bool) or not isinstance(num_tasks, int) or num_tasks < 1:
         raise ExportError("resolved_config_task_count_invalid")
@@ -1781,6 +1835,7 @@ def _validate_trainable_trace(
     *,
     reward: float,
     max_sequence_tokens: int,
+    require_exact_provider_json: bool = False,
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     """Apply the exact strict validation used before any SFT row is emitted."""
     if _contains_unsupported_provider_state(trace):
@@ -1818,8 +1873,11 @@ def _validate_trainable_trace(
         require_logprobs=False,
         require_model_io=True,
         require_request_graph_match=True,
+        require_exact_provider_json=require_exact_provider_json,
     )
     if problems:
+        if "normalized_stream_response_disallowed" in problems:
+            raise ExportError("normalized_stream_response_disallowed")
         response_semantic_suffixes = (
             "_model_io_response_semantics_invalid",
             "_model_io_response_finish_reason_invalid",
@@ -1900,6 +1958,8 @@ def _validate_options(options: ExportOptions) -> None:
         raise ExportError("max_sequence_tokens_invalid")
     if not isinstance(options.require_task_index_binding, bool):
         raise ExportError("task_index_binding_invalid")
+    if not isinstance(options.require_exact_provider_json, bool):
+        raise ExportError("exact_provider_json_requirement_invalid")
     if (options.exclusion_selection_manifest is None) != (options.exclusion_selection_manifest_sha256 is None):
         raise ExportError("exclusion_selection_arguments_invalid")
     if options.exclusion_selection_manifest is not None and (
@@ -2051,6 +2111,7 @@ def export_sft(options: ExportOptions) -> dict[str, Any]:
                                 trace,
                                 reward=reward,
                                 max_sequence_tokens=options.max_sequence_tokens,
+                                require_exact_provider_json=options.require_exact_provider_json,
                             )
                         except ExportError:
                             pass
@@ -2079,6 +2140,7 @@ def export_sft(options: ExportOptions) -> dict[str, Any]:
                     trace,
                     reward=reward,
                     max_sequence_tokens=options.max_sequence_tokens,
+                    require_exact_provider_json=options.require_exact_provider_json,
                 )
                 split = _split_for_task(
                     task_sha256,
@@ -2327,6 +2389,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--exclusion-selection-manifest", type=Path)
     parser.add_argument("--exclusion-selection-manifest-sha256")
     parser.add_argument("--require-task-index-binding", action="store_true")
+    parser.add_argument("--require-exact-provider-json", action="store_true")
     return parser.parse_args(argv)
 
 
@@ -2344,6 +2407,7 @@ def main(argv: list[str] | None = None) -> int:
         exclusion_selection_manifest=args.exclusion_selection_manifest,
         exclusion_selection_manifest_sha256=args.exclusion_selection_manifest_sha256,
         require_task_index_binding=args.require_task_index_binding,
+        require_exact_provider_json=args.require_exact_provider_json,
     )
     try:
         summary = export_sft(options)

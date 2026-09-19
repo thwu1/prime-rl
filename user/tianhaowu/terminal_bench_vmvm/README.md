@@ -576,6 +576,13 @@ tmux send-keys -t swebench_vmvm:Launcher.0 \
 After that audit publishes `smoke_checkpoint.json`, hash the file and launch
 the full 66-task pass@1 run with the same passed readiness artifact:
 
+If the standard checkpoint already exists, a post-run exact-provider audit can
+publish a separate immutable certificate without replacing it by setting
+`SMOKE_REQUIRE_EXACT_PROVIDER_JSON=1` and a safe basename such as
+`SMOKE_CHECKPOINT_NAME=smoke_checkpoint_exact_provider.json`. Alternate names
+are rejected unless the exact-provider gate is enabled, and an existing
+alternate target is never reused or overwritten.
+
 ```bash
 tmux send-keys -t swebench_vmvm:Launcher.0 \
   "cd /checkpoint/ram/tianhaowu/terminal_bench_vmvm/sources/prime-rl-<commit> && env PROJECT_DIR=\$PWD EVAL_EXPECTED_PRIME_RL_REVISION=<commit> EVAL_RUN_ROLE=tb4 EVAL_DEPLOYMENT_ID=tianhaowu-k3-kda-tb1-low-20260916 EVAL_EXPECTED_MODEL=Kimi-K3 EVAL_APPROVED_TASK_FILE=\$PWD/user/tianhaowu/terminal_bench_vmvm/configs/eval/tb4_qwen_a95b_miniswe.tasks.txt EVAL_APPROVED_TASK_FILE_SHA256=9485011ac4a953f4a4a1c7c5e78550b6d7de6f760a3859dac15a3610cf4ad892 EVAL_CONFIG=\$PWD/user/tianhaowu/terminal_bench_vmvm/configs/eval/tb4_kimi_k3_max_miniswe.toml EVAL_DATASET_ARCHIVE=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/downloads/terminal-bench-prebuilt-v4.0.0.tar.gz EVAL_DATASET_ARCHIVE_SHA256=6d2c57cbcb1a75b5cdc0b0f989747fa68cdc65df8ff0a6893045a70ced7e668e EVAL_DATASET_CONTENT_SHA256=564a42a4e2ce0a5efd23758656e4e419b3566a36234dfc09bae1029bc15326b2 INFERENCE_DEPLOYMENT_SPEC=/checkpoint/ram/shared/vllm_deployments_v2/tianhaowu-k3-kda-tb1-low-20260916/spec.yaml INFERENCE_DEPLOYMENT_SPEC_SHA256=<readiness-bound-spec-sha256> INFERENCE_READINESS_CHECKPOINT=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/gates/k3_kda_tb1_low_readiness_v1.json INFERENCE_READINESS_CHECKPOINT_SHA256=<passed-readiness-file-sha256> INFERENCE_SMOKE_CHECKPOINT=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/evals/tb4_kimi_k3_sticky_smoke_v1/smoke_checkpoint.json INFERENCE_SMOKE_CHECKPOINT_SHA256=<smoke-checkpoint-file-sha256> INFERENCE_PROXY_INFO=/checkpoint/ram/shared/vllm_deployments_v2/tianhaowu-k3-kda-tb1-low-20260916/proxy_info.json INFERENCE_PROXY_INFO_SHA256=<readiness-bound-proxy-info-sha256> OUTPUT_DIR=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/evals/tb4_kimi_k3_sticky_full_v3 VACLI_MAX_CONCURRENT_LEASES=2 sbatch --parsable \$PWD/user/tianhaowu/terminal_bench_vmvm/run_eval.sbatch" C-m
@@ -1035,6 +1042,7 @@ uv run --project user/tianhaowu/terminal_bench_vmvm \
   --expected-count 2500 \
   --aggregate-only \
   --require-reasoning \
+  --require-exact-provider-json \
   --model-io-contract kimi-k3-max
 ```
 
@@ -1062,6 +1070,10 @@ provider state, finish reason, and normalized usage to equal the persisted
 assistant node. Hash-valid but unrelated response payloads therefore fail the
 gate. Audit output contains stable problem codes and aggregate counts only,
 never response text.
+`--require-exact-provider-json` additionally rejects normalized streamed
+responses with the stable aggregate code
+`normalized_stream_response_disallowed`; omit it only when normalized capture
+is intentionally acceptable.
 
 A tool-call turn without flattened reasoning is exempt only when provider usage
 reports a valid zero reasoning-token count, or when exact provider JSON contains
@@ -1090,8 +1102,14 @@ uv run --project user/tianhaowu/terminal_bench_vmvm \
   /path/to/eval/results.jsonl \
   --output-dir /path/to/new/sft-dataset \
   --selection pass-only \
-  --expected-count 2500
+  --expected-count 2500 \
+  --require-exact-provider-json
 ```
+
+The exporter accepts an image manifest only when the resolved taskset path and
+digest, input-manifest record, and run-local snapshot are all present and agree.
+Runs that do not declare one must omit both taskset fields, the manifest entry,
+and the snapshot file.
 
 For a migrated Qwen run, create its final routing-epoch index only after the
 last evaluator job is terminal, then consume it explicitly:

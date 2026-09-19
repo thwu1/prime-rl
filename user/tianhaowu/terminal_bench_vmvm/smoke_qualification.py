@@ -764,6 +764,19 @@ def validate_v1_smoke(
     policy = payload.get("audit_policy")
     counts = payload.get("counts")
     artifacts = payload.get("artifacts")
+    policy_keys = {
+        "expected_traces",
+        "rollouts_per_task",
+        "require_reasoning",
+        "require_model_io",
+        "model_io_contract",
+        "require_request_graph_match",
+        "require_token_data",
+        "require_logprobs",
+        "max_sequence_tokens",
+    }
+    if isinstance(policy, dict) and "require_exact_provider_json" in policy:
+        policy_keys.add("require_exact_provider_json")
     validate_proxy_policy_binding, _ = _proxy_policy_helpers()
     try:
         smoke_endpoint = validate_endpoint_binding(payload.get("endpoint"))
@@ -793,18 +806,8 @@ def validate_v1_smoke(
         or not _same_json(smoke_generation, generation)
         or not _same_json(smoke_policy, proxy_policy)
         or not isinstance(policy, dict)
-        or set(policy)
-        != {
-            "expected_traces",
-            "rollouts_per_task",
-            "require_reasoning",
-            "require_model_io",
-            "model_io_contract",
-            "require_request_graph_match",
-            "require_token_data",
-            "require_logprobs",
-            "max_sequence_tokens",
-        }
+        or set(policy) != policy_keys
+        or ("require_exact_provider_json" in policy and not isinstance(policy.get("require_exact_provider_json"), bool))
         or type(policy.get("rollouts_per_task")) is not int
         or policy["rollouts_per_task"] != 1
         or policy.get("require_reasoning") is not True
@@ -957,6 +960,7 @@ def validate_v1_smoke(
             require_model_io=True,
             model_io_contract=KIMI_K3_MAX_MODEL_IO_CONTRACT,
             require_request_graph_match=True,
+            require_exact_provider_json=policy.get("require_exact_provider_json", False),
             max_sequence_tokens=262_144,
         )
     except (OSError, ValueError) as error:

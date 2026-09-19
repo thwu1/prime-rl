@@ -105,6 +105,42 @@ def _model_io(request: dict, response: dict, *, base_node: int | None = None, ba
     }
 
 
+def _use_normalized_stream_responses(trace: dict) -> None:
+    for node in trace["nodes"]:
+        if node.get("sampled") is not True:
+            continue
+        exact = node["model_io"]["response"]
+        choice = exact["body"]["choices"][0]
+        raw_message = choice["message"]
+        message = {
+            "role": "assistant",
+            "content": raw_message["content"],
+            "reasoning_content": raw_message["reasoning"],
+        }
+        if raw_message.get("tool_calls"):
+            message["tool_calls"] = [
+                {
+                    "id": call["id"],
+                    "name": call["function"]["name"],
+                    "arguments": call["function"]["arguments"],
+                }
+                for call in raw_message["tool_calls"]
+            ]
+        body = {
+            "id": exact["body"]["id"],
+            "created": exact["body"]["created"],
+            "model": exact["body"]["model"],
+            "message": message,
+            "finish_reason": choice["finish_reason"],
+            "usage": copy.deepcopy(node["usage"]),
+        }
+        node["model_io"]["response"] = {
+            "kind": "normalized_stream_response",
+            "sha256": _json_sha256(body),
+            "body": body,
+        }
+
+
 def _input_node(parent: int | None, role: str, content: str, **extra) -> dict:
     return {
         "parent": parent,
@@ -429,7 +465,13 @@ def _write_exclusion_selection(
     return manifest_path, _sha256(manifest_path)
 
 
-def _write_run(run_dir: Path, traces: list[dict], *, approved_slugs: list[str] | None = None) -> Path:
+def _write_run(
+    run_dir: Path,
+    traces: list[dict],
+    *,
+    approved_slugs: list[str] | None = None,
+    include_image_manifest: bool = True,
+) -> Path:
     inputs = run_dir / "inputs"
     inputs.mkdir(parents=True)
     source_config = inputs / "source_config.toml"
@@ -441,14 +483,27 @@ def _write_run(run_dir: Path, traces: list[dict], *, approved_slugs: list[str] |
             {str(trace["task"].get("slug") or trace["task"]["name"]).rsplit("/", 1)[-1] for trace in traces}
         )
     task_file.write_text("".join(f"{slug}\n" for slug in approved_slugs))
-    image_manifest.write_text("{}\n")
     inputs_manifest = {
         "config": {"sha256": _sha256(source_config)},
         "task_file": {"sha256": _sha256(task_file)},
-        "image_manifest": {"sha256": _sha256(image_manifest)},
     }
+    if include_image_manifest:
+        image_manifest.write_text("{}\n")
+        inputs_manifest["image_manifest"] = {
+            "source": str(image_manifest.resolve()),
+            "snapshot": str(image_manifest.resolve()),
+            "sha256": _sha256(image_manifest),
+        }
     (inputs / "manifest.json").write_text(json.dumps(inputs_manifest, sort_keys=True) + "\n")
     (run_dir / "provenance.txt").write_text("prime_rl=synthetic\n")
+    image_config = (
+        [
+            f'image_manifest = "{image_manifest.resolve()}"',
+            f'image_manifest_sha256 = "{_sha256(image_manifest)}"',
+        ]
+        if include_image_manifest
+        else []
+    )
     (run_dir / "config.toml").write_text(
         "\n".join(
             [
@@ -469,7 +524,7 @@ def _write_run(run_dir: Path, traces: list[dict], *, approved_slugs: list[str] |
                 'id = "terminal-bench-vmvm"',
                 'dataset_revision = "dddddddddddddddddddddddddddddddddddddddd"',
                 f'task_file_sha256 = "{_sha256(task_file)}"',
-                f'image_manifest_sha256 = "{_sha256(image_manifest)}"',
+                *image_config,
                 "",
             ]
         )
@@ -494,6 +549,7 @@ def _options(
     exclusion_selection_manifest: Path | None = None,
     exclusion_selection_manifest_sha256: str | None = None,
     require_task_index_binding: bool = False,
+    require_exact_provider_json: bool = False,
 ):
     return ExportOptions(
         results=results,
@@ -505,6 +561,7 @@ def _options(
         exclusion_selection_manifest=exclusion_selection_manifest,
         exclusion_selection_manifest_sha256=exclusion_selection_manifest_sha256,
         require_task_index_binding=require_task_index_binding,
+        require_exact_provider_json=require_exact_provider_json,
     )
 
 
@@ -1046,45 +1103,28 @@ def test_captured_request_messages_must_match_the_graph_path(tmp_path: Path) -> 
 
 def test_normalized_stream_responses_are_validated_and_exported(tmp_path: Path) -> None:
     trace = _linear_trace()
-    for node in trace["nodes"]:
-        if node.get("sampled") is not True:
-            continue
-        exact = node["model_io"]["response"]
-        choice = exact["body"]["choices"][0]
-        raw_message = choice["message"]
-        message = {
-            "role": "assistant",
-            "content": raw_message["content"],
-            "reasoning_content": raw_message["reasoning"],
-        }
-        if raw_message.get("tool_calls"):
-            message["tool_calls"] = [
-                {
-                    "id": call["id"],
-                    "name": call["function"]["name"],
-                    "arguments": call["function"]["arguments"],
-                }
-                for call in raw_message["tool_calls"]
-            ]
-        body = {
-            "id": exact["body"]["id"],
-            "created": exact["body"]["created"],
-            "model": exact["body"]["model"],
-            "message": message,
-            "finish_reason": choice["finish_reason"],
-            "usage": copy.deepcopy(node["usage"]),
-        }
-        node["model_io"]["response"] = {
-            "kind": "normalized_stream_response",
-            "sha256": _json_sha256(body),
-            "body": body,
-        }
+    _use_normalized_stream_responses(trace)
     results = _write_run(tmp_path / "run", [trace])
     output = tmp_path / "dataset"
 
     summary = export_sft(_options(results, output))
 
     assert summary["rows"]["total"] == 2
+
+
+def test_exact_provider_json_requirement_rejects_normalized_stream_responses(tmp_path: Path) -> None:
+    trace = _linear_trace()
+    _use_normalized_stream_responses(trace)
+    results = _write_run(tmp_path / "run", [trace])
+
+    with pytest.raises(ExportError, match="^normalized_stream_response_disallowed$"):
+        export_sft(
+            _options(
+                results,
+                tmp_path / "dataset",
+                require_exact_provider_json=True,
+            )
+        )
 
 
 @pytest.mark.parametrize(("field", "value"), [("reasoning_tokens", True), ("reasoning_tokens", 6)])
@@ -1229,6 +1269,113 @@ def test_export_is_byte_deterministic_and_records_provenance_hashes(tmp_path: Pa
     assert manifest["source_artifacts"]["inputs/image_manifest.json"]["sha256"] == _sha256(
         results.parent / "inputs" / "image_manifest.json"
     )
+
+
+def test_export_accepts_fully_absent_optional_image_manifest(tmp_path: Path) -> None:
+    results = _write_run(
+        tmp_path / "run",
+        [_linear_trace()],
+        include_image_manifest=False,
+    )
+    output = tmp_path / "dataset"
+
+    export_sft(_options(results, output))
+
+    manifest = json.loads((output / "manifest.json").read_text())
+    assert "inputs/image_manifest.json" not in manifest["source_artifacts"]
+
+
+@pytest.mark.parametrize(
+    "state",
+    [
+        "taskset_path_only",
+        "taskset_digest_only",
+        "manifest_only",
+        "snapshot_only",
+        "taskset_without_manifest",
+        "manifest_snapshot_without_taskset",
+    ],
+)
+def test_export_rejects_partial_or_unbound_optional_image_manifest(tmp_path: Path, state: str) -> None:
+    results = _write_run(
+        tmp_path / "run",
+        [_linear_trace()],
+        include_image_manifest=False,
+    )
+    run = results.parent
+    snapshot = run / "inputs/image_manifest.json"
+    manifest_path = run / "inputs/manifest.json"
+    config = run / "config.toml"
+    if state in {
+        "taskset_path_only",
+        "snapshot_only",
+        "taskset_without_manifest",
+        "manifest_snapshot_without_taskset",
+    }:
+        snapshot.write_text("{}\n")
+    if state == "taskset_path_only":
+        config.write_text(config.read_text() + f'image_manifest = "{snapshot.resolve()}"\n')
+    elif state == "taskset_digest_only":
+        config.write_text(config.read_text() + f'image_manifest_sha256 = "{"a" * 64}"\n')
+    elif state == "taskset_without_manifest":
+        config.write_text(
+            config.read_text()
+            + f'image_manifest = "{snapshot.resolve()}"\n'
+            + f'image_manifest_sha256 = "{_sha256(snapshot)}"\n'
+        )
+    elif state in {"manifest_only", "manifest_snapshot_without_taskset"}:
+        manifest = json.loads(manifest_path.read_text())
+        manifest["image_manifest"] = {
+            "source": str(snapshot),
+            "snapshot": str(snapshot),
+            "sha256": _sha256(snapshot) if snapshot.exists() else "a" * 64,
+        }
+        manifest_path.write_text(json.dumps(manifest, sort_keys=True) + "\n")
+
+    with pytest.raises(ExportError, match="^image_manifest_binding_invalid$"):
+        export_sft(_options(results, tmp_path / "dataset"))
+
+
+@pytest.mark.parametrize(
+    "state",
+    [
+        "config_digest_mismatch",
+        "config_path_mismatch",
+        "manifest_digest_mismatch",
+        "manifest_path_mismatch",
+        "manifest_record_partial",
+        "dangling_snapshot",
+    ],
+)
+def test_export_rejects_mismatched_or_dangling_optional_image_manifest(tmp_path: Path, state: str) -> None:
+    results = _write_run(tmp_path / "run", [_linear_trace()])
+    run = results.parent
+    snapshot = run / "inputs/image_manifest.json"
+    manifest_path = run / "inputs/manifest.json"
+    config = run / "config.toml"
+    if state == "config_digest_mismatch":
+        config.write_text(config.read_text().replace(_sha256(snapshot), "a" * 64))
+    elif state == "config_path_mismatch":
+        other = tmp_path / "other-images.json"
+        other.write_text("{}\n")
+        config.write_text(config.read_text().replace(str(snapshot.resolve()), str(other.resolve())))
+    elif state in {"manifest_digest_mismatch", "manifest_path_mismatch", "manifest_record_partial"}:
+        manifest = json.loads(manifest_path.read_text())
+        if state == "manifest_digest_mismatch":
+            manifest["image_manifest"]["sha256"] = "a" * 64
+        elif state == "manifest_path_mismatch":
+            other = tmp_path / "other-images.json"
+            other.write_text("{}\n")
+            manifest["image_manifest"]["snapshot"] = str(other.resolve())
+        else:
+            manifest["image_manifest"].pop("source")
+        manifest_path.write_text(json.dumps(manifest, sort_keys=True) + "\n")
+    else:
+        snapshot.unlink()
+        snapshot.symlink_to(run / "inputs/missing-image-manifest.json")
+
+    with pytest.raises(ExportError, match="^image_manifest_binding_invalid$"):
+        export_sft(_options(results, tmp_path / "dataset"))
 
 
 def test_target_rendering_contract_is_immutable(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -2138,3 +2285,30 @@ def test_cli_failure_is_redacted(tmp_path: Path, capsys: pytest.CaptureFixture[s
     assert private_marker not in captured.out
     assert private_marker not in captured.err
     assert json.loads(captured.err) == {"code": "trace_validation_failed", "status": "error"}
+
+
+def test_exact_provider_json_cli_failure_is_redacted(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    private_marker = "private-normalized-response-marker"
+    trace = _linear_trace(task_name=private_marker)
+    _use_normalized_stream_responses(trace)
+    results = _write_run(tmp_path / "run", [trace])
+
+    status = main(
+        [
+            str(results),
+            "--output-dir",
+            str(tmp_path / "dataset"),
+            "--selection",
+            "pass-only",
+            "--require-exact-provider-json",
+        ]
+    )
+
+    captured = capsys.readouterr()
+    assert status == 2
+    assert private_marker not in captured.out
+    assert private_marker not in captured.err
+    assert json.loads(captured.err) == {
+        "code": "normalized_stream_response_disallowed",
+        "status": "error",
+    }
