@@ -1561,6 +1561,13 @@ def test_rejects_route_count_below_production_concurrency(tmp_path: Path) -> Non
         create_launch_certificate(**arguments)
 
 
+def test_rejects_route_count_above_exact_production_target(tmp_path: Path) -> None:
+    arguments, _ = _fixture(tmp_path, production_routes=25)
+
+    with pytest.raises(LaunchCertificateError, match="^post_tb4_route_count_not_exact$"):
+        create_launch_certificate(**arguments)
+
+
 def test_rejects_tb4_checkpoint_not_run_at_exactly_one_route(tmp_path: Path) -> None:
     arguments, _ = _fixture(tmp_path, tb4_routes=2, production_routes=3)
 
@@ -2176,6 +2183,7 @@ def test_rejects_capacity_smoke_from_a_different_workload_contract(
         ("finalize = 3600", "finalize = 3599", "production_timeout_contract_invalid"),
         ("scoring = 21600", "scoring = 21599", "production_timeout_contract_invalid"),
         ("connect_timeout = 120", "connect_timeout = 119", "production_timeout_contract_invalid"),
+        (" = 24\n", " = 23\n", "production_concurrency_contract_invalid"),
         ("max_connections = 24", "max_connections = 23", "production_concurrency_contract_invalid"),
         ("max_retries = 2", "max_retries = 1", "production_retry_contract_invalid"),
         (

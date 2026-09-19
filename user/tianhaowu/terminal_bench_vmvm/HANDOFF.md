@@ -95,7 +95,7 @@ repairs that were present during the successful oracle run.
 - TB4 v4.0.0 is pinned to commit
   `452bf305c6daa62fc59061d22133a7cbc7c1572e` and release SHA-256
   `6d2c57cbcb1a75b5cdc0b0f989747fa68cdc65df8ff0a6893045a70ced7e668e`.
-- The 66-task Kimi config is pass@1, max reasoning, eight rollout/HTTP concurrency,
+- The 66-task Kimi config is pass@1, max reasoning, four rollout/HTTP concurrency,
   200 turns, and a 262,144-token total cap. Eleven Compose tasks use the real
   multi-service path. Three GPU tasks are explicitly unsupported by the
   current CPU-only VMVM tenant, leaving 63 CPU-supported tasks.
@@ -355,9 +355,6 @@ rollout up to twice for `ProviderError`, `SandboxError`, `TunnelError`, or the
 narrow `InterceptionError`; a new trace/session can escape a transiently bad
 sticky backend or interception transport. Do not add broad `HarnessError`
 retries: malformed requests and deterministic harness failures must remain
-terminal. For a resumed job,
-pass both `RESUME_DIR` and the same `INFERENCE_PROXY_INFO`. The saved config
-contains the old proxy URL but deliberately no API key, so `RESUME_DIR` alone
-would authenticate with the placeholder key. Confirm the original deployment
-proxy is still live before resuming; do not silently rebind an old run to a
-different proxy.
+terminal. Guarded Kimi runs are deliberately nonresumable: after interruption,
+requalify the current serving generation and restart from an empty output
+directory. Do not set `RESUME_DIR` or rebind partial rows to another proxy.

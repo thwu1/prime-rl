@@ -75,6 +75,7 @@ EXPECTED_TB4_MIN_PASS_RATE = 0.04
 EXPECTED_TB4_MAX_PASS_RATE = 0.22
 EXPECTED_TB4_ROLLOUT_CONCURRENCY = 4
 EXPECTED_TB4_LEASE_START_CONCURRENCY = 2
+EXPECTED_MOBIUS_STEADY_STATE_CONCURRENCY = 24
 EXPECTED_MOBIUS_LEASE_START_CONCURRENCY = 4
 EXPECTED_DENYLIST = frozenset({"logprobs", "prompt_logprobs", "return_token_ids", "top_logprobs"})
 EXPECTED_MODEL_IO_CONTRACT = {
@@ -1820,6 +1821,8 @@ def _validate_production_config(
         execution = validate_kimi_steady_state_concurrency_contract(config)
     except EvalIdentityError as cause:
         raise LaunchCertificateError("production_concurrency_contract_invalid") from cause
+    if set(execution.values()) != {EXPECTED_MOBIUS_STEADY_STATE_CONCURRENCY}:
+        raise LaunchCertificateError("production_concurrency_contract_invalid")
 
     context = {
         "max_input_tokens": config.get("max_input_tokens"),
@@ -2113,6 +2116,8 @@ def _build_unsigned(
         raise LaunchCertificateError("post_tb4_deployment_spec_not_changed")
     if readiness["expected_routes"] < production_contract["execution"]["rollout_concurrency"]:
         raise LaunchCertificateError("post_tb4_route_count_below_production_concurrency")
+    if readiness["expected_routes"] != EXPECTED_MOBIUS_STEADY_STATE_CONCURRENCY:
+        raise LaunchCertificateError("post_tb4_route_count_not_exact")
     try:
         revalidate_deployment_proxy_policy(
             Path(spec_record["path"]),

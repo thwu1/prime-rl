@@ -319,7 +319,7 @@ was honored requires separate server attestation.
 
 The required order is readiness and state-reuse gate, two-task transcript
 smoke, full 66-task TB4 pass@1 audit, deployment resize, fresh readiness gate,
-capacity smoke at or above production concurrency, Mobius launch-certificate
+capacity smoke at exactly production concurrency, Mobius launch-certificate
 creation, and only then the 2,500-task rollout. The full TB4 qualification uses
 four active rollouts and two simultaneous lease starts. Normalize effective
 lease-start concurrency as the smaller of `VACLI_MAX_CONCURRENT_LEASES` and the
@@ -342,13 +342,13 @@ TB4 used exactly one route. Multi-generation schema-3 TB4 may use exactly one
 or two routes; no CLI option can authorize another count. The post-resize
 deployment-spec digest must differ from the TB4 digest, and the post-resize
 spec/readiness route count must be strictly larger than the TB4 route count and
-at least the production rollout concurrency.
+exactly the 24-route production target.
 The production target is exactly 24 ready routes, so invoke the post-resize
 waiter with `EXPECTED_ROUTES=24` before the concurrency-24, lease-starts-four
 capacity smoke. Keep rollout, multiplex, and both HTTP pool limits aligned at
 24, while setting `VACLI_MAX_CONCURRENT_LEASES=4` explicitly. The launch
-certificate rejects a readiness/spec route count below production rollout
-concurrency. A route-generation change invalidates the current eval identity;
+certificate rejects any readiness/spec route count other than 24. A
+route-generation change invalidates the current eval identity;
 do not resume guarded Kimi outputs at all.
 
 Pier's DeepSWE adapter supports prebuilt agent images and the benchmark's
