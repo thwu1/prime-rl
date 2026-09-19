@@ -581,9 +581,10 @@ router retries, and sets its request deadline above the evaluator's
 overflow queue. Mobius runs 64 evaluator rollouts with a 32-request provider
 admission cap and a 32-request router queue. The direct launcher requires
 multiplexing to equal rollout concurrency and binds both HTTP pools to the
-provider admission cap. It also forces `VACLI_MAX_CONCURRENT_LEASES=8`; do not
-run it alongside another VMVM evaluation if that would raise aggregate active
-VMVM lease-start concurrency above eight.
+provider admission cap. `run_qwen_direct_eval.sbatch` forces
+`VACLI_MAX_CONCURRENT_LEASES=2`; the lower-level driver defaults to eight only
+when invoked directly. Do not run either alongside another VMVM evaluation if
+that would exceed the intended aggregate VMVM lease-start concurrency.
 
 The full 66-task TB4 set and 2,500-task oracle-valid Mobius production set,
 including all task categories, are approved for the direct Qwen route. The
