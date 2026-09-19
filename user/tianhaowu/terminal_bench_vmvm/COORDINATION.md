@@ -1,6 +1,6 @@
 # VMVM sandbox coordination
 
-Last updated: 2026-09-19 15:50 UTC
+Last updated: 2026-09-19 16:37 UTC
 
 ## First message to the next teammate
 
@@ -41,6 +41,34 @@ this shared branch again.
 Add new rows below this line; do not overwrite another owner's row.
 
 ## Open coordination requests
+
+- **2026-09-19 16:37 UTC, infrastructure-retry v15 held gate in progress:**
+  fresh v15 passed 143 public tests with one gated skip, then passed the
+  independently authorized real-input regression, no-write validation,
+  selection build, and verify-only stages. The sealed aggregate selection is
+  19 unique entries: 15 retry candidates and four controls, requiring all
+  controls plus at least six candidate recoveries for a projected 2,500 valid
+  tasks. Its independently approved one-shot launcher is currently active with
+  exactly one user-held allocation, a mode-0700 two-file preparatory
+  reservation, and no authorization, release, output, audit, or promotion
+  surface. Do not interrupt, release, cancel, or retry it: held convergence has
+  a genuine 982-second deadline. Read-only evidence shows this cluster renders
+  held `NumNodes` as `1-1` and omits `NodeList`, while running jobs render
+  `NumNodes=1` with an assigned node. Preserve the complete v15 terminal
+  telemetry; if the strict older representation never converges, build a fresh
+  v16 that narrows only the held-state predicates and keeps activation strict.
+
+- **2026-09-19 16:37 UTC, Kimi smoke and tokenizer staging:** smoke `1753515`
+  remains healthy and advancing with one durable row and one active generation;
+  both routes are healthy and cumulative proxy 4xx/5xx remain zero. The first
+  row independently passes strict trace/reasoning/model-I/O/request-graph and
+  262,144-token-cap checks. Preserve the run. Post-smoke tokenizer metadata
+  probe v1 was rejected unexecuted because correlated receipts could reveal the
+  selected worker and host. Fresh unarmed v2 removes those identifiers, uses a
+  nonce-bound private authorization, and passed 19 isolated tests plus lint and
+  format; it still requires independent exact-byte review and smoke completion
+  before any activation. No tokenizer content, model weights, or runtime probe
+  was accessed.
 
 - **2026-09-19 15:50 UTC, infrastructure-retry v13 consumed and safely
   ineligible:** v13 fixed the isolated `packaging` import closure; its gated
