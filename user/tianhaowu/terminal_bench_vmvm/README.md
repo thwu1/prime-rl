@@ -1182,8 +1182,9 @@ child cannot outlive an unknown submission result. There is no resubmit path.
 The released batch performs no setup until the sealed permit/receipt chain is
 present. It then rejects
 ambient Bash, loader, Python, uv, and Git injection; verifies its Slurm spool
-copy; creates a fresh sealed pycache prefix; and enters the captured bootstrap
-with `python -I -S -B` under `env -i`. The bootstrap rejects dirty or
+copy; validates root-owned `/dev/null` as a non-directory pycache sink; and
+enters the captured bootstrap with `python -I -S -B` under `env -i`. The
+bootstrap rejects dirty or
 non-detached source, wrong gitlinks, ignored/untracked importable or cache
 files, executable customization modules, unmanifested imports, and runtime or
 source changes before execution and again immediately before publication.

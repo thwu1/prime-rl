@@ -52,8 +52,7 @@ def _authorization(tmp_path: Path) -> dict[str, Any]:
             "artifacts": {
                 "production_audit_wrapper": {
                     "path": str(
-                        tmp_path
-                        / "source/user/tianhaowu/terminal_bench_vmvm/run_trace_production_audit.sbatch"
+                        tmp_path / "source/user/tianhaowu/terminal_bench_vmvm/run_trace_production_audit.sbatch"
                     ),
                     "sha256": "a" * 64,
                 }
@@ -94,9 +93,7 @@ def test_sbatch_uses_hold_and_exact_stdin_wrapper_transport(tmp_path: Path) -> N
     assert command.count("--export=NONE") == 1
     assert command[-3:] == ["-", "arg-one", "arg-two"]
     assert not any(item.endswith(".sbatch") for item in command)
-    assert (
-        submit._job_expectations(_authorization(tmp_path), "123")["Command"] == "(null)"
-    )
+    assert submit._job_expectations(_authorization(tmp_path), "123")["Command"] == "(null)"
 
 
 def test_batch_wrapper_admits_fresh_reservation_with_noncache_sink(
@@ -250,9 +247,7 @@ def test_phase_queries_are_capped_by_one_shared_deadline(
     clock = Clock()
     observed_timeouts: list[float] = []
 
-    def runner(
-        _argv: list[str] | tuple[str, ...], timeout: float
-    ) -> submit.CommandResult:
+    def runner(_argv: list[str] | tuple[str, ...], timeout: float) -> submit.CommandResult:
         observed_timeouts.append(timeout)
         clock.value += 19.5
         return submit.CommandResult(1, b"", b"")
@@ -337,15 +332,11 @@ def test_cancel_conflict_never_issues_control(
         lambda *_args, **_kwargs: ("conflict", ("UserId",)),
     )
 
-    def runner(
-        argv: list[str] | tuple[str, ...], _timeout: float
-    ) -> submit.CommandResult:
+    def runner(argv: list[str] | tuple[str, ...], _timeout: float) -> submit.CommandResult:
         controls.append(tuple(argv))
         return submit.CommandResult(0, b"", b"")
 
-    with pytest.raises(
-        submit.LifecycleError, match="^cancellation_unconfirmed$"
-    ) as raised:
+    with pytest.raises(submit.LifecycleError, match="^cancellation_unconfirmed$") as raised:
         submit.cancel_and_prove(
             _authorization(tmp_path),
             "123",
@@ -374,16 +365,12 @@ def test_direct_candidate_gets_one_exact_cancel_when_identity_stays_unavailable(
         lambda *_args, **_kwargs: ("unavailable", "UNKNOWN", "", ()),
     )
 
-    def runner(
-        argv: list[str] | tuple[str, ...], _timeout: float
-    ) -> submit.CommandResult:
+    def runner(argv: list[str] | tuple[str, ...], _timeout: float) -> submit.CommandResult:
         controls.append(tuple(argv))
         return submit.CommandResult(0, b"", b"")
 
     clock = Clock()
-    with pytest.raises(
-        submit.LifecycleError, match="^cancellation_unconfirmed$"
-    ) as raised:
+    with pytest.raises(submit.LifecycleError, match="^cancellation_unconfirmed$") as raised:
         submit.cancel_and_prove(
             _authorization(tmp_path),
             "123",
@@ -444,9 +431,7 @@ def test_cancellation_terminal_proof_converges_after_more_than_twelve_polls(
     )
     controls: list[tuple[str, ...]] = []
 
-    def runner(
-        argv: list[str] | tuple[str, ...], _timeout: float
-    ) -> submit.CommandResult:
+    def runner(argv: list[str] | tuple[str, ...], _timeout: float) -> submit.CommandResult:
         controls.append(tuple(argv))
         return submit.CommandResult(0, b"", b"")
 
@@ -486,9 +471,7 @@ def test_partial_phase_failure_retains_prior_explicit_conflict(
     raw = " ".join(f"{key}={value}" for key, value in scontrol.items()).encode()
     calls = 0
 
-    def runner(
-        _argv: list[str] | tuple[str, ...], _timeout: float
-    ) -> submit.CommandResult:
+    def runner(_argv: list[str] | tuple[str, ...], _timeout: float) -> submit.CommandResult:
         nonlocal calls
         calls += 1
         if calls == 1:
@@ -529,9 +512,7 @@ def test_terminal_partial_failure_retains_queue_conflict_and_forbids_cancel(
     calls = 0
     controls: list[tuple[str, ...]] = []
 
-    def runner(
-        argv: list[str] | tuple[str, ...], _timeout: float
-    ) -> submit.CommandResult:
+    def runner(argv: list[str] | tuple[str, ...], _timeout: float) -> submit.CommandResult:
         nonlocal calls
         calls += 1
         if argv[0] == "/usr/bin/scancel":
@@ -559,9 +540,7 @@ def test_terminal_partial_failure_retains_queue_conflict_and_forbids_cancel(
         "_precontrol_identity",
         lambda *_args, **_kwargs: ("unavailable", ()),
     )
-    with pytest.raises(
-        submit.LifecycleError, match="^cancellation_unconfirmed$"
-    ) as raised:
+    with pytest.raises(submit.LifecycleError, match="^cancellation_unconfirmed$") as raised:
         submit.cancel_and_prove(
             authorization,
             "123",
@@ -647,9 +626,7 @@ def test_reservation_anchor_rejects_parent_replacement_between_phases(
         with pytest.raises(submit.SubmissionError, match="^reservation_changed$"):
             anchor.revalidate(expected_mode=0o700)
         assert list(replacement.iterdir()) == []
-        assert {path.name for path in (displaced / "reservation").iterdir()} == {
-            "launch_intent.json"
-        }
+        assert {path.name for path in (displaced / "reservation").iterdir()} == {"launch_intent.json"}
     finally:
         anchor.close()
 
@@ -682,9 +659,7 @@ def test_success_publication_rolls_back_partial_admission(
     monkeypatch.setattr(submit, "publish_once", fail_second)
     committed = {"value": False}
     try:
-        with pytest.raises(
-            submit.SubmissionError, match="^injected_publication_failure$"
-        ):
+        with pytest.raises(submit.SubmissionError, match="^injected_publication_failure$"):
             submit._publish_success(anchor, b"receipt\n", b"permit\n", committed)
         assert committed == {"value": False}
         assert stat.S_IMODE(reservation.stat().st_mode) == 0o700
@@ -736,13 +711,8 @@ def test_success_publication_never_rolls_back_after_admission_commit(
 
 
 def test_untrusted_exception_text_never_becomes_failure_code() -> None:
-    assert (
-        submit._safe_exception_code(RuntimeError("looks_safe")) == "submission_failed"
-    )
-    assert (
-        submit._safe_exception_code(submit.SubmissionError("known_safe"))
-        == "known_safe"
-    )
+    assert submit._safe_exception_code(RuntimeError("looks_safe")) == "submission_failed"
+    assert submit._safe_exception_code(submit.SubmissionError("known_safe")) == "known_safe"
 
 
 def test_sealed_submitter_descriptor_cannot_be_rewritten() -> None:
@@ -750,12 +720,7 @@ def test_sealed_submitter_descriptor_cannot_be_rewritten() -> None:
     descriptor = os.memfd_create("sealed-submitter-test", os.MFD_ALLOW_SEALING)
     try:
         os.write(descriptor, body)
-        seals = (
-            fcntl.F_SEAL_SEAL
-            | fcntl.F_SEAL_SHRINK
-            | fcntl.F_SEAL_GROW
-            | fcntl.F_SEAL_WRITE
-        )
+        seals = fcntl.F_SEAL_SEAL | fcntl.F_SEAL_SHRINK | fcntl.F_SEAL_GROW | fcntl.F_SEAL_WRITE
         fcntl.fcntl(descriptor, fcntl.F_ADD_SEALS, seals)
         assert (
             submit._descriptor_bytes(
@@ -790,9 +755,7 @@ def test_reservation_commit_flag_is_set_at_admission_before_postcommit_fsync(
 
     monkeypatch.setattr(submit.os, "fsync", fail_before_commit)
     try:
-        with pytest.raises(
-            submit.LifecycleError, match="^reservation_commit_ambiguous$"
-        ):
+        with pytest.raises(submit.LifecycleError, match="^reservation_commit_ambiguous$"):
             submit._seal_reservation(anchor, committed)
         assert committed["value"] is True
         assert stat.S_IMODE(root.stat().st_mode) == 0o500
@@ -801,9 +764,7 @@ def test_reservation_commit_flag_is_set_at_admission_before_postcommit_fsync(
 
 
 def test_wrapper_gate_exceeds_release_activation_and_publication_bounds() -> None:
-    wrapper = (
-        Path(submit.__file__).with_name("run_trace_production_audit.sbatch").read_text()
-    )
+    wrapper = Path(submit.__file__).with_name("run_trace_production_audit.sbatch").read_text()
     assert "SECONDS + 900" in wrapper
     assert 900 > submit.QUERY_TIMEOUT_SECONDS + submit.ACTIVATION_TIMEOUT_SECONDS + 30
     assert bootstrap.HELD_TIMEOUT_SECONDS == submit.HELD_TIMEOUT_SECONDS
@@ -818,14 +779,9 @@ def test_submit_is_one_shot_held_release_then_sealed_commit(
     authorization = _authorization(tmp_path)
     wrapper = b"#!/usr/bin/bash\nexit 0\n"
     wrapper_sha = hashlib.sha256(wrapper).hexdigest()
-    authorization["source"]["artifacts"]["production_audit_wrapper"]["sha256"] = (
-        wrapper_sha
-    )
+    authorization["source"]["artifacts"]["production_audit_wrapper"]["sha256"] = wrapper_sha
     (tmp_path / "run").mkdir()
-    wrapper_path = (
-        tmp_path
-        / "source/user/tianhaowu/terminal_bench_vmvm/run_trace_production_audit.sbatch"
-    )
+    wrapper_path = tmp_path / "source/user/tianhaowu/terminal_bench_vmvm/run_trace_production_audit.sbatch"
     wrapper_path.parent.mkdir(parents=True)
     wrapper_path.write_bytes(wrapper)
     wrapper_path.chmod(0o644)
@@ -848,9 +804,7 @@ def test_submit_is_one_shot_held_release_then_sealed_commit(
         ]
     )
     monkeypatch.setattr(submit, "poll_phase", lambda *_args, **_kwargs: next(phases))
-    monkeypatch.setattr(
-        submit, "_precontrol_identity", lambda *_args, **_kwargs: ("exact", ())
-    )
+    monkeypatch.setattr(submit, "_precontrol_identity", lambda *_args, **_kwargs: ("exact", ()))
     sbatch_calls: list[tuple[list[str], bytes]] = []
     release_calls: list[tuple[str, ...]] = []
 
@@ -880,9 +834,7 @@ def test_submit_is_one_shot_held_release_then_sealed_commit(
     assert result["state"] == "submitted"
     assert len(sbatch_calls) == 1 and sbatch_calls[0][1] == wrapper
     assert sbatch_calls[0][0][-6:-4] == ["-", "batch-arg"]
-    assert release_calls == [
-        ("/usr/bin/scontrol", "-M", "test-cluster", "release", "123")
-    ]
+    assert release_calls == [("/usr/bin/scontrol", "-M", "test-cluster", "release", "123")]
     assert stat.S_IMODE(reservation.stat().st_mode) == 0o500
     assert {path.name for path in reservation.iterdir()} == {
         "activation_permit.json",
@@ -922,9 +874,7 @@ def test_submit_is_one_shot_held_release_then_sealed_commit(
         "id": "123",
         "name": "trace-production-audit-0123456789abcdef",
     }
-    with pytest.raises(
-        bootstrap.BootstrapError, match="^submission_admission_invalid$"
-    ):
+    with pytest.raises(bootstrap.BootstrapError, match="^submission_admission_invalid$"):
         bootstrap.validate_submission_admission(
             tmp_path / "authorization.json",
             "b" * 64,
@@ -937,9 +887,7 @@ def test_submit_is_one_shot_held_release_then_sealed_commit(
     displaced_admission = tmp_path / "displaced-admission"
     reservation.rename(displaced_admission)
     shutil.copytree(displaced_admission, reservation)
-    with pytest.raises(
-        bootstrap.BootstrapError, match="^submission_admission_invalid$"
-    ):
+    with pytest.raises(bootstrap.BootstrapError, match="^submission_admission_invalid$"):
         bootstrap.validate_submission_admission(
             tmp_path / "authorization.json",
             "b" * 64,
@@ -970,9 +918,7 @@ def test_submit_is_one_shot_held_release_then_sealed_commit(
     permit_path.write_bytes(permit_raw)
     permit_path.chmod(0o400)
     reservation.chmod(0o500)
-    with pytest.raises(
-        bootstrap.BootstrapError, match="^submission_admission_invalid$"
-    ):
+    with pytest.raises(bootstrap.BootstrapError, match="^submission_admission_invalid$"):
         bootstrap.validate_submission_admission(
             tmp_path / "authorization.json",
             "b" * 64,
@@ -991,14 +937,9 @@ def test_submit_rejects_reservation_replacement_before_release(
     authorization = _authorization(tmp_path)
     wrapper = b"#!/usr/bin/bash\nexit 0\n"
     wrapper_sha = hashlib.sha256(wrapper).hexdigest()
-    authorization["source"]["artifacts"]["production_audit_wrapper"]["sha256"] = (
-        wrapper_sha
-    )
+    authorization["source"]["artifacts"]["production_audit_wrapper"]["sha256"] = wrapper_sha
     (tmp_path / "run").mkdir()
-    wrapper_path = (
-        tmp_path
-        / "source/user/tianhaowu/terminal_bench_vmvm/run_trace_production_audit.sbatch"
-    )
+    wrapper_path = tmp_path / "source/user/tianhaowu/terminal_bench_vmvm/run_trace_production_audit.sbatch"
     wrapper_path.parent.mkdir(parents=True)
     wrapper_path.write_bytes(wrapper)
     wrapper_path.chmod(0o644)
@@ -1012,9 +953,7 @@ def test_submit_rejects_reservation_replacement_before_release(
         "resolve_submission",
         lambda *_args, **_kwargs: ("123", True, {"polls": 1, "zero_rounds": 0}),
     )
-    monkeypatch.setattr(
-        submit, "_precontrol_identity", lambda *_args, **_kwargs: ("exact", ())
-    )
+    monkeypatch.setattr(submit, "_precontrol_identity", lambda *_args, **_kwargs: ("exact", ()))
     cancelled: list[str] = []
 
     def cancel(*_args: object, **_kwargs: object) -> dict[str, object]:
@@ -1073,14 +1012,9 @@ def test_submit_rejects_reservation_replacement_after_release(
     authorization = _authorization(tmp_path)
     wrapper = b"#!/usr/bin/bash\nexit 0\n"
     wrapper_sha = hashlib.sha256(wrapper).hexdigest()
-    authorization["source"]["artifacts"]["production_audit_wrapper"]["sha256"] = (
-        wrapper_sha
-    )
+    authorization["source"]["artifacts"]["production_audit_wrapper"]["sha256"] = wrapper_sha
     (tmp_path / "run").mkdir()
-    wrapper_path = (
-        tmp_path
-        / "source/user/tianhaowu/terminal_bench_vmvm/run_trace_production_audit.sbatch"
-    )
+    wrapper_path = tmp_path / "source/user/tianhaowu/terminal_bench_vmvm/run_trace_production_audit.sbatch"
     wrapper_path.parent.mkdir(parents=True)
     wrapper_path.write_bytes(wrapper)
     wrapper_path.chmod(0o644)
@@ -1094,9 +1028,7 @@ def test_submit_rejects_reservation_replacement_after_release(
         "resolve_submission",
         lambda *_args, **_kwargs: ("123", True, {"polls": 1, "zero_rounds": 0}),
     )
-    monkeypatch.setattr(
-        submit, "_precontrol_identity", lambda *_args, **_kwargs: ("exact", ())
-    )
+    monkeypatch.setattr(submit, "_precontrol_identity", lambda *_args, **_kwargs: ("exact", ()))
     phases = iter(
         [
             _phase(state="PENDING", timeout=submit.HELD_TIMEOUT_SECONDS),
@@ -1139,9 +1071,7 @@ def test_submit_rejects_reservation_replacement_after_release(
         )
 
     assert cancelled == ["123"]
-    assert release_calls == [
-        ("/usr/bin/scontrol", "-M", "test-cluster", "release", "123")
-    ]
+    assert release_calls == [("/usr/bin/scontrol", "-M", "test-cluster", "release", "123")]
     assert list(reservation.iterdir()) == []
     assert {path.name for path in displaced.iterdir()} == {
         "held_authorization.json",
@@ -1156,14 +1086,9 @@ def test_interrupted_sbatch_reconciles_no_job_before_sealed_failure(
     authorization = _authorization(tmp_path)
     wrapper = b"#!/usr/bin/bash\nexit 0\n"
     wrapper_sha = hashlib.sha256(wrapper).hexdigest()
-    authorization["source"]["artifacts"]["production_audit_wrapper"]["sha256"] = (
-        wrapper_sha
-    )
+    authorization["source"]["artifacts"]["production_audit_wrapper"]["sha256"] = wrapper_sha
     (tmp_path / "run").mkdir()
-    wrapper_path = (
-        tmp_path
-        / "source/user/tianhaowu/terminal_bench_vmvm/run_trace_production_audit.sbatch"
-    )
+    wrapper_path = tmp_path / "source/user/tianhaowu/terminal_bench_vmvm/run_trace_production_audit.sbatch"
     wrapper_path.parent.mkdir(parents=True)
     wrapper_path.write_bytes(wrapper)
     wrapper_path.chmod(0o644)

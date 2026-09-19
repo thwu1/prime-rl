@@ -189,9 +189,7 @@ def _fixture(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict[str, Any]:
     deployment_dir = tmp_path / deployment_id
     deployment_dir.mkdir()
     spec = deployment_dir / "spec.yaml"
-    spec.write_text(
-        "spec:\n  proxy:\n    config:\n      request_timeout: 43200\n      num_retries: 0\n"
-    )
+    spec.write_text("spec:\n  proxy:\n    config:\n      request_timeout: 43200\n      num_retries: 0\n")
     (deployment_dir / "proxy_litellm_config.yaml").write_text(
         "litellm_settings:\n  request_timeout: 43200\n  num_retries: 0\n"
     )
@@ -492,16 +490,10 @@ def _fixture(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict[str, Any]:
             "python": _record(runtime_python),
             "stdlib": {"path": str(stdlib), "tree_sha256": "1" * 64},
             "site_packages": {"path": str(site_packages), "tree_sha256": "2" * 64},
-            "tools": {
-                label: _record(Path(path))
-                for label, path in production.RUNTIME_TOOL_PATHS.items()
-            },
+            "tools": {label: _record(Path(path)) for label, path in production.RUNTIME_TOOL_PATHS.items()},
         },
     }
-    assert (
-        set(source_attestation["artifacts"])
-        == production.EXPECTED_SOURCE_ARTIFACT_LABELS
-    )
+    assert set(source_attestation["artifacts"]) == production.EXPECTED_SOURCE_ARTIFACT_LABELS
     authorization_body = {
         "schema_version": 1,
         "artifact_type": production.AUTHORIZATION_ARTIFACT_TYPE,
@@ -549,9 +541,7 @@ def _fixture(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict[str, Any]:
     }
     authorization = {
         **authorization_body,
-        "authorization_sha256": _sha256_bytes(
-            production._canonical_json(authorization_body)
-        ),
+        "authorization_sha256": _sha256_bytes(production._canonical_json(authorization_body)),
     }
     authorization_path = tmp_path / "audit_authorization.json"
     authorization_path.write_bytes(production._canonical_json(authorization) + b"\n")
@@ -600,9 +590,7 @@ def _fixture(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict[str, Any]:
         "expected_production_config": production_config,
         "expected_production_config_sha256": config_record["sha256"],
         "expected_launch_certificate": launch_certificate,
-        "expected_launch_certificate_sha256": _sha256_bytes(
-            launch_certificate.read_bytes()
-        ),
+        "expected_launch_certificate_sha256": _sha256_bytes(launch_certificate.read_bytes()),
         "expected_oracle_receipt": oracle_receipt,
         "expected_oracle_receipt_sha256": oracle_record["sha256"],
         "expected_traces": 2,
@@ -708,9 +696,7 @@ def test_terminal_query_uses_only_explicit_cluster_and_readable_auth(
         )
         + "\n"
     ).encode()
-    scontrol_raw = (
-        " ".join(f"{key}={value}" for key, value in expected["scontrol"].items()) + "\n"
-    ).encode()
+    scontrol_raw = (" ".join(f"{key}={value}" for key, value in expected["scontrol"].items()) + "\n").encode()
     observed: list[tuple[object, object]] = []
 
     def run(command, **kwargs):
@@ -776,17 +762,11 @@ def test_terminal_query_uses_only_explicit_cluster_and_readable_auth(
         production.ProductionCertificateError,
         match="evaluation_job_identity_invalid",
     ):
-        production.require_slurm_terminal(
-            "101", "test-cluster", sleeper=lambda _seconds: None
-        )
+        production.require_slurm_terminal("101", "test-cluster", sleeper=lambda _seconds: None)
 
     monkeypatch.delenv("THRIFT_TLS_CL_KEY_PATH")
-    with pytest.raises(
-        production.ProductionCertificateError, match="scheduler_auth_invalid"
-    ):
-        production.require_slurm_terminal(
-            "101", "test-cluster", sleeper=lambda _seconds: None
-        )
+    with pytest.raises(production.ProductionCertificateError, match="scheduler_auth_invalid"):
+        production.require_slurm_terminal("101", "test-cluster", sleeper=lambda _seconds: None)
 
 
 @pytest.mark.parametrize(
@@ -835,12 +815,8 @@ def test_terminal_query_rejects_any_live_allocation_or_step(
             stderr=b"",
         ),
     )
-    with pytest.raises(
-        production.ProductionCertificateError, match="evaluation_job_still_queued"
-    ):
-        production.require_slurm_terminal(
-            "101", "test-cluster", sleeper=lambda _seconds: None
-        )
+    with pytest.raises(production.ProductionCertificateError, match="evaluation_job_still_queued"):
+        production.require_slurm_terminal("101", "test-cluster", sleeper=lambda _seconds: None)
 
 
 def test_final_terminal_query_is_publication_adjacent(
@@ -935,20 +911,12 @@ def test_certifies_terminal_nonresume_production_run(
     }
     assert len(certificate["artifacts"]) >= 20
     wrapper = Path(production.__file__).with_name("run_trace_production_audit.sbatch")
-    assert certificate["artifacts"]["source_production_audit_wrapper"] == _record(
-        wrapper
-    )
+    assert certificate["artifacts"]["source_production_audit_wrapper"] == _record(wrapper)
     submitter = Path(production.__file__).with_name("submit_trace_production_audit.sh")
-    assert certificate["artifacts"]["source_production_audit_submitter"] == _record(
-        submitter
-    )
+    assert certificate["artifacts"]["source_production_audit_submitter"] == _record(submitter)
     workflow = Path(production.__file__).parent
-    assert certificate["artifacts"]["source_strict_sft_exporter"] == _record(
-        workflow / "export_sft.py"
-    )
-    assert certificate["artifacts"]["source_sft_preflight_cli"] == _record(
-        workflow / "preflight_sft.py"
-    )
+    assert certificate["artifacts"]["source_strict_sft_exporter"] == _record(workflow / "export_sft.py")
+    assert certificate["artifacts"]["source_sft_preflight_cli"] == _record(workflow / "preflight_sft.py")
     assert certificate["artifacts"]["source_sft_target_rendering_contract"] == _record(
         workflow / "configs/sft/target-rendering-contract.json"
     )
@@ -1024,9 +992,7 @@ def test_rejects_normalized_stream_response_without_publishing(
     fixture = _fixture(tmp_path, monkeypatch)
     _use_normalized_stream_responses(fixture["results"])
 
-    with pytest.raises(
-        production.ProductionCertificateError, match="trace_audit_failed"
-    ):
+    with pytest.raises(production.ProductionCertificateError, match="trace_audit_failed"):
         production.certify_production(
             fixture["run_dir"],
             terminal_validator=_terminal,
@@ -1044,9 +1010,7 @@ def test_rejects_unclean_stop_condition_without_publishing(
     rows[0]["stop_condition"] = "HarnessTimeout"
     fixture["results"].write_text("".join(f"{json.dumps(row)}\n" for row in rows))
 
-    with pytest.raises(
-        production.ProductionCertificateError, match="trace_audit_failed"
-    ):
+    with pytest.raises(production.ProductionCertificateError, match="trace_audit_failed"):
         production.certify_production(
             fixture["run_dir"],
             terminal_validator=_terminal,
@@ -1064,9 +1028,7 @@ def test_authorization_and_runtime_attestation_are_revalidated_before_commit(
     changed = dict(fixture["source_attestation"])
     changed["prime_rl_git_tree"] = "9" * 40
     fixture["kwargs"]["runtime_revalidator"] = lambda: changed
-    with pytest.raises(
-        production.ProductionCertificateError, match="verified_runtime_changed"
-    ):
+    with pytest.raises(production.ProductionCertificateError, match="verified_runtime_changed"):
         production.certify_production(
             fixture["run_dir"],
             terminal_validator=_terminal,
@@ -1080,9 +1042,7 @@ def test_authorization_and_runtime_attestation_are_revalidated_before_commit(
     authorization.chmod(0o600)
     authorization.write_bytes(authorization.read_bytes() + b" ")
     authorization.chmod(0o400)
-    with pytest.raises(
-        production.ProductionCertificateError, match="audit_authorization_changed"
-    ):
+    with pytest.raises(production.ProductionCertificateError, match="audit_authorization_changed"):
         production.certify_production(
             second["run_dir"],
             terminal_validator=_terminal,
@@ -1194,9 +1154,7 @@ def test_terminal_gate_writer_lock_replacement_is_caught_before_publication(
         fixture["writer_lock"].chmod(0o600)
         return _terminal(job_id, cluster)
 
-    with pytest.raises(
-        production.ProductionCertificateError, match="writer_lock_changed"
-    ):
+    with pytest.raises(production.ProductionCertificateError, match="writer_lock_changed"):
         production.certify_production(
             fixture["run_dir"],
             terminal_validator=replacing_terminal,
@@ -1210,9 +1168,7 @@ def test_rejects_provenance_job_mismatch_and_active_writer(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     fixture = _fixture(tmp_path, monkeypatch)
-    (fixture["run_dir"] / "provenance.txt").write_text(
-        "host=test-host\nslurm_job_id=202\n"
-    )
+    (fixture["run_dir"] / "provenance.txt").write_text("host=test-host\nslurm_job_id=202\n")
     with pytest.raises(
         production.ProductionCertificateError,
         match="terminal_guard_invalid",
@@ -1227,9 +1183,7 @@ def test_rejects_provenance_job_mismatch_and_active_writer(
     second = _fixture(tmp_path / "second", monkeypatch)
     with second["writer_lock"].open("rb") as lock:
         fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
-        with pytest.raises(
-            production.ProductionCertificateError, match="writer_active"
-        ):
+        with pytest.raises(production.ProductionCertificateError, match="writer_active"):
             production.certify_production(
                 second["run_dir"],
                 terminal_validator=_terminal,
@@ -1244,9 +1198,7 @@ def test_rejects_wrong_writer_lock_mode(
 ) -> None:
     fixture = _fixture(tmp_path, monkeypatch)
     fixture["writer_lock"].chmod(0o644)
-    with pytest.raises(
-        production.ProductionCertificateError, match="writer_lock_invalid"
-    ):
+    with pytest.raises(production.ProductionCertificateError, match="writer_lock_invalid"):
         production.certify_production(
             fixture["run_dir"],
             terminal_validator=_terminal,
@@ -1343,9 +1295,7 @@ def test_directory_anchor_detects_run_path_replacement(tmp_path: Path) -> None:
     run_dir.mkdir(mode=0o700)
     run_dir.chmod(0o700)
     try:
-        with pytest.raises(
-            production.ProductionCertificateError, match="run_dir_changed"
-        ):
+        with pytest.raises(production.ProductionCertificateError, match="run_dir_changed"):
             anchor.revalidate()
     finally:
         anchor.close()
@@ -1462,16 +1412,12 @@ def test_completion_marker_is_published_last_and_failure_never_creates_it(
         {
             "established": True,
             "trace_certificate_sufficient": False,
-            "required_downstream_artifacts": list(
-                production.SFT_READINESS_REQUIREMENTS
-            ),
+            "required_downstream_artifacts": list(production.SFT_READINESS_REQUIREMENTS),
         },
         {
             "established": False,
             "trace_certificate_sufficient": True,
-            "required_downstream_artifacts": list(
-                production.SFT_READINESS_REQUIREMENTS
-            ),
+            "required_downstream_artifacts": list(production.SFT_READINESS_REQUIREMENTS),
         },
         {
             "established": False,
@@ -1496,13 +1442,9 @@ def test_qualified_rollout_contract_rejects_short_timeout_or_non_vmvm() -> None:
         "finalize_timeout": production.eval_run_identity_module.KIMI_FINALIZE_TIMEOUT_SECONDS,
         "harness_request_timeout": production.eval_run_identity_module.KIMI_REQUEST_TIMEOUT_SECONDS,
         "request_timeout": production.eval_run_identity_module.KIMI_REQUEST_TIMEOUT_SECONDS,
-        "rollout_timeout": production.eval_run_identity_module.KIMI_TIMEOUT_PROFILES[
-            "full"
-        ]["rollout_timeout"],
+        "rollout_timeout": production.eval_run_identity_module.KIMI_TIMEOUT_PROFILES["full"]["rollout_timeout"],
         "scoring_timeout": production.eval_run_identity_module.KIMI_SCORING_TIMEOUT_SECONDS,
-        "session_timeout": production.eval_run_identity_module.KIMI_TIMEOUT_PROFILES[
-            "full"
-        ]["session_timeout"],
+        "session_timeout": production.eval_run_identity_module.KIMI_TIMEOUT_PROFILES["full"]["session_timeout"],
         "setup_timeout": production.eval_run_identity_module.KIMI_SETUP_TIMEOUT_SECONDS,
     }
     identity_contract = {
@@ -1585,12 +1527,8 @@ def test_qualified_rollout_contract_rejects_short_timeout_or_non_vmvm() -> None:
 
 
 def test_wrapper_and_submitter_use_isolated_hash_bound_bootstrap() -> None:
-    wrapper = (
-        Path(production.__file__).with_name("run_trace_production_audit.sbatch")
-    ).read_text()
-    submitter = (
-        Path(production.__file__).with_name("submit_trace_production_audit.sh")
-    ).read_text()
+    wrapper = (Path(production.__file__).with_name("run_trace_production_audit.sbatch")).read_text()
+    submitter = (Path(production.__file__).with_name("submit_trace_production_audit.sh")).read_text()
     assert "submitted_wrapper=${BASH_SOURCE[0]}" in wrapper
     assert 'hash-object --no-filters -- "$path"' in wrapper
     assert 'digest_file "$submitted_wrapper"' in wrapper
@@ -1598,9 +1536,7 @@ def test_wrapper_and_submitter_use_isolated_hash_bound_bootstrap() -> None:
     assert 'PYTHONPYCACHEPREFIX="$pycache_prefix"' in wrapper
     assert "PYTHONPATH" not in wrapper.split("/usr/bin/env -i", 1)[1]
     assert "uv run" not in wrapper
-    submission_controller = (
-        Path(production.__file__).with_name("trace_production_submit_control.py")
-    ).read_text()
+    submission_controller = (Path(production.__file__).with_name("trace_production_submit_control.py")).read_text()
     assert '"--export=NONE"' in submission_controller
     assert '"-",' in submission_controller
     assert "TRACE_SUBMITTER_SEALED_FD" in submitter

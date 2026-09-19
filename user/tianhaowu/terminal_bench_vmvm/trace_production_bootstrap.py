@@ -24,15 +24,9 @@ REVISION_RE = re.compile(r"[0-9a-f]{40}")
 MAX_AUTHORIZATION_BYTES = 2 * 1024 * 1024
 MAX_TREE_ENTRIES = 200_000
 SUBMISSION_INTENT_TYPE = "terminal_bench_vmvm_production_trace_audit_launch_intent_v2"
-SUBMISSION_HELD_TYPE = (
-    "terminal_bench_vmvm_production_trace_audit_held_authorization_v2"
-)
-SUBMISSION_RECEIPT_TYPE = (
-    "terminal_bench_vmvm_production_trace_audit_submission_receipt_v2"
-)
-SUBMISSION_PERMIT_TYPE = (
-    "terminal_bench_vmvm_production_trace_audit_activation_permit_v2"
-)
+SUBMISSION_HELD_TYPE = "terminal_bench_vmvm_production_trace_audit_held_authorization_v2"
+SUBMISSION_RECEIPT_TYPE = "terminal_bench_vmvm_production_trace_audit_submission_receipt_v2"
+SUBMISSION_PERMIT_TYPE = "terminal_bench_vmvm_production_trace_audit_activation_permit_v2"
 ADMISSION_SCHEMA_VERSION = 2
 HELD_TIMEOUT_SECONDS = 982
 FINAL_HELD_TIMEOUT_SECONDS = 40
@@ -146,10 +140,7 @@ def stable_bytes(
             or before.st_nlink != 1
             or (before.st_size < 1 and not allow_empty)
             or before.st_size > maximum
-            or (
-                expected_mode is not None
-                and stat.S_IMODE(before.st_mode) != expected_mode
-            )
+            or (expected_mode is not None and stat.S_IMODE(before.st_mode) != expected_mode)
             or (expected_uid is not None and before.st_uid != expected_uid)
         ):
             fail(code)
@@ -227,9 +218,7 @@ def _stable_bytes_at(
         if descriptor >= 0:
             os.close(descriptor)
     body = b"".join(chunks)
-    if _signature(before) != _signature(after) or _signature(after) != _signature(
-        visible
-    ):
+    if _signature(before) != _signature(after) or _signature(after) != _signature(visible):
         fail(code)
     return body, hashlib.sha256(body).hexdigest()
 
@@ -251,9 +240,7 @@ def _descriptor_sha256(descriptor: int, size: int) -> str:
 
 def _sealed_memfd(body: bytes, name: str) -> int:
     descriptor = -1
-    required = (
-        fcntl.F_SEAL_SEAL | fcntl.F_SEAL_SHRINK | fcntl.F_SEAL_GROW | fcntl.F_SEAL_WRITE
-    )
+    required = fcntl.F_SEAL_SEAL | fcntl.F_SEAL_SHRINK | fcntl.F_SEAL_GROW | fcntl.F_SEAL_WRITE
     try:
         descriptor = os.memfd_create(
             name,
@@ -273,8 +260,7 @@ def _sealed_memfd(body: bytes, name: str) -> int:
             or status.st_nlink != 0
             or status.st_size != len(body)
             or fcntl.fcntl(descriptor, fcntl.F_GET_SEALS) != required
-            or _descriptor_sha256(descriptor, status.st_size)
-            != hashlib.sha256(body).hexdigest()
+            or _descriptor_sha256(descriptor, status.st_size) != hashlib.sha256(body).hexdigest()
         ):
             fail("verified_extension_capture_failed")
         return descriptor
@@ -329,8 +315,7 @@ def load_authorization(path: Path, expected_sha256: str) -> dict[str, Any]:
     if (
         observed != expected_sha256
         or embedded != hashlib.sha256(canonical_json(body)).hexdigest()
-        or value.get("artifact_type")
-        != "terminal_bench_vmvm_production_trace_audit_authorization_v2"
+        or value.get("artifact_type") != "terminal_bench_vmvm_production_trace_audit_authorization_v2"
         or value.get("schema_version") != 1
         or value.get("state") != "approved"
     ):
@@ -437,17 +422,11 @@ def _validate_phase_certificate(
         or final_fields != []
         or conflicts != []
         or mismatch_fields != sorted(set(mismatch_fields))
-        or any(
-            not isinstance(field, str) or PHASE_FIELD_RE.fullmatch(field) is None
-            for field in mismatch_fields
-        )
+        or any(not isinstance(field, str) or PHASE_FIELD_RE.fullmatch(field) is None for field in mismatch_fields)
         or not isinstance(occurrences, dict)
         or set(occurrences) != set(mismatch_fields)
         or any(
-            not isinstance(field, str)
-            or PHASE_FIELD_RE.fullmatch(field) is None
-            or type(count) is not int
-            or count < 1
+            not isinstance(field, str) or PHASE_FIELD_RE.fullmatch(field) is None or type(count) is not int or count < 1
             for field, count in occurrences.items()
         )
     ):
@@ -576,9 +555,7 @@ def validate_submission_admission(
         raise
     auth_record = {"path": str(authorization_path), "sha256": authorization_sha256}
     expected_job = {"cluster": submission["cluster"], "id": job_id, "name": job_name}
-    expected_wrapper_sha256 = authorization["source"]["artifacts"][
-        "production_audit_wrapper"
-    ]["sha256"]
+    expected_wrapper_sha256 = authorization["source"]["artifacts"]["production_audit_wrapper"]["sha256"]
     visibility = receipt.get("submission_visibility")
     if (
         set(intent)
@@ -645,25 +622,17 @@ def validate_submission_admission(
         or held.get("state") != "held_authorized"
         or receipt.get("state") != "submitted"
         or permit.get("state") != "activated"
-        or any(
-            value.get("audit_authorization") != auth_record
-            for value in (intent, held, receipt, permit)
-        )
-        or any(
-            value.get("reservation_identity") != expected_identity
-            for value in (intent, held, receipt, permit)
-        )
+        or any(value.get("audit_authorization") != auth_record for value in (intent, held, receipt, permit))
+        or any(value.get("reservation_identity") != expected_identity for value in (intent, held, receipt, permit))
         or intent.get("policy") != submission.get("policy")
-        or intent.get("job_name_sha256")
-        != hashlib.sha256(job_name.encode("ascii")).hexdigest()
+        or intent.get("job_name_sha256") != hashlib.sha256(job_name.encode("ascii")).hexdigest()
         or intent.get("wrapper_sha256") != expected_wrapper_sha256
         or held.get("job") != expected_job
         or receipt.get("job") != expected_job
         or held.get("intent_sha256") != intent_sha
         or receipt.get("intent_sha256") != intent_sha
         or held.get("held") != receipt.get("held")
-        or held.get("held_after_authorization")
-        != receipt.get("held_after_authorization")
+        or held.get("held_after_authorization") != receipt.get("held_after_authorization")
         or held.get("wrapper_sha256") != intent.get("wrapper_sha256")
         or receipt.get("wrapper_sha256") != intent.get("wrapper_sha256")
         or receipt.get("source_manifest_sha256") != intent.get("source_manifest_sha256")
@@ -681,10 +650,8 @@ def validate_submission_admission(
         or visibility["zero_rounds"] < 0
         or permit.get("submission_receipt")
         != {"path": str(reservation / "submission_receipt.json"), "sha256": receipt_sha}
-        or permit.get("job_id_sha256")
-        != hashlib.sha256(job_id.encode("ascii")).hexdigest()
-        or permit.get("job_name_sha256")
-        != hashlib.sha256(job_name.encode("ascii")).hexdigest()
+        or permit.get("job_id_sha256") != hashlib.sha256(job_id.encode("ascii")).hexdigest()
+        or permit.get("job_name_sha256") != hashlib.sha256(job_name.encode("ascii")).hexdigest()
     ):
         close_descriptors()
         fail("submission_admission_invalid")
@@ -804,11 +771,7 @@ def tree_manifest_sha256(
         except OSError as error:
             raise BootstrapError(code) from error
         for entry in entries:
-            relative = (
-                PurePosixPath(entry.name)
-                if relative_root == PurePosixPath(".")
-                else relative_root / entry.name
-            )
+            relative = PurePosixPath(entry.name) if relative_root == PurePosixPath(".") else relative_root / entry.name
             if len(records) >= MAX_TREE_ENTRIES:
                 fail(code)
             try:
@@ -816,9 +779,7 @@ def tree_manifest_sha256(
             except OSError as error:
                 raise BootstrapError(code) from error
             mode = stat.S_IMODE(status.st_mode)
-            if status.st_uid != expected_uid or (
-                not stat.S_ISLNK(status.st_mode) and mode & 0o022
-            ):
+            if status.st_uid != expected_uid or (not stat.S_ISLNK(status.st_mode) and mode & 0o022):
                 fail(code)
             if forbid_customization:
                 if entry.name in FORBIDDEN_IMPORT_NAMES:
@@ -898,9 +859,7 @@ def tree_manifest_sha256(
             raise BootstrapError(code) from error
         if _signature(before) != _signature(after):
             fail(code)
-    return hashlib.sha256(
-        canonical_json({"schema_version": 1, "records": sorted(records)})
-    ).hexdigest()
+    return hashlib.sha256(canonical_json({"schema_version": 1, "records": sorted(records)})).hexdigest()
 
 
 def _git(root: Path, *arguments: str) -> bytes:
@@ -943,10 +902,7 @@ def _ignored_importables(root: Path) -> tuple[str, ...]:
         except UnicodeDecodeError as error:
             raise BootstrapError("source_ignored_importable_invalid") from error
         name = PurePosixPath(relative).name
-        if (
-            name in FORBIDDEN_IMPORT_NAMES
-            or PurePosixPath(relative).suffix in IMPORTABLE_SUFFIXES
-        ):
+        if name in FORBIDDEN_IMPORT_NAMES or PurePosixPath(relative).suffix in IMPORTABLE_SUFFIXES:
             paths.append(relative)
     return tuple(sorted(paths))
 
@@ -984,15 +940,9 @@ def _validate_importable_git_tree(
             or REVISION_RE.fullmatch(expected_object) is None
         ):
             continue
-        if (
-            relative_path.name not in FORBIDDEN_IMPORT_NAMES
-            and relative_path.suffix not in IMPORTABLE_SUFFIXES
-        ):
+        if relative_path.name not in FORBIDDEN_IMPORT_NAMES and relative_path.suffix not in IMPORTABLE_SUFFIXES:
             continue
-        if (
-            relative_path.name in FORBIDDEN_IMPORT_NAMES
-            or relative_path.suffix == ".pyc"
-        ):
+        if relative_path.name in FORBIDDEN_IMPORT_NAMES or relative_path.suffix == ".pyc":
             fail("source_import_artifact_forbidden")
         if mode not in {b"100644", b"100755"}:
             fail("source_import_manifest_invalid")
@@ -1011,9 +961,7 @@ def _validate_importable_git_tree(
         records.append([relative, mode.decode(), expected_object])
     if not records:
         fail("source_import_manifest_invalid")
-    return hashlib.sha256(
-        canonical_json({"schema_version": 1, "records": sorted(records)})
-    ).hexdigest()
+    return hashlib.sha256(canonical_json({"schema_version": 1, "records": sorted(records)})).hexdigest()
 
 
 def _validate_checkout(source: dict[str, Any]) -> dict[Path, str]:
@@ -1027,10 +975,7 @@ def _validate_checkout(source: dict[str, Any]) -> dict[Path, str]:
         or _git(root, "rev-parse", "--abbrev-ref", "HEAD").strip() != b"HEAD"
     ):
         fail("source_checkout_invalid")
-    if (
-        _git(root, "rev-parse", "--verify", "HEAD^{commit}").decode().strip()
-        != revision
-    ):
+    if _git(root, "rev-parse", "--verify", "HEAD^{commit}").decode().strip() != revision:
         fail("source_revision_mismatch")
     if _git(root, "rev-parse", "--verify", "HEAD^{tree}").decode().strip() != tree:
         fail("source_tree_mismatch")
@@ -1045,9 +990,7 @@ def _validate_checkout(source: dict[str, Any]) -> dict[Path, str]:
     if _ignored_importables(root):
         fail("source_ignored_importable_forbidden")
     expected_import_manifests = source.get("import_manifests")
-    if not isinstance(expected_import_manifests, dict) or set(
-        expected_import_manifests
-    ) != {
+    if not isinstance(expected_import_manifests, dict) or set(expected_import_manifests) != {
         "prime_rl",
         "pydantic_config",
         "renderers",
@@ -1082,8 +1025,7 @@ def _validate_checkout(source: dict[str, Any]) -> dict[Path, str]:
             fail("source_gitlink_invalid")
         if (
             checkout.resolve(strict=True) != checkout
-            or _git(checkout, "rev-parse", "--verify", "HEAD^{commit}").decode().strip()
-            != expected
+            or _git(checkout, "rev-parse", "--verify", "HEAD^{commit}").decode().strip() != expected
             or _git(
                 checkout,
                 "status",
@@ -1122,8 +1064,7 @@ def _validate_checkout(source: dict[str, Any]) -> dict[Path, str]:
         },
     }
     if (
-        _git(root, "rev-parse", "--verify", "HEAD^{commit}").decode().strip()
-        != revision
+        _git(root, "rev-parse", "--verify", "HEAD^{commit}").decode().strip() != revision
         or _git(root, "rev-parse", "--verify", "HEAD^{tree}").decode().strip() != tree
         or _git(
             root,
@@ -1143,8 +1084,7 @@ def _validate_checkout(source: dict[str, Any]) -> dict[Path, str]:
     ):
         checkout = root / relative
         if (
-            _git(checkout, "rev-parse", "--verify", "HEAD^{commit}").decode().strip()
-            != gitlinks[label]
+            _git(checkout, "rev-parse", "--verify", "HEAD^{commit}").decode().strip() != gitlinks[label]
             or _git(
                 checkout,
                 "status",
@@ -1169,13 +1109,8 @@ def _validate_environment(pycache_prefix: Path) -> None:
         or os.environ.get("PYTHONNOUSERSITE") != "1"
         or os.environ.get("PYTHONSAFEPATH") != "1"
         or os.environ.get("PYTHONPYCACHEPREFIX") != str(pycache_prefix)
-        or any(
-            name.startswith(("BASH_FUNC_", "LD_", "UV_", "GIT_")) for name in os.environ
-        )
-        or any(
-            name in os.environ
-            for name in ("BASH_ENV", "ENV", "VIRTUAL_ENV", "CONDA_PREFIX")
-        )
+        or any(name.startswith(("BASH_FUNC_", "LD_", "UV_", "GIT_")) for name in os.environ)
+        or any(name in os.environ for name in ("BASH_ENV", "ENV", "VIRTUAL_ENV", "CONDA_PREFIX"))
     ):
         fail("environment_not_sanitized")
     if not (
@@ -1194,11 +1129,7 @@ def _validate_environment(pycache_prefix: Path) -> None:
 def _validate_pycache_prefix(path: Path) -> None:
     descriptor = -1
     try:
-        if (
-            path != PYCACHE_SINK
-            or path.resolve(strict=True) != path
-            or path.is_symlink()
-        ):
+        if path != PYCACHE_SINK or path.resolve(strict=True) != path or path.is_symlink():
             fail("pycache_prefix_invalid")
         descriptor = os.open(path, os.O_RDONLY | os.O_CLOEXEC | os.O_NOFOLLOW)
         status = os.fstat(descriptor)
@@ -1362,18 +1293,12 @@ class _VerifiedExtensionLoader(importlib.abc.Loader):
             seals = fcntl.fcntl(self.descriptor, fcntl.F_GET_SEALS)
         except OSError as error:
             raise BootstrapError("verified_extension_changed") from error
-        required = (
-            fcntl.F_SEAL_SEAL
-            | fcntl.F_SEAL_SHRINK
-            | fcntl.F_SEAL_GROW
-            | fcntl.F_SEAL_WRITE
-        )
+        required = fcntl.F_SEAL_SEAL | fcntl.F_SEAL_SHRINK | fcntl.F_SEAL_GROW | fcntl.F_SEAL_WRITE
         if (
             not stat.S_ISREG(status.st_mode)
             or status.st_nlink != 0
             or seals != required
-            or _descriptor_sha256(self.descriptor, status.st_size)
-            != self.expected_sha256
+            or _descriptor_sha256(self.descriptor, status.st_size) != self.expected_sha256
         ):
             fail("verified_extension_changed")
 
@@ -1503,26 +1428,15 @@ class _VerifiedImportFinder(importlib.abc.MetaPathFinder):
     def _protected_path(self, raw: str | os.PathLike[str]) -> Path | None:
         path = Path(raw)
         normalized = Path(os.path.normpath(path))
-        lexical_roots = tuple(
-            root for root in self.protected if path == root or path.is_relative_to(root)
-        )
+        lexical_roots = tuple(root for root in self.protected if path == root or path.is_relative_to(root))
         try:
             resolved = path.resolve(strict=True)
         except (OSError, RuntimeError) as error:
             raise BootstrapError("verified_import_origin_invalid") from error
-        resolved_roots = tuple(
-            root
-            for root in self.protected
-            if resolved == root or resolved.is_relative_to(root)
-        )
+        resolved_roots = tuple(root for root in self.protected if resolved == root or resolved.is_relative_to(root))
         if lexical_roots or resolved_roots:
             self._revalidate_protected_roots()
-            if (
-                not path.is_absolute()
-                or normalized != path
-                or resolved != path
-                or lexical_roots != resolved_roots
-            ):
+            if not path.is_absolute() or normalized != path or resolved != path or lexical_roots != resolved_roots:
                 fail("verified_import_origin_invalid")
             return path
         return None
@@ -1551,10 +1465,7 @@ class _VerifiedImportFinder(importlib.abc.MetaPathFinder):
         if locations is not None:
             for location in locations:
                 resolved_location = self._protected_path(location)
-                if (
-                    resolved_location is not None
-                    and resolved_location not in self.manifest_directories
-                ):
+                if resolved_location is not None and resolved_location not in self.manifest_directories:
                     fail("unmanifested_import_forbidden")
         if spec.origin in {None, "built-in", "frozen"}:
             return spec
@@ -1572,10 +1483,7 @@ class _VerifiedImportFinder(importlib.abc.MetaPathFinder):
             )
             spec.cached = None
             return spec
-        if any(
-            str(resolved).endswith(suffix)
-            for suffix in importlib.machinery.EXTENSION_SUFFIXES
-        ):
+        if any(str(resolved).endswith(suffix) for suffix in importlib.machinery.EXTENSION_SUFFIXES):
             body, _digest = stable_bytes(
                 resolved,
                 code="verified_extension_changed",
@@ -1583,9 +1491,7 @@ class _VerifiedImportFinder(importlib.abc.MetaPathFinder):
                 expected_sha256=expected_sha256,
                 expected_uid=os.getuid(),
             )
-            descriptor = _sealed_memfd(
-                body, f"trace-extension-{fullname.rsplit('.', 1)[-1]}"
-            )
+            descriptor = _sealed_memfd(body, f"trace-extension-{fullname.rsplit('.', 1)[-1]}")
             sealed_path = f"/proc/self/fd/{descriptor}"
             delegate = importlib.machinery.ExtensionFileLoader(fullname, sealed_path)
             spec.loader = _VerifiedExtensionLoader(
@@ -1647,9 +1553,7 @@ def _install_import_guard(
         importlib.machinery.FrozenImporter,
         importlib.machinery.PathFinder,
     }
-    if set(sys.meta_path) != expected_meta_path or len(sys.meta_path) != len(
-        expected_meta_path
-    ):
+    if set(sys.meta_path) != expected_meta_path or len(sys.meta_path) != len(expected_meta_path):
         fail("preexisting_import_hook_forbidden")
     original = tuple(sys.path)
     if not original or any(not Path(item).is_absolute() for item in original if item):
@@ -1673,20 +1577,14 @@ def _install_import_guard(
         if not path.is_absolute():
             return
         normalized = Path(os.path.normpath(path))
-        lexical_roots = tuple(
-            root for root in protected if path == root or path.is_relative_to(root)
-        )
+        lexical_roots = tuple(root for root in protected if path == root or path.is_relative_to(root))
         if not lexical_roots:
             return
         try:
             resolved = path.resolve(strict=True)
         except (OSError, RuntimeError) as error:
             raise BootstrapError("verified_import_origin_invalid") from error
-        resolved_roots = tuple(
-            root
-            for root in protected
-            if resolved == root or resolved.is_relative_to(root)
-        )
+        resolved_roots = tuple(root for root in protected if resolved == root or resolved.is_relative_to(root))
         if normalized != path or resolved != path or resolved_roots != lexical_roots:
             fail("verified_import_origin_invalid")
         if normalized.suffix == ".pyc" or normalized.name in FORBIDDEN_IMPORT_NAMES:
@@ -1701,10 +1599,7 @@ def _validate_import_origins(
     stdlib: Path,
     finder: _VerifiedImportFinder,
 ) -> None:
-    if (
-        tuple(sys.meta_path) != (finder, *finder.original_meta_path)
-        or tuple(sys.path) != finder.expected_sys_path
-    ):
+    if tuple(sys.meta_path) != (finder, *finder.original_meta_path) or tuple(sys.path) != finder.expected_sys_path:
         fail("verified_import_guard_changed")
     finder._revalidate_protected_roots()
     allowed = (*protected, stdlib)
@@ -1727,9 +1622,7 @@ def _validate_import_origins(
             resolved = path.resolve(strict=True)
         except (OSError, RuntimeError) as error:
             raise BootstrapError("python_import_origin_invalid") from error
-        if not any(
-            resolved == root or resolved.is_relative_to(root) for root in allowed
-        ):
+        if not any(resolved == root or resolved.is_relative_to(root) for root in allowed):
             fail("python_import_origin_invalid")
         if (
             any(resolved == root or resolved.is_relative_to(root) for root in protected)
@@ -1740,9 +1633,7 @@ def _validate_import_origins(
             fail("forbidden_import_artifact_open")
 
 
-def _controller_arguments(
-    authorization_path: Path, authorization_sha256: str, value: dict[str, Any]
-) -> list[str]:
+def _controller_arguments(authorization_path: Path, authorization_sha256: str, value: dict[str, Any]) -> list[str]:
     run = value["run"]
     scheduler = value["scheduler"]
     inputs = value["inputs"]
@@ -1817,9 +1708,7 @@ def run(
         controller_source = b""
         offset = 0
         while offset < before.st_size:
-            block = os.pread(
-                controller_fd, min(1 << 20, before.st_size - offset), offset
-            )
+            block = os.pread(controller_fd, min(1 << 20, before.st_size - offset), offset)
             if not block:
                 fail("controller_source_invalid")
             controller_source += block
@@ -1882,9 +1771,7 @@ def run(
         "__production_trace_submission_revalidator__": revalidate_submission,
     }
     old_argv = sys.argv
-    sys.argv = _controller_arguments(
-        authorization_path, authorization_sha256, authorization
-    )
+    sys.argv = _controller_arguments(authorization_path, authorization_sha256, authorization)
     try:
         exec(compile(controller_source, str(controller_path), "exec"), namespace)
     except SystemExit as error:
@@ -1917,10 +1804,7 @@ def main() -> int:
     if (
         controller_fd < 3
         or SHA256_RE.fullmatch(controller_sha256) is None
-        or any(
-            re.fullmatch(r"(?:0|[1-9][0-9]{0,19})", item) is None
-            for item in raw_identity
-        )
+        or any(re.fullmatch(r"(?:0|[1-9][0-9]{0,19})", item) is None for item in raw_identity)
     ):
         fail("arguments_invalid")
     expected_reservation_identity = {

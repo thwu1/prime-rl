@@ -22,9 +22,7 @@ from typing import Any
 
 AUTHORIZATION_TYPE = "terminal_bench_vmvm_production_trace_audit_authorization_v2"
 INTENT_TYPE = "terminal_bench_vmvm_production_trace_audit_launch_intent_v2"
-HELD_AUTHORIZATION_TYPE = (
-    "terminal_bench_vmvm_production_trace_audit_held_authorization_v2"
-)
+HELD_AUTHORIZATION_TYPE = "terminal_bench_vmvm_production_trace_audit_held_authorization_v2"
 RECEIPT_TYPE = "terminal_bench_vmvm_production_trace_audit_submission_receipt_v2"
 PERMIT_TYPE = "terminal_bench_vmvm_production_trace_audit_activation_permit_v2"
 FAILURE_TYPE = "terminal_bench_vmvm_production_trace_audit_submission_failure_v2"
@@ -222,8 +220,7 @@ class ReservationAnchor:
             or stat.S_IMODE(parent_status.st_mode) != 0o700
             or parent_status.st_uid != OWNER_UID
             or (parent_status.st_dev, parent_status.st_ino) != self.parent_identity
-            or (fresh_parent_status.st_dev, fresh_parent_status.st_ino)
-            != self.parent_identity
+            or (fresh_parent_status.st_dev, fresh_parent_status.st_ino) != self.parent_identity
             or not stat.S_ISDIR(reservation_status.st_mode)
             or stat.S_IMODE(reservation_status.st_mode) != expected_mode
             or reservation_status.st_uid != OWNER_UID
@@ -232,8 +229,7 @@ class ReservationAnchor:
             or visible_status.st_nlink != RESERVATION_LINK_COUNT
             or (visible_status.st_dev, visible_status.st_ino) != self.identity
             or fresh_reservation_status.st_nlink != RESERVATION_LINK_COUNT
-            or (fresh_reservation_status.st_dev, fresh_reservation_status.st_ino)
-            != self.identity
+            or (fresh_reservation_status.st_dev, fresh_reservation_status.st_ino) != self.identity
         ):
             fail("reservation_changed")
 
@@ -260,11 +256,7 @@ def stable_bytes(
 ) -> bytes:
     descriptor = -1
     try:
-        if (
-            not path.is_absolute()
-            or path.is_symlink()
-            or path.resolve(strict=True) != path
-        ):
+        if not path.is_absolute() or path.is_symlink() or path.resolve(strict=True) != path:
             fail("artifact_invalid")
         descriptor = os.open(path, os.O_RDONLY | os.O_CLOEXEC | os.O_NOFOLLOW)
         before = os.fstat(descriptor)
@@ -309,9 +301,7 @@ def _envelope(body: Mapping[str, Any], hash_field: str) -> bytes:
 def load_authorization(path: Path, expected_sha256: str) -> dict[str, Any]:
     if SHA256_RE.fullmatch(expected_sha256) is None:
         fail("authorization_invalid")
-    raw = stable_bytes(
-        path, expected_sha256=expected_sha256, mode=0o400, maximum=2 * 1024 * 1024
-    )
+    raw = stable_bytes(path, expected_sha256=expected_sha256, mode=0o400, maximum=2 * 1024 * 1024)
     value = strict_json(raw, "authorization_invalid")
     body = dict(value)
     embedded = body.pop("authorization_sha256", None)
@@ -412,10 +402,7 @@ def run_command(
         )
     except (OSError, subprocess.SubprocessError) as error:
         raise SubmissionError("scheduler_unavailable") from error
-    if (
-        len(completed.stdout) > MAX_OUTPUT_BYTES
-        or len(completed.stderr) > MAX_OUTPUT_BYTES
-    ):
+    if len(completed.stdout) > MAX_OUTPUT_BYTES or len(completed.stderr) > MAX_OUTPUT_BYTES:
         fail("scheduler_output_oversize")
     return CommandResult(completed.returncode, completed.stdout, completed.stderr)
 
@@ -424,11 +411,7 @@ def _rows(result: CommandResult, width: int, code: str) -> list[list[str]]:
     if result.returncode != 0 or result.stderr:
         fail(code)
     try:
-        rows = [
-            line.split("|")
-            for line in result.stdout.decode("utf-8").splitlines()
-            if line
-        ]
+        rows = [line.split("|") for line in result.stdout.decode("utf-8").splitlines() if line]
     except UnicodeDecodeError as error:
         raise SubmissionError(code) from error
     if any(len(row) != width for row in rows):
@@ -475,9 +458,7 @@ def _scontrol(result: CommandResult) -> dict[str, str]:
 
 
 def _sync_directory(path: Path) -> None:
-    descriptor = os.open(
-        path, os.O_RDONLY | os.O_DIRECTORY | os.O_CLOEXEC | os.O_NOFOLLOW
-    )
+    descriptor = os.open(path, os.O_RDONLY | os.O_DIRECTORY | os.O_CLOEXEC | os.O_NOFOLLOW)
     try:
         os.fsync(descriptor)
     finally:
@@ -491,9 +472,7 @@ def create_reservation(path: Path) -> ReservationAnchor:
         parent = path.parent.resolve(strict=True)
         if path != parent / path.name or not path.name:
             fail("reservation_not_fresh")
-        parent_fd = os.open(
-            parent, os.O_RDONLY | os.O_DIRECTORY | os.O_CLOEXEC | os.O_NOFOLLOW
-        )
+        parent_fd = os.open(parent, os.O_RDONLY | os.O_DIRECTORY | os.O_CLOEXEC | os.O_NOFOLLOW)
         parent_status = os.fstat(parent_fd)
         if (
             not stat.S_ISDIR(parent_status.st_mode)
@@ -525,8 +504,7 @@ def create_reservation(path: Path) -> ReservationAnchor:
             or reservation_status.st_uid != OWNER_UID
             or reservation_status.st_nlink != RESERVATION_LINK_COUNT
             or visible_status.st_nlink != RESERVATION_LINK_COUNT
-            or (reservation_status.st_dev, reservation_status.st_ino)
-            != (visible_status.st_dev, visible_status.st_ino)
+            or (reservation_status.st_dev, reservation_status.st_ino) != (visible_status.st_dev, visible_status.st_ino)
         ):
             fail("reservation_not_fresh")
         os.fsync(parent_fd)
@@ -765,10 +743,7 @@ def scheduler_snapshot(
         state not in {"PENDING", "CONFIGURING", "RUNNING"}
         or record.get("Reason") == "JobHeldUser"
         or record.get("NumNodes") != "1"
-        or (
-            state in {"CONFIGURING", "RUNNING"}
-            and node_list in {"", "(null)", "N/A", "Unknown"}
-        )
+        or (state in {"CONFIGURING", "RUNNING"} and node_list in {"", "(null)", "N/A", "Unknown"})
     ):
         mismatches.add("activation_state")
     try:
@@ -877,9 +852,7 @@ def scheduler_snapshot(
     if len(queue) != 1:
         mismatches.add("queue_cardinality")
     else:
-        queue_id, queue_name, queue_user, queue_state, reason, nodes, queue_nodes = (
-            queue[0]
-        )
+        queue_id, queue_name, queue_user, queue_state, reason, nodes, queue_nodes = queue[0]
         for field, observed, exact in (
             ("JobId", queue_id, job_id),
             ("JobName", queue_name, submission["job_name"]),
@@ -896,10 +869,7 @@ def scheduler_snapshot(
                 or queue_nodes not in {"", "(null)", "N/A"}
             ):
                 mismatches.add("held_queue")
-        elif (
-            scheduler_state(queue_state) not in {"PENDING", "CONFIGURING", "RUNNING"}
-            or reason == "JobHeldUser"
-        ):
+        elif scheduler_state(queue_state) not in {"PENDING", "CONFIGURING", "RUNNING"} or reason == "JobHeldUser":
             mismatches.add("activation_queue")
     for step_id, _step_name, step_user, step_state in step_queue:
         if not step_id.startswith(f"{job_id}."):
@@ -913,9 +883,7 @@ def scheduler_snapshot(
     if len(allocations) != 1:
         mismatches.add("accounting_cardinality")
     else:
-        allocation_id, allocation_name, user, raw_state, started, nodes, restarts = (
-            allocations[0]
-        )
+        allocation_id, allocation_name, user, raw_state, started, nodes, restarts = allocations[0]
         for field, observed, exact in (
             ("JobId", allocation_id, job_id),
             ("JobName", allocation_name, submission["job_name"]),
@@ -933,10 +901,7 @@ def scheduler_snapshot(
                 or restarts != "0"
             ):
                 mismatches.add("held_accounting")
-        elif (
-            accounting_state not in {"PENDING", "CONFIGURING", "RUNNING"}
-            or restarts != "0"
-        ):
+        elif accounting_state not in {"PENDING", "CONFIGURING", "RUNNING"} or restarts != "0":
             mismatches.add("activation_accounting")
     if held:
         if len(all_rows) != 1 or all_rows[0] != [job_id, "PENDING"]:
@@ -1032,9 +997,7 @@ def poll_phase(
     }
 
 
-def _sbatch_command(
-    authorization: Mapping[str, Any], batch_arguments: Sequence[str]
-) -> list[str]:
+def _sbatch_command(authorization: Mapping[str, Any], batch_arguments: Sequence[str]) -> list[str]:
     submission = authorization["audit_submission"]
     resources = submission["resources"]
     comment = f"trace-audit-{submission['launch_token_sha256'][:32]}"
@@ -1457,9 +1420,7 @@ def _terminal_snapshot(
         or not allocation[4]
         or allocation[5] != "0"
         or any(
-            scheduler_state(row_state) not in TERMINAL_STATES
-            or not exit_code
-            or restarts not in {"", "0"}
+            scheduler_state(row_state) not in TERMINAL_STATES or not exit_code or restarts not in {"", "0"}
             for _row_id, row_state, exit_code, restarts in all_rows
         )
     ):
@@ -1582,15 +1543,11 @@ def cancel_and_prove(
                     "cancel_command_outcome": "unavailable",
                     "explicit_conflict_fields": [],
                     "identity_polls": polls,
-                    "identity_status": (
-                        "exact" if identity == "exact" else "direct_provenance_fallback"
-                    ),
+                    "identity_status": ("exact" if identity == "exact" else "direct_provenance_fallback"),
                 },
             ) from error
         cancel_outcome = (
-            "completed"
-            if result.returncode == 0 and not result.stdout and not result.stderr
-            else "nonzero"
+            "completed" if result.returncode == 0 and not result.stdout and not result.stderr else "nonzero"
         )
     deadline = clock() + CANCEL_TERMINAL_TIMEOUT_SECONDS
     consecutive = 0
@@ -1618,11 +1575,7 @@ def cancel_and_prove(
                     "identity_status": "conflict",
                 },
             )
-        consecutive = (
-            consecutive + 1
-            if status == "terminal" and signature == previous
-            else int(status == "terminal")
-        )
+        consecutive = consecutive + 1 if status == "terminal" and signature == previous else int(status == "terminal")
         previous = signature if status == "terminal" else ""
         if consecutive >= TERMINAL_ROUNDS:
             try:
@@ -1652,9 +1605,7 @@ def cancel_and_prove(
                 "cancel_command_outcome": cancel_outcome,
                 "explicit_conflict_fields": [],
                 "identity_polls": polls,
-                "identity_status": "exact"
-                if identity == "exact"
-                else "direct_provenance_fallback",
+                "identity_status": "exact" if identity == "exact" else "direct_provenance_fallback",
                 "terminal_consecutive": consecutive,
                 "terminal_polls": terminal_polls,
                 "terminal_state": state,
@@ -1671,9 +1622,7 @@ def cancel_and_prove(
             "cancel_command_outcome": cancel_outcome,
             "explicit_conflict_fields": [],
             "identity_polls": polls,
-            "identity_status": "exact"
-            if identity == "exact"
-            else "direct_provenance_fallback",
+            "identity_status": "exact" if identity == "exact" else "direct_provenance_fallback",
             "terminal_consecutive": consecutive,
             "terminal_polls": terminal_polls,
             "terminal_state": state,
@@ -1715,11 +1664,7 @@ def _git(root: Path, *arguments: str) -> bytes:
         )
     except (OSError, subprocess.SubprocessError) as error:
         raise SubmissionError("source_git_unavailable") from error
-    if (
-        completed.returncode != 0
-        or completed.stderr
-        or len(completed.stdout) > MAX_OUTPUT_BYTES
-    ):
+    if completed.returncode != 0 or completed.stderr or len(completed.stdout) > MAX_OUTPUT_BYTES:
         fail("source_git_invalid")
     return completed.stdout
 
@@ -1750,8 +1695,7 @@ def validate_source(authorization: Mapping[str, Any]) -> dict[str, str]:
         raise SubmissionError("source_root_invalid") from error
     if (
         _git(root, "rev-parse", "--abbrev-ref", "HEAD").strip() != b"HEAD"
-        or _git(root, "rev-parse", "--verify", "HEAD^{commit}").decode().strip()
-        != revision
+        or _git(root, "rev-parse", "--verify", "HEAD^{commit}").decode().strip() != revision
         or _git(root, "rev-parse", "--verify", "HEAD^{tree}").decode().strip() != tree
         or _git(
             root,
@@ -1783,8 +1727,7 @@ def validate_source(authorization: Mapping[str, Any]) -> dict[str, str]:
     ):
         child = root / relative
         if (
-            _git(child, "rev-parse", "--verify", "HEAD^{commit}").decode().strip()
-            != gitlinks[label]
+            _git(child, "rev-parse", "--verify", "HEAD^{commit}").decode().strip() != gitlinks[label]
             or _git(child, "rev-parse", "--abbrev-ref", "HEAD").strip() != b"HEAD"
             or _git(child, "status", "--porcelain=v1", "--untracked-files=all")
             or _git(
@@ -1824,9 +1767,7 @@ def validate_source(authorization: Mapping[str, Any]) -> dict[str, str]:
     return observed
 
 
-def validate_python(
-    authorization: Mapping[str, Any], path: Path, expected_sha256: str
-) -> None:
+def validate_python(authorization: Mapping[str, Any], path: Path, expected_sha256: str) -> None:
     runtime = authorization["source"]["runtime"]
     if runtime.get("python") != {"path": str(path), "sha256": expected_sha256}:
         fail("python_runtime_invalid")
@@ -1923,9 +1864,7 @@ def _publish_success(
     try:
         publish_once(anchor, "submission_receipt.json", receipt_raw)
         publish_once(anchor, "activation_permit.json", permit_raw)
-        if {
-            entry.name for entry in os.scandir(anchor.descriptor)
-        } != expected_before | success_entries:
+        if {entry.name for entry in os.scandir(anchor.descriptor)} != expected_before | success_entries:
             fail("success_publication_invalid")
         anchor.revalidate(expected_mode=0o700)
         _seal_reservation(anchor, committed)
@@ -2006,9 +1945,7 @@ def submit(
     private_key: str,
     *,
     runner: Runner | None = None,
-    sbatch_invoker: Callable[
-        [Sequence[str], bytes, Mapping[str, str]], tuple[str, int, bytes]
-    ] = invoke_sbatch,
+    sbatch_invoker: Callable[[Sequence[str], bytes, Mapping[str, str]], tuple[str, int, bytes]] = invoke_sbatch,
     sleeper: Callable[[float], None] = time.sleep,
     clock: Callable[[], float] = time.monotonic,
 ) -> dict[str, Any]:
@@ -2088,16 +2025,10 @@ def submit(
         )
 
         # This is the final mutable-input/name gate adjacent to the sole sbatch.
-        if (
-            load_authorization(authorization_path, authorization_sha256)
-            != authorization
-        ):
+        if load_authorization(authorization_path, authorization_sha256) != authorization:
             fail("authorization_changed")
         validate_python(authorization, python_path, python_sha256)
-        if (
-            sha256_bytes(canonical_json(validate_source(authorization)))
-            != source_digest
-        ):
+        if sha256_bytes(canonical_json(validate_source(authorization))) != source_digest:
             fail("source_changed")
         canonical_wrapper = stable_bytes(
             Path(expected_wrapper["path"]),
@@ -2106,9 +2037,7 @@ def submit(
         )
         if canonical_wrapper != wrapper:
             fail("wrapper_capture_invalid")
-        if scheduler_name_matches(
-            submission["job_name"], submission["cluster"], runner
-        ):
+        if scheduler_name_matches(submission["job_name"], submission["cluster"], runner):
             fail("scheduler_name_not_fresh")
         if any(
             os.path.lexists(run_dir / name)
@@ -2242,9 +2171,7 @@ def submit(
             QUERY_TIMEOUT_SECONDS,
         )
         release_outcome = (
-            "completed"
-            if release.returncode == 0 and not release.stdout and not release.stderr
-            else "nonzero"
+            "completed" if release.returncode == 0 and not release.stdout and not release.stderr else "nonzero"
         )
         if release_outcome != "completed":
             raise LifecycleError("release_failed")
@@ -2265,16 +2192,10 @@ def submit(
             raise LifecycleError("activation_not_converged")
         reservation_anchor.revalidate(expected_mode=0o700)
 
-        if (
-            load_authorization(authorization_path, authorization_sha256)
-            != authorization
-        ):
+        if load_authorization(authorization_path, authorization_sha256) != authorization:
             raise LifecycleError("authorization_changed")
         validate_python(authorization, python_path, python_sha256)
-        if (
-            sha256_bytes(canonical_json(validate_source(authorization)))
-            != source_digest
-        ):
+        if sha256_bytes(canonical_json(validate_source(authorization))) != source_digest:
             raise LifecycleError("source_changed")
         if canonical_wrapper != stable_bytes(
             Path(expected_wrapper["path"]),
@@ -2360,15 +2281,13 @@ def submit(
         try:
             if submission_attempted and job_id is None and not no_job_proved:
                 try:
-                    recovered, recovered_direct, recovered_visibility = (
-                        resolve_submission(
-                            submission["job_name"],
-                            submission["cluster"],
-                            direct_candidate,
-                            runner=runner,
-                            sleeper=sleeper,
-                            clock=clock,
-                        )
+                    recovered, recovered_direct, recovered_visibility = resolve_submission(
+                        submission["job_name"],
+                        submission["cluster"],
+                        direct_candidate,
+                        runner=runner,
+                        sleeper=sleeper,
+                        clock=clock,
                     )
                 except BaseException:
                     cancellation = {
@@ -2420,16 +2339,11 @@ def submit(
                             "explicit_conflict_fields": [],
                             "identity_status": "unavailable",
                         }
-                        primary = LifecycleError(
-                            "cancellation_unconfirmed", cancellation
-                        )
+                        primary = LifecycleError("cancellation_unconfirmed", cancellation)
             try:
                 reservation_anchor.revalidate(expected_mode=0o700)
             except SubmissionError:
-                if (
-                    isinstance(primary, LifecycleError)
-                    and str(primary) == "cancellation_unconfirmed"
-                ):
+                if isinstance(primary, LifecycleError) and str(primary) == "cancellation_unconfirmed":
                     primary.evidence["reservation_identity_status"] = "changed"
                 else:
                     primary = LifecycleError(
@@ -2438,11 +2352,7 @@ def submit(
                     )
             else:
                 if any(
-                    name
-                    in {
-                        entry.name
-                        for entry in os.scandir(reservation_anchor.descriptor)
-                    }
+                    name in {entry.name for entry in os.scandir(reservation_anchor.descriptor)}
                     for name in ("submission_receipt.json", "activation_permit.json")
                 ):
                     raise SubmissionError("success_publication_ambiguous")
@@ -2481,20 +2391,13 @@ def _descriptor_bytes(descriptor: int, expected_sha256: str, *, sealed: bool) ->
         before = os.fstat(descriptor)
         body = b""
         while len(body) < before.st_size:
-            block = os.pread(
-                descriptor, min(1 << 20, before.st_size - len(body)), len(body)
-            )
+            block = os.pread(descriptor, min(1 << 20, before.st_size - len(body)), len(body))
             if not block:
                 fail("captured_source_invalid")
             body += block
         after = os.fstat(descriptor)
         if sealed:
-            required = (
-                fcntl.F_SEAL_SEAL
-                | fcntl.F_SEAL_SHRINK
-                | fcntl.F_SEAL_GROW
-                | fcntl.F_SEAL_WRITE
-            )
+            required = fcntl.F_SEAL_SEAL | fcntl.F_SEAL_SHRINK | fcntl.F_SEAL_GROW | fcntl.F_SEAL_WRITE
             observed_seals = fcntl.fcntl(descriptor, fcntl.F_GET_SEALS)
         else:
             observed_seals = 0
@@ -2572,8 +2475,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         or source.get("prime_rl_commit") != args.revision
         or source.get("prime_rl_git_tree") != args.tree
         or any(
-            source.get("artifacts", {}).get(label)
-            != {"path": str(path), "sha256": digest}
+            source.get("artifacts", {}).get(label) != {"path": str(path), "sha256": digest}
             for label, (path, digest) in expected_artifacts.items()
         )
     ):

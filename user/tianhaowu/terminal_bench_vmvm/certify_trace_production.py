@@ -75,9 +75,7 @@ from vmvm_tb_v2._vacli.concurrency_telemetry import (
 
 SCHEMA_VERSION = 2
 ARTIFACT_TYPE = "terminal_bench_vmvm_production_trace_certificate_v2"
-AUTHORIZATION_ARTIFACT_TYPE = (
-    "terminal_bench_vmvm_production_trace_audit_authorization_v2"
-)
+AUTHORIZATION_ARTIFACT_TYPE = "terminal_bench_vmvm_production_trace_audit_authorization_v2"
 CHECKPOINT_NAME = "production_trace_checkpoint.json"
 PAYLOAD_NAME = "production_trace_certificate.json"
 SHA256_RE = re.compile(r"[0-9a-f]{64}")
@@ -195,9 +193,7 @@ class StableFile:
         offset = 0
         while offset < self.size:
             try:
-                chunk = os.pread(
-                    self.descriptor, min(1 << 20, self.size - offset), offset
-                )
+                chunk = os.pread(self.descriptor, min(1 << 20, self.size - offset), offset)
             except OSError as error:
                 raise ProductionCertificateError("artifact_unreadable") from error
             if not chunk:
@@ -235,8 +231,7 @@ class StableFile:
         if (
             _stat_signature(descriptor_status) != self.signature
             or _stat_signature(path_status) != self.signature
-            or (original_parent.st_dev, original_parent.st_ino)
-            != (current_parent.st_dev, current_parent.st_ino)
+            or (original_parent.st_dev, original_parent.st_ino) != (current_parent.st_dev, current_parent.st_ino)
         ):
             raise ProductionCertificateError("artifact_changed")
 
@@ -256,10 +251,7 @@ class ResultsSnapshot:
             self.source.revalidate()
         except ProductionCertificateError as error:
             raise ProductionCertificateError("results_changed_during_audit") from error
-        if (
-            _sha256_descriptor(self.source.descriptor, self.source.size)
-            != self.source.sha256
-        ):
+        if _sha256_descriptor(self.source.descriptor, self.source.size) != self.source.sha256:
             raise ProductionCertificateError("results_changed_during_audit")
         status = os.fstat(self.handle.fileno())
         if (
@@ -267,8 +259,7 @@ class ResultsSnapshot:
             or stat.S_IMODE(status.st_mode) != 0o400
             or status.st_nlink != 0
             or status.st_size != self.source.size
-            or _sha256_descriptor(self.handle.fileno(), status.st_size)
-            != self.source.sha256
+            or _sha256_descriptor(self.handle.fileno(), status.st_size) != self.source.sha256
         ):
             raise ProductionCertificateError("results_snapshot_changed")
 
@@ -309,8 +300,7 @@ class DirectoryAnchor:
         if (
             _directory_signature(descriptor_status) != self.signature
             or _directory_signature(visible) != self.signature
-            or (parent_before.st_dev, parent_before.st_ino)
-            != (parent_after.st_dev, parent_after.st_ino)
+            or (parent_before.st_dev, parent_before.st_ino) != (parent_after.st_dev, parent_after.st_ino)
         ):
             raise ProductionCertificateError("run_dir_changed")
 
@@ -444,26 +434,18 @@ def _snapshot_results(
     )
     handle: BinaryIO | None = None
     try:
-        temporary_parent = (
-            Path(f"/proc/self/fd/{anchor.descriptor}")
-            if anchor is not None
-            else path.parent
-        )
+        temporary_parent = Path(f"/proc/self/fd/{anchor.descriptor}") if anchor is not None else path.parent
         handle = tempfile.TemporaryFile(mode="w+b", dir=temporary_parent)
         copied = False
         try:
-            fcntl.ioctl(
-                handle.fileno(), 0x40049409, source.descriptor
-            )  # Linux FICLONE.
+            fcntl.ioctl(handle.fileno(), 0x40049409, source.descriptor)  # Linux FICLONE.
             copied = True
         except OSError:
             pass
         if not copied:
             offset = 0
             while offset < source.size:
-                block = os.pread(
-                    source.descriptor, min(1 << 20, source.size - offset), offset
-                )
+                block = os.pread(source.descriptor, min(1 << 20, source.size - offset), offset)
                 if not block:
                     raise ProductionCertificateError("results_snapshot_failed")
                 view = memoryview(block)
@@ -521,17 +503,11 @@ def _open_directory_anchor(path: Path) -> DirectoryAnchor:
             raise ProductionCertificateError("run_dir_invalid")
         parent_fd = os.open(
             path.parent,
-            os.O_RDONLY
-            | getattr(os, "O_CLOEXEC", 0)
-            | getattr(os, "O_DIRECTORY", 0)
-            | getattr(os, "O_NOFOLLOW", 0),
+            os.O_RDONLY | getattr(os, "O_CLOEXEC", 0) | getattr(os, "O_DIRECTORY", 0) | getattr(os, "O_NOFOLLOW", 0),
         )
         descriptor = os.open(
             path.name,
-            os.O_RDONLY
-            | getattr(os, "O_CLOEXEC", 0)
-            | getattr(os, "O_DIRECTORY", 0)
-            | getattr(os, "O_NOFOLLOW", 0),
+            os.O_RDONLY | getattr(os, "O_CLOEXEC", 0) | getattr(os, "O_DIRECTORY", 0) | getattr(os, "O_NOFOLLOW", 0),
             dir_fd=parent_fd,
         )
         opened = os.fstat(descriptor)
@@ -543,9 +519,7 @@ def _open_directory_anchor(path: Path) -> DirectoryAnchor:
             or opened.st_uid != os.getuid()
         ):
             raise ProductionCertificateError("run_dir_invalid")
-        return DirectoryAnchor(
-            path, parent_fd, descriptor, _directory_signature(opened)
-        )
+        return DirectoryAnchor(path, parent_fd, descriptor, _directory_signature(opened))
     except ProductionCertificateError:
         if descriptor >= 0:
             os.close(descriptor)
@@ -604,20 +578,12 @@ def _scheduler_environment() -> dict[str, str]:
     for name in SLURM_AUTH_ENV:
         descriptor = -1
         value = os.environ.get(name)
-        if (
-            not isinstance(value, str)
-            or not value
-            or not os.path.isabs(value)
-            or "\n" in value
-            or "\r" in value
-        ):
+        if not isinstance(value, str) or not value or not os.path.isabs(value) or "\n" in value or "\r" in value:
             raise ProductionCertificateError("scheduler_auth_invalid")
         try:
             descriptor = os.open(
                 value,
-                os.O_RDONLY
-                | getattr(os, "O_CLOEXEC", 0)
-                | getattr(os, "O_NOFOLLOW", 0),
+                os.O_RDONLY | getattr(os, "O_CLOEXEC", 0) | getattr(os, "O_NOFOLLOW", 0),
             )
             status = os.fstat(descriptor)
         except OSError as error:
@@ -644,11 +610,7 @@ def _scheduler_command(argv: Sequence[str]) -> bytes:
         )
     except (OSError, subprocess.SubprocessError) as error:
         raise ProductionCertificateError("evaluation_job_state_unavailable") from error
-    if (
-        result.returncode != 0
-        or result.stderr
-        or len(result.stdout) > MAX_COMMAND_OUTPUT_BYTES
-    ):
+    if result.returncode != 0 or result.stderr or len(result.stdout) > MAX_COMMAND_OUTPUT_BYTES:
         raise ProductionCertificateError("evaluation_job_state_unavailable")
     return result.stdout
 
@@ -695,13 +657,9 @@ def _parse_scontrol_identity(raw: bytes, job_id: str) -> dict[str, str]:
     return {key: values[key] for key in sorted(required)}
 
 
-def _parse_sacct_identity(
-    raw: bytes, job_id: str
-) -> tuple[dict[str, str], list[dict[str, str]]]:
+def _parse_sacct_identity(raw: bytes, job_id: str) -> tuple[dict[str, str], list[dict[str, str]]]:
     try:
-        lines = [
-            line for line in raw.decode("utf-8", errors="strict").splitlines() if line
-        ]
+        lines = [line for line in raw.decode("utf-8", errors="strict").splitlines() if line]
     except UnicodeDecodeError as error:
         raise ProductionCertificateError("evaluation_job_identity_invalid") from error
     rows: list[dict[str, str]] = []
@@ -717,17 +675,8 @@ def _parse_sacct_identity(
             or not (is_allocation or row_id.startswith(f"{job_id}."))
             or row["State"].removesuffix("+") != "COMPLETED"
             or row["ExitCode"] != "0:0"
-            or (
-                is_allocation
-                and (row["DerivedExitCode"] != "0:0" or row["Restarts"] != "0")
-            )
-            or (
-                not is_allocation
-                and (
-                    row["DerivedExitCode"] not in {"", "0:0"}
-                    or row["Restarts"] not in {"", "0"}
-                )
-            )
+            or (is_allocation and (row["DerivedExitCode"] != "0:0" or row["Restarts"] != "0"))
+            or (not is_allocation and (row["DerivedExitCode"] not in {"", "0:0"} or row["Restarts"] not in {"", "0"}))
         ):
             raise ProductionCertificateError("evaluation_job_not_successfully_terminal")
         rows.append(row)
@@ -786,9 +735,7 @@ def _terminal_scheduler_snapshot(job_id: str, cluster: str) -> dict[str, Any]:
         ]
     )
     allocation, steps = _parse_sacct_identity(sacct_raw, job_id)
-    scontrol_raw = _scheduler_command(
-        ["/usr/bin/scontrol", "-M", cluster, "show", "job", "--oneliner", job_id]
-    )
+    scontrol_raw = _scheduler_command(["/usr/bin/scontrol", "-M", cluster, "show", "job", "--oneliner", job_id])
     scontrol = _parse_scontrol_identity(scontrol_raw, job_id)
     record = {
         "cluster": cluster,
@@ -822,10 +769,7 @@ def require_slurm_terminal(
 ) -> dict[str, Any]:
     """Require two stable terminal views with no allocation or step queued."""
 
-    if (
-        SLURM_JOB_ID_RE.fullmatch(job_id) is None
-        or SLURM_CLUSTER_RE.fullmatch(cluster) is None
-    ):
+    if SLURM_JOB_ID_RE.fullmatch(job_id) is None or SLURM_CLUSTER_RE.fullmatch(cluster) is None:
         raise ProductionCertificateError("evaluation_job_identity_invalid")
     first = _terminal_scheduler_snapshot(job_id, cluster)
     sleeper(2.0)
@@ -850,10 +794,7 @@ def _validate_terminal_record(
 ) -> dict[str, Any]:
     if not isinstance(record, dict) or record != authorized_record:
         raise ProductionCertificateError("evaluation_job_authorization_mismatch")
-    if (
-        record.get("cluster") != expected_cluster
-        or record.get("job_id") != expected_job_id
-    ):
+    if record.get("cluster") != expected_cluster or record.get("job_id") != expected_job_id:
         raise ProductionCertificateError("evaluation_job_identity_invalid")
     allocation = record.get("allocation")
     steps = record.get("steps")
@@ -951,9 +892,7 @@ def _validate_terminal_record(
     return record
 
 
-def _acquire_writer_lock(
-    run_dir: Path, anchor: DirectoryAnchor | None = None
-) -> BinaryIO:
+def _acquire_writer_lock(run_dir: Path, anchor: DirectoryAnchor | None = None) -> BinaryIO:
     lock_path = run_dir / ".writer.lock"
     descriptor = -1
     try:
@@ -987,9 +926,7 @@ def _acquire_writer_lock(
             dir_fd=anchor.descriptor if anchor is not None else None,
             follow_symlinks=False,
         )
-        if _stat_signature(before) != _stat_signature(after) or _stat_signature(
-            after
-        ) != _stat_signature(path_after):
+        if _stat_signature(before) != _stat_signature(after) or _stat_signature(after) != _stat_signature(path_after):
             raise ProductionCertificateError("writer_lock_changed")
         return os.fdopen(descriptor, "rb", closefd=True)
     except OSError as error:
@@ -1115,11 +1052,7 @@ def _provenance_job_id(
         lines = raw.decode("utf-8").splitlines()
     except UnicodeDecodeError as error:
         raise ProductionCertificateError("provenance_invalid") from error
-    values = [
-        line.removeprefix("slurm_job_id=")
-        for line in lines
-        if line.startswith("slurm_job_id=")
-    ]
+    values = [line.removeprefix("slurm_job_id=") for line in lines if line.startswith("slurm_job_id=")]
     if len(values) != 1 or SLURM_JOB_ID_RE.fullmatch(values[0]) is None:
         raise ProductionCertificateError("provenance_job_identity_invalid")
     return values[0]
@@ -1137,9 +1070,7 @@ def _rehash_artifacts(artifacts: dict[str, dict[str, str]]) -> None:
         try:
             _pinned_artifact(path, expected, label=f"artifact_{name}")
         except ProductionCertificateError as error:
-            raise ProductionCertificateError(
-                f"artifact_hash_mismatch:{name}"
-            ) from error
+            raise ProductionCertificateError(f"artifact_hash_mismatch:{name}") from error
 
 
 def _sft_training_readiness_scope() -> dict[str, object]:
@@ -1155,9 +1086,7 @@ def _validate_sft_training_readiness_scope(value: object) -> None:
         raise ProductionCertificateError("sft_training_readiness_claim_invalid")
 
 
-def _validate_submission_attestation(
-    value: object, authorization: Mapping[str, Any]
-) -> dict[str, Any]:
+def _validate_submission_attestation(value: object, authorization: Mapping[str, Any]) -> dict[str, Any]:
     if not isinstance(value, dict) or set(value) != {
         "activation_permit",
         "held_authorization",
@@ -1170,9 +1099,7 @@ def _validate_submission_attestation(
     reservation = value.get("reservation")
     job = value.get("job")
     submission = authorization.get("audit_submission")
-    reservation_identity = (
-        reservation.get("identity") if isinstance(reservation, dict) else None
-    )
+    reservation_identity = reservation.get("identity") if isinstance(reservation, dict) else None
     identity_keys = {
         "device",
         "inode",
@@ -1188,11 +1115,7 @@ def _validate_submission_attestation(
         or reservation.get("mode") != "0500"
         or not isinstance(reservation_identity, dict)
         or set(reservation_identity) != identity_keys
-        or any(
-            type(reservation_identity.get(key)) is not int
-            or reservation_identity[key] < 0
-            for key in identity_keys
-        )
+        or any(type(reservation_identity.get(key)) is not int or reservation_identity[key] < 0 for key in identity_keys)
         or reservation_identity.get("inode") == 0
         or reservation_identity.get("parent_inode") == 0
         or reservation_identity.get("owner_uid") != os.getuid()
@@ -1393,8 +1316,7 @@ def _load_audit_authorization(
             or run.get("role") != "mobius"
             or run.get("resume") is not False
             or any(
-                not isinstance(run.get(key), str)
-                or SHA256_RE.fullmatch(run[key]) is None
+                not isinstance(run.get(key), str) or SHA256_RE.fullmatch(run[key]) is None
                 for key in ("eval_run_identity_file_sha256", "eval_run_identity_sha256")
             )
         ):
@@ -1445,8 +1367,7 @@ def _load_audit_authorization(
                 for item in source["gitlinks"].values()
             )
             or not isinstance(source.get("import_manifests"), dict)
-            or set(source["import_manifests"])
-            != {"prime_rl", "pydantic_config", "renderers", "verifiers"}
+            or set(source["import_manifests"]) != {"prime_rl", "pydantic_config", "renderers", "verifiers"}
             or any(
                 not isinstance(item, str) or SHA256_RE.fullmatch(item) is None
                 for item in source["import_manifests"].values()
@@ -1490,9 +1411,7 @@ def _load_audit_authorization(
             raise ProductionCertificateError("audit_authorization_runtime_invalid")
         _authorization_artifact(runtime.get("python"), label="runtime_python")
         for label, expected_path in RUNTIME_TOOL_PATHS.items():
-            record = _authorization_artifact(
-                runtime["tools"][label], label=f"runtime_{label}"
-            )
+            record = _authorization_artifact(runtime["tools"][label], label=f"runtime_{label}")
             if record["path"] != expected_path:
                 raise ProductionCertificateError("audit_authorization_runtime_invalid")
         for label in ("stdlib", "site_packages"):
@@ -1521,12 +1440,8 @@ def _require_production_contract(identity: dict[str, Any]) -> None:
     contract = identity.get("contract")
     context = contract.get("context_tokens") if isinstance(contract, dict) else None
     thinking = contract.get("thinking") if isinstance(contract, dict) else None
-    denylist = (
-        contract.get("outbound_body_denylist") if isinstance(contract, dict) else None
-    )
-    sampling_max_tokens = (
-        contract.get("sampling_max_tokens") if isinstance(contract, dict) else None
-    )
+    denylist = contract.get("outbound_body_denylist") if isinstance(contract, dict) else None
+    sampling_max_tokens = contract.get("sampling_max_tokens") if isinstance(contract, dict) else None
     if (
         identity.get("role") != "mobius"
         or not isinstance(contract, dict)
@@ -1542,8 +1457,7 @@ def _require_production_contract(identity: dict[str, Any]) -> None:
         or not isinstance(context, dict)
         or set(context) != {"max_input_tokens", "max_output_tokens", "max_total_tokens"}
         or any(value != MAX_SEQUENCE_TOKENS for value in context.values())
-        or _canonical_json(thinking)
-        != _canonical_json({"enable_thinking": True, "preserve_thinking": True})
+        or _canonical_json(thinking) != _canonical_json({"enable_thinking": True, "preserve_thinking": True})
         or not isinstance(denylist, list)
         or len(denylist) != len(EXPECTED_DENYLIST)
         or set(denylist) != EXPECTED_DENYLIST
@@ -1555,36 +1469,21 @@ def _require_execution(
     identity: dict[str, Any],
 ) -> tuple[dict[str, int], dict[str, Any]]:
     execution = identity.get("execution")
-    vmvm_environment = (
-        execution.get("vmvm_environment") if isinstance(execution, dict) else None
-    )
+    vmvm_environment = execution.get("vmvm_environment") if isinstance(execution, dict) else None
     fields = {
-        "rollout_concurrency": execution.get("rollout_concurrency")
-        if isinstance(execution, dict)
-        else None,
-        "multiplex": execution.get("multiplex")
-        if isinstance(execution, dict)
-        else None,
-        "http_max_connections": execution.get("http_max_connections")
-        if isinstance(execution, dict)
-        else None,
+        "rollout_concurrency": execution.get("rollout_concurrency") if isinstance(execution, dict) else None,
+        "multiplex": execution.get("multiplex") if isinstance(execution, dict) else None,
+        "http_max_connections": execution.get("http_max_connections") if isinstance(execution, dict) else None,
         "http_max_keepalive_connections": (
-            execution.get("http_max_keepalive_connections")
-            if isinstance(execution, dict)
-            else None
+            execution.get("http_max_keepalive_connections") if isinstance(execution, dict) else None
         ),
         "lease_start_concurrency": (
-            vmvm_environment.get("lease_start_concurrency")
-            if isinstance(vmvm_environment, dict)
-            else None
+            vmvm_environment.get("lease_start_concurrency") if isinstance(vmvm_environment, dict) else None
         ),
     }
     runtime = execution.get("runtime") if isinstance(execution, dict) else None
     if (
-        any(
-            isinstance(value, bool) or not isinstance(value, int)
-            for value in fields.values()
-        )
+        any(isinstance(value, bool) or not isinstance(value, int) for value in fields.values())
         or any(
             fields[key] != EXPECTED_MOBIUS_STEADY_STATE_CONCURRENCY
             for key in (
@@ -1611,9 +1510,7 @@ def _qualified_rollout_contract(
     """Project the reviewed launch contract into aggregate trace evidence."""
 
     production = launch_certificate.get("production")
-    launch_contract = (
-        production.get("contract") if isinstance(production, dict) else None
-    )
+    launch_contract = production.get("contract") if isinstance(production, dict) else None
     identity_contract = identity.get("contract")
     source = identity.get("source")
     if (
@@ -1625,8 +1522,7 @@ def _qualified_rollout_contract(
         or launch_contract.get("num_rollouts") != 1
         or launch_contract.get("pass_at_1") is not True
         or launch_contract.get("reasoning_effort") != "max"
-        or launch_contract.get("thinking")
-        != {"enable_thinking": True, "preserve_thinking": True}
+        or launch_contract.get("thinking") != {"enable_thinking": True, "preserve_thinking": True}
         or launch_contract.get("context_tokens")
         != {
             "max_input_tokens": MAX_SEQUENCE_TOKENS,
@@ -1821,15 +1717,8 @@ def _rename_noreplace(directory_fd: int, source: str, destination: str) -> None:
         ]
         renameat2.restype = ctypes.c_int
     except (AttributeError, OSError) as error:
-        raise ProductionCertificateError(
-            "checkpoint_publication_unsupported"
-        ) from error
-    if (
-        renameat2(
-            directory_fd, os.fsencode(source), directory_fd, os.fsencode(destination), 1
-        )
-        == 0
-    ):
+        raise ProductionCertificateError("checkpoint_publication_unsupported") from error
+    if renameat2(directory_fd, os.fsencode(source), directory_fd, os.fsencode(destination), 1) == 0:
         return
     observed_errno = ctypes.get_errno()
     if observed_errno == errno.EEXIST:
@@ -1866,11 +1755,7 @@ def _publish_anchored_entry(
     try:
         descriptor = os.open(
             temporary,
-            os.O_RDWR
-            | os.O_CREAT
-            | os.O_EXCL
-            | getattr(os, "O_CLOEXEC", 0)
-            | getattr(os, "O_NOFOLLOW", 0),
+            os.O_RDWR | os.O_CREAT | os.O_EXCL | getattr(os, "O_CLOEXEC", 0) | getattr(os, "O_NOFOLLOW", 0),
             0o600,
             dir_fd=anchor.descriptor,
         )
@@ -1940,9 +1825,7 @@ def _publish_certificate(
     *,
     authorization: Mapping[str, Any],
 ) -> dict[str, Any]:
-    if not _entry_absent(anchor, PAYLOAD_NAME) or not _entry_absent(
-        anchor, CHECKPOINT_NAME
-    ):
+    if not _entry_absent(anchor, PAYLOAD_NAME) or not _entry_absent(anchor, CHECKPOINT_NAME):
         raise ProductionCertificateError("checkpoint_already_exists")
     payload_sha256, _payload_bytes = _publish_anchored_entry(
         anchor,
@@ -1966,9 +1849,7 @@ def _publish_certificate(
     }
     marker = {
         **marker_body,
-        "production_trace_checkpoint_sha256": _sha256_bytes(
-            _canonical_json(marker_body)
-        ),
+        "production_trace_checkpoint_sha256": _sha256_bytes(_canonical_json(marker_body)),
     }
     _publish_anchored_entry(
         anchor,
@@ -2017,37 +1898,26 @@ def _validate_launch_chain(
     config = identity.get("config")
     dataset = identity.get("dataset")
     execution = identity.get("execution")
-    vmvm_environment = (
-        execution.get("vmvm_environment") if isinstance(execution, dict) else None
-    )
-    if not all(
-        isinstance(value, dict)
-        for value in (deployment, inputs, config, dataset, vmvm_environment)
-    ):
+    vmvm_environment = execution.get("vmvm_environment") if isinstance(execution, dict) else None
+    if not all(isinstance(value, dict) for value in (deployment, inputs, config, dataset, vmvm_environment)):
         raise ProductionCertificateError("eval_identity_launch_binding_invalid")
     assert isinstance(deployment, dict)
     assert isinstance(inputs, dict)
     assert isinstance(config, dict)
     assert isinstance(dataset, dict)
     assert isinstance(vmvm_environment, dict)
-    promotion_record = _identity_artifact(
-        identity, "deployment", "promotion_certificate"
-    )
+    promotion_record = _identity_artifact(identity, "deployment", "promotion_certificate")
     identity_task = _identity_artifact(identity, "inputs", "task_file")
     identity_config = _identity_artifact(identity, "config", "source")
     image_record = _identity_artifact(identity, "inputs", "image_manifest")
     spec_record = _identity_artifact(identity, "deployment", "spec")
-    readiness_record = _identity_artifact(
-        identity, "deployment", "readiness_checkpoint"
-    )
+    readiness_record = _identity_artifact(identity, "deployment", "readiness_checkpoint")
     capacity_record = _identity_artifact(identity, "deployment", "smoke_checkpoint")
     endpoint = deployment.get("endpoint")
     try:
         endpoint = validate_endpoint_binding(endpoint)
     except EndpointBindingError as error:
-        raise ProductionCertificateError(
-            "eval_identity_launch_binding_invalid"
-        ) from error
+        raise ProductionCertificateError("eval_identity_launch_binding_invalid") from error
     if (
         promotion_record != launch_record
         or identity_task != task_record
@@ -2072,18 +1942,14 @@ def _validate_launch_chain(
             readiness_checkpoint_sha256=readiness_record["sha256"],
             capacity_smoke_checkpoint=Path(capacity_record["path"]),
             capacity_smoke_checkpoint_sha256=capacity_record["sha256"],
-            requested_lease_start_concurrency=vmvm_environment[
-                "lease_start_concurrency"
-            ],
+            requested_lease_start_concurrency=vmvm_environment["lease_start_concurrency"],
         )
     except (KeyError, OSError, TypeError, ValueError, LaunchCertificateError) as error:
         raise ProductionCertificateError("launch_certificate_invalid") from error
     gates = launch_certificate.get("gates")
     oracle_gate = gates.get("oracle_promotion") if isinstance(gates, dict) else None
     production = launch_certificate.get("production")
-    launch_manifest = (
-        production.get("approved_manifest") if isinstance(production, dict) else None
-    )
+    launch_manifest = production.get("approved_manifest") if isinstance(production, dict) else None
     launch_config = production.get("config") if isinstance(production, dict) else None
     if (
         not isinstance(oracle_gate, dict)
@@ -2118,9 +1984,7 @@ def certify_production(
     expected_oracle_receipt_sha256: str,
     expected_traces: int = EXPECTED_TASKS,
     identity_loader: Callable[..., dict[str, Any]] = load_eval_run_identity,
-    launch_validator: Callable[
-        ..., dict[str, Any]
-    ] = validate_launch_certificate_for_run,
+    launch_validator: Callable[..., dict[str, Any]] = validate_launch_certificate_for_run,
     terminal_validator: Callable[[str, str], dict[str, Any]] = require_slurm_terminal,
     runtime_revalidator: Callable[[], Mapping[str, Any]] | None = None,
     submission_attestation: Mapping[str, Any] | None = None,
@@ -2146,11 +2010,9 @@ def certify_production(
     lock: BinaryIO | None = None
     committed = False
     try:
-        authorization, authorization_record, authorization_snapshot = (
-            _load_audit_authorization(
-                audit_authorization,
-                audit_authorization_sha256,
-            )
+        authorization, authorization_record, authorization_snapshot = _load_audit_authorization(
+            audit_authorization,
+            audit_authorization_sha256,
         )
         admitted_submission = _validate_submission_attestation(
             submission_attestation,
@@ -2163,9 +2025,7 @@ def certify_production(
         if authorization["run"]["path"] != str(run_dir):
             raise ProductionCertificateError("audit_authorization_run_mismatch")
         anchor = _open_directory_anchor(run_dir)
-        if not _entry_absent(anchor, CHECKPOINT_NAME) or not _entry_absent(
-            anchor, PAYLOAD_NAME
-        ):
+        if not _entry_absent(anchor, CHECKPOINT_NAME) or not _entry_absent(anchor, PAYLOAD_NAME):
             raise ProductionCertificateError("checkpoint_already_exists")
         lock = _acquire_writer_lock(run_dir, anchor)
         identity_path = run_dir / "eval_run_identity.json"
@@ -2201,12 +2061,9 @@ def certify_production(
         identity_source = identity.get("source")
         if (
             not isinstance(identity_source, dict)
-            or authorized_source["prime_rl_commit"]
-            != identity_source.get("prime_rl_commit")
-            or authorized_source["gitlinks"].get("verifiers")
-            != identity_source.get("verifiers_commit")
-            or authorized_source["gitlinks"].get("renderers")
-            != identity_source.get("renderers_commit")
+            or authorized_source["prime_rl_commit"] != identity_source.get("prime_rl_commit")
+            or authorized_source["gitlinks"].get("verifiers") != identity_source.get("verifiers_commit")
+            or authorized_source["gitlinks"].get("renderers") != identity_source.get("renderers_commit")
             or authorized_source["artifacts"] != auditor_sources
         ):
             raise ProductionCertificateError("audit_authorization_source_mismatch")
@@ -2227,14 +2084,12 @@ def certify_production(
         }
         if (
             identity_task != expected_task_record
-            or identity.get("inputs", {}).get("task_file", {}).get("count")
-            != EXPECTED_TASKS
+            or identity.get("inputs", {}).get("task_file", {}).get("count") != EXPECTED_TASKS
         ):
             raise ProductionCertificateError("eval_identity_task_mismatch")
         authorized_inputs = authorization["inputs"]
         if (
-            authorized_inputs["task_file"]
-            != {**expected_task_record, "count": EXPECTED_TASKS}
+            authorized_inputs["task_file"] != {**expected_task_record, "count": EXPECTED_TASKS}
             or authorized_inputs["production_config"]
             != {
                 "path": str(expected_production_config),
@@ -2287,9 +2142,7 @@ def certify_production(
         ):
             raise ProductionCertificateError("trace_audit_failed")
         try:
-            rollout_observation = measure_peak_active_rollouts(
-                _iter_traces(results_snapshot.path)
-            )
+            rollout_observation = measure_peak_active_rollouts(_iter_traces(results_snapshot.path))
         except (OSError, ValueError, TraceConcurrencyError) as error:
             raise ProductionCertificateError("trace_concurrency_invalid") from error
         if rollout_observation["observed_rollouts"] != EXPECTED_TASKS:
@@ -2304,14 +2157,10 @@ def certify_production(
         deployment_id = deployment.get("id")
         spec = deployment.get("spec")
         try:
-            serving_route_generation = validate_route_generation(
-                deployment.get("serving_route_generation")
-            )
+            serving_route_generation = validate_route_generation(deployment.get("serving_route_generation"))
             proxy_policy = validate_proxy_policy_binding(deployment.get("proxy_policy"))
         except (RouteGenerationError, DeploymentProxyPolicyError) as error:
-            raise ProductionCertificateError(
-                "eval_identity_deployment_invalid"
-            ) from error
+            raise ProductionCertificateError("eval_identity_deployment_invalid") from error
         if (
             not isinstance(deployment_id, str)
             or not deployment_id
@@ -2326,13 +2175,9 @@ def certify_production(
                 expected_binding=proxy_policy,
             )
         except DeploymentProxyPolicyError as error:
-            raise ProductionCertificateError(
-                "eval_identity_proxy_policy_changed"
-            ) from error
+            raise ProductionCertificateError("eval_identity_proxy_policy_changed") from error
 
-        readiness_record = _identity_artifact(
-            identity, "deployment", "readiness_checkpoint"
-        )
+        readiness_record = _identity_artifact(identity, "deployment", "readiness_checkpoint")
         readiness_snapshot = _open_stable_file(
             Path(readiness_record["path"]),
             label="readiness_checkpoint",
@@ -2346,17 +2191,13 @@ def certify_production(
         finally:
             readiness_snapshot.close()
         try:
-            readiness_endpoint = validate_endpoint_binding(
-                readiness_payload.get("endpoint")
-            )
+            readiness_endpoint = validate_endpoint_binding(readiness_payload.get("endpoint"))
             readiness_generation = validate_readiness_route_generation(
                 readiness_payload,
                 deployment_id=deployment_id,
                 deployment_spec_sha256=spec["sha256"],
             )
-            readiness_proxy_policy = validate_proxy_policy_binding(
-                readiness_payload.get("proxy_policy")
-            )
+            readiness_proxy_policy = validate_proxy_policy_binding(readiness_payload.get("proxy_policy"))
         except (
             EndpointBindingError,
             RouteGenerationError,
@@ -2403,10 +2244,7 @@ def certify_production(
             ):
                 raise GuardReceiptError("audit_authorization_job_mismatch")
             provenance_path = run_dir / "provenance.txt"
-            if (
-                _provenance_job_id(provenance_path, anchor=anchor)
-                != invocation["slurm_job_id"]
-            ):
+            if _provenance_job_id(provenance_path, anchor=anchor) != invocation["slurm_job_id"]:
                 raise GuardReceiptError("provenance_job_identity_mismatch")
             telemetry, telemetry_artifact = load_concurrency_telemetry_artifact(
                 run_dir / "concurrency_telemetry.json",
@@ -2420,18 +2258,12 @@ def certify_production(
             raise ProductionCertificateError("terminal_guard_invalid") from error
         observations = telemetry["observations"]
         if (
-            rollout_observation["peak_active_rollouts_lower_bound"]
-            < EXPECTED_MOBIUS_STEADY_STATE_CONCURRENCY
-            or rollout_observation["peak_active_rollouts_lower_bound"]
-            > execution_fields["rollout_concurrency"]
-            or observations["peak_active_vmvm_runtimes"]
-            < EXPECTED_MOBIUS_STEADY_STATE_CONCURRENCY
-            or observations["peak_active_vmvm_runtimes"]
-            > execution_fields["rollout_concurrency"]
-            or observations["peak_concurrent_lease_startups"]
-            < EXPECTED_MOBIUS_LEASE_START_CONCURRENCY
-            or observations["peak_concurrent_lease_startups"]
-            > execution_fields["lease_start_concurrency"]
+            rollout_observation["peak_active_rollouts_lower_bound"] < EXPECTED_MOBIUS_STEADY_STATE_CONCURRENCY
+            or rollout_observation["peak_active_rollouts_lower_bound"] > execution_fields["rollout_concurrency"]
+            or observations["peak_active_vmvm_runtimes"] < EXPECTED_MOBIUS_STEADY_STATE_CONCURRENCY
+            or observations["peak_active_vmvm_runtimes"] > execution_fields["rollout_concurrency"]
+            or observations["peak_concurrent_lease_startups"] < EXPECTED_MOBIUS_LEASE_START_CONCURRENCY
+            or observations["peak_concurrent_lease_startups"] > execution_fields["lease_start_concurrency"]
             or observations["vmvm_runtime_ready"] < EXPECTED_TASKS
         ):
             raise ProductionCertificateError("observed_concurrency_below_required")
@@ -2454,14 +2286,10 @@ def certify_production(
             execution_fields,
         )
         if (
-            authorized_inputs["task_file"]
-            != {**external_artifacts["approved_task_file"], "count": EXPECTED_TASKS}
-            or authorized_inputs["production_config"]
-            != external_artifacts["approved_production_config"]
-            or authorized_inputs["launch_certificate"]
-            != external_artifacts["launch_certificate"]
-            or authorized_inputs["oracle_receipt"]
-            != external_artifacts["oracle_promotion"]
+            authorized_inputs["task_file"] != {**external_artifacts["approved_task_file"], "count": EXPECTED_TASKS}
+            or authorized_inputs["production_config"] != external_artifacts["approved_production_config"]
+            or authorized_inputs["launch_certificate"] != external_artifacts["launch_certificate"]
+            or authorized_inputs["oracle_receipt"] != external_artifacts["oracle_promotion"]
         ):
             raise ProductionCertificateError("audit_authorization_inputs_mismatch")
 
@@ -2471,13 +2299,9 @@ def certify_production(
         artifacts = {
             "audit_authorization": authorization_record,
             "audit_submission_intent": admitted_submission["intent"],
-            "audit_submission_held_authorization": admitted_submission[
-                "held_authorization"
-            ],
+            "audit_submission_held_authorization": admitted_submission["held_authorization"],
             "audit_submission_receipt": admitted_submission["submission_receipt"],
-            "audit_submission_activation_permit": admitted_submission[
-                "activation_permit"
-            ],
+            "audit_submission_activation_permit": admitted_submission["activation_permit"],
             "results": {"path": str(results_path), "sha256": before_results_sha256},
             "eval_run_identity": {
                 "path": str(identity_path),
@@ -2517,9 +2341,7 @@ def certify_production(
         except ProductionCertificateError:
             raise
         except Exception as error:
-            raise ProductionCertificateError(
-                "evaluation_job_state_unavailable"
-            ) from error
+            raise ProductionCertificateError("evaluation_job_state_unavailable") from error
 
         try:
             final_envelope = identity_loader(
@@ -2543,9 +2365,7 @@ def certify_production(
                 expected_binding=proxy_policy,
             )
         except (KeyError, OSError, DeploymentProxyPolicyError) as error:
-            raise ProductionCertificateError(
-                "eval_identity_proxy_policy_changed"
-            ) from error
+            raise ProductionCertificateError("eval_identity_proxy_policy_changed") from error
         final_launch_certificate, final_external_artifacts = _validate_launch_chain(
             identity,
             expected_task_file=expected_task_file,
@@ -2558,10 +2378,7 @@ def certify_production(
             expected_oracle_receipt_sha256=expected_oracle_receipt_sha256,
             launch_validator=launch_validator,
         )
-        if (
-            final_launch_certificate != launch_certificate
-            or final_external_artifacts != external_artifacts
-        ):
+        if final_launch_certificate != launch_certificate or final_external_artifacts != external_artifacts:
             raise ProductionCertificateError("launch_certificate_changed")
         if (
             _qualified_rollout_contract(
@@ -2599,25 +2416,17 @@ def certify_production(
                 "endpoint": endpoint,
             },
             "launch_chain": {
-                "launch_certificate_sha256": launch_certificate[
-                    "launch_certificate_sha256"
-                ],
-                "oracle_receipt_sha256": external_artifacts["oracle_promotion"][
-                    "sha256"
-                ],
+                "launch_certificate_sha256": launch_certificate["launch_certificate_sha256"],
+                "oracle_receipt_sha256": external_artifacts["oracle_promotion"]["sha256"],
             },
             "qualified_execution": execution_fields,
             "qualified_rollout_contract": qualified_rollout_contract,
             "observed_concurrency": {
                 "active_rollout_signal": "completed_trace_lifecycle_timing_overlap",
                 "lease_start_signal": "vacli_lease_start_semaphore_holders",
-                "peak_active_rollouts_lower_bound": rollout_observation[
-                    "peak_active_rollouts_lower_bound"
-                ],
+                "peak_active_rollouts_lower_bound": rollout_observation["peak_active_rollouts_lower_bound"],
                 "peak_active_vmvm_runtimes": observations["peak_active_vmvm_runtimes"],
-                "peak_concurrent_lease_startups": observations[
-                    "peak_concurrent_lease_startups"
-                ],
+                "peak_concurrent_lease_startups": observations["peak_concurrent_lease_startups"],
             },
             "audit_policy": _expected_audit_policy(),
             "audit_window": {
@@ -2630,12 +2439,8 @@ def certify_production(
                 "tasks": summary["tasks"],
                 "sampled_tokens": summary["sampled_tokens"],
                 "model_io_turns": summary["model_io_turns"],
-                "provider_reported_zero_reasoning_tool_turns": summary[
-                    "provider_reported_zero_reasoning_tool_turns"
-                ],
-                "provider_explicit_empty_reasoning_tool_turns": summary[
-                    "provider_explicit_empty_reasoning_tool_turns"
-                ],
+                "provider_reported_zero_reasoning_tool_turns": summary["provider_reported_zero_reasoning_tool_turns"],
+                "provider_explicit_empty_reasoning_tool_turns": summary["provider_explicit_empty_reasoning_tool_turns"],
                 "trace_failures": summary["trace_failures"],
                 "global_problems": len(summary["global_problems"]),
             },
@@ -2645,9 +2450,7 @@ def certify_production(
         }
         certificate = {
             **certificate_body,
-            "production_trace_certificate_sha256": _sha256_bytes(
-                _canonical_json(certificate_body)
-            ),
+            "production_trace_certificate_sha256": _sha256_bytes(_canonical_json(certificate_body)),
         }
         # Recheck the complete checkout/gitlink/import/runtime closure only
         # after all certificate bytes have been derived.  The remaining
@@ -2667,9 +2470,7 @@ def certify_production(
         except ProductionCertificateError:
             raise
         except Exception as error:
-            raise ProductionCertificateError(
-                "audit_submission_attestation_changed"
-            ) from error
+            raise ProductionCertificateError("audit_submission_attestation_changed") from error
         if final_submission_attestation != admitted_submission:
             raise ProductionCertificateError("audit_submission_attestation_changed")
         _revalidate_writer_lock(lock, run_dir, anchor)
@@ -2689,9 +2490,7 @@ def certify_production(
         except ProductionCertificateError:
             raise
         except Exception as error:
-            raise ProductionCertificateError(
-                "evaluation_job_state_unavailable"
-            ) from error
+            raise ProductionCertificateError("evaluation_job_state_unavailable") from error
         if final_terminal_record != terminal_record:
             raise ProductionCertificateError("evaluation_job_identity_changed")
         # Only descriptor/metadata checks remain after the final two-view
@@ -2745,21 +2544,15 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--expected-traces", type=int, default=EXPECTED_TASKS)
     args = parser.parse_args(argv)
     runtime_revalidator = globals().get("__production_trace_runtime_revalidator__")
-    submission_attestation = globals().get(
-        "__production_trace_submission_attestation__"
-    )
-    submission_revalidator = globals().get(
-        "__production_trace_submission_revalidator__"
-    )
+    submission_attestation = globals().get("__production_trace_submission_attestation__")
+    submission_revalidator = globals().get("__production_trace_submission_revalidator__")
     if not callable(runtime_revalidator):
         print(
             "production_trace_checkpoint_error:verified_runtime_required",
             file=sys.stderr,
         )
         return 2
-    if not isinstance(submission_attestation, Mapping) or not callable(
-        submission_revalidator
-    ):
+    if not isinstance(submission_attestation, Mapping) or not callable(submission_revalidator):
         print(
             "production_trace_checkpoint_error:audit_submission_attestation_required",
             file=sys.stderr,
@@ -2796,9 +2589,7 @@ def main(argv: list[str] | None = None) -> int:
                 "ok": True,
                 "checkpoint": os.path.abspath(args.run_dir / CHECKPOINT_NAME),
                 "certificate": os.path.abspath(args.run_dir / PAYLOAD_NAME),
-                "production_trace_certificate_sha256": certificate[
-                    "production_trace_certificate_sha256"
-                ],
+                "production_trace_certificate_sha256": certificate["production_trace_certificate_sha256"],
                 "counts": certificate["counts"],
             },
             sort_keys=True,

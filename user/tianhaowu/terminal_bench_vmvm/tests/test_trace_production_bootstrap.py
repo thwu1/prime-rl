@@ -252,9 +252,7 @@ def test_verified_finder_rejects_escaped_namespace_without_executing_body(
     outside_namespace = tmp_path / "outside" / module_name
     outside_namespace.mkdir(parents=True)
     marker = tmp_path / "executed"
-    (outside_namespace / "payload.py").write_text(
-        f"from pathlib import Path\nPath({str(marker)!r}).touch()\n"
-    )
+    (outside_namespace / "payload.py").write_text(f"from pathlib import Path\nPath({str(marker)!r}).touch()\n")
     (protected / module_name).symlink_to(outside_namespace, target_is_directory=True)
     finder = bootstrap._VerifiedImportFinder((protected,), {})
     monkeypatch.setattr(sys, "path", [str(protected), *sys.path])
@@ -338,21 +336,9 @@ def test_runtime_tool_contract_is_exact_and_root_owned() -> None:
 
 
 def test_wrapper_bootstrap_contract_forbids_ambient_import_paths() -> None:
-    wrapper = (
-        Path(bootstrap.__file__)
-        .with_name("run_trace_production_audit.sbatch")
-        .read_text()
-    )
-    submitter = (
-        Path(bootstrap.__file__)
-        .with_name("submit_trace_production_audit.sh")
-        .read_text()
-    )
-    submission_controller = (
-        Path(bootstrap.__file__)
-        .with_name("trace_production_submit_control.py")
-        .read_text()
-    )
+    wrapper = Path(bootstrap.__file__).with_name("run_trace_production_audit.sbatch").read_text()
+    submitter = Path(bootstrap.__file__).with_name("submit_trace_production_audit.sh").read_text()
+    submission_controller = Path(bootstrap.__file__).with_name("trace_production_submit_control.py").read_text()
     assert '"--export=NONE"' in submission_controller
     assert '"-",' in submission_controller
     assert "TRACE_SUBMITTER_SEALED_FD" in submitter
@@ -437,10 +423,7 @@ def test_dev_null_pycache_sink_ignores_unchecked_hash_bytecode(
 
     def import_with_prefix(prefix: Path) -> subprocess.CompletedProcess[bytes]:
         program = (
-            "import sys;"
-            f"sys.pycache_prefix={str(prefix)!r};"
-            f"sys.path.insert(0,{str(source_root)!r});"
-            "import cache_probe"
+            f"import sys;sys.pycache_prefix={str(prefix)!r};sys.path.insert(0,{str(source_root)!r});import cache_probe"
         )
         return subprocess.run(
             ["/usr/bin/python3.12", "-I", "-S", "-B", "-c", program],
@@ -507,9 +490,7 @@ def test_phase_certificate_rejects_resealed_semantic_mutation(
 ) -> None:
     phase = _phase(state="PENDING", timeout=bootstrap.HELD_TIMEOUT_SECONDS)
     phase[field] = value
-    with pytest.raises(
-        bootstrap.BootstrapError, match="^submission_admission_invalid$"
-    ):
+    with pytest.raises(bootstrap.BootstrapError, match="^submission_admission_invalid$"):
         bootstrap._validate_phase_certificate(
             phase,
             timeout_seconds=bootstrap.HELD_TIMEOUT_SECONDS,
