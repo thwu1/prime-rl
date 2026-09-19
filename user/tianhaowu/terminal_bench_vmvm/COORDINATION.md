@@ -1,6 +1,6 @@
 # VMVM sandbox coordination
 
-Last updated: 2026-09-19 23:23 UTC
+Last updated: 2026-09-19 23:40 UTC
 
 ## First message to the next teammate
 
@@ -41,6 +41,24 @@ this shared branch again.
 Add new rows below this line; do not overwrite another owner's row.
 
 ## Open coordination requests
+
+- **2026-09-19 23:40 UTC, fresh Kimi watcher v6 rejected unlaunched:** do
+  not execute watcher SHA `c0ab5d62...`. Although its exact `2110daf8a`
+  source/bundle, normal-QoS spec, fresh namespaces, and pull-hardening tests
+  validate, it incorrectly asserts `normal` is non-preemptible. Live Slurm uses
+  `preempt/qos` with `REQUEUE`, and several higher QoS rows list `normal` as a
+  preemption target; the empty outbound Preempt set means only that `normal`
+  cannot preempt others. The watcher also lacks bounded exact-deployment
+  cleanup for ambiguous submission, post-submit failure, and signals; permits
+  a final-spec-first observation with no proven initial state; has no v6
+  readiness consumer that cross-binds the final spec, resolved binding, route
+  policy, and launch receipt; and executes a mutable symlinked Python/site
+  runtime before attestation while excluding `.venv` from its source manifest.
+  Fresh v7 must derive truthful preemptibility, arm cleanup before submission
+  and prove terminal drain/archive, require a real stable initial-to-final spec
+  transition, ship the corresponding cross-bound readiness producer/consumer,
+  and bind an immutable complete execution runtime. Both v6 audit-only runs
+  submitted zero jobs and all its namespaces remain absent; v5 was untouched.
 
 - **2026-09-19 23:23 UTC, task-free diagnostic v2 exact commit rejected:**
   do not launch `8df1a94e7`. The wrapper applies a no-symlink pathname check to
