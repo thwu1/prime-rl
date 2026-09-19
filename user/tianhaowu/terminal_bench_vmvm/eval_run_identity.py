@@ -72,6 +72,7 @@ KIMI_FINALIZE_TIMEOUT_SECONDS = 3_600
 KIMI_SCORING_TIMEOUT_SECONDS = 21_600
 KIMI_TIMEOUT_PROFILES = {
     "smoke": {"rollout_timeout": 28_800, "session_timeout": 32_400},
+    "recovery": {"rollout_timeout": 43_200, "session_timeout": 43_200},
     "full": {"rollout_timeout": 36_000, "session_timeout": 43_200},
 }
 KIMI_FULL_RETRY_EXCEPTIONS = frozenset({"ProviderError", "SandboxError", "TunnelError", "InterceptionError"})
@@ -119,7 +120,7 @@ def validate_kimi_timeout_contract(
     allowed_profiles = (
         {required_profile: KIMI_TIMEOUT_PROFILES[required_profile]}
         if required_profile is not None
-        else KIMI_TIMEOUT_PROFILES
+        else {name: KIMI_TIMEOUT_PROFILES[name] for name in ("smoke", "full")}
     )
 
     def exact_number(value: object, expected: int) -> bool:
@@ -201,6 +202,25 @@ def validate_kimi_steady_state_concurrency_contract(config: dict[str, Any]) -> d
         raise EvalIdentityError("kimi_steady_state_concurrency_invalid")
     if len(set(execution.values())) != 1:
         raise EvalIdentityError("kimi_steady_state_concurrency_mismatch")
+    return execution
+
+
+def validate_kimi_recovery_smoke_contract(config: dict[str, Any]) -> dict[str, int]:
+    """Require the reviewed one-task recovery or two-task fresh fallback lane."""
+
+    client = config.get("client")
+    num_tasks = config.get("num_tasks")
+    if not isinstance(client, dict) or type(num_tasks) is not int or num_tasks not in {1, 2}:
+        raise EvalIdentityError("kimi_recovery_smoke_contract_invalid")
+    execution = {
+        "num_tasks": num_tasks,
+        "http_max_connections": client.get("max_connections"),
+        "http_max_keepalive_connections": client.get("max_keepalive_connections"),
+        "multiplex": config.get("multiplex"),
+        "rollout_concurrency": config.get("max_concurrent"),
+    }
+    if any(type(value) is not int or value != num_tasks for value in execution.values()):
+        raise EvalIdentityError("kimi_recovery_smoke_contract_invalid")
     return execution
 
 
@@ -668,7 +688,23 @@ def _contract(
             if not isinstance(taskset, dict):
                 raise EvalIdentityError("resolved_contract_invalid")
             require_kimi_steady_state_concurrency = taskset.get("dataset_revision") is not None
-            required_profile = "full" if require_kimi_steady_state_concurrency else "smoke"
+            recovery_profile = KIMI_TIMEOUT_PROFILES["recovery"]
+            runtime = harness.get("runtime")
+            timeouts = config.get("timeout")
+            is_recovery_profile = (
+                isinstance(runtime, dict)
+                and isinstance(timeouts, dict)
+                and timeouts.get("rollout") == recovery_profile["rollout_timeout"]
+                and runtime.get("session_timeout") == recovery_profile["session_timeout"]
+            )
+            if require_kimi_steady_state_concurrency:
+                required_profile = "full"
+            elif is_recovery_profile:
+                required_profile = "recovery"
+            else:
+                required_profile = "smoke"
+            if required_profile == "recovery":
+                validate_kimi_recovery_smoke_contract(config)
         validate_kimi_timeout_contract(config, required_profile=required_profile)
         validate_kimi_retry_contract(config)
     if config.get("num_rollouts") != 1:
@@ -1996,7 +2032,7 @@ def prepare(args: argparse.Namespace) -> str:
             deployment["smoke_checkpoint"],
             label="smoke_checkpoint",
         )
-        if smoke_payload.get("schema_version") == 2:
+        if smoke_payload.get("schema_version") in {2, 3}:
             try:
                 evidence = validate_smoke_qualification(
                     Path(deployment["smoke_checkpoint"]["path"]),

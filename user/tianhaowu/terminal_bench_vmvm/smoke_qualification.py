@@ -6,6 +6,8 @@ serving generation.  Schema 2 is a separate, write-once qualification bridge:
 it never changes or relabels schema 1 and permits only a backend-worker route
 generation change under the exact same deployment, coordinator, proxy,
 deployment specification, proxy policy, model, and evaluator contract.
+Schema 3 is an exact-route, two-source recovery certificate that joins one
+retained row and one fresh recovery row while preserving both guard receipts.
 """
 
 from __future__ import annotations
@@ -36,6 +38,7 @@ SUPPLEMENTAL_SMOKE_NAME_RE = re.compile(r"smoke_checkpoint_[a-z0-9][a-z0-9_-]{0,
 MAX_ARTIFACT_BYTES = 64 * 1024 * 1024
 BRIDGE_SCHEMA_VERSION = 2
 BRIDGE_KIND = "cross_worker_generation_smoke_qualification"
+COMPOSITE_SCHEMA_VERSION = 3
 EXPECTED_MODEL_IO_CONTRACT = {
     "provider_route": "/chat/completions",
     "request_model": "Kimi-K3",
@@ -623,6 +626,17 @@ def _evaluator_evidence(
         config_identity.get("source"),
         label="smoke_source_config",
     )
+    timeout_profile = required_timeout_profile
+    runtime = config.get("harness", {}).get("runtime")
+    timeouts = config.get("timeout")
+    if (
+        required_timeout_profile == "smoke"
+        and isinstance(runtime, dict)
+        and isinstance(timeouts, dict)
+        and runtime.get("session_timeout") == 43_200
+        and timeouts.get("rollout") == 43_200
+    ):
+        timeout_profile = "recovery"
     return {
         "source": source,
         "evaluator_source": _evaluator_source_evidence(source),
@@ -632,7 +646,7 @@ def _evaluator_evidence(
         "model_io_contract": model_io_contract,
         "tool_contract": _tool_contract(
             config,
-            required_timeout_profile=required_timeout_profile,
+            required_timeout_profile=timeout_profile,
         ),
     }
 
@@ -1683,7 +1697,7 @@ def validate_smoke_qualification(
     deployment_spec_snapshot: Path | None = None,
     proxy_policy_snapshot: Path | None = None,
 ) -> QualificationEvidence:
-    """Validate either an exact-generation v1 smoke or a schema-v2 bridge."""
+    """Validate an exact smoke, worker-generation bridge, or two-source recovery."""
 
     if model != "Kimi-K3":
         raise SmokeQualificationError("smoke_qualification_model_invalid")
@@ -1780,6 +1794,31 @@ def validate_smoke_qualification(
             identity_loader=identity_loader,
             deployment_spec_snapshot=deployment_spec_snapshot,
             proxy_policy_snapshot=proxy_policy_snapshot,
+        )
+    if schema_version == COMPOSITE_SCHEMA_VERSION:
+        try:
+            from smoke_timeout_recovery import validate_composite_qualification
+
+            evaluator_evidence, source_smoke, source_generation = validate_composite_qualification(
+                qualification.path,
+                qualification.sha256,
+                deployment_id=deployment_id,
+                deployment_spec_sha256=deployment_spec.sha256,
+                readiness_record=readiness.record,
+                endpoint=endpoint,
+                generation=generation,
+                proxy_policy=proxy_policy,
+                identity_loader=identity_loader or _default_identity_loader,
+            )
+        except (ImportError, OSError, RuntimeError, ValueError) as error:
+            raise SmokeQualificationError("smoke_composite_invalid") from error
+        return QualificationEvidence(
+            schema_version=COMPOSITE_SCHEMA_VERSION,
+            qualification=qualification,
+            source_smoke=Artifact(source_smoke.path, source_smoke.sha256, source_smoke.raw),
+            source_generation=source_generation,
+            target_generation=generation,
+            evaluator_evidence=evaluator_evidence,
         )
     raise SmokeQualificationError("smoke_qualification_schema_invalid")
 

@@ -700,6 +700,38 @@ exactly 3,600/3,600/21,600 seconds. The approved TB4 smoke uses the exact
 rollout/session pair 28,800/32,400 seconds; full TB4, the capacity smoke, and
 Mobius production use exactly 36,000/43,200 seconds. No intermediate or mixed
 pair is launchable.
+
+A narrowly scoped timeout recovery is available only after a guarded two-task
+smoke has stopped writing and published its success receipt. Run
+`smoke_timeout_recovery.py select` against the externally hash-pinned original
+two-task manifest. It accepts exactly one strictly audited clean trace plus
+either one absent row or one literal `harness_timeout` row. It rejects every
+other error, infrastructure stop, duplicate, extra row, ambiguous task, or
+normalized provider response. The selector atomically creates a mode-0700
+namespace containing a mode-0400 one-line approval and a mode-0444 self-hashed
+attestation; its stdout and errors contain aggregate counts and digests only.
+
+Launch the reviewed `run_kimi_smoke_recovery.sbatch` from the authorized Slurm
+launcher with `KIMI_SMOKE_RECOVERY_MODE=one`, the selection path, and a fresh
+`OUTPUT_DIR` equal to the attested `<selection-namespace>/run`. `RESUME_DIR`
+must be absent, not merely empty. This lane uses
+`tb4_kimi_k3_recovery12h.toml`: one task, one rollout/HTTP/VMVM slot, 262,144
+tokens, 43,200-second evaluator/model/rollout/session limits, and a 48-hour
+Slurm envelope. After the one-task schema-1 certificate passes, the wrapper
+creates a separate fresh composite namespace. Its schema-3 certificate retains
+both source identities and route-guard receipts, requires identical
+deployment/spec/readiness/endpoint/route-generation/proxy bindings and
+compatible evaluator/dataset contracts, re-audits both traces with clean-stop
+and exact-provider requirements, proves a disjoint 1+1 union, and orders rows
+exactly as the original manifest. It never fabricates a route receipt for the
+composite.
+
+If selection is not uniquely eligible, use the same wrapper with
+`KIMI_SMOKE_RECOVERY_MODE=fresh-two` and a new output directory. The fallback
+`tb4_kimi_k3_fresh_smoke12h.toml` reruns both pinned tasks with two aligned
+rollout/HTTP/VMVM slots and the same 12-hour limits. Neither path reuses or
+modifies the incomplete run.
+
 The policy file is scoped to its readiness generation: a deliberate resize may
 rewrite both live policy files, so the sharded TB4 finalizer privately snapshots
 two canonical allowlisted records: one binds the historical spec hash and typed

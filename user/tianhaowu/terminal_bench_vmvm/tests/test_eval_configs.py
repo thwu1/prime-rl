@@ -27,7 +27,9 @@ ACTIVE_KIMI_CONFIGS = [
     "mobius_kimi_k3_capacity_smoke.toml",
     "mobius_kimi_k3_max_2500.toml",
     "tb4_kimi_k3_approved_smoke.toml",
+    "tb4_kimi_k3_fresh_smoke12h.toml",
     "tb4_kimi_k3_max_miniswe.toml",
+    "tb4_kimi_k3_recovery12h.toml",
 ]
 ACTIVE_QWEN_CONFIGS = [
     "mobius_qwen_a95b_2500.toml",
@@ -46,9 +48,11 @@ PRODUCTION_KIMI_CONFIG_ROLES = [
     ("mobius_kimi_k3_capacity_smoke.toml", "smoke"),
     ("mobius_kimi_k3_max_2500.toml", "mobius"),
     ("tb4_kimi_k3_approved_smoke.toml", "smoke"),
+    ("tb4_kimi_k3_fresh_smoke12h.toml", "smoke"),
     ("tb4_kimi_k3_direct_a.toml", "tb4"),
     ("tb4_kimi_k3_direct_b.toml", "tb4"),
     ("tb4_kimi_k3_max_miniswe.toml", "tb4"),
+    ("tb4_kimi_k3_recovery12h.toml", "smoke"),
 ]
 
 
@@ -83,9 +87,11 @@ def test_eval_config_captures_model_io(config_path: Path) -> None:
         ("mobius_kimi_k3_capacity_smoke.toml", 36_000, 43_200, KIMI_ROLLOUT_RETRY_ERRORS),
         ("mobius_kimi_k3_max_2500.toml", 36_000, 43_200, KIMI_ROLLOUT_RETRY_ERRORS),
         ("tb4_kimi_k3_approved_smoke.toml", 28_800, 32_400, KIMI_ROLLOUT_RETRY_ERRORS),
+        ("tb4_kimi_k3_fresh_smoke12h.toml", 43_200, 43_200, KIMI_ROLLOUT_RETRY_ERRORS),
         ("tb4_kimi_k3_direct_a.toml", 36_000, 43_200, KIMI_ROLLOUT_RETRY_ERRORS),
         ("tb4_kimi_k3_direct_b.toml", 36_000, 43_200, KIMI_ROLLOUT_RETRY_ERRORS),
         ("tb4_kimi_k3_max_miniswe.toml", 36_000, 43_200, KIMI_ROLLOUT_RETRY_ERRORS),
+        ("tb4_kimi_k3_recovery12h.toml", 43_200, 43_200, KIMI_ROLLOUT_RETRY_ERRORS),
         ("tb4_kimi_token_smoke.toml", 28_800, 32_400, KIMI_TOKEN_SMOKE_RETRY_ERRORS),
     ],
 )
@@ -164,13 +170,40 @@ def test_checked_in_kimi_configs_reject_cross_profile_and_retry_policy() -> None
 
 
 @pytest.mark.parametrize(
+    ("filename", "tasks"),
+    [
+        ("tb4_kimi_k3_recovery12h.toml", 1),
+        ("tb4_kimi_k3_fresh_smoke12h.toml", 2),
+    ],
+)
+def test_recovery_smoke_profiles_pin_12h_and_task_aligned_concurrency(filename: str, tasks: int) -> None:
+    config = _resolved_eval_config(filename)
+
+    _contract(config, "Kimi-K3", role="smoke")
+    assert config["num_tasks"] == tasks
+    assert config["max_concurrent"] == tasks
+    assert config["multiplex"] == tasks
+    assert config["client"]["max_connections"] == tasks
+    assert config["client"]["max_keepalive_connections"] == tasks
+    assert config["client"]["timeout"] == 43_200
+    assert config["harness"]["runtime"]["session_timeout"] == 43_200
+    assert config["timeout"]["rollout"] == 43_200
+
+    config["max_concurrent"] += 1
+    with pytest.raises(EvalIdentityError, match="^kimi_recovery_smoke_contract_invalid$"):
+        _contract(config, "Kimi-K3", role="smoke")
+
+
+@pytest.mark.parametrize(
     "filename",
     [
         "mobius_kimi_k3_max_2500.toml",
         "mobius_kimi_k3_capacity_smoke.toml",
         "mobius_qwen_a95b_2500.toml",
         "tb4_kimi_k3_approved_smoke.toml",
+        "tb4_kimi_k3_fresh_smoke12h.toml",
         "tb4_kimi_k3_max_miniswe.toml",
+        "tb4_kimi_k3_recovery12h.toml",
         "tb4_kimi_token_smoke.toml",
         "tb4_qwen_a95b_miniswe.toml",
         "tb4_qwen_token_smoke.toml",
