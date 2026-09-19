@@ -72,6 +72,18 @@ Add new rows below this line; do not overwrite another owner's row.
   object independent of whitespace and publish only a sanitized, atomic
   failure certificate; raw stdout/stderr must never be retained or emitted.
 
+- **2026-09-19 09:57 UTC, aggregate-only Kimi smoke stage diagnosis
+  requested:** smoke `1753515` has run for roughly 64 minutes without a
+  published durable row. Before any mutation or cancellation, please report
+  its current scheduler state/elapsed time and classify the active stage as
+  allocation, setup, model request, VMVM sandbox/lease, or result write. Use
+  only sanitized phase markers, aggregate child-process categories, aggregate
+  lease/tunnel counts, output-directory/results-file presence, durable-row
+  count, and a redacted log tail or stable error category. Do not expose task
+  identities/content, raw errors, prompts, responses, model/tool/trace content,
+  endpoint credentials, VM identifiers, or tunnel details. Do not cancel,
+  restart, or launch duplicate/full work while gathering this evidence.
+
 - **2026-09-19 09:43 UTC, Kimi singleton composite rejected and stopped:**
   smoke `1753515` remains `RUNNING`. A separate owner launched singleton v4
   SHA-256 `0ec759...`, supervisor v4 SHA-256 `4d67d...`, and foreground
