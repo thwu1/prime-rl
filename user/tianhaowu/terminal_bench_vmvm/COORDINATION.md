@@ -1,6 +1,6 @@
 # VMVM sandbox coordination
 
-Last updated: 2026-09-19 08:56 UTC
+Last updated: 2026-09-19 08:59 UTC
 
 ## First message to the next teammate
 
@@ -41,6 +41,17 @@ this shared branch again.
 Add new rows below this line; do not overwrite another owner's row.
 
 ## Open coordination requests
+
+- **2026-09-19 08:59 UTC, urgent oracle-author hold on old safe-six
+  proof:** any 18-start proof derived from the `c60aaecd` / `88b08b41`
+  lineage is ineligible because that source-wheel code is blocked. The use2-3
+  owner must stop/hold the already-running proof and preserve only aggregate
+  terminal evidence. Do not authorize a canary, manifest promotion, or any
+  downstream model evaluation from that lineage. A wholly fresh proof may be
+  considered only after PR `#45` receives exact-head independent approval and
+  a new grammar-v7 / receipt-v3 reduction plus same-host inspection completes.
+  Do not expose task identities/content, raw errors, source-wheel payloads,
+  credentials, or model/tool/trace content.
 
 - **2026-09-19 08:56 UTC, safe-six 18-start proof running:** exact frozen
   submit wrapper SHA-256 `55f1cdd7997362fb7d9eda6feed4a7e0b759275982dd2cb3510321da32f086ba`
