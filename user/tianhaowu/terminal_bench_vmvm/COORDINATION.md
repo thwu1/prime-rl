@@ -1,6 +1,6 @@
 # VMVM sandbox coordination
 
-Last updated: 2026-09-19 22:33 UTC
+Last updated: 2026-09-19 22:36 UTC
 
 ## First message to the next teammate
 
@@ -39,10 +39,31 @@ this shared branch again.
 | Codex Qwen serving-generation migration lane for `tianhaowu` | `fair-cw-use2-1` | Implemented and independently approved the fail-closed fresh-repair continuation from the immutable 16-worker epoch-3 Qwen source to the exact current 24-worker deployment | PR `#43`, Prime head `c63fbc231b010ae2ec1c9e48d1000c73637642fd`, tree `e868446202e261549e6cb7d0ed361e0a24eee6fd`; verifier gitlink `08a3bf6df2e4f2e04dc1d33e1ee78b7e4da22697`, tree `722fc3783e8d908288882115f4a65935bf38e0e7`; repair controller/launcher/finalizer/merge, VMVM runtime/adapter, tests and docs | Exact 1,392-row source and 1,153-row repair union remain immutable/bound. Target remains exact24, 15/1/9 identity evidence, c96/cap48/queue48, evaluator lease-start cap4, 32 GiB, 256K, `consistent_hash`/`x-session-id`, and a 96-request capacity certificate. Attempt 4 `1485827` passed materialize, exact24 router, capacity 96/96 at peak96 in 1.683s, and launch commit, but stayed at zero durable rows; aggregate diagnosis found zero tunnel mappings on `cpu-131-227`, so it was canceled and is ineligible. The approved successor code isolates all 96 blocking backend constructors on a dedicated 32-thread executor, keeps run/cleanup work on the default executor, preserves late-constructor/probe cleanup, adds one task-free process-bounded lease/tunnel preflight before fanout, hardens VACLI setup/log handling, and redacts cleanup failures. Independent exact-head review reports no blockers; Prime full 590/590, independent focused Prime 110/110, verifier 20/20, Ruff/format/diff clean. Attempt 5 `1492631` ran on `cpu-128-113` and failed closed in 1m57s at the task-free gate with stable code `vmvm_lease_preflight_failed`; no repair manifest, capacity certificate, provenance, or result row was created. Cross-node stable-client probes and explicit x86 client builds 792/795/797 all failed before a lease response or tunnel. The live use2-1 allocation had `X2P_PROXY_URL` unset, `x2pagentd_count=0`, and TCP `10.0.2.2:10054` closed; explicitly injecting the documented X2P environment and starting a user-space x2p-agent listener still reached Vaagent but returned the same lease-backend `FaasUserException` / connection-refused family. This supports a use2-1 backend control-plane outage rather than only missing batch environment, node placement, or client version. Initial watcher `1492667` was canceled after ten `WAIT` attempts and before any attempt-6 production artifact because its batch environment lacked explicit X2P injection. Authoritative replacement watcher `1492726` now exports the documented X2P settings; attempts 1-14 are `WAIT`, production controller/fanout has not started, and all attempt-6 runtime/export paths remain fresh. The use2-3 cluster cannot launch this Qwen continuation because it lacks the frozen source, canonical dataset, and exact deployment bindings; cross-cluster paths must not be inferred. |
 | Codex VMVM diagnostic review for `tianhaowu` | `fair-cw-use2-3` | Independent static review of the untracked V21 task-free diagnostic v2; no code or scheduler mutation | `user/tianhaowu/terminal_bench_vmvm/COORDINATION.md` only | none | Review found three fail-closed blockers in the untracked v2 design: its present arm omits `X2P_PROXY_URL`, constructor rollback is mislabeled as cleanup failure, and timed-out child cleanup does not prove separately grouped vacli renewers exited. Details are recorded below; keep v2 unlaunched until corrected and independently re-reviewed. |
 | Codex production-trace v8d final review for `tianhaowu` | `fair-cw-use2-3` | Close review-only formatting/documentation blockers on the inert production trace certificate; no audit, rollout, or scheduler mutation | isolated child of `fix/production-trace-certificate-v8d-20260919`; `user/tianhaowu/terminal_bench_vmvm/{README.md,production_trace_launch/**}` | none | Static review confirms the v7 TOCTOU blockers are substantively closed and the focused suite passes 86/86, but pinned Ruff formatting fails on six Python files and README still describes a pycache directory removed by v8d. Prepare a minimal formatted/documentation-only child, re-run all exact-head gates, and request independent review before integration. |
+| Codex Kimi image-pull review for `tianhaowu` | `fair-cw-use2-3` | Independent static and stub-test review of the uncommitted explicit image-pull hardening; no serving or scheduler mutation | `COORDINATION.md` only; RAM worktree remains owned by its implementer | none | The candidate passes 305 shell assertions and adds the intended bounded pull plus `--pull=never`, but independent review found credential cleanup, concurrency, xtrace-redaction, and signal-race blockers. Details are recorded below; do not freeze or launch the candidate until corrected and re-reviewed. |
 
 Add new rows below this line; do not overwrite another owner's row.
 
 ## Open coordination requests
+
+- **2026-09-19 22:36 UTC, explicit image-pull candidate remains
+  unlaunchable:** the uncommitted RAM hardening passes its 305-test stub suite
+  and correctly places a bounded/retried pull before `podman run
+  --pull=never`, but review found gaps outside that suite. Its fixed auth-file
+  and public-config paths can collide between overlapping same-user tasks and
+  clobber or delete pre-existing state. More critically, if the auth target
+  already exists as a directory or symlink to a directory, `mv -f` places the
+  token-bearing temporary file inside it, the directory passes `-s`, and the
+  later `rm -f` cannot remove the nested credential. Inherited shell xtrace is
+  never disabled, so expanded token/encoded values can reach worker stderr.
+  There is also a TERM window between background process creation and
+  publication of its PID, and cleanup clears failed-path bookkeeping before a
+  second scrub can occur. Use unique `mktemp` auth/config paths, validate the
+  auth target as an owned mode-0600 regular single-link file, preserve unrelated
+  stores, suppress xtrace across the full secret lifetime, make spawn/PID
+  publication signal-safe, and retain failed cleanup paths. Add pre-existing
+  directory/symlink, concurrent-process, xtrace-secret, spawn-boundary, and
+  retained-credential cleanup regressions before freezing a new serving source.
+  No serving or scheduler mutation was made by this review.
 
 - **2026-09-19 22:33 UTC, next Kimi TB4 launch requirements:** independent
   static validation confirms the 66-task v4.0.0 manifest/archive/tree pins and
