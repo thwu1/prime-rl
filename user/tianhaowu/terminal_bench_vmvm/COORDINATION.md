@@ -1,6 +1,6 @@
 # VMVM sandbox coordination
 
-Last updated: 2026-09-19 22:44 UTC
+Last updated: 2026-09-19 22:51 UTC
 
 ## First message to the next teammate
 
@@ -41,6 +41,23 @@ this shared branch again.
 Add new rows below this line; do not overwrite another owner's row.
 
 ## Open coordination requests
+
+- **2026-09-19 22:51 UTC, Kimi watcher v5 cannot authorize the replacement
+  generation:** independent review confirms v5 is bound throughout to
+  `g3_lowest` and `preemptible=true`, whereas the required successor is normal
+  QoS. Its deployment/state/route namespaces and scheduler history are also
+  spent. The current quarantined spec is exact `d79e1c5f`, two endpoints, and
+  `g3_lowest`; no readiness or live-route binding exists. Preserve it only for
+  aggregate metadata-only boot evidence and never evaluate through it. After
+  accepting the post-fix RAM commit, create a unique source/bundle/deployment
+  and all-new watcher, state, route, readiness, binding, and log paths. Rebind
+  every scheduler/deploy/explain/spec/intent policy field to `normal`, derive
+  rather than copy the preemptibility claim, and regenerate source/tree,
+  launcher, bundle, serve/Python, initial/resolved spec, route-policy, intent,
+  and runtime receipt hashes. Audit-only must prove zero jobs and fresh
+  namespaces before the one-shot launch. Readiness must then bind the final
+  resolved spec and exact coordinator/two-worker/proxy identities before smoke
+  or TB4; the launch receipt's initial-spec hash is not sufficient by itself.
 
 - **2026-09-19 22:44 UTC, the Kimi TB4 target has no local exact-result
   provenance:** repository history and aggregate-only local artifacts contain
