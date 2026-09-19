@@ -11,6 +11,7 @@ from pathlib import Path
 
 import eval_run_identity
 import guard_success_receipt
+import mobius_launch_certificate
 import pytest
 import tb4_shard_workflow as workflow
 from tb4_shard_workflow import (
@@ -104,6 +105,258 @@ def _make_plan(tmp_path: Path, *, shard_size: int = 4):
     output = tmp_path / "plan"
     plan = create_plan(universe, universe_sha, base, output, shard_size=shard_size)
     return plan, output, identifiers
+
+
+def _rehash_sharded_checkpoint(value: dict) -> None:
+    body = {key: item for key, item in value.items() if key != "tb4_certificate_sha256"}
+    value["tb4_certificate_sha256"] = hashlib.sha256(workflow.canonical_json(body)).hexdigest()
+
+
+def _artifact_binding_checkpoint(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> tuple[dict, Path, Path, tuple[str, str]]:
+    _plan, plan_dir, identifiers = _make_plan(tmp_path, shard_size=33)
+    _loaded, shards = load_plan(plan_dir / "plan.json")
+    dataset = tmp_path / "dataset"
+    for identifier in identifiers:
+        task = dataset / identifier
+        task.mkdir(parents=True)
+        (task / "task.toml").write_text("")
+        (task / "instruction.md").write_text("")
+
+    deployment_spec = tmp_path / "deployment" / "spec.yaml"
+    deployment_spec.parent.mkdir()
+    deployment_spec.write_text("spec:\n  proxy:\n    config:\n      request_timeout: 43200\n      num_retries: 0\n")
+    deployment_spec_sha256 = hashlib.sha256(deployment_spec.read_bytes()).hexdigest()
+    live_proxy_config = deployment_spec.parent / "proxy_litellm_config.yaml"
+    live_proxy_config.write_text("litellm_settings:\n  request_timeout: 43200\n  num_retries: 0\n")
+    route_sets = (
+        ("http://generation-a-0.invalid/v1", "http://generation-a-1.invalid/v1"),
+        ("http://generation-b-0.invalid/v1", "http://generation-b-1.invalid/v1"),
+    )
+    proxy_configs: list[Path] = []
+    for generation, routes in zip(("a", "b"), route_sets, strict=True):
+        proxy_config = tmp_path / f"generation-{generation}" / "proxy_litellm_config.yaml"
+        proxy_config.parent.mkdir()
+        proxy_config.write_text(
+            "model_list:\n"
+            "  - model_name: kimi\n"
+            "    litellm_params:\n"
+            "      model: openai/Kimi-K3\n"
+            f"      api_base: {routes[0]}\n"
+            "  - model_name: kimi\n"
+            "    litellm_params:\n"
+            "      model: openai/Kimi-K3\n"
+            f"      api_base: {routes[1]}\n"
+            "litellm_settings:\n"
+            "  request_timeout: 43200\n"
+            "  num_retries: 0\n"
+        )
+        proxy_config.chmod(0o600)
+        proxy_configs.append(proxy_config)
+
+    def semantics(proxy_config: Path) -> dict:
+        return {
+            "source": {"same": True},
+            "dataset": {"path": str(dataset)},
+            "contract": {"same": True},
+            "execution": {"same": True},
+            "resolved_config_semantics_sha256": "a" * 64,
+            "deployment": {
+                "id": "deployment-test",
+                "spec_sha256": deployment_spec_sha256,
+                "routing": {"deployment_id": "deployment-test", "headers": {}},
+                "proxy_policy": {
+                    "schema_version": 1,
+                    "request_timeout": 43_200,
+                    "num_retries": 0,
+                    "proxy_litellm_config": {
+                        "path": str(live_proxy_config.resolve()),
+                        "sha256": hashlib.sha256(proxy_config.read_bytes()).hexdigest(),
+                    },
+                },
+            },
+        }
+
+    receipt_paths: list[Path] = []
+    by_receipt: dict[Path, CertifiedShard] = {}
+    for shard, proxy_config, routes in zip(shards, proxy_configs, route_sets, strict=True):
+        route_generation = {
+            "routes": [
+                {"backend_sha256": f"backend-sha256:{hashlib.sha256(route.encode()).hexdigest()}"} for route in routes
+            ]
+        }
+        run_dir = tmp_path / f"run-{shard.index:03d}"
+        run_dir.mkdir()
+        (run_dir / ".writer.lock").write_bytes(b"")
+        receipt_path = run_dir / "route_guard_success.json"
+        _private_write(receipt_path, b"{}\n")
+        results = run_dir / "results.jsonl"
+        rows = [
+            {"id": f"trace-{shard.index:03d}-{offset:03d}", "task": {"slug": identifier}}
+            for offset, identifier in enumerate(sorted(shard.tasks))
+        ]
+        results.write_text("".join(json.dumps(row) + "\n" for row in rows))
+        certified = CertifiedShard(
+            spec=shard,
+            run_dir=run_dir,
+            results=results,
+            results_sha256=hashlib.sha256(results.read_bytes()).hexdigest(),
+            results_count=shard.task_count,
+            success_receipt=receipt_path.resolve(),
+            success_receipt_sha256=hashlib.sha256(f"receipt-{shard.index}".encode()).hexdigest(),
+            success_receipt_file_sha256=hashlib.sha256(receipt_path.read_bytes()).hexdigest(),
+            eval_run_identity_sha256=hashlib.sha256(f"identity-{shard.index}".encode()).hexdigest(),
+            route_generation_sha256=hashlib.sha256(workflow.canonical_json(route_generation)).hexdigest(),
+            endpoint_binding_sha256=hashlib.sha256(f"endpoint-{shard.index}".encode()).hexdigest(),
+            expected_routes=2,
+            trace_ids=frozenset(row["id"] for row in rows),
+            identity_semantics=semantics(proxy_config),
+            deployment_spec=deployment_spec.resolve(),
+            deployment_spec_sha256=deployment_spec_sha256,
+            proxy_config=live_proxy_config.resolve(),
+            proxy_config_sha256=hashlib.sha256(proxy_config.read_bytes()).hexdigest(),
+            route_generation=route_generation,
+        )
+        receipt_paths.append(receipt_path)
+        by_receipt[receipt_path.resolve()] = certified
+
+    monkeypatch.setattr(workflow, "_certify_shard", lambda path, *_args, **_kwargs: by_receipt[path.resolve()])
+    monkeypatch.setattr(
+        workflow,
+        "_run_full_audit",
+        lambda *_args, **_kwargs: (
+            {
+                "ok": True,
+                "observed_traces": 66,
+                "supported_tasks": 63,
+                "observed_unsupported_tasks": ["opaque"] * 3,
+                "supported_passes": 4,
+                "trace_failures": 0,
+                "supported_trace_failures": 0,
+                "unsupported_trace_failures": 0,
+                "global_problems": [],
+                "supported_pass_rate": 4 / 63,
+                "all_task_pass_rate": 4 / 66,
+            },
+            False,
+        ),
+    )
+
+    external = tmp_path / "external-valid"
+    external_value = merge_multigen_shards(
+        plan_dir / "plan.json",
+        receipt_paths,
+        output_dir=external,
+        dataset_dir=dataset,
+        proxy_config_snapshots={
+            receipt_path.resolve(): proxy_configs[index] for index, receipt_path in enumerate(receipt_paths)
+        },
+    )
+    assert (
+        validate_multigen_sharded_checkpoint(
+            external_value,
+            deployment_id="deployment-test",
+            artifact_root=external,
+        )["sharded"]
+        is True
+    )
+
+    reuse = tmp_path / "reuse-output"
+    reuse.mkdir(mode=0o700)
+    for source in external.iterdir():
+        if source.is_file():
+            _private_write(reuse / source.name, source.read_bytes())
+    policy_sha256s = tuple(external_value["deployment"]["proxy_policy_sha256s"])
+    value = json.loads(json.dumps(external_value))
+    _set_checkpoint_artifact_root(
+        value,
+        reuse,
+        {"results", "audit_summary", "deployment_spec"}
+        | {f"proxy_policy:{policy_sha256}" for policy_sha256 in policy_sha256s},
+    )
+    _rehash_sharded_checkpoint(value)
+    _private_write(reuse / "checkpoint.json", json.dumps(value, sort_keys=True).encode() + b"\n")
+    assert (
+        validate_multigen_sharded_checkpoint(
+            value,
+            deployment_id="deployment-test",
+            artifact_root=reuse,
+        )["sharded"]
+        is True
+    )
+    return value, external, reuse, policy_sha256s
+
+
+def _set_checkpoint_artifact_root(value: dict, root: Path, targets: set[str]) -> None:
+    for key, filename in (
+        ("results", "results.jsonl"),
+        ("audit_summary", "audit_summary.json"),
+        ("deployment_spec", "deployment_spec_policy.json"),
+    ):
+        if key in targets:
+            value["artifacts"][key]["path"] = str(root / filename)
+    for item in value["artifacts"]["proxy_policies"]:
+        target = f"proxy_policy:{item['policy_sha256']}"
+        if target in targets:
+            item["path"] = str(root / f"proxy_policy_{item['policy_sha256']}.json")
+            for record in value["shards"]:
+                if record["proxy_policy_sha256"] == item["policy_sha256"]:
+                    record["proxy_policy_artifact"]["path"] = item["path"]
+    _rehash_sharded_checkpoint(value)
+
+
+def test_multigen_checkpoint_rejects_external_artifact_directory_on_reuse(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    value, external, reuse, policy_sha256s = _artifact_binding_checkpoint(tmp_path, monkeypatch)
+    targets = {"results", "audit_summary", "deployment_spec"} | {
+        f"proxy_policy:{policy_sha256}" for policy_sha256 in policy_sha256s
+    }
+    _set_checkpoint_artifact_root(value, external, targets)
+    _private_write(reuse / "checkpoint.json", json.dumps(value, sort_keys=True).encode() + b"\n")
+    assert (
+        validate_multigen_sharded_checkpoint(
+            value,
+            deployment_id="deployment-test",
+            artifact_root=external,
+        )["sharded"]
+        is True
+    )
+
+    with pytest.raises(ShardWorkflowError, match="sharded_checkpoint_artifacts_invalid"):
+        validate_multigen_sharded_checkpoint(
+            value,
+            deployment_id="deployment-test",
+            artifact_root=reuse,
+        )
+
+
+def test_multigen_checkpoint_binds_each_artifact_to_reuse_output(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    value, external, reuse, policy_sha256s = _artifact_binding_checkpoint(tmp_path, monkeypatch)
+    targets = [
+        "results",
+        "audit_summary",
+        "deployment_spec",
+        *(f"proxy_policy:{policy_sha256}" for policy_sha256 in policy_sha256s),
+    ]
+    for target in targets:
+        redirected = json.loads(json.dumps(value))
+        _set_checkpoint_artifact_root(redirected, external, {target})
+        with pytest.raises(
+            ShardWorkflowError,
+            match="sharded_checkpoint_artifacts_invalid",
+        ):
+            validate_multigen_sharded_checkpoint(
+                redirected,
+                deployment_id="deployment-test",
+                artifact_root=reuse,
+            )
 
 
 def test_plan_is_private_deterministic_and_exact(tmp_path: Path):
@@ -285,7 +538,30 @@ def test_certify_shard_uses_validated_snapshot_after_live_proxy_path_is_obsolete
 
     monkeypatch.setattr(guard_success_receipt, "load_guard_success_receipt", lambda _path: receipt)
     monkeypatch.setattr(guard_success_receipt, "validate_guard_success_linkage", lambda *_args, **_kwargs: None)
-    monkeypatch.setattr(eval_run_identity, "load_eval_run_identity", lambda *_args, **_kwargs: envelope)
+    identity_loads: list[bool] = []
+
+    def load_identity(
+        _path: Path,
+        *,
+        verify_references: bool = True,
+        deployment_spec_snapshot: Path | None = None,
+        proxy_policy_snapshot: Path | None = None,
+    ) -> dict:
+        identity_loads.append(verify_references)
+        if verify_references:
+            assert deployment_spec_snapshot is not None
+            assert proxy_policy_snapshot is not None
+            assert deployment_spec_snapshot.read_bytes() == workflow.deployment_spec_policy_snapshot(
+                deployment_spec_sha256,
+                proxy_policy,
+            )
+            assert proxy_policy_snapshot.read_bytes() == workflow.deployment_proxy_policy_snapshot(proxy_policy)
+        else:
+            assert deployment_spec_snapshot is None
+            assert proxy_policy_snapshot is None
+        return envelope
+
+    monkeypatch.setattr(eval_run_identity, "load_eval_run_identity", load_identity)
 
     certified = workflow._certify_shard(
         receipt_path,
@@ -299,6 +575,7 @@ def test_certify_shard_uses_validated_snapshot_after_live_proxy_path_is_obsolete
     assert certified.identity_semantics["deployment"]["proxy_policy"]["proxy_litellm_config"]["path"] == str(
         obsolete_live_path
     )
+    assert identity_loads == [False, True]
 
 
 def test_writer_lock_is_acquired_once_and_rejects_an_active_writer(tmp_path: Path):
@@ -443,7 +720,11 @@ def test_merge_publishes_only_complete_certified_partition(tmp_path: Path, monke
     assert all(stat.S_IMODE(path.stat().st_mode) == 0o600 for path in output.iterdir())
     deployment_spec.write_text("spec:\n  num_endpoints: 24\n")
     proxy_config.write_text("litellm_settings:\n  request_timeout: 43200\n  num_retries: 0\n  model_list: []\n")
-    validated = validate_sharded_checkpoint(receipt, deployment_id="deployment-test")
+    validated = validate_sharded_checkpoint(
+        receipt,
+        deployment_id="deployment-test",
+        artifact_root=output,
+    )
     assert validated["sharded"] is True
     assert validated["shard_count"] == len(shards)
     assert historical_snapshots[: len(shards)] == [(None, None)] * len(shards)
@@ -457,7 +738,11 @@ def test_merge_publishes_only_complete_certified_partition(tmp_path: Path, monke
     unsigned.pop("tb4_certificate_sha256")
     tampered["tb4_certificate_sha256"] = hashlib.sha256(workflow.canonical_json(unsigned)).hexdigest()
     with pytest.raises(ShardWorkflowError, match="sharded_checkpoint_shard_mismatch"):
-        validate_sharded_checkpoint(tampered, deployment_id="deployment-test")
+        validate_sharded_checkpoint(
+            tampered,
+            deployment_id="deployment-test",
+            artifact_root=output,
+        )
 
     proxy_policy_snapshot = output / "proxy_policy.json"
     proxy_policy_snapshot.write_bytes(proxy_policy_snapshot.read_bytes() + b"{}\n")
@@ -465,7 +750,11 @@ def test_merge_publishes_only_complete_certified_partition(tmp_path: Path, monke
         ShardWorkflowError,
         match="sharded_checkpoint_proxy_policy_sha256_mismatch",
     ):
-        validate_sharded_checkpoint(receipt, deployment_id="deployment-test")
+        validate_sharded_checkpoint(
+            receipt,
+            deployment_id="deployment-test",
+            artifact_root=output,
+        )
 
 
 def test_multigen_merge_and_checkpoint_allow_distinct_proxy_config_snapshots(tmp_path: Path, monkeypatch):
@@ -721,11 +1010,25 @@ def test_multigen_merge_and_checkpoint_allow_distinct_proxy_config_snapshots(tmp
     assert {record["proxy_policy_sha256"] for record in receipt["shards"]} == set(
         receipt["deployment"]["proxy_policy_sha256s"]
     )
-    live_proxy_config.write_text("litellm_settings:\n  request_timeout: 43200\n  num_retries: 0\n  rotated: true\n")
-    validated = validate_multigen_sharded_checkpoint(receipt, deployment_id="deployment-test")
+    live_proxy_config.unlink()
+    assert not live_proxy_config.exists()
+    validated = validate_multigen_sharded_checkpoint(
+        receipt,
+        deployment_id="deployment-test",
+        artifact_root=output,
+    )
     assert validated["sharded"] is True
     assert validated["shard_count"] == 66
     assert validated["proxy_policy_sha256s"] == receipt["deployment"]["proxy_policy_sha256s"]
+    assert (
+        mobius_launch_certificate._validate_tb4_checkpoint(
+            receipt,
+            "deployment-test",
+            {},
+            output,
+        )
+        == validated
+    )
 
 
 def test_merge_rejects_missing_success_receipt_before_output(tmp_path: Path):

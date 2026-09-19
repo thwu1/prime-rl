@@ -1568,6 +1568,7 @@ def validate_sharded_checkpoint(
     value: dict[str, Any],
     *,
     deployment_id: str,
+    artifact_root: Path,
     allow_generation_artifact_rotation: bool = False,
 ) -> dict[str, Any]:
     """Revalidate a schema-v2/v3 checkpoint for the launch-certificate adapter."""
@@ -1658,6 +1659,13 @@ def validate_sharded_checkpoint(
     )
     if not isinstance(artifacts, dict) or set(artifacts) != expected_artifact_keys:
         raise ShardWorkflowError("sharded_checkpoint_artifacts_invalid")
+    try:
+        resolved_artifact_root = artifact_root.resolve(strict=True)
+        artifact_root_stat = resolved_artifact_root.stat()
+    except (OSError, RuntimeError) as error:
+        raise ShardWorkflowError("sharded_checkpoint_artifacts_invalid") from error
+    if not stat.S_ISDIR(artifact_root_stat.st_mode):
+        raise ShardWorkflowError("sharded_checkpoint_artifacts_invalid")
     combined_path, combined_sha256 = _checkpoint_artifact(
         artifacts["results"],
         label="sharded_checkpoint_results",
@@ -1704,14 +1712,19 @@ def validate_sharded_checkpoint(
         deployment_spec_snapshot,
         *proxy_policy_snapshots.values(),
     ]
+    expected_proxy_policy_paths = (
+        {
+            policy_sha256: resolved_artifact_root / f"proxy_policy_{policy_sha256}.json"
+            for policy_sha256 in deployment["proxy_policy_sha256s"]
+        }
+        if allow_generation_artifact_rotation
+        else {deployment["proxy_policy_sha256"]: resolved_artifact_root / "proxy_policy.json"}
+    )
     if (
-        combined_path.name != "results.jsonl"
-        or audit_path.name != "audit_summary.json"
-        or deployment_spec_snapshot.name != "deployment_spec_policy.json"
-        or (
-            not allow_generation_artifact_rotation
-            and next(iter(proxy_policy_snapshots.values())).name != "proxy_policy.json"
-        )
+        combined_path != resolved_artifact_root / "results.jsonl"
+        or audit_path != resolved_artifact_root / "audit_summary.json"
+        or deployment_spec_snapshot != resolved_artifact_root / "deployment_spec_policy.json"
+        or proxy_policy_snapshots != expected_proxy_policy_paths
         or combined_path.parent != audit_path.parent
         or any(
             path.parent != combined_path.parent or stat.S_IMODE(path.stat().st_mode) != 0o600 for path in artifact_paths
@@ -1976,12 +1989,14 @@ def validate_multigen_sharded_checkpoint(
     value: dict[str, Any],
     *,
     deployment_id: str,
+    artifact_root: Path,
 ) -> dict[str, Any]:
     """Revalidate a multigen schema-v3 checkpoint with per-generation snapshots."""
 
     return validate_sharded_checkpoint(
         value,
         deployment_id=deployment_id,
+        artifact_root=artifact_root,
         allow_generation_artifact_rotation=True,
     )
 

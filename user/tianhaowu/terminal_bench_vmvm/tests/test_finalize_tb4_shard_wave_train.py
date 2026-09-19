@@ -747,7 +747,13 @@ def test_multigen_checkpoint_rejects_tampered_route_generation_summary(tmp_path:
     _write_output(output, value, multigen=True)
     bad = _validated_multi(first, evidence)
     bad["route_generation_sha256s"] = ["0" * 64]
-    monkeypatch.setattr(finalizer, "validate_multigen_sharded_checkpoint", lambda *_args, **_kwargs: bad)
+
+    def validate_multigen(_value: dict, *, deployment_id: str, artifact_root: Path) -> dict:
+        assert deployment_id == first.config.deployment_id
+        assert artifact_root == output
+        return bad
+
+    monkeypatch.setattr(finalizer, "validate_multigen_sharded_checkpoint", validate_multigen)
 
     with pytest.raises(finalizer.FinalizationError, match="sharded_checkpoint_controller_mismatch"):
         finalizer._load_and_validate_multigen_checkpoint(
@@ -898,11 +904,18 @@ def test_checkpoint_is_exactly_cross_bound_to_controller(tmp_path: Path, monkeyp
     prepared = _prepared(tmp_path)
     evidence = _evidence(tmp_path, prepared)
     value = _checkpoint_value(evidence, prepared)
-    raw = _write_output(tmp_path / "final", value)
-    monkeypatch.setattr(finalizer, "validate_sharded_checkpoint", lambda *_args, **_kwargs: _validated(prepared))
+    output = tmp_path / "final"
+    raw = _write_output(output, value)
+
+    def validate(_value: dict, *, deployment_id: str, artifact_root: Path) -> dict:
+        assert deployment_id == prepared.config.deployment_id
+        assert artifact_root == output
+        return _validated(prepared)
+
+    monkeypatch.setattr(finalizer, "validate_sharded_checkpoint", validate)
 
     validated, observed_raw = finalizer._load_and_validate_checkpoint(
-        tmp_path / "final",
+        output,
         prepared,
         evidence,
         expected_value=value,

@@ -637,12 +637,8 @@ def test_checkpoint_chain_is_hashed_and_role_aware(tmp_path: Path, monkeypatch: 
         "      request_timeout: 43200\n"
         "      num_retries: 0\n"
     )
-    generated_proxy_config.write_text(
-        "litellm_settings:\n"
-        "  request_timeout: 43200\n"
-        "  num_retries: 0\n"
-        "model_list: []\n"
-    )
+    generated_proxy_config.unlink()
+    assert not generated_proxy_config.exists()
     with pytest.raises(EvalIdentityError, match="deployment_spec_sha256_mismatch"):
         _verify_checkpoint_records(smoke_identity, endpoint)
     _verify_checkpoint_records(

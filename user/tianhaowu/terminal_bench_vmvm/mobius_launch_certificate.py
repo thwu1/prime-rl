@@ -584,13 +584,18 @@ def _validate_tb4_checkpoint(
     value: dict[str, Any],
     deployment_id: str,
     endpoint: dict[str, Any],
+    artifact_root: Path,
 ) -> dict[str, Any]:
     if isinstance(value, dict) and value.get("schema_version") in {2, 3}:
         try:
             validator = (
                 validate_multigen_sharded_checkpoint if value["schema_version"] == 3 else validate_sharded_checkpoint
             )
-            return validator(value, deployment_id=deployment_id)
+            return validator(
+                value,
+                deployment_id=deployment_id,
+                artifact_root=artifact_root,
+            )
         except (OSError, ShardWorkflowError) as cause:
             raise LaunchCertificateError("tb4_sharded_checkpoint_invalid") from cause
     expected_keys = {
@@ -1924,7 +1929,12 @@ def _build_unsigned(
         label="capacity_smoke_checkpoint",
     )
 
-    tb4 = _validate_tb4_checkpoint(tb4_value, deployment_id, endpoint)
+    tb4 = _validate_tb4_checkpoint(
+        tb4_value,
+        deployment_id,
+        endpoint,
+        Path(tb4_record["path"]).parent,
+    )
     oracle = _validate_oracle_receipt(
         oracle_value,
         project_root=project_root,
