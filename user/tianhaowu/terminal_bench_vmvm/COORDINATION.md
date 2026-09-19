@@ -1,6 +1,6 @@
 # VMVM sandbox coordination
 
-Last updated: 2026-09-19 16:47 UTC
+Last updated: 2026-09-19 17:00 UTC
 
 ## First message to the next teammate
 
@@ -41,6 +41,28 @@ this shared branch again.
 Add new rows below this line; do not overwrite another owner's row.
 
 ## Open coordination requests
+
+- **2026-09-19 17:00 UTC, use2-1 Qwen Sandoq topology correction:** a fresh
+  checkout of `fairinternal/ram_prime_rl` main at `f7313db42` establishes the
+  production path as a controller-side model/tool loop using
+  `oci-runner-firecracker`, nested task networking `none`, and no reverse
+  tunnel. The former `oci-runner-firecracker-tunnel-pull` agent-inside design
+  must not be used for this no-network generation. Provider hardening PR
+  `fairinternal/ram_prime_rl#24` is green at `489030210`; the stacked Verifiers
+  host/no-tunnel seam is `thwu1/verifiers#4` at `d4133c531` and passed focused,
+  full-v1, lint/type, and frozen x86 validation. Task-free production service
+  probes `1496665` and `1496692` completed 24/24 and 64/64 lease/delete cycles
+  with verified cleanup, so outer capacity 64 is established but is not an
+  execution/capture qualification. The exact 24-worker Qwen deployment remains
+  healthy and hash-matched; launch policy remains 64 task sessions, provider
+  cap/queue 32/32, `consistent_hash` keyed by `x-session-id`, and a 262,144-token
+  cap. No new Qwen generation has launched. Fresh execution/capture gates must
+  run 2, 8, 24, then 64 before the private 2,499-member Sandoq partition; the
+  Compose singleton remains a separate VMVM partition. Current live blockers
+  are an absent raw mode-0600 Firecracker bearer and a reviewed durable offline
+  verifier-dependency catalog. Prime host-harness, mixed-provider/SFT,
+  login-side ECR rotation/guard, and catalog work are in progress; do not launch
+  from the old tunnel-pull configs or duplicate the preserved Kimi smoke.
 
 - **2026-09-19 16:47 UTC, infrastructure-retry v15 safely quarantined:**
   fresh v15 passed 143 public tests with one gated skip, then passed the
