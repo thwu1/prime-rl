@@ -37,7 +37,18 @@ def _integer(value: object, *, minimum: int = 0) -> bool:
     return isinstance(value, int) and not isinstance(value, bool) and value >= minimum
 
 
-def validate_cleanup(path: Path) -> tuple[dict[str, Any], dict[str, Any]]:
+def validate_cleanup(
+    path: Path,
+    *,
+    expected_task_count: int = SANDOQ_COUNT,
+    expected_concurrency: int = 64,
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    if (
+        not _integer(expected_task_count, minimum=1)
+        or not _integer(expected_concurrency, minimum=1)
+        or expected_concurrency > expected_task_count
+    ):
+        raise SandoqPartitionCertificateError("sandoq_cleanup_expectation_invalid")
     try:
         raw = path.read_bytes()
         value = json.loads(raw)
@@ -86,11 +97,11 @@ def validate_cleanup(path: Path) -> tuple[dict[str, Any], dict[str, Any]]:
         or value["deleted_and_verified"] != 0
         or value["outer_sessions_created"] != value["recorded_outer_sessions"]
         or value["outer_sessions_deleted"] != value["recorded_outer_sessions"]
-        or value["pool_drain_deleted"] != value["recorded_outer_sessions"]
-        or value["outer_session_high_water"] < 64
-        or value["assignment_measured_high_water"] != 64
+        or value["pool_drain_deleted"] > value["recorded_outer_sessions"]
+        or value["outer_session_high_water"] < expected_concurrency
+        or value["assignment_measured_high_water"] != expected_concurrency
         or value["assignment_measured_high_water"] > value["outer_session_high_water"]
-        or value["assignments_acquired"] < SANDOQ_COUNT
+        or value["assignments_acquired"] < expected_task_count
         or value["assignments_cleanup_verified"] != value["assignments_acquired"]
         or value["assignment_release_rows"] + value["assignment_cancellation_rows"]
         != value["assignments_acquired"]
@@ -100,8 +111,8 @@ def validate_cleanup(path: Path) -> tuple[dict[str, Any], dict[str, Any]]:
         "audit_sha256": sha256_bytes(raw),
         "assignment_attempts": value["assignments_acquired"],
         "assignment_cancellations": value["assignment_cancellation_rows"],
-        "assignment_measured_high_water": 64,
-        "extra_assignment_attempts": value["assignments_acquired"] - SANDOQ_COUNT,
+        "assignment_measured_high_water": expected_concurrency,
+        "extra_assignment_attempts": value["assignments_acquired"] - expected_task_count,
         "gateway_close_warnings": value["gateway_close_warnings"],
         "outer_session_high_water": value["outer_session_high_water"],
         "recorded_outer_sessions": value["recorded_outer_sessions"],
@@ -114,7 +125,12 @@ def validate_cleanup(path: Path) -> tuple[dict[str, Any], dict[str, Any]]:
     return public, raw_hashes
 
 
-def validate_auth_rotation(path: Path) -> dict[str, Any]:
+def validate_auth_rotation(
+    path: Path,
+    *,
+    expected_eval_run_identity_sha256: str,
+    expected_results_sha256: str,
+) -> dict[str, Any]:
     try:
         raw = path.read_bytes()
         value = json.loads(raw)
@@ -134,6 +150,7 @@ def validate_auth_rotation(path: Path) -> dict[str, Any]:
         "run_duration_seconds",
         "successful_replacements",
         "maximum_observed_refresh_gap_seconds",
+        "maximum_observed_heartbeat_gap_seconds",
         "minimum_observed_expiry_margin_seconds",
         "batch_heartbeats",
         "liveness_failures",
@@ -141,6 +158,8 @@ def validate_auth_rotation(path: Path) -> dict[str, Any]:
         "credential_payload_records",
         "raw_rotator_log_sha256",
         "raw_batch_guard_log_sha256",
+        "eval_run_identity_sha256",
+        "results_sha256",
     }
     integer_keys = {
         "maximum_refresh_interval_seconds",
@@ -148,6 +167,7 @@ def validate_auth_rotation(path: Path) -> dict[str, Any]:
         "run_duration_seconds",
         "successful_replacements",
         "maximum_observed_refresh_gap_seconds",
+        "maximum_observed_heartbeat_gap_seconds",
         "minimum_observed_expiry_margin_seconds",
         "batch_heartbeats",
         "liveness_failures",
@@ -171,6 +191,7 @@ def validate_auth_rotation(path: Path) -> dict[str, Any]:
         or value["run_duration_seconds"] < 1
         or value["successful_replacements"] < value["run_duration_seconds"] // 14_400
         or value["maximum_observed_refresh_gap_seconds"] > 14_400
+        or value["maximum_observed_heartbeat_gap_seconds"] > 300
         or value["minimum_observed_expiry_margin_seconds"] < value["fail_closed_before_expiry_seconds"]
         or value["batch_heartbeats"] < 2
         or value["liveness_failures"] != 0
@@ -178,6 +199,8 @@ def validate_auth_rotation(path: Path) -> dict[str, Any]:
         or value["credential_payload_records"] != 0
         or SHA256_RE.fullmatch(str(value.get("raw_rotator_log_sha256", ""))) is None
         or SHA256_RE.fullmatch(str(value.get("raw_batch_guard_log_sha256", ""))) is None
+        or value.get("eval_run_identity_sha256") != expected_eval_run_identity_sha256
+        or value.get("results_sha256") != expected_results_sha256
     ):
         raise SandoqPartitionCertificateError("auth_rotation_audit_invalid")
     return {
@@ -186,6 +209,7 @@ def validate_auth_rotation(path: Path) -> dict[str, Any]:
         "batch_heartbeats": value["batch_heartbeats"],
         "fail_closed_before_expiry_seconds": value["fail_closed_before_expiry_seconds"],
         "maximum_observed_refresh_gap_seconds": value["maximum_observed_refresh_gap_seconds"],
+        "maximum_observed_heartbeat_gap_seconds": value["maximum_observed_heartbeat_gap_seconds"],
         "maximum_refresh_interval_seconds": 14_400,
         "minimum_observed_expiry_margin_seconds": value["minimum_observed_expiry_margin_seconds"],
         "run_duration_seconds": value["run_duration_seconds"],
@@ -202,6 +226,7 @@ def _provider_source(identity: Mapping[str, Any]) -> dict[str, Any]:
         "sandoq_provider_commit",
         "sandoq_provider_tree",
         "sandoq_client_version",
+        "sandoq_host_harness_sha256",
         "sandoq_site_sha256",
         "derived_image_manifest_sha256",
     )
@@ -220,7 +245,11 @@ def _provider_source(identity: Mapping[str, Any]) -> dict[str, Any]:
         )
         or any(
             SHA256_RE.fullmatch(value[key]) is None
-            for key in ("sandoq_site_sha256", "derived_image_manifest_sha256")
+            for key in (
+                "sandoq_site_sha256",
+                "sandoq_host_harness_sha256",
+                "derived_image_manifest_sha256",
+            )
         )
     ):
         raise SandoqPartitionCertificateError("sandoq_source_closure_invalid")
@@ -247,6 +276,7 @@ def certify(
     canonical_vmvm_template: Path,
     vmvm_task_file: Path,
     vmvm_config: Path,
+    private_output_root: Path,
     predecessor: Path,
     predecessor_sha256: str,
 ) -> dict[str, Any]:
@@ -272,6 +302,7 @@ def certify(
                 vmvm_config=vmvm_config,
                 receipt=materialization_receipt,
                 receipt_sha256=materialization_receipt_sha256,
+                private_output_root=private_output_root,
             )
         except MixedMaterializationError as error:
             raise SandoqPartitionCertificateError("mixed_materialization_invalid") from error
@@ -313,12 +344,13 @@ def certify(
             from certify_direct_qwen_sandoq import validate_predecessor
 
             predecessor_record = validate_predecessor(
-                2500,
+                SANDOQ_COUNT,
                 predecessor,
                 predecessor_sha256,
                 expected_source=provider_source,
                 expected_ramp={
-                    "source_sha256": CANONICAL_SOURCE_SHA256,
+                    "canonical_source_sha256": CANONICAL_SOURCE_SHA256,
+                    "provider_partition_sha256": expected_task_file_sha256,
                     "template_sha256": CANONICAL_SANDOQ_TEMPLATE_SHA256,
                 },
                 current_task_file=expected_task_file,
@@ -334,7 +366,11 @@ def certify(
         except UnionContractError as error:
             raise SandoqPartitionCertificateError(str(error)) from error
         cleanup, cleanup_source_hashes = validate_cleanup(cleanup_audit)
-        auth_rotation = validate_auth_rotation(auth_rotation_audit)
+        auth_rotation = validate_auth_rotation(
+            auth_rotation_audit,
+            expected_eval_run_identity_sha256=envelope["eval_run_identity_sha256"],
+            expected_results_sha256=results_sha256,
+        )
         shared_sha256 = sha256_bytes(canonical_json(shared))
         return {
             "schema_version": 1,
@@ -345,7 +381,7 @@ def certify(
             "selection": "canonical-non-compose",
             "eval_run_identity_sha256": envelope["eval_run_identity_sha256"],
             "results_sha256": results_sha256,
-            "worker_manifest_sha256": shared["deployment"]["worker_manifest_sha256"],
+            "worker_manifest_sha256": envelope["identity"]["deployment"]["worker_manifest"]["sha256"],
             "worker_count": 24,
             "trace_audit": traces,
             "pool_cleanup": cleanup,
@@ -378,6 +414,7 @@ def main() -> None:
     parser.add_argument("--canonical-vmvm-template", type=Path, required=True)
     parser.add_argument("--vmvm-task-file", type=Path, required=True)
     parser.add_argument("--vmvm-config", type=Path, required=True)
+    parser.add_argument("--private-output-root", type=Path, required=True)
     parser.add_argument("--predecessor", type=Path, required=True)
     parser.add_argument("--predecessor-sha256", required=True)
     parser.add_argument("--output", type=Path, required=True)

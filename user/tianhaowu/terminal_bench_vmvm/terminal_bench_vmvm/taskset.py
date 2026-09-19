@@ -409,8 +409,8 @@ class TerminalBenchTask(HarborTask):
 
 def _sandoq_no_network_environment_is_safe(expected_ecr_token_file: Path | None) -> bool:
     exact = {
-        "OCI_RUNNER_ENVIRONMENT": "oci-runner-firecracker-tunnel-pull",
-        "OCI_RUNNER_TASK_NETWORK": "host",
+        "OCI_RUNNER_ENVIRONMENT": "oci-runner-firecracker",
+        "OCI_RUNNER_TASK_NETWORK": "none",
         "OCI_RUNNER_ECR_REGISTRY": "168653207203.dkr.ecr.us-east-2.amazonaws.com",
         "OCI_RUNNER_USE_ECR": "1",
         "OCI_RUNNER_ECR_REGION": "us-east-2",
@@ -1911,17 +1911,18 @@ class TerminalBenchVMVMTaskset(
                 if (
                     config.mode != "oci-runner"
                     or config.network_access
-                    or config.host_tunnel != "sandoq"
-                    or config.expected_environment != "oci-runner-firecracker-tunnel-pull"
+                    or config.host_tunnel != "none"
+                    or config.expected_environment != "oci-runner-firecracker"
                     or not _sandoq_no_network_environment_is_safe(config.ecr_token_file)
                 ):
                     raise UnsupportedTaskError(
-                        f"{task.name}: Sandoq no-network requires OCI Firecracker, "
-                        "network_access=false, task network 'host', and the native loopback tunnel"
+                        f"{task.name}: Sandoq no-network requires the production OCI Firecracker "
+                        "environment, network_access=false, nested task network 'none', and a "
+                        "host-side harness without a guest tunnel"
                     )
-            # Sandoq's Firecracker boundary exists before task setup. The host network is
-            # used only for the provider-owned loopback relay; there is no mutable policy
-            # to activate after untrusted task state has been introduced.
+            # Sandoq's Firecracker boundary and nested ``--network none`` exist before
+            # task setup.  The model/tool loop stays on the controller, so the sandbox
+            # never needs a reverse tunnel or a mutable post-setup network transition.
             return
         if not isinstance(runtime, VMVMRuntime):
             if mode == "no-network":
@@ -3697,6 +3698,7 @@ for requirement in sys.argv[1:]:
                 trace.id,
             )
         trace.info["terminal_bench_verifier"] = {
+            "mode": task.verifier_mode,
             "runtime": descriptor,
             "attempts": attempts,
             "infrastructure_failures": failures,

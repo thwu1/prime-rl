@@ -101,21 +101,21 @@ class _VerifierRuntime:
 
 
 @pytest.mark.asyncio
-async def test_sandoq_no_network_requires_explicit_firecracker_tunnel(
+async def test_sandoq_no_network_requires_host_harness_firecracker_isolation(
     monkeypatch,
 ) -> None:
     runtime = SandoqRuntime(
         SandoqConfig(
             network_access=False,
             mode="oci-runner",
-            host_tunnel="sandoq",
-            expected_environment="oci-runner-firecracker-tunnel-pull",
+            host_tunnel="none",
+            expected_environment="oci-runner-firecracker",
             ecr_token_file=Path("/run/secrets/ecr-token"),
         )
     )
     task = SimpleNamespace(name="opaque-task")
 
-    monkeypatch.setenv("OCI_RUNNER_ENVIRONMENT", "oci-runner-firecracker-tunnel-pull")
+    monkeypatch.setenv("OCI_RUNNER_ENVIRONMENT", "oci-runner-firecracker")
     monkeypatch.setenv("OCI_RUNNER_BASE_URL", "https://sandoq.eks-prod.cf.aws.metafb.cloud")
     monkeypatch.setenv("SANDOQ_OWNER", "test-user")
     monkeypatch.setenv("SLURM_JOB_ID", "123")
@@ -127,7 +127,7 @@ async def test_sandoq_no_network_requires_explicit_firecracker_tunnel(
     monkeypatch.setenv("OCI_RUNNER_POOL_WAL", "/run/control/sandoq-pool.wal.jsonl")
     monkeypatch.setenv("OCI_RUNNER_POOL_EVENT_LOG", "/run/pool_events.jsonl")
     monkeypatch.delenv("SLURM_TMPDIR", raising=False)
-    monkeypatch.setenv("OCI_RUNNER_TASK_NETWORK", "host")
+    monkeypatch.setenv("OCI_RUNNER_TASK_NETWORK", "none")
     monkeypatch.setenv("OCI_RUNNER_USE_ECR", "1")
     monkeypatch.setenv(
         "OCI_RUNNER_ECR_REGISTRY",
@@ -193,7 +193,7 @@ async def test_sandoq_no_network_requires_explicit_firecracker_tunnel(
         monkeypatch.delenv(key, raising=False)
     await TerminalBenchVMVMTaskset._configure_network_policy(task, runtime, "no-network", activate=False)
 
-    monkeypatch.setenv("OCI_RUNNER_TASK_NETWORK", "none")
+    monkeypatch.setenv("OCI_RUNNER_TASK_NETWORK", "host")
     with pytest.raises(UnsupportedTaskError, match="Sandoq no-network requires"):
         await TerminalBenchVMVMTaskset._configure_network_policy(task, runtime, "no-network", activate=False)
 
@@ -204,8 +204,8 @@ def test_separate_verifier_clones_sandoq_runtime_config() -> None:
             image="agent@sha256:" + "a" * 64,
             workdir="/agent",
             network_access=False,
-            host_tunnel="sandoq",
-            expected_environment="oci-runner-firecracker-tunnel-pull",
+            host_tunnel="none",
+            expected_environment="oci-runner-firecracker",
             ecr_token_file=Path("/run/secrets/ecr-token"),
         )
     )
@@ -220,7 +220,7 @@ def test_separate_verifier_clones_sandoq_runtime_config() -> None:
     assert isinstance(verifier, SandoqRuntime)
     assert verifier.config.image == task.verifier_image
     assert verifier.config.workdir == "/verifier"
-    assert verifier.config.host_tunnel == "sandoq"
+    assert verifier.config.host_tunnel == "none"
     assert verifier.config.network_access is False
 
 
@@ -4988,7 +4988,13 @@ def test_vacli_lease_setup_slot_acquisition_is_bounded(tmp_path: Path, monkeypat
     observed: list[float | None] = []
 
     class SaturatedSemaphore:
-        def acquire(self, *, timeout: float | None = None) -> bool:
+        def acquire(
+            self,
+            cancel_event: threading.Event | None = None,
+            *,
+            timeout: float | None = None,
+        ) -> bool:
+            assert cancel_event is None
             observed.append(timeout)
             return False
 

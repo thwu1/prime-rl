@@ -13,11 +13,17 @@ import re
 import tempfile
 import tomllib
 import urllib.request
+from collections.abc import Callable
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
 
 EXPECTED_MODEL = "Qwen3.8-2.4T-A95B"
+SANDOQ_HOST_HARNESS_ID = "terminal-bench-sandoq-host"
+SANDOQ_HOST_COMMAND_TIMEOUT_SECONDS = 240
+SANDOQ_HOST_COMMAND_KILL_GRACE_SECONDS = 10
+SANDOQ_HOST_MAX_COMMAND_OUTPUT_CHARS = 100_000
+SANDOQ_HOST_REQUEST_TIMEOUT_SECONDS = 15_000
 EXPECTED_ENDPOINTS = 24
 EXPECTED_SPEC_SHA256 = "e5ddc652b1e3dbb99ed65b44b276cf9d9b8ae866b5a4471db42cf0c732a64007"
 EXPECTED_ENDPOINT_BUNDLE_SHA256 = "db0095649feda5d1c8ea66a434c6486a6c91d6b4519664701a26dab44c7a83a0"
@@ -45,6 +51,9 @@ MAX_MODELS_BYTES = 1 << 20
 MAX_DIRECT_CONCURRENCY = 64
 PRODUCTION_PROVIDER_CONCURRENCY = 32
 LEGACY_PRODUCTION_PROVIDER_CONCURRENCY = 16
+REPAIR_ROLLOUT_CONCURRENCY = 96
+REPAIR_PROVIDER_CONCURRENCY = 48
+REPAIR_QUEUE_SIZE = 48
 ROUTER_QUEUE_TIMEOUT_SECONDS = 7_200
 PRODUCTION_MODEL_TIMEOUT_SECONDS = 15_000
 AFFINITY_MANIFEST_SCHEMA_VERSION = 2
@@ -352,36 +361,54 @@ def validate_eval_config(
         raise DirectWorkerError("eval_thinking_not_preserved")
 
     harness = config.get("harness")
-    if not isinstance(harness, dict) or harness.get("id") != "mini-swe-agent":
+    if not isinstance(harness, dict):
         raise DirectWorkerError("eval_harness_invalid")
-    config_overrides = harness.get("config_overrides")
-    if not isinstance(config_overrides, list) or not all(isinstance(value, str) for value in config_overrides):
-        raise DirectWorkerError("eval_harness_config_overrides_invalid")
-    if expected_capacity is not None or max_concurrent == MAX_DIRECT_CONCURRENCY:
-        timeout_overrides = [value for value in config_overrides if value.startswith("model.model_kwargs.timeout=")]
-        if timeout_overrides != [f"model.model_kwargs.timeout={PRODUCTION_MODEL_TIMEOUT_SECONDS}"]:
-            raise DirectWorkerError("eval_model_timeout_mismatch")
     runtime = harness.get("runtime")
     if not isinstance(runtime, dict) or runtime.get("type") not in {"vmvm", "sandoq"}:
         raise DirectWorkerError("eval_runtime_invalid")
-    if runtime.get("type") == "sandoq" and (
-        runtime.get("mode") != "oci-runner"
-        or runtime.get("network_access") is not False
-        or runtime.get("host_tunnel") != "sandoq"
-        or runtime.get("guest_tunnel_url") != "http://127.0.0.1:8485"
-        or runtime.get("expected_environment") != "oci-runner-firecracker-tunnel-pull"
-        or not isinstance(runtime.get("ecr_token_file"), str)
-        or not Path(runtime["ecr_token_file"]).is_absolute()
+    host_harness = harness.get("id") == SANDOQ_HOST_HARNESS_ID
+    if host_harness and (
+        harness.get("command_timeout_seconds") != SANDOQ_HOST_COMMAND_TIMEOUT_SECONDS
+        or harness.get("command_kill_grace_seconds") != SANDOQ_HOST_COMMAND_KILL_GRACE_SECONDS
+        or harness.get("max_command_output_chars") != SANDOQ_HOST_MAX_COMMAND_OUTPUT_CHARS
+        or harness.get("request_timeout_seconds") != SANDOQ_HOST_REQUEST_TIMEOUT_SECONDS
+        or "config_overrides" in harness
+        or harness.get("env", {}) != {}
     ):
-        raise DirectWorkerError("eval_sandoq_runtime_invalid")
+        raise DirectWorkerError("eval_host_harness_invalid")
     if runtime.get("type") == "sandoq":
+        if (
+            not host_harness
+            or runtime.get("mode") != "oci-runner"
+            or runtime.get("network_access") is not False
+            or runtime.get("host_tunnel") != "none"
+            or runtime.get("expected_environment") != "oci-runner-firecracker"
+            or "guest_tunnel_url" in runtime
+            or "tunnel_pool_size" in runtime
+            or "tunnel_ready_timeout" in runtime
+            or not isinstance(runtime.get("ecr_token_file"), str)
+            or not Path(runtime["ecr_token_file"]).is_absolute()
+        ):
+            raise DirectWorkerError("eval_sandoq_host_harness_invalid")
         dataset_dir = Path(taskset.get("dataset_dir", ""))
         compose_count = sandoq_compose_task_count(dataset_dir, task_file)
         if compose_count:
             raise DirectWorkerError(f"eval_sandoq_compose_tasks_unsupported:{compose_count}")
-    harness_env = harness.get("env")
-    if not isinstance(harness_env, dict) or harness_env.get("MSWEA_MODEL_RETRY_STOP_AFTER_ATTEMPT") != "10":
-        raise DirectWorkerError("eval_model_retry_policy_mismatch")
+    elif not host_harness:
+        if harness.get("id") != "mini-swe-agent":
+            raise DirectWorkerError("eval_harness_invalid")
+        config_overrides = harness.get("config_overrides")
+        if not isinstance(config_overrides, list) or not all(isinstance(value, str) for value in config_overrides):
+            raise DirectWorkerError("eval_harness_config_overrides_invalid")
+        if expected_capacity is not None or max_concurrent == MAX_DIRECT_CONCURRENCY:
+            timeout_overrides = [
+                value for value in config_overrides if value.startswith("model.model_kwargs.timeout=")
+            ]
+            if timeout_overrides != [f"model.model_kwargs.timeout={PRODUCTION_MODEL_TIMEOUT_SECONDS}"]:
+                raise DirectWorkerError("eval_model_timeout_mismatch")
+        harness_env = harness.get("env")
+        if not isinstance(harness_env, dict) or harness_env.get("MSWEA_MODEL_RETRY_STOP_AFTER_ATTEMPT") != "10":
+            raise DirectWorkerError("eval_model_retry_policy_mismatch")
     retries = config.get("retries")
     rollout_retries = retries.get("rollout") if isinstance(retries, dict) else None
     retry_include = rollout_retries.get("include") if isinstance(rollout_retries, dict) else None
@@ -389,9 +416,10 @@ def validate_eval_config(
     allowed_retry_policies = {ROLLOUT_RETRY_POLICY}
     if allow_historical_retry_policy:
         allowed_retry_policies.add(LEGACY_ROLLOUT_RETRY_POLICY)
+    expected_rollout_retries = 0 if host_harness else 2
     if (
         not isinstance(rollout_retries, dict)
-        or rollout_retries.get("max_retries") != 2
+        or rollout_retries.get("max_retries") != expected_rollout_retries
         or not isinstance(retry_include, list)
         or not all(isinstance(item, str) for item in retry_include)
         or len(retry_include) != len(set(retry_include))
@@ -400,6 +428,9 @@ def validate_eval_config(
         or retry_exclude
     ):
         raise DirectWorkerError("eval_rollout_retry_policy_mismatch")
+    if host_harness and taskset.get("verifier_runtime_retries") != 0:
+        provider = runtime.get("type")
+        raise DirectWorkerError(f"eval_{provider}_cleanup_retry_contract_mismatch")
     return task_file_sha256
 
 
@@ -488,13 +519,19 @@ def _manifest(
     rollout_concurrency: int = 8,
     provider_concurrency: int | None = None,
     schema_version: int = ROUTER_MANIFEST_SCHEMA_VERSION,
+    expected_admission: tuple[int, int, int] | None = None,
 ) -> dict[str, Any]:
     if provider_concurrency is None:
         provider_concurrency = min(rollout_concurrency, EXPECTED_ENDPOINTS)
+    queue_size = rollout_concurrency - provider_concurrency
     if (
         isinstance(provider_concurrency, bool)
         or not isinstance(provider_concurrency, int)
-        or not 1 <= provider_concurrency <= rollout_concurrency <= MAX_DIRECT_CONCURRENCY
+        or not 1 <= provider_concurrency <= rollout_concurrency
+        or (
+            rollout_concurrency > MAX_DIRECT_CONCURRENCY
+            and (rollout_concurrency, provider_concurrency, queue_size) != expected_admission
+        )
     ):
         raise DirectWorkerError("direct_worker_provider_concurrency_invalid")
     max_concurrent_requests = provider_concurrency
@@ -517,7 +554,7 @@ def _manifest(
             "request_id_headers": list(ROUTER_REQUEST_ID_HEADERS),
             "request_timeout_seconds": 7_500,
             "max_concurrent_requests": max_concurrent_requests,
-            "queue_size": rollout_concurrency - max_concurrent_requests,
+            "queue_size": queue_size,
             "queue_timeout_seconds": ROUTER_QUEUE_TIMEOUT_SECONDS,
             "retries": 0,
         },
@@ -529,12 +566,40 @@ def _manifest(
             "client_max_connections": provider_concurrency,
             "client_max_keepalive_connections": provider_concurrency,
             "router_max_concurrent_requests": provider_concurrency,
-            "router_queue_size": rollout_concurrency - provider_concurrency,
+            "router_queue_size": queue_size,
         }
     return manifest
 
 
-def validate_saved_manifest(path: Path) -> dict[str, Any]:
+def validate_saved_manifest(
+    path: Path,
+    *,
+    expected_endpoints: int | None = None,
+    expected_spec_sha256: str | None = None,
+    expected_bundle_sha256: str | None = None,
+    expected_admission: tuple[int, int, int] | None = None,
+) -> dict[str, Any]:
+    if expected_endpoints is None:
+        expected_endpoints = EXPECTED_ENDPOINTS
+    if expected_spec_sha256 is None:
+        expected_spec_sha256 = EXPECTED_SPEC_SHA256
+    if expected_bundle_sha256 is None:
+        expected_bundle_sha256 = EXPECTED_ENDPOINT_BUNDLE_SHA256
+    if (
+        not _is_plain_int(expected_endpoints)
+        or expected_endpoints < 1
+        or re.fullmatch(r"[0-9a-f]{64}", expected_spec_sha256) is None
+        or re.fullmatch(r"[0-9a-f]{64}", expected_bundle_sha256) is None
+        or (
+            expected_admission is not None
+            and (
+                len(expected_admission) != 3
+                or any(not _is_plain_int(value) or value < 0 for value in expected_admission)
+                or expected_admission[0] != expected_admission[1] + expected_admission[2]
+            )
+        )
+    ):
+        raise DirectWorkerError("direct_worker_manifest_expectation_invalid")
     manifest = _read_json_object(path, max_bytes=1 << 20)
     schema_version = manifest.get("schema_version")
     if not _is_plain_int(schema_version) or schema_version not in {
@@ -549,9 +614,9 @@ def validate_saved_manifest(path: Path) -> dict[str, Any]:
         raise DirectWorkerError("direct_worker_manifest_structure_invalid")
     if manifest.get("model") != EXPECTED_MODEL:
         raise DirectWorkerError("direct_worker_manifest_model_mismatch")
-    if manifest.get("spec_sha256") != EXPECTED_SPEC_SHA256:
+    if manifest.get("spec_sha256") != expected_spec_sha256:
         raise DirectWorkerError("direct_worker_manifest_spec_mismatch")
-    if manifest.get("endpoint_bundle_sha256") != EXPECTED_ENDPOINT_BUNDLE_SHA256:
+    if manifest.get("endpoint_bundle_sha256") != expected_bundle_sha256:
         raise DirectWorkerError("direct_worker_manifest_bundle_mismatch")
     approved_task_allowlist_sha256 = manifest.get("approved_task_allowlist_sha256")
     if (
@@ -561,7 +626,7 @@ def validate_saved_manifest(path: Path) -> dict[str, Any]:
         raise DirectWorkerError("direct_worker_manifest_task_allowlist_invalid")
 
     raw_workers = manifest.get("workers")
-    if not isinstance(raw_workers, list) or len(raw_workers) != EXPECTED_ENDPOINTS:
+    if not isinstance(raw_workers, list) or len(raw_workers) != expected_endpoints:
         raise DirectWorkerError("direct_worker_manifest_worker_count_invalid")
     names: set[str] = set()
     addresses: set[tuple[str, int]] = set()
@@ -589,7 +654,7 @@ def validate_saved_manifest(path: Path) -> dict[str, Any]:
         names.add(name)
         addresses.add((host, port))
         bundle.update(f"{metadata_sha256}  {name}\n".encode())
-    if bundle.hexdigest() != EXPECTED_ENDPOINT_BUNDLE_SHA256:
+    if bundle.hexdigest() != expected_bundle_sha256:
         raise DirectWorkerError("direct_worker_manifest_worker_bundle_invalid")
 
     router = manifest.get("router")
@@ -622,13 +687,22 @@ def validate_saved_manifest(path: Path) -> dict[str, Any]:
         or not isinstance(max_concurrent_requests, int)
         or not 1
         <= max_concurrent_requests
-        <= (EXPECTED_ENDPOINTS if schema_version == AFFINITY_MANIFEST_SCHEMA_VERSION else MAX_DIRECT_CONCURRENCY)
+        <= (expected_endpoints if schema_version == AFFINITY_MANIFEST_SCHEMA_VERSION else MAX_DIRECT_CONCURRENCY)
     ):
         raise DirectWorkerError("direct_worker_manifest_router_concurrency_invalid")
     queue_size = router.get("queue_size")
-    if isinstance(queue_size, bool) or not isinstance(queue_size, int) or not 0 <= queue_size < MAX_DIRECT_CONCURRENCY:
+    if (
+        isinstance(queue_size, bool)
+        or not isinstance(queue_size, int)
+        or not 0 <= queue_size < REPAIR_ROLLOUT_CONCURRENCY
+    ):
         raise DirectWorkerError("direct_worker_manifest_router_queue_invalid")
-    if max_concurrent_requests + queue_size > MAX_DIRECT_CONCURRENCY:
+    rollout_admission = max_concurrent_requests + queue_size
+    if rollout_admission > MAX_DIRECT_CONCURRENCY and (
+        schema_version != ROUTER_MANIFEST_SCHEMA_VERSION
+        or expected_admission is None
+        or (rollout_admission, max_concurrent_requests, queue_size) != expected_admission
+    ):
         raise DirectWorkerError("direct_worker_manifest_router_admission_exceeds_rollout_limit")
     if router.get("metrics_host") != "127.0.0.1":
         raise DirectWorkerError("direct_worker_manifest_metrics_host_invalid")
@@ -664,6 +738,12 @@ def validate_saved_manifest(path: Path) -> dict[str, Any]:
             or queue_size != MAX_DIRECT_CONCURRENCY - PRODUCTION_PROVIDER_CONCURRENCY
         ):
             raise DirectWorkerError("direct_worker_manifest_production_admission_invalid")
+        if admission["rollout_concurrency"] > MAX_DIRECT_CONCURRENCY and (
+            admission["rollout_concurrency"],
+            max_concurrent_requests,
+            queue_size,
+        ) != expected_admission:
+            raise DirectWorkerError("direct_worker_manifest_repair_admission_invalid")
     return manifest
 
 
@@ -673,13 +753,17 @@ def validate_post_eval_generation(
     *,
     router_alive: bool,
     active_workers: int,
+    expected_admission: tuple[int, int, int] | None = None,
 ) -> str:
     """Revalidate immutable serving inputs immediately before certification."""
     if not router_alive:
         raise DirectWorkerError("direct_router_not_live_at_certification")
     if active_workers != EXPECTED_ENDPOINTS:
         raise DirectWorkerError("direct_router_worker_count_drift")
-    manifest = validate_saved_manifest(manifest_path)
+    manifest = validate_saved_manifest(
+        manifest_path,
+        expected_admission=expected_admission,
+    )
     try:
         workers, spec_sha256, bundle_sha256 = load_workers(deployment_root)
     except DirectWorkerError as error:
@@ -1092,6 +1176,8 @@ def _validate_admission_transition(
     run_dir: Path,
     manifest: dict[str, Any],
     provenance: dict[str, str],
+    *,
+    manifest_validator: Callable[[Path], dict[str, Any]] = validate_saved_manifest,
 ) -> dict[str, Any]:
     """Validate the affinity cap-16 to cap-32 edge and its complete parent chain."""
     admission_path = run_dir / ADMISSION_TRANSITION_FILENAME
@@ -1187,7 +1273,7 @@ def _validate_admission_transition(
     if any(_sha256(path) != source[key] for key, path in archived.items()):
         raise DirectWorkerError("admission_transition_source_archive_mismatch")
 
-    epoch2_manifest = validate_saved_manifest(epoch2_manifest_path)
+    epoch2_manifest = manifest_validator(epoch2_manifest_path)
     try:
         epoch2_config = tomllib.loads(epoch2_config_path.read_text(encoding="utf-8"))
     except (OSError, UnicodeDecodeError, tomllib.TOMLDecodeError) as error:
@@ -1388,6 +1474,7 @@ def validate_routing_transition(
     provenance: dict[str, str],
     *,
     allow_incomplete: bool = False,
+    manifest_validator: Callable[[Path], dict[str, Any]] = validate_saved_manifest,
 ) -> dict[str, Any] | None:
     """Validate optional COW routing/admission lineage without decoding trace bodies."""
     if not allow_incomplete:
@@ -1427,15 +1514,24 @@ def validate_routing_transition(
             enforce_boundary=True,
         )
     if epoch == "3":
-        return _validate_admission_transition(run_dir, manifest, provenance)
+        return _validate_admission_transition(
+            run_dir,
+            manifest,
+            provenance,
+            manifest_validator=manifest_validator,
+        )
     raise DirectWorkerError("routing_transition_provenance_epoch_mismatch")
 
 
-def audit_run_directory(run_dir: Path) -> dict[str, Any]:
+def audit_run_directory(
+    run_dir: Path,
+    *,
+    manifest_validator: Callable[[Path], dict[str, Any]] = validate_saved_manifest,
+) -> dict[str, Any]:
     run_dir = run_dir.resolve(strict=True)
     reject_incomplete_migration(run_dir)
     manifest_path = run_dir / "direct_workers.json"
-    manifest = validate_saved_manifest(manifest_path)
+    manifest = manifest_validator(manifest_path)
     manifest_sha256 = _sha256(manifest_path)
     config_path = run_dir / "config.toml"
     task_allowlist_sha256 = validate_eval_config(
@@ -1466,7 +1562,12 @@ def audit_run_directory(run_dir: Path) -> dict[str, Any]:
         raise DirectWorkerError("direct_worker_provenance_url_mismatch")
     if provenance.get("inference_deployment_id"):
         raise DirectWorkerError("direct_worker_provenance_deployment_id_present")
-    transition = validate_routing_transition(run_dir, manifest, provenance)
+    transition = validate_routing_transition(
+        run_dir,
+        manifest,
+        provenance,
+        manifest_validator=manifest_validator,
+    )
     if frozenset(config["retries"]["rollout"]["include"]) == LEGACY_ROLLOUT_RETRY_POLICY and transition is None:
         raise DirectWorkerError("legacy_retry_policy_requires_transition")
 
@@ -1556,23 +1657,42 @@ def prepare(
     *,
     resume: bool,
     probe_timeout: float,
+    repair_admission: bool = False,
 ) -> dict[str, Any]:
     reject_incomplete_migration(manifest_path.parent)
+    expected_capacity = (
+        (REPAIR_ROLLOUT_CONCURRENCY, REPAIR_PROVIDER_CONCURRENCY)
+        if repair_admission
+        else None
+    )
     task_allowlist_sha256 = validate_eval_config(
         eval_config,
         approved_task_file=approved_task_file,
         approved_task_file_sha256=approved_task_file_sha256,
         allow_historical_retry_policy=resume,
+        expected_capacity=expected_capacity,
     )
     config = tomllib.loads(eval_config.read_text(encoding="utf-8"))
     rollout_concurrency = config["max_concurrent"]
-    max_concurrent_requests = provider_concurrency(config)
+    max_concurrent_requests = provider_concurrency(
+        config,
+        expected_capacity=expected_capacity,
+    )
     if rollout_concurrency == MAX_DIRECT_CONCURRENCY and max_concurrent_requests != PRODUCTION_PROVIDER_CONCURRENCY:
         raise DirectWorkerError("direct_worker_admission_epoch_migration_required")
     if resume:
         if not manifest_path.is_file():
             raise DirectWorkerError("direct_worker_manifest_missing")
-        saved = validate_saved_manifest(manifest_path)
+        saved = validate_saved_manifest(
+            manifest_path,
+            expected_admission=(
+                REPAIR_ROLLOUT_CONCURRENCY,
+                REPAIR_PROVIDER_CONCURRENCY,
+                REPAIR_QUEUE_SIZE,
+            )
+            if repair_admission
+            else None,
+        )
         provenance = validate_router_provenance(
             manifest_path.parent / "provenance.txt",
             _sha256(manifest_path),
@@ -1610,6 +1730,13 @@ def prepare(
             rollout_concurrency,
             max_concurrent_requests,
             saved["schema_version"],
+            (
+                REPAIR_ROLLOUT_CONCURRENCY,
+                REPAIR_PROVIDER_CONCURRENCY,
+                REPAIR_QUEUE_SIZE,
+            )
+            if repair_admission
+            else None,
         )
         if saved != expected:
             raise DirectWorkerError("direct_worker_manifest_mismatch")
@@ -1628,6 +1755,13 @@ def prepare(
             metrics_port,
             rollout_concurrency,
             max_concurrent_requests,
+            expected_admission=(
+                REPAIR_ROLLOUT_CONCURRENCY,
+                REPAIR_PROVIDER_CONCURRENCY,
+                REPAIR_QUEUE_SIZE,
+            )
+            if repair_admission
+            else None,
         )
         _atomic_write(
             manifest_path,
@@ -1660,6 +1794,7 @@ def main() -> None:
     parser.add_argument("--ports-output", type=Path)
     parser.add_argument("--approved-task-file", type=Path)
     parser.add_argument("--approved-task-file-sha256")
+    parser.add_argument("--repair-admission", action="store_true")
     parser.add_argument("--resume", action="store_true")
     parser.add_argument("--probe-timeout", type=float, default=30)
     parser.add_argument("--audit-run-dir", type=Path)
@@ -1682,6 +1817,7 @@ def main() -> None:
                     )
                 )
                 or args.resume
+                or args.repair_admission
             ):
                 parser.error("--audit-run-dir cannot be combined with launch preparation arguments")
             summary = audit_run_directory(args.audit_run_dir)
@@ -1707,6 +1843,7 @@ def main() -> None:
                 args.approved_task_file_sha256,
                 resume=args.resume,
                 probe_timeout=args.probe_timeout,
+                repair_admission=args.repair_admission,
             )
             summary = {
                 "ok": True,

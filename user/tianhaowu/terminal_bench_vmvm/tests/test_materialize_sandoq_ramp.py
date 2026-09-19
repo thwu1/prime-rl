@@ -15,6 +15,7 @@ def test_materialize_sandoq_ramp_binds_opaque_ordered_prefix(tmp_path) -> None:
     )
     assert payload == b"opaque-a\nopaque-b\n"
     assert receipt["selected_count"] == 2
+    assert receipt["selection"] == "ordered-provider-prefix"
     assert receipt["selected_sha256"] == hashlib.sha256(payload).hexdigest()
 
 
@@ -25,7 +26,7 @@ def test_materialize_sandoq_ramp_rejects_bad_source(tmp_path) -> None:
         materialize(source, "0" * 64, 2)
 
 
-def test_materializer_rejects_noncanonical_matching_source(tmp_path, monkeypatch) -> None:
+def test_materializer_requires_canonical_partition_inputs(tmp_path, monkeypatch) -> None:
     source = tmp_path / "source.txt"
     source.write_text("opaque-a\nopaque-b\n")
     monkeypatch.setattr(
@@ -44,7 +45,7 @@ def test_materializer_rejects_noncanonical_matching_source(tmp_path, monkeypatch
             str(tmp_path / "receipt.json"),
         ],
     )
-    with pytest.raises(ValueError, match="canonical"):
+    with pytest.raises(SystemExit):
         main()
 
 
@@ -69,7 +70,7 @@ def test_materialize_config_binds_capacity_and_selected_allowlist(tmp_path) -> N
     assert ("a" * 64).encode() in payload
 
 
-def test_materialize_production_keeps_bounded_rollout_and_http_concurrency(tmp_path) -> None:
+def test_materialize_64_stage_keeps_bounded_rollout_and_http_concurrency(tmp_path) -> None:
     template = tmp_path / "template.toml"
     template.write_text(
         "num_tasks = 2500\nmax_concurrent = 64\nmultiplex = 64\n"
@@ -80,11 +81,11 @@ def test_materialize_production_keeps_bounded_rollout_and_http_concurrency(tmp_p
     payload = materialize_config(
         template,
         hashlib.sha256(template.read_bytes()).hexdigest(),
-        count=2500,
+        count=64,
         task_file=tmp_path / "selected.txt",
         task_file_sha256="a" * 64,
     )
-    assert b"num_tasks = 2500\n" in payload
+    assert b"num_tasks = 64\n" in payload
     assert b"max_concurrent = 64\n" in payload
     assert b"multiplex = 64\n" in payload
     assert b"max_connections = 32\n" in payload

@@ -7,6 +7,7 @@ from pathlib import Path
 
 import direct_qwen_workers as direct
 import pytest
+from materialize_qwen_provider_union import derive_partition
 
 
 def test_production_worker_generation_is_exactly_the_certified_24_routes() -> None:
@@ -144,7 +145,7 @@ def test_approved_qwen_configs_can_use_direct_fallback(filename: str, monkeypatc
 def test_full_sandoq_config_fails_closed_on_aggregate_compose_count(monkeypatch: pytest.MonkeyPatch) -> None:
     config_dir = Path(__file__).parents[1] / "configs" / "eval"
     repository_root = config_dir.parents[4]
-    config_path = config_dir / "mobius_qwen_a95b_2500_sandoq.toml"
+    config_path = config_dir / "shared_qwen38_2p4t/mobius_qwen_a95b_2500_sandoq.toml"
     config = tomllib.loads(config_path.read_text())
     task_file = repository_root / config["taskset"]["task_file"]
     monkeypatch.chdir(repository_root)
@@ -160,15 +161,44 @@ def test_full_sandoq_config_fails_closed_on_aggregate_compose_count(monkeypatch:
 def test_sandoq_ramp_prefixes_have_no_compose_tasks(tmp_path: Path) -> None:
     config_dir = Path(__file__).parents[1] / "configs" / "eval"
     repository_root = config_dir.parents[4]
-    config = tomllib.loads((config_dir / "mobius_qwen_a95b_2500_sandoq.toml").read_text())
+    config = tomllib.loads(
+        (config_dir / "shared_qwen38_2p4t/mobius_qwen_a95b_2500_sandoq.toml").read_text()
+    )
     source = repository_root / config["taskset"]["task_file"]
     dataset_dir = Path(config["taskset"]["dataset_dir"])
-    lines = source.read_bytes().splitlines(keepends=True)
+    partition = derive_partition(source.read_bytes(), dataset_dir)
 
-    for count in (2, 8, 24):
+    for count in (2, 8, 24, 64):
         selected = tmp_path / f"prefix-{count}.txt"
-        selected.write_bytes(b"".join(lines[:count]))
+        selected.write_text("\n".join(partition.sandoq[:count]) + "\n")
         assert direct.sandoq_compose_task_count(dataset_dir, selected) == 0
+
+
+def test_vmvm_host_template_requires_single_attempt_cleanup_accounting(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    config_dir = Path(__file__).parents[1] / "configs" / "eval"
+    repository_root = config_dir.parents[4]
+    source = config_dir / "shared_qwen38_2p4t/mobius_qwen_a95b_2500_vmvm_host.toml"
+    config = tomllib.loads(source.read_text())
+    task_file = repository_root / config["taskset"]["task_file"]
+    monkeypatch.chdir(repository_root)
+
+    assert direct.validate_eval_config(
+        source,
+        approved_task_file=task_file,
+        approved_task_file_sha256=config["taskset"]["task_file_sha256"],
+    )
+
+    modified = tmp_path / "vmvm.toml"
+    modified.write_text(source.read_text().replace("verifier_runtime_retries = 0", "verifier_runtime_retries = 1"))
+    with pytest.raises(direct.DirectWorkerError, match="eval_vmvm_cleanup_retry_contract_mismatch"):
+        direct.validate_eval_config(
+            modified,
+            approved_task_file=task_file,
+            approved_task_file_sha256=config["taskset"]["task_file_sha256"],
+        )
 
 
 def test_empty_inline_task_selection_is_still_forbidden(tmp_path: Path) -> None:
@@ -512,6 +542,121 @@ def test_validate_saved_manifest_rejects_schema3_production_cap16(
         direct.validate_saved_manifest(path)
 
 
+def test_validate_saved_manifest_accepts_reviewed_repair_admission(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _, _, _, workers = _write_deployment(tmp_path)
+    manifest = direct._manifest(
+        tmp_path,
+        workers,
+        direct.EXPECTED_SPEC_SHA256,
+        direct.EXPECTED_ENDPOINT_BUNDLE_SHA256,
+        "a" * 64,
+        20_001,
+        40_001,
+        direct.MAX_DIRECT_CONCURRENCY,
+        direct.PRODUCTION_PROVIDER_CONCURRENCY,
+    )
+    monkeypatch.setattr(direct, "EXPECTED_ENDPOINTS", len(workers))
+    monkeypatch.setattr(
+        direct,
+        "EXPECTED_ENDPOINT_BUNDLE_SHA256",
+        direct.endpoint_bundle_sha256(
+            [tmp_path / "deployment" / "endpoints" / worker.metadata_file for worker in workers]
+        ),
+    )
+    manifest["endpoint_bundle_sha256"] = direct.EXPECTED_ENDPOINT_BUNDLE_SHA256
+    manifest["router"].update(max_concurrent_requests=48, queue_size=48)
+    manifest["admission"].update(
+        rollout_concurrency=96,
+        client_max_connections=48,
+        client_max_keepalive_connections=48,
+        router_max_concurrent_requests=48,
+        router_queue_size=48,
+    )
+    path = tmp_path / "manifest.json"
+    path.write_text(json.dumps(manifest) + "\n")
+
+    with pytest.raises(direct.DirectWorkerError, match="admission_exceeds_rollout_limit"):
+        direct.validate_saved_manifest(path)
+    assert direct.validate_saved_manifest(
+        path,
+        expected_admission=(96, 48, 48),
+    )["admission"]["rollout_concurrency"] == 96
+
+
+def test_post_eval_generation_accepts_reviewed_repair_admission(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    root, spec_sha256, bundle_sha256, workers = _write_deployment(tmp_path, count=24)
+    monkeypatch.setattr(direct, "EXPECTED_SPEC_SHA256", spec_sha256)
+    monkeypatch.setattr(direct, "EXPECTED_ENDPOINT_BUNDLE_SHA256", bundle_sha256)
+    monkeypatch.setattr(direct, "EXPECTED_ENDPOINTS", 24)
+    monkeypatch.setattr(
+        direct,
+        "load_workers",
+        lambda _root: (workers, spec_sha256, bundle_sha256),
+    )
+    manifest = direct._manifest(
+        root,
+        workers,
+        spec_sha256,
+        bundle_sha256,
+        "a" * 64,
+        20_001,
+        40_001,
+        direct.MAX_DIRECT_CONCURRENCY,
+        direct.PRODUCTION_PROVIDER_CONCURRENCY,
+    )
+    manifest["router"].update(max_concurrent_requests=48, queue_size=48)
+    manifest["admission"].update(
+        rollout_concurrency=96,
+        client_max_connections=48,
+        client_max_keepalive_connections=48,
+        router_max_concurrent_requests=48,
+        router_queue_size=48,
+    )
+    path = tmp_path / "repair-manifest.json"
+    path.write_text(json.dumps(manifest) + "\n")
+
+    assert direct.validate_post_eval_generation(
+        path,
+        root,
+        router_alive=True,
+        active_workers=24,
+        expected_admission=(96, 48, 48),
+    ) == hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def test_validate_saved_manifest_accepts_explicit_historical_generation(
+    tmp_path: Path,
+) -> None:
+    root, spec_sha256, bundle_sha256, workers = _write_deployment(tmp_path, count=16)
+    manifest = direct._manifest(
+        root,
+        workers,
+        spec_sha256,
+        bundle_sha256,
+        "a" * 64,
+        20_001,
+        40_001,
+        direct.MAX_DIRECT_CONCURRENCY,
+        direct.PRODUCTION_PROVIDER_CONCURRENCY,
+    )
+    path = tmp_path / "historical-manifest.json"
+    path.write_text(json.dumps(manifest) + "\n")
+
+    validated = direct.validate_saved_manifest(
+        path,
+        expected_endpoints=16,
+        expected_spec_sha256=spec_sha256,
+        expected_bundle_sha256=bundle_sha256,
+    )
+    assert len(validated["workers"]) == 16
+
+
 def test_validate_saved_manifest_rejects_admission_above_rollout_limit(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -692,6 +837,68 @@ def test_resume_accepts_only_the_saved_affinity_manifest(
     assert manifest_path.read_bytes() == saved_bytes
     assert resumed["router"]["policy"] == "consistent_hash"
     assert resumed["router"]["request_id_headers"] == ["x-session-id"]
+
+
+def test_prepare_requires_explicit_repair_admission_for_c96(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    deployment_root, spec_sha256, bundle_sha256, workers = _write_deployment(tmp_path)
+    monkeypatch.setattr(direct, "EXPECTED_SPEC_SHA256", spec_sha256)
+    monkeypatch.setattr(direct, "EXPECTED_ENDPOINT_BUNDLE_SHA256", bundle_sha256)
+    monkeypatch.setattr(direct, "EXPECTED_ENDPOINTS", len(workers))
+    monkeypatch.setattr(direct, "load_workers", lambda _root: (workers, spec_sha256, bundle_sha256))
+    monkeypatch.setattr(direct, "probe_workers", lambda *_args, **_kwargs: None)
+    config = _approved_config(tmp_path)
+    config.write_text(
+        config.read_text()
+        .replace("max_concurrent = 2", "max_concurrent = 96")
+        .replace("multiplex = 2", "multiplex = 96")
+        .replace("max_connections = 2", "max_connections = 48")
+        .replace("max_keepalive_connections = 2", "max_keepalive_connections = 48")
+        .replace(
+            '"model.model_kwargs.parallel_tool_calls=true",',
+            '"model.model_kwargs.parallel_tool_calls=true",\n'
+            '    "model.model_kwargs.timeout=15000",',
+        )
+    )
+    approved_task_file = tmp_path / "approved_tasks.txt"
+    approved_task_sha256 = hashlib.sha256(approved_task_file.read_bytes()).hexdigest()
+
+    with pytest.raises(direct.DirectWorkerError, match="^eval_max_concurrent_invalid$"):
+        direct.prepare(
+            deployment_root,
+            config,
+            tmp_path / "ordinary" / "direct_workers.json",
+            tmp_path / "ordinary-urls.txt",
+            tmp_path / "ordinary-runtime.txt",
+            approved_task_file,
+            approved_task_sha256,
+            resume=False,
+            probe_timeout=1,
+        )
+
+    manifest = direct.prepare(
+        deployment_root,
+        config,
+        tmp_path / "repair" / "direct_workers.json",
+        tmp_path / "repair-urls.txt",
+        tmp_path / "repair-runtime.txt",
+        approved_task_file,
+        approved_task_sha256,
+        resume=False,
+        probe_timeout=1,
+        repair_admission=True,
+    )
+
+    assert manifest["admission"] == {
+        "schema_version": direct.ADMISSION_SCHEMA_VERSION,
+        "rollout_concurrency": 96,
+        "client_max_connections": 48,
+        "client_max_keepalive_connections": 48,
+        "router_max_concurrent_requests": 48,
+        "router_queue_size": 48,
+    }
 
 
 def test_resume_rejects_legacy_round_robin_manifest_without_rewriting_it(

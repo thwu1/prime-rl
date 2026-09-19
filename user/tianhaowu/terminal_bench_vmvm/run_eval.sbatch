@@ -299,10 +299,10 @@ print(capacity, min(capacity, 32), min(capacity, 64), min(capacity, 32), min(cap
 PY
 )
     export OCI_RUNNER_BASE_URL=https://sandoq.eks-prod.cf.aws.metafb.cloud
-    export OCI_RUNNER_ENVIRONMENT=oci-runner-firecracker-tunnel-pull
+    export OCI_RUNNER_ENVIRONMENT=oci-runner-firecracker
     export SANDOQ_OWNER=${USER:?USER is required for Sandoq ownership}
     export OCI_RUNNER_TOKEN_FILE=${OCI_RUNNER_TOKEN_FILE:-$HOME/.config/oci-runner/firecracker-token}
-    export OCI_RUNNER_TASK_NETWORK=host
+    export OCI_RUNNER_TASK_NETWORK=none
     export OCI_RUNNER_POOL_SIZE=$sandoq_capacity
     export OCI_RUNNER_POOL_MIN_SIZE=0
     export OCI_RUNNER_CREATE_DEADLINE=30m
@@ -338,8 +338,8 @@ PY
     export PRIME_RL_OUTPUT_DIR="$output_dir"
     export OCI_RUNNER_POOL_WAL="$output_dir/control/sandoq-pool.wal.jsonl"
     export OCI_RUNNER_POOL_EVENT_LOG="$output_dir/pool_events.jsonl"
-    if [[ "$OCI_RUNNER_ENVIRONMENT" != oci-runner-firecracker-tunnel-pull ]]; then
-        printf 'Sandoq no-network runs require the approved tunnel-pull environment\n' >&2
+    if [[ "$OCI_RUNNER_ENVIRONMENT" != oci-runner-firecracker ]]; then
+        printf 'Sandoq no-network runs require the production Firecracker environment\n' >&2
         exit 2
     fi
     if [[ ! -f "$OCI_RUNNER_TOKEN_FILE" || -L "$OCI_RUNNER_TOKEN_FILE" \
@@ -383,6 +383,10 @@ derived_image_manifest_sha256=
 if [[ "$sandbox_provider" == sandoq ]]; then
     sandoq_provider_commit=$(git -C deps/sandoq-provider rev-parse --verify HEAD)
     sandoq_provider_tree=$(git -C deps/sandoq-provider rev-parse HEAD^{tree})
+    if [[ "$verifiers_commit" != c461322dc51329dd1a42d5247017905cf3dc123e ]]; then
+        printf 'Verifiers revision is not the approved host-harness topology source\n' >&2
+        exit 2
+    fi
     if [[ "$sandoq_provider_commit" != 4890302104d76220cef791c86d2009168597d35f ]]; then
         printf 'Sandoq provider revision is not the approved cutover source\n' >&2
         exit 2
@@ -750,7 +754,7 @@ else
         --sandoq-task-network "$OCI_RUNNER_TASK_NETWORK"
         --sandoq-pool-size "$OCI_RUNNER_POOL_SIZE"
         --sandoq-pool-min-size "$OCI_RUNNER_POOL_MIN_SIZE"
-        --sandoq-tunnel-policy named-tunnel-loopback
+        --sandoq-tunnel-policy host-interception-no-tunnel
         --sandoq-base-url "$OCI_RUNNER_BASE_URL"
         --sandoq-owner "$SANDOQ_OWNER"
         --sandoq-transport-proxy-policy official-client-auto-no-global-proxy

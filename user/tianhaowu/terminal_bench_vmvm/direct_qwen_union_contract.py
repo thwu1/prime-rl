@@ -8,6 +8,7 @@ import os
 import re
 import stat
 import tempfile
+import tomllib
 from pathlib import Path
 from typing import Any, Mapping
 
@@ -17,6 +18,17 @@ SHA256_RE = re.compile(r"[0-9a-f]{64}")
 REVISION_RE = re.compile(r"[0-9a-f]{40,64}")
 QWEN_MODEL = "Qwen3.8-2.4T-A95B"
 FULL_CONTEXT_TOKENS = 262_144
+HOST_HARNESS_CONTRACT = {
+    "id": "terminal-bench-sandoq-host",
+    "placement": "host",
+    "tool": "bash",
+    "command_timeout_seconds": 240,
+    "command_kill_grace_seconds": 10,
+    "max_command_output_chars": 100_000,
+    "request_timeout_seconds": 15_000,
+    "request_max_retries": 0,
+    "stream": False,
+}
 
 
 class UnionContractError(ValueError):
@@ -129,6 +141,7 @@ def validate_shared_identity(
         or contract["sampling_max_tokens"] > FULL_CONTEXT_TOKENS
         or contract.get("capture_model_io") is not True
         or contract.get("retain_traces") is not False
+        or contract.get("harness") != HOST_HARNESS_CONTRACT
     ):
         raise UnionContractError("qwen_trace_contract_invalid")
     try:
@@ -167,6 +180,20 @@ def validate_shared_identity(
         raise UnionContractError("source_closure_invalid")
     worker = deployment.get("worker_manifest")
     router = deployment.get("router")
+    try:
+        expected_config_value = tomllib.loads(read_regular(expected_config).decode("utf-8"))
+    except (UnicodeDecodeError, tomllib.TOMLDecodeError, UnionContractError) as error:
+        raise UnionContractError("direct_qwen_admission_invalid") from error
+    expected_client = expected_config_value.get("client")
+    rollout_concurrency = expected_config_value.get("max_concurrent")
+    provider_concurrency = (
+        expected_client.get("max_connections") if isinstance(expected_client, Mapping) else None
+    )
+    keepalive_concurrency = (
+        expected_client.get("max_keepalive_connections")
+        if isinstance(expected_client, Mapping)
+        else None
+    )
     if (
         deployment.get("kind") != "direct_qwen"
         or not isinstance(worker, Mapping)
@@ -179,16 +206,35 @@ def validate_shared_identity(
         or router.get("policy") != "consistent_hash"
         or router.get("request_id_headers") != ["x-session-id"]
         or not _valid_positive_integer(router.get("provider_concurrency"))
+        or not _valid_positive_integer(rollout_concurrency)
+        or not _valid_positive_integer(provider_concurrency)
+        or keepalive_concurrency != provider_concurrency
+        or provider_concurrency > rollout_concurrency
+        or router.get("provider_concurrency") != provider_concurrency
     ):
         raise UnionContractError("direct_qwen_deployment_invalid")
     try:
         from direct_qwen_workers import validate_saved_manifest
 
-        manifest = validate_saved_manifest(Path(str(worker["path"])))
+        manifest = validate_saved_manifest(
+            Path(str(worker["path"])),
+            expected_admission=(
+                rollout_concurrency,
+                provider_concurrency,
+                rollout_concurrency - provider_concurrency,
+            ),
+        )
     except Exception as error:
         raise UnionContractError("direct_qwen_worker_manifest_invalid") from error
     if len(manifest.get("workers", [])) != 24:
         raise UnionContractError("direct_qwen_worker_manifest_invalid")
+    worker_generation = {
+        "model": manifest["model"],
+        "spec_sha256": manifest["spec_sha256"],
+        "endpoint_bundle_sha256": manifest["endpoint_bundle_sha256"],
+        "workers": manifest["workers"],
+    }
+    manifest_router = manifest["router"]
     shared = {
         "contract": {
             key: contract[key]
@@ -203,6 +249,7 @@ def validate_shared_identity(
                 "capture_model_io",
                 "outbound_body_denylist",
                 "retain_traces",
+                "harness",
             )
         },
         "dataset": {
@@ -210,12 +257,17 @@ def validate_shared_identity(
             "revision": CANONICAL_DATASET_REVISION,
         },
         "deployment": {
-            "base_url_sha256": sha256_bytes(deployment["base_url"].encode("utf-8")),
             "endpoint_bundle_sha256": deployment["endpoint_bundle_sha256"],
-            "router": dict(router),
+            "router": {
+                "policy": manifest_router["policy"],
+                "request_id_headers": manifest_router["request_id_headers"],
+                "request_timeout_seconds": manifest_router["request_timeout_seconds"],
+                "queue_timeout_seconds": manifest_router["queue_timeout_seconds"],
+                "retries": manifest_router["retries"],
+            },
             "spec_sha256": deployment["spec_sha256"],
             "worker_count": 24,
-            "worker_manifest_sha256": worker["sha256"],
+            "worker_generation_sha256": sha256_bytes(canonical_json(worker_generation)),
         },
         "source": common_source,
     }

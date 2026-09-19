@@ -10,8 +10,17 @@ import os
 import tempfile
 from pathlib import Path
 
-CANONICAL_SOURCE_SHA256 = "d33ef93f9b77ee91a41600934e677ba37988d3b4509e4da05ff1fcf7b4bc3a4b"
-CANONICAL_TEMPLATE_SHA256 = "3a94586b7c7e58490d025c5490810418728e1aeab0287e4976dcceeb4c722db5"
+from materialize_qwen_provider_union import (
+    CANONICAL_SANDOQ_TEMPLATE_SHA256,
+    CANONICAL_SOURCE_SHA256,
+    SANDOQ_COUNT,
+    _task_payload,
+    derive_partition,
+    validate_private_output_root,
+    verify_canonical_dataset,
+)
+
+CANONICAL_TEMPLATE_SHA256 = CANONICAL_SANDOQ_TEMPLATE_SHA256
 
 
 def sha256(payload: bytes) -> str:
@@ -27,9 +36,9 @@ def materialize(source: Path, source_sha256: str, count: int) -> tuple[bytes, di
         raise ValueError("source allowlist or requested prefix is invalid")
     payload = ("\n".join(lines[:count]) + "\n").encode()
     return payload, {
-        "schema_version": 1,
-        "selection": "ordered-prefix",
-        "source_sha256": source_sha256,
+        "schema_version": 2,
+        "selection": "ordered-provider-prefix",
+        "provider_partition_sha256": source_sha256,
         "source_count": len(lines),
         "selected_count": count,
         "selected_sha256": sha256(payload),
@@ -48,8 +57,8 @@ def materialize_config(
     if sha256(raw) != template_sha256:
         raise ValueError("template config SHA-256 mismatch")
     text = raw.decode()
-    rollout_concurrency = 64 if count == 2500 else count
-    http_concurrency = 32 if count == 2500 else count
+    rollout_concurrency = min(count, 64)
+    http_concurrency = min(count, 32)
     replacements = {
         "num_tasks = 2500": f"num_tasks = {count}",
         "max_concurrent = 64": f"max_concurrent = {rollout_concurrency}",
@@ -117,39 +126,62 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--source", type=Path, required=True)
     parser.add_argument("--source-sha256", required=True)
-    parser.add_argument("--count", type=int, required=True, choices=(2, 8, 24, 2500))
+    parser.add_argument("--count", type=int, required=True, choices=(2, 8, 24, 64))
+    parser.add_argument("--canonical-source", type=Path, required=True)
+    parser.add_argument("--canonical-dataset", type=Path, required=True)
+    parser.add_argument("--private-output-root", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--receipt", type=Path, required=True)
-    parser.add_argument("--template", type=Path)
-    parser.add_argument("--template-sha256")
-    parser.add_argument("--config-output", type=Path)
+    parser.add_argument("--template", type=Path, required=True)
+    parser.add_argument("--template-sha256", required=True)
+    parser.add_argument("--config-output", type=Path, required=True)
     args = parser.parse_args()
-    if args.source_sha256 != CANONICAL_SOURCE_SHA256:
-        raise ValueError("source allowlist is not the approved canonical set")
-    canonical_template = Path(__file__).resolve().parent / "configs/eval/mobius_qwen_a95b_2500_sandoq.toml"
+    canonical_raw = args.canonical_source.resolve(strict=True).read_bytes()
+    if sha256(canonical_raw) != CANONICAL_SOURCE_SHA256:
+        raise ValueError("canonical source does not match the approved corpus")
+    dataset = verify_canonical_dataset(args.canonical_dataset)
+    partition = derive_partition(canonical_raw, dataset)
+    expected_provider_source = _task_payload(partition.sandoq)
+    source_raw = args.source.resolve(strict=True).read_bytes()
+    if (
+        len(partition.sandoq) != SANDOQ_COUNT
+        or source_raw != expected_provider_source
+        or sha256(source_raw) != args.source_sha256
+    ):
+        raise ValueError("private provider partition is not the canonical non-Compose selection")
+    canonical_template = (
+        Path(__file__).resolve().parent
+        / "configs/eval/shared_qwen38_2p4t/mobius_qwen_a95b_2500_sandoq.toml"
+    )
     if (
         args.template is None
         or args.template.resolve(strict=True) != canonical_template
         or args.template_sha256 != CANONICAL_TEMPLATE_SHA256
     ):
         raise ValueError("template config is not the approved canonical Sandoq config")
+    project_root = Path(__file__).resolve().parents[3]
+    private_root = validate_private_output_root(
+        args.private_output_root,
+        (args.source, args.output, args.receipt, args.config_output),
+        forbidden_roots=(project_root, dataset),
+    )
+    if args.source.parent != private_root:
+        raise ValueError("private provider partition is outside the private root")
     payload, receipt = materialize(args.source, args.source_sha256, args.count)
-    config_options = (args.template, args.template_sha256, args.config_output)
-    if any(config_options) and not all(config_options):
-        raise ValueError("template, template SHA-256, and config output are one tuple")
-    if args.template is not None:
-        config_payload = materialize_config(
-            args.template,
-            args.template_sha256,
-            count=args.count,
-            task_file=args.output,
-            task_file_sha256=receipt["selected_sha256"],
-        )
-        receipt["template_sha256"] = args.template_sha256
-        receipt["config_sha256"] = sha256(config_payload)
+    if receipt["source_count"] != SANDOQ_COUNT:
+        raise ValueError("private provider partition has the wrong cardinality")
+    receipt["canonical_source_sha256"] = CANONICAL_SOURCE_SHA256
+    config_payload = materialize_config(
+        args.template,
+        args.template_sha256,
+        count=args.count,
+        task_file=args.output,
+        task_file_sha256=receipt["selected_sha256"],
+    )
+    receipt["template_sha256"] = args.template_sha256
+    receipt["config_sha256"] = sha256(config_payload)
     outputs = [(args.output, payload)]
-    if args.template is not None:
-        outputs.append((args.config_output, config_payload))
+    outputs.append((args.config_output, config_payload))
     outputs.append(
         (
             args.receipt,
@@ -161,8 +193,7 @@ def main() -> None:
         json.dumps(
             {
                 "count": args.count,
-                "sha256": receipt["selected_sha256"],
-                "config_sha256": receipt.get("config_sha256"),
+                "state": "materialized",
             }
         )
     )

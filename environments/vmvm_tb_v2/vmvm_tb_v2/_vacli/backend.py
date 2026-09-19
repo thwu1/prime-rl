@@ -29,6 +29,7 @@ from __future__ import annotations
 import asyncio
 import atexit
 import ctypes
+import fcntl
 import hashlib
 import io
 import ipaddress
@@ -48,7 +49,7 @@ import time
 import uuid
 from dataclasses import dataclass, field
 from pathlib import Path, PurePosixPath
-from typing import Any, Literal
+from typing import Any, Literal, Mapping
 
 from .concurrency_telemetry import TELEMETRY, LeaseStartConcurrencyLimiter
 from .session import AsyncSession, SessionOutput
@@ -148,6 +149,120 @@ _TUNNEL_RE = re.compile(r'\[\s*\{[^]]*"vm_port"\s*:\s*22[^]]*\}\s*\]')
 # the expected hex form before storing.
 _CONTAINER_ID_RE = re.compile(r"^[a-f0-9]{12,64}$")
 _SHA256_RE = re.compile(r"^[a-f0-9]{64}$")
+_CLEANUP_RECEIPT_FILENAME = "vmvm_cleanup_receipts.jsonl"
+_LIFECYCLE_RECEIPT_FILENAME = "vmvm_runtime_lifecycle.jsonl"
+
+
+@dataclass(frozen=True)
+class VacliLeaseCleanupReceipt:
+    process_was_alive: bool
+    sigterm_sent: bool
+    wait_completed: bool
+    exit_code: int | None
+    sigkill_used: bool
+    release_on_exit_completed: bool
+
+
+def _cleanup_receipt_binding() -> tuple[Path, str] | None:
+    raw_path = os.environ.get("VMVM_CLEANUP_RECEIPT_LOG", "")
+    identity_sha256 = os.environ.get("VMVM_CLEANUP_RUN_IDENTITY_SHA256", "")
+    if not raw_path and not identity_sha256:
+        return None
+    if not raw_path or _SHA256_RE.fullmatch(identity_sha256) is None:
+        raise BackendInitError("VMVM cleanup receipt binding is incomplete")
+    output_root_raw = os.environ.get("PRIME_RL_OUTPUT_DIR", "")
+    path = Path(raw_path)
+    output_root = Path(output_root_raw)
+    if not path.is_absolute() or not output_root.is_absolute():
+        raise BackendInitError("VMVM cleanup receipt path is invalid")
+    try:
+        resolved_root = output_root.resolve(strict=True)
+        resolved_parent = path.parent.resolve(strict=True)
+        root_metadata = output_root.lstat()
+        parent_metadata = path.parent.lstat()
+    except OSError as error:
+        raise BackendInitError("VMVM cleanup receipt path is invalid") from error
+    expected = resolved_root / "control" / _CLEANUP_RECEIPT_FILENAME
+    if (
+        output_root != resolved_root
+        or path != expected
+        or path.parent != resolved_parent
+        or output_root.is_symlink()
+        or path.parent.is_symlink()
+        or not stat.S_ISDIR(root_metadata.st_mode)
+        or not stat.S_ISDIR(parent_metadata.st_mode)
+        or root_metadata.st_uid != os.getuid()
+        or parent_metadata.st_uid != os.getuid()
+        or stat.S_IMODE(root_metadata.st_mode) & 0o077
+        or stat.S_IMODE(parent_metadata.st_mode) & 0o077
+    ):
+        raise BackendInitError("VMVM cleanup receipt path is invalid")
+    return path, identity_sha256
+
+
+def _append_cleanup_receipt(path: Path, value: Mapping[str, Any]) -> None:
+    body = (
+        json.dumps(
+            value,
+            allow_nan=False,
+            ensure_ascii=False,
+            separators=(",", ":"),
+            sort_keys=True,
+        )
+        + "\n"
+    ).encode("utf-8")
+    flags = os.O_WRONLY | os.O_APPEND | os.O_CREAT | os.O_CLOEXEC
+    if hasattr(os, "O_NOFOLLOW"):
+        flags |= os.O_NOFOLLOW
+    descriptor = os.open(path, flags, 0o600)
+    try:
+        metadata = os.fstat(descriptor)
+        if (
+            not stat.S_ISREG(metadata.st_mode)
+            or metadata.st_uid != os.getuid()
+            or stat.S_IMODE(metadata.st_mode) != 0o600
+            or metadata.st_nlink != 1
+        ):
+            raise RuntimeError("VMVM cleanup receipt file is not private")
+        fcntl.flock(descriptor, fcntl.LOCK_EX)
+        original_size = os.lseek(descriptor, 0, os.SEEK_END)
+        written = 0
+        try:
+            while written < len(body):
+                count = os.write(descriptor, body[written:])
+                if count <= 0:
+                    raise RuntimeError("VMVM cleanup receipt append was incomplete")
+                written += count
+            os.fsync(descriptor)
+        except BaseException:
+            os.ftruncate(descriptor, original_size)
+            os.fsync(descriptor)
+            raise
+    finally:
+        os.close(descriptor)
+    directory = os.open(path.parent, os.O_RDONLY | os.O_DIRECTORY | os.O_CLOEXEC)
+    try:
+        os.fsync(directory)
+    finally:
+        os.close(directory)
+
+
+def _append_runtime_created(
+    cleanup_binding: tuple[Path, str] | None,
+    runtime_instance_nonce: str,
+) -> None:
+    if cleanup_binding is None:
+        return
+    cleanup_path, identity_sha256 = cleanup_binding
+    _append_cleanup_receipt(
+        cleanup_path.with_name(_LIFECYCLE_RECEIPT_FILENAME),
+        {
+            "schema_version": 1,
+            "kind": "vmvm-runtime-created",
+            "runtime_instance_nonce": runtime_instance_nonce,
+            "eval_run_identity_sha256": identity_sha256,
+        },
+    )
 
 
 def _vacli_lease_identity_sha256(lease_response: str) -> str:
@@ -500,35 +615,66 @@ class VacliLease:
             logger.warning("vacli.restart_tunnel: resume tunnel not ready: %s", e)
             return None
 
-    def cleanup(self) -> None:
+    def cleanup(self) -> VacliLeaseCleanupReceipt:
         with self._cleanup_lock:
-            self._cleanup_locked()
+            return self._cleanup_locked()
 
-    def _cleanup_locked(self) -> None:
-        if self._cleaned_up or self.proc is None or self.proc.poll() is not None:
-            self._cleaned_up = True
-            self._release_concurrency_slot()
-            return
+    def _cleanup_locked(self) -> VacliLeaseCleanupReceipt:
+        if self._cleanup_receipt is not None:
+            return self._cleanup_receipt
         self._cleaned_up = True
-        logger.info("vacli: SIGTERM — releasing lease (--release-on-exit)")
+        process_was_alive = self.proc is not None and self.proc.poll() is None
+        sigterm_sent = False
+        wait_completed = False
+        exit_code: int | None = None
+        sigkill_used = False
         try:
-            os.killpg(os.getpgid(self.proc.pid), signal.SIGTERM)
-        except (ProcessLookupError, PermissionError):
-            pass
-        try:
-            self.proc.wait(timeout=self.cleanup_timeout)
-        except self._sp.TimeoutExpired:
-            logger.warning(f"vacli: alive after {self.cleanup_timeout}s; SIGKILL (lease will expire via TTL)")
-            try:
-                os.killpg(os.getpgid(self.proc.pid), signal.SIGKILL)
-            except (ProcessLookupError, PermissionError):
-                pass
-            try:
-                self.proc.wait(timeout=5)  # reap so vacli doesn't linger as a zombie
-            except Exception:
-                pass
-        # Defensive: release if start() succeeded but wait_for_tunnel never ran.
-        self._release_concurrency_slot()
+            if process_was_alive:
+                assert self.proc is not None
+                logger.info("vacli: SIGTERM — releasing lease (--release-on-exit)")
+                try:
+                    os.killpg(os.getpgid(self.proc.pid), signal.SIGTERM)
+                    sigterm_sent = True
+                except (ProcessLookupError, PermissionError):
+                    pass
+                if sigterm_sent:
+                    try:
+                        exit_code = self.proc.wait(timeout=self.cleanup_timeout)
+                        wait_completed = True
+                    except self._sp.TimeoutExpired:
+                        sigkill_used = True
+                        logger.warning(
+                            "vacli: alive after %.1fs; SIGKILL (lease will expire via TTL)",
+                            self.cleanup_timeout,
+                        )
+                        try:
+                            os.killpg(os.getpgid(self.proc.pid), signal.SIGKILL)
+                        except (ProcessLookupError, PermissionError):
+                            pass
+                        try:
+                            self.proc.wait(timeout=5)
+                        except Exception:
+                            pass
+            elif self.proc is not None:
+                exit_code = self.proc.poll()
+        finally:
+            self._release_concurrency_slot()
+        release_completed = (
+            process_was_alive
+            and sigterm_sent
+            and wait_completed
+            and not sigkill_used
+            and exit_code == 0
+        )
+        self._cleanup_receipt = VacliLeaseCleanupReceipt(
+            process_was_alive=process_was_alive,
+            sigterm_sent=sigterm_sent,
+            wait_completed=wait_completed,
+            exit_code=exit_code,
+            sigkill_used=sigkill_used,
+            release_on_exit_completed=release_completed,
+        )
+        return self._cleanup_receipt
 
     def _acquire_concurrency_slot(self) -> None:
         if not _lease_concurrency.acquire(
@@ -1067,6 +1213,10 @@ class VacliVMVMBackend:
         self._sp = config.subprocess_mod or subprocess
         self.init_start_time = time.perf_counter()
         self._destroyed = False
+        self._cleanup_result: dict[str, Any] | None = None
+        self._cleanup_binding = _cleanup_receipt_binding()
+        self._cleanup_instance_nonce = uuid.uuid4().hex
+        self._cleanup_passes = 0
         self._telemetry_runtime_active = False
         # Random nonces keep multiple backends on the same host from sharing
         # ssh control sockets / vacli log files.
@@ -1122,6 +1272,7 @@ class VacliVMVMBackend:
         # Structured record of transient bring-up retries (recovered) so the
         # rollout's jsonl can show how many re-leases it took to come up.
         self.bringup_retries: list = []
+        _append_runtime_created(self._cleanup_binding, self._cleanup_instance_nonce)
         if TELEMETRY is not None:
             TELEMETRY.vmvm_runtime_started()
             self._telemetry_runtime_active = True
@@ -1220,10 +1371,15 @@ class VacliVMVMBackend:
             self._raise_if_provisioning_cancelled()
             if TELEMETRY is not None:
                 TELEMETRY.vmvm_runtime_became_ready()
-        except Exception:
+        except Exception as primary_error:
             # Roll back any partial state so an init failure doesn't leak a
             # leased VM.
-            self.destroy()
+            try:
+                self.destroy()
+            except BaseException as cleanup_error:
+                primary_error.add_note(
+                    f"VMVM provisioning rollback failed: {cleanup_error!r}"
+                )
             raise
         finally:
             provisioning_done.set()
@@ -1509,7 +1665,6 @@ class VacliVMVMBackend:
         self._sess_dir = ""
         self._pending = None
         return result is not None and result.returncode == 0
-
     def _interrupt_fifo_command(self, timeout: float) -> bool:
         """Stop the active FIFO command and wake its host-side waiter.
 
@@ -2624,10 +2779,10 @@ class VacliVMVMBackend:
     def _iptables_command(*args: str) -> str:
         return shlex.join(["iptables", "-w", "5", *args])
 
-    def _cleanup_network_firewall(self) -> None:
+    def _cleanup_network_firewall(self) -> bool:
         isolation = self._network_isolation
         if isolation is None or not isolation.firewall_active:
-            return
+            return True
         jump = [
             "-s",
             isolation.subnet,
@@ -2653,6 +2808,7 @@ class VacliVMVMBackend:
             logger.warning("vacli: network firewall cleanup failed: %s", detail[-1000:])
         isolation.firewall_active = False
         isolation.allowed_tunnel_ports.clear()
+        return result.returncode == 0
 
     def _allow_isolated_tunnel(self, remote_port: int) -> None:
         isolation = self._network_isolation
@@ -2696,9 +2852,8 @@ class VacliVMVMBackend:
         result = self._ssh_call_raw(command, timeout=30)
         if result.returncode != 0:
             detail = (result.stdout or b"").decode("utf-8", errors="replace")
-            logger.warning(
-                "vacli: isolated tunnel firewall cleanup failed: %s",
-                detail[-1000:],
+            raise RuntimeError(
+                f"vacli isolated tunnel firewall cleanup failed: {detail[-1000:]}"
             )
         isolation.allowed_tunnel_ports.discard(remote_port)
 
@@ -2813,61 +2968,93 @@ class VacliVMVMBackend:
         # destroy pass after every data worker is joined; that pass must rescan and
         # remove any late-created container, Compose project, tunnel, or network.
         self._destroyed = True
+        self._cleanup_passes += 1
         if getattr(self, "_telemetry_runtime_active", False):
             self._telemetry_runtime_active = False
             if TELEMETRY is not None:
                 TELEMETRY.vmvm_runtime_stopped()
+
+        failures = 0
+        host_tunnel_count = len(self._host_tunnels)
+        host_tunnels_closed = 0
         for tunnel in list(self._host_tunnels):
             try:
                 self.close_host_tunnel(tunnel)
+                host_tunnels_closed += 1
             except Exception:
+                failures += 1
                 logger.exception("vacli: host tunnel teardown failed")
+
+        network_firewall_present = bool(
+            self._network_isolation is not None and self._network_isolation.firewall_active
+        )
         try:
-            self._cleanup_network_firewall()
+            network_firewall_completed = self._cleanup_network_firewall()
         except Exception:
+            network_firewall_completed = False
             logger.exception("vacli: network firewall teardown failed")
-        # Stop the persistent session first so its bash + ssh subprocess exit
-        # cleanly before we yank the container out from under them.
+        if not network_firewall_completed:
+            failures += 1
+
+        session_present = self._session is not None
+        session_stop_completed = not session_present
         if self._session is not None:
             try:
-                self._session.stop()
+                session_stop_completed = self._session.stop() is True
             except Exception:
                 logger.exception("vacli: session stop failed")
-        # FIFO mode: kill the in-container reader + held-writer explicitly. `podman
-        # rm -f` below would also nuke them, but this is cheap insurance if rm fails.
-        if self._fifo_mode:
+            if not session_stop_completed:
+                failures += 1
+
+        fifo_present = self._fifo_mode
+        fifo_cleanup_completed = not fifo_present
+        if fifo_present:
             try:
-                self._teardown_fifo_shell()
+                fifo_cleanup_completed = self._teardown_fifo_shell()
             except Exception:
-                pass
-        if self._compose_project is not None:
+                logger.exception("vacli: FIFO shell teardown failed")
+            if not fifo_cleanup_completed:
+                failures += 1
+
+        compose_present = self._compose_project is not None
+        compose_teardown_completed = not compose_present
+        compose_directory_cleanup_completed = self._compose_dir is None
+        if compose_present:
             try:
                 result = self._compose_command(
                     ["down", "--volumes", "--remove-orphans"],
                     timeout=120,
                 )
-                if result.returncode == 0:
+                compose_teardown_completed = result.returncode == 0
+                if compose_teardown_completed:
                     self._container_id = None
                 else:
+                    failures += 1
                     detail = (result.stdout or b"").decode("utf-8", errors="replace")
                     logger.warning("vacli: compose teardown failed: %s", detail[-1000:])
             except Exception:
+                failures += 1
                 logger.exception("vacli: compose teardown failed")
             if self._compose_dir is not None:
                 try:
-                    self._ssh_call_raw(
+                    result = self._ssh_call_raw(
                         f"rm -rf -- {shlex.quote(self._compose_dir)}",
                         timeout=30,
                     )
+                    compose_directory_cleanup_completed = result.returncode == 0
                 except Exception:
                     logger.exception("vacli: compose directory cleanup failed")
+                if not compose_directory_cleanup_completed:
+                    failures += 1
             self._compose_project = None
             self._compose_dir = None
             self._compose_services = ()
-        # Best-effort container teardown; failures here shouldn't block lease release.
+
+        container_present = self._container_id is not None
+        container_teardown_completed = not container_present
         if self._container_id:
             try:
-                self._sp.run(
+                result = self._sp.run(
                     _ssh_opts(self._ssh_port, self._control_path)
                     + ["root@localhost", f"podman rm -f {self._container_id}"],
                     stdin=self._sp.DEVNULL,
@@ -2875,35 +3062,96 @@ class VacliVMVMBackend:
                     stderr=self._sp.DEVNULL,
                     timeout=30,
                 )
+                container_teardown_completed = result.returncode == 0
             except Exception:
                 logger.exception("vacli: container teardown failed")
+            if not container_teardown_completed:
+                failures += 1
+            self._container_id = None
+
+        internal_network_present = self._network_isolation is not None
+        internal_network_teardown_completed = not internal_network_present
         if self._network_isolation is not None:
             try:
                 result = self._ssh_call_raw(
                     "podman network rm -f " + shlex.quote(self._network_isolation.network),
                     timeout=30,
                 )
-                if result.returncode != 0:
+                internal_network_teardown_completed = result.returncode == 0
+                if not internal_network_teardown_completed:
+                    failures += 1
                     detail = (result.stdout or b"").decode("utf-8", errors="replace")
                     logger.warning(
                         "vacli: internal network teardown failed: %s",
                         detail[-1000:],
                     )
             except Exception:
+                failures += 1
                 logger.exception("vacli: internal network teardown failed")
             self._network_isolation = None
-        # Close the SSH master so the lease can be released cleanly.
+
+        ssh_master_stop_completed = False
         try:
-            self._sp.run(
+            result = self._sp.run(
                 _ssh_opts(self._ssh_port, self._control_path) + ["-O", "exit", "root@localhost"],
                 stdin=self._sp.DEVNULL,
                 stdout=self._sp.DEVNULL,
                 stderr=self._sp.DEVNULL,
                 timeout=10,
             )
+            ssh_master_stop_completed = result.returncode == 0
         except Exception:
-            pass
-        self._lease.cleanup()
+            logger.exception("vacli: SSH master teardown failed")
+        if not ssh_master_stop_completed:
+            failures += 1
+
+        lease = self._lease.cleanup()
+        if not lease.release_on_exit_completed:
+            failures += 1
+        state = "passed" if failures == 0 else "failed"
+        receipt = {
+            "schema_version": 1,
+            "kind": "vmvm-runtime-cleanup",
+            "runtime_instance_nonce": self._cleanup_instance_nonce,
+            "cleanup_pass": self._cleanup_passes,
+            "state": state,
+            "attempted": 1,
+            "failures": failures,
+            "host_tunnel_count": host_tunnel_count,
+            "host_tunnels_closed": host_tunnels_closed,
+            "network_firewall_present": network_firewall_present,
+            "network_firewall_cleanup_completed": network_firewall_completed,
+            "session_present": session_present,
+            "session_stop_completed": session_stop_completed,
+            "fifo_present": fifo_present,
+            "fifo_cleanup_completed": fifo_cleanup_completed,
+            "compose_present": compose_present,
+            "compose_teardown_completed": compose_teardown_completed,
+            "compose_directory_cleanup_completed": compose_directory_cleanup_completed,
+            "container_present": container_present,
+            "container_teardown_completed": container_teardown_completed,
+            "internal_network_present": internal_network_present,
+            "internal_network_teardown_completed": internal_network_teardown_completed,
+            "ssh_master_stop_completed": ssh_master_stop_completed,
+            "lease_process_was_alive": lease.process_was_alive,
+            "lease_sigterm_sent": lease.sigterm_sent,
+            "lease_wait_completed": lease.wait_completed,
+            "lease_exit_code": lease.exit_code,
+            "lease_sigkill_used": lease.sigkill_used,
+            "release_on_exit_completed": lease.release_on_exit_completed,
+            "remote_deletion_verified": False,
+        }
+        if self._cleanup_binding is not None:
+            path, identity_sha256 = self._cleanup_binding
+            receipt["eval_run_identity_sha256"] = identity_sha256
+            try:
+                _append_cleanup_receipt(path, receipt)
+            except Exception as error:
+                self._cleanup_result = {**receipt, "state": "failed", "failures": failures + 1}
+                raise RuntimeError("VMVM cleanup receipt persistence failed") from error
+        self._cleanup_result = receipt
+        if state != "passed":
+            raise RuntimeError("VMVM teardown could not prove strict local release")
 
     def transfer_file(self, file_content: str | bytes, remote_path: str | Path) -> None:
         """Stream a file's bytes into the container via tar over the SSH master.
@@ -3128,12 +3376,11 @@ class VacliVMVMBackend:
         )
         if relay.returncode != 0:
             detail = (relay.stdout or b"").decode("utf-8", errors="replace").strip()
-            logger.warning("vacli: host bridge relay teardown failed: %s", detail)
+            raise RuntimeError(f"vacli host bridge relay teardown failed: {detail}")
         result = self._cancel_host_forward(tunnel.remote_port, tunnel.local_port)
         if result.returncode != 0:
             err = (result.stderr or b"").decode("utf-8", errors="replace").strip()
-            logger.warning("vacli: host tunnel teardown failed: %s", err)
-            return
+            raise RuntimeError(f"vacli host tunnel teardown failed: {err}")
         logger.info("vacli: host tunnel down (port=%d)", tunnel.remote_port)
 
     def _cancel_host_forward(self, remote_port: int, local_port: int) -> subprocess.CompletedProcess:

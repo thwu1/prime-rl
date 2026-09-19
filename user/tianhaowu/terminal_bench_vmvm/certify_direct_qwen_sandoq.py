@@ -20,6 +20,12 @@ from audit_traces import (
 )
 from direct_qwen_workers import validate_saved_manifest
 from eval_run_identity import load_eval_run_identity
+from materialize_qwen_provider_union import (
+    CANONICAL_SOURCE_SHA256,
+    _task_payload,
+    derive_partition,
+    verify_canonical_dataset,
+)
 from materialize_sandoq_ramp import CANONICAL_TEMPLATE_SHA256, materialize_config
 
 
@@ -31,10 +37,12 @@ STAGE_EXECUTION = {
     2: (2, 2, 2, None),
     8: (8, 8, 8, 2),
     24: (24, 24, 24, 8),
-    2500: (64, 32, 64, 24),
+    64: (64, 32, 64, 24),
+    2499: (64, 32, 64, 64),
 }
+RAMP_STAGE_COUNTS = frozenset({2, 8, 24, 64})
 SHA256_RE = re.compile(r"[0-9a-f]{64}")
-CANONICAL_TASK_SOURCE_SHA256 = "d33ef93f9b77ee91a41600934e677ba37988d3b4509e4da05ff1fcf7b4bc3a4b"
+CANONICAL_TASK_SOURCE_SHA256 = CANONICAL_SOURCE_SHA256
 
 
 def _sha256(path: Path) -> str:
@@ -111,7 +119,10 @@ def validate_predecessor(
         or (
             expected_ramp is not None
             and (
-                prior.get("ramp", {}).get("source_sha256") != expected_ramp.get("source_sha256")
+                prior.get("ramp", {}).get("canonical_source_sha256")
+                != expected_ramp.get("canonical_source_sha256")
+                or prior.get("ramp", {}).get("provider_partition_sha256")
+                != expected_ramp.get("provider_partition_sha256")
                 or prior.get("ramp", {}).get("template_sha256") != expected_ramp.get("template_sha256")
             )
         )
@@ -135,6 +146,7 @@ def validate_ramp_receipt(
     expected_task_file_sha256: str,
     selected_task_file: Path,
     canonical_source: Path,
+    canonical_dataset: Path,
     canonical_template: Path,
     eval_config: Path,
     receipt_path: Path,
@@ -146,7 +158,13 @@ def validate_ramp_receipt(
     source_lines = source_raw.decode("utf-8").splitlines()
     if len(source_lines) != 2500 or len(source_lines) != len(set(source_lines)):
         raise DirectSandoqCertificateError("canonical_task_source_mismatch")
-    expected_selection = ("\n".join(source_lines[:expected_count]) + "\n").encode()
+    try:
+        dataset = verify_canonical_dataset(canonical_dataset)
+        provider_source = _task_payload(derive_partition(source_raw, dataset).sandoq)
+    except Exception as error:
+        raise DirectSandoqCertificateError("canonical_provider_partition_invalid") from error
+    provider_lines = provider_source.decode("utf-8").splitlines()
+    expected_selection = ("\n".join(provider_lines[:expected_count]) + "\n").encode()
     if (
         selected_task_file.resolve(strict=True).read_bytes() != expected_selection
         or hashlib.sha256(expected_selection).hexdigest() != expected_task_file_sha256
@@ -176,33 +194,42 @@ def validate_ramp_receipt(
         != {
             "schema_version",
             "selection",
-            "source_sha256",
+            "canonical_source_sha256",
+            "provider_partition_sha256",
             "source_count",
             "selected_count",
             "selected_sha256",
             "template_sha256",
             "config_sha256",
         }
-        or receipt.get("schema_version") != 1
-        or receipt.get("selection") != "ordered-prefix"
-        or receipt.get("source_count") != 2500
-        or receipt.get("source_sha256") != CANONICAL_TASK_SOURCE_SHA256
+        or receipt.get("schema_version") != 2
+        or receipt.get("selection") != "ordered-provider-prefix"
+        or receipt.get("source_count") != len(provider_lines)
+        or receipt.get("canonical_source_sha256") != CANONICAL_TASK_SOURCE_SHA256
+        or receipt.get("provider_partition_sha256") != hashlib.sha256(provider_source).hexdigest()
         or receipt.get("template_sha256") != CANONICAL_TEMPLATE_SHA256
         or receipt.get("selected_count") != expected_count
         or receipt.get("selected_sha256") != expected_task_file_sha256
         or receipt.get("config_sha256") != _sha256(eval_config)
         or any(
             not isinstance(receipt.get(key), str) or SHA256_RE.fullmatch(receipt[key]) is None
-            for key in ("source_sha256", "selected_sha256", "template_sha256", "config_sha256")
+            for key in (
+                "canonical_source_sha256",
+                "provider_partition_sha256",
+                "selected_sha256",
+                "template_sha256",
+                "config_sha256",
+            )
         )
     ):
         raise DirectSandoqCertificateError("ramp_receipt_invalid")
     return {
         "sha256": receipt_sha256,
-        "source_sha256": receipt["source_sha256"],
+        "canonical_source_sha256": receipt["canonical_source_sha256"],
+        "provider_partition_sha256": receipt["provider_partition_sha256"],
         "template_sha256": receipt["template_sha256"],
         "config_sha256": receipt["config_sha256"],
-        "selection": "ordered-prefix",
+        "selection": "ordered-provider-prefix",
     }
 
 
@@ -215,10 +242,13 @@ def certify(
     ramp_receipt: Path,
     ramp_receipt_sha256: str,
     canonical_task_source: Path,
+    canonical_dataset: Path,
     canonical_template: Path,
     predecessor: Path | None = None,
     predecessor_sha256: str | None = None,
 ) -> dict:
+    if expected_count not in RAMP_STAGE_COUNTS:
+        raise DirectSandoqCertificateError("stage_count_invalid")
     lock_path = run_dir / ".writer.lock"
     with lock_path.open("rb") as lock:
         try:
@@ -252,6 +282,7 @@ def certify(
             expected_task_file_sha256,
             expected_task_file,
             canonical_task_source,
+            canonical_dataset,
             canonical_template,
             Path(identity["config"]["source"]["path"]),
             ramp_receipt,
@@ -266,6 +297,7 @@ def certify(
                 "sandoq_provider_commit",
                 "sandoq_provider_tree",
                 "sandoq_client_version",
+                "sandoq_host_harness_sha256",
                 "sandoq_site_sha256",
                 "derived_image_manifest_sha256",
             )
@@ -289,6 +321,7 @@ def certify(
             SHA256_RE.fullmatch(str(source_record[key])) is None
             for key in (
                 "sandoq_site_sha256",
+                "sandoq_host_harness_sha256",
                 "derived_image_manifest_sha256",
                 "direct_spec_sha256",
                 "direct_endpoint_bundle_sha256",
@@ -459,12 +492,13 @@ def main() -> None:
     parser.add_argument("--run-dir", type=Path, required=True)
     parser.add_argument("--expected-task-file", type=Path, required=True)
     parser.add_argument("--expected-task-file-sha256", required=True)
-    parser.add_argument("--expected-count", type=int, choices=(2, 8, 24, 2500), required=True)
+    parser.add_argument("--expected-count", type=int, choices=(2, 8, 24, 64), required=True)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--cleanup-audit", type=Path, required=True)
     parser.add_argument("--ramp-receipt", type=Path, required=True)
     parser.add_argument("--ramp-receipt-sha256", required=True)
     parser.add_argument("--canonical-task-source", type=Path, required=True)
+    parser.add_argument("--canonical-dataset", type=Path, required=True)
     parser.add_argument("--canonical-template", type=Path, required=True)
     parser.add_argument("--predecessor", type=Path)
     parser.add_argument("--predecessor-sha256")
@@ -478,6 +512,7 @@ def main() -> None:
         args.ramp_receipt,
         args.ramp_receipt_sha256,
         args.canonical_task_source,
+        args.canonical_dataset,
         args.canonical_template,
         args.predecessor,
         args.predecessor_sha256,

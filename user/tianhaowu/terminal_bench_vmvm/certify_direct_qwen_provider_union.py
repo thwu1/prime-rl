@@ -10,6 +10,7 @@ from typing import Any, Mapping
 
 from direct_qwen_union_contract import (
     FULL_CONTEXT_TOKENS,
+    HOST_HARNESS_CONTRACT,
     QWEN_MODEL,
     SHA256_RE,
     UnionContractError,
@@ -28,6 +29,51 @@ from materialize_qwen_provider_union import (
 
 class ProviderUnionCertificateError(ValueError):
     pass
+
+
+_FORBIDDEN_PUBLIC_KEYS = frozenset(
+    {
+        "certificate",
+        "config_sha256",
+        "eval_run_identity_sha256",
+        "materialization",
+        "predecessor",
+        "provider_exports",
+        "provider_certificates",
+        "provider_partition_sha256",
+        "results_sha256",
+        "sanitized_cleanup",
+        "sanitized_cleanup_source_hashes",
+        "shared_contract",
+        "shared_contract_sha256",
+        "task_id",
+        "task_ids",
+        "task_file_sha256",
+        "train_task_sha256",
+        "validation_task_sha256",
+        "worker_manifest_sha256",
+    }
+)
+
+
+def _validate_public_union_privacy(value: object, private_digests: frozenset[str]) -> None:
+    if isinstance(value, Mapping):
+        for key, item in value.items():
+            if (
+                not isinstance(key, str)
+                or key in _FORBIDDEN_PUBLIC_KEYS
+                or key == "path"
+                or (key.endswith("_path") and key != "atomic_same_path")
+            ):
+                raise ProviderUnionCertificateError("public_union_privacy_violation")
+            _validate_public_union_privacy(item, private_digests)
+        return
+    if isinstance(value, list):
+        for item in value:
+            _validate_public_union_privacy(item, private_digests)
+        return
+    if isinstance(value, str) and value in private_digests:
+        raise ProviderUnionCertificateError("public_union_privacy_violation")
 
 
 def _integer(value: object, *, minimum: int = 0) -> bool:
@@ -74,6 +120,7 @@ def _validate_materialization(value: object) -> dict[str, Any]:
     public = receipt_value()
     expected = {
         "sha256",
+        "deployment_namespace",
         "source",
         "dataset",
         "templates",
@@ -84,6 +131,7 @@ def _validate_materialization(value: object) -> dict[str, Any]:
         not isinstance(value, dict)
         or set(value) != expected
         or SHA256_RE.fullmatch(str(value.get("sha256", ""))) is None
+        or value.get("deployment_namespace") != public["deployment_namespace"]
         or value.get("source") != public["source"]
         or value.get("dataset") != public["dataset"]
         or value.get("templates") != public["templates"]
@@ -117,7 +165,6 @@ def _validate_common(value: Mapping[str, Any], *, provider: str, count: int, kin
     source = shared.get("source")
     if (
         not isinstance(deployment, dict)
-        or deployment.get("worker_manifest_sha256") != value["worker_manifest_sha256"]
         or not isinstance(source, dict)
     ):
         raise ProviderUnionCertificateError("provider_certificate_invalid")
@@ -199,6 +246,7 @@ def _validate_sandoq(value: dict[str, Any]) -> None:
         "batch_heartbeats",
         "fail_closed_before_expiry_seconds",
         "maximum_observed_refresh_gap_seconds",
+        "maximum_observed_heartbeat_gap_seconds",
         "maximum_refresh_interval_seconds",
         "minimum_observed_expiry_margin_seconds",
         "run_duration_seconds",
@@ -212,6 +260,7 @@ def _validate_sandoq(value: dict[str, Any]) -> None:
         or any(not _integer(auth.get(key)) for key in auth_keys - {"audit_sha256", "atomic_same_path"})
         or auth.get("maximum_refresh_interval_seconds") != 14_400
         or auth.get("maximum_observed_refresh_gap_seconds", 14_401) > 14_400
+        or auth.get("maximum_observed_heartbeat_gap_seconds", 301) > 300
         or auth.get("fail_closed_before_expiry_seconds", 0) < 1_800
         or auth.get("minimum_observed_expiry_margin_seconds", 0)
         < auth.get("fail_closed_before_expiry_seconds", 0)
@@ -221,7 +270,7 @@ def _validate_sandoq(value: dict[str, Any]) -> None:
     if (
         not isinstance(predecessor, dict)
         or set(predecessor) != {"sha256", "stage_count"}
-        or predecessor.get("stage_count") != 24
+        or predecessor.get("stage_count") != 64
         or SHA256_RE.fullmatch(str(predecessor.get("sha256", ""))) is None
     ):
         raise ProviderUnionCertificateError("sandoq_predecessor_invalid")
@@ -233,6 +282,7 @@ def _validate_sandoq(value: dict[str, Any]) -> None:
         "sandoq_provider_commit",
         "sandoq_provider_tree",
         "sandoq_client_version",
+        "sandoq_host_harness_sha256",
         "sandoq_site_sha256",
         "derived_image_manifest_sha256",
         "direct_spec_sha256",
@@ -247,6 +297,7 @@ def _validate_sandoq(value: dict[str, Any]) -> None:
             SHA256_RE.fullmatch(provider_source[key]) is None
             for key in (
                 "sandoq_site_sha256",
+                "sandoq_host_harness_sha256",
                 "derived_image_manifest_sha256",
                 "direct_spec_sha256",
                 "direct_endpoint_bundle_sha256",
@@ -302,10 +353,38 @@ def _validate_vmvm(value: dict[str, Any]) -> None:
     ):
         raise ProviderUnionCertificateError("vmvm_compose_proof_invalid")
     cleanup = value.get("runtime_cleanup")
+    cleanup_keys = {
+        "state",
+        "runtime_instances",
+        "cleanup_passes",
+        "agent_runtime_instances",
+        "verifier_runtime_instances",
+        "verifier_mode",
+        "compose_runtime_instances",
+        "local_cleanup_failures",
+        "release_on_exit_completed",
+        "remote_deletion_verified",
+    }
     if (
         not isinstance(cleanup, dict)
-        or cleanup
-        != {"error_traces": 0, "finalized_traces": VMVM_COUNT, "state": "passed"}
+        or set(cleanup) != cleanup_keys
+        or cleanup.get("state") != "passed"
+        or cleanup.get("verifier_mode") not in {"shared", "separate"}
+        or any(
+            not _integer(cleanup.get(key))
+            for key in cleanup_keys
+            - {"state", "verifier_mode", "remote_deletion_verified"}
+        )
+        or cleanup.get("agent_runtime_instances") != 1
+        or cleanup.get("cleanup_passes", 0) < cleanup.get("runtime_instances", 0)
+        or cleanup.get("compose_runtime_instances") != 1
+        or cleanup.get("local_cleanup_failures") != 0
+        or cleanup.get("runtime_instances") != cleanup.get("release_on_exit_completed")
+        or cleanup.get("runtime_instances")
+        != cleanup.get("agent_runtime_instances") + cleanup.get("verifier_runtime_instances")
+        or cleanup.get("verifier_runtime_instances")
+        != (0 if cleanup.get("verifier_mode") == "shared" else 1)
+        or cleanup.get("remote_deletion_verified") is not False
     ):
         raise ProviderUnionCertificateError("vmvm_cleanup_proof_invalid")
     provider_source = value.get("provider_source")
@@ -357,19 +436,21 @@ def certify_union(
         sandoq["shared_contract"] != vmvm["shared_contract"]
         or sandoq["shared_contract_sha256"] != vmvm["shared_contract_sha256"]
         or sandoq["materialization"] != vmvm["materialization"]
-        or sandoq["worker_manifest_sha256"] != vmvm["worker_manifest_sha256"]
         or sandoq["eval_run_identity_sha256"] == vmvm["eval_run_identity_sha256"]
         or sandoq["results_sha256"] == vmvm["results_sha256"]
     ):
         raise ProviderUnionCertificateError("provider_union_mismatch")
     shared = sandoq["shared_contract"]
-    if shared.get("contract", {}).get("model") != QWEN_MODEL or shared.get("contract", {}).get(
-        "context_tokens"
-    ) != {
-        "max_input_tokens": FULL_CONTEXT_TOKENS,
-        "max_output_tokens": FULL_CONTEXT_TOKENS,
-        "max_total_tokens": FULL_CONTEXT_TOKENS,
-    }:
+    if (
+        shared.get("contract", {}).get("model") != QWEN_MODEL
+        or shared.get("contract", {}).get("harness") != HOST_HARNESS_CONTRACT
+        or shared.get("contract", {}).get("context_tokens")
+        != {
+            "max_input_tokens": FULL_CONTEXT_TOKENS,
+            "max_output_tokens": FULL_CONTEXT_TOKENS,
+            "max_total_tokens": FULL_CONTEXT_TOKENS,
+        }
+    ):
         raise ProviderUnionCertificateError("shared_contract_invalid")
     counts = {
         "sandoq": SANDOQ_COUNT,
@@ -378,7 +459,7 @@ def certify_union(
     }
     if counts["total"] != CANONICAL_SOURCE_COUNT:
         raise ProviderUnionCertificateError("provider_union_count_invalid")
-    return {
+    public = {
         "schema_version": 1,
         "kind": "direct-qwen-provider-union",
         "state": "passed",
@@ -390,13 +471,14 @@ def certify_union(
             "exhaustive": True,
             "member_commitments_public": False,
         },
-        "provider_certificates": {
-            "sandoq_sha256": sandoq_certificate_sha256,
-            "vmvm_sha256": vmvm_certificate_sha256,
+        "providers": {
+            "sandoq": {"state": "passed", "task_count": SANDOQ_COUNT},
+            "vmvm": {"state": "passed", "task_count": VMVM_COUNT},
         },
-        "materialization": sandoq["materialization"],
-        "shared_contract": shared,
-        "shared_contract_sha256": sandoq["shared_contract_sha256"],
+        "execution_contract": {
+            "contract": shared["contract"],
+            "deployment": shared["deployment"],
+        },
         "trace_audit": {
             "traces": sandoq["trace_audit"]["traces"] + vmvm["trace_audit"]["traces"],
             "tasks": sandoq["trace_audit"]["tasks"] + vmvm["trace_audit"]["tasks"],
@@ -406,13 +488,42 @@ def certify_union(
             "request_graph_match_required": True,
             "max_sequence_tokens": FULL_CONTEXT_TOKENS,
         },
-        "sanitized_cleanup": {
-            "sandoq_audit_sha256": sandoq["pool_cleanup"]["audit_sha256"],
-            "sandoq_source_hashes": sandoq["sanitized_cleanup_source_hashes"],
-            "auth_rotation_audit_sha256": sandoq["auth_rotation"]["audit_sha256"],
-            "vmvm_runtime_cleanup": vmvm["runtime_cleanup"],
+        "cleanup": {
+            "sandoq": {
+                "assignment_measured_high_water": sandoq["pool_cleanup"][
+                    "assignment_measured_high_water"
+                ],
+                "failures": sandoq["pool_cleanup"]["failures"],
+                "recorded_outer_sessions": sandoq["pool_cleanup"]["recorded_outer_sessions"],
+                "typed_http_404": sandoq["pool_cleanup"]["typed_http_404"],
+                "zero_drop": sandoq["pool_cleanup"]["zero_drop"],
+            },
+            "auth_rotation": {
+                "atomic_same_path": sandoq["auth_rotation"]["atomic_same_path"],
+                "batch_heartbeats": sandoq["auth_rotation"]["batch_heartbeats"],
+                "successful_replacements": sandoq["auth_rotation"]["successful_replacements"],
+            },
+            "vmvm": vmvm["runtime_cleanup"],
         },
     }
+    _validate_public_union_privacy(
+        public,
+        frozenset(
+            {
+                sandoq_certificate_sha256,
+                vmvm_certificate_sha256,
+                sandoq["eval_run_identity_sha256"],
+                vmvm["eval_run_identity_sha256"],
+                sandoq["results_sha256"],
+                vmvm["results_sha256"],
+                sandoq["materialization"]["sha256"],
+                sandoq["pool_cleanup"]["audit_sha256"],
+                sandoq["auth_rotation"]["audit_sha256"],
+                *sandoq["sanitized_cleanup_source_hashes"].values(),
+            }
+        ),
+    )
+    return public
 
 
 def main() -> None:

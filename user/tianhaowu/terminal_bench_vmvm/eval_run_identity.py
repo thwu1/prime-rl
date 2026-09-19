@@ -16,7 +16,7 @@ import sys
 import tarfile
 import tomllib
 from pathlib import Path, PurePosixPath
-from typing import Any
+from typing import Any, Mapping
 from urllib.parse import urlsplit
 
 import tomli_w
@@ -75,6 +75,12 @@ KIMI_TIMEOUT_PROFILES = {
     "full": {"rollout_timeout": 36_000, "session_timeout": 43_200},
 }
 KIMI_FULL_RETRY_EXCEPTIONS = frozenset({"ProviderError", "SandboxError", "TunnelError", "InterceptionError"})
+VMVM_HOST_CLEANUP_CONTRACT = {
+    "kind": "vacli-release-on-exit-v1",
+    "receipt": "private-aggregate-jsonl",
+    "release_on_exit_completed": True,
+    "remote_deletion_verified": False,
+}
 
 
 class EvalIdentityError(ValueError):
@@ -335,6 +341,14 @@ def _sandoq_site_sha256(root: Path) -> str:
     return digest.hexdigest()
 
 
+def _sandoq_host_harness_sha256(project_root: Path) -> str:
+    path = (
+        project_root
+        / "user/tianhaowu/terminal_bench_vmvm/terminal_bench_vmvm/sandoq_host_harness.py"
+    )
+    return _sha256_file(path, label="sandoq_host_harness")
+
+
 def _source_identity(args: argparse.Namespace) -> dict[str, str]:
     root = args.project_root.resolve(strict=True)
     revisions = {
@@ -412,6 +426,7 @@ def _source_identity(args: argparse.Namespace) -> dict[str, str]:
         "sandoq_client_version": args.sandoq_client_version,
         "sandoq_site": str(args.sandoq_site.resolve(strict=True)),
         "sandoq_site_sha256": args.sandoq_site_sha256,
+        "sandoq_host_harness_sha256": _sandoq_host_harness_sha256(root),
         "derived_image_manifest_sha256": args.derived_image_manifest_sha256,
     }
 
@@ -784,13 +799,39 @@ def _contract(
     if sandbox_provider == "sandoq" and (
         runtime.get("mode") != "oci-runner"
         or runtime.get("network_access") is not False
-        or runtime.get("host_tunnel") != "sandoq"
-        or runtime.get("expected_environment") != "oci-runner-firecracker-tunnel-pull"
+        or runtime.get("host_tunnel") != "none"
+        or runtime.get("expected_environment") != "oci-runner-firecracker"
         or not isinstance(runtime.get("ecr_token_file"), str)
         or not Path(runtime["ecr_token_file"]).is_absolute()
-        or runtime.get("guest_tunnel_url") != "http://127.0.0.1:8485"
     ):
         raise EvalIdentityError("sandoq_runtime_contract_invalid")
+    if sandbox_provider == "sandoq" and any(
+        key in runtime
+        for key in ("guest_tunnel_url", "tunnel_pool_size", "tunnel_ready_timeout")
+    ):
+        raise EvalIdentityError("sandoq_inactive_tunnel_fields_present")
+    host_harness = harness.get("id") == "terminal-bench-sandoq-host"
+    if sandbox_provider == "sandoq" and not host_harness:
+        raise EvalIdentityError("sandoq_host_harness_contract_invalid")
+    if host_harness:
+        retries = config.get("retries")
+        rollout_retries = retries.get("rollout") if isinstance(retries, dict) else None
+        taskset = config.get("taskset")
+        if (
+            not isinstance(rollout_retries, dict)
+            or rollout_retries.get("max_retries") != 0
+            or not isinstance(taskset, dict)
+            or taskset.get("verifier_runtime_retries") != 0
+        ):
+            raise EvalIdentityError(f"{sandbox_provider}_cleanup_retry_contract_invalid")
+    if host_harness and (
+        harness.get("command_timeout_seconds") != 240
+        or harness.get("command_kill_grace_seconds") != 10
+        or harness.get("max_command_output_chars") != 100_000
+        or harness.get("request_timeout_seconds") != 15_000
+        or "config_overrides" in harness
+    ):
+        raise EvalIdentityError("sandoq_host_harness_contract_invalid")
     sampling_max_tokens = sampling.get("max_tokens")
     if (
         not isinstance(sampling_max_tokens, int)
@@ -810,15 +851,34 @@ def _contract(
         "outbound_body_denylist": sorted(EXPECTED_DENYLIST),
         "retain_traces": False,
     }
+    if host_harness:
+        contract["harness"] = {
+            "id": "terminal-bench-sandoq-host",
+            "placement": "host",
+            "tool": "bash",
+            "command_timeout_seconds": 240,
+            "command_kill_grace_seconds": 10,
+            "max_command_output_chars": 100_000,
+            "request_timeout_seconds": 15_000,
+            "request_max_retries": 0,
+            "stream": False,
+        }
+    identity_runtime = dict(runtime)
+    if sandbox_provider == "sandoq":
+        for inactive_field in ("guest_tunnel_url", "tunnel_pool_size", "tunnel_ready_timeout"):
+            identity_runtime.pop(inactive_field, None)
     execution = {
         "rollout_concurrency": rollout_concurrency,
         "multiplex": multiplex,
         "http_max_connections": http_connections,
         "http_max_keepalive_connections": http_keepalive,
-        "runtime": runtime,
+        "runtime": identity_runtime,
     }
     if sandbox_provider == "sandoq":
         execution["cleanup_must_succeed"] = True
+    elif host_harness:
+        execution["cleanup_must_succeed"] = True
+        execution["cleanup_receipt_contract"] = dict(VMVM_HOST_CLEANUP_CONTRACT)
     return contract, execution
 
 
@@ -1148,11 +1208,11 @@ def _effective_sandoq_environment(
         raise EvalIdentityError("sandoq_pool_min_size_invalid")
     if pool_size < rollout_concurrency:
         raise EvalIdentityError("sandoq_pool_size_below_rollout_concurrency")
-    if args.sandoq_environment != "oci-runner-firecracker-tunnel-pull":
+    if args.sandoq_environment != "oci-runner-firecracker":
         raise EvalIdentityError("sandoq_environment_invalid")
-    if args.sandoq_task_network != "host":
+    if args.sandoq_task_network != "none":
         raise EvalIdentityError("sandoq_task_network_invalid")
-    if args.sandoq_tunnel_policy != "named-tunnel-loopback":
+    if args.sandoq_tunnel_policy != "host-interception-no-tunnel":
         raise EvalIdentityError("sandoq_tunnel_policy_invalid")
     if (
         args.sandoq_base_url != "https://sandoq.eks-prod.cf.aws.metafb.cloud"
@@ -1272,7 +1332,39 @@ def _load_resolved_config(path: Path) -> dict[str, Any]:
         config = EvalConfig.model_validate(parsed)
     except Exception as error:
         raise EvalIdentityError("resolved_config_invalid") from error
-    return config.model_dump(mode="json", exclude_none=True)
+    return _resolved_config_data(config, explicit=parsed)
+
+
+def _resolved_config_data(
+    config: EvalConfig,
+    *,
+    explicit: Mapping[str, Any] | None = None,
+) -> dict[str, Any]:
+    data = config.model_dump(mode="json", exclude_none=True)
+    harness = data.get("harness")
+    runtime = harness.get("runtime") if isinstance(harness, dict) else None
+    inactive_tunnel_fields = {
+        "guest_tunnel_url",
+        "tunnel_pool_size",
+        "tunnel_ready_timeout",
+    }
+    if (
+        isinstance(harness, dict)
+        and harness.get("id") == "terminal-bench-sandoq-host"
+        and isinstance(runtime, dict)
+        and runtime.get("type") == "sandoq"
+    ):
+        explicit_harness = explicit.get("harness") if isinstance(explicit, Mapping) else None
+        explicit_runtime = (
+            explicit_harness.get("runtime") if isinstance(explicit_harness, Mapping) else None
+        )
+        if isinstance(explicit_runtime, Mapping) and inactive_tunnel_fields.intersection(
+            explicit_runtime
+        ):
+            raise EvalIdentityError("sandoq_inactive_tunnel_fields_present")
+        for field in inactive_tunnel_fields:
+            runtime.pop(field, None)
+    return data
 
 
 def _write_resolved_config(
@@ -1318,7 +1410,7 @@ def _write_resolved_config(
         raise
     except Exception as error:
         raise EvalIdentityError("resolved_config_invalid") from error
-    data = config.model_dump(mode="json", exclude_none=True)
+    data = _resolved_config_data(config)
     config_path.write_text(tomli_w.dumps(data), encoding="utf-8")
     results_path.open("x").close()
     return data
@@ -1397,6 +1489,7 @@ def _validate_identity_shape(identity: object) -> dict[str, Any]:
             "sandoq_client_version",
             "sandoq_site",
             "sandoq_site_sha256",
+            "sandoq_host_harness_sha256",
             "derived_image_manifest_sha256",
         }
     )
@@ -1428,7 +1521,11 @@ def _validate_identity_shape(identity: object) -> dict[str, Any]:
     digest_keys += (
         ("vmvm_tb_v2_sha256",)
         if sandbox_provider == "vmvm"
-        else ("derived_image_manifest_sha256", "sandoq_site_sha256")
+        else (
+            "derived_image_manifest_sha256",
+            "sandoq_site_sha256",
+            "sandoq_host_harness_sha256",
+        )
     )
     for key in digest_keys:
         value = source.get(key)
@@ -1576,7 +1673,9 @@ def _validate_identity_shape(identity: object) -> dict[str, Any]:
         raise EvalIdentityError("eval_run_identity_schema_invalid")
 
     contract = identity.get("contract")
-    if not isinstance(contract, dict) or set(contract) != {
+    if not isinstance(contract, dict):
+        raise EvalIdentityError("eval_run_identity_schema_invalid")
+    expected_contract_keys = {
         "model",
         "pass_at_1",
         "num_rollouts",
@@ -1587,7 +1686,10 @@ def _validate_identity_shape(identity: object) -> dict[str, Any]:
         "capture_model_io",
         "outbound_body_denylist",
         "retain_traces",
-    }:
+    }
+    if "harness" in contract:
+        expected_contract_keys.add("harness")
+    if set(contract) != expected_contract_keys:
         raise EvalIdentityError("eval_run_identity_schema_invalid")
     model = contract.get("model")
     context = contract.get("context_tokens")
@@ -1610,6 +1712,20 @@ def _validate_identity_shape(identity: object) -> dict[str, Any]:
         or contract.get("retain_traces") is not False
     ):
         raise EvalIdentityError("eval_run_identity_schema_invalid")
+    if "harness" in contract and contract.get("harness") != {
+        "id": "terminal-bench-sandoq-host",
+        "placement": "host",
+        "tool": "bash",
+        "command_timeout_seconds": 240,
+        "command_kill_grace_seconds": 10,
+        "max_command_output_chars": 100_000,
+        "request_timeout_seconds": 15_000,
+        "request_max_retries": 0,
+        "stream": False,
+    }:
+        raise EvalIdentityError("eval_run_identity_schema_invalid")
+    if sandbox_provider == "sandoq" and "harness" not in contract:
+        raise EvalIdentityError("eval_run_identity_schema_invalid")
     if role != "qwen-direct" and proxy_policy["request_timeout"] != request_timeout_for_model(model):
         raise EvalIdentityError("eval_run_identity_schema_invalid")
 
@@ -1621,8 +1737,12 @@ def _validate_identity_shape(identity: object) -> dict[str, Any]:
         "http_max_keepalive_connections",
         "runtime",
     }
-    if sandbox_provider == "sandoq":
+    if sandbox_provider == "sandoq" or (
+        sandbox_provider == "vmvm" and isinstance(contract, dict) and "harness" in contract
+    ):
         common_execution_keys.add("cleanup_must_succeed")
+    if sandbox_provider == "vmvm" and isinstance(contract, dict) and "harness" in contract:
+        common_execution_keys.add("cleanup_receipt_contract")
     environment_key = f"{sandbox_provider}_environment"
     if not isinstance(execution, dict) or set(execution) != common_execution_keys | {environment_key}:
         raise EvalIdentityError("eval_run_identity_schema_invalid")
@@ -1689,9 +1809,9 @@ def _validate_identity_shape(identity: object) -> dict[str, Any]:
         }:
             raise EvalIdentityError("eval_run_identity_schema_invalid")
         if (
-            environment.get("environment") != "oci-runner-firecracker-tunnel-pull"
-            or environment.get("task_network") != "host"
-            or environment.get("tunnel_policy") != "named-tunnel-loopback"
+            environment.get("environment") != "oci-runner-firecracker"
+            or environment.get("task_network") != "none"
+            or environment.get("tunnel_policy") != "host-interception-no-tunnel"
             or environment.get("use_ecr") is not True
             or environment.get("ecr_registry") != "168653207203.dkr.ecr.us-east-2.amazonaws.com"
             or environment.get("ecr_region") != "us-east-2"
@@ -1706,6 +1826,14 @@ def _validate_identity_shape(identity: object) -> dict[str, Any]:
             or not isinstance(environment.get("pool_wal"), str)
             or not isinstance(environment.get("pool_event_log"), str)
             or environment.get("allow_dockerhub_fallback") is not False
+            or runtime.get("mode") != "oci-runner"
+            or runtime.get("network_access") is not False
+            or runtime.get("host_tunnel") != "none"
+            or runtime.get("expected_environment") != "oci-runner-firecracker"
+            or any(
+                key in runtime
+                for key in ("guest_tunnel_url", "tunnel_pool_size", "tunnel_ready_timeout")
+            )
             or runtime.get("ecr_token_file") != environment.get("ecr_token_file")
             or not _validate_positive_integer(environment.get("pool_size"))
             or not isinstance(environment.get("pool_min_size"), int)
@@ -1766,6 +1894,11 @@ def _validate_identity_shape(identity: object) -> dict[str, Any]:
         )
         or environment["lease_start_concurrency"] > execution["rollout_concurrency"]
         or not isinstance(environment.get("container_privileged"), bool)
+    ):
+        raise EvalIdentityError("eval_run_identity_schema_invalid")
+    if "harness" in contract and (
+        execution.get("cleanup_must_succeed") is not True
+        or execution.get("cleanup_receipt_contract") != VMVM_HOST_CLEANUP_CONTRACT
     ):
         raise EvalIdentityError("eval_run_identity_schema_invalid")
     return identity
@@ -1950,6 +2083,7 @@ def _verify_source_record(source: object) -> None:
             "sandoq_client_version",
             "sandoq_site",
             "sandoq_site_sha256",
+            "sandoq_host_harness_sha256",
             "derived_image_manifest_sha256",
         }
     )
@@ -1991,6 +2125,8 @@ def _verify_source_record(source: object) -> None:
             raise EvalIdentityError("sandoq_provider_mismatch")
         if source["sandoq_site_sha256"] != _sandoq_site_sha256(Path(source["sandoq_site"])):
             raise EvalIdentityError("sandoq_site_sha256_mismatch")
+        if source["sandoq_host_harness_sha256"] != _sandoq_host_harness_sha256(root):
+            raise EvalIdentityError("sandoq_host_harness_sha256_mismatch")
 
 
 def _verify_config_and_inputs(
@@ -2104,6 +2240,7 @@ def _verify_saved_provenance(output_dir: Path, identity: dict[str, Any], identit
                 "sandoq_provider_tree": source["sandoq_provider_tree"],
                 "sandoq_client_version": source["sandoq_client_version"],
                 "sandoq_site_sha256": source["sandoq_site_sha256"],
+                "sandoq_host_harness_sha256": source["sandoq_host_harness_sha256"],
                 "derived_image_manifest_sha256": source["derived_image_manifest_sha256"],
                 "sandoq_environment": environment["environment"],
                 "sandoq_task_network": environment["task_network"],
@@ -2353,6 +2490,7 @@ def _bind_provenance(
                 "sandoq_provider_tree": source["sandoq_provider_tree"],
                 "sandoq_client_version": source["sandoq_client_version"],
                 "sandoq_site_sha256": source["sandoq_site_sha256"],
+                "sandoq_host_harness_sha256": source["sandoq_host_harness_sha256"],
                 "derived_image_manifest_sha256": source["derived_image_manifest_sha256"],
                 "sandoq_environment": environment["environment"],
                 "sandoq_task_network": environment["task_network"],
@@ -2586,8 +2724,8 @@ def prepare(args: argparse.Namespace) -> str:
 
 
 def _prepare_direct_qwen(args: argparse.Namespace) -> str:
-    if args.mode != "fresh" or args.sandbox_provider != "sandoq":
-        raise EvalIdentityError("direct_qwen_requires_fresh_sandoq")
+    if args.mode != "fresh":
+        raise EvalIdentityError("direct_qwen_requires_fresh_identity")
     if args.expected_model != "Qwen3.8-2.4T-A95B":
         raise EvalIdentityError("direct_qwen_model_invalid")
     if (
@@ -2618,13 +2756,23 @@ def _prepare_direct_qwen(args: argparse.Namespace) -> str:
         config,
         args.expected_model,
         role="qwen-direct",
-        sandbox_provider="sandoq",
+        sandbox_provider=args.sandbox_provider,
     )
-    execution["sandoq_environment"] = _effective_sandoq_environment(args, execution["rollout_concurrency"], output_dir)
-    if execution["runtime"].get("ecr_token_file") != execution["sandoq_environment"]["ecr_token_file"]:
-        raise EvalIdentityError("sandoq_ecr_token_file_invalid")
+    if args.sandbox_provider == "sandoq":
+        execution["sandoq_environment"] = _effective_sandoq_environment(
+            args,
+            execution["rollout_concurrency"],
+            output_dir,
+        )
+        if execution["runtime"].get("ecr_token_file") != execution["sandoq_environment"]["ecr_token_file"]:
+            raise EvalIdentityError("sandoq_ecr_token_file_invalid")
+    else:
+        execution["vmvm_environment"] = _effective_vmvm_environment(
+            args,
+            execution["rollout_concurrency"],
+        )
     source = _source_identity(args)
-    if (
+    if args.sandbox_provider == "sandoq" and (
         inputs["image_manifest"] is None
         or inputs["image_manifest"]["sha256"] != source["derived_image_manifest_sha256"]
     ):

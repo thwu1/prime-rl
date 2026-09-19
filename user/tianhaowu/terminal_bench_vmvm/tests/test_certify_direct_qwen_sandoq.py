@@ -1,6 +1,7 @@
 import hashlib
 import json
 from pathlib import Path
+from types import SimpleNamespace
 
 import certify_direct_qwen_sandoq as certificate_module
 import pytest
@@ -27,6 +28,7 @@ def _identity(task_sha256: str, count: int, config: Path) -> dict:
             "sandoq_provider_commit": "3" * 40,
             "sandoq_provider_tree": "4" * 40,
             "sandoq_client_version": "pinned",
+            "sandoq_host_harness_sha256": "0" * 64,
             "sandoq_site_sha256": "5" * 64,
             "derived_image_manifest_sha256": "6" * 64,
         },
@@ -49,10 +51,12 @@ def _identity(task_sha256: str, count: int, config: Path) -> dict:
     }
 
 
-def _evidence(tmp_path: Path) -> tuple[Path, str, Path, str, Path, Path, str, Path, str]:
+def _evidence(tmp_path: Path) -> tuple[Path, str, Path, str, Path, Path, Path, str, Path, str]:
     canonical = tmp_path / "canonical.txt"
     canonical.write_text("".join(f"opaque-{index}\n" for index in range(2500)))
     canonical_sha = _sha(canonical)
+    dataset = tmp_path / "dataset"
+    dataset.mkdir()
     task_file = tmp_path / "tasks.txt"
     task_file.write_text("opaque-0\nopaque-1\n")
     task_sha256 = _sha(task_file)
@@ -78,9 +82,10 @@ def _evidence(tmp_path: Path) -> tuple[Path, str, Path, str, Path, Path, str, Pa
     receipt.write_text(
         json.dumps(
             {
-                "schema_version": 1,
-                "selection": "ordered-prefix",
-                "source_sha256": canonical_sha,
+                "schema_version": 2,
+                "selection": "ordered-provider-prefix",
+                "canonical_source_sha256": canonical_sha,
+                "provider_partition_sha256": canonical_sha,
                 "source_count": 2500,
                 "selected_count": 2,
                 "selected_sha256": task_sha256,
@@ -123,15 +128,41 @@ def _evidence(tmp_path: Path) -> tuple[Path, str, Path, str, Path, Path, str, Pa
         )
         + "\n"
     )
-    return task_file, task_sha256, receipt, _sha(receipt), cleanup, canonical, canonical_sha, template, template_sha
+    return (
+        task_file,
+        task_sha256,
+        receipt,
+        _sha(receipt),
+        cleanup,
+        canonical,
+        dataset,
+        canonical_sha,
+        template,
+        template_sha,
+    )
+
+
+def _patch_partition(monkeypatch, canonical: Path, dataset: Path) -> None:
+    members = tuple(canonical.read_text().splitlines())
+    monkeypatch.setattr(certificate_module, "verify_canonical_dataset", lambda value: value)
+    monkeypatch.setattr(
+        certificate_module,
+        "derive_partition",
+        lambda _raw, value: SimpleNamespace(sandoq=members) if value == dataset else None,
+    )
 
 
 def test_direct_sandoq_certificate_binds_identity_and_aggregate_results(tmp_path: Path, monkeypatch) -> None:
-    task_file, task_sha256, receipt, receipt_sha256, cleanup, canonical, canonical_sha, template, template_sha = (
+    task_file, task_sha256, receipt, receipt_sha256, cleanup, canonical, dataset, canonical_sha, template, template_sha = (
         _evidence(tmp_path)
     )
     monkeypatch.setattr(certificate_module, "CANONICAL_TASK_SOURCE_SHA256", canonical_sha)
     monkeypatch.setattr(certificate_module, "CANONICAL_TEMPLATE_SHA256", template_sha)
+    _patch_partition(monkeypatch, canonical, dataset)
+    payload = json.loads(receipt.read_text())
+    payload["provider_partition_sha256"] = canonical_sha
+    receipt.write_text(json.dumps(payload) + "\n")
+    receipt_sha256 = _sha(receipt)
     config = tmp_path / "config.toml"
     (tmp_path / ".writer.lock").write_bytes(b"")
     (tmp_path / "results.jsonl").write_text("{}\n{}\n")
@@ -150,19 +181,22 @@ def test_direct_sandoq_certificate_binds_identity_and_aggregate_results(tmp_path
     )
     monkeypatch.setattr(certificate_module, "validate_saved_manifest", lambda _path: {"workers": [{}] * 24})
 
-    result = certify(tmp_path, task_file, task_sha256, 2, cleanup, receipt, receipt_sha256, canonical, template)
+    result = certify(
+        tmp_path, task_file, task_sha256, 2, cleanup, receipt, receipt_sha256, canonical, dataset, template
+    )
 
     assert result["state"] == "passed"
     assert result["pool_cleanup"]["outer_session_high_water"] == 2
-    assert result["ramp"]["source_sha256"] == canonical_sha
+    assert result["ramp"]["canonical_source_sha256"] == canonical_sha
 
 
 def test_direct_sandoq_certificate_rejects_missing_cleanup_gate(tmp_path: Path, monkeypatch) -> None:
-    task_file, task_sha256, receipt, receipt_sha256, cleanup, canonical, canonical_sha, template, template_sha = (
+    task_file, task_sha256, receipt, receipt_sha256, cleanup, canonical, dataset, canonical_sha, template, template_sha = (
         _evidence(tmp_path)
     )
     monkeypatch.setattr(certificate_module, "CANONICAL_TASK_SOURCE_SHA256", canonical_sha)
     monkeypatch.setattr(certificate_module, "CANONICAL_TEMPLATE_SHA256", template_sha)
+    _patch_partition(monkeypatch, canonical, dataset)
     identity = _identity(task_sha256, 2, tmp_path / "config.toml")
     identity["execution"]["cleanup_must_succeed"] = False
     (tmp_path / ".writer.lock").write_bytes(b"")
@@ -173,15 +207,18 @@ def test_direct_sandoq_certificate_rejects_missing_cleanup_gate(tmp_path: Path, 
     )
 
     with pytest.raises(DirectSandoqCertificateError, match="sandoq_identity_required"):
-        certify(tmp_path, task_file, task_sha256, 2, cleanup, receipt, receipt_sha256, canonical, template)
+        certify(
+            tmp_path, task_file, task_sha256, 2, cleanup, receipt, receipt_sha256, canonical, dataset, template
+        )
 
 
 def test_direct_sandoq_certificate_rejects_under_capacity(tmp_path: Path, monkeypatch) -> None:
-    task_file, task_sha256, receipt, receipt_sha256, cleanup, canonical, canonical_sha, template, template_sha = (
+    task_file, task_sha256, receipt, receipt_sha256, cleanup, canonical, dataset, canonical_sha, template, template_sha = (
         _evidence(tmp_path)
     )
     monkeypatch.setattr(certificate_module, "CANONICAL_TASK_SOURCE_SHA256", canonical_sha)
     monkeypatch.setattr(certificate_module, "CANONICAL_TEMPLATE_SHA256", template_sha)
+    _patch_partition(monkeypatch, canonical, dataset)
     payload = json.loads(cleanup.read_text())
     payload["outer_session_high_water"] = 1
     cleanup.write_text(json.dumps(payload))
@@ -199,7 +236,9 @@ def test_direct_sandoq_certificate_rejects_under_capacity(tmp_path: Path, monkey
     monkeypatch.setattr(certificate_module, "validate_saved_manifest", lambda _path: {"workers": [{}] * 24})
 
     with pytest.raises(DirectSandoqCertificateError, match="pool_cleanup_proof_invalid"):
-        certify(tmp_path, task_file, task_sha256, 2, cleanup, receipt, receipt_sha256, canonical, template)
+        certify(
+            tmp_path, task_file, task_sha256, 2, cleanup, receipt, receipt_sha256, canonical, dataset, template
+        )
 
 
 def test_predecessor_binds_source_and_ordered_prefix(tmp_path: Path) -> None:
@@ -207,7 +246,11 @@ def test_predecessor_binds_source_and_ordered_prefix(tmp_path: Path) -> None:
     current.write_text("".join(f"opaque-{index}\n" for index in range(8)))
     prefix_sha = hashlib.sha256(b"opaque-0\nopaque-1\n").hexdigest()
     source = {"provider": "pinned"}
-    ramp = {"source_sha256": "a" * 64, "template_sha256": "b" * 64}
+    ramp = {
+        "canonical_source_sha256": "a" * 64,
+        "provider_partition_sha256": "c" * 64,
+        "template_sha256": "b" * 64,
+    }
     prior = {
         "schema_version": 1,
         "kind": "direct-qwen-sandoq-ramp",
@@ -251,11 +294,12 @@ def test_predecessor_binds_source_and_ordered_prefix(tmp_path: Path) -> None:
 
 
 def test_ramp_receipt_rejects_noncanonical_selected_bytes(tmp_path: Path, monkeypatch) -> None:
-    task_file, task_sha256, receipt, receipt_sha256, _cleanup, canonical, canonical_sha, template, template_sha = (
+    task_file, task_sha256, receipt, receipt_sha256, _cleanup, canonical, dataset, canonical_sha, template, template_sha = (
         _evidence(tmp_path)
     )
     monkeypatch.setattr(certificate_module, "CANONICAL_TASK_SOURCE_SHA256", canonical_sha)
     monkeypatch.setattr(certificate_module, "CANONICAL_TEMPLATE_SHA256", template_sha)
+    _patch_partition(monkeypatch, canonical, dataset)
     task_file.write_text("opaque-1\nopaque-0\n")
     forged_sha = _sha(task_file)
     payload = json.loads(receipt.read_text())
@@ -268,6 +312,7 @@ def test_ramp_receipt_rejects_noncanonical_selected_bytes(tmp_path: Path, monkey
             forged_sha,
             task_file,
             canonical,
+            dataset,
             template,
             tmp_path / "config.toml",
             receipt,
@@ -276,11 +321,12 @@ def test_ramp_receipt_rejects_noncanonical_selected_bytes(tmp_path: Path, monkey
 
 
 def test_ramp_receipt_rejects_altered_canonical_template(tmp_path: Path, monkeypatch) -> None:
-    task_file, task_sha256, receipt, _receipt_sha256, _cleanup, canonical, canonical_sha, template, template_sha = (
+    task_file, task_sha256, receipt, _receipt_sha256, _cleanup, canonical, dataset, canonical_sha, template, template_sha = (
         _evidence(tmp_path)
     )
     monkeypatch.setattr(certificate_module, "CANONICAL_TASK_SOURCE_SHA256", canonical_sha)
     monkeypatch.setattr(certificate_module, "CANONICAL_TEMPLATE_SHA256", template_sha)
+    _patch_partition(monkeypatch, canonical, dataset)
     template.write_text(template.read_text() + "# altered\n")
 
     with pytest.raises(DirectSandoqCertificateError, match="canonical_template_mismatch"):
@@ -289,6 +335,7 @@ def test_ramp_receipt_rejects_altered_canonical_template(tmp_path: Path, monkeyp
             task_sha256,
             task_file,
             canonical,
+            dataset,
             template,
             tmp_path / "config.toml",
             receipt,

@@ -1,3 +1,4 @@
+# Deployment namespace: shared_qwen38_2p4t
 model = "Qwen3.8-2.4T-A95B"
 num_tasks = 2500
 num_rollouts = 1
@@ -40,39 +41,25 @@ image_tag = "mobius-9b6988a3faf0"
 image_manifest = "/checkpoint/ram/tianhaowu/terminal_bench_vmvm/mobius_images.sandoq.json"
 image_manifest_sha256 = "a3fb4ec9ac9d1ee8376013013f171584c288321923f2050177157edac58340c8"
 ignore_dockerfile = true
-verifier_runtime_retries = 2
+verifier_runtime_retries = 0
 timeout_multiplier = 2.0
 resource_multiplier = 2.0
 
 [harness]
-id = "mini-swe-agent"
-version = "2.2.8"
-config_file = "mini"
-config_overrides = [
-    "agent.step_limit=200",
-    "environment.environment_class=local",
-    "environment.timeout=900",
-    "model.model_kwargs.drop_params=true",
-    "model.model_kwargs.temperature=0.7",
-    "model.model_kwargs.top_p=0.95",
-    "model.model_kwargs.parallel_tool_calls=true",
-    "model.model_kwargs.timeout=15000",
-]
-
-[harness.env]
-MSWEA_MODEL_RETRY_STOP_AFTER_ATTEMPT = "10"
+id = "terminal-bench-sandoq-host"
+command_timeout_seconds = 240
+command_kill_grace_seconds = 10
+max_command_output_chars = 100000
+request_timeout_seconds = 15000
 
 [harness.runtime]
 type = "sandoq"
 mode = "oci-runner"
 session_timeout = 43200
 network_access = false
-host_tunnel = "sandoq"
-expected_environment = "oci-runner-firecracker-tunnel-pull"
+host_tunnel = "none"
+expected_environment = "oci-runner-firecracker"
 ecr_token_file = "/storage/home/tianhaowu/.config/oci-runner/ecr-token"
-guest_tunnel_url = "http://127.0.0.1:8485"
-tunnel_pool_size = 8
-tunnel_ready_timeout = 30
 
 [timeout]
 setup = 3600
@@ -81,5 +68,5 @@ finalize = 3600
 scoring = 21600
 
 [retries.rollout]
-max_retries = 2
+max_retries = 0
 include = ["ProviderError", "SandboxError", "TunnelError", "InterceptionError"]

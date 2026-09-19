@@ -203,22 +203,30 @@ def _sha256(path: Path) -> str:
 def _sandoq_identity() -> dict:
     identity = _identity()
     config = _resolved_config()
-    config["harness"]["runtime"] = {
-        "type": "sandoq",
-        "mode": "oci-runner",
-        "network_access": False,
-        "host_tunnel": "sandoq",
-        "guest_tunnel_url": "http://127.0.0.1:8485",
-        "expected_environment": "oci-runner-firecracker-tunnel-pull",
-        "ecr_token_file": "/run/secrets/ecr-token",
+    config["retries"]["rollout"]["max_retries"] = 0
+    config["taskset"] = {"verifier_runtime_retries": 0}
+    config["harness"] = {
+        "id": "terminal-bench-sandoq-host",
+        "command_timeout_seconds": 240,
+        "command_kill_grace_seconds": 10,
+        "max_command_output_chars": 100_000,
+        "request_timeout_seconds": 15_000,
+        "runtime": {
+            "type": "sandoq",
+            "mode": "oci-runner",
+            "network_access": False,
+            "host_tunnel": "none",
+            "expected_environment": "oci-runner-firecracker",
+            "ecr_token_file": "/run/secrets/ecr-token",
+        },
     }
     contract, execution = _contract(config, "approved-model", sandbox_provider="sandoq")
     execution["sandoq_environment"] = {
-        "environment": "oci-runner-firecracker-tunnel-pull",
-        "task_network": "host",
+        "environment": "oci-runner-firecracker",
+        "task_network": "none",
         "pool_size": 4,
         "pool_min_size": 0,
-        "tunnel_policy": "named-tunnel-loopback",
+        "tunnel_policy": "host-interception-no-tunnel",
         "base_url": "https://sandoq.eks-prod.cf.aws.metafb.cloud",
         "owner": "test-user",
         "transport_proxy_policy": "official-client-auto-no-global-proxy",
@@ -266,6 +274,7 @@ def _sandoq_identity() -> dict:
         "sandoq_client_version": "pinned-client",
         "sandoq_site": "/pinned/sandoq-site",
         "sandoq_site_sha256": "7" * 64,
+        "sandoq_host_harness_sha256": "8" * 64,
         "derived_image_manifest_sha256": "6" * 64,
     }
     identity["inputs"]["image_manifest"] = {
@@ -283,7 +292,9 @@ def test_sandoq_identity_shape_rejects_backend_and_manifest_mismatch() -> None:
         (("source", "derived_image_manifest_sha256"), "7" * 64),
         (("execution", "sandoq_environment", "create_deadline"), "31m"),
         (("execution", "runtime", "ecr_token_file"), "/run/secrets/another-token"),
+        (("execution", "runtime", "guest_tunnel_url"), "http://127.0.0.1:8485"),
         (("execution", "cleanup_must_succeed"), False),
+        (("contract",), None),
     ):
         mismatched = json.loads(json.dumps(identity))
         target = mismatched
@@ -322,6 +333,43 @@ def test_direct_qwen_sandoq_identity_binds_worker_generation() -> None:
 
     assert _validate_identity_shape(identity) == identity
     identity["deployment"]["endpoint_bundle_sha256"] = "b" * 63
+    with pytest.raises(EvalIdentityError, match="schema_invalid"):
+        _validate_identity_shape(identity)
+
+
+def test_direct_qwen_vmvm_identity_binds_host_harness_contract() -> None:
+    identity = _identity()
+    identity["role"] = "qwen-direct"
+    identity["contract"]["harness"] = {
+        "id": "terminal-bench-sandoq-host",
+        "placement": "host",
+        "tool": "bash",
+        "command_timeout_seconds": 240,
+        "command_kill_grace_seconds": 10,
+        "max_command_output_chars": 100_000,
+        "request_timeout_seconds": 15_000,
+        "request_max_retries": 0,
+        "stream": False,
+    }
+    identity["execution"]["cleanup_must_succeed"] = True
+    identity["execution"]["cleanup_receipt_contract"] = dict(
+        eval_run_identity.VMVM_HOST_CLEANUP_CONTRACT
+    )
+    identity["deployment"] = {
+        "kind": "direct_qwen",
+        "worker_manifest": {"path": "/run/direct_workers.json", "sha256": "8" * 64},
+        "spec_sha256": "9" * 64,
+        "endpoint_bundle_sha256": "a" * 64,
+        "base_url": "http://127.0.0.1:12345/v1",
+        "router": {
+            "policy": "consistent_hash",
+            "request_id_headers": ["x-session-id"],
+            "provider_concurrency": 4,
+        },
+    }
+
+    assert _validate_identity_shape(identity) == identity
+    identity["contract"]["harness"]["request_timeout_seconds"] = 14_999
     with pytest.raises(EvalIdentityError, match="schema_invalid"):
         _validate_identity_shape(identity)
 
