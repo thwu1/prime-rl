@@ -4251,6 +4251,518 @@ def test_task_file_selects_exact_tasks(tmp_path: Path) -> None:
     ]
 
 
+def _cancellable_backend() -> VacliVMVMBackend:
+    backend = object.__new__(VacliVMVMBackend)
+    backend._destroyed = False
+    backend._fifo_mode = True
+    backend._sess_dir = "/tmp/session"
+    backend._container_id = "a" * 12
+    backend._session = None
+    backend._pending = None
+    backend._command_state_lock = threading.Lock()
+    backend._command_cancel_lock = threading.Lock()
+    backend._active_command_thread = None
+    backend._active_command_done = threading.Event()
+    backend._active_command_done.set()
+    backend._command_cancel_requested = threading.Event()
+    return backend
+
+
+def test_vmvm_cancel_active_fifo_command_joins_before_shell_reset() -> None:
+    backend = _cancellable_backend()
+    started = threading.Event()
+    release = threading.Event()
+    events: list[str] = []
+    results: list[dict[str, object]] = []
+
+    def fifo_run(command: str, timeout: float) -> dict[str, object]:
+        backend._pending = (7, command, timeout, time.monotonic())
+        events.append("run-started")
+        started.set()
+        assert release.wait(timeout=2)
+        events.append("run-finished")
+        backend._pending = None
+        return {
+            "status": "error",
+            "output": "",
+            "error_type": "exit",
+            "exit_code": 130,
+        }
+
+    def interrupt(timeout: float) -> bool:
+        events.append("interrupt")
+        release.set()
+        return True
+
+    backend._fifo_run = fifo_run
+    backend._interrupt_fifo_command = interrupt
+    backend._teardown_fifo_shell = lambda deadline=None: events.append("teardown") or True
+    backend._setup_fifo_shell = lambda **kwargs: events.append("setup")
+    worker = threading.Thread(target=lambda: results.append(backend.run_bash("agent", 10)))
+    worker.start()
+    assert started.wait(timeout=1)
+
+    assert backend.cancel_active_command(1) is True
+    worker.join(timeout=1)
+
+    assert not worker.is_alive()
+    assert backend._active_command_thread is None
+    assert backend._active_command_done.is_set()
+    assert results[0]["exit_code"] == 130
+    assert events == ["run-started", "interrupt", "run-finished", "teardown", "setup"]
+
+
+def test_vmvm_cancel_active_command_reset_failure_leaves_no_worker() -> None:
+    backend = _cancellable_backend()
+    started = threading.Event()
+    release = threading.Event()
+
+    def fifo_run(command: str, timeout: float) -> dict[str, object]:
+        backend._pending = (9, command, timeout, time.monotonic())
+        started.set()
+        assert release.wait(timeout=2)
+        backend._pending = None
+        return {
+            "status": "error",
+            "output": "",
+            "error_type": "exit",
+            "exit_code": 130,
+        }
+
+    backend._fifo_run = fifo_run
+    backend._interrupt_fifo_command = lambda timeout: release.set() or True
+    backend._teardown_fifo_shell = lambda deadline=None: True
+    backend._setup_fifo_shell = lambda **kwargs: (_ for _ in ()).throw(RuntimeError("reset failed"))
+    worker = threading.Thread(target=backend.run_bash, args=("agent", 10))
+    worker.start()
+    assert started.wait(timeout=1)
+
+    assert backend.cancel_active_command(1) is False
+    worker.join(timeout=1)
+
+    assert not worker.is_alive()
+    assert backend._active_command_done.is_set()
+
+
+def test_vmvm_destroy_waits_for_cancellation_reset_owner() -> None:
+    backend = _cancellable_backend()
+    command_started = threading.Event()
+    command_release = threading.Event()
+    reset_started = threading.Event()
+    reset_release = threading.Event()
+    destroyed = threading.Event()
+
+    def fifo_run(command: str, timeout: float) -> dict[str, object]:
+        backend._pending = (10, command, timeout, time.monotonic())
+        command_started.set()
+        assert command_release.wait(timeout=2)
+        backend._pending = None
+        return {
+            "status": "error",
+            "output": "",
+            "error_type": "exit",
+            "exit_code": 130,
+        }
+
+    def setup(**kwargs: object) -> None:
+        reset_started.set()
+        assert reset_release.wait(timeout=2)
+
+    backend._fifo_run = fifo_run
+    backend._interrupt_fifo_command = lambda timeout: command_release.set() or True
+    backend._teardown_fifo_shell = lambda deadline=None: True
+    backend._setup_fifo_shell = setup
+    backend._destroy_locked = destroyed.set
+    command = threading.Thread(target=backend.run_bash, args=("agent", 10))
+    cancellation = threading.Thread(target=backend.cancel_active_command, args=(1,))
+    teardown = threading.Thread(target=backend.destroy)
+
+    command.start()
+    assert command_started.wait(timeout=1)
+    cancellation.start()
+    assert reset_started.wait(timeout=1)
+    teardown.start()
+
+    assert not destroyed.wait(timeout=0.05)
+    reset_release.set()
+    command.join(timeout=1)
+    cancellation.join(timeout=1)
+    teardown.join(timeout=1)
+
+    assert not command.is_alive()
+    assert not cancellation.is_alive()
+    assert not teardown.is_alive()
+    assert destroyed.is_set()
+
+
+def test_vmvm_cancellation_scope_covers_transport_recovery() -> None:
+    backend = _cancellable_backend()
+    recovery_started = threading.Event()
+    recovery_release = threading.Event()
+    events: list[str] = []
+    results: list[dict[str, object]] = []
+
+    def initial(command: str, timeout: float) -> dict[str, object]:
+        backend._pending = (12, command, timeout, time.monotonic())
+        return {
+            "status": "error",
+            "output": "",
+            "error_type": "broken_pipe",
+            "exit_code": -1,
+        }
+
+    def recover() -> dict[str, object]:
+        events.append("recovery-started")
+        recovery_started.set()
+        assert recovery_release.wait(timeout=2)
+        backend._pending = None
+        events.append("recovery-finished")
+        return {
+            "status": "error",
+            "output": "",
+            "error_type": "exit",
+            "exit_code": 130,
+        }
+
+    def interrupt(timeout: float) -> bool:
+        events.append("interrupt")
+        recovery_release.set()
+        return True
+
+    backend._run_bash_once = initial
+    backend.restart_session = lambda: True
+    backend.recover_last = recover
+    backend._interrupt_fifo_command = interrupt
+    backend._teardown_fifo_shell = lambda deadline=None: events.append("teardown") or True
+    backend._setup_fifo_shell = lambda **kwargs: events.append("setup")
+    worker = threading.Thread(target=lambda: results.append(backend.run_bash_with_recovery("agent", 10, 2)))
+    worker.start()
+    assert recovery_started.wait(timeout=1)
+    assert backend._active_command_thread is not None
+
+    assert backend.cancel_active_command(1) is True
+    worker.join(timeout=1)
+
+    assert not worker.is_alive()
+    assert backend._active_command_thread is None
+    assert results[0]["exit_code"] == 130
+    assert events == [
+        "recovery-started",
+        "interrupt",
+        "recovery-finished",
+        "teardown",
+        "setup",
+    ]
+
+
+def test_vmvm_legacy_cancellation_drains_and_fails_closed() -> None:
+    backend = _cancellable_backend()
+    backend._fifo_mode = False
+    command_started = threading.Event()
+    command_release = threading.Event()
+    stop_timeouts: list[float | None] = []
+
+    class Session:
+        def communicate(self, command: str, timeout: float) -> dict[str, str]:
+            command_started.set()
+            assert command_release.wait(timeout=2)
+            return {"status": "error", "output": "", "error_type": "exit"}
+
+        def interrupt(self, timeout: float | None = None) -> bool:
+            stop_timeouts.append(timeout)
+            command_release.set()
+            return True
+
+        def stop(self, timeout: float | None = None) -> bool:
+            return True
+
+    backend._session = Session()
+    backend._open_session = lambda **kwargs: (_ for _ in ()).throw(
+        AssertionError("legacy cancellation must not reopen a grading session")
+    )
+    worker = threading.Thread(target=backend.run_bash, args=("agent", 10))
+    worker.start()
+    assert command_started.wait(timeout=1)
+
+    assert backend.cancel_active_command(1) is False
+    worker.join(timeout=1)
+
+    assert not worker.is_alive()
+    assert backend._session is None
+    assert len(stop_timeouts) == 1
+    assert stop_timeouts[0] is not None and 0 < stop_timeouts[0] <= 1
+
+
+def test_vacli_session_interrupt_keeps_loop_alive_until_communicate_drains() -> None:
+    session = vacli_backend.VacliSession(["bash"], timeout=30)
+    session.start()
+    results: list[dict[str, str]] = []
+    worker = threading.Thread(
+        target=lambda: results.append(session.communicate("printf READY; sleep 30")),
+        daemon=True,
+    )
+    worker.start()
+    try:
+        deadline = time.monotonic() + 2
+        while b"READY" not in session._session._tmp_buffer and time.monotonic() < deadline:
+            time.sleep(0.01)
+        assert b"READY" in session._session._tmp_buffer
+        assert session.interrupt(timeout=1) is True
+    finally:
+        session.interrupt(timeout=1)
+        worker.join(timeout=2)
+        stopped = session.stop(timeout=1)
+
+    assert not worker.is_alive()
+    assert len(results) == 1
+    assert stopped is True
+
+
+def test_vmvm_fifo_interruption_kills_group_and_wakes_exact_waiter() -> None:
+    backend = _cancellable_backend()
+    backend._pending = (11, "agent", 10.0, time.monotonic())
+    calls: list[tuple[str, float]] = []
+
+    def ssh(command: str, *, timeout: float) -> subprocess.CompletedProcess:
+        calls.append((command, timeout))
+        return subprocess.CompletedProcess(args=[], returncode=0, stdout=b"")
+
+    backend._ssh_call_raw = ssh
+
+    assert backend._interrupt_fifo_command(3.5) is True
+    assert len(calls) == 1
+    command, timeout = calls[0]
+    assert timeout == 3.5
+    assert 'kill -KILL -"$p"' in command
+    assert 'printf 130 > "$D/e11"' in command
+    assert ': > "$D/d11"' in command
+
+
+def test_vmvm_fifo_interruption_preserves_subsecond_deadline() -> None:
+    backend = _cancellable_backend()
+    backend._pending = (13, "agent", 10.0, time.monotonic())
+    timeouts: list[float] = []
+
+    def ssh(command: str, *, timeout: float) -> subprocess.CompletedProcess:
+        timeouts.append(timeout)
+        return subprocess.CompletedProcess(args=[], returncode=0, stdout=b"")
+
+    backend._ssh_call_raw = ssh
+
+    assert backend._interrupt_fifo_command(0.01) is True
+    assert timeouts == [0.01]
+
+
+def test_vmvm_fifo_setup_clamps_readiness_sleep_to_deadline(monkeypatch) -> None:
+    backend = _cancellable_backend()
+    backend._compose_services = ()
+    backend._proxy_gateway = None
+    backend._ssh_call_raw = lambda *args, **kwargs: subprocess.CompletedProcess(args=[], returncode=0, stdout=b"")
+    backend._fifo_shell_alive = lambda timeout: False
+    clock = [10.0]
+    sleeps: list[float] = []
+
+    monkeypatch.setattr(vacli_backend.time, "monotonic", lambda: clock[0])
+
+    def advance(duration: float) -> None:
+        sleeps.append(duration)
+        clock[0] += duration
+
+    monkeypatch.setattr(vacli_backend.time, "sleep", advance)
+
+    with pytest.raises(BackendInitError, match="did not come up"):
+        backend._setup_fifo_shell(
+            run_entrypoint=False,
+            deadline=10.01,
+        )
+
+    assert sleeps == [pytest.approx(0.01)]
+
+
+def test_vacli_lease_process_has_parent_death_and_release_guards(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    captured: dict[str, object] = {}
+
+    class Process:
+        returncode = 0
+
+        def poll(self) -> int:
+            return 0
+
+    def popen(command, **kwargs):
+        captured["command"] = command
+        captured["kwargs"] = kwargs
+        return Process()
+
+    monkeypatch.setattr(vacli_backend.subprocess, "Popen", popen)
+    lease = vacli_backend.VacliLease(
+        "test-tenant",
+        tmp_path / "lease.log",
+        lease_ttl="60s",
+    )
+    lease.start()
+    lease.cleanup()
+
+    assert "--release-on-exit" in captured["command"]
+    assert captured["kwargs"]["process_group"] == 0
+    assert captured["kwargs"]["preexec_fn"] is vacli_backend._child_pdeathsig
+
+
+def test_lease_start_limiter_wait_is_cooperatively_cancellable() -> None:
+    limiter = LeaseStartConcurrencyLimiter(1, None)
+    assert limiter.acquire() is True
+    cancelled = threading.Event()
+    results: list[bool] = []
+    waiter = threading.Thread(target=lambda: results.append(limiter.acquire(cancelled)))
+    waiter.start()
+    time.sleep(0.02)
+
+    cancelled.set()
+    waiter.join(timeout=0.5)
+    limiter.release()
+
+    assert not waiter.is_alive()
+    assert results == [False]
+
+
+def test_vacli_lease_start_publication_is_serialized_with_cancel_cleanup(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    popen_entered = threading.Event()
+    publish = threading.Event()
+    cleanup_finished = threading.Event()
+    cancelled = threading.Event()
+
+    class Process:
+        pid = 12345
+        returncode: int | None = None
+
+        def poll(self) -> int | None:
+            return self.returncode
+
+        def wait(self, timeout: float) -> int:
+            self.returncode = 0
+            return 0
+
+    process = Process()
+
+    class Subprocess:
+        STDOUT = subprocess.STDOUT
+        TimeoutExpired = subprocess.TimeoutExpired
+
+        @staticmethod
+        def Popen(command, **kwargs):
+            popen_entered.set()
+            assert publish.wait(timeout=1)
+            return process
+
+    monkeypatch.setattr(vacli_backend.os, "getpgid", lambda pid: pid)
+    monkeypatch.setattr(vacli_backend.os, "killpg", lambda pid, signal: None)
+    lease = vacli_backend.VacliLease(
+        "test-tenant",
+        tmp_path / "lease.log",
+        cancel_event=cancelled,
+        subprocess_mod=Subprocess,
+    )
+    start_errors: list[BaseException] = []
+
+    def start() -> None:
+        try:
+            lease.start()
+        except BaseException as error:
+            start_errors.append(error)
+
+    starter = threading.Thread(target=start)
+    starter.start()
+    assert popen_entered.wait(timeout=1)
+    cancelled.set()
+
+    def cleanup() -> None:
+        lease.cleanup()
+        cleanup_finished.set()
+
+    cleaner = threading.Thread(target=cleanup)
+    cleaner.start()
+    assert not cleanup_finished.wait(timeout=0.02)
+    publish.set()
+    starter.join(timeout=1)
+    cleaner.join(timeout=1)
+
+    assert not starter.is_alive()
+    assert not cleaner.is_alive()
+    assert len(start_errors) == 1
+    assert isinstance(start_errors[0], BackendInitError)
+    assert lease._cleaned_up is True
+    assert process.returncode == 0
+
+
+def test_vmvm_provisioning_cancel_stops_live_partial_lease(
+    monkeypatch,
+) -> None:
+    cancel_event = threading.Event()
+    process_started = threading.Event()
+
+    class Process:
+        pid = 12346
+        returncode: int | None = None
+
+        def poll(self) -> int | None:
+            return self.returncode
+
+        def wait(self, timeout: float) -> int:
+            self.returncode = 0
+            return 0
+
+    process = Process()
+
+    class Subprocess:
+        PIPE = subprocess.PIPE
+        DEVNULL = subprocess.DEVNULL
+        STDOUT = subprocess.STDOUT
+        TimeoutExpired = subprocess.TimeoutExpired
+
+        @staticmethod
+        def Popen(command, **kwargs):
+            process_started.set()
+            return process
+
+    monkeypatch.setattr(vacli_backend.os, "getpgid", lambda pid: pid)
+    monkeypatch.setattr(
+        vacli_backend.os,
+        "killpg",
+        lambda pid, signal: setattr(process, "returncode", 0),
+    )
+    errors: list[BaseException] = []
+
+    def provision() -> None:
+        try:
+            VacliVMVMBackend(
+                vacli_backend.VacliVMVMConfig(
+                    image_url="registry.invalid/image",
+                    work_dir="/app",
+                    session_timeout=10,
+                    subprocess_mod=Subprocess,
+                    provisioning_cancel_event=cancel_event,
+                )
+            )
+        except BaseException as error:
+            errors.append(error)
+
+    worker = threading.Thread(target=provision)
+    worker.start()
+    assert process_started.wait(timeout=1)
+    cancel_event.set()
+    worker.join(timeout=1)
+
+    assert not worker.is_alive()
+    assert len(errors) == 1
+    assert isinstance(errors[0], BackendInitError)
+    assert process.returncode == 0
+
+
 def test_vmvm_root_exec_classifies_ssh_exit_255_as_transport_failure() -> None:
     backend = object.__new__(VacliVMVMBackend)
     backend._destroyed = False

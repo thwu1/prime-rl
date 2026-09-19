@@ -284,10 +284,19 @@ class LeaseStartConcurrencyLimiter:
         self._condition = threading.Condition(threading.Lock())
         self._telemetry = telemetry
 
-    def _acquire(self, *, measured: bool) -> bool:
+    def _acquire(
+        self,
+        *,
+        measured: bool,
+        cancel_event: threading.Event | None = None,
+    ) -> bool:
         with self._condition:
             while self._value == 0:
-                self._condition.wait()
+                if cancel_event is not None and cancel_event.is_set():
+                    return False
+                self._condition.wait(timeout=0.1 if cancel_event is not None else None)
+            if cancel_event is not None and cancel_event.is_set():
+                return False
             self._value -= 1
             try:
                 if measured and self._telemetry is not None:
@@ -309,10 +318,10 @@ class LeaseStartConcurrencyLimiter:
                 self._value += 1
                 self._condition.notify()
 
-    def acquire(self) -> bool:
+    def acquire(self, cancel_event: threading.Event | None = None) -> bool:
         """Acquire one measured lease-start permit."""
 
-        return self._acquire(measured=True)
+        return self._acquire(measured=True, cancel_event=cancel_event)
 
     def release(self) -> None:
         """Release one measured lease-start permit."""
