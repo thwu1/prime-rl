@@ -95,6 +95,39 @@ def test_sharded_tb4_checkpoint_uses_isolated_validator(monkeypatch: pytest.Monk
     assert calls == ["deployment-test"]
 
 
+def test_multigen_sharded_tb4_checkpoint_uses_schema3_validator(monkeypatch: pytest.MonkeyPatch) -> None:
+    expected = {
+        "certificate_sha256": "a" * 64,
+        "deployment_spec_sha256": "b" * 64,
+        "expected_routes": 1,
+        "route_generation_sha256s": ["c" * 64, "d" * 64],
+        "endpoint_binding_sha256s": ["e" * 64, "f" * 64],
+        "proxy_policy_semantics_sha256": "1" * 64,
+        "proxy_policy_sha256s": ["2" * 64, "3" * 64],
+        "shard_count": 66,
+        "supported_pass_rate": 4 / 63,
+        "all_task_pass_rate": 4 / 66,
+        "supported_passes": 4,
+        "sharded": True,
+    }
+    calls: list[str] = []
+
+    def validate(value: dict, *, deployment_id: str) -> dict:
+        assert value == {"schema_version": 3}
+        calls.append(deployment_id)
+        return expected
+
+    monkeypatch.setattr(certificate_module, "validate_multigen_sharded_checkpoint", validate)
+    monkeypatch.setattr(
+        certificate_module,
+        "validate_sharded_checkpoint",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(AssertionError("schema-v2 validator called")),
+    )
+
+    assert certificate_module._validate_tb4_checkpoint({"schema_version": 3}, "deployment-test", {}) == expected
+    assert calls == ["deployment-test"]
+
+
 def test_sharded_tb4_gate_record_uses_generation_digests_only() -> None:
     validated = {
         "certificate_sha256": "a" * 64,
@@ -116,6 +149,31 @@ def test_sharded_tb4_gate_record_uses_generation_digests_only() -> None:
     assert record["shard_count"] == 17
     assert "serving_route_generation" not in record
     assert "proxy_policy" not in record
+
+
+def test_multigen_sharded_tb4_gate_record_binds_policy_set() -> None:
+    validated = {
+        "certificate_sha256": "a" * 64,
+        "deployment_spec_sha256": "b" * 64,
+        "expected_routes": 2,
+        "route_generation_sha256s": ["c" * 64, "d" * 64],
+        "endpoint_binding_sha256s": ["e" * 64, "f" * 64],
+        "proxy_policy_semantics_sha256": "1" * 64,
+        "proxy_policy_sha256s": ["2" * 64, "3" * 64],
+        "shard_count": 66,
+        "supported_pass_rate": 4 / 63,
+        "supported_passes": 4,
+        "sharded": True,
+    }
+
+    record = certificate_module._tb4_gate_record(
+        {"path": "/private/checkpoint", "sha256": "4" * 64},
+        validated,
+    )
+
+    assert record["proxy_policy_semantics_sha256"] == "1" * 64
+    assert record["proxy_policy_sha256s"] == ["2" * 64, "3" * 64]
+    assert "proxy_policy_sha256" not in record
 
 
 def _route_generation(count: int, *, first_job_id: int) -> dict:
@@ -1213,6 +1271,42 @@ def test_create_and_reconstruct_launch_certificate_with_sharded_tb4(
     assert gate["route_generation_sha256s"] == ["c" * 64, "d" * 64]
     assert "serving_route_generation" not in gate
     assert "proxy_policy" not in gate
+    certificate_sha256 = _sha256(output.read_bytes())
+    assert certificate_module._validate_launch_certificate(output, certificate_sha256) == certificate
+
+
+def test_create_and_reconstruct_launch_certificate_with_schema3_sharded_tb4(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    arguments, output = _fixture(tmp_path)
+    sharded = {
+        "certificate_sha256": "a" * 64,
+        "deployment_spec_sha256": "b" * 64,
+        "expected_routes": 1,
+        "route_generation_sha256s": ["c" * 64, "d" * 64],
+        "endpoint_binding_sha256s": ["e" * 64, "f" * 64],
+        "proxy_policy_semantics_sha256": "1" * 64,
+        "proxy_policy_sha256s": ["2" * 64, "3" * 64],
+        "shard_count": 66,
+        "supported_pass_rate": 4 / 63,
+        "all_task_pass_rate": 4 / 66,
+        "supported_passes": 4,
+        "sharded": True,
+    }
+    monkeypatch.setattr(
+        certificate_module,
+        "_validate_tb4_checkpoint",
+        lambda _value, _deployment_id, _endpoint: sharded,
+    )
+
+    certificate = create_launch_certificate(**arguments)
+    gate = certificate["gates"]["tb4"]
+    assert gate["sharded"] is True
+    assert gate["shard_count"] == 66
+    assert gate["proxy_policy_semantics_sha256"] == "1" * 64
+    assert gate["proxy_policy_sha256s"] == ["2" * 64, "3" * 64]
+    assert "proxy_policy_sha256" not in gate
     certificate_sha256 = _sha256(output.read_bytes())
     assert certificate_module._validate_launch_certificate(output, certificate_sha256) == certificate
 

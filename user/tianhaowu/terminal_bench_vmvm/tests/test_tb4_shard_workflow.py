@@ -9,6 +9,8 @@ import tomllib
 from dataclasses import replace
 from pathlib import Path
 
+import eval_run_identity
+import guard_success_receipt
 import pytest
 import tb4_shard_workflow as workflow
 from tb4_shard_workflow import (
@@ -185,6 +187,118 @@ def test_scan_results_requires_exactly_one_row_per_planned_case(tmp_path: Path):
     results.write_text(json.dumps(rows[0]) + "\n" + json.dumps(rows[0]) + "\n")
     with pytest.raises(ShardWorkflowError, match="shard_trace_identity_invalid"):
         _scan_results(results, frozenset(identifiers))
+
+
+def test_certify_shard_uses_validated_snapshot_after_live_proxy_path_is_obsolete(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    plan, plan_dir, _identifiers = _make_plan(tmp_path, shard_size=1)
+    _loaded, shards = load_plan(plan_dir / "plan.json")
+    shard = shards[0]
+    run_dir = tmp_path / "run"
+    run_dir.mkdir()
+    receipt_path = run_dir / "route_guard_success.json"
+    _private_write(receipt_path, b"{}\n")
+    identity_path = run_dir / "eval_run_identity.json"
+    _private_write(identity_path, b"{}\n")
+    results_path = run_dir / "results.jsonl"
+    results_path.write_text(json.dumps({"id": "trace-0", "task": {"slug": next(iter(shard.tasks))}}) + "\n")
+    results_sha256 = hashlib.sha256(results_path.read_bytes()).hexdigest()
+
+    deployment_spec = tmp_path / "deployment-spec.yaml"
+    deployment_spec.write_text("spec:\n  num_endpoints: 1\n")
+    deployment_spec_sha256 = hashlib.sha256(deployment_spec.read_bytes()).hexdigest()
+    snapshot = tmp_path / "proxy-config-snapshot.yaml"
+    route = "http://worker-0.invalid:8000/v1"
+    snapshot.write_text(
+        "model_list:\n"
+        "  - model_name: kimi\n"
+        "    litellm_params:\n"
+        "      model: openai/Kimi-K3\n"
+        f"      api_base: {route}\n"
+        "litellm_settings:\n"
+        "  request_timeout: 43200\n"
+        "  num_retries: 0\n"
+    )
+    snapshot.chmod(0o600)
+    snapshot_sha256 = hashlib.sha256(snapshot.read_bytes()).hexdigest()
+    obsolete_live_path = tmp_path / "removed-live-proxy-config.yaml"
+    assert not obsolete_live_path.exists()
+    proxy_policy = {
+        "schema_version": 1,
+        "request_timeout": 43_200,
+        "num_retries": 0,
+        "proxy_litellm_config": {
+            "path": str(obsolete_live_path),
+            "sha256": snapshot_sha256,
+        },
+    }
+    route_generation = {
+        "routes": [
+            {
+                "backend_sha256": f"backend-sha256:{hashlib.sha256(route.encode()).hexdigest()}",
+            }
+        ]
+    }
+    identity = {
+        "source": {"revision": "1" * 40},
+        "dataset": {"path": str(tmp_path / "dataset")},
+        "contract": {"model": "Kimi-K3"},
+        "inputs": {
+            "task_file": {
+                "path": str(shard.task_manifest),
+                "sha256": shard.task_manifest_sha256,
+                "count": shard.task_count,
+            }
+        },
+        "config": {
+            "source": {"path": str(shard.config), "sha256": shard.config_sha256},
+            "resolved": {"path": str(shard.config), "sha256": shard.config_sha256},
+        },
+        "execution": {
+            "rollout_concurrency": 4,
+            "multiplex": 4,
+            "http_max_connections": 4,
+            "http_max_keepalive_connections": 4,
+            "vmvm_environment": {"lease_start_concurrency": 2},
+        },
+        "deployment": {
+            "id": "deployment-test",
+            "spec": {"path": str(deployment_spec), "sha256": deployment_spec_sha256},
+            "readiness_checkpoint": {},
+            "endpoint": {},
+            "serving_route_generation": route_generation,
+            "routing": {},
+            "proxy_policy": proxy_policy,
+        },
+        "role": "tb4",
+    }
+    envelope = {"identity": identity, "eval_run_identity_sha256": "e" * 64}
+    receipt = {
+        "artifacts": {
+            "eval_run_identity": {"path": str(identity_path), "sha256": "a" * 64},
+            "results": {"path": str(results_path), "sha256": results_sha256},
+        },
+        "guard_success_receipt_sha256": "b" * 64,
+    }
+
+    monkeypatch.setattr(guard_success_receipt, "load_guard_success_receipt", lambda _path: receipt)
+    monkeypatch.setattr(guard_success_receipt, "validate_guard_success_linkage", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(eval_run_identity, "load_eval_run_identity", lambda *_args, **_kwargs: envelope)
+
+    certified = workflow._certify_shard(
+        receipt_path,
+        {shard.task_manifest_sha256: shard},
+        expected_semantics_sha256=plan["base_config"]["semantics_sha256"],
+        proxy_config_snapshot=snapshot,
+    )
+
+    assert certified.proxy_config == snapshot.resolve()
+    assert certified.proxy_config_sha256 == snapshot_sha256
+    assert certified.identity_semantics["deployment"]["proxy_policy"]["proxy_litellm_config"]["path"] == str(
+        obsolete_live_path
+    )
 
 
 def test_writer_lock_is_acquired_once_and_rejects_an_active_writer(tmp_path: Path):

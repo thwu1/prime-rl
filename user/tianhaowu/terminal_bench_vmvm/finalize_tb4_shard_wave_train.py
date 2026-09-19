@@ -731,21 +731,41 @@ def _load_and_validate_multigen_checkpoint(
         value,
         deployment_id=prepared.config.deployment_id,
     )
+    artifacts = value.get("artifacts")
+    policies = artifacts.get("proxy_policies") if isinstance(artifacts, dict) else None
+    policy_artifacts: dict[str, dict[str, str]] = {}
+    referenced_proxy_members: set[str] = set()
+    if not isinstance(policies, list):
+        raise FinalizationError("sharded_checkpoint_controller_mismatch")
+    for item in policies:
+        if (
+            not isinstance(item, dict)
+            or set(item) != {"policy_sha256", "path", "sha256"}
+            or SHA256_RE.fullmatch(str(item.get("policy_sha256", ""))) is None
+            or SHA256_RE.fullmatch(str(item.get("sha256", ""))) is None
+            or not isinstance(item.get("path"), str)
+            or item["policy_sha256"] in policy_artifacts
+        ):
+            raise FinalizationError("sharded_checkpoint_controller_mismatch")
+        artifact = {"path": item["path"], "sha256": item["sha256"]}
+        policy_artifacts[item["policy_sha256"]] = artifact
+        referenced_proxy_members.add(Path(item["path"]).name)
+    if set(members) != required_members | referenced_proxy_members:
+        raise FinalizationError("merge_output_invalid")
     route_hashes = sorted(set(expected_route_generation_sha256s))
     endpoint_hashes = sorted(set(expected_endpoint_binding_sha256s))
     proxy_policy = dict(prepared.route_binding.proxy_policy)
     proxy_policy.pop("proxy_litellm_config", None)
     proxy_policy_semantics_sha256 = hashlib.sha256(canonical_json(proxy_policy)).hexdigest()
-    observed_shards = value.get("shards")
-    expected_shards = list(evidence.shard_records)
-    if isinstance(observed_shards, list):
-        observed_shards = [
-            {key: record.get(key) for key in expected_shards[0]}
-            for record in observed_shards
-            if isinstance(record, dict)
-        ]
+    expected_shards: list[dict[str, Any]] = []
+    for record in evidence.shard_records:
+        policy_sha256 = record.get("proxy_policy_sha256")
+        policy_artifact = policy_artifacts.get(str(policy_sha256))
+        if policy_artifact is None:
+            raise FinalizationError("sharded_checkpoint_controller_mismatch")
+        expected_shards.append({**record, "proxy_policy_artifact": policy_artifact})
     if (
-        observed_shards != expected_shards
+        value.get("shards") != expected_shards
         or value.get("plan")
         != {
             "path": str(prepared.plan_artifact.path),
@@ -779,6 +799,10 @@ def _combined_multigen_evidence(items: Sequence[tuple[PreparedTrain, ControllerE
     for prepared, evidence in items:
         if _controller_policy_fingerprint(prepared) != baseline:
             raise FinalizationError("controller_policy_mismatch")
+        proxy_config_snapshot = prepared.proxy_config_snapshot
+        if proxy_config_snapshot is None:
+            raise FinalizationError("proxy_config_snapshot_required")
+        proxy_policy_sha256 = hashlib.sha256(canonical_json(prepared.route_binding.proxy_policy)).hexdigest()
         selected = tuple(record["index"] for record in evidence.shard_records)
         if selected != prepared.selected_indices:
             raise FinalizationError("controller_coverage_invalid")
@@ -786,7 +810,14 @@ def _combined_multigen_evidence(items: Sequence[tuple[PreparedTrain, ControllerE
             index = record["index"]
             if index in records_by_index:
                 raise FinalizationError("controller_coverage_overlap")
-            records_by_index[index] = record
+            records_by_index[index] = {
+                **record,
+                "proxy_config_snapshot": {
+                    "path": str(proxy_config_snapshot.path),
+                    "sha256": proxy_config_snapshot.sha256,
+                },
+                "proxy_policy_sha256": proxy_policy_sha256,
+            }
             receipts_by_index[index] = receipt
         supported_count += evidence.supported_count
         unsupported_count += evidence.unsupported_count

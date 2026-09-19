@@ -405,9 +405,26 @@ def _range_evidence(tmp_path: Path, prepared) -> finalizer.ControllerEvidence:
     )
 
 
-def _multi_value(evidence: finalizer.ControllerEvidence, prepared) -> dict:
+def _multi_value(evidence: finalizer.ControllerEvidence, prepared, output: Path) -> dict:
     value = _checkpoint_value(evidence, prepared)
     value["distinct_route_generations"] = len({record["route_generation_sha256"] for record in evidence.shard_records})
+    policy_sha256s = sorted({record["proxy_policy_sha256"] for record in evidence.shard_records})
+    policy_artifacts = {
+        policy_sha256: {
+            "path": str(output / f"proxy_policy_{policy_sha256}.json"),
+            "sha256": "a" * 64,
+        }
+        for policy_sha256 in policy_sha256s
+    }
+    value["artifacts"] = {
+        "proxy_policies": [
+            {"policy_sha256": policy_sha256, **policy_artifacts[policy_sha256]} for policy_sha256 in policy_sha256s
+        ]
+    }
+    value["shards"] = [
+        {**record, "proxy_policy_artifact": policy_artifacts[record["proxy_policy_sha256"]]}
+        for record in evidence.shard_records
+    ]
     return value
 
 
@@ -551,7 +568,7 @@ def test_multigen_finalizer_allows_disjoint_ranges_with_different_route_generati
                 (second, evidence_by_root[second.controller_root]),
             )
         )
-        value = _multi_value(evidence, first)
+        value = _multi_value(evidence, first, output_dir)
         _write_output(output_dir, value, multigen=True)
         return value
 
@@ -561,6 +578,16 @@ def test_multigen_finalizer_allows_disjoint_ranges_with_different_route_generati
             (second, evidence_by_root[second.controller_root]),
         )
     )
+    expected_policy_sha256 = hashlib.sha256(finalizer.canonical_json(first.route_binding.proxy_policy)).hexdigest()
+    assert observed_evidence.shard_records[0]["proxy_config_snapshot"] == {
+        "path": str(first.proxy_config_snapshot.path),
+        "sha256": first.proxy_config_snapshot.sha256,
+    }
+    assert observed_evidence.shard_records[32]["proxy_config_snapshot"] == {
+        "path": str(second.proxy_config_snapshot.path),
+        "sha256": second.proxy_config_snapshot.sha256,
+    }
+    assert {record["proxy_policy_sha256"] for record in observed_evidence.shard_records} == {expected_policy_sha256}
     monkeypatch.setattr(finalizer, "merge_multigen_shards", merge)
     monkeypatch.setattr(
         finalizer,
@@ -714,8 +741,8 @@ def test_multigen_timing_validation_matches_single_finalizer(tmp_path: Path):
 
 def test_multigen_checkpoint_rejects_tampered_route_generation_summary(tmp_path: Path, monkeypatch):
     first = _prepared(tmp_path)
-    evidence = _evidence(tmp_path, first)
-    value = _multi_value(evidence, first)
+    evidence = finalizer._combined_multigen_evidence(((first, _evidence(tmp_path, first)),))
+    value = _multi_value(evidence, first, tmp_path / "final")
     output = tmp_path / "final"
     _write_output(output, value, multigen=True)
     bad = _validated_multi(first, evidence)
@@ -731,6 +758,70 @@ def test_multigen_checkpoint_rejects_tampered_route_generation_summary(tmp_path:
             expected_route_generation_sha256s=[first.generation_sha256],
             expected_endpoint_binding_sha256s=[
                 hashlib.sha256(finalizer.canonical_json(first.route_binding.endpoint)).hexdigest()
+            ],
+        )
+
+
+@pytest.mark.parametrize("binding", ["snapshot_path", "snapshot_sha256", "proxy_policy_sha256"])
+def test_reused_multigen_checkpoint_is_cross_bound_to_controller_snapshot_policy(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    binding: str,
+) -> None:
+    prepared = _prepared(tmp_path)
+    evidence = finalizer._combined_multigen_evidence(((prepared, _evidence(tmp_path, prepared)),))
+    output = tmp_path / "final"
+    value = json.loads(json.dumps(_multi_value(evidence, prepared, output)))
+    if binding == "snapshot_path":
+        value["shards"][0]["proxy_config_snapshot"]["path"] = str(tmp_path / "other-snapshot.yaml")
+    elif binding == "snapshot_sha256":
+        value["shards"][0]["proxy_config_snapshot"]["sha256"] = "0" * 64
+    else:
+        value["shards"][0]["proxy_policy_sha256"] = "0" * 64
+    _write_output(output, value, multigen=True)
+    monkeypatch.setattr(
+        finalizer,
+        "validate_multigen_sharded_checkpoint",
+        lambda *_args, **_kwargs: _validated_multi(prepared, evidence),
+    )
+
+    with pytest.raises(finalizer.FinalizationError, match="sharded_checkpoint_controller_mismatch"):
+        finalizer._load_and_validate_multigen_checkpoint(
+            output,
+            prepared,
+            evidence,
+            expected_value=None,
+            expected_route_generation_sha256s=[prepared.generation_sha256],
+            expected_endpoint_binding_sha256s=[
+                hashlib.sha256(finalizer.canonical_json(prepared.route_binding.endpoint)).hexdigest()
+            ],
+        )
+
+
+def test_multigen_checkpoint_rejects_unreferenced_policy_artifact(tmp_path: Path, monkeypatch) -> None:
+    prepared = _prepared(tmp_path)
+    evidence = finalizer._combined_multigen_evidence(((prepared, _evidence(tmp_path, prepared)),))
+    output = tmp_path / "final"
+    value = _multi_value(evidence, prepared, output)
+    _write_output(output, value, multigen=True)
+    extra = output / f"proxy_policy_{'b' * 64}.json"
+    extra.write_text("{}\n")
+    extra.chmod(0o600)
+    monkeypatch.setattr(
+        finalizer,
+        "validate_multigen_sharded_checkpoint",
+        lambda *_args, **_kwargs: _validated_multi(prepared, evidence),
+    )
+
+    with pytest.raises(finalizer.FinalizationError, match="merge_output_invalid"):
+        finalizer._load_and_validate_multigen_checkpoint(
+            output,
+            prepared,
+            evidence,
+            expected_value=None,
+            expected_route_generation_sha256s=[prepared.generation_sha256],
+            expected_endpoint_binding_sha256s=[
+                hashlib.sha256(finalizer.canonical_json(prepared.route_binding.endpoint)).hexdigest()
             ],
         )
 
@@ -785,13 +876,18 @@ def test_collect_rejects_untrusted_train_hash(tmp_path: Path, monkeypatch):
 def _write_output(output: Path, value: dict, *, multigen: bool = False) -> bytes:
     output.mkdir(mode=0o700)
     raw = (json.dumps(value, sort_keys=True) + "\n").encode()
-    for name, payload in (
+    artifacts = (
+        [(Path(item["path"]).name, b"{}\n") for item in value.get("artifacts", {}).get("proxy_policies", [])]
+        if multigen
+        else [("proxy_policy.json", b"{}\n")]
+    )
+    for name, payload in [
         ("results.jsonl", b"results\n"),
         ("audit_summary.json", b"{}\n"),
         ("deployment_spec_policy.json", b"{}\n"),
-        ("proxy_policy_" + "a" * 64 + ".json" if multigen else "proxy_policy.json", b"{}\n"),
         ("checkpoint.json", raw),
-    ):
+        *artifacts,
+    ]:
         path = output / name
         path.write_bytes(payload)
         path.chmod(0o600)

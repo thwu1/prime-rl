@@ -811,9 +811,14 @@ def _certify_shard(
         identity_path = Path(artifacts["eval_run_identity"]["path"])
         run_dir = resolved_receipt.parent
         temporary_snapshot_root: tempfile.TemporaryDirectory[str] | None = None
+        resolved_proxy_config_snapshot: Path | None = None
         if proxy_config_snapshot is not None:
             if (deployment_spec_snapshot is None) != (proxy_policy_snapshot is None):
                 raise ShardWorkflowError("shard_snapshot_arguments_invalid")
+            try:
+                resolved_proxy_config_snapshot = Path(proxy_config_snapshot).resolve(strict=True)
+            except (OSError, RuntimeError) as error:
+                raise DeploymentProxyPolicyError("proxy_config_snapshot_invalid") from error
             preliminary = load_eval_run_identity(identity_path, verify_references=False)
             preliminary_identity = preliminary["identity"]
             preliminary_deployment = preliminary_identity["deployment"]
@@ -821,10 +826,10 @@ def _certify_shard(
             preliminary_routes = preliminary_generation["routes"]
             backends = [route["backend_sha256"] for route in preliminary_routes]
             validate_worker_rotation_proxy_configs(
-                source_snapshot=proxy_config_snapshot,
+                source_snapshot=resolved_proxy_config_snapshot,
                 source_binding=preliminary_deployment["proxy_policy"],
                 source_backends=backends,
-                target_snapshot=proxy_config_snapshot,
+                target_snapshot=resolved_proxy_config_snapshot,
                 target_binding=preliminary_deployment["proxy_policy"],
                 target_backends=backends,
             )
@@ -975,7 +980,11 @@ def _certify_shard(
         ),
         deployment_spec=Path(deployment_spec["path"]).resolve(strict=True),
         deployment_spec_sha256=deployment_spec["sha256"],
-        proxy_config=Path(proxy_config["path"]).resolve(strict=True),
+        proxy_config=(
+            resolved_proxy_config_snapshot
+            if resolved_proxy_config_snapshot is not None
+            else Path(proxy_config["path"]).resolve(strict=True)
+        ),
         proxy_config_sha256=proxy_config["sha256"],
     )
 

@@ -45,7 +45,11 @@ from inference_route_generation import (
     validate_readiness_route_generation,
     validate_route_generation,
 )
-from tb4_shard_workflow import ShardWorkflowError, validate_sharded_checkpoint
+from tb4_shard_workflow import (
+    ShardWorkflowError,
+    validate_multigen_sharded_checkpoint,
+    validate_sharded_checkpoint,
+)
 from trace_concurrency import TraceConcurrencyError, measure_peak_active_rollouts
 from vmvm_tb_v2._vacli.concurrency_telemetry import (
     ConcurrencyTelemetryError,
@@ -581,9 +585,12 @@ def _validate_tb4_checkpoint(
     deployment_id: str,
     endpoint: dict[str, Any],
 ) -> dict[str, Any]:
-    if isinstance(value, dict) and value.get("schema_version") == 2:
+    if isinstance(value, dict) and value.get("schema_version") in {2, 3}:
         try:
-            return validate_sharded_checkpoint(value, deployment_id=deployment_id)
+            validator = (
+                validate_multigen_sharded_checkpoint if value["schema_version"] == 3 else validate_sharded_checkpoint
+            )
+            return validator(value, deployment_id=deployment_id)
         except (OSError, ShardWorkflowError) as cause:
             raise LaunchCertificateError("tb4_sharded_checkpoint_invalid") from cause
     expected_keys = {
@@ -1818,13 +1825,19 @@ def _tb4_gate_record(
         "supported_passes": validated["supported_passes"],
     }
     if validated.get("sharded") is True:
-        return {
+        sharded = {
             **record,
             "sharded": True,
             "shard_count": validated["shard_count"],
             "route_generation_sha256s": validated["route_generation_sha256s"],
             "endpoint_binding_sha256s": validated["endpoint_binding_sha256s"],
-            "proxy_policy_sha256": validated["proxy_policy_sha256"],
+        }
+        if "proxy_policy_sha256" in validated:
+            return {**sharded, "proxy_policy_sha256": validated["proxy_policy_sha256"]}
+        return {
+            **sharded,
+            "proxy_policy_semantics_sha256": validated["proxy_policy_semantics_sha256"],
+            "proxy_policy_sha256s": validated["proxy_policy_sha256s"],
         }
     return {
         **record,
