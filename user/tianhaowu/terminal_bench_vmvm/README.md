@@ -1283,6 +1283,7 @@ uv run python user/tianhaowu/terminal_bench_vmvm/preflight_sft.py \
   --expected-manifest-sha256 MANIFEST_SHA256 \
   --project-dir /absolute/path/to/prime-rl \
   --expected-project-revision PRIME_RL_COMMIT \
+  --no-expected-require-exact-provider-json \
   --output /absolute/path/to/corpus/sft-render-preflight.json
 ```
 
@@ -1290,6 +1291,9 @@ The command renders every row, verifies that retained reasoning changes the
 token stream and target reasoning changes trainable tokens, proves the loss
 mask matches the selected assistant's renderer attribution, and rejects a
 rendered row over 262,144 tokens. It records only aggregate counts and hashes.
+Use `--expected-require-exact-provider-json` for a strict export; the explicit
+negative form above is required for a permissive export. The expectation and
+the export's exact source-validation policy are bound into the attestation.
 Pin the resulting file and digest in every format-v3 train or validation data
 block with `preflight_attestation` and
 `preflight_attestation_sha256`. The trainer rehashes the attestation, export

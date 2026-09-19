@@ -194,6 +194,13 @@ def _export_summary(output: Path, expected_count: int, routing_index: Path, sour
                     "transition_sha256": source_artifacts["qwen_router_transition.json"]["sha256"],
                 },
                 "selection": "pass-only",
+                "source_validation": {
+                    "max_sequence_tokens": 262144,
+                    "require_exact_provider_json": False,
+                    "require_model_io": True,
+                    "require_reasoning": True,
+                    "require_request_graph_match": True,
+                },
                 "source_artifacts": source_artifacts,
                 "split": {
                     "policy": "sha256(split_salt + NUL + stable task identity SHA-256) modulo 10000",
@@ -295,6 +302,13 @@ def test_finalizer_runs_label_before_export_and_emits_only_aggregates(
     assert (options.output_dir / finalizer.INDEX_FILENAME).read_bytes() == b"synthetic-index\n"
     assert external_indexes and not external_indexes[0].exists()
     assert staged_outputs and not staged_outputs[0].exists()
+    assert json.loads((options.output_dir / "manifest.json").read_bytes())["source_validation"] == {
+        "max_sequence_tokens": 262_144,
+        "require_exact_provider_json": False,
+        "require_model_io": True,
+        "require_reasoning": True,
+        "require_request_graph_match": True,
+    }
     source_after = {
         path.relative_to(options.source_dir): path.read_bytes()
         for path in options.source_dir.rglob("*")

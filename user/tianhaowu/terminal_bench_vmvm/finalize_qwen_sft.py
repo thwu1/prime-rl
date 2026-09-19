@@ -653,6 +653,7 @@ def _validate_export_summary(
     config = manifest_value.get("config")
     counts = manifest_value.get("counts")
     exporter_contract = manifest_value.get("exporter")
+    source_validation = manifest_value.get("source_validation")
     split = manifest_value.get("split")
     routing = manifest_value.get("routing_epochs")
     expected_manifest_keys = {
@@ -664,6 +665,7 @@ def _validate_export_summary(
         "max_sequence_tokens",
         "routing_epochs",
         "selection",
+        "source_validation",
         "source_artifacts",
         "split",
         "target_rendering",
@@ -714,6 +716,21 @@ def _validate_export_summary(
         or manifest_value.get("format") != FORMAT_CONTRACT
         or manifest_value.get("target_rendering") != exporter.TARGET_RENDERING_CONTRACT
         or target_rendering_value != exporter.TARGET_RENDERING_CONTRACT
+        or not isinstance(source_validation, dict)
+        or set(source_validation)
+        != {
+            "max_sequence_tokens",
+            "require_exact_provider_json",
+            "require_model_io",
+            "require_reasoning",
+            "require_request_graph_match",
+        }
+        or not _is_plain_int(source_validation.get("max_sequence_tokens"))
+        or source_validation["max_sequence_tokens"] != MAX_SEQUENCE_TOKENS
+        or source_validation.get("require_exact_provider_json") is not False
+        or source_validation.get("require_model_io") is not True
+        or source_validation.get("require_reasoning") is not True
+        or source_validation.get("require_request_graph_match") is not True
         or not isinstance(artifacts, dict)
         or set(artifacts) != expected_artifact_names
         or any(

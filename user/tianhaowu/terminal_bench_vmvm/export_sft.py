@@ -2266,6 +2266,13 @@ def export_sft(options: ExportOptions) -> dict[str, Any]:
                 },
                 "max_sequence_tokens": options.max_sequence_tokens,
                 "selection": options.selection,
+                "source_validation": {
+                    "max_sequence_tokens": options.max_sequence_tokens,
+                    "require_exact_provider_json": options.require_exact_provider_json,
+                    "require_model_io": True,
+                    "require_reasoning": True,
+                    "require_request_graph_match": True,
+                },
                 "source_artifacts": {key: value.as_dict() for key, value in sorted(source_artifacts.items())},
                 "split": {
                     "policy": "sha256(split_salt + NUL + stable task identity SHA-256) modulo 10000",

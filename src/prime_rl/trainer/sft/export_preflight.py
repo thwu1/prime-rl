@@ -29,7 +29,7 @@ from prime_rl.trainer.sft.data import (
 from prime_rl.utils.chat_template import deserialize_tool_calls, normalize_messages, strip_message_content
 
 ATTESTATION_KIND = "prime-rl-sft-render-preflight"
-ATTESTATION_SCHEMA_VERSION = 1
+ATTESTATION_SCHEMA_VERSION = 2
 EXPORT_FORMAT_VERSION = 3
 MAX_METADATA_BYTES = 16 * 1024 * 1024
 MAX_JSONL_ROW_BYTES = 128 * 1024 * 1024
@@ -62,6 +62,15 @@ EXPECTED_TARGET_RENDERING_CONTRACT: dict[str, Any] = {
         "trust_remote_code": False,
     },
 }
+SOURCE_VALIDATION_KEYS = frozenset(
+    {
+        "max_sequence_tokens",
+        "require_exact_provider_json",
+        "require_model_io",
+        "require_reasoning",
+        "require_request_graph_match",
+    }
+)
 REQUIRED_EXPORT_ARTIFACTS = {
     "task-split.json",
     TARGET_RENDERING_CONTRACT_FILENAME,
@@ -121,6 +130,7 @@ class ExportBinding:
     manifest: FileArtifact
     artifacts: Mapping[str, FileArtifact]
     manifest_value: Mapping[str, Any]
+    source_validation: Mapping[str, Any]
     target_rendering: Mapping[str, Any]
 
 
@@ -285,6 +295,21 @@ def _canonical_directory(path: Path, code: str) -> Path:
     return resolved
 
 
+def _source_validation_policy(value: object, code: str) -> dict[str, int | bool]:
+    if (
+        not isinstance(value, dict)
+        or set(value) != SOURCE_VALIDATION_KEYS
+        or value.get("require_reasoning") is not True
+        or value.get("require_model_io") is not True
+        or value.get("require_request_graph_match") is not True
+        or not isinstance(value.get("require_exact_provider_json"), bool)
+        or not _is_plain_int(value.get("max_sequence_tokens"))
+        or value["max_sequence_tokens"] != EXPECTED_TARGET_RENDERING_CONTRACT["max_sequence_tokens"]
+    ):
+        raise SFTPreflightError(code)
+    return {key: value[key] for key in sorted(SOURCE_VALIDATION_KEYS)}
+
+
 def _load_export_binding(export_root: Path, expected_manifest_sha256: str) -> ExportBinding:
     if not _valid_sha256(expected_manifest_sha256):
         raise SFTPreflightError("export_manifest_digest_invalid")
@@ -302,6 +327,10 @@ def _load_export_binding(export_root: Path, expected_manifest_sha256: str) -> Ex
     artifacts_value = manifest.get("artifacts")
     target_rendering = manifest.get("target_rendering")
     max_tokens = manifest.get("max_sequence_tokens")
+    source_validation = _source_validation_policy(
+        manifest.get("source_validation"),
+        "export_source_validation_invalid",
+    )
     if (
         not isinstance(exporter, dict)
         or set(exporter) != {"file_sha256", "format_version"}
@@ -338,7 +367,7 @@ def _load_export_binding(export_root: Path, expected_manifest_sha256: str) -> Ex
         or _parse_json_object(contract_body, "target_rendering_contract_invalid") != EXPECTED_TARGET_RENDERING_CONTRACT
     ):
         raise SFTPreflightError("target_rendering_contract_invalid")
-    return ExportBinding(root, manifest_artifact, artifacts, manifest, target_rendering)
+    return ExportBinding(root, manifest_artifact, artifacts, manifest, source_validation, target_rendering)
 
 
 def _validate_tool_call(value: object) -> None:
@@ -744,13 +773,18 @@ def create_sft_preflight_attestation(
     expected_manifest_sha256: str,
     project_dir: Path,
     expected_project_revision: str,
+    expected_require_exact_provider_json: bool,
     output: Path,
 ) -> dict[str, Any]:
     """Render every exported row and write an aggregate-only immutable attestation."""
     if not output.is_absolute() or output != Path(os.path.normpath(output)) or os.path.lexists(output):
         raise SFTPreflightError("attestation_path_invalid")
     _canonical_directory(output.parent, "attestation_path_invalid")
+    if not isinstance(expected_require_exact_provider_json, bool):
+        raise SFTPreflightError("source_validation_expectation_invalid")
     binding = _load_export_binding(export_root, expected_manifest_sha256)
+    if binding.source_validation["require_exact_provider_json"] is not expected_require_exact_provider_json:
+        raise SFTPreflightError("source_validation_expectation_mismatch")
     code = _repository_provenance(project_dir, expected_project_revision)
     rendering = _render_export(binding)
     if rendering["rows"] < 1 or rendering["trainable_tokens"] < 1:
@@ -759,10 +793,15 @@ def create_sft_preflight_attestation(
     if _repository_provenance(project_dir, expected_project_revision) != code:
         raise SFTPreflightError("project_changed_during_preflight")
     rebound = _load_export_binding(binding.root, binding.manifest.sha256)
-    if rebound.manifest != binding.manifest or rebound.artifacts != binding.artifacts:
+    if (
+        rebound.manifest != binding.manifest
+        or rebound.artifacts != binding.artifacts
+        or rebound.source_validation != binding.source_validation
+    ):
         raise SFTPreflightError("export_changed_during_preflight")
     value = {
         "code": code,
+        "expected_require_exact_provider_json": expected_require_exact_provider_json,
         "export": {
             "artifacts": {name: artifact.as_dict() for name, artifact in sorted(binding.artifacts.items())},
             "manifest": binding.manifest.as_dict(),
@@ -771,12 +810,14 @@ def create_sft_preflight_attestation(
         "kind": ATTESTATION_KIND,
         "rendering": rendering,
         "schema_version": ATTESTATION_SCHEMA_VERSION,
+        "source_validation": binding.source_validation,
         "target_rendering": EXPECTED_TARGET_RENDERING_CONTRACT,
     }
     _validate_attestation_value(value)
     artifact = _write_attestation(output, value)
     return {
         "attestation_sha256": artifact.sha256,
+        "require_exact_provider_json": expected_require_exact_provider_json,
         "rendering": {key: item for key, item in rendering.items() if key != "splits"},
         "status": "attested",
     }
@@ -807,7 +848,16 @@ def _format_v3_root(data: SFTDataConfig) -> Path | None:
 
 
 def _validate_attestation_value(value: Mapping[str, Any]) -> None:
-    if set(value) != {"code", "export", "kind", "rendering", "schema_version", "target_rendering"}:
+    if set(value) != {
+        "code",
+        "expected_require_exact_provider_json",
+        "export",
+        "kind",
+        "rendering",
+        "schema_version",
+        "source_validation",
+        "target_rendering",
+    }:
         raise SFTPreflightError("attestation_contract_invalid")
     if (
         value.get("kind") != ATTESTATION_KIND
@@ -818,8 +868,11 @@ def _validate_attestation_value(value: Mapping[str, Any]) -> None:
     code = value.get("code")
     export = value.get("export")
     rendering = value.get("rendering")
+    source_validation = _source_validation_policy(value.get("source_validation"), "attestation_contract_invalid")
     if (
-        not isinstance(code, dict)
+        not isinstance(value.get("expected_require_exact_provider_json"), bool)
+        or value["expected_require_exact_provider_json"] is not source_validation["require_exact_provider_json"]
+        or not isinstance(code, dict)
         or set(code) != {"dependencies", "project_revision", "renderer_repository_revision", "source"}
         or not _valid_git_sha(code.get("project_revision"))
         or code.get("renderer_repository_revision")
@@ -965,6 +1018,9 @@ def validate_sft_training_preflight(config: SFTConfig) -> bool:
     if (
         binding.manifest.as_dict() != export["manifest"]
         or {name: item.as_dict() for name, item in binding.artifacts.items()} != export["artifacts"]
+        or binding.source_validation != attestation["source_validation"]
+        or binding.source_validation["require_exact_provider_json"]
+        is not attestation["expected_require_exact_provider_json"]
     ):
         raise SFTPreflightError("attested_export_changed")
     project = Path(__file__).resolve().parents[4]
@@ -979,7 +1035,11 @@ def validate_sft_training_preflight(config: SFTConfig) -> bool:
         raise SFTPreflightError("attested_rendering_mismatch")
     _validate_rendering_counts(binding, observed_rendering)
     rebound = _load_export_binding(binding.root, binding.manifest.sha256)
-    if rebound.manifest != binding.manifest or rebound.artifacts != binding.artifacts:
+    if (
+        rebound.manifest != binding.manifest
+        or rebound.artifacts != binding.artifacts
+        or rebound.source_validation != binding.source_validation
+    ):
         raise SFTPreflightError("attested_export_changed")
     if _repository_provenance(project, attestation["code"]["project_revision"]) != observed_code:
         raise SFTPreflightError("attested_code_changed")
