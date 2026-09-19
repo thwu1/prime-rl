@@ -494,6 +494,10 @@ arguments, and require the batch bootstrap to match both identities. Known-job
 failure gets at most one exact-ID cancellation and six stable
 terminal/empty-queue views; identity conflict is latched across partial
 reads/signals and forbids control.
+Fresh leaf directories on the production checkpoint and `/tmp` filesystems
+have a link count of two. Require that exact value for both the reservation and
+sealed pycache directory, enforce it in the submit controller and bootstrap,
+and exercise the real batch wrapper through both gates before arming it.
 The local `sbatch` process group must also be boundedly reaped on every exit.
 The batch bootstrap uses a fresh sealed
 pycache with Python `-I -S -B` and executes user-owned native extensions only

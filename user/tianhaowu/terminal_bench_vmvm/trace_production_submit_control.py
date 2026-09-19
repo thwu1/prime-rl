@@ -59,6 +59,7 @@ QUERY_TIMEOUT_SECONDS = 20
 POLL_SECONDS = 2
 TERMINAL_ROUNDS = 6
 MAX_OUTPUT_BYTES = 64 * 1024
+RESERVATION_LINK_COUNT = 2
 
 
 class SubmissionError(RuntimeError):
@@ -226,8 +227,11 @@ class ReservationAnchor:
             or not stat.S_ISDIR(reservation_status.st_mode)
             or stat.S_IMODE(reservation_status.st_mode) != expected_mode
             or reservation_status.st_uid != OWNER_UID
+            or reservation_status.st_nlink != RESERVATION_LINK_COUNT
             or (reservation_status.st_dev, reservation_status.st_ino) != self.identity
+            or visible_status.st_nlink != RESERVATION_LINK_COUNT
             or (visible_status.st_dev, visible_status.st_ino) != self.identity
+            or fresh_reservation_status.st_nlink != RESERVATION_LINK_COUNT
             or (fresh_reservation_status.st_dev, fresh_reservation_status.st_ino)
             != self.identity
         ):
@@ -519,6 +523,8 @@ def create_reservation(path: Path) -> ReservationAnchor:
             not stat.S_ISDIR(reservation_status.st_mode)
             or stat.S_IMODE(reservation_status.st_mode) != 0o700
             or reservation_status.st_uid != OWNER_UID
+            or reservation_status.st_nlink != RESERVATION_LINK_COUNT
+            or visible_status.st_nlink != RESERVATION_LINK_COUNT
             or (reservation_status.st_dev, reservation_status.st_ino)
             != (visible_status.st_dev, visible_status.st_ino)
         ):

@@ -37,6 +37,7 @@ ADMISSION_SCHEMA_VERSION = 2
 HELD_TIMEOUT_SECONDS = 982
 FINAL_HELD_TIMEOUT_SECONDS = 40
 ACTIVATION_TIMEOUT_SECONDS = 742
+RESERVATION_LINK_COUNT = 2
 PHASE_FIELD_RE = re.compile(r"[A-Za-z][A-Za-z0-9_]{0,95}")
 IMPORTABLE_SUFFIXES = frozenset({".py", ".pyc", ".pyd", ".so"})
 FORBIDDEN_IMPORT_NAMES = frozenset({"sitecustomize.py", "usercustomize.py"})
@@ -533,6 +534,8 @@ def validate_submission_admission(
         not stat.S_ISDIR(status.st_mode)
         or stat.S_IMODE(status.st_mode) != 0o500
         or status.st_uid != os.getuid()
+        or status.st_nlink != RESERVATION_LINK_COUNT
+        or visible_status.st_nlink != RESERVATION_LINK_COUNT
         or not stat.S_ISDIR(parent_status.st_mode)
         or stat.S_IMODE(parent_status.st_mode) != 0o700
         or parent_status.st_uid != os.getuid()

@@ -105,7 +105,7 @@ while :; do
     fi
     if [[ -d $reservation && ! -L $reservation \
         && $(/usr/bin/stat -Lc '%d:%i:%a:%u:%h' -- "$reservation" 2>/dev/null) \
-            == "$reservation_device:$reservation_inode:500:$(/usr/bin/id -u):1" ]]; then
+            == "$reservation_device:$reservation_inode:500:$(/usr/bin/id -u):2" ]]; then
         break
     fi
     (( SECONDS < admission_deadline )) || fail submission_admission_timeout
@@ -230,7 +230,7 @@ set -e
     && -d $pycache_prefix && ! -L $pycache_prefix ]] || fail pycache_prefix_invalid
 /usr/bin/chmod 0500 -- "$pycache_prefix" || fail pycache_prefix_invalid
 [[ $(/usr/bin/stat -Lc '%a:%u:%h' -- "$pycache_prefix" 2>/dev/null) \
-    == "500:$(/usr/bin/id -u):1" ]] || fail pycache_prefix_invalid
+    == "500:$(/usr/bin/id -u):2" ]] || fail pycache_prefix_invalid
 
 # Open both executable source files before the final source gate. Python runs
 # the captured bootstrap bytes; the bootstrap runs the captured controller.

@@ -7,6 +7,7 @@ import os
 import shutil
 import signal
 import stat
+import subprocess
 from pathlib import Path
 from typing import Any
 
@@ -96,6 +97,121 @@ def test_sbatch_uses_hold_and_exact_stdin_wrapper_transport(tmp_path: Path) -> N
     assert (
         submit._job_expectations(_authorization(tmp_path), "123")["Command"] == "(null)"
     )
+
+
+def test_batch_wrapper_admits_fresh_reservation_and_pycache_directories(
+    tmp_path: Path,
+) -> None:
+    source_workflow = Path(submit.__file__).parent
+    project = tmp_path / "source"
+    workflow = project / "user/tianhaowu/terminal_bench_vmvm"
+    workflow.mkdir(parents=True)
+    source_names = (
+        "submit_trace_production_audit.sh",
+        "run_trace_production_audit.sbatch",
+        "trace_production_bootstrap.py",
+        "certify_trace_production.py",
+        "trace_production_submit_control.py",
+    )
+    for name in source_names:
+        shutil.copy2(source_workflow / name, workflow / name)
+    subprocess.run(["/usr/bin/git", "init", "-q", project], check=True)
+    subprocess.run(["/usr/bin/git", "-C", project, "add", "--", "user"], check=True)
+    subprocess.run(
+        [
+            "/usr/bin/git",
+            "-C",
+            project,
+            "-c",
+            "user.name=trace-test",
+            "-c",
+            "user.email=trace-test@example.invalid",
+            "-c",
+            "commit.gpgsign=false",
+            "commit",
+            "-qm",
+            "fixture",
+        ],
+        check=True,
+    )
+    subprocess.run(
+        ["/usr/bin/git", "-C", project, "checkout", "--detach", "-q"],
+        check=True,
+    )
+    revision = subprocess.run(
+        ["/usr/bin/git", "-C", project, "rev-parse", "HEAD"],
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+    tree = subprocess.run(
+        ["/usr/bin/git", "-C", project, "rev-parse", "HEAD^{tree}"],
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+
+    wrapper = workflow / "run_trace_production_audit.sbatch"
+    reservation = tmp_path / "reservation"
+    reservation.mkdir(mode=0o700)
+    for name in (
+        "activation_permit.json",
+        "held_authorization.json",
+        "launch_intent.json",
+        "submission_receipt.json",
+    ):
+        (reservation / name).write_bytes(b"{}\n")
+    reservation.chmod(0o500)
+    reservation_status = reservation.stat(follow_symlinks=False)
+    parent_status = reservation.parent.stat(follow_symlinks=False)
+    assert reservation_status.st_nlink == submit.RESERVATION_LINK_COUNT
+
+    authorization = tmp_path / "authorization.json"
+    authorization.write_bytes(b"{}\n")
+    authorization.chmod(0o400)
+    certificate = tmp_path / "client.crt"
+    private_key = tmp_path / "client.key"
+    certificate.write_bytes(b"certificate\n")
+    private_key.write_bytes(b"private-key\n")
+    python_path = Path("/usr/bin/python3.12")
+
+    def digest(path: Path) -> str:
+        return hashlib.sha256(path.read_bytes()).hexdigest()
+
+    job_name = "trace-production-audit-0123456789abcdef"
+    result = subprocess.run(
+        [
+            "/usr/bin/bash",
+            str(wrapper),
+            str(authorization),
+            digest(authorization),
+            str(project),
+            revision,
+            tree,
+            digest(workflow / "submit_trace_production_audit.sh"),
+            digest(wrapper),
+            digest(workflow / "trace_production_bootstrap.py"),
+            digest(workflow / "certify_trace_production.py"),
+            digest(workflow / "trace_production_submit_control.py"),
+            str(python_path),
+            digest(python_path),
+            str(certificate),
+            str(private_key),
+            str(reservation),
+            job_name,
+            str(reservation_status.st_dev),
+            str(reservation_status.st_ino),
+            str(parent_status.st_dev),
+            str(parent_status.st_ino),
+        ],
+        check=False,
+        capture_output=True,
+        env={"SLURM_JOB_ID": "1", "SLURM_JOB_NAME": job_name},
+        timeout=5,
+    )
+
+    assert result.returncode == 2
+    assert result.stderr == b'{"code":"authorization_invalid","status":"error"}\n'
 
 
 def test_poll_phase_spans_more_than_twelve_transient_views(
