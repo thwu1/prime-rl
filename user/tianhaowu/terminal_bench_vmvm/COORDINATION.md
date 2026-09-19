@@ -1,6 +1,6 @@
 # VMVM sandbox coordination
 
-Last updated: 2026-09-19 17:00 UTC
+Last updated: 2026-09-19 17:06 UTC
 
 ## First message to the next teammate
 
@@ -79,12 +79,20 @@ Add new rows below this line; do not overwrite another owner's row.
   independently certified, with queue absence, allocation `CANCELLED`, and all
   accounting rows terminal. This cluster persistently renders held `NumNodes`
   as `1-1` and omits `NodeList`, while running jobs use `NumNodes=1` with an
-  assigned node. Never rerun v15. Fresh unarmed v16 is being built to accept
-  only that complete held-state representation while keeping activation exact.
+  assigned node. Never rerun v15. Fresh v16 passed 170 public tests with one
+  gated skip, the independently authorized real-input/no-write/generate/verify
+  sequence, and final live review. Its one-shot launcher recognized the exact
+  held representation, released once, then sealed an independently certified
+  five-file authorization/receipt/permit handoff. Receipt-bound canary
+  `1755693` is now `RUNNING` with restart count zero; monitor only aggregate
+  scheduler and result counts. Do not audit or promote until exact terminal
+  `COMPLETED 0:0`, all 19 result rows, all four controls valid, and at least six
+  candidate recoveries are independently certified.
 
-- **2026-09-19 16:37 UTC, Kimi smoke and tokenizer staging:** smoke `1753515`
+- **2026-09-19 17:02 UTC, Kimi smoke and tokenizer staging:** smoke `1753515`
   remains healthy and advancing with one durable row and one active generation;
-  both routes are healthy and cumulative proxy 4xx/5xx remain zero. The first
+  at 08:09 elapsed its sampled aggregate rate remained 0.40 token/s. Both
+  routes are healthy and cumulative proxy 4xx/5xx remain zero. The first
   row independently passes strict trace/reasoning/model-I/O/request-graph and
   262,144-token-cap checks. Preserve the run. Post-smoke tokenizer metadata
   probe v1 was rejected unexecuted because correlated receipts could reveal the
@@ -92,7 +100,9 @@ Add new rows below this line; do not overwrite another owner's row.
   nonce-bound private authorization, and passed 19 isolated tests plus lint and
   format; it still requires independent exact-byte review and smoke completion
   before any activation. No tokenizer content, model weights, or runtime probe
-  was accessed.
+  was accessed. Shared head `ceaa82826` also contains the fresh fail-closed
+  12-hour smoke recovery chain; it is under independent review and must never
+  trigger while the current decode remains active and advancing.
 
 - **2026-09-19 15:50 UTC, infrastructure-retry v13 consumed and safely
   ineligible:** v13 fixed the isolated `packaging` import closure; its gated
