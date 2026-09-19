@@ -19,6 +19,13 @@ import tarfile
 import time
 from pathlib import Path, PurePosixPath
 
+from terminal_bench_vmvm.source_wheels import (
+    SOURCE_BUILD_UMASK,
+    SOURCE_WHEEL_RECOVERY_SCHEMA_VERSION,
+    canonical_json,
+    sha256_bytes,
+    source_build_environment_variables,
+)
 from terminal_bench_vmvm.taskset import (
     OracleFailure,
     TerminalBenchTask,
@@ -472,7 +479,7 @@ def _run_identity(
     }
     if args.source_wheel_policy is not None:
         identity["source_wheel_recovery"] = {
-            "schema_version": 1,
+            "schema_version": SOURCE_WHEEL_RECOVERY_SCHEMA_VERSION,
             "policy": {
                 "path": str(args.source_wheel_policy.resolve()),
                 "sha256": args.source_wheel_policy_sha256,
@@ -480,8 +487,16 @@ def _run_identity(
             "attestation": "source_wheel_attestations.json",
             "artifact_download_network": "public-hash-pinned-https",
             "builder_lease_limit": 1,
+            "build_dependency_install": "no-system-site-venv-offline-exact-wheel-closure",
+            "build_dependency_resolution": "public-binary-only-exact-transitive-policy-closure",
             "build_network": "no-network",
-            "build_isolation": False,
+            "build_isolation": True,
+            "child_process_path": "venv-bin-only",
+            "deterministic_environment_sha256": sha256_bytes(canonical_json(source_build_environment_variables())),
+            "source_build_python": "venv-python-isolated-no-site-direct-static-setuptools",
+            "source_declarations": "static-setup-py-setup-cfg-pyproject-build-requirements",
+            "source_build_umask": f"{SOURCE_BUILD_UMASK:04o}",
+            "system_site_packages": False,
             "target_install": "offline-no-index-no-deps",
         }
     return identity

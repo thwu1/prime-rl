@@ -201,10 +201,128 @@ source distribution, the full binary-wheel closure, exact artifact sizes and
 hashes, an immutable target image, and exact build-tool versions. Attempt this
 path only after the normal `--only-binary=:all:` fetch fails with the narrow
 binary-unavailable signature. Download and hash-check approved HTTPS inputs
-first, activate `no-network`, then build in a fresh Python environment using
-`--no-build-isolation --no-index --no-deps`; validate the exact output closure
-and prove offline installation on a clean target with the same runtime
-fingerprint. Reject Compose and cap the exceptional builder path at one lease.
+first, resolve and validate the exact wheel-only transitive build closure, then
+activate `no-network`. Build in a fresh no-system-site environment containing
+only the exact hash-pinned build-tool/dependency wheels installed offline with
+`--no-index --no-deps`. Attest every venv-local distribution, location,
+installed-file manifest, effective import path, and complete `bin` inventory.
+Accept only a single statically provable, unaliased top-level
+`setuptools.setup(...)` call. Take
+literal `setup_requires` from either that call or deterministic `setup.cfg`
+`[options]` configuration, and combine it with setuptools
+`build-system.requires`; allow no other `pyproject.toml` table. Reject
+conflicting declarations, aliases, `**kwargs`,
+nonliteral values, assignments, helpers/classes, control flow, decorators,
+`cmdclass`/`distclass`, in-tree or alternate backends, and ambiguity. Execute
+that backend directly with the venv Python in real `-I -S`
+isolated/no-site mode after network isolation; manually add only the attested
+venv-local site roots without processing `.pth` or Python customization
+modules. Use fixed `SOURCE_DATE_EPOCH`, timezone, locale, `HOME`, `TMPDIR`, work
+directory, and umask. Make the attested venv `bin` the entire build `PATH` so
+backend children cannot select ambient Python, console scripts, or undeclared
+base-image commands. Preload the attested venv setuptools package before adding
+the source root after the attested site roots, and reject source-local
+`setuptools.py`, `setuptools.pyc`, extension, or `setuptools/` shadows.
+Reattest the exact environment after the backend returns and reject any
+mutation. Require schema-bound equality of the complete raw wheel ZIP after
+zeroing only local and central DOS time/date fields while retaining each raw
+artifact's size and SHA-256, validate the exact output closure, and prove
+offline installation of the selected raw wheel on a clean target with the same
+runtime fingerprint. Reject Compose and cap the exceptional builder path at
+one lease.
+
+Before enabling the policy, run
+`terminal_bench_vmvm/run_source_wheel_proof.sbatch` from a clean reviewed
+checkout against the private, hash-pinned discovery input. The input is
+non-runnable and must not predeclare the target toolchain, binary closure, or
+source-wheel output hashes. Require exactly nine entries and externally pin the
+canonical `missing_required_evidence` list. Pin the full reviewed utility commit with
+`SOURCE_WHEEL_PROOF_SOURCE_REVISION` and the approved base runtime revision with
+`SOURCE_WHEEL_PROOF_BASE_RUNTIME_REVISION`. Initialize `deps/verifiers`,
+`deps/renderers`, and `deps/pydantic-config` at their exact gitlinks; the wrapper
+rejects missing or dirty dependency worktrees. For each entry, start exactly
+three fresh
+digest-pinned VMVMs: two disposable builders and one clean target. Build the
+source independently under `no-network` in both builders, use the first output
+only as the source candidate for wheel-only dependency resolution in the still
+public second builder, validate every discovered HTTPS wheel before isolation,
+and install the complete exact build-tool/transitive wheel closure into a new
+no-system-site environment in each builder. Require each builder to attest the
+same local distribution/file/import closure, execute the real backend under
+isolated/no-site Python with only those manually bound roots and the fixed build
+controls. The fixed build `PATH` must contain only the attested venv `bin` path
+so backend children resolve `python3` and build-dependency console scripts
+inside that environment and cannot fall through to base-image tools. Collect
+literal setup requirements from either the one unaliased top-level
+`setuptools.setup(...)` call or deterministic `setup.cfg`
+`[options]` configuration, then include setuptools `build-system.requires`
+from a `pyproject.toml` containing only that table;
+reject aliases, nonliteral values or executable statements, duplicate
+declarations, in-tree backends, and ambiguity.
+Validate every wheel from its raw bytes as a comment-free ZIP containing unique
+normalized regular-file paths, with no extra fields, signatures, special modes,
+unsupported flags, ambiguous encodings, local/central disagreement, gaps,
+overlap, or orphan bytes. Require the two builds' normalized raw ZIP digests to
+match after zeroing only local and central DOS time/date fields. Member order,
+compression method and bytes, headers, offsets, layout, payload, mode, and every
+other byte must remain bound. Retain each builder's raw size/SHA-256 evidence
+and bind the final policy and clean target install to the first builder's exact
+raw wheel. The clean target must be isolated before receiving the archive and
+must prove the exact closure with an offline install.
+The pre-run identity must bind the source-build-environment and semantic-digest
+schema versions, the two normalized DOS timestamp fields, the all-other-bytes
+rule, and forbidden ZIP features. The non-runnable candidate must list
+semantic equality, venv-only child execution, and static setup/config parsing;
+never resume an output created under a different identity or schema.
+
+Default to two entries and six live VMVMs; never exceed three entries and nine
+VMVMs. Set `VACLI_LEASE_RETRIES=1`; a hidden backend re-lease would violate the
+exact 27-start proof. Publish a non-runnable candidate first, then the final runnable policy
+and proof only after every entry passes. Keep the output directory mode 0700,
+use atomic private artifacts, and emit only aggregate counts, hashes, and stable
+error codes. If an approved proof fails on a candidate declaration or
+source-produced ZIP contract, use
+`SOURCE_WHEEL_PROOF_CANDIDATE_DIAGNOSTICS_ONLY=1` only in a separately approved
+rerun with a fresh private output directory. That mode must aggregate only
+candidate-local `setup.py`, `setup.cfg`, `pyproject.toml`, and raw source-wheel
+rejections; dependency integrity, runtime, environment, cleanup, and unknown
+errors still abort. It must cover all nine entries and exactly 27 clean starts,
+validate the exact canonical identity, candidate, state, lock, and journal bytes
+as single-link private artifacts, print only stable-code counts, and publish no proof or policy.
+Treat its zero
+exit as diagnostic completion rather than proof success. Diagnostic state and
+the private journal may retain hashed identities for audit, but both success
+and failure stdout must contain only status, a stable error code when relevant,
+and nonidentifying integer counts—never hashes, identities, paths, source text,
+or raw errors. Diagnostic mode cannot resume or reuse even an empty existing
+output root, and each rerun requires another fresh path. Before launch, use
+`inspect_source_wheel_proof_environment.py` on
+the target x86 runtime under the pinned Python's `-I -S -B` mode and
+independently approve the canonical launcher, uv, Python executable, complete
+stdlib/import-closure manifest, staged site-packages manifest, VMVM source, and
+vacli hashes. Submit the canonical launcher from tmux through `/usr/bin/env -i`,
+an explicit allowlist, `sbatch --export=ALL`, and a `--wrap` that uses
+`/bin/bash --noprofile --norc`; never pass the launcher file directly to
+`sbatch`. The launcher rejects Bash startup hooks, exported functions,
+dynamic-loader injection, and inherited Python/uv controls. Its stdlib-only
+bootstrap validates every import root before adding it to `sys.path`, without
+processing `.pth` or customization modules. Revalidate those bindings plus the
+source commit/tree and all three clean gitlinks after every lease stops, write
+an immutable state-and-journal-bound post-run validation receipt, and only then
+publish final artifacts. A completed state without that receipt must fail
+closed on resume.
+
+Bind the approved runtime base, utility commit/tree, three dependency gitlinks,
+all execution hashes, and distinct target/builder identity hashes derived only
+from vacli's real session identity in the private certificate. Never substitute
+a container ID or runtime name. Record immutable, hash-chained start intent,
+result, lease hash, and stop result events around every start. A resume with an
+incomplete, failed, indeterminate, or unaccounted prior start must fail rather
+than undercount the exact 27 starts. Resume only with an externally reviewed
+SHA-256 of `proof_state.json`, never a value trusted from the same unreviewed
+output. Final publication writes an immutable finalization record first and
+uses it to reconcile any missing proof or policy file after a crash; the
+runnable policy is always published last.
 
 Publish the source-wheel manifest and content-addressed wheelhouse archives
 atomically as private oracle artifacts after the writer lock. On every resume,
