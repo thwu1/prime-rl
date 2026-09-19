@@ -1,6 +1,6 @@
 # VMVM sandbox coordination
 
-Last updated: 2026-09-19 02:09 UTC
+Last updated: 2026-09-19 02:38 UTC
 
 ## First message to the next teammate
 
@@ -30,7 +30,7 @@ this shared branch again.
 
 | Owner | Cluster | Scope | Files | Live resources | State / next gate |
 |---|---|---|---|---|---|
-| Codex session for `tianhaowu` | `fair-cw-use2-3` | Kimi serving, full TB4 pass@1, and gated 2,500-task rollout | `user/tianhaowu/terminal_bench_vmvm/**`, `user/tianhaowu/deepswe_vmvm/{README.md,run_runtime_smoke.sbatch,smoke_runtime.py}`, `environments/vmvm_tb_v2/**`, `deps/verifiers` gitlink | deployment `tianhaowu-k3-kda-tb1-low-20260916`; coordinator `1735915`; proxy `1738769`; two-route spec `7290f100e7faacaec9c22f24b93b1e051b327a574e4f012539f4799ef8658627`; endpoints `1749940`,`1749985`; readiness `1749987`; smoke `1749988` | Readiness `1747117` and smoke `1747118` passed, with the smoke certifying 2/2 traces and retained reasoning. Two later fresh smokes and the corrected singleton failed closed without certificates when their bound endpoints were preempted; none is a task verdict. The shared launcher resized to two endpoints; fresh readiness `1749987` passed 2/2 route, semantic, affinity, and state-reuse checks, and smoke `1749988` is running. Retry exactly one singleton only after this smoke certifies 2/2. Do not create the 66-shard controller before the singleton passes. Oracle remains 2,488/2,538 valid; independently approved source-wheel recovery commit `ceb9356c9` is awaiting its separate 27-start reproducibility proof, so do not start Mobius production. Never inspect task prompts/bodies, task identifiers, raw errors, or model/tool/trace content. |
+| Codex session for `tianhaowu` | `fair-cw-use2-3` | Kimi serving, full TB4 pass@1, and gated 2,500-task rollout | `user/tianhaowu/terminal_bench_vmvm/**`, `user/tianhaowu/deepswe_vmvm/{README.md,run_runtime_smoke.sbatch,smoke_runtime.py}`, `environments/vmvm_tb_v2/**`, `deps/verifiers` gitlink | deployment `tianhaowu-k3-kda-tb1-low-20260916`; two-route spec `7290f100e7faacaec9c22f24b93b1e051b327a574e4f012539f4799ef8658627`; endpoints `1751626`,`1751643`; readiness `1751648`; smoke `1751652` | Earlier smoke `1750319` lost one bound endpoint to scheduler preemption and is ineligible, not a task verdict. Both long-lived replacement endpoints are RUNNING; corrected readiness `1751648` passed exact-two-route, semantic, affinity, and state-reuse checks with the required remaining-walltime margin. Fresh smoke `1751652` is RUNNING at 0/2 as of 02:38 UTC. Independently reviewed watchers will create exactly one singleton only after a 2/2 checkpoint, then shards 1..8 only after full singleton validation. Oracle remains 2,488/2,538 valid; source-wheel candidate `f589d81c2` is launch-blocked by the consolidated review recorded below. Never inspect task prompts/bodies, task identifiers, raw errors, or model/tool/trace content. |
 | Codex session for `tianhaowu` | `fair-cw-use2-1` | Add a direct one-token KDA state-reuse probe; no serving or eval mutation | `user/tianhaowu/terminal_bench_vmvm/{probe_inference_routes.py,tests/test_probe_inference_routes.py,HANDOFF.md,COORDINATION.md}` | none | Extend the existing readiness probe with serial raw-completion predecessor/one-token-target cycles on every discovered sticky backend, without logprobs or response token IDs. Fail closed on unsupported routing, semantic corruption, or predecessor-dependent target output. |
 | Codex session for `tianhaowu` | `fair-cw-use2-1` | Qwen accepted TB4 gate and 2,500-task production rollout | Qwen direct-router configs, VMVM backend, repair/export controller, focused tests, runtime skill | accepted TB4 diagnostic `1435776`; cap-32 affinity producer `1454171` running; exact-head x86 smoke `1468446` completed; reviewed replacement chain `1468451` dependency-pending; obsolete chains `1457232` and `1465246` canceled; endpoint `shared_qwen38_2p4t`; PRs `thwu1/prime-rl#35`, `#36`, `#37`, `#38`, `#39`, and `#40`; verifier PR `thwu1/verifiers#2` | The user explicitly accepted the existing 7/66 TB4 result as the approximately 11% gate and directed us not to rerun it. The live producer retains 64 task sessions, 32 client/provider slots, two lease starts, fail-closed `consistent_hash` / `x-session-id`, and a 256K cap. Immutable prefix 1,000 has SHA-256 `7862f68057aecc9c2bdb22a15e5cbe21ec03aa10059a625e2fa1316e4c347117`: 583 pass, 381 scored fail, 36 ordinary error, zero invalid, for a 60.48% scored pass rate. Exact SFT trainability validation accepts 581/583 passing traces and quarantines two; the audit covers 41,220,772 sampled completion tokens and 19,358 captured model-I/O turns. At 08:01 UTC the producer remained healthy and RUNNING with 1,002 durable rows, recent throughput approximately 47 rows/hour, and approximately 32 hours remaining. Draft PR `#40` is independently approved at exact head `fe813c0f6`; frozen-source x86 smoke `1468446` passed 249/249, and replacement controller `1468451` is pending on `afterany:1454171`. Obsolete held controller `1465246` was canceled only after the replacement was verified dependency-held. Broad `HarnessError` retry and retry exclusions remain forbidden. Never inspect task IDs, prompts, responses, raw errors, or trace/model/tool bodies. |
 | Codex session for `tianhaowu` | `fair-cw-use2-1` | User-supplied shared Kimi-K3 endpoint qualification and full TB4 pass@1; gated 2,500-task rollout follows only after score reproduction | server-scoped `configs/eval/servers/cpu-132-021_8103/**`, VMVM backend, trace audit, `COORDINATION.md` | endpoint `shared-kimi-k3`; route gate `1448380`; preserved canceled diagnostic TB4 `1448629`; preserved canceled smokes `1448432` and `1448606`; draft `thwu1/prime-rl#34`; proxy fix `fairinternal/ram_common#288` | The endpoint currently reports 23 healthy / 1 unhealthy routes, while correct model discovery and consistent sticky metadata with TTL 14,400 remain present. The proxy still serves a 600-second timeout with two retries and the live spec declares neither field, so this endpoint remains non-launchable. The old diagnostic full was canceled and preserved; do not count or resume it. Draft PR `#34` head `22b4172f1` is rebased on current shared core, preserves the separate `cpu-132-021_8103` folder and hardened gate pin, composes schema-v2 bridge validation with exact 24-request/2-lease evidence, and passes 328 affected plus 625 full tests. It requires exact 7,200/0 and 24/0, rejects resume, and makes both full and shard certification prove type-safe 24 rollout/multiplex/HTTP concurrency, observed peak 24, and lease-start concurrency 2; shared 4/2 remains compatible. PR `ram_common#288` is green/mergeable but still lacks the required human approval and deployment. Await a reviewed combined live revision, fresh 24/0 policy/sticky qualification, then launch a fresh TB4. Never inspect task prompts/bodies or raw trace/model/tool content. |
@@ -41,6 +41,31 @@ this shared branch again.
 Add new rows below this line; do not overwrite another owner's row.
 
 ## Open coordination requests
+
+- **2026-09-19 02:38 UTC, Kimi stable-pair gate passed and fresh smoke is
+  active:** replacement endpoints `1751626` and `1751643` are RUNNING with
+  two registered routes and more than seven hours remaining on the shorter
+  allocation. Corrected x86 readiness `1751648` completed 0:0 after proving
+  exact-two-route readiness, semantic integrity, sticky affinity, state reuse,
+  and the required 14,400-second endpoint margin. Fresh smoke `1751652` is
+  RUNNING at 0/2; this is a new run, not a resume of the ineligible route-loss
+  attempt. The reviewed smoke-to-singleton and singleton-to-shards-1..8
+  watchers remain live, and neither downstream root exists yet. Do not launch
+  a duplicate controller or bypass the 2/2 checkpoint gate.
+
+- **2026-09-19 02:38 UTC, source-wheel candidate `f589d81c2` remains held:**
+  an independent exact-head review passed focused 136, full 726, Ruff,
+  compile, and diff checks but found five launch blockers: backend children can
+  still resolve ambient executables because the disposable venv bin is absent
+  from `PATH`; static setup parsing can omit dependencies declared through a
+  hidden setup alias; proof equivalence still compares raw wheel bytes instead
+  of canonical semantic content; wheel inspection accepts duplicate paths,
+  signature records, and non-regular modes; and README/runtime-skill plus
+  identity/schema text still specify raw-byte equality. Preserve the validated
+  offline binary-only resolution, bound transitive closure, pre/post venv
+  attestation, helper reuse, cleanup, and resume/finalization structure. A
+  clean consolidated replacement is in progress. Do not launch another proof,
+  canary, audit, promotion, or production job from `f589d81c2`.
 
 - **2026-09-19 02:09 UTC, Kimi stable-pair recovery running:** after smoke
   `1750319` and endpoint `1749985` failed, the remaining short endpoint
