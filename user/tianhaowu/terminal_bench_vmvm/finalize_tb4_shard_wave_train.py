@@ -536,6 +536,27 @@ def _resolved_output(configured: Path, prepared: PreparedTrain) -> Path:
     return output
 
 
+def _bind_checkpoint_output_artifact(value: object, expected: Path) -> dict[str, str]:
+    if (
+        not isinstance(value, dict)
+        or set(value) != {"path", "sha256"}
+        or not isinstance(value.get("path"), str)
+        or not isinstance(value.get("sha256"), str)
+        or SHA256_RE.fullmatch(value["sha256"]) is None
+        or value["path"] != str(expected)
+    ):
+        raise FinalizationError("sharded_checkpoint_output_artifact_mismatch")
+    configured = Path(value["path"])
+    try:
+        if configured.is_symlink() or configured.resolve(strict=True) != expected:
+            raise FinalizationError("sharded_checkpoint_output_artifact_mismatch")
+    except FinalizationError:
+        raise
+    except (OSError, RuntimeError) as error:
+        raise FinalizationError("sharded_checkpoint_output_artifact_mismatch") from error
+    return {"path": value["path"], "sha256": value["sha256"]}
+
+
 def _load_and_validate_checkpoint(
     output: Path,
     prepared: PreparedTrain,
@@ -545,13 +566,19 @@ def _load_and_validate_checkpoint(
 ) -> tuple[dict[str, Any], bytes]:
     try:
         output_stat = output.stat(follow_symlinks=False)
-    except OSError as error:
+        resolved_output = output.resolve(strict=True)
+    except (OSError, RuntimeError) as error:
         raise FinalizationError("merge_output_invalid") from error
-    if output.is_symlink() or not stat.S_ISDIR(output_stat.st_mode) or stat.S_IMODE(output_stat.st_mode) != 0o700:
+    if (
+        output.is_symlink()
+        or resolved_output != output
+        or not stat.S_ISDIR(output_stat.st_mode)
+        or stat.S_IMODE(output_stat.st_mode) != 0o700
+    ):
         raise FinalizationError("merge_output_invalid")
     try:
         members = {path.name: path.stat(follow_symlinks=False) for path in output.iterdir()}
-    except OSError as error:
+    except (OSError, RuntimeError) as error:
         raise FinalizationError("merge_output_invalid") from error
     if set(members) != {
         "results.jsonl",
@@ -576,6 +603,17 @@ def _load_and_validate_checkpoint(
         raise FinalizationError("sharded_checkpoint_invalid")
     if expected_value is not None and value != expected_value:
         raise FinalizationError("sharded_checkpoint_publish_mismatch")
+    artifacts = value.get("artifacts")
+    expected_artifacts = {
+        "results": output / "results.jsonl",
+        "audit_summary": output / "audit_summary.json",
+        "deployment_spec": output / "deployment_spec_policy.json",
+        "proxy_policy": output / "proxy_policy.json",
+    }
+    if not isinstance(artifacts, dict) or set(artifacts) != set(expected_artifacts):
+        raise FinalizationError("sharded_checkpoint_output_artifact_mismatch")
+    for key, expected_path in expected_artifacts.items():
+        _bind_checkpoint_output_artifact(artifacts[key], expected_path)
     validated = validate_sharded_checkpoint(
         value,
         deployment_id=prepared.config.deployment_id,
@@ -701,13 +739,19 @@ def _load_and_validate_multigen_checkpoint(
 ) -> tuple[dict[str, Any], bytes]:
     try:
         output_stat = output.stat(follow_symlinks=False)
-    except OSError as error:
+        resolved_output = output.resolve(strict=True)
+    except (OSError, RuntimeError) as error:
         raise FinalizationError("merge_output_invalid") from error
-    if output.is_symlink() or not output.is_dir() or stat.S_IMODE(output_stat.st_mode) != 0o700:
+    if (
+        output.is_symlink()
+        or resolved_output != output
+        or not stat.S_ISDIR(output_stat.st_mode)
+        or stat.S_IMODE(output_stat.st_mode) != 0o700
+    ):
         raise FinalizationError("merge_output_invalid")
     try:
         members = {path.name: path.stat(follow_symlinks=False) for path in output.iterdir()}
-    except OSError as error:
+    except (OSError, RuntimeError) as error:
         raise FinalizationError("merge_output_invalid") from error
     required_members = {
         "results.jsonl",
@@ -741,11 +785,20 @@ def _load_and_validate_multigen_checkpoint(
         raise FinalizationError("sharded_checkpoint_invalid")
     if expected_value is not None and value != expected_value:
         raise FinalizationError("sharded_checkpoint_publish_mismatch")
-    validated = validate_multigen_sharded_checkpoint(
-        value,
-        deployment_id=prepared.config.deployment_id,
-    )
     artifacts = value.get("artifacts")
+    if not isinstance(artifacts, dict) or set(artifacts) != {
+        "results",
+        "audit_summary",
+        "deployment_spec",
+        "proxy_policies",
+    }:
+        raise FinalizationError("sharded_checkpoint_output_artifact_mismatch")
+    for key, name in {
+        "results": "results.jsonl",
+        "audit_summary": "audit_summary.json",
+        "deployment_spec": "deployment_spec_policy.json",
+    }.items():
+        _bind_checkpoint_output_artifact(artifacts[key], output / name)
     policies = artifacts.get("proxy_policies") if isinstance(artifacts, dict) else None
     policy_artifacts: dict[str, dict[str, str]] = {}
     referenced_proxy_members: set[str] = set()
@@ -761,11 +814,19 @@ def _load_and_validate_multigen_checkpoint(
             or item["policy_sha256"] in policy_artifacts
         ):
             raise FinalizationError("sharded_checkpoint_controller_mismatch")
-        artifact = {"path": item["path"], "sha256": item["sha256"]}
+        expected_policy = output / f"proxy_policy_{item['policy_sha256']}.json"
+        artifact = _bind_checkpoint_output_artifact(
+            {"path": item["path"], "sha256": item["sha256"]},
+            expected_policy,
+        )
         policy_artifacts[item["policy_sha256"]] = artifact
-        referenced_proxy_members.add(Path(item["path"]).name)
+        referenced_proxy_members.add(expected_policy.name)
     if set(members) != required_members | referenced_proxy_members:
         raise FinalizationError("merge_output_invalid")
+    validated = validate_multigen_sharded_checkpoint(
+        value,
+        deployment_id=prepared.config.deployment_id,
+    )
     route_hashes = sorted(set(expected_route_generation_sha256s))
     endpoint_hashes = sorted(set(expected_endpoint_binding_sha256s))
     proxy_policy = dict(prepared.route_binding.proxy_policy)

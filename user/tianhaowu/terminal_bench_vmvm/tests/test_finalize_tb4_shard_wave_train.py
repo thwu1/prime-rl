@@ -382,7 +382,7 @@ def _validated(prepared) -> dict:
     }
 
 
-def _checkpoint_value(evidence: finalizer.ControllerEvidence, prepared) -> dict:
+def _checkpoint_value(evidence: finalizer.ControllerEvidence, prepared, output: Path) -> dict:
     return {
         "shards": list(evidence.shard_records),
         "plan": {
@@ -392,6 +392,15 @@ def _checkpoint_value(evidence: finalizer.ControllerEvidence, prepared) -> dict:
         },
         "distinct_route_generations": 1,
         "combined_trace_count": 66,
+        "artifacts": {
+            "results": {"path": str(output / "results.jsonl"), "sha256": "a" * 64},
+            "audit_summary": {"path": str(output / "audit_summary.json"), "sha256": "a" * 64},
+            "deployment_spec": {
+                "path": str(output / "deployment_spec_policy.json"),
+                "sha256": "a" * 64,
+            },
+            "proxy_policy": {"path": str(output / "proxy_policy.json"), "sha256": "a" * 64},
+        },
     }
 
 
@@ -438,7 +447,7 @@ def _range_evidence(tmp_path: Path, prepared) -> finalizer.ControllerEvidence:
 
 
 def _multi_value(evidence: finalizer.ControllerEvidence, prepared, output: Path) -> dict:
-    value = _checkpoint_value(evidence, prepared)
+    value = _checkpoint_value(evidence, prepared, output)
     value["distinct_route_generations"] = len({record["route_generation_sha256"] for record in evidence.shard_records})
     policy_sha256s = sorted({record["proxy_policy_sha256"] for record in evidence.shard_records})
     policy_artifacts = {
@@ -449,9 +458,10 @@ def _multi_value(evidence: finalizer.ControllerEvidence, prepared, output: Path)
         for policy_sha256 in policy_sha256s
     }
     value["artifacts"] = {
+        **{key: item for key, item in value["artifacts"].items() if key != "proxy_policy"},
         "proxy_policies": [
             {"policy_sha256": policy_sha256, **policy_artifacts[policy_sha256]} for policy_sha256 in policy_sha256s
-        ]
+        ],
     }
     value["shards"] = [
         {**record, "proxy_policy_artifact": policy_artifacts[record["proxy_policy_sha256"]]}
@@ -1029,15 +1039,153 @@ def _write_output(output: Path, value: dict, *, multigen: bool = False) -> bytes
     return raw
 
 
+def _load_reused_checkpoint(
+    output: Path,
+    prepared,
+    evidence: finalizer.ControllerEvidence,
+    *,
+    multigen: bool,
+):
+    if not multigen:
+        return finalizer._load_and_validate_checkpoint(
+            output,
+            prepared,
+            evidence,
+            expected_value=None,
+        )
+    return finalizer._load_and_validate_multigen_checkpoint(
+        output,
+        prepared,
+        evidence,
+        expected_value=None,
+        expected_route_generation_sha256s=[prepared.generation_sha256],
+        expected_endpoint_binding_sha256s=[
+            hashlib.sha256(finalizer.canonical_json(prepared.route_binding.endpoint)).hexdigest()
+        ],
+    )
+
+
+@pytest.mark.parametrize("multigen", [False, True], ids=["schema2", "schema3"])
+def test_reuse_accepts_exact_local_checkpoint_artifacts(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    multigen: bool,
+) -> None:
+    prepared = _prepared(tmp_path)
+    evidence = _evidence(tmp_path, prepared)
+    if multigen:
+        evidence = finalizer._combined_multigen_evidence(((prepared, evidence),))
+    output = tmp_path / "final"
+    value = _multi_value(evidence, prepared, output) if multigen else _checkpoint_value(evidence, prepared, output)
+    raw = _write_output(output, value, multigen=multigen)
+    validated = _validated_multi(prepared, evidence) if multigen else _validated(prepared)
+    monkeypatch.setattr(
+        finalizer,
+        "validate_multigen_sharded_checkpoint" if multigen else "validate_sharded_checkpoint",
+        lambda *_args, **_kwargs: validated,
+    )
+
+    observed, observed_raw = _load_reused_checkpoint(
+        output,
+        prepared,
+        evidence,
+        multigen=multigen,
+    )
+
+    assert observed == validated
+    assert observed_raw == raw
+
+
+@pytest.mark.parametrize("multigen", [False, True], ids=["schema2", "schema3"])
+@pytest.mark.parametrize("attack", ["external_parent", "external_policy", "symlink", "path_alias"])
+def test_reuse_rejects_checkpoint_artifacts_outside_exact_output_members(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    multigen: bool,
+    attack: str,
+) -> None:
+    prepared = _prepared(tmp_path)
+    evidence = _evidence(tmp_path, prepared)
+    if multigen:
+        evidence = finalizer._combined_multigen_evidence(((prepared, evidence),))
+    output = tmp_path / "final"
+    value = _multi_value(evidence, prepared, output) if multigen else _checkpoint_value(evidence, prepared, output)
+    artifacts = value["artifacts"]
+    external = tmp_path / "external"
+    if attack in {"external_parent", "external_policy"}:
+        external.mkdir(mode=0o700)
+        payloads = (
+            {
+                "results": ("results.jsonl", b"results\n"),
+                "audit_summary": ("audit_summary.json", b"{}\n"),
+                "deployment_spec": ("deployment_spec_policy.json", b"{}\n"),
+            }
+            if attack == "external_parent"
+            else {}
+        )
+        if not multigen and attack in {"external_parent", "external_policy"}:
+            payloads["proxy_policy"] = ("proxy_policy.json", b"{}\n")
+        for key, (name, payload) in payloads.items():
+            path = external / name
+            path.write_bytes(payload)
+            path.chmod(0o600)
+            artifacts[key] = {"path": str(path), "sha256": hashlib.sha256(payload).hexdigest()}
+        if multigen:
+            policy_artifacts: dict[str, dict[str, str]] = {}
+            for item in artifacts["proxy_policies"]:
+                payload = b"{}\n"
+                path = external / Path(item["path"]).name
+                path.write_bytes(payload)
+                path.chmod(0o600)
+                item["path"] = str(path)
+                item["sha256"] = hashlib.sha256(payload).hexdigest()
+                policy_artifacts[item["policy_sha256"]] = {
+                    "path": item["path"],
+                    "sha256": item["sha256"],
+                }
+            for shard in value["shards"]:
+                shard["proxy_policy_artifact"] = policy_artifacts[shard["proxy_policy_sha256"]]
+    elif attack == "path_alias":
+        artifacts["results"]["path"] = str(output / ".." / output.name / "results.jsonl")
+    _write_output(output, value, multigen=multigen)
+    if attack == "symlink":
+        external.mkdir(mode=0o700)
+        external_result = external / "results.jsonl"
+        external_result.write_text("results\n")
+        external_result.chmod(0o600)
+        local_result = output / "results.jsonl"
+        local_result.unlink()
+        local_result.symlink_to(external_result)
+    monkeypatch.setattr(
+        finalizer,
+        "validate_multigen_sharded_checkpoint" if multigen else "validate_sharded_checkpoint",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(
+            AssertionError("validator must not read substituted artifacts")
+        ),
+    )
+
+    with pytest.raises(
+        finalizer.FinalizationError,
+        match="^(merge_output_invalid|sharded_checkpoint_output_artifact_mismatch)$",
+    ):
+        _load_reused_checkpoint(
+            output,
+            prepared,
+            evidence,
+            multigen=multigen,
+        )
+
+
 def test_checkpoint_is_exactly_cross_bound_to_controller(tmp_path: Path, monkeypatch):
     prepared = _prepared(tmp_path)
     evidence = _evidence(tmp_path, prepared)
-    value = _checkpoint_value(evidence, prepared)
-    raw = _write_output(tmp_path / "final", value)
+    output = tmp_path / "final"
+    value = _checkpoint_value(evidence, prepared, output)
+    raw = _write_output(output, value)
     monkeypatch.setattr(finalizer, "validate_sharded_checkpoint", lambda *_args, **_kwargs: _validated(prepared))
 
     validated, observed_raw = finalizer._load_and_validate_checkpoint(
-        tmp_path / "final",
+        output,
         prepared,
         evidence,
         expected_value=value,
@@ -1050,8 +1198,8 @@ def test_checkpoint_is_exactly_cross_bound_to_controller(tmp_path: Path, monkeyp
 def test_checkpoint_rejects_generation_or_output_member_mismatch(tmp_path: Path, monkeypatch):
     prepared = _prepared(tmp_path)
     evidence = _evidence(tmp_path, prepared)
-    value = _checkpoint_value(evidence, prepared)
     output = tmp_path / "final"
+    value = _checkpoint_value(evidence, prepared, output)
     _write_output(output, value)
     bad = _validated(prepared)
     bad["route_generation_sha256s"] = ["0" * 64]
