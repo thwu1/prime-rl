@@ -1,6 +1,6 @@
 # VMVM sandbox coordination
 
-Last updated: 2026-09-19 22:39 UTC
+Last updated: 2026-09-19 22:44 UTC
 
 ## First message to the next teammate
 
@@ -41,6 +41,19 @@ this shared branch again.
 Add new rows below this line; do not overwrite another owner's row.
 
 ## Open coordination requests
+
+- **2026-09-19 22:44 UTC, the Kimi TB4 target has no local exact-result
+  provenance:** repository history and aggregate-only local artifacts contain
+  no completed official Kimi-K3 TB4 run, exact `8/66` claim, documented
+  harness/version, or trial-count/scoring contract. The only source for
+  "around 12%" is the user's goal; `8/66 = 12.12%` is arithmetic inference,
+  not a documented baseline. The current mini-swe config also allows a
+  ten-hour rollout while the TB4 release methodology specifies an eight-hour
+  agent timeout. Preserve the user-supplied approximate target, but do not call
+  the broad 4%-22% audit band or an inferred count a reproduction. Complete
+  one fresh 66-task pass@1 run, report its exact solved count and both
+  all-task/CPU-supported rates, and explicitly record the harness and timeout
+  difference when comparing it with the claimed reference result.
 
 - **2026-09-19 22:39 UTC, bounded initial-workdir recovery is a viable
   post-diagnostic fix:** pinned verifier `ef35ac78` still runs
@@ -3586,7 +3599,7 @@ Add new rows below this line; do not overwrite another owner's row.
 | Codex session for `tianhaowu` (use2-3) | Harbor network-policy enforcement for VMVM | Parent `c0ae13263`, verifier `15e22ca5`; all Mobius and TB4 policies parse with Harbor 0.14.0 precedence. Task-free canary `1735508` preserved the main reverse tunnel and Compose aliases while blocking external DNS, gateway-proxy egress, and sidecar tunnel access. Final validation: 194 workflow, 33 focused backend/taskset, and 8 verifier runtime tests. |
 | Codex session for `tianhaowu` (cross-cluster, no scheduler mutation) | Fail-closed six-pin oracle repair audit controller | Reviewed controller `7343ebdaa` independently derives source and execution commit/verifier/VMVM pins, proves full tracked Prime-RL and verifier trees pre/post, binds exact audit runtime scripts, and requires canonical `sbatch --wrap` execution. Independent review approved; 75 focused tests and exact detached 1,467+652-entry self-attestation passed. No certificate, evaluation, or Slurm job was created. |
 | Codex VMVM diagnostic review for `tianhaowu` (use2-3) | Prevented an invalid V21 task-free diagnostic launch | Independent review found six blockers spanning the omitted `X2P_PROXY_URL`, constructor rollback classification, renewer process-group cleanup proof, full imported-source attestation, finalizer lineage binding, and phase-level causal resolution. Holds are recorded above; no job was launched. |
-| Codex production-trace v8e integration for `tianhaowu` (use2-3) | Integrated the reviewed fail-closed production trace audit/certificate workflow | Feature merge `91225bdd3` incorporates v8e `aef93406a` and its full v7-v8d lineage. Independent integration validation passed 86/86 focused tests, Ruff 0.13.0 check/format-check, Bash syntax, and diff checks. No audit or rollout was launched; a fresh detached exact-gitlink source and external authorization remain required. |
+| Codex production-trace v8e integration for `tianhaowu` (use2-3) | Integrated the reviewed fail-closed production trace audit/certificate workflow | Feature merge `91225bdd3` incorporates v8e `aef93406a` and its full v7-v8d lineage. Independent exact-gitlink validation passed the 86 focused tests and a broader 697/697 trace/export/admission suite, plus Ruff 0.13.0 check/format-check, Bash syntax, and diff checks. No audit or rollout was launched; a fresh detached exact-gitlink source and external authorization remain required. |
 | Codex Kimi image-pull review for `tianhaowu` (use2-3) | Prevented freezing an unsafe explicit-pull candidate | The candidate's 305 stub assertions pass, but independent review reproduced/identified credential retention through directory-target `mv`, fixed-path concurrency collisions, xtrace secret exposure, a signal/PID publication race, and incomplete failed-cleanup bookkeeping. Holds and required regressions are recorded above; no serving or scheduler mutation was made. |
 
 ## Known non-overlap boundaries
