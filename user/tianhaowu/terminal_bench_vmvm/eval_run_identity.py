@@ -19,6 +19,7 @@ from typing import Any
 from urllib.parse import urlsplit
 
 import tomli_w
+from audit_traces import TraceJSONLError, _summarize_hashed_clean_stops
 from deployment_endpoint import (
     EndpointBindingError,
     load_deployment_endpoint,
@@ -802,6 +803,7 @@ def _validate_smoke_checkpoint_payload(
         or policy.get("require_reasoning") is not True
         or policy.get("require_model_io") is not True
         or policy.get("require_request_graph_match") is not True
+        or policy.get("require_clean_stop") is not True
         or canonical_json(policy.get("model_io_contract")) != canonical_json(EXPECTED_MODEL_IO_CONTRACT)
         or policy.get("require_token_data") is not False
         or policy.get("require_logprobs") is not False
@@ -873,6 +875,21 @@ def _validate_smoke_checkpoint_payload(
     ):
         raise EvalIdentityError("smoke_checkpoint_identity_mismatch")
     results_artifact = _checkpoint_artifact(payload, "results")
+    try:
+        stop_summary, stop_failed = _summarize_hashed_clean_stops(
+            Path(results_artifact["path"]),
+            expected_sha256=results_artifact["sha256"],
+            expected_count=expected_traces,
+        )
+    except (OSError, TraceJSONLError) as error:
+        raise EvalIdentityError("smoke_checkpoint_trace_audit_invalid") from error
+    if stop_failed or stop_summary["traces"] != counts.get("traces"):
+        raise EvalIdentityError("smoke_checkpoint_trace_audit_failed")
+    _artifact(
+        Path(results_artifact["path"]),
+        results_artifact["sha256"],
+        label="smoke_results",
+    )
     invocations_artifact = _checkpoint_artifact(payload, "eval_invocations")
     guard_artifact = _checkpoint_artifact(payload, "route_guard_success")
     run_dir = Path(identity_artifact["path"]).parent

@@ -311,6 +311,7 @@ def certify_smoke(
             model_io_contract=KIMI_K3_MAX_MODEL_IO_CONTRACT,
             require_request_graph_match=True,
             require_exact_provider_json=require_exact_provider_json,
+            require_clean_stop=True,
             max_sequence_tokens=MAX_SEQUENCE_TOKENS,
         )
         if failed or summary.get("model_io_turns", 0) < expected_traces or summary.get("sampled_tokens", 0) < 1:
@@ -495,6 +496,7 @@ def certify_smoke(
             "require_model_io": True,
             "model_io_contract": EXPECTED_MODEL_IO_CONTRACT,
             "require_request_graph_match": True,
+            "require_clean_stop": True,
             "require_token_data": False,
             "require_logprobs": False,
             "max_sequence_tokens": MAX_SEQUENCE_TOKENS,

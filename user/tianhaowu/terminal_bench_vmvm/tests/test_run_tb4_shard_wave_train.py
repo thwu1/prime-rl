@@ -342,6 +342,13 @@ def test_supported_shard_trace_audit_rejects_hash_valid_graph_wire_divergence(tm
     )
 
     assert train._validate_trace_semantics(certified) == (True, 1)
+    row["stop_condition"] = "harness_timeout"
+    results.write_text(json.dumps(row) + "\n")
+
+    with pytest.raises(train.WaveTrainError, match="^shard_trace_audit_failed$"):
+        train._validate_trace_semantics(certified)
+
+    row["stop_condition"] = "done"
     request["messages"] = [{"role": "user", "content": "wire-only context"}]
     row["nodes"][1]["model_io"]["request"]["sha256"] = _digest(train.canonical_json(request))
     results.write_text(json.dumps(row) + "\n")

@@ -36,6 +36,7 @@ from audit_traces import (
     KIMI_K3_MAX_MODEL_IO_CONTRACT,
     TraceJSONLError,
     _audit_trace,
+    _clean_stop_problem,
     _iter_traces,
     _task_slug,
 )
@@ -1347,11 +1348,17 @@ def _validate_trace_semantics(certified: CertifiedShard) -> tuple[bool, int | No
         model_io_contract=KIMI_K3_MAX_MODEL_IO_CONTRACT,
         require_request_graph_match=True,
     )
-    if row.get("is_completed") is not True:
+    stop_problem = _clean_stop_problem(row)
+    if stop_problem == "trace_not_completed":
         problems.append("supported_trace_not_completed")
-    stop_condition = row.get("stop_condition")
-    if not isinstance(stop_condition, str) or not stop_condition.strip() or stop_condition == "error":
+    elif stop_problem == "trace_stop_condition_invalid":
         problems.append("supported_trace_stop_condition_invalid")
+    elif stop_problem == "trace_stop_condition_infrastructure":
+        problems.append(
+            "supported_trace_stop_condition_invalid"
+            if row.get("stop_condition") == "error"
+            else "supported_trace_stop_condition_infrastructure"
+        )
     score, score_problem = _score_problem(row)
     if score_problem is not None:
         problems.append(score_problem)

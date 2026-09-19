@@ -196,6 +196,7 @@ def _export_summary(output: Path, expected_count: int, routing_index: Path, sour
                 "selection": "pass-only",
                 "source_validation": {
                     "max_sequence_tokens": 262144,
+                    "require_clean_stop": True,
                     "require_exact_provider_json": False,
                     "require_model_io": True,
                     "require_reasoning": True,
@@ -304,6 +305,7 @@ def test_finalizer_runs_label_before_export_and_emits_only_aggregates(
     assert staged_outputs and not staged_outputs[0].exists()
     assert json.loads((options.output_dir / "manifest.json").read_bytes())["source_validation"] == {
         "max_sequence_tokens": 262_144,
+        "require_clean_stop": True,
         "require_exact_provider_json": False,
         "require_model_io": True,
         "require_reasoning": True,

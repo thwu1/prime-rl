@@ -621,6 +621,7 @@ def test_merge_publishes_only_complete_certified_partition(tmp_path: Path, monke
         dataset_dir=dataset,
     )
     assert receipt["combined_trace_count"] == 66
+    assert receipt["audit_policy"]["require_clean_stop"] is True
     assert receipt["distinct_route_generations"] == len(shards)
     assert len((output / "results.jsonl").read_text().splitlines()) == 66
     assert stat.S_IMODE(output.stat().st_mode) == 0o700
@@ -657,6 +658,18 @@ def test_merge_publishes_only_complete_certified_partition(tmp_path: Path, monke
     with pytest.raises(ShardWorkflowError, match="sharded_checkpoint_policy_invalid"):
         validate_sharded_checkpoint(
             weakened_policy,
+            deployment_id="deployment-test",
+            artifact_root=output,
+        )
+
+    weakened_stop_policy = json.loads(json.dumps(receipt))
+    weakened_stop_policy["audit_policy"]["require_clean_stop"] = False
+    unsigned = dict(weakened_stop_policy)
+    unsigned.pop("tb4_certificate_sha256")
+    weakened_stop_policy["tb4_certificate_sha256"] = hashlib.sha256(workflow.canonical_json(unsigned)).hexdigest()
+    with pytest.raises(ShardWorkflowError, match="sharded_checkpoint_policy_invalid"):
+        validate_sharded_checkpoint(
+            weakened_stop_policy,
             deployment_id="deployment-test",
             artifact_root=output,
         )

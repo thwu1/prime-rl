@@ -90,6 +90,7 @@ TARGET_RENDERING_CONTRACT = {
 SOURCE_VALIDATION_KEYS = frozenset(
     {
         "max_sequence_tokens",
+        "require_clean_stop",
         "require_exact_provider_json",
         "require_model_io",
         "require_reasoning",
@@ -566,6 +567,7 @@ def _source_validation_policy(value: object, code: str) -> dict[str, int | bool]
         or value.get("require_reasoning") is not True
         or value.get("require_model_io") is not True
         or value.get("require_request_graph_match") is not True
+        or value.get("require_clean_stop") is not True
         or not isinstance(value.get("require_exact_provider_json"), bool)
         or not _is_plain_int(value.get("max_sequence_tokens"))
         or value["max_sequence_tokens"] != MAX_SEQUENCE_TOKENS

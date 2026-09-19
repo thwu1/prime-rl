@@ -8,7 +8,10 @@ import copy
 import hashlib
 import json
 import math
+import os
 import re
+import stat
+import unicodedata
 from collections import Counter
 from collections.abc import Iterable, Iterator
 from dataclasses import dataclass
@@ -23,6 +26,126 @@ FORBIDDEN_MODEL_REQUEST_FIELDS = frozenset({"logprobs", "prompt_logprobs", "retu
 REPEATED_KDA_CHARACTER_THRESHOLD = 64
 _SHA256_HEX_CHARS = frozenset("0123456789abcdef")
 TRAINABLE_FINISH_REASONS = frozenset({"stop", "tool_calls"})
+_INFRASTRUCTURE_STOP_TOKEN_PREFIXES = (
+    "abort",
+    "cancel",
+    "crash",
+    "error",
+    "except",
+    "fail",
+    "interrupt",
+    "kill",
+    "preempt",
+    "shutdown",
+    "signal",
+    "terminat",
+    "timeout",
+    "walltime",
+)
+_INFRASTRUCTURE_STOP_TOKENS = frozenset(
+    {
+        "deadline",
+        "infra",
+        "infrastructure",
+        "oom",
+        "outofmemory",
+        "sigint",
+        "sigkill",
+        "sigterm",
+        "timedout",
+        "timelimit",
+        "wallclock",
+    }
+)
+_INFRASTRUCTURE_STOP_COMPACT_SUFFIXES = (
+    "abort",
+    "aborted",
+    "cancel",
+    "canceled",
+    "cancelled",
+    "cancellation",
+    "crash",
+    "crashed",
+    "deadline",
+    "error",
+    "errored",
+    "errors",
+    "exception",
+    "fail",
+    "failed",
+    "failure",
+    "interrupt",
+    "interrupted",
+    "interruption",
+    "outofmemory",
+    "preempt",
+    "preempted",
+    "preemption",
+    "shutdown",
+    "signal",
+    "sigint",
+    "sigkill",
+    "sigterm",
+    "terminate",
+    "terminated",
+    "termination",
+    "timedout",
+    "timelimit",
+    "timeout",
+    "walltime",
+)
+_INFRASTRUCTURE_STOP_COMPACT_INFIXES = (
+    "abort",
+    "cancel",
+    "crash",
+    "deadline",
+    "error",
+    "except",
+    "fail",
+    "infra",
+    "interrupt",
+    "outofmemory",
+    "preempt",
+    "shutdown",
+    "signal",
+    "sigint",
+    "sigkill",
+    "sigterm",
+    "terminat",
+    "timedout",
+    "timelimit",
+    "timeout",
+    "wallclock",
+    "walltime",
+)
+_CAMEL_ACRONYM_BOUNDARY = re.compile(r"(?<=[A-Z])(?=[A-Z][a-z])")
+_CAMEL_WORD_BOUNDARY = re.compile(r"(?<=[a-z0-9])(?=[A-Z])")
+_STOP_TOKEN_SEPARATOR = re.compile(r"[^a-z0-9]+")
+_COMPACT_KILL = re.compile(r"(?<!s)kill")
+_COMPACT_OOM_CONTEXTS = (
+    "agent",
+    "backend",
+    "container",
+    "cpu",
+    "executor",
+    "gpu",
+    "harness",
+    "host",
+    "job",
+    "model",
+    "node",
+    "process",
+    "provider",
+    "rollout",
+    "runner",
+    "runtime",
+    "sandbox",
+    "server",
+    "service",
+    "system",
+    "task",
+    "worker",
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -51,6 +174,49 @@ MODEL_IO_CONTRACTS = {"kimi-k3-max": KIMI_K3_MAX_MODEL_IO_CONTRACT}
 
 class TraceJSONLError(ValueError):
     """A results JSONL record could not be decoded as a trace object."""
+
+
+def _clean_stop_problem(trace: dict) -> str | None:
+    """Return a stable code when a serialized trace is not cleanly terminal.
+
+    Verifiers v1 deliberately sets ``is_completed`` for a harness wall-clock
+    timeout and proceeds to scoring, so completion alone is not sufficient for
+    certification or training.  Taskset ``@stop`` methods are user-defined and
+    serialize their Python method name; accept those identifiers while
+    rejecting infrastructure termination families without echoing the raw
+    value into an audit report.
+    """
+
+    if trace.get("is_completed") is not True:
+        return "trace_not_completed"
+    stop_condition = trace.get("stop_condition")
+    if not isinstance(stop_condition, str) or not stop_condition:
+        return "trace_stop_condition_invalid"
+
+    normalized = unicodedata.normalize("NFKC", stop_condition)
+    camel_split = _CAMEL_WORD_BOUNDARY.sub("_", _CAMEL_ACRONYM_BOUNDARY.sub("_", normalized))
+    tokens = tuple(part for part in _STOP_TOKEN_SEPARATOR.split(camel_split.casefold()) if part)
+    compact = "".join(part for part in _STOP_TOKEN_SEPARATOR.split(normalized.casefold()) if part)
+    compact_oom = compact.startswith("oom") or any(f"{context}oom" in compact for context in _COMPACT_OOM_CONTEXTS)
+    if (
+        any(token in _INFRASTRUCTURE_STOP_TOKENS for token in tokens)
+        or any(token.startswith(prefix) for token in tokens for prefix in _INFRASTRUCTURE_STOP_TOKEN_PREFIXES)
+        or any(compact.endswith(suffix) for suffix in _INFRASTRUCTURE_STOP_COMPACT_SUFFIXES)
+        or any(marker in compact for marker in _INFRASTRUCTURE_STOP_COMPACT_INFIXES)
+        or _COMPACT_KILL.search(compact) is not None
+        or compact_oom
+        or any(left == "timed" and right == "out" for left, right in zip(tokens, tokens[1:], strict=False))
+        or any(left == "time" and right == "limit" for left, right in zip(tokens, tokens[1:], strict=False))
+        or any(left == "wall" and right in {"clock", "time"} for left, right in zip(tokens, tokens[1:], strict=False))
+        or any(
+            first == "out" and second == "of" and third == "memory"
+            for first, second, third in zip(tokens, tokens[1:], tokens[2:], strict=False)
+        )
+    ):
+        return "trace_stop_condition_infrastructure"
+    if not normalized.isidentifier():
+        return "trace_stop_condition_invalid"
+    return None
 
 
 def _task_slug(trace: dict) -> str:
@@ -947,6 +1113,7 @@ def _audit_trace(
     require_request_graph_match: bool = False,
     observations: Counter[str] | None = None,
     require_exact_provider_json: bool = False,
+    require_clean_stop: bool = False,
 ) -> list[str]:
     # Requiring logprobs necessarily opts into exact token-array validation.
     require_token_data = require_token_data or require_logprobs
@@ -954,6 +1121,8 @@ def _audit_trace(
         require_model_io or model_io_contract is not None or require_request_graph_match or require_exact_provider_json
     )
     problems: list[str] = []
+    if require_clean_stop and (stop_problem := _clean_stop_problem(trace)) is not None:
+        problems.append(stop_problem)
     if trace.get("errors"):
         problems.append("trace_has_errors")
     nodes = trace.get("nodes")
@@ -1101,6 +1270,106 @@ def _iter_traces(results: Path) -> Iterator[dict]:
                 yield trace
 
 
+def _summarize_clean_stops(
+    traces: Iterable[dict],
+    *,
+    expected_count: int,
+) -> tuple[dict[str, object], bool]:
+    """Re-audit terminal metadata without retaining trace or task identities."""
+
+    trace_count = 0
+    problem_counts: Counter[str] = Counter()
+    for trace in traces:
+        trace_count += 1
+        if (problem := _clean_stop_problem(trace)) is not None:
+            problem_counts[problem] += 1
+    summary: dict[str, object] = {
+        "traces": trace_count,
+        "clean_traces": trace_count - problem_counts.total(),
+        "problem_counts": dict(sorted(problem_counts.items())),
+        "trace_count_matches": trace_count == expected_count,
+    }
+    return summary, bool(problem_counts or trace_count != expected_count)
+
+
+def _summarize_hashed_clean_stops(
+    results: Path,
+    *,
+    expected_sha256: str,
+    expected_count: int,
+) -> tuple[dict[str, object], bool]:
+    """Hash and audit the exact same stable JSONL file descriptor.
+
+    Legacy smoke certificates bind the results artifact by digest but do not
+    carry the full strict audit.  Reading the path once for its digest and
+    again for the stop audit would permit a path-swap race between those two
+    operations.  This helper hashes every byte as it parses that same open
+    descriptor, then verifies both the descriptor and path stayed stable.
+    """
+
+    if not _valid_sha256(expected_sha256):
+        raise TraceJSONLError("trace_results_sha256_invalid")
+
+    flags = os.O_RDONLY | getattr(os, "O_CLOEXEC", 0) | getattr(os, "O_NOFOLLOW", 0)
+    try:
+        descriptor = os.open(results, flags)
+    except OSError:
+        raise TraceJSONLError("trace_results_unreadable") from None
+
+    digest = hashlib.sha256()
+    trace_count = 0
+    problem_counts: Counter[str] = Counter()
+    try:
+        with os.fdopen(descriptor, "rb") as handle:
+            before = os.fstat(handle.fileno())
+            if not stat.S_ISREG(before.st_mode):
+                raise TraceJSONLError("trace_results_not_regular")
+            for raw_line in handle:
+                digest.update(raw_line)
+                if not raw_line.strip():
+                    continue
+                try:
+                    trace = json.loads(raw_line.decode("utf-8"))
+                except (UnicodeDecodeError, json.JSONDecodeError):
+                    raise TraceJSONLError("trace_results_invalid_json") from None
+                if not isinstance(trace, dict):
+                    raise TraceJSONLError("trace_results_invalid_record")
+                trace_count += 1
+                if (problem := _clean_stop_problem(trace)) is not None:
+                    problem_counts[problem] += 1
+            after = os.fstat(handle.fileno())
+    except OSError:
+        raise TraceJSONLError("trace_results_unreadable") from None
+
+    try:
+        path_after = os.stat(results, follow_symlinks=False)
+    except OSError:
+        raise TraceJSONLError("trace_results_changed") from None
+
+    def signature(metadata: os.stat_result) -> tuple[int, ...]:
+        return (
+            metadata.st_dev,
+            metadata.st_ino,
+            metadata.st_mode,
+            metadata.st_size,
+            metadata.st_mtime_ns,
+            metadata.st_ctime_ns,
+        )
+
+    if signature(before) != signature(after) or signature(after) != signature(path_after):
+        raise TraceJSONLError("trace_results_changed")
+    if digest.hexdigest() != expected_sha256:
+        raise TraceJSONLError("trace_results_sha256_mismatch")
+
+    summary: dict[str, object] = {
+        "traces": trace_count,
+        "clean_traces": trace_count - problem_counts.total(),
+        "problem_counts": dict(sorted(problem_counts.items())),
+        "trace_count_matches": trace_count == expected_count,
+    }
+    return summary, bool(problem_counts or trace_count != expected_count)
+
+
 def _read_expected_slugs(task_file: Path) -> set[str]:
     with task_file.open(encoding="utf-8") as handle:
         return {line.strip().split("\t", 1)[0] for line in handle if line.strip() and not line.lstrip().startswith("#")}
@@ -1121,6 +1390,7 @@ def _summarize_traces(
     model_io_contract: CapturedModelIOContract | None = None,
     require_request_graph_match: bool = False,
     require_exact_provider_json: bool = False,
+    require_clean_stop: bool = False,
 ) -> tuple[dict, bool]:
     require_token_data = require_token_data or require_logprobs
     require_model_io = (
@@ -1157,6 +1427,7 @@ def _summarize_traces(
             model_io_contract=model_io_contract,
             require_request_graph_match=require_request_graph_match,
             require_exact_provider_json=require_exact_provider_json,
+            require_clean_stop=require_clean_stop,
             observations=reasoning_observations,
         )
         if problems:
@@ -1284,6 +1555,15 @@ def main() -> None:
         help="fail traces with any reconstructed branch longer than this (default: %(default)s)",
     )
     parser.add_argument(
+        "--require-clean-stop",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help=(
+            "require is_completed=true and reject infrastructure timeout, cancellation, "
+            "interruption, or error stop conditions (default: enabled)"
+        ),
+    )
+    parser.add_argument(
         "--aggregate-only",
         action="store_true",
         help="omit trace IDs, task identifiers, and failure examples from output",
@@ -1320,6 +1600,7 @@ def main() -> None:
             model_io_contract=MODEL_IO_CONTRACTS.get(args.model_io_contract),
             require_request_graph_match=args.require_request_graph_match and args.require_model_io,
             require_exact_provider_json=args.require_exact_provider_json,
+            require_clean_stop=args.require_clean_stop,
         )
     except TraceJSONLError as error:
         parser.error(str(error))

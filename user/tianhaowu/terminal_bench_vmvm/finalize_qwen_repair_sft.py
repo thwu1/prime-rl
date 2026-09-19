@@ -915,6 +915,7 @@ def _validate_export_summary(
         or set(source_validation)
         != {
             "max_sequence_tokens",
+            "require_clean_stop",
             "require_exact_provider_json",
             "require_model_io",
             "require_reasoning",
@@ -922,6 +923,7 @@ def _validate_export_summary(
         }
         or not _is_plain_int(source_validation.get("max_sequence_tokens"))
         or source_validation["max_sequence_tokens"] != MAX_SEQUENCE_TOKENS
+        or source_validation.get("require_clean_stop") is not True
         or source_validation.get("require_exact_provider_json") is not False
         or source_validation.get("require_model_io") is not True
         or source_validation.get("require_reasoning") is not True

@@ -229,6 +229,7 @@ def _write_export(
         "selection": selection,
         "source_validation": {
             "max_sequence_tokens": MAX_SEQUENCE_TOKENS,
+            "require_clean_stop": True,
             "require_exact_provider_json": False,
             "require_model_io": True,
             "require_reasoning": True,
@@ -609,6 +610,7 @@ def test_merge_is_deterministic_redacted_and_preserves_all_rows(tmp_path: Path) 
     assert merged_manifest["format"]["target"].startswith("authentic reasoning_content")
     assert merged_manifest["source_validation"] == {
         "max_sequence_tokens": MAX_SEQUENCE_TOKENS,
+        "require_clean_stop": True,
         "require_exact_provider_json": False,
         "require_model_io": True,
         "require_reasoning": True,

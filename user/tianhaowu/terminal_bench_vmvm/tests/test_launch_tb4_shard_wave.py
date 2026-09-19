@@ -299,7 +299,20 @@ type = "vmvm"
             "inputs_manifest",
             "provenance",
         }:
-            path.write_text(f"{name}\n")
+            if name == "results":
+                path.write_text(
+                    json.dumps(
+                        {
+                            "id": "smoke-0",
+                            "task": {"slug": "smoke-task-0"},
+                            "is_completed": True,
+                            "stop_condition": "agent_completed",
+                        }
+                    )
+                    + "\n"
+                )
+            else:
+                path.write_text(f"{name}\n")
             artifacts[name] = _record(path)
     artifacts["config"] = _record(resolved_config)
     artifacts["inputs_manifest"] = _record(manifest)
@@ -533,6 +546,7 @@ type = "vmvm"
             "require_model_io": True,
             "model_io_contract": launcher.EXPECTED_MODEL_IO_CONTRACT,
             "require_request_graph_match": True,
+            "require_clean_stop": True,
             "require_token_data": False,
             "require_logprobs": False,
             "max_sequence_tokens": 262_144,
@@ -892,6 +906,34 @@ def test_rejects_smoke_without_strict_graph_wire_policy(tmp_path: Path, monkeypa
     arguments["smoke_checkpoint_sha256"] = _sha256(smoke_path)
 
     with pytest.raises(WaveLaunchError, match="smoke_checkpoint_not_passed"):
+        launch_wave(**arguments, dry_run=True)
+
+
+def test_rejects_smoke_without_clean_stop_policy(tmp_path: Path, monkeypatch) -> None:
+    arguments = _fixture(tmp_path, monkeypatch)
+    smoke_path = Path(arguments["smoke_checkpoint_path"])
+    smoke = json.loads(smoke_path.read_text())
+    smoke["audit_policy"]["require_clean_stop"] = False
+    body = {key: item for key, item in smoke.items() if key != "smoke_checkpoint_sha256"}
+    smoke["smoke_checkpoint_sha256"] = hashlib.sha256(canonical_json(body)).hexdigest()
+    smoke_path.write_text(json.dumps(smoke) + "\n")
+    arguments["smoke_checkpoint_sha256"] = _sha256(smoke_path)
+
+    with pytest.raises(WaveLaunchError, match="smoke_checkpoint_not_passed"):
+        launch_wave(**arguments, dry_run=True)
+
+
+def test_reaudits_legacy_smoke_stop_conditions(tmp_path: Path, monkeypatch) -> None:
+    arguments = _fixture(tmp_path, monkeypatch)
+    smoke_path = Path(arguments["smoke_checkpoint_path"])
+    smoke = json.loads(smoke_path.read_text())
+    results = Path(smoke["artifacts"]["results"]["path"])
+    rows = [json.loads(line) for line in results.read_text().splitlines()]
+    rows[0]["stop_condition"] = "HarnessTimeout"
+    results.write_text("".join(json.dumps(row) + "\n" for row in rows))
+    _rewrite_smoke(arguments, ("results",))
+
+    with pytest.raises(WaveLaunchError, match="^smoke_trace_audit_failed$"):
         launch_wave(**arguments, dry_run=True)
 
 

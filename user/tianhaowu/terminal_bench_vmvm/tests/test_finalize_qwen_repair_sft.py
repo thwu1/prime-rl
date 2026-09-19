@@ -232,6 +232,7 @@ def _write_export(output: Path, source: Path, project: Path, expected_count: int
         "selection": "pass-only",
         "source_validation": {
             "max_sequence_tokens": 262_144,
+            "require_clean_stop": True,
             "require_exact_provider_json": False,
             "require_model_io": True,
             "require_reasoning": True,
@@ -349,6 +350,7 @@ def test_finalize_publishes_exact_fresh_repair_attestation(
     manifest = json.loads((options.output_dir / "manifest.json").read_bytes())
     assert manifest["source_validation"] == {
         "max_sequence_tokens": 262_144,
+        "require_clean_stop": True,
         "require_exact_provider_json": False,
         "require_model_io": True,
         "require_reasoning": True,

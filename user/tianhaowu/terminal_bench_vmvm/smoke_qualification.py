@@ -787,6 +787,8 @@ def validate_v1_smoke(
     }
     if isinstance(policy, dict) and "require_exact_provider_json" in policy:
         policy_keys.add("require_exact_provider_json")
+    if isinstance(policy, dict) and "require_clean_stop" in policy:
+        policy_keys.add("require_clean_stop")
     validate_proxy_policy_binding, _ = _proxy_policy_helpers()
     try:
         smoke_endpoint = validate_endpoint_binding(payload.get("endpoint"))
@@ -818,6 +820,7 @@ def validate_v1_smoke(
         or not isinstance(policy, dict)
         or set(policy) != policy_keys
         or ("require_exact_provider_json" in policy and policy.get("require_exact_provider_json") is not True)
+        or ("require_clean_stop" in policy and policy.get("require_clean_stop") is not True)
         or type(policy.get("rollouts_per_task")) is not int
         or policy["rollouts_per_task"] != 1
         or policy.get("require_reasoning") is not True
@@ -971,6 +974,7 @@ def validate_v1_smoke(
             model_io_contract=KIMI_K3_MAX_MODEL_IO_CONTRACT,
             require_request_graph_match=True,
             require_exact_provider_json=policy.get("require_exact_provider_json", False),
+            require_clean_stop=True,
             max_sequence_tokens=262_144,
         )
     except (OSError, ValueError) as error:
@@ -1199,6 +1203,7 @@ def validate_supplemental_strict_checkpoint(
     if not isinstance(expected_policy, dict):
         raise SmokeQualificationError("supplemental_checkpoint_identity_mismatch")
     expected_policy["require_exact_provider_json"] = True
+    expected_policy["require_clean_stop"] = True
     expected_body = {key: value for key, value in expected_payload.items() if key != "smoke_checkpoint_sha256"}
     expected_payload["smoke_checkpoint_sha256"] = sha256_bytes(canonical_json(expected_body))
     if not _same_json(payload, expected_payload):
@@ -1253,6 +1258,7 @@ def validate_supplemental_strict_checkpoint(
             model_io_contract=KIMI_K3_MAX_MODEL_IO_CONTRACT,
             require_request_graph_match=True,
             require_exact_provider_json=True,
+            require_clean_stop=True,
             max_sequence_tokens=262_144,
         )
     except (OSError, ValueError) as error:

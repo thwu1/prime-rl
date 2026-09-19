@@ -33,6 +33,7 @@ from audit_traces import (
     DEFAULT_MAX_SEQUENCE_TOKENS,
     TRAINABLE_FINISH_REASONS,
     _audit_trace,
+    _clean_stop_problem,
     _valid_redundant_provider_specific_fields,
     _valid_tool_arguments,
 )
@@ -1840,11 +1841,8 @@ def _validate_trainable_trace(
     """Apply the exact strict validation used before any SFT row is emitted."""
     if _contains_unsupported_provider_state(trace):
         raise ExportError("unsupported_assistant_state")
-    if trace.get("is_completed") is not True:
-        raise ExportError("trace_not_completed")
-    stop_condition = trace.get("stop_condition")
-    if not isinstance(stop_condition, str) or not stop_condition:
-        raise ExportError("trace_stop_condition_invalid")
+    if (stop_problem := _clean_stop_problem(trace)) is not None:
+        raise ExportError(stop_problem)
     raw_nodes = trace.get("nodes")
     if not isinstance(raw_nodes, list) or not all(isinstance(node, dict) for node in raw_nodes):
         raise ExportError("message_graph_invalid")
@@ -1874,6 +1872,7 @@ def _validate_trainable_trace(
         require_model_io=True,
         require_request_graph_match=True,
         require_exact_provider_json=require_exact_provider_json,
+        require_clean_stop=True,
     )
     if problems:
         if "normalized_stream_response_disallowed" in problems:
@@ -2127,11 +2126,8 @@ def export_sft(options: ExportOptions) -> dict[str, Any]:
                     continue
                 reward = _trace_reward(trace)
                 counts["scored_pass_traces" if reward > 0 else "scored_fail_traces"] += 1
-                if trace.get("is_completed") is not True:
-                    raise ExportError("trace_not_completed")
-                stop_condition = trace.get("stop_condition")
-                if not isinstance(stop_condition, str) or not stop_condition:
-                    raise ExportError("trace_stop_condition_invalid")
+                if (stop_problem := _clean_stop_problem(trace)) is not None:
+                    raise ExportError(stop_problem)
                 if options.selection == "pass-only" and reward == 0:
                     counts["selection_excluded_fail_traces"] += 1
                     continue
@@ -2268,6 +2264,7 @@ def export_sft(options: ExportOptions) -> dict[str, Any]:
                 "selection": options.selection,
                 "source_validation": {
                     "max_sequence_tokens": options.max_sequence_tokens,
+                    "require_clean_stop": True,
                     "require_exact_provider_json": options.require_exact_provider_json,
                     "require_model_io": True,
                     "require_reasoning": True,

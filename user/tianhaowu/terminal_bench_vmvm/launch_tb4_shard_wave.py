@@ -19,6 +19,7 @@ from datetime import UTC, datetime
 from pathlib import Path, PurePosixPath
 from typing import Any, Callable, Mapping, Sequence
 
+from audit_traces import TraceJSONLError, _summarize_hashed_clean_stops
 from deployment_endpoint import (
     EndpointBindingError,
     load_deployment_endpoint,
@@ -943,6 +944,7 @@ def _validate_generation_bindings_legacy(
         or policy.get("require_reasoning") is not True
         or policy.get("require_model_io") is not True
         or policy.get("require_request_graph_match") is not True
+        or policy.get("require_clean_stop") is not True
         or canonical_json(policy.get("model_io_contract")) != canonical_json(EXPECTED_MODEL_IO_CONTRACT)
         or policy.get("require_token_data") is not False
         or policy.get("require_logprobs") is not False
@@ -998,6 +1000,21 @@ def _validate_generation_bindings_legacy(
         )
         for name in expected_paths
     }
+    try:
+        stop_summary, stop_failed = _summarize_hashed_clean_stops(
+            records["results"].path,
+            expected_sha256=records["results"].sha256,
+            expected_count=expected_traces,
+        )
+    except (OSError, TraceJSONLError) as error:
+        raise WaveLaunchError("smoke_trace_audit_invalid") from error
+    if stop_failed or stop_summary["traces"] != counts.get("traces"):
+        raise WaveLaunchError("smoke_trace_audit_failed")
+    _artifact_record(
+        smoke_artifacts.get("results"),
+        label="smoke_results",
+        expected=records["results"],
+    )
     run_dir = records["eval_run_identity"].path.parent
     if smoke.path != run_dir / "smoke_checkpoint.json" or any(
         records[name].path != run_dir / relative for name, relative in expected_paths.items()

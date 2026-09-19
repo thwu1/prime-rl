@@ -915,6 +915,34 @@ def test_pass_only_still_validates_basic_non_pass_schema(tmp_path: Path) -> None
     assert not (tmp_path / "dataset").exists()
 
 
+@pytest.mark.parametrize(
+    ("selection", "reward"),
+    [("pass-only", 0.0), ("pass-only", 1.0), ("all-outcomes", 0.0)],
+)
+def test_export_rejects_infrastructure_stop_before_selection(
+    tmp_path: Path,
+    selection: str,
+    reward: float,
+) -> None:
+    trace = _linear_trace(reward=reward)
+    trace["stop_condition"] = "harness_timeout"
+    results = _write_run(tmp_path / "run", [trace])
+
+    with pytest.raises(ExportError, match="^trace_stop_condition_infrastructure$"):
+        export_sft(_options(results, tmp_path / "dataset", selection=selection))
+    assert not (tmp_path / "dataset").exists()
+
+
+def test_export_accepts_max_turns_as_clean_terminal_outcome(tmp_path: Path) -> None:
+    trace = _linear_trace()
+    trace["stop_condition"] = "max_turns"
+    results = _write_run(tmp_path / "run", [trace])
+
+    summary = export_sft(_options(results, tmp_path / "dataset"))
+
+    assert summary["selected_traces"] == 1
+
+
 def test_error_rows_are_excluded_without_inspecting_error_payload(tmp_path: Path) -> None:
     error_trace = {
         "id": "error-trace",
@@ -1136,6 +1164,7 @@ def test_exact_provider_json_requirement_is_hash_bound_in_manifest(tmp_path: Pat
     manifest = json.loads((output / "manifest.json").read_bytes())
     assert manifest["source_validation"] == {
         "max_sequence_tokens": 262_144,
+        "require_clean_stop": True,
         "require_exact_provider_json": True,
         "require_model_io": True,
         "require_reasoning": True,
@@ -1276,6 +1305,7 @@ def test_export_is_byte_deterministic_and_records_provenance_hashes(tmp_path: Pa
     assert manifest["target_rendering"] == exporter.TARGET_RENDERING_CONTRACT
     assert manifest["source_validation"] == {
         "max_sequence_tokens": 262_144,
+        "require_clean_stop": True,
         "require_exact_provider_json": False,
         "require_model_io": True,
         "require_reasoning": True,

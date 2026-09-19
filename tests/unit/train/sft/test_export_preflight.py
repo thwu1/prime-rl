@@ -178,6 +178,7 @@ def _attestation(root: Path) -> dict:
         "schema_version": export_preflight.ATTESTATION_SCHEMA_VERSION,
         "source_validation": {
             "max_sequence_tokens": 262_144,
+            "require_clean_stop": True,
             "require_exact_provider_json": False,
             "require_model_io": True,
             "require_reasoning": True,
@@ -810,6 +811,7 @@ def test_preflight_rejects_source_validation_expectation_mismatch(
         manifest_value={},
         source_validation={
             "max_sequence_tokens": 262_144,
+            "require_clean_stop": True,
             "require_exact_provider_json": False,
             "require_model_io": True,
             "require_reasoning": True,
@@ -836,6 +838,7 @@ def test_preflight_rejects_source_validation_expectation_mismatch(
         ("require_reasoning", False),
         ("require_model_io", False),
         ("require_request_graph_match", False),
+        ("require_clean_stop", False),
         ("require_exact_provider_json", 1),
         ("max_sequence_tokens", 1),
     ],
