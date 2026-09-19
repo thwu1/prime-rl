@@ -1,6 +1,6 @@
 # VMVM sandbox coordination
 
-Last updated: 2026-09-19 00:46 UTC
+Last updated: 2026-09-19 01:12 UTC
 
 ## First message to the next teammate
 
@@ -41,6 +41,21 @@ this shared branch again.
 Add new rows below this line; do not overwrite another owner's row.
 
 ## Open coordination requests
+
+- **2026-09-19 01:12 UTC, reviewed production source+trace integration
+  frozen:** true two-parent merge plus review fixes is approved and pushed as
+  `dc9343620`; reviewed parents are trace-fidelity `dedaad245` and oracle
+  source-wheel runtime `ceb9356c9`. Its 1,035-test workflow suite and focused
+  trace/oracle/trainer/real-limiter suites pass. Independent review verified
+  unmeasured tunnel permits do not contaminate lease-start telemetry,
+  graph-to-wire matching is certificate-bound, and raw finish reasons are
+  restricted to `stop`/`tool_calls`. Clean detached checkout
+  `prime-rl-dc9343620` binds VMVM digest
+  `579a22883716aefab8ddd7a4d858ea4d88aacbe6243e1bd9e1334d82ba9cda8b`
+  and evaluator digest
+  `f30ed1b100479ffb48dbcaf1b7b7882f0054f0ad4c655669ec30bbce7b038452`.
+  Do not launch production from it until TB4, oracle promotion, post-resize
+  readiness, and measured capacity-smoke certificates all pass.
 
 - **2026-09-19 01:03 UTC, Kimi second smoke case active with bounded
   continuation:** smoke `1750319` remains RUNNING with 1/2 durable rows; the
