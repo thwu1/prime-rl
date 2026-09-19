@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import importlib.metadata
 import json
 import math
 import os
@@ -341,10 +342,7 @@ def _source_identity(args: argparse.Namespace) -> dict[str, str]:
     ):
         if value != CLEAN_TREE_SHA256:
             raise EvalIdentityError(f"{label}_not_clean")
-    observed_vmvm = _vmvm_source_sha256(root)
-    if args.vmvm_tb_v2_sha256 != observed_vmvm:
-        raise EvalIdentityError("vmvm_source_sha256_mismatch")
-    return {
+    identity = {
         "project_root": str(root),
         "prime_rl_commit": args.prime_rl_commit,
         "prime_rl_tree_sha256": args.prime_rl_tree_sha256,
@@ -352,7 +350,44 @@ def _source_identity(args: argparse.Namespace) -> dict[str, str]:
         "verifiers_tree_sha256": args.verifiers_tree_sha256,
         "renderers_commit": args.renderers_commit,
         "renderers_tree_sha256": args.renderers_tree_sha256,
-        "vmvm_tb_v2_sha256": args.vmvm_tb_v2_sha256,
+    }
+    if args.sandbox_provider == "vmvm":
+        observed_vmvm = _vmvm_source_sha256(root)
+        if args.vmvm_tb_v2_sha256 != observed_vmvm:
+            raise EvalIdentityError("vmvm_source_sha256_mismatch")
+        return {**identity, "vmvm_tb_v2_sha256": args.vmvm_tb_v2_sha256}
+
+    provider_root = root / "deps/sandoq-provider"
+    if REVISION_RE.fullmatch(args.sandoq_provider_commit or "") is None:
+        raise EvalIdentityError("sandoq_provider_commit_invalid")
+    if (
+        _git_output(provider_root, "rev-parse", "--verify", "HEAD", label="sandoq_provider").strip()
+        != args.sandoq_provider_commit
+        or _git_output(provider_root, "status", "--porcelain=v1", "--untracked-files=all", label="sandoq_provider").strip()
+    ):
+        raise EvalIdentityError("sandoq_provider_mismatch")
+    observed_tree = _git_output(provider_root, "rev-parse", "HEAD^{tree}", label="sandoq_provider").strip()
+    if args.sandoq_provider_tree != observed_tree:
+        raise EvalIdentityError("sandoq_provider_tree_mismatch")
+    if not args.sandoq_client_version or any(
+        character in args.sandoq_client_version for character in "\r\n="
+    ):
+        raise EvalIdentityError("sandoq_client_version_invalid")
+    try:
+        observed_client_version = importlib.metadata.version("sandoq-client")
+    except importlib.metadata.PackageNotFoundError as error:
+        raise EvalIdentityError("sandoq_client_unavailable") from error
+    if args.sandoq_client_version != observed_client_version:
+        raise EvalIdentityError("sandoq_client_version_mismatch")
+    if SHA256_RE.fullmatch(args.derived_image_manifest_sha256 or "") is None:
+        raise EvalIdentityError("derived_image_manifest_sha256_invalid")
+    return {
+        **identity,
+        "sandbox_provider": "sandoq",
+        "sandoq_provider_commit": args.sandoq_provider_commit,
+        "sandoq_provider_tree": args.sandoq_provider_tree,
+        "sandoq_client_version": args.sandoq_client_version,
+        "derived_image_manifest_sha256": args.derived_image_manifest_sha256,
     }
 
 
@@ -647,6 +682,7 @@ def _contract(
     routing_deployment_id: str | None = None,
     *,
     role: str | None = None,
+    sandbox_provider: str = "vmvm",
 ) -> tuple[dict[str, Any], dict[str, Any]]:
     client = config.get("client")
     sampling = config.get("sampling")
@@ -714,9 +750,25 @@ def _contract(
             raise EvalIdentityError(f"{label}_invalid")
     if model == "Kimi-K3" and require_kimi_steady_state_concurrency:
         validate_kimi_steady_state_concurrency_contract(config)
+    if sandbox_provider not in {"vmvm", "sandoq"}:
+        raise EvalIdentityError("sandbox_provider_invalid")
     runtime = harness.get("runtime")
-    if not isinstance(runtime, dict) or runtime.get("type") != "vmvm":
-        raise EvalIdentityError("vmvm_runtime_required")
+    if not isinstance(runtime, dict) or runtime.get("type") != sandbox_provider:
+        error = (
+            "vmvm_runtime_required"
+            if sandbox_provider == "vmvm"
+            else "sandbox_runtime_mismatch"
+        )
+        raise EvalIdentityError(error)
+    if sandbox_provider == "sandoq" and (
+        runtime.get("mode") != "oci-runner"
+        or runtime.get("network_access") is not False
+        or runtime.get("host_tunnel") != "sandoq"
+        or runtime.get("expected_environment")
+        != "oci-runner-firecracker-tunnel-pull"
+        or runtime.get("guest_tunnel_url") != "http://127.0.0.1:8485"
+    ):
+        raise EvalIdentityError("sandoq_runtime_contract_invalid")
     sampling_max_tokens = sampling.get("max_tokens")
     if (
         not isinstance(sampling_max_tokens, int)
@@ -1059,6 +1111,47 @@ def _effective_vmvm_environment(args: argparse.Namespace, rollout_concurrency: i
     }
 
 
+def _effective_sandoq_environment(
+    args: argparse.Namespace, rollout_concurrency: int
+) -> dict[str, Any]:
+    pool_size = _positive_int(args.sandoq_pool_size, "sandoq_pool_size")
+    try:
+        pool_min_size = int(args.sandoq_pool_min_size)
+    except ValueError as error:
+        raise EvalIdentityError("sandoq_pool_min_size_invalid") from error
+    if pool_min_size < 0 or pool_min_size > pool_size:
+        raise EvalIdentityError("sandoq_pool_min_size_invalid")
+    if pool_size < rollout_concurrency:
+        raise EvalIdentityError("sandoq_pool_size_below_rollout_concurrency")
+    if args.sandoq_environment != "oci-runner-firecracker-tunnel-pull":
+        raise EvalIdentityError("sandoq_environment_invalid")
+    if args.sandoq_task_network != "host":
+        raise EvalIdentityError("sandoq_task_network_invalid")
+    if args.sandoq_tunnel_policy != "named-tunnel-loopback":
+        raise EvalIdentityError("sandoq_tunnel_policy_invalid")
+    if (
+        args.sandoq_use_ecr != "1"
+        or args.sandoq_ecr_registry
+        != "168653207203.dkr.ecr.us-east-2.amazonaws.com"
+        or args.sandoq_ecr_region != "us-east-2"
+        or args.sandoq_ecr_pull_through_prefix != "pt_dockerio"
+        or args.sandoq_allow_dockerhub_fallback != "0"
+    ):
+        raise EvalIdentityError("sandoq_ecr_policy_invalid")
+    return {
+        "environment": args.sandoq_environment,
+        "task_network": args.sandoq_task_network,
+        "pool_size": pool_size,
+        "pool_min_size": pool_min_size,
+        "tunnel_policy": args.sandoq_tunnel_policy,
+        "use_ecr": True,
+        "ecr_registry": args.sandoq_ecr_registry,
+        "ecr_region": args.sandoq_ecr_region,
+        "ecr_pull_through_prefix": args.sandoq_ecr_pull_through_prefix,
+        "allow_dockerhub_fallback": False,
+    }
+
+
 def _load_resolved_config(path: Path) -> dict[str, Any]:
     raw = _read_bytes(path, label="resolved_config")
     try:
@@ -1168,7 +1261,7 @@ def _validate_identity_shape(identity: object) -> dict[str, Any]:
         raise EvalIdentityError("eval_run_identity_schema_invalid")
 
     source = identity.get("source")
-    source_keys = {
+    common_source_keys = {
         "project_root",
         "prime_rl_commit",
         "prime_rl_tree_sha256",
@@ -1176,23 +1269,49 @@ def _validate_identity_shape(identity: object) -> dict[str, Any]:
         "verifiers_tree_sha256",
         "renderers_commit",
         "renderers_tree_sha256",
-        "vmvm_tb_v2_sha256",
     }
-    if not isinstance(source, dict) or set(source) != source_keys:
+    if not isinstance(source, dict):
+        raise EvalIdentityError("eval_run_identity_schema_invalid")
+    sandbox_provider = source.get("sandbox_provider", "vmvm")
+    source_keys = (
+        common_source_keys | {"vmvm_tb_v2_sha256"}
+        if sandbox_provider == "vmvm"
+        else common_source_keys
+        | {
+            "sandbox_provider",
+            "sandoq_provider_commit",
+            "sandoq_provider_tree",
+            "sandoq_client_version",
+            "derived_image_manifest_sha256",
+        }
+    )
+    if sandbox_provider not in {"vmvm", "sandoq"} or set(source) != source_keys:
         raise EvalIdentityError("eval_run_identity_schema_invalid")
     project_root = source.get("project_root")
     if not isinstance(project_root, str) or not project_root or not Path(project_root).is_absolute():
         raise EvalIdentityError("eval_run_identity_schema_invalid")
-    for key in ("prime_rl_commit", "verifiers_commit", "renderers_commit"):
+    revision_keys = (
+        "prime_rl_commit",
+        "verifiers_commit",
+        "renderers_commit",
+    )
+    if sandbox_provider == "sandoq":
+        revision_keys += ("sandoq_provider_commit", "sandoq_provider_tree")
+    for key in revision_keys:
         value = source.get(key)
         if not isinstance(value, str) or REVISION_RE.fullmatch(value) is None:
             raise EvalIdentityError("eval_run_identity_schema_invalid")
-    for key in (
+    digest_keys = (
         "prime_rl_tree_sha256",
         "verifiers_tree_sha256",
         "renderers_tree_sha256",
-        "vmvm_tb_v2_sha256",
-    ):
+    )
+    digest_keys += (
+        ("vmvm_tb_v2_sha256",)
+        if sandbox_provider == "vmvm"
+        else ("derived_image_manifest_sha256",)
+    )
+    for key in digest_keys:
         value = source.get(key)
         if not isinstance(value, str) or SHA256_RE.fullmatch(value) is None:
             raise EvalIdentityError("eval_run_identity_schema_invalid")
@@ -1214,6 +1333,12 @@ def _validate_identity_shape(identity: object) -> dict[str, Any]:
         raise EvalIdentityError("eval_run_identity_schema_invalid")
     if inputs["image_manifest"] is not None:
         _validate_artifact_shape(inputs["image_manifest"])
+    if sandbox_provider == "sandoq" and (
+        inputs["image_manifest"] is None
+        or inputs["image_manifest"]["sha256"]
+        != source["derived_image_manifest_sha256"]
+    ):
+        raise EvalIdentityError("eval_run_identity_schema_invalid")
 
     dataset = identity.get("dataset")
     if not isinstance(dataset, dict) or set(dataset) != {
@@ -1338,13 +1463,16 @@ def _validate_identity_shape(identity: object) -> dict[str, Any]:
         raise EvalIdentityError("eval_run_identity_schema_invalid")
 
     execution = identity.get("execution")
-    if not isinstance(execution, dict) or set(execution) != {
+    common_execution_keys = {
         "rollout_concurrency",
         "multiplex",
         "http_max_connections",
         "http_max_keepalive_connections",
         "runtime",
-        "vmvm_environment",
+    }
+    environment_key = f"{sandbox_provider}_environment"
+    if not isinstance(execution, dict) or set(execution) != common_execution_keys | {
+        environment_key
     }:
         raise EvalIdentityError("eval_run_identity_schema_invalid")
     if any(
@@ -1358,9 +1486,42 @@ def _validate_identity_shape(identity: object) -> dict[str, Any]:
     ):
         raise EvalIdentityError("eval_run_identity_schema_invalid")
     runtime = execution.get("runtime")
-    environment = execution.get("vmvm_environment")
-    if not isinstance(runtime, dict) or runtime.get("type") != "vmvm":
+    environment = execution.get(environment_key)
+    if not isinstance(runtime, dict) or runtime.get("type") != sandbox_provider:
         raise EvalIdentityError("eval_run_identity_schema_invalid")
+    if sandbox_provider == "sandoq":
+        if not isinstance(environment, dict) or set(environment) != {
+            "environment",
+            "task_network",
+            "pool_size",
+            "pool_min_size",
+            "tunnel_policy",
+            "use_ecr",
+            "ecr_registry",
+            "ecr_region",
+            "ecr_pull_through_prefix",
+            "allow_dockerhub_fallback",
+        }:
+            raise EvalIdentityError("eval_run_identity_schema_invalid")
+        if (
+            environment.get("environment")
+            != "oci-runner-firecracker-tunnel-pull"
+            or environment.get("task_network") != "host"
+            or environment.get("tunnel_policy") != "named-tunnel-loopback"
+            or environment.get("use_ecr") is not True
+            or environment.get("ecr_registry")
+            != "168653207203.dkr.ecr.us-east-2.amazonaws.com"
+            or environment.get("ecr_region") != "us-east-2"
+            or environment.get("ecr_pull_through_prefix") != "pt_dockerio"
+            or environment.get("allow_dockerhub_fallback") is not False
+            or not _validate_positive_integer(environment.get("pool_size"))
+            or not isinstance(environment.get("pool_min_size"), int)
+            or environment["pool_min_size"] < 0
+            or environment["pool_min_size"] > environment["pool_size"]
+            or environment["pool_size"] < execution["rollout_concurrency"]
+        ):
+            raise EvalIdentityError("eval_run_identity_schema_invalid")
+        return identity
     if not isinstance(environment, dict) or set(environment) != {
         "vacli_bin",
         "lease_start_concurrency",
@@ -1545,7 +1706,7 @@ def _verify_checkpoint_records(
 
 
 def _verify_source_record(source: object) -> None:
-    expected_keys = {
+    common_keys = {
         "project_root",
         "prime_rl_commit",
         "prime_rl_tree_sha256",
@@ -1553,9 +1714,23 @@ def _verify_source_record(source: object) -> None:
         "verifiers_tree_sha256",
         "renderers_commit",
         "renderers_tree_sha256",
-        "vmvm_tb_v2_sha256",
     }
-    if not isinstance(source, dict) or set(source) != expected_keys:
+    if not isinstance(source, dict):
+        raise EvalIdentityError("eval_run_identity_schema_invalid")
+    sandbox_provider = source.get("sandbox_provider", "vmvm")
+    expected_keys = (
+        common_keys | {"vmvm_tb_v2_sha256"}
+        if sandbox_provider == "vmvm"
+        else common_keys
+        | {
+            "sandbox_provider",
+            "sandoq_provider_commit",
+            "sandoq_provider_tree",
+            "sandoq_client_version",
+            "derived_image_manifest_sha256",
+        }
+    )
+    if sandbox_provider not in {"vmvm", "sandoq"} or set(source) != expected_keys:
         raise EvalIdentityError("eval_run_identity_schema_invalid")
     root = Path(source["project_root"]).resolve(strict=True)
     for label, repository, revision_key, tree_key in (
@@ -1577,8 +1752,18 @@ def _verify_source_record(source: object) -> None:
         )
         if source[tree_key] != _sha256_bytes(status.encode()) or status.strip():
             raise EvalIdentityError(f"{label}_worktree_not_clean")
-    if source["vmvm_tb_v2_sha256"] != _vmvm_source_sha256(root):
+    if sandbox_provider == "vmvm" and source["vmvm_tb_v2_sha256"] != _vmvm_source_sha256(root):
         raise EvalIdentityError("vmvm_source_sha256_mismatch")
+    if sandbox_provider == "sandoq":
+        provider = root / "deps/sandoq-provider"
+        if (
+            _git_output(provider, "rev-parse", "HEAD", label="sandoq_provider").strip()
+            != source["sandoq_provider_commit"]
+            or _git_output(provider, "rev-parse", "HEAD^{tree}", label="sandoq_provider").strip()
+            != source["sandoq_provider_tree"]
+            or _git_output(provider, "status", "--porcelain=v1", "--untracked-files=all", label="sandoq_provider").strip()
+        ):
+            raise EvalIdentityError("sandoq_provider_mismatch")
 
 
 def _verify_config_and_inputs(
@@ -1618,6 +1803,7 @@ def _verify_config_and_inputs(
         identity["contract"]["model"],
         identity["deployment"]["routing"]["deployment_id"],
         role=identity["role"],
+        sandbox_provider=identity["source"].get("sandbox_provider", "vmvm"),
     )
     client = config.get("client")
     if not isinstance(client, dict) or client.get("base_url") != endpoint_client_base_url:
@@ -1651,6 +1837,7 @@ def _verify_config_and_inputs(
 
 def _verify_saved_provenance(output_dir: Path, identity: dict[str, Any], identity_sha256: str) -> None:
     source = identity["source"]
+    sandbox_provider = source.get("sandbox_provider", "vmvm")
     stable = {
         "prime_rl": source["prime_rl_commit"],
         "prime_rl_tree": source["prime_rl_tree_sha256"],
@@ -1658,7 +1845,6 @@ def _verify_saved_provenance(output_dir: Path, identity: dict[str, Any], identit
         "verifiers_tree": source["verifiers_tree_sha256"],
         "renderers": source["renderers_commit"],
         "renderers_tree": source["renderers_tree_sha256"],
-        "vmvm_tb_v2": source["vmvm_tb_v2_sha256"],
         "deployment_id": identity["deployment"]["id"],
         "deployment_endpoint_authority_sha256": identity["deployment"]["endpoint"]["authority_sha256"],
         "deployment_proxy_info_sha256": identity["deployment"]["endpoint"]["proxy_info"]["sha256"],
@@ -1667,6 +1853,35 @@ def _verify_saved_provenance(output_dir: Path, identity: dict[str, Any], identit
         "approval_task_file_sha256": identity["inputs"]["task_file"]["sha256"],
         "approval_task_count": str(identity["inputs"]["task_file"]["count"]),
     }
+    if sandbox_provider == "vmvm":
+        stable["vmvm_tb_v2"] = source["vmvm_tb_v2_sha256"]
+    else:
+        environment = identity["execution"]["sandoq_environment"]
+        stable.update(
+            {
+                "sandbox_provider": "sandoq",
+                "sandoq_provider_commit": source["sandoq_provider_commit"],
+                "sandoq_provider_tree": source["sandoq_provider_tree"],
+                "sandoq_client_version": source["sandoq_client_version"],
+                "derived_image_manifest_sha256": source[
+                    "derived_image_manifest_sha256"
+                ],
+                "sandoq_environment": environment["environment"],
+                "sandoq_task_network": environment["task_network"],
+                "sandoq_pool_size": str(environment["pool_size"]),
+                "sandoq_pool_min_size": str(environment["pool_min_size"]),
+                "sandoq_tunnel_policy": environment["tunnel_policy"],
+                "sandoq_use_ecr": str(environment["use_ecr"]).lower(),
+                "sandoq_ecr_registry": environment["ecr_registry"],
+                "sandoq_ecr_region": environment["ecr_region"],
+                "sandoq_ecr_pull_through_prefix": environment[
+                    "ecr_pull_through_prefix"
+                ],
+                "sandoq_allow_dockerhub_fallback": str(
+                    environment["allow_dockerhub_fallback"]
+                ).lower(),
+            }
+        )
     saved = _parse_provenance(output_dir / "provenance.txt")
     if (
         set(saved) != {*stable, "host", "slurm_job_id"}
@@ -1808,6 +2023,7 @@ def _bind_provenance(
     args: argparse.Namespace,
 ) -> None:
     source = identity["source"]
+    sandbox_provider = source.get("sandbox_provider", "vmvm")
     stable = {
         "prime_rl": source["prime_rl_commit"],
         "prime_rl_tree": source["prime_rl_tree_sha256"],
@@ -1815,7 +2031,6 @@ def _bind_provenance(
         "verifiers_tree": source["verifiers_tree_sha256"],
         "renderers": source["renderers_commit"],
         "renderers_tree": source["renderers_tree_sha256"],
-        "vmvm_tb_v2": source["vmvm_tb_v2_sha256"],
         "deployment_id": identity["deployment"]["id"],
         "deployment_endpoint_authority_sha256": identity["deployment"]["endpoint"]["authority_sha256"],
         "deployment_proxy_info_sha256": identity["deployment"]["endpoint"]["proxy_info"]["sha256"],
@@ -1824,6 +2039,35 @@ def _bind_provenance(
         "approval_task_file_sha256": identity["inputs"]["task_file"]["sha256"],
         "approval_task_count": str(identity["inputs"]["task_file"]["count"]),
     }
+    if sandbox_provider == "vmvm":
+        stable["vmvm_tb_v2"] = source["vmvm_tb_v2_sha256"]
+    else:
+        environment = identity["execution"]["sandoq_environment"]
+        stable.update(
+            {
+                "sandbox_provider": sandbox_provider,
+                "sandoq_provider_commit": source["sandoq_provider_commit"],
+                "sandoq_provider_tree": source["sandoq_provider_tree"],
+                "sandoq_client_version": source["sandoq_client_version"],
+                "derived_image_manifest_sha256": source[
+                    "derived_image_manifest_sha256"
+                ],
+                "sandoq_environment": environment["environment"],
+                "sandoq_task_network": environment["task_network"],
+                "sandoq_pool_size": str(environment["pool_size"]),
+                "sandoq_pool_min_size": str(environment["pool_min_size"]),
+                "sandoq_tunnel_policy": environment["tunnel_policy"],
+                "sandoq_use_ecr": str(environment["use_ecr"]).lower(),
+                "sandoq_ecr_registry": environment["ecr_registry"],
+                "sandoq_ecr_region": environment["ecr_region"],
+                "sandoq_ecr_pull_through_prefix": environment[
+                    "ecr_pull_through_prefix"
+                ],
+                "sandoq_allow_dockerhub_fallback": str(
+                    environment["allow_dockerhub_fallback"]
+                ).lower(),
+            }
+        )
     expected_keys = {*stable, "host", "slurm_job_id"}
     path = output_dir / "provenance.txt"
     if args.mode == "resume":
@@ -1837,22 +2081,9 @@ def _bind_provenance(
             raise EvalIdentityError("eval_provenance_mismatch")
     else:
         records = {
-            "prime_rl": stable["prime_rl"],
-            "prime_rl_tree": stable["prime_rl_tree"],
-            "verifiers": stable["verifiers"],
-            "verifiers_tree": stable["verifiers_tree"],
-            "renderers": stable["renderers"],
-            "renderers_tree": stable["renderers_tree"],
-            "vmvm_tb_v2": stable["vmvm_tb_v2"],
-            "deployment_id": stable["deployment_id"],
-            "deployment_endpoint_authority_sha256": stable["deployment_endpoint_authority_sha256"],
-            "deployment_proxy_info_sha256": stable["deployment_proxy_info_sha256"],
-            "eval_run_role": stable["eval_run_role"],
-            "eval_run_identity_sha256": stable["eval_run_identity_sha256"],
+            **stable,
             "host": args.invocation_host,
             "slurm_job_id": args.slurm_job_id,
-            "approval_task_file_sha256": stable["approval_task_file_sha256"],
-            "approval_task_count": stable["approval_task_count"],
         }
         try:
             with path.open("x", encoding="utf-8") as handle:
@@ -1901,7 +2132,7 @@ def prepare(args: argparse.Namespace) -> str:
         raise EvalIdentityError("invocation_host_invalid")
     if not args.slurm_job_id.isdigit():
         raise EvalIdentityError("slurm_job_id_invalid")
-    if not args.vacli_bin.strip():
+    if args.sandbox_provider == "vmvm" and not args.vacli_bin.strip():
         raise EvalIdentityError("vacli_bin_invalid")
     try:
         endpoint_info = load_deployment_endpoint(
@@ -1943,13 +2174,27 @@ def prepare(args: argparse.Namespace) -> str:
         args.expected_model,
         args.routing_deployment_id,
         role=args.role,
+        sandbox_provider=args.sandbox_provider,
     )
     client = config.get("client")
     if not isinstance(client, dict) or client.get("base_url") != endpoint_info.client_base_url:
         raise EvalIdentityError("model_endpoint_binding_mismatch")
     rollout_concurrency = execution["rollout_concurrency"]
-    execution["vmvm_environment"] = _effective_vmvm_environment(args, rollout_concurrency)
+    if args.sandbox_provider == "vmvm":
+        execution["vmvm_environment"] = _effective_vmvm_environment(
+            args, rollout_concurrency
+        )
+    else:
+        execution["sandoq_environment"] = _effective_sandoq_environment(
+            args, rollout_concurrency
+        )
     source = _source_identity(args)
+    if args.sandbox_provider == "sandoq" and (
+        inputs["image_manifest"] is None
+        or inputs["image_manifest"]["sha256"]
+        != source["derived_image_manifest_sha256"]
+    ):
+        raise EvalIdentityError("derived_image_manifest_sha256_mismatch")
     deployment = _checkpoint_identity(args, endpoint_info.binding)
     expected_request_timeout = request_timeout_for_model(contract["model"])
     if (
@@ -2030,19 +2275,34 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--promotion-certificate", type=Path)
     parser.add_argument("--promotion-certificate-sha256")
     parser.add_argument("--project-root", type=Path, required=True)
+    parser.add_argument("--sandbox-provider", choices=("vmvm", "sandoq"), default="vmvm")
     parser.add_argument("--prime-rl-commit", required=True)
     parser.add_argument("--prime-rl-tree-sha256", required=True)
     parser.add_argument("--verifiers-commit", required=True)
     parser.add_argument("--verifiers-tree-sha256", required=True)
     parser.add_argument("--renderers-commit", required=True)
     parser.add_argument("--renderers-tree-sha256", required=True)
-    parser.add_argument("--vmvm-tb-v2-sha256", required=True)
-    parser.add_argument("--vacli-bin", required=True)
-    parser.add_argument("--vacli-max-concurrent-leases", required=True)
-    parser.add_argument("--vacli-lease-retries", required=True)
-    parser.add_argument("--vacli-max-pull-retries", required=True)
-    parser.add_argument("--vacli-image-pull-timeout-seconds", required=True)
-    parser.add_argument("--vacli-container-privileged", required=True)
+    parser.add_argument("--vmvm-tb-v2-sha256", default="")
+    parser.add_argument("--vacli-bin", default="")
+    parser.add_argument("--vacli-max-concurrent-leases", default="")
+    parser.add_argument("--vacli-lease-retries", default="")
+    parser.add_argument("--vacli-max-pull-retries", default="")
+    parser.add_argument("--vacli-image-pull-timeout-seconds", default="")
+    parser.add_argument("--vacli-container-privileged", default="")
+    parser.add_argument("--sandoq-provider-commit")
+    parser.add_argument("--sandoq-provider-tree")
+    parser.add_argument("--sandoq-client-version")
+    parser.add_argument("--derived-image-manifest-sha256")
+    parser.add_argument("--sandoq-environment", default="")
+    parser.add_argument("--sandoq-task-network", default="")
+    parser.add_argument("--sandoq-pool-size", default="")
+    parser.add_argument("--sandoq-pool-min-size", default="")
+    parser.add_argument("--sandoq-tunnel-policy", default="")
+    parser.add_argument("--sandoq-use-ecr", default="")
+    parser.add_argument("--sandoq-ecr-registry", default="")
+    parser.add_argument("--sandoq-ecr-region", default="")
+    parser.add_argument("--sandoq-ecr-pull-through-prefix", default="")
+    parser.add_argument("--sandoq-allow-dockerhub-fallback", default="")
     parser.add_argument("--invocation-host", required=True)
     parser.add_argument("--slurm-job-id", required=True)
     return parser

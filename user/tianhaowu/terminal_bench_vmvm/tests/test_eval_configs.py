@@ -343,11 +343,22 @@ def test_mobius_qwen_sandoq_contract_is_explicit_and_digest_pinned() -> None:
         "session_timeout": 43_200,
         "network_access": False,
         "host_tunnel": "sandoq",
+        "expected_environment": "oci-runner-firecracker-tunnel-pull",
         "guest_tunnel_url": "http://127.0.0.1:8485",
         "tunnel_pool_size": 8,
         "tunnel_ready_timeout": 30,
     }
     assert set(config["retries"]["rollout"]["include"]) == QWEN_ROLLOUT_RETRY_ERRORS
+
+    resolved = _resolved_eval_config("mobius_qwen_a95b_2500_sandoq.toml")
+    _contract(
+        resolved,
+        "Qwen3.8-2.4T-A95B",
+        role="mobius",
+        sandbox_provider="sandoq",
+    )
+    with pytest.raises(EvalIdentityError, match="vmvm_runtime_required"):
+        _contract(resolved, "Qwen3.8-2.4T-A95B", role="mobius")
 
 
 @pytest.mark.parametrize(

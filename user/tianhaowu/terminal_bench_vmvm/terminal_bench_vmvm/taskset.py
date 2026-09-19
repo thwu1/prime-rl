@@ -1816,8 +1816,17 @@ class TerminalBenchVMVMTaskset(
                     config.mode != "oci-runner"
                     or config.network_access
                     or config.host_tunnel != "sandoq"
-                    or not environment.startswith("oci-runner-firecracker")
+                    or config.expected_environment
+                    != "oci-runner-firecracker-tunnel-pull"
+                    or environment != "oci-runner-firecracker-tunnel-pull"
                     or task_network != "host"
+                    or os.environ.get("OCI_RUNNER_USE_ECR") != "1"
+                    or os.environ.get("OCI_RUNNER_ECR_REGISTRY")
+                    != "168653207203.dkr.ecr.us-east-2.amazonaws.com"
+                    or os.environ.get("OCI_RUNNER_ECR_REGION") != "us-east-2"
+                    or os.environ.get("OCI_RUNNER_ECR_PULL_THROUGH_PREFIX")
+                    != "pt_dockerio"
+                    or os.environ.get("OCI_RUNNER_ALLOW_DOCKERHUB_FALLBACK") != "0"
                 ):
                     raise UnsupportedTaskError(
                         f"{task.name}: Sandoq no-network requires OCI Firecracker, "

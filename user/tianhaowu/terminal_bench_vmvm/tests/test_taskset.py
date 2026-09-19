@@ -108,12 +108,23 @@ async def test_sandoq_no_network_requires_explicit_firecracker_tunnel(
             network_access=False,
             mode="oci-runner",
             host_tunnel="sandoq",
+            expected_environment="oci-runner-firecracker-tunnel-pull",
         )
     )
     task = SimpleNamespace(name="opaque-task")
 
-    monkeypatch.setenv("OCI_RUNNER_ENVIRONMENT", "oci-runner-firecracker")
+    monkeypatch.setenv(
+        "OCI_RUNNER_ENVIRONMENT", "oci-runner-firecracker-tunnel-pull"
+    )
     monkeypatch.setenv("OCI_RUNNER_TASK_NETWORK", "host")
+    monkeypatch.setenv("OCI_RUNNER_USE_ECR", "1")
+    monkeypatch.setenv(
+        "OCI_RUNNER_ECR_REGISTRY",
+        "168653207203.dkr.ecr.us-east-2.amazonaws.com",
+    )
+    monkeypatch.setenv("OCI_RUNNER_ECR_REGION", "us-east-2")
+    monkeypatch.setenv("OCI_RUNNER_ECR_PULL_THROUGH_PREFIX", "pt_dockerio")
+    monkeypatch.setenv("OCI_RUNNER_ALLOW_DOCKERHUB_FALLBACK", "0")
     await TerminalBenchVMVMTaskset._configure_network_policy(
         task, runtime, "no-network", activate=False
     )
@@ -132,6 +143,7 @@ def test_separate_verifier_clones_sandoq_runtime_config() -> None:
             workdir="/agent",
             network_access=False,
             host_tunnel="sandoq",
+            expected_environment="oci-runner-firecracker-tunnel-pull",
         )
     )
     task = SimpleNamespace(

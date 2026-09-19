@@ -26,6 +26,8 @@ fi
 project_dir=${PROJECT_DIR:-${SLURM_SUBMIT_DIR:-$PWD}}
 workflow_dir="$project_dir/user/tianhaowu/terminal_bench_vmvm"
 x86_site=${PYTHON_SITE_X86_64:-/checkpoint/ram/tianhaowu/terminal_bench_vmvm/python_x86_64}
+sandoq_site=${SANDOQ_PYTHON_SITE_X86_64:-/checkpoint/ram/tianhaowu/terminal_bench_vmvm/sandoq_x86_64_ram_prime_f7313db4}
+sandoq_provider_root="$project_dir/deps/sandoq-provider"
 x86_uv=${UV_BIN_X86_64:-/storage/home/tianhaowu/.local/x86_64/bin/uv}
 python_bin=${PYTHON_BIN_X86_64:-python3}
 eval_config=${EVAL_CONFIG:-$workflow_dir/configs/eval/tb4_kimi_k3_max_miniswe.toml}
@@ -56,6 +58,21 @@ eval_dataset_archive=${EVAL_DATASET_ARCHIVE:-}
 eval_dataset_archive_sha256=${EVAL_DATASET_ARCHIVE_SHA256:-}
 eval_dataset_content_sha256=${EVAL_DATASET_CONTENT_SHA256:-}
 
+if ! sandbox_provider=$(python3 - "$eval_config" <<'PY'
+import sys
+import tomllib
+with open(sys.argv[1], "rb") as handle:
+    print(tomllib.load(handle).get("harness", {}).get("runtime", {}).get("type", ""))
+PY
+); then
+    printf 'Could not read sandbox provider from EVAL_CONFIG\n' >&2
+    exit 2
+fi
+if [[ "$sandbox_provider" != vmvm && "$sandbox_provider" != sandoq ]]; then
+    printf 'EVAL_CONFIG must select an explicit vmvm or sandoq runtime\n' >&2
+    exit 2
+fi
+
 if [[ "$(uname -m)" != x86_64 || ! -d "$x86_site/pydantic" ]]; then
     printf 'Missing x86_64 Python runtime/dependencies\n' >&2
     exit 2
@@ -66,6 +83,13 @@ if [[ ! -x "$x86_uv" ]]; then
 fi
 export PYTHONDONTWRITEBYTECODE=1
 export PYTHONPATH="$workflow_dir:$project_dir/environments/vmvm_tb_v2:$project_dir/deps/verifiers:$project_dir/deps/renderers:$project_dir/deps/pydantic-config/src:$x86_site${PYTHONPATH:+:$PYTHONPATH}"
+if [[ "$sandbox_provider" == sandoq ]]; then
+    if [[ ! -d "$sandoq_site/sandoq_client" ]]; then
+        printf 'Missing pinned x86_64 Sandoq client site\n' >&2
+        exit 2
+    fi
+    export PYTHONPATH="$sandoq_provider_root/extensions/sandoq:$sandoq_site:$PYTHONPATH"
+fi
 
 if [[ -n "$eval_config_sha256" ]]; then
     if [[ ! "$eval_config_sha256" =~ ^[0-9a-f]{64}$ ]]; then
@@ -224,18 +248,47 @@ if [[ ( -n "$eval_dataset_revision" && -n "$eval_dataset_archive" ) \
     exit 2
 fi
 
-export VACLI_LEASE_RETRIES=${VACLI_LEASE_RETRIES:-20}
-export VACLI_MAX_CONCURRENT_LEASES=${VACLI_MAX_CONCURRENT_LEASES:-32}
-export VACLI_MAX_PULL_RETRIES=${VACLI_MAX_PULL_RETRIES:-20}
-export VACLI_IMAGE_PULL_TIMEOUT_SECONDS=${VACLI_IMAGE_PULL_TIMEOUT_SECONDS:-3600}
-export VACLI_CONTAINER_PRIVILEGED=${VACLI_CONTAINER_PRIVILEGED:-1}
-export VACLI_BIN=${VACLI_BIN:-/public/fbpkgs/x86_64/vacli/stable/vacli}
+if [[ "$sandbox_provider" == vmvm ]]; then
+    export VACLI_LEASE_RETRIES=${VACLI_LEASE_RETRIES:-20}
+    export VACLI_MAX_CONCURRENT_LEASES=${VACLI_MAX_CONCURRENT_LEASES:-32}
+    export VACLI_MAX_PULL_RETRIES=${VACLI_MAX_PULL_RETRIES:-20}
+    export VACLI_IMAGE_PULL_TIMEOUT_SECONDS=${VACLI_IMAGE_PULL_TIMEOUT_SECONDS:-3600}
+    export VACLI_CONTAINER_PRIVILEGED=${VACLI_CONTAINER_PRIVILEGED:-1}
+    export VACLI_BIN=${VACLI_BIN:-/public/fbpkgs/x86_64/vacli/stable/vacli}
+else
+    export OCI_RUNNER_BASE_URL=${OCI_RUNNER_BASE_URL:-https://sandoq.eks-prod.cf.aws.metafb.cloud}
+    export OCI_RUNNER_ENVIRONMENT=${OCI_RUNNER_ENVIRONMENT:-oci-runner-firecracker-tunnel-pull}
+    export OCI_RUNNER_TOKEN_FILE=${OCI_RUNNER_TOKEN_FILE:-$HOME/.config/oci-runner/firecracker-token}
+    export OCI_RUNNER_TASK_NETWORK=host
+    export OCI_RUNNER_POOL_SIZE=${OCI_RUNNER_POOL_SIZE:-64}
+    export OCI_RUNNER_POOL_MIN_SIZE=${OCI_RUNNER_POOL_MIN_SIZE:-0}
+    export OCI_RUNNER_OBSERVABILITY=1
+    export OCI_RUNNER_USE_ECR=1
+    export OCI_RUNNER_ECR_REGISTRY=168653207203.dkr.ecr.us-east-2.amazonaws.com
+    export OCI_RUNNER_ECR_REGION=us-east-2
+    export OCI_RUNNER_ECR_PULL_THROUGH_PREFIX=pt_dockerio
+    export OCI_RUNNER_ALLOW_DOCKERHUB_FALLBACK=0
+    if [[ "$OCI_RUNNER_ENVIRONMENT" != oci-runner-firecracker-tunnel-pull ]]; then
+        printf 'Sandoq no-network runs require the approved tunnel-pull environment\n' >&2
+        exit 2
+    fi
+    if [[ ! -f "$OCI_RUNNER_TOKEN_FILE" || -L "$OCI_RUNNER_TOKEN_FILE" \
+        || "$(stat -c '%a' "$OCI_RUNNER_TOKEN_FILE" 2>/dev/null)" != 600 ]]; then
+        printf 'Sandoq token file must be a regular non-symlink file with mode 0600\n' >&2
+        exit 2
+    fi
+fi
 
 cd "$project_dir"
 prime_rl_status=$(git status --porcelain=v1 --untracked-files=all)
 verifiers_status=$(git -C deps/verifiers status --porcelain=v1 --untracked-files=all)
 renderers_status=$(git -C deps/renderers status --porcelain=v1 --untracked-files=all)
-if [[ -n "$prime_rl_status" || -n "$verifiers_status" || -n "$renderers_status" ]]; then
+sandoq_provider_status=
+if [[ "$sandbox_provider" == sandoq ]]; then
+    sandoq_provider_status=$(git -C deps/sandoq-provider status --porcelain=v1 --untracked-files=all)
+fi
+if [[ -n "$prime_rl_status" || -n "$verifiers_status" || -n "$renderers_status" \
+    || -n "$sandoq_provider_status" ]]; then
     printf 'Prime-RL, Verifiers, and Renderers worktrees must all be clean\n' >&2
     exit 2
 fi
@@ -254,11 +307,45 @@ verifiers_tree_sha256=$(printf '%s' "$verifiers_status" | sha256sum | cut -d' ' 
 renderers_tree_sha256=$(printf '%s' "$renderers_status" | sha256sum | cut -d' ' -f1)
 vmvm_tb_v2_sha256=$(sha256sum environments/vmvm_tb_v2/vmvm_tb_v2/_vacli/*.py \
     | sha256sum | cut -d' ' -f1)
+sandoq_provider_commit=
+sandoq_provider_tree=
+sandoq_client_version=
+derived_image_manifest_sha256=
+if [[ "$sandbox_provider" == sandoq ]]; then
+    sandoq_provider_commit=$(git -C deps/sandoq-provider rev-parse --verify HEAD)
+    sandoq_provider_tree=$(git -C deps/sandoq-provider rev-parse HEAD^{tree})
+    if [[ "$sandoq_provider_commit" != f7313db42eea4b3be8bcbe16a8072f73cf6abed5 ]]; then
+        printf 'Sandoq provider revision is not the approved f7313db4 source\n' >&2
+        exit 2
+    fi
+    sandoq_client_version=$("$x86_uv" run --no-project --offline --python "$python_bin" \
+        python3 -c 'import importlib.metadata as m; print(m.version("sandoq-client"))')
+    if [[ "$sandoq_client_version" != 0.4.0.2026.8.20.58304.0+hga81e4ca4d312 ]]; then
+        printf 'Sandoq client version does not match the approved pin\n' >&2
+        exit 2
+    fi
+    derived_image_manifest_sha256=$(python3 - "$eval_config" <<'PY'
+import sys
+import tomllib
+with open(sys.argv[1], "rb") as handle:
+    print(tomllib.load(handle).get("taskset", {}).get("image_manifest_sha256", ""))
+PY
+)
+    if [[ ! "$derived_image_manifest_sha256" =~ ^[0-9a-f]{64}$ ]]; then
+        printf 'Sandoq config requires a pinned derived image manifest SHA-256\n' >&2
+        exit 2
+    fi
+fi
 
 if [[ "$eval_run_role" == mobius ]]; then
+    if [[ "$sandbox_provider" == vmvm ]]; then
+        requested_sandbox_concurrency=$VACLI_MAX_CONCURRENT_LEASES
+    else
+        requested_sandbox_concurrency=$OCI_RUNNER_POOL_SIZE
+    fi
     if ! effective_lease_start_concurrency=$(
         "$x86_uv" run --no-project --offline --python "$python_bin" \
-            python3 - "$eval_config" "$VACLI_MAX_CONCURRENT_LEASES" <<'PY'
+            python3 - "$eval_config" "$requested_sandbox_concurrency" <<'PY'
 import sys
 import tomllib
 
@@ -279,7 +366,7 @@ if (
 print(min(rollout_concurrency, requested))
 PY
     ); then
-        printf 'Invalid production max_concurrent or VACLI_MAX_CONCURRENT_LEASES\n' >&2
+        printf 'Invalid production max_concurrent or sandbox concurrency limit\n' >&2
         exit 2
     fi
     "$x86_uv" run --no-project --offline --python "$python_bin" \
@@ -426,22 +513,44 @@ identity_args=(
     --deployment-proxy-info "$inference_proxy_info"
     --deployment-proxy-info-sha256 "$inference_proxy_info_sha256"
     --project-root "$project_dir"
+    --sandbox-provider "$sandbox_provider"
     --prime-rl-commit "$prime_rl_commit"
     --prime-rl-tree-sha256 "$prime_rl_tree_sha256"
     --verifiers-commit "$verifiers_commit"
     --verifiers-tree-sha256 "$verifiers_tree_sha256"
     --renderers-commit "$renderers_commit"
     --renderers-tree-sha256 "$renderers_tree_sha256"
-    --vmvm-tb-v2-sha256 "$vmvm_tb_v2_sha256"
-    --vacli-bin "$VACLI_BIN"
-    --vacli-max-concurrent-leases "$VACLI_MAX_CONCURRENT_LEASES"
-    --vacli-lease-retries "$VACLI_LEASE_RETRIES"
-    --vacli-max-pull-retries "$VACLI_MAX_PULL_RETRIES"
-    --vacli-image-pull-timeout-seconds "$VACLI_IMAGE_PULL_TIMEOUT_SECONDS"
-    --vacli-container-privileged "$VACLI_CONTAINER_PRIVILEGED"
     --invocation-host "$(hostname)"
     --slurm-job-id "$SLURM_JOB_ID"
 )
+if [[ "$sandbox_provider" == vmvm ]]; then
+    identity_args+=(
+        --vmvm-tb-v2-sha256 "$vmvm_tb_v2_sha256"
+        --vacli-bin "$VACLI_BIN"
+        --vacli-max-concurrent-leases "$VACLI_MAX_CONCURRENT_LEASES"
+        --vacli-lease-retries "$VACLI_LEASE_RETRIES"
+        --vacli-max-pull-retries "$VACLI_MAX_PULL_RETRIES"
+        --vacli-image-pull-timeout-seconds "$VACLI_IMAGE_PULL_TIMEOUT_SECONDS"
+        --vacli-container-privileged "$VACLI_CONTAINER_PRIVILEGED"
+    )
+else
+    identity_args+=(
+        --sandoq-provider-commit "$sandoq_provider_commit"
+        --sandoq-provider-tree "$sandoq_provider_tree"
+        --sandoq-client-version "$sandoq_client_version"
+        --derived-image-manifest-sha256 "$derived_image_manifest_sha256"
+        --sandoq-environment "$OCI_RUNNER_ENVIRONMENT"
+        --sandoq-task-network "$OCI_RUNNER_TASK_NETWORK"
+        --sandoq-pool-size "$OCI_RUNNER_POOL_SIZE"
+        --sandoq-pool-min-size "$OCI_RUNNER_POOL_MIN_SIZE"
+        --sandoq-tunnel-policy named-tunnel-loopback
+        --sandoq-use-ecr "$OCI_RUNNER_USE_ECR"
+        --sandoq-ecr-registry "$OCI_RUNNER_ECR_REGISTRY"
+        --sandoq-ecr-region "$OCI_RUNNER_ECR_REGION"
+        --sandoq-ecr-pull-through-prefix "$OCI_RUNNER_ECR_PULL_THROUGH_PREFIX"
+        --sandoq-allow-dockerhub-fallback "$OCI_RUNNER_ALLOW_DOCKERHUB_FALLBACK"
+    )
+fi
 if [[ -n "$inference_deployment_id" ]]; then
     identity_args+=(--routing-deployment-id "$inference_deployment_id")
 fi

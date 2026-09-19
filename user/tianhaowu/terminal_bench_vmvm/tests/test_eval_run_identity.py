@@ -26,8 +26,11 @@ from eval_run_identity import (
     _dataset_identity,
     _effective_vmvm_environment,
     _identity_envelope,
+    _source_identity,
     _tree_digest,
+    _validate_identity_shape,
     _verify_checkpoint_records,
+    _verify_saved_provenance,
     _write_resolved_config,
     canonical_json,
     load_eval_run_identity,
@@ -109,6 +112,8 @@ def _identity() -> dict:
         "image_pull_timeout_sec": 3600,
         "container_privileged": True,
     }
+
+
     return {
         "schema_version": 1,
         "role": "smoke",
@@ -193,6 +198,109 @@ def _identity() -> dict:
 
 def _sha256(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def _sandoq_identity() -> dict:
+    identity = _identity()
+    config = _resolved_config()
+    config["harness"]["runtime"] = {
+        "type": "sandoq",
+        "mode": "oci-runner",
+        "network_access": False,
+        "host_tunnel": "sandoq",
+        "guest_tunnel_url": "http://127.0.0.1:8485",
+        "expected_environment": "oci-runner-firecracker-tunnel-pull",
+    }
+    contract, execution = _contract(config, "approved-model", sandbox_provider="sandoq")
+    execution["sandoq_environment"] = {
+        "environment": "oci-runner-firecracker-tunnel-pull",
+        "task_network": "host",
+        "pool_size": 4,
+        "pool_min_size": 0,
+        "tunnel_policy": "named-tunnel-loopback",
+        "use_ecr": True,
+        "ecr_registry": "168653207203.dkr.ecr.us-east-2.amazonaws.com",
+        "ecr_region": "us-east-2",
+        "ecr_pull_through_prefix": "pt_dockerio",
+        "allow_dockerhub_fallback": False,
+    }
+    identity["contract"] = contract
+    identity["execution"] = execution
+    identity["source"] = {
+        key: value for key, value in identity["source"].items() if key != "vmvm_tb_v2_sha256"
+    } | {
+        "sandbox_provider": "sandoq",
+        "sandoq_provider_commit": "4" * 40,
+        "sandoq_provider_tree": "5" * 40,
+        "sandoq_client_version": "pinned-client",
+        "derived_image_manifest_sha256": "6" * 64,
+    }
+    identity["inputs"]["image_manifest"] = {
+        "path": "/run/inputs/image_manifest.json",
+        "sha256": "6" * 64,
+    }
+    return identity
+
+
+def test_sandoq_identity_shape_rejects_backend_and_manifest_mismatch() -> None:
+    identity = _sandoq_identity()
+    assert _validate_identity_shape(identity) == identity
+    for path, value in (
+        (("execution", "runtime", "type"), "vmvm"),
+        (("source", "derived_image_manifest_sha256"), "7" * 64),
+    ):
+        mismatched = json.loads(json.dumps(identity))
+        target = mismatched
+        for key in path[:-1]:
+            target = target[key]
+        target[path[-1]] = value
+        with pytest.raises(EvalIdentityError, match="schema_invalid"):
+            _validate_identity_shape(mismatched)
+
+
+def test_sandoq_provenance_round_trip(tmp_path: Path) -> None:
+    identity = _sandoq_identity()
+    args = SimpleNamespace(mode="fresh", invocation_host="host", slurm_job_id="123")
+    _bind_provenance(tmp_path, identity, "8" * 64, args)
+    _verify_saved_provenance(tmp_path, identity, "8" * 64)
+    provenance = (tmp_path / "provenance.txt").read_text()
+    assert "sandbox_provider=sandoq\n" in provenance
+    assert "sandoq_allow_dockerhub_fallback=false\n" in provenance
+
+
+def test_sandoq_source_rejects_unobserved_client_version(tmp_path: Path, monkeypatch) -> None:
+    (tmp_path / "deps/sandoq-provider").mkdir(parents=True)
+    clean = hashlib.sha256(b"").hexdigest()
+    args = SimpleNamespace(
+        project_root=tmp_path,
+        prime_rl_commit="1" * 40,
+        prime_rl_tree_sha256=clean,
+        verifiers_commit="2" * 40,
+        verifiers_tree_sha256=clean,
+        renderers_commit="3" * 40,
+        renderers_tree_sha256=clean,
+        sandbox_provider="sandoq",
+        sandoq_provider_commit="4" * 40,
+        sandoq_provider_tree="5" * 40,
+        sandoq_client_version="claimed",
+        derived_image_manifest_sha256="6" * 64,
+    )
+
+    def git_output(_root, *git_args, label: str) -> str:
+        if git_args[0] == "status":
+            return ""
+        if "HEAD^{tree}" in git_args:
+            return "5" * 40
+        if label.endswith("_commit"):
+            return getattr(args, label)
+        return {
+            "sandoq_provider": args.sandoq_provider_commit,
+        }[label]
+
+    monkeypatch.setattr(eval_run_identity, "_git_output", git_output)
+    monkeypatch.setattr(eval_run_identity.importlib.metadata, "version", lambda _name: "observed")
+    with pytest.raises(EvalIdentityError, match="client_version_mismatch"):
+        _source_identity(args)
 
 
 def test_eval_identity_is_canonical_write_once_and_resume_exact(tmp_path: Path) -> None:

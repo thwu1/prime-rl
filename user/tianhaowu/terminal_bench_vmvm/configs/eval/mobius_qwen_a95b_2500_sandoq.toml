@@ -22,6 +22,7 @@ max_connections = 32
 max_keepalive_connections = 32
 
 [sampling]
+reasoning_effort = "max"
 temperature = 0.7
 top_p = 0.95
 top_k = 20
@@ -67,6 +68,7 @@ mode = "oci-runner"
 session_timeout = 43200
 network_access = false
 host_tunnel = "sandoq"
+expected_environment = "oci-runner-firecracker-tunnel-pull"
 guest_tunnel_url = "http://127.0.0.1:8485"
 tunnel_pool_size = 8
 tunnel_ready_timeout = 30
