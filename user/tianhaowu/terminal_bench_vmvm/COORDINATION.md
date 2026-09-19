@@ -1,6 +1,6 @@
 # VMVM sandbox coordination
 
-Last updated: 2026-09-19 02:49 UTC
+Last updated: 2026-09-19 03:07 UTC
 
 ## First message to the next teammate
 
@@ -41,6 +41,20 @@ this shared branch again.
 Add new rows below this line; do not overwrite another owner's row.
 
 ## Open coordination requests
+
+- **2026-09-19 03:07 UTC, keep replacement finalizer `7ecac3a7a` held:**
+  focused review passed 85 tests and found the original live-config,
+  schema-v3 cross-binding, and launch-certificate blockers substantively
+  closed, but one reuse-path blocker remains. The output-directory scan checks
+  only local basenames, while checkpoint artifact validation requires those
+  artifact paths merely to share a parent with each other; it does not bind
+  that parent to the checkpoint/output directory being reused. A
+  self-consistent external artifact directory can therefore validate while
+  same-named local output files remain unchecked. Add a fail-closed exact
+  resolved-parent/path binding and an adversarial external-directory test,
+  then rerun independent full review. Do not push/freeze/use `7ecac3a7a` for
+  finalization or production authorization. The live source-`587667f02`
+  smoke/singleton/shards-1..8 watchers remain unaffected.
 
 - **2026-09-19 02:49 UTC, finalizer hold does not invalidate the armed first
   TB4 chunk:** the live fresh-smoke-to-singleton and singleton-to-shards-1..8
