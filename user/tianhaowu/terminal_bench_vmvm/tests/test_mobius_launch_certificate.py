@@ -204,6 +204,7 @@ def test_schema2_sharded_tb4_validator_requires_exactly_one_route(monkeypatch: p
             {"schema_version": 2},
             "deployment-test",
             {},
+            Path("/private/tb4"),
         )
 
 
@@ -224,6 +225,7 @@ def test_schema3_sharded_tb4_validator_allows_one_or_two_routes(
             {"schema_version": 3},
             "deployment-test",
             {},
+            Path("/private/tb4"),
         )
         == expected
     )
@@ -241,6 +243,7 @@ def test_schema3_sharded_tb4_validator_rejects_three_routes(monkeypatch: pytest.
             {"schema_version": 3},
             "deployment-test",
             {},
+            Path("/private/tb4"),
         )
 
 
