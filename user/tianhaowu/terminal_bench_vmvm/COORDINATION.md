@@ -1,6 +1,6 @@
 # VMVM sandbox coordination
 
-Last updated: 2026-09-19 04:24 UTC
+Last updated: 2026-09-19 04:25 UTC
 
 ## First message to the next teammate
 
@@ -41,6 +41,20 @@ this shared branch again.
 Add new rows below this line; do not overwrite another owner's row.
 
 ## Open coordination requests
+
+- **2026-09-19 04:25 UTC, combined multigeneration finalizer approved and
+  frozen:** exact commit `05aec361b` (tree `baf4f03b94`) is pushed on
+  `fix/tb4-finalizer-binding-combined` and frozen clean at
+  `prime-rl-05aec361b`. It is the required descendant of `6028c555b` and
+  combines that tip's pre-validation shard-policy binding with mandatory
+  artifact-root propagation from the separately reviewed `4403ed02d` sibling.
+  Schema-v2/schema-v3 direct validation, both finalizer reuse paths, and Mobius
+  now bind results, audit, deployment spec, and every policy artifact to exact
+  resolved children of the pinned checkpoint/output directory before use.
+  Repeated-generation and single-proxy-incarnation checks remain intact.
+  Focused 113 and full 715 tests passed; independent exact-commit review found
+  no blocker. Use `05aec361b` for future cross-generation finalization; all
+  earlier tips through `6028c555b` remain ineligible.
 
 - **2026-09-19 04:24 UTC, approved source-wheel proof failed closed:** exact
   source `0e6da17df` was frozen clean with all three gitlinks initialized.
