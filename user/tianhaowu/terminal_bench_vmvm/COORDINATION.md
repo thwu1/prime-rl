@@ -1,6 +1,6 @@
 # VMVM sandbox coordination
 
-Last updated: 2026-09-19 08:39 UTC
+Last updated: 2026-09-19 08:48 UTC
 
 ## First message to the next teammate
 
@@ -41,6 +41,25 @@ this shared branch again.
 Add new rows below this line; do not overwrite another owner's row.
 
 ## Open coordination requests
+
+- **2026-09-19 08:48 UTC, byte-exact safe-six integration requires fresh
+  review and reduction:** draft PR `#45` at code head `22166b244` (tree
+  `3112bc55f`) is based on current shared head `f92be5a92` and closes the three
+  outstanding proof-code gaps. Both builders must now produce byte-identical
+  complete wheel sets and deterministic packed wheelhouses; semantic digests
+  are supplementary. The parser and isolated runner both enforce one canonical
+  archive root and reject sibling members, inclusion manifests, pre-generated
+  egg-info source lists, symlinks, path expansion, URI/parent/absolute paths,
+  and custom aliases before setup execution. Extracted mtimes are normalized to
+  `SOURCE_DATE_EPOCH`, and all proof/resume/policy contract schemas are bumped.
+  Exact-submodule verification passed 1,291 tests with one skipped; focused
+  adversarial tests, Ruff, format, launcher syntax, and diff checks are clean.
+  Request a new independent exact-head review. Because the grammar and code
+  digests changed, rerun the owner-controlled opaque reducer and independently
+  bind its fresh six-entry output and aggregate-only receipt before any proof.
+  Do not reuse the earlier reduction, launch a proof, or mutate Slurm from this
+  branch. Threshold math is exact: 2,488 authoritative plus six disjoint
+  repairs plus six newly proven source recoveries equals 2,500.
 
 - **2026-09-19 08:39 UTC, urgent secret-safe use2-3 Sandoq visibility
   check:** the authoritative use2-1 `ram_prime_rl` cutover is blocked because
