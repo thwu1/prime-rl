@@ -262,7 +262,10 @@ set +e
 preflight_output=$(
     "$BOUND_UV" run --no-project --offline --python "$PYTHON_BIN_X86_64" \
         python3 -I -S -B "$BOUND_PROBE" --validate-batch \
-        --source-root "$BOUND_SOURCE_ROOT" --site-root "$BOUND_SITE_ROOT" 2>&1
+        --source-root "$BOUND_SOURCE_ROOT" --site-root "$BOUND_SITE_ROOT" \
+        --scratch-root "$DIAG_SCRATCH_ROOT" \
+        --output-dir "$BOUND_OUTPUT_PARENT/${DIAG_OUTPUT_ROOT##*/}" \
+        --completion-receipt "$BOUND_OUTPUT_PARENT/${DIAG_COMPLETION_RECEIPT##*/}" 2>&1
 )
 preflight_rc=$?
 set -e

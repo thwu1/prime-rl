@@ -1,10 +1,13 @@
 from __future__ import annotations
 
+import hashlib
 import importlib.util
 import json
 import os
+import shutil
 import stat
 import subprocess
+import sys
 import threading
 from pathlib import Path
 from types import SimpleNamespace
@@ -26,6 +29,31 @@ def load_module(name: str, filename: str):
 PROBE = load_module("vmvm_task_free_probe_v2_test", "probe_vmvm_task_free_v2.py")
 LAUNCH = load_module("vmvm_task_free_launch_v2_test", "launch_vmvm_task_free_v2.py")
 FINALIZE = load_module("vmvm_task_free_finalize_v2_test", "finalize_vmvm_task_free_v2.py")
+
+
+def valid_phase_metadata(stage: str, module=PROBE) -> dict[str, object]:
+    counts = {
+        "backend_ready": 1,
+        "cleanup_called": 1,
+        "lease_start": 1,
+        "release_verified": 1,
+        "tunnel_ready": 1,
+        "worker_started": 1,
+    }
+    if stage != "direct_client":
+        counts.update({"command_started": 1, "command_succeeded": 1})
+    return {
+        "last_phase": "release_verified",
+        "lease_attempt_limit": module.LEASE_ATTEMPT_LIMIT,
+        "lease_attempts": 1,
+        "phase_counts": counts,
+        "release_grace_seconds": module.RELEASE_GRACE_SECONDS,
+        "release_method": "renewer_absent_for_lease_ttl",
+        "release_verified": True,
+        "renewer_processes": 1,
+        "transport_recovery_attempt_limit": module.RECOVERY_ATTEMPTS,
+        "transport_recovery_attempts": 0,
+    }
 
 
 def set_site_inventory_environment(monkeypatch, site: Path) -> None:
@@ -246,6 +274,7 @@ def test_stage_result_rejects_unapproved_failure() -> None:
         failure=None,
         cleanup_complete=True,
         elapsed_seconds=0,
+        phase_metadata=valid_phase_metadata("direct_client"),
     )
     PROBE.validate_stage_result(
         value,
@@ -271,9 +300,11 @@ def test_supervisor_runs_exact_matrix_and_publishes_completion_last(monkeypatch,
     site = tmp_path / "site"
     source.mkdir()
     site.mkdir()
+    (site / "authorized.py").write_text("VALUE = 1\n")
     output = tmp_path / "output"
     scratch = tmp_path / "scratch"
     calls: list[tuple[str, int, int, str]] = []
+    publication_events: list[str] = []
 
     def fake_stage(**kwargs):
         mode = kwargs["mode"]
@@ -288,27 +319,84 @@ def test_supervisor_runs_exact_matrix_and_publishes_completion_last(monkeypatch,
             elapsed_seconds=0,
             pair_index=kwargs["pair_index"],
             order_position=kwargs["order_position"],
+            phase_metadata=valid_phase_metadata(stage),
         )
 
     monkeypatch.setattr(PROBE, "run_stage_child", fake_stage)
-    monkeypatch.setattr(PROBE, "attest_imported_source", lambda descriptor: None)
+    monkeypatch.setattr(PROBE, "attest_imported_source", lambda descriptor: {})
+
+    def fake_snapshot(source_fd, site_fd, scratch_root, expected_site_inventory):
+        del source_fd, site_fd, expected_site_inventory
+        snapshot_source = scratch_root / "sealed-inputs/source"
+        snapshot_site = scratch_root / "sealed-inputs/site"
+        snapshot_source.mkdir(parents=True)
+        snapshot_site.mkdir()
+        (snapshot_source / "fixture.py").write_text("VALUE = 1\n")
+        (snapshot_site / "fixture.py").write_text("VALUE = 1\n")
+        inventories = []
+        for path in (snapshot_source, snapshot_site):
+            descriptor = os.open(path, os.O_RDONLY | os.O_DIRECTORY)
+            try:
+                inventories.append(PROBE.directory_manifest(descriptor, expected_owner_uid=os.getuid()))
+            finally:
+                os.close(descriptor)
+        return snapshot_source, snapshot_site, *inventories
+
+    monkeypatch.setattr(PROBE, "create_execution_snapshot", fake_snapshot)
+    original_remove = PROBE._remove_tree_verified
+    original_atomic_write = PROBE._atomic_write
+
+    def observed_remove(path):
+        result = original_remove(path)
+        publication_events.append("scratch_removed" if result else "scratch_remove_failed")
+        return result
+
+    def observed_write(*args, **kwargs):
+        publication_events.append("output_published")
+        return original_atomic_write(*args, **kwargs)
+
+    monkeypatch.setattr(PROBE, "_remove_tree_verified", observed_remove)
+    monkeypatch.setattr(PROBE, "_atomic_write", observed_write)
     set_site_inventory_environment(monkeypatch, site)
-    result = PROBE.run_supervisor(
-        SimpleNamespace(
-            source_root=source,
-            site_root=site,
-            output_dir=output,
-            completion_receipt=tmp_path / "external-completion.json",
-            scratch_root=scratch,
-            environment_sha256="a" * 64,
-            authorization_file_sha256="d" * 64,
-            authorization_sha256="b" * 64,
-            job_authorization_sha256="e" * 64,
-            job_id="42",
-            job_name="vmvm-diag-" + "f" * 24,
-            submission_receipt_sha256="c" * 64,
+    source_fd = os.open(source, os.O_RDONLY | os.O_DIRECTORY)
+    site_fd = os.open(site, os.O_RDONLY | os.O_DIRECTORY)
+    output_parent_fd = os.open(tmp_path, os.O_RDONLY | os.O_DIRECTORY)
+    script_fd = os.open(ROOT / "probe_vmvm_task_free_v2.py", os.O_RDONLY)
+    try:
+        monkeypatch.setattr(PROBE, "__file__", f"/proc/self/fd/{script_fd}")
+        monkeypatch.setenv(
+            "DIAG_SOURCE_IDENTITY",
+            ":".join(str(value) for value in PROBE.descriptor_identity(source_fd).values()),
         )
-    )
+        monkeypatch.setenv(
+            "PYTHON_SITE_X86_64_IDENTITY",
+            ":".join(str(value) for value in PROBE.descriptor_identity(site_fd).values()),
+        )
+        monkeypatch.setenv(
+            "DIAG_OUTPUT_PARENT_IDENTITY",
+            ":".join(str(value) for value in PROBE.descriptor_identity(output_parent_fd).values()),
+        )
+        result = PROBE.run_supervisor(
+            SimpleNamespace(
+                source_root=Path(f"/proc/self/fd/{source_fd}"),
+                site_root=Path(f"/proc/self/fd/{site_fd}"),
+                output_dir=Path(f"/proc/self/fd/{output_parent_fd}") / output.name,
+                completion_receipt=Path(f"/proc/self/fd/{output_parent_fd}") / "external-completion.json",
+                scratch_root=scratch,
+                environment_sha256="a" * 64,
+                authorization_file_sha256="d" * 64,
+                authorization_sha256="b" * 64,
+                job_authorization_sha256="e" * 64,
+                job_id="42",
+                job_name="vmvm-diag-" + "f" * 24,
+                submission_receipt_sha256="c" * 64,
+            )
+        )
+    finally:
+        os.close(script_fd)
+        os.close(output_parent_fd)
+        os.close(site_fd)
+        os.close(source_fd)
     assert calls == [
         (stage, pair_index, position, mode)
         for stage in PROBE.STAGES
@@ -321,8 +409,10 @@ def test_supervisor_runs_exact_matrix_and_publishes_completion_last(monkeypatch,
         "stages": PROBE.CELL_COUNT,
         "state": "awaiting_external_completion",
     }
+    assert publication_events == ["scratch_removed", "output_published", "output_published"]
     certificate = json.loads((output / "diagnostic_certificate.json").read_bytes())
     completion = json.loads((output / "completion_request.json").read_bytes())
+    FINALIZE.validate_certificate(certificate)
     assert certificate["task_data_accessed"] is False
     assert certificate["model_endpoint_accessed"] is False
     assert certificate["production_authorized"] is False
@@ -332,6 +422,7 @@ def test_supervisor_runs_exact_matrix_and_publishes_completion_last(monkeypatch,
         assert certificate["retry_phase_aggregate"][stage]["absent"]["cells"] == 4
         assert certificate["retry_phase_aggregate"][stage]["present"]["cells"] == 4
     assert completion["certificate_sha256"] == PROBE.sha256_bytes((output / "diagnostic_certificate.json").read_bytes())
+    assert completion["external_completion_receipt"] == str(PROBE.EXPECTED_COMPLETION_RECEIPT)
     assert stat.S_IMODE((output / "diagnostic_certificate.json").stat().st_mode) == 0o400
     assert stat.S_IMODE((output / "completion_request.json").stat().st_mode) == 0o400
     assert stat.S_IMODE(output.stat().st_mode) == 0o500
@@ -411,9 +502,12 @@ def test_wrapper_orders_admission_before_runtime_or_output() -> None:
     output_gate = source.index("[[ ! -e $DIAG_OUTPUT_ROOT", final_gate)
     probe = source.index("probe_output=", output_gate)
     assert permit < final_gate < output_gate < probe
-    assert "X2P_ENV X2P_CFG_ENV" in source
+    assert all(name in source for name in PROBE.X2P_NAMES)
     assert "--validate-batch" in source
     assert "--scratch-root" in source
+    preflight = source[permit:final_gate]
+    assert '--output-dir "$BOUND_OUTPUT_PARENT/' in preflight
+    assert '--completion-receipt "$BOUND_OUTPUT_PARENT/' in preflight
 
 
 def test_source_contains_no_task_or_model_entrypoint() -> None:
@@ -450,45 +544,106 @@ def test_child_environment_is_exact_and_stage_local(monkeypatch, tmp_path: Path)
     assert "HOME_SECRET" not in environment
 
 
-def test_supervisor_refuses_completion_when_cleanup_is_incomplete(monkeypatch, tmp_path: Path) -> None:
+@pytest.mark.parametrize(
+    ("failure", "cleanup_complete", "expected_error"),
+    (
+        ("cleanup_failed", False, "cleanup_failed"),
+        ("child_invalid", True, "stage_result_invalid"),
+    ),
+)
+def test_supervisor_aborts_before_next_cell_on_unverifiable_result(
+    monkeypatch,
+    tmp_path: Path,
+    failure: str,
+    cleanup_complete: bool,
+    expected_error: str,
+) -> None:
     source = tmp_path / "source"
     site = tmp_path / "site"
     source.mkdir()
     site.mkdir()
+    (site / "authorized.py").write_text("VALUE = 1\n")
+
+    calls = 0
 
     def failed_stage(**kwargs):
+        nonlocal calls
+        calls += 1
         return PROBE._result_payload(
             mode=kwargs["mode"],
             stage=kwargs["stage"],
             state="failed",
-            failure="cleanup_failed",
-            cleanup_complete=False,
+            failure=failure,
+            cleanup_complete=cleanup_complete,
             elapsed_seconds=0,
             pair_index=kwargs["pair_index"],
             order_position=kwargs["order_position"],
         )
 
     monkeypatch.setattr(PROBE, "run_stage_child", failed_stage)
-    monkeypatch.setattr(PROBE, "attest_imported_source", lambda descriptor: None)
+    monkeypatch.setattr(PROBE, "attest_imported_source", lambda descriptor: {})
+
+    def fake_snapshot(source_fd, site_fd, scratch_root, expected_site_inventory):
+        del source_fd, site_fd, expected_site_inventory
+        source_snapshot = scratch_root / "sealed-inputs/source"
+        site_snapshot = scratch_root / "sealed-inputs/site"
+        source_snapshot.mkdir(parents=True)
+        site_snapshot.mkdir()
+        (source_snapshot / "fixture.py").write_text("VALUE = 1\n")
+        (site_snapshot / "fixture.py").write_text("VALUE = 1\n")
+        inventories = []
+        for path in (source_snapshot, site_snapshot):
+            descriptor = os.open(path, os.O_RDONLY | os.O_DIRECTORY)
+            try:
+                inventories.append(PROBE.directory_manifest(descriptor, expected_owner_uid=os.getuid()))
+            finally:
+                os.close(descriptor)
+        return source_snapshot, site_snapshot, *inventories
+
+    monkeypatch.setattr(PROBE, "create_execution_snapshot", fake_snapshot)
     set_site_inventory_environment(monkeypatch, site)
     output = tmp_path / "output"
-    with pytest.raises(PROBE.DiagnosticError, match="cleanup_failed"):
-        PROBE.run_supervisor(
-            SimpleNamespace(
-                source_root=source,
-                site_root=site,
-                output_dir=output,
-                completion_receipt=tmp_path / "external-completion.json",
-                scratch_root=tmp_path / "scratch",
-                environment_sha256="a" * 64,
-                authorization_file_sha256="d" * 64,
-                authorization_sha256="b" * 64,
-                job_authorization_sha256="e" * 64,
-                job_id="42",
-                job_name="vmvm-diag-" + "f" * 24,
-                submission_receipt_sha256="c" * 64,
-            )
+    source_fd = os.open(source, os.O_RDONLY | os.O_DIRECTORY)
+    site_fd = os.open(site, os.O_RDONLY | os.O_DIRECTORY)
+    output_parent_fd = os.open(tmp_path, os.O_RDONLY | os.O_DIRECTORY)
+    script_fd = os.open(ROOT / "probe_vmvm_task_free_v2.py", os.O_RDONLY)
+    try:
+        monkeypatch.setattr(PROBE, "__file__", f"/proc/self/fd/{script_fd}")
+        monkeypatch.setenv(
+            "DIAG_SOURCE_IDENTITY",
+            ":".join(str(value) for value in PROBE.descriptor_identity(source_fd).values()),
         )
+        monkeypatch.setenv(
+            "PYTHON_SITE_X86_64_IDENTITY",
+            ":".join(str(value) for value in PROBE.descriptor_identity(site_fd).values()),
+        )
+        monkeypatch.setenv(
+            "DIAG_OUTPUT_PARENT_IDENTITY",
+            ":".join(str(value) for value in PROBE.descriptor_identity(output_parent_fd).values()),
+        )
+        with pytest.raises(PROBE.DiagnosticError, match=expected_error):
+            PROBE.run_supervisor(
+                SimpleNamespace(
+                    source_root=Path(f"/proc/self/fd/{source_fd}"),
+                    site_root=Path(f"/proc/self/fd/{site_fd}"),
+                    output_dir=Path(f"/proc/self/fd/{output_parent_fd}") / output.name,
+                    completion_receipt=Path(f"/proc/self/fd/{output_parent_fd}") / "external-completion.json",
+                    scratch_root=tmp_path / "scratch",
+                    environment_sha256="a" * 64,
+                    authorization_file_sha256="d" * 64,
+                    authorization_sha256="b" * 64,
+                    job_authorization_sha256="e" * 64,
+                    job_id="42",
+                    job_name="vmvm-diag-" + "f" * 24,
+                    submission_receipt_sha256="c" * 64,
+                )
+            )
+    finally:
+        os.close(script_fd)
+        os.close(output_parent_fd)
+        os.close(site_fd)
+        os.close(source_fd)
+    assert calls == 1
     assert not (output / "completion_request.json").exists()
 
 
@@ -515,6 +670,11 @@ def test_authorization_uses_distinct_body_and_file_hashes(tmp_path: Path) -> Non
     assert observed == raw
     assert embedded == body_sha
     assert embedded != LAUNCH.sha256_bytes(raw)
+
+
+def test_runtime_binary_limit_covers_the_pinned_vacli() -> None:
+    assert LAUNCH.VACLI.stat().st_size < 512 << 20
+    assert LAUNCH.VACLI.stat().st_size > 128 << 20
 
 
 def test_resolve_submission_recovers_timeout_by_exact_name(monkeypatch) -> None:
@@ -1052,6 +1212,297 @@ def test_cli_source_binding_rejects_swap_before_supervisor(tmp_path: Path) -> No
         os.close(output_fd)
 
 
+def test_cli_paths_require_inherited_fds_and_bind_output_parent(monkeypatch, tmp_path: Path) -> None:
+    source = tmp_path / "source"
+    site = tmp_path / "site"
+    output_parent = tmp_path / "output-parent"
+    source.mkdir()
+    site.mkdir()
+    output_parent.mkdir()
+    source_fd = os.open(source, os.O_RDONLY | os.O_DIRECTORY)
+    site_fd = os.open(site, os.O_RDONLY | os.O_DIRECTORY)
+    output_fd = os.open(output_parent, os.O_RDONLY | os.O_DIRECTORY)
+    try:
+        site_inventory = PROBE.directory_manifest(site_fd, expected_owner_uid=os.getuid())
+        environment = {
+            "DIAG_SOURCE_IDENTITY": ":".join(str(value) for value in PROBE.descriptor_identity(source_fd).values()),
+            "PYTHON_SITE_X86_64_IDENTITY": ":".join(
+                str(value) for value in PROBE.descriptor_identity(site_fd).values()
+            ),
+            "PYTHON_SITE_X86_64_ENTRY_COUNT": str(site_inventory["entry_count"]),
+            "PYTHON_SITE_X86_64_MANIFEST_SHA256": str(site_inventory["manifest_sha256"]),
+            "PYTHON_SITE_X86_64_TOTAL_BYTES": str(site_inventory["total_bytes"]),
+            "DIAG_OUTPUT_PARENT_IDENTITY": ":".join(
+                str(value) for value in PROBE.descriptor_identity(output_fd).values()
+            ),
+        }
+        monkeypatch.setattr(PROBE, "EXPECTED_OUTPUT_ROOT", Path("/authorized/output"))
+        monkeypatch.setattr(PROBE, "EXPECTED_COMPLETION_RECEIPT", Path("/authorized/receipt"))
+        monkeypatch.setattr(PROBE, "EXPECTED_SCRATCH_ROOT", Path("/authorized/scratch"))
+        bound_parent = Path(f"/proc/self/fd/{output_fd}")
+        args = SimpleNamespace(
+            source_root=Path(f"/proc/self/fd/{source_fd}"),
+            site_root=Path(f"/proc/self/fd/{site_fd}"),
+            output_dir=bound_parent / "output",
+            completion_receipt=bound_parent / "receipt",
+            scratch_root=Path("/authorized/scratch"),
+        )
+        PROBE.validate_cli_paths(args, environment, require_output=True)
+        args.source_root = source
+        with pytest.raises(PROBE.DiagnosticError, match="source_binding_invalid"):
+            PROBE.validate_cli_paths(args, environment, require_output=True)
+    finally:
+        os.close(output_fd)
+        os.close(site_fd)
+        os.close(source_fd)
+
+
+def test_python_subprocess_executes_script_and_output_through_inherited_fds(tmp_path: Path) -> None:
+    script = tmp_path / "fd-check.py"
+    source = tmp_path / "source"
+    site = tmp_path / "site"
+    output = tmp_path / "output"
+    source.mkdir()
+    site.mkdir()
+    output.mkdir()
+    script.write_text(
+        "import os,sys\n"
+        "assert all(value.startswith('/proc/self/fd/') for value in sys.argv[1:])\n"
+        "for value in sys.argv[1:]: os.fstat(int(value.rsplit('/',1)[1]))\n"
+        "fd=os.open('fd-proof',os.O_WRONLY|os.O_CREAT|os.O_EXCL,0o400,dir_fd=int(sys.argv[3].rsplit('/',1)[1]))\n"
+        "os.write(fd,b'bound\\n');os.fsync(fd);os.close(fd)\n"
+    )
+    script.chmod(0o500)
+    descriptors = [
+        os.open(script, os.O_RDONLY),
+        os.open(source, os.O_RDONLY | os.O_DIRECTORY),
+        os.open(site, os.O_RDONLY | os.O_DIRECTORY),
+        os.open(output, os.O_RDONLY | os.O_DIRECTORY),
+        os.open(Path(shutil.which("uv") or pytest.fail("host uv unavailable")), os.O_RDONLY),
+    ]
+    try:
+        result = subprocess.run(
+            [
+                f"/proc/self/fd/{descriptors[4]}",
+                "run",
+                "--no-project",
+                "--offline",
+                "--python",
+                sys.executable,
+                "python3",
+                "-I",
+                "-S",
+                "-B",
+                f"/proc/self/fd/{descriptors[0]}",
+                f"/proc/self/fd/{descriptors[1]}",
+                f"/proc/self/fd/{descriptors[2]}",
+                f"/proc/self/fd/{descriptors[3]}",
+            ],
+            stdin=subprocess.DEVNULL,
+            capture_output=True,
+            check=False,
+            pass_fds=tuple(descriptors),
+        )
+    finally:
+        for descriptor in descriptors:
+            os.close(descriptor)
+    assert result.returncode == 0
+    assert not result.stdout and not result.stderr
+    assert (output / "fd-proof").read_bytes() == b"bound\n"
+
+
+def test_execution_snapshot_defeats_mutate_restore_race(monkeypatch, tmp_path: Path) -> None:
+    source = tmp_path / "source"
+    site = tmp_path / "site"
+    scratch = tmp_path / "scratch"
+    source_file = source / "environments/vmvm_tb_v2/backend.py"
+    site_file = site / "dependency.py"
+    source_file.parent.mkdir(parents=True)
+    site.mkdir()
+    scratch.mkdir()
+    source_raw = b"SOURCE = 'authorized'\n"
+    site_raw = b"SITE = 'authorized'\n"
+    source_file.write_bytes(source_raw)
+    site_file.write_bytes(site_raw)
+    digest = hashlib.sha1(
+        f"blob {len(source_raw)}\0".encode() + source_raw,
+        usedforsecurity=False,
+    ).hexdigest()
+    records = {"environments/vmvm_tb_v2/backend.py": ("100644", digest)}
+    monkeypatch.setattr(PROBE, "attest_imported_source", lambda descriptor: records)
+    source_fd = os.open(source, os.O_RDONLY | os.O_DIRECTORY)
+    site_fd = os.open(site, os.O_RDONLY | os.O_DIRECTORY)
+    try:
+        expected_site = PROBE.directory_manifest(site_fd, expected_owner_uid=os.getuid())
+        source_snapshot, site_snapshot, source_inventory, site_inventory = PROBE.create_execution_snapshot(
+            source_fd,
+            site_fd,
+            scratch,
+            expected_site,
+        )
+        source_file.write_bytes(b"SOURCE = 'tampered'\n")
+        site_file.write_bytes(b"SITE = 'tampered'\n")
+        source_file.write_bytes(source_raw)
+        site_file.write_bytes(site_raw)
+        assert (source_snapshot / "environments/vmvm_tb_v2/backend.py").read_bytes() == source_raw
+        assert (site_snapshot / "dependency.py").read_bytes() == site_raw
+        for snapshot, expected in (
+            (source_snapshot, source_inventory),
+            (site_snapshot, site_inventory),
+        ):
+            descriptor = os.open(snapshot, os.O_RDONLY | os.O_DIRECTORY)
+            try:
+                assert PROBE.directory_manifest(descriptor, expected_owner_uid=os.getuid()) == expected
+            finally:
+                os.close(descriptor)
+    finally:
+        os.close(site_fd)
+        os.close(source_fd)
+    assert PROBE._remove_tree_verified(scratch)
+    assert not scratch.exists()
+
+
+def test_verified_tree_deletion_fails_closed_on_symlink(tmp_path: Path) -> None:
+    removable = tmp_path / "removable"
+    removable.mkdir()
+    (removable / "log").write_text("diagnostic\n")
+    assert PROBE._remove_tree_verified(removable)
+    unsafe = tmp_path / "unsafe"
+    unsafe.mkdir()
+    link = unsafe / "link"
+    link.symlink_to(tmp_path)
+    assert not PROBE._remove_tree_verified(unsafe)
+    link.unlink()
+    unsafe.rmdir()
+
+
+def test_valid_child_requires_external_absence_check(monkeypatch, tmp_path: Path) -> None:
+    observed: list[bool] = []
+
+    class Process:
+        pid = 2_000_000_101
+        returncode = 0
+
+        def __init__(self, command, **kwargs) -> None:
+            del kwargs
+            marker = command.index("--renewer-journal-fd")
+            self.journal_fd = int(command[marker + 1])
+
+        def communicate(self, timeout):
+            del timeout
+            events = (
+                {
+                    "artifact_type": "vmvm_renewer_journal_event_v2",
+                    "event": "audit_started",
+                    "sequence": 0,
+                },
+                {
+                    "artifact_type": "vmvm_renewer_journal_event_v2",
+                    "event": "audit_complete",
+                    "renewer_processes": 0,
+                    "sequence": 1,
+                },
+            )
+            os.write(self.journal_fd, b"".join(PROBE.canonical_json(event) + b"\n" for event in events))
+            result = PROBE._result_payload(
+                mode="absent",
+                stage="direct_client",
+                state="passed",
+                failure=None,
+                cleanup_complete=True,
+                elapsed_seconds=0,
+                phase_metadata={**valid_phase_metadata("direct_client"), "renewer_processes": 0},
+            )
+            return PROBE.canonical_json(result) + b"\n", b""
+
+    def verify(journal_fd, child_process_group, *, require_complete=False, **kwargs):
+        del journal_fd, child_process_group, kwargs
+        observed.append(require_complete)
+        return True
+
+    monkeypatch.setattr(PROBE.subprocess, "Popen", Process)
+    monkeypatch.setattr(PROBE, "verify_external_renewer_release", verify)
+    for name in PROBE.TLS_NAMES:
+        monkeypatch.setenv(name, "/fixture/tls")
+    descriptors = [
+        os.open(ROOT / "probe_vmvm_task_free_v2.py", os.O_RDONLY),
+        os.open(tmp_path, os.O_RDONLY | os.O_DIRECTORY),
+        os.open(tmp_path, os.O_RDONLY | os.O_DIRECTORY),
+    ]
+    try:
+        result = PROBE.run_stage_child(
+            script=Path(f"/proc/self/fd/{descriptors[0]}"),
+            python=Path(sys.executable),
+            source_root=Path(f"/proc/self/fd/{descriptors[1]}"),
+            site_root=Path(f"/proc/self/fd/{descriptors[2]}"),
+            scratch_root=tmp_path,
+            mode="absent",
+            stage="direct_client",
+            pair_index=0,
+            order_position=0,
+        )
+    finally:
+        for descriptor in descriptors:
+            os.close(descriptor)
+    assert result["state"] == "passed"
+    assert observed == [True]
+
+
+def test_stage_child_fails_closed_when_scratch_deletion_is_unverified(monkeypatch, tmp_path: Path) -> None:
+    original_remove = PROBE._remove_tree_verified
+
+    def fail_to_spawn(*args, **kwargs):
+        del args, kwargs
+        raise OSError("fixture spawn failure")
+
+    monkeypatch.setattr(PROBE.subprocess, "Popen", fail_to_spawn)
+    monkeypatch.setattr(PROBE, "_remove_tree_verified", lambda path: False)
+    for name in PROBE.TLS_NAMES:
+        monkeypatch.setenv(name, "/fixture/tls")
+    descriptors = [
+        os.open(ROOT / "probe_vmvm_task_free_v2.py", os.O_RDONLY),
+        os.open(tmp_path, os.O_RDONLY | os.O_DIRECTORY),
+        os.open(tmp_path, os.O_RDONLY | os.O_DIRECTORY),
+    ]
+    try:
+        with pytest.raises(PROBE.DiagnosticError, match="cleanup_failed"):
+            PROBE.run_stage_child(
+                script=Path(f"/proc/self/fd/{descriptors[0]}"),
+                python=Path(sys.executable),
+                source_root=Path(f"/proc/self/fd/{descriptors[1]}"),
+                site_root=Path(f"/proc/self/fd/{descriptors[2]}"),
+                scratch_root=tmp_path,
+                mode="absent",
+                stage="direct_client",
+                pair_index=0,
+                order_position=0,
+            )
+    finally:
+        for descriptor in descriptors:
+            os.close(descriptor)
+    leftovers = [path for path in tmp_path.iterdir() if path.is_dir()]
+    assert len(leftovers) == 1
+    assert original_remove(leftovers[0])
+
+
+def test_finalizer_rejects_impossible_phase_causality() -> None:
+    result = {
+        "artifact_type": "vmvm_task_free_stage_result_v2",
+        "cleanup_complete": True,
+        "elapsed_milliseconds": 1,
+        "failure_class": None,
+        "order_position": 0,
+        "pair_index": 0,
+        "phase_metadata": valid_phase_metadata("same_thread_raw", FINALIZE),
+        "stage": "same_thread_raw",
+        "state": "passed",
+        "x2p_mode": "absent",
+    }
+    result["phase_metadata"]["phase_counts"]["command_succeeded"] = 2
+    with pytest.raises(FINALIZE.FinalizeError, match="certificate_phase_invalid"):
+        FINALIZE._validate_stage_result(result)
+
+
 def test_external_finalizer_writes_receipt_outside_sealed_output(monkeypatch, tmp_path: Path) -> None:
     output = tmp_path / "candidate"
     receipt_path = tmp_path / "candidate.external-completion.json"
@@ -1062,18 +1513,131 @@ def test_external_finalizer_writes_receipt_outside_sealed_output(monkeypatch, tm
         "job_id": "42",
         "job_name": "vmvm-diag-" + "f" * 24,
     }
+    source_root = tmp_path / "source-root"
+    site_root = tmp_path / "site-root"
+    bundle_root = tmp_path / "bundle"
+    source_root.mkdir()
+    site_root.mkdir()
+    bundle_root.mkdir(mode=0o700)
+    (site_root / "runtime.py").write_text("VALUE = 1\n")
+    bundle_layout = {
+        "finalizer": ("finalize_vmvm_task_free_v2.py", 0o500),
+        "launcher": ("launch_vmvm_task_free_v2.py", 0o500),
+        "probe": ("probe_vmvm_task_free_v2.py", 0o500),
+        "readme": ("README.md", 0o400),
+        "tests": ("test_vmvm_task_free_v2.py", 0o400),
+        "wrapper": ("run_vmvm_task_free_v2.sbatch", 0o500),
+    }
+    bundle_records = {}
+    for label, (name, mode) in bundle_layout.items():
+        path = bundle_root / name
+        path.write_bytes(f"fixture:{label}\n".encode())
+        path.chmod(mode)
+        bundle_records[label] = {
+            "path": str(path),
+            "sha256": FINALIZE.sha256_bytes(path.read_bytes()),
+        }
+    uv_path = tmp_path / "uv"
+    vacli_path = tmp_path / "vacli"
+    for path in (uv_path, vacli_path):
+        path.write_bytes(b"fixture executable\n")
+        path.chmod(0o755)
+    tls_path = tmp_path / "tls.pem"
+    tls_path.write_bytes(b"x" * FINALIZE.TLS_EXPECTED_SIZE)
+    tls_path.chmod(0o500)
+
+    def identity(path: Path) -> dict[str, int]:
+        descriptor = os.open(path, os.O_RDONLY | os.O_DIRECTORY)
+        try:
+            return FINALIZE.descriptor_identity(descriptor)
+        finally:
+            os.close(descriptor)
+
+    site_fd = os.open(site_root, os.O_RDONLY | os.O_DIRECTORY)
+    try:
+        site_inventory = FINALIZE._directory_manifest(site_fd)
+    finally:
+        os.close(site_fd)
+    monkeypatch.setattr(FINALIZE, "SOURCE_ROOT", source_root)
+    monkeypatch.setattr(FINALIZE, "BUNDLE_ROOT", bundle_root)
+    monkeypatch.setattr(FINALIZE, "X86_SITE", site_root)
+    monkeypatch.setattr(FINALIZE, "X86_UV", uv_path)
+    monkeypatch.setattr(FINALIZE, "X86_UV_SHA256", FINALIZE.sha256_bytes(uv_path.read_bytes()))
+    monkeypatch.setattr(FINALIZE, "VACLI", vacli_path)
+    monkeypatch.setattr(FINALIZE, "VACLI_SHA256", FINALIZE.sha256_bytes(vacli_path.read_bytes()))
+    monkeypatch.setattr(FINALIZE, "VACLI_OWNER_UID", os.getuid())
+    monkeypatch.setattr(FINALIZE, "OUTPUT_ROOT", output)
+    monkeypatch.setattr(FINALIZE, "COMPLETION_RECEIPT", receipt_path)
+    monkeypatch.setattr(FINALIZE, "RESERVATION", reservation)
+    monkeypatch.setattr(FINALIZE, "LOG_ROOT", tmp_path / "logs")
+    tls_record = {
+        "path": str(tls_path),
+        "sha256": FINALIZE.sha256_bytes(tls_path.read_bytes()),
+    }
     launch_authorization_body = {
         "artifact_type": "vmvm_task_free_diagnostic_authorization_v2",
-        "bundle": {},
-        "credentials": {},
-        "launch": {
-            "cluster": job["cluster"],
-            "job_name": job["job_name"],
+        "bundle": {
+            **bundle_records,
+            "root_identity": identity(bundle_root),
         },
-        "protocol": {},
-        "runtime": {},
+        "credentials": {
+            "tls": {name: tls_record for name in FINALIZE.TLS_NAMES},
+            "x2p": {name: {"sha256": "1" * 64} for name in FINALIZE.X2P_NAMES},
+        },
+        "launch": {
+            "account": "ram",
+            "cluster": FINALIZE.CLUSTER,
+            "comment": f"vmvm-task-free-v2:{'f' * 24}",
+            "completion_receipt": str(receipt_path),
+            "cpus": 2,
+            "job_name": job["job_name"],
+            "log_root": str(FINALIZE.LOG_ROOT),
+            "memory": "8G",
+            "nodes": 1,
+            "output_parent_identity": identity(tmp_path),
+            "output_root": str(output),
+            "partition": "cpu_x86",
+            "qos": "cpu_x86_lowest",
+            "reservation": str(reservation),
+            "scratch_root": str(FINALIZE.SCRATCH_ROOT),
+            "time_limit": FINALIZE.JOB_TIME_LIMIT,
+        },
+        "protocol": {
+            "diagnostic_only": True,
+            "lease_attempt_limit_per_cell": FINALIZE.LEASE_ATTEMPT_LIMIT,
+            "mode_orders": [list(order) for order in FINALIZE.MODE_ORDERS],
+            "production_authorized": False,
+            "repetitions_per_mode": len(FINALIZE.MODE_ORDERS),
+            "stage_timeout_seconds": FINALIZE.STAGE_TIMEOUT_SECONDS,
+        },
+        "runtime": {
+            "image": FINALIZE.IMAGE,
+            "python_name": "python3",
+            "site": {
+                "inventory": site_inventory,
+                "path": str(site_root),
+                "root_identity": identity(site_root),
+            },
+            "uv": {
+                "path": str(uv_path),
+                "sha256": FINALIZE.X86_UV_SHA256,
+            },
+            "vacli": {
+                "path": str(vacli_path),
+                "sha256": FINALIZE.VACLI_SHA256,
+            },
+        },
         "schema_version": 2,
-        "source": {},
+        "source": {
+            "path": str(source_root),
+            "pydantic_config_revision": FINALIZE.PYDANTIC_CONFIG_REVISION,
+            "renderers_revision": FINALIZE.RENDERERS_REVISION,
+            "revision": FINALIZE.SOURCE_REVISION,
+            "root_identity": identity(source_root),
+            "tree": FINALIZE.SOURCE_TREE,
+            "verifiers_revision": FINALIZE.VERIFIERS_REVISION,
+            "vmvm_sha256": FINALIZE.VMVM_SHA256,
+        },
         "state": "approved",
     }
     launch_authorization_sha = FINALIZE.sha256_bytes(FINALIZE.canonical_json(launch_authorization_body))
@@ -1085,6 +1649,30 @@ def test_external_finalizer_writes_receipt_outside_sealed_output(monkeypatch, tm
     launch_authorization_path.write_bytes(launch_authorization_raw)
     launch_authorization_path.chmod(0o400)
     launch_authorization_file_sha = FINALIZE.sha256_bytes(launch_authorization_raw)
+
+    for name, mutate in (
+        ("bad-launch-semantics", lambda body: body["launch"].update({"cpus": 3})),
+        (
+            "bad-bundle-self-hash",
+            lambda body: body["bundle"]["finalizer"].update({"sha256": "0" * 64}),
+        ),
+    ):
+        bad_launch_body = json.loads(FINALIZE.canonical_json(launch_authorization_body))
+        mutate(bad_launch_body)
+        bad_launch_sha = FINALIZE.sha256_bytes(FINALIZE.canonical_json(bad_launch_body))
+        bad_launch = {**bad_launch_body, "authorization_sha256": bad_launch_sha}
+        bad_launch_raw = FINALIZE.canonical_json(bad_launch) + b"\n"
+        bad_launch_path = tmp_path / f"{name}.json"
+        bad_launch_path.write_bytes(bad_launch_raw)
+        bad_launch_path.chmod(0o400)
+        with pytest.raises(FINALIZE.FinalizeError, match="authorization_invalid"):
+            FINALIZE._validate_launch_authorization(
+                {
+                    "authorization_sha256": bad_launch_sha,
+                    "file_sha256": FINALIZE.sha256_bytes(bad_launch_raw),
+                    "path": str(bad_launch_path),
+                }
+            )
 
     reservation.mkdir(mode=0o700)
     job_authorization = {
@@ -1139,21 +1727,7 @@ def test_external_finalizer_writes_receipt_outside_sealed_output(monkeypatch, tm
             "failure_class": None,
             "order_position": position,
             "pair_index": pair_index,
-            "phase_metadata": {
-                "last_phase": "release_verified",
-                "lease_attempt_limit": FINALIZE.LEASE_ATTEMPT_LIMIT,
-                "lease_attempts": 1,
-                "phase_counts": {
-                    "backend_ready": 1,
-                    "release_verified": 1,
-                },
-                "release_grace_seconds": FINALIZE.RELEASE_GRACE_SECONDS,
-                "release_method": "renewer_absent_for_lease_ttl",
-                "release_verified": True,
-                "renewer_processes": 1,
-                "transport_recovery_attempt_limit": FINALIZE.RECOVERY_ATTEMPTS,
-                "transport_recovery_attempts": 0,
-            },
+            "phase_metadata": valid_phase_metadata(stage, FINALIZE),
             "stage": stage,
             "state": "passed",
             "x2p_mode": mode,
@@ -1172,6 +1746,21 @@ def test_external_finalizer_writes_receipt_outside_sealed_output(monkeypatch, tm
         "causal_contrasts": summary["causal_contrasts"],
         "diagnostic_only": True,
         "environment_sha256": "a" * 64,
+        "execution_inputs": {
+            "authorized_site": site_inventory,
+            "site_snapshot": {
+                "entry_count": 1,
+                "manifest_sha256": "7" * 64,
+                "owner_uid": os.getuid(),
+                "total_bytes": 1,
+            },
+            "source_snapshot": {
+                "entry_count": 1,
+                "manifest_sha256": "8" * 64,
+                "owner_uid": os.getuid(),
+                "total_bytes": 1,
+            },
+        },
         "image": FINALIZE.IMAGE,
         "job": job,
         "job_authorization_sha256": job_authorization_sha,

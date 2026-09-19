@@ -172,6 +172,33 @@ def inherited_descriptor(path: Path) -> int | None:
     return descriptor
 
 
+def inherited_bound_directory(
+    path: Path,
+    expected: Mapping[str, object],
+    *,
+    code: str,
+    required_mode: int | None = None,
+) -> int:
+    """Duplicate an inherited directory descriptor without reopening its path."""
+    try:
+        inherited = inherited_descriptor(path)
+        if inherited is None:
+            raise DiagnosticError(code)
+        descriptor = os.dup(inherited)
+    except (OSError, ValueError) as error:
+        raise DiagnosticError(code) from error
+    identity = descriptor_identity(descriptor)
+    if (
+        set(expected) != {"device", "inode", "mode", "owner_uid"}
+        or identity != expected
+        or identity["owner_uid"] != os.getuid()
+        or (required_mode is not None and identity["mode"] != required_mode)
+    ):
+        os.close(descriptor)
+        raise DiagnosticError(code)
+    return descriptor
+
+
 def directory_manifest(
     descriptor: int,
     *,
@@ -381,7 +408,7 @@ def _attest_git_repository(
     expected_revision: str,
     pathspecs: Sequence[str] = (),
     expected_gitlinks: Mapping[str, str] | None = None,
-) -> None:
+) -> dict[str, tuple[str, str]]:
     root = f"/proc/self/fd/{repository_fd}"
     inherited = (repository_fd,)
     suffix = ["--", *pathspecs] if pathspecs else []
@@ -465,12 +492,14 @@ def _attest_git_repository(
     )
     if repeated.returncode != 0 or repeated.stderr or repeated.stdout != stage_result.stdout:
         raise DiagnosticError("source_binding_invalid")
+    return index
 
 
-def attest_imported_source(source_fd: int) -> None:
+def attest_imported_source(source_fd: int) -> dict[str, tuple[str, str]]:
     dependency_fds: list[int] = []
+    tracked: dict[str, tuple[str, str]] = {}
     try:
-        _attest_git_repository(
+        root_index = _attest_git_repository(
             source_fd,
             expected_revision=SOURCE_REVISION,
             pathspecs=(
@@ -485,6 +514,7 @@ def attest_imported_source(source_fd: int) -> None:
                 "deps/pydantic-config": PYDANTIC_CONFIG_REVISION,
             },
         )
+        tracked.update((path, record) for path, record in root_index.items() if record[0] != "160000")
         for relative, revision in (
             ("deps/verifiers", VERIFIERS_REVISION),
             ("deps/renderers", RENDERERS_REVISION),
@@ -492,7 +522,11 @@ def attest_imported_source(source_fd: int) -> None:
         ):
             dependency_fd = _open_source_directory_at(source_fd, relative)
             dependency_fds.append(dependency_fd)
-            _attest_git_repository(dependency_fd, expected_revision=revision)
+            dependency_index = _attest_git_repository(dependency_fd, expected_revision=revision)
+            for path, record in dependency_index.items():
+                if record[0] == "160000" or f"{relative}/{path}" in tracked:
+                    raise DiagnosticError("source_binding_invalid")
+                tracked[f"{relative}/{path}"] = record
         for root_fd in (source_fd, *dependency_fds):
             root = f"/proc/self/fd/{root_fd}"
             status_result = _source_git(
@@ -529,6 +563,181 @@ def attest_imported_source(source_fd: int) -> None:
     finally:
         for dependency_fd in dependency_fds:
             os.close(dependency_fd)
+    return dict(sorted(tracked.items()))
+
+
+def _read_attested_source_blob(
+    source_fd: int,
+    relative: str,
+    git_mode: str,
+    expected_oid: str,
+) -> bytes:
+    components = relative.split("/")
+    if (
+        not components
+        or any(component in {"", ".", ".."} for component in components)
+        or git_mode not in {"100644", "100755"}
+        or re.fullmatch(r"[0-9a-f]{40}", expected_oid) is None
+    ):
+        raise DiagnosticError("source_binding_invalid")
+    parent_fd = os.dup(source_fd)
+    try:
+        for component in components[:-1]:
+            child_fd = os.open(
+                component,
+                os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW,
+                dir_fd=parent_fd,
+            )
+            os.close(parent_fd)
+            parent_fd = child_fd
+            info = os.fstat(parent_fd)
+            if info.st_uid != os.getuid() or stat.S_IMODE(info.st_mode) & 0o022:
+                raise DiagnosticError("source_binding_invalid")
+        file_fd = os.open(components[-1], os.O_RDONLY | os.O_NOFOLLOW, dir_fd=parent_fd)
+    except OSError as error:
+        raise DiagnosticError("source_binding_invalid") from error
+    finally:
+        os.close(parent_fd)
+    try:
+        before = os.fstat(file_fd)
+        executable = bool(before.st_mode & 0o111)
+        if (
+            not stat.S_ISREG(before.st_mode)
+            or before.st_uid != os.getuid()
+            or before.st_nlink != 1
+            or stat.S_IMODE(before.st_mode) & 0o022
+            or executable != (git_mode == "100755")
+        ):
+            raise DiagnosticError("source_binding_invalid")
+        raw = bytearray()
+        while True:
+            chunk = os.read(file_fd, 1 << 20)
+            if not chunk:
+                break
+            raw.extend(chunk)
+        after = os.fstat(file_fd)
+    finally:
+        os.close(file_fd)
+    fields = ("st_dev", "st_ino", "st_mode", "st_uid", "st_nlink", "st_size")
+    digest = hashlib.sha1(f"blob {len(raw)}\0".encode(), usedforsecurity=False)
+    digest.update(raw)
+    if (
+        any(getattr(before, field) != getattr(after, field) for field in fields)
+        or len(raw) != before.st_size
+        or digest.hexdigest() != expected_oid
+    ):
+        raise DiagnosticError("source_binding_invalid")
+    return bytes(raw)
+
+
+def _write_snapshot_file(path: Path, raw: bytes, mode: int) -> None:
+    path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+    descriptor = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, mode)
+    try:
+        offset = 0
+        while offset < len(raw):
+            offset += os.write(descriptor, raw[offset:])
+        os.fsync(descriptor)
+    finally:
+        os.close(descriptor)
+
+
+def _seal_tree(path: Path) -> None:
+    directories: list[Path] = []
+    for root, names, files in os.walk(path, topdown=True, followlinks=False):
+        root_path = Path(root)
+        directories.append(root_path)
+        for name in (*names, *files):
+            entry = root_path / name
+            if entry.is_symlink():
+                raise DiagnosticError("site_binding_invalid")
+        for name in files:
+            entry = root_path / name
+            info = entry.stat(follow_symlinks=False)
+            if not stat.S_ISREG(info.st_mode) or info.st_uid != os.getuid():
+                raise DiagnosticError("site_binding_invalid")
+            entry.chmod(0o500 if info.st_mode & 0o111 else 0o400)
+    for directory in reversed(directories):
+        directory.chmod(0o500)
+
+
+def create_execution_snapshot(
+    source_fd: int,
+    site_fd: int,
+    scratch_root: Path,
+    expected_site_inventory: Mapping[str, object],
+) -> tuple[Path, Path, dict[str, object], dict[str, object]]:
+    """Copy authorized inputs once, then execute only from the sealed copies."""
+    source_records = attest_imported_source(source_fd)
+    if directory_manifest(site_fd, expected_owner_uid=os.getuid()) != expected_site_inventory:
+        raise DiagnosticError("site_binding_invalid")
+    snapshot_root = scratch_root / "sealed-inputs"
+    source_snapshot = snapshot_root / "source"
+    site_snapshot = snapshot_root / "site"
+    source_snapshot.mkdir(mode=0o700, parents=True)
+    for relative, (git_mode, object_id) in source_records.items():
+        raw = _read_attested_source_blob(source_fd, relative, git_mode, object_id)
+        _write_snapshot_file(
+            source_snapshot / relative,
+            raw,
+            0o500 if git_mode == "100755" else 0o400,
+        )
+    shutil.copytree(
+        descriptor_path(site_fd),
+        site_snapshot,
+        copy_function=shutil.copy2,
+    )
+    copied_site_fd = os.open(site_snapshot, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+    try:
+        copied_site_inventory = directory_manifest(copied_site_fd, expected_owner_uid=os.getuid())
+    finally:
+        os.close(copied_site_fd)
+    if copied_site_inventory != expected_site_inventory:
+        raise DiagnosticError("site_binding_invalid")
+    if attest_imported_source(source_fd) != source_records:
+        raise DiagnosticError("source_binding_invalid")
+    if directory_manifest(site_fd, expected_owner_uid=os.getuid()) != expected_site_inventory:
+        raise DiagnosticError("site_binding_invalid")
+    _seal_tree(source_snapshot)
+    _seal_tree(site_snapshot)
+    source_snapshot_fd = os.open(source_snapshot, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+    site_snapshot_fd = os.open(site_snapshot, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+    try:
+        source_inventory = directory_manifest(source_snapshot_fd, expected_owner_uid=os.getuid())
+        site_inventory = directory_manifest(site_snapshot_fd, expected_owner_uid=os.getuid())
+    finally:
+        os.close(source_snapshot_fd)
+        os.close(site_snapshot_fd)
+    return source_snapshot, site_snapshot, source_inventory, site_inventory
+
+
+def _remove_tree_verified(path: Path) -> bool:
+    """Delete an owned tree and prove that neither it nor a symlink remains."""
+    try:
+        if not os.path.lexists(path):
+            return True
+        if path.is_symlink() or not path.is_dir():
+            return False
+        directories: list[Path] = []
+        for root, names, files in os.walk(path, topdown=True, followlinks=False):
+            root_path = Path(root)
+            directories.append(root_path)
+            root_path.chmod(0o700)
+            for name in names:
+                child = root_path / name
+                if child.is_symlink():
+                    return False
+            for name in files:
+                child = root_path / name
+                if child.is_symlink() or not child.is_file():
+                    return False
+                child.chmod(0o600)
+        for directory in reversed(directories):
+            directory.chmod(0o700)
+        shutil.rmtree(path)
+    except OSError:
+        return False
+    return not os.path.lexists(path)
 
 
 def _exception_chain(error: BaseException) -> str:
@@ -1143,6 +1352,8 @@ def execute_worker(
         or pair_index not in range(REPETITIONS)
         or order_position not in (0, 1)
         or MODE_ORDERS[pair_index][order_position] != mode
+        or inherited_descriptor(source_root) is None
+        or inherited_descriptor(site_root) is None
     ):
         raise DiagnosticError("stage_result_invalid")
     started = time.monotonic()
@@ -1458,11 +1669,12 @@ def verify_external_renewer_release(
     journal_fd: int,
     child_process_group: int,
     *,
+    require_complete: bool = False,
     monotonic: Callable[[], float] = time.monotonic,
     sleeper: Callable[[float], None] = time.sleep,
 ) -> bool:
     try:
-        identities = _journal_process_identities(journal_fd)
+        identities = _journal_process_identities(journal_fd, require_complete=require_complete)
     except DiagnosticError:
         return False
     if any(process_group == child_process_group for _pid, process_group, _ in identities):
@@ -1517,14 +1729,29 @@ def run_stage_child(
     pair_index: int,
     order_position: int,
 ) -> dict[str, object]:
+    inherited = tuple(
+        inherited_descriptor(path)
+        for path in (
+            script,
+            source_root,
+            site_root,
+        )
+    )
+    if any(descriptor is None for descriptor in inherited):
+        raise DiagnosticError("child_invalid")
     stage_scratch = scratch_root / (f"pair-{pair_index:02d}-position-{order_position}-{mode}-{stage}")
     stage_scratch.mkdir(mode=0o700)
-    (stage_scratch / "pycache").mkdir(mode=0o500)
-    journal_fd = os.open(
-        stage_scratch / "renewer-journal.jsonl",
-        os.O_RDWR | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW | os.O_APPEND,
-        0o600,
-    )
+    try:
+        (stage_scratch / "pycache").mkdir(mode=0o500)
+        journal_fd = os.open(
+            stage_scratch / "renewer-journal.jsonl",
+            os.O_RDWR | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW | os.O_APPEND,
+            0o600,
+        )
+    except BaseException:
+        if not _remove_tree_verified(stage_scratch):
+            raise DiagnosticError("cleanup_failed")
+        raise
     command = [
         str(python),
         "-I",
@@ -1560,9 +1787,7 @@ def run_stage_child(
             pass_fds=tuple(
                 descriptor
                 for descriptor in (
-                    inherited_descriptor(script),
-                    inherited_descriptor(source_root),
-                    inherited_descriptor(site_root),
+                    *inherited,
                     journal_fd,
                 )
                 if descriptor is not None
@@ -1602,6 +1827,8 @@ def run_stage_child(
             and isinstance(value, dict)
             and canonical_json(value) + b"\n" == stdout
         )
+        release_checked = False
+        released = False
         if valid:
             try:
                 assert isinstance(value, dict)
@@ -1617,12 +1844,21 @@ def run_stage_child(
                 assert isinstance(metadata, dict)
                 if metadata.get("renewer_processes") != len(identities):
                     raise DiagnosticError("stage_result_invalid")
+                released = verify_external_renewer_release(
+                    journal_fd,
+                    process.pid,
+                    require_complete=True,
+                )
+                release_checked = True
+                if not released:
+                    raise DiagnosticError("cleanup_failed")
             except DiagnosticError:
                 valid = False
         if valid:
             assert isinstance(value, dict)
             return value
-        released = verify_external_renewer_release(journal_fd, process.pid)
+        if not release_checked:
+            released = verify_external_renewer_release(journal_fd, process.pid)
         renewer_processes = len(_journal_process_identities(journal_fd)) if released else 0
         return _result_payload(
             mode=mode,
@@ -1643,8 +1879,13 @@ def run_stage_child(
             },
         )
     finally:
-        os.close(journal_fd)
-        shutil.rmtree(stage_scratch, ignore_errors=True)
+        try:
+            os.close(journal_fd)
+            journal_closed = True
+        except OSError:
+            journal_closed = False
+        if not _remove_tree_verified(stage_scratch) or not journal_closed:
+            raise DiagnosticError("cleanup_failed")
 
 
 def validate_stage_result(
@@ -1724,6 +1965,63 @@ def validate_stage_result(
         or type(metadata.get("transport_recovery_attempts")) is not int
         or not 0 <= int(metadata["transport_recovery_attempts"]) <= RECOVERY_ATTEMPTS
     ):
+        raise DiagnosticError("stage_result_invalid")
+    _validate_phase_causality(
+        expected_stage,
+        str(value["state"]),
+        failure if isinstance(failure, str) else None,
+        metadata,
+    )
+
+
+def _validate_phase_causality(
+    stage: str,
+    state: str,
+    failure: str | None,
+    metadata: Mapping[str, object],
+) -> None:
+    phase_counts = metadata["phase_counts"]
+    assert isinstance(phase_counts, dict)
+    count = lambda name: int(phase_counts.get(name, 0))
+    lease_attempts = int(metadata["lease_attempts"])
+    recovery_attempts = int(metadata["transport_recovery_attempts"])
+    renewers = int(metadata["renewer_processes"])
+    if (
+        metadata.get("last_phase") != "release_verified"
+        or count("worker_started") != 1
+        or count("release_verified") != 1
+        or count("lease_start") != lease_attempts
+        or count("cleanup_called") != lease_attempts
+        or count("tunnel_ready") > lease_attempts
+        or count("backend_ready") not in (0, 1)
+        or count("backend_ready") > count("tunnel_ready")
+        or count("command_started") not in (0, 1)
+        or count("command_succeeded") not in (0, 1)
+        or count("command_succeeded") > count("command_started")
+        or count("command_started") > count("backend_ready")
+        or renewers > lease_attempts + recovery_attempts
+        or failure
+        in {
+            "child_invalid",
+            "child_output_overflow",
+            "child_timeout",
+            "cleanup_failed",
+            "site_binding_invalid",
+            "source_binding_invalid",
+            "stage_result_invalid",
+        }
+        or (stage == "direct_client" and (count("command_started") or count("command_succeeded")))
+        or (stage in {"direct_client", "same_thread_raw", "cross_thread_raw"} and recovery_attempts != 0)
+    ):
+        raise DiagnosticError("stage_result_invalid")
+    if state == "passed":
+        if lease_attempts < 1 or count("backend_ready") != 1:
+            raise DiagnosticError("stage_result_invalid")
+        if stage != "direct_client" and (count("command_started") != 1 or count("command_succeeded") != 1):
+            raise DiagnosticError("stage_result_invalid")
+    elif stage == "direct_client" and count("backend_ready") != 0:
+        raise DiagnosticError("stage_result_invalid")
+    elif count("command_succeeded") != 0:
         raise DiagnosticError("stage_result_invalid")
 
 
@@ -1847,6 +2145,11 @@ def parse_identity(value: str) -> dict[str, int]:
 
 
 def validate_batch_admission(environment: Mapping[str, str], script_path: Path) -> dict[str, object]:
+    try:
+        if inherited_descriptor(script_path) is None:
+            raise DiagnosticError("child_invalid")
+    except (OSError, ValueError) as error:
+        raise DiagnosticError("child_invalid") from error
     required = {
         "DIAG_ACTIVATION_PERMIT",
         "DIAG_AUTHORIZATION",
@@ -2197,6 +2500,7 @@ def validate_batch_admission(environment: Mapping[str, str], script_path: Path) 
             "partition",
             "qos",
             "reservation",
+            "scratch_root",
             "time_limit",
         }
         or launch.get("cluster") != EXPECTED_CLUSTER
@@ -2206,6 +2510,7 @@ def validate_batch_admission(environment: Mapping[str, str], script_path: Path) 
         or launch.get("completion_receipt") != str(EXPECTED_COMPLETION_RECEIPT)
         or launch.get("output_parent_identity") != parse_identity(environment["DIAG_OUTPUT_PARENT_IDENTITY"])
         or launch.get("reservation") != str(EXPECTED_RESERVATION)
+        or launch.get("scratch_root") != str(EXPECTED_SCRATCH_ROOT)
         or launch.get("log_root") != str(BASE / "logs/vmvm_v21_task_free_ab_a09a9a189_v2")
         or launch.get("nodes") != 1
         or launch.get("cpus") != 2
@@ -2361,11 +2666,16 @@ def validate_cli_paths(
     *,
     require_output: bool,
 ) -> None:
-    source_fd = open_bound_directory(args.source_root, parse_identity(environment["DIAG_SOURCE_IDENTITY"]))
+    source_fd = inherited_bound_directory(
+        args.source_root,
+        parse_identity(environment["DIAG_SOURCE_IDENTITY"]),
+        code="source_binding_invalid",
+    )
     os.close(source_fd)
-    site_fd = open_bound_directory(
+    site_fd = inherited_bound_directory(
         args.site_root,
         parse_identity(environment["PYTHON_SITE_X86_64_IDENTITY"]),
+        code="site_binding_invalid",
     )
     try:
         expected_inventory = {
@@ -2389,9 +2699,10 @@ def validate_cli_paths(
         or args.output_dir.parent != args.completion_receipt.parent
     ):
         raise DiagnosticError("child_invalid")
-    output_parent_fd = open_bound_directory(
+    output_parent_fd = inherited_bound_directory(
         args.output_dir.parent,
         parse_identity(environment["DIAG_OUTPUT_PARENT_IDENTITY"]),
+        code="output_binding_invalid",
     )
     os.close(output_parent_fd)
 
@@ -2474,8 +2785,9 @@ def run_supervisor(args: argparse.Namespace) -> dict[str, object]:
     source_root = args.source_root
     site_root = args.site_root
     script = Path(__file__)
-    output_parent = args.output_dir.parent.resolve(strict=True)
     completion_receipt = args.completion_receipt
+    if inherited_descriptor(script) is None:
+        raise DiagnosticError("child_invalid")
     if (
         args.output_dir.exists()
         or args.output_dir.is_symlink()
@@ -2485,165 +2797,244 @@ def run_supervisor(args: argparse.Namespace) -> dict[str, object]:
         or completion_receipt.is_symlink()
     ):
         raise DiagnosticError("child_invalid")
-    output_parent_fd = os.open(output_parent, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
-    os.mkdir(args.output_dir.name, mode=0o700, dir_fd=output_parent_fd)
-    output_fd = os.open(
-        args.output_dir.name,
-        os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW,
-        dir_fd=output_parent_fd,
+    output_parent_fd = inherited_bound_directory(
+        args.output_dir.parent,
+        parse_identity(os.environ["DIAG_OUTPUT_PARENT_IDENTITY"]),
+        code="output_binding_invalid",
     )
-    args.scratch_root.mkdir(mode=0o700)
+    output_fd: int | None = None
+    source_snapshot_fd: int | None = None
+    site_snapshot_fd: int | None = None
+    scratch_created = False
     results: list[dict[str, object]] = []
-    cell_source_fd = inherited_descriptor(source_root)
-    owned_cell_source_fd = cell_source_fd is None
-    if cell_source_fd is None:
-        cell_source_fd = os.open(source_root, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+    source_fd = inherited_bound_directory(
+        source_root,
+        parse_identity(os.environ["DIAG_SOURCE_IDENTITY"]),
+        code="source_binding_invalid",
+    )
+    site_fd = inherited_bound_directory(
+        site_root,
+        parse_identity(os.environ["PYTHON_SITE_X86_64_IDENTITY"]),
+        code="site_binding_invalid",
+    )
+    cleanup_failed = False
     try:
-        for stage in STAGES:
-            for pair_index, order in enumerate(MODE_ORDERS):
-                for order_position, mode in enumerate(order):
-                    attest_imported_source(cell_source_fd)
-                    results.append(
-                        run_stage_child(
-                            script=script,
-                            python=Path(sys.executable).resolve(strict=True),
-                            source_root=source_root,
-                            site_root=site_root,
-                            scratch_root=args.scratch_root,
-                            mode=mode,
-                            stage=stage,
-                            pair_index=pair_index,
-                            order_position=order_position,
-                        )
-                    )
-    finally:
-        if owned_cell_source_fd:
-            os.close(cell_source_fd)
-        shutil.rmtree(args.scratch_root, ignore_errors=True)
-    site_descriptor = inherited_descriptor(site_root)
-    owned_site_descriptor = site_descriptor is None
-    if site_descriptor is None:
-        site_descriptor = os.open(site_root, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
-    try:
+        os.mkdir(args.output_dir.name, mode=0o700, dir_fd=output_parent_fd)
+        output_fd = os.open(
+            args.output_dir.name,
+            os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW,
+            dir_fd=output_parent_fd,
+        )
+        args.scratch_root.mkdir(mode=0o700)
+        scratch_created = True
         expected_site_inventory = {
             "entry_count": int(os.environ["PYTHON_SITE_X86_64_ENTRY_COUNT"]),
             "manifest_sha256": os.environ["PYTHON_SITE_X86_64_MANIFEST_SHA256"],
             "owner_uid": os.getuid(),
             "total_bytes": int(os.environ["PYTHON_SITE_X86_64_TOTAL_BYTES"]),
         }
-        if directory_manifest(site_descriptor, expected_owner_uid=os.getuid()) != expected_site_inventory:
-            raise DiagnosticError("site_binding_invalid")
-    finally:
-        if owned_site_descriptor:
-            os.close(site_descriptor)
-    source_descriptor = inherited_descriptor(source_root)
-    owned_source_descriptor = source_descriptor is None
-    if source_descriptor is None:
-        source_descriptor = os.open(source_root, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
-    try:
-        attest_imported_source(source_descriptor)
-    finally:
-        if owned_source_descriptor:
-            os.close(source_descriptor)
-    if len(results) != CELL_COUNT or any(item.get("cleanup_complete") is not True for item in results):
-        raise DiagnosticError("cleanup_failed")
-    summary = summarize_stage_results(results)
-    counts = summary["result_counts"]
-    failures = summary["safe_failure_counts"]
-    assert isinstance(counts, dict)
-    assert isinstance(failures, dict)
-    certificate = {
-        "artifact_type": "vmvm_task_free_diagnostic_certificate_v2",
-        "authorization_file_sha256": args.authorization_file_sha256,
-        "authorization_sha256": args.authorization_sha256,
-        "automatic_remediation": False,
-        "causal_assessment": summary["causal_assessment"],
-        "causal_contrasts": summary["causal_contrasts"],
-        "diagnostic_only": True,
-        "environment_sha256": args.environment_sha256,
-        "image": IMAGE,
-        "job": {
-            "cluster": EXPECTED_CLUSTER,
-            "job_id": args.job_id,
-            "job_name": args.job_name,
-        },
-        "job_authorization_sha256": args.job_authorization_sha256,
-        "model_endpoint_accessed": False,
-        "production_authorized": False,
-        "protocol": {
-            "cell_count": CELL_COUNT,
-            "causal_scope": "construction_backend_ready",
-            "lease_attempt_limit_per_cell": LEASE_ATTEMPT_LIMIT,
-            "mode_orders": [list(order) for order in MODE_ORDERS],
-            "repetitions_per_mode": REPETITIONS,
-            "stage_timeout_seconds": STAGE_TIMEOUT_SECONDS,
-        },
-        "outcome_contrasts": summary["outcome_contrasts"],
-        "retry_phase_aggregate": summary["retry_phase_aggregate"],
-        "result_counts": counts,
-        "safe_failure_counts": failures,
-        "schema_version": 2,
-        "submission_receipt_sha256": args.submission_receipt_sha256,
-        "source": {
-            "pydantic_config_revision": PYDANTIC_CONFIG_REVISION,
-            "renderers_revision": RENDERERS_REVISION,
-            "revision": SOURCE_REVISION,
-            "tree": SOURCE_TREE,
-            "verifiers_revision": VERIFIERS_REVISION,
-            "vmvm_sha256": VMVM_SHA256,
-        },
-        "stage_results": results,
-        "task_data_accessed": False,
-        "x2p_modes": list(MODES),
-    }
-    certificate_payload = canonical_json(certificate) + b"\n"
-    if len(certificate_payload) > MAX_RESULT_BYTES:
-        raise DiagnosticError("stage_result_invalid")
-    _atomic_write(output_fd, "diagnostic_certificate.json", certificate_payload, 0o400)
-    sealed_identity = descriptor_identity(output_fd)
-    sealed_identity["mode"] = 0o500
-    completion_request = {
-        "artifact_type": "vmvm_task_free_external_completion_request_v2",
-        "authorization_file_sha256": args.authorization_file_sha256,
-        "authorization_sha256": args.authorization_sha256,
-        "certificate_sha256": sha256_bytes(certificate_payload),
-        "diagnostic_only": True,
-        "environment_sha256": args.environment_sha256,
-        "external_completion_receipt": str(completion_receipt),
-        "job": {
-            "cluster": EXPECTED_CLUSTER,
-            "job_id": args.job_id,
-            "job_name": args.job_name,
-        },
-        "job_authorization_sha256": args.job_authorization_sha256,
-        "output_root_identity": sealed_identity,
-        "production_authorized": False,
-        "state": "awaiting_external_completion",
-        "submission_receipt_sha256": args.submission_receipt_sha256,
-    }
-    completion_payload = canonical_json(completion_request) + b"\n"
-    if (
-        _stable_bytes(
-            descriptor_path(output_fd) / "diagnostic_certificate.json",
-            mode=0o400,
-            expected_sha256=sha256_bytes(certificate_payload),
-            maximum=MAX_RESULT_BYTES,
+        (
+            source_snapshot,
+            site_snapshot,
+            source_snapshot_inventory,
+            site_snapshot_inventory,
+        ) = create_execution_snapshot(
+            source_fd,
+            site_fd,
+            args.scratch_root,
+            expected_site_inventory,
         )
-        != certificate_payload
-    ):
-        raise DiagnosticError("child_invalid")
-    _atomic_write(output_fd, "completion_request.json", completion_payload, 0o400)
-    os.fchmod(output_fd, 0o500)
-    os.fsync(output_fd)
-    os.fsync(output_parent_fd)
-    os.close(output_fd)
-    os.close(output_parent_fd)
-    return {
-        "failure_categories": len(failures),
-        "passed": counts.get("passed", 0),
-        "stages": len(results),
-        "state": "awaiting_external_completion",
-    }
+        source_snapshot_fd = os.open(
+            source_snapshot,
+            os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW,
+        )
+        site_snapshot_fd = os.open(
+            site_snapshot,
+            os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW,
+        )
+        snapshot_source_root = descriptor_path(source_snapshot_fd)
+        snapshot_site_root = descriptor_path(site_snapshot_fd)
+        for stage in STAGES:
+            for pair_index, order in enumerate(MODE_ORDERS):
+                for order_position, mode in enumerate(order):
+                    if (
+                        directory_manifest(source_snapshot_fd, expected_owner_uid=os.getuid())
+                        != source_snapshot_inventory
+                        or directory_manifest(site_snapshot_fd, expected_owner_uid=os.getuid())
+                        != site_snapshot_inventory
+                    ):
+                        raise DiagnosticError("source_binding_invalid")
+                    result = run_stage_child(
+                        script=script,
+                        python=Path(sys.executable).resolve(strict=True),
+                        source_root=snapshot_source_root,
+                        site_root=snapshot_site_root,
+                        scratch_root=args.scratch_root,
+                        mode=mode,
+                        stage=stage,
+                        pair_index=pair_index,
+                        order_position=order_position,
+                    )
+                    if result.get("cleanup_complete") is not True:
+                        raise DiagnosticError("cleanup_failed")
+                    if result.get("failure_class") in {
+                        "child_invalid",
+                        "child_output_overflow",
+                        "child_timeout",
+                    }:
+                        raise DiagnosticError("stage_result_invalid")
+                    validate_stage_result(
+                        result,
+                        expected_mode=mode,
+                        expected_stage=stage,
+                        expected_pair_index=pair_index,
+                        expected_order_position=order_position,
+                    )
+                    if (
+                        directory_manifest(source_snapshot_fd, expected_owner_uid=os.getuid())
+                        != source_snapshot_inventory
+                        or directory_manifest(site_snapshot_fd, expected_owner_uid=os.getuid())
+                        != site_snapshot_inventory
+                    ):
+                        raise DiagnosticError("source_binding_invalid")
+                    results.append(result)
+        attest_imported_source(source_fd)
+        if directory_manifest(site_fd, expected_owner_uid=os.getuid()) != expected_site_inventory:
+            raise DiagnosticError("site_binding_invalid")
+        if len(results) != CELL_COUNT:
+            raise DiagnosticError("stage_result_invalid")
+        os.close(source_snapshot_fd)
+        source_snapshot_fd = None
+        os.close(site_snapshot_fd)
+        site_snapshot_fd = None
+        if not _remove_tree_verified(args.scratch_root):
+            raise DiagnosticError("cleanup_failed")
+        scratch_created = False
+        summary = summarize_stage_results(results)
+        counts = summary["result_counts"]
+        failures = summary["safe_failure_counts"]
+        assert isinstance(counts, dict)
+        assert isinstance(failures, dict)
+        certificate = {
+            "artifact_type": "vmvm_task_free_diagnostic_certificate_v2",
+            "authorization_file_sha256": args.authorization_file_sha256,
+            "authorization_sha256": args.authorization_sha256,
+            "automatic_remediation": False,
+            "causal_assessment": summary["causal_assessment"],
+            "causal_contrasts": summary["causal_contrasts"],
+            "diagnostic_only": True,
+            "environment_sha256": args.environment_sha256,
+            "execution_inputs": {
+                "authorized_site": expected_site_inventory,
+                "source_snapshot": source_snapshot_inventory,
+                "site_snapshot": site_snapshot_inventory,
+            },
+            "image": IMAGE,
+            "job": {
+                "cluster": EXPECTED_CLUSTER,
+                "job_id": args.job_id,
+                "job_name": args.job_name,
+            },
+            "job_authorization_sha256": args.job_authorization_sha256,
+            "model_endpoint_accessed": False,
+            "production_authorized": False,
+            "protocol": {
+                "cell_count": CELL_COUNT,
+                "causal_scope": "construction_backend_ready",
+                "lease_attempt_limit_per_cell": LEASE_ATTEMPT_LIMIT,
+                "mode_orders": [list(order) for order in MODE_ORDERS],
+                "repetitions_per_mode": REPETITIONS,
+                "stage_timeout_seconds": STAGE_TIMEOUT_SECONDS,
+            },
+            "outcome_contrasts": summary["outcome_contrasts"],
+            "retry_phase_aggregate": summary["retry_phase_aggregate"],
+            "result_counts": counts,
+            "safe_failure_counts": failures,
+            "schema_version": 2,
+            "submission_receipt_sha256": args.submission_receipt_sha256,
+            "source": {
+                "pydantic_config_revision": PYDANTIC_CONFIG_REVISION,
+                "renderers_revision": RENDERERS_REVISION,
+                "revision": SOURCE_REVISION,
+                "tree": SOURCE_TREE,
+                "verifiers_revision": VERIFIERS_REVISION,
+                "vmvm_sha256": VMVM_SHA256,
+            },
+            "stage_results": results,
+            "task_data_accessed": False,
+            "x2p_modes": list(MODES),
+        }
+        certificate_payload = canonical_json(certificate) + b"\n"
+        if len(certificate_payload) > MAX_RESULT_BYTES:
+            raise DiagnosticError("stage_result_invalid")
+        _atomic_write(output_fd, "diagnostic_certificate.json", certificate_payload, 0o400)
+        sealed_identity = descriptor_identity(output_fd)
+        sealed_identity["mode"] = 0o500
+        completion_request = {
+            "artifact_type": "vmvm_task_free_external_completion_request_v2",
+            "authorization_file_sha256": args.authorization_file_sha256,
+            "authorization_sha256": args.authorization_sha256,
+            "certificate_sha256": sha256_bytes(certificate_payload),
+            "diagnostic_only": True,
+            "environment_sha256": args.environment_sha256,
+            "external_completion_receipt": str(EXPECTED_COMPLETION_RECEIPT),
+            "job": {
+                "cluster": EXPECTED_CLUSTER,
+                "job_id": args.job_id,
+                "job_name": args.job_name,
+            },
+            "job_authorization_sha256": args.job_authorization_sha256,
+            "output_root_identity": sealed_identity,
+            "production_authorized": False,
+            "state": "awaiting_external_completion",
+            "submission_receipt_sha256": args.submission_receipt_sha256,
+        }
+        completion_payload = canonical_json(completion_request) + b"\n"
+        if (
+            _stable_bytes(
+                descriptor_path(output_fd) / "diagnostic_certificate.json",
+                mode=0o400,
+                expected_sha256=sha256_bytes(certificate_payload),
+                maximum=MAX_RESULT_BYTES,
+            )
+            != certificate_payload
+        ):
+            raise DiagnosticError("child_invalid")
+        _atomic_write(output_fd, "completion_request.json", completion_payload, 0o400)
+        os.fchmod(output_fd, 0o500)
+        os.fsync(output_fd)
+        os.fsync(output_parent_fd)
+        return {
+            "failure_categories": len(failures),
+            "passed": counts.get("passed", 0),
+            "stages": len(results),
+            "state": "awaiting_external_completion",
+        }
+    finally:
+        for descriptor in (
+            source_fd,
+            site_fd,
+            source_snapshot_fd,
+            site_snapshot_fd,
+        ):
+            if descriptor is not None:
+                try:
+                    os.close(descriptor)
+                except OSError:
+                    cleanup_failed = True
+        if scratch_created and not _remove_tree_verified(args.scratch_root):
+            cleanup_failed = True
+        if output_fd is not None:
+            try:
+                os.close(output_fd)
+            except OSError:
+                cleanup_failed = True
+        try:
+            os.close(output_parent_fd)
+        except OSError:
+            cleanup_failed = True
+        if cleanup_failed:
+            raise DiagnosticError("cleanup_failed")
 
 
 def _parser() -> argparse.ArgumentParser:
@@ -2679,7 +3070,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             if args.worker:
                 raise DiagnosticError("child_invalid")
             result = validate_batch_admission(os.environ, Path(__file__))
-            validate_cli_paths(args, os.environ, require_output=False)
+            validate_cli_paths(args, os.environ, require_output=True)
         elif args.worker:
             if None in (
                 args.stage,

@@ -529,7 +529,7 @@ def validate_authorization(
             mode=0o755,
             expected_sha256=expected_digest,
             expected_uid=0 if label == "vacli" else os.getuid(),
-            maximum=128 << 20,
+            maximum=(512 << 20) if label == "vacli" else (128 << 20),
         )
     if set(credentials) != {"tls", "x2p"}:
         fail("authorization_credentials_invalid")
@@ -596,6 +596,7 @@ def validate_authorization(
         "partition": "cpu_x86",
         "qos": "cpu_x86_lowest",
         "reservation": str(RESERVATION),
+        "scratch_root": str(SCRATCH_ROOT),
         "time_limit": JOB_TIME_LIMIT,
     }
     if launch != expected_launch or NAME_RE.fullmatch(str(launch.get("job_name"))) is None:

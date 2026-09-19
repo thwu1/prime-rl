@@ -67,7 +67,12 @@ killed or emits an invalid result. After cleanup, a cell waits one complete
 PID and process group remains absent. A timeout, malformed result, incomplete
 journal operation, missing cleanup timestamp, live renewer, excess lease
 attempt, or otherwise unverifiable lifecycle fails closed and prevents a
-candidate certificate. When a backend constructor raises after its audited
+candidate certificate. The supervisor independently performs the full
+PID/PGID absence interval even for a structurally valid successful child and
+aborts before starting the next matrix cell on any unverified result or cleanup
+failure. Each per-cell scratch directory (including vacli logs) and the final
+snapshot scratch tree are deleted without ignored errors, and absence is
+verified before publication. When a backend constructor raises after its audited
 rollback cleaned every attempted lease, the original constructor failure class
 is retained instead of being overwritten with `cleanup_failed`.
 
@@ -92,10 +97,18 @@ and reservation. Reservation files are created relative to the held dirfd; the
 writer lock and receipts stay on that same inode. Wrapper bytes are submitted
 through stdin. The batch wrapper matches every authorized device/inode tuple,
 opens the probe from the bundle dirfd, and invokes it as `/proc/self/fd/N`.
-Source and site imports are likewise rooted at inherited descriptors passed to
-worker children. Rename/replacement therefore cannot redirect execution.
-Source cleanliness and the site manifest are checked again adjacent to
-execution and publication.
+The Python preflight rejects pathname invocation: the probe, source, site, and
+output parent must all arrive as inherited `/proc/self/fd/N` descriptors. Before
+the first cell, the supervisor copies the fully attested imported source and
+the authorized x86 site into a private, read-only execution snapshot. It
+verifies both copied content manifests against the held inputs, reattests the
+originals, and gives worker children only held descriptors for those snapshots.
+Both snapshot manifests are checked immediately before and after every child
+and recorded in the certificate. A mutate-then-restore race against either
+original input therefore cannot change executed bytes. The finalizer also
+validates every semantic field of the original launch authorization and
+re-hashes the exact six-file bundle, including its own authorized path and
+bytes, before accepting a completion authorization.
 
 ## Two-party completion
 
@@ -131,4 +144,7 @@ diagnostic is not complete.
 There is intentionally no runnable launch command here. External authorization
 must provide exact frozen hashes and private credential bindings. This bundle
 contains no task identifier, dataset path, model endpoint, or production
-authorization, and no Slurm command was run while preparing it.
+authorization, and no Slurm command was run while preparing it. In particular,
+the launch gate requires `X2P_ENV`, `X2P_CFG_ENV`, and `X2P_PROXY_URL` together;
+an environment missing any member (including the currently absent proxy value)
+is not launchable.
