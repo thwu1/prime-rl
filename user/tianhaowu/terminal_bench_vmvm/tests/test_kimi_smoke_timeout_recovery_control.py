@@ -368,9 +368,7 @@ def test_any_existing_smoke_certificate_blocks_recovery(tmp_path: Path) -> None:
 def test_source_terminal_gate_never_accepts_an_active_allocation() -> None:
     def active_runner(argv: list[str] | tuple[str, ...], _timeout: float) -> control.CommandResult:
         if argv[0] == "/usr/bin/squeue" and "--steps" not in argv:
-            return control.CommandResult(
-                0, f"{control.SOURCE_JOB_ID}|legacy-smoke|RUNNING\n", ""
-            )
+            return control.CommandResult(0, f"{control.SOURCE_JOB_ID}|legacy-smoke|RUNNING\n", "")
         if argv[0] == "/usr/bin/squeue":
             return control.CommandResult(0, "", "")
         raise AssertionError(argv)
