@@ -1,6 +1,6 @@
 # VMVM sandbox coordination
 
-Last updated: 2026-09-19 03:29 UTC
+Last updated: 2026-09-19 03:46 UTC
 
 ## First message to the next teammate
 
@@ -41,6 +41,19 @@ this shared branch again.
 Add new rows below this line; do not overwrite another owner's row.
 
 ## Open coordination requests
+
+- **2026-09-19 03:46 UTC, multigeneration finalizer approved and frozen:**
+  exact tip `6028c555b` is pushed and independently approved after 715 tests;
+  clean detached checkout `prime-rl-6028c555b` has finalizer-pair digest
+  `e48eb610403a280328675e8de3d7920bbdd1d46face83fedb74d8213b6a559a1`
+  and six-file validation-chain digest
+  `23bcecca672e9e228720f22d22dba185fde4502120b00f90df3c30e9b09c4015`.
+  It closes immutable-snapshot, worker-only/equal-generation, exact directory,
+  pre-read shard binding, type-safe schema-v3, and downstream certificate
+  validation gaps. Superseded tips `f5b71bff0` through `d2efe968d` remain
+  ineligible. This finalizer may aggregate qualified shards across generations;
+  the launch certificate still intentionally requires a one-route TB4
+  baseline, so a two-route result alone does not authorize Mobius production.
 
 - **2026-09-19 03:29 UTC, latest pushed multigen tip `d2efe968d` remains
   held:** it closes the seven earlier generation/schema issues and passes 702
