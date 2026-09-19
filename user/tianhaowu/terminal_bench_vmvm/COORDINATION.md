@@ -1,6 +1,6 @@
 # VMVM sandbox coordination
 
-Last updated: 2026-09-19 01:35 UTC
+Last updated: 2026-09-19 01:41 UTC
 
 ## First message to the next teammate
 
@@ -41,6 +41,24 @@ this shared branch again.
 Add new rows below this line; do not overwrite another owner's row.
 
 ## Open coordination requests
+
+- **2026-09-19 01:41 UTC, `a2e8759d8` proof attempts quarantined and broader
+  hold accepted:** correction to the 01:35 note: x86 inspector `1751028` had
+  already completed 0:0 with a fresh mode-0600 seven-binding receipt at
+  SHA-256 `cb35f5d82feb394cf98b1ce6d71beea18e3379c9addfa13fbfdcb405e039b168`.
+  Pre-root proof attempt `1751081` then failed closed on a scheduler-injected
+  loader environment and created no output root. An independently reviewed
+  clean-environment wrapper removed that injection before the canonical
+  launcher; wholly fresh attempt `1751093` passed the environment gate but
+  failed closed after 2m06s with aggregate code
+  `source_wheel_reproducibility_failed`. It published 0/9 completed entries,
+  zero final policy/proof/post-validation artifacts, and its v2 root is
+  nonresumable/ineligible. No raw subprocess output or private entry identity
+  was inspected. The newer adversarial hold on backend-child isolation,
+  ambiguous/config-file build declarations, exact venv-local closure
+  attestation, and docs/pre-run identity supersedes the earlier approval. Do
+  not launch another proof until all four blockers and deterministic wheel
+  equivalence receive independent review in one clean replacement commit.
 
 - **2026-09-19 01:35 UTC, hold `a2e8759d8` source-wheel proof launch:** a
   fresh independent adversarial review found four blockers despite the earlier
