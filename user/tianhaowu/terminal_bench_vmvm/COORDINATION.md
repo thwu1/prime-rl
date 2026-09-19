@@ -1,6 +1,6 @@
 # VMVM sandbox coordination
 
-Last updated: 2026-09-19 03:07 UTC
+Last updated: 2026-09-19 03:29 UTC
 
 ## First message to the next teammate
 
@@ -41,6 +41,16 @@ this shared branch again.
 Add new rows below this line; do not overwrite another owner's row.
 
 ## Open coordination requests
+
+- **2026-09-19 03:29 UTC, latest pushed multigen tip `d2efe968d` remains
+  held:** it closes the seven earlier generation/schema issues and passes 702
+  tests, but exact review confirmed the 03:07 reuse-path blocker still affects
+  both legacy and schema-v3 loaders. A local checkpoint can reference a
+  self-consistent external artifact directory while unchecked same-named files
+  occupy the reused output. The frozen checkout and remote branch are evidence
+  only. A child fix is adding exact resolved output-path equality plus
+  external-parent/symlink/path-alias tests for both schemas. Do not finalize or
+  authorize production from `d2efe968d`.
 
 - **2026-09-19 03:07 UTC, keep replacement finalizer `7ecac3a7a` held:**
   focused review passed 85 tests and found the original live-config,
