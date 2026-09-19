@@ -824,16 +824,6 @@ def _load_and_validate_multigen_checkpoint(
         referenced_proxy_members.add(expected_policy.name)
     if set(members) != required_members | referenced_proxy_members:
         raise FinalizationError("merge_output_invalid")
-    validated = validate_multigen_sharded_checkpoint(
-        value,
-        deployment_id=prepared.config.deployment_id,
-        artifact_root=output,
-    )
-    route_hashes = sorted(set(expected_route_generation_sha256s))
-    endpoint_hashes = sorted(set(expected_endpoint_binding_sha256s))
-    proxy_policy = dict(prepared.route_binding.proxy_policy)
-    proxy_policy.pop("proxy_litellm_config", None)
-    proxy_policy_semantics_sha256 = hashlib.sha256(canonical_json(proxy_policy)).hexdigest()
     expected_shards: list[dict[str, Any]] = []
     for record in evidence.shard_records:
         policy_sha256 = record.get("proxy_policy_sha256")
@@ -841,9 +831,12 @@ def _load_and_validate_multigen_checkpoint(
         if policy_artifact is None:
             raise FinalizationError("sharded_checkpoint_controller_mismatch")
         expected_shards.append({**record, "proxy_policy_artifact": policy_artifact})
+    if value.get("shards") != expected_shards:
+        raise FinalizationError("sharded_checkpoint_controller_mismatch")
+    route_hashes = sorted(set(expected_route_generation_sha256s))
+    endpoint_hashes = sorted(set(expected_endpoint_binding_sha256s))
     if (
-        value.get("shards") != expected_shards
-        or value.get("plan")
+        value.get("plan")
         != {
             "path": str(prepared.plan_artifact.path),
             "sha256": prepared.plan_artifact.sha256,
@@ -851,7 +844,18 @@ def _load_and_validate_multigen_checkpoint(
         }
         or value.get("distinct_route_generations") != len(route_hashes)
         or value.get("combined_trace_count") != EXPECTED_TASK_COUNT
-        or validated.get("shard_count") != EXPECTED_TASK_COUNT
+    ):
+        raise FinalizationError("sharded_checkpoint_controller_mismatch")
+    validated = validate_multigen_sharded_checkpoint(
+        value,
+        deployment_id=prepared.config.deployment_id,
+        artifact_root=output,
+    )
+    proxy_policy = dict(prepared.route_binding.proxy_policy)
+    proxy_policy.pop("proxy_litellm_config", None)
+    proxy_policy_semantics_sha256 = hashlib.sha256(canonical_json(proxy_policy)).hexdigest()
+    if (
+        validated.get("shard_count") != EXPECTED_TASK_COUNT
         or validated.get("supported_passes") != evidence.solved_count
         or sorted(validated.get("route_generation_sha256s", [])) != route_hashes
         or sorted(validated.get("endpoint_binding_sha256s", [])) != endpoint_hashes
