@@ -15,8 +15,11 @@
 set -euo pipefail
 umask 077
 
-if (( $# != 0 )); then
-    printf 'The direct Qwen launcher does not accept eval overrides; use a pinned config\n' >&2
+preflight_only=0
+if (( $# == 1 )) && [[ $1 == --preflight ]]; then
+    preflight_only=1
+elif (( $# != 0 )); then
+    printf 'The direct Qwen launcher accepts only --preflight; use a pinned config\n' >&2
     exit 2
 fi
 for forbidden in \
@@ -145,7 +148,7 @@ fi
 
 mapfile -t worker_urls < "$urls_file"
 mapfile -t ports < "$ports_file"
-if [[ ${#worker_urls[@]} -ne 16 || ${#ports[@]} -ne 7 ]]; then
+if [[ ${#worker_urls[@]} -ne 24 || ${#ports[@]} -ne 7 ]]; then
     printf 'Direct-worker runtime files are incomplete\n' >&2
     exit 2
 fi
@@ -214,11 +217,11 @@ for attempt in $(seq 1 60); do
             | awk '$1 == "vllm_router_active_workers" {print $2}' \
             | tail -n 1
     ) || true
-    if [[ "$models_ready" -eq 1 && "$active_workers" == 16 ]]; then
+    if [[ "$models_ready" -eq 1 && "$active_workers" == 24 ]]; then
         break
     fi
     if [[ "$attempt" -eq 60 ]]; then
-        printf 'Direct Qwen router did not expose exactly 16 active workers\n' >&2
+        printf 'Direct Qwen router did not expose exactly 24 active workers\n' >&2
         exit 2
     fi
     sleep 5
@@ -239,7 +242,11 @@ else
     export EVAL_CONFIG="$eval_config"
 fi
 
-bash "$workflow_dir/run_eval.sbatch" &
+if [[ "$preflight_only" -eq 1 ]]; then
+    bash "$workflow_dir/run_direct_qwen_eval_driver.sh" --preflight &
+else
+    bash "$workflow_dir/run_eval.sbatch" &
+fi
 eval_pid=$!
 wait "$eval_pid"
 eval_pid=

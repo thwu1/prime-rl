@@ -18,9 +18,9 @@ from pathlib import Path
 from typing import Any
 
 EXPECTED_MODEL = "Qwen3.8-2.4T-A95B"
-EXPECTED_ENDPOINTS = 16
-EXPECTED_SPEC_SHA256 = "516c386c646abda61b73ffe2b2a820c38a826e2311327154cd775ed29e60215a"
-EXPECTED_ENDPOINT_BUNDLE_SHA256 = "77b513b09002201df0464586e0ac69932348f7fcdbe298213e910be74275160b"
+EXPECTED_ENDPOINTS = 24
+EXPECTED_SPEC_SHA256 = "e5ddc652b1e3dbb99ed65b44b276cf9d9b8ae866b5a4471db42cf0c732a64007"
+EXPECTED_ENDPOINT_BUNDLE_SHA256 = "db0095649feda5d1c8ea66a434c6486a6c91d6b4519664701a26dab44c7a83a0"
 EXPECTED_ENDPOINT_KEYS = frozenset({"host", "port", "started_at"})
 EXPECTED_MANIFEST_KEYS = frozenset(
     {
@@ -333,8 +333,16 @@ def validate_eval_config(
         if timeout_overrides != [f"model.model_kwargs.timeout={PRODUCTION_MODEL_TIMEOUT_SECONDS}"]:
             raise DirectWorkerError("eval_model_timeout_mismatch")
     runtime = harness.get("runtime")
-    if not isinstance(runtime, dict) or runtime.get("type") != "vmvm":
-        raise DirectWorkerError("eval_runtime_not_vmvm")
+    if not isinstance(runtime, dict) or runtime.get("type") not in {"vmvm", "sandoq"}:
+        raise DirectWorkerError("eval_runtime_invalid")
+    if runtime.get("type") == "sandoq" and (
+        runtime.get("mode") != "oci-runner"
+        or runtime.get("network_access") is not False
+        or runtime.get("host_tunnel") != "sandoq"
+        or runtime.get("guest_tunnel_url") != "http://127.0.0.1:8485"
+        or runtime.get("expected_environment") != "oci-runner-firecracker-tunnel-pull"
+    ):
+        raise DirectWorkerError("eval_sandoq_runtime_invalid")
     harness_env = harness.get("env")
     if not isinstance(harness_env, dict) or harness_env.get("MSWEA_MODEL_RETRY_STOP_AFTER_ATTEMPT") != "10":
         raise DirectWorkerError("eval_model_retry_policy_mismatch")

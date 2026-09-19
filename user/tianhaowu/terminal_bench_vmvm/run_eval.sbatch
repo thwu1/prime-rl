@@ -256,12 +256,39 @@ if [[ "$sandbox_provider" == vmvm ]]; then
     export VACLI_CONTAINER_PRIVILEGED=${VACLI_CONTAINER_PRIVILEGED:-1}
     export VACLI_BIN=${VACLI_BIN:-/public/fbpkgs/x86_64/vacli/stable/vacli}
 else
+    read -r sandoq_capacity sandoq_create_workers sandoq_bootstrap_workers \
+        sandoq_drain_workers sandoq_renew_workers < <(python3 - "$eval_config" <<'PY'
+import sys
+import tomllib
+with open(sys.argv[1], "rb") as handle:
+    config = tomllib.load(handle)
+capacity = min(config["num_tasks"], config["max_concurrent"])
+if capacity < 1:
+    raise SystemExit(2)
+print(capacity, min(capacity, 32), min(capacity, 64), min(capacity, 32), min(capacity, 16))
+PY
+)
     export OCI_RUNNER_BASE_URL=${OCI_RUNNER_BASE_URL:-https://sandoq.eks-prod.cf.aws.metafb.cloud}
     export OCI_RUNNER_ENVIRONMENT=${OCI_RUNNER_ENVIRONMENT:-oci-runner-firecracker-tunnel-pull}
     export OCI_RUNNER_TOKEN_FILE=${OCI_RUNNER_TOKEN_FILE:-$HOME/.config/oci-runner/firecracker-token}
     export OCI_RUNNER_TASK_NETWORK=host
-    export OCI_RUNNER_POOL_SIZE=${OCI_RUNNER_POOL_SIZE:-64}
-    export OCI_RUNNER_POOL_MIN_SIZE=${OCI_RUNNER_POOL_MIN_SIZE:-0}
+    export OCI_RUNNER_POOL_SIZE=$sandoq_capacity
+    export OCI_RUNNER_POOL_MIN_SIZE=0
+    export OCI_RUNNER_CREATE_DEADLINE=30m
+    export OCI_RUNNER_PULL_TIMEOUT=1200
+    export OCI_RUNNER_PULL_POLL_MAX_ERRORS=10
+    export OCI_RUNNER_GATEWAY_RETRY_ATTEMPTS=15
+    export OCI_RUNNER_GATEWAY_RETRY_INTERVAL=2s
+    export OCI_RUNNER_PODMAN_IGNORE_CHOWN_ERRORS=1
+    export OCI_RUNNER_REQUIRE_RESOURCE_LIMITS=1
+    export OCI_RUNNER_POOL_CREATE_WORKERS=$sandoq_create_workers
+    export OCI_RUNNER_POOL_BOOTSTRAP_WORKERS=$sandoq_bootstrap_workers
+    export OCI_RUNNER_POOL_BOOTSTRAP_PER_IMAGE=8
+    export OCI_RUNNER_POOL_DRAIN_WORKERS=$sandoq_drain_workers
+    export OCI_RUNNER_POOL_DRAIN_TIMEOUT=240
+    export OCI_RUNNER_POOL_RENEW_WORKERS=$sandoq_renew_workers
+    export OCI_RUNNER_SESSION_REUSE=1 OCI_RUNNER_POOL_MAX_REUSE_COUNT=6
+    export OCI_RUNNER_LEASE_DURATION=1h OCI_RUNNER_POOL_RENEW_INTERVAL=5m
     export OCI_RUNNER_OBSERVABILITY=1
     export OCI_RUNNER_USE_ECR=1
     export OCI_RUNNER_ECR_REGISTRY=168653207203.dkr.ecr.us-east-2.amazonaws.com
@@ -310,6 +337,7 @@ vmvm_tb_v2_sha256=$(sha256sum environments/vmvm_tb_v2/vmvm_tb_v2/_vacli/*.py \
 sandoq_provider_commit=
 sandoq_provider_tree=
 sandoq_client_version=
+sandoq_site_sha256=
 derived_image_manifest_sha256=
 if [[ "$sandbox_provider" == sandoq ]]; then
     sandoq_provider_commit=$(git -C deps/sandoq-provider rev-parse --verify HEAD)
@@ -322,6 +350,26 @@ if [[ "$sandbox_provider" == sandoq ]]; then
         python3 -c 'import importlib.metadata as m; print(m.version("sandoq-client"))')
     if [[ "$sandoq_client_version" != 0.4.0.2026.8.20.58304.0+hga81e4ca4d312 ]]; then
         printf 'Sandoq client version does not match the approved pin\n' >&2
+        exit 2
+    fi
+    sandoq_site_sha256=$("$x86_uv" run --no-project --offline --python "$python_bin" \
+        python3 - "$sandoq_site" <<'PY'
+import hashlib
+import sys
+from pathlib import Path
+root = Path(sys.argv[1])
+digest = hashlib.sha256()
+paths = sorted(
+    (path for path in root.rglob("*") if path.is_file() and path.suffix != ".pyc" and not path.name.startswith(".")),
+    key=lambda path: path.relative_to(root).as_posix(),
+)
+for path in paths:
+    digest.update(f"{hashlib.sha256(path.read_bytes()).hexdigest()}  {path.relative_to(root).as_posix()}\n".encode())
+print(digest.hexdigest())
+PY
+)
+    if [[ "$sandoq_site_sha256" != 852f66db48c06e3928c6a5ff974c94bb21c93511342b205c2b7d1b99e73c3d6b ]]; then
+        printf 'Sandoq staged dependency tree does not match the approved closure\n' >&2
         exit 2
     fi
     derived_image_manifest_sha256=$(python3 - "$eval_config" <<'PY'
@@ -538,6 +586,8 @@ else
         --sandoq-provider-commit "$sandoq_provider_commit"
         --sandoq-provider-tree "$sandoq_provider_tree"
         --sandoq-client-version "$sandoq_client_version"
+        --sandoq-site "$sandoq_site"
+        --sandoq-site-sha256 "$sandoq_site_sha256"
         --derived-image-manifest-sha256 "$derived_image_manifest_sha256"
         --sandoq-environment "$OCI_RUNNER_ENVIRONMENT"
         --sandoq-task-network "$OCI_RUNNER_TASK_NETWORK"
@@ -549,6 +599,23 @@ else
         --sandoq-ecr-region "$OCI_RUNNER_ECR_REGION"
         --sandoq-ecr-pull-through-prefix "$OCI_RUNNER_ECR_PULL_THROUGH_PREFIX"
         --sandoq-allow-dockerhub-fallback "$OCI_RUNNER_ALLOW_DOCKERHUB_FALLBACK"
+        --sandoq-create-deadline "$OCI_RUNNER_CREATE_DEADLINE"
+        --sandoq-pull-timeout "$OCI_RUNNER_PULL_TIMEOUT"
+        --sandoq-pull-poll-max-errors "$OCI_RUNNER_PULL_POLL_MAX_ERRORS"
+        --sandoq-gateway-retry-attempts "$OCI_RUNNER_GATEWAY_RETRY_ATTEMPTS"
+        --sandoq-gateway-retry-interval "$OCI_RUNNER_GATEWAY_RETRY_INTERVAL"
+        --sandoq-podman-ignore-chown-errors "$OCI_RUNNER_PODMAN_IGNORE_CHOWN_ERRORS"
+        --sandoq-require-resource-limits "$OCI_RUNNER_REQUIRE_RESOURCE_LIMITS"
+        --sandoq-pool-create-workers "$OCI_RUNNER_POOL_CREATE_WORKERS"
+        --sandoq-pool-bootstrap-workers "$OCI_RUNNER_POOL_BOOTSTRAP_WORKERS"
+        --sandoq-pool-bootstrap-per-image "$OCI_RUNNER_POOL_BOOTSTRAP_PER_IMAGE"
+        --sandoq-pool-drain-workers "$OCI_RUNNER_POOL_DRAIN_WORKERS"
+        --sandoq-pool-drain-timeout "$OCI_RUNNER_POOL_DRAIN_TIMEOUT"
+        --sandoq-pool-renew-workers "$OCI_RUNNER_POOL_RENEW_WORKERS"
+        --sandoq-session-reuse "$OCI_RUNNER_SESSION_REUSE"
+        --sandoq-pool-max-reuse-count "$OCI_RUNNER_POOL_MAX_REUSE_COUNT"
+        --sandoq-lease-duration "$OCI_RUNNER_LEASE_DURATION"
+        --sandoq-pool-renew-interval "$OCI_RUNNER_POOL_RENEW_INTERVAL"
     )
 fi
 if [[ -n "$inference_deployment_id" ]]; then

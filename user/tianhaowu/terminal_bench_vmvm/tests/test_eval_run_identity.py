@@ -26,6 +26,7 @@ from eval_run_identity import (
     _dataset_identity,
     _effective_vmvm_environment,
     _identity_envelope,
+    _sandoq_site_sha256,
     _source_identity,
     _tree_digest,
     _validate_identity_shape,
@@ -112,7 +113,6 @@ def _identity() -> dict:
         "image_pull_timeout_sec": 3600,
         "container_privileged": True,
     }
-
 
     return {
         "schema_version": 1,
@@ -223,16 +223,33 @@ def _sandoq_identity() -> dict:
         "ecr_region": "us-east-2",
         "ecr_pull_through_prefix": "pt_dockerio",
         "allow_dockerhub_fallback": False,
+        "create_deadline": "30m",
+        "pull_timeout": "1200",
+        "pull_poll_max_errors": "10",
+        "gateway_retry_attempts": "15",
+        "gateway_retry_interval": "2s",
+        "podman_ignore_chown_errors": "1",
+        "require_resource_limits": "1",
+        "pool_create_workers": "4",
+        "pool_bootstrap_workers": "4",
+        "pool_bootstrap_per_image": "4",
+        "pool_drain_workers": "4",
+        "pool_drain_timeout": "240",
+        "pool_renew_workers": "4",
+        "session_reuse": "1",
+        "pool_max_reuse_count": "6",
+        "lease_duration": "1h",
+        "pool_renew_interval": "5m",
     }
     identity["contract"] = contract
     identity["execution"] = execution
-    identity["source"] = {
-        key: value for key, value in identity["source"].items() if key != "vmvm_tb_v2_sha256"
-    } | {
+    identity["source"] = {key: value for key, value in identity["source"].items() if key != "vmvm_tb_v2_sha256"} | {
         "sandbox_provider": "sandoq",
         "sandoq_provider_commit": "4" * 40,
         "sandoq_provider_tree": "5" * 40,
         "sandoq_client_version": "pinned-client",
+        "sandoq_site": "/pinned/sandoq-site",
+        "sandoq_site_sha256": "7" * 64,
         "derived_image_manifest_sha256": "6" * 64,
     }
     identity["inputs"]["image_manifest"] = {
@@ -248,6 +265,8 @@ def test_sandoq_identity_shape_rejects_backend_and_manifest_mismatch() -> None:
     for path, value in (
         (("execution", "runtime", "type"), "vmvm"),
         (("source", "derived_image_manifest_sha256"), "7" * 64),
+        (("execution", "sandoq_environment", "create_deadline"), "31m"),
+        (("execution", "cleanup_must_succeed"), False),
     ):
         mismatched = json.loads(json.dumps(identity))
         target = mismatched
@@ -268,6 +287,50 @@ def test_sandoq_provenance_round_trip(tmp_path: Path) -> None:
     assert "sandoq_allow_dockerhub_fallback=false\n" in provenance
 
 
+def test_direct_qwen_sandoq_identity_binds_worker_generation() -> None:
+    identity = _sandoq_identity()
+    identity["role"] = "qwen-direct"
+    identity["deployment"] = {
+        "kind": "direct_qwen",
+        "worker_manifest": {"path": "/run/direct_workers.json", "sha256": "8" * 64},
+        "spec_sha256": "9" * 64,
+        "endpoint_bundle_sha256": "a" * 64,
+        "base_url": "http://127.0.0.1:12345/v1",
+        "router": {
+            "policy": "consistent_hash",
+            "request_id_headers": ["x-session-id"],
+            "provider_concurrency": 4,
+        },
+    }
+
+    assert _validate_identity_shape(identity) == identity
+    identity["deployment"]["endpoint_bundle_sha256"] = "b" * 63
+    with pytest.raises(EvalIdentityError, match="schema_invalid"):
+        _validate_identity_shape(identity)
+
+
+def test_direct_qwen_sandoq_identity_envelope_round_trip(tmp_path: Path) -> None:
+    identity = _sandoq_identity()
+    identity["role"] = "qwen-direct"
+    identity["deployment"] = {
+        "kind": "direct_qwen",
+        "worker_manifest": {"path": "/run/direct_workers.json", "sha256": "8" * 64},
+        "spec_sha256": "9" * 64,
+        "endpoint_bundle_sha256": "a" * 64,
+        "base_url": "http://127.0.0.1:12345/v1",
+        "router": {
+            "policy": "consistent_hash",
+            "request_id_headers": ["x-session-id"],
+            "provider_concurrency": 4,
+        },
+    }
+    envelope = _identity_envelope(identity)
+    path = tmp_path / "eval_run_identity.json"
+    path.write_text(json.dumps(envelope))
+
+    assert load_eval_run_identity(path, verify_references=False) == envelope
+
+
 def test_sandoq_source_rejects_unobserved_client_version(tmp_path: Path, monkeypatch) -> None:
     (tmp_path / "deps/sandoq-provider").mkdir(parents=True)
     clean = hashlib.sha256(b"").hexdigest()
@@ -283,6 +346,8 @@ def test_sandoq_source_rejects_unobserved_client_version(tmp_path: Path, monkeyp
         sandoq_provider_commit="4" * 40,
         sandoq_provider_tree="5" * 40,
         sandoq_client_version="claimed",
+        sandoq_site=tmp_path,
+        sandoq_site_sha256="7" * 64,
         derived_image_manifest_sha256="6" * 64,
     )
 
@@ -301,6 +366,19 @@ def test_sandoq_source_rejects_unobserved_client_version(tmp_path: Path, monkeyp
     monkeypatch.setattr(eval_run_identity.importlib.metadata, "version", lambda _name: "observed")
     with pytest.raises(EvalIdentityError, match="client_version_mismatch"):
         _source_identity(args)
+
+
+def test_sandoq_site_digest_binds_non_cache_runtime_files(tmp_path: Path) -> None:
+    (tmp_path / "package").mkdir()
+    (tmp_path / "package/module.py").write_text("VALUE = 1\n")
+    (tmp_path / "package/module.pyc").write_bytes(b"cache")
+    (tmp_path / ".lock").write_bytes(b"mutable")
+    before = _sandoq_site_sha256(tmp_path)
+    (tmp_path / "package/module.pyc").write_bytes(b"changed-cache")
+    (tmp_path / ".lock").write_bytes(b"changed-lock")
+    assert _sandoq_site_sha256(tmp_path) == before
+    (tmp_path / "package/module.py").write_text("VALUE = 2\n")
+    assert _sandoq_site_sha256(tmp_path) != before
 
 
 def test_eval_identity_is_canonical_write_once_and_resume_exact(tmp_path: Path) -> None:

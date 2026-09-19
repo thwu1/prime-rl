@@ -407,6 +407,53 @@ class TerminalBenchTask(HarborTask):
     verifier_network_mode: Literal["public", "no-network"] = Field(default="public", exclude=True)
 
 
+def _sandoq_no_network_environment_is_safe() -> bool:
+    exact = {
+        "OCI_RUNNER_ENVIRONMENT": "oci-runner-firecracker-tunnel-pull",
+        "OCI_RUNNER_TASK_NETWORK": "host",
+        "OCI_RUNNER_ECR_REGISTRY": "168653207203.dkr.ecr.us-east-2.amazonaws.com",
+        "OCI_RUNNER_USE_ECR": "1",
+        "OCI_RUNNER_ECR_REGION": "us-east-2",
+        "OCI_RUNNER_ECR_PULL_THROUGH_PREFIX": "pt_dockerio",
+        "OCI_RUNNER_ALLOW_DOCKERHUB_FALLBACK": "0",
+        "OCI_RUNNER_CREATE_DEADLINE": "30m",
+        "OCI_RUNNER_PULL_TIMEOUT": "1200",
+        "OCI_RUNNER_PULL_POLL_MAX_ERRORS": "10",
+        "OCI_RUNNER_GATEWAY_RETRY_ATTEMPTS": "15",
+        "OCI_RUNNER_GATEWAY_RETRY_INTERVAL": "2s",
+        "OCI_RUNNER_PODMAN_IGNORE_CHOWN_ERRORS": "1",
+        "OCI_RUNNER_REQUIRE_RESOURCE_LIMITS": "1",
+        "OCI_RUNNER_SESSION_REUSE": "1",
+        "OCI_RUNNER_POOL_MAX_REUSE_COUNT": "6",
+        "OCI_RUNNER_LEASE_DURATION": "1h",
+        "OCI_RUNNER_POOL_RENEW_INTERVAL": "5m",
+    }
+    if any(os.environ.get(key) != value for key, value in exact.items()):
+        return False
+    try:
+        pool = int(os.environ["OCI_RUNNER_POOL_SIZE"])
+        pool_min = int(os.environ["OCI_RUNNER_POOL_MIN_SIZE"])
+        workers = [
+            int(os.environ[key])
+            for key in (
+                "OCI_RUNNER_POOL_CREATE_WORKERS",
+                "OCI_RUNNER_POOL_BOOTSTRAP_WORKERS",
+                "OCI_RUNNER_POOL_DRAIN_WORKERS",
+                "OCI_RUNNER_POOL_RENEW_WORKERS",
+            )
+        ]
+        per_image = int(os.environ["OCI_RUNNER_POOL_BOOTSTRAP_PER_IMAGE"])
+    except (KeyError, ValueError):
+        return False
+    return (
+        1 <= pool <= 64
+        and pool_min == 0
+        and all(1 <= value <= pool for value in workers)
+        and 1 <= per_image <= min(8, pool)
+        and os.environ.get("OCI_RUNNER_POOL_DRAIN_TIMEOUT") == "240"
+    )
+
+
 def _environment_workdir(dockerfile: Path, default: str = "/app") -> str:
     """Return the final literal WORKDIR, matching Harbor's container semantics."""
     if not dockerfile.is_file():
@@ -1810,23 +1857,12 @@ class TerminalBenchVMVMTaskset(
         if isinstance(runtime, SandoqRuntime):
             if mode == "no-network":
                 config = runtime.config
-                environment = os.environ.get("OCI_RUNNER_ENVIRONMENT", "")
-                task_network = os.environ.get("OCI_RUNNER_TASK_NETWORK")
                 if (
                     config.mode != "oci-runner"
                     or config.network_access
                     or config.host_tunnel != "sandoq"
-                    or config.expected_environment
-                    != "oci-runner-firecracker-tunnel-pull"
-                    or environment != "oci-runner-firecracker-tunnel-pull"
-                    or task_network != "host"
-                    or os.environ.get("OCI_RUNNER_USE_ECR") != "1"
-                    or os.environ.get("OCI_RUNNER_ECR_REGISTRY")
-                    != "168653207203.dkr.ecr.us-east-2.amazonaws.com"
-                    or os.environ.get("OCI_RUNNER_ECR_REGION") != "us-east-2"
-                    or os.environ.get("OCI_RUNNER_ECR_PULL_THROUGH_PREFIX")
-                    != "pt_dockerio"
-                    or os.environ.get("OCI_RUNNER_ALLOW_DOCKERHUB_FALLBACK") != "0"
+                    or config.expected_environment != "oci-runner-firecracker-tunnel-pull"
+                    or not _sandoq_no_network_environment_is_safe()
                 ):
                     raise UnsupportedTaskError(
                         f"{task.name}: Sandoq no-network requires OCI Firecracker, "
@@ -3547,9 +3583,7 @@ for requirement in sys.argv[1:]:
     @staticmethod
     def _verifier_runtime(task: TerminalBenchTask, runtime: Runtime, name: str) -> Runtime:
         if not isinstance(runtime, (SandoqRuntime, VMVMRuntime)):
-            raise RuntimeError(
-                "separate Terminal-Bench verification requires VMVMRuntime or SandoqRuntime"
-            )
+            raise RuntimeError("separate Terminal-Bench verification requires VMVMRuntime or SandoqRuntime")
         updates = {
             "image": task.verifier_image,
             "workdir": task.verifier_workdir,

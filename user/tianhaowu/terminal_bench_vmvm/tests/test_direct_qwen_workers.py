@@ -92,6 +92,7 @@ def test_load_workers_rejects_metadata_change(tmp_path: Path) -> None:
         "tb4_qwen_token_smoke.toml",
         "tb4_qwen_a95b_miniswe.toml",
         "mobius_qwen_a95b_2500.toml",
+        "mobius_qwen_a95b_2500_sandoq.toml",
     ],
 )
 def test_approved_qwen_configs_can_use_direct_fallback(filename: str, monkeypatch: pytest.MonkeyPatch) -> None:

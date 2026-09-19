@@ -125,6 +125,28 @@ async def test_sandoq_no_network_requires_explicit_firecracker_tunnel(
     monkeypatch.setenv("OCI_RUNNER_ECR_REGION", "us-east-2")
     monkeypatch.setenv("OCI_RUNNER_ECR_PULL_THROUGH_PREFIX", "pt_dockerio")
     monkeypatch.setenv("OCI_RUNNER_ALLOW_DOCKERHUB_FALLBACK", "0")
+    for key, value in {
+        "OCI_RUNNER_CREATE_DEADLINE": "30m",
+        "OCI_RUNNER_PULL_TIMEOUT": "1200",
+        "OCI_RUNNER_PULL_POLL_MAX_ERRORS": "10",
+        "OCI_RUNNER_GATEWAY_RETRY_ATTEMPTS": "15",
+        "OCI_RUNNER_GATEWAY_RETRY_INTERVAL": "2s",
+        "OCI_RUNNER_PODMAN_IGNORE_CHOWN_ERRORS": "1",
+        "OCI_RUNNER_REQUIRE_RESOURCE_LIMITS": "1",
+        "OCI_RUNNER_SESSION_REUSE": "1",
+        "OCI_RUNNER_POOL_MAX_REUSE_COUNT": "6",
+        "OCI_RUNNER_LEASE_DURATION": "1h",
+        "OCI_RUNNER_POOL_RENEW_INTERVAL": "5m",
+        "OCI_RUNNER_POOL_SIZE": "2",
+        "OCI_RUNNER_POOL_MIN_SIZE": "0",
+        "OCI_RUNNER_POOL_CREATE_WORKERS": "2",
+        "OCI_RUNNER_POOL_BOOTSTRAP_WORKERS": "2",
+        "OCI_RUNNER_POOL_BOOTSTRAP_PER_IMAGE": "2",
+        "OCI_RUNNER_POOL_DRAIN_WORKERS": "2",
+        "OCI_RUNNER_POOL_DRAIN_TIMEOUT": "240",
+        "OCI_RUNNER_POOL_RENEW_WORKERS": "2",
+    }.items():
+        monkeypatch.setenv(key, value)
     await TerminalBenchVMVMTaskset._configure_network_policy(
         task, runtime, "no-network", activate=False
     )

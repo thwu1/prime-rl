@@ -324,15 +324,11 @@ def test_mobius_qwen_production_retention_and_concurrency() -> None:
 
 
 def test_mobius_qwen_sandoq_contract_is_explicit_and_digest_pinned() -> None:
-    config = tomllib.loads(
-        (CONFIG_DIR / "mobius_qwen_a95b_2500_sandoq.toml").read_text()
-    )
+    config = tomllib.loads((CONFIG_DIR / "mobius_qwen_a95b_2500_sandoq.toml").read_text())
 
     assert config["num_tasks"] == 2_500
     assert config["max_concurrent"] == config["multiplex"] == 64
-    assert config["taskset"]["image_manifest"].endswith(
-        "/mobius_images.sandoq.json"
-    )
+    assert config["taskset"]["image_manifest"].endswith("/mobius_images.sandoq.json")
     assert config["taskset"]["image_manifest_sha256"] == (
         "a3fb4ec9ac9d1ee8376013013f171584c288321923f2050177157edac58340c8"
     )
@@ -597,6 +593,18 @@ def test_direct_qwen_launcher_is_fail_closed() -> None:
     assert "validate_task_approval.py" in driver
     assert '.writer.lock"' in driver
     assert "Direct Qwen driver received a forbidden generic-eval override" in driver
+    assert '[[ "$sandbox_provider" == sandoq && -n "$resume_dir" ]]' in driver
+    assert "oci-runner-firecracker-tunnel-pull" in driver
+    assert "OCI_RUNNER_ALLOW_DOCKERHUB_FALLBACK=0" in driver
+    assert "sandoq_site_sha256" in driver
+    assert "unset HTTP_PROXY HTTPS_PROXY http_proxy https_proxy ALL_PROXY all_proxy" in driver
+    assert "${#worker_urls[@]} -ne 24" in wrapper
+    assert '"$active_workers" == 24' in wrapper
+    assert "--preflight" in wrapper
+    assert "--role qwen-direct --sandbox-provider sandoq" in driver
+    assert 'args=(--resume "$output_dir")' in driver
+    assert "eval_run_identity.py" in driver
+    assert "OCI_RUNNER_POOL_MIN_SIZE=0" in driver
 
 
 def test_direct_qwen_router_probe_is_infrastructure_only() -> None:
