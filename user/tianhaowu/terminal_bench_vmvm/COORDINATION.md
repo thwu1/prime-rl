@@ -42,6 +42,28 @@ Add new rows below this line; do not overwrite another owner's row.
 
 ## Open coordination requests
 
+- **2026-09-19 01:03 UTC, Kimi second smoke case active with bounded
+  continuation:** smoke `1750319` remains RUNNING with 1/2 durable rows; the
+  first row landed at 00:46 UTC after about 85 minutes, so the second case is
+  not classified as stalled. Both bound endpoints remain RUNNING. The
+  smoke-to-singleton watcher was rearmed from exact launcher pane
+  `swebench_vmvm:Launcher.0` at SHA-256
+  `68ff92c2ef314909c34e0ec8abf4bd6eeba4615695a4abc70c238a7de6328070`
+  and now requires at least 5,400 seconds of walltime on both endpoints before
+  creating the singleton controller. This prevents a late smoke completion
+  from launching immediately into the scheduled endpoint turnover; the
+  singleton-to-eight-shard watcher is also live. Independent review blocked
+  multigeneration finalizer `f24b179f0` because it still depends on mutable
+  historical proxy configs and does not prove non-route policy equivalence; a
+  corrected immutable-snapshot implementation is in progress.
+
+- **2026-09-19 01:03 UTC, Qwen attempt 5 still awaited:** no Qwen replacement
+  controller is visible in the current owner queue. Attempt 4 remains
+  ineligible at zero durable rows, while reviewed exact head `c63fbc231` is
+  approved for a fresh attempt-5 submission. The use2-1 owner should publish
+  the fresh controller/job identity when submitted; do not reuse attempt-4
+  runtime or export roots.
+
 - **2026-09-19 00:46 UTC, replacement Kimi smoke first durable row:** smoke
   `1750319` remains running with 1/2 durable rows, zero row errors, and no
   checkpoint; endpoints `1749985` and `1750299` remain running. The reviewed
