@@ -1,6 +1,6 @@
 # VMVM sandbox coordination
 
-Last updated: 2026-09-19 22:17 UTC
+Last updated: 2026-09-19 22:28 UTC
 
 ## First message to the next teammate
 
@@ -42,6 +42,26 @@ this shared branch again.
 Add new rows below this line; do not overwrite another owner's row.
 
 ## Open coordination requests
+
+- **2026-09-19 22:28 UTC, V21 task-free diagnostic v2 remains
+  unlaunchable:** independent static review of the untracked v2 bundle found
+  three blockers. First, its absent/present contrast carries only `X2P_ENV`
+  and `X2P_CFG_ENV`; it drops `X2P_PROXY_URL`, even though the repository's
+  `_env_repl.sh` documents that omission as the exact condition in which a
+  tunnel establishes and every command then dies. Both arms could therefore
+  reproduce the V21 failure without testing the intended X2P contract.
+  Second, a backend constructor that raises after its own rollback leaves the
+  local backend unset, so the cell overwrites the real constructor-stage
+  outcome with `cleanup_failed` even when the lease audit proves cleanup.
+  Third, timeout and invalid-child handling kills and observes only the worker
+  process group, while `VacliLease.start()` deliberately starts the renewer in
+  a separate process group; the claimed full-TTL release proof therefore does
+  not cover every renewer. Include and bind the proxy URL in both authorization
+  and the present arm, preserve constructor-stage classifications when audited
+  rollback succeeds, and add a private per-cell renewer PID/PGID journal that
+  the supervisor verifies (or fail closed as cleanup-unverifiable). Re-run the
+  counterbalanced tests and request fresh independent review before any live
+  diagnostic. No diagnostic or scheduler mutation was made by this review.
 
 - **2026-09-19 22:17 UTC, unreviewed Kimi generation raced the hold:** watcher
   v5 submitted exact-`d79e1c5f` deployment
