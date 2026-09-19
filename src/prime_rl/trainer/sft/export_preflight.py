@@ -10,6 +10,7 @@ import math
 import os
 import stat
 import subprocess
+import tempfile
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Mapping
@@ -755,15 +756,49 @@ def _repository_provenance(project: Path, expected_revision: str) -> dict[str, A
 
 def _write_attestation(path: Path, value: Mapping[str, Any]) -> FileArtifact:
     body = json.dumps(value, ensure_ascii=False, allow_nan=False, sort_keys=True, indent=2).encode() + b"\n"
-    flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_CLOEXEC
+    descriptor = -1
+    directory_descriptor = -1
+    temporary: Path | None = None
     try:
-        with os.fdopen(os.open(path, flags, 0o600), "wb") as output:
-            os.fchmod(output.fileno(), 0o600)
+        descriptor, temporary_name = tempfile.mkstemp(
+            dir=path.parent,
+            prefix=f".{path.name}.",
+            suffix=".tmp",
+        )
+        temporary = Path(temporary_name)
+        os.fchmod(descriptor, 0o600)
+        output = os.fdopen(descriptor, "wb")
+        with output:
+            descriptor = -1
             output.write(body)
             output.flush()
             os.fsync(output.fileno())
+        directory_descriptor = os.open(
+            path.parent,
+            os.O_RDONLY | os.O_CLOEXEC | os.O_DIRECTORY | os.O_NOFOLLOW,
+        )
+        os.link(temporary, path, follow_symlinks=False)
+        temporary.unlink()
+        temporary = None
+        os.fsync(directory_descriptor)
     except OSError as error:
         raise SFTPreflightError("attestation_write_failed") from error
+    finally:
+        if descriptor >= 0:
+            try:
+                os.close(descriptor)
+            except OSError:
+                pass
+        if directory_descriptor >= 0:
+            try:
+                os.close(directory_descriptor)
+            except OSError:
+                pass
+        if temporary is not None:
+            try:
+                temporary.unlink(missing_ok=True)
+            except OSError:
+                pass
     return FileArtifact(len(body), hashlib.sha256(body).hexdigest())
 
 
