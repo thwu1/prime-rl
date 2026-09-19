@@ -34,7 +34,9 @@ the following remain true for six samples spanning at least 120 seconds:
   1+1 retention and authorizes only a fresh rerun of both tasks;
 - no canonical or supplemental successful smoke checkpoint exists;
 - the exact current deployment generation has restart count zero, exactly two
-  healthy routes, and aggregate running/waiting request counts of zero;
+  healthy routes, aggregate running/waiting request counts of zero, and exactly
+  unchanged cumulative generation-token and successful-request counters across
+  every sample;
 - the detached source tree, three exact gitlinks, ignored-file absence,
   executable closure, dataset archive, runtime manifest, binaries, and TLS
   inputs all match the approved plan.
@@ -98,7 +100,8 @@ dependency trees. Before reviewed imports, every tracked file in those roots
 and every runtime-manifest entry is captured and content-addressed. Python
 source executes from captured bytes; native extensions and distribution
 resources use sealed memfds; mutable path-backed distribution discovery is
-disabled; and module/path/import-hook state is restored after validation.
+disabled; and module/path/import-hook/cache state is restored exactly after
+validation.
 
 The runtime manifest is a private canonical envelope. Its root is mode `0500`,
 every directory is mode `0500`, and every listed file is regular, mode `0400`,

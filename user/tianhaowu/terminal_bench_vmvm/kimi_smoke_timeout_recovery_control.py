@@ -144,6 +144,14 @@ class LifecycleError(RecoveryControlError):
         self.cancellation = dict(cancellation or {})
 
 
+class SchedulerObservationError(RecoveryControlError):
+    """A partial scheduler view failed after retaining explicit conflicts."""
+
+    def __init__(self, code: str, *, conflicts: Sequence[str] = ()) -> None:
+        super().__init__(code)
+        self.conflicts = tuple(sorted(set(conflicts)))
+
+
 class LaunchInterrupted(BaseException):
     """A launcher signal that must enter the exact-job cleanup path."""
 
@@ -206,6 +214,16 @@ class ReviewedClosure:
     bodies: Mapping[Path, bytes]
     hashes: Mapping[Path, str]
     digest: str
+
+
+@dataclass(frozen=True)
+class ImportState:
+    modules: Mapping[str, object]
+    path: tuple[str, ...]
+    meta_path: tuple[object, ...]
+    path_hooks: tuple[object, ...]
+    importer_cache: Mapping[str, object]
+    dont_write_bytecode: bool
 
 
 Runner = Callable[[Sequence[str], float], CommandResult]
@@ -1506,6 +1524,9 @@ def route_idle_snapshot(
     observed_routes: set[tuple[str, str, str]] = set()
     running = 0
     waiting = 0
+    generation_tokens = 0
+    successful_requests = 0
+    route_activity: list[dict[str, Any]] = []
     for child in children:
         path = endpoint_root / child.name
         if not child.name.endswith(".json") or JOB_RE.fullmatch(path.stem) is None:
@@ -1525,13 +1546,25 @@ def route_idle_snapshot(
             or not isinstance(started, str)
         ):
             fail("route_endpoint_invalid")
-        observed_routes.add((path.stem, started, _canonical_backend(host, port)))
+        backend = _canonical_backend(host, port)
+        observed_routes.add((path.stem, started, backend))
         health_status, health_raw = fetcher(f"http://{host}:{port}/health", 10.0)
         metrics_status, metrics_raw = fetcher(f"http://{host}:{port}/metrics", 10.0)
         if health_status != 200 or health_raw not in {b"", b"\n"} or metrics_status != 200:
             fail("route_health_invalid")
         running += _metric_sum(metrics_raw, "vllm:num_requests_running")
         waiting += _metric_sum(metrics_raw, "vllm:num_requests_waiting")
+        route_generation_tokens = _metric_sum(metrics_raw, "vllm:generation_tokens_total")
+        route_successful_requests = _metric_sum(metrics_raw, "vllm:request_success_total")
+        generation_tokens += route_generation_tokens
+        successful_requests += route_successful_requests
+        route_activity.append(
+            {
+                "backend_sha256": backend,
+                "generation_tokens": route_generation_tokens,
+                "successful_requests": route_successful_requests,
+            }
+        )
     if observed_routes != expected_routes or running != 0 or waiting != 0:
         fail("route_not_idle")
     proxy_health_status, proxy_health_raw = fetcher(f"http://{proxy_host}:{proxy_port}/health", 10.0)
@@ -1545,6 +1578,11 @@ def route_idle_snapshot(
         "unhealthy": 0,
         "active": running,
         "waiting": waiting,
+        "generation_tokens": generation_tokens,
+        "successful_requests": successful_requests,
+        "activity_signature_sha256": sha256_bytes(
+            canonical_json(sorted(route_activity, key=lambda item: item["backend_sha256"]))
+        ),
         "restart_count": 0,
     }
 
@@ -1762,6 +1800,7 @@ class _CapturedImportFinder(importlib.abc.MetaPathFinder):
         self.closure = closure
         self.original_meta_path = original_meta_path
         self.expected_path: tuple[str, ...] = ()
+        self.expected_path_hooks = tuple(sys.path_hooks)
         self.descriptors: list[int] = []
         self.extension_paths: dict[str, str] = {}
         self.distributions: list[_CapturedDistribution] = []
@@ -1802,6 +1841,8 @@ class _CapturedImportFinder(importlib.abc.MetaPathFinder):
 
     def find_spec(self, fullname: str, path: object = None, target: object = None) -> object | None:
         del target
+        if tuple(sys.path) != self.expected_path or tuple(sys.path_hooks) != self.expected_path_hooks:
+            fail("reviewed_import_guard_changed")
         try:
             spec = importlib.machinery.PathFinder.find_spec(fullname, path)
         except (ImportError, OSError, ValueError) as error:
@@ -1820,16 +1861,28 @@ class _CapturedImportFinder(importlib.abc.MetaPathFinder):
             if len(protected_locations) != len(locations) or any(
                 item.is_symlink()
                 or not item.is_dir()
+                or item.resolve(strict=True) != item
                 or not any(path.is_relative_to(item) for path in self.closure.bodies)
                 for item in protected_locations
             ):
                 fail("unmanifested_import_forbidden")
             return spec
+        lexical_origin = Path(spec.origin)
+        if not lexical_origin.is_absolute():
+            fail("reviewed_import_origin_invalid")
+        lexical_protected = any(
+            lexical_origin == root or lexical_origin.is_relative_to(root) for root in self.closure.roots
+        )
         try:
-            origin = Path(spec.origin).resolve(strict=True)
+            origin = lexical_origin.resolve(strict=True)
         except (OSError, RuntimeError) as error:
             raise RecoveryControlError("reviewed_import_origin_invalid") from error
-        if not any(origin == root or origin.is_relative_to(root) for root in self.closure.roots):
+        resolved_protected = any(origin == root or origin.is_relative_to(root) for root in self.closure.roots)
+        if lexical_protected and (lexical_origin.is_symlink() or origin != lexical_origin or not resolved_protected):
+            fail("unmanifested_import_forbidden")
+        if resolved_protected and not lexical_protected:
+            fail("unmanifested_import_forbidden")
+        if not resolved_protected:
             return spec
         raw = self.closure.bodies.get(origin)
         digest = self.closure.hashes.get(origin)
@@ -1865,8 +1918,7 @@ def activate_reviewed_imports(plan: Mapping[str, Any]) -> tuple[ReviewedClosure,
     if len(sys.meta_path) != len(allowed_meta) or set(sys.meta_path) != allowed_meta:
         fail("runtime_import_hook_invalid")
     closure = capture_reviewed_closure(plan)
-    for root in closure.roots:
-        sys.path_importer_cache.pop(str(root), None)
+    sys.path_importer_cache.clear()
     delegates = tuple(item for item in sys.meta_path if item is not importlib.machinery.PathFinder)
     finder = _CapturedImportFinder(closure, delegates)
     sys.path[:] = [str(path) for path in closure.roots] + ISOLATED_STDLIB_PATHS
@@ -1876,12 +1928,43 @@ def activate_reviewed_imports(plan: Mapping[str, Any]) -> tuple[ReviewedClosure,
     return closure, finder
 
 
+def capture_import_state() -> ImportState:
+    """Capture every mutable import mapping changed by reviewed imports."""
+
+    return ImportState(
+        modules=dict(sys.modules),
+        path=tuple(sys.path),
+        meta_path=tuple(sys.meta_path),
+        path_hooks=tuple(sys.path_hooks),
+        importer_cache=dict(sys.path_importer_cache),
+        dont_write_bytecode=sys.dont_write_bytecode,
+    )
+
+
+def restore_import_state(state: ImportState) -> None:
+    """Restore an import snapshot without retaining reviewed finder state."""
+
+    for name in set(sys.modules) - set(state.modules):
+        sys.modules.pop(name, None)
+    sys.modules.update(state.modules)
+    sys.path[:] = state.path
+    sys.meta_path[:] = state.meta_path
+    sys.path_hooks[:] = state.path_hooks
+    sys.path_importer_cache.clear()
+    sys.path_importer_cache.update(state.importer_cache)
+    sys.dont_write_bytecode = state.dont_write_bytecode
+
+
 def validate_reviewed_imports(
     baseline: set[str],
     closure: ReviewedClosure,
     finder: _CapturedImportFinder,
 ) -> None:
-    if tuple(sys.meta_path) != (finder, *finder.original_meta_path) or tuple(sys.path) != finder.expected_path:
+    if (
+        tuple(sys.meta_path) != (finder, *finder.original_meta_path)
+        or tuple(sys.path) != finder.expected_path
+        or tuple(sys.path_hooks) != finder.expected_path_hooks
+    ):
         fail("reviewed_import_guard_changed")
     stdlib_roots = tuple(
         Path(path).resolve() for path in ("/usr/lib/python3.12", "/usr/local/lib/python3.12") if Path(path).is_dir()
@@ -1986,10 +2069,8 @@ def _validate_source_run_pinned(
     }
     if protected_modules & set(sys.modules):
         fail("reviewed_import_collision")
-    baseline = set(sys.modules)
-    previous_path = list(sys.path)
-    previous_meta_path = list(sys.meta_path)
-    previous_importer_cache = dict(sys.path_importer_cache)
+    import_state = capture_import_state()
+    baseline = set(import_state.modules)
     closure, finder = activate_reviewed_imports(plan)
     try:
         import smoke_timeout_recovery as recovery_module
@@ -2026,13 +2107,8 @@ def _validate_source_run_pinned(
     except (ImportError, KeyError, OSError, RuntimeError, TypeError, ValueError) as error:
         raise RecoveryControlError("source_run_invalid") from error
     finally:
-        for name in set(sys.modules) - baseline:
-            sys.modules.pop(name, None)
-        sys.path[:] = previous_path
-        sys.meta_path[:] = previous_meta_path
-        sys.path_importer_cache.clear()
-        sys.path_importer_cache.update(previous_importer_cache)
         finder.close()
+        restore_import_state(import_state)
     identity_deployment = source["identity"].get("deployment")
     recovery = plan["recovery"]
     if (
@@ -2492,6 +2568,11 @@ def load_trigger(path: Path, *, plan: StableFile) -> tuple[dict[str, Any], Stabl
         or route.get("unhealthy") != 0
         or route.get("active") != 0
         or route.get("waiting") != 0
+        or type(route.get("generation_tokens")) is not int
+        or route["generation_tokens"] < 0
+        or type(route.get("successful_requests")) is not int
+        or route["successful_requests"] < 0
+        or SHA_RE.fullmatch(str(route.get("activity_signature_sha256", ""))) is None
         or route.get("restart_count") != 0
         or SHA_RE.fullmatch(str(route.get("readiness_sha256", ""))) is None
         or SHA_RE.fullmatch(str(route.get("route_generation_sha256", ""))) is None
@@ -2511,11 +2592,14 @@ def load_trigger(path: Path, *, plan: StableFile) -> tuple[dict[str, Any], Stabl
         or set(route)
         != {
             "active",
+            "activity_signature_sha256",
             "healthy",
+            "generation_tokens",
             "readiness_sha256",
             "restart_count",
             "route_generation_sha256",
             "routes",
+            "successful_requests",
             "unhealthy",
             "waiting",
         }
@@ -2814,12 +2898,13 @@ def invoke_sbatch(
                 except (OSError, subprocess.TimeoutExpired):
                     os.killpg(process.pid, signal.SIGKILL)
                     process.wait(timeout=10)
+            _prove_process_group_empty(process.pid)
         except BaseException as error:
             cleanup_error = error
         finally:
             signal.pthread_sigmask(signal.SIG_SETMASK, blocked)
         if cleanup_error is not None:
-            primary.add_note("sbatch_cleanup_unproven")
+            raise RecoveryControlError("sbatch_cleanup_unproven") from primary
         raise
     if process.poll() is None:
         fail("sbatch_cleanup_unproven")
@@ -3026,56 +3111,31 @@ def _scheduler_phase_evidence(
 
     record = scontrol_record(job_id, runner=runner)
     mismatches, conflicts, state = _identity_mismatches(record, plan, job_id, job_name, held=held)
-    queue = _parse_pipe_rows(
-        runner(
-            [
-                "/usr/bin/squeue",
-                "-M",
-                CLUSTER,
-                "--noheader",
-                "--jobs",
-                job_id,
-                "--format=%A|%j|%u|%T|%r|%D|%N",
-            ],
-            COMMAND_TIMEOUT_SECONDS,
-        ),
+
+    def observed_rows(argv: Sequence[str], *, width: int) -> list[list[str]]:
+        try:
+            return _parse_pipe_rows(
+                runner(argv, COMMAND_TIMEOUT_SECONDS),
+                width=width,
+                code="scheduler_phase_unavailable",
+            )
+        except RecoveryControlError as error:
+            raise SchedulerObservationError(
+                "scheduler_phase_unavailable",
+                conflicts=tuple(conflicts),
+            ) from error
+
+    queue = observed_rows(
+        [
+            "/usr/bin/squeue",
+            "-M",
+            CLUSTER,
+            "--noheader",
+            "--jobs",
+            job_id,
+            "--format=%A|%j|%u|%T|%r|%D|%N",
+        ],
         width=7,
-        code="scheduler_phase_unavailable",
-    )
-    allocations = _parse_pipe_rows(
-        runner(
-            [
-                "/usr/bin/sacct",
-                "-M",
-                CLUSTER,
-                "--noheader",
-                "--parsable2",
-                "--allocations",
-                "-j",
-                job_id,
-                "--format=JobIDRaw,JobName,User,State,Start,NodeList,Restarts",
-            ],
-            COMMAND_TIMEOUT_SECONDS,
-        ),
-        width=7,
-        code="scheduler_phase_unavailable",
-    )
-    all_rows = _parse_pipe_rows(
-        runner(
-            [
-                "/usr/bin/sacct",
-                "-M",
-                CLUSTER,
-                "--noheader",
-                "--parsable2",
-                "-j",
-                job_id,
-                "--format=JobIDRaw,State",
-            ],
-            COMMAND_TIMEOUT_SECONDS,
-        ),
-        width=2,
-        code="scheduler_phase_unavailable",
     )
     if len(queue) != 1:
         mismatches.add("queue_cardinality")
@@ -3099,6 +3159,44 @@ def _scheduler_phase_evidence(
                 mismatches.add("held_queue")
         elif scheduler_state(queue_state) != "RUNNING" or nodes != "1" or NODELIST_RE.fullmatch(node_list) is None:
             mismatches.add("activation_queue")
+    step_queue = observed_rows(
+        [
+            "/usr/bin/squeue",
+            "-M",
+            CLUSTER,
+            "--steps",
+            "--noheader",
+            "--jobs",
+            job_id,
+            "--format=%i|%j|%u|%T",
+        ],
+        width=4,
+    )
+    for step_id, _step_name, step_user, step_state in step_queue:
+        if step_id != job_id and not step_id.startswith(f"{job_id}."):
+            mismatches.add("step_queue_JobId")
+            conflicts.add("JobId")
+        if step_user != OWNER:
+            mismatches.add("step_queue_UserId")
+            conflicts.add("UserId")
+        if scheduler_state(step_state) not in ACTIVE_STATES:
+            mismatches.add("step_queue_state")
+    if held and step_queue:
+        mismatches.add("held_step_queue")
+    allocations = observed_rows(
+        [
+            "/usr/bin/sacct",
+            "-M",
+            CLUSTER,
+            "--noheader",
+            "--parsable2",
+            "--allocations",
+            "-j",
+            job_id,
+            "--format=JobIDRaw,JobName,User,State,Start,NodeList,Restarts",
+        ],
+        width=7,
+    )
     if len(allocations) != 1:
         mismatches.add("accounting_cardinality")
     else:
@@ -3127,6 +3225,19 @@ def _scheduler_phase_evidence(
             or restarts != "0"
         ):
             mismatches.add("activation_accounting")
+    all_rows = observed_rows(
+        [
+            "/usr/bin/sacct",
+            "-M",
+            CLUSTER,
+            "--noheader",
+            "--parsable2",
+            "-j",
+            job_id,
+            "--format=JobIDRaw,State",
+        ],
+        width=2,
+    )
     if held:
         if len(all_rows) != 1 or all_rows[0][0] != job_id or scheduler_state(all_rows[0][1]) != "PENDING":
             mismatches.add("held_steps")
@@ -3169,6 +3280,9 @@ def _poll_identity(
             mismatches, current_conflicts, state = _scheduler_phase_evidence(
                 plan, job_id, job_name, held=held, runner=runner
             )
+        except SchedulerObservationError as error:
+            mismatches = {"scheduler_phase_unavailable"}
+            current_conflicts = set(error.conflicts)
         except RecoveryControlError:
             mismatches = {"scheduler_phase_unavailable"}
             current_conflicts = set()
@@ -3261,6 +3375,12 @@ def _terminal_snapshot(
             observed = record.get(field)
             if observed not in {None, "", expected}:
                 conflicts.add(field)
+
+    def unavailable() -> tuple[str, str, tuple[str, ...], tuple[str, ...]]:
+        if conflicts:
+            return "conflict", "UNKNOWN", (), tuple(sorted(conflicts))
+        return "unavailable", "UNKNOWN", (), ()
+
     try:
         queue = _parse_pipe_rows(
             runner(
@@ -3278,6 +3398,16 @@ def _terminal_snapshot(
             width=4,
             code="terminal_queue_unavailable",
         )
+    except RecoveryControlError:
+        return unavailable()
+    for observed_id, observed_name, observed_user, _state in queue:
+        if observed_id != job_id:
+            conflicts.add("JobId")
+        if observed_name != job_name:
+            conflicts.add("JobName")
+        if observed_user != OWNER:
+            conflicts.add("UserId")
+    try:
         step_queue = _parse_pipe_rows(
             runner(
                 [
@@ -3295,6 +3425,14 @@ def _terminal_snapshot(
             width=4,
             code="terminal_queue_unavailable",
         )
+    except RecoveryControlError:
+        return unavailable()
+    for observed_id, _observed_name, observed_user, _state in step_queue:
+        if observed_id != job_id and not observed_id.startswith(f"{job_id}."):
+            conflicts.add("JobId")
+        if observed_user != OWNER:
+            conflicts.add("UserId")
+    try:
         allocations = _parse_pipe_rows(
             runner(
                 [
@@ -3313,6 +3451,16 @@ def _terminal_snapshot(
             width=6,
             code="terminal_accounting_unavailable",
         )
+    except RecoveryControlError:
+        return unavailable()
+    for observed_id, observed_name, observed_user, _state, _exit_code, _restarts in allocations:
+        if observed_id != job_id:
+            conflicts.add("JobId")
+        if observed_name != job_name:
+            conflicts.add("JobName")
+        if observed_user != OWNER:
+            conflicts.add("UserId")
+    try:
         all_rows = _parse_pipe_rows(
             runner(
                 [
@@ -3331,26 +3479,7 @@ def _terminal_snapshot(
             code="terminal_accounting_unavailable",
         )
     except RecoveryControlError:
-        return "unavailable", "UNKNOWN", (), ()
-    for observed_id, observed_name, observed_user, _state in queue:
-        if observed_id != job_id:
-            conflicts.add("JobId")
-        if observed_name != job_name:
-            conflicts.add("JobName")
-        if observed_user != OWNER:
-            conflicts.add("UserId")
-    for observed_id, _observed_name, observed_user, _state in step_queue:
-        if observed_id != job_id and not observed_id.startswith(f"{job_id}."):
-            conflicts.add("JobId")
-        if observed_user != OWNER:
-            conflicts.add("UserId")
-    for observed_id, observed_name, observed_user, _state, _exit_code, _restarts in allocations:
-        if observed_id != job_id:
-            conflicts.add("JobId")
-        if observed_name != job_name:
-            conflicts.add("JobName")
-        if observed_user != OWNER:
-            conflicts.add("UserId")
+        return unavailable()
     for observed_id, _state, _exit_code in all_rows:
         if observed_id != job_id and not observed_id.startswith(f"{job_id}."):
             conflicts.add("JobId")
@@ -3518,6 +3647,39 @@ def cancel_and_prove(
             "terminal_polls": polls,
             "terminal_consecutive": consecutive,
         },
+    )
+
+
+def cancel_after_failure(
+    job_id: str,
+    job_name: str,
+    plan: Mapping[str, Any],
+    *,
+    direct_provenance: bool,
+    conflict_seen: set[str],
+    runner: Runner,
+    sleeper: Callable[[float], None],
+    clock: Callable[[], float],
+) -> dict[str, Any]:
+    """Preserve launch-lifetime conflicts as a permanent no-control latch."""
+
+    if conflict_seen:
+        raise LifecycleError(
+            "cancellation_unconfirmed",
+            cancellation={
+                "identity_status": "conflict",
+                "cancel_attempts": 0,
+                "explicit_conflict_fields": sorted(conflict_seen),
+            },
+        )
+    return cancel_and_prove(
+        job_id,
+        job_name,
+        plan,
+        direct_provenance=direct_provenance,
+        runner=runner,
+        sleeper=sleeper,
+        clock=clock,
     )
 
 
@@ -3762,6 +3924,7 @@ def launch(
     job_name: str | None = None
     direct_provenance = False
     submission_attempted = False
+    conflict_seen: set[str] = set()
     committed = False
     held_evidence: Mapping[str, Any] | None = None
     held_after_authorization_evidence: Mapping[str, Any] | None = None
@@ -3884,6 +4047,7 @@ def launch(
             clock=clock,
         )
         held_evidence = held
+        conflict_seen.update(held["explicit_conflict_fields"])
         if held["explicit_conflict_fields"]:
             raise LifecycleError("scheduler_identity_conflict")
         if held["converged"] is not True:
@@ -3912,6 +4076,7 @@ def launch(
             clock=clock,
         )
         held_after_authorization_evidence = held_after
+        conflict_seen.update(held_after["explicit_conflict_fields"])
         if held_after["converged"] is not True or held_after["explicit_conflict_fields"]:
             raise LifecycleError("held_state_lost_during_authorization")
         validate_phase_certificate(held_after, state="PENDING", timeout=10)
@@ -3942,6 +4107,7 @@ def launch(
             clock=clock,
         )
         held_before_release_evidence = held_before_release
+        conflict_seen.update(held_before_release["explicit_conflict_fields"])
         if held_before_release["converged"] is not True or held_before_release["explicit_conflict_fields"]:
             raise LifecycleError("held_state_lost_after_authorization")
         validate_phase_certificate(held_before_release, state="PENDING", timeout=10)
@@ -3967,6 +4133,7 @@ def launch(
             clock=clock,
         )
         activation_evidence = activation
+        conflict_seen.update(activation["explicit_conflict_fields"])
         if activation["explicit_conflict_fields"]:
             raise LifecycleError("scheduler_identity_conflict")
         if activation["converged"] is not True:
@@ -4101,13 +4268,18 @@ def launch(
             validate_global_lock(fresh_plan, global_lock, global_lock_signature)
             if _static_digest(plan) != post_static or os.path.lexists(recovery["output_dir"]):
                 raise LifecycleError("static_bindings_changed")
-            phase_mismatches, phase_conflicts, phase_state = _scheduler_phase_evidence(
-                plan,
-                job_id,
-                job_name,
-                held=False,
-                runner=runner,
-            )
+            try:
+                phase_mismatches, phase_conflicts, phase_state = _scheduler_phase_evidence(
+                    plan,
+                    job_id,
+                    job_name,
+                    held=False,
+                    runner=runner,
+                )
+            except SchedulerObservationError as error:
+                conflict_seen.update(error.conflicts)
+                raise LifecycleError("job_scheduler_admission_invalid") from error
+            conflict_seen.update(phase_conflicts)
             if phase_mismatches or phase_conflicts or phase_state != "RUNNING":
                 raise LifecycleError("job_scheduler_admission_invalid")
             if atomic_write_once(paths["commit"], commit_raw, mode=0o400) != sha256_bytes(commit_raw):
@@ -4164,11 +4336,12 @@ def launch(
                     cancellation = primary.cancellation
             if job_id is not None and job_name is not None:
                 try:
-                    cancellation = cancel_and_prove(
+                    cancellation = cancel_after_failure(
                         job_id,
                         job_name,
                         plan,
                         direct_provenance=direct_provenance,
+                        conflict_seen=conflict_seen,
                         runner=runner,
                         sleeper=sleeper,
                         clock=clock,
@@ -4644,10 +4817,8 @@ def validate_recovery_output(plan: Mapping[str, Any]) -> StableFile:
     }
     if protected_modules & set(sys.modules):
         fail("reviewed_import_collision")
-    baseline = set(sys.modules)
-    previous_path = list(sys.path)
-    previous_meta_path = list(sys.meta_path)
-    previous_importer_cache = dict(sys.path_importer_cache)
+    import_state = capture_import_state()
+    baseline = set(import_state.modules)
     closure, finder = activate_reviewed_imports(plan)
     try:
         import eval_run_identity
@@ -4674,13 +4845,8 @@ def validate_recovery_output(plan: Mapping[str, Any]) -> StableFile:
     except (ImportError, OSError, RuntimeError, ValueError) as error:
         raise RecoveryControlError("recovery_output_invalid") from error
     finally:
-        for name in set(sys.modules) - baseline:
-            sys.modules.pop(name, None)
-        sys.path[:] = previous_path
-        sys.meta_path[:] = previous_meta_path
-        sys.path_importer_cache.clear()
-        sys.path_importer_cache.update(previous_importer_cache)
         finder.close()
+        restore_import_state(import_state)
     if evidence.schema_version != 1:
         fail("recovery_output_invalid")
     return checkpoint

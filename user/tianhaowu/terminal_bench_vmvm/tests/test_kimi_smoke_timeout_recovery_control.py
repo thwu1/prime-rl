@@ -64,8 +64,10 @@ class PhaseRunner:
         self.overrides = scontrol_overrides or {}
         self.conflicting_user = conflicting_user
         self.controls: list[str] = []
+        self.calls: list[tuple[str, ...]] = []
 
     def __call__(self, argv: list[str] | tuple[str, ...], _timeout: float) -> control.CommandResult:
+        self.calls.append(tuple(argv))
         executable = argv[0]
         job_id = "123"
         job_name = JOB_NAME
@@ -122,13 +124,13 @@ class PhaseRunner:
 
 @pytest.mark.parametrize("held", [True, False])
 def test_full_scheduler_phase_accepts_exact_held_and_activation(held: bool) -> None:
-    mismatches, conflicts, state = control._scheduler_phase_evidence(
-        _plan(), "123", JOB_NAME, held=held, runner=PhaseRunner(held=held)
-    )
+    runner = PhaseRunner(held=held)
+    mismatches, conflicts, state = control._scheduler_phase_evidence(_plan(), "123", JOB_NAME, held=held, runner=runner)
 
     assert mismatches == set()
     assert conflicts == set()
     assert state == ("PENDING" if held else "RUNNING")
+    assert any(call[0] == "/usr/bin/squeue" and "--steps" in call for call in runner.calls)
 
 
 def test_sbatch_command_is_exactly_one_held_fresh_allocation() -> None:
@@ -223,6 +225,32 @@ def test_poll_identity_requires_two_complete_views_and_spans_deadline() -> None:
     assert result["final_mismatch_fields"] == ["NumNodes"]
 
 
+def test_phase_query_failure_retains_an_earlier_explicit_conflict() -> None:
+    class ConflictThenUnavailable(PhaseRunner):
+        def __call__(self, argv: list[str] | tuple[str, ...], timeout: float) -> control.CommandResult:
+            if argv[0] == "/usr/bin/squeue" and "--steps" not in argv:
+                self.calls.append(tuple(argv))
+                return control.CommandResult(1, "", "unavailable")
+            return super().__call__(argv, timeout)
+
+    runner = ConflictThenUnavailable(held=True, conflicting_user=True)
+    result = control._poll_identity(
+        _plan(),
+        "123",
+        JOB_NAME,
+        held=True,
+        timeout=10,
+        runner=runner,
+        sleeper=lambda _seconds: None,
+        clock=Clock(),
+    )
+
+    assert result["converged"] is False
+    assert result["polls"] == 1
+    assert result["final_mismatch_fields"] == ["scheduler_phase_unavailable"]
+    assert result["explicit_conflict_fields"] == ["UserId"]
+
+
 def test_phase_certificate_rejects_conflict_even_if_marked_converged() -> None:
     value = {
         "converged": True,
@@ -256,6 +284,88 @@ def test_explicit_identity_conflict_never_controls_job() -> None:
     assert raised.value.cancellation["cancel_attempts"] == 0
     assert "UserId" in raised.value.cancellation["explicit_conflict_fields"]
     assert runner.controls == []
+
+
+def test_terminal_query_failure_retains_a_prior_conflict_and_never_cancels() -> None:
+    class ConflictThenUnavailable(PhaseRunner):
+        def __call__(self, argv: list[str] | tuple[str, ...], timeout: float) -> control.CommandResult:
+            if argv[0] == "/usr/bin/squeue" and "--steps" not in argv:
+                self.calls.append(tuple(argv))
+                return control.CommandResult(0, f"123|{JOB_NAME}|someone|PENDING\n", "")
+            if argv[0] == "/usr/bin/squeue" and "--steps" in argv:
+                self.calls.append(tuple(argv))
+                return control.CommandResult(1, "", "unavailable")
+            return super().__call__(argv, timeout)
+
+    runner = ConflictThenUnavailable(held=True)
+    with pytest.raises(control.LifecycleError, match="cancellation_unconfirmed") as raised:
+        control.cancel_and_prove(
+            "123",
+            JOB_NAME,
+            _plan(),
+            direct_provenance=True,
+            runner=runner,
+            sleeper=lambda _seconds: None,
+            clock=Clock(),
+        )
+
+    assert raised.value.cancellation["cancel_attempts"] == 0
+    assert raised.value.cancellation["explicit_conflict_fields"] == ["UserId"]
+    assert runner.controls == []
+
+
+def test_launch_lifetime_conflict_latch_forbids_cleanup_controls() -> None:
+    calls: list[tuple[str, ...]] = []
+
+    def runner(argv: list[str] | tuple[str, ...], _timeout: float) -> control.CommandResult:
+        calls.append(tuple(argv))
+        return control.CommandResult(0, "", "")
+
+    with pytest.raises(control.LifecycleError, match="cancellation_unconfirmed") as raised:
+        control.cancel_after_failure(
+            "123",
+            JOB_NAME,
+            _plan(),
+            direct_provenance=True,
+            conflict_seen={"JobName"},
+            runner=runner,
+            sleeper=lambda _seconds: None,
+            clock=Clock(),
+        )
+
+    assert raised.value.cancellation == {
+        "identity_status": "conflict",
+        "cancel_attempts": 0,
+        "explicit_conflict_fields": ["JobName"],
+    }
+    assert calls == []
+
+
+def test_invoke_sbatch_base_exception_requires_empty_process_group(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class InterruptedProcess:
+        pid = 987654
+
+        def communicate(self, input: bytes | None = None, timeout: float | None = None) -> tuple[bytes, bytes]:
+            del input, timeout
+            raise KeyboardInterrupt
+
+        def poll(self) -> int:
+            return 0
+
+    proofs: list[int] = []
+    monkeypatch.setattr(control.subprocess, "Popen", lambda *_args, **_kwargs: InterruptedProcess())
+
+    def unproven(process_group: int) -> None:
+        proofs.append(process_group)
+        raise control.RecoveryControlError("sbatch_process_group_unproven")
+
+    monkeypatch.setattr(control, "_prove_process_group_empty", unproven)
+    with pytest.raises(control.RecoveryControlError, match="sbatch_cleanup_unproven"):
+        control.invoke_sbatch(["/usr/bin/sbatch"], b"wrapper", ())
+
+    assert proofs == [InterruptedProcess.pid]
 
 
 class UnavailableIdentityRunner:
@@ -446,7 +556,12 @@ def test_route_redirects_are_rejected_without_following() -> None:
         handler.redirect_request(None, None, 302, "", {}, "http://other.invalid/")
 
 
-def test_trigger_uses_six_samples_and_at_least_120_seconds(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+@pytest.mark.parametrize("activity_changes", [False, True])
+def test_trigger_requires_six_unchanged_samples_over_at_least_120_seconds(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    activity_changes: bool,
+) -> None:
     approval = tmp_path / "approval"
     approval.mkdir(mode=0o700)
     run = tmp_path / "source"
@@ -506,6 +621,7 @@ def test_trigger_uses_six_samples_and_at_least_120_seconds(tmp_path: Path, monke
     def route(_plan: Any, *, runner: Any, fetcher: Any) -> dict[str, Any]:
         del runner, fetcher
         calls["route"] += 1
+        generation_tokens = 100 + int(activity_changes and calls["route"] == 2)
         return {
             "readiness_sha256": "c" * 64,
             "route_generation_sha256": "d" * 64,
@@ -514,6 +630,9 @@ def test_trigger_uses_six_samples_and_at_least_120_seconds(tmp_path: Path, monke
             "unhealthy": 0,
             "active": 0,
             "waiting": 0,
+            "generation_tokens": generation_tokens,
+            "successful_requests": 10,
+            "activity_signature_sha256": hashlib.sha256(str(generation_tokens).encode()).hexdigest(),
             "restart_count": 0,
         }
 
@@ -521,6 +640,21 @@ def test_trigger_uses_six_samples_and_at_least_120_seconds(tmp_path: Path, monke
     monkeypatch.setattr(control, "validate_source_run", source)
     monkeypatch.setattr(control, "route_idle_snapshot", route)
     clock = Clock()
+
+    if activity_changes:
+        with pytest.raises(control.RecoveryControlError, match="source_artifacts_changed"):
+            control.certify_trigger(
+                plan_path.resolve(),
+                output.resolve(),
+                runner=lambda _argv, _timeout: control.CommandResult(0, "", ""),
+                fetcher=lambda _url, _timeout: (200, b""),
+                sleeper=clock.sleep,
+                clock=clock,
+                invocation_validator=lambda _plan: None,
+            )
+        assert calls == {"terminal": 2, "source": 2, "route": 2}
+        assert not output.parent.exists()
+        return
 
     result = control.certify_trigger(
         plan_path.resolve(),
@@ -545,6 +679,9 @@ def test_trigger_uses_six_samples_and_at_least_120_seconds(tmp_path: Path, monke
     )
     assert value["quiescence"]["samples"] == 6
     assert value["quiescence"]["elapsed_milliseconds"] >= 120_000
+    assert value["route"]["generation_tokens"] == 100
+    assert value["route"]["successful_requests"] == 10
+    assert value["route"]["activity_signature_sha256"] == hashlib.sha256(b"100").hexdigest()
 
 
 def test_config_is_exact_fresh_two_vmvm_256k_trace_contract() -> None:
@@ -727,6 +864,57 @@ def test_captured_source_loader_executes_captured_bytes(tmp_path: Path) -> None:
     loader.exec_module(module)
 
     assert module.value == 1
+
+
+def test_captured_finder_rejects_a_protected_module_symlink_swap(tmp_path: Path) -> None:
+    root = tmp_path / "reviewed"
+    root.mkdir()
+    outside = tmp_path / "outside.py"
+    outside.write_text("value = 'outside'\n", encoding="utf-8")
+    module_path = root / "swapped_module.py"
+    captured = b"value = 'captured'\n"
+    module_path.write_bytes(captured)
+    closure = control.ReviewedClosure(
+        roots=(root.resolve(),),
+        bodies={module_path.resolve(): captured},
+        hashes={module_path.resolve(): hashlib.sha256(captured).hexdigest()},
+        digest="a" * 64,
+    )
+    module_path.unlink()
+    module_path.symlink_to(outside)
+    finder = control._CapturedImportFinder(closure, ())
+    finder.expected_path = tuple(sys.path)
+    try:
+        with pytest.raises(control.RecoveryControlError, match="unmanifested_import_forbidden"):
+            finder.find_spec("swapped_module", [str(root.resolve())])
+    finally:
+        finder.close()
+
+
+def test_import_state_restoration_is_exact() -> None:
+    state = control.capture_import_state()
+    synthetic_module = "_kimi_recovery_synthetic_module"
+    original_hashlib = sys.modules["hashlib"]
+    try:
+        sys.modules[synthetic_module] = ModuleType(synthetic_module)
+        sys.modules["hashlib"] = ModuleType("hashlib")
+        sys.path.append("/synthetic/path")
+        sys.meta_path.append(object())
+        sys.path_hooks.append(object())
+        sys.path_importer_cache["/synthetic/path"] = object()
+        sys.dont_write_bytecode = not state.dont_write_bytecode
+
+        control.restore_import_state(state)
+
+        assert synthetic_module not in sys.modules
+        assert sys.modules["hashlib"] is original_hashlib
+        assert tuple(sys.path) == state.path
+        assert tuple(sys.meta_path) == state.meta_path
+        assert tuple(sys.path_hooks) == state.path_hooks
+        assert sys.path_importer_cache == state.importer_cache
+        assert sys.dont_write_bytecode is state.dont_write_bytecode
+    finally:
+        control.restore_import_state(state)
 
 
 def test_exclusive_name_proof_spans_full_minute(monkeypatch: pytest.MonkeyPatch) -> None:
