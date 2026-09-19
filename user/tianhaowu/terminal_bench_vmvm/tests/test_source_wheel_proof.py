@@ -13,7 +13,7 @@ import tarfile
 from dataclasses import dataclass, replace
 from pathlib import Path
 from types import SimpleNamespace
-from zipfile import ZipFile
+from zipfile import ZipFile, ZipInfo
 
 import pytest
 import source_wheel_proof_bootstrap as proof_bootstrap
@@ -48,6 +48,9 @@ from terminal_bench_vmvm.source_wheel_proof import (
 from terminal_bench_vmvm.source_wheels import (
     SOURCE_BUILD_ENVIRONMENT_SCHEMA_VERSION,
     SOURCE_BUILD_RUNNER_CODE,
+    WHEEL_SEMANTIC_DIGEST_KIND,
+    WHEEL_SEMANTIC_DIGEST_SCHEMA_VERSION,
+    WHEEL_SEMANTIC_NORMALIZED_FIELDS,
     BinaryWheelPolicy,
     build_dependency_artifact_records,
     canonical_json,
@@ -58,6 +61,7 @@ from terminal_bench_vmvm.source_wheels import (
     source_build_env_attest_argv,
     source_build_env_create_argv,
     source_build_environment_record,
+    wheel_semantic_sha256,
 )
 from terminal_bench_vmvm.taskset import _SOURCE_WHEEL_CLOSURE_CODE, _SOURCE_WHEEL_DOWNLOAD_CODE
 from verifiers.v1.runtimes import ProgramResult, VMVMConfig
@@ -86,6 +90,17 @@ def _wheel_file(distribution: str, version: str, *requirements: str) -> bytes:
     return output.getvalue()
 
 
+def _retime_wheel(payload: bytes, timestamp: tuple[int, int, int, int, int, int]) -> bytes:
+    output = io.BytesIO()
+    with ZipFile(io.BytesIO(payload)) as source, ZipFile(output, mode="w") as destination:
+        for member in source.infolist():
+            info = ZipInfo(member.filename, timestamp)
+            info.compress_type = member.compress_type
+            info.external_attr = member.external_attr
+            destination.writestr(info, source.read(member))
+    return output.getvalue()
+
+
 def _baseline_build_dependencies() -> tuple[tuple[str, str, str, str, bytes], ...]:
     records = (
         ("pip", BUILD_TOOLS["pip"], ()),
@@ -105,19 +120,42 @@ def _baseline_build_dependencies() -> tuple[tuple[str, str, str, str, bytes], ..
     )
 
 
-def _source_file(distribution: str, *setup_requires: str) -> bytes:
+def _source_file(
+    distribution: str,
+    *setup_requires: str,
+    setup_cfg_requires: tuple[str, ...] = (),
+    pyproject_requires: tuple[str, ...] = (),
+) -> bytes:
     source_distribution = distribution.replace("-", "_")
     metadata = f"Metadata-Version: 2.1\nName: {distribution}\nVersion: 1.0\n".encode()
     setup_requires_clause = f", setup_requires={list(setup_requires)!r}" if setup_requires else ""
     setup = (
         f"from setuptools import setup\nsetup(name={distribution!r}, version='1.0'{setup_requires_clause})\n"
     ).encode()
+    members = [
+        (f"{source_distribution}-1.0/PKG-INFO", metadata),
+        (f"{source_distribution}-1.0/setup.py", setup),
+    ]
+    if setup_cfg_requires:
+        members.append(
+            (
+                f"{source_distribution}-1.0/setup.cfg",
+                ("[options]\nsetup_requires =\n" + "".join(f"    {item}\n" for item in setup_cfg_requires)).encode(),
+            )
+        )
+    if pyproject_requires:
+        members.append(
+            (
+                f"{source_distribution}-1.0/pyproject.toml",
+                (
+                    f"[build-system]\nrequires = {list(pyproject_requires)!r}\n"
+                    "build-backend = 'setuptools.build_meta'\n"
+                ).encode(),
+            )
+        )
     output = io.BytesIO()
     with tarfile.open(fileobj=output, mode="w:gz") as archive:
-        for name, payload in (
-            (f"{source_distribution}-1.0/PKG-INFO", metadata),
-            (f"{source_distribution}-1.0/setup.py", setup),
-        ):
+        for name, payload in members:
             member = tarfile.TarInfo(name)
             member.size = len(payload)
             archive.addfile(member, io.BytesIO(payload))
@@ -157,7 +195,14 @@ def _discovery_payload(entry_count: int) -> tuple[bytes, dict[str, FakeArtifacts
             if index == 1
             else ()
         )
-        source = _source_file(source_distribution, *setup_requires)
+        if index == 0:
+            source = _source_file(
+                source_distribution,
+                setup_cfg_requires=setup_requires[:1],
+                pyproject_requires=setup_requires[1:],
+            )
+        else:
+            source = _source_file(source_distribution, *setup_requires)
         source_wheel = _wheel_file(source_distribution, "1.0")
         source_is_transitive = index % 3 == 0
         binary_wheel = _wheel_file(
@@ -343,6 +388,17 @@ def _build_environment_attestation(
 ) -> str:
     build_env = os.path.realpath(BUILD_ENV_DIR)
     artifacts = build_dependency_artifact_records(build_dependencies)
+    bin_entries = [
+        {
+            "name": name,
+            "kind": "regular",
+            "mode": 0o755,
+            "size": 1,
+            "sha256": "4" * 64,
+            "claimed": False,
+        }
+        for name in ("python", "python3")
+    ]
     return json.dumps(
         {
             "schema_version": SOURCE_BUILD_ENVIRONMENT_SCHEMA_VERSION,
@@ -365,6 +421,11 @@ def _build_environment_attestation(
                 }
                 for wheel in sorted(build_dependencies, key=lambda item: item.distribution)
             ],
+            "bin_path": f"{build_env}/bin",
+            "bin_mode": 0o755,
+            "bin_entries": bin_entries,
+            "bin_executables": ["python", "python3"],
+            "bin_sha256": sha256_bytes(canonical_json(bin_entries)),
             "build_tools": BUILD_TOOLS,
         },
         sort_keys=True,
@@ -390,11 +451,13 @@ class FakeFleet:
         block_builds: bool = False,
         block_starts: bool = False,
         duplicate_descriptors: bool = False,
+        alternate_builder_wheels: dict[str, bytes] | None = None,
     ) -> None:
         self.artifacts = artifacts
         self.block_builds = block_builds
         self.block_starts = block_starts
         self.duplicate_descriptors = duplicate_descriptors
+        self.alternate_builder_wheels = alternate_builder_wheels or {}
         self.release_builds = asyncio.Event()
         self.release_starts = asyncio.Event()
         self.two_builds_entered = asyncio.Event()
@@ -529,7 +592,10 @@ class FakeRuntime:
                 self.fleet.two_builds_entered.set()
             if self.fleet.block_builds and self.fleet.builds_entered >= 2:
                 await self.fleet.release_builds.wait()
-            self.files[f"{WHEEL_DIR}/{self.artifact.source_wheel_filename}"] = self.artifact.source_wheel
+            source_wheel = self.artifact.source_wheel
+            if self.name.endswith("builder-b"):
+                source_wheel = self.fleet.alternate_builder_wheels.get(self.config.image, source_wheel)
+            self.files[f"{WHEEL_DIR}/{self.artifact.source_wheel_filename}"] = source_wheel
             return ProgramResult(exit_code=0, stdout="", stderr="")
         if argv[:5] == ["python3", "-I", "-m", "pip", "install"] and "--dry-run" in argv:
             assert env == {}
@@ -658,6 +724,14 @@ def test_nine_entry_discovery_emits_policy_with_exactly_twenty_seven_starts(
     state = json.loads((output / "proof_state.json").read_bytes())
     assert candidate["runnable"] is False
     assert candidate["required_runtime_starts"] == 27
+    assert "schema_bound_semantically_identical_wheels" in candidate["required_proofs"]
+    assert identity["contract_schemas"]["source_build_environment"] == SOURCE_BUILD_ENVIRONMENT_SCHEMA_VERSION
+    assert identity["contract_schemas"]["wheel_semantic_digest"] == WHEEL_SEMANTIC_DIGEST_SCHEMA_VERSION
+    assert identity["reproducibility"]["kind"] == WHEEL_SEMANTIC_DIGEST_KIND
+    assert identity["reproducibility"]["normalized_zip_fields"] == list(WHEEL_SEMANTIC_NORMALIZED_FIELDS)
+    assert identity["reproducibility"]["all_other_wheel_bytes_bound"] is True
+    assert identity["source_build_execution"]["child_process_path"] == "venv-bin-only"
+    assert identity["source_build_execution"]["source_import_precedence"] == "stdlib-attested-sites-source-root"
     assert proof["proof_runtime_starts"] == 27
     assert state["telemetry"]["attested_runtime_starts"] == 27
     assert state["attempt_journal"]["start_intents"] == 27
@@ -699,7 +773,12 @@ def test_nine_entry_discovery_emits_policy_with_exactly_twenty_seven_starts(
     assert all(len(entry["binary_wheels"]) == 1 for entry in policy["entries"])
     assert sum(len(entry["sources"][0]["build_dependencies"]) for entry in policy["entries"]) == 39
     assert sum(entry["resolution"]["build_dependencies"]["binary_artifact_count"] for entry in proof["entries"]) == 39
+    assert (
+        sum(len(entry["resolution"]["build_dependencies"]["declared_build_requirements"]) for entry in proof["entries"])
+        == 3
+    )
     assert all(entry["cross_builder"]["wheel_bytes_equal"] for entry in proof["entries"])
+    assert all(entry["cross_builder"]["wheel_semantics_equal"] for entry in proof["entries"])
     assert all(len(set(entry["lease_identity_sha256s"].values())) == 3 for entry in proof["entries"])
     assert len({digest for entry in proof["entries"] for digest in entry["lease_identity_sha256s"].values()}) == 27
     assert b"lease-source-proof" not in (output / "source_wheel_proof.json").read_bytes()
@@ -716,6 +795,51 @@ def test_nine_entry_discovery_emits_policy_with_exactly_twenty_seven_starts(
     )
     assert asyncio.run(run_source_wheel_proof(resumed, runtime_factory=resumed_fleet.factory)) == result
     assert resumed_fleet.start_count == 0
+
+
+def test_semantically_equal_timestamp_variants_publish_and_resume(tmp_path: Path) -> None:
+    discovery, artifacts = _write_discovery(tmp_path, 9)
+    first_image = next(iter(artifacts))
+    alternate = _retime_wheel(artifacts[first_image].source_wheel, (2024, 4, 4, 4, 4, 4))
+    assert alternate != artifacts[first_image].source_wheel
+    fleet = FakeFleet(artifacts, alternate_builder_wheels={first_image: alternate})
+    output = tmp_path / "proof"
+
+    result = asyncio.run(run_source_wheel_proof(_config(discovery, output), runtime_factory=fleet.factory))
+
+    assert result["runtime_starts"] == 27
+    proof = json.loads((output / "source_wheel_proof.json").read_bytes())
+    changed_entry = next(entry for entry in proof["entries"] if entry["final_policy_entry"]["image"] == first_image)
+    assert changed_entry["cross_builder"]["wheel_semantics_equal"] is True
+    assert changed_entry["cross_builder"]["wheel_bytes_equal"] is False
+    assert changed_entry["cross_builder"]["wheelhouse_semantics_equal"] is True
+    assert changed_entry["cross_builder"]["wheelhouse_bytes_equal"] is False
+    assert changed_entry["builders"][0]["wheel_semantics"] == changed_entry["builders"][1]["wheel_semantics"]
+    assert changed_entry["builders"][0]["wheels"] != changed_entry["builders"][1]["wheels"]
+
+    parsed, _ = load_private_discovery_input(_config(discovery, tmp_path / "validation-only"))
+    parsed_entry = next(
+        entry
+        for entry in parsed.entries
+        if source_wheel_proof.entry_key_sha256(parsed.sha256, entry) == changed_entry["entry_key_sha256"]
+    )
+    tampered = json.loads(canonical_json(changed_entry))
+    tampered["builders"][1]["wheel_semantics"][0]["sha256"] = "0" * 64
+    tampered_core = {name: value for name, value in tampered.items() if name != "proof_sha256"}
+    tampered["proof_sha256"] = sha256_bytes(canonical_json(tampered_core))
+    with pytest.raises(SourceWheelProofError, match="^proof_state_entry_invalid$"):
+        source_wheel_proof._validate_entry_proof(changed_entry["entry_key_sha256"], tampered, parsed, parsed_entry)
+
+    resume_fleet = FakeFleet(artifacts)
+    resumed = _config(
+        discovery,
+        output,
+        resume_state_sha256=sha256_bytes((output / "proof_state.json").read_bytes()),
+        slurm_job_id="12346",
+    )
+    resumed_result = asyncio.run(run_source_wheel_proof(resumed, runtime_factory=resume_fleet.factory))
+    assert resumed_result["runtime_starts"] == 27
+    assert resume_fleet.start_count == 0
 
     aggregate = json.dumps(aggregate_failure(output, "synthetic_failure"), sort_keys=True)
     assert "private-task" not in aggregate
@@ -1078,6 +1202,7 @@ def test_reproducibility_and_concurrency_contracts_fail_closed(tmp_path: Path) -
     first = BuildResult(
         wheels={evidence[0].filename: wheel_a},
         wheel_evidence=evidence,
+        wheel_semantics=((evidence[0].filename, wheel_semantic_sha256(evidence[0].filename, wheel_a)),),
         closure=(("proof-package", "1.0"),),
         wheelhouse=pack_wheelhouse({evidence[0].filename: wheel_a}),
         input_artifacts=(("proof_package-1.0.tar.gz", 1, "a" * 64),),
@@ -1092,6 +1217,51 @@ def test_reproducibility_and_concurrency_contracts_fail_closed(tmp_path: Path) -
     )
     with pytest.raises(SourceWheelProofError, match="^cross_builder_reproducibility_failed$"):
         compare_build_payloads(first, second)
+
+    def timestamped_wheel(timestamp: tuple[int, int, int, int, int, int], module: bytes) -> bytes:
+        output = io.BytesIO()
+        metadata_dir = "proof_package-1.0.dist-info"
+        members = (
+            (
+                f"{metadata_dir}/METADATA",
+                b"Metadata-Version: 2.1\nName: proof-package\nVersion: 1.0\n",
+            ),
+            (
+                f"{metadata_dir}/WHEEL",
+                b"Wheel-Version: 1.0\nRoot-Is-Purelib: true\nTag: py3-none-any\n",
+            ),
+            ("proof_package.py", module),
+        )
+        with ZipFile(output, mode="w") as archive:
+            for name, payload in members:
+                info = ZipInfo(name, timestamp)
+                info.external_attr = 0o600 << 16
+                archive.writestr(info, payload)
+        return output.getvalue()
+
+    timestamp_a = timestamped_wheel((2020, 1, 1, 0, 0, 0), b"VALUE = 1\n")
+    timestamp_b = timestamped_wheel((2021, 2, 2, 0, 0, 0), b"VALUE = 1\n")
+    timestamp_name = "proof_package-1.0-py3-none-any.whl"
+
+    def result(payload: bytes) -> BuildResult:
+        item = inspect_wheel(timestamp_name, payload)
+        return replace(
+            first,
+            wheels={timestamp_name: payload},
+            wheel_evidence=(item,),
+            wheel_semantics=((timestamp_name, wheel_semantic_sha256(timestamp_name, payload)),),
+            wheelhouse=pack_wheelhouse({timestamp_name: payload}),
+        )
+
+    comparison = compare_build_payloads(result(timestamp_a), result(timestamp_b))
+    assert comparison["wheel_semantics_equal"] is True
+    assert comparison["wheel_bytes_equal"] is False
+    assert comparison["wheelhouse_semantics_equal"] is True
+    assert comparison["wheelhouse_bytes_equal"] is False
+
+    changed_payload = timestamped_wheel((2021, 2, 2, 0, 0, 0), b"VALUE = 2\n")
+    with pytest.raises(SourceWheelProofError, match="^cross_builder_reproducibility_failed$"):
+        compare_build_payloads(result(timestamp_a), result(changed_payload))
 
     discovery, _ = _write_discovery(tmp_path, 1)
     with pytest.raises(SourceWheelProofError, match="^entry_concurrency_invalid$"):
@@ -1379,6 +1549,10 @@ def test_readme_uses_exact_clean_tmux_wrap_launcher_form() -> None:
     for rejected in ("BASH_ENV", "LD_PRELOAD"):
         assert rejected in (launcher + readme)
     assert "declare -F" in launcher
+    assert "`PATH` contains only the attested venv's `bin`" in readme
+    assert "complete raw ZIP" in readme
+    assert "local and central DOS" in readme and "time/date fields zeroed" in readme
+    assert "`setup.cfg`" in readme and "`pyproject.toml`" in readme
 
 
 def test_bootstrap_requires_isolated_no_site_python_before_import_roots() -> None:

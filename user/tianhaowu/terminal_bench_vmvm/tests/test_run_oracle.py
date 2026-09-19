@@ -185,10 +185,12 @@ def test_oracle_run_identity_binds_source_wheel_policy_but_not_resume_approval(t
         "build_dependency_resolution": "public-binary-only-exact-transitive-policy-closure",
         "build_network": "no-network",
         "build_isolation": True,
+        "child_process_path": "venv-bin-only",
         "deterministic_environment_sha256": run_oracle.sha256_bytes(
             run_oracle.canonical_json(run_oracle.source_build_environment_variables())
         ),
-        "source_build_python": "venv-python-isolated-no-site-direct-static-setup",
+        "source_build_python": "venv-python-isolated-no-site-direct-static-setuptools",
+        "source_declarations": "static-setup-py-setup-cfg-pyproject-build-requirements",
         "source_build_umask": f"{run_oracle.SOURCE_BUILD_UMASK:04o}",
         "system_site_packages": False,
         "target_install": "offline-no-index-no-deps",

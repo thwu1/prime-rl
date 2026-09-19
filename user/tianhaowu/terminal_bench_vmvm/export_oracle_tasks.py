@@ -118,7 +118,9 @@ def _source_wheel_recovery(identity: dict[str, Any]) -> dict[str, Any] | None:
         "build_dependency_resolution",
         "build_network",
         "build_isolation",
+        "child_process_path",
         "deterministic_environment_sha256",
+        "source_declarations",
         "source_build_python",
         "source_build_umask",
         "system_site_packages",
@@ -141,9 +143,11 @@ def _source_wheel_recovery(identity: dict[str, Any]) -> dict[str, Any] | None:
         or recovery.get("build_dependency_resolution") != "public-binary-only-exact-transitive-policy-closure"
         or recovery.get("build_network") != "no-network"
         or recovery.get("build_isolation") is not True
+        or recovery.get("child_process_path") != "venv-bin-only"
         or recovery.get("deterministic_environment_sha256")
         != _sha256(canonical_json(source_build_environment_variables()))
-        or recovery.get("source_build_python") != "venv-python-isolated-no-site-direct-static-setup"
+        or recovery.get("source_build_python") != "venv-python-isolated-no-site-direct-static-setuptools"
+        or recovery.get("source_declarations") != "static-setup-py-setup-cfg-pyproject-build-requirements"
         or recovery.get("source_build_umask") != f"{SOURCE_BUILD_UMASK:04o}"
         or recovery.get("system_site_packages") is not False
         or recovery.get("target_install") != "offline-no-index-no-deps"
@@ -689,11 +693,13 @@ def _audit_source_wheel_artifacts(
                 "build_dependency_install": "no-system-site-venv-offline-exact-wheel-closure",
                 "build_network": "no-network",
                 "build_isolation": True,
+                "child_process_path": "venv-bin-only",
                 "dependency_resolution": "public-binary-only-exact-transitive-policy-closure",
                 "deterministic_environment": source_build_environment_variables(),
                 "source_build_umask": f"{SOURCE_BUILD_UMASK:04o}",
                 "isolated_python": True,
-                "source_build_python": "venv-python-isolated-no-site-direct-static-setup",
+                "source_build_python": "venv-python-isolated-no-site-direct-static-setuptools",
+                "source_declarations": "static-setup-py-setup-cfg-pyproject-build-requirements",
                 "staged_inputs": "policy-artifacts-only",
                 "target_install": "offline-no-index-no-deps",
             }

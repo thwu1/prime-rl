@@ -369,6 +369,17 @@ def _canary_fixture(
         policy_entry = taskset._source_wheel_policy.entries[0]
         build_dependencies = policy_entry.sources[0].build_dependencies
         build_dependency_artifacts = build_dependency_artifact_records(build_dependencies)
+        bin_entries = [
+            {
+                "name": name,
+                "kind": "regular",
+                "mode": 0o755,
+                "size": 1,
+                "sha256": "8" * 64,
+                "claimed": False,
+            }
+            for name in ("python", "python3")
+        ]
         wheels = {wheel_name: wheel}
         wheel_evidence = validate_policy_wheel_closure(policy_entry, wheels)
         taskset._publish_source_wheel_attestation(
@@ -407,6 +418,11 @@ def _canary_fixture(
                                 key=lambda item: item.distribution,
                             )
                         ],
+                        "bin_path": "/tmp/terminal-bench-source-build-env/bin",
+                        "bin_mode": 0o755,
+                        "bin_entries": bin_entries,
+                        "bin_executables": ["python", "python3"],
+                        "bin_sha256": sha256_bytes(canonical_json(bin_entries)),
                         "build_tools": build_tools,
                     },
                 ),
@@ -425,8 +441,10 @@ def _canary_fixture(
             "build_dependency_resolution": "public-binary-only-exact-transitive-policy-closure",
             "build_network": "no-network",
             "build_isolation": True,
+            "child_process_path": "venv-bin-only",
             "deterministic_environment_sha256": sha256_bytes(canonical_json(source_build_environment_variables())),
-            "source_build_python": "venv-python-isolated-no-site-direct-static-setup",
+            "source_build_python": "venv-python-isolated-no-site-direct-static-setuptools",
+            "source_declarations": "static-setup-py-setup-cfg-pyproject-build-requirements",
             "source_build_umask": f"{SOURCE_BUILD_UMASK:04o}",
             "system_site_packages": False,
             "target_install": "offline-no-index-no-deps",

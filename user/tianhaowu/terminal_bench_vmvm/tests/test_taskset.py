@@ -6,6 +6,8 @@ import io
 import json
 import os
 import shutil
+import stat
+import struct
 import subprocess
 import sys
 import sysconfig
@@ -14,7 +16,7 @@ import time
 from pathlib import Path
 from types import SimpleNamespace
 from weakref import ref
-from zipfile import ZipFile
+from zipfile import ZIP_DEFLATED, ZIP_STORED, ZipFile, ZipInfo
 
 import pytest
 import terminal_bench_vmvm.taskset as taskset_module
@@ -29,8 +31,10 @@ from terminal_bench_vmvm.source_wheels import (
     build_dependency_artifact_records,
     canonical_distribution_name,
     canonical_json,
+    extract_static_build_requirements,
     extract_static_setup_requires,
     inspect_source_distribution,
+    inspect_wheel,
     load_source_wheel_policy,
     pack_wheelhouse,
     sha256_bytes,
@@ -42,6 +46,7 @@ from terminal_bench_vmvm.source_wheels import (
     validate_build_dependency_payload_closure,
     validate_policy_wheel_closure,
     validate_source_build_environment,
+    wheel_semantic_sha256,
 )
 from terminal_bench_vmvm.taskset import (
     RuntimeWheelFingerprints,
@@ -249,7 +254,13 @@ def baseline_build_dependency_wheels() -> tuple[tuple[str, str, str, str, bytes]
     )
 
 
-def wheel_file_with_module(filename: str, module: str, module_source: bytes) -> bytes:
+def wheel_file_with_module(
+    filename: str,
+    module: str,
+    module_source: bytes,
+    *,
+    console_script: str | None = None,
+) -> bytes:
     distribution, version, *_ = filename.removesuffix(".whl").split("-")
     tag = "-".join(filename.removesuffix(".whl").split("-")[-3:])
     records: list[tuple[str, bytes]] = [
@@ -263,6 +274,13 @@ def wheel_file_with_module(filename: str, module: str, module_source: bytes) -> 
             f"Wheel-Version: 1.0\nGenerator: test\nRoot-Is-Purelib: true\nTag: {tag}\n".encode(),
         ),
     ]
+    if console_script is not None:
+        records.append(
+            (
+                f"{distribution}-{version}.dist-info/entry_points.txt",
+                f"[console_scripts]\n{console_script} = {module}:main\n".encode(),
+            )
+        )
     record_path = f"{distribution}-{version}.dist-info/RECORD"
     record_lines = []
     for path, payload in records:
@@ -437,6 +455,17 @@ def source_build_environment_attestation(
     build_env = os.path.realpath(build_env_dir)
     dependencies = build_dependencies if build_dependencies is not None else build_dependency_policies()
     artifacts = build_dependency_artifact_records(dependencies)
+    bin_entries = [
+        {
+            "name": name,
+            "kind": "regular",
+            "mode": 0o755,
+            "size": 1,
+            "sha256": "4" * 64,
+            "claimed": False,
+        }
+        for name in ("python", "python3")
+    ]
     return json.dumps(
         {
             "schema_version": SOURCE_BUILD_ENVIRONMENT_SCHEMA_VERSION,
@@ -459,6 +488,11 @@ def source_build_environment_attestation(
                 }
                 for wheel in sorted(dependencies, key=lambda item: item.distribution)
             ],
+            "bin_path": f"{build_env}/bin",
+            "bin_mode": 0o755,
+            "bin_entries": bin_entries,
+            "bin_executables": ["python", "python3"],
+            "bin_sha256": sha256_bytes(canonical_json(bin_entries)),
             "build_tools": build_tools or BUILD_TOOLS,
         },
         sort_keys=True,
@@ -1419,7 +1453,14 @@ def test_source_build_venv_reaches_setup_child_process_with_isolated_python(tmp_
     build_dependency = wheel_file_with_module(
         "child_build_dep-0.1-py3-none-any.whl",
         "child_build_dep",
-        b"VALUE = 'bound-build-dependency'\n",
+        (
+            b"VALUE = 'bound-build-dependency'\n"
+            b"def main():\n"
+            b"    import os, sys\n"
+            b"    assert os.path.basename(sys.prefix) == 'build-env'\n"
+            b"    print(VALUE)\n"
+        ),
+        console_script="child-build-tool",
     )
     build_dependency_path = build_dep_dir / "child_build_dep-0.1-py3-none-any.whl"
     build_dependency_path.write_bytes(build_dependency)
@@ -1434,22 +1475,41 @@ def test_source_build_venv_reaches_setup_child_process_with_isolated_python(tmp_
 
     setup_py = (
         "from setuptools import setup\n"
-        "import os, sys\n"
+        "import os, shutil, subprocess, sys\n"
         "import child_build_dep\n"
+        "import wheel\n"
         "assert sys.flags.isolated == 1\n"
         "assert sys.flags.ignore_environment == 1\n"
         "assert sys.flags.no_user_site == 1\n"
         "assert sys.flags.no_site == 1\n"
         "assert child_build_dep.VALUE == 'bound-build-dependency'\n"
+        "assert os.path.commonpath((sys.prefix, os.path.realpath(wheel.__file__))) == sys.prefix\n"
         "assert os.environ['SOURCE_DATE_EPOCH'] == '315532800'\n"
         "assert os.environ['TZ'] == 'UTC'\n"
-        "setup(name='child-project', version='1.0', packages=[], setup_requires=['child-build-dep==0.1'])\n"
+        "assert os.environ['PATH'] == os.path.join(sys.prefix, 'bin')\n"
+        "assert shutil.which('sh') is None\n"
+        "for command in ('python3', 'child-build-tool'):\n"
+        "    resolved = os.path.abspath(shutil.which(command))\n"
+        "    assert os.path.commonpath((sys.prefix, resolved)) == sys.prefix\n"
+        "child = subprocess.run(['python3', '-I', '-c', "
+        "'import child_build_dep,sys; assert sys.flags.isolated; print(child_build_dep.VALUE)'], "
+        "check=True, capture_output=True, text=True)\n"
+        "assert child.stdout.strip() == 'bound-build-dependency'\n"
+        "tool = subprocess.run(['child-build-tool'], check=True, capture_output=True, text=True)\n"
+        "assert tool.stdout.strip() == 'bound-build-dependency'\n"
+        "setup(name='child-project', version='1.0', packages=[])\n"
     ).encode()
     source_buffer = io.BytesIO()
     with tarfile.open(fileobj=source_buffer, mode="w:gz") as archive:
         for name, payload in (
             ("child_project-1.0/PKG-INFO", b"Metadata-Version: 2.1\nName: child-project\nVersion: 1.0\n"),
             ("child_project-1.0/setup.py", setup_py),
+            ("child_project-1.0/setup.cfg", b"[options]\nsetup_requires = child-build-dep==0.1\n"),
+            (
+                "child_project-1.0/pyproject.toml",
+                b"[build-system]\nrequires = ['setuptools', 'wheel']\nbuild-backend = 'setuptools.build_meta'\n",
+            ),
+            ("child_project-1.0/wheel.py", b"raise RuntimeError('source shadow loaded')\n"),
         ):
             member = tarfile.TarInfo(name)
             member.size = len(payload)
@@ -1469,7 +1529,6 @@ def test_source_build_venv_reaches_setup_child_process_with_isolated_python(tmp_
         wheel_sha256="0" * 64,
         build_dependencies=(build_dependency_policy,),
     )
-
     subprocess.run(source_build_env_create_argv(str(build_env)), check=True)
     uv = shutil.which("uv")
     if uv is None:
@@ -1531,7 +1590,28 @@ def test_source_build_venv_reaches_setup_child_process_with_isolated_python(tmp_
         expected_build_tools=tuple(sorted(attestation["build_tools"].items())),
         build_dependencies=installed_policies,
     )
+    tampered_attestation = json.loads(attested.stdout)
+    tampered_attestation["bin_entries"][0]["sha256"] = "0" * 64
+    with pytest.raises(RuntimeError, match="attestation is invalid"):
+        validate_source_build_environment(
+            json.dumps(tampered_attestation),
+            build_env_dir=str(build_env),
+            expected_build_tools=tuple(sorted(attestation["build_tools"].items())),
+            build_dependencies=installed_policies,
+        )
     assert all(record["file_count"] > 0 for record in attestation["installed_distributions"])
+    missing_private_dirs = subprocess.run(
+        source_build_argv(
+            source,
+            input_dir=str(input_dir),
+            wheel_dir=str(wheel_dir),
+            build_env_dir=str(build_env),
+        ),
+        capture_output=True,
+        check=False,
+    )
+    assert missing_private_dirs.returncode != 0
+    assert not list(wheel_dir.iterdir())
     Path(f"{build_env}-home").mkdir(mode=0o700)
     Path(f"{build_env}-tmp").mkdir(mode=0o700)
     subprocess.run(
@@ -1544,7 +1624,56 @@ def test_source_build_venv_reaches_setup_child_process_with_isolated_python(tmp_
         check=True,
     )
 
-    assert (wheel_dir / "child_project-1.0-py3-none-any.whl").is_file()
+    built_wheel_path = wheel_dir / "child_project-1.0-py3-none-any.whl"
+    assert built_wheel_path.is_file()
+    assert inspect_wheel(built_wheel_path.name, built_wheel_path.read_bytes()).distribution == "child-project"
+
+    shutil.rmtree(Path(f"{build_env}-work"))
+    shadow_wheel_dir = tmp_path / "shadow-wheels"
+    shadow_wheel_dir.mkdir()
+    shadow_buffer = io.BytesIO()
+    with tarfile.open(fileobj=shadow_buffer, mode="w:gz") as archive:
+        for name, payload in (
+            (
+                "shadow_project-1.0/PKG-INFO",
+                b"Metadata-Version: 2.1\nName: shadow-project\nVersion: 1.0\n",
+            ),
+            (
+                "shadow_project-1.0/setup.py",
+                b"from setuptools import setup\nsetup(name='shadow-project', version='1.0')\n",
+            ),
+            ("shadow_project-1.0/setuptools.py", b"raise RuntimeError('shadow loaded')\n"),
+        ):
+            member = tarfile.TarInfo(name)
+            member.size = len(payload)
+            archive.addfile(member, io.BytesIO(payload))
+    shadow_payload = shadow_buffer.getvalue()
+    shadow_source_path = input_dir / "shadow_project-1.0.tar.gz"
+    shadow_source_path.write_bytes(shadow_payload)
+    shadow_source = SourceArtifactPolicy(
+        distribution="shadow-project",
+        version="1.0",
+        filename=shadow_source_path.name,
+        url="https://files.example.invalid/shadow_project-1.0.tar.gz",
+        size=len(shadow_payload),
+        sha256=sha256_bytes(shadow_payload),
+        wheel_filename="shadow_project-1.0-py3-none-any.whl",
+        wheel_size=1,
+        wheel_sha256="0" * 64,
+        build_dependencies=(build_dependency_policy,),
+    )
+    shadowed = subprocess.run(
+        source_build_argv(
+            shadow_source,
+            input_dir=str(input_dir),
+            wheel_dir=str(shadow_wheel_dir),
+            build_env_dir=str(build_env),
+        ),
+        capture_output=True,
+        check=False,
+    )
+    assert shadowed.returncode != 0
+    assert not list(shadow_wheel_dir.iterdir())
 
     site_packages = next(build_env.glob("lib/python*/site-packages"))
     ambient_root = tmp_path / "ambient-import-root"
@@ -1698,7 +1827,7 @@ def test_source_distribution_accepts_matching_duplicate_metadata_only(tmp_path: 
         inspect_source_distribution(loaded.entries[0].sources[0], mismatched)
 
 
-def test_static_legacy_setup_requires_extraction_is_fail_closed(tmp_path: Path) -> None:
+def test_static_build_requirement_extraction_is_fail_closed(tmp_path: Path) -> None:
     entry, source_payload, _ = source_policy_entry(setup_requires=("legacy-backend==0.1", "cffi>=1.0"))
     policy_path = tmp_path / "policy.json"
 
@@ -1744,7 +1873,7 @@ def test_static_legacy_setup_requires_extraction_is_fail_closed(tmp_path: Path) 
             b"from setuptools import setup\nREQS = ['legacy-backend==0.1']\nsetup(name='verifier-helper', version='1.0', setup_requires=REQS)\n",
         ),
     )
-    with pytest.raises(RuntimeError, match="static literal"):
+    with pytest.raises(RuntimeError, match="executable or dynamic statements"):
         extract_static_setup_requires(load_source(dynamic_setup), dynamic_setup)
 
     nested_setup = archive(
@@ -1769,7 +1898,7 @@ def test_static_legacy_setup_requires_extraction_is_fail_closed(tmp_path: Path) 
     with pytest.raises(RuntimeError, match="ambiguous setup metadata"):
         extract_static_setup_requires(load_source(ambiguous_root), ambiguous_root)
 
-    pyproject = archive(
+    invalid_pyproject = archive(
         ("verifier_helper-1.0/PKG-INFO", metadata),
         (
             "verifier_helper-1.0/setup.py",
@@ -1777,8 +1906,24 @@ def test_static_legacy_setup_requires_extraction_is_fail_closed(tmp_path: Path) 
         ),
         ("verifier_helper-1.0/pyproject.toml", b"[build-system]\n"),
     )
-    with pytest.raises(RuntimeError, match="legacy setup.py"):
-        extract_static_setup_requires(load_source(pyproject), pyproject)
+    with pytest.raises(RuntimeError, match="pyproject.toml build-system"):
+        extract_static_build_requirements(load_source(invalid_pyproject), invalid_pyproject)
+
+    pyproject = archive(
+        ("verifier_helper-1.0/PKG-INFO", metadata),
+        (
+            "verifier_helper-1.0/setup.py",
+            b"from setuptools import setup\nsetup(name='verifier-helper', version='1.0')\n",
+        ),
+        (
+            "verifier_helper-1.0/pyproject.toml",
+            b"[build-system]\nrequires = ['setuptools>=60', 'wheel']\nbuild-backend = 'setuptools.build_meta'\n",
+        ),
+    )
+    assert extract_static_build_requirements(load_source(pyproject), pyproject) == (
+        "setuptools>=60",
+        "wheel",
+    )
 
     setup_cfg = archive(
         ("verifier_helper-1.0/PKG-INFO", metadata),
@@ -1786,10 +1931,112 @@ def test_static_legacy_setup_requires_extraction_is_fail_closed(tmp_path: Path) 
             "verifier_helper-1.0/setup.py",
             b"from setuptools import setup\nsetup(name='verifier-helper', version='1.0')\n",
         ),
-        ("verifier_helper-1.0/setup.cfg", b"[options]\nsetup_requires = hidden-backend\n"),
+        (
+            "verifier_helper-1.0/setup.cfg",
+            b"[options]\nsetup_requires =\n    hidden-backend>=1\n    cffi>=1\n",
+        ),
     )
-    with pytest.raises(RuntimeError, match="self-contained legacy setup.py"):
-        extract_static_setup_requires(load_source(setup_cfg), setup_cfg)
+    assert extract_static_build_requirements(load_source(setup_cfg), setup_cfg) == (
+        "hidden-backend>=1",
+        "cffi>=1",
+    )
+
+    conflicting_config = archive(
+        ("verifier_helper-1.0/PKG-INFO", metadata),
+        (
+            "verifier_helper-1.0/setup.py",
+            b"from setuptools import setup\nsetup(name='verifier-helper', setup_requires=['one-backend'])\n",
+        ),
+        ("verifier_helper-1.0/setup.cfg", b"[options]\nsetup_requires = other-backend\n"),
+    )
+    with pytest.raises(RuntimeError, match="ambiguous setup_requires"):
+        extract_static_build_requirements(load_source(conflicting_config), conflicting_config)
+
+    unsupported_backend = archive(
+        ("verifier_helper-1.0/PKG-INFO", metadata),
+        (
+            "verifier_helper-1.0/setup.py",
+            b"from setuptools import setup\nsetup(name='verifier-helper', version='1.0')\n",
+        ),
+        (
+            "verifier_helper-1.0/pyproject.toml",
+            b"[build-system]\nrequires = ['custom-backend']\nbuild-backend = 'custom_backend'\n",
+        ),
+    )
+    with pytest.raises(RuntimeError, match="unsupported or ambiguous"):
+        extract_static_build_requirements(load_source(unsupported_backend), unsupported_backend)
+
+    in_tree_backend = archive(
+        ("verifier_helper-1.0/PKG-INFO", metadata),
+        (
+            "verifier_helper-1.0/setup.py",
+            b"from setuptools import setup\nsetup(name='verifier-helper', version='1.0')\n",
+        ),
+        (
+            "verifier_helper-1.0/pyproject.toml",
+            b"[build-system]\nrequires = ['setuptools']\nbackend-path = ['backend']\n",
+        ),
+    )
+    with pytest.raises(RuntimeError, match="unsupported or ambiguous"):
+        extract_static_build_requirements(load_source(in_tree_backend), in_tree_backend)
+
+    default_config = archive(
+        ("verifier_helper-1.0/PKG-INFO", metadata),
+        (
+            "verifier_helper-1.0/setup.py",
+            b"from setuptools import setup\nsetup(name='verifier-helper', version='1.0')\n",
+        ),
+        ("verifier_helper-1.0/setup.cfg", b"[DEFAULT]\nsetup_requires = hidden-backend\n[options]\n"),
+    )
+    with pytest.raises(RuntimeError, match="default options"):
+        extract_static_build_requirements(load_source(default_config), default_config)
+
+    dynamic_config = archive(
+        ("verifier_helper-1.0/PKG-INFO", metadata),
+        (
+            "verifier_helper-1.0/setup.py",
+            b"from setuptools import setup\nsetup(name='verifier-helper', version='1.0')\n",
+        ),
+        ("verifier_helper-1.0/setup.cfg", b"[metadata]\nversion = attr: package.VERSION\n"),
+    )
+    with pytest.raises(RuntimeError, match="executable or dynamic option"):
+        extract_static_build_requirements(load_source(dynamic_config), dynamic_config)
+
+    command_config = archive(
+        ("verifier_helper-1.0/PKG-INFO", metadata),
+        (
+            "verifier_helper-1.0/setup.py",
+            b"from setuptools import setup\nsetup(name='verifier-helper', version='1.0')\n",
+        ),
+        ("verifier_helper-1.0/setup.cfg", b"[options]\ncmdclass = build=package.CustomBuild\n"),
+    )
+    with pytest.raises(RuntimeError, match="executable or dynamic option"):
+        extract_static_build_requirements(load_source(command_config), command_config)
+
+    unsupported_config_section = archive(
+        ("verifier_helper-1.0/PKG-INFO", metadata),
+        (
+            "verifier_helper-1.0/setup.py",
+            b"from setuptools import setup\nsetup(name='verifier-helper', version='1.0')\n",
+        ),
+        ("verifier_helper-1.0/setup.cfg", b"[aliases]\nbuild = custom_build\n"),
+    )
+    with pytest.raises(RuntimeError, match="unsupported section"):
+        extract_static_build_requirements(load_source(unsupported_config_section), unsupported_config_section)
+
+    pyproject_tool_section = archive(
+        ("verifier_helper-1.0/PKG-INFO", metadata),
+        (
+            "verifier_helper-1.0/setup.py",
+            b"from setuptools import setup\nsetup(name='verifier-helper', version='1.0')\n",
+        ),
+        (
+            "verifier_helper-1.0/pyproject.toml",
+            b"[build-system]\nrequires = ['setuptools']\n[tool.setuptools.dynamic]\nversion = {attr = 'pkg.VERSION'}\n",
+        ),
+    )
+    with pytest.raises(RuntimeError, match="unsupported or ambiguous"):
+        extract_static_build_requirements(load_source(pyproject_tool_section), pyproject_tool_section)
 
     module_style = archive(
         ("verifier_helper-1.0/PKG-INFO", metadata),
@@ -1799,7 +2046,20 @@ def test_static_legacy_setup_requires_extraction_is_fail_closed(tmp_path: Path) 
             b"setup_requires=('legacy-backend==0.1',))\n",
         ),
     )
-    assert extract_static_setup_requires(load_source(module_style), module_style) == ("legacy-backend==0.1",)
+    with pytest.raises(RuntimeError, match="setup.py"):
+        extract_static_setup_requires(load_source(module_style), module_style)
+
+    literal_containers = archive(
+        ("verifier_helper-1.0/PKG-INFO", metadata),
+        (
+            "verifier_helper-1.0/setup.py",
+            b'"""static package declaration"""\n'
+            b"from setuptools import setup\n"
+            b"setup(name='verifier-helper', version='1.0', packages=[], "
+            b"package_data={'': ['*.txt']}, options={'bdist_wheel': {'universal': True}})\n",
+        ),
+    )
+    assert extract_static_build_requirements(load_source(literal_containers), literal_containers) == ()
 
     ambiguous_setup_sources = (
         b"from setuptools import setup\nsetup(**{'name': 'verifier-helper'})\n",
@@ -1814,6 +2074,14 @@ def test_static_legacy_setup_requires_extraction_is_fail_closed(tmp_path: Path) 
         b"import setuptools\nimport another_backend as setuptools\nsetuptools.setup(name='verifier-helper')\n",
         b"from setuptools import setup\nfrom another_backend import *\nsetup(name='verifier-helper')\n",
         b"from setuptools import setup\nsetup(name='one')\nsetup(name='two')\n",
+        b"from setuptools import setup, setup as hidden_setup\nsetup(name='one')\nhidden_setup(name='two', setup_requires=['hidden-backend'])\n",
+        b"from setuptools import setup\ngetattr(__import__('setuptools'), 'set' + 'up')(name='hidden', setup_requires=['hidden-backend'])\nsetup(name='one')\n",
+        b"from setuptools import setup\nglobals()['set' + 'up'](name='hidden', setup_requires=['hidden-backend'])\nsetup(name='one')\n",
+        b"from setuptools import setup\ndef wrapper(**kwargs):\n    return setup(**kwargs)\nwrapper(name='hidden')\n",
+        b"from setuptools import setup\nclass CustomDistribution: pass\nsetup(name='one')\n",
+        b"from setuptools import setup\nsetup(name='one', distclass='custom')\n",
+        b"from setuptools import setup\nsetup(name='one', version=get_version())\n",
+        b"from setuptools import setup\nif True:\n    setup(name='one')\n",
     )
     for setup_source in ambiguous_setup_sources:
         ambiguous = archive(
@@ -1822,6 +2090,192 @@ def test_static_legacy_setup_requires_extraction_is_fail_closed(tmp_path: Path) 
         )
         with pytest.raises(RuntimeError, match="setup"):
             extract_static_setup_requires(load_source(ambiguous), ambiguous)
+
+    for shadow_name in ("setuptools.py", "setuptools.pyc", "setuptools/__init__.py"):
+        shadowed = archive(
+            ("verifier_helper-1.0/PKG-INFO", metadata),
+            (
+                "verifier_helper-1.0/setup.py",
+                b"from setuptools import setup\nsetup(name='verifier-helper', version='1.0')\n",
+            ),
+            (f"verifier_helper-1.0/{shadow_name}", b"raise RuntimeError('shadow loaded')\n"),
+        )
+        with pytest.raises(RuntimeError, match="shadows the attested setuptools"):
+            extract_static_build_requirements(load_source(shadowed), shadowed)
+
+
+def test_wheel_semantic_digest_normalizes_timestamps_and_rejects_unsafe_members() -> None:
+    filename = "safe_project-1.0-py3-none-any.whl"
+    metadata_dir = "safe_project-1.0.dist-info"
+    base_members = (
+        (
+            f"{metadata_dir}/METADATA",
+            b"Metadata-Version: 2.1\nName: safe-project\nVersion: 1.0\n",
+        ),
+        (
+            f"{metadata_dir}/WHEEL",
+            b"Wheel-Version: 1.0\nRoot-Is-Purelib: true\nTag: py3-none-any\n",
+        ),
+        ("safe_project.py", b"VALUE = 1\n"),
+    )
+
+    def wheel(
+        timestamp: tuple[int, int, int, int, int, int],
+        *,
+        members: tuple[tuple[str, bytes], ...] = base_members,
+        mode: int = 0o600,
+        extra: bytes = b"",
+        compression: int = ZIP_STORED,
+        member_comment: bytes = b"",
+        archive_comment: bytes = b"",
+    ) -> bytes:
+        output = io.BytesIO()
+        with ZipFile(output, mode="w") as archive:
+            for name, payload in members:
+                info = ZipInfo(name, timestamp)
+                info.external_attr = mode << 16
+                info.extra = extra
+                info.compress_type = compression
+                info.comment = member_comment
+                archive.writestr(info, payload)
+            archive.comment = archive_comment
+        return output.getvalue()
+
+    def raw_layout(payload: bytes) -> tuple[int, int, list[tuple[int, int, int]]]:
+        end_offset = payload.rfind(b"PK\x05\x06")
+        end = struct.unpack_from("<4s4H2LH", payload, end_offset)
+        count = end[4]
+        central_offset = end[6]
+        cursor = central_offset
+        entries = []
+        for _ in range(count):
+            central = struct.unpack_from("<4s6H3L5H2L", payload, cursor)
+            entries.append((cursor, central[16], central[10]))
+            cursor += 46 + central[10] + central[11] + central[12]
+        return end_offset, central_offset, entries
+
+    first = wheel((2020, 1, 1, 0, 0, 0))
+    delayed = wheel((2024, 4, 4, 4, 4, 4))
+    assert first != delayed
+    assert wheel_semantic_sha256(filename, first) == wheel_semantic_sha256(filename, delayed)
+    _, _, first_entries = raw_layout(first)
+    _, _, delayed_entries = raw_layout(delayed)
+    first_central, first_local, _ = first_entries[0]
+    delayed_central, delayed_local, _ = delayed_entries[0]
+    local_timestamp_only = bytearray(first)
+    local_timestamp_only[first_local + 10 : first_local + 14] = delayed[delayed_local + 10 : delayed_local + 14]
+    assert wheel_semantic_sha256(filename, first) == wheel_semantic_sha256(filename, bytes(local_timestamp_only))
+    central_timestamp_only = bytearray(first)
+    central_timestamp_only[first_central + 12 : first_central + 16] = delayed[
+        delayed_central + 12 : delayed_central + 16
+    ]
+    assert wheel_semantic_sha256(filename, first) == wheel_semantic_sha256(filename, bytes(central_timestamp_only))
+    assert wheel_semantic_sha256(filename, first) != wheel_semantic_sha256(
+        filename,
+        wheel((2020, 1, 1, 0, 0, 0), compression=ZIP_DEFLATED),
+    )
+    assert wheel_semantic_sha256(filename, first) != wheel_semantic_sha256(
+        filename,
+        wheel((2020, 1, 1, 0, 0, 0), members=tuple(reversed(base_members))),
+    )
+
+    changed = wheel(
+        (2024, 4, 4, 4, 4, 4),
+        members=(*base_members[:-1], ("safe_project.py", b"VALUE = 2\n")),
+    )
+    assert wheel_semantic_sha256(filename, first) != wheel_semantic_sha256(filename, changed)
+    assert wheel_semantic_sha256(filename, first) != wheel_semantic_sha256(
+        filename, wheel((2020, 1, 1, 0, 0, 0), mode=0o644)
+    )
+
+    duplicate_members = (*base_members, ("safe_project.py", b"VALUE = 1\n"))
+    with pytest.warns(UserWarning, match="Duplicate name"):
+        duplicate = wheel((2020, 1, 1, 0, 0, 0), members=duplicate_members)
+    with pytest.raises(RuntimeError, match="duplicate archive members"):
+        inspect_wheel(filename, duplicate)
+
+    signed = wheel(
+        (2020, 1, 1, 0, 0, 0),
+        members=(*base_members, (f"{metadata_dir}/RECORD.jws", b"signature")),
+    )
+    with pytest.raises(RuntimeError, match="forbidden RECORD signature"):
+        inspect_wheel(filename, signed)
+
+    non_regular = wheel((2020, 1, 1, 0, 0, 0), mode=stat.S_IFIFO | 0o600)
+    with pytest.raises(RuntimeError, match="unsafe archive member"):
+        inspect_wheel(filename, non_regular)
+    unreadable_regular = wheel((2020, 1, 1, 0, 0, 0), mode=stat.S_IFREG)
+    with pytest.raises(RuntimeError, match="unsafe archive member"):
+        inspect_wheel(filename, unreadable_regular)
+    world_writable = wheel((2020, 1, 1, 0, 0, 0), mode=stat.S_IFREG | 0o666)
+    with pytest.raises(RuntimeError, match="unsafe archive member"):
+        inspect_wheel(filename, world_writable)
+
+    with_extra = wheel((2020, 1, 1, 0, 0, 0), extra=b"UT\x01\x00\x00")
+    with pytest.raises(RuntimeError, match="central directory entry"):
+        inspect_wheel(filename, with_extra)
+
+    member_commented = wheel((2020, 1, 1, 0, 0, 0), member_comment=b"comment")
+    with pytest.raises(RuntimeError, match="central directory entry"):
+        inspect_wheel(filename, member_commented)
+    archive_commented = wheel((2020, 1, 1, 0, 0, 0), archive_comment=b"comment")
+    with pytest.raises(RuntimeError, match="ZIP envelope"):
+        inspect_wheel(filename, archive_commented)
+
+    ambiguous_path = wheel(
+        (2020, 1, 1, 0, 0, 0),
+        members=(*base_members, ("package/./hidden.py", b"VALUE = 1\n")),
+    )
+    with pytest.raises(RuntimeError, match="ambiguous archive member path"):
+        inspect_wheel(filename, ambiguous_path)
+
+    local_extra = bytearray(first)
+    end_offset, central_offset, entries = raw_layout(first)
+    _, last_local_offset, last_name_size = max(entries, key=lambda item: item[1])
+    inserted_extra = b"UT\x01\x00\x00"
+    insert_at = last_local_offset + 30 + last_name_size
+    struct.pack_into("<H", local_extra, last_local_offset + 28, len(inserted_extra))
+    local_extra[insert_at:insert_at] = inserted_extra
+    struct.pack_into("<L", local_extra, end_offset + len(inserted_extra) + 16, central_offset + len(inserted_extra))
+    with pytest.raises(RuntimeError, match="local and central records"):
+        inspect_wheel(filename, bytes(local_extra))
+
+    raw_nul = bytearray(first)
+    _, _, entries = raw_layout(first)
+    central_member, local_member, _ = entries[-1]
+    raw_nul[central_member + 46] = 0
+    raw_nul[local_member + 30] = 0
+    with pytest.raises(RuntimeError, match="unsafe raw archive member name"):
+        inspect_wheel(filename, bytes(raw_nul))
+
+    mismatched_name = bytearray(first)
+    _, _, entries = raw_layout(first)
+    _, local_member, _ = entries[-1]
+    mismatched_name[local_member + 30] = ord("x")
+    with pytest.raises(RuntimeError, match="local and central records"):
+        inspect_wheel(filename, bytes(mismatched_name))
+
+    unsupported_flags = bytearray(first)
+    _, _, entries = raw_layout(first)
+    central_member, local_member, _ = entries[-1]
+    struct.pack_into("<H", unsupported_flags, central_member + 8, 1)
+    struct.pack_into("<H", unsupported_flags, local_member + 6, 1)
+    with pytest.raises(RuntimeError, match="unsupported ZIP member features"):
+        inspect_wheel(filename, bytes(unsupported_flags))
+
+    unterminated_deflate = bytearray(wheel((2020, 1, 1, 0, 0, 0), compression=ZIP_DEFLATED))
+    _, _, entries = raw_layout(unterminated_deflate)
+    _, local_member, name_size = entries[0]
+    unterminated_deflate[local_member + 30 + name_size] &= 0xFE
+    with pytest.raises(RuntimeError, match="deflated member payload"):
+        inspect_wheel(filename, bytes(unterminated_deflate))
+
+    orphan_gap = bytearray(first)
+    end_offset, central_offset, _ = raw_layout(first)
+    orphan_gap[central_offset:central_offset] = b"x"
+    struct.pack_into("<L", orphan_gap, end_offset + 1 + 16, central_offset + 1)
+    with pytest.raises(RuntimeError, match="exactly fill"):
+        inspect_wheel(filename, bytes(orphan_gap))
 
 
 def test_build_dependency_closure_is_exact_transitive_and_marker_conditioned() -> None:
@@ -1963,6 +2417,7 @@ def test_oracle_source_wheel_build_is_attested_and_resume_revalidates_bytes(
     assert manifest["entries"][0]["build_contract"]["build_isolation"] is True
     assert manifest["entries"][0]["build_contract"]["isolated_python"] is True
     assert manifest["entries"][0]["build_contract"]["build_network"] == "no-network"
+    assert manifest["entries"][0]["build_contract"]["child_process_path"] == "venv-bin-only"
     assert manifest["entries"][0]["sources"][0]["policy"]["sha256"] == sha256_bytes(source_payload)
     assert (
         manifest["entries"][0]["build_contract"]["build_dependency_install"]
@@ -1970,7 +2425,11 @@ def test_oracle_source_wheel_build_is_attested_and_resume_revalidates_bytes(
     )
     assert (
         manifest["entries"][0]["build_contract"]["source_build_python"]
-        == "venv-python-isolated-no-site-direct-static-setup"
+        == "venv-python-isolated-no-site-direct-static-setuptools"
+    )
+    assert (
+        manifest["entries"][0]["build_contract"]["source_declarations"]
+        == "static-setup-py-setup-cfg-pyproject-build-requirements"
     )
     assert manifest["entries"][0]["sources"][0]["build_environment"]["path"] == "/tmp/terminal-bench-source-build-env"
     assert manifest["entries"][0]["wheels"][0]["sha256"] == sha256_bytes(built_wheel)

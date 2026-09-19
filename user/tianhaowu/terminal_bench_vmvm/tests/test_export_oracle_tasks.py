@@ -161,6 +161,17 @@ def _source_wheel_fixture(oracle: Path, policy_path: Path) -> tuple[str, str]:
     )
     source_path = "/tmp/terminal-bench-source-inputs/verifier-helper-1.0.tar.gz"
     build_env_dir = "/tmp/terminal-bench-source-build-env"
+    bin_entries = [
+        {
+            "name": name,
+            "kind": "regular",
+            "mode": 0o755,
+            "size": 1,
+            "sha256": "8" * 64,
+            "claimed": False,
+        }
+        for name in ("python", "python3")
+    ]
     build_environment = source_build_environment_record(
         build_env_dir=build_env_dir,
         expected_build_tools=tuple(sorted(build_tools.items())),
@@ -186,6 +197,11 @@ def _source_wheel_fixture(oracle: Path, policy_path: Path) -> tuple[str, str]:
                 }
                 for wheel in sorted(build_dependencies, key=lambda item: item.distribution)
             ],
+            "bin_path": f"{build_env_dir}/bin",
+            "bin_mode": 0o755,
+            "bin_entries": bin_entries,
+            "bin_executables": ["python", "python3"],
+            "bin_sha256": _sha256(canonical_json(bin_entries)),
             "build_tools": build_tools,
         },
     )
@@ -208,11 +224,13 @@ def _source_wheel_fixture(oracle: Path, policy_path: Path) -> tuple[str, str]:
             "build_dependency_install": "no-system-site-venv-offline-exact-wheel-closure",
             "build_network": "no-network",
             "build_isolation": True,
+            "child_process_path": "venv-bin-only",
             "dependency_resolution": "public-binary-only-exact-transitive-policy-closure",
             "deterministic_environment": source_build_environment_variables(),
             "source_build_umask": f"{SOURCE_BUILD_UMASK:04o}",
             "isolated_python": True,
-            "source_build_python": "venv-python-isolated-no-site-direct-static-setup",
+            "source_build_python": "venv-python-isolated-no-site-direct-static-setuptools",
+            "source_declarations": "static-setup-py-setup-cfg-pyproject-build-requirements",
             "staged_inputs": "policy-artifacts-only",
             "target_install": "offline-no-index-no-deps",
         },
@@ -392,8 +410,10 @@ def _oracle(
             "build_dependency_resolution": "public-binary-only-exact-transitive-policy-closure",
             "build_network": "no-network",
             "build_isolation": True,
+            "child_process_path": "venv-bin-only",
             "deterministic_environment_sha256": _sha256(canonical_json(source_build_environment_variables())),
-            "source_build_python": "venv-python-isolated-no-site-direct-static-setup",
+            "source_build_python": "venv-python-isolated-no-site-direct-static-setuptools",
+            "source_declarations": "static-setup-py-setup-cfg-pyproject-build-requirements",
             "source_build_umask": f"{SOURCE_BUILD_UMASK:04o}",
             "system_site_packages": False,
             "target_install": "offline-no-index-no-deps",

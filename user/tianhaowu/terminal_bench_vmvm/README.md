@@ -205,20 +205,31 @@ artifacts, verifies them, then activates `no-network` before executing any
 source build. It creates a fresh no-system-site Python environment, installs
 the exact hash-pinned build-tool and full transitive build-dependency wheel
 closure offline with `--no-index --no-deps`, and attests every local
-distribution, location, and installed-file manifest. Supported legacy sources
-must have one statically provable top-level `setuptools.setup(...)` call with a
-literal `setup_requires`; `setup.cfg`, `pyproject.toml`, aliases, `**kwargs`,
-dynamic calls, and ambiguous declarations fail closed. The setup backend runs
-directly under the venv Python's real `-I -S` isolated/no-site mode after
-network isolation, rather than through a pip child that could lose the isolated
-flag. It manually adds only the attested venv-local site roots, so `.pth` and
-customization modules are never processed. The build binds fixed
-`SOURCE_DATE_EPOCH`, timezone, locale, `HOME`, `TMPDIR`, `PATH`, work directory,
-and umask controls compatible with isolated Python. It reattests the complete
-environment after the backend returns and rejects any mutation. It retains raw
-wheel byte equality as the final reproducibility gate, creates a deterministic
-archive, and proves an offline `--no-index --no-deps` install in a clean target
-VM with the same immutable image and runtime fingerprint. A process-wide
+distribution, location, and installed-file manifest. Supported sources must
+have one statically provable top-level, unaliased `setuptools.setup(...)` call.
+Literal `setup_requires` from either that call or deterministic `setup.cfg`
+`[options]` configuration, together with `build-system.requires` from a
+setuptools-backed `pyproject.toml`, is included in the same exact transitive
+closure. Only that `pyproject.toml` table is supported; project/tool tables,
+aliases,
+`**kwargs`, nonliteral values, assignments, helper calls/classes, control flow,
+decorators, `cmdclass`/`distclass`, duplicate declarations, in-tree or
+non-setuptools backends, and ambiguous configuration fail closed. The setup
+backend runs directly under the venv Python's real `-I -S` isolated/no-site
+mode after network isolation, rather than through a pip child that could lose
+the isolated flag. It manually adds only the attested venv-local site roots, so
+`.pth` and customization modules are never processed. The build binds fixed
+`SOURCE_DATE_EPOCH`, timezone, locale, `HOME`, `TMPDIR`, work directory, and
+umask controls. Its fixed `PATH` contains only the attested venv's `bin`
+directory, so backend children that invoke `python3` or a build-dependency
+console entry point cannot select an ambient executable or mask an undeclared
+tool with a base-image command. The attested setuptools backend and site roots
+precede the source root on `sys.path`, and a source-local `setuptools.py` or
+`setuptools/` tree fails closed. It
+reattests the complete environment after the backend returns and rejects any
+mutation. It creates a deterministic archive and proves an offline
+`--no-index --no-deps` install in a clean target VM with the same immutable
+image and runtime fingerprint. A process-wide
 semaphore limits this exceptional builder path to one VMVM lease while normal
 oracle concurrency continues.
 
@@ -245,13 +256,21 @@ HTTPS artifact is downloaded, hash-checked, and metadata-checked before that
 builder is isolated. Both builders then produce and validate the complete
 closure offline in separately created no-system-site environments. Each
 environment attests its exact build-tool and transitive dependency wheels,
-local distribution locations, import path, and installed-file manifests. The
-real setup backend runs under isolated/no-site Python with only those attested
-site roots and the fixed build environment, work directory, and umask, then
-must reproduce the pre-build environment attestation. Their independently
-built source wheels and canonical wheelhouses must be byte-identical; residual
-package nondeterminism is rejected, not normalized. The already-isolated clean
-target receives only the proven wheelhouse and performs an offline install and
+local distribution locations, import path, installed-file manifests, and full
+venv `bin` inventory. The real setup backend runs under isolated/no-site Python
+with only those attested site roots ahead of the source root and the fixed build
+environment, a venv-only child-process `PATH`, work directory, and umask, then
+must reproduce the pre-build environment
+attestation. Each wheel is validated byte-by-byte as an exact, comment-free ZIP
+envelope of unique normalized regular-file paths. Central and local headers,
+raw names, flags, offsets, and record extents must agree and exactly cover the
+archive; extra fields, orphan bytes, signature records, special modes, and
+ambiguous encodings or paths fail closed. Cross-builder equivalence uses a
+schema-bound copy of the complete raw ZIP with only the local and central DOS
+time/date fields zeroed. Member order, compression method and bytes, layout,
+headers, payload, and every other byte remain bound. Both builders retain their
+raw size/SHA-256 evidence, and the first builder's exact raw wheel remains the
+policy artifact installed in the already-isolated clean target for its offline
 closure check.
 
 The launcher defaults to two entries and six live VMVMs; three entries and nine
@@ -269,6 +288,14 @@ publishes the runnable `source_wheel_policy.json` last. A complete state without
 that validation receipt cannot resume into publication. Receipt-only,
 finalization-only, proof-only, and policy-only crash states are deterministic to
 recover.
+
+`run_identity.json` binds the source-build-environment and wheel-semantic-digest
+schema versions, the two normalized DOS timestamp fields, the all-other-bytes
+binding, and every forbidden ZIP feature. The candidate names semantic
+wheel equality, venv-only child execution, and static configuration parsing as
+required proofs before work starts. Any contract or schema change therefore
+changes the run identity and requires a fresh output directory; it cannot resume
+or finalize an older raw-byte proof.
 
 The launch approval also pins the canonical launcher bytes, exact `uv`, Python,
 and vacli executables, the complete Python stdlib/runtime manifest, the staged

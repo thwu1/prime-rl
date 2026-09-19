@@ -134,10 +134,12 @@ def _fixture(tmp_path: Path, *, source_wheel: bool = False) -> tuple[Path, list[
             "build_dependency_resolution": "public-binary-only-exact-transitive-policy-closure",
             "build_network": "no-network",
             "build_isolation": True,
+            "child_process_path": "venv-bin-only",
             "deterministic_environment_sha256": hashlib.sha256(
                 canonical_json(source_build_environment_variables())
             ).hexdigest(),
-            "source_build_python": "venv-python-isolated-no-site-direct-static-setup",
+            "source_build_python": "venv-python-isolated-no-site-direct-static-setuptools",
+            "source_declarations": "static-setup-py-setup-cfg-pyproject-build-requirements",
             "source_build_umask": f"{SOURCE_BUILD_UMASK:04o}",
             "system_site_packages": False,
             "target_install": "offline-no-index-no-deps",
