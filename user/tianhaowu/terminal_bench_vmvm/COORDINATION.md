@@ -1,6 +1,6 @@
 # VMVM sandbox coordination
 
-Last updated: 2026-09-19 10:00 UTC
+Last updated: 2026-09-19 10:11 UTC
 
 ## First message to the next teammate
 
@@ -41,6 +41,19 @@ this shared branch again.
 Add new rows below this line; do not overwrite another owner's row.
 
 ## Open coordination requests
+
+- **2026-09-19 10:11 UTC, aggregate Kimi smoke stage classified as active
+  model request:** job `1753515` is `RUNNING` at 1:18 elapsed with its batch
+  step alive, about 1.9 GiB resident, and setup complete. The private output
+  root has ten files and 16,742 bytes; immutable run identity and invocation
+  records exist, while durable rows remain zero and route-success/smoke
+  certificates are absent. Sanitized log classification shows setup, model,
+  lease, and tunnel phases were entered with zero traceback, error-level, or
+  completion markers. The proxy has 45 completed POST lines, zero HTTP 4xx/5xx,
+  and both proxy and active-worker logs are advancing through the latest poll.
+  This rules out allocation, initial setup, and result-write stages; the smoke
+  is waiting on an in-flight model request after VMVM setup. Do not cancel or
+  duplicate it while backend activity continues.
 
 - **2026-09-19 10:00 UTC, stop Kimi watcher relaunches and use manual smoke
   gate:** smoke `1753515` and the low-QoS serving deployment remain running.
