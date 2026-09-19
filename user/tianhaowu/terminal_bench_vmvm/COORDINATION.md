@@ -1,6 +1,6 @@
 # VMVM sandbox coordination
 
-Last updated: 2026-09-19 06:09 UTC
+Last updated: 2026-09-19 06:12 UTC
 
 ## First message to the next teammate
 
@@ -30,7 +30,7 @@ this shared branch again.
 
 | Owner | Cluster | Scope | Files | Live resources | State / next gate |
 |---|---|---|---|---|---|
-| Codex session for `tianhaowu` | `fair-cw-use2-3` | Kimi serving, full TB4 pass@1, and gated 2,500-task rollout | `user/tianhaowu/terminal_bench_vmvm/**`, `user/tianhaowu/deepswe_vmvm/{README.md,run_runtime_smoke.sbatch,smoke_runtime.py}`, `environments/vmvm_tb_v2/**`, `deps/verifiers` gitlink | deployment `tianhaowu-k3-kda-tb2-low-20260919`; coordinator `1752688`; spec `681b2d731123305c6b5d08512f31dfdf5c103cee6bc55e022caf8c409a7f3a98`; terminal old smoke `1751652` | A first replacement launch under the old deployment ID was stopped before GPU allocation because its spec retained the forbidden 7,200-second proxy timeout. Fresh coordinator `1752688` is queued from clean serving source `a724933` with two routes, the digest-pinned KDA image, typed 43,200/0 policy, sticky routing, seven-day worker limit, and 12-hour TimeMin. Require two registered routes, fresh exact-two readiness, and a fresh two-task smoke before any singleton or shard. Oracle remains 2,488/2,538 valid; source-wheel replacement work is separately held for review. Never inspect task prompts/bodies, task identifiers, raw errors, or model/tool/trace content. |
+| Codex session for `tianhaowu` | `fair-cw-use2-3` | Kimi serving, full TB4 pass@1, and gated 2,500-task rollout | `user/tianhaowu/terminal_bench_vmvm/**`, `user/tianhaowu/deepswe_vmvm/{README.md,run_runtime_smoke.sbatch,smoke_runtime.py}`, `environments/vmvm_tb_v2/**`, `deps/verifiers` gitlink | deployment `tianhaowu-k3-kda-tb2-low-20260919`; coordinator `1752688`; endpoints `1752709/1752711`; readiness `1752726`; held smoke `1752727`; final spec `745e5b6f2d884542fb7f29afbaef09935976f1edac1bec91e6c56b0aca975ea3` | The clean `a724933` deployment has two pending routes, digest-pinned KDA image, typed 43,200/0 policy, sticky routing, seven-day worker limit, and 12-hour TimeMin. A duplicate 7,200-second deployment was canceled before GPU allocation. Readiness `1752726` is queued from clean `587667f02` and smoke `1752727` is dependency-held; neither can authorize downstream work until the exact-two generation passes semantic/affinity/state-reuse checks and the fresh smoke certifies 2/2. Oracle remains 2,488/2,538 valid; source-wheel replacement work is separately held for review. Never inspect task prompts/bodies, task identifiers, raw errors, or model/tool/trace content. |
 | Codex session for `tianhaowu` | `fair-cw-use2-1` | Add a direct one-token KDA state-reuse probe; no serving or eval mutation | `user/tianhaowu/terminal_bench_vmvm/{probe_inference_routes.py,tests/test_probe_inference_routes.py,HANDOFF.md,COORDINATION.md}` | none | Extend the existing readiness probe with serial raw-completion predecessor/one-token-target cycles on every discovered sticky backend, without logprobs or response token IDs. Fail closed on unsupported routing, semantic corruption, or predecessor-dependent target output. |
 | Codex session for `tianhaowu` | `fair-cw-use2-1` | Qwen accepted TB4 gate and 2,500-task production rollout | Qwen direct-router configs, VMVM backend, repair/export controller, focused tests, runtime skill | accepted TB4 diagnostic `1435776`; cap-32 affinity producer `1454171` running; exact-head x86 smoke `1468446` completed; reviewed replacement chain `1468451` dependency-pending; obsolete chains `1457232` and `1465246` canceled; endpoint `shared_qwen38_2p4t`; PRs `thwu1/prime-rl#35`, `#36`, `#37`, `#38`, `#39`, and `#40`; verifier PR `thwu1/verifiers#2` | The user explicitly accepted the existing 7/66 TB4 result as the approximately 11% gate and directed us not to rerun it. The live producer retains 64 task sessions, 32 client/provider slots, two lease starts, fail-closed `consistent_hash` / `x-session-id`, and a 256K cap. Immutable prefix 1,000 has SHA-256 `7862f68057aecc9c2bdb22a15e5cbe21ec03aa10059a625e2fa1316e4c347117`: 583 pass, 381 scored fail, 36 ordinary error, zero invalid, for a 60.48% scored pass rate. Exact SFT trainability validation accepts 581/583 passing traces and quarantines two; the audit covers 41,220,772 sampled completion tokens and 19,358 captured model-I/O turns. At 08:01 UTC the producer remained healthy and RUNNING with 1,002 durable rows, recent throughput approximately 47 rows/hour, and approximately 32 hours remaining. Draft PR `#40` is independently approved at exact head `fe813c0f6`; frozen-source x86 smoke `1468446` passed 249/249, and replacement controller `1468451` is pending on `afterany:1454171`. Obsolete held controller `1465246` was canceled only after the replacement was verified dependency-held. Broad `HarnessError` retry and retry exclusions remain forbidden. Never inspect task IDs, prompts, responses, raw errors, or trace/model/tool bodies. |
 | Codex session for `tianhaowu` | `fair-cw-use2-1` | User-supplied shared Kimi-K3 endpoint qualification and full TB4 pass@1; gated 2,500-task rollout follows only after score reproduction | server-scoped `configs/eval/servers/cpu-132-021_8103/**`, VMVM backend, trace audit, `COORDINATION.md` | endpoint `shared-kimi-k3`; route gate `1448380`; preserved canceled diagnostic TB4 `1448629`; preserved canceled smokes `1448432` and `1448606`; draft `thwu1/prime-rl#34`; proxy fix `fairinternal/ram_common#288` | The endpoint currently reports 23 healthy / 1 unhealthy routes, while correct model discovery and consistent sticky metadata with TTL 14,400 remain present. The proxy still serves a 600-second timeout with two retries and the live spec declares neither field, so this endpoint remains non-launchable. The old diagnostic full was canceled and preserved; do not count or resume it. Draft PR `#34` head `22b4172f1` is rebased on current shared core, preserves the separate `cpu-132-021_8103` folder and hardened gate pin, composes schema-v2 bridge validation with exact 24-request/2-lease evidence, and passes 328 affected plus 625 full tests. It requires exact 7,200/0 and 24/0, rejects resume, and makes both full and shard certification prove type-safe 24 rollout/multiplex/HTTP concurrency, observed peak 24, and lease-start concurrency 2; shared 4/2 remains compatible. PR `ram_common#288` is green/mergeable but still lacks the required human approval and deployment. Await a reviewed combined live revision, fresh 24/0 policy/sticky qualification, then launch a fresh TB4. Never inspect task prompts/bodies or raw trace/model/tool content. |
@@ -41,6 +41,23 @@ this shared branch again.
 Add new rows below this line; do not overwrite another owner's row.
 
 ## Open coordination requests
+
+- **2026-09-19 06:12 UTC, fresh Kimi gates armed:** corrected coordinator
+  `1752688` is running; endpoint jobs `1752709/1752711` are pending with the
+  final checkpoint-resolved spec SHA-256
+  `745e5b6f2d884542fb7f29afbaef09935976f1edac1bec91e6c56b0aca975ea3`.
+  Readiness job `1752726` waits for exactly two routes and owns semantic,
+  sticky-affinity, and state-reuse checks. Two-task transcript smoke `1752727`
+  is held on `afterok:1752726` from clean source `587667f02`; its output root is
+  fresh. Do not launch a duplicate gate, smoke, singleton, or TB4 shard.
+
+- **2026-09-19 06:12 UTC, source-wheel worktree review note:** the active
+  uncommitted eight-entry source-wheel worktree changes the launcher/proof
+  invariant to exactly eight entries, but its README command still exports
+  `SOURCE_WHEEL_PROOF_EXPECTED_ENTRY_COUNT=9`. Correct and test that mismatch
+  before freezing or reviewing the candidate. The branch is also a sibling of
+  the current production lineage, so integrate and re-review it before using
+  any proof to authorize a fresh canary/full oracle.
 
 - **2026-09-19 06:09 UTC, corrected fresh deployment submitted:** an
   overlapping launcher created coordinator `1752683` under the old deployment
