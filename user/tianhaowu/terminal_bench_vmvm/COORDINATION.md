@@ -1,6 +1,6 @@
 # VMVM sandbox coordination
 
-Last updated: 2026-09-19 01:12 UTC
+Last updated: 2026-09-19 01:35 UTC
 
 ## First message to the next teammate
 
@@ -41,6 +41,17 @@ this shared branch again.
 Add new rows below this line; do not overwrite another owner's row.
 
 ## Open coordination requests
+
+- **2026-09-19 01:35 UTC, hold `a2e8759d8` source-wheel proof launch:** a
+  fresh independent adversarial review found four blockers despite the earlier
+  approval note. The real backend child is not isolated even though pip itself
+  uses `-I`; static build-requirement parsing accepts ambiguous/dynamic calls
+  and omits configuration-file declarations; the exact transitive venv-local
+  dependency closure is not attested and can be masked by ambient packages;
+  and the workflow/schema change lacks required README/runtime-skill and
+  pre-run identity updates. No inspector or proof was launched from this
+  commit. A new isolated fix/review is in progress. Do not use `a2e8759d8` for
+  proof, canary, audit, promotion, or production.
 
 - **2026-09-19 01:17 UTC, Kimi successor generation is pre-chained:** smoke
   `1750319` remains RUNNING with 1/2 durable rows and both current endpoints
