@@ -287,7 +287,9 @@ rerun with a fresh private output directory. That mode must aggregate only
 candidate-local `setup.py`, `setup.cfg`, `pyproject.toml`, and raw source-wheel
 rejections; dependency integrity, runtime, environment, cleanup, and unknown
 errors still abort. It must cover all nine entries and exactly 27 clean starts,
-print only stable-code counts, and publish no proof or policy. Treat its zero
+validate the exact canonical identity, candidate, state, lock, and journal bytes
+as single-link private artifacts, print only stable-code counts, and publish no proof or policy.
+Treat its zero
 exit as diagnostic completion rather than proof success. Diagnostic state and
 the private journal may retain hashed identities for audit, but both success
 and failure stdout must contain only status, a stable error code when relevant,

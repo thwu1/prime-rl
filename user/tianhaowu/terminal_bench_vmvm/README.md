@@ -299,8 +299,9 @@ only fail-closed, candidate-local `setup.py`, `setup.cfg`, `pyproject.toml`, and
 raw source-wheel ZIP rejections. Public dependency integrity, runtime,
 environment, cleanup, and unknown validation failures still abort immediately.
 A completed diagnostic verifies all nine outcomes against exactly 27 clean
-runtime starts and its private attempt journal, then prints only counts grouped
-by stable error code. Exit status zero means that this non-certifying diagnostic
+runtime starts and the exact canonical bytes and single-link status of its
+private identity, candidate, state, lock, and attempt journal, then prints only
+counts grouped by stable error code. Exit status zero means that this non-certifying diagnostic
 completed, even when rejection counts are nonzero; it does not mean the proof
 passed. Successful and failed diagnostic stdout contains only status, a stable
 error code where applicable, and nonidentifying integer counts—never a state

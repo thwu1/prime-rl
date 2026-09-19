@@ -21,6 +21,42 @@ BOOTSTRAP_ATTESTATION_ENV = "SOURCE_WHEEL_PROOF_BOOTSTRAP_ATTESTATION_SHA256"
 SHA256_RE = re.compile(r"[0-9a-f]{64}")
 REVISION_RE = re.compile(r"[0-9a-f]{40}")
 CLEAN_TREE_SHA256 = hashlib.sha256(b"").hexdigest()
+DIAGNOSTIC_FAILURE_COUNT_NAMES = (
+    "entries_checked",
+    "candidate_failures",
+    "successful_entries",
+    "runtime_starts",
+    "peak_live_runtimes",
+    "peak_concurrent_entries",
+)
+BOOTSTRAP_PUBLIC_ERROR_CODES = frozenset(
+    {
+        "binding_inspection_invalid",
+        "binding_invalid",
+        "execution_binding_invalid",
+        "execution_environment_not_sanitized",
+        "execution_tool_invalid",
+        "execution_tool_sha256_mismatch",
+        "proof_main_script_invalid",
+        "python_bootstrap_attestation_mismatch",
+        "python_bootstrap_flags_invalid",
+        "python_bootstrap_site_loaded",
+        "python_import_closure_invalid",
+        "python_runtime_invalid",
+        "python_runtime_manifest_mismatch",
+        "runtime_manifest_changed",
+        "runtime_manifest_invalid",
+        "site_packages_manifest_mismatch",
+        "source_base_invalid",
+        "source_checkout_invalid",
+        "source_checkout_mismatch",
+        "source_checkout_not_clean",
+        "source_dependency_invalid",
+        "unexpected_failure",
+        "vmvm_runtime_source_invalid",
+        "vmvm_runtime_source_mismatch",
+    }
+)
 
 
 class BindingError(RuntimeError):
@@ -37,6 +73,15 @@ def canonical_json(value: object) -> bytes:
 
 def sha256_bytes(payload: bytes) -> str:
     return hashlib.sha256(payload).hexdigest()
+
+
+def _diagnostic_failure(code: object) -> dict[str, object]:
+    public_code = code if isinstance(code, str) and code in BOOTSTRAP_PUBLIC_ERROR_CODES else "unexpected_failure"
+    return {
+        "status": "failed",
+        "error_code": public_code,
+        "counts": {name: 0 for name in DIAGNOSTIC_FAILURE_COUNT_NAMES},
+    }
 
 
 def stable_file_digest(path: Path, code: str, *, executable: bool = False) -> tuple[int, int, str]:
@@ -720,6 +765,7 @@ def _parse_args() -> argparse.Namespace:
 
 
 def main() -> int:
+    diagnostic_only = "--candidate-diagnostics-only" in sys.argv[1:]
     try:
         args = _parse_args()
         if args.command == "inspect":
@@ -750,12 +796,16 @@ def main() -> int:
             return 1
         return 0
     except BindingError as error:
-        print(json.dumps({"status": "failed", "error_code": error.code}, sort_keys=True), flush=True)
+        summary = _diagnostic_failure(error.code) if diagnostic_only else {"status": "failed", "error_code": error.code}
+        print(json.dumps(summary, sort_keys=True), flush=True)
         return 1
     except BaseException:
-        print(
-            json.dumps({"status": "failed", "error_code": "bootstrap_unexpected_failure"}, sort_keys=True), flush=True
+        summary = (
+            _diagnostic_failure("unexpected_failure")
+            if diagnostic_only
+            else {"status": "failed", "error_code": "bootstrap_unexpected_failure"}
         )
+        print(json.dumps(summary, sort_keys=True), flush=True)
         return 1
 
 

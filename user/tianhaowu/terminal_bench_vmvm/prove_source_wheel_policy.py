@@ -15,6 +15,8 @@ from pathlib import Path
 from types import ModuleType
 
 MAX_CONCURRENT_ENTRIES = 3
+REQUIRED_DISCOVERY_ENTRIES = 9
+RUNTIMES_PER_ENTRY = 3
 SHA256_RE = re.compile(r"[0-9a-f]{64}")
 DIAGNOSTIC_FAILURE_COUNT_NAMES = (
     "entries_checked",
@@ -123,18 +125,60 @@ async def _run(config: object, proof_module: ModuleType) -> dict[str, object]:
             loop.remove_signal_handler(caught)
 
 
-def diagnostic_public_summary(result: dict[str, object]) -> dict[str, object]:
+def diagnostic_public_summary(
+    result: object,
+    candidate_error_codes: object | None = None,
+) -> dict[str, object]:
+    if not isinstance(result, dict) or result.get("diagnostic_only") is not True:
+        raise ValueError("invalid diagnostic result")
+    if candidate_error_codes is None:
+        from terminal_bench_vmvm.source_wheels import SOURCE_WHEEL_CANDIDATE_ERROR_CODES
+
+        candidate_error_codes = SOURCE_WHEEL_CANDIDATE_ERROR_CODES
+    if not isinstance(candidate_error_codes, frozenset) or not all(
+        isinstance(code, str) for code in candidate_error_codes
+    ):
+        raise ValueError("invalid diagnostic error-code allowlist")
+    count_names = {
+        "entries_checked",
+        "candidate_failures",
+        "successful_entries",
+        "runtime_starts",
+        "peak_live_runtimes",
+        "peak_concurrent_entries",
+    }
+    counts = {name: result.get(name) for name in count_names}
+    if any(type(value) is not int or value < 0 for value in counts.values()):
+        raise ValueError("invalid diagnostic counts")
+    entries_checked = counts["entries_checked"]
+    candidate_failures = counts["candidate_failures"]
+    successful_entries = counts["successful_entries"]
+    runtime_starts = counts["runtime_starts"]
+    peak_live_runtimes = counts["peak_live_runtimes"]
+    peak_concurrent_entries = counts["peak_concurrent_entries"]
+    if (
+        entries_checked != REQUIRED_DISCOVERY_ENTRIES
+        or candidate_failures + successful_entries != entries_checked
+        or runtime_starts != entries_checked * RUNTIMES_PER_ENTRY
+        or not 1 <= peak_concurrent_entries <= MAX_CONCURRENT_ENTRIES
+        or not 1 <= peak_live_runtimes <= peak_concurrent_entries * RUNTIMES_PER_ENTRY
+        or peak_live_runtimes > runtime_starts
+    ):
+        raise ValueError("infeasible diagnostic counts")
+    failure_counts = result.get("failure_counts")
+    if (
+        not isinstance(failure_counts, dict)
+        or any(
+            not isinstance(code, str) or code not in candidate_error_codes or type(count) is not int or count < 1
+            for code, count in failure_counts.items()
+        )
+        or sum(failure_counts.values()) != candidate_failures
+    ):
+        raise ValueError("invalid diagnostic failure counts")
     return {
         "status": "diagnostic_complete",
-        "counts": {
-            "entries_checked": result["entries_checked"],
-            "candidate_failures": result["candidate_failures"],
-            "successful_entries": result["successful_entries"],
-            "runtime_starts": result["runtime_starts"],
-            "peak_live_runtimes": result["peak_live_runtimes"],
-            "peak_concurrent_entries": result["peak_concurrent_entries"],
-        },
-        "failure_counts": result["failure_counts"],
+        "counts": counts,
+        "failure_counts": dict(sorted(failure_counts.items())),
     }
 
 
@@ -153,6 +197,18 @@ def print_failure_public_summary(args: argparse.Namespace, proof_module: ModuleT
     except BaseException:
         payload = json.dumps(empty_diagnostic_failure("unexpected_failure"), sort_keys=True)
     print(payload, flush=True)
+
+
+def print_diagnostic_public_summary(result: object, proof_module: ModuleType) -> bool:
+    try:
+        summary = diagnostic_public_summary(result, proof_module.SOURCE_WHEEL_CANDIDATE_ERROR_CODES)
+        payload = json.dumps(summary, sort_keys=True)
+    except BaseException:
+        payload = json.dumps(empty_diagnostic_failure("unexpected_failure"), sort_keys=True)
+        print(payload, flush=True)
+        return False
+    print(payload, flush=True)
+    return True
 
 
 def main() -> int:
@@ -217,9 +273,8 @@ def main() -> int:
     except BaseException:
         print_failure_public_summary(args, proof_module, "unexpected_failure")
         return 1
-    if result.get("diagnostic_only") is True:
-        print(json.dumps(diagnostic_public_summary(result), sort_keys=True), flush=True)
-        return 0
+    if args.candidate_diagnostics_only:
+        return 0 if print_diagnostic_public_summary(result, proof_module) else 1
     print(
         json.dumps(
             {
