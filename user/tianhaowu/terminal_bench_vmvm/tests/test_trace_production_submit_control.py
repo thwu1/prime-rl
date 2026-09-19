@@ -950,6 +950,89 @@ def test_submit_rejects_reservation_replacement_before_release(
     }
 
 
+def test_submit_rejects_reservation_replacement_after_release(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    authorization = _authorization(tmp_path)
+    wrapper = b"#!/usr/bin/bash\nexit 0\n"
+    wrapper_sha = hashlib.sha256(wrapper).hexdigest()
+    authorization["source"]["artifacts"]["production_audit_wrapper"]["sha256"] = (
+        wrapper_sha
+    )
+    (tmp_path / "run").mkdir()
+    wrapper_path = (
+        tmp_path
+        / "source/user/tianhaowu/terminal_bench_vmvm/run_trace_production_audit.sbatch"
+    )
+    wrapper_path.parent.mkdir(parents=True)
+    wrapper_path.write_bytes(wrapper)
+    wrapper_path.chmod(0o644)
+    monkeypatch.setattr(submit, "load_authorization", lambda *_args: authorization)
+    monkeypatch.setattr(submit, "validate_python", lambda *_args: None)
+    monkeypatch.setattr(submit, "validate_source", lambda *_args: {"source": "a" * 64})
+    monkeypatch.setattr(submit, "stable_bytes", lambda *_args, **_kwargs: wrapper)
+    monkeypatch.setattr(submit, "scheduler_name_matches", lambda *_args: [])
+    monkeypatch.setattr(
+        submit,
+        "resolve_submission",
+        lambda *_args, **_kwargs: ("123", True, {"polls": 1, "zero_rounds": 0}),
+    )
+    monkeypatch.setattr(
+        submit, "_precontrol_identity", lambda *_args, **_kwargs: ("exact", ())
+    )
+    phases = iter(
+        [
+            _phase(state="PENDING", timeout=submit.HELD_TIMEOUT_SECONDS),
+            _phase(state="PENDING", timeout=submit.QUERY_TIMEOUT_SECONDS * 2),
+            _phase(state="PENDING", timeout=submit.QUERY_TIMEOUT_SECONDS * 2),
+            _phase(state="RUNNING", timeout=submit.ACTIVATION_TIMEOUT_SECONDS),
+        ]
+    )
+    monkeypatch.setattr(submit, "poll_phase", lambda *_args, **_kwargs: next(phases))
+    cancelled: list[str] = []
+
+    def cancel(*_args: object, **_kwargs: object) -> dict[str, object]:
+        cancelled.append("123")
+        return {"confirmed": True}
+
+    monkeypatch.setattr(submit, "cancel_and_prove", cancel)
+    reservation = tmp_path / "reservation"
+    displaced = tmp_path / "displaced"
+    release_calls: list[tuple[str, ...]] = []
+
+    def runner(argv, _timeout):
+        release_calls.append(tuple(argv))
+        reservation.rename(displaced)
+        reservation.mkdir(mode=0o700)
+        return submit.CommandResult(0, b"", b"")
+
+    with pytest.raises(submit.LifecycleError, match="^reservation_changed$"):
+        submit.submit(
+            tmp_path / "authorization.json",
+            "b" * 64,
+            wrapper,
+            wrapper_sha,
+            Path("/usr/bin/python3.12"),
+            "c" * 64,
+            ["batch-arg"],
+            "/synthetic/cert",
+            "/synthetic/key",
+            runner=runner,
+            sbatch_invoker=lambda *_args: ("completed", 0, b"123;test-cluster\n"),
+        )
+
+    assert cancelled == ["123"]
+    assert release_calls == [
+        ("/usr/bin/scontrol", "-M", "test-cluster", "release", "123")
+    ]
+    assert list(reservation.iterdir()) == []
+    assert {path.name for path in displaced.iterdir()} == {
+        "held_authorization.json",
+        "launch_intent.json",
+    }
+
+
 def test_interrupted_sbatch_reconciles_no_job_before_sealed_failure(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
