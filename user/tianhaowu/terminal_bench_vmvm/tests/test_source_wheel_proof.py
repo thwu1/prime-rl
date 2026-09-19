@@ -459,7 +459,7 @@ def test_probe_input_reducer_is_networkless_private_and_idempotent(
     second_payload = (second_output / REDUCED_INPUT_FILENAME).read_bytes()
     assert first_payload == second_payload == canonical_json(first_document) + b"\n"
     assert first_receipt == second_receipt
-    assert first_receipt["schema_version"] == 2
+    assert first_receipt["schema_version"] == 3
     assert (first_output / REDUCTION_RECEIPT_FILENAME).read_bytes() == canonical_json(first_receipt) + b"\n"
     assert stat.S_IMODE(first_output.stat().st_mode) == 0o700
     assert stat.S_IMODE((first_output / REDUCED_INPUT_FILENAME).stat().st_mode) == 0o600
@@ -1113,7 +1113,7 @@ def test_six_entry_discovery_emits_policy_with_exactly_eighteen_starts(
     assert candidate["runnable"] is False
     assert candidate["required_runtime_starts"] == 18
     assert "byte_identical_raw_wheel_sets_and_packed_wheelhouses" in candidate["required_proofs"]
-    assert identity["schema_version"] == 10
+    assert identity["schema_version"] == 11
     assert "schema_bound_semantically_identical_wheels" in candidate["required_proofs"]
     assert identity["contract_schemas"]["source_build_environment"] == SOURCE_BUILD_ENVIRONMENT_SCHEMA_VERSION
     assert identity["contract_schemas"]["wheel_semantic_digest"] == WHEEL_SEMANTIC_DIGEST_SCHEMA_VERSION
