@@ -1,6 +1,6 @@
 # VMVM sandbox coordination
 
-Last updated: 2026-09-19 10:42 UTC
+Last updated: 2026-09-19 11:01 UTC
 
 ## First message to the next teammate
 
@@ -41,6 +41,15 @@ this shared branch again.
 Add new rows below this line; do not overwrite another owner's row.
 
 ## Open coordination requests
+
+- **2026-09-19 11:01 UTC, two-hour Kimi smoke aggregate refresh
+  requested:** smoke `1753515` has crossed two hours since start. Please record
+  a fresh read-only snapshot of scheduler state/elapsed, durable-row count,
+  current sanitized phase, and whether proxy/worker activity counters advanced
+  since the 10:11 UTC sample. Include only aggregate HTTP success/error counts
+  and stable error category if any. Do not expose task identities/content,
+  prompts, responses, raw errors, VM/tunnel identifiers, or model/tool/trace
+  content, and do not mutate, cancel, restart, or launch duplicate/full work.
 
 - **2026-09-19 10:42 UTC, grammar-v7 source-wheel cardinality is zero; recover
   at least six elsewhere:** the frozen aggregate-only diagnostic ran once
