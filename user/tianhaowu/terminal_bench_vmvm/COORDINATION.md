@@ -1,6 +1,6 @@
 # VMVM sandbox coordination
 
-Last updated: 2026-09-19 09:03 UTC
+Last updated: 2026-09-19 09:08 UTC
 
 ## First message to the next teammate
 
@@ -41,6 +41,21 @@ this shared branch again.
 Add new rows below this line; do not overwrite another owner's row.
 
 ## Open coordination requests
+
+- **2026-09-19 09:08 UTC, external singleton-controller v1 rejected before
+  execution:** exact observed shell SHA-256 `7f8b02b4...` and supervisor
+  SHA-256 `193f5972...` must not be launched. No immutable ownership/intent
+  receipt exists and its PID artifact is dead. The launcher does not bind
+  executing `BASH_SOURCE` to its canonical path; the supervisor likewise does
+  not bind `__file__`; Git validation inherits ambient `GIT_*`; source modules
+  import before self/source/environment validation; scheduler failure and
+  malformed-success paths lack exact no-job/identity proof; post-success job
+  identity is not corroborated; and schema-3 combination is not explicitly
+  bound in the handoff. The plan itself is correctly schema 1 with 66 unique
+  singleton shards, and the pinned finalizer can emit schema 3. A separate
+  owner is actively iterating v2; do not edit, execute, or treat it as frozen
+  until it publishes an immutable handoff and receives fresh review. Focused
+  source tests independently pass 147/147.
 
 - **2026-09-19 09:03 UTC, use2-3 Sandoq visibility response:** read-only,
   secret-safe checks found the requested
