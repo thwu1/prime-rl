@@ -1,6 +1,6 @@
 # VMVM sandbox coordination
 
-Last updated: 2026-09-19 08:50 UTC
+Last updated: 2026-09-19 08:53 UTC
 
 ## First message to the next teammate
 
@@ -30,7 +30,7 @@ this shared branch again.
 
 | Owner | Cluster | Scope | Files | Live resources | State / next gate |
 |---|---|---|---|---|---|
-| Codex session for `tianhaowu` | `fair-cw-use2-3` | Kimi serving, full TB4 pass@1, and gated 2,500-task rollout | `user/tianhaowu/terminal_bench_vmvm/**`, `user/tianhaowu/deepswe_vmvm/{README.md,run_runtime_smoke.sbatch,smoke_runtime.py}`, `environments/vmvm_tb_v2/**`, `deps/verifiers` gitlink | deployment `tianhaowu-k3-kda-tb2-low-20260919`; coordinator `1752688`; ready endpoints `1752711/1753198`; proxy `1753275`; passed readiness `1753277`; failed readiness `1753216/1753258`; failed smoke `1752864`; final spec `745e5b6f2d884542fb7f29afbaef09935976f1edac1bec91e6c56b0aca975ea3` | Cold proxy recovery preserved both healthy GPU endpoints. Fresh readiness `1753277` completed 0:0 with six stable polls, exact 2/2 coverage, 22/22 semantic/affinity/state-reuse requests, and zero failures; checkpoint SHA-256 is `15732de3be65f0663ead526bbeb12698c8f605fab5e675d4b0d12f0106c6447c`. A new smoke-only watcher is being audited. Bounded proxy-reload fix `7bfa58d5...` is isolated for independent review and is not deployed. Safe-six commit `c60aaecd...` is integrated by merge `1effc7220`; the private reduction passed at 6 entries, and same-host x86 inspection `1753320` completed 0:0 on `cpu-142-057`. The 18-start proof is not yet submitted; oracle remains 2,488/2,538. Never inspect task prompts/bodies, task identifiers, raw errors, or model/tool/trace content. |
+| Codex session for `tianhaowu` | `fair-cw-use2-3` | Kimi serving, full TB4 pass@1, and gated 2,500-task rollout | `user/tianhaowu/terminal_bench_vmvm/**`, `user/tianhaowu/deepswe_vmvm/{README.md,run_runtime_smoke.sbatch,smoke_runtime.py}`, `environments/vmvm_tb_v2/**`, `deps/verifiers` gitlink | low deployment `tianhaowu-k3-kda-tb2-low-20260919`; coordinator `1752688`; workers `1752711/1753198`; proxy `1753275`; passed readiness `1753277`; smoke `1753515`; final spec `745e5b6f2d884542fb7f29afbaef09935976f1edac1bec91e6c56b0aca975ea3` | The low-QoS coordinator, both workers, and proxy are running. Readiness `1753277` passed exact 2/2 route coverage and all 22/22 semantic/affinity/state-reuse requests. Post-readiness launcher v2 aborted without submission only because `scontrol` had purged the completed readiness after `MinJobAge=600`; v3 rejected the now-stale `afterok` dependency before submission. Independently approved v4, SHA-256 `7cfdf7c...`, removes that dependency only after exact `sacct` completion proof. It submitted smoke `1753515` at 08:51:39 UTC through the canonical pane into a fresh v4 namespace; the job was `PENDING (Priority)` at launch, with intent SHA-256 `0b845f...` and receipt SHA-256 `2294eb...`. No full TB4 has launched. The normal-QoS attempt, coordinator `1753298` plus four worker attempts, failed before publication and is terminal; there is no live normal deployment. Bounded proxy-reload fix `7bfa58d5...` remains isolated and undeployed. Safe-six commit `c60aaecd...` is integrated by merge `1effc7220`; the private reduction passed at 6 entries, and same-host x86 inspection `1753320` completed 0:0 on `cpu-142-057`. The 18-start proof is not yet submitted; oracle remains 2,488/2,538. Never inspect task prompts/bodies, task identifiers, raw errors, or model/tool/trace content. |
 | Codex session for `tianhaowu` | `fair-cw-use2-1` | Add a direct one-token KDA state-reuse probe; no serving or eval mutation | `user/tianhaowu/terminal_bench_vmvm/{probe_inference_routes.py,tests/test_probe_inference_routes.py,HANDOFF.md,COORDINATION.md}` | none | Extend the existing readiness probe with serial raw-completion predecessor/one-token-target cycles on every discovered sticky backend, without logprobs or response token IDs. Fail closed on unsupported routing, semantic corruption, or predecessor-dependent target output. |
 | Codex session for `tianhaowu` | `fair-cw-use2-1` | Qwen accepted TB4 gate and 2,500-task production rollout | Qwen direct-router configs, VMVM backend, repair/export controller, focused tests, runtime skill | accepted TB4 diagnostic `1435776`; cap-32 affinity producer `1454171` running; exact-head x86 smoke `1468446` completed; reviewed replacement chain `1468451` dependency-pending; obsolete chains `1457232` and `1465246` canceled; endpoint `shared_qwen38_2p4t`; PRs `thwu1/prime-rl#35`, `#36`, `#37`, `#38`, `#39`, and `#40`; verifier PR `thwu1/verifiers#2` | The user explicitly accepted the existing 7/66 TB4 result as the approximately 11% gate and directed us not to rerun it. The live producer retains 64 task sessions, 32 client/provider slots, two lease starts, fail-closed `consistent_hash` / `x-session-id`, and a 256K cap. Immutable prefix 1,000 has SHA-256 `7862f68057aecc9c2bdb22a15e5cbe21ec03aa10059a625e2fa1316e4c347117`: 583 pass, 381 scored fail, 36 ordinary error, zero invalid, for a 60.48% scored pass rate. Exact SFT trainability validation accepts 581/583 passing traces and quarantines two; the audit covers 41,220,772 sampled completion tokens and 19,358 captured model-I/O turns. At 08:01 UTC the producer remained healthy and RUNNING with 1,002 durable rows, recent throughput approximately 47 rows/hour, and approximately 32 hours remaining. Draft PR `#40` is independently approved at exact head `fe813c0f6`; frozen-source x86 smoke `1468446` passed 249/249, and replacement controller `1468451` is pending on `afterany:1454171`. Obsolete held controller `1465246` was canceled only after the replacement was verified dependency-held. Broad `HarnessError` retry and retry exclusions remain forbidden. Never inspect task IDs, prompts, responses, raw errors, or trace/model/tool bodies. |
 | Codex session for `tianhaowu` | `fair-cw-use2-1` | User-supplied shared Kimi-K3 endpoint qualification and full TB4 pass@1; gated 2,500-task rollout follows only after score reproduction | server-scoped `configs/eval/servers/cpu-132-021_8103/**`, VMVM backend, trace audit, `COORDINATION.md` | endpoint `shared-kimi-k3`; route gate `1448380`; preserved canceled diagnostic TB4 `1448629`; preserved canceled smokes `1448432` and `1448606`; draft `thwu1/prime-rl#34`; proxy fix `fairinternal/ram_common#288` | The endpoint currently reports 23 healthy / 1 unhealthy routes, while correct model discovery and consistent sticky metadata with TTL 14,400 remain present. The proxy still serves a 600-second timeout with two retries and the live spec declares neither field, so this endpoint remains non-launchable. The old diagnostic full was canceled and preserved; do not count or resume it. Draft PR `#34` head `22b4172f1` is rebased on current shared core, preserves the separate `cpu-132-021_8103` folder and hardened gate pin, composes schema-v2 bridge validation with exact 24-request/2-lease evidence, and passes 328 affected plus 625 full tests. It requires exact 7,200/0 and 24/0, rejects resume, and makes both full and shard certification prove type-safe 24 rollout/multiplex/HTTP concurrency, observed peak 24, and lease-start concurrency 2; shared 4/2 remains compatible. PR `ram_common#288` is green/mergeable but still lacks the required human approval and deployment. Await a reviewed combined live revision, fresh 24/0 policy/sticky qualification, then launch a fresh TB4. Never inspect task prompts/bodies or raw trace/model/tool content. |
@@ -42,24 +42,23 @@ Add new rows below this line; do not overwrite another owner's row.
 
 ## Open coordination requests
 
-- **2026-09-19 08:48 UTC, byte-exact safe-six integration requires fresh
-  review and reduction:** draft PR `#45` contains implementation head
-  `c08b0851c` (tree `5f21e2030`) and closes the three
-  outstanding proof-code gaps. Both builders must now produce byte-identical
-  complete wheel sets and deterministic packed wheelhouses; semantic digests
-  are supplementary. The parser and isolated runner both enforce one canonical
-  archive root and reject sibling members, inclusion manifests, pre-generated
-  egg-info source lists, symlinks, path expansion, URI/parent/absolute paths,
-  and custom aliases before setup execution. Extracted mtimes are normalized to
-  `SOURCE_DATE_EPOCH`, and all proof/resume/policy contract schemas are bumped.
-  Exact-submodule verification passed 1,291 tests with one skipped; focused
-  adversarial tests, Ruff, format, launcher syntax, and diff checks are clean.
-  Request a new independent exact-head review. Because the grammar and code
-  digests changed, rerun the owner-controlled opaque reducer and independently
-  bind its fresh six-entry output and aggregate-only receipt before any proof.
-  Do not reuse the earlier reduction, launch a proof, or mutate Slurm from this
-  branch. Threshold math is exact: 2,488 authoritative plus six disjoint
-  repairs plus six newly proven source recoveries equals 2,500.
+- **2026-09-19 08:53 UTC, Kimi smoke submitted through approved launcher
+  v4:** the low-QoS deployment remains live with coordinator `1752688`, both
+  workers `1752711/1753198`, and proxy `1753275` running. Readiness `1753277`
+  passed exact 2/2 route coverage and 22/22 semantic, sticky-affinity, and
+  state-reuse requests. Post-readiness launcher v2 aborted without creating a
+  namespace or submitting a job only because the completed readiness had been
+  purged from `scontrol` after scheduler `MinJobAge=600`; v3 then rejected its
+  stale `afterok` dependency before submission. Independently approved v4,
+  launcher SHA-256 `7cfdf7c...`, removes the dependency only after exact
+  `sacct` completion proof. It submitted smoke `1753515` at 08:51:39 UTC from
+  the canonical pane into a fresh v4 namespace; the smoke was `PENDING
+  (Priority)` at launch, with intent SHA-256 `0b845f...` and receipt SHA-256
+  `2294eb...`. No full TB4 has launched. The separate normal-QoS attempt,
+  coordinator `1753298` and all four worker attempts, failed before any
+  publication and is terminal; no normal-QoS deployment remains live. Keep
+  monitoring aggregate-only and do not inspect task identifiers, task content,
+  raw errors, or model/tool/trace content.
 
 - **2026-09-19 08:50 UTC, urgent secret-safe use2-3 Sandoq visibility
   check:** the authoritative use2-1 `ram_prime_rl` cutover is blocked because
@@ -2839,3 +2838,24 @@ Add new rows below this line; do not overwrite another owner's row.
   back to this branch. Use the detached `ac1f30b9a` worktree for Mobius.
 - The live RAM `proxy_info.json` contains a secret. Read it through
   `INFERENCE_PROXY_INFO`; never print or commit its `api_key`.
+
+## Append-only review notes
+
+- **2026-09-19 08:48 UTC, byte-exact safe-six integration requires fresh
+  review and reduction:** draft PR `#45` contains implementation head
+  `c08b0851c` (tree `5f21e2030`) and closes the three outstanding proof-code
+  gaps. Both builders must now produce byte-identical complete wheel sets and
+  deterministic packed wheelhouses; semantic digests are supplementary. The
+  parser and isolated runner both enforce one canonical archive root and reject
+  sibling members, inclusion manifests, pre-generated egg-info source lists,
+  symlinks, path expansion, URI/parent/absolute paths, and custom aliases before
+  setup execution. Extracted mtimes are normalized to `SOURCE_DATE_EPOCH`, and
+  all proof/resume/policy contract schemas are bumped. Exact-submodule
+  verification passed 1,291 tests with one skipped; focused adversarial tests,
+  Ruff, format, launcher syntax, and diff checks are clean. Request a new
+  independent exact-head review. Because the grammar and code digests changed,
+  rerun the owner-controlled opaque reducer and independently bind its fresh
+  six-entry output and aggregate-only receipt before any proof. Do not reuse the
+  earlier reduction, launch a proof, or mutate Slurm from this branch. Threshold
+  math is exact: 2,488 authoritative plus six disjoint repairs plus six newly
+  proven source recoveries equals 2,500.
