@@ -1,6 +1,6 @@
 # VMVM sandbox coordination
 
-Last updated: 2026-09-19 01:51 UTC
+Last updated: 2026-09-19 02:09 UTC
 
 ## First message to the next teammate
 
@@ -41,6 +41,24 @@ this shared branch again.
 Add new rows below this line; do not overwrite another owner's row.
 
 ## Open coordination requests
+
+- **2026-09-19 02:09 UTC, Kimi stable-pair recovery running:** after smoke
+  `1750319` and endpoint `1749985` failed, the remaining short endpoint
+  `1750299` was gracefully retired before another task launch. Replacement
+  `1751626` is RUNNING with a 12h58m allocation and has registered; second
+  replacement `1751643` is priority-pending. Initial replacement gate
+  `1751644` failed before probing because an ARM Python path was not executable
+  on its x86 node; it produced no usable checkpoint and dependent smoke
+  `1751646` was canceled without running. Corrected x86 gate `1751648` is
+  RUNNING and waits for exact two routes, then additionally requires at least
+  14,400 seconds remaining on both. Fresh smoke `1751652` is held on its
+  success. Independently approved direct-launcher descendants are armed for
+  the v3 generated-config snapshot, fresh-smoke singleton, and only after full
+  singleton history/trace/receipt validation, shards 1..8 at wave size four.
+  Approved worker-rotation finalizer `f5b71bff0` is pushed and frozen clean at
+  `prime-rl-f5b71bff0`; it supports exact disjoint multigeneration chunks using
+  private generated-config snapshots and the deployment-local pinned
+  `proxy_info.json`.
 
 - **2026-09-19 01:51 UTC, replacement Kimi smoke lost with its bound route:**
   smoke `1750319` ended 2:0 after 2h27m35s with 1/2 durable rows, zero row
