@@ -13,6 +13,7 @@ from pathlib import Path
 from zipfile import ZipFile
 
 import pytest
+from terminal_bench_vmvm.source_wheels import SourceArtifactPolicy, source_build_argv, source_build_environment_record
 
 SCRIPT = Path(__file__).parents[1] / "export_oracle_tasks.py"
 SPEC = importlib.util.spec_from_file_location("terminal_bench_vmvm_export_oracle_tasks", SCRIPT)
@@ -46,7 +47,7 @@ def _source_wheel_fixture(oracle: Path, policy_path: Path) -> tuple[str, str]:
     image = "registry.invalid/task@sha256:" + "1" * 64
     build_tools = {"pip": "24.3.1", "setuptools": "75.6.0", "wheel": "0.45.1"}
     policy = {
-        "schema_version": 1,
+        "schema_version": 2,
         "allowed_hosts": ["files.example.invalid"],
         "entries": [
             {
@@ -64,6 +65,7 @@ def _source_wheel_fixture(oracle: Path, policy_path: Path) -> tuple[str, str]:
                         "wheel_filename": wheel_name,
                         "wheel_size": len(wheel_bytes),
                         "wheel_sha256": _sha256(wheel_bytes),
+                        "build_dependencies": [],
                     }
                 ],
                 "binary_wheels": [],
@@ -123,25 +125,39 @@ def _source_wheel_fixture(oracle: Path, policy_path: Path) -> tuple[str, str]:
         )
     )
     source_path = "/tmp/terminal-bench-source-inputs/verifier-helper-1.0.tar.gz"
-    build_argv = [
-        "python3",
-        "-I",
-        "-m",
-        "pip",
-        "wheel",
-        "--quiet",
-        "--disable-pip-version-check",
-        "--no-cache-dir",
-        "--no-index",
-        "--no-deps",
-        "--no-build-isolation",
-        "--wheel-dir",
-        "/tmp/terminal-bench-source-wheels",
-        f"verifier-helper @ file://{source_path}#sha256={'2' * 64}",
-    ]
+    build_env_dir = "/tmp/terminal-bench-source-build-env"
+    build_environment = source_build_environment_record(
+        build_env_dir=build_env_dir,
+        expected_build_tools=tuple(sorted(build_tools.items())),
+        attestation={
+            "schema_version": 1,
+            "executable": f"{build_env_dir}/bin/python",
+            "prefix": build_env_dir,
+            "base_prefix": "/usr",
+            "isolated": True,
+            "build_tools": build_tools,
+        },
+    )
+    build_argv = source_build_argv(
+        SourceArtifactPolicy(
+            distribution="verifier-helper",
+            version="1.0",
+            filename="verifier-helper-1.0.tar.gz",
+            url="https://files.example.invalid/verifier-helper-1.0.tar.gz",
+            size=1,
+            sha256="2" * 64,
+            wheel_filename=wheel_name,
+            wheel_size=len(wheel_bytes),
+            wheel_sha256=_sha256(wheel_bytes),
+            build_dependencies=(),
+        ),
+        input_dir="/tmp/terminal-bench-source-inputs",
+        wheel_dir="/tmp/terminal-bench-source-wheels",
+        build_env_dir=build_env_dir,
+    )
     resolution = {"roots": requirements, "closure": [["verifier-helper", "1.0"]]}
     unsigned = {
-        "schema_version": 1,
+        "schema_version": 3,
         "cache_key_sha256": cache_key,
         "policy_sha256": policy_sha256,
         "requirements": requirements,
@@ -149,10 +165,12 @@ def _source_wheel_fixture(oracle: Path, policy_path: Path) -> tuple[str, str]:
         "build_contract": {
             "artifact_download_network": "public-hash-pinned-https",
             "builder_lease_limit": 1,
+            "build_dependency_install": "venv-offline-no-index-no-deps",
             "build_network": "no-network",
             "build_isolation": False,
             "dependency_resolution": "explicit-policy-artifacts",
             "isolated_python": True,
+            "source_build_python": "venv-python-isolated",
             "staged_inputs": "policy-artifacts-only",
             "target_install": "offline-no-index-no-deps",
         },
@@ -161,6 +179,7 @@ def _source_wheel_fixture(oracle: Path, policy_path: Path) -> tuple[str, str]:
                 "policy": policy["entries"][0]["sources"][0],
                 "consumed_path": source_path,
                 "built_wheel": wheel_name,
+                "build_environment": build_environment,
                 "build_argv_sha256": _sha256(export_oracle_tasks.canonical_json(build_argv)),
             }
         ],
@@ -189,7 +208,7 @@ def _source_wheel_fixture(oracle: Path, policy_path: Path) -> tuple[str, str]:
     archive_path.write_bytes(wheelhouse)
     archive_path.chmod(0o400)
     attestation = {
-        "schema_version": 1,
+        "schema_version": 3,
         "policy_sha256": policy_sha256,
         "entries_sha256": _sha256(export_oracle_tasks.canonical_json([entry])),
         "entries": [entry],

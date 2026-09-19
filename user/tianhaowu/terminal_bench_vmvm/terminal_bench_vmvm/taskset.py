@@ -47,6 +47,7 @@ from terminal_bench_vmvm.source_wheels import (
     WheelEvidence,
     atomic_write_bytes,
     canonical_json,
+    extract_static_setup_requires,
     inspect_source_distribution,
     inspect_wheel,
     inspect_wheelhouse,
@@ -55,8 +56,16 @@ from terminal_bench_vmvm.source_wheels import (
     pack_wheelhouse,
     regular_private_file,
     sha256_bytes,
+    source_build_argv,
+    source_build_dependency_install_argv,
+    source_build_env_attest_argv,
+    source_build_env_create_argv,
+    source_build_environment_record,
     strict_json_loads,
     validate_policy_wheel_closure,
+    validate_source_build_environment,
+    validate_source_build_environment_record,
+    validate_static_build_dependency_closure,
     wheel_evidence_dicts,
 )
 
@@ -1028,6 +1037,9 @@ class TerminalBenchVMVMTaskset(
             "wheel_filename": source.wheel_filename,
             "wheel_size": source.wheel_size,
             "wheel_sha256": source.wheel_sha256,
+            "build_dependencies": [
+                TerminalBenchVMVMTaskset._binary_wheel_policy_evidence(wheel) for wheel in source.build_dependencies
+            ],
         }
 
     @staticmethod
@@ -1199,10 +1211,12 @@ class TerminalBenchVMVMTaskset(
         if raw["build_contract"] != {
             "artifact_download_network": "public-hash-pinned-https",
             "builder_lease_limit": 1,
+            "build_dependency_install": "venv-offline-no-index-no-deps",
             "build_network": "no-network",
             "build_isolation": False,
             "dependency_resolution": "explicit-policy-artifacts",
             "isolated_python": True,
+            "source_build_python": "venv-python-isolated",
             "staged_inputs": "policy-artifacts-only",
             "target_install": "offline-no-index-no-deps",
         }:
@@ -1224,7 +1238,19 @@ class TerminalBenchVMVMTaskset(
             fingerprints.image,
             fingerprints.build_tools,
         )
-        expected_sources = [self._source_consumption_evidence(source) for source in policy_entry.sources]
+        if not isinstance(raw["sources"], list) or len(raw["sources"]) != len(policy_entry.sources):
+            raise RuntimeError("source-wheel attestation does not match the approved policy artifacts")
+        expected_sources = [
+            self._source_consumption_evidence(
+                source,
+                build_environment=validate_source_build_environment_record(
+                    raw_source.get("build_environment") if isinstance(raw_source, dict) else None,
+                    build_env_dir="/tmp/terminal-bench-source-build-env",
+                    expected_build_tools=fingerprints.build_tools,
+                ),
+            )
+            for raw_source, source in zip(raw["sources"], policy_entry.sources, strict=True)
+        ]
         expected_binary_wheels = [self._binary_wheel_policy_evidence(wheel) for wheel in policy_entry.binary_wheels]
         if raw["sources"] != expected_sources or raw["binary_wheels"] != expected_binary_wheels:
             raise RuntimeError("source-wheel attestation does not match the approved policy artifacts")
@@ -1430,9 +1456,12 @@ class TerminalBenchVMVMTaskset(
         wheel_archive: bytes,
         wheel_evidence: tuple[WheelEvidence, ...],
         resolution_closure: tuple[tuple[str, str], ...],
+        source_build_environments: tuple[dict[str, object], ...],
     ) -> PrefetchedTestDependencies:
         if self._source_wheel_policy is None or self._source_wheel_attestation_path is None:
             raise RuntimeError("source-wheel recovery cannot publish without a durable policy and attestation path")
+        if len(source_build_environments) != len(policy_entry.sources):
+            raise RuntimeError("source-wheel attestation build environment count is invalid")
         cache_key = self._source_cache_key(requirements, fingerprints, self._source_wheel_policy.sha256)
         existing = self._source_wheel_attestations.get(cache_key)
         if existing is not None:
@@ -1470,14 +1499,19 @@ class TerminalBenchVMVMTaskset(
             "build_contract": {
                 "artifact_download_network": "public-hash-pinned-https",
                 "builder_lease_limit": 1,
+                "build_dependency_install": "venv-offline-no-index-no-deps",
                 "build_network": "no-network",
                 "build_isolation": False,
                 "dependency_resolution": "explicit-policy-artifacts",
                 "isolated_python": True,
+                "source_build_python": "venv-python-isolated",
                 "staged_inputs": "policy-artifacts-only",
                 "target_install": "offline-no-index-no-deps",
             },
-            "sources": [self._source_consumption_evidence(source) for source in policy_entry.sources],
+            "sources": [
+                self._source_consumption_evidence(source, build_environment=environment)
+                for source, environment in zip(policy_entry.sources, source_build_environments, strict=True)
+            ],
             "binary_wheels": [self._binary_wheel_policy_evidence(wheel) for wheel in policy_entry.binary_wheels],
             "resolution": {
                 **resolution,
@@ -2446,30 +2480,26 @@ for requirement in sys.argv[1:]:
             raise cancellation
 
     @staticmethod
-    def _source_consumption_evidence(source: SourceArtifactPolicy) -> dict[str, object]:
-        source_path = f"/tmp/terminal-bench-source-inputs/{source.filename}"
+    def _source_consumption_evidence(
+        source: SourceArtifactPolicy,
+        *,
+        build_environment: dict[str, object],
+    ) -> dict[str, object]:
+        input_dir = "/tmp/terminal-bench-source-inputs"
         wheel_dir = "/tmp/terminal-bench-source-wheels"
-        source_requirement = f"{source.distribution} @ file://{source_path}#sha256={source.sha256}"
-        argv = [
-            "python3",
-            "-I",
-            "-m",
-            "pip",
-            "wheel",
-            "--quiet",
-            "--disable-pip-version-check",
-            "--no-cache-dir",
-            "--no-index",
-            "--no-deps",
-            "--no-build-isolation",
-            "--wheel-dir",
-            wheel_dir,
-            source_requirement,
-        ]
+        build_env_dir = "/tmp/terminal-bench-source-build-env"
+        source_path = f"{input_dir}/{source.filename}"
+        argv = source_build_argv(
+            source,
+            input_dir=input_dir,
+            wheel_dir=wheel_dir,
+            build_env_dir=build_env_dir,
+        )
         return {
             "policy": TerminalBenchVMVMTaskset._source_policy_evidence(source),
             "consumed_path": source_path,
             "built_wheel": source.wheel_filename,
+            "build_environment": build_environment,
             "build_argv_sha256": hashlib.sha256(canonical_json(argv)).hexdigest(),
         }
 
@@ -2547,21 +2577,27 @@ for requirement in sys.argv[1:]:
         task: TerminalBenchTask,
         builder: Runtime,
         policy_entry: SourceWheelPolicyEntry,
-    ) -> tuple[dict[str, bytes], tuple[tuple[str, str], ...]]:
+    ) -> tuple[dict[str, bytes], tuple[tuple[str, str], ...], tuple[dict[str, object], ...]]:
         input_dir = "/tmp/terminal-bench-source-inputs"
+        build_dep_dir = "/tmp/terminal-bench-source-build-deps"
+        build_env_dir = "/tmp/terminal-bench-source-build-env"
         wheel_dir = "/tmp/terminal-bench-source-wheels"
         site_dir = "/tmp/terminal-bench-source-site"
         prepared = await self._run_root(
             builder,
-            f"rm -rf {input_dir} {wheel_dir} {site_dir} && "
-            f"mkdir -p {input_dir} {wheel_dir} {site_dir} && chmod 1777 {input_dir} {wheel_dir} {site_dir}",
+            f"rm -rf {input_dir} {build_dep_dir} {build_env_dir} {wheel_dir} {site_dir} && "
+            f"mkdir -p {input_dir} {build_dep_dir} {wheel_dir} {site_dir} && "
+            f"chmod 1777 {input_dir} {build_dep_dir} {wheel_dir} {site_dir}",
         )
         if prepared.exit_code != 0:
             raise RuntimeError(f"{task.name}: preparing the disposable source-wheel builder failed")
         try:
             binary_payloads: dict[str, bytes] = {}
+            source_build_environments: list[dict[str, object]] = []
             for source in policy_entry.sources:
                 await self._download_source_policy_artifact(task, builder, input_dir, source)
+                for wheel in source.build_dependencies:
+                    await self._download_source_policy_artifact(task, builder, build_dep_dir, wheel)
             for wheel in policy_entry.binary_wheels:
                 binary_payloads[wheel.filename] = await self._download_source_policy_artifact(
                     task,
@@ -2575,27 +2611,69 @@ for requirement in sys.argv[1:]:
             await builder.activate_network_policy()
 
             for source in policy_entry.sources:
+                created_build_env = await builder.run(source_build_env_create_argv(build_env_dir), {})
+                if created_build_env.exit_code != 0:
+                    raise RuntimeError(f"{task.name}: source-wheel build environment creation failed")
+                attested_build_env = await builder.run(source_build_env_attest_argv(build_env_dir), {})
+                if attested_build_env.exit_code != 0:
+                    raise RuntimeError(f"{task.name}: source-wheel build environment attestation failed")
+                try:
+                    build_environment = source_build_environment_record(
+                        build_env_dir=build_env_dir,
+                        expected_build_tools=policy_entry.build_tools,
+                        attestation=validate_source_build_environment(
+                            attested_build_env.stdout.strip(),
+                            build_env_dir=build_env_dir,
+                            expected_build_tools=policy_entry.build_tools,
+                        ),
+                    )
+                except RuntimeError as error:
+                    raise RuntimeError(f"{task.name}: source-wheel build environment attestation failed") from error
                 source_path = f"{input_dir}/{source.filename}"
                 source_payload = await builder.read(source_path)
                 inspect_source_distribution(source, source_payload)
-                source_requirement = f"{source.distribution} @ file://{source_path}#sha256={source.sha256}"
+                setup_requires = extract_static_setup_requires(source, source_payload)
+                try:
+                    validate_static_build_dependency_closure(setup_requires, source.build_dependencies)
+                except RuntimeError as error:
+                    raise RuntimeError(
+                        f"{task.name}: approved source build dependency policy does not match setup_requires"
+                    ) from error
+                if source.build_dependencies:
+                    installed_build_deps = await builder.run(
+                        source_build_dependency_install_argv(
+                            build_env_dir=build_env_dir,
+                            build_dependency_dir=build_dep_dir,
+                            build_dependencies=source.build_dependencies,
+                        ),
+                        {"PIP_NO_INDEX": "1"},
+                    )
+                    if installed_build_deps.exit_code != 0:
+                        raise RuntimeError(
+                            f"{task.name}: approved source build dependency wheels could not be installed offline"
+                        )
+                    attested_build_env = await builder.run(source_build_env_attest_argv(build_env_dir), {})
+                    if attested_build_env.exit_code != 0:
+                        raise RuntimeError(f"{task.name}: source-wheel build environment attestation failed")
+                    try:
+                        build_environment = source_build_environment_record(
+                            build_env_dir=build_env_dir,
+                            expected_build_tools=policy_entry.build_tools,
+                            attestation=validate_source_build_environment(
+                                attested_build_env.stdout.strip(),
+                                build_env_dir=build_env_dir,
+                                expected_build_tools=policy_entry.build_tools,
+                            ),
+                        )
+                    except RuntimeError as error:
+                        raise RuntimeError(f"{task.name}: source-wheel build environment attestation failed") from error
                 built = await builder.run(
-                    [
-                        "python3",
-                        "-I",
-                        "-m",
-                        "pip",
-                        "wheel",
-                        "--quiet",
-                        "--disable-pip-version-check",
-                        "--no-cache-dir",
-                        "--no-index",
-                        "--no-deps",
-                        "--no-build-isolation",
-                        "--wheel-dir",
-                        wheel_dir,
-                        source_requirement,
-                    ],
+                    source_build_argv(
+                        source,
+                        input_dir=input_dir,
+                        wheel_dir=wheel_dir,
+                        build_env_dir=build_env_dir,
+                    ),
                     {},
                 )
                 if built.exit_code != 0:
@@ -2603,6 +2681,7 @@ for requirement in sys.argv[1:]:
                         f"{task.name}: approved source distribution build failed: "
                         f"{(built.stdout + built.stderr)[-2000:]}"
                     )
+                source_build_environments.append(build_environment)
             expected_wheel_names = [item[2] for item in policy_entry.expected_wheels]
             checked = await self._run_root(
                 builder,
@@ -2651,9 +2730,12 @@ for requirement in sys.argv[1:]:
                 raise RuntimeError(
                     f"{task.name}: source-built wheel resolution contains missing or non-allowlisted distributions"
                 )
-            return wheels, closure
+            return wheels, closure, tuple(source_build_environments)
         finally:
-            cleaned = await self._run_root(builder, f"rm -rf {input_dir} {wheel_dir} {site_dir}")
+            cleaned = await self._run_root(
+                builder,
+                f"rm -rf {input_dir} {build_dep_dir} {build_env_dir} {wheel_dir} {site_dir}",
+            )
             if cleaned.exit_code != 0:
                 raise RuntimeError(f"{task.name}: disposable source-wheel workspace cleanup failed")
 
@@ -2742,6 +2824,7 @@ for requirement in sys.argv[1:]:
         builder = self._new_source_builder(task, runtime, fingerprints, cache_key)
         wheels: dict[str, bytes] | None = None
         resolution_closure: tuple[tuple[str, str], ...] | None = None
+        source_build_environments: tuple[dict[str, object], ...] | None = None
         async with self._source_builder_semaphore:
             try:
                 await self._start_builder_uninterruptibly(builder)
@@ -2750,11 +2833,15 @@ for requirement in sys.argv[1:]:
                     raise RuntimeError(
                         f"{task.name}: disposable source-wheel builder does not match the target fingerprint"
                     )
-                wheels, resolution_closure = await self._build_policy_wheels_in_builder(task, builder, policy_entry)
+                wheels, resolution_closure, source_build_environments = await self._build_policy_wheels_in_builder(
+                    task,
+                    builder,
+                    policy_entry,
+                )
             finally:
                 self._runtime_wheel_fingerprints.pop(builder, None)
                 await self._stop_builder_uninterruptibly(builder)
-        if wheels is None or resolution_closure is None:
+        if wheels is None or resolution_closure is None or source_build_environments is None:
             raise RuntimeError(f"{task.name}: source-wheel builder produced no closure")
         wheel_evidence = validate_policy_wheel_closure(policy_entry, wheels)
         wheel_archive = pack_wheelhouse(wheels)
@@ -2775,6 +2862,7 @@ for requirement in sys.argv[1:]:
             wheel_archive,
             wheel_evidence,
             target_resolution_closure,
+            source_build_environments,
         )
 
     @staticmethod

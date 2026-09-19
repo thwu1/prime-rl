@@ -57,7 +57,7 @@ def _fixture(tmp_path: Path, *, source_wheel: bool = False) -> tuple[Path, list[
         policy.write_text(
             json.dumps(
                 {
-                    "schema_version": 1,
+                    "schema_version": 2,
                     "allowed_hosts": ["files.example.invalid"],
                     "entries": [
                         {
@@ -75,6 +75,7 @@ def _fixture(tmp_path: Path, *, source_wheel: bool = False) -> tuple[Path, list[
                                     "wheel_filename": "verifier_helper-1.0-py3-none-any.whl",
                                     "wheel_size": 1,
                                     "wheel_sha256": "3" * 64,
+                                    "build_dependencies": [],
                                 }
                             ],
                             "binary_wheels": [],
@@ -87,7 +88,7 @@ def _fixture(tmp_path: Path, *, source_wheel: bool = False) -> tuple[Path, list[
         )
         policy_sha256 = hashlib.sha256(policy.read_bytes()).hexdigest()
         attestation = {
-            "schema_version": 1,
+            "schema_version": 3,
             "policy_sha256": policy_sha256,
             "entries_sha256": _canonical_sha256([]),
             "entries": [],

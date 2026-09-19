@@ -23,6 +23,7 @@ from terminal_bench_vmvm.source_wheels import (
     MAX_WHEEL_BYTES,
     MAX_WHEEL_FILES,
     MAX_WHEELHOUSE_BYTES,
+    SOURCE_WHEEL_POLICY_SCHEMA_VERSION,
     BinaryWheelPolicy,
     SourceArtifactPolicy,
     SourceWheelPolicy,
@@ -31,6 +32,7 @@ from terminal_bench_vmvm.source_wheels import (
     atomic_write_bytes,
     canonical_distribution_name,
     canonical_json,
+    extract_static_setup_requires,
     inspect_source_distribution,
     inspect_wheel,
     inspect_wheelhouse,
@@ -39,14 +41,22 @@ from terminal_bench_vmvm.source_wheels import (
     pack_wheelhouse,
     regular_private_file,
     sha256_bytes,
+    source_build_argv,
+    source_build_dependency_install_argv,
+    source_build_env_attest_argv,
+    source_build_env_create_argv,
+    source_build_environment_record,
     strict_json_loads,
     validate_policy_wheel_closure,
+    validate_source_build_environment,
+    validate_source_build_environment_record,
+    validate_static_build_dependency_closure,
     wheel_evidence_dicts,
 )
 from terminal_bench_vmvm.taskset import _SOURCE_WHEEL_CLOSURE_CODE, _SOURCE_WHEEL_DOWNLOAD_CODE
 
 DISCOVERY_INPUT_SCHEMA_VERSION = 1
-PROOF_SCHEMA_VERSION = 3
+PROOF_SCHEMA_VERSION = 4
 STATE_SCHEMA_VERSION = 3
 RUN_IDENTITY_SCHEMA_VERSION = 2
 CANDIDATE_SCHEMA_VERSION = 2
@@ -67,10 +77,13 @@ CLEAN_TREE_SHA256 = hashlib.sha256(b"").hexdigest()
 
 INPUT_DIR = "/tmp/terminal-bench-source-inputs"
 BINARY_DIR = "/tmp/terminal-bench-source-binaries"
+BUILD_DEP_DIR = "/tmp/terminal-bench-source-build-deps"
+BUILD_ENV_DIR = "/tmp/terminal-bench-source-build-env"
 WHEEL_DIR = "/tmp/terminal-bench-source-wheels"
 RESOLVER_DIR = "/tmp/terminal-bench-source-resolver"
 SITE_DIR = "/tmp/terminal-bench-source-site"
 PIP_REPORT_PATH = "/tmp/terminal-bench-source-resolution.json"
+BUILD_PIP_REPORT_PATH = "/tmp/terminal-bench-source-build-deps-resolution.json"
 TARGET_ARCHIVE = "/tmp/terminal-bench-source-wheel-proof.tar"
 TARGET_WHEEL_DIR = "/tmp/terminal-bench-source-wheel-proof-wheels"
 TARGET_SITE_DIR = "/tmp/terminal-bench-source-wheel-proof-site"
@@ -342,7 +355,7 @@ class DiscoverySource:
     size: int
     sha256: str
 
-    def policy(self, wheel: WheelEvidence) -> SourceArtifactPolicy:
+    def policy(self, wheel: WheelEvidence, build_dependencies: tuple[BinaryWheelPolicy, ...]) -> SourceArtifactPolicy:
         return SourceArtifactPolicy(
             distribution=self.distribution,
             version=self.version,
@@ -353,6 +366,7 @@ class DiscoverySource:
             wheel_filename=wheel.filename,
             wheel_size=wheel.size,
             wheel_sha256=wheel.sha256,
+            build_dependencies=build_dependencies,
         )
 
     def as_dict(self) -> dict[str, object]:
@@ -406,10 +420,21 @@ class SourceBuild:
     payload: bytes
     evidence: WheelEvidence
     build_argv_sha256: str
+    build_environment: dict[str, object]
+    setup_requires: tuple[str, ...]
 
 
 @dataclass(frozen=True)
 class DiscoveredResolution:
+    report_sha256: str
+    resolver_argv_sha256: str
+    binary_policies: tuple[BinaryWheelPolicy, ...]
+    binary_payloads: tuple[tuple[str, bytes], ...]
+
+
+@dataclass(frozen=True)
+class BuildDependencyResolution:
+    requirements: tuple[str, ...]
     report_sha256: str
     resolver_argv_sha256: str
     binary_policies: tuple[BinaryWheelPolicy, ...]
@@ -423,6 +448,8 @@ class BuildResult:
     closure: tuple[tuple[str, str], ...]
     wheelhouse: bytes
     input_artifacts: tuple[tuple[str, int, str], ...]
+    build_dependency_artifacts: tuple[tuple[str, int, str], ...]
+    build_environment: dict[str, object]
     build_argv_sha256: str
 
     def as_dict(self) -> dict[str, object]:
@@ -430,9 +457,14 @@ class BuildResult:
             "network": "no-network",
             "build_isolation": False,
             "dependency_resolution": "discovered-wheel-only-closure",
+            "build_environment": self.build_environment,
             "input_artifacts": [
                 {"filename": filename, "size": size, "sha256": digest}
                 for filename, size, digest in self.input_artifacts
+            ],
+            "build_dependency_artifacts": [
+                {"filename": filename, "size": size, "sha256": digest}
+                for filename, size, digest in self.build_dependency_artifacts
             ],
             "build_argv_sha256": self.build_argv_sha256,
             "wheels": wheel_evidence_dicts(self.wheel_evidence),
@@ -854,24 +886,13 @@ def parse_runtime_fingerprint(image: str, payload: str) -> RuntimeFingerprint:
     )
 
 
-def _source_build_argv(source: DiscoverySource) -> list[str]:
-    source_path = f"{INPUT_DIR}/{source.filename}"
-    return [
-        "python3",
-        "-I",
-        "-m",
-        "pip",
-        "wheel",
-        "--quiet",
-        "--disable-pip-version-check",
-        "--no-cache-dir",
-        "--no-index",
-        "--no-deps",
-        "--no-build-isolation",
-        "--wheel-dir",
-        WHEEL_DIR,
-        f"{source.distribution} @ file://{source_path}#sha256={source.sha256}",
-    ]
+def _source_build_argv(source: SourceArtifactPolicy) -> list[str]:
+    return source_build_argv(
+        source,
+        input_dir=INPUT_DIR,
+        wheel_dir=WHEEL_DIR,
+        build_env_dir=BUILD_ENV_DIR,
+    )
 
 
 def _resolver_argv(entry: DiscoveryEntry) -> list[str]:
@@ -893,6 +914,25 @@ def _resolver_argv(entry: DiscoveryEntry) -> list[str]:
         RESOLVER_DIR,
         *entry.requirements,
         f"{entry.source.distribution}=={entry.source.version}",
+    ]
+
+
+def _build_dependency_resolver_argv(requirements: tuple[str, ...]) -> list[str]:
+    return [
+        "python3",
+        "-I",
+        "-m",
+        "pip",
+        "install",
+        "--quiet",
+        "--disable-pip-version-check",
+        "--no-cache-dir",
+        "--dry-run",
+        "--ignore-installed",
+        "--only-binary=:all:",
+        "--report",
+        BUILD_PIP_REPORT_PATH,
+        *requirements,
     ]
 
 
@@ -1226,12 +1266,36 @@ async def _stop_runtimes_uninterruptibly(
 
 
 def _policy_entry_dict(entry: SourceWheelPolicyEntry) -> dict[str, object]:
+    def binary_policy_dict(wheel: BinaryWheelPolicy) -> dict[str, object]:
+        return {
+            "distribution": wheel.distribution,
+            "version": wheel.version,
+            "filename": wheel.filename,
+            "url": wheel.url,
+            "size": wheel.size,
+            "sha256": wheel.sha256,
+        }
+
+    def source_policy_dict(source: SourceArtifactPolicy) -> dict[str, object]:
+        return {
+            "distribution": source.distribution,
+            "version": source.version,
+            "filename": source.filename,
+            "url": source.url,
+            "size": source.size,
+            "sha256": source.sha256,
+            "wheel_filename": source.wheel_filename,
+            "wheel_size": source.wheel_size,
+            "wheel_sha256": source.wheel_sha256,
+            "build_dependencies": [binary_policy_dict(wheel) for wheel in source.build_dependencies],
+        }
+
     return {
         "requirements": list(entry.requirements),
         "image": entry.image,
         "build_tools": dict(entry.build_tools),
-        "sources": [asdict(item) for item in entry.sources],
-        "binary_wheels": [asdict(item) for item in entry.binary_wheels],
+        "sources": [source_policy_dict(item) for item in entry.sources],
+        "binary_wheels": [binary_policy_dict(item) for item in entry.binary_wheels],
     }
 
 
@@ -1294,15 +1358,34 @@ class SourceWheelProofRunner:
         inspect_source_distribution(source, payload)  # type: ignore[arg-type]
         return payload
 
-    async def _stage_builder(self, runtime: ProofRuntime, entry: DiscoveryEntry) -> None:
-        paths = (INPUT_DIR, BINARY_DIR, WHEEL_DIR, RESOLVER_DIR, SITE_DIR)
-        joined = " ".join(paths)
+    async def _stage_builder(self, runtime: ProofRuntime, entry: DiscoveryEntry) -> tuple[str, ...]:
+        removable_paths = (INPUT_DIR, BINARY_DIR, BUILD_DEP_DIR, BUILD_ENV_DIR, WHEEL_DIR, RESOLVER_DIR, SITE_DIR)
+        staging_paths = (INPUT_DIR, BINARY_DIR, BUILD_DEP_DIR, WHEEL_DIR, RESOLVER_DIR, SITE_DIR)
         prepared = await runtime.run(
-            ["sh", "-c", f"rm -rf {joined} {PIP_REPORT_PATH} && mkdir -p {joined} && chmod 1777 {joined}"],
+            [
+                "sh",
+                "-c",
+                f"rm -rf {' '.join(removable_paths)} {PIP_REPORT_PATH} {BUILD_PIP_REPORT_PATH} && "
+                f"mkdir -p {' '.join(staging_paths)} && chmod 1777 {' '.join(staging_paths)}",
+            ],
             {},
         )
         _require_success(prepared, "builder_prepare_failed")
-        await self._download_source(runtime, entry.source)
+        payload = await self._download_source(runtime, entry.source)
+        return extract_static_setup_requires(
+            entry.source.policy(
+                WheelEvidence(
+                    distribution=entry.source.distribution,
+                    version=entry.source.version,
+                    filename=entry.source.filename,
+                    size=entry.source.size,
+                    sha256=entry.source.sha256,
+                    universal=False,
+                ),
+                (),
+            ),
+            payload,
+        )
 
     async def _activate_no_network(self, runtime: ProofRuntime) -> None:
         await runtime.configure_network_policy("no-network")
@@ -1345,15 +1428,73 @@ class SourceWheelProofRunner:
             wheels[filename] = payload
         return wheels
 
+    async def _create_source_build_environment(
+        self,
+        runtime: ProofRuntime,
+        expected_build_tools: tuple[tuple[str, str], ...],
+    ) -> dict[str, object]:
+        _require_success(
+            await runtime.run(source_build_env_create_argv(BUILD_ENV_DIR), {}),
+            "source_build_environment_create_failed",
+        )
+        result = await runtime.run(source_build_env_attest_argv(BUILD_ENV_DIR), {})
+        _require_success(result, "source_build_environment_attest_failed")
+        try:
+            attestation = validate_source_build_environment(
+                result.stdout.strip(),
+                build_env_dir=BUILD_ENV_DIR,
+                expected_build_tools=expected_build_tools,
+            )
+        except RuntimeError as error:
+            raise SourceWheelProofError("source_build_environment_attest_failed") from error
+        return source_build_environment_record(
+            build_env_dir=BUILD_ENV_DIR,
+            expected_build_tools=expected_build_tools,
+            attestation=attestation,
+        )
+
     async def _build_source(
         self,
         runtime: ProofRuntime,
-        entry: DiscoveryEntry,
+        source: SourceArtifactPolicy,
+        expected_build_tools: tuple[tuple[str, str], ...],
         existing_wheels: set[str],
     ) -> SourceBuild:
-        source_payload = await runtime.read(f"{INPUT_DIR}/{entry.source.filename}")
-        inspect_source_distribution(entry.source, source_payload)  # type: ignore[arg-type]
-        argv = _source_build_argv(entry.source)
+        build_environment = await self._create_source_build_environment(runtime, expected_build_tools)
+        if source.build_dependencies:
+            _require_success(
+                await runtime.run(
+                    source_build_dependency_install_argv(
+                        build_env_dir=BUILD_ENV_DIR,
+                        build_dependency_dir=BUILD_DEP_DIR,
+                        build_dependencies=source.build_dependencies,
+                    ),
+                    {"PIP_NO_INDEX": "1"},
+                ),
+                "build_dependency_offline_install_failed",
+            )
+            post_install = await runtime.run(source_build_env_attest_argv(BUILD_ENV_DIR), {})
+            _require_success(post_install, "source_build_environment_attest_failed")
+            try:
+                build_environment = source_build_environment_record(
+                    build_env_dir=BUILD_ENV_DIR,
+                    expected_build_tools=expected_build_tools,
+                    attestation=validate_source_build_environment(
+                        post_install.stdout.strip(),
+                        build_env_dir=BUILD_ENV_DIR,
+                        expected_build_tools=expected_build_tools,
+                    ),
+                )
+            except RuntimeError as error:
+                raise SourceWheelProofError("source_build_environment_attest_failed") from error
+        source_payload = await runtime.read(f"{INPUT_DIR}/{source.filename}")
+        inspect_source_distribution(source, source_payload)
+        setup_requires = extract_static_setup_requires(source, source_payload)
+        try:
+            validate_static_build_dependency_closure(setup_requires, source.build_dependencies)
+        except RuntimeError as error:
+            raise SourceWheelProofError("build_dependency_policy_missing") from error
+        argv = _source_build_argv(source)
         _require_success(await runtime.run(argv, {}), "source_build_failed")
         wheels = await self._wheel_directory(runtime)
         new_names = set(wheels) - existing_wheels
@@ -1361,13 +1502,15 @@ class SourceWheelProofRunner:
             raise SourceWheelProofError("source_build_output_invalid")
         filename = next(iter(new_names))
         evidence = inspect_wheel(filename, wheels[filename])
-        if evidence.distribution != entry.source.distribution or evidence.version != entry.source.version:
+        if evidence.distribution != source.distribution or evidence.version != source.version:
             raise SourceWheelProofError("source_build_output_invalid")
         return SourceBuild(
             filename=filename,
             payload=wheels[filename],
             evidence=evidence,
             build_argv_sha256=sha256_bytes(canonical_json(argv)),
+            build_environment=build_environment,
+            setup_requires=setup_requires,
         )
 
     def _parse_resolution_report(
@@ -1441,6 +1584,129 @@ class SourceWheelProofRunner:
         if source_seen != 1:
             raise SourceWheelProofError("resolution_source_seed_missing")
         return binaries
+
+    def _parse_build_dependency_report(
+        self,
+        payload: bytes,
+    ) -> list[tuple[str, str, str, str, str]]:
+        if len(payload) < 1 or len(payload) > MAX_PIP_REPORT_BYTES:
+            raise SourceWheelProofError("build_dependency_resolution_report_invalid")
+        try:
+            report = strict_json_loads(payload)
+        except (UnicodeDecodeError, ValueError, RecursionError) as error:
+            raise SourceWheelProofError("build_dependency_resolution_report_invalid") from error
+        if (
+            not isinstance(report, dict)
+            or not isinstance(report.get("install"), list)
+            or not report["install"]
+            or len(report["install"]) > MAX_WHEEL_FILES
+        ):
+            raise SourceWheelProofError("build_dependency_resolution_report_invalid")
+        records: list[tuple[str, str, str, str, str]] = []
+        distributions: set[str] = set()
+        for raw_item in report["install"]:
+            if not isinstance(raw_item, dict):
+                raise SourceWheelProofError("build_dependency_resolution_report_invalid")
+            metadata = raw_item.get("metadata")
+            download = raw_item.get("download_info")
+            if not isinstance(metadata, dict) or not isinstance(download, dict):
+                raise SourceWheelProofError("build_dependency_resolution_report_invalid")
+            name = metadata.get("name")
+            version = metadata.get("version")
+            url = download.get("url")
+            archive = download.get("archive_info")
+            if (
+                not isinstance(name, str)
+                or not isinstance(version, str)
+                or not version
+                or any(character.isspace() for character in version)
+                or not isinstance(url, str)
+                or not isinstance(archive, dict)
+            ):
+                raise SourceWheelProofError("build_dependency_resolution_report_invalid")
+            distribution = canonical_distribution_name(name)
+            if not distribution or distribution in distributions:
+                raise SourceWheelProofError("build_dependency_resolution_report_invalid")
+            distributions.add(distribution)
+            hashes = archive.get("hashes")
+            digest = hashes.get("sha256") if isinstance(hashes, dict) else None
+            if not _valid_sha256(digest):
+                raise SourceWheelProofError("build_dependency_resolution_report_invalid")
+            approved_url = _validate_https_url(url, set(self.discovery.allowed_hosts), "build_dependency_url_invalid")
+            filename = PurePosixPath(unquote(urlsplit(approved_url).path)).name
+            if SAFE_FILENAME_RE.fullmatch(filename) is None or not filename.lower().endswith(".whl"):
+                raise SourceWheelProofError("build_dependency_url_invalid")
+            records.append((distribution, version, filename, digest, approved_url))
+        return records
+
+    async def _discover_build_dependencies(
+        self,
+        runtime: ProofRuntime,
+        setup_requires: tuple[str, ...],
+    ) -> BuildDependencyResolution:
+        if not setup_requires:
+            return BuildDependencyResolution((), "", "", (), ())
+        argv = _build_dependency_resolver_argv(setup_requires)
+        _require_success(await runtime.run(argv, {}), "build_dependency_resolution_failed")
+        report_payload = await runtime.read(BUILD_PIP_REPORT_PATH)
+        records = self._parse_build_dependency_report(report_payload)
+        policies: list[BinaryWheelPolicy] = []
+        payloads: list[tuple[str, bytes]] = []
+        filenames: set[str] = set()
+        total_size = 0
+        for distribution, version, filename, digest, url in records:
+            if filename in filenames:
+                raise SourceWheelProofError("build_dependency_filename_duplicate")
+            filenames.add(filename)
+            destination = f"{BUILD_DEP_DIR}/{filename}"
+            _require_success(
+                await runtime.run(
+                    [
+                        "python3",
+                        "-I",
+                        "-c",
+                        DISCOVERY_DOWNLOAD_CODE,
+                        url,
+                        destination,
+                        str(MAX_WHEEL_BYTES),
+                        digest,
+                    ],
+                    {},
+                ),
+                "build_dependency_download_failed",
+            )
+            payload = await runtime.read(destination)
+            if not _valid_size(len(payload), MAX_WHEEL_BYTES) or sha256_bytes(payload) != digest:
+                raise SourceWheelProofError("build_dependency_integrity_failed")
+            total_size += len(payload)
+            if total_size > MAX_WHEELHOUSE_BYTES:
+                raise SourceWheelProofError("build_dependency_closure_size_invalid")
+            evidence = inspect_wheel(filename, payload)
+            if evidence.distribution != distribution or evidence.version != version:
+                raise SourceWheelProofError("build_dependency_metadata_mismatch")
+            policies.append(
+                BinaryWheelPolicy(
+                    distribution=distribution,
+                    version=version,
+                    filename=filename,
+                    url=url,
+                    size=len(payload),
+                    sha256=digest,
+                )
+            )
+            payloads.append((filename, payload))
+        sorted_policies = tuple(sorted(policies, key=lambda item: item.filename))
+        try:
+            validate_static_build_dependency_closure(setup_requires, sorted_policies)
+        except RuntimeError as error:
+            raise SourceWheelProofError("build_dependency_resolution_missing_direct_requirement") from error
+        return BuildDependencyResolution(
+            requirements=setup_requires,
+            report_sha256=sha256_bytes(report_payload),
+            resolver_argv_sha256=sha256_bytes(canonical_json(argv)),
+            binary_policies=sorted_policies,
+            binary_payloads=tuple(sorted(payloads)),
+        )
 
     async def _discover_resolution(
         self,
@@ -1537,12 +1803,19 @@ class SourceWheelProofRunner:
             raise SourceWheelProofError("wheelhouse_repack_failed")
         inputs = [(entry.source.filename, entry.source.size, entry.source.sha256)]
         inputs.extend((wheel.filename, wheel.size, wheel.sha256) for wheel in policy_entry.binary_wheels)
+        build_dependency_inputs = [
+            (wheel.filename, wheel.size, wheel.sha256)
+            for source in policy_entry.sources
+            for wheel in source.build_dependencies
+        ]
         return BuildResult(
             wheels=wheels,
             wheel_evidence=evidence,
             closure=closure,
             wheelhouse=wheelhouse,
             input_artifacts=tuple(inputs),
+            build_dependency_artifacts=tuple(sorted(build_dependency_inputs)),
+            build_environment=source_build.build_environment,
             build_argv_sha256=source_build.build_argv_sha256,
         )
 
@@ -1606,9 +1879,9 @@ class SourceWheelProofRunner:
             _require_success(cleaned, "target_cleanup_failed")
 
     async def _cleanup_builder(self, runtime: ProofRuntime) -> None:
-        paths = (INPUT_DIR, BINARY_DIR, WHEEL_DIR, RESOLVER_DIR, SITE_DIR)
+        paths = (INPUT_DIR, BINARY_DIR, BUILD_DEP_DIR, BUILD_ENV_DIR, WHEEL_DIR, RESOLVER_DIR, SITE_DIR)
         result = await runtime.run(
-            ["sh", "-c", f"rm -rf {' '.join(paths)} {PIP_REPORT_PATH}"],
+            ["sh", "-c", f"rm -rf {' '.join(paths)} {PIP_REPORT_PATH} {BUILD_PIP_REPORT_PATH}"],
             {},
         )
         _require_success(result, "builder_cleanup_failed")
@@ -1638,9 +1911,34 @@ class SourceWheelProofRunner:
                 )
                 if len(set(lease_identities.values())) != RUNTIMES_PER_ENTRY:
                     raise SourceWheelProofError("runtime_lease_identity_duplicate")
-                await _gather_cancel_on_error(
+                stage_results = await _gather_cancel_on_error(
                     self._stage_builder(builder_a, entry),
                     self._stage_builder(builder_b, entry),
+                )
+                if (
+                    len(stage_results) != 2
+                    or not all(isinstance(item, tuple) for item in stage_results)
+                    or stage_results[0] != stage_results[1]
+                ):
+                    raise SourceWheelProofError("build_dependency_setup_requires_mismatch")
+                setup_requires = stage_results[0]
+                assert isinstance(setup_requires, tuple)
+                build_dependency_resolution = await self._discover_build_dependencies(builder_b, setup_requires)
+                for filename, payload in build_dependency_resolution.binary_payloads:
+                    await _gather_cancel_on_error(
+                        builder_a.write(f"{BUILD_DEP_DIR}/{filename}", payload),
+                        builder_b.write(f"{BUILD_DEP_DIR}/{filename}", payload),
+                    )
+                build_source_policy = entry.source.policy(
+                    WheelEvidence(
+                        distribution=entry.source.distribution,
+                        version=entry.source.version,
+                        filename=entry.source.filename,
+                        size=entry.source.size,
+                        sha256=entry.source.sha256,
+                        universal=False,
+                    ),
+                    build_dependency_resolution.binary_policies,
                 )
                 await _gather_cancel_on_error(
                     self._activate_no_network(builder_a),
@@ -1655,7 +1953,11 @@ class SourceWheelProofRunner:
                     target_fingerprint, RuntimeFingerprint
                 ):
                     raise SourceWheelProofError("runtime_fingerprint_invalid")
-                source_a = await self._build_source(builder_a, entry, set())
+                source_a = await self._build_source(
+                    builder_a, build_source_policy, target_fingerprint.build_tools, set()
+                )
+                if source_a.setup_requires != build_dependency_resolution.requirements:
+                    raise SourceWheelProofError("build_dependency_setup_requires_mismatch")
                 resolution = await self._discover_resolution(builder_b, entry, source_a)
                 binary_names = {wheel.filename for wheel in resolution.binary_policies}
                 for filename, payload in resolution.binary_payloads:
@@ -1667,10 +1969,17 @@ class SourceWheelProofRunner:
                 fingerprint_b = await self._fingerprint(builder_b, entry.image)
                 if not (fingerprint_a == fingerprint_b == target_fingerprint):
                     raise SourceWheelProofError("runtime_fingerprint_mismatch")
-                source_b = await self._build_source(builder_b, entry, binary_names)
+                source_policy = entry.source.policy(source_a.evidence, build_dependency_resolution.binary_policies)
+                source_b = await self._build_source(
+                    builder_b,
+                    source_policy,
+                    target_fingerprint.build_tools,
+                    binary_names,
+                )
+                if source_b.setup_requires != build_dependency_resolution.requirements:
+                    raise SourceWheelProofError("build_dependency_setup_requires_mismatch")
                 if source_a.filename != source_b.filename or source_a.payload != source_b.payload:
                     raise SourceWheelProofError("source_wheel_reproducibility_failed")
-                source_policy = entry.source.policy(source_a.evidence)
                 policy_entry = SourceWheelPolicyEntry(
                     requirements=entry.requirements,
                     image=entry.image,
@@ -1707,6 +2016,13 @@ class SourceWheelProofRunner:
                         "report_sha256": resolution.report_sha256,
                         "resolver_argv_sha256": resolution.resolver_argv_sha256,
                         "binary_artifact_count": len(resolution.binary_policies),
+                        "build_dependencies": {
+                            "setup_requires": list(build_dependency_resolution.requirements),
+                            "network": "public-wheel-only",
+                            "report_sha256": build_dependency_resolution.report_sha256,
+                            "resolver_argv_sha256": build_dependency_resolution.resolver_argv_sha256,
+                            "binary_artifact_count": len(build_dependency_resolution.binary_policies),
+                        },
                     },
                     "builders": [build_a.as_dict(), build_b.as_dict()],
                     "cross_builder": cross_builder,
@@ -1883,6 +2199,7 @@ def _validate_entry_proof(
             "wheel_filename",
             "wheel_size",
             "wheel_sha256",
+            "build_dependencies",
         },
         "proof_state_entry_invalid",
     )
@@ -1900,6 +2217,43 @@ def _validate_entry_proof(
         )
     ):
         raise SourceWheelProofError("proof_state_entry_invalid")
+    raw_build_dependencies = source["build_dependencies"]
+    if not isinstance(raw_build_dependencies, list):
+        raise SourceWheelProofError("proof_state_entry_invalid")
+    build_dependencies: list[dict[str, object]] = []
+    build_dependency_distributions: set[object] = set()
+    build_dependency_filenames: set[object] = set()
+    for wheel in raw_build_dependencies:
+        if not isinstance(wheel, dict) or set(wheel) != {
+            "distribution",
+            "version",
+            "filename",
+            "url",
+            "size",
+            "sha256",
+        }:
+            raise SourceWheelProofError("proof_state_entry_invalid")
+        distribution = wheel["distribution"]
+        filename = wheel["filename"]
+        if (
+            not isinstance(distribution, str)
+            or canonical_distribution_name(distribution) != distribution
+            or distribution in build_dependency_distributions
+            or not isinstance(wheel["version"], str)
+            or not wheel["version"]
+            or any(character.isspace() for character in wheel["version"])
+            or not isinstance(filename, str)
+            or SAFE_FILENAME_RE.fullmatch(filename) is None
+            or not filename.lower().endswith(".whl")
+            or filename in build_dependency_filenames
+            or not _valid_size(wheel["size"], MAX_WHEEL_BYTES)
+            or not _valid_sha256(wheel["sha256"])
+        ):
+            raise SourceWheelProofError("proof_state_entry_invalid")
+        _validate_https_url(wheel["url"], set(discovery.allowed_hosts), "proof_state_entry_invalid")
+        build_dependency_distributions.add(distribution)
+        build_dependency_filenames.add(filename)
+        build_dependencies.append(wheel)
     binary_distributions = {entry.source.distribution}
     binary_filenames = {source["wheel_filename"]}
     for wheel in policy_entry["binary_wheels"]:
@@ -1932,6 +2286,8 @@ def _validate_entry_proof(
         _validate_https_url(wheel["url"], set(discovery.allowed_hosts), "proof_state_entry_invalid")
         binary_distributions.add(distribution)
         binary_filenames.add(filename)
+    if build_dependency_filenames & binary_filenames:
+        raise SourceWheelProofError("proof_state_entry_invalid")
     runtime = proof["runtime"]
     if not isinstance(runtime, dict):
         raise SourceWheelProofError("proof_state_entry_invalid")
@@ -1974,6 +2330,7 @@ def _validate_entry_proof(
             "report_sha256",
             "resolver_argv_sha256",
             "binary_artifact_count",
+            "build_dependencies",
         }
         or resolution.get("network") != "public-wheel-only"
         or not _valid_sha256(resolution.get("report_sha256"))
@@ -1984,6 +2341,46 @@ def _validate_entry_proof(
         or resolution.get("binary_artifact_count") != len(policy_entry["binary_wheels"])
     ):
         raise SourceWheelProofError("proof_state_entry_invalid")
+    build_dependency_resolution = resolution["build_dependencies"]
+    setup_requires = (
+        build_dependency_resolution.get("setup_requires") if isinstance(build_dependency_resolution, dict) else None
+    )
+    if (
+        not isinstance(build_dependency_resolution, dict)
+        or set(build_dependency_resolution)
+        != {"setup_requires", "network", "report_sha256", "resolver_argv_sha256", "binary_artifact_count"}
+        or not isinstance(setup_requires, list)
+        or not all(isinstance(item, str) and item for item in setup_requires)
+        or build_dependency_resolution.get("network") != "public-wheel-only"
+        or isinstance(build_dependency_resolution.get("binary_artifact_count"), bool)
+        or build_dependency_resolution.get("binary_artifact_count") != len(build_dependencies)
+    ):
+        raise SourceWheelProofError("proof_state_entry_invalid")
+    parsed_build_dependencies = tuple(
+        BinaryWheelPolicy(
+            distribution=str(wheel["distribution"]),
+            version=str(wheel["version"]),
+            filename=str(wheel["filename"]),
+            url=str(wheel["url"]),
+            size=int(wheel["size"]),
+            sha256=str(wheel["sha256"]),
+        )
+        for wheel in build_dependencies
+    )
+    if build_dependencies:
+        if not _valid_sha256(build_dependency_resolution.get("report_sha256")) or build_dependency_resolution.get(
+            "resolver_argv_sha256"
+        ) != sha256_bytes(canonical_json(_build_dependency_resolver_argv(tuple(setup_requires)))):
+            raise SourceWheelProofError("proof_state_entry_invalid")
+    elif (
+        build_dependency_resolution.get("report_sha256") != ""
+        or build_dependency_resolution.get("resolver_argv_sha256") != ""
+    ):
+        raise SourceWheelProofError("proof_state_entry_invalid")
+    try:
+        validate_static_build_dependency_closure(tuple(setup_requires), parsed_build_dependencies)
+    except RuntimeError as error:
+        raise SourceWheelProofError("proof_state_entry_invalid") from error
     expected_wheels = sorted(
         [
             {
@@ -2009,6 +2406,21 @@ def _validate_entry_proof(
     expected_inputs = [
         {"filename": entry.source.filename, "size": entry.source.size, "sha256": entry.source.sha256}
     ] + [{name: wheel[name] for name in ("filename", "size", "sha256")} for wheel in policy_entry["binary_wheels"]]
+    expected_build_dependency_inputs = [
+        {name: wheel[name] for name in ("filename", "size", "sha256")} for wheel in build_dependencies
+    ]
+    source_policy = SourceArtifactPolicy(
+        distribution=str(source["distribution"]),
+        version=str(source["version"]),
+        filename=str(source["filename"]),
+        url=str(source["url"]),
+        size=int(source["size"]),
+        sha256=str(source["sha256"]),
+        wheel_filename=str(source["wheel_filename"]),
+        wheel_size=int(source["wheel_size"]),
+        wheel_sha256=str(source["wheel_sha256"]),
+        build_dependencies=parsed_build_dependencies,
+    )
     for builder in builders:
         if (
             not isinstance(builder, dict)
@@ -2017,7 +2429,9 @@ def _validate_entry_proof(
                 "network",
                 "build_isolation",
                 "dependency_resolution",
+                "build_environment",
                 "input_artifacts",
+                "build_dependency_artifacts",
                 "build_argv_sha256",
                 "wheels",
                 "closure",
@@ -2028,7 +2442,8 @@ def _validate_entry_proof(
             or builder.get("build_isolation") is not False
             or builder.get("dependency_resolution") != "discovered-wheel-only-closure"
             or builder.get("input_artifacts") != expected_inputs
-            or builder.get("build_argv_sha256") != sha256_bytes(canonical_json(_source_build_argv(entry.source)))
+            or builder.get("build_dependency_artifacts") != expected_build_dependency_inputs
+            or builder.get("build_argv_sha256") != sha256_bytes(canonical_json(_source_build_argv(source_policy)))
             or builder.get("closure") != expected_closure
             or builder.get("closure_sha256") != expected_closure_sha256
             or not isinstance(builder.get("wheels"), list)
@@ -2036,6 +2451,14 @@ def _validate_entry_proof(
             or not _valid_wheelhouse_record(builder.get("wheelhouse"))
         ):
             raise SourceWheelProofError("proof_state_entry_invalid")
+        try:
+            validate_source_build_environment_record(
+                builder["build_environment"],
+                build_env_dir=BUILD_ENV_DIR,
+                expected_build_tools=parsed_runtime.build_tools,
+            )
+        except RuntimeError as error:
+            raise SourceWheelProofError("proof_state_entry_invalid") from error
         observed = [
             {name: wheel[name] for name in ("distribution", "version", "filename", "size", "sha256")}
             for wheel in builder["wheels"]
@@ -2551,7 +2974,7 @@ class ProofStore:
         return (
             canonical_json(
                 {
-                    "schema_version": 1,
+                    "schema_version": SOURCE_WHEEL_POLICY_SCHEMA_VERSION,
                     "allowed_hosts": list(self.discovery.allowed_hosts),
                     "entries": entries,
                 }

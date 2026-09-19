@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import ast
 import hashlib
 import io
 import json
@@ -16,8 +17,15 @@ from pathlib import Path, PurePosixPath
 from urllib.parse import urlsplit
 from zipfile import BadZipFile, ZipFile
 
-SOURCE_WHEEL_POLICY_SCHEMA_VERSION = 1
-SOURCE_WHEEL_ATTESTATION_SCHEMA_VERSION = 1
+try:
+    from packaging.requirements import InvalidRequirement, Requirement
+    from packaging.utils import canonicalize_name
+except ModuleNotFoundError:  # pragma: no cover - exercised inside minimal verifier images.
+    from pip._vendor.packaging.requirements import InvalidRequirement, Requirement
+    from pip._vendor.packaging.utils import canonicalize_name
+
+SOURCE_WHEEL_POLICY_SCHEMA_VERSION = 2
+SOURCE_WHEEL_ATTESTATION_SCHEMA_VERSION = 3
 MAX_SOURCE_INPUT_BYTES = 256 * 1024 * 1024
 MAX_WHEEL_BYTES = 256 * 1024 * 1024
 MAX_WHEELHOUSE_BYTES = 1024 * 1024 * 1024
@@ -27,6 +35,7 @@ MAX_WHEEL_UNCOMPRESSED_BYTES = 1024 * 1024 * 1024
 MAX_METADATA_BYTES = 2 * 1024 * 1024
 MAX_SDIST_MEMBERS = 20_000
 MAX_SDIST_UNCOMPRESSED_BYTES = 1024 * 1024 * 1024
+MAX_SETUP_PY_BYTES = 2 * 1024 * 1024
 
 _SHA256_RE = re.compile(r"[0-9a-f]{64}")
 _IMAGE_DIGEST_RE = re.compile(r"[^\s@]+(?:[:][^\s@]+)?@sha256:[0-9a-f]{64}")
@@ -83,6 +92,7 @@ class SourceArtifactPolicy:
     wheel_filename: str
     wheel_size: int
     wheel_sha256: str
+    build_dependencies: tuple[BinaryWheelPolicy, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -120,6 +130,15 @@ class SourceWheelPolicyEntry:
             for wheel in self.binary_wheels
         )
         return tuple(sorted(wheels, key=lambda item: item[2]))
+
+    @property
+    def build_dependency_wheels(self) -> tuple[BinaryWheelPolicy, ...]:
+        return tuple(
+            sorted(
+                (wheel for source in self.sources for wheel in source.build_dependencies),
+                key=lambda item: item.filename,
+            )
+        )
 
 
 @dataclass(frozen=True)
@@ -213,6 +232,229 @@ def _validated_url(value: object, allowed_hosts: set[str], label: str) -> str:
     return value
 
 
+def validate_legacy_setup_requirement(value: object, label: str) -> str:
+    if not isinstance(value, str):
+        raise RuntimeError(f"{label} must be a static requirement string")
+    requirement_text = value.strip()
+    if not requirement_text:
+        raise RuntimeError(f"{label} must be nonempty")
+    try:
+        requirement = Requirement(requirement_text)
+    except InvalidRequirement as error:
+        raise RuntimeError(f"{label} is not a valid requirement") from error
+    if requirement.url is not None or requirement.marker is not None:
+        raise RuntimeError(f"{label} must not use direct URLs or environment markers")
+    if canonicalize_name(requirement.name) != canonical_distribution_name(requirement.name):
+        raise RuntimeError(f"{label} must use a canonical distribution name")
+    return requirement_text
+
+
+def validate_static_build_dependency_closure(
+    setup_requires: tuple[str, ...],
+    build_dependencies: tuple[BinaryWheelPolicy, ...],
+) -> None:
+    if not setup_requires:
+        if build_dependencies:
+            raise RuntimeError("source distribution declares no build dependencies but policy supplies them")
+        return
+    if not build_dependencies:
+        raise RuntimeError("source distribution declares setup_requires but policy omits build dependencies")
+    available = {wheel.distribution: wheel.version for wheel in build_dependencies}
+    if len(available) != len(build_dependencies):
+        raise RuntimeError("source build dependency policy contains duplicate distributions")
+    for index, requirement_text in enumerate(setup_requires):
+        validated = validate_legacy_setup_requirement(requirement_text, f"setup_requires[{index}]")
+        requirement = Requirement(validated)
+        name = canonical_distribution_name(requirement.name)
+        version = available.get(name)
+        if version is None or (requirement.specifier and not requirement.specifier.contains(version, prereleases=True)):
+            raise RuntimeError("source build dependency policy does not satisfy setup_requires")
+
+
+SOURCE_BUILD_ENV_ATTEST_CODE = """
+import importlib.metadata as metadata
+import json, os, sys
+
+build_env = os.path.realpath(sys.argv[1])
+expected_python = os.path.join(build_env, "bin", "python")
+if os.path.abspath(sys.executable) != expected_python:
+    raise RuntimeError("source build environment python mismatch")
+if os.path.realpath(sys.prefix) != build_env or os.path.realpath(sys.base_prefix) == build_env:
+    raise RuntimeError("source build environment prefix mismatch")
+if not sys.flags.isolated:
+    raise RuntimeError("source build environment is not isolated")
+build_tools = {}
+for distribution in ("pip", "setuptools", "wheel"):
+    try:
+        build_tools[distribution] = metadata.version(distribution)
+    except metadata.PackageNotFoundError:
+        build_tools[distribution] = "<missing>"
+print(json.dumps({
+    "schema_version": 1,
+    "executable": os.path.abspath(sys.executable),
+    "prefix": os.path.realpath(sys.prefix),
+    "base_prefix": os.path.realpath(sys.base_prefix),
+    "isolated": True,
+    "build_tools": build_tools,
+}, separators=(",", ":"), sort_keys=True))
+""".strip()
+
+
+def source_build_environment_record(
+    *,
+    build_env_dir: str,
+    expected_build_tools: tuple[tuple[str, str], ...],
+    attestation: dict[str, object],
+) -> dict[str, object]:
+    return {
+        "kind": "venv-with-system-site-baseline",
+        "path": os.path.realpath(build_env_dir),
+        "create_argv_sha256": sha256_bytes(canonical_json(source_build_env_create_argv(build_env_dir))),
+        "attest_argv_sha256": sha256_bytes(canonical_json(source_build_env_attest_argv(build_env_dir))),
+        "expected_build_tools": dict(expected_build_tools),
+        "attestation": attestation,
+        "attestation_sha256": sha256_bytes(canonical_json(attestation)),
+    }
+
+
+def source_build_env_create_argv(build_env_dir: str) -> list[str]:
+    return [
+        "python3",
+        "-I",
+        "-m",
+        "venv",
+        "--without-pip",
+        "--system-site-packages",
+        build_env_dir,
+    ]
+
+
+def source_build_env_python(build_env_dir: str) -> str:
+    return f"{build_env_dir}/bin/python"
+
+
+def source_build_env_attest_argv(build_env_dir: str) -> list[str]:
+    return [
+        source_build_env_python(build_env_dir),
+        "-I",
+        "-c",
+        SOURCE_BUILD_ENV_ATTEST_CODE,
+        build_env_dir,
+    ]
+
+
+def validate_source_build_environment(
+    payload: bytes | str,
+    *,
+    build_env_dir: str,
+    expected_build_tools: tuple[tuple[str, str], ...],
+) -> dict[str, object]:
+    try:
+        value = strict_json_loads(payload)
+    except (UnicodeDecodeError, ValueError, RecursionError) as error:
+        raise RuntimeError("source build environment attestation is invalid") from error
+    expected_tools = dict(expected_build_tools)
+    expected_env = os.path.realpath(build_env_dir)
+    expected_python = os.path.join(expected_env, "bin", "python")
+    if (
+        not isinstance(value, dict)
+        or set(value) != {"schema_version", "executable", "prefix", "base_prefix", "isolated", "build_tools"}
+        or value.get("schema_version") != 1
+        or value.get("executable") != expected_python
+        or value.get("prefix") != expected_env
+        or not isinstance(value.get("base_prefix"), str)
+        or value.get("base_prefix") == expected_env
+        or value.get("isolated") is not True
+        or value.get("build_tools") != expected_tools
+    ):
+        raise RuntimeError("source build environment attestation is invalid")
+    return value
+
+
+def validate_source_build_environment_record(
+    value: object,
+    *,
+    build_env_dir: str,
+    expected_build_tools: tuple[tuple[str, str], ...],
+) -> dict[str, object]:
+    if not isinstance(value, dict) or set(value) != {
+        "kind",
+        "path",
+        "create_argv_sha256",
+        "attest_argv_sha256",
+        "expected_build_tools",
+        "attestation",
+        "attestation_sha256",
+    }:
+        raise RuntimeError("source build environment record is invalid")
+    attestation = value.get("attestation")
+    if not isinstance(attestation, dict):
+        raise RuntimeError("source build environment record is invalid")
+    expected = source_build_environment_record(
+        build_env_dir=build_env_dir,
+        expected_build_tools=expected_build_tools,
+        attestation=validate_source_build_environment(
+            canonical_json(attestation),
+            build_env_dir=build_env_dir,
+            expected_build_tools=expected_build_tools,
+        ),
+    )
+    if value != expected:
+        raise RuntimeError("source build environment record is invalid")
+    return expected
+
+
+def source_build_dependency_install_argv(
+    *,
+    build_env_dir: str,
+    build_dependency_dir: str,
+    build_dependencies: tuple[BinaryWheelPolicy, ...],
+) -> list[str]:
+    return [
+        source_build_env_python(build_env_dir),
+        "-I",
+        "-m",
+        "pip",
+        "install",
+        "--quiet",
+        "--disable-pip-version-check",
+        "--no-cache-dir",
+        "--ignore-installed",
+        "--no-index",
+        "--no-deps",
+        *[
+            f"{build_dependency_dir}/{wheel.filename}"
+            for wheel in sorted(build_dependencies, key=lambda item: item.filename)
+        ],
+    ]
+
+
+def source_build_argv(
+    source: SourceArtifactPolicy,
+    *,
+    input_dir: str,
+    wheel_dir: str,
+    build_env_dir: str,
+) -> list[str]:
+    source_path = f"{input_dir}/{source.filename}"
+    return [
+        source_build_env_python(build_env_dir),
+        "-I",
+        "-m",
+        "pip",
+        "wheel",
+        "--quiet",
+        "--disable-pip-version-check",
+        "--no-cache-dir",
+        "--no-index",
+        "--no-deps",
+        "--no-build-isolation",
+        "--wheel-dir",
+        wheel_dir,
+        f"{source.distribution} @ file://{source_path}#sha256={source.sha256}",
+    ]
+
+
 def _parse_source(
     raw: object,
     allowed_hosts: set[str],
@@ -232,9 +474,23 @@ def _parse_source(
             "wheel_filename",
             "wheel_size",
             "wheel_sha256",
+            "build_dependencies",
         },
         label,
     )
+    raw_build_dependencies = raw["build_dependencies"]
+    if not isinstance(raw_build_dependencies, list):
+        raise ValueError(f"{label}.build_dependencies must be a list")
+    build_dependencies = tuple(
+        _parse_binary_wheel(wheel, allowed_hosts, f"{label}.build_dependencies[{index}]")
+        for index, wheel in enumerate(raw_build_dependencies)
+    )
+    build_dependency_filenames = [wheel.filename for wheel in build_dependencies]
+    build_dependency_distributions = [wheel.distribution for wheel in build_dependencies]
+    if len(build_dependency_filenames) != len(set(build_dependency_filenames)):
+        raise ValueError(f"{label}.build_dependencies has duplicate filenames")
+    if len(build_dependency_distributions) != len(set(build_dependency_distributions)):
+        raise ValueError(f"{label}.build_dependencies has duplicate distributions")
     return SourceArtifactPolicy(
         distribution=_validated_distribution(raw["distribution"], f"{label}.distribution"),
         version=_validated_version(raw["version"], f"{label}.version"),
@@ -249,6 +505,7 @@ def _parse_source(
         ),
         wheel_size=_validated_size(raw["wheel_size"], f"{label}.wheel_size", MAX_WHEEL_BYTES),
         wheel_sha256=_validated_sha256(raw["wheel_sha256"], f"{label}.wheel_sha256"),
+        build_dependencies=build_dependencies,
     )
 
 
@@ -343,13 +600,18 @@ def load_source_wheel_policy(path: Path, expected_sha256: str) -> SourceWheelPol
             for index, wheel in enumerate(raw_binary_wheels)
         )
         input_filenames = [source.filename for source in sources]
+        input_filenames.extend(wheel.filename for source in sources for wheel in source.build_dependencies)
         input_filenames.extend(wheel.filename for wheel in binary_wheels)
         output_filenames = [source.wheel_filename for source in sources]
         output_filenames.extend(wheel.filename for wheel in binary_wheels)
+        wheel_filenames = list(output_filenames)
+        wheel_filenames.extend(wheel.filename for source in sources for wheel in source.build_dependencies)
         if len(input_filenames) != len(set(input_filenames)):
             raise ValueError(f"{label} has duplicate input filenames")
         if len(output_filenames) != len(set(output_filenames)):
             raise ValueError(f"{label} has duplicate wheel filenames")
+        if len(wheel_filenames) != len(set(wheel_filenames)):
+            raise ValueError(f"{label} has duplicate build/runtime wheel filenames")
         closure = {(source.distribution, source.version) for source in sources} | {
             (wheel.distribution, wheel.version) for wheel in binary_wheels
         }
@@ -513,6 +775,124 @@ def inspect_source_distribution(
             or versions[0].strip() != source.version
         ):
             raise RuntimeError("source distribution metadata does not match the approved policy")
+
+
+def _source_archive_named_payloads(source: SourceArtifactPolicy, payload: bytes, wanted: set[str]) -> dict[str, bytes]:
+    if len(payload) != source.size or sha256_bytes(payload) != source.sha256:
+        raise RuntimeError("source distribution does not match its approved size and SHA-256")
+    found: dict[str, bytes] = {}
+    canonical_roots: set[tuple[str, ...]] = set()
+    candidate_members: list[tuple[str, bytes]] = []
+    total_size = 0
+
+    def consider(name: str, size: int, reader: object) -> None:
+        nonlocal total_size
+        total_size += size
+        if total_size > MAX_SDIST_UNCOMPRESSED_BYTES:
+            raise RuntimeError("source distribution exceeds the bounded expansion contract")
+        parts = PurePosixPath(name).parts
+        if not parts:
+            return
+        basename = parts[-1]
+        if basename == "PKG-INFO" and len(parts) in {1, 2}:
+            canonical_roots.add(parts[:-1])
+        if basename not in wanted:
+            return
+        if size > MAX_SETUP_PY_BYTES:
+            raise RuntimeError("source distribution setup metadata exceeds the bounded size contract")
+        candidate_members.append((name, reader()))  # type: ignore[operator]
+
+    if source.filename.lower().endswith(".zip"):
+        try:
+            with ZipFile(io.BytesIO(payload)) as archive:
+                members = archive.infolist()
+                if not members or len(members) > MAX_SDIST_MEMBERS:
+                    raise RuntimeError("source distribution has an invalid member count")
+                for member in members:
+                    member_mode = member.external_attr >> 16
+                    if not _safe_archive_member(member.filename) or member.flag_bits & 0x1 or stat.S_ISLNK(member_mode):
+                        raise RuntimeError("source distribution contains an unsafe archive member")
+                    consider(member.filename, member.file_size, lambda member=member: archive.read(member))
+        except BadZipFile as error:
+            raise RuntimeError("source distribution is not a valid ZIP archive") from error
+    else:
+        try:
+            with tarfile.open(fileobj=io.BytesIO(payload), mode="r:*") as archive:
+                members = archive.getmembers()
+                if not members or len(members) > MAX_SDIST_MEMBERS:
+                    raise RuntimeError("source distribution has an invalid member count")
+                for member in members:
+                    if member.isdir() and not PurePosixPath(member.name).parts:
+                        continue
+                    if not _safe_archive_member(member.name) or not (member.isdir() or member.isfile()):
+                        raise RuntimeError("source distribution contains an unsafe archive member")
+                    if not member.isfile():
+                        continue
+
+                    def read_member(member: tarfile.TarInfo = member) -> bytes:
+                        handle = archive.extractfile(member)
+                        if handle is None:
+                            raise RuntimeError("source distribution metadata could not be read")
+                        return handle.read()
+
+                    consider(member.name, member.size, read_member)
+        except tarfile.TarError as error:
+            raise RuntimeError("source distribution is not a valid tar archive") from error
+    if len(canonical_roots) != 1:
+        raise RuntimeError("source distribution contains ambiguous setup metadata")
+    canonical_root = next(iter(canonical_roots))
+    for name, payload in candidate_members:
+        parts = PurePosixPath(name).parts
+        basename = parts[-1]
+        if parts[:-1] != canonical_root:
+            continue
+        if basename in found:
+            raise RuntimeError("source distribution contains ambiguous setup metadata")
+        found[basename] = payload
+    return found
+
+
+def extract_static_setup_requires(source: SourceArtifactPolicy, payload: bytes) -> tuple[str, ...]:
+    inspect_source_distribution(source, payload)
+    named = _source_archive_named_payloads(source, payload, {"setup.py", "pyproject.toml"})
+    if "pyproject.toml" in named:
+        raise RuntimeError("source-wheel proof supports only legacy setup.py source distributions")
+    setup_payload = named.get("setup.py")
+    if setup_payload is None:
+        raise RuntimeError("legacy source distribution is missing setup.py")
+    try:
+        tree = ast.parse(setup_payload.decode("utf-8"), filename="setup.py")
+    except (SyntaxError, UnicodeDecodeError) as error:
+        raise RuntimeError("legacy setup.py cannot be parsed safely") from error
+    setup_calls: list[ast.Call] = []
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Call):
+            continue
+        if isinstance(node.func, ast.Name) and node.func.id == "setup":
+            setup_calls.append(node)
+        elif isinstance(node.func, ast.Attribute) and node.func.attr == "setup":
+            setup_calls.append(node)
+    if len(setup_calls) != 1:
+        raise RuntimeError("legacy setup.py must contain exactly one static setup() call")
+    matches = [keyword for keyword in setup_calls[0].keywords if keyword.arg == "setup_requires"]
+    if len(matches) > 1:
+        raise RuntimeError("legacy setup.py has ambiguous setup_requires")
+    if not matches:
+        return ()
+    value = matches[0].value
+    if isinstance(value, ast.Constant) and isinstance(value.value, str):
+        raw_requirements: list[object] = [value.value]
+    elif isinstance(value, (ast.List, ast.Tuple, ast.Set)):
+        raw_requirements = [item.value if isinstance(item, ast.Constant) else item for item in value.elts]
+    else:
+        raise RuntimeError("legacy setup_requires must be a static literal")
+    requirements = tuple(
+        validate_legacy_setup_requirement(item, f"setup_requires[{index}]")
+        for index, item in enumerate(raw_requirements)
+    )
+    if len(requirements) != len(set(requirements)):
+        raise RuntimeError("legacy setup_requires contains duplicate requirements")
+    return requirements
 
 
 def inspect_wheelhouse(wheel_archive: bytes) -> tuple[WheelEvidence, ...]:
