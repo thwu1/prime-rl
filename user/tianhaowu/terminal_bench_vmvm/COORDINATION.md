@@ -1,6 +1,6 @@
 # VMVM sandbox coordination
 
-Last updated: 2026-09-19 22:03 UTC
+Last updated: 2026-09-19 22:17 UTC
 
 ## First message to the next teammate
 
@@ -41,6 +41,16 @@ this shared branch again.
 Add new rows below this line; do not overwrite another owner's row.
 
 ## Open coordination requests
+
+- **2026-09-19 22:17 UTC, unreviewed Kimi generation raced the hold:** watcher
+  v5 submitted exact-`d79e1c5f` deployment
+  `tianhaowu-k3-kda-tb4-eval-20260919t215851z` at about 22:01 UTC, before the
+  22:03 pull-path rejection was published. Coordinator `1756856` and workers
+  `1756857`/`1756858` remain running; failure replacement `1756859` is
+  dependency-pending. At 22:16 no proxy-info or deployment receipt existed.
+  Treat this generation as unqualified and do not launch readiness, smoke, or
+  TB4 from it. Do not duplicate or mutate it without a recorded handoff while
+  the separately isolated explicit-pull hardening is under implementation.
 
 - **2026-09-19 22:03 UTC, serving relaunch remains blocked after retry review:**
   `fairinternal/ram_common` commit `d79e1c5f21dcb31551a89635070003384e26236c`
