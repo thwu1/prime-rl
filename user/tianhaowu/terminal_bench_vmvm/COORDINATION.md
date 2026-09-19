@@ -1,6 +1,6 @@
 # VMVM sandbox coordination
 
-Last updated: 2026-09-19 22:35 UTC
+Last updated: 2026-09-19 22:39 UTC
 
 ## First message to the next teammate
 
@@ -41,6 +41,21 @@ this shared branch again.
 Add new rows below this line; do not overwrite another owner's row.
 
 ## Open coordination requests
+
+- **2026-09-19 22:39 UTC, bounded initial-workdir recovery is a viable
+  post-diagnostic fix:** pinned verifier `ef35ac78` still runs
+  `VMVMRuntime.start()`'s initial `mkdir -p` through raw `backend.run_bash`,
+  while ordinary commands already use `_run_command` and the v2 backend's
+  five-attempt exact-once recovery. The recovery path submits the command once,
+  then uses session restart plus FIFO `recover_last`; it fails closed if state
+  was rebuilt, and the mkdir is independently idempotent. The minimal eventual
+  patch is to send the initial mkdir through `_run_command`, with regressions
+  for one broken-pipe recovery and five-restart exhaustion/cleanup. Do not land
+  that patch before preserving a causal diagnostic: it changes
+  `runtime_contract` from a raw-command probe into a recovery-aware probe and
+  can hide the current first-command symptom. Run the corrected task-free A/B
+  against the old exact verifier, or explicitly update that stage's semantics
+  while retaining the separate same/cross-thread raw/recovery contrasts.
 
 - **2026-09-19 22:36 UTC, explicit image-pull candidate remains
   unlaunchable:** the uncommitted RAM hardening passes its 305-test stub suite
