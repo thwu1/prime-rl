@@ -1,3 +1,4 @@
+import copy
 import hashlib
 import json
 import sys
@@ -10,6 +11,7 @@ from audit_traces import (
     _captured_zero_reasoning_tool_turn,
     _iter_traces,
     _summarize_traces,
+    _valid_redundant_provider_specific_fields,
     _valid_tool_arguments,
     main,
 )
@@ -146,6 +148,87 @@ def _model_io(request: dict, *, response: dict | None = None) -> dict:
 def _trace_with_model_io(trace_id: str = "model-io", slug: str = "model-io-task") -> dict:
     trace = _trace(trace_id, slug)
     trace["nodes"][0]["model_io"] = _model_io(_request())
+    return trace
+
+
+def _trace_with_redundant_provider_fields() -> dict:
+    trace = _trace_with_model_io()
+    first = trace["nodes"][0]
+    first["parent"] = 0
+    first["message"] = {
+        "role": "assistant",
+        "content": None,
+        "reasoning_content": "first reasoning",
+        "tool_calls": [{"id": "call-1", "name": "bash", "arguments": '{"cmd":"pwd"}'}],
+    }
+    first["finish_reason"] = "tool_calls"
+    first_wire_message = {
+        "role": "assistant",
+        "content": None,
+        "reasoning_content": "first reasoning",
+        "provider_specific_fields": {"reasoning": "first reasoning", "refusal": None},
+        "tool_calls": [
+            {
+                "id": "call-1",
+                "type": "function",
+                "function": {"name": "bash", "arguments": '{"cmd":"pwd"}'},
+            }
+        ],
+    }
+    first_response = _exact_response(message=copy.deepcopy(first_wire_message), finish_reason="tool_calls")
+    first["model_io"]["response"] = {
+        "kind": "exact_provider_json",
+        "sha256": _digest(first_response),
+        "body": first_response,
+    }
+
+    second_request = _request()
+    second_request["messages"] = [
+        {"role": "user", "content": "inspect the workspace"},
+        copy.deepcopy(first_wire_message),
+        {"role": "tool", "content": "/workspace", "tool_call_id": "call-1"},
+    ]
+    second = _trace("second", "same-task")["nodes"][0]
+    second["parent"] = 2
+    second["message"] = {
+        "role": "assistant",
+        "content": "done",
+        "reasoning_content": "second reasoning",
+    }
+    second_response = _exact_response(
+        message={
+            "role": "assistant",
+            "content": "done",
+            "reasoning_content": "second reasoning",
+            "provider_specific_fields": {"reasoning": "second reasoning", "refusal": None},
+        }
+    )
+    second["model_io"] = _model_io(second_request, response=second_response)
+    trace["nodes"] = [
+        {
+            "parent": None,
+            "sampled": False,
+            "token_ids": [],
+            "mask": [],
+            "logprobs": [],
+            "message": {"role": "user", "content": "inspect the workspace"},
+        },
+        first,
+        {
+            "parent": 1,
+            "sampled": False,
+            "token_ids": [],
+            "mask": [],
+            "logprobs": [],
+            "message": {
+                "role": "tool",
+                "content": "/workspace",
+                "tool_call_id": "call-1",
+                "name": "bash",
+            },
+        },
+        second,
+    ]
     return trace
 
 
@@ -708,6 +791,66 @@ def test_audit_trace_reconciles_exact_chat_response_semantics() -> None:
     assert _audit_trace(trace, require_reasoning=True, require_model_io=True) == []
 
 
+def test_audit_trace_accepts_redundant_kimi_provider_fields_across_replayed_turns() -> None:
+    trace = _trace_with_redundant_provider_fields()
+
+    assert (
+        _audit_trace(
+            trace,
+            require_reasoning=True,
+            require_model_io=True,
+            require_request_graph_match=True,
+        )
+        == []
+    )
+
+
+def test_redundant_kimi_provider_fields_allow_null_reasoning_when_direct_field_is_absent() -> None:
+    assert _valid_redundant_provider_specific_fields(
+        {
+            "role": "assistant",
+            "content": None,
+            "provider_specific_fields": {"reasoning": None, "refusal": None},
+        }
+    )
+
+
+@pytest.mark.parametrize(
+    "provider_fields",
+    [
+        "malformed",
+        {"reasoning": "first reasoning"},
+        {"reasoning": "first reasoning", "refusal": None, "opaque": True},
+        {"reasoning": {"text": "first reasoning"}, "refusal": None},
+        {"reasoning": "different reasoning", "refusal": None},
+        {"reasoning": "first reasoning", "refusal": "blocked"},
+    ],
+)
+def test_audit_trace_rejects_nonredundant_kimi_response_provider_fields(provider_fields: object) -> None:
+    trace = _trace_with_redundant_provider_fields()
+    response = trace["nodes"][1]["model_io"]["response"]
+    response["body"]["choices"][0]["message"]["provider_specific_fields"] = provider_fields
+    response["sha256"] = _digest(response["body"])
+
+    assert _audit_trace(trace, require_reasoning=True, require_model_io=True) == [
+        "node_1_model_io_response_semantics_invalid"
+    ]
+
+
+def test_audit_trace_rejects_nonredundant_kimi_provider_fields_in_replayed_request() -> None:
+    trace = _trace_with_redundant_provider_fields()
+    request = trace["nodes"][3]["model_io"]["request"]
+    request["body"]["messages"][1]["provider_specific_fields"]["reasoning"] = "different reasoning"
+    request["sha256"] = _digest(request["body"])
+
+    assert _audit_trace(
+        trace,
+        require_reasoning=True,
+        require_model_io=True,
+        require_request_graph_match=True,
+    ) == ["node_3_model_io_request_messages_invalid"]
+
+
 def test_audit_trace_reconciles_normalized_stream_response_semantics() -> None:
     trace = _trace_with_model_io()
     normalized = {
@@ -1045,6 +1188,7 @@ def test_audit_trace_allows_provider_reported_zero_reasoning_tool_turn() -> None
                 "role": "assistant",
                 "content": None,
                 "reasoning": None,
+                "provider_specific_fields": {"reasoning": None, "refusal": None},
                 "tool_calls": [
                     {
                         "id": "call-2",

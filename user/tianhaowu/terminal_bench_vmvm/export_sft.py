@@ -29,7 +29,13 @@ from pathlib import Path
 from typing import Any, Literal
 
 import direct_qwen_workers as direct_workers
-from audit_traces import DEFAULT_MAX_SEQUENCE_TOKENS, TRAINABLE_FINISH_REASONS, _audit_trace, _valid_tool_arguments
+from audit_traces import (
+    DEFAULT_MAX_SEQUENCE_TOKENS,
+    TRAINABLE_FINISH_REASONS,
+    _audit_trace,
+    _valid_redundant_provider_specific_fields,
+    _valid_tool_arguments,
+)
 
 FORMAT_VERSION = 3
 SPLIT_BUCKETS = 10_000
@@ -1440,7 +1446,11 @@ def _validate_captured_response(node: dict[str, Any]) -> None:
         "reasoning_details",
         "tool_calls",
     }
+    if kind == "exact_provider_json":
+        allowed_raw_message_keys.add("provider_specific_fields")
     if "role" not in raw_message or not set(raw_message).issubset(allowed_raw_message_keys):
+        raise ExportError("captured_response_invalid")
+    if not _valid_redundant_provider_specific_fields(raw_message):
         raise ExportError("captured_response_invalid")
     if "reasoning" in raw_message and "reasoning_content" in raw_message:
         raise ExportError("captured_response_invalid")

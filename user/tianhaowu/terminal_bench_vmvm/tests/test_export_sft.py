@@ -237,6 +237,35 @@ def _linear_trace(trace_id: str = "trace-pass", *, reward: float = 1.0, task_nam
     }
 
 
+def _add_redundant_kimi_provider_fields(trace: dict) -> None:
+    for node in trace["nodes"]:
+        if node.get("sampled") is not True:
+            continue
+        response = node["model_io"]["response"]
+        raw_message = response["body"]["choices"][0]["message"]
+        reasoning = raw_message.pop("reasoning")
+        raw_message["reasoning_content"] = reasoning
+        raw_message["provider_specific_fields"] = {"reasoning": reasoning, "refusal": None}
+        response["sha256"] = _json_sha256(response["body"])
+
+    second_request = trace["nodes"][4]["model_io"]["request"]
+    replayed_assistant = second_request["append_fields"]["messages"][0]
+    replayed_assistant["provider_specific_fields"] = {
+        "reasoning": replayed_assistant["reasoning_content"],
+        "refusal": None,
+    }
+    first_request = trace["nodes"][2]["model_io"]["request"]["body"]
+    second_request["sha256"] = _json_sha256(
+        {
+            **first_request,
+            "messages": [
+                *first_request["messages"],
+                *second_request["append_fields"]["messages"],
+            ],
+        }
+    )
+
+
 def _branched_trace() -> dict:
     trace = _linear_trace("trace-branch")
     nodes = trace["nodes"]
@@ -633,6 +662,77 @@ def test_exports_one_row_per_unique_sampled_node_and_normalizes_messages(tmp_pat
     assert rows[0]["source_episode_id"] != "trace-pass"
     assert all("routing_epoch" not in row for row in rows)
     assert "routing_epochs" not in json.loads((output / "manifest.json").read_text())
+
+
+def test_exports_redundant_kimi_provider_fields_without_losing_reasoning(tmp_path: Path) -> None:
+    trace = _linear_trace()
+    _add_redundant_kimi_provider_fields(trace)
+    results = _write_run(tmp_path / "run", [trace])
+    output = tmp_path / "dataset"
+
+    summary = export_sft(_options(results, output, expected_count=1))
+
+    rows = _read_jsonl(output / "train" / "train.jsonl")
+    assert summary["rows"] == {"total": 2, "train": 2, "validation": 0}
+    assert [row["messages"][-1]["reasoning_content"] for row in rows] == [
+        "first-reasoning",
+        "second-reasoning",
+    ]
+    assert rows[1]["messages"][2]["reasoning_content"] == "first-reasoning"
+    assert "provider_specific_fields" not in json.dumps(rows, sort_keys=True)
+
+
+@pytest.mark.parametrize(
+    "provider_fields",
+    [
+        "malformed",
+        {"reasoning": "first-reasoning"},
+        {"reasoning": "first-reasoning", "refusal": None, "opaque": True},
+        {"reasoning": {"text": "first-reasoning"}, "refusal": None},
+        {"reasoning": "different-reasoning", "refusal": None},
+        {"reasoning": "first-reasoning", "refusal": "blocked"},
+    ],
+)
+def test_captured_response_rejects_nonredundant_kimi_provider_fields(provider_fields: object) -> None:
+    trace = _linear_trace()
+    _add_redundant_kimi_provider_fields(trace)
+    node = trace["nodes"][2]
+    response = node["model_io"]["response"]
+    response["body"]["choices"][0]["message"]["provider_specific_fields"] = provider_fields
+    response["sha256"] = _json_sha256(response["body"])
+
+    with pytest.raises(ExportError, match="^captured_response_invalid$"):
+        exporter._validate_captured_response(node)
+
+
+def test_export_rejects_nonredundant_kimi_provider_fields_in_captured_response(tmp_path: Path) -> None:
+    trace = _linear_trace()
+    _add_redundant_kimi_provider_fields(trace)
+    response = trace["nodes"][2]["model_io"]["response"]
+    response["body"]["choices"][0]["message"]["provider_specific_fields"]["refusal"] = "blocked"
+    response["sha256"] = _json_sha256(response["body"])
+    results = _write_run(tmp_path / "run", [trace])
+
+    with pytest.raises(ExportError, match="^captured_response_invalid$"):
+        export_sft(_options(results, tmp_path / "dataset"))
+
+
+def test_export_rejects_nonredundant_kimi_provider_fields_in_replayed_request(tmp_path: Path) -> None:
+    trace = _linear_trace()
+    _add_redundant_kimi_provider_fields(trace)
+    request = trace["nodes"][4]["model_io"]["request"]
+    request["append_fields"]["messages"][0]["provider_specific_fields"]["reasoning"] = "different-reasoning"
+    first_request = trace["nodes"][2]["model_io"]["request"]["body"]
+    request["sha256"] = _json_sha256(
+        {
+            **first_request,
+            "messages": [*first_request["messages"], *request["append_fields"]["messages"]],
+        }
+    )
+    results = _write_run(tmp_path / "run", [trace])
+
+    with pytest.raises(ExportError, match="^trace_validation_failed$"):
+        export_sft(_options(results, tmp_path / "dataset"))
 
 
 def test_export_accepts_pinned_verifiers_exclude_none_assistant_serialization(tmp_path: Path) -> None:

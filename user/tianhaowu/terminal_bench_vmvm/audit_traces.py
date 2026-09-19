@@ -384,6 +384,31 @@ def _valid_model_response(response: object) -> bool:
     )
 
 
+def _valid_redundant_provider_specific_fields(message: object) -> bool:
+    """Accept only LiteLLM's lossless duplicate of Kimi reasoning metadata."""
+    if not isinstance(message, dict):
+        return False
+    if "provider_specific_fields" not in message:
+        return True
+
+    provider_fields = message["provider_specific_fields"]
+    if (
+        not isinstance(provider_fields, dict)
+        or set(provider_fields) != {"reasoning", "refusal"}
+        or provider_fields["refusal"] is not None
+    ):
+        return False
+    provider_reasoning = provider_fields["reasoning"]
+    if provider_reasoning is not None and not isinstance(provider_reasoning, str):
+        return False
+
+    direct_reasoning_fields = [field for field in ("reasoning", "reasoning_content") if field in message]
+    if len(direct_reasoning_fields) > 1:
+        return False
+    direct_reasoning = message[direct_reasoning_fields[0]] if direct_reasoning_fields else None
+    return (direct_reasoning is None or isinstance(direct_reasoning, str)) and (provider_reasoning == direct_reasoning)
+
+
 def _response_node_problems(
     node: dict,
     index: int,
@@ -397,6 +422,8 @@ def _response_node_problems(
         if not isinstance(choices, list) or len(choices) != 1 or not isinstance(choices[0], dict):
             return [f"node_{index}_model_io_response_semantics_invalid"]
         raw_finish_reason = choices[0].get("finish_reason")
+        if not _valid_redundant_provider_specific_fields(choices[0].get("message")):
+            return [f"node_{index}_model_io_response_semantics_invalid"]
     else:
         raw_finish_reason = body.get("finish_reason")
     if raw_finish_reason not in TRAINABLE_FINISH_REASONS:
@@ -474,6 +501,8 @@ def _captured_zero_reasoning_tool_turn(
     provider_reported_zero = bool(reasoning_token_values)
 
     if not isinstance(message, dict):
+        return None
+    if not _valid_redundant_provider_specific_fields(message):
         return None
     reasoning_values: list[object] = []
     reasoning_details_values: list[object] = []
@@ -681,9 +710,12 @@ def _prompt_messages(messages: object, *, wire: bool) -> list[dict]:
         }
         if wire:
             allowed.add("reasoning")
+            allowed.add("provider_specific_fields")
         if "role" not in message or not set(message).issubset(allowed):
             raise ValueError("message")
         if wire and "reasoning" in message and "reasoning_content" in message:
+            raise ValueError("message")
+        if wire and not _valid_redundant_provider_specific_fields(message):
             raise ValueError("message")
         if any(message.get(field) is not None for field in ("provider_state", "reasoning_details")):
             raise ValueError("message")
