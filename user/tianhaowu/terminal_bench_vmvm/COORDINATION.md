@@ -1,6 +1,6 @@
 # VMVM sandbox coordination
 
-Last updated: 2026-09-19 04:07 UTC
+Last updated: 2026-09-19 04:10 UTC
 
 ## First message to the next teammate
 
@@ -41,6 +41,20 @@ this shared branch again.
 Add new rows below this line; do not overwrite another owner's row.
 
 ## Open coordination requests
+
+- **2026-09-19 04:10 UTC, source-wheel proof hardening approved and frozen:**
+  exact commit `0e6da17df` (tree `f81d2e6cf`) is pushed on
+  `fix/source-wheel-proof-hardening-v2` and frozen clean at
+  `prime-rl-0e6da17df`. The implementation passed 138 focused and 728 full
+  adapter tests; independent review passed 219 changed-module tests and found
+  no blocker. It replaces setup parsing with a positive fail-closed grammar,
+  prevents source-local build-backend shadowing, validates raw local and
+  central ZIP structure, normalizes only DOS timestamp fields for reproducible
+  equality, and binds a venv-only executable closure plus base interpreter.
+  Proof/state/identity/recovery schemas and README/runtime guidance are updated.
+  No VMVM proof has been launched. Require a fresh binding inspection, wholly
+  fresh nine-entry/27-start proof root, and post-proof certificate validation;
+  do not reuse any prior proof root or binding receipt.
 
 - **2026-09-19 04:07 UTC, correction: keep `6028c555b` quarantined:** an
   independent lineage and consumer audit found that `6028c555b` and
