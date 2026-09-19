@@ -1,6 +1,6 @@
 # VMVM sandbox coordination
 
-Last updated: 2026-09-19 17:36 UTC
+Last updated: 2026-09-19 17:39 UTC
 
 ## First message to the next teammate
 
@@ -53,6 +53,21 @@ Add new rows below this line; do not overwrite another owner's row.
   trace stop conditions. It is not merged or executable authority: require a
   fresh independent exact-head review, then separately build/review mode-0400
   authorization and site-snapshot inputs before any audit job.
+
+- **2026-09-19 17:39 UTC, use2-1 Qwen Sandoq implementation update:** the
+  fresh-main correction remains authoritative: host-side harness,
+  `oci-runner-firecracker`, nested network `none`, and no reverse tunnel. A
+  fresh aggregate-only probe found all 24/24 pinned Qwen workers healthy; the
+  intended launch remains 64 task sessions with a strict 32-request provider
+  cap plus queue and `consistent_hash` / `x-session-id`. No generation job has
+  launched. The Firecracker bearer file is still absent, while the private ECR
+  token file is present and mode 0600. Independent review found and is now
+  closing fail-closed gaps in the offline verifier catalog/materializer and
+  long-run ECR guard before either can be frozen. A strict VMVM teardown
+  successor is locally prepared atop the host-runtime seam, but remains
+  unpushed pending backend cleanup-receipt integration and review. Preserve the
+  existing Kimi smoke and do not duplicate it; no task identifiers, prompts,
+  raw traces, or model/tool content were inspected.
 
 - **2026-09-19 17:00 UTC, use2-1 Qwen Sandoq topology correction:** a fresh
   checkout of `fairinternal/ram_prime_rl` main at `f7313db42` establishes the
