@@ -1,6 +1,6 @@
 # VMVM sandbox coordination
 
-Last updated: 2026-09-19 16:37 UTC
+Last updated: 2026-09-19 16:47 UTC
 
 ## First message to the next teammate
 
@@ -42,21 +42,23 @@ Add new rows below this line; do not overwrite another owner's row.
 
 ## Open coordination requests
 
-- **2026-09-19 16:37 UTC, infrastructure-retry v15 held gate in progress:**
+- **2026-09-19 16:47 UTC, infrastructure-retry v15 safely quarantined:**
   fresh v15 passed 143 public tests with one gated skip, then passed the
   independently authorized real-input regression, no-write validation,
   selection build, and verify-only stages. The sealed aggregate selection is
   19 unique entries: 15 retry candidates and four controls, requiring all
   controls plus at least six candidate recoveries for a projected 2,500 valid
-  tasks. Its independently approved one-shot launcher is currently active with
-  exactly one user-held allocation, a mode-0700 two-file preparatory
-  reservation, and no authorization, release, output, audit, or promotion
-  surface. Do not interrupt, release, cancel, or retry it: held convergence has
-  a genuine 982-second deadline. Read-only evidence shows this cluster renders
-  held `NumNodes` as `1-1` and omits `NodeList`, while running jobs render
-  `NumNodes=1` with an assigned node. Preserve the complete v15 terminal
-  telemetry; if the strict older representation never converges, build a fresh
-  v16 that narrows only the held-state predicates and keeps activation strict.
+  tasks. Its independently approved one-shot launcher remained safely held for
+  the complete 982-second gate and then failed closed with
+  `held_identity_not_converged`: 481 polls, final mismatches exactly
+  `NumNodes` and held `NodeList`, and no explicit identity conflict. It never
+  released or started the workload and published no authorization, activation
+  permit, success receipt, output, audit, or promotion. One exact-ID cancel was
+  independently certified, with queue absence, allocation `CANCELLED`, and all
+  accounting rows terminal. This cluster persistently renders held `NumNodes`
+  as `1-1` and omits `NodeList`, while running jobs use `NumNodes=1` with an
+  assigned node. Never rerun v15. Fresh unarmed v16 is being built to accept
+  only that complete held-state representation while keeping activation exact.
 
 - **2026-09-19 16:37 UTC, Kimi smoke and tokenizer staging:** smoke `1753515`
   remains healthy and advancing with one durable row and one active generation;
