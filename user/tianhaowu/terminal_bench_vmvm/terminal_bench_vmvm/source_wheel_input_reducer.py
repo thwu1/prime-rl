@@ -32,10 +32,10 @@ from terminal_bench_vmvm.source_wheels import (
 )
 
 INPUT_ENTRY_COUNT = 9
-OUTPUT_ENTRY_COUNT = 8
+OUTPUT_ENTRY_COUNT = 6
 OUTPUT_FILENAME = "probe_inputs.private.json"
 RECEIPT_FILENAME = "reduction_receipt.json"
-RECEIPT_SCHEMA_VERSION = 1
+RECEIPT_SCHEMA_VERSION = 2
 SHA256_RE = re.compile(r"[0-9a-f]{64}")
 MAX_TIMEOUT_SECONDS = 3_600.0
 
