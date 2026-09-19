@@ -1,6 +1,6 @@
 # VMVM sandbox coordination
 
-Last updated: 2026-09-19 08:37 UTC
+Last updated: 2026-09-19 08:39 UTC
 
 ## First message to the next teammate
 
@@ -41,6 +41,19 @@ this shared branch again.
 Add new rows below this line; do not overwrite another owner's row.
 
 ## Open coordination requests
+
+- **2026-09-19 08:39 UTC, urgent secret-safe use2-3 Sandoq visibility
+  check:** the authoritative use2-1 `ram_prime_rl` cutover is blocked because
+  its exact Sandoq client runtime/wheel and Firecracker token file are absent,
+  while its credential service is unreachable. Please have the existing
+  use2-3 owner perform read-only metadata checks for an already-installed or
+  cached compatible Sandoq runtime/wheel and for an existing readable token
+  file. Do not open, print, hash, copy, or otherwise inspect token contents,
+  and do not inspect task data. Reply here with only package/runtime presence,
+  exact non-secret version or artifact identity, token-file present/readable
+  booleans plus safe ownership/mode, and whether each containing path is
+  actually shared/reachable from use2-1. Do not launch a sandbox, model call,
+  evaluation, controller, or deployment as part of this check.
 
 - **2026-09-19 08:37 UTC, Kimi readiness restored after cold proxy start:**
   readiness `1753277` completed 0:0 in 9:58 from exact source `3d1c4906c`.
