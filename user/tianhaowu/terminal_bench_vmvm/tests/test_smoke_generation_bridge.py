@@ -787,6 +787,100 @@ def test_launcher_dispatches_schema_two_only_through_shared_validator(
     assert digest == qualification.sha256_bytes(qualification.canonical_json(generation))
 
 
+def test_launcher_schema_one_smoke_uses_authenticated_proxy_snapshot_after_rotation(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    deployment_id = "deployment-test"
+    generation = _generation("http://worker-new:8000/v1")
+    proxy_snapshot = _proxy_config_snapshot(tmp_path / "proxy_litellm_config.yaml", "http://worker-new:8000/v1")
+    policy = {
+        "schema_version": 1,
+        "request_timeout": 43200,
+        "num_retries": 0,
+        "proxy_litellm_config": {
+            "path": str(proxy_snapshot.path),
+            "sha256": proxy_snapshot.sha256,
+        },
+    }
+    spec = _artifact(
+        tmp_path / "spec.yaml",
+        b"spec:\n  proxy:\n    config:\n      request_timeout: 43200\n      num_retries: 0\n",
+    )
+    readiness = _artifact(
+        tmp_path / "readiness.json",
+        (
+            json.dumps(
+                {
+                    "schema_version": 1,
+                    "state": "passed",
+                    "deployment": deployment_id,
+                    "expected_routes": 1,
+                    "observed_spec_sha256": spec.sha256,
+                    "proxy_policy": policy,
+                    "serving_route_generation": generation,
+                    "last_status": {
+                        "schema_version": 4,
+                        "deployment_id": deployment_id,
+                        "phase": "serving",
+                        "desired": 1,
+                        "ready": 1,
+                        "running_not_ready": 0,
+                        "pending": 0,
+                        "coordinator_incarnation": generation["coordinator"],
+                        "coord_ticks_completed": 2,
+                        "serving_route_generation": generation,
+                    },
+                    "endpoint": {"authority_sha256": "d" * 64},
+                    "probe": {
+                        "ok": True,
+                        "endpoint_authority_sha256": "d" * 64,
+                        "coverage": {
+                            "ok": True,
+                            "expected_routes": 1,
+                            "discovered_routes": 1,
+                            "backends": [generation["routes"][0]["backend_sha256"]],
+                        },
+                    },
+                }
+            )
+            + "\n"
+        ).encode(),
+    )
+    proxy_info = _artifact(tmp_path / "proxy_info.json", b"opaque\n")
+    smoke = _artifact(tmp_path / "smoke.json", b'{"schema_version":1}\n')
+    calls: list[dict[str, Any]] = []
+
+    def validate(*args: Any, **kwargs: Any) -> SimpleNamespace:
+        calls.append({"args": args, "kwargs": kwargs})
+        assert kwargs["deployment_spec_snapshot"] is not None
+        assert kwargs["proxy_policy_snapshot"] is not None
+        assert Path(kwargs["deployment_spec_snapshot"]).read_bytes()
+        assert Path(kwargs["proxy_policy_snapshot"]).read_bytes()
+        return SimpleNamespace(target_generation=generation)
+
+    monkeypatch.setattr(
+        launch_tb4_shard_wave, "validate_readiness_route_generation", lambda *_args, **_kwargs: generation
+    )
+    monkeypatch.setattr(launch_tb4_shard_wave, "validate_smoke_qualification", validate)
+
+    digest = launch_tb4_shard_wave._validate_generation_bindings(
+        deployment_id=deployment_id,
+        deployment_spec=spec,
+        readiness=readiness,
+        proxy_info=proxy_info,
+        smoke=smoke,
+        proxy_config_snapshot=launch_tb4_shard_wave.PinnedArtifact(
+            path=proxy_snapshot.path,
+            sha256=proxy_snapshot.sha256,
+            raw=None,
+        ),
+    )
+
+    assert len(calls) == 1
+    assert digest == qualification.sha256_bytes(qualification.canonical_json(generation))
+
+
 def test_eval_identity_dispatches_schema_two_bridge_through_shared_validator(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,

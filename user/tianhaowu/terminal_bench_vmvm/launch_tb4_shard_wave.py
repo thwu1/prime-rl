@@ -24,7 +24,15 @@ from deployment_endpoint import (
     load_deployment_endpoint,
     validate_endpoint_binding,
 )
-from deployment_proxy_policy import KIMI_REQUEST_TIMEOUT
+from deployment_proxy_policy import (
+    KIMI_REQUEST_TIMEOUT,
+    DeploymentProxyPolicyError,
+    deployment_proxy_policy_snapshot,
+    deployment_spec_policy_snapshot,
+    validate_deployment_spec_proxy_policy,
+    validate_proxy_policy_binding,
+    validate_worker_rotation_proxy_configs,
+)
 from inference_route_generation import (
     RouteGenerationError,
     validate_readiness_route_generation,
@@ -1139,11 +1147,12 @@ def _validate_generation_bindings(
     readiness: PinnedArtifact,
     proxy_info: PinnedArtifact,
     smoke: PinnedArtifact,
+    proxy_config_snapshot: PinnedArtifact | None = None,
 ) -> str:
     """Validate v1 or bridged smoke through the shared qualification gate."""
 
     payload = _json_object(smoke, label="smoke_checkpoint")
-    if payload.get("schema_version") == 1:
+    if payload.get("schema_version") == 1 and proxy_config_snapshot is None:
         return _validate_generation_bindings_legacy(
             deployment_id=deployment_id,
             deployment_spec=deployment_spec,
@@ -1151,7 +1160,42 @@ def _validate_generation_bindings(
             proxy_info=proxy_info,
             smoke=smoke,
         )
+    deployment_spec_snapshot: Path | None = None
+    proxy_policy_snapshot: Path | None = None
+    temporary_snapshot_root: tempfile.TemporaryDirectory[str] | None = None
     try:
+        if proxy_config_snapshot is not None:
+            readiness_payload = _json_object(readiness, label="readiness_checkpoint")
+            generation = validate_readiness_route_generation(
+                readiness_payload,
+                deployment_id=deployment_id,
+                deployment_spec_sha256=deployment_spec.sha256,
+            )
+            proxy_policy = validate_proxy_policy_binding(
+                readiness_payload.get("proxy_policy"),
+                expected_request_timeout=KIMI_REQUEST_TIMEOUT,
+            )
+            validate_deployment_spec_proxy_policy(
+                deployment_spec.path,
+                expected_spec_sha256=deployment_spec.sha256,
+                expected_request_timeout=KIMI_REQUEST_TIMEOUT,
+            )
+            validate_worker_rotation_proxy_configs(
+                source_snapshot=proxy_config_snapshot.path,
+                source_binding=proxy_policy,
+                source_backends=[route["backend_sha256"] for route in generation["routes"]],
+                target_snapshot=proxy_config_snapshot.path,
+                target_binding=proxy_policy,
+                target_backends=[route["backend_sha256"] for route in generation["routes"]],
+            )
+            temporary_snapshot_root = tempfile.TemporaryDirectory(prefix=".tb4-generation-policy-")
+            deployment_spec_snapshot = Path(temporary_snapshot_root.name) / "deployment_spec_policy.json"
+            proxy_policy_snapshot = Path(temporary_snapshot_root.name) / "proxy_policy.json"
+            _private_write(
+                deployment_spec_snapshot,
+                deployment_spec_policy_snapshot(deployment_spec.sha256, proxy_policy),
+            )
+            _private_write(proxy_policy_snapshot, deployment_proxy_policy_snapshot(proxy_policy))
         evidence = validate_smoke_qualification(
             smoke.path,
             smoke.sha256,
@@ -1163,9 +1207,14 @@ def _validate_generation_bindings(
             proxy_info_path=proxy_info.path,
             proxy_info_sha256=proxy_info.sha256,
             model=EXPECTED_MODEL,
+            deployment_spec_snapshot=deployment_spec_snapshot,
+            proxy_policy_snapshot=proxy_policy_snapshot,
         )
-    except SmokeQualificationError as error:
+    except (SmokeQualificationError, RouteGenerationError, DeploymentProxyPolicyError) as error:
         raise WaveLaunchError("smoke_checkpoint_not_passed") from error
+    finally:
+        if temporary_snapshot_root is not None:
+            temporary_snapshot_root.cleanup()
     return _sha256_bytes(canonical_json(evidence.target_generation))
 
 

@@ -5,6 +5,7 @@ import json
 import stat
 import subprocess
 import threading
+from dataclasses import replace
 from pathlib import Path
 
 import pytest
@@ -593,6 +594,134 @@ def test_restart_recovers_initial_state_after_train_write(tmp_path: Path):
 
     assert final["state"] == "complete"
     assert harness.launched == [(0,)]
+
+
+def test_train_body_records_proxy_config_snapshot_for_new_controllers(tmp_path: Path):
+    prepared = _prepared(tmp_path, count=1)
+    proxy_snapshot = _artifact(tmp_path / "proxy_litellm_config_snapshot.yaml", b"private-snapshot\n")
+    with_snapshot = replace(
+        prepared,
+        proxy_config_snapshot=proxy_snapshot,
+        config=replace(
+            prepared.config,
+            proxy_config_snapshot_path=proxy_snapshot.path,
+            proxy_config_snapshot_sha256=proxy_snapshot.sha256,
+        ),
+    )
+
+    body = train._train_body(with_snapshot)
+
+    assert body["deployment"]["proxy_config_snapshot"] == {
+        "path": str(proxy_snapshot.path),
+        "sha256": proxy_snapshot.sha256,
+    }
+    assert "proxy_config_snapshot" not in train._train_body(prepared)["deployment"]
+
+
+def test_prepare_train_validates_generation_with_proxy_config_snapshot(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    project = tmp_path / "project"
+    project.mkdir()
+    plan = _artifact(tmp_path / "plan.json", b"plan\n")
+    plan.path.chmod(0o600)
+    shard_config = _artifact(tmp_path / "shard.toml", b"config\n")
+    task_manifest = _artifact(tmp_path / "tasks.txt", b"private-task\n")
+    deployment_spec = _artifact(tmp_path / "spec.yaml", b"spec\n")
+    readiness = _artifact(tmp_path / "readiness.json", b"readiness\n")
+    proxy_info = _artifact(tmp_path / "proxy_info.json", b"proxy\n")
+    smoke = _artifact(tmp_path / "smoke.json", b"smoke\n")
+    proxy_snapshot = _artifact(tmp_path / "proxy_litellm_config_snapshot.yaml", b"snapshot\n")
+    dataset = tmp_path / "dataset"
+    dataset.mkdir()
+    tls_cert = _artifact(tmp_path / "client.crt", b"cert\n")
+    tls_key = _artifact(tmp_path / "client.key", b"key\n")
+    route_generation = {
+        "schema_version": 2,
+        "coordinator": {"slurm_job_id": "10", "started_at": "2026-01-01T00:00:00Z"},
+        "proxy": {"slurm_job_id": "11", "first_ready_at": "2026-01-01T00:00:01Z"},
+        "routes": [{"slurm_job_id": "12", "started_at": "2026-01-01T00:00:02Z", "backend_sha256": "a" * 64}],
+    }
+    generation_sha256 = _digest(train.canonical_json(route_generation))
+    shard = PlannedShard(
+        index=0,
+        task_count=1,
+        task_manifest=task_manifest.path,
+        task_manifest_sha256=task_manifest.sha256,
+        config=shard_config.path,
+        config_sha256=shard_config.sha256,
+        tasks=frozenset({"private-task"}),
+    )
+    captured: dict[str, PinnedArtifact | None] = {}
+
+    monkeypatch.setattr(train, "validate_clean_project", lambda *_args, **_kwargs: {"prime_rl": "1" * 40})
+    monkeypatch.setattr(
+        train,
+        "load_plan",
+        lambda _path: (
+            {"plan_sha256": "e" * 64, "shard_size": 1, "base_config": {"semantics_sha256": "f" * 64}},
+            (shard,),
+        ),
+    )
+    monkeypatch.setattr(train, "_selected_dataset", lambda _shards: (dataset.resolve(), ()))
+    monkeypatch.setattr(train, "_validate_dataset", lambda **_kwargs: None)
+
+    def validate_generation(*_args, **kwargs):
+        captured["snapshot"] = kwargs.get("proxy_config_snapshot")
+        return generation_sha256
+
+    monkeypatch.setattr(train, "_validate_generation_bindings", validate_generation)
+    monkeypatch.setattr(
+        train,
+        "load_route_binding",
+        lambda **_kwargs: RouteBinding(
+            deployment_id="deployment-test",
+            deployment_spec=deployment_spec.path,
+            deployment_spec_sha256=deployment_spec.sha256,
+            readiness_checkpoint=readiness.path,
+            readiness_checkpoint_sha256=readiness.sha256,
+            proxy_info=proxy_info.path,
+            proxy_info_sha256=proxy_info.sha256,
+            expected_model="Kimi-K3",
+            endpoint={"authority_sha256": "b" * 64},
+            proxy_policy={"schema_version": 1},
+            expected_routes=1,
+            route_generation=route_generation,
+            minimum_coord_ticks_completed=1,
+        ),
+    )
+    config = train.WaveTrainConfig(
+        controller_root=tmp_path / "controller",
+        project_dir=project,
+        project_revision="1" * 40,
+        plan_path=plan.path,
+        plan_sha256=plan.sha256,
+        deployment_id="deployment-test",
+        deployment_spec_path=deployment_spec.path,
+        deployment_spec_sha256=deployment_spec.sha256,
+        readiness_path=readiness.path,
+        readiness_sha256=readiness.sha256,
+        proxy_info_path=proxy_info.path,
+        proxy_info_sha256=proxy_info.sha256,
+        smoke_checkpoint_path=smoke.path,
+        smoke_checkpoint_sha256=smoke.sha256,
+        proxy_config_snapshot_path=proxy_snapshot.path,
+        proxy_config_snapshot_sha256=proxy_snapshot.sha256,
+        dataset_revision="7" * 40,
+        shard_count=1,
+    )
+
+    prepared = train.prepare_train(
+        config,
+        ambient_env={
+            "THRIFT_TLS_CL_CERT_PATH": str(tls_cert.path),
+            "THRIFT_TLS_CL_KEY_PATH": str(tls_key.path),
+        },
+    )
+
+    assert captured["snapshot"] == proxy_snapshot
+    assert prepared.proxy_config_snapshot == proxy_snapshot
 
 
 def test_lookup_submission_job_requires_one_exact_name_match():

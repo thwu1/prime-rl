@@ -652,10 +652,15 @@ production values. The evaluator also publishes a mode-0400, aggregate-only
 completed trace lifecycles to reach configured rollout concurrency and the
 observed peak of vacli lease-start semaphore holders to reach configured
 lease-start concurrency; configured limits alone are not capacity evidence.
-The initial production resize is exactly two routes; submit its waiter with
-`EXPECTED_ROUTES=2`. The launch certificate requires exactly one route for the
-TB4 checkpoint and a strictly larger post-resize route set of at least two; it
-also rejects a post-resize spec identical to the TB4 spec or a readiness/spec
+The default production resize is two routes; submit its waiter with
+`EXPECTED_ROUTES=2` only after a one-route TB4 run. The launch certificate
+requires exactly one route for legacy schema-1 and sharded schema-2 TB4
+checkpoints. A multi-generation schema-3 TB4 checkpoint may use exactly one or
+two routes. These bounds are fixed by schema and have no CLI override. The
+post-TB4 spec/readiness route count must still be strictly larger and at least
+two, so a two-route schema-3 TB4 checkpoint requires a fresh production spec,
+readiness gate, and capacity smoke at three or more routes. The certificate also
+rejects a post-resize spec identical to the TB4 spec or a readiness/spec
 route-count mismatch.
 The checked-in capacity-smoke config exercises the already validated 42-case
 Mobius repair set at eight active rollouts and four lease starts:

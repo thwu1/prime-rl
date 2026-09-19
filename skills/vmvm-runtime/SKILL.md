@@ -262,7 +262,11 @@ snapshot canonical allowlisted evidence binding the historical spec hash,
 typed policy, and generated file's original hash; never copy either raw file.
 Revalidate historical shard and smoke evidence against those frozen files
 after resize; require the live files only for the currently active readiness
-record. Enforce the model-bound timeout while retaining the existing
+record. When reusing a sharded checkpoint, require its results, audit summary,
+deployment-policy snapshot, and every generation policy snapshot to resolve to
+their exact canonical filenames directly inside the reused output directory;
+same-named valid artifacts in another directory are not interchangeable.
+Enforce the model-bound timeout while retaining the existing
 7,200-second policy for unrelated/Qwen readiness rather than changing a global
 default. Never copy proxy credentials into the historical bundle.
 
@@ -296,13 +300,17 @@ authorize production. Set `SMOKE_REQUIRED_ROLLOUT_CONCURRENCY` and
 `SMOKE_REQUIRED_LEASE_START_CONCURRENCY` on the capacity-smoke audit. Leave both
 unset for the two-task transcript smoke: it binds the observed telemetry but is
 not itself a capacity qualification.
-The launch certificate must prove that TB4 used exactly one route, the
-post-resize deployment-spec digest differs from the TB4 digest, and the
-post-resize spec/readiness route count is strictly larger and at least two.
-The initial production target is exactly two routes, so invoke the
-post-resize waiter with `EXPECTED_ROUTES=2` before the concurrency-eight,
-lease-starts-four capacity smoke. A route-generation change invalidates the
-current eval identity; do not resume guarded Kimi outputs at all.
+The launch certificate must prove that legacy schema-1 and sharded schema-2
+TB4 used exactly one route. Multi-generation schema-3 TB4 may use exactly one
+or two routes; no CLI option can authorize another count. The post-resize
+deployment-spec digest must differ from the TB4 digest, and the post-resize
+spec/readiness route count must be strictly larger and at least two. The
+default two-route production target is valid only after a one-route TB4 gate,
+so invoke its waiter with `EXPECTED_ROUTES=2` before the concurrency-eight,
+lease-starts-four capacity smoke. A two-route schema-3 TB4 gate instead requires
+a fresh production spec, readiness gate, and capacity smoke at three or more
+routes. A route-generation change invalidates the current eval identity; do not
+resume guarded Kimi outputs at all.
 
 Pier's DeepSWE adapter supports prebuilt agent images and the benchmark's
 separate verifier Dockerfiles. It validates the Dockerfile, starts its `FROM`

@@ -160,6 +160,8 @@ class WaveTrainConfig:
     proxy_info_sha256: str
     smoke_checkpoint_path: Path
     smoke_checkpoint_sha256: str
+    proxy_config_snapshot_path: Path | None = None
+    proxy_config_snapshot_sha256: str | None = None
     dataset_revision: str | None = None
     dataset_archive_path: Path | None = None
     dataset_archive_sha256: str | None = None
@@ -189,6 +191,7 @@ class PreparedTrain:
     generation_sha256: str
     route_binding: RouteBinding
     submission_environment: dict[str, str]
+    proxy_config_snapshot: PinnedArtifact | None = None
 
 
 @dataclass(frozen=True)
@@ -572,6 +575,13 @@ def _validate_config(config: WaveTrainConfig) -> None:
     ):
         if SHA256_RE.fullmatch(digest) is None:
             raise WaveTrainError(f"{label}_sha256_invalid")
+    if (config.proxy_config_snapshot_path is None) != (config.proxy_config_snapshot_sha256 is None):
+        raise WaveTrainError("proxy_config_snapshot_invalid")
+    if (
+        config.proxy_config_snapshot_sha256 is not None
+        and SHA256_RE.fullmatch(config.proxy_config_snapshot_sha256) is None
+    ):
+        raise WaveTrainError("proxy_config_snapshot_sha256_invalid")
     if DEPLOYMENT_RE.fullmatch(config.deployment_id) is None:
         raise WaveTrainError("deployment_id_invalid")
     if (
@@ -673,6 +683,15 @@ def prepare_train(
             config.proxy_info_sha256,
             label="proxy_info",
         )
+        proxy_config_snapshot = (
+            _stable_artifact(
+                config.proxy_config_snapshot_path,
+                str(config.proxy_config_snapshot_sha256),
+                label="proxy_config_snapshot",
+            )
+            if config.proxy_config_snapshot_path is not None
+            else None
+        )
         smoke = _stable_artifact(
             config.smoke_checkpoint_path,
             config.smoke_checkpoint_sha256,
@@ -685,6 +704,7 @@ def prepare_train(
             readiness=readiness,
             proxy_info=proxy_info,
             smoke=smoke,
+            proxy_config_snapshot=proxy_config_snapshot,
         )
     except WaveLaunchError as error:
         raise WaveTrainError("deployment_chain_invalid") from error
@@ -718,6 +738,8 @@ def prepare_train(
             proxy_info=proxy_info.path,
             proxy_info_sha256=proxy_info.sha256,
             expected_model=EXPECTED_MODEL,
+            proxy_config_snapshot=proxy_config_snapshot.path if proxy_config_snapshot is not None else None,
+            proxy_config_snapshot_sha256=(proxy_config_snapshot.sha256 if proxy_config_snapshot is not None else None),
         )
     except (WaveLaunchError, RouteGuardError) as error:
         raise WaveTrainError("controller_preflight_failed") from error
@@ -735,6 +757,7 @@ def prepare_train(
         deployment_spec=deployment_spec,
         readiness=readiness,
         proxy_info=proxy_info,
+        proxy_config_snapshot=proxy_config_snapshot,
         smoke=smoke,
         dataset_path=dataset_path,
         dataset_archive=dataset_archive,
@@ -796,7 +819,17 @@ def _train_body(prepared: PreparedTrain) -> dict[str, Any]:
             },
             "route_generation_sha256": prepared.generation_sha256,
             "model": EXPECTED_MODEL,
-        },
+        }
+        | (
+            {
+                "proxy_config_snapshot": {
+                    "path": str(prepared.proxy_config_snapshot.path),
+                    "sha256": prepared.proxy_config_snapshot.sha256,
+                }
+            }
+            if prepared.proxy_config_snapshot is not None
+            else {}
+        ),
         "dataset": _dataset_record(prepared),
         "poll_interval_seconds": float(config.poll_interval_seconds),
     }
@@ -1364,6 +1397,9 @@ def validate_completed_shard(
             receipt_path,
             {shard.task_manifest_sha256: shard},
             expected_semantics_sha256=prepared.plan["base_config"]["semantics_sha256"],
+            proxy_config_snapshot=(
+                prepared.proxy_config_snapshot.path if prepared.proxy_config_snapshot is not None else None
+            ),
         )
     except (OSError, ShardWorkflowError) as error:
         raise WaveTrainError("shard_guarded_artifacts_invalid") from error
@@ -1399,7 +1435,10 @@ def validate_completed_shard(
             output_dir / "eval_run_identity.json",
             label="eval_run_identity",
         )
-        envelope = load_eval_run_identity(identity_path, verify_references=True)
+        envelope = load_eval_run_identity(
+            identity_path,
+            verify_references=prepared.proxy_config_snapshot is None,
+        )
         identity = envelope["identity"]
         manifest = _read_manifest_sources(output_dir)
         config_record = manifest.get("config")
@@ -1820,6 +1859,12 @@ def _revalidate_submission_inputs(
             (prepared.smoke.path, prepared.smoke.sha256, "smoke_checkpoint"),
         ):
             _stable_artifact(path, digest, label=label)
+        if prepared.proxy_config_snapshot is not None:
+            _stable_artifact(
+                prepared.proxy_config_snapshot.path,
+                prepared.proxy_config_snapshot.sha256,
+                label="proxy_config_snapshot",
+            )
         if prepared.dataset_archive is not None:
             _stable_artifact(
                 prepared.dataset_archive.path,
@@ -1844,6 +1889,9 @@ def _revalidate_submission_inputs(
             readiness=current_readiness,
             proxy_info=prepared.proxy_info,
             smoke=current_smoke,
+            proxy_config_snapshot=(
+                prepared.proxy_config_snapshot if prepared.proxy_config_snapshot is not None else None
+            ),
         )
         _validate_dataset(
             shards=(shard,),
@@ -2449,6 +2497,8 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--readiness-checkpoint-sha256", required=True)
     parser.add_argument("--proxy-info", type=Path, required=True)
     parser.add_argument("--proxy-info-sha256", required=True)
+    parser.add_argument("--proxy-config-snapshot", type=Path)
+    parser.add_argument("--proxy-config-snapshot-sha256")
     parser.add_argument("--smoke-checkpoint", type=Path, required=True)
     parser.add_argument("--smoke-checkpoint-sha256", required=True)
     dataset = parser.add_mutually_exclusive_group(required=True)
@@ -2497,6 +2547,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         proxy_info_sha256=args.proxy_info_sha256,
         smoke_checkpoint_path=args.smoke_checkpoint,
         smoke_checkpoint_sha256=args.smoke_checkpoint_sha256,
+        proxy_config_snapshot_path=args.proxy_config_snapshot,
+        proxy_config_snapshot_sha256=args.proxy_config_snapshot_sha256,
         dataset_revision=args.dataset_revision,
         dataset_archive_path=args.dataset_archive,
         dataset_archive_sha256=args.dataset_archive_sha256,
