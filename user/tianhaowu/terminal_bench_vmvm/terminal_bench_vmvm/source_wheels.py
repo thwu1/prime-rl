@@ -66,6 +66,7 @@ SOURCE_BUILD_ENVIRONMENT = {
 _SHA256_RE = re.compile(r"[0-9a-f]{64}")
 _IMAGE_DIGEST_RE = re.compile(r"[^\s@]+(?:[:][^\s@]+)?@sha256:[0-9a-f]{64}")
 _SAFE_FILENAME_RE = re.compile(r"[A-Za-z0-9][A-Za-z0-9_.+-]*")
+_SAFE_PACKAGE_RE = re.compile(r"[A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)*")
 _EXACT_REQUIREMENT_RE = re.compile(r"[A-Za-z0-9][A-Za-z0-9_.-]*(?:\[[A-Za-z0-9_,.-]+\])?==[A-Za-z0-9.!+_-]+")
 _SDIST_SUFFIXES = (".tar.gz", ".tar.bz2", ".tar.xz", ".zip")
 
@@ -2063,22 +2064,15 @@ class _LegacySetupGrammar:
         "platform",
         "re",
         "sys",
-        "tarfile",
-        "tempfile",
         "textwrap",
-        "urllib.request",
-        "zipfile",
     }
-    _RESOURCE_IMPORTS = {"io", "tarfile", "urllib.request", "zipfile"}
     _SETUP_KEYWORDS = {
         "author",
         "author_email",
-        "cffi_modules",
         "classifiers",
         "description",
         "download_url",
         "entry_points",
-        "ext_modules",
         "extras_require",
         "include_package_data",
         "install_requires",
@@ -2109,14 +2103,12 @@ class _LegacySetupGrammar:
         tree: ast.Module,
         parents: dict[ast.AST, ast.AST],
         setup_call: ast.Call,
-        resource_context: ast.With | None,
         source_distribution: str,
         local_module_payloads: dict[str, bytes],
     ) -> None:
         self.tree = tree
         self.parents = parents
         self.setup_call = setup_call
-        self.resource_context = resource_context
         self.source_distribution = source_distribution
         self.local_module_payloads = local_module_payloads
         self.functions = {
@@ -2129,29 +2121,8 @@ class _LegacySetupGrammar:
         self.imported_symbols: set[str] = set()
         self.local_modules: set[str] = set()
         self.handle_names: set[str] = set()
-        self.list_names: set[str] = set()
-        self.response_names: set[str] = set()
-        self.buffer_names: set[str] = set()
-        self.archive_names: set[str] = set()
-        self.https_url_names: set[str] = set()
         self.source_directory_names: set[str] = set()
         self._collect_bindings()
-
-    def _inside_resource_context(self, node: ast.AST) -> bool:
-        if self.resource_context is None:
-            return False
-        current: ast.AST | None = node
-        while current is not None:
-            if current is self.resource_context:
-                return True
-            current = self.parents.get(current)
-        return False
-
-    def _resource_temp_name(self) -> str | None:
-        if self.resource_context is None:
-            return None
-        target = self.resource_context.items[0].optional_vars
-        return target.id if isinstance(target, ast.Name) else None
 
     def _assignment_values(self, name: str) -> list[ast.expr]:
         return [
@@ -2166,14 +2137,8 @@ class _LegacySetupGrammar:
     def _unique_assignment_value(self, name: str) -> ast.expr:
         values = self._assignment_values(name)
         if len(values) != 1:
-            raise RuntimeError("setup.py resource binding is ambiguous")
+            raise RuntimeError("setup.py metadata path binding is ambiguous")
         return values[0]
-
-    def _require_call_binding(self, name: str, path: tuple[str, ...]) -> ast.Call:
-        value = self._unique_assignment_value(name)
-        if not isinstance(value, ast.Call) or _ast_call_path(value.func) != path:
-            raise RuntimeError("setup.py resource binding is unsupported")
-        return value
 
     @staticmethod
     def _target_name(node: ast.expr) -> str:
@@ -2214,30 +2179,13 @@ class _LegacySetupGrammar:
                 if len(node.targets) != 1 or not isinstance(node.targets[0], ast.Name):
                     continue
                 name = node.targets[0].id
-                if isinstance(node.value, ast.List):
-                    self.list_names.add(name)
-                if (
-                    isinstance(node.value, ast.Constant)
-                    and isinstance(node.value.value, str)
-                    and self._is_safe_https_url(node.value.value)
-                ):
-                    self.https_url_names.add(name)
-                call_path = _ast_call_path(node.value.func) if isinstance(node.value, ast.Call) else None
-                if call_path == ("urllib", "request", "urlopen"):
-                    self.response_names.add(name)
-                elif call_path == ("io", "BytesIO"):
-                    self.buffer_names.add(name)
-                elif call_path in {("zipfile", "ZipFile"), ("tarfile", "open")}:
-                    self.archive_names.add(name)
-                elif self._is_source_directory_value(node.value):
+                if self._is_source_directory_value(node.value):
                     self.source_directory_names.add(name)
             elif isinstance(node, ast.With):
                 for item in node.items:
                     if isinstance(item.optional_vars, ast.Name):
                         self.bound_names.add(item.optional_vars.id)
                         self.handle_names.add(item.optional_vars.id)
-            elif isinstance(node, ast.For) and isinstance(node.target, ast.Name):
-                self.bound_names.add(node.target.id)
 
     def _validate_imports(self) -> None:
         loaded_names = {
@@ -2247,14 +2195,13 @@ class _LegacySetupGrammar:
             if not isinstance(node, (ast.Import, ast.ImportFrom)):
                 continue
             top_level = self.parents.get(node) is self.tree
-            in_resource = self._inside_resource_context(node)
             if isinstance(node, ast.ImportFrom):
                 if (
                     not top_level
                     or node.level != 0
                     or node.module != "setuptools"
                     or not node.names
-                    or any(alias.name not in {"Extension", "find_packages", "setup"} for alias in node.names)
+                    or any(alias.name not in {"find_packages", "setup"} for alias in node.names)
                 ):
                     raise RuntimeError("setup.py contains an unsupported helper import")
                 if any(alias.name not in loaded_names for alias in node.names):
@@ -2271,7 +2218,7 @@ class _LegacySetupGrammar:
                     raise RuntimeError("setup.py contains an unsupported setuptools import")
                 continue
             if module in self._STDLIB_IMPORTS:
-                if not top_level and not (in_resource and module in self._RESOURCE_IMPORTS):
+                if not top_level:
                     raise RuntimeError("setup.py contains an unsupported nested import")
                 continue
             if not top_level or "." in module:
@@ -2317,19 +2264,36 @@ class _LegacySetupGrammar:
     @staticmethod
     def _is_safe_relative_path(value: str) -> bool:
         path = PurePosixPath(value)
-        return bool(value) and not path.is_absolute() and ".." not in path.parts
+        return bool(value) and "\\" not in value and not path.is_absolute() and ".." not in path.parts
 
     @staticmethod
-    def _is_safe_https_url(value: str) -> bool:
-        parsed = urlsplit(value)
-        return (
-            parsed.scheme == "https"
-            and bool(parsed.hostname)
-            and parsed.username is None
-            and parsed.password is None
-            and not parsed.query
-            and not parsed.fragment
-        )
+    def _is_safe_package_name(value: str, *, allow_root: bool = False) -> bool:
+        return (allow_root and value in {"", "*"}) or _SAFE_PACKAGE_RE.fullmatch(value) is not None
+
+    def _validate_packages(self, node: ast.expr) -> None:
+        if not isinstance(node, (ast.List, ast.Tuple)):
+            raise RuntimeError("setup.py packages must be a static list of package names")
+        for package in node.elts:
+            if (
+                not self._is_string_constant(package) or not self._is_safe_package_name(package.value)  # type: ignore[arg-type]
+            ):
+                raise RuntimeError("setup.py packages must be a static list of package names")
+
+    def _validate_package_data(self, node: ast.expr) -> None:
+        if not isinstance(node, ast.Dict) or any(key is None for key in node.keys):
+            raise RuntimeError("setup.py package_data must contain only source-relative patterns")
+        for key, patterns in zip(node.keys, node.values, strict=True):
+            if (
+                not self._is_string_constant(key)
+                or not self._is_safe_package_name(key.value, allow_root=True)  # type: ignore[arg-type]
+                or not isinstance(patterns, (ast.List, ast.Tuple))
+            ):
+                raise RuntimeError("setup.py package_data must contain only source-relative patterns")
+            for pattern in patterns.elts:
+                if (
+                    not self._is_string_constant(pattern) or not self._is_safe_relative_path(pattern.value)  # type: ignore[arg-type]
+                ):
+                    raise RuntimeError("setup.py package_data must contain only source-relative patterns")
 
     def _helper_literal_argument(self, node: ast.Name) -> ast.Constant | None:
         current: ast.AST | None = node
@@ -2367,145 +2331,6 @@ class _LegacySetupGrammar:
         if not isinstance(value, str) or not self._is_safe_relative_path(value):
             raise RuntimeError("setup.py metadata path component is unsafe")
 
-    def _is_direct_source_root(self, node: ast.expr) -> bool:
-        if (
-            isinstance(node, ast.Call)
-            and _ast_call_path(node.func) == ("os", "path", "dirname")
-            and len(node.args) == 1
-            and not node.keywords
-            and isinstance(node.args[0], ast.Name)
-            and node.args[0].id == "__file__"
-        ):
-            return True
-        if (
-            isinstance(node, ast.Call)
-            and _ast_call_path(node.func) == ("os", "path", "realpath")
-            and len(node.args) == 1
-            and not node.keywords
-            and isinstance(node.args[0], ast.Call)
-            and _ast_call_path(node.args[0].func) == ("os", "path", "join")
-            and len(node.args[0].args) == 3
-            and not node.args[0].keywords
-            and isinstance(node.args[0].args[0], ast.Name)
-            and node.args[0].args[0].id == "__file__"
-            and isinstance(node.args[0].args[1], ast.Constant)
-            and node.args[0].args[1].value == ".."
-            and isinstance(node.args[0].args[2], ast.Constant)
-            and isinstance(node.args[0].args[2].value, str)
-            and self._is_safe_relative_path(node.args[0].args[2].value)
-            and isinstance(self.parents.get(node), ast.Assign)
-            and self.parents[node].value is node  # type: ignore[union-attr]
-            and len(self.parents[node].targets) == 1  # type: ignore[union-attr]
-            and isinstance(self.parents[node].targets[0], ast.Name)  # type: ignore[union-attr]
-            and self.parents.get(self.parents[node]) is self.tree
-            and (
-                self.resource_context is None or self.parents[node].lineno < self.resource_context.lineno  # type: ignore[union-attr]
-            )
-        ):
-            # The sole parent component removes setup.py itself; it cannot
-            # ascend above the statically known source root.
-            return True
-        return self._is_source_directory_value(node)
-
-    def _validate_resource_loop_component(self, node: ast.Name, seen: frozenset[str]) -> None:
-        current: ast.AST | None = node
-        loop: ast.For | None = None
-        while current is not None and current is not self.resource_context:
-            current = self.parents.get(current)
-            if isinstance(current, ast.For) and isinstance(current.target, ast.Name) and current.target.id == node.id:
-                loop = current
-                break
-        if (
-            loop is None
-            or not isinstance(loop.iter, ast.Call)
-            or _ast_call_path(loop.iter.func) != ("os", "listdir")
-            or len(loop.iter.args) != 1
-            or loop.iter.keywords
-        ):
-            raise RuntimeError("setup.py resource path component is not bound to one directory listing")
-        self._validate_resource_path(loop.iter.args[0], seen)
-
-    def _validate_resource_path(self, node: ast.expr, seen: frozenset[str] = frozenset()) -> None:
-        if self._is_direct_source_root(node):
-            return
-        if isinstance(node, ast.Name):
-            if node.id == self._resource_temp_name():
-                return
-            if node.id in seen:
-                raise RuntimeError("setup.py resource path binding is cyclic")
-            values = self._assignment_values(node.id)
-            if not values:
-                raise RuntimeError("setup.py resource path is not statically rooted")
-            for value in values:
-                self._validate_resource_path(value, seen | {node.id})
-            return
-        if isinstance(node, ast.Call) and _ast_call_path(node.func) == ("os", "path", "join"):
-            if not 2 <= len(node.args) <= 3 or node.keywords:
-                raise RuntimeError("setup.py resource path join is unsupported")
-            self._validate_resource_path(node.args[0], seen)
-            for tail in node.args[1:]:
-                if isinstance(tail, ast.Name):
-                    values = self._assignment_values(tail.id)
-                    if len(values) == 1 and isinstance(values[0], ast.Constant) and isinstance(values[0].value, str):
-                        self._validate_safe_path_tail(values[0])
-                    else:
-                        self._validate_resource_loop_component(tail, seen)
-                else:
-                    self._validate_safe_path_tail(tail)
-            return
-        if (
-            isinstance(node, ast.Call)
-            and _ast_call_path(node.func) in {("os", "path", "abspath"), ("os", "path", "realpath")}
-            and len(node.args) == 1
-            and not node.keywords
-        ):
-            self._validate_resource_path(node.args[0], seen)
-            return
-        raise RuntimeError("setup.py resource path is not statically rooted")
-
-    def _validate_resource_path_list(self, node: ast.expr) -> None:
-        if isinstance(node, (ast.List, ast.Tuple)):
-            for item in node.elts:
-                if self._is_string_constant(item):
-                    value = item.value
-                    assert isinstance(value, str)
-                    if not self._is_safe_relative_path(value):
-                        raise RuntimeError("setup.py extension source path is unsafe")
-                else:
-                    self._validate_resource_path(item)
-            return
-        if isinstance(node, ast.Name) and node.id in self.list_names:
-            initializers = self._assignment_values(node.id)
-            if len(initializers) != 1 or not isinstance(initializers[0], ast.List):
-                raise RuntimeError("setup.py extension source list is not statically initialized")
-            self._validate_resource_path_list(initializers[0])
-            appends = [
-                candidate
-                for candidate in ast.walk(self.tree)
-                if isinstance(candidate, ast.Call)
-                and isinstance(candidate.func, ast.Attribute)
-                and isinstance(candidate.func.value, ast.Name)
-                and candidate.func.value.id == node.id
-                and candidate.func.attr == "append"
-            ]
-            if not appends:
-                raise RuntimeError("setup.py extension source list has no bounded entries")
-            for append in appends:
-                if len(append.args) != 1 or append.keywords:
-                    raise RuntimeError("setup.py extension source append is unsupported")
-                self._validate_resource_path(append.args[0])
-            return
-        if isinstance(node, ast.BinOp) and isinstance(node.op, ast.Add):
-            self._validate_resource_path_list(node.left)
-            self._validate_resource_path_list(node.right)
-            return
-        if isinstance(node, ast.IfExp):
-            self._validate_expression(node.test)
-            self._validate_resource_path_list(node.body)
-            self._validate_resource_path_list(node.orelse)
-            return
-        raise RuntimeError("setup.py extension source paths are not statically confined")
-
     def _validate_source_path(self, node: ast.expr) -> None:
         if self._is_string_constant(node):
             value = node.value
@@ -2535,16 +2360,14 @@ class _LegacySetupGrammar:
             self._validate_safe_path_tail(item)
 
     def _setup_binding_value(self, node: ast.Name) -> ast.expr:
-        scopes: tuple[ast.AST, ...] = (self.tree,) + ((self.resource_context,) if self.resource_context else ())
         matches = [
             candidate.value
             for candidate in ast.walk(self.tree)
             if isinstance(candidate, ast.Assign)
             and (
-                self.parents.get(candidate) in scopes
+                self.parents.get(candidate) is self.tree
                 or isinstance(self.parents.get(candidate), ast.With)
                 and self.parents.get(self.parents[candidate]) is self.tree
-                and self.parents[candidate] is not self.resource_context
             )
             and candidate.lineno < self.setup_call.lineno
             and len(candidate.targets) == 1
@@ -2569,22 +2392,6 @@ class _LegacySetupGrammar:
                 self._validate_literal(value)
             return
         raise RuntimeError("setup.py setup() keyword must be a static literal")
-
-    def _validate_literal_choice(self, node: ast.expr) -> None:
-        if isinstance(node, ast.IfExp):
-            if (
-                not isinstance(node.test, ast.Compare)
-                or _ast_call_path(node.test.left) != ("sys", "platform")
-                or len(node.test.ops) != 1
-                or not isinstance(node.test.ops[0], ast.Eq)
-                or len(node.test.comparators) != 1
-                or not self._is_string_constant(node.test.comparators[0])
-            ):
-                raise RuntimeError("setup.py platform literal selection is unsupported")
-            self._validate_literal(node.body)
-            self._validate_literal(node.orelse)
-            return
-        self._validate_literal(node)
 
     def _validate_static_string(self, node: ast.expr, *, attribute: str | None = None) -> None:
         if self._is_string_constant(node):
@@ -2655,13 +2462,11 @@ class _LegacySetupGrammar:
         }
         named_static_strings = {"license", "name", "url"}
         literal_containers = {
-            "cffi_modules",
             "classifiers",
             "entry_points",
             "extras_require",
             "obsoletes",
             "package_data",
-            "package_dir",
             "project_urls",
             "tests_require",
         }
@@ -2700,19 +2505,32 @@ class _LegacySetupGrammar:
                 raise RuntimeError("setup.py package discovery is unsupported")
             self._validate_call(value)
             return
-        if name == "ext_modules" and isinstance(value, ast.List):
-            for item in value.elts:
-                if not isinstance(item, ast.Name):
-                    raise RuntimeError("setup.py extension list is not statically bound")
-                extension = self._setup_binding_value(item)
-                if not isinstance(extension, ast.Call) or _ast_call_path(extension.func) != ("Extension",):
-                    raise RuntimeError("setup.py extension list is not statically bound")
-                self._validate_call(extension)
+        if name == "packages":
+            self._validate_packages(value)
             return
-        if name in literal_containers or name in {"install_requires", "packages", "setup_requires"}:
+        if name == "package_data":
+            self._validate_package_data(value)
+            return
+        if name == "package_dir":
+            if not isinstance(value, ast.Dict) or any(key is None for key in value.keys):
+                raise RuntimeError("setup.py package_dir must be a static source-relative mapping")
+            for key, directory in zip(value.keys, value.values, strict=True):
+                if (
+                    not self._is_string_constant(key)
+                    or not self._is_safe_package_name(key.value, allow_root=True)  # type: ignore[arg-type]
+                    or not self._is_string_constant(directory)
+                    or not self._is_safe_relative_path(directory.value)  # type: ignore[arg-type]
+                ):
+                    raise RuntimeError("setup.py package_dir must be a static source-relative mapping")
+            return
+        if name in literal_containers or name in {"install_requires", "setup_requires"}:
             self._validate_literal(value)
             return
-        if name in {"include_package_data", "use_scm_version", "zip_safe"}:
+        if name in {"include_package_data", "use_scm_version"}:
+            if not isinstance(value, ast.Constant) or value.value is not False:
+                raise RuntimeError(f"setup.py {name} must be statically disabled")
+            return
+        if name == "zip_safe":
             if not isinstance(value, ast.Constant) or type(value.value) is not bool:
                 raise RuntimeError("setup.py setup() boolean keyword is not static")
             return
@@ -2774,22 +2592,6 @@ class _LegacySetupGrammar:
                 raise RuntimeError("setup.py package discovery is unsupported")
             self._validate_expression(node.keywords[0].value)
             return
-        if path == ("Extension",):
-            expected = {"sources", "libraries", "include_dirs", "undef_macros", "extra_compile_args", "define_macros"}
-            if (
-                "Extension" not in self.imported_symbols
-                or not self._inside_resource_context(node)
-                or len(node.args) != 1
-                or not self._is_string_constant(node.args[0])
-                or {keyword.arg for keyword in node.keywords} != expected
-            ):
-                raise RuntimeError("setup.py extension declaration is unsupported")
-            values = {keyword.arg: keyword.value for keyword in node.keywords}
-            self._validate_resource_path_list(values["sources"])
-            self._validate_resource_path_list(values["include_dirs"])
-            for name in expected - {"sources", "include_dirs"}:
-                self._validate_literal_choice(values[name])
-            return
         if path == ("re", "sub"):
             if len(node.args) != 3 or node.keywords:
                 raise RuntimeError("setup.py metadata substitution is unsupported")
@@ -2804,93 +2606,6 @@ class _LegacySetupGrammar:
             if len(node.args) != 1 or node.keywords:
                 raise RuntimeError("setup.py version guard is unsupported")
             self._validate_expression(node.args[0])
-            return
-        if path == ("tempfile", "TemporaryDirectory"):
-            if (
-                self.resource_context is None
-                or self.resource_context.items[0].context_expr is not node
-                or node.args
-                or node.keywords
-            ):
-                raise RuntimeError("setup.py resource context is unsupported")
-            return
-        if path == ("urllib", "request", "urlopen"):
-            if not self._inside_resource_context(node) or len(node.args) != 1 or node.keywords:
-                raise RuntimeError("setup.py resource preparation call is unsupported")
-            argument = node.args[0]
-            if not isinstance(argument, ast.Name):
-                raise RuntimeError("setup.py resource URL is not one approved HTTPS binding")
-            value = self._unique_assignment_value(argument.id)
-            if (
-                not isinstance(value, ast.Constant)
-                or not isinstance(value.value, str)
-                or not self._is_safe_https_url(value.value)
-            ):
-                raise RuntimeError("setup.py resource URL is not one approved HTTPS binding")
-            return
-        if path == ("io", "BytesIO"):
-            if not self._inside_resource_context(node) or len(node.args) != 1 or node.keywords:
-                raise RuntimeError("setup.py resource preparation call is unsupported")
-            read = node.args[0]
-            if (
-                not isinstance(read, ast.Call)
-                or read.args
-                or read.keywords
-                or not isinstance(read.func, ast.Attribute)
-                or read.func.attr != "read"
-                or not isinstance(read.func.value, ast.Name)
-            ):
-                raise RuntimeError("setup.py resource buffer is not bound to the approved response")
-            self._validate_call(self._require_call_binding(read.func.value.id, ("urllib", "request", "urlopen")))
-            return
-        if path == ("zipfile", "ZipFile"):
-            if not self._inside_resource_context(node) or len(node.args) != 1 or node.keywords:
-                raise RuntimeError("setup.py resource preparation call is unsupported")
-            source = node.args[0]
-            if not isinstance(source, ast.Name):
-                raise RuntimeError("setup.py resource archive is not bound to the approved response")
-            self._validate_call(self._require_call_binding(source.id, ("io", "BytesIO")))
-            return
-        if path in {("os", "listdir"), ("os", "path", "isfile")}:
-            if not self._inside_resource_context(node) or len(node.args) != 1 or node.keywords:
-                raise RuntimeError("setup.py resource preparation call is unsupported")
-            self._validate_resource_path(node.args[0])
-            return
-        if path == ("tarfile", "open"):
-            if (
-                not self._inside_resource_context(node)
-                or node.args
-                or [keyword.arg for keyword in node.keywords] != ["fileobj"]
-            ):
-                raise RuntimeError("setup.py resource archive call is unsupported")
-            source = node.keywords[0].value
-            if not isinstance(source, ast.Name):
-                raise RuntimeError("setup.py resource archive is not bound to the approved response")
-            self._validate_call(self._require_call_binding(source.id, ("io", "BytesIO")))
-            return
-        if path == ("print",):
-            if not self._inside_resource_context(node) or len(node.args) != 1 or node.keywords:
-                raise RuntimeError("setup.py resource status call is unsupported")
-            message = node.args[0]
-            if self._is_string_constant(message):
-                return
-            if (
-                not isinstance(message, ast.Call)
-                or not isinstance(message.func, ast.Attribute)
-                or message.func.attr != "format"
-                or not self._is_string_constant(message.func.value)
-                or len(message.args) != 1
-                or message.keywords
-                or not isinstance(message.args[0], ast.Name)
-            ):
-                raise RuntimeError("setup.py resource status output is not fixed")
-            value = self._unique_assignment_value(message.args[0].id)
-            if (
-                not isinstance(value, ast.Constant)
-                or not isinstance(value.value, str)
-                or not self._is_safe_https_url(value.value)
-            ):
-                raise RuntimeError("setup.py resource status output is not fixed")
             return
         if path is not None and len(path) == 1 and path[0] in self.functions:
             function = self.functions[path[0]]
@@ -2910,16 +2625,6 @@ class _LegacySetupGrammar:
             if method == "read" and not node.args and not node.keywords:
                 if isinstance(receiver, ast.Name) and receiver.id in self.handle_names:
                     return
-                if isinstance(receiver, ast.Name) and receiver.id in self.response_names:
-                    parent = self.parents.get(node)
-                    if (
-                        isinstance(parent, ast.Call)
-                        and _ast_call_path(parent.func) == ("io", "BytesIO")
-                        and parent.args == [node]
-                        and not parent.keywords
-                    ):
-                        self._validate_call(self._require_call_binding(receiver.id, ("urllib", "request", "urlopen")))
-                        return
                 if isinstance(receiver, ast.Call) and _ast_call_path(receiver.func) in {("open",), ("io", "open")}:
                     self._validate_call(receiver)
                     return
@@ -2938,34 +2643,6 @@ class _LegacySetupGrammar:
             if method == "strip" and not node.args and not node.keywords and isinstance(receiver, ast.Call):
                 if isinstance(receiver.func, ast.Attribute) and receiver.func.attr == "replace":
                     self._validate_call(receiver)
-                    return
-            if method == "endswith" and self._inside_resource_context(node) and len(node.args) == 1:
-                if isinstance(receiver, ast.Name) and not node.keywords and self._is_string_constant(node.args[0]):
-                    return
-            if method == "append" and self._inside_resource_context(node) and len(node.args) == 1:
-                if isinstance(receiver, ast.Name) and receiver.id in self.list_names and not node.keywords:
-                    self._validate_resource_path(node.args[0])
-                    return
-            if method == "extractall" and self._inside_resource_context(node) and len(node.args) == 1:
-                destination = node.args[0]
-                if (
-                    isinstance(receiver, ast.Name)
-                    and receiver.id in self.archive_names
-                    and not node.keywords
-                    and isinstance(destination, ast.Name)
-                    and destination.id == self._resource_temp_name()
-                ):
-                    archives = self._assignment_values(receiver.id)
-                    if not archives or any(
-                        not isinstance(archive, ast.Call)
-                        or _ast_call_path(archive.func) not in {("zipfile", "ZipFile"), ("tarfile", "open")}
-                        for archive in archives
-                    ):
-                        raise RuntimeError("setup.py resource archive binding is unsupported")
-                    for archive in archives:
-                        assert isinstance(archive, ast.Call)
-                        self._validate_call(archive)
-                    self._validate_expression(node.args[0])
                     return
         raise RuntimeError("setup.py contains an unsupported call")
 
@@ -3094,26 +2771,11 @@ class _LegacySetupGrammar:
         if len(node.targets) != 1:
             raise RuntimeError("setup.py assignments must bind one direct name")
         name = self._target_name(node.targets[0])
-        if (
-            name in self._RESERVED_BINDINGS | self.module_names | set(self.functions) | self.imported_symbols
-            or name == self._resource_temp_name()
-        ):
+        if name in self._RESERVED_BINDINGS | self.module_names | set(self.functions) | self.imported_symbols:
             raise RuntimeError("setup.py contains an ambiguous declaration binding")
         self._validate_expression(node.value)
 
     def _validate_with(self, node: ast.With, scope: str) -> None:
-        if node is self.resource_context:
-            if scope != "module" or node.type_comment is not None:
-                raise RuntimeError("setup.py resource context is unsupported")
-            optional_name = node.items[0].optional_vars
-            if not isinstance(optional_name, ast.Name) or optional_name.id in (
-                self.module_names | self.imported_symbols | set(self.functions) | self._RESERVED_BINDINGS
-            ):
-                raise RuntimeError("setup.py resource context shadows an approved binding")
-            self._validate_call(node.items[0].context_expr)  # type: ignore[arg-type]
-            for statement in node.body:
-                self._validate_statement(statement, "resource")
-            return
         if (
             len(node.items) != 1
             or node.type_comment is not None
@@ -3136,11 +2798,6 @@ class _LegacySetupGrammar:
             | set(self.functions)
             | self._RESERVED_BINDINGS
             | self.source_directory_names
-            | self.https_url_names
-            | self.response_names
-            | self.buffer_names
-            | self.archive_names
-            | ({self._resource_temp_name()} if self._resource_temp_name() is not None else set())
         ):
             raise RuntimeError("setup.py metadata read shadows an approved binding")
         self._validate_call(node.items[0].context_expr)
@@ -3167,15 +2824,7 @@ class _LegacySetupGrammar:
             raise RuntimeError("setup.py metadata helper shadows an approved binding")
         if any(
             argument.arg
-            in self.module_names
-            | self.imported_symbols
-            | self._RESERVED_BINDINGS
-            | self.source_directory_names
-            | self.https_url_names
-            | self.response_names
-            | self.buffer_names
-            | self.archive_names
-            | ({self._resource_temp_name()} if self._resource_temp_name() is not None else set())
+            in self.module_names | self.imported_symbols | self._RESERVED_BINDINGS | self.source_directory_names
             for argument in node.args.args
         ):
             raise RuntimeError("setup.py metadata helper shadows an approved binding")
@@ -3206,34 +2855,6 @@ class _LegacySetupGrammar:
             else:
                 raise RuntimeError("setup.py metadata helper contains unsupported control flow")
 
-    def _validate_for(self, node: ast.For) -> None:
-        if (
-            not self._inside_resource_context(node)
-            or node.orelse
-            or node.type_comment is not None
-            or not isinstance(node.target, ast.Name)
-            or not isinstance(node.iter, ast.Call)
-            or _ast_call_path(node.iter.func) != ("os", "listdir")
-            or len(node.body) != 1
-            or not isinstance(node.body[0], ast.If)
-        ):
-            raise RuntimeError("setup.py resource iteration is unsupported")
-        if node.target.id in (
-            self.module_names
-            | self.imported_symbols
-            | set(self.functions)
-            | self._RESERVED_BINDINGS
-            | self.source_directory_names
-            | self.https_url_names
-            | self.response_names
-            | self.buffer_names
-            | self.archive_names
-            | ({self._resource_temp_name()} if self._resource_temp_name() is not None else set())
-        ):
-            raise RuntimeError("setup.py resource iteration shadows an approved binding")
-        self._validate_call(node.iter)
-        self._validate_statement(node.body[0], "resource")
-
     def _validate_statement(self, node: ast.stmt, scope: str) -> None:
         if isinstance(node, (ast.Import, ast.ImportFrom)):
             return
@@ -3249,31 +2870,13 @@ class _LegacySetupGrammar:
             self._validate_with(node, scope)
             return
         if isinstance(node, ast.If):
-            if scope == "module":
-                if not (self._is_version_guard(node) or self._is_dead_publish_guard(node)):
-                    raise RuntimeError("setup.py contains unsupported top-level control flow")
-                return
-            if scope != "resource":
-                raise RuntimeError("setup.py contains unsupported helper control flow")
-            self._validate_expression(node.test)
-            for statement in (*node.body, *node.orelse):
-                self._validate_statement(statement, "resource")
-            return
-        if isinstance(node, ast.For):
-            if scope != "resource":
-                raise RuntimeError("setup.py contains unsupported iteration")
-            self._validate_for(node)
+            if scope != "module" or not (self._is_version_guard(node) or self._is_dead_publish_guard(node)):
+                raise RuntimeError("setup.py contains unsupported control flow")
             return
         if isinstance(node, ast.Expr):
             if node.value is self.setup_call:
                 self._validate_setup_call(self.setup_call)
                 return
-            if scope == "resource" and isinstance(node.value, ast.Call):
-                path = _ast_call_path(node.value.func)
-                method = node.value.func.attr if isinstance(node.value.func, ast.Attribute) else None
-                if path == ("print",) or method in {"append", "extractall"}:
-                    self._validate_call(node.value)
-                    return
             raise RuntimeError("setup.py contains an unsupported executable statement")
         raise RuntimeError("setup.py contains an unsupported statement")
 
@@ -3328,10 +2931,9 @@ def _extract_setup_py_requirements(
     except (SyntaxError, UnicodeDecodeError) as error:
         raise RuntimeError("setup.py cannot be parsed safely") from error
     parents = {child: parent for parent in ast.walk(tree) for child in ast.iter_child_nodes(parent)}
-    allowed_direct_imports = {"Extension", "find_packages", "setup"}
+    allowed_direct_imports = {"find_packages", "setup"}
     direct_imports: list[ast.ImportFrom] = []
     module_imports: list[ast.Import] = []
-    tempfile_imports: list[ast.Import] = []
     for node in ast.walk(tree):
         if isinstance(node, ast.Import):
             if any(alias.asname is not None for alias in node.names):
@@ -3340,9 +2942,7 @@ def _extract_setup_py_requirements(
                 if parents.get(node) is not tree or len(node.names) != 1:
                     raise RuntimeError("setup.py has an ambiguous setuptools import")
                 module_imports.append(node)
-            if len(node.names) == 1 and node.names[0].name == "tempfile" and parents.get(node) is tree:
-                tempfile_imports.append(node)
-            elif any(alias.name.startswith(("setuptools.", "distutils")) for alias in node.names):
+            if any(alias.name.startswith(("setuptools.", "distutils")) for alias in node.names):
                 raise RuntimeError("setup.py has an ambiguous setup import")
         elif isinstance(node, ast.ImportFrom):
             if any(alias.name == "*" or alias.asname is not None for alias in node.names):
@@ -3387,25 +2987,10 @@ def _extract_setup_py_requirements(
         setup_import = module_imports[0]
     expression = parents.get(setup_call)
     container = parents.get(expression) if isinstance(expression, ast.Expr) else None
-    in_resource_context = (
-        isinstance(container, ast.With)
-        and parents.get(container) is tree
-        and tree.body[-1] is container
-        and container.body[-1] is expression
-        and len(container.items) == 1
-        and isinstance(container.items[0].optional_vars, ast.Name)
-        and isinstance(container.items[0].context_expr, ast.Call)
-        and not container.items[0].context_expr.args
-        and not container.items[0].context_expr.keywords
-        and isinstance(container.items[0].context_expr.func, ast.Attribute)
-        and isinstance(container.items[0].context_expr.func.value, ast.Name)
-        and container.items[0].context_expr.func.value.id == "tempfile"
-        and container.items[0].context_expr.func.attr == "TemporaryDirectory"
-        and len(tempfile_imports) == 1
-    )
     if not (
         isinstance(expression, ast.Expr)
-        and (container is tree and tree.body[-1] is expression or in_resource_context)
+        and container is tree
+        and tree.body[-1] is expression
         and setup_import.lineno < setup_call.lineno
     ):
         raise RuntimeError("setup.py must contain one unaliased top-level setuptools setup() call")
@@ -3426,12 +3011,7 @@ def _extract_setup_py_requirements(
         "vars",
     }
     setup_func_nodes = set(ast.walk(setup_call.func))
-    resource_func_nodes = (
-        set(ast.walk(container.items[0].context_expr.func))
-        if in_resource_context and isinstance(container, ast.With)
-        else set()
-    )
-    protected_bindings = {"setup", "setuptools"} | ({"tempfile"} if in_resource_context else set())
+    protected_bindings = {"setup", "setuptools"}
     for node in ast.walk(tree):
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)) and node.name in protected_bindings:
             raise RuntimeError("setup.py contains an ambiguous setup binding")
@@ -3469,19 +3049,10 @@ def _extract_setup_py_requirements(
             for item in ast.walk(node)
         ):
             raise RuntimeError("setup.py contains dynamic setup reflection")
-        elif (
-            in_resource_context
-            and isinstance(node, ast.Name)
-            and node.id == "tempfile"
-            and node not in resource_func_nodes
-        ):
-            raise RuntimeError("setup.py contains an ambiguous resource context reference")
-
     _LegacySetupGrammar(
         tree,
         parents,
         setup_call,
-        container if in_resource_context and isinstance(container, ast.With) else None,
         source_distribution,
         local_module_payloads,
     ).validate()
@@ -3500,8 +3071,6 @@ def _extract_setup_py_requirements(
         raise RuntimeError("setup.py has ambiguous setup_requires")
     if not matches:
         return (), False
-    if in_resource_context:
-        raise RuntimeError("setup.py setup_requires must not be declared inside a resource context")
     value = matches[0].value
     if isinstance(value, ast.Constant) and isinstance(value.value, str):
         raw_requirements: list[object] = [value.value]
@@ -3512,6 +3081,157 @@ def _extract_setup_py_requirements(
     else:
         raise RuntimeError("setup.py setup_requires must be a static literal")
     return _static_requirement_tuple(raw_requirements, "setup.py setup_requires"), True
+
+
+_SETUP_CFG_METADATA_OPTIONS = {
+    "author",
+    "author_email",
+    "classifier",
+    "classifiers",
+    "description",
+    "description_file",
+    "download_url",
+    "home_page",
+    "keywords",
+    "license",
+    "license_file",
+    "license_files",
+    "long_description",
+    "long_description_content_type",
+    "maintainer",
+    "maintainer_email",
+    "name",
+    "obsoletes",
+    "platform",
+    "platforms",
+    "project_urls",
+    "provides",
+    "summary",
+    "url",
+    "version",
+}
+_SETUP_CFG_OPTIONS = {
+    "dependency_links",
+    "eager_resources",
+    "entry_points",
+    "include_package_data",
+    "install_requires",
+    "namespace_packages",
+    "package_dir",
+    "packages",
+    "py_modules",
+    "python_requires",
+    "setup_requires",
+    "test_suite",
+    "tests_require",
+    "zip_safe",
+}
+_SETUP_CFG_SUBSECTIONS = {
+    "options.entry_points",
+    "options.exclude_package_data",
+    "options.extras_require",
+    "options.package_data",
+}
+_SETUP_CFG_BDIST_WHEEL_OPTIONS = {"build_number", "plat_name", "py_limited_api", "python_tag", "universal"}
+_SETUP_CFG_EGG_INFO_OPTIONS = {"egg_base", "tag_build", "tag_date", "tag_svn_revision"}
+_SETUP_CFG_BOOLEAN_VALUES = {"0", "1", "false", "no", "true", "yes"}
+_SETUP_CFG_FALSE_VALUES = {"0", "false", "no"}
+
+
+def _setup_cfg_list(value: str) -> tuple[str, ...]:
+    chunks = value.splitlines() if "\n" in value else value.split(",")
+    return tuple(chunk.strip() for chunk in chunks if chunk.strip())
+
+
+def _safe_setup_cfg_package(value: str, *, allow_root: bool = False) -> bool:
+    return (allow_root and value in {"", "*"}) or _SAFE_PACKAGE_RE.fullmatch(value) is not None
+
+
+def _safe_setup_cfg_path(value: str) -> bool:
+    path = PurePosixPath(value)
+    return bool(value) and "\\" not in value and not path.is_absolute() and ".." not in path.parts
+
+
+def _safe_setup_cfg_single_path(value: str) -> bool:
+    return "," not in value and "\n" not in value and _safe_setup_cfg_path(value)
+
+
+def _validate_setup_cfg_paths(value: str, label: str) -> None:
+    if any(not _safe_setup_cfg_path(path) for path in _setup_cfg_list(value)):
+        raise RuntimeError(f"setup.cfg {label} must contain only source-relative paths")
+
+
+def _validate_setup_cfg_packages(value: str, label: str) -> None:
+    if any(not _safe_setup_cfg_package(package) for package in _setup_cfg_list(value)):
+        raise RuntimeError(f"setup.cfg {label} must contain only package names")
+
+
+def _validate_setup_cfg_package_dir(value: str) -> None:
+    for declaration in _setup_cfg_list(value):
+        package, separator, directory = declaration.partition("=")
+        if (
+            not separator
+            or not _safe_setup_cfg_package(package.strip(), allow_root=True)
+            or not _safe_setup_cfg_path(directory.strip())
+        ):
+            raise RuntimeError("setup.cfg package_dir must be a static source-relative mapping")
+
+
+def _validate_setup_cfg_section_option(section: str, option: str, value: str) -> None:
+    normalized_value = value.strip().casefold()
+    if section == "metadata":
+        if option not in _SETUP_CFG_METADATA_OPTIONS:
+            raise RuntimeError("setup.cfg contains an unsupported metadata option")
+        if option in {"description_file", "license_file"}:
+            if not _safe_setup_cfg_single_path(value.strip()):
+                raise RuntimeError(f"setup.cfg {option} must be source-relative")
+        elif option == "license_files":
+            _validate_setup_cfg_paths(value, option)
+        return
+    if section == "options":
+        if option not in _SETUP_CFG_OPTIONS:
+            raise RuntimeError("setup.cfg contains an unsupported options setting")
+        if option == "include_package_data" and normalized_value not in _SETUP_CFG_FALSE_VALUES:
+            raise RuntimeError("setup.cfg include_package_data must be statically disabled")
+        if option == "zip_safe" and normalized_value not in _SETUP_CFG_BOOLEAN_VALUES:
+            raise RuntimeError("setup.cfg zip_safe must be a static boolean")
+        if option in {"packages", "namespace_packages", "py_modules"}:
+            _validate_setup_cfg_packages(value, option)
+        elif option == "package_dir":
+            _validate_setup_cfg_package_dir(value)
+        elif option == "eager_resources":
+            _validate_setup_cfg_paths(value, option)
+        return
+    if section in {"options.package_data", "options.exclude_package_data"}:
+        if not _safe_setup_cfg_package(option, allow_root=True):
+            raise RuntimeError("setup.cfg package-data key is invalid")
+        _validate_setup_cfg_paths(value, "package data")
+        return
+    if section in {"options.entry_points", "options.extras_require"}:
+        return
+    if section == "bdist_wheel":
+        if option not in _SETUP_CFG_BDIST_WHEEL_OPTIONS:
+            raise RuntimeError("setup.cfg contains an unsupported bdist_wheel option")
+        if option == "universal" and normalized_value not in _SETUP_CFG_BOOLEAN_VALUES:
+            raise RuntimeError("setup.cfg bdist_wheel universal must be a static boolean")
+        if option == "build_number" and (not normalized_value.isdigit() or int(normalized_value) < 1):
+            raise RuntimeError("setup.cfg bdist_wheel build_number must be a positive integer")
+        if option in {"plat_name", "py_limited_api", "python_tag"} and (
+            not value.strip() or _SAFE_FILENAME_RE.fullmatch(value.strip()) is None
+        ):
+            raise RuntimeError(f"setup.cfg bdist_wheel {option} is invalid")
+        return
+    if section == "egg_info":
+        if option not in _SETUP_CFG_EGG_INFO_OPTIONS:
+            raise RuntimeError("setup.cfg contains an unsupported egg_info option")
+        if option == "egg_base" and not _safe_setup_cfg_single_path(value.strip()):
+            raise RuntimeError("setup.cfg egg_base must be source-relative")
+        if option == "tag_build" and re.fullmatch(r"[A-Za-z0-9_.+-]*", value.strip()) is None:
+            raise RuntimeError("setup.cfg egg_info tag_build is invalid")
+        if option in {"tag_date", "tag_svn_revision"} and normalized_value not in _SETUP_CFG_FALSE_VALUES:
+            raise RuntimeError(f"setup.cfg egg_info {option} must be statically disabled")
+        return
+    raise RuntimeError("setup.cfg contains an unsupported section")
 
 
 def _extract_setup_cfg_requirements(payload: bytes | None) -> tuple[tuple[str, ...], bool]:
@@ -3548,15 +3268,21 @@ def _extract_setup_cfg_requirements(payload: bytes | None) -> tuple[tuple[str, .
             "options",
             "bdist_wheel",
             "egg_info",
-        } and not normalized_section.startswith("options."):
+            *_SETUP_CFG_SUBSECTIONS,
+        }:
             raise RuntimeError("setup.cfg contains an unsupported section")
+        normalized_options: set[str] = set()
         for option, value in parser.items(section, raw=True):
             normalized_option = option.casefold().replace("-", "_")
             normalized_value = value.casefold()
+            if normalized_option in normalized_options:
+                raise RuntimeError("setup.cfg contains ambiguous option names")
+            normalized_options.add(normalized_option)
             if normalized_option in {"cmdclass", "distclass", "script_args", "script_name"} or any(
                 directive in normalized_value for directive in ("attr:", "file:", "find:")
             ):
                 raise RuntimeError("setup.cfg contains an executable or dynamic option")
+            _validate_setup_cfg_section_option(normalized_section, normalized_option, value)
             if normalized_option == "setup_requires":
                 declarations.append((normalized_section, value))
     if not declarations:
@@ -3564,8 +3290,7 @@ def _extract_setup_cfg_requirements(payload: bytes | None) -> tuple[tuple[str, .
     if len(declarations) != 1 or declarations[0][0] != "options":
         raise RuntimeError("setup.cfg has an ambiguous setup_requires declaration")
     raw_value = declarations[0][1]
-    chunks = raw_value.splitlines() if "\n" in raw_value else raw_value.split(",")
-    raw_requirements = [chunk.strip() for chunk in chunks if chunk.strip()]
+    raw_requirements = list(_setup_cfg_list(raw_value))
     return _static_requirement_tuple(raw_requirements, "setup.cfg setup_requires"), True
 
 

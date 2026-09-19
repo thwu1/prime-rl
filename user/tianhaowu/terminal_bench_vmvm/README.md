@@ -188,7 +188,9 @@ setup; source-only requirements fail closed. Cached controller archives are
 read-only and tied to the taskset lifetime, per-runtime references are removed
 on every terminal path, and evaluator shutdown deterministically deletes the
 cache. Hidden tests are staged only after verifier network isolation; sandbox
-wheelhouse copies are removed after use.
+wheelhouse copies are removed after use. A cleanup failure aborts an otherwise
+successful prefetch or restore; after a primary failure or cancellation, it is
+logged without replacing that primary outcome.
 
 An oracle-only source-wheel recovery path is available for an independently
 reviewed, digest-pinned exception set. It remains disabled unless
@@ -209,26 +211,18 @@ distribution, location, and installed-file manifest. Dependency discovery
 parses the pinned legacy metadata as text and never imports or executes it.
 Supported sources must have exactly one direct, unaliased `setup(...)` or
 `setuptools.setup(...)` invocation after its matching module-scope import. The
-ordinary form is the final module statement; the sole resource-context form is
-the final statement of a final top-level `tempfile.TemporaryDirectory()` block
-and cannot declare `setup_requires`. Unrelated legacy metadata computation may
-remain only within a positive grammar for literals, source-relative metadata
-reads, fixed string/path transforms, static package discovery, explicit Python
-version guards, and the one bounded resource-preparation form. Local metadata
-paths reserve `__file__`, resolve every join tail (including helper arguments)
-to a nonempty relative literal, and reject absolute or parent components. The
-resource grammar alone recognizes the exact
-`realpath(join(__file__, "..", <safe-relative-dir>))` initializer: its one
-literal parent step removes the `setup.py` filename and cannot escape the
-source root. It is rejected in general joins and metadata reads. Every resource
-`isfile`, `listdir`, loop-derived filename, appended extension source, and
-extension include/source path must trace to that source root or the live
-temporary root. The
-resource form requires one statically bound credential-free HTTPS URL, traces
-its response through `BytesIO` into the ZIP/tar reader, permits only fixed
-status output, and confines `extractall` to the live `TemporaryDirectory`.
-Local metadata
-reader helpers must match that grammar and be used exactly once as
+invocation must be the final module statement. Unrelated legacy metadata
+computation may remain only within a positive grammar for literals,
+source-relative metadata reads, fixed string/path transforms, static package
+discovery, and explicit Python version guards. Resource contexts, URL fetches,
+archive extraction, `Extension`, `ext_modules`, and `cffi_modules` are rejected
+rather than executing or interpreting build helpers. Explicit package names
+must be dotted Python identifiers, `package_dir` and package-data paths must be
+static nonempty source-relative values without parent components, and automatic
+manifest inclusion is disabled. `setup.cfg` accepts only reviewed metadata,
+package, entry-point, requirement, and deterministic wheel/egg options; it
+applies the same package/path confinement and rejects custom build keywords.
+Local metadata reader helpers must match that grammar and be used exactly once as
 `long_description`; arbitrary imports, assignments, helper calls, side effects,
 and dynamic non-dependency keywords fail closed. The sole local-import form is
 the direct, unaliased source-package import used only for `__author__`,
@@ -278,8 +272,10 @@ is intentionally incomplete: it binds the target images, exact requirement
 sets, source URLs, sizes, hashes, and corpus provenance, but it does not claim
 target toolchains, binary closure artifacts, or output-wheel hashes. Keep it as
 a regular mode-0600 file in a mode-0700 directory and provide its independently
-computed SHA-256. The launch approval must separately require exactly nine
-entries and pin the canonical JSON digest of the complete
+computed SHA-256. Regenerate it deterministically as the eight-entry subset
+accepted by the reviewed static grammar; do not carry the excluded executable
+resource/CFFI form into the proof. The launch approval must separately require
+exactly eight entries and pin the canonical JSON digest of the complete
 `missing_required_evidence` list. Use a new mode-0700 proof output directory.
 
 Initialize `deps/verifiers`, `deps/renderers`, and `deps/pydantic-config` at
@@ -319,7 +315,7 @@ atomic checkpoint. A mode-0700 journal publishes immutable, hash-chained
 mode-0400 intent, start-result, lease-identity-hash, and stop-result records
 around every VMVM start. Resume fails closed if those records are incomplete or
 cannot account exactly for every completed entry, so retried or indeterminate
-starts cannot be hidden by the 27-start certificate. Only after every entry
+starts cannot be hidden by the 24-start certificate. Only after every entry
 passes and a second source/tool validation succeeds does it write an immutable
 `post_run_validation.json` receipt bound to the exact state and journal head.
 It then writes `finalization.json`, reconciles the proof certificate, and
@@ -396,7 +392,7 @@ umask 077
 ```bash
 tmux new-session -d -s source-wheel-proof
 tmux send-keys -t source-wheel-proof \
-  "/usr/bin/env -i PATH=/usr/bin:/bin HOME=/storage/home/tianhaowu USER=tianhaowu LOGNAME=tianhaowu PROJECT_DIR=/path/to/clean-reviewed-checkout SOURCE_WHEEL_PROOF_INSPECTION_RECEIPT=/path/to/private/reviewed-environment-inspection.json SOURCE_WHEEL_PROOF_INSPECTION_RECEIPT_SHA256=<reviewed-receipt-sha256> SOURCE_WHEEL_PROOF_INPUT=/path/to/private/probe-input.json SOURCE_WHEEL_PROOF_INPUT_SHA256=<independently-reviewed-input-sha256> SOURCE_WHEEL_PROOF_EXPECTED_ENTRY_COUNT=9 SOURCE_WHEEL_PROOF_MISSING_EVIDENCE_SHA256=<reviewed-canonical-list-sha256> SOURCE_WHEEL_PROOF_OUTPUT_DIR=/path/to/new-private-proof-directory SOURCE_WHEEL_PROOF_BASE_RUNTIME_REVISION=ceb9356c98c72e51568e7bb4658a540cb1492254 SOURCE_WHEEL_PROOF_SOURCE_REVISION=<reviewed-full-utility-commit> SOURCE_WHEEL_PROOF_EXPECTED_HOST=<reviewed-inspector-host> SOURCE_WHEEL_PROOF_CLEAN_WRAPPER_SHA256=<reviewed-clean-wrapper-sha256> SOURCE_WHEEL_PROOF_LAUNCHER_SHA256=<reviewed-launcher-sha256> SOURCE_WHEEL_PROOF_UV_SHA256=<reviewed-uv-sha256> SOURCE_WHEEL_PROOF_PYTHON_SHA256=<reviewed-python-sha256> SOURCE_WHEEL_PROOF_PYTHON_RUNTIME_MANIFEST_SHA256=<reviewed-runtime-manifest-sha256> SOURCE_WHEEL_PROOF_SITE_PACKAGES_MANIFEST_SHA256=<reviewed-site-manifest-sha256> SOURCE_WHEEL_PROOF_VMVM_TB_V2_SHA256=<reviewed-vmvm-source-sha256> SOURCE_WHEEL_PROOF_VACLI_BINARY_SHA256=<reviewed-vacli-sha256> SOURCE_WHEEL_PROOF_MAX_CONCURRENT_ENTRIES=2 PYTHON_BIN_X86_64=/path/to/pinned/python PYTHON_STDLIB_X86_64=/path/to/pinned/python-stdlib PYTHON_SITE_X86_64=/path/to/pinned/site-packages UV_BIN_X86_64=/path/to/pinned/uv VACLI_BIN=/path/to/pinned/vacli VACLI_LEASE_RETRIES=1 VACLI_MAX_CONCURRENT_LEASES=6 VACLI_MAX_PULL_RETRIES=20 VACLI_IMAGE_PULL_TIMEOUT_SECONDS=3600 VACLI_CONTAINER_PRIVILEGED=1 VMVM_TENANT_ID=async_2347641 VMVM_LEASE_TTL=60s THRIFT_TLS_CL_CERT_PATH=/path/to/trusted/client.crt THRIFT_TLS_CL_KEY_PATH=/path/to/trusted/client.key /usr/bin/sbatch --parsable --export=ALL --job-name=tb-wheel-proof --partition=cpu_x86 --nodelist=<reviewed-inspector-host> --qos=cpu_x86_lowest --account=ram --time=12:00:00 --nodes=1 --ntasks=1 --cpus-per-task=6 --mem=12G --no-requeue --output=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/logs/source_wheel_proof_%j.log --error=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/logs/source_wheel_proof_%j.log --wrap='exec /bin/bash --noprofile --norc /path/to/clean-reviewed-checkout/user/tianhaowu/terminal_bench_vmvm/run_source_wheel_proof_clean_env.sbatch'" C-m
+  "/usr/bin/env -i PATH=/usr/bin:/bin HOME=/storage/home/tianhaowu USER=tianhaowu LOGNAME=tianhaowu PROJECT_DIR=/path/to/clean-reviewed-checkout SOURCE_WHEEL_PROOF_INSPECTION_RECEIPT=/path/to/private/reviewed-environment-inspection.json SOURCE_WHEEL_PROOF_INSPECTION_RECEIPT_SHA256=<reviewed-receipt-sha256> SOURCE_WHEEL_PROOF_INPUT=/path/to/private/probe-input.json SOURCE_WHEEL_PROOF_INPUT_SHA256=<independently-reviewed-input-sha256> SOURCE_WHEEL_PROOF_EXPECTED_ENTRY_COUNT=8 SOURCE_WHEEL_PROOF_MISSING_EVIDENCE_SHA256=<reviewed-canonical-list-sha256> SOURCE_WHEEL_PROOF_OUTPUT_DIR=/path/to/new-private-proof-directory SOURCE_WHEEL_PROOF_BASE_RUNTIME_REVISION=ceb9356c98c72e51568e7bb4658a540cb1492254 SOURCE_WHEEL_PROOF_SOURCE_REVISION=<reviewed-full-utility-commit> SOURCE_WHEEL_PROOF_EXPECTED_HOST=<reviewed-inspector-host> SOURCE_WHEEL_PROOF_CLEAN_WRAPPER_SHA256=<reviewed-clean-wrapper-sha256> SOURCE_WHEEL_PROOF_LAUNCHER_SHA256=<reviewed-launcher-sha256> SOURCE_WHEEL_PROOF_UV_SHA256=<reviewed-uv-sha256> SOURCE_WHEEL_PROOF_PYTHON_SHA256=<reviewed-python-sha256> SOURCE_WHEEL_PROOF_PYTHON_RUNTIME_MANIFEST_SHA256=<reviewed-runtime-manifest-sha256> SOURCE_WHEEL_PROOF_SITE_PACKAGES_MANIFEST_SHA256=<reviewed-site-manifest-sha256> SOURCE_WHEEL_PROOF_VMVM_TB_V2_SHA256=<reviewed-vmvm-source-sha256> SOURCE_WHEEL_PROOF_VACLI_BINARY_SHA256=<reviewed-vacli-sha256> SOURCE_WHEEL_PROOF_MAX_CONCURRENT_ENTRIES=2 PYTHON_BIN_X86_64=/path/to/pinned/python PYTHON_STDLIB_X86_64=/path/to/pinned/python-stdlib PYTHON_SITE_X86_64=/path/to/pinned/site-packages UV_BIN_X86_64=/path/to/pinned/uv VACLI_BIN=/path/to/pinned/vacli VACLI_LEASE_RETRIES=1 VACLI_MAX_CONCURRENT_LEASES=6 VACLI_MAX_PULL_RETRIES=20 VACLI_IMAGE_PULL_TIMEOUT_SECONDS=3600 VACLI_CONTAINER_PRIVILEGED=1 VMVM_TENANT_ID=async_2347641 VMVM_LEASE_TTL=60s THRIFT_TLS_CL_CERT_PATH=/path/to/trusted/client.crt THRIFT_TLS_CL_KEY_PATH=/path/to/trusted/client.key /usr/bin/sbatch --parsable --export=ALL --job-name=tb-wheel-proof --partition=cpu_x86 --nodelist=<reviewed-inspector-host> --qos=cpu_x86_lowest --account=ram --time=12:00:00 --nodes=1 --ntasks=1 --cpus-per-task=6 --mem=12G --no-requeue --output=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/logs/source_wheel_proof_%j.log --error=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/logs/source_wheel_proof_%j.log --wrap='exec /bin/bash --noprofile --norc /path/to/clean-reviewed-checkout/user/tianhaowu/terminal_bench_vmvm/run_source_wheel_proof_clean_env.sbatch'" C-m
 ```
 
 For an interrupted proof, review and hash `proof_state.json` externally, then
@@ -405,8 +401,8 @@ repeat the same launch with
 value from an unreviewed output directory. The resume path revalidates every
 completed entry and skips it only when the immutable attempt journal ends at an
 entry boundary. Any unmatched or failed start requires a fresh output
-directory. A complete nine-entry proof therefore contains nine clean-target
-validations, eighteen source builds, and exactly 27 proof runtime starts.
+directory. A complete eight-entry proof therefore contains eight clean-target
+validations, sixteen source builds, and exactly 24 proof runtime starts.
 
 A fresh oracle creates a mode-0400 `source_wheel_attestations.json` and
 content-addressed `source_wheel_cache/` beside its results only after acquiring

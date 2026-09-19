@@ -2044,6 +2044,57 @@ def test_static_build_requirement_extraction_is_fail_closed(tmp_path: Path) -> N
         "cffi>=1",
     )
 
+    confined_setup_cfg = archive(
+        ("verifier_helper-1.0/PKG-INFO", metadata),
+        (
+            "verifier_helper-1.0/setup.py",
+            b"from setuptools import setup\nsetup(name='verifier-helper', version='1.0')\n",
+        ),
+        (
+            "verifier_helper-1.0/setup.cfg",
+            b"[metadata]\n"
+            b"name = verifier-helper\n"
+            b"license_files = LICENSE*\n"
+            b"[options]\n"
+            b"packages = verifier_helper\n"
+            b"package_dir =\n"
+            b"    = src\n"
+            b"include_package_data = false\n"
+            b"[options.package_data]\n"
+            b"verifier_helper = data/*.txt\n"
+            b"[bdist_wheel]\n"
+            b"universal = 1\n"
+            b"[egg_info]\n"
+            b"egg_base = metadata\n"
+            b"tag_build =\n"
+            b"tag_date = 0\n",
+        ),
+    )
+    assert extract_static_build_requirements(load_source(confined_setup_cfg), confined_setup_cfg) == ()
+
+    unsafe_setup_cfgs = (
+        b"[options]\ncffi_modules = build.py:ffi\n",
+        b"[options]\next_modules = proof.extension\n",
+        b"[options]\npackage_dir =\n    = ../../escape\npackages = verifier_helper\n",
+        b"[options.package_data]\nverifier_helper = ../../outside/*\n",
+        b"[egg_info]\negg_base = ../../escape\n",
+        b"[metadata]\nlicense_file = /etc/passwd\n",
+        b"[metadata]\nlicense_file = LICENSE, /etc/passwd\n",
+        b"[options]\ninclude_package_data = true\n",
+        b"[options.data_files]\n/etc = verifier_helper.py\n",
+    )
+    for setup_cfg_payload in unsafe_setup_cfgs:
+        unsafe_setup_cfg = archive(
+            ("verifier_helper-1.0/PKG-INFO", metadata),
+            (
+                "verifier_helper-1.0/setup.py",
+                b"from setuptools import setup\nsetup(name='verifier-helper', version='1.0')\n",
+            ),
+            ("verifier_helper-1.0/setup.cfg", setup_cfg_payload),
+        )
+        with pytest.raises(RuntimeError, match="setup.cfg"):
+            extract_static_build_requirements(load_source(unsafe_setup_cfg), unsafe_setup_cfg)
+
     conflicting_config = archive(
         ("verifier_helper-1.0/PKG-INFO", metadata),
         (
@@ -2158,7 +2209,7 @@ def test_static_build_requirement_extraction_is_fail_closed(tmp_path: Path) -> N
             b'"""static package declaration"""\n'
             b"from setuptools import setup\n"
             b"setup(name='verifier-helper', version='1.0', packages=[], "
-            b"package_data={'': ['*.txt']})\n",
+            b"package_data={'': ['*.txt']}, include_package_data=False)\n",
         ),
     )
     assert extract_static_build_requirements(load_source(literal_containers), literal_containers) == ()
@@ -2311,7 +2362,8 @@ def test_static_build_requirement_extraction_is_fail_closed(tmp_path: Path) -> N
             b"    setup(name='verifier-helper', version='1.0')\n",
         ),
     )
-    assert extract_static_build_requirements(load_source(resource_context), resource_context) == ()
+    with pytest.raises(RuntimeError, match="top-level setuptools setup"):
+        extract_static_build_requirements(load_source(resource_context), resource_context)
 
     unsafe_source_paths = (
         b"import os\nfrom setuptools import setup\nsetup(name='verifier-helper', long_description=open(os.path.join(os.path.dirname(__file__), '..', 'passwd')).read())\n",
@@ -2327,130 +2379,66 @@ def test_static_build_requirement_extraction_is_fail_closed(tmp_path: Path) -> N
         with pytest.raises(RuntimeError, match="setup.py"):
             extract_static_build_requirements(load_source(unsafe_path), unsafe_path)
 
-    def source_root_resource(root_expression: str, *, direct: bool = False) -> bytes:
-        declaration = "" if direct else f"RESOURCE_ROOT = {root_expression}\n"
-        checked_path = root_expression if direct else "RESOURCE_ROOT"
-        return archive(
-            ("verifier_helper-1.0/PKG-INFO", metadata),
-            (
-                "verifier_helper-1.0/setup.py",
-                (
-                    "import os\n"
-                    "import tempfile\n"
-                    "from setuptools import setup\n"
-                    f"{declaration}"
-                    "with tempfile.TemporaryDirectory() as directory:\n"
-                    f"    if os.path.isfile(os.path.join({checked_path}, 'marker.h')):\n"
-                    "        print('using bundled resource')\n"
-                    "    setup(name='verifier-helper', version='1.0')\n"
-                ).encode(),
-            ),
-        )
-
-    canonical_source_root = "os.path.realpath(os.path.join(__file__, '..', 'resources'))"
-    safe_source_root = source_root_resource(canonical_source_root)
-    assert (
-        extract_static_build_requirements(
-            load_source(safe_source_root),
-            safe_source_root,
-        )
-        == ()
+    rejected_executable_build_forms = (
+        b"from setuptools import setup\nsetup(name='verifier-helper', cffi_modules=['build.py:ffi'])\n",
+        b"from setuptools import Extension, setup\next = Extension('proof.extension', sources=['wrapper.c'])\nsetup(name='verifier-helper', ext_modules=[ext])\n",
+        b"import tempfile\nimport urllib.request\nfrom setuptools import setup\nwith tempfile.TemporaryDirectory() as directory:\n    urllib.request.urlopen('https://files.example.invalid/resource.zip')\n    setup(name='verifier-helper')\n",
+        b"import tempfile\nimport tarfile\nfrom setuptools import setup\nwith tempfile.TemporaryDirectory() as directory:\n    tarfile.open('payload.tar').extractall(directory)\n    setup(name='verifier-helper')\n",
+        b"import tempfile\nimport zipfile\nfrom setuptools import setup\nwith tempfile.TemporaryDirectory() as directory:\n    zipfile.ZipFile('payload.zip').extractall(directory)\n    setup(name='verifier-helper')\n",
     )
-    unsafe_resource_roots = (
-        source_root_resource("os.path.realpath(os.path.join(__file__, '..', '..'))"),
-        source_root_resource("os.path.realpath(os.path.join(__file__, '..', '/etc'))"),
-        source_root_resource(canonical_source_root, direct=True),
-        archive(
+    for setup_source in rejected_executable_build_forms:
+        executable_build = archive(
             ("verifier_helper-1.0/PKG-INFO", metadata),
-            (
-                "verifier_helper-1.0/setup.py",
-                b"import os\n"
-                b"from setuptools import setup\n"
-                b"RESOURCE_ROOT = os.path.realpath(os.path.join(__file__, '..', 'resources'))\n"
-                b"setup(name='verifier-helper', long_description=open(RESOURCE_ROOT).read())\n",
-            ),
-        ),
-    )
-    for unsafe_resource_root in unsafe_resource_roots:
+            ("verifier_helper-1.0/setup.py", setup_source),
+        )
         with pytest.raises(RuntimeError, match="setup.py"):
-            extract_static_build_requirements(load_source(unsafe_resource_root), unsafe_resource_root)
+            extract_static_build_requirements(load_source(executable_build), executable_build)
 
-    def resource_archive(url: str, destination: str, status: bytes) -> bytes:
-        return archive(
-            ("verifier_helper-1.0/PKG-INFO", metadata),
-            (
-                "verifier_helper-1.0/setup.py",
-                b"import io\n"
-                b"import tempfile\n"
-                b"import urllib.request\n"
-                b"import zipfile\n"
-                b"from setuptools import setup\n"
-                + f"RESOURCE_URL = {url!r}\n".encode()
-                + b"with tempfile.TemporaryDirectory() as directory:\n"
-                + b"    response = urllib.request.urlopen(RESOURCE_URL)\n"
-                + b"    buffer = io.BytesIO(response.read())\n"
-                + b"    resource = zipfile.ZipFile(buffer)\n"
-                + b"    "
-                + status
-                + b"\n"
-                + f"    resource.extractall({destination})\n".encode()
-                + b"    setup(name='verifier-helper', version='1.0')\n",
-            ),
-        )
-
-    unsafe_resources = (
-        resource_archive("file:///etc/passwd", "directory", b"print('fetching resource')"),
-        resource_archive("https://files.example.invalid/resource.zip", "'/'", b"print('fetching resource')"),
-        resource_archive(
-            "https://files.example.invalid/resource.zip",
-            "directory",
-            b"print(response.read())",
-        ),
-    )
-    for unsafe_resource in unsafe_resources:
-        with pytest.raises(RuntimeError, match="setup.py"):
-            extract_static_build_requirements(load_source(unsafe_resource), unsafe_resource)
-
-    def extension_source_resource(append_root: str) -> bytes:
-        return archive(
-            ("verifier_helper-1.0/PKG-INFO", metadata),
-            (
-                "verifier_helper-1.0/setup.py",
-                (
-                    "import os\n"
-                    "import tempfile\n"
-                    "from setuptools import Extension, setup\n"
-                    "SOURCES = []\n"
-                    "with tempfile.TemporaryDirectory() as directory:\n"
-                    "    for filename in os.listdir(directory):\n"
-                    "        if filename.endswith('.c') and not os.path.isfile(os.path.join(directory, filename)):\n"
-                    f"            SOURCES.append(os.path.join({append_root}, filename))\n"
-                    "    extension = Extension('proof.extension', sources=['wrapper.c'] + SOURCES, "
-                    "libraries=[], include_dirs=[directory], undef_macros=[], extra_compile_args=[], "
-                    "define_macros=[])\n"
-                    "    setup(name='verifier-helper', version='1.0', ext_modules=[extension])\n"
-                ).encode(),
-            ),
-        )
-
-    safe_extension_source = extension_source_resource("directory")
-    assert extract_static_build_requirements(load_source(safe_extension_source), safe_extension_source) == ()
-    unsafe_extension_source = extension_source_resource("'/'")
-    with pytest.raises(RuntimeError, match="setup.py resource path"):
-        extract_static_build_requirements(load_source(unsafe_extension_source), unsafe_extension_source)
-
-    contextual_requirements = archive(
+    safe_package_dir = archive(
         ("verifier_helper-1.0/PKG-INFO", metadata),
         (
             "verifier_helper-1.0/setup.py",
-            b"import tempfile\n"
-            b"from setuptools import setup\n"
-            b"with tempfile.TemporaryDirectory() as directory:\n"
-            b"    setup(name='verifier-helper', setup_requires=['hidden-backend'])\n",
+            b"from setuptools import setup\nsetup(name='verifier-helper', package_dir={'': 'src'})\n",
         ),
     )
-    with pytest.raises(RuntimeError, match="must not be declared inside a resource context"):
-        extract_static_build_requirements(load_source(contextual_requirements), contextual_requirements)
+    assert extract_static_build_requirements(load_source(safe_package_dir), safe_package_dir) == ()
+    for package_dir in ("/tmp/escape", "../escape"):
+        unsafe_package_dir = archive(
+            ("verifier_helper-1.0/PKG-INFO", metadata),
+            (
+                "verifier_helper-1.0/setup.py",
+                f"from setuptools import setup\nsetup(name='verifier-helper', package_dir={{'': {package_dir!r}}})\n".encode(),
+            ),
+        )
+        with pytest.raises(RuntimeError, match="package_dir"):
+            extract_static_build_requirements(load_source(unsafe_package_dir), unsafe_package_dir)
+    dynamic_package_dir = archive(
+        ("verifier_helper-1.0/PKG-INFO", metadata),
+        (
+            "verifier_helper-1.0/setup.py",
+            b"from setuptools import setup\nSOURCE_ROOT = 'src'\nsetup(name='verifier-helper', package_dir={'': SOURCE_ROOT})\n",
+        ),
+    )
+    with pytest.raises(RuntimeError, match="package_dir"):
+        extract_static_build_requirements(load_source(dynamic_package_dir), dynamic_package_dir)
+
+    unsafe_package_declarations = (
+        b"from setuptools import setup\nsetup(name='verifier-helper', packages=['/etc'])\n",
+        b"from setuptools import setup\nsetup(name='verifier-helper', packages=['../outside'])\n",
+        b"from setuptools import setup\n"
+        b"setup(name='verifier-helper', packages=['verifier_helper'], "
+        b"package_data={'verifier_helper': ['../../outside/*']})\n",
+        b"from setuptools import setup\n"
+        b"setup(name='verifier-helper', packages=['verifier_helper'], include_package_data=True)\n",
+        b"from setuptools import setup\nsetup(name='verifier-helper', use_scm_version=True)\n",
+    )
+    for setup_source in unsafe_package_declarations:
+        unsafe_package_metadata = archive(
+            ("verifier_helper-1.0/PKG-INFO", metadata),
+            ("verifier_helper-1.0/setup.py", setup_source),
+        )
+        with pytest.raises(RuntimeError, match="setup.py"):
+            extract_static_build_requirements(load_source(unsafe_package_metadata), unsafe_package_metadata)
 
     metadata_not_executed = archive(
         ("verifier_helper-1.0/PKG-INFO", metadata),
@@ -3209,6 +3197,7 @@ def test_source_wheel_builder_lease_is_global_and_cancellation_cannot_publish(
 def test_verifier_wheelhouse_preparation_always_attempts_cleanup(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
     failure: BaseException,
 ) -> None:
     taskset = dependency_taskset(tmp_path)
@@ -3221,7 +3210,7 @@ def test_verifier_wheelhouse_preparation_always_attempts_cleanup(
         root_commands.append(command)
         if len(root_commands) == 1:
             raise failure
-        return ProgramResult(exit_code=0, stdout="", stderr="")
+        return ProgramResult(exit_code=1, stdout="", stderr="cleanup failed")
 
     monkeypatch.setattr(taskset, "_run_root", run_root)
     with pytest.raises(type(failure)):
@@ -3237,6 +3226,84 @@ def test_verifier_wheelhouse_preparation_always_attempts_cleanup(
 
     assert len(root_commands) == 2
     assert "rm -rf" in root_commands[1]
+    assert "verifier wheelhouse cleanup failed: cleanup failed" in caplog.text
+
+
+def test_successful_verifier_wheelhouse_build_rejects_cleanup_failure(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    taskset = dependency_taskset(tmp_path)
+    task = dependency_task(tmp_path)
+    runtime = DependencyRuntime()
+    fingerprints = asyncio.run(taskset._runtime_wheel_fingerprint(task, runtime))
+    run_root = taskset._run_root
+
+    async def fail_cleanup(runtime: object, command: str) -> ProgramResult:
+        if command.startswith("rm -rf /tmp/terminal-bench-verifier-wheels-") and " && " not in command:
+            return ProgramResult(exit_code=1, stdout="", stderr="cleanup failed")
+        return await run_root(runtime, command)
+
+    monkeypatch.setattr(taskset, "_run_root", fail_cleanup)
+    with pytest.raises(RuntimeError, match="verifier wheelhouse cleanup failed: cleanup failed"):
+        asyncio.run(
+            taskset._build_test_dependency_wheelhouse(
+                task,
+                runtime,
+                ("verifier-helper==1.0",),
+                fingerprints.resolution,
+                fingerprints.compatibility,
+            )
+        )
+
+
+def test_successful_verifier_wheelhouse_restore_rejects_cleanup_failure(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    taskset = dependency_taskset(tmp_path)
+    task = dependency_task(tmp_path)
+    runtime = DependencyRuntime(installed=False)
+    asyncio.run(taskset._prefetch_test_dependencies(task, runtime))
+    run_root = taskset._run_root
+
+    async def fail_cleanup(runtime: object, command: str) -> ProgramResult:
+        if command.startswith("rm -rf /tmp/terminal-bench-verifier-wheels-") and " && " not in command:
+            return ProgramResult(exit_code=1, stdout="", stderr="cleanup failed")
+        return await run_root(runtime, command)
+
+    monkeypatch.setattr(taskset, "_run_root", fail_cleanup)
+    with pytest.raises(RuntimeError, match="restored verifier wheelhouse cleanup failed: cleanup failed"):
+        asyncio.run(taskset._install_prefetched_test_dependencies(task, runtime))
+    taskset._cleanup_wheelhouse_cache()
+
+
+@pytest.mark.parametrize("failure", [RuntimeError("restore failed"), asyncio.CancelledError()])
+def test_verifier_wheelhouse_restore_preserves_primary_cleanup_failure(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+    failure: BaseException,
+) -> None:
+    taskset = dependency_taskset(tmp_path)
+    task = dependency_task(tmp_path)
+    runtime = DependencyRuntime(installed=False)
+    asyncio.run(taskset._prefetch_test_dependencies(task, runtime))
+    run_root = taskset._run_root
+
+    async def fail_restore_and_cleanup(runtime: object, command: str) -> ProgramResult:
+        if "tar -xf" in command:
+            raise failure
+        if command.startswith("rm -rf /tmp/terminal-bench-verifier-wheels-") and " && " not in command:
+            return ProgramResult(exit_code=1, stdout="", stderr="cleanup failed")
+        return await run_root(runtime, command)
+
+    monkeypatch.setattr(taskset, "_run_root", fail_restore_and_cleanup)
+    with pytest.raises(type(failure)):
+        asyncio.run(taskset._install_prefetched_test_dependencies(task, runtime))
+
+    assert "restored verifier wheelhouse cleanup failed: cleanup failed" in caplog.text
+    taskset._cleanup_wheelhouse_cache()
 
 
 def test_verifier_dependency_archive_tampering_is_fail_closed(tmp_path: Path) -> None:

@@ -68,13 +68,13 @@ from terminal_bench_vmvm.taskset import _SOURCE_WHEEL_CLOSURE_CODE, _SOURCE_WHEE
 DISCOVERY_INPUT_SCHEMA_VERSION = 1
 PROOF_SCHEMA_VERSION = 7
 STATE_SCHEMA_VERSION = 6
-RUN_IDENTITY_SCHEMA_VERSION = 6
+RUN_IDENTITY_SCHEMA_VERSION = 8
 CANDIDATE_SCHEMA_VERSION = 5
 ATTEMPT_JOURNAL_SCHEMA_VERSION = 2
 POST_RUN_VALIDATION_SCHEMA_VERSION = 4
 FINALIZATION_SCHEMA_VERSION = 5
 APPROVED_BASE_RUNTIME_COMMIT = "ceb9356c98c72e51568e7bb4658a540cb1492254"
-REQUIRED_DISCOVERY_ENTRIES = 9
+REQUIRED_DISCOVERY_ENTRIES = 8
 MAX_CONCURRENT_ENTRIES = 3
 RUNTIMES_PER_ENTRY = 3
 MAX_PIP_REPORT_BYTES = 16 * 1024 * 1024
@@ -2813,8 +2813,8 @@ class ProofStore:
                 "backend": "attested-venv-setuptools-preloaded-before-source-root",
                 "child_process_path": "venv-bin-only",
                 "source_import_precedence": "stdlib-attested-sites-source-root",
-                "setup_py_grammar": "positive-static-legacy-metadata-and-direct-setup-v3",
-                "setup_cfg_grammar": "deterministic-static-options-inert-test-alias-v1",
+                "setup_py_grammar": "positive-static-legacy-metadata-confined-packages-no-resource-v5",
+                "setup_cfg_grammar": "allowlisted-static-options-confined-paths-v2",
                 "source_backend_shadowing": "rejected",
             },
             "source": {

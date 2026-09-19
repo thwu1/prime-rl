@@ -2389,6 +2389,7 @@ for requirement in sys.argv[1:]:
         wheel_dir = f"/tmp/terminal-bench-verifier-wheels-{digest}-{uuid.uuid4().hex[:12]}"
         archive_path = f"{wheel_dir}.tar"
         built: ProgramResult | None = None
+        primary_error: BaseException | None = None
         try:
             prepared = await self._run_root(
                 runtime,
@@ -2446,17 +2447,30 @@ for requirement in sys.argv[1:]:
             wheel_archive = await runtime.read(archive_path)
             if not wheel_archive:
                 raise RuntimeError(f"{task.name}: verifier wheelhouse archive was empty")
+        except BaseException as error:
+            primary_error = error
+            raise
         finally:
-            cleaned = await self._run_root(
-                runtime,
-                f"rm -rf {shlex.quote(wheel_dir)} {shlex.quote(archive_path)}",
-            )
-            if cleaned.exit_code != 0:
-                logger.warning(
-                    "%s verifier wheelhouse cleanup failed: %s",
-                    task.name,
-                    (cleaned.stdout + cleaned.stderr)[-2000:],
+            try:
+                cleaned = await self._run_root(
+                    runtime,
+                    f"rm -rf {shlex.quote(wheel_dir)} {shlex.quote(archive_path)}",
                 )
+            except BaseException as cleanup_error:
+                if primary_error is None:
+                    raise
+                logger.warning(
+                    "%s verifier wheelhouse cleanup raised %s: %s",
+                    task.name,
+                    type(cleanup_error).__name__,
+                    cleanup_error,
+                )
+            else:
+                if cleaned.exit_code != 0:
+                    detail = (cleaned.stdout + cleaned.stderr)[-2000:]
+                    if primary_error is None:
+                        raise RuntimeError(f"{task.name}: verifier wheelhouse cleanup failed: {detail}")
+                    logger.warning("%s verifier wheelhouse cleanup failed: %s", task.name, detail)
 
         return await asyncio.to_thread(
             PrefetchedTestDependencies.store,
@@ -3155,6 +3169,7 @@ for requirement in sys.argv[1:]:
             raise RuntimeError(f"{task.name}: isolated verifier dependencies were not prefetched")
         if not prefetched.requirements:
             return None
+        primary_error: BaseException | None = None
         try:
             try:
                 await asyncio.to_thread(prefetched.verify)
@@ -3237,6 +3252,9 @@ for requirement in sys.argv[1:]:
                 site_path=site_dir,
                 bootstrap_path=bootstrap_dir,
             )
+        except BaseException as error:
+            primary_error = error
+            raise
         finally:
             if "wheel_dir" in locals() and "archive_path" in locals():
                 cleanup_paths = [wheel_dir, archive_path]
@@ -3244,16 +3262,26 @@ for requirement in sys.argv[1:]:
                     cleanup_paths.append(site_dir)
                 if "bootstrap_dir" in locals() and not site_ready:
                     cleanup_paths.append(bootstrap_dir)
-                cleaned = await self._run_root(
-                    runtime,
-                    f"rm -rf {shlex.join(cleanup_paths)}",
-                )
-                if cleaned.exit_code != 0:
-                    logger.warning(
-                        "%s restored verifier wheelhouse cleanup failed: %s",
-                        task.name,
-                        (cleaned.stdout + cleaned.stderr)[-2000:],
+                try:
+                    cleaned = await self._run_root(
+                        runtime,
+                        f"rm -rf {shlex.join(cleanup_paths)}",
                     )
+                except BaseException as cleanup_error:
+                    if primary_error is None:
+                        raise
+                    logger.warning(
+                        "%s restored verifier wheelhouse cleanup raised %s: %s",
+                        task.name,
+                        type(cleanup_error).__name__,
+                        cleanup_error,
+                    )
+                else:
+                    if cleaned.exit_code != 0:
+                        detail = (cleaned.stdout + cleaned.stderr)[-2000:]
+                        if primary_error is None:
+                            raise RuntimeError(f"{task.name}: restored verifier wheelhouse cleanup failed: {detail}")
+                        logger.warning("%s restored verifier wheelhouse cleanup failed: %s", task.name, detail)
 
     async def _run_verifier(
         self,
