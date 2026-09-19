@@ -32,7 +32,7 @@ class CapturedModelIOContract:
     provider_route: str
     request_model: str
     response_model: str
-    reasoning_effort: str
+    reasoning_effort: str | None
     chat_template_kwargs: tuple[tuple[str, bool], ...]
 
 
@@ -56,9 +56,20 @@ QWEN3_A95B_MODEL_IO_CONTRACT = CapturedModelIOContract(
         ("preserve_thinking", True),
     ),
 )
+QWEN3_A95B_EPOCH3_MODEL_IO_CONTRACT = CapturedModelIOContract(
+    provider_route="/chat/completions",
+    request_model="Qwen3.8-2.4T-A95B",
+    response_model="Qwen3.8-2.4T-A95B",
+    reasoning_effort=None,
+    chat_template_kwargs=(
+        ("enable_thinking", True),
+        ("preserve_thinking", True),
+    ),
+)
 MODEL_IO_CONTRACTS = {
     "kimi-k3-max": KIMI_K3_MAX_MODEL_IO_CONTRACT,
     "qwen3-a95b": QWEN3_A95B_MODEL_IO_CONTRACT,
+    "qwen3-a95b-epoch3": QWEN3_A95B_EPOCH3_MODEL_IO_CONTRACT,
 }
 
 
@@ -919,7 +930,13 @@ def _audit_model_io(
         if model_io_contract is not None:
             if request_body.get("model") != model_io_contract.request_model:
                 problems.append(f"node_{node_id}_model_io_request_model_mismatch")
-            if request_body.get("reasoning_effort") != model_io_contract.reasoning_effort:
+            if (
+                model_io_contract.reasoning_effort is None
+                and "reasoning_effort" in request_body
+            ) or (
+                model_io_contract.reasoning_effort is not None
+                and request_body.get("reasoning_effort") != model_io_contract.reasoning_effort
+            ):
                 problems.append(f"node_{node_id}_model_io_request_reasoning_effort_mismatch")
             observed_thinking = request_body.get("chat_template_kwargs")
             expected_thinking = dict(model_io_contract.chat_template_kwargs)

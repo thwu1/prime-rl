@@ -7,6 +7,8 @@ from pathlib import Path
 import pytest
 from audit_traces import (
     KIMI_K3_MAX_MODEL_IO_CONTRACT,
+    QWEN3_A95B_EPOCH3_MODEL_IO_CONTRACT,
+    QWEN3_A95B_MODEL_IO_CONTRACT,
     _audit_trace,
     _captured_zero_reasoning_tool_turn,
     _iter_traces,
@@ -702,6 +704,38 @@ def test_strict_kimi_contract_is_valid_and_implies_model_io() -> None:
         require_model_io=False,
         model_io_contract=KIMI_K3_MAX_MODEL_IO_CONTRACT,
     ) == ["node_0_model_io_missing", "no_model_io_tool_schemas"]
+
+
+def test_qwen_epoch3_contract_requires_reasoning_effort_to_be_absent() -> None:
+    trace = _trace_with_model_io()
+    node = trace["nodes"][0]
+    request = node["model_io"]["request"]
+    request["body"]["model"] = "Qwen3.8-2.4T-A95B"
+    request["body"].pop("reasoning_effort")
+    request["sha256"] = _digest(request["body"])
+    response = node["model_io"]["response"]
+    response["body"]["model"] = "Qwen3.8-2.4T-A95B"
+    response["sha256"] = _digest(response["body"])
+
+    assert _audit_trace(
+        trace,
+        require_reasoning=True,
+        model_io_contract=QWEN3_A95B_EPOCH3_MODEL_IO_CONTRACT,
+    ) == []
+    assert _audit_trace(
+        trace,
+        require_reasoning=True,
+        model_io_contract=QWEN3_A95B_MODEL_IO_CONTRACT,
+    ) == ["node_0_model_io_request_reasoning_effort_mismatch"]
+
+    for value in (None, "max"):
+        request["body"]["reasoning_effort"] = value
+        request["sha256"] = _digest(request["body"])
+        assert _audit_trace(
+            trace,
+            require_reasoning=True,
+            model_io_contract=QWEN3_A95B_EPOCH3_MODEL_IO_CONTRACT,
+        ) == ["node_0_model_io_request_reasoning_effort_mismatch"]
 
 
 @pytest.mark.parametrize(

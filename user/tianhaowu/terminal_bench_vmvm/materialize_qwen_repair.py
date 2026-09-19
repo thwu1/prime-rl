@@ -21,6 +21,7 @@ from typing import Any
 import direct_qwen_workers as direct
 import export_sft as exporter
 import migrate_qwen_router_affinity as migration
+from audit_traces import QWEN3_A95B_EPOCH3_MODEL_IO_CONTRACT
 
 SCHEMA_VERSION = 2
 MANIFEST_KIND = "qwen-aggregate-repair-selection"
@@ -469,6 +470,7 @@ def _strict_invalid_pass_indices(
                         trace,
                         reward=reward,
                         max_sequence_tokens=262_144,
+                        model_io_contract=QWEN3_A95B_EPOCH3_MODEL_IO_CONTRACT,
                     )
                 except exporter.ExportError:
                     invalid_passes.add(index)

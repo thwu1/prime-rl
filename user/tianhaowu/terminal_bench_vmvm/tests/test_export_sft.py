@@ -66,7 +66,7 @@ def _response(
         "id": "synthetic-response",
         "object": "chat.completion",
         "created": 1,
-        "model": "synthetic-model",
+        "model": direct_workers.EXPECTED_MODEL,
         "choices": [{"index": 0, "message": message, "finish_reason": finish_reason}],
         "usage": {
             "prompt_tokens": prompt_tokens,
@@ -205,7 +205,12 @@ def _linear_trace(trace_id: str = "trace-pass", *, reward: float = 1.0, task_nam
     calls = [{"id": "call-1", "name": "terminal", "arguments": '{"command":"pwd"}'}]
     tools = [_tool()]
     first_request = {
-        "model": "synthetic-model",
+        "model": direct_workers.EXPECTED_MODEL,
+        "reasoning_effort": "max",
+        "chat_template_kwargs": {
+            "enable_thinking": True,
+            "preserve_thinking": True,
+        },
         "messages": [
             {"role": "system", "content": "synthetic-system"},
             {"role": "user", "content": "synthetic-question"},
@@ -507,7 +512,7 @@ def _write_run(
     (run_dir / "config.toml").write_text(
         "\n".join(
             [
-                'model = "synthetic-model"',
+                f'model = "{direct_workers.EXPECTED_MODEL}"',
                 f"num_tasks = {len(approved_slugs)}",
                 "num_rollouts = 1",
                 "max_input_tokens = 262144",

@@ -10,6 +10,7 @@ from pathlib import Path
 import direct_qwen_workers as direct
 import materialize_qwen_repair as repair
 import pytest
+from audit_traces import QWEN3_A95B_EPOCH3_MODEL_IO_CONTRACT
 from verifiers.v1.cli.eval import resume as resume_planner
 
 
@@ -173,6 +174,39 @@ def test_materialize_uses_sorted_evaluator_indices_for_unsorted_approval(
         assert identifier.encode() not in manifest_bytes
     assert b"private-source-metadata" not in manifest_bytes
     assert {path.relative_to(source): path.read_bytes() for path in source.rglob("*") if path.is_file()} == source_bytes
+
+
+def test_materialize_validates_positive_source_rows_under_epoch3_contract(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    source, approval, approval_sha256, _source_bytes = _source_run(tmp_path, monkeypatch)
+    rows = [json.loads(line) for line in (source / "results.jsonl").read_text().splitlines()]
+    rows[0]["rewards"] = {"solved": 1}
+    rows[0]["nodes"] = []
+    (source / "results.jsonl").write_text(
+        "".join(json.dumps(row, sort_keys=True) + "\n" for row in rows)
+    )
+    observed_contracts: list[object] = []
+
+    def validate(_trace, *, reward, max_sequence_tokens, model_io_contract):
+        assert reward == 1.0
+        assert max_sequence_tokens == 262_144
+        observed_contracts.append(model_io_contract)
+        return [], []
+
+    monkeypatch.setattr(repair.exporter, "_validate_trainable_trace", validate)
+    summary = repair.materialize(
+        source,
+        approval,
+        approval_sha256,
+        tmp_path / "repair-historical-contract",
+        terminal_check=lambda _job_id: True,
+    )
+
+    assert observed_contracts == [QWEN3_A95B_EPOCH3_MODEL_IO_CONTRACT]
+    assert summary["missing_or_errored_count"] == 2
+    assert summary["strict_invalid_pass_count"] == 0
 
 
 def test_materialize_unions_missing_error_with_multiple_name_only_invalid_passes(

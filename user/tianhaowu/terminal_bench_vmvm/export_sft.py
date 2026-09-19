@@ -32,7 +32,9 @@ import direct_qwen_workers as direct_workers
 import sft_run_identity
 from audit_traces import (
     DEFAULT_MAX_SEQUENCE_TOKENS,
+    QWEN3_A95B_MODEL_IO_CONTRACT,
     TRAINABLE_FINISH_REASONS,
+    CapturedModelIOContract,
     _audit_trace,
     _valid_redundant_provider_specific_fields,
     _valid_tool_arguments,
@@ -1862,6 +1864,7 @@ def _validate_trainable_trace(
     *,
     reward: float,
     max_sequence_tokens: int,
+    model_io_contract: CapturedModelIOContract,
     require_exact_provider_json: bool = False,
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     """Apply the exact strict validation used before any SFT row is emitted."""
@@ -1899,6 +1902,7 @@ def _validate_trainable_trace(
         require_token_data=False,
         require_logprobs=False,
         require_model_io=True,
+        model_io_contract=model_io_contract,
         require_request_graph_match=True,
         require_exact_provider_json=require_exact_provider_json,
     )
@@ -2140,6 +2144,7 @@ def export_sft(options: ExportOptions) -> dict[str, Any]:
                                 trace,
                                 reward=reward,
                                 max_sequence_tokens=options.max_sequence_tokens,
+                                model_io_contract=QWEN3_A95B_MODEL_IO_CONTRACT,
                                 require_exact_provider_json=options.require_exact_provider_json,
                             )
                         except ExportError:
@@ -2169,6 +2174,7 @@ def export_sft(options: ExportOptions) -> dict[str, Any]:
                     trace,
                     reward=reward,
                     max_sequence_tokens=options.max_sequence_tokens,
+                    model_io_contract=QWEN3_A95B_MODEL_IO_CONTRACT,
                     require_exact_provider_json=options.require_exact_provider_json,
                 )
                 split = _split_for_task(
