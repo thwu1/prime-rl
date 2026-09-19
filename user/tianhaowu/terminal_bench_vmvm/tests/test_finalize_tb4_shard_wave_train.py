@@ -232,6 +232,32 @@ def test_finalize_retries_controller_lock_release_race(tmp_path: Path, monkeypat
     assert clock() == 1
 
 
+def _controller_route_generation(
+    *,
+    backend_sha256: str = "a" * 64,
+    coordinator_job_id: str = "900",
+    proxy_job_id: str = "12345",
+) -> dict:
+    return {
+        "schema_version": 2,
+        "coordinator": {
+            "slurm_job_id": coordinator_job_id,
+            "started_at": "2026-09-17T00:00:00Z",
+        },
+        "proxy": {
+            "slurm_job_id": proxy_job_id,
+            "first_ready_at": "2026-09-17T00:30:00Z",
+        },
+        "routes": [
+            {
+                "slurm_job_id": "12000",
+                "started_at": "2026-09-17T01:00:00Z",
+                "backend_sha256": f"backend-sha256:{backend_sha256}",
+            }
+        ],
+    }
+
+
 def _prepared(
     tmp_path: Path,
     *,
@@ -255,7 +281,8 @@ def _prepared(
         )
         for index in range(66)
     )
-    route_generation = {"routes": [{"backend_sha256": "a" * 64}]} if route_generation is None else route_generation
+    route_generation = _controller_route_generation() if route_generation is None else route_generation
+    proxy_info = SimpleNamespace(path=(tmp_path / f"{root_name}-proxy-info.json").resolve(), sha256="6" * 64)
     return SimpleNamespace(
         config=SimpleNamespace(
             deployment_id="deployment-test",
@@ -279,7 +306,7 @@ def _prepared(
         dataset_path=dataset.resolve(),
         deployment_spec=SimpleNamespace(path=(tmp_path / f"{root_name}-spec.yaml").resolve(), sha256="b" * 64),
         readiness=SimpleNamespace(path=(tmp_path / f"{root_name}-readiness.json").resolve(), sha256="5" * 64),
-        proxy_info=SimpleNamespace(path=(tmp_path / f"{root_name}-proxy-info.json").resolve(), sha256="6" * 64),
+        proxy_info=proxy_info,
         smoke=SimpleNamespace(path=(tmp_path / f"{root_name}-smoke.json").resolve(), sha256="7" * 64),
         generation_sha256=hashlib.sha256(finalizer.canonical_json(route_generation)).hexdigest(),
         proxy_config_snapshot=SimpleNamespace(
@@ -287,7 +314,12 @@ def _prepared(
             sha256="9" * 64,
         ),
         route_binding=SimpleNamespace(
-            endpoint={"authority_sha256": "c" * 64},
+            endpoint={
+                "schema_version": 1,
+                "kind": "deployment_local_proxy_info",
+                "proxy_info": {"path": str(proxy_info.path), "sha256": proxy_info.sha256},
+                "authority_sha256": "c" * 64,
+            },
             proxy_policy={"policy_sha256": "d" * 64},
             route_generation=route_generation,
         ),
@@ -532,9 +564,10 @@ def test_multigen_finalizer_allows_disjoint_ranges_with_different_route_generati
         root_name="controller-b",
         first_shard_index=32,
         shard_count=34,
-        route_generation={"routes": [{"backend_sha256": "9" * 64}]},
+        route_generation=_controller_route_generation(backend_sha256="9" * 64),
     )
-    second.route_binding.endpoint = {"authority_sha256": "8" * 64}
+    second.proxy_info = first.proxy_info
+    second.route_binding.endpoint = first.route_binding.endpoint
     prepared_by_root = {first.controller_root: first, second.controller_root: second}
     evidence_by_root = {
         first.controller_root: _range_evidence(tmp_path, first),
@@ -607,8 +640,23 @@ def test_multigen_finalizer_allows_disjoint_ranges_with_different_route_generati
 
 def test_multigen_finalizer_rejects_gap_and_overlap(tmp_path: Path):
     first = _prepared(tmp_path, root_name="controller-a", first_shard_index=0, shard_count=32)
-    gap = _prepared(tmp_path, root_name="controller-gap", first_shard_index=33, shard_count=33)
-    overlap = _prepared(tmp_path, root_name="controller-overlap", first_shard_index=31, shard_count=35)
+    gap = _prepared(
+        tmp_path,
+        root_name="controller-gap",
+        first_shard_index=33,
+        shard_count=33,
+        route_generation=_controller_route_generation(backend_sha256="8" * 64),
+    )
+    overlap = _prepared(
+        tmp_path,
+        root_name="controller-overlap",
+        first_shard_index=31,
+        shard_count=35,
+        route_generation=_controller_route_generation(backend_sha256="9" * 64),
+    )
+    for prepared in (gap, overlap):
+        prepared.proxy_info = first.proxy_info
+        prepared.route_binding.endpoint = first.route_binding.endpoint
     first_evidence = _range_evidence(tmp_path, first)
 
     with pytest.raises(finalizer.FinalizationError, match="controller_coverage_gap"):
@@ -643,17 +691,59 @@ def test_multigen_fingerprint_permits_generation_artifact_rotation(tmp_path: Pat
         root_name="controller-b",
         first_shard_index=32,
         shard_count=34,
-        route_generation={"routes": [{"backend_sha256": "9" * 64}]},
+        route_generation=_controller_route_generation(backend_sha256="9" * 64),
     )
     first.readiness = SimpleNamespace(path=tmp_path / "readiness-a.json", sha256="a" * 64)
-    first.proxy_info = SimpleNamespace(path=tmp_path / "proxy-a.json", sha256="b" * 64)
     first.smoke = SimpleNamespace(path=tmp_path / "smoke-a.json", sha256="c" * 64)
     second.readiness = SimpleNamespace(path=tmp_path / "readiness-b.json", sha256="d" * 64)
-    second.proxy_info = SimpleNamespace(path=tmp_path / "proxy-b.json", sha256="e" * 64)
     second.smoke = SimpleNamespace(path=tmp_path / "smoke-b.json", sha256="f" * 64)
-    second.route_binding.endpoint = {"authority_sha256": "7" * 64}
+    second.proxy_info = first.proxy_info
+    second.route_binding.endpoint = first.route_binding.endpoint
 
     assert finalizer._controller_policy_fingerprint(first) == finalizer._controller_policy_fingerprint(second)
+
+
+@pytest.mark.parametrize("mismatch", ["endpoint", "proxy_info", "coordinator", "proxy"])
+def test_multigen_rejects_cross_controller_proxy_or_coordinator_incarnation(
+    tmp_path: Path,
+    mismatch: str,
+) -> None:
+    first = _prepared(tmp_path, root_name="controller-a", first_shard_index=0, shard_count=32)
+    second = _prepared(
+        tmp_path,
+        root_name="controller-b",
+        first_shard_index=32,
+        shard_count=34,
+        route_generation=_controller_route_generation(backend_sha256="9" * 64),
+    )
+    second.proxy_info = first.proxy_info
+    second.route_binding.endpoint = json.loads(json.dumps(first.route_binding.endpoint))
+    if mismatch == "endpoint":
+        second.route_binding.endpoint["authority_sha256"] = "8" * 64
+    elif mismatch == "proxy_info":
+        second.proxy_info = SimpleNamespace(path=(tmp_path / "other-proxy-info.json").resolve(), sha256="8" * 64)
+        second.route_binding.endpoint["proxy_info"] = {
+            "path": str(second.proxy_info.path),
+            "sha256": second.proxy_info.sha256,
+        }
+    elif mismatch == "coordinator":
+        second.route_binding.route_generation["coordinator"] = {
+            "slurm_job_id": "901",
+            "started_at": "2026-09-17T00:00:00Z",
+        }
+    else:
+        second.route_binding.route_generation["proxy"] = {
+            "slurm_job_id": "12346",
+            "first_ready_at": "2026-09-17T00:30:00Z",
+        }
+    second.generation_sha256 = hashlib.sha256(
+        finalizer.canonical_json(second.route_binding.route_generation)
+    ).hexdigest()
+
+    with pytest.raises(finalizer.FinalizationError, match="controller_policy_mismatch"):
+        finalizer._combined_multigen_evidence(
+            ((first, _range_evidence(tmp_path, first)), (second, _range_evidence(tmp_path, second)))
+        )
 
 
 def _write_manifest(path: Path, value: dict) -> None:

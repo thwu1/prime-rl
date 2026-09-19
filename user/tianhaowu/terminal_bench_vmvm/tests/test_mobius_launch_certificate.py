@@ -128,6 +128,62 @@ def test_multigen_sharded_tb4_checkpoint_uses_schema3_validator(monkeypatch: pyt
     assert calls == ["deployment-test"]
 
 
+@pytest.mark.parametrize(
+    "schema_version",
+    [
+        pytest.param(True, id="bool"),
+        pytest.param([2], id="list"),
+        pytest.param({"version": 2}, id="dict"),
+        pytest.param(2.0, id="float"),
+        pytest.param("2", id="string"),
+    ],
+)
+def test_tb4_checkpoint_schema_version_rejects_non_integer_json_types(
+    monkeypatch: pytest.MonkeyPatch,
+    schema_version: object,
+) -> None:
+    monkeypatch.setattr(
+        certificate_module,
+        "validate_sharded_checkpoint",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(AssertionError("schema-v2 validator called")),
+    )
+    monkeypatch.setattr(
+        certificate_module,
+        "validate_multigen_sharded_checkpoint",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(AssertionError("schema-v3 validator called")),
+    )
+
+    with pytest.raises(LaunchCertificateError, match="^tb4_checkpoint_schema_invalid$"):
+        certificate_module._validate_tb4_checkpoint(
+            {"schema_version": schema_version},
+            "deployment-test",
+            {},
+        )
+
+
+@pytest.mark.parametrize(
+    ("schema_version", "validator_name"),
+    [(2, "validate_sharded_checkpoint"), (3, "validate_multigen_sharded_checkpoint")],
+)
+def test_sharded_tb4_validator_requires_exactly_one_route(
+    monkeypatch: pytest.MonkeyPatch,
+    schema_version: int,
+    validator_name: str,
+) -> None:
+    monkeypatch.setattr(
+        certificate_module,
+        validator_name,
+        lambda *_args, **_kwargs: {"expected_routes": 2},
+    )
+
+    with pytest.raises(LaunchCertificateError, match="^tb4_route_count_invalid$"):
+        certificate_module._validate_tb4_checkpoint(
+            {"schema_version": schema_version},
+            "deployment-test",
+            {},
+        )
+
+
 def test_sharded_tb4_gate_record_uses_generation_digests_only() -> None:
     validated = {
         "certificate_sha256": "a" * 64,
@@ -155,7 +211,7 @@ def test_multigen_sharded_tb4_gate_record_binds_policy_set() -> None:
     validated = {
         "certificate_sha256": "a" * 64,
         "deployment_spec_sha256": "b" * 64,
-        "expected_routes": 2,
+        "expected_routes": 1,
         "route_generation_sha256s": ["c" * 64, "d" * 64],
         "endpoint_binding_sha256s": ["e" * 64, "f" * 64],
         "proxy_policy_semantics_sha256": "1" * 64,
@@ -1327,6 +1383,42 @@ def test_rejects_post_tb4_route_count_below_two(tmp_path: Path) -> None:
 
 def test_rejects_tb4_checkpoint_not_run_at_exactly_one_route(tmp_path: Path) -> None:
     arguments, _ = _fixture(tmp_path, tb4_routes=2, production_routes=3)
+
+    with pytest.raises(LaunchCertificateError, match="^tb4_route_count_invalid$"):
+        create_launch_certificate(**arguments)
+
+
+@pytest.mark.parametrize(
+    ("schema_version", "validator_name"),
+    [(2, "validate_sharded_checkpoint"), (3, "validate_multigen_sharded_checkpoint")],
+)
+def test_rejects_two_route_sharded_tb4_before_three_route_production_launch(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    schema_version: int,
+    validator_name: str,
+) -> None:
+    arguments, _output = _fixture(tmp_path, production_routes=3)
+    checkpoint = Path(arguments["tb4_checkpoint"])
+    arguments["tb4_checkpoint_sha256"] = _write_json(checkpoint, {"schema_version": schema_version})
+    validated = {
+        "certificate_sha256": "a" * 64,
+        "deployment_spec_sha256": "b" * 64,
+        "expected_routes": 2,
+        "route_generation_sha256s": ["c" * 64],
+        "endpoint_binding_sha256s": ["d" * 64],
+        "shard_count": 66,
+        "supported_pass_rate": 4 / 63,
+        "all_task_pass_rate": 4 / 66,
+        "supported_passes": 4,
+        "sharded": True,
+    }
+    if schema_version == 2:
+        validated["proxy_policy_sha256"] = "e" * 64
+    else:
+        validated["proxy_policy_semantics_sha256"] = "e" * 64
+        validated["proxy_policy_sha256s"] = ["f" * 64]
+    monkeypatch.setattr(certificate_module, validator_name, lambda *_args, **_kwargs: validated)
 
     with pytest.raises(LaunchCertificateError, match="^tb4_route_count_invalid$"):
         create_launch_certificate(**arguments)

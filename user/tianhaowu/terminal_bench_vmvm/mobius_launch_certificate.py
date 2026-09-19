@@ -585,14 +585,21 @@ def _validate_tb4_checkpoint(
     deployment_id: str,
     endpoint: dict[str, Any],
 ) -> dict[str, Any]:
-    if isinstance(value, dict) and value.get("schema_version") in {2, 3}:
+    if not isinstance(value, dict):
+        raise LaunchCertificateError("tb4_checkpoint_schema_invalid")
+    schema_version = value.get("schema_version")
+    if type(schema_version) is not int:
+        raise LaunchCertificateError("tb4_checkpoint_schema_invalid")
+    if schema_version == 2 or schema_version == 3:
         try:
-            validator = (
-                validate_multigen_sharded_checkpoint if value["schema_version"] == 3 else validate_sharded_checkpoint
-            )
-            return validator(value, deployment_id=deployment_id)
+            validator = validate_multigen_sharded_checkpoint if schema_version == 3 else validate_sharded_checkpoint
+            validated = validator(value, deployment_id=deployment_id)
         except (OSError, ShardWorkflowError) as cause:
             raise LaunchCertificateError("tb4_sharded_checkpoint_invalid") from cause
+        expected_routes = validated.get("expected_routes")
+        if type(expected_routes) is not int or expected_routes != 1:
+            raise LaunchCertificateError("tb4_route_count_invalid")
+        return validated
     expected_keys = {
         "artifacts",
         "audit_policy",

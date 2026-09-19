@@ -40,6 +40,7 @@ from run_tb4_shard_wave_train import (
     prepare_train,
     validate_completed_shard,
 )
+from smoke_qualification import _worker_only_rotation
 from tb4_shard_workflow import (
     DEFAULT_MAX_SEQUENCE_TOKENS,
     EXPECTED_MODEL,
@@ -605,12 +606,10 @@ def _load_and_validate_checkpoint(
 def _controller_policy_fingerprint(prepared: PreparedTrain) -> dict[str, Any]:
     """Return the cross-root invariants for a multi-generation finalization.
 
-    Per-generation readiness, smoke, proxy-info artifact paths/hashes, endpoint
-    bindings, and route-generation hashes are deliberately excluded here: each
-    controller's train and shard receipts validate those independently.  The
-    shared contract is the immutable source/plan/dataset/model/deployment
-    policy, including the same deployment_id, spec hash, proxy-policy semantics,
-    and per-shard task/config mapping.
+    Per-generation readiness, smoke, full route lists, and generated proxy
+    configs may rotate.  The deployment-local proxy info, endpoint binding,
+    coordinator/proxy incarnations, and route count remain exact invariants,
+    matching the worker-only rotation contract.
     """
 
     config = prepared.config
@@ -625,6 +624,10 @@ def _controller_policy_fingerprint(prepared: PreparedTrain) -> dict[str, Any]:
         }
     proxy_policy = dict(prepared.route_binding.proxy_policy)
     proxy_policy.pop("proxy_litellm_config", None)
+    route_generation = prepared.route_binding.route_generation
+    routes = route_generation.get("routes") if isinstance(route_generation, dict) else None
+    if not isinstance(routes, list) or not routes:
+        raise FinalizationError("controller_policy_mismatch")
     return {
         "project": {
             "path": str(prepared.project),
@@ -652,6 +655,17 @@ def _controller_policy_fingerprint(prepared: PreparedTrain) -> dict[str, Any]:
             "id": config.deployment_id,
             "spec_sha256": prepared.deployment_spec.sha256,
             "proxy_policy_semantics_sha256": hashlib.sha256(canonical_json(proxy_policy)).hexdigest(),
+            "proxy_info": {
+                "path": str(prepared.proxy_info.path),
+                "sha256": prepared.proxy_info.sha256,
+            },
+            "endpoint": prepared.route_binding.endpoint,
+            "route_generation_invariants": {
+                "schema_version": route_generation.get("schema_version"),
+                "coordinator": route_generation.get("coordinator"),
+                "proxy": route_generation.get("proxy"),
+                "route_count": len(routes),
+            },
         },
         "model": EXPECTED_MODEL,
     }
@@ -789,6 +803,7 @@ def _combined_multigen_evidence(items: Sequence[tuple[PreparedTrain, ControllerE
     if not items:
         raise FinalizationError("controller_set_invalid")
     baseline = _controller_policy_fingerprint(items[0][0])
+    baseline_generation = items[0][0].route_binding.route_generation
     records_by_index: dict[int, dict[str, Any]] = {}
     receipts_by_index: dict[int, Path] = {}
     supported_count = 0
@@ -796,8 +811,10 @@ def _combined_multigen_evidence(items: Sequence[tuple[PreparedTrain, ControllerE
     solved_count = 0
     train_hashes: list[str] = []
     state_hashes: list[str] = []
-    for prepared, evidence in items:
+    for position, (prepared, evidence) in enumerate(items):
         if _controller_policy_fingerprint(prepared) != baseline:
+            raise FinalizationError("controller_policy_mismatch")
+        if position and not _worker_only_rotation(baseline_generation, prepared.route_binding.route_generation):
             raise FinalizationError("controller_policy_mismatch")
         proxy_config_snapshot = prepared.proxy_config_snapshot
         if proxy_config_snapshot is None:
