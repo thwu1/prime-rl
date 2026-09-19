@@ -11,6 +11,7 @@ import os
 import stat
 import subprocess
 import tempfile
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Mapping
@@ -38,6 +39,7 @@ SHA256_HEX = frozenset("0123456789abcdef")
 GIT_SHA_LENGTH = 40
 TARGET_RENDERING_CONTRACT_FILENAME = "target-rendering-contract.json"
 TARGET_RENDERING_CONTRACT_SHA256 = "305d66d12152b6de0f045a4fff3bd53adaaac173bcf8bbdc766efe4ceab3e981"
+TOKENIZER_TREE_ALGORITHM = "sha256-path-mode-size-content-v1"
 EXPECTED_TARGET_RENDERING_CONTRACT: dict[str, Any] = {
     "dataset_format_version": EXPORT_FORMAT_VERSION,
     "kind": "terminal-bench-sft-target-rendering",
@@ -84,6 +86,7 @@ CODE_PATHS = (
     "src/prime_rl/trainer/model.py",
     "src/prime_rl/trainer/sft/data.py",
     "src/prime_rl/trainer/sft/export_preflight.py",
+    "src/prime_rl/trainer/sft/train.py",
 )
 ROW_FIELDS = frozenset(
     {
@@ -123,6 +126,40 @@ class FileArtifact:
 
     def as_dict(self) -> dict[str, int | str]:
         return {"bytes": self.bytes, "sha256": self.sha256}
+
+
+@dataclass(frozen=True)
+class TokenizerTree:
+    algorithm: str
+    file_count: int
+    total_bytes: int
+    sha256: str
+
+    def as_dict(self) -> dict[str, int | str]:
+        return {
+            "algorithm": self.algorithm,
+            "file_count": self.file_count,
+            "total_bytes": self.total_bytes,
+            "sha256": self.sha256,
+        }
+
+
+@dataclass(frozen=True)
+class TokenizerSnapshotBinding:
+    path: Path
+    repository: str
+    revision: str
+    tree: TokenizerTree
+
+    def as_dict(self) -> dict[str, Any]:
+        return {
+            "local_files_only": True,
+            "path": str(self.path),
+            "repository": self.repository,
+            "revision": self.revision,
+            "tree": self.tree.as_dict(),
+            "trust_remote_code": False,
+        }
 
 
 @dataclass(frozen=True)
@@ -294,6 +331,251 @@ def _canonical_directory(path: Path, code: str) -> Path:
     if not stat.S_ISDIR(metadata.st_mode) or resolved != path:
         raise SFTPreflightError(code)
     return resolved
+
+
+def _same_snapshot_entry(before: os.stat_result, after: os.stat_result) -> bool:
+    return (
+        before.st_dev,
+        before.st_ino,
+        before.st_mode,
+        before.st_nlink,
+        before.st_uid,
+        before.st_gid,
+        before.st_size,
+        before.st_mtime_ns,
+        before.st_ctime_ns,
+    ) == (
+        after.st_dev,
+        after.st_ino,
+        after.st_mode,
+        after.st_nlink,
+        after.st_uid,
+        after.st_gid,
+        after.st_size,
+        after.st_mtime_ns,
+        after.st_ctime_ns,
+    )
+
+
+def _update_tokenizer_tree_digest(
+    digest: Any,
+    *,
+    kind: bytes,
+    relative_path: bytes,
+    mode: int,
+    size: int,
+    content_sha256: bytes = b"",
+) -> None:
+    digest.update(kind)
+    digest.update(len(relative_path).to_bytes(8, "big"))
+    digest.update(relative_path)
+    digest.update(mode.to_bytes(4, "big"))
+    digest.update(size.to_bytes(8, "big"))
+    digest.update(content_sha256)
+
+
+def _snapshot_directory_entries(descriptor: int, code: str) -> list[bytes]:
+    try:
+        with os.scandir(descriptor) as entries:
+            names = [os.fsencode(entry.name) for entry in entries]
+    except OSError as error:
+        raise SFTPreflightError(code) from error
+    if len(names) != len(set(names)):
+        raise SFTPreflightError(code)
+    return sorted(names)
+
+
+def _fingerprint_tokenizer_snapshot(path: Path, code: str = "tokenizer_snapshot_invalid") -> TokenizerTree:
+    root = _canonical_directory(path, code)
+    flags = os.O_RDONLY | os.O_CLOEXEC | os.O_DIRECTORY
+    if hasattr(os, "O_NOFOLLOW"):
+        flags |= os.O_NOFOLLOW
+    try:
+        root_descriptor = os.open(root, flags)
+    except OSError as error:
+        raise SFTPreflightError(code) from error
+
+    digest = hashlib.sha256(b"prime-rl-tokenizer-tree\0v1\0")
+    file_count = 0
+    total_bytes = 0
+    expected_owner = os.geteuid()
+
+    def scan_directory(descriptor: int, relative_path: bytes) -> None:
+        nonlocal file_count, total_bytes
+        before = os.fstat(descriptor)
+        if not stat.S_ISDIR(before.st_mode) or before.st_uid != expected_owner or stat.S_IMODE(before.st_mode) != 0o500:
+            raise SFTPreflightError(code)
+        _update_tokenizer_tree_digest(
+            digest,
+            kind=b"D",
+            relative_path=relative_path,
+            mode=stat.S_IMODE(before.st_mode),
+            size=0,
+        )
+        names = _snapshot_directory_entries(descriptor, code)
+        for name_bytes in names:
+            name = os.fsdecode(name_bytes)
+            child_relative = name_bytes if not relative_path else relative_path + b"/" + name_bytes
+            try:
+                metadata = os.stat(name, dir_fd=descriptor, follow_symlinks=False)
+            except OSError as error:
+                raise SFTPreflightError(code) from error
+            if metadata.st_uid != expected_owner:
+                raise SFTPreflightError(code)
+            if stat.S_ISDIR(metadata.st_mode):
+                try:
+                    child_descriptor = os.open(name, flags, dir_fd=descriptor)
+                except OSError as error:
+                    raise SFTPreflightError(code) from error
+                try:
+                    if not _same_snapshot_entry(metadata, os.fstat(child_descriptor)):
+                        raise SFTPreflightError(code)
+                    scan_directory(child_descriptor, child_relative)
+                finally:
+                    os.close(child_descriptor)
+                continue
+            if not stat.S_ISREG(metadata.st_mode) or metadata.st_nlink != 1 or stat.S_IMODE(metadata.st_mode) != 0o400:
+                raise SFTPreflightError(code)
+            file_flags = os.O_RDONLY | os.O_CLOEXEC
+            if hasattr(os, "O_NOFOLLOW"):
+                file_flags |= os.O_NOFOLLOW
+            try:
+                file_descriptor = os.open(name, file_flags, dir_fd=descriptor)
+            except OSError as error:
+                raise SFTPreflightError(code) from error
+            content_digest = hashlib.sha256()
+            size = 0
+            try:
+                opened = os.fstat(file_descriptor)
+                if (
+                    not _same_snapshot_entry(metadata, opened)
+                    or not stat.S_ISREG(opened.st_mode)
+                    or opened.st_nlink != 1
+                    or stat.S_IMODE(opened.st_mode) != 0o400
+                ):
+                    raise SFTPreflightError(code)
+                while chunk := os.read(file_descriptor, 1 << 20):
+                    content_digest.update(chunk)
+                    size += len(chunk)
+                after = os.fstat(file_descriptor)
+            except OSError as error:
+                raise SFTPreflightError(code) from error
+            finally:
+                os.close(file_descriptor)
+            if not _same_snapshot_entry(opened, after) or size != opened.st_size:
+                raise SFTPreflightError(code)
+            _update_tokenizer_tree_digest(
+                digest,
+                kind=b"F",
+                relative_path=child_relative,
+                mode=stat.S_IMODE(opened.st_mode),
+                size=size,
+                content_sha256=content_digest.digest(),
+            )
+            file_count += 1
+            total_bytes += size
+        if _snapshot_directory_entries(descriptor, code) != names or not _same_snapshot_entry(
+            before, os.fstat(descriptor)
+        ):
+            raise SFTPreflightError(code)
+
+    try:
+        root_before = os.fstat(root_descriptor)
+        scan_directory(root_descriptor, b"")
+        root_after = os.fstat(root_descriptor)
+    finally:
+        os.close(root_descriptor)
+    try:
+        path_after = root.lstat()
+        resolved_after = root.resolve(strict=True)
+    except OSError as error:
+        raise SFTPreflightError(code) from error
+    if (
+        file_count < 1
+        or not _same_snapshot_entry(root_before, root_after)
+        or not _same_snapshot_entry(root_before, path_after)
+        or resolved_after != root
+    ):
+        raise SFTPreflightError(code)
+    return TokenizerTree(
+        algorithm=TOKENIZER_TREE_ALGORITHM,
+        file_count=file_count,
+        total_bytes=total_bytes,
+        sha256=digest.hexdigest(),
+    )
+
+
+def _parse_tokenizer_snapshot(value: object, code: str) -> TokenizerSnapshotBinding:
+    tokenizer_contract = EXPECTED_TARGET_RENDERING_CONTRACT["tokenizer"]
+    if not isinstance(value, dict) or set(value) != {
+        "local_files_only",
+        "path",
+        "repository",
+        "revision",
+        "tree",
+        "trust_remote_code",
+    }:
+        raise SFTPreflightError(code)
+    path_value = value.get("path")
+    tree_value = value.get("tree")
+    if (
+        not isinstance(path_value, str)
+        or not path_value
+        or not Path(path_value).is_absolute()
+        or Path(path_value) != Path(os.path.normpath(path_value))
+        or value.get("repository") != tokenizer_contract["repository"]
+        or value.get("revision") != tokenizer_contract["revision"]
+        or value.get("local_files_only") is not True
+        or value.get("trust_remote_code") is not False
+        or not isinstance(tree_value, dict)
+        or set(tree_value) != {"algorithm", "file_count", "sha256", "total_bytes"}
+        or tree_value.get("algorithm") != TOKENIZER_TREE_ALGORITHM
+        or not _is_plain_int(tree_value.get("file_count"))
+        or tree_value["file_count"] < 1
+        or not _is_plain_int(tree_value.get("total_bytes"))
+        or tree_value["total_bytes"] < 0
+        or not _valid_sha256(tree_value.get("sha256"))
+    ):
+        raise SFTPreflightError(code)
+    return TokenizerSnapshotBinding(
+        path=Path(path_value),
+        repository=tokenizer_contract["repository"],
+        revision=tokenizer_contract["revision"],
+        tree=TokenizerTree(
+            algorithm=tree_value["algorithm"],
+            file_count=tree_value["file_count"],
+            total_bytes=tree_value["total_bytes"],
+            sha256=tree_value["sha256"],
+        ),
+    )
+
+
+def _bind_tokenizer_snapshot(
+    path: Path | None,
+    expected_sha256: str | None,
+) -> TokenizerSnapshotBinding | None:
+    if (path is None) != (expected_sha256 is None):
+        raise SFTPreflightError("tokenizer_snapshot_binding_invalid")
+    if path is None:
+        return None
+    if not _valid_sha256(expected_sha256):
+        raise SFTPreflightError("tokenizer_snapshot_digest_invalid")
+    canonical_path = _canonical_directory(path, "tokenizer_snapshot_invalid")
+    tree = _fingerprint_tokenizer_snapshot(canonical_path)
+    if tree.sha256 != expected_sha256:
+        raise SFTPreflightError("tokenizer_snapshot_digest_mismatch")
+    tokenizer_contract = EXPECTED_TARGET_RENDERING_CONTRACT["tokenizer"]
+    return TokenizerSnapshotBinding(
+        path=canonical_path,
+        repository=tokenizer_contract["repository"],
+        revision=tokenizer_contract["revision"],
+        tree=tree,
+    )
+
+
+def _assert_tokenizer_snapshot(snapshot: TokenizerSnapshotBinding) -> None:
+    if _fingerprint_tokenizer_snapshot(snapshot.path) != snapshot.tree:
+        raise SFTPreflightError("tokenizer_snapshot_changed")
 
 
 def _source_validation_policy(value: object, code: str) -> dict[str, int | bool]:
@@ -642,14 +924,30 @@ def _scan_split(
     return summary
 
 
-def _render_export(binding: ExportBinding) -> dict[str, Any]:
+def _load_render_tokenizer(snapshot: TokenizerSnapshotBinding | None) -> PreTrainedTokenizer:
     tokenizer_contract = EXPECTED_TARGET_RENDERING_CONTRACT["tokenizer"]
-    renderer_contract = EXPECTED_TARGET_RENDERING_CONTRACT["renderer"]
-    tokenizer = AutoTokenizer.from_pretrained(
+    if snapshot is not None:
+        _assert_tokenizer_snapshot(snapshot)
+        tokenizer = AutoTokenizer.from_pretrained(
+            str(snapshot.path),
+            local_files_only=True,
+            trust_remote_code=False,
+        )
+        _assert_tokenizer_snapshot(snapshot)
+        return tokenizer
+    return AutoTokenizer.from_pretrained(
         tokenizer_contract["repository"],
         revision=tokenizer_contract["revision"],
         trust_remote_code=tokenizer_contract["trust_remote_code"],
     )
+
+
+def _render_export(
+    binding: ExportBinding,
+    tokenizer_snapshot: TokenizerSnapshotBinding | None = None,
+) -> dict[str, Any]:
+    tokenizer = _load_render_tokenizer(tokenizer_snapshot)
+    renderer_contract = EXPECTED_TARGET_RENDERING_CONTRACT["renderer"]
     renderer_config = Nemotron3RendererConfig.model_validate(renderer_contract["config"])
     renderer = create_renderer(tokenizer, renderer_config)
     max_tokens = EXPECTED_TARGET_RENDERING_CONTRACT["max_sequence_tokens"]
@@ -672,6 +970,8 @@ def _render_export(binding: ExportBinding) -> dict[str, Any]:
         nonempty_reasoning_fields=sum(summary.nonempty_reasoning_fields for summary in summaries.values()),
         reasoning_fields_rendered=sum(summary.reasoning_fields_rendered for summary in summaries.values()),
     )
+    if tokenizer_snapshot is not None:
+        _assert_tokenizer_snapshot(tokenizer_snapshot)
     return {**total.as_dict(), "splits": {name: summary.as_dict() for name, summary in summaries.items()}}
 
 
@@ -754,7 +1054,12 @@ def _repository_provenance(project: Path, expected_revision: str) -> dict[str, A
     }
 
 
-def _write_attestation(path: Path, value: Mapping[str, Any]) -> FileArtifact:
+def _write_attestation(
+    path: Path,
+    value: Mapping[str, Any],
+    *,
+    before_publish: Callable[[], None] | None = None,
+) -> FileArtifact:
     body = json.dumps(value, ensure_ascii=False, allow_nan=False, sort_keys=True, indent=2).encode() + b"\n"
     descriptor = -1
     directory_descriptor = -1
@@ -777,6 +1082,8 @@ def _write_attestation(path: Path, value: Mapping[str, Any]) -> FileArtifact:
             path.parent,
             os.O_RDONLY | os.O_CLOEXEC | os.O_DIRECTORY | os.O_NOFOLLOW,
         )
+        if before_publish is not None:
+            before_publish()
         os.link(temporary, path, follow_symlinks=False)
         temporary.unlink()
         temporary = None
@@ -810,6 +1117,8 @@ def create_sft_preflight_attestation(
     expected_project_revision: str,
     expected_require_exact_provider_json: bool,
     output: Path,
+    tokenizer_snapshot_path: Path | None = None,
+    expected_tokenizer_snapshot_sha256: str | None = None,
 ) -> dict[str, Any]:
     """Render every exported row and write an aggregate-only immutable attestation."""
     if not output.is_absolute() or output != Path(os.path.normpath(output)) or os.path.lexists(output):
@@ -817,11 +1126,15 @@ def create_sft_preflight_attestation(
     _canonical_directory(output.parent, "attestation_path_invalid")
     if not isinstance(expected_require_exact_provider_json, bool):
         raise SFTPreflightError("source_validation_expectation_invalid")
+    tokenizer_snapshot = _bind_tokenizer_snapshot(
+        tokenizer_snapshot_path,
+        expected_tokenizer_snapshot_sha256,
+    )
     binding = _load_export_binding(export_root, expected_manifest_sha256)
     if binding.source_validation["require_exact_provider_json"] is not expected_require_exact_provider_json:
         raise SFTPreflightError("source_validation_expectation_mismatch")
     code = _repository_provenance(project_dir, expected_project_revision)
-    rendering = _render_export(binding)
+    rendering = _render_export(binding, tokenizer_snapshot)
     if rendering["rows"] < 1 or rendering["trainable_tokens"] < 1:
         raise SFTPreflightError("export_has_no_trainable_rows")
     _validate_rendering_counts(binding, rendering)
@@ -848,8 +1161,16 @@ def create_sft_preflight_attestation(
         "source_validation": binding.source_validation,
         "target_rendering": EXPECTED_TARGET_RENDERING_CONTRACT,
     }
+    if tokenizer_snapshot is not None:
+        value["tokenizer_snapshot"] = tokenizer_snapshot.as_dict()
     _validate_attestation_value(value)
-    artifact = _write_attestation(output, value)
+    artifact = _write_attestation(
+        output,
+        value,
+        before_publish=(lambda: _assert_tokenizer_snapshot(tokenizer_snapshot))
+        if tokenizer_snapshot is not None
+        else None,
+    )
     return {
         "attestation_sha256": artifact.sha256,
         "require_exact_provider_json": expected_require_exact_provider_json,
@@ -882,8 +1203,8 @@ def _format_v3_root(data: SFTDataConfig) -> Path | None:
     return None
 
 
-def _validate_attestation_value(value: Mapping[str, Any]) -> None:
-    if set(value) != {
+def _validate_attestation_value(value: Mapping[str, Any]) -> TokenizerSnapshotBinding | None:
+    required_keys = {
         "code",
         "expected_require_exact_provider_json",
         "export",
@@ -892,7 +1213,8 @@ def _validate_attestation_value(value: Mapping[str, Any]) -> None:
         "schema_version",
         "source_validation",
         "target_rendering",
-    }:
+    }
+    if set(value) not in {frozenset(required_keys), frozenset(required_keys | {"tokenizer_snapshot"})}:
         raise SFTPreflightError("attestation_contract_invalid")
     if (
         value.get("kind") != ATTESTATION_KIND
@@ -903,6 +1225,11 @@ def _validate_attestation_value(value: Mapping[str, Any]) -> None:
     code = value.get("code")
     export = value.get("export")
     rendering = value.get("rendering")
+    tokenizer_snapshot = (
+        _parse_tokenizer_snapshot(value["tokenizer_snapshot"], "attestation_contract_invalid")
+        if "tokenizer_snapshot" in value
+        else None
+    )
     source_validation = _source_validation_policy(value.get("source_validation"), "attestation_contract_invalid")
     if (
         not isinstance(value.get("expected_require_exact_provider_json"), bool)
@@ -985,6 +1312,7 @@ def _validate_attestation_value(value: Mapping[str, Any]) -> None:
         )
     ):
         raise SFTPreflightError("attestation_contract_invalid")
+    return tokenizer_snapshot
 
 
 def _validate_config_binding(
@@ -1018,6 +1346,36 @@ def _validate_config_binding(
             raise SFTPreflightError("training_data_contract_mismatch")
 
 
+def load_attested_sft_tokenizer(config: SFTConfig) -> PreTrainedTokenizer | None:
+    """Load a schema-v2 bound snapshot locally, or return None for a legacy attestation."""
+    data_configs = [config.data] if isinstance(config.data, SFTDataConfig) else []
+    if config.val is not None:
+        data_configs.append(config.val.data)
+    bindings = {(data.preflight_attestation, data.preflight_attestation_sha256) for data in data_configs}
+    if len(bindings) != 1:
+        raise SFTPreflightError("training_attestation_binding_mismatch")
+    attestation_path, expected_sha256 = next(iter(bindings))
+    if attestation_path is None or expected_sha256 is None:
+        raise SFTPreflightError("training_attestation_binding_mismatch")
+    body, artifact = _read_regular(
+        attestation_path,
+        "attestation_invalid",
+        max_bytes=MAX_METADATA_BYTES,
+        required_mode=0o600,
+    )
+    if artifact.sha256 != expected_sha256:
+        raise SFTPreflightError("attestation_digest_mismatch")
+    attestation = _parse_json_object(body, "attestation_invalid")
+    tokenizer_snapshot = _validate_attestation_value(attestation)
+    if tokenizer_snapshot is None:
+        return None
+    _validate_config_binding(config, data_configs, attestation)
+    tokenizer = _load_render_tokenizer(tokenizer_snapshot)
+    tokenizer.pad_token_id = tokenizer.eos_token_id
+    _assert_tokenizer_snapshot(tokenizer_snapshot)
+    return tokenizer
+
+
 def validate_sft_training_preflight(config: SFTConfig) -> bool:
     """Recheck a pinned preflight and every bound artifact at trainer startup."""
     data_configs = [config.data] if isinstance(config.data, SFTDataConfig) else []
@@ -1047,7 +1405,7 @@ def validate_sft_training_preflight(config: SFTConfig) -> bool:
     if artifact.sha256 != expected_sha256:
         raise SFTPreflightError("attestation_digest_mismatch")
     attestation = _parse_json_object(body, "attestation_invalid")
-    _validate_attestation_value(attestation)
+    tokenizer_snapshot = _validate_attestation_value(attestation)
     export = attestation["export"]
     binding = _load_export_binding(Path(export["root"]), export["manifest"]["sha256"])
     if (
@@ -1065,7 +1423,7 @@ def validate_sft_training_preflight(config: SFTConfig) -> bool:
     _validate_config_binding(config, data_configs, attestation)
     if format_v3_roots and format_v3_roots != {binding.root}:
         raise SFTPreflightError("training_data_contract_mismatch")
-    observed_rendering = _render_export(binding)
+    observed_rendering = _render_export(binding, tokenizer_snapshot)
     if observed_rendering != attestation["rendering"]:
         raise SFTPreflightError("attested_rendering_mismatch")
     _validate_rendering_counts(binding, observed_rendering)
@@ -1078,4 +1436,6 @@ def validate_sft_training_preflight(config: SFTConfig) -> bool:
         raise SFTPreflightError("attested_export_changed")
     if _repository_provenance(project, attestation["code"]["project_revision"]) != observed_code:
         raise SFTPreflightError("attested_code_changed")
+    if tokenizer_snapshot is not None:
+        _assert_tokenizer_snapshot(tokenizer_snapshot)
     return True

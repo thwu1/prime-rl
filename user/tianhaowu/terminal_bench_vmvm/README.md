@@ -1284,6 +1284,8 @@ uv run python user/tianhaowu/terminal_bench_vmvm/preflight_sft.py \
   --project-dir /absolute/path/to/prime-rl \
   --expected-project-revision PRIME_RL_COMMIT \
   --no-expected-require-exact-provider-json \
+  --tokenizer-snapshot-path /absolute/path/to/tokenizer-snapshot \
+  --expected-tokenizer-snapshot-sha256 TOKENIZER_TREE_SHA256 \
   --output /absolute/path/to/corpus/sft-render-preflight.json
 ```
 
@@ -1291,6 +1293,18 @@ The command renders every row, verifies that retained reasoning changes the
 token stream and target reasoning changes trainable tokens, proves the loss
 mask matches the selected assistant's renderer attribution, and rejects a
 rendered row over 262,144 tokens. It records only aggregate counts and hashes.
+For a hermetic preflight, the two tokenizer-snapshot arguments are mandatory as
+a pair. The path must be absolute, normalized, canonical, and owned by the
+current user. Its root and every subdirectory must be mode 0500; every file
+must be a mode-0400, single-link regular file; symlinks and other file types are
+rejected. The attestation records the target contract's exact repository and
+revision plus a deterministic sorted full-tree fingerprint. The tokenizer is
+loaded from that path with `local_files_only=true` and
+`trust_remote_code=false`; its fingerprint is checked before and after loading,
+after rendering, and immediately before publication. No model weight snapshot
+or differently sourced tokenizer may be substituted for the revision-bound
+tokenizer-only snapshot.
+
 Use `--expected-require-exact-provider-json` for a strict export; the explicit
 negative form above is required for a permissive export. The expectation and
 the export's exact source-validation policy are bound into the attestation.
@@ -1302,9 +1316,12 @@ rechecks the Prime-RL revision, loader sources, renderer gitlink,
 rendering/tokenization dependency versions, tokenizer revision, renderer
 config, loss mask, data path, and sequence length before model setup.
 Format-v3 rows are also rejected in the dataset loader unless this startup gate
-has succeeded. The target tokenizer block must use the repository and revision
-from `target-rendering-contract.json`, with `trust_remote_code = false`; the
-renderer block must exactly match its `renderer.config` object.
+has succeeded. When the attestation contains a tokenizer snapshot, every
+trainer rank rehashes it around the actual local-only tokenizer load. The target
+tokenizer block still uses the repository and revision metadata from
+`target-rendering-contract.json`, with `trust_remote_code = false`; the bound
+attestation supplies the canonical local load path. The renderer block must
+exactly match its `renderer.config` object.
 
 ```toml
 [tokenizer]

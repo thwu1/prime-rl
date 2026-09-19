@@ -1,6 +1,8 @@
 import copy
 import hashlib
 import json
+import os
+from collections.abc import Iterator
 from dataclasses import replace
 from pathlib import Path
 from types import SimpleNamespace
@@ -185,6 +187,171 @@ def _attestation(root: Path) -> dict:
     }
 
 
+@pytest.fixture
+def tokenizer_snapshot(tmp_path: Path) -> Iterator[Path]:
+    root = tmp_path / "tokenizer-snapshot"
+    nested = root / "nested"
+    nested.mkdir(parents=True)
+    (root / "tokenizer.json").write_bytes(b'{"version":"fixture"}\n')
+    (nested / "tokenizer_config.json").write_bytes(b'{"fixture":true}\n')
+    for path in (root / "tokenizer.json", nested / "tokenizer_config.json"):
+        path.chmod(0o400)
+    nested.chmod(0o500)
+    root.chmod(0o500)
+    try:
+        yield root
+    finally:
+        if root.exists() and not root.is_symlink():
+            root.chmod(0o700)
+            for directory, directory_names, _file_names in os.walk(root):
+                Path(directory).chmod(0o700)
+                for name in directory_names:
+                    path = Path(directory) / name
+                    if not path.is_symlink():
+                        path.chmod(0o700)
+
+
+def _snapshot_attestation(root: Path, snapshot: Path) -> dict:
+    value = _attestation(root)
+    tree = export_preflight._fingerprint_tokenizer_snapshot(snapshot)
+    tokenizer = export_preflight.EXPECTED_TARGET_RENDERING_CONTRACT["tokenizer"]
+    value["tokenizer_snapshot"] = {
+        "local_files_only": True,
+        "path": str(snapshot),
+        "repository": tokenizer["repository"],
+        "revision": tokenizer["revision"],
+        "tree": tree.as_dict(),
+        "trust_remote_code": False,
+    }
+    return value
+
+
+def test_tokenizer_snapshot_tree_is_deterministic_and_binds_content(tokenizer_snapshot: Path) -> None:
+    first = export_preflight._fingerprint_tokenizer_snapshot(tokenizer_snapshot)
+    second = export_preflight._fingerprint_tokenizer_snapshot(tokenizer_snapshot)
+
+    assert first == second
+    assert first.algorithm == "sha256-path-mode-size-content-v1"
+    assert first.file_count == 2
+    assert first.total_bytes == sum(path.stat().st_size for path in tokenizer_snapshot.rglob("*.json"))
+
+    tokenizer_file = tokenizer_snapshot / "tokenizer.json"
+    tokenizer_file.chmod(0o600)
+    tokenizer_file.write_bytes(b'{"version":"changed"}\n')
+    tokenizer_file.chmod(0o400)
+    assert export_preflight._fingerprint_tokenizer_snapshot(tokenizer_snapshot).sha256 != first.sha256
+
+
+@pytest.mark.parametrize(
+    "invalid_kind",
+    ["directory_mode", "subdirectory_mode", "file_mode", "hardlink", "symlink", "fifo"],
+)
+def test_tokenizer_snapshot_rejects_mutable_or_nonregular_tree(
+    tokenizer_snapshot: Path,
+    invalid_kind: str,
+) -> None:
+    root = tokenizer_snapshot
+    root.chmod(0o700)
+    if invalid_kind == "directory_mode":
+        pass
+    elif invalid_kind == "subdirectory_mode":
+        (root / "nested").chmod(0o700)
+        root.chmod(0o500)
+    elif invalid_kind == "file_mode":
+        (root / "tokenizer.json").chmod(0o600)
+        root.chmod(0o500)
+    elif invalid_kind == "hardlink":
+        os.link(root / "tokenizer.json", root / "hardlink.json")
+        root.chmod(0o500)
+    elif invalid_kind == "symlink":
+        (root / "symlink.json").symlink_to(root / "tokenizer.json")
+        root.chmod(0o500)
+    else:
+        os.mkfifo(root / "fifo")
+        root.chmod(0o500)
+
+    with pytest.raises(SFTPreflightError, match="^tokenizer_snapshot_invalid$"):
+        export_preflight._fingerprint_tokenizer_snapshot(root)
+
+
+def test_tokenizer_snapshot_requires_current_owner(tokenizer_snapshot: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    other_owner = os.geteuid() + 1
+    monkeypatch.setattr(export_preflight.os, "geteuid", lambda: other_owner)
+
+    with pytest.raises(SFTPreflightError, match="^tokenizer_snapshot_invalid$"):
+        export_preflight._fingerprint_tokenizer_snapshot(tokenizer_snapshot)
+
+
+def test_tokenizer_snapshot_rejects_symlinked_root(tokenizer_snapshot: Path) -> None:
+    alias = tokenizer_snapshot.parent / "tokenizer-alias"
+    alias.symlink_to(tokenizer_snapshot, target_is_directory=True)
+
+    with pytest.raises(SFTPreflightError, match="^tokenizer_snapshot_invalid$"):
+        export_preflight._fingerprint_tokenizer_snapshot(alias)
+
+
+def test_local_tokenizer_load_is_offline_only_and_does_not_mutate_snapshot(
+    tokenizer_snapshot: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    tree = export_preflight._fingerprint_tokenizer_snapshot(tokenizer_snapshot)
+    binding = export_preflight._bind_tokenizer_snapshot(tokenizer_snapshot, tree.sha256)
+    calls: list[tuple[tuple, dict]] = []
+
+    def load(*args, **kwargs):
+        calls.append((args, kwargs))
+        return SyntheticTokenizer()
+
+    monkeypatch.setattr(export_preflight.AutoTokenizer, "from_pretrained", staticmethod(load))
+    assert binding is not None
+    tokenizer = export_preflight._load_render_tokenizer(binding)
+
+    assert isinstance(tokenizer, SyntheticTokenizer)
+    assert calls == [
+        (
+            (str(tokenizer_snapshot),),
+            {"local_files_only": True, "trust_remote_code": False},
+        )
+    ]
+    assert export_preflight._fingerprint_tokenizer_snapshot(tokenizer_snapshot) == tree
+
+
+def test_local_tokenizer_load_rejects_snapshot_mutation(
+    tokenizer_snapshot: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    tree = export_preflight._fingerprint_tokenizer_snapshot(tokenizer_snapshot)
+    binding = export_preflight._bind_tokenizer_snapshot(tokenizer_snapshot, tree.sha256)
+
+    def mutate(*_args, **_kwargs):
+        tokenizer_file = tokenizer_snapshot / "tokenizer.json"
+        tokenizer_file.chmod(0o600)
+        tokenizer_file.write_bytes(b'{"version":"mutated-during-load"}\n')
+        tokenizer_file.chmod(0o400)
+        return SyntheticTokenizer()
+
+    monkeypatch.setattr(export_preflight.AutoTokenizer, "from_pretrained", staticmethod(mutate))
+    assert binding is not None
+    with pytest.raises(SFTPreflightError, match="^tokenizer_snapshot_changed$"):
+        export_preflight._load_render_tokenizer(binding)
+
+
+def test_tokenizer_snapshot_binding_is_both_or_neither_and_digest_pinned(tokenizer_snapshot: Path) -> None:
+    tree = export_preflight._fingerprint_tokenizer_snapshot(tokenizer_snapshot)
+
+    with pytest.raises(SFTPreflightError, match="^tokenizer_snapshot_binding_invalid$"):
+        export_preflight._bind_tokenizer_snapshot(tokenizer_snapshot, None)
+    with pytest.raises(SFTPreflightError, match="^tokenizer_snapshot_binding_invalid$"):
+        export_preflight._bind_tokenizer_snapshot(None, tree.sha256)
+    with pytest.raises(SFTPreflightError, match="^tokenizer_snapshot_digest_mismatch$"):
+        export_preflight._bind_tokenizer_snapshot(tokenizer_snapshot, "0" * 64)
+    with pytest.raises(SFTPreflightError, match="^tokenizer_snapshot_invalid$"):
+        export_preflight._bind_tokenizer_snapshot(
+            tokenizer_snapshot.parent / "." / tokenizer_snapshot.name / ".." / tokenizer_snapshot.name,
+            tree.sha256,
+        )
+
+
 def test_render_preflight_requires_reasoning_sensitive_renderer() -> None:
     with pytest.raises(SFTPreflightError, match="^row_reasoning_not_rendered$"):
         export_preflight._validate_and_render_row(
@@ -350,6 +517,33 @@ def test_attestation_rejects_renderer_gitlink_tamper(tmp_path: Path) -> None:
         export_preflight._validate_attestation_value(attestation)
 
 
+@pytest.mark.parametrize(
+    ("path", "value"),
+    [
+        (("repository",), "other/repository"),
+        (("revision",), "d" * 40),
+        (("local_files_only",), False),
+        (("trust_remote_code",), True),
+        (("tree", "algorithm"), "other"),
+        (("tree", "sha256"), "A" * 64),
+    ],
+)
+def test_attestation_rejects_invalid_tokenizer_snapshot_binding(
+    tmp_path: Path,
+    tokenizer_snapshot: Path,
+    path: tuple[str, ...],
+    value: object,
+) -> None:
+    attestation = _snapshot_attestation(tmp_path / "export", tokenizer_snapshot)
+    target = attestation["tokenizer_snapshot"]
+    for key in path[:-1]:
+        target = target[key]
+    target[path[-1]] = value
+
+    with pytest.raises(SFTPreflightError, match="^attestation_contract_invalid$"):
+        export_preflight._validate_attestation_value(attestation)
+
+
 def test_attestation_write_atomically_publishes_complete_private_file(tmp_path: Path) -> None:
     path = tmp_path / "preflight.json"
     value = {"aggregate": 1}
@@ -421,6 +615,20 @@ def test_attestation_crash_before_publish_cleans_temporary_and_is_retryable(
     assert not list(tmp_path.glob(f".{path.name}.*.tmp"))
     export_preflight._write_attestation(path, {"aggregate": 1})
     assert path.is_file()
+
+
+def test_attestation_snapshot_guard_runs_before_atomic_publication(tmp_path: Path) -> None:
+    path = tmp_path / "preflight.json"
+
+    with pytest.raises(SFTPreflightError, match="^tokenizer_snapshot_changed$"):
+        export_preflight._write_attestation(
+            path,
+            {"aggregate": 1},
+            before_publish=lambda: (_ for _ in ()).throw(SFTPreflightError("tokenizer_snapshot_changed")),
+        )
+
+    assert not path.exists()
+    assert not list(tmp_path.glob(f".{path.name}.*.tmp"))
 
 
 def test_attestation_directory_fsync_failure_leaves_only_complete_publication(
@@ -501,7 +709,11 @@ def test_preflight_attestation_binds_expected_source_validation_policy(
     )
     monkeypatch.setattr(export_preflight, "_load_export_binding", lambda *_args: binding)
     monkeypatch.setattr(export_preflight, "_repository_provenance", lambda *_args: attestation["code"])
-    monkeypatch.setattr(export_preflight, "_render_export", lambda _binding: attestation["rendering"])
+    monkeypatch.setattr(
+        export_preflight,
+        "_render_export",
+        lambda _binding, _tokenizer_snapshot=None: attestation["rendering"],
+    )
 
     output = tmp_path / f"preflight-{require_exact_provider_json}.json"
     summary = export_preflight.create_sft_preflight_attestation(
@@ -517,6 +729,71 @@ def test_preflight_attestation_binds_expected_source_validation_policy(
     assert summary["require_exact_provider_json"] is require_exact_provider_json
     assert value["expected_require_exact_provider_json"] is require_exact_provider_json
     assert value["source_validation"]["require_exact_provider_json"] is require_exact_provider_json
+    assert "tokenizer_snapshot" not in value
+
+
+def test_preflight_attestation_binds_strict_local_tokenizer_snapshot(
+    tmp_path: Path,
+    tokenizer_snapshot: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    root = tmp_path / "export"
+    root.mkdir()
+    attestation = _attestation(root)
+    artifact = export_preflight.FileArtifact(1, "a" * 64)
+    binding = export_preflight.ExportBinding(
+        root=root,
+        manifest=artifact,
+        artifacts={name: artifact for name in export_preflight.REQUIRED_EXPORT_ARTIFACTS},
+        manifest_value={"counts": {"emitted_rows": 1, "train_rows": 1, "validation_rows": 0}},
+        source_validation=attestation["source_validation"],
+        target_rendering=export_preflight.EXPECTED_TARGET_RENDERING_CONTRACT,
+    )
+    tree = export_preflight._fingerprint_tokenizer_snapshot(tokenizer_snapshot)
+    rendered_snapshots: list[export_preflight.TokenizerSnapshotBinding | None] = []
+    monkeypatch.setattr(export_preflight, "_load_export_binding", lambda *_args: binding)
+    monkeypatch.setattr(export_preflight, "_repository_provenance", lambda *_args: attestation["code"])
+
+    def render(
+        _binding: export_preflight.ExportBinding,
+        snapshot: export_preflight.TokenizerSnapshotBinding | None = None,
+    ) -> dict:
+        rendered_snapshots.append(snapshot)
+        return attestation["rendering"]
+
+    monkeypatch.setattr(export_preflight, "_render_export", render)
+    output = tmp_path / "preflight-strict.json"
+
+    export_preflight.create_sft_preflight_attestation(
+        export_root=root,
+        expected_manifest_sha256="a" * 64,
+        project_dir=tmp_path,
+        expected_project_revision="c" * 40,
+        expected_require_exact_provider_json=False,
+        output=output,
+        tokenizer_snapshot_path=tokenizer_snapshot,
+        expected_tokenizer_snapshot_sha256=tree.sha256,
+    )
+
+    value = json.loads(output.read_bytes())
+    tokenizer = export_preflight.EXPECTED_TARGET_RENDERING_CONTRACT["tokenizer"]
+    assert rendered_snapshots == [
+        export_preflight.TokenizerSnapshotBinding(
+            path=tokenizer_snapshot,
+            repository=tokenizer["repository"],
+            revision=tokenizer["revision"],
+            tree=tree,
+        )
+    ]
+    assert value["schema_version"] == 2
+    assert value["tokenizer_snapshot"] == {
+        "local_files_only": True,
+        "path": str(tokenizer_snapshot),
+        "repository": tokenizer["repository"],
+        "revision": tokenizer["revision"],
+        "tree": tree.as_dict(),
+        "trust_remote_code": False,
+    }
 
 
 def test_preflight_rejects_source_validation_expectation_mismatch(
@@ -638,6 +915,59 @@ def test_attestation_digest_is_rechecked_at_training_start(tmp_path: Path, monke
         export_preflight.validate_sft_training_preflight(config)
 
 
+def test_training_start_loads_attested_tokenizer_snapshot_without_hub_fallback(
+    tmp_path: Path,
+    tokenizer_snapshot: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    root = tmp_path / "export"
+    split = root / "train"
+    split.mkdir(parents=True)
+    attestation = _snapshot_attestation(root, tokenizer_snapshot)
+    body = (json.dumps(attestation, indent=2, sort_keys=True) + "\n").encode()
+    attestation_path = tmp_path / "preflight.json"
+    attestation_path.write_bytes(body)
+    attestation_path.chmod(0o600)
+    data = SFTDataConfig(
+        name=str(split),
+        seq_len=16,
+        pack_function="fixed_stack",
+        preflight_attestation=attestation_path,
+        preflight_attestation_sha256=hashlib.sha256(body).hexdigest(),
+    )
+    config = SimpleNamespace(
+        data=data,
+        val=None,
+        tokenizer=SimpleNamespace(
+            name=export_preflight.EXPECTED_TARGET_RENDERING_CONTRACT["tokenizer"]["repository"],
+            revision=export_preflight.EXPECTED_TARGET_RENDERING_CONTRACT["tokenizer"]["revision"],
+            trust_remote_code=False,
+            chat_template=None,
+        ),
+        renderer=Nemotron3RendererConfig.model_validate(
+            export_preflight.EXPECTED_TARGET_RENDERING_CONTRACT["renderer"]["config"]
+        ),
+    )
+    calls: list[tuple[tuple, dict]] = []
+
+    def load(*args, **kwargs):
+        calls.append((args, kwargs))
+        return SyntheticTokenizer()
+
+    monkeypatch.setattr(export_preflight.AutoTokenizer, "from_pretrained", staticmethod(load))
+
+    tokenizer = export_preflight.load_attested_sft_tokenizer(config)
+
+    assert isinstance(tokenizer, SyntheticTokenizer)
+    assert tokenizer.pad_token_id == tokenizer.eos_token_id
+    assert calls == [
+        (
+            (str(tokenizer_snapshot),),
+            {"local_files_only": True, "trust_remote_code": False},
+        )
+    ]
+
+
 def test_training_start_rechecks_attested_code_provenance(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     root = tmp_path / "export"
     split = root / "train"
@@ -679,17 +1009,29 @@ def test_training_start_rechecks_attested_code_provenance(tmp_path: Path, monkey
     monkeypatch.setattr(export_preflight, "_format_v3_root", lambda _data: root)
     monkeypatch.setattr(export_preflight, "_load_export_binding", lambda *_args: binding)
     monkeypatch.setattr(export_preflight, "_repository_provenance", lambda *_args: attestation["code"])
-    monkeypatch.setattr(export_preflight, "_render_export", lambda _binding: attestation["rendering"])
+    monkeypatch.setattr(
+        export_preflight,
+        "_render_export",
+        lambda _binding, _tokenizer_snapshot=None: attestation["rendering"],
+    )
 
     assert export_preflight.validate_sft_training_preflight(config) is True
 
     changed_rendering = copy.deepcopy(attestation["rendering"])
     changed_rendering["rendered_tokens"] += 1
-    monkeypatch.setattr(export_preflight, "_render_export", lambda _binding: changed_rendering)
+    monkeypatch.setattr(
+        export_preflight,
+        "_render_export",
+        lambda _binding, _tokenizer_snapshot=None: changed_rendering,
+    )
     with pytest.raises(SFTPreflightError, match="^attested_rendering_mismatch$"):
         export_preflight.validate_sft_training_preflight(config)
 
-    monkeypatch.setattr(export_preflight, "_render_export", lambda _binding: attestation["rendering"])
+    monkeypatch.setattr(
+        export_preflight,
+        "_render_export",
+        lambda _binding, _tokenizer_snapshot=None: attestation["rendering"],
+    )
     changed_code = copy.deepcopy(attestation["code"])
     changed_code["source"][export_preflight.CODE_PATHS[0]] = {"bytes": 1, "sha256": "f" * 64}
     monkeypatch.setattr(export_preflight, "_repository_provenance", lambda *_args: changed_code)

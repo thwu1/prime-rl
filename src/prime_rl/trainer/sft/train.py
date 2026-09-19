@@ -35,7 +35,11 @@ from prime_rl.trainer.model import (
 from prime_rl.trainer.parallel_dims import get_parallel_dims
 from prime_rl.trainer.perf import get_perf_counter
 from prime_rl.trainer.sft.data import load_sft_dataset, setup_dataloader, setup_dataset
-from prime_rl.trainer.sft.export_preflight import SFTPreflightError, validate_sft_training_preflight
+from prime_rl.trainer.sft.export_preflight import (
+    SFTPreflightError,
+    load_attested_sft_tokenizer,
+    validate_sft_training_preflight,
+)
 from prime_rl.trainer.sft.loss import reduce_token_loss
 from prime_rl.trainer.utils import (
     GarbageCollection,
@@ -183,7 +187,9 @@ def train(config: SFTConfig):
         multi_run_manager.scaling_factors[0] = config.model.lora.alpha / config.model.lora.rank
 
     logger.info(f"Initializing tokenizer ({config.tokenizer})")
-    tokenizer = setup_tokenizer(config.tokenizer)
+    tokenizer = load_attested_sft_tokenizer(config) if attested_export else None
+    if tokenizer is None:
+        tokenizer = setup_tokenizer(config.tokenizer)
 
     renderer = None
     if config.renderer is not None:

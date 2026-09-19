@@ -705,13 +705,22 @@ Run `user/tianhaowu/terminal_bench_vmvm/preflight_sft.py` against the finalized
 export and its expected manifest SHA before SFT. Store the mode-0600 output
 outside the source checkout, then set `preflight_attestation` and
 `preflight_attestation_sha256` in every format-v3 SFT data block. Use the exact
-tokenizer repository/revision and renderer config in the target contract and a
-sequence length no smaller than the attested maximum row and no larger than
-262,144, with `pack_function="fixed_stack"` so a concatenation boundary cannot
-truncate a target. The trainer rechecks all export artifacts, rerenders every
-row, and revalidates code hashes, project and renderer revisions, dependency
-versions, and config bindings at startup; format-v3 rows cannot bypass the gate
-through the generic SFT loader.
+tokenizer repository/revision and renderer config in the target contract. For a
+hermetic run, pass both `--tokenizer-snapshot-path` and
+`--expected-tokenizer-snapshot-sha256`. The tokenizer-only snapshot must be an
+absolute normalized canonical tree owned by the current user, with root and
+directories mode 0500, files mode 0400 with one link, and no symlinks or
+nonregular entries. The preflight binds its complete deterministic tree digest
+and loads it only with `local_files_only=true` and
+`trust_remote_code=false`; it rechecks the tree around load, rendering, and
+publication. Do not use a full model snapshot or substitute a nearby tokenizer
+without exact revision and byte provenance. Use a sequence length no smaller
+than the attested maximum row and no larger than 262,144, with
+`pack_function="fixed_stack"` so a concatenation boundary cannot truncate a
+target. The trainer rechecks all export artifacts, rerenders every row, and
+revalidates code hashes, project and renderer revisions, dependency versions,
+config bindings, and any bound tokenizer tree at startup; format-v3 rows cannot
+bypass the gate through the generic SFT loader.
 
 `VACLI_IMAGE_PULL_TIMEOUT_SECONDS` bounds each VM-side image pull attempt. The
 DeepSWE launcher derives it from TOML `sandbox_startup_timeout_sec` and uses one
