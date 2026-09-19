@@ -32,6 +32,8 @@ from terminal_bench_vmvm.source_wheels import (
     canonical_json,
     inspect_wheelhouse,
     load_source_wheel_policy,
+    source_build_argv,
+    validate_source_build_environment_record,
     wheel_evidence_dicts,
 )
 
@@ -668,10 +670,12 @@ def _audit_source_wheel_artifacts(
             != {
                 "artifact_download_network": "public-hash-pinned-https",
                 "builder_lease_limit": 1,
+                "build_dependency_install": "venv-offline-no-index-no-deps",
                 "build_network": "no-network",
                 "build_isolation": False,
                 "dependency_resolution": "explicit-policy-artifacts",
                 "isolated_python": True,
+                "source_build_python": "venv-python-isolated",
                 "staged_inputs": "policy-artifacts-only",
                 "target_install": "offline-no-index-no-deps",
             }
@@ -736,6 +740,9 @@ def _audit_source_wheel_artifacts(
             or SHA256_RE.fullmatch(wheelhouse["sha256"]) is None
         ):
             raise PromotionError("oracle_source_wheel_attestation_invalid")
+        sources = entry.get("sources")
+        if not isinstance(sources, list) or len(sources) != len(policy_entry.sources):
+            raise PromotionError("oracle_source_wheel_attestation_invalid")
         archive_path = oracle_dir / expected_relative_path
         try:
             archive_metadata = archive_path.lstat()
@@ -767,25 +774,24 @@ def _audit_source_wheel_artifacts(
             item.filename: (item.distribution, item.version, item.size, item.sha256) for item in evidence
         }
         expected_sources = []
-        for source in policy_entry.sources:
+        for source, observed_source in zip(policy_entry.sources, sources, strict=True):
+            if not isinstance(observed_source, dict):
+                raise PromotionError("oracle_source_wheel_attestation_invalid")
+            try:
+                build_environment = validate_source_build_environment_record(
+                    observed_source.get("build_environment"),
+                    build_env_dir="/tmp/terminal-bench-source-build-env",
+                    expected_build_tools=tuple(sorted(build_tools.items())),
+                )
+            except RuntimeError as cause:
+                raise PromotionError("oracle_source_wheel_attestation_invalid") from cause
             source_path = f"/tmp/terminal-bench-source-inputs/{source.filename}"
-            source_requirement = f"{source.distribution} @ file://{source_path}#sha256={source.sha256}"
-            build_argv = [
-                "python3",
-                "-I",
-                "-m",
-                "pip",
-                "wheel",
-                "--quiet",
-                "--disable-pip-version-check",
-                "--no-cache-dir",
-                "--no-index",
-                "--no-deps",
-                "--no-build-isolation",
-                "--wheel-dir",
-                "/tmp/terminal-bench-source-wheels",
-                source_requirement,
-            ]
+            build_argv = source_build_argv(
+                source,
+                input_dir="/tmp/terminal-bench-source-inputs",
+                wheel_dir="/tmp/terminal-bench-source-wheels",
+                build_env_dir="/tmp/terminal-bench-source-build-env",
+            )
             expected_sources.append(
                 {
                     "policy": {
@@ -798,9 +804,21 @@ def _audit_source_wheel_artifacts(
                         "wheel_filename": source.wheel_filename,
                         "wheel_size": source.wheel_size,
                         "wheel_sha256": source.wheel_sha256,
+                        "build_dependencies": [
+                            {
+                                "distribution": wheel.distribution,
+                                "version": wheel.version,
+                                "filename": wheel.filename,
+                                "url": wheel.url,
+                                "size": wheel.size,
+                                "sha256": wheel.sha256,
+                            }
+                            for wheel in source.build_dependencies
+                        ],
                     },
                     "consumed_path": source_path,
                     "built_wheel": source.wheel_filename,
+                    "build_environment": build_environment,
                     "build_argv_sha256": _sha256(canonical_json(build_argv)),
                 }
             )

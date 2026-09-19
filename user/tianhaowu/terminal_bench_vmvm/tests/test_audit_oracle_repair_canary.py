@@ -13,7 +13,11 @@ import audit_oracle_repair_canary as auditor
 import pytest
 from audit_oracle_repair_canary import CanaryAuditError, audit_canary, main
 from build_oracle_repair_canary import build_canary_manifest
-from terminal_bench_vmvm.source_wheels import pack_wheelhouse, validate_policy_wheel_closure
+from terminal_bench_vmvm.source_wheels import (
+    pack_wheelhouse,
+    source_build_environment_record,
+    validate_policy_wheel_closure,
+)
 from terminal_bench_vmvm.taskset import RuntimeWheelFingerprints, TerminalBenchVMVMConfig, TerminalBenchVMVMTaskset
 
 SOURCE_COMMIT = "a" * 40
@@ -257,7 +261,7 @@ def _canary_fixture(
         policy.write_text(
             json.dumps(
                 {
-                    "schema_version": 1,
+                    "schema_version": 2,
                     "allowed_hosts": ["files.example.invalid"],
                     "entries": [
                         {
@@ -279,6 +283,7 @@ def _canary_fixture(
                                     "wheel_filename": wheel_name,
                                     "wheel_size": len(wheel),
                                     "wheel_sha256": hashlib.sha256(wheel).hexdigest(),
+                                    "build_dependencies": [],
                                 }
                             ],
                             "binary_wheels": [],
@@ -344,6 +349,20 @@ def _canary_fixture(
             pack_wheelhouse(wheels),
             wheel_evidence,
             (("verifier-helper", "1.0"),),
+            (
+                source_build_environment_record(
+                    build_env_dir="/tmp/terminal-bench-source-build-env",
+                    expected_build_tools=tuple(sorted(build_tools.items())),
+                    attestation={
+                        "schema_version": 1,
+                        "executable": "/tmp/terminal-bench-source-build-env/bin/python",
+                        "prefix": "/tmp/terminal-bench-source-build-env",
+                        "base_prefix": "/usr",
+                        "isolated": True,
+                        "build_tools": build_tools,
+                    },
+                ),
+            ),
         )
         identity["source_wheel_recovery"] = {
             "schema_version": 1,
