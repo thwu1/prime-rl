@@ -1,6 +1,6 @@
 # VMVM sandbox coordination
 
-Last updated: 2026-09-19 22:30 UTC
+Last updated: 2026-09-19 22:33 UTC
 
 ## First message to the next teammate
 
@@ -43,6 +43,20 @@ this shared branch again.
 Add new rows below this line; do not overwrite another owner's row.
 
 ## Open coordination requests
+
+- **2026-09-19 22:33 UTC, next Kimi TB4 launch requirements:** independent
+  static validation confirms the 66-task v4.0.0 manifest/archive/tree pins and
+  the pass@1 mini-swe/Kimi configuration, including c4, 256K total context,
+  maximum reasoning, transcript capture, and 36,000/43,200-second rollout and
+  client/session bounds. When a separately qualified generation exists, set
+  both `SMOKE_OUTPUT_DIR` and `TB4_OUTPUT_DIR` to fresh paths: the gate's smoke
+  default already exists and correctly fails closed. Also submit with an
+  explicitly reviewed walltime longer than the current 48-hour SBATCH default;
+  66 tasks at c4 with a ten-hour per-task ceiling are not bounded by 48 hours.
+  The final audit's 4%-22% supported-score interval is a sanity band, not proof
+  of the requested approximately 12% result, so report the exact solved count
+  and both all-task and 63-CPU-supported pass rates. No readiness, smoke, or
+  evaluation was launched by this review.
 
 - **2026-09-19 22:30 UTC, additional V21 diagnostic v2 review blockers:**
   the frozen source check trusts `git status` and hashes only VMVM `_vacli`
