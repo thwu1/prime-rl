@@ -1,6 +1,6 @@
 # VMVM sandbox coordination
 
-Last updated: 2026-09-19 19:23 UTC
+Last updated: 2026-09-19 19:55 UTC
 
 ## First message to the next teammate
 
@@ -30,7 +30,7 @@ this shared branch again.
 
 | Owner | Cluster | Scope | Files | Live resources | State / next gate |
 |---|---|---|---|---|---|
-| Codex session for `tianhaowu` | `fair-cw-use2-3` | Kimi serving, full TB4 pass@1, and gated 2,500-task rollout | `user/tianhaowu/terminal_bench_vmvm/**`, `user/tianhaowu/deepswe_vmvm/{README.md,run_runtime_smoke.sbatch,smoke_runtime.py}`, `environments/vmvm_tb_v2/**`, `deps/verifiers` gitlink | low deployment `tianhaowu-k3-kda-tb2-low-20260919`; coordinator `1752688`; proxy `1753275`; stale readiness `1753277`; terminal failed smoke `1753515`; running oracle canary `1755693`; stopped singleton managers through v5; held proof `1753516`; final spec `745e5b6f2d884542fb7f29afbaef09935976f1edac1bec91e6c56b0aca975ea3` | Smoke `1753515` is terminal failed after a clean first row and an infrastructure-timeout second row; no smoke certificate exists. One original serving worker failed and the coordinator restored desired/ready 2/2 with a replacement, making readiness `1753277` stale. The exact replacement pair has now remained active/waiting zero with unchanged per-worker cumulative token/request counters for six spaced samples over more than two minutes, but readiness recert v1 was independently rejected for source/runtime closure, evidence-chain, semantic-schema, publication, and lifecycle gaps; it remains immutable/unarmed while fresh v2 is built. Singleton r5v5 remains paused frozen/unarmed. Recovery controller `b366c8ca9` was independently rejected; successor `d91e609b6` is frozen with 40 tests and awaits independent review. No full TB4 has launched. The oracle projection remains 2,494. V16 `1755693` cannot satisfy acceptance because of the repeated infrastructure-only failure class and remains preserved; V17 remains immutable/unlaunched after its live combined-PEM alias gate rejection. Fresh V18 is frozen/unarmed with 193 public tests and 23 TLS-focused tests and is under independent review. Never inspect task prompts/bodies, task identifiers, raw errors, credential values, or model/tool/trace content. |
+| Codex session for `tianhaowu` | `fair-cw-use2-3` | Kimi serving, full TB4 pass@1, and gated 2,500-task rollout | `user/tianhaowu/terminal_bench_vmvm/**`, `user/tianhaowu/deepswe_vmvm/{README.md,run_runtime_smoke.sbatch,smoke_runtime.py}`, `environments/vmvm_tb_v2/**`, `deps/verifiers` gitlink | low deployment `tianhaowu-k3-kda-tb2-low-20260919`; coordinator `1752688`; proxy `1753275`; stale readiness `1753277`; terminal failed smoke `1753515`; running oracle canary `1755693`; stopped singleton managers through v5; held proof `1753516`; final spec `745e5b6f2d884542fb7f29afbaef09935976f1edac1bec91e6c56b0aca975ea3` | Smoke `1753515` is terminal failed after a clean first row and an infrastructure-timeout second row; no smoke certificate exists. One original serving worker failed and the coordinator restored desired/ready 2/2 with a replacement, making readiness `1753277` stale. Readiness recert v1 was independently rejected and stays immutable/unarmed; fresh v2 is WIP with sealed execution, closed manifests, chained counter-stable samples, exact route semantics, anchored publication, and terminal lifecycle proof, but its adversarial suite is not complete. The pair remains 2/2 and restart-free, but counters advanced after the prior observational window, so v2 must sample afresh. Singleton r5v5 remains paused frozen/unarmed. Recovery controller final reviewed tree `64cf4f513` is independently approved and integrated byte-identically atop latest VMVM code as `67e645cf4`; fresh detached testing passes 44/44 plus exact Ruff 0.15.14 and Bash checks. It remains unarmed pending fresh readiness and launch artifacts. No full TB4 has launched. The oracle projection remains 2,494. V16 `1755693` is 16/19 with zero valid and all rows exhausted on the same infrastructure-only class; it remains preserved to completion. V17/V18/V19 are immutable and rejected. V19's real TLS diagnostic passed, but a reviewer-created cache invalidated its closed freeze before the second gate. Fresh V20 is being rebuilt with an exact root inventory and latest bounded-cancellation source. Never inspect task prompts/bodies, task identifiers, raw errors, credential values, or model/tool/trace content. |
 | Codex session for `tianhaowu` | `fair-cw-use2-1` | Add a direct one-token KDA state-reuse probe; no serving or eval mutation | `user/tianhaowu/terminal_bench_vmvm/{probe_inference_routes.py,tests/test_probe_inference_routes.py,HANDOFF.md,COORDINATION.md}` | none | Extend the existing readiness probe with serial raw-completion predecessor/one-token-target cycles on every discovered sticky backend, without logprobs or response token IDs. Fail closed on unsupported routing, semantic corruption, or predecessor-dependent target output. |
 | Codex session for `tianhaowu` | `fair-cw-use2-1` | Qwen accepted TB4 gate and 2,500-task production rollout | Qwen direct-router configs, VMVM backend, repair/export controller, focused tests, runtime skill | accepted TB4 diagnostic `1435776`; cap-32 affinity producer `1454171` running; exact-head x86 smoke `1468446` completed; reviewed replacement chain `1468451` dependency-pending; obsolete chains `1457232` and `1465246` canceled; endpoint `shared_qwen38_2p4t`; PRs `thwu1/prime-rl#35`, `#36`, `#37`, `#38`, `#39`, and `#40`; verifier PR `thwu1/verifiers#2` | The user explicitly accepted the existing 7/66 TB4 result as the approximately 11% gate and directed us not to rerun it. The live producer retains 64 task sessions, 32 client/provider slots, two lease starts, fail-closed `consistent_hash` / `x-session-id`, and a 256K cap. Immutable prefix 1,000 has SHA-256 `7862f68057aecc9c2bdb22a15e5cbe21ec03aa10059a625e2fa1316e4c347117`: 583 pass, 381 scored fail, 36 ordinary error, zero invalid, for a 60.48% scored pass rate. Exact SFT trainability validation accepts 581/583 passing traces and quarantines two; the audit covers 41,220,772 sampled completion tokens and 19,358 captured model-I/O turns. At 08:01 UTC the producer remained healthy and RUNNING with 1,002 durable rows, recent throughput approximately 47 rows/hour, and approximately 32 hours remaining. Draft PR `#40` is independently approved at exact head `fe813c0f6`; frozen-source x86 smoke `1468446` passed 249/249, and replacement controller `1468451` is pending on `afterany:1454171`. Obsolete held controller `1465246` was canceled only after the replacement was verified dependency-held. Broad `HarnessError` retry and retry exclusions remain forbidden. Never inspect task IDs, prompts, responses, raw errors, or trace/model/tool bodies. |
 | Codex session for `tianhaowu` | `fair-cw-use2-1` | User-supplied shared Kimi-K3 endpoint qualification and full TB4 pass@1; gated 2,500-task rollout follows only after score reproduction | server-scoped `configs/eval/servers/cpu-132-021_8103/**`, VMVM backend, trace audit, `COORDINATION.md` | endpoint `shared-kimi-k3`; route gate `1448380`; preserved canceled diagnostic TB4 `1448629`; preserved canceled smokes `1448432` and `1448606`; draft `thwu1/prime-rl#34`; proxy fix `fairinternal/ram_common#288` | The endpoint currently reports 23 healthy / 1 unhealthy routes, while correct model discovery and consistent sticky metadata with TTL 14,400 remain present. The proxy still serves a 600-second timeout with two retries and the live spec declares neither field, so this endpoint remains non-launchable. The old diagnostic full was canceled and preserved; do not count or resume it. Draft PR `#34` head `22b4172f1` is rebased on current shared core, preserves the separate `cpu-132-021_8103` folder and hardened gate pin, composes schema-v2 bridge validation with exact 24-request/2-lease evidence, and passes 328 affected plus 625 full tests. It requires exact 7,200/0 and 24/0, rejects resume, and makes both full and shard certification prove type-safe 24 rollout/multiplex/HTTP concurrency, observed peak 24, and lease-start concurrency 2; shared 4/2 remains compatible. PR `ram_common#288` is green/mergeable but still lacks the required human approval and deployment. Await a reviewed combined live revision, fresh 24/0 policy/sticky qualification, then launch a fresh TB4. Never inspect task prompts/bodies or raw trace/model/tool content. |
@@ -55,7 +55,7 @@ Add new rows below this line; do not overwrite another owner's row.
   incomplete. Build and independently review only a fresh v2 before any probe,
   tokenizer check, recovery, smoke, singleton, or full TB4.
 
-- **2026-09-19 19:23 UTC, oracle TLS correction:** V16 remains scheduler-
+- **2026-09-19 19:55 UTC, oracle TLS correction:** V16 remains scheduler-
   healthy but the first 12/19 terminal task records are all invalid after five
   identical-class infrastructure attempts; its acceptance gate is impossible
   and the run is retained for complete evidence. Frozen V17 passed 183 public
@@ -63,25 +63,29 @@ Add new rows below this line; do not overwrite another owner's row.
   two gated preflights. The real selection-input gate passed without writes.
   The real TLS gate rejected because the canonical pane provides both variables
   as aliases to one combined PEM bundle rather than distinct canonical files.
-  V17 remains immutable/unlaunched. Fresh V18 is frozen/unarmed after 193 public
-  tests, 23 TLS-focused tests, lint/syntax/source checks, descriptor-first
-  canonicalization, explicit combined-bundle validation, canonical private
-  export, and repeated FD/parent revalidation. It is awaiting independent review;
-  do not run private gates, generation, namespace creation, or scheduler action.
+  V17 and V18 remain immutable/unlaunched. V19 narrowed the combined profile to
+  the observed two-certificate plus RSA-private-key shape and its real TLS gate
+  passed, but the review command created an untracked `.ruff_cache` in the
+  frozen root and V19 does not enforce a closed root inventory. V19 is rejected
+  before validate-inputs/generation. Fresh V20 must enforce exactly nine root
+  entries, use cache-free review commands, and rebind to latest exact VMVM
+  bounded-cancellation source before any gates or launch.
 
-- **2026-09-19 19:23 UTC, recovery-controller successor frozen unarmed:** isolated
-  branch `fix/kimi-smoke-recovery-controller-v2-20260919` is frozen at
-  `d91e609b6` on rejected immutable parent `b366c8ca9`. Its 40 focused tests,
-  Ruff, format, diff, and Bash syntax checks pass. It adds schema-matched held evidence,
+- **2026-09-19 19:55 UTC, recovery controller independently approved:** final
+  reviewed isolated commit `64cf4f513` is integrated byte-identically atop
+  current `vmvm-sandbox` as `67e645cf4`. Its 44 focused tests, exact Ruff 0.15.14
+  check/format, diff, and Bash syntax checks pass from a fresh detached source.
+  It adds schema-matched held evidence,
   atomic trigger-directory publication, stable-descriptor source artifacts,
   captured Python/native/metadata imports, executed-controller binding, sealed
   environment plus stdin wrapper submission, exact stdin-script scheduler
   identity, direct-candidate cleanup, allocation/step/PGID/full-minute terminal
-  proof, conflict-retaining query failures and a launch-lifetime no-control
-  latch, exact import-state restoration, unchanged backend activity counters,
-  held writer/global locks, and marker-last admission. It creates no plan,
-  runtime, trigger, reservation, output, process, or job and awaits independent
-  semantic review.
+  proof, pinned-only parsing for all run-local artifacts, authoritative telemetry
+  bounds, conflict-retaining query failures and a signal-safe launch-lifetime
+  no-control latch, exact import-state restoration, unchanged backend activity
+  counters, held writer/global locks, and marker-last admission. It remains
+  unarmed: no plan/runtime/trigger/reservation/output/process/job exists, and a
+  fresh readiness plus separately reviewed launch artifacts are still required.
 
 - **2026-09-19 18:21 UTC, production trace certificate v6 rejected:**
   isolated branch `fix/production-trace-certificate-v6` is frozen at
