@@ -350,6 +350,135 @@ def test_attestation_rejects_renderer_gitlink_tamper(tmp_path: Path) -> None:
         export_preflight._validate_attestation_value(attestation)
 
 
+def test_attestation_write_atomically_publishes_complete_private_file(tmp_path: Path) -> None:
+    path = tmp_path / "preflight.json"
+    value = {"aggregate": 1}
+    expected = json.dumps(value, ensure_ascii=False, allow_nan=False, sort_keys=True, indent=2).encode() + b"\n"
+
+    artifact = export_preflight._write_attestation(path, value)
+
+    assert path.read_bytes() == expected
+    assert path.stat().st_mode & 0o777 == 0o600
+    assert artifact == export_preflight.FileArtifact(len(expected), hashlib.sha256(expected).hexdigest())
+    assert not list(tmp_path.glob(f".{path.name}.*.tmp"))
+
+
+def test_attestation_partial_write_never_publishes_and_is_retryable(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    path = tmp_path / "preflight.json"
+    real_fdopen = export_preflight.os.fdopen
+
+    class PartialWriter:
+        def __init__(self, descriptor: int, mode: str):
+            self._handle = real_fdopen(descriptor, mode)
+
+        def __enter__(self):
+            self._handle.__enter__()
+            return self
+
+        def __exit__(self, *arguments):
+            return self._handle.__exit__(*arguments)
+
+        def write(self, body: bytes) -> None:
+            self._handle.write(body[: max(1, len(body) // 2)])
+            raise OSError("simulated_partial_write")
+
+        def flush(self) -> None:
+            self._handle.flush()
+
+        def fileno(self) -> int:
+            return self._handle.fileno()
+
+    with monkeypatch.context() as context:
+        context.setattr(export_preflight.os, "fdopen", PartialWriter)
+        with pytest.raises(SFTPreflightError, match="^attestation_write_failed$"):
+            export_preflight._write_attestation(path, {"aggregate": 1})
+
+    assert not path.exists()
+    assert not list(tmp_path.glob(f".{path.name}.*.tmp"))
+    export_preflight._write_attestation(path, {"aggregate": 1})
+    assert path.is_file()
+
+
+def test_attestation_crash_before_publish_cleans_temporary_and_is_retryable(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    path = tmp_path / "preflight.json"
+
+    with monkeypatch.context() as context:
+        context.setattr(
+            export_preflight.os,
+            "link",
+            lambda *_args, **_kwargs: (_ for _ in ()).throw(KeyboardInterrupt()),
+        )
+        with pytest.raises(KeyboardInterrupt):
+            export_preflight._write_attestation(path, {"aggregate": 1})
+
+    assert not path.exists()
+    assert not list(tmp_path.glob(f".{path.name}.*.tmp"))
+    export_preflight._write_attestation(path, {"aggregate": 1})
+    assert path.is_file()
+
+
+def test_attestation_directory_fsync_failure_leaves_only_complete_publication(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    path = tmp_path / "preflight.json"
+    value = {"aggregate": 1}
+    expected = json.dumps(value, ensure_ascii=False, allow_nan=False, sort_keys=True, indent=2).encode() + b"\n"
+    real_fsync = export_preflight.os.fsync
+    calls = 0
+
+    def fail_directory_fsync(descriptor: int) -> None:
+        nonlocal calls
+        calls += 1
+        if calls == 2:
+            raise OSError("simulated_directory_fsync_failure")
+        real_fsync(descriptor)
+
+    with monkeypatch.context() as context:
+        context.setattr(export_preflight.os, "fsync", fail_directory_fsync)
+        with pytest.raises(SFTPreflightError, match="^attestation_write_failed$"):
+            export_preflight._write_attestation(path, value)
+
+    assert calls == 2
+    assert path.read_bytes() == expected
+    assert path.stat().st_mode & 0o777 == 0o600
+    assert not list(tmp_path.glob(f".{path.name}.*.tmp"))
+    with pytest.raises(SFTPreflightError, match="^attestation_write_failed$"):
+        export_preflight._write_attestation(path, {"aggregate": 2})
+    assert path.read_bytes() == expected
+
+
+def test_attestation_existing_file_is_never_overwritten(tmp_path: Path) -> None:
+    path = tmp_path / "preflight.json"
+    path.write_bytes(b"preserve\n")
+
+    with pytest.raises(SFTPreflightError, match="^attestation_write_failed$"):
+        export_preflight._write_attestation(path, {"aggregate": 1})
+
+    assert path.read_bytes() == b"preserve\n"
+    assert not list(tmp_path.glob(f".{path.name}.*.tmp"))
+
+
+def test_attestation_existing_symlink_is_never_followed_or_replaced(tmp_path: Path) -> None:
+    target = tmp_path / "target.json"
+    target.write_bytes(b"preserve\n")
+    path = tmp_path / "preflight.json"
+    path.symlink_to(target)
+
+    with pytest.raises(SFTPreflightError, match="^attestation_write_failed$"):
+        export_preflight._write_attestation(path, {"aggregate": 1})
+
+    assert path.is_symlink()
+    assert target.read_bytes() == b"preserve\n"
+    assert not list(tmp_path.glob(f".{path.name}.*.tmp"))
+
+
 @pytest.mark.parametrize("require_exact_provider_json", [False, True])
 def test_preflight_attestation_binds_expected_source_validation_policy(
     tmp_path: Path,
