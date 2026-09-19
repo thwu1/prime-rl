@@ -68,13 +68,13 @@ from terminal_bench_vmvm.source_wheels import (
 from terminal_bench_vmvm.taskset import _SOURCE_WHEEL_CLOSURE_CODE, _SOURCE_WHEEL_DOWNLOAD_CODE
 
 DISCOVERY_INPUT_SCHEMA_VERSION = 1
-PROOF_SCHEMA_VERSION = 7
-STATE_SCHEMA_VERSION = 6
-RUN_IDENTITY_SCHEMA_VERSION = 10
-CANDIDATE_SCHEMA_VERSION = 5
-ATTEMPT_JOURNAL_SCHEMA_VERSION = 2
-POST_RUN_VALIDATION_SCHEMA_VERSION = 4
-FINALIZATION_SCHEMA_VERSION = 5
+PROOF_SCHEMA_VERSION = 8
+STATE_SCHEMA_VERSION = 7
+RUN_IDENTITY_SCHEMA_VERSION = 11
+CANDIDATE_SCHEMA_VERSION = 6
+ATTEMPT_JOURNAL_SCHEMA_VERSION = 3
+POST_RUN_VALIDATION_SCHEMA_VERSION = 5
+FINALIZATION_SCHEMA_VERSION = 6
 APPROVED_BASE_RUNTIME_COMMIT = "ceb9356c98c72e51568e7bb4658a540cb1492254"
 REQUIRED_DISCOVERY_ENTRIES = 6
 MAX_CONCURRENT_ENTRIES = 3
@@ -1371,7 +1371,7 @@ def compare_build_payloads(first: BuildResult, second: BuildResult) -> dict[str,
     wheelhouses_equal = first.wheelhouse == second.wheelhouse
     closures_equal = first.closure == second.closure
     build_environments_equal = first.build_environment == second.build_environment
-    if not (semantics_equal and closures_equal and build_environments_equal):
+    if not (semantics_equal and byte_equal and wheelhouses_equal and closures_equal and build_environments_equal):
         raise SourceWheelProofError("cross_builder_reproducibility_failed")
     first_payload_hashes = {name: sha256_bytes(first.wheels[name]) for name in sorted(first.wheels)}
     second_payload_hashes = {name: sha256_bytes(second.wheels[name]) for name in sorted(second.wheels)}
@@ -2529,9 +2529,9 @@ def _validate_entry_proof(
         or cross_builder.get("equivalence_schema_version") != WHEEL_SEMANTIC_DIGEST_SCHEMA_VERSION
         or cross_builder.get("wheel_filenames_equal") is not True
         or cross_builder.get("wheel_semantics_equal") is not True
-        or not isinstance(cross_builder.get("wheel_bytes_equal"), bool)
+        or cross_builder.get("wheel_bytes_equal") is not True
         or cross_builder.get("wheelhouse_semantics_equal") is not True
-        or not isinstance(cross_builder.get("wheelhouse_bytes_equal"), bool)
+        or cross_builder.get("wheelhouse_bytes_equal") is not True
         or cross_builder.get("closures_equal") is not True
         or cross_builder.get("build_environments_equal") is not True
         or not isinstance(cross_builder.get("builder_wheel_payloads_sha256"), list)
@@ -2840,6 +2840,9 @@ class ProofStore:
                 "schema_version": WHEEL_SEMANTIC_DIGEST_SCHEMA_VERSION,
                 "normalized_zip_fields": list(WHEEL_SEMANTIC_NORMALIZED_FIELDS),
                 "all_other_wheel_bytes_bound": True,
+                "raw_wheel_sets_byte_equal": True,
+                "packed_wheelhouses_byte_equal": True,
+                "semantic_digest_is_supplementary": True,
                 "forbidden_zip_features": [
                     "archive_or_member_comments",
                     "duplicate_or_ambiguous_paths",
@@ -2858,6 +2861,8 @@ class ProofStore:
                 "setup_py_grammar": SETUP_PY_GRAMMAR_ID,
                 "setup_cfg_grammar": SETUP_CFG_GRAMMAR_ID,
                 "source_backend_shadowing": "rejected",
+                "canonical_archive_root": "independently-rechecked-before-extraction",
+                "extracted_mtime": "source-date-epoch",
             },
             "source": {
                 "approved_base_runtime_commit": self.config.base_runtime_commit,
@@ -2916,6 +2921,7 @@ class ProofStore:
             "required_runtime_starts": len(self.entry_map) * RUNTIMES_PER_ENTRY,
             "required_proofs": [
                 "two_independent_no_network_builds",
+                "byte_identical_raw_wheel_sets_and_packed_wheelhouses",
                 "schema_bound_semantically_identical_wheels",
                 "clean_target_offline_install",
                 "isolated_no_site_backend_python",

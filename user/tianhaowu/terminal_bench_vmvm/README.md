@@ -217,9 +217,13 @@ source-relative metadata reads, fixed string/path transforms, static package
 discovery, and explicit Python version guards. Resource contexts, URL fetches,
 archive extraction, `Extension`, `ext_modules`, and `cffi_modules` are rejected
 rather than executing or interpreting build helpers. Explicit package names
-must be dotted Python identifiers, `package_dir` and package-data paths must be
-static nonempty source-relative values without parent components, and automatic
-manifest inclusion is disabled. `setup.cfg` accepts only reviewed metadata,
+must be dotted Python identifiers. Every read-bearing path, `package_dir`, and
+package-data path must be one exact, non-expanding source-relative value without
+parent components, URI schemes, backslashes, or glob syntax. Every archive
+member must be inside the one canonical `PKG-INFO` root; `MANIFEST.in`,
+pre-generated egg-info/SOURCES metadata, sibling members, and symlinks fail
+closed before parsing or extraction. Automatic manifest inclusion is disabled.
+`setup.cfg` accepts only reviewed metadata,
 package, entry-point, requirement, and deterministic wheel/egg options; it
 applies the same package/path confinement and rejects custom build keywords.
 Local metadata reader helpers must match that grammar and be used exactly once as
@@ -241,8 +245,7 @@ evaluating either can execute package-controlled expressions. Literal
 `setup.cfg` `[options]` configuration, together with `build-system.requires`
 from a setuptools-backed `pyproject.toml`, is included in the exact transitive
 closure. `setup.cfg` rejects defaults, dynamic `attr:`/`file:`/`find:`
-directives, and command aliases except the inert exact `test = pytest` legacy
-declaration.
+directives, and all command aliases.
 Only the `build-system` `pyproject.toml` table and setuptools backend are
 supported; duplicate declarations, in-tree or alternate backends, and
 ambiguity fail closed. Static-parser rejection is reported only as the stable
@@ -251,9 +254,12 @@ not emitted. The setup
 backend runs directly under the venv Python's real `-I -S` isolated/no-site
 mode after network isolation, rather than through a pip child that could lose
 the isolated flag. It manually adds only the attested venv-local site roots, so
-`.pth` and customization modules are never processed. The build binds fixed
-`SOURCE_DATE_EPOCH`, timezone, locale, `HOME`, `TMPDIR`, work directory, and
-umask controls. Its fixed `PATH` contains only the attested venv's `bin`
+`.pth` and customization modules are never processed. The build runner
+independently rechecks the canonical archive root and forbidden inclusion
+metadata, extracts only that root, and normalizes every extracted file and
+directory mtime to the fixed `SOURCE_DATE_EPOCH`. The build also binds timezone,
+locale, `HOME`, `TMPDIR`, work directory, and umask controls. Its fixed
+`PATH` contains only the attested venv's `bin`
 directory, so backend children that invoke `python3` or a build-dependency
 console entry point cannot select an ambient executable or mask an undeclared
 tool with a base-image command. The attested setuptools backend and site roots
@@ -327,13 +333,13 @@ attestation. Each wheel is validated byte-by-byte as an exact, comment-free ZIP
 envelope of unique normalized regular-file paths. Central and local headers,
 raw names, flags, offsets, and record extents must agree and exactly cover the
 archive; extra fields, orphan bytes, signature records, special modes, and
-ambiguous encodings or paths fail closed. Cross-builder equivalence uses a
-schema-bound copy of the complete raw ZIP with only the local and central DOS
-time/date fields zeroed. Member order, compression method and bytes, layout,
-headers, payload, and every other byte remain bound. Both builders retain their
-raw size/SHA-256 evidence, and the first builder's exact raw wheel remains the
-policy artifact installed in the already-isolated clean target for its offline
-closure check.
+ambiguous encodings or paths fail closed. Both builders must emit the same
+complete wheel filename set, byte-identical complete raw ZIP wheels, and a byte-identical
+deterministically packed wheelhouse. The schema-bound semantic digest, with only
+the local and central DOS time/date fields zeroed, is retained as supplementary
+evidence and cannot authorize a raw mismatch. The common exact wheelhouse is the policy
+artifact installed in the already-isolated clean target for its offline closure
+check.
 
 The launcher defaults to two entries and six live VMVMs; three entries and nine
 VMVMs are hard caps. It emits only aggregate counts, hashes, and stable error
@@ -352,9 +358,9 @@ finalization-only, proof-only, and policy-only crash states are deterministic to
 recover.
 
 `run_identity.json` binds the source-build-environment and wheel-semantic-digest
-schema versions, the two normalized DOS timestamp fields, the all-other-bytes
-binding, and every forbidden ZIP feature. The candidate names semantic
-wheel equality, venv-only child execution, and static configuration parsing as
+schema versions, exact raw-wheel/wheelhouse equality, the supplementary
+two-field timestamp normalization, and every forbidden ZIP feature. The
+candidate names raw and semantic wheel equality, venv-only child execution, and static configuration parsing as
 required proofs before work starts. Any contract or schema change therefore
 changes the run identity and requires a fresh output directory; it cannot resume
 or finalize an older raw-byte proof.

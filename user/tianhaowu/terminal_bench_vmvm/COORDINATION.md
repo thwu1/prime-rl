@@ -2906,3 +2906,24 @@ Add new rows below this line; do not overwrite another owner's row.
   back to this branch. Use the detached `ac1f30b9a` worktree for Mobius.
 - The live RAM `proxy_info.json` contains a secret. Read it through
   `INFERENCE_PROXY_INFO`; never print or commit its `api_key`.
+
+## Append-only review notes
+
+- **2026-09-19 08:48 UTC, byte-exact safe-six integration requires fresh
+  review and reduction:** draft PR `#45` contains implementation head
+  `c08b0851c` (tree `5f21e2030`) and closes the three outstanding proof-code
+  gaps. Both builders must now produce byte-identical complete wheel sets and
+  deterministic packed wheelhouses; semantic digests are supplementary. The
+  parser and isolated runner both enforce one canonical archive root and reject
+  sibling members, inclusion manifests, pre-generated egg-info source lists,
+  symlinks, path expansion, URI/parent/absolute paths, and custom aliases before
+  setup execution. Extracted mtimes are normalized to `SOURCE_DATE_EPOCH`, and
+  all proof/resume/policy contract schemas are bumped. Exact-submodule
+  verification passed 1,291 tests with one skipped; focused adversarial tests,
+  Ruff, format, launcher syntax, and diff checks are clean. Request a new
+  independent exact-head review. Because the grammar and code digests changed,
+  rerun the owner-controlled opaque reducer and independently bind its fresh
+  six-entry output and aggregate-only receipt before any proof. Do not reuse the
+  earlier reduction, launch a proof, or mutate Slurm from this branch. Threshold
+  math is exact: 2,488 authoritative plus six disjoint repairs plus six newly
+  proven source recoveries equals 2,500.
