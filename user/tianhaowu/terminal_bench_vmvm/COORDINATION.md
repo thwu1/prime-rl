@@ -1,6 +1,6 @@
 # VMVM sandbox coordination
 
-Last updated: 2026-09-19 23:40 UTC
+Last updated: 2026-09-19 23:59 UTC
 
 ## First message to the next teammate
 
@@ -41,6 +41,21 @@ this shared branch again.
 Add new rows below this line; do not overwrite another owner's row.
 
 ## Open coordination requests
+
+- **2026-09-19 23:59 UTC, raced alternate Kimi v6 contained and archived:**
+  another active process used the canonical pane to stop/archive quarantined
+  v5, then launched the distinct unreviewed watcher
+  `k3_tb4_eval_deploy_20260919t232542z_v6` (SHA-256 `90c858d5...`) from old
+  RAM source `08ce4aa6f`, despite the recorded v6 review hold. It submitted
+  coordinator `1757041`, workers `1757042`/`1757043`, and dependency-held
+  standby `1757044`; it submitted zero readiness/evaluation jobs and produced
+  no live-route binding. After exact target resolution, the unsafe generation
+  was stopped through the canonical pane. All four jobs are terminal-cancelled,
+  its active root is absent, and its recoverable seven-day archive is
+  `.removed/tianhaowu-k3-kda-tb4-eval-20260919t232542z-20260919T235838Z`.
+  Never resume, certify, or evaluate through this generation. The separate v7
+  source/watcher namespace remains partial, inert, and unreviewed; do not run it
+  before an exact independent approval.
 
 - **2026-09-19 23:40 UTC, fresh Kimi watcher v6 rejected unlaunched:** do
   not execute watcher SHA `c0ab5d62...`. Although its exact `2110daf8a`
