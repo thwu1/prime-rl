@@ -2102,6 +2102,7 @@ class _LegacySetupGrammar:
         "zip_safe",
     }
     _LOCAL_METADATA_ATTRIBUTES = {"__author__", "__doc__", "__email__", "__version__"}
+    _RESERVED_BINDINGS = {"ImportError", "__file__", "open", "print", "setup", "setuptools"}
 
     def __init__(
         self,
@@ -2130,7 +2131,9 @@ class _LegacySetupGrammar:
         self.handle_names: set[str] = set()
         self.list_names: set[str] = set()
         self.response_names: set[str] = set()
+        self.buffer_names: set[str] = set()
         self.archive_names: set[str] = set()
+        self.https_url_names: set[str] = set()
         self.source_directory_names: set[str] = set()
         self._collect_bindings()
 
@@ -2143,6 +2146,34 @@ class _LegacySetupGrammar:
                 return True
             current = self.parents.get(current)
         return False
+
+    def _resource_temp_name(self) -> str | None:
+        if self.resource_context is None:
+            return None
+        target = self.resource_context.items[0].optional_vars
+        return target.id if isinstance(target, ast.Name) else None
+
+    def _assignment_values(self, name: str) -> list[ast.expr]:
+        return [
+            candidate.value
+            for candidate in ast.walk(self.tree)
+            if isinstance(candidate, ast.Assign)
+            and len(candidate.targets) == 1
+            and isinstance(candidate.targets[0], ast.Name)
+            and candidate.targets[0].id == name
+        ]
+
+    def _unique_assignment_value(self, name: str) -> ast.expr:
+        values = self._assignment_values(name)
+        if len(values) != 1:
+            raise RuntimeError("setup.py resource binding is ambiguous")
+        return values[0]
+
+    def _require_call_binding(self, name: str, path: tuple[str, ...]) -> ast.Call:
+        value = self._unique_assignment_value(name)
+        if not isinstance(value, ast.Call) or _ast_call_path(value.func) != path:
+            raise RuntimeError("setup.py resource binding is unsupported")
+        return value
 
     @staticmethod
     def _target_name(node: ast.expr) -> str:
@@ -2185,9 +2216,17 @@ class _LegacySetupGrammar:
                 name = node.targets[0].id
                 if isinstance(node.value, ast.List):
                     self.list_names.add(name)
+                if (
+                    isinstance(node.value, ast.Constant)
+                    and isinstance(node.value.value, str)
+                    and self._is_safe_https_url(node.value.value)
+                ):
+                    self.https_url_names.add(name)
                 call_path = _ast_call_path(node.value.func) if isinstance(node.value, ast.Call) else None
                 if call_path == ("urllib", "request", "urlopen"):
                     self.response_names.add(name)
+                elif call_path == ("io", "BytesIO"):
+                    self.buffer_names.add(name)
                 elif call_path in {("zipfile", "ZipFile"), ("tarfile", "open")}:
                     self.archive_names.add(name)
                 elif self._is_source_directory_value(node.value):
@@ -2275,11 +2314,203 @@ class _LegacySetupGrammar:
             and node.operand.value == 1
         )
 
+    @staticmethod
+    def _is_safe_relative_path(value: str) -> bool:
+        path = PurePosixPath(value)
+        return bool(value) and not path.is_absolute() and ".." not in path.parts
+
+    @staticmethod
+    def _is_safe_https_url(value: str) -> bool:
+        parsed = urlsplit(value)
+        return (
+            parsed.scheme == "https"
+            and bool(parsed.hostname)
+            and parsed.username is None
+            and parsed.password is None
+            and not parsed.query
+            and not parsed.fragment
+        )
+
+    def _helper_literal_argument(self, node: ast.Name) -> ast.Constant | None:
+        current: ast.AST | None = node
+        while current is not None and not isinstance(current, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            current = self.parents.get(current)
+        if not isinstance(current, ast.FunctionDef):
+            return None
+        argument_names = [argument.arg for argument in current.args.args]
+        if node.id not in argument_names:
+            return None
+        calls = [
+            candidate
+            for candidate in ast.walk(self.tree)
+            if isinstance(candidate, ast.Call)
+            and isinstance(candidate.func, ast.Name)
+            and candidate.func.id == current.name
+        ]
+        index = argument_names.index(node.id)
+        if len(calls) != 1 or index >= len(calls[0].args):
+            return None
+        value = calls[0].args[index]
+        return value if isinstance(value, ast.Constant) and isinstance(value.value, str) else None
+
+    def _validate_safe_path_tail(self, node: ast.expr) -> None:
+        value: object
+        if isinstance(node, ast.Constant):
+            value = node.value
+        elif isinstance(node, ast.Name):
+            resolved = self._helper_literal_argument(node)
+            if resolved is None:
+                raise RuntimeError("setup.py metadata path component is not statically bound")
+            value = resolved.value
+        else:
+            raise RuntimeError("setup.py metadata path component is not statically bound")
+        if not isinstance(value, str) or not self._is_safe_relative_path(value):
+            raise RuntimeError("setup.py metadata path component is unsafe")
+
+    def _is_direct_source_root(self, node: ast.expr) -> bool:
+        if (
+            isinstance(node, ast.Call)
+            and _ast_call_path(node.func) == ("os", "path", "dirname")
+            and len(node.args) == 1
+            and not node.keywords
+            and isinstance(node.args[0], ast.Name)
+            and node.args[0].id == "__file__"
+        ):
+            return True
+        if (
+            isinstance(node, ast.Call)
+            and _ast_call_path(node.func) == ("os", "path", "realpath")
+            and len(node.args) == 1
+            and not node.keywords
+            and isinstance(node.args[0], ast.Call)
+            and _ast_call_path(node.args[0].func) == ("os", "path", "join")
+            and len(node.args[0].args) == 3
+            and not node.args[0].keywords
+            and isinstance(node.args[0].args[0], ast.Name)
+            and node.args[0].args[0].id == "__file__"
+            and isinstance(node.args[0].args[1], ast.Constant)
+            and node.args[0].args[1].value == ".."
+            and isinstance(node.args[0].args[2], ast.Constant)
+            and isinstance(node.args[0].args[2].value, str)
+            and self._is_safe_relative_path(node.args[0].args[2].value)
+            and isinstance(self.parents.get(node), ast.Assign)
+            and self.parents[node].value is node  # type: ignore[union-attr]
+            and len(self.parents[node].targets) == 1  # type: ignore[union-attr]
+            and isinstance(self.parents[node].targets[0], ast.Name)  # type: ignore[union-attr]
+            and self.parents.get(self.parents[node]) is self.tree
+            and (
+                self.resource_context is None or self.parents[node].lineno < self.resource_context.lineno  # type: ignore[union-attr]
+            )
+        ):
+            # The sole parent component removes setup.py itself; it cannot
+            # ascend above the statically known source root.
+            return True
+        return self._is_source_directory_value(node)
+
+    def _validate_resource_loop_component(self, node: ast.Name, seen: frozenset[str]) -> None:
+        current: ast.AST | None = node
+        loop: ast.For | None = None
+        while current is not None and current is not self.resource_context:
+            current = self.parents.get(current)
+            if isinstance(current, ast.For) and isinstance(current.target, ast.Name) and current.target.id == node.id:
+                loop = current
+                break
+        if (
+            loop is None
+            or not isinstance(loop.iter, ast.Call)
+            or _ast_call_path(loop.iter.func) != ("os", "listdir")
+            or len(loop.iter.args) != 1
+            or loop.iter.keywords
+        ):
+            raise RuntimeError("setup.py resource path component is not bound to one directory listing")
+        self._validate_resource_path(loop.iter.args[0], seen)
+
+    def _validate_resource_path(self, node: ast.expr, seen: frozenset[str] = frozenset()) -> None:
+        if self._is_direct_source_root(node):
+            return
+        if isinstance(node, ast.Name):
+            if node.id == self._resource_temp_name():
+                return
+            if node.id in seen:
+                raise RuntimeError("setup.py resource path binding is cyclic")
+            values = self._assignment_values(node.id)
+            if not values:
+                raise RuntimeError("setup.py resource path is not statically rooted")
+            for value in values:
+                self._validate_resource_path(value, seen | {node.id})
+            return
+        if isinstance(node, ast.Call) and _ast_call_path(node.func) == ("os", "path", "join"):
+            if not 2 <= len(node.args) <= 3 or node.keywords:
+                raise RuntimeError("setup.py resource path join is unsupported")
+            self._validate_resource_path(node.args[0], seen)
+            for tail in node.args[1:]:
+                if isinstance(tail, ast.Name):
+                    values = self._assignment_values(tail.id)
+                    if len(values) == 1 and isinstance(values[0], ast.Constant) and isinstance(values[0].value, str):
+                        self._validate_safe_path_tail(values[0])
+                    else:
+                        self._validate_resource_loop_component(tail, seen)
+                else:
+                    self._validate_safe_path_tail(tail)
+            return
+        if (
+            isinstance(node, ast.Call)
+            and _ast_call_path(node.func) in {("os", "path", "abspath"), ("os", "path", "realpath")}
+            and len(node.args) == 1
+            and not node.keywords
+        ):
+            self._validate_resource_path(node.args[0], seen)
+            return
+        raise RuntimeError("setup.py resource path is not statically rooted")
+
+    def _validate_resource_path_list(self, node: ast.expr) -> None:
+        if isinstance(node, (ast.List, ast.Tuple)):
+            for item in node.elts:
+                if self._is_string_constant(item):
+                    value = item.value
+                    assert isinstance(value, str)
+                    if not self._is_safe_relative_path(value):
+                        raise RuntimeError("setup.py extension source path is unsafe")
+                else:
+                    self._validate_resource_path(item)
+            return
+        if isinstance(node, ast.Name) and node.id in self.list_names:
+            initializers = self._assignment_values(node.id)
+            if len(initializers) != 1 or not isinstance(initializers[0], ast.List):
+                raise RuntimeError("setup.py extension source list is not statically initialized")
+            self._validate_resource_path_list(initializers[0])
+            appends = [
+                candidate
+                for candidate in ast.walk(self.tree)
+                if isinstance(candidate, ast.Call)
+                and isinstance(candidate.func, ast.Attribute)
+                and isinstance(candidate.func.value, ast.Name)
+                and candidate.func.value.id == node.id
+                and candidate.func.attr == "append"
+            ]
+            if not appends:
+                raise RuntimeError("setup.py extension source list has no bounded entries")
+            for append in appends:
+                if len(append.args) != 1 or append.keywords:
+                    raise RuntimeError("setup.py extension source append is unsupported")
+                self._validate_resource_path(append.args[0])
+            return
+        if isinstance(node, ast.BinOp) and isinstance(node.op, ast.Add):
+            self._validate_resource_path_list(node.left)
+            self._validate_resource_path_list(node.right)
+            return
+        if isinstance(node, ast.IfExp):
+            self._validate_expression(node.test)
+            self._validate_resource_path_list(node.body)
+            self._validate_resource_path_list(node.orelse)
+            return
+        raise RuntimeError("setup.py extension source paths are not statically confined")
+
     def _validate_source_path(self, node: ast.expr) -> None:
         if self._is_string_constant(node):
             value = node.value
             assert isinstance(value, str)
-            if not value or PurePosixPath(value).is_absolute() or ".." in PurePosixPath(value).parts:
+            if not self._is_safe_relative_path(value):
                 raise RuntimeError("setup.py metadata path is not source-relative")
             return
         if not isinstance(node, ast.Call) or _ast_call_path(node.func) != ("os", "path", "join"):
@@ -2295,14 +2526,13 @@ class _LegacySetupGrammar:
             and isinstance(first.args[0], ast.Name)
             and first.args[0].id == "__file__"
         )
-        named_root = isinstance(first, ast.Name) and first.id in self.source_directory_names
-        if not (direct_root or named_root) or not all(
-            self._is_string_constant(item)
-            or isinstance(item, ast.Name)
-            and item.id in self.bound_names - self.module_names - set(self.functions)
-            for item in node.args[1:]
-        ):
+        named_root = False
+        if isinstance(first, ast.Name) and first.id in self.source_directory_names:
+            named_root = self._is_source_directory_value(self._unique_assignment_value(first.id))
+        if not (direct_root or named_root):
             raise RuntimeError("setup.py metadata path is not statically source-relative")
+        for item in node.args[1:]:
+            self._validate_safe_path_tail(item)
 
     def _setup_binding_value(self, node: ast.Name) -> ast.expr:
         scopes: tuple[ast.AST, ...] = (self.tree,) + ((self.resource_context,) if self.resource_context else ())
@@ -2339,6 +2569,22 @@ class _LegacySetupGrammar:
                 self._validate_literal(value)
             return
         raise RuntimeError("setup.py setup() keyword must be a static literal")
+
+    def _validate_literal_choice(self, node: ast.expr) -> None:
+        if isinstance(node, ast.IfExp):
+            if (
+                not isinstance(node.test, ast.Compare)
+                or _ast_call_path(node.test.left) != ("sys", "platform")
+                or len(node.test.ops) != 1
+                or not isinstance(node.test.ops[0], ast.Eq)
+                or len(node.test.comparators) != 1
+                or not self._is_string_constant(node.test.comparators[0])
+            ):
+                raise RuntimeError("setup.py platform literal selection is unsupported")
+            self._validate_literal(node.body)
+            self._validate_literal(node.orelse)
+            return
+        self._validate_literal(node)
 
     def _validate_static_string(self, node: ast.expr, *, attribute: str | None = None) -> None:
         if self._is_string_constant(node):
@@ -2538,8 +2784,11 @@ class _LegacySetupGrammar:
                 or {keyword.arg for keyword in node.keywords} != expected
             ):
                 raise RuntimeError("setup.py extension declaration is unsupported")
-            for keyword in node.keywords:
-                self._validate_expression(keyword.value)
+            values = {keyword.arg: keyword.value for keyword in node.keywords}
+            self._validate_resource_path_list(values["sources"])
+            self._validate_resource_path_list(values["include_dirs"])
+            for name in expected - {"sources", "include_dirs"}:
+                self._validate_literal_choice(values[name])
             return
         if path == ("re", "sub"):
             if len(node.args) != 3 or node.keywords:
@@ -2565,16 +2814,47 @@ class _LegacySetupGrammar:
             ):
                 raise RuntimeError("setup.py resource context is unsupported")
             return
-        if path in {
-            ("io", "BytesIO"),
-            ("os", "listdir"),
-            ("os", "path", "isfile"),
-            ("urllib", "request", "urlopen"),
-            ("zipfile", "ZipFile"),
-        }:
+        if path == ("urllib", "request", "urlopen"):
             if not self._inside_resource_context(node) or len(node.args) != 1 or node.keywords:
                 raise RuntimeError("setup.py resource preparation call is unsupported")
-            self._validate_expression(node.args[0])
+            argument = node.args[0]
+            if not isinstance(argument, ast.Name):
+                raise RuntimeError("setup.py resource URL is not one approved HTTPS binding")
+            value = self._unique_assignment_value(argument.id)
+            if (
+                not isinstance(value, ast.Constant)
+                or not isinstance(value.value, str)
+                or not self._is_safe_https_url(value.value)
+            ):
+                raise RuntimeError("setup.py resource URL is not one approved HTTPS binding")
+            return
+        if path == ("io", "BytesIO"):
+            if not self._inside_resource_context(node) or len(node.args) != 1 or node.keywords:
+                raise RuntimeError("setup.py resource preparation call is unsupported")
+            read = node.args[0]
+            if (
+                not isinstance(read, ast.Call)
+                or read.args
+                or read.keywords
+                or not isinstance(read.func, ast.Attribute)
+                or read.func.attr != "read"
+                or not isinstance(read.func.value, ast.Name)
+            ):
+                raise RuntimeError("setup.py resource buffer is not bound to the approved response")
+            self._validate_call(self._require_call_binding(read.func.value.id, ("urllib", "request", "urlopen")))
+            return
+        if path == ("zipfile", "ZipFile"):
+            if not self._inside_resource_context(node) or len(node.args) != 1 or node.keywords:
+                raise RuntimeError("setup.py resource preparation call is unsupported")
+            source = node.args[0]
+            if not isinstance(source, ast.Name):
+                raise RuntimeError("setup.py resource archive is not bound to the approved response")
+            self._validate_call(self._require_call_binding(source.id, ("io", "BytesIO")))
+            return
+        if path in {("os", "listdir"), ("os", "path", "isfile")}:
+            if not self._inside_resource_context(node) or len(node.args) != 1 or node.keywords:
+                raise RuntimeError("setup.py resource preparation call is unsupported")
+            self._validate_resource_path(node.args[0])
             return
         if path == ("tarfile", "open"):
             if (
@@ -2583,12 +2863,34 @@ class _LegacySetupGrammar:
                 or [keyword.arg for keyword in node.keywords] != ["fileobj"]
             ):
                 raise RuntimeError("setup.py resource archive call is unsupported")
-            self._validate_expression(node.keywords[0].value)
+            source = node.keywords[0].value
+            if not isinstance(source, ast.Name):
+                raise RuntimeError("setup.py resource archive is not bound to the approved response")
+            self._validate_call(self._require_call_binding(source.id, ("io", "BytesIO")))
             return
         if path == ("print",):
             if not self._inside_resource_context(node) or len(node.args) != 1 or node.keywords:
                 raise RuntimeError("setup.py resource status call is unsupported")
-            self._validate_expression(node.args[0])
+            message = node.args[0]
+            if self._is_string_constant(message):
+                return
+            if (
+                not isinstance(message, ast.Call)
+                or not isinstance(message.func, ast.Attribute)
+                or message.func.attr != "format"
+                or not self._is_string_constant(message.func.value)
+                or len(message.args) != 1
+                or message.keywords
+                or not isinstance(message.args[0], ast.Name)
+            ):
+                raise RuntimeError("setup.py resource status output is not fixed")
+            value = self._unique_assignment_value(message.args[0].id)
+            if (
+                not isinstance(value, ast.Constant)
+                or not isinstance(value.value, str)
+                or not self._is_safe_https_url(value.value)
+            ):
+                raise RuntimeError("setup.py resource status output is not fixed")
             return
         if path is not None and len(path) == 1 and path[0] in self.functions:
             function = self.functions[path[0]]
@@ -2606,8 +2908,18 @@ class _LegacySetupGrammar:
             receiver = node.func.value
             method = node.func.attr
             if method == "read" and not node.args and not node.keywords:
-                if isinstance(receiver, ast.Name) and receiver.id in self.handle_names | self.response_names:
+                if isinstance(receiver, ast.Name) and receiver.id in self.handle_names:
                     return
+                if isinstance(receiver, ast.Name) and receiver.id in self.response_names:
+                    parent = self.parents.get(node)
+                    if (
+                        isinstance(parent, ast.Call)
+                        and _ast_call_path(parent.func) == ("io", "BytesIO")
+                        and parent.args == [node]
+                        and not parent.keywords
+                    ):
+                        self._validate_call(self._require_call_binding(receiver.id, ("urllib", "request", "urlopen")))
+                        return
                 if isinstance(receiver, ast.Call) and _ast_call_path(receiver.func) in {("open",), ("io", "open")}:
                     self._validate_call(receiver)
                     return
@@ -2632,10 +2944,27 @@ class _LegacySetupGrammar:
                     return
             if method == "append" and self._inside_resource_context(node) and len(node.args) == 1:
                 if isinstance(receiver, ast.Name) and receiver.id in self.list_names and not node.keywords:
-                    self._validate_expression(node.args[0])
+                    self._validate_resource_path(node.args[0])
                     return
             if method == "extractall" and self._inside_resource_context(node) and len(node.args) == 1:
-                if isinstance(receiver, ast.Name) and receiver.id in self.archive_names and not node.keywords:
+                destination = node.args[0]
+                if (
+                    isinstance(receiver, ast.Name)
+                    and receiver.id in self.archive_names
+                    and not node.keywords
+                    and isinstance(destination, ast.Name)
+                    and destination.id == self._resource_temp_name()
+                ):
+                    archives = self._assignment_values(receiver.id)
+                    if not archives or any(
+                        not isinstance(archive, ast.Call)
+                        or _ast_call_path(archive.func) not in {("zipfile", "ZipFile"), ("tarfile", "open")}
+                        for archive in archives
+                    ):
+                        raise RuntimeError("setup.py resource archive binding is unsupported")
+                    for archive in archives:
+                        assert isinstance(archive, ast.Call)
+                        self._validate_call(archive)
                     self._validate_expression(node.args[0])
                     return
         raise RuntimeError("setup.py contains an unsupported call")
@@ -2766,11 +3095,8 @@ class _LegacySetupGrammar:
             raise RuntimeError("setup.py assignments must bind one direct name")
         name = self._target_name(node.targets[0])
         if (
-            name
-            in {"ImportError", "open", "print", "setup", "setuptools"}
-            | self.module_names
-            | set(self.functions)
-            | self.imported_symbols
+            name in self._RESERVED_BINDINGS | self.module_names | set(self.functions) | self.imported_symbols
+            or name == self._resource_temp_name()
         ):
             raise RuntimeError("setup.py contains an ambiguous declaration binding")
         self._validate_expression(node.value)
@@ -2781,7 +3107,7 @@ class _LegacySetupGrammar:
                 raise RuntimeError("setup.py resource context is unsupported")
             optional_name = node.items[0].optional_vars
             if not isinstance(optional_name, ast.Name) or optional_name.id in (
-                self.module_names | self.imported_symbols | set(self.functions) | {"ImportError", "open", "print"}
+                self.module_names | self.imported_symbols | set(self.functions) | self._RESERVED_BINDINGS
             ):
                 raise RuntimeError("setup.py resource context shadows an approved binding")
             self._validate_call(node.items[0].context_expr)  # type: ignore[arg-type]
@@ -2804,11 +3130,18 @@ class _LegacySetupGrammar:
             )
         ):
             raise RuntimeError("setup.py metadata read context is unsupported")
-        if node.items[0].optional_vars.id in self.module_names | self.imported_symbols | set(self.functions) | {
-            "ImportError",
-            "open",
-            "print",
-        }:
+        if node.items[0].optional_vars.id in (
+            self.module_names
+            | self.imported_symbols
+            | set(self.functions)
+            | self._RESERVED_BINDINGS
+            | self.source_directory_names
+            | self.https_url_names
+            | self.response_names
+            | self.buffer_names
+            | self.archive_names
+            | ({self._resource_temp_name()} if self._resource_temp_name() is not None else set())
+        ):
             raise RuntimeError("setup.py metadata read shadows an approved binding")
         self._validate_call(node.items[0].context_expr)
         self._validate_assignment(node.body[0])
@@ -2830,13 +3163,19 @@ class _LegacySetupGrammar:
             or not isinstance(node.body[-1], ast.Return)
         ):
             raise RuntimeError("setup.py metadata helper is unsupported")
-        if (
-            node.name
-            in {"ImportError", "open", "print", "setup", "setuptools"} | self.module_names | self.imported_symbols
-        ):
+        if node.name in self._RESERVED_BINDINGS | self.module_names | self.imported_symbols:
             raise RuntimeError("setup.py metadata helper shadows an approved binding")
         if any(
-            argument.arg in self.module_names | self.imported_symbols | {"ImportError", "open", "print"}
+            argument.arg
+            in self.module_names
+            | self.imported_symbols
+            | self._RESERVED_BINDINGS
+            | self.source_directory_names
+            | self.https_url_names
+            | self.response_names
+            | self.buffer_names
+            | self.archive_names
+            | ({self._resource_temp_name()} if self._resource_temp_name() is not None else set())
             for argument in node.args.args
         ):
             raise RuntimeError("setup.py metadata helper shadows an approved binding")
@@ -2879,11 +3218,18 @@ class _LegacySetupGrammar:
             or not isinstance(node.body[0], ast.If)
         ):
             raise RuntimeError("setup.py resource iteration is unsupported")
-        if node.target.id in self.module_names | self.imported_symbols | set(self.functions) | {
-            "ImportError",
-            "open",
-            "print",
-        }:
+        if node.target.id in (
+            self.module_names
+            | self.imported_symbols
+            | set(self.functions)
+            | self._RESERVED_BINDINGS
+            | self.source_directory_names
+            | self.https_url_names
+            | self.response_names
+            | self.buffer_names
+            | self.archive_names
+            | ({self._resource_temp_name()} if self._resource_temp_name() is not None else set())
+        ):
             raise RuntimeError("setup.py resource iteration shadows an approved binding")
         self._validate_call(node.iter)
         self._validate_statement(node.body[0], "resource")

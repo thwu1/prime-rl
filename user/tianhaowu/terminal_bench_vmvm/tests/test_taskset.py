@@ -2189,6 +2189,8 @@ def test_static_build_requirement_extraction_is_fail_closed(tmp_path: Path) -> N
         b"from setuptools import setup\nsetup(name='one', version=get_version())\n",
         b"import os\nfrom setuptools import setup\nsetup(name='one', version=os.path.join('dynamic', 'version'))\n",
         b"import os\nfrom setuptools import setup\nVERSION = os.path.join('dynamic', 'version')\nsetup(name='one', version=VERSION)\n",
+        b"import os\nfrom setuptools import setup\n__file__ = '/etc'\nsetup(name='one', long_description=open(os.path.join(os.path.dirname(__file__), 'passwd')).read())\n",
+        b"import os\nfrom setuptools import setup\ndef read(__file__):\n    return open(os.path.join(os.path.dirname(__file__), 'README')).read()\nsetup(name='one', long_description=read('/etc/passwd'))\n",
         b"from setuptools import setup\ndef metadata():\n    return 'dynamic'\nsetup(name='one', description=metadata())\n",
         b"from setuptools import setup\nsetup(name='one', setup_requires=get_requirements())\n",
         b"from setuptools import setup\nif True:\n    setup(name='one')\n",
@@ -2310,6 +2312,132 @@ def test_static_build_requirement_extraction_is_fail_closed(tmp_path: Path) -> N
         ),
     )
     assert extract_static_build_requirements(load_source(resource_context), resource_context) == ()
+
+    unsafe_source_paths = (
+        b"import os\nfrom setuptools import setup\nsetup(name='verifier-helper', long_description=open(os.path.join(os.path.dirname(__file__), '..', 'passwd')).read())\n",
+        b"import os\nfrom setuptools import setup\nsetup(name='verifier-helper', long_description=open(os.path.join(os.path.dirname(__file__), '/etc/passwd')).read())\n",
+        b"import os\nfrom setuptools import setup\nMETADATA_PATH = 'README'\nsetup(name='verifier-helper', long_description=open(os.path.join(os.path.dirname(__file__), METADATA_PATH)).read())\n",
+        b"import os\nfrom setuptools import setup\ndef read(path):\n    return open(os.path.join(os.path.dirname(__file__), path)).read()\nsetup(name='verifier-helper', long_description=read('/etc/passwd'))\n",
+    )
+    for setup_source in unsafe_source_paths:
+        unsafe_path = archive(
+            ("verifier_helper-1.0/PKG-INFO", metadata),
+            ("verifier_helper-1.0/setup.py", setup_source),
+        )
+        with pytest.raises(RuntimeError, match="setup.py"):
+            extract_static_build_requirements(load_source(unsafe_path), unsafe_path)
+
+    def source_root_resource(root_expression: str, *, direct: bool = False) -> bytes:
+        declaration = "" if direct else f"RESOURCE_ROOT = {root_expression}\n"
+        checked_path = root_expression if direct else "RESOURCE_ROOT"
+        return archive(
+            ("verifier_helper-1.0/PKG-INFO", metadata),
+            (
+                "verifier_helper-1.0/setup.py",
+                (
+                    "import os\n"
+                    "import tempfile\n"
+                    "from setuptools import setup\n"
+                    f"{declaration}"
+                    "with tempfile.TemporaryDirectory() as directory:\n"
+                    f"    if os.path.isfile(os.path.join({checked_path}, 'marker.h')):\n"
+                    "        print('using bundled resource')\n"
+                    "    setup(name='verifier-helper', version='1.0')\n"
+                ).encode(),
+            ),
+        )
+
+    canonical_source_root = "os.path.realpath(os.path.join(__file__, '..', 'resources'))"
+    safe_source_root = source_root_resource(canonical_source_root)
+    assert (
+        extract_static_build_requirements(
+            load_source(safe_source_root),
+            safe_source_root,
+        )
+        == ()
+    )
+    unsafe_resource_roots = (
+        source_root_resource("os.path.realpath(os.path.join(__file__, '..', '..'))"),
+        source_root_resource("os.path.realpath(os.path.join(__file__, '..', '/etc'))"),
+        source_root_resource(canonical_source_root, direct=True),
+        archive(
+            ("verifier_helper-1.0/PKG-INFO", metadata),
+            (
+                "verifier_helper-1.0/setup.py",
+                b"import os\n"
+                b"from setuptools import setup\n"
+                b"RESOURCE_ROOT = os.path.realpath(os.path.join(__file__, '..', 'resources'))\n"
+                b"setup(name='verifier-helper', long_description=open(RESOURCE_ROOT).read())\n",
+            ),
+        ),
+    )
+    for unsafe_resource_root in unsafe_resource_roots:
+        with pytest.raises(RuntimeError, match="setup.py"):
+            extract_static_build_requirements(load_source(unsafe_resource_root), unsafe_resource_root)
+
+    def resource_archive(url: str, destination: str, status: bytes) -> bytes:
+        return archive(
+            ("verifier_helper-1.0/PKG-INFO", metadata),
+            (
+                "verifier_helper-1.0/setup.py",
+                b"import io\n"
+                b"import tempfile\n"
+                b"import urllib.request\n"
+                b"import zipfile\n"
+                b"from setuptools import setup\n"
+                + f"RESOURCE_URL = {url!r}\n".encode()
+                + b"with tempfile.TemporaryDirectory() as directory:\n"
+                + b"    response = urllib.request.urlopen(RESOURCE_URL)\n"
+                + b"    buffer = io.BytesIO(response.read())\n"
+                + b"    resource = zipfile.ZipFile(buffer)\n"
+                + b"    "
+                + status
+                + b"\n"
+                + f"    resource.extractall({destination})\n".encode()
+                + b"    setup(name='verifier-helper', version='1.0')\n",
+            ),
+        )
+
+    unsafe_resources = (
+        resource_archive("file:///etc/passwd", "directory", b"print('fetching resource')"),
+        resource_archive("https://files.example.invalid/resource.zip", "'/'", b"print('fetching resource')"),
+        resource_archive(
+            "https://files.example.invalid/resource.zip",
+            "directory",
+            b"print(response.read())",
+        ),
+    )
+    for unsafe_resource in unsafe_resources:
+        with pytest.raises(RuntimeError, match="setup.py"):
+            extract_static_build_requirements(load_source(unsafe_resource), unsafe_resource)
+
+    def extension_source_resource(append_root: str) -> bytes:
+        return archive(
+            ("verifier_helper-1.0/PKG-INFO", metadata),
+            (
+                "verifier_helper-1.0/setup.py",
+                (
+                    "import os\n"
+                    "import tempfile\n"
+                    "from setuptools import Extension, setup\n"
+                    "SOURCES = []\n"
+                    "with tempfile.TemporaryDirectory() as directory:\n"
+                    "    for filename in os.listdir(directory):\n"
+                    "        if filename.endswith('.c') and not os.path.isfile(os.path.join(directory, filename)):\n"
+                    f"            SOURCES.append(os.path.join({append_root}, filename))\n"
+                    "    extension = Extension('proof.extension', sources=['wrapper.c'] + SOURCES, "
+                    "libraries=[], include_dirs=[directory], undef_macros=[], extra_compile_args=[], "
+                    "define_macros=[])\n"
+                    "    setup(name='verifier-helper', version='1.0', ext_modules=[extension])\n"
+                ).encode(),
+            ),
+        )
+
+    safe_extension_source = extension_source_resource("directory")
+    assert extract_static_build_requirements(load_source(safe_extension_source), safe_extension_source) == ()
+    unsafe_extension_source = extension_source_resource("'/'")
+    with pytest.raises(RuntimeError, match="setup.py resource path"):
+        extract_static_build_requirements(load_source(unsafe_extension_source), unsafe_extension_source)
 
     contextual_requirements = archive(
         ("verifier_helper-1.0/PKG-INFO", metadata),

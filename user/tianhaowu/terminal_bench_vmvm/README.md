@@ -215,6 +215,19 @@ and cannot declare `setup_requires`. Unrelated legacy metadata computation may
 remain only within a positive grammar for literals, source-relative metadata
 reads, fixed string/path transforms, static package discovery, explicit Python
 version guards, and the one bounded resource-preparation form. Local metadata
+paths reserve `__file__`, resolve every join tail (including helper arguments)
+to a nonempty relative literal, and reject absolute or parent components. The
+resource grammar alone recognizes the exact
+`realpath(join(__file__, "..", <safe-relative-dir>))` initializer: its one
+literal parent step removes the `setup.py` filename and cannot escape the
+source root. It is rejected in general joins and metadata reads. Every resource
+`isfile`, `listdir`, loop-derived filename, appended extension source, and
+extension include/source path must trace to that source root or the live
+temporary root. The
+resource form requires one statically bound credential-free HTTPS URL, traces
+its response through `BytesIO` into the ZIP/tar reader, permits only fixed
+status output, and confines `extractall` to the live `TemporaryDirectory`.
+Local metadata
 reader helpers must match that grammar and be used exactly once as
 `long_description`; arbitrary imports, assignments, helper calls, side effects,
 and dynamic non-dependency keywords fail closed. The sole local-import form is
