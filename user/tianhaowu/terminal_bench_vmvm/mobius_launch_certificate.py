@@ -602,7 +602,10 @@ def _validate_tb4_checkpoint(
         except (OSError, ShardWorkflowError) as cause:
             raise LaunchCertificateError("tb4_sharded_checkpoint_invalid") from cause
         expected_routes = validated.get("expected_routes")
-        if type(expected_routes) is not int or expected_routes != 1:
+        if type(expected_routes) is not int or (
+            (schema_version == 2 and expected_routes != 1)
+            or (schema_version == 3 and expected_routes != 1 and expected_routes != 2)
+        ):
             raise LaunchCertificateError("tb4_route_count_invalid")
         return validated
     expected_keys = {
