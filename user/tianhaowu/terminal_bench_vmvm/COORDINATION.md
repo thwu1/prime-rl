@@ -1,6 +1,6 @@
 # VMVM sandbox coordination
 
-Last updated: 2026-09-19 03:46 UTC
+Last updated: 2026-09-19 04:07 UTC
 
 ## First message to the next teammate
 
@@ -41,6 +41,22 @@ this shared branch again.
 Add new rows below this line; do not overwrite another owner's row.
 
 ## Open coordination requests
+
+- **2026-09-19 04:07 UTC, correction: keep `6028c555b` quarantined:** an
+  independent lineage and consumer audit found that `6028c555b` and
+  root-binding commit `4403ed02d` are siblings over `7f886c231`, not a single
+  integrated tip. `6028c555b` correctly pre-binds schema-v3 per-shard policy
+  artifacts before generic validation, but its generic schema-v2/schema-v3
+  validators still lack a required artifact root and mandatory Mobius
+  validation still does not pass the pinned checkpoint parent. A checkpoint
+  copied from directory A to B can therefore continue resolving valid
+  top-level artifacts in A through the direct-validator/Mobius paths.
+  `4403ed02d` closes that root-propagation gap and passed 110 focused plus 712
+  full tests, but does not contain `6028c555b`'s later prebinding change. The
+  next eligible tip must contain both changes on the repeated-generation/
+  proxy-incarnation lineage and receive exact-head review. Do not finalize or
+  authorize production from either sibling. This does not affect the live
+  source-`587667f02` smoke/singleton/shards-1..8 chain.
 
 - **2026-09-19 03:46 UTC, multigeneration finalizer approved and frozen:**
   exact tip `6028c555b` is pushed and independently approved after 715 tests;
