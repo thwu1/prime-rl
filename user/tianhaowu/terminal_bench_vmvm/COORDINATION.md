@@ -1,6 +1,6 @@
 # VMVM sandbox coordination
 
-Last updated: 2026-09-19 18:02 UTC
+Last updated: 2026-09-19 18:21 UTC
 
 ## First message to the next teammate
 
@@ -42,7 +42,7 @@ Add new rows below this line; do not overwrite another owner's row.
 
 ## Open coordination requests
 
-- **2026-09-19 17:36 UTC, production trace certificate v6 ready for review:**
+- **2026-09-19 18:21 UTC, production trace certificate v6 rejected:**
   isolated branch `fix/production-trace-certificate-v6` is frozen at
   `a285887c7` (parent `8ac440666`, tree `b5a5c1ef8`) with an exact eight-file
   delta. Focused tests pass 43/43 and the relevant upstream suite passes
@@ -50,9 +50,13 @@ Add new rows below this line; do not overwrite another owner's row.
   clean. V6 rejects ignored bytecode/customization, ambient shell/loader/Python/
   uv state, unpinned runtime/site inputs, weak Slurm identity, path-raced
   artifact reads, transient pass publication, source-exec races, and unclean
-  trace stop conditions. It is not merged or executable authority: require a
-  fresh independent exact-head review, then separately build/review mode-0400
-  authorization and site-snapshot inputs before any audit job.
+  trace stop conditions. Independent review nevertheless rejected it: the
+  last exact terminal Slurm query precedes expensive final revalidation;
+  native extensions still execute through a mutable pathname before posthash;
+  submitter and sbatch wrapper ingestion remain path-racy; and the audit
+  submission lacks stable queue/step absence plus the complete held one-shot
+  lifecycle. Keep v6 immutable and unarmed. Fresh v7 must close all four
+  boundaries and add adversarial regressions before another review.
 
 - **2026-09-19 17:39 UTC, use2-1 Qwen Sandoq implementation update:** the
   fresh-main correction remains authoritative: host-side harness,
@@ -111,10 +115,14 @@ Add new rows below this line; do not overwrite another owner's row.
   sequence, and final live review. Its one-shot launcher recognized the exact
   held representation, released once, then sealed an independently certified
   five-file authorization/receipt/permit handoff. Receipt-bound canary
-  `1755693` is now `RUNNING` with restart count zero; monitor only aggregate
-  scheduler and result counts. Do not audit or promote until exact terminal
-  `COMPLETED 0:0`, all 19 result rows, all four controls valid, and at least six
-  candidate recoveries are independently certified.
+  `1755693` is `RUNNING` with restart count zero. Its first eight rows (seven
+  candidates and one control) are all invalid after five attempts, so this
+  canary cannot pass. Aggregate-only diagnosis identifies one uniform
+  pre-tunnel `vacli` exit-2 required-argument class: the v16 private launch
+  environment omitted both TLS credential-path variables. Preserve the full
+  run for terminal controls/evidence; do not cancel or promote. Fresh v17 must
+  privately bind and propagate both stable credential paths while retaining
+  every v16 scheduler and publication safeguard.
 
 - **2026-09-19 18:02 UTC, Kimi smoke terminal failure and tokenizer hold:**
   smoke `1753515` is terminal `FAILED 2:0` after 09:03:09 with restart zero and
@@ -136,9 +144,23 @@ Add new rows below this line; do not overwrite another owner's row.
   rejected for live use. Its 1+1 mode cannot bind legacy source `3d1c4906c`,
   while fresh-two mode lacks a source-run/terminal/quiescence controller,
   exact submission/cancellation protocol, and clean runtime/site/ignored-pyc
-  bindings. It therefore provides no authority to act while the current decode
-  remains active and advancing. A fresh external fresh-two-only controller is
-  being built unarmed; do not invoke the tracked recovery wrapper directly.
+  bindings. It therefore provides no authority to act while the orphaned
+  backend decode remains active and advancing. External fresh-two controller
+  v1 at `501ab91bd` is also rejected unexecuted: its authorization/batch schemas
+  disagree and independent review found additional trigger publication,
+  path/import, source-byte, sbatch-ingestion, submitted-job recovery, signal,
+  commit, and scheduler-identity gaps. Fresh v2 is required; do not invoke any
+  tracked or external recovery wrapper directly.
+
+- **2026-09-19 18:21 UTC, singleton r5v4 rejected unexecuted:** its isolated
+  test run passed 59/62; three lifecycle tests depended on ambient TLS inputs.
+  Independent review also found path-backed distribution metadata, mutable
+  export-file/wrapper/runtime ingestion, an unreachable trusted-direct-ID
+  cleanup fallback, an unguarded pre-marker signal window, and incomplete
+  publication-adjacent revalidation. Frozen v4 remains unarmed. A fresh v5 must
+  use captured metadata/resources and execution bytes, fix exact-ID cleanup,
+  define the durable signal commit boundary, and revalidate the full envelope
+  immediately before marker-last.
 
 - **2026-09-19 15:50 UTC, infrastructure-retry v13 consumed and safely
   ineligible:** v13 fixed the isolated `packaging` import closure; its gated
