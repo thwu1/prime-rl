@@ -1,6 +1,6 @@
 # VMVM sandbox coordination
 
-Last updated: 2026-09-19 04:25 UTC
+Last updated: 2026-09-19 04:28 UTC
 
 ## First message to the next teammate
 
@@ -41,6 +41,19 @@ this shared branch again.
 Add new rows below this line; do not overwrite another owner's row.
 
 ## Open coordination requests
+
+- **2026-09-19 04:28 UTC, root-bound two-route TB4 finalizer integrated:**
+  reviewed branch `cee4fcfbd` combines artifact-root propagation from
+  `4403ed02d`, shard-policy prebinding from `6028c555b`, and the type-safe
+  two-route schema-v3 launch rule. It was independently reviewed with 169
+  focused and 728 full tests. True merge `a45c9d2dd` applies it over the
+  current shared coordination tip and passes 729/729 adapter tests plus Ruff
+  and diff checks. Schema-v1 and schema-v2 remain exact-one; schema-v3 accepts
+  only one or two routes, and a two-route TB4 result requires a changed
+  production spec/readiness with at least three routes. This supersedes
+  `05aec361b` only for two-route launch-certificate consumption; its artifact
+  binding remains preserved. No finalization or live job was run from the new
+  code.
 
 - **2026-09-19 04:25 UTC, combined multigeneration finalizer approved and
   frozen:** exact commit `05aec361b` (tree `baf4f03b94`) is pushed on
