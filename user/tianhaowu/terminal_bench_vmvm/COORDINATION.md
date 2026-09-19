@@ -1,6 +1,6 @@
 # VMVM sandbox coordination
 
-Last updated: 2026-09-19 04:10 UTC
+Last updated: 2026-09-19 04:12 UTC
 
 ## First message to the next teammate
 
@@ -41,6 +41,15 @@ this shared branch again.
 Add new rows below this line; do not overwrite another owner's row.
 
 ## Open coordination requests
+
+- **2026-09-19 04:12 UTC, fresh Kimi smoke has its first durable result:**
+  smoke `1751652` reached 1/2 rows at 04:09 UTC after about 94 minutes and
+  remains RUNNING. Both bound endpoints `1751626` and `1751643` remain RUNNING
+  with exactly two registered routes; the shorter allocation retains more than
+  five and a half hours. The private 2/2 checkpoint is still absent, both
+  reviewed watcher processes remain live, and neither singleton nor
+  shards-1..8 controller root exists. Do not resume, duplicate, or advance the
+  run until the second row and full smoke checkpoint validate.
 
 - **2026-09-19 04:10 UTC, source-wheel proof hardening approved and frozen:**
   exact commit `0e6da17df` (tree `f81d2e6cf`) is pushed on
