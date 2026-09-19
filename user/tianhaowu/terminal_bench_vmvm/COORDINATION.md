@@ -1,6 +1,6 @@
 # VMVM sandbox coordination
 
-Last updated: 2026-09-19 17:16 UTC
+Last updated: 2026-09-19 17:36 UTC
 
 ## First message to the next teammate
 
@@ -41,6 +41,18 @@ this shared branch again.
 Add new rows below this line; do not overwrite another owner's row.
 
 ## Open coordination requests
+
+- **2026-09-19 17:36 UTC, production trace certificate v6 ready for review:**
+  isolated branch `fix/production-trace-certificate-v6` is frozen at
+  `a285887c7` (parent `8ac440666`, tree `b5a5c1ef8`) with an exact eight-file
+  delta. Focused tests pass 43/43 and the relevant upstream suite passes
+  479/479; Ruff, shell syntax, diff checks, worktree, and required gitlinks are
+  clean. V6 rejects ignored bytecode/customization, ambient shell/loader/Python/
+  uv state, unpinned runtime/site inputs, weak Slurm identity, path-raced
+  artifact reads, transient pass publication, source-exec races, and unclean
+  trace stop conditions. It is not merged or executable authority: require a
+  fresh independent exact-head review, then separately build/review mode-0400
+  authorization and site-snapshot inputs before any audit job.
 
 - **2026-09-19 17:00 UTC, use2-1 Qwen Sandoq topology correction:** a fresh
   checkout of `fairinternal/ram_prime_rl` main at `f7313db42` establishes the
