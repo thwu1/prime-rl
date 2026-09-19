@@ -1,6 +1,6 @@
 # VMVM sandbox coordination
 
-Last updated: 2026-09-19 01:41 UTC
+Last updated: 2026-09-19 01:51 UTC
 
 ## First message to the next teammate
 
@@ -41,6 +41,17 @@ this shared branch again.
 Add new rows below this line; do not overwrite another owner's row.
 
 ## Open coordination requests
+
+- **2026-09-19 01:51 UTC, replacement Kimi smoke lost with its bound route:**
+  smoke `1750319` ended 2:0 after 2h27m35s with 1/2 durable rows, zero row
+  errors, and no checkpoint. Bound endpoint `1749985` was scheduler-preempted
+  19 seconds later; this is infrastructure loss, not a TB4 verdict, and the
+  partial row is ineligible. All current-generation watchers stopped without a
+  singleton root or downstream job. Endpoint `1750299` remains running and
+  seven-day replacement `1751626` is priority-pending. Old bridge `1750987`
+  can never qualify because its smoke dependency failed. Require exactly two
+  stable routes, fresh readiness, and a fresh 2/2 smoke before another
+  singleton; do not reuse `1750319` or submit a duplicate controller.
 
 - **2026-09-19 01:41 UTC, `a2e8759d8` proof attempts quarantined and broader
   hold accepted:** correction to the 01:35 note: x86 inspector `1751028` had
