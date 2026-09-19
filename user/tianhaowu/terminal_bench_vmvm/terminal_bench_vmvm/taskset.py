@@ -1963,14 +1963,8 @@ class TerminalBenchVMVMTaskset(
             if compose_path is not None:
                 if not isinstance(runtime, VMVMRuntime):
                     raise UnsupportedTaskError(f"{task.name}: Docker Compose currently requires VMVMRuntime")
-                try:
-                    runtime._descriptor = await asyncio.to_thread(
-                        runtime.backend.start_compose,
-                        compose_path.read_bytes(),
-                    )
-                    compose_started = True
-                except Exception as error:
-                    raise SandboxError(f"VMVM compose provisioning failed: {error}") from error
+                await runtime.start_compose(compose_path.read_bytes())
+                compose_started = True
 
         await self._configure_network_policy(
             task,
@@ -2037,21 +2031,7 @@ class TerminalBenchVMVMTaskset(
             return await runtime.run(argv, env)
         if not isinstance(runtime, VMVMRuntime):
             raise UnsupportedTaskError(f"service {service!r} requires a compose-capable VMVMRuntime")
-        command = shlex.join(argv)
-        try:
-            result = await asyncio.to_thread(
-                runtime.backend.run_service_bash,
-                service,
-                command,
-                runtime.config.session_timeout,
-                env,
-                user,
-            )
-        except Exception as error:
-            raise SandboxError(f"VMVM service exec failed: {error}") from error
-        if result["exit_code"] < 0:
-            raise SandboxError(f"VMVM service exec failed ({result['error_type']}): {result['output']}")
-        return ProgramResult(exit_code=result["exit_code"], stdout=result["output"], stderr="")
+        return await runtime.run_service(service, argv, env, user=user)
 
     @staticmethod
     async def _read_service(runtime: Runtime, service: str, path: str) -> bytes:
@@ -2059,35 +2039,14 @@ class TerminalBenchVMVMTaskset(
             return await runtime.read(path)
         if not isinstance(runtime, VMVMRuntime):
             raise UnsupportedTaskError(f"service {service!r} requires a compose-capable VMVMRuntime")
-        try:
-            return await asyncio.to_thread(
-                runtime.backend.read_service_file,
-                service,
-                path,
-            )
-        except Exception as error:
-            raise SandboxError(f"read {path!r} from service {service!r}: {error}") from error
+        return await runtime.read_service(service, path)
 
     @staticmethod
     async def _run_root(runtime: Runtime, command: str) -> ProgramResult:
         """Run harness-owned setup as root without changing the agent user."""
         if not isinstance(runtime, VMVMRuntime):
             return await runtime.run(["sh", "-c", command], {})
-        try:
-            result = await asyncio.to_thread(
-                runtime.backend.run_root_bash,
-                command,
-                runtime.config.session_timeout,
-            )
-        except Exception as error:
-            raise SandboxError(f"VMVM root command failed: {error}") from error
-        if result["exit_code"] < 0:
-            raise SandboxError(f"VMVM root command failed ({result['error_type']}): {result['output']}")
-        return ProgramResult(
-            exit_code=result["exit_code"],
-            stdout=result["output"],
-            stderr="",
-        )
+        return await runtime.run_root(command)
 
     async def _stage_directory(self, runtime: Runtime, source: Path, target: str, label: str) -> None:
         if not source.is_dir():

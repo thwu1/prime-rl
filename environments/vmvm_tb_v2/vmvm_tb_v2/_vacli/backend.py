@@ -231,6 +231,11 @@ class VacliVMVMConfig:
     # easily exceeds 480 KB for larger submissions. Setting this here doesn't
     # affect any other AsyncSession user (the cap is per-instance).
     max_session_buffer_size: int | None = None
+    provisioning_cancel_event: threading.Event | None = field(
+        default=None,
+        repr=False,
+        compare=False,
+    )
     # Test seam: lets unit tests inject a stub `subprocess`-shaped namespace
     # (must expose `Popen`, `run`, `PIPE`, `DEVNULL`, `STDOUT`, `TimeoutExpired`)
     # so we never spawn real vacli/ssh. Production: leave None → real subprocess.
@@ -289,6 +294,7 @@ class VacliLease:
         cleanup_timeout: float = DEFAULT_VACLI_CLEANUP_TIMEOUT,
         subprocess_mod: Any = None,
         image_url: str | None = None,
+        cancel_event: threading.Event | None = None,
     ) -> None:
         self.tenant_id = tenant_id
         self.log_path = log_path
@@ -297,9 +303,11 @@ class VacliLease:
         self.cleanup_timeout = cleanup_timeout
         self._sp = subprocess_mod or subprocess
         self._image_url = image_url
+        self._cancel_event = cancel_event
         self.proc: Any = None
         self.ssh_port: int | None = None
         self._cleaned_up = False
+        self._cleanup_lock = threading.Lock()
         self._concurrency_state_lock = threading.Lock()
         self._concurrency_held = False
         # Raw LeaseVmResponse JSON (captured from the lease log) — input to
@@ -327,31 +335,30 @@ class VacliLease:
         # NOTE: image pre-pull via --tier-overrides removed; podman pull
         # inside the VM uses vmvm-registry.fbinfra.net mirror instead.
         logger.info(f"vacli: leasing VMVM (tenant={self.tenant_id}); log={self.log_path}")
-        try:
-            # `with open(...)` closes the parent's fd after Popen returns;
-            # the child has already inherited its own dup'd copy via Popen
-            # (stdout=log_fh), so closing here is safe and avoids holding
-            # one fd open per lease for the backend's lifetime.
-            with open(self.log_path, "wb") as log_fh:
-                # New process group via `process_group=0` (added in Python 3.11):
-                # a Ctrl-C in our terminal doesn't go straight to vacli; we want
-                # to SIGTERM it ourselves so cleanup is ordered. Prefer this over
-                # `preexec_fn=os.setsid` because preexec_fn runs in the forked
-                # child between fork() and exec() and is not safe in multi-
-                # threaded processes (we are).
-                _popen_kwargs = dict(
-                    stdout=log_fh,
-                    stderr=self._sp.STDOUT,
-                    process_group=0,
-                )
-                if self._sp is subprocess:
-                    # real subprocess only (test mocks may not accept preexec_fn):
-                    # kernel SIGTERMs vacli if the worker dies -> --release-on-exit
-                    _popen_kwargs["preexec_fn"] = _child_pdeathsig
-                self.proc = self._sp.Popen(cmd, **_popen_kwargs)
-        except Exception:
-            self._release_concurrency_slot()
-            raise
+        with self._cleanup_lock:
+            if self._cleaned_up or (self._cancel_event is not None and self._cancel_event.is_set()):
+                self._release_concurrency_slot()
+                raise BackendInitError("VMVM provisioning cancelled before lease start")
+            try:
+                # `with open(...)` closes the parent's fd after Popen returns;
+                # the child has already inherited its own dup'd copy after Popen.
+                with open(self.log_path, "wb") as log_fh:
+                    _popen_kwargs = dict(
+                        stdout=log_fh,
+                        stderr=self._sp.STDOUT,
+                        process_group=0,
+                    )
+                    if self._sp is subprocess:
+                        # Parent death closes vacli, whose release-on-exit then
+                        # releases the lease even if Python teardown cannot run.
+                        _popen_kwargs["preexec_fn"] = _child_pdeathsig
+                    self.proc = self._sp.Popen(cmd, **_popen_kwargs)
+            except Exception:
+                self._release_concurrency_slot()
+                raise
+            if self._cancel_event is not None and self._cancel_event.is_set():
+                self._cleanup_locked()
+                raise BackendInitError("VMVM provisioning cancelled during lease start")
 
     def wait_for_tunnel(self) -> int:
         """Poll the vacli log for the tunnel mapping; return the local port for vm_port=22.
@@ -365,6 +372,8 @@ class VacliLease:
         try:
             deadline = time.time() + self.tunnel_ready_timeout
             while time.time() < deadline:
+                if self._cancel_event is not None and self._cancel_event.is_set():
+                    raise BackendInitError("VMVM provisioning cancelled while waiting for lease")
                 # If vacli died, the lease is gone; surface a useful tail.
                 if self.proc.poll() is not None:
                     tail = self._log_tail(20)
@@ -394,7 +403,10 @@ class VacliLease:
                                 TELEMETRY.lease_tunnel_became_ready()
                             logger.info(f"vacli: tunnel ready, ssh port = {self.ssh_port}")
                             return self.ssh_port
-                time.sleep(1)
+                if self._cancel_event is None:
+                    time.sleep(1)
+                elif self._cancel_event.wait(timeout=1):
+                    raise BackendInitError("VMVM provisioning cancelled while waiting for lease")
             raise BackendInitError(
                 f"vacli never printed tunnel mapping in {self.tunnel_ready_timeout}s. "
                 f"Tail of log:\n{self._log_tail(30)}"
@@ -474,6 +486,10 @@ class VacliLease:
             return None
 
     def cleanup(self) -> None:
+        with self._cleanup_lock:
+            self._cleanup_locked()
+
+    def _cleanup_locked(self) -> None:
         if self._cleaned_up or self.proc is None or self.proc.poll() is not None:
             self._cleaned_up = True
             self._release_concurrency_slot()
@@ -500,7 +516,8 @@ class VacliLease:
         self._release_concurrency_slot()
 
     def _acquire_concurrency_slot(self) -> None:
-        _lease_concurrency.acquire()
+        if not _lease_concurrency.acquire(cancel_event=self._cancel_event):
+            raise BackendInitError("VMVM provisioning cancelled while waiting for lease capacity")
         with self._concurrency_state_lock:
             self._concurrency_held = True
 
@@ -575,11 +592,14 @@ def _wait_for_sshd(
     timeout: float,
     control_path: str | None = None,
     subprocess_mod: Any = None,
+    cancel_event: threading.Event | None = None,
 ) -> None:
     """Poll `ssh root@localhost true` until it returns 0 or `timeout` elapses."""
     sp = subprocess_mod or subprocess
     deadline = time.time() + timeout
     while time.time() < deadline:
+        if cancel_event is not None and cancel_event.is_set():
+            raise BackendInitError("VMVM provisioning cancelled while waiting for sshd")
         rc = sp.run(
             _ssh_opts(port, control_path) + ["root@localhost", "true"],
             stdin=sp.DEVNULL,
@@ -588,7 +608,10 @@ def _wait_for_sshd(
         ).returncode
         if rc == 0:
             return
-        time.sleep(1)
+        if cancel_event is None:
+            time.sleep(1)
+        elif cancel_event.wait(timeout=1):
+            raise BackendInitError("VMVM provisioning cancelled while waiting for sshd")
     raise BackendInitError(f"sshd not ready on port {port} after {timeout}s")
 
 
@@ -608,7 +631,7 @@ def _bash_result(
     return BashResult(status=status, output=output, error_type=error_type, exit_code=exit_code)
 
 
-def _pull_image_in_vm(sp, ssh_port, control_path, image):
+def _pull_image_in_vm(sp, ssh_port, control_path, image, cancel_event=None):
     """Pull `image` inside the leased VM through a *login* shell.
 
     A login shell (`bash -l`) is required so /etc/profile.d/http_proxy.sh is
@@ -621,6 +644,8 @@ def _pull_image_in_vm(sp, ssh_port, control_path, image):
     remote = "bash -l -c " + shlex.quote(inner)
     last = ""
     for attempt in range(MAX_PULL_RETRIES):
+        if cancel_event is not None and cancel_event.is_set():
+            raise BackendInitError("VMVM provisioning cancelled during image pull")
         r = sp.run(
             _ssh_opts(ssh_port, control_path) + ["root@localhost", remote],
             stdin=sp.DEVNULL,
@@ -645,13 +670,23 @@ def _pull_image_in_vm(sp, ssh_port, control_path, image):
                 f"(attempt {attempt + 1}/{MAX_PULL_RETRIES}, rate_limited={rate_limited}), "
                 f"retrying in {wait}s"
             )
-            time.sleep(wait)
+            if cancel_event is None:
+                time.sleep(wait)
+            elif cancel_event.wait(timeout=wait):
+                raise BackendInitError("VMVM provisioning cancelled during image-pull backoff")
             continue
         return False, last
     return False, last
 
 
-def _resolve_image_in_vm(sp, ssh_port, control_path, primary, fallback=None):
+def _resolve_image_in_vm(
+    sp,
+    ssh_port,
+    control_path,
+    primary,
+    fallback=None,
+    cancel_event=None,
+):
     """Pull `primary`, then `fallback` if given, returning the ref that worked.
     Raises BackendInitError if every candidate fails."""
     candidates = [primary]
@@ -659,7 +694,15 @@ def _resolve_image_in_vm(sp, ssh_port, control_path, primary, fallback=None):
         candidates.append(fallback)
     last_out = ""
     for img in candidates:
-        ok, last_out = _pull_image_in_vm(sp, ssh_port, control_path, img)
+        if cancel_event is not None and cancel_event.is_set():
+            raise BackendInitError("VMVM provisioning cancelled before image pull")
+        ok, last_out = _pull_image_in_vm(
+            sp,
+            ssh_port,
+            control_path,
+            img,
+            cancel_event=cancel_event,
+        )
         if ok:
             return img
         logger.warning(f"vacli: pull failed for {img}; trying next candidate")
@@ -825,7 +868,12 @@ class VacliSession:
         # AsyncSession must be constructed on the loop's thread because it
         # creates asyncio primitives (Locks, Futures) bound to the running loop.
         self._session: AsyncSession = self._submit(
-            self._construct_session(command_args, timeout, start_script, max_buffer_size)
+            self._construct_session(
+                ["setsid", *command_args],
+                timeout,
+                start_script,
+                max_buffer_size,
+            )
         )
         self._stopped = False
 
@@ -854,28 +902,64 @@ class VacliSession:
     def get_exitcode(self) -> int | None:
         return self._submit(self._session.get_exitcode())
 
-    def stop(self) -> None:
+    def interrupt(self, timeout: float | None = None) -> bool:
+        """Terminate the subprocess while keeping its loop alive to drain communicate()."""
         if self._stopped:
-            return
-        self._stopped = True
-        # AsyncSession.stop() is sync but touches the loop-owned subprocess;
-        # call it from the loop thread to avoid cross-thread proc handling.
+            return not self._thread.is_alive()
         try:
-            self._submit(self._stop_session_async())
+            self._submit(self._interrupt_session_async(), timeout=timeout)
         except Exception:
             logger.exception("vacli session: error stopping AsyncSession")
+            return False
+        return True
+
+    def stop(self, timeout: float | None = None) -> bool:
+        if self._stopped:
+            self._thread.join(timeout=5 if timeout is None else max(0.0, timeout))
+            return not self._thread.is_alive()
+        deadline = None if timeout is None else time.monotonic() + timeout
+        stopped = self.interrupt(timeout)
+        self._stopped = True
+        # Keep the private loop alive until interrupt() has released any
+        # communicate() waiter; only then stop and join the loop thread.
         self._loop.call_soon_threadsafe(self._loop.stop)
-        self._thread.join(timeout=5)
+        remaining = 5.0 if deadline is None else max(0.0, deadline - time.monotonic())
+        self._thread.join(timeout=remaining)
+        if self._thread.is_alive():
+            return False
         try:
             self._loop.close()
         except Exception:
-            pass
+            stopped = False
+        return stopped
 
     async def _stop_session_async(self) -> None:
         self._session.stop()
 
-    def _submit(self, coro: Any) -> Any:
-        return asyncio.run_coroutine_threadsafe(coro, self._loop).result()
+    async def _interrupt_session_async(self) -> None:
+        process = self._session.proc
+        if process is not None and process.returncode is None:
+            try:
+                os.killpg(process.pid, signal.SIGTERM)
+            except ProcessLookupError:
+                pass
+            try:
+                await asyncio.wait_for(process.wait(), timeout=1)
+            except TimeoutError:
+                try:
+                    os.killpg(process.pid, signal.SIGKILL)
+                except ProcessLookupError:
+                    pass
+                await process.wait()
+        self._session.stop()
+
+    def _submit(self, coro: Any, timeout: float | None = None) -> Any:
+        future = asyncio.run_coroutine_threadsafe(coro, self._loop)
+        try:
+            return future.result(timeout=timeout)
+        except BaseException:
+            future.cancel()
+            raise
 
 
 # ---------------------------------------------------------------------------
@@ -919,6 +1003,7 @@ class VacliVMVMBackend:
             lease_ttl=config.lease_ttl,
             tunnel_ready_timeout=config.tunnel_ready_timeout,
             subprocess_mod=config.subprocess_mod,
+            cancel_event=config.provisioning_cancel_event,
         )
         self._container_id: str | None = None
         self._compose_project: str | None = None
@@ -943,6 +1028,16 @@ class VacliVMVMBackend:
         self._pending: tuple[int, str, float, float] | None = None
         self._last_command: str | None = None
         self._last_timeout: float | None = None
+        # ``VMVMRuntime`` runs this synchronous backend in ``asyncio.to_thread``.
+        # Cancelling that await does not stop the worker thread, so track the one
+        # in-flight shell command and give the async adapter a synchronous way to
+        # interrupt and drain it before the runtime is used for grading.
+        self._command_state_lock = threading.Lock()
+        self._command_cancel_lock = threading.Lock()
+        self._active_command_thread: int | None = None
+        self._active_command_done = threading.Event()
+        self._active_command_done.set()
+        self._command_cancel_requested = threading.Event()
         # Set by restart_session when it had to REBUILD a dead in-container shell
         # (state lost); recover_last() then declines transparent recovery.
         self._shell_was_reset = False
@@ -952,6 +1047,26 @@ class VacliVMVMBackend:
         if TELEMETRY is not None:
             TELEMETRY.vmvm_runtime_started()
             self._telemetry_runtime_active = True
+        provisioning_done = threading.Event()
+
+        def cancel_partial_lease() -> None:
+            cancel_event = config.provisioning_cancel_event
+            if cancel_event is None:
+                return
+            while not provisioning_done.is_set():
+                if cancel_event.wait(timeout=0.1):
+                    # Killing vacli closes the x2p tunnel and interrupts the
+                    # current SSH/pull/run subprocess.  cleanup is idempotent and
+                    # synchronized with constructor rollback/final handoff.
+                    self._lease.cleanup()
+                    return
+
+        cancellation_watcher = threading.Thread(
+            target=cancel_partial_lease,
+            name=f"vmvm-provision-cancel-{nonce}",
+            daemon=True,
+        )
+        cancellation_watcher.start()
         try:
             # Retry lease bring-up with jittered backoff: concurrent launches
             # race on Configerator init -> "vacli died before tunnel was ready"
@@ -959,9 +1074,11 @@ class VacliVMVMBackend:
             import random as _random
 
             for _attempt in range(MAX_LEASE_RETRIES):
+                self._raise_if_provisioning_cancelled()
                 try:
                     self._lease.start()
                     self._ssh_port = self._lease.wait_for_tunnel()
+                    self._raise_if_provisioning_cancelled()
                     # Full bring-up inside the retry envelope: sshd readiness and
                     # container pull/start are the ssh-dependent steps that saturate
                     # under high concurrency (the dominant env_error cause). A failure
@@ -973,8 +1090,11 @@ class VacliVMVMBackend:
                         timeout=config.sshd_ready_timeout,
                         control_path=self._control_path,
                         subprocess_mod=config.subprocess_mod,
+                        cancel_event=config.provisioning_cancel_event,
                     )
+                    self._raise_if_provisioning_cancelled()
                     self._container_id = self._start_container()
+                    self._raise_if_provisioning_cancelled()
                     break
                 except BackendInitError as _e:
                     try:
@@ -982,6 +1102,7 @@ class VacliVMVMBackend:
                     except Exception:
                         pass
                     self._container_id = None
+                    self._raise_if_provisioning_cancelled()
                     if _attempt + 1 >= MAX_LEASE_RETRIES:
                         raise
                     _wait = min(2.0 * (2**_attempt), 20.0) + _random.uniform(0.0, 3.0)
@@ -990,7 +1111,12 @@ class VacliVMVMBackend:
                         % (_attempt + 1, MAX_LEASE_RETRIES, str(_e)[:150], _wait)
                     )
                     self.bringup_retries.append({"attempt": _attempt + 1, "detail": str(_e)[:300]})
-                    time.sleep(_wait)
+                    cancel_event = config.provisioning_cancel_event
+                    if cancel_event is None:
+                        time.sleep(_wait)
+                    elif cancel_event.wait(timeout=_wait):
+                        raise BackendInitError("VMVM provisioning cancelled during retry backoff")
+                    self._raise_if_provisioning_cancelled()
                     _nonce = uuid.uuid4().hex[:8]
                     self._control_path = str(tmp / f"vacli_ctl_{os.getpid()}_{_nonce}")
                     self._vacli_log = tmp / f"vacli_lease_{os.getpid()}_{_nonce}.log"
@@ -1000,6 +1126,7 @@ class VacliVMVMBackend:
                         lease_ttl=config.lease_ttl,
                         tunnel_ready_timeout=config.tunnel_ready_timeout,
                         subprocess_mod=config.subprocess_mod,
+                        cancel_event=config.provisioning_cancel_event,
                     )
             # Persistent bash inside the container, driven via stdin over the
             # SSH master. Non-interactive `bash` (NOT `bash -i`): interactive
@@ -1012,6 +1139,7 @@ class VacliVMVMBackend:
             # in the container netns. Export the gateway proxy as the first thing
             # the (non-login) session does, so solve.sh subprocesses inherit it.
             self._open_session(run_entrypoint=True)
+            self._raise_if_provisioning_cancelled()
             if TELEMETRY is not None:
                 TELEMETRY.vmvm_runtime_became_ready()
         except Exception:
@@ -1019,6 +1147,14 @@ class VacliVMVMBackend:
             # leased VM.
             self.destroy()
             raise
+        finally:
+            provisioning_done.set()
+            cancellation_watcher.join(timeout=0.2)
+
+    def _raise_if_provisioning_cancelled(self) -> None:
+        cancel_event = self.config.provisioning_cancel_event
+        if cancel_event is not None and cancel_event.is_set():
+            raise BackendInitError("VMVM provisioning cancelled")
 
     @property
     def lease_identity_sha256(self) -> str:
@@ -1137,7 +1273,22 @@ class VacliVMVMBackend:
         us = config.start_script or ""
         return "; ".join(x for x in (proxy_pre, us) if x)
 
-    def _setup_fifo_shell(self, *, run_entrypoint: bool, run_start_script: bool = True) -> None:
+    @staticmethod
+    def _remaining_timeout(deadline: float | None, maximum: float) -> float:
+        if deadline is None:
+            return maximum
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            raise TimeoutError("VMVM shell operation exceeded its cancellation deadline")
+        return min(maximum, remaining)
+
+    def _setup_fifo_shell(
+        self,
+        *,
+        run_entrypoint: bool,
+        run_start_script: bool = True,
+        deadline: float | None = None,
+    ) -> None:
         """Create the in-container persistent shell: a command FIFO, a held-writer
         keeping it open, and a detached `bash` LOOP that reads a command sequence
         number from the FIFO and `source`s the staged command body for that seq.
@@ -1167,7 +1318,10 @@ class VacliVMVMBackend:
         qD = shlex.quote(D)
         # 1) session dir + command fifo + (empty) reader log -- synchronous.
         setup = "set -e; rm -rf {D}; mkdir -p {D}; mkfifo {D}/cmd; : > {D}/log".format(D=qD)
-        r = self._ssh_call_raw("podman exec " + cid + " bash -c " + shlex.quote(setup), timeout=60)
+        r = self._ssh_call_raw(
+            "podman exec " + cid + " bash -c " + shlex.quote(setup),
+            timeout=self._remaining_timeout(deadline, 60),
+        )
         if r.returncode != 0:
             raise BackendInitError("fifo shell setup failed: " + (r.stdout or b"").decode("utf-8", "replace")[-400:])
         # 2) held-writer: keeps the fifo open for writing so the reader's `read`
@@ -1175,7 +1329,10 @@ class VacliVMVMBackend:
         hold = ('D={D}; echo $$ > "$D/holdpid"; exec -a vacli_hold_{n} sleep 2147483647 > "$D/cmd"').format(
             D=qD, n=nonce
         )
-        self._ssh_call_raw("podman exec -d " + cid + " bash -c " + shlex.quote(hold), timeout=30)
+        self._ssh_call_raw(
+            "podman exec -d " + cid + " bash -c " + shlex.quote(hold),
+            timeout=self._remaining_timeout(deadline, 30),
+        )
         # 3) reader loop: records its pgid, then forever reads an integer seq from
         #    the fifo and runs the staged body for that seq in THIS shell.
         # Reader-internal vars are namespaced (__vacli_*) so a task command sourced in
@@ -1201,25 +1358,36 @@ class VacliVMVMBackend:
             ': > "$__vacli_d/d$__vacli_seq"; '
             'done < "$__vacli_d/cmd"'
         ).format(D=qD)
-        self._ssh_call_raw("podman exec -d " + cid + " setsid bash -c " + shlex.quote(reader), timeout=30)
+        self._ssh_call_raw(
+            "podman exec -d " + cid + " setsid bash -c " + shlex.quote(reader),
+            timeout=self._remaining_timeout(deadline, 30),
+        )
         # 4) wait for both the reader and held-writer processes to be live.
-        deadline = time.time() + 30
-        while time.time() < deadline:
-            if self._fifo_shell_alive():
+        ready_deadline = time.monotonic() + 30
+        if deadline is not None:
+            ready_deadline = min(ready_deadline, deadline)
+        while time.monotonic() < ready_deadline:
+            if self._fifo_shell_alive(timeout=self._remaining_timeout(ready_deadline, 30)):
                 break
-            time.sleep(0.3)
+            remaining = ready_deadline - time.monotonic()
+            if remaining > 0:
+                time.sleep(min(0.3, remaining))
         else:
             raise BackendInitError("fifo reader/held-writer did not come up")
         # 5) preamble doubles as an end-to-end wiring probe (exercises stage+push+read).
         pre = self._preamble() if run_start_script else ""
-        probe = self._fifo_run(pre or ":", timeout=max(30.0, 0.0))
+        probe = self._fifo_run(pre or ":", timeout=30.0, deadline=deadline)
         if probe["error_type"] in ("broken_pipe", "timeout", "other"):
             raise BackendInitError("fifo shell wiring probe failed: %r" % (probe,))
         # 6) entrypoint, in the persistent shell so its state sticks.
         if run_entrypoint and self.config.entrypoint_script:
-            self._fifo_run(self.config.entrypoint_script, timeout=self.config.session_timeout)
+            self._fifo_run(
+                self.config.entrypoint_script,
+                timeout=self.config.session_timeout,
+                deadline=deadline,
+            )
 
-    def _fifo_shell_alive(self) -> bool:
+    def _fifo_shell_alive(self, timeout: float = 30) -> bool:
         """True iff BOTH the in-container reader (by pgid) and the held-writer (by
         holdpid) are alive. If the held-writer died the reader would EOF and exit
         after the next command, so both must be checked."""
@@ -1233,19 +1401,19 @@ class VacliVMVMBackend:
         try:
             r = self._ssh_call_raw(
                 "podman exec " + str(self._container_id) + " bash -c " + shlex.quote(chk),
-                timeout=30,
+                timeout=timeout,
             )
         except Exception:
             return False
         return r.returncode == 0 and b"ALIVE" in (r.stdout or b"")
 
-    def _teardown_fifo_shell(self) -> None:
+    def _teardown_fifo_shell(self, deadline: float | None = None) -> bool:
         """Kill the in-container reader (and its current foreground command, via
         group-kill on the setsid pgid) plus the held-writer (by recorded pid), and
         remove the session dir. Best-effort; used on timeout and on dead-shell
         recreate to reset state like the legacy backend."""
         if not self._sess_dir or self._container_id is None:
-            return
+            return True
         script = (
             'D={D}; p=$(cat "$D/pgid" 2>/dev/null); h=$(cat "$D/holdpid" 2>/dev/null); '
             '[ -n "$p" ] && kill -KILL -"$p" 2>/dev/null; '
@@ -1254,14 +1422,133 @@ class VacliVMVMBackend:
             'rm -rf "$D" 2>/dev/null; true'
         ).format(D=shlex.quote(self._sess_dir))
         try:
-            self._ssh_call_raw(
+            result = self._ssh_call_raw(
                 "podman exec " + str(self._container_id) + " bash -c " + shlex.quote(script),
-                timeout=30,
+                timeout=self._remaining_timeout(deadline, 30),
             )
         except Exception:
-            pass
+            result = None
         self._sess_dir = ""
         self._pending = None
+        return result is not None and result.returncode == 0
+
+    def _interrupt_fifo_command(self, timeout: float) -> bool:
+        """Stop the active FIFO command and wake its host-side waiter.
+
+        The reader and the command it sourced share a process group.  Killing
+        that group preserves the container filesystem while ensuring the agent
+        cannot keep mutating it.  A synthetic exit marker wakes the separate
+        ``podman exec`` waiter; the command is never replayed.
+        """
+        pending = self._pending
+        if pending is None or not self._sess_dir or self._container_id is None:
+            return False
+        seq = pending[0]
+        directory = shlex.quote(self._sess_dir)
+        script = (
+            'D={directory}; p=$(cat "$D/pgid" 2>/dev/null); '
+            'h=$(cat "$D/holdpid" 2>/dev/null); '
+            '[ -n "$p" ] && kill -KILL -"$p" 2>/dev/null || true; '
+            '[ -n "$p" ] && kill -KILL "$p" 2>/dev/null || true; '
+            '[ -n "$h" ] && kill -KILL "$h" 2>/dev/null || true; '
+            'i=0; while [ "$i" -lt 50 ]; do '
+            'alive=0; [ -n "$p" ] && kill -0 -"$p" 2>/dev/null && alive=1; '
+            '[ -n "$p" ] && kill -0 "$p" 2>/dev/null && alive=1; '
+            '[ -n "$h" ] && kill -0 "$h" 2>/dev/null && alive=1; '
+            '[ "$alive" -eq 0 ] && break; i=$((i + 1)); sleep 0.1; done; '
+            '[ "$alive" -eq 0 ] || exit 1; '
+            'printf 130 > "$D/e{seq}"; : > "$D/d{seq}"'
+        ).format(directory=directory, seq=seq)
+        result = self._ssh_call_raw(
+            "podman exec " + str(self._container_id) + " bash -c " + shlex.quote(script),
+            timeout=min(30.0, timeout),
+        )
+        return result.returncode == 0
+
+    def _begin_command(self) -> None:
+        with self._command_state_lock:
+            if self._active_command_thread is not None:
+                raise RuntimeError("concurrent VMVM shell commands are forbidden")
+            self._command_cancel_requested.clear()
+            self._active_command_thread = threading.get_ident()
+            self._active_command_done.clear()
+
+    def _end_command(self) -> None:
+        with self._command_state_lock:
+            self._active_command_thread = None
+            self._active_command_done.set()
+
+    def cancel_active_command(self, timeout: float) -> bool:
+        """Interrupt and drain one active command, restoring a usable shell.
+
+        Returns ``False`` if the command cannot be stopped and joined within the
+        caller's grace period or if shell restoration fails.  The caller must
+        destroy and invalidate the runtime on that fail-closed path.
+        """
+        if timeout <= 0:
+            return False
+        deadline = time.monotonic() + timeout
+        self._command_cancel_requested.set()
+        with self._command_cancel_lock:
+            with self._command_state_lock:
+                active = self._active_command_thread is not None or self._pending is not None
+            if not active:
+                return not self._destroyed
+            if self._destroyed:
+                return False
+
+            fifo_mode = self._fifo_mode
+            session = self._session
+            try:
+                if fifo_mode:
+                    if not self._interrupt_fifo_command(deadline - time.monotonic()):
+                        remaining = deadline - time.monotonic()
+                        if remaining > 0:
+                            self._active_command_done.wait(remaining)
+                        return False
+                else:
+                    if session is None:
+                        return False
+                    remaining = deadline - time.monotonic()
+                    if remaining <= 0 or not session.interrupt(timeout=remaining):
+                        remaining = deadline - time.monotonic()
+                        if remaining > 0:
+                            self._active_command_done.wait(remaining)
+                        return False
+            except Exception:
+                logger.exception("vacli: active command interruption failed")
+                return False
+
+            remaining = deadline - time.monotonic()
+            if remaining <= 0 or not self._active_command_done.wait(remaining):
+                logger.error("vacli: active command did not stop within cancellation grace")
+                return False
+            if self._destroyed:
+                return False
+
+            if not fifo_mode:
+                remaining = deadline - time.monotonic()
+                if remaining <= 0 or not session.stop(timeout=remaining):
+                    return False
+                if self._session is session:
+                    self._session = None
+                # Legacy streamed sessions cannot preserve a known-good shell
+                # state across interruption.  The command is drained, but the
+                # runtime must be invalidated so grading is never run on it.
+                return False
+
+            try:
+                if not self._teardown_fifo_shell(deadline):
+                    return False
+                self._setup_fifo_shell(
+                    run_entrypoint=False,
+                    run_start_script=True,
+                    deadline=deadline,
+                )
+            except Exception:
+                logger.exception("vacli: shell restoration after cancellation failed")
+                return False
+            return True
 
     def _fifo_stage(self, seq: int, command: str, fresh: bool = False) -> bool:
         """Stage the command body into c<seq> atomically (write tmp + rename), via
@@ -1424,7 +1711,13 @@ class VacliVMVMBackend:
             return _bash_result("error", output, "exit", exit_code=ec)
         return _bash_result("success", output, "none", exit_code=ec)
 
-    def _fifo_exec_combined(self, seq: int, command: str, timeout: float) -> BashResult:
+    def _fifo_exec_combined(
+        self,
+        seq: int,
+        command: str,
+        timeout: float,
+        deadline: float | None = None,
+    ) -> BashResult:
         """Happy-path fast lane: stage body + push token + wait + emit in ONE
         `podman exec` (4 x2p round-trips -> 1; ~4x lower per-command latency). Also
         frees the previous seq's files so disk stays bounded. On any drop the framed
@@ -1434,6 +1727,8 @@ class VacliVMVMBackend:
         before the token is pushed (exit 91 -> broken_pipe -> recover re-stages)."""
         maxb = self.config.max_session_buffer_size or (480 * 1024)
         t = max(1, int(timeout if timeout else self.config.session_timeout))
+        if deadline is not None:
+            t = max(1, min(t, int(self._remaining_timeout(deadline, t))))
         body = command if command.strip() else ":"
         script = (
             "D={D}; s={s}; p={p}; "
@@ -1460,7 +1755,7 @@ class VacliVMVMBackend:
                 input=body.encode("utf-8"),
                 stdout=self._sp.PIPE,
                 stderr=self._sp.DEVNULL,
-                timeout=t + 40,
+                timeout=self._remaining_timeout(deadline, t + 40),
             )
         except Exception as e:
             return _bash_result("error", f"[vacli] connection lost during exec: {e}", "broken_pipe", exit_code=-1)
@@ -1480,7 +1775,12 @@ class VacliVMVMBackend:
                 logger.warning("fifo: shell recreate after timeout failed: %s", e)
         return res
 
-    def _fifo_run(self, command: str, timeout: float) -> BashResult:
+    def _fifo_run(
+        self,
+        command: str,
+        timeout: float,
+        deadline: float | None = None,
+    ) -> BashResult:
         """Stage + trigger + collect one command in a SINGLE podman exec (hot path).
         On a tunnel drop the framed reply is absent -> broken_pipe with `_pending`
         kept, so recover_last() finishes it WITHOUT re-executing (the in-memory
@@ -1489,7 +1789,7 @@ class VacliVMVMBackend:
         seq = self._cmd_seq
         start = time.monotonic()
         self._pending = (seq, command, timeout, start)
-        res = self._fifo_exec_combined(seq, command, timeout)
+        res = self._fifo_exec_combined(seq, command, timeout, deadline)
         if res["error_type"] == "broken_pipe":
             return res  # _pending kept; recover_last() finishes it
         # Completed (success/exit/timeout/too_long): clear pending; on a real timeout
@@ -1987,6 +2287,54 @@ class VacliVMVMBackend:
         tunnel drop does not destroy it: restart_session() re-attaches and
         recover_last() finishes the interrupted command.
         """
+        self._begin_command()
+        try:
+            return self._run_bash_once(command, timeout)
+        finally:
+            self._end_command()
+
+    def run_bash_with_recovery(
+        self,
+        command: str,
+        timeout: float,
+        max_attempts: int,
+    ) -> BashResult:
+        """Run and recover one exact-once command under one cancellation scope."""
+        self._begin_command()
+        try:
+            result = self._run_bash_once(command, timeout)
+            for attempt in range(1, max_attempts + 1):
+                if result["exit_code"] >= 0 or result["error_type"] != "broken_pipe":
+                    break
+                if self._command_cancel_requested.is_set():
+                    return _bash_result("error", "", "exit", exit_code=130)
+                logger.warning(
+                    "vacli: transport dropped; recovering the in-flight command (%d/%d)",
+                    attempt,
+                    max_attempts,
+                )
+                try:
+                    restarted = self.restart_session()
+                except Exception as error:
+                    raise RuntimeError(f"VMVM reconnect failed: {error}") from error
+                if not restarted:
+                    raise RuntimeError("VMVM reconnect failed: sandbox state is unavailable")
+                if self._command_cancel_requested.is_set():
+                    return _bash_result("error", "", "exit", exit_code=130)
+                try:
+                    recovered = self.recover_last()
+                except Exception as error:
+                    raise RuntimeError(f"VMVM command recovery failed: {error}") from error
+                if recovered is None:
+                    raise RuntimeError("VMVM command recovery failed: exact-once execution cannot be proven")
+                result = recovered
+                if self._command_cancel_requested.is_set():
+                    return _bash_result("error", "", "exit", exit_code=130)
+            return result
+        finally:
+            self._end_command()
+
+    def _run_bash_once(self, command: str, timeout: float) -> BashResult:
         if self._destroyed:
             return _bash_result("error", "", "exit", exit_code=-1)
         # FIFO-backed persistent shell (the v1 drop-recovery path).
@@ -1997,12 +2345,13 @@ class VacliVMVMBackend:
             self._last_timeout = timeout
             return self._fifo_run(command, timeout)
         # Legacy streamed session (image without bash+mkfifo).
-        if self._session is None:
+        session = self._session
+        if session is None:
             return _bash_result("error", "session not initialized", "other", exit_code=-1)
         t0 = time.perf_counter()
         logger.debug(f"vacli.run_bash starting (cmd_len={len(command)} head={command[:80]!r})")
         try:
-            output = self._session.communicate(command, timeout=timeout)
+            output = session.communicate(command, timeout=timeout)
         except Exception as e:
             logger.debug(f"vacli.run_bash raised after {time.perf_counter() - t0:.1f}s: {type(e).__name__}: {e}")
             return _bash_result("error", f"{type(e).__name__}: {e}", "other", exit_code=-1)
@@ -2018,7 +2367,7 @@ class VacliVMVMBackend:
             f"output_len={len(output['output'])}"
         )
         if output["status"] == "success":
-            exit_code = self._session.get_exitcode()
+            exit_code = session.get_exitcode()
             if exit_code is None:
                 exit_code = -1
             if exit_code != 0:
@@ -2374,8 +2723,17 @@ class VacliVMVMBackend:
         )
 
     def destroy(self) -> None:
-        if self._destroyed:
-            return
+        # Cancellation may be rebuilding the persistent shell.  Serialize lease
+        # destruction with that state transition so teardown never races a reset.
+        with self._command_cancel_lock:
+            self._destroy_locked()
+
+    def _destroy_locked(self) -> None:
+        # Teardown is deliberately re-entrant.  A cancelled non-command backend
+        # call can pass its initial ``_destroyed`` check, overlap the first destroy,
+        # and publish a resource afterwards.  The runtime therefore makes a final
+        # destroy pass after every data worker is joined; that pass must rescan and
+        # remove any late-created container, Compose project, tunnel, or network.
         self._destroyed = True
         if getattr(self, "_telemetry_runtime_active", False):
             self._telemetry_runtime_active = False
@@ -2725,14 +3083,18 @@ class VacliVMVMBackend:
     def _start_container(self) -> str:
         """Pull the image (vmvm-registry mirror, then docker.io fallback) and
         start a long-running detached container."""
+        self._raise_if_provisioning_cancelled()
         self._ensure_host_memory()
+        self._raise_if_provisioning_cancelled()
         used = _resolve_image_in_vm(
             self._sp,
             self._ssh_port,
             self._control_path,
             self.config.image_url,
             getattr(self.config, "fallback_image_url", None),
+            cancel_event=self.config.provisioning_cancel_event,
         )
+        self._raise_if_provisioning_cancelled()
         run_argv = ["podman", "run", "-d", "--network", "bridge"]
         if CONTAINER_PRIVILEGED:
             run_argv.append("--privileged")
@@ -2746,6 +3108,7 @@ class VacliVMVMBackend:
             shlex.join(run_argv),
             timeout=int(self.config.session_timeout),
         )
+        self._raise_if_provisioning_cancelled()
         if run.returncode != 0:
             raise BackendInitError(f"podman run failed: rc={run.returncode} stderr={run.stderr!r}")
         cid = run.stdout.decode("utf-8", errors="replace").strip()
@@ -2753,10 +3116,12 @@ class VacliVMVMBackend:
             raise BackendInitError(f"podman run returned empty container id; stderr={run.stderr!r}")
         cid = _validate_container_id(cid)
         _ensure_python_in_container(self._sp, self._ssh_port, self._control_path, cid)
+        self._raise_if_provisioning_cancelled()
         # --network bridge gives the container its own netns so task workloads
         # can bind :8080 (the host egress proxy occupies :8080 in the *host*
         # netns). Repoint http_proxy at the bridge gateway so egress still works.
         self._proxy_gateway = _setup_bridge_proxy(self._sp, self._ssh_port, self._control_path, cid)
+        self._raise_if_provisioning_cancelled()
         return cid
 
     def _ensure_host_memory(self) -> None:

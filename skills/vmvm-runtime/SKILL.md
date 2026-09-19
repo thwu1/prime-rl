@@ -562,6 +562,21 @@ connection-loss signatures from backends that cannot emit `broken_pipe`. A lost
 container, rebuilt persistent shell, or exhausted reconnect budget becomes
 `SandboxError` and consumes a whole-trial retry.
 
+A harness timeout must not merely cancel an `asyncio.to_thread` await. Keep the
+initial command and all exact-once recovery attempts in one backend cancellation
+scope; synchronously interrupt the active FIFO process group, drain its worker,
+and drain admitted interception requests before taskset finalization or scoring.
+Use one monotonic grace deadline for interrupt, shell reset or teardown, and all
+worker joins. If any command, file, root, Compose, sidecar, or interception drain
+cannot prove completion, detach and destroy the runtime and surface
+`SandboxError` so finalization and scoring are skipped. Never reuse a backend or
+pool slot while its prior worker or interception handler is still active. Keep
+external task cancellation as `CancelledError`; record the unusable-runtime
+cause and let the rollout's own timeout boundary promote it to `SandboxError`.
+Provisioning cancellation must wake lease-capacity waits and retry backoffs,
+terminate any partial lease, and keep an atomic worker-owned cleanup fallback
+until a completed backend is handed to the async runtime.
+
 If the in-flight command depends on a registered host tunnel,
 `restart_session()` must restore that reverse forward on the replacement SSH
 control master before `recover_last()`. Keep the same remote port so the
