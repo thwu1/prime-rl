@@ -703,6 +703,51 @@ def test_multigen_fingerprint_permits_generation_artifact_rotation(tmp_path: Pat
     assert finalizer._controller_policy_fingerprint(first) == finalizer._controller_policy_fingerprint(second)
 
 
+def test_multigen_accepts_two_disjoint_chunks_from_exact_same_generation(tmp_path: Path) -> None:
+    first = _prepared(tmp_path, root_name="controller-a", first_shard_index=0, shard_count=33)
+    second = _prepared(tmp_path, root_name="controller-b", first_shard_index=33, shard_count=33)
+    second.proxy_info = first.proxy_info
+    second.route_binding.endpoint = first.route_binding.endpoint
+
+    evidence = finalizer._combined_multigen_evidence(
+        ((first, _range_evidence(tmp_path, first)), (second, _range_evidence(tmp_path, second)))
+    )
+
+    assert len(evidence.shard_records) == 66
+    assert {record["route_generation_sha256"] for record in evidence.shard_records} == {first.generation_sha256}
+
+
+def test_multigen_duplicate_and_rotated_generations_are_order_independent(tmp_path: Path) -> None:
+    first = _prepared(tmp_path, root_name="controller-a", first_shard_index=0, shard_count=22)
+    duplicate = _prepared(tmp_path, root_name="controller-b", first_shard_index=22, shard_count=22)
+    rotated = _prepared(
+        tmp_path,
+        root_name="controller-c",
+        first_shard_index=44,
+        shard_count=22,
+        route_generation=_controller_route_generation(backend_sha256="9" * 64),
+    )
+    for prepared in (duplicate, rotated):
+        prepared.proxy_info = first.proxy_info
+        prepared.route_binding.endpoint = first.route_binding.endpoint
+    evidence_by_root = {
+        prepared.controller_root: _range_evidence(tmp_path, prepared) for prepared in (first, duplicate, rotated)
+    }
+
+    forward = finalizer._combined_multigen_evidence(
+        tuple((prepared, evidence_by_root[prepared.controller_root]) for prepared in (first, duplicate, rotated))
+    )
+    reordered = finalizer._combined_multigen_evidence(
+        tuple((prepared, evidence_by_root[prepared.controller_root]) for prepared in (rotated, duplicate, first))
+    )
+
+    assert forward.shard_records == reordered.shard_records
+    assert {record["route_generation_sha256"] for record in forward.shard_records} == {
+        first.generation_sha256,
+        rotated.generation_sha256,
+    }
+
+
 @pytest.mark.parametrize("mismatch", ["endpoint", "proxy_info", "coordinator", "proxy"])
 def test_multigen_rejects_cross_controller_proxy_or_coordinator_incarnation(
     tmp_path: Path,

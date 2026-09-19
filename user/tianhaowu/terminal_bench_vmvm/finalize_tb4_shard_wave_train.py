@@ -811,10 +811,11 @@ def _combined_multigen_evidence(items: Sequence[tuple[PreparedTrain, ControllerE
     solved_count = 0
     train_hashes: list[str] = []
     state_hashes: list[str] = []
-    for position, (prepared, evidence) in enumerate(items):
+    for prepared, evidence in items:
         if _controller_policy_fingerprint(prepared) != baseline:
             raise FinalizationError("controller_policy_mismatch")
-        if position and not _worker_only_rotation(baseline_generation, prepared.route_binding.route_generation):
+        generation = prepared.route_binding.route_generation
+        if generation != baseline_generation and not _worker_only_rotation(baseline_generation, generation):
             raise FinalizationError("controller_policy_mismatch")
         proxy_config_snapshot = prepared.proxy_config_snapshot
         if proxy_config_snapshot is None:
