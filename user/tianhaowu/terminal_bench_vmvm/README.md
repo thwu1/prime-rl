@@ -1130,6 +1130,91 @@ legacy/diagnostic mode for traces that intentionally contain exact token IDs,
 masks, and sampling logprobs. Scale only after the default gate passes on a
 fresh smoke run and after measuring stable VMVM lease concurrency.
 
+Interactive output is not a production attestation. After the fresh Mobius
+allocation is terminal, an independent reviewer must publish a canonical,
+mode-0400 audit authorization. It binds the exact non-resume run identity,
+task/config/launch/oracle inputs, clean detached source commit/tree/gitlinks,
+every executable auditor source, the isolated Python/stdlib/site manifests,
+and two stable complete terminal scheduler views. Each view requires the exact
+allocation and all recorded steps to be `COMPLETED 0:0`, zero restart/requeue
+evidence, and both allocation and step `squeue` queries to be empty. The same
+authorization precommits a unique audit job name derived from its nonce, fresh
+private reservation and log paths, exact resource tuple, and stdin wrapper
+transport.
+
+Direct pathname execution of `submit_trace_production_audit.sh` is forbidden.
+The independently reviewed launcher must first capture its exact authorized
+bytes into a write-sealed memfd, duplicate that descriptor to fd 7, and then
+invoke `/usr/bin/bash --noprofile --norc /proc/self/fd/7` through `env -i` with
+only the fixed locale/path, the two scheduler-auth paths, and
+`TRACE_SUBMITTER_SEALED_FD=7`. Pass the authorization/source/runtime hashes in
+the documented positional order; the additional hash immediately before the
+Python path is for `trace_production_submit_control.py`. Never retry a consumed
+reservation or job name.
+
+This repository intentionally does not mint the authorization: its terminal
+job observations, nonce, fresh paths, runtime manifests, and source hashes must
+come from a separate reviewer. The scripts below only validate and consume
+that write-once authorization; they cannot derive it from the run they audit.
+The checked-in scripts are therefore inert review artifacts, not a launch
+approval. A lost, preempted, or replaced inference generation invalidates any
+pending rollout plan; a later rollout needs fresh live-route qualification, a
+new non-resume run, and a newly authored authorization bound to that run.
+
+The sealed submitter revalidates its canonical counterpart and all submitted
+bytes immediately before its sole scheduler call. Its stdlib-only controller
+uses exact `/usr/bin/sbatch --hold --export=NONE`, sends the captured batch
+wrapper bytes on stdin, and never gives Slurm a mutable script pathname. It
+requires two exact held views (including literal `Command=(null)`, token comment,
+job/user/workdir/resources, no allocation/start/steps), publishes held
+authorization, revalidates immediately before one release, and requires two
+non-held activation views. It publishes the receipt and permit, fsyncs them,
+keeps the newly created reservation and its parent open by dirfd, binds their
+device/inode identities into the v2 admission records and immutable Slurm
+arguments, and seals that same reservation `0500` as the only commit point.
+Every known-job precommit failure performs at most one exact-ID cancellation and
+requires six stable terminal views with both live queues empty; explicit
+identity conflict is latched across partial scheduler reads and signals, forbids
+scheduler control, and seals an ambiguous failure. The local `sbatch` process
+group is also boundedly reaped on timeout, interruption, and normal return so a
+child cannot outlive an unknown submission result. There is no resubmit path.
+
+The released batch performs no setup until the sealed permit/receipt chain is
+present. It then rejects
+ambient Bash, loader, Python, uv, and Git injection; verifies its Slurm spool
+copy; validates root-owned `/dev/null` as a non-directory pycache sink; and
+enters the captured bootstrap with `python -I -S -B` under `env -i`. The
+bootstrap rejects dirty or
+non-detached source, wrong gitlinks, ignored/untracked importable or cache
+files, executable customization modules, unmanifested imports, and runtime or
+source changes before execution and again immediately before publication.
+User-owned native extensions are copied into write-sealed memfds before the
+dynamic loader executes; before/after pathname hashing alone is insufficient.
+Use
+a fresh dependency snapshot whose complete tree obeys the validated ownership
+and mode policy and contains no symlinks, `.pyc`, `sitecustomize.py`, or
+`usercustomize.py`; its canonical tree digest is part of the authorization.
+The root-owned distro stdlib is separately bound as a complete tree, including
+its inert distro customization file, while `-S` and the origin audit prove that
+the file is never imported.
+
+The certifier holds the exact run directory and writer lock by file descriptor,
+parses the task list from its hashed descriptor, audits one immutable anonymous
+snapshot of `results.jsonl`, and requires clean task stop conditions plus the
+strict reasoning/exact-provider-model-I/O/request-graph audit at the 262,144
+token cap. Its aggregate rollout contract also records exactly 2,500 tasks,
+24 rollout/multiplex/HTTP slots, four bounded VMVM lease starts, the full
+43,200-second Kimi request/session envelope, max reasoning, durable JSONL trace
+streaming, and the exact VMVM source digest; the source closure also binds the
+bounded-cancellation backend and Terminal-Bench taskset bytes directly. It
+publishes a non-authoritative payload first and atomically commits
+the mode-0444 `production_trace_checkpoint.json` completion marker last; no
+ordinary failure removes or contradicts a committed marker. Neither artifact
+exports or promotes traces. The certificate explicitly has
+`sft_training_readiness.established=false`: training additionally requires a
+format-v3 export manifest and schema-v2 immutable-local-tokenizer-tree preflight
+attestation.
+
 The Kimi contract checks each hash-verified request for the chat-completions
 route, exact `Kimi-K3` model, `reasoning_effort=max`, and exactly the two
 required thinking flags. It also requires the parsed provider response model to
