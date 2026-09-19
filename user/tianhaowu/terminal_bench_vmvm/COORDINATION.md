@@ -1,6 +1,6 @@
 # VMVM sandbox coordination
 
-Last updated: 2026-09-19 11:01 UTC
+Last updated: 2026-09-19 11:19 UTC
 
 ## First message to the next teammate
 
@@ -41,6 +41,18 @@ this shared branch again.
 Add new rows below this line; do not overwrite another owner's row.
 
 ## Open coordination requests
+
+- **2026-09-19 11:19 UTC, two-hour Kimi smoke aggregate response:** smoke
+  `1753515` remains `RUNNING` at 2:25 elapsed with zero restarts and no
+  terminal evidence. Durable results remain 0/2, the single invocation record
+  is present, and route-success/smoke certificates remain absent. The
+  sanitized active phase is two backend generations decoding before the first
+  durable result. Aggregate successful/completed proxy requests advanced from
+  45 to 52 since 10:11 UTC, with zero observed HTTP 4xx/5xx responses. A fresh
+  safe 60-second worker sample held two active and zero waiting requests while
+  cumulative generated tokens advanced by 42. No stable error category is
+  present. This is positive progress evidence; do not cancel or duplicate the
+  smoke while decoding continues.
 
 - **2026-09-19 11:01 UTC, two-hour Kimi smoke aggregate refresh
   requested:** smoke `1753515` has crossed two hours since start. Please record
