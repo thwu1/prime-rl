@@ -68,7 +68,7 @@ from terminal_bench_vmvm.taskset import _SOURCE_WHEEL_CLOSURE_CODE, _SOURCE_WHEE
 DISCOVERY_INPUT_SCHEMA_VERSION = 1
 PROOF_SCHEMA_VERSION = 7
 STATE_SCHEMA_VERSION = 6
-RUN_IDENTITY_SCHEMA_VERSION = 5
+RUN_IDENTITY_SCHEMA_VERSION = 6
 CANDIDATE_SCHEMA_VERSION = 5
 ATTEMPT_JOURNAL_SCHEMA_VERSION = 2
 POST_RUN_VALIDATION_SCHEMA_VERSION = 4
@@ -81,6 +81,7 @@ MAX_PIP_REPORT_BYTES = 16 * 1024 * 1024
 MAX_DISCOVERY_INPUT_BYTES = 16 * 1024 * 1024
 SHA256_RE = re.compile(r"[0-9a-f]{64}")
 REVISION_RE = re.compile(r"[0-9a-f]{40}")
+HOST_RE = re.compile(r"[A-Za-z0-9][A-Za-z0-9.-]{0,252}")
 REQUIREMENT_RE = re.compile(r"[A-Za-z0-9][A-Za-z0-9_.-]*(?:\[[A-Za-z0-9_,.-]+\])?==[A-Za-z0-9.!+_-]+")
 SAFE_FILENAME_RE = re.compile(r"[A-Za-z0-9][A-Za-z0-9_.+-]*")
 CLEAN_TREE_SHA256 = hashlib.sha256(b"").hexdigest()
@@ -250,6 +251,8 @@ class SourceWheelProofConfig:
     expected_entry_count: int
     expected_missing_evidence_sha256: str
     project_dir: Path
+    inspection_receipt_path: Path
+    clean_wrapper_path: Path
     canonical_launcher_path: Path
     executed_launcher_path: Path
     uv_path: Path
@@ -257,6 +260,8 @@ class SourceWheelProofConfig:
     python_stdlib_path: Path
     site_packages_path: Path
     vacli_path: Path
+    inspection_receipt_sha256: str
+    clean_wrapper_sha256: str
     launcher_sha256: str
     uv_sha256: str
     python_sha256: str
@@ -271,6 +276,7 @@ class SourceWheelProofConfig:
     pydantic_config_commit: str
     vmvm_tb_v2_sha256: str
     vacli_binary_sha256: str
+    expected_host: str
     invocation_host: str
     slurm_job_id: str
     resume_state_sha256: str | None = None
@@ -310,6 +316,8 @@ class SourceWheelProofConfig:
             raise SourceWheelProofError("source_tree_not_clean")
         bound_hashes = (
             self.expected_missing_evidence_sha256,
+            self.inspection_receipt_sha256,
+            self.clean_wrapper_sha256,
             self.launcher_sha256,
             self.uv_sha256,
             self.python_sha256,
@@ -320,7 +328,12 @@ class SourceWheelProofConfig:
         )
         if any(SHA256_RE.fullmatch(digest) is None for digest in bound_hashes):
             raise SourceWheelProofError("runtime_source_sha256_invalid")
-        if not self.invocation_host.strip() or not self.slurm_job_id.isdigit() or int(self.slurm_job_id) < 1:
+        if (
+            HOST_RE.fullmatch(self.expected_host) is None
+            or self.invocation_host != self.expected_host
+            or not self.slurm_job_id.isdigit()
+            or int(self.slurm_job_id) < 1
+        ):
             raise SourceWheelProofError("invocation_identity_invalid")
         if not 1 <= self.max_concurrent_entries <= MAX_CONCURRENT_ENTRIES:
             raise SourceWheelProofError("entry_concurrency_invalid")
@@ -586,6 +599,8 @@ def validate_execution_environment(config: SourceWheelProofConfig) -> None:
         proof_bootstrap.validate_execution_bindings(
             proof_bootstrap.ExecutionBindings(
                 project_dir=config.project_dir,
+                inspection_receipt_path=config.inspection_receipt_path,
+                clean_wrapper_path=config.clean_wrapper_path,
                 canonical_launcher_path=config.canonical_launcher_path,
                 executed_launcher_path=config.executed_launcher_path,
                 uv_path=config.uv_path,
@@ -593,6 +608,8 @@ def validate_execution_environment(config: SourceWheelProofConfig) -> None:
                 python_stdlib_path=config.python_stdlib_path,
                 site_packages_path=config.site_packages_path,
                 vacli_path=config.vacli_path,
+                inspection_receipt_sha256=config.inspection_receipt_sha256,
+                clean_wrapper_sha256=config.clean_wrapper_sha256,
                 launcher_sha256=config.launcher_sha256,
                 uv_sha256=config.uv_sha256,
                 python_sha256=config.python_sha256,
@@ -607,6 +624,7 @@ def validate_execution_environment(config: SourceWheelProofConfig) -> None:
                 pydantic_config_commit=config.pydantic_config_commit,
                 vmvm_tb_v2_sha256=config.vmvm_tb_v2_sha256,
                 vacli_binary_sha256=config.vacli_binary_sha256,
+                expected_host=config.expected_host,
             ),
             require_attestation=True,
         )
@@ -1397,8 +1415,18 @@ class SourceWheelProofRunner:
         payload = await runtime.read(destination)
         if len(payload) != source.size or sha256_bytes(payload) != source.sha256:
             raise SourceWheelProofError("source_integrity_failed")
-        inspect_source_distribution(source, payload)  # type: ignore[arg-type]
+        try:
+            inspect_source_distribution(source, payload)  # type: ignore[arg-type]
+        except RuntimeError as error:
+            raise SourceWheelProofError("source_distribution_invalid") from error
         return payload
+
+    @staticmethod
+    def _extract_build_requirements(source: SourceArtifactPolicy, payload: bytes) -> tuple[str, ...]:
+        try:
+            return extract_static_build_requirements(source, payload)
+        except RuntimeError as error:
+            raise SourceWheelProofError("source_build_metadata_unsupported") from error
 
     async def _stage_builder(self, runtime: ProofRuntime, entry: DiscoveryEntry) -> tuple[str, ...]:
         removable_paths = (
@@ -1427,7 +1455,7 @@ class SourceWheelProofRunner:
         )
         _require_success(prepared, "builder_prepare_failed")
         payload = await self._download_source(runtime, entry.source)
-        return extract_static_build_requirements(
+        return self._extract_build_requirements(
             entry.source.policy(
                 WheelEvidence(
                     distribution=entry.source.distribution,
@@ -1547,8 +1575,7 @@ class SourceWheelProofRunner:
             source.build_dependencies,
         )
         source_payload = await runtime.read(f"{INPUT_DIR}/{source.filename}")
-        inspect_source_distribution(source, source_payload)
-        declared_build_requirements = extract_static_build_requirements(source, source_payload)
+        declared_build_requirements = self._extract_build_requirements(source, source_payload)
         try:
             validate_static_build_dependency_closure(
                 declared_build_requirements,
@@ -2786,7 +2813,8 @@ class ProofStore:
                 "backend": "attested-venv-setuptools-preloaded-before-source-root",
                 "child_process_path": "venv-bin-only",
                 "source_import_precedence": "stdlib-attested-sites-source-root",
-                "setup_py_grammar": "one-direct-import-one-top-level-call-recursive-literals-only",
+                "setup_py_grammar": "positive-static-legacy-metadata-and-direct-setup-v3",
+                "setup_cfg_grammar": "deterministic-static-options-inert-test-alias-v1",
                 "source_backend_shadowing": "rejected",
             },
             "source": {
@@ -2802,6 +2830,9 @@ class ProofStore:
                 "vmvm_tb_v2_sha256": self.config.vmvm_tb_v2_sha256,
             },
             "execution": {
+                "inspection_host": self.config.expected_host,
+                "inspection_receipt_sha256": self.config.inspection_receipt_sha256,
+                "clean_wrapper_sha256": self.config.clean_wrapper_sha256,
                 "canonical_launcher_sha256": self.config.launcher_sha256,
                 "uv_sha256": self.config.uv_sha256,
                 "python_executable_sha256": self.config.python_sha256,

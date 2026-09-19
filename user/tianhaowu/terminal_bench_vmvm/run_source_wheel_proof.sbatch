@@ -48,15 +48,19 @@ done
 project_dir_input=${PROJECT_DIR:-${SLURM_SUBMIT_DIR:-$PWD}}
 project_dir=$(/usr/bin/readlink -f -- "$project_dir_input")
 workflow_dir="$project_dir/user/tianhaowu/terminal_bench_vmvm"
+inspection_receipt_input=${SOURCE_WHEEL_PROOF_INSPECTION_RECEIPT:-}
+inspection_receipt_sha256=${SOURCE_WHEEL_PROOF_INSPECTION_RECEIPT_SHA256:-}
 discovery_input=${SOURCE_WHEEL_PROOF_INPUT:-}
 discovery_input_sha256=${SOURCE_WHEEL_PROOF_INPUT_SHA256:-}
 output_dir=${SOURCE_WHEEL_PROOF_OUTPUT_DIR:-}
 expected_source_revision=${SOURCE_WHEEL_PROOF_SOURCE_REVISION:-}
 base_runtime_revision=${SOURCE_WHEEL_PROOF_BASE_RUNTIME_REVISION:-}
+expected_host=${SOURCE_WHEEL_PROOF_EXPECTED_HOST:-}
 resume_state_sha256=${SOURCE_WHEEL_PROOF_STATE_SHA256:-}
 slurm_job_id=${SLURM_JOB_ID:-}
 expected_entry_count=${SOURCE_WHEEL_PROOF_EXPECTED_ENTRY_COUNT:-}
 expected_missing_evidence_sha256=${SOURCE_WHEEL_PROOF_MISSING_EVIDENCE_SHA256:-}
+clean_wrapper_sha256=${SOURCE_WHEEL_PROOF_CLEAN_WRAPPER_SHA256:-}
 launcher_sha256=${SOURCE_WHEEL_PROOF_LAUNCHER_SHA256:-}
 uv_sha256=${SOURCE_WHEEL_PROOF_UV_SHA256:-}
 python_sha256=${SOURCE_WHEEL_PROOF_PYTHON_SHA256:-}
@@ -89,9 +93,12 @@ export PYTHONNOUSERSITE=1
 export PYTHONDONTWRITEBYTECODE=1
 export PYTHONSAFEPATH=1
 
-if [[ -z "$discovery_input" || -z "$discovery_input_sha256" || -z "$output_dir" \
-    || -z "$expected_source_revision" || -z "$expected_missing_evidence_sha256" \
-    || -z "$launcher_sha256" || -z "$uv_sha256" || -z "$python_sha256" \
+if [[ -z "$inspection_receipt_input" || -z "$inspection_receipt_sha256" \
+    || -z "$discovery_input" || -z "$discovery_input_sha256" || -z "$output_dir" \
+    || -z "$expected_source_revision" || -z "$expected_host" \
+    || -z "$expected_missing_evidence_sha256" \
+    || -z "$clean_wrapper_sha256" || -z "$launcher_sha256" \
+    || -z "$uv_sha256" || -z "$python_sha256" \
     || -z "$python_runtime_manifest_sha256" || -z "$site_packages_manifest_sha256" \
     || -z "$vmvm_tb_v2_sha256" || -z "$vacli_binary_sha256" \
     || -z "$python_stdlib_input" ]]; then
@@ -111,8 +118,8 @@ if [[ -z "$base_runtime_revision" \
     printf 'SOURCE_WHEEL_PROOF_BASE_RUNTIME_REVISION must select the approved runtime base\n' >&2
     exit 2
 fi
-for digest in "$discovery_input_sha256" "$expected_missing_evidence_sha256" \
-    "$launcher_sha256" "$uv_sha256" "$python_sha256" \
+for digest in "$inspection_receipt_sha256" "$discovery_input_sha256" "$expected_missing_evidence_sha256" \
+    "$clean_wrapper_sha256" "$launcher_sha256" "$uv_sha256" "$python_sha256" \
     "$python_runtime_manifest_sha256" "$site_packages_manifest_sha256" \
     "$vmvm_tb_v2_sha256" "$vacli_binary_sha256"; do
     if [[ ! "$digest" =~ ^[0-9a-f]{64}$ ]]; then
@@ -122,6 +129,10 @@ for digest in "$discovery_input_sha256" "$expected_missing_evidence_sha256" \
 done
 if [[ ! "$expected_source_revision" =~ ^[0-9a-f]{40}$ ]]; then
     printf 'SOURCE_WHEEL_PROOF_SOURCE_REVISION must be a full lowercase Git revision\n' >&2
+    exit 2
+fi
+if [[ ! "$expected_host" =~ ^[A-Za-z0-9][A-Za-z0-9.-]{0,252}$ ]]; then
+    printf 'SOURCE_WHEEL_PROOF_EXPECTED_HOST must be the exact inspected host\n' >&2
     exit 2
 fi
 if [[ -n "$resume_state_sha256" && ! "$resume_state_sha256" =~ ^[0-9a-f]{64}$ ]]; then
@@ -152,6 +163,8 @@ if [[ "$(uname -m)" != x86_64 ]]; then
     exit 2
 fi
 canonical_launcher="$workflow_dir/run_source_wheel_proof.sbatch"
+clean_wrapper="$workflow_dir/run_source_wheel_proof_clean_env.sbatch"
+inspection_receipt=$(/usr/bin/readlink -f -- "$inspection_receipt_input")
 executed_launcher_input=${BASH_SOURCE[0]}
 if [[ "$executed_launcher_input" != "$canonical_launcher" ]]; then
     printf 'Launcher must be executed from the canonical tracked path\n' >&2
@@ -167,13 +180,18 @@ python_bin=$(readlink -f -- "$python_bin_input")
 python_stdlib=$(readlink -f -- "$python_stdlib_input")
 x86_site=$(readlink -f -- "$x86_site")
 vacli_bin=$(readlink -f -- "$vacli_bin_input")
-if [[ ! -f "$canonical_launcher" || ! -f "$executed_launcher" || ! -x "$x86_uv" \
+if [[ "$inspection_receipt" != "$inspection_receipt_input" \
+    || ! -f "$inspection_receipt" || -L "$inspection_receipt" \
+    || ! -f "$clean_wrapper" || -L "$clean_wrapper" \
+    || ! -f "$canonical_launcher" || ! -f "$executed_launcher" || ! -x "$x86_uv" \
     || ! -x "$python_bin" || ! -d "$python_stdlib" \
     || ! -d "$x86_site/pydantic" || ! -x "$vacli_bin" ]]; then
     printf 'Missing staged x86_64 Python runtime\n' >&2
     exit 2
 fi
-if [[ "$(sha256sum "$canonical_launcher" | cut -d' ' -f1)" != "$launcher_sha256" \
+if [[ "$(sha256sum "$inspection_receipt" | cut -d' ' -f1)" != "$inspection_receipt_sha256" \
+    || "$(sha256sum "$clean_wrapper" | cut -d' ' -f1)" != "$clean_wrapper_sha256" \
+    || "$(sha256sum "$canonical_launcher" | cut -d' ' -f1)" != "$launcher_sha256" \
     || "$(sha256sum "$executed_launcher" | cut -d' ' -f1)" != "$launcher_sha256" \
     || "$(sha256sum "$x86_uv" | cut -d' ' -f1)" != "$uv_sha256" \
     || "$(sha256sum "$python_bin" | cut -d' ' -f1)" != "$python_sha256" \
@@ -216,7 +234,11 @@ source_tree_sha256=$(printf '%s' "$source_status" | sha256sum | cut -d' ' -f1)
 verifiers_commit=$(git -C deps/verifiers rev-parse --verify HEAD)
 renderers_commit=$(git -C deps/renderers rev-parse --verify HEAD)
 pydantic_config_commit=$(git -C deps/pydantic-config rev-parse --verify HEAD)
-invocation_host=$(hostname)
+invocation_host=$(/usr/bin/uname -n)
+if [[ "$invocation_host" != "$expected_host" ]]; then
+    printf 'Proof allocation does not match the inspected host\n' >&2
+    exit 2
+fi
 
 mkdir -p /checkpoint/ram/tianhaowu/terminal_bench_vmvm/logs
 
@@ -246,6 +268,8 @@ args=(
     --vacli-image-pull-timeout-seconds "$vacli_image_pull_timeout_seconds"
     --vacli-container-privileged "$vacli_container_privileged"
     --project-dir "$project_dir"
+    --inspection-receipt-path "$inspection_receipt"
+    --clean-wrapper-path "$clean_wrapper"
     --canonical-launcher-path "$canonical_launcher"
     --executed-launcher-path "$executed_launcher"
     --uv-path "$x86_uv"
@@ -253,6 +277,8 @@ args=(
     --python-stdlib-path "$python_stdlib"
     --site-packages-path "$x86_site"
     --vacli-path "$vacli_bin"
+    --inspection-receipt-sha256 "$inspection_receipt_sha256"
+    --clean-wrapper-sha256 "$clean_wrapper_sha256"
     --launcher-sha256 "$launcher_sha256"
     --uv-sha256 "$uv_sha256"
     --python-sha256 "$python_sha256"
@@ -267,6 +293,7 @@ args=(
     --pydantic-config-commit "$pydantic_config_commit"
     --vmvm-tb-v2-sha256 "$vmvm_tb_v2_sha256"
     --vacli-binary-sha256 "$vacli_binary_sha256"
+    --expected-host "$expected_host"
     --invocation-host "$invocation_host"
     --slurm-job-id "$slurm_job_id"
 )
@@ -276,6 +303,8 @@ fi
 
 bootstrap_args=(
     --project-dir "$project_dir"
+    --inspection-receipt-path "$inspection_receipt"
+    --clean-wrapper-path "$clean_wrapper"
     --canonical-launcher-path "$canonical_launcher"
     --executed-launcher-path "$executed_launcher"
     --uv-path "$x86_uv"
@@ -283,6 +312,8 @@ bootstrap_args=(
     --python-stdlib-path "$python_stdlib"
     --site-packages-path "$x86_site"
     --vacli-path "$vacli_bin"
+    --inspection-receipt-sha256 "$inspection_receipt_sha256"
+    --clean-wrapper-sha256 "$clean_wrapper_sha256"
     --launcher-sha256 "$launcher_sha256"
     --uv-sha256 "$uv_sha256"
     --python-sha256 "$python_sha256"
@@ -297,6 +328,7 @@ bootstrap_args=(
     --pydantic-config-commit "$pydantic_config_commit"
     --vmvm-tb-v2-sha256 "$vmvm_tb_v2_sha256"
     --vacli-binary-sha256 "$vacli_binary_sha256"
+    --expected-host "$expected_host"
     --main-script "$workflow_dir/prove_source_wheel_policy.py"
 )
 

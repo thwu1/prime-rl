@@ -56,6 +56,8 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument("--vacli-image-pull-timeout-seconds", type=int, required=True)
     parser.add_argument("--vacli-container-privileged", type=int, choices=(0, 1), required=True)
     parser.add_argument("--project-dir", type=Path, required=True)
+    parser.add_argument("--inspection-receipt-path", type=Path, required=True)
+    parser.add_argument("--clean-wrapper-path", type=Path, required=True)
     parser.add_argument("--canonical-launcher-path", type=Path, required=True)
     parser.add_argument("--executed-launcher-path", type=Path, required=True)
     parser.add_argument("--uv-path", type=Path, required=True)
@@ -63,6 +65,8 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument("--python-stdlib-path", type=Path, required=True)
     parser.add_argument("--site-packages-path", type=Path, required=True)
     parser.add_argument("--vacli-path", type=Path, required=True)
+    parser.add_argument("--inspection-receipt-sha256", required=True)
+    parser.add_argument("--clean-wrapper-sha256", required=True)
     parser.add_argument("--launcher-sha256", required=True)
     parser.add_argument("--uv-sha256", required=True)
     parser.add_argument("--python-sha256", required=True)
@@ -77,6 +81,7 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument("--pydantic-config-commit", required=True)
     parser.add_argument("--vmvm-tb-v2-sha256", required=True)
     parser.add_argument("--vacli-binary-sha256", required=True)
+    parser.add_argument("--expected-host", required=True)
     parser.add_argument("--invocation-host", required=True)
     parser.add_argument("--slurm-job-id", required=True)
     args = parser.parse_args()
@@ -116,6 +121,8 @@ def main() -> int:
         expected_entry_count=args.expected_entry_count,
         expected_missing_evidence_sha256=args.expected_missing_evidence_sha256,
         project_dir=args.project_dir,
+        inspection_receipt_path=args.inspection_receipt_path,
+        clean_wrapper_path=args.clean_wrapper_path,
         canonical_launcher_path=args.canonical_launcher_path,
         executed_launcher_path=args.executed_launcher_path,
         uv_path=args.uv_path,
@@ -123,6 +130,8 @@ def main() -> int:
         python_stdlib_path=args.python_stdlib_path,
         site_packages_path=args.site_packages_path,
         vacli_path=args.vacli_path,
+        inspection_receipt_sha256=args.inspection_receipt_sha256,
+        clean_wrapper_sha256=args.clean_wrapper_sha256,
         launcher_sha256=args.launcher_sha256,
         uv_sha256=args.uv_sha256,
         python_sha256=args.python_sha256,
@@ -137,6 +146,7 @@ def main() -> int:
         pydantic_config_commit=args.pydantic_config_commit,
         vmvm_tb_v2_sha256=args.vmvm_tb_v2_sha256,
         vacli_binary_sha256=args.vacli_binary_sha256,
+        expected_host=args.expected_host,
         invocation_host=args.invocation_host,
         slurm_job_id=args.slurm_job_id,
         resume_state_sha256=args.resume_state_sha256,

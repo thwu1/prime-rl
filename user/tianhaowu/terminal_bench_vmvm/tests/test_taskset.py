@@ -1574,12 +1574,14 @@ def test_source_build_venv_reaches_setup_child_process_with_isolated_python(tmp_
         "from setuptools import setup\n"
         "import os, shutil, subprocess, sys\n"
         "import child_build_dep\n"
+        "import child_project\n"
         "import wheel\n"
         "assert sys.flags.isolated == 1\n"
         "assert sys.flags.ignore_environment == 1\n"
         "assert sys.flags.no_user_site == 1\n"
         "assert sys.flags.no_site == 1\n"
         "assert child_build_dep.VALUE == 'bound-build-dependency'\n"
+        "assert child_project.__version__ == '1.0'\n"
         "assert os.path.commonpath((sys.prefix, os.path.realpath(wheel.__file__))) == sys.prefix\n"
         "assert os.environ['SOURCE_DATE_EPOCH'] == '315532800'\n"
         "assert os.environ['TZ'] == 'UTC'\n"
@@ -1594,7 +1596,7 @@ def test_source_build_venv_reaches_setup_child_process_with_isolated_python(tmp_
         "assert child.stdout.strip() == 'bound-build-dependency'\n"
         "tool = subprocess.run(['child-build-tool'], check=True, capture_output=True, text=True)\n"
         "assert tool.stdout.strip() == 'bound-build-dependency'\n"
-        "setup(name='child-project', version='1.0', packages=[])\n"
+        "setup(name='child-project', version=child_project.__version__, packages=[])\n"
     ).encode()
     source_buffer = io.BytesIO()
     with tarfile.open(fileobj=source_buffer, mode="w:gz") as archive:
@@ -1605,6 +1607,10 @@ def test_source_build_venv_reaches_setup_child_process_with_isolated_python(tmp_
             (
                 "child_project-1.0/pyproject.toml",
                 b"[build-system]\nrequires = ['setuptools', 'wheel']\nbuild-backend = 'setuptools.build_meta'\n",
+            ),
+            (
+                "child_project-1.0/child_project/__init__.py",
+                b"__version__ = '1.0'\nraise RuntimeError('initializer must not execute')\n",
             ),
             ("child_project-1.0/wheel.py", b"raise RuntimeError('source shadow loaded')\n"),
         ):
@@ -1970,7 +1976,7 @@ def test_static_build_requirement_extraction_is_fail_closed(tmp_path: Path) -> N
             b"from setuptools import setup\nREQS = ['legacy-backend==0.1']\nsetup(name='verifier-helper', version='1.0', setup_requires=REQS)\n",
         ),
     )
-    with pytest.raises(RuntimeError, match="executable or dynamic statements"):
+    with pytest.raises(RuntimeError, match="static literal"):
         extract_static_setup_requires(load_source(dynamic_setup), dynamic_setup)
 
     nested_setup = archive(
@@ -2118,7 +2124,7 @@ def test_static_build_requirement_extraction_is_fail_closed(tmp_path: Path) -> N
         ),
         ("verifier_helper-1.0/setup.cfg", b"[aliases]\nbuild = custom_build\n"),
     )
-    with pytest.raises(RuntimeError, match="unsupported section"):
+    with pytest.raises(RuntimeError, match="unsupported command alias"):
         extract_static_build_requirements(load_source(unsupported_config_section), unsupported_config_section)
 
     pyproject_tool_section = archive(
@@ -2143,8 +2149,7 @@ def test_static_build_requirement_extraction_is_fail_closed(tmp_path: Path) -> N
             b"setup_requires=('legacy-backend==0.1',))\n",
         ),
     )
-    with pytest.raises(RuntimeError, match="setup.py"):
-        extract_static_setup_requires(load_source(module_style), module_style)
+    assert extract_static_setup_requires(load_source(module_style), module_style) == ("legacy-backend==0.1",)
 
     literal_containers = archive(
         ("verifier_helper-1.0/PKG-INFO", metadata),
@@ -2153,7 +2158,7 @@ def test_static_build_requirement_extraction_is_fail_closed(tmp_path: Path) -> N
             b'"""static package declaration"""\n'
             b"from setuptools import setup\n"
             b"setup(name='verifier-helper', version='1.0', packages=[], "
-            b"package_data={'': ['*.txt']}, options={'bdist_wheel': {'universal': True}})\n",
+            b"package_data={'': ['*.txt']})\n",
         ),
     )
     assert extract_static_build_requirements(load_source(literal_containers), literal_containers) == ()
@@ -2170,14 +2175,22 @@ def test_static_build_requirement_extraction_is_fail_closed(tmp_path: Path) -> N
         b"from setuptools import setup\nfrom another_backend import setup\nsetup(name='verifier-helper')\n",
         b"import setuptools\nimport another_backend as setuptools\nsetuptools.setup(name='verifier-helper')\n",
         b"from setuptools import setup\nfrom another_backend import *\nsetup(name='verifier-helper')\n",
+        b"from setuptools import setup\ndef setup(**kwargs):\n    return kwargs\nsetup(name='hidden')\n",
+        b"import setuptools\nclass setuptools:\n    setup = staticmethod(lambda **kwargs: kwargs)\nsetuptools.setup(name='hidden')\n",
         b"from setuptools import setup\nsetup(name='one')\nsetup(name='two')\n",
         b"from setuptools import setup, setup as hidden_setup\nsetup(name='one')\nhidden_setup(name='two', setup_requires=['hidden-backend'])\n",
         b"from setuptools import setup\ngetattr(__import__('setuptools'), 'set' + 'up')(name='hidden', setup_requires=['hidden-backend'])\nsetup(name='one')\n",
         b"from setuptools import setup\nglobals()['set' + 'up'](name='hidden', setup_requires=['hidden-backend'])\nsetup(name='one')\n",
         b"from setuptools import setup\ndef wrapper(**kwargs):\n    return setup(**kwargs)\nwrapper(name='hidden')\n",
-        b"from setuptools import setup\nclass CustomDistribution: pass\nsetup(name='one')\n",
+        b"import os\nfrom setuptools import setup\nos.system('external-command')\nsetup(name='one')\n",
+        b"from helper import metadata\nfrom setuptools import setup\nsetup(name='one', description=metadata())\n",
+        b"from setuptools import setup\nclass Wrapper:\n    def invoke(self):\n        setup(name='hidden')\nWrapper().invoke()\n",
         b"from setuptools import setup\nsetup(name='one', distclass='custom')\n",
         b"from setuptools import setup\nsetup(name='one', version=get_version())\n",
+        b"import os\nfrom setuptools import setup\nsetup(name='one', version=os.path.join('dynamic', 'version'))\n",
+        b"import os\nfrom setuptools import setup\nVERSION = os.path.join('dynamic', 'version')\nsetup(name='one', version=VERSION)\n",
+        b"from setuptools import setup\ndef metadata():\n    return 'dynamic'\nsetup(name='one', description=metadata())\n",
+        b"from setuptools import setup\nsetup(name='one', setup_requires=get_requirements())\n",
         b"from setuptools import setup\nif True:\n    setup(name='one')\n",
     )
     for setup_source in ambiguous_setup_sources:
@@ -2187,6 +2200,171 @@ def test_static_build_requirement_extraction_is_fail_closed(tmp_path: Path) -> N
         )
         with pytest.raises(RuntimeError, match="setup"):
             extract_static_setup_requires(load_source(ambiguous), ambiguous)
+
+    inert_local_metadata = archive(
+        ("verifier_helper-1.0/PKG-INFO", metadata),
+        (
+            "verifier_helper-1.0/setup.py",
+            b"import verifier_helper\n"
+            b"from setuptools import setup\n"
+            b"setup(name='verifier-helper', version=verifier_helper.__version__, "
+            b"author=verifier_helper.__author__, author_email=verifier_helper.__email__, "
+            b"description=verifier_helper.__doc__)\n",
+        ),
+        (
+            "verifier_helper-1.0/verifier_helper/__init__.py",
+            b'"""Static description."""\n'
+            b"__version__ = '1.0'\n"
+            b"__author__ = 'Maintainer'\n"
+            b"__email__ = 'maintainer@example.invalid'\n"
+            b"raise RuntimeError('module body must never execute during the build')\n",
+        ),
+    )
+    assert extract_static_build_requirements(load_source(inert_local_metadata), inert_local_metadata) == ()
+    assert "metadata_stub = types.ModuleType(module)" in SOURCE_BUILD_RUNNER_CODE
+    assert "sys.modules[module] = metadata_stub" in SOURCE_BUILD_RUNNER_CODE
+
+    helper_import = archive(
+        ("verifier_helper-1.0/PKG-INFO", metadata),
+        (
+            "verifier_helper-1.0/setup.py",
+            b"import metadata_helper\n"
+            b"from setuptools import setup\n"
+            b"setup(name='verifier-helper', version=metadata_helper.__version__)\n",
+        ),
+        ("verifier_helper-1.0/metadata_helper/__init__.py", b"__version__ = '1.0'\n"),
+    )
+    with pytest.raises(RuntimeError, match="unsupported helper import"):
+        extract_static_build_requirements(load_source(helper_import), helper_import)
+
+    dynamic_local_metadata = archive(
+        ("verifier_helper-1.0/PKG-INFO", metadata),
+        (
+            "verifier_helper-1.0/setup.py",
+            b"import verifier_helper\n"
+            b"from setuptools import setup\n"
+            b"setup(name='verifier-helper', version=verifier_helper.__version__)\n",
+        ),
+        (
+            "verifier_helper-1.0/verifier_helper/__init__.py",
+            b"__version__ = resolve_version()\n",
+        ),
+    )
+    with pytest.raises(RuntimeError, match="not one static string"):
+        extract_static_build_requirements(load_source(dynamic_local_metadata), dynamic_local_metadata)
+
+    ambiguous_local_metadata = archive(
+        ("verifier_helper-1.0/PKG-INFO", metadata),
+        (
+            "verifier_helper-1.0/setup.py",
+            b"import verifier_helper\n"
+            b"from setuptools import setup\n"
+            b"setup(name='verifier-helper', version=verifier_helper.__version__)\n",
+        ),
+        ("verifier_helper-1.0/verifier_helper.py", b"__version__ = '1.0'\n"),
+        ("verifier_helper-1.0/verifier_helper/__init__.py", b"__version__ = '1.0'\n"),
+    )
+    with pytest.raises(RuntimeError, match="not statically bound"):
+        extract_static_build_requirements(load_source(ambiguous_local_metadata), ambiguous_local_metadata)
+
+    deterministic_alias = archive(
+        ("verifier_helper-1.0/PKG-INFO", metadata),
+        (
+            "verifier_helper-1.0/setup.py",
+            b"from setuptools import setup\nsetup(name='verifier-helper', version='1.0')\n",
+        ),
+        ("verifier_helper-1.0/setup.cfg", b"[aliases]\ntest = pytest\n[egg_info]\ntag_build =\n"),
+    )
+    assert extract_static_build_requirements(load_source(deterministic_alias), deterministic_alias) == ()
+
+    dynamic_config_file = archive(
+        ("verifier_helper-1.0/PKG-INFO", metadata),
+        (
+            "verifier_helper-1.0/setup.py",
+            b"from setuptools import setup\nsetup(name='verifier-helper', version='1.0')\n",
+        ),
+        ("verifier_helper-1.0/setup.cfg", b"[metadata]\nlong_description = file: README.rst\n"),
+    )
+    with pytest.raises(RuntimeError, match="executable or dynamic option"):
+        extract_static_build_requirements(load_source(dynamic_config_file), dynamic_config_file)
+
+    dynamic_config_discovery = archive(
+        ("verifier_helper-1.0/PKG-INFO", metadata),
+        (
+            "verifier_helper-1.0/setup.py",
+            b"from setuptools import setup\nsetup(name='verifier-helper', version='1.0')\n",
+        ),
+        ("verifier_helper-1.0/setup.cfg", b"[options]\npackages = find:\n"),
+    )
+    with pytest.raises(RuntimeError, match="executable or dynamic option"):
+        extract_static_build_requirements(load_source(dynamic_config_discovery), dynamic_config_discovery)
+
+    resource_context = archive(
+        ("verifier_helper-1.0/PKG-INFO", metadata),
+        (
+            "verifier_helper-1.0/setup.py",
+            b"import tempfile\n"
+            b"from setuptools import setup\n"
+            b"with tempfile.TemporaryDirectory() as directory:\n"
+            b"    setup(name='verifier-helper', version='1.0')\n",
+        ),
+    )
+    assert extract_static_build_requirements(load_source(resource_context), resource_context) == ()
+
+    contextual_requirements = archive(
+        ("verifier_helper-1.0/PKG-INFO", metadata),
+        (
+            "verifier_helper-1.0/setup.py",
+            b"import tempfile\n"
+            b"from setuptools import setup\n"
+            b"with tempfile.TemporaryDirectory() as directory:\n"
+            b"    setup(name='verifier-helper', setup_requires=['hidden-backend'])\n",
+        ),
+    )
+    with pytest.raises(RuntimeError, match="must not be declared inside a resource context"):
+        extract_static_build_requirements(load_source(contextual_requirements), contextual_requirements)
+
+    metadata_not_executed = archive(
+        ("verifier_helper-1.0/PKG-INFO", metadata),
+        (
+            "verifier_helper-1.0/setup.py",
+            b"import pathlib\n"
+            b"from setuptools import setup\n"
+            b"setup(name='verifier-helper', long_description=pathlib.Path('missing').read_text())\n",
+        ),
+    )
+    assert extract_static_build_requirements(load_source(metadata_not_executed), metadata_not_executed) == ()
+
+    dead_publish_guard = archive(
+        ("verifier_helper-1.0/PKG-INFO", metadata),
+        (
+            "verifier_helper-1.0/setup.py",
+            b"import os\n"
+            b"import sys\n"
+            b"from setuptools import setup\n"
+            b"if sys.argv[-1] == 'publish':\n"
+            b"    os.system('release-command')\n"
+            b"    sys.exit()\n"
+            b"setup(name='verifier-helper', version='1.0')\n",
+        ),
+    )
+    assert extract_static_build_requirements(load_source(dead_publish_guard), dead_publish_guard) == ()
+
+    reachable_command_guard = archive(
+        ("verifier_helper-1.0/PKG-INFO", metadata),
+        (
+            "verifier_helper-1.0/setup.py",
+            b"import os\n"
+            b"import sys\n"
+            b"from setuptools import setup\n"
+            b"if sys.argv[-1] == 'bdist_wheel':\n"
+            b"    os.system('build-command')\n"
+            b"    sys.exit()\n"
+            b"setup(name='verifier-helper', version='1.0')\n",
+        ),
+    )
+    with pytest.raises(RuntimeError, match="control flow"):
+        extract_static_build_requirements(load_source(reachable_command_guard), reachable_command_guard)
 
     for shadow_name in ("setuptools.py", "setuptools.pyc", "setuptools/__init__.py"):
         shadowed = archive(

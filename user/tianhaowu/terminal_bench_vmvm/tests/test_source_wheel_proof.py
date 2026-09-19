@@ -312,6 +312,8 @@ def _config(discovery: Path, output: Path, **changes: object) -> SourceWheelProo
         expected_entry_count=9,
         expected_missing_evidence_sha256=sha256_bytes(canonical_json(missing)),
         project_dir=project,
+        inspection_receipt_path=project / "unused-inspection-receipt.json",
+        clean_wrapper_path=project / "unused-clean-wrapper",
         canonical_launcher_path=project / "unused-launcher",
         executed_launcher_path=project / "unused-launcher",
         uv_path=project / "unused-uv",
@@ -319,6 +321,8 @@ def _config(discovery: Path, output: Path, **changes: object) -> SourceWheelProo
         python_stdlib_path=Path(sysconfig.get_path("stdlib")).resolve(),
         site_packages_path=project / "unused-site-packages",
         vacli_path=project / "unused-vacli",
+        inspection_receipt_sha256="4" * 64,
+        clean_wrapper_sha256="5" * 64,
         launcher_sha256="6" * 64,
         uv_sha256="7" * 64,
         python_sha256="8" * 64,
@@ -333,6 +337,7 @@ def _config(discovery: Path, output: Path, **changes: object) -> SourceWheelProo
         pydantic_config_commit="d" * 40,
         vmvm_tb_v2_sha256="e" * 64,
         vacli_binary_sha256="f" * 64,
+        expected_host="worker.example.invalid",
         invocation_host="worker.example.invalid",
         slurm_job_id="12345",
     )
@@ -732,6 +737,9 @@ def test_nine_entry_discovery_emits_policy_with_exactly_twenty_seven_starts(
     assert identity["reproducibility"]["all_other_wheel_bytes_bound"] is True
     assert identity["source_build_execution"]["child_process_path"] == "venv-bin-only"
     assert identity["source_build_execution"]["source_import_precedence"] == "stdlib-attested-sites-source-root"
+    assert identity["source_build_execution"]["setup_py_grammar"] == (
+        "positive-static-legacy-metadata-and-direct-setup-v3"
+    )
     assert proof["proof_runtime_starts"] == 27
     assert state["telemetry"]["attested_runtime_starts"] == 27
     assert state["attempt_journal"]["start_intents"] == 27
@@ -750,6 +758,9 @@ def test_nine_entry_discovery_emits_policy_with_exactly_twenty_seven_starts(
     assert proof["source"]["renderers_commit"] == "c" * 40
     assert proof["source"]["pydantic_config_commit"] == "d" * 40
     assert proof["source"]["vmvm_tb_v2_sha256"] == "e" * 64
+    assert proof["execution"]["inspection_host"] == "worker.example.invalid"
+    assert proof["execution"]["inspection_receipt_sha256"] == "4" * 64
+    assert proof["execution"]["clean_wrapper_sha256"] == "5" * 64
     assert proof["execution"]["vacli_binary_sha256"] == "f" * 64
     assert proof["execution"] == identity["execution"]
     assert proof["source_wheel_policy_sha256"] == sha256_bytes((output / "source_wheel_policy.json").read_bytes())
@@ -795,6 +806,35 @@ def test_nine_entry_discovery_emits_policy_with_exactly_twenty_seven_starts(
     )
     assert asyncio.run(run_source_wheel_proof(resumed, runtime_factory=resumed_fleet.factory)) == result
     assert resumed_fleet.start_count == 0
+
+
+def test_static_metadata_parser_failure_has_stable_aggregate_code(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    discovery, artifacts = _write_discovery(tmp_path, 9)
+    output = tmp_path / "proof"
+    fleet = FakeFleet(artifacts)
+
+    def reject_metadata(*_: object) -> tuple[str, ...]:
+        raise RuntimeError("private parser detail")
+
+    monkeypatch.setattr(source_wheel_proof, "extract_static_build_requirements", reject_metadata)
+    with pytest.raises(SourceWheelProofError, match="^source_build_metadata_unsupported$") as caught:
+        asyncio.run(
+            run_source_wheel_proof(
+                _config(discovery, output, max_concurrent_entries=1, vacli_max_concurrent_leases=3),
+                runtime_factory=fleet.factory,
+            )
+        )
+
+    summary = aggregate_failure(output, caught.value.code)
+    assert summary["status"] == "failed"
+    assert summary["error_code"] == "source_build_metadata_unsupported"
+    assert summary["completed_entries"] == 0
+    assert "private parser detail" not in json.dumps(summary)
+    assert fleet.start_count == 3
+    assert fleet.live == 0
 
 
 def test_semantically_equal_timestamp_variants_publish_and_resume(tmp_path: Path) -> None:
@@ -1270,6 +1310,8 @@ def test_reproducibility_and_concurrency_contracts_fail_closed(tmp_path: Path) -
         _config(discovery, tmp_path / "proof", base_runtime_commit="f" * 40).validate()
     with pytest.raises(SourceWheelProofError, match="^vacli_retry_invalid$"):
         _config(discovery, tmp_path / "proof", vacli_lease_retries=2).validate()
+    with pytest.raises(SourceWheelProofError, match="^invocation_identity_invalid$"):
+        _config(discovery, tmp_path / "proof", expected_host="another-host").validate()
     with pytest.raises(
         SourceWheelProofError,
         match="^vacli_lease_concurrency_exceeds_runtime_cap$",
@@ -1336,12 +1378,15 @@ def test_execution_environment_rejects_tool_site_and_inherited_python_drift(
 ) -> None:
     discovery, _ = _write_discovery(tmp_path / "input", 9)
     project = (tmp_path / "project").resolve()
+    clean_wrapper = project / "user/tianhaowu/terminal_bench_vmvm/run_source_wheel_proof_clean_env.sbatch"
     launcher = project / "user/tianhaowu/terminal_bench_vmvm/run_source_wheel_proof.sbatch"
+    inspection_receipt = (tmp_path / "inspection-receipt.json").resolve()
     vmvm_source = project / "environments/vmvm_tb_v2/vmvm_tb_v2/_vacli"
     site_packages = (tmp_path / "site-packages").resolve()
-    launcher.parent.mkdir(parents=True)
+    clean_wrapper.parent.mkdir(parents=True)
     vmvm_source.mkdir(parents=True)
     site_packages.mkdir()
+    clean_wrapper.write_bytes(b"pinned clean wrapper\n")
     launcher.write_bytes(b"pinned launcher\n")
     (vmvm_source / "backend.py").write_bytes(b"pinned runtime\n")
     (site_packages / "dependency.py").write_bytes(b"pinned dependency\n")
@@ -1360,6 +1405,8 @@ def test_execution_environment_rejects_tool_site_and_inherited_python_drift(
     config = replace(
         _config(discovery, tmp_path / "proof"),
         project_dir=project,
+        inspection_receipt_path=inspection_receipt,
+        clean_wrapper_path=clean_wrapper,
         canonical_launcher_path=launcher,
         executed_launcher_path=launcher,
         uv_path=uv_path.resolve(),
@@ -1367,6 +1414,8 @@ def test_execution_environment_rejects_tool_site_and_inherited_python_drift(
         python_stdlib_path=python_stdlib,
         site_packages_path=site_packages,
         vacli_path=vacli_path.resolve(),
+        inspection_receipt_sha256="4" * 64,
+        clean_wrapper_sha256=sha256_bytes(clean_wrapper.read_bytes()),
         launcher_sha256=sha256_bytes(launcher.read_bytes()),
         uv_sha256=sha256_bytes(uv_path.read_bytes()),
         python_sha256=sha256_bytes(python_path.read_bytes()),
@@ -1374,6 +1423,8 @@ def test_execution_environment_rejects_tool_site_and_inherited_python_drift(
         site_packages_manifest_sha256=proof_bootstrap.canonical_tree_manifest_sha256(site_packages),
         vmvm_tb_v2_sha256=proof_bootstrap.python_sources_sha256(vmvm_source),
         vacli_binary_sha256=sha256_bytes(vacli_path.read_bytes()),
+        expected_host=os.uname().nodename,
+        invocation_host=os.uname().nodename,
     )
     dependency_commits = {
         "deps/verifiers": config.verifiers_commit,
@@ -1427,12 +1478,45 @@ def test_execution_environment_rejects_tool_site_and_inherited_python_drift(
     )
     config = replace(config, python_runtime_manifest_sha256=runtime_manifest)
     bindings = replace(bindings, python_runtime_manifest_sha256=runtime_manifest)
-    monkeypatch.setenv(
-        proof_bootstrap.BOOTSTRAP_ATTESTATION_ENV,
-        proof_bootstrap.bootstrap_attestation_sha256(bindings, runtime_manifest),
+
+    def bind_receipt(candidate: SourceWheelProofConfig) -> SourceWheelProofConfig:
+        candidate_bindings = proof_bootstrap.ExecutionBindings(
+            **{field: getattr(candidate, field) for field in proof_bootstrap.ExecutionBindings.__dataclass_fields__}
+        )
+        inspection_receipt.write_bytes(
+            canonical_json(
+                proof_bootstrap.inspection_receipt(
+                    proof_bootstrap._expected_inspection_hashes(candidate_bindings),
+                    candidate_bindings.expected_host,
+                )
+            )
+            + b"\n"
+        )
+        inspection_receipt.chmod(0o600)
+        receipt_sha256 = sha256_bytes(inspection_receipt.read_bytes())
+        candidate = replace(candidate, inspection_receipt_sha256=receipt_sha256)
+        candidate_bindings = replace(candidate_bindings, inspection_receipt_sha256=receipt_sha256)
+        monkeypatch.setenv(
+            proof_bootstrap.BOOTSTRAP_ATTESTATION_ENV,
+            proof_bootstrap.bootstrap_attestation_sha256(
+                candidate_bindings,
+                candidate.python_runtime_manifest_sha256,
+            ),
+        )
+        return candidate
+
+    config = bind_receipt(config)
+    bindings = replace(bindings, inspection_receipt_sha256=config.inspection_receipt_sha256)
+    attestation = proof_bootstrap.bootstrap_attestation_sha256(bindings, runtime_manifest)
+    assert attestation != proof_bootstrap.bootstrap_attestation_sha256(
+        replace(bindings, expected_host="another-host"),
+        runtime_manifest,
     )
+    monkeypatch.setenv(proof_bootstrap.BOOTSTRAP_ATTESTATION_ENV, attestation)
 
     validate_execution_environment(config)
+    with pytest.raises(SourceWheelProofError, match="^execution_host_mismatch$"):
+        validate_execution_environment(replace(config, expected_host="another-host", invocation_host="another-host"))
     noncanonical_launchers = {
         "copied": tmp_path / "copied_launcher.sbatch",
         "symlinked": tmp_path / "symlinked_launcher.sbatch",
@@ -1447,15 +1531,42 @@ def test_execution_environment_rejects_tool_site_and_inherited_python_drift(
     for noncanonical_launcher in noncanonical_launchers.values():
         with pytest.raises(SourceWheelProofError, match="^execution_binding_invalid$"):
             validate_execution_environment(replace(config, executed_launcher_path=noncanonical_launcher))
-    for field in ("launcher_sha256", "uv_sha256", "python_sha256", "vacli_binary_sha256"):
+    noncanonical_wrapper = tmp_path / "copied_clean_wrapper.sbatch"
+    noncanonical_wrapper.write_bytes(clean_wrapper.read_bytes())
+    with pytest.raises(SourceWheelProofError, match="^execution_binding_invalid$"):
+        validate_execution_environment(replace(config, clean_wrapper_path=noncanonical_wrapper))
+    with pytest.raises(SourceWheelProofError, match="^inspection_receipt_invalid$"):
+        validate_execution_environment(replace(config, inspection_receipt_sha256="a" * 64))
+    inspection_receipt.chmod(0o644)
+    with pytest.raises(SourceWheelProofError, match="^inspection_receipt_invalid$"):
+        validate_execution_environment(config)
+    inspection_receipt.chmod(0o600)
+    original_receipt = inspection_receipt.read_bytes()
+    inspection_receipt.write_bytes(original_receipt.replace(b'"status":"complete"', b'"status":"changed"'))
+    with pytest.raises(SourceWheelProofError, match="^inspection_receipt_invalid$"):
+        validate_execution_environment(config)
+    inspection_receipt.write_bytes(original_receipt)
+    for field in (
+        "clean_wrapper_sha256",
+        "launcher_sha256",
+        "uv_sha256",
+        "python_sha256",
+        "vacli_binary_sha256",
+    ):
+        drift_config = bind_receipt(replace(config, **{field: "a" * 64}))
         with pytest.raises(SourceWheelProofError, match="^execution_tool_sha256_mismatch$"):
-            validate_execution_environment(replace(config, **{field: "a" * 64}))
+            validate_execution_environment(drift_config)
+    config = bind_receipt(config)
+    runtime_drift = bind_receipt(replace(config, python_runtime_manifest_sha256="a" * 64))
     with pytest.raises(SourceWheelProofError, match="^python_runtime_manifest_mismatch$"):
-        validate_execution_environment(replace(config, python_runtime_manifest_sha256="a" * 64))
+        validate_execution_environment(runtime_drift)
+    site_drift = bind_receipt(replace(config, site_packages_manifest_sha256="a" * 64))
     with pytest.raises(SourceWheelProofError, match="^site_packages_manifest_mismatch$"):
-        validate_execution_environment(replace(config, site_packages_manifest_sha256="a" * 64))
+        validate_execution_environment(site_drift)
+    vmvm_drift = bind_receipt(replace(config, vmvm_tb_v2_sha256="a" * 64))
     with pytest.raises(SourceWheelProofError, match="^vmvm_runtime_source_mismatch$"):
-        validate_execution_environment(replace(config, vmvm_tb_v2_sha256="a" * 64))
+        validate_execution_environment(vmvm_drift)
+    config = bind_receipt(config)
     monkeypatch.setenv("PYTHONHOME", "/untrusted")
     with pytest.raises(SourceWheelProofError, match="^execution_environment_not_sanitized$"):
         validate_execution_environment(config)
@@ -1530,9 +1641,10 @@ def test_resume_revalidates_completed_entries_and_runs_only_missing_work(tmp_pat
     assert len(json.loads((output / "source_wheel_policy.json").read_bytes())["entries"]) == 9
 
 
-def test_readme_uses_exact_clean_tmux_wrap_launcher_form() -> None:
+def test_readme_uses_hash_bound_in_allocation_clean_wrapper() -> None:
     workflow = Path(__file__).resolve().parents[1]
     readme = (workflow / "README.md").read_text()
+    clean_wrapper = (workflow / "run_source_wheel_proof_clean_env.sbatch").read_text()
     launcher = (workflow / "run_source_wheel_proof.sbatch").read_text()
 
     assert "tmux send-keys -t source-wheel-proof" in readme
@@ -1541,18 +1653,135 @@ def test_readme_uses_exact_clean_tmux_wrap_launcher_form() -> None:
     assert (
         "--wrap='exec /bin/bash --noprofile --norc "
         "/path/to/clean-reviewed-checkout/user/tianhaowu/terminal_bench_vmvm/"
-        "run_source_wheel_proof.sbatch'\" C-m"
+        "run_source_wheel_proof_clean_env.sbatch'\" C-m"
     ) in readme
+    assert "Submit-side `env -i` alone is not" in readme
+    assert "--clean-wrapper " in readme
+    assert "SOURCE_WHEEL_PROOF_CLEAN_WRAPPER_SHA256" in readme
+    assert "SOURCE_WHEEL_PROOF_INSPECTION_RECEIPT=" in readme
+    assert "SOURCE_WHEEL_PROOF_INSPECTION_RECEIPT_SHA256=" in readme
+    assert "SOURCE_WHEEL_PROOF_EXPECTED_HOST=<reviewed-inspector-host>" in readme
+    assert "--nodelist=<reviewed-inspector-host>" in readme
+    assert "`invocation_host`" in readme
+    for required in (
+        "VACLI_MAX_PULL_RETRIES=20",
+        "VACLI_IMAGE_PULL_TIMEOUT_SECONDS=3600",
+        "VACLI_CONTAINER_PRIVILEGED=1",
+        "VMVM_TENANT_ID=async_2347641",
+        "VMVM_LEASE_TTL=60s",
+    ):
+        assert required in readme
+    assert "wrapper_sha=${SOURCE_WHEEL_PROOF_CLEAN_WRAPPER_SHA256:?}" in clean_wrapper
+    assert 'exec /usr/bin/env -i "${clean_environment[@]}" /bin/bash "$canonical_launcher"' in clean_wrapper
+    assert "LD_LIBRARY_PATH" not in clean_wrapper
     assert 'exec "$python_bin" -I -S -B' in launcher
     assert '"$workflow_dir/source_wheel_proof_bootstrap.py" run' in launcher
     assert "uv run --no-project" not in launcher
     for rejected in ("BASH_ENV", "LD_PRELOAD"):
-        assert rejected in (launcher + readme)
+        assert rejected in (clean_wrapper + launcher + readme)
     assert "declare -F" in launcher
     assert "`PATH` contains only the attested venv's `bin`" in readme
     assert "complete raw ZIP" in readme
     assert "local and central DOS" in readme and "time/date fields zeroed" in readme
     assert "`setup.cfg`" in readme and "`pyproject.toml`" in readme
+
+
+def test_clean_wrapper_removes_allocation_loader_injection(tmp_path: Path) -> None:
+    if os.uname().machine != "x86_64":
+        pytest.skip("clean wrapper is intentionally x86_64-only")
+    workflow = tmp_path / "project/user/tianhaowu/terminal_bench_vmvm"
+    workflow.mkdir(parents=True)
+    source_wrapper = Path(__file__).resolve().parents[1] / "run_source_wheel_proof_clean_env.sbatch"
+    clean_wrapper = workflow / source_wrapper.name
+    clean_wrapper.write_bytes(source_wrapper.read_bytes())
+    output = tmp_path / "proof"
+    output.mkdir()
+    launcher = workflow / "run_source_wheel_proof.sbatch"
+    launcher.write_text(
+        "#!/bin/bash\n"
+        "set -euo pipefail\n"
+        "[[ $PATH == /usr/bin:/bin ]]\n"
+        "[[ -z ${LD_LIBRARY_PATH+x} ]]\n"
+        "[[ -z ${LD_PRELOAD+x} ]]\n"
+        "[[ -z ${BASH_ENV+x} ]]\n"
+        "[[ $SOURCE_WHEEL_PROOF_EXPECTED_HOST == $(/usr/bin/hostname) ]]\n"
+        'printf sanitized > "$SOURCE_WHEEL_PROOF_OUTPUT_DIR/wrapper-result"\n'
+    )
+    certificate = tmp_path / "client.crt"
+    key = tmp_path / "client.key"
+    inspection_receipt = tmp_path / "inspection-receipt.json"
+    certificate.write_text("certificate")
+    key.write_text("key")
+    inspection_receipt.write_text("{}\n")
+    inspection_receipt.chmod(0o600)
+    environment = {
+        "PATH": "/usr/bin:/bin",
+        "LD_LIBRARY_PATH": "/slurm/injected",
+        "PROJECT_DIR": str(tmp_path / "project"),
+        "SOURCE_WHEEL_PROOF_INPUT": str(tmp_path / "input.json"),
+        "SOURCE_WHEEL_PROOF_INPUT_SHA256": "1" * 64,
+        "SOURCE_WHEEL_PROOF_OUTPUT_DIR": str(output),
+        "SOURCE_WHEEL_PROOF_SOURCE_REVISION": "2" * 40,
+        "SOURCE_WHEEL_PROOF_BASE_RUNTIME_REVISION": APPROVED_BASE_RUNTIME_COMMIT,
+        "SOURCE_WHEEL_PROOF_INSPECTION_RECEIPT": str(inspection_receipt),
+        "SOURCE_WHEEL_PROOF_INSPECTION_RECEIPT_SHA256": sha256_bytes(inspection_receipt.read_bytes()),
+        "SOURCE_WHEEL_PROOF_EXPECTED_HOST": os.uname().nodename,
+        "SOURCE_WHEEL_PROOF_EXPECTED_ENTRY_COUNT": "9",
+        "SOURCE_WHEEL_PROOF_MISSING_EVIDENCE_SHA256": "3" * 64,
+        "SOURCE_WHEEL_PROOF_CLEAN_WRAPPER_SHA256": sha256_bytes(clean_wrapper.read_bytes()),
+        "SOURCE_WHEEL_PROOF_LAUNCHER_SHA256": "4" * 64,
+        "SOURCE_WHEEL_PROOF_UV_SHA256": "5" * 64,
+        "SOURCE_WHEEL_PROOF_PYTHON_SHA256": "6" * 64,
+        "SOURCE_WHEEL_PROOF_PYTHON_RUNTIME_MANIFEST_SHA256": "7" * 64,
+        "SOURCE_WHEEL_PROOF_SITE_PACKAGES_MANIFEST_SHA256": "8" * 64,
+        "SOURCE_WHEEL_PROOF_VMVM_TB_V2_SHA256": "9" * 64,
+        "SOURCE_WHEEL_PROOF_VACLI_BINARY_SHA256": "a" * 64,
+        "SOURCE_WHEEL_PROOF_MAX_CONCURRENT_ENTRIES": "2",
+        "PYTHON_BIN_X86_64": "/usr/bin/python3",
+        "PYTHON_STDLIB_X86_64": "/usr/lib/python3.12",
+        "PYTHON_SITE_X86_64": "/tmp/site-packages",
+        "UV_BIN_X86_64": "/usr/bin/uv",
+        "VACLI_BIN": "/usr/bin/true",
+        "VACLI_LEASE_RETRIES": "1",
+        "VACLI_MAX_CONCURRENT_LEASES": "6",
+        "VACLI_MAX_PULL_RETRIES": "20",
+        "VACLI_IMAGE_PULL_TIMEOUT_SECONDS": "3600",
+        "VACLI_CONTAINER_PRIVILEGED": "1",
+        "VMVM_TENANT_ID": "tenant",
+        "VMVM_LEASE_TTL": "60s",
+        "SLURM_JOB_ID": "12345",
+        "THRIFT_TLS_CL_CERT_PATH": str(certificate),
+        "THRIFT_TLS_CL_KEY_PATH": str(key),
+    }
+
+    result = subprocess.run(
+        ["/bin/bash", "--noprofile", "--norc", str(clean_wrapper)],
+        check=False,
+        capture_output=True,
+        env=environment,
+    )
+
+    assert result.returncode == 0, result.stderr.decode()
+    assert (output / "wrapper-result").read_text() == "sanitized"
+
+
+def test_binding_inspector_receipt_names_the_measured_host(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    monkeypatch.setattr(proof_bootstrap, "_parse_args", lambda: SimpleNamespace(command="inspect"))
+    monkeypatch.setattr(proof_bootstrap, "_inspect", lambda _: {"clean_wrapper_sha256": "a" * 64})
+
+    assert proof_bootstrap.main() == 0
+
+    receipt = json.loads(capsys.readouterr().out)
+    assert receipt == {
+        "schema_version": 1,
+        "kind": "source-wheel-proof-environment-inspection",
+        "status": "complete",
+        "invocation_host": os.uname().nodename,
+        "hashes": {"clean_wrapper_sha256": "a" * 64},
+    }
 
 
 def test_bootstrap_requires_isolated_no_site_python_before_import_roots() -> None:

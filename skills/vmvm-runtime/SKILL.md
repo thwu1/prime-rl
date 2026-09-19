@@ -206,14 +206,36 @@ activate `no-network`. Build in a fresh no-system-site environment containing
 only the exact hash-pinned build-tool/dependency wheels installed offline with
 `--no-index --no-deps`. Attest every venv-local distribution, location,
 installed-file manifest, effective import path, and complete `bin` inventory.
-Accept only a single statically provable, unaliased top-level
-`setuptools.setup(...)` call. Take
-literal `setup_requires` from either that call or deterministic `setup.cfg`
-`[options]` configuration, and combine it with setuptools
-`build-system.requires`; allow no other `pyproject.toml` table. Reject
-conflicting declarations, aliases, `**kwargs`,
-nonliteral values, assignments, helpers/classes, control flow, decorators,
-`cmdclass`/`distclass`, in-tree or alternate backends, and ambiguity. Execute
+Discover build dependencies by parsing pinned legacy metadata as text; never
+import or execute it. Require exactly one direct, unaliased `setup(...)` or
+`setuptools.setup(...)` invocation after its matching module-scope import. The
+ordinary form is the final module statement. The only resource-context form is
+the final statement of a final top-level `tempfile.TemporaryDirectory()` block,
+and it cannot declare `setup_requires`. Unrelated legacy metadata computation
+may remain only within the positive grammar for literals, source-relative
+metadata reads, fixed string/path transforms, static package discovery,
+explicit Python version guards, and the bounded resource-preparation form.
+Permit a local metadata reader helper only when it matches that grammar and is
+used exactly once as `long_description`; reject arbitrary imports, assignments,
+helper calls, side effects, and dynamic non-dependency keywords. Permit only
+one direct, unaliased source-package import used solely for `__author__`,
+`__doc__`, `__email__`, or `__version__`; require each accessed value to be a
+unique static string or module docstring in the package initializer. Preload
+those values as an inert synthetic module in the build runner so the real
+initializer is never executed. Recognize the
+exact legacy `sys.argv[-1] == "publish"` release branch as unreachable under the
+fixed `bdist_wheel` argv, and reject every other process-launch or exit call.
+Also reject setup aliases, reflected or additional setup references,
+branching/looping selection of the setup call, `**kwargs`, dynamic
+`setup_requires`, and `cmdclass`/`distclass` controls. Take
+literal `setup_requires` from that call or deterministic `setup.cfg` `[options]`
+configuration. In `setup.cfg`, reject defaults, `attr:`/`file:`/`find:`
+directives, and command aliases except the exact inert `test = pytest`
+declaration. Combine
+the result with setuptools `build-system.requires`; allow no other
+`pyproject.toml` table and reject conflicting declarations, in-tree or
+alternate backends, and ambiguity. Surface parser rejection only as the stable
+aggregate `source_build_metadata_unsupported` code. Execute
 that backend directly with the venv Python in real `-I -S`
 isolated/no-site mode after network isolation; manually add only the attested
 venv-local site roots without processing `.pth` or Python customization
@@ -231,9 +253,11 @@ offline installation of the selected raw wheel on a clean target with the same
 runtime fingerprint. Reject Compose and cap the exceptional builder path at
 one lease.
 
-Before enabling the policy, run
-`terminal_bench_vmvm/run_source_wheel_proof.sbatch` from a clean reviewed
-checkout against the private, hash-pinned discovery input. The input is
+Before enabling the policy, run the tracked
+`terminal_bench_vmvm/run_source_wheel_proof_clean_env.sbatch` wrapper from a
+clean reviewed checkout; it invokes the canonical
+`run_source_wheel_proof.sbatch` launcher against the private, hash-pinned
+discovery input. The input is
 non-runnable and must not predeclare the target toolchain, binary closure, or
 source-wheel output hashes. Require exactly nine entries and externally pin the
 canonical `missing_required_evidence` list. Pin the full reviewed utility commit with
@@ -253,11 +277,10 @@ isolated/no-site Python with only those manually bound roots and the fixed build
 controls. The fixed build `PATH` must contain only the attested venv `bin` path
 so backend children resolve `python3` and build-dependency console scripts
 inside that environment and cannot fall through to base-image tools. Collect
-literal setup requirements from either the one unaliased top-level
-`setuptools.setup(...)` call or deterministic `setup.cfg`
-`[options]` configuration, then include setuptools `build-system.requires`
-from a `pyproject.toml` containing only that table;
-reject aliases, nonliteral values or executable statements, duplicate
+literal setup requirements from the one statically bound direct setup
+invocation or deterministic `setup.cfg` `[options]` configuration, then include
+setuptools `build-system.requires` from a `pyproject.toml` containing only that
+table. Reject indirect invocation, dynamic dependency declarations, duplicate
 declarations, in-tree backends, and ambiguity.
 Validate every wheel from its raw bytes as a comment-free ZIP containing unique
 normalized regular-file paths, with no extra fields, signatures, special modes,
@@ -282,13 +305,26 @@ and proof only after every entry passes. Keep the output directory mode 0700,
 use atomic private artifacts, and emit only aggregate counts, hashes, and stable
 error codes. Before launch, use `inspect_source_wheel_proof_environment.py` on
 the target x86 runtime under the pinned Python's `-I -S -B` mode and
-independently approve the canonical launcher, uv, Python executable, complete
-stdlib/import-closure manifest, staged site-packages manifest, VMVM source, and
-vacli hashes. Submit the canonical launcher from tmux through `/usr/bin/env -i`,
-an explicit allowlist, `sbatch --export=ALL`, and a `--wrap` that uses
-`/bin/bash --noprofile --norc`; never pass the launcher file directly to
-`sbatch`. The launcher rejects Bash startup hooks, exported functions,
-dynamic-loader injection, and inherited Python/uv controls. Its stdlib-only
+independently approve the canonical clean wrapper and launcher, uv, Python
+executable, complete stdlib/import-closure manifest, staged site-packages
+manifest, VMVM source, and vacli hashes. The inspector receipt also names the
+exact host on which those hashes were measured. Save the canonical receipt as
+a regular mode-0600 file in a private directory, review and hash it externally,
+and pass it as `SOURCE_WHEEL_PROOF_INSPECTION_RECEIPT{,_SHA256}`. Copy its host
+to `SOURCE_WHEEL_PROOF_EXPECTED_HOST`, constrain `sbatch --nodelist` to that
+same host, and bind the receipt digest and its hashes in the run identity. The
+bootstrap must require the exact canonical receipt bytes for the expected host
+and approved hashes; both the clean wrapper and bootstrap must reject a
+different live host. Invoke the tracked
+`run_source_wheel_proof_clean_env.sbatch` from tmux through `sbatch --export=ALL`
+and a `--wrap` that uses `/bin/bash --noprofile --norc`; never pass either
+tracked file directly to `sbatch`. Submit-side `env -i` does not remove
+variables Slurm injects in the allocation. The wrapper verifies its externally
+approved self-hash and required inputs, then performs a second in-allocation
+`/usr/bin/env -i` with the narrow reviewed allowlist before invoking the
+canonical launcher. Bind both hashes in the proof identity. The launcher
+rejects Bash startup hooks, exported functions, dynamic-loader injection, and
+inherited Python/uv controls. Its stdlib-only
 bootstrap validates every import root before adding it to `sys.path`, without
 processing `.pth` or customization modules. Revalidate those bindings plus the
 source commit/tree and all three clean gitlinks after every lease stops, write

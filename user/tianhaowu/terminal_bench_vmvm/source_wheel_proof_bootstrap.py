@@ -20,7 +20,9 @@ APPROVED_BASE_RUNTIME_COMMIT = "ceb9356c98c72e51568e7bb4658a540cb1492254"
 BOOTSTRAP_ATTESTATION_ENV = "SOURCE_WHEEL_PROOF_BOOTSTRAP_ATTESTATION_SHA256"
 SHA256_RE = re.compile(r"[0-9a-f]{64}")
 REVISION_RE = re.compile(r"[0-9a-f]{40}")
+HOST_RE = re.compile(r"[A-Za-z0-9][A-Za-z0-9.-]{0,252}")
 CLEAN_TREE_SHA256 = hashlib.sha256(b"").hexdigest()
+MAX_INSPECTION_RECEIPT_BYTES = 16 * 1024
 
 
 class BindingError(RuntimeError):
@@ -73,6 +75,44 @@ def stable_file_digest(path: Path, code: str, *, executable: bool = False) -> tu
     ):
         raise BindingError(code)
     return stat.S_IMODE(before.st_mode), before.st_size, digest.hexdigest()
+
+
+def stable_file_payload(path: Path, code: str, *, max_bytes: int) -> tuple[int, bytes, str]:
+    try:
+        descriptor = os.open(path, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0))
+    except OSError as error:
+        raise BindingError(code) from error
+    try:
+        before = os.fstat(descriptor)
+        if not stat.S_ISREG(before.st_mode) or before.st_size < 1 or before.st_size > max_bytes:
+            raise BindingError(code)
+        payload = b""
+        while chunk := os.read(descriptor, min(1024 * 1024, max_bytes + 1 - len(payload))):
+            payload += chunk
+            if len(payload) > max_bytes:
+                raise BindingError(code)
+        after = os.fstat(descriptor)
+    finally:
+        os.close(descriptor)
+    if (
+        before.st_dev,
+        before.st_ino,
+        before.st_mode,
+        before.st_nlink,
+        before.st_size,
+        before.st_mtime_ns,
+        before.st_ctime_ns,
+    ) != (
+        after.st_dev,
+        after.st_ino,
+        after.st_mode,
+        after.st_nlink,
+        after.st_size,
+        after.st_mtime_ns,
+        after.st_ctime_ns,
+    ):
+        raise BindingError(code)
+    return stat.S_IMODE(before.st_mode), payload, sha256_bytes(payload)
 
 
 def canonical_tree_manifest_sha256(root: Path) -> str:
@@ -361,6 +401,8 @@ def python_runtime_manifest_sha256(
 @dataclass(frozen=True)
 class ExecutionBindings:
     project_dir: Path
+    inspection_receipt_path: Path
+    clean_wrapper_path: Path
     canonical_launcher_path: Path
     executed_launcher_path: Path
     uv_path: Path
@@ -368,6 +410,8 @@ class ExecutionBindings:
     python_stdlib_path: Path
     site_packages_path: Path
     vacli_path: Path
+    inspection_receipt_sha256: str
+    clean_wrapper_sha256: str
     launcher_sha256: str
     uv_sha256: str
     python_sha256: str
@@ -382,11 +426,14 @@ class ExecutionBindings:
     pydantic_config_commit: str
     vmvm_tb_v2_sha256: str
     vacli_binary_sha256: str
+    expected_host: str
 
 
 def _resolved_bindings(bindings: ExecutionBindings) -> tuple[Path, ...]:
     try:
         project = bindings.project_dir.resolve(strict=True)
+        inspection_receipt = bindings.inspection_receipt_path.resolve(strict=True)
+        clean_wrapper = bindings.clean_wrapper_path.resolve(strict=True)
         canonical_launcher = bindings.canonical_launcher_path.resolve(strict=True)
         executed_launcher = bindings.executed_launcher_path.resolve(strict=True)
         uv_path = bindings.uv_path.resolve(strict=True)
@@ -396,9 +443,13 @@ def _resolved_bindings(bindings: ExecutionBindings) -> tuple[Path, ...]:
         vacli_path = bindings.vacli_path.resolve(strict=True)
     except OSError as error:
         raise BindingError("execution_binding_invalid") from error
+    expected_wrapper = project / "user/tianhaowu/terminal_bench_vmvm/run_source_wheel_proof_clean_env.sbatch"
     expected_launcher = project / "user/tianhaowu/terminal_bench_vmvm/run_source_wheel_proof.sbatch"
     if (
         project != bindings.project_dir
+        or inspection_receipt != bindings.inspection_receipt_path
+        or clean_wrapper != bindings.clean_wrapper_path
+        or clean_wrapper != expected_wrapper
         or canonical_launcher != bindings.canonical_launcher_path
         or canonical_launcher != expected_launcher
         or executed_launcher != canonical_launcher
@@ -410,7 +461,17 @@ def _resolved_bindings(bindings: ExecutionBindings) -> tuple[Path, ...]:
         or vacli_path != bindings.vacli_path
     ):
         raise BindingError("execution_binding_invalid")
-    return project, canonical_launcher, uv_path, python_path, python_stdlib, site_packages, vacli_path
+    return (
+        project,
+        inspection_receipt,
+        clean_wrapper,
+        canonical_launcher,
+        uv_path,
+        python_path,
+        python_stdlib,
+        site_packages,
+        vacli_path,
+    )
 
 
 def _validate_environment() -> None:
@@ -456,13 +517,59 @@ def _import_root_bindings(bindings: ExecutionBindings, import_roots: tuple[Path,
     ) + ((str(import_roots[-1]), values[-1]),)
 
 
+def inspection_receipt(hashes: dict[str, object], host: str) -> dict[str, object]:
+    return {
+        "schema_version": 1,
+        "kind": "source-wheel-proof-environment-inspection",
+        "status": "complete",
+        "invocation_host": host,
+        "hashes": hashes,
+    }
+
+
+def _expected_inspection_hashes(bindings: ExecutionBindings) -> dict[str, object]:
+    return {
+        "clean_wrapper_sha256": bindings.clean_wrapper_sha256,
+        "launcher_sha256": bindings.launcher_sha256,
+        "python_runtime_manifest_sha256": bindings.python_runtime_manifest_sha256,
+        "python_sha256": bindings.python_sha256,
+        "site_packages_manifest_sha256": bindings.site_packages_manifest_sha256,
+        "uv_sha256": bindings.uv_sha256,
+        "vacli_binary_sha256": bindings.vacli_binary_sha256,
+        "vmvm_tb_v2_sha256": bindings.vmvm_tb_v2_sha256,
+    }
+
+
+def _validate_inspection_receipt(bindings: ExecutionBindings, path: Path) -> None:
+    mode, payload, digest = stable_file_payload(
+        path,
+        "inspection_receipt_invalid",
+        max_bytes=MAX_INSPECTION_RECEIPT_BYTES,
+    )
+    expected = canonical_json(inspection_receipt(_expected_inspection_hashes(bindings), bindings.expected_host)) + b"\n"
+    if mode & 0o077 or digest != bindings.inspection_receipt_sha256 or payload != expected:
+        raise BindingError("inspection_receipt_invalid")
+
+
 def validate_pre_import_bindings(bindings: ExecutionBindings) -> tuple[Path, ...]:
     _validate_bootstrap_flags()
     _validate_environment()
-    project, canonical_launcher, uv_path, python_path, python_stdlib, site_packages, vacli_path = _resolved_bindings(
-        bindings
-    )
+    if HOST_RE.fullmatch(bindings.expected_host) is None or os.uname().nodename != bindings.expected_host:
+        raise BindingError("execution_host_mismatch")
+    (
+        project,
+        inspection_receipt_path,
+        clean_wrapper,
+        canonical_launcher,
+        uv_path,
+        python_path,
+        python_stdlib,
+        site_packages,
+        vacli_path,
+    ) = _resolved_bindings(bindings)
     digests = (
+        bindings.inspection_receipt_sha256,
+        bindings.clean_wrapper_sha256,
         bindings.launcher_sha256,
         bindings.uv_sha256,
         bindings.python_sha256,
@@ -485,7 +592,9 @@ def validate_pre_import_bindings(bindings: ExecutionBindings) -> tuple[Path, ...
         raise BindingError("execution_binding_invalid")
     if bindings.base_runtime_commit != APPROVED_BASE_RUNTIME_COMMIT or bindings.source_tree_sha256 != CLEAN_TREE_SHA256:
         raise BindingError("source_base_invalid")
+    _validate_inspection_receipt(bindings, inspection_receipt_path)
     file_bindings = (
+        (clean_wrapper, bindings.clean_wrapper_sha256, False),
         (canonical_launcher, bindings.launcher_sha256, False),
         (uv_path, bindings.uv_sha256, True),
         (python_path, bindings.python_sha256, True),
@@ -533,7 +642,7 @@ def validate_pre_import_bindings(bindings: ExecutionBindings) -> tuple[Path, ...
 
 def bootstrap_attestation_sha256(bindings: ExecutionBindings, runtime_manifest_sha256: str) -> str:
     payload = {
-        "schema_version": 1,
+        "schema_version": 2,
         "kind": "source-wheel-proof-bootstrap-attestation",
         "runtime_manifest_sha256": runtime_manifest_sha256,
         "source": {
@@ -546,6 +655,9 @@ def bootstrap_attestation_sha256(bindings: ExecutionBindings, runtime_manifest_s
             "vmvm": bindings.vmvm_tb_v2_sha256,
         },
         "execution": {
+            "inspection_host": bindings.expected_host,
+            "inspection_receipt": bindings.inspection_receipt_sha256,
+            "clean_wrapper": bindings.clean_wrapper_sha256,
             "launcher": bindings.launcher_sha256,
             "uv": bindings.uv_sha256,
             "python": bindings.python_sha256,
@@ -591,6 +703,8 @@ def validate_execution_bindings(bindings: ExecutionBindings, *, require_attestat
 def _add_binding_arguments(parser: argparse.ArgumentParser) -> None:
     for name in (
         "project-dir",
+        "inspection-receipt-path",
+        "clean-wrapper-path",
         "canonical-launcher-path",
         "executed-launcher-path",
         "uv-path",
@@ -601,6 +715,8 @@ def _add_binding_arguments(parser: argparse.ArgumentParser) -> None:
     ):
         parser.add_argument(f"--{name}", type=Path, required=True)
     for name in (
+        "inspection-receipt-sha256",
+        "clean-wrapper-sha256",
         "launcher-sha256",
         "uv-sha256",
         "python-sha256",
@@ -617,6 +733,7 @@ def _add_binding_arguments(parser: argparse.ArgumentParser) -> None:
         "vacli-binary-sha256",
     ):
         parser.add_argument(f"--{name}", required=True)
+    parser.add_argument("--expected-host", required=True)
 
 
 def _bindings_from_args(args: argparse.Namespace) -> ExecutionBindings:
@@ -626,6 +743,7 @@ def _bindings_from_args(args: argparse.Namespace) -> ExecutionBindings:
 def _inspect(args: argparse.Namespace) -> dict[str, object]:
     _validate_bootstrap_flags()
     project = args.project_dir.resolve(strict=True)
+    clean_wrapper = args.clean_wrapper.resolve(strict=True)
     launcher = args.launcher.resolve(strict=True)
     uv_path = args.uv.resolve(strict=True)
     python_path = args.python.resolve(strict=True)
@@ -633,10 +751,13 @@ def _inspect(args: argparse.Namespace) -> dict[str, object]:
     site_packages = args.site_packages.resolve(strict=True)
     vacli_path = args.vacli.resolve(strict=True)
     vmvm_source = args.vmvm_source.resolve(strict=True)
+    expected_wrapper = project / "user/tianhaowu/terminal_bench_vmvm/run_source_wheel_proof_clean_env.sbatch"
     expected_launcher = project / "user/tianhaowu/terminal_bench_vmvm/run_source_wheel_proof.sbatch"
     expected_vmvm_source = project / "environments/vmvm_tb_v2/vmvm_tb_v2/_vacli"
     if (
         project != args.project_dir
+        or clean_wrapper != args.clean_wrapper
+        or clean_wrapper != expected_wrapper
         or launcher != args.launcher
         or launcher != expected_launcher
         or uv_path != args.uv
@@ -685,6 +806,7 @@ def _inspect(args: argparse.Namespace) -> dict[str, object]:
         for path, value in zip(roots[:-1], root_values, strict=True)
     ) + ((str(roots[-1]), f"tree-sha256:{site_manifest}"),)
     return {
+        "clean_wrapper_sha256": stable_file_digest(clean_wrapper, "binding_invalid")[2],
         "launcher_sha256": stable_file_digest(launcher, "binding_invalid")[2],
         "uv_sha256": stable_file_digest(uv_path, "binding_invalid", executable=True)[2],
         "python_sha256": stable_file_digest(python_path, "binding_invalid", executable=True)[2],
@@ -705,6 +827,7 @@ def _parse_args() -> argparse.Namespace:
     subparsers = parser.add_subparsers(dest="command", required=True)
     inspect_parser = subparsers.add_parser("inspect")
     inspect_parser.add_argument("--project-dir", type=Path, required=True)
+    inspect_parser.add_argument("--clean-wrapper", type=Path, required=True)
     inspect_parser.add_argument("--launcher", type=Path, required=True)
     inspect_parser.add_argument("--uv", type=Path, required=True)
     inspect_parser.add_argument("--python", type=Path, required=True)
@@ -724,7 +847,7 @@ def main() -> int:
         args = _parse_args()
         if args.command == "inspect":
             result = _inspect(args)
-            print(json.dumps({"status": "complete", "hashes": result}, sort_keys=True))
+            print(canonical_json(inspection_receipt(result, os.uname().nodename)).decode())
             return 0
         bindings = _bindings_from_args(args)
         _validate_stdlib_sys_path(bindings.python_stdlib_path, list(sys.path))

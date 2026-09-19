@@ -205,16 +205,40 @@ artifacts, verifies them, then activates `no-network` before executing any
 source build. It creates a fresh no-system-site Python environment, installs
 the exact hash-pinned build-tool and full transitive build-dependency wheel
 closure offline with `--no-index --no-deps`, and attests every local
-distribution, location, and installed-file manifest. Supported sources must
-have one statically provable top-level, unaliased `setuptools.setup(...)` call.
-Literal `setup_requires` from either that call or deterministic `setup.cfg`
-`[options]` configuration, together with `build-system.requires` from a
-setuptools-backed `pyproject.toml`, is included in the same exact transitive
-closure. Only that `pyproject.toml` table is supported; project/tool tables,
-aliases,
-`**kwargs`, nonliteral values, assignments, helper calls/classes, control flow,
-decorators, `cmdclass`/`distclass`, duplicate declarations, in-tree or
-non-setuptools backends, and ambiguous configuration fail closed. The setup
+distribution, location, and installed-file manifest. Dependency discovery
+parses the pinned legacy metadata as text and never imports or executes it.
+Supported sources must have exactly one direct, unaliased `setup(...)` or
+`setuptools.setup(...)` invocation after its matching module-scope import. The
+ordinary form is the final module statement; the sole resource-context form is
+the final statement of a final top-level `tempfile.TemporaryDirectory()` block
+and cannot declare `setup_requires`. Unrelated legacy metadata computation may
+remain only within a positive grammar for literals, source-relative metadata
+reads, fixed string/path transforms, static package discovery, explicit Python
+version guards, and the one bounded resource-preparation form. Local metadata
+reader helpers must match that grammar and be used exactly once as
+`long_description`; arbitrary imports, assignments, helper calls, side effects,
+and dynamic non-dependency keywords fail closed. The sole local-import form is
+the direct, unaliased source-package import used only for `__author__`,
+`__doc__`, `__email__`, or `__version__`. Each accessed value must be a unique
+static string or module docstring in the package initializer. The build runner
+preloads those values in an inert synthetic module, so it never executes that
+initializer. The exact legacy
+`sys.argv[-1] == "publish"` release branch is statically known to be unreachable
+under the fixed `bdist_wheel` argv; every other process-launch or exit call is
+rejected. Setup aliases, reflected or additional setup references,
+branching/looping selection of the setup call, `**kwargs`, dynamic
+`setup_requires`, and `cmdclass`/`distclass` controls also fail closed. Literal
+`setup_requires` from the direct call or deterministic
+`setup.cfg` `[options]` configuration, together with `build-system.requires`
+from a setuptools-backed `pyproject.toml`, is included in the exact transitive
+closure. `setup.cfg` rejects defaults, dynamic `attr:`/`file:`/`find:`
+directives, and command aliases except the inert exact `test = pytest` legacy
+declaration.
+Only the `build-system` `pyproject.toml` table and setuptools backend are
+supported; duplicate declarations, in-tree or alternate backends, and
+ambiguity fail closed. Static-parser rejection is reported only as the stable
+aggregate code `source_build_metadata_unsupported`; private parser details are
+not emitted. The setup
 backend runs directly under the venv Python's real `-I -S` isolated/no-site
 mode after network isolation, rather than through a pip child that could lose
 the isolated flag. It manually adds only the attested venv-local site roots, so
@@ -234,7 +258,9 @@ semaphore limits this exceptional builder path to one VMVM lease while normal
 oracle concurrency continues.
 
 The runnable policy must first be discovered and proven from the private,
-digest-pinned probe input with `run_source_wheel_proof.sbatch`. The probe input
+digest-pinned probe input through `run_source_wheel_proof_clean_env.sbatch`,
+which invokes the canonical `run_source_wheel_proof.sbatch` launcher. The probe
+input
 is intentionally incomplete: it binds the target images, exact requirement
 sets, source URLs, sizes, hashes, and corpus provenance, but it does not claim
 target toolchains, binary closure artifacts, or output-wheel hashes. Keep it as
@@ -297,8 +323,9 @@ required proofs before work starts. Any contract or schema change therefore
 changes the run identity and requires a fresh output directory; it cannot resume
 or finalize an older raw-byte proof.
 
-The launch approval also pins the canonical launcher bytes, exact `uv`, Python,
-and vacli executables, the complete Python stdlib/runtime manifest, the staged
+The launch approval also pins the canonical in-allocation clean wrapper and
+launcher bytes, exact inspection host, exact `uv`, Python, and vacli
+executables, the complete Python stdlib/runtime manifest, the staged
 site-packages manifest, and the VMVM backend sources. Generate the aggregate
 hash candidates on the target x86 runtime with
 `inspect_source_wheel_proof_environment.py`, review them independently, and
@@ -314,32 +341,49 @@ tree, three clean submodule gitlinks, and VMVM sources after all leases stop but
 before finalization. The certificate binds every approved digest and distinct
 role-keyed hashes derived from vacli's real session identity; container IDs,
 runtime names, and raw lease identifiers are never accepted or printed.
-The inspector accepts explicit paths for `--project-dir`, `--launcher`, `--uv`,
-`--python`, `--python-stdlib`, `--site-packages`, `--vacli`, and
-`--vmvm-source`, and emits only their canonical hashes. Invoke it with the exact
-pinned Python as `-I -S -B`, then copy its independently reviewed hashes into
-the `SOURCE_WHEEL_PROOF_*_SHA256` inputs; never derive those inputs inside the
-proof launch. Submit with the exact clean-environment `--wrap` form below.
-Passing the launcher file directly to `sbatch` is forbidden because Slurm
-executes a spool copy, which fails the launcher-origin check.
+The inspector accepts explicit paths for `--project-dir`, `--clean-wrapper`,
+`--launcher`, `--uv`, `--python`, `--python-stdlib`, `--site-packages`,
+`--vacli`, and `--vmvm-source`. Its canonical receipt emits the exact
+`invocation_host` alongside only canonical hashes. Invoke it with the exact
+pinned Python as `-I -S -B`, save stdout as a regular mode-0600 file in a
+private directory, and review and hash that file externally. Pass the file and
+digest as `SOURCE_WHEEL_PROOF_INSPECTION_RECEIPT{,_SHA256}`, copy its reviewed
+host into `SOURCE_WHEEL_PROOF_EXPECTED_HOST`, and copy its hashes into the
+other `SOURCE_WHEEL_PROOF_*_SHA256` inputs; never derive those inputs inside
+the proof launch. Pin `sbatch --nodelist` to that same host. The bootstrap
+requires the receipt's bytes to be the canonical schema for that host and
+those exact hashes. The expected/observed host, receipt digest, and all
+inspection hashes are bound together in `run_identity.json` and revalidated
+before and after leases. Submit with the exact `--wrap` form below.
+The tracked wrapper
+self-hashes in the allocation, validates the required inputs and TLS files, and
+then uses a second `/usr/bin/env -i` to remove loader variables injected by
+Slurm before invoking the canonical launcher. Submit-side `env -i` alone is not
+a sufficient clean-environment boundary. Passing either tracked file directly
+to `sbatch` is forbidden because Slurm executes a spool copy, which fails the
+canonical-origin check.
 
 ```bash
+umask 077
 /usr/bin/env -i PATH=/usr/bin:/bin /path/to/pinned/python -I -S -B \
   /path/to/clean-reviewed-checkout/user/tianhaowu/terminal_bench_vmvm/inspect_source_wheel_proof_environment.py \
   --project-dir /path/to/clean-reviewed-checkout \
+  --clean-wrapper /path/to/clean-reviewed-checkout/user/tianhaowu/terminal_bench_vmvm/run_source_wheel_proof_clean_env.sbatch \
   --launcher /path/to/clean-reviewed-checkout/user/tianhaowu/terminal_bench_vmvm/run_source_wheel_proof.sbatch \
   --uv /path/to/pinned/uv \
   --python /path/to/pinned/python \
   --python-stdlib /path/to/pinned/python-stdlib \
   --site-packages /path/to/pinned/site-packages \
   --vacli /path/to/pinned/vacli \
-  --vmvm-source /path/to/clean-reviewed-checkout/environments/vmvm_tb_v2/vmvm_tb_v2/_vacli
+  --vmvm-source /path/to/clean-reviewed-checkout/environments/vmvm_tb_v2/vmvm_tb_v2/_vacli \
+  > /path/to/private/reviewed-environment-inspection.json
+/usr/bin/sha256sum /path/to/private/reviewed-environment-inspection.json
 ```
 
 ```bash
 tmux new-session -d -s source-wheel-proof
 tmux send-keys -t source-wheel-proof \
-  "/usr/bin/env -i PATH=/usr/bin:/bin HOME=/storage/home/tianhaowu USER=tianhaowu LOGNAME=tianhaowu PROJECT_DIR=/path/to/clean-reviewed-checkout SOURCE_WHEEL_PROOF_INPUT=/path/to/private/probe-input.json SOURCE_WHEEL_PROOF_INPUT_SHA256=<independently-reviewed-input-sha256> SOURCE_WHEEL_PROOF_EXPECTED_ENTRY_COUNT=9 SOURCE_WHEEL_PROOF_MISSING_EVIDENCE_SHA256=<reviewed-canonical-list-sha256> SOURCE_WHEEL_PROOF_OUTPUT_DIR=/path/to/new-private-proof-directory SOURCE_WHEEL_PROOF_BASE_RUNTIME_REVISION=ceb9356c98c72e51568e7bb4658a540cb1492254 SOURCE_WHEEL_PROOF_SOURCE_REVISION=<reviewed-full-utility-commit> SOURCE_WHEEL_PROOF_LAUNCHER_SHA256=<reviewed-launcher-sha256> SOURCE_WHEEL_PROOF_UV_SHA256=<reviewed-uv-sha256> SOURCE_WHEEL_PROOF_PYTHON_SHA256=<reviewed-python-sha256> SOURCE_WHEEL_PROOF_PYTHON_RUNTIME_MANIFEST_SHA256=<reviewed-runtime-manifest-sha256> SOURCE_WHEEL_PROOF_SITE_PACKAGES_MANIFEST_SHA256=<reviewed-site-manifest-sha256> SOURCE_WHEEL_PROOF_VMVM_TB_V2_SHA256=<reviewed-vmvm-source-sha256> SOURCE_WHEEL_PROOF_VACLI_BINARY_SHA256=<reviewed-vacli-sha256> SOURCE_WHEEL_PROOF_MAX_CONCURRENT_ENTRIES=2 PYTHON_BIN_X86_64=/path/to/pinned/python PYTHON_STDLIB_X86_64=/path/to/pinned/python-stdlib PYTHON_SITE_X86_64=/path/to/pinned/site-packages UV_BIN_X86_64=/path/to/pinned/uv VACLI_BIN=/path/to/pinned/vacli VACLI_LEASE_RETRIES=1 VACLI_MAX_CONCURRENT_LEASES=6 THRIFT_TLS_CL_CERT_PATH=/path/to/trusted/client.crt THRIFT_TLS_CL_KEY_PATH=/path/to/trusted/client.key /usr/bin/sbatch --parsable --export=ALL --job-name=tb-wheel-proof --partition=cpu_x86 --qos=cpu_x86_lowest --account=ram --time=12:00:00 --nodes=1 --ntasks=1 --cpus-per-task=6 --mem=12G --no-requeue --output=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/logs/source_wheel_proof_%j.log --error=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/logs/source_wheel_proof_%j.log --wrap='exec /bin/bash --noprofile --norc /path/to/clean-reviewed-checkout/user/tianhaowu/terminal_bench_vmvm/run_source_wheel_proof.sbatch'" C-m
+  "/usr/bin/env -i PATH=/usr/bin:/bin HOME=/storage/home/tianhaowu USER=tianhaowu LOGNAME=tianhaowu PROJECT_DIR=/path/to/clean-reviewed-checkout SOURCE_WHEEL_PROOF_INSPECTION_RECEIPT=/path/to/private/reviewed-environment-inspection.json SOURCE_WHEEL_PROOF_INSPECTION_RECEIPT_SHA256=<reviewed-receipt-sha256> SOURCE_WHEEL_PROOF_INPUT=/path/to/private/probe-input.json SOURCE_WHEEL_PROOF_INPUT_SHA256=<independently-reviewed-input-sha256> SOURCE_WHEEL_PROOF_EXPECTED_ENTRY_COUNT=9 SOURCE_WHEEL_PROOF_MISSING_EVIDENCE_SHA256=<reviewed-canonical-list-sha256> SOURCE_WHEEL_PROOF_OUTPUT_DIR=/path/to/new-private-proof-directory SOURCE_WHEEL_PROOF_BASE_RUNTIME_REVISION=ceb9356c98c72e51568e7bb4658a540cb1492254 SOURCE_WHEEL_PROOF_SOURCE_REVISION=<reviewed-full-utility-commit> SOURCE_WHEEL_PROOF_EXPECTED_HOST=<reviewed-inspector-host> SOURCE_WHEEL_PROOF_CLEAN_WRAPPER_SHA256=<reviewed-clean-wrapper-sha256> SOURCE_WHEEL_PROOF_LAUNCHER_SHA256=<reviewed-launcher-sha256> SOURCE_WHEEL_PROOF_UV_SHA256=<reviewed-uv-sha256> SOURCE_WHEEL_PROOF_PYTHON_SHA256=<reviewed-python-sha256> SOURCE_WHEEL_PROOF_PYTHON_RUNTIME_MANIFEST_SHA256=<reviewed-runtime-manifest-sha256> SOURCE_WHEEL_PROOF_SITE_PACKAGES_MANIFEST_SHA256=<reviewed-site-manifest-sha256> SOURCE_WHEEL_PROOF_VMVM_TB_V2_SHA256=<reviewed-vmvm-source-sha256> SOURCE_WHEEL_PROOF_VACLI_BINARY_SHA256=<reviewed-vacli-sha256> SOURCE_WHEEL_PROOF_MAX_CONCURRENT_ENTRIES=2 PYTHON_BIN_X86_64=/path/to/pinned/python PYTHON_STDLIB_X86_64=/path/to/pinned/python-stdlib PYTHON_SITE_X86_64=/path/to/pinned/site-packages UV_BIN_X86_64=/path/to/pinned/uv VACLI_BIN=/path/to/pinned/vacli VACLI_LEASE_RETRIES=1 VACLI_MAX_CONCURRENT_LEASES=6 VACLI_MAX_PULL_RETRIES=20 VACLI_IMAGE_PULL_TIMEOUT_SECONDS=3600 VACLI_CONTAINER_PRIVILEGED=1 VMVM_TENANT_ID=async_2347641 VMVM_LEASE_TTL=60s THRIFT_TLS_CL_CERT_PATH=/path/to/trusted/client.crt THRIFT_TLS_CL_KEY_PATH=/path/to/trusted/client.key /usr/bin/sbatch --parsable --export=ALL --job-name=tb-wheel-proof --partition=cpu_x86 --nodelist=<reviewed-inspector-host> --qos=cpu_x86_lowest --account=ram --time=12:00:00 --nodes=1 --ntasks=1 --cpus-per-task=6 --mem=12G --no-requeue --output=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/logs/source_wheel_proof_%j.log --error=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/logs/source_wheel_proof_%j.log --wrap='exec /bin/bash --noprofile --norc /path/to/clean-reviewed-checkout/user/tianhaowu/terminal_bench_vmvm/run_source_wheel_proof_clean_env.sbatch'" C-m
 ```
 
 For an interrupted proof, review and hash `proof_state.json` externally, then
