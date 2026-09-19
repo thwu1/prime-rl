@@ -280,36 +280,57 @@ is intentionally incomplete: it binds the target images, exact requirement
 sets, source URLs, sizes, hashes, and corpus provenance, but it does not claim
 target toolchains, binary closure artifacts, or output-wheel hashes. Keep it as
 a regular mode-0600 file in a mode-0700 directory and provide its independently
-computed SHA-256. Regenerate it deterministically as the six-entry subset
-accepted by the reviewed static grammar; do not carry the excluded dynamic-SCM,
-native-extension, or CFFI forms into the proof. The launch approval must
-separately require exactly six entries and pin the canonical JSON digest of the
-complete `missing_required_evidence` list. Use a new mode-0700 proof output
-directory.
-After independently reviewing the reducer at the same frozen source revision,
-create that subset without hand-selecting an entry:
+computed SHA-256. Select it deterministically as six source-unique entries
+accepted by the reviewed static grammar; do not carry unsupported source forms
+into the proof. The launch approval must separately require exactly six entries
+and pin the canonical JSON digest of the complete `missing_required_evidence`
+list. Use a new mode-0700 proof output directory.
+
+The candidate selector consumes a canonical, digest-pinned private discovery
+envelope exported from the approved corpus. The caller supplies its exact entry
+count and a second digest-pinned private manifest containing exactly six
+already approved recovery task-binding hashes under the same discovery
+provenance. The latter has schema version 1, kind
+`approved-oracle-recovery-task-bindings`, `complete: true`, the discovery
+provenance SHA-256, and `task_binding_sha256s`. It remains private and is used
+only to prove that the six selected entries are disjoint from those recoveries.
+Keep both inputs as one-link regular files with mode 0400 or 0600 under
+canonical mode-0700 parent directories.
+The upstream exporter must enumerate every unresolved source-wheel candidate in
+the approved corpus's canonical order, preserve the exact task, image,
+requirement and pinned-source records, and bind the existing dataset, image
+manifest and oracle-result provenance. Do not manually preselect entries or
+derive the candidate envelope from public error text. Review its aggregate
+entry/source counts, mode and SHA-256 without printing private fields before
+selection.
+After independently reviewing the selector at the same frozen source revision,
+create the proof input without hand-selecting an entry:
 
 ```bash
 umask 077
 /path/to/pinned/uv run \
   --project /path/to/clean-reviewed-checkout/user/tianhaowu/terminal_bench_vmvm \
   --frozen python \
-  /path/to/clean-reviewed-checkout/user/tianhaowu/terminal_bench_vmvm/reduce_source_wheel_probe_input.py \
-  --input /path/to/private/nine-entry-probe.json \
-  --input-sha256 <independently-reviewed-nine-entry-sha256> \
-  --output-dir /path/to/new-private-six-entry-reduction
+  /path/to/clean-reviewed-checkout/user/tianhaowu/terminal_bench_vmvm/select_source_wheel_candidates.py \
+  --input /path/to/private/approved-candidates.json \
+  --input-sha256 <independently-reviewed-candidate-sha256> \
+  --expected-input-entries <exact-candidate-count> \
+  --recovery-bindings /path/to/private/approved-recovery-bindings.json \
+  --recovery-bindings-sha256 <independently-reviewed-bindings-sha256> \
+  --output-dir /path/to/new-private-six-entry-selection
 ```
 
-The reducer strict-loads the digest-pinned canonical input, fetches each
-distinct source once from its already pinned credential-free HTTPS host,
-checks exact size and SHA-256, and applies the production static grammar. It
-publishes only if exactly six entries pass and exactly three fail, preserving
-the retained entry objects, order, and all non-entry envelope fields. Its new
-directory is mode 0700; `probe_inputs.private.json` and
-`reduction_receipt.json` are mode 0600. Stdout and the receipt contain only
-aggregate counts, grammar identifiers, hashes, and stable failure codes. Review
-and hash both files independently before using the reduced input; never expose
-task names, package names, URLs, parser errors, or artifact bodies.
+The selector strict-loads both private inputs, fetches every distinct pinned
+HTTPS source once, validates exact size and SHA-256, and applies the production
+static grammar unchanged. In canonical input order it chooses the first
+eligible entry for each compatible source, excluding every approved recovery
+binding, and publishes only with exactly six entries from six distinct sources.
+Its receipt binds both inputs, the output and executed code; it records only
+aggregate counts, the conditional six-plus-six recovery projection, grammar
+identifiers, hashes, and stable failure codes. Its new directory is mode 0700;
+`probe_inputs.private.json` and `candidate_selection_receipt.json` are mode
+0600. Review and hash both files independently before using the selected input;
+never expose task names, package names, URLs, parser errors, or artifact bodies.
 
 Initialize `deps/verifiers`, `deps/renderers`, and `deps/pydantic-config` at
 their recorded gitlinks in that checkout; the launcher rejects absent, moved,

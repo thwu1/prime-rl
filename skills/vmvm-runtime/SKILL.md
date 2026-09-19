@@ -272,12 +272,19 @@ clean reviewed checkout; it invokes the canonical
 `run_source_wheel_proof.sbatch` launcher against the private, hash-pinned
 discovery input. The input is
 non-runnable and must not predeclare the target toolchain, binary closure, or
-source-wheel output hashes. Use the reviewed reducer to derive the exact
-six-entry static-grammar subset from the digest-pinned nine-entry probe; it
-must fetch each distinct pinned HTTPS source once, validate its size and SHA-256,
-retain original objects and order, and publish only aggregate counts, hashes,
-grammar identifiers, and stable codes. Require exactly six entries and
-externally pin the canonical `missing_required_evidence` list. Pin the full reviewed utility commit with
+source-wheel output hashes. Use the reviewed candidate selector with a
+digest-pinned private discovery envelope exported from the approved corpus and
+a separately digest-pinned private manifest of exactly six approved recovery
+task-binding hashes under the same provenance. It must fetch each distinct
+pinned HTTPS source once, validate its size and SHA-256, apply the reviewed
+grammar unchanged, exclude every recovery binding, and select in canonical
+input order exactly one entry from each of six distinct compatible sources.
+The private exporter must enumerate all unresolved source-wheel candidates in
+canonical corpus order and preserve their exact task, image, requirement,
+pinned-source, and provenance records; never hand-select or expose them.
+Publish only aggregate counts, hashes, grammar identifiers, stable codes, and
+the conditional six-plus-six recovery projection. Require exactly six selected
+entries and externally pin the canonical `missing_required_evidence` list. Pin the full reviewed utility commit with
 `SOURCE_WHEEL_PROOF_SOURCE_REVISION` and the approved base runtime revision with
 `SOURCE_WHEEL_PROOF_BASE_RUNTIME_REVISION`. Initialize `deps/verifiers`,
 `deps/renderers`, and `deps/pydantic-config` at their exact gitlinks; the wrapper

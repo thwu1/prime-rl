@@ -18,8 +18,17 @@ from zipfile import ZipFile, ZipInfo
 
 import pytest
 import source_wheel_proof_bootstrap as proof_bootstrap
+import terminal_bench_vmvm.source_wheel_candidate_selector as source_wheel_candidate_selector
 import terminal_bench_vmvm.source_wheel_input_reducer as source_wheel_input_reducer
 import terminal_bench_vmvm.source_wheel_proof as source_wheel_proof
+from terminal_bench_vmvm.source_wheel_candidate_selector import (
+    APPROVED_EXISTING_RECOVERY_COUNT,
+    SourceWheelCandidateSelectionError,
+    select_source_wheel_candidates,
+)
+from terminal_bench_vmvm.source_wheel_candidate_selector import (
+    RECEIPT_FILENAME as CANDIDATE_SELECTION_RECEIPT_FILENAME,
+)
 from terminal_bench_vmvm.source_wheel_input_reducer import (
     OUTPUT_FILENAME as REDUCED_INPUT_FILENAME,
 )
@@ -374,6 +383,52 @@ def _write_reducer_input(
     return input_path, payloads_by_url, document
 
 
+def _write_candidate_input(
+    tmp_path: Path,
+    entry_count: int,
+) -> tuple[Path, dict[str, bytes], dict[str, object]]:
+    payload, artifacts = _discovery_payload(entry_count)
+    document = json.loads(payload)
+    payloads_by_url = {
+        artifact.binary_url.replace(artifact.binary_filename, artifact.source_filename): artifact.source
+        for artifact in artifacts.values()
+    }
+    private = tmp_path / "private"
+    private.mkdir(mode=0o700, parents=True)
+    private.chmod(0o700)
+    input_path = private / "candidate-input.json"
+    input_path.write_bytes(canonical_json(document) + b"\n")
+    input_path.chmod(0o600)
+    return input_path, payloads_by_url, document
+
+
+def _write_recovery_bindings(
+    private_dir: Path,
+    discovery: dict[str, object],
+    *,
+    overlapping_tasks: tuple[str, ...] = (),
+    provenance_sha256: str | None = None,
+) -> tuple[Path, str]:
+    provenance = discovery["provenance"]
+    assert isinstance(provenance, dict)
+    bindings = [sha256_bytes(task.encode()) for task in overlapping_tasks]
+    bindings.extend(
+        sha256_bytes(f"approved-recovery-{index}".encode())
+        for index in range(APPROVED_EXISTING_RECOVERY_COUNT - len(bindings))
+    )
+    manifest = {
+        "schema_version": 1,
+        "kind": "approved-oracle-recovery-task-bindings",
+        "complete": True,
+        "discovery_provenance_sha256": provenance_sha256 or sha256_bytes(canonical_json(provenance)),
+        "task_binding_sha256s": bindings,
+    }
+    path = private_dir / "approved-recoveries.json"
+    path.write_bytes(canonical_json(manifest) + b"\n")
+    path.chmod(0o600)
+    return path, sha256_bytes(path.read_bytes())
+
+
 def _config(discovery: Path, output: Path, **changes: object) -> SourceWheelProofConfig:
     missing = json.loads(discovery.read_bytes())["missing_required_evidence"]
     project = Path.cwd().resolve()
@@ -521,6 +576,379 @@ def test_probe_input_reducer_rejects_adversarial_inputs_without_output(
         )
 
     assert not output.exists()
+
+
+def test_candidate_selector_publishes_source_unique_disjoint_six(
+    tmp_path: Path,
+) -> None:
+    input_path, payloads_by_url, original = _write_candidate_input(tmp_path, 10)
+    recovery_path, recovery_sha256 = _write_recovery_bindings(
+        input_path.parent,
+        original,
+        overlapping_tasks=("private-task-0",),
+    )
+    fetch_counts: dict[str, int] = {}
+
+    def fetch(source: object, allowed_hosts: frozenset[str], timeout: float) -> bytes:
+        assert urlsplit(source.url).hostname in allowed_hosts
+        assert timeout == 17
+        fetch_counts[source.url] = fetch_counts.get(source.url, 0) + 1
+        return payloads_by_url[source.url]
+
+    output = tmp_path / "candidate-selection"
+    receipt = select_source_wheel_candidates(
+        input_path,
+        sha256_bytes(input_path.read_bytes()),
+        recovery_path,
+        recovery_sha256,
+        output,
+        expected_input_entries=10,
+        timeout_seconds=17,
+        fetch_source=fetch,
+    )
+
+    selected = json.loads((output / REDUCED_INPUT_FILENAME).read_bytes())
+    selected_entries = selected["entries"]
+    assert isinstance(selected_entries, list)
+    original_entries = original["entries"]
+    assert isinstance(original_entries, list)
+    assert selected_entries == original_entries[1:7]
+    assert len({entry["source"]["sha256"] for entry in selected_entries}) == 6
+    assert {path.name for path in output.iterdir()} == {
+        REDUCED_INPUT_FILENAME,
+        CANDIDATE_SELECTION_RECEIPT_FILENAME,
+    }
+    assert (output / CANDIDATE_SELECTION_RECEIPT_FILENAME).read_bytes() == canonical_json(receipt) + b"\n"
+    assert stat.S_IMODE(output.stat().st_mode) == 0o700
+    assert all(stat.S_IMODE(path.stat().st_mode) == 0o600 for path in output.iterdir())
+    assert receipt["counts"] == {
+        "input_entries": 10,
+        "distinct_sources": 10,
+        "accepted_sources": 10,
+        "rejected_sources": 0,
+        "compatible_entries": 10,
+        "incompatible_entries": 0,
+        "recovery_binding_entries": 6,
+        "overlap_entries": 1,
+        "eligible_entries": 9,
+        "eligible_sources": 9,
+        "selected_entries": 6,
+        "selected_sources": 6,
+        "projected_recoveries_if_all_selected_pass": 12,
+    }
+    assert receipt["projection"] == {
+        "bound_existing_recoveries": 6,
+        "selected_recovery_candidates": 6,
+        "projected_recoveries_if_all_selected_pass": 12,
+        "requires_all_selected_proofs": True,
+        "task_binding_overlap": 0,
+    }
+    assert receipt["schema_version"] == 1
+    assert receipt["kind"] == "source-wheel-candidate-selection"
+    assert receipt["selection"] == {
+        "strategy": "canonical-input-order-first-entry-per-compatible-source",
+        "source_unique": True,
+    }
+    assert receipt["grammar"] == {
+        "setup_py": SETUP_PY_GRAMMAR_ID,
+        "setup_cfg": SETUP_CFG_GRAMMAR_ID,
+    }
+    assert set(receipt["hashes"]) == {
+        "input_sha256",
+        "output_sha256",
+        "missing_required_evidence_sha256",
+        "recovery_bindings_sha256",
+        "selector_cli_sha256",
+        "selector_implementation_sha256",
+        "reducer_implementation_sha256",
+        "discovery_parser_sha256",
+        "source_wheel_contract_sha256",
+    }
+    assert receipt["hashes"]["recovery_bindings_sha256"] == recovery_sha256
+    assert set(fetch_counts.values()) == {1}
+    public_receipt = json.dumps(receipt)
+    assert "private-task" not in public_receipt
+    assert "https://" not in public_receipt
+
+
+def test_candidate_selector_skips_duplicate_sources_deterministically(
+    tmp_path: Path,
+) -> None:
+    input_path, payloads_by_url, document = _write_candidate_input(tmp_path, 10)
+    entries = document["entries"]
+    assert isinstance(entries, list)
+    first = entries[0]
+    duplicate = entries[1]
+    assert isinstance(first, dict)
+    assert isinstance(duplicate, dict)
+    duplicate["source"] = first["source"]
+    duplicate["requirements"] = first["requirements"]
+    duplicate["entry_identity_sha256"] = sha256_bytes(canonical_json(["duplicate-source", duplicate["image"]]))
+    input_path.write_bytes(canonical_json(document) + b"\n")
+    recovery_path, recovery_sha256 = _write_recovery_bindings(input_path.parent, document)
+
+    output = tmp_path / "candidate-selection"
+    receipt = select_source_wheel_candidates(
+        input_path,
+        sha256_bytes(input_path.read_bytes()),
+        recovery_path,
+        recovery_sha256,
+        output,
+        expected_input_entries=10,
+        fetch_source=lambda source, _hosts, _timeout: payloads_by_url[source.url],
+    )
+
+    selected = json.loads((output / REDUCED_INPUT_FILENAME).read_bytes())["entries"]
+    assert selected == [entries[0], *entries[2:7]]
+    assert receipt["counts"]["distinct_sources"] == 9
+    assert receipt["counts"]["compatible_entries"] == 10
+    assert receipt["counts"]["selected_sources"] == 6
+
+
+def test_candidate_selector_classifies_all_sources_before_selecting(
+    tmp_path: Path,
+) -> None:
+    input_path, payloads_by_url, document = _write_reducer_input(tmp_path, rejected_count=3)
+    recovery_path, recovery_sha256 = _write_recovery_bindings(input_path.parent, document)
+    fetch_counts: dict[str, int] = {}
+
+    def fetch(source: object, _hosts: frozenset[str], _timeout: float) -> bytes:
+        fetch_counts[source.url] = fetch_counts.get(source.url, 0) + 1
+        return payloads_by_url[source.url]
+
+    output = tmp_path / "candidate-selection"
+    receipt = select_source_wheel_candidates(
+        input_path,
+        sha256_bytes(input_path.read_bytes()),
+        recovery_path,
+        recovery_sha256,
+        output,
+        expected_input_entries=9,
+        fetch_source=fetch,
+    )
+
+    original_entries = document["entries"]
+    assert isinstance(original_entries, list)
+    selected_entries = json.loads((output / REDUCED_INPUT_FILENAME).read_bytes())["entries"]
+    assert selected_entries == original_entries[:6]
+    assert receipt["counts"] == {
+        "input_entries": 9,
+        "distinct_sources": 9,
+        "accepted_sources": 6,
+        "rejected_sources": 3,
+        "compatible_entries": 6,
+        "incompatible_entries": 3,
+        "recovery_binding_entries": 6,
+        "overlap_entries": 0,
+        "eligible_entries": 6,
+        "eligible_sources": 6,
+        "selected_entries": 6,
+        "selected_sources": 6,
+        "projected_recoveries_if_all_selected_pass": 12,
+    }
+    assert len(fetch_counts) == 9
+    assert set(fetch_counts.values()) == {1}
+
+
+def test_candidate_selector_fails_closed_with_aggregate_shortfall_counts(
+    tmp_path: Path,
+) -> None:
+    input_path, payloads_by_url, document = _write_candidate_input(tmp_path, 9)
+    recovery_path, recovery_sha256 = _write_recovery_bindings(
+        input_path.parent,
+        document,
+        overlapping_tasks=tuple(f"private-task-{index}" for index in range(4)),
+    )
+    output = tmp_path / "candidate-selection"
+
+    with pytest.raises(SourceWheelCandidateSelectionError, match="^compatible_source_count_insufficient$") as caught:
+        select_source_wheel_candidates(
+            input_path,
+            sha256_bytes(input_path.read_bytes()),
+            recovery_path,
+            recovery_sha256,
+            output,
+            expected_input_entries=9,
+            fetch_source=lambda source, _hosts, _timeout: payloads_by_url[source.url],
+        )
+
+    assert caught.value.counts == {
+        "input_entries": 9,
+        "distinct_sources": 9,
+        "accepted_sources": 9,
+        "rejected_sources": 0,
+        "compatible_entries": 9,
+        "incompatible_entries": 0,
+        "recovery_binding_entries": 6,
+        "overlap_entries": 4,
+        "eligible_entries": 5,
+        "eligible_sources": 5,
+        "selected_entries": 5,
+        "selected_sources": 5,
+        "projected_recoveries_if_all_selected_pass": 11,
+    }
+    assert not output.exists()
+
+
+@pytest.mark.parametrize(
+    "mutation",
+    ["digest", "mode", "noncanonical", "duplicate", "count", "provenance"],
+)
+def test_candidate_selector_rejects_invalid_recovery_manifest_before_fetch(
+    tmp_path: Path,
+    mutation: str,
+) -> None:
+    input_path, _payloads_by_url, document = _write_candidate_input(tmp_path, 9)
+    recovery_path, recovery_sha256 = _write_recovery_bindings(input_path.parent, document)
+    if mutation == "digest":
+        recovery_sha256 = "0" * 64
+    elif mutation == "mode":
+        recovery_path.chmod(0o644)
+    else:
+        recovery = json.loads(recovery_path.read_bytes())
+        if mutation == "noncanonical":
+            recovery_path.write_text(json.dumps(recovery, indent=2) + "\n")
+        elif mutation == "duplicate":
+            recovery["task_binding_sha256s"][-1] = recovery["task_binding_sha256s"][0]
+            recovery_path.write_bytes(canonical_json(recovery) + b"\n")
+        elif mutation == "count":
+            recovery["task_binding_sha256s"].pop()
+            recovery_path.write_bytes(canonical_json(recovery) + b"\n")
+        else:
+            assert mutation == "provenance"
+            recovery["discovery_provenance_sha256"] = "0" * 64
+            recovery_path.write_bytes(canonical_json(recovery) + b"\n")
+        recovery_sha256 = sha256_bytes(recovery_path.read_bytes())
+    fetches = 0
+
+    def fetch(*_args: object, **_kwargs: object) -> bytes:
+        nonlocal fetches
+        fetches += 1
+        raise AssertionError("source fetch must not start")
+
+    with pytest.raises(SourceWheelCandidateSelectionError, match="^recovery_bindings_invalid$"):
+        select_source_wheel_candidates(
+            input_path,
+            sha256_bytes(input_path.read_bytes()),
+            recovery_path,
+            recovery_sha256,
+            tmp_path / "candidate-selection",
+            expected_input_entries=9,
+            fetch_source=fetch,
+        )
+
+    assert fetches == 0
+
+
+def test_candidate_selector_rejects_preexisting_output_before_fetch(
+    tmp_path: Path,
+) -> None:
+    input_path, _payloads_by_url, document = _write_candidate_input(tmp_path, 9)
+    recovery_path, recovery_sha256 = _write_recovery_bindings(input_path.parent, document)
+    output = tmp_path / "candidate-selection"
+    output.mkdir()
+    fetches = 0
+
+    def fetch(*_args: object, **_kwargs: object) -> bytes:
+        nonlocal fetches
+        fetches += 1
+        raise AssertionError("source fetch must not start")
+
+    with pytest.raises(SourceWheelCandidateSelectionError, match="^output_directory_not_fresh$"):
+        select_source_wheel_candidates(
+            input_path,
+            sha256_bytes(input_path.read_bytes()),
+            recovery_path,
+            recovery_sha256,
+            output,
+            expected_input_entries=9,
+            fetch_source=fetch,
+        )
+
+    assert fetches == 0
+
+
+def test_candidate_selector_public_failure_is_allowlisted_and_counts_only(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    tmp_path: Path,
+) -> None:
+    def fail(*_args: object, **_kwargs: object) -> dict[str, object]:
+        raise SourceWheelCandidateSelectionError("private-task-name", {"private_path": 1})
+
+    monkeypatch.setattr(source_wheel_candidate_selector, "select_source_wheel_candidates", fail)
+    status = source_wheel_candidate_selector.main(
+        [
+            "--input",
+            str(tmp_path / "private-input"),
+            "--input-sha256",
+            "0" * 64,
+            "--expected-input-entries",
+            "9",
+            "--recovery-bindings",
+            str(tmp_path / "private-recoveries"),
+            "--recovery-bindings-sha256",
+            "1" * 64,
+            "--output-dir",
+            str(tmp_path / "output"),
+        ]
+    )
+
+    assert status == 1
+    assert json.loads(capsys.readouterr().out) == {
+        "error_code": "unexpected_failure",
+        "status": "failed",
+    }
+
+
+def test_candidate_selector_public_shortfall_has_exact_aggregate_keys(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    tmp_path: Path,
+) -> None:
+    counts = {
+        "input_entries": 9,
+        "distinct_sources": 6,
+        "accepted_sources": 0,
+        "rejected_sources": 6,
+        "compatible_entries": 0,
+        "incompatible_entries": 9,
+        "recovery_binding_entries": 6,
+        "overlap_entries": 0,
+        "eligible_entries": 0,
+        "eligible_sources": 0,
+        "selected_entries": 0,
+        "selected_sources": 0,
+        "projected_recoveries_if_all_selected_pass": 6,
+    }
+
+    def fail(*_args: object, **_kwargs: object) -> dict[str, object]:
+        raise SourceWheelCandidateSelectionError("compatible_source_count_insufficient", counts)
+
+    monkeypatch.setattr(source_wheel_candidate_selector, "select_source_wheel_candidates", fail)
+    status = source_wheel_candidate_selector.main(
+        [
+            "--input",
+            str(tmp_path / "private-input"),
+            "--input-sha256",
+            "0" * 64,
+            "--expected-input-entries",
+            "9",
+            "--recovery-bindings",
+            str(tmp_path / "private-recoveries"),
+            "--recovery-bindings-sha256",
+            "1" * 64,
+            "--output-dir",
+            str(tmp_path / "output"),
+        ]
+    )
+
+    assert status == 1
+    assert json.loads(capsys.readouterr().out) == {
+        "counts": counts,
+        "error_code": "compatible_source_count_insufficient",
+        "status": "failed",
+    }
 
 
 def test_probe_input_reducer_rejects_cross_host_redirect_without_network(
