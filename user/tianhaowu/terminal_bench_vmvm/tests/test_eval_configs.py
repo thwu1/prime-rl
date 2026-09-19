@@ -31,6 +31,7 @@ ACTIVE_KIMI_CONFIGS = [
 ]
 ACTIVE_QWEN_CONFIGS = [
     "mobius_qwen_a95b_2500.toml",
+    "mobius_qwen_a95b_2500_sandoq.toml",
     "tb4_qwen_a95b_miniswe.toml",
     "tb4_qwen_token_smoke.toml",
 ]
@@ -319,6 +320,33 @@ def test_mobius_qwen_production_retention_and_concurrency() -> None:
     assert taskset["task_file"] == ("user/tianhaowu/terminal_bench_vmvm/configs/eval/mobius_valid_tasks_2500.txt")
     assert taskset["task_file_sha256"] == _mobius_task_file_sha256()
     assert taskset["image_manifest_sha256"] == ("118157378884021d2fc12dd83e7d9576ca606a5d229a2bd34c203d745212e009")
+    assert set(config["retries"]["rollout"]["include"]) == QWEN_ROLLOUT_RETRY_ERRORS
+
+
+def test_mobius_qwen_sandoq_contract_is_explicit_and_digest_pinned() -> None:
+    config = tomllib.loads(
+        (CONFIG_DIR / "mobius_qwen_a95b_2500_sandoq.toml").read_text()
+    )
+
+    assert config["num_tasks"] == 2_500
+    assert config["max_concurrent"] == config["multiplex"] == 64
+    assert config["taskset"]["image_manifest"].endswith(
+        "/mobius_images.sandoq.json"
+    )
+    assert config["taskset"]["image_manifest_sha256"] == (
+        "a3fb4ec9ac9d1ee8376013013f171584c288321923f2050177157edac58340c8"
+    )
+    runtime = config["harness"]["runtime"]
+    assert runtime == {
+        "type": "sandoq",
+        "mode": "oci-runner",
+        "session_timeout": 43_200,
+        "network_access": False,
+        "host_tunnel": "sandoq",
+        "guest_tunnel_url": "http://127.0.0.1:8485",
+        "tunnel_pool_size": 8,
+        "tunnel_ready_timeout": 30,
+    }
     assert set(config["retries"]["rollout"]["include"]) == QWEN_ROLLOUT_RETRY_ERRORS
 
 

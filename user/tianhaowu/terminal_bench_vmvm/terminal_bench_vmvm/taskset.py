@@ -34,7 +34,13 @@ import verifiers.v1 as vf
 from pydantic import Field
 from verifiers.v1.decorators import reward
 from verifiers.v1.errors import SandboxError
-from verifiers.v1.runtimes import ProgramResult, Runtime, VMVMRuntime, make_runtime
+from verifiers.v1.runtimes import (
+    ProgramResult,
+    Runtime,
+    SandoqRuntime,
+    VMVMRuntime,
+    make_runtime,
+)
 from verifiers.v1.task import TaskResources, TaskTimeout
 from verifiers.v1.tasksets.harbor_v1 import HarborConfig, HarborTask, HarborTaskset
 from verifiers.v1.tasksets.harbor_v1.taskset import Author, make_tar, parse_resources
@@ -1801,9 +1807,31 @@ class TerminalBenchVMVMTaskset(
         *,
         activate: bool,
     ) -> None:
+        if isinstance(runtime, SandoqRuntime):
+            if mode == "no-network":
+                config = runtime.config
+                environment = os.environ.get("OCI_RUNNER_ENVIRONMENT", "")
+                task_network = os.environ.get("OCI_RUNNER_TASK_NETWORK")
+                if (
+                    config.mode != "oci-runner"
+                    or config.network_access
+                    or config.host_tunnel != "sandoq"
+                    or not environment.startswith("oci-runner-firecracker")
+                    or task_network != "host"
+                ):
+                    raise UnsupportedTaskError(
+                        f"{task.name}: Sandoq no-network requires OCI Firecracker, "
+                        "network_access=false, task network 'host', and the native loopback tunnel"
+                    )
+            # Sandoq's Firecracker boundary exists before task setup. The host network is
+            # used only for the provider-owned loopback relay; there is no mutable policy
+            # to activate after untrusted task state has been introduced.
+            return
         if not isinstance(runtime, VMVMRuntime):
             if mode == "no-network":
-                raise UnsupportedTaskError(f"{task.name}: network_mode='no-network' requires VMVMRuntime")
+                raise UnsupportedTaskError(
+                    f"{task.name}: network_mode='no-network' requires VMVMRuntime or SandoqRuntime"
+                )
             return
         await runtime.configure_network_policy(mode)
         if activate:
@@ -1881,10 +1909,18 @@ class TerminalBenchVMVMTaskset(
                     f"nohup {shlex.join(startup)} >{startup_log} 2>&1 </dev/null &",
                 ]
                 if task.agent_network_mode == "no-network" and oracle_solution_network_mode != "public":
-                    if not isinstance(runtime, VMVMRuntime):
-                        raise UnsupportedTaskError(f"{task.name}: deferred no-network startup requires VMVMRuntime")
-                    runtime.defer_until_network_isolated(startup_argv)
-                    launched = ProgramResult(exit_code=0, stdout="", stderr="")
+                    if isinstance(runtime, VMVMRuntime):
+                        runtime.defer_until_network_isolated(startup_argv)
+                        launched = ProgramResult(exit_code=0, stdout="", stderr="")
+                    elif isinstance(runtime, SandoqRuntime):
+                        # The Firecracker boundary was established by runtime.start() and
+                        # checked above, so ordinary startup is already isolated.
+                        launched = await runtime.run(startup_argv, {})
+                    else:
+                        raise UnsupportedTaskError(
+                            f"{task.name}: deferred no-network startup requires VMVMRuntime "
+                            "or an isolated SandoqRuntime"
+                        )
                 else:
                     launched = await runtime.run(startup_argv, {})
                 if launched.exit_code != 0:
@@ -3501,8 +3537,10 @@ for requirement in sys.argv[1:]:
 
     @staticmethod
     def _verifier_runtime(task: TerminalBenchTask, runtime: Runtime, name: str) -> Runtime:
-        if not isinstance(runtime, VMVMRuntime):
-            raise RuntimeError("separate Terminal-Bench verification currently requires VMVMRuntime")
+        if not isinstance(runtime, (SandoqRuntime, VMVMRuntime)):
+            raise RuntimeError(
+                "separate Terminal-Bench verification requires VMVMRuntime or SandoqRuntime"
+            )
         updates = {
             "image": task.verifier_image,
             "workdir": task.verifier_workdir,
