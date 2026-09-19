@@ -1843,6 +1843,13 @@ def inspect_wheel(filename: str, payload: bytes) -> WheelEvidence:
     return _inspect_wheel(filename, payload)[0]
 
 
+def inspect_wheel_requirements(filename: str, payload: bytes) -> tuple[WheelEvidence, tuple[str, ...]]:
+    """Inspect one wheel and return its normalized evidence and Requires-Dist values."""
+
+    evidence, requirements, _ = _inspect_wheel(filename, payload)
+    return evidence, requirements
+
+
 def wheel_semantic_sha256(filename: str, payload: bytes) -> str:
     return _inspect_wheel(filename, payload)[2]
 
