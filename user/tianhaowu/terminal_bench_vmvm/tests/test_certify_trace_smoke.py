@@ -120,6 +120,35 @@ def _trace(trace_id: str, task: str, *, start: float, end: float) -> dict:
     }
 
 
+def _use_normalized_stream_responses(run_dir: Path) -> None:
+    results = run_dir / "results.jsonl"
+    rows = [json.loads(line) for line in results.read_text().splitlines()]
+    for row in rows:
+        for node in row["nodes"]:
+            if node.get("sampled") is not True:
+                continue
+            exact = node["model_io"]["response"]["body"]
+            choice = exact["choices"][0]
+            normalized = {
+                "id": exact["id"],
+                "created": exact["created"],
+                "model": exact["model"],
+                "message": {
+                    "role": "assistant",
+                    "content": choice["message"].get("content"),
+                    "reasoning_content": choice["message"].get("reasoning_content"),
+                },
+                "finish_reason": choice["finish_reason"],
+                "usage": node["usage"],
+            }
+            node["model_io"]["response"] = {
+                "kind": "normalized_stream_response",
+                "sha256": _json_digest(normalized),
+                "body": normalized,
+            }
+    results.write_text("".join(f"{json.dumps(row)}\n" for row in rows))
+
+
 def _fixture(
     tmp_path: Path,
     *,
@@ -558,11 +587,173 @@ def test_certifies_valid_smoke_without_task_metadata(tmp_path: Path) -> None:
     assert certificate["artifacts"]["proxy_info"] == certificate["endpoint"]["proxy_info"]
     assert certificate["audit_policy"]["model_io_contract"]["request_model"] == "Kimi-K3"
     assert certificate["audit_policy"]["require_request_graph_match"] is True
+    assert "require_exact_provider_json" not in certificate["audit_policy"]
     assert "opaque-a" not in json.dumps(certificate)
     body = {key: value for key, value in certificate.items() if key != "smoke_checkpoint_sha256"}
     assert certificate["smoke_checkpoint_sha256"] == _sha256_bytes(
         json.dumps(body, allow_nan=False, ensure_ascii=False, separators=(",", ":"), sort_keys=True).encode()
     )
+
+
+def test_exact_provider_json_smoke_policy_rejects_normalized_stream_responses(tmp_path: Path) -> None:
+    run_dir, task_file, task_sha256, envelope = _fixture(tmp_path)
+    _use_normalized_stream_responses(run_dir)
+    _refresh_guard_receipt(run_dir, envelope)
+
+    with pytest.raises(SmokeCertificateError, match="^trace_audit_failed$"):
+        certify_smoke(
+            run_dir,
+            expected_task_file=task_file,
+            expected_task_file_sha256=task_sha256,
+            expected_traces=2,
+            require_exact_provider_json=True,
+            identity_loader=lambda *_args, **_kwargs: envelope,
+        )
+
+
+def test_default_smoke_policy_accepts_normalized_stream_responses(tmp_path: Path) -> None:
+    run_dir, task_file, task_sha256, envelope = _fixture(tmp_path)
+    _use_normalized_stream_responses(run_dir)
+    _refresh_guard_receipt(run_dir, envelope)
+
+    certificate = certify_smoke(
+        run_dir,
+        expected_task_file=task_file,
+        expected_task_file_sha256=task_sha256,
+        expected_traces=2,
+        identity_loader=lambda *_args, **_kwargs: envelope,
+    )
+
+    assert "require_exact_provider_json" not in certificate["audit_policy"]
+
+
+def test_strict_smoke_certificate_binds_and_revalidates_exact_provider_policy(tmp_path: Path) -> None:
+    run_dir, task_file, task_sha256, envelope = _fixture(tmp_path)
+    _install_capacity_evaluator_contract(
+        tmp_path,
+        run_dir,
+        task_file,
+        task_sha256,
+        envelope,
+    )
+    certificate = certify_smoke(
+        run_dir,
+        expected_task_file=task_file,
+        expected_task_file_sha256=task_sha256,
+        expected_traces=2,
+        required_rollout_concurrency=2,
+        required_lease_start_concurrency=2,
+        require_exact_provider_json=True,
+        identity_loader=lambda *_args, **_kwargs: envelope,
+    )
+
+    assert certificate["audit_policy"]["require_exact_provider_json"] is True
+    identity = envelope["identity"]
+    deployment = identity["deployment"]
+    smoke = run_dir / "smoke_checkpoint.json"
+    evidence = qualification.validate_smoke_qualification(
+        smoke,
+        _sha256_bytes(smoke.read_bytes()),
+        deployment_id=deployment["id"],
+        deployment_spec_path=Path(deployment["spec"]["path"]),
+        deployment_spec_sha256=deployment["spec"]["sha256"],
+        readiness_path=Path(deployment["readiness_checkpoint"]["path"]),
+        readiness_sha256=deployment["readiness_checkpoint"]["sha256"],
+        proxy_info_path=Path(deployment["endpoint"]["proxy_info"]["path"]),
+        proxy_info_sha256=deployment["endpoint"]["proxy_info"]["sha256"],
+        model="Kimi-K3",
+        identity_loader=lambda *_args, **_kwargs: envelope,
+    )
+    assert evidence.schema_version == 1
+
+
+def test_strict_smoke_can_publish_distinct_immutable_checkpoint(tmp_path: Path) -> None:
+    run_dir, task_file, task_sha256, envelope = _fixture(tmp_path)
+    checkpoint_name = "smoke_checkpoint_exact_provider.json"
+
+    certificate = certify_smoke(
+        run_dir,
+        expected_task_file=task_file,
+        expected_task_file_sha256=task_sha256,
+        expected_traces=2,
+        require_exact_provider_json=True,
+        checkpoint_name=checkpoint_name,
+        identity_loader=lambda *_args, **_kwargs: envelope,
+    )
+
+    checkpoint = run_dir / checkpoint_name
+    assert certificate["audit_policy"]["require_exact_provider_json"] is True
+    assert checkpoint.is_file()
+    assert checkpoint.stat().st_mode & 0o777 == 0o444
+    assert not (run_dir / smoke_module.DEFAULT_CHECKPOINT_NAME).exists()
+    with pytest.raises(SmokeCertificateError, match="^checkpoint_already_exists$"):
+        certify_smoke(
+            run_dir,
+            expected_task_file=task_file,
+            expected_task_file_sha256=task_sha256,
+            expected_traces=2,
+            require_exact_provider_json=True,
+            checkpoint_name=checkpoint_name,
+            identity_loader=lambda *_args, **_kwargs: envelope,
+        )
+
+
+@pytest.mark.parametrize(
+    "checkpoint_name",
+    [
+        "../smoke_checkpoint_escape.json",
+        "/tmp/smoke_checkpoint_escape.json",
+        "checkpoint.json",
+        "smoke_checkpoint_.json",
+    ],
+)
+def test_alternate_checkpoint_name_is_a_safe_basename(tmp_path: Path, checkpoint_name: str) -> None:
+    run_dir, task_file, task_sha256, envelope = _fixture(tmp_path)
+
+    with pytest.raises(SmokeCertificateError, match="^checkpoint_name_invalid$"):
+        certify_smoke(
+            run_dir,
+            expected_task_file=task_file,
+            expected_task_file_sha256=task_sha256,
+            expected_traces=2,
+            require_exact_provider_json=True,
+            checkpoint_name=checkpoint_name,
+            identity_loader=lambda *_args, **_kwargs: envelope,
+        )
+
+
+def test_alternate_checkpoint_requires_exact_provider_policy(tmp_path: Path) -> None:
+    run_dir, task_file, task_sha256, envelope = _fixture(tmp_path)
+
+    with pytest.raises(SmokeCertificateError, match="^alternate_checkpoint_requires_exact_provider_json$"):
+        certify_smoke(
+            run_dir,
+            expected_task_file=task_file,
+            expected_task_file_sha256=task_sha256,
+            expected_traces=2,
+            checkpoint_name="smoke_checkpoint_supplemental.json",
+            identity_loader=lambda *_args, **_kwargs: envelope,
+        )
+
+
+def test_alternate_checkpoint_rejects_preexisting_symlink(tmp_path: Path) -> None:
+    run_dir, task_file, task_sha256, envelope = _fixture(tmp_path)
+    target = tmp_path / "unrelated.json"
+    target.write_text("preserve\n")
+    checkpoint_name = "smoke_checkpoint_exact_provider.json"
+    (run_dir / checkpoint_name).symlink_to(target)
+
+    with pytest.raises(SmokeCertificateError, match="^checkpoint_already_exists$"):
+        certify_smoke(
+            run_dir,
+            expected_task_file=task_file,
+            expected_task_file_sha256=task_sha256,
+            expected_traces=2,
+            require_exact_provider_json=True,
+            checkpoint_name=checkpoint_name,
+            identity_loader=lambda *_args, **_kwargs: envelope,
+        )
+    assert target.read_text() == "preserve\n"
 
 
 def test_rejects_hash_valid_request_that_diverges_from_graph(tmp_path: Path) -> None:
@@ -602,6 +793,53 @@ def test_smoke_qualification_reaudits_hash_valid_graph_wire_divergence(tmp_path:
     results_path.write_text("".join(f"{json.dumps(row)}\n" for row in rows))
     _refresh_guard_receipt(run_dir, envelope)
 
+    certificate["artifacts"]["results"] = _record(results_path)
+    certificate["artifacts"]["route_guard_success"] = _record(run_dir / "route_guard_success.json")
+    certificate_body = {key: value for key, value in certificate.items() if key != "smoke_checkpoint_sha256"}
+    certificate["smoke_checkpoint_sha256"] = _sha256_bytes(smoke_module._canonical_json(certificate_body))
+    smoke_path = run_dir / "smoke_checkpoint.json"
+    smoke_path.chmod(0o600)
+    smoke_path.write_text(json.dumps(certificate, sort_keys=True) + "\n")
+    smoke_path.chmod(0o444)
+
+    identity = envelope["identity"]
+    deployment = identity["deployment"]
+    spec_path = Path(deployment["spec"]["path"])
+    readiness_path = Path(deployment["readiness_checkpoint"]["path"])
+    with pytest.raises(qualification.SmokeQualificationError, match="^smoke_trace_audit_failed$"):
+        qualification.validate_v1_smoke(
+            qualification.Artifact(smoke_path.resolve(), _sha256_bytes(smoke_path.read_bytes())),
+            deployment_id=deployment["id"],
+            deployment_spec=qualification.Artifact(
+                spec_path.resolve(),
+                deployment["spec"]["sha256"],
+            ),
+            readiness=qualification.Artifact(
+                readiness_path.resolve(),
+                deployment["readiness_checkpoint"]["sha256"],
+            ),
+            endpoint=deployment["endpoint"],
+            generation=deployment["serving_route_generation"],
+            proxy_policy=deployment["proxy_policy"],
+            model="Kimi-K3",
+            identity_loader=lambda *_args, **_kwargs: envelope,
+        )
+
+
+def test_smoke_qualification_reaudits_exact_provider_json_policy(tmp_path: Path) -> None:
+    run_dir, task_file, task_sha256, envelope = _fixture(tmp_path)
+    certificate = certify_smoke(
+        run_dir,
+        expected_task_file=task_file,
+        expected_task_file_sha256=task_sha256,
+        expected_traces=2,
+        require_exact_provider_json=True,
+        identity_loader=lambda *_args, **_kwargs: envelope,
+    )
+    _use_normalized_stream_responses(run_dir)
+    _refresh_guard_receipt(run_dir, envelope)
+
+    results_path = run_dir / "results.jsonl"
     certificate["artifacts"]["results"] = _record(results_path)
     certificate["artifacts"]["route_guard_success"] = _record(run_dir / "route_guard_success.json")
     certificate_body = {key: value for key, value in certificate.items() if key != "smoke_checkpoint_sha256"}

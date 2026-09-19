@@ -50,6 +50,8 @@ from vmvm_tb_v2._vacli.concurrency_telemetry import (
 )
 
 SHA256_RE = re.compile(r"[0-9a-f]{64}")
+CHECKPOINT_NAME_RE = re.compile(r"smoke_checkpoint(?:_[a-z0-9][a-z0-9_-]{0,63})?\.json")
+DEFAULT_CHECKPOINT_NAME = "smoke_checkpoint.json"
 SCHEMA_VERSION = 1
 MAX_SEQUENCE_TOKENS = 262_144
 EXPECTED_MODEL_IO_CONTRACT = {
@@ -186,9 +188,13 @@ def _identity_artifact(identity: dict[str, Any], section: str, name: str) -> dic
     return {"path": str(Path(record["path"]).resolve(strict=True)), "sha256": record["sha256"]}
 
 
-def _write_once(path: Path, payload: dict[str, Any]) -> None:
+def _write_once(path: Path, payload: dict[str, Any], *, allow_identical_existing: bool = True) -> None:
     encoded = json.dumps(payload, indent=2, sort_keys=True).encode("utf-8") + b"\n"
-    if path.exists():
+    if os.path.lexists(path):
+        if not allow_identical_existing:
+            raise SmokeCertificateError("checkpoint_already_exists")
+        if path.is_symlink():
+            raise SmokeCertificateError("checkpoint_already_exists")
         try:
             existing = path.read_bytes()
         except OSError as cause:
@@ -227,6 +233,8 @@ def certify_smoke(
     expected_traces: int,
     required_rollout_concurrency: int | None = None,
     required_lease_start_concurrency: int | None = None,
+    require_exact_provider_json: bool = False,
+    checkpoint_name: str = DEFAULT_CHECKPOINT_NAME,
     identity_loader: Callable[..., dict[str, Any]] = load_eval_run_identity,
 ) -> dict[str, Any]:
     """Audit a completed smoke while holding its writer lock."""
@@ -235,6 +243,12 @@ def certify_smoke(
         raise SmokeCertificateError("expected_task_file_sha256_invalid")
     if isinstance(expected_traces, bool) or not isinstance(expected_traces, int) or expected_traces < 1:
         raise SmokeCertificateError("expected_traces_invalid")
+    if not isinstance(require_exact_provider_json, bool):
+        raise SmokeCertificateError("exact_provider_json_requirement_invalid")
+    if not isinstance(checkpoint_name, str) or CHECKPOINT_NAME_RE.fullmatch(checkpoint_name) is None:
+        raise SmokeCertificateError("checkpoint_name_invalid")
+    if checkpoint_name != DEFAULT_CHECKPOINT_NAME and not require_exact_provider_json:
+        raise SmokeCertificateError("alternate_checkpoint_requires_exact_provider_json")
     required_concurrency = (
         required_rollout_concurrency,
         required_lease_start_concurrency,
@@ -296,6 +310,7 @@ def certify_smoke(
             require_model_io=True,
             model_io_contract=KIMI_K3_MAX_MODEL_IO_CONTRACT,
             require_request_graph_match=True,
+            require_exact_provider_json=require_exact_provider_json,
             max_sequence_tokens=MAX_SEQUENCE_TOKENS,
         )
         if failed or summary.get("model_io_turns", 0) < expected_traces or summary.get("sampled_tokens", 0) < 1:
@@ -473,6 +488,19 @@ def certify_smoke(
             if _sha256_file(Path(record["path"])) != record["sha256"]:
                 raise SmokeCertificateError(f"artifact_hash_mismatch:{name}")
 
+        audit_policy = {
+            "expected_traces": expected_traces,
+            "rollouts_per_task": 1,
+            "require_reasoning": True,
+            "require_model_io": True,
+            "model_io_contract": EXPECTED_MODEL_IO_CONTRACT,
+            "require_request_graph_match": True,
+            "require_token_data": False,
+            "require_logprobs": False,
+            "max_sequence_tokens": MAX_SEQUENCE_TOKENS,
+        }
+        if require_exact_provider_json:
+            audit_policy["require_exact_provider_json"] = True
         certificate_body: dict[str, Any] = {
             "schema_version": SCHEMA_VERSION,
             "state": "passed",
@@ -489,17 +517,7 @@ def certify_smoke(
             "serving_route_generation": serving_route_generation,
             "proxy_policy": proxy_policy,
             "qualified_execution": execution_fields,
-            "audit_policy": {
-                "expected_traces": expected_traces,
-                "rollouts_per_task": 1,
-                "require_reasoning": True,
-                "require_model_io": True,
-                "model_io_contract": EXPECTED_MODEL_IO_CONTRACT,
-                "require_request_graph_match": True,
-                "require_token_data": False,
-                "require_logprobs": False,
-                "max_sequence_tokens": MAX_SEQUENCE_TOKENS,
-            },
+            "audit_policy": audit_policy,
             "counts": {
                 "traces": summary["traces"],
                 "tasks": summary["tasks"],
@@ -516,7 +534,11 @@ def certify_smoke(
             **certificate_body,
             "smoke_checkpoint_sha256": _sha256_bytes(_canonical_json(certificate_body)),
         }
-        _write_once(run_dir / "smoke_checkpoint.json", certificate)
+        _write_once(
+            run_dir / checkpoint_name,
+            certificate,
+            allow_identical_existing=checkpoint_name == DEFAULT_CHECKPOINT_NAME,
+        )
         return certificate
     finally:
         lock.close()
@@ -530,6 +552,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--expected-traces", type=int, required=True)
     parser.add_argument("--required-rollout-concurrency", type=int)
     parser.add_argument("--required-lease-start-concurrency", type=int)
+    parser.add_argument("--require-exact-provider-json", action="store_true")
+    parser.add_argument("--checkpoint-name", default=DEFAULT_CHECKPOINT_NAME)
     args = parser.parse_args(argv)
     try:
         certificate = certify_smoke(
@@ -539,11 +563,13 @@ def main(argv: list[str] | None = None) -> int:
             expected_traces=args.expected_traces,
             required_rollout_concurrency=args.required_rollout_concurrency,
             required_lease_start_concurrency=args.required_lease_start_concurrency,
+            require_exact_provider_json=args.require_exact_provider_json,
+            checkpoint_name=args.checkpoint_name,
         )
     except (OSError, ValueError) as error:
         print(f"smoke_checkpoint_error:{error}", file=sys.stderr)
         return 2
-    checkpoint_path = (args.run_dir / "smoke_checkpoint.json").resolve()
+    checkpoint_path = (args.run_dir / args.checkpoint_name).resolve()
     print(
         json.dumps(
             {

@@ -151,6 +151,40 @@ def _trace_with_model_io(trace_id: str = "model-io", slug: str = "model-io-task"
     return trace
 
 
+def _use_normalized_stream_response(trace: dict) -> None:
+    for node in trace["nodes"]:
+        if node.get("sampled") is not True:
+            continue
+        exact = node["model_io"]["response"]["body"]
+        choice = exact["choices"][0]
+        exact_message = choice["message"]
+        normalized = {
+            "id": exact["id"],
+            "created": exact["created"],
+            "model": exact["model"],
+            "message": {
+                "role": "assistant",
+                "content": exact_message.get("content"),
+                "reasoning_content": exact_message.get("reasoning_content", exact_message.get("reasoning")),
+                "tool_calls": None,
+                "provider_state": None,
+            },
+            "finish_reason": choice["finish_reason"],
+            "usage": {
+                **node["usage"],
+                "cached_input_tokens": None,
+                "reasoning_tokens": None,
+                "cost": None,
+            },
+            "tokens": None,
+        }
+        node["model_io"]["response"] = {
+            "kind": "normalized_stream_response",
+            "sha256": _digest(normalized),
+            "body": normalized,
+        }
+
+
 def _trace_with_redundant_provider_fields() -> dict:
     trace = _trace_with_model_io()
     first = trace["nodes"][0]
@@ -853,34 +887,43 @@ def test_audit_trace_rejects_nonredundant_kimi_provider_fields_in_replayed_reque
 
 def test_audit_trace_reconciles_normalized_stream_response_semantics() -> None:
     trace = _trace_with_model_io()
-    normalized = {
-        "id": "stream-response",
-        "created": 1,
-        "model": "Kimi-K3",
-        "message": {
-            "role": "assistant",
-            "content": None,
-            "reasoning_content": "reasoning",
-            "tool_calls": None,
-            "provider_state": None,
-        },
-        "finish_reason": "stop",
-        "usage": {
-            "prompt_tokens": 100,
-            "completion_tokens": 2,
-            "cached_input_tokens": None,
-            "reasoning_tokens": None,
-            "cost": None,
-        },
-        "tokens": None,
-    }
-    trace["nodes"][0]["model_io"]["response"] = {
-        "kind": "normalized_stream_response",
-        "sha256": _digest(normalized),
-        "body": normalized,
-    }
+    _use_normalized_stream_response(trace)
 
     assert _audit_trace(trace, require_reasoning=True, require_model_io=True) == []
+
+
+def test_exact_provider_json_requirement_rejects_normalized_stream_response() -> None:
+    trace = _trace_with_model_io()
+    _use_normalized_stream_response(trace)
+
+    assert _audit_trace(
+        trace,
+        require_reasoning=True,
+        require_exact_provider_json=True,
+    ) == ["normalized_stream_response_disallowed"]
+
+
+def test_exact_provider_json_aggregate_code_is_redacted() -> None:
+    private_trace = "private-trace-marker"
+    private_task = "private-task-marker"
+    trace = _trace_with_model_io(private_trace, private_task)
+    _use_normalized_stream_response(trace)
+
+    summary, failed = _summarize_traces(
+        [trace],
+        expected_slugs=None,
+        expected_count=1,
+        rollouts_per_task=1,
+        require_reasoning=True,
+        require_exact_provider_json=True,
+        aggregate_only=True,
+    )
+
+    assert failed is True
+    assert summary["problem_counts"] == {"normalized_stream_response_disallowed": 1}
+    encoded = json.dumps(summary, sort_keys=True)
+    assert private_trace not in encoded
+    assert private_task not in encoded
 
 
 @pytest.mark.parametrize("kind", ["exact_provider_json", "normalized_stream_response"])
@@ -1722,6 +1765,40 @@ def test_main_requires_model_io_by_default(
     summary = json.loads(capsys.readouterr().out)
     assert summary["trace_failures"] == 0
     assert "model_io_turns" not in summary
+
+
+def test_main_exact_provider_json_failure_is_aggregate_only_and_redacted(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    private_trace = "private-cli-trace-marker"
+    private_task = "private-cli-task-marker"
+    trace = _trace_with_model_io(private_trace, private_task)
+    _use_normalized_stream_response(trace)
+    results = tmp_path / "results.jsonl"
+    results.write_text(json.dumps(trace) + "\n")
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "audit_traces.py",
+            str(results),
+            "--require-exact-provider-json",
+            "--no-require-request-graph-match",
+            "--aggregate-only",
+        ],
+    )
+
+    with pytest.raises(SystemExit) as exit_info:
+        main()
+
+    assert exit_info.value.code == 2
+    output = capsys.readouterr().out
+    summary = json.loads(output)
+    assert summary["problem_counts"] == {"normalized_stream_response_disallowed": 1}
+    assert private_trace not in output
+    assert private_task not in output
 
 
 def test_main_supports_strict_kimi_production_contract(

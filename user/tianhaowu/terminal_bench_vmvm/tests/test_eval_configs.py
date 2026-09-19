@@ -512,6 +512,18 @@ def test_kimi_tb4_gate_sequences_smoke_before_full_evaluation() -> None:
     assert wrapper.index("EVAL_RUN_ROLE=tb4") < wrapper.index("run_tb4_audit.sbatch")
 
 
+def test_trace_smoke_audit_wrapper_exposes_exact_provider_json_opt_in() -> None:
+    wrapper = (CONFIG_DIR.parents[1] / "run_trace_smoke_audit.sbatch").read_text()
+
+    assert "SMOKE_REQUIRE_EXACT_PROVIDER_JSON:-0" in wrapper
+    assert "SMOKE_REQUIRE_EXACT_PROVIDER_JSON must be 0 or 1" in wrapper
+    assert "SMOKE_CHECKPOINT_NAME:-smoke_checkpoint.json" in wrapper
+    assert "SMOKE_CHECKPOINT_NAME must be a safe smoke checkpoint basename" in wrapper
+    assert "Alternate smoke checkpoints require exact provider JSON" in wrapper
+    assert "args+=(--require-exact-provider-json)" in wrapper
+    assert '--checkpoint-name "$checkpoint_name"' in wrapper
+
+
 def test_direct_qwen_launcher_is_fail_closed() -> None:
     workflow_dir = CONFIG_DIR.parents[1]
     wrapper = (workflow_dir / "run_qwen_direct_eval.sbatch").read_text()

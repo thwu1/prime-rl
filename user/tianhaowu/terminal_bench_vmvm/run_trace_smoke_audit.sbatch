@@ -30,6 +30,8 @@ task_file_sha256=${SMOKE_TASK_FILE_SHA256:?Set SMOKE_TASK_FILE_SHA256 to its app
 expected_traces=${SMOKE_EXPECTED_TRACES:-2}
 required_rollout_concurrency=${SMOKE_REQUIRED_ROLLOUT_CONCURRENCY:-}
 required_lease_start_concurrency=${SMOKE_REQUIRED_LEASE_START_CONCURRENCY:-}
+require_exact_provider_json=${SMOKE_REQUIRE_EXACT_PROVIDER_JSON:-0}
+checkpoint_name=${SMOKE_CHECKPOINT_NAME:-smoke_checkpoint.json}
 
 if [[ ! -x "$x86_uv" ]]; then
     printf 'Missing x86_64 uv binary: %s\n' "$x86_uv" >&2
@@ -48,18 +50,34 @@ if [[ ( -n "$required_rollout_concurrency" && -z "$required_lease_start_concurre
     printf 'Both observed-concurrency requirements must be supplied together\n' >&2
     exit 2
 fi
+if [[ "$require_exact_provider_json" != 0 && "$require_exact_provider_json" != 1 ]]; then
+    printf 'SMOKE_REQUIRE_EXACT_PROVIDER_JSON must be 0 or 1\n' >&2
+    exit 2
+fi
+if [[ ! "$checkpoint_name" =~ ^smoke_checkpoint(_[a-z0-9][a-z0-9_-]{0,63})?\.json$ ]]; then
+    printf 'SMOKE_CHECKPOINT_NAME must be a safe smoke checkpoint basename\n' >&2
+    exit 2
+fi
+if [[ "$checkpoint_name" != smoke_checkpoint.json && "$require_exact_provider_json" != 1 ]]; then
+    printf 'Alternate smoke checkpoints require exact provider JSON\n' >&2
+    exit 2
+fi
 
 args=(
     "$results_dir"
     --expected-task-file "$task_file"
     --expected-task-file-sha256 "$task_file_sha256"
     --expected-traces "$expected_traces"
+    --checkpoint-name "$checkpoint_name"
 )
 if [[ -n "$required_rollout_concurrency" ]]; then
     args+=(
         --required-rollout-concurrency "$required_rollout_concurrency"
         --required-lease-start-concurrency "$required_lease_start_concurrency"
     )
+fi
+if [[ "$require_exact_provider_json" == 1 ]]; then
+    args+=(--require-exact-provider-json)
 fi
 
 exec "$x86_uv" run --no-project --offline --python "$python_bin" \
