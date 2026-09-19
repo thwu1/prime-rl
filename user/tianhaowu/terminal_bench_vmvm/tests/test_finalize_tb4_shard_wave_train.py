@@ -1176,6 +1176,55 @@ def test_reuse_rejects_checkpoint_artifacts_outside_exact_output_members(
         )
 
 
+@pytest.mark.parametrize("attack", ["external", "path_alias", "symlink"])
+def test_schema3_reuse_rejects_one_unbound_shard_policy_before_validator(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    attack: str,
+) -> None:
+    prepared = _prepared(tmp_path)
+    evidence = finalizer._combined_multigen_evidence(((prepared, _evidence(tmp_path, prepared)),))
+    output = tmp_path / "final"
+    value = _multi_value(evidence, prepared, output)
+    policy = value["artifacts"]["proxy_policies"][0]
+    policy_sha256 = hashlib.sha256(b"{}\n").hexdigest()
+    policy["sha256"] = policy_sha256
+    for shard in value["shards"]:
+        shard["proxy_policy_artifact"]["sha256"] = policy_sha256
+    expected_policy = Path(policy["path"])
+    if attack == "external":
+        external_policy = tmp_path / "external-policy.json"
+    elif attack == "path_alias":
+        external_policy = output / ".." / output.name / expected_policy.name
+    else:
+        external_policy = tmp_path / "policy-symlink.json"
+    value["shards"][0]["proxy_policy_artifact"] = {
+        "path": str(external_policy),
+        "sha256": policy_sha256,
+    }
+    _write_output(output, value, multigen=True)
+    if attack == "external":
+        external_policy.write_bytes(b"{}\n")
+        external_policy.chmod(0o600)
+    elif attack == "symlink":
+        external_policy.symlink_to(expected_policy)
+    monkeypatch.setattr(
+        finalizer,
+        "validate_multigen_sharded_checkpoint",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(
+            AssertionError("validator must not read an unbound shard policy")
+        ),
+    )
+
+    with pytest.raises(finalizer.FinalizationError, match="^sharded_checkpoint_controller_mismatch$"):
+        _load_reused_checkpoint(
+            output,
+            prepared,
+            evidence,
+            multigen=True,
+        )
+
+
 def test_checkpoint_is_exactly_cross_bound_to_controller(tmp_path: Path, monkeypatch):
     prepared = _prepared(tmp_path)
     evidence = _evidence(tmp_path, prepared)
