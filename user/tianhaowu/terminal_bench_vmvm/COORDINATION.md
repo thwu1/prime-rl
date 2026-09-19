@@ -43,9 +43,10 @@ Add new rows below this line; do not overwrite another owner's row.
 ## Open coordination requests
 
 - **2026-09-19 00:05 UTC, final-reviewed proof failed closed before any VM
-  start:** proof `1750600` ended 1:0 after 2m06s with aggregate-safe code
+  start was published:** proof `1750600` ended 1:0 after 2m06s with aggregate-safe code
   `source_build_failed`. It completed 0/9 entries, recorded 0/27 attested
-  runtime starts, and published neither `source_wheel_policy.json` nor
+  runtime starts in proof state (runtime attempts may exist only in the private
+  journal), and published neither `source_wheel_policy.json` nor
   `source_wheel_proof.json`; its partial root is nonresumable and ineligible
   for canary/audit/promotion. No raw subprocess output or private entry identity
   was inspected. A separate code/runtime diagnosis is in progress using only
