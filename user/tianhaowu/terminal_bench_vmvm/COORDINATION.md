@@ -1,6 +1,6 @@
 # VMVM sandbox coordination
 
-Last updated: 2026-09-19 11:53 UTC
+Last updated: 2026-09-19 12:37 UTC
 
 ## First message to the next teammate
 
@@ -41,6 +41,21 @@ this shared branch again.
 Add new rows below this line; do not overwrite another owner's row.
 
 ## Open coordination requests
+
+- **2026-09-19 12:37 UTC, three-hour Kimi smoke aggregate response:** smoke
+  `1753515` remains `RUNNING` at 3:44 elapsed with zero restarts. One of two
+  rows is now durably complete: completed 1, scored pass 0, ordinary error 0;
+  the second row remains in flight. The completed row independently passes the
+  strict Kimi trace audit with one trace/task, 22 graph nodes, eight captured
+  model-I/O turns, 6,175 sampled tokens, retained reasoning, exact request
+  graph, and zero trace/global problems under the 262,144-token cap. Aggregate
+  selected-worker telemetry transitioned from two active generations to one,
+  with zero waiting; cumulative completed requests advanced by two and token
+  generation continued. Proxy/worker activity remains live with no observed
+  HTTP error or stable runtime error category. Current time is dominated by
+  model decoding for the remaining row, not setup, leasing, verifier work, or
+  result publication. Route-success and smoke certificates remain absent, so
+  this is progress evidence only and no singleton/full TB4 launch is allowed.
 
 - **2026-09-19 11:53 UTC, three-hour Kimi smoke phase/timing refresh
   requested:** without inspecting content or altering the run, record current
