@@ -1340,6 +1340,59 @@ def validate_reviewed_imports(baseline: set[str], allowed_roots: Sequence[Path])
             fail("reviewed_import_origin_invalid")
 
 
+def classify_legacy_source_rows(
+    recovery_module: Any, manifest_raw: bytes, source_rows: Sequence[Any]
+) -> dict[str, int]:
+    """Accept only the observed clean-then-error-timeout legacy terminal shape."""
+
+    entries = recovery_module._manifest_entries(manifest_raw, expected_count=EXPECTED_TASKS)
+    if len(source_rows) != EXPECTED_TASKS:
+        fail("source_run_invalid")
+    expected_slugs = {entry.slug for entry in entries}
+    observed_slugs: set[str] = set()
+    trace_ids: set[str] = set()
+    row_classes: list[str] = []
+    for row in source_rows:
+        trace = row.trace
+        slug = recovery_module._trace_slug(trace)
+        trace_id = trace.get("id")
+        if (
+            slug not in expected_slugs
+            or slug in observed_slugs
+            or not isinstance(trace_id, str)
+            or not trace_id
+            or trace_id in trace_ids
+        ):
+            fail("source_run_invalid")
+        observed_slugs.add(slug)
+        trace_ids.add(trace_id)
+        problems = recovery_module._strict_trace_problems(trace)
+        errors = trace.get("errors")
+        if not problems:
+            row_classes.append("clean")
+        elif (
+            trace.get("is_completed") is True
+            and trace.get("stop_condition") == "harness_timeout"
+            and isinstance(errors, list)
+            and len(errors) == 1
+            and recovery_module._clean_stop_problem(trace) == "trace_stop_condition_infrastructure"
+        ):
+            row_classes.append("error_bearing_harness_timeout")
+        else:
+            fail("source_run_invalid")
+    if observed_slugs != expected_slugs or row_classes != [
+        "clean",
+        "error_bearing_harness_timeout",
+    ]:
+        fail("source_run_invalid")
+    return {
+        "source_rows": EXPECTED_TASKS,
+        "clean_rows": 1,
+        "error_bearing_harness_timeout_rows": 1,
+        "legacy_rows_reused": 0,
+    }
+
+
 def validate_source_run(plan: Mapping[str, Any]) -> tuple[dict[str, StableFile], dict[str, int]]:
     """Validate the guard-linked legacy run and classify rows without exposing them."""
 
@@ -1378,7 +1431,8 @@ def validate_source_run(plan: Mapping[str, Any]) -> tuple[dict[str, StableFile],
         task = stable_file(Path(task_record.get("path", "")), code="source_task_invalid", uid=OWNER_UID)
         if task.sha256 != task_record.get("sha256") or task_record.get("count") != EXPECTED_TASKS:
             fail("source_task_invalid")
-        selection = recovery_module.derive_selection(task.raw, source["rows"])
+        source_rows = source["rows"]
+        counts = classify_legacy_source_rows(recovery_module, task.raw, source_rows)
         identity_source = source["identity"].get("source")
         invocation = recovery_module.validate_eval_invocations(
             artifacts["eval_invocations.jsonl"].path,
@@ -1399,18 +1453,11 @@ def validate_source_run(plan: Mapping[str, Any]) -> tuple[dict[str, StableFile],
         or identity_source.get("prime_rl_commit") != LEGACY_SOURCE_REVISION
         or invocation.get("slurm_job_id") != SOURCE_JOB_ID
         or invocation.get("resume") is not False
-        or selection.source_rows not in {1, 2}
-        or selection.missing_rows + selection.harness_timeout_rows != 1
     ):
         fail("source_run_invalid")
     if validate_runtime_manifest(plan) != runtime_before or validate_source(plan) != source_before:
         fail("source_runtime_changed")
-    return artifacts, {
-        "source_rows": selection.source_rows,
-        "retained_rows": 1,
-        "missing_rows": selection.missing_rows,
-        "harness_timeout_rows": selection.harness_timeout_rows,
-    }
+    return artifacts, counts
 
 
 def acquire_writer_lock(run_dir: Path) -> tuple[Any, tuple[int, ...]]:
@@ -1733,10 +1780,12 @@ def load_trigger(path: Path, *, plan: StableFile) -> tuple[dict[str, Any], Stabl
         or value.get("plan") != plan.record
         or SHA_RE.fullmatch(str(value.get("source_artifacts_sha256", ""))) is None
         or source_counts
-        not in (
-            {"source_rows": 1, "retained_rows": 1, "missing_rows": 1, "harness_timeout_rows": 0},
-            {"source_rows": 2, "retained_rows": 1, "missing_rows": 0, "harness_timeout_rows": 1},
-        )
+        != {
+            "clean_rows": 1,
+            "error_bearing_harness_timeout_rows": 1,
+            "legacy_rows_reused": 0,
+            "source_rows": EXPECTED_TASKS,
+        }
         or policy
         != {
             "successful_smoke_certificate_forbidden": True,

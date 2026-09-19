@@ -6,6 +6,7 @@ import stat
 import sys
 import tomllib
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any
 
 import pytest
@@ -365,6 +366,55 @@ def test_any_existing_smoke_certificate_blocks_recovery(tmp_path: Path) -> None:
         control.validate_source_run({"source_smoke": {"run_dir": str(run.resolve())}})
 
 
+def test_legacy_source_shape_is_fresh_two_only_and_never_reuses_clean_row() -> None:
+    module = SimpleNamespace(
+        _manifest_entries=lambda _raw, expected_count: [
+            SimpleNamespace(slug="synthetic-a"),
+            SimpleNamespace(slug="synthetic-b"),
+        ][:expected_count],
+        _trace_slug=lambda trace: trace["task"]["slug"],
+        _strict_trace_problems=lambda trace: (
+            []
+            if trace["stop_condition"] == "max_turns" and trace["errors"] == []
+            else ["trace_stop_condition_infrastructure"]
+        ),
+        _clean_stop_problem=lambda trace: (
+            "trace_stop_condition_infrastructure" if trace["stop_condition"] == "harness_timeout" else None
+        ),
+    )
+    clean = SimpleNamespace(
+        trace={
+            "id": "synthetic-clean",
+            "task": {"slug": "synthetic-a"},
+            "is_completed": True,
+            "stop_condition": "max_turns",
+            "errors": [],
+        }
+    )
+    timed_out = SimpleNamespace(
+        trace={
+            "id": "synthetic-timeout",
+            "task": {"slug": "synthetic-b"},
+            "is_completed": True,
+            "stop_condition": "harness_timeout",
+            "errors": [{"kind": "synthetic"}],
+        }
+    )
+
+    counts = control.classify_legacy_source_rows(module, b"synthetic-a\nsynthetic-b\n", [clean, timed_out])
+
+    assert counts == {
+        "source_rows": 2,
+        "clean_rows": 1,
+        "error_bearing_harness_timeout_rows": 1,
+        "legacy_rows_reused": 0,
+    }
+    with pytest.raises(control.RecoveryControlError, match="source_run_invalid"):
+        control.classify_legacy_source_rows(module, b"synthetic-a\nsynthetic-b\n", [timed_out, clean])
+    with pytest.raises(control.RecoveryControlError, match="source_run_invalid"):
+        control.classify_legacy_source_rows(module, b"synthetic-a\nsynthetic-b\n", [clean, clean])
+
+
 def test_source_terminal_gate_never_accepts_an_active_allocation() -> None:
     def active_runner(argv: list[str] | tuple[str, ...], _timeout: float) -> control.CommandResult:
         if argv[0] == "/usr/bin/squeue" and "--steps" not in argv:
@@ -432,10 +482,10 @@ def test_trigger_uses_six_samples_and_at_least_120_seconds(tmp_path: Path, monke
     def source(_plan: Any) -> tuple[dict[str, control.StableFile], dict[str, int]]:
         calls["source"] += 1
         return {"artifact": artifact}, {
-            "source_rows": 1,
-            "retained_rows": 1,
-            "missing_rows": 1,
-            "harness_timeout_rows": 0,
+            "source_rows": 2,
+            "clean_rows": 1,
+            "error_bearing_harness_timeout_rows": 1,
+            "legacy_rows_reused": 0,
         }
 
     def route(_plan: Any, *, runner: Any, fetcher: Any) -> dict[str, Any]:
@@ -468,6 +518,7 @@ def test_trigger_uses_six_samples_and_at_least_120_seconds(tmp_path: Path, monke
     )
 
     assert result["state"] == "eligible"
+    assert result["source_rows"] == 2
     assert result["retained_legacy_rows"] == 0
     assert clock.value == 120
     assert calls == {"terminal": 7, "source": 7, "route": 7}

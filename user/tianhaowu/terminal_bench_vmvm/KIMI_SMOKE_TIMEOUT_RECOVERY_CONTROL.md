@@ -22,9 +22,11 @@ the following remain true for six samples spanning at least 120 seconds:
 - the original writer lock is held nonblocking for the entire window and its
   device/inode/metadata identity is unchanged before, during, and after all
   artifact reads;
-- the guard-linked original run is fresh (`resume=false`), contains exactly one
-  strict clean trace plus either one missing row or one exact harness-timeout
-  row, and its four durable attestation artifacts do not change;
+- the guard-linked original run is fresh (`resume=false`), contains exactly two
+  uniquely mapped rows in durable order (one strict clean row followed by one
+  completed, single-error `harness_timeout` row), and its four durable
+  attestation artifacts do not change; this shape is explicitly ineligible for
+  1+1 retention and authorizes only a fresh rerun of both tasks;
 - no canonical or supplemental successful smoke checkpoint exists;
 - the exact current deployment generation has restart count zero, exactly two
   healthy routes, and aggregate running/waiting request counts of zero;
