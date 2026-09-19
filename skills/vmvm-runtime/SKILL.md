@@ -246,6 +246,32 @@ an immutable state-and-journal-bound post-run validation receipt, and only then
 publish final artifacts. A completed state without that receipt must fail
 closed on resume.
 
+When this proof fails, use only its aggregate failure object. It validates the
+immutable journal and reports counts of intents, successful/failed starts and
+stops, distinct attempts, and distinct entries without emitting their hashes.
+The normal proof keeps the generic `source_build_failed` code. Diagnostic-mode
+source-build errors are reduced in-process to a fixed category for missing
+build dependencies/backends, attempted network access, missing native tools,
+Python incompatibility, invalid source trees, or an unclassified fallback.
+Never inspect or publish raw build output to diagnose this path. The category
+is informational only; any remedy still needs a new reviewed commit and a fresh
+output root.
+
+When one fail-fast category is insufficient to separate a candidate-specific
+failure from a shared runtime failure, use the reviewed diagnostic-only mode
+with `SOURCE_WHEEL_PROOF_CONTINUE_ON_SOURCE_BUILD_FAILURE=1`, a fresh root, and
+no resume hash. It may continue only classified source-build failures, must
+still perform three clean starts per entry, and must terminate nonzero after a
+successful post-run environment revalidation. Accept only its mode-0400
+private receipt, mode-0400 reduced discovery input containing only fully
+validated successes, and the distinct aggregate-only mode-0400 summary written
+last. The summary must hash-bind the original input, private diagnostics,
+reduced input, state, and journal while exposing only counts, category counts,
+and hashes. Never include a partially successful entry. The mode must not
+produce a post-run proof, policy, or finalization record, and its root is never
+resumable or promotable. Treat the reduced input as non-runnable until its
+entry-count contract and all hashes receive separate review.
+
 Bind the approved runtime base, utility commit/tree, three dependency gitlinks,
 all execution hashes, and distinct target/builder identity hashes derived only
 from vacli's real session identity in the private certificate. Never substitute

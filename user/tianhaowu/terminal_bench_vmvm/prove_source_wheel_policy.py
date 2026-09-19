@@ -55,6 +55,7 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument("--vacli-max-pull-retries", type=int, required=True)
     parser.add_argument("--vacli-image-pull-timeout-seconds", type=int, required=True)
     parser.add_argument("--vacli-container-privileged", type=int, choices=(0, 1), required=True)
+    parser.add_argument("--continue-on-source-build-failure", action="store_true")
     parser.add_argument("--project-dir", type=Path, required=True)
     parser.add_argument("--canonical-launcher-path", type=Path, required=True)
     parser.add_argument("--executed-launcher-path", type=Path, required=True)
@@ -152,6 +153,7 @@ def main() -> int:
         vacli_max_pull_retries=args.vacli_max_pull_retries,
         vacli_image_pull_timeout_seconds=args.vacli_image_pull_timeout_seconds,
         vacli_container_privileged=args.vacli_container_privileged,
+        continue_on_source_build_failure=args.continue_on_source_build_failure,
     )
     try:
         result = asyncio.run(_run(config, proof_module))

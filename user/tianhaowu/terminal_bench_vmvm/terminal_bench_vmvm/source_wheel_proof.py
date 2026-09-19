@@ -53,6 +53,7 @@ CANDIDATE_SCHEMA_VERSION = 2
 ATTEMPT_JOURNAL_SCHEMA_VERSION = 1
 POST_RUN_VALIDATION_SCHEMA_VERSION = 1
 FINALIZATION_SCHEMA_VERSION = 2
+SOURCE_BUILD_DIAGNOSTICS_SCHEMA_VERSION = 1
 APPROVED_BASE_RUNTIME_COMMIT = "ceb9356c98c72e51568e7bb4658a540cb1492254"
 REQUIRED_DISCOVERY_ENTRIES = 9
 MAX_CONCURRENT_ENTRIES = 3
@@ -262,6 +263,7 @@ class SourceWheelProofConfig:
     vacli_max_pull_retries: int = 20
     vacli_image_pull_timeout_seconds: int = 3_600
     vacli_container_privileged: int = 1
+    continue_on_source_build_failure: bool = False
 
     def validate(self) -> None:
         if self.expected_entry_count != REQUIRED_DISCOVERY_ENTRIES:
@@ -314,6 +316,10 @@ class SourceWheelProofConfig:
             raise SourceWheelProofError("vacli_lease_concurrency_exceeds_runtime_cap")
         if self.vacli_container_privileged not in {0, 1}:
             raise SourceWheelProofError("vacli_privilege_invalid")
+        if not isinstance(self.continue_on_source_build_failure, bool):
+            raise SourceWheelProofError("source_build_diagnostic_mode_invalid")
+        if self.continue_on_source_build_failure and self.resume_state_sha256 is not None:
+            raise SourceWheelProofError("source_build_diagnostic_root_not_resumable")
 
     @property
     def max_live_runtimes(self) -> int:
@@ -921,6 +927,83 @@ def _require_success(result: ProgramResult, code: str) -> None:
         raise SourceWheelProofError(code)
 
 
+_SOURCE_BUILD_FAILURE_SIGNATURES = (
+    (
+        "source_build_failed_build_dependency_unavailable",
+        (
+            "backendunavailable",
+            "backend unavailable",
+            "cannot import build backend",
+            "modulenotfounderror: no module named",
+            "missing dependencies for",
+            "invalid command 'bdist_wheel'",
+        ),
+    ),
+    (
+        "source_build_failed_network_access_required",
+        (
+            "temporary failure in name resolution",
+            "name or service not known",
+            "network is unreachable",
+            "failed to establish a new connection",
+            "max retries exceeded with url",
+        ),
+    ),
+    (
+        "source_build_failed_native_toolchain_unavailable",
+        (
+            "unable to execute 'gcc'",
+            'unable to execute "gcc"',
+            "no such file or directory: 'gcc'",
+            "no such file or directory: 'cc'",
+            "no such file or directory: 'cmake'",
+            "no such file or directory: 'cargo'",
+            "no such file or directory: 'rustc'",
+        ),
+    ),
+    (
+        "source_build_failed_python_incompatible",
+        (
+            "requires a different python",
+            "unsupported python version",
+            "python version is not supported",
+        ),
+    ),
+    (
+        "source_build_failed_invalid_source_tree",
+        (
+            "does not appear to be a python project",
+            "neither 'setup.py' nor 'pyproject.toml' found",
+            "not a gzip file",
+            "not a zip file",
+        ),
+    ),
+)
+_MAX_FAILURE_CLASSIFICATION_CHARACTERS = 512 * 1024
+SOURCE_BUILD_FAILURE_CODES = frozenset(
+    [code for code, _ in _SOURCE_BUILD_FAILURE_SIGNATURES] + ["source_build_failed_unclassified"]
+)
+
+
+def classify_source_build_failure(result: ProgramResult) -> str:
+    """Map private build output to a fixed aggregate-safe failure code."""
+    fragments = []
+    for value in (result.stdout, result.stderr):
+        if isinstance(value, str):
+            fragments.append(value[-_MAX_FAILURE_CLASSIFICATION_CHARACTERS:])
+    output = "\n".join(fragments).casefold()
+    for code, signatures in _SOURCE_BUILD_FAILURE_SIGNATURES:
+        if any(signature in output for signature in signatures):
+            return code
+    return "source_build_failed_unclassified"
+
+
+def _require_source_build_success(result: ProgramResult, *, diagnostic: bool) -> None:
+    if result.exit_code != 0:
+        code = classify_source_build_failure(result) if diagnostic else "source_build_failed"
+        raise SourceWheelProofError(code)
+
+
 async def _gather_cancel_on_error(*awaitables: Awaitable[object]) -> list[object]:
     tasks = [asyncio.ensure_future(awaitable) for awaitable in awaitables]
     try:
@@ -1112,6 +1195,53 @@ class AttemptJournal:
             observed[identity] = str(started["lease_identity_sha256"])
         if observed != expected:
             raise SourceWheelProofError("attempt_journal_prevents_exact_start_count")
+
+    def validate_diagnostic_exact(
+        self,
+        completed: dict[str, dict[str, object]],
+        failed_entry_keys: set[str],
+    ) -> None:
+        accounted_entry_keys = set(completed) | failed_entry_keys
+        if set(completed).intersection(failed_entry_keys):
+            raise SourceWheelProofError("source_build_diagnostics_invalid")
+        attempts: dict[str, list[dict[str, object]]] = {}
+        for record in self.records:
+            attempts.setdefault(str(record["attempt_sha256"]), []).append(record)
+        observed: dict[tuple[str, str], str] = {}
+        lease_identities: set[str] = set()
+        for records in attempts.values():
+            if len(records) != 3:
+                raise SourceWheelProofError("source_build_diagnostics_journal_invalid")
+            intent, started, stopped = records
+            identity = (str(intent["entry_key_sha256"]), str(intent["role"]))
+            lease_identity = started["lease_identity_sha256"]
+            if (
+                intent["event"] != "start_intent"
+                or started["event"] != "start_succeeded"
+                or stopped["event"] != "stop_succeeded"
+                or any(
+                    record["entry_key_sha256"] != identity[0]
+                    or record["role"] != identity[1]
+                    or record["attempt_sha256"] != intent["attempt_sha256"]
+                    for record in records
+                )
+                or lease_identity != stopped["lease_identity_sha256"]
+                or not isinstance(lease_identity, str)
+                or identity in observed
+                or lease_identity in lease_identities
+            ):
+                raise SourceWheelProofError("source_build_diagnostics_journal_invalid")
+            observed[identity] = lease_identity
+            lease_identities.add(lease_identity)
+        expected_identities = {
+            (entry_key, role) for entry_key in accounted_entry_keys for role in ("target", "builder_a", "builder_b")
+        }
+        if set(observed) != expected_identities:
+            raise SourceWheelProofError("source_build_diagnostics_journal_invalid")
+        for entry_key, proof in completed.items():
+            for role, lease_identity in proof["lease_identity_sha256s"].items():
+                if observed.get((entry_key, role)) != lease_identity:
+                    raise SourceWheelProofError("source_build_diagnostics_journal_invalid")
 
 
 async def _start_runtimes_uninterruptibly(
@@ -1354,7 +1484,10 @@ class SourceWheelProofRunner:
         source_payload = await runtime.read(f"{INPUT_DIR}/{entry.source.filename}")
         inspect_source_distribution(entry.source, source_payload)  # type: ignore[arg-type]
         argv = _source_build_argv(entry.source)
-        _require_success(await runtime.run(argv, {}), "source_build_failed")
+        _require_source_build_success(
+            await runtime.run(argv, {}),
+            diagnostic=self.config.continue_on_source_build_failure,
+        )
         wheels = await self._wheel_directory(runtime)
         new_names = set(wheels) - existing_wheels
         if set(wheels) != existing_wheels | new_names or len(new_names) != 1:
@@ -1739,11 +1872,12 @@ class SourceWheelProofRunner:
         self,
         completed: dict[str, dict[str, object]],
         publish: Callable[[str, dict[str, object], dict[str, int]], None],
+        record_source_build_failure: Callable[[str, str], None] | None = None,
     ) -> None:
         pending = [
             entry for entry in self.discovery.entries if entry_key_sha256(self.discovery.sha256, entry) not in completed
         ]
-        active: set[asyncio.Task[tuple[str, dict[str, object]]]] = set()
+        active: dict[asyncio.Task[tuple[str, dict[str, object]]], DiscoveryEntry] = {}
         iterator = iter(pending)
 
         def fill() -> None:
@@ -1752,19 +1886,28 @@ class SourceWheelProofRunner:
                     entry = next(iterator)
                 except StopIteration:
                     return
-                active.add(asyncio.create_task(self._prove_entry(entry)))
+                active[asyncio.create_task(self._prove_entry(entry))] = entry
 
         fill()
         try:
             while active:
-                done, active = await asyncio.wait(active, return_when=asyncio.FIRST_COMPLETED)
+                done, _ = await asyncio.wait(active, return_when=asyncio.FIRST_COMPLETED)
                 successes: list[tuple[str, dict[str, object]]] = []
+                source_build_failures: list[tuple[str, str]] = []
                 failure: BaseException | None = None
                 for task in done:
+                    entry = active.pop(task)
                     try:
                         successes.append(task.result())
                     except BaseException as error:
-                        failure = failure or error
+                        if (
+                            record_source_build_failure is not None
+                            and isinstance(error, SourceWheelProofError)
+                            and error.code in SOURCE_BUILD_FAILURE_CODES
+                        ):
+                            source_build_failures.append((entry_key_sha256(self.discovery.sha256, entry), error.code))
+                        else:
+                            failure = failure or error
                 for key, proof in sorted(successes):
                     publish(
                         key,
@@ -1775,6 +1918,8 @@ class SourceWheelProofRunner:
                         },
                     )
                     completed[key] = proof
+                for key, code in sorted(source_build_failures):
+                    record_source_build_failure(key, code)
                 if failure is None:
                     fill()
                     continue
@@ -2079,6 +2224,9 @@ class ProofStore:
         self.state_path = self.output_dir / "proof_state.json"
         self.journal_path = self.output_dir / "attempt_journal"
         self.post_validation_path = self.output_dir / "post_run_validation.json"
+        self.source_build_diagnostics_path = self.output_dir / "source_build_diagnostics.json"
+        self.source_build_success_input_path = self.output_dir / "source_build_success_discovery.json"
+        self.source_build_diagnostic_summary_path = self.output_dir / "source_build_diagnostic_summary.json"
         self.finalization_path = self.output_dir / "finalization.json"
         self.proof_path = self.output_dir / "source_wheel_proof.json"
         self.final_policy_path = self.output_dir / "source_wheel_policy.json"
@@ -2091,6 +2239,7 @@ class ProofStore:
         self.entries_sha256 = sha256_bytes(canonical_json(sorted(self.entry_map)))
         self.state: dict[str, object] = {}
         self.journal: AttemptJournal | None = None
+        self.source_build_failures: dict[str, str] = {}
 
     def _run_identity(self) -> dict[str, object]:
         implementation = Path(__file__).read_bytes()
@@ -2143,6 +2292,7 @@ class ProofStore:
                 "vacli_max_pull_retries": self.config.vacli_max_pull_retries,
                 "vacli_image_pull_timeout_seconds": self.config.vacli_image_pull_timeout_seconds,
                 "vacli_container_privileged": self.config.vacli_container_privileged,
+                "continue_on_source_build_failure": self.config.continue_on_source_build_failure,
             },
         }
 
@@ -2183,6 +2333,9 @@ class ProofStore:
             self.candidate_path.name,
             self.state_path.name,
             self.post_validation_path.name,
+            self.source_build_diagnostics_path.name,
+            self.source_build_success_input_path.name,
+            self.source_build_diagnostic_summary_path.name,
             self.proof_path.name,
             self.final_policy_path.name,
             self.finalization_path.name,
@@ -2243,6 +2396,15 @@ class ProofStore:
             self._validate_output_contents()
             self._ensure_exact_artifact(self.identity_path, self.identity_payload)
             self._ensure_exact_artifact(self.candidate_path, self._candidate_payload())
+            if any(
+                path.exists()
+                for path in (
+                    self.source_build_diagnostics_path,
+                    self.source_build_success_input_path,
+                    self.source_build_diagnostic_summary_path,
+                )
+            ):
+                raise SourceWheelProofError("source_build_diagnostic_root_not_resumable")
             self.journal = AttemptJournal(self.journal_path, self.identity_sha256)
             self.state = self._load_or_create_state()
         except BaseException:
@@ -2543,6 +2705,155 @@ class ProofStore:
         self.state["post_run_validation"] = receipt
         self._write_state(self.state)
 
+    def _source_build_diagnostics_payload(self, *, complete: bool) -> bytes:
+        accounted = set(self.completed) | set(self.source_build_failures)
+        if set(self.completed).intersection(self.source_build_failures):
+            raise SourceWheelProofError("source_build_diagnostics_invalid")
+        if not set(self.source_build_failures).issubset(self.entry_map):
+            raise SourceWheelProofError("source_build_diagnostics_invalid")
+        if complete and accounted != set(self.entry_map):
+            raise SourceWheelProofError("source_build_diagnostics_incomplete")
+        payload = {
+            "schema_version": SOURCE_BUILD_DIAGNOSTICS_SCHEMA_VERSION,
+            "kind": "source-wheel-build-failure-diagnostics",
+            "diagnostic_only": True,
+            "complete": complete,
+            "post_run_environment_validation": "passed" if complete else "not_run",
+            "run_identity_sha256": self.identity_sha256,
+            "discovery_input_sha256": self.discovery.sha256,
+            "entry_count": len(self.entry_map),
+            "accounted_entry_count": len(accounted),
+            "successful_entry_count": len(self.completed),
+            "successful_entries_sha256": sha256_bytes(canonical_json(sorted(self.completed))),
+            "proof_state_sha256": sha256_bytes(_read_private(self.state_path, "proof_state_not_private")),
+            "attempt_journal": self._journal().snapshot(),
+            "failures": dict(sorted(self.source_build_failures.items())),
+        }
+        return canonical_json(payload) + b"\n"
+
+    def _source_build_success_discovery_payload(self) -> bytes:
+        input_payload = _read_private(self.config.input_path.resolve(), "discovery_input_not_private")
+        if sha256_bytes(input_payload) != self.discovery.sha256:
+            raise SourceWheelProofError("discovery_input_sha256_mismatch")
+        try:
+            value = strict_json_loads(input_payload)
+        except (UnicodeDecodeError, ValueError, RecursionError) as error:
+            raise SourceWheelProofError("discovery_input_invalid") from error
+        if not isinstance(value, dict) or not isinstance(value.get("entries"), list):
+            raise SourceWheelProofError("discovery_input_invalid")
+        raw_entries = value["entries"]
+        if len(raw_entries) != len(self.discovery.entries):
+            raise SourceWheelProofError("discovery_input_invalid")
+        selected: list[object] = []
+        for raw_entry, entry in zip(raw_entries, self.discovery.entries, strict=True):
+            if not isinstance(raw_entry, dict) or sha256_bytes(canonical_json(raw_entry)) != entry.input_entry_sha256:
+                raise SourceWheelProofError("discovery_input_invalid")
+            key = entry_key_sha256(self.discovery.sha256, entry)
+            if key in self.completed:
+                selected.append(raw_entry)
+        if len(selected) != len(self.completed):
+            raise SourceWheelProofError("source_build_diagnostics_invalid")
+        reduced = dict(value)
+        reduced["entries"] = selected
+        return canonical_json(reduced) + b"\n"
+
+    def _source_build_diagnostic_summary_payload(
+        self,
+        diagnostic_payload: bytes,
+        success_input_payload: bytes,
+    ) -> bytes:
+        category_counts = {category: 0 for category in sorted(SOURCE_BUILD_FAILURE_CODES)}
+        for category in self.source_build_failures.values():
+            category_counts[category] += 1
+        journal = self._journal().snapshot()
+        payload = {
+            "schema_version": SOURCE_BUILD_DIAGNOSTICS_SCHEMA_VERSION,
+            "kind": "source-wheel-build-failure-diagnostic-summary",
+            "diagnostic_only": True,
+            "complete": True,
+            "run_identity_sha256": self.identity_sha256,
+            "original_discovery_input_sha256": self.discovery.sha256,
+            "diagnostic_receipt_sha256": sha256_bytes(diagnostic_payload),
+            "successful_discovery_input_sha256": sha256_bytes(success_input_payload),
+            "proof_state_sha256": sha256_bytes(_read_private(self.state_path, "proof_state_not_private")),
+            "attempt_journal_head_sha256": journal["head_sha256"],
+            "attempt_journal_record_count": journal["record_count"],
+            "runtime_start_count": journal["successful_starts"],
+            "runtime_stop_count": sum(record["event"] == "stop_succeeded" for record in self._journal().records),
+            "entry_count": len(self.entry_map),
+            "successful_entry_count": len(self.completed),
+            "failed_entry_count": len(self.source_build_failures),
+            "successful_entries_sha256": sha256_bytes(canonical_json(sorted(self.completed))),
+            "category_counts": category_counts,
+        }
+        return canonical_json(payload) + b"\n"
+
+    def record_source_build_failure(self, key: str, code: str) -> None:
+        if not self.config.continue_on_source_build_failure:
+            raise SourceWheelProofError("source_build_diagnostic_mode_disabled")
+        if key not in self.entry_map or key in self.completed or code not in SOURCE_BUILD_FAILURE_CODES:
+            raise SourceWheelProofError("source_build_diagnostics_invalid")
+        previous = self.source_build_failures.get(key)
+        if previous is not None and previous != code:
+            raise SourceWheelProofError("source_build_diagnostics_invalid")
+        self.source_build_failures[key] = code
+        atomic_write_bytes(
+            self.source_build_diagnostics_path,
+            self._source_build_diagnostics_payload(complete=False),
+            mode=0o600,
+            replace=self.source_build_diagnostics_path.exists(),
+        )
+        self.source_build_diagnostics_path.chmod(0o600)
+
+    def finalize_source_build_diagnostics(self) -> None:
+        if not self.config.continue_on_source_build_failure:
+            raise SourceWheelProofError("source_build_diagnostic_mode_disabled")
+        accounted = set(self.completed) | set(self.source_build_failures)
+        if accounted != set(self.entry_map):
+            raise SourceWheelProofError("source_build_diagnostics_incomplete")
+        self._journal().validate_diagnostic_exact(
+            self.completed,
+            set(self.source_build_failures),
+        )
+        if any(
+            path.exists()
+            for path in (
+                self.post_validation_path,
+                self.source_build_success_input_path,
+                self.source_build_diagnostic_summary_path,
+                self.finalization_path,
+                self.proof_path,
+                self.final_policy_path,
+            )
+        ):
+            raise SourceWheelProofError("source_build_diagnostics_invalid")
+        self._write_state(self.state)
+        diagnostic_payload = self._source_build_diagnostics_payload(complete=True)
+        success_input_payload = self._source_build_success_discovery_payload()
+        summary_payload = self._source_build_diagnostic_summary_payload(
+            diagnostic_payload,
+            success_input_payload,
+        )
+        atomic_write_bytes(
+            self.source_build_diagnostics_path,
+            diagnostic_payload,
+            mode=0o600,
+            replace=self.source_build_diagnostics_path.exists(),
+        )
+        self.source_build_diagnostics_path.chmod(0o400)
+        atomic_write_bytes(
+            self.source_build_success_input_path,
+            success_input_payload,
+            mode=0o400,
+        )
+        self.source_build_success_input_path.chmod(0o400)
+        atomic_write_bytes(
+            self.source_build_diagnostic_summary_path,
+            summary_payload,
+            mode=0o400,
+        )
+        self.source_build_diagnostic_summary_path.chmod(0o400)
+
     def _final_policy_payload(self) -> bytes:
         entries = [
             self.completed[entry_key_sha256(self.discovery.sha256, entry)]["final_policy_entry"]
@@ -2706,8 +3017,18 @@ async def run_source_wheel_proof(
         def publish(key: str, proof: dict[str, object], telemetry: dict[str, int]) -> None:
             store.publish_entry(key, proof, telemetry)
 
-        await runner.run_pending(store.completed, publish)
+        await runner.run_pending(
+            store.completed,
+            publish,
+            (store.record_source_build_failure if config.continue_on_source_build_failure else None),
+        )
         store.record_peak_entries(runner.peak_entries)
+        if config.continue_on_source_build_failure:
+            if runtime_factory is _runtime_factory:
+                validate_execution_environment(config)
+                validate_vacli_environment(config)
+            store.finalize_source_build_diagnostics()
+            raise SourceWheelProofError("source_build_diagnostics_complete")
         if runtime_factory is _runtime_factory:
             validate_execution_environment(config)
             validate_vacli_environment(config)
@@ -2715,16 +3036,443 @@ async def run_source_wheel_proof(
         return store.publish_final()
 
 
+def _inspect_attempt_journal(
+    output_dir: Path,
+    expected_run_identity_sha256: str | None,
+) -> tuple[
+    dict[str, object],
+    dict[str, object] | None,
+    tuple[dict[str, object], ...],
+]:
+    journal_path = output_dir / "attempt_journal"
+    try:
+        status = journal_path.lstat()
+        if not stat.S_ISDIR(status.st_mode) or stat.S_IMODE(status.st_mode) != 0o700:
+            return {"status": "invalid"}, None, ()
+        children = list(journal_path.iterdir())
+        if any(re.fullmatch(r"[0-9]{8}\.json", child.name) is None for child in children):
+            return {"status": "invalid"}, None, ()
+        paths = sorted(children)
+        previous = "0" * 64
+        run_identity_sha256: str | None = None
+        entry_keys: set[str] = set()
+        attempts: set[str] = set()
+        records: list[dict[str, object]] = []
+        event_counts = {event: 0 for event in sorted(AttemptJournal._EVENTS)}
+        fields = {
+            "schema_version",
+            "sequence",
+            "previous_record_sha256",
+            "run_identity_sha256",
+            "event",
+            "attempt_sha256",
+            "entry_key_sha256",
+            "role",
+            "lease_identity_sha256",
+            "record_sha256",
+        }
+        for sequence, path in enumerate(paths, 1):
+            if path.name != f"{sequence:08d}.json" or stat.S_IMODE(path.lstat().st_mode) != 0o400:
+                return {"status": "invalid"}, None, ()
+            payload = _read_private(path, "attempt_journal_invalid")
+            record = strict_json_loads(payload)
+            if not isinstance(record, dict) or set(record) != fields:
+                return {"status": "invalid"}, None, ()
+            core = {name: value for name, value in record.items() if name != "record_sha256"}
+            event = record["event"]
+            lease_identity = record["lease_identity_sha256"]
+            observed_run_identity = record["run_identity_sha256"]
+            if (
+                record["schema_version"] != ATTEMPT_JOURNAL_SCHEMA_VERSION
+                or record["sequence"] != sequence
+                or record["previous_record_sha256"] != previous
+                or not _valid_sha256(observed_run_identity)
+                or expected_run_identity_sha256 is None
+                or observed_run_identity != expected_run_identity_sha256
+                or (run_identity_sha256 is not None and observed_run_identity != run_identity_sha256)
+                or event not in AttemptJournal._EVENTS
+                or not _valid_sha256(record["attempt_sha256"])
+                or not _valid_sha256(record["entry_key_sha256"])
+                or record["role"] not in {"target", "builder_a", "builder_b"}
+                or (lease_identity is not None and not _valid_sha256(lease_identity))
+                or (event == "start_succeeded" and lease_identity is None)
+                or (event in {"start_intent", "start_failed", "start_indeterminate"} and lease_identity is not None)
+                or record["record_sha256"] != sha256_bytes(canonical_json(core))
+                or payload != canonical_json(record) + b"\n"
+            ):
+                return {"status": "invalid"}, None, ()
+            run_identity_sha256 = str(observed_run_identity)
+            previous = str(record["record_sha256"])
+            event_counts[str(event)] += 1
+            entry_keys.add(str(record["entry_key_sha256"]))
+            attempts.add(str(record["attempt_sha256"]))
+            records.append(record)
+        summary = {
+            "status": "valid",
+            "record_count": len(paths),
+            "distinct_entries": len(entry_keys),
+            "distinct_attempts": len(attempts),
+            "start_intents": event_counts["start_intent"],
+            "successful_starts": event_counts["start_succeeded"],
+            "failed_starts": event_counts["start_failed"],
+            "indeterminate_starts": event_counts["start_indeterminate"],
+            "successful_stops": event_counts["stop_succeeded"],
+            "failed_stops": event_counts["stop_failed"],
+        }
+        snapshot = {
+            "record_count": len(records),
+            "head_sha256": previous,
+            "start_intents": event_counts["start_intent"],
+            "successful_starts": event_counts["start_succeeded"],
+        }
+        return summary, snapshot, tuple(records)
+    except FileNotFoundError:
+        return {"status": "absent"}, None, ()
+    except (
+        KeyError,
+        OSError,
+        SourceWheelProofError,
+        TypeError,
+        UnicodeDecodeError,
+        ValueError,
+        RecursionError,
+    ):
+        return {"status": "invalid"}, None, ()
+
+
+def _diagnostic_journal_is_exact(
+    records: tuple[dict[str, object], ...],
+    entry_keys: set[str],
+) -> bool:
+    attempts: dict[str, list[dict[str, object]]] = {}
+    for record in records:
+        attempts.setdefault(str(record["attempt_sha256"]), []).append(record)
+    observed: set[tuple[str, str]] = set()
+    lease_identities: set[str] = set()
+    for attempt_records in attempts.values():
+        if len(attempt_records) != 3:
+            return False
+        intent, started, stopped = attempt_records
+        identity = (str(intent["entry_key_sha256"]), str(intent["role"]))
+        lease_identity = started["lease_identity_sha256"]
+        if (
+            intent["event"] != "start_intent"
+            or started["event"] != "start_succeeded"
+            or stopped["event"] != "stop_succeeded"
+            or any(
+                record["entry_key_sha256"] != identity[0]
+                or record["role"] != identity[1]
+                or record["attempt_sha256"] != intent["attempt_sha256"]
+                for record in attempt_records
+            )
+            or not isinstance(lease_identity, str)
+            or lease_identity != stopped["lease_identity_sha256"]
+            or identity in observed
+            or lease_identity in lease_identities
+        ):
+            return False
+        observed.add(identity)
+        lease_identities.add(lease_identity)
+    expected = {(entry_key, role) for entry_key in entry_keys for role in ("target", "builder_a", "builder_b")}
+    return observed == expected
+
+
+def _aggregate_source_build_diagnostics(
+    output_dir: Path,
+    expected_run_identity_sha256: str | None,
+    identity: object,
+    state_payload: bytes | None,
+    state: object,
+    journal_snapshot: dict[str, object] | None,
+    journal_records: tuple[dict[str, object], ...],
+) -> dict[str, object]:
+    path = output_dir / "source_build_diagnostics.json"
+    success_input_path = output_dir / "source_build_success_discovery.json"
+    summary_path = output_dir / "source_build_diagnostic_summary.json"
+    if not path.exists():
+        if success_input_path.exists() or summary_path.exists():
+            return {"status": "invalid"}
+        return {"status": "absent"}
+    try:
+        mode = stat.S_IMODE(path.lstat().st_mode)
+        payload = _read_private(path, "source_build_diagnostics_invalid")
+        value = strict_json_loads(payload)
+        fields = {
+            "schema_version",
+            "kind",
+            "diagnostic_only",
+            "complete",
+            "post_run_environment_validation",
+            "run_identity_sha256",
+            "discovery_input_sha256",
+            "entry_count",
+            "accounted_entry_count",
+            "successful_entry_count",
+            "successful_entries_sha256",
+            "proof_state_sha256",
+            "attempt_journal",
+            "failures",
+        }
+        if not isinstance(value, dict) or set(value) != fields or payload != canonical_json(value) + b"\n":
+            return {"status": "invalid"}
+        complete = value["complete"]
+        if complete is not True:
+            if complete is False and mode == 0o600 and not success_input_path.exists() and not summary_path.exists():
+                return {"status": "incomplete"}
+            return {"status": "invalid"}
+        failures = value["failures"]
+        completed = state.get("completed") if isinstance(state, dict) else None
+        runtime_identity = identity.get("runtime") if isinstance(identity, dict) else None
+        source_identity = identity.get("source") if isinstance(identity, dict) else None
+        successful_entries_sha256 = (
+            sha256_bytes(canonical_json(sorted(completed))) if isinstance(completed, dict) else None
+        )
+        if (
+            mode != 0o400
+            or value["schema_version"] != SOURCE_BUILD_DIAGNOSTICS_SCHEMA_VERSION
+            or value["kind"] != "source-wheel-build-failure-diagnostics"
+            or value["diagnostic_only"] is not True
+            or value["post_run_environment_validation"] != "passed"
+            or expected_run_identity_sha256 is None
+            or value["run_identity_sha256"] != expected_run_identity_sha256
+            or not isinstance(identity, dict)
+            or value["discovery_input_sha256"] != identity.get("discovery_input_sha256")
+            or not isinstance(runtime_identity, dict)
+            or runtime_identity.get("continue_on_source_build_failure") is not True
+            or not isinstance(source_identity, dict)
+            or value["entry_count"] != REQUIRED_DISCOVERY_ENTRIES
+            or not isinstance(value["accounted_entry_count"], int)
+            or isinstance(value["accounted_entry_count"], bool)
+            or not isinstance(value["successful_entry_count"], int)
+            or isinstance(value["successful_entry_count"], bool)
+            or state_payload is None
+            or value["proof_state_sha256"] != sha256_bytes(state_payload)
+            or not isinstance(state, dict)
+            or state.get("run_identity_sha256") != expected_run_identity_sha256
+            or state.get("entry_count") != REQUIRED_DISCOVERY_ENTRIES
+            or state.get("post_run_validation") is not None
+            or not isinstance(completed, dict)
+            or value["successful_entry_count"] != len(completed)
+            or value["successful_entries_sha256"] != successful_entries_sha256
+            or not isinstance(failures, dict)
+            or not all(
+                _valid_sha256(key) and isinstance(code, str) and code in SOURCE_BUILD_FAILURE_CODES
+                for key, code in failures.items()
+            )
+            or set(completed).intersection(failures)
+            or value["accounted_entry_count"] != len(completed) + len(failures)
+            or value["accounted_entry_count"] != REQUIRED_DISCOVERY_ENTRIES
+            or journal_snapshot is None
+            or value["attempt_journal"] != journal_snapshot
+            or state.get("attempt_journal") != journal_snapshot
+            or not _diagnostic_journal_is_exact(journal_records, set(completed) | set(failures))
+            or any(
+                (output_dir / name).exists()
+                for name in (
+                    "post_run_validation.json",
+                    "finalization.json",
+                    "source_wheel_proof.json",
+                    "source_wheel_policy.json",
+                )
+            )
+        ):
+            return {"status": "invalid"}
+        category_counts = {category: 0 for category in sorted(SOURCE_BUILD_FAILURE_CODES)}
+        for category in failures.values():
+            category_counts[str(category)] += 1
+        if (
+            not success_input_path.exists()
+            or stat.S_IMODE(success_input_path.lstat().st_mode) != 0o400
+            or not summary_path.exists()
+            or stat.S_IMODE(summary_path.lstat().st_mode) != 0o400
+        ):
+            return {"status": "invalid"}
+        success_input_payload = _read_private(
+            success_input_path,
+            "source_build_success_discovery_invalid",
+        )
+        success_input = strict_json_loads(success_input_payload)
+        success_input_fields = {
+            "schema_version",
+            "kind",
+            "complete",
+            "missing_required_evidence",
+            "provenance",
+            "allowed_hosts",
+            "entries",
+        }
+        if (
+            not isinstance(success_input, dict)
+            or set(success_input) != success_input_fields
+            or success_input_payload != canonical_json(success_input) + b"\n"
+            or success_input["schema_version"] != DISCOVERY_INPUT_SCHEMA_VERSION
+            or success_input["kind"] != "source-wheel-policy-probe-input"
+            or success_input["complete"] is not False
+            or sha256_bytes(canonical_json(success_input["missing_required_evidence"]))
+            != identity.get("missing_required_evidence_sha256")
+            or sha256_bytes(canonical_json(success_input["provenance"])) != identity.get("discovery_provenance_sha256")
+            or not isinstance(success_input["entries"], list)
+            or len(success_input["entries"]) != len(completed)
+        ):
+            return {"status": "invalid"}
+        successful_entry_keys: set[str] = set()
+        for raw_entry in success_input["entries"]:
+            if not isinstance(raw_entry, dict) or not _valid_sha256(raw_entry.get("entry_identity_sha256")):
+                return {"status": "invalid"}
+            input_entry_sha256 = sha256_bytes(canonical_json(raw_entry))
+            entry_key = sha256_bytes(
+                canonical_json(
+                    {
+                        "input_sha256": value["discovery_input_sha256"],
+                        "entry_identity_sha256": raw_entry["entry_identity_sha256"],
+                        "input_entry_sha256": input_entry_sha256,
+                    }
+                )
+            )
+            if entry_key in successful_entry_keys:
+                return {"status": "invalid"}
+            successful_entry_keys.add(entry_key)
+        if successful_entry_keys != set(completed):
+            return {"status": "invalid"}
+        summary_payload = _read_private(
+            summary_path,
+            "source_build_diagnostic_summary_invalid",
+        )
+        diagnostic_summary = strict_json_loads(summary_payload)
+        summary_fields = {
+            "schema_version",
+            "kind",
+            "diagnostic_only",
+            "complete",
+            "run_identity_sha256",
+            "original_discovery_input_sha256",
+            "diagnostic_receipt_sha256",
+            "successful_discovery_input_sha256",
+            "proof_state_sha256",
+            "attempt_journal_head_sha256",
+            "attempt_journal_record_count",
+            "runtime_start_count",
+            "runtime_stop_count",
+            "entry_count",
+            "successful_entry_count",
+            "failed_entry_count",
+            "successful_entries_sha256",
+            "category_counts",
+        }
+        expected_summary = {
+            "schema_version": SOURCE_BUILD_DIAGNOSTICS_SCHEMA_VERSION,
+            "kind": "source-wheel-build-failure-diagnostic-summary",
+            "diagnostic_only": True,
+            "complete": True,
+            "run_identity_sha256": expected_run_identity_sha256,
+            "original_discovery_input_sha256": value["discovery_input_sha256"],
+            "diagnostic_receipt_sha256": sha256_bytes(payload),
+            "successful_discovery_input_sha256": sha256_bytes(success_input_payload),
+            "proof_state_sha256": value["proof_state_sha256"],
+            "attempt_journal_head_sha256": journal_snapshot["head_sha256"],
+            "attempt_journal_record_count": len(journal_records),
+            "runtime_start_count": sum(record["event"] == "start_succeeded" for record in journal_records),
+            "runtime_stop_count": sum(record["event"] == "stop_succeeded" for record in journal_records),
+            "entry_count": REQUIRED_DISCOVERY_ENTRIES,
+            "successful_entry_count": len(completed),
+            "failed_entry_count": len(failures),
+            "successful_entries_sha256": successful_entries_sha256,
+            "category_counts": category_counts,
+        }
+        if (
+            not isinstance(diagnostic_summary, dict)
+            or set(diagnostic_summary) != summary_fields
+            or diagnostic_summary != expected_summary
+            or summary_payload != canonical_json(diagnostic_summary) + b"\n"
+        ):
+            return {"status": "invalid"}
+        return {
+            "status": "valid",
+            "complete": True,
+            "entry_count": REQUIRED_DISCOVERY_ENTRIES,
+            "accounted_entry_count": value["accounted_entry_count"],
+            "successful_entry_count": value["successful_entry_count"],
+            "failed_entry_count": len(failures),
+            "attempt_journal_record_count": diagnostic_summary["attempt_journal_record_count"],
+            "runtime_start_count": diagnostic_summary["runtime_start_count"],
+            "runtime_stop_count": diagnostic_summary["runtime_stop_count"],
+            "category_counts": category_counts,
+            "original_discovery_input_sha256": value["discovery_input_sha256"],
+            "diagnostic_receipt_sha256": sha256_bytes(payload),
+            "successful_discovery_input_sha256": sha256_bytes(success_input_payload),
+            "summary_receipt_sha256": sha256_bytes(summary_payload),
+        }
+    except (
+        KeyError,
+        OSError,
+        SourceWheelProofError,
+        TypeError,
+        UnicodeDecodeError,
+        ValueError,
+        RecursionError,
+    ):
+        return {"status": "invalid"}
+
+
 def aggregate_failure(output_dir: Path, code: str) -> dict[str, object]:
     summary: dict[str, object] = {"status": "failed", "error_code": code}
+    identity_path = output_dir / "run_identity.json"
+    identity: object = None
+    try:
+        if stat.S_IMODE(identity_path.lstat().st_mode) != 0o400:
+            raise SourceWheelProofError("run_identity_not_private")
+        identity_payload = _read_private(identity_path, "run_identity_not_private")
+        identity = strict_json_loads(identity_payload)
+        if identity_payload != canonical_json(identity) + b"\n":
+            raise SourceWheelProofError("run_identity_invalid")
+        expected_run_identity_sha256 = sha256_bytes(identity_payload)
+    except (
+        OSError,
+        SourceWheelProofError,
+        TypeError,
+        UnicodeDecodeError,
+        ValueError,
+        RecursionError,
+    ):
+        expected_run_identity_sha256 = None
+    journal_summary, journal_snapshot, journal_records = _inspect_attempt_journal(
+        output_dir,
+        expected_run_identity_sha256,
+    )
+    summary["attempt_journal"] = journal_summary
     state_path = output_dir / "proof_state.json"
-    if regular_private_file(state_path):
-        payload = state_path.read_bytes()
-        summary["state_sha256"] = sha256_bytes(payload)
+    state_payload: bytes | None = None
+    state: object = None
+    if regular_private_file(state_path) and stat.S_IMODE(state_path.lstat().st_mode) == 0o600:
         try:
-            state = strict_json_loads(payload)
-        except (UnicodeDecodeError, ValueError, RecursionError):
-            return summary
-        if isinstance(state, dict) and isinstance(state.get("completed"), dict):
-            summary["completed_entries"] = len(state["completed"])
+            state_payload = _read_private(state_path, "proof_state_not_private")
+            summary["state_sha256"] = sha256_bytes(state_payload)
+            state = strict_json_loads(state_payload)
+            if state_payload != canonical_json(state) + b"\n":
+                raise SourceWheelProofError("proof_state_invalid")
+            if isinstance(state, dict) and isinstance(state.get("completed"), dict):
+                summary["completed_entries"] = len(state["completed"])
+            if isinstance(state, dict) and isinstance(state.get("telemetry"), dict):
+                starts = state["telemetry"].get("attested_runtime_starts")
+                if not isinstance(starts, bool) and isinstance(starts, int) and starts >= 0:
+                    summary["state_attested_runtime_starts"] = starts
+        except (
+            OSError,
+            SourceWheelProofError,
+            TypeError,
+            UnicodeDecodeError,
+            ValueError,
+            RecursionError,
+        ):
+            state_payload = None
+            state = None
+    summary["source_build_diagnostics"] = _aggregate_source_build_diagnostics(
+        output_dir,
+        expected_run_identity_sha256,
+        identity,
+        state_payload,
+        state,
+        journal_snapshot,
+        journal_records,
+    )
     return summary

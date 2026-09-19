@@ -36,6 +36,7 @@ from terminal_bench_vmvm.source_wheel_proof import (
     SourceWheelProofError,
     SourceWheelProofRunner,
     aggregate_failure,
+    classify_source_build_failure,
     compare_build_payloads,
     load_private_discovery_input,
     run_source_wheel_proof,
@@ -273,11 +274,17 @@ class FakeFleet:
         block_builds: bool = False,
         block_starts: bool = False,
         duplicate_descriptors: bool = False,
+        source_build_stderr: str | None = None,
+        source_build_stderr_by_image: dict[str, str] | None = None,
+        fingerprint_failure: bool = False,
     ) -> None:
         self.artifacts = artifacts
         self.block_builds = block_builds
         self.block_starts = block_starts
         self.duplicate_descriptors = duplicate_descriptors
+        self.source_build_stderr = source_build_stderr
+        self.source_build_stderr_by_image = source_build_stderr_by_image or {}
+        self.fingerprint_failure = fingerprint_failure
         self.release_builds = asyncio.Event()
         self.release_starts = asyncio.Event()
         self.two_builds_entered = asyncio.Event()
@@ -360,6 +367,8 @@ class FakeRuntime:
             return ProgramResult(exit_code=0, stdout="", stderr="")
         if argv == ["python3", "-I", "-c", FINGERPRINT_PROBE]:
             assert self.network_active
+            if self.fleet.fingerprint_failure:
+                return ProgramResult(exit_code=1, stdout="", stderr="private-marker")
             return ProgramResult(exit_code=0, stdout=_fingerprint_payload(), stderr="")
         if argv[:5] == ["python3", "-I", "-m", "pip", "wheel"]:
             assert self.network_active
@@ -370,6 +379,12 @@ class FakeRuntime:
                 self.fleet.two_builds_entered.set()
             if self.fleet.block_builds and self.fleet.builds_entered >= 2:
                 await self.fleet.release_builds.wait()
+            source_build_stderr = self.fleet.source_build_stderr_by_image.get(
+                self.config.image,
+                self.fleet.source_build_stderr,
+            )
+            if source_build_stderr is not None:
+                return ProgramResult(exit_code=1, stdout="", stderr=source_build_stderr)
             self.files[f"{WHEEL_DIR}/{self.artifact.source_wheel_filename}"] = self.artifact.source_wheel
             return ProgramResult(exit_code=0, stdout="", stderr="")
         if argv[:5] == ["python3", "-I", "-m", "pip", "install"] and "--dry-run" in argv:
@@ -535,6 +550,19 @@ def test_nine_entry_discovery_emits_policy_with_exactly_twenty_seven_starts(
     aggregate = json.dumps(aggregate_failure(output, "synthetic_failure"), sort_keys=True)
     assert "private-task" not in aggregate
     assert "https://" not in aggregate
+    aggregate_attempts = json.loads(aggregate)["attempt_journal"]
+    assert aggregate_attempts == {
+        "status": "valid",
+        "record_count": 81,
+        "distinct_entries": 9,
+        "distinct_attempts": 27,
+        "start_intents": 27,
+        "successful_starts": 27,
+        "failed_starts": 0,
+        "indeterminate_starts": 0,
+        "successful_stops": 27,
+        "failed_stops": 0,
+    }
 
 
 @pytest.mark.parametrize(
@@ -776,6 +804,364 @@ def test_cancellation_stops_every_started_runtime_and_leaves_resumable_state(tmp
                 runtime_factory=FakeFleet(artifacts).factory,
             )
         )
+    aggregate = aggregate_failure(output, "cancelled")
+    assert aggregate["attempt_journal"] == {
+        "status": "valid",
+        "record_count": 9,
+        "distinct_entries": 1,
+        "distinct_attempts": 3,
+        "start_intents": 3,
+        "successful_starts": 3,
+        "failed_starts": 0,
+        "indeterminate_starts": 0,
+        "successful_stops": 3,
+        "failed_stops": 0,
+    }
+
+
+@pytest.mark.parametrize(
+    ("diagnostic", "expected"),
+    [
+        (
+            "ModuleNotFoundError: No module named 'synthetic_backend'",
+            "source_build_failed_build_dependency_unavailable",
+        ),
+        (
+            "Temporary failure in name resolution",
+            "source_build_failed_network_access_required",
+        ),
+        (
+            "unable to execute 'gcc': No such file or directory",
+            "source_build_failed_native_toolchain_unavailable",
+        ),
+        (
+            "This release requires a different Python",
+            "source_build_failed_python_incompatible",
+        ),
+        (
+            "neither 'setup.py' nor 'pyproject.toml' found",
+            "source_build_failed_invalid_source_tree",
+        ),
+        (
+            "synthetic opaque build failure containing private-marker",
+            "source_build_failed_unclassified",
+        ),
+    ],
+)
+def test_source_build_failure_diagnostics_are_fixed_vocabulary(
+    diagnostic: str,
+    expected: str,
+) -> None:
+    result = ProgramResult(exit_code=1, stdout="private-marker", stderr=diagnostic)
+
+    observed = classify_source_build_failure(result)
+
+    assert observed == expected
+    assert "private-marker" not in observed
+
+
+def test_source_build_failure_exposes_only_classified_code(tmp_path: Path) -> None:
+    discovery, artifacts = _write_discovery(tmp_path, 9)
+    output = tmp_path / "proof"
+    fleet = FakeFleet(
+        artifacts,
+        source_build_stderr="ModuleNotFoundError: No module named 'private-marker'",
+    )
+
+    with pytest.raises(
+        SourceWheelProofError,
+        match="^source_build_failed$",
+    ):
+        asyncio.run(
+            run_source_wheel_proof(
+                _config(
+                    discovery,
+                    output,
+                    max_concurrent_entries=1,
+                    vacli_max_concurrent_leases=3,
+                ),
+                runtime_factory=fleet.factory,
+            )
+        )
+
+    assert fleet.start_count == 3
+    summary = json.dumps(
+        aggregate_failure(output, "source_build_failed"),
+        sort_keys=True,
+    )
+    assert "private-marker" not in summary
+    assert '"successful_starts": 3' in summary
+    assert '"successful_stops": 3' in summary
+
+
+def test_source_build_diagnostic_mode_runs_all_entries_and_emits_only_private_receipts(
+    tmp_path: Path,
+) -> None:
+    discovery, artifacts = _write_discovery(tmp_path, 9)
+    output = tmp_path / "proof"
+    fleet = FakeFleet(
+        artifacts,
+        source_build_stderr="ModuleNotFoundError: No module named 'private-marker'",
+    )
+
+    with pytest.raises(SourceWheelProofError, match="^source_build_diagnostics_complete$"):
+        asyncio.run(
+            run_source_wheel_proof(
+                _config(
+                    discovery,
+                    output,
+                    continue_on_source_build_failure=True,
+                ),
+                runtime_factory=fleet.factory,
+            )
+        )
+
+    assert fleet.start_count == 27
+    assert fleet.live == 0
+    assert all(runtime.stopped for runtime in fleet.runtimes)
+    expected_diagnostics = {
+        "source_build_diagnostics.json",
+        "source_build_success_discovery.json",
+        "source_build_diagnostic_summary.json",
+    }
+    assert all(stat.S_IMODE((output / name).stat().st_mode) == 0o400 for name in expected_diagnostics)
+    for forbidden in (
+        "post_run_validation.json",
+        "finalization.json",
+        "source_wheel_proof.json",
+        "source_wheel_policy.json",
+    ):
+        assert not (output / forbidden).exists()
+    private_diagnostics = json.loads((output / "source_build_diagnostics.json").read_bytes())
+    assert private_diagnostics["complete"] is True
+    assert private_diagnostics["post_run_environment_validation"] == "passed"
+    assert private_diagnostics["accounted_entry_count"] == 9
+    assert private_diagnostics["successful_entry_count"] == 0
+    assert len(private_diagnostics["failures"]) == 9
+    reduced = json.loads((output / "source_build_success_discovery.json").read_bytes())
+    assert reduced["entries"] == []
+    aggregate = aggregate_failure(output, "source_build_diagnostics_complete")
+    aggregate_diagnostics = aggregate["source_build_diagnostics"]
+    assert aggregate_diagnostics["status"] == "valid"
+    assert aggregate_diagnostics["entry_count"] == 9
+    assert aggregate_diagnostics["accounted_entry_count"] == 9
+    assert aggregate_diagnostics["successful_entry_count"] == 0
+    assert aggregate_diagnostics["failed_entry_count"] == 9
+    assert aggregate_diagnostics["runtime_start_count"] == 27
+    assert aggregate_diagnostics["runtime_stop_count"] == 27
+    assert aggregate_diagnostics["category_counts"]["source_build_failed_build_dependency_unavailable"] == 9
+    assert aggregate["attempt_journal"]["successful_starts"] == 27
+    assert aggregate["attempt_journal"]["successful_stops"] == 27
+    aggregate_payload = json.dumps(aggregate, sort_keys=True)
+    assert "private-marker" not in aggregate_payload
+    assert "private-task" not in aggregate_payload
+    assert "https://" not in aggregate_payload
+    assert b"private-marker" not in b"".join(path.read_bytes() for path in output.iterdir() if path.is_file())
+
+    resumed_fleet = FakeFleet(artifacts)
+    with pytest.raises(SourceWheelProofError, match="^source_build_diagnostic_root_not_resumable$"):
+        asyncio.run(
+            run_source_wheel_proof(
+                _config(
+                    discovery,
+                    output,
+                    continue_on_source_build_failure=True,
+                    resume_state_sha256=sha256_bytes((output / "proof_state.json").read_bytes()),
+                    slurm_job_id="12346",
+                ),
+                runtime_factory=resumed_fleet.factory,
+            )
+        )
+    assert resumed_fleet.start_count == 0
+
+
+def test_source_build_diagnostic_mode_derives_only_fully_validated_successes(
+    tmp_path: Path,
+) -> None:
+    discovery, artifacts = _write_discovery(tmp_path, 9)
+    output = tmp_path / "proof"
+    failed_images = list(artifacts)[:3]
+    failures = {
+        failed_images[0]: "Temporary failure in name resolution private-marker",
+        failed_images[1]: "unable to execute 'gcc': private-marker",
+        failed_images[2]: "opaque private-marker",
+    }
+    fleet = FakeFleet(artifacts, source_build_stderr_by_image=failures)
+
+    with pytest.raises(SourceWheelProofError, match="^source_build_diagnostics_complete$"):
+        asyncio.run(
+            run_source_wheel_proof(
+                _config(
+                    discovery,
+                    output,
+                    continue_on_source_build_failure=True,
+                ),
+                runtime_factory=fleet.factory,
+            )
+        )
+
+    assert fleet.start_count == 27
+    state = json.loads((output / "proof_state.json").read_bytes())
+    reduced_payload = (output / "source_build_success_discovery.json").read_bytes()
+    reduced = json.loads(reduced_payload)
+    assert len(state["completed"]) == 6
+    assert len(reduced["entries"]) == 6
+    summary_payload = (output / "source_build_diagnostic_summary.json").read_bytes()
+    summary = json.loads(summary_payload)
+    diagnostics_payload = (output / "source_build_diagnostics.json").read_bytes()
+    assert summary["original_discovery_input_sha256"] == sha256_bytes(discovery.read_bytes())
+    assert summary["diagnostic_receipt_sha256"] == sha256_bytes(diagnostics_payload)
+    assert summary["successful_discovery_input_sha256"] == sha256_bytes(reduced_payload)
+    assert summary["successful_entry_count"] == 6
+    assert summary["failed_entry_count"] == 3
+    aggregate = aggregate_failure(output, "source_build_diagnostics_complete")
+    aggregate_diagnostics = aggregate["source_build_diagnostics"]
+    assert aggregate_diagnostics["status"] == "valid"
+    assert aggregate_diagnostics["successful_entry_count"] == 6
+    assert aggregate_diagnostics["failed_entry_count"] == 3
+    assert aggregate_diagnostics["summary_receipt_sha256"] == sha256_bytes(summary_payload)
+    assert sum(aggregate_diagnostics["category_counts"].values()) == 3
+    assert "private-marker" not in json.dumps(aggregate, sort_keys=True)
+
+
+def test_source_build_diagnostic_mode_never_publishes_when_every_entry_succeeds(
+    tmp_path: Path,
+) -> None:
+    discovery, artifacts = _write_discovery(tmp_path, 9)
+    output = tmp_path / "proof"
+    fleet = FakeFleet(artifacts)
+
+    with pytest.raises(SourceWheelProofError, match="^source_build_diagnostics_complete$"):
+        asyncio.run(
+            run_source_wheel_proof(
+                _config(
+                    discovery,
+                    output,
+                    continue_on_source_build_failure=True,
+                ),
+                runtime_factory=fleet.factory,
+            )
+        )
+
+    assert fleet.start_count == 27
+    diagnostics = aggregate_failure(output, "source_build_diagnostics_complete")["source_build_diagnostics"]
+    assert diagnostics["status"] == "valid"
+    assert diagnostics["successful_entry_count"] == 9
+    assert diagnostics["failed_entry_count"] == 0
+    assert sum(diagnostics["category_counts"].values()) == 0
+    assert len(json.loads((output / "source_build_success_discovery.json").read_bytes())["entries"]) == 9
+    assert not (output / "source_wheel_policy.json").exists()
+    assert not (output / "source_wheel_proof.json").exists()
+
+
+def test_source_build_diagnostic_mode_does_not_continue_unrelated_failures(
+    tmp_path: Path,
+) -> None:
+    discovery, artifacts = _write_discovery(tmp_path, 9)
+    output = tmp_path / "proof"
+    fleet = FakeFleet(artifacts, fingerprint_failure=True)
+
+    with pytest.raises(SourceWheelProofError, match="^runtime_fingerprint_failed$"):
+        asyncio.run(
+            run_source_wheel_proof(
+                _config(
+                    discovery,
+                    output,
+                    max_concurrent_entries=1,
+                    vacli_max_concurrent_leases=3,
+                    continue_on_source_build_failure=True,
+                ),
+                runtime_factory=fleet.factory,
+            )
+        )
+
+    assert fleet.start_count == 3
+    assert fleet.live == 0
+    assert not (output / "source_build_diagnostics.json").exists()
+    assert not (output / "source_build_success_discovery.json").exists()
+    assert not (output / "source_build_diagnostic_summary.json").exists()
+    assert "private-marker" not in json.dumps(
+        aggregate_failure(output, "runtime_fingerprint_failed"),
+        sort_keys=True,
+    )
+
+
+def test_source_build_diagnostic_summary_tampering_fails_closed(tmp_path: Path) -> None:
+    discovery, artifacts = _write_discovery(tmp_path, 9)
+    output = tmp_path / "proof"
+    fleet = FakeFleet(artifacts, source_build_stderr="opaque private-marker")
+    with pytest.raises(SourceWheelProofError, match="^source_build_diagnostics_complete$"):
+        asyncio.run(
+            run_source_wheel_proof(
+                _config(
+                    discovery,
+                    output,
+                    continue_on_source_build_failure=True,
+                ),
+                runtime_factory=fleet.factory,
+            )
+        )
+    summary_path = output / "source_build_diagnostic_summary.json"
+    summary = json.loads(summary_path.read_bytes())
+    summary["failed_entry_count"] = 8
+    summary_path.chmod(0o600)
+    summary_path.write_bytes(canonical_json(summary) + b"\n")
+    summary_path.chmod(0o400)
+
+    aggregate = aggregate_failure(output, "source_build_diagnostics_complete")
+
+    assert aggregate["source_build_diagnostics"] == {"status": "invalid"}
+    assert "private-marker" not in json.dumps(aggregate, sort_keys=True)
+
+
+@pytest.mark.parametrize(
+    "retained",
+    [
+        frozenset({"source_build_diagnostics.json"}),
+        frozenset(
+            {
+                "source_build_diagnostics.json",
+                "source_build_success_discovery.json",
+            }
+        ),
+        frozenset(
+            {
+                "source_build_success_discovery.json",
+                "source_build_diagnostic_summary.json",
+            }
+        ),
+    ],
+)
+def test_source_build_diagnostic_partial_publication_fails_closed(
+    tmp_path: Path,
+    retained: frozenset[str],
+) -> None:
+    discovery, artifacts = _write_discovery(tmp_path, 9)
+    output = tmp_path / "proof"
+    fleet = FakeFleet(artifacts, source_build_stderr="opaque private-marker")
+    with pytest.raises(SourceWheelProofError, match="^source_build_diagnostics_complete$"):
+        asyncio.run(
+            run_source_wheel_proof(
+                _config(
+                    discovery,
+                    output,
+                    continue_on_source_build_failure=True,
+                ),
+                runtime_factory=fleet.factory,
+            )
+        )
+    diagnostic_artifacts = {
+        "source_build_diagnostics.json",
+        "source_build_success_discovery.json",
+        "source_build_diagnostic_summary.json",
+    }
+    for name in diagnostic_artifacts - retained:
+        (output / name).unlink()
+
+    aggregate = aggregate_failure(output, "source_build_diagnostics_complete")
+
+    assert aggregate["source_build_diagnostics"] == {"status": "invalid"}
+    assert "private-marker" not in json.dumps(aggregate, sort_keys=True)
 
 
 def test_cancellation_drains_runtime_start_before_stopping_leases(tmp_path: Path) -> None:
@@ -1188,6 +1574,9 @@ def test_readme_uses_exact_clean_tmux_wrap_launcher_form() -> None:
     ) in readme
     assert 'exec "$python_bin" -I -S -B' in launcher
     assert '"$workflow_dir/source_wheel_proof_bootstrap.py" run' in launcher
+    assert "SOURCE_WHEEL_PROOF_CONTINUE_ON_SOURCE_BUILD_FAILURE" in launcher
+    assert "args+=(--continue-on-source-build-failure)" in launcher
+    assert "Source-build diagnostics require a fresh output root" in launcher
     assert "uv run --no-project" not in launcher
     for rejected in ("BASH_ENV", "LD_PRELOAD"):
         assert rejected in (launcher + readme)

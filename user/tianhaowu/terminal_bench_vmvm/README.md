@@ -304,6 +304,36 @@ entry boundary. Any unmatched or failed start requires a fresh output
 directory. A complete nine-entry proof therefore contains nine clean-target
 validations, eighteen source builds, and exactly 27 proof runtime starts.
 
+On failure, the launcher reports integrity-checked aggregate journal counts
+from the immutable records rather than relying only on the last state
+checkpoint. The normal proof retains its generic `source_build_failed` code.
+The diagnostic mode maps each source-build subprocess failure to one fixed
+category: missing build dependency/backend, attempted network access, missing
+native toolchain, incompatible Python, invalid source tree, or unclassified.
+These categories are diagnostic only and never authorize a policy; raw command
+output, artifact names, requirements, URLs, entry keys, and lease identities
+are neither persisted in the summary nor printed. A failed root with starts not
+represented by completed entries is intentionally non-resumable.
+
+If aggregate evidence cannot distinguish an entry-specific build failure from
+a shared runtime or toolchain failure, an independently reviewed diagnostic
+launch may add `SOURCE_WHEEL_PROOF_CONTINUE_ON_SOURCE_BUILD_FAILURE=1` and must
+use a new output directory without a resume-state hash. This mode still starts
+exactly three fresh VMVMs per entry, but continues only after classified source
+build failures. It always exits nonzero with
+`source_build_diagnostics_complete`, writes a mode-0400 private
+`source_build_diagnostics.json`, and derives a separate mode-0400
+`source_build_success_discovery.json` containing only entries that completed
+both builds and clean-target validation. A mode-0400 aggregate-only
+`source_build_diagnostic_summary.json`, written last, binds the original input,
+private diagnostic evidence, reduced input, state, and journal hashes plus
+counts and fixed-category counts. Partially successful entries are excluded.
+The launcher prints only that aggregate receipt. It never writes a post-run
+proof, runnable policy, or finalization record; its root must never be resumed
+or promoted. A later proof may consume the reduced input only after independent
+review and explicit entry-count policy changes. Any launch of this mode
+requires a separately reviewed commit and execution-binding hashes.
+
 A fresh oracle creates a mode-0400 `source_wheel_attestations.json` and
 content-addressed `source_wheel_cache/` beside its results only after acquiring
 the writer lock. Publications are atomic and include the policy, runtime,
