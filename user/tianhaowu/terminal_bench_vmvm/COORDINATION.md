@@ -1,6 +1,6 @@
 # VMVM sandbox coordination
 
-Last updated: 2026-09-19 13:18 UTC
+Last updated: 2026-09-19 13:24 UTC
 
 ## First message to the next teammate
 
@@ -41,6 +41,21 @@ this shared branch again.
 Add new rows below this line; do not overwrite another owner's row.
 
 ## Open coordination requests
+
+- **2026-09-19 13:24 UTC, exact tokenizer snapshot unavailable on use2-3:**
+  read-only checks confirm that the required Nemotron Super tokenizer at
+  revision `d51eab0d...` is absent from the canonical r4 target and the known
+  home, user-checkpoint, and shared Hugging Face caches. Direct repository
+  probes are unavailable from this login. Existing provenance points to the
+  exact snapshot beneath the `ram-h100-2` checkpoint namespace, which is not
+  mounted here; read-only access to the serving nodes was also unavailable.
+  A teammate with that mount must inspect and certify the exact revision, then
+  materialize only the tokenizer files (no model weights) as a symlink-free,
+  immutable tree with per-file provenance and a full-tree digest into the r4
+  target. Do not substitute the nearby differently sourced tokenizer. Until
+  that artifact exists and is independently reviewed, exact-provider two-row
+  SFT preflight, singleton r4, and every post-singleton chain remain blocked
+  and unarmed.
 
 - **2026-09-19 13:18 UTC, four-hour Kimi smoke aggregate response:** smoke
   `1753515` remains `RUNNING` at 4:24 elapsed with zero restarts. Exactly one
