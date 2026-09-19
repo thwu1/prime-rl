@@ -1,3 +1,4 @@
+import ast
 import asyncio
 import base64
 import gc
@@ -14,7 +15,7 @@ import sysconfig
 import tarfile
 import threading
 import time
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from types import SimpleNamespace
 from weakref import ref
 from zipfile import ZIP_DEFLATED, ZIP_STORED, ZipFile, ZipInfo
@@ -1995,10 +1996,12 @@ def test_static_build_requirement_extraction_is_fail_closed(tmp_path: Path) -> N
     entry, source_payload, _ = source_policy_entry(setup_requires=("legacy-backend==0.1", "cffi>=1.0"))
     policy_path = tmp_path / "policy.json"
 
-    def load_source(payload: bytes):
+    def load_source(payload: bytes, *, filename: str | None = None):
         source = dict(entry["sources"][0])
         source["size"] = len(payload)
         source["sha256"] = sha256_bytes(payload)
+        if filename is not None:
+            source["filename"] = filename
         policy_path.write_text(
             json.dumps(
                 {
@@ -2023,6 +2026,13 @@ def test_static_build_requirement_extraction_is_fail_closed(tmp_path: Path) -> N
                 member = tarfile.TarInfo(name)
                 member.size = len(payload)
                 bundle.addfile(member, io.BytesIO(payload))
+        return output.getvalue()
+
+    def zip_archive(*members: tuple[str, bytes]) -> bytes:
+        output = io.BytesIO()
+        with ZipFile(output, mode="w") as bundle:
+            for name, payload in members:
+                bundle.writestr(name, payload)
         return output.getvalue()
 
     metadata = b"Metadata-Version: 2.1\nName: verifier-helper\nVersion: 1.0\n"
@@ -2061,6 +2071,39 @@ def test_static_build_requirement_extraction_is_fail_closed(tmp_path: Path) -> N
     )
     with pytest.raises(RuntimeError, match="ambiguous setup metadata"):
         extract_static_setup_requires(load_source(ambiguous_root), ambiguous_root)
+
+    for builder, filename in (
+        (archive, "verifier_helper-1.0.tar.gz"),
+        (zip_archive, "verifier_helper-1.0.zip"),
+    ):
+        sibling_member = builder(
+            ("verifier_helper-1.0/PKG-INFO", metadata),
+            (
+                "verifier_helper-1.0/setup.py",
+                b"from setuptools import setup\nsetup(name='verifier-helper', version='1.0')\n",
+            ),
+            ("outside-the-package-root.txt", b"must not be visible to the build"),
+        )
+        with pytest.raises(RuntimeError, match="outside the canonical package root"):
+            extract_static_build_requirements(load_source(sibling_member, filename=filename), sibling_member)
+
+        for manifest_name in (
+            "verifier_helper-1.0/MANIFEST.in",
+            "verifier_helper-1.0/verifier_helper.egg-info/SOURCES.txt",
+        ):
+            inclusion_manifest = builder(
+                ("verifier_helper-1.0/PKG-INFO", metadata),
+                (
+                    "verifier_helper-1.0/setup.py",
+                    b"from setuptools import setup\nsetup(name='verifier-helper', version='1.0')\n",
+                ),
+                (manifest_name, b"../outside-the-package-root.txt\n"),
+            )
+            with pytest.raises(RuntimeError, match="unsupported inclusion metadata"):
+                extract_static_build_requirements(
+                    load_source(inclusion_manifest, filename=filename),
+                    inclusion_manifest,
+                )
 
     invalid_pyproject = archive(
         ("verifier_helper-1.0/PKG-INFO", metadata),
@@ -2115,14 +2158,14 @@ def test_static_build_requirement_extraction_is_fail_closed(tmp_path: Path) -> N
             "verifier_helper-1.0/setup.cfg",
             b"[metadata]\n"
             b"name = verifier-helper\n"
-            b"license_files = LICENSE*\n"
+            b"license_files = LICENSE\n"
             b"[options]\n"
             b"packages = verifier_helper\n"
             b"package_dir =\n"
             b"    = src\n"
             b"include_package_data = false\n"
             b"[options.package_data]\n"
-            b"verifier_helper = data/*.txt\n"
+            b"verifier_helper = data/info.txt\n"
             b"[bdist_wheel]\n"
             b"universal = 1\n"
             b"[egg_info]\n"
@@ -2137,7 +2180,10 @@ def test_static_build_requirement_extraction_is_fail_closed(tmp_path: Path) -> N
         b"[options]\ncffi_modules = build.py:ffi\n",
         b"[options]\next_modules = proof.extension\n",
         b"[options]\npackage_dir =\n    = ../../escape\npackages = verifier_helper\n",
+        b"[options]\npackage_dir =\n    = file:outside\npackages = verifier_helper\n",
+        b"[options]\npackage_dir =\n    = src/*\npackages = verifier_helper\n",
         b"[options.package_data]\nverifier_helper = ../../outside/*\n",
+        b"[options.package_data]\nverifier_helper = data/*.txt\n",
         b"[egg_info]\negg_base = ../../escape\n",
         b"[metadata]\nlicense_file = /etc/passwd\n",
         b"[metadata]\nlicense_file = LICENSE, /etc/passwd\n",
@@ -2236,7 +2282,7 @@ def test_static_build_requirement_extraction_is_fail_closed(tmp_path: Path) -> N
         ),
         ("verifier_helper-1.0/setup.cfg", b"[aliases]\nbuild = custom_build\n"),
     )
-    with pytest.raises(RuntimeError, match="unsupported command alias"):
+    with pytest.raises(RuntimeError, match="unsupported section"):
         extract_static_build_requirements(load_source(unsupported_config_section), unsupported_config_section)
 
     pyproject_tool_section = archive(
@@ -2270,7 +2316,7 @@ def test_static_build_requirement_extraction_is_fail_closed(tmp_path: Path) -> N
             b'"""static package declaration"""\n'
             b"from setuptools import setup\n"
             b"setup(name='verifier-helper', version='1.0', packages=[], "
-            b"package_data={'': ['*.txt']}, include_package_data=False)\n",
+            b"package_data={'': ['NOTICE.txt']}, include_package_data=False)\n",
         ),
     )
     assert extract_static_build_requirements(load_source(literal_containers), literal_containers) == ()
@@ -2339,6 +2385,10 @@ def test_static_build_requirement_extraction_is_fail_closed(tmp_path: Path) -> N
     assert extract_static_build_requirements(load_source(inert_local_metadata), inert_local_metadata) == ()
     assert "metadata_stub = types.ModuleType(module)" in SOURCE_BUILD_RUNNER_CODE
     assert "sys.modules[module] = metadata_stub" in SOURCE_BUILD_RUNNER_CODE
+    assert "source build archive member is outside the canonical package root" in SOURCE_BUILD_RUNNER_CODE
+    assert "source build archive contains unsupported inclusion metadata" in SOURCE_BUILD_RUNNER_CODE
+    assert "os.utime(source_root" in SOURCE_BUILD_RUNNER_CODE
+    compile(SOURCE_BUILD_RUNNER_CODE, "<source-build-runner>", "exec")
 
     helper_import = archive(
         ("verifier_helper-1.0/PKG-INFO", metadata),
@@ -2383,7 +2433,7 @@ def test_static_build_requirement_extraction_is_fail_closed(tmp_path: Path) -> N
     with pytest.raises(RuntimeError, match="not statically bound"):
         extract_static_build_requirements(load_source(ambiguous_local_metadata), ambiguous_local_metadata)
 
-    deterministic_alias = archive(
+    command_alias = archive(
         ("verifier_helper-1.0/PKG-INFO", metadata),
         (
             "verifier_helper-1.0/setup.py",
@@ -2391,7 +2441,8 @@ def test_static_build_requirement_extraction_is_fail_closed(tmp_path: Path) -> N
         ),
         ("verifier_helper-1.0/setup.cfg", b"[aliases]\ntest = pytest\n[egg_info]\ntag_build =\n"),
     )
-    assert extract_static_build_requirements(load_source(deterministic_alias), deterministic_alias) == ()
+    with pytest.raises(RuntimeError, match="unsupported section"):
+        extract_static_build_requirements(load_source(command_alias), command_alias)
 
     dynamic_config_file = archive(
         ("verifier_helper-1.0/PKG-INFO", metadata),
@@ -2465,7 +2516,7 @@ def test_static_build_requirement_extraction_is_fail_closed(tmp_path: Path) -> N
         ),
     )
     assert extract_static_build_requirements(load_source(safe_package_dir), safe_package_dir) == ()
-    for package_dir in ("/tmp/escape", "../escape"):
+    for package_dir in ("/tmp/escape", "../escape", "file:outside", "src/*", "src\\outside"):
         unsafe_package_dir = archive(
             ("verifier_helper-1.0/PKG-INFO", metadata),
             (
@@ -2491,6 +2542,11 @@ def test_static_build_requirement_extraction_is_fail_closed(tmp_path: Path) -> N
         b"from setuptools import setup\n"
         b"setup(name='verifier-helper', packages=['verifier_helper'], "
         b"package_data={'verifier_helper': ['../../outside/*']})\n",
+        b"from setuptools import setup\n"
+        b"setup(name='verifier-helper', packages=['verifier_helper'], "
+        b"package_data={'verifier_helper': ['data/*.txt']})\n",
+        b"from setuptools import setup\nsetup(name='verifier-helper', scripts=['bin/helper'])\n",
+        b"from setuptools import setup\nsetup(name='verifier-helper', data_files=[('/tmp', ['payload'])])\n",
         b"from setuptools import setup\n"
         b"setup(name='verifier-helper', packages=['verifier_helper'], include_package_data=True)\n",
         b"from setuptools import setup\nsetup(name='verifier-helper', use_scm_version=True)\n",
@@ -2556,6 +2612,42 @@ def test_static_build_requirement_extraction_is_fail_closed(tmp_path: Path) -> N
         )
         with pytest.raises(RuntimeError, match="shadows the attested setuptools"):
             extract_static_build_requirements(load_source(shadowed), shadowed)
+
+
+def test_source_build_runner_independently_rejects_sibling_and_manifest_members() -> None:
+    tree = ast.parse(SOURCE_BUILD_RUNNER_CODE)
+    validators = ast.Module(
+        body=[
+            node
+            for node in tree.body
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+            and node.name in {"archive_parts", "validate_layout"}
+        ],
+        type_ignores=[],
+    )
+    namespace: dict[str, object] = {
+        "PurePosixPath": PurePosixPath,
+        "unicodedata": __import__("unicodedata"),
+    }
+    exec(compile(validators, "<source-build-runner-layout>", "exec"), namespace)
+    archive_parts = namespace["archive_parts"]
+    validate_layout = namespace["validate_layout"]
+    assert callable(archive_parts)
+    assert callable(validate_layout)
+
+    accepted = [
+        archive_parts("package-1.0/PKG-INFO", False),
+        archive_parts("package-1.0/setup.py", False),
+    ]
+    assert validate_layout(accepted) == ("package-1.0",)
+    with pytest.raises(RuntimeError, match="outside the canonical package root"):
+        validate_layout([*accepted, archive_parts("sibling.txt", False)])
+    for name in (
+        "package-1.0/MANIFEST.in",
+        "package-1.0/package.egg-info/SOURCES.txt",
+    ):
+        with pytest.raises(RuntimeError, match="unsupported inclusion metadata"):
+            archive_parts(name, False)
 
 
 def test_wheel_semantic_digest_normalizes_timestamps_and_rejects_unsafe_members() -> None:

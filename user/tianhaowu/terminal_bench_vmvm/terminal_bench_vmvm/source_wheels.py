@@ -31,13 +31,13 @@ except ModuleNotFoundError:  # pragma: no cover - exercised inside minimal verif
     from pip._vendor.packaging.requirements import InvalidRequirement, Requirement
     from pip._vendor.packaging.utils import canonicalize_name
 
-SOURCE_WHEEL_POLICY_SCHEMA_VERSION = 5
-SOURCE_WHEEL_ATTESTATION_SCHEMA_VERSION = 6
+SOURCE_WHEEL_POLICY_SCHEMA_VERSION = 6
+SOURCE_WHEEL_ATTESTATION_SCHEMA_VERSION = 7
 SOURCE_BUILD_ENVIRONMENT_SCHEMA_VERSION = 4
-SOURCE_WHEEL_RECOVERY_SCHEMA_VERSION = 4
+SOURCE_WHEEL_RECOVERY_SCHEMA_VERSION = 5
 WHEEL_SEMANTIC_DIGEST_SCHEMA_VERSION = 2
-SETUP_PY_GRAMMAR_ID = "positive-static-legacy-metadata-confined-packages-no-resource-v6"
-SETUP_CFG_GRAMMAR_ID = "allowlisted-static-options-confined-paths-v2"
+SETUP_PY_GRAMMAR_ID = "positive-static-legacy-metadata-confined-exact-paths-v7"
+SETUP_CFG_GRAMMAR_ID = "allowlisted-static-options-confined-exact-paths-v3"
 WHEEL_SEMANTIC_DIGEST_KIND = "raw-wheel-zip-with-normalized-dos-timestamps"
 WHEEL_SEMANTIC_NORMALIZED_FIELDS = (
     "local_header_dos_time_date",
@@ -70,6 +70,8 @@ _IMAGE_DIGEST_RE = re.compile(r"[^\s@]+(?:[:][^\s@]+)?@sha256:[0-9a-f]{64}")
 _SAFE_FILENAME_RE = re.compile(r"[A-Za-z0-9][A-Za-z0-9_.+-]*")
 _SAFE_PACKAGE_RE = re.compile(r"[A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)*")
 _EXACT_REQUIREMENT_RE = re.compile(r"[A-Za-z0-9][A-Za-z0-9_.-]*(?:\[[A-Za-z0-9_,.-]+\])?==[A-Za-z0-9.!+_-]+")
+_URI_SCHEME_RE = re.compile(r"[A-Za-z][A-Za-z0-9+.-]*:")
+_PATH_EXPANSION_RE = re.compile(r"[*?\[\]{}$]")
 _SDIST_SUFFIXES = (".tar.gz", ".tar.bz2", ".tar.xz", ".zip")
 
 
@@ -931,7 +933,7 @@ def source_build_dependency_install_argv(
 
 
 SOURCE_BUILD_RUNNER_CODE = """
-import ast, hashlib, importlib, io, json, os, re, runpy, shutil, stat, sys, sysconfig, tarfile, types, zipfile
+import ast, hashlib, importlib, io, json, os, re, runpy, shutil, stat, sys, sysconfig, tarfile, types, unicodedata, zipfile
 from pathlib import PurePosixPath
 
 build_env, source_path, work_dir, wheel_dir, expected_size, expected_sha256, max_members, max_bytes, expected_env, umask, expected_distribution = sys.argv[1:]
@@ -1012,20 +1014,54 @@ with open(source_path, "rb") as handle:
     source_payload = handle.read(max(expected_size + 1, 1))
 if len(source_payload) != expected_size or hashlib.sha256(source_payload).hexdigest() != expected_sha256:
     raise RuntimeError("source build input integrity mismatch")
-seen = set()
 total_size = 0
 
-def destination(name):
-    if "\\\\" in name:
+def archive_parts(name, is_directory):
+    if "\\\\" in name or unicodedata.normalize("NFC", name) != name:
         raise RuntimeError("source build archive member is unsafe")
     path = PurePosixPath(name)
-    if not path.parts or path.is_absolute() or ".." in path.parts:
+    parts = path.parts
+    normalized = "/".join(parts)
+    if (
+        not parts
+        or path.is_absolute()
+        or ".." in parts
+        or name not in {normalized, f"{normalized}/"}
+        or any(unicodedata.category(character) in {"Cc", "Cf", "Cs"} for character in name)
+    ):
         raise RuntimeError("source build archive member is unsafe")
-    normalized = "/".join(path.parts)
-    if normalized in seen:
+    folded = tuple(part.casefold() for part in parts)
+    if any(part.endswith(".egg-info") for part in folded) or folded[-1] in {
+        "manifest", "manifest.in", "sources.txt"
+    }:
+        raise RuntimeError("source build archive contains unsupported inclusion metadata")
+    return parts, normalized, is_directory
+
+def validate_layout(records):
+    normalized_names = [record[1] for record in records]
+    if len(normalized_names) != len(set(normalized_names)):
         raise RuntimeError("source build archive contains duplicate members")
-    seen.add(normalized)
-    output = os.path.realpath(os.path.join(work_dir, *path.parts))
+    roots = {
+        parts[:-1]
+        for parts, _, is_directory in records
+        if not is_directory and parts[-1] == "PKG-INFO" and len(parts) <= 2
+    }
+    if len(roots) != 1:
+        raise RuntimeError("source build archive root is ambiguous")
+    canonical_root = next(iter(roots))
+    for parts, _, is_directory in records:
+        if parts[:len(canonical_root)] != canonical_root or (
+            len(parts) == len(canonical_root) and not is_directory
+        ):
+            raise RuntimeError("source build archive member is outside the canonical package root")
+        if len(parts) > len(canonical_root):
+            root_name = parts[len(canonical_root)]
+            if root_name == "setuptools" or root_name.startswith("setuptools."):
+                raise RuntimeError("source build archive shadows the attested setuptools backend")
+    return canonical_root
+
+def destination(parts):
+    output = os.path.realpath(os.path.join(work_dir, *parts))
     if os.path.commonpath((os.path.realpath(work_dir), output)) != os.path.realpath(work_dir):
         raise RuntimeError("source build archive member escaped its workspace")
     return output
@@ -1049,12 +1085,22 @@ if zipfile.is_zipfile(io.BytesIO(source_payload)):
         members = archive.infolist()
         if not members or len(members) > max_members:
             raise RuntimeError("source build archive member count is invalid")
+        records = []
         for member in members:
             mode = member.external_attr >> 16
-            if member.flag_bits & 0x1 or stat.S_ISLNK(mode):
+            member_type = stat.S_IFMT(mode)
+            if (
+                member.flag_bits & 0x1
+                or stat.S_ISLNK(mode)
+                or member_type not in {0, stat.S_IFREG, stat.S_IFDIR}
+            ):
                 raise RuntimeError("source build archive member is unsafe")
-            path = destination(member.filename)
-            if member.is_dir():
+            records.append((member, archive_parts(member.filename, member.is_dir())))
+        canonical_root_parts = validate_layout([record for _, record in records])
+        for member, record in records:
+            parts, _, is_directory = record
+            path = destination(parts)
+            if is_directory:
                 os.makedirs(path, mode=0o700, exist_ok=True)
                 continue
             with archive.open(member, "r") as source:
@@ -1064,11 +1110,18 @@ else:
         members = archive.getmembers()
         if not members or len(members) > max_members:
             raise RuntimeError("source build archive member count is invalid")
+        records = []
         for member in members:
+            if member.isdir() and not PurePosixPath(member.name).parts:
+                continue
             if not (member.isdir() or member.isfile()):
                 raise RuntimeError("source build archive member is unsafe")
-            path = destination(member.name)
-            if member.isdir():
+            records.append((member, archive_parts(member.name, member.isdir())))
+        canonical_root_parts = validate_layout([record for _, record in records])
+        for member, record in records:
+            parts, _, is_directory = record
+            path = destination(parts)
+            if is_directory:
                 os.makedirs(path, mode=0o700, exist_ok=True)
                 continue
             source = archive.extractfile(member)
@@ -1076,17 +1129,25 @@ else:
                 raise RuntimeError("source build archive member is unreadable")
             with source:
                 write_file(path, source, member.size, member.mode)
-roots = set()
-for current, directories, files in os.walk(work_dir, followlinks=False):
-    directories.sort()
-    files.sort()
-    relative = os.path.relpath(current, work_dir)
-    parts = () if relative == "." else PurePosixPath(relative).parts
-    if "PKG-INFO" in files and len(parts) <= 1:
-        roots.add(os.path.realpath(current))
-if len(roots) != 1:
-    raise RuntimeError("source build archive root is ambiguous")
-source_root = next(iter(roots))
+source_root = os.path.realpath(os.path.join(work_dir, *canonical_root_parts))
+if os.path.commonpath((os.path.realpath(work_dir), source_root)) != os.path.realpath(work_dir):
+    raise RuntimeError("source build archive root escaped its workspace")
+epoch_text = expected_env.get("SOURCE_DATE_EPOCH")
+if not isinstance(epoch_text, str) or not epoch_text.isdigit():
+    raise RuntimeError("source build epoch is invalid")
+epoch_ns = int(epoch_text) * 1_000_000_000
+for current, directories, files in os.walk(source_root, topdown=False, followlinks=False):
+    for name in files:
+        path = os.path.join(current, name)
+        if not stat.S_ISREG(os.lstat(path).st_mode):
+            raise RuntimeError("source build archive produced a non-regular file")
+        os.utime(path, ns=(epoch_ns, epoch_ns), follow_symlinks=False)
+    for name in directories:
+        path = os.path.join(current, name)
+        if not stat.S_ISDIR(os.lstat(path).st_mode):
+            raise RuntimeError("source build archive produced a non-directory")
+        os.utime(path, ns=(epoch_ns, epoch_ns), follow_symlinks=False)
+os.utime(source_root, ns=(epoch_ns, epoch_ns), follow_symlinks=False)
 setup_path = os.path.join(source_root, "setup.py")
 if not stat.S_ISREG(os.lstat(setup_path).st_mode):
     raise RuntimeError("source build archive lacks a regular setup.py")
@@ -1403,6 +1464,31 @@ def _safe_archive_member(name: str) -> bool:
         return False
     path = PurePosixPath(name)
     return bool(path.parts) and not path.is_absolute() and ".." not in path.parts
+
+
+def _safe_source_relative_path(value: str) -> bool:
+    """Accept one exact, non-expanding path below the canonical source root."""
+
+    if (
+        not value
+        or "\\" in value
+        or value.startswith("~")
+        or _URI_SCHEME_RE.match(value) is not None
+        or _PATH_EXPANSION_RE.search(value) is not None
+        or any(unicodedata.category(character) in {"Cc", "Cf", "Cs"} for character in value)
+    ):
+        return False
+    path = PurePosixPath(value)
+    if path.is_absolute() or ".." in path.parts:
+        return False
+    return value == "." or (bool(path.parts) and path.as_posix() == value)
+
+
+def _forbidden_source_manifest(parts: tuple[str, ...]) -> bool:
+    folded = tuple(part.casefold() for part in parts)
+    return any(part.endswith(".egg-info") for part in folded) or (
+        bool(folded) and folded[-1] in {"manifest", "manifest.in", "sources.txt"}
+    )
 
 
 @dataclass(frozen=True)
@@ -1919,7 +2005,8 @@ def _source_archive_named_payloads(source: SourceArtifactPolicy, payload: bytes,
     canonical_roots: set[tuple[str, ...]] = set()
     candidate_members: list[tuple[str, bytes]] = []
     candidate_bytes = 0
-    archive_member_parts: list[tuple[str, ...]] = []
+    archive_members: list[tuple[tuple[str, ...], bool]] = []
+    seen_members: set[str] = set()
     total_size = 0
     wanted_basenames = {PurePosixPath(name).name for name in wanted}
 
@@ -1929,20 +2016,34 @@ def _source_archive_named_payloads(source: SourceArtifactPolicy, payload: bytes,
     ):
         raise RuntimeError("source distribution metadata request is invalid")
 
-    def consider(name: str, size: int, reader: object) -> None:
+    def consider(name: str, size: int, *, is_directory: bool, reader: object | None = None) -> None:
         nonlocal candidate_bytes, total_size
+        parts = PurePosixPath(name).parts
+        normalized = "/".join(parts)
+        if (
+            not parts
+            or name not in {normalized, f"{normalized}/"}
+            or unicodedata.normalize("NFC", name) != name
+            or any(unicodedata.category(character) in {"Cc", "Cf", "Cs"} for character in name)
+            or normalized in seen_members
+        ):
+            raise RuntimeError("source distribution contains an ambiguous archive member")
+        seen_members.add(normalized)
+        archive_members.append((parts, is_directory))
+        if _forbidden_source_manifest(parts):
+            raise RuntimeError("source distribution contains unsupported inclusion metadata")
+        if is_directory:
+            return
         total_size += size
         if total_size > MAX_SDIST_UNCOMPRESSED_BYTES:
             raise RuntimeError("source distribution exceeds the bounded expansion contract")
-        parts = PurePosixPath(name).parts
-        if not parts:
-            return
-        archive_member_parts.append(parts)
         basename = parts[-1]
         if basename == "PKG-INFO" and len(parts) in {1, 2}:
             canonical_roots.add(parts[:-1])
         if basename not in wanted_basenames:
             return
+        if reader is None:
+            raise RuntimeError("source distribution metadata could not be read")
         if size > MAX_SETUP_PY_BYTES:
             raise RuntimeError("source distribution setup metadata exceeds the bounded size contract")
         candidate_bytes += size
@@ -1958,9 +2059,21 @@ def _source_archive_named_payloads(source: SourceArtifactPolicy, payload: bytes,
                     raise RuntimeError("source distribution has an invalid member count")
                 for member in members:
                     member_mode = member.external_attr >> 16
-                    if not _safe_archive_member(member.filename) or member.flag_bits & 0x1 or stat.S_ISLNK(member_mode):
+                    member_type = stat.S_IFMT(member_mode)
+                    if (
+                        not _safe_archive_member(member.filename)
+                        or member.flag_bits & 0x1
+                        or stat.S_ISLNK(member_mode)
+                        or member_type not in {0, stat.S_IFREG, stat.S_IFDIR}
+                    ):
                         raise RuntimeError("source distribution contains an unsafe archive member")
-                    consider(member.filename, member.file_size, lambda member=member: archive.read(member))
+                    is_directory = member.is_dir()
+                    consider(
+                        member.filename,
+                        member.file_size,
+                        is_directory=is_directory,
+                        reader=None if is_directory else lambda member=member: archive.read(member),
+                    )
         except BadZipFile as error:
             raise RuntimeError("source distribution is not a valid ZIP archive") from error
     else:
@@ -1974,10 +2087,8 @@ def _source_archive_named_payloads(source: SourceArtifactPolicy, payload: bytes,
                         continue
                     if not _safe_archive_member(member.name) or not (member.isdir() or member.isfile()):
                         raise RuntimeError("source distribution contains an unsafe archive member")
-                    if not member.isfile():
-                        parts = PurePosixPath(member.name).parts
-                        if parts:
-                            archive_member_parts.append(parts)
+                    if member.isdir():
+                        consider(member.name, 0, is_directory=True)
                         continue
 
                     def read_member(member: tarfile.TarInfo = member) -> bytes:
@@ -1986,14 +2097,16 @@ def _source_archive_named_payloads(source: SourceArtifactPolicy, payload: bytes,
                             raise RuntimeError("source distribution metadata could not be read")
                         return handle.read()
 
-                    consider(member.name, member.size, read_member)
+                    consider(member.name, member.size, is_directory=False, reader=read_member)
         except tarfile.TarError as error:
             raise RuntimeError("source distribution is not a valid tar archive") from error
     if len(canonical_roots) != 1:
         raise RuntimeError("source distribution contains ambiguous setup metadata")
     canonical_root = next(iter(canonical_roots))
-    for parts in archive_member_parts:
-        if parts[: len(canonical_root)] != canonical_root or len(parts) <= len(canonical_root):
+    for parts, is_directory in archive_members:
+        if parts[: len(canonical_root)] != canonical_root or (len(parts) == len(canonical_root) and not is_directory):
+            raise RuntimeError("source distribution member is outside the canonical package root")
+        if len(parts) <= len(canonical_root):
             continue
         root_name = parts[len(canonical_root)]
         if root_name == "setuptools" or root_name.startswith("setuptools."):
@@ -2265,8 +2378,7 @@ class _LegacySetupGrammar:
 
     @staticmethod
     def _is_safe_relative_path(value: str) -> bool:
-        path = PurePosixPath(value)
-        return bool(value) and "\\" not in value and not path.is_absolute() and ".." not in path.parts
+        return _safe_source_relative_path(value)
 
     @staticmethod
     def _is_safe_package_name(value: str, *, allow_root: bool = False) -> bool:
@@ -2516,14 +2628,17 @@ class _LegacySetupGrammar:
         if name == "package_dir":
             if not isinstance(value, ast.Dict) or any(key is None for key in value.keys):
                 raise RuntimeError("setup.py package_dir must be a static source-relative mapping")
+            package_names: set[str] = set()
             for key, directory in zip(value.keys, value.values, strict=True):
                 if (
                     not self._is_string_constant(key)
                     or not self._is_safe_package_name(key.value, allow_root=True)  # type: ignore[arg-type]
+                    or key.value in package_names  # type: ignore[union-attr]
                     or not self._is_string_constant(directory)
                     or not self._is_safe_relative_path(directory.value)  # type: ignore[arg-type]
                 ):
                     raise RuntimeError("setup.py package_dir must be a static source-relative mapping")
+                package_names.add(key.value)  # type: ignore[arg-type]
             return
         if name in literal_containers or name in {"install_requires", "setup_requires"}:
             self._validate_literal(value)
@@ -3124,8 +3239,6 @@ _SETUP_CFG_METADATA_OPTIONS = {
     "version",
 }
 _SETUP_CFG_OPTIONS = {
-    "dependency_links",
-    "eager_resources",
     "entry_points",
     "include_package_data",
     "install_requires",
@@ -3161,8 +3274,7 @@ def _safe_setup_cfg_package(value: str, *, allow_root: bool = False) -> bool:
 
 
 def _safe_setup_cfg_path(value: str) -> bool:
-    path = PurePosixPath(value)
-    return bool(value) and "\\" not in value and not path.is_absolute() and ".." not in path.parts
+    return _safe_source_relative_path(value)
 
 
 def _safe_setup_cfg_single_path(value: str) -> bool:
@@ -3180,14 +3292,18 @@ def _validate_setup_cfg_packages(value: str, label: str) -> None:
 
 
 def _validate_setup_cfg_package_dir(value: str) -> None:
+    packages: set[str] = set()
     for declaration in _setup_cfg_list(value):
         package, separator, directory = declaration.partition("=")
+        normalized_package = package.strip()
         if (
             not separator
-            or not _safe_setup_cfg_package(package.strip(), allow_root=True)
+            or not _safe_setup_cfg_package(normalized_package, allow_root=True)
+            or normalized_package in packages
             or not _safe_setup_cfg_path(directory.strip())
         ):
             raise RuntimeError("setup.cfg package_dir must be a static source-relative mapping")
+        packages.add(normalized_package)
 
 
 def _validate_setup_cfg_section_option(section: str, option: str, value: str) -> None:
@@ -3212,8 +3328,6 @@ def _validate_setup_cfg_section_option(section: str, option: str, value: str) ->
             _validate_setup_cfg_packages(value, option)
         elif option == "package_dir":
             _validate_setup_cfg_package_dir(value)
-        elif option == "eager_resources":
-            _validate_setup_cfg_paths(value, option)
         return
     if section in {"options.package_data", "options.exclude_package_data"}:
         if not _safe_setup_cfg_package(option, allow_root=True):
@@ -3268,14 +3382,6 @@ def _extract_setup_cfg_requirements(payload: bytes | None) -> tuple[tuple[str, .
     declarations: list[tuple[str, str]] = []
     for section in parser.sections():
         normalized_section = section.casefold()
-        if normalized_section == "aliases":
-            aliases = [
-                (option.casefold().replace("-", "_"), value.strip())
-                for option, value in parser.items(section, raw=True)
-            ]
-            if aliases != [("test", "pytest")]:
-                raise RuntimeError("setup.cfg contains an unsupported command alias")
-            continue
         if normalized_section not in {
             "metadata",
             "options",

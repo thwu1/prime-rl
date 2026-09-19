@@ -58,6 +58,8 @@ from terminal_bench_vmvm.source_wheel_proof import (
     validate_vacli_environment,
 )
 from terminal_bench_vmvm.source_wheels import (
+    SETUP_CFG_GRAMMAR_ID,
+    SETUP_PY_GRAMMAR_ID,
     SOURCE_BUILD_ENVIRONMENT_SCHEMA_VERSION,
     SOURCE_BUILD_RUNNER_CODE,
     WHEEL_SEMANTIC_DIGEST_KIND,
@@ -1101,18 +1103,20 @@ def test_eight_entry_discovery_emits_policy_with_exactly_twenty_four_starts(
     state = json.loads((output / "proof_state.json").read_bytes())
     assert candidate["runnable"] is False
     assert candidate["required_runtime_starts"] == 24
+    assert "byte_identical_raw_wheel_sets_and_packed_wheelhouses" in candidate["required_proofs"]
     assert "schema_bound_semantically_identical_wheels" in candidate["required_proofs"]
     assert identity["contract_schemas"]["source_build_environment"] == SOURCE_BUILD_ENVIRONMENT_SCHEMA_VERSION
     assert identity["contract_schemas"]["wheel_semantic_digest"] == WHEEL_SEMANTIC_DIGEST_SCHEMA_VERSION
     assert identity["reproducibility"]["kind"] == WHEEL_SEMANTIC_DIGEST_KIND
     assert identity["reproducibility"]["normalized_zip_fields"] == list(WHEEL_SEMANTIC_NORMALIZED_FIELDS)
     assert identity["reproducibility"]["all_other_wheel_bytes_bound"] is True
+    assert identity["reproducibility"]["raw_wheel_sets_byte_equal"] is True
+    assert identity["reproducibility"]["packed_wheelhouses_byte_equal"] is True
+    assert identity["reproducibility"]["semantic_digest_is_supplementary"] is True
     assert identity["source_build_execution"]["child_process_path"] == "venv-bin-only"
     assert identity["source_build_execution"]["source_import_precedence"] == "stdlib-attested-sites-source-root"
-    assert identity["source_build_execution"]["setup_py_grammar"] == (
-        "positive-static-legacy-metadata-confined-packages-no-resource-v6"
-    )
-    assert identity["source_build_execution"]["setup_cfg_grammar"] == ("allowlisted-static-options-confined-paths-v2")
+    assert identity["source_build_execution"]["setup_py_grammar"] == SETUP_PY_GRAMMAR_ID
+    assert identity["source_build_execution"]["setup_cfg_grammar"] == SETUP_CFG_GRAMMAR_ID
     assert proof["proof_runtime_starts"] == 24
     assert state["telemetry"]["attested_runtime_starts"] == 24
     assert state["attempt_journal"]["start_intents"] == 24
@@ -1363,7 +1367,7 @@ def test_static_metadata_parser_failure_has_stable_aggregate_code(
     assert fleet.live == 0
 
 
-def test_semantically_equal_timestamp_variants_publish_and_resume(tmp_path: Path) -> None:
+def test_semantically_equal_timestamp_variants_fail_before_publication(tmp_path: Path) -> None:
     discovery, artifacts = _write_discovery(tmp_path, 8)
     first_image = next(iter(artifacts))
     alternate = _retime_wheel(artifacts[first_image].source_wheel, (2024, 4, 4, 4, 4, 4))
@@ -1371,45 +1375,55 @@ def test_semantically_equal_timestamp_variants_publish_and_resume(tmp_path: Path
     fleet = FakeFleet(artifacts, alternate_builder_wheels={first_image: alternate})
     output = tmp_path / "proof"
 
-    result = asyncio.run(run_source_wheel_proof(_config(discovery, output), runtime_factory=fleet.factory))
+    with pytest.raises(SourceWheelProofError, match="^cross_builder_reproducibility_failed$"):
+        asyncio.run(run_source_wheel_proof(_config(discovery, output), runtime_factory=fleet.factory))
 
-    assert result["runtime_starts"] == 24
-    proof = json.loads((output / "source_wheel_proof.json").read_bytes())
-    changed_entry = next(entry for entry in proof["entries"] if entry["final_policy_entry"]["image"] == first_image)
-    assert changed_entry["cross_builder"]["wheel_semantics_equal"] is True
-    assert changed_entry["cross_builder"]["wheel_bytes_equal"] is False
-    assert changed_entry["cross_builder"]["wheelhouse_semantics_equal"] is True
-    assert changed_entry["cross_builder"]["wheelhouse_bytes_equal"] is False
-    assert changed_entry["builders"][0]["wheel_semantics"] == changed_entry["builders"][1]["wheel_semantics"]
-    assert changed_entry["builders"][0]["wheels"] != changed_entry["builders"][1]["wheels"]
-
-    parsed, _ = load_private_discovery_input(_config(discovery, tmp_path / "validation-only"))
-    parsed_entry = next(
-        entry
-        for entry in parsed.entries
-        if source_wheel_proof.entry_key_sha256(parsed.sha256, entry) == changed_entry["entry_key_sha256"]
-    )
-    tampered = json.loads(canonical_json(changed_entry))
-    tampered["builders"][1]["wheel_semantics"][0]["sha256"] = "0" * 64
-    tampered_core = {name: value for name, value in tampered.items() if name != "proof_sha256"}
-    tampered["proof_sha256"] = sha256_bytes(canonical_json(tampered_core))
-    with pytest.raises(SourceWheelProofError, match="^proof_state_entry_invalid$"):
-        source_wheel_proof._validate_entry_proof(changed_entry["entry_key_sha256"], tampered, parsed, parsed_entry)
-
-    resume_fleet = FakeFleet(artifacts)
-    resumed = _config(
-        discovery,
-        output,
-        resume_state_sha256=sha256_bytes((output / "proof_state.json").read_bytes()),
-        slurm_job_id="12346",
-    )
-    resumed_result = asyncio.run(run_source_wheel_proof(resumed, runtime_factory=resume_fleet.factory))
-    assert resumed_result["runtime_starts"] == 24
-    assert resume_fleet.start_count == 0
-
+    assert not (output / "source_wheel_proof.json").exists()
+    assert not (output / "source_wheel_policy.json").exists()
     aggregate = json.dumps(aggregate_failure(output, "synthetic_failure"), sort_keys=True)
     assert "private-task" not in aggregate
     assert "https://" not in aggregate
+
+
+def test_proof_state_rejects_raw_builder_or_wheelhouse_mismatch(tmp_path: Path) -> None:
+    discovery_path, artifacts = _write_discovery(tmp_path, 8)
+    output = tmp_path / "proof"
+    asyncio.run(
+        run_source_wheel_proof(
+            _config(discovery_path, output),
+            runtime_factory=FakeFleet(artifacts).factory,
+        )
+    )
+    proof_document = json.loads((output / "source_wheel_proof.json").read_bytes())
+    parsed, _ = load_private_discovery_input(_config(discovery_path, tmp_path / "validation-only"))
+    original = proof_document["entries"][0]
+    parsed_entry = next(
+        entry
+        for entry in parsed.entries
+        if source_wheel_proof.entry_key_sha256(parsed.sha256, entry) == original["entry_key_sha256"]
+    )
+
+    def reject(tampered: dict[str, object]) -> None:
+        core = {name: value for name, value in tampered.items() if name != "proof_sha256"}
+        tampered["proof_sha256"] = sha256_bytes(canonical_json(core))
+        with pytest.raises(SourceWheelProofError, match="^proof_state_entry_invalid$"):
+            source_wheel_proof._validate_entry_proof(original["entry_key_sha256"], tampered, parsed, parsed_entry)
+
+    false_claim = json.loads(canonical_json(original))
+    false_claim["cross_builder"]["wheel_bytes_equal"] = False
+    reject(false_claim)
+
+    raw_wheel_mismatch = json.loads(canonical_json(original))
+    source_filename = raw_wheel_mismatch["final_policy_entry"]["sources"][0]["wheel_filename"]
+    source_record = next(
+        wheel for wheel in raw_wheel_mismatch["builders"][1]["wheels"] if wheel["filename"] == source_filename
+    )
+    source_record["sha256"] = "0" * 64
+    reject(raw_wheel_mismatch)
+
+    wheelhouse_mismatch = json.loads(canonical_json(original))
+    wheelhouse_mismatch["builders"][1]["wheelhouse"]["sha256"] = "0" * 64
+    reject(wheelhouse_mismatch)
 
 
 @pytest.mark.parametrize(
@@ -1819,11 +1833,11 @@ def test_reproducibility_and_concurrency_contracts_fail_closed(tmp_path: Path) -
             wheelhouse=pack_wheelhouse({timestamp_name: payload}),
         )
 
-    comparison = compare_build_payloads(result(timestamp_a), result(timestamp_b))
-    assert comparison["wheel_semantics_equal"] is True
-    assert comparison["wheel_bytes_equal"] is False
-    assert comparison["wheelhouse_semantics_equal"] is True
-    assert comparison["wheelhouse_bytes_equal"] is False
+    with pytest.raises(SourceWheelProofError, match="^cross_builder_reproducibility_failed$"):
+        compare_build_payloads(result(timestamp_a), result(timestamp_b))
+
+    with pytest.raises(SourceWheelProofError, match="^cross_builder_reproducibility_failed$"):
+        compare_build_payloads(first, replace(first, wheelhouse=first.wheelhouse + b"tampered"))
 
     changed_payload = timestamped_wheel((2021, 2, 2, 0, 0, 0), b"VALUE = 2\n")
     with pytest.raises(SourceWheelProofError, match="^cross_builder_reproducibility_failed$"):
