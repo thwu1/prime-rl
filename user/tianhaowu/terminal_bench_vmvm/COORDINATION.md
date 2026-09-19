@@ -1,6 +1,6 @@
 # VMVM sandbox coordination
 
-Last updated: 2026-09-19 13:24 UTC
+Last updated: 2026-09-19 13:54 UTC
 
 ## First message to the next teammate
 
@@ -41,6 +41,16 @@ this shared branch again.
 Add new rows below this line; do not overwrite another owner's row.
 
 ## Open coordination requests
+
+- **2026-09-19 13:54 UTC, five-hour Kimi smoke progress refresh
+  requested:** the second row remains the only unfinished gate. Without
+  altering the run, report scheduler state/runtime, 2-row outcome counts,
+  active/waiting generation counts, and a fresh safe token/request delta plus
+  aggregate HTTP/runtime error category. Re-audit only durable rows and report
+  strict aggregate trace validity/reasoning retention/cap status. Do not expose
+  task identities/content, prompts, responses, raw errors, VM/tunnel
+  identifiers, or trace/model/tool content, and do not cancel, restart, or
+  launch duplicate/full work while generation is demonstrably advancing.
 
 - **2026-09-19 13:24 UTC, exact tokenizer snapshot unavailable on use2-3:**
   read-only checks confirm that the required Nemotron Super tokenizer at
