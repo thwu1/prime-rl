@@ -201,10 +201,23 @@ source distribution, the full binary-wheel closure, exact artifact sizes and
 hashes, an immutable target image, and exact build-tool versions. Attempt this
 path only after the normal `--only-binary=:all:` fetch fails with the narrow
 binary-unavailable signature. Download and hash-check approved HTTPS inputs
-first, activate `no-network`, then build in a fresh Python environment using
-`--no-build-isolation --no-index --no-deps`; validate the exact output closure
-and prove offline installation on a clean target with the same runtime
-fingerprint. Reject Compose and cap the exceptional builder path at one lease.
+first, resolve and validate the exact wheel-only transitive build closure, then
+activate `no-network`. Build in a fresh no-system-site environment containing
+only the exact hash-pinned build-tool/dependency wheels installed offline with
+`--no-index --no-deps`. Attest every venv-local distribution, location,
+installed-file manifest, and effective import path. Accept only a single
+statically provable top-level `setuptools.setup(...)` call with a literal
+`setup_requires`; reject `setup.cfg`, `pyproject.toml`, aliases, `**kwargs`,
+dynamic calls, and ambiguity. Execute that backend directly with the venv
+Python in real `-I -S` isolated/no-site mode after network isolation; manually
+add only the attested venv-local site roots without processing `.pth` or Python
+customization modules. Use fixed
+`SOURCE_DATE_EPOCH`, timezone, locale, `HOME`, `TMPDIR`, `PATH`, work directory,
+and umask. Reattest the exact environment after the backend returns and reject
+any mutation. Retain raw wheel byte equality as the fail-closed reproducibility
+gate, validate the exact output closure, and prove offline installation on a
+clean target with the same runtime fingerprint. Reject Compose and cap the
+exceptional builder path at one lease.
 
 Before enabling the policy, run
 `terminal_bench_vmvm/run_source_wheel_proof.sbatch` from a clean reviewed
@@ -221,7 +234,13 @@ digest-pinned VMVMs: two disposable builders and one clean target. Build the
 source independently under `no-network` in both builders, use the first output
 only as the source candidate for wheel-only dependency resolution in the still
 public second builder, validate every discovered HTTPS wheel before isolation,
-and require byte-identical source wheels and canonical wheelhouses. The clean
+and install the complete exact build-tool/transitive wheel closure into a new
+no-system-site environment in each builder. Require each builder to attest the
+same local distribution/file/import closure, execute the real backend under
+isolated/no-site Python with only those manually bound roots and the fixed build
+controls, and produce byte-identical raw source wheels and canonical
+wheelhouses even across elapsed wall-clock time.
+Do not canonicalize differing wheel semantics or transport bytes. The clean
 target must be isolated before receiving the archive and must prove the exact
 closure with an offline install.
 

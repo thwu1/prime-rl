@@ -40,6 +40,9 @@ from verifiers.v1.tasksets.harbor_v1 import HarborConfig, HarborTask, HarborTask
 from verifiers.v1.tasksets.harbor_v1.taskset import Author, make_tar, parse_resources
 
 from terminal_bench_vmvm.source_wheels import (
+    SOURCE_BUILD_HOME_DIR,
+    SOURCE_BUILD_TMP_DIR,
+    SOURCE_BUILD_UMASK,
     SOURCE_WHEEL_ATTESTATION_SCHEMA_VERSION,
     BinaryWheelPolicy,
     SourceArtifactPolicy,
@@ -61,7 +64,9 @@ from terminal_bench_vmvm.source_wheels import (
     source_build_env_attest_argv,
     source_build_env_create_argv,
     source_build_environment_record,
+    source_build_environment_variables,
     strict_json_loads,
+    validate_build_dependency_payload_closure,
     validate_policy_wheel_closure,
     validate_source_build_environment,
     validate_source_build_environment_record,
@@ -1211,12 +1216,14 @@ class TerminalBenchVMVMTaskset(
         if raw["build_contract"] != {
             "artifact_download_network": "public-hash-pinned-https",
             "builder_lease_limit": 1,
-            "build_dependency_install": "venv-offline-no-index-no-deps",
+            "build_dependency_install": "no-system-site-venv-offline-exact-wheel-closure",
             "build_network": "no-network",
-            "build_isolation": False,
-            "dependency_resolution": "explicit-policy-artifacts",
+            "build_isolation": True,
+            "dependency_resolution": "public-binary-only-exact-transitive-policy-closure",
+            "deterministic_environment": source_build_environment_variables(),
+            "source_build_umask": f"{SOURCE_BUILD_UMASK:04o}",
             "isolated_python": True,
-            "source_build_python": "venv-python-isolated",
+            "source_build_python": "venv-python-isolated-no-site-direct-static-setup",
             "staged_inputs": "policy-artifacts-only",
             "target_install": "offline-no-index-no-deps",
         }:
@@ -1247,6 +1254,7 @@ class TerminalBenchVMVMTaskset(
                     raw_source.get("build_environment") if isinstance(raw_source, dict) else None,
                     build_env_dir="/tmp/terminal-bench-source-build-env",
                     expected_build_tools=fingerprints.build_tools,
+                    build_dependencies=source.build_dependencies,
                 ),
             )
             for raw_source, source in zip(raw["sources"], policy_entry.sources, strict=True)
@@ -1499,12 +1507,14 @@ class TerminalBenchVMVMTaskset(
             "build_contract": {
                 "artifact_download_network": "public-hash-pinned-https",
                 "builder_lease_limit": 1,
-                "build_dependency_install": "venv-offline-no-index-no-deps",
+                "build_dependency_install": "no-system-site-venv-offline-exact-wheel-closure",
                 "build_network": "no-network",
-                "build_isolation": False,
-                "dependency_resolution": "explicit-policy-artifacts",
+                "build_isolation": True,
+                "dependency_resolution": "public-binary-only-exact-transitive-policy-closure",
+                "deterministic_environment": source_build_environment_variables(),
+                "source_build_umask": f"{SOURCE_BUILD_UMASK:04o}",
                 "isolated_python": True,
-                "source_build_python": "venv-python-isolated",
+                "source_build_python": "venv-python-isolated-no-site-direct-static-setup",
                 "staged_inputs": "policy-artifacts-only",
                 "target_install": "offline-no-index-no-deps",
             },
@@ -2577,27 +2587,38 @@ for requirement in sys.argv[1:]:
         task: TerminalBenchTask,
         builder: Runtime,
         policy_entry: SourceWheelPolicyEntry,
+        fingerprints: RuntimeWheelFingerprints,
     ) -> tuple[dict[str, bytes], tuple[tuple[str, str], ...], tuple[dict[str, object], ...]]:
         input_dir = "/tmp/terminal-bench-source-inputs"
         build_dep_dir = "/tmp/terminal-bench-source-build-deps"
         build_env_dir = "/tmp/terminal-bench-source-build-env"
         wheel_dir = "/tmp/terminal-bench-source-wheels"
         site_dir = "/tmp/terminal-bench-source-site"
+        build_work_dir = f"{build_env_dir}-work"
         prepared = await self._run_root(
             builder,
-            f"rm -rf {input_dir} {build_dep_dir} {build_env_dir} {wheel_dir} {site_dir} && "
-            f"mkdir -p {input_dir} {build_dep_dir} {wheel_dir} {site_dir} && "
-            f"chmod 1777 {input_dir} {build_dep_dir} {wheel_dir} {site_dir}",
+            f"rm -rf {input_dir} {build_dep_dir} {build_env_dir} {build_work_dir} "
+            f"{SOURCE_BUILD_HOME_DIR} {SOURCE_BUILD_TMP_DIR} {wheel_dir} {site_dir} && "
+            f"mkdir -p {input_dir} {build_dep_dir} {SOURCE_BUILD_HOME_DIR} "
+            f"{SOURCE_BUILD_TMP_DIR} {wheel_dir} {site_dir} && "
+            f"chmod 1777 {input_dir} {build_dep_dir} {wheel_dir} {site_dir} && "
+            f"chmod 700 {SOURCE_BUILD_HOME_DIR} {SOURCE_BUILD_TMP_DIR}",
         )
         if prepared.exit_code != 0:
             raise RuntimeError(f"{task.name}: preparing the disposable source-wheel builder failed")
         try:
             binary_payloads: dict[str, bytes] = {}
+            source_payloads: dict[str, bytes] = {}
+            build_dependency_payloads: dict[str, bytes] = {}
             source_build_environments: list[dict[str, object]] = []
             for source in policy_entry.sources:
-                await self._download_source_policy_artifact(task, builder, input_dir, source)
+                source_payloads[source.filename] = await self._download_source_policy_artifact(
+                    task, builder, input_dir, source
+                )
                 for wheel in source.build_dependencies:
-                    await self._download_source_policy_artifact(task, builder, build_dep_dir, wheel)
+                    build_dependency_payloads[wheel.filename] = await self._download_source_policy_artifact(
+                        task, builder, build_dep_dir, wheel
+                    )
             for wheel in policy_entry.binary_wheels:
                 binary_payloads[wheel.filename] = await self._download_source_policy_artifact(
                     task,
@@ -2607,6 +2628,34 @@ for requirement in sys.argv[1:]:
                 )
                 await builder.write(f"{wheel_dir}/{wheel.filename}", binary_payloads[wheel.filename])
 
+            runtime_evidence = strict_json_loads(fingerprints.evidence)
+            marker_environment = (
+                runtime_evidence.get("marker_environment") if isinstance(runtime_evidence, dict) else None
+            )
+            if not isinstance(marker_environment, dict) or not all(
+                isinstance(key, str) and isinstance(value, str) for key, value in marker_environment.items()
+            ):
+                raise RuntimeError(f"{task.name}: source-wheel runtime marker environment is invalid")
+            setup_requirements: dict[str, tuple[str, ...]] = {}
+            for source in policy_entry.sources:
+                setup_requires = extract_static_setup_requires(source, source_payloads[source.filename])
+                setup_requirements[source.filename] = setup_requires
+                source_dependency_payloads = {
+                    wheel.filename: build_dependency_payloads[wheel.filename] for wheel in source.build_dependencies
+                }
+                try:
+                    validate_build_dependency_payload_closure(
+                        setup_requires,
+                        policy_entry.build_tools,
+                        source.build_dependencies,
+                        source_dependency_payloads,
+                        marker_environment,
+                    )
+                except RuntimeError as error:
+                    raise RuntimeError(
+                        f"{task.name}: approved source build dependency policy is not an exact transitive closure"
+                    ) from error
+
             await builder.configure_network_policy("no-network")
             await builder.activate_network_policy()
 
@@ -2614,59 +2663,48 @@ for requirement in sys.argv[1:]:
                 created_build_env = await builder.run(source_build_env_create_argv(build_env_dir), {})
                 if created_build_env.exit_code != 0:
                     raise RuntimeError(f"{task.name}: source-wheel build environment creation failed")
-                attested_build_env = await builder.run(source_build_env_attest_argv(build_env_dir), {})
+                setup_requires = setup_requirements[source.filename]
+                try:
+                    validate_static_build_dependency_closure(
+                        setup_requires,
+                        source.build_dependencies,
+                        policy_entry.build_tools,
+                    )
+                except RuntimeError as error:
+                    raise RuntimeError(
+                        f"{task.name}: approved source build dependency policy does not match setup_requires"
+                    ) from error
+                installed_build_deps = await builder.run(
+                    source_build_dependency_install_argv(
+                        build_env_dir=build_env_dir,
+                        build_dependency_dir=build_dep_dir,
+                        build_dependencies=source.build_dependencies,
+                    ),
+                    {"PIP_NO_INDEX": "1"},
+                )
+                if installed_build_deps.exit_code != 0:
+                    raise RuntimeError(
+                        f"{task.name}: approved source build dependency wheels could not be installed offline"
+                    )
+                attested_build_env = await builder.run(
+                    source_build_env_attest_argv(build_env_dir, source.build_dependencies), {}
+                )
                 if attested_build_env.exit_code != 0:
                     raise RuntimeError(f"{task.name}: source-wheel build environment attestation failed")
                 try:
                     build_environment = source_build_environment_record(
                         build_env_dir=build_env_dir,
                         expected_build_tools=policy_entry.build_tools,
+                        build_dependencies=source.build_dependencies,
                         attestation=validate_source_build_environment(
                             attested_build_env.stdout.strip(),
                             build_env_dir=build_env_dir,
                             expected_build_tools=policy_entry.build_tools,
+                            build_dependencies=source.build_dependencies,
                         ),
                     )
                 except RuntimeError as error:
                     raise RuntimeError(f"{task.name}: source-wheel build environment attestation failed") from error
-                source_path = f"{input_dir}/{source.filename}"
-                source_payload = await builder.read(source_path)
-                inspect_source_distribution(source, source_payload)
-                setup_requires = extract_static_setup_requires(source, source_payload)
-                try:
-                    validate_static_build_dependency_closure(setup_requires, source.build_dependencies)
-                except RuntimeError as error:
-                    raise RuntimeError(
-                        f"{task.name}: approved source build dependency policy does not match setup_requires"
-                    ) from error
-                if source.build_dependencies:
-                    installed_build_deps = await builder.run(
-                        source_build_dependency_install_argv(
-                            build_env_dir=build_env_dir,
-                            build_dependency_dir=build_dep_dir,
-                            build_dependencies=source.build_dependencies,
-                        ),
-                        {"PIP_NO_INDEX": "1"},
-                    )
-                    if installed_build_deps.exit_code != 0:
-                        raise RuntimeError(
-                            f"{task.name}: approved source build dependency wheels could not be installed offline"
-                        )
-                    attested_build_env = await builder.run(source_build_env_attest_argv(build_env_dir), {})
-                    if attested_build_env.exit_code != 0:
-                        raise RuntimeError(f"{task.name}: source-wheel build environment attestation failed")
-                    try:
-                        build_environment = source_build_environment_record(
-                            build_env_dir=build_env_dir,
-                            expected_build_tools=policy_entry.build_tools,
-                            attestation=validate_source_build_environment(
-                                attested_build_env.stdout.strip(),
-                                build_env_dir=build_env_dir,
-                                expected_build_tools=policy_entry.build_tools,
-                            ),
-                        )
-                    except RuntimeError as error:
-                        raise RuntimeError(f"{task.name}: source-wheel build environment attestation failed") from error
                 built = await builder.run(
                     source_build_argv(
                         source,
@@ -2681,6 +2719,27 @@ for requirement in sys.argv[1:]:
                         f"{task.name}: approved source distribution build failed: "
                         f"{(built.stdout + built.stderr)[-2000:]}"
                     )
+                post_build_attestation = await builder.run(
+                    source_build_env_attest_argv(build_env_dir, source.build_dependencies), {}
+                )
+                if post_build_attestation.exit_code != 0:
+                    raise RuntimeError(f"{task.name}: post-build source environment attestation failed")
+                try:
+                    post_build_environment = source_build_environment_record(
+                        build_env_dir=build_env_dir,
+                        expected_build_tools=policy_entry.build_tools,
+                        build_dependencies=source.build_dependencies,
+                        attestation=validate_source_build_environment(
+                            post_build_attestation.stdout.strip(),
+                            build_env_dir=build_env_dir,
+                            expected_build_tools=policy_entry.build_tools,
+                            build_dependencies=source.build_dependencies,
+                        ),
+                    )
+                except RuntimeError as error:
+                    raise RuntimeError(f"{task.name}: post-build source environment attestation failed") from error
+                if post_build_environment != build_environment:
+                    raise RuntimeError(f"{task.name}: source build changed its isolated dependency environment")
                 source_build_environments.append(build_environment)
             expected_wheel_names = [item[2] for item in policy_entry.expected_wheels]
             checked = await self._run_root(
@@ -2734,7 +2793,8 @@ for requirement in sys.argv[1:]:
         finally:
             cleaned = await self._run_root(
                 builder,
-                f"rm -rf {input_dir} {build_dep_dir} {build_env_dir} {wheel_dir} {site_dir}",
+                f"rm -rf {input_dir} {build_dep_dir} {build_env_dir} {build_work_dir} "
+                f"{SOURCE_BUILD_HOME_DIR} {SOURCE_BUILD_TMP_DIR} {wheel_dir} {site_dir}",
             )
             if cleaned.exit_code != 0:
                 raise RuntimeError(f"{task.name}: disposable source-wheel workspace cleanup failed")
@@ -2837,6 +2897,7 @@ for requirement in sys.argv[1:]:
                     task,
                     builder,
                     policy_entry,
+                    fingerprints,
                 )
             finally:
                 self._runtime_wheel_fingerprints.pop(builder, None)

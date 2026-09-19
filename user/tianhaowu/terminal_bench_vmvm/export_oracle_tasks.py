@@ -28,11 +28,14 @@ from pathlib import Path
 from typing import Any
 
 from terminal_bench_vmvm.source_wheels import (
+    SOURCE_BUILD_UMASK,
     SOURCE_WHEEL_ATTESTATION_SCHEMA_VERSION,
+    SOURCE_WHEEL_RECOVERY_SCHEMA_VERSION,
     canonical_json,
     inspect_wheelhouse,
     load_source_wheel_policy,
     source_build_argv,
+    source_build_environment_variables,
     validate_source_build_environment_record,
     wheel_evidence_dicts,
 )
@@ -111,14 +114,20 @@ def _source_wheel_recovery(identity: dict[str, Any]) -> dict[str, Any] | None:
         "attestation",
         "artifact_download_network",
         "builder_lease_limit",
+        "build_dependency_install",
+        "build_dependency_resolution",
         "build_network",
         "build_isolation",
+        "deterministic_environment_sha256",
+        "source_build_python",
+        "source_build_umask",
+        "system_site_packages",
         "target_install",
     }:
         raise PromotionError("oracle_source_wheel_identity_invalid")
     policy = recovery.get("policy")
     if (
-        recovery.get("schema_version") != 1
+        recovery.get("schema_version") != SOURCE_WHEEL_RECOVERY_SCHEMA_VERSION
         or not isinstance(policy, dict)
         or set(policy) != {"path", "sha256"}
         or not isinstance(policy.get("path"), str)
@@ -128,8 +137,15 @@ def _source_wheel_recovery(identity: dict[str, Any]) -> dict[str, Any] | None:
         or recovery.get("attestation") != "source_wheel_attestations.json"
         or recovery.get("artifact_download_network") != "public-hash-pinned-https"
         or recovery.get("builder_lease_limit") != 1
+        or recovery.get("build_dependency_install") != "no-system-site-venv-offline-exact-wheel-closure"
+        or recovery.get("build_dependency_resolution") != "public-binary-only-exact-transitive-policy-closure"
         or recovery.get("build_network") != "no-network"
-        or recovery.get("build_isolation") is not False
+        or recovery.get("build_isolation") is not True
+        or recovery.get("deterministic_environment_sha256")
+        != _sha256(canonical_json(source_build_environment_variables()))
+        or recovery.get("source_build_python") != "venv-python-isolated-no-site-direct-static-setup"
+        or recovery.get("source_build_umask") != f"{SOURCE_BUILD_UMASK:04o}"
+        or recovery.get("system_site_packages") is not False
         or recovery.get("target_install") != "offline-no-index-no-deps"
     ):
         raise PromotionError("oracle_source_wheel_identity_invalid")
@@ -670,12 +686,14 @@ def _audit_source_wheel_artifacts(
             != {
                 "artifact_download_network": "public-hash-pinned-https",
                 "builder_lease_limit": 1,
-                "build_dependency_install": "venv-offline-no-index-no-deps",
+                "build_dependency_install": "no-system-site-venv-offline-exact-wheel-closure",
                 "build_network": "no-network",
-                "build_isolation": False,
-                "dependency_resolution": "explicit-policy-artifacts",
+                "build_isolation": True,
+                "dependency_resolution": "public-binary-only-exact-transitive-policy-closure",
+                "deterministic_environment": source_build_environment_variables(),
+                "source_build_umask": f"{SOURCE_BUILD_UMASK:04o}",
                 "isolated_python": True,
-                "source_build_python": "venv-python-isolated",
+                "source_build_python": "venv-python-isolated-no-site-direct-static-setup",
                 "staged_inputs": "policy-artifacts-only",
                 "target_install": "offline-no-index-no-deps",
             }
@@ -782,6 +800,7 @@ def _audit_source_wheel_artifacts(
                     observed_source.get("build_environment"),
                     build_env_dir="/tmp/terminal-bench-source-build-env",
                     expected_build_tools=tuple(sorted(build_tools.items())),
+                    build_dependencies=source.build_dependencies,
                 )
             except RuntimeError as cause:
                 raise PromotionError("oracle_source_wheel_attestation_invalid") from cause

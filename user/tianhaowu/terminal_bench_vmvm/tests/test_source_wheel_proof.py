@@ -46,6 +46,10 @@ from terminal_bench_vmvm.source_wheel_proof import (
     validate_vacli_environment,
 )
 from terminal_bench_vmvm.source_wheels import (
+    SOURCE_BUILD_ENVIRONMENT_SCHEMA_VERSION,
+    SOURCE_BUILD_RUNNER_CODE,
+    BinaryWheelPolicy,
+    build_dependency_artifact_records,
     canonical_json,
     inspect_wheel,
     pack_wheelhouse,
@@ -80,6 +84,25 @@ def _wheel_file(distribution: str, version: str, *requirements: str) -> bytes:
             "Wheel-Version: 1.0\nGenerator: proof-test\nRoot-Is-Purelib: true\nTag: py3-none-any\n",
         )
     return output.getvalue()
+
+
+def _baseline_build_dependencies() -> tuple[tuple[str, str, str, str, bytes], ...]:
+    records = (
+        ("pip", BUILD_TOOLS["pip"], ()),
+        ("setuptools", BUILD_TOOLS["setuptools"], ()),
+        ("wheel", BUILD_TOOLS["wheel"], ("packaging>=24",)),
+        ("packaging", "24.2", ()),
+    )
+    return tuple(
+        (
+            distribution,
+            version,
+            f"{distribution.replace('-', '_')}-{version}-py3-none-any.whl",
+            f"https://files.example.invalid/{distribution.replace('-', '_')}-{version}-py3-none-any.whl",
+            _wheel_file(distribution, version, *requirements),
+        )
+        for distribution, version, requirements in records
+    )
 
 
 def _source_file(distribution: str, *setup_requires: str) -> bytes:
@@ -146,7 +169,7 @@ def _discovery_payload(entry_count: int) -> tuple[bytes, dict[str, FakeArtifacts
         source_wheel_filename = f"{source_stem}-1.0-py3-none-any.whl"
         binary_filename = f"{binary_stem}-2.0-py3-none-any.whl"
         binary_url = f"https://files.example.invalid/{binary_filename}"
-        build_dependencies = tuple(
+        declared_build_dependencies = tuple(
             (
                 requirement.partition("==")[0],
                 requirement.partition("==")[2],
@@ -157,6 +180,7 @@ def _discovery_payload(entry_count: int) -> tuple[bytes, dict[str, FakeArtifacts
             )
             for requirement in setup_requires
         )
+        build_dependencies = (*_baseline_build_dependencies(), *declared_build_dependencies)
         image_digest = hashlib.sha256(f"image-{index}".encode()).hexdigest()
         image = f"registry.example.invalid/proof@sha256:{image_digest}"
         source_record = {
@@ -300,26 +324,61 @@ def _fingerprint_payload() -> str:
     )
 
 
-def _build_environment_attestation() -> str:
+def _build_dependency_policies(artifact: FakeArtifacts) -> tuple[BinaryWheelPolicy, ...]:
+    return tuple(
+        BinaryWheelPolicy(
+            distribution=distribution,
+            version=version,
+            filename=filename,
+            url=url,
+            size=len(payload),
+            sha256=sha256_bytes(payload),
+        )
+        for distribution, version, filename, url, payload in artifact.build_dependencies
+    )
+
+
+def _build_environment_attestation(
+    build_dependencies: tuple[BinaryWheelPolicy, ...],
+) -> str:
     build_env = os.path.realpath(BUILD_ENV_DIR)
+    artifacts = build_dependency_artifact_records(build_dependencies)
     return json.dumps(
         {
-            "schema_version": 1,
+            "schema_version": SOURCE_BUILD_ENVIRONMENT_SCHEMA_VERSION,
             "executable": f"{build_env}/bin/python",
             "prefix": build_env,
             "base_prefix": "/usr",
             "isolated": True,
+            "system_site_packages": False,
+            "site_packages": [f"{build_env}/lib/python3.12/site-packages"],
+            "sys_path_sha256": "1" * 64,
+            "pyvenv_cfg_sha256": "2" * 64,
+            "artifact_closure_sha256": sha256_bytes(canonical_json(artifacts)),
+            "installed_distributions": [
+                {
+                    "distribution": wheel.distribution,
+                    "version": wheel.version,
+                    "location": "lib/python3.12/site-packages",
+                    "file_count": 1,
+                    "files_sha256": "3" * 64,
+                }
+                for wheel in sorted(build_dependencies, key=lambda item: item.distribution)
+            ],
             "build_tools": BUILD_TOOLS,
         },
         sort_keys=True,
     )
 
 
-def _build_environment_record() -> dict[str, object]:
+def _build_environment_record(
+    build_dependencies: tuple[BinaryWheelPolicy, ...],
+) -> dict[str, object]:
     return source_build_environment_record(
         build_env_dir=BUILD_ENV_DIR,
         expected_build_tools=tuple(sorted(BUILD_TOOLS.items())),
-        attestation=json.loads(_build_environment_attestation()),
+        build_dependencies=build_dependencies,
+        attestation=json.loads(_build_environment_attestation(build_dependencies)),
     )
 
 
@@ -436,32 +495,34 @@ class FakeRuntime:
             assert env == {}
             assert self.network_active
             return ProgramResult(exit_code=0, stdout="", stderr="")
-        if argv == source_build_env_attest_argv(BUILD_ENV_DIR):
+        build_dependency_policies = _build_dependency_policies(self.artifact)
+        if argv == source_build_env_attest_argv(BUILD_ENV_DIR, build_dependency_policies):
             assert env == {}
             assert self.network_active
-            return ProgramResult(exit_code=0, stdout=_build_environment_attestation(), stderr="")
+            return ProgramResult(
+                exit_code=0,
+                stdout=_build_environment_attestation(build_dependency_policies),
+                stderr="",
+            )
         if argv == source_build_dependency_install_argv(
             build_env_dir=BUILD_ENV_DIR,
             build_dependency_dir=BUILD_DEP_DIR,
-            build_dependencies=tuple(
-                source_wheel_proof.BinaryWheelPolicy(
-                    distribution=distribution,
-                    version=version,
-                    filename=filename,
-                    url=url,
-                    size=len(payload),
-                    sha256=sha256_bytes(payload),
-                )
-                for distribution, version, filename, url, payload in self.artifact.build_dependencies
-            ),
+            build_dependencies=build_dependency_policies,
         ):
             assert env == {"PIP_NO_INDEX": "1"}
             assert self.network_active
             return ProgramResult(exit_code=0, stdout="", stderr="")
-        if argv[:4] == [f"{BUILD_ENV_DIR}/bin/python", "-I", "-m", "pip"] and argv[4] == "wheel":
+        if SOURCE_BUILD_RUNNER_CODE in argv:
             assert env == {}
             assert self.network_active
-            assert "--no-index" in argv and "--no-deps" in argv and "--no-build-isolation" in argv
+            runner_index = argv.index(SOURCE_BUILD_RUNNER_CODE)
+            assert argv[runner_index - 5 : runner_index] == [
+                f"{BUILD_ENV_DIR}/bin/python",
+                "-I",
+                "-S",
+                "-B",
+                "-c",
+            ]
             self.build_count += 1
             self.fleet.builds_entered += 1
             if self.fleet.builds_entered >= 2:
@@ -569,9 +630,9 @@ def test_nine_entry_discovery_emits_policy_with_exactly_twenty_seven_starts(
     assert sum(runtime.build_count for runtime in fleet.runtimes) == 18
     assert fleet.source_download_count == 18
     assert fleet.binary_download_count == 9
-    assert fleet.build_dependency_download_count == 3
+    assert fleet.build_dependency_download_count == 39
     assert fleet.resolution_count == 9
-    assert fleet.build_dependency_resolution_count == 2
+    assert fleet.build_dependency_resolution_count == 9
     assert all(runtime.build_count == 0 for runtime in fleet.runtimes if runtime.name.endswith("-target"))
     assert all(runtime.build_count == 1 for runtime in fleet.runtimes if "-builder-" in runtime.name)
 
@@ -636,8 +697,8 @@ def test_nine_entry_discovery_emits_policy_with_exactly_twenty_seven_starts(
     assert len(policy["entries"]) == 9
     assert all(entry["build_tools"] == BUILD_TOOLS for entry in policy["entries"])
     assert all(len(entry["binary_wheels"]) == 1 for entry in policy["entries"])
-    assert sum(len(entry["sources"][0]["build_dependencies"]) for entry in policy["entries"]) == 3
-    assert sum(entry["resolution"]["build_dependencies"]["binary_artifact_count"] for entry in proof["entries"]) == 3
+    assert sum(len(entry["sources"][0]["build_dependencies"]) for entry in policy["entries"]) == 39
+    assert sum(entry["resolution"]["build_dependencies"]["binary_artifact_count"] for entry in proof["entries"]) == 39
     assert all(entry["cross_builder"]["wheel_bytes_equal"] for entry in proof["entries"])
     assert all(len(set(entry["lease_identity_sha256s"].values())) == 3 for entry in proof["entries"])
     assert len({digest for entry in proof["entries"] for digest in entry["lease_identity_sha256s"].values()}) == 27
@@ -1021,7 +1082,7 @@ def test_reproducibility_and_concurrency_contracts_fail_closed(tmp_path: Path) -
         wheelhouse=pack_wheelhouse({evidence[0].filename: wheel_a}),
         input_artifacts=(("proof_package-1.0.tar.gz", 1, "a" * 64),),
         build_dependency_artifacts=(),
-        build_environment=_build_environment_record(),
+        build_environment=_build_environment_record(()),
         build_argv_sha256="b" * 64,
     )
     second = replace(
