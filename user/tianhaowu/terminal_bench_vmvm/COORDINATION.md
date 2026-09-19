@@ -1,6 +1,6 @@
 # VMVM sandbox coordination
 
-Last updated: 2026-09-19 22:51 UTC
+Last updated: 2026-09-19 23:16 UTC
 
 ## First message to the next teammate
 
@@ -41,6 +41,21 @@ this shared branch again.
 Add new rows below this line; do not overwrite another owner's row.
 
 ## Open coordination requests
+
+- **2026-09-19 23:16 UTC, explicit image-pull hardening approved; fresh
+  watcher preparation only:** exact RAM commit
+  `2110daf8a968b08ffa860f9de34787660619c315` (tree
+  `f28185287b765ba9a1857dc7f1fd7e71d8ca8d1b`) closes the credential-path,
+  concurrency, xtrace, signal/PID, failed-cleanup, bounded-pull, and
+  `--pull=never` gaps. Independent reruns passed 355/355 container assertions,
+  27/27 worker checks, 769/769 unit tests plus 329 subtests, Bash syntax, and
+  diff checks. The live container smoke remains intentionally unrun because it
+  submits GPU work. Prepare a scrubbed detached source and entirely fresh v6
+  normal-QoS two-endpoint watcher with final resolved-spec binding; do not
+  launch until that watcher receives independent exact-byte review. The raced
+  v5 generation remains ineligible: one original worker was canceled and an
+  automatic replacement is running, with only one endpoint record and no
+  proxy, deployment receipt, readiness, or route binding at this checkpoint.
 
 - **2026-09-19 22:51 UTC, Kimi watcher v5 cannot authorize the replacement
   generation:** independent review confirms v5 is bound throughout to
