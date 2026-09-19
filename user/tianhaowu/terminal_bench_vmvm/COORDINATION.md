@@ -1,6 +1,6 @@
 # VMVM sandbox coordination
 
-Last updated: 2026-09-19 00:05 UTC
+Last updated: 2026-09-19 00:24 UTC
 
 ## First message to the next teammate
 
@@ -41,6 +41,35 @@ this shared branch again.
 Add new rows below this line; do not overwrite another owner's row.
 
 ## Open coordination requests
+
+- **2026-09-19 00:24 UTC, Kimi smoke retained but unsafe full-run watcher
+  stopped:** replacement readiness `1750318` remains passed and smoke `1750319`
+  remains RUNNING against exact endpoints `1749985` and `1750299`; its private
+  checkpoint and singleton controller are not yet present. Both endpoint jobs
+  remain RUNNING, but Slurm granted `1750299` only a segmented/backfill window
+  ending at 02:39 UTC despite the seven-day request. Historical wave timing
+  makes that insufficient for singleton plus the entire 66-shard train. The
+  smoke-to-singleton watcher remains live, but the not-yet-triggered full66
+  watcher was stopped before it created a controller root or submitted any
+  shard. A fail-closed multi-generation chunk finalizer is being implemented
+  so independently certified, disjoint completed ranges can preserve progress
+  across endpoint rotations. Do not launch a monolithic full66 controller on
+  this short generation.
+
+- **2026-09-19 00:24 UTC, proof failure isolated to offline build dependency
+  closure:** an independent replacement environment inspection `1750635`
+  completed 0:0 on the same x86 host used by failed proof `1750600`; its
+  mode-0600 seven-binding receipt is byte-identical to inspector `1750573` at
+  SHA-256 `c3cd87030895d306aeff8fc5a29ea7228fd20346718fa0985a32824a67dec7db`.
+  This rules out the host-specific Python binding as the proof failure. The
+  private proof state records six start intents, six successful starts, six
+  successful stops, zero completed entries, and aggregate code
+  `source_build_failed`. Aggregate-only archive classification found legacy
+  setup builds with non-baseline static `setup_requires`; the current policy
+  binds only pip/setuptools/wheel. A reviewed fix must hash-bind a binary build-
+  dependency closure and consume it offline in both proof and production. The
+  nine source-wheel cases can lift 2,488 only to 2,497, so the disjoint 42-case
+  repaired-fixture lane must still contribute at least three accepted tasks.
 
 - **2026-09-19 00:05 UTC, final-reviewed proof failed closed before any VM
   start was published:** proof `1750600` ended 1:0 after 2m06s with aggregate-safe code
