@@ -1,6 +1,6 @@
 # VMVM sandbox coordination
 
-Last updated: 2026-09-19 06:12 UTC
+Last updated: 2026-09-19 06:26 UTC
 
 ## First message to the next teammate
 
@@ -30,7 +30,7 @@ this shared branch again.
 
 | Owner | Cluster | Scope | Files | Live resources | State / next gate |
 |---|---|---|---|---|---|
-| Codex session for `tianhaowu` | `fair-cw-use2-3` | Kimi serving, full TB4 pass@1, and gated 2,500-task rollout | `user/tianhaowu/terminal_bench_vmvm/**`, `user/tianhaowu/deepswe_vmvm/{README.md,run_runtime_smoke.sbatch,smoke_runtime.py}`, `environments/vmvm_tb_v2/**`, `deps/verifiers` gitlink | deployment `tianhaowu-k3-kda-tb2-low-20260919`; coordinator `1752688`; endpoints `1752709/1752711`; readiness `1752726`; held smoke `1752727`; final spec `745e5b6f2d884542fb7f29afbaef09935976f1edac1bec91e6c56b0aca975ea3` | The clean `a724933` deployment has two pending routes, digest-pinned KDA image, typed 43,200/0 policy, sticky routing, seven-day worker limit, and 12-hour TimeMin. A duplicate 7,200-second deployment was canceled before GPU allocation. Readiness `1752726` is queued from clean `587667f02` and smoke `1752727` is dependency-held; neither can authorize downstream work until the exact-two generation passes semantic/affinity/state-reuse checks and the fresh smoke certifies 2/2. Oracle remains 2,488/2,538 valid; source-wheel replacement work is separately held for review. Never inspect task prompts/bodies, task identifiers, raw errors, or model/tool/trace content. |
+| Codex session for `tianhaowu` | `fair-cw-use2-3` | Kimi serving, full TB4 pass@1, and gated 2,500-task rollout | `user/tianhaowu/terminal_bench_vmvm/**`, `user/tianhaowu/deepswe_vmvm/{README.md,run_runtime_smoke.sbatch,smoke_runtime.py}`, `environments/vmvm_tb_v2/**`, `deps/verifiers` gitlink | deployment `tianhaowu-k3-kda-tb2-low-20260919`; coordinator `1752688`; endpoints `1752709/1752711`; readiness `1752736`; final spec `745e5b6f2d884542fb7f29afbaef09935976f1edac1bec91e6c56b0aca975ea3` | The clean `a724933` deployment has two running but still-booting routes, digest-pinned KDA image, typed 43,200/0 policy, sticky routing, seven-day worker limit, and 12-hour TimeMin. Readiness `1752736` is polling from clean source `587667f02`. Smoke `1752727` was canceled before start: current strict trace audit rejects the redundant, semantically equal LiteLLM `provider_specific_fields` reasoning wrapper in genuine Kimi replay messages. Preserve raw payloads/hashes, freeze the independently tested strict semantic-projection repair, then submit a new empty-root 2/2 smoke. The locally integrated 24-route/24-rollout production contract passes 1,185 adapter tests and changed-file Ruff, but remains under independent review. Oracle remains 2,488/2,538 valid; source-wheel replacement work is separately held. Never inspect task prompts/bodies, task identifiers, raw errors, or model/tool/trace content. |
 | Codex session for `tianhaowu` | `fair-cw-use2-1` | Add a direct one-token KDA state-reuse probe; no serving or eval mutation | `user/tianhaowu/terminal_bench_vmvm/{probe_inference_routes.py,tests/test_probe_inference_routes.py,HANDOFF.md,COORDINATION.md}` | none | Extend the existing readiness probe with serial raw-completion predecessor/one-token-target cycles on every discovered sticky backend, without logprobs or response token IDs. Fail closed on unsupported routing, semantic corruption, or predecessor-dependent target output. |
 | Codex session for `tianhaowu` | `fair-cw-use2-1` | Qwen accepted TB4 gate and 2,500-task production rollout | Qwen direct-router configs, VMVM backend, repair/export controller, focused tests, runtime skill | accepted TB4 diagnostic `1435776`; cap-32 affinity producer `1454171` running; exact-head x86 smoke `1468446` completed; reviewed replacement chain `1468451` dependency-pending; obsolete chains `1457232` and `1465246` canceled; endpoint `shared_qwen38_2p4t`; PRs `thwu1/prime-rl#35`, `#36`, `#37`, `#38`, `#39`, and `#40`; verifier PR `thwu1/verifiers#2` | The user explicitly accepted the existing 7/66 TB4 result as the approximately 11% gate and directed us not to rerun it. The live producer retains 64 task sessions, 32 client/provider slots, two lease starts, fail-closed `consistent_hash` / `x-session-id`, and a 256K cap. Immutable prefix 1,000 has SHA-256 `7862f68057aecc9c2bdb22a15e5cbe21ec03aa10059a625e2fa1316e4c347117`: 583 pass, 381 scored fail, 36 ordinary error, zero invalid, for a 60.48% scored pass rate. Exact SFT trainability validation accepts 581/583 passing traces and quarantines two; the audit covers 41,220,772 sampled completion tokens and 19,358 captured model-I/O turns. At 08:01 UTC the producer remained healthy and RUNNING with 1,002 durable rows, recent throughput approximately 47 rows/hour, and approximately 32 hours remaining. Draft PR `#40` is independently approved at exact head `fe813c0f6`; frozen-source x86 smoke `1468446` passed 249/249, and replacement controller `1468451` is pending on `afterany:1454171`. Obsolete held controller `1465246` was canceled only after the replacement was verified dependency-held. Broad `HarnessError` retry and retry exclusions remain forbidden. Never inspect task IDs, prompts, responses, raw errors, or trace/model/tool bodies. |
 | Codex session for `tianhaowu` | `fair-cw-use2-1` | User-supplied shared Kimi-K3 endpoint qualification and full TB4 pass@1; gated 2,500-task rollout follows only after score reproduction | server-scoped `configs/eval/servers/cpu-132-021_8103/**`, VMVM backend, trace audit, `COORDINATION.md` | endpoint `shared-kimi-k3`; route gate `1448380`; preserved canceled diagnostic TB4 `1448629`; preserved canceled smokes `1448432` and `1448606`; draft `thwu1/prime-rl#34`; proxy fix `fairinternal/ram_common#288` | The endpoint currently reports 23 healthy / 1 unhealthy routes, while correct model discovery and consistent sticky metadata with TTL 14,400 remain present. The proxy still serves a 600-second timeout with two retries and the live spec declares neither field, so this endpoint remains non-launchable. The old diagnostic full was canceled and preserved; do not count or resume it. Draft PR `#34` head `22b4172f1` is rebased on current shared core, preserves the separate `cpu-132-021_8103` folder and hardened gate pin, composes schema-v2 bridge validation with exact 24-request/2-lease evidence, and passes 328 affected plus 625 full tests. It requires exact 7,200/0 and 24/0, rejects resume, and makes both full and shard certification prove type-safe 24 rollout/multiplex/HTTP concurrency, observed peak 24, and lease-start concurrency 2; shared 4/2 remains compatible. PR `ram_common#288` is green/mergeable but still lacks the required human approval and deployment. Await a reviewed combined live revision, fresh 24/0 policy/sticky qualification, then launch a fresh TB4. Never inspect task prompts/bodies or raw trace/model/tool content. |
@@ -41,6 +41,32 @@ this shared branch again.
 Add new rows below this line; do not overwrite another owner's row.
 
 ## Open coordination requests
+
+- **2026-09-19 06:26 UTC, Kimi readiness continues while trace smoke is
+  held:** first readiness `1752726` failed before probing because its serving
+  helper path was unavailable on the assigned compute node. Replacement
+  `1752736` uses the visible clean `a724933` helper, is running, and has polled
+  the exact bound generation normally while both routes remain in booting
+  state. The original dependency-held smoke `1752727` was canceled before it
+  ran. Aggregate-only audit of 94 historical Kimi traces found that LiteLLM
+  adds only the redundant closed-schema `provider_specific_fields` wrapper to
+  replayed assistant messages; its reasoning is equal to canonical reasoning
+  and refusal is null. Current audit rejects that genuine wrapper, including
+  every multi-turn row in prior smokes. Preserve exact raw capture and hashes;
+  admit only a strictly validated semantic projection in audit/export, add
+  malformed-wrapper rejection tests, freeze the repaired source, and launch a
+  new empty-root smoke only after readiness succeeds. No TB4 or Mobius model
+  evaluation is queued.
+
+- **2026-09-19 06:26 UTC, 24-wide production contract integrated for
+  review:** local clean branch `chore/kimi-capacity-integration-20260919` at
+  `f44d753c0` composes PR `#42` with current schema-v3/multigeneration and Qwen
+  behavior. It enforces exactly 24 Kimi routes, rollouts, multiplex slots, and
+  HTTP slots for capacity and production, with lease-start cap four, while
+  preserving legacy TB4 schema rules. The correctly configured full adapter
+  suite passes 1,185/1,185 and Ruff passes every changed Python file. It is not
+  yet promoted or launchable: independent exact-head review and the trace
+  semantic-projection repair are still pending.
 
 - **2026-09-19 06:12 UTC, fresh Kimi gates armed:** corrected coordinator
   `1752688` is running; endpoint jobs `1752709/1752711` are pending with the
