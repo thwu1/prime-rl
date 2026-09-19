@@ -209,23 +209,15 @@ installed-file manifest, effective import path, and complete `bin` inventory.
 Discover build dependencies by parsing pinned legacy metadata as text; never
 import or execute it. Require exactly one direct, unaliased `setup(...)` or
 `setuptools.setup(...)` invocation after its matching module-scope import. The
-ordinary form is the final module statement. The only resource-context form is
-the final statement of a final top-level `tempfile.TemporaryDirectory()` block,
-and it cannot declare `setup_requires`. Unrelated legacy metadata computation
-may remain only within the positive grammar for literals, source-relative
-metadata reads, fixed string/path transforms, static package discovery,
-explicit Python version guards, and the bounded resource-preparation form.
-Reserve `__file__` across every binding scope. Resolve every source-path join
-tail, including helper arguments, to a nonempty relative literal without
-parent components. Only the resource-root initializer may use the exact
-`realpath(join(__file__, "..", <safe-relative-dir>))` form, whose one parent
-step removes the `setup.py` filename; reject it in metadata reads and general
-joins. Require every resource `isfile`, `listdir`, loop-derived filename,
-appended extension source, and extension include/source path to trace to that
-source root or the live temporary root. In the resource form require one statically bound
-credential-free HTTPS URL, trace its response through `BytesIO` into the
-ZIP/tar reader, permit only fixed status output, and confine `extractall` to
-the live `TemporaryDirectory`.
+invocation must be the final module statement. No resource-context form is
+supported. Unrelated legacy metadata computation may remain only within the
+positive grammar for literals, confined source-relative metadata reads, fixed
+string/path transforms, static package discovery, and explicit Python version
+guards. Reject resource downloads, URL/network access, temporary-directory
+builders, archive extraction, `Extension`, `ext_modules`, and `cffi_modules`.
+Reserve `__file__` across every binding scope, and require every accepted
+package, `package_dir`, package-data, metadata-file, and egg-base path to remain
+within the source tree without absolute or parent components.
 Permit a local metadata reader helper only when it matches that grammar and is
 used exactly once as `long_description`; reject arbitrary imports, assignments,
 helper calls, side effects, and dynamic non-dependency keywords. Permit only
@@ -238,11 +230,13 @@ exact legacy `sys.argv[-1] == "publish"` release branch as unreachable under the
 fixed `bdist_wheel` argv, and reject every other process-launch or exit call.
 Also reject setup aliases, reflected or additional setup references,
 branching/looping selection of the setup call, `**kwargs`, dynamic
-`setup_requires`, and `cmdclass`/`distclass` controls. Take
+`setup_requires`, `cmdclass`/`distclass` controls, helper parameter
+annotations, and function type parameters. Take
 literal `setup_requires` from that call or deterministic `setup.cfg` `[options]`
-configuration. In `setup.cfg`, reject defaults, `attr:`/`file:`/`find:`
-directives, and command aliases except the exact inert `test = pytest`
-declaration. Combine
+configuration. Apply explicit section/option allowlists and the same path
+confinement to `setup.cfg`; reject defaults, `attr:`/`file:`/`find:` directives,
+custom build options, automatic package-data inclusion, and command aliases
+except the exact inert `test = pytest` declaration. Combine
 the result with setuptools `build-system.requires`; allow no other
 `pyproject.toml` table and reject conflicting declarations, in-tree or
 alternate backends, and ambiguity. Surface parser rejection only as the stable
@@ -270,8 +264,12 @@ clean reviewed checkout; it invokes the canonical
 `run_source_wheel_proof.sbatch` launcher against the private, hash-pinned
 discovery input. The input is
 non-runnable and must not predeclare the target toolchain, binary closure, or
-source-wheel output hashes. Require exactly nine entries and externally pin the
-canonical `missing_required_evidence` list. Pin the full reviewed utility commit with
+source-wheel output hashes. Use the reviewed reducer to derive the exact
+eight-entry static-grammar subset from the digest-pinned nine-entry probe; it
+must fetch each distinct pinned HTTPS source once, validate its size and SHA-256,
+retain original objects and order, and publish only aggregate counts, hashes,
+grammar identifiers, and stable codes. Require exactly eight entries and
+externally pin the canonical `missing_required_evidence` list. Pin the full reviewed utility commit with
 `SOURCE_WHEEL_PROOF_SOURCE_REVISION` and the approved base runtime revision with
 `SOURCE_WHEEL_PROOF_BASE_RUNTIME_REVISION`. Initialize `deps/verifiers`,
 `deps/renderers`, and `deps/pydantic-config` at their exact gitlinks; the wrapper
@@ -311,7 +309,7 @@ never resume an output created under a different identity or schema.
 
 Default to two entries and six live VMVMs; never exceed three entries and nine
 VMVMs. Set `VACLI_LEASE_RETRIES=1`; a hidden backend re-lease would violate the
-exact 27-start proof. Publish a non-runnable candidate first, then the final runnable policy
+exact 24-start proof. Publish a non-runnable candidate first, then the final runnable policy
 and proof only after every entry passes. Keep the output directory mode 0700,
 use atomic private artifacts, and emit only aggregate counts, hashes, and stable
 error codes. Before launch, use `inspect_source_wheel_proof_environment.py` on
@@ -349,7 +347,7 @@ from vacli's real session identity in the private certificate. Never substitute
 a container ID or runtime name. Record immutable, hash-chained start intent,
 result, lease hash, and stop result events around every start. A resume with an
 incomplete, failed, indeterminate, or unaccounted prior start must fail rather
-than undercount the exact 27 starts. Resume only with an externally reviewed
+than undercount the exact 24 starts. Resume only with an externally reviewed
 SHA-256 of `proof_state.json`, never a value trusted from the same unreviewed
 output. Final publication writes an immutable finalization record first and
 uses it to reconcile any missing proof or policy file after a crash; the

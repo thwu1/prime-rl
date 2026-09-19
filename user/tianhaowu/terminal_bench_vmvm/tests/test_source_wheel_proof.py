@@ -13,11 +13,23 @@ import tarfile
 from dataclasses import dataclass, replace
 from pathlib import Path
 from types import SimpleNamespace
+from urllib.parse import urlsplit
 from zipfile import ZipFile, ZipInfo
 
 import pytest
 import source_wheel_proof_bootstrap as proof_bootstrap
+import terminal_bench_vmvm.source_wheel_input_reducer as source_wheel_input_reducer
 import terminal_bench_vmvm.source_wheel_proof as source_wheel_proof
+from terminal_bench_vmvm.source_wheel_input_reducer import (
+    OUTPUT_FILENAME as REDUCED_INPUT_FILENAME,
+)
+from terminal_bench_vmvm.source_wheel_input_reducer import (
+    RECEIPT_FILENAME as REDUCTION_RECEIPT_FILENAME,
+)
+from terminal_bench_vmvm.source_wheel_input_reducer import (
+    SourceWheelInputReductionError,
+    reduce_source_wheel_probe_input,
+)
 from terminal_bench_vmvm.source_wheel_proof import (
     APPROVED_BASE_RUNTIME_COMMIT,
     BINARY_DIR,
@@ -302,6 +314,56 @@ def _write_discovery(
     return path, artifacts
 
 
+def _write_reducer_input(
+    tmp_path: Path,
+    *,
+    rejected_count: int = 1,
+) -> tuple[Path, dict[str, bytes], dict[str, object]]:
+    payload, artifacts = _discovery_payload(9)
+    document = json.loads(payload)
+    entries = document["entries"]
+    assert isinstance(entries, list)
+    payloads_by_url = {
+        artifact.binary_url.replace(artifact.binary_filename, artifact.source_filename): artifact.source
+        for artifact in artifacts.values()
+    }
+    for index in range(1, rejected_count + 1):
+        raw_entry = entries[-index]
+        assert isinstance(raw_entry, dict)
+        source = raw_entry["source"]
+        assert isinstance(source, dict)
+        distribution = source["distribution"]
+        assert isinstance(distribution, str)
+        metadata = f"Metadata-Version: 2.1\nName: {distribution}\nVersion: 1.0\n".encode()
+        setup = (
+            "import os\n"
+            "from setuptools import setup\n"
+            "def readme(path: os.system('external-command')):\n"
+            "    return open(path).read()\n"
+            f"setup(name={distribution!r}, version='1.0', long_description=readme('README'))\n"
+        ).encode()
+        archive_payload = io.BytesIO()
+        with tarfile.open(fileobj=archive_payload, mode="w:gz") as archive:
+            for name, member_payload in (
+                (f"{distribution.replace('-', '_')}-1.0/PKG-INFO", metadata),
+                (f"{distribution.replace('-', '_')}-1.0/setup.py", setup),
+            ):
+                member = tarfile.TarInfo(name)
+                member.size = len(member_payload)
+                archive.addfile(member, io.BytesIO(member_payload))
+        rejected_payload = archive_payload.getvalue()
+        source["size"] = len(rejected_payload)
+        source["sha256"] = sha256_bytes(rejected_payload)
+        payloads_by_url[source["url"]] = rejected_payload
+    private = tmp_path / "private"
+    private.mkdir(mode=0o700)
+    private.chmod(0o700)
+    input_path = private / "nine-entry-probe.json"
+    input_path.write_bytes(canonical_json(document) + b"\n")
+    input_path.chmod(0o600)
+    return input_path, payloads_by_url, document
+
+
 def _config(discovery: Path, output: Path, **changes: object) -> SourceWheelProofConfig:
     missing = json.loads(discovery.read_bytes())["missing_required_evidence"]
     project = Path.cwd().resolve()
@@ -342,6 +404,316 @@ def _config(discovery: Path, output: Path, **changes: object) -> SourceWheelProo
         slurm_job_id="12345",
     )
     return replace(config, **changes)
+
+
+def test_probe_input_reducer_is_networkless_private_and_idempotent(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    input_path, payloads_by_url, original = _write_reducer_input(tmp_path)
+    fetch_counts: dict[str, int] = {}
+
+    def forbid_network(*args: object, **kwargs: object) -> None:
+        raise AssertionError("unit test attempted network access")
+
+    def fetch(source: object, allowed_hosts: frozenset[str], timeout: float) -> bytes:
+        url = source.url
+        assert urlsplit(url).hostname in allowed_hosts
+        assert timeout == 17
+        fetch_counts[url] = fetch_counts.get(url, 0) + 1
+        return payloads_by_url[url]
+
+    monkeypatch.setattr(source_wheel_input_reducer.urllib.request, "build_opener", forbid_network)
+    input_sha256 = sha256_bytes(input_path.read_bytes())
+    first_output = tmp_path / "first-reduction"
+    first_receipt = reduce_source_wheel_probe_input(
+        input_path,
+        input_sha256,
+        first_output,
+        timeout_seconds=17,
+        fetch_source=fetch,
+    )
+    first_fetch_counts = dict(fetch_counts)
+    fetch_counts.clear()
+    second_output = tmp_path / "second-reduction"
+    second_receipt = reduce_source_wheel_probe_input(
+        input_path,
+        input_sha256,
+        second_output,
+        timeout_seconds=17,
+        fetch_source=fetch,
+    )
+
+    first_payload = (first_output / REDUCED_INPUT_FILENAME).read_bytes()
+    first_document = json.loads(first_payload)
+    second_payload = (second_output / REDUCED_INPUT_FILENAME).read_bytes()
+    assert first_payload == second_payload == canonical_json(first_document) + b"\n"
+    assert first_receipt == second_receipt
+    assert (first_output / REDUCTION_RECEIPT_FILENAME).read_bytes() == canonical_json(first_receipt) + b"\n"
+    assert stat.S_IMODE(first_output.stat().st_mode) == 0o700
+    assert stat.S_IMODE((first_output / REDUCED_INPUT_FILENAME).stat().st_mode) == 0o600
+    assert stat.S_IMODE((first_output / REDUCTION_RECEIPT_FILENAME).stat().st_mode) == 0o600
+    assert first_document["entries"] == original["entries"][:-1]
+    assert all(first_document[key] == original[key] for key in original if key != "entries")
+    reduced_path = first_output / REDUCED_INPUT_FILENAME
+    reduced_manifest, _ = load_private_discovery_input(_config(reduced_path, tmp_path / "unused-proof"))
+    assert len(reduced_manifest.entries) == 8
+    assert first_receipt["counts"] == {
+        "input_entries": 9,
+        "output_entries": 8,
+        "excluded_entries": 1,
+        "distinct_sources": 9,
+        "accepted_sources": 8,
+        "rejected_sources": 1,
+        "source_fetches": 9,
+    }
+    assert first_fetch_counts == fetch_counts
+    assert set(fetch_counts.values()) == {1}
+    public_receipt = json.dumps(first_receipt)
+    assert "private-task" not in public_receipt
+    assert "https://" not in public_receipt
+    assert "external-command" not in public_receipt
+
+
+@pytest.mark.parametrize(
+    ("mutation", "error_code"),
+    [
+        ("duplicate_json_key", "input_invalid"),
+        ("payload_mismatch", "source_download_integrity_mismatch"),
+        ("two_rejected", "grammar_cardinality_invalid"),
+    ],
+)
+def test_probe_input_reducer_rejects_adversarial_inputs_without_output(
+    tmp_path: Path,
+    mutation: str,
+    error_code: str,
+) -> None:
+    input_path, payloads_by_url, _ = _write_reducer_input(
+        tmp_path,
+        rejected_count=2 if mutation == "two_rejected" else 1,
+    )
+    if mutation == "duplicate_json_key":
+        payload = input_path.read_bytes().replace(b'"complete":false', b'"complete":false,"complete":false', 1)
+        input_path.write_bytes(payload)
+
+    def fetch(source: object, allowed_hosts: frozenset[str], timeout: float) -> bytes:
+        payload = payloads_by_url[source.url]
+        return payload + b"tampered" if mutation == "payload_mismatch" else payload
+
+    output = tmp_path / "reduction"
+    with pytest.raises(SourceWheelInputReductionError, match=f"^{error_code}$"):
+        reduce_source_wheel_probe_input(
+            input_path,
+            sha256_bytes(input_path.read_bytes()),
+            output,
+            fetch_source=fetch,
+        )
+
+    assert not output.exists()
+
+
+def test_probe_input_reducer_rejects_cross_host_redirect_without_network(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    input_path, _, _ = _write_reducer_input(tmp_path)
+    payload = input_path.read_bytes()
+    manifest, _ = source_wheel_proof.parse_discovery_input_payload(
+        payload,
+        path=input_path,
+        input_sha256=sha256_bytes(payload),
+        expected_entry_count=9,
+        expected_missing_evidence_sha256=None,
+    )
+
+    class RedirectedResponse:
+        def __enter__(self) -> RedirectedResponse:
+            return self
+
+        def __exit__(self, *args: object) -> None:
+            return None
+
+        def geturl(self) -> str:
+            return "https://unapproved.example.invalid/source.tar.gz"
+
+        def getcode(self) -> int:
+            return 200
+
+        def read(self, size: int) -> bytes:
+            raise AssertionError("redirected response body must not be read")
+
+    class Opener:
+        def open(self, url: str, timeout: float) -> RedirectedResponse:
+            return RedirectedResponse()
+
+    monkeypatch.setattr(
+        source_wheel_input_reducer.urllib.request,
+        "build_opener",
+        lambda *args, **kwargs: Opener(),
+    )
+    with pytest.raises(SourceWheelInputReductionError, match="^source_download_redirect_invalid$"):
+        source_wheel_input_reducer._fetch_source(
+            manifest.entries[0].source,
+            frozenset(manifest.allowed_hosts),
+            17,
+        )
+
+
+def test_probe_input_reducer_redirect_handler_rejects_cross_host_request() -> None:
+    handler = source_wheel_input_reducer._PinnedHostRedirectHandler(
+        frozenset({"files.example.invalid", "mirror.example.invalid"}),
+        "files.example.invalid",
+    )
+    request = source_wheel_input_reducer.urllib.request.Request("https://files.example.invalid/source.tar.gz")
+
+    with pytest.raises(SourceWheelInputReductionError, match="^source_download_redirect_invalid$"):
+        handler.redirect_request(
+            request,
+            None,
+            302,
+            "Found",
+            {},
+            "https://mirror.example.invalid/source.tar.gz",
+        )
+
+
+def test_probe_input_reducer_fsyncs_output_and_parent_directories(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    output = tmp_path / "reduction"
+    parent_identity = (tmp_path.stat().st_dev, tmp_path.stat().st_ino)
+    synced_directories: list[tuple[int, int]] = []
+    fsync = source_wheel_input_reducer.os.fsync
+
+    def record_fsync(descriptor: int) -> None:
+        status = os.fstat(descriptor)
+        if stat.S_ISDIR(status.st_mode):
+            synced_directories.append((status.st_dev, status.st_ino))
+        fsync(descriptor)
+
+    monkeypatch.setattr(source_wheel_input_reducer.os, "fsync", record_fsync)
+    source_wheel_input_reducer._publish_outputs(output, (("artifact", b"payload"),))
+
+    output_identity = (output.stat().st_dev, output.stat().st_ino)
+    assert synced_directories.count(parent_identity) >= 2
+    assert synced_directories.count(output_identity) >= 2
+
+
+def test_probe_input_reducer_rejects_code_mutation_during_fetch(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    input_path, payloads_by_url, _ = _write_reducer_input(tmp_path)
+    code_paths = {}
+    for name in (
+        "reducer_cli_sha256",
+        "reducer_implementation_sha256",
+        "discovery_parser_sha256",
+        "source_wheel_contract_sha256",
+    ):
+        path = tmp_path / f"{name}.py"
+        path.write_text(f"# {name}\n")
+        code_paths[name] = path
+    mutated = False
+
+    def fetch(source: object, allowed_hosts: frozenset[str], timeout: float) -> bytes:
+        nonlocal mutated
+        if not mutated:
+            code_paths["discovery_parser_sha256"].write_text("# changed parser\n")
+            mutated = True
+        return payloads_by_url[source.url]
+
+    monkeypatch.setattr(source_wheel_input_reducer, "_executed_code_paths", lambda: code_paths)
+    output = tmp_path / "reduction"
+    with pytest.raises(SourceWheelInputReductionError, match="^code_binding_changed$"):
+        reduce_source_wheel_probe_input(
+            input_path,
+            sha256_bytes(input_path.read_bytes()),
+            output,
+            fetch_source=fetch,
+        )
+
+    assert not output.exists()
+
+
+def test_probe_input_reducer_anchors_writes_against_output_symlink_swap(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    input_path, payloads_by_url, _ = _write_reducer_input(tmp_path)
+    output = tmp_path / "reduction"
+    moved_output = tmp_path / "moved-reduction"
+    replacement = tmp_path / "replacement"
+    replacement.mkdir(mode=0o700)
+    write_anchored_file = source_wheel_input_reducer._write_anchored_file
+    writes = 0
+
+    def fetch(source: object, allowed_hosts: frozenset[str], timeout: float) -> bytes:
+        return payloads_by_url[source.url]
+
+    def swap_after_first_write(directory_fd: int, name: str, payload: bytes, mode: int) -> None:
+        nonlocal writes
+        write_anchored_file(directory_fd, name, payload, mode)
+        writes += 1
+        if writes == 1:
+            output.rename(moved_output)
+            output.symlink_to(replacement, target_is_directory=True)
+
+    monkeypatch.setattr(source_wheel_input_reducer, "_write_anchored_file", swap_after_first_write)
+    with pytest.raises(SourceWheelInputReductionError, match="^output_directory_changed$"):
+        reduce_source_wheel_probe_input(
+            input_path,
+            sha256_bytes(input_path.read_bytes()),
+            output,
+            fetch_source=fetch,
+        )
+
+    assert output.is_symlink()
+    assert not list(replacement.iterdir())
+    assert {path.name for path in moved_output.iterdir()} == {
+        REDUCED_INPUT_FILENAME,
+        REDUCTION_RECEIPT_FILENAME,
+    }
+
+
+def test_probe_input_reducer_detects_parent_directory_swap(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    input_path, payloads_by_url, _ = _write_reducer_input(tmp_path)
+    publish_parent = tmp_path / "publish-parent"
+    moved_parent = tmp_path / "moved-parent"
+    publish_parent.mkdir(mode=0o700)
+    output = publish_parent / "reduction"
+    write_anchored_file = source_wheel_input_reducer._write_anchored_file
+    writes = 0
+
+    def fetch(source: object, allowed_hosts: frozenset[str], timeout: float) -> bytes:
+        return payloads_by_url[source.url]
+
+    def swap_parent_after_first_write(directory_fd: int, name: str, payload: bytes, mode: int) -> None:
+        nonlocal writes
+        write_anchored_file(directory_fd, name, payload, mode)
+        writes += 1
+        if writes == 1:
+            publish_parent.rename(moved_parent)
+            publish_parent.mkdir(mode=0o700)
+
+    monkeypatch.setattr(source_wheel_input_reducer, "_write_anchored_file", swap_parent_after_first_write)
+    with pytest.raises(SourceWheelInputReductionError, match="^output_directory_changed$"):
+        reduce_source_wheel_probe_input(
+            input_path,
+            sha256_bytes(input_path.read_bytes()),
+            output,
+            fetch_source=fetch,
+        )
+
+    assert not output.exists()
+    assert {path.name for path in (moved_parent / output.name).iterdir()} == {
+        REDUCED_INPUT_FILENAME,
+        REDUCTION_RECEIPT_FILENAME,
+    }
 
 
 def _fingerprint_payload() -> str:
@@ -738,7 +1110,7 @@ def test_eight_entry_discovery_emits_policy_with_exactly_twenty_four_starts(
     assert identity["source_build_execution"]["child_process_path"] == "venv-bin-only"
     assert identity["source_build_execution"]["source_import_precedence"] == "stdlib-attested-sites-source-root"
     assert identity["source_build_execution"]["setup_py_grammar"] == (
-        "positive-static-legacy-metadata-confined-packages-no-resource-v5"
+        "positive-static-legacy-metadata-confined-packages-no-resource-v6"
     )
     assert identity["source_build_execution"]["setup_cfg_grammar"] == ("allowlisted-static-options-confined-paths-v2")
     assert proof["proof_runtime_starts"] == 24
@@ -807,6 +1179,159 @@ def test_eight_entry_discovery_emits_policy_with_exactly_twenty_four_starts(
     )
     assert asyncio.run(run_source_wheel_proof(resumed, runtime_factory=resumed_fleet.factory)) == result
     assert resumed_fleet.start_count == 0
+
+
+@pytest.mark.parametrize("cleanup_raises", [False, True])
+@pytest.mark.parametrize("failure_type", [ValueError, asyncio.CancelledError])
+def test_target_validation_preserves_primary_cleanup_failure(
+    monkeypatch: pytest.MonkeyPatch,
+    failure_type: type[BaseException],
+    cleanup_raises: bool,
+) -> None:
+    runner = object.__new__(SourceWheelProofRunner)
+    failure = failure_type("target failed")
+
+    class Runtime:
+        async def write(self, path: str, payload: bytes) -> None:
+            raise failure
+
+        async def run(self, argv: list[str], env: dict[str, str]) -> ProgramResult:
+            if cleanup_raises:
+                raise RuntimeError("private cleanup detail")
+            return ProgramResult(exit_code=1, stdout="", stderr="private cleanup detail")
+
+    monkeypatch.setattr(source_wheel_proof, "inspect_wheelhouse", lambda payload: ())
+    monkeypatch.setattr(source_wheel_proof, "validate_policy_wheel_closure", lambda entry, wheels: ())
+    monkeypatch.setattr(source_wheel_proof, "_wheelhouse_payloads", lambda payload: {})
+    with pytest.raises(type(failure)) as raised:
+        asyncio.run(runner._validate_target(Runtime(), object(), object(), b"wheelhouse"))
+
+    assert raised.value is failure
+    assert getattr(raised.value, "__notes__", []) == ["target_cleanup_failed"]
+
+
+@pytest.mark.parametrize("cleanup_raises", [False, True])
+def test_target_validation_surfaces_cleanup_failure_after_success(
+    monkeypatch: pytest.MonkeyPatch,
+    cleanup_raises: bool,
+) -> None:
+    runner = object.__new__(SourceWheelProofRunner)
+
+    class Runtime:
+        calls = 0
+
+        async def write(self, path: str, payload: bytes) -> None:
+            return None
+
+        async def run(self, argv: list[str], env: dict[str, str]) -> ProgramResult:
+            self.calls += 1
+            if self.calls == 4:
+                if cleanup_raises:
+                    raise RuntimeError("private cleanup detail")
+                return ProgramResult(exit_code=1, stdout="", stderr="private cleanup detail")
+            return ProgramResult(exit_code=0, stdout="[]", stderr="")
+
+    monkeypatch.setattr(source_wheel_proof, "inspect_wheelhouse", lambda payload: ())
+    monkeypatch.setattr(source_wheel_proof, "validate_policy_wheel_closure", lambda entry, wheels: ())
+    monkeypatch.setattr(source_wheel_proof, "_wheelhouse_payloads", lambda payload: {})
+    monkeypatch.setattr(source_wheel_proof, "_parse_closure", lambda payload, entry: ())
+    with pytest.raises(SourceWheelProofError, match="^target_cleanup_failed$") as raised:
+        asyncio.run(
+            runner._validate_target(
+                Runtime(),
+                SimpleNamespace(requirements=()),
+                object(),
+                b"wheelhouse",
+            )
+        )
+
+    if cleanup_raises:
+        assert isinstance(raised.value.__cause__, RuntimeError)
+
+
+@pytest.mark.parametrize("cleanup_raises", [False, True])
+@pytest.mark.parametrize(
+    "failure_type",
+    [
+        ValueError,
+        SourceWheelProofError,
+        asyncio.CancelledError,
+    ],
+)
+def test_prove_entry_preserves_primary_when_runtime_cleanup_fails(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    failure_type: type[BaseException],
+    cleanup_raises: bool,
+) -> None:
+    discovery_path, _ = _write_discovery(tmp_path, 8)
+    config = _config(discovery_path, tmp_path / "proof")
+    discovery, _ = load_private_discovery_input(config)
+    failure = failure_type("entry failed")
+
+    class Journal:
+        starts = 0
+
+        def begin_start(self, entry_key_sha256: str, role: str) -> str:
+            self.starts += 1
+            return f"{self.starts:064x}"
+
+    async def fail_start(*args: object) -> dict[str, str]:
+        raise failure
+
+    async def fail_cleanup(*args: object) -> bool:
+        if cleanup_raises:
+            raise RuntimeError("cleanup failed")
+        return False
+
+    monkeypatch.setattr(source_wheel_proof, "_start_runtimes_uninterruptibly", fail_start)
+    monkeypatch.setattr(source_wheel_proof, "_stop_runtimes_uninterruptibly", fail_cleanup)
+    runner = SourceWheelProofRunner(
+        config,
+        discovery,
+        Journal(),
+        runtime_factory=lambda config, name: object(),
+    )
+    if failure_type is ValueError:
+        with pytest.raises(SourceWheelProofError, match="^entry_proof_failed$") as raised:
+            asyncio.run(runner._prove_entry(discovery.entries[0]))
+        assert raised.value.__cause__ is failure
+    else:
+        with pytest.raises(type(failure)) as raised:
+            asyncio.run(runner._prove_entry(discovery.entries[0]))
+        assert raised.value is failure
+
+    assert getattr(failure, "__notes__", []) == ["runtime_cleanup_failed"]
+
+
+@pytest.mark.parametrize("cleanup_raises", [False, True])
+def test_prove_entry_surfaces_runtime_cleanup_failure_after_success(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    cleanup_raises: bool,
+) -> None:
+    discovery_path, artifacts = _write_discovery(tmp_path, 8)
+    output = tmp_path / "proof"
+    config = _config(discovery_path, output)
+    discovery, _ = load_private_discovery_input(config)
+    fleet = FakeFleet(artifacts)
+    stop_runtimes = source_wheel_proof._stop_runtimes_uninterruptibly
+
+    async def fail_after_stopping(*args: object) -> bool:
+        assert await stop_runtimes(*args) is True
+        if cleanup_raises:
+            raise RuntimeError("cleanup failed")
+        return False
+
+    monkeypatch.setattr(source_wheel_proof, "_stop_runtimes_uninterruptibly", fail_after_stopping)
+    with ProofStore(config, discovery) as store:
+        runner = SourceWheelProofRunner(config, discovery, store._journal(), runtime_factory=fleet.factory)
+        with pytest.raises(SourceWheelProofError, match="^runtime_cleanup_failed$") as raised:
+            asyncio.run(runner._prove_entry(discovery.entries[0]))
+
+    assert fleet.live == 0
+    if cleanup_raises:
+        assert isinstance(raised.value.__cause__, RuntimeError)
 
 
 def test_static_metadata_parser_failure_has_stable_aggregate_code(

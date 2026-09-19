@@ -36,6 +36,8 @@ SOURCE_WHEEL_ATTESTATION_SCHEMA_VERSION = 6
 SOURCE_BUILD_ENVIRONMENT_SCHEMA_VERSION = 4
 SOURCE_WHEEL_RECOVERY_SCHEMA_VERSION = 4
 WHEEL_SEMANTIC_DIGEST_SCHEMA_VERSION = 2
+SETUP_PY_GRAMMAR_ID = "positive-static-legacy-metadata-confined-packages-no-resource-v6"
+SETUP_CFG_GRAMMAR_ID = "allowlisted-static-options-confined-paths-v2"
 WHEEL_SEMANTIC_DIGEST_KIND = "raw-wheel-zip-with-normalized-dos-timestamps"
 WHEEL_SEMANTIC_NORMALIZED_FIELDS = (
     "local_header_dos_time_date",

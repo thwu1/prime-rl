@@ -234,7 +234,9 @@ initializer. The exact legacy
 under the fixed `bdist_wheel` argv; every other process-launch or exit call is
 rejected. Setup aliases, reflected or additional setup references,
 branching/looping selection of the setup call, `**kwargs`, dynamic
-`setup_requires`, and `cmdclass`/`distclass` controls also fail closed. Literal
+`setup_requires`, and `cmdclass`/`distclass` controls also fail closed. Metadata
+helper parameter annotations and function type parameters are rejected because
+evaluating either can execute package-controlled expressions. Literal
 `setup_requires` from the direct call or deterministic
 `setup.cfg` `[options]` configuration, together with `build-system.requires`
 from a setuptools-backed `pyproject.toml`, is included in the exact transitive
@@ -277,6 +279,30 @@ accepted by the reviewed static grammar; do not carry the excluded executable
 resource/CFFI form into the proof. The launch approval must separately require
 exactly eight entries and pin the canonical JSON digest of the complete
 `missing_required_evidence` list. Use a new mode-0700 proof output directory.
+After independently reviewing the reducer at the same frozen source revision,
+create that subset without hand-selecting an entry:
+
+```bash
+umask 077
+/path/to/pinned/uv run \
+  --project /path/to/clean-reviewed-checkout/user/tianhaowu/terminal_bench_vmvm \
+  --frozen python \
+  /path/to/clean-reviewed-checkout/user/tianhaowu/terminal_bench_vmvm/reduce_source_wheel_probe_input.py \
+  --input /path/to/private/nine-entry-probe.json \
+  --input-sha256 <independently-reviewed-nine-entry-sha256> \
+  --output-dir /path/to/new-private-eight-entry-reduction
+```
+
+The reducer strict-loads the digest-pinned canonical input, fetches each
+distinct source once from its already pinned credential-free HTTPS host,
+checks exact size and SHA-256, and applies the production static grammar. It
+publishes only if exactly eight entries pass and exactly one fails, preserving
+the retained entry objects, order, and all non-entry envelope fields. Its new
+directory is mode 0700; `probe_inputs.private.json` and
+`reduction_receipt.json` are mode 0600. Stdout and the receipt contain only
+aggregate counts, grammar identifiers, hashes, and stable failure codes. Review
+and hash both files independently before using the reduced input; never expose
+task names, package names, URLs, parser errors, or artifact bodies.
 
 Initialize `deps/verifiers`, `deps/renderers`, and `deps/pydantic-config` at
 their recorded gitlinks in that checkout; the launcher rejects absent, moved,

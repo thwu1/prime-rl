@@ -23,6 +23,8 @@ from terminal_bench_vmvm.source_wheels import (
     MAX_WHEEL_BYTES,
     MAX_WHEEL_FILES,
     MAX_WHEELHOUSE_BYTES,
+    SETUP_CFG_GRAMMAR_ID,
+    SETUP_PY_GRAMMAR_ID,
     SOURCE_BUILD_ENVIRONMENT_SCHEMA_VERSION,
     SOURCE_BUILD_HOME_DIR,
     SOURCE_BUILD_TMP_DIR,
@@ -68,7 +70,7 @@ from terminal_bench_vmvm.taskset import _SOURCE_WHEEL_CLOSURE_CODE, _SOURCE_WHEE
 DISCOVERY_INPUT_SCHEMA_VERSION = 1
 PROOF_SCHEMA_VERSION = 7
 STATE_SCHEMA_VERSION = 6
-RUN_IDENTITY_SCHEMA_VERSION = 8
+RUN_IDENTITY_SCHEMA_VERSION = 9
 CANDIDATE_SCHEMA_VERSION = 5
 ATTEMPT_JOURNAL_SCHEMA_VERSION = 2
 POST_RUN_VALIDATION_SCHEMA_VERSION = 4
@@ -736,14 +738,14 @@ def _parse_discovery_source(raw: object, allowed_hosts: set[str]) -> DiscoverySo
     )
 
 
-def load_private_discovery_input(config: SourceWheelProofConfig) -> tuple[DiscoveryManifest, bytes]:
-    config.validate()
-    path = config.input_path.resolve()
-    payload = _read_private(path, "discovery_input_not_private")
-    if len(payload) < 1 or len(payload) > MAX_DISCOVERY_INPUT_BYTES:
-        raise SourceWheelProofError("discovery_input_size_invalid")
-    if sha256_bytes(payload) != config.input_sha256:
-        raise SourceWheelProofError("discovery_input_sha256_mismatch")
+def parse_discovery_input_payload(
+    payload: bytes,
+    *,
+    path: Path,
+    input_sha256: str,
+    expected_entry_count: int,
+    expected_missing_evidence_sha256: str | None,
+) -> tuple[DiscoveryManifest, dict[str, object]]:
     try:
         raw = strict_json_loads(payload)
     except (UnicodeDecodeError, ValueError, RecursionError) as error:
@@ -784,9 +786,12 @@ def load_private_discovery_input(config: SourceWheelProofConfig) -> tuple[Discov
         or REVISION_RE.fullmatch(provenance["dataset_revision"]) is None
         or not _valid_sha256(provenance["image_manifest_sha256"])
         or not _valid_sha256(provenance["oracle_results_sha256"])
-        or sha256_bytes(canonical_json(missing)) != config.expected_missing_evidence_sha256
+        or (
+            expected_missing_evidence_sha256 is not None
+            and sha256_bytes(canonical_json(missing)) != expected_missing_evidence_sha256
+        )
         or not isinstance(value["entries"], list)
-        or len(value["entries"]) != config.expected_entry_count
+        or len(value["entries"]) != expected_entry_count
     ):
         raise SourceWheelProofError("discovery_input_invalid")
     allowed_hosts = set(hosts)
@@ -846,17 +851,33 @@ def load_private_discovery_input(config: SourceWheelProofConfig) -> tuple[Discov
                 source=_parse_discovery_source(entry["source"], allowed_hosts),
             )
         )
-    return (
-        DiscoveryManifest(
-            path=path,
-            sha256=config.input_sha256,
-            missing_required_evidence_sha256=config.expected_missing_evidence_sha256,
-            allowed_hosts=tuple(hosts),
-            provenance_sha256=sha256_bytes(canonical_json(provenance)),
-            entries=tuple(entries),
-        ),
-        payload,
+    manifest = DiscoveryManifest(
+        path=path,
+        sha256=input_sha256,
+        missing_required_evidence_sha256=sha256_bytes(canonical_json(missing)),
+        allowed_hosts=tuple(hosts),
+        provenance_sha256=sha256_bytes(canonical_json(provenance)),
+        entries=tuple(entries),
     )
+    return manifest, value
+
+
+def load_private_discovery_input(config: SourceWheelProofConfig) -> tuple[DiscoveryManifest, bytes]:
+    config.validate()
+    path = config.input_path.resolve()
+    payload = _read_private(path, "discovery_input_not_private")
+    if len(payload) < 1 or len(payload) > MAX_DISCOVERY_INPUT_BYTES:
+        raise SourceWheelProofError("discovery_input_size_invalid")
+    if sha256_bytes(payload) != config.input_sha256:
+        raise SourceWheelProofError("discovery_input_sha256_mismatch")
+    manifest, _ = parse_discovery_input_payload(
+        payload,
+        path=path,
+        input_sha256=config.input_sha256,
+        expected_entry_count=config.expected_entry_count,
+        expected_missing_evidence_sha256=config.expected_missing_evidence_sha256,
+    )
+    return manifest, payload
 
 
 def entry_key_sha256(input_sha256: str, entry: DiscoveryEntry) -> str:
@@ -1960,6 +1981,7 @@ class SourceWheelProofRunner:
         policy_entry: SourceWheelPolicyEntry,
         wheelhouse: bytes,
     ) -> dict[str, object]:
+        primary_error: BaseException | None = None
         try:
             if inspect_wheelhouse(wheelhouse) != validate_policy_wheel_closure(
                 policy_entry, _wheelhouse_payloads(wheelhouse)
@@ -2005,12 +2027,22 @@ class SourceWheelProofRunner:
                 "closure_sha256": sha256_bytes(canonical_json([list(item) for item in closure])),
                 "wheelhouse": {"size": len(wheelhouse), "sha256": sha256_bytes(wheelhouse)},
             }
+        except BaseException as error:
+            primary_error = error
+            raise
         finally:
-            cleaned = await runtime.run(
-                ["sh", "-c", f"rm -rf {TARGET_ARCHIVE} {TARGET_WHEEL_DIR} {TARGET_SITE_DIR}"],
-                {},
-            )
-            _require_success(cleaned, "target_cleanup_failed")
+            try:
+                cleaned = await runtime.run(
+                    ["sh", "-c", f"rm -rf {TARGET_ARCHIVE} {TARGET_WHEEL_DIR} {TARGET_SITE_DIR}"],
+                    {},
+                )
+                _require_success(cleaned, "target_cleanup_failed")
+            except BaseException as cleanup_error:
+                if primary_error is None:
+                    if isinstance(cleanup_error, (SourceWheelProofError, asyncio.CancelledError)):
+                        raise
+                    raise SourceWheelProofError("target_cleanup_failed") from cleanup_error
+                primary_error.add_note("target_cleanup_failed")
 
     async def _cleanup_builder(self, runtime: ProofRuntime) -> None:
         paths = (
@@ -2195,6 +2227,8 @@ class SourceWheelProofRunner:
                 result = {**core, "proof_sha256": sha256_bytes(canonical_json(core))}
             except BaseException as caught:
                 error = caught
+            cleanup_error: BaseException | None = None
+            cleanup_ok = False
             try:
                 cleanup_ok = await _stop_runtimes_uninterruptibly(
                     attempts,
@@ -2202,15 +2236,23 @@ class SourceWheelProofRunner:
                     self.journal,
                     key,
                 )
+            except BaseException as caught:
+                cleanup_error = caught
             finally:
                 async with self._entry_lock:
                     self._active_entries -= 1
-            if not cleanup_ok:
-                raise SourceWheelProofError("runtime_cleanup_failed")
             if error is not None:
+                if cleanup_error is not None or not cleanup_ok:
+                    error.add_note("runtime_cleanup_failed")
                 if isinstance(error, (SourceWheelProofError, asyncio.CancelledError)):
                     raise error
                 raise SourceWheelProofError("entry_proof_failed") from error
+            if cleanup_error is not None:
+                if isinstance(cleanup_error, asyncio.CancelledError):
+                    raise cleanup_error
+                raise SourceWheelProofError("runtime_cleanup_failed") from cleanup_error
+            if not cleanup_ok:
+                raise SourceWheelProofError("runtime_cleanup_failed")
             assert result is not None
             return key, result
 
@@ -2813,8 +2855,8 @@ class ProofStore:
                 "backend": "attested-venv-setuptools-preloaded-before-source-root",
                 "child_process_path": "venv-bin-only",
                 "source_import_precedence": "stdlib-attested-sites-source-root",
-                "setup_py_grammar": "positive-static-legacy-metadata-confined-packages-no-resource-v5",
-                "setup_cfg_grammar": "allowlisted-static-options-confined-paths-v2",
+                "setup_py_grammar": SETUP_PY_GRAMMAR_ID,
+                "setup_cfg_grammar": SETUP_CFG_GRAMMAR_ID,
                 "source_backend_shadowing": "rejected",
             },
             "source": {

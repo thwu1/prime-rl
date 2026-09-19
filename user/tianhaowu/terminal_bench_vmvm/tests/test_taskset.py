@@ -1195,6 +1195,67 @@ def test_separate_verifier_retries_successful_score_after_teardown_failure(
     ]
 
 
+def test_separate_verifier_retries_source_wheel_cleanup_sandbox_error(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    taskset = TerminalBenchVMVMTaskset(
+        TerminalBenchVMVMConfig(
+            id="terminal-bench-vmvm",
+            dataset_dir=tmp_path,
+            verifier_runtime_retries=1,
+        )
+    )
+    verifiers = [_VerifierRuntime(1), _VerifierRuntime(2)]
+    events: list[str] = []
+
+    def verifier_runtime(task: object, runtime: object, name: str) -> _VerifierRuntime:
+        verifier = verifiers.pop(0)
+        events.append(f"start-attempt-{verifier.attempt}")
+        return verifier
+
+    async def prefetch(task: object, verifier: _VerifierRuntime) -> None:
+        events.append(f"prefetch-attempt-{verifier.attempt}")
+        if verifier.attempt == 1:
+            raise SandboxError("disposable source-wheel workspace cleanup failed")
+
+    async def run_verifier(
+        task: object,
+        verifier: _VerifierRuntime,
+        *,
+        stage_tests: bool,
+    ) -> tuple[ProgramResult, bool, float, dict[str, float]]:
+        assert verifier.attempt == 2
+        assert stage_tests is True
+        return ProgramResult(exit_code=0, stdout="", stderr=""), False, 1.0, {"solved": 1.0}
+
+    async def cleanup(task: object, trace: object, verifier: _VerifierRuntime) -> None:
+        events.append(f"cleanup-attempt-{verifier.attempt}")
+
+    monkeypatch.setattr(taskset, "_verifier_runtime", verifier_runtime)
+    monkeypatch.setattr(taskset, "_prefetch_test_dependencies", prefetch)
+    monkeypatch.setattr(taskset, "_run_verifier", run_verifier)
+    monkeypatch.setattr(taskset, "cleanup", cleanup)
+    task = SimpleNamespace(
+        name="test",
+        verifier_tests_baked=False,
+        verifier_network_mode="no-network",
+    )
+
+    outcome = asyncio.run(taskset._score_separate(task, object(), {}, "trace"))
+
+    assert outcome[2:6] == (1.0, {"solved": 1.0}, "verifier-2", 2)
+    assert outcome[6] == ["disposable source-wheel workspace cleanup failed"]
+    assert events == [
+        "start-attempt-1",
+        "prefetch-attempt-1",
+        "cleanup-attempt-1",
+        "start-attempt-2",
+        "prefetch-attempt-2",
+        "cleanup-attempt-2",
+    ]
+
+
 def test_separate_verifier_teardown_failure_exhaustion_is_sandbox_error(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -3206,7 +3267,11 @@ def test_source_wheel_builder_preserves_primary_cleanup_failure(
     taskset = source_dependency_taskset(tmp_path, [entry])
     task = dependency_task(tmp_path)
     policy_entry = taskset._source_wheel_policy.entries[0]
-    builder = object()
+
+    class Builder:
+        pass
+
+    builder = Builder()
     root_commands: list[str] = []
 
     async def fail_prepare_and_cleanup(runtime: object, command: str) -> ProgramResult:
@@ -3263,6 +3328,213 @@ def test_source_wheel_target_validation_preserves_primary_cleanup_failure(
 
     assert len(root_commands) == 2
     assert "clean-target source-wheel validation cleanup raised RuntimeError: cleanup raised" in caplog.text
+
+
+@pytest.mark.parametrize("failure", [ValueError("build failed"), asyncio.CancelledError()])
+def test_source_wheel_builder_shutdown_preserves_primary_failure(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+    failure: BaseException,
+) -> None:
+    entry, _, _ = source_policy_entry()
+    taskset = source_dependency_taskset(tmp_path, [entry])
+    task = dependency_task(tmp_path)
+    runtime = DependencyRuntime()
+
+    class Builder:
+        pass
+
+    builder = Builder()
+
+    async def fail_start(candidate: object) -> None:
+        assert candidate is builder
+        raise failure
+
+    async def fail_stop(candidate: object) -> None:
+        assert candidate is builder
+        raise RuntimeError("shutdown raised")
+
+    monkeypatch.setattr(taskset, "_new_source_builder", lambda *args: builder)
+    monkeypatch.setattr(taskset, "_start_builder_uninterruptibly", fail_start)
+    monkeypatch.setattr(taskset, "_stop_builder_uninterruptibly", fail_stop)
+    with pytest.raises(type(failure)) as raised:
+        asyncio.run(
+            taskset._build_source_dependency_wheelhouse(
+                task,
+                runtime,
+                ("verifier-helper==1.0",),
+                synthetic_fingerprints(entry["image"]),
+            )
+        )
+
+    assert raised.value is failure
+    assert "disposable source-wheel builder shutdown raised RuntimeError: shutdown raised" in caplog.text
+
+
+def test_successful_source_wheel_builder_shutdown_failure_is_sandbox_error(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    entry, _, _ = source_policy_entry()
+    taskset = source_dependency_taskset(tmp_path, [entry])
+    task = dependency_task(tmp_path)
+    runtime = DependencyRuntime()
+    fingerprints = synthetic_fingerprints(entry["image"])
+
+    class Builder:
+        pass
+
+    builder = Builder()
+
+    async def start(candidate: object) -> None:
+        assert candidate is builder
+
+    async def build(*args: object) -> tuple[dict[str, bytes], tuple[tuple[str, str], ...], tuple[dict, ...]]:
+        return {}, (), ()
+
+    async def stop(candidate: object) -> None:
+        assert candidate is builder
+        raise RuntimeError("shutdown raised")
+
+    async def fingerprint(*args: object) -> RuntimeWheelFingerprints:
+        return fingerprints
+
+    monkeypatch.setattr(taskset, "_new_source_builder", lambda *args: builder)
+    monkeypatch.setattr(taskset, "_start_builder_uninterruptibly", start)
+    monkeypatch.setattr(taskset, "_runtime_wheel_fingerprint", fingerprint)
+    monkeypatch.setattr(taskset, "_build_policy_wheels_in_builder", build)
+    monkeypatch.setattr(taskset, "_stop_builder_uninterruptibly", stop)
+    with pytest.raises(SandboxError, match="disposable source-wheel builder shutdown failed") as raised:
+        asyncio.run(
+            taskset._build_source_dependency_wheelhouse(
+                task,
+                runtime,
+                ("verifier-helper==1.0",),
+                fingerprints,
+            )
+        )
+
+    assert isinstance(raised.value.__cause__, RuntimeError)
+
+
+def test_source_wheel_builder_start_prefers_cancellation_to_start_error() -> None:
+    start_entered = asyncio.Event()
+    release_start = asyncio.Event()
+
+    class Builder:
+        async def start(self) -> None:
+            start_entered.set()
+            await release_start.wait()
+            raise RuntimeError("start raised")
+
+    async def exercise() -> BaseException:
+        operation = asyncio.create_task(TerminalBenchVMVMTaskset._start_builder_uninterruptibly(Builder()))
+        await start_entered.wait()
+        operation.cancel()
+        await asyncio.sleep(0)
+        release_start.set()
+        with pytest.raises(asyncio.CancelledError) as raised:
+            await operation
+        return raised.value
+
+    error = asyncio.run(exercise())
+
+    assert getattr(error, "__notes__", []) == ["source_builder_start_failed"]
+
+
+def test_source_wheel_builder_shutdown_prefers_cancellation_to_stop_error() -> None:
+    stop_started = asyncio.Event()
+    release_stop = asyncio.Event()
+
+    class Builder:
+        async def stop(self) -> None:
+            stop_started.set()
+            await release_stop.wait()
+            raise RuntimeError("shutdown raised")
+
+    async def exercise() -> BaseException:
+        operation = asyncio.create_task(TerminalBenchVMVMTaskset._stop_builder_uninterruptibly(Builder()))
+        await stop_started.wait()
+        operation.cancel()
+        await asyncio.sleep(0)
+        release_stop.set()
+        with pytest.raises(asyncio.CancelledError) as raised:
+            await operation
+        return raised.value
+
+    error = asyncio.run(exercise())
+
+    assert getattr(error, "__notes__", []) == ["source_builder_stop_failed"]
+
+
+@pytest.mark.parametrize("cleanup_raises", [False, True])
+def test_successful_source_wheel_workspace_cleanup_failure_is_sandbox_error(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    cleanup_raises: bool,
+) -> None:
+    entry, source_payload, built_wheel = source_policy_entry()
+    taskset = source_dependency_taskset(tmp_path, [entry])
+    task = dependency_task(tmp_path)
+    builder = SourceBuilderRuntime(source_payload, built_wheel)
+    policy_entry = taskset._source_wheel_policy.entries[0]
+    run_root = taskset._run_root
+
+    async def fail_cleanup(runtime: object, command: str) -> ProgramResult:
+        if command.startswith("rm -rf /tmp/terminal-bench-source-inputs") and " && " not in command:
+            if cleanup_raises:
+                raise RuntimeError("cleanup raised")
+            return ProgramResult(exit_code=1, stdout="", stderr="cleanup failed")
+        return await run_root(runtime, command)
+
+    monkeypatch.setattr(taskset, "_run_root", fail_cleanup)
+    with pytest.raises(SandboxError, match="disposable source-wheel workspace cleanup failed") as raised:
+        asyncio.run(
+            taskset._build_policy_wheels_in_builder(
+                task,
+                builder,
+                policy_entry,
+                synthetic_fingerprints(entry["image"]),
+            )
+        )
+
+    assert isinstance(raised.value.__cause__, RuntimeError)
+
+
+@pytest.mark.parametrize("cleanup_raises", [False, True])
+def test_successful_source_wheel_target_cleanup_failure_is_sandbox_error(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    cleanup_raises: bool,
+) -> None:
+    entry, _, built_wheel = source_policy_entry()
+    taskset = source_dependency_taskset(tmp_path, [entry])
+    task = dependency_task(tmp_path)
+    runtime = DependencyRuntime()
+    policy_entry = taskset._source_wheel_policy.entries[0]
+    run_root = taskset._run_root
+
+    async def fail_cleanup(runtime: object, command: str) -> ProgramResult:
+        if command.startswith("rm -rf /tmp/terminal-bench-source-wheel-validation-") and " && " not in command:
+            if cleanup_raises:
+                raise RuntimeError("cleanup raised")
+            return ProgramResult(exit_code=1, stdout="", stderr="cleanup failed")
+        return await run_root(runtime, command)
+
+    monkeypatch.setattr(taskset, "_run_root", fail_cleanup)
+    wheel_name = policy_entry.sources[0].wheel_filename
+    with pytest.raises(SandboxError, match="clean-target source-wheel validation cleanup failed") as raised:
+        asyncio.run(
+            taskset._validate_policy_wheels_on_target(
+                task,
+                runtime,
+                policy_entry,
+                pack_wheelhouse({wheel_name: built_wheel}),
+            )
+        )
+
+    assert isinstance(raised.value.__cause__, RuntimeError)
 
 
 @pytest.mark.parametrize("failure", [RuntimeError("prepare failed"), asyncio.CancelledError()])

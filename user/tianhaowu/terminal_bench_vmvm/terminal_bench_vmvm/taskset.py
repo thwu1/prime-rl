@@ -2485,27 +2485,51 @@ for requirement in sys.argv[1:]:
     async def _start_builder_uninterruptibly(builder: Runtime) -> None:
         start_task = asyncio.create_task(builder.start())
         cancellation: asyncio.CancelledError | None = None
+        start_error: BaseException | None = None
         while not start_task.done():
             try:
                 await asyncio.shield(start_task)
             except asyncio.CancelledError as error:
                 cancellation = error
-        start_task.result()
+            except BaseException as error:
+                start_error = error
+                break
+        if start_error is None:
+            try:
+                start_task.result()
+            except BaseException as error:
+                start_error = error
         if cancellation is not None:
+            if start_error is not None:
+                cancellation.add_note("source_builder_start_failed")
             raise cancellation
+        if start_error is not None:
+            raise start_error
 
     @staticmethod
     async def _stop_builder_uninterruptibly(builder: Runtime) -> None:
         stop_task = asyncio.create_task(builder.stop())
         cancellation: asyncio.CancelledError | None = None
+        stop_error: BaseException | None = None
         while not stop_task.done():
             try:
                 await asyncio.shield(stop_task)
             except asyncio.CancelledError as error:
                 cancellation = error
-        stop_task.result()
+            except BaseException as error:
+                stop_error = error
+                break
+        if stop_error is None:
+            try:
+                stop_task.result()
+            except BaseException as error:
+                stop_error = error
         if cancellation is not None:
+            if stop_error is not None:
+                cancellation.add_note("source_builder_stop_failed")
             raise cancellation
+        if stop_error is not None:
+            raise stop_error
 
     @staticmethod
     def _source_consumption_evidence(
@@ -2823,7 +2847,11 @@ for requirement in sys.argv[1:]:
                 )
             except BaseException as cleanup_error:
                 if primary_error is None:
-                    raise
+                    if isinstance(cleanup_error, asyncio.CancelledError):
+                        raise
+                    raise SandboxError(
+                        f"{task.name}: disposable source-wheel workspace cleanup failed"
+                    ) from cleanup_error
                 logger.warning(
                     "%s disposable source-wheel workspace cleanup raised %s: %s",
                     task.name,
@@ -2833,7 +2861,10 @@ for requirement in sys.argv[1:]:
             else:
                 if cleaned.exit_code != 0:
                     if primary_error is None:
-                        raise RuntimeError(f"{task.name}: disposable source-wheel workspace cleanup failed")
+                        detail = (cleaned.stdout + cleaned.stderr)[-2000:]
+                        raise SandboxError(
+                            f"{task.name}: disposable source-wheel workspace cleanup failed"
+                        ) from RuntimeError(detail)
                     logger.warning(
                         "%s disposable source-wheel workspace cleanup failed: %s",
                         task.name,
@@ -2914,7 +2945,11 @@ for requirement in sys.argv[1:]:
                 )
             except BaseException as cleanup_error:
                 if primary_error is None:
-                    raise
+                    if isinstance(cleanup_error, asyncio.CancelledError):
+                        raise
+                    raise SandboxError(
+                        f"{task.name}: clean-target source-wheel validation cleanup failed"
+                    ) from cleanup_error
                 logger.warning(
                     "%s clean-target source-wheel validation cleanup raised %s: %s",
                     task.name,
@@ -2924,7 +2959,10 @@ for requirement in sys.argv[1:]:
             else:
                 if cleaned.exit_code != 0:
                     if primary_error is None:
-                        raise RuntimeError(f"{task.name}: clean-target source-wheel validation cleanup failed")
+                        detail = (cleaned.stdout + cleaned.stderr)[-2000:]
+                        raise SandboxError(
+                            f"{task.name}: clean-target source-wheel validation cleanup failed"
+                        ) from RuntimeError(detail)
                     logger.warning(
                         "%s clean-target source-wheel validation cleanup failed: %s",
                         task.name,
@@ -2948,6 +2986,7 @@ for requirement in sys.argv[1:]:
         resolution_closure: tuple[tuple[str, str], ...] | None = None
         source_build_environments: tuple[dict[str, object], ...] | None = None
         async with self._source_builder_semaphore:
+            primary_error: BaseException | None = None
             try:
                 await self._start_builder_uninterruptibly(builder)
                 builder_fingerprints = await self._runtime_wheel_fingerprint(task, builder)
@@ -2961,9 +3000,26 @@ for requirement in sys.argv[1:]:
                     policy_entry,
                     fingerprints,
                 )
+            except BaseException as error:
+                primary_error = error
+                raise
             finally:
                 self._runtime_wheel_fingerprints.pop(builder, None)
-                await self._stop_builder_uninterruptibly(builder)
+                try:
+                    await self._stop_builder_uninterruptibly(builder)
+                except BaseException as cleanup_error:
+                    if primary_error is None:
+                        if isinstance(cleanup_error, asyncio.CancelledError):
+                            raise
+                        raise SandboxError(
+                            f"{task.name}: disposable source-wheel builder shutdown failed"
+                        ) from cleanup_error
+                    logger.warning(
+                        "%s disposable source-wheel builder shutdown raised %s: %s",
+                        task.name,
+                        type(cleanup_error).__name__,
+                        cleanup_error,
+                    )
         if wheels is None or resolution_closure is None or source_build_environments is None:
             raise RuntimeError(f"{task.name}: source-wheel builder produced no closure")
         wheel_evidence = validate_policy_wheel_closure(policy_entry, wheels)
