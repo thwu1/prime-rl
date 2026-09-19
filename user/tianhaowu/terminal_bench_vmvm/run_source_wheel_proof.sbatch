@@ -65,6 +65,7 @@ site_packages_manifest_sha256=${SOURCE_WHEEL_PROOF_SITE_PACKAGES_MANIFEST_SHA256
 vmvm_tb_v2_sha256=${SOURCE_WHEEL_PROOF_VMVM_TB_V2_SHA256:-}
 vacli_binary_sha256=${SOURCE_WHEEL_PROOF_VACLI_BINARY_SHA256:-}
 max_concurrent_entries=${SOURCE_WHEEL_PROOF_MAX_CONCURRENT_ENTRIES:-2}
+candidate_diagnostics_only=${SOURCE_WHEEL_PROOF_CANDIDATE_DIAGNOSTICS_ONLY:-0}
 python_bin_input=${PYTHON_BIN_X86_64:-/usr/bin/python3}
 python_stdlib_input=${PYTHON_STDLIB_X86_64:-}
 x86_uv=${UV_BIN_X86_64:-/storage/home/tianhaowu/.local/x86_64/bin/uv}
@@ -130,6 +131,14 @@ if [[ -n "$resume_state_sha256" && ! "$resume_state_sha256" =~ ^[0-9a-f]{64}$ ]]
 fi
 if [[ ! "$max_concurrent_entries" =~ ^[1-3]$ ]]; then
     printf 'SOURCE_WHEEL_PROOF_MAX_CONCURRENT_ENTRIES must be between 1 and 3\n' >&2
+    exit 2
+fi
+if [[ "$candidate_diagnostics_only" != 0 && "$candidate_diagnostics_only" != 1 ]]; then
+    printf 'SOURCE_WHEEL_PROOF_CANDIDATE_DIAGNOSTICS_ONLY must be 0 or 1\n' >&2
+    exit 2
+fi
+if [[ "$candidate_diagnostics_only" == 1 && -n "$resume_state_sha256" ]]; then
+    printf 'Candidate diagnostics cannot resume a proof state\n' >&2
     exit 2
 fi
 if [[ "$vacli_lease_retries" != 1 \
@@ -272,6 +281,9 @@ args=(
 )
 if [[ -n "$resume_state_sha256" ]]; then
     args+=(--resume-state-sha256 "$resume_state_sha256")
+fi
+if [[ "$candidate_diagnostics_only" == 1 ]]; then
+    args+=(--candidate-diagnostics-only)
 fi
 
 bootstrap_args=(

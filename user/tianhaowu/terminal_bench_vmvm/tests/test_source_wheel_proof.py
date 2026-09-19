@@ -6,6 +6,7 @@ import io
 import json
 import os
 import stat
+import struct
 import subprocess
 import sys
 import sysconfig
@@ -15,6 +16,7 @@ from pathlib import Path
 from types import SimpleNamespace
 from zipfile import ZipFile, ZipInfo
 
+import prove_source_wheel_policy as proof_cli
 import pytest
 import source_wheel_proof_bootstrap as proof_bootstrap
 import terminal_bench_vmvm.source_wheel_proof as source_wheel_proof
@@ -52,8 +54,12 @@ from terminal_bench_vmvm.source_wheels import (
     WHEEL_SEMANTIC_DIGEST_SCHEMA_VERSION,
     WHEEL_SEMANTIC_NORMALIZED_FIELDS,
     BinaryWheelPolicy,
+    SourceArtifactPolicy,
+    SourceWheelContractError,
     build_dependency_artifact_records,
     canonical_json,
+    extract_static_build_requirements,
+    inspect_source_distribution,
     inspect_wheel,
     pack_wheelhouse,
     sha256_bytes,
@@ -61,6 +67,7 @@ from terminal_bench_vmvm.source_wheels import (
     source_build_env_attest_argv,
     source_build_env_create_argv,
     source_build_environment_record,
+    validate_source_build_environment,
     wheel_semantic_sha256,
 )
 from terminal_bench_vmvm.taskset import _SOURCE_WHEEL_CLOSURE_CODE, _SOURCE_WHEEL_DOWNLOAD_CODE
@@ -160,6 +167,90 @@ def _source_file(
             member.size = len(payload)
             archive.addfile(member, io.BytesIO(payload))
     return output.getvalue()
+
+
+def _source_file_with_configuration(
+    distribution: str,
+    setup_py: bytes,
+    *,
+    setup_cfg: bytes | None = None,
+    pyproject: bytes | None = None,
+) -> bytes:
+    source_distribution = distribution.replace("-", "_")
+    members = [
+        (
+            f"{source_distribution}-1.0/PKG-INFO",
+            f"Metadata-Version: 2.1\nName: {distribution}\nVersion: 1.0\n".encode(),
+        ),
+        (f"{source_distribution}-1.0/setup.py", setup_py),
+    ]
+    if setup_cfg is not None:
+        members.append((f"{source_distribution}-1.0/setup.cfg", setup_cfg))
+    if pyproject is not None:
+        members.append((f"{source_distribution}-1.0/pyproject.toml", pyproject))
+    output = io.BytesIO()
+    with tarfile.open(fileobj=output, mode="w:gz") as archive:
+        for name, payload in members:
+            member = tarfile.TarInfo(name)
+            member.size = len(payload)
+            archive.addfile(member, io.BytesIO(payload))
+    return output.getvalue()
+
+
+def _source_zip_with_corrupt_setup_member(
+    distribution: str,
+    *,
+    unsupported_compression: bool = False,
+) -> bytes:
+    source_distribution = distribution.replace("-", "_")
+    root = f"{source_distribution}-1.0"
+    output = io.BytesIO()
+    with ZipFile(output, mode="w") as archive:
+        archive.writestr(
+            f"{root}/PKG-INFO",
+            f"Metadata-Version: 2.1\nName: {distribution}\nVersion: 1.0\n",
+            compress_type=8,
+        )
+        archive.writestr(
+            f"{root}/setup.py",
+            b"from setuptools import setup\nsetup(name='broken')\n# " + b"padding" * 256,
+            compress_type=8,
+        )
+    payload = bytearray(output.getvalue())
+    with ZipFile(io.BytesIO(payload)) as archive:
+        member = archive.getinfo(f"{root}/setup.py")
+        name_size, extra_size = struct.unpack_from("<HH", payload, member.header_offset + 26)
+        data_start = member.header_offset + 30 + name_size + extra_size
+        if unsupported_compression:
+            central_name = payload.find(f"{root}/setup.py".encode(), archive.start_dir)
+            assert central_name >= archive.start_dir + 46
+            struct.pack_into("<H", payload, member.header_offset + 8, 99)
+            struct.pack_into("<H", payload, central_name - 46 + 10, 99)
+        else:
+            payload[data_start + member.compress_size // 2] ^= 0xFF
+    return bytes(payload)
+
+
+def _source_zip_with_negative_member_offset(distribution: str) -> bytes:
+    source_distribution = distribution.replace("-", "_")
+    root = f"{source_distribution}-1.0"
+    output = io.BytesIO()
+    with ZipFile(output, mode="w") as archive:
+        archive.writestr(
+            f"{root}/PKG-INFO",
+            f"Metadata-Version: 2.1\nName: {distribution}\nVersion: 1.0\n",
+        )
+        archive.writestr(
+            f"{root}/setup.py",
+            b"from setuptools import setup\nsetup(name='offset-test', version='1.0')\n",
+        )
+    payload = bytearray(output.getvalue())
+    with ZipFile(io.BytesIO(payload)) as archive:
+        member = archive.getinfo(f"{root}/setup.py")
+        name_size, extra_size = struct.unpack_from("<HH", payload, member.header_offset + 26)
+        data_start = member.header_offset + 30 + name_size + extra_size
+    del payload[data_start]
+    return bytes(payload)
 
 
 @dataclass(frozen=True)
@@ -300,6 +391,31 @@ def _write_discovery(
     path.write_bytes(payload)
     path.chmod(0o600)
     return path, artifacts
+
+
+def _replace_discovery_sources(
+    discovery: Path,
+    artifacts: dict[str, FakeArtifacts],
+    replacements: dict[str, bytes],
+    filenames: dict[str, str] | None = None,
+) -> None:
+    value = json.loads(discovery.read_bytes())
+    for entry in value["entries"]:
+        image = entry["image"]
+        if image not in replacements:
+            continue
+        payload = replacements[image]
+        entry["source"]["size"] = len(payload)
+        entry["source"]["sha256"] = sha256_bytes(payload)
+        filename = filenames.get(image, artifacts[image].source_filename) if filenames is not None else None
+        if filename is not None:
+            entry["source"]["filename"] = filename
+        artifacts[image] = replace(
+            artifacts[image],
+            source=payload,
+            source_filename=filename or artifacts[image].source_filename,
+        )
+    discovery.write_bytes(canonical_json(value) + b"\n")
 
 
 def _config(discovery: Path, output: Path, **changes: object) -> SourceWheelProofConfig:
@@ -443,6 +559,39 @@ def _build_environment_record(
     )
 
 
+@pytest.mark.parametrize(
+    "mutation",
+    ("nul_resolved_path", "surrogate_target", "control_target", "format_target", "unhashable_site_path"),
+)
+def test_source_build_attestation_rejects_path_encoding_without_builtin_escape(mutation: str) -> None:
+    _, artifacts = _discovery_payload(9)
+    build_dependencies = _build_dependency_policies(next(iter(artifacts.values())))
+    attestation = json.loads(_build_environment_attestation(build_dependencies))
+    if mutation == "unhashable_site_path":
+        attestation["site_packages"] = [[]]
+    else:
+        attestation["bin_entries"][0] = {
+            "name": "python",
+            "kind": "python-symlink",
+            "mode": 0o777,
+            "target": {
+                "surrogate_target": "\ud800",
+                "control_target": "python\u0085",
+                "format_target": "python\u202e",
+            }.get(mutation, "python3"),
+            "resolved_path": "/usr/bin/python3\0hidden" if mutation == "nul_resolved_path" else "/usr/bin/python3",
+            "sha256": "4" * 64,
+        }
+
+    with pytest.raises(RuntimeError, match="^source build environment attestation is invalid$"):
+        validate_source_build_environment(
+            json.dumps(attestation),
+            build_env_dir=BUILD_ENV_DIR,
+            expected_build_tools=tuple(sorted(BUILD_TOOLS.items())),
+            build_dependencies=build_dependencies,
+        )
+
+
 class FakeFleet:
     def __init__(
         self,
@@ -452,12 +601,16 @@ class FakeFleet:
         block_starts: bool = False,
         duplicate_descriptors: bool = False,
         alternate_builder_wheels: dict[str, bytes] | None = None,
+        fail_stops: bool = False,
+        corrupt_source_reads: bool = False,
     ) -> None:
         self.artifacts = artifacts
         self.block_builds = block_builds
         self.block_starts = block_starts
         self.duplicate_descriptors = duplicate_descriptors
         self.alternate_builder_wheels = alternate_builder_wheels or {}
+        self.fail_stops = fail_stops
+        self.corrupt_source_reads = corrupt_source_reads
         self.release_builds = asyncio.Event()
         self.release_starts = asyncio.Event()
         self.two_builds_entered = asyncio.Event()
@@ -515,6 +668,8 @@ class FakeRuntime:
 
     async def stop(self) -> None:
         if self.started and not self.stopped:
+            if self.fleet.fail_stops:
+                raise RuntimeError("synthetic private stop detail")
             self.stopped = True
             self.fleet.live -= 1
         await asyncio.sleep(0)
@@ -669,6 +824,8 @@ class FakeRuntime:
         raise AssertionError("unexpected fake-runtime command")
 
     async def read(self, path: str) -> bytes:
+        if self.fleet.corrupt_source_reads and path == f"{INPUT_DIR}/{self.artifact.source_filename}":
+            return b"synthetic-corrupt-source"
         return self.files[path]
 
     async def write(self, path: str, data: bytes) -> None:
@@ -795,6 +952,215 @@ def test_nine_entry_discovery_emits_policy_with_exactly_twenty_seven_starts(
     )
     assert asyncio.run(run_source_wheel_proof(resumed, runtime_factory=resumed_fleet.factory)) == result
     assert resumed_fleet.start_count == 0
+
+
+def test_candidate_diagnostics_aggregate_only_candidate_local_failures(tmp_path: Path) -> None:
+    discovery, artifacts = _write_discovery(tmp_path, 9)
+    images = list(artifacts)
+    replacements = {
+        images[0]: _source_file_with_configuration(
+            artifacts[images[0]].source_distribution,
+            b"import setuptools\nsetuptools.setup(name='static-module-form', version='1.0')\n",
+        ),
+        images[1]: _source_file_with_configuration(
+            artifacts[images[1]].source_distribution,
+            b"from setuptools import setup\nNAME = 'dynamic'\nsetup(name=NAME, version='1.0')\n",
+        ),
+        images[2]: _source_file_with_configuration(
+            artifacts[images[2]].source_distribution,
+            b"from setuptools import setup\nsetup(name='static-project-table', version='1.0')\n",
+            pyproject=(
+                b"[build-system]\nrequires = ['setuptools']\nbuild-backend = 'setuptools.build_meta'\n"
+                b"[project]\nname = 'static-project-table'\nversion = '1.0'\n"
+            ),
+        ),
+    }
+    _replace_discovery_sources(discovery, artifacts, replacements)
+    artifacts[images[3]] = replace(artifacts[images[3]], source_wheel=b"not-a-wheel")
+    output = tmp_path / "diagnostics"
+    config = _config(discovery, output, candidate_diagnostics_only=True)
+    fleet = FakeFleet(artifacts)
+
+    result = asyncio.run(run_source_wheel_proof(config, runtime_factory=fleet.factory))
+
+    assert result == {
+        "diagnostic_only": True,
+        "entries_checked": 9,
+        "candidate_failures": 4,
+        "successful_entries": 5,
+        "failure_counts": {
+            "source_pyproject_unsupported_static_form": 1,
+            "source_setup_py_dynamic_or_ambiguous": 1,
+            "source_setup_py_unsupported_static_form": 1,
+            "wheel_zip_structure_invalid": 1,
+        },
+        "runtime_starts": 27,
+        "peak_live_runtimes": 6,
+        "peak_concurrent_entries": 2,
+    }
+    assert fleet.start_count == 27
+    state = json.loads((output / "candidate_diagnostics_state.json").read_bytes())
+    assert state["status"] == "complete"
+    assert len(state["outcomes"]) == 9
+    assert state["failure_counts"] == result["failure_counts"]
+    assert state["attempt_journal"] == {
+        "record_count": 81,
+        "head_sha256": state["attempt_journal"]["head_sha256"],
+        "start_intents": 27,
+        "successful_starts": 27,
+    }
+    assert state["telemetry"]["attested_runtime_starts"] == 27
+    assert not (output / "proof_state.json").exists()
+    assert not (output / "post_run_validation.json").exists()
+    assert not (output / "finalization.json").exists()
+    assert not (output / "source_wheel_proof.json").exists()
+    assert not (output / "source_wheel_policy.json").exists()
+    assert json.loads((output / "source_wheel_candidate.json").read_bytes())["diagnostic_only"] is True
+
+    public_summary = proof_cli.diagnostic_public_summary(result)
+    assert set(public_summary) == {"status", "counts", "failure_counts"}
+    serialized_summary = json.dumps(public_summary, sort_keys=True)
+    assert "private-task" not in serialized_summary
+    assert "entry_key_sha256" not in serialized_summary
+    assert "lease_identity" not in serialized_summary
+    assert "static-module-form" not in serialized_summary
+
+    with pytest.raises(SourceWheelProofError, match="^candidate_diagnostics_output_not_fresh$"):
+        asyncio.run(run_source_wheel_proof(config, runtime_factory=FakeFleet(artifacts).factory))
+    with pytest.raises(SourceWheelProofError, match="^output_directory_contains_unknown_artifact$"):
+        asyncio.run(
+            run_source_wheel_proof(
+                _config(discovery, output),
+                runtime_factory=FakeFleet(artifacts).factory,
+            )
+        )
+    with pytest.raises(SourceWheelProofError, match="^candidate_diagnostics_resume_forbidden$"):
+        asyncio.run(
+            run_source_wheel_proof(
+                replace(config, output_dir=tmp_path / "resume-forbidden", resume_state_sha256="a" * 64),
+                runtime_factory=FakeFleet(artifacts).factory,
+            )
+        )
+
+
+@pytest.mark.parametrize(
+    ("failure_kind", "expected_code"),
+    (
+        ("public_dependency", "build_dependency_wheel_invalid"),
+        ("source_integrity", "source_integrity_failed"),
+        ("corrupt_source_archive", "source_distribution_invalid"),
+        ("unsupported_source_zip", "source_distribution_invalid"),
+        ("malformed_source_zip_offset", "source_distribution_invalid"),
+        ("unknown_declaration", "source_build_declaration_validation_failed"),
+        ("cleanup", "runtime_cleanup_failed"),
+    ),
+)
+def test_candidate_diagnostics_abort_non_candidate_failures(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    failure_kind: str,
+    expected_code: str,
+) -> None:
+    discovery, artifacts = _write_discovery(tmp_path, 9)
+    first_image = next(iter(artifacts))
+    fleet_options: dict[str, bool] = {}
+    if failure_kind == "public_dependency":
+        dependencies = list(artifacts[first_image].build_dependencies)
+        distribution, version, filename, url, _ = dependencies[0]
+        dependencies[0] = (distribution, version, filename, url, b"not-a-wheel")
+        artifacts[first_image] = replace(artifacts[first_image], build_dependencies=tuple(dependencies))
+    elif failure_kind == "source_integrity":
+        fleet_options["corrupt_source_reads"] = True
+    elif failure_kind in {
+        "corrupt_source_archive",
+        "unsupported_source_zip",
+        "malformed_source_zip_offset",
+    }:
+        corrupt_source = (
+            _source_zip_with_negative_member_offset(artifacts[first_image].source_distribution)
+            if failure_kind == "malformed_source_zip_offset"
+            else _source_zip_with_corrupt_setup_member(
+                artifacts[first_image].source_distribution,
+                unsupported_compression=failure_kind == "unsupported_source_zip",
+            )
+        )
+        zip_filename = artifacts[first_image].source_filename.removesuffix(".tar.gz") + ".zip"
+        source_policy = SourceArtifactPolicy(
+            distribution=artifacts[first_image].source_distribution,
+            version="1.0",
+            filename=zip_filename,
+            url=f"https://files.example.invalid/{zip_filename}",
+            size=len(corrupt_source),
+            sha256=sha256_bytes(corrupt_source),
+            wheel_filename=artifacts[first_image].source_wheel_filename,
+            wheel_size=1,
+            wheel_sha256="0" * 64,
+        )
+        if failure_kind == "malformed_source_zip_offset":
+            with pytest.raises(RuntimeError, match="not a valid ZIP archive"):
+                inspect_source_distribution(source_policy, corrupt_source)
+        else:
+            inspect_source_distribution(source_policy, corrupt_source)
+            with pytest.raises(SourceWheelContractError) as archive_error:
+                extract_static_build_requirements(source_policy, corrupt_source)
+            assert archive_error.value.code == "source_distribution_invalid"
+        _replace_discovery_sources(
+            discovery,
+            artifacts,
+            {first_image: corrupt_source},
+            {first_image: zip_filename},
+        )
+    elif failure_kind == "unknown_declaration":
+
+        def fail_declaration(*_: object) -> tuple[str, ...]:
+            raise RuntimeError("synthetic private parser detail")
+
+        monkeypatch.setattr(source_wheel_proof, "extract_static_build_requirements", fail_declaration)
+    elif failure_kind == "cleanup":
+        fleet_options["fail_stops"] = True
+    output = tmp_path / f"diagnostics-{failure_kind}"
+    fleet = FakeFleet(artifacts, **fleet_options)
+
+    with pytest.raises(SourceWheelProofError, match=f"^{expected_code}$"):
+        asyncio.run(
+            run_source_wheel_proof(
+                _config(discovery, output, candidate_diagnostics_only=True),
+                runtime_factory=fleet.factory,
+            )
+        )
+
+    state = json.loads((output / "candidate_diagnostics_state.json").read_bytes())
+    assert state["status"] == "aborted"
+    assert state["attempt_journal"]["record_count"] == len(list((output / "attempt_journal").iterdir()))
+    assert not (output / "source_wheel_proof.json").exists()
+    assert not (output / "source_wheel_policy.json").exists()
+    public_failure = aggregate_failure(output, expected_code)
+    assert public_failure["error_code"] == expected_code
+    assert "synthetic private" not in json.dumps(public_failure, sort_keys=True)
+
+
+def test_aggregate_failure_does_not_escape_state_read_errors(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    output = tmp_path / "failure"
+    output.mkdir(mode=0o700)
+    state_path = output / "candidate_diagnostics_state.json"
+    state_path.write_text("{}\n")
+    state_path.chmod(0o600)
+    original_read_bytes = Path.read_bytes
+
+    def fail_state_read(path: Path) -> bytes:
+        if path == state_path:
+            raise OSError("synthetic private path detail")
+        return original_read_bytes(path)
+
+    monkeypatch.setattr(Path, "read_bytes", fail_state_read)
+
+    assert aggregate_failure(output, "runtime_cleanup_failed") == {
+        "status": "failed",
+        "error_code": "runtime_cleanup_failed",
+    }
 
 
 def test_semantically_equal_timestamp_variants_publish_and_resume(tmp_path: Path) -> None:
@@ -1534,6 +1900,7 @@ def test_readme_uses_exact_clean_tmux_wrap_launcher_form() -> None:
     workflow = Path(__file__).resolve().parents[1]
     readme = (workflow / "README.md").read_text()
     launcher = (workflow / "run_source_wheel_proof.sbatch").read_text()
+    runtime_skill = (Path(__file__).resolve().parents[4] / "skills/vmvm-runtime/SKILL.md").read_text()
 
     assert "tmux send-keys -t source-wheel-proof" in readme
     assert '"/usr/bin/env -i PATH=/usr/bin:/bin' in readme
@@ -1553,6 +1920,12 @@ def test_readme_uses_exact_clean_tmux_wrap_launcher_form() -> None:
     assert "complete raw ZIP" in readme
     assert "local and central DOS" in readme and "time/date fields zeroed" in readme
     assert "`setup.cfg`" in readme and "`pyproject.toml`" in readme
+    assert "SOURCE_WHEEL_PROOF_CANDIDATE_DIAGNOSTICS_ONLY=1" in readme
+    assert "never resumes" in readme
+    assert "Exit status zero means that this non-certifying diagnostic" in readme
+    assert "candidate_diagnostics_only" in launcher
+    assert "SOURCE_WHEEL_PROOF_CANDIDATE_DIAGNOSTICS_ONLY=1" in runtime_skill
+    assert "publish no proof or policy" in runtime_skill
 
 
 def test_bootstrap_requires_isolated_no_site_python_before_import_roots() -> None:

@@ -289,6 +289,23 @@ that validation receipt cannot resume into publication. Receipt-only,
 finalization-only, proof-only, and policy-only crash states are deterministic to
 recover.
 
+When a fresh proof rejects candidate source declarations or a source-produced
+wheel, an independently approved diagnostic rerun may set
+`SOURCE_WHEEL_PROOF_CANDIDATE_DIAGNOSTICS_ONLY=1` and must use another fresh
+private output directory. Diagnostic mode never resumes and never publishes a
+proof, finalization record, post-run receipt, or runnable policy. It continues
+only fail-closed, candidate-local `setup.py`, `setup.cfg`, `pyproject.toml`, and
+raw source-wheel ZIP rejections. Public dependency integrity, runtime,
+environment, cleanup, and unknown validation failures still abort immediately.
+A completed diagnostic verifies all nine outcomes against exactly 27 clean
+runtime starts and its private attempt journal, then prints only counts grouped
+by stable error code. Exit status zero means that this non-certifying diagnostic
+completed, even when rejection counts are nonzero; it does not mean the proof
+passed. Internal mode-0400/0600 artifacts retain only hashed entry/lease
+bindings for audit. Never paste identities, source content, or raw exception
+text into coordination. A second diagnostic requires a new output directory;
+`SOURCE_WHEEL_PROOF_STATE_SHA256` is forbidden in this mode.
+
 `run_identity.json` binds the source-build-environment and wheel-semantic-digest
 schema versions, the two normalized DOS timestamp fields, the all-other-bytes
 binding, and every forbidden ZIP feature. The candidate names semantic

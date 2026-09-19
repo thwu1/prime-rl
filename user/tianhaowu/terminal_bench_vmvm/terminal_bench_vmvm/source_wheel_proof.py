@@ -26,12 +26,14 @@ from terminal_bench_vmvm.source_wheels import (
     SOURCE_BUILD_ENVIRONMENT_SCHEMA_VERSION,
     SOURCE_BUILD_HOME_DIR,
     SOURCE_BUILD_TMP_DIR,
+    SOURCE_WHEEL_CANDIDATE_ERROR_CODES,
     SOURCE_WHEEL_POLICY_SCHEMA_VERSION,
     WHEEL_SEMANTIC_DIGEST_KIND,
     WHEEL_SEMANTIC_DIGEST_SCHEMA_VERSION,
     WHEEL_SEMANTIC_NORMALIZED_FIELDS,
     BinaryWheelPolicy,
     SourceArtifactPolicy,
+    SourceWheelContractError,
     SourceWheelPolicy,
     SourceWheelPolicyEntry,
     WheelEvidence,
@@ -68,11 +70,12 @@ from terminal_bench_vmvm.taskset import _SOURCE_WHEEL_CLOSURE_CODE, _SOURCE_WHEE
 DISCOVERY_INPUT_SCHEMA_VERSION = 1
 PROOF_SCHEMA_VERSION = 7
 STATE_SCHEMA_VERSION = 6
-RUN_IDENTITY_SCHEMA_VERSION = 5
-CANDIDATE_SCHEMA_VERSION = 5
+RUN_IDENTITY_SCHEMA_VERSION = 6
+CANDIDATE_SCHEMA_VERSION = 6
 ATTEMPT_JOURNAL_SCHEMA_VERSION = 2
 POST_RUN_VALIDATION_SCHEMA_VERSION = 4
 FINALIZATION_SCHEMA_VERSION = 5
+DIAGNOSTIC_STATE_SCHEMA_VERSION = 1
 APPROVED_BASE_RUNTIME_COMMIT = "ceb9356c98c72e51568e7bb4658a540cb1492254"
 REQUIRED_DISCOVERY_ENTRIES = 9
 MAX_CONCURRENT_ENTRIES = 3
@@ -220,6 +223,10 @@ class SourceWheelProofError(RuntimeError):
         self.code = code
 
 
+class _CandidateSourceWheelProofError(SourceWheelProofError):
+    """A candidate-local rejection that diagnostics may safely aggregate."""
+
+
 class ProofRuntime(Protocol):
     config: VMVMConfig
     backend: object
@@ -286,6 +293,7 @@ class SourceWheelProofConfig:
     vacli_max_pull_retries: int = 20
     vacli_image_pull_timeout_seconds: int = 3_600
     vacli_container_privileged: int = 1
+    candidate_diagnostics_only: bool = False
 
     def validate(self) -> None:
         if self.expected_entry_count != REQUIRED_DISCOVERY_ENTRIES:
@@ -338,6 +346,10 @@ class SourceWheelProofConfig:
             raise SourceWheelProofError("vacli_lease_concurrency_exceeds_runtime_cap")
         if self.vacli_container_privileged not in {0, 1}:
             raise SourceWheelProofError("vacli_privilege_invalid")
+        if not isinstance(self.candidate_diagnostics_only, bool):
+            raise SourceWheelProofError("candidate_diagnostics_mode_invalid")
+        if self.candidate_diagnostics_only and self.resume_state_sha256 is not None:
+            raise SourceWheelProofError("candidate_diagnostics_resume_forbidden")
 
     @property
     def max_live_runtimes(self) -> int:
@@ -976,6 +988,12 @@ def _require_success(result: ProgramResult, code: str) -> None:
         raise SourceWheelProofError(code)
 
 
+def _source_contract_error_code(error: RuntimeError, fallback: str) -> str:
+    if isinstance(error, SourceWheelContractError):
+        return error.code
+    return fallback
+
+
 async def _gather_cancel_on_error(*awaitables: Awaitable[object]) -> list[object]:
     tasks = [asyncio.ensure_future(awaitable) for awaitable in awaitables]
     try:
@@ -1136,14 +1154,10 @@ class AttemptJournal:
             "successful_starts": sum(record["event"] == "start_succeeded" for record in self.records),
         }
 
-    def validate_exact(self, completed: dict[str, dict[str, object]]) -> None:
+    def _clean_attempts(self) -> dict[tuple[str, str], str]:
         attempts: dict[str, list[dict[str, object]]] = {}
         for record in self.records:
             attempts.setdefault(str(record["attempt_sha256"]), []).append(record)
-        expected: dict[tuple[str, str], str] = {}
-        for key, proof in completed.items():
-            for role, lease_identity in proof["lease_identity_sha256s"].items():
-                expected[(key, role)] = lease_identity
         observed: dict[tuple[str, str], str] = {}
         for records in attempts.values():
             if len(records) != 3:
@@ -1165,7 +1179,21 @@ class AttemptJournal:
             ):
                 raise SourceWheelProofError("attempt_journal_prevents_exact_start_count")
             observed[identity] = str(started["lease_identity_sha256"])
+        return observed
+
+    def validate_exact(self, completed: dict[str, dict[str, object]]) -> None:
+        expected: dict[tuple[str, str], str] = {}
+        for key, proof in completed.items():
+            for role, lease_identity in proof["lease_identity_sha256s"].items():
+                expected[(key, role)] = lease_identity
+        observed = self._clean_attempts()
         if observed != expected:
+            raise SourceWheelProofError("attempt_journal_prevents_exact_start_count")
+
+    def validate_diagnostic(self, entry_keys: set[str]) -> None:
+        expected = {(key, role) for key in entry_keys for role in ("target", "builder_a", "builder_b")}
+        observed = self._clean_attempts()
+        if set(observed) != expected or len(set(observed.values())) != len(observed):
             raise SourceWheelProofError("attempt_journal_prevents_exact_start_count")
 
 
@@ -1397,7 +1425,10 @@ class SourceWheelProofRunner:
         payload = await runtime.read(destination)
         if len(payload) != source.size or sha256_bytes(payload) != source.sha256:
             raise SourceWheelProofError("source_integrity_failed")
-        inspect_source_distribution(source, payload)  # type: ignore[arg-type]
+        try:
+            inspect_source_distribution(source, payload)  # type: ignore[arg-type]
+        except RuntimeError as error:
+            raise SourceWheelProofError(_source_contract_error_code(error, "source_distribution_invalid")) from error
         return payload
 
     async def _stage_builder(self, runtime: ProofRuntime, entry: DiscoveryEntry) -> tuple[str, ...]:
@@ -1427,20 +1458,27 @@ class SourceWheelProofRunner:
         )
         _require_success(prepared, "builder_prepare_failed")
         payload = await self._download_source(runtime, entry.source)
-        return extract_static_build_requirements(
-            entry.source.policy(
-                WheelEvidence(
-                    distribution=entry.source.distribution,
-                    version=entry.source.version,
-                    filename=entry.source.filename,
-                    size=entry.source.size,
-                    sha256=entry.source.sha256,
-                    universal=False,
+        try:
+            return extract_static_build_requirements(
+                entry.source.policy(
+                    WheelEvidence(
+                        distribution=entry.source.distribution,
+                        version=entry.source.version,
+                        filename=entry.source.filename,
+                        size=entry.source.size,
+                        sha256=entry.source.sha256,
+                        universal=False,
+                    ),
+                    (),
                 ),
-                (),
-            ),
-            payload,
-        )
+                payload,
+            )
+        except SourceWheelContractError as error:
+            if error.code in SOURCE_WHEEL_CANDIDATE_ERROR_CODES:
+                raise _CandidateSourceWheelProofError(error.code) from error
+            raise SourceWheelProofError(error.code) from error
+        except RuntimeError as error:
+            raise SourceWheelProofError("source_build_declaration_validation_failed") from error
 
     async def _activate_no_network(self, runtime: ProofRuntime) -> None:
         await runtime.configure_network_policy("no-network")
@@ -1525,7 +1563,7 @@ class SourceWheelProofRunner:
                 expected_build_tools=expected_build_tools,
                 build_dependencies=build_dependencies,
             )
-        except RuntimeError as error:
+        except (RuntimeError, OSError, UnicodeError, ValueError) as error:
             raise SourceWheelProofError("source_build_environment_attest_failed") from error
         return source_build_environment_record(
             build_env_dir=BUILD_ENV_DIR,
@@ -1547,8 +1585,18 @@ class SourceWheelProofRunner:
             source.build_dependencies,
         )
         source_payload = await runtime.read(f"{INPUT_DIR}/{source.filename}")
-        inspect_source_distribution(source, source_payload)
-        declared_build_requirements = extract_static_build_requirements(source, source_payload)
+        try:
+            inspect_source_distribution(source, source_payload)
+        except RuntimeError as error:
+            raise SourceWheelProofError(_source_contract_error_code(error, "source_distribution_invalid")) from error
+        try:
+            declared_build_requirements = extract_static_build_requirements(source, source_payload)
+        except SourceWheelContractError as error:
+            if error.code in SOURCE_WHEEL_CANDIDATE_ERROR_CODES:
+                raise _CandidateSourceWheelProofError(error.code) from error
+            raise SourceWheelProofError(error.code) from error
+        except RuntimeError as error:
+            raise SourceWheelProofError("source_build_declaration_validation_failed") from error
         try:
             validate_static_build_dependency_closure(
                 declared_build_requirements,
@@ -1571,7 +1619,14 @@ class SourceWheelProofRunner:
         if set(wheels) != existing_wheels | new_names or len(new_names) != 1:
             raise SourceWheelProofError("source_build_output_invalid")
         filename = next(iter(new_names))
-        evidence = inspect_wheel(filename, wheels[filename])
+        try:
+            evidence = inspect_wheel(filename, wheels[filename])
+        except SourceWheelContractError as error:
+            if error.code in SOURCE_WHEEL_CANDIDATE_ERROR_CODES:
+                raise _CandidateSourceWheelProofError(error.code) from error
+            raise SourceWheelProofError(error.code) from error
+        except RuntimeError as error:
+            raise SourceWheelProofError("source_build_output_invalid") from error
         if evidence.distribution != source.distribution or evidence.version != source.version:
             raise SourceWheelProofError("source_build_output_invalid")
         return SourceBuild(
@@ -1755,7 +1810,10 @@ class SourceWheelProofRunner:
             total_size += len(payload)
             if total_size > MAX_WHEELHOUSE_BYTES:
                 raise SourceWheelProofError("build_dependency_closure_size_invalid")
-            evidence = inspect_wheel(filename, payload)
+            try:
+                evidence = inspect_wheel(filename, payload)
+            except RuntimeError as error:
+                raise SourceWheelProofError("build_dependency_wheel_invalid") from error
             if evidence.distribution != distribution or evidence.version != version:
                 raise SourceWheelProofError("build_dependency_metadata_mismatch")
             policies.append(
@@ -1833,7 +1891,10 @@ class SourceWheelProofRunner:
             total_size += len(payload)
             if total_size > MAX_WHEELHOUSE_BYTES:
                 raise SourceWheelProofError("binary_closure_size_invalid")
-            evidence = inspect_wheel(filename, payload)
+            try:
+                evidence = inspect_wheel(filename, payload)
+            except RuntimeError as error:
+                raise SourceWheelProofError("binary_wheel_invalid") from error
             if evidence.distribution != distribution or evidence.version != version:
                 raise SourceWheelProofError("binary_metadata_mismatch")
             policies.append(
@@ -1884,8 +1945,14 @@ class SourceWheelProofRunner:
             sources=(builder_source,),
             binary_wheels=policy_entry.binary_wheels,
         )
-        evidence = validate_policy_wheel_closure(builder_policy_entry, wheels)
-        wheel_semantics = tuple((name, wheel_semantic_sha256(name, wheels[name])) for name in sorted(wheels))
+        try:
+            evidence = validate_policy_wheel_closure(builder_policy_entry, wheels)
+        except RuntimeError as error:
+            raise SourceWheelProofError("builder_wheel_closure_invalid") from error
+        try:
+            wheel_semantics = tuple((name, wheel_semantic_sha256(name, wheels[name])) for name in sorted(wheels))
+        except RuntimeError as error:
+            raise SourceWheelProofError("builder_wheel_semantics_invalid") from error
         _require_success(
             await runtime.run(
                 [
@@ -1904,8 +1971,12 @@ class SourceWheelProofRunner:
         )
         _require_success(closure_result, "builder_closure_failed")
         closure = _parse_closure(closure_result.stdout, policy_entry)
-        wheelhouse = pack_wheelhouse(wheels)
-        if inspect_wheelhouse(wheelhouse) != evidence:
+        try:
+            wheelhouse = pack_wheelhouse(wheels)
+            repacked_evidence = inspect_wheelhouse(wheelhouse)
+        except RuntimeError as error:
+            raise SourceWheelProofError("wheelhouse_repack_failed") from error
+        if repacked_evidence != evidence:
             raise SourceWheelProofError("wheelhouse_repack_failed")
         inputs = [(entry.source.filename, entry.source.size, entry.source.sha256)]
         inputs.extend((wheel.filename, wheel.size, wheel.sha256) for wheel in policy_entry.binary_wheels)
@@ -1934,9 +2005,13 @@ class SourceWheelProofRunner:
         wheelhouse: bytes,
     ) -> dict[str, object]:
         try:
-            if inspect_wheelhouse(wheelhouse) != validate_policy_wheel_closure(
-                policy_entry, _wheelhouse_payloads(wheelhouse)
-            ):
+            wheelhouse_payloads = _wheelhouse_payloads(wheelhouse)
+            try:
+                observed_evidence = inspect_wheelhouse(wheelhouse)
+                expected_evidence = validate_policy_wheel_closure(policy_entry, wheelhouse_payloads)
+            except RuntimeError as error:
+                raise SourceWheelProofError("target_wheelhouse_invalid") from error
+            if observed_evidence != expected_evidence:
                 raise SourceWheelProofError("target_wheelhouse_invalid")
             await runtime.write(TARGET_ARCHIVE, wheelhouse)
             _require_success(
@@ -2191,11 +2266,16 @@ class SourceWheelProofRunner:
         self,
         completed: dict[str, dict[str, object]],
         publish: Callable[[str, dict[str, object], dict[str, int]], None],
-    ) -> None:
+        *,
+        aggregate_candidate_failures: bool = False,
+        record_candidate_failure: Callable[[str, str, dict[str, int]], None] | None = None,
+    ) -> dict[str, int]:
         pending = [
             entry for entry in self.discovery.entries if entry_key_sha256(self.discovery.sha256, entry) not in completed
         ]
         active: set[asyncio.Task[tuple[str, dict[str, object]]]] = set()
+        task_keys: dict[asyncio.Task[tuple[str, dict[str, object]]], str] = {}
+        candidate_failure_counts: dict[str, int] = {}
         iterator = iter(pending)
 
         def fill() -> None:
@@ -2204,17 +2284,29 @@ class SourceWheelProofRunner:
                     entry = next(iterator)
                 except StopIteration:
                     return
-                active.add(asyncio.create_task(self._prove_entry(entry)))
+                task = asyncio.create_task(self._prove_entry(entry))
+                active.add(task)
+                task_keys[task] = entry_key_sha256(self.discovery.sha256, entry)
 
         fill()
         try:
             while active:
                 done, active = await asyncio.wait(active, return_when=asyncio.FIRST_COMPLETED)
                 successes: list[tuple[str, dict[str, object]]] = []
+                candidate_failures: list[tuple[str, str]] = []
                 failure: BaseException | None = None
                 for task in done:
+                    task_key = task_keys.pop(task)
                     try:
                         successes.append(task.result())
+                    except _CandidateSourceWheelProofError as error:
+                        if aggregate_candidate_failures and error.code in SOURCE_WHEEL_CANDIDATE_ERROR_CODES:
+                            candidate_failure_counts[error.code] = candidate_failure_counts.get(error.code, 0) + 1
+                            candidate_failures.append((task_key, error.code))
+                        else:
+                            failure = failure or error
+                    except SourceWheelProofError as error:
+                        failure = failure or error
                     except BaseException as error:
                         failure = failure or error
                 for key, proof in sorted(successes):
@@ -2227,6 +2319,16 @@ class SourceWheelProofRunner:
                         },
                     )
                     completed[key] = proof
+                if record_candidate_failure is not None:
+                    for key, code in sorted(candidate_failures):
+                        record_candidate_failure(
+                            key,
+                            code,
+                            {
+                                **self.telemetry.as_dict(),
+                                "peak_concurrent_entries": self.peak_entries,
+                            },
+                        )
                 if failure is None:
                     fill()
                     continue
@@ -2234,6 +2336,7 @@ class SourceWheelProofRunner:
                     task.cancel()
                 await asyncio.gather(*active, return_exceptions=True)
                 raise failure
+            return dict(sorted(candidate_failure_counts.items()))
         finally:
             if active:
                 for task in active:
@@ -2726,7 +2829,9 @@ class ProofStore:
         self.output_dir = config.output_dir.resolve()
         self.identity_path = self.output_dir / "run_identity.json"
         self.candidate_path = self.output_dir / "source_wheel_candidate.json"
-        self.state_path = self.output_dir / "proof_state.json"
+        self.state_path = self.output_dir / (
+            "candidate_diagnostics_state.json" if config.candidate_diagnostics_only else "proof_state.json"
+        )
         self.journal_path = self.output_dir / "attempt_journal"
         self.post_validation_path = self.output_dir / "post_run_validation.json"
         self.finalization_path = self.output_dir / "finalization.json"
@@ -2747,6 +2852,7 @@ class ProofStore:
         source_contract = Path(__file__).with_name("source_wheels.py").read_bytes()
         return {
             "schema_version": RUN_IDENTITY_SCHEMA_VERSION,
+            "mode": "candidate-diagnostics" if self.config.candidate_diagnostics_only else "proof",
             "discovery_input_sha256": self.discovery.sha256,
             "expected_entry_count": self.config.expected_entry_count,
             "missing_required_evidence_sha256": self.discovery.missing_required_evidence_sha256,
@@ -2758,6 +2864,7 @@ class ProofStore:
             "contract_schemas": {
                 "proof": PROOF_SCHEMA_VERSION,
                 "state": STATE_SCHEMA_VERSION,
+                "candidate_diagnostics_state": DIAGNOSTIC_STATE_SCHEMA_VERSION,
                 "candidate": CANDIDATE_SCHEMA_VERSION,
                 "attempt_journal": ATTEMPT_JOURNAL_SCHEMA_VERSION,
                 "post_run_validation": POST_RUN_VALIDATION_SCHEMA_VERSION,
@@ -2835,6 +2942,7 @@ class ProofStore:
             "schema_version": CANDIDATE_SCHEMA_VERSION,
             "kind": "source-wheel-policy-discovery-candidate",
             "runnable": False,
+            "diagnostic_only": self.config.candidate_diagnostics_only,
             "run_identity_sha256": self.identity_sha256,
             "discovery_input_sha256": self.discovery.sha256,
             "missing_required_evidence_sha256": self.discovery.missing_required_evidence_sha256,
@@ -2946,6 +3054,29 @@ class ProofStore:
             self._lock_handle = None
 
     def _initial_state(self) -> dict[str, object]:
+        if self.config.candidate_diagnostics_only:
+            return {
+                "schema_version": DIAGNOSTIC_STATE_SCHEMA_VERSION,
+                "kind": "source-wheel-candidate-diagnostics-state",
+                "run_identity_sha256": self.identity_sha256,
+                "discovery_input_sha256": self.discovery.sha256,
+                "entries_sha256": self.entries_sha256,
+                "entry_count": len(self.entry_map),
+                "invocation": {
+                    "host": self.config.invocation_host,
+                    "slurm_job_id": self.config.slurm_job_id,
+                },
+                "status": "running",
+                "outcomes": {},
+                "failure_counts": {},
+                "attempt_journal": self._journal().snapshot(),
+                "telemetry": {
+                    "attested_runtime_starts": 0,
+                    "peak_starting_runtimes": 0,
+                    "peak_live_runtimes": 0,
+                    "peak_concurrent_entries": 0,
+                },
+            }
         return {
             "schema_version": STATE_SCHEMA_VERSION,
             "run_identity_sha256": self.identity_sha256,
@@ -3044,6 +3175,14 @@ class ProofStore:
         return state
 
     def _load_or_create_state(self) -> dict[str, object]:
+        if self.config.candidate_diagnostics_only:
+            if self.state_path.exists() or self.config.resume_state_sha256 is not None:
+                raise SourceWheelProofError("candidate_diagnostics_output_not_fresh")
+            if self._journal().records:
+                raise SourceWheelProofError("attempt_journal_incomplete")
+            state = self._initial_state()
+            self._write_state(state)
+            return state
         if self.state_path.exists():
             if self.config.resume_state_sha256 is None:
                 raise SourceWheelProofError("resume_state_sha256_required")
@@ -3149,6 +3288,87 @@ class ProofStore:
         if peak > previous:
             prior["peak_concurrent_entries"] = peak
             self._write_state(self.state)
+
+    def _record_diagnostic_telemetry(self, telemetry: dict[str, int]) -> None:
+        if not self.config.candidate_diagnostics_only:
+            raise SourceWheelProofError("candidate_diagnostics_state_invalid")
+        prior = self.state.get("telemetry")
+        if not isinstance(prior, dict):
+            raise SourceWheelProofError("candidate_diagnostics_state_invalid")
+        self.state["telemetry"] = {
+            "attested_runtime_starts": telemetry["successful_runtime_starts"],
+            "peak_starting_runtimes": max(int(prior["peak_starting_runtimes"]), telemetry["peak_starting_runtimes"]),
+            "peak_live_runtimes": max(int(prior["peak_live_runtimes"]), telemetry["peak_live_runtimes"]),
+            "peak_concurrent_entries": max(int(prior["peak_concurrent_entries"]), telemetry["peak_concurrent_entries"]),
+        }
+
+    def record_diagnostic_outcome(
+        self,
+        key: str,
+        error_code: str | None,
+        telemetry: dict[str, int],
+    ) -> None:
+        outcomes = self.state.get("outcomes")
+        failure_counts = self.state.get("failure_counts")
+        if (
+            not self.config.candidate_diagnostics_only
+            or not isinstance(outcomes, dict)
+            or not isinstance(failure_counts, dict)
+            or self.state.get("status") != "running"
+            or key not in self.entry_map
+            or key in outcomes
+            or (error_code is not None and error_code not in SOURCE_WHEEL_CANDIDATE_ERROR_CODES)
+        ):
+            raise SourceWheelProofError("candidate_diagnostics_state_invalid")
+        outcomes[key] = {
+            "status": "passed" if error_code is None else "candidate_rejected",
+            "error_code": error_code,
+        }
+        if error_code is not None:
+            failure_counts[error_code] = int(failure_counts.get(error_code, 0)) + 1
+        self._record_diagnostic_telemetry(telemetry)
+        self._write_state(self.state)
+
+    def record_diagnostic_abort(self, telemetry: dict[str, int]) -> None:
+        if not self.config.candidate_diagnostics_only:
+            raise SourceWheelProofError("candidate_diagnostics_state_invalid")
+        self.state["status"] = "aborted"
+        self._record_diagnostic_telemetry(telemetry)
+        self._write_state(self.state)
+
+    def complete_diagnostics(
+        self,
+        failure_counts: dict[str, int],
+        telemetry: dict[str, int],
+    ) -> None:
+        outcomes = self.state.get("outcomes")
+        if not isinstance(outcomes, dict) or set(outcomes) != set(self.entry_map):
+            raise SourceWheelProofError("candidate_diagnostics_coverage_invalid")
+        observed_failure_counts: dict[str, int] = {}
+        successful_entries = 0
+        for outcome in outcomes.values():
+            if not isinstance(outcome, dict) or set(outcome) != {"status", "error_code"}:
+                raise SourceWheelProofError("candidate_diagnostics_state_invalid")
+            if outcome == {"status": "passed", "error_code": None}:
+                successful_entries += 1
+                continue
+            code = outcome.get("error_code")
+            if outcome.get("status") != "candidate_rejected" or code not in SOURCE_WHEEL_CANDIDATE_ERROR_CODES:
+                raise SourceWheelProofError("candidate_diagnostics_state_invalid")
+            observed_failure_counts[code] = observed_failure_counts.get(code, 0) + 1
+        expected_failure_counts = dict(sorted(failure_counts.items()))
+        if (
+            dict(sorted(observed_failure_counts.items())) != expected_failure_counts
+            or self.state.get("failure_counts") != expected_failure_counts
+            or successful_entries + sum(expected_failure_counts.values()) != len(self.entry_map)
+            or telemetry["successful_runtime_starts"] != len(self.entry_map) * RUNTIMES_PER_ENTRY
+        ):
+            raise SourceWheelProofError("candidate_diagnostics_coverage_invalid")
+        self._journal().validate_diagnostic(set(self.entry_map))
+        self.state["status"] = "complete"
+        self.state["failure_counts"] = expected_failure_counts
+        self._record_diagnostic_telemetry(telemetry)
+        self._write_state(self.state)
 
     def _post_validation_core(self, prevalidation_state: dict[str, object]) -> dict[str, object]:
         if prevalidation_state.get("post_run_validation") is not None:
@@ -3395,6 +3615,50 @@ async def run_source_wheel_proof(
         def publish(key: str, proof: dict[str, object], telemetry: dict[str, int]) -> None:
             store.publish_entry(key, proof, telemetry)
 
+        if config.candidate_diagnostics_only:
+            diagnostic_successes: dict[str, dict[str, object]] = {}
+
+            def record_success(key: str, proof: dict[str, object], telemetry: dict[str, int]) -> None:
+                store.record_diagnostic_outcome(key, None, telemetry)
+                diagnostic_successes[key] = proof
+
+            def record_candidate_failure(key: str, code: str, telemetry: dict[str, int]) -> None:
+                store.record_diagnostic_outcome(key, code, telemetry)
+
+            try:
+                failure_counts = await runner.run_pending(
+                    diagnostic_successes,
+                    record_success,
+                    aggregate_candidate_failures=True,
+                    record_candidate_failure=record_candidate_failure,
+                )
+                if runtime_factory is _runtime_factory:
+                    validate_execution_environment(config)
+                    validate_vacli_environment(config)
+                telemetry = {
+                    **runner.telemetry.as_dict(),
+                    "peak_concurrent_entries": runner.peak_entries,
+                }
+                store.complete_diagnostics(failure_counts, telemetry)
+            except BaseException:
+                store.record_diagnostic_abort(
+                    {
+                        **runner.telemetry.as_dict(),
+                        "peak_concurrent_entries": runner.peak_entries,
+                    }
+                )
+                raise
+            return {
+                "diagnostic_only": True,
+                "entries_checked": len(discovery.entries),
+                "candidate_failures": sum(failure_counts.values()),
+                "successful_entries": len(diagnostic_successes),
+                "failure_counts": failure_counts,
+                "runtime_starts": telemetry["successful_runtime_starts"],
+                "peak_live_runtimes": telemetry["peak_live_runtimes"],
+                "peak_concurrent_entries": runner.peak_entries,
+            }
+
         await runner.run_pending(store.completed, publish)
         store.record_peak_entries(runner.peak_entries)
         if runtime_factory is _runtime_factory:
@@ -3406,9 +3670,14 @@ async def run_source_wheel_proof(
 
 def aggregate_failure(output_dir: Path, code: str) -> dict[str, object]:
     summary: dict[str, object] = {"status": "failed", "error_code": code}
-    state_path = output_dir / "proof_state.json"
+    proof_state_path = output_dir / "proof_state.json"
+    diagnostic_state_path = output_dir / "candidate_diagnostics_state.json"
+    state_path = diagnostic_state_path if diagnostic_state_path.exists() else proof_state_path
     if regular_private_file(state_path):
-        payload = state_path.read_bytes()
+        try:
+            payload = state_path.read_bytes()
+        except OSError:
+            return summary
         summary["state_sha256"] = sha256_bytes(payload)
         try:
             state = strict_json_loads(payload)
@@ -3416,4 +3685,6 @@ def aggregate_failure(output_dir: Path, code: str) -> dict[str, object]:
             return summary
         if isinstance(state, dict) and isinstance(state.get("completed"), dict):
             summary["completed_entries"] = len(state["completed"])
+        elif isinstance(state, dict) and isinstance(state.get("outcomes"), dict):
+            summary["checked_entries"] = len(state["outcomes"])
     return summary

@@ -7,6 +7,7 @@ import configparser
 import hashlib
 import io
 import json
+import lzma
 import os
 import re
 import stat
@@ -197,6 +198,41 @@ class WheelEvidence:
     size: int
     sha256: str
     universal: bool
+
+
+class SourceWheelContractError(RuntimeError):
+    """A source or wheel rejection with an aggregate-safe reason code."""
+
+    def __init__(self, code: str, message: str) -> None:
+        super().__init__(message)
+        self.code = code
+
+
+SOURCE_WHEEL_CANDIDATE_ERROR_CODES = frozenset(
+    {
+        "source_backend_shadowed",
+        "source_setup_py_syntax_invalid",
+        "source_setup_py_unsupported_static_form",
+        "source_setup_py_dynamic_or_ambiguous",
+        "source_setup_py_requirement_invalid",
+        "source_setup_cfg_syntax_invalid",
+        "source_setup_cfg_unsupported_static_form",
+        "source_setup_cfg_dynamic_or_ambiguous",
+        "source_setup_cfg_requirement_invalid",
+        "source_pyproject_syntax_invalid",
+        "source_pyproject_unsupported_static_form",
+        "source_pyproject_dynamic_or_ambiguous",
+        "source_pyproject_requirement_invalid",
+        "source_build_declaration_invalid",
+        "source_build_declaration_ambiguous",
+        "wheel_zip_structure_invalid",
+        "wheel_zip_member_name_invalid",
+        "wheel_zip_feature_unsupported",
+        "wheel_zip_member_mode_invalid",
+        "wheel_record_signature_forbidden",
+        "wheel_zip_payload_invalid",
+    }
+)
 
 
 def _require_exact_keys(value: dict, expected: set[str], label: str) -> None:
@@ -666,7 +702,18 @@ def source_build_env_attest_argv(
     ]
 
 
-def validate_source_build_environment(
+def _safe_attestation_text(value: object, *, allow_empty: bool = False) -> bool:
+    return bool(
+        isinstance(value, str)
+        and (allow_empty or value)
+        and len(value) <= 4096
+        and all(
+            ord(character) != 127 and unicodedata.category(character) not in {"Cc", "Cf", "Cs"} for character in value
+        )
+    )
+
+
+def _validate_source_build_environment(
     payload: bytes | str,
     *,
     build_env_dir: str,
@@ -688,6 +735,17 @@ def validate_source_build_environment(
     installed_distributions = value.get("installed_distributions") if isinstance(value, dict) else None
     bin_entries = value.get("bin_entries") if isinstance(value, dict) else None
     bin_executables = value.get("bin_executables") if isinstance(value, dict) else None
+    site_packages_valid = bool(
+        isinstance(site_packages, list)
+        and site_packages
+        and all(_safe_attestation_text(path) and os.path.isabs(path) for path in site_packages)
+        and len(site_packages) == len(set(site_packages))
+        and all(
+            os.path.commonpath((expected_env, os.path.realpath(path))) == expected_env
+            and os.path.basename(path) in {"site-packages", "dist-packages"}
+            for path in site_packages
+        )
+    )
     bin_names: list[str] = []
     observed_executables: list[str] = []
     bin_entries_valid = isinstance(bin_entries, list) and 1 <= len(bin_entries) <= 10_000
@@ -714,11 +772,8 @@ def validate_source_build_environment(
                 if (
                     set(entry) != {"name", "kind", "mode", "target", "resolved_path", "sha256"}
                     or re.fullmatch(r"python(?:\d+(?:\.\d+)?)?", name) is None
-                    or not isinstance(target, str)
-                    or not target
-                    or len(target) > 4096
-                    or any(ord(character) < 32 or ord(character) == 127 for character in target)
-                    or not isinstance(entry.get("resolved_path"), str)
+                    or not _safe_attestation_text(target)
+                    or not _safe_attestation_text(entry.get("resolved_path"))
                     or not os.path.isabs(entry["resolved_path"])
                     or os.path.realpath(entry["resolved_path"]) != entry["resolved_path"]
                     or os.path.commonpath((expected_env, entry["resolved_path"])) == expected_env
@@ -784,20 +839,11 @@ def validate_source_build_environment(
         or value.get("schema_version") != SOURCE_BUILD_ENVIRONMENT_SCHEMA_VERSION
         or value.get("executable") != expected_python
         or value.get("prefix") != expected_env
-        or not isinstance(value.get("base_prefix"), str)
+        or not _safe_attestation_text(value.get("base_prefix"))
         or value.get("base_prefix") == expected_env
         or value.get("isolated") is not True
         or value.get("system_site_packages") is not False
-        or not isinstance(site_packages, list)
-        or not site_packages
-        or len(site_packages) != len(set(site_packages))
-        or not all(
-            isinstance(path, str)
-            and os.path.isabs(path)
-            and os.path.commonpath((expected_env, os.path.realpath(path))) == expected_env
-            and os.path.basename(path) in {"site-packages", "dist-packages"}
-            for path in site_packages
-        )
+        or not site_packages_valid
         or not isinstance(value.get("sys_path_sha256"), str)
         or _SHA256_RE.fullmatch(value["sys_path_sha256"]) is None
         or not isinstance(value.get("pyvenv_cfg_sha256"), str)
@@ -817,8 +863,7 @@ def validate_source_build_environment(
             }
             and isinstance(distribution.get("distribution"), str)
             and expected_versions.get(distribution["distribution"]) == distribution.get("version")
-            and isinstance(distribution.get("location"), str)
-            and bool(distribution["location"])
+            and _safe_attestation_text(distribution.get("location"))
             and not os.path.isabs(distribution["location"])
             and ".." not in PurePosixPath(distribution["location"]).parts
             and any(
@@ -852,6 +897,26 @@ def validate_source_build_environment(
     ):
         raise RuntimeError("source build environment attestation is invalid")
     return value
+
+
+def validate_source_build_environment(
+    payload: bytes | str,
+    *,
+    build_env_dir: str,
+    expected_build_tools: tuple[tuple[str, str], ...],
+    build_dependencies: tuple[BinaryWheelPolicy, ...],
+) -> dict[str, object]:
+    try:
+        return _validate_source_build_environment(
+            payload,
+            build_env_dir=build_env_dir,
+            expected_build_tools=expected_build_tools,
+            build_dependencies=build_dependencies,
+        )
+    except RuntimeError:
+        raise
+    except (OSError, TypeError, UnicodeError, ValueError) as error:
+        raise RuntimeError("source build environment attestation is invalid") from error
 
 
 def validate_source_build_environment_record(
@@ -1351,29 +1416,39 @@ def _canonical_wheel_member_name(name: str) -> str:
         or unicodedata.normalize("NFC", name) != name
         or any(unicodedata.category(character) in {"Cc", "Cf", "Cs"} for character in name)
     ):
-        raise RuntimeError("wheel contains an unsafe archive member")
+        raise SourceWheelContractError("wheel_zip_member_name_invalid", "wheel contains an unsafe archive member")
     normalized = "/".join(PurePosixPath(name).parts)
     if normalized != name:
-        raise RuntimeError("wheel contains an ambiguous archive member path")
+        raise SourceWheelContractError(
+            "wheel_zip_member_name_invalid", "wheel contains an ambiguous archive member path"
+        )
     return normalized
 
 
 def _decode_wheel_member_name(raw_name: bytes, flag_bits: int) -> str:
     if not raw_name or any(byte < 32 or byte == 127 for byte in raw_name):
-        raise RuntimeError("wheel contains an unsafe raw archive member name")
+        raise SourceWheelContractError(
+            "wheel_zip_member_name_invalid", "wheel contains an unsafe raw archive member name"
+        )
     encoding = "utf-8" if flag_bits & 0x800 else "cp437"
     try:
         name = raw_name.decode(encoding)
     except UnicodeDecodeError as error:
-        raise RuntimeError("wheel archive member name encoding is invalid") from error
+        raise SourceWheelContractError(
+            "wheel_zip_member_name_invalid", "wheel archive member name encoding is invalid"
+        ) from error
     if name.encode(encoding) != raw_name:
-        raise RuntimeError("wheel archive member name encoding is ambiguous")
+        raise SourceWheelContractError(
+            "wheel_zip_member_name_invalid", "wheel archive member name encoding is ambiguous"
+        )
     return _canonical_wheel_member_name(name)
 
 
 def _validate_wheel_member_contract(filename: str, flag_bits: int, compression: int, external_attr: int) -> None:
     if flag_bits & ~0x800 or compression not in {ZIP_STORED, ZIP_DEFLATED}:
-        raise RuntimeError("wheel contains unsupported ZIP member features")
+        raise SourceWheelContractError(
+            "wheel_zip_feature_unsupported", "wheel contains unsupported ZIP member features"
+        )
     member_mode = (external_attr >> 16) & 0xFFFF
     member_type = stat.S_IFMT(member_mode)
     permissions = stat.S_IMODE(member_mode)
@@ -1385,21 +1460,23 @@ def _validate_wheel_member_contract(filename: str, flag_bits: int, compression: 
         or (member_type == stat.S_IFREG and not permissions & stat.S_IRUSR)
         or (member_type == 0 and permissions != 0 and not permissions & stat.S_IRUSR)
     ):
-        raise RuntimeError("wheel contains an unsafe archive member")
+        raise SourceWheelContractError("wheel_zip_member_mode_invalid", "wheel contains an unsafe archive member")
     parts = PurePosixPath(filename).parts
     if (
         len(parts) >= 2
         and parts[-2].casefold().endswith(".dist-info")
         and parts[-1].casefold() in {"record.jws", "record.p7s"}
     ):
-        raise RuntimeError("wheel contains a forbidden RECORD signature")
+        raise SourceWheelContractError(
+            "wheel_record_signature_forbidden", "wheel contains a forbidden RECORD signature"
+        )
 
 
 def _parse_raw_wheel(payload: bytes) -> tuple[tuple[_RawWheelMember, ...], str]:
     end_signature = b"PK\x05\x06"
     end_offset = payload.rfind(end_signature, max(0, len(payload) - 65_557))
     if end_offset < 0 or end_offset + 22 > len(payload):
-        raise RuntimeError("wheel ZIP envelope is invalid")
+        raise SourceWheelContractError("wheel_zip_structure_invalid", "wheel ZIP envelope is invalid")
     (
         signature,
         disk_number,
@@ -1421,10 +1498,14 @@ def _parse_raw_wheel(payload: bytes) -> tuple[tuple[_RawWheelMember, ...], str]:
         or central_size == 0xFFFFFFFF
         or central_offset == 0xFFFFFFFF
         or central_offset + central_size != end_offset
-        or comment_size != 0
-        or end_offset + 22 != len(payload)
     ):
-        raise RuntimeError("wheel ZIP envelope is invalid")
+        raise SourceWheelContractError("wheel_zip_structure_invalid", "wheel ZIP envelope is invalid")
+    if comment_size != 0:
+        if end_offset + 22 + comment_size != len(payload):
+            raise SourceWheelContractError("wheel_zip_structure_invalid", "wheel ZIP envelope is invalid")
+        raise SourceWheelContractError("wheel_zip_feature_unsupported", "wheel ZIP envelope comments are unsupported")
+    if end_offset + 22 != len(payload):
+        raise SourceWheelContractError("wheel_zip_structure_invalid", "wheel ZIP envelope is invalid")
     members: list[_RawWheelMember] = []
     seen_names: set[str] = set()
     seen_local_offsets: set[int] = set()
@@ -1433,7 +1514,7 @@ def _parse_raw_wheel(payload: bytes) -> tuple[tuple[_RawWheelMember, ...], str]:
     cursor = central_offset
     for _ in range(total_entries):
         if cursor + 46 > end_offset:
-            raise RuntimeError("wheel central directory is truncated")
+            raise SourceWheelContractError("wheel_zip_structure_invalid", "wheel central directory is truncated")
         (
             central_signature,
             version_made,
@@ -1458,26 +1539,29 @@ def _parse_raw_wheel(payload: bytes) -> tuple[tuple[_RawWheelMember, ...], str]:
             central_signature != b"PK\x01\x02"
             or central_end > end_offset
             or name_size < 1
-            or extra_size != 0
-            or member_comment_size != 0
             or volume != 0
             or compressed_size == 0xFFFFFFFF
             or file_size == 0xFFFFFFFF
             or local_offset == 0xFFFFFFFF
         ):
-            raise RuntimeError("wheel central directory entry is invalid")
+            raise SourceWheelContractError("wheel_zip_structure_invalid", "wheel central directory entry is invalid")
+        if extra_size != 0 or member_comment_size != 0:
+            raise SourceWheelContractError(
+                "wheel_zip_feature_unsupported",
+                "wheel central directory entry uses unsupported extra fields or comments",
+            )
         raw_name = payload[cursor + 46 : cursor + 46 + name_size]
         filename = _decode_wheel_member_name(raw_name, flag_bits)
         if filename in seen_names or local_offset in seen_local_offsets:
-            raise RuntimeError("wheel contains duplicate archive members")
+            raise SourceWheelContractError("wheel_zip_member_name_invalid", "wheel contains duplicate archive members")
         seen_names.add(filename)
         seen_local_offsets.add(local_offset)
         _validate_wheel_member_contract(filename, flag_bits, compression, external_attr)
         total_uncompressed_size += file_size
         if file_size > MAX_WHEEL_UNCOMPRESSED_BYTES or total_uncompressed_size > MAX_WHEEL_UNCOMPRESSED_BYTES:
-            raise RuntimeError("wheel exceeds the bounded expansion contract")
+            raise SourceWheelContractError("wheel_zip_payload_invalid", "wheel exceeds the bounded expansion contract")
         if local_offset + 30 > central_offset:
-            raise RuntimeError("wheel local header is invalid")
+            raise SourceWheelContractError("wheel_zip_structure_invalid", "wheel local header is invalid")
         (
             local_signature,
             local_extract_version,
@@ -1505,14 +1589,19 @@ def _parse_raw_wheel(payload: bytes) -> tuple[tuple[_RawWheelMember, ...], str]:
             or local_compressed_size != compressed_size
             or local_file_size != file_size
             or local_name_size != name_size
-            or local_extra_size != 0
             or local_raw_name != raw_name
         ):
-            raise RuntimeError("wheel local and central records do not agree")
+            raise SourceWheelContractError(
+                "wheel_zip_structure_invalid", "wheel local and central records do not agree"
+            )
+        if local_extra_size != 0:
+            raise SourceWheelContractError(
+                "wheel_zip_feature_unsupported", "wheel local and central records use unsupported extra fields"
+            )
         compressed_payload = payload[local_data_start:local_end]
         if compression == ZIP_STORED:
             if compressed_size != file_size or zlib.crc32(compressed_payload) & 0xFFFFFFFF != crc32:
-                raise RuntimeError("wheel stored member payload is invalid")
+                raise SourceWheelContractError("wheel_zip_payload_invalid", "wheel stored member payload is invalid")
         else:
             decompressor = zlib.decompressobj(-zlib.MAX_WBITS)
             try:
@@ -1520,7 +1609,9 @@ def _parse_raw_wheel(payload: bytes) -> tuple[tuple[_RawWheelMember, ...], str]:
                 if len(decoded_payload) <= file_size:
                     decoded_payload += decompressor.flush(file_size + 1 - len(decoded_payload))
             except zlib.error as error:
-                raise RuntimeError("wheel deflated member payload is invalid") from error
+                raise SourceWheelContractError(
+                    "wheel_zip_payload_invalid", "wheel deflated member payload is invalid"
+                ) from error
             if (
                 not decompressor.eof
                 or decompressor.unused_data
@@ -1528,7 +1619,7 @@ def _parse_raw_wheel(payload: bytes) -> tuple[tuple[_RawWheelMember, ...], str]:
                 or len(decoded_payload) != file_size
                 or zlib.crc32(decoded_payload) & 0xFFFFFFFF != crc32
             ):
-                raise RuntimeError("wheel deflated member payload is invalid")
+                raise SourceWheelContractError("wheel_zip_payload_invalid", "wheel deflated member payload is invalid")
         intervals.append((local_offset, local_end))
         members.append(
             _RawWheelMember(
@@ -1552,14 +1643,20 @@ def _parse_raw_wheel(payload: bytes) -> tuple[tuple[_RawWheelMember, ...], str]:
         )
         cursor = central_end
     if cursor != end_offset:
-        raise RuntimeError("wheel central directory does not exactly match its envelope")
+        raise SourceWheelContractError(
+            "wheel_zip_structure_invalid", "wheel central directory does not exactly match its envelope"
+        )
     expected_offset = 0
     for start, stop in sorted(intervals):
         if start != expected_offset or stop <= start:
-            raise RuntimeError("wheel local records contain gaps, overlap, or orphan bytes")
+            raise SourceWheelContractError(
+                "wheel_zip_structure_invalid", "wheel local records contain gaps, overlap, or orphan bytes"
+            )
         expected_offset = stop
     if expected_offset != central_offset:
-        raise RuntimeError("wheel local records do not exactly fill the pre-central region")
+        raise SourceWheelContractError(
+            "wheel_zip_structure_invalid", "wheel local records do not exactly fill the pre-central region"
+        )
     normalized = bytearray(payload)
     for member in members:
         normalized[member.local_offset + 10 : member.local_offset + 14] = b"\0" * 4
@@ -1579,7 +1676,7 @@ def _parse_raw_wheel(payload: bytes) -> tuple[tuple[_RawWheelMember, ...], str]:
 
 
 def _inspect_wheel(filename: str, payload: bytes) -> tuple[WheelEvidence, tuple[str, ...], str]:
-    if len(payload) < 1 or len(payload) > MAX_WHEEL_BYTES:
+    if not isinstance(payload, bytes) or len(payload) < 1 or len(payload) > MAX_WHEEL_BYTES:
         raise RuntimeError("wheel payload exceeds the bounded size contract")
     try:
         _validated_filename(filename, "wheel filename", suffixes=(".whl",))
@@ -1650,7 +1747,13 @@ def _inspect_wheel(filename: str, payload: bytes) -> tuple[WheelEvidence, tuple[
     versions = metadata.get_all("Version", [])
     wheel_versions = wheel_metadata.get_all("Wheel-Version", [])
     tags = wheel_metadata.get_all("Tag", [])
-    if len(names) != 1 or len(versions) != 1 or len(wheel_versions) != 1 or not tags:
+    if (
+        len(names) != 1
+        or len(versions) != 1
+        or len(wheel_versions) != 1
+        or not tags
+        or not all(isinstance(value, str) for value in (*names, *versions, *wheel_versions, *tags))
+    ):
         raise RuntimeError("wheel metadata is incomplete or ambiguous")
     distribution = canonical_distribution_name(names[0].strip())
     version = versions[0].strip()
@@ -1770,7 +1873,7 @@ def inspect_source_distribution(
     source: SourceArtifactPolicy,
     payload: bytes,
 ) -> None:
-    if len(payload) != source.size or sha256_bytes(payload) != source.sha256:
+    if not isinstance(payload, bytes) or len(payload) != source.size or sha256_bytes(payload) != source.sha256:
         raise RuntimeError("source distribution does not match its approved size and SHA-256")
     metadata_payloads: list[bytes] = []
     total_size = 0
@@ -1791,7 +1894,16 @@ def inspect_source_distribution(
                         if member.file_size > MAX_METADATA_BYTES:
                             raise RuntimeError("source distribution metadata exceeds the bounded size contract")
                         metadata_payloads.append(archive.read(member))
-        except BadZipFile as error:
+        except (
+            BadZipFile,
+            EOFError,
+            NotImplementedError,
+            OSError,
+            UnicodeError,
+            ValueError,
+            lzma.LZMAError,
+            zlib.error,
+        ) as error:
             raise RuntimeError("source distribution is not a valid ZIP archive") from error
     else:
         try:
@@ -1815,7 +1927,7 @@ def inspect_source_distribution(
                         if handle is None:
                             raise RuntimeError("source distribution metadata could not be read")
                         metadata_payloads.append(handle.read())
-        except tarfile.TarError as error:
+        except (EOFError, OSError, lzma.LZMAError, tarfile.TarError, zlib.error) as error:
             raise RuntimeError("source distribution is not a valid tar archive") from error
     if not metadata_payloads:
         raise RuntimeError("source distribution must contain at least one PKG-INFO record")
@@ -1826,6 +1938,8 @@ def inspect_source_distribution(
         if (
             len(names) != 1
             or len(versions) != 1
+            or not isinstance(names[0], str)
+            or not isinstance(versions[0], str)
             or canonical_distribution_name(names[0].strip()) != source.distribution
             or versions[0].strip() != source.version
         ):
@@ -1856,7 +1970,10 @@ def _source_archive_named_payloads(source: SourceArtifactPolicy, payload: bytes,
         if basename not in wanted:
             return
         if size > MAX_SETUP_PY_BYTES:
-            raise RuntimeError("source distribution setup metadata exceeds the bounded size contract")
+            raise SourceWheelContractError(
+                "source_build_declaration_invalid",
+                "source distribution setup metadata exceeds the bounded size contract",
+            )
         candidate_members.append((name, reader()))  # type: ignore[operator]
 
     if source.filename.lower().endswith(".zip"):
@@ -1870,8 +1987,19 @@ def _source_archive_named_payloads(source: SourceArtifactPolicy, payload: bytes,
                     if not _safe_archive_member(member.filename) or member.flag_bits & 0x1 or stat.S_ISLNK(member_mode):
                         raise RuntimeError("source distribution contains an unsafe archive member")
                     consider(member.filename, member.file_size, lambda member=member: archive.read(member))
-        except BadZipFile as error:
-            raise RuntimeError("source distribution is not a valid ZIP archive") from error
+        except (
+            BadZipFile,
+            EOFError,
+            NotImplementedError,
+            OSError,
+            UnicodeError,
+            ValueError,
+            lzma.LZMAError,
+            zlib.error,
+        ) as error:
+            raise SourceWheelContractError(
+                "source_distribution_invalid", "source distribution is not a valid ZIP archive"
+            ) from error
     else:
         try:
             with tarfile.open(fileobj=io.BytesIO(payload), mode="r:*") as archive:
@@ -1896,34 +2024,49 @@ def _source_archive_named_payloads(source: SourceArtifactPolicy, payload: bytes,
                         return handle.read()
 
                     consider(member.name, member.size, read_member)
-        except tarfile.TarError as error:
-            raise RuntimeError("source distribution is not a valid tar archive") from error
+        except (EOFError, OSError, lzma.LZMAError, tarfile.TarError, zlib.error) as error:
+            raise SourceWheelContractError(
+                "source_distribution_invalid", "source distribution is not a valid tar archive"
+            ) from error
     if len(canonical_roots) != 1:
-        raise RuntimeError("source distribution contains ambiguous setup metadata")
+        raise SourceWheelContractError(
+            "source_build_declaration_ambiguous", "source distribution contains ambiguous setup metadata"
+        )
     canonical_root = next(iter(canonical_roots))
     for parts in archive_member_parts:
         if parts[: len(canonical_root)] != canonical_root or len(parts) <= len(canonical_root):
             continue
         root_name = parts[len(canonical_root)]
         if root_name == "setuptools" or root_name.startswith("setuptools."):
-            raise RuntimeError("source distribution shadows the attested setuptools backend")
+            raise SourceWheelContractError(
+                "source_backend_shadowed", "source distribution shadows the attested setuptools backend"
+            )
     for name, payload in candidate_members:
         parts = PurePosixPath(name).parts
         basename = parts[-1]
         if parts[:-1] != canonical_root:
             continue
         if basename in found:
-            raise RuntimeError("source distribution contains ambiguous setup metadata")
+            raise SourceWheelContractError(
+                "source_build_declaration_ambiguous", "source distribution contains ambiguous setup metadata"
+            )
         found[basename] = payload
     return found
 
 
-def _static_requirement_tuple(raw_requirements: list[object], label: str) -> tuple[str, ...]:
-    requirements = tuple(
-        validate_legacy_setup_requirement(item, f"{label}[{index}]") for index, item in enumerate(raw_requirements)
-    )
+def _static_requirement_tuple(
+    raw_requirements: list[object],
+    label: str,
+    error_code: str,
+) -> tuple[str, ...]:
+    try:
+        requirements = tuple(
+            validate_legacy_setup_requirement(item, f"{label}[{index}]") for index, item in enumerate(raw_requirements)
+        )
+    except RuntimeError as error:
+        raise SourceWheelContractError(error_code, str(error)) from error
     if len(requirements) != len(set(requirements)):
-        raise RuntimeError(f"{label} contains duplicate requirements")
+        raise SourceWheelContractError(error_code, f"{label} contains duplicate requirements")
     return requirements
 
 
@@ -1957,11 +2100,125 @@ def _validate_static_setup_value(node: ast.expr) -> object:
         raise RuntimeError("setup.py contains an invalid literal container") from error
 
 
+def _is_unsupported_module_style_setup(tree: ast.Module) -> bool:
+    imports: list[int] = []
+    calls: list[tuple[int, ast.Call]] = []
+    for index, statement in enumerate(tree.body):
+        if (
+            isinstance(statement, ast.Import)
+            and len(statement.names) == 1
+            and statement.names[0].name == "setuptools"
+            and statement.names[0].asname is None
+        ):
+            imports.append(index)
+        elif (
+            isinstance(statement, ast.Expr)
+            and isinstance(statement.value, ast.Call)
+            and isinstance(statement.value.func, ast.Attribute)
+            and isinstance(statement.value.func.value, ast.Name)
+            and statement.value.func.value.id == "setuptools"
+            and statement.value.func.attr == "setup"
+        ):
+            calls.append((index, statement.value))
+        elif (
+            isinstance(statement, ast.Expr)
+            and isinstance(statement.value, ast.Constant)
+            and isinstance(statement.value.value, str)
+        ) or isinstance(statement, ast.Pass):
+            continue
+        else:
+            return False
+    if len(imports) != 1 or len(calls) != 1 or imports[0] >= calls[0][0]:
+        return False
+    setup_call = calls[0][1]
+    keyword_names = [keyword.arg for keyword in setup_call.keywords]
+    if {
+        "cmdclass",
+        "distclass",
+        "script_args",
+        "script_name",
+    }.intersection(keyword_names):
+        return False
+    try:
+        for argument in setup_call.args:
+            _validate_static_setup_value(argument)
+        for keyword in setup_call.keywords:
+            _validate_static_setup_value(keyword.value)
+    except (RuntimeError, RecursionError):
+        return False
+    return True
+
+
+def _is_unsupported_direct_static_setup(tree: ast.Module) -> bool:
+    imports: list[int] = []
+    calls: list[tuple[int, ast.Call]] = []
+    unsupported_inert_statement = False
+    for index, statement in enumerate(tree.body):
+        if (
+            isinstance(statement, ast.ImportFrom)
+            and statement.level == 0
+            and statement.module == "setuptools"
+            and len(statement.names) == 1
+            and statement.names[0].name == "setup"
+            and statement.names[0].asname is None
+        ):
+            imports.append(index)
+        elif (
+            isinstance(statement, ast.Expr)
+            and isinstance(statement.value, ast.Call)
+            and isinstance(statement.value.func, ast.Name)
+            and statement.value.func.id == "setup"
+        ):
+            calls.append((index, statement.value))
+        elif (
+            isinstance(statement, ast.Expr)
+            and isinstance(statement.value, ast.Constant)
+            and isinstance(statement.value.value, str)
+        ) or isinstance(statement, ast.Pass):
+            continue
+        elif isinstance(statement, ast.ImportFrom) and statement.module == "__future__":
+            unsupported_inert_statement = True
+        elif isinstance(statement, ast.Expr):
+            try:
+                _validate_static_setup_value(statement.value)
+            except (RuntimeError, RecursionError):
+                return False
+            unsupported_inert_statement = True
+        else:
+            return False
+    if len(imports) != 1 or len(calls) != 1 or imports[0] >= calls[0][0]:
+        return False
+    setup_call = calls[0][1]
+    keyword_names = [keyword.arg for keyword in setup_call.keywords]
+    if {
+        "cmdclass",
+        "distclass",
+        "script_args",
+        "script_name",
+    }.intersection(keyword_names):
+        return False
+    try:
+        for argument in setup_call.args:
+            _validate_static_setup_value(argument)
+        for keyword in setup_call.keywords:
+            _validate_static_setup_value(keyword.value)
+    except (RuntimeError, RecursionError):
+        return False
+    return bool(
+        unsupported_inert_statement or setup_call.args or any(keyword.arg is None for keyword in setup_call.keywords)
+    )
+
+
 def _extract_setup_py_requirements(setup_payload: bytes) -> tuple[tuple[str, ...], bool]:
     try:
         tree = ast.parse(setup_payload.decode("utf-8"), filename="setup.py")
-    except (SyntaxError, UnicodeDecodeError) as error:
-        raise RuntimeError("setup.py cannot be parsed safely") from error
+    except (SyntaxError, UnicodeDecodeError, RecursionError) as error:
+        raise SourceWheelContractError("source_setup_py_syntax_invalid", "setup.py cannot be parsed safely") from error
+    if _is_unsupported_module_style_setup(tree) or _is_unsupported_direct_static_setup(tree):
+        raise SourceWheelContractError(
+            "source_setup_py_unsupported_static_form",
+            "setup.py uses a static but unsupported setuptools.setup form",
+        )
     imports: list[tuple[int, ast.ImportFrom]] = []
     calls: list[tuple[int, ast.Call]] = []
     for index, statement in enumerate(tree.body):
@@ -1990,12 +2247,20 @@ def _extract_setup_py_requirements(setup_payload: bytes) -> tuple[tuple[str, ...
         elif isinstance(statement, ast.Pass):
             continue
         else:
-            raise RuntimeError("setup.py contains executable or dynamic statements outside setup()")
+            raise SourceWheelContractError(
+                "source_setup_py_dynamic_or_ambiguous",
+                "setup.py contains executable or dynamic statements outside setup()",
+            )
     if len(imports) != 1 or len(calls) != 1 or imports[0][0] >= calls[0][0]:
-        raise RuntimeError("setup.py must contain one unaliased top-level setuptools setup() call")
+        raise SourceWheelContractError(
+            "source_setup_py_dynamic_or_ambiguous",
+            "setup.py must contain one unaliased top-level setuptools setup() call",
+        )
     setup_call = calls[0][1]
     if setup_call.args or any(keyword.arg is None for keyword in setup_call.keywords):
-        raise RuntimeError("setup.py setup() arguments must be explicit keywords")
+        raise SourceWheelContractError(
+            "source_setup_py_dynamic_or_ambiguous", "setup.py setup() arguments must be explicit keywords"
+        )
     keyword_names = [keyword.arg for keyword in setup_call.keywords]
     if len(keyword_names) != len(set(keyword_names)) or {
         "cmdclass",
@@ -2003,11 +2268,17 @@ def _extract_setup_py_requirements(setup_payload: bytes) -> tuple[tuple[str, ...
         "script_args",
         "script_name",
     }.intersection(keyword_names):
-        raise RuntimeError("setup.py contains ambiguous or executable setup() controls")
-    literal_values = {keyword.arg: _validate_static_setup_value(keyword.value) for keyword in setup_call.keywords}
+        raise SourceWheelContractError(
+            "source_setup_py_dynamic_or_ambiguous",
+            "setup.py contains ambiguous or executable setup() controls",
+        )
+    try:
+        literal_values = {keyword.arg: _validate_static_setup_value(keyword.value) for keyword in setup_call.keywords}
+    except (RuntimeError, RecursionError) as error:
+        raise SourceWheelContractError("source_setup_py_dynamic_or_ambiguous", str(error)) from error
     matches = [keyword for keyword in setup_call.keywords if keyword.arg == "setup_requires"]
     if len(matches) > 1:
-        raise RuntimeError("setup.py has ambiguous setup_requires")
+        raise SourceWheelContractError("source_setup_py_dynamic_or_ambiguous", "setup.py has ambiguous setup_requires")
     if not matches:
         return (), False
     value = literal_values["setup_requires"]
@@ -2016,8 +2287,17 @@ def _extract_setup_py_requirements(setup_payload: bytes) -> tuple[tuple[str, ...
     elif isinstance(value, (list, tuple)):
         raw_requirements = list(value)
     else:
-        raise RuntimeError("setup.py setup_requires must be a static literal")
-    return _static_requirement_tuple(raw_requirements, "setup.py setup_requires"), True
+        raise SourceWheelContractError(
+            "source_setup_py_unsupported_static_form", "setup.py setup_requires must be a static literal"
+        )
+    return (
+        _static_requirement_tuple(
+            raw_requirements,
+            "setup.py setup_requires",
+            "source_setup_py_requirement_invalid",
+        ),
+        True,
+    )
 
 
 def _extract_setup_cfg_requirements(payload: bytes | None) -> tuple[tuple[str, ...], bool]:
@@ -2031,10 +2311,14 @@ def _extract_setup_cfg_requirements(payload: bytes | None) -> tuple[tuple[str, .
             empty_lines_in_values=False,
         )
         parser.read_string(text, source="setup.cfg")
-    except (UnicodeDecodeError, configparser.Error) as error:
-        raise RuntimeError("setup.cfg cannot be parsed safely") from error
+    except (UnicodeDecodeError, configparser.Error, RecursionError) as error:
+        raise SourceWheelContractError(
+            "source_setup_cfg_syntax_invalid", "setup.cfg cannot be parsed safely"
+        ) from error
     if parser.defaults():
-        raise RuntimeError("setup.cfg default options are unsupported")
+        raise SourceWheelContractError(
+            "source_setup_cfg_dynamic_or_ambiguous", "setup.cfg default options are unsupported"
+        )
     declarations: list[tuple[str, str]] = []
     for section in parser.sections():
         normalized_section = section.casefold()
@@ -2044,21 +2328,36 @@ def _extract_setup_cfg_requirements(payload: bytes | None) -> tuple[tuple[str, .
             "bdist_wheel",
             "egg_info",
         } and not normalized_section.startswith("options."):
-            raise RuntimeError("setup.cfg contains an unsupported section")
+            raise SourceWheelContractError(
+                "source_setup_cfg_unsupported_static_form", "setup.cfg contains an unsupported section"
+            )
         for option, value in parser.items(section, raw=True):
             normalized_option = option.casefold().replace("-", "_")
             if normalized_option in {"cmdclass", "distclass"} or "attr:" in value.casefold():
-                raise RuntimeError("setup.cfg contains an executable or dynamic option")
+                raise SourceWheelContractError(
+                    "source_setup_cfg_dynamic_or_ambiguous",
+                    "setup.cfg contains an executable or dynamic option",
+                )
             if normalized_option == "setup_requires":
                 declarations.append((normalized_section, value))
     if not declarations:
         return (), False
     if len(declarations) != 1 or declarations[0][0] != "options":
-        raise RuntimeError("setup.cfg has an ambiguous setup_requires declaration")
+        raise SourceWheelContractError(
+            "source_setup_cfg_dynamic_or_ambiguous",
+            "setup.cfg has an ambiguous setup_requires declaration",
+        )
     raw_value = declarations[0][1]
     chunks = raw_value.splitlines() if "\n" in raw_value else raw_value.split(",")
     raw_requirements = [chunk.strip() for chunk in chunks if chunk.strip()]
-    return _static_requirement_tuple(raw_requirements, "setup.cfg setup_requires"), True
+    return (
+        _static_requirement_tuple(
+            raw_requirements,
+            "setup.cfg setup_requires",
+            "source_setup_cfg_requirement_invalid",
+        ),
+        True,
+    )
 
 
 def _extract_pyproject_requirements(payload: bytes | None) -> tuple[str, ...]:
@@ -2066,21 +2365,65 @@ def _extract_pyproject_requirements(payload: bytes | None) -> tuple[str, ...]:
         return ()
     try:
         value = tomllib.loads(payload.decode("utf-8"))
-    except (UnicodeDecodeError, tomllib.TOMLDecodeError) as error:
-        raise RuntimeError("pyproject.toml cannot be parsed safely") from error
+    except (UnicodeDecodeError, tomllib.TOMLDecodeError, RecursionError) as error:
+        raise SourceWheelContractError(
+            "source_pyproject_syntax_invalid", "pyproject.toml cannot be parsed safely"
+        ) from error
     build_system = value.get("build-system")
+    if set(value) != {"build-system"}:
+        dynamic_keys = {"backend-path", "cmdclass", "distclass", "dynamic"}
+
+        def contains_dynamic_control(item: object) -> bool:
+            pending = [item]
+            while pending:
+                current = pending.pop()
+                if isinstance(current, dict):
+                    for key, child in current.items():
+                        if key.casefold().replace("_", "-") in dynamic_keys:
+                            return True
+                        pending.append(child)
+                elif isinstance(current, list):
+                    pending.extend(current)
+                elif isinstance(current, str) and "attr:" in current.casefold():
+                    return True
+            return False
+
+        code = (
+            "source_pyproject_dynamic_or_ambiguous"
+            if contains_dynamic_control(value)
+            else "source_pyproject_unsupported_static_form"
+        )
+        raise SourceWheelContractError(code, "pyproject.toml contains unsupported top-level configuration")
+    if not isinstance(build_system, dict):
+        raise SourceWheelContractError(
+            "source_pyproject_unsupported_static_form",
+            "pyproject.toml build-system declaration is unsupported",
+        )
+    unsupported_keys = set(build_system) - {"requires", "build-backend"}
+    if unsupported_keys:
+        code = (
+            "source_pyproject_dynamic_or_ambiguous"
+            if "backend-path" in unsupported_keys
+            else "source_pyproject_unsupported_static_form"
+        )
+        raise SourceWheelContractError(code, "pyproject.toml build-system declaration is unsupported")
+    build_backend = build_system.get("build-backend", "setuptools.build_meta:__legacy__")
     if (
-        set(value) != {"build-system"}
-        or not isinstance(build_system, dict)
-        or not set(build_system).issubset({"requires", "build-backend"})
-        or "requires" not in build_system
+        "requires" not in build_system
         or not isinstance(build_system["requires"], list)
         or not all(isinstance(item, str) for item in build_system["requires"])
-        or build_system.get("build-backend", "setuptools.build_meta:__legacy__")
-        not in {"setuptools.build_meta", "setuptools.build_meta:__legacy__"}
+        or not isinstance(build_backend, str)
+        or build_backend not in {"setuptools.build_meta", "setuptools.build_meta:__legacy__"}
     ):
-        raise RuntimeError("pyproject.toml build-system declaration is unsupported or ambiguous")
-    return _static_requirement_tuple(build_system["requires"], "pyproject.toml build-system.requires")
+        raise SourceWheelContractError(
+            "source_pyproject_unsupported_static_form",
+            "pyproject.toml build-system declaration is unsupported",
+        )
+    return _static_requirement_tuple(
+        build_system["requires"],
+        "pyproject.toml build-system.requires",
+        "source_pyproject_requirement_invalid",
+    )
 
 
 def extract_static_build_requirements(source: SourceArtifactPolicy, payload: bytes) -> tuple[str, ...]:
@@ -2088,15 +2431,23 @@ def extract_static_build_requirements(source: SourceArtifactPolicy, payload: byt
     named = _source_archive_named_payloads(source, payload, {"setup.py", "setup.cfg", "pyproject.toml"})
     setup_payload = named.get("setup.py")
     if setup_payload is None:
-        raise RuntimeError("source distribution is missing setup.py")
+        raise SourceWheelContractError(
+            "source_setup_py_unsupported_static_form", "source distribution is missing setup.py"
+        )
     setup_requirements, setup_declared = _extract_setup_py_requirements(setup_payload)
     config_requirements, config_declared = _extract_setup_cfg_requirements(named.get("setup.cfg"))
     if setup_declared and config_declared:
-        raise RuntimeError("source distribution has ambiguous setup_requires declarations")
+        raise SourceWheelContractError(
+            "source_build_declaration_ambiguous",
+            "source distribution has ambiguous setup_requires declarations",
+        )
     pyproject_requirements = _extract_pyproject_requirements(named.get("pyproject.toml"))
     requirements = (*setup_requirements, *config_requirements, *pyproject_requirements)
     if len(requirements) != len(set(requirements)):
-        raise RuntimeError("source distribution has duplicate static build requirements")
+        raise SourceWheelContractError(
+            "source_build_declaration_ambiguous",
+            "source distribution has duplicate static build requirements",
+        )
     return requirements
 
 

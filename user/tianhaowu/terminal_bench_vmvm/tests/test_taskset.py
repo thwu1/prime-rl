@@ -28,6 +28,7 @@ from terminal_bench_vmvm.source_wheels import (
     SOURCE_WHEEL_POLICY_SCHEMA_VERSION,
     BinaryWheelPolicy,
     SourceArtifactPolicy,
+    SourceWheelContractError,
     build_dependency_artifact_records,
     canonical_distribution_name,
     canonical_json,
@@ -1826,6 +1827,22 @@ def test_source_distribution_accepts_matching_duplicate_metadata_only(tmp_path: 
     with pytest.raises(RuntimeError, match="metadata does not match"):
         inspect_source_distribution(loaded.entries[0].sources[0], mismatched)
 
+    non_string_name = archive(b"Metadata-Version: 2.1\nName: \xff\nVersion: 1.0\n")
+    source["size"] = len(non_string_name)
+    source["sha256"] = sha256_bytes(non_string_name)
+    policy_path.write_text(
+        json.dumps(
+            {
+                "schema_version": SOURCE_WHEEL_POLICY_SCHEMA_VERSION,
+                "allowed_hosts": ["files.example.invalid"],
+                "entries": [entry],
+            }
+        )
+    )
+    loaded = load_source_wheel_policy(policy_path, sha256_bytes(policy_path.read_bytes()))
+    with pytest.raises(RuntimeError, match="metadata does not match"):
+        inspect_source_distribution(loaded.entries[0].sources[0], non_string_name)
+
 
 def test_static_build_requirement_extraction_is_fail_closed(tmp_path: Path) -> None:
     entry, source_payload, _ = source_policy_entry(setup_requires=("legacy-backend==0.1", "cffi>=1.0"))
@@ -1863,8 +1880,9 @@ def test_static_build_requirement_extraction_is_fail_closed(tmp_path: Path) -> N
 
     metadata = b"Metadata-Version: 2.1\nName: verifier-helper\nVersion: 1.0\n"
     missing_setup = archive(("verifier_helper-1.0/PKG-INFO", metadata))
-    with pytest.raises(RuntimeError, match="missing setup.py"):
+    with pytest.raises(SourceWheelContractError, match="missing setup.py") as missing_error:
         extract_static_setup_requires(load_source(missing_setup), missing_setup)
+    assert missing_error.value.code == "source_setup_py_unsupported_static_form"
 
     dynamic_setup = archive(
         ("verifier_helper-1.0/PKG-INFO", metadata),
@@ -1873,8 +1891,28 @@ def test_static_build_requirement_extraction_is_fail_closed(tmp_path: Path) -> N
             b"from setuptools import setup\nREQS = ['legacy-backend==0.1']\nsetup(name='verifier-helper', version='1.0', setup_requires=REQS)\n",
         ),
     )
-    with pytest.raises(RuntimeError, match="executable or dynamic statements"):
+    with pytest.raises(SourceWheelContractError, match="executable or dynamic statements") as dynamic_error:
         extract_static_setup_requires(load_source(dynamic_setup), dynamic_setup)
+    assert dynamic_error.value.code == "source_setup_py_dynamic_or_ambiguous"
+
+    invalid_setup_syntax = archive(
+        ("verifier_helper-1.0/PKG-INFO", metadata),
+        ("verifier_helper-1.0/setup.py", b"from setuptools import setup\nsetup(\n"),
+    )
+    with pytest.raises(SourceWheelContractError) as setup_syntax_error:
+        extract_static_setup_requires(load_source(invalid_setup_syntax), invalid_setup_syntax)
+    assert setup_syntax_error.value.code == "source_setup_py_syntax_invalid"
+
+    invalid_setup_requirement = archive(
+        ("verifier_helper-1.0/PKG-INFO", metadata),
+        (
+            "verifier_helper-1.0/setup.py",
+            b"from setuptools import setup\nsetup(name='verifier-helper', setup_requires=[1])\n",
+        ),
+    )
+    with pytest.raises(SourceWheelContractError) as setup_requirement_error:
+        extract_static_setup_requires(load_source(invalid_setup_requirement), invalid_setup_requirement)
+    assert setup_requirement_error.value.code == "source_setup_py_requirement_invalid"
 
     nested_setup = archive(
         ("verifier_helper-1.0/PKG-INFO", metadata),
@@ -1906,8 +1944,24 @@ def test_static_build_requirement_extraction_is_fail_closed(tmp_path: Path) -> N
         ),
         ("verifier_helper-1.0/pyproject.toml", b"[build-system]\n"),
     )
-    with pytest.raises(RuntimeError, match="pyproject.toml build-system"):
+    with pytest.raises(SourceWheelContractError, match="pyproject.toml build-system") as pyproject_error:
         extract_static_build_requirements(load_source(invalid_pyproject), invalid_pyproject)
+    assert pyproject_error.value.code == "source_pyproject_unsupported_static_form"
+
+    invalid_backend_type = archive(
+        ("verifier_helper-1.0/PKG-INFO", metadata),
+        (
+            "verifier_helper-1.0/setup.py",
+            b"from setuptools import setup\nsetup(name='verifier-helper', version='1.0')\n",
+        ),
+        (
+            "verifier_helper-1.0/pyproject.toml",
+            b"[build-system]\nrequires = ['setuptools']\nbuild-backend = []\n",
+        ),
+    )
+    with pytest.raises(SourceWheelContractError) as backend_type_error:
+        extract_static_build_requirements(load_source(invalid_backend_type), invalid_backend_type)
+    assert backend_type_error.value.code == "source_pyproject_unsupported_static_form"
 
     pyproject = archive(
         ("verifier_helper-1.0/PKG-INFO", metadata),
@@ -1941,6 +1995,72 @@ def test_static_build_requirement_extraction_is_fail_closed(tmp_path: Path) -> N
         "cffi>=1",
     )
 
+    invalid_setup_cfg = archive(
+        ("verifier_helper-1.0/PKG-INFO", metadata),
+        (
+            "verifier_helper-1.0/setup.py",
+            b"from setuptools import setup\nsetup(name='verifier-helper', version='1.0')\n",
+        ),
+        ("verifier_helper-1.0/setup.cfg", b"[options\nsetup_requires = backend\n"),
+    )
+    with pytest.raises(SourceWheelContractError) as setup_cfg_syntax_error:
+        extract_static_build_requirements(load_source(invalid_setup_cfg), invalid_setup_cfg)
+    assert setup_cfg_syntax_error.value.code == "source_setup_cfg_syntax_invalid"
+
+    invalid_setup_cfg_requirement = archive(
+        ("verifier_helper-1.0/PKG-INFO", metadata),
+        (
+            "verifier_helper-1.0/setup.py",
+            b"from setuptools import setup\nsetup(name='verifier-helper', version='1.0')\n",
+        ),
+        ("verifier_helper-1.0/setup.cfg", b"[options]\nsetup_requires = backend @ https://example.invalid\n"),
+    )
+    with pytest.raises(SourceWheelContractError) as setup_cfg_requirement_error:
+        extract_static_build_requirements(load_source(invalid_setup_cfg_requirement), invalid_setup_cfg_requirement)
+    assert setup_cfg_requirement_error.value.code == "source_setup_cfg_requirement_invalid"
+
+    invalid_pyproject_syntax = archive(
+        ("verifier_helper-1.0/PKG-INFO", metadata),
+        (
+            "verifier_helper-1.0/setup.py",
+            b"from setuptools import setup\nsetup(name='verifier-helper', version='1.0')\n",
+        ),
+        ("verifier_helper-1.0/pyproject.toml", b"[build-system\nrequires = []\n"),
+    )
+    with pytest.raises(SourceWheelContractError) as pyproject_syntax_error:
+        extract_static_build_requirements(load_source(invalid_pyproject_syntax), invalid_pyproject_syntax)
+    assert pyproject_syntax_error.value.code == "source_pyproject_syntax_invalid"
+
+    deeply_nested_pyproject = archive(
+        ("verifier_helper-1.0/PKG-INFO", metadata),
+        (
+            "verifier_helper-1.0/setup.py",
+            b"from setuptools import setup\nsetup(name='verifier-helper', version='1.0')\n",
+        ),
+        (
+            "verifier_helper-1.0/pyproject.toml",
+            b"[build-system]\nrequires = " + b"[" * 600 + b"'setuptools'" + b"]" * 600 + b"\n",
+        ),
+    )
+    with pytest.raises(SourceWheelContractError) as deep_pyproject_error:
+        extract_static_build_requirements(load_source(deeply_nested_pyproject), deeply_nested_pyproject)
+    assert deep_pyproject_error.value.code == "source_pyproject_syntax_invalid"
+
+    invalid_pyproject_requirement = archive(
+        ("verifier_helper-1.0/PKG-INFO", metadata),
+        (
+            "verifier_helper-1.0/setup.py",
+            b"from setuptools import setup\nsetup(name='verifier-helper', version='1.0')\n",
+        ),
+        (
+            "verifier_helper-1.0/pyproject.toml",
+            b"[build-system]\nrequires = ['backend @ https://example.invalid']\n",
+        ),
+    )
+    with pytest.raises(SourceWheelContractError) as pyproject_requirement_error:
+        extract_static_build_requirements(load_source(invalid_pyproject_requirement), invalid_pyproject_requirement)
+    assert pyproject_requirement_error.value.code == "source_pyproject_requirement_invalid"
+
     conflicting_config = archive(
         ("verifier_helper-1.0/PKG-INFO", metadata),
         (
@@ -1963,8 +2083,9 @@ def test_static_build_requirement_extraction_is_fail_closed(tmp_path: Path) -> N
             b"[build-system]\nrequires = ['custom-backend']\nbuild-backend = 'custom_backend'\n",
         ),
     )
-    with pytest.raises(RuntimeError, match="unsupported or ambiguous"):
+    with pytest.raises(SourceWheelContractError, match="unsupported") as backend_error:
         extract_static_build_requirements(load_source(unsupported_backend), unsupported_backend)
+    assert backend_error.value.code == "source_pyproject_unsupported_static_form"
 
     in_tree_backend = archive(
         ("verifier_helper-1.0/PKG-INFO", metadata),
@@ -1977,8 +2098,9 @@ def test_static_build_requirement_extraction_is_fail_closed(tmp_path: Path) -> N
             b"[build-system]\nrequires = ['setuptools']\nbackend-path = ['backend']\n",
         ),
     )
-    with pytest.raises(RuntimeError, match="unsupported or ambiguous"):
+    with pytest.raises(SourceWheelContractError, match="unsupported") as in_tree_error:
         extract_static_build_requirements(load_source(in_tree_backend), in_tree_backend)
+    assert in_tree_error.value.code == "source_pyproject_dynamic_or_ambiguous"
 
     default_config = archive(
         ("verifier_helper-1.0/PKG-INFO", metadata),
@@ -1988,8 +2110,9 @@ def test_static_build_requirement_extraction_is_fail_closed(tmp_path: Path) -> N
         ),
         ("verifier_helper-1.0/setup.cfg", b"[DEFAULT]\nsetup_requires = hidden-backend\n[options]\n"),
     )
-    with pytest.raises(RuntimeError, match="default options"):
+    with pytest.raises(SourceWheelContractError, match="default options") as default_error:
         extract_static_build_requirements(load_source(default_config), default_config)
+    assert default_error.value.code == "source_setup_cfg_dynamic_or_ambiguous"
 
     dynamic_config = archive(
         ("verifier_helper-1.0/PKG-INFO", metadata),
@@ -2021,8 +2144,9 @@ def test_static_build_requirement_extraction_is_fail_closed(tmp_path: Path) -> N
         ),
         ("verifier_helper-1.0/setup.cfg", b"[aliases]\nbuild = custom_build\n"),
     )
-    with pytest.raises(RuntimeError, match="unsupported section"):
+    with pytest.raises(SourceWheelContractError, match="unsupported section") as config_section_error:
         extract_static_build_requirements(load_source(unsupported_config_section), unsupported_config_section)
+    assert config_section_error.value.code == "source_setup_cfg_unsupported_static_form"
 
     pyproject_tool_section = archive(
         ("verifier_helper-1.0/PKG-INFO", metadata),
@@ -2035,8 +2159,9 @@ def test_static_build_requirement_extraction_is_fail_closed(tmp_path: Path) -> N
             b"[build-system]\nrequires = ['setuptools']\n[tool.setuptools.dynamic]\nversion = {attr = 'pkg.VERSION'}\n",
         ),
     )
-    with pytest.raises(RuntimeError, match="unsupported or ambiguous"):
+    with pytest.raises(SourceWheelContractError, match="unsupported") as tool_section_error:
         extract_static_build_requirements(load_source(pyproject_tool_section), pyproject_tool_section)
+    assert tool_section_error.value.code == "source_pyproject_dynamic_or_ambiguous"
 
     module_style = archive(
         ("verifier_helper-1.0/PKG-INFO", metadata),
@@ -2046,8 +2171,22 @@ def test_static_build_requirement_extraction_is_fail_closed(tmp_path: Path) -> N
             b"setup_requires=('legacy-backend==0.1',))\n",
         ),
     )
-    with pytest.raises(RuntimeError, match="setup.py"):
+    with pytest.raises(SourceWheelContractError, match="setup.py") as module_style_error:
         extract_static_setup_requires(load_source(module_style), module_style)
+    assert module_style_error.value.code == "source_setup_py_unsupported_static_form"
+
+    for unsupported_static_source in (
+        b"from setuptools import setup\nsetup({'name': 'verifier-helper'})\n",
+        b"from setuptools import setup\nsetup(**{'name': 'verifier-helper'})\n",
+        (b"from __future__ import annotations\nfrom setuptools import setup\nsetup(name='verifier-helper')\n"),
+    ):
+        unsupported_static = archive(
+            ("verifier_helper-1.0/PKG-INFO", metadata),
+            ("verifier_helper-1.0/setup.py", unsupported_static_source),
+        )
+        with pytest.raises(SourceWheelContractError) as unsupported_static_error:
+            extract_static_setup_requires(load_source(unsupported_static), unsupported_static)
+        assert unsupported_static_error.value.code == "source_setup_py_unsupported_static_form"
 
     literal_containers = archive(
         ("verifier_helper-1.0/PKG-INFO", metadata),
@@ -2188,22 +2327,52 @@ def test_wheel_semantic_digest_normalizes_timestamps_and_rejects_unsafe_members(
         filename, wheel((2020, 1, 1, 0, 0, 0), mode=0o644)
     )
 
+    non_string_metadata_values = (
+        (
+            (
+                f"{metadata_dir}/METADATA",
+                b"Metadata-Version: 2.1\nName: \xff\nVersion: 1.0\n",
+            ),
+            base_members[1],
+        ),
+        (
+            base_members[0],
+            (
+                f"{metadata_dir}/WHEEL",
+                b"Wheel-Version: \xff\nRoot-Is-Purelib: true\nTag: py3-none-any\n",
+            ),
+        ),
+        (
+            base_members[0],
+            (
+                f"{metadata_dir}/WHEEL",
+                b"Wheel-Version: 1.0\nRoot-Is-Purelib: true\nTag: \xff\n",
+            ),
+        ),
+    )
+    for metadata_members in non_string_metadata_values:
+        with pytest.raises(RuntimeError, match="wheel metadata is incomplete or ambiguous"):
+            inspect_wheel(filename, wheel((2020, 1, 1, 0, 0, 0), members=metadata_members))
+
     duplicate_members = (*base_members, ("safe_project.py", b"VALUE = 1\n"))
     with pytest.warns(UserWarning, match="Duplicate name"):
         duplicate = wheel((2020, 1, 1, 0, 0, 0), members=duplicate_members)
-    with pytest.raises(RuntimeError, match="duplicate archive members"):
+    with pytest.raises(SourceWheelContractError, match="duplicate archive members") as duplicate_error:
         inspect_wheel(filename, duplicate)
+    assert duplicate_error.value.code == "wheel_zip_member_name_invalid"
 
     signed = wheel(
         (2020, 1, 1, 0, 0, 0),
         members=(*base_members, (f"{metadata_dir}/RECORD.jws", b"signature")),
     )
-    with pytest.raises(RuntimeError, match="forbidden RECORD signature"):
+    with pytest.raises(SourceWheelContractError, match="forbidden RECORD signature") as signature_error:
         inspect_wheel(filename, signed)
+    assert signature_error.value.code == "wheel_record_signature_forbidden"
 
     non_regular = wheel((2020, 1, 1, 0, 0, 0), mode=stat.S_IFIFO | 0o600)
-    with pytest.raises(RuntimeError, match="unsafe archive member"):
+    with pytest.raises(SourceWheelContractError, match="unsafe archive member") as mode_error:
         inspect_wheel(filename, non_regular)
+    assert mode_error.value.code == "wheel_zip_member_mode_invalid"
     unreadable_regular = wheel((2020, 1, 1, 0, 0, 0), mode=stat.S_IFREG)
     with pytest.raises(RuntimeError, match="unsafe archive member"):
         inspect_wheel(filename, unreadable_regular)
@@ -2212,15 +2381,17 @@ def test_wheel_semantic_digest_normalizes_timestamps_and_rejects_unsafe_members(
         inspect_wheel(filename, world_writable)
 
     with_extra = wheel((2020, 1, 1, 0, 0, 0), extra=b"UT\x01\x00\x00")
-    with pytest.raises(RuntimeError, match="central directory entry"):
+    with pytest.raises(SourceWheelContractError, match="central directory entry") as extra_error:
         inspect_wheel(filename, with_extra)
+    assert extra_error.value.code == "wheel_zip_feature_unsupported"
 
     member_commented = wheel((2020, 1, 1, 0, 0, 0), member_comment=b"comment")
     with pytest.raises(RuntimeError, match="central directory entry"):
         inspect_wheel(filename, member_commented)
     archive_commented = wheel((2020, 1, 1, 0, 0, 0), archive_comment=b"comment")
-    with pytest.raises(RuntimeError, match="ZIP envelope"):
+    with pytest.raises(SourceWheelContractError, match="ZIP envelope") as archive_comment_error:
         inspect_wheel(filename, archive_commented)
+    assert archive_comment_error.value.code == "wheel_zip_feature_unsupported"
 
     ambiguous_path = wheel(
         (2020, 1, 1, 0, 0, 0),
@@ -2237,8 +2408,9 @@ def test_wheel_semantic_digest_normalizes_timestamps_and_rejects_unsafe_members(
     struct.pack_into("<H", local_extra, last_local_offset + 28, len(inserted_extra))
     local_extra[insert_at:insert_at] = inserted_extra
     struct.pack_into("<L", local_extra, end_offset + len(inserted_extra) + 16, central_offset + len(inserted_extra))
-    with pytest.raises(RuntimeError, match="local and central records"):
+    with pytest.raises(SourceWheelContractError, match="local and central records") as local_extra_error:
         inspect_wheel(filename, bytes(local_extra))
+    assert local_extra_error.value.code == "wheel_zip_feature_unsupported"
 
     raw_nul = bytearray(first)
     _, _, entries = raw_layout(first)
@@ -2260,22 +2432,25 @@ def test_wheel_semantic_digest_normalizes_timestamps_and_rejects_unsafe_members(
     central_member, local_member, _ = entries[-1]
     struct.pack_into("<H", unsupported_flags, central_member + 8, 1)
     struct.pack_into("<H", unsupported_flags, local_member + 6, 1)
-    with pytest.raises(RuntimeError, match="unsupported ZIP member features"):
+    with pytest.raises(SourceWheelContractError, match="unsupported ZIP member features") as feature_error:
         inspect_wheel(filename, bytes(unsupported_flags))
+    assert feature_error.value.code == "wheel_zip_feature_unsupported"
 
     unterminated_deflate = bytearray(wheel((2020, 1, 1, 0, 0, 0), compression=ZIP_DEFLATED))
     _, _, entries = raw_layout(unterminated_deflate)
     _, local_member, name_size = entries[0]
     unterminated_deflate[local_member + 30 + name_size] &= 0xFE
-    with pytest.raises(RuntimeError, match="deflated member payload"):
+    with pytest.raises(SourceWheelContractError, match="deflated member payload") as payload_error:
         inspect_wheel(filename, bytes(unterminated_deflate))
+    assert payload_error.value.code == "wheel_zip_payload_invalid"
 
     orphan_gap = bytearray(first)
     end_offset, central_offset, _ = raw_layout(first)
     orphan_gap[central_offset:central_offset] = b"x"
     struct.pack_into("<L", orphan_gap, end_offset + 1 + 16, central_offset + 1)
-    with pytest.raises(RuntimeError, match="exactly fill"):
+    with pytest.raises(SourceWheelContractError, match="exactly fill") as structure_error:
         inspect_wheel(filename, bytes(orphan_gap))
+    assert structure_error.value.code == "wheel_zip_structure_invalid"
 
 
 def test_build_dependency_closure_is_exact_transitive_and_marker_conditioned() -> None:

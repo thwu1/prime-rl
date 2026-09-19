@@ -43,6 +43,7 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument("--expected-missing-evidence-sha256", required=True)
     parser.add_argument("--output-dir", type=Path, required=True)
     parser.add_argument("--resume-state-sha256")
+    parser.add_argument("--candidate-diagnostics-only", action="store_true")
     parser.add_argument("--max-concurrent-entries", type=int, default=2)
     parser.add_argument("--session-timeout", type=float, default=10_800)
     parser.add_argument("--tunnel-ready-timeout", type=float, default=120)
@@ -103,6 +104,21 @@ async def _run(config: object, proof_module: ModuleType) -> dict[str, object]:
             loop.remove_signal_handler(caught)
 
 
+def diagnostic_public_summary(result: dict[str, object]) -> dict[str, object]:
+    return {
+        "status": "diagnostic_complete",
+        "counts": {
+            "entries_checked": result["entries_checked"],
+            "candidate_failures": result["candidate_failures"],
+            "successful_entries": result["successful_entries"],
+            "runtime_starts": result["runtime_starts"],
+            "peak_live_runtimes": result["peak_live_runtimes"],
+            "peak_concurrent_entries": result["peak_concurrent_entries"],
+        },
+        "failure_counts": result["failure_counts"],
+    }
+
+
 def main() -> int:
     _require_bootstrap()
     import terminal_bench_vmvm.source_wheel_proof as proof_module
@@ -152,6 +168,7 @@ def main() -> int:
         vacli_max_pull_retries=args.vacli_max_pull_retries,
         vacli_image_pull_timeout_seconds=args.vacli_image_pull_timeout_seconds,
         vacli_container_privileged=args.vacli_container_privileged,
+        candidate_diagnostics_only=args.candidate_diagnostics_only,
     )
     try:
         result = asyncio.run(_run(config, proof_module))
@@ -170,6 +187,9 @@ def main() -> int:
             flush=True,
         )
         return 1
+    if result.get("diagnostic_only") is True:
+        print(json.dumps(diagnostic_public_summary(result), sort_keys=True), flush=True)
+        return 0
     print(
         json.dumps(
             {
