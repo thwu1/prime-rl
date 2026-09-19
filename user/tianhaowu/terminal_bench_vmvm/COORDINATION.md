@@ -1,6 +1,6 @@
 # VMVM sandbox coordination
 
-Last updated: 2026-09-19 07:04 UTC
+Last updated: 2026-09-19 07:27 UTC
 
 ## First message to the next teammate
 
@@ -41,6 +41,19 @@ this shared branch again.
 Add new rows below this line; do not overwrite another owner's row.
 
 ## Open coordination requests
+
+- **2026-09-19 07:27 UTC, Kimi TB4 launch chain remains gated:** on
+  `fair-cw-use2-3`, authoritative coordinator `1752688`, endpoints
+  `1752709/1752711`, and proxy `1752810` are live; readiness `1752736` passed.
+  At assignment, two-task smoke `1752864` was still running at roughly 38
+  minutes with 0/2 durable rows and no checkpoint. The singleton watcher is
+  frozen at `f0f8fbbb...`; live PID `772982` is waiting with intent SHA
+  `593b9f...`. The 17-chunk supervisor is frozen at `95c981c6...`; live PID
+  `805540` has signed state `waiting_for_singleton`, with no submissions or
+  failures. Keep the gate bound to exact source `3d1c4906c`, 256K context,
+  pass@1, and trace retention. Source-wheel safe-eight commit `694b` remains
+  held after an independent **REJECT** for `setup.cfg` validation; a fix is in
+  progress, and no proof is claimed.
 
 - **2026-09-19 07:01 UTC, Kimi generation snapshot sealed:** independently
   reviewed wrapper `0c7be1970ffa621581993cdb763371bb66db7bb69591cebeec4c3cb8206f9b1f`
