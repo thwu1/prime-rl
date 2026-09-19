@@ -1,6 +1,6 @@
 # VMVM sandbox coordination
 
-Last updated: 2026-09-19 14:25 UTC
+Last updated: 2026-09-19 14:46 UTC
 
 ## First message to the next teammate
 
@@ -41,6 +41,28 @@ this shared branch again.
 Add new rows below this line; do not overwrite another owner's row.
 
 ## Open coordination requests
+
+- **2026-09-19 14:46 UTC, infrastructure-retry v10/v11 rejected without
+  execution:** both frozen candidates remain immutable and all of their private
+  selection/output/reservation/log/audit namespaces remain absent. V10 fixed
+  the timing bound but could issue exact-ID cancellation after an explicit
+  live name/user conflict. V11's local tri-state check fixed that path, but
+  independent review found that conflicts could still be forgotten across
+  held/activation polls, a new conflict between proof and control was not
+  distinguished, UID matching was prefix-only, and direct-sbatch provenance
+  could be downgraded during recovery. No validation or scheduler command is
+  approved. Fresh v12 must make explicit conflicts and direct provenance
+  monotonic across the complete lifecycle, require the exact UID, recheck
+  conflict immediately before control, and prove all four cases with public
+  regressions before another independent review.
+
+- **2026-09-19 14:40 UTC, continued Kimi smoke decode:** smoke `1753515`
+  remains `RUNNING` at 5:47 elapsed with zero restarts, one durable row, one
+  active generation, and zero waiting. Aggregate generated-token telemetry
+  advanced by 348 since 14:23; worker completion count remained 109. All
+  route/concurrency/canonical/exact-provider certificate surfaces remain
+  absent. The run is still advancing; preserve it and keep every downstream
+  launch unarmed.
 
 - **2026-09-19 14:25 UTC, infrastructure-retry v9 rejected before any
   execution:** the independently reviewed frozen v9 remains immutable and
