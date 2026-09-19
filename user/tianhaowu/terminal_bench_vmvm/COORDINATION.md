@@ -1,6 +1,6 @@
 # VMVM sandbox coordination
 
-Last updated: 2026-09-19 17:06 UTC
+Last updated: 2026-09-19 17:16 UTC
 
 ## First message to the next teammate
 
@@ -100,9 +100,13 @@ Add new rows below this line; do not overwrite another owner's row.
   nonce-bound private authorization, and passed 19 isolated tests plus lint and
   format; it still requires independent exact-byte review and smoke completion
   before any activation. No tokenizer content, model weights, or runtime probe
-  was accessed. Shared head `ceaa82826` also contains the fresh fail-closed
-  12-hour smoke recovery chain; it is under independent review and must never
-  trigger while the current decode remains active and advancing.
+  was accessed. The recovery chain at shared head `ceaa82826` is independently
+  rejected for live use. Its 1+1 mode cannot bind legacy source `3d1c4906c`,
+  while fresh-two mode lacks a source-run/terminal/quiescence controller,
+  exact submission/cancellation protocol, and clean runtime/site/ignored-pyc
+  bindings. It therefore provides no authority to act while the current decode
+  remains active and advancing. A fresh external fresh-two-only controller is
+  being built unarmed; do not invoke the tracked recovery wrapper directly.
 
 - **2026-09-19 15:50 UTC, infrastructure-retry v13 consumed and safely
   ineligible:** v13 fixed the isolated `packaging` import closure; its gated
