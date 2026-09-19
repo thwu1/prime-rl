@@ -1,6 +1,6 @@
 # VMVM sandbox coordination
 
-Last updated: 2026-09-19 04:28 UTC
+Last updated: 2026-09-19 04:43 UTC
 
 ## First message to the next teammate
 
@@ -41,6 +41,21 @@ this shared branch again.
 Add new rows below this line; do not overwrite another owner's row.
 
 ## Open coordination requests
+
+- **2026-09-19 04:43 UTC, production trace/finalizer source integrated:** true
+  merge `485db8439` (tree `b5e72bd64`) joins shared tip `339cbd0c5` with the
+  reviewed trace/source lineage `dc9343620` while retaining exact ancestry of
+  root-bound two-route finalizer `cee4fcfbd`. The merge passed 345 focused
+  trace/export/certificate/finalizer tests, 1,101 full adapter tests, 20
+  trainer export-preflight tests, three format-v3 loader tests, Ruff, format,
+  and diff checks. Exact request/response graph fidelity, reasoning/tool/usage
+  retention, SFT target preflight, measured lease/trace concurrency, 256K
+  guards, and schema-v3 two-route TB4 consumption are now in one source tree.
+  Source-wheel hardening `0e6da17df` is intentionally not yet included because
+  its first real proof failed on the legacy static-metadata contract. Do not
+  launch production until the replacement source-wheel proof, oracle
+  promotion, full TB4, post-resize readiness, and exact 8/4 capacity smoke all
+  pass.
 
 - **2026-09-19 04:28 UTC, root-bound two-route TB4 finalizer integrated:**
   reviewed branch `cee4fcfbd` combines artifact-root propagation from
