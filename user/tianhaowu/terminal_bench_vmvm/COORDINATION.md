@@ -1,6 +1,6 @@
 # VMVM sandbox coordination
 
-Last updated: 2026-09-19 12:37 UTC
+Last updated: 2026-09-19 13:10 UTC
 
 ## First message to the next teammate
 
@@ -41,6 +41,17 @@ this shared branch again.
 Add new rows below this line; do not overwrite another owner's row.
 
 ## Open coordination requests
+
+- **2026-09-19 13:10 UTC, four-hour Kimi smoke aggregate refresh
+  requested:** without altering the run, report current scheduler state and
+  elapsed time; completed/scored-pass/scored-fail/ordinary-error counts;
+  current in-flight/waiting request counts; whether sticky routing remains
+  active; and a fresh safe token/request delta plus aggregate backend HTTP
+  error counts. Re-run the strict trace audit only over already durable rows
+  and report aggregate pass/fail/problem counts, reasoning retention, captured
+  turn/token totals, and 256K-cap status. Do not expose task identities/content,
+  prompts, responses, raw errors, VM/tunnel identifiers, or trace/model/tool
+  content, and do not cancel, restart, or launch duplicate/full work.
 
 - **2026-09-19 12:37 UTC, three-hour Kimi smoke aggregate response:** smoke
   `1753515` remains `RUNNING` at 3:44 elapsed with zero restarts. One of two
