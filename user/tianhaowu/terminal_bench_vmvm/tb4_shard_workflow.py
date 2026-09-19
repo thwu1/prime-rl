@@ -31,12 +31,14 @@ from collections import Counter
 from contextlib import ExitStack, contextmanager
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, BinaryIO, Iterator, Sequence
+from typing import Any, BinaryIO, Iterator, Mapping, Sequence
 from urllib.parse import urlsplit
 
 from deployment_proxy_policy import (
+    DeploymentProxyPolicyError,
     deployment_proxy_policy_snapshot,
     deployment_spec_policy_snapshot,
+    validate_worker_rotation_proxy_configs,
 )
 from eval_run_identity import EvalIdentityError, validate_kimi_timeout_contract
 
@@ -109,6 +111,7 @@ class CertifiedShard:
     deployment_spec_sha256: str
     proxy_config: Path
     proxy_config_sha256: str
+    route_generation: dict[str, Any] | None = None
 
 
 def canonical_json(value: Any) -> bytes:
@@ -750,6 +753,37 @@ def _identity_semantics(
     }
 
 
+def _non_route_policy_semantics(identity_semantics: dict[str, Any]) -> dict[str, Any]:
+    semantics = copy.deepcopy(identity_semantics)
+    deployment = semantics.get("deployment")
+    proxy_policy = deployment.get("proxy_policy") if isinstance(deployment, dict) else None
+    if not isinstance(proxy_policy, dict) or "proxy_litellm_config" not in proxy_policy:
+        raise ShardWorkflowError("shard_identity_semantics_mismatch")
+    proxy_policy.pop("proxy_litellm_config")
+    return semantics
+
+
+def _identity_semantics_for_merge(
+    identity_semantics: dict[str, Any],
+    *,
+    allow_generation_artifact_rotation: bool,
+) -> bytes:
+    if allow_generation_artifact_rotation:
+        return canonical_json(_non_route_policy_semantics(identity_semantics))
+    return canonical_json(identity_semantics)
+
+
+def _route_backends_for_proxy_projection(certified: CertifiedShard) -> list[str]:
+    generation = certified.route_generation
+    routes = generation.get("routes") if isinstance(generation, dict) else None
+    if not isinstance(routes, list) or not routes:
+        raise ShardWorkflowError("shard_route_generation_invalid")
+    backends = [route.get("backend_sha256") for route in routes if isinstance(route, dict)]
+    if len(backends) != len(routes) or any(not isinstance(backend, str) for backend in backends):
+        raise ShardWorkflowError("shard_route_generation_invalid")
+    return backends
+
+
 def _certify_shard(
     receipt_path: Path,
     shards_by_manifest: dict[str, PlannedShard],
@@ -757,6 +791,7 @@ def _certify_shard(
     expected_semantics_sha256: str,
     deployment_spec_snapshot: Path | None = None,
     proxy_policy_snapshot: Path | None = None,
+    proxy_config_snapshot: Path | None = None,
 ) -> CertifiedShard:
     from eval_run_identity import EvalIdentityError, load_eval_run_identity
     from guard_success_receipt import (
@@ -774,14 +809,56 @@ def _certify_shard(
         receipt = load_guard_success_receipt(receipt_path)
         artifacts = receipt["artifacts"]
         identity_path = Path(artifacts["eval_run_identity"]["path"])
-        envelope = load_eval_run_identity(
-            identity_path,
-            verify_references=True,
-            deployment_spec_snapshot=deployment_spec_snapshot,
-            proxy_policy_snapshot=proxy_policy_snapshot,
-        )
+        run_dir = resolved_receipt.parent
+        temporary_snapshot_root: tempfile.TemporaryDirectory[str] | None = None
+        if proxy_config_snapshot is not None:
+            if (deployment_spec_snapshot is None) != (proxy_policy_snapshot is None):
+                raise ShardWorkflowError("shard_snapshot_arguments_invalid")
+            preliminary = load_eval_run_identity(identity_path, verify_references=False)
+            preliminary_identity = preliminary["identity"]
+            preliminary_deployment = preliminary_identity["deployment"]
+            preliminary_generation = preliminary_deployment["serving_route_generation"]
+            preliminary_routes = preliminary_generation["routes"]
+            backends = [route["backend_sha256"] for route in preliminary_routes]
+            validate_worker_rotation_proxy_configs(
+                source_snapshot=proxy_config_snapshot,
+                source_binding=preliminary_deployment["proxy_policy"],
+                source_backends=backends,
+                target_snapshot=proxy_config_snapshot,
+                target_binding=preliminary_deployment["proxy_policy"],
+                target_backends=backends,
+            )
+            if deployment_spec_snapshot is None:
+                temporary_snapshot_root = tempfile.TemporaryDirectory(prefix=".tb4-snapshot-policy-", dir=run_dir)
+                generated_spec_snapshot = Path(temporary_snapshot_root.name) / "deployment_spec_policy.json"
+                generated_proxy_snapshot = Path(temporary_snapshot_root.name) / "proxy_policy.json"
+                _private_write(
+                    generated_spec_snapshot,
+                    deployment_spec_policy_snapshot(
+                        preliminary_deployment["spec"]["sha256"],
+                        preliminary_deployment["proxy_policy"],
+                    ),
+                )
+                _private_write(
+                    generated_proxy_snapshot,
+                    deployment_proxy_policy_snapshot(preliminary_deployment["proxy_policy"]),
+                )
+                deployment_spec_snapshot = generated_spec_snapshot
+                proxy_policy_snapshot = generated_proxy_snapshot
+        try:
+            envelope = load_eval_run_identity(
+                identity_path,
+                verify_references=True,
+                deployment_spec_snapshot=deployment_spec_snapshot,
+                proxy_policy_snapshot=proxy_policy_snapshot,
+            )
+        finally:
+            if temporary_snapshot_root is not None:
+                temporary_snapshot_root.cleanup()
     except (OSError, GuardReceiptError, EvalIdentityError, KeyError, TypeError) as error:
         raise ShardWorkflowError("shard_success_receipt_invalid") from error
+    except DeploymentProxyPolicyError as error:
+        raise ShardWorkflowError("shard_proxy_config_snapshot_invalid") from error
     identity = envelope.get("identity")
     if not isinstance(identity, dict) or identity.get("role") != "tb4":
         raise ShardWorkflowError("shard_identity_role_invalid")
@@ -842,7 +919,6 @@ def _certify_shard(
     resolved_config = _read_toml(resolved_config_raw, label="shard_resolved_config")
     resolved_semantics_sha256 = _config_semantics_sha256(resolved_config)
 
-    run_dir = resolved_receipt.parent
     results_path = Path(artifacts["results"]["path"])
     try:
         validate_guard_success_linkage(
@@ -891,6 +967,7 @@ def _certify_shard(
         route_generation_sha256=_sha256_bytes(canonical_json(route_generation)),
         endpoint_binding_sha256=_sha256_bytes(canonical_json(deployment["endpoint"])),
         expected_routes=len(routes),
+        route_generation=route_generation,
         trace_ids=trace_ids,
         identity_semantics=_identity_semantics(
             identity,
@@ -954,6 +1031,8 @@ def merge_shards(
     min_supported_pass_rate: float = 0.04,
     max_supported_pass_rate: float = 0.22,
     max_sequence_tokens: int = DEFAULT_MAX_SEQUENCE_TOKENS,
+    allow_generation_artifact_rotation: bool = False,
+    proxy_config_snapshots: Mapping[Path, Path] | None = None,
 ) -> dict[str, Any]:
     """Publish a full result only from one certified success per planned shard."""
 
@@ -988,6 +1067,19 @@ def merge_shards(
         raise ShardWorkflowError("dataset_universe_mismatch")
     shards_by_manifest = {shard.task_manifest_sha256: shard for shard in planned}
     receipt_paths = tuple(resolved_receipts)
+    snapshot_by_receipt: dict[Path, Path] = {}
+    if allow_generation_artifact_rotation and proxy_config_snapshots is None:
+        raise ShardWorkflowError("proxy_config_snapshot_invalid")
+    if proxy_config_snapshots is not None:
+        for receipt, snapshot in proxy_config_snapshots.items():
+            resolved_receipt = Path(receipt).resolve(strict=True)
+            if resolved_receipt not in receipt_paths or resolved_receipt in snapshot_by_receipt:
+                raise ShardWorkflowError("proxy_config_snapshot_invalid")
+            snapshot_by_receipt[resolved_receipt] = Path(snapshot).resolve(strict=True)
+        if set(snapshot_by_receipt) != set(receipt_paths):
+            raise ShardWorkflowError("proxy_config_snapshot_invalid")
+    if snapshot_by_receipt and not allow_generation_artifact_rotation:
+        raise ShardWorkflowError("proxy_config_snapshot_invalid")
     run_dirs = tuple(path.parent for path in receipt_paths)
 
     certified_by_index: dict[int, CertifiedShard] = {}
@@ -1001,11 +1093,15 @@ def merge_shards(
                 receipt_path,
                 shards_by_manifest,
                 expected_semantics_sha256=plan["base_config"]["semantics_sha256"],
+                proxy_config_snapshot=snapshot_by_receipt.get(receipt_path),
             )
             index = certified.spec.index
             if index in certified_by_index:
                 raise ShardWorkflowError("multiple_successes_for_shard")
-            semantics = canonical_json(certified.identity_semantics)
+            semantics = _identity_semantics_for_merge(
+                certified.identity_semantics,
+                allow_generation_artifact_rotation=allow_generation_artifact_rotation,
+            )
             if baseline_semantics is None:
                 baseline_semantics = semantics
             elif semantics != baseline_semantics:
@@ -1021,27 +1117,63 @@ def merge_shards(
         deployment_specs = {
             (shard.deployment_spec, shard.deployment_spec_sha256) for shard in certified_by_index.values()
         }
-        proxy_configs = {(shard.proxy_config, shard.proxy_config_sha256) for shard in certified_by_index.values()}
-        if len(deployment_specs) != 1 or len(proxy_configs) != 1:
+        proxy_configs = {
+            (
+                snapshot_by_receipt.get(shard.success_receipt, shard.proxy_config),
+                shard.proxy_config_sha256,
+            )
+            for shard in certified_by_index.values()
+        }
+        deployment_spec_sha256s = {sha256 for _path, sha256 in deployment_specs}
+        if len(deployment_spec_sha256s) != 1 or (not allow_generation_artifact_rotation and len(proxy_configs) != 1):
             raise ShardWorkflowError("shard_deployment_artifacts_mismatch")
-        deployment_spec, deployment_spec_sha256 = deployment_specs.pop()
-        proxy_config, proxy_config_sha256 = proxy_configs.pop()
-        _, deployment_spec_raw = _stable_read(
-            deployment_spec,
-            label="deployment_spec",
-        )
-        _, proxy_config_raw = _stable_read(
-            proxy_config,
-            label="proxy_litellm_config",
-        )
-        if (
-            _sha256_bytes(deployment_spec_raw) != deployment_spec_sha256
-            or _sha256_bytes(proxy_config_raw) != proxy_config_sha256
-        ):
-            raise ShardWorkflowError("shard_deployment_artifacts_changed")
-        proxy_policy_snapshot_raw = deployment_proxy_policy_snapshot(
-            certified_by_index[0].identity_semantics["deployment"]["proxy_policy"]
-        )
+        deployment_spec, deployment_spec_sha256 = sorted(deployment_specs, key=lambda item: str(item[0]))[0]
+        for candidate_spec, candidate_spec_sha256 in deployment_specs:
+            _, deployment_spec_raw = _stable_read(
+                candidate_spec,
+                label="deployment_spec",
+            )
+            if _sha256_bytes(deployment_spec_raw) != candidate_spec_sha256:
+                raise ShardWorkflowError("shard_deployment_artifacts_changed")
+        proxy_config_paths_by_index = {
+            index: snapshot_by_receipt.get(shard.success_receipt, shard.proxy_config)
+            for index, shard in certified_by_index.items()
+        }
+        for index, shard in certified_by_index.items():
+            proxy_config = proxy_config_paths_by_index[index]
+            proxy_config_sha256 = shard.proxy_config_sha256
+            _, proxy_config_raw = _stable_read(
+                proxy_config,
+                label="proxy_litellm_config",
+                require_private=allow_generation_artifact_rotation,
+            )
+            if _sha256_bytes(proxy_config_raw) != proxy_config_sha256:
+                raise ShardWorkflowError("shard_deployment_artifacts_changed")
+        if allow_generation_artifact_rotation:
+            baseline = certified_by_index[0]
+            baseline_snapshot = proxy_config_paths_by_index[0]
+            for index, shard in certified_by_index.items():
+                try:
+                    validate_worker_rotation_proxy_configs(
+                        source_snapshot=baseline_snapshot,
+                        source_binding=baseline.identity_semantics["deployment"]["proxy_policy"],
+                        source_backends=_route_backends_for_proxy_projection(baseline),
+                        target_snapshot=proxy_config_paths_by_index[index],
+                        target_binding=shard.identity_semantics["deployment"]["proxy_policy"],
+                        target_backends=_route_backends_for_proxy_projection(shard),
+                    )
+                except DeploymentProxyPolicyError as error:
+                    raise ShardWorkflowError("worker_rotation_proxy_config_mismatch") from error
+        proxy_policy_snapshots: dict[str, bytes] = {}
+        for shard in certified_by_index.values():
+            policy = shard.identity_semantics["deployment"]["proxy_policy"]
+            proxy_policy_snapshots.setdefault(
+                _sha256_bytes(canonical_json(policy)),
+                deployment_proxy_policy_snapshot(policy),
+            )
+        if not allow_generation_artifact_rotation and len(proxy_policy_snapshots) != 1:
+            raise ShardWorkflowError("shard_deployment_artifacts_mismatch")
+        first_proxy_policy_snapshot_raw = next(iter(proxy_policy_snapshots.values()))
         deployment_spec_snapshot_raw = deployment_spec_policy_snapshot(
             deployment_spec_sha256,
             certified_by_index[0].identity_semantics["deployment"]["proxy_policy"],
@@ -1107,9 +1239,24 @@ def merge_shards(
             audit_path = temporary / "audit_summary.json"
             _private_write(audit_path, audit_raw)
             deployment_spec_snapshot = temporary / "deployment_spec_policy.json"
-            proxy_policy_snapshot = temporary / "proxy_policy.json"
             _private_write(deployment_spec_snapshot, deployment_spec_snapshot_raw)
-            _private_write(proxy_policy_snapshot, proxy_policy_snapshot_raw)
+            proxy_policy_artifacts: dict[str, dict[str, str]] = {}
+            if allow_generation_artifact_rotation:
+                for policy_sha256, snapshot_raw in sorted(proxy_policy_snapshots.items()):
+                    snapshot = temporary / f"proxy_policy_{policy_sha256}.json"
+                    _private_write(snapshot, snapshot_raw)
+                    proxy_policy_artifacts[policy_sha256] = {
+                        "path": str(resolved_output / snapshot.name),
+                        "sha256": _sha256_bytes(snapshot_raw),
+                    }
+            else:
+                proxy_policy_snapshot = temporary / "proxy_policy.json"
+                _private_write(proxy_policy_snapshot, first_proxy_policy_snapshot_raw)
+                policy_sha256 = next(iter(proxy_policy_snapshots))
+                proxy_policy_artifacts[policy_sha256] = {
+                    "path": str(resolved_output / "proxy_policy.json"),
+                    "sha256": _sha256_bytes(first_proxy_policy_snapshot_raw),
+                }
             shard_records = [
                 {
                     "index": index,
@@ -1125,6 +1272,28 @@ def merge_shards(
                     "route_generation_sha256": certified_by_index[index].route_generation_sha256,
                     "endpoint_binding_sha256": certified_by_index[index].endpoint_binding_sha256,
                     "expected_routes": certified_by_index[index].expected_routes,
+                    **(
+                        {
+                            "proxy_config_snapshot": {
+                                "path": str(proxy_config_paths_by_index[index]),
+                                "sha256": certified_by_index[index].proxy_config_sha256,
+                            },
+                            "proxy_policy_sha256": _sha256_bytes(
+                                canonical_json(
+                                    certified_by_index[index].identity_semantics["deployment"]["proxy_policy"]
+                                )
+                            ),
+                            "proxy_policy_artifact": proxy_policy_artifacts[
+                                _sha256_bytes(
+                                    canonical_json(
+                                        certified_by_index[index].identity_semantics["deployment"]["proxy_policy"]
+                                    )
+                                )
+                            ],
+                        }
+                        if allow_generation_artifact_rotation
+                        else {}
+                    ),
                 }
                 for index in range(len(planned))
             ]
@@ -1134,9 +1303,12 @@ def merge_shards(
             )
             plan_file_sha256 = _sha256_file(plan_path.resolve(strict=True), label="plan")
             deployment_semantics = certified_by_index[0].identity_semantics["deployment"]
+            deployment_policy = deployment_semantics["proxy_policy"]
+            deployment_policy_semantics = dict(deployment_policy)
+            deployment_policy_semantics.pop("proxy_litellm_config")
             expected_routes = max(record["expected_routes"] for record in shard_records)
             body = {
-                "schema_version": 2,
+                "schema_version": 3 if allow_generation_artifact_rotation else 2,
                 "artifact_type": SHARDED_CERTIFICATE_TYPE,
                 "state": "passed",
                 "ok": True,
@@ -1154,7 +1326,14 @@ def merge_shards(
                 "deployment": {
                     "id": deployment_semantics["id"],
                     "spec_sha256": deployment_semantics["spec_sha256"],
-                    "proxy_policy_sha256": _sha256_bytes(canonical_json(deployment_semantics["proxy_policy"])),
+                    **(
+                        {
+                            "proxy_policy_semantics_sha256": _sha256_bytes(canonical_json(deployment_policy_semantics)),
+                            "proxy_policy_sha256s": sorted(proxy_policy_snapshots),
+                        }
+                        if allow_generation_artifact_rotation
+                        else {"proxy_policy_sha256": _sha256_bytes(canonical_json(deployment_policy))}
+                    ),
                 },
                 "audit_policy": {
                     "expected_tasks": EXPECTED_TASK_COUNT,
@@ -1205,10 +1384,21 @@ def merge_shards(
                         "path": str(resolved_output / "deployment_spec_policy.json"),
                         "sha256": _sha256_bytes(deployment_spec_snapshot_raw),
                     },
-                    "proxy_policy": {
-                        "path": str(resolved_output / "proxy_policy.json"),
-                        "sha256": _sha256_bytes(proxy_policy_snapshot_raw),
-                    },
+                    **(
+                        {
+                            "proxy_policies": [
+                                {"policy_sha256": policy_sha256, **artifact}
+                                for policy_sha256, artifact in sorted(proxy_policy_artifacts.items())
+                            ],
+                        }
+                        if allow_generation_artifact_rotation
+                        else {
+                            "proxy_policy": {
+                                "path": str(resolved_output / "proxy_policy.json"),
+                                "sha256": _sha256_bytes(first_proxy_policy_snapshot_raw),
+                            }
+                        }
+                    ),
                 },
                 "combined_trace_count": EXPECTED_TASK_COUNT,
                 "expected_routes": expected_routes,
@@ -1231,6 +1421,32 @@ def merge_shards(
             shutil.rmtree(temporary, ignore_errors=True)
             raise
     return receipt
+
+
+def merge_multigen_shards(
+    plan_path: Path,
+    success_receipts: Sequence[Path],
+    *,
+    output_dir: Path,
+    dataset_dir: Path,
+    min_supported_pass_rate: float = 0.04,
+    max_supported_pass_rate: float = 0.22,
+    max_sequence_tokens: int = DEFAULT_MAX_SEQUENCE_TOKENS,
+    proxy_config_snapshots: Mapping[Path, Path] | None = None,
+) -> dict[str, Any]:
+    """Publish a full result from multiple generation-bound controller roots."""
+
+    return merge_shards(
+        plan_path,
+        success_receipts,
+        output_dir=output_dir,
+        dataset_dir=dataset_dir,
+        min_supported_pass_rate=min_supported_pass_rate,
+        max_supported_pass_rate=max_supported_pass_rate,
+        max_sequence_tokens=max_sequence_tokens,
+        allow_generation_artifact_rotation=True,
+        proxy_config_snapshots=proxy_config_snapshots,
+    )
 
 
 def _checkpoint_artifact(value: Any, *, label: str) -> tuple[Path, str]:
@@ -1343,8 +1559,9 @@ def validate_sharded_checkpoint(
     value: dict[str, Any],
     *,
     deployment_id: str,
+    allow_generation_artifact_rotation: bool = False,
 ) -> dict[str, Any]:
-    """Revalidate a schema-v2 checkpoint for the launch-certificate adapter."""
+    """Revalidate a schema-v2/v3 checkpoint for the launch-certificate adapter."""
 
     expected_keys = {
         "schema_version",
@@ -1372,8 +1589,9 @@ def validate_sharded_checkpoint(
         raise ShardWorkflowError("sharded_checkpoint_invalid")
     self_hash = value.get("tb4_certificate_sha256")
     body = {key: item for key, item in value.items() if key != "tb4_certificate_sha256"}
+    expected_schema = 3 if allow_generation_artifact_rotation else 2
     if (
-        value.get("schema_version") != 2
+        value.get("schema_version") != expected_schema
         or value.get("artifact_type") != SHARDED_CERTIFICATE_TYPE
         or value.get("state") != "passed"
         or value.get("ok") is not True
@@ -1403,21 +1621,33 @@ def validate_sharded_checkpoint(
     ):
         raise ShardWorkflowError("sharded_checkpoint_plan_mismatch")
     deployment = value.get("deployment")
-    if (
-        not isinstance(deployment, dict)
-        or set(deployment) != {"id", "spec_sha256", "proxy_policy_sha256"}
-        or deployment.get("id") != deployment_id
-        or SHA256_RE.fullmatch(str(deployment.get("spec_sha256", ""))) is None
-        or SHA256_RE.fullmatch(str(deployment.get("proxy_policy_sha256", ""))) is None
-    ):
+    expected_deployment_keys = (
+        {"id", "spec_sha256", "proxy_policy_semantics_sha256", "proxy_policy_sha256s"}
+        if allow_generation_artifact_rotation
+        else {"id", "spec_sha256", "proxy_policy_sha256"}
+    )
+    if not isinstance(deployment, dict) or set(deployment) != expected_deployment_keys:
+        raise ShardWorkflowError("sharded_checkpoint_deployment_invalid")
+    if deployment.get("id") != deployment_id or SHA256_RE.fullmatch(str(deployment.get("spec_sha256", ""))) is None:
+        raise ShardWorkflowError("sharded_checkpoint_deployment_invalid")
+    if allow_generation_artifact_rotation:
+        if (
+            SHA256_RE.fullmatch(str(deployment.get("proxy_policy_semantics_sha256", ""))) is None
+            or not isinstance(deployment.get("proxy_policy_sha256s"), list)
+            or not deployment["proxy_policy_sha256s"]
+            or any(SHA256_RE.fullmatch(str(item)) is None for item in deployment["proxy_policy_sha256s"])
+            or deployment["proxy_policy_sha256s"] != sorted(set(deployment["proxy_policy_sha256s"]))
+        ):
+            raise ShardWorkflowError("sharded_checkpoint_deployment_invalid")
+    elif SHA256_RE.fullmatch(str(deployment.get("proxy_policy_sha256", ""))) is None:
         raise ShardWorkflowError("sharded_checkpoint_deployment_invalid")
     artifacts = value.get("artifacts")
-    if not isinstance(artifacts, dict) or set(artifacts) != {
-        "results",
-        "audit_summary",
-        "deployment_spec",
-        "proxy_policy",
-    }:
+    expected_artifact_keys = (
+        {"results", "audit_summary", "deployment_spec", "proxy_policies"}
+        if allow_generation_artifact_rotation
+        else {"results", "audit_summary", "deployment_spec", "proxy_policy"}
+    )
+    if not isinstance(artifacts, dict) or set(artifacts) != expected_artifact_keys:
         raise ShardWorkflowError("sharded_checkpoint_artifacts_invalid")
     combined_path, combined_sha256 = _checkpoint_artifact(
         artifacts["results"],
@@ -1431,24 +1661,51 @@ def validate_sharded_checkpoint(
         artifacts["deployment_spec"],
         label="sharded_checkpoint_deployment_spec",
     )
-    proxy_policy_snapshot, _ = _checkpoint_artifact(
-        artifacts["proxy_policy"],
-        label="sharded_checkpoint_proxy_policy",
-    )
+    proxy_policy_snapshots: dict[str, Path] = {}
+    if allow_generation_artifact_rotation:
+        policies = artifacts.get("proxy_policies")
+        if not isinstance(policies, list) or len(policies) != len(deployment["proxy_policy_sha256s"]):
+            raise ShardWorkflowError("sharded_checkpoint_artifacts_invalid")
+        for item in policies:
+            if (
+                not isinstance(item, dict)
+                or set(item) != {"policy_sha256", "path", "sha256"}
+                or SHA256_RE.fullmatch(str(item.get("policy_sha256", ""))) is None
+                or item["policy_sha256"] in proxy_policy_snapshots
+            ):
+                raise ShardWorkflowError("sharded_checkpoint_artifacts_invalid")
+            snapshot, _ = _checkpoint_artifact(
+                {"path": item.get("path"), "sha256": item.get("sha256")},
+                label="sharded_checkpoint_proxy_policy",
+            )
+            if snapshot.name != f"proxy_policy_{item['policy_sha256']}.json":
+                raise ShardWorkflowError("sharded_checkpoint_artifacts_invalid")
+            proxy_policy_snapshots[item["policy_sha256"]] = snapshot
+        if sorted(proxy_policy_snapshots) != deployment["proxy_policy_sha256s"]:
+            raise ShardWorkflowError("sharded_checkpoint_artifacts_invalid")
+    else:
+        proxy_policy_snapshot, _ = _checkpoint_artifact(
+            artifacts["proxy_policy"],
+            label="sharded_checkpoint_proxy_policy",
+        )
+        proxy_policy_snapshots[deployment["proxy_policy_sha256"]] = proxy_policy_snapshot
+    artifact_paths = [
+        combined_path,
+        audit_path,
+        deployment_spec_snapshot,
+        *proxy_policy_snapshots.values(),
+    ]
     if (
         combined_path.name != "results.jsonl"
         or audit_path.name != "audit_summary.json"
         or deployment_spec_snapshot.name != "deployment_spec_policy.json"
-        or proxy_policy_snapshot.name != "proxy_policy.json"
+        or (
+            not allow_generation_artifact_rotation
+            and next(iter(proxy_policy_snapshots.values())).name != "proxy_policy.json"
+        )
         or combined_path.parent != audit_path.parent
         or any(
-            path.parent != combined_path.parent or stat.S_IMODE(path.stat().st_mode) != 0o600
-            for path in (
-                combined_path,
-                audit_path,
-                deployment_spec_snapshot,
-                proxy_policy_snapshot,
-            )
+            path.parent != combined_path.parent or stat.S_IMODE(path.stat().st_mode) != 0o600 for path in artifact_paths
         )
     ):
         raise ShardWorkflowError("sharded_checkpoint_artifacts_invalid")
@@ -1463,6 +1720,8 @@ def validate_sharded_checkpoint(
     shards_by_manifest = {shard.task_manifest_sha256: shard for shard in planned}
     receipt_paths: list[Path] = []
     records_by_index: dict[int, dict[str, Any]] = {}
+    records_by_receipt: dict[str, dict[str, Any]] = {}
+    proxy_config_snapshots_by_index: dict[int, Path] = {}
     for record in shard_records:
         expected_record_keys = {
             "index",
@@ -1476,6 +1735,8 @@ def validate_sharded_checkpoint(
             "endpoint_binding_sha256",
             "expected_routes",
         }
+        if allow_generation_artifact_rotation:
+            expected_record_keys |= {"proxy_config_snapshot", "proxy_policy_sha256", "proxy_policy_artifact"}
         if not isinstance(record, dict) or set(record) != expected_record_keys:
             raise ShardWorkflowError("sharded_checkpoint_shards_invalid")
         index = record.get("index")
@@ -1491,14 +1752,36 @@ def validate_sharded_checkpoint(
         ):
             if SHA256_RE.fullmatch(str(record.get(key, ""))) is None:
                 raise ShardWorkflowError("sharded_checkpoint_shards_invalid")
+        if allow_generation_artifact_rotation:
+            proxy_config_snapshot, proxy_config_snapshot_sha256 = _checkpoint_artifact(
+                record.get("proxy_config_snapshot"),
+                label="sharded_checkpoint_proxy_config_snapshot",
+            )
+            if stat.S_IMODE(proxy_config_snapshot.stat().st_mode) != 0o600:
+                raise ShardWorkflowError("sharded_checkpoint_proxy_config_snapshot_not_private")
+            policy_sha256 = record.get("proxy_policy_sha256")
+            if SHA256_RE.fullmatch(str(policy_sha256)) is None or policy_sha256 not in proxy_policy_snapshots:
+                raise ShardWorkflowError("sharded_checkpoint_shards_invalid")
+            proxy_artifact_path, proxy_artifact_sha256 = _checkpoint_artifact(
+                record.get("proxy_policy_artifact"),
+                label="sharded_checkpoint_proxy_policy",
+            )
+            if proxy_artifact_path != proxy_policy_snapshots[policy_sha256] or proxy_artifact_sha256 != next(
+                item["sha256"] for item in artifacts["proxy_policies"] if item["policy_sha256"] == policy_sha256
+            ):
+                raise ShardWorkflowError("sharded_checkpoint_shards_invalid")
+            proxy_config_snapshots_by_index[index] = proxy_config_snapshot
         receipt_path, _ = _checkpoint_artifact(
             record.get("guard_success_receipt"),
             label="sharded_checkpoint_guard_receipt",
         )
         if stat.S_IMODE(receipt_path.stat().st_mode) != 0o600:
             raise ShardWorkflowError("sharded_checkpoint_guard_receipt_not_private")
+        if str(receipt_path) in records_by_receipt:
+            raise ShardWorkflowError("sharded_checkpoint_shards_invalid")
         receipt_paths.append(receipt_path)
         records_by_index[index] = record
+        records_by_receipt[str(receipt_path)] = record
     if set(records_by_index) != set(range(len(planned))):
         raise ShardWorkflowError("sharded_checkpoint_shards_invalid")
 
@@ -1509,12 +1792,20 @@ def validate_sharded_checkpoint(
         for run_dir in sorted({path.parent for path in receipt_paths}, key=str):
             stack.enter_context(_hold_writer_lock(run_dir))
         for receipt_path in receipt_paths:
+            checkpoint_record = records_by_receipt.get(str(receipt_path))
+            if checkpoint_record is None:
+                raise ShardWorkflowError("sharded_checkpoint_shards_invalid")
             certified = _certify_shard(
                 receipt_path,
                 shards_by_manifest,
                 expected_semantics_sha256=plan["base_config"]["semantics_sha256"],
                 deployment_spec_snapshot=deployment_spec_snapshot,
-                proxy_policy_snapshot=proxy_policy_snapshot,
+                proxy_policy_snapshot=proxy_policy_snapshots[
+                    checkpoint_record["proxy_policy_sha256"]
+                    if allow_generation_artifact_rotation
+                    else deployment["proxy_policy_sha256"]
+                ],
+                proxy_config_snapshot=proxy_config_snapshots_by_index.get(checkpoint_record["index"]),
             )
             index = certified.spec.index
             record = records_by_index.get(index)
@@ -1535,9 +1826,30 @@ def validate_sharded_checkpoint(
                 "endpoint_binding_sha256": certified.endpoint_binding_sha256,
                 "expected_routes": certified.expected_routes,
             }
+            if allow_generation_artifact_rotation:
+                policy_sha256 = _sha256_bytes(
+                    canonical_json(certified.identity_semantics["deployment"]["proxy_policy"])
+                )
+                expected_record |= {
+                    "proxy_config_snapshot": {
+                        "path": str(proxy_config_snapshots_by_index[index]),
+                        "sha256": certified.proxy_config_sha256,
+                    },
+                    "proxy_policy_sha256": policy_sha256,
+                    "proxy_policy_artifact": {
+                        "path": str(proxy_policy_snapshots[policy_sha256]),
+                        "sha256": _sha256_file(
+                            proxy_policy_snapshots[policy_sha256],
+                            label="sharded_checkpoint_proxy_policy",
+                        ),
+                    },
+                }
             if record != expected_record:
                 raise ShardWorkflowError("sharded_checkpoint_shard_mismatch")
-            semantics = canonical_json(certified.identity_semantics)
+            semantics = _identity_semantics_for_merge(
+                certified.identity_semantics,
+                allow_generation_artifact_rotation=allow_generation_artifact_rotation,
+            )
             if baseline_semantics is None:
                 baseline_semantics = semantics
             elif semantics != baseline_semantics:
@@ -1546,19 +1858,51 @@ def validate_sharded_checkpoint(
                 raise ShardWorkflowError("cross_shard_trace_identity_duplicate")
             all_trace_ids.update(certified.trace_ids)
             certified_by_index[index] = certified
+    if allow_generation_artifact_rotation:
+        baseline = certified_by_index[0]
+        baseline_snapshot = proxy_config_snapshots_by_index[0]
+        for index, shard in certified_by_index.items():
+            try:
+                validate_worker_rotation_proxy_configs(
+                    source_snapshot=baseline_snapshot,
+                    source_binding=baseline.identity_semantics["deployment"]["proxy_policy"],
+                    source_backends=_route_backends_for_proxy_projection(baseline),
+                    target_snapshot=proxy_config_snapshots_by_index[index],
+                    target_binding=shard.identity_semantics["deployment"]["proxy_policy"],
+                    target_backends=_route_backends_for_proxy_projection(shard),
+                )
+            except DeploymentProxyPolicyError as error:
+                raise ShardWorkflowError("worker_rotation_proxy_config_mismatch") from error
     if len(certified_by_index) != len(planned) or len(all_trace_ids) != EXPECTED_TASK_COUNT:
         raise ShardWorkflowError("sharded_checkpoint_coverage_invalid")
     first_semantics = certified_by_index[0].identity_semantics
     deployment_semantics = first_semantics["deployment"]
+    policy_semantics = copy.deepcopy(deployment_semantics.get("proxy_policy"))
+    if not isinstance(policy_semantics, dict):
+        raise ShardWorkflowError("sharded_checkpoint_semantics_invalid")
+    policy_semantics.pop("proxy_litellm_config", None)
     if (
         first_semantics.get("resolved_config_semantics_sha256") != value.get("resolved_config_semantics_sha256")
         or deployment_semantics.get("id") != deployment_id
         or deployment_semantics.get("spec_sha256") != deployment["spec_sha256"]
-        or _sha256_bytes(canonical_json(deployment_semantics.get("proxy_policy"))) != deployment["proxy_policy_sha256"]
         or max(shard.expected_routes for shard in certified_by_index.values()) != value.get("expected_routes")
         or len({shard.route_generation_sha256 for shard in certified_by_index.values()})
         != value.get("distinct_route_generations")
     ):
+        raise ShardWorkflowError("sharded_checkpoint_semantics_invalid")
+    if allow_generation_artifact_rotation:
+        observed_policy_sha256s = sorted(
+            {
+                _sha256_bytes(canonical_json(shard.identity_semantics["deployment"]["proxy_policy"]))
+                for shard in certified_by_index.values()
+            }
+        )
+        if (
+            _sha256_bytes(canonical_json(policy_semantics)) != deployment["proxy_policy_semantics_sha256"]
+            or observed_policy_sha256s != deployment["proxy_policy_sha256s"]
+        ):
+            raise ShardWorkflowError("sharded_checkpoint_semantics_invalid")
+    elif _sha256_bytes(canonical_json(deployment_semantics.get("proxy_policy"))) != deployment["proxy_policy_sha256"]:
         raise ShardWorkflowError("sharded_checkpoint_semantics_invalid")
 
     universe_path = Path(plan["universe"]["path"])
@@ -1603,13 +1947,34 @@ def validate_sharded_checkpoint(
         "expected_routes": value["expected_routes"],
         "route_generation_sha256s": sorted({record["route_generation_sha256"] for record in shard_records}),
         "endpoint_binding_sha256s": sorted({record["endpoint_binding_sha256"] for record in shard_records}),
-        "proxy_policy_sha256": deployment["proxy_policy_sha256"],
+        **(
+            {
+                "proxy_policy_semantics_sha256": deployment["proxy_policy_semantics_sha256"],
+                "proxy_policy_sha256s": deployment["proxy_policy_sha256s"],
+            }
+            if allow_generation_artifact_rotation
+            else {"proxy_policy_sha256": deployment["proxy_policy_sha256"]}
+        ),
         "shard_count": len(planned),
         "supported_pass_rate": supported_rate,
         "all_task_pass_rate": all_rate,
         "supported_passes": supported_passes,
         "sharded": True,
     }
+
+
+def validate_multigen_sharded_checkpoint(
+    value: dict[str, Any],
+    *,
+    deployment_id: str,
+) -> dict[str, Any]:
+    """Revalidate a multigen schema-v3 checkpoint with per-generation snapshots."""
+
+    return validate_sharded_checkpoint(
+        value,
+        deployment_id=deployment_id,
+        allow_generation_artifact_rotation=True,
+    )
 
 
 def _rate(value: str) -> float:

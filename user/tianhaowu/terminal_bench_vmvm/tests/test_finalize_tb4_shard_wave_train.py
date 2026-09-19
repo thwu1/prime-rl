@@ -6,6 +6,7 @@ from contextlib import contextmanager
 from pathlib import Path
 from types import SimpleNamespace
 
+import finalize_tb4_multigen_chunk_train as multigen_cli
 import finalize_tb4_shard_wave_train as finalizer
 import pytest
 from run_tb4_shard_wave_train import WaveTrainConfig, WaveTrainError
@@ -231,27 +232,60 @@ def test_finalize_retries_controller_lock_release_race(tmp_path: Path, monkeypat
     assert clock() == 1
 
 
-def _prepared(tmp_path: Path):
+def _prepared(
+    tmp_path: Path,
+    *,
+    root_name: str = "controller",
+    first_shard_index: int = 0,
+    shard_count: int = 66,
+    route_generation: dict | None = None,
+):
     project = tmp_path / "project"
     project.mkdir(exist_ok=True)
-    controller = tmp_path / "controller"
+    controller = tmp_path / root_name
     controller.mkdir(mode=0o700, exist_ok=True)
     dataset = tmp_path / "dataset"
     dataset.mkdir(exist_ok=True)
     dataset.chmod(0o700)
-    shards = tuple(SimpleNamespace(task_count=1, task_manifest_sha256=f"{index + 1:064x}") for index in range(66))
-    route_generation = {"routes": [{"backend_sha256": "a" * 64}]}
+    shards = tuple(
+        SimpleNamespace(
+            task_count=1,
+            task_manifest_sha256=f"{index + 1:064x}",
+            config_sha256=f"{index + 1000:064x}",
+        )
+        for index in range(66)
+    )
+    route_generation = {"routes": [{"backend_sha256": "a" * 64}]} if route_generation is None else route_generation
     return SimpleNamespace(
-        config=SimpleNamespace(deployment_id="deployment-test", wave_size=4),
+        config=SimpleNamespace(
+            deployment_id="deployment-test",
+            wave_size=4,
+            project_revision="1" * 40,
+            dataset_revision="7" * 40,
+            dataset_content_sha256=None,
+            poll_interval_seconds=15,
+        ),
         controller_root=controller.resolve(),
         project=project.resolve(),
-        selected_indices=tuple(range(66)),
+        selected_indices=tuple(range(first_shard_index, first_shard_index + shard_count)),
         shards=shards,
+        revisions={"prime-rl": "1" * 40, "verifiers": "2" * 40, "renderers": "3" * 40},
         plan_artifact=SimpleNamespace(path=(tmp_path / "plan.json").resolve(), sha256="1" * 64),
-        plan={"plan_sha256": "2" * 64},
+        plan={
+            "plan_sha256": "2" * 64,
+            "universe": {"sha256": "3" * 64},
+            "base_config": {"semantics_sha256": "4" * 64},
+        },
         dataset_path=dataset.resolve(),
-        deployment_spec=SimpleNamespace(sha256="b" * 64),
+        deployment_spec=SimpleNamespace(path=(tmp_path / f"{root_name}-spec.yaml").resolve(), sha256="b" * 64),
+        readiness=SimpleNamespace(path=(tmp_path / f"{root_name}-readiness.json").resolve(), sha256="5" * 64),
+        proxy_info=SimpleNamespace(path=(tmp_path / f"{root_name}-proxy-info.json").resolve(), sha256="6" * 64),
+        smoke=SimpleNamespace(path=(tmp_path / f"{root_name}-smoke.json").resolve(), sha256="7" * 64),
         generation_sha256=hashlib.sha256(finalizer.canonical_json(route_generation)).hexdigest(),
+        proxy_config_snapshot=SimpleNamespace(
+            path=(tmp_path / f"{root_name}-proxy-config.yaml").resolve(),
+            sha256="9" * 64,
+        ),
         route_binding=SimpleNamespace(
             endpoint={"authority_sha256": "c" * 64},
             proxy_policy={"policy_sha256": "d" * 64},
@@ -327,6 +361,68 @@ def _checkpoint_value(evidence: finalizer.ControllerEvidence, prepared) -> dict:
         "distinct_route_generations": 1,
         "combined_trace_count": 66,
     }
+
+
+def _range_evidence(tmp_path: Path, prepared) -> finalizer.ControllerEvidence:
+    records = []
+    receipts = []
+    endpoint_sha = hashlib.sha256(finalizer.canonical_json(prepared.route_binding.endpoint)).hexdigest()
+    for offset, index in enumerate(prepared.selected_indices):
+        wave = offset // prepared.config.wave_size
+        run = prepared.controller_root / f"wave-{wave:03d}" / f"shard-{index:03d}-attempt-001"
+        run.mkdir(parents=True, exist_ok=True)
+        receipt = run / "route_guard_success.json"
+        receipt.write_text("{}\n")
+        receipt.chmod(0o600)
+        receipts.append(receipt.resolve())
+        records.append(
+            {
+                "index": index,
+                "task_count": 1,
+                "task_manifest_sha256": prepared.shards[index].task_manifest_sha256,
+                "guard_success_receipt_sha256": f"{index + 100:064x}",
+                "guard_success_receipt": {
+                    "path": str(receipt.resolve()),
+                    "sha256": hashlib.sha256(receipt.read_bytes()).hexdigest(),
+                },
+                "eval_run_identity_sha256": f"{index + 200:064x}",
+                "results_sha256": f"{index + 300:064x}",
+                "route_generation_sha256": prepared.generation_sha256,
+                "endpoint_binding_sha256": endpoint_sha,
+                "expected_routes": 1,
+            }
+        )
+    supported = sum(index < 63 for index in prepared.selected_indices)
+    solved = sum(index < 8 for index in prepared.selected_indices)
+    return finalizer.ControllerEvidence(
+        train={"train_sha256": f"{prepared.selected_indices[0] + 4000:064x}"},
+        state={"state_sha256": f"{prepared.selected_indices[0] + 5000:064x}"},
+        shard_records=tuple(records),
+        receipt_paths=tuple(receipts),
+        supported_count=supported,
+        unsupported_count=len(prepared.selected_indices) - supported,
+        solved_count=solved,
+    )
+
+
+def _multi_value(evidence: finalizer.ControllerEvidence, prepared) -> dict:
+    value = _checkpoint_value(evidence, prepared)
+    value["distinct_route_generations"] = len({record["route_generation_sha256"] for record in evidence.shard_records})
+    return value
+
+
+def _validated_multi(prepared, evidence: finalizer.ControllerEvidence) -> dict:
+    base = _validated(prepared)
+    policy = dict(prepared.route_binding.proxy_policy)
+    policy.pop("proxy_litellm_config", None)
+    base.pop("proxy_policy_sha256")
+    base["proxy_policy_semantics_sha256"] = hashlib.sha256(finalizer.canonical_json(policy)).hexdigest()
+    base["route_generation_sha256s"] = sorted({record["route_generation_sha256"] for record in evidence.shard_records})
+    base["endpoint_binding_sha256s"] = sorted({record["endpoint_binding_sha256"] for record in evidence.shard_records})
+    base["supported_passes"] = evidence.solved_count
+    base["supported_pass_rate"] = evidence.solved_count / 63
+    base["all_task_pass_rate"] = evidence.solved_count / 66
+    return base
 
 
 def test_collect_revalidates_complete_history_and_derives_exact_receipts(tmp_path: Path, monkeypatch):
@@ -412,6 +508,233 @@ def test_collect_revalidates_complete_history_and_derives_exact_receipts(tmp_pat
     assert observed.solved_count == 8
 
 
+def test_multigen_finalizer_allows_disjoint_ranges_with_different_route_generations(tmp_path: Path, monkeypatch):
+    first = _prepared(tmp_path, root_name="controller-a", first_shard_index=0, shard_count=32)
+    second = _prepared(
+        tmp_path,
+        root_name="controller-b",
+        first_shard_index=32,
+        shard_count=34,
+        route_generation={"routes": [{"backend_sha256": "9" * 64}]},
+    )
+    second.route_binding.endpoint = {"authority_sha256": "8" * 64}
+    prepared_by_root = {first.controller_root: first, second.controller_root: second}
+    evidence_by_root = {
+        first.controller_root: _range_evidence(tmp_path, first),
+        second.controller_root: _range_evidence(tmp_path, second),
+    }
+    inputs = tuple(
+        finalizer.ControllerFinalizerInput(
+            controller=SimpleNamespace(controller_root=prepared.controller_root),
+            expected_train_sha256=evidence_by_root[prepared.controller_root].train["train_sha256"],
+        )
+        for prepared in (first, second)
+    )
+    output = tmp_path / "final"
+
+    monkeypatch.setattr(
+        finalizer, "prepare_train", lambda controller, **_kwargs: prepared_by_root[controller.controller_root]
+    )
+    monkeypatch.setattr(finalizer, "_validate_controller_root", lambda root: root)
+    monkeypatch.setattr(
+        finalizer,
+        "_collect_selected_controller_evidence",
+        lambda prepared, _sha: evidence_by_root[prepared.controller_root],
+    )
+    monkeypatch.setattr(finalizer, "_resolved_multigen_output", lambda *_args: output)
+
+    def merge(_plan, receipts, *, output_dir, **_kwargs):
+        assert len(receipts) == 66
+        evidence = finalizer._combined_multigen_evidence(
+            (
+                (first, evidence_by_root[first.controller_root]),
+                (second, evidence_by_root[second.controller_root]),
+            )
+        )
+        value = _multi_value(evidence, first)
+        _write_output(output_dir, value, multigen=True)
+        return value
+
+    observed_evidence = finalizer._combined_multigen_evidence(
+        (
+            (first, evidence_by_root[first.controller_root]),
+            (second, evidence_by_root[second.controller_root]),
+        )
+    )
+    monkeypatch.setattr(finalizer, "merge_multigen_shards", merge)
+    monkeypatch.setattr(
+        finalizer,
+        "validate_multigen_sharded_checkpoint",
+        lambda *_args, **_kwargs: _validated_multi(first, observed_evidence),
+    )
+
+    summary = finalizer._finalize_multigen_locked(
+        finalizer.MultiGenerationFinalizerConfig(controllers=inputs, output_dir=output),
+        command_runner=lambda *_args, **_kwargs: None,
+    )
+
+    assert summary["state"] == "passed"
+    assert summary["combined_trace_count"] == 66
+    assert summary["distinct_route_generations"] == 2
+
+
+def test_multigen_finalizer_rejects_gap_and_overlap(tmp_path: Path):
+    first = _prepared(tmp_path, root_name="controller-a", first_shard_index=0, shard_count=32)
+    gap = _prepared(tmp_path, root_name="controller-gap", first_shard_index=33, shard_count=33)
+    overlap = _prepared(tmp_path, root_name="controller-overlap", first_shard_index=31, shard_count=35)
+    first_evidence = _range_evidence(tmp_path, first)
+
+    with pytest.raises(finalizer.FinalizationError, match="controller_coverage_gap"):
+        finalizer._combined_multigen_evidence(((first, first_evidence), (gap, _range_evidence(tmp_path, gap))))
+
+    with pytest.raises(finalizer.FinalizationError, match="controller_coverage_overlap"):
+        finalizer._combined_multigen_evidence(((first, first_evidence), (overlap, _range_evidence(tmp_path, overlap))))
+
+
+def test_multigen_finalizer_rejects_mixed_policy(tmp_path: Path):
+    first = _prepared(tmp_path, root_name="controller-a", first_shard_index=0, shard_count=32)
+    second = _prepared(tmp_path, root_name="controller-b", first_shard_index=32, shard_count=34)
+    second.deployment_spec.sha256 = "c" * 64
+
+    with pytest.raises(finalizer.FinalizationError, match="controller_policy_mismatch"):
+        finalizer._combined_multigen_evidence(
+            ((first, _range_evidence(tmp_path, first)), (second, _range_evidence(tmp_path, second)))
+        )
+
+    second.deployment_spec.sha256 = first.deployment_spec.sha256
+    second.config.deployment_id = "other-deployment"
+    with pytest.raises(finalizer.FinalizationError, match="controller_policy_mismatch"):
+        finalizer._combined_multigen_evidence(
+            ((first, _range_evidence(tmp_path, first)), (second, _range_evidence(tmp_path, second)))
+        )
+
+
+def test_multigen_fingerprint_permits_generation_artifact_rotation(tmp_path: Path):
+    first = _prepared(tmp_path, root_name="controller-a", first_shard_index=0, shard_count=32)
+    second = _prepared(
+        tmp_path,
+        root_name="controller-b",
+        first_shard_index=32,
+        shard_count=34,
+        route_generation={"routes": [{"backend_sha256": "9" * 64}]},
+    )
+    first.readiness = SimpleNamespace(path=tmp_path / "readiness-a.json", sha256="a" * 64)
+    first.proxy_info = SimpleNamespace(path=tmp_path / "proxy-a.json", sha256="b" * 64)
+    first.smoke = SimpleNamespace(path=tmp_path / "smoke-a.json", sha256="c" * 64)
+    second.readiness = SimpleNamespace(path=tmp_path / "readiness-b.json", sha256="d" * 64)
+    second.proxy_info = SimpleNamespace(path=tmp_path / "proxy-b.json", sha256="e" * 64)
+    second.smoke = SimpleNamespace(path=tmp_path / "smoke-b.json", sha256="f" * 64)
+    second.route_binding.endpoint = {"authority_sha256": "7" * 64}
+
+    assert finalizer._controller_policy_fingerprint(first) == finalizer._controller_policy_fingerprint(second)
+
+
+def _write_manifest(path: Path, value: dict) -> None:
+    path.write_text(json.dumps(value, sort_keys=True) + "\n")
+    path.chmod(0o600)
+
+
+def _valid_multigen_manifest(tmp_path: Path) -> dict:
+    return {
+        "schema_version": 1,
+        "project_dir": str(tmp_path / "project"),
+        "project_revision": "1" * 40,
+        "plan": str(tmp_path / "plan.json"),
+        "plan_sha256": "2" * 64,
+        "deployment_id": "deployment-test",
+        "deployment_spec": str(tmp_path / "spec.yaml"),
+        "deployment_spec_sha256": "3" * 64,
+        "dataset_revision": "4" * 40,
+        "controllers": [
+            {
+                "controller_root": str(tmp_path / "controller-a"),
+                "train_sha256": "5" * 64,
+                "readiness_checkpoint": str(tmp_path / "readiness-a.json"),
+                "readiness_checkpoint_sha256": "6" * 64,
+                "proxy_info": str(tmp_path / "proxy-a.json"),
+                "proxy_info_sha256": "7" * 64,
+                "proxy_config_snapshot": str(tmp_path / "proxy-config-a.yaml"),
+                "proxy_config_snapshot_sha256": "9" * 64,
+                "smoke_checkpoint": str(tmp_path / "smoke-a.json"),
+                "smoke_checkpoint_sha256": "8" * 64,
+                "first_shard_index": 0,
+                "shard_count": 66,
+            }
+        ],
+    }
+
+
+def test_multigen_manifest_rejects_unknown_keys_and_dataset_aliases(tmp_path: Path):
+    manifest = _valid_multigen_manifest(tmp_path)
+    manifest["unexpected"] = True
+    path = tmp_path / "manifest.json"
+    _write_manifest(path, manifest)
+    with pytest.raises(finalizer.FinalizationError, match="manifest_unknown_key"):
+        multigen_cli.config_from_manifest(path, tmp_path / "final")
+
+    manifest = _valid_multigen_manifest(tmp_path)
+    manifest["controllers"][0]["unexpected"] = True
+    _write_manifest(path, manifest)
+    with pytest.raises(finalizer.FinalizationError, match="manifest_unknown_key"):
+        multigen_cli.config_from_manifest(path, tmp_path / "final")
+
+    manifest = _valid_multigen_manifest(tmp_path)
+    manifest["dataset_archive"] = str(tmp_path / "dataset.tar.gz")
+    manifest["dataset_archive_sha256"] = "9" * 64
+    manifest["dataset_content_sha256"] = "a" * 64
+    _write_manifest(path, manifest)
+    with pytest.raises(finalizer.FinalizationError, match="manifest_invalid"):
+        multigen_cli.config_from_manifest(path, tmp_path / "final")
+
+
+def test_multigen_manifest_rejects_duplicate_keys(tmp_path: Path):
+    path = tmp_path / "manifest.json"
+    path.write_text('{"schema_version":1,"schema_version":1}\n')
+    path.chmod(0o600)
+
+    with pytest.raises(finalizer.FinalizationError, match="manifest_invalid"):
+        multigen_cli.config_from_manifest(path, tmp_path / "final")
+
+
+def test_multigen_timing_validation_matches_single_finalizer(tmp_path: Path):
+    config = finalizer.MultiGenerationFinalizerConfig(
+        controllers=(
+            finalizer.ControllerFinalizerInput(
+                controller=SimpleNamespace(controller_root=tmp_path / "controller"),
+                expected_train_sha256="e" * 64,
+            ),
+        ),
+        output_dir=tmp_path / "final",
+        lock_poll_seconds=True,
+    )
+
+    with pytest.raises(finalizer.FinalizationError, match="finalizer_timing_invalid"):
+        finalizer.finalize_multigen_wave_train(config, command_runner=lambda *_args, **_kwargs: None)
+
+
+def test_multigen_checkpoint_rejects_tampered_route_generation_summary(tmp_path: Path, monkeypatch):
+    first = _prepared(tmp_path)
+    evidence = _evidence(tmp_path, first)
+    value = _multi_value(evidence, first)
+    output = tmp_path / "final"
+    _write_output(output, value, multigen=True)
+    bad = _validated_multi(first, evidence)
+    bad["route_generation_sha256s"] = ["0" * 64]
+    monkeypatch.setattr(finalizer, "validate_multigen_sharded_checkpoint", lambda *_args, **_kwargs: bad)
+
+    with pytest.raises(finalizer.FinalizationError, match="sharded_checkpoint_controller_mismatch"):
+        finalizer._load_and_validate_multigen_checkpoint(
+            output,
+            first,
+            evidence,
+            expected_value=value,
+            expected_route_generation_sha256s=[first.generation_sha256],
+            expected_endpoint_binding_sha256s=[
+                hashlib.sha256(finalizer.canonical_json(first.route_binding.endpoint)).hexdigest()
+            ],
+        )
+
+
 def test_collect_rejects_self_consistent_but_unexpected_train(tmp_path: Path, monkeypatch):
     prepared = _prepared(tmp_path)
     train = {"unexpected": True, "train_sha256": "e" * 64}
@@ -420,6 +743,33 @@ def test_collect_rejects_self_consistent_but_unexpected_train(tmp_path: Path, mo
 
     with pytest.raises(finalizer.FinalizationError, match="train_spec_mismatch"):
         finalizer._collect_controller_evidence(prepared, "e" * 64)
+
+
+def test_collect_accepts_legacy_train_without_proxy_config_snapshot(tmp_path: Path, monkeypatch):
+    prepared = _prepared(tmp_path)
+    current_body = finalizer._train_body(prepared)
+    assert "proxy_config_snapshot" in current_body["deployment"]
+    legacy_body = {
+        **current_body,
+        "deployment": {
+            key: value for key, value in current_body["deployment"].items() if key != "proxy_config_snapshot"
+        },
+    }
+    reads = iter(
+        (
+            ({**legacy_body, "train_sha256": "e" * 64}, "1" * 64),
+            ({"state": "complete"}, "2" * 64),
+        )
+    )
+    monkeypatch.setattr(finalizer, "_load_private_json", lambda *_args, **_kwargs: next(reads))
+    monkeypatch.setattr(
+        finalizer,
+        "_validate_state",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(finalizer.FinalizationError("after_train")),
+    )
+
+    with pytest.raises(finalizer.FinalizationError, match="after_train"):
+        finalizer._collect_selected_controller_evidence(prepared, "e" * 64)
 
 
 def test_collect_rejects_untrusted_train_hash(tmp_path: Path, monkeypatch):
@@ -432,14 +782,14 @@ def test_collect_rejects_untrusted_train_hash(tmp_path: Path, monkeypatch):
         finalizer._collect_controller_evidence(prepared, "d" * 64)
 
 
-def _write_output(output: Path, value: dict) -> bytes:
+def _write_output(output: Path, value: dict, *, multigen: bool = False) -> bytes:
     output.mkdir(mode=0o700)
     raw = (json.dumps(value, sort_keys=True) + "\n").encode()
     for name, payload in (
         ("results.jsonl", b"results\n"),
         ("audit_summary.json", b"{}\n"),
         ("deployment_spec_policy.json", b"{}\n"),
-        ("proxy_policy.json", b"{}\n"),
+        ("proxy_policy_" + "a" * 64 + ".json" if multigen else "proxy_policy.json", b"{}\n"),
         ("checkpoint.json", raw),
     ):
         path = output / name

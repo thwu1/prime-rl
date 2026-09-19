@@ -19,6 +19,7 @@ import stat
 import subprocess
 import sys
 import time
+from contextlib import ExitStack
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable, Mapping, Sequence
@@ -41,6 +42,7 @@ from run_tb4_shard_wave_train import (
 )
 from tb4_shard_workflow import (
     DEFAULT_MAX_SEQUENCE_TOKENS,
+    EXPECTED_MODEL,
     EXPECTED_SUPPORTED_TASK_COUNT,
     EXPECTED_TASK_COUNT,
     EXPECTED_UNSUPPORTED_TASK_COUNT,
@@ -48,7 +50,9 @@ from tb4_shard_workflow import (
     _load_json,
     _stable_read,
     canonical_json,
+    merge_multigen_shards,
     merge_shards,
+    validate_multigen_sharded_checkpoint,
     validate_sharded_checkpoint,
 )
 
@@ -78,6 +82,20 @@ class FinalizerConfig:
     wait_for_completion: bool = False
     wait_poll_seconds: float = DEFAULT_WAIT_POLL_SECONDS
     wait_timeout_seconds: float | None = None
+    lock_poll_seconds: float = DEFAULT_LOCK_POLL_SECONDS
+    lock_timeout_seconds: float = DEFAULT_LOCK_TIMEOUT_SECONDS
+
+
+@dataclass(frozen=True)
+class ControllerFinalizerInput:
+    controller: WaveTrainConfig
+    expected_train_sha256: str
+
+
+@dataclass(frozen=True)
+class MultiGenerationFinalizerConfig:
+    controllers: tuple[ControllerFinalizerInput, ...]
+    output_dir: Path
     lock_poll_seconds: float = DEFAULT_LOCK_POLL_SECONDS
     lock_timeout_seconds: float = DEFAULT_LOCK_TIMEOUT_SECONDS
 
@@ -321,11 +339,15 @@ def _expected_checkpoint_record(
     prepared: PreparedTrain,
     index: int,
     job: Mapping[str, Any],
+    *,
+    wave_number: int | None = None,
 ) -> tuple[dict[str, Any], Path]:
     artifacts = job.get("artifacts")
     if not isinstance(artifacts, dict):
         raise FinalizationError("controller_evidence_invalid")
-    output_dir = _wave_root(prepared, index // prepared.config.wave_size) / (f"shard-{index:03d}-attempt-001")
+    if wave_number is None:
+        wave_number = index // prepared.config.wave_size
+    output_dir = _wave_root(prepared, wave_number) / (f"shard-{index:03d}-attempt-001")
     receipt_path = output_dir / "route_guard_success.json"
     endpoint_sha256 = hashlib.sha256(canonical_json(prepared.route_binding.endpoint)).hexdigest()
     routes = prepared.route_binding.route_generation.get("routes")
@@ -356,6 +378,40 @@ def _collect_controller_evidence(
     prepared: PreparedTrain,
     expected_train_sha256: str,
 ) -> ControllerEvidence:
+    evidence = _collect_selected_controller_evidence(prepared, expected_train_sha256)
+    if (
+        tuple(record["index"] for record in evidence.shard_records) != tuple(range(EXPECTED_TASK_COUNT))
+        or len(evidence.receipt_paths) != EXPECTED_TASK_COUNT
+        or evidence.supported_count != EXPECTED_SUPPORTED_TASK_COUNT
+        or evidence.unsupported_count != EXPECTED_UNSUPPORTED_TASK_COUNT
+    ):
+        raise FinalizationError("controller_coverage_invalid")
+    return evidence
+
+
+def _matches_current_or_legacy_snapshot_train(
+    train_body: dict[str, Any],
+    prepared: PreparedTrain,
+) -> bool:
+    expected = _train_body(prepared)
+    if train_body == expected:
+        return True
+    if prepared.proxy_config_snapshot is None:
+        return False
+    expected_deployment = expected.get("deployment")
+    if not isinstance(expected_deployment, dict) or "proxy_config_snapshot" not in expected_deployment:
+        return False
+    legacy_expected = {
+        **expected,
+        "deployment": {key: value for key, value in expected_deployment.items() if key != "proxy_config_snapshot"},
+    }
+    return train_body == legacy_expected
+
+
+def _collect_selected_controller_evidence(
+    prepared: PreparedTrain,
+    expected_train_sha256: str,
+) -> ControllerEvidence:
     root = prepared.controller_root
     train, _train_file_sha256 = _load_private_json(
         root / "train.json",
@@ -365,7 +421,10 @@ def _collect_controller_evidence(
     if (
         SHA256_RE.fullmatch(expected_train_sha256) is None
         or train.get("train_sha256") != expected_train_sha256
-        or {key: value for key, value in train.items() if key != "train_sha256"} != _train_body(prepared)
+        or not _matches_current_or_legacy_snapshot_train(
+            {key: value for key, value in train.items() if key != "train_sha256"},
+            prepared,
+        )
     ):
         raise FinalizationError("train_spec_mismatch")
     state, _state_file_sha256 = _load_private_json(
@@ -376,7 +435,7 @@ def _collect_controller_evidence(
     _validate_state(prepared, train, state)
     if (
         state["state"] != "complete"
-        or state["next_position"] != EXPECTED_TASK_COUNT
+        or state["next_position"] != len(prepared.selected_indices)
         or state["current_wave"] is not None
         or state["failure"] is not None
     ):
@@ -419,9 +478,9 @@ def _collect_controller_evidence(
         }:
             raise FinalizationError("controller_completion_mismatch")
         for index, job in zip(indices, completion["jobs"], strict=True):
-            if index != position or index in records_by_index:
+            if index != prepared.selected_indices[position] or index in records_by_index:
                 raise FinalizationError("controller_coverage_invalid")
-            record, receipt = _expected_checkpoint_record(prepared, index, job)
+            record, receipt = _expected_checkpoint_record(prepared, index, job, wave_number=wave_number)
             records_by_index[index] = record
             receipts_by_index[index] = receipt.resolve(strict=True)
             position += 1
@@ -430,20 +489,19 @@ def _collect_controller_evidence(
         solved_count += completion["counts"]["solved"]
 
     if (
-        position != EXPECTED_TASK_COUNT
-        or set(records_by_index) != set(range(EXPECTED_TASK_COUNT))
-        or set(receipts_by_index) != set(range(EXPECTED_TASK_COUNT))
-        or len(set(receipts_by_index.values())) != EXPECTED_TASK_COUNT
-        or supported_count != EXPECTED_SUPPORTED_TASK_COUNT
-        or unsupported_count != EXPECTED_UNSUPPORTED_TASK_COUNT
+        position != len(prepared.selected_indices)
+        or set(records_by_index) != set(prepared.selected_indices)
+        or set(receipts_by_index) != set(prepared.selected_indices)
+        or len(set(receipts_by_index.values())) != len(prepared.selected_indices)
+        or supported_count + unsupported_count != len(prepared.selected_indices)
         or not 0 <= solved_count <= EXPECTED_SUPPORTED_TASK_COUNT
     ):
         raise FinalizationError("controller_coverage_invalid")
     return ControllerEvidence(
         train=train,
         state=state,
-        shard_records=tuple(records_by_index[index] for index in range(EXPECTED_TASK_COUNT)),
-        receipt_paths=tuple(receipts_by_index[index] for index in range(EXPECTED_TASK_COUNT)),
+        shard_records=tuple(records_by_index[index] for index in prepared.selected_indices),
+        receipt_paths=tuple(receipts_by_index[index] for index in prepared.selected_indices),
         supported_count=supported_count,
         unsupported_count=unsupported_count,
         solved_count=solved_count,
@@ -544,6 +602,287 @@ def _load_and_validate_checkpoint(
     return validated, raw
 
 
+def _controller_policy_fingerprint(prepared: PreparedTrain) -> dict[str, Any]:
+    """Return the cross-root invariants for a multi-generation finalization.
+
+    Per-generation readiness, smoke, proxy-info artifact paths/hashes, endpoint
+    bindings, and route-generation hashes are deliberately excluded here: each
+    controller's train and shard receipts validate those independently.  The
+    shared contract is the immutable source/plan/dataset/model/deployment
+    policy, including the same deployment_id, spec hash, proxy-policy semantics,
+    and per-shard task/config mapping.
+    """
+
+    config = prepared.config
+    if config.dataset_revision is not None:
+        dataset = {"kind": "git_revision", "revision": config.dataset_revision}
+    else:
+        dataset_archive = prepared.dataset_archive
+        dataset = {
+            "kind": "archive",
+            "archive_sha256": dataset_archive.sha256,
+            "content_sha256": config.dataset_content_sha256,
+        }
+    proxy_policy = dict(prepared.route_binding.proxy_policy)
+    proxy_policy.pop("proxy_litellm_config", None)
+    return {
+        "project": {
+            "path": str(prepared.project),
+            "revision": config.project_revision,
+            "revisions": prepared.revisions,
+        },
+        "plan": {
+            "path": str(prepared.plan_artifact.path),
+            "sha256": prepared.plan_artifact.sha256,
+            "plan_sha256": prepared.plan["plan_sha256"],
+            "universe_sha256": prepared.plan["universe"]["sha256"],
+            "config_semantics_sha256": prepared.plan["base_config"]["semantics_sha256"],
+            "task_mapping": [
+                {
+                    "index": index,
+                    "task_count": shard.task_count,
+                    "task_manifest_sha256": shard.task_manifest_sha256,
+                    "config_sha256": shard.config_sha256,
+                }
+                for index, shard in enumerate(prepared.shards)
+            ],
+        },
+        "dataset": dataset,
+        "deployment": {
+            "id": config.deployment_id,
+            "spec_sha256": prepared.deployment_spec.sha256,
+            "proxy_policy_semantics_sha256": hashlib.sha256(canonical_json(proxy_policy)).hexdigest(),
+        },
+        "model": EXPECTED_MODEL,
+    }
+
+
+def _resolved_multigen_output(configured: Path, prepared_roots: Sequence[PreparedTrain]) -> Path:
+    if not prepared_roots:
+        raise FinalizationError("controller_set_invalid")
+    output = _resolved_output(configured, prepared_roots[0])
+    for prepared in prepared_roots[1:]:
+        for protected in (
+            prepared.project,
+            prepared.controller_root,
+            prepared.dataset_path,
+            prepared.plan_artifact.path.parent,
+        ):
+            try:
+                output.relative_to(protected)
+            except ValueError:
+                continue
+            raise FinalizationError("merge_output_invalid")
+    return output
+
+
+def _load_and_validate_multigen_checkpoint(
+    output: Path,
+    prepared: PreparedTrain,
+    evidence: ControllerEvidence,
+    *,
+    expected_value: Mapping[str, Any] | None,
+    expected_route_generation_sha256s: Sequence[str],
+    expected_endpoint_binding_sha256s: Sequence[str],
+) -> tuple[dict[str, Any], bytes]:
+    try:
+        output_stat = output.stat(follow_symlinks=False)
+    except OSError as error:
+        raise FinalizationError("merge_output_invalid") from error
+    if output.is_symlink() or not output.is_dir() or stat.S_IMODE(output_stat.st_mode) != 0o700:
+        raise FinalizationError("merge_output_invalid")
+    try:
+        members = {path.name: path.stat(follow_symlinks=False) for path in output.iterdir()}
+    except OSError as error:
+        raise FinalizationError("merge_output_invalid") from error
+    required_members = {
+        "results.jsonl",
+        "audit_summary.json",
+        "checkpoint.json",
+        "deployment_spec_policy.json",
+    }
+    proxy_members = {name for name in members if name.startswith("proxy_policy_") and name.endswith(".json")}
+    if (
+        set(members) != required_members | proxy_members
+        or not proxy_members
+        or any(
+            not SHA256_RE.fullmatch(name.removeprefix("proxy_policy_").removesuffix(".json")) for name in proxy_members
+        )
+        or any(
+            not stat.S_ISREG(metadata.st_mode) or stat.S_IMODE(metadata.st_mode) != 0o600
+            for metadata in members.values()
+        )
+    ):
+        raise FinalizationError("merge_output_invalid")
+    checkpoint_path = output / "checkpoint.json"
+    resolved, raw = _stable_read(
+        checkpoint_path,
+        label="sharded_checkpoint",
+        require_private=True,
+    )
+    if resolved != checkpoint_path:
+        raise FinalizationError("sharded_checkpoint_path_invalid")
+    value = _load_json(raw, label="sharded_checkpoint")
+    if not isinstance(value, dict):
+        raise FinalizationError("sharded_checkpoint_invalid")
+    if expected_value is not None and value != expected_value:
+        raise FinalizationError("sharded_checkpoint_publish_mismatch")
+    validated = validate_multigen_sharded_checkpoint(
+        value,
+        deployment_id=prepared.config.deployment_id,
+    )
+    route_hashes = sorted(set(expected_route_generation_sha256s))
+    endpoint_hashes = sorted(set(expected_endpoint_binding_sha256s))
+    proxy_policy = dict(prepared.route_binding.proxy_policy)
+    proxy_policy.pop("proxy_litellm_config", None)
+    proxy_policy_semantics_sha256 = hashlib.sha256(canonical_json(proxy_policy)).hexdigest()
+    observed_shards = value.get("shards")
+    expected_shards = list(evidence.shard_records)
+    if isinstance(observed_shards, list):
+        observed_shards = [
+            {key: record.get(key) for key in expected_shards[0]}
+            for record in observed_shards
+            if isinstance(record, dict)
+        ]
+    if (
+        observed_shards != expected_shards
+        or value.get("plan")
+        != {
+            "path": str(prepared.plan_artifact.path),
+            "sha256": prepared.plan_artifact.sha256,
+            "plan_sha256": prepared.plan["plan_sha256"],
+        }
+        or value.get("distinct_route_generations") != len(route_hashes)
+        or value.get("combined_trace_count") != EXPECTED_TASK_COUNT
+        or validated.get("shard_count") != EXPECTED_TASK_COUNT
+        or validated.get("supported_passes") != evidence.solved_count
+        or sorted(validated.get("route_generation_sha256s", [])) != route_hashes
+        or sorted(validated.get("endpoint_binding_sha256s", [])) != endpoint_hashes
+        or validated.get("proxy_policy_semantics_sha256") != proxy_policy_semantics_sha256
+        or validated.get("deployment_spec_sha256") != prepared.deployment_spec.sha256
+    ):
+        raise FinalizationError("sharded_checkpoint_controller_mismatch")
+    return validated, raw
+
+
+def _combined_multigen_evidence(items: Sequence[tuple[PreparedTrain, ControllerEvidence]]) -> ControllerEvidence:
+    if not items:
+        raise FinalizationError("controller_set_invalid")
+    baseline = _controller_policy_fingerprint(items[0][0])
+    records_by_index: dict[int, dict[str, Any]] = {}
+    receipts_by_index: dict[int, Path] = {}
+    supported_count = 0
+    unsupported_count = 0
+    solved_count = 0
+    train_hashes: list[str] = []
+    state_hashes: list[str] = []
+    for prepared, evidence in items:
+        if _controller_policy_fingerprint(prepared) != baseline:
+            raise FinalizationError("controller_policy_mismatch")
+        selected = tuple(record["index"] for record in evidence.shard_records)
+        if selected != prepared.selected_indices:
+            raise FinalizationError("controller_coverage_invalid")
+        for record, receipt in zip(evidence.shard_records, evidence.receipt_paths, strict=True):
+            index = record["index"]
+            if index in records_by_index:
+                raise FinalizationError("controller_coverage_overlap")
+            records_by_index[index] = record
+            receipts_by_index[index] = receipt
+        supported_count += evidence.supported_count
+        unsupported_count += evidence.unsupported_count
+        solved_count += evidence.solved_count
+        train_hashes.append(evidence.train["train_sha256"])
+        state_hashes.append(evidence.state["state_sha256"])
+    if (
+        set(records_by_index) != set(range(EXPECTED_TASK_COUNT))
+        or set(receipts_by_index) != set(range(EXPECTED_TASK_COUNT))
+        or supported_count != EXPECTED_SUPPORTED_TASK_COUNT
+        or unsupported_count != EXPECTED_UNSUPPORTED_TASK_COUNT
+        or not 0 <= solved_count <= EXPECTED_SUPPORTED_TASK_COUNT
+    ):
+        raise FinalizationError("controller_coverage_gap")
+    return ControllerEvidence(
+        train={"controller_train_sha256s": train_hashes},
+        state={"controller_state_sha256s": state_hashes},
+        shard_records=tuple(records_by_index[index] for index in range(EXPECTED_TASK_COUNT)),
+        receipt_paths=tuple(receipts_by_index[index] for index in range(EXPECTED_TASK_COUNT)),
+        supported_count=supported_count,
+        unsupported_count=unsupported_count,
+        solved_count=solved_count,
+    )
+
+
+def _finalize_multigen_locked(
+    config: MultiGenerationFinalizerConfig,
+    *,
+    command_runner: Callable[..., Any],
+) -> dict[str, Any]:
+    if not config.controllers:
+        raise FinalizationError("controller_set_invalid")
+    prepared_items: list[tuple[PreparedTrain, ControllerEvidence]] = []
+    prepared_roots: list[PreparedTrain] = []
+    for controller_input in config.controllers:
+        if SHA256_RE.fullmatch(controller_input.expected_train_sha256) is None:
+            raise FinalizationError("train_sha256_invalid")
+        prepared = prepare_train(controller_input.controller, command_runner=command_runner)
+        if prepared.proxy_config_snapshot is None:
+            raise FinalizationError("proxy_config_snapshot_required")
+        _validate_controller_root(prepared.controller_root)
+        evidence = _collect_selected_controller_evidence(
+            prepared,
+            controller_input.expected_train_sha256,
+        )
+        prepared_items.append((prepared, evidence))
+        prepared_roots.append(prepared)
+    evidence = _combined_multigen_evidence(prepared_items)
+    first = prepared_items[0][0]
+    output = _resolved_multigen_output(config.output_dir, prepared_roots)
+    reused_existing = output.exists()
+    published: Mapping[str, Any] | None = None
+    if not reused_existing:
+        proxy_config_snapshots = {
+            receipt: prepared.proxy_config_snapshot.path
+            for prepared, controller_evidence in prepared_items
+            for receipt in controller_evidence.receipt_paths
+            if prepared.proxy_config_snapshot is not None
+        }
+        published = merge_multigen_shards(
+            first.plan_artifact.path,
+            evidence.receipt_paths,
+            output_dir=output,
+            dataset_dir=first.dataset_path,
+            min_supported_pass_rate=EXPECTED_MIN_SUPPORTED_PASS_RATE,
+            max_supported_pass_rate=EXPECTED_MAX_SUPPORTED_PASS_RATE,
+            max_sequence_tokens=DEFAULT_MAX_SEQUENCE_TOKENS,
+            proxy_config_snapshots=proxy_config_snapshots,
+        )
+    route_hashes = [record["route_generation_sha256"] for record in evidence.shard_records]
+    endpoint_hashes = [record["endpoint_binding_sha256"] for record in evidence.shard_records]
+    validated, checkpoint_raw = _load_and_validate_multigen_checkpoint(
+        output,
+        first,
+        evidence,
+        expected_value=published,
+        expected_route_generation_sha256s=route_hashes,
+        expected_endpoint_binding_sha256s=endpoint_hashes,
+    )
+    return {
+        "state": "passed",
+        "reused_existing": reused_existing,
+        "combined_trace_count": EXPECTED_TASK_COUNT,
+        "supported_tasks": evidence.supported_count,
+        "cpu_unsupported_tasks": evidence.unsupported_count,
+        "supported_passes": validated["supported_passes"],
+        "supported_pass_rate": validated["supported_pass_rate"],
+        "all_task_pass_rate": validated["all_task_pass_rate"],
+        "distinct_route_generations": len(set(route_hashes)),
+        "tb4_certificate_sha256": validated["certificate_sha256"],
+        "checkpoint_file_sha256": hashlib.sha256(checkpoint_raw).hexdigest(),
+        "controller_train_sha256s": [item[1].train["train_sha256"] for item in prepared_items],
+        "controller_state_sha256s": [item[1].state["state_sha256"] for item in prepared_items],
+    }
+
+
 def _finalize_locked(
     config: FinalizerConfig,
     *,
@@ -611,6 +950,54 @@ def finalize_wave_train(
             with _controller_lock(root):
                 entered = True
                 return _finalize_locked(config, command_runner=command_runner)
+        except WaveTrainError as error:
+            if not entered and str(error) == "controller_already_running":
+                if clock() - started >= config.lock_timeout_seconds:
+                    raise FinalizationError("controller_lock_timeout") from error
+                sleep(config.lock_poll_seconds)
+                continue
+            raise FinalizationError(_safe_error(str(error))) from error
+
+
+def finalize_multigen_wave_train(
+    config: MultiGenerationFinalizerConfig,
+    *,
+    command_runner: Callable[..., Any],
+    sleep: Sleep = time.sleep,
+    clock: Clock = time.monotonic,
+) -> dict[str, Any]:
+    """Lock, revalidate, and merge complete disjoint ranged controllers."""
+
+    if not config.controllers:
+        raise FinalizationError("controller_set_invalid")
+    values = (
+        config.lock_poll_seconds,
+        config.lock_timeout_seconds,
+    )
+    if (
+        any(isinstance(value, bool) or not isinstance(value, (int, float)) for value in values)
+        or not all(math.isfinite(float(value)) for value in values)
+        or not MIN_POLL_SECONDS <= config.lock_poll_seconds <= MAX_POLL_SECONDS
+        or not config.lock_poll_seconds <= config.lock_timeout_seconds <= MAX_LOCK_TIMEOUT_SECONDS
+    ):
+        raise FinalizationError("finalizer_timing_invalid")
+    roots = tuple(
+        sorted(
+            (_validate_controller_root(item.controller.controller_root) for item in config.controllers),
+            key=str,
+        )
+    )
+    if len({str(root) for root in roots}) != len(roots):
+        raise FinalizationError("controller_set_invalid")
+    started = clock()
+    while True:
+        entered = False
+        try:
+            with ExitStack() as stack:
+                for root in roots:
+                    stack.enter_context(_controller_lock(root))
+                entered = True
+                return _finalize_multigen_locked(config, command_runner=command_runner)
         except WaveTrainError as error:
             if not entered and str(error) == "controller_already_running":
                 if clock() - started >= config.lock_timeout_seconds:

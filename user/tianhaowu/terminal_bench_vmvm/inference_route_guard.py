@@ -27,7 +27,9 @@ from deployment_proxy_policy import (
     DeploymentProxyPolicyError,
     request_timeout_for_model,
     revalidate_deployment_proxy_policy,
+    validate_deployment_spec_proxy_policy,
     validate_proxy_policy_binding,
+    validate_worker_rotation_proxy_configs,
 )
 from eval_run_identity import EvalIdentityError, load_eval_run_identity
 from guard_success_receipt import (
@@ -163,6 +165,8 @@ def load_route_binding(
     proxy_info: Path,
     proxy_info_sha256: str,
     expected_model: str,
+    proxy_config_snapshot: Path | None = None,
+    proxy_config_snapshot_sha256: str | None = None,
 ) -> RouteBinding:
     """Load the externally pinned readiness generation without endpoint secrets."""
 
@@ -198,12 +202,41 @@ def load_route_binding(
             payload.get("proxy_policy"),
             expected_request_timeout=expected_request_timeout,
         )
-        revalidate_deployment_proxy_policy(
-            resolved_spec,
-            expected_spec_sha256=deployment_spec_sha256,
-            expected_binding=proxy_policy,
-            expected_request_timeout=expected_request_timeout,
-        )
+        if proxy_config_snapshot is None and proxy_config_snapshot_sha256 is None:
+            revalidate_deployment_proxy_policy(
+                resolved_spec,
+                expected_spec_sha256=deployment_spec_sha256,
+                expected_binding=proxy_policy,
+                expected_request_timeout=expected_request_timeout,
+            )
+        elif proxy_config_snapshot is None or proxy_config_snapshot_sha256 is None:
+            raise RouteGuardError("proxy_config_snapshot_invalid")
+        else:
+            if proxy_policy["proxy_litellm_config"]["sha256"] != proxy_config_snapshot_sha256:
+                raise RouteGuardError("proxy_config_snapshot_sha256_mismatch")
+            validate_deployment_spec_proxy_policy(
+                resolved_spec,
+                expected_spec_sha256=deployment_spec_sha256,
+                expected_request_timeout=expected_request_timeout,
+            )
+            generation_routes = generation.get("routes")
+            backends = (
+                [
+                    route.get("backend_sha256")
+                    for route in generation_routes
+                    if isinstance(route, dict) and isinstance(route.get("backend_sha256"), str)
+                ]
+                if isinstance(generation_routes, list)
+                else []
+            )
+            validate_worker_rotation_proxy_configs(
+                source_snapshot=proxy_config_snapshot,
+                source_binding=proxy_policy,
+                source_backends=backends,
+                target_snapshot=proxy_config_snapshot,
+                target_binding=proxy_policy,
+                target_backends=backends,
+            )
         endpoint = load_deployment_endpoint(
             proxy_info,
             expected_proxy_info_sha256=proxy_info_sha256,
