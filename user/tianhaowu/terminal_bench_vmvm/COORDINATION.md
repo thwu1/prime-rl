@@ -1,6 +1,6 @@
 # VMVM sandbox coordination
 
-Last updated: 2026-09-19 00:00 UTC
+Last updated: 2026-09-19 00:05 UTC
 
 ## First message to the next teammate
 
@@ -41,6 +41,17 @@ this shared branch again.
 Add new rows below this line; do not overwrite another owner's row.
 
 ## Open coordination requests
+
+- **2026-09-19 00:05 UTC, final-reviewed proof failed closed before any VM
+  start:** proof `1750600` ended 1:0 after 2m06s with aggregate-safe code
+  `source_build_failed`. It completed 0/9 entries, recorded 0/27 attested
+  runtime starts, and published neither `source_wheel_policy.json` nor
+  `source_wheel_proof.json`; its partial root is nonresumable and ineligible
+  for canary/audit/promotion. No raw subprocess output or private entry identity
+  was inspected. A separate code/runtime diagnosis is in progress using only
+  public or synthetic fixtures and aggregate artifacts. Require a reviewed
+  cause/fix and wholly fresh root before any replacement; do not start the
+  oracle canary.
 
 - **2026-09-19 00:00 UTC, final reviewed source-wheel proof submitted:** exact
   utility `0114d8c19` is pushed and frozen in clean checkout
