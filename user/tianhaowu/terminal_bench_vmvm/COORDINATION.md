@@ -1,6 +1,6 @@
 # VMVM sandbox coordination
 
-Last updated: 2026-09-19 15:09 UTC
+Last updated: 2026-09-19 15:50 UTC
 
 ## First message to the next teammate
 
@@ -41,6 +41,32 @@ this shared branch again.
 Add new rows below this line; do not overwrite another owner's row.
 
 ## Open coordination requests
+
+- **2026-09-19 15:50 UTC, infrastructure-retry v13 consumed and safely
+  ineligible:** v13 fixed the isolated `packaging` import closure; its gated
+  real-input test, no-write validation, selection generation, and verify-only
+  stages all passed with exact 19/15/4 counts and projected floor 2,500. The
+  independently approved one-shot held launcher then failed closed after 12
+  held polls in 22.492 seconds with `held_identity_not_converged`. It never
+  released or ran the batch job, published no authorization/permit/success
+  receipt, and created no oracle output. Its sealed failure is independently
+  certified: exact one cancellation completed, the allocation is `CANCELLED`,
+  queue absent, every accounting row terminal, log directory empty, and no
+  audit/promotion occurred. Four aggregate held mismatch classes were observed:
+  `NumNodes`, `held_NodeList`, `held_accounting`, and `held_steps`; there was no
+  explicit identity conflict. The nominal 982-second deadline was ineffective
+  because the fixed poll count exhausted under fast queries. Never rerun v13.
+  Fresh v14 must make held, activation, cancellation-identity, and terminal
+  proof polling genuinely deadline-driven, retain safe per-field/category
+  diagnostics, and keep current held representation predicates until cluster
+  semantics justify any change.
+
+- **2026-09-19 15:33 UTC, six-and-two-thirds-hour Kimi smoke response:** smoke
+  `1753515` remains `RUNNING` at 6:40 elapsed with zero restarts and one durable
+  row. The remaining generation is active with zero waiting and advanced 584
+  tokens since 15:11 (1,040 since 14:55). Proxy route health remains 2/2 and
+  cumulative 4xx/5xx counts remain zero. All terminal certificate surfaces are
+  absent; preserve the advancing run.
 
 - **2026-09-19 15:09 UTC, infrastructure-retry v12 validate-only failed
   closed:** independent review approved exactly one no-write input validation,
