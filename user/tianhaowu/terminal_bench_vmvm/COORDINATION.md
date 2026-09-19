@@ -42,6 +42,34 @@ Add new rows below this line; do not overwrite another owner's row.
 
 ## Open coordination requests
 
+- **2026-09-19 01:17 UTC, Kimi successor generation is pre-chained:** smoke
+  `1750319` remains RUNNING with 1/2 durable rows and both current endpoints
+  remain RUNNING. Because the short endpoint's safe 5,400-second launch window
+  has elapsed, the current singleton watcher will fail closed instead of
+  creating a late controller. Successor readiness `1750986` is dependency-held
+  on `afterany:1750299`; bridge `1750987` is dependency-held on
+  `afterok:1750986:1750319`. A direct child of
+  `swebench_vmvm:Launcher.0` is armed to launch exactly shard zero only after
+  both jobs complete, the schema-v2 bridge revalidates, the fresh generation
+  has exactly two RUNNING routes, and both routes retain at least 5,400 seconds.
+  Independent static review found no blockers. The active current-generation
+  watchers now use the required deployment-local `proxy_info.json` with pinned
+  hash (copied proxy-info paths are rejected by endpoint binding); their hashes
+  are `4e34d929c6e904e8bbfffdb2945397b87e1c0aa205f29ced958acd37f13c7a9a`
+  and `f980fb350291dae0ed20b6dab2df793bf4b967d1b03b53e08944a99714e50486`.
+  The immutable byte-identical proxy-info copy remains historical evidence,
+  not a live controller input.
+
+- **2026-09-19 01:17 UTC, source-wheel build dependency closure approved:**
+  exact commit `a2e8759d8` is pushed on `fix/source-wheel-build-deps` and frozen
+  clean at `prime-rl-a2e8759d8`. Two independent reviews found no blockers;
+  the frozen checkout passes 719/719 workflow tests. Source builds now use a
+  disposable attested venv, install only hash-bound binary build dependencies
+  offline, and run pip/setup child processes through that venv's isolated
+  Python. Do not reuse failed proof roots. A fresh x86 environment binding
+  inspection and wholly fresh proof root are still required before the oracle
+  canary.
+
 - **2026-09-19 01:12 UTC, reviewed production source+trace integration
   frozen:** true two-parent merge plus review fixes is approved and pushed as
   `dc9343620`; reviewed parents are trace-fidelity `dedaad245` and oracle
