@@ -2613,18 +2613,19 @@ for requirement in sys.argv[1:]:
         wheel_dir = "/tmp/terminal-bench-source-wheels"
         site_dir = "/tmp/terminal-bench-source-site"
         build_work_dir = f"{build_env_dir}-work"
-        prepared = await self._run_root(
-            builder,
-            f"rm -rf {input_dir} {build_dep_dir} {build_env_dir} {build_work_dir} "
-            f"{SOURCE_BUILD_HOME_DIR} {SOURCE_BUILD_TMP_DIR} {wheel_dir} {site_dir} && "
-            f"mkdir -p {input_dir} {build_dep_dir} {SOURCE_BUILD_HOME_DIR} "
-            f"{SOURCE_BUILD_TMP_DIR} {wheel_dir} {site_dir} && "
-            f"chmod 1777 {input_dir} {build_dep_dir} {wheel_dir} {site_dir} && "
-            f"chmod 700 {SOURCE_BUILD_HOME_DIR} {SOURCE_BUILD_TMP_DIR}",
-        )
-        if prepared.exit_code != 0:
-            raise RuntimeError(f"{task.name}: preparing the disposable source-wheel builder failed")
+        primary_error: BaseException | None = None
         try:
+            prepared = await self._run_root(
+                builder,
+                f"rm -rf {input_dir} {build_dep_dir} {build_env_dir} {build_work_dir} "
+                f"{SOURCE_BUILD_HOME_DIR} {SOURCE_BUILD_TMP_DIR} {wheel_dir} {site_dir} && "
+                f"mkdir -p {input_dir} {build_dep_dir} {SOURCE_BUILD_HOME_DIR} "
+                f"{SOURCE_BUILD_TMP_DIR} {wheel_dir} {site_dir} && "
+                f"chmod 1777 {input_dir} {build_dep_dir} {wheel_dir} {site_dir} && "
+                f"chmod 700 {SOURCE_BUILD_HOME_DIR} {SOURCE_BUILD_TMP_DIR}",
+            )
+            if prepared.exit_code != 0:
+                raise RuntimeError(f"{task.name}: preparing the disposable source-wheel builder failed")
             binary_payloads: dict[str, bytes] = {}
             source_payloads: dict[str, bytes] = {}
             build_dependency_payloads: dict[str, bytes] = {}
@@ -2810,14 +2811,34 @@ for requirement in sys.argv[1:]:
                     f"{task.name}: source-built wheel resolution contains missing or non-allowlisted distributions"
                 )
             return wheels, closure, tuple(source_build_environments)
+        except BaseException as error:
+            primary_error = error
+            raise
         finally:
-            cleaned = await self._run_root(
-                builder,
-                f"rm -rf {input_dir} {build_dep_dir} {build_env_dir} {build_work_dir} "
-                f"{SOURCE_BUILD_HOME_DIR} {SOURCE_BUILD_TMP_DIR} {wheel_dir} {site_dir}",
-            )
-            if cleaned.exit_code != 0:
-                raise RuntimeError(f"{task.name}: disposable source-wheel workspace cleanup failed")
+            try:
+                cleaned = await self._run_root(
+                    builder,
+                    f"rm -rf {input_dir} {build_dep_dir} {build_env_dir} {build_work_dir} "
+                    f"{SOURCE_BUILD_HOME_DIR} {SOURCE_BUILD_TMP_DIR} {wheel_dir} {site_dir}",
+                )
+            except BaseException as cleanup_error:
+                if primary_error is None:
+                    raise
+                logger.warning(
+                    "%s disposable source-wheel workspace cleanup raised %s: %s",
+                    task.name,
+                    type(cleanup_error).__name__,
+                    cleanup_error,
+                )
+            else:
+                if cleaned.exit_code != 0:
+                    if primary_error is None:
+                        raise RuntimeError(f"{task.name}: disposable source-wheel workspace cleanup failed")
+                    logger.warning(
+                        "%s disposable source-wheel workspace cleanup failed: %s",
+                        task.name,
+                        (cleaned.stdout + cleaned.stderr)[-2000:],
+                    )
 
     async def _validate_policy_wheels_on_target(
         self,
@@ -2830,6 +2851,7 @@ for requirement in sys.argv[1:]:
         archive_path = f"/tmp/terminal-bench-source-wheel-validation-{nonce}.tar"
         wheel_dir = f"/tmp/terminal-bench-source-wheel-validation-{nonce}"
         site_dir = f"/tmp/terminal-bench-source-wheel-site-{nonce}"
+        primary_error: BaseException | None = None
         try:
             await runtime.write(archive_path, wheel_archive)
             prepared = await self._run_root(
@@ -2881,13 +2903,33 @@ for requirement in sys.argv[1:]:
                     f"{task.name}: clean-target wheel resolution contains missing or non-allowlisted distributions"
                 )
             return closure
+        except BaseException as error:
+            primary_error = error
+            raise
         finally:
-            cleaned = await self._run_root(
-                runtime,
-                f"rm -rf {shlex.quote(archive_path)} {shlex.quote(wheel_dir)} {shlex.quote(site_dir)}",
-            )
-            if cleaned.exit_code != 0:
-                raise RuntimeError(f"{task.name}: clean-target source-wheel validation cleanup failed")
+            try:
+                cleaned = await self._run_root(
+                    runtime,
+                    f"rm -rf {shlex.quote(archive_path)} {shlex.quote(wheel_dir)} {shlex.quote(site_dir)}",
+                )
+            except BaseException as cleanup_error:
+                if primary_error is None:
+                    raise
+                logger.warning(
+                    "%s clean-target source-wheel validation cleanup raised %s: %s",
+                    task.name,
+                    type(cleanup_error).__name__,
+                    cleanup_error,
+                )
+            else:
+                if cleaned.exit_code != 0:
+                    if primary_error is None:
+                        raise RuntimeError(f"{task.name}: clean-target source-wheel validation cleanup failed")
+                    logger.warning(
+                        "%s clean-target source-wheel validation cleanup failed: %s",
+                        task.name,
+                        (cleaned.stdout + cleaned.stderr)[-2000:],
+                    )
 
     async def _build_source_dependency_wheelhouse(
         self,

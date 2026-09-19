@@ -2807,8 +2807,19 @@ class _LegacySetupGrammar:
         if (
             isinstance(node, ast.AsyncFunctionDef)
             or node.decorator_list
+            or bool(getattr(node, "type_params", ()))
             or node.returns is not None
             or node.type_comment is not None
+            or any(
+                argument.annotation is not None
+                for argument in (
+                    *node.args.posonlyargs,
+                    *node.args.args,
+                    *node.args.kwonlyargs,
+                    *((node.args.vararg,) if node.args.vararg is not None else ()),
+                    *((node.args.kwarg,) if node.args.kwarg is not None else ()),
+                )
+            )
             or node.args.posonlyargs
             or node.args.vararg is not None
             or node.args.kwonlyargs

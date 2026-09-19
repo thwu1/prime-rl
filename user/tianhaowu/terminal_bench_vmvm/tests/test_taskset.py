@@ -2242,6 +2242,8 @@ def test_static_build_requirement_extraction_is_fail_closed(tmp_path: Path) -> N
         b"import os\nfrom setuptools import setup\nVERSION = os.path.join('dynamic', 'version')\nsetup(name='one', version=VERSION)\n",
         b"import os\nfrom setuptools import setup\n__file__ = '/etc'\nsetup(name='one', long_description=open(os.path.join(os.path.dirname(__file__), 'passwd')).read())\n",
         b"import os\nfrom setuptools import setup\ndef read(__file__):\n    return open(os.path.join(os.path.dirname(__file__), 'README')).read()\nsetup(name='one', long_description=read('/etc/passwd'))\n",
+        b"import os\nfrom setuptools import setup\ndef readme(path: os.system('external-command')):\n    return open(path).read()\nsetup(name='one', long_description=readme('README'))\n",
+        b"import os\nfrom setuptools import setup\ndef readme[T: os.system('external-command')](path):\n    return open(path).read()\nsetup(name='one', long_description=readme('README'))\n",
         b"from setuptools import setup\ndef metadata():\n    return 'dynamic'\nsetup(name='one', description=metadata())\n",
         b"from setuptools import setup\nsetup(name='one', setup_requires=get_requirements())\n",
         b"from setuptools import setup\nif True:\n    setup(name='one')\n",
@@ -3191,6 +3193,76 @@ def test_source_wheel_builder_lease_is_global_and_cancellation_cannot_publish(
     assert maximum == 1
     assert active == 0
     assert (tmp_path / "source_wheel_attestations.json").is_file()
+
+
+@pytest.mark.parametrize("failure", [RuntimeError("prepare failed"), asyncio.CancelledError()])
+def test_source_wheel_builder_preserves_primary_cleanup_failure(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+    failure: BaseException,
+) -> None:
+    entry, _, _ = source_policy_entry()
+    taskset = source_dependency_taskset(tmp_path, [entry])
+    task = dependency_task(tmp_path)
+    policy_entry = taskset._source_wheel_policy.entries[0]
+    builder = object()
+    root_commands: list[str] = []
+
+    async def fail_prepare_and_cleanup(runtime: object, command: str) -> ProgramResult:
+        root_commands.append(command)
+        if len(root_commands) == 1:
+            raise failure
+        raise RuntimeError("cleanup raised")
+
+    monkeypatch.setattr(taskset, "_run_root", fail_prepare_and_cleanup)
+    with pytest.raises(type(failure)):
+        asyncio.run(
+            taskset._build_policy_wheels_in_builder(
+                task,
+                builder,
+                policy_entry,
+                synthetic_fingerprints(entry["image"]),
+            )
+        )
+
+    assert len(root_commands) == 2
+    assert "disposable source-wheel workspace cleanup raised RuntimeError: cleanup raised" in caplog.text
+
+
+@pytest.mark.parametrize("failure", [RuntimeError("stage failed"), asyncio.CancelledError()])
+def test_source_wheel_target_validation_preserves_primary_cleanup_failure(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+    failure: BaseException,
+) -> None:
+    entry, _, _ = source_policy_entry()
+    taskset = source_dependency_taskset(tmp_path, [entry])
+    task = dependency_task(tmp_path)
+    policy_entry = taskset._source_wheel_policy.entries[0]
+    runtime = DependencyRuntime()
+    root_commands: list[str] = []
+
+    async def fail_stage_and_cleanup(runtime: object, command: str) -> ProgramResult:
+        root_commands.append(command)
+        if len(root_commands) == 1:
+            raise failure
+        raise RuntimeError("cleanup raised")
+
+    monkeypatch.setattr(taskset, "_run_root", fail_stage_and_cleanup)
+    with pytest.raises(type(failure)):
+        asyncio.run(
+            taskset._validate_policy_wheels_on_target(
+                task,
+                runtime,
+                policy_entry,
+                b"wheel archive",
+            )
+        )
+
+    assert len(root_commands) == 2
+    assert "clean-target source-wheel validation cleanup raised RuntimeError: cleanup raised" in caplog.text
 
 
 @pytest.mark.parametrize("failure", [RuntimeError("prepare failed"), asyncio.CancelledError()])
