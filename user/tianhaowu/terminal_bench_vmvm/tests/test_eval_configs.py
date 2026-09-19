@@ -340,6 +340,7 @@ def test_mobius_qwen_sandoq_contract_is_explicit_and_digest_pinned() -> None:
         "network_access": False,
         "host_tunnel": "sandoq",
         "expected_environment": "oci-runner-firecracker-tunnel-pull",
+        "ecr_token_file": "/storage/home/tianhaowu/.config/oci-runner/ecr-token",
         "guest_tunnel_url": "http://127.0.0.1:8485",
         "tunnel_pool_size": 8,
         "tunnel_ready_timeout": 30,
@@ -606,6 +607,14 @@ def test_direct_qwen_launcher_is_fail_closed() -> None:
     assert "eval_run_identity.py" in driver
     assert "certify_direct_qwen_sandoq.py" in wrapper
     assert "OCI_RUNNER_POOL_MIN_SIZE=0" in driver
+    assert 'expected_pool_socket="$pool_socket_dir/${SLURM_JOB_ID:?}.sock"' in driver
+    assert '"$output_dir/pool_events.jsonl"' in driver
+    assert '"$output_dir/control/sandoq-pool.wal.jsonl"' in driver
+    assert "SANDOQ_RAMP_RECEIPT" in driver
+    assert "validate_predecessor" in driver
+    assert "verify_references=True" in driver
+    assert "verify_pool_cleanup.py" in driver
+    assert "sanitize_sandoq_cleanup_audit.py" in driver
 
 
 def test_direct_qwen_router_probe_is_infrastructure_only() -> None:

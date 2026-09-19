@@ -10,6 +10,9 @@ import os
 import tempfile
 from pathlib import Path
 
+CANONICAL_SOURCE_SHA256 = "d33ef93f9b77ee91a41600934e677ba37988d3b4509e4da05ff1fcf7b4bc3a4b"
+CANONICAL_TEMPLATE_SHA256 = "3a94586b7c7e58490d025c5490810418728e1aeab0287e4976dcceeb4c722db5"
+
 
 def sha256(payload: bytes) -> str:
     return hashlib.sha256(payload).hexdigest()
@@ -45,12 +48,14 @@ def materialize_config(
     if sha256(raw) != template_sha256:
         raise ValueError("template config SHA-256 mismatch")
     text = raw.decode()
+    rollout_concurrency = 64 if count == 2500 else count
+    http_concurrency = 32 if count == 2500 else count
     replacements = {
         "num_tasks = 2500": f"num_tasks = {count}",
-        "max_concurrent = 64": f"max_concurrent = {count}",
-        "multiplex = 64": f"multiplex = {count}",
-        "max_connections = 32": f"max_connections = {count}",
-        "max_keepalive_connections = 32": f"max_keepalive_connections = {count}",
+        "max_concurrent = 64": f"max_concurrent = {rollout_concurrency}",
+        "multiplex = 64": f"multiplex = {rollout_concurrency}",
+        "max_connections = 32": f"max_connections = {http_concurrency}",
+        "max_keepalive_connections = 32": f"max_keepalive_connections = {http_concurrency}",
     }
     for old, new in replacements.items():
         if text.count(old) != 1:
@@ -65,7 +70,37 @@ def materialize_config(
     return text.encode()
 
 
+def publish_exclusive(outputs: list[tuple[Path, bytes]]) -> None:
+    """Publish a fully validated stage, with its receipt linked last."""
+    if any(path.exists() for path, _ in outputs):
+        raise FileExistsError("ramp outputs require a fresh namespace")
+    for path, _ in outputs:
+        path.parent.mkdir(parents=True, exist_ok=True)
+    temporaries: list[tuple[Path, Path]] = []
+    published: list[Path] = []
+    try:
+        for path, payload in outputs:
+            descriptor, temporary_name = tempfile.mkstemp(dir=path.parent, prefix=f".{path.name}.")
+            temporary = Path(temporary_name)
+            with os.fdopen(descriptor, "wb") as handle:
+                handle.write(payload)
+                handle.flush()
+                os.fsync(handle.fileno())
+            temporaries.append((path, temporary))
+        for path, temporary in temporaries:
+            os.link(temporary, path)
+            published.append(path)
+    except Exception:
+        for path in published:
+            path.unlink(missing_ok=True)
+        raise
+    finally:
+        for _, temporary in temporaries:
+            temporary.unlink(missing_ok=True)
+
+
 def write_atomic(path: Path, payload: bytes) -> None:
+    """Backward-compatible helper used by tests outside the ramp publisher."""
     path.parent.mkdir(parents=True, exist_ok=True)
     descriptor, temporary = tempfile.mkstemp(dir=path.parent, prefix=f".{path.name}.")
     try:
@@ -73,7 +108,7 @@ def write_atomic(path: Path, payload: bytes) -> None:
             handle.write(payload)
             handle.flush()
             os.fsync(handle.fileno())
-        os.replace(temporary, path)
+        os.link(temporary, path)
     finally:
         Path(temporary).unlink(missing_ok=True)
 
@@ -82,19 +117,23 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--source", type=Path, required=True)
     parser.add_argument("--source-sha256", required=True)
-    parser.add_argument("--count", type=int, required=True, choices=(2, 8, 24))
+    parser.add_argument("--count", type=int, required=True, choices=(2, 8, 24, 2500))
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--receipt", type=Path, required=True)
     parser.add_argument("--template", type=Path)
     parser.add_argument("--template-sha256")
     parser.add_argument("--config-output", type=Path)
     args = parser.parse_args()
+    if args.source_sha256 != CANONICAL_SOURCE_SHA256:
+        raise ValueError("source allowlist is not the approved canonical set")
+    canonical_template = Path(__file__).resolve().parent / "configs/eval/mobius_qwen_a95b_2500_sandoq.toml"
+    if (
+        args.template is None
+        or args.template.resolve(strict=True) != canonical_template
+        or args.template_sha256 != CANONICAL_TEMPLATE_SHA256
+    ):
+        raise ValueError("template config is not the approved canonical Sandoq config")
     payload, receipt = materialize(args.source, args.source_sha256, args.count)
-    write_atomic(args.output, payload)
-    write_atomic(
-        args.receipt,
-        (json.dumps(receipt, sort_keys=True, separators=(",", ":")) + "\n").encode(),
-    )
     config_options = (args.template, args.template_sha256, args.config_output)
     if any(config_options) and not all(config_options):
         raise ValueError("template, template SHA-256, and config output are one tuple")
@@ -106,13 +145,18 @@ def main() -> None:
             task_file=args.output,
             task_file_sha256=receipt["selected_sha256"],
         )
-        write_atomic(args.config_output, config_payload)
         receipt["template_sha256"] = args.template_sha256
         receipt["config_sha256"] = sha256(config_payload)
-        write_atomic(
+    outputs = [(args.output, payload)]
+    if args.template is not None:
+        outputs.append((args.config_output, config_payload))
+    outputs.append(
+        (
             args.receipt,
             (json.dumps(receipt, sort_keys=True, separators=(",", ":")) + "\n").encode(),
         )
+    )
+    publish_exclusive(outputs)
     print(
         json.dumps(
             {

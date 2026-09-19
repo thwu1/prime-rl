@@ -358,3 +358,28 @@ retries: malformed requests and deterministic harness failures must remain
 terminal. Guarded Kimi runs are deliberately nonresumable: after interruption,
 requalify the current serving generation and restart from an empty output
 directory. Do not set `RESUME_DIR` or rebind partial rows to another proxy.
+
+### Native Sandoq Qwen ramp
+
+Use `materialize_sandoq_ramp.py` with the approved 2,500-line allowlist SHA and
+the exact SHA of `configs/eval/mobius_qwen_a95b_2500_sandoq.toml`. Materialize
+each stage into a new directory; existing task, config, or receipt paths are
+rejected. Run stages strictly in the order 2, 8, 24, then 2,500. The stage
+contract is respectively rollout/client/pool 2/2/2, 8/8/8, 24/24/24, and
+64/32/64. Do not attempt the 2,500 stage until the 24-stage certificate exists;
+the currently observed 24-capacity shortfall remains a production blocker.
+
+For every invocation of `run_qwen_direct_eval.sbatch`, set
+`EVAL_CONFIG`, `DIRECT_QWEN_APPROVED_TASK_FILE`, and its SHA to that stage's
+materialized files. Also set `SANDOQ_RAMP_RECEIPT` and
+`SANDOQ_RAMP_RECEIPT_SHA256`. Stages after 2 additionally require
+`SANDOQ_PREDECESSOR_CERTIFICATE` and its SHA. Always use a fresh `OUTPUT_DIR`;
+Sandoq resume is rejected. The launcher uses the workflow's configured token
+paths, a node-local job-scoped pool socket, and output-local recovery logs.
+
+Treat Slurm logs, `pool_events.jsonl`, the pool WAL, the raw cleanup audit, and
+the node-local drain marker as private operational evidence. After the
+authoritative typed-404 audit and certificate both succeed, the launcher removes
+those raw lifecycle artifacts. Only `sandoq_cleanup_audit.json` and
+`direct_qwen_sandoq_certificate.json`, which contain aggregate counts and
+hashes but no provider or task identifiers, are publishable.

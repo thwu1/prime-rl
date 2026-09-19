@@ -109,11 +109,23 @@ async def test_sandoq_no_network_requires_explicit_firecracker_tunnel(
             mode="oci-runner",
             host_tunnel="sandoq",
             expected_environment="oci-runner-firecracker-tunnel-pull",
+            ecr_token_file=Path("/run/secrets/ecr-token"),
         )
     )
     task = SimpleNamespace(name="opaque-task")
 
     monkeypatch.setenv("OCI_RUNNER_ENVIRONMENT", "oci-runner-firecracker-tunnel-pull")
+    monkeypatch.setenv("OCI_RUNNER_BASE_URL", "https://sandoq.eks-prod.cf.aws.metafb.cloud")
+    monkeypatch.setenv("SANDOQ_OWNER", "test-user")
+    monkeypatch.setenv("SLURM_JOB_ID", "123")
+    monkeypatch.setenv("PRIME_RL_OUTPUT_DIR", "/run")
+    monkeypatch.setenv(
+        "OCI_RUNNER_POOL_SOCKET",
+        f"/tmp/oci-runner-pool-{os.getuid()}/123.sock",
+    )
+    monkeypatch.setenv("OCI_RUNNER_POOL_WAL", "/run/control/sandoq-pool.wal.jsonl")
+    monkeypatch.setenv("OCI_RUNNER_POOL_EVENT_LOG", "/run/pool_events.jsonl")
+    monkeypatch.delenv("SLURM_TMPDIR", raising=False)
     monkeypatch.setenv("OCI_RUNNER_TASK_NETWORK", "host")
     monkeypatch.setenv("OCI_RUNNER_USE_ECR", "1")
     monkeypatch.setenv(
@@ -123,6 +135,16 @@ async def test_sandoq_no_network_requires_explicit_firecracker_tunnel(
     monkeypatch.setenv("OCI_RUNNER_ECR_REGION", "us-east-2")
     monkeypatch.setenv("OCI_RUNNER_ECR_PULL_THROUGH_PREFIX", "pt_dockerio")
     monkeypatch.setenv("OCI_RUNNER_ALLOW_DOCKERHUB_FALLBACK", "0")
+    monkeypatch.setenv(
+        "OCI_RUNNER_ECR_TOKEN_FILE",
+        "/run/secrets/ecr-token",
+    )
+    monkeypatch.setattr(
+        taskset_module.Path,
+        "lstat",
+        lambda _path: SimpleNamespace(st_mode=stat.S_IFREG | 0o600),
+    )
+    monkeypatch.setattr(taskset_module.Path, "is_symlink", lambda _path: False)
     for key, value in {
         "OCI_RUNNER_CREATE_DEADLINE": "30m",
         "OCI_RUNNER_PULL_TIMEOUT": "1200",
@@ -131,8 +153,15 @@ async def test_sandoq_no_network_requires_explicit_firecracker_tunnel(
         "OCI_RUNNER_GATEWAY_RETRY_INTERVAL": "2s",
         "OCI_RUNNER_PODMAN_IGNORE_CHOWN_ERRORS": "1",
         "OCI_RUNNER_REQUIRE_RESOURCE_LIMITS": "1",
+        "OCI_RUNNER_EXEC_TIMEOUT_CEILING": "270",
+        "OCI_RUNNER_TASK_PIDS_LIMIT": "512",
+        "OCI_RUNNER_OBSERVABILITY": "1",
+        "OCI_RUNNER_POOL_HEARTBEAT_TIMEOUT": "45s",
         "OCI_RUNNER_SESSION_REUSE": "1",
         "OCI_RUNNER_POOL_MAX_REUSE_COUNT": "6",
+        "OCI_RUNNER_POOL_REUSE_JITTER": "2",
+        "OCI_RUNNER_IMAGE_CACHE_MAX_ENTRIES": "2",
+        "OCI_RUNNER_SECRET_CACHE_TTL": "5s",
         "OCI_RUNNER_LEASE_DURATION": "1h",
         "OCI_RUNNER_POOL_RENEW_INTERVAL": "5m",
         "OCI_RUNNER_POOL_SIZE": "2",
@@ -145,6 +174,22 @@ async def test_sandoq_no_network_requires_explicit_firecracker_tunnel(
         "OCI_RUNNER_POOL_RENEW_WORKERS": "2",
     }.items():
         monkeypatch.setenv(key, value)
+    for key in (
+        "HTTP_PROXY",
+        "HTTPS_PROXY",
+        "http_proxy",
+        "https_proxy",
+        "ALL_PROXY",
+        "all_proxy",
+        "SANDOQ_TUNNEL_HTTPS_PROXY",
+        "OCI_RUNNER_DOCKERHUB_USERNAME",
+        "OCI_RUNNER_DOCKERHUB_TOKEN_FILE",
+        "OCI_RUNNER_REQUIRE_DOCKERHUB_AUTH",
+        "OCI_RUNNER_ECR_AUXILIARY_REGISTRIES",
+        "OCI_RUNNER_ECR_CLIENT_CERT_PATH",
+        "OCI_RUNNER_ECR_UCLOUD",
+    ):
+        monkeypatch.delenv(key, raising=False)
     await TerminalBenchVMVMTaskset._configure_network_policy(task, runtime, "no-network", activate=False)
 
     monkeypatch.setenv("OCI_RUNNER_TASK_NETWORK", "none")
@@ -160,6 +205,7 @@ def test_separate_verifier_clones_sandoq_runtime_config() -> None:
             network_access=False,
             host_tunnel="sandoq",
             expected_environment="oci-runner-firecracker-tunnel-pull",
+            ecr_token_file=Path("/run/secrets/ecr-token"),
         )
     )
     task = SimpleNamespace(

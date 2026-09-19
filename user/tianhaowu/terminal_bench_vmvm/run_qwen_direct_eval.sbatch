@@ -82,6 +82,37 @@ if [[ "$sandbox_provider" == sandoq && -n "$resume_dir" ]]; then
     printf 'Sandoq direct Qwen runs require fresh output\n' >&2
     exit 2
 fi
+if [[ "$sandbox_provider" == sandoq ]]; then
+    pool_socket_dir="${SLURM_TMPDIR:-/tmp}/oci-runner-pool-${UID}"
+    mkdir -p "$pool_socket_dir"
+    chmod 0700 "$pool_socket_dir"
+    export OCI_RUNNER_POOL_SOCKET="$pool_socket_dir/${SLURM_JOB_ID:?}.sock"
+    for stale in \
+        inputs config.toml results.jsonl provenance.txt eval_run_identity.json eval_invocations.jsonl \
+        direct_workers.json direct_router.log pool_events.jsonl control/sandoq-pool.wal.jsonl \
+        pool_cleanup_audit.json sandoq_cleanup_audit.json direct_qwen_sandoq_certificate.json; do
+        if [[ -e "$output_dir/$stale" || -L "$output_dir/$stale" ]]; then
+            printf 'Sandoq direct runs require a fresh output namespace\n' >&2
+            exit 2
+        fi
+    done
+    for stale in "$OCI_RUNNER_POOL_SOCKET" "$OCI_RUNNER_POOL_SOCKET.owner.json" \
+        "${OCI_RUNNER_POOL_SOCKET%.sock}.drained.json"; do
+        if [[ -e "$stale" || -L "$stale" ]]; then
+            printf 'Sandoq direct runs reject stale node-local broker evidence\n' >&2
+            exit 2
+        fi
+    done
+    expected_count=$(python3 - "$eval_config" <<'PY'
+import sys
+import tomllib
+with open(sys.argv[1], "rb") as handle:
+    print(tomllib.load(handle)["num_tasks"])
+PY
+)
+    ramp_receipt=${SANDOQ_RAMP_RECEIPT:?SANDOQ_RAMP_RECEIPT is required}
+    ramp_receipt_sha256=${SANDOQ_RAMP_RECEIPT_SHA256:?SANDOQ_RAMP_RECEIPT_SHA256 is required}
+fi
 
 if [[ "$(uname -m)" != x86_64 || ! -d "$x86_site/pydantic" ]]; then
     printf 'Missing x86_64 evaluator runtime/dependencies\n' >&2
@@ -137,7 +168,7 @@ cleanup() {
 trap cleanup EXIT INT TERM
 
 while IFS= read -r variable_name; do
-    if [[ ${variable_name,,} == *_proxy ]]; then
+    if [[ ${variable_name,,} == *_proxy && $variable_name != SANDOQ_TUNNEL_HTTPS_PROXY ]]; then
         unset "$variable_name"
     fi
 done < <(compgen -e)
@@ -262,18 +293,31 @@ fi
 eval_pid=$!
 wait "$eval_pid"
 eval_pid=
+if [[ "$sandbox_provider" == sandoq && "$preflight_only" -eq 1 ]]; then
+    rm -f -- "$manifest" "$router_log" "$output_dir/.direct_router.lock"
+    rmdir -- "$output_dir" 2>/dev/null || true
+fi
 if [[ "$sandbox_provider" == sandoq && "$preflight_only" -eq 0 ]]; then
-    expected_count=$(python3 - "$eval_config" <<'PY'
-import sys
-import tomllib
-with open(sys.argv[1], "rb") as handle:
-    print(tomllib.load(handle)["num_tasks"])
-PY
-)
-    "$x86_uv" run --no-project --offline --python "$python_bin" \
-        python3 "$workflow_dir/certify_direct_qwen_sandoq.py" \
+    certificate_args=(
+        "$workflow_dir/certify_direct_qwen_sandoq.py"
         --run-dir "$output_dir" --expected-task-file "$approved_task_file" \
         --expected-task-file-sha256 "$approved_task_file_sha256" \
         --expected-count "$expected_count" \
-        --output "$output_dir/direct_qwen_sandoq_certificate.json" >/dev/null
+        --cleanup-audit "$output_dir/sandoq_cleanup_audit.json" \
+        --ramp-receipt "$ramp_receipt" --ramp-receipt-sha256 "$ramp_receipt_sha256" \
+        --canonical-task-source "$workflow_dir/configs/eval/mobius_valid_tasks_2500.txt" \
+        --canonical-template "$workflow_dir/configs/eval/mobius_qwen_a95b_2500_sandoq.toml" \
+        --output "$output_dir/direct_qwen_sandoq_certificate.json"
+    )
+    if [[ -n ${SANDOQ_PREDECESSOR_CERTIFICATE:-} || -n ${SANDOQ_PREDECESSOR_CERTIFICATE_SHA256:-} ]]; then
+        certificate_args+=(
+            --predecessor "${SANDOQ_PREDECESSOR_CERTIFICATE:-}"
+            --predecessor-sha256 "${SANDOQ_PREDECESSOR_CERTIFICATE_SHA256:-}"
+        )
+    fi
+    "$x86_uv" run --no-project --offline --python "$python_bin" \
+        python3 "${certificate_args[@]}" >/dev/null
+    rm -f -- "$output_dir/pool_cleanup_audit.json" "$output_dir/pool_events.jsonl" \
+        "$output_dir/control/sandoq-pool.wal.jsonl" \
+        "${OCI_RUNNER_POOL_SOCKET%.sock}.drained.json"
 fi

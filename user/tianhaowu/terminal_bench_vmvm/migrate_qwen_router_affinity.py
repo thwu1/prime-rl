@@ -61,6 +61,7 @@ COMPATIBLE_RESUME_VERIFIERS_REVISIONS = frozenset(
     {
         EXPECTED_VERIFIERS_REVISION,
         "bb2c42dace0aeecd177e2834f3c87a1d438aed44",
+        "7d23d73f018a70709f4297e558e0f77b678b7b5c",
     }
 )
 

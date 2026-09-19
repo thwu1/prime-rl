@@ -407,7 +407,7 @@ class TerminalBenchTask(HarborTask):
     verifier_network_mode: Literal["public", "no-network"] = Field(default="public", exclude=True)
 
 
-def _sandoq_no_network_environment_is_safe() -> bool:
+def _sandoq_no_network_environment_is_safe(expected_ecr_token_file: Path | None) -> bool:
     exact = {
         "OCI_RUNNER_ENVIRONMENT": "oci-runner-firecracker-tunnel-pull",
         "OCI_RUNNER_TASK_NETWORK": "host",
@@ -423,12 +423,63 @@ def _sandoq_no_network_environment_is_safe() -> bool:
         "OCI_RUNNER_GATEWAY_RETRY_INTERVAL": "2s",
         "OCI_RUNNER_PODMAN_IGNORE_CHOWN_ERRORS": "1",
         "OCI_RUNNER_REQUIRE_RESOURCE_LIMITS": "1",
+        "OCI_RUNNER_EXEC_TIMEOUT_CEILING": "270",
+        "OCI_RUNNER_TASK_PIDS_LIMIT": "512",
+        "OCI_RUNNER_OBSERVABILITY": "1",
+        "OCI_RUNNER_POOL_HEARTBEAT_TIMEOUT": "45s",
         "OCI_RUNNER_SESSION_REUSE": "1",
         "OCI_RUNNER_POOL_MAX_REUSE_COUNT": "6",
+        "OCI_RUNNER_POOL_REUSE_JITTER": "2",
+        "OCI_RUNNER_IMAGE_CACHE_MAX_ENTRIES": "2",
+        "OCI_RUNNER_SECRET_CACHE_TTL": "5s",
         "OCI_RUNNER_LEASE_DURATION": "1h",
         "OCI_RUNNER_POOL_RENEW_INTERVAL": "5m",
     }
     if any(os.environ.get(key) != value for key, value in exact.items()):
+        return False
+    owner = os.environ.get("SANDOQ_OWNER", "")
+    output_dir = Path(os.environ.get("PRIME_RL_OUTPUT_DIR", ""))
+    job_id = os.environ.get("SLURM_JOB_ID", "")
+    expected_socket = Path(os.environ.get("SLURM_TMPDIR", "/tmp")) / f"oci-runner-pool-{os.getuid()}" / f"{job_id}.sock"
+    if (
+        not re.fullmatch(r"[A-Za-z0-9._-]+", owner)
+        or os.environ.get("OCI_RUNNER_BASE_URL") != "https://sandoq.eks-prod.cf.aws.metafb.cloud"
+        or not output_dir.is_absolute()
+        or not job_id.isdigit()
+        or os.environ.get("OCI_RUNNER_POOL_SOCKET") != str(expected_socket)
+        or os.environ.get("OCI_RUNNER_POOL_WAL") != str(output_dir / "control/sandoq-pool.wal.jsonl")
+        or os.environ.get("OCI_RUNNER_POOL_EVENT_LOG") != str(output_dir / "pool_events.jsonl")
+        or any(
+            os.environ.get(name)
+            for name in (
+                "HTTP_PROXY",
+                "HTTPS_PROXY",
+                "http_proxy",
+                "https_proxy",
+                "ALL_PROXY",
+                "all_proxy",
+                "SANDOQ_TUNNEL_HTTPS_PROXY",
+                "OCI_RUNNER_DOCKERHUB_USERNAME",
+                "OCI_RUNNER_DOCKERHUB_TOKEN_FILE",
+                "OCI_RUNNER_REQUIRE_DOCKERHUB_AUTH",
+                "OCI_RUNNER_ECR_AUXILIARY_REGISTRIES",
+                "OCI_RUNNER_ECR_CLIENT_CERT_PATH",
+                "OCI_RUNNER_ECR_UCLOUD",
+            )
+        )
+    ):
+        return False
+    configured_token_file = os.environ.get("OCI_RUNNER_ECR_TOKEN_FILE")
+    if expected_ecr_token_file is None or not configured_token_file:
+        return False
+    token_file = Path(configured_token_file)
+    if not token_file.is_absolute() or token_file != expected_ecr_token_file.expanduser():
+        return False
+    try:
+        token_stat = token_file.lstat()
+    except OSError:
+        return False
+    if token_file.is_symlink() or not stat.S_ISREG(token_stat.st_mode) or stat.S_IMODE(token_stat.st_mode) != 0o600:
         return False
     try:
         pool = int(os.environ["OCI_RUNNER_POOL_SIZE"])
@@ -1862,7 +1913,7 @@ class TerminalBenchVMVMTaskset(
                     or config.network_access
                     or config.host_tunnel != "sandoq"
                     or config.expected_environment != "oci-runner-firecracker-tunnel-pull"
-                    or not _sandoq_no_network_environment_is_safe()
+                    or not _sandoq_no_network_environment_is_safe(config.ecr_token_file)
                 ):
                     raise UnsupportedTaskError(
                         f"{task.name}: Sandoq no-network requires OCI Firecracker, "

@@ -341,6 +341,8 @@ def validate_eval_config(
         or runtime.get("host_tunnel") != "sandoq"
         or runtime.get("guest_tunnel_url") != "http://127.0.0.1:8485"
         or runtime.get("expected_environment") != "oci-runner-firecracker-tunnel-pull"
+        or not isinstance(runtime.get("ecr_token_file"), str)
+        or not Path(runtime["ecr_token_file"]).is_absolute()
     ):
         raise DirectWorkerError("eval_sandoq_runtime_invalid")
     harness_env = harness.get("env")

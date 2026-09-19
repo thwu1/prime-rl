@@ -210,6 +210,7 @@ def _sandoq_identity() -> dict:
         "host_tunnel": "sandoq",
         "guest_tunnel_url": "http://127.0.0.1:8485",
         "expected_environment": "oci-runner-firecracker-tunnel-pull",
+        "ecr_token_file": "/storage/home/tianhaowu/.config/oci-runner/ecr-token",
     }
     contract, execution = _contract(config, "approved-model", sandbox_provider="sandoq")
     execution["sandoq_environment"] = {
@@ -218,10 +219,18 @@ def _sandoq_identity() -> dict:
         "pool_size": 4,
         "pool_min_size": 0,
         "tunnel_policy": "named-tunnel-loopback",
+        "base_url": "https://sandoq.eks-prod.cf.aws.metafb.cloud",
+        "owner": "test-user",
+        "transport_proxy_policy": "official-client-auto-no-global-proxy",
+        "pool_socket_scope": "job-node-local",
+        "pool_wal": "/run/control/sandoq-pool.wal.jsonl",
+        "pool_event_log": "/run/pool_events.jsonl",
         "use_ecr": True,
         "ecr_registry": "168653207203.dkr.ecr.us-east-2.amazonaws.com",
         "ecr_region": "us-east-2",
         "ecr_pull_through_prefix": "pt_dockerio",
+        "ecr_token_file": "/run/secrets/ecr-token",
+        "ecr_auth_policy": "private-token-file-mode-0600",
         "allow_dockerhub_fallback": False,
         "create_deadline": "30m",
         "pull_timeout": "1200",
@@ -230,6 +239,10 @@ def _sandoq_identity() -> dict:
         "gateway_retry_interval": "2s",
         "podman_ignore_chown_errors": "1",
         "require_resource_limits": "1",
+        "exec_timeout_ceiling": "270",
+        "task_pids_limit": "512",
+        "observability": "1",
+        "pool_heartbeat_timeout": "45s",
         "pool_create_workers": "4",
         "pool_bootstrap_workers": "4",
         "pool_bootstrap_per_image": "4",
@@ -238,6 +251,9 @@ def _sandoq_identity() -> dict:
         "pool_renew_workers": "4",
         "session_reuse": "1",
         "pool_max_reuse_count": "6",
+        "pool_reuse_jitter": "2",
+        "image_cache_max_entries": "2",
+        "secret_cache_ttl": "5s",
         "lease_duration": "1h",
         "pool_renew_interval": "5m",
     }
@@ -329,6 +345,37 @@ def test_direct_qwen_sandoq_identity_envelope_round_trip(tmp_path: Path) -> None
     path.write_text(json.dumps(envelope))
 
     assert load_eval_run_identity(path, verify_references=False) == envelope
+
+
+def test_direct_qwen_identity_reference_verification_does_not_require_routing(tmp_path: Path, monkeypatch) -> None:
+    identity = _sandoq_identity()
+    identity["role"] = "qwen-direct"
+    identity["deployment"] = {
+        "kind": "direct_qwen",
+        "worker_manifest": {"path": "/run/direct_workers.json", "sha256": "8" * 64},
+        "spec_sha256": "9" * 64,
+        "endpoint_bundle_sha256": "a" * 64,
+        "base_url": "http://127.0.0.1:12345/v1",
+        "router": {
+            "policy": "consistent_hash",
+            "request_id_headers": ["x-session-id"],
+            "provider_concurrency": 4,
+        },
+    }
+    envelope = _identity_envelope(identity)
+    path = tmp_path / "eval_run_identity.json"
+    path.write_text(json.dumps(envelope))
+    monkeypatch.setattr(eval_run_identity, "_verify_source_record", lambda _source: None)
+    monkeypatch.setattr(eval_run_identity, "_artifact", lambda *_args, **_kwargs: {})
+    monkeypatch.setattr(eval_run_identity, "_verify_config_and_inputs", lambda *_args: {})
+    monkeypatch.setattr(eval_run_identity, "_verify_saved_provenance", lambda *_args: None)
+    monkeypatch.setattr(
+        eval_run_identity,
+        "_git_output",
+        lambda *_args, **_kwargs: identity["dataset"]["revision"] if "rev-parse" in _args else "",
+    )
+
+    assert load_eval_run_identity(path, verify_references=True) == envelope
 
 
 def test_sandoq_source_rejects_unobserved_client_version(tmp_path: Path, monkeypatch) -> None:

@@ -256,6 +256,11 @@ if [[ "$sandbox_provider" == vmvm ]]; then
     export VACLI_CONTAINER_PRIVILEGED=${VACLI_CONTAINER_PRIVILEGED:-1}
     export VACLI_BIN=${VACLI_BIN:-/public/fbpkgs/x86_64/vacli/stable/vacli}
 else
+    if [[ -n ${SANDOQ_TUNNEL_HTTPS_PROXY+x} ]]; then
+        printf 'SANDOQ_TUNNEL_HTTPS_PROXY overrides are forbidden for guarded Sandoq runs\n' >&2
+        exit 2
+    fi
+    unset SANDOQ_TUNNEL_HTTPS_PROXY
     read -r sandoq_capacity sandoq_create_workers sandoq_bootstrap_workers \
         sandoq_drain_workers sandoq_renew_workers < <(python3 - "$eval_config" <<'PY'
 import sys
@@ -268,8 +273,9 @@ if capacity < 1:
 print(capacity, min(capacity, 32), min(capacity, 64), min(capacity, 32), min(capacity, 16))
 PY
 )
-    export OCI_RUNNER_BASE_URL=${OCI_RUNNER_BASE_URL:-https://sandoq.eks-prod.cf.aws.metafb.cloud}
-    export OCI_RUNNER_ENVIRONMENT=${OCI_RUNNER_ENVIRONMENT:-oci-runner-firecracker-tunnel-pull}
+    export OCI_RUNNER_BASE_URL=https://sandoq.eks-prod.cf.aws.metafb.cloud
+    export OCI_RUNNER_ENVIRONMENT=oci-runner-firecracker-tunnel-pull
+    export SANDOQ_OWNER=${USER:?USER is required for Sandoq ownership}
     export OCI_RUNNER_TOKEN_FILE=${OCI_RUNNER_TOKEN_FILE:-$HOME/.config/oci-runner/firecracker-token}
     export OCI_RUNNER_TASK_NETWORK=host
     export OCI_RUNNER_POOL_SIZE=$sandoq_capacity
@@ -283,18 +289,30 @@ PY
     export OCI_RUNNER_REQUIRE_RESOURCE_LIMITS=1
     export OCI_RUNNER_POOL_CREATE_WORKERS=$sandoq_create_workers
     export OCI_RUNNER_POOL_BOOTSTRAP_WORKERS=$sandoq_bootstrap_workers
-    export OCI_RUNNER_POOL_BOOTSTRAP_PER_IMAGE=8
+    export OCI_RUNNER_POOL_BOOTSTRAP_PER_IMAGE=$(( sandoq_capacity < 8 ? sandoq_capacity : 8 ))
     export OCI_RUNNER_POOL_DRAIN_WORKERS=$sandoq_drain_workers
     export OCI_RUNNER_POOL_DRAIN_TIMEOUT=240
     export OCI_RUNNER_POOL_RENEW_WORKERS=$sandoq_renew_workers
     export OCI_RUNNER_SESSION_REUSE=1 OCI_RUNNER_POOL_MAX_REUSE_COUNT=6
+    export OCI_RUNNER_POOL_REUSE_JITTER=2 OCI_RUNNER_IMAGE_CACHE_MAX_ENTRIES=2
+    export OCI_RUNNER_SECRET_CACHE_TTL=5s OCI_RUNNER_POOL_HEARTBEAT_TIMEOUT=45s
     export OCI_RUNNER_LEASE_DURATION=1h OCI_RUNNER_POOL_RENEW_INTERVAL=5m
-    export OCI_RUNNER_OBSERVABILITY=1
+    export OCI_RUNNER_OBSERVABILITY=1 OCI_RUNNER_EXEC_TIMEOUT_CEILING=270 OCI_RUNNER_TASK_PIDS_LIMIT=512
     export OCI_RUNNER_USE_ECR=1
     export OCI_RUNNER_ECR_REGISTRY=168653207203.dkr.ecr.us-east-2.amazonaws.com
     export OCI_RUNNER_ECR_REGION=us-east-2
     export OCI_RUNNER_ECR_PULL_THROUGH_PREFIX=pt_dockerio
+    export OCI_RUNNER_ECR_TOKEN_FILE=/storage/home/tianhaowu/.config/oci-runner/ecr-token
     export OCI_RUNNER_ALLOW_DOCKERHUB_FALLBACK=0
+    unset OCI_RUNNER_DOCKERHUB_USERNAME OCI_RUNNER_DOCKERHUB_TOKEN_FILE OCI_RUNNER_REQUIRE_DOCKERHUB_AUTH
+    unset OCI_RUNNER_ECR_AUXILIARY_REGISTRIES OCI_RUNNER_ECR_CLIENT_CERT_PATH OCI_RUNNER_ECR_UCLOUD
+    pool_socket_dir="${SLURM_TMPDIR:-/tmp}/oci-runner-pool-${UID}"
+    mkdir -p "$pool_socket_dir"
+    chmod 0700 "$pool_socket_dir"
+    export OCI_RUNNER_POOL_SOCKET="$pool_socket_dir/${SLURM_JOB_ID:?}.sock"
+    export PRIME_RL_OUTPUT_DIR="$output_dir"
+    export OCI_RUNNER_POOL_WAL="$output_dir/control/sandoq-pool.wal.jsonl"
+    export OCI_RUNNER_POOL_EVENT_LOG="$output_dir/pool_events.jsonl"
     if [[ "$OCI_RUNNER_ENVIRONMENT" != oci-runner-firecracker-tunnel-pull ]]; then
         printf 'Sandoq no-network runs require the approved tunnel-pull environment\n' >&2
         exit 2
@@ -302,6 +320,11 @@ PY
     if [[ ! -f "$OCI_RUNNER_TOKEN_FILE" || -L "$OCI_RUNNER_TOKEN_FILE" \
         || "$(stat -c '%a' "$OCI_RUNNER_TOKEN_FILE" 2>/dev/null)" != 600 ]]; then
         printf 'Sandoq token file must be a regular non-symlink file with mode 0600\n' >&2
+        exit 2
+    fi
+    if [[ ! -f "$OCI_RUNNER_ECR_TOKEN_FILE" || -L "$OCI_RUNNER_ECR_TOKEN_FILE" \
+        || "$(stat -c '%a' "$OCI_RUNNER_ECR_TOKEN_FILE" 2>/dev/null)" != 600 ]]; then
+        printf 'Sandoq ECR token file must be a regular non-symlink file with mode 0600\n' >&2
         exit 2
     fi
 fi
@@ -342,8 +365,8 @@ derived_image_manifest_sha256=
 if [[ "$sandbox_provider" == sandoq ]]; then
     sandoq_provider_commit=$(git -C deps/sandoq-provider rev-parse --verify HEAD)
     sandoq_provider_tree=$(git -C deps/sandoq-provider rev-parse HEAD^{tree})
-    if [[ "$sandoq_provider_commit" != f7313db42eea4b3be8bcbe16a8072f73cf6abed5 ]]; then
-        printf 'Sandoq provider revision is not the approved f7313db4 source\n' >&2
+    if [[ "$sandoq_provider_commit" != 87af542d465a9a801b1a82df54eb1507c3d8f4e0 ]]; then
+        printf 'Sandoq provider revision is not the approved cutover source\n' >&2
         exit 2
     fi
     sandoq_client_version=$("$x86_uv" run --no-project --offline --python "$python_bin" \
@@ -500,6 +523,22 @@ if [[ -z "$resume_dir" ]]; then
             exit 2
         fi
     done
+    if [[ "$sandbox_provider" == sandoq ]]; then
+        for stale in pool_events.jsonl control/sandoq-pool.wal.jsonl pool_cleanup_audit.json \
+            sandoq_cleanup_audit.json direct_qwen_sandoq_certificate.json; do
+            if [[ -e "$output_dir/$stale" || -L "$output_dir/$stale" ]]; then
+                printf 'Refusing stale Sandoq lifecycle evidence: %s/%s\n' "$output_dir" "$stale" >&2
+                exit 2
+            fi
+        done
+        for stale in "$OCI_RUNNER_POOL_SOCKET" "$OCI_RUNNER_POOL_SOCKET.owner.json" \
+            "${OCI_RUNNER_POOL_SOCKET%.sock}.drained.json"; do
+            if [[ -e "$stale" || -L "$stale" ]]; then
+                printf 'Refusing stale node-local Sandoq broker evidence\n' >&2
+                exit 2
+            fi
+        done
+    fi
 fi
 cd "$project_dir"
 
@@ -534,7 +573,7 @@ if [[ "$validated_approval_sha256" != "$approved_task_file_sha256" \
 fi
 
 unset HTTP_PROXY HTTPS_PROXY http_proxy https_proxy ALL_PROXY all_proxy
-if [[ -n "$inference_proxy_url" ]]; then
+if [[ -n "$inference_proxy_url" && "$sandbox_provider" != sandoq ]]; then
     export HTTP_PROXY="$inference_proxy_url"
     export HTTPS_PROXY="$inference_proxy_url"
 fi
@@ -594,10 +633,17 @@ else
         --sandoq-pool-size "$OCI_RUNNER_POOL_SIZE"
         --sandoq-pool-min-size "$OCI_RUNNER_POOL_MIN_SIZE"
         --sandoq-tunnel-policy named-tunnel-loopback
+        --sandoq-base-url "$OCI_RUNNER_BASE_URL"
+        --sandoq-owner "$SANDOQ_OWNER"
+        --sandoq-transport-proxy-policy official-client-auto-no-global-proxy
+        --sandoq-pool-socket "$OCI_RUNNER_POOL_SOCKET"
+        --sandoq-pool-wal "$OCI_RUNNER_POOL_WAL"
+        --sandoq-pool-event-log "$OCI_RUNNER_POOL_EVENT_LOG"
         --sandoq-use-ecr "$OCI_RUNNER_USE_ECR"
         --sandoq-ecr-registry "$OCI_RUNNER_ECR_REGISTRY"
         --sandoq-ecr-region "$OCI_RUNNER_ECR_REGION"
         --sandoq-ecr-pull-through-prefix "$OCI_RUNNER_ECR_PULL_THROUGH_PREFIX"
+        --sandoq-ecr-token-file "$OCI_RUNNER_ECR_TOKEN_FILE"
         --sandoq-allow-dockerhub-fallback "$OCI_RUNNER_ALLOW_DOCKERHUB_FALLBACK"
         --sandoq-create-deadline "$OCI_RUNNER_CREATE_DEADLINE"
         --sandoq-pull-timeout "$OCI_RUNNER_PULL_TIMEOUT"
@@ -606,6 +652,10 @@ else
         --sandoq-gateway-retry-interval "$OCI_RUNNER_GATEWAY_RETRY_INTERVAL"
         --sandoq-podman-ignore-chown-errors "$OCI_RUNNER_PODMAN_IGNORE_CHOWN_ERRORS"
         --sandoq-require-resource-limits "$OCI_RUNNER_REQUIRE_RESOURCE_LIMITS"
+        --sandoq-exec-timeout-ceiling "$OCI_RUNNER_EXEC_TIMEOUT_CEILING"
+        --sandoq-task-pids-limit "$OCI_RUNNER_TASK_PIDS_LIMIT"
+        --sandoq-observability "$OCI_RUNNER_OBSERVABILITY"
+        --sandoq-pool-heartbeat-timeout "$OCI_RUNNER_POOL_HEARTBEAT_TIMEOUT"
         --sandoq-pool-create-workers "$OCI_RUNNER_POOL_CREATE_WORKERS"
         --sandoq-pool-bootstrap-workers "$OCI_RUNNER_POOL_BOOTSTRAP_WORKERS"
         --sandoq-pool-bootstrap-per-image "$OCI_RUNNER_POOL_BOOTSTRAP_PER_IMAGE"
@@ -614,6 +664,9 @@ else
         --sandoq-pool-renew-workers "$OCI_RUNNER_POOL_RENEW_WORKERS"
         --sandoq-session-reuse "$OCI_RUNNER_SESSION_REUSE"
         --sandoq-pool-max-reuse-count "$OCI_RUNNER_POOL_MAX_REUSE_COUNT"
+        --sandoq-pool-reuse-jitter "$OCI_RUNNER_POOL_REUSE_JITTER"
+        --sandoq-image-cache-max-entries "$OCI_RUNNER_IMAGE_CACHE_MAX_ENTRIES"
+        --sandoq-secret-cache-ttl "$OCI_RUNNER_SECRET_CACHE_TTL"
         --sandoq-lease-duration "$OCI_RUNNER_LEASE_DURATION"
         --sandoq-pool-renew-interval "$OCI_RUNNER_POOL_RENEW_INTERVAL"
     )
@@ -658,7 +711,8 @@ if [[ ! "$eval_run_identity_sha256" =~ ^[0-9a-f]{64}$ ]]; then
 fi
 
 args=(--resume "$output_dir")
-exec "$x86_uv" run --no-project --offline --python "$python_bin" \
+guard_command=(
+    "$x86_uv" run --no-project --offline --python "$python_bin" \
     python3 "$workflow_dir/inference_route_guard.py" \
     --deployment-id "$eval_deployment_id" \
     --deployment-spec "$deployment_spec" \
@@ -676,3 +730,22 @@ exec "$x86_uv" run --no-project --offline --python "$python_bin" \
     -- \
     "$x86_uv" run --no-project --offline --python "$python_bin" \
     python3 -c 'from verifiers.v1.cli.eval.main import main; main()' "${args[@]}"
+)
+if [[ "$sandbox_provider" == vmvm ]]; then
+    exec "${guard_command[@]}"
+fi
+set +e
+"${guard_command[@]}"
+eval_status=$?
+set -e
+"$x86_uv" run --no-project --offline --python "$python_bin" \
+    python3 "$sandoq_provider_root/recipes/sandoq_swerebench_v2_oci/verify_pool_cleanup.py" \
+    --output-dir "$output_dir" --base-url "$OCI_RUNNER_BASE_URL" --owner "$SANDOQ_OWNER" \
+    --concurrency "$OCI_RUNNER_POOL_DRAIN_WORKERS"
+"$x86_uv" run --no-project --offline --python "$python_bin" \
+    python3 "$workflow_dir/sanitize_sandoq_cleanup_audit.py" \
+    --raw-audit "$output_dir/pool_cleanup_audit.json" \
+    --event-log "$OCI_RUNNER_POOL_EVENT_LOG" --wal "$OCI_RUNNER_POOL_WAL" \
+    --drain-marker "${OCI_RUNNER_POOL_SOCKET%.sock}.drained.json" \
+    --output "$output_dir/sandoq_cleanup_audit.json"
+exit "$eval_status"

@@ -786,6 +786,7 @@ def _contract(
         or runtime.get("network_access") is not False
         or runtime.get("host_tunnel") != "sandoq"
         or runtime.get("expected_environment") != "oci-runner-firecracker-tunnel-pull"
+        or runtime.get("ecr_token_file") != "/storage/home/tianhaowu/.config/oci-runner/ecr-token"
         or runtime.get("guest_tunnel_url") != "http://127.0.0.1:8485"
     ):
         raise EvalIdentityError("sandoq_runtime_contract_invalid")
@@ -1134,7 +1135,9 @@ def _effective_vmvm_environment(args: argparse.Namespace, rollout_concurrency: i
     }
 
 
-def _effective_sandoq_environment(args: argparse.Namespace, rollout_concurrency: int) -> dict[str, Any]:
+def _effective_sandoq_environment(
+    args: argparse.Namespace, rollout_concurrency: int, output_dir: Path
+) -> dict[str, Any]:
     pool_size = _positive_int(args.sandoq_pool_size, "sandoq_pool_size")
     try:
         pool_min_size = int(args.sandoq_pool_min_size)
@@ -1151,6 +1154,24 @@ def _effective_sandoq_environment(args: argparse.Namespace, rollout_concurrency:
     if args.sandoq_tunnel_policy != "named-tunnel-loopback":
         raise EvalIdentityError("sandoq_tunnel_policy_invalid")
     if (
+        args.sandoq_base_url != "https://sandoq.eks-prod.cf.aws.metafb.cloud"
+        or not re.fullmatch(r"[A-Za-z0-9._-]+", args.sandoq_owner or "")
+        or args.sandoq_transport_proxy_policy != "official-client-auto-no-global-proxy"
+        or any(
+            os.environ.get(name)
+            for name in (
+                "HTTP_PROXY",
+                "HTTPS_PROXY",
+                "http_proxy",
+                "https_proxy",
+                "ALL_PROXY",
+                "all_proxy",
+                "SANDOQ_TUNNEL_HTTPS_PROXY",
+            )
+        )
+    ):
+        raise EvalIdentityError("sandoq_transport_policy_invalid")
+    if (
         args.sandoq_use_ecr != "1"
         or args.sandoq_ecr_registry != "168653207203.dkr.ecr.us-east-2.amazonaws.com"
         or args.sandoq_ecr_region != "us-east-2"
@@ -1158,6 +1179,39 @@ def _effective_sandoq_environment(args: argparse.Namespace, rollout_concurrency:
         or args.sandoq_allow_dockerhub_fallback != "0"
     ):
         raise EvalIdentityError("sandoq_ecr_policy_invalid")
+    ecr_token_file = Path(args.sandoq_ecr_token_file)
+    if not ecr_token_file.is_absolute() or os.environ.get("OCI_RUNNER_ECR_TOKEN_FILE") != str(ecr_token_file):
+        raise EvalIdentityError("sandoq_ecr_token_file_invalid")
+    try:
+        token_stat = ecr_token_file.lstat()
+    except OSError as error:
+        raise EvalIdentityError("sandoq_ecr_token_file_unavailable") from error
+    if not stat.S_ISREG(token_stat.st_mode) or ecr_token_file.is_symlink() or stat.S_IMODE(token_stat.st_mode) != 0o600:
+        raise EvalIdentityError("sandoq_ecr_token_file_permissions_invalid")
+    pool_socket = Path(args.sandoq_pool_socket)
+    expected_socket = (
+        Path(os.environ.get("SLURM_TMPDIR", "/tmp")) / f"oci-runner-pool-{os.getuid()}" / f"{args.slurm_job_id}.sock"
+    )
+    pool_wal = Path(args.sandoq_pool_wal)
+    pool_event_log = Path(args.sandoq_pool_event_log)
+    if (
+        pool_socket != expected_socket
+        or os.environ.get("OCI_RUNNER_POOL_SOCKET") != str(pool_socket)
+        or pool_wal != output_dir / "control/sandoq-pool.wal.jsonl"
+        or pool_event_log != output_dir / "pool_events.jsonl"
+        or os.environ.get("OCI_RUNNER_POOL_WAL") != str(pool_wal)
+        or os.environ.get("OCI_RUNNER_POOL_EVENT_LOG") != str(pool_event_log)
+        or os.environ.get("PRIME_RL_OUTPUT_DIR") != str(output_dir)
+        or any(
+            os.environ.get(name)
+            for name in (
+                "OCI_RUNNER_DOCKERHUB_USERNAME",
+                "OCI_RUNNER_DOCKERHUB_TOKEN_FILE",
+                "OCI_RUNNER_REQUIRE_DOCKERHUB_AUTH",
+            )
+        )
+    ):
+        raise EvalIdentityError("sandoq_storage_or_auth_policy_invalid")
     exact_policy = {
         "create_deadline": "30m",
         "pull_timeout": "1200",
@@ -1166,6 +1220,10 @@ def _effective_sandoq_environment(args: argparse.Namespace, rollout_concurrency:
         "gateway_retry_interval": "2s",
         "podman_ignore_chown_errors": "1",
         "require_resource_limits": "1",
+        "exec_timeout_ceiling": "270",
+        "task_pids_limit": "512",
+        "observability": "1",
+        "pool_heartbeat_timeout": "45s",
         "pool_create_workers": str(min(pool_size, 32)),
         "pool_bootstrap_workers": str(min(pool_size, 64)),
         "pool_bootstrap_per_image": str(min(pool_size, 8)),
@@ -1174,6 +1232,9 @@ def _effective_sandoq_environment(args: argparse.Namespace, rollout_concurrency:
         "pool_renew_workers": str(min(pool_size, 16)),
         "session_reuse": "1",
         "pool_max_reuse_count": "6",
+        "pool_reuse_jitter": "2",
+        "image_cache_max_entries": "2",
+        "secret_cache_ttl": "5s",
         "lease_duration": "1h",
         "pool_renew_interval": "5m",
     }
@@ -1186,10 +1247,18 @@ def _effective_sandoq_environment(args: argparse.Namespace, rollout_concurrency:
         "pool_size": pool_size,
         "pool_min_size": pool_min_size,
         "tunnel_policy": args.sandoq_tunnel_policy,
+        "base_url": args.sandoq_base_url,
+        "owner": args.sandoq_owner,
+        "transport_proxy_policy": args.sandoq_transport_proxy_policy,
+        "pool_socket_scope": "job-node-local",
+        "pool_wal": str(pool_wal),
+        "pool_event_log": str(pool_event_log),
         "use_ecr": True,
         "ecr_registry": args.sandoq_ecr_registry,
         "ecr_region": args.sandoq_ecr_region,
         "ecr_pull_through_prefix": args.sandoq_ecr_pull_through_prefix,
+        "ecr_token_file": str(ecr_token_file),
+        "ecr_auth_policy": "private-token-file-mode-0600",
         "allow_dockerhub_fallback": False,
         **exact_policy,
     }
@@ -1579,10 +1648,18 @@ def _validate_identity_shape(identity: object) -> dict[str, Any]:
             "pool_size",
             "pool_min_size",
             "tunnel_policy",
+            "base_url",
+            "owner",
+            "transport_proxy_policy",
+            "pool_socket_scope",
+            "pool_wal",
+            "pool_event_log",
             "use_ecr",
             "ecr_registry",
             "ecr_region",
             "ecr_pull_through_prefix",
+            "ecr_token_file",
+            "ecr_auth_policy",
             "allow_dockerhub_fallback",
             "create_deadline",
             "pull_timeout",
@@ -1591,6 +1668,10 @@ def _validate_identity_shape(identity: object) -> dict[str, Any]:
             "gateway_retry_interval",
             "podman_ignore_chown_errors",
             "require_resource_limits",
+            "exec_timeout_ceiling",
+            "task_pids_limit",
+            "observability",
+            "pool_heartbeat_timeout",
             "pool_create_workers",
             "pool_bootstrap_workers",
             "pool_bootstrap_per_image",
@@ -1599,6 +1680,9 @@ def _validate_identity_shape(identity: object) -> dict[str, Any]:
             "pool_renew_workers",
             "session_reuse",
             "pool_max_reuse_count",
+            "pool_reuse_jitter",
+            "image_cache_max_entries",
+            "secret_cache_ttl",
             "lease_duration",
             "pool_renew_interval",
         }:
@@ -1611,6 +1695,15 @@ def _validate_identity_shape(identity: object) -> dict[str, Any]:
             or environment.get("ecr_registry") != "168653207203.dkr.ecr.us-east-2.amazonaws.com"
             or environment.get("ecr_region") != "us-east-2"
             or environment.get("ecr_pull_through_prefix") != "pt_dockerio"
+            or not isinstance(environment.get("ecr_token_file"), str)
+            or not Path(environment["ecr_token_file"]).is_absolute()
+            or environment.get("ecr_auth_policy") != "private-token-file-mode-0600"
+            or environment.get("base_url") != "https://sandoq.eks-prod.cf.aws.metafb.cloud"
+            or not re.fullmatch(r"[A-Za-z0-9._-]+", str(environment.get("owner", "")))
+            or environment.get("transport_proxy_policy") != "official-client-auto-no-global-proxy"
+            or environment.get("pool_socket_scope") != "job-node-local"
+            or not isinstance(environment.get("pool_wal"), str)
+            or not isinstance(environment.get("pool_event_log"), str)
             or environment.get("allow_dockerhub_fallback") is not False
             or not _validate_positive_integer(environment.get("pool_size"))
             or not isinstance(environment.get("pool_min_size"), int)
@@ -1627,6 +1720,10 @@ def _validate_identity_shape(identity: object) -> dict[str, Any]:
             "gateway_retry_interval": "2s",
             "podman_ignore_chown_errors": "1",
             "require_resource_limits": "1",
+            "exec_timeout_ceiling": "270",
+            "task_pids_limit": "512",
+            "observability": "1",
+            "pool_heartbeat_timeout": "45s",
             "pool_create_workers": str(min(environment["pool_size"], 32)),
             "pool_bootstrap_workers": str(min(environment["pool_size"], 64)),
             "pool_bootstrap_per_image": str(min(environment["pool_size"], 8)),
@@ -1635,6 +1732,9 @@ def _validate_identity_shape(identity: object) -> dict[str, Any]:
             "pool_renew_workers": str(min(environment["pool_size"], 16)),
             "session_reuse": "1",
             "pool_max_reuse_count": "6",
+            "pool_reuse_jitter": "2",
+            "image_cache_max_entries": "2",
+            "secret_cache_ttl": "5s",
             "lease_duration": "1h",
             "pool_renew_interval": "5m",
         }
@@ -1926,7 +2026,7 @@ def _verify_config_and_inputs(
     observed_contract, observed_execution = _contract(
         config,
         identity["contract"]["model"],
-        identity["deployment"]["routing"]["deployment_id"],
+        (None if identity["role"] == "qwen-direct" else identity["deployment"]["routing"]["deployment_id"]),
         role=identity["role"],
         sandbox_provider=identity["source"].get("sandbox_provider", "vmvm"),
     )
@@ -2008,10 +2108,18 @@ def _verify_saved_provenance(output_dir: Path, identity: dict[str, Any], identit
                 "sandoq_pool_size": str(environment["pool_size"]),
                 "sandoq_pool_min_size": str(environment["pool_min_size"]),
                 "sandoq_tunnel_policy": environment["tunnel_policy"],
+                "sandoq_base_url": environment["base_url"],
+                "sandoq_owner": environment["owner"],
+                "sandoq_transport_proxy_policy": environment["transport_proxy_policy"],
+                "sandoq_pool_socket_scope": environment["pool_socket_scope"],
+                "sandoq_pool_wal": environment["pool_wal"],
+                "sandoq_pool_event_log": environment["pool_event_log"],
                 "sandoq_use_ecr": str(environment["use_ecr"]).lower(),
                 "sandoq_ecr_registry": environment["ecr_registry"],
                 "sandoq_ecr_region": environment["ecr_region"],
                 "sandoq_ecr_pull_through_prefix": environment["ecr_pull_through_prefix"],
+                "sandoq_ecr_token_file": environment["ecr_token_file"],
+                "sandoq_ecr_auth_policy": environment["ecr_auth_policy"],
                 "sandoq_allow_dockerhub_fallback": str(environment["allow_dockerhub_fallback"]).lower(),
             }
         )
@@ -2028,6 +2136,10 @@ def _verify_saved_provenance(output_dir: Path, identity: dict[str, Any], identit
                     "gateway_retry_interval",
                     "podman_ignore_chown_errors",
                     "require_resource_limits",
+                    "exec_timeout_ceiling",
+                    "task_pids_limit",
+                    "observability",
+                    "pool_heartbeat_timeout",
                     "pool_create_workers",
                     "pool_bootstrap_workers",
                     "pool_bootstrap_per_image",
@@ -2036,6 +2148,9 @@ def _verify_saved_provenance(output_dir: Path, identity: dict[str, Any], identit
                     "pool_renew_workers",
                     "session_reuse",
                     "pool_max_reuse_count",
+                    "pool_reuse_jitter",
+                    "image_cache_max_entries",
+                    "secret_cache_ttl",
                     "lease_duration",
                     "pool_renew_interval",
                 }
@@ -2242,10 +2357,18 @@ def _bind_provenance(
                 "sandoq_pool_size": str(environment["pool_size"]),
                 "sandoq_pool_min_size": str(environment["pool_min_size"]),
                 "sandoq_tunnel_policy": environment["tunnel_policy"],
+                "sandoq_base_url": environment["base_url"],
+                "sandoq_owner": environment["owner"],
+                "sandoq_transport_proxy_policy": environment["transport_proxy_policy"],
+                "sandoq_pool_socket_scope": environment["pool_socket_scope"],
+                "sandoq_pool_wal": environment["pool_wal"],
+                "sandoq_pool_event_log": environment["pool_event_log"],
                 "sandoq_use_ecr": str(environment["use_ecr"]).lower(),
                 "sandoq_ecr_registry": environment["ecr_registry"],
                 "sandoq_ecr_region": environment["ecr_region"],
                 "sandoq_ecr_pull_through_prefix": environment["ecr_pull_through_prefix"],
+                "sandoq_ecr_token_file": environment["ecr_token_file"],
+                "sandoq_ecr_auth_policy": environment["ecr_auth_policy"],
                 "sandoq_allow_dockerhub_fallback": str(environment["allow_dockerhub_fallback"]).lower(),
             }
         )
@@ -2262,6 +2385,10 @@ def _bind_provenance(
                     "gateway_retry_interval",
                     "podman_ignore_chown_errors",
                     "require_resource_limits",
+                    "exec_timeout_ceiling",
+                    "task_pids_limit",
+                    "observability",
+                    "pool_heartbeat_timeout",
                     "pool_create_workers",
                     "pool_bootstrap_workers",
                     "pool_bootstrap_per_image",
@@ -2270,6 +2397,9 @@ def _bind_provenance(
                     "pool_renew_workers",
                     "session_reuse",
                     "pool_max_reuse_count",
+                    "pool_reuse_jitter",
+                    "image_cache_max_entries",
+                    "secret_cache_ttl",
                     "lease_duration",
                     "pool_renew_interval",
                 }
@@ -2392,7 +2522,7 @@ def prepare(args: argparse.Namespace) -> str:
     if args.sandbox_provider == "vmvm":
         execution["vmvm_environment"] = _effective_vmvm_environment(args, rollout_concurrency)
     else:
-        execution["sandoq_environment"] = _effective_sandoq_environment(args, rollout_concurrency)
+        execution["sandoq_environment"] = _effective_sandoq_environment(args, rollout_concurrency, output_dir)
     source = _source_identity(args)
     if args.sandbox_provider == "sandoq" and (
         inputs["image_manifest"] is None
@@ -2486,7 +2616,7 @@ def _prepare_direct_qwen(args: argparse.Namespace) -> str:
         role="qwen-direct",
         sandbox_provider="sandoq",
     )
-    execution["sandoq_environment"] = _effective_sandoq_environment(args, execution["rollout_concurrency"])
+    execution["sandoq_environment"] = _effective_sandoq_environment(args, execution["rollout_concurrency"], output_dir)
     source = _source_identity(args)
     if (
         inputs["image_manifest"] is None
@@ -2597,10 +2727,17 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--sandoq-pool-size", default="")
     parser.add_argument("--sandoq-pool-min-size", default="")
     parser.add_argument("--sandoq-tunnel-policy", default="")
+    parser.add_argument("--sandoq-base-url", default="")
+    parser.add_argument("--sandoq-owner", default="")
+    parser.add_argument("--sandoq-transport-proxy-policy", default="")
+    parser.add_argument("--sandoq-pool-socket", default="")
+    parser.add_argument("--sandoq-pool-wal", default="")
+    parser.add_argument("--sandoq-pool-event-log", default="")
     parser.add_argument("--sandoq-use-ecr", default="")
     parser.add_argument("--sandoq-ecr-registry", default="")
     parser.add_argument("--sandoq-ecr-region", default="")
     parser.add_argument("--sandoq-ecr-pull-through-prefix", default="")
+    parser.add_argument("--sandoq-ecr-token-file", default="")
     parser.add_argument("--sandoq-allow-dockerhub-fallback", default="")
     parser.add_argument("--sandoq-create-deadline", default="")
     parser.add_argument("--sandoq-pull-timeout", default="")
@@ -2609,6 +2746,10 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--sandoq-gateway-retry-interval", default="")
     parser.add_argument("--sandoq-podman-ignore-chown-errors", default="")
     parser.add_argument("--sandoq-require-resource-limits", default="")
+    parser.add_argument("--sandoq-exec-timeout-ceiling", default="")
+    parser.add_argument("--sandoq-task-pids-limit", default="")
+    parser.add_argument("--sandoq-observability", default="")
+    parser.add_argument("--sandoq-pool-heartbeat-timeout", default="")
     parser.add_argument("--sandoq-pool-create-workers", default="")
     parser.add_argument("--sandoq-pool-bootstrap-workers", default="")
     parser.add_argument("--sandoq-pool-bootstrap-per-image", default="")
@@ -2617,6 +2758,9 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--sandoq-pool-renew-workers", default="")
     parser.add_argument("--sandoq-session-reuse", default="")
     parser.add_argument("--sandoq-pool-max-reuse-count", default="")
+    parser.add_argument("--sandoq-pool-reuse-jitter", default="")
+    parser.add_argument("--sandoq-image-cache-max-entries", default="")
+    parser.add_argument("--sandoq-secret-cache-ttl", default="")
     parser.add_argument("--sandoq-lease-duration", default="")
     parser.add_argument("--sandoq-pool-renew-interval", default="")
     parser.add_argument("--direct-worker-manifest", type=Path)

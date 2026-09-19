@@ -876,6 +876,7 @@ def test_resume_planner_compatibility_is_explicit_and_narrow() -> None:
     assert migration.COMPATIBLE_RESUME_VERIFIERS_REVISIONS == {
         migration.EXPECTED_VERIFIERS_REVISION,
         "bb2c42dace0aeecd177e2834f3c87a1d438aed44",
+        "7d23d73f018a70709f4297e558e0f77b678b7b5c",
     }
 
 
