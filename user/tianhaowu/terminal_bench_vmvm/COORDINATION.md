@@ -3078,3 +3078,25 @@ Add new rows below this line; do not overwrite another owner's row.
   earlier reduction, launch a proof, or mutate Slurm from this branch. Threshold
   math is exact: 2,488 authoritative plus six disjoint repairs plus six newly
   proven source recoveries equals 2,500.
+
+## 2026-09-19 12:06 UTC — Kimi three-hour verified wait and strict trace gate
+
+- The two-task Kimi smoke remains `RUNNING`, with zero durable rows and no
+  checkpoint. Both requests remain active (`running=2`, `waiting=0`), worker
+  telemetry continues to advance, successful inference POSTs increased to 47,
+  and no unexpected 4xx/5xx responses were observed. This is a verified wait,
+  not a stall; do not restart or duplicate the smoke.
+- The strict exact-provider trace/SFT gate is integrated at `7a625ede8` after
+  independent review. The changed-test set passed 476/476 after the final
+  rebase. It binds strict source validation into the SFT manifest, trainer
+  attestation/startup checks, Qwen finalizers/merge, a supplemental immutable
+  smoke certificate, and atomic no-replace attestation publication.
+- The exact reviewed audit source `8b80af9c8` is materialized as a clean
+  detached worktree with its three pinned submodules. The independently
+  reviewed source attestation is immutable, mode 0444, and validates under
+  Python `-I -S`.
+- Manual singleton r3 passed static independent review but remains intentionally
+  non-launchable: strict smoke evidence, frozen intent, and independent launch
+  approval are absent. Freeze only after exact 2/2 plus `COMPLETED 0:0`; then
+  independently review the generated exact-provider certificate and two-row SFT
+  export/preflight before any singleton submission.
