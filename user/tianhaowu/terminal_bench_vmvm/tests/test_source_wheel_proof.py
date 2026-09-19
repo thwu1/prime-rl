@@ -1234,6 +1234,8 @@ def test_candidate_diagnostics_reject_nonprivate_final_output_root(tmp_path: Pat
         ("delete_identity", "candidate_diagnostics_output_invalid"),
         ("delete_journal", "candidate_diagnostics_output_invalid"),
         ("delete_lock", "candidate_diagnostics_output_invalid"),
+        ("delete_state", "candidate_diagnostics_output_invalid"),
+        ("identity_directory", "candidate_diagnostics_output_invalid"),
         ("identity_symlink", "candidate_diagnostics_output_invalid"),
         ("identity_wrong_mode", "candidate_diagnostics_output_invalid"),
         ("unknown_artifact", "output_directory_contains_unknown_artifact"),
@@ -1257,6 +1259,11 @@ def test_candidate_diagnostics_enforce_exact_final_membership(
             store.journal_path.rmdir()
         elif mutation == "delete_lock":
             store.lock_path.unlink()
+        elif mutation == "delete_state":
+            store.state_path.unlink()
+        elif mutation == "identity_directory":
+            store.identity_path.unlink()
+            store.identity_path.mkdir(mode=0o700)
         elif mutation == "identity_symlink":
             store.identity_path.unlink()
             store.identity_path.symlink_to(store.candidate_path)
@@ -1267,14 +1274,7 @@ def test_candidate_diagnostics_enforce_exact_final_membership(
             unknown.write_text("{}\n")
             unknown.chmod(0o400)
         with pytest.raises(SourceWheelProofError, match=f"^{expected_code}$"):
-            store.record_diagnostic_abort(
-                {
-                    "successful_runtime_starts": 0,
-                    "peak_starting_runtimes": 0,
-                    "peak_live_runtimes": 0,
-                    "peak_concurrent_entries": 0,
-                }
-            )
+            store._validate_exact_diagnostic_output()
 
 
 def test_candidate_diagnostics_reject_replaced_final_output_root(tmp_path: Path) -> None:
@@ -1287,14 +1287,7 @@ def test_candidate_diagnostics_reject_replaced_final_output_root(tmp_path: Path)
         store.output_dir.rename(moved_output)
         store.output_dir.symlink_to(moved_output, target_is_directory=True)
         with pytest.raises(SourceWheelProofError, match="^candidate_diagnostics_output_invalid$"):
-            store.record_diagnostic_abort(
-                {
-                    "successful_runtime_starts": 0,
-                    "peak_starting_runtimes": 0,
-                    "peak_live_runtimes": 0,
-                    "peak_concurrent_entries": 0,
-                }
-            )
+            store._validate_exact_diagnostic_output()
 
 
 @pytest.mark.parametrize(
@@ -1497,6 +1490,9 @@ def test_candidate_diagnostic_failure_ignores_untrusted_counts(tmp_path: Path) -
         "inconsistent_complete",
         "boolean_failure_count",
         "impossible_peaks",
+        "peak_exceeds_entry_capacity",
+        "peak_exceeds_starts",
+        "zero_concurrency",
         "journal_mismatch",
     ):
         state = json.loads(_diagnostic_failure_state_payload())
@@ -1508,6 +1504,13 @@ def test_candidate_diagnostic_failure_ignores_untrusted_counts(tmp_path: Path) -
             state["failure_counts"]["wheel_zip_structure_invalid"] = True
         elif mutation == "impossible_peaks":
             state["telemetry"]["peak_live_runtimes"] = 0
+        elif mutation == "peak_exceeds_entry_capacity":
+            state["telemetry"]["peak_live_runtimes"] = 4
+        elif mutation == "peak_exceeds_starts":
+            state["telemetry"]["peak_live_runtimes"] = 7
+            state["telemetry"]["peak_concurrent_entries"] = 3
+        elif mutation == "zero_concurrency":
+            state["telemetry"]["peak_concurrent_entries"] = 0
         else:
             state["attempt_journal"]["successful_starts"] = 5
         state_path.write_bytes(canonical_json(state) + b"\n")
@@ -1575,6 +1578,60 @@ def test_candidate_diagnostic_failure_state_close_error_is_contained(
     assert "synthetic private" not in json.dumps(summary, sort_keys=True)
 
 
+@pytest.mark.parametrize("fault", ("fstat_final", "fstat_initial", "open", "read", "short_read"))
+def test_candidate_diagnostic_failure_state_read_errors_are_contained(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    fault: str,
+) -> None:
+    output = tmp_path / "diagnostics"
+    output.mkdir(mode=0o700)
+    state_path = output / "candidate_diagnostics_state.json"
+    valid_payload = _diagnostic_failure_state_payload()
+    state_path.write_bytes(valid_payload + (b" " if fault == "short_read" else b""))
+    state_path.chmod(0o600)
+    original_open = os.open
+    original_fstat = os.fstat
+    original_read = os.read
+    diagnostic_descriptors: set[int] = set()
+    fstat_calls: dict[int, int] = {}
+
+    def faulting_open(path: os.PathLike[str] | str, flags: int, *args: object, **kwargs: object) -> int:
+        if Path(path) == state_path and fault == "open":
+            raise OSError("synthetic private open detail")
+        descriptor = original_open(path, flags, *args, **kwargs)
+        if Path(path) == state_path:
+            diagnostic_descriptors.add(descriptor)
+        return descriptor
+
+    def faulting_fstat(descriptor: int) -> os.stat_result:
+        if descriptor in diagnostic_descriptors:
+            fstat_calls[descriptor] = fstat_calls.get(descriptor, 0) + 1
+            if fault == "fstat_initial" and fstat_calls[descriptor] == 1:
+                raise OSError("synthetic private initial fstat detail")
+            if fault == "fstat_final" and fstat_calls[descriptor] == 2:
+                raise OSError("synthetic private final fstat detail")
+        return original_fstat(descriptor)
+
+    def faulting_read(descriptor: int, size: int) -> bytes:
+        if descriptor in diagnostic_descriptors:
+            if fault == "read":
+                raise OSError("synthetic private read detail")
+            if fault == "short_read":
+                return original_read(descriptor, len(valid_payload))
+        return original_read(descriptor, size)
+
+    monkeypatch.setattr(source_wheel_proof.os, "open", faulting_open)
+    monkeypatch.setattr(source_wheel_proof.os, "fstat", faulting_fstat)
+    monkeypatch.setattr(source_wheel_proof.os, "read", faulting_read)
+
+    summary = aggregate_diagnostic_failure(output, "runtime_cleanup_failed")
+
+    assert set(summary) == {"status", "error_code", "counts"}
+    assert all(type(value) is int and value == 0 for value in summary["counts"].values())
+    assert "synthetic private" not in json.dumps(summary, sort_keys=True)
+
+
 @pytest.mark.parametrize("state_kind", ("hardlink", "oversize", "symlink"))
 def test_candidate_diagnostic_failure_rejects_untrusted_state_file(
     tmp_path: Path,
@@ -1584,7 +1641,8 @@ def test_candidate_diagnostic_failure_rejects_untrusted_state_file(
     output.mkdir(mode=0o700)
     state_path = output / "candidate_diagnostics_state.json"
     if state_kind == "oversize":
-        state_path.write_bytes(b"x" * (source_wheel_proof.MAX_DIAGNOSTIC_STATE_BYTES + 1))
+        payload = _diagnostic_failure_state_payload()
+        state_path.write_bytes(payload + b" " * (source_wheel_proof.MAX_DIAGNOSTIC_STATE_BYTES + 1 - len(payload)))
     else:
         target = tmp_path / "diagnostic-state-target.json"
         target.write_bytes(_diagnostic_failure_state_payload())
