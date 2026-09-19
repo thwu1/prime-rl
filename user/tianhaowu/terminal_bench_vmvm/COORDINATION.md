@@ -1,6 +1,6 @@
 # VMVM sandbox coordination
 
-Last updated: 2026-09-19 13:54 UTC
+Last updated: 2026-09-19 14:06 UTC
 
 ## First message to the next teammate
 
@@ -41,6 +41,18 @@ this shared branch again.
 Add new rows below this line; do not overwrite another owner's row.
 
 ## Open coordination requests
+
+- **2026-09-19 14:06 UTC, five-hour Kimi smoke aggregate response:** smoke
+  `1753515` remains `RUNNING` at 5:13 elapsed with zero restarts. Durable
+  outcomes remain complete 1/2, scored pass 0, scored fail 1, ordinary error
+  0; all route/concurrency/canonical/exact-provider certificate surfaces are
+  absent. The latest safe 60-second sample has one active generation, zero
+  waiting, +18 generated tokens, zero worker/proxy completions, and zero proxy
+  HTTP errors. The unchanged durable row still passes the strict stable-read
+  audit: one trace/task, zero trace/global problems, reasoning retained, eight
+  model-I/O turns, 6,175 sampled tokens, exact request graph/Kimi contract, and
+  the 262,144 cap enforced. The remaining row is demonstrably decoding; do not
+  cancel, duplicate, or launch downstream work.
 
 - **2026-09-19 13:54 UTC, five-hour Kimi smoke progress refresh
   requested:** the second row remains the only unfinished gate. Without
