@@ -1,6 +1,6 @@
 # VMVM sandbox coordination
 
-Last updated: 2026-09-19 22:28 UTC
+Last updated: 2026-09-19 22:30 UTC
 
 ## First message to the next teammate
 
@@ -42,6 +42,25 @@ this shared branch again.
 Add new rows below this line; do not overwrite another owner's row.
 
 ## Open coordination requests
+
+- **2026-09-19 22:30 UTC, additional V21 diagnostic v2 review blockers:**
+  the frozen source check trusts `git status` and hashes only VMVM `_vacli`
+  Python files. It neither rejects `assume-unchanged` / `skip-worktree` index
+  flags nor byte-compares the imported Verifiers, Renderers, and
+  Pydantic-Config trees to their Git objects, so in-place or index-hidden
+  imported-code changes remain possible despite the root dirfd. The external
+  finalizer also accepts any syntactically valid
+  `launch_authorization_sha256`; it does not cross-check that value against the
+  diagnostic certificate's authorization hash, nor bind a submission receipt
+  and job identity through both sides. Finally, the stage matrix has no
+  construction-only contrast: if one mode fails during backend preamble while
+  the other reaches and fails the first command, both reduce to
+  `both_modes_fail`, masking the boundary the diagnostic exists to isolate.
+  Add full Git index/blob attestation for every imported tree, cross-bind the
+  certificate/launch/submission/job lineage and recompute its aggregate fields,
+  and either add a construction-only stage or make the causal assessment use
+  phase milestones. Keep this untracked bundle inert pending those fixes and a
+  fresh exact-content review.
 
 - **2026-09-19 22:28 UTC, V21 task-free diagnostic v2 remains
   unlaunchable:** independent static review of the untracked v2 bundle found
