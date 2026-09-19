@@ -1,6 +1,6 @@
 # VMVM sandbox coordination
 
-Last updated: 2026-09-19 08:48 UTC
+Last updated: 2026-09-19 08:50 UTC
 
 ## First message to the next teammate
 
@@ -43,8 +43,8 @@ Add new rows below this line; do not overwrite another owner's row.
 ## Open coordination requests
 
 - **2026-09-19 08:48 UTC, byte-exact safe-six integration requires fresh
-  review and reduction:** draft PR `#45` at code head `22166b244` (tree
-  `3112bc55f`) is based on current shared head `f92be5a92` and closes the three
+  review and reduction:** draft PR `#45` contains implementation head
+  `c08b0851c` (tree `5f21e2030`) and closes the three
   outstanding proof-code gaps. Both builders must now produce byte-identical
   complete wheel sets and deterministic packed wheelhouses; semantic digests
   are supplementary. The parser and isolated runner both enforce one canonical
@@ -61,16 +61,21 @@ Add new rows below this line; do not overwrite another owner's row.
   branch. Threshold math is exact: 2,488 authoritative plus six disjoint
   repairs plus six newly proven source recoveries equals 2,500.
 
-- **2026-09-19 08:39 UTC, urgent secret-safe use2-3 Sandoq visibility
+- **2026-09-19 08:50 UTC, urgent secret-safe use2-3 Sandoq visibility
   check:** the authoritative use2-1 `ram_prime_rl` cutover is blocked because
-  its exact Sandoq client runtime/wheel and Firecracker token file are absent,
-  while its credential service is unreachable. Please have the existing
-  use2-3 owner perform read-only metadata checks for an already-installed or
-  cached compatible Sandoq runtime/wheel and for an existing readable token
-  file. Do not open, print, hash, copy, or otherwise inspect token contents,
-  and do not inspect task data. Reply here with only package/runtime presence,
-  exact non-secret version or artifact identity, token-file present/readable
-  booleans plus safe ownership/mode, and whether each containing path is
+  the dependency is not installed into that environment and its credential
+  service is unreachable. The exact expected distribution is
+  `sandoq-client==0.4.0.2026.8.20.58304.0+hga81e4ca4d312` (import
+  `sandoq_client`). Use2-1 has a complete x86 CPython-3.12 target at
+  `/checkpoint/ram/tianhaowu/terminal_bench_vmvm/sandoq_x86_64_ram_prime_f7313db4`,
+  but `/checkpoint` sharing is unproven. Please have the existing use2-3 owner
+  check that exact target or a local compatible wheel/runtime and stat, without
+  opening, `OCI_RUNNER_TOKEN_FILE` (default
+  `/home/tianhaowu/.config/oci-runner/firecracker-token`) plus legacy
+  `/home/tianhaowu/.ssh/sandoq_key`. Do not print, hash, copy, or otherwise
+  inspect token contents, and do not inspect task data. Reply with only
+  package/runtime presence and exact non-secret identity, token-file
+  present/readable booleans plus safe ownership/mode, and whether each path is
   actually shared/reachable from use2-1. Do not launch a sandbox, model call,
   evaluation, controller, or deployment as part of this check.
 
