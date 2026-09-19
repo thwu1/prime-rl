@@ -828,6 +828,7 @@ def _validate_export_summary(
     counts = manifest.get("counts")
     exporter_contract = manifest.get("exporter")
     format_contract = manifest.get("format")
+    source_validation = manifest.get("source_validation")
     split = manifest.get("split")
     target_rendering = manifest.get("target_rendering")
     allowed_count_keys = {
@@ -865,6 +866,7 @@ def _validate_export_summary(
             "format",
             "max_sequence_tokens",
             "selection",
+            "source_validation",
             "source_artifacts",
             "split",
             "target_rendering",
@@ -909,6 +911,21 @@ def _validate_export_summary(
         or exporter_contract.get("file_sha256") != expected_exporter_sha256
         or format_contract != expected_format
         or target_rendering != exporter.TARGET_RENDERING_CONTRACT
+        or not isinstance(source_validation, dict)
+        or set(source_validation)
+        != {
+            "max_sequence_tokens",
+            "require_exact_provider_json",
+            "require_model_io",
+            "require_reasoning",
+            "require_request_graph_match",
+        }
+        or not _is_plain_int(source_validation.get("max_sequence_tokens"))
+        or source_validation["max_sequence_tokens"] != MAX_SEQUENCE_TOKENS
+        or source_validation.get("require_exact_provider_json") is not False
+        or source_validation.get("require_model_io") is not True
+        or source_validation.get("require_reasoning") is not True
+        or source_validation.get("require_request_graph_match") is not True
         or config.get("capture_model_io") is not True
         or config.get("model") != direct.EXPECTED_MODEL
         or config.get("taskset_id") != corpus["taskset_id"]

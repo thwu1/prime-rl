@@ -230,6 +230,13 @@ def _write_export(output: Path, source: Path, project: Path, expected_count: int
         },
         "max_sequence_tokens": 262_144,
         "selection": "pass-only",
+        "source_validation": {
+            "max_sequence_tokens": 262_144,
+            "require_exact_provider_json": False,
+            "require_model_io": True,
+            "require_reasoning": True,
+            "require_request_graph_match": True,
+        },
         "source_artifacts": {
             relative: _artifact(source / relative)
             for relative in (
@@ -340,6 +347,13 @@ def test_finalize_publishes_exact_fresh_repair_attestation(
         ).read_bytes()
     assert set(attestation["source_artifacts"]) == set(finalizer.SOURCE_ARTIFACTS)
     manifest = json.loads((options.output_dir / "manifest.json").read_bytes())
+    assert manifest["source_validation"] == {
+        "max_sequence_tokens": 262_144,
+        "require_exact_provider_json": False,
+        "require_model_io": True,
+        "require_reasoning": True,
+        "require_request_graph_match": True,
+    }
     assert manifest["source_artifacts"]["results.jsonl"] == attestation["source_artifacts"]["results.jsonl"]
     assert manifest["source_artifacts"]["direct_workers.json"] == attestation["source_artifacts"]["direct_workers.json"]
     assert set(manifest["artifacts"]) == {

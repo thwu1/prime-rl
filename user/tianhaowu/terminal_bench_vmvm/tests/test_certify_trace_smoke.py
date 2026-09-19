@@ -406,6 +406,26 @@ def _refresh_guard_receipt(
     write_guard_success_receipt(receipt_path, receipt)
 
 
+def _supplemental_validation_args(envelope: dict) -> dict:
+    deployment = envelope["identity"]["deployment"]
+    return {
+        "deployment_id": deployment["id"],
+        "deployment_spec": qualification.Artifact(
+            Path(deployment["spec"]["path"]).resolve(),
+            deployment["spec"]["sha256"],
+        ),
+        "readiness": qualification.Artifact(
+            Path(deployment["readiness_checkpoint"]["path"]).resolve(),
+            deployment["readiness_checkpoint"]["sha256"],
+        ),
+        "endpoint": deployment["endpoint"],
+        "generation": deployment["serving_route_generation"],
+        "proxy_policy": deployment["proxy_policy"],
+        "model": "Kimi-K3",
+        "identity_loader": lambda *_args, **_kwargs: envelope,
+    }
+
+
 def _install_capacity_evaluator_contract(
     tmp_path: Path,
     run_dir: Path,
@@ -667,6 +687,44 @@ def test_strict_smoke_certificate_binds_and_revalidates_exact_provider_policy(tm
     assert evidence.schema_version == 1
 
 
+def test_smoke_qualification_rejects_explicit_false_exact_provider_policy(tmp_path: Path) -> None:
+    run_dir, task_file, task_sha256, envelope = _fixture(tmp_path)
+    certificate = certify_smoke(
+        run_dir,
+        expected_task_file=task_file,
+        expected_task_file_sha256=task_sha256,
+        expected_traces=2,
+        identity_loader=lambda *_args, **_kwargs: envelope,
+    )
+    certificate["audit_policy"]["require_exact_provider_json"] = False
+    certificate_body = {key: value for key, value in certificate.items() if key != "smoke_checkpoint_sha256"}
+    certificate["smoke_checkpoint_sha256"] = _sha256_bytes(smoke_module._canonical_json(certificate_body))
+    smoke_path = run_dir / "smoke_checkpoint.json"
+    smoke_path.chmod(0o600)
+    smoke_path.write_text(json.dumps(certificate, sort_keys=True) + "\n")
+    smoke_path.chmod(0o444)
+    deployment = envelope["identity"]["deployment"]
+
+    with pytest.raises(qualification.SmokeQualificationError, match="^smoke_checkpoint_not_passed$"):
+        qualification.validate_v1_smoke(
+            qualification.Artifact(smoke_path.resolve(), _sha256_bytes(smoke_path.read_bytes())),
+            deployment_id=deployment["id"],
+            deployment_spec=qualification.Artifact(
+                Path(deployment["spec"]["path"]).resolve(),
+                deployment["spec"]["sha256"],
+            ),
+            readiness=qualification.Artifact(
+                Path(deployment["readiness_checkpoint"]["path"]).resolve(),
+                deployment["readiness_checkpoint"]["sha256"],
+            ),
+            endpoint=deployment["endpoint"],
+            generation=deployment["serving_route_generation"],
+            proxy_policy=deployment["proxy_policy"],
+            model="Kimi-K3",
+            identity_loader=lambda *_args, **_kwargs: envelope,
+        )
+
+
 def test_strict_smoke_can_publish_distinct_immutable_checkpoint(tmp_path: Path) -> None:
     run_dir, task_file, task_sha256, envelope = _fixture(tmp_path)
     checkpoint_name = "smoke_checkpoint_exact_provider.json"
@@ -695,6 +753,173 @@ def test_strict_smoke_can_publish_distinct_immutable_checkpoint(tmp_path: Path) 
             require_exact_provider_json=True,
             checkpoint_name=checkpoint_name,
             identity_loader=lambda *_args, **_kwargs: envelope,
+        )
+
+
+def test_supplemental_strict_checkpoint_validates_against_canonical_identity(tmp_path: Path) -> None:
+    run_dir, task_file, task_sha256, envelope = _fixture(tmp_path)
+    _install_capacity_evaluator_contract(tmp_path, run_dir, task_file, task_sha256, envelope)
+    certify_smoke(
+        run_dir,
+        expected_task_file=task_file,
+        expected_task_file_sha256=task_sha256,
+        expected_traces=2,
+        required_rollout_concurrency=2,
+        required_lease_start_concurrency=2,
+        identity_loader=lambda *_args, **_kwargs: envelope,
+    )
+    checkpoint_name = "smoke_checkpoint_exact_provider.json"
+    certify_smoke(
+        run_dir,
+        expected_task_file=task_file,
+        expected_task_file_sha256=task_sha256,
+        expected_traces=2,
+        required_rollout_concurrency=2,
+        required_lease_start_concurrency=2,
+        require_exact_provider_json=True,
+        checkpoint_name=checkpoint_name,
+        identity_loader=lambda *_args, **_kwargs: envelope,
+    )
+    canonical = run_dir / smoke_module.DEFAULT_CHECKPOINT_NAME
+    supplemental = run_dir / checkpoint_name
+
+    payload, _evidence = qualification.validate_supplemental_strict_checkpoint(
+        qualification.Artifact(canonical.resolve(), _sha256_bytes(canonical.read_bytes())),
+        checkpoint_name=checkpoint_name,
+        expected_checkpoint_sha256=_sha256_bytes(supplemental.read_bytes()),
+        **_supplemental_validation_args(envelope),
+    )
+
+    assert payload["audit_policy"]["require_exact_provider_json"] is True
+    assert payload["eval_run_identity_sha256"] == envelope["eval_run_identity_sha256"]
+
+
+@pytest.mark.parametrize(
+    "mutation",
+    ["policy_false", "run_identity", "results_identity"],
+)
+def test_supplemental_strict_checkpoint_rejects_policy_or_identity_drift(
+    tmp_path: Path,
+    mutation: str,
+) -> None:
+    run_dir, task_file, task_sha256, envelope = _fixture(tmp_path)
+    _install_capacity_evaluator_contract(tmp_path, run_dir, task_file, task_sha256, envelope)
+    certify_smoke(
+        run_dir,
+        expected_task_file=task_file,
+        expected_task_file_sha256=task_sha256,
+        expected_traces=2,
+        required_rollout_concurrency=2,
+        required_lease_start_concurrency=2,
+        identity_loader=lambda *_args, **_kwargs: envelope,
+    )
+    checkpoint_name = "smoke_checkpoint_exact_provider.json"
+    certify_smoke(
+        run_dir,
+        expected_task_file=task_file,
+        expected_task_file_sha256=task_sha256,
+        expected_traces=2,
+        required_rollout_concurrency=2,
+        required_lease_start_concurrency=2,
+        require_exact_provider_json=True,
+        checkpoint_name=checkpoint_name,
+        identity_loader=lambda *_args, **_kwargs: envelope,
+    )
+    supplemental = run_dir / checkpoint_name
+    payload = json.loads(supplemental.read_bytes())
+    if mutation == "policy_false":
+        payload["audit_policy"]["require_exact_provider_json"] = False
+    elif mutation == "run_identity":
+        payload["eval_run_identity_sha256"] = "f" * 64
+    else:
+        payload["artifacts"]["results"]["sha256"] = "f" * 64
+    body = {key: value for key, value in payload.items() if key != "smoke_checkpoint_sha256"}
+    payload["smoke_checkpoint_sha256"] = _sha256_bytes(smoke_module._canonical_json(body))
+    supplemental.chmod(0o600)
+    supplemental.write_text(json.dumps(payload, sort_keys=True) + "\n")
+    supplemental.chmod(0o444)
+    canonical = run_dir / smoke_module.DEFAULT_CHECKPOINT_NAME
+
+    with pytest.raises(
+        qualification.SmokeQualificationError,
+        match="^supplemental_checkpoint_identity_mismatch$",
+    ):
+        qualification.validate_supplemental_strict_checkpoint(
+            qualification.Artifact(canonical.resolve(), _sha256_bytes(canonical.read_bytes())),
+            checkpoint_name=checkpoint_name,
+            expected_checkpoint_sha256=_sha256_bytes(supplemental.read_bytes()),
+            **_supplemental_validation_args(envelope),
+        )
+
+
+def test_supplemental_strict_checkpoint_requires_immutable_pinned_file(tmp_path: Path) -> None:
+    run_dir, task_file, task_sha256, envelope = _fixture(tmp_path)
+    _install_capacity_evaluator_contract(tmp_path, run_dir, task_file, task_sha256, envelope)
+    certify_smoke(
+        run_dir,
+        expected_task_file=task_file,
+        expected_task_file_sha256=task_sha256,
+        expected_traces=2,
+        required_rollout_concurrency=2,
+        required_lease_start_concurrency=2,
+        identity_loader=lambda *_args, **_kwargs: envelope,
+    )
+    checkpoint_name = "smoke_checkpoint_exact_provider.json"
+    certify_smoke(
+        run_dir,
+        expected_task_file=task_file,
+        expected_task_file_sha256=task_sha256,
+        expected_traces=2,
+        required_rollout_concurrency=2,
+        required_lease_start_concurrency=2,
+        require_exact_provider_json=True,
+        checkpoint_name=checkpoint_name,
+        identity_loader=lambda *_args, **_kwargs: envelope,
+    )
+    canonical = run_dir / smoke_module.DEFAULT_CHECKPOINT_NAME
+    supplemental = run_dir / checkpoint_name
+    supplemental.chmod(0o600)
+
+    with pytest.raises(
+        qualification.SmokeQualificationError,
+        match="^supplemental_checkpoint_not_immutable$",
+    ):
+        qualification.validate_supplemental_strict_checkpoint(
+            qualification.Artifact(canonical.resolve(), _sha256_bytes(canonical.read_bytes())),
+            checkpoint_name=checkpoint_name,
+            expected_checkpoint_sha256=_sha256_bytes(supplemental.read_bytes()),
+            **_supplemental_validation_args(envelope),
+        )
+
+
+@pytest.mark.parametrize(
+    ("checkpoint_name", "digest", "error"),
+    [
+        ("../smoke_checkpoint_escape.json", "a" * 64, "supplemental_checkpoint_name_invalid"),
+        ("smoke_checkpoint.json", "a" * 64, "supplemental_checkpoint_name_invalid"),
+        ("smoke_checkpoint_exact.json", "A" * 64, "supplemental_checkpoint_sha256_invalid"),
+    ],
+)
+def test_supplemental_strict_checkpoint_requires_safe_basename_and_digest(
+    tmp_path: Path,
+    checkpoint_name: str,
+    digest: str,
+    error: str,
+) -> None:
+    missing = tmp_path / "smoke_checkpoint.json"
+
+    with pytest.raises(qualification.SmokeQualificationError, match=f"^{error}$"):
+        qualification.validate_supplemental_strict_checkpoint(
+            qualification.Artifact(missing.resolve(), "a" * 64),
+            checkpoint_name=checkpoint_name,
+            expected_checkpoint_sha256=digest,
+            deployment_id="unused",
+            deployment_spec=qualification.Artifact(missing.resolve(), "a" * 64),
+            readiness=qualification.Artifact(missing.resolve(), "a" * 64),
+            endpoint={},
+            generation={},
+            proxy_policy={},
+            model="Kimi-K3",
         )
 
 

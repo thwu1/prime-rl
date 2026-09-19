@@ -87,6 +87,15 @@ TARGET_RENDERING_CONTRACT = {
         "trust_remote_code": False,
     },
 }
+SOURCE_VALIDATION_KEYS = frozenset(
+    {
+        "max_sequence_tokens",
+        "require_exact_provider_json",
+        "require_model_io",
+        "require_reasoning",
+        "require_request_graph_match",
+    }
+)
 REQUIRED_ARTIFACT_PATHS = {
     "task-split.json": Path("task-split.json"),
     TARGET_RENDERING_CONTRACT_FILENAME: Path(TARGET_RENDERING_CONTRACT_FILENAME),
@@ -188,6 +197,7 @@ class ExportBundle:
     train_tasks: frozenset[str]
     validation_tasks: frozenset[str]
     source_artifacts: Mapping[str, FileArtifact]
+    source_validation: Mapping[str, int | bool]
     exporter_sha256: str
     taskset_id: str
     dataset_revision: str
@@ -549,6 +559,21 @@ def _artifact_record(value: object, code: str) -> FileArtifact:
     return FileArtifact(bytes=size, sha256=digest)
 
 
+def _source_validation_policy(value: object, code: str) -> dict[str, int | bool]:
+    if (
+        not isinstance(value, dict)
+        or set(value) != SOURCE_VALIDATION_KEYS
+        or value.get("require_reasoning") is not True
+        or value.get("require_model_io") is not True
+        or value.get("require_request_graph_match") is not True
+        or not isinstance(value.get("require_exact_provider_json"), bool)
+        or not _is_plain_int(value.get("max_sequence_tokens"))
+        or value["max_sequence_tokens"] != MAX_SEQUENCE_TOKENS
+    ):
+        raise MergeError(code)
+    return {key: value[key] for key in sorted(SOURCE_VALIDATION_KEYS)}
+
+
 def _task_ids(value: object) -> frozenset[str]:
     if not isinstance(value, list) or any(
         not isinstance(item, str) or SHA256_PATTERN.fullmatch(item) is None for item in value
@@ -585,6 +610,7 @@ def _load_export(path: Path, role: str) -> ExportBundle:
         "format",
         "max_sequence_tokens",
         "selection",
+        "source_validation",
         "source_artifacts",
         "split",
         "target_rendering",
@@ -599,6 +625,10 @@ def _load_export(path: Path, role: str) -> ExportBundle:
     format_contract = manifest.get("format")
     split_value = manifest.get("split")
     config = manifest.get("config")
+    source_validation = _source_validation_policy(
+        manifest.get("source_validation"),
+        f"{role}_manifest_contract_invalid",
+    )
     if (
         not isinstance(exporter, dict)
         or set(exporter) != {"file_sha256", "format_version"}
@@ -810,6 +840,7 @@ def _load_export(path: Path, role: str) -> ExportBundle:
         train_tasks=train_tasks,
         validation_tasks=validation_tasks,
         source_artifacts=source_artifacts,
+        source_validation=source_validation,
         exporter_sha256=exporter["file_sha256"],
         taskset_id=config["taskset_id"],
         dataset_revision=config["dataset_revision"],
@@ -1738,6 +1769,8 @@ def merge_qwen_sft(
         raise MergeError("split_contract_mismatch")
     if original.target_rendering_contract_body != repair.target_rendering_contract_body:
         raise MergeError("target_rendering_contract_mismatch")
+    if original.source_validation != repair.source_validation:
+        raise MergeError("source_validation_mismatch")
     if (original.taskset_id, original.dataset_revision) != (
         repair.taskset_id,
         repair.dataset_revision,
@@ -1958,6 +1991,7 @@ def merge_qwen_sft(
             "max_sequence_tokens": MAX_SEQUENCE_TOKENS,
             "schema_version": MERGE_SCHEMA_VERSION,
             "selection": "pass-only",
+            "source_validation": dict(original.source_validation),
             "split": original.split.as_dict(),
             "target_rendering": TARGET_RENDERING_CONTRACT,
         }

@@ -22,6 +22,11 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--expected-manifest-sha256", required=True)
     parser.add_argument("--project-dir", type=Path, required=True)
     parser.add_argument("--expected-project-revision", required=True)
+    parser.add_argument(
+        "--expected-require-exact-provider-json",
+        action=argparse.BooleanOptionalAction,
+        required=True,
+    )
     parser.add_argument("--output", type=Path, required=True)
     return parser.parse_args(argv)
 
@@ -34,6 +39,7 @@ def main(argv: list[str] | None = None) -> int:
             expected_manifest_sha256=args.expected_manifest_sha256,
             project_dir=args.project_dir,
             expected_project_revision=args.expected_project_revision,
+            expected_require_exact_provider_json=args.expected_require_exact_provider_json,
             output=args.output,
         )
     except SFTPreflightError as error:

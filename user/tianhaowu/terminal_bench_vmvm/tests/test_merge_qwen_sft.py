@@ -227,6 +227,13 @@ def _write_export(
         },
         "max_sequence_tokens": max_sequence_tokens,
         "selection": selection,
+        "source_validation": {
+            "max_sequence_tokens": MAX_SEQUENCE_TOKENS,
+            "require_exact_provider_json": False,
+            "require_model_io": True,
+            "require_reasoning": True,
+            "require_request_graph_match": True,
+        },
         "source_artifacts": source_artifacts,
         "split": {
             "policy": SPLIT_POLICY,
@@ -600,6 +607,13 @@ def test_merge_is_deterministic_redacted_and_preserves_all_rows(tmp_path: Path) 
     assert merged_manifest["code"]["exporter_sha256"] == "e" * 64
     assert merged_manifest["code"]["materializer_sha256"] == "b" * 64
     assert merged_manifest["format"]["target"].startswith("authentic reasoning_content")
+    assert merged_manifest["source_validation"] == {
+        "max_sequence_tokens": MAX_SEQUENCE_TOKENS,
+        "require_exact_provider_json": False,
+        "require_model_io": True,
+        "require_reasoning": True,
+        "require_request_graph_match": True,
+    }
     assert merged_manifest["inputs"]["original"]["tree_sha256"] == _export_tree_sha256(
         original,
         "test_original_export_invalid",
@@ -637,6 +651,20 @@ def test_rehashed_target_rendering_contract_is_rejected(tmp_path: Path) -> None:
     _replace_export_artifact(repair, TARGET_RENDERING_CONTRACT_FILENAME, _json_bytes(modified))
 
     with pytest.raises(MergeError, match="^target_rendering_contract_invalid$"):
+        merge_qwen_sft(
+            _options(original, repair, selection, selection_sha256, tmp_path / "merged"),
+            code_provenance=_code_provenance(),
+        )
+
+
+def test_merge_rejects_mixed_source_validation_policies(tmp_path: Path) -> None:
+    original, repair, selection, selection_sha256, _task_ids = _fixture_exports(tmp_path)
+    repair_manifest_path = repair / "manifest.json"
+    repair_manifest = json.loads(repair_manifest_path.read_bytes())
+    repair_manifest["source_validation"]["require_exact_provider_json"] = True
+    repair_manifest_path.write_bytes(_json_bytes(repair_manifest))
+
+    with pytest.raises(MergeError, match="^source_validation_mismatch$"):
         merge_qwen_sft(
             _options(original, repair, selection, selection_sha256, tmp_path / "merged"),
             code_provenance=_code_provenance(),

@@ -32,6 +32,7 @@ from inference_route_generation import (
 )
 
 SHA256_RE = re.compile(r"[0-9a-f]{64}")
+SUPPLEMENTAL_SMOKE_NAME_RE = re.compile(r"smoke_checkpoint_[a-z0-9][a-z0-9_-]{0,63}\.json")
 MAX_ARTIFACT_BYTES = 64 * 1024 * 1024
 BRIDGE_SCHEMA_VERSION = 2
 BRIDGE_KIND = "cross_worker_generation_smoke_qualification"
@@ -255,6 +256,15 @@ def load_json_artifact(artifact: Artifact, *, label: str) -> dict[str, Any]:
         raw = artifact.raw
     assert raw is not None
     return _strict_object(raw, label=label)
+
+
+def _require_readonly_artifact(artifact: Artifact, *, code: str) -> None:
+    try:
+        mode = stat.S_IMODE(artifact.path.stat(follow_symlinks=False).st_mode)
+    except OSError as error:
+        raise SmokeQualificationError(code) from error
+    if mode != 0o444:
+        raise SmokeQualificationError(code)
 
 
 def _default_identity_loader(path: Path, *, verify_references: bool) -> dict[str, Any]:
@@ -807,7 +817,7 @@ def validate_v1_smoke(
         or not _same_json(smoke_policy, proxy_policy)
         or not isinstance(policy, dict)
         or set(policy) != policy_keys
-        or ("require_exact_provider_json" in policy and not isinstance(policy.get("require_exact_provider_json"), bool))
+        or ("require_exact_provider_json" in policy and policy.get("require_exact_provider_json") is not True)
         or type(policy.get("rollouts_per_task")) is not int
         or policy["rollouts_per_task"] != 1
         or policy.get("require_reasoning") is not True
@@ -1141,6 +1151,131 @@ def validate_v1_smoke(
     )
     if stat.S_IMODE(final_smoke.path.stat().st_mode) != 0o444:
         raise SmokeQualificationError("smoke_checkpoint_not_immutable")
+    return payload, evidence
+
+
+def validate_supplemental_strict_checkpoint(
+    canonical_smoke: Artifact,
+    *,
+    checkpoint_name: str,
+    expected_checkpoint_sha256: str,
+    deployment_id: str,
+    deployment_spec: Artifact,
+    readiness: Artifact,
+    endpoint: dict[str, Any],
+    generation: dict[str, Any],
+    proxy_policy: dict[str, Any],
+    model: str,
+    identity_loader: IdentityLoader | None = None,
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    """Validate a pinned strict certificate without relaxing the canonical gate."""
+
+    if not isinstance(checkpoint_name, str) or SUPPLEMENTAL_SMOKE_NAME_RE.fullmatch(checkpoint_name) is None:
+        raise SmokeQualificationError("supplemental_checkpoint_name_invalid")
+    if not isinstance(expected_checkpoint_sha256, str) or SHA256_RE.fullmatch(expected_checkpoint_sha256) is None:
+        raise SmokeQualificationError("supplemental_checkpoint_sha256_invalid")
+    canonical_payload, evidence = validate_v1_smoke(
+        canonical_smoke,
+        deployment_id=deployment_id,
+        deployment_spec=deployment_spec,
+        readiness=readiness,
+        endpoint=endpoint,
+        generation=generation,
+        proxy_policy=proxy_policy,
+        model=model,
+        identity_loader=identity_loader,
+    )
+    supplemental_path = canonical_smoke.path.parent / checkpoint_name
+    supplemental = load_artifact(
+        supplemental_path,
+        expected_checkpoint_sha256,
+        label="supplemental_smoke_checkpoint",
+        load_bytes=True,
+    )
+    _require_readonly_artifact(supplemental, code="supplemental_checkpoint_not_immutable")
+    payload = load_json_artifact(supplemental, label="supplemental_smoke_checkpoint")
+    expected_payload = copy.deepcopy(canonical_payload)
+    expected_policy = expected_payload.get("audit_policy")
+    if not isinstance(expected_policy, dict):
+        raise SmokeQualificationError("supplemental_checkpoint_identity_mismatch")
+    expected_policy["require_exact_provider_json"] = True
+    expected_body = {key: value for key, value in expected_payload.items() if key != "smoke_checkpoint_sha256"}
+    expected_payload["smoke_checkpoint_sha256"] = sha256_bytes(canonical_json(expected_body))
+    if not _same_json(payload, expected_payload):
+        raise SmokeQualificationError("supplemental_checkpoint_identity_mismatch")
+
+    artifacts = payload["artifacts"]
+    results = artifact_from_record(
+        artifacts["results"],
+        label="supplemental_smoke_results",
+    )
+    identity_artifact = artifact_from_record(
+        artifacts["eval_run_identity"],
+        label="supplemental_smoke_eval_run_identity",
+    )
+    loader = identity_loader or _default_identity_loader
+    identity, identity_sha256 = _load_source_identity(identity_artifact, identity_loader=loader)
+    if identity_sha256 != payload.get("eval_run_identity_sha256"):
+        raise SmokeQualificationError("supplemental_checkpoint_identity_mismatch")
+    identity_inputs = identity.get("inputs")
+    task_record = identity_inputs.get("task_file") if isinstance(identity_inputs, dict) else None
+    if (
+        not isinstance(task_record, dict)
+        or set(task_record) != {"path", "sha256", "count"}
+        or task_record.get("count") != payload["audit_policy"].get("expected_traces")
+    ):
+        raise SmokeQualificationError("supplemental_checkpoint_identity_mismatch")
+    task_file = load_artifact(
+        Path(str(task_record.get("path"))),
+        str(task_record.get("sha256")),
+        label="supplemental_smoke_task_file",
+    )
+    try:
+        from audit_traces import (
+            KIMI_K3_MAX_MODEL_IO_CONTRACT,
+            _iter_traces,
+            _read_expected_slugs,
+            _summarize_traces,
+        )
+    except ImportError as error:
+        raise SmokeQualificationError("smoke_trace_audit_runtime_unavailable") from error
+    try:
+        expected_tasks = _read_expected_slugs(task_file.path)
+        summary, failed = _summarize_traces(
+            _iter_traces(results.path),
+            expected_slugs=expected_tasks,
+            expected_count=payload["audit_policy"]["expected_traces"],
+            rollouts_per_task=1,
+            require_reasoning=True,
+            require_token_data=False,
+            require_logprobs=False,
+            require_model_io=True,
+            model_io_contract=KIMI_K3_MAX_MODEL_IO_CONTRACT,
+            require_request_graph_match=True,
+            require_exact_provider_json=True,
+            max_sequence_tokens=262_144,
+        )
+    except (OSError, ValueError) as error:
+        raise SmokeQualificationError("smoke_trace_audit_invalid") from error
+    counts = payload["counts"]
+    if (
+        failed
+        or summary.get("traces") != counts["traces"]
+        or summary.get("tasks") != counts["tasks"]
+        or summary.get("sampled_tokens") != counts["sampled_tokens"]
+        or summary.get("model_io_turns") != counts["model_io_turns"]
+        or summary.get("trace_failures") != 0
+        or summary.get("global_problems")
+    ):
+        raise SmokeQualificationError("smoke_trace_audit_failed")
+    load_artifact(results.path, results.sha256, label="supplemental_smoke_results")
+    load_artifact(task_file.path, task_file.sha256, label="supplemental_smoke_task_file")
+    final_supplemental = load_artifact(
+        supplemental.path,
+        supplemental.sha256,
+        label="supplemental_smoke_checkpoint",
+    )
+    _require_readonly_artifact(final_supplemental, code="supplemental_checkpoint_not_immutable")
     return payload, evidence
 
 

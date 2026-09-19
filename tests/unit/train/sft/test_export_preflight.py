@@ -1,6 +1,7 @@
 import copy
 import hashlib
 import json
+from dataclasses import replace
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -164,6 +165,7 @@ def _attestation(root: Path) -> dict:
             ],
             "source": {name: artifact for name in export_preflight.CODE_PATHS},
         },
+        "expected_require_exact_provider_json": False,
         "export": {
             "artifacts": {name: artifact for name in export_preflight.REQUIRED_EXPORT_ARTIFACTS},
             "manifest": artifact,
@@ -172,6 +174,13 @@ def _attestation(root: Path) -> dict:
         "kind": export_preflight.ATTESTATION_KIND,
         "rendering": {**summary, "splits": {"train": summary, "validation": empty_summary}},
         "schema_version": export_preflight.ATTESTATION_SCHEMA_VERSION,
+        "source_validation": {
+            "max_sequence_tokens": 262_144,
+            "require_exact_provider_json": False,
+            "require_model_io": True,
+            "require_reasoning": True,
+            "require_request_graph_match": True,
+        },
         "target_rendering": export_preflight.EXPECTED_TARGET_RENDERING_CONTRACT,
     }
 
@@ -341,6 +350,102 @@ def test_attestation_rejects_renderer_gitlink_tamper(tmp_path: Path) -> None:
         export_preflight._validate_attestation_value(attestation)
 
 
+@pytest.mark.parametrize("require_exact_provider_json", [False, True])
+def test_preflight_attestation_binds_expected_source_validation_policy(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    require_exact_provider_json: bool,
+) -> None:
+    root = tmp_path / "export"
+    root.mkdir()
+    attestation = _attestation(root)
+    attestation["expected_require_exact_provider_json"] = require_exact_provider_json
+    attestation["source_validation"]["require_exact_provider_json"] = require_exact_provider_json
+    artifact = export_preflight.FileArtifact(1, "a" * 64)
+    binding = export_preflight.ExportBinding(
+        root=root,
+        manifest=artifact,
+        artifacts={name: artifact for name in export_preflight.REQUIRED_EXPORT_ARTIFACTS},
+        manifest_value={"counts": {"emitted_rows": 1, "train_rows": 1, "validation_rows": 0}},
+        source_validation=attestation["source_validation"],
+        target_rendering=export_preflight.EXPECTED_TARGET_RENDERING_CONTRACT,
+    )
+    monkeypatch.setattr(export_preflight, "_load_export_binding", lambda *_args: binding)
+    monkeypatch.setattr(export_preflight, "_repository_provenance", lambda *_args: attestation["code"])
+    monkeypatch.setattr(export_preflight, "_render_export", lambda _binding: attestation["rendering"])
+
+    output = tmp_path / f"preflight-{require_exact_provider_json}.json"
+    summary = export_preflight.create_sft_preflight_attestation(
+        export_root=root,
+        expected_manifest_sha256="a" * 64,
+        project_dir=tmp_path,
+        expected_project_revision="c" * 40,
+        expected_require_exact_provider_json=require_exact_provider_json,
+        output=output,
+    )
+
+    value = json.loads(output.read_bytes())
+    assert summary["require_exact_provider_json"] is require_exact_provider_json
+    assert value["expected_require_exact_provider_json"] is require_exact_provider_json
+    assert value["source_validation"]["require_exact_provider_json"] is require_exact_provider_json
+
+
+def test_preflight_rejects_source_validation_expectation_mismatch(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    root = tmp_path / "export"
+    root.mkdir()
+    artifact = export_preflight.FileArtifact(1, "a" * 64)
+    binding = export_preflight.ExportBinding(
+        root=root,
+        manifest=artifact,
+        artifacts={},
+        manifest_value={},
+        source_validation={
+            "max_sequence_tokens": 262_144,
+            "require_exact_provider_json": False,
+            "require_model_io": True,
+            "require_reasoning": True,
+            "require_request_graph_match": True,
+        },
+        target_rendering=export_preflight.EXPECTED_TARGET_RENDERING_CONTRACT,
+    )
+    monkeypatch.setattr(export_preflight, "_load_export_binding", lambda *_args: binding)
+
+    with pytest.raises(SFTPreflightError, match="^source_validation_expectation_mismatch$"):
+        export_preflight.create_sft_preflight_attestation(
+            export_root=root,
+            expected_manifest_sha256="a" * 64,
+            project_dir=tmp_path,
+            expected_project_revision="c" * 40,
+            expected_require_exact_provider_json=True,
+            output=tmp_path / "preflight.json",
+        )
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("require_reasoning", False),
+        ("require_model_io", False),
+        ("require_request_graph_match", False),
+        ("require_exact_provider_json", 1),
+        ("max_sequence_tokens", 1),
+    ],
+)
+def test_attestation_rejects_invalid_source_validation_policy(
+    tmp_path: Path,
+    field: str,
+    value: object,
+) -> None:
+    attestation = _attestation(tmp_path / "export")
+    attestation["source_validation"][field] = value
+
+    with pytest.raises(SFTPreflightError, match="^attestation_contract_invalid$"):
+        export_preflight._validate_attestation_value(attestation)
+
+
 def test_repository_provenance_rejects_checked_out_renderer_gitlink_tamper(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -439,6 +544,7 @@ def test_training_start_rechecks_attested_code_provenance(tmp_path: Path, monkey
         manifest=artifact,
         artifacts={name: artifact for name in export_preflight.REQUIRED_EXPORT_ARTIFACTS},
         manifest_value={"counts": {"emitted_rows": 1, "train_rows": 1, "validation_rows": 0}},
+        source_validation=attestation["source_validation"],
         target_rendering=export_preflight.EXPECTED_TARGET_RENDERING_CONTRACT,
     )
     monkeypatch.setattr(export_preflight, "_format_v3_root", lambda _data: root)
@@ -459,6 +565,16 @@ def test_training_start_rechecks_attested_code_provenance(tmp_path: Path, monkey
     changed_code["source"][export_preflight.CODE_PATHS[0]] = {"bytes": 1, "sha256": "f" * 64}
     monkeypatch.setattr(export_preflight, "_repository_provenance", lambda *_args: changed_code)
     with pytest.raises(SFTPreflightError, match="^attested_code_changed$"):
+        export_preflight.validate_sft_training_preflight(config)
+
+    changed_source_validation = dict(binding.source_validation)
+    changed_source_validation["require_exact_provider_json"] = True
+    monkeypatch.setattr(
+        export_preflight,
+        "_load_export_binding",
+        lambda *_args: replace(binding, source_validation=changed_source_validation),
+    )
+    with pytest.raises(SFTPreflightError, match="^attested_export_changed$"):
         export_preflight.validate_sft_training_preflight(config)
 
 

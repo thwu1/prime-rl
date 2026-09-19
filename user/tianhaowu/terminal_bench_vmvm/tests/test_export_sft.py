@@ -1127,6 +1127,22 @@ def test_exact_provider_json_requirement_rejects_normalized_stream_responses(tmp
         )
 
 
+def test_exact_provider_json_requirement_is_hash_bound_in_manifest(tmp_path: Path) -> None:
+    results = _write_run(tmp_path / "run", [_linear_trace()])
+    output = tmp_path / "dataset"
+
+    export_sft(_options(results, output, require_exact_provider_json=True))
+
+    manifest = json.loads((output / "manifest.json").read_bytes())
+    assert manifest["source_validation"] == {
+        "max_sequence_tokens": 262_144,
+        "require_exact_provider_json": True,
+        "require_model_io": True,
+        "require_reasoning": True,
+        "require_request_graph_match": True,
+    }
+
+
 @pytest.mark.parametrize(("field", "value"), [("reasoning_tokens", True), ("reasoning_tokens", 6)])
 def test_captured_response_usage_counts_must_be_valid(tmp_path: Path, field: str, value: object) -> None:
     trace = _linear_trace()
@@ -1258,6 +1274,13 @@ def test_export_is_byte_deterministic_and_records_provenance_hashes(tmp_path: Pa
     assert manifest["exporter"]["format_version"] == 3
     assert json.loads((first / "task-split.json").read_text())["format_version"] == 3
     assert manifest["target_rendering"] == exporter.TARGET_RENDERING_CONTRACT
+    assert manifest["source_validation"] == {
+        "max_sequence_tokens": 262_144,
+        "require_exact_provider_json": False,
+        "require_model_io": True,
+        "require_reasoning": True,
+        "require_request_graph_match": True,
+    }
     assert (
         manifest["artifacts"][exporter.TARGET_RENDERING_CONTRACT_FILENAME]["sha256"]
         == exporter.TARGET_RENDERING_CONTRACT_SHA256
