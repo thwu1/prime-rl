@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import copy
 import fcntl
 import hashlib
 import json
@@ -11,6 +12,7 @@ import os
 import re
 import shutil
 import stat
+import subprocess
 import sys
 import tempfile
 import tomllib
@@ -18,6 +20,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable, Mapping
 
+import tomli_w
 from audit_traces import (
     KIMI_K3_MAX_MODEL_IO_CONTRACT,
     _audit_trace,
@@ -43,6 +46,24 @@ COMPOSITE_KIND = "two_source_smoke_recovery"
 MAX_ARTIFACT_BYTES = 256 * 1024 * 1024
 MAX_SEQUENCE_TOKENS = 262_144
 SHA256_RE = re.compile(r"[0-9a-f]{64}")
+REVISION_RE = re.compile(r"[0-9a-f]{40}")
+RECOVERY_POLICY_SUFFIXES = frozenset({".py", ".sbatch", ".sh"})
+RECOVERY_POLICY_REQUIRED_FILES = frozenset(
+    {
+        "user/tianhaowu/terminal_bench_vmvm/audit_traces.py",
+        "user/tianhaowu/terminal_bench_vmvm/certify_trace_smoke.py",
+        "user/tianhaowu/terminal_bench_vmvm/eval_run_identity.py",
+        "user/tianhaowu/terminal_bench_vmvm/guard_success_receipt.py",
+        "user/tianhaowu/terminal_bench_vmvm/inference_route_guard.py",
+        "user/tianhaowu/terminal_bench_vmvm/run_eval.sbatch",
+        "user/tianhaowu/terminal_bench_vmvm/run_kimi_smoke_recovery.sbatch",
+        "user/tianhaowu/terminal_bench_vmvm/run_trace_smoke_audit.sbatch",
+        "user/tianhaowu/terminal_bench_vmvm/smoke_qualification.py",
+        "user/tianhaowu/terminal_bench_vmvm/smoke_timeout_recovery.py",
+        "user/tianhaowu/terminal_bench_vmvm/snapshot_eval_inputs.py",
+        "user/tianhaowu/terminal_bench_vmvm/validate_task_approval.py",
+    }
+)
 
 
 class SmokeRecoveryError(ValueError):
@@ -202,6 +223,123 @@ def _manifest_entries(raw: bytes, *, expected_count: int) -> list[ManifestEntry]
     return entries
 
 
+def _materialize_recovery_config(template_raw: bytes, task_path: Path, task_sha256: str) -> bytes:
+    try:
+        config = tomllib.loads(template_raw.decode("utf-8"))
+    except (UnicodeDecodeError, tomllib.TOMLDecodeError) as error:
+        raise SmokeRecoveryError("recovery_config_template_invalid") from error
+    if not isinstance(config, dict):
+        raise SmokeRecoveryError("recovery_config_template_invalid")
+    try:
+        validate_kimi_timeout_contract(config, required_profile="recovery")
+        validate_kimi_recovery_smoke_contract(config)
+    except ValueError as error:
+        raise SmokeRecoveryError("recovery_config_template_invalid") from error
+    if config.get("num_tasks") != 1:
+        raise SmokeRecoveryError("recovery_config_template_invalid")
+    taskset = config.get("taskset")
+    if not isinstance(taskset, dict):
+        raise SmokeRecoveryError("recovery_config_template_invalid")
+    taskset["task_file"] = str(task_path)
+    taskset["task_file_sha256"] = task_sha256
+    return tomli_w.dumps(config).encode("utf-8")
+
+
+def _git_output(root: Path, *args: str) -> str:
+    try:
+        return subprocess.run(
+            ["git", "-C", str(root), *args],
+            check=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
+            text=True,
+        ).stdout
+    except (OSError, subprocess.CalledProcessError) as error:
+        raise SmokeRecoveryError("recovery_source_invalid") from error
+
+
+def _recovery_policy_files(project_root: Path) -> list[Path]:
+    workflow_files = _git_output(
+        project_root,
+        "ls-files",
+        "--",
+        "user/tianhaowu/terminal_bench_vmvm",
+    ).splitlines()
+    vmvm_root = project_root / "environments/vmvm_tb_v2"
+    vmvm_files = [
+        f"environments/vmvm_tb_v2/{relative}"
+        for relative in _git_output(vmvm_root, "ls-files", "--", "vmvm_tb_v2").splitlines()
+    ]
+    relative_files = sorted(
+        relative for relative in (*workflow_files, *vmvm_files) if Path(relative).suffix in RECOVERY_POLICY_SUFFIXES
+    )
+    if (
+        not relative_files
+        or len(relative_files) != len(set(relative_files))
+        or not RECOVERY_POLICY_REQUIRED_FILES.issubset(relative_files)
+        or not any(relative.startswith("environments/vmvm_tb_v2/vmvm_tb_v2/") for relative in relative_files)
+        or any("\x00" in relative or "\r" in relative for relative in relative_files)
+    ):
+        raise SmokeRecoveryError("recovery_source_invalid")
+    return [project_root / relative for relative in relative_files]
+
+
+def _recovery_source_binding(
+    project_root: Path,
+    expected_commit: str,
+    source_identity: Mapping[str, Any],
+) -> dict[str, Any]:
+    try:
+        root = project_root.resolve(strict=True)
+    except (OSError, RuntimeError) as error:
+        raise SmokeRecoveryError("recovery_source_invalid") from error
+    if (
+        not root.is_dir()
+        or not isinstance(expected_commit, str)
+        or REVISION_RE.fullmatch(expected_commit) is None
+        or source_identity.get("project_root") != str(root)
+        or source_identity.get("prime_rl_commit") != expected_commit
+        or _git_output(root, "rev-parse", "--verify", "HEAD").strip() != expected_commit
+        or _git_output(root, "status", "--porcelain=v1", "--untracked-files=all").strip()
+    ):
+        raise SmokeRecoveryError("recovery_source_mismatch")
+    vmvm_root = root / "environments/vmvm_tb_v2"
+    vmvm_tree = _git_output(root, "ls-tree", expected_commit, "--", "environments/vmvm_tb_v2").strip().split()
+    if (
+        len(vmvm_tree) != 4
+        or vmvm_tree[:2] != ["160000", "commit"]
+        or _git_output(vmvm_root, "rev-parse", "--verify", "HEAD").strip() != vmvm_tree[2]
+        or _git_output(vmvm_root, "status", "--porcelain=v1", "--untracked-files=all").strip()
+    ):
+        raise SmokeRecoveryError("recovery_source_mismatch")
+    records: dict[str, str] = {}
+    aggregate = hashlib.sha256()
+    for path in _recovery_policy_files(root):
+        artifact = _artifact(path, label="recovery_policy_file")
+        relative = path.relative_to(root).as_posix()
+        records[relative] = artifact.sha256
+        aggregate.update(f"{artifact.sha256}  {relative}\n".encode("utf-8"))
+    return {
+        "schema_version": 1,
+        "project_root": str(root),
+        "prime_rl_commit": expected_commit,
+        "vmvm_commit": vmvm_tree[2],
+        "files": records,
+        "closure_sha256": aggregate.hexdigest(),
+        "source_dependencies": {
+            key: source_identity.get(key)
+            for key in (
+                "prime_rl_tree_sha256",
+                "verifiers_commit",
+                "verifiers_tree_sha256",
+                "renderers_commit",
+                "renderers_tree_sha256",
+                "vmvm_tb_v2_sha256",
+            )
+        },
+    }
+
+
 def _trace_slug(trace: Mapping[str, Any]) -> str:
     task = trace.get("task")
     if not isinstance(task, dict):
@@ -260,7 +398,7 @@ def derive_selection(manifest_raw: bytes, source_rows: list[TraceRow]) -> Select
         elif (
             trace.get("is_completed") is True
             and trace.get("stop_condition") == "harness_timeout"
-            and not trace.get("errors")
+            and trace.get("errors") == []
             and _clean_stop_problem(trace) == "trace_stop_condition_infrastructure"
         ):
             timeout_indices.append(index)
@@ -382,6 +520,9 @@ def _selection_body(
     source: dict[str, Any],
     original_manifest: FileArtifact,
     recovery_task: FileArtifact,
+    recovery_config_template: FileArtifact,
+    recovery_config: FileArtifact,
+    recovery_policy: dict[str, Any],
     recovery_run_dir: Path,
     selection: Selection,
 ) -> dict[str, Any]:
@@ -417,9 +558,12 @@ def _selection_body(
             "serving_route_generation": deployment["serving_route_generation"],
             "proxy_policy": deployment["proxy_policy"],
         },
+        "recovery_policy": recovery_policy,
         "artifacts": {
             "original_task_file": original_manifest.record,
             "recovery_task_file": recovery_task.record,
+            "recovery_config_template": recovery_config_template.record,
+            "recovery_config": recovery_config.record,
             "source_results": source["results_artifact"].record,
             "source_eval_run_identity": source["identity_artifact"].record,
             "source_eval_invocations": source["invocations_artifact"].record,
@@ -432,6 +576,9 @@ def create_selection(
     source_run_dir: Path,
     original_task_file: Path,
     original_task_file_sha256: str,
+    recovery_config_template: Path,
+    recovery_config_template_sha256: str,
+    recovery_project_root: Path,
     namespace: Path,
     *,
     identity_loader: IdentityLoader = load_eval_run_identity,
@@ -446,6 +593,13 @@ def create_selection(
     original = _artifact(original_task_file, label="task_manifest", read=True)
     if original.sha256 != original_task_file_sha256:
         raise SmokeRecoveryError("task_manifest_sha256_mismatch")
+    template = _artifact(recovery_config_template, label="recovery_config_template", read=True)
+    if (
+        not isinstance(recovery_config_template_sha256, str)
+        or SHA256_RE.fullmatch(recovery_config_template_sha256) is None
+        or template.sha256 != recovery_config_template_sha256
+    ):
+        raise SmokeRecoveryError("recovery_config_template_sha256_mismatch")
     source_run = source_run_dir.resolve(strict=True)
     lock_path = source_run / ".writer.lock"
     try:
@@ -466,6 +620,12 @@ def create_selection(
         ):
             raise SmokeRecoveryError("source_task_manifest_mismatch")
         selection = derive_selection(original.raw or b"", source["rows"])
+        source_identity = source["identity"]["source"]
+        recovery_policy = _recovery_source_binding(
+            recovery_project_root,
+            str(source_identity.get("prime_rl_commit")),
+            source_identity,
+        )
         try:
             parent = namespace.parent.resolve(strict=True)
         except (OSError, RuntimeError) as error:
@@ -473,7 +633,12 @@ def create_selection(
         final_namespace = parent / namespace.name
         if namespace.is_absolute() and str(namespace) != str(final_namespace):
             raise SmokeRecoveryError("recovery_namespace_invalid")
-        if os.path.lexists(final_namespace):
+        recovery_root = recovery_project_root.resolve(strict=True)
+        if (
+            os.path.lexists(final_namespace)
+            or final_namespace.is_relative_to(source_run)
+            or final_namespace.is_relative_to(recovery_root)
+        ):
             raise SmokeRecoveryError("recovery_namespace_exists")
         temporary = Path(tempfile.mkdtemp(prefix=f".{namespace.name}.", dir=parent))
         os.chmod(temporary, 0o700)
@@ -486,10 +651,31 @@ def create_selection(
                 sha256=_sha256_bytes(selection.recovery_entry.raw),
                 raw=selection.recovery_entry.raw,
             )
+            config_raw = _materialize_recovery_config(
+                template.raw or b"",
+                final_task_path,
+                recovery_task.sha256,
+            )
+            config_path = temporary / "config.toml"
+            _write_file(config_path, config_raw, mode=0o400)
+            recovery_config = FileArtifact(
+                path=final_namespace / config_path.name,
+                sha256=_sha256_bytes(config_raw),
+                raw=config_raw,
+            )
+            original_config = _resolved_config(source["identity"], label="original_config")
+            parsed_recovery_config = tomllib.loads(config_raw.decode("utf-8"))
+            if canonical_json(_normalized_recovery_config(original_config)) != canonical_json(
+                _normalized_recovery_config(parsed_recovery_config)
+            ):
+                raise SmokeRecoveryError("source_execution_mismatch")
             body = _selection_body(
                 source=source,
                 original_manifest=original,
                 recovery_task=recovery_task,
+                recovery_config_template=template,
+                recovery_config=recovery_config,
+                recovery_policy=recovery_policy,
                 recovery_run_dir=final_namespace / "run",
                 selection=selection,
             )
@@ -519,7 +705,11 @@ def _load_selection(
     identity_loader: IdentityLoader,
 ) -> tuple[dict[str, Any], Selection, dict[str, Any]]:
     artifact = _artifact(path, label="selection", read=True)
-    if stat.S_IMODE(artifact.path.stat(follow_symlinks=False).st_mode) != 0o444:
+    if (
+        stat.S_IMODE(artifact.path.stat(follow_symlinks=False).st_mode) != 0o444
+        or artifact.path.name != "selection.json"
+        or stat.S_IMODE(artifact.path.parent.stat(follow_symlinks=False).st_mode) != 0o700
+    ):
         raise SmokeRecoveryError("selection_not_immutable")
     payload = _strict_object(artifact.raw or b"", label="selection")
     body = {key: value for key, value in payload.items() if key != "selection_sha256"}
@@ -534,6 +724,7 @@ def _load_selection(
             "retained",
             "recovery",
             "deployment",
+            "recovery_policy",
             "artifacts",
             "selection_sha256",
         }
@@ -547,6 +738,8 @@ def _load_selection(
     if not isinstance(artifacts, dict) or set(artifacts) != {
         "original_task_file",
         "recovery_task_file",
+        "recovery_config_template",
+        "recovery_config",
         "source_results",
         "source_eval_run_identity",
         "source_eval_invocations",
@@ -555,10 +748,14 @@ def _load_selection(
         raise SmokeRecoveryError("selection_artifacts_invalid")
     original = _artifact_from_record(artifacts["original_task_file"], label="task_manifest", read=True)
     recovery_task = _artifact_from_record(artifacts["recovery_task_file"], label="recovery_task", read=True)
+    template = _artifact_from_record(artifacts["recovery_config_template"], label="recovery_config_template", read=True)
+    recovery_config = _artifact_from_record(artifacts["recovery_config"], label="recovery_config", read=True)
     recovery = payload.get("recovery")
     if (
         stat.S_IMODE(recovery_task.path.stat(follow_symlinks=False).st_mode) != 0o400
         or recovery_task.path != artifact.path.parent / "approved_task.txt"
+        or stat.S_IMODE(recovery_config.path.stat(follow_symlinks=False).st_mode) != 0o400
+        or recovery_config.path != artifact.path.parent / "config.toml"
         or not isinstance(recovery, dict)
         or recovery.get("run_dir") != str(artifact.path.parent / "run")
     ):
@@ -579,10 +776,37 @@ def _load_selection(
     selection = derive_selection(original.raw or b"", source["rows"])
     if recovery_task.raw != selection.recovery_entry.raw:
         raise SmokeRecoveryError("recovery_task_mismatch")
+    expected_config = _materialize_recovery_config(
+        template.raw or b"",
+        recovery_task.path,
+        recovery_task.sha256,
+    )
+    if recovery_config.raw != expected_config:
+        raise SmokeRecoveryError("recovery_config_mismatch")
+    source_identity = source["identity"]["source"]
+    recovery_policy = payload.get("recovery_policy")
+    if not isinstance(recovery_policy, dict):
+        raise SmokeRecoveryError("recovery_policy_invalid")
+    expected_policy = _recovery_source_binding(
+        Path(str(recovery_policy.get("project_root"))),
+        str(recovery_policy.get("prime_rl_commit")),
+        source_identity,
+    )
+    if canonical_json(recovery_policy) != canonical_json(expected_policy):
+        raise SmokeRecoveryError("recovery_policy_mismatch")
+    original_config = _resolved_config(source["identity"], label="original_config")
+    parsed_recovery_config = tomllib.loads((recovery_config.raw or b"").decode("utf-8"))
+    if canonical_json(_normalized_recovery_config(original_config)) != canonical_json(
+        _normalized_recovery_config(parsed_recovery_config)
+    ):
+        raise SmokeRecoveryError("source_execution_mismatch")
     expected_body = _selection_body(
         source=source,
         original_manifest=original,
         recovery_task=recovery_task,
+        recovery_config_template=template,
+        recovery_config=recovery_config,
+        recovery_policy=recovery_policy,
         recovery_run_dir=Path(recovery["run_dir"]),
         selection=selection,
     )
@@ -593,6 +817,8 @@ def _load_selection(
 
 def _source_compatible(original: Mapping[str, Any], recovery: Mapping[str, Any]) -> bool:
     source_keys = (
+        "prime_rl_commit",
+        "prime_rl_tree_sha256",
         "verifiers_commit",
         "verifiers_tree_sha256",
         "renderers_commit",
@@ -608,10 +834,16 @@ def _source_compatible(original: Mapping[str, Any], recovery: Mapping[str, Any])
         for value in (original_source, recovery_source, original_deployment, recovery_deployment)
     ):
         return False
+    try:
+        original_execution = _normalized_execution(original)
+        recovery_execution = _normalized_execution(recovery)
+    except SmokeRecoveryError:
+        return False
     return (
         all(original_source.get(key) == recovery_source.get(key) for key in source_keys)
         and original.get("dataset") == recovery.get("dataset")
         and original.get("contract") == recovery.get("contract")
+        and original_execution == recovery_execution
         and all(
             original_deployment.get(key) == recovery_deployment.get(key)
             for key in (
@@ -625,6 +857,26 @@ def _source_compatible(original: Mapping[str, Any], recovery: Mapping[str, Any])
             )
         )
     )
+
+
+def _normalized_execution(identity: Mapping[str, Any]) -> dict[str, Any]:
+    execution = copy.deepcopy(identity.get("execution"))
+    if not isinstance(execution, dict):
+        raise SmokeRecoveryError("source_execution_mismatch")
+    for key in (
+        "rollout_concurrency",
+        "multiplex",
+        "http_max_connections",
+        "http_max_keepalive_connections",
+    ):
+        execution.pop(key, None)
+    runtime = execution.get("runtime")
+    environment = execution.get("vmvm_environment")
+    if not isinstance(runtime, dict) or not isinstance(environment, dict):
+        raise SmokeRecoveryError("source_execution_mismatch")
+    runtime.pop("session_timeout", None)
+    environment.pop("lease_start_concurrency", None)
+    return execution
 
 
 def _resolved_config(identity: Mapping[str, Any], *, label: str) -> dict[str, Any]:
@@ -665,7 +917,11 @@ def validate_recovery_launch(
     output_dir: Path,
     task_file: Path,
     task_file_sha256: str,
+    config_file: Path,
+    config_file_sha256: str,
     *,
+    project_root: Path,
+    expected_prime_rl_commit: str,
     deployment_id: str,
     deployment_spec: Path,
     deployment_spec_sha256: str,
@@ -673,6 +929,12 @@ def validate_recovery_launch(
     readiness_checkpoint_sha256: str,
     proxy_info: Path,
     proxy_info_sha256: str,
+    vacli_bin: str,
+    vacli_max_concurrent_leases: str,
+    vacli_lease_retries: str,
+    vacli_max_pull_retries: str,
+    vacli_image_pull_timeout_seconds: str,
+    vacli_container_privileged: str,
     identity_loader: IdentityLoader = load_eval_run_identity,
     environ: Mapping[str, str] = os.environ,
 ) -> dict[str, Any]:
@@ -680,7 +942,7 @@ def validate_recovery_launch(
 
     if "RESUME_DIR" in environ:
         raise SmokeRecoveryError("resume_forbidden")
-    payload, _, _ = _load_selection(selection_path, identity_loader=identity_loader)
+    payload, _, source = _load_selection(selection_path, identity_loader=identity_loader)
     recovery = payload.get("recovery")
     artifacts = payload.get("artifacts")
     deployment = payload.get("deployment")
@@ -690,11 +952,14 @@ def validate_recovery_launch(
     if not isinstance(endpoint, dict):
         raise SmokeRecoveryError("selection_invalid")
     approved = _artifact_from_record(artifacts.get("recovery_task_file"), label="recovery_task")
+    config = _artifact_from_record(artifacts.get("recovery_config"), label="recovery_config", read=True)
     spec = _artifact(deployment_spec, label="deployment_spec")
     readiness = _artifact(readiness_checkpoint, label="readiness_checkpoint")
     proxy = _artifact(proxy_info, label="proxy_info")
     try:
         resolved_task = task_file.resolve(strict=True)
+        resolved_config = config_file.resolve(strict=True)
+        resolved_project = project_root.resolve(strict=True)
         parent = output_dir.parent.resolve(strict=True)
     except (OSError, RuntimeError) as error:
         raise SmokeRecoveryError("recovery_launch_binding_invalid") from error
@@ -703,6 +968,8 @@ def validate_recovery_launch(
         not isinstance(task_file_sha256, str)
         or task_file_sha256 != approved.sha256
         or resolved_task != approved.path
+        or config_file_sha256 != config.sha256
+        or resolved_config != config.path
         or not output_dir.is_absolute()
         or str(output_dir) != str(normalized_output)
         or str(output_dir) != recovery.get("run_dir")
@@ -716,6 +983,53 @@ def validate_recovery_launch(
         or proxy.sha256 != proxy_info_sha256
     ):
         raise SmokeRecoveryError("recovery_launch_binding_invalid")
+    policy = payload.get("recovery_policy")
+    if (
+        not isinstance(policy, dict)
+        or policy.get("project_root") != str(resolved_project)
+        or policy.get("prime_rl_commit") != expected_prime_rl_commit
+    ):
+        raise SmokeRecoveryError("recovery_source_mismatch")
+    observed_policy = _recovery_source_binding(
+        resolved_project,
+        expected_prime_rl_commit,
+        source["identity"]["source"],
+    )
+    if canonical_json(policy) != canonical_json(observed_policy):
+        raise SmokeRecoveryError("recovery_policy_mismatch")
+    source_environment = source["identity"].get("execution", {}).get("vmvm_environment")
+    try:
+        requested_environment = {
+            "vacli_bin": vacli_bin,
+            "lease_retries": int(vacli_lease_retries),
+            "max_pull_retries": int(vacli_max_pull_retries),
+            "image_pull_timeout_sec": int(vacli_image_pull_timeout_seconds),
+            "container_privileged": {"0": False, "1": True}[vacli_container_privileged],
+        }
+        lease_limit = int(vacli_max_concurrent_leases)
+    except (KeyError, ValueError) as error:
+        raise SmokeRecoveryError("recovery_vmvm_environment_invalid") from error
+    integer_inputs = {
+        "lease_retries": vacli_lease_retries,
+        "max_pull_retries": vacli_max_pull_retries,
+        "image_pull_timeout_sec": vacli_image_pull_timeout_seconds,
+    }
+    if (
+        not isinstance(source_environment, dict)
+        or any(
+            type(value) is not int or value < 1
+            for key, value in requested_environment.items()
+            if key not in {"vacli_bin", "container_privileged"}
+        )
+        or any(str(requested_environment[key]) != raw for key, raw in integer_inputs.items())
+        or not isinstance(vacli_bin, str)
+        or not vacli_bin
+        or lease_limit < 1
+        or str(lease_limit) != vacli_max_concurrent_leases
+        or requested_environment
+        != {key: value for key, value in source_environment.items() if key != "lease_start_concurrency"}
+    ):
+        raise SmokeRecoveryError("recovery_vmvm_environment_mismatch")
     return {
         "ok": True,
         "state": "launch_eligible",
@@ -738,10 +1052,16 @@ def _validate_combined_rows(
     recovery_row = recovery_rows[0]
     retained_slug = _trace_slug(selection.retained_row.trace)
     recovery_slug = _trace_slug(recovery_row.trace)
+    retained_trace_id = selection.retained_row.trace.get("id")
+    recovery_trace_id = recovery_row.trace.get("id")
     if (
         retained_slug == recovery_slug
         or recovery_slug != recovery_entries[0].slug
-        or selection.retained_row.trace.get("id") == recovery_row.trace.get("id")
+        or not isinstance(retained_trace_id, str)
+        or not retained_trace_id
+        or not isinstance(recovery_trace_id, str)
+        or not recovery_trace_id
+        or retained_trace_id == recovery_trace_id
     ):
         raise SmokeRecoveryError("composite_disjointness_invalid")
     rows_by_slug = {
@@ -888,8 +1208,20 @@ def _composite_body(
             "require_clean_stop": True,
             "require_reasoning": True,
             "require_model_io": True,
+            "model_io_contract": {
+                "provider_route": "/chat/completions",
+                "request_model": "Kimi-K3",
+                "response_model": "Kimi-K3",
+                "request_reasoning_effort": "max",
+                "request_chat_template_kwargs": {
+                    "enable_thinking": True,
+                    "preserve_thinking": True,
+                },
+            },
             "require_request_graph_match": True,
             "require_exact_provider_json": True,
+            "require_token_data": False,
+            "require_logprobs": False,
             "max_sequence_tokens": MAX_SEQUENCE_TOKENS,
         },
         "counts": {
@@ -900,6 +1232,8 @@ def _composite_body(
             "source_runs": 2,
             "retained_rows": 1,
             "recovery_rows": 1,
+            "trace_failures": 0,
+            "global_problems": 0,
         },
         "ordering": [
             {
@@ -929,6 +1263,8 @@ def _composite_body(
             "results": combined_results.record,
             "original_task_file": original_manifest.record,
             "recovery_task_file": recovery_task.record,
+            "recovery_config_template": source_artifacts["recovery_config_template"],
+            "recovery_config": source_artifacts["recovery_config"],
             "selection_attestation": selection_artifact.record,
             "original_results": source_artifacts["source_results"],
             "original_eval_run_identity": source_artifacts["source_eval_run_identity"],
@@ -962,6 +1298,15 @@ def _prepare_composite(
     )
     if not _source_compatible(original_source["identity"], recovery_identity):
         raise SmokeRecoveryError("source_execution_mismatch")
+    recovery_policy = selection_payload.get("recovery_policy")
+    recovery_source = recovery_identity.get("source")
+    if (
+        not isinstance(recovery_policy, dict)
+        or not isinstance(recovery_source, dict)
+        or recovery_source.get("project_root") != recovery_policy.get("project_root")
+        or recovery_source.get("prime_rl_commit") != recovery_policy.get("prime_rl_commit")
+    ):
+        raise SmokeRecoveryError("recovery_source_mismatch")
     original_config = _resolved_config(original_source["identity"], label="original_config")
     recovery_config = _resolved_config(recovery_identity, label="recovery_config")
     if canonical_json(_normalized_recovery_config(original_config)) != canonical_json(
@@ -969,10 +1314,15 @@ def _prepare_composite(
     ):
         raise SmokeRecoveryError("source_execution_mismatch")
     recovery_run_dir = Path(str(selection_payload.get("recovery", {}).get("run_dir")))
+    composite_dir = combined_results.path.parent
     if (
         not recovery_run_dir.is_absolute()
         or recovery_run_dir != recovery_checkpoint.path.parent
         or recovery_run_dir == original_source["run_dir"]
+        or combined_results.path != composite_dir / "results.jsonl"
+        or composite_dir.is_relative_to(original_source["run_dir"])
+        or composite_dir.is_relative_to(recovery_run_dir)
+        or composite_dir.is_relative_to(selection_artifact.path.parent)
     ):
         raise SmokeRecoveryError("recovery_namespace_mismatch")
     if recovery_identity["inputs"]["task_file"].get("sha256") != selection_payload["artifacts"][
@@ -1104,6 +1454,8 @@ def validate_composite_qualification(
     if (
         checkpoint.sha256 != qualification_sha256
         or stat.S_IMODE(checkpoint.path.stat(follow_symlinks=False).st_mode) != 0o444
+        or checkpoint.path.name != "smoke_checkpoint.json"
+        or stat.S_IMODE(checkpoint.path.parent.stat(follow_symlinks=False).st_mode) != 0o700
     ):
         raise SmokeRecoveryError("composite_checkpoint_invalid")
     payload = _strict_object(checkpoint.raw or b"", label="composite_checkpoint")
@@ -1120,6 +1472,11 @@ def validate_composite_qualification(
     if not isinstance(artifacts, dict):
         raise SmokeRecoveryError("composite_artifacts_invalid")
     results = _artifact_from_record(artifacts.get("results"), label="composite_results", read=True)
+    if (
+        results.path != checkpoint.path.parent / "results.jsonl"
+        or stat.S_IMODE(results.path.stat(follow_symlinks=False).st_mode) != 0o600
+    ):
+        raise SmokeRecoveryError("composite_results_invalid")
     selection = _artifact_from_record(artifacts.get("selection_attestation"), label="selection", read=True)
     recovery = _artifact_from_record(artifacts.get("recovery_smoke_checkpoint"), label="recovery_checkpoint", read=True)
     expected_body, recovery_checkpoint, recovery_identity, evidence = _prepare_composite(
@@ -1150,12 +1507,19 @@ def main(argv: list[str] | None = None) -> int:
     select.add_argument("--source-run-dir", type=Path, required=True)
     select.add_argument("--original-task-file", type=Path, required=True)
     select.add_argument("--original-task-file-sha256", required=True)
+    select.add_argument("--recovery-config-template", type=Path, required=True)
+    select.add_argument("--recovery-config-template-sha256", required=True)
+    select.add_argument("--recovery-project-root", type=Path, required=True)
     select.add_argument("--namespace", type=Path, required=True)
     verify = subparsers.add_parser("verify-launch")
     verify.add_argument("--selection", type=Path, required=True)
     verify.add_argument("--output-dir", type=Path, required=True)
     verify.add_argument("--task-file", type=Path, required=True)
     verify.add_argument("--task-file-sha256", required=True)
+    verify.add_argument("--config-file", type=Path, required=True)
+    verify.add_argument("--config-file-sha256", required=True)
+    verify.add_argument("--project-root", type=Path, required=True)
+    verify.add_argument("--expected-prime-rl-commit", required=True)
     verify.add_argument("--deployment-id", required=True)
     verify.add_argument("--deployment-spec", type=Path, required=True)
     verify.add_argument("--deployment-spec-sha256", required=True)
@@ -1163,6 +1527,12 @@ def main(argv: list[str] | None = None) -> int:
     verify.add_argument("--readiness-checkpoint-sha256", required=True)
     verify.add_argument("--proxy-info", type=Path, required=True)
     verify.add_argument("--proxy-info-sha256", required=True)
+    verify.add_argument("--vacli-bin", required=True)
+    verify.add_argument("--vacli-max-concurrent-leases", required=True)
+    verify.add_argument("--vacli-lease-retries", required=True)
+    verify.add_argument("--vacli-max-pull-retries", required=True)
+    verify.add_argument("--vacli-image-pull-timeout-seconds", required=True)
+    verify.add_argument("--vacli-container-privileged", required=True)
     combine = subparsers.add_parser("combine")
     combine.add_argument("--selection", type=Path, required=True)
     combine.add_argument("--recovery-checkpoint", type=Path, required=True)
@@ -1174,6 +1544,9 @@ def main(argv: list[str] | None = None) -> int:
                 args.source_run_dir,
                 args.original_task_file,
                 args.original_task_file_sha256,
+                args.recovery_config_template,
+                args.recovery_config_template_sha256,
+                args.recovery_project_root,
                 args.namespace,
             )
             output = {
@@ -1188,6 +1561,10 @@ def main(argv: list[str] | None = None) -> int:
                 args.output_dir,
                 args.task_file,
                 args.task_file_sha256,
+                args.config_file,
+                args.config_file_sha256,
+                project_root=args.project_root,
+                expected_prime_rl_commit=args.expected_prime_rl_commit,
                 deployment_id=args.deployment_id,
                 deployment_spec=args.deployment_spec,
                 deployment_spec_sha256=args.deployment_spec_sha256,
@@ -1195,6 +1572,12 @@ def main(argv: list[str] | None = None) -> int:
                 readiness_checkpoint_sha256=args.readiness_checkpoint_sha256,
                 proxy_info=args.proxy_info,
                 proxy_info_sha256=args.proxy_info_sha256,
+                vacli_bin=args.vacli_bin,
+                vacli_max_concurrent_leases=args.vacli_max_concurrent_leases,
+                vacli_lease_retries=args.vacli_lease_retries,
+                vacli_max_pull_retries=args.vacli_max_pull_retries,
+                vacli_image_pull_timeout_seconds=args.vacli_image_pull_timeout_seconds,
+                vacli_container_privileged=args.vacli_container_privileged,
             )
         else:
             payload = create_composite(

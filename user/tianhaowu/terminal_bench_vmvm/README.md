@@ -704,16 +704,29 @@ pair is launchable.
 A narrowly scoped timeout recovery is available only after a guarded two-task
 smoke has stopped writing and published its success receipt. Run
 `smoke_timeout_recovery.py select` against the externally hash-pinned original
-two-task manifest. It accepts exactly one strictly audited clean trace plus
-either one absent row or one literal `harness_timeout` row. It rejects every
-other error, infrastructure stop, duplicate, extra row, ambiguous task, or
-normalized provider response. The selector atomically creates a mode-0700
-namespace containing a mode-0400 one-line approval and a mode-0444 self-hashed
-attestation; its stdout and errors contain aggregate counts and digests only.
+two-task manifest, the hash-pinned `tb4_kimi_k3_recovery12h.toml` template, and
+the exact clean `PROJECT_DIR` recorded by the source run. The selector
+materializes `config.toml` with the derived one-task file path and digest before
+snapshotting, so `snapshot_eval_inputs.py` and `validate_task_approval.py`
+validate the same one-task approval. It accepts exactly one strictly audited
+clean trace plus either one absent row or one literal `harness_timeout` row. It
+rejects every other error, infrastructure stop, duplicate, extra row, ambiguous
+task, or normalized provider response. The selector atomically creates a
+mode-0700 namespace containing a mode-0400 one-line approval and a mode-0444
+self-hashed attestation; its stdout and errors contain aggregate counts and
+digests only.
+The attestation requires the recovery source to have the exact same Prime-RL,
+Verifiers, Renderers, and VMVM revisions as the original run. It also binds a
+per-file SHA-256 map and aggregate digest for the workflow Python/shell/Slurm
+code and VMVM Python package. If the original source predates this recovery
+policy, the one-task path is intentionally ineligible and the fresh-two path is
+required.
 
 Launch the reviewed `run_kimi_smoke_recovery.sbatch` from the authorized Slurm
 launcher with `KIMI_SMOKE_RECOVERY_MODE=one`, the selection path, and a fresh
-`OUTPUT_DIR` equal to the attested `<selection-namespace>/run`. `RESUME_DIR`
+`OUTPUT_DIR` equal to the attested `<selection-namespace>/run`. The wrapper
+uses the attested `<selection-namespace>/config.toml`, never the unmodified
+template. `RESUME_DIR`
 must be absent, not merely empty. This lane uses
 `tb4_kimi_k3_recovery12h.toml`: one task, one rollout/HTTP/VMVM slot, 262,144
 tokens, 43,200-second evaluator/model/rollout/session limits, and a 48-hour
@@ -731,6 +744,27 @@ If selection is not uniquely eligible, use the same wrapper with
 `tb4_kimi_k3_fresh_smoke12h.toml` reruns both pinned tasks with two aligned
 rollout/HTTP/VMVM slots and the same 12-hour limits. Neither path reuses or
 modifies the incomplete run.
+
+Selection is a read-only operation on the completed source run. Supply a new
+namespace outside both run directories:
+
+```bash
+uv run --project user/tianhaowu/terminal_bench_vmvm \
+  python user/tianhaowu/terminal_bench_vmvm/smoke_timeout_recovery.py select \
+  --source-run-dir /path/to/completed-two-task-run \
+  --original-task-file /path/to/pinned-two-task-manifest \
+  --original-task-file-sha256 <two-task-manifest-sha256> \
+  --recovery-config-template user/tianhaowu/terminal_bench_vmvm/configs/eval/tb4_kimi_k3_recovery12h.toml \
+  --recovery-config-template-sha256 <template-sha256> \
+  --recovery-project-root "$PWD" \
+  --namespace /path/to/new-selection-namespace
+```
+
+The subsequent Slurm submission must execute
+`run_kimi_smoke_recovery.sbatch` from that same clean project root and bind the
+same `EVAL_EXPECTED_PRIME_RL_REVISION`; the wrapper rejects a copied launcher,
+changed policy closure, mismatched VMVM settings, changed route artifacts, an
+existing run/composite path, or any `RESUME_DIR` entry.
 
 The policy file is scoped to its readiness generation: a deliberate resize may
 rewrite both live policy files, so the sharded TB4 finalizer privately snapshots
