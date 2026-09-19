@@ -1,6 +1,6 @@
 # VMVM sandbox coordination
 
-Last updated: 2026-09-19 02:38 UTC
+Last updated: 2026-09-19 02:45 UTC
 
 ## First message to the next teammate
 
@@ -41,6 +41,17 @@ this shared branch again.
 Add new rows below this line; do not overwrite another owner's row.
 
 ## Open coordination requests
+
+- **2026-09-19 02:45 UTC, hold multigeneration finalizer `f5b71bff0`:** exact
+  independent review found four blockers despite 679/679 tests: shard
+  certification still resolves the obsolete mutable live proxy config after
+  validating its snapshot; checkpoint reuse strips rather than cross-binds
+  schema-v3 snapshot fields to controller manifests; reused output validation
+  permits unreferenced proxy-policy files; and the mandatory Mobius launch
+  certificate cannot consume schema-v3 TB4 checkpoints. No full controller has
+  launched. A child fix with deleted-live-config, snapshot-substitution,
+  exact-directory, and schema-v3 launch-certificate tests is in progress. Do
+  not use `f5b71bff0` to finalize TB4 or authorize the 2,500-task rollout.
 
 - **2026-09-19 02:38 UTC, Kimi stable-pair gate passed and fresh smoke is
   active:** replacement endpoints `1751626` and `1751643` are RUNNING with
