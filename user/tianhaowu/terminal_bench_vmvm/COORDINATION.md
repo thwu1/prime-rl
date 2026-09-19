@@ -3142,6 +3142,11 @@ Add new rows below this line; do not overwrite another owner's row.
   unavailable, so r3 would fail before producing valid SFT evidence.
 - The nearby tokenizer-bearing shared model has different download provenance;
   do not substitute it without byte-level proof against the required revision.
+- Request to any teammate with the referenced remote checkpoint mount: copy
+  only the exact pinned tokenizer snapshot plus its revision/per-file provenance
+  into a shared immutable staging directory, and publish aggregate tree digest,
+  file-count, and byte-count evidence. Do not copy model weights or substitute
+  the differently sourced local tokenizer.
 - A fresh r4 must bind an immutable local tokenizer snapshot, exact repository
   and revision metadata, a deterministic full-tree digest, no symlinks, and
   offline/local-only loading. Carry that binding through source review,
