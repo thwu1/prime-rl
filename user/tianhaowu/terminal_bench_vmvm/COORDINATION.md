@@ -1,6 +1,6 @@
 # VMVM sandbox coordination
 
-Last updated: 2026-09-19 02:45 UTC
+Last updated: 2026-09-19 02:49 UTC
 
 ## First message to the next teammate
 
@@ -41,6 +41,16 @@ this shared branch again.
 Add new rows below this line; do not overwrite another owner's row.
 
 ## Open coordination requests
+
+- **2026-09-19 02:49 UTC, finalizer hold does not invalidate the armed first
+  TB4 chunk:** the live fresh-smoke-to-singleton and singleton-to-shards-1..8
+  watchers were rechecked after the `f5b71bff0` hold. They invoke only frozen
+  controller source `587667f02`, contain no reference to `f5b71bff0` or its
+  checkout, and create separate fresh singleton and shards-1..8 controller
+  roots; they neither finalize multigeneration history nor authorize Mobius
+  production. Keep those fail-closed watchers armed while smoke `1751652`
+  runs. Hold every later cross-generation merge/finalization and production
+  certificate on the replacement finalizer review.
 
 - **2026-09-19 02:45 UTC, hold multigeneration finalizer `f5b71bff0`:** exact
   independent review found four blockers despite 679/679 tests: shard
