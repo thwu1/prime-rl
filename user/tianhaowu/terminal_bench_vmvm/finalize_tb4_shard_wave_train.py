@@ -617,6 +617,7 @@ def _load_and_validate_checkpoint(
     validated = validate_sharded_checkpoint(
         value,
         deployment_id=prepared.config.deployment_id,
+        artifact_root=output,
     )
     endpoint_sha256 = hashlib.sha256(canonical_json(prepared.route_binding.endpoint)).hexdigest()
     proxy_policy_sha256 = hashlib.sha256(canonical_json(prepared.route_binding.proxy_policy)).hexdigest()
@@ -848,6 +849,7 @@ def _load_and_validate_multigen_checkpoint(
     validated = validate_multigen_sharded_checkpoint(
         value,
         deployment_id=prepared.config.deployment_id,
+        artifact_root=output,
     )
     proxy_policy = dict(prepared.route_binding.proxy_policy)
     proxy_policy.pop("proxy_litellm_config", None)

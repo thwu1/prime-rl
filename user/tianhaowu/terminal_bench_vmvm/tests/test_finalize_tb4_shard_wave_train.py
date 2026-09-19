@@ -1079,10 +1079,22 @@ def test_reuse_accepts_exact_local_checkpoint_artifacts(
     value = _multi_value(evidence, prepared, output) if multigen else _checkpoint_value(evidence, prepared, output)
     raw = _write_output(output, value, multigen=multigen)
     validated = _validated_multi(prepared, evidence) if multigen else _validated(prepared)
+
+    def validate(
+        checkpoint: dict,
+        *,
+        deployment_id: str,
+        artifact_root: Path,
+    ) -> dict:
+        assert checkpoint == value
+        assert deployment_id == prepared.config.deployment_id
+        assert artifact_root == output
+        return validated
+
     monkeypatch.setattr(
         finalizer,
         "validate_multigen_sharded_checkpoint" if multigen else "validate_sharded_checkpoint",
-        lambda *_args, **_kwargs: validated,
+        validate,
     )
 
     observed, observed_raw = _load_reused_checkpoint(
@@ -1097,12 +1109,12 @@ def test_reuse_accepts_exact_local_checkpoint_artifacts(
 
 
 @pytest.mark.parametrize("multigen", [False, True], ids=["schema2", "schema3"])
-@pytest.mark.parametrize("attack", ["external_parent", "external_policy", "symlink", "path_alias"])
+@pytest.mark.parametrize("layout", ["external_parent", "external_policy", "symlink", "path_alias"])
 def test_reuse_rejects_checkpoint_artifacts_outside_exact_output_members(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
     multigen: bool,
-    attack: str,
+    layout: str,
 ) -> None:
     prepared = _prepared(tmp_path)
     evidence = _evidence(tmp_path, prepared)
@@ -1112,7 +1124,7 @@ def test_reuse_rejects_checkpoint_artifacts_outside_exact_output_members(
     value = _multi_value(evidence, prepared, output) if multigen else _checkpoint_value(evidence, prepared, output)
     artifacts = value["artifacts"]
     external = tmp_path / "external"
-    if attack in {"external_parent", "external_policy"}:
+    if layout in {"external_parent", "external_policy"}:
         external.mkdir(mode=0o700)
         payloads = (
             {
@@ -1120,10 +1132,10 @@ def test_reuse_rejects_checkpoint_artifacts_outside_exact_output_members(
                 "audit_summary": ("audit_summary.json", b"{}\n"),
                 "deployment_spec": ("deployment_spec_policy.json", b"{}\n"),
             }
-            if attack == "external_parent"
+            if layout == "external_parent"
             else {}
         )
-        if not multigen and attack in {"external_parent", "external_policy"}:
+        if not multigen and layout in {"external_parent", "external_policy"}:
             payloads["proxy_policy"] = ("proxy_policy.json", b"{}\n")
         for key, (name, payload) in payloads.items():
             path = external / name
@@ -1145,10 +1157,10 @@ def test_reuse_rejects_checkpoint_artifacts_outside_exact_output_members(
                 }
             for shard in value["shards"]:
                 shard["proxy_policy_artifact"] = policy_artifacts[shard["proxy_policy_sha256"]]
-    elif attack == "path_alias":
+    elif layout == "path_alias":
         artifacts["results"]["path"] = str(output / ".." / output.name / "results.jsonl")
     _write_output(output, value, multigen=multigen)
-    if attack == "symlink":
+    if layout == "symlink":
         external.mkdir(mode=0o700)
         external_result = external / "results.jsonl"
         external_result.write_text("results\n")
@@ -1159,9 +1171,7 @@ def test_reuse_rejects_checkpoint_artifacts_outside_exact_output_members(
     monkeypatch.setattr(
         finalizer,
         "validate_multigen_sharded_checkpoint" if multigen else "validate_sharded_checkpoint",
-        lambda *_args, **_kwargs: (_ for _ in ()).throw(
-            AssertionError("validator must not read substituted artifacts")
-        ),
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(AssertionError("validator must not read relocated artifacts")),
     )
 
     with pytest.raises(
@@ -1176,11 +1186,11 @@ def test_reuse_rejects_checkpoint_artifacts_outside_exact_output_members(
         )
 
 
-@pytest.mark.parametrize("attack", ["external", "path_alias", "symlink"])
+@pytest.mark.parametrize("layout", ["external", "path_alias", "symlink"])
 def test_schema3_reuse_rejects_one_unbound_shard_policy_before_validator(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
-    attack: str,
+    layout: str,
 ) -> None:
     prepared = _prepared(tmp_path)
     evidence = finalizer._combined_multigen_evidence(((prepared, _evidence(tmp_path, prepared)),))
@@ -1192,9 +1202,9 @@ def test_schema3_reuse_rejects_one_unbound_shard_policy_before_validator(
     for shard in value["shards"]:
         shard["proxy_policy_artifact"]["sha256"] = policy_sha256
     expected_policy = Path(policy["path"])
-    if attack == "external":
+    if layout == "external":
         external_policy = tmp_path / "external-policy.json"
-    elif attack == "path_alias":
+    elif layout == "path_alias":
         external_policy = output / ".." / output.name / expected_policy.name
     else:
         external_policy = tmp_path / "policy-symlink.json"
@@ -1203,10 +1213,10 @@ def test_schema3_reuse_rejects_one_unbound_shard_policy_before_validator(
         "sha256": policy_sha256,
     }
     _write_output(output, value, multigen=True)
-    if attack == "external":
+    if layout == "external":
         external_policy.write_bytes(b"{}\n")
         external_policy.chmod(0o600)
-    elif attack == "symlink":
+    elif layout == "symlink":
         external_policy.symlink_to(expected_policy)
     monkeypatch.setattr(
         finalizer,

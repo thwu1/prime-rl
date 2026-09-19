@@ -76,11 +76,11 @@ def test_sharded_tb4_checkpoint_uses_isolated_validator(monkeypatch: pytest.Monk
         "supported_passes": 4,
         "sharded": True,
     }
-    calls: list[str] = []
+    calls: list[tuple[str, Path]] = []
 
-    def validate(value: dict, *, deployment_id: str) -> dict:
+    def validate(value: dict, *, deployment_id: str, artifact_root: Path) -> dict:
         assert value == {"schema_version": 2}
-        calls.append(deployment_id)
+        calls.append((deployment_id, artifact_root))
         return expected
 
     monkeypatch.setattr(certificate_module, "validate_sharded_checkpoint", validate)
@@ -89,10 +89,11 @@ def test_sharded_tb4_checkpoint_uses_isolated_validator(monkeypatch: pytest.Monk
             {"schema_version": 2},
             "deployment-test",
             {},
+            Path("/private/tb4"),
         )
         == expected
     )
-    assert calls == ["deployment-test"]
+    assert calls == [("deployment-test", Path("/private/tb4"))]
 
 
 def test_multigen_sharded_tb4_checkpoint_uses_schema3_validator(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -110,11 +111,11 @@ def test_multigen_sharded_tb4_checkpoint_uses_schema3_validator(monkeypatch: pyt
         "supported_passes": 4,
         "sharded": True,
     }
-    calls: list[str] = []
+    calls: list[tuple[str, Path]] = []
 
-    def validate(value: dict, *, deployment_id: str) -> dict:
+    def validate(value: dict, *, deployment_id: str, artifact_root: Path) -> dict:
         assert value == {"schema_version": 3}
-        calls.append(deployment_id)
+        calls.append((deployment_id, artifact_root))
         return expected
 
     monkeypatch.setattr(certificate_module, "validate_multigen_sharded_checkpoint", validate)
@@ -124,8 +125,16 @@ def test_multigen_sharded_tb4_checkpoint_uses_schema3_validator(monkeypatch: pyt
         lambda *_args, **_kwargs: (_ for _ in ()).throw(AssertionError("schema-v2 validator called")),
     )
 
-    assert certificate_module._validate_tb4_checkpoint({"schema_version": 3}, "deployment-test", {}) == expected
-    assert calls == ["deployment-test"]
+    assert (
+        certificate_module._validate_tb4_checkpoint(
+            {"schema_version": 3},
+            "deployment-test",
+            {},
+            Path("/private/tb4"),
+        )
+        == expected
+    )
+    assert calls == [("deployment-test", Path("/private/tb4"))]
 
 
 @pytest.mark.parametrize(
@@ -158,6 +167,7 @@ def test_tb4_checkpoint_schema_version_rejects_non_integer_json_types(
             {"schema_version": schema_version},
             "deployment-test",
             {},
+            Path("/private/tb4"),
         )
 
 
@@ -181,6 +191,7 @@ def test_sharded_tb4_validator_requires_exactly_one_route(
             {"schema_version": schema_version},
             "deployment-test",
             {},
+            Path("/private/tb4"),
         )
 
 
@@ -1314,11 +1325,12 @@ def test_create_and_reconstruct_launch_certificate_with_sharded_tb4(
         "supported_passes": 4,
         "sharded": True,
     }
-    monkeypatch.setattr(
-        certificate_module,
-        "_validate_tb4_checkpoint",
-        lambda _value, _deployment_id, _endpoint: sharded,
-    )
+
+    def validate_tb4(_value: dict, _deployment_id: str, _endpoint: dict, artifact_root: Path) -> dict:
+        assert artifact_root == Path(arguments["tb4_checkpoint"]).resolve().parent
+        return sharded
+
+    monkeypatch.setattr(certificate_module, "_validate_tb4_checkpoint", validate_tb4)
 
     certificate = create_launch_certificate(**arguments)
     gate = certificate["gates"]["tb4"]
@@ -1350,11 +1362,12 @@ def test_create_and_reconstruct_launch_certificate_with_schema3_sharded_tb4(
         "supported_passes": 4,
         "sharded": True,
     }
-    monkeypatch.setattr(
-        certificate_module,
-        "_validate_tb4_checkpoint",
-        lambda _value, _deployment_id, _endpoint: sharded,
-    )
+
+    def validate_tb4(_value: dict, _deployment_id: str, _endpoint: dict, artifact_root: Path) -> dict:
+        assert artifact_root == Path(arguments["tb4_checkpoint"]).resolve().parent
+        return sharded
+
+    monkeypatch.setattr(certificate_module, "_validate_tb4_checkpoint", validate_tb4)
 
     certificate = create_launch_certificate(**arguments)
     gate = certificate["gates"]["tb4"]
