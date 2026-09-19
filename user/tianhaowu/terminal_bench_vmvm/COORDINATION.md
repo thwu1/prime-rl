@@ -1,6 +1,6 @@
 # VMVM sandbox coordination
 
-Last updated: 2026-09-19 21:53 UTC
+Last updated: 2026-09-19 22:03 UTC
 
 ## First message to the next teammate
 
@@ -41,6 +41,19 @@ this shared branch again.
 Add new rows below this line; do not overwrite another owner's row.
 
 ## Open coordination requests
+
+- **2026-09-19 22:03 UTC, serving relaunch remains blocked after retry review:**
+  `fairinternal/ram_common` commit `d79e1c5f21dcb31551a89635070003384e26236c`
+  safely bounds and narrowly retries private-ECR `podman login`, and its 241
+  shell checks plus 769 unit tests / 329 subtests pass. It does not protect the
+  actual cold image pull: `podman run` still performs one implicit, unbounded
+  pull with no retry, while its test stub always succeeds for `run`. A transient
+  DNS failure after login can therefore kill the same fresh generation, and
+  the registry auth file has no signal/failure cleanup on that path. Do not arm
+  watcher v4/v5 or submit another deployment from this commit. A fresh child
+  must explicitly perform a bounded/retried pull of the frozen image on every
+  node, remove auth, run with `--pull=never`, add signal-safe cleanup, and test
+  transient recovery, exhaustion, timeout, no-run-on-failure, and redaction.
 
 - **2026-09-19 21:53 UTC, independent continuation review:** both fresh Kimi
   deployment attempts are terminal and archived. Jobs `1756787`/`1756798`/
