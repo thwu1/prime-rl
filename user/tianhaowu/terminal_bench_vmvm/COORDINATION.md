@@ -1,6 +1,6 @@
 # VMVM sandbox coordination
 
-Last updated: 2026-09-19 20:56 UTC
+Last updated: 2026-09-19 21:01 UTC
 
 ## First message to the next teammate
 
@@ -41,6 +41,21 @@ this shared branch again.
 Add new rows below this line; do not overwrite another owner's row.
 
 ## Open coordination requests
+
+- **2026-09-19 21:01 UTC, production trace certificate v7 rejected:** frozen
+  inert commit `bec125048` (tree `d19e16dc5`) passes 77 targeted and 697 related
+  tests, and its 2,500/exact-24/256K/max-reasoning/timeout/trace-retention
+  contract is otherwise coherent. Independent review nevertheless reproduced
+  two pre-execution TOCTOU blockers. First, a protected import replaced by a
+  symlink can resolve outside the protected tree and fall through to an ordinary
+  loader, executing unmanifested code before later validation. Second, the
+  submit controller discards the fresh reservation inode, so a rename/recreate
+  between lifecycle phases is accepted by later writes and sealing. Keep v7
+  immutable, unmerged, and unarmed. Fresh v8 must enforce lexical plus resolved
+  import confinement with no protected-path fallback, retain a parent/root
+  directory-FD identity through all irreversible gates, bind that identity in
+  batch admission, and add zero-execution import-swap plus between-phase and
+  post-release reservation-swap regressions.
 
 - **2026-09-19 20:56 UTC, V21 oracle terminal and runtime failure localized:**
   job `1756683` completed all 19 durable rows but failed acceptance with zero
