@@ -26,8 +26,10 @@ the following remain true for six samples spanning at least 120 seconds:
 - one plan-bound global recovery lock is held with the writer lock through
   every fallible gate, fsync, and publication step;
 - the guard-linked original run's identity, invocation, results, guard receipt,
-  exact task file, and exact config file are captured once under stable file
-  descriptors; the run is fresh (`resume=false`), contains exactly two
+  exact input snapshots, provenance, concurrency telemetry, task file, and
+  config files are captured once under stable file descriptors; every run-local
+  parser consumes only those captured bytes, so pathname swap/restore cannot
+  influence eligibility; the run is fresh (`resume=false`), contains exactly two
   uniquely mapped rows in durable order (one strict clean row followed by one
   completed, single-error `harness_timeout` row), and its four durable
   attestation artifacts do not change; this shape is explicitly ineligible for
@@ -65,8 +67,10 @@ Every failure after a job ID is known enters exact-ID cancellation, including
 signals and reconciliation failures. An explicit JobId, JobName, UserId,
 Command, Comment, or WorkDir conflict permits zero scheduler controls. The sole
 fallback permits one exact-ID cancel only for the direct `sbatch --parsable`
-candidate after bounded identity unavailability. Success still requires empty
-allocation and step queues, all accounting rows terminal, six stable terminal
+candidate after bounded identity unavailability. Signals are masked across each
+identity observation until every detected conflict reaches the launch-lifetime
+no-control latch. Success still requires empty allocation and step queues, all
+accounting rows terminal, six stable terminal
 views, a full-minute zero-extra-name proof, and an empty local sbatch process
 group. A missing or ambiguous submission receives the full-minute proof or
 remains unproven. Private

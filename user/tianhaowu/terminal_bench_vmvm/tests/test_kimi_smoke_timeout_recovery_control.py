@@ -251,6 +251,52 @@ def test_phase_query_failure_retains_an_earlier_explicit_conflict() -> None:
     assert result["explicit_conflict_fields"] == ["UserId"]
 
 
+def test_signal_after_observed_conflict_reaches_cleanup_latch() -> None:
+    class ConflictThenSignal(PhaseRunner):
+        def __call__(self, argv: list[str] | tuple[str, ...], timeout: float) -> control.CommandResult:
+            if argv[0] == "/usr/bin/squeue" and "--steps" not in argv:
+                self.calls.append(tuple(argv))
+                raise control.LaunchInterrupted(control.signal.SIGTERM)
+            return super().__call__(argv, timeout)
+
+    phase_runner = ConflictThenSignal(held=True, conflicting_user=True)
+    conflict_latch: set[str] = set()
+    with pytest.raises(control.LaunchInterrupted):
+        control._poll_identity(
+            _plan(),
+            "123",
+            JOB_NAME,
+            held=True,
+            timeout=10,
+            runner=phase_runner,
+            sleeper=lambda _seconds: None,
+            clock=Clock(),
+            conflict_latch=conflict_latch,
+        )
+
+    cleanup_calls: list[tuple[str, ...]] = []
+
+    def cleanup_runner(argv: list[str] | tuple[str, ...], _timeout: float) -> control.CommandResult:
+        cleanup_calls.append(tuple(argv))
+        return control.CommandResult(0, "", "")
+
+    with pytest.raises(control.LifecycleError, match="cancellation_unconfirmed") as raised:
+        control.cancel_after_failure(
+            "123",
+            JOB_NAME,
+            _plan(),
+            direct_provenance=True,
+            conflict_seen=conflict_latch,
+            runner=cleanup_runner,
+            sleeper=lambda _seconds: None,
+            clock=Clock(),
+        )
+
+    assert conflict_latch == {"UserId"}
+    assert raised.value.cancellation["cancel_attempts"] == 0
+    assert cleanup_calls == []
+
+
 def test_phase_certificate_rejects_conflict_even_if_marked_converged() -> None:
     value = {
         "converged": True,
@@ -915,6 +961,76 @@ def test_import_state_restoration_is_exact() -> None:
         assert sys.dont_write_bytecode is state.dont_write_bytecode
     finally:
         control.restore_import_state(state)
+
+
+@pytest.mark.parametrize("parser", ["results", "guard"])
+def test_pinned_source_parser_ignores_swap_after_validation(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    parser: str,
+) -> None:
+    run_dir = tmp_path.resolve()
+    path = run_dir / ("results.jsonl" if parser == "results" else "route_guard_success.json")
+    path.write_bytes(b"pinned\n")
+    alternate = run_dir / "alternate"
+    alternate.write_bytes(b"alternate\n")
+    held = run_dir / "held"
+    pinned_file = control.pin_file(path.resolve(), code="test", uid=os.getuid())
+    real_validate = pinned_file.validate
+    swapped = False
+
+    def swap_after_validate(*, code: str) -> None:
+        nonlocal swapped
+        real_validate(code=code)
+        os.replace(path, held)
+        os.replace(alternate, path)
+        swapped = True
+
+    pinned_file.validate = swap_after_validate  # type: ignore[method-assign]
+    pinned = {parser: pinned_file}
+    recovery_module = ModuleType("synthetic_recovery")
+    identity_module = ModuleType("eval_run_identity")
+    guard_module = ModuleType("guard_success_receipt")
+    telemetry_module = ModuleType("vmvm_tb_v2._vacli.concurrency_telemetry")
+    recovery_module.FileArtifact = SimpleNamespace  # type: ignore[attr-defined]
+
+    def forbidden_path_parse(*_args: Any, **_kwargs: Any) -> Any:
+        raise AssertionError("unpinned pathname parser executed")
+
+    recovery_module._artifact = forbidden_path_parse  # type: ignore[attr-defined]
+    identity_module.MAX_METADATA_BYTES = 1024  # type: ignore[attr-defined]
+    identity_module._read_bytes = forbidden_path_parse  # type: ignore[attr-defined]
+    identity_module._sha256_file = forbidden_path_parse  # type: ignore[attr-defined]
+    identity_module._artifact = forbidden_path_parse  # type: ignore[attr-defined]
+    identity_module._resolved_file = forbidden_path_parse  # type: ignore[attr-defined]
+    identity_module._input_identity = forbidden_path_parse  # type: ignore[attr-defined]
+    identity_module._verify_config_and_inputs = forbidden_path_parse  # type: ignore[attr-defined]
+    identity_module._parse_provenance = forbidden_path_parse  # type: ignore[attr-defined]
+    guard_module._stable_read_bytes = forbidden_path_parse  # type: ignore[attr-defined]
+    guard_module.stable_sha256_file = forbidden_path_parse  # type: ignore[attr-defined]
+    guard_module.load_concurrency_telemetry_artifact = forbidden_path_parse  # type: ignore[attr-defined]
+    telemetry_module.SCHEMA_VERSION = 1  # type: ignore[attr-defined]
+    telemetry_module._OBSERVATION_KEYS = set()  # type: ignore[attr-defined]
+    monkeypatch.setitem(sys.modules, "eval_run_identity", identity_module)
+    monkeypatch.setitem(sys.modules, "guard_success_receipt", guard_module)
+    monkeypatch.setitem(sys.modules, "vmvm_tb_v2._vacli.concurrency_telemetry", telemetry_module)
+    try:
+        with control.pinned_source_reads(recovery_module, pinned, run_dir):
+            if parser == "results":
+                observed = recovery_module._artifact(path, label="source_results", read=True).raw  # type: ignore[attr-defined]
+            else:
+                _resolved, observed, _digest = guard_module._stable_read_bytes(  # type: ignore[attr-defined]
+                    path,
+                    label="guard_receipt",
+                    limit=1024,
+                )
+        assert swapped is True
+        assert observed == b"pinned\n"
+    finally:
+        if swapped:
+            os.replace(path, alternate)
+            os.replace(held, path)
+        pinned_file.close()
 
 
 def test_exclusive_name_proof_spans_full_minute(monkeypatch: pytest.MonkeyPatch) -> None:

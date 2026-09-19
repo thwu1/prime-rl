@@ -30,7 +30,8 @@ import urllib.error
 import urllib.parse
 import urllib.request
 from collections import Counter
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Callable, Iterator, Mapping, Sequence
+from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path, PurePosixPath
@@ -1599,20 +1600,460 @@ def _pin_source_artifacts(plan: Mapping[str, Any]) -> dict[str, PinnedFile]:
         "config_file": Path(records["config_file"]["path"]),
     }
     pinned: dict[str, PinnedFile] = {}
+
+    def add(
+        name: str,
+        path: Path,
+        *,
+        record: Mapping[str, Any] | None = None,
+        mode: int | None = None,
+    ) -> None:
+        if name in pinned or any(item.artifact.path == path for item in pinned.values()):
+            fail("source_run_invalid")
+        expected = _artifact_record(record, code="source_run_invalid") if record is not None else None
+        if expected is not None and str(path) != expected["path"]:
+            fail("source_run_invalid")
+        item = pin_file(path, code="source_run_invalid", mode=mode, uid=OWNER_UID)
+        if expected is not None and item.artifact.sha256 != expected["sha256"]:
+            item.close()
+            fail("source_run_invalid")
+        pinned[name] = item
+
     try:
         for name, path in names.items():
-            record = _artifact_record(records[name], code="source_run_invalid")
-            if str(path) != record["path"]:
-                fail("source_run_invalid")
-            item = pin_file(path, code="source_run_invalid", uid=OWNER_UID)
-            if item.artifact.sha256 != record["sha256"]:
-                fail("source_run_invalid")
-            pinned[name] = item
+            add(name, path, record=records[name])
+
+        identity_envelope = strict_json(pinned["eval_run_identity"].artifact.raw, code="source_run_invalid")
+        identity = identity_envelope.get("identity")
+        config = identity.get("config") if isinstance(identity, dict) else None
+        inputs = identity.get("inputs") if isinstance(identity, dict) else None
+        if not isinstance(config, dict) or not isinstance(inputs, dict):
+            fail("source_run_invalid")
+        source_config = _artifact_record(config.get("source"), code="source_run_invalid")
+        resolved_config = _artifact_record(config.get("resolved"), code="source_run_invalid")
+        input_manifest = _artifact_record(inputs.get("manifest"), code="source_run_invalid")
+        task = inputs.get("task_file")
+        image_manifest_value = inputs.get("image_manifest")
+        if not isinstance(task, dict) or set(task) != {"count", "path", "sha256"} or type(task.get("count")) is not int:
+            fail("source_run_invalid")
+        task_artifact = _artifact_record(
+            {"path": task.get("path"), "sha256": task.get("sha256")},
+            code="source_run_invalid",
+        )
+        if (
+            source_config != records["config_file"]
+            or task_artifact != records["task_file"]
+            or Path(source_config["path"]) != run_dir / "inputs/source_config.toml"
+            or Path(task_artifact["path"]) != run_dir / "inputs/task_file.txt"
+        ):
+            fail("source_run_invalid")
+        add(
+            "resolved_config",
+            run_dir / "config.toml",
+            record=resolved_config,
+        )
+        add(
+            "input_manifest",
+            run_dir / "inputs/manifest.json",
+            record=input_manifest,
+        )
+        if image_manifest_value is not None:
+            add(
+                "image_manifest",
+                run_dir / "inputs/image_manifest.json",
+                record=_artifact_record(image_manifest_value, code="source_run_invalid"),
+            )
+        add("provenance", run_dir / "provenance.txt")
+
+        receipt = strict_json(pinned["route_guard_success"].artifact.raw, code="source_run_invalid")
+        receipt_artifacts = receipt.get("artifacts")
+        schema_version = receipt.get("schema_version")
+        if schema_version not in {1, 2} or not isinstance(receipt_artifacts, dict):
+            fail("source_run_invalid")
+        if schema_version == 2:
+            add(
+                "concurrency_telemetry",
+                run_dir / "concurrency_telemetry.json",
+                record=receipt_artifacts.get("concurrency_telemetry"),
+                mode=0o400,
+            )
         return pinned
     except BaseException:
         for item in pinned.values():
             item.close()
         raise
+
+
+def _pinned_source_artifact(
+    path: Path,
+    *,
+    run_dir: Path,
+    pinned: Mapping[str, PinnedFile],
+) -> StableFile | None:
+    candidate = Path(os.path.normpath(os.fspath(path)))
+    if not candidate.is_absolute():
+        fail("source_unpinned_read")
+    for item in pinned.values():
+        if candidate == item.artifact.path:
+            item.validate(code="source_artifacts_changed")
+            return item.artifact
+    if candidate == run_dir or candidate.is_relative_to(run_dir):
+        fail("source_unpinned_read")
+    return None
+
+
+def _validate_pinned_concurrency_telemetry(
+    raw: bytes,
+    artifact: StableFile,
+    *,
+    eval_run_identity_sha256: str,
+    eval_run_role: str,
+    slurm_job_id: str,
+    telemetry_module: Any,
+) -> tuple[dict[str, Any], dict[str, str]]:
+    value = strict_json(raw, code="source_run_invalid")
+    expected_keys = {
+        "concurrency_telemetry_sha256",
+        "eval_run_identity_sha256",
+        "eval_run_role",
+        "measurement_scope",
+        "observations",
+        "process_id",
+        "schema_version",
+        "slurm_job_id",
+        "state",
+    }
+    observations = value.get("observations")
+    body = {key: item for key, item in value.items() if key != "concurrency_telemetry_sha256"}
+    if (
+        set(value) != expected_keys
+        or value.get("schema_version") != telemetry_module.SCHEMA_VERSION
+        or value.get("state") != "complete"
+        or value.get("eval_run_identity_sha256") != eval_run_identity_sha256
+        or value.get("eval_run_role") != eval_run_role
+        or value.get("slurm_job_id") != slurm_job_id
+        or type(value.get("process_id")) is not int
+        or value["process_id"] < 1
+        or value.get("measurement_scope") != "single_evaluator_process"
+        or not isinstance(observations, dict)
+        or set(observations) != set(telemetry_module._OBSERVATION_KEYS)
+        or value.get("concurrency_telemetry_sha256") != sha256_bytes(canonical_json(body))
+    ):
+        fail("source_run_invalid")
+    if any(type(item) is not int or item < 0 for item in observations.values()):
+        fail("source_run_invalid")
+    if (
+        observations["counter_violations"] != 0
+        or observations["active_vmvm_runtimes_at_publish"] != 0
+        or observations["lease_startups_at_publish"] != 0
+        or observations["vmvm_runtime_starts"] < 1
+        or observations["vmvm_runtime_starts"] != observations["vmvm_runtime_stops"]
+        or observations["vmvm_runtime_ready"] > observations["vmvm_runtime_starts"]
+        or observations["lease_start_attempts"] < 1
+        or observations["lease_start_attempts"] != observations["lease_start_finishes"]
+        or observations["lease_start_attempts"] < observations["vmvm_runtime_starts"]
+        or observations["lease_tunnels_ready"] < observations["vmvm_runtime_ready"]
+        or not 1 <= observations["peak_active_vmvm_runtimes"] <= observations["vmvm_runtime_starts"]
+        or not 1 <= observations["peak_concurrent_lease_startups"] <= observations["lease_start_attempts"]
+    ):
+        fail("source_run_invalid")
+    return value, artifact.record
+
+
+def load_pinned_source_run(
+    recovery_module: Any,
+    run_dir: Path,
+    pinned: Mapping[str, PinnedFile],
+) -> dict[str, Any]:
+    """Reproduce the reviewed source loader using only pinned run bytes."""
+
+    identity_artifact = pinned["eval_run_identity"].artifact
+    results_artifact = pinned["results"].artifact
+    receipt_artifact = pinned["route_guard_success"].artifact
+    invocations_artifact = pinned["eval_invocations"].artifact
+    envelope_value = recovery_module.load_eval_run_identity(
+        identity_artifact.path,
+        verify_references=True,
+    )
+    receipt = recovery_module.load_guard_success_receipt(receipt_artifact.path)
+    identity = envelope_value.get("identity") if isinstance(envelope_value, dict) else None
+    identity_sha256 = envelope_value.get("eval_run_identity_sha256") if isinstance(envelope_value, dict) else None
+    deployment = identity.get("deployment") if isinstance(identity, dict) else None
+    if (
+        not isinstance(identity, dict)
+        or not isinstance(identity_sha256, str)
+        or identity.get("role") != "smoke"
+        or not isinstance(deployment, dict)
+    ):
+        fail("source_run_invalid")
+    linked = recovery_module.validate_guard_success_linkage(
+        receipt,
+        run_dir=run_dir,
+        eval_run_identity_sha256=identity_sha256,
+        eval_run_role="smoke",
+        eval_run_identity_file_sha256=identity_artifact.sha256,
+        results_sha256=results_artifact.sha256,
+        deployment_id=deployment["id"],
+        deployment_spec_sha256=deployment["spec"]["sha256"],
+        readiness_checkpoint=deployment["readiness_checkpoint"],
+        endpoint=deployment["endpoint"],
+        serving_route_generation=deployment["serving_route_generation"],
+        proxy_policy=deployment["proxy_policy"],
+        require_concurrency_telemetry="concurrency_telemetry" in receipt.get("artifacts", {}),
+    )
+    invocation, invocation_record = recovery_module.validate_eval_invocations(
+        invocations_artifact.path,
+        eval_run_identity_sha256=identity_sha256,
+        eval_run_role="smoke",
+    )
+    if (
+        invocation.get("resume") is not False
+        or linked.get("eval_invocations") != invocation_record
+        or invocation_record != invocations_artifact.record
+    ):
+        fail("source_run_invalid")
+    return {
+        "run_dir": run_dir,
+        "identity": identity,
+        "identity_sha256": identity_sha256,
+        "identity_artifact": identity_artifact,
+        "results_artifact": results_artifact,
+        "receipt_artifact": receipt_artifact,
+        "invocations_artifact": invocations_artifact,
+        "rows": recovery_module._strict_jsonl(results_artifact.raw, label="source_results"),
+    }
+
+
+@contextmanager
+def pinned_source_reads(
+    recovery_module: Any,
+    pinned: Mapping[str, PinnedFile],
+    run_dir: Path,
+) -> Iterator[None]:
+    """Redirect every run-local parser read to already pinned bytes."""
+
+    identity_module = sys.modules.get("eval_run_identity")
+    guard_module = sys.modules.get("guard_success_receipt")
+    telemetry_module = sys.modules.get("vmvm_tb_v2._vacli.concurrency_telemetry")
+    if identity_module is None or guard_module is None or telemetry_module is None:
+        fail("reviewed_import_collision")
+    originals = {
+        "recovery_artifact": recovery_module._artifact,
+        "identity_read": identity_module._read_bytes,
+        "identity_sha256": identity_module._sha256_file,
+        "identity_artifact": identity_module._artifact,
+        "identity_resolved": identity_module._resolved_file,
+        "identity_inputs": identity_module._input_identity,
+        "identity_config_inputs": identity_module._verify_config_and_inputs,
+        "identity_provenance": identity_module._parse_provenance,
+        "guard_read": guard_module._stable_read_bytes,
+        "guard_sha256": guard_module.stable_sha256_file,
+        "guard_telemetry": guard_module.load_concurrency_telemetry_artifact,
+    }
+
+    def artifact_for(path: Path) -> StableFile | None:
+        return _pinned_source_artifact(path, run_dir=run_dir, pinned=pinned)
+
+    def recovery_artifact(path: Path, *, label: str, read: bool = False) -> Any:
+        artifact = artifact_for(path)
+        if artifact is None:
+            return originals["recovery_artifact"](path, label=label, read=read)
+        return recovery_module.FileArtifact(
+            path=artifact.path,
+            sha256=artifact.sha256,
+            raw=artifact.raw if read else None,
+        )
+
+    identity_default_limit = int(identity_module.MAX_METADATA_BYTES)
+
+    def identity_read(path: Path, *, label: str, limit: int = identity_default_limit) -> bytes:
+        artifact = artifact_for(path)
+        if artifact is None:
+            return originals["identity_read"](path, label=label, limit=limit)
+        if len(artifact.raw) > limit:
+            fail("source_run_invalid")
+        return artifact.raw
+
+    def identity_sha256(path: Path, *, label: str) -> str:
+        artifact = artifact_for(path)
+        if artifact is None:
+            return originals["identity_sha256"](path, label=label)
+        return artifact.sha256
+
+    def identity_artifact(path: Path, expected_sha256: str, *, label: str) -> dict[str, str]:
+        artifact = artifact_for(path)
+        if artifact is None:
+            return originals["identity_artifact"](path, expected_sha256, label=label)
+        if artifact.sha256 != expected_sha256:
+            fail("source_run_invalid")
+        return artifact.record
+
+    def identity_resolved(path: Path, *, label: str) -> Path:
+        artifact = artifact_for(path)
+        if artifact is None:
+            return originals["identity_resolved"](path, label=label)
+        return artifact.path
+
+    def identity_inputs(
+        inputs_dir: Path,
+        config: dict[str, Any],
+        approved_sha256: str,
+        approved_count: int,
+    ) -> tuple[dict[str, Any], dict[str, str]]:
+        expected_inputs = run_dir / "inputs"
+        if (
+            Path(os.path.normpath(os.fspath(inputs_dir))) != expected_inputs
+            or SHA_RE.fullmatch(approved_sha256) is None
+            or approved_count < 1
+        ):
+            fail("source_run_invalid")
+        manifest_artifact = artifact_for(expected_inputs / "manifest.json")
+        if manifest_artifact is None:
+            fail("source_unpinned_read")
+        manifest = strict_json(manifest_artifact.raw, code="source_run_invalid")
+        if not {"config", "task_file"}.issubset(manifest):
+            fail("source_run_invalid")
+        records: dict[str, dict[str, str] | None] = {}
+        for name, filename in (
+            ("config", "source_config.toml"),
+            ("task_file", "task_file.txt"),
+            ("image_manifest", "image_manifest.json"),
+        ):
+            raw_record = manifest.get(name)
+            if raw_record is None and name == "image_manifest":
+                records[name] = None
+                continue
+            if not isinstance(raw_record, dict) or set(raw_record) != {"source", "snapshot", "sha256"}:
+                fail("source_run_invalid")
+            snapshot = artifact_for(expected_inputs / filename)
+            if (
+                snapshot is None
+                or raw_record.get("snapshot") != str(snapshot.path)
+                or raw_record.get("sha256") != snapshot.sha256
+            ):
+                fail("source_run_invalid")
+            records[name] = snapshot.record
+        task_record = records["task_file"]
+        if not isinstance(task_record, dict) or task_record["sha256"] != approved_sha256:
+            fail("source_run_invalid")
+        taskset = config.get("taskset")
+        if (
+            not isinstance(taskset, dict)
+            or Path(os.path.normpath(str(taskset.get("task_file")))) != Path(task_record["path"])
+            or taskset.get("task_file_sha256") != approved_sha256
+            or config.get("num_tasks") != approved_count
+        ):
+            fail("source_run_invalid")
+        image_record = records["image_manifest"]
+        if image_record is None:
+            if taskset.get("image_manifest") is not None or taskset.get("image_manifest_sha256") is not None:
+                fail("source_run_invalid")
+        elif (
+            Path(os.path.normpath(str(taskset.get("image_manifest")))) != Path(image_record["path"])
+            or taskset.get("image_manifest_sha256") != image_record["sha256"]
+        ):
+            fail("source_run_invalid")
+        config_record = records["config"]
+        if not isinstance(config_record, dict):
+            fail("source_run_invalid")
+        return {
+            "manifest": manifest_artifact.record,
+            "task_file": {**task_record, "count": approved_count},
+            "image_manifest": image_record,
+        }, config_record
+
+    def identity_config_inputs(
+        identity: dict[str, Any],
+        output_dir: Path,
+        endpoint_client_base_url: str,
+    ) -> dict[str, Any]:
+        if Path(os.path.normpath(os.fspath(output_dir))) != run_dir:
+            fail("source_run_invalid")
+        return originals["identity_config_inputs"](
+            identity,
+            run_dir,
+            endpoint_client_base_url,
+        )
+
+    def identity_provenance(path: Path) -> dict[str, str]:
+        artifact = artifact_for(path)
+        if artifact is None:
+            return originals["identity_provenance"](path)
+        try:
+            lines = artifact.raw.decode("utf-8").splitlines()
+        except UnicodeDecodeError as error:
+            raise RecoveryControlError("source_run_invalid") from error
+        values: dict[str, str] = {}
+        for line in lines:
+            key, separator, value = line.partition("=")
+            if not separator or not key or not value or key in values:
+                fail("source_run_invalid")
+            values[key] = value
+        return values
+
+    def guard_read(path: Path, *, label: str, limit: int) -> tuple[Path, bytes, str]:
+        artifact = artifact_for(path)
+        if artifact is None:
+            return originals["guard_read"](path, label=label, limit=limit)
+        if len(artifact.raw) > limit:
+            fail("source_run_invalid")
+        return artifact.path, artifact.raw, artifact.sha256
+
+    def guard_sha256(path: Path, *, label: str) -> tuple[Path, str]:
+        artifact = artifact_for(path)
+        if artifact is None:
+            return originals["guard_sha256"](path, label=label)
+        return artifact.path, artifact.sha256
+
+    def guard_telemetry(
+        path: Path,
+        *,
+        eval_run_identity_sha256: str,
+        eval_run_role: str,
+        slurm_job_id: str,
+    ) -> tuple[dict[str, Any], dict[str, str]]:
+        artifact = artifact_for(path)
+        if artifact is None:
+            return originals["guard_telemetry"](
+                path,
+                eval_run_identity_sha256=eval_run_identity_sha256,
+                eval_run_role=eval_run_role,
+                slurm_job_id=slurm_job_id,
+            )
+        return _validate_pinned_concurrency_telemetry(
+            artifact.raw,
+            artifact,
+            eval_run_identity_sha256=eval_run_identity_sha256,
+            eval_run_role=eval_run_role,
+            slurm_job_id=slurm_job_id,
+            telemetry_module=telemetry_module,
+        )
+
+    recovery_module._artifact = recovery_artifact
+    identity_module._read_bytes = identity_read
+    identity_module._sha256_file = identity_sha256
+    identity_module._artifact = identity_artifact
+    identity_module._resolved_file = identity_resolved
+    identity_module._input_identity = identity_inputs
+    identity_module._verify_config_and_inputs = identity_config_inputs
+    identity_module._parse_provenance = identity_provenance
+    guard_module._stable_read_bytes = guard_read
+    guard_module.stable_sha256_file = guard_sha256
+    guard_module.load_concurrency_telemetry_artifact = guard_telemetry
+    try:
+        yield
+    finally:
+        recovery_module._artifact = originals["recovery_artifact"]
+        identity_module._read_bytes = originals["identity_read"]
+        identity_module._sha256_file = originals["identity_sha256"]
+        identity_module._artifact = originals["identity_artifact"]
+        identity_module._resolved_file = originals["identity_resolved"]
+        identity_module._input_identity = originals["identity_inputs"]
+        identity_module._verify_config_and_inputs = originals["identity_config_inputs"]
+        identity_module._parse_provenance = originals["identity_provenance"]
+        guard_module._stable_read_bytes = originals["guard_read"]
+        guard_module.stable_sha256_file = originals["guard_sha256"]
+        guard_module.load_concurrency_telemetry_artifact = originals["guard_telemetry"]
 
 
 def _source_artifact_digest(artifacts: Mapping[str, StableFile]) -> str:
@@ -2051,12 +2492,19 @@ def _validate_source_run_pinned(
     source_before = validate_source(plan)
     artifacts = {
         "config_file": pinned["config_file"].artifact,
+        "config.toml": pinned["resolved_config"].artifact,
         "eval_run_identity.json": pinned["eval_run_identity"].artifact,
         "eval_invocations.jsonl": pinned["eval_invocations"].artifact,
+        "inputs/manifest.json": pinned["input_manifest"].artifact,
+        "provenance.txt": pinned["provenance"].artifact,
         "results.jsonl": pinned["results"].artifact,
         "route_guard_success.json": pinned["route_guard_success"].artifact,
         "task_file": pinned["task_file"].artifact,
     }
+    if "image_manifest" in pinned:
+        artifacts["inputs/image_manifest.json"] = pinned["image_manifest"].artifact
+    if "concurrency_telemetry" in pinned:
+        artifacts["concurrency_telemetry.json"] = pinned["concurrency_telemetry"].artifact
     protected_modules = {
         "audit_traces",
         "deployment_endpoint",
@@ -2075,30 +2523,28 @@ def _validate_source_run_pinned(
     try:
         import smoke_timeout_recovery as recovery_module
 
-        source = recovery_module._load_run(
-            run_dir,
-            identity_loader=recovery_module.load_eval_run_identity,
-        )
-        task_record = source["identity"].get("inputs", {}).get("task_file")
-        if not isinstance(task_record, dict):
-            fail("source_run_invalid")
-        task = pinned["task_file"].artifact
-        config_record = source["identity"].get("config", {}).get("source")
-        if (
-            task.record != {"path": task_record.get("path"), "sha256": task_record.get("sha256")}
-            or task.sha256 != FRESH_TWO_TASK_SHA256
-            or task_record.get("count") != EXPECTED_TASKS
-            or config_record != pinned["config_file"].artifact.record
-        ):
-            fail("source_task_invalid")
-        source_rows = source["rows"]
-        counts = classify_legacy_source_rows(recovery_module, task.raw, source_rows)
-        identity_source = source["identity"].get("source")
-        invocation, invocation_record = recovery_module.validate_eval_invocations(
-            artifacts["eval_invocations.jsonl"].path,
-            eval_run_identity_sha256=source["identity_sha256"],
-            eval_run_role="smoke",
-        )
+        with pinned_source_reads(recovery_module, pinned, run_dir):
+            source = load_pinned_source_run(recovery_module, run_dir, pinned)
+            task_record = source["identity"].get("inputs", {}).get("task_file")
+            if not isinstance(task_record, dict):
+                fail("source_run_invalid")
+            task = pinned["task_file"].artifact
+            config_record = source["identity"].get("config", {}).get("source")
+            if (
+                task.record != {"path": task_record.get("path"), "sha256": task_record.get("sha256")}
+                or task.sha256 != FRESH_TWO_TASK_SHA256
+                or task_record.get("count") != EXPECTED_TASKS
+                or config_record != pinned["config_file"].artifact.record
+            ):
+                fail("source_task_invalid")
+            source_rows = source["rows"]
+            counts = classify_legacy_source_rows(recovery_module, task.raw, source_rows)
+            identity_source = source["identity"].get("source")
+            invocation, invocation_record = recovery_module.validate_eval_invocations(
+                artifacts["eval_invocations.jsonl"].path,
+                eval_run_identity_sha256=source["identity_sha256"],
+                eval_run_role="smoke",
+            )
         validate_reviewed_imports(baseline, closure, finder)
         if capture_reviewed_closure(plan).digest != closure.digest:
             fail("reviewed_closure_changed")
@@ -3106,11 +3552,19 @@ def _scheduler_phase_evidence(
     *,
     held: bool,
     runner: Runner,
+    conflict_latch: set[str] | None = None,
 ) -> tuple[set[str], set[str], str]:
     """Return aggregate mismatches for one full identity/queue/accounting view."""
 
     record = scontrol_record(job_id, runner=runner)
     mismatches, conflicts, state = _identity_mismatches(record, plan, job_id, job_name, held=held)
+    if conflict_latch is not None:
+        conflict_latch.update(conflicts)
+
+    def retain_conflict(field: str) -> None:
+        conflicts.add(field)
+        if conflict_latch is not None:
+            conflict_latch.add(field)
 
     def observed_rows(argv: Sequence[str], *, width: int) -> list[list[str]]:
         try:
@@ -3148,7 +3602,7 @@ def _scheduler_phase_evidence(
         ):
             if observed != expected:
                 mismatches.add(f"queue_{field}")
-                conflicts.add(field)
+                retain_conflict(field)
         if held:
             if (
                 scheduler_state(queue_state) != "PENDING"
@@ -3175,10 +3629,10 @@ def _scheduler_phase_evidence(
     for step_id, _step_name, step_user, step_state in step_queue:
         if step_id != job_id and not step_id.startswith(f"{job_id}."):
             mismatches.add("step_queue_JobId")
-            conflicts.add("JobId")
+            retain_conflict("JobId")
         if step_user != OWNER:
             mismatches.add("step_queue_UserId")
-            conflicts.add("UserId")
+            retain_conflict("UserId")
         if scheduler_state(step_state) not in ACTIVE_STATES:
             mismatches.add("step_queue_state")
     if held and step_queue:
@@ -3208,7 +3662,7 @@ def _scheduler_phase_evidence(
         ):
             if observed != expected:
                 mismatches.add(f"accounting_{field}")
-                conflicts.add(field)
+                retain_conflict(field)
         accounting_state = scheduler_state(raw_state)
         if held:
             if (
@@ -3266,26 +3720,40 @@ def _poll_identity(
     runner: Runner,
     sleeper: Callable[[float], None],
     clock: Callable[[], float],
+    conflict_latch: set[str] | None = None,
 ) -> dict[str, Any]:
     deadline = clock() + timeout
     consecutive = 0
     polls = 0
     observed: Counter[str] = Counter()
-    conflicts: set[str] = set()
+    conflicts = conflict_latch if conflict_latch is not None else set()
     final: set[str] = set()
     state = "UNKNOWN"
     max_iterations = timeout // POLL_SECONDS + 2
     while clock() < deadline and polls < max_iterations:
+        previous_mask = signal.pthread_sigmask(
+            signal.SIG_BLOCK,
+            {signal.SIGINT, signal.SIGTERM, signal.SIGHUP},
+        )
         try:
-            mismatches, current_conflicts, state = _scheduler_phase_evidence(
-                plan, job_id, job_name, held=held, runner=runner
-            )
-        except SchedulerObservationError as error:
-            mismatches = {"scheduler_phase_unavailable"}
-            current_conflicts = set(error.conflicts)
-        except RecoveryControlError:
-            mismatches = {"scheduler_phase_unavailable"}
-            current_conflicts = set()
+            try:
+                mismatches, current_conflicts, state = _scheduler_phase_evidence(
+                    plan,
+                    job_id,
+                    job_name,
+                    held=held,
+                    runner=runner,
+                    conflict_latch=conflicts,
+                )
+            except SchedulerObservationError as error:
+                mismatches = {"scheduler_phase_unavailable"}
+                current_conflicts = set(error.conflicts)
+                conflicts.update(current_conflicts)
+            except RecoveryControlError:
+                mismatches = {"scheduler_phase_unavailable"}
+                current_conflicts = set()
+        finally:
+            signal.pthread_sigmask(signal.SIG_SETMASK, previous_mask)
         polls += 1
         observed.update(mismatches)
         final = set(mismatches)
@@ -4045,9 +4513,9 @@ def launch(
             runner=runner,
             sleeper=sleeper,
             clock=clock,
+            conflict_latch=conflict_seen,
         )
         held_evidence = held
-        conflict_seen.update(held["explicit_conflict_fields"])
         if held["explicit_conflict_fields"]:
             raise LifecycleError("scheduler_identity_conflict")
         if held["converged"] is not True:
@@ -4074,9 +4542,9 @@ def launch(
             runner=runner,
             sleeper=sleeper,
             clock=clock,
+            conflict_latch=conflict_seen,
         )
         held_after_authorization_evidence = held_after
-        conflict_seen.update(held_after["explicit_conflict_fields"])
         if held_after["converged"] is not True or held_after["explicit_conflict_fields"]:
             raise LifecycleError("held_state_lost_during_authorization")
         validate_phase_certificate(held_after, state="PENDING", timeout=10)
@@ -4105,9 +4573,9 @@ def launch(
             runner=runner,
             sleeper=sleeper,
             clock=clock,
+            conflict_latch=conflict_seen,
         )
         held_before_release_evidence = held_before_release
-        conflict_seen.update(held_before_release["explicit_conflict_fields"])
         if held_before_release["converged"] is not True or held_before_release["explicit_conflict_fields"]:
             raise LifecycleError("held_state_lost_after_authorization")
         validate_phase_certificate(held_before_release, state="PENDING", timeout=10)
@@ -4131,9 +4599,9 @@ def launch(
             runner=runner,
             sleeper=sleeper,
             clock=clock,
+            conflict_latch=conflict_seen,
         )
         activation_evidence = activation
-        conflict_seen.update(activation["explicit_conflict_fields"])
         if activation["explicit_conflict_fields"]:
             raise LifecycleError("scheduler_identity_conflict")
         if activation["converged"] is not True:
@@ -4275,11 +4743,10 @@ def launch(
                     job_name,
                     held=False,
                     runner=runner,
+                    conflict_latch=conflict_seen,
                 )
             except SchedulerObservationError as error:
-                conflict_seen.update(error.conflicts)
                 raise LifecycleError("job_scheduler_admission_invalid") from error
-            conflict_seen.update(phase_conflicts)
             if phase_mismatches or phase_conflicts or phase_state != "RUNNING":
                 raise LifecycleError("job_scheduler_admission_invalid")
             if atomic_write_once(paths["commit"], commit_raw, mode=0o400) != sha256_bytes(commit_raw):
