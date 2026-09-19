@@ -1,6 +1,6 @@
 # VMVM sandbox coordination
 
-Last updated: 2026-09-19 08:19 UTC
+Last updated: 2026-09-19 08:37 UTC
 
 ## First message to the next teammate
 
@@ -30,7 +30,7 @@ this shared branch again.
 
 | Owner | Cluster | Scope | Files | Live resources | State / next gate |
 |---|---|---|---|---|---|
-| Codex session for `tianhaowu` | `fair-cw-use2-3` | Kimi serving, full TB4 pass@1, and gated 2,500-task rollout | `user/tianhaowu/terminal_bench_vmvm/**`, `user/tianhaowu/deepswe_vmvm/{README.md,run_runtime_smoke.sbatch,smoke_runtime.py}`, `environments/vmvm_tb_v2/**`, `deps/verifiers` gitlink | deployment `tianhaowu-k3-kda-tb2-low-20260919`; coordinator `1752688`; ready endpoints `1752711/1753198`; replacement proxy `1753275`; active readiness `1753277`; failed readiness `1753216/1753258`; failed smoke `1752864`; final spec `745e5b6f2d884542fb7f29afbaef09935976f1edac1bec91e6c56b0aca975ea3` | The first replacement smoke failed infrastructure-only with zero rows/checkpoint. Readiness `1753216/1753258` then failed before model probing because proxy `1752810` wedged its Uvicorn workers across stale generations during sequential HUP reload. That exact proxy was cold-canceled; coordinator preserved both healthy endpoints and started successor `1753275`, now serving. Fresh readiness `1753277` passed six stable polls and is probing. No stronger G3 QoS is authorized, so multigeneration singleton combining remains required. Source-wheel `88b08b41...` is integrated, but the private reducer safely found only six static entries: three explicitly forbidden native/dynamic forms remain excluded. Cardinality-only 6/18 follow-up is under review; oracle remains 2,488/2,538. Never inspect task prompts/bodies, task identifiers, raw errors, or model/tool/trace content. |
+| Codex session for `tianhaowu` | `fair-cw-use2-3` | Kimi serving, full TB4 pass@1, and gated 2,500-task rollout | `user/tianhaowu/terminal_bench_vmvm/**`, `user/tianhaowu/deepswe_vmvm/{README.md,run_runtime_smoke.sbatch,smoke_runtime.py}`, `environments/vmvm_tb_v2/**`, `deps/verifiers` gitlink | deployment `tianhaowu-k3-kda-tb2-low-20260919`; coordinator `1752688`; ready endpoints `1752711/1753198`; proxy `1753275`; passed readiness `1753277`; failed readiness `1753216/1753258`; failed smoke `1752864`; final spec `745e5b6f2d884542fb7f29afbaef09935976f1edac1bec91e6c56b0aca975ea3` | Cold proxy recovery preserved both healthy GPU endpoints. Fresh readiness `1753277` completed 0:0 with six stable polls, exact 2/2 coverage, 22/22 semantic/affinity/state-reuse requests, and zero failures; checkpoint SHA-256 is `15732de3be65f0663ead526bbeb12698c8f605fab5e675d4b0d12f0106c6447c`. A new smoke-only watcher is being audited. Bounded proxy-reload fix `7bfa58d5...` is isolated for independent review and is not deployed. Safe-six commit `c60aaecd...` is integrated by merge `1effc7220`; the private reduction passed at 6 entries, and same-host x86 inspection `1753320` completed 0:0 on `cpu-142-057`. The 18-start proof is not yet submitted; oracle remains 2,488/2,538. Never inspect task prompts/bodies, task identifiers, raw errors, or model/tool/trace content. |
 | Codex session for `tianhaowu` | `fair-cw-use2-1` | Add a direct one-token KDA state-reuse probe; no serving or eval mutation | `user/tianhaowu/terminal_bench_vmvm/{probe_inference_routes.py,tests/test_probe_inference_routes.py,HANDOFF.md,COORDINATION.md}` | none | Extend the existing readiness probe with serial raw-completion predecessor/one-token-target cycles on every discovered sticky backend, without logprobs or response token IDs. Fail closed on unsupported routing, semantic corruption, or predecessor-dependent target output. |
 | Codex session for `tianhaowu` | `fair-cw-use2-1` | Qwen accepted TB4 gate and 2,500-task production rollout | Qwen direct-router configs, VMVM backend, repair/export controller, focused tests, runtime skill | accepted TB4 diagnostic `1435776`; cap-32 affinity producer `1454171` running; exact-head x86 smoke `1468446` completed; reviewed replacement chain `1468451` dependency-pending; obsolete chains `1457232` and `1465246` canceled; endpoint `shared_qwen38_2p4t`; PRs `thwu1/prime-rl#35`, `#36`, `#37`, `#38`, `#39`, and `#40`; verifier PR `thwu1/verifiers#2` | The user explicitly accepted the existing 7/66 TB4 result as the approximately 11% gate and directed us not to rerun it. The live producer retains 64 task sessions, 32 client/provider slots, two lease starts, fail-closed `consistent_hash` / `x-session-id`, and a 256K cap. Immutable prefix 1,000 has SHA-256 `7862f68057aecc9c2bdb22a15e5cbe21ec03aa10059a625e2fa1316e4c347117`: 583 pass, 381 scored fail, 36 ordinary error, zero invalid, for a 60.48% scored pass rate. Exact SFT trainability validation accepts 581/583 passing traces and quarantines two; the audit covers 41,220,772 sampled completion tokens and 19,358 captured model-I/O turns. At 08:01 UTC the producer remained healthy and RUNNING with 1,002 durable rows, recent throughput approximately 47 rows/hour, and approximately 32 hours remaining. Draft PR `#40` is independently approved at exact head `fe813c0f6`; frozen-source x86 smoke `1468446` passed 249/249, and replacement controller `1468451` is pending on `afterany:1454171`. Obsolete held controller `1465246` was canceled only after the replacement was verified dependency-held. Broad `HarnessError` retry and retry exclusions remain forbidden. Never inspect task IDs, prompts, responses, raw errors, or trace/model/tool bodies. |
 | Codex session for `tianhaowu` | `fair-cw-use2-1` | User-supplied shared Kimi-K3 endpoint qualification and full TB4 pass@1; gated 2,500-task rollout follows only after score reproduction | server-scoped `configs/eval/servers/cpu-132-021_8103/**`, VMVM backend, trace audit, `COORDINATION.md` | endpoint `shared-kimi-k3`; route gate `1448380`; preserved canceled diagnostic TB4 `1448629`; preserved canceled smokes `1448432` and `1448606`; draft `thwu1/prime-rl#34`; proxy fix `fairinternal/ram_common#288` | The endpoint currently reports 23 healthy / 1 unhealthy routes, while correct model discovery and consistent sticky metadata with TTL 14,400 remain present. The proxy still serves a 600-second timeout with two retries and the live spec declares neither field, so this endpoint remains non-launchable. The old diagnostic full was canceled and preserved; do not count or resume it. Draft PR `#34` head `22b4172f1` is rebased on current shared core, preserves the separate `cpu-132-021_8103` folder and hardened gate pin, composes schema-v2 bridge validation with exact 24-request/2-lease evidence, and passes 328 affected plus 625 full tests. It requires exact 7,200/0 and 24/0, rejects resume, and makes both full and shard certification prove type-safe 24 rollout/multiplex/HTTP concurrency, observed peak 24, and lease-start concurrency 2; shared 4/2 remains compatible. PR `ram_common#288` is green/mergeable but still lacks the required human approval and deployment. Await a reviewed combined live revision, fresh 24/0 policy/sticky qualification, then launch a fresh TB4. Never inspect task prompts/bodies or raw trace/model/tool content. |
@@ -41,6 +41,27 @@ this shared branch again.
 Add new rows below this line; do not overwrite another owner's row.
 
 ## Open coordination requests
+
+- **2026-09-19 08:37 UTC, Kimi readiness restored after cold proxy start:**
+  readiness `1753277` completed 0:0 in 9:58 from exact source `3d1c4906c`.
+  It required six stable polls, certified exact 2/2 routes, and passed all 22
+  semantic, sticky-affinity, route-coverage, and state-reuse requests with zero
+  failures. Checkpoint
+  `k3_kda_tb2_long43200_readiness_3d1c4906c_c1752688_v5.json` is mode 0600
+  with SHA-256 `15732de3be65f0663ead526bbeb12698c8f605fab5e675d4b0d12f0106c6447c`.
+  A fresh smoke-only watcher bound to this readiness and proxy `1753275` is
+  under static review; no smoke or TB4 job is active yet.
+
+- **2026-09-19 08:37 UTC, safe-six reduction and x86 inspection passed:**
+  exact contract commit `c60aaecd28fb43349aad270cbbf1e6b3f1dab107` received independent
+  APPROVE and is integrated by merge `1effc7220`. The reducer published six
+  canonical retained entries (three accepted sources) with zero envelope/order
+  change; reduced-input SHA-256 is
+  `514ce1ab69e6ce10d9ee454b41a8d0a697094b543f529ca5cd3e37723ac88f93`.
+  Inspection `1753320` completed 0:0 on pinned host `cpu-142-057`; its private
+  canonical receipt SHA-256 is
+  `a2e421219d904195c2392b111527e54fb4686c6f33ee09bd251f3c977dd63aec`.
+  The exact 18-start proof remains held until its submit wrapper is reviewed.
 
 - **2026-09-19 08:19 UTC, Kimi proxy cold-recovered:** aggregate-only audit
   proved proxy `1752810` had two Uvicorn workers serving two different stale
