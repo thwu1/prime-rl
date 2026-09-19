@@ -38,6 +38,7 @@ HELD_TIMEOUT_SECONDS = 982
 FINAL_HELD_TIMEOUT_SECONDS = 40
 ACTIVATION_TIMEOUT_SECONDS = 742
 RESERVATION_LINK_COUNT = 2
+PYCACHE_SINK = Path("/dev/null")
 PHASE_FIELD_RE = re.compile(r"[A-Za-z][A-Za-z0-9_]{0,95}")
 IMPORTABLE_SUFFIXES = frozenset({".py", ".pyc", ".pyd", ".so"})
 FORBIDDEN_IMPORT_NAMES = frozenset({"sitecustomize.py", "usercustomize.py"})
@@ -1191,18 +1192,31 @@ def _validate_environment(pycache_prefix: Path) -> None:
 
 
 def _validate_pycache_prefix(path: Path) -> None:
+    descriptor = -1
     try:
-        if path.resolve(strict=True) != path or path.is_symlink():
+        if (
+            path != PYCACHE_SINK
+            or path.resolve(strict=True) != path
+            or path.is_symlink()
+        ):
             fail("pycache_prefix_invalid")
-        status = path.stat(follow_symlinks=False)
-        names = tuple(os.scandir(path))
+        descriptor = os.open(path, os.O_RDONLY | os.O_CLOEXEC | os.O_NOFOLLOW)
+        status = os.fstat(descriptor)
+        visible = path.stat(follow_symlinks=False)
     except (OSError, RuntimeError) as error:
         raise BootstrapError("pycache_prefix_invalid") from error
+    finally:
+        if descriptor >= 0:
+            os.close(descriptor)
     if (
-        not stat.S_ISDIR(status.st_mode)
-        or stat.S_IMODE(status.st_mode) != 0o500
-        or status.st_uid != os.getuid()
-        or names
+        not stat.S_ISCHR(status.st_mode)
+        or stat.S_IMODE(status.st_mode) != 0o666
+        or status.st_uid != 0
+        or status.st_gid != 0
+        or status.st_nlink != 1
+        or os.major(status.st_rdev) != 1
+        or os.minor(status.st_rdev) != 3
+        or _signature(status) != _signature(visible)
     ):
         fail("pycache_prefix_invalid")
     sys.pycache_prefix = str(path)
@@ -1596,7 +1610,6 @@ class _VerifiedImportFinder(importlib.abc.MetaPathFinder):
 def _install_import_guard(
     project: Path,
     site_packages: Path,
-    pycache_prefix: Path,
     verified_files: dict[Path, str],
 ) -> tuple[tuple[Path, ...], _VerifiedImportFinder]:
     protected = (
@@ -1660,8 +1673,6 @@ def _install_import_guard(
         if not path.is_absolute():
             return
         normalized = Path(os.path.normpath(path))
-        if normalized == pycache_prefix or normalized.is_relative_to(pycache_prefix):
-            return
         lexical_roots = tuple(
             root for root in protected if path == root or path.is_relative_to(root)
         )
@@ -1797,7 +1808,6 @@ def run(
     protected, finder = _install_import_guard(
         project,
         site_packages,
-        pycache_prefix,
         {**site_files, **source_files},
     )
 

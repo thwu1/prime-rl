@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import importlib
 import os
+import py_compile
 import stat
 import subprocess
 import sys
@@ -357,6 +358,8 @@ def test_wrapper_bootstrap_contract_forbids_ambient_import_paths() -> None:
     assert "TRACE_SUBMITTER_SEALED_FD" in submitter
     assert '"$python_path" -I -S -B -c "$loader"' in wrapper
     assert 'PYTHONPYCACHEPREFIX="$pycache_prefix"' in wrapper
+    assert "readonly pycache_prefix=/dev/null" in wrapper
+    assert "mktemp -d" not in wrapper
     assert "if (( $# != 20 ))" in wrapper
     assert '"$reservation_device" "$reservation_inode"' in wrapper
     assert '"$reservation_parent_device" "$reservation_parent_inode"' in wrapper
@@ -373,9 +376,12 @@ def test_wrapper_bootstrap_contract_forbids_ambient_import_paths() -> None:
 
 
 def test_exact_isolated_bootstrap_environment_is_accepted(tmp_path: Path) -> None:
-    prefix = tmp_path / "sealed-cache"
-    prefix.mkdir(mode=0o500)
-    prefix.chmod(0o500)
+    mutable_prefix = tmp_path / "sealed-cache"
+    mutable_prefix.mkdir(mode=0o500)
+    mutable_prefix.chmod(0o500)
+    with pytest.raises(bootstrap.BootstrapError, match="^pycache_prefix_invalid$"):
+        bootstrap._validate_pycache_prefix(mutable_prefix)
+    prefix = Path("/dev/null")
     source = Path(bootstrap.__file__)
     program = (
         "import pathlib;"
@@ -404,7 +410,51 @@ def test_exact_isolated_bootstrap_environment_is_accepted(tmp_path: Path) -> Non
         timeout=20,
     )
     assert result.returncode == 0 and result.stdout == b"" and result.stderr == b""
-    assert list(prefix.iterdir()) == []
+
+
+def test_dev_null_pycache_sink_ignores_unchecked_hash_bytecode(
+    tmp_path: Path,
+) -> None:
+    source_root = tmp_path / "source"
+    source_root.mkdir()
+    source = source_root / "cache_probe.py"
+    source.write_text('print("cached")\n')
+    writable_prefix = tmp_path / "writable-cache"
+    previous_prefix = sys.pycache_prefix
+    try:
+        sys.pycache_prefix = str(writable_prefix)
+        cached = Path(importlib.util.cache_from_source(str(source)))
+    finally:
+        sys.pycache_prefix = previous_prefix
+    cached.parent.mkdir(parents=True)
+    py_compile.compile(
+        str(source),
+        cfile=str(cached),
+        doraise=True,
+        invalidation_mode=py_compile.PycInvalidationMode.UNCHECKED_HASH,
+    )
+    source.write_text('print("source")\n')
+
+    def import_with_prefix(prefix: Path) -> subprocess.CompletedProcess[bytes]:
+        program = (
+            "import sys;"
+            f"sys.pycache_prefix={str(prefix)!r};"
+            f"sys.path.insert(0,{str(source_root)!r});"
+            "import cache_probe"
+        )
+        return subprocess.run(
+            ["/usr/bin/python3.12", "-I", "-S", "-B", "-c", program],
+            check=False,
+            capture_output=True,
+            env={},
+            timeout=5,
+        )
+
+    control = import_with_prefix(writable_prefix)
+    sink = import_with_prefix(Path("/dev/null"))
+    assert control.returncode == 0 and control.stdout == b"cached\n"
+    assert sink.returncode == 0 and sink.stdout == b"source\n"
+    assert control.stderr == b"" and sink.stderr == b""
 
 
 def test_submitter_rejects_before_scheduler_with_empty_arguments() -> None:

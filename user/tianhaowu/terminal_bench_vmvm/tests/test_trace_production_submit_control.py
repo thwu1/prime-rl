@@ -99,7 +99,7 @@ def test_sbatch_uses_hold_and_exact_stdin_wrapper_transport(tmp_path: Path) -> N
     )
 
 
-def test_batch_wrapper_admits_fresh_reservation_and_pycache_directories(
+def test_batch_wrapper_admits_fresh_reservation_with_noncache_sink(
     tmp_path: Path,
 ) -> None:
     source_workflow = Path(submit.__file__).parent

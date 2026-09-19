@@ -494,13 +494,15 @@ arguments, and require the batch bootstrap to match both identities. Known-job
 failure gets at most one exact-ID cancellation and six stable
 terminal/empty-queue views; identity conflict is latched across partial
 reads/signals and forbids control.
-Fresh leaf directories on the production checkpoint and `/tmp` filesystems
-have a link count of two. Require that exact value for both the reservation and
-sealed pycache directory, enforce it in the submit controller and bootstrap,
-and exercise the real batch wrapper through both gates before arming it.
+Fresh leaf directories on the production checkpoint filesystem have a link
+count of two; require that exact value for the reservation in the submit
+controller, wrapper, and bootstrap. Never use a same-UID mutable directory as
+`sys.pycache_prefix`: `-B` suppresses writes but still reads unchecked-hash
+bytecode. Use the validated root-owned `/dev/null` character device as the
+cache sink and exercise the real batch wrapper before arming it.
 The local `sbatch` process group must also be boundedly reaped on every exit.
-The batch bootstrap uses a fresh sealed
-pycache with Python `-I -S -B` and executes user-owned native extensions only
+The batch bootstrap uses the validated non-directory cache sink with Python
+`-I -S -B` and executes user-owned native extensions only
 from write-sealed memfds. The certifier holds dirfd-backed inputs and the writer
 lock, audits one immutable results snapshot with clean-stop plus strict
 reasoning/model-I/O/request-graph/262,144 checks, performs its last terminal

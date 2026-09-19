@@ -89,7 +89,7 @@ readonly -a git=(
     /usr/bin/git -c core.fsmonitor=false -c core.hooksPath=/dev/null
     -c core.untrackedCache=false
 )
-pycache_prefix=
+readonly pycache_prefix=/dev/null
 
 [[ ${SLURM_JOB_NAME:-} == "$expected_job_name" ]] || fail allocation_or_arguments_invalid
 submitted_sha=$(/usr/bin/sha256sum -- "$submitted_wrapper" 2>/dev/null) \
@@ -125,16 +125,6 @@ for entry in "${reservation_entries[@]}"; do
 done
 shopt -u nullglob dotglob
 
-cleanup() {
-    local status=$?
-    trap - EXIT
-    if [[ -n ${pycache_prefix:-} && -d $pycache_prefix && ! -L $pycache_prefix ]]; then
-        /usr/bin/chmod 0700 -- "$pycache_prefix" >/dev/null 2>&1 || true
-        /usr/bin/rmdir -- "$pycache_prefix" >/dev/null 2>&1 || true
-    fi
-    exit "$status"
-}
-trap cleanup EXIT
 trap 'exit 130' INT
 trap 'exit 143' TERM
 trap 'exit 129' HUP
@@ -222,15 +212,11 @@ validate_inputs() {
 }
 
 validate_inputs
-set +e
-pycache_prefix=$(/usr/bin/mktemp -d "/tmp/trace-production-audit.${SLURM_JOB_ID}.XXXXXXXX" 2>/dev/null)
-mktemp_rc=$?
-set -e
-(( mktemp_rc == 0 )) && [[ -n $pycache_prefix && $pycache_prefix == /tmp/* \
-    && -d $pycache_prefix && ! -L $pycache_prefix ]] || fail pycache_prefix_invalid
-/usr/bin/chmod 0500 -- "$pycache_prefix" || fail pycache_prefix_invalid
-[[ $(/usr/bin/stat -Lc '%a:%u:%h' -- "$pycache_prefix" 2>/dev/null) \
-    == "500:$(/usr/bin/id -u):2" ]] || fail pycache_prefix_invalid
+[[ -c $pycache_prefix && ! -L $pycache_prefix \
+    && $(/usr/bin/stat -Lc '%a:%u:%g:%h:%t:%T' -- "$pycache_prefix" 2>/dev/null) \
+    == "666:0:0:1:1:3" \
+    && $(/usr/bin/realpath -e -- "$pycache_prefix" 2>/dev/null) == "$pycache_prefix" ]] \
+    || fail pycache_prefix_invalid
 
 # Open both executable source files before the final source gate. Python runs
 # the captured bootstrap bytes; the bootstrap runs the captured controller.
