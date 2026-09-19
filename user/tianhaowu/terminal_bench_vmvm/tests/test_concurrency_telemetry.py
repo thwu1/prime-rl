@@ -189,3 +189,52 @@ def test_lease_limiter_serializes_permit_and_telemetry_transitions() -> None:
     limiter.release()
     limiter.release()
     assert telemetry.active == 0
+
+
+def test_unmeasured_permit_shares_capacity_without_lease_start_telemetry() -> None:
+    unmeasured_entered = threading.Event()
+    release_unmeasured = threading.Event()
+    measured_started = threading.Event()
+    measured_acquired = threading.Event()
+
+    class RecordingTelemetry:
+        def __init__(self) -> None:
+            self.enters = 0
+            self.finishes = 0
+
+        def lease_start_entered(self) -> None:
+            self.enters += 1
+
+        def lease_start_finished(self) -> None:
+            self.finishes += 1
+
+    telemetry = RecordingTelemetry()
+    limiter = LeaseStartConcurrencyLimiter(1, telemetry)
+
+    def hold_unmeasured_permit() -> None:
+        with limiter.unmeasured_permit():
+            unmeasured_entered.set()
+            assert release_unmeasured.wait(timeout=2)
+
+    def acquire_measured_permit() -> None:
+        measured_started.set()
+        limiter.acquire()
+        measured_acquired.set()
+
+    unmeasured = threading.Thread(target=hold_unmeasured_permit)
+    measured = threading.Thread(target=acquire_measured_permit)
+    unmeasured.start()
+    assert unmeasured_entered.wait(timeout=2)
+    assert (telemetry.enters, telemetry.finishes) == (0, 0)
+    measured.start()
+    assert measured_started.wait(timeout=2)
+    assert not measured_acquired.wait(timeout=0.05)
+    release_unmeasured.set()
+    unmeasured.join(timeout=2)
+    measured.join(timeout=2)
+
+    assert not unmeasured.is_alive()
+    assert not measured.is_alive()
+    assert (telemetry.enters, telemetry.finishes) == (1, 0)
+    limiter.release()
+    assert (telemetry.enters, telemetry.finishes) == (1, 1)

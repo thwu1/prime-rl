@@ -194,6 +194,28 @@ IDs, strictly increasing invocation timestamps, first/resume ordering, and at
 most one rerun-invalid invocation. A dependency-policy or source change
 requires a new identity and a fresh full oracle rather than an in-place retry.
 
+Keep source builds disabled by default. For an independently reviewed
+oracle-only exception, require the paired
+`ORACLE_SOURCE_WHEEL_POLICY{,_SHA256}` inputs. Each policy entry must bind one
+source distribution, the full binary-wheel closure, exact artifact sizes and
+hashes, an immutable target image, and exact build-tool versions. Attempt this
+path only after the normal `--only-binary=:all:` fetch fails with the narrow
+binary-unavailable signature. Download and hash-check approved HTTPS inputs
+first, activate `no-network`, then build in a fresh Python environment using
+`--no-build-isolation --no-index --no-deps`; validate the exact output closure
+and prove offline installation on a clean target with the same runtime
+fingerprint. Reject Compose and cap the exceptional builder path at one lease.
+
+Publish the source-wheel manifest and content-addressed wheelhouse archives
+atomically as private oracle artifacts after the writer lock. On every resume,
+require the externally reviewed `ORACLE_SOURCE_WHEEL_ATTESTATION_SHA256`; never
+reconstruct or trust it from the output directory. Every recovered row must
+carry its attestation-entry digest. For repair certification and promotion,
+require an independently supplied policy digest and exact nonzero attestation
+count, rehash every archive, and prove that the row-reference union equals the
+manifest entry set. Bind the policy and attestation digests through the canary
+certificate, promotion receipt, and Mobius launch certificate.
+
 Apply the same immutable-run rule to model evaluations. Every non-dry launch
 through `terminal_bench_vmvm/run_eval.sbatch` must declare its role (`smoke`,
 `tb4`, or `mobius`), metadata deployment ID, expected model, exact deployment
@@ -457,6 +479,64 @@ approval path and digest must be supplied independently through
 `DIRECT_QWEN_APPROVED_TASK_FILE_SHA256`; require their contents to match the
 config's pinned task-file digest. Resume only through the direct wrapper so the
 saved worker manifest and loopback endpoint are revalidated.
+
+After a terminal 2,500-task Qwen run, use `run_qwen_repair_chain.sbatch`; never
+resume the source in place. The private repair selection is the exact union of
+ordinary missing/error tasks and scored-pass traces that fail the exporter's
+trainability audit (retained reasoning, captured model-I/O integrity,
+provider-request messages matching the persisted graph path, and the 256K
+context cap). The original pass-only export must consume that same
+attested selection and exclude exactly those source tasks; the merge requires
+every excluded strict-invalid pass to have a passing repair replacement. Run
+the controller from a clean detached exact revision with clean pinned
+submodules, an externally pinned source task-file digest and provenance digest,
+and new, absolute, disjoint runtime/export paths. It calls the direct evaluator
+as a shell program in the same allocation, exports original and repair sources
+pass-only, and atomically merges the two attested corpora. A malformed final
+append without a newline is retained in the immutable physical source and its
+digest, but is omitted from logical routing/export rows only when the repair
+selection accounts for an owed task; complete malformed rows still fail. A
+valid final JSON object remains a logical row even without its newline. Repair
+exports cross-bind each task name and index to the evaluator order of the
+approved repair universe. Before merge, the controller binds both finalized
+export manifests and complete export-tree digests; the merger rejects any
+later tree mutation and any repair task outside the selected union. A
+zero-owed plan publishes the original export only. Treat task entries as opaque
+and never add semantic or name-based filtering. The selection manifest, its
+union/category files, and the repair export's copied selection and attestation
+sidecars must remain regular mode-0600 files and byte-identical to their pinned
+inputs. Child logs are private mode 0600, while console output is restricted to
+aggregate counts, digests, and stable codes. Submit this state change only
+through `swebench_vmvm:Launcher.0` with an `afterany` dependency on the
+producer.
+
+SFT format v3 keeps historical assistant `reasoning_content` and every sampled
+assistant `finish_reason` in each expanded row, with explicit source/retained
+fidelity counts. Every export and merge also carries the immutable
+`target-rendering-contract.json`, which pins the Nemotron Super tokenizer
+revision, the renderer repository revision, and `nemotron-3` settings with
+`preserve_all_thinking=true` and `truncate_history_thinking=false`. Do not train
+from an export whose contract is absent, modified, or inconsistent across merge
+inputs.
+
+Treat only exact `/chat/completions` captures as trainable. The format-v3
+exporter rejects unknown graph/wire message structure, material
+`provider_state`/`reasoning_details` (absent or null is allowed), sampled finish
+reasons other than `stop`/`tool_calls`, non-object or lossy JSON tool arguments,
+and tool schemas without an explicit `type="function"` envelope. Assistant
+`content` may be omitted by Verifiers' `exclude_none` serialization.
+
+Run `user/tianhaowu/terminal_bench_vmvm/preflight_sft.py` against the finalized
+export and its expected manifest SHA before SFT. Store the mode-0600 output
+outside the source checkout, then set `preflight_attestation` and
+`preflight_attestation_sha256` in every format-v3 SFT data block. Use the exact
+tokenizer repository/revision and renderer config in the target contract and a
+sequence length no smaller than the attested maximum row and no larger than
+262,144, with `pack_function="fixed_stack"` so a concatenation boundary cannot
+truncate a target. The trainer rechecks all export artifacts, rerenders every
+row, and revalidates code hashes, project and renderer revisions, dependency
+versions, and config bindings at startup; format-v3 rows cannot bypass the gate
+through the generic SFT loader.
 
 `VACLI_IMAGE_PULL_TIMEOUT_SECONDS` bounds each VM-side image pull attempt. The
 DeepSWE launcher derives it from TOML `sandbox_startup_timeout_sec` and uses one

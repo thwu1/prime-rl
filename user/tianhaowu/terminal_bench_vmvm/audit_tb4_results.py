@@ -293,6 +293,7 @@ def audit_results(
                 require_logprobs=False,
                 require_model_io=True,
                 model_io_contract=KIMI_K3_MAX_MODEL_IO_CONTRACT,
+                require_request_graph_match=True,
             )
             if row.get("is_completed") is not True:
                 problems.append("supported_trace_not_completed")
@@ -549,6 +550,7 @@ def _validate_deployment_checkpoints_legacy(
         or policy.get("rollouts_per_task") != 1
         or policy.get("require_reasoning") is not True
         or policy.get("require_model_io") is not True
+        or policy.get("require_request_graph_match") is not True
         or canonical_json(policy.get("model_io_contract")) != canonical_json(EXPECTED_MODEL_IO_CONTRACT)
         or policy.get("require_token_data") is not False
         or policy.get("require_logprobs") is not False
@@ -852,6 +854,7 @@ def certify_tb4_results(
                 "require_response": True,
                 "require_model_io": True,
                 "model_io_contract": EXPECTED_MODEL_IO_CONTRACT,
+                "require_request_graph_match": True,
                 "require_tool_schemas": True,
                 "require_tool_call_lineage": True,
                 "require_token_data": False,

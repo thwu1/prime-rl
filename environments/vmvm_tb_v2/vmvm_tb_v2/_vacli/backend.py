@@ -2490,13 +2490,22 @@ class VacliVMVMBackend:
         return result.stdout or b""
 
     def open_host_tunnel(self, local_port: int) -> tuple[VacliHostTunnel, str]:
-        """Make a host-local TCP service reachable from the VMVM container."""
+        """Make a host-local TCP service reachable from the VMVM container.
+
+        Reverse-forward creation and its readiness probe share the process-wide
+        vacli setup limit with lease bring-up. The slot is released before the
+        live tunnel is returned and is not held for the tunnel lifetime.
+        """
         if self._destroyed:
             raise RuntimeError("open_host_tunnel called after destroy")
         if self._container_id is None:
             raise RuntimeError("open_host_tunnel called before container init")
         if not 1 <= local_port <= 65535:
             raise ValueError(f"invalid local port: {local_port}")
+        with _lease_concurrency.unmeasured_permit():
+            return self._open_host_tunnel(local_port)
+
+    def _open_host_tunnel(self, local_port: int) -> tuple[VacliHostTunnel, str]:
         isolation = self._network_isolation
         gateway = isolation.gateway if isolation is not None else self._proxy_gateway
         forward = f"127.0.0.1:0:127.0.0.1:{local_port}"

@@ -8,6 +8,7 @@ import subprocess
 import sys
 import sysconfig
 import tarfile
+import threading
 from pathlib import Path
 from types import SimpleNamespace
 from weakref import ref
@@ -15,9 +16,19 @@ from zipfile import ZipFile
 
 import pytest
 import terminal_bench_vmvm.taskset as taskset_module
+from terminal_bench_vmvm.source_wheels import (
+    canonical_json,
+    inspect_source_distribution,
+    load_source_wheel_policy,
+    pack_wheelhouse,
+    sha256_bytes,
+    validate_policy_wheel_closure,
+)
 from terminal_bench_vmvm.taskset import (
+    RuntimeWheelFingerprints,
     TerminalBenchVMVMConfig,
     TerminalBenchVMVMTaskset,
+    _binary_distribution_unavailable,
     _compose_path,
     _declared_test_requirements,
     _dockerfile_startup_command,
@@ -36,6 +47,7 @@ from vmvm_tb_v2._vacli.backend import (
     _setup_bridge_proxy,
     _VacliNetworkIsolation,
 )
+from vmvm_tb_v2._vacli.concurrency_telemetry import LeaseStartConcurrencyLimiter
 from vmvm_tb_v2._vacli.types import BackendInitError
 
 
@@ -178,12 +190,29 @@ def test_verifier_site_bootstrap_processes_overlay_pth_files(tmp_path: Path) -> 
     assert completed.returncode == 0, completed.stderr
 
 
+def wheel_file(filename: str) -> bytes:
+    distribution, version, *_ = filename.removesuffix(".whl").split("-")
+    tag = "-".join(filename.removesuffix(".whl").split("-")[-3:])
+    output = io.BytesIO()
+    with ZipFile(output, mode="w") as wheel:
+        metadata_dir = f"{distribution}-{version}.dist-info"
+        wheel.writestr(
+            f"{metadata_dir}/METADATA",
+            f"Metadata-Version: 2.1\nName: {distribution}\nVersion: {version}\n",
+        )
+        wheel.writestr(
+            f"{metadata_dir}/WHEEL",
+            f"Wheel-Version: 1.0\nGenerator: test\nRoot-Is-Purelib: true\nTag: {tag}\n",
+        )
+    return output.getvalue()
+
+
 def wheel_archive(*names: str) -> bytes:
     output = io.BytesIO()
     with tarfile.open(fileobj=output, mode="w") as archive:
-        for name in names:
-            payload = b"wheel"
-            member = tarfile.TarInfo(name)
+        for filename in names:
+            payload = wheel_file(filename)
+            member = tarfile.TarInfo(filename)
             member.size = len(payload)
             archive.addfile(member, io.BytesIO(payload))
     return output.getvalue()
@@ -219,7 +248,10 @@ class DependencyRuntime:
         command = subprocess.list2cmdline(argv)
         self.commands.append(command)
         self.environments.append(env)
-        if argv[:2] == ["python3", "-c"] and "importlib.metadata" in argv[2]:
+        if argv[:3] == ["python3", "-I", "-c"] and "resolved = set()" in argv[3]:
+            self.events.append("clean-target-closure-probe")
+            return ProgramResult(exit_code=0, stdout='[["verifier-helper","1.0"]]', stderr="")
+        if argv[:2] == ["python3", "-c"] and "metadata.distributions" in argv[2]:
             overlay_probe = "TERMINAL_BENCH_VERIFIER_SITE" in env
             self.events.append("overlay-probe" if overlay_probe else "probe")
             available = self.overlay_installed if overlay_probe else self.installed
@@ -247,6 +279,11 @@ class DependencyRuntime:
                     {
                         "marker_environment": marker_environment,
                         "pip_version": self.pip_version,
+                        "build_tools": {
+                            "pip": self.pip_version,
+                            "setuptools": "75.6.0",
+                            "wheel": "0.45.1",
+                        },
                         "wheel_compatibility": [
                             "cpython",
                             [major, minor],
@@ -263,7 +300,14 @@ class DependencyRuntime:
             source_rejected = self.source_only and "--only-binary=:all:" in argv
             return ProgramResult(
                 exit_code=1 if self.wheel_failure or source_rejected else 0,
-                stdout="wheel failed" if self.wheel_failure or source_rejected else "",
+                stdout=(
+                    "ERROR: Could not find a version that satisfies the requirement verifier-helper==1.0\n"
+                    "ERROR: No matching distribution found for verifier-helper==1.0\n"
+                    if source_rejected
+                    else "wheel failed"
+                    if self.wheel_failure
+                    else ""
+                ),
                 stderr="",
             )
         if "PIP_NO_INDEX=1" in command:
@@ -289,8 +333,67 @@ class DependencyRuntime:
             self.events.append("bootstrap-write")
             assert data.startswith(b"import site\nsite.addsitedir('/tmp/terminal-bench-verifier-site-")
             return
+        if path.startswith("/tmp/terminal-bench-source-wheel-validation-"):
+            self.events.append("clean-target-archive-write")
+            return
         self.events.append("archive-write")
         assert data == self.wheel_archive
+
+
+class SourceBuilderRuntime(DependencyRuntime):
+    def __init__(
+        self,
+        source_payload: bytes,
+        built_wheel: bytes,
+        *,
+        image: str = "registry.invalid/task@sha256:" + "a" * 64,
+        lifecycle: list[str] | None = None,
+    ) -> None:
+        super().__init__(image=image)
+        self.source_payload = source_payload
+        self.built_wheel = built_wheel
+        self.files: dict[str, bytes] = {}
+        self.lifecycle = lifecycle if lifecycle is not None else []
+
+    async def start(self) -> None:
+        self.lifecycle.append("start")
+
+    async def stop(self) -> None:
+        self.lifecycle.append("stop")
+
+    async def configure_network_policy(self, mode: str) -> None:
+        assert mode == "no-network"
+        self.events.append("network-prepared")
+
+    async def activate_network_policy(self) -> None:
+        self.events.append("network-isolated")
+
+    async def run(self, argv: list[str], env: dict[str, str]) -> ProgramResult:
+        if argv[:3] == ["python3", "-I", "-c"] and "resolved = set()" in argv[3]:
+            self.argvs.append(list(argv))
+            self.events.append("closure-probe")
+            return ProgramResult(exit_code=0, stdout='[["verifier-helper","1.0"]]', stderr="")
+        if argv[:3] == ["python3", "-I", "-c"] and "urllib.request.urlopen" in argv[3]:
+            self.argvs.append(list(argv))
+            self.events.append("download")
+            destination = argv[5]
+            self.files[destination] = self.source_payload
+            return ProgramResult(exit_code=0, stdout="", stderr="")
+        if argv[:5] == ["python3", "-I", "-m", "pip", "wheel"] and "--no-build-isolation" in argv:
+            self.argvs.append(list(argv))
+            self.events.append("source-build")
+            wheel_dir = argv[argv.index("--wheel-dir") + 1]
+            self.files[f"{wheel_dir}/verifier_helper-1.0-py3-none-any.whl"] = self.built_wheel
+            return ProgramResult(exit_code=0, stdout="", stderr="")
+        return await super().run(argv, env)
+
+    async def read(self, path: str) -> bytes:
+        if path in self.files:
+            return self.files[path]
+        return await super().read(path)
+
+    async def write(self, path: str, data: bytes) -> None:
+        self.files[path] = data
 
 
 class LocalMetadataRuntime:
@@ -338,7 +441,110 @@ def dependency_task(tmp_path: Path) -> SimpleNamespace:
         "RUN pip install verifier-helper==1.0\n"
     )
     (tests / "test.sh").write_text("#!/bin/sh\n")
-    return SimpleNamespace(name="task-a", task_dir=str(tmp_path))
+    return SimpleNamespace(name="task-a", slug="task-a", task_dir=str(tmp_path))
+
+
+def source_policy_entry(
+    requirement: str = "verifier-helper==1.0",
+    *,
+    image: str = "registry.invalid/task@sha256:" + "a" * 64,
+) -> tuple[dict[str, object], bytes, bytes]:
+    source_output = io.BytesIO()
+    source_metadata = b"Metadata-Version: 2.1\nName: verifier-helper\nVersion: 1.0\n"
+    with tarfile.open(fileobj=source_output, mode="w:gz") as archive:
+        member = tarfile.TarInfo("verifier_helper-1.0/PKG-INFO")
+        member.size = len(source_metadata)
+        archive.addfile(member, io.BytesIO(source_metadata))
+    source = source_output.getvalue()
+    wheel = wheel_file("verifier_helper-1.0-py3-none-any.whl")
+    entry = {
+        "requirements": [requirement],
+        "image": image,
+        "build_tools": {
+            "pip": "24.3.1",
+            "setuptools": "75.6.0",
+            "wheel": "0.45.1",
+        },
+        "sources": [
+            {
+                "distribution": "verifier-helper",
+                "version": "1.0",
+                "filename": "verifier_helper-1.0.tar.gz",
+                "url": "https://files.example.invalid/verifier_helper-1.0.tar.gz",
+                "size": len(source),
+                "sha256": sha256_bytes(source),
+                "wheel_filename": "verifier_helper-1.0-py3-none-any.whl",
+                "wheel_size": len(wheel),
+                "wheel_sha256": sha256_bytes(wheel),
+            }
+        ],
+        "binary_wheels": [],
+    }
+    return entry, source, wheel
+
+
+def source_dependency_taskset(
+    tmp_path: Path,
+    entries: list[dict[str, object]],
+    *,
+    expected_attestation_sha256: str | None = None,
+    enable_compose: bool = False,
+) -> TerminalBenchVMVMTaskset:
+    policy_path = tmp_path / "source-wheel-policy.json"
+    policy = {
+        "schema_version": 1,
+        "allowed_hosts": ["files.example.invalid"],
+        "entries": entries,
+    }
+    policy_path.write_text(json.dumps(policy, sort_keys=True) + "\n")
+    return TerminalBenchVMVMTaskset(
+        TerminalBenchVMVMConfig(
+            id="terminal-bench-vmvm",
+            dataset_dir=tmp_path,
+            image_prefix="registry.invalid/terminal_bench",
+            image_tag="test-revision",
+            ignore_dockerfile=True,
+            enable_compose=enable_compose,
+            oracle_source_wheel_policy=policy_path,
+            oracle_source_wheel_policy_sha256=sha256_bytes(policy_path.read_bytes()),
+            oracle_source_wheel_attestation_path=tmp_path / "source_wheel_attestations.json",
+            oracle_source_wheel_attestation_sha256=expected_attestation_sha256,
+        )
+    )
+
+
+def synthetic_fingerprints(image: str) -> RuntimeWheelFingerprints:
+    marker_environment = {
+        "implementation_name": "cpython",
+        "implementation_version": "3.12.0",
+        "os_name": "posix",
+        "platform_machine": "x86_64",
+        "platform_release": "6.8.0",
+        "platform_system": "Linux",
+        "platform_version": "synthetic-runtime",
+        "python_full_version": "3.12.0",
+        "platform_python_implementation": "CPython",
+        "python_version": "3.12",
+        "sys_platform": "linux",
+    }
+    build_tools = {"pip": "24.3.1", "setuptools": "75.6.0", "wheel": "0.45.1"}
+    wheel_compatibility = ["cpython", [3, 12], "cpython-312-x86_64-linux-gnu", "linux-x86_64", "x86_64"]
+    evidence = {
+        "marker_environment": marker_environment,
+        "pip_version": "24.3.1",
+        "wheel_compatibility": wheel_compatibility,
+        "build_tools": build_tools,
+    }
+    return RuntimeWheelFingerprints(
+        image=image,
+        resolution=sha256_bytes(canonical_json([marker_environment, "24.3.1"])),
+        compatibility=sha256_bytes(
+            canonical_json([image, marker_environment, "24.3.1", wheel_compatibility, build_tools])
+        ),
+        build_tools=tuple(sorted(build_tools.items())),
+        toolchain=sha256_bytes(canonical_json([image, build_tools])),
+        evidence=canonical_json(evidence).decode(),
+    )
 
 
 def write_distribution(site: Path, name: str, version: str, *requirements: str) -> None:
@@ -828,6 +1034,409 @@ def test_verifier_dependency_source_distribution_is_fail_closed(tmp_path: Path) 
     assert runtime not in taskset._prefetched_test_dependencies
 
 
+@pytest.mark.parametrize(
+    ("stdout", "stderr", "expected"),
+    [
+        (
+            "ERROR: Could not find a version that satisfies the requirement example==1\n"
+            "ERROR: No matching distribution found for example==1\n",
+            "",
+            True,
+        ),
+        ("ERROR: No matching distribution found for example==1\n", "", False),
+        (
+            "ERROR: Could not find a version that satisfies the requirement example==1\n"
+            "ERROR: No matching distribution found for example==1\n",
+            "Read timed out",
+            False,
+        ),
+        ("", "", False),
+    ],
+)
+def test_binary_distribution_unavailable_classifier_is_narrow(
+    stdout: str,
+    stderr: str,
+    expected: bool,
+) -> None:
+    result = ProgramResult(exit_code=1, stdout=stdout, stderr=stderr)
+    assert _binary_distribution_unavailable(result) is expected
+
+
+def test_source_wheel_policy_rejects_mutable_image_and_unapproved_closure(tmp_path: Path) -> None:
+    entry, _, _ = source_policy_entry()
+    policy = {
+        "schema_version": 1,
+        "allowed_hosts": ["files.example.invalid"],
+        "entries": [entry],
+    }
+    path = tmp_path / "policy.json"
+    path.write_text(json.dumps(policy) + "\n")
+    loaded = load_source_wheel_policy(path, sha256_bytes(path.read_bytes()))
+    assert loaded.entries[0].image.endswith("a" * 64)
+
+    entry["image"] = "registry.invalid/task:latest"
+    path.write_text(json.dumps(policy) + "\n")
+    with pytest.raises(ValueError, match="digest-pinned"):
+        load_source_wheel_policy(path, sha256_bytes(path.read_bytes()))
+
+    entry, _, _ = source_policy_entry()
+    entry["sources"] = []
+    path.write_text(json.dumps({**policy, "entries": [entry]}) + "\n")
+    with pytest.raises(ValueError, match="exactly one"):
+        load_source_wheel_policy(path, sha256_bytes(path.read_bytes()))
+
+    entry, _, _ = source_policy_entry()
+    entry["sources"] = [entry["sources"][0], dict(entry["sources"][0])]
+    path.write_text(json.dumps({**policy, "entries": [entry]}) + "\n")
+    with pytest.raises(ValueError, match="exactly one"):
+        load_source_wheel_policy(path, sha256_bytes(path.read_bytes()))
+
+
+def test_source_wheel_policy_rejects_duplicate_json_keys_and_nonfinite_values(tmp_path: Path) -> None:
+    entry, _, _ = source_policy_entry()
+    policy = {
+        "schema_version": 1,
+        "allowed_hosts": ["files.example.invalid"],
+        "entries": [entry],
+    }
+    canonical = json.dumps(policy, sort_keys=True)
+    for payload in (
+        canonical.replace('"schema_version": 1', '"schema_version": 1, "schema_version": 1', 1),
+        canonical.replace('"size": ', '"size": NaN, "ignored_size": ', 1),
+    ):
+        path = tmp_path / f"policy-{hashlib.sha256(payload.encode()).hexdigest()}.json"
+        path.write_text(payload + "\n")
+        with pytest.raises(ValueError, match="not valid JSON"):
+            load_source_wheel_policy(path, sha256_bytes(path.read_bytes()))
+
+
+def test_source_distribution_accepts_matching_duplicate_metadata_only(tmp_path: Path) -> None:
+    entry, _, _ = source_policy_entry()
+    metadata = b"Metadata-Version: 2.1\nName: verifier-helper\nVersion: 1.0\n"
+
+    def archive(second: bytes) -> bytes:
+        output = io.BytesIO()
+        with tarfile.open(fileobj=output, mode="w:gz") as bundle:
+            for name, payload in (
+                ("verifier_helper-1.0/PKG-INFO", metadata),
+                ("verifier_helper-1.0/verifier_helper.egg-info/PKG-INFO", second),
+            ):
+                member = tarfile.TarInfo(name)
+                member.size = len(payload)
+                bundle.addfile(member, io.BytesIO(payload))
+        return output.getvalue()
+
+    matching = archive(metadata)
+    source = entry["sources"][0]
+    source["size"] = len(matching)
+    source["sha256"] = sha256_bytes(matching)
+    policy_path = tmp_path / "matching-policy.json"
+    policy_path.write_text(
+        json.dumps({"schema_version": 1, "allowed_hosts": ["files.example.invalid"], "entries": [entry]})
+    )
+    loaded = load_source_wheel_policy(policy_path, sha256_bytes(policy_path.read_bytes()))
+    inspect_source_distribution(loaded.entries[0].sources[0], matching)
+
+    mismatched = archive(b"Metadata-Version: 2.1\nName: verifier-helper\nVersion: 2.0\n")
+    source["size"] = len(mismatched)
+    source["sha256"] = sha256_bytes(mismatched)
+    policy_path.write_text(
+        json.dumps({"schema_version": 1, "allowed_hosts": ["files.example.invalid"], "entries": [entry]})
+    )
+    loaded = load_source_wheel_policy(policy_path, sha256_bytes(policy_path.read_bytes()))
+    with pytest.raises(RuntimeError, match="metadata does not match"):
+        inspect_source_distribution(loaded.entries[0].sources[0], mismatched)
+
+
+def test_oracle_source_wheel_build_is_attested_and_resume_revalidates_bytes(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    entry, source_payload, built_wheel = source_policy_entry()
+    taskset = source_dependency_taskset(tmp_path, [entry])
+    task = dependency_task(tmp_path)
+    runtime = DependencyRuntime(installed=False, source_only=True)
+    lifecycle: list[str] = []
+    builder = SourceBuilderRuntime(source_payload, built_wheel, lifecycle=lifecycle)
+    monkeypatch.setattr(taskset, "_new_source_builder", lambda *args: builder)
+
+    taskset.begin_task_dependency_attestations(task)
+    asyncio.run(taskset._prefetch_test_dependencies(task, runtime))
+    attestation_refs = taskset.finish_task_dependency_attestations(task)
+
+    prefetched = taskset._prefetched_test_dependencies[runtime]
+    assert prefetched.universal is False
+    assert prefetched.source_attestation_sha256 in attestation_refs
+    assert lifecycle == ["start", "stop"]
+    source_build_argv = next(argv for argv in builder.argvs if "--no-build-isolation" in argv)
+    assert "--no-index" in source_build_argv
+    assert "--no-deps" in source_build_argv
+    assert source_build_argv[-1] == (
+        "verifier-helper @ file:///tmp/terminal-bench-source-inputs/"
+        f"verifier_helper-1.0.tar.gz#sha256={sha256_bytes(source_payload)}"
+    )
+    assert builder.events.count("download") == 1
+    assert builder.events.index("download") < builder.events.index("network-isolated")
+    assert builder.events.index("network-isolated") < builder.events.index("source-build")
+    manifest_path = tmp_path / "source_wheel_attestations.json"
+    manifest_sha256 = sha256_bytes(manifest_path.read_bytes())
+    manifest = json.loads(manifest_path.read_text())
+    assert manifest["policy_sha256"] == taskset.source_wheel_policy_sha256
+    assert manifest["entries"][0]["build_contract"]["build_isolation"] is False
+    assert manifest["entries"][0]["build_contract"]["isolated_python"] is True
+    assert manifest["entries"][0]["build_contract"]["build_network"] == "no-network"
+    assert manifest["entries"][0]["sources"][0]["policy"]["sha256"] == sha256_bytes(source_payload)
+    assert manifest["entries"][0]["wheels"][0]["sha256"] == sha256_bytes(built_wheel)
+    assert manifest_path.stat().st_mode & 0o777 == 0o400
+    archive_path = prefetched.archive_path
+    assert archive_path is not None and archive_path.exists()
+    assert runtime.events.count("clean-target-closure-probe") == 1
+
+    asyncio.run(taskset.close())
+    assert archive_path.exists()
+    resumed = source_dependency_taskset(
+        tmp_path,
+        [entry],
+        expected_attestation_sha256=manifest_sha256,
+    )
+    resumed_runtime = DependencyRuntime(installed=False, source_only=True)
+    asyncio.run(resumed._prefetch_test_dependencies(task, resumed_runtime))
+    assert resumed_runtime.events == ["fingerprint"]
+    assert resumed._prefetched_test_dependencies[resumed_runtime].archive_path == archive_path
+
+    archive_path.chmod(0o600)
+    archive_path.write_bytes(b"tampered")
+    archive_path.chmod(0o400)
+    with pytest.raises(RuntimeError, match="integrity validation"):
+        source_dependency_taskset(
+            tmp_path,
+            [entry],
+            expected_attestation_sha256=manifest_sha256,
+        )
+
+
+def test_source_wheel_resume_requires_externally_approved_attestation_sha256(tmp_path: Path) -> None:
+    entry, _, built_wheel = source_policy_entry()
+    taskset = source_dependency_taskset(tmp_path, [entry])
+    fingerprints = synthetic_fingerprints(entry["image"])
+    policy_entry = taskset._source_wheel_policy.entries[0]
+    wheels = {policy_entry.sources[0].wheel_filename: built_wheel}
+    evidence = validate_policy_wheel_closure(policy_entry, wheels)
+    taskset._publish_source_wheel_attestation(
+        policy_entry.requirements,
+        fingerprints,
+        policy_entry,
+        pack_wheelhouse(wheels),
+        evidence,
+        (("verifier-helper", "1.0"),),
+    )
+
+    with pytest.raises(ValueError, match="requires the approved attestation SHA-256"):
+        source_dependency_taskset(tmp_path, [entry])
+
+
+def test_source_wheel_empty_attestation_requires_approval_on_resume(tmp_path: Path) -> None:
+    entry, _, _ = source_policy_entry()
+    taskset = source_dependency_taskset(tmp_path, [entry])
+    taskset.initialize_source_wheel_attestations(allow_create=True)
+    manifest = tmp_path / "source_wheel_attestations.json"
+    digest = sha256_bytes(manifest.read_bytes())
+
+    assert json.loads(manifest.read_text())["entries"] == []
+    assert manifest.stat().st_mode & 0o777 == 0o400
+    with pytest.raises(ValueError, match="approved attestation SHA-256"):
+        source_dependency_taskset(tmp_path, [entry])
+
+    resumed = source_dependency_taskset(
+        tmp_path,
+        [entry],
+        expected_attestation_sha256=digest,
+    )
+    resumed.initialize_source_wheel_attestations(allow_create=False)
+
+
+@pytest.mark.parametrize("malformed", ["duplicate", "nonfinite"])
+def test_source_wheel_resume_rejects_ambiguous_manifest_json(tmp_path: Path, malformed: str) -> None:
+    entry, _, _ = source_policy_entry()
+    taskset = source_dependency_taskset(tmp_path, [entry])
+    taskset.initialize_source_wheel_attestations(allow_create=True)
+    manifest = tmp_path / "source_wheel_attestations.json"
+    value = manifest.read_text()
+    manifest.chmod(0o600)
+    if malformed == "duplicate":
+        value = value.replace('"schema_version":1', '"schema_version":1,"schema_version":1', 1)
+    else:
+        value = value.replace('"schema_version":1', '"schema_version":NaN', 1)
+    manifest.write_text(value)
+    manifest.chmod(0o400)
+
+    with pytest.raises(ValueError, match="not valid JSON"):
+        source_dependency_taskset(
+            tmp_path,
+            [entry],
+            expected_attestation_sha256=sha256_bytes(manifest.read_bytes()),
+        )
+
+
+def test_source_wheel_loader_discards_only_safe_orphan_archives(tmp_path: Path) -> None:
+    entry, _, _ = source_policy_entry()
+    cache = tmp_path / "source_wheel_cache"
+    cache.mkdir(mode=0o700)
+    orphan = cache / ("a" * 64 + ".tar")
+    orphan.write_bytes(b"interrupted")
+    orphan.chmod(0o400)
+
+    source_dependency_taskset(tmp_path, [entry])
+
+    assert list(cache.iterdir()) == []
+
+    unsafe = cache / "unrelated"
+    unsafe.write_bytes(b"preserve")
+    unsafe.chmod(0o400)
+    with pytest.raises(ValueError, match="unsafe unreferenced artifact"):
+        source_dependency_taskset(tmp_path, [entry])
+    assert unsafe.read_bytes() == b"preserve"
+
+
+def test_source_wheel_policy_is_rejected_for_model_setup(tmp_path: Path) -> None:
+    entry, _, _ = source_policy_entry()
+    taskset = source_dependency_taskset(tmp_path, [entry])
+
+    with pytest.raises(RuntimeError, match="trusted oracle"):
+        asyncio.run(taskset.setup(dependency_task(tmp_path), object()))
+
+
+def test_source_wheel_builder_start_is_drained_before_teardown_on_cancellation(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    entry, _, _ = source_policy_entry()
+    taskset = source_dependency_taskset(tmp_path, [entry])
+    task = dependency_task(tmp_path)
+    started = asyncio.Event()
+    release_start = asyncio.Event()
+    lifecycle: list[str] = []
+
+    class Builder:
+        async def start(self) -> None:
+            started.set()
+            await release_start.wait()
+            lifecycle.append("started")
+
+        async def stop(self) -> None:
+            lifecycle.append("stopped")
+
+    monkeypatch.setattr(taskset, "_new_source_builder", lambda *args: Builder())
+
+    async def exercise() -> None:
+        operation = asyncio.create_task(
+            taskset._build_source_dependency_wheelhouse(
+                task,
+                object(),
+                ("verifier-helper==1.0",),
+                synthetic_fingerprints(entry["image"]),
+            )
+        )
+        await started.wait()
+        operation.cancel()
+        await asyncio.sleep(0)
+        assert lifecycle == []
+        release_start.set()
+        with pytest.raises(asyncio.CancelledError):
+            await operation
+
+    asyncio.run(exercise())
+    assert lifecycle == ["started", "stopped"]
+    assert not (tmp_path / "source_wheel_attestations.json").exists()
+
+
+def test_source_wheel_fallback_rejects_compose_main_image_without_leasing_builder(tmp_path: Path) -> None:
+    entry, _, _ = source_policy_entry()
+    taskset = source_dependency_taskset(tmp_path, [entry], enable_compose=True)
+    task = dependency_task(tmp_path)
+    (tmp_path / "environment" / "compose.yml").write_text("services:\n  main:\n    image: other:latest\n")
+    runtime = object.__new__(VMVMRuntime)
+    runtime.config = VMVMConfig(image=entry["image"])
+    fingerprints = synthetic_fingerprints(entry["image"])
+
+    with pytest.raises(RuntimeError, match="effective main image is unbound"):
+        taskset._new_source_builder(task, runtime, fingerprints, "4" * 64)
+
+
+def test_source_wheel_builder_lease_is_global_and_cancellation_cannot_publish(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    image_a = "registry.invalid/task-a@sha256:" + "a" * 64
+    image_b = "registry.invalid/task-b@sha256:" + "b" * 64
+    entry_a, _, built_wheel = source_policy_entry(image=image_a)
+    entry_b, _, _ = source_policy_entry(image=image_b)
+    taskset = source_dependency_taskset(tmp_path, [entry_a, entry_b])
+    task = dependency_task(tmp_path)
+    active = 0
+    maximum = 0
+    build_started = asyncio.Event()
+    release_build = asyncio.Event()
+
+    class Builder:
+        def __init__(self, fingerprints: RuntimeWheelFingerprints) -> None:
+            self.fingerprints = fingerprints
+
+        async def start(self) -> None:
+            nonlocal active, maximum
+            active += 1
+            maximum = max(maximum, active)
+
+        async def stop(self) -> None:
+            nonlocal active
+            active -= 1
+
+    async def fingerprint(task: object, runtime: Builder) -> RuntimeWheelFingerprints:
+        return runtime.fingerprints
+
+    async def build(
+        task: object,
+        builder: Builder,
+        policy_entry: object,
+    ) -> tuple[dict[str, bytes], tuple[tuple[str, str], ...]]:
+        build_started.set()
+        await release_build.wait()
+        return {"verifier_helper-1.0-py3-none-any.whl": built_wheel}, (("verifier-helper", "1.0"),)
+
+    monkeypatch.setattr(taskset, "_runtime_wheel_fingerprint", fingerprint)
+    monkeypatch.setattr(taskset, "_new_source_builder", lambda task, runtime, fingerprints, key: Builder(fingerprints))
+    monkeypatch.setattr(taskset, "_build_policy_wheels_in_builder", build)
+    monkeypatch.setattr(
+        taskset,
+        "_validate_policy_wheels_on_target",
+        lambda *args: asyncio.sleep(0, result=(("verifier-helper", "1.0"),)),
+    )
+    fingerprints_a = synthetic_fingerprints(image_a)
+    fingerprints_b = synthetic_fingerprints(image_b)
+
+    async def exercise() -> None:
+        first = asyncio.create_task(
+            taskset._build_source_dependency_wheelhouse(task, object(), ("verifier-helper==1.0",), fingerprints_a)
+        )
+        await build_started.wait()
+        second = asyncio.create_task(
+            taskset._build_source_dependency_wheelhouse(task, object(), ("verifier-helper==1.0",), fingerprints_b)
+        )
+        await asyncio.sleep(0)
+        assert active == 1
+        first.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await first
+        assert not (tmp_path / "source_wheel_attestations.json").exists()
+        release_build.set()
+        await second
+
+    asyncio.run(exercise())
+    assert maximum == 1
+    assert active == 0
+    assert (tmp_path / "source_wheel_attestations.json").is_file()
+
+
 @pytest.mark.parametrize("failure", [RuntimeError("prepare failed"), asyncio.CancelledError()])
 def test_verifier_wheelhouse_preparation_always_attempts_cleanup(
     tmp_path: Path,
@@ -837,6 +1446,7 @@ def test_verifier_wheelhouse_preparation_always_attempts_cleanup(
     taskset = dependency_taskset(tmp_path)
     task = dependency_task(tmp_path)
     runtime = DependencyRuntime()
+    fingerprints = asyncio.run(taskset._runtime_wheel_fingerprint(task, runtime))
     root_commands: list[str] = []
 
     async def run_root(runtime: object, command: str) -> ProgramResult:
@@ -852,8 +1462,8 @@ def test_verifier_wheelhouse_preparation_always_attempts_cleanup(
                 task,
                 runtime,
                 ("verifier-helper==1.0",),
-                "resolution-fingerprint",
-                "compatibility-fingerprint",
+                fingerprints.resolution,
+                fingerprints.compatibility,
             )
         )
 
@@ -1388,6 +1998,75 @@ def test_vmvm_root_exec_classifies_ssh_exit_255_as_transport_failure() -> None:
         "error_type": "broken_pipe",
         "exit_code": -1,
     }
+
+
+def test_vmvm_host_tunnel_setup_uses_and_releases_shared_vacli_slot(monkeypatch) -> None:
+    class RecordingTelemetry:
+        def __init__(self) -> None:
+            self.enters = 0
+            self.finishes = 0
+
+        def lease_start_entered(self) -> None:
+            self.enters += 1
+
+        def lease_start_finished(self) -> None:
+            self.finishes += 1
+
+    telemetry = RecordingTelemetry()
+    limiter = LeaseStartConcurrencyLimiter(1, telemetry)
+    monkeypatch.setattr(vacli_backend, "_lease_concurrency", limiter)
+    backend = object.__new__(VacliVMVMBackend)
+    backend._destroyed = False
+    backend._container_id = "a" * 12
+    tunnel = VacliHostTunnel("10.89.0.1", 42000, 1234, 99)
+    probes: list[tuple[threading.Thread, threading.Event]] = []
+
+    def assert_shared_slot_is_held() -> None:
+        started = threading.Event()
+        acquired = threading.Event()
+
+        def acquire_measured() -> None:
+            started.set()
+            limiter.acquire()
+            acquired.set()
+            limiter.release()
+
+        probe = threading.Thread(target=acquire_measured)
+        probe.start()
+        assert started.wait(timeout=2)
+        assert not acquired.wait(timeout=0.05)
+        assert (telemetry.enters, telemetry.finishes) == (len(probes), len(probes))
+        probes.append((probe, acquired))
+
+    def await_probe() -> None:
+        probe, acquired = probes[-1]
+        assert acquired.wait(timeout=2)
+        probe.join(timeout=2)
+        assert not probe.is_alive()
+
+    def succeed(local_port: int) -> tuple[VacliHostTunnel, str]:
+        assert_shared_slot_is_held()
+        return tunnel, f"http://10.89.0.1:{local_port}"
+
+    backend._open_host_tunnel = succeed
+    assert backend.open_host_tunnel(1234) == (tunnel, "http://10.89.0.1:1234")
+    await_probe()
+    assert (telemetry.enters, telemetry.finishes) == (1, 1)
+
+    def fail(local_port: int) -> tuple[VacliHostTunnel, str]:
+        assert_shared_slot_is_held()
+        raise BackendInitError(f"failed to expose {local_port}")
+
+    backend._open_host_tunnel = fail
+    with pytest.raises(BackendInitError, match="failed to expose"):
+        backend.open_host_tunnel(1234)
+    await_probe()
+    assert (telemetry.enters, telemetry.finishes) == (2, 2)
+
+    backend._open_host_tunnel = succeed
+    assert backend.open_host_tunnel(1234)[0] is tunnel
+    await_probe()
+    assert (telemetry.enters, telemetry.finishes) == (3, 3)
 
 
 def test_vmvm_sidecar_exec_classifies_ssh_exit_255_as_transport_failure() -> None:

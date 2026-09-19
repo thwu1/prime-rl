@@ -22,6 +22,7 @@ DEFAULT_MAX_SEQUENCE_TOKENS = 262_144
 FORBIDDEN_MODEL_REQUEST_FIELDS = frozenset({"logprobs", "prompt_logprobs", "return_token_ids", "top_logprobs"})
 REPEATED_KDA_CHARACTER_THRESHOLD = 64
 _SHA256_HEX_CHARS = frozenset("0123456789abcdef")
+TRAINABLE_FINISH_REASONS = frozenset({"stop", "tool_calls"})
 
 
 @dataclass(frozen=True, slots=True)
@@ -79,6 +80,41 @@ def _valid_content(value: object) -> bool:
     return True
 
 
+def _valid_tool_arguments(value: object) -> bool:
+    if not isinstance(value, str):
+        return False
+
+    def reject_duplicates(pairs: list[tuple[str, object]]) -> dict[str, object]:
+        result: dict[str, object] = {}
+        for key, item in pairs:
+            if key in result:
+                raise ValueError("duplicate key")
+            result[key] = item
+        return result
+
+    try:
+        parsed = json.loads(
+            value,
+            object_pairs_hook=reject_duplicates,
+            parse_constant=lambda _constant: (_ for _ in ()).throw(ValueError()),
+        )
+    except (TypeError, ValueError):
+        return False
+
+    def valid_json_value(item: object) -> bool:
+        if item is None:
+            return False
+        if isinstance(item, float):
+            return math.isfinite(item)
+        if isinstance(item, dict):
+            return all(valid_json_value(child) for child in item.values())
+        if isinstance(item, list):
+            return all(valid_json_value(child) for child in item)
+        return isinstance(item, (bool, int, str))
+
+    return isinstance(parsed, dict) and valid_json_value(parsed)
+
+
 def _has_whitespace_separated_run(text: str, character: str, threshold: int) -> bool:
     """Detect a repeated character separated by whitespace, without joining unrelated text."""
     pattern = rf"{re.escape(character)}(?:\s*{re.escape(character)}){{{threshold - 1},}}"
@@ -93,6 +129,22 @@ def _message_problems(node: dict, index: int) -> list[str]:
     role = message.get("role")
     if role not in {"system", "user", "assistant", "tool"}:
         return [f"node_{index}_message_role_invalid"]
+    allowed_keys = {
+        "system": {"role", "content"},
+        "user": {"role", "content"},
+        "assistant": {
+            "role",
+            "content",
+            "provider_state",
+            "reasoning_content",
+            "reasoning_details",
+            "tool_calls",
+        },
+        "tool": {"role", "content", "tool_call_id", "name"},
+    }[role]
+    required_keys = {"role"} if role == "assistant" else {"role", "content"}
+    if not required_keys.issubset(message) or not set(message).issubset(allowed_keys):
+        problems.append(f"node_{index}_message_keys_invalid")
     if node.get("sampled") is True and role != "assistant":
         problems.append(f"node_{index}_sampled_message_not_assistant")
 
@@ -108,6 +160,8 @@ def _message_problems(node: dict, index: int) -> list[str]:
         content = message.get("content")
         reasoning = message.get("reasoning_content")
         tool_calls = message.get("tool_calls")
+        if any(message.get(field) is not None for field in ("provider_state", "reasoning_details")):
+            problems.append(f"node_{index}_unsupported_assistant_state")
         if content is not None and not isinstance(content, str):
             problems.append(f"node_{index}_assistant_content_invalid")
         if reasoning is not None and not isinstance(reasoning, str):
@@ -120,10 +174,14 @@ def _message_problems(node: dict, index: int) -> list[str]:
                 if not isinstance(call, dict):
                     problems.append(f"node_{index}_tool_call_{call_index}_not_an_object")
                     continue
+                if set(call) != {"id", "name", "arguments"}:
+                    problems.append(f"node_{index}_tool_call_{call_index}_keys_invalid")
                 for field in ("id", "name", "arguments"):
                     value = call.get(field)
                     if not isinstance(value, str) or (field != "arguments" and not value):
                         problems.append(f"node_{index}_tool_call_{call_index}_{field}_invalid")
+                if not _valid_tool_arguments(call.get("arguments")):
+                    problems.append(f"node_{index}_tool_call_{call_index}_arguments_json_invalid")
                 call_id = call.get("id")
                 if isinstance(call_id, str) and call_id:
                     if call_id in seen_call_ids:
@@ -136,6 +194,9 @@ def _message_problems(node: dict, index: int) -> list[str]:
         ):
             problems.append(f"node_{index}_assistant_payload_empty")
         if node.get("sampled") is True:
+            finish_reason = node.get("finish_reason")
+            if finish_reason is not None and finish_reason not in TRAINABLE_FINISH_REASONS:
+                problems.append(f"node_{index}_finish_reason_invalid")
             repeated_characters = {"@": "at", "!": "bang"}
             for field_name, text in (("content", content), ("reasoning", reasoning)):
                 if not isinstance(text, str):
@@ -330,12 +391,27 @@ def _response_node_problems(
     model_io_contract: CapturedModelIOContract | None,
 ) -> list[str]:
     """Reparse captured response semantics exactly as Verifiers did before graph commit."""
+    body = response["body"]
+    if response["kind"] == "exact_provider_json":
+        choices = body.get("choices")
+        if not isinstance(choices, list) or len(choices) != 1 or not isinstance(choices[0], dict):
+            return [f"node_{index}_model_io_response_semantics_invalid"]
+        raw_finish_reason = choices[0].get("finish_reason")
+    else:
+        raw_finish_reason = body.get("finish_reason")
+    if raw_finish_reason not in TRAINABLE_FINISH_REASONS:
+        return [f"node_{index}_model_io_response_finish_reason_invalid"]
+
     try:
+        node_message_body = node.get("message")
+        if isinstance(node_message_body, dict) and node_message_body.get("reasoning_details") is None:
+            node_message_body = dict(node_message_body)
+            node_message_body.pop("reasoning_details", None)
         if response["kind"] == "exact_provider_json":
-            parsed = response_from_wire(ChatCompletion.model_validate(response["body"]))
+            parsed = response_from_wire(ChatCompletion.model_validate(body))
         else:
-            parsed = Response.model_validate(response["body"])
-        node_message = AssistantMessage.model_validate(node.get("message"))
+            parsed = Response.model_validate(body)
+        node_message = AssistantMessage.model_validate(node_message_body)
         node_usage = Usage.model_validate(node["usage"]) if node.get("usage") is not None else None
     except (AttributeError, IndexError, KeyError, TypeError, ValueError):
         return [f"node_{index}_model_io_response_semantics_invalid"]
@@ -357,48 +433,48 @@ def _response_node_problems(
 def _captured_zero_reasoning_tool_turn(
     node: dict,
     request_body: dict | None = None,
-) -> bool:
-    """Whether hash-bound model I/O proves this tool turn exposed no reasoning."""
+) -> str | None:
+    """Classify a hash-bound tool turn that proves no reasoning was exposed."""
     model_io = node.get("model_io")
     if not isinstance(model_io, dict):
-        return False
+        return None
     response = model_io.get("response")
     if not _valid_model_response(response) or _json_sha256(response["body"]) != response["sha256"]:
-        return False
+        return None
 
     body = response["body"]
     reasoning_token_values: list[object] = []
     if response["kind"] == "exact_provider_json":
         choices = body.get("choices")
         if not isinstance(choices, list) or not choices or not isinstance(choices[0], dict):
-            return False
+            return None
         message = choices[0].get("message")
         usage = body.get("usage")
         if not isinstance(usage, dict):
-            return False
+            return None
         completion_details = usage.get("completion_tokens_details")
         if completion_details is not None and not isinstance(completion_details, dict):
-            return False
+            return None
         # Verifiers reads exact chat-completion reasoning usage only from the
         # nested details object. Do not let an ignored top-level extra certify
         # a turn that the captured/flattened usage considers unknown.
         if "reasoning_tokens" in usage:
-            return False
+            return None
         if isinstance(completion_details, dict) and "reasoning_tokens" in completion_details:
             reasoning_token_values.append(completion_details["reasoning_tokens"])
     else:
         message = body.get("message")
         usage = body.get("usage")
         if not isinstance(usage, dict) or "reasoning_tokens" not in usage:
-            return False
+            return None
         reasoning_token_values.append(usage["reasoning_tokens"])
 
     if any(not isinstance(value, int) or isinstance(value, bool) or value != 0 for value in reasoning_token_values):
-        return False
+        return None
     provider_reported_zero = bool(reasoning_token_values)
 
     if not isinstance(message, dict):
-        return False
+        return None
     reasoning_values: list[object] = []
     reasoning_details_values: list[object] = []
     explicit_empty_reasoning = False
@@ -414,7 +490,7 @@ def _captured_zero_reasoning_tool_turn(
     provider_fields = message.get("provider_specific_fields")
     if provider_fields is not None:
         if not isinstance(provider_fields, dict):
-            return False
+            return None
         for field in ("reasoning", "reasoning_content"):
             if field in provider_fields:
                 value = provider_fields[field]
@@ -425,31 +501,31 @@ def _captured_zero_reasoning_tool_turn(
             reasoning_details_values.append(value)
             explicit_empty_reasoning |= value == []
     if any(value is not None and (not isinstance(value, str) or value.strip()) for value in reasoning_values):
-        return False
+        return None
     if any(value is not None and (not isinstance(value, list) or value) for value in reasoning_details_values):
-        return False
+        return None
 
     provider_calls = message.get("tool_calls")
     flattened_message = node.get("message")
     flattened_calls = flattened_message.get("tool_calls") if isinstance(flattened_message, dict) else None
     if not isinstance(provider_calls, list) or not provider_calls or not isinstance(flattened_calls, list):
-        return False
+        return None
 
     normalized_provider_calls: list[tuple[str, str, str]] = []
     for call in provider_calls:
         if not isinstance(call, dict) or not isinstance(call.get("id"), str):
-            return False
+            return None
         if response["kind"] == "exact_provider_json":
             function = call.get("function")
             if not isinstance(function, dict):
-                return False
+                return None
             name = function.get("name")
             arguments = function.get("arguments")
         else:
             name = call.get("name")
             arguments = call.get("arguments")
         if not isinstance(name, str) or not isinstance(arguments, str):
-            return False
+            return None
         normalized_provider_calls.append((call["id"], name, arguments))
 
     normalized_flattened_calls: list[tuple[str, str, str]] = []
@@ -460,21 +536,23 @@ def _captured_zero_reasoning_tool_turn(
             or not isinstance(call.get("name"), str)
             or not isinstance(call.get("arguments"), str)
         ):
-            return False
+            return None
         normalized_flattened_calls.append((call["id"], call["name"], call["arguments"]))
     if normalized_provider_calls != normalized_flattened_calls:
-        return False
+        return None
 
     if provider_reported_zero:
-        return True
+        return "provider_reported_zero"
     if response["kind"] != "exact_provider_json" or not explicit_empty_reasoning:
-        return False
+        return None
     template = request_body.get("chat_template_kwargs") if isinstance(request_body, dict) else None
-    return (
+    if (
         isinstance(template, dict)
         and template.get("enable_thinking") is True
         and template.get("preserve_thinking") is True
-    )
+    ):
+        return "provider_explicit_empty"
+    return None
 
 
 def _model_io_base_is_ancestor(nodes: list, node_id: int, base_node: int) -> bool:
@@ -495,6 +573,183 @@ def _model_io_base_is_ancestor(nodes: list, node_id: int, base_node: int) -> boo
     return False
 
 
+def _prompt_content(value: object) -> object:
+    if isinstance(value, str):
+        return value
+    if not isinstance(value, list):
+        raise ValueError("content")
+    normalized: list[dict] = []
+    for part in value:
+        if not isinstance(part, dict):
+            raise ValueError("content")
+        if part.get("type") == "text" and set(part) == {"type", "text"} and isinstance(part.get("text"), str):
+            normalized.append({"type": "text", "text": part["text"]})
+            continue
+        image_url = part.get("image_url")
+        if (
+            part.get("type") == "image_url"
+            and set(part) == {"type", "image_url"}
+            and isinstance(image_url, dict)
+            and set(image_url) == {"url"}
+            and isinstance(image_url.get("url"), str)
+        ):
+            normalized.append({"type": "image_url", "image_url": {"url": image_url["url"]}})
+            continue
+        raise ValueError("content")
+    return normalized
+
+
+def _prompt_tool_calls(value: object, *, wire: bool) -> list[dict] | None:
+    if value is None:
+        return None
+    if not isinstance(value, list):
+        raise ValueError("tool_calls")
+    normalized: list[dict] = []
+    for call in value:
+        if not isinstance(call, dict):
+            raise ValueError("tool_calls")
+        if wire:
+            if set(call) != {"id", "type", "function"} or call.get("type") != "function":
+                raise ValueError("tool_calls")
+            function = call.get("function")
+            if not isinstance(function, dict) or set(function) != {"name", "arguments"}:
+                raise ValueError("tool_calls")
+        else:
+            if set(call) != {"id", "name", "arguments"}:
+                raise ValueError("tool_calls")
+            function = call
+        call_id = call.get("id")
+        name = function.get("name")
+        arguments = function.get("arguments")
+        if (
+            not isinstance(call_id, str)
+            or not call_id
+            or not isinstance(name, str)
+            or not name
+            or not _valid_tool_arguments(arguments)
+        ):
+            raise ValueError("tool_calls")
+        normalized.append({"id": call_id, "name": name, "arguments": arguments})
+    return normalized
+
+
+def _prompt_messages(messages: object, *, wire: bool) -> list[dict]:
+    if not isinstance(messages, list):
+        raise ValueError("messages")
+    tool_names: dict[str, str] = {}
+    normalized: list[dict] = []
+    for message in messages:
+        if not isinstance(message, dict):
+            raise ValueError("message")
+        role = message.get("role")
+        if role in {"system", "user"}:
+            if set(message) != {"role", "content"}:
+                raise ValueError("message")
+            normalized.append({"role": role, "content": _prompt_content(message["content"])})
+            continue
+        if role == "tool":
+            if not {"role", "content", "tool_call_id"}.issubset(message) or not set(message).issubset(
+                {"role", "content", "tool_call_id", "name"}
+            ):
+                raise ValueError("message")
+            call_id = message.get("tool_call_id")
+            if not isinstance(call_id, str) or not call_id:
+                raise ValueError("message")
+            name = message.get("name")
+            if name is None:
+                name = tool_names.get(call_id)
+            if name is not None and (not isinstance(name, str) or not name):
+                raise ValueError("message")
+            normalized.append(
+                {
+                    "role": "tool",
+                    "content": _prompt_content(message["content"]),
+                    "tool_call_id": call_id,
+                    "name": name,
+                }
+            )
+            continue
+        if role != "assistant":
+            raise ValueError("message")
+        allowed = {
+            "role",
+            "content",
+            "provider_state",
+            "reasoning_details",
+            "tool_calls",
+            "reasoning_content",
+        }
+        if wire:
+            allowed.add("reasoning")
+        if "role" not in message or not set(message).issubset(allowed):
+            raise ValueError("message")
+        if wire and "reasoning" in message and "reasoning_content" in message:
+            raise ValueError("message")
+        if any(message.get(field) is not None for field in ("provider_state", "reasoning_details")):
+            raise ValueError("message")
+        content = message.get("content")
+        if content is not None and not isinstance(content, str):
+            raise ValueError("message")
+        normalized_message = {"role": "assistant", "content": content}
+        reasoning_field = "reasoning" if wire and "reasoning" in message else "reasoning_content"
+        if reasoning_field in message:
+            reasoning = message[reasoning_field]
+            if reasoning is not None and not isinstance(reasoning, str):
+                raise ValueError("message")
+            normalized_message["reasoning_content"] = reasoning
+        calls = None
+        if "tool_calls" in message:
+            calls = _prompt_tool_calls(message["tool_calls"], wire=wire)
+            normalized_message["tool_calls"] = calls
+        normalized.append(normalized_message)
+        for call in calls or []:
+            if call["id"] in tool_names:
+                raise ValueError("tool_calls")
+            tool_names[call["id"]] = call["name"]
+    return normalized
+
+
+def _graph_prompt_messages(nodes: list, node_id: int) -> list[dict] | None:
+    """Return the exhaustively validated root-to-parent messages."""
+    path: list[int] = []
+    seen: set[int] = set()
+    current = nodes[node_id].get("parent")
+    while current is not None:
+        if (
+            isinstance(current, bool)
+            or not isinstance(current, int)
+            or not 0 <= current < len(nodes)
+            or current in seen
+        ):
+            return None
+        seen.add(current)
+        path.append(current)
+        ancestor = nodes[current]
+        if not isinstance(ancestor, dict):
+            return None
+        current = ancestor.get("parent")
+    path.reverse()
+
+    try:
+        return _prompt_messages([nodes[path_id].get("message") for path_id in path], wire=False)
+    except ValueError:
+        return None
+
+
+def _request_graph_message_problem(nodes: list, node_id: int, request_body: dict) -> str | None:
+    """Prove the persisted graph prompt matches the provider-visible chat request."""
+    try:
+        request_messages = _prompt_messages(request_body.get("messages"), wire=True)
+    except ValueError:
+        return "model_io_request_messages_invalid"
+    graph_messages = _graph_prompt_messages(nodes, node_id)
+    if graph_messages is None:
+        return "model_io_request_messages_invalid"
+    if request_messages != graph_messages:
+        return "model_io_request_messages_mismatch"
+    return None
+
+
 class _ModelIOReconstructionError(ValueError):
     """A structurally valid request delta could not be safely reconstructed."""
 
@@ -502,8 +757,10 @@ class _ModelIOReconstructionError(ValueError):
 def _audit_model_io(
     nodes: list,
     model_io_contract: CapturedModelIOContract | None = None,
+    *,
+    require_request_graph_match: bool = False,
 ) -> tuple[list[str], int, dict[int, dict]]:
-    """Validate and reconstruct all sampled-turn provider captures using only stdlib types."""
+    """Validate and reconstruct all sampled-turn provider captures."""
     problems: list[str] = []
     sampled_ids: list[int] = []
     valid_requests: dict[int, dict] = {}
@@ -532,6 +789,8 @@ def _audit_model_io(
             problems.append(f"node_{index}_model_io_provider_route_invalid")
         elif model_io_contract is not None and provider_route != model_io_contract.provider_route:
             problems.append(f"node_{index}_model_io_provider_route_contract_mismatch")
+        elif provider_route != "/chat/completions":
+            problems.append(f"node_{index}_model_io_provider_route_invalid")
         request = model_io.get("request")
         if not _valid_model_request(request):
             problems.append(f"node_{index}_model_io_request_structure_invalid")
@@ -624,6 +883,14 @@ def _audit_model_io(
                 )
             ):
                 problems.append(f"node_{node_id}_model_io_request_chat_template_kwargs_mismatch")
+        model_io = nodes[node_id].get("model_io")
+        if (
+            require_request_graph_match
+            and isinstance(model_io, dict)
+            and model_io.get("provider_route") == "/chat/completions"
+        ):
+            if message_problem := _request_graph_message_problem(nodes, node_id, request_body):
+                problems.append(f"node_{node_id}_{message_problem}")
         tools = request_body.get("tools")
         if isinstance(tools, list) and tools and all(isinstance(tool, dict) and tool for tool in tools):
             found_tool_schemas = True
@@ -641,10 +908,12 @@ def _audit_trace(
     require_logprobs: bool = False,
     require_model_io: bool = False,
     model_io_contract: CapturedModelIOContract | None = None,
+    require_request_graph_match: bool = False,
+    observations: Counter[str] | None = None,
 ) -> list[str]:
     # Requiring logprobs necessarily opts into exact token-array validation.
     require_token_data = require_token_data or require_logprobs
-    require_model_io = require_model_io or model_io_contract is not None
+    require_model_io = require_model_io or model_io_contract is not None or require_request_graph_match
     problems: list[str] = []
     if trace.get("errors"):
         problems.append("trace_has_errors")
@@ -658,6 +927,7 @@ def _audit_trace(
         model_io_problems, _model_io_turns, reconstructed_requests = _audit_model_io(
             nodes,
             model_io_contract,
+            require_request_graph_match=require_request_graph_match,
         )
 
     max_branch_tokens, invalid_parents, parent_cycle = _max_branch_tokens(nodes)
@@ -680,11 +950,16 @@ def _audit_trace(
             reasoning = message.get("reasoning_content") if isinstance(message, dict) else None
             if isinstance(reasoning, str) and reasoning.strip():
                 sampled_reasoning_count += 1
-            elif require_reasoning and (
-                not require_model_io
-                or not _captured_zero_reasoning_tool_turn(node, reconstructed_requests.get(index))
-            ):
-                reasoning_not_retained = True
+            elif require_reasoning:
+                zero_reasoning_evidence = (
+                    _captured_zero_reasoning_tool_turn(node, reconstructed_requests.get(index))
+                    if require_model_io
+                    else None
+                )
+                if zero_reasoning_evidence is None:
+                    reasoning_not_retained = True
+                elif observations is not None:
+                    observations[f"{zero_reasoning_evidence}_reasoning_tool_turns"] += 1
         if not require_token_data:
             if is_sampled:
                 if reasoning_not_retained:
@@ -804,12 +1079,14 @@ def _summarize_traces(
     require_model_io: bool = False,
     aggregate_only: bool = False,
     model_io_contract: CapturedModelIOContract | None = None,
+    require_request_graph_match: bool = False,
 ) -> tuple[dict, bool]:
     require_token_data = require_token_data or require_logprobs
-    require_model_io = require_model_io or model_io_contract is not None
+    require_model_io = require_model_io or model_io_contract is not None or require_request_graph_match
     trace_count = 0
     sampled_tokens = 0
     model_io_turns = 0
+    reasoning_observations: Counter[str] = Counter()
     trace_failure_count = 0
     failure_examples: list[dict] = []
     problem_counts: Counter[str] = Counter()
@@ -835,6 +1112,8 @@ def _summarize_traces(
             require_logprobs=require_logprobs,
             require_model_io=require_model_io,
             model_io_contract=model_io_contract,
+            require_request_graph_match=require_request_graph_match,
+            observations=reasoning_observations,
         )
         if problems:
             trace_failure_count += 1
@@ -905,6 +1184,13 @@ def _summarize_traces(
         summary["failure_examples"] = failure_examples
     if require_model_io:
         summary["model_io_turns"] = model_io_turns
+    if require_model_io and require_reasoning:
+        summary["provider_reported_zero_reasoning_tool_turns"] = reasoning_observations[
+            "provider_reported_zero_reasoning_tool_turns"
+        ]
+        summary["provider_explicit_empty_reasoning_tool_turns"] = reasoning_observations[
+            "provider_explicit_empty_reasoning_tool_turns"
+        ]
     return summary, bool(trace_failure_count or global_problems)
 
 
@@ -920,6 +1206,12 @@ def main() -> None:
         action=argparse.BooleanOptionalAction,
         default=True,
         help="require and integrity-check exact provider request/response capture for every sampled turn",
+    )
+    parser.add_argument(
+        "--require-request-graph-match",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="require each captured chat request's messages to match the persisted graph prompt path",
     )
     parser.add_argument(
         "--require-token-data",
@@ -976,6 +1268,7 @@ def main() -> None:
             require_model_io=args.require_model_io,
             aggregate_only=args.aggregate_only,
             model_io_contract=MODEL_IO_CONTRACTS.get(args.model_io_contract),
+            require_request_graph_match=args.require_request_graph_match and args.require_model_io,
         )
     except TraceJSONLError as error:
         parser.error(str(error))

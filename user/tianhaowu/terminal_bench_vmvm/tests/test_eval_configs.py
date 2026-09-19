@@ -38,6 +38,7 @@ BASE_ROLLOUT_RETRY_ERRORS = {
     "TunnelError",
 }
 KIMI_ROLLOUT_RETRY_ERRORS = BASE_ROLLOUT_RETRY_ERRORS | {"InterceptionError"}
+QWEN_ROLLOUT_RETRY_ERRORS = BASE_ROLLOUT_RETRY_ERRORS | {"InterceptionError"}
 
 
 def _mobius_task_file_sha256() -> str:
@@ -94,7 +95,7 @@ def test_active_rollout_retry_policy_is_model_specific(filename: str) -> None:
     assert rollout_retries["max_retries"] == 2
     expected_by_model = {
         "Kimi-K3": KIMI_ROLLOUT_RETRY_ERRORS,
-        "Qwen3.8-2.4T-A95B": BASE_ROLLOUT_RETRY_ERRORS,
+        "Qwen3.8-2.4T-A95B": QWEN_ROLLOUT_RETRY_ERRORS,
     }
     expected = expected_by_model[config["model"]]
     assert set(rollout_retries["include"]) == expected
@@ -103,7 +104,7 @@ def test_active_rollout_retry_policy_is_model_specific(filename: str) -> None:
     retry = RolloutRetryConfig.model_validate(rollout_retries)
     interception_trace = SimpleNamespace(error=SimpleNamespace(type="InterceptionError"))
     harness_trace = SimpleNamespace(error=SimpleNamespace(type="HarnessError"))
-    assert should_retry(interception_trace, retry) is (config["model"] == "Kimi-K3")
+    assert should_retry(interception_trace, retry) is True
     assert should_retry(harness_trace, retry) is False
 
 
@@ -185,11 +186,7 @@ def test_mobius_kimi_capacity_smoke_matches_production_lane() -> None:
     assert config["client"]["timeout"] == 43_200
     assert config["harness"]["runtime"]["session_timeout"] >= 43_200
     assert config["timeout"]["rollout"] >= 36_000
-    assert (
-        config["timeout"]["rollout"]
-        < config["harness"]["runtime"]["session_timeout"]
-        <= config["client"]["timeout"]
-    )
+    assert config["timeout"]["rollout"] < config["harness"]["runtime"]["session_timeout"] <= config["client"]["timeout"]
     assert config["client"]["outbound_body_denylist"] == OUTBOUND_BODY_DENYLIST
     assert config["sampling"]["reasoning_effort"] == "max"
     assert config["sampling"]["chat_template_kwargs"] == {
@@ -199,9 +196,7 @@ def test_mobius_kimi_capacity_smoke_matches_production_lane() -> None:
     taskset = config["taskset"]
     assert taskset["dataset_revision"] == "ac1f30b9ac0e6c6a20a9fe423900d9ed28a6d366"
     assert taskset["task_file_sha256"] == "8d7d9377a9bbe6ade2fba7cc0730647d8be82402e225f95ad864a2218647563c"
-    assert taskset["image_manifest_sha256"] == (
-        "118157378884021d2fc12dd83e7d9576ca606a5d229a2bd34c203d745212e009"
-    )
+    assert taskset["image_manifest_sha256"] == ("118157378884021d2fc12dd83e7d9576ca606a5d229a2bd34c203d745212e009")
 
 
 def test_mobius_qwen_production_retention_and_concurrency() -> None:
@@ -209,18 +204,20 @@ def test_mobius_qwen_production_retention_and_concurrency() -> None:
 
     assert config["num_tasks"] == 2_500
     assert config["num_rollouts"] == 1
-    assert config["max_concurrent"] == 8
-    assert config["multiplex"] == 8
+    assert config["max_concurrent"] == 64
+    assert config["multiplex"] == 64
     assert config["max_total_tokens"] == 262_144
     assert config["sampling"]["max_tokens"] == 32_768
     assert config["retain_traces"] is False
-    assert config["client"]["max_connections"] == 8
-    assert config["client"]["max_keepalive_connections"] == 8
+    assert config["client"]["max_connections"] == 32
+    assert config["client"]["max_keepalive_connections"] == 32
+    assert "model.model_kwargs.timeout=15000" in config["harness"]["config_overrides"]
     taskset = config["taskset"]
     assert taskset["dataset_revision"] == "ac1f30b9ac0e6c6a20a9fe423900d9ed28a6d366"
     assert taskset["task_file"] == ("user/tianhaowu/terminal_bench_vmvm/configs/eval/mobius_valid_tasks_2500.txt")
     assert taskset["task_file_sha256"] == _mobius_task_file_sha256()
     assert taskset["image_manifest_sha256"] == ("118157378884021d2fc12dd83e7d9576ca606a5d229a2bd34c203d745212e009")
+    assert set(config["retries"]["rollout"]["include"]) == QWEN_ROLLOUT_RETRY_ERRORS
 
 
 @pytest.mark.parametrize(
@@ -271,9 +268,11 @@ def test_eval_configs_pin_approved_tasks_and_runtime_contract(
         "enable_thinking": True,
         "preserve_thinking": True,
     }
-    assert config["max_concurrent"] == config["multiplex"] <= 8
-    assert config["client"]["max_connections"] == config["max_concurrent"]
-    assert config["client"]["max_keepalive_connections"] == config["max_concurrent"]
+    maximum_concurrency = 64 if filename == "mobius_qwen_a95b_2500.toml" else 8
+    assert config["max_concurrent"] == config["multiplex"] <= maximum_concurrency
+    expected_http_concurrency = 32 if filename == "mobius_qwen_a95b_2500.toml" else config["max_concurrent"]
+    assert config["client"]["max_connections"] == expected_http_concurrency
+    assert config["client"]["max_keepalive_connections"] == expected_http_concurrency
     expected_client_timeout = 43_200 if "kimi" in filename else 7_200
     assert config["client"]["timeout"] == expected_client_timeout
     assert config["harness"]["runtime"]["type"] == "vmvm"
@@ -362,7 +361,7 @@ def test_eval_controller_is_cpu_only_and_supports_high_vmvm_concurrency() -> Non
     assert "#SBATCH --gres" not in text
     assert "#SBATCH --gpus" not in text
     assert 'python3 "$workflow_dir/eval_run_identity.py"' in text
-    assert "--mode \"$identity_mode\"" in text
+    assert '--mode "$identity_mode"' in text
     assert "eval_run_identity_sha256" in text
     # This bounds only simultaneous lease *bring-up*. The slot is released as
     # soon as each tunnel is ready, so the evaluator can still reach 64 active
@@ -398,19 +397,28 @@ def test_direct_qwen_launcher_is_fail_closed() -> None:
     wrapper = (workflow_dir / "run_qwen_direct_eval.sbatch").read_text()
     driver = (workflow_dir / "run_direct_qwen_eval_driver.sh").read_text()
 
-    assert "--policy consistent_hash" in wrapper
-    assert "--request-id-headers x-session-id" in wrapper
+    assert '--policy "$router_policy"' in wrapper
+    assert '--request-id-headers "$router_request_id_header"' in wrapper
+    assert '[[ "$router_policy" != consistent_hash ]]' in wrapper
+    assert '[[ "$router_request_id_header" != x-session-id ]]' in wrapper
+    assert "round_robin" not in wrapper
     assert "--request-timeout-secs 7500" in wrapper
     assert "--disable-retries" in wrapper
-    assert "--max-concurrent-requests 8" in wrapper
-    assert "--queue-size 0" in wrapper
-    assert "VACLI_MAX_CONCURRENT_LEASES=8" in wrapper
+    assert '--max-concurrent-requests "$router_max_concurrent"' in wrapper
+    assert '--queue-size "$router_queue_size"' in wrapper
+    assert '--queue-timeout-secs "$router_queue_timeout"' in wrapper
+    assert "router_max_concurrent > 32" in wrapper
+    assert 'export DIRECT_QWEN_PROVIDER_CONCURRENCY="$router_max_concurrent"' in wrapper
+    assert "VACLI_MAX_CONCURRENT_LEASES=2" in wrapper
     assert "OPENAI_API_KEY=EMPTY" in wrapper
     assert "INFERENCE_PROXY_INFO" in wrapper
     assert "direct_workers.json" in wrapper
     assert "approved task_file and task_file_sha256" in wrapper
     assert "DIRECT_QWEN_APPROVED_TASK_FILE" in wrapper
     assert "DIRECT_QWEN_APPROVED_TASK_FILE_SHA256" in wrapper
+    assert 'export DIRECT_QWEN_MANIFEST_SHA256="$manifest_sha256"' in wrapper
+    assert 'export DIRECT_QWEN_ROUTER_POLICY="$router_policy"' in wrapper
+    assert 'export DIRECT_QWEN_REQUEST_ID_HEADERS="$router_request_id_header"' in wrapper
     assert "validate_saved_manifest" in driver
     assert "validate_eval_config" in driver
     assert "load_workers" in driver

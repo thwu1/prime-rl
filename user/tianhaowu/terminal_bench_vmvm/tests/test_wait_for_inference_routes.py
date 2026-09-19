@@ -165,17 +165,9 @@ def _config(tmp_path: Path, **overrides: Any) -> GateConfig:
     deployment_dir = tmp_path / "test-deployment"
     deployment_dir.mkdir()
     spec = deployment_dir / "spec.yaml"
-    spec.write_text(
-        "spec:\n"
-        "  proxy:\n"
-        "    config:\n"
-        f"      request_timeout: {request_timeout}\n"
-        "      num_retries: 0\n"
-    )
+    spec.write_text(f"spec:\n  proxy:\n    config:\n      request_timeout: {request_timeout}\n      num_retries: 0\n")
     (deployment_dir / "proxy_litellm_config.yaml").write_text(
-        "litellm_settings:\n"
-        f"  request_timeout: {request_timeout}\n"
-        "  num_retries: 0\n"
+        f"litellm_settings:\n  request_timeout: {request_timeout}\n  num_retries: 0\n"
     )
     proxy_info = deployment_dir / "proxy_info.json"
     proxy_info.write_text(
@@ -243,12 +235,10 @@ def test_three_exact_polls_run_strict_probe_and_write_redacted_artifact(
     assert artifact["state"] == "passed"
     assert artifact["polls"] == 3
     assert artifact["consecutive_ready_polls"] == 3
-    assert [
-        route["slurm_job_id"] for route in artifact["serving_route_generation"]["routes"]
-    ] == [str(1000 + index) for index in range(24)]
-    assert artifact["last_status"]["serving_route_generation"] == artifact[
-        "serving_route_generation"
+    assert [route["slurm_job_id"] for route in artifact["serving_route_generation"]["routes"]] == [
+        str(1000 + index) for index in range(24)
     ]
+    assert artifact["last_status"]["serving_route_generation"] == artifact["serving_route_generation"]
     assert artifact["proxy_info_readable"] is True
     assert artifact["observed_spec_sha256"] == config.expected_spec_sha256
     persisted = config.resolved_output().read_text()
@@ -359,9 +349,7 @@ def test_endpoint_job_rotation_resets_ready_streak(tmp_path: Path) -> None:
     artifact = _run(config, runner, FakeClock())
 
     assert artifact["polls"] == 3
-    assert [
-        route["slurm_job_id"] for route in artifact["serving_route_generation"]["routes"]
-    ] == ["200", "201"]
+    assert [route["slurm_job_id"] for route in artifact["serving_route_generation"]["routes"]] == ["200", "201"]
 
 
 @pytest.mark.parametrize(
@@ -436,9 +424,7 @@ def test_endpoint_job_rotation_after_probe_fails_closed(tmp_path: Path) -> None:
     config = _config(tmp_path, expected_routes=2, consecutive_polls=1)
     generation_a = _status(desired=2, ready=2, job_ids=["100", "101"])
     generation_b = _status(desired=2, ready=2, job_ids=["200", "201"])
-    runner = FakeRunner(
-        [generation_a, _probe(backends=_backends(2)), generation_b]
-    )
+    runner = FakeRunner([generation_a, _probe(backends=_backends(2)), generation_b])
 
     with pytest.raises(GateError, match="^serving_route_generation_changed$"):
         _run(config, runner, FakeClock())
@@ -491,9 +477,7 @@ def test_status_backend_hash_matches_probe_identifier() -> None:
         },
     )
 
-    assert generation["routes"][0]["backend_sha256"] == _backend_identifier(
-        "http://worker-0:8000/v1"
-    )[0]
+    assert generation["routes"][0]["backend_sha256"] == _backend_identifier("http://worker-0:8000/v1")[0]
 
 
 @pytest.mark.parametrize(
@@ -611,9 +595,7 @@ def test_timeout_is_persisted_when_proxy_info_never_becomes_readable(
     config = _config(tmp_path, wait_timeout=2.0)
     assert config.proxy_info is not None
     config.proxy_info.unlink()
-    runner = FakeRunner(
-        [_status(coord_ticks=10), _status(coord_ticks=11), _status(coord_ticks=12)]
-    )
+    runner = FakeRunner([_status(coord_ticks=10), _status(coord_ticks=11), _status(coord_ticks=12)])
     clock = FakeClock()
 
     with pytest.raises(GateError, match="^wait_timeout$"):

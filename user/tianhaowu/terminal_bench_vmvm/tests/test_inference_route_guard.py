@@ -73,9 +73,7 @@ def _binding(
     deployment_dir = tmp_path / "deployment-test"
     deployment_dir.mkdir()
     spec = deployment_dir / "spec.yaml"
-    spec.write_text(
-        f"spec:\n  proxy:\n    config:\n      request_timeout: {request_timeout}\n      num_retries: 0\n"
-    )
+    spec.write_text(f"spec:\n  proxy:\n    config:\n      request_timeout: {request_timeout}\n      num_retries: 0\n")
     (deployment_dir / "proxy_litellm_config.yaml").write_text(
         f"litellm_settings:\n  request_timeout: {request_timeout}\n  num_retries: 0\n"
     )

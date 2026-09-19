@@ -25,14 +25,15 @@ from typing import Any, Iterator
 from export_oracle_tasks import (
     MAX_JSON_BYTES,
     ORACLE_REASONS,
-    RUN_IDENTITY_KEYS,
     PromotionError,
+    _audit_source_wheel_artifacts,
     _canonical_json_file,
     _canonical_json_sha256,
     _ordered_tasks_sha256,
     _read_bytes,
     _reject_json_constant,
     _sha256,
+    _source_wheel_recovery,
     _unique_json_object,
 )
 
@@ -57,6 +58,7 @@ RESULT_KEYS = {
     "slug",
     "valid",
 }
+SOURCE_WHEEL_RESULT_KEYS = RESULT_KEYS | {"source_wheel_attestation_sha256s"}
 SUMMARY_KEYS = {
     "completed",
     "finished_at",
@@ -67,6 +69,7 @@ SUMMARY_KEYS = {
     "run_identity_sha256",
     "selected",
 }
+SOURCE_WHEEL_SUMMARY_KEYS = SUMMARY_KEYS | {"source_wheel_attestation_sha256"}
 
 
 class CanaryManifestError(ValueError):
@@ -117,7 +120,6 @@ def _run_identity(oracle_dir: Path, expected_total: int) -> tuple[dict[str, Any]
     identity_sha256 = wrapper.get("run_identity_sha256")
     if (
         not isinstance(identity, dict)
-        or set(identity) != RUN_IDENTITY_KEYS
         or type(identity.get("schema_version")) is not int
         or identity["schema_version"] != 1
         or not isinstance(identity_sha256, str)
@@ -125,6 +127,10 @@ def _run_identity(oracle_dir: Path, expected_total: int) -> tuple[dict[str, Any]
         or _canonical_json_sha256(identity) != identity_sha256
     ):
         raise CanaryManifestError("oracle_run_identity_invalid")
+    try:
+        _source_wheel_recovery(identity)
+    except PromotionError as cause:
+        raise CanaryManifestError("oracle_run_identity_invalid") from cause
     selection = identity.get("selection")
     if not isinstance(selection, dict) or set(selection) != {
         "count",
@@ -172,6 +178,7 @@ def _results(
     identity_sha256: str,
     network_semantics: dict[str, Any],
     ordered_slugs_sha256: str,
+    source_wheel_attestation_sha256s: frozenset[str] | None = None,
 ) -> tuple[list[dict[str, Any]], Counter[str], str, Path, bytes]:
     path, raw = _source_artifact(oracle_dir, "results.jsonl", error="oracle_results_invalid")
     if not raw or not raw.endswith(b"\n"):
@@ -181,11 +188,13 @@ def _results(
         raise CanaryManifestError("oracle_universe_incomplete")
     rows: list[dict[str, Any]] = []
     slugs: list[str] = []
+    referenced_source_attestations: set[str] = set()
     reasons: Counter[str] = Counter()
     for expected_index, line in enumerate(lines):
         row = _strict_json(line, error="oracle_result_schema_invalid")
         keys = set(row)
-        if keys not in (RESULT_KEYS, RESULT_KEYS | {"last_attempt"}):
+        expected_keys = RESULT_KEYS if source_wheel_attestation_sha256s is None else SOURCE_WHEEL_RESULT_KEYS
+        if keys not in (expected_keys, expected_keys | {"last_attempt"}):
             raise CanaryManifestError("oracle_result_schema_invalid")
         valid = row.get("valid")
         reason = row.get("reason")
@@ -218,15 +227,32 @@ def _results(
             or ("last_attempt" in row and not isinstance(row["last_attempt"], dict))
             or row.get("oracle_network_semantics") != network_semantics
             or row.get("run_identity_sha256") != identity_sha256
+            or (
+                source_wheel_attestation_sha256s is not None
+                and (
+                    not isinstance(row.get("source_wheel_attestation_sha256s"), list)
+                    or not all(isinstance(digest, str) for digest in row["source_wheel_attestation_sha256s"])
+                    or row["source_wheel_attestation_sha256s"] != sorted(set(row["source_wheel_attestation_sha256s"]))
+                    or not all(
+                        digest in source_wheel_attestation_sha256s for digest in row["source_wheel_attestation_sha256s"]
+                    )
+                )
+            )
         ):
             raise CanaryManifestError("oracle_result_schema_invalid")
         rows.append(row)
+        if source_wheel_attestation_sha256s is not None:
+            referenced_source_attestations.update(row["source_wheel_attestation_sha256s"])
         slugs.append(row["slug"])
         reasons[reason] += 1
     if len(slugs) != len(set(slugs)):
         raise CanaryManifestError("oracle_result_duplicates")
     if _ordered_tasks_sha256(slugs) != ordered_slugs_sha256:
         raise CanaryManifestError("oracle_result_universe_mismatch")
+    if source_wheel_attestation_sha256s is not None and (
+        referenced_source_attestations != source_wheel_attestation_sha256s
+    ):
+        raise CanaryManifestError("oracle_source_wheel_recovery_not_exercised")
     return rows, reasons, _sha256(raw), path, raw
 
 
@@ -238,13 +264,14 @@ def _summary(
     network_semantics: dict[str, Any],
     reasons: Counter[str],
     passed: int,
+    source_wheel_attestation_sha256: str | None = None,
 ) -> tuple[str, Path, bytes]:
     path, raw = _source_artifact(oracle_dir, "summary.json", error="oracle_summary_invalid")
     summary = _strict_json(raw, error="oracle_summary_invalid")
     pass_rate = summary.get("pass_rate")
     finished_at = summary.get("finished_at")
     if (
-        set(summary) != SUMMARY_KEYS
+        set(summary) != (SUMMARY_KEYS if source_wheel_attestation_sha256 is None else SOURCE_WHEEL_SUMMARY_KEYS)
         or type(summary.get("selected")) is not int
         or summary["selected"] != expected_total
         or type(summary.get("completed")) is not int
@@ -258,6 +285,10 @@ def _summary(
         or summary.get("reasons") != dict(reasons)
         or summary.get("oracle_network_semantics") != network_semantics
         or summary.get("run_identity_sha256") != identity_sha256
+        or (
+            source_wheel_attestation_sha256 is not None
+            and summary.get("source_wheel_attestation_sha256") != source_wheel_attestation_sha256
+        )
         or isinstance(finished_at, bool)
         or not isinstance(finished_at, (int, float))
         or not math.isfinite(finished_at)
@@ -471,6 +502,14 @@ def build_canary_manifest(
             oracle_dir,
             expected_total,
         )
+        source_wheel_recovery = _source_wheel_recovery(identity)
+        try:
+            source_wheel_artifacts, source_wheel_entry_digests = _audit_source_wheel_artifacts(
+                oracle_dir,
+                source_wheel_recovery,
+            )
+        except PromotionError as cause:
+            raise CanaryManifestError("oracle_source_wheel_artifacts_invalid") from cause
         selection = identity["selection"]
         network_semantics = identity["network_semantics"]
         rows, reasons, results_sha256, results_path, results_raw = _results(
@@ -479,6 +518,9 @@ def build_canary_manifest(
             identity_sha256=identity_sha256,
             network_semantics=network_semantics,
             ordered_slugs_sha256=selection["ordered_task_slugs_sha256"],
+            source_wheel_attestation_sha256s=(
+                source_wheel_entry_digests if source_wheel_recovery is not None else None
+            ),
         )
         passed = sum(row["valid"] for row in rows)
         summary_sha256, summary_path, summary_raw = _summary(
@@ -488,6 +530,9 @@ def build_canary_manifest(
             network_semantics=network_semantics,
             reasons=reasons,
             passed=passed,
+            source_wheel_attestation_sha256=(
+                source_wheel_artifacts["attestation"]["sha256"] if source_wheel_artifacts is not None else None
+            ),
         )
         status_count = _statuses(oracle_dir, rows)
         task_bytes, nonvalid_count = _selection(rows, control_count, seed, identity_sha256)
@@ -524,6 +569,8 @@ def build_canary_manifest(
             },
             "schema_version": RECEIPT_SCHEMA_VERSION,
         }
+        if source_wheel_artifacts is not None:
+            payload["source_oracle"]["source_wheel_recovery"] = source_wheel_artifacts
         receipt_sha256 = _canonical_json_sha256(payload)
         envelope = {
             "receipt": payload,
@@ -531,10 +578,18 @@ def build_canary_manifest(
             "schema_version": RECEIPT_SCHEMA_VERSION,
         }
         receipt_bytes = _canonical_json_file(envelope)
+        try:
+            current_source_wheel_artifacts, _ = _audit_source_wheel_artifacts(
+                oracle_dir,
+                source_wheel_recovery,
+            )
+        except PromotionError as cause:
+            raise CanaryManifestError("oracle_source_changed") from cause
         if (
             _read_limited(identity_path, error="oracle_source_changed") != identity_raw
             or _read_limited(results_path, error="oracle_source_changed") != results_raw
             or _read_limited(summary_path, error="oracle_source_changed") != summary_raw
+            or current_source_wheel_artifacts != source_wheel_artifacts
         ):
             raise CanaryManifestError("oracle_source_changed")
         published = _publish_pair(task_file, task_bytes, receipt, receipt_bytes)

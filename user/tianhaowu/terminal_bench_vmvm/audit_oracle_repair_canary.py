@@ -19,12 +19,13 @@ from typing import Any
 
 import build_oracle_repair_canary as builder
 from export_oracle_tasks import (
-    RUN_IDENTITY_KEYS,
     PromotionError,
+    _audit_source_wheel_artifacts,
     _canonical_json_file,
     _canonical_json_sha256,
     _manifest_tasks,
     _sha256,
+    _source_wheel_recovery,
 )
 
 DEFAULT_EXPECTED_TOTAL = 2_538
@@ -78,6 +79,9 @@ class OracleSnapshot:
     summary_path: Path
     summary_raw: bytes
     status_count: int
+    source_wheel_recovery: dict[str, Any] | None
+    source_wheel_artifacts: dict[str, Any] | None
+    source_wheel_entry_digests: frozenset[str]
 
 
 def _is_revision(value: object) -> bool:
@@ -217,6 +221,11 @@ def _load_full_source(
             oracle_dir,
             expected_total,
         )
+        source_wheel_recovery = _source_wheel_recovery(identity)
+        source_wheel_artifacts, source_wheel_entry_digests = _audit_source_wheel_artifacts(
+            oracle_dir,
+            source_wheel_recovery,
+        )
         _validate_identity_contract(identity, error="source_run_identity_invalid")
         expected_source = {
             "prime_rl_commit": expected_prime_rl_commit,
@@ -233,6 +242,9 @@ def _load_full_source(
             identity_sha256=identity_sha256,
             network_semantics=identity["network_semantics"],
             ordered_slugs_sha256=selection["ordered_task_slugs_sha256"],
+            source_wheel_attestation_sha256s=(
+                source_wheel_entry_digests if source_wheel_recovery is not None else None
+            ),
         )
         passed = sum(row["valid"] for row in results)
         summary_sha256, summary_path, summary_raw = builder._summary(
@@ -242,9 +254,12 @@ def _load_full_source(
             network_semantics=identity["network_semantics"],
             reasons=reasons,
             passed=passed,
+            source_wheel_attestation_sha256=(
+                source_wheel_artifacts["attestation"]["sha256"] if source_wheel_artifacts is not None else None
+            ),
         )
         status_count = builder._statuses(oracle_dir, results)
-    except builder.CanaryManifestError as cause:
+    except (builder.CanaryManifestError, PromotionError) as cause:
         raise CanaryAuditError("source_oracle_invalid") from cause
     return OracleSnapshot(
         identity=identity,
@@ -261,6 +276,9 @@ def _load_full_source(
         summary_path=summary_path,
         summary_raw=summary_raw,
         status_count=status_count,
+        source_wheel_recovery=source_wheel_recovery,
+        source_wheel_artifacts=source_wheel_artifacts,
+        source_wheel_entry_digests=source_wheel_entry_digests,
     )
 
 
@@ -359,6 +377,8 @@ def _builder_receipt(
         },
         "schema_version": builder.RECEIPT_SCHEMA_VERSION,
     }
+    if source.source_wheel_artifacts is not None:
+        expected_payload["source_oracle"]["source_wheel_recovery"] = source.source_wheel_artifacts
     if payload != expected_payload:
         raise CanaryAuditError("builder_receipt_mismatch")
     return path, raw, receipt_sha256
@@ -392,7 +412,6 @@ def _load_canary_identity(
         type(wrapper.get("schema_version")) is not int
         or wrapper["schema_version"] != 1
         or not isinstance(identity, dict)
-        or set(identity) != RUN_IDENTITY_KEYS
         or type(identity.get("schema_version")) is not int
         or identity["schema_version"] != 1
         or not isinstance(identity_sha256, str)
@@ -400,6 +419,10 @@ def _load_canary_identity(
         or _canonical_json_sha256(identity) != identity_sha256
     ):
         raise CanaryAuditError("canary_run_identity_invalid")
+    try:
+        _source_wheel_recovery(identity)
+    except PromotionError as cause:
+        raise CanaryAuditError("canary_run_identity_invalid") from cause
     _validate_identity_contract(identity, error="canary_run_identity_invalid")
     selection = identity.get("selection")
     if not isinstance(selection, dict) or set(selection) != {
@@ -479,12 +502,20 @@ def _load_canary(
         expected_vmvm_tb_v2_sha256=expected_vmvm_tb_v2_sha256,
     )
     try:
+        source_wheel_recovery = _source_wheel_recovery(identity)
+        source_wheel_artifacts, source_wheel_entry_digests = _audit_source_wheel_artifacts(
+            canary_dir,
+            source_wheel_recovery,
+        )
         results, reasons, results_sha256, results_path, results_raw = builder._results(
             canary_dir,
             expected_total=len(tasks),
             identity_sha256=identity_sha256,
             network_semantics=identity["network_semantics"],
             ordered_slugs_sha256=identity["selection"]["ordered_task_slugs_sha256"],
+            source_wheel_attestation_sha256s=(
+                source_wheel_entry_digests if source_wheel_recovery is not None else None
+            ),
         )
         if [row["slug"] for row in results] != tasks:
             raise CanaryAuditError("canary_result_universe_mismatch")
@@ -496,9 +527,12 @@ def _load_canary(
             network_semantics=identity["network_semantics"],
             reasons=reasons,
             passed=passed,
+            source_wheel_attestation_sha256=(
+                source_wheel_artifacts["attestation"]["sha256"] if source_wheel_artifacts is not None else None
+            ),
         )
         status_count = builder._statuses(canary_dir, results)
-    except builder.CanaryManifestError as cause:
+    except (builder.CanaryManifestError, PromotionError) as cause:
         raise CanaryAuditError("canary_output_invalid") from cause
     return OracleSnapshot(
         identity=identity,
@@ -515,17 +549,26 @@ def _load_canary(
         summary_path=summary_path,
         summary_raw=summary_raw,
         status_count=status_count,
+        source_wheel_recovery=source_wheel_recovery,
+        source_wheel_artifacts=source_wheel_artifacts,
+        source_wheel_entry_digests=source_wheel_entry_digests,
     )
 
 
 def _unchanged(snapshot: OracleSnapshot) -> bool:
     try:
-        return (
+        unchanged = (
             builder._read_limited(snapshot.identity_path, error="source_changed") == snapshot.identity_raw
             and builder._read_limited(snapshot.results_path, error="source_changed") == snapshot.results_raw
             and builder._read_limited(snapshot.summary_path, error="source_changed") == snapshot.summary_raw
         )
-    except builder.CanaryManifestError as cause:
+        if not unchanged:
+            return False
+        return _audit_source_wheel_artifacts(
+            snapshot.identity_path.parent,
+            snapshot.source_wheel_recovery,
+        ) == (snapshot.source_wheel_artifacts, snapshot.source_wheel_entry_digests)
+    except (builder.CanaryManifestError, PromotionError) as cause:
         raise CanaryAuditError("source_changed") from cause
 
 
@@ -610,6 +653,8 @@ def audit_canary(
     control_count: int = DEFAULT_CONTROL_COUNT,
     minimum_recovered: int = DEFAULT_MINIMUM_RECOVERED,
     seed: str = DEFAULT_SEED,
+    expected_source_wheel_policy_sha256: str | None = None,
+    expected_source_wheel_attestations: int | None = None,
 ) -> dict[str, Any]:
     if not _is_revision(expected_source_prime_rl_commit):
         raise CanaryAuditError("expected_source_prime_rl_commit_invalid")
@@ -629,6 +674,14 @@ def audit_canary(
         raise CanaryAuditError("control_count_invalid")
     if type(minimum_recovered) is not int or minimum_recovered < 0:
         raise CanaryAuditError("minimum_recovered_invalid")
+    if (expected_source_wheel_policy_sha256 is None) != (expected_source_wheel_attestations is None):
+        raise CanaryAuditError("expected_source_wheel_contract_invalid")
+    if expected_source_wheel_policy_sha256 is not None and (
+        not _is_sha256(expected_source_wheel_policy_sha256)
+        or type(expected_source_wheel_attestations) is not int
+        or expected_source_wheel_attestations < 1
+    ):
+        raise CanaryAuditError("expected_source_wheel_contract_invalid")
     if (
         not isinstance(seed, str)
         or not seed
@@ -705,6 +758,23 @@ def audit_canary(
             expected_verifiers_commit=expected_verifiers_commit,
             expected_vmvm_tb_v2_sha256=expected_vmvm_tb_v2_sha256,
         )
+        if canary.source_wheel_recovery is None:
+            if expected_source_wheel_policy_sha256 is not None:
+                raise CanaryAuditError("canary_source_wheel_recovery_missing")
+        else:
+            if (
+                expected_source_wheel_policy_sha256 is None
+                or canary.source_wheel_recovery["policy"]["sha256"] != expected_source_wheel_policy_sha256
+                or canary.source_wheel_artifacts is None
+                or len(canary.source_wheel_entry_digests) != expected_source_wheel_attestations
+                or len(canary.source_wheel_artifacts["wheelhouses"]) != expected_source_wheel_attestations
+            ):
+                raise CanaryAuditError("canary_source_wheel_recovery_mismatch")
+            referenced_attestations = frozenset(
+                digest for row in canary.results for digest in row["source_wheel_attestation_sha256s"]
+            )
+            if referenced_attestations != canary.source_wheel_entry_digests:
+                raise CanaryAuditError("canary_source_wheel_recovery_not_exercised")
         transitions, reason_counts = _transition_counts(source, canary)
         control_regressions = transitions["source_valid_to_nonvalid"]
         recovered = transitions["source_nonvalid_to_valid"]
@@ -760,6 +830,8 @@ def audit_canary(
                 "unrecovered": repair_candidates - recovered,
             },
             "gates": {
+                "expected_source_wheel_attestations": expected_source_wheel_attestations,
+                "expected_source_wheel_policy_sha256": expected_source_wheel_policy_sha256,
                 "minimum_recovered": minimum_recovered,
                 "required_control_regressions": 0,
             },
@@ -773,6 +845,16 @@ def audit_canary(
             "state": state,
             "transitions": transitions,
         }
+        if canary.source_wheel_artifacts is not None:
+            payload["artifacts"]["canary"]["source_wheel_recovery"] = canary.source_wheel_artifacts
+            payload["contracts"]["canary_source_wheel_recovery_sha256"] = _canonical_json_sha256(
+                canary.identity["source_wheel_recovery"]
+            )
+        if source.source_wheel_artifacts is not None:
+            payload["artifacts"]["source_oracle"]["source_wheel_recovery"] = source.source_wheel_artifacts
+            payload["contracts"]["source_oracle_source_wheel_recovery_sha256"] = _canonical_json_sha256(
+                source.identity["source_wheel_recovery"]
+            )
         certificate_sha256 = _canonical_json_sha256(payload)
         envelope = {
             "audit": payload,
@@ -808,6 +890,7 @@ def audit_canary(
         "control_regressions": control_regressions,
         "controls": controls,
         "minimum_recovered": minimum_recovered,
+        "source_wheel_attestations": len(canary.source_wheel_entry_digests),
         "ok": ok,
         "published": published,
         "reason_counts": reason_counts,
@@ -835,6 +918,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--expected-total", type=int, default=DEFAULT_EXPECTED_TOTAL)
     parser.add_argument("--controls", type=int, default=DEFAULT_CONTROL_COUNT)
     parser.add_argument("--minimum-recovered", type=int, default=DEFAULT_MINIMUM_RECOVERED)
+    parser.add_argument("--expected-source-wheel-policy-sha256")
+    parser.add_argument("--expected-source-wheel-attestations", type=int)
     parser.add_argument("--seed", default=DEFAULT_SEED)
     args = parser.parse_args(argv)
     try:
@@ -854,6 +939,8 @@ def main(argv: list[str] | None = None) -> int:
             control_count=args.controls,
             minimum_recovered=args.minimum_recovered,
             seed=args.seed,
+            expected_source_wheel_policy_sha256=args.expected_source_wheel_policy_sha256,
+            expected_source_wheel_attestations=args.expected_source_wheel_attestations,
         )
     except CanaryAuditError as error:
         print(f"oracle_repair_canary_audit_error:{error}", file=sys.stderr)

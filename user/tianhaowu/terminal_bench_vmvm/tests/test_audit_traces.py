@@ -10,6 +10,7 @@ from audit_traces import (
     _captured_zero_reasoning_tool_turn,
     _iter_traces,
     _summarize_traces,
+    _valid_tool_arguments,
     main,
 )
 
@@ -660,13 +661,11 @@ def test_strict_kimi_contract_checks_reconstructed_request_deltas() -> None:
 
 def test_audit_trace_reconciles_exact_chat_response_semantics() -> None:
     trace = _trace_with_model_io()
-    reasoning_details = [{"type": "reasoning.text", "text": "signed detail"}]
     trace["nodes"][0]["message"] = {
         "role": "assistant",
         "content": "answer",
         "reasoning_content": "preferred reasoning",
         "tool_calls": [{"id": "call-1", "name": "bash", "arguments": '{"cmd":"pwd"}'}],
-        "provider_state": reasoning_details,
     }
     trace["nodes"][0]["finish_reason"] = "tool_calls"
     trace["nodes"][0]["usage"] = {
@@ -682,7 +681,6 @@ def test_audit_trace_reconciles_exact_chat_response_semantics() -> None:
             "content": "answer",
             "reasoning": "preferred reasoning",
             "reasoning_content": "lower-precedence reasoning",
-            "reasoning_details": reasoning_details,
             "tool_calls": [
                 {
                     "id": "call-1",
@@ -825,25 +823,193 @@ def test_audit_trace_rejects_hash_valid_unrelated_provider_response() -> None:
 
 
 @pytest.mark.parametrize(
-    ("field", "value", "problem"),
+    ("field", "value", "problems"),
     [
-        ("finish_reason", "length", "node_0_model_io_response_finish_reason_mismatch"),
+        (
+            "finish_reason",
+            "length",
+            [
+                "node_0_finish_reason_invalid",
+                "node_0_model_io_response_finish_reason_mismatch",
+            ],
+        ),
         (
             "usage",
             {"prompt_tokens": 100, "completion_tokens": 3},
-            "node_0_model_io_response_usage_mismatch",
+            ["node_0_model_io_response_usage_mismatch"],
         ),
     ],
 )
 def test_audit_trace_rejects_response_metadata_mismatch(
     field: str,
     value: object,
-    problem: str,
+    problems: list[str],
 ) -> None:
     trace = _trace_with_model_io()
     trace["nodes"][0][field] = value
 
-    assert _audit_trace(trace, require_reasoning=True, require_model_io=True) == [problem]
+    assert _audit_trace(trace, require_reasoning=True, require_model_io=True) == problems
+
+
+def test_audit_trace_requires_captured_request_messages_to_match_graph_path() -> None:
+    trace = _trace_with_model_io()
+    sampled = trace["nodes"][0]
+    sampled["parent"] = 0
+    trace["nodes"] = [
+        {
+            "parent": None,
+            "sampled": False,
+            "token_ids": [],
+            "mask": [],
+            "logprobs": [],
+            "message": {"role": "user", "content": "inspect the workspace"},
+        },
+        sampled,
+    ]
+
+    assert (
+        _audit_trace(
+            trace,
+            require_reasoning=True,
+            require_model_io=True,
+            require_request_graph_match=True,
+        )
+        == []
+    )
+
+    request = sampled["model_io"]["request"]
+    request["body"]["messages"] = [{"role": "user", "content": "wire-only context"}]
+    request["sha256"] = _digest(request["body"])
+    assert _audit_trace(
+        trace,
+        require_reasoning=True,
+        require_model_io=True,
+        require_request_graph_match=True,
+    ) == ["node_1_model_io_request_messages_mismatch"]
+
+
+@pytest.mark.parametrize("finish_reason", ["content_filter", "function_call", "length", "unknown"])
+def test_strict_graph_audit_rejects_hash_valid_untrainable_raw_finish_reason(finish_reason: str) -> None:
+    trace = _trace_with_model_io()
+    sampled = trace["nodes"][0]
+    sampled["parent"] = 0
+    trace["nodes"] = [
+        {
+            "parent": None,
+            "sampled": False,
+            "token_ids": [],
+            "mask": [],
+            "logprobs": [],
+            "message": {"role": "user", "content": "inspect the workspace"},
+        },
+        sampled,
+    ]
+    response = sampled["model_io"]["response"]
+    response["body"]["choices"][0]["finish_reason"] = finish_reason
+    response["sha256"] = _digest(response["body"])
+
+    assert _audit_trace(
+        trace,
+        require_reasoning=True,
+        require_model_io=True,
+        require_request_graph_match=True,
+    ) == ["node_1_model_io_response_finish_reason_invalid"]
+
+
+def test_audit_trace_requires_exact_chat_completions_route() -> None:
+    trace = _trace_with_model_io()
+    trace["nodes"][0]["model_io"]["provider_route"] = "/v1/chat/completions"
+
+    assert _audit_trace(trace, require_reasoning=True, require_model_io=True) == [
+        "node_0_model_io_provider_route_invalid"
+    ]
+
+
+@pytest.mark.parametrize(
+    ("arguments", "valid"),
+    [
+        ('{"command":"pwd"}', True),
+        ('{"items":[1,false,""],"nested":{}}', True),
+        ("[]", False),
+        ("null", False),
+        ('{"value":null}', False),
+        ('{"value":NaN}', False),
+        ('{"value":1e400}', False),
+        ('{"value":1,"value":2}', False),
+    ],
+)
+def test_tool_arguments_are_strict_finite_null_free_json_objects(arguments: str, valid: bool) -> None:
+    assert _valid_tool_arguments(arguments) is valid
+
+
+def test_audit_trace_rejects_unknown_finish_reason() -> None:
+    trace = _trace_with_model_io()
+    trace["nodes"][0]["finish_reason"] = "content_filter"
+
+    assert "node_0_finish_reason_invalid" in _audit_trace(trace, require_reasoning=True, require_model_io=True)
+
+
+@pytest.mark.parametrize(
+    "mutation",
+    ["unknown_role", "unknown_message_key", "unknown_content_part", "unknown_tool_call_key"],
+)
+def test_audit_trace_rejects_lossy_graph_wire_message_shapes(mutation: str) -> None:
+    trace = _trace_with_model_io()
+    sampled = trace["nodes"][0]
+    sampled["parent"] = 0
+    graph_message: dict = {"role": "user", "content": "inspect the workspace"}
+    trace["nodes"] = [
+        {
+            "parent": None,
+            "sampled": False,
+            "token_ids": [],
+            "mask": [],
+            "logprobs": [],
+            "message": graph_message,
+        },
+        sampled,
+    ]
+    wire_message = sampled["model_io"]["request"]["body"]["messages"][0]
+    if mutation == "unknown_role":
+        wire_message["role"] = "developer"
+    elif mutation == "unknown_message_key":
+        wire_message["opaque"] = True
+    elif mutation == "unknown_content_part":
+        wire_message["content"] = [{"type": "input_text", "text": "inspect the workspace"}]
+    else:
+        graph_message.clear()
+        graph_message.update(
+            {
+                "role": "assistant",
+                "content": "",
+                "tool_calls": [{"id": "call-1", "name": "bash", "arguments": "{}", "opaque": True}],
+            }
+        )
+        wire_message.clear()
+        wire_message.update(
+            {
+                "role": "assistant",
+                "content": "",
+                "tool_calls": [
+                    {
+                        "id": "call-1",
+                        "type": "function",
+                        "function": {"name": "bash", "arguments": "{}"},
+                    }
+                ],
+            }
+        )
+    request = sampled["model_io"]["request"]
+    request["sha256"] = _digest(request["body"])
+
+    problems = _audit_trace(
+        trace,
+        require_reasoning=True,
+        require_model_io=True,
+        require_request_graph_match=True,
+    )
+
+    assert "node_1_model_io_request_messages_invalid" in problems
 
 
 def test_audit_trace_requires_model_io_on_every_sampled_turn() -> None:
@@ -1077,7 +1243,7 @@ def test_zero_reasoning_tool_turn_rejects_nonzero_or_malformed_counter(
     node = {"model_io": {"response": {"kind": "exact_provider_json", "body": response}}}
     node["model_io"]["response"]["sha256"] = _digest(response)
 
-    assert _captured_zero_reasoning_tool_turn(node) is False
+    assert _captured_zero_reasoning_tool_turn(node) is None
 
 
 @pytest.mark.parametrize(
@@ -1117,7 +1283,7 @@ def test_zero_reasoning_tool_turn_rejects_provider_reasoning_or_malformed_fields
     node = {"model_io": {"response": {"kind": "exact_provider_json", "body": response}}}
     node["model_io"]["response"]["sha256"] = _digest(response)
 
-    assert _captured_zero_reasoning_tool_turn(node) is False
+    assert _captured_zero_reasoning_tool_turn(node) is None
 
 
 def test_audit_trace_requires_captured_reasoning_to_be_normalized() -> None:

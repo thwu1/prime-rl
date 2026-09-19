@@ -269,13 +269,7 @@ def _parse_status(result: ProcessResult, deployment: str) -> StatusObservation:
         except RouteGenerationError as exc:
             raise _status_problem(result, "malformed_status_coord") from exc
     serving_route_generation: dict[str, Any] | None = None
-    if (
-        phase == "serving"
-        and desired > 0
-        and ready == desired
-        and running_not_ready == 0
-        and pending == 0
-    ):
+    if phase == "serving" and desired > 0 and ready == desired and running_not_ready == 0 and pending == 0:
         try:
             serving_route_generation = route_generation_from_status_endpoints(
                 payload.get("endpoints"),
@@ -632,8 +626,7 @@ def run_gate(
                 else:
                     if (
                         serving_route_generation is None
-                        or endpoint.proxy_job_id
-                        != serving_route_generation["proxy"]["slurm_job_id"]
+                        or endpoint.proxy_job_id != serving_route_generation["proxy"]["slurm_job_id"]
                     ):
                         raise GateError("proxy_job_id_mismatch")
                     try:
@@ -705,14 +698,8 @@ def run_gate(
                     )
                     raise GateError("probe_failed")
                 coverage = probe_payload.get("coverage")
-                expected_backends = sorted(
-                    route["backend_sha256"]
-                    for route in serving_route_generation["routes"]
-                )
-                if (
-                    not isinstance(coverage, dict)
-                    or coverage.get("backends") != expected_backends
-                ):
+                expected_backends = sorted(route["backend_sha256"] for route in serving_route_generation["routes"])
+                if not isinstance(coverage, dict) or coverage.get("backends") != expected_backends:
                     raise GateError("probe_serving_routes_mismatch")
                 post_probe_result = runner(
                     _status_command(config),

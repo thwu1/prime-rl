@@ -7,6 +7,7 @@ import subprocess
 import threading
 from dataclasses import replace
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 import run_tb4_shard_wave_train as train
@@ -256,6 +257,97 @@ def test_sequential_waves_are_disjoint_and_prior_wave_is_validated(tmp_path: Pat
         path.read_bytes() for path in prepared.controller_root.rglob("*.json") if path.name != "wave.json"
     )
     assert b"private-case" not in metadata
+
+
+def test_supported_shard_trace_audit_rejects_hash_valid_graph_wire_divergence(tmp_path: Path) -> None:
+    request = {
+        "model": "Kimi-K3",
+        "reasoning_effort": "max",
+        "chat_template_kwargs": {"enable_thinking": True, "preserve_thinking": True},
+        "messages": [{"role": "user", "content": "graph context"}],
+        "tools": [
+            {
+                "type": "function",
+                "function": {
+                    "name": "bash",
+                    "description": "Run a command",
+                    "parameters": {"type": "object", "properties": {"cmd": {"type": "string"}}},
+                },
+            }
+        ],
+    }
+    response = {
+        "id": "response-1",
+        "object": "chat.completion",
+        "created": 1,
+        "model": "Kimi-K3",
+        "choices": [
+            {
+                "index": 0,
+                "finish_reason": "stop",
+                "message": {
+                    "role": "assistant",
+                    "content": "answer",
+                    "reasoning_content": "reasoning",
+                },
+            }
+        ],
+        "usage": {"prompt_tokens": 8, "completion_tokens": 2, "total_tokens": 10},
+    }
+    row = {
+        "id": "trace-1",
+        "task": {"slug": "private-case-0"},
+        "is_completed": True,
+        "stop_condition": "done",
+        "rewards": {"solved": 1.0},
+        "nodes": [
+            {
+                "parent": None,
+                "sampled": False,
+                "token_ids": [],
+                "mask": [],
+                "logprobs": [],
+                "message": {"role": "user", "content": "graph context"},
+            },
+            {
+                "parent": 0,
+                "sampled": True,
+                "token_ids": [],
+                "mask": [],
+                "logprobs": [],
+                "message": response["choices"][0]["message"],
+                "usage": {"prompt_tokens": 8, "completion_tokens": 2},
+                "finish_reason": "stop",
+                "model_io": {
+                    "provider_route": "/chat/completions",
+                    "request": {
+                        "kind": "full",
+                        "sha256": _digest(train.canonical_json(request)),
+                        "body": request,
+                    },
+                    "response": {
+                        "kind": "exact_provider_json",
+                        "sha256": _digest(train.canonical_json(response)),
+                        "body": response,
+                    },
+                },
+            },
+        ],
+    }
+    results = tmp_path / "results.jsonl"
+    results.write_text(json.dumps(row) + "\n")
+    certified = SimpleNamespace(
+        results=results,
+        spec=SimpleNamespace(tasks=frozenset({"private-case-0"})),
+    )
+
+    assert train._validate_trace_semantics(certified) == (True, 1)
+    request["messages"] = [{"role": "user", "content": "wire-only context"}]
+    row["nodes"][1]["model_io"]["request"]["sha256"] = _digest(train.canonical_json(request))
+    results.write_text(json.dumps(row) + "\n")
+
+    with pytest.raises(train.WaveTrainError, match="^shard_trace_audit_failed$"):
+        train._validate_trace_semantics(certified)
 
 
 class _StopAfterWait:

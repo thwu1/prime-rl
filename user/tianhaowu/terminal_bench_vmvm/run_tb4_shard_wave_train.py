@@ -1128,9 +1128,7 @@ def _expected_job_environment(
             dataset_revision=prepared.config.dataset_revision,
             dataset_archive=prepared.dataset_archive,
             dataset_content_sha256=prepared.config.dataset_content_sha256,
-            vacli_auth_environment={
-                key: prepared.submission_environment[key] for key in REQUIRED_VACLI_AUTH_ENV
-            },
+            vacli_auth_environment={key: prepared.submission_environment[key] for key in REQUIRED_VACLI_AUTH_ENV},
         )
     )
 
@@ -1347,6 +1345,7 @@ def _validate_trace_semantics(certified: CertifiedShard) -> tuple[bool, int | No
         require_logprobs=False,
         require_model_io=True,
         model_io_contract=KIMI_K3_MAX_MODEL_IO_CONTRACT,
+        require_request_graph_match=True,
     )
     if row.get("is_completed") is not True:
         problems.append("supported_trace_not_completed")

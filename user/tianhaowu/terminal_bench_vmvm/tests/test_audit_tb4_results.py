@@ -43,7 +43,7 @@ def _supported_trace(slug: str, *, solved: float = 0.0) -> dict:
         "model": "Kimi-K3",
         "reasoning_effort": "max",
         "chat_template_kwargs": {"enable_thinking": True, "preserve_thinking": True},
-        "messages": [{"role": "user", "content": "repair the task"}],
+        "messages": [],
         "tools": [
             {
                 "type": "function",
@@ -173,17 +173,11 @@ def _certificate_fixture(
     manifest.write_text("{}\n", encoding="utf-8")
     task_file.write_text("\n".join(sorted(path.name for path in dataset.iterdir())) + "\n")
     spec.write_text(
-        "spec:\n"
-        "  proxy:\n"
-        "    config:\n"
-        "      request_timeout: 43200\n"
-        "      num_retries: 0\n",
+        "spec:\n  proxy:\n    config:\n      request_timeout: 43200\n      num_retries: 0\n",
         encoding="utf-8",
     )
     (deployment_dir / "proxy_litellm_config.yaml").write_text(
-        "litellm_settings:\n"
-        "  request_timeout: 43200\n"
-        "  num_retries: 0\n",
+        "litellm_settings:\n  request_timeout: 43200\n  num_retries: 0\n",
         encoding="utf-8",
     )
     proxy_info = deployment_dir / "proxy_info.json"
@@ -280,6 +274,7 @@ def _certificate_fixture(
             "require_reasoning": True,
             "require_model_io": True,
             "model_io_contract": tb4.EXPECTED_MODEL_IO_CONTRACT,
+            "require_request_graph_match": True,
             "require_token_data": False,
             "require_logprobs": False,
             "max_sequence_tokens": 262144,
@@ -435,17 +430,22 @@ def _certificate_fixture(
     guard_receipt_path = tmp_path / "route_guard_success.json"
     write_guard_success_receipt(guard_receipt_path, guard_receipt)
     monkeypatch.setattr(tb4, "load_eval_run_identity", lambda _path: envelope)
-    return results, certificate, envelope, {
-        "config": config,
-        "identity": identity_path,
-        "manifest": manifest,
-        "provenance": provenance,
-        "readiness": readiness,
-        "smoke": smoke,
-        "proxy_info": proxy_info,
-        "eval_invocations": invocations,
-        "route_guard_success": guard_receipt_path,
-    }
+    return (
+        results,
+        certificate,
+        envelope,
+        {
+            "config": config,
+            "identity": identity_path,
+            "manifest": manifest,
+            "provenance": provenance,
+            "readiness": readiness,
+            "smoke": smoke,
+            "proxy_info": proxy_info,
+            "eval_invocations": invocations,
+            "route_guard_success": guard_receipt_path,
+        },
+    )
 
 
 def test_accepts_exact_supported_and_gpu_unsupported_partition(tmp_path: Path) -> None:
@@ -674,6 +674,7 @@ def test_certificate_is_aggregate_only_self_hashed_and_write_once(
         "proxy_info",
     }
     assert certificate["artifacts"]["config"]["sha256"] == _file_digest(paths["config"])
+    assert certificate["audit_policy"]["require_request_graph_match"] is True
     serialized = json.dumps(certificate, sort_keys=True)
     for forbidden in (
         "failure_examples",
@@ -740,7 +741,7 @@ def test_certificate_rejects_weakened_model_contract(
         )
 
 
-@pytest.mark.parametrize("tamper", ["self_hash", "policy", "counts"])
+@pytest.mark.parametrize("tamper", ["self_hash", "policy", "graph_policy", "counts"])
 def test_certificate_rejects_smoke_integrity_tampering(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -752,6 +753,8 @@ def test_certificate_rejects_smoke_integrity_tampering(
         smoke["smoke_checkpoint_sha256"] = "0" * 64
     elif tamper == "policy":
         smoke["audit_policy"]["require_model_io"] = False
+    elif tamper == "graph_policy":
+        smoke["audit_policy"]["require_request_graph_match"] = False
     else:
         smoke["counts"]["trace_failures"] = 1
     if tamper != "self_hash":
@@ -811,9 +814,7 @@ def test_certificate_rejects_legacy_or_mismatched_endpoint(
     body = {key: value for key, value in smoke.items() if key != "smoke_checkpoint_sha256"}
     smoke["smoke_checkpoint_sha256"] = _digest(body)
     paths["smoke"].write_text(json.dumps(smoke))
-    envelope["identity"]["deployment"]["smoke_checkpoint"]["sha256"] = _file_digest(
-        paths["smoke"]
-    )
+    envelope["identity"]["deployment"]["smoke_checkpoint"]["sha256"] = _file_digest(paths["smoke"])
     with pytest.raises(TB4AuditError, match="smoke_checkpoint_endpoint_mismatch"):
         certify_tb4_results(
             results,
@@ -829,15 +830,11 @@ def test_certificate_rejects_type_confused_smoke_model_io_policy(
 ) -> None:
     results, checkpoint, envelope, paths = _certificate_fixture(tmp_path, monkeypatch)
     smoke = json.loads(paths["smoke"].read_text())
-    smoke["audit_policy"]["model_io_contract"]["request_chat_template_kwargs"][
-        "enable_thinking"
-    ] = 1
+    smoke["audit_policy"]["model_io_contract"]["request_chat_template_kwargs"]["enable_thinking"] = 1
     body = {key: value for key, value in smoke.items() if key != "smoke_checkpoint_sha256"}
     smoke["smoke_checkpoint_sha256"] = _digest(body)
     paths["smoke"].write_text(json.dumps(smoke))
-    envelope["identity"]["deployment"]["smoke_checkpoint"]["sha256"] = _file_digest(
-        paths["smoke"]
-    )
+    envelope["identity"]["deployment"]["smoke_checkpoint"]["sha256"] = _file_digest(paths["smoke"])
 
     with pytest.raises(TB4AuditError, match="smoke_checkpoint_not_passed"):
         certify_tb4_results(

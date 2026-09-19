@@ -183,10 +183,13 @@ def test_eval_identity_is_canonical_write_once_and_resume_exact(tmp_path: Path) 
     digest = _bind_identity(tmp_path, identity, resume=False)
 
     assert digest == hashlib.sha256(canonical_json(identity)).hexdigest()
-    assert load_eval_run_identity(
-        tmp_path / "eval_run_identity.json",
-        verify_references=False,
-    ) == expected
+    assert (
+        load_eval_run_identity(
+            tmp_path / "eval_run_identity.json",
+            verify_references=False,
+        )
+        == expected
+    )
     assert _bind_identity(tmp_path, identity, resume=True) == digest
     with pytest.raises(EvalIdentityError, match="already_exists"):
         _bind_identity(tmp_path, identity, resume=False)
@@ -229,10 +232,7 @@ def test_eval_provenance_binds_endpoint_hashes_write_once(tmp_path: Path) -> Non
 
     _bind_provenance(tmp_path, identity, digest, args)
 
-    records = dict(
-        line.split("=", 1)
-        for line in (tmp_path / "provenance.txt").read_text().splitlines()
-    )
+    records = dict(line.split("=", 1) for line in (tmp_path / "provenance.txt").read_text().splitlines())
     endpoint = identity["deployment"]["endpoint"]
     assert records["deployment_endpoint_authority_sha256"] == endpoint["authority_sha256"]
     assert records["deployment_proxy_info_sha256"] == endpoint["proxy_info"]["sha256"]
@@ -367,19 +367,9 @@ def test_checkpoint_chain_is_hashed_and_role_aware(tmp_path: Path, monkeypatch: 
     deployment_dir = tmp_path / deployment_id
     deployment_dir.mkdir()
     spec = deployment_dir / "spec.yaml"
-    spec.write_text(
-        "spec:\n"
-        "  proxy:\n"
-        "    config:\n"
-        "      request_timeout: 43200\n"
-        "      num_retries: 0\n"
-    )
+    spec.write_text("spec:\n  proxy:\n    config:\n      request_timeout: 43200\n      num_retries: 0\n")
     generated_proxy_config = deployment_dir / "proxy_litellm_config.yaml"
-    generated_proxy_config.write_text(
-        "litellm_settings:\n"
-        "  request_timeout: 43200\n"
-        "  num_retries: 0\n"
-    )
+    generated_proxy_config.write_text("litellm_settings:\n  request_timeout: 43200\n  num_retries: 0\n")
     proxy_info = deployment_dir / "proxy_info.json"
     proxy_info.write_text(
         json.dumps(
@@ -547,6 +537,7 @@ def test_checkpoint_chain_is_hashed_and_role_aware(tmp_path: Path, monkeypatch: 
             "require_reasoning": True,
             "require_model_io": True,
             "model_io_contract": eval_run_identity.EXPECTED_MODEL_IO_CONTRACT,
+            "require_request_graph_match": True,
             "require_token_data": False,
             "require_logprobs": False,
             "max_sequence_tokens": 262_144,
@@ -613,6 +604,15 @@ def test_checkpoint_chain_is_hashed_and_role_aware(tmp_path: Path, monkeypatch: 
     args.role = "tb4"
     args.promotion_certificate = None
     args.promotion_certificate_sha256 = None
+    smoke_payload["audit_policy"]["require_request_graph_match"] = False
+    smoke_payload["smoke_checkpoint_sha256"] = hashlib.sha256(
+        canonical_json({key: value for key, value in smoke_payload.items() if key != "smoke_checkpoint_sha256"})
+    ).hexdigest()
+    smoke.write_text(json.dumps(smoke_payload, sort_keys=True) + "\n")
+    args.smoke_checkpoint_sha256 = _sha256(smoke)
+    with pytest.raises(EvalIdentityError, match="smoke_checkpoint_not_passed"):
+        _checkpoint_identity(args, endpoint)
+    smoke_payload["audit_policy"]["require_request_graph_match"] = True
     smoke_payload["counts"]["trace_failures"] = 1
     smoke_payload["smoke_checkpoint_sha256"] = hashlib.sha256(
         canonical_json({key: value for key, value in smoke_payload.items() if key != "smoke_checkpoint_sha256"})
@@ -630,19 +630,9 @@ def test_checkpoint_chain_is_hashed_and_role_aware(tmp_path: Path, monkeypatch: 
     historical_spec.write_bytes(deployment_spec_policy_snapshot(_sha256(spec), proxy_policy))
     historical_policy.write_bytes(deployment_proxy_policy_snapshot(proxy_policy))
     spec.write_text(
-        "spec:\n"
-        "  num_endpoints: 24\n"
-        "  proxy:\n"
-        "    config:\n"
-        "      request_timeout: 43200\n"
-        "      num_retries: 0\n"
+        "spec:\n  num_endpoints: 24\n  proxy:\n    config:\n      request_timeout: 43200\n      num_retries: 0\n"
     )
-    generated_proxy_config.write_text(
-        "litellm_settings:\n"
-        "  request_timeout: 43200\n"
-        "  num_retries: 0\n"
-        "model_list: []\n"
-    )
+    generated_proxy_config.write_text("litellm_settings:\n  request_timeout: 43200\n  num_retries: 0\nmodel_list: []\n")
     with pytest.raises(EvalIdentityError, match="deployment_spec_sha256_mismatch"):
         _verify_checkpoint_records(smoke_identity, endpoint)
     _verify_checkpoint_records(
@@ -678,9 +668,7 @@ def test_fresh_resolver_writes_exact_config_before_eval(tmp_path: Path) -> None:
             "base_url": "http://127.0.0.1:1/v1",
             "api_key_var": "OPENAI_API_KEY",
             "capture_model_io": True,
-            "outbound_body_denylist": sorted(
-                ["logprobs", "prompt_logprobs", "return_token_ids", "top_logprobs"]
-            ),
+            "outbound_body_denylist": sorted(["logprobs", "prompt_logprobs", "return_token_ids", "top_logprobs"]),
             "max_connections": 1,
             "max_keepalive_connections": 1,
         },

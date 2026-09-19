@@ -525,6 +525,7 @@ type = "vmvm"
             "require_reasoning": True,
             "require_model_io": True,
             "model_io_contract": launcher.EXPECTED_MODEL_IO_CONTRACT,
+            "require_request_graph_match": True,
             "require_token_data": False,
             "require_logprobs": False,
             "max_sequence_tokens": 262_144,
@@ -646,9 +647,7 @@ def test_dry_run_is_private_exact_and_never_submits(tmp_path: Path, monkeypatch,
         assert values["EVAL_EXPECTED_PRIME_RL_REVISION"] == "a" * 40
         assert values["EVAL_CONFIG_SHA256"] == job["config_sha256"]
         assert {key: values[key] for key in EXPECTED_VMVM_ENV} == EXPECTED_VMVM_ENV
-        assert {
-            key: values[key] for key in launcher.REQUIRED_VACLI_AUTH_ENV
-        } == {
+        assert {key: values[key] for key in launcher.REQUIRED_VACLI_AUTH_ENV} == {
             key: arguments["ambient_env"][key] for key in launcher.REQUIRED_VACLI_AUTH_ENV
         }
         assert "RESUME_DIR" not in values
@@ -872,6 +871,20 @@ def test_rejects_semantically_tampered_guard_receipt(tmp_path: Path, monkeypatch
     _rewrite_smoke(arguments, ("route_guard_success",))
 
     with pytest.raises(WaveLaunchError, match="smoke_guard_receipt_invalid"):
+        launch_wave(**arguments, dry_run=True)
+
+
+def test_rejects_smoke_without_strict_graph_wire_policy(tmp_path: Path, monkeypatch) -> None:
+    arguments = _fixture(tmp_path, monkeypatch)
+    smoke_path = Path(arguments["smoke_checkpoint_path"])
+    smoke = json.loads(smoke_path.read_text())
+    smoke["audit_policy"]["require_request_graph_match"] = False
+    body = {key: item for key, item in smoke.items() if key != "smoke_checkpoint_sha256"}
+    smoke["smoke_checkpoint_sha256"] = hashlib.sha256(canonical_json(body)).hexdigest()
+    smoke_path.write_text(json.dumps(smoke) + "\n")
+    arguments["smoke_checkpoint_sha256"] = _sha256(smoke_path)
+
+    with pytest.raises(WaveLaunchError, match="smoke_checkpoint_not_passed"):
         launch_wave(**arguments, dry_run=True)
 
 

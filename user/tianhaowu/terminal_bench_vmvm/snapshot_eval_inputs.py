@@ -27,9 +27,7 @@ def snapshot(config_path: Path, output_dir: Path) -> dict[str, dict[str, str]]:
     config = tomllib.loads(config_path.read_text())
     records: dict[str, dict[str, str]] = {}
 
-    sources: list[tuple[str, Path, str]] = [
-        ("config", config_path, "source_config.toml")
-    ]
+    sources: list[tuple[str, Path, str]] = [("config", config_path, "source_config.toml")]
     taskset = config.get("taskset", {})
     for key, filename in (
         ("task_file", "task_file.txt"),

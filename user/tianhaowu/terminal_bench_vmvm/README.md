@@ -190,6 +190,46 @@ on every terminal path, and evaluator shutdown deterministically deletes the
 cache. Hidden tests are staged only after verifier network isolation; sandbox
 wheelhouse copies are removed after use.
 
+An oracle-only source-wheel recovery path is available for an independently
+reviewed, digest-pinned exception set. It remains disabled unless
+`ORACLE_SOURCE_WHEEL_POLICY` and `ORACLE_SOURCE_WHEEL_POLICY_SHA256` are both
+set. Each policy entry binds an exact requirement set, target image digest,
+observed `pip`/`setuptools`/`wheel` versions, one source distribution, its
+complete binary-wheel closure, and every input and output filename, size, and
+SHA-256. The adapter tries the ordinary wheel-only path first and consults the
+policy only for a narrowly classified binary-unavailable result; Compose tasks
+and non-oracle setup reject the policy.
+
+The recovery builder downloads only the policy's credential-free HTTPS
+artifacts, verifies them, then activates `no-network` before executing any
+source build. It uses a fresh Python environment with
+`--no-build-isolation --no-index --no-deps`, accepts only the exact approved
+wheel closure, creates a deterministic archive, and proves an offline
+`--no-index --no-deps` install in a clean target VM with the same immutable
+image and runtime fingerprint. A process-wide semaphore limits this exceptional
+builder path to one VMVM lease while normal oracle concurrency continues.
+
+A fresh oracle creates a mode-0400 `source_wheel_attestations.json` and
+content-addressed `source_wheel_cache/` beside its results only after acquiring
+the writer lock. Publications are atomic and include the policy, runtime,
+network/build contract, source, wheel, closure, and archive digests. Every
+source-recovered result row names the attestation entry it consumed. Any resume,
+including `RERUN_INVALID=1`, must additionally pass the previously reviewed
+manifest digest as `ORACLE_SOURCE_WHEEL_ATTESTATION_SHA256`; a missing, changed,
+or orphaned artifact fails closed.
+
+For a promotable repair canary, supply the policy digest and exact nonzero
+attestation count independently to the audit controller as
+`ORACLE_AUDIT_SOURCE_WHEEL_POLICY_SHA256` and
+`ORACLE_AUDIT_SOURCE_WHEEL_ATTESTATIONS`. Pass the same pair to
+`export_oracle_tasks.py` as `--expected-source-wheel-policy-sha256` and
+`--expected-source-wheel-attestations`. The audit requires exact policy and
+manifest hashes, a one-to-one manifest/archive count, and equality between the
+attested entries and the union referenced by result rows. Promotion rehashes
+all wheelhouses and carries the recovery digests into the immutable receipt and
+final launch certificate. Never promote from values inferred only from the run
+itself.
+
 The old Mobius images do not contain every test-only package named by their
 verifier scripts. The adapter extracts only literal exact
 `name[extras]==version` pins from direct `pip install` commands in
@@ -768,7 +808,10 @@ uv run --project user/tianhaowu/terminal_bench_vmvm \
 Transcript audit is the default. It rejects missing/duplicate tasks, rollout
 errors, missing sampled response content/tool calls, missing reasoning, invalid
 or absent provider usage, malformed parent graphs, and any provider-reported
-turn over 262,144 total tokens. `--require-token-data` remains an explicit
+turn over 262,144 total tokens. When model-I/O capture is required, it also
+normalizes every captured chat request and proves that its message list exactly
+matches the persisted root-to-parent graph path, including historical reasoning,
+tool calls, and tool results. `--require-token-data` remains an explicit
 legacy/diagnostic mode for traces that intentionally contain exact token IDs,
 masks, and sampling logprobs. Scale only after the default gate passes on a
 fresh smoke run and after measuring stable VMVM lease concurrency.
@@ -801,3 +844,224 @@ are present. New tool output can still increase the next prompt beyond that
 known prefix, so the provider usage returned for every response remains the
 final fail-closed check: a turn above 262,144 tokens is rejected before graph
 commit and cannot enter the retained training corpus.
+
+## SFT export
+
+`results.jsonl` is the immutable source transcript, not a directly loadable SFT
+dataset. After the evaluation is terminal, export either reward-one traces or
+all scored outcomes explicitly:
+
+```bash
+uv run --project user/tianhaowu/terminal_bench_vmvm \
+  python user/tianhaowu/terminal_bench_vmvm/export_sft.py \
+  /path/to/eval/results.jsonl \
+  --output-dir /path/to/new/sft-dataset \
+  --selection pass-only \
+  --expected-count 2500
+```
+
+For a migrated Qwen run, create its final routing-epoch index only after the
+last evaluator job is terminal, then consume it explicitly:
+
+```bash
+uv run --project user/tianhaowu/terminal_bench_vmvm \
+  python user/tianhaowu/terminal_bench_vmvm/export_sft.py \
+  /path/to/migrated-run/results.jsonl \
+  --output-dir /path/to/new/sft-dataset \
+  --selection pass-only \
+  --expected-count 2500 \
+  --routing-epoch-index /path/to/private-sidecars/qwen_router_epochs.jsonl
+```
+
+For a production routing-epoch-3 run, use the terminal finalizer instead of
+issuing those two commands independently. It requires explicit, disjoint
+source and output boundaries; an exact clean Prime-RL revision; the expected
+source provenance digest; the terminal row count; selection; and split policy.
+It refuses relative, symlinked, broad, overlapping, or default paths, held
+writer/router locks, an existing output, nonterminal recorded jobs, and any
+routing/provenance mismatch. It creates the routing index in a private staging
+directory, passes that exact index to `export_sft.py`, retains it in the
+published corpus, and never writes to the source run. The complete corpus is
+published only after all repository, provenance, and artifact checks pass.
+Child output is captured and reduced to aggregate counts, hashes, or stable
+error codes.
+
+Submit from a clean detached x86-capable source snapshot at the finalizer's
+exact commit. The source/output root directories must already exist. Replace
+the angle-bracketed values with audited literal values; do not use command
+substitution in the submission command:
+
+```bash
+tmux send-keys -t swebench_vmvm:Launcher.0 \
+  "sbatch --dependency=afterok:PRODUCER_JOB_ID --export=ALL,FINALIZER_PROJECT_DIR=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/sources/prime-rl-FINALIZER_SHA,FINALIZER_EXPECTED_REVISION=FINALIZER_REVISION_40_HEX,FINALIZER_SOURCE_ROOT=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/evals,FINALIZER_SOURCE_DIR=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/evals/EPOCH_3_RUN,FINALIZER_EXPECTED_PROVENANCE_SHA256=PROVENANCE_SHA256_64_HEX,FINALIZER_OUTPUT_ROOT=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/sft,FINALIZER_OUTPUT_DIR=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/sft/FINAL_EXPORT,FINALIZER_EXPECTED_COUNT=2500,FINALIZER_SELECTION=pass-only,FINALIZER_VALIDATION_PERMYRIAD=500,FINALIZER_SPLIT_SALT=terminal-bench-vmvm-sft-v1 /checkpoint/ram/tianhaowu/terminal_bench_vmvm/sources/prime-rl-FINALIZER_SHA/user/tianhaowu/terminal_bench_vmvm/finalize_qwen_sft.sbatch" C-m
+```
+
+Slurm copies the wrapper at submission and `afterok` prevents it from starting
+before the evaluator succeeds. The finalizer independently requires every job
+recorded in the source provenance to be terminal, rechecks the clean code
+revision and provenance digest between stages, and never overwrites an index or
+dataset. A partial failure after index publication therefore requires an
+explicit aggregate audit before any operator chooses a new output path; do not
+blindly rerun or remove artifacts.
+
+### Qwen missing/error repair chain
+
+Do not resume a terminal production Qwen source in place to repair missing or
+errored rows. Use `run_qwen_repair_chain.sbatch` from a clean detached checkout
+at the exact controller revision. The controller derives the approved task file
+only from the immutable source snapshot, requires its externally supplied
+SHA-256 and exactly 2,500 opaque entries, and uses the pinned resume planner to
+select missing/error indices plus scored passes that fail the exact SFT
+trainability audit. Scored failures are retained in the original source and
+are not regenerated. A decode-failing final fragment without a newline remains
+in the immutable source digest but is omitted from the logical row stream and
+left owed; complete malformed rows fail closed, while a valid final JSON object
+remains a logical row even without a newline. The chain performs no semantic
+task inspection, classification, or name-based filtering.
+
+The controller creates a fresh schema-3 direct run inside a private runtime
+directory, with 64 rollout sessions, a 32-request provider/router cap, a
+32-request queue, and a 262,144-token total context cap. It invokes
+`run_qwen_direct_eval.sbatch` as a shell program in the controller's existing
+allocation; it never submits a child Slurm job. The original and repair sources
+are hash-checked before and after every subsequent stage. Pass-only original
+and repair exports are published atomically, then `merge_qwen_sft.py` publishes
+the final corpus atomically after proving the exports are disjoint and bound to
+the same split contract. Repair traces are name/index-bound to the evaluator
+order of the approved repair universe. The controller passes the exact
+post-finalization manifest and complete tree digests for both exports to the
+merger, which rejects later mutation and any repair task outside the selected
+union; every selected strict-invalid pass must still be replaced. Existing
+runtime or output paths are always rejected.
+The repair export keeps mode-0600 copies of the selection manifest and repair
+attestation beside the four base SFT artifacts; the merger requires both
+copies to be byte-identical to the externally hash-pinned inputs and binds
+their digests into the merged manifest.
+
+If the planner finds zero owed rows, the controller publishes only the original
+pass-only export and returns `finalized_without_repair`; the repair and merged
+destinations remain absent. Otherwise success is `merged`, and all three export
+directories are present. A failed intermediate stage can leave an attested
+original or repair export, but never a final merged directory; use fresh paths
+for another attempt and do not delete or overwrite the evidence.
+
+All child stdout and stderr are retained under the private runtime directory as
+mode-0600 logs. Scheduler output contains only aggregate counts, SHA-256 values,
+and stable error codes. It never forwards task identifiers, prompts, trace rows,
+model responses, reasoning, tool payloads, or child errors.
+
+Submit only through `swebench_vmvm:Launcher.0`, after replacing every uppercase
+placeholder with an audited literal. Use `afterany` because a terminal producer
+may legitimately contain the missing/error rows that this chain repairs. The
+three roots must already exist and must be absolute, pairwise-disjoint, narrow
+boundaries; every attempt and output directory must be new.
+
+```bash
+tmux send-keys -t swebench_vmvm:Launcher.0 \
+  "sbatch --parsable --dependency=afterany:PRODUCER_JOB_ID --export=ALL,QWEN_CHAIN_PROJECT_DIR=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/sources/prime-rl-CONTROLLER_SHA,QWEN_CHAIN_EXPECTED_REVISION=CONTROLLER_REVISION_40_HEX,QWEN_CHAIN_SOURCE_ROOT=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/evals,QWEN_CHAIN_SOURCE_DIR=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/evals/ORIGINAL_RUN,QWEN_CHAIN_APPROVED_TASK_FILE_SHA256=APPROVAL_SHA256_64_HEX,QWEN_CHAIN_EXPECTED_PROVENANCE_SHA256=PROVENANCE_SHA256_64_HEX,QWEN_CHAIN_RUNTIME_ROOT=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/repair-runtime,QWEN_CHAIN_RUNTIME_DIR=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/repair-runtime/ATTEMPT,QWEN_CHAIN_OUTPUT_ROOT=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/sft,QWEN_CHAIN_ORIGINAL_EXPORT_DIR=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/sft/ORIGINAL_EXPORT,QWEN_CHAIN_REPAIR_EXPORT_DIR=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/sft/REPAIR_EXPORT,QWEN_CHAIN_MERGED_OUTPUT_DIR=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/sft/MERGED_EXPORT,QWEN_CHAIN_VALIDATION_PERMYRIAD=500,QWEN_CHAIN_SPLIT_SALT=terminal-bench-vmvm-sft-v1 /checkpoint/ram/tianhaowu/terminal_bench_vmvm/sources/prime-rl-CONTROLLER_SHA/user/tianhaowu/terminal_bench_vmvm/run_qwen_repair_chain.sbatch" C-m
+```
+
+With that option, the exporter requires an exact one-to-one row-hash mapping,
+binds the full results, index, policy transition, active router manifest, and
+transition-anchored epoch-1 hash list. For a schema-3 admission run it also
+validates the complete cap-32 transition chain and binds the admission
+certificate plus the epoch-2 lineage. Each epoch label is checked against the
+anchored lineage before any output is published. Every emitted SFT row and the
+aggregate manifest carry its routing epoch. Omit the option for a non-migrated
+run; no routing-epoch field is then added.
+
+Use `--selection all-outcomes` only when failed trajectories are intentionally
+part of the training recipe. The exporter refuses held evaluator or
+direct-router locks, an existing output, provenance drift, and malformed or
+errored source structure. Every row is still covered by source/index identity,
+duplicate, error-list, completion, reward, and stop-condition validation.
+Error rows are counted and excluded. Under `pass-only`, scored failures are
+also counted and excluded before the strict trainability audit; only traces
+eligible for the output corpus can therefore block it for missing reasoning,
+model I/O, or usage. `all-outcomes` applies that strict audit to both passing
+and failing scored traces. Selected traces fail closed on request or response
+hash corruption and any provider-reported sequence over 262,144 tokens. The
+exporter also requires every captured chat request to match the persisted graph
+prompt, then validates each retained assistant message, finish reason, and usage
+against the captured provider response. Only the exact `/chat/completions`
+route is accepted. Assistant `content` may be absent when Verifiers'
+`exclude_none` serializer omits it. Unknown message fields/content parts,
+non-null `provider_state` or `reasoning_details`, and sampled finish reasons
+other than `stop` or `tool_calls` are rejected because the current SFT renderer
+cannot preserve those states faithfully. Tool definitions require the
+canonical OpenAI `type="function"` envelope and null-free JSON Schema values.
+Tool-call arguments must be duplicate-free, finite, null-free JSON objects.
+The loader removes only null padding introduced by Arrow's cross-row struct
+widening.
+
+One output row represents one unique sampled assistant node and its root-to-node
+message path. This preserves every genuine generation exactly once even when a
+trace branches; expanding every leaf would duplicate shared-prefix targets.
+Prior messages are explicitly non-trainable and prior assistant reasoning is
+retained verbatim. The final assistant is the sole trainable message. Every
+sampled assistant keeps its authentic `reasoning_content` and `finish_reason`;
+the row records source-versus-retained fidelity counts, while content and tool
+calls are retained as before. Verifiers' compact tool calls are normalized to
+OpenAI function-call objects, and the stable tool schema comes from
+integrity-checked captured requests.
+
+The output is atomically published as `train/train.jsonl`,
+`validation/train.jsonl`, `task-split.json`,
+`target-rendering-contract.json`, and `manifest.json`, plus the validated
+routing-index sidecar when one is supplied. The immutable rendering contract
+pins the Nemotron Super tokenizer revision, renderer repository revision, and
+the exact `nemotron-3` settings that preserve all historical thinking; export,
+finalization, and merge reject a changed contract. Task identity is the
+SHA-256 of the taskset ID, dataset revision, and explicit approved
+task slug separated by NUL bytes; changing a run-local task index does not
+change its split. The manifest binds the raw results, resolved and source
+configs, approved task snapshot, image snapshot, input manifest, launcher
+provenance, exporter source, and every output artifact. Console output contains
+aggregate counts and hashes only.
+
+The exported messages are intended for offline retokenization by the target SFT
+renderer. They do not recreate teacher token IDs or sampling log probabilities,
+which were deliberately not requested from the evaluation endpoint.
+
+Before training format-v3 output, run the rendering preflight from the exact
+clean, detached Prime-RL revision that will launch the trainer:
+
+```bash
+uv run python user/tianhaowu/terminal_bench_vmvm/preflight_sft.py \
+  --export-root /absolute/path/to/corpus \
+  --expected-manifest-sha256 MANIFEST_SHA256 \
+  --project-dir /absolute/path/to/prime-rl \
+  --expected-project-revision PRIME_RL_COMMIT \
+  --output /absolute/path/to/corpus/sft-render-preflight.json
+```
+
+The command renders every row, verifies that retained reasoning changes the
+token stream and target reasoning changes trainable tokens, proves the loss
+mask matches the selected assistant's renderer attribution, and rejects a
+rendered row over 262,144 tokens. It records only aggregate counts and hashes.
+Pin the resulting file and digest in every format-v3 train or validation data
+block with `preflight_attestation` and
+`preflight_attestation_sha256`. The trainer rehashes the attestation, export
+manifest and all declared artifacts, then independently rerenders every row and
+rechecks the Prime-RL revision, loader sources, renderer gitlink,
+rendering/tokenization dependency versions, tokenizer revision, renderer
+config, loss mask, data path, and sequence length before model setup.
+Format-v3 rows are also rejected in the dataset loader unless this startup gate
+has succeeded. The target tokenizer block must use the repository and revision
+from `target-rendering-contract.json`, with `trust_remote_code = false`; the
+renderer block must exactly match its `renderer.config` object.
+
+```toml
+[tokenizer]
+name = "nvidia/NVIDIA-Nemotron-3-Super-120B-A12B-BF16"
+revision = "d51eab0d1f979ebc26b546e634a04f450d99158e"
+trust_remote_code = false
+
+[data]
+type = "sft"
+name = "/absolute/path/to/corpus/train"
+seq_len = 262144
+pack_function = "fixed_stack"
+preflight_attestation = "/absolute/path/to/corpus/sft-render-preflight.json"
+preflight_attestation_sha256 = "PREFLIGHT_SHA256"
+```

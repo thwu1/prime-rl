@@ -35,6 +35,7 @@ from prime_rl.trainer.model import (
 from prime_rl.trainer.parallel_dims import get_parallel_dims
 from prime_rl.trainer.perf import get_perf_counter
 from prime_rl.trainer.sft.data import load_sft_dataset, setup_dataloader, setup_dataset
+from prime_rl.trainer.sft.export_preflight import SFTPreflightError, validate_sft_training_preflight
 from prime_rl.trainer.sft.loss import reduce_token_loss
 from prime_rl.trainer.utils import (
     GarbageCollection,
@@ -59,6 +60,29 @@ from prime_rl.trainer.models.layers.lm_head import FUSED_CE_IGNORE_INDEX
 from torchtitan.distributed.utils import clip_grad_norm_
 
 
+def _validate_export_preflight_distributed(config: SFTConfig) -> bool:
+    """Run the immutable export check once and fail every rank together."""
+    world = get_world()
+    failure: Exception | None = None
+    attested = False
+    if world.rank == 0:
+        try:
+            attested = validate_sft_training_preflight(config)
+        except Exception as error:
+            failure = error
+    status = torch.tensor(
+        [int(failure is None), int(attested)],
+        dtype=torch.int32,
+        device=torch.device("cuda", world.local_rank),
+    )
+    dist.broadcast(status, src=0)
+    if not bool(status[0].item()):
+        if failure is not None:
+            raise failure
+        raise SFTPreflightError("preflight_failed_on_rank_zero")
+    return bool(status[1].item())
+
+
 @clean_exit
 def train(config: SFTConfig):
     # Setup world and logger
@@ -73,6 +97,11 @@ def train(config: SFTConfig):
     if config.bench is not None:
         logger.warning(f"Running in benchmark mode (max_steps={config.max_steps})")
 
+    setup_torch_distributed(
+        timeout=timedelta(seconds=config.dist_timeout_seconds), enable_gloo=config.model.fsdp_cpu_offload
+    )
+    attested_export = _validate_export_preflight_distributed(config)
+
     # Setup the monitor
     logger.info(f"Initializing monitor ({config.wandb})")
     monitor = setup_monitor(config.wandb, output_dir=config.output_dir, run_config=config)
@@ -83,10 +112,6 @@ def train(config: SFTConfig):
         logger.info("Initializing heartbeat")
         heart = Heartbeat(config.heartbeat.url)
 
-    # Set precision
-    setup_torch_distributed(
-        timeout=timedelta(seconds=config.dist_timeout_seconds), enable_gloo=config.model.fsdp_cpu_offload
-    )
     # Configurable to support ROCm/AMD GPUs where reduced precision
     # matmul corrupts softmax over large vocabularies. Override via config
     # (e.g. matmul_precision = "highest") on ROCm.
@@ -191,7 +216,13 @@ def train(config: SFTConfig):
 
     # Set up the dataset and dataloader
     logger.info(f"Initializing data ({config.data})")
-    dataset = setup_dataset(tokenizer, config.data, config.model.cp, renderer=renderer)
+    dataset = setup_dataset(
+        tokenizer,
+        config.data,
+        config.model.cp,
+        renderer=renderer,
+        attested_export=attested_export,
+    )
     dataloader = setup_dataloader(dataset, config.data)
     dataiter = iter(dataloader)
 
@@ -326,9 +357,7 @@ def train(config: SFTConfig):
         dist.all_reduce(nan_count, op=dist.ReduceOp.SUM)
 
         mean_loss = (
-            (total_loss_sum / total_loss_normalizer).item()
-            if total_loss_normalizer.item() > 0
-            else float("nan")
+            (total_loss_sum / total_loss_normalizer).item() if total_loss_normalizer.item() > 0 else float("nan")
         )
         return mean_loss, nan_count.item()
 
@@ -340,6 +369,7 @@ def train(config: SFTConfig):
             max_epochs=1,
             raw_dataset=val_raw_dataset,
             renderer=renderer,
+            attested_export=attested_export,
         )
         val_dataloader = setup_dataloader(val_dataset, config.val.data)
 
