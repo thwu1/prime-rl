@@ -202,12 +202,176 @@ and non-oracle setup reject the policy.
 
 The recovery builder downloads only the policy's credential-free HTTPS
 artifacts, verifies them, then activates `no-network` before executing any
-source build. It uses a fresh Python environment with
-`--no-build-isolation --no-index --no-deps`, accepts only the exact approved
-wheel closure, creates a deterministic archive, and proves an offline
+source build. It creates a fresh no-system-site Python environment, installs
+the exact hash-pinned build-tool and full transitive build-dependency wheel
+closure offline with `--no-index --no-deps`, and attests every local
+distribution, location, and installed-file manifest. Supported sources must
+have one statically provable top-level, unaliased `setuptools.setup(...)` call.
+Literal `setup_requires` from either that call or deterministic `setup.cfg`
+`[options]` configuration, together with `build-system.requires` from a
+setuptools-backed `pyproject.toml`, is included in the same exact transitive
+closure. Only that `pyproject.toml` table is supported; project/tool tables,
+aliases,
+`**kwargs`, nonliteral values, assignments, helper calls/classes, control flow,
+decorators, `cmdclass`/`distclass`, duplicate declarations, in-tree or
+non-setuptools backends, and ambiguous configuration fail closed. The setup
+backend runs directly under the venv Python's real `-I -S` isolated/no-site
+mode after network isolation, rather than through a pip child that could lose
+the isolated flag. It manually adds only the attested venv-local site roots, so
+`.pth` and customization modules are never processed. The build binds fixed
+`SOURCE_DATE_EPOCH`, timezone, locale, `HOME`, `TMPDIR`, work directory, and
+umask controls. Its fixed `PATH` contains only the attested venv's `bin`
+directory, so backend children that invoke `python3` or a build-dependency
+console entry point cannot select an ambient executable or mask an undeclared
+tool with a base-image command. The attested setuptools backend and site roots
+precede the source root on `sys.path`, and a source-local `setuptools.py` or
+`setuptools/` tree fails closed. It
+reattests the complete environment after the backend returns and rejects any
+mutation. It creates a deterministic archive and proves an offline
 `--no-index --no-deps` install in a clean target VM with the same immutable
-image and runtime fingerprint. A process-wide semaphore limits this exceptional
-builder path to one VMVM lease while normal oracle concurrency continues.
+image and runtime fingerprint. A process-wide
+semaphore limits this exceptional builder path to one VMVM lease while normal
+oracle concurrency continues.
+
+The runnable policy must first be discovered and proven from the private,
+digest-pinned probe input with `run_source_wheel_proof.sbatch`. The probe input
+is intentionally incomplete: it binds the target images, exact requirement
+sets, source URLs, sizes, hashes, and corpus provenance, but it does not claim
+target toolchains, binary closure artifacts, or output-wheel hashes. Keep it as
+a regular mode-0600 file in a mode-0700 directory and provide its independently
+computed SHA-256. The launch approval must separately require exactly nine
+entries and pin the canonical JSON digest of the complete
+`missing_required_evidence` list. Use a new mode-0700 proof output directory.
+
+Initialize `deps/verifiers`, `deps/renderers`, and `deps/pydantic-config` at
+their recorded gitlinks in that checkout; the launcher rejects absent, moved,
+or dirty dependency worktrees.
+
+Each input entry starts exactly three fresh VMVMs from the same image: two
+disposable builders and one clean install target. The first builder downloads
+and validates the pinned source, enters `no-network`, and builds a resolver
+seed. The second builder uses only that wheel as the source candidate while it
+discovers the platform-specific wheel-only dependency closure; every selected
+HTTPS artifact is downloaded, hash-checked, and metadata-checked before that
+builder is isolated. Both builders then produce and validate the complete
+closure offline in separately created no-system-site environments. Each
+environment attests its exact build-tool and transitive dependency wheels,
+local distribution locations, import path, installed-file manifests, and full
+venv `bin` inventory. The real setup backend runs under isolated/no-site Python
+with only those attested site roots ahead of the source root and the fixed build
+environment, a venv-only child-process `PATH`, work directory, and umask, then
+must reproduce the pre-build environment
+attestation. Each wheel is validated byte-by-byte as an exact, comment-free ZIP
+envelope of unique normalized regular-file paths. Central and local headers,
+raw names, flags, offsets, and record extents must agree and exactly cover the
+archive; extra fields, orphan bytes, signature records, special modes, and
+ambiguous encodings or paths fail closed. Cross-builder equivalence uses a
+schema-bound copy of the complete raw ZIP with only the local and central DOS
+time/date fields zeroed. Member order, compression method and bytes, layout,
+headers, payload, and every other byte remain bound. Both builders retain their
+raw size/SHA-256 evidence, and the first builder's exact raw wheel remains the
+policy artifact installed in the already-isolated clean target for its offline
+closure check.
+
+The launcher defaults to two entries and six live VMVMs; three entries and nine
+VMVMs are hard caps. It emits only aggregate counts, hashes, and stable error
+codes. Before any proof completes it publishes a non-runnable candidate and an
+atomic checkpoint. A mode-0700 journal publishes immutable, hash-chained
+mode-0400 intent, start-result, lease-identity-hash, and stop-result records
+around every VMVM start. Resume fails closed if those records are incomplete or
+cannot account exactly for every completed entry, so retried or indeterminate
+starts cannot be hidden by the 27-start certificate. Only after every entry
+passes and a second source/tool validation succeeds does it write an immutable
+`post_run_validation.json` receipt bound to the exact state and journal head.
+It then writes `finalization.json`, reconciles the proof certificate, and
+publishes the runnable `source_wheel_policy.json` last. A complete state without
+that validation receipt cannot resume into publication. Receipt-only,
+finalization-only, proof-only, and policy-only crash states are deterministic to
+recover.
+
+When a fresh proof rejects candidate source declarations or a source-produced
+wheel, an independently approved diagnostic rerun may set
+`SOURCE_WHEEL_PROOF_CANDIDATE_DIAGNOSTICS_ONLY=1` and must use another fresh
+private output path that does not yet exist. Diagnostic mode never resumes and
+never publishes a proof, finalization record, post-run receipt, or runnable
+policy. It continues
+only fail-closed, candidate-local `setup.py`, `setup.cfg`, `pyproject.toml`, and
+raw source-wheel ZIP rejections. Public dependency integrity, runtime,
+environment, cleanup, and unknown validation failures still abort immediately.
+A completed diagnostic verifies all nine outcomes against exactly 27 clean
+runtime starts and the exact canonical bytes and single-link status of its
+private identity, candidate, state, lock, and attempt journal, then prints only
+counts grouped by stable error code. Exit status zero means that this non-certifying diagnostic
+completed, even when rejection counts are nonzero; it does not mean the proof
+passed. Successful and failed diagnostic stdout contains only status, a stable
+error code where applicable, and nonidentifying integer counts—never a state
+hash, identity, path, or raw error. Internal mode-0400/0600 artifacts retain
+only hashed entry/lease bindings for audit. Never paste identities, source
+content, or raw exception text into coordination. A second diagnostic requires
+a new output directory;
+`SOURCE_WHEEL_PROOF_STATE_SHA256` is forbidden in this mode.
+
+`run_identity.json` binds the source-build-environment and wheel-semantic-digest
+schema versions, the two normalized DOS timestamp fields, the all-other-bytes
+binding, and every forbidden ZIP feature. The candidate names semantic
+wheel equality, venv-only child execution, and static configuration parsing as
+required proofs before work starts. Any contract or schema change therefore
+changes the run identity and requires a fresh output directory; it cannot resume
+or finalize an older raw-byte proof.
+
+The launch approval also pins the canonical launcher bytes, exact `uv`, Python,
+and vacli executables, the complete Python stdlib/runtime manifest, the staged
+site-packages manifest, and the VMVM backend sources. Generate the aggregate
+hash candidates on the target x86 runtime with
+`inspect_source_wheel_proof_environment.py`, review them independently, and
+pass the approved values explicitly. Submit from tmux through a fresh `env -i`
+allowlist. The launcher rejects Bash startup hooks, exported functions,
+dynamic-loader controls, and Python or uv environment injection. It starts the
+pinned Python with `-I -S -B`; the stdlib-only bootstrap validates the source,
+tools, stdlib, site packages, and every effective import root before adding
+those roots to `sys.path`. It never processes `.pth`, `sitecustomize`, or
+`usercustomize`.
+The proof rehashes every execution binding and revalidates the source commit,
+tree, three clean submodule gitlinks, and VMVM sources after all leases stop but
+before finalization. The certificate binds every approved digest and distinct
+role-keyed hashes derived from vacli's real session identity; container IDs,
+runtime names, and raw lease identifiers are never accepted or printed.
+The inspector accepts explicit paths for `--project-dir`, `--launcher`, `--uv`,
+`--python`, `--python-stdlib`, `--site-packages`, `--vacli`, and
+`--vmvm-source`, and emits only their canonical hashes. Invoke it with the exact
+pinned Python as `-I -S -B`, then copy its independently reviewed hashes into
+the `SOURCE_WHEEL_PROOF_*_SHA256` inputs; never derive those inputs inside the
+proof launch. Submit with the exact clean-environment `--wrap` form below.
+Passing the launcher file directly to `sbatch` is forbidden because Slurm
+executes a spool copy, which fails the launcher-origin check.
+
+```bash
+/usr/bin/env -i PATH=/usr/bin:/bin /path/to/pinned/python -I -S -B \
+  /path/to/clean-reviewed-checkout/user/tianhaowu/terminal_bench_vmvm/inspect_source_wheel_proof_environment.py \
+  --project-dir /path/to/clean-reviewed-checkout \
+  --launcher /path/to/clean-reviewed-checkout/user/tianhaowu/terminal_bench_vmvm/run_source_wheel_proof.sbatch \
+  --uv /path/to/pinned/uv \
+  --python /path/to/pinned/python \
+  --python-stdlib /path/to/pinned/python-stdlib \
+  --site-packages /path/to/pinned/site-packages \
+  --vacli /path/to/pinned/vacli \
+  --vmvm-source /path/to/clean-reviewed-checkout/environments/vmvm_tb_v2/vmvm_tb_v2/_vacli
+```
+
+```bash
+tmux new-session -d -s source-wheel-proof
+tmux send-keys -t source-wheel-proof \
+  "/usr/bin/env -i PATH=/usr/bin:/bin HOME=/storage/home/tianhaowu USER=tianhaowu LOGNAME=tianhaowu PROJECT_DIR=/path/to/clean-reviewed-checkout SOURCE_WHEEL_PROOF_INPUT=/path/to/private/probe-input.json SOURCE_WHEEL_PROOF_INPUT_SHA256=<independently-reviewed-input-sha256> SOURCE_WHEEL_PROOF_EXPECTED_ENTRY_COUNT=9 SOURCE_WHEEL_PROOF_MISSING_EVIDENCE_SHA256=<reviewed-canonical-list-sha256> SOURCE_WHEEL_PROOF_OUTPUT_DIR=/path/to/new-private-proof-directory SOURCE_WHEEL_PROOF_BASE_RUNTIME_REVISION=ceb9356c98c72e51568e7bb4658a540cb1492254 SOURCE_WHEEL_PROOF_SOURCE_REVISION=<reviewed-full-utility-commit> SOURCE_WHEEL_PROOF_LAUNCHER_SHA256=<reviewed-launcher-sha256> SOURCE_WHEEL_PROOF_UV_SHA256=<reviewed-uv-sha256> SOURCE_WHEEL_PROOF_PYTHON_SHA256=<reviewed-python-sha256> SOURCE_WHEEL_PROOF_PYTHON_RUNTIME_MANIFEST_SHA256=<reviewed-runtime-manifest-sha256> SOURCE_WHEEL_PROOF_SITE_PACKAGES_MANIFEST_SHA256=<reviewed-site-manifest-sha256> SOURCE_WHEEL_PROOF_VMVM_TB_V2_SHA256=<reviewed-vmvm-source-sha256> SOURCE_WHEEL_PROOF_VACLI_BINARY_SHA256=<reviewed-vacli-sha256> SOURCE_WHEEL_PROOF_MAX_CONCURRENT_ENTRIES=2 PYTHON_BIN_X86_64=/path/to/pinned/python PYTHON_STDLIB_X86_64=/path/to/pinned/python-stdlib PYTHON_SITE_X86_64=/path/to/pinned/site-packages UV_BIN_X86_64=/path/to/pinned/uv VACLI_BIN=/path/to/pinned/vacli VACLI_LEASE_RETRIES=1 VACLI_MAX_CONCURRENT_LEASES=6 THRIFT_TLS_CL_CERT_PATH=/path/to/trusted/client.crt THRIFT_TLS_CL_KEY_PATH=/path/to/trusted/client.key /usr/bin/sbatch --parsable --export=ALL --job-name=tb-wheel-proof --partition=cpu_x86 --qos=cpu_x86_lowest --account=ram --time=12:00:00 --nodes=1 --ntasks=1 --cpus-per-task=6 --mem=12G --no-requeue --output=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/logs/source_wheel_proof_%j.log --error=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/logs/source_wheel_proof_%j.log --wrap='exec /bin/bash --noprofile --norc /path/to/clean-reviewed-checkout/user/tianhaowu/terminal_bench_vmvm/run_source_wheel_proof.sbatch'" C-m
+```
+
+For an interrupted proof, review and hash `proof_state.json` externally, then
+repeat the same launch with
+`SOURCE_WHEEL_PROOF_STATE_SHA256=<reviewed-state-sha256>`. Do not infer this
+value from an unreviewed output directory. The resume path revalidates every
+completed entry and skips it only when the immutable attempt journal ends at an
+entry boundary. Any unmatched or failed start requires a fresh output
+directory. A complete nine-entry proof therefore contains nine clean-target
+validations, eighteen source builds, and exactly 27 proof runtime starts.
 
 A fresh oracle creates a mode-0400 `source_wheel_attestations.json` and
 content-addressed `source_wheel_cache/` beside its results only after acquiring

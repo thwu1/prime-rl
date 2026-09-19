@@ -28,10 +28,15 @@ from pathlib import Path
 from typing import Any
 
 from terminal_bench_vmvm.source_wheels import (
+    SOURCE_BUILD_UMASK,
     SOURCE_WHEEL_ATTESTATION_SCHEMA_VERSION,
+    SOURCE_WHEEL_RECOVERY_SCHEMA_VERSION,
     canonical_json,
     inspect_wheelhouse,
     load_source_wheel_policy,
+    source_build_argv,
+    source_build_environment_variables,
+    validate_source_build_environment_record,
     wheel_evidence_dicts,
 )
 
@@ -109,14 +114,22 @@ def _source_wheel_recovery(identity: dict[str, Any]) -> dict[str, Any] | None:
         "attestation",
         "artifact_download_network",
         "builder_lease_limit",
+        "build_dependency_install",
+        "build_dependency_resolution",
         "build_network",
         "build_isolation",
+        "child_process_path",
+        "deterministic_environment_sha256",
+        "source_declarations",
+        "source_build_python",
+        "source_build_umask",
+        "system_site_packages",
         "target_install",
     }:
         raise PromotionError("oracle_source_wheel_identity_invalid")
     policy = recovery.get("policy")
     if (
-        recovery.get("schema_version") != 1
+        recovery.get("schema_version") != SOURCE_WHEEL_RECOVERY_SCHEMA_VERSION
         or not isinstance(policy, dict)
         or set(policy) != {"path", "sha256"}
         or not isinstance(policy.get("path"), str)
@@ -126,8 +139,17 @@ def _source_wheel_recovery(identity: dict[str, Any]) -> dict[str, Any] | None:
         or recovery.get("attestation") != "source_wheel_attestations.json"
         or recovery.get("artifact_download_network") != "public-hash-pinned-https"
         or recovery.get("builder_lease_limit") != 1
+        or recovery.get("build_dependency_install") != "no-system-site-venv-offline-exact-wheel-closure"
+        or recovery.get("build_dependency_resolution") != "public-binary-only-exact-transitive-policy-closure"
         or recovery.get("build_network") != "no-network"
-        or recovery.get("build_isolation") is not False
+        or recovery.get("build_isolation") is not True
+        or recovery.get("child_process_path") != "venv-bin-only"
+        or recovery.get("deterministic_environment_sha256")
+        != _sha256(canonical_json(source_build_environment_variables()))
+        or recovery.get("source_build_python") != "venv-python-isolated-no-site-direct-static-setuptools"
+        or recovery.get("source_declarations") != "static-setup-py-setup-cfg-pyproject-build-requirements"
+        or recovery.get("source_build_umask") != f"{SOURCE_BUILD_UMASK:04o}"
+        or recovery.get("system_site_packages") is not False
         or recovery.get("target_install") != "offline-no-index-no-deps"
     ):
         raise PromotionError("oracle_source_wheel_identity_invalid")
@@ -668,10 +690,16 @@ def _audit_source_wheel_artifacts(
             != {
                 "artifact_download_network": "public-hash-pinned-https",
                 "builder_lease_limit": 1,
+                "build_dependency_install": "no-system-site-venv-offline-exact-wheel-closure",
                 "build_network": "no-network",
-                "build_isolation": False,
-                "dependency_resolution": "explicit-policy-artifacts",
+                "build_isolation": True,
+                "child_process_path": "venv-bin-only",
+                "dependency_resolution": "public-binary-only-exact-transitive-policy-closure",
+                "deterministic_environment": source_build_environment_variables(),
+                "source_build_umask": f"{SOURCE_BUILD_UMASK:04o}",
                 "isolated_python": True,
+                "source_build_python": "venv-python-isolated-no-site-direct-static-setuptools",
+                "source_declarations": "static-setup-py-setup-cfg-pyproject-build-requirements",
                 "staged_inputs": "policy-artifacts-only",
                 "target_install": "offline-no-index-no-deps",
             }
@@ -736,6 +764,9 @@ def _audit_source_wheel_artifacts(
             or SHA256_RE.fullmatch(wheelhouse["sha256"]) is None
         ):
             raise PromotionError("oracle_source_wheel_attestation_invalid")
+        sources = entry.get("sources")
+        if not isinstance(sources, list) or len(sources) != len(policy_entry.sources):
+            raise PromotionError("oracle_source_wheel_attestation_invalid")
         archive_path = oracle_dir / expected_relative_path
         try:
             archive_metadata = archive_path.lstat()
@@ -767,25 +798,25 @@ def _audit_source_wheel_artifacts(
             item.filename: (item.distribution, item.version, item.size, item.sha256) for item in evidence
         }
         expected_sources = []
-        for source in policy_entry.sources:
+        for source, observed_source in zip(policy_entry.sources, sources, strict=True):
+            if not isinstance(observed_source, dict):
+                raise PromotionError("oracle_source_wheel_attestation_invalid")
+            try:
+                build_environment = validate_source_build_environment_record(
+                    observed_source.get("build_environment"),
+                    build_env_dir="/tmp/terminal-bench-source-build-env",
+                    expected_build_tools=tuple(sorted(build_tools.items())),
+                    build_dependencies=source.build_dependencies,
+                )
+            except RuntimeError as cause:
+                raise PromotionError("oracle_source_wheel_attestation_invalid") from cause
             source_path = f"/tmp/terminal-bench-source-inputs/{source.filename}"
-            source_requirement = f"{source.distribution} @ file://{source_path}#sha256={source.sha256}"
-            build_argv = [
-                "python3",
-                "-I",
-                "-m",
-                "pip",
-                "wheel",
-                "--quiet",
-                "--disable-pip-version-check",
-                "--no-cache-dir",
-                "--no-index",
-                "--no-deps",
-                "--no-build-isolation",
-                "--wheel-dir",
-                "/tmp/terminal-bench-source-wheels",
-                source_requirement,
-            ]
+            build_argv = source_build_argv(
+                source,
+                input_dir="/tmp/terminal-bench-source-inputs",
+                wheel_dir="/tmp/terminal-bench-source-wheels",
+                build_env_dir="/tmp/terminal-bench-source-build-env",
+            )
             expected_sources.append(
                 {
                     "policy": {
@@ -798,9 +829,21 @@ def _audit_source_wheel_artifacts(
                         "wheel_filename": source.wheel_filename,
                         "wheel_size": source.wheel_size,
                         "wheel_sha256": source.wheel_sha256,
+                        "build_dependencies": [
+                            {
+                                "distribution": wheel.distribution,
+                                "version": wheel.version,
+                                "filename": wheel.filename,
+                                "url": wheel.url,
+                                "size": wheel.size,
+                                "sha256": wheel.sha256,
+                            }
+                            for wheel in source.build_dependencies
+                        ],
                     },
                     "consumed_path": source_path,
                     "built_wheel": source.wheel_filename,
+                    "build_environment": build_environment,
                     "build_argv_sha256": _sha256(canonical_json(build_argv)),
                 }
             )

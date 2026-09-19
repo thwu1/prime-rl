@@ -173,7 +173,7 @@ def test_oracle_run_identity_binds_source_wheel_policy_but_not_resume_approval(t
     identity = run_oracle._run_identity(args, _tasks(), None)
 
     assert identity["source_wheel_recovery"] == {
-        "schema_version": 1,
+        "schema_version": run_oracle.SOURCE_WHEEL_RECOVERY_SCHEMA_VERSION,
         "policy": {
             "path": str(policy.resolve()),
             "sha256": args.source_wheel_policy_sha256,
@@ -181,8 +181,18 @@ def test_oracle_run_identity_binds_source_wheel_policy_but_not_resume_approval(t
         "attestation": "source_wheel_attestations.json",
         "artifact_download_network": "public-hash-pinned-https",
         "builder_lease_limit": 1,
+        "build_dependency_install": "no-system-site-venv-offline-exact-wheel-closure",
+        "build_dependency_resolution": "public-binary-only-exact-transitive-policy-closure",
         "build_network": "no-network",
-        "build_isolation": False,
+        "build_isolation": True,
+        "child_process_path": "venv-bin-only",
+        "deterministic_environment_sha256": run_oracle.sha256_bytes(
+            run_oracle.canonical_json(run_oracle.source_build_environment_variables())
+        ),
+        "source_build_python": "venv-python-isolated-no-site-direct-static-setuptools",
+        "source_declarations": "static-setup-py-setup-cfg-pyproject-build-requirements",
+        "source_build_umask": f"{run_oracle.SOURCE_BUILD_UMASK:04o}",
+        "system_site_packages": False,
         "target_install": "offline-no-index-no-deps",
     }
     assert args.source_wheel_attestation_sha256 not in json.dumps(identity)

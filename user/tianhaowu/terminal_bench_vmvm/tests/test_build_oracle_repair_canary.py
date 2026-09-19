@@ -7,6 +7,14 @@ from pathlib import Path
 
 import pytest
 from build_oracle_repair_canary import CanaryManifestError, build_canary_manifest, main
+from terminal_bench_vmvm.source_wheels import (
+    SOURCE_BUILD_UMASK,
+    SOURCE_WHEEL_ATTESTATION_SCHEMA_VERSION,
+    SOURCE_WHEEL_POLICY_SCHEMA_VERSION,
+    SOURCE_WHEEL_RECOVERY_SCHEMA_VERSION,
+    canonical_json,
+    source_build_environment_variables,
+)
 
 
 def _canonical_sha256(value: object) -> str:
@@ -22,6 +30,25 @@ def _canonical_sha256(value: object) -> str:
 
 def _ordered_sha256(slugs: list[str]) -> str:
     return hashlib.sha256("".join(f"{slug}\n" for slug in slugs).encode()).hexdigest()
+
+
+def _build_dependency_records() -> list[dict[str, object]]:
+    return [
+        {
+            "distribution": distribution,
+            "version": version,
+            "filename": f"{distribution}-{version}-py3-none-any.whl",
+            "url": f"https://files.example.invalid/{distribution}-{version}-py3-none-any.whl",
+            "size": 1,
+            "sha256": hashlib.sha256(f"{distribution}=={version}".encode()).hexdigest(),
+        }
+        for distribution, version in (
+            ("packaging", "24.2"),
+            ("pip", "24.3.1"),
+            ("setuptools", "75.6.0"),
+            ("wheel", "0.45.1"),
+        )
+    ]
 
 
 def _fixture(tmp_path: Path, *, source_wheel: bool = False) -> tuple[Path, list[str], list[dict]]:
@@ -57,7 +84,7 @@ def _fixture(tmp_path: Path, *, source_wheel: bool = False) -> tuple[Path, list[
         policy.write_text(
             json.dumps(
                 {
-                    "schema_version": 1,
+                    "schema_version": SOURCE_WHEEL_POLICY_SCHEMA_VERSION,
                     "allowed_hosts": ["files.example.invalid"],
                     "entries": [
                         {
@@ -75,6 +102,7 @@ def _fixture(tmp_path: Path, *, source_wheel: bool = False) -> tuple[Path, list[
                                     "wheel_filename": "verifier_helper-1.0-py3-none-any.whl",
                                     "wheel_size": 1,
                                     "wheel_sha256": "3" * 64,
+                                    "build_dependencies": _build_dependency_records(),
                                 }
                             ],
                             "binary_wheels": [],
@@ -87,7 +115,7 @@ def _fixture(tmp_path: Path, *, source_wheel: bool = False) -> tuple[Path, list[
         )
         policy_sha256 = hashlib.sha256(policy.read_bytes()).hexdigest()
         attestation = {
-            "schema_version": 1,
+            "schema_version": SOURCE_WHEEL_ATTESTATION_SCHEMA_VERSION,
             "policy_sha256": policy_sha256,
             "entries_sha256": _canonical_sha256([]),
             "entries": [],
@@ -97,13 +125,23 @@ def _fixture(tmp_path: Path, *, source_wheel: bool = False) -> tuple[Path, list[
         attestation_path.chmod(0o400)
         source_wheel_attestation_sha256 = hashlib.sha256(attestation_path.read_bytes()).hexdigest()
         identity["source_wheel_recovery"] = {
-            "schema_version": 1,
+            "schema_version": SOURCE_WHEEL_RECOVERY_SCHEMA_VERSION,
             "policy": {"path": str(policy.resolve()), "sha256": policy_sha256},
             "attestation": "source_wheel_attestations.json",
             "artifact_download_network": "public-hash-pinned-https",
             "builder_lease_limit": 1,
+            "build_dependency_install": "no-system-site-venv-offline-exact-wheel-closure",
+            "build_dependency_resolution": "public-binary-only-exact-transitive-policy-closure",
             "build_network": "no-network",
-            "build_isolation": False,
+            "build_isolation": True,
+            "child_process_path": "venv-bin-only",
+            "deterministic_environment_sha256": hashlib.sha256(
+                canonical_json(source_build_environment_variables())
+            ).hexdigest(),
+            "source_build_python": "venv-python-isolated-no-site-direct-static-setuptools",
+            "source_declarations": "static-setup-py-setup-cfg-pyproject-build-requirements",
+            "source_build_umask": f"{SOURCE_BUILD_UMASK:04o}",
+            "system_site_packages": False,
             "target_install": "offline-no-index-no-deps",
         }
     identity_sha256 = _canonical_sha256(identity)
