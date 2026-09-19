@@ -55,9 +55,15 @@ EXPECTED_USER_ID = f"{OWNER}({OWNER_UID})"
 CLUSTER = "fair-cw-use2-3"
 LEGACY_SOURCE_REVISION = "3d1c4906c398f26198cda158d3f05f9276bfd1fb"
 SOURCE_JOB_ID = "1753515"
-FRESH_TWO_TASK_SHA256 = "ecdcbc6e4f54b690e64b4566de5eecf33467088c8ca3436738cd7308d4e45b83"
-FRESH_TWO_CONFIG_SHA256 = "ff6edee61c10e8c1d08c26b94fd186af96f3e06ad3d85a9d78728c3bc1ede7d3"
-RECOVERY_WRAPPER_SHA256 = "d23f41efbd68d4da70901c55d5a85bd5adbfffa4ae525a2d6526b1798f062b93"
+FRESH_TWO_TASK_SHA256 = (
+    "ecdcbc6e4f54b690e64b4566de5eecf33467088c8ca3436738cd7308d4e45b83"
+)
+FRESH_TWO_CONFIG_SHA256 = (
+    "ff6edee61c10e8c1d08c26b94fd186af96f3e06ad3d85a9d78728c3bc1ede7d3"
+)
+RECOVERY_WRAPPER_SHA256 = (
+    "d23f41efbd68d4da70901c55d5a85bd5adbfffa4ae525a2d6526b1798f062b93"
+)
 EXPECTED_TASKS = 2
 EXPECTED_ROUTES = 2
 MAX_SEQUENCE_TOKENS = 262_144
@@ -73,6 +79,7 @@ POLL_SECONDS = 2
 TERMINAL_PROOF_ROUNDS = 6
 COMMAND_TIMEOUT_SECONDS = 20
 MAX_FILE_BYTES = 256 * 1024 * 1024
+MAX_CONCURRENCY_TELEMETRY_BYTES = 1024 * 1024
 RENAME_NOREPLACE = 1
 ISOLATED_STDLIB_PATHS = [
     "/usr/lib/python312.zip",
@@ -87,7 +94,9 @@ NAME_RE = re.compile(r"[A-Za-z0-9][A-Za-z0-9._:-]{0,127}")
 SAFE_CODE_RE = re.compile(r"[a-z0-9_]{1,96}")
 HOST_RE = re.compile(r"[A-Za-z0-9][A-Za-z0-9.-]*")
 NODELIST_RE = re.compile(r"[A-Za-z0-9][A-Za-z0-9._,\[\]-]*")
-UTC_RE = re.compile(r"[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:\.[0-9]{1,6})?Z")
+UTC_RE = re.compile(
+    r"[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:\.[0-9]{1,6})?Z"
+)
 STARTED_AT_RE = re.compile(r"[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z")
 TERMINAL_STATES = {
     "BOOT_FAIL",
@@ -140,7 +149,9 @@ class RecoveryControlError(ValueError):
 class LifecycleError(RecoveryControlError):
     """A submitted allocation could not safely reach the launch commit point."""
 
-    def __init__(self, code: str, *, cancellation: Mapping[str, Any] | None = None) -> None:
+    def __init__(
+        self, code: str, *, cancellation: Mapping[str, Any] | None = None
+    ) -> None:
         super().__init__(code)
         self.cancellation = dict(cancellation or {})
 
@@ -266,7 +277,9 @@ def _reject_constant(_value: str) -> None:
 
 def strict_json(raw: bytes, *, code: str) -> dict[str, Any]:
     try:
-        value = json.loads(raw, object_pairs_hook=_unique_object, parse_constant=_reject_constant)
+        value = json.loads(
+            raw, object_pairs_hook=_unique_object, parse_constant=_reject_constant
+        )
     except RecoveryControlError:
         raise
     except (UnicodeDecodeError, json.JSONDecodeError, RecursionError) as error:
@@ -299,7 +312,11 @@ def stable_file(
     maximum: int = MAX_FILE_BYTES,
 ) -> StableFile:
     try:
-        if not path.is_absolute() or path.is_symlink() or path.resolve(strict=True) != path:
+        if (
+            not path.is_absolute()
+            or path.is_symlink()
+            or path.resolve(strict=True) != path
+        ):
             fail(code)
         descriptor = os.open(path, os.O_RDONLY | os.O_CLOEXEC | os.O_NOFOLLOW)
         try:
@@ -331,7 +348,9 @@ def stable_file(
         raise
     except OSError as error:
         raise RecoveryControlError(code) from error
-    if _signature(before) != _signature(after) or _signature(after) != _signature(final):
+    if _signature(before) != _signature(after) or _signature(after) != _signature(
+        final
+    ):
         fail(code)
     raw = b"".join(chunks)
     return StableFile(path, raw, sha256_bytes(raw), _signature(final))
@@ -364,21 +383,33 @@ def pin_file(
         raise RecoveryControlError(code) from error
 
 
-def stable_directory(path: Path, *, code: str, mode: int, uid: int = OWNER_UID) -> tuple[int, ...]:
+def stable_directory(
+    path: Path, *, code: str, mode: int, uid: int = OWNER_UID
+) -> tuple[int, ...]:
     try:
-        if not path.is_absolute() or path.is_symlink() or path.resolve(strict=True) != path:
+        if (
+            not path.is_absolute()
+            or path.is_symlink()
+            or path.resolve(strict=True) != path
+        ):
             fail(code)
         metadata = path.stat(follow_symlinks=False)
     except RecoveryControlError:
         raise
     except OSError as error:
         raise RecoveryControlError(code) from error
-    if not stat.S_ISDIR(metadata.st_mode) or stat.S_IMODE(metadata.st_mode) != mode or metadata.st_uid != uid:
+    if (
+        not stat.S_ISDIR(metadata.st_mode)
+        or stat.S_IMODE(metadata.st_mode) != mode
+        or metadata.st_uid != uid
+    ):
         fail(code)
     return _signature(metadata)
 
 
-def validate_directory_descriptor(path: Path, descriptor: int, *, code: str, mode: int) -> None:
+def validate_directory_descriptor(
+    path: Path, descriptor: int, *, code: str, mode: int
+) -> None:
     try:
         held = os.fstat(descriptor)
         visible = os.stat(path, follow_symlinks=False)
@@ -394,7 +425,9 @@ def validate_directory_descriptor(path: Path, descriptor: int, *, code: str, mod
         fail(code)
 
 
-def strict_envelope(path: Path, *, kind: str, hash_field: str, code: str) -> tuple[dict[str, Any], StableFile]:
+def strict_envelope(
+    path: Path, *, kind: str, hash_field: str, code: str
+) -> tuple[dict[str, Any], StableFile]:
     artifact = stable_file(path, code=code, mode=0o400)
     value = strict_json(artifact.raw, code=code)
     body = {key: item for key, item in value.items() if key != hash_field}
@@ -413,7 +446,9 @@ def envelope(body: Mapping[str, Any], hash_field: str) -> bytes:
 
 
 def sync_directory(path: Path) -> None:
-    descriptor = os.open(path, os.O_RDONLY | os.O_DIRECTORY | os.O_CLOEXEC | os.O_NOFOLLOW)
+    descriptor = os.open(
+        path, os.O_RDONLY | os.O_DIRECTORY | os.O_CLOEXEC | os.O_NOFOLLOW
+    )
     try:
         os.fsync(descriptor)
     finally:
@@ -425,7 +460,9 @@ def atomic_write_once(path: Path, raw: bytes, *, mode: int) -> str:
 
     parent = path.parent
     stable_directory(parent, code="publication_parent_invalid", mode=0o700)
-    parent_fd = os.open(parent, os.O_RDONLY | os.O_DIRECTORY | os.O_CLOEXEC | os.O_NOFOLLOW)
+    parent_fd = os.open(
+        parent, os.O_RDONLY | os.O_DIRECTORY | os.O_CLOEXEC | os.O_NOFOLLOW
+    )
     temporary = f".{path.name}.{secrets.token_hex(12)}.tmp"
     descriptor = -1
     try:
@@ -457,7 +494,9 @@ def atomic_write_once(path: Path, raw: bytes, *, mode: int) -> str:
         )
         os.unlink(temporary, dir_fd=parent_fd)
         os.fsync(parent_fd)
-        fresh_fd = os.open(parent, os.O_RDONLY | os.O_DIRECTORY | os.O_CLOEXEC | os.O_NOFOLLOW)
+        fresh_fd = os.open(
+            parent, os.O_RDONLY | os.O_DIRECTORY | os.O_CLOEXEC | os.O_NOFOLLOW
+        )
         try:
             if _signature(before)[:2] != _signature(os.fstat(fresh_fd))[:2]:
                 fail("publication_parent_changed")
@@ -486,7 +525,13 @@ def _rename_noreplace(parent_fd: int, source: str, target: str) -> None:
     renameat2 = getattr(libc, "renameat2", None)
     if renameat2 is None:
         fail("atomic_rename_unavailable")
-    renameat2.argtypes = [ctypes.c_int, ctypes.c_char_p, ctypes.c_int, ctypes.c_char_p, ctypes.c_uint]
+    renameat2.argtypes = [
+        ctypes.c_int,
+        ctypes.c_char_p,
+        ctypes.c_int,
+        ctypes.c_char_p,
+        ctypes.c_uint,
+    ]
     renameat2.restype = ctypes.c_int
     result = renameat2(
         parent_fd,
@@ -499,7 +544,9 @@ def _rename_noreplace(parent_fd: int, source: str, target: str) -> None:
         observed = ctypes.get_errno()
         if observed == errno.EEXIST:
             fail("publication_target_exists")
-        raise RecoveryControlError("atomic_rename_failed") from OSError(observed, os.strerror(observed))
+        raise RecoveryControlError("atomic_rename_failed") from OSError(
+            observed, os.strerror(observed)
+        )
 
 
 def atomic_publish_single_file_directory(path: Path, raw: bytes) -> str:
@@ -507,10 +554,16 @@ def atomic_publish_single_file_directory(path: Path, raw: bytes) -> str:
 
     parent = path.parent
     grandparent = parent.parent.resolve(strict=True)
-    if not path.is_absolute() or path != parent / path.name or parent != grandparent / parent.name:
+    if (
+        not path.is_absolute()
+        or path != parent / path.name
+        or parent != grandparent / parent.name
+    ):
         fail("trigger_namespace_not_fresh")
     stable_directory(grandparent, code="trigger_parent_invalid", mode=0o700)
-    parent_fd = os.open(grandparent, os.O_RDONLY | os.O_DIRECTORY | os.O_CLOEXEC | os.O_NOFOLLOW)
+    parent_fd = os.open(
+        grandparent, os.O_RDONLY | os.O_DIRECTORY | os.O_CLOEXEC | os.O_NOFOLLOW
+    )
     temporary = f".{parent.name}.{secrets.token_hex(12)}.tmp"
     renamed = False
     blocked = {signal.SIGINT, signal.SIGTERM, signal.SIGHUP}
@@ -559,7 +612,9 @@ def sealed_memfd(raw: bytes, name: str, *, executable: bool = False) -> int:
     """Return a content-sealed anonymous descriptor containing ``raw``."""
 
     descriptor = -1
-    required = fcntl.F_SEAL_SEAL | fcntl.F_SEAL_SHRINK | fcntl.F_SEAL_GROW | fcntl.F_SEAL_WRITE
+    required = (
+        fcntl.F_SEAL_SEAL | fcntl.F_SEAL_SHRINK | fcntl.F_SEAL_GROW | fcntl.F_SEAL_WRITE
+    )
     try:
         descriptor = os.memfd_create(name, os.MFD_CLOEXEC | os.MFD_ALLOW_SEALING)
         view = memoryview(raw)
@@ -576,7 +631,8 @@ def sealed_memfd(raw: bytes, name: str, *, executable: bool = False) -> int:
             or status.st_nlink != 0
             or status.st_size != len(raw)
             or fcntl.fcntl(descriptor, fcntl.F_GET_SEALS) != required
-            or sha256_bytes(os.pread(descriptor, status.st_size, 0)) != sha256_bytes(raw)
+            or sha256_bytes(os.pread(descriptor, status.st_size, 0))
+            != sha256_bytes(raw)
         ):
             fail("sealed_capture_failed")
         return descriptor
@@ -597,7 +653,11 @@ def executed_controller_sha256() -> str:
     try:
         descriptor = os.open(__file__, os.O_RDONLY | os.O_CLOEXEC)
         before = os.fstat(descriptor)
-        if not stat.S_ISREG(before.st_mode) or before.st_size < 1 or before.st_size > MAX_FILE_BYTES:
+        if (
+            not stat.S_ISREG(before.st_mode)
+            or before.st_size < 1
+            or before.st_size > MAX_FILE_BYTES
+        ):
             fail("executed_controller_invalid")
         raw = b""
         while len(raw) < before.st_size:
@@ -620,9 +680,16 @@ def executed_controller_sha256() -> str:
 
 def validate_executed_controller(plan_path: Path) -> None:
     plan, _artifact = load_plan(plan_path)
-    record = _artifact_record(plan["recovery"]["controller"], code="executed_controller_invalid")
-    canonical = stable_file(Path(record["path"]), code="executed_controller_invalid", mode=0o500)
-    if canonical.sha256 != record["sha256"] or executed_controller_sha256() != canonical.sha256:
+    record = _artifact_record(
+        plan["recovery"]["controller"], code="executed_controller_invalid"
+    )
+    canonical = stable_file(
+        Path(record["path"]), code="executed_controller_invalid", mode=0o500
+    )
+    if (
+        canonical.sha256 != record["sha256"]
+        or executed_controller_sha256() != canonical.sha256
+    ):
         fail("executed_controller_invalid")
 
 
@@ -656,7 +723,9 @@ def run_command(argv: Sequence[str], timeout: float) -> CommandResult:
     return CommandResult(result.returncode, result.stdout, result.stderr)
 
 
-def _parse_pipe_rows(result: CommandResult, *, width: int, code: str) -> list[list[str]]:
+def _parse_pipe_rows(
+    result: CommandResult, *, width: int, code: str
+) -> list[list[str]]:
     if result.returncode != 0 or result.stderr:
         fail(code)
     rows = [line.split("|") for line in result.stdout.splitlines() if line.strip()]
@@ -744,7 +813,10 @@ def load_plan(path: Path) -> tuple[dict[str, Any], StableFile]:
         "schema_version",
         "source_smoke",
         "state",
-    } or not all(isinstance(item, dict) for item in (owner, source, recovery, runtime, policy, launcher)):
+    } or not all(
+        isinstance(item, dict)
+        for item in (owner, source, recovery, runtime, policy, launcher)
+    ):
         fail("recovery_plan_invalid")
     if owner != {"name": OWNER, "uid": OWNER_UID, "user_id": EXPECTED_USER_ID}:
         fail("recovery_plan_invalid")
@@ -759,14 +831,18 @@ def load_plan(path: Path) -> tuple[dict[str, Any], StableFile]:
         "route_guard_success",
         "task_file",
     }
-    if not isinstance(source_artifacts, dict) or set(source_artifacts) != required_source_artifacts:
+    if (
+        not isinstance(source_artifacts, dict)
+        or set(source_artifacts) != required_source_artifacts
+    ):
         fail("recovery_plan_invalid")
     for record in source_artifacts.values():
         _artifact_record(record, code="recovery_plan_invalid")
     if source_artifacts["task_file"]["sha256"] != FRESH_TWO_TASK_SHA256:
         fail("recovery_plan_invalid")
     if (
-        set(launcher) != {"pane_id", "pane_pid", "session_id", "socket", "target", "tmux"}
+        set(launcher)
+        != {"pane_id", "pane_pid", "session_id", "socket", "target", "tmux"}
         or not isinstance(launcher.get("socket"), str)
         or not Path(launcher["socket"]).is_absolute()
         or not isinstance(launcher.get("target"), str)
@@ -846,8 +922,18 @@ def load_plan(path: Path) -> tuple[dict[str, Any], StableFile]:
         or recovery["recovery_wrapper"]["sha256"] != RECOVERY_WRAPPER_SHA256
     ):
         fail("recovery_plan_invalid")
-    for key in ("project_root", "endpoints_dir", "global_lock", "log_dir", "output_dir", "reservation_dir"):
-        if not isinstance(recovery.get(key), str) or not Path(recovery[key]).is_absolute():
+    for key in (
+        "project_root",
+        "endpoints_dir",
+        "global_lock",
+        "log_dir",
+        "output_dir",
+        "reservation_dir",
+    ):
+        if (
+            not isinstance(recovery.get(key), str)
+            or not Path(recovery[key]).is_absolute()
+        ):
             fail("recovery_plan_invalid")
     if (
         not isinstance(recovery.get("deployment_id"), str)
@@ -1001,28 +1087,43 @@ def validate_source(plan: Mapping[str, Any]) -> dict[str, str]:
     gitlinks: dict[str, str] = {}
     for relative in ("deps/verifiers", "deps/renderers", "deps/pydantic-config"):
         fields = git_output(root, "ls-tree", revision, "--", relative).strip().split()
-        if len(fields) != 4 or fields[:2] != ["160000", "commit"] or fields[3] != relative:
+        if (
+            len(fields) != 4
+            or fields[:2] != ["160000", "commit"]
+            or fields[3] != relative
+        ):
             fail("source_gitlink_invalid")
         child = root / relative
         if (
             git_output(child, "rev-parse", "--verify", "HEAD").strip() != fields[2]
             or git_output(child, "rev-parse", "--abbrev-ref", "HEAD").strip() != "HEAD"
-            or git_output(child, "status", "--porcelain=v1", "--untracked-files=all").strip()
-            or git_output(child, "status", "--porcelain=v1", "--ignored", "--untracked-files=all").strip()
+            or git_output(
+                child, "status", "--porcelain=v1", "--untracked-files=all"
+            ).strip()
+            or git_output(
+                child, "status", "--porcelain=v1", "--ignored", "--untracked-files=all"
+            ).strip()
         ):
             fail("source_gitlink_invalid")
         gitlinks[relative] = fields[2]
     expected_paths = {
-        "controller": root / "user/tianhaowu/terminal_bench_vmvm/kimi_smoke_timeout_recovery_control.py",
-        "job_wrapper": root / "user/tianhaowu/terminal_bench_vmvm/run_kimi_smoke_timeout_recovery_hardened.sbatch",
-        "recovery_wrapper": root / "user/tianhaowu/terminal_bench_vmvm/run_kimi_smoke_recovery.sbatch",
-        "config_file": root / "user/tianhaowu/terminal_bench_vmvm/configs/eval/tb4_kimi_k3_fresh_smoke12h.toml",
-        "task_file": root / "user/tianhaowu/terminal_bench_vmvm/configs/eval/tb4_kimi_token_smoke.tasks.txt",
+        "controller": root
+        / "user/tianhaowu/terminal_bench_vmvm/kimi_smoke_timeout_recovery_control.py",
+        "job_wrapper": root
+        / "user/tianhaowu/terminal_bench_vmvm/run_kimi_smoke_timeout_recovery_hardened.sbatch",
+        "recovery_wrapper": root
+        / "user/tianhaowu/terminal_bench_vmvm/run_kimi_smoke_recovery.sbatch",
+        "config_file": root
+        / "user/tianhaowu/terminal_bench_vmvm/configs/eval/tb4_kimi_k3_fresh_smoke12h.toml",
+        "task_file": root
+        / "user/tianhaowu/terminal_bench_vmvm/configs/eval/tb4_kimi_token_smoke.tasks.txt",
     }
     artifact_hashes: dict[str, str] = {}
     for key, expected_path in expected_paths.items():
         record = _artifact_record(recovery[key], code="source_artifact_invalid")
-        artifact = stable_file(Path(record["path"]), code="source_artifact_invalid", uid=OWNER_UID)
+        artifact = stable_file(
+            Path(record["path"]), code="source_artifact_invalid", uid=OWNER_UID
+        )
         if artifact.sha256 != record["sha256"] or artifact.path != expected_path:
             fail("source_artifact_invalid")
         artifact_hashes[key] = artifact.sha256
@@ -1049,7 +1150,9 @@ def _validate_binary(record: Any, *, code: str, root_owned: bool) -> StableFile:
 
 def validate_runtime_manifest(plan: Mapping[str, Any]) -> dict[str, str]:
     runtime = plan["runtime"]
-    manifest_record = _artifact_record(runtime["manifest"], code="runtime_manifest_invalid")
+    manifest_record = _artifact_record(
+        runtime["manifest"], code="runtime_manifest_invalid"
+    )
     value, artifact = strict_envelope(
         Path(manifest_record["path"]),
         kind=RUNTIME_KIND,
@@ -1072,7 +1175,11 @@ def validate_runtime_manifest(plan: Mapping[str, Any]) -> dict[str, str]:
         fail("runtime_manifest_invalid")
     root_value = value.get("root")
     entries = value.get("entries")
-    if not isinstance(root_value, str) or not Path(root_value).is_absolute() or not isinstance(entries, list):
+    if (
+        not isinstance(root_value, str)
+        or not Path(root_value).is_absolute()
+        or not isinstance(entries, list)
+    ):
         fail("runtime_manifest_invalid")
     root = Path(root_value)
     stable_directory(root, code="runtime_root_invalid", mode=0o500)
@@ -1092,16 +1199,21 @@ def validate_runtime_manifest(plan: Mapping[str, Any]) -> dict[str, str]:
             or SHA_RE.fullmatch(str(item.get("sha256", ""))) is None
         ):
             fail("runtime_manifest_invalid")
-        lower_parts = tuple(part.casefold() for part in PurePosixPath(item["path"]).parts)
+        lower_parts = tuple(
+            part.casefold() for part in PurePosixPath(item["path"]).parts
+        )
         if (
             "__pycache__" in lower_parts
             or item["path"].casefold().endswith((".pyc", ".pyo", ".pth"))
-            or PurePosixPath(item["path"]).name.casefold() in {"sitecustomize.py", "usercustomize.py"}
+            or PurePosixPath(item["path"]).name.casefold()
+            in {"sitecustomize.py", "usercustomize.py"}
         ):
             fail("runtime_executable_metadata_forbidden")
         expected[item["path"]] = item
     observed: set[str] = set()
-    for directory, directory_names, file_names in os.walk(root, topdown=True, followlinks=False):
+    for directory, directory_names, file_names in os.walk(
+        root, topdown=True, followlinks=False
+    ):
         current = Path(directory)
         metadata = current.stat(follow_symlinks=False)
         if (
@@ -1127,23 +1239,38 @@ def validate_runtime_manifest(plan: Mapping[str, Any]) -> dict[str, str]:
                 fail("runtime_file_invalid")
     if observed != set(expected) or not observed:
         fail("runtime_manifest_set_mismatch")
-    python = _validate_binary(runtime["python"], code="runtime_python_invalid", root_owned=True)
+    python = _validate_binary(
+        runtime["python"], code="runtime_python_invalid", root_owned=True
+    )
     uv = _validate_binary(runtime["uv"], code="runtime_uv_invalid", root_owned=False)
-    vacli = _validate_binary(runtime["vacli"], code="runtime_vacli_invalid", root_owned=True)
+    vacli = _validate_binary(
+        runtime["vacli"], code="runtime_vacli_invalid", root_owned=True
+    )
     auth = runtime["auth"]
     binary_hashes: dict[str, str] = {}
     for name, record in sorted(runtime["binaries"].items()):
-        binary_hashes[name] = _validate_binary(record, code="runtime_binary_invalid", root_owned=True).sha256
-    certificate_record = _artifact_record(auth["certificate"], code="runtime_auth_invalid")
-    private_key_record = _artifact_record(auth["private_key"], code="runtime_auth_invalid")
-    certificate = stable_file(Path(certificate_record["path"]), code="runtime_auth_invalid", uid=OWNER_UID)
+        binary_hashes[name] = _validate_binary(
+            record, code="runtime_binary_invalid", root_owned=True
+        ).sha256
+    certificate_record = _artifact_record(
+        auth["certificate"], code="runtime_auth_invalid"
+    )
+    private_key_record = _artifact_record(
+        auth["private_key"], code="runtime_auth_invalid"
+    )
+    certificate = stable_file(
+        Path(certificate_record["path"]), code="runtime_auth_invalid", uid=OWNER_UID
+    )
     private_key = stable_file(
         Path(private_key_record["path"]),
         code="runtime_auth_invalid",
         mode=0o400,
         uid=OWNER_UID,
     )
-    if certificate.sha256 != certificate_record["sha256"] or private_key.sha256 != private_key_record["sha256"]:
+    if (
+        certificate.sha256 != certificate_record["sha256"]
+        or private_key.sha256 != private_key_record["sha256"]
+    ):
         fail("runtime_auth_invalid")
     return {
         "manifest_sha256": artifact.sha256,
@@ -1152,7 +1279,9 @@ def validate_runtime_manifest(plan: Mapping[str, Any]) -> dict[str, str]:
         "uv_sha256": uv.sha256,
         "vacli_sha256": vacli.sha256,
         "auth_sha256": sha256_bytes(
-            canonical_json({"certificate": certificate.sha256, "private_key": private_key.sha256})
+            canonical_json(
+                {"certificate": certificate.sha256, "private_key": private_key.sha256}
+            )
         ),
         "binaries_sha256": sha256_bytes(canonical_json(binary_hashes)),
     }
@@ -1160,7 +1289,9 @@ def validate_runtime_manifest(plan: Mapping[str, Any]) -> dict[str, str]:
 
 def validate_external_inputs(plan: Mapping[str, Any]) -> dict[str, str]:
     recovery = plan["recovery"]
-    dataset_record = _artifact_record(recovery["dataset_archive"], code="dataset_archive_invalid")
+    dataset_record = _artifact_record(
+        recovery["dataset_archive"], code="dataset_archive_invalid"
+    )
     dataset = stable_file(
         Path(dataset_record["path"]),
         code="dataset_archive_invalid",
@@ -1178,7 +1309,9 @@ def validate_external_inputs(plan: Mapping[str, Any]) -> dict[str, str]:
         fail("launch_namespaces_invalid")
     for path in mutable_namespaces:
         parent = path.parent.resolve(strict=True)
-        if path != parent / path.name or not path.name.startswith("kimi_smoke_recovery_"):
+        if path != parent / path.name or not path.name.startswith(
+            "kimi_smoke_recovery_"
+        ):
             fail("launch_namespaces_invalid")
         stable_directory(parent, code="launch_parent_invalid", mode=0o700)
     return {
@@ -1206,17 +1339,25 @@ def _process_executable(pid: int) -> str:
         raise RecoveryControlError("launcher_ancestry_invalid") from error
 
 
-def validate_invocation(plan: Mapping[str, Any], *, runner: Runner = run_command) -> None:
+def validate_invocation(
+    plan: Mapping[str, Any], *, runner: Runner = run_command
+) -> None:
     """Require isolated Python directly owned by one approved canonical tmux pane."""
 
     launcher = plan["launcher"]
     tmux_record = _artifact_record(launcher["tmux"], code="launcher_invocation_invalid")
-    tmux = _validate_binary(tmux_record, code="launcher_invocation_invalid", root_owned=True)
-    runtime_python = _artifact_record(plan["runtime"]["python"], code="launcher_invocation_invalid")
+    tmux = _validate_binary(
+        tmux_record, code="launcher_invocation_invalid", root_owned=True
+    )
+    runtime_python = _artifact_record(
+        plan["runtime"]["python"], code="launcher_invocation_invalid"
+    )
     executable = Path(sys.executable).resolve(strict=True)
     if (
         str(executable) != runtime_python["path"]
-        or sha256_bytes(stable_file(executable, code="launcher_invocation_invalid", uid=0).raw)
+        or sha256_bytes(
+            stable_file(executable, code="launcher_invocation_invalid", uid=0).raw
+        )
         != runtime_python["sha256"]
         or not sys.flags.isolated
         or not sys.flags.no_site
@@ -1325,7 +1466,15 @@ def _validate_proxy_binding(
     deployment_id: str,
     proxy_job_id: str,
 ) -> tuple[str, int]:
-    if set(value) != {"api_key", "extras", "host", "model", "port", "proxy_jobid", "url"}:
+    if set(value) != {
+        "api_key",
+        "extras",
+        "host",
+        "model",
+        "port",
+        "proxy_jobid",
+        "url",
+    }:
         fail("proxy_info_invalid")
     host = value.get("host")
     port = value.get("port")
@@ -1364,7 +1513,9 @@ def _validate_proxy_binding(
 
 
 def fetch_http(url: str, timeout: float) -> tuple[int, bytes]:
-    opener = urllib.request.build_opener(urllib.request.ProxyHandler({}), RejectRedirects())
+    opener = urllib.request.build_opener(
+        urllib.request.ProxyHandler({}), RejectRedirects()
+    )
     request = urllib.request.Request(url, method="GET")
     try:
         with opener.open(request, timeout=timeout) as response:
@@ -1418,11 +1569,16 @@ def route_idle_snapshot(
     """Prove the exact two-route generation is healthy and has no live requests."""
 
     recovery = plan["recovery"]
-    readiness, readiness_artifact = _load_json_artifact(recovery["readiness_checkpoint"], code="readiness_invalid")
+    readiness, readiness_artifact = _load_json_artifact(
+        recovery["readiness_checkpoint"], code="readiness_invalid"
+    )
     spec = _artifact_record(recovery["deployment_spec"], code="deployment_spec_invalid")
     proxy = _artifact_record(recovery["proxy_info"], code="proxy_info_invalid")
     external_artifacts: dict[str, StableFile] = {}
-    for record, code in ((spec, "deployment_spec_invalid"), (proxy, "proxy_info_invalid")):
+    for record, code in (
+        (spec, "deployment_spec_invalid"),
+        (proxy, "proxy_info_invalid"),
+    ):
         artifact = stable_file(Path(record["path"]), code=code, uid=OWNER_UID)
         if artifact.sha256 != record["sha256"]:
             fail(code)
@@ -1431,9 +1587,9 @@ def route_idle_snapshot(
     last = readiness.get("last_status")
     endpoint = readiness.get("endpoint")
     proxy_policy = readiness.get("proxy_policy")
-    last_generation_matches = isinstance(last, dict) and readiness.get("serving_route_generation") == last.get(
+    last_generation_matches = isinstance(last, dict) and readiness.get(
         "serving_route_generation"
-    )
+    ) == last.get("serving_route_generation")
     if (
         readiness.get("schema_version") != 1
         or readiness.get("state") != "passed"
@@ -1441,7 +1597,8 @@ def route_idle_snapshot(
         or readiness.get("expected_routes") != EXPECTED_ROUTES
         or readiness.get("observed_spec_sha256") != spec["sha256"]
         or not isinstance(generation, dict)
-        or sha256_bytes(canonical_json(generation)) != recovery.get("route_generation_sha256")
+        or sha256_bytes(canonical_json(generation))
+        != recovery.get("route_generation_sha256")
         or not last_generation_matches
     ):
         fail("readiness_invalid")
@@ -1475,12 +1632,16 @@ def route_idle_snapshot(
         set(coordinator) != {"slurm_job_id", "started_at"}
         or set(generation_proxy) != {"first_ready_at", "slurm_job_id"}
         or STARTED_AT_RE.fullmatch(str(coordinator.get("started_at", ""))) is None
-        or STARTED_AT_RE.fullmatch(str(generation_proxy.get("first_ready_at", ""))) is None
+        or STARTED_AT_RE.fullmatch(str(generation_proxy.get("first_ready_at", "")))
+        is None
         or any(
             not isinstance(item, dict)
             or set(item) != {"backend_sha256", "slurm_job_id", "started_at"}
             or STARTED_AT_RE.fullmatch(str(item.get("started_at", ""))) is None
-            or re.fullmatch(r"backend-sha256:[0-9a-f]{64}", str(item.get("backend_sha256", ""))) is None
+            or re.fullmatch(
+                r"backend-sha256:[0-9a-f]{64}", str(item.get("backend_sha256", ""))
+            )
+            is None
             for item in routes
         )
     ):
@@ -1503,7 +1664,9 @@ def route_idle_snapshot(
         if not isinstance(job_id, str) or JOB_RE.fullmatch(job_id) is None:
             fail("route_generation_invalid")
         job_ids.append(job_id)
-        _job_identity(scontrol_record(job_id, runner=runner), job_id=job_id, state="RUNNING")
+        _job_identity(
+            scontrol_record(job_id, runner=runner), job_id=job_id, state="RUNNING"
+        )
     if len(set(job_ids)) != 2 + EXPECTED_ROUTES:
         fail("route_generation_invalid")
 
@@ -1516,7 +1679,11 @@ def route_idle_snapshot(
     if len(children) != EXPECTED_ROUTES:
         fail("route_endpoints_invalid")
     expected_routes = {
-        (str(item.get("slurm_job_id")), str(item.get("started_at")), str(item.get("backend_sha256")))
+        (
+            str(item.get("slurm_job_id")),
+            str(item.get("started_at")),
+            str(item.get("backend_sha256")),
+        )
         for item in routes
         if isinstance(item, dict)
     }
@@ -1532,7 +1699,9 @@ def route_idle_snapshot(
         path = endpoint_root / child.name
         if not child.name.endswith(".json") or JOB_RE.fullmatch(path.stem) is None:
             fail("route_endpoints_invalid")
-        artifact = stable_file(path, code="route_endpoint_invalid", mode=0o644, maximum=4096)
+        artifact = stable_file(
+            path, code="route_endpoint_invalid", mode=0o644, maximum=4096
+        )
         value = strict_json(artifact.raw, code="route_endpoint_invalid")
         if set(value) != {"host", "port", "started_at"}:
             fail("route_endpoint_invalid")
@@ -1551,12 +1720,20 @@ def route_idle_snapshot(
         observed_routes.add((path.stem, started, backend))
         health_status, health_raw = fetcher(f"http://{host}:{port}/health", 10.0)
         metrics_status, metrics_raw = fetcher(f"http://{host}:{port}/metrics", 10.0)
-        if health_status != 200 or health_raw not in {b"", b"\n"} or metrics_status != 200:
+        if (
+            health_status != 200
+            or health_raw not in {b"", b"\n"}
+            or metrics_status != 200
+        ):
             fail("route_health_invalid")
         running += _metric_sum(metrics_raw, "vllm:num_requests_running")
         waiting += _metric_sum(metrics_raw, "vllm:num_requests_waiting")
-        route_generation_tokens = _metric_sum(metrics_raw, "vllm:generation_tokens_total")
-        route_successful_requests = _metric_sum(metrics_raw, "vllm:request_success_total")
+        route_generation_tokens = _metric_sum(
+            metrics_raw, "vllm:generation_tokens_total"
+        )
+        route_successful_requests = _metric_sum(
+            metrics_raw, "vllm:request_success_total"
+        )
         generation_tokens += route_generation_tokens
         successful_requests += route_successful_requests
         route_activity.append(
@@ -1568,7 +1745,9 @@ def route_idle_snapshot(
         )
     if observed_routes != expected_routes or running != 0 or waiting != 0:
         fail("route_not_idle")
-    proxy_health_status, proxy_health_raw = fetcher(f"http://{proxy_host}:{proxy_port}/health", 10.0)
+    proxy_health_status, proxy_health_raw = fetcher(
+        f"http://{proxy_host}:{proxy_port}/health", 10.0
+    )
     if proxy_health_status != 200 or proxy_health_raw not in {b"", b"\n"}:
         fail("route_health_invalid")
     return {
@@ -1582,7 +1761,9 @@ def route_idle_snapshot(
         "generation_tokens": generation_tokens,
         "successful_requests": successful_requests,
         "activity_signature_sha256": sha256_bytes(
-            canonical_json(sorted(route_activity, key=lambda item: item["backend_sha256"]))
+            canonical_json(
+                sorted(route_activity, key=lambda item: item["backend_sha256"])
+            )
         ),
         "restart_count": 0,
     }
@@ -1607,13 +1788,26 @@ def _pin_source_artifacts(plan: Mapping[str, Any]) -> dict[str, PinnedFile]:
         *,
         record: Mapping[str, Any] | None = None,
         mode: int | None = None,
+        maximum: int = MAX_FILE_BYTES,
     ) -> None:
-        if name in pinned or any(item.artifact.path == path for item in pinned.values()):
+        if name in pinned or any(
+            item.artifact.path == path for item in pinned.values()
+        ):
             fail("source_run_invalid")
-        expected = _artifact_record(record, code="source_run_invalid") if record is not None else None
+        expected = (
+            _artifact_record(record, code="source_run_invalid")
+            if record is not None
+            else None
+        )
         if expected is not None and str(path) != expected["path"]:
             fail("source_run_invalid")
-        item = pin_file(path, code="source_run_invalid", mode=mode, uid=OWNER_UID)
+        item = pin_file(
+            path,
+            code="source_run_invalid",
+            mode=mode,
+            uid=OWNER_UID,
+            maximum=maximum,
+        )
         if expected is not None and item.artifact.sha256 != expected["sha256"]:
             item.close()
             fail("source_run_invalid")
@@ -1623,18 +1817,30 @@ def _pin_source_artifacts(plan: Mapping[str, Any]) -> dict[str, PinnedFile]:
         for name, path in names.items():
             add(name, path, record=records[name])
 
-        identity_envelope = strict_json(pinned["eval_run_identity"].artifact.raw, code="source_run_invalid")
+        identity_envelope = strict_json(
+            pinned["eval_run_identity"].artifact.raw, code="source_run_invalid"
+        )
         identity = identity_envelope.get("identity")
         config = identity.get("config") if isinstance(identity, dict) else None
         inputs = identity.get("inputs") if isinstance(identity, dict) else None
         if not isinstance(config, dict) or not isinstance(inputs, dict):
             fail("source_run_invalid")
-        source_config = _artifact_record(config.get("source"), code="source_run_invalid")
-        resolved_config = _artifact_record(config.get("resolved"), code="source_run_invalid")
-        input_manifest = _artifact_record(inputs.get("manifest"), code="source_run_invalid")
+        source_config = _artifact_record(
+            config.get("source"), code="source_run_invalid"
+        )
+        resolved_config = _artifact_record(
+            config.get("resolved"), code="source_run_invalid"
+        )
+        input_manifest = _artifact_record(
+            inputs.get("manifest"), code="source_run_invalid"
+        )
         task = inputs.get("task_file")
         image_manifest_value = inputs.get("image_manifest")
-        if not isinstance(task, dict) or set(task) != {"count", "path", "sha256"} or type(task.get("count")) is not int:
+        if (
+            not isinstance(task, dict)
+            or set(task) != {"count", "path", "sha256"}
+            or type(task.get("count")) is not int
+        ):
             fail("source_run_invalid")
         task_artifact = _artifact_record(
             {"path": task.get("path"), "sha256": task.get("sha256")},
@@ -1661,11 +1867,15 @@ def _pin_source_artifacts(plan: Mapping[str, Any]) -> dict[str, PinnedFile]:
             add(
                 "image_manifest",
                 run_dir / "inputs/image_manifest.json",
-                record=_artifact_record(image_manifest_value, code="source_run_invalid"),
+                record=_artifact_record(
+                    image_manifest_value, code="source_run_invalid"
+                ),
             )
         add("provenance", run_dir / "provenance.txt")
 
-        receipt = strict_json(pinned["route_guard_success"].artifact.raw, code="source_run_invalid")
+        receipt = strict_json(
+            pinned["route_guard_success"].artifact.raw, code="source_run_invalid"
+        )
         receipt_artifacts = receipt.get("artifacts")
         schema_version = receipt.get("schema_version")
         if schema_version not in {1, 2} or not isinstance(receipt_artifacts, dict):
@@ -1676,6 +1886,7 @@ def _pin_source_artifacts(plan: Mapping[str, Any]) -> dict[str, PinnedFile]:
                 run_dir / "concurrency_telemetry.json",
                 record=receipt_artifacts.get("concurrency_telemetry"),
                 mode=0o400,
+                maximum=MAX_CONCURRENCY_TELEMETRY_BYTES,
             )
         return pinned
     except BaseException:
@@ -1711,6 +1922,22 @@ def _validate_pinned_concurrency_telemetry(
     slurm_job_id: str,
     telemetry_module: Any,
 ) -> tuple[dict[str, Any], dict[str, str]]:
+    try:
+        telemetry_module._require_metadata(
+            eval_run_identity_sha256,
+            eval_run_role,
+            slurm_job_id,
+        )
+    except ValueError as error:
+        raise RecoveryControlError("source_run_invalid") from error
+    if (
+        artifact.path.name != "concurrency_telemetry.json"
+        or len(raw) > telemetry_module.MAX_TELEMETRY_BYTES
+        or len(raw) > MAX_CONCURRENCY_TELEMETRY_BYTES
+        or raw != artifact.raw
+        or sha256_bytes(raw) != artifact.sha256
+    ):
+        fail("source_run_invalid")
     value = strict_json(raw, code="source_run_invalid")
     expected_keys = {
         "concurrency_telemetry_sha256",
@@ -1724,10 +1951,15 @@ def _validate_pinned_concurrency_telemetry(
         "state",
     }
     observations = value.get("observations")
-    body = {key: item for key, item in value.items() if key != "concurrency_telemetry_sha256"}
+    body = {
+        key: item
+        for key, item in value.items()
+        if key != "concurrency_telemetry_sha256"
+    }
     if (
         set(value) != expected_keys
-        or value.get("schema_version") != telemetry_module.SCHEMA_VERSION
+        or type(value.get("schema_version")) is not int
+        or value["schema_version"] != telemetry_module.SCHEMA_VERSION
         or value.get("state") != "complete"
         or value.get("eval_run_identity_sha256") != eval_run_identity_sha256
         or value.get("eval_run_role") != eval_run_role
@@ -1737,7 +1969,10 @@ def _validate_pinned_concurrency_telemetry(
         or value.get("measurement_scope") != "single_evaluator_process"
         or not isinstance(observations, dict)
         or set(observations) != set(telemetry_module._OBSERVATION_KEYS)
-        or value.get("concurrency_telemetry_sha256") != sha256_bytes(canonical_json(body))
+        or not isinstance(value.get("concurrency_telemetry_sha256"), str)
+        or SHA_RE.fullmatch(value["concurrency_telemetry_sha256"]) is None
+        or value.get("concurrency_telemetry_sha256")
+        != sha256_bytes(canonical_json(body))
     ):
         fail("source_run_invalid")
     if any(type(item) is not int or item < 0 for item in observations.values()):
@@ -1751,10 +1986,15 @@ def _validate_pinned_concurrency_telemetry(
         or observations["vmvm_runtime_ready"] > observations["vmvm_runtime_starts"]
         or observations["lease_start_attempts"] < 1
         or observations["lease_start_attempts"] != observations["lease_start_finishes"]
+        or observations["lease_tunnels_ready"] > observations["lease_start_attempts"]
         or observations["lease_start_attempts"] < observations["vmvm_runtime_starts"]
         or observations["lease_tunnels_ready"] < observations["vmvm_runtime_ready"]
-        or not 1 <= observations["peak_active_vmvm_runtimes"] <= observations["vmvm_runtime_starts"]
-        or not 1 <= observations["peak_concurrent_lease_startups"] <= observations["lease_start_attempts"]
+        or not 1
+        <= observations["peak_active_vmvm_runtimes"]
+        <= observations["vmvm_runtime_starts"]
+        or not 1
+        <= observations["peak_concurrent_lease_startups"]
+        <= observations["lease_start_attempts"]
     ):
         fail("source_run_invalid")
     return value, artifact.record
@@ -1776,8 +2016,14 @@ def load_pinned_source_run(
         verify_references=True,
     )
     receipt = recovery_module.load_guard_success_receipt(receipt_artifact.path)
-    identity = envelope_value.get("identity") if isinstance(envelope_value, dict) else None
-    identity_sha256 = envelope_value.get("eval_run_identity_sha256") if isinstance(envelope_value, dict) else None
+    identity = (
+        envelope_value.get("identity") if isinstance(envelope_value, dict) else None
+    )
+    identity_sha256 = (
+        envelope_value.get("eval_run_identity_sha256")
+        if isinstance(envelope_value, dict)
+        else None
+    )
     deployment = identity.get("deployment") if isinstance(identity, dict) else None
     if (
         not isinstance(identity, dict)
@@ -1799,7 +2045,8 @@ def load_pinned_source_run(
         endpoint=deployment["endpoint"],
         serving_route_generation=deployment["serving_route_generation"],
         proxy_policy=deployment["proxy_policy"],
-        require_concurrency_telemetry="concurrency_telemetry" in receipt.get("artifacts", {}),
+        require_concurrency_telemetry="concurrency_telemetry"
+        in receipt.get("artifacts", {}),
     )
     invocation, invocation_record = recovery_module.validate_eval_invocations(
         invocations_artifact.path,
@@ -1820,7 +2067,9 @@ def load_pinned_source_run(
         "results_artifact": results_artifact,
         "receipt_artifact": receipt_artifact,
         "invocations_artifact": invocations_artifact,
-        "rows": recovery_module._strict_jsonl(results_artifact.raw, label="source_results"),
+        "rows": recovery_module._strict_jsonl(
+            results_artifact.raw, label="source_results"
+        ),
     }
 
 
@@ -1866,7 +2115,9 @@ def pinned_source_reads(
 
     identity_default_limit = int(identity_module.MAX_METADATA_BYTES)
 
-    def identity_read(path: Path, *, label: str, limit: int = identity_default_limit) -> bytes:
+    def identity_read(
+        path: Path, *, label: str, limit: int = identity_default_limit
+    ) -> bytes:
         artifact = artifact_for(path)
         if artifact is None:
             return originals["identity_read"](path, label=label, limit=limit)
@@ -1880,7 +2131,9 @@ def pinned_source_reads(
             return originals["identity_sha256"](path, label=label)
         return artifact.sha256
 
-    def identity_artifact(path: Path, expected_sha256: str, *, label: str) -> dict[str, str]:
+    def identity_artifact(
+        path: Path, expected_sha256: str, *, label: str
+    ) -> dict[str, str]:
         artifact = artifact_for(path)
         if artifact is None:
             return originals["identity_artifact"](path, expected_sha256, label=label)
@@ -1923,7 +2176,11 @@ def pinned_source_reads(
             if raw_record is None and name == "image_manifest":
                 records[name] = None
                 continue
-            if not isinstance(raw_record, dict) or set(raw_record) != {"source", "snapshot", "sha256"}:
+            if not isinstance(raw_record, dict) or set(raw_record) != {
+                "source",
+                "snapshot",
+                "sha256",
+            }:
                 fail("source_run_invalid")
             snapshot = artifact_for(expected_inputs / filename)
             if (
@@ -1934,22 +2191,30 @@ def pinned_source_reads(
                 fail("source_run_invalid")
             records[name] = snapshot.record
         task_record = records["task_file"]
-        if not isinstance(task_record, dict) or task_record["sha256"] != approved_sha256:
+        if (
+            not isinstance(task_record, dict)
+            or task_record["sha256"] != approved_sha256
+        ):
             fail("source_run_invalid")
         taskset = config.get("taskset")
         if (
             not isinstance(taskset, dict)
-            or Path(os.path.normpath(str(taskset.get("task_file")))) != Path(task_record["path"])
+            or Path(os.path.normpath(str(taskset.get("task_file"))))
+            != Path(task_record["path"])
             or taskset.get("task_file_sha256") != approved_sha256
             or config.get("num_tasks") != approved_count
         ):
             fail("source_run_invalid")
         image_record = records["image_manifest"]
         if image_record is None:
-            if taskset.get("image_manifest") is not None or taskset.get("image_manifest_sha256") is not None:
+            if (
+                taskset.get("image_manifest") is not None
+                or taskset.get("image_manifest_sha256") is not None
+            ):
                 fail("source_run_invalid")
         elif (
-            Path(os.path.normpath(str(taskset.get("image_manifest")))) != Path(image_record["path"])
+            Path(os.path.normpath(str(taskset.get("image_manifest"))))
+            != Path(image_record["path"])
             or taskset.get("image_manifest_sha256") != image_record["sha256"]
         ):
             fail("source_run_invalid")
@@ -2057,18 +2322,25 @@ def pinned_source_reads(
 
 
 def _source_artifact_digest(artifacts: Mapping[str, StableFile]) -> str:
-    return sha256_bytes(canonical_json({name: item.record for name, item in sorted(artifacts.items())}))
+    return sha256_bytes(
+        canonical_json({name: item.record for name, item in sorted(artifacts.items())})
+    )
 
 
 def _tracked_paths(repository: Path, *pathspecs: str) -> list[Path]:
     raw = git_output(repository, "ls-files", "-z", "--", *pathspecs)
     relatives = [item for item in raw.split("\0") if item]
-    if len(relatives) != len(set(relatives)) or any("\n" in item or "\r" in item for item in relatives):
+    if len(relatives) != len(set(relatives)) or any(
+        "\n" in item or "\r" in item for item in relatives
+    ):
         fail("source_capture_invalid")
     paths: list[Path] = []
     for relative in relatives:
         candidate = repository / relative
-        if PurePosixPath(relative).is_absolute() or ".." in PurePosixPath(relative).parts:
+        if (
+            PurePosixPath(relative).is_absolute()
+            or ".." in PurePosixPath(relative).parts
+        ):
             fail("source_capture_invalid")
         paths.append(candidate)
     return paths
@@ -2112,7 +2384,9 @@ def capture_reviewed_closure(plan: Mapping[str, Any]) -> ReviewedClosure:
     hashes: dict[Path, str] = {}
 
     def capture(path: Path, *, mode: int | None) -> None:
-        artifact = stable_file(path, code="reviewed_closure_changed", mode=mode, uid=OWNER_UID)
+        artifact = stable_file(
+            path, code="reviewed_closure_changed", mode=mode, uid=OWNER_UID
+        )
         if artifact.path in bodies:
             fail("reviewed_closure_invalid")
         bodies[artifact.path] = artifact.raw
@@ -2128,12 +2402,15 @@ def capture_reviewed_closure(plan: Mapping[str, Any]) -> ReviewedClosure:
             fail("runtime_manifest_invalid")
         path = runtime_root / entry["path"]
         capture(path, mode=0o400)
-        if hashes[path] != entry.get("sha256") or len(bodies[path]) != entry.get("size"):
+        if hashes[path] != entry.get("sha256") or len(bodies[path]) != entry.get(
+            "size"
+        ):
             fail("runtime_manifest_invalid")
     if not bodies:
         fail("reviewed_closure_invalid")
     manifest_rows = [
-        {"path": str(path), "sha256": hashes[path], "size": len(bodies[path])} for path in sorted(bodies, key=str)
+        {"path": str(path), "sha256": hashes[path], "size": len(bodies[path])}
+        for path in sorted(bodies, key=str)
     ]
     digest = sha256_bytes(
         canonical_json(
@@ -2166,7 +2443,9 @@ class _CapturedSourceLoader(importlib.abc.Loader):
 
 
 class _CapturedExtensionLoader(importlib.abc.Loader):
-    def __init__(self, descriptor: int, digest: str, delegate: importlib.abc.Loader) -> None:
+    def __init__(
+        self, descriptor: int, digest: str, delegate: importlib.abc.Loader
+    ) -> None:
         self.descriptor = descriptor
         self.digest = digest
         self.delegate = delegate
@@ -2177,7 +2456,12 @@ class _CapturedExtensionLoader(importlib.abc.Loader):
             seals = fcntl.fcntl(self.descriptor, fcntl.F_GET_SEALS)
         except OSError as error:
             raise RecoveryControlError("reviewed_extension_changed") from error
-        required = fcntl.F_SEAL_SEAL | fcntl.F_SEAL_SHRINK | fcntl.F_SEAL_GROW | fcntl.F_SEAL_WRITE
+        required = (
+            fcntl.F_SEAL_SEAL
+            | fcntl.F_SEAL_SHRINK
+            | fcntl.F_SEAL_GROW
+            | fcntl.F_SEAL_WRITE
+        )
         if (
             status.st_nlink != 0
             or seals != required
@@ -2208,7 +2492,9 @@ class _CapturedExtensionLoader(importlib.abc.Loader):
 
 
 class _CapturedDistribution(importlib.metadata.Distribution):
-    def __init__(self, root: Path, metadata_dir: Path, finder: "_CapturedImportFinder") -> None:
+    def __init__(
+        self, root: Path, metadata_dir: Path, finder: "_CapturedImportFinder"
+    ) -> None:
         self.root = root
         self.metadata_dir = metadata_dir
         self.finder = finder
@@ -2237,7 +2523,9 @@ class _CapturedDistribution(importlib.metadata.Distribution):
 
 
 class _CapturedImportFinder(importlib.abc.MetaPathFinder):
-    def __init__(self, closure: ReviewedClosure, original_meta_path: tuple[object, ...]) -> None:
+    def __init__(
+        self, closure: ReviewedClosure, original_meta_path: tuple[object, ...]
+    ) -> None:
         self.closure = closure
         self.original_meta_path = original_meta_path
         self.expected_path: tuple[str, ...] = ()
@@ -2258,8 +2546,12 @@ class _CapturedImportFinder(importlib.abc.MetaPathFinder):
                 for path in closure.bodies
                 if path == root or path.is_relative_to(root)
             }
-            for metadata_dir in sorted((item for item in metadata_dirs if item is not None), key=str):
-                self.distributions.append(_CapturedDistribution(root, metadata_dir, self))
+            for metadata_dir in sorted(
+                (item for item in metadata_dirs if item is not None), key=str
+            ):
+                self.distributions.append(
+                    _CapturedDistribution(root, metadata_dir, self)
+                )
 
     def close(self) -> None:
         for descriptor in self.descriptors:
@@ -2269,7 +2561,9 @@ class _CapturedImportFinder(importlib.abc.MetaPathFinder):
                 pass
         self.descriptors.clear()
 
-    def find_distributions(self, context: object = None) -> Sequence[importlib.metadata.Distribution]:
+    def find_distributions(
+        self, context: object = None
+    ) -> Sequence[importlib.metadata.Distribution]:
         requested = getattr(context, "name", None)
         if not requested:
             return tuple(self.distributions)
@@ -2277,12 +2571,20 @@ class _CapturedImportFinder(importlib.abc.MetaPathFinder):
         return tuple(
             distribution
             for distribution in self.distributions
-            if re.sub(r"[-_.]+", "-", str(distribution.metadata.get("Name", ""))).casefold() == normalized
+            if re.sub(
+                r"[-_.]+", "-", str(distribution.metadata.get("Name", ""))
+            ).casefold()
+            == normalized
         )
 
-    def find_spec(self, fullname: str, path: object = None, target: object = None) -> object | None:
+    def find_spec(
+        self, fullname: str, path: object = None, target: object = None
+    ) -> object | None:
         del target
-        if tuple(sys.path) != self.expected_path or tuple(sys.path_hooks) != self.expected_path_hooks:
+        if (
+            tuple(sys.path) != self.expected_path
+            or tuple(sys.path_hooks) != self.expected_path_hooks
+        ):
             fail("reviewed_import_guard_changed")
         try:
             spec = importlib.machinery.PathFinder.find_spec(fullname, path)
@@ -2291,11 +2593,16 @@ class _CapturedImportFinder(importlib.abc.MetaPathFinder):
         if spec is None or spec.origin in {"built-in", "frozen"}:
             return spec
         if spec.origin is None:
-            locations = tuple(Path(item) for item in (spec.submodule_search_locations or ()))
+            locations = tuple(
+                Path(item) for item in (spec.submodule_search_locations or ())
+            )
             protected_locations = [
                 item
                 for item in locations
-                if any(item == root or item.is_relative_to(root) for root in self.closure.roots)
+                if any(
+                    item == root or item.is_relative_to(root)
+                    for root in self.closure.roots
+                )
             ]
             if not protected_locations:
                 return spec
@@ -2312,14 +2619,21 @@ class _CapturedImportFinder(importlib.abc.MetaPathFinder):
         if not lexical_origin.is_absolute():
             fail("reviewed_import_origin_invalid")
         lexical_protected = any(
-            lexical_origin == root or lexical_origin.is_relative_to(root) for root in self.closure.roots
+            lexical_origin == root or lexical_origin.is_relative_to(root)
+            for root in self.closure.roots
         )
         try:
             origin = lexical_origin.resolve(strict=True)
         except (OSError, RuntimeError) as error:
             raise RecoveryControlError("reviewed_import_origin_invalid") from error
-        resolved_protected = any(origin == root or origin.is_relative_to(root) for root in self.closure.roots)
-        if lexical_protected and (lexical_origin.is_symlink() or origin != lexical_origin or not resolved_protected):
+        resolved_protected = any(
+            origin == root or origin.is_relative_to(root) for root in self.closure.roots
+        )
+        if lexical_protected and (
+            lexical_origin.is_symlink()
+            or origin != lexical_origin
+            or not resolved_protected
+        ):
             fail("unmanifested_import_forbidden")
         if resolved_protected and not lexical_protected:
             fail("unmanifested_import_forbidden")
@@ -2333,8 +2647,13 @@ class _CapturedImportFinder(importlib.abc.MetaPathFinder):
             spec.loader = _CapturedSourceLoader(origin, raw)
             spec.cached = None
             return spec
-        if any(str(origin).endswith(suffix) for suffix in importlib.machinery.EXTENSION_SUFFIXES):
-            descriptor = sealed_memfd(raw, f"kimi-smoke-extension-{fullname.rsplit('.', 1)[-1]}")
+        if any(
+            str(origin).endswith(suffix)
+            for suffix in importlib.machinery.EXTENSION_SUFFIXES
+        ):
+            descriptor = sealed_memfd(
+                raw, f"kimi-smoke-extension-{fullname.rsplit('.', 1)[-1]}"
+            )
             sealed_path = f"/proc/self/fd/{descriptor}"
             delegate = importlib.machinery.ExtensionFileLoader(fullname, sealed_path)
             spec.loader = _CapturedExtensionLoader(descriptor, digest, delegate)
@@ -2346,7 +2665,9 @@ class _CapturedImportFinder(importlib.abc.MetaPathFinder):
         fail("unmanifested_import_forbidden")
 
 
-def activate_reviewed_imports(plan: Mapping[str, Any]) -> tuple[ReviewedClosure, _CapturedImportFinder]:
+def activate_reviewed_imports(
+    plan: Mapping[str, Any],
+) -> tuple[ReviewedClosure, _CapturedImportFinder]:
     """Install an in-memory, content-addressed loader for reviewed code."""
 
     if sys.path != ISOLATED_STDLIB_PATHS:
@@ -2360,7 +2681,9 @@ def activate_reviewed_imports(plan: Mapping[str, Any]) -> tuple[ReviewedClosure,
         fail("runtime_import_hook_invalid")
     closure = capture_reviewed_closure(plan)
     sys.path_importer_cache.clear()
-    delegates = tuple(item for item in sys.meta_path if item is not importlib.machinery.PathFinder)
+    delegates = tuple(
+        item for item in sys.meta_path if item is not importlib.machinery.PathFinder
+    )
     finder = _CapturedImportFinder(closure, delegates)
     sys.path[:] = [str(path) for path in closure.roots] + ISOLATED_STDLIB_PATHS
     finder.expected_path = tuple(sys.path)
@@ -2408,7 +2731,9 @@ def validate_reviewed_imports(
     ):
         fail("reviewed_import_guard_changed")
     stdlib_roots = tuple(
-        Path(path).resolve() for path in ("/usr/lib/python3.12", "/usr/local/lib/python3.12") if Path(path).is_dir()
+        Path(path).resolve()
+        for path in ("/usr/lib/python3.12", "/usr/local/lib/python3.12")
+        if Path(path).is_dir()
     )
     for name in sorted(set(sys.modules) - baseline):
         module = sys.modules.get(name)
@@ -2421,9 +2746,14 @@ def validate_reviewed_imports(
             path = Path(origin).resolve(strict=True)
         except (OSError, RuntimeError) as error:
             raise RecoveryControlError("reviewed_import_origin_invalid") from error
-        if not any(path.is_relative_to(root) for root in (*closure.roots, *stdlib_roots)):
+        if not any(
+            path.is_relative_to(root) for root in (*closure.roots, *stdlib_roots)
+        ):
             fail("reviewed_import_origin_invalid")
-        if any(path.is_relative_to(root) for root in closure.roots) and path not in closure.bodies:
+        if (
+            any(path.is_relative_to(root) for root in closure.roots)
+            and path not in closure.bodies
+        ):
             fail("unmanifested_import_forbidden")
 
 
@@ -2432,7 +2762,9 @@ def classify_legacy_source_rows(
 ) -> dict[str, int]:
     """Accept only the observed clean-then-error-timeout legacy terminal shape."""
 
-    entries = recovery_module._manifest_entries(manifest_raw, expected_count=EXPECTED_TASKS)
+    entries = recovery_module._manifest_entries(
+        manifest_raw, expected_count=EXPECTED_TASKS
+    )
     if len(source_rows) != EXPECTED_TASKS:
         fail("source_run_invalid")
     expected_slugs = {entry.slug for entry in entries}
@@ -2462,7 +2794,8 @@ def classify_legacy_source_rows(
             and trace.get("stop_condition") == "harness_timeout"
             and isinstance(errors, list)
             and len(errors) == 1
-            and recovery_module._clean_stop_problem(trace) == "trace_stop_condition_infrastructure"
+            and recovery_module._clean_stop_problem(trace)
+            == "trace_stop_condition_infrastructure"
         ):
             row_classes.append("error_bearing_harness_timeout")
         else:
@@ -2486,7 +2819,10 @@ def _validate_source_run_pinned(
 ) -> tuple[dict[str, StableFile], dict[str, int]]:
     run_dir = Path(plan["source_smoke"]["run_dir"])
     stable_directory(run_dir, code="source_run_invalid", mode=0o700)
-    if any(child.name.startswith("smoke_checkpoint") and child.name.endswith(".json") for child in os.scandir(run_dir)):
+    if any(
+        child.name.startswith("smoke_checkpoint") and child.name.endswith(".json")
+        for child in os.scandir(run_dir)
+    ):
         fail("successful_smoke_already_certified")
     runtime_before = validate_runtime_manifest(plan)
     source_before = validate_source(plan)
@@ -2504,7 +2840,9 @@ def _validate_source_run_pinned(
     if "image_manifest" in pinned:
         artifacts["inputs/image_manifest.json"] = pinned["image_manifest"].artifact
     if "concurrency_telemetry" in pinned:
-        artifacts["concurrency_telemetry.json"] = pinned["concurrency_telemetry"].artifact
+        artifacts["concurrency_telemetry.json"] = pinned[
+            "concurrency_telemetry"
+        ].artifact
     protected_modules = {
         "audit_traces",
         "deployment_endpoint",
@@ -2531,7 +2869,11 @@ def _validate_source_run_pinned(
             task = pinned["task_file"].artifact
             config_record = source["identity"].get("config", {}).get("source")
             if (
-                task.record != {"path": task_record.get("path"), "sha256": task_record.get("sha256")}
+                task.record
+                != {
+                    "path": task_record.get("path"),
+                    "sha256": task_record.get("sha256"),
+                }
                 or task.sha256 != FRESH_TWO_TASK_SHA256
                 or task_record.get("count") != EXPECTED_TASKS
                 or config_record != pinned["config_file"].artifact.record
@@ -2550,7 +2892,14 @@ def _validate_source_run_pinned(
             fail("reviewed_closure_changed")
     except RecoveryControlError:
         raise
-    except (ImportError, KeyError, OSError, RuntimeError, TypeError, ValueError) as error:
+    except (
+        ImportError,
+        KeyError,
+        OSError,
+        RuntimeError,
+        TypeError,
+        ValueError,
+    ) as error:
         raise RecoveryControlError("source_run_invalid") from error
     finally:
         finder.close()
@@ -2566,24 +2915,36 @@ def _validate_source_run_pinned(
         or not isinstance(identity_deployment, dict)
         or identity_deployment.get("id") != recovery["deployment_id"]
         or identity_deployment.get("spec") != recovery["deployment_spec"]
-        or identity_deployment.get("readiness_checkpoint") != recovery["readiness_checkpoint"]
+        or identity_deployment.get("readiness_checkpoint")
+        != recovery["readiness_checkpoint"]
         or not isinstance(identity_deployment.get("endpoint"), dict)
-        or identity_deployment.get("endpoint", {}).get("proxy_info") != recovery["proxy_info"]
-        or sha256_bytes(canonical_json(identity_deployment.get("serving_route_generation")))
+        or identity_deployment.get("endpoint", {}).get("proxy_info")
+        != recovery["proxy_info"]
+        or sha256_bytes(
+            canonical_json(identity_deployment.get("serving_route_generation"))
+        )
         != recovery["route_generation_sha256"]
     ):
         fail("source_run_invalid")
-    if validate_runtime_manifest(plan) != runtime_before or validate_source(plan) != source_before:
+    if (
+        validate_runtime_manifest(plan) != runtime_before
+        or validate_source(plan) != source_before
+    ):
         fail("source_runtime_changed")
     return artifacts, counts
 
 
-def validate_source_run(plan: Mapping[str, Any]) -> tuple[dict[str, StableFile], dict[str, int]]:
+def validate_source_run(
+    plan: Mapping[str, Any],
+) -> tuple[dict[str, StableFile], dict[str, int]]:
     """Validate fixed source bytes while keeping every source artifact pinned."""
 
     run_dir = Path(plan["source_smoke"]["run_dir"])
     stable_directory(run_dir, code="source_run_invalid", mode=0o700)
-    if any(child.name.startswith("smoke_checkpoint") and child.name.endswith(".json") for child in os.scandir(run_dir)):
+    if any(
+        child.name.startswith("smoke_checkpoint") and child.name.endswith(".json")
+        for child in os.scandir(run_dir)
+    ):
         fail("successful_smoke_already_certified")
     pinned = _pin_source_artifacts(plan)
     try:
@@ -2615,7 +2976,9 @@ def acquire_writer_lock(run_dir: Path) -> tuple[Any, tuple[int, ...]]:
         fcntl.flock(descriptor, fcntl.LOCK_EX | fcntl.LOCK_NB)
         locked = os.fstat(descriptor)
         final_locked = os.stat(path, follow_symlinks=False)
-        if _signature(metadata) != _signature(locked) or _signature(locked) != _signature(final_locked):
+        if _signature(metadata) != _signature(locked) or _signature(
+            locked
+        ) != _signature(final_locked):
             fail("source_writer_lock_changed")
         handle = os.fdopen(descriptor, "rb", closefd=True)
         descriptor = -1
@@ -2635,7 +2998,11 @@ def acquire_global_lock(plan: Mapping[str, Any]) -> tuple[Any, tuple[int, ...]]:
     path = Path(plan["recovery"]["global_lock"])
     descriptor = -1
     try:
-        if not path.is_absolute() or path.is_symlink() or path.resolve(strict=True) != path:
+        if (
+            not path.is_absolute()
+            or path.is_symlink()
+            or path.resolve(strict=True) != path
+        ):
             fail("recovery_global_lock_invalid")
         descriptor = os.open(path, os.O_RDWR | os.O_CLOEXEC | os.O_NOFOLLOW)
         metadata = os.fstat(descriptor)
@@ -2664,7 +3031,9 @@ def acquire_global_lock(plan: Mapping[str, Any]) -> tuple[Any, tuple[int, ...]]:
             os.close(descriptor)
 
 
-def validate_global_lock(plan: Mapping[str, Any], handle: Any, expected: tuple[int, ...]) -> None:
+def validate_global_lock(
+    plan: Mapping[str, Any], handle: Any, expected: tuple[int, ...]
+) -> None:
     path = Path(plan["recovery"]["global_lock"])
     try:
         held = _signature(os.fstat(handle.fileno()))
@@ -2684,7 +3053,9 @@ def acquire_recovery_locks_with_wait(
     while time.monotonic() < deadline:
         source_lock: Any | None = None
         try:
-            source_lock, source_signature = acquire_writer_lock(Path(plan["source_smoke"]["run_dir"]))
+            source_lock, source_signature = acquire_writer_lock(
+                Path(plan["source_smoke"]["run_dir"])
+            )
             global_lock, global_signature = acquire_global_lock(plan)
             return source_lock, source_signature, global_lock, global_signature
         except RecoveryControlError as error:
@@ -2696,18 +3067,26 @@ def acquire_recovery_locks_with_wait(
     fail("recovery_locks_unavailable")
 
 
-def validate_writer_lock_identity(run_dir: Path, handle: Any, expected_signature: tuple[int, ...]) -> None:
+def validate_writer_lock_identity(
+    run_dir: Path, handle: Any, expected_signature: tuple[int, ...]
+) -> None:
     path = run_dir / ".writer.lock"
     try:
         descriptor_signature = _signature(os.fstat(handle.fileno()))
         path_signature = _signature(os.stat(path, follow_symlinks=False))
     except OSError as error:
         raise RecoveryControlError("source_writer_lock_changed") from error
-    if path.is_symlink() or descriptor_signature != expected_signature or path_signature != expected_signature:
+    if (
+        path.is_symlink()
+        or descriptor_signature != expected_signature
+        or path_signature != expected_signature
+    ):
         fail("source_writer_lock_changed")
 
 
-def source_terminal_snapshot(plan: Mapping[str, Any], *, runner: Runner = run_command) -> dict[str, Any]:
+def source_terminal_snapshot(
+    plan: Mapping[str, Any], *, runner: Runner = run_command
+) -> dict[str, Any]:
     source = plan["source_smoke"]
     job_id = source["job_id"]
     queue = _parse_pipe_rows(
@@ -2804,7 +3183,12 @@ def source_terminal_snapshot(plan: Mapping[str, Any], *, runner: Runner = run_co
     return {
         "state": state,
         "accounting_signature_sha256": sha256_bytes(
-            canonical_json(sorted((row_id, scheduler_state(row_state)) for row_id, row_state in all_rows))
+            canonical_json(
+                sorted(
+                    (row_id, scheduler_state(row_state))
+                    for row_id, row_state in all_rows
+                )
+            )
         ),
         "exit_code_sha256": sha256_bytes(exit_code.encode("utf-8")),
         "ended_at_sha256": sha256_bytes(ended_at.encode("utf-8")),
@@ -2914,7 +3298,9 @@ def certify_trigger(
                 "interval_seconds": QUIESCENCE_INTERVAL_SECONDS,
                 "minimum_seconds": QUIESCENCE_MIN_SECONDS,
                 "elapsed_milliseconds": int(elapsed * 1000),
-                "writer_lock_identity_sha256": sha256_bytes(canonical_json(lock_signature)),
+                "writer_lock_identity_sha256": sha256_bytes(
+                    canonical_json(lock_signature)
+                ),
             },
             "policy": {
                 "successful_smoke_certificate_forbidden": True,
@@ -2938,7 +3324,9 @@ def certify_trigger(
         validate_writer_lock_identity(source_dir, lock, lock_signature)
         validate_global_lock(plan, global_lock, global_lock_signature)
         stable_directory(parent, code="trigger_publication_invalid", mode=0o700)
-        published = stable_file(output_path, code="trigger_publication_invalid", mode=0o400)
+        published = stable_file(
+            output_path, code="trigger_publication_invalid", mode=0o400
+        )
         if published.sha256 != sha256_bytes(raw):
             fail("trigger_publication_invalid")
         return {
@@ -3007,7 +3395,8 @@ def load_trigger(path: Path, *, plan: StableFile) -> tuple[dict[str, Any], Stabl
         or quiescence.get("minimum_seconds") != QUIESCENCE_MIN_SECONDS
         or not isinstance(quiescence.get("elapsed_milliseconds"), int)
         or quiescence["elapsed_milliseconds"] < QUIESCENCE_MIN_SECONDS * 1000
-        or SHA_RE.fullmatch(str(quiescence.get("writer_lock_identity_sha256", ""))) is None
+        or SHA_RE.fullmatch(str(quiescence.get("writer_lock_identity_sha256", "")))
+        is None
         or not isinstance(route, dict)
         or route.get("routes") != EXPECTED_ROUTES
         or route.get("healthy") != EXPECTED_ROUTES
@@ -3057,7 +3446,8 @@ def load_trigger(path: Path, *, plan: StableFile) -> tuple[dict[str, Any], Stabl
             "samples",
             "writer_lock_identity_sha256",
         }
-        or source_job.get("job_id_sha256") != sha256_bytes(SOURCE_JOB_ID.encode("ascii"))
+        or source_job.get("job_id_sha256")
+        != sha256_bytes(SOURCE_JOB_ID.encode("ascii"))
         or source_job.get("state") not in RECOVERABLE_SOURCE_STATES
         or source_job.get("restarts") != 0
         or source_job.get("queue_rows") != 0
@@ -3081,9 +3471,15 @@ def _mkdir_fresh(path: Path, *, mode: int = 0o700) -> None:
     parent_fd = -1
     try:
         parent = path.parent.resolve(strict=True)
-        if not path.is_absolute() or path != parent / path.name or os.path.lexists(path):
+        if (
+            not path.is_absolute()
+            or path != parent / path.name
+            or os.path.lexists(path)
+        ):
             fail("launch_namespace_not_fresh")
-        parent_fd = os.open(parent, os.O_RDONLY | os.O_DIRECTORY | os.O_CLOEXEC | os.O_NOFOLLOW)
+        parent_fd = os.open(
+            parent, os.O_RDONLY | os.O_DIRECTORY | os.O_CLOEXEC | os.O_NOFOLLOW
+        )
         parent_identity = _signature(os.fstat(parent_fd))[:2]
         os.mkdir(path.name, mode, dir_fd=parent_fd)
         os.chmod(path.name, mode, dir_fd=parent_fd, follow_symlinks=False)
@@ -3097,7 +3493,9 @@ def _mkdir_fresh(path: Path, *, mode: int = 0o700) -> None:
             child_metadata = os.fstat(child_fd)
         finally:
             os.close(child_fd)
-        fresh_parent_fd = os.open(parent, os.O_RDONLY | os.O_DIRECTORY | os.O_CLOEXEC | os.O_NOFOLLOW)
+        fresh_parent_fd = os.open(
+            parent, os.O_RDONLY | os.O_DIRECTORY | os.O_CLOEXEC | os.O_NOFOLLOW
+        )
         try:
             if _signature(os.fstat(fresh_parent_fd))[:2] != parent_identity:
                 fail("launch_parent_changed")
@@ -3126,7 +3524,12 @@ def _environment_bytes(values: Mapping[str, str]) -> bytes:
         or any("\x00" in value for value in values.values())
     ):
         fail("slurm_environment_invalid")
-    return b"\0".join(f"{key}={value}".encode("utf-8") for key, value in sorted(values.items())) + b"\0"
+    return (
+        b"\0".join(
+            f"{key}={value}".encode("utf-8") for key, value in sorted(values.items())
+        )
+        + b"\0"
+    )
 
 
 def _launch_environment(
@@ -3165,7 +3568,9 @@ def _launch_environment(
         "INFERENCE_DEPLOYMENT_SPEC": recovery["deployment_spec"]["path"],
         "INFERENCE_DEPLOYMENT_SPEC_SHA256": recovery["deployment_spec"]["sha256"],
         "INFERENCE_READINESS_CHECKPOINT": recovery["readiness_checkpoint"]["path"],
-        "INFERENCE_READINESS_CHECKPOINT_SHA256": recovery["readiness_checkpoint"]["sha256"],
+        "INFERENCE_READINESS_CHECKPOINT_SHA256": recovery["readiness_checkpoint"][
+            "sha256"
+        ],
         "INFERENCE_PROXY_INFO": recovery["proxy_info"]["path"],
         "INFERENCE_PROXY_INFO_SHA256": recovery["proxy_info"]["sha256"],
         "OUTPUT_DIR": recovery["output_dir"],
@@ -3231,7 +3636,9 @@ def scheduler_name_matches(
         width=2,
         code="scheduler_name_query_unavailable",
     )
-    candidates = [row[0] for row in rows if row[1] == job_name and JOB_RE.fullmatch(row[0])]
+    candidates = [
+        row[0] for row in rows if row[1] == job_name and JOB_RE.fullmatch(row[0])
+    ]
     if len(candidates) != len(rows):
         fail("scheduler_name_query_invalid")
     accounting = _parse_pipe_rows(
@@ -3263,12 +3670,17 @@ def scheduler_name_matches(
 
 def _job_comment(job_name: str) -> str:
     prefix = "k3-smoke-recovery-"
-    if not job_name.startswith(prefix) or re.fullmatch(r"[0-9a-f]{24}", job_name[len(prefix) :]) is None:
+    if (
+        not job_name.startswith(prefix)
+        or re.fullmatch(r"[0-9a-f]{24}", job_name[len(prefix) :]) is None
+    ):
         fail("job_name_invalid")
     return f"k3-smoke-{sha256_bytes(job_name.encode('ascii'))[:32]}"
 
 
-def _sbatch_command(plan: Mapping[str, Any], job_name: str, environment_fd: int) -> list[str]:
+def _sbatch_command(
+    plan: Mapping[str, Any], job_name: str, environment_fd: int
+) -> list[str]:
     recovery = plan["recovery"]
     return [
         "/usr/bin/sbatch",
@@ -3321,7 +3733,9 @@ def invoke_sbatch(
         stdout, stderr = process.communicate(input=wrapper, timeout=60)
     except subprocess.TimeoutExpired:
         outcome = "timeout"
-        blocked = signal.pthread_sigmask(signal.SIG_BLOCK, {signal.SIGINT, signal.SIGTERM, signal.SIGHUP})
+        blocked = signal.pthread_sigmask(
+            signal.SIG_BLOCK, {signal.SIGINT, signal.SIGTERM, signal.SIGHUP}
+        )
         try:
             os.killpg(process.pid, signal.SIGTERM)
             try:
@@ -3334,7 +3748,9 @@ def invoke_sbatch(
         finally:
             signal.pthread_sigmask(signal.SIG_SETMASK, blocked)
     except BaseException as primary:
-        blocked = signal.pthread_sigmask(signal.SIG_BLOCK, {signal.SIGINT, signal.SIGTERM, signal.SIGHUP})
+        blocked = signal.pthread_sigmask(
+            signal.SIG_BLOCK, {signal.SIGINT, signal.SIGTERM, signal.SIGHUP}
+        )
         cleanup_error: BaseException | None = None
         try:
             if process.poll() is None:
@@ -3382,7 +3798,10 @@ def _prove_process_group_empty(process_group: int) -> None:
         else:
             consecutive = 0
             try:
-                os.killpg(process_group, signal.SIGTERM if not termination_sent else signal.SIGKILL)
+                os.killpg(
+                    process_group,
+                    signal.SIGTERM if not termination_sent else signal.SIGKILL,
+                )
             except ProcessLookupError:
                 pass
             except OSError as error:
@@ -3396,7 +3815,9 @@ def parse_sbatch_response(outcome: str, returncode: int, stdout: str) -> str | N
     lines = stdout.splitlines()
     if outcome == "completed" and returncode == 0 and len(lines) == 1:
         fields = lines[0].split(";", 1)
-        if JOB_RE.fullmatch(fields[0]) is not None and (len(fields) == 1 or fields[1] == CLUSTER):
+        if JOB_RE.fullmatch(fields[0]) is not None and (
+            len(fields) == 1 or fields[1] == CLUSTER
+        ):
             return fields[0]
     return None
 
@@ -3514,7 +3935,11 @@ def _identity_mismatches(
         "Requeue": "0",
         "Restarts": "0",
     }
-    mismatches = {key for key, expected_value in expected.items() if record.get(key) != expected_value}
+    mismatches = {
+        key
+        for key, expected_value in expected.items()
+        if record.get(key) != expected_value
+    }
     conflicts = {
         key
         for key in ("Command", "Comment", "JobId", "JobName", "UserId", "WorkDir")
@@ -3557,7 +3982,9 @@ def _scheduler_phase_evidence(
     """Return aggregate mismatches for one full identity/queue/accounting view."""
 
     record = scontrol_record(job_id, runner=runner)
-    mismatches, conflicts, state = _identity_mismatches(record, plan, job_id, job_name, held=held)
+    mismatches, conflicts, state = _identity_mismatches(
+        record, plan, job_id, job_name, held=held
+    )
     if conflict_latch is not None:
         conflict_latch.update(conflicts)
 
@@ -3594,7 +4021,9 @@ def _scheduler_phase_evidence(
     if len(queue) != 1:
         mismatches.add("queue_cardinality")
     else:
-        queue_id, queue_name, queue_user, queue_state, reason, nodes, node_list = queue[0]
+        queue_id, queue_name, queue_user, queue_state, reason, nodes, node_list = queue[
+            0
+        ]
         for field, observed, expected in (
             ("JobId", queue_id, job_id),
             ("JobName", queue_name, job_name),
@@ -3611,7 +4040,11 @@ def _scheduler_phase_evidence(
                 or node_list not in {"", "(null)", "N/A"}
             ):
                 mismatches.add("held_queue")
-        elif scheduler_state(queue_state) != "RUNNING" or nodes != "1" or NODELIST_RE.fullmatch(node_list) is None:
+        elif (
+            scheduler_state(queue_state) != "RUNNING"
+            or nodes != "1"
+            or NODELIST_RE.fullmatch(node_list) is None
+        ):
             mismatches.add("activation_queue")
     step_queue = observed_rows(
         [
@@ -3654,7 +4087,15 @@ def _scheduler_phase_evidence(
     if len(allocations) != 1:
         mismatches.add("accounting_cardinality")
     else:
-        allocation_id, allocation_name, user, raw_state, started, node_list, restarts = allocations[0]
+        (
+            allocation_id,
+            allocation_name,
+            user,
+            raw_state,
+            started,
+            node_list,
+            restarts,
+        ) = allocations[0]
         for field, observed, expected in (
             ("JobId", allocation_id, job_id),
             ("JobName", allocation_name, job_name),
@@ -3693,7 +4134,11 @@ def _scheduler_phase_evidence(
         width=2,
     )
     if held:
-        if len(all_rows) != 1 or all_rows[0][0] != job_id or scheduler_state(all_rows[0][1]) != "PENDING":
+        if (
+            len(all_rows) != 1
+            or all_rows[0][0] != job_id
+            or scheduler_state(all_rows[0][1]) != "PENDING"
+        ):
             mismatches.add("held_steps")
     elif (
         not all_rows
@@ -3765,7 +4210,9 @@ def _poll_identity(
             return {
                 "converged": True,
                 "polls": polls,
-                "elapsed_milliseconds": int((timeout - max(0.0, deadline - clock())) * 1000),
+                "elapsed_milliseconds": int(
+                    (timeout - max(0.0, deadline - clock())) * 1000
+                ),
                 "mismatch_fields": sorted(observed),
                 "mismatch_occurrences": dict(sorted(observed.items())),
                 "final_mismatch_fields": [],
@@ -3811,10 +4258,15 @@ def validate_phase_certificate(value: Any, *, state: str, timeout: int) -> None:
         or value.get("explicit_conflict_fields") != []
         or value.get("final_mismatch_fields") != []
         or not isinstance(value.get("mismatch_fields"), list)
-        or any(not isinstance(item, str) or not item for item in value["mismatch_fields"])
+        or any(
+            not isinstance(item, str) or not item for item in value["mismatch_fields"]
+        )
         or not isinstance(value.get("mismatch_occurrences"), dict)
         or set(value["mismatch_occurrences"]) != set(value["mismatch_fields"])
-        or any(type(count) is not int or count <= 0 for count in value["mismatch_occurrences"].values())
+        or any(
+            type(count) is not int or count <= 0
+            for count in value["mismatch_occurrences"].values()
+        )
     ):
         fail("scheduler_phase_certificate_invalid")
 
@@ -3921,7 +4373,14 @@ def _terminal_snapshot(
         )
     except RecoveryControlError:
         return unavailable()
-    for observed_id, observed_name, observed_user, _state, _exit_code, _restarts in allocations:
+    for (
+        observed_id,
+        observed_name,
+        observed_user,
+        _state,
+        _exit_code,
+        _restarts,
+    ) in allocations:
         if observed_id != job_id:
             conflicts.add("JobId")
         if observed_name != job_name:
@@ -3955,7 +4414,11 @@ def _terminal_snapshot(
         return "conflict", "UNKNOWN", (), tuple(sorted(conflicts))
     if queue or step_queue:
         return "active", "UNKNOWN", (), ()
-    if len(allocations) != 1 or allocations[0][:3] != [job_id, job_name, OWNER] or not all_rows:
+    if (
+        len(allocations) != 1
+        or allocations[0][:3] != [job_id, job_name, OWNER]
+        or not all_rows
+    ):
         return "incomplete", "UNKNOWN", (), ()
     state = scheduler_state(allocations[0][3])
     signature = (
@@ -3974,7 +4437,10 @@ def _terminal_snapshot(
         state in TERMINAL_STATES
         and allocations[0][4]
         and allocations[0][5] == "0"
-        and all(scheduler_state(row[1]) in TERMINAL_STATES and bool(row[2]) for row in all_rows)
+        and all(
+            scheduler_state(row[1]) in TERMINAL_STATES and bool(row[2])
+            for row in all_rows
+        )
     ):
         return "terminal", state, signature, ()
     return "active", state, signature, ()
@@ -4036,7 +4502,9 @@ def cancel_and_prove(
                 "cancel_attempts": 0,
             },
         )
-    pre_status, pre_state, _pre_signature, pre_conflicts = _terminal_snapshot(job_id, job_name, plan, runner=runner)
+    pre_status, pre_state, _pre_signature, pre_conflicts = _terminal_snapshot(
+        job_id, job_name, plan, runner=runner
+    )
     if pre_conflicts:
         raise LifecycleError(
             "cancellation_unconfirmed",
@@ -4056,7 +4524,9 @@ def cancel_and_prove(
             COMMAND_TIMEOUT_SECONDS,
         )
         cancel_outcome = (
-            "completed" if result.returncode == 0 and not result.stdout and not result.stderr else "nonzero"
+            "completed"
+            if result.returncode == 0 and not result.stdout and not result.stderr
+            else "nonzero"
         )
     deadline = clock() + CANCEL_TERMINAL_TIMEOUT_SECONDS
     consecutive = 0
@@ -4064,7 +4534,9 @@ def cancel_and_prove(
     polls = 0
     final_state = pre_state
     while clock() < deadline:
-        status, state, signature, terminal_conflicts = _terminal_snapshot(job_id, job_name, plan, runner=runner)
+        status, state, signature, terminal_conflicts = _terminal_snapshot(
+            job_id, job_name, plan, runner=runner
+        )
         polls += 1
         final_state = state
         if terminal_conflicts:
@@ -4078,7 +4550,11 @@ def cancel_and_prove(
                     "cancel_command_outcome": cancel_outcome,
                 },
             )
-        consecutive = consecutive + 1 if status == "terminal" and signature == previous else int(status == "terminal")
+        consecutive = (
+            consecutive + 1
+            if status == "terminal" and signature == previous
+            else int(status == "terminal")
+        )
         previous = signature if status == "terminal" else None
         if consecutive >= TERMINAL_PROOF_ROUNDS:
             name_proof = prove_exclusive_name(
@@ -4089,7 +4565,9 @@ def cancel_and_prove(
                 clock=clock,
             )
             return {
-                "identity_status": "exact" if identity_exact else "direct_provenance_fallback",
+                "identity_status": "exact"
+                if identity_exact
+                else "direct_provenance_fallback",
                 "identity_polls": identity_polls,
                 "explicit_conflict_fields": [],
                 "cancel_attempts": cancel_attempts,
@@ -4106,7 +4584,9 @@ def cancel_and_prove(
     raise LifecycleError(
         "cancellation_unconfirmed",
         cancellation={
-            "identity_status": "exact" if identity_exact else "direct_provenance_fallback",
+            "identity_status": "exact"
+            if identity_exact
+            else "direct_provenance_fallback",
             "identity_polls": identity_polls,
             "explicit_conflict_fields": [],
             "cancel_attempts": cancel_attempts,
@@ -4165,7 +4645,9 @@ def _reservation_paths(plan: Mapping[str, Any]) -> dict[str, Path]:
     }
 
 
-def _publish_reservation_file(path: Path, body: Mapping[str, Any], hash_field: str) -> tuple[str, bytes]:
+def _publish_reservation_file(
+    path: Path, body: Mapping[str, Any], hash_field: str
+) -> tuple[str, bytes]:
     raw = envelope(body, hash_field)
     digest = atomic_write_once(path, raw, mode=0o400)
     return digest, raw
@@ -4181,9 +4663,13 @@ def _validate_trigger_current(
 ) -> None:
     run_dir = Path(plan["source_smoke"]["run_dir"])
     owns_lock = writer_lock is None
-    lock, lock_signature = acquire_writer_lock(run_dir) if writer_lock is None else writer_lock
+    lock, lock_signature = (
+        acquire_writer_lock(run_dir) if writer_lock is None else writer_lock
+    )
     try:
-        expected_lock_sha = trigger.get("quiescence", {}).get("writer_lock_identity_sha256")
+        expected_lock_sha = trigger.get("quiescence", {}).get(
+            "writer_lock_identity_sha256"
+        )
         if sha256_bytes(canonical_json(lock_signature)) != expected_lock_sha:
             fail("terminal_trigger_stale")
         validate_writer_lock_identity(run_dir, lock, lock_signature)
@@ -4192,11 +4678,14 @@ def _validate_trigger_current(
         route = route_idle_snapshot(plan, runner=runner, fetcher=fetcher)
         validate_writer_lock_identity(run_dir, lock, lock_signature)
         trigger_terminal = {
-            key: value for key, value in trigger.get("source_job", {}).items() if key != "job_id_sha256"
+            key: value
+            for key, value in trigger.get("source_job", {}).items()
+            if key != "job_id_sha256"
         }
         if (
             terminal != trigger_terminal
-            or _source_artifact_digest(artifacts) != trigger.get("source_artifacts_sha256")
+            or _source_artifact_digest(artifacts)
+            != trigger.get("source_artifacts_sha256")
             or counts != trigger.get("source_counts")
             or route != trigger.get("route")
         ):
@@ -4250,7 +4739,9 @@ def _authorization_body(
     }
 
 
-def _permit_body(*, authorization: StableFile, job_name: str, static: Mapping[str, str]) -> dict[str, Any]:
+def _permit_body(
+    *, authorization: StableFile, job_name: str, static: Mapping[str, str]
+) -> dict[str, Any]:
     return {
         "schema_version": SCHEMA_VERSION,
         "kind": PERMIT_KIND,
@@ -4308,7 +4799,9 @@ def _publish_failure(
     for name in ("intent", "environment", "authorization", "permit", "receipt"):
         path = paths[name]
         if os.path.lexists(path):
-            partial[name] = stable_file(path, code="failure_publication_conflict", mode=0o400).sha256
+            partial[name] = stable_file(
+                path, code="failure_publication_conflict", mode=0o400
+            ).sha256
     body = {
         "schema_version": SCHEMA_VERSION,
         "kind": FAILURE_KIND,
@@ -4336,15 +4829,25 @@ def launch(
     fetcher: Fetcher = fetch_http,
     sleeper: Callable[[float], None] = time.sleep,
     clock: Callable[[], float] = time.monotonic,
-    sbatch_invoker: Callable[[Sequence[str], bytes, Sequence[int]], tuple[str, int, str]] = invoke_sbatch,
+    sbatch_invoker: Callable[
+        [Sequence[str], bytes, Sequence[int]], tuple[str, int, str]
+    ] = invoke_sbatch,
     invocation_validator: Callable[[Mapping[str, Any]], None] = validate_invocation,
 ) -> dict[str, Any]:
     """Submit exactly one held fresh-two job and commit admission after revalidation."""
 
     plan, plan_artifact = load_plan(plan_path)
     invocation_validator(plan)
-    controller = stable_file(Path(plan["recovery"]["controller"]["path"]), code="controller_invalid", mode=0o500)
-    wrapper = stable_file(Path(plan["recovery"]["job_wrapper"]["path"]), code="job_wrapper_invalid", mode=0o500)
+    controller = stable_file(
+        Path(plan["recovery"]["controller"]["path"]),
+        code="controller_invalid",
+        mode=0o500,
+    )
+    wrapper = stable_file(
+        Path(plan["recovery"]["job_wrapper"]["path"]),
+        code="job_wrapper_invalid",
+        mode=0o500,
+    )
     if (
         controller.sha256 != plan["recovery"]["controller"]["sha256"]
         or wrapper.sha256 != plan["recovery"]["job_wrapper"]["sha256"]
@@ -4358,7 +4861,9 @@ def launch(
         controller_sha256=controller.sha256,
         wrapper_sha256=wrapper.sha256,
     )
-    source_lock, source_lock_signature = acquire_writer_lock(Path(plan["source_smoke"]["run_dir"]))
+    source_lock, source_lock_signature = acquire_writer_lock(
+        Path(plan["source_smoke"]["run_dir"])
+    )
     try:
         global_lock, global_lock_signature = acquire_global_lock(plan)
     except BaseException:
@@ -4452,7 +4957,9 @@ def launch(
             "static": static,
             "policy": {"held_submission": True, "launches": 1, "fresh_two_only": True},
         }
-        intent_sha, _ = _publish_reservation_file(paths["intent"], intent, "intent_sha256")
+        intent_sha, _ = _publish_reservation_file(
+            paths["intent"], intent, "intent_sha256"
+        )
         atomic_write_once(paths["environment"], environment_raw, mode=0o400)
         _validate_trigger_current(
             plan,
@@ -4469,11 +4976,15 @@ def launch(
         if scheduler_name_matches(job_name, runner=runner):
             fail("scheduler_name_not_fresh")
         if (
-            stable_file(controller.path, code="controller_changed", mode=0o500).sha256 != controller.sha256
-            or stable_file(wrapper.path, code="job_wrapper_changed", mode=0o500).sha256 != wrapper.sha256
+            stable_file(controller.path, code="controller_changed", mode=0o500).sha256
+            != controller.sha256
+            or stable_file(wrapper.path, code="job_wrapper_changed", mode=0o500).sha256
+            != wrapper.sha256
         ):
             fail("launch_code_changed")
-        environment_fd = sealed_memfd(environment_raw, "kimi-smoke-recovery-environment")
+        environment_fd = sealed_memfd(
+            environment_raw, "kimi-smoke-recovery-environment"
+        )
         previous_mask = signal.pthread_sigmask(signal.SIG_BLOCK, set(handled_signals))
         try:
             submission_attempted = True
@@ -4545,10 +5056,15 @@ def launch(
             conflict_latch=conflict_seen,
         )
         held_after_authorization_evidence = held_after
-        if held_after["converged"] is not True or held_after["explicit_conflict_fields"]:
+        if (
+            held_after["converged"] is not True
+            or held_after["explicit_conflict_fields"]
+        ):
             raise LifecycleError("held_state_lost_during_authorization")
         validate_phase_certificate(held_after, state="PENDING", timeout=10)
-        intent_artifact = stable_file(paths["intent"], code="launch_intent_changed", mode=0o400)
+        intent_artifact = stable_file(
+            paths["intent"], code="launch_intent_changed", mode=0o400
+        )
         authorization_body = _authorization_body(
             plan_artifact=plan_artifact,
             review_artifact=review_artifact,
@@ -4576,7 +5092,10 @@ def launch(
             conflict_latch=conflict_seen,
         )
         held_before_release_evidence = held_before_release
-        if held_before_release["converged"] is not True or held_before_release["explicit_conflict_fields"]:
+        if (
+            held_before_release["converged"] is not True
+            or held_before_release["explicit_conflict_fields"]
+        ):
             raise LifecycleError("held_state_lost_after_authorization")
         validate_phase_certificate(held_before_release, state="PENDING", timeout=10)
         release_result = runner(
@@ -4585,7 +5104,9 @@ def launch(
         )
         release_outcome = (
             "completed"
-            if release_result.returncode == 0 and not release_result.stdout and not release_result.stderr
+            if release_result.returncode == 0
+            and not release_result.stdout
+            and not release_result.stderr
             else "nonzero"
         )
         if release_outcome != "completed":
@@ -4606,7 +5127,9 @@ def launch(
             raise LifecycleError("scheduler_identity_conflict")
         if activation["converged"] is not True:
             raise LifecycleError("activation_not_converged")
-        validate_phase_certificate(activation, state="RUNNING", timeout=ACTIVATION_TIMEOUT_SECONDS)
+        validate_phase_certificate(
+            activation, state="RUNNING", timeout=ACTIVATION_TIMEOUT_SECONDS
+        )
         _validate_trigger_current(
             plan,
             trigger,
@@ -4621,7 +5144,9 @@ def launch(
         if os.path.lexists(recovery["output_dir"]):
             raise LifecycleError("output_started_before_admission")
         permit_body = _permit_body(
-            authorization=stable_file(paths["authorization"], code="authorization_changed", mode=0o400),
+            authorization=stable_file(
+                paths["authorization"], code="authorization_changed", mode=0o400
+            ),
             job_name=job_name,
             static=post_static,
         )
@@ -4639,7 +5164,10 @@ def launch(
             "intent_sha256": intent_sha,
             "environment_sha256": sha256_bytes(environment_raw),
             "submission_visibility": visibility,
-            "authorization": {"path": str(paths["authorization"]), "sha256": authorization_sha},
+            "authorization": {
+                "path": str(paths["authorization"]),
+                "sha256": authorization_sha,
+            },
             "activation_permit": {"path": str(paths["permit"]), "sha256": permit_sha},
             "job_id_sha256": sha256_bytes(job_id.encode("ascii")),
             "job_name_sha256": sha256_bytes(job_name.encode("ascii")),
@@ -4663,9 +5191,15 @@ def launch(
             "schema_version": SCHEMA_VERSION,
             "kind": COMMIT_KIND,
             "state": "committed",
-            "authorization": {"path": str(paths["authorization"]), "sha256": authorization_sha},
+            "authorization": {
+                "path": str(paths["authorization"]),
+                "sha256": authorization_sha,
+            },
             "activation_permit": {"path": str(paths["permit"]), "sha256": permit_sha},
-            "submission_receipt": {"path": str(paths["receipt"]), "sha256": receipt_sha},
+            "submission_receipt": {
+                "path": str(paths["receipt"]),
+                "sha256": receipt_sha,
+            },
             "intent_sha256": intent_sha,
             "environment_sha256": sha256_bytes(environment_raw),
             "job_id_sha256": sha256_bytes(job_id.encode("ascii")),
@@ -4677,20 +5211,42 @@ def launch(
         blocked = {signal.SIGINT, signal.SIGTERM, signal.SIGHUP}
         previous = signal.pthread_sigmask(signal.SIG_BLOCK, blocked)
         try:
-            if atomic_write_once(paths["receipt"], receipt_raw, mode=0o400) != receipt_sha:
+            if (
+                atomic_write_once(paths["receipt"], receipt_raw, mode=0o400)
+                != receipt_sha
+            ):
                 raise LifecycleError("admission_artifact_precommit_mismatch")
             if atomic_write_once(paths["permit"], permit_raw, mode=0o400) != permit_sha:
                 raise LifecycleError("admission_artifact_precommit_mismatch")
             if (
-                stable_file(paths["intent"], code="launch_intent_changed", mode=0o400).sha256 != intent_sha
-                or stable_file(paths["environment"], code="slurm_environment_invalid", mode=0o400).sha256
+                stable_file(
+                    paths["intent"], code="launch_intent_changed", mode=0o400
+                ).sha256
+                != intent_sha
+                or stable_file(
+                    paths["environment"], code="slurm_environment_invalid", mode=0o400
+                ).sha256
                 != sha256_bytes(environment_raw)
-                or stable_file(paths["authorization"], code="authorization_changed", mode=0o400).sha256
+                or stable_file(
+                    paths["authorization"], code="authorization_changed", mode=0o400
+                ).sha256
                 != authorization_sha
-                or stable_file(paths["receipt"], code="submission_receipt_invalid", mode=0o400).sha256 != receipt_sha
-                or stable_file(paths["permit"], code="activation_permit_invalid", mode=0o400).sha256 != permit_sha
-                or stable_file(controller.path, code="controller_changed", mode=0o500).sha256 != controller.sha256
-                or stable_file(wrapper.path, code="job_wrapper_changed", mode=0o500).sha256 != wrapper.sha256
+                or stable_file(
+                    paths["receipt"], code="submission_receipt_invalid", mode=0o400
+                ).sha256
+                != receipt_sha
+                or stable_file(
+                    paths["permit"], code="activation_permit_invalid", mode=0o400
+                ).sha256
+                != permit_sha
+                or stable_file(
+                    controller.path, code="controller_changed", mode=0o500
+                ).sha256
+                != controller.sha256
+                or stable_file(
+                    wrapper.path, code="job_wrapper_changed", mode=0o500
+                ).sha256
+                != wrapper.sha256
             ):
                 raise LifecycleError("admission_artifact_precommit_mismatch")
             _seal_reservation(paths["root"])
@@ -4734,22 +5290,28 @@ def launch(
                 writer_lock=(source_lock, source_lock_signature),
             )
             validate_global_lock(fresh_plan, global_lock, global_lock_signature)
-            if _static_digest(plan) != post_static or os.path.lexists(recovery["output_dir"]):
+            if _static_digest(plan) != post_static or os.path.lexists(
+                recovery["output_dir"]
+            ):
                 raise LifecycleError("static_bindings_changed")
             try:
-                phase_mismatches, phase_conflicts, phase_state = _scheduler_phase_evidence(
-                    plan,
-                    job_id,
-                    job_name,
-                    held=False,
-                    runner=runner,
-                    conflict_latch=conflict_seen,
+                phase_mismatches, phase_conflicts, phase_state = (
+                    _scheduler_phase_evidence(
+                        plan,
+                        job_id,
+                        job_name,
+                        held=False,
+                        runner=runner,
+                        conflict_latch=conflict_seen,
+                    )
                 )
             except SchedulerObservationError as error:
                 raise LifecycleError("job_scheduler_admission_invalid") from error
             if phase_mismatches or phase_conflicts or phase_state != "RUNNING":
                 raise LifecycleError("job_scheduler_admission_invalid")
-            if atomic_write_once(paths["commit"], commit_raw, mode=0o400) != sha256_bytes(commit_raw):
+            if atomic_write_once(
+                paths["commit"], commit_raw, mode=0o400
+            ) != sha256_bytes(commit_raw):
                 raise LifecycleError("admission_publication_failed")
             committed = True
         finally:
@@ -4848,7 +5410,9 @@ def launch(
                                 "id": job_id,
                                 "name": job_name,
                                 "job_id_sha256": sha256_bytes(job_id.encode("ascii")),
-                                "job_name_sha256": sha256_bytes(job_name.encode("ascii")),
+                                "job_name_sha256": sha256_bytes(
+                                    job_name.encode("ascii")
+                                ),
                             }
                             if job_id is not None and job_name is not None
                             else None
@@ -4874,12 +5438,22 @@ def launch(
         global_lock.close()
 
 
-def verify_job_admission(plan_path: Path, review_path: Path, trigger_path: Path) -> dict[str, Any]:
+def verify_job_admission(
+    plan_path: Path, review_path: Path, trigger_path: Path
+) -> dict[str, Any]:
     """Batch-side admission gate; it performs no scheduler control."""
 
     plan, plan_artifact = load_plan(plan_path)
-    controller = stable_file(Path(plan["recovery"]["controller"]["path"]), code="controller_invalid", mode=0o500)
-    wrapper = stable_file(Path(plan["recovery"]["job_wrapper"]["path"]), code="job_wrapper_invalid", mode=0o500)
+    controller = stable_file(
+        Path(plan["recovery"]["controller"]["path"]),
+        code="controller_invalid",
+        mode=0o500,
+    )
+    wrapper = stable_file(
+        Path(plan["recovery"]["job_wrapper"]["path"]),
+        code="job_wrapper_invalid",
+        mode=0o500,
+    )
     trigger_value, trigger = load_trigger(trigger_path, plan=plan_artifact)
     review = load_review(
         review_path,
@@ -4888,9 +5462,13 @@ def verify_job_admission(plan_path: Path, review_path: Path, trigger_path: Path)
         controller_sha256=controller.sha256,
         wrapper_sha256=wrapper.sha256,
     )
-    if review.path != review_path or review.sha256 != os.environ.get("RECOVERY_REVIEW_SHA256"):
+    if review.path != review_path or review.sha256 != os.environ.get(
+        "RECOVERY_REVIEW_SHA256"
+    ):
         fail("recovery_review_invalid")
-    if trigger.path != trigger_path or trigger.sha256 != os.environ.get("RECOVERY_TRIGGER_SHA256"):
+    if trigger.path != trigger_path or trigger.sha256 != os.environ.get(
+        "RECOVERY_TRIGGER_SHA256"
+    ):
         fail("terminal_trigger_invalid")
     paths = _reservation_paths(plan)
     timeout = int(os.environ.get("RECOVERY_ADMISSION_TIMEOUT_SECONDS", "0"))
@@ -4899,7 +5477,9 @@ def verify_job_admission(plan_path: Path, review_path: Path, trigger_path: Path)
     deadline = time.monotonic() + timeout
     while time.monotonic() < deadline and not os.path.lexists(paths["commit"]):
         time.sleep(1)
-    stable_directory(paths["commit"].parent, code="submission_commit_invalid", mode=0o700)
+    stable_directory(
+        paths["commit"].parent, code="submission_commit_invalid", mode=0o700
+    )
     commit_value, commit = strict_envelope(
         paths["commit"],
         kind=COMMIT_KIND,
@@ -4925,14 +5505,19 @@ def verify_job_admission(plan_path: Path, review_path: Path, trigger_path: Path)
         hash_field="authorization_sha256",
         code="authorization_invalid",
     )
-    environment = stable_file(paths["environment"], code="slurm_environment_invalid", mode=0o400)
+    environment = stable_file(
+        paths["environment"], code="slurm_environment_invalid", mode=0o400
+    )
     intent_value, intent = strict_envelope(
         paths["intent"],
         kind=INTENT_KIND,
         hash_field="intent_sha256",
         code="launch_intent_invalid",
     )
-    expected_children = {paths[name].name for name in ("intent", "environment", "authorization", "permit", "receipt")}
+    expected_children = {
+        paths[name].name
+        for name in ("intent", "environment", "authorization", "permit", "receipt")
+    }
     if {entry.name for entry in os.scandir(paths["root"])} != expected_children:
         fail("reservation_shape_invalid")
     job_id = os.environ.get("SLURM_JOB_ID", "")
@@ -4962,7 +5547,13 @@ def verify_job_admission(plan_path: Path, review_path: Path, trigger_path: Path)
     for key in os.environ:
         if (
             key.startswith(("BASH_", "GIT_", "LD_", "SBATCH_"))
-            or key in {"ENV", "RESUME_DIR", "KIMI_SMOKE_RECOVERY_SELECTION", "KIMI_SMOKE_COMPOSITE_OUTPUT_DIR"}
+            or key
+            in {
+                "ENV",
+                "RESUME_DIR",
+                "KIMI_SMOKE_RECOVERY_SELECTION",
+                "KIMI_SMOKE_COMPOSITE_OUTPUT_DIR",
+            }
             or key.startswith("PYTHON")
         ) and key not in expected_environment:
             fail("job_environment_invalid")
@@ -5045,7 +5636,8 @@ def verify_job_admission(plan_path: Path, review_path: Path, trigger_path: Path)
         or commit_value.get("environment_sha256") != environment.sha256
         or commit_value.get("job_id_sha256") != sha256_bytes(job_id.encode("ascii"))
         or commit_value.get("job_name_sha256") != sha256_bytes(job_name.encode("ascii"))
-        or commit_value.get("policy") != {"marker_last": True, "promotion_authorized": False}
+        or commit_value.get("policy")
+        != {"marker_last": True, "promotion_authorized": False}
         or receipt.path != Path(os.environ.get("RECOVERY_SUBMISSION_RECEIPT", ""))
         or plan_artifact.sha256 != os.environ.get("RECOVERY_PLAN_SHA256")
         or str(plan_artifact.path) != os.environ.get("RECOVERY_PLAN")
@@ -5074,17 +5666,25 @@ def verify_job_admission(plan_path: Path, review_path: Path, trigger_path: Path)
         or authorization_value.get("trigger") != trigger.record
         or authorization_value.get("intent") != intent.record
         or authorization_value.get("held") != receipt_value.get("held")
-        or authorization_value.get("held_after_authorization") != receipt_value.get("held_after_authorization")
+        or authorization_value.get("held_after_authorization")
+        != receipt_value.get("held_after_authorization")
         or receipt_value.get("job_id_sha256") != sha256_bytes(job_id.encode("ascii"))
-        or authorization_value.get("job_id_sha256") != sha256_bytes(job_id.encode("ascii"))
-        or authorization_value.get("job") != {"cluster": CLUSTER, "id": job_id, "name": job_name}
-        or receipt_value.get("job") != {"cluster": CLUSTER, "id": job_id, "name": job_name}
-        or receipt_value.get("job_name_sha256") != sha256_bytes(job_name.encode("ascii"))
-        or authorization_value.get("job_name_sha256") != sha256_bytes(job_name.encode("ascii"))
+        or authorization_value.get("job_id_sha256")
+        != sha256_bytes(job_id.encode("ascii"))
+        or authorization_value.get("job")
+        != {"cluster": CLUSTER, "id": job_id, "name": job_name}
+        or receipt_value.get("job")
+        != {"cluster": CLUSTER, "id": job_id, "name": job_name}
+        or receipt_value.get("job_name_sha256")
+        != sha256_bytes(job_name.encode("ascii"))
+        or authorization_value.get("job_name_sha256")
+        != sha256_bytes(job_name.encode("ascii"))
         or permit_value.get("job_name_sha256") != sha256_bytes(job_name.encode("ascii"))
         or intent_value.get("job_name_sha256") != sha256_bytes(job_name.encode("ascii"))
-        or authorization_value.get("launch_token_sha256") != sha256_bytes(token.encode("ascii"))
-        or intent_value.get("launch_token_sha256") != sha256_bytes(token.encode("ascii"))
+        or authorization_value.get("launch_token_sha256")
+        != sha256_bytes(token.encode("ascii"))
+        or intent_value.get("launch_token_sha256")
+        != sha256_bytes(token.encode("ascii"))
         or receipt_value.get("held", {}).get("converged") is not True
         or receipt_value.get("activation", {}).get("converged") is not True
         or receipt_value.get("held_before_release", {}).get("converged") is not True
@@ -5096,21 +5696,36 @@ def verify_job_admission(plan_path: Path, review_path: Path, trigger_path: Path)
             "promotion_authorized": False,
             "resume": False,
         }
-        or intent_value.get("policy") != {"fresh_two_only": True, "held_submission": True, "launches": 1}
-        or authorization_value.get("policy") != {"fresh_two_only": True, "legacy_rows_reused": 0, "resume": False}
-        or permit_value.get("policy") != {"fresh_two_only": True, "legacy_rows_reused": 0, "resume": False}
+        or intent_value.get("policy")
+        != {"fresh_two_only": True, "held_submission": True, "launches": 1}
+        or authorization_value.get("policy")
+        != {"fresh_two_only": True, "legacy_rows_reused": 0, "resume": False}
+        or permit_value.get("policy")
+        != {"fresh_two_only": True, "legacy_rows_reused": 0, "resume": False}
     ):
         fail("job_admission_invalid")
-    validate_phase_certificate(receipt_value.get("held"), state="PENDING", timeout=HELD_TIMEOUT_SECONDS)
-    validate_phase_certificate(receipt_value.get("held_after_authorization"), state="PENDING", timeout=10)
-    validate_phase_certificate(receipt_value.get("held_before_release"), state="PENDING", timeout=10)
-    validate_phase_certificate(receipt_value.get("activation"), state="RUNNING", timeout=ACTIVATION_TIMEOUT_SECONDS)
+    validate_phase_certificate(
+        receipt_value.get("held"), state="PENDING", timeout=HELD_TIMEOUT_SECONDS
+    )
+    validate_phase_certificate(
+        receipt_value.get("held_after_authorization"), state="PENDING", timeout=10
+    )
+    validate_phase_certificate(
+        receipt_value.get("held_before_release"), state="PENDING", timeout=10
+    )
+    validate_phase_certificate(
+        receipt_value.get("activation"),
+        state="RUNNING",
+        timeout=ACTIVATION_TIMEOUT_SECONDS,
+    )
     phase_mismatches, phase_conflicts, phase_state = _scheduler_phase_evidence(
         plan, job_id, job_name, held=False, runner=run_command
     )
     if phase_mismatches or phase_conflicts or phase_state != "RUNNING":
         fail("job_scheduler_admission_invalid")
-    source_lock, source_signature, global_lock, global_signature = acquire_recovery_locks_with_wait(plan)
+    source_lock, source_signature, global_lock, global_signature = (
+        acquire_recovery_locks_with_wait(plan)
+    )
     try:
         _validate_trigger_current(
             plan,
@@ -5203,7 +5818,8 @@ def _clean_recovery_environment(plan: Mapping[str, Any]) -> dict[str, str]:
         or environment["PYTHON_BIN_X86_64_SHA256"] != runtime["python"]["sha256"]
         or environment["UV_BIN_X86_64_SHA256"] != runtime["uv"]["sha256"]
         or environment["VACLI_BIN_SHA256"] != runtime["vacli"]["sha256"]
-        or environment["RECOVERY_RUNTIME_MANIFEST_SHA256"] != runtime["manifest"]["sha256"]
+        or environment["RECOVERY_RUNTIME_MANIFEST_SHA256"]
+        != runtime["manifest"]["sha256"]
         or environment["PYTHON_SITE_X86_64"] != runtime_manifest.get("root")
         or environment["VACLI_MAX_CONCURRENT_LEASES"] != "2"
         or environment["VACLI_LEASE_RETRIES"] != "20"
@@ -5218,11 +5834,15 @@ def _clean_recovery_environment(plan: Mapping[str, Any]) -> dict[str, str]:
     return environment
 
 
-def _run_sealed_shell(path: Path, expected_sha256: str, environment: Mapping[str, str]) -> int:
+def _run_sealed_shell(
+    path: Path, expected_sha256: str, environment: Mapping[str, str]
+) -> int:
     artifact = stable_file(path, code="recovery_wrapper_invalid", uid=OWNER_UID)
     if artifact.sha256 != expected_sha256:
         fail("recovery_wrapper_invalid")
-    descriptor = os.memfd_create("kimi_smoke_recovery", os.MFD_CLOEXEC | os.MFD_ALLOW_SEALING)
+    descriptor = os.memfd_create(
+        "kimi_smoke_recovery", os.MFD_CLOEXEC | os.MFD_ALLOW_SEALING
+    )
     try:
         view = memoryview(artifact.raw)
         while view:
@@ -5231,7 +5851,12 @@ def _run_sealed_shell(path: Path, expected_sha256: str, environment: Mapping[str
                 fail("recovery_wrapper_capture_failed")
             view = view[written:]
         os.fchmod(descriptor, 0o500)
-        seals = fcntl.F_SEAL_SEAL | fcntl.F_SEAL_SHRINK | fcntl.F_SEAL_GROW | fcntl.F_SEAL_WRITE
+        seals = (
+            fcntl.F_SEAL_SEAL
+            | fcntl.F_SEAL_SHRINK
+            | fcntl.F_SEAL_GROW
+            | fcntl.F_SEAL_WRITE
+        )
         fcntl.fcntl(descriptor, fcntl.F_ADD_SEALS, seals)
         if fcntl.fcntl(descriptor, fcntl.F_GET_SEALS) != seals:
             fail("recovery_wrapper_capture_failed")
@@ -5337,7 +5962,11 @@ def run_job(plan_path: Path, review_path: Path, trigger_path: Path) -> dict[str,
     checkpoint = validate_recovery_output(plan)
     if _static_digest(plan) != before:
         fail("static_bindings_changed")
-    return {**admitted, "state": "completed", "smoke_checkpoint_sha256": checkpoint.sha256}
+    return {
+        **admitted,
+        "state": "completed",
+        "smoke_checkpoint_sha256": checkpoint.sha256,
+    }
 
 
 def _parser() -> argparse.ArgumentParser:
@@ -5377,7 +6006,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         code = str(error)
         if SAFE_CODE_RE.fullmatch(code) is None:
             code = "recovery_control_failed"
-        print(json.dumps({"state": "aborted", "code": code}, sort_keys=True), file=sys.stderr)
+        print(
+            json.dumps({"state": "aborted", "code": code}, sort_keys=True),
+            file=sys.stderr,
+        )
         return 2
     print(json.dumps(result, sort_keys=True))
     return 0

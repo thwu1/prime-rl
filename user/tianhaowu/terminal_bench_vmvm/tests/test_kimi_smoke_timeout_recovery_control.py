@@ -66,7 +66,9 @@ class PhaseRunner:
         self.controls: list[str] = []
         self.calls: list[tuple[str, ...]] = []
 
-    def __call__(self, argv: list[str] | tuple[str, ...], _timeout: float) -> control.CommandResult:
+    def __call__(
+        self, argv: list[str] | tuple[str, ...], _timeout: float
+    ) -> control.CommandResult:
         self.calls.append(tuple(argv))
         executable = argv[0]
         job_id = "123"
@@ -98,7 +100,12 @@ class PhaseRunner:
                 "StdErr": "/logs/recovery_123.log",
             }
             values.update(self.overrides)
-            raw = " ".join(f"{key}={value}" for key, value in values.items() if value != "") + "\n"
+            raw = (
+                " ".join(
+                    f"{key}={value}" for key, value in values.items() if value != ""
+                )
+                + "\n"
+            )
             return control.CommandResult(0, raw, "")
         if executable == "/usr/bin/squeue":
             if "--steps" in argv:
@@ -107,13 +114,17 @@ class PhaseRunner:
                 state = "PENDING" if self.held else "RUNNING"
                 reason = "JobHeldUser" if self.held else "None"
                 node = "" if self.held else "node1"
-                return control.CommandResult(0, f"{job_id}|{job_name}|tianhaowu|{state}|{reason}|1|{node}\n", "")
+                return control.CommandResult(
+                    0, f"{job_id}|{job_name}|tianhaowu|{state}|{reason}|1|{node}\n", ""
+                )
         if executable == "/usr/bin/sacct":
             if "--allocations" in argv:
                 state = "PENDING" if self.held else "RUNNING"
                 started = "Unknown" if self.held else "2026-09-19T00:00:00"
                 node = "" if self.held else "node1"
-                return control.CommandResult(0, f"{job_id}|{job_name}|tianhaowu|{state}|{started}|{node}|0\n", "")
+                return control.CommandResult(
+                    0, f"{job_id}|{job_name}|tianhaowu|{state}|{started}|{node}|0\n", ""
+                )
             state = "PENDING" if self.held else "RUNNING"
             return control.CommandResult(0, f"{job_id}|{state}\n", "")
         if executable in {"/usr/bin/scontrol", "/usr/bin/scancel"}:
@@ -125,12 +136,16 @@ class PhaseRunner:
 @pytest.mark.parametrize("held", [True, False])
 def test_full_scheduler_phase_accepts_exact_held_and_activation(held: bool) -> None:
     runner = PhaseRunner(held=held)
-    mismatches, conflicts, state = control._scheduler_phase_evidence(_plan(), "123", JOB_NAME, held=held, runner=runner)
+    mismatches, conflicts, state = control._scheduler_phase_evidence(
+        _plan(), "123", JOB_NAME, held=held, runner=runner
+    )
 
     assert mismatches == set()
     assert conflicts == set()
     assert state == ("PENDING" if held else "RUNNING")
-    assert any(call[0] == "/usr/bin/squeue" and "--steps" in call for call in runner.calls)
+    assert any(
+        call[0] == "/usr/bin/squeue" and "--steps" in call for call in runner.calls
+    )
 
 
 def test_sbatch_command_is_exactly_one_held_fresh_allocation() -> None:
@@ -149,7 +164,9 @@ def test_sbatch_command_is_exactly_one_held_fresh_allocation() -> None:
     assert command[-1] == "-"
 
 
-def test_proxy_binding_requires_exact_model_job_and_deployment_local_path(tmp_path: Path) -> None:
+def test_proxy_binding_requires_exact_model_job_and_deployment_local_path(
+    tmp_path: Path,
+) -> None:
     deployment = tmp_path / "deployment"
     deployment.mkdir()
     proxy = deployment / "proxy_info.json"
@@ -192,7 +209,9 @@ def test_proxy_binding_requires_exact_model_job_and_deployment_local_path(tmp_pa
         ({"WorkDir": "/wrong"}, "WorkDir"),
     ],
 )
-def test_held_identity_rejects_relaxed_or_conflicting_fields(overrides: dict[str, str], expected: str) -> None:
+def test_held_identity_rejects_relaxed_or_conflicting_fields(
+    overrides: dict[str, str], expected: str
+) -> None:
     mismatches, _conflicts, _state = control._scheduler_phase_evidence(
         _plan(),
         "123",
@@ -227,7 +246,9 @@ def test_poll_identity_requires_two_complete_views_and_spans_deadline() -> None:
 
 def test_phase_query_failure_retains_an_earlier_explicit_conflict() -> None:
     class ConflictThenUnavailable(PhaseRunner):
-        def __call__(self, argv: list[str] | tuple[str, ...], timeout: float) -> control.CommandResult:
+        def __call__(
+            self, argv: list[str] | tuple[str, ...], timeout: float
+        ) -> control.CommandResult:
             if argv[0] == "/usr/bin/squeue" and "--steps" not in argv:
                 self.calls.append(tuple(argv))
                 return control.CommandResult(1, "", "unavailable")
@@ -253,7 +274,9 @@ def test_phase_query_failure_retains_an_earlier_explicit_conflict() -> None:
 
 def test_signal_after_observed_conflict_reaches_cleanup_latch() -> None:
     class ConflictThenSignal(PhaseRunner):
-        def __call__(self, argv: list[str] | tuple[str, ...], timeout: float) -> control.CommandResult:
+        def __call__(
+            self, argv: list[str] | tuple[str, ...], timeout: float
+        ) -> control.CommandResult:
             if argv[0] == "/usr/bin/squeue" and "--steps" not in argv:
                 self.calls.append(tuple(argv))
                 raise control.LaunchInterrupted(control.signal.SIGTERM)
@@ -276,11 +299,15 @@ def test_signal_after_observed_conflict_reaches_cleanup_latch() -> None:
 
     cleanup_calls: list[tuple[str, ...]] = []
 
-    def cleanup_runner(argv: list[str] | tuple[str, ...], _timeout: float) -> control.CommandResult:
+    def cleanup_runner(
+        argv: list[str] | tuple[str, ...], _timeout: float
+    ) -> control.CommandResult:
         cleanup_calls.append(tuple(argv))
         return control.CommandResult(0, "", "")
 
-    with pytest.raises(control.LifecycleError, match="cancellation_unconfirmed") as raised:
+    with pytest.raises(
+        control.LifecycleError, match="cancellation_unconfirmed"
+    ) as raised:
         control.cancel_after_failure(
             "123",
             JOB_NAME,
@@ -309,14 +336,20 @@ def test_phase_certificate_rejects_conflict_even_if_marked_converged() -> None:
         "state": "PENDING",
     }
 
-    with pytest.raises(control.RecoveryControlError, match="scheduler_phase_certificate_invalid"):
-        control.validate_phase_certificate(value, state="PENDING", timeout=control.HELD_TIMEOUT_SECONDS)
+    with pytest.raises(
+        control.RecoveryControlError, match="scheduler_phase_certificate_invalid"
+    ):
+        control.validate_phase_certificate(
+            value, state="PENDING", timeout=control.HELD_TIMEOUT_SECONDS
+        )
 
 
 def test_explicit_identity_conflict_never_controls_job() -> None:
     runner = PhaseRunner(held=True, conflicting_user=True)
 
-    with pytest.raises(control.LifecycleError, match="cancellation_unconfirmed") as raised:
+    with pytest.raises(
+        control.LifecycleError, match="cancellation_unconfirmed"
+    ) as raised:
         control.cancel_and_prove(
             "123",
             JOB_NAME,
@@ -334,7 +367,9 @@ def test_explicit_identity_conflict_never_controls_job() -> None:
 
 def test_terminal_query_failure_retains_a_prior_conflict_and_never_cancels() -> None:
     class ConflictThenUnavailable(PhaseRunner):
-        def __call__(self, argv: list[str] | tuple[str, ...], timeout: float) -> control.CommandResult:
+        def __call__(
+            self, argv: list[str] | tuple[str, ...], timeout: float
+        ) -> control.CommandResult:
             if argv[0] == "/usr/bin/squeue" and "--steps" not in argv:
                 self.calls.append(tuple(argv))
                 return control.CommandResult(0, f"123|{JOB_NAME}|someone|PENDING\n", "")
@@ -344,7 +379,9 @@ def test_terminal_query_failure_retains_a_prior_conflict_and_never_cancels() -> 
             return super().__call__(argv, timeout)
 
     runner = ConflictThenUnavailable(held=True)
-    with pytest.raises(control.LifecycleError, match="cancellation_unconfirmed") as raised:
+    with pytest.raises(
+        control.LifecycleError, match="cancellation_unconfirmed"
+    ) as raised:
         control.cancel_and_prove(
             "123",
             JOB_NAME,
@@ -363,11 +400,15 @@ def test_terminal_query_failure_retains_a_prior_conflict_and_never_cancels() -> 
 def test_launch_lifetime_conflict_latch_forbids_cleanup_controls() -> None:
     calls: list[tuple[str, ...]] = []
 
-    def runner(argv: list[str] | tuple[str, ...], _timeout: float) -> control.CommandResult:
+    def runner(
+        argv: list[str] | tuple[str, ...], _timeout: float
+    ) -> control.CommandResult:
         calls.append(tuple(argv))
         return control.CommandResult(0, "", "")
 
-    with pytest.raises(control.LifecycleError, match="cancellation_unconfirmed") as raised:
+    with pytest.raises(
+        control.LifecycleError, match="cancellation_unconfirmed"
+    ) as raised:
         control.cancel_after_failure(
             "123",
             JOB_NAME,
@@ -393,7 +434,9 @@ def test_invoke_sbatch_base_exception_requires_empty_process_group(
     class InterruptedProcess:
         pid = 987654
 
-        def communicate(self, input: bytes | None = None, timeout: float | None = None) -> tuple[bytes, bytes]:
+        def communicate(
+            self, input: bytes | None = None, timeout: float | None = None
+        ) -> tuple[bytes, bytes]:
             del input, timeout
             raise KeyboardInterrupt
 
@@ -401,7 +444,9 @@ def test_invoke_sbatch_base_exception_requires_empty_process_group(
             return 0
 
     proofs: list[int] = []
-    monkeypatch.setattr(control.subprocess, "Popen", lambda *_args, **_kwargs: InterruptedProcess())
+    monkeypatch.setattr(
+        control.subprocess, "Popen", lambda *_args, **_kwargs: InterruptedProcess()
+    )
 
     def unproven(process_group: int) -> None:
         proofs.append(process_group)
@@ -419,7 +464,9 @@ class UnavailableIdentityRunner:
         self.cancelled = False
         self.cancel_calls = 0
 
-    def __call__(self, argv: list[str] | tuple[str, ...], _timeout: float) -> control.CommandResult:
+    def __call__(
+        self, argv: list[str] | tuple[str, ...], _timeout: float
+    ) -> control.CommandResult:
         executable = argv[0]
         if executable == "/usr/bin/scontrol" and "show" in argv:
             return control.CommandResult(1, "", "unavailable")
@@ -439,14 +486,18 @@ class UnavailableIdentityRunner:
             state = "CANCELLED" if self.cancelled else "PENDING"
             if "--name" in argv:
                 return control.CommandResult(0, f"123|{JOB_NAME}\n", "")
-            return control.CommandResult(0, f"123|{JOB_NAME}|tianhaowu|{state}|0:0|0\n", "")
+            return control.CommandResult(
+                0, f"123|{JOB_NAME}|tianhaowu|{state}|0:0|0\n", ""
+            )
         if executable == "/usr/bin/sacct":
             state = "CANCELLED" if self.cancelled else "PENDING"
             return control.CommandResult(0, f"123|{state}|0:0\n", "")
         raise AssertionError(argv)
 
 
-def test_direct_sbatch_provenance_allows_one_cancel_after_identity_unavailable() -> None:
+def test_direct_sbatch_provenance_allows_one_cancel_after_identity_unavailable() -> (
+    None
+):
     runner = UnavailableIdentityRunner()
     clock = Clock()
 
@@ -470,7 +521,9 @@ def test_name_only_candidate_is_never_cancelled_when_identity_unavailable() -> N
     runner = UnavailableIdentityRunner()
     clock = Clock()
 
-    with pytest.raises(control.LifecycleError, match="cancellation_unconfirmed") as raised:
+    with pytest.raises(
+        control.LifecycleError, match="cancellation_unconfirmed"
+    ) as raised:
         control.cancel_and_prove(
             "123",
             JOB_NAME,
@@ -485,7 +538,9 @@ def test_name_only_candidate_is_never_cancelled_when_identity_unavailable() -> N
     assert raised.value.cancellation["identity_status"] == "unavailable"
 
 
-def test_ambiguous_submission_requires_six_zero_observations(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_ambiguous_submission_requires_six_zero_observations(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     clock = Clock()
     calls = 0
 
@@ -519,7 +574,9 @@ def test_writer_lock_replacement_is_detected(tmp_path: Path) -> None:
     replacement.write_bytes(b"")
     os.replace(replacement, lock_path)
     try:
-        with pytest.raises(control.RecoveryControlError, match="source_writer_lock_changed"):
+        with pytest.raises(
+            control.RecoveryControlError, match="source_writer_lock_changed"
+        ):
             control.validate_writer_lock_identity(run.resolve(), handle, identity)
     finally:
         handle.close()
@@ -530,7 +587,9 @@ def test_any_existing_smoke_certificate_blocks_recovery(tmp_path: Path) -> None:
     run.mkdir(mode=0o700)
     (run / "smoke_checkpoint.json").write_text("{}", encoding="utf-8")
 
-    with pytest.raises(control.RecoveryControlError, match="successful_smoke_already_certified"):
+    with pytest.raises(
+        control.RecoveryControlError, match="successful_smoke_already_certified"
+    ):
         control.validate_source_run({"source_smoke": {"run_dir": str(run.resolve())}})
 
 
@@ -547,7 +606,9 @@ def test_legacy_source_shape_is_fresh_two_only_and_never_reuses_clean_row() -> N
             else ["trace_stop_condition_infrastructure"]
         ),
         _clean_stop_problem=lambda trace: (
-            "trace_stop_condition_infrastructure" if trace["stop_condition"] == "harness_timeout" else None
+            "trace_stop_condition_infrastructure"
+            if trace["stop_condition"] == "harness_timeout"
+            else None
         ),
     )
     clean = SimpleNamespace(
@@ -569,7 +630,9 @@ def test_legacy_source_shape_is_fresh_two_only_and_never_reuses_clean_row() -> N
         }
     )
 
-    counts = control.classify_legacy_source_rows(module, b"synthetic-a\nsynthetic-b\n", [clean, timed_out])
+    counts = control.classify_legacy_source_rows(
+        module, b"synthetic-a\nsynthetic-b\n", [clean, timed_out]
+    )
 
     assert counts == {
         "source_rows": 2,
@@ -578,15 +641,23 @@ def test_legacy_source_shape_is_fresh_two_only_and_never_reuses_clean_row() -> N
         "legacy_rows_reused": 0,
     }
     with pytest.raises(control.RecoveryControlError, match="source_run_invalid"):
-        control.classify_legacy_source_rows(module, b"synthetic-a\nsynthetic-b\n", [timed_out, clean])
+        control.classify_legacy_source_rows(
+            module, b"synthetic-a\nsynthetic-b\n", [timed_out, clean]
+        )
     with pytest.raises(control.RecoveryControlError, match="source_run_invalid"):
-        control.classify_legacy_source_rows(module, b"synthetic-a\nsynthetic-b\n", [clean, clean])
+        control.classify_legacy_source_rows(
+            module, b"synthetic-a\nsynthetic-b\n", [clean, clean]
+        )
 
 
 def test_source_terminal_gate_never_accepts_an_active_allocation() -> None:
-    def active_runner(argv: list[str] | tuple[str, ...], _timeout: float) -> control.CommandResult:
+    def active_runner(
+        argv: list[str] | tuple[str, ...], _timeout: float
+    ) -> control.CommandResult:
         if argv[0] == "/usr/bin/squeue" and "--steps" not in argv:
-            return control.CommandResult(0, f"{control.SOURCE_JOB_ID}|legacy-smoke|RUNNING\n", "")
+            return control.CommandResult(
+                0, f"{control.SOURCE_JOB_ID}|legacy-smoke|RUNNING\n", ""
+            )
         if argv[0] == "/usr/bin/squeue":
             return control.CommandResult(0, "", "")
         raise AssertionError(argv)
@@ -615,7 +686,11 @@ def test_trigger_requires_six_unchanged_samples_over_at_least_120_seconds(
     (run / ".writer.lock").write_bytes(b"")
     namespace_parent = tmp_path / "certificates"
     namespace_parent.mkdir(mode=0o700)
-    output = namespace_parent / "kimi_smoke_terminal_quiescence_test" / "terminal_quiescence_gate.json"
+    output = (
+        namespace_parent
+        / "kimi_smoke_terminal_quiescence_test"
+        / "terminal_quiescence_gate.json"
+    )
     plan_path = approval / "plan.json"
     plan_path.write_bytes(b"{}")
     os.chmod(plan_path, 0o400)
@@ -678,7 +753,9 @@ def test_trigger_requires_six_unchanged_samples_over_at_least_120_seconds(
             "waiting": 0,
             "generation_tokens": generation_tokens,
             "successful_requests": 10,
-            "activity_signature_sha256": hashlib.sha256(str(generation_tokens).encode()).hexdigest(),
+            "activity_signature_sha256": hashlib.sha256(
+                str(generation_tokens).encode()
+            ).hexdigest(),
             "restart_count": 0,
         }
 
@@ -688,7 +765,9 @@ def test_trigger_requires_six_unchanged_samples_over_at_least_120_seconds(
     clock = Clock()
 
     if activity_changes:
-        with pytest.raises(control.RecoveryControlError, match="source_artifacts_changed"):
+        with pytest.raises(
+            control.RecoveryControlError, match="source_artifacts_changed"
+        ):
             control.certify_trigger(
                 plan_path.resolve(),
                 output.resolve(),
@@ -727,7 +806,10 @@ def test_trigger_requires_six_unchanged_samples_over_at_least_120_seconds(
     assert value["quiescence"]["elapsed_milliseconds"] >= 120_000
     assert value["route"]["generation_tokens"] == 100
     assert value["route"]["successful_requests"] == 10
-    assert value["route"]["activity_signature_sha256"] == hashlib.sha256(b"100").hexdigest()
+    assert (
+        value["route"]["activity_signature_sha256"]
+        == hashlib.sha256(b"100").hexdigest()
+    )
 
 
 def test_config_is_exact_fresh_two_vmvm_256k_trace_contract() -> None:
@@ -753,21 +835,32 @@ def test_config_is_exact_fresh_two_vmvm_256k_trace_contract() -> None:
     assert config["harness"]["runtime"]["session_timeout"] == 43_200
     assert config["retries"]["rollout"] == {
         "max_retries": 2,
-        "include": ["ProviderError", "SandboxError", "InterceptionError", "TunnelError"],
+        "include": [
+            "ProviderError",
+            "SandboxError",
+            "InterceptionError",
+            "TunnelError",
+        ],
     }
     assert hashlib.sha256(config_raw).hexdigest() == control.FRESH_TWO_CONFIG_SHA256
     assert (
-        hashlib.sha256((WORKFLOW / "configs/eval/tb4_kimi_token_smoke.tasks.txt").read_bytes()).hexdigest()
+        hashlib.sha256(
+            (WORKFLOW / "configs/eval/tb4_kimi_token_smoke.tasks.txt").read_bytes()
+        ).hexdigest()
         == control.FRESH_TWO_TASK_SHA256
     )
     assert (
-        hashlib.sha256((WORKFLOW / "run_kimi_smoke_recovery.sbatch").read_bytes()).hexdigest()
+        hashlib.sha256(
+            (WORKFLOW / "run_kimi_smoke_recovery.sbatch").read_bytes()
+        ).hexdigest()
         == control.RECOVERY_WRAPPER_SHA256
     )
 
 
 def test_hardened_batch_is_fresh_two_and_clean_environment_only() -> None:
-    raw = (WORKFLOW / "run_kimi_smoke_timeout_recovery_hardened.sbatch").read_text(encoding="utf-8")
+    raw = (WORKFLOW / "run_kimi_smoke_timeout_recovery_hardened.sbatch").read_text(
+        encoding="utf-8"
+    )
 
     assert raw.startswith("#!/usr/bin/bash\n")
     assert "--hold" not in raw
@@ -834,23 +927,31 @@ def test_authorization_producer_matches_batch_schema(tmp_path: Path) -> None:
         held_after_authorization={"converged": True},
         intent=records[3],
     )
-    value = control.strict_json(control.envelope(body, "authorization_sha256"), code="test")
+    value = control.strict_json(
+        control.envelope(body, "authorization_sha256"), code="test"
+    )
 
     assert set(value) == control.AUTHORIZATION_FIELDS
     assert value["held_after_authorization"] == {"converged": True}
 
 
-def test_atomic_trigger_directory_never_leaves_partial_target(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_atomic_trigger_directory_never_leaves_partial_target(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     parent = tmp_path / "private"
     parent.mkdir(mode=0o700)
-    target = parent / "kimi_smoke_terminal_quiescence_test" / "terminal_quiescence_gate.json"
+    target = (
+        parent / "kimi_smoke_terminal_quiescence_test" / "terminal_quiescence_gate.json"
+    )
 
     def fail_rename(_parent_fd: int, _source: str, _target: str) -> None:
         raise control.RecoveryControlError("synthetic_rename_failure")
 
     monkeypatch.setattr(control, "_rename_noreplace", fail_rename)
     with pytest.raises(control.RecoveryControlError, match="synthetic_rename_failure"):
-        control.atomic_publish_single_file_directory(target.resolve(strict=False), b"{}\n")
+        control.atomic_publish_single_file_directory(
+            target.resolve(strict=False), b"{}\n"
+        )
 
     assert not target.parent.exists()
     assert list(parent.iterdir()) == []
@@ -881,7 +982,9 @@ def test_global_lock_is_exclusive_and_identity_bound(tmp_path: Path) -> None:
     handle, identity = control.acquire_global_lock(plan)
     try:
         control.validate_global_lock(plan, handle, identity)
-        with pytest.raises(control.RecoveryControlError, match="recovery_global_lock_busy"):
+        with pytest.raises(
+            control.RecoveryControlError, match="recovery_global_lock_busy"
+        ):
             control.acquire_global_lock(plan)
     finally:
         handle.close()
@@ -912,7 +1015,9 @@ def test_captured_source_loader_executes_captured_bytes(tmp_path: Path) -> None:
     assert module.value == 1
 
 
-def test_captured_finder_rejects_a_protected_module_symlink_swap(tmp_path: Path) -> None:
+def test_captured_finder_rejects_a_protected_module_symlink_swap(
+    tmp_path: Path,
+) -> None:
     root = tmp_path / "reviewed"
     root.mkdir()
     outside = tmp_path / "outside.py"
@@ -931,7 +1036,9 @@ def test_captured_finder_rejects_a_protected_module_symlink_swap(tmp_path: Path)
     finder = control._CapturedImportFinder(closure, ())
     finder.expected_path = tuple(sys.path)
     try:
-        with pytest.raises(control.RecoveryControlError, match="unmanifested_import_forbidden"):
+        with pytest.raises(
+            control.RecoveryControlError, match="unmanifested_import_forbidden"
+        ):
             finder.find_spec("swapped_module", [str(root.resolve())])
     finally:
         finder.close()
@@ -970,7 +1077,9 @@ def test_pinned_source_parser_ignores_swap_after_validation(
     parser: str,
 ) -> None:
     run_dir = tmp_path.resolve()
-    path = run_dir / ("results.jsonl" if parser == "results" else "route_guard_success.json")
+    path = run_dir / (
+        "results.jsonl" if parser == "results" else "route_guard_success.json"
+    )
     path.write_bytes(b"pinned\n")
     alternate = run_dir / "alternate"
     alternate.write_bytes(b"alternate\n")
@@ -1013,11 +1122,15 @@ def test_pinned_source_parser_ignores_swap_after_validation(
     telemetry_module._OBSERVATION_KEYS = set()  # type: ignore[attr-defined]
     monkeypatch.setitem(sys.modules, "eval_run_identity", identity_module)
     monkeypatch.setitem(sys.modules, "guard_success_receipt", guard_module)
-    monkeypatch.setitem(sys.modules, "vmvm_tb_v2._vacli.concurrency_telemetry", telemetry_module)
+    monkeypatch.setitem(
+        sys.modules, "vmvm_tb_v2._vacli.concurrency_telemetry", telemetry_module
+    )
     try:
         with control.pinned_source_reads(recovery_module, pinned, run_dir):
             if parser == "results":
-                observed = recovery_module._artifact(path, label="source_results", read=True).raw  # type: ignore[attr-defined]
+                observed = recovery_module._artifact(
+                    path, label="source_results", read=True
+                ).raw  # type: ignore[attr-defined]
             else:
                 _resolved, observed, _digest = guard_module._stable_read_bytes(  # type: ignore[attr-defined]
                     path,
@@ -1033,7 +1146,107 @@ def test_pinned_source_parser_ignores_swap_after_validation(
         pinned_file.close()
 
 
-def test_exclusive_name_proof_spans_full_minute(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_pinned_concurrency_validation_matches_authoritative_bounds(
+    tmp_path: Path,
+) -> None:
+    observation_keys = {
+        "active_vmvm_runtimes_at_publish",
+        "counter_violations",
+        "lease_start_attempts",
+        "lease_start_finishes",
+        "lease_startups_at_publish",
+        "lease_tunnels_ready",
+        "peak_active_vmvm_runtimes",
+        "peak_concurrent_lease_startups",
+        "vmvm_runtime_ready",
+        "vmvm_runtime_starts",
+        "vmvm_runtime_stops",
+    }
+
+    def require_metadata(identity_sha: str, role: str, job_id: str) -> None:
+        if identity_sha != "a" * 64 or role != "smoke" or job_id != "123":
+            raise ValueError("invalid")
+
+    telemetry_module = SimpleNamespace(
+        MAX_TELEMETRY_BYTES=control.MAX_CONCURRENCY_TELEMETRY_BYTES,
+        SCHEMA_VERSION=1,
+        _OBSERVATION_KEYS=observation_keys,
+        _require_metadata=require_metadata,
+    )
+    observations = {
+        "active_vmvm_runtimes_at_publish": 0,
+        "counter_violations": 0,
+        "lease_start_attempts": 1,
+        "lease_start_finishes": 1,
+        "lease_startups_at_publish": 0,
+        "lease_tunnels_ready": 1,
+        "peak_active_vmvm_runtimes": 1,
+        "peak_concurrent_lease_startups": 1,
+        "vmvm_runtime_ready": 1,
+        "vmvm_runtime_starts": 1,
+        "vmvm_runtime_stops": 1,
+    }
+
+    def artifact_for(observed: dict[str, int], padding: int = 0) -> control.StableFile:
+        body = {
+            "schema_version": 1,
+            "state": "complete",
+            "eval_run_identity_sha256": "a" * 64,
+            "eval_run_role": "smoke",
+            "slurm_job_id": "123",
+            "process_id": 1,
+            "measurement_scope": "single_evaluator_process",
+            "observations": observed,
+        }
+        raw = control.envelope(body, "concurrency_telemetry_sha256") + b" " * padding
+        return control.StableFile(
+            tmp_path / "concurrency_telemetry.json",
+            raw,
+            hashlib.sha256(raw).hexdigest(),
+            (),
+        )
+
+    valid = artifact_for(observations)
+    value, record = control._validate_pinned_concurrency_telemetry(
+        valid.raw,
+        valid,
+        eval_run_identity_sha256="a" * 64,
+        eval_run_role="smoke",
+        slurm_job_id="123",
+        telemetry_module=telemetry_module,
+    )
+    assert value["observations"] == observations
+    assert record == valid.record
+
+    invalid = artifact_for({**observations, "lease_tunnels_ready": 2})
+    with pytest.raises(control.RecoveryControlError, match="source_run_invalid"):
+        control._validate_pinned_concurrency_telemetry(
+            invalid.raw,
+            invalid,
+            eval_run_identity_sha256="a" * 64,
+            eval_run_role="smoke",
+            slurm_job_id="123",
+            telemetry_module=telemetry_module,
+        )
+
+    oversized = artifact_for(
+        observations,
+        padding=control.MAX_CONCURRENCY_TELEMETRY_BYTES,
+    )
+    with pytest.raises(control.RecoveryControlError, match="source_run_invalid"):
+        control._validate_pinned_concurrency_telemetry(
+            oversized.raw,
+            oversized,
+            eval_run_identity_sha256="a" * 64,
+            eval_run_role="smoke",
+            slurm_job_id="123",
+            telemetry_module=telemetry_module,
+        )
+
+
+def test_exclusive_name_proof_spans_full_minute(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     clock = Clock()
     calls = 0
 
@@ -1066,7 +1279,9 @@ def test_commit_marker_forbids_failure_publication(tmp_path: Path) -> None:
     os.chmod(paths["commit"], 0o400)
     artifact = control.stable_file(paths["commit"].resolve(), code="test", mode=0o400)
 
-    with pytest.raises(control.RecoveryControlError, match="success_publication_ambiguous"):
+    with pytest.raises(
+        control.RecoveryControlError, match="success_publication_ambiguous"
+    ):
         control._publish_failure(
             paths,
             code="synthetic_failure",
