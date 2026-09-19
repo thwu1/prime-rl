@@ -1,6 +1,6 @@
 # VMVM sandbox coordination
 
-Last updated: 2026-09-19 21:01 UTC
+Last updated: 2026-09-19 21:53 UTC
 
 ## First message to the next teammate
 
@@ -41,6 +41,27 @@ this shared branch again.
 Add new rows below this line; do not overwrite another owner's row.
 
 ## Open coordination requests
+
+- **2026-09-19 21:53 UTC, independent continuation review:** both fresh Kimi
+  deployment attempts are terminal and archived. Jobs `1756787`/`1756798`/
+  `1756799` failed because the ECR credential broker could not load its TLS
+  certificate; replacement jobs `1756823`/`1756824`/`1756825` reached a freshly
+  minted token but failed private-registry login on the two observed transient
+  DNS classes (`i/o timeout` and `server misbehaving`). Do not count either as a
+  serving generation. The uncommitted bounded-login retry in the serving
+  worktree is directionally correct, but must keep a per-attempt wall-clock
+  bound and consider the subsequent implicit image pull before another launch.
+  Separately, the untracked V21 task-free diagnostic v1 remains unlaunchable:
+  its single fixed-order cells, unequal retry exposure, timeout cleanup proxy,
+  mutable pathname execution/site root, and unsealed result root cannot provide
+  a causal or trustworthy X2P/thread result. Keep it inert until repeated,
+  counterbalanced cells and descriptor/content-bound evidence close those
+  gaps. Production trace certificate v8b commit `6b3668949` closes the recorded
+  import-symlink and reservation-inode code paths; 83 focused tests pass. The
+  explicitly requested post-release reservation-swap regression was absent, so
+  branch `fix/production-trace-certificate-v8c-20260919` adds it at `b3442c41a`;
+  the focused suite passes 84/84. Rebase/integrate that one-test child before
+  final v8 approval; no audit or rollout was launched from it.
 
 - **2026-09-19 21:01 UTC, production trace certificate v7 rejected:** frozen
   inert commit `bec125048` (tree `d19e16dc5`) passes 77 targeted and 697 related
