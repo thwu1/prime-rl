@@ -50,7 +50,7 @@ from terminal_bench_vmvm.source_wheels import (
     WheelEvidence,
     atomic_write_bytes,
     canonical_json,
-    extract_static_setup_requires,
+    extract_static_build_requirements,
     inspect_source_distribution,
     inspect_wheel,
     inspect_wheelhouse,
@@ -1219,11 +1219,13 @@ class TerminalBenchVMVMTaskset(
             "build_dependency_install": "no-system-site-venv-offline-exact-wheel-closure",
             "build_network": "no-network",
             "build_isolation": True,
+            "child_process_path": "venv-bin-only",
             "dependency_resolution": "public-binary-only-exact-transitive-policy-closure",
             "deterministic_environment": source_build_environment_variables(),
             "source_build_umask": f"{SOURCE_BUILD_UMASK:04o}",
             "isolated_python": True,
-            "source_build_python": "venv-python-isolated-no-site-direct-static-setup",
+            "source_build_python": "venv-python-isolated-no-site-direct-static-setuptools",
+            "source_declarations": "static-setup-py-setup-cfg-pyproject-build-requirements",
             "staged_inputs": "policy-artifacts-only",
             "target_install": "offline-no-index-no-deps",
         }:
@@ -1510,11 +1512,13 @@ class TerminalBenchVMVMTaskset(
                 "build_dependency_install": "no-system-site-venv-offline-exact-wheel-closure",
                 "build_network": "no-network",
                 "build_isolation": True,
+                "child_process_path": "venv-bin-only",
                 "dependency_resolution": "public-binary-only-exact-transitive-policy-closure",
                 "deterministic_environment": source_build_environment_variables(),
                 "source_build_umask": f"{SOURCE_BUILD_UMASK:04o}",
                 "isolated_python": True,
-                "source_build_python": "venv-python-isolated-no-site-direct-static-setup",
+                "source_build_python": "venv-python-isolated-no-site-direct-static-setuptools",
+                "source_declarations": "static-setup-py-setup-cfg-pyproject-build-requirements",
                 "staged_inputs": "policy-artifacts-only",
                 "target_install": "offline-no-index-no-deps",
             },
@@ -2638,14 +2642,16 @@ for requirement in sys.argv[1:]:
                 raise RuntimeError(f"{task.name}: source-wheel runtime marker environment is invalid")
             setup_requirements: dict[str, tuple[str, ...]] = {}
             for source in policy_entry.sources:
-                setup_requires = extract_static_setup_requires(source, source_payloads[source.filename])
-                setup_requirements[source.filename] = setup_requires
+                declared_build_requirements = extract_static_build_requirements(
+                    source, source_payloads[source.filename]
+                )
+                setup_requirements[source.filename] = declared_build_requirements
                 source_dependency_payloads = {
                     wheel.filename: build_dependency_payloads[wheel.filename] for wheel in source.build_dependencies
                 }
                 try:
                     validate_build_dependency_payload_closure(
-                        setup_requires,
+                        declared_build_requirements,
                         policy_entry.build_tools,
                         source.build_dependencies,
                         source_dependency_payloads,
@@ -2663,16 +2669,16 @@ for requirement in sys.argv[1:]:
                 created_build_env = await builder.run(source_build_env_create_argv(build_env_dir), {})
                 if created_build_env.exit_code != 0:
                     raise RuntimeError(f"{task.name}: source-wheel build environment creation failed")
-                setup_requires = setup_requirements[source.filename]
+                declared_build_requirements = setup_requirements[source.filename]
                 try:
                     validate_static_build_dependency_closure(
-                        setup_requires,
+                        declared_build_requirements,
                         source.build_dependencies,
                         policy_entry.build_tools,
                     )
                 except RuntimeError as error:
                     raise RuntimeError(
-                        f"{task.name}: approved source build dependency policy does not match setup_requires"
+                        f"{task.name}: approved source build dependency policy does not match static declarations"
                     ) from error
                 installed_build_deps = await builder.run(
                     source_build_dependency_install_argv(

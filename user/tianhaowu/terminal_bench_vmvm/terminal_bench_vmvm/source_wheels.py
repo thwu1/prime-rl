@@ -3,19 +3,24 @@
 from __future__ import annotations
 
 import ast
+import configparser
 import hashlib
 import io
 import json
 import os
 import re
 import stat
+import struct
 import tarfile
+import tomllib
+import unicodedata
 import uuid
+import zlib
 from dataclasses import asdict, dataclass
 from email.parser import BytesParser
 from pathlib import Path, PurePosixPath
 from urllib.parse import urlsplit
-from zipfile import BadZipFile, ZipFile
+from zipfile import ZIP_DEFLATED, ZIP_STORED, BadZipFile, ZipFile
 
 try:
     from packaging.markers import UndefinedComparison, UndefinedEnvironmentName
@@ -26,10 +31,16 @@ except ModuleNotFoundError:  # pragma: no cover - exercised inside minimal verif
     from pip._vendor.packaging.requirements import InvalidRequirement, Requirement
     from pip._vendor.packaging.utils import canonicalize_name
 
-SOURCE_WHEEL_POLICY_SCHEMA_VERSION = 3
-SOURCE_WHEEL_ATTESTATION_SCHEMA_VERSION = 4
-SOURCE_BUILD_ENVIRONMENT_SCHEMA_VERSION = 2
-SOURCE_WHEEL_RECOVERY_SCHEMA_VERSION = 2
+SOURCE_WHEEL_POLICY_SCHEMA_VERSION = 5
+SOURCE_WHEEL_ATTESTATION_SCHEMA_VERSION = 6
+SOURCE_BUILD_ENVIRONMENT_SCHEMA_VERSION = 4
+SOURCE_WHEEL_RECOVERY_SCHEMA_VERSION = 4
+WHEEL_SEMANTIC_DIGEST_SCHEMA_VERSION = 2
+WHEEL_SEMANTIC_DIGEST_KIND = "raw-wheel-zip-with-normalized-dos-timestamps"
+WHEEL_SEMANTIC_NORMALIZED_FIELDS = (
+    "local_header_dos_time_date",
+    "central_header_dos_time_date",
+)
 MAX_SOURCE_INPUT_BYTES = 256 * 1024 * 1024
 MAX_WHEEL_BYTES = 256 * 1024 * 1024
 MAX_WHEELHOUSE_BYTES = 1024 * 1024 * 1024
@@ -40,14 +51,13 @@ MAX_METADATA_BYTES = 2 * 1024 * 1024
 MAX_SDIST_MEMBERS = 20_000
 MAX_SDIST_UNCOMPRESSED_BYTES = 1024 * 1024 * 1024
 MAX_SETUP_PY_BYTES = 2 * 1024 * 1024
-SOURCE_BUILD_HOME_DIR = "/tmp/terminal-bench-source-build-home"
-SOURCE_BUILD_TMP_DIR = "/tmp/terminal-bench-source-build-tmp"
+SOURCE_BUILD_HOME_DIR = "/tmp/terminal-bench-source-build-env-home"
+SOURCE_BUILD_TMP_DIR = "/tmp/terminal-bench-source-build-env-tmp"
 SOURCE_BUILD_UMASK = 0o022
 SOURCE_BUILD_ENVIRONMENT = {
     "HOME": SOURCE_BUILD_HOME_DIR,
     "LANG": "C",
     "LC_ALL": "C",
-    "PATH": "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
     "SOURCE_DATE_EPOCH": "315532800",
     "TMPDIR": SOURCE_BUILD_TMP_DIR,
     "TZ": "UTC",
@@ -266,7 +276,7 @@ def validate_legacy_setup_requirement(value: object, label: str) -> str:
 
 
 def validate_static_build_dependency_closure(
-    setup_requires: tuple[str, ...],
+    declared_build_requirements: tuple[str, ...],
     build_dependencies: tuple[BinaryWheelPolicy, ...],
     expected_build_tools: tuple[tuple[str, str], ...],
 ) -> None:
@@ -275,7 +285,7 @@ def validate_static_build_dependency_closure(
     available = {wheel.distribution: wheel.version for wheel in build_dependencies}
     if len(available) != len(build_dependencies):
         raise RuntimeError("source build dependency policy contains duplicate distributions")
-    for index, requirement_text in enumerate(build_dependency_root_requirements(setup_requires, expected_build_tools)):
+    for requirement_text in build_dependency_root_requirements(declared_build_requirements, expected_build_tools):
         requirement = Requirement(requirement_text)
         name = canonical_distribution_name(requirement.name)
         version = available.get(name)
@@ -294,12 +304,12 @@ def build_tool_requirements(expected_build_tools: tuple[tuple[str, str], ...]) -
 
 
 def build_dependency_root_requirements(
-    setup_requires: tuple[str, ...],
+    declared_build_requirements: tuple[str, ...],
     expected_build_tools: tuple[tuple[str, str], ...],
 ) -> tuple[str, ...]:
     validated_setup = tuple(
-        validate_legacy_setup_requirement(requirement, f"setup_requires[{index}]")
-        for index, requirement in enumerate(setup_requires)
+        validate_legacy_setup_requirement(requirement, f"declared_build_requirements[{index}]")
+        for index, requirement in enumerate(declared_build_requirements)
     )
     return (*build_tool_requirements(expected_build_tools), *validated_setup)
 
@@ -324,6 +334,7 @@ def source_build_environment_variables(
 ) -> dict[str, str]:
     environment = dict(SOURCE_BUILD_ENVIRONMENT)
     environment["HOME"] = f"{build_env_dir}-home"
+    environment["PATH"] = f"{build_env_dir}/bin"
     environment["TMPDIR"] = f"{build_env_dir}-tmp"
     return environment
 
@@ -492,10 +503,78 @@ if observed_site_files != {path for path in claimed_files if any(
     os.path.commonpath((site_path, path)) == site_path for site_path in site_paths
 )}:
     raise RuntimeError("source build environment site closure contains unclaimed files")
+unresolved_bin_path = os.path.abspath(os.path.join(build_env, "bin"))
+bin_path = os.path.realpath(unresolved_bin_path)
+bin_status = os.lstat(unresolved_bin_path)
+bin_mode = stat.S_IMODE(bin_status.st_mode)
+if (
+    bin_path != unresolved_bin_path
+    or os.path.commonpath((build_env, bin_path)) != build_env
+    or not stat.S_ISDIR(bin_status.st_mode)
+    or bin_mode & 0o022
+):
+    raise RuntimeError("source build environment executable directory is invalid")
+python_names = {"python", f"python{sys.version_info.major}", f"python{sys.version_info.major}.{sys.version_info.minor}"}
+base_executable = os.path.realpath(sys._base_executable)
+base_digest = hashlib.sha256()
+with open(base_executable, "rb") as handle:
+    for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+        base_digest.update(chunk)
+base_executable_sha256 = base_digest.hexdigest()
+bin_entries = []
+bin_executables = []
+bin_names = sorted(os.listdir(bin_path))
+if len(bin_names) > 10000:
+    raise RuntimeError("source build environment executable directory exceeds its bound")
+for name in bin_names:
+    if re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.+-]*", name) is None:
+        raise RuntimeError("source build environment executable name is invalid")
+    unresolved_path = os.path.abspath(os.path.join(bin_path, name))
+    status = os.lstat(unresolved_path)
+    mode = stat.S_IMODE(status.st_mode)
+    if stat.S_ISLNK(status.st_mode):
+        if name not in python_names or os.path.realpath(unresolved_path) != base_executable:
+            raise RuntimeError("source build environment contains an unbound executable symlink")
+        record = {
+            "name": name,
+            "kind": "python-symlink",
+            "mode": mode,
+            "target": os.readlink(unresolved_path),
+            "resolved_path": base_executable,
+            "sha256": base_executable_sha256,
+        }
+    elif stat.S_ISREG(status.st_mode):
+        if mode & (stat.S_ISUID | stat.S_ISGID | stat.S_ISVTX | 0o022):
+            raise RuntimeError("source build environment contains an unsafe executable file mode")
+        digest = hashlib.sha256()
+        with open(unresolved_path, "rb") as handle:
+            for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+                digest.update(chunk)
+        claimed = os.path.realpath(unresolved_path) in claimed_files
+        if mode & 0o111 and not claimed and name not in python_names:
+            raise RuntimeError("source build environment contains an unclaimed executable")
+        if name in python_names and digest.hexdigest() != base_executable_sha256:
+            raise RuntimeError("source build environment Python executable does not match its base")
+        record = {
+            "name": name,
+            "kind": "regular",
+            "mode": mode,
+            "size": status.st_size,
+            "sha256": digest.hexdigest(),
+            "claimed": claimed,
+        }
+    else:
+        raise RuntimeError("source build environment executable directory contains a special file")
+    if mode & 0o111:
+        bin_executables.append(name)
+    bin_entries.append(record)
+if not {"python", "python3"}.issubset(bin_executables):
+    raise RuntimeError("source build environment lacks its required Python entry points")
+bin_payload = json.dumps(bin_entries, separators=(",", ":"), sort_keys=True).encode()
 build_tools = {name: observed_versions.get(name, "<missing>") for name in ("pip", "setuptools", "wheel")}
 artifact_payload = json.dumps(expected_artifacts, separators=(",", ":"), sort_keys=True).encode()
 print(json.dumps({
-    "schema_version": 2,
+    "schema_version": 4,
     "executable": os.path.abspath(sys.executable),
     "prefix": os.path.realpath(sys.prefix),
     "base_prefix": os.path.realpath(sys.base_prefix),
@@ -508,6 +587,11 @@ print(json.dumps({
     "pyvenv_cfg_sha256": hashlib.sha256(config_payload).hexdigest(),
     "artifact_closure_sha256": hashlib.sha256(artifact_payload).hexdigest(),
     "installed_distributions": sorted(installed_distributions, key=lambda item: item["distribution"]),
+    "bin_path": bin_path,
+    "bin_mode": bin_mode,
+    "bin_entries": bin_entries,
+    "bin_executables": bin_executables,
+    "bin_sha256": hashlib.sha256(bin_payload).hexdigest(),
     "build_tools": build_tools,
 }, separators=(",", ":"), sort_keys=True))
 """.strip()
@@ -602,6 +686,79 @@ def validate_source_build_environment(
     expected_python = os.path.join(expected_env, "bin", "python")
     site_packages = value.get("site_packages") if isinstance(value, dict) else None
     installed_distributions = value.get("installed_distributions") if isinstance(value, dict) else None
+    bin_entries = value.get("bin_entries") if isinstance(value, dict) else None
+    bin_executables = value.get("bin_executables") if isinstance(value, dict) else None
+    bin_names: list[str] = []
+    observed_executables: list[str] = []
+    bin_entries_valid = isinstance(bin_entries, list) and 1 <= len(bin_entries) <= 10_000
+    if bin_entries_valid:
+        for entry in bin_entries:
+            if not isinstance(entry, dict):
+                bin_entries_valid = False
+                break
+            name = entry.get("name")
+            mode = entry.get("mode")
+            kind = entry.get("kind")
+            if (
+                not isinstance(name, str)
+                or _SAFE_FILENAME_RE.fullmatch(name) is None
+                or isinstance(mode, bool)
+                or not isinstance(mode, int)
+                or mode < 0
+                or mode > 0o7777
+            ):
+                bin_entries_valid = False
+                break
+            if kind == "python-symlink":
+                target = entry.get("target")
+                if (
+                    set(entry) != {"name", "kind", "mode", "target", "resolved_path", "sha256"}
+                    or re.fullmatch(r"python(?:\d+(?:\.\d+)?)?", name) is None
+                    or not isinstance(target, str)
+                    or not target
+                    or len(target) > 4096
+                    or any(ord(character) < 32 or ord(character) == 127 for character in target)
+                    or not isinstance(entry.get("resolved_path"), str)
+                    or not os.path.isabs(entry["resolved_path"])
+                    or os.path.realpath(entry["resolved_path"]) != entry["resolved_path"]
+                    or os.path.commonpath((expected_env, entry["resolved_path"])) == expected_env
+                    or not isinstance(entry.get("sha256"), str)
+                    or _SHA256_RE.fullmatch(entry["sha256"]) is None
+                ):
+                    bin_entries_valid = False
+                    break
+            elif kind == "regular":
+                size = entry.get("size")
+                claimed = entry.get("claimed")
+                if (
+                    set(entry) != {"name", "kind", "mode", "size", "sha256", "claimed"}
+                    or isinstance(size, bool)
+                    or not isinstance(size, int)
+                    or size < 0
+                    or size > MAX_WHEEL_BYTES
+                    or mode & (stat.S_ISUID | stat.S_ISGID | stat.S_ISVTX | 0o022)
+                    or not isinstance(entry.get("sha256"), str)
+                    or _SHA256_RE.fullmatch(entry["sha256"]) is None
+                    or not isinstance(claimed, bool)
+                    or (mode & 0o111 and re.fullmatch(r"python(?:\d+(?:\.\d+)?)?", name) is None and not claimed)
+                ):
+                    bin_entries_valid = False
+                    break
+            else:
+                bin_entries_valid = False
+                break
+            bin_names.append(name)
+            if mode & 0o111:
+                observed_executables.append(name)
+    bin_entries_valid = bool(
+        bin_entries_valid
+        and bin_names == sorted(bin_names)
+        and len(bin_names) == len(set(bin_names))
+        and isinstance(bin_executables, list)
+        and bin_executables == observed_executables
+        and len(bin_executables) == len(set(bin_executables))
+        and {"python", "python3"}.issubset(bin_executables)
+    )
     if (
         not isinstance(value, dict)
         or set(value)
@@ -617,6 +774,11 @@ def validate_source_build_environment(
             "pyvenv_cfg_sha256",
             "artifact_closure_sha256",
             "installed_distributions",
+            "bin_path",
+            "bin_mode",
+            "bin_entries",
+            "bin_executables",
+            "bin_sha256",
             "build_tools",
         }
         or value.get("schema_version") != SOURCE_BUILD_ENVIRONMENT_SCHEMA_VERSION
@@ -677,6 +839,15 @@ def validate_source_build_environment(
             for distribution in installed_distributions
         )
         or [distribution["distribution"] for distribution in installed_distributions] != sorted(expected_versions)
+        or value.get("bin_path") != os.path.join(expected_env, "bin")
+        or isinstance(value.get("bin_mode"), bool)
+        or not isinstance(value.get("bin_mode"), int)
+        or value["bin_mode"] < 0
+        or value["bin_mode"] > 0o777
+        or value["bin_mode"] & 0o022
+        or value["bin_mode"] & 0o500 != 0o500
+        or not bin_entries_valid
+        or value.get("bin_sha256") != sha256_bytes(canonical_json(bin_entries))
         or value.get("build_tools") != expected_tools
     ):
         raise RuntimeError("source build environment attestation is invalid")
@@ -757,7 +928,7 @@ def source_build_dependency_install_argv(
 
 
 SOURCE_BUILD_RUNNER_CODE = """
-import hashlib, io, json, os, runpy, shutil, stat, sys, sysconfig, tarfile, zipfile
+import hashlib, importlib, io, json, os, runpy, shutil, stat, sys, sysconfig, tarfile, zipfile
 from pathlib import PurePosixPath
 
 build_env, source_path, work_dir, wheel_dir, expected_size, expected_sha256, max_members, max_bytes, expected_env, umask = sys.argv[1:]
@@ -776,6 +947,16 @@ if (
 expected_env = json.loads(expected_env)
 if os.environ != expected_env:
     raise RuntimeError("source build backend environment is not the fixed allowlist")
+for variable, suffix in (("HOME", "home"), ("TMPDIR", "tmp")):
+    path = expected_env.get(variable)
+    expected_path = f"{build_env}-{suffix}"
+    if (
+        path != expected_path
+        or os.path.realpath(path) != path
+        or not stat.S_ISDIR(os.lstat(path).st_mode)
+        or stat.S_IMODE(os.lstat(path).st_mode) != 0o700
+    ):
+        raise RuntimeError("source build backend private directory is invalid")
 os.umask(int(umask, 8))
 path_variables = {"base": build_env, "platbase": build_env}
 site_paths = sorted({
@@ -787,6 +968,22 @@ if not site_paths or any(
     for path in site_paths
 ):
     raise RuntimeError("source build backend site path escaped the isolated environment")
+stdlib = os.path.realpath(sysconfig.get_path("stdlib"))
+stdlib_zip = os.path.join(
+    os.path.dirname(stdlib),
+    f"python{sys.version_info.major}{sys.version_info.minor}.zip",
+)
+allowed_import_roots = {stdlib, os.path.join(stdlib, "lib-dynload"), stdlib_zip}
+resolved_sys_path = []
+for raw_path in sys.path:
+    if not raw_path:
+        raise RuntimeError("source build backend has an implicit current-directory import root")
+    path = os.path.realpath(raw_path)
+    if path not in allowed_import_roots:
+        raise RuntimeError("source build backend has an unbound import root")
+    resolved_sys_path.append(path)
+if len(resolved_sys_path) != len(set(resolved_sys_path)):
+    raise RuntimeError("source build backend has duplicate import roots")
 for site_path in site_paths:
     for current, directories, files in os.walk(site_path, followlinks=False):
         if any(stat.S_ISLNK(os.lstat(os.path.join(current, name)).st_mode) for name in directories):
@@ -796,6 +993,15 @@ for site_path in site_paths:
 sys.prefix = build_env
 sys.exec_prefix = build_env
 sys.path.extend(site_paths)
+setuptools_backend = importlib.import_module("setuptools")
+backend_path = os.path.realpath(getattr(setuptools_backend, "__file__", ""))
+if (
+    not backend_path
+    or not stat.S_ISREG(os.lstat(backend_path).st_mode)
+    or not any(os.path.commonpath((site_path, backend_path)) == site_path for site_path in site_paths)
+    or not callable(getattr(setuptools_backend, "setup", None))
+):
+    raise RuntimeError("source build backend is not the attested venv setuptools")
 if os.path.exists(work_dir):
     raise RuntimeError("source build workspace already exists")
 os.mkdir(work_dir, 0o700)
@@ -881,12 +1087,10 @@ source_root = next(iter(roots))
 setup_path = os.path.join(source_root, "setup.py")
 if not stat.S_ISREG(os.lstat(setup_path).st_mode):
     raise RuntimeError("source build archive lacks a regular setup.py")
-if os.path.exists(os.path.join(source_root, "pyproject.toml")) or os.path.exists(
-    os.path.join(source_root, "setup.cfg")
-):
-    raise RuntimeError("source build archive has an unsupported build declaration")
+if any(name == "setuptools" or name.startswith("setuptools.") for name in os.listdir(source_root)):
+    raise RuntimeError("source build archive shadows the attested setuptools backend")
 os.chdir(source_root)
-sys.path.insert(0, source_root)
+sys.path.append(source_root)
 sys.argv = [setup_path, "--quiet", "bdist_wheel", "--dist-dir", os.path.realpath(wheel_dir)]
 runpy.run_path(setup_path, run_name="__main__")
 """.strip()
@@ -1121,30 +1325,310 @@ def _safe_archive_member(name: str) -> bool:
     return bool(path.parts) and not path.is_absolute() and ".." not in path.parts
 
 
-def _inspect_wheel(filename: str, payload: bytes) -> tuple[WheelEvidence, tuple[str, ...]]:
+@dataclass(frozen=True)
+class _RawWheelMember:
+    filename: str
+    raw_filename: bytes
+    central_offset: int
+    local_offset: int
+    compressed_size: int
+    file_size: int
+    crc32: int
+    flag_bits: int
+    compress_type: int
+    create_system: int
+    create_version: int
+    extract_version: int
+    reserved: int
+    volume: int
+    internal_attr: int
+    external_attr: int
+
+
+def _canonical_wheel_member_name(name: str) -> str:
+    if (
+        not _safe_archive_member(name)
+        or unicodedata.normalize("NFC", name) != name
+        or any(unicodedata.category(character) in {"Cc", "Cf", "Cs"} for character in name)
+    ):
+        raise RuntimeError("wheel contains an unsafe archive member")
+    normalized = "/".join(PurePosixPath(name).parts)
+    if normalized != name:
+        raise RuntimeError("wheel contains an ambiguous archive member path")
+    return normalized
+
+
+def _decode_wheel_member_name(raw_name: bytes, flag_bits: int) -> str:
+    if not raw_name or any(byte < 32 or byte == 127 for byte in raw_name):
+        raise RuntimeError("wheel contains an unsafe raw archive member name")
+    encoding = "utf-8" if flag_bits & 0x800 else "cp437"
+    try:
+        name = raw_name.decode(encoding)
+    except UnicodeDecodeError as error:
+        raise RuntimeError("wheel archive member name encoding is invalid") from error
+    if name.encode(encoding) != raw_name:
+        raise RuntimeError("wheel archive member name encoding is ambiguous")
+    return _canonical_wheel_member_name(name)
+
+
+def _validate_wheel_member_contract(filename: str, flag_bits: int, compression: int, external_attr: int) -> None:
+    if flag_bits & ~0x800 or compression not in {ZIP_STORED, ZIP_DEFLATED}:
+        raise RuntimeError("wheel contains unsupported ZIP member features")
+    member_mode = (external_attr >> 16) & 0xFFFF
+    member_type = stat.S_IFMT(member_mode)
+    permissions = stat.S_IMODE(member_mode)
+    if (
+        filename.endswith("/")
+        or external_attr & 0x10
+        or member_type not in {0, stat.S_IFREG}
+        or permissions & (stat.S_ISUID | stat.S_ISGID | stat.S_ISVTX | 0o002)
+        or (member_type == stat.S_IFREG and not permissions & stat.S_IRUSR)
+        or (member_type == 0 and permissions != 0 and not permissions & stat.S_IRUSR)
+    ):
+        raise RuntimeError("wheel contains an unsafe archive member")
+    parts = PurePosixPath(filename).parts
+    if (
+        len(parts) >= 2
+        and parts[-2].casefold().endswith(".dist-info")
+        and parts[-1].casefold() in {"record.jws", "record.p7s"}
+    ):
+        raise RuntimeError("wheel contains a forbidden RECORD signature")
+
+
+def _parse_raw_wheel(payload: bytes) -> tuple[tuple[_RawWheelMember, ...], str]:
+    end_signature = b"PK\x05\x06"
+    end_offset = payload.rfind(end_signature, max(0, len(payload) - 65_557))
+    if end_offset < 0 or end_offset + 22 > len(payload):
+        raise RuntimeError("wheel ZIP envelope is invalid")
+    (
+        signature,
+        disk_number,
+        central_disk,
+        disk_entries,
+        total_entries,
+        central_size,
+        central_offset,
+        comment_size,
+    ) = struct.unpack_from("<4s4H2LH", payload, end_offset)
+    if (
+        signature != end_signature
+        or disk_number != 0
+        or central_disk != 0
+        or disk_entries != total_entries
+        or total_entries < 1
+        or total_entries > MAX_WHEEL_MEMBERS
+        or total_entries == 0xFFFF
+        or central_size == 0xFFFFFFFF
+        or central_offset == 0xFFFFFFFF
+        or central_offset + central_size != end_offset
+        or comment_size != 0
+        or end_offset + 22 != len(payload)
+    ):
+        raise RuntimeError("wheel ZIP envelope is invalid")
+    members: list[_RawWheelMember] = []
+    seen_names: set[str] = set()
+    seen_local_offsets: set[int] = set()
+    intervals: list[tuple[int, int]] = []
+    total_uncompressed_size = 0
+    cursor = central_offset
+    for _ in range(total_entries):
+        if cursor + 46 > end_offset:
+            raise RuntimeError("wheel central directory is truncated")
+        (
+            central_signature,
+            version_made,
+            extract_version,
+            flag_bits,
+            compression,
+            _central_time,
+            _central_date,
+            crc32,
+            compressed_size,
+            file_size,
+            name_size,
+            extra_size,
+            member_comment_size,
+            volume,
+            internal_attr,
+            external_attr,
+            local_offset,
+        ) = struct.unpack_from("<4s6H3L5H2L", payload, cursor)
+        central_end = cursor + 46 + name_size + extra_size + member_comment_size
+        if (
+            central_signature != b"PK\x01\x02"
+            or central_end > end_offset
+            or name_size < 1
+            or extra_size != 0
+            or member_comment_size != 0
+            or volume != 0
+            or compressed_size == 0xFFFFFFFF
+            or file_size == 0xFFFFFFFF
+            or local_offset == 0xFFFFFFFF
+        ):
+            raise RuntimeError("wheel central directory entry is invalid")
+        raw_name = payload[cursor + 46 : cursor + 46 + name_size]
+        filename = _decode_wheel_member_name(raw_name, flag_bits)
+        if filename in seen_names or local_offset in seen_local_offsets:
+            raise RuntimeError("wheel contains duplicate archive members")
+        seen_names.add(filename)
+        seen_local_offsets.add(local_offset)
+        _validate_wheel_member_contract(filename, flag_bits, compression, external_attr)
+        total_uncompressed_size += file_size
+        if file_size > MAX_WHEEL_UNCOMPRESSED_BYTES or total_uncompressed_size > MAX_WHEEL_UNCOMPRESSED_BYTES:
+            raise RuntimeError("wheel exceeds the bounded expansion contract")
+        if local_offset + 30 > central_offset:
+            raise RuntimeError("wheel local header is invalid")
+        (
+            local_signature,
+            local_extract_version,
+            local_flags,
+            local_compression,
+            _local_time,
+            _local_date,
+            local_crc32,
+            local_compressed_size,
+            local_file_size,
+            local_name_size,
+            local_extra_size,
+        ) = struct.unpack_from("<4s5H3L2H", payload, local_offset)
+        local_name_start = local_offset + 30
+        local_data_start = local_name_start + local_name_size + local_extra_size
+        local_end = local_data_start + local_compressed_size
+        local_raw_name = payload[local_name_start : local_name_start + local_name_size]
+        if (
+            local_signature != b"PK\x03\x04"
+            or local_end > central_offset
+            or local_extract_version != extract_version
+            or local_flags != flag_bits
+            or local_compression != compression
+            or local_crc32 != crc32
+            or local_compressed_size != compressed_size
+            or local_file_size != file_size
+            or local_name_size != name_size
+            or local_extra_size != 0
+            or local_raw_name != raw_name
+        ):
+            raise RuntimeError("wheel local and central records do not agree")
+        compressed_payload = payload[local_data_start:local_end]
+        if compression == ZIP_STORED:
+            if compressed_size != file_size or zlib.crc32(compressed_payload) & 0xFFFFFFFF != crc32:
+                raise RuntimeError("wheel stored member payload is invalid")
+        else:
+            decompressor = zlib.decompressobj(-zlib.MAX_WBITS)
+            try:
+                decoded_payload = decompressor.decompress(compressed_payload, file_size + 1)
+                if len(decoded_payload) <= file_size:
+                    decoded_payload += decompressor.flush(file_size + 1 - len(decoded_payload))
+            except zlib.error as error:
+                raise RuntimeError("wheel deflated member payload is invalid") from error
+            if (
+                not decompressor.eof
+                or decompressor.unused_data
+                or decompressor.unconsumed_tail
+                or len(decoded_payload) != file_size
+                or zlib.crc32(decoded_payload) & 0xFFFFFFFF != crc32
+            ):
+                raise RuntimeError("wheel deflated member payload is invalid")
+        intervals.append((local_offset, local_end))
+        members.append(
+            _RawWheelMember(
+                filename=filename,
+                raw_filename=raw_name,
+                central_offset=cursor,
+                local_offset=local_offset,
+                compressed_size=compressed_size,
+                file_size=file_size,
+                crc32=crc32,
+                flag_bits=flag_bits,
+                compress_type=compression,
+                create_system=version_made >> 8,
+                create_version=version_made & 0xFF,
+                extract_version=extract_version,
+                reserved=0,
+                volume=volume,
+                internal_attr=internal_attr,
+                external_attr=external_attr,
+            )
+        )
+        cursor = central_end
+    if cursor != end_offset:
+        raise RuntimeError("wheel central directory does not exactly match its envelope")
+    expected_offset = 0
+    for start, stop in sorted(intervals):
+        if start != expected_offset or stop <= start:
+            raise RuntimeError("wheel local records contain gaps, overlap, or orphan bytes")
+        expected_offset = stop
+    if expected_offset != central_offset:
+        raise RuntimeError("wheel local records do not exactly fill the pre-central region")
+    normalized = bytearray(payload)
+    for member in members:
+        normalized[member.local_offset + 10 : member.local_offset + 14] = b"\0" * 4
+        normalized[member.central_offset + 12 : member.central_offset + 16] = b"\0" * 4
+    semantic_payload = (
+        canonical_json(
+            {
+                "schema_version": WHEEL_SEMANTIC_DIGEST_SCHEMA_VERSION,
+                "kind": WHEEL_SEMANTIC_DIGEST_KIND,
+                "normalization": list(WHEEL_SEMANTIC_NORMALIZED_FIELDS),
+            }
+        )
+        + b"\0"
+        + bytes(normalized)
+    )
+    return tuple(members), sha256_bytes(semantic_payload)
+
+
+def _inspect_wheel(filename: str, payload: bytes) -> tuple[WheelEvidence, tuple[str, ...], str]:
     if len(payload) < 1 or len(payload) > MAX_WHEEL_BYTES:
         raise RuntimeError("wheel payload exceeds the bounded size contract")
+    try:
+        _validated_filename(filename, "wheel filename", suffixes=(".whl",))
+    except ValueError as error:
+        raise RuntimeError("wheel filename is invalid") from error
     digest = sha256_bytes(payload)
     try:
+        raw_members, semantic_sha256 = _parse_raw_wheel(payload)
         with ZipFile(io.BytesIO(payload)) as wheel:
             members = wheel.infolist()
-            if not members or len(members) > MAX_WHEEL_MEMBERS:
+            if len(members) != len(raw_members):
                 raise RuntimeError("wheel has an invalid member count")
+            if wheel.start_dir != raw_members[0].central_offset or wheel.comment:
+                raise RuntimeError("wheel ZIP envelope is invalid")
             total_size = 0
             metadata_members = []
             wheel_members = []
-            for member in members:
-                member_mode = member.external_attr >> 16
-                if not _safe_archive_member(member.filename) or member.flag_bits & 0x1 or stat.S_ISLNK(member_mode):
-                    raise RuntimeError("wheel contains an unsafe archive member")
+            for member, raw_member in zip(members, raw_members, strict=True):
+                if (
+                    member.filename != raw_member.filename
+                    or member.orig_filename != raw_member.filename
+                    or member.header_offset != raw_member.local_offset
+                    or member.file_size != raw_member.file_size
+                    or member.compress_size != raw_member.compressed_size
+                    or member.CRC != raw_member.crc32
+                    or member.flag_bits != raw_member.flag_bits
+                    or member.compress_type != raw_member.compress_type
+                    or member.create_system != raw_member.create_system
+                    or member.create_version != raw_member.create_version
+                    or member.extract_version != raw_member.extract_version
+                    or member.reserved != raw_member.reserved
+                    or member.volume != raw_member.volume
+                    or member.internal_attr != raw_member.internal_attr
+                    or member.external_attr != raw_member.external_attr
+                    or member.extra
+                    or member.comment
+                ):
+                    raise RuntimeError("wheel raw and decoded member records do not agree")
                 if member.file_size < 0 or member.file_size > MAX_WHEEL_UNCOMPRESSED_BYTES:
                     raise RuntimeError("wheel member exceeds the bounded size contract")
                 total_size += member.file_size
                 if total_size > MAX_WHEEL_UNCOMPRESSED_BYTES:
                     raise RuntimeError("wheel exceeds the bounded expansion contract")
-                if member.filename.endswith(".dist-info/METADATA"):
+                member_payload = wheel.read(member)
+                if len(member_payload) != member.file_size:
+                    raise RuntimeError("wheel member size does not match its ZIP record")
+                if raw_member.filename.endswith(".dist-info/METADATA"):
                     metadata_members.append(member)
-                elif member.filename.endswith(".dist-info/WHEEL"):
+                elif raw_member.filename.endswith(".dist-info/WHEEL"):
                     wheel_members.append(member)
             if len(metadata_members) != 1 or len(wheel_members) != 1:
                 raise RuntimeError("wheel must contain exactly one WHEEL and METADATA record")
@@ -1185,6 +1669,7 @@ def _inspect_wheel(filename: str, payload: bytes) -> tuple[WheelEvidence, tuple[
             universal=all(tag.strip().endswith("-none-any") for tag in tags),
         ),
         tuple(requirement.strip() for requirement in raw_requirements),
+        semantic_sha256,
     )
 
 
@@ -1192,15 +1677,19 @@ def inspect_wheel(filename: str, payload: bytes) -> WheelEvidence:
     return _inspect_wheel(filename, payload)[0]
 
 
+def wheel_semantic_sha256(filename: str, payload: bytes) -> str:
+    return _inspect_wheel(filename, payload)[2]
+
+
 def validate_build_dependency_payload_closure(
-    setup_requires: tuple[str, ...],
+    declared_build_requirements: tuple[str, ...],
     expected_build_tools: tuple[tuple[str, str], ...],
     build_dependencies: tuple[BinaryWheelPolicy, ...],
     payloads: dict[str, bytes],
     marker_environment: dict[str, str],
 ) -> str:
     validate_static_build_dependency_closure(
-        setup_requires,
+        declared_build_requirements,
         build_dependencies,
         expected_build_tools,
     )
@@ -1215,7 +1704,7 @@ def validate_build_dependency_payload_closure(
     policies = {wheel.distribution: wheel for wheel in build_dependencies}
     requirements_by_distribution: dict[str, tuple[Requirement, ...]] = {}
     for wheel in build_dependencies:
-        evidence, raw_requirements = _inspect_wheel(wheel.filename, payloads[wheel.filename])
+        evidence, raw_requirements, _ = _inspect_wheel(wheel.filename, payloads[wheel.filename])
         if (
             evidence.distribution != wheel.distribution
             or evidence.version != wheel.version
@@ -1251,7 +1740,7 @@ def validate_build_dependency_payload_closure(
             previous.update(extras)
             pending.append(distribution)
 
-    for requirement_text in build_dependency_root_requirements(setup_requires, expected_build_tools):
+    for requirement_text in build_dependency_root_requirements(declared_build_requirements, expected_build_tools):
         include(Requirement(requirement_text))
 
     while pending:
@@ -1349,6 +1838,7 @@ def _source_archive_named_payloads(source: SourceArtifactPolicy, payload: bytes,
     found: dict[str, bytes] = {}
     canonical_roots: set[tuple[str, ...]] = set()
     candidate_members: list[tuple[str, bytes]] = []
+    archive_member_parts: list[tuple[str, ...]] = []
     total_size = 0
 
     def consider(name: str, size: int, reader: object) -> None:
@@ -1359,6 +1849,7 @@ def _source_archive_named_payloads(source: SourceArtifactPolicy, payload: bytes,
         parts = PurePosixPath(name).parts
         if not parts:
             return
+        archive_member_parts.append(parts)
         basename = parts[-1]
         if basename == "PKG-INFO" and len(parts) in {1, 2}:
             canonical_roots.add(parts[:-1])
@@ -1393,6 +1884,9 @@ def _source_archive_named_payloads(source: SourceArtifactPolicy, payload: bytes,
                     if not _safe_archive_member(member.name) or not (member.isdir() or member.isfile()):
                         raise RuntimeError("source distribution contains an unsafe archive member")
                     if not member.isfile():
+                        parts = PurePosixPath(member.name).parts
+                        if parts:
+                            archive_member_parts.append(parts)
                         continue
 
                     def read_member(member: tarfile.TarInfo = member) -> bytes:
@@ -1407,6 +1901,12 @@ def _source_archive_named_payloads(source: SourceArtifactPolicy, payload: bytes,
     if len(canonical_roots) != 1:
         raise RuntimeError("source distribution contains ambiguous setup metadata")
     canonical_root = next(iter(canonical_roots))
+    for parts in archive_member_parts:
+        if parts[: len(canonical_root)] != canonical_root or len(parts) <= len(canonical_root):
+            continue
+        root_name = parts[len(canonical_root)]
+        if root_name == "setuptools" or root_name.startswith("setuptools."):
+            raise RuntimeError("source distribution shadows the attested setuptools backend")
     for name, payload in candidate_members:
         parts = PurePosixPath(name).parts
         basename = parts[-1]
@@ -1418,113 +1918,190 @@ def _source_archive_named_payloads(source: SourceArtifactPolicy, payload: bytes,
     return found
 
 
-def extract_static_setup_requires(source: SourceArtifactPolicy, payload: bytes) -> tuple[str, ...]:
-    inspect_source_distribution(source, payload)
-    named = _source_archive_named_payloads(source, payload, {"setup.py", "setup.cfg", "pyproject.toml"})
-    if "pyproject.toml" in named or "setup.cfg" in named:
-        raise RuntimeError("source-wheel proof supports only self-contained legacy setup.py declarations")
-    setup_payload = named.get("setup.py")
-    if setup_payload is None:
-        raise RuntimeError("legacy source distribution is missing setup.py")
+def _static_requirement_tuple(raw_requirements: list[object], label: str) -> tuple[str, ...]:
+    requirements = tuple(
+        validate_legacy_setup_requirement(item, f"{label}[{index}]") for index, item in enumerate(raw_requirements)
+    )
+    if len(requirements) != len(set(requirements)):
+        raise RuntimeError(f"{label} contains duplicate requirements")
+    return requirements
+
+
+def _validate_static_setup_value(node: ast.expr) -> object:
+    if isinstance(node, ast.Constant):
+        if node.value is None or type(node.value) in {str, bytes, int, float, bool}:
+            return node.value
+        raise RuntimeError("setup.py contains an unsupported literal value")
+    if isinstance(node, (ast.List, ast.Tuple, ast.Set)):
+        for item in node.elts:
+            _validate_static_setup_value(item)
+    elif isinstance(node, ast.Dict):
+        keys: list[object] = []
+        for key, value in zip(node.keys, node.values, strict=True):
+            if key is None:
+                raise RuntimeError("setup.py contains a dynamic dictionary expansion")
+            literal_key = _validate_static_setup_value(key)
+            try:
+                hash(literal_key)
+            except TypeError as error:
+                raise RuntimeError("setup.py contains an invalid literal dictionary key") from error
+            if any(literal_key == prior for prior in keys):
+                raise RuntimeError("setup.py contains a duplicate literal dictionary key")
+            keys.append(literal_key)
+            _validate_static_setup_value(value)
+    else:
+        raise RuntimeError("setup.py values must use only recursively literal container expressions")
+    try:
+        return ast.literal_eval(node)
+    except (ValueError, TypeError) as error:
+        raise RuntimeError("setup.py contains an invalid literal container") from error
+
+
+def _extract_setup_py_requirements(setup_payload: bytes) -> tuple[tuple[str, ...], bool]:
     try:
         tree = ast.parse(setup_payload.decode("utf-8"), filename="setup.py")
     except (SyntaxError, UnicodeDecodeError) as error:
-        raise RuntimeError("legacy setup.py cannot be parsed safely") from error
-    direct_imports = 0
-    module_imports = 0
-    for node in ast.walk(tree):
-        if isinstance(node, ast.Import):
-            for alias in node.names:
-                bound_name = alias.asname or alias.name.partition(".")[0]
-                if alias.name == "setuptools" and alias.asname is None:
-                    module_imports += 1
-                elif bound_name in {"setup", "setuptools"}:
-                    raise RuntimeError("legacy setup.py has an ambiguous setup import")
-        elif isinstance(node, ast.ImportFrom):
-            for alias in node.names:
-                if alias.name == "*":
-                    raise RuntimeError("legacy setup.py must not use wildcard imports")
-                bound_name = alias.asname or alias.name
-                if node.module == "setuptools" and alias.name == "setup" and alias.asname is None:
-                    direct_imports += 1
-                elif bound_name in {"setup", "setuptools"}:
-                    raise RuntimeError("legacy setup.py has an ambiguous setup import")
-        elif (
-            isinstance(node, ast.Name)
-            and isinstance(node.ctx, (ast.Store, ast.Del))
-            and node.id
-            in {
-                "setup",
-                "setuptools",
-            }
+        raise RuntimeError("setup.py cannot be parsed safely") from error
+    imports: list[tuple[int, ast.ImportFrom]] = []
+    calls: list[tuple[int, ast.Call]] = []
+    for index, statement in enumerate(tree.body):
+        if (
+            isinstance(statement, ast.ImportFrom)
+            and statement.level == 0
+            and statement.module == "setuptools"
+            and len(statement.names) == 1
+            and statement.names[0].name == "setup"
+            and statement.names[0].asname is None
         ):
-            raise RuntimeError("legacy setup.py must not rebind its setup callable")
-        elif isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)) and node.name in {
-            "setup",
-            "setuptools",
-        }:
-            raise RuntimeError("legacy setup.py must not rebind its setup callable")
-
-    top_level_calls = [
-        statement.value
-        for statement in tree.body
-        if isinstance(statement, ast.Expr) and isinstance(statement.value, ast.Call)
-    ]
-    direct_calls = [call for call in top_level_calls if isinstance(call.func, ast.Name) and call.func.id == "setup"]
-    module_calls = [
-        call
-        for call in top_level_calls
-        if isinstance(call.func, ast.Attribute)
-        and isinstance(call.func.value, ast.Name)
-        and call.func.value.id == "setuptools"
-        and call.func.attr == "setup"
-    ]
-    if len(direct_calls) == 1 and not module_calls and direct_imports == 1 and module_imports == 0:
-        setup_call = direct_calls[0]
-    elif len(module_calls) == 1 and not direct_calls and module_imports == 1 and direct_imports == 0:
-        setup_call = module_calls[0]
-    else:
-        raise RuntimeError("legacy setup.py must contain one unaliased top-level setuptools setup() call")
-
-    for node in ast.walk(tree):
-        if isinstance(node, ast.Call):
-            if node is setup_call:
-                continue
-            if (
-                isinstance(node.func, ast.Name)
-                and node.func.id == "setup"
-                or isinstance(node.func, ast.Attribute)
-                and node.func.attr == "setup"
-                or any(isinstance(item, ast.Constant) and item.value == "setup" for item in ast.walk(node.func))
-            ):
-                raise RuntimeError("legacy setup.py contains an ambiguous setup call")
-        elif isinstance(node, ast.Name) and node.id == "setup" and isinstance(node.ctx, ast.Load):
-            if node is not setup_call.func:
-                raise RuntimeError("legacy setup.py contains an ambiguous setup reference")
-        elif isinstance(node, ast.Attribute) and node.attr == "setup":
-            if node is not setup_call.func:
-                raise RuntimeError("legacy setup.py contains an ambiguous setup reference")
+            imports.append((index, statement))
+        elif (
+            isinstance(statement, ast.Expr)
+            and isinstance(statement.value, ast.Call)
+            and isinstance(statement.value.func, ast.Name)
+            and statement.value.func.id == "setup"
+        ):
+            calls.append((index, statement.value))
+        elif (
+            isinstance(statement, ast.Expr)
+            and isinstance(statement.value, ast.Constant)
+            and isinstance(statement.value.value, str)
+        ):
+            continue
+        elif isinstance(statement, ast.Pass):
+            continue
+        else:
+            raise RuntimeError("setup.py contains executable or dynamic statements outside setup()")
+    if len(imports) != 1 or len(calls) != 1 or imports[0][0] >= calls[0][0]:
+        raise RuntimeError("setup.py must contain one unaliased top-level setuptools setup() call")
+    setup_call = calls[0][1]
     if setup_call.args or any(keyword.arg is None for keyword in setup_call.keywords):
-        raise RuntimeError("legacy setup.py setup() arguments must be explicit keywords")
+        raise RuntimeError("setup.py setup() arguments must be explicit keywords")
+    keyword_names = [keyword.arg for keyword in setup_call.keywords]
+    if len(keyword_names) != len(set(keyword_names)) or {
+        "cmdclass",
+        "distclass",
+        "script_args",
+        "script_name",
+    }.intersection(keyword_names):
+        raise RuntimeError("setup.py contains ambiguous or executable setup() controls")
+    literal_values = {keyword.arg: _validate_static_setup_value(keyword.value) for keyword in setup_call.keywords}
     matches = [keyword for keyword in setup_call.keywords if keyword.arg == "setup_requires"]
     if len(matches) > 1:
-        raise RuntimeError("legacy setup.py has ambiguous setup_requires")
+        raise RuntimeError("setup.py has ambiguous setup_requires")
     if not matches:
-        return ()
-    value = matches[0].value
-    if isinstance(value, ast.Constant) and isinstance(value.value, str):
-        raw_requirements: list[object] = [value.value]
-    elif isinstance(value, (ast.List, ast.Tuple)):
-        raw_requirements = [item.value if isinstance(item, ast.Constant) else item for item in value.elts]
+        return (), False
+    value = literal_values["setup_requires"]
+    if isinstance(value, str):
+        raw_requirements: list[object] = [value]
+    elif isinstance(value, (list, tuple)):
+        raw_requirements = list(value)
     else:
-        raise RuntimeError("legacy setup_requires must be a static literal")
-    requirements = tuple(
-        validate_legacy_setup_requirement(item, f"setup_requires[{index}]")
-        for index, item in enumerate(raw_requirements)
-    )
+        raise RuntimeError("setup.py setup_requires must be a static literal")
+    return _static_requirement_tuple(raw_requirements, "setup.py setup_requires"), True
+
+
+def _extract_setup_cfg_requirements(payload: bytes | None) -> tuple[tuple[str, ...], bool]:
+    if payload is None:
+        return (), False
+    try:
+        text = payload.decode("utf-8")
+        parser = configparser.ConfigParser(
+            interpolation=None,
+            strict=True,
+            empty_lines_in_values=False,
+        )
+        parser.read_string(text, source="setup.cfg")
+    except (UnicodeDecodeError, configparser.Error) as error:
+        raise RuntimeError("setup.cfg cannot be parsed safely") from error
+    if parser.defaults():
+        raise RuntimeError("setup.cfg default options are unsupported")
+    declarations: list[tuple[str, str]] = []
+    for section in parser.sections():
+        normalized_section = section.casefold()
+        if normalized_section not in {
+            "metadata",
+            "options",
+            "bdist_wheel",
+            "egg_info",
+        } and not normalized_section.startswith("options."):
+            raise RuntimeError("setup.cfg contains an unsupported section")
+        for option, value in parser.items(section, raw=True):
+            normalized_option = option.casefold().replace("-", "_")
+            if normalized_option in {"cmdclass", "distclass"} or "attr:" in value.casefold():
+                raise RuntimeError("setup.cfg contains an executable or dynamic option")
+            if normalized_option == "setup_requires":
+                declarations.append((normalized_section, value))
+    if not declarations:
+        return (), False
+    if len(declarations) != 1 or declarations[0][0] != "options":
+        raise RuntimeError("setup.cfg has an ambiguous setup_requires declaration")
+    raw_value = declarations[0][1]
+    chunks = raw_value.splitlines() if "\n" in raw_value else raw_value.split(",")
+    raw_requirements = [chunk.strip() for chunk in chunks if chunk.strip()]
+    return _static_requirement_tuple(raw_requirements, "setup.cfg setup_requires"), True
+
+
+def _extract_pyproject_requirements(payload: bytes | None) -> tuple[str, ...]:
+    if payload is None:
+        return ()
+    try:
+        value = tomllib.loads(payload.decode("utf-8"))
+    except (UnicodeDecodeError, tomllib.TOMLDecodeError) as error:
+        raise RuntimeError("pyproject.toml cannot be parsed safely") from error
+    build_system = value.get("build-system")
+    if (
+        set(value) != {"build-system"}
+        or not isinstance(build_system, dict)
+        or not set(build_system).issubset({"requires", "build-backend"})
+        or "requires" not in build_system
+        or not isinstance(build_system["requires"], list)
+        or not all(isinstance(item, str) for item in build_system["requires"])
+        or build_system.get("build-backend", "setuptools.build_meta:__legacy__")
+        not in {"setuptools.build_meta", "setuptools.build_meta:__legacy__"}
+    ):
+        raise RuntimeError("pyproject.toml build-system declaration is unsupported or ambiguous")
+    return _static_requirement_tuple(build_system["requires"], "pyproject.toml build-system.requires")
+
+
+def extract_static_build_requirements(source: SourceArtifactPolicy, payload: bytes) -> tuple[str, ...]:
+    inspect_source_distribution(source, payload)
+    named = _source_archive_named_payloads(source, payload, {"setup.py", "setup.cfg", "pyproject.toml"})
+    setup_payload = named.get("setup.py")
+    if setup_payload is None:
+        raise RuntimeError("source distribution is missing setup.py")
+    setup_requirements, setup_declared = _extract_setup_py_requirements(setup_payload)
+    config_requirements, config_declared = _extract_setup_cfg_requirements(named.get("setup.cfg"))
+    if setup_declared and config_declared:
+        raise RuntimeError("source distribution has ambiguous setup_requires declarations")
+    pyproject_requirements = _extract_pyproject_requirements(named.get("pyproject.toml"))
+    requirements = (*setup_requirements, *config_requirements, *pyproject_requirements)
     if len(requirements) != len(set(requirements)):
-        raise RuntimeError("legacy setup_requires contains duplicate requirements")
+        raise RuntimeError("source distribution has duplicate static build requirements")
     return requirements
+
+
+def extract_static_setup_requires(source: SourceArtifactPolicy, payload: bytes) -> tuple[str, ...]:
+    return extract_static_build_requirements(source, payload)
 
 
 def inspect_wheelhouse(wheel_archive: bytes) -> tuple[WheelEvidence, ...]:
