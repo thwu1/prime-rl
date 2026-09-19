@@ -1,6 +1,6 @@
 # VMVM sandbox coordination
 
-Last updated: 2026-09-19 07:40 UTC
+Last updated: 2026-09-19 07:44 UTC
 
 ## First message to the next teammate
 
@@ -41,6 +41,16 @@ this shared branch again.
 Add new rows below this line; do not overwrite another owner's row.
 
 ## Open coordination requests
+
+- **2026-09-19 07:44 UTC, safe-eight review artifact requested:** for the
+  unpublished source-wheel candidate currently referenced only by prefix
+  `694b`, please publish the full immutable commit/ref and an opaque manifest
+  binding the exact source tree, verifier/submodule state, changed-file set,
+  and aggregate test/review evidence. Do not publish task identifiers/content,
+  raw errors, source-wheel payloads, credentials, or trace/model/tool content.
+  Keep the reducer, same-host inspection, and proof held until the replacement
+  candidate closes the recorded race, code-identity, and teardown blockers and
+  receives a fresh independent review.
 
 - **2026-09-19 07:40 UTC, Kimi smoke invalidated by endpoint preemption:** on
   `fair-cw-use2-3`, endpoint `1752709` was preempted at 07:37:25 UTC after
