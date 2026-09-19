@@ -26,6 +26,8 @@ fi
 project_dir=${PROJECT_DIR:-${SLURM_SUBMIT_DIR:-$PWD}}
 workflow_dir="$project_dir/user/tianhaowu/terminal_bench_vmvm"
 x86_site=${PYTHON_SITE_X86_64:-/checkpoint/ram/tianhaowu/terminal_bench_vmvm/python_x86_64}
+sandoq_site=${SANDOQ_PYTHON_SITE_X86_64:-/checkpoint/ram/tianhaowu/terminal_bench_vmvm/sandoq_x86_64_ram_prime_f7313db4}
+sandoq_provider_root="$project_dir/deps/sandoq-provider"
 x86_uv=${UV_BIN_X86_64:-/storage/home/tianhaowu/.local/x86_64/bin/uv}
 python_bin=${PYTHON_BIN_X86_64:-python3}
 eval_config=${EVAL_CONFIG:-$workflow_dir/configs/eval/tb4_kimi_k3_max_miniswe.toml}
@@ -55,6 +57,7 @@ eval_dataset_revision=${EVAL_DATASET_REVISION:-}
 eval_dataset_archive=${EVAL_DATASET_ARCHIVE:-}
 eval_dataset_archive_sha256=${EVAL_DATASET_ARCHIVE_SHA256:-}
 eval_dataset_content_sha256=${EVAL_DATASET_CONTENT_SHA256:-}
+unset PYTHONPATH PYTHONHOME
 
 if [[ "$(uname -m)" != x86_64 || ! -d "$x86_site/pydantic" ]]; then
     printf 'Missing x86_64 Python runtime/dependencies\n' >&2
@@ -65,7 +68,7 @@ if [[ ! -x "$x86_uv" ]]; then
     exit 2
 fi
 export PYTHONDONTWRITEBYTECODE=1
-export PYTHONPATH="$workflow_dir:$project_dir/environments/vmvm_tb_v2:$project_dir/deps/verifiers:$project_dir/deps/renderers:$project_dir/deps/pydantic-config/src:$x86_site${PYTHONPATH:+:$PYTHONPATH}"
+export PYTHONPATH="$workflow_dir:$project_dir/environments/vmvm_tb_v2:$project_dir/deps/verifiers:$project_dir/deps/renderers:$project_dir/deps/pydantic-config/src:$x86_site"
 
 if [[ -n "$eval_config_sha256" ]]; then
     if [[ ! "$eval_config_sha256" =~ ^[0-9a-f]{64}$ ]]; then
@@ -223,42 +226,244 @@ if [[ ( -n "$eval_dataset_revision" && -n "$eval_dataset_archive" ) \
     printf 'Supply exactly one dataset authority: EVAL_DATASET_REVISION or archive tuple\n' >&2
     exit 2
 fi
-
-export VACLI_LEASE_RETRIES=${VACLI_LEASE_RETRIES:-20}
-export VACLI_MAX_CONCURRENT_LEASES=${VACLI_MAX_CONCURRENT_LEASES:-32}
-export VACLI_MAX_PULL_RETRIES=${VACLI_MAX_PULL_RETRIES:-20}
-export VACLI_IMAGE_PULL_TIMEOUT_SECONDS=${VACLI_IMAGE_PULL_TIMEOUT_SECONDS:-3600}
-export VACLI_CONTAINER_PRIVILEGED=${VACLI_CONTAINER_PRIVILEGED:-1}
-export VACLI_BIN=${VACLI_BIN:-/public/fbpkgs/x86_64/vacli/stable/vacli}
-
-cd "$project_dir"
-prime_rl_status=$(git status --porcelain=v1 --untracked-files=all)
-verifiers_status=$(git -C deps/verifiers status --porcelain=v1 --untracked-files=all)
-renderers_status=$(git -C deps/renderers status --porcelain=v1 --untracked-files=all)
-if [[ -n "$prime_rl_status" || -n "$verifiers_status" || -n "$renderers_status" ]]; then
-    printf 'Prime-RL, Verifiers, and Renderers worktrees must all be clean\n' >&2
-    exit 2
-fi
-prime_rl_commit=$(git rev-parse --verify HEAD)
-verifiers_commit=$(git -C deps/verifiers rev-parse --verify HEAD)
-renderers_commit=$(git -C deps/renderers rev-parse --verify HEAD)
 if [[ -n "$eval_expected_prime_rl_revision" ]]; then
+    prime_rl_commit=$(git -C "$project_dir" rev-parse --verify HEAD)
     if [[ ! "$eval_expected_prime_rl_revision" =~ ^[0-9a-f]{40}$ \
         || "$prime_rl_commit" != "$eval_expected_prime_rl_revision" ]]; then
         printf 'PROJECT_DIR revision does not match EVAL_EXPECTED_PRIME_RL_REVISION\n' >&2
         exit 2
     fi
 fi
+
+if ! sandbox_provider=$(python3 - "$eval_config" <<'PY'
+import sys
+import tomllib
+with open(sys.argv[1], "rb") as handle:
+    print(tomllib.load(handle).get("harness", {}).get("runtime", {}).get("type", ""))
+PY
+); then
+    printf 'Could not read sandbox provider from EVAL_CONFIG\n' >&2
+    exit 2
+fi
+if [[ "$sandbox_provider" != vmvm && "$sandbox_provider" != sandoq ]]; then
+    printf 'EVAL_CONFIG must select an explicit vmvm or sandoq runtime\n' >&2
+    exit 2
+fi
+if [[ "$sandbox_provider" == sandoq ]]; then
+    if [[ ! -d "$sandoq_site/sandoq_client" ]]; then
+        printf 'Missing pinned x86_64 Sandoq client site\n' >&2
+        exit 2
+    fi
+fi
+
+if [[ "$sandbox_provider" == vmvm ]]; then
+    export VACLI_LEASE_RETRIES=${VACLI_LEASE_RETRIES:-20}
+    export VACLI_MAX_CONCURRENT_LEASES=${VACLI_MAX_CONCURRENT_LEASES:-32}
+    export VACLI_MAX_PULL_RETRIES=${VACLI_MAX_PULL_RETRIES:-20}
+    export VACLI_IMAGE_PULL_TIMEOUT_SECONDS=${VACLI_IMAGE_PULL_TIMEOUT_SECONDS:-3600}
+    export VACLI_CONTAINER_PRIVILEGED=${VACLI_CONTAINER_PRIVILEGED:-1}
+    export VACLI_BIN=${VACLI_BIN:-/public/fbpkgs/x86_64/vacli/stable/vacli}
+else
+    if [[ -n ${SANDOQ_TUNNEL_HTTPS_PROXY+x} ]]; then
+        printf 'SANDOQ_TUNNEL_HTTPS_PROXY overrides are forbidden for guarded Sandoq runs\n' >&2
+        exit 2
+    fi
+    unset SANDOQ_TUNNEL_HTTPS_PROXY HTTP_PROXY HTTPS_PROXY http_proxy https_proxy ALL_PROXY all_proxy
+    read -r sandoq_capacity sandoq_create_workers sandoq_bootstrap_workers \
+        sandoq_drain_workers sandoq_renew_workers < <(python3 - "$eval_config" <<'PY'
+import sys
+import tomllib
+with open(sys.argv[1], "rb") as handle:
+    config = tomllib.load(handle)
+capacity = min(config["num_tasks"], config["max_concurrent"])
+if capacity < 1:
+    raise SystemExit(2)
+print(capacity, min(capacity, 32), min(capacity, 64), min(capacity, 32), min(capacity, 16))
+PY
+)
+    export OCI_RUNNER_BASE_URL=https://sandoq.eks-prod.cf.aws.metafb.cloud
+    export OCI_RUNNER_ENVIRONMENT=oci-runner-firecracker-tunnel-pull
+    export SANDOQ_OWNER=${USER:?USER is required for Sandoq ownership}
+    export OCI_RUNNER_TOKEN_FILE=${OCI_RUNNER_TOKEN_FILE:-$HOME/.config/oci-runner/firecracker-token}
+    export OCI_RUNNER_TASK_NETWORK=host
+    export OCI_RUNNER_POOL_SIZE=$sandoq_capacity
+    export OCI_RUNNER_POOL_MIN_SIZE=0
+    export OCI_RUNNER_CREATE_DEADLINE=30m
+    export OCI_RUNNER_PULL_TIMEOUT=1200
+    export OCI_RUNNER_PULL_POLL_MAX_ERRORS=10
+    export OCI_RUNNER_GATEWAY_RETRY_ATTEMPTS=15
+    export OCI_RUNNER_GATEWAY_RETRY_INTERVAL=2s
+    export OCI_RUNNER_PODMAN_IGNORE_CHOWN_ERRORS=1
+    export OCI_RUNNER_REQUIRE_RESOURCE_LIMITS=1
+    export OCI_RUNNER_POOL_CREATE_WORKERS=$sandoq_create_workers
+    export OCI_RUNNER_POOL_BOOTSTRAP_WORKERS=$sandoq_bootstrap_workers
+    export OCI_RUNNER_POOL_BOOTSTRAP_PER_IMAGE=$(( sandoq_capacity < 8 ? sandoq_capacity : 8 ))
+    export OCI_RUNNER_POOL_DRAIN_WORKERS=$sandoq_drain_workers
+    export OCI_RUNNER_POOL_DRAIN_TIMEOUT=240
+    export OCI_RUNNER_POOL_RENEW_WORKERS=$sandoq_renew_workers
+    export OCI_RUNNER_SESSION_REUSE=1 OCI_RUNNER_POOL_MAX_REUSE_COUNT=6
+    export OCI_RUNNER_POOL_REUSE_JITTER=2 OCI_RUNNER_IMAGE_CACHE_MAX_ENTRIES=2
+    export OCI_RUNNER_SECRET_CACHE_TTL=5s OCI_RUNNER_POOL_HEARTBEAT_TIMEOUT=45s
+    export OCI_RUNNER_LEASE_DURATION=1h OCI_RUNNER_POOL_RENEW_INTERVAL=5m
+    export OCI_RUNNER_OBSERVABILITY=1 OCI_RUNNER_EXEC_TIMEOUT_CEILING=270 OCI_RUNNER_TASK_PIDS_LIMIT=512
+    export OCI_RUNNER_USE_ECR=1
+    export OCI_RUNNER_ECR_REGISTRY=168653207203.dkr.ecr.us-east-2.amazonaws.com
+    export OCI_RUNNER_ECR_REGION=us-east-2
+    export OCI_RUNNER_ECR_PULL_THROUGH_PREFIX=pt_dockerio
+    export OCI_RUNNER_ECR_TOKEN_FILE=/storage/home/tianhaowu/.config/oci-runner/ecr-token
+    export OCI_RUNNER_ALLOW_DOCKERHUB_FALLBACK=0
+    unset OCI_RUNNER_DOCKERHUB_USERNAME OCI_RUNNER_DOCKERHUB_TOKEN_FILE OCI_RUNNER_REQUIRE_DOCKERHUB_AUTH
+    unset OCI_RUNNER_ECR_AUXILIARY_REGISTRIES OCI_RUNNER_ECR_CLIENT_CERT_PATH OCI_RUNNER_ECR_UCLOUD
+    pool_socket_dir="${SLURM_TMPDIR:-/tmp}/oci-runner-pool-${UID}"
+    mkdir -p "$pool_socket_dir"
+    chmod 0700 "$pool_socket_dir"
+    export OCI_RUNNER_POOL_SOCKET="$pool_socket_dir/${SLURM_JOB_ID:?}.sock"
+    export PRIME_RL_OUTPUT_DIR="$output_dir"
+    export OCI_RUNNER_POOL_WAL="$output_dir/control/sandoq-pool.wal.jsonl"
+    export OCI_RUNNER_POOL_EVENT_LOG="$output_dir/pool_events.jsonl"
+    if [[ "$OCI_RUNNER_ENVIRONMENT" != oci-runner-firecracker-tunnel-pull ]]; then
+        printf 'Sandoq no-network runs require the approved tunnel-pull environment\n' >&2
+        exit 2
+    fi
+    if [[ ! -f "$OCI_RUNNER_TOKEN_FILE" || -L "$OCI_RUNNER_TOKEN_FILE" \
+        || "$(stat -c '%a' "$OCI_RUNNER_TOKEN_FILE" 2>/dev/null)" != 600 ]]; then
+        printf 'Sandoq token file must be a regular non-symlink file with mode 0600\n' >&2
+        exit 2
+    fi
+    if [[ ! -f "$OCI_RUNNER_ECR_TOKEN_FILE" || -L "$OCI_RUNNER_ECR_TOKEN_FILE" \
+        || "$(stat -c '%a' "$OCI_RUNNER_ECR_TOKEN_FILE" 2>/dev/null)" != 600 ]]; then
+        printf 'Sandoq ECR token file must be a regular non-symlink file with mode 0600\n' >&2
+        exit 2
+    fi
+fi
+
+cd "$project_dir"
+prime_rl_status=$(git status --porcelain=v1 --untracked-files=all)
+verifiers_status=$(git -C deps/verifiers status --porcelain=v1 --untracked-files=all)
+renderers_status=$(git -C deps/renderers status --porcelain=v1 --untracked-files=all)
+sandoq_provider_status=
+if [[ "$sandbox_provider" == sandoq ]]; then
+    sandoq_provider_status=$(git -C deps/sandoq-provider status --porcelain=v1 --untracked-files=all)
+fi
+if [[ -n "$prime_rl_status" || -n "$verifiers_status" || -n "$renderers_status" \
+    || -n "$sandoq_provider_status" ]]; then
+    printf 'Prime-RL, Verifiers, and Renderers worktrees must all be clean\n' >&2
+    exit 2
+fi
+prime_rl_commit=$(git rev-parse --verify HEAD)
+verifiers_commit=$(git -C deps/verifiers rev-parse --verify HEAD)
+renderers_commit=$(git -C deps/renderers rev-parse --verify HEAD)
 prime_rl_tree_sha256=$(printf '%s' "$prime_rl_status" | sha256sum | cut -d' ' -f1)
 verifiers_tree_sha256=$(printf '%s' "$verifiers_status" | sha256sum | cut -d' ' -f1)
 renderers_tree_sha256=$(printf '%s' "$renderers_status" | sha256sum | cut -d' ' -f1)
 vmvm_tb_v2_sha256=$(sha256sum environments/vmvm_tb_v2/vmvm_tb_v2/_vacli/*.py \
     | sha256sum | cut -d' ' -f1)
+sandoq_provider_commit=
+sandoq_provider_tree=
+sandoq_client_version=
+sandoq_site_sha256=
+derived_image_manifest_sha256=
+if [[ "$sandbox_provider" == sandoq ]]; then
+    sandoq_provider_commit=$(git -C deps/sandoq-provider rev-parse --verify HEAD)
+    sandoq_provider_tree=$(git -C deps/sandoq-provider rev-parse HEAD^{tree})
+    if [[ "$sandoq_provider_commit" != 4890302104d76220cef791c86d2009168597d35f ]]; then
+        printf 'Sandoq provider revision is not the approved cutover source\n' >&2
+        exit 2
+    fi
+    sandoq_client_version=$("$x86_uv" run --no-project --offline --python "$python_bin" \
+        python3 - "$sandoq_site" <<'PY'
+import importlib.metadata as metadata
+import sys
+distributions = [
+    distribution
+    for distribution in metadata.distributions(path=[sys.argv[1]])
+    if distribution.metadata["Name"].lower().replace("_", "-") == "sandoq-client"
+]
+if len(distributions) != 1:
+    raise SystemExit(2)
+print(distributions[0].version)
+PY
+    )
+    if [[ "$sandoq_client_version" != 0.4.0.2026.8.20.58304.0+hga81e4ca4d312 ]]; then
+        printf 'Sandoq client version does not match the approved pin\n' >&2
+        exit 2
+    fi
+    sandoq_site_sha256=$("$x86_uv" run --no-project --offline --python "$python_bin" \
+        python3 - "$sandoq_site" <<'PY'
+import hashlib
+import sys
+from pathlib import Path
+root = Path(sys.argv[1])
+digest = hashlib.sha256()
+paths = sorted(
+    (path for path in root.rglob("*") if path.is_file() and path.suffix != ".pyc" and not path.name.startswith(".")),
+    key=lambda path: path.relative_to(root).as_posix(),
+)
+for path in paths:
+    digest.update(f"{hashlib.sha256(path.read_bytes()).hexdigest()}  {path.relative_to(root).as_posix()}\n".encode())
+print(digest.hexdigest())
+PY
+)
+    if [[ "$sandoq_site_sha256" != 852f66db48c06e3928c6a5ff974c94bb21c93511342b205c2b7d1b99e73c3d6b ]]; then
+        printf 'Sandoq staged dependency tree does not match the approved closure\n' >&2
+        exit 2
+    fi
+    derived_image_manifest_sha256=$(python3 - "$eval_config" <<'PY'
+import sys
+import tomllib
+with open(sys.argv[1], "rb") as handle:
+    print(tomllib.load(handle).get("taskset", {}).get("image_manifest_sha256", ""))
+PY
+)
+    if [[ ! "$derived_image_manifest_sha256" =~ ^[0-9a-f]{64}$ ]]; then
+        printf 'Sandoq config requires a pinned derived image manifest SHA-256\n' >&2
+        exit 2
+    fi
+    export PYTHONPATH="$sandoq_provider_root/extensions/sandoq:$sandoq_site:$PYTHONPATH"
+    "$x86_uv" run --no-project --offline --python "$python_bin" python3 - "$eval_config" <<'PY'
+import asyncio
+import contextlib
+import os
+import sys
+import tomllib
+
+from sandoq_provider.ecr import _read_token_file
+from sandoq_provider.gateway import close_gateway_adapters, get_gateway_adapter
+from verifiers.v1.runtimes.sandoq import SandoqConfig, create_client
+
+with open(sys.argv[1], "rb") as handle:
+    config = SandoqConfig.model_validate(tomllib.load(handle)["harness"]["runtime"])
+_read_token_file(config.ecr_token_file)
+client = create_client(config)
+try:
+    adapter = get_gateway_adapter("https://sandoq.eks-prod.cf.aws.metafb.cloud", os.environ["SANDOQ_OWNER"])
+    summary = adapter.transport_summary()
+    if summary.mode not in {"direct", "proxy"}:
+        raise RuntimeError("unsupported Sandoq transport mode")
+    response = adapter.request_json(
+        "GET", "https://sandoq.eks-prod.cf.aws.metafb.cloud/healthz", timeout=15.0
+    )
+    if response.status_code != 200:
+        raise RuntimeError("Sandoq gateway health check failed")
+finally:
+    close = getattr(client, "aclose", None)
+    if close is not None:
+        with contextlib.suppress(Exception):
+            asyncio.run(close())
+    with contextlib.suppress(Exception):
+        close_gateway_adapters()
+PY
+fi
 
 if [[ "$eval_run_role" == mobius ]]; then
+    if [[ "$sandbox_provider" == vmvm ]]; then
+        requested_sandbox_concurrency=$VACLI_MAX_CONCURRENT_LEASES
+    else
+        requested_sandbox_concurrency=$OCI_RUNNER_POOL_SIZE
+    fi
     if ! effective_lease_start_concurrency=$(
         "$x86_uv" run --no-project --offline --python "$python_bin" \
-            python3 - "$eval_config" "$VACLI_MAX_CONCURRENT_LEASES" <<'PY'
+            python3 - "$eval_config" "$requested_sandbox_concurrency" <<'PY'
 import sys
 import tomllib
 
@@ -279,7 +484,7 @@ if (
 print(min(rollout_concurrency, requested))
 PY
     ); then
-        printf 'Invalid production max_concurrent or VACLI_MAX_CONCURRENT_LEASES\n' >&2
+        printf 'Invalid production max_concurrent or sandbox concurrency limit\n' >&2
         exit 2
     fi
     "$x86_uv" run --no-project --offline --python "$python_bin" \
@@ -365,6 +570,22 @@ if [[ -z "$resume_dir" ]]; then
             exit 2
         fi
     done
+    if [[ "$sandbox_provider" == sandoq ]]; then
+        for stale in pool_events.jsonl control/sandoq-pool.wal.jsonl pool_cleanup_audit.json \
+            sandoq_cleanup_audit.json direct_qwen_sandoq_certificate.json; do
+            if [[ -e "$output_dir/$stale" || -L "$output_dir/$stale" ]]; then
+                printf 'Refusing stale Sandoq lifecycle evidence: %s/%s\n' "$output_dir" "$stale" >&2
+                exit 2
+            fi
+        done
+        for stale in "$OCI_RUNNER_POOL_SOCKET" "$OCI_RUNNER_POOL_SOCKET.owner.json" \
+            "${OCI_RUNNER_POOL_SOCKET%.sock}.drained.json"; do
+            if [[ -e "$stale" || -L "$stale" ]]; then
+                printf 'Refusing stale node-local Sandoq broker evidence\n' >&2
+                exit 2
+            fi
+        done
+    fi
 fi
 cd "$project_dir"
 
@@ -399,7 +620,7 @@ if [[ "$validated_approval_sha256" != "$approved_task_file_sha256" \
 fi
 
 unset HTTP_PROXY HTTPS_PROXY http_proxy https_proxy ALL_PROXY all_proxy
-if [[ -n "$inference_proxy_url" ]]; then
+if [[ -n "$inference_proxy_url" && "$sandbox_provider" != sandoq ]]; then
     export HTTP_PROXY="$inference_proxy_url"
     export HTTPS_PROXY="$inference_proxy_url"
 fi
@@ -426,22 +647,77 @@ identity_args=(
     --deployment-proxy-info "$inference_proxy_info"
     --deployment-proxy-info-sha256 "$inference_proxy_info_sha256"
     --project-root "$project_dir"
+    --sandbox-provider "$sandbox_provider"
     --prime-rl-commit "$prime_rl_commit"
     --prime-rl-tree-sha256 "$prime_rl_tree_sha256"
     --verifiers-commit "$verifiers_commit"
     --verifiers-tree-sha256 "$verifiers_tree_sha256"
     --renderers-commit "$renderers_commit"
     --renderers-tree-sha256 "$renderers_tree_sha256"
-    --vmvm-tb-v2-sha256 "$vmvm_tb_v2_sha256"
-    --vacli-bin "$VACLI_BIN"
-    --vacli-max-concurrent-leases "$VACLI_MAX_CONCURRENT_LEASES"
-    --vacli-lease-retries "$VACLI_LEASE_RETRIES"
-    --vacli-max-pull-retries "$VACLI_MAX_PULL_RETRIES"
-    --vacli-image-pull-timeout-seconds "$VACLI_IMAGE_PULL_TIMEOUT_SECONDS"
-    --vacli-container-privileged "$VACLI_CONTAINER_PRIVILEGED"
     --invocation-host "$(hostname)"
     --slurm-job-id "$SLURM_JOB_ID"
 )
+if [[ "$sandbox_provider" == vmvm ]]; then
+    identity_args+=(
+        --vmvm-tb-v2-sha256 "$vmvm_tb_v2_sha256"
+        --vacli-bin "$VACLI_BIN"
+        --vacli-max-concurrent-leases "$VACLI_MAX_CONCURRENT_LEASES"
+        --vacli-lease-retries "$VACLI_LEASE_RETRIES"
+        --vacli-max-pull-retries "$VACLI_MAX_PULL_RETRIES"
+        --vacli-image-pull-timeout-seconds "$VACLI_IMAGE_PULL_TIMEOUT_SECONDS"
+        --vacli-container-privileged "$VACLI_CONTAINER_PRIVILEGED"
+    )
+else
+    identity_args+=(
+        --sandoq-provider-commit "$sandoq_provider_commit"
+        --sandoq-provider-tree "$sandoq_provider_tree"
+        --sandoq-client-version "$sandoq_client_version"
+        --sandoq-site "$sandoq_site"
+        --sandoq-site-sha256 "$sandoq_site_sha256"
+        --derived-image-manifest-sha256 "$derived_image_manifest_sha256"
+        --sandoq-environment "$OCI_RUNNER_ENVIRONMENT"
+        --sandoq-task-network "$OCI_RUNNER_TASK_NETWORK"
+        --sandoq-pool-size "$OCI_RUNNER_POOL_SIZE"
+        --sandoq-pool-min-size "$OCI_RUNNER_POOL_MIN_SIZE"
+        --sandoq-tunnel-policy named-tunnel-loopback
+        --sandoq-base-url "$OCI_RUNNER_BASE_URL"
+        --sandoq-owner "$SANDOQ_OWNER"
+        --sandoq-transport-proxy-policy official-client-auto-no-global-proxy
+        --sandoq-pool-socket "$OCI_RUNNER_POOL_SOCKET"
+        --sandoq-pool-wal "$OCI_RUNNER_POOL_WAL"
+        --sandoq-pool-event-log "$OCI_RUNNER_POOL_EVENT_LOG"
+        --sandoq-use-ecr "$OCI_RUNNER_USE_ECR"
+        --sandoq-ecr-registry "$OCI_RUNNER_ECR_REGISTRY"
+        --sandoq-ecr-region "$OCI_RUNNER_ECR_REGION"
+        --sandoq-ecr-pull-through-prefix "$OCI_RUNNER_ECR_PULL_THROUGH_PREFIX"
+        --sandoq-ecr-token-file "$OCI_RUNNER_ECR_TOKEN_FILE"
+        --sandoq-allow-dockerhub-fallback "$OCI_RUNNER_ALLOW_DOCKERHUB_FALLBACK"
+        --sandoq-create-deadline "$OCI_RUNNER_CREATE_DEADLINE"
+        --sandoq-pull-timeout "$OCI_RUNNER_PULL_TIMEOUT"
+        --sandoq-pull-poll-max-errors "$OCI_RUNNER_PULL_POLL_MAX_ERRORS"
+        --sandoq-gateway-retry-attempts "$OCI_RUNNER_GATEWAY_RETRY_ATTEMPTS"
+        --sandoq-gateway-retry-interval "$OCI_RUNNER_GATEWAY_RETRY_INTERVAL"
+        --sandoq-podman-ignore-chown-errors "$OCI_RUNNER_PODMAN_IGNORE_CHOWN_ERRORS"
+        --sandoq-require-resource-limits "$OCI_RUNNER_REQUIRE_RESOURCE_LIMITS"
+        --sandoq-exec-timeout-ceiling "$OCI_RUNNER_EXEC_TIMEOUT_CEILING"
+        --sandoq-task-pids-limit "$OCI_RUNNER_TASK_PIDS_LIMIT"
+        --sandoq-observability "$OCI_RUNNER_OBSERVABILITY"
+        --sandoq-pool-heartbeat-timeout "$OCI_RUNNER_POOL_HEARTBEAT_TIMEOUT"
+        --sandoq-pool-create-workers "$OCI_RUNNER_POOL_CREATE_WORKERS"
+        --sandoq-pool-bootstrap-workers "$OCI_RUNNER_POOL_BOOTSTRAP_WORKERS"
+        --sandoq-pool-bootstrap-per-image "$OCI_RUNNER_POOL_BOOTSTRAP_PER_IMAGE"
+        --sandoq-pool-drain-workers "$OCI_RUNNER_POOL_DRAIN_WORKERS"
+        --sandoq-pool-drain-timeout "$OCI_RUNNER_POOL_DRAIN_TIMEOUT"
+        --sandoq-pool-renew-workers "$OCI_RUNNER_POOL_RENEW_WORKERS"
+        --sandoq-session-reuse "$OCI_RUNNER_SESSION_REUSE"
+        --sandoq-pool-max-reuse-count "$OCI_RUNNER_POOL_MAX_REUSE_COUNT"
+        --sandoq-pool-reuse-jitter "$OCI_RUNNER_POOL_REUSE_JITTER"
+        --sandoq-image-cache-max-entries "$OCI_RUNNER_IMAGE_CACHE_MAX_ENTRIES"
+        --sandoq-secret-cache-ttl "$OCI_RUNNER_SECRET_CACHE_TTL"
+        --sandoq-lease-duration "$OCI_RUNNER_LEASE_DURATION"
+        --sandoq-pool-renew-interval "$OCI_RUNNER_POOL_RENEW_INTERVAL"
+    )
+fi
 if [[ -n "$inference_deployment_id" ]]; then
     identity_args+=(--routing-deployment-id "$inference_deployment_id")
 fi
@@ -480,9 +756,20 @@ if [[ ! "$eval_run_identity_sha256" =~ ^[0-9a-f]{64}$ ]]; then
     printf 'Eval identity binder returned invalid metadata\n' >&2
     exit 2
 fi
+"$x86_uv" run --no-project --offline --python "$python_bin" \
+    python3 - "$output_dir/eval_run_identity.json" "$eval_run_identity_sha256" <<'PY'
+import sys
+from pathlib import Path
+from eval_run_identity import load_eval_run_identity
+
+envelope = load_eval_run_identity(Path(sys.argv[1]), verify_references=True)
+if envelope["eval_run_identity_sha256"] != sys.argv[2]:
+    raise SystemExit(2)
+PY
 
 args=(--resume "$output_dir")
-exec "$x86_uv" run --no-project --offline --python "$python_bin" \
+guard_command=(
+    "$x86_uv" run --no-project --offline --python "$python_bin" \
     python3 "$workflow_dir/inference_route_guard.py" \
     --deployment-id "$eval_deployment_id" \
     --deployment-spec "$deployment_spec" \
@@ -500,3 +787,24 @@ exec "$x86_uv" run --no-project --offline --python "$python_bin" \
     -- \
     "$x86_uv" run --no-project --offline --python "$python_bin" \
     python3 -c 'from verifiers.v1.cli.eval.main import main; main()' "${args[@]}"
+)
+if [[ "$sandbox_provider" == vmvm ]]; then
+    exec "${guard_command[@]}"
+fi
+set +e
+"${guard_command[@]}"
+eval_status=$?
+set -e
+"$x86_uv" run --no-project --offline --python "$python_bin" \
+    python3 "$sandoq_provider_root/recipes/sandoq_swerebench_v2_oci/verify_pool_cleanup.py" \
+    --output-dir "$output_dir" --base-url "$OCI_RUNNER_BASE_URL" --owner "$SANDOQ_OWNER" \
+    --concurrency "$OCI_RUNNER_POOL_DRAIN_WORKERS"
+"$x86_uv" run --no-project --offline --python "$python_bin" \
+    python3 "$workflow_dir/sanitize_sandoq_cleanup_audit.py" \
+    --raw-audit "$output_dir/pool_cleanup_audit.json" \
+    --event-log "$OCI_RUNNER_POOL_EVENT_LOG" --wal "$OCI_RUNNER_POOL_WAL" \
+    --drain-marker "${OCI_RUNNER_POOL_SOCKET%.sock}.drained.json" \
+    --output "$output_dir/sandoq_cleanup_audit.json"
+rm -f -- "$output_dir/pool_cleanup_audit.json" "$OCI_RUNNER_POOL_EVENT_LOG" \
+    "$OCI_RUNNER_POOL_WAL" "${OCI_RUNNER_POOL_SOCKET%.sock}.drained.json"
+exit "$eval_status"

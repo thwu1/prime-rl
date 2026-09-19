@@ -18,9 +18,9 @@ from pathlib import Path
 from typing import Any
 
 EXPECTED_MODEL = "Qwen3.8-2.4T-A95B"
-EXPECTED_ENDPOINTS = 16
-EXPECTED_SPEC_SHA256 = "516c386c646abda61b73ffe2b2a820c38a826e2311327154cd775ed29e60215a"
-EXPECTED_ENDPOINT_BUNDLE_SHA256 = "77b513b09002201df0464586e0ac69932348f7fcdbe298213e910be74275160b"
+EXPECTED_ENDPOINTS = 24
+EXPECTED_SPEC_SHA256 = "e5ddc652b1e3dbb99ed65b44b276cf9d9b8ae866b5a4471db42cf0c732a64007"
+EXPECTED_ENDPOINT_BUNDLE_SHA256 = "db0095649feda5d1c8ea66a434c6486a6c91d6b4519664701a26dab44c7a83a0"
 EXPECTED_ENDPOINT_KEYS = frozenset({"host", "port", "started_at"})
 EXPECTED_MANIFEST_KEYS = frozenset(
     {
@@ -116,6 +116,23 @@ def _task_allowlist_count(path: Path) -> int:
     if len(tasks) != len(set(tasks)):
         raise DirectWorkerError("eval_approved_task_file_duplicates")
     return len(tasks)
+
+
+def sandoq_compose_task_count(dataset_dir: Path, task_file: Path) -> int:
+    """Return only the aggregate count of selected tasks requiring Compose."""
+    if not dataset_dir.is_absolute() or not dataset_dir.is_dir():
+        raise DirectWorkerError("eval_sandoq_dataset_unavailable")
+    compose_names = ("docker-compose.yaml", "docker-compose.yml", "compose.yaml", "compose.yml")
+    count = 0
+    for line in task_file.read_text(encoding="utf-8").splitlines():
+        if not line.strip() or line.lstrip().startswith("#"):
+            continue
+        task_name = line.strip().split("\t", 1)[0]
+        if not task_name or Path(task_name).name != task_name:
+            raise DirectWorkerError("eval_sandoq_task_name_invalid")
+        environment_dir = dataset_dir / task_name / "environment"
+        count += any((environment_dir / name).is_file() for name in compose_names)
+    return count
 
 
 def provider_concurrency(config: dict[str, Any]) -> int:
@@ -333,8 +350,23 @@ def validate_eval_config(
         if timeout_overrides != [f"model.model_kwargs.timeout={PRODUCTION_MODEL_TIMEOUT_SECONDS}"]:
             raise DirectWorkerError("eval_model_timeout_mismatch")
     runtime = harness.get("runtime")
-    if not isinstance(runtime, dict) or runtime.get("type") != "vmvm":
-        raise DirectWorkerError("eval_runtime_not_vmvm")
+    if not isinstance(runtime, dict) or runtime.get("type") not in {"vmvm", "sandoq"}:
+        raise DirectWorkerError("eval_runtime_invalid")
+    if runtime.get("type") == "sandoq" and (
+        runtime.get("mode") != "oci-runner"
+        or runtime.get("network_access") is not False
+        or runtime.get("host_tunnel") != "sandoq"
+        or runtime.get("guest_tunnel_url") != "http://127.0.0.1:8485"
+        or runtime.get("expected_environment") != "oci-runner-firecracker-tunnel-pull"
+        or not isinstance(runtime.get("ecr_token_file"), str)
+        or not Path(runtime["ecr_token_file"]).is_absolute()
+    ):
+        raise DirectWorkerError("eval_sandoq_runtime_invalid")
+    if runtime.get("type") == "sandoq":
+        dataset_dir = Path(taskset.get("dataset_dir", ""))
+        compose_count = sandoq_compose_task_count(dataset_dir, task_file)
+        if compose_count:
+            raise DirectWorkerError(f"eval_sandoq_compose_tasks_unsupported:{compose_count}")
     harness_env = harness.get("env")
     if not isinstance(harness_env, dict) or harness_env.get("MSWEA_MODEL_RETRY_STOP_AFTER_ATTEMPT") != "10":
         raise DirectWorkerError("eval_model_retry_policy_mismatch")
@@ -621,6 +653,32 @@ def validate_saved_manifest(path: Path) -> dict[str, Any]:
         ):
             raise DirectWorkerError("direct_worker_manifest_production_admission_invalid")
     return manifest
+
+
+def validate_post_eval_generation(
+    manifest_path: Path,
+    deployment_root: Path,
+    *,
+    router_alive: bool,
+    active_workers: int,
+) -> str:
+    """Revalidate immutable serving inputs immediately before certification."""
+    if not router_alive:
+        raise DirectWorkerError("direct_router_not_live_at_certification")
+    if active_workers != EXPECTED_ENDPOINTS:
+        raise DirectWorkerError("direct_router_worker_count_drift")
+    manifest = validate_saved_manifest(manifest_path)
+    try:
+        workers, spec_sha256, bundle_sha256 = load_workers(deployment_root)
+    except DirectWorkerError as error:
+        raise DirectWorkerError("direct_serving_generation_drift") from error
+    if (
+        len(workers) != EXPECTED_ENDPOINTS
+        or spec_sha256 != manifest["spec_sha256"]
+        or bundle_sha256 != manifest["endpoint_bundle_sha256"]
+    ):
+        raise DirectWorkerError("direct_serving_generation_drift")
+    return hashlib.sha256(manifest_path.read_bytes()).hexdigest()
 
 
 def _read_provenance(path: Path) -> dict[str, str]:

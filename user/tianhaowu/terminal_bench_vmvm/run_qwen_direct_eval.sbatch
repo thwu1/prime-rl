@@ -3,7 +3,7 @@
 #SBATCH --partition=cpu_x86
 #SBATCH --qos=cpu_x86_lowest
 #SBATCH --account=ram
-#SBATCH --time=2-00:00:00
+#SBATCH --time=7-00:00:00
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=8
@@ -15,8 +15,11 @@
 set -euo pipefail
 umask 077
 
-if (( $# != 0 )); then
-    printf 'The direct Qwen launcher does not accept eval overrides; use a pinned config\n' >&2
+preflight_only=0
+if (( $# == 1 )) && [[ $1 == --preflight ]]; then
+    preflight_only=1
+elif (( $# != 0 )); then
+    printf 'The direct Qwen launcher accepts only --preflight; use a pinned config\n' >&2
     exit 2
 fi
 for forbidden in \
@@ -44,11 +47,13 @@ workflow_dir="$project_dir/user/tianhaowu/terminal_bench_vmvm"
 deployment_root=${DIRECT_QWEN_DEPLOYMENT_ROOT:-/checkpoint/ram/shared/vllm_deployments_v2/shared_qwen38_2p4t}
 router_site=${DIRECT_ROUTER_SITE:-/checkpoint/ram/tianhaowu/terminal_bench_vmvm/vllm_router_x86_64_0.1.26}
 x86_site=${PYTHON_SITE_X86_64:-/checkpoint/ram/tianhaowu/terminal_bench_vmvm/python_x86_64}
+sandoq_site=${SANDOQ_PYTHON_SITE_X86_64:-/checkpoint/ram/tianhaowu/terminal_bench_vmvm/sandoq_x86_64_ram_prime_f7313db4}
 x86_uv=${UV_BIN_X86_64:-/storage/home/tianhaowu/.local/x86_64/bin/uv}
 python_bin=${PYTHON_BIN_X86_64:-python3}
 resume_dir=${RESUME_DIR:-}
 approved_task_file=${DIRECT_QWEN_APPROVED_TASK_FILE:-}
 approved_task_file_sha256=${DIRECT_QWEN_APPROVED_TASK_FILE_SHA256:-}
+unset PYTHONPATH PYTHONHOME
 
 if [[ -z "$approved_task_file" || -z "$approved_task_file_sha256" ]]; then
     printf '%s\n' \
@@ -66,6 +71,49 @@ else
         printf 'EVAL_CONFIG with an approved task_file and task_file_sha256 is required\n' >&2
         exit 2
     fi
+fi
+
+sandbox_provider=$(python3 - "$eval_config" <<'PY'
+import sys
+import tomllib
+with open(sys.argv[1], "rb") as handle:
+    print(tomllib.load(handle).get("harness", {}).get("runtime", {}).get("type", ""))
+PY
+)
+if [[ "$sandbox_provider" == sandoq && -n "$resume_dir" ]]; then
+    printf 'Sandoq direct Qwen runs require fresh output\n' >&2
+    exit 2
+fi
+if [[ "$sandbox_provider" == sandoq ]]; then
+    pool_socket_dir="${SLURM_TMPDIR:-/tmp}/oci-runner-pool-${UID}"
+    mkdir -p "$pool_socket_dir"
+    chmod 0700 "$pool_socket_dir"
+    export OCI_RUNNER_POOL_SOCKET="$pool_socket_dir/${SLURM_JOB_ID:?}.sock"
+    for stale in \
+        inputs config.toml results.jsonl provenance.txt eval_run_identity.json eval_invocations.jsonl \
+        direct_workers.json direct_router.log pool_events.jsonl control/sandoq-pool.wal.jsonl \
+        pool_cleanup_audit.json sandoq_cleanup_audit.json direct_qwen_sandoq_certificate.json; do
+        if [[ -e "$output_dir/$stale" || -L "$output_dir/$stale" ]]; then
+            printf 'Sandoq direct runs require a fresh output namespace\n' >&2
+            exit 2
+        fi
+    done
+    for stale in "$OCI_RUNNER_POOL_SOCKET" "$OCI_RUNNER_POOL_SOCKET.owner.json" \
+        "${OCI_RUNNER_POOL_SOCKET%.sock}.drained.json"; do
+        if [[ -e "$stale" || -L "$stale" ]]; then
+            printf 'Sandoq direct runs reject stale node-local broker evidence\n' >&2
+            exit 2
+        fi
+    done
+    expected_count=$(python3 - "$eval_config" <<'PY'
+import sys
+import tomllib
+with open(sys.argv[1], "rb") as handle:
+    print(tomllib.load(handle)["num_tasks"])
+PY
+)
+    ramp_receipt=${SANDOQ_RAMP_RECEIPT:?SANDOQ_RAMP_RECEIPT is required}
+    ramp_receipt_sha256=${SANDOQ_RAMP_RECEIPT_SHA256:?SANDOQ_RAMP_RECEIPT_SHA256 is required}
 fi
 
 if [[ "$(uname -m)" != x86_64 || ! -d "$x86_site/pydantic" ]]; then
@@ -90,6 +138,59 @@ if [[ ! -r "$eval_config" ]]; then
     exit 2
 fi
 cd "$project_dir"
+
+if [[ "$sandbox_provider" == sandoq ]]; then
+    if [[ -n "$(git status --porcelain=v1 --untracked-files=all)" \
+        || -n "$(git -C deps/verifiers status --porcelain=v1 --untracked-files=all)" \
+        || -n "$(git -C deps/renderers status --porcelain=v1 --untracked-files=all)" \
+        || -n "$(git -C deps/sandoq-provider status --porcelain=v1 --untracked-files=all)" \
+        || "$(git -C deps/sandoq-provider rev-parse HEAD)" != 4890302104d76220cef791c86d2009168597d35f ]]; then
+        printf 'Sandoq direct wrapper requires the approved clean source closure\n' >&2
+        exit 2
+    fi
+    if [[ ! -d "$sandoq_site/sandoq_client" ]]; then
+        printf 'Missing pinned x86_64 Sandoq client site\n' >&2
+        exit 2
+    fi
+    wrapper_sandoq_site_sha256=$(
+        "$x86_uv" run --no-project --offline --python "$python_bin" python3 - "$sandoq_site" <<'PY'
+import hashlib
+import sys
+from pathlib import Path
+root = Path(sys.argv[1])
+digest = hashlib.sha256()
+paths = sorted(
+    (path for path in root.rglob("*") if path.is_file() and path.suffix != ".pyc" and not path.name.startswith(".")),
+    key=lambda path: path.relative_to(root).as_posix(),
+)
+for path in paths:
+    digest.update(f"{hashlib.sha256(path.read_bytes()).hexdigest()}  {path.relative_to(root).as_posix()}\n".encode())
+print(digest.hexdigest())
+PY
+    )
+    if [[ "$wrapper_sandoq_site_sha256" != 852f66db48c06e3928c6a5ff974c94bb21c93511342b205c2b7d1b99e73c3d6b ]]; then
+        printf 'Sandoq staged dependency tree does not match the approved closure\n' >&2
+        exit 2
+    fi
+    wrapper_sandoq_client_version=$(
+        "$x86_uv" run --no-project --offline --python "$python_bin" python3 - "$sandoq_site" <<'PY'
+import importlib.metadata as metadata
+import sys
+distributions = [
+    distribution
+    for distribution in metadata.distributions(path=[sys.argv[1]])
+    if distribution.metadata["Name"].lower().replace("_", "-") == "sandoq-client"
+]
+if len(distributions) != 1:
+    raise SystemExit(2)
+print(distributions[0].version)
+PY
+    )
+    if [[ "$wrapper_sandoq_client_version" != 0.4.0.2026.8.20.58304.0+hga81e4ca4d312 ]]; then
+        printf 'Sandoq client version does not match the approved pin\n' >&2
+        exit 2
+    fi
+fi
 
 mkdir -p "$output_dir" /checkpoint/ram/tianhaowu/terminal_bench_vmvm/logs
 exec 8>"$output_dir/.direct_router.lock"
@@ -122,7 +223,7 @@ cleanup() {
 trap cleanup EXIT INT TERM
 
 while IFS= read -r variable_name; do
-    if [[ ${variable_name,,} == *_proxy ]]; then
+    if [[ ${variable_name,,} == *_proxy && $variable_name != SANDOQ_TUNNEL_HTTPS_PROXY ]]; then
         unset "$variable_name"
     fi
 done < <(compgen -e)
@@ -145,7 +246,7 @@ fi
 
 mapfile -t worker_urls < "$urls_file"
 mapfile -t ports < "$ports_file"
-if [[ ${#worker_urls[@]} -ne 16 || ${#ports[@]} -ne 7 ]]; then
+if [[ ${#worker_urls[@]} -ne 24 || ${#ports[@]} -ne 7 ]]; then
     printf 'Direct-worker runtime files are incomplete\n' >&2
     exit 2
 fi
@@ -214,11 +315,11 @@ for attempt in $(seq 1 60); do
             | awk '$1 == "vllm_router_active_workers" {print $2}' \
             | tail -n 1
     ) || true
-    if [[ "$models_ready" -eq 1 && "$active_workers" == 16 ]]; then
+    if [[ "$models_ready" -eq 1 && "$active_workers" == 24 ]]; then
         break
     fi
     if [[ "$attempt" -eq 60 ]]; then
-        printf 'Direct Qwen router did not expose exactly 16 active workers\n' >&2
+        printf 'Direct Qwen router did not expose exactly 24 active workers\n' >&2
         exit 2
     fi
     sleep 5
@@ -239,7 +340,80 @@ else
     export EVAL_CONFIG="$eval_config"
 fi
 
-bash "$workflow_dir/run_eval.sbatch" &
+if [[ "$preflight_only" -eq 1 ]]; then
+    bash "$workflow_dir/run_direct_qwen_eval_driver.sh" --preflight &
+else
+    bash "$workflow_dir/run_eval.sbatch" &
+fi
 eval_pid=$!
 wait "$eval_pid"
 eval_pid=
+if [[ "$sandbox_provider" == sandoq && "$preflight_only" -eq 1 ]]; then
+    rm -f -- "$manifest" "$router_log" "$output_dir/.direct_router.lock"
+    rmdir -- "$output_dir" 2>/dev/null || true
+fi
+if [[ "$sandbox_provider" == sandoq && "$preflight_only" -eq 0 ]]; then
+    if [[ -z "$router_pid" ]] || ! kill -0 "$router_pid" 2>/dev/null; then
+        printf 'Direct Qwen router was not live at certification\n' >&2
+        exit 2
+    fi
+    if ! curl --noproxy '*' --fail --silent --show-error --max-time 10 \
+        "$router_url/v1/models" >/dev/null; then
+        printf 'Direct Qwen router health failed at certification\n' >&2
+        exit 2
+    fi
+    final_active_workers=$(
+        curl --noproxy '*' --fail --silent --show-error --max-time 10 "$metrics_url" \
+            | awk '$1 == "vllm_router_active_workers" {print $2}' \
+            | tail -n 1
+    )
+    if [[ "$final_active_workers" != 24 ]]; then
+        printf 'Direct Qwen router no longer has exactly 24 active workers\n' >&2
+        exit 2
+    fi
+    final_generation=$(
+        PYTHONPATH="$workflow_dir" \
+            "$x86_uv" run --no-project --offline --python "$python_bin" \
+            python3 - "$manifest" "$deployment_root" <<'PY'
+import sys
+from pathlib import Path
+from direct_qwen_workers import validate_post_eval_generation
+
+manifest_path = Path(sys.argv[1])
+print(
+    validate_post_eval_generation(
+        manifest_path,
+        Path(sys.argv[2]),
+        router_alive=True,
+        active_workers=24,
+    )
+)
+PY
+    )
+    if [[ "$final_generation" != "$manifest_sha256" ]]; then
+        printf 'Direct Qwen serving generation drifted during evaluation\n' >&2
+        exit 2
+    fi
+    certificate_args=(
+        "$workflow_dir/certify_direct_qwen_sandoq.py"
+        --run-dir "$output_dir" --expected-task-file "$approved_task_file" \
+        --expected-task-file-sha256 "$approved_task_file_sha256" \
+        --expected-count "$expected_count" \
+        --cleanup-audit "$output_dir/sandoq_cleanup_audit.json" \
+        --ramp-receipt "$ramp_receipt" --ramp-receipt-sha256 "$ramp_receipt_sha256" \
+        --canonical-task-source "$workflow_dir/configs/eval/mobius_valid_tasks_2500.txt" \
+        --canonical-template "$workflow_dir/configs/eval/mobius_qwen_a95b_2500_sandoq.toml" \
+        --output "$output_dir/direct_qwen_sandoq_certificate.json"
+    )
+    if [[ -n ${SANDOQ_PREDECESSOR_CERTIFICATE:-} || -n ${SANDOQ_PREDECESSOR_CERTIFICATE_SHA256:-} ]]; then
+        certificate_args+=(
+            --predecessor "${SANDOQ_PREDECESSOR_CERTIFICATE:-}"
+            --predecessor-sha256 "${SANDOQ_PREDECESSOR_CERTIFICATE_SHA256:-}"
+        )
+    fi
+    "$x86_uv" run --no-project --offline --python "$python_bin" \
+        python3 "${certificate_args[@]}" >/dev/null
+    rm -f -- "$output_dir/pool_cleanup_audit.json" "$output_dir/pool_events.jsonl" \
+        "$output_dir/control/sandoq-pool.wal.jsonl" \
+        "${OCI_RUNNER_POOL_SOCKET%.sock}.drained.json"
+fi

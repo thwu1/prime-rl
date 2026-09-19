@@ -358,3 +358,37 @@ retries: malformed requests and deterministic harness failures must remain
 terminal. Guarded Kimi runs are deliberately nonresumable: after interruption,
 requalify the current serving generation and restart from an empty output
 directory. Do not set `RESUME_DIR` or rebind partial rows to another proxy.
+
+### Native Sandoq Qwen ramp
+
+Use `materialize_sandoq_ramp.py` with the approved 2,500-line allowlist SHA and
+the exact SHA of `configs/eval/mobius_qwen_a95b_2500_sandoq.toml`. Materialize
+each stage into a new directory; existing task, config, or receipt paths are
+rejected. Qualify stages strictly in the order 2, 8, then 24. The stage
+contract is respectively rollout/client/pool 2/2/2, 8/8/8, 24/24/24, and
+64/32/64 for the reserved full-stage shape. The canonical full selection has
+one Compose task, while the native Sandoq taskset intentionally supports only
+single-container tasks, so the 2,500 stage fails closed. It must not launch
+until a separately certified disjoint/exhaustive mixed-provider workflow is in
+place. The currently observed 24-capacity shortfall also remains a production
+blocker.
+
+For every invocation of `run_qwen_direct_eval.sbatch`, set
+`EVAL_CONFIG`, `DIRECT_QWEN_APPROVED_TASK_FILE`, and its SHA to that stage's
+materialized files. Also set `SANDOQ_RAMP_RECEIPT` and
+`SANDOQ_RAMP_RECEIPT_SHA256`. Stages after 2 additionally require
+`SANDOQ_PREDECESSOR_CERTIFICATE` and its SHA. Always use a fresh `OUTPUT_DIR`;
+Sandoq resume is rejected. The launcher uses the workflow's configured token
+paths, a node-local job-scoped pool socket, and output-local recovery logs.
+The x86 compute environment cannot mint replacement ECR credentials. The
+2/8/24 stages therefore require an operator-verified freshly minted static ECR
+token and completion within its lifetime; file mtime is not issuance proof.
+Do not run a long/full stage until a login-side or service-managed atomic token
+rotator and an evaluator-side freshness watchdog are implemented and proven.
+
+Treat Slurm logs, `pool_events.jsonl`, the pool WAL, the raw cleanup audit, and
+the node-local drain marker as private operational evidence. After the
+authoritative typed-404 audit and certificate both succeed, the launcher removes
+those raw lifecycle artifacts. Only `sandoq_cleanup_audit.json` and
+`direct_qwen_sandoq_certificate.json`, which contain aggregate counts and
+hashes but no provider or task identifiers, are publishable.

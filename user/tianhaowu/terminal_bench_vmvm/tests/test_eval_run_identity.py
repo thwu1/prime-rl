@@ -26,8 +26,12 @@ from eval_run_identity import (
     _dataset_identity,
     _effective_vmvm_environment,
     _identity_envelope,
+    _sandoq_site_sha256,
+    _source_identity,
     _tree_digest,
+    _validate_identity_shape,
     _verify_checkpoint_records,
+    _verify_saved_provenance,
     _write_resolved_config,
     canonical_json,
     load_eval_run_identity,
@@ -109,6 +113,7 @@ def _identity() -> dict:
         "image_pull_timeout_sec": 3600,
         "container_privileged": True,
     }
+
     return {
         "schema_version": 1,
         "role": "smoke",
@@ -193,6 +198,235 @@ def _identity() -> dict:
 
 def _sha256(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def _sandoq_identity() -> dict:
+    identity = _identity()
+    config = _resolved_config()
+    config["harness"]["runtime"] = {
+        "type": "sandoq",
+        "mode": "oci-runner",
+        "network_access": False,
+        "host_tunnel": "sandoq",
+        "guest_tunnel_url": "http://127.0.0.1:8485",
+        "expected_environment": "oci-runner-firecracker-tunnel-pull",
+        "ecr_token_file": "/run/secrets/ecr-token",
+    }
+    contract, execution = _contract(config, "approved-model", sandbox_provider="sandoq")
+    execution["sandoq_environment"] = {
+        "environment": "oci-runner-firecracker-tunnel-pull",
+        "task_network": "host",
+        "pool_size": 4,
+        "pool_min_size": 0,
+        "tunnel_policy": "named-tunnel-loopback",
+        "base_url": "https://sandoq.eks-prod.cf.aws.metafb.cloud",
+        "owner": "test-user",
+        "transport_proxy_policy": "official-client-auto-no-global-proxy",
+        "pool_socket_scope": "job-node-local",
+        "pool_wal": "/run/control/sandoq-pool.wal.jsonl",
+        "pool_event_log": "/run/pool_events.jsonl",
+        "use_ecr": True,
+        "ecr_registry": "168653207203.dkr.ecr.us-east-2.amazonaws.com",
+        "ecr_region": "us-east-2",
+        "ecr_pull_through_prefix": "pt_dockerio",
+        "ecr_token_file": "/run/secrets/ecr-token",
+        "ecr_auth_policy": "private-token-file-mode-0600",
+        "allow_dockerhub_fallback": False,
+        "create_deadline": "30m",
+        "pull_timeout": "1200",
+        "pull_poll_max_errors": "10",
+        "gateway_retry_attempts": "15",
+        "gateway_retry_interval": "2s",
+        "podman_ignore_chown_errors": "1",
+        "require_resource_limits": "1",
+        "exec_timeout_ceiling": "270",
+        "task_pids_limit": "512",
+        "observability": "1",
+        "pool_heartbeat_timeout": "45s",
+        "pool_create_workers": "4",
+        "pool_bootstrap_workers": "4",
+        "pool_bootstrap_per_image": "4",
+        "pool_drain_workers": "4",
+        "pool_drain_timeout": "240",
+        "pool_renew_workers": "4",
+        "session_reuse": "1",
+        "pool_max_reuse_count": "6",
+        "pool_reuse_jitter": "2",
+        "image_cache_max_entries": "2",
+        "secret_cache_ttl": "5s",
+        "lease_duration": "1h",
+        "pool_renew_interval": "5m",
+    }
+    identity["contract"] = contract
+    identity["execution"] = execution
+    identity["source"] = {key: value for key, value in identity["source"].items() if key != "vmvm_tb_v2_sha256"} | {
+        "sandbox_provider": "sandoq",
+        "sandoq_provider_commit": "4" * 40,
+        "sandoq_provider_tree": "5" * 40,
+        "sandoq_client_version": "pinned-client",
+        "sandoq_site": "/pinned/sandoq-site",
+        "sandoq_site_sha256": "7" * 64,
+        "derived_image_manifest_sha256": "6" * 64,
+    }
+    identity["inputs"]["image_manifest"] = {
+        "path": "/run/inputs/image_manifest.json",
+        "sha256": "6" * 64,
+    }
+    return identity
+
+
+def test_sandoq_identity_shape_rejects_backend_and_manifest_mismatch() -> None:
+    identity = _sandoq_identity()
+    assert _validate_identity_shape(identity) == identity
+    for path, value in (
+        (("execution", "runtime", "type"), "vmvm"),
+        (("source", "derived_image_manifest_sha256"), "7" * 64),
+        (("execution", "sandoq_environment", "create_deadline"), "31m"),
+        (("execution", "runtime", "ecr_token_file"), "/run/secrets/another-token"),
+        (("execution", "cleanup_must_succeed"), False),
+    ):
+        mismatched = json.loads(json.dumps(identity))
+        target = mismatched
+        for key in path[:-1]:
+            target = target[key]
+        target[path[-1]] = value
+        with pytest.raises(EvalIdentityError, match="schema_invalid"):
+            _validate_identity_shape(mismatched)
+
+
+def test_sandoq_provenance_round_trip(tmp_path: Path) -> None:
+    identity = _sandoq_identity()
+    args = SimpleNamespace(mode="fresh", invocation_host="host", slurm_job_id="123")
+    _bind_provenance(tmp_path, identity, "8" * 64, args)
+    _verify_saved_provenance(tmp_path, identity, "8" * 64)
+    provenance = (tmp_path / "provenance.txt").read_text()
+    assert "sandbox_provider=sandoq\n" in provenance
+    assert "sandoq_allow_dockerhub_fallback=false\n" in provenance
+
+
+def test_direct_qwen_sandoq_identity_binds_worker_generation() -> None:
+    identity = _sandoq_identity()
+    identity["role"] = "qwen-direct"
+    identity["deployment"] = {
+        "kind": "direct_qwen",
+        "worker_manifest": {"path": "/run/direct_workers.json", "sha256": "8" * 64},
+        "spec_sha256": "9" * 64,
+        "endpoint_bundle_sha256": "a" * 64,
+        "base_url": "http://127.0.0.1:12345/v1",
+        "router": {
+            "policy": "consistent_hash",
+            "request_id_headers": ["x-session-id"],
+            "provider_concurrency": 4,
+        },
+    }
+
+    assert _validate_identity_shape(identity) == identity
+    identity["deployment"]["endpoint_bundle_sha256"] = "b" * 63
+    with pytest.raises(EvalIdentityError, match="schema_invalid"):
+        _validate_identity_shape(identity)
+
+
+def test_direct_qwen_sandoq_identity_envelope_round_trip(tmp_path: Path) -> None:
+    identity = _sandoq_identity()
+    identity["role"] = "qwen-direct"
+    identity["deployment"] = {
+        "kind": "direct_qwen",
+        "worker_manifest": {"path": "/run/direct_workers.json", "sha256": "8" * 64},
+        "spec_sha256": "9" * 64,
+        "endpoint_bundle_sha256": "a" * 64,
+        "base_url": "http://127.0.0.1:12345/v1",
+        "router": {
+            "policy": "consistent_hash",
+            "request_id_headers": ["x-session-id"],
+            "provider_concurrency": 4,
+        },
+    }
+    envelope = _identity_envelope(identity)
+    path = tmp_path / "eval_run_identity.json"
+    path.write_text(json.dumps(envelope))
+
+    assert load_eval_run_identity(path, verify_references=False) == envelope
+
+
+def test_direct_qwen_identity_reference_verification_does_not_require_routing(tmp_path: Path, monkeypatch) -> None:
+    identity = _sandoq_identity()
+    identity["role"] = "qwen-direct"
+    identity["deployment"] = {
+        "kind": "direct_qwen",
+        "worker_manifest": {"path": "/run/direct_workers.json", "sha256": "8" * 64},
+        "spec_sha256": "9" * 64,
+        "endpoint_bundle_sha256": "a" * 64,
+        "base_url": "http://127.0.0.1:12345/v1",
+        "router": {
+            "policy": "consistent_hash",
+            "request_id_headers": ["x-session-id"],
+            "provider_concurrency": 4,
+        },
+    }
+    envelope = _identity_envelope(identity)
+    path = tmp_path / "eval_run_identity.json"
+    path.write_text(json.dumps(envelope))
+    monkeypatch.setattr(eval_run_identity, "_verify_source_record", lambda _source: None)
+    monkeypatch.setattr(eval_run_identity, "_artifact", lambda *_args, **_kwargs: {})
+    monkeypatch.setattr(eval_run_identity, "_verify_config_and_inputs", lambda *_args: {})
+    monkeypatch.setattr(eval_run_identity, "_verify_saved_provenance", lambda *_args: None)
+    monkeypatch.setattr(
+        eval_run_identity,
+        "_git_output",
+        lambda *_args, **_kwargs: identity["dataset"]["revision"] if "rev-parse" in _args else "",
+    )
+
+    assert load_eval_run_identity(path, verify_references=True) == envelope
+
+
+def test_sandoq_source_rejects_unobserved_client_version(tmp_path: Path, monkeypatch) -> None:
+    (tmp_path / "deps/sandoq-provider").mkdir(parents=True)
+    clean = hashlib.sha256(b"").hexdigest()
+    args = SimpleNamespace(
+        project_root=tmp_path,
+        prime_rl_commit="1" * 40,
+        prime_rl_tree_sha256=clean,
+        verifiers_commit="2" * 40,
+        verifiers_tree_sha256=clean,
+        renderers_commit="3" * 40,
+        renderers_tree_sha256=clean,
+        sandbox_provider="sandoq",
+        sandoq_provider_commit="4" * 40,
+        sandoq_provider_tree="5" * 40,
+        sandoq_client_version="claimed",
+        sandoq_site=tmp_path,
+        sandoq_site_sha256="7" * 64,
+        derived_image_manifest_sha256="6" * 64,
+    )
+
+    def git_output(_root, *git_args, label: str) -> str:
+        if git_args[0] == "status":
+            return ""
+        if "HEAD^{tree}" in git_args:
+            return "5" * 40
+        if label.endswith("_commit"):
+            return getattr(args, label)
+        return {
+            "sandoq_provider": args.sandoq_provider_commit,
+        }[label]
+
+    monkeypatch.setattr(eval_run_identity, "_git_output", git_output)
+    monkeypatch.setattr(eval_run_identity.importlib.metadata, "version", lambda _name: "observed")
+    with pytest.raises(EvalIdentityError, match="client_version_mismatch"):
+        _source_identity(args)
+
+
+def test_sandoq_site_digest_binds_non_cache_runtime_files(tmp_path: Path) -> None:
+    (tmp_path / "package").mkdir()
+    (tmp_path / "package/module.py").write_text("VALUE = 1\n")
+    (tmp_path / "package/module.pyc").write_bytes(b"cache")
+    (tmp_path / ".lock").write_bytes(b"mutable")
+    before = _sandoq_site_sha256(tmp_path)
+    (tmp_path / "package/module.pyc").write_bytes(b"changed-cache")
+    (tmp_path / ".lock").write_bytes(b"changed-lock")
+    assert _sandoq_site_sha256(tmp_path) == before
+    (tmp_path / "package/module.py").write_text("VALUE = 2\n")
+    assert _sandoq_site_sha256(tmp_path) != before
 
 
 def test_eval_identity_is_canonical_write_once_and_resume_exact(tmp_path: Path) -> None:

@@ -34,7 +34,13 @@ import verifiers.v1 as vf
 from pydantic import Field
 from verifiers.v1.decorators import reward
 from verifiers.v1.errors import SandboxError
-from verifiers.v1.runtimes import ProgramResult, Runtime, VMVMRuntime, make_runtime
+from verifiers.v1.runtimes import (
+    ProgramResult,
+    Runtime,
+    SandoqRuntime,
+    VMVMRuntime,
+    make_runtime,
+)
 from verifiers.v1.task import TaskResources, TaskTimeout
 from verifiers.v1.tasksets.harbor_v1 import HarborConfig, HarborTask, HarborTaskset
 from verifiers.v1.tasksets.harbor_v1.taskset import Author, make_tar, parse_resources
@@ -399,6 +405,104 @@ class TerminalBenchTask(HarborTask):
     verifier_tests_baked: bool = Field(default=False, exclude=True)
     agent_network_mode: Literal["public", "no-network"] = Field(default="public", exclude=True)
     verifier_network_mode: Literal["public", "no-network"] = Field(default="public", exclude=True)
+
+
+def _sandoq_no_network_environment_is_safe(expected_ecr_token_file: Path | None) -> bool:
+    exact = {
+        "OCI_RUNNER_ENVIRONMENT": "oci-runner-firecracker-tunnel-pull",
+        "OCI_RUNNER_TASK_NETWORK": "host",
+        "OCI_RUNNER_ECR_REGISTRY": "168653207203.dkr.ecr.us-east-2.amazonaws.com",
+        "OCI_RUNNER_USE_ECR": "1",
+        "OCI_RUNNER_ECR_REGION": "us-east-2",
+        "OCI_RUNNER_ECR_PULL_THROUGH_PREFIX": "pt_dockerio",
+        "OCI_RUNNER_ALLOW_DOCKERHUB_FALLBACK": "0",
+        "OCI_RUNNER_CREATE_DEADLINE": "30m",
+        "OCI_RUNNER_PULL_TIMEOUT": "1200",
+        "OCI_RUNNER_PULL_POLL_MAX_ERRORS": "10",
+        "OCI_RUNNER_GATEWAY_RETRY_ATTEMPTS": "15",
+        "OCI_RUNNER_GATEWAY_RETRY_INTERVAL": "2s",
+        "OCI_RUNNER_PODMAN_IGNORE_CHOWN_ERRORS": "1",
+        "OCI_RUNNER_REQUIRE_RESOURCE_LIMITS": "1",
+        "OCI_RUNNER_EXEC_TIMEOUT_CEILING": "270",
+        "OCI_RUNNER_TASK_PIDS_LIMIT": "512",
+        "OCI_RUNNER_OBSERVABILITY": "1",
+        "OCI_RUNNER_POOL_HEARTBEAT_TIMEOUT": "45s",
+        "OCI_RUNNER_SESSION_REUSE": "1",
+        "OCI_RUNNER_POOL_MAX_REUSE_COUNT": "6",
+        "OCI_RUNNER_POOL_REUSE_JITTER": "2",
+        "OCI_RUNNER_IMAGE_CACHE_MAX_ENTRIES": "2",
+        "OCI_RUNNER_SECRET_CACHE_TTL": "5s",
+        "OCI_RUNNER_LEASE_DURATION": "1h",
+        "OCI_RUNNER_POOL_RENEW_INTERVAL": "5m",
+    }
+    if any(os.environ.get(key) != value for key, value in exact.items()):
+        return False
+    owner = os.environ.get("SANDOQ_OWNER", "")
+    output_dir = Path(os.environ.get("PRIME_RL_OUTPUT_DIR", ""))
+    job_id = os.environ.get("SLURM_JOB_ID", "")
+    expected_socket = Path(os.environ.get("SLURM_TMPDIR", "/tmp")) / f"oci-runner-pool-{os.getuid()}" / f"{job_id}.sock"
+    if (
+        not re.fullmatch(r"[A-Za-z0-9._-]+", owner)
+        or os.environ.get("OCI_RUNNER_BASE_URL") != "https://sandoq.eks-prod.cf.aws.metafb.cloud"
+        or not output_dir.is_absolute()
+        or not job_id.isdigit()
+        or os.environ.get("OCI_RUNNER_POOL_SOCKET") != str(expected_socket)
+        or os.environ.get("OCI_RUNNER_POOL_WAL") != str(output_dir / "control/sandoq-pool.wal.jsonl")
+        or os.environ.get("OCI_RUNNER_POOL_EVENT_LOG") != str(output_dir / "pool_events.jsonl")
+        or any(
+            os.environ.get(name)
+            for name in (
+                "HTTP_PROXY",
+                "HTTPS_PROXY",
+                "http_proxy",
+                "https_proxy",
+                "ALL_PROXY",
+                "all_proxy",
+                "SANDOQ_TUNNEL_HTTPS_PROXY",
+                "OCI_RUNNER_DOCKERHUB_USERNAME",
+                "OCI_RUNNER_DOCKERHUB_TOKEN_FILE",
+                "OCI_RUNNER_REQUIRE_DOCKERHUB_AUTH",
+                "OCI_RUNNER_ECR_AUXILIARY_REGISTRIES",
+                "OCI_RUNNER_ECR_CLIENT_CERT_PATH",
+                "OCI_RUNNER_ECR_UCLOUD",
+            )
+        )
+    ):
+        return False
+    configured_token_file = os.environ.get("OCI_RUNNER_ECR_TOKEN_FILE")
+    if expected_ecr_token_file is None or not configured_token_file:
+        return False
+    token_file = Path(configured_token_file)
+    if not token_file.is_absolute() or token_file != expected_ecr_token_file.expanduser():
+        return False
+    try:
+        token_stat = token_file.lstat()
+    except OSError:
+        return False
+    if token_file.is_symlink() or not stat.S_ISREG(token_stat.st_mode) or stat.S_IMODE(token_stat.st_mode) != 0o600:
+        return False
+    try:
+        pool = int(os.environ["OCI_RUNNER_POOL_SIZE"])
+        pool_min = int(os.environ["OCI_RUNNER_POOL_MIN_SIZE"])
+        workers = [
+            int(os.environ[key])
+            for key in (
+                "OCI_RUNNER_POOL_CREATE_WORKERS",
+                "OCI_RUNNER_POOL_BOOTSTRAP_WORKERS",
+                "OCI_RUNNER_POOL_DRAIN_WORKERS",
+                "OCI_RUNNER_POOL_RENEW_WORKERS",
+            )
+        ]
+        per_image = int(os.environ["OCI_RUNNER_POOL_BOOTSTRAP_PER_IMAGE"])
+    except (KeyError, ValueError):
+        return False
+    return (
+        1 <= pool <= 64
+        and pool_min == 0
+        and all(1 <= value <= pool for value in workers)
+        and 1 <= per_image <= min(8, pool)
+        and os.environ.get("OCI_RUNNER_POOL_DRAIN_TIMEOUT") == "240"
+    )
 
 
 def _environment_workdir(dockerfile: Path, default: str = "/app") -> str:
@@ -1801,9 +1905,29 @@ class TerminalBenchVMVMTaskset(
         *,
         activate: bool,
     ) -> None:
+        if isinstance(runtime, SandoqRuntime):
+            if mode == "no-network":
+                config = runtime.config
+                if (
+                    config.mode != "oci-runner"
+                    or config.network_access
+                    or config.host_tunnel != "sandoq"
+                    or config.expected_environment != "oci-runner-firecracker-tunnel-pull"
+                    or not _sandoq_no_network_environment_is_safe(config.ecr_token_file)
+                ):
+                    raise UnsupportedTaskError(
+                        f"{task.name}: Sandoq no-network requires OCI Firecracker, "
+                        "network_access=false, task network 'host', and the native loopback tunnel"
+                    )
+            # Sandoq's Firecracker boundary exists before task setup. The host network is
+            # used only for the provider-owned loopback relay; there is no mutable policy
+            # to activate after untrusted task state has been introduced.
+            return
         if not isinstance(runtime, VMVMRuntime):
             if mode == "no-network":
-                raise UnsupportedTaskError(f"{task.name}: network_mode='no-network' requires VMVMRuntime")
+                raise UnsupportedTaskError(
+                    f"{task.name}: network_mode='no-network' requires VMVMRuntime or SandoqRuntime"
+                )
             return
         await runtime.configure_network_policy(mode)
         if activate:
@@ -1881,10 +2005,18 @@ class TerminalBenchVMVMTaskset(
                     f"nohup {shlex.join(startup)} >{startup_log} 2>&1 </dev/null &",
                 ]
                 if task.agent_network_mode == "no-network" and oracle_solution_network_mode != "public":
-                    if not isinstance(runtime, VMVMRuntime):
-                        raise UnsupportedTaskError(f"{task.name}: deferred no-network startup requires VMVMRuntime")
-                    runtime.defer_until_network_isolated(startup_argv)
-                    launched = ProgramResult(exit_code=0, stdout="", stderr="")
+                    if isinstance(runtime, VMVMRuntime):
+                        runtime.defer_until_network_isolated(startup_argv)
+                        launched = ProgramResult(exit_code=0, stdout="", stderr="")
+                    elif isinstance(runtime, SandoqRuntime):
+                        # The Firecracker boundary was established by runtime.start() and
+                        # checked above, so ordinary startup is already isolated.
+                        launched = await runtime.run(startup_argv, {})
+                    else:
+                        raise UnsupportedTaskError(
+                            f"{task.name}: deferred no-network startup requires VMVMRuntime "
+                            "or an isolated SandoqRuntime"
+                        )
                 else:
                     launched = await runtime.run(startup_argv, {})
                 if launched.exit_code != 0:
@@ -3501,8 +3633,8 @@ for requirement in sys.argv[1:]:
 
     @staticmethod
     def _verifier_runtime(task: TerminalBenchTask, runtime: Runtime, name: str) -> Runtime:
-        if not isinstance(runtime, VMVMRuntime):
-            raise RuntimeError("separate Terminal-Bench verification currently requires VMVMRuntime")
+        if not isinstance(runtime, (SandoqRuntime, VMVMRuntime)):
+            raise RuntimeError("separate Terminal-Bench verification requires VMVMRuntime or SandoqRuntime")
         updates = {
             "image": task.verifier_image,
             "workdir": task.verifier_workdir,

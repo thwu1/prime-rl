@@ -46,7 +46,20 @@ KIMI_K3_MAX_MODEL_IO_CONTRACT = CapturedModelIOContract(
         ("preserve_thinking", True),
     ),
 )
-MODEL_IO_CONTRACTS = {"kimi-k3-max": KIMI_K3_MAX_MODEL_IO_CONTRACT}
+QWEN3_A95B_MODEL_IO_CONTRACT = CapturedModelIOContract(
+    provider_route="/chat/completions",
+    request_model="Qwen3.8-2.4T-A95B",
+    response_model="Qwen3.8-2.4T-A95B",
+    reasoning_effort="max",
+    chat_template_kwargs=(
+        ("enable_thinking", True),
+        ("preserve_thinking", True),
+    ),
+)
+MODEL_IO_CONTRACTS = {
+    "kimi-k3-max": KIMI_K3_MAX_MODEL_IO_CONTRACT,
+    "qwen3-a95b": QWEN3_A95B_MODEL_IO_CONTRACT,
+}
 
 
 class TraceJSONLError(ValueError):

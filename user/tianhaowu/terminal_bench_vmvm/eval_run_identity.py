@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import importlib.metadata
 import json
 import math
 import os
@@ -314,6 +315,26 @@ def _vmvm_source_sha256(project_root: Path) -> str:
     return digest.hexdigest()
 
 
+def _sandoq_site_sha256(root: Path) -> str:
+    if not root.is_dir():
+        raise EvalIdentityError("sandoq_site_unreadable")
+    paths = sorted(
+        (
+            path
+            for path in root.rglob("*")
+            if path.is_file() and path.suffix != ".pyc" and not path.name.startswith(".")
+        ),
+        key=lambda path: path.relative_to(root).as_posix(),
+    )
+    if not paths:
+        raise EvalIdentityError("sandoq_site_empty")
+    digest = hashlib.sha256()
+    for path in paths:
+        relative = path.relative_to(root).as_posix()
+        digest.update(f"{_sha256_file(path, label='sandoq_site')}  {relative}\n".encode())
+    return digest.hexdigest()
+
+
 def _source_identity(args: argparse.Namespace) -> dict[str, str]:
     root = args.project_root.resolve(strict=True)
     revisions = {
@@ -341,10 +362,7 @@ def _source_identity(args: argparse.Namespace) -> dict[str, str]:
     ):
         if value != CLEAN_TREE_SHA256:
             raise EvalIdentityError(f"{label}_not_clean")
-    observed_vmvm = _vmvm_source_sha256(root)
-    if args.vmvm_tb_v2_sha256 != observed_vmvm:
-        raise EvalIdentityError("vmvm_source_sha256_mismatch")
-    return {
+    identity = {
         "project_root": str(root),
         "prime_rl_commit": args.prime_rl_commit,
         "prime_rl_tree_sha256": args.prime_rl_tree_sha256,
@@ -352,7 +370,49 @@ def _source_identity(args: argparse.Namespace) -> dict[str, str]:
         "verifiers_tree_sha256": args.verifiers_tree_sha256,
         "renderers_commit": args.renderers_commit,
         "renderers_tree_sha256": args.renderers_tree_sha256,
-        "vmvm_tb_v2_sha256": args.vmvm_tb_v2_sha256,
+    }
+    if args.sandbox_provider == "vmvm":
+        observed_vmvm = _vmvm_source_sha256(root)
+        if args.vmvm_tb_v2_sha256 != observed_vmvm:
+            raise EvalIdentityError("vmvm_source_sha256_mismatch")
+        return {**identity, "vmvm_tb_v2_sha256": args.vmvm_tb_v2_sha256}
+
+    provider_root = root / "deps/sandoq-provider"
+    if REVISION_RE.fullmatch(args.sandoq_provider_commit or "") is None:
+        raise EvalIdentityError("sandoq_provider_commit_invalid")
+    if (
+        _git_output(provider_root, "rev-parse", "--verify", "HEAD", label="sandoq_provider").strip()
+        != args.sandoq_provider_commit
+        or _git_output(
+            provider_root, "status", "--porcelain=v1", "--untracked-files=all", label="sandoq_provider"
+        ).strip()
+    ):
+        raise EvalIdentityError("sandoq_provider_mismatch")
+    observed_tree = _git_output(provider_root, "rev-parse", "HEAD^{tree}", label="sandoq_provider").strip()
+    if args.sandoq_provider_tree != observed_tree:
+        raise EvalIdentityError("sandoq_provider_tree_mismatch")
+    if not args.sandoq_client_version or any(character in args.sandoq_client_version for character in "\r\n="):
+        raise EvalIdentityError("sandoq_client_version_invalid")
+    try:
+        observed_client_version = importlib.metadata.version("sandoq-client")
+    except importlib.metadata.PackageNotFoundError as error:
+        raise EvalIdentityError("sandoq_client_unavailable") from error
+    if args.sandoq_client_version != observed_client_version:
+        raise EvalIdentityError("sandoq_client_version_mismatch")
+    observed_site_sha256 = _sandoq_site_sha256(args.sandoq_site)
+    if args.sandoq_site_sha256 != observed_site_sha256:
+        raise EvalIdentityError("sandoq_site_sha256_mismatch")
+    if SHA256_RE.fullmatch(args.derived_image_manifest_sha256 or "") is None:
+        raise EvalIdentityError("derived_image_manifest_sha256_invalid")
+    return {
+        **identity,
+        "sandbox_provider": "sandoq",
+        "sandoq_provider_commit": args.sandoq_provider_commit,
+        "sandoq_provider_tree": args.sandoq_provider_tree,
+        "sandoq_client_version": args.sandoq_client_version,
+        "sandoq_site": str(args.sandoq_site.resolve(strict=True)),
+        "sandoq_site_sha256": args.sandoq_site_sha256,
+        "derived_image_manifest_sha256": args.derived_image_manifest_sha256,
     }
 
 
@@ -647,6 +707,7 @@ def _contract(
     routing_deployment_id: str | None = None,
     *,
     role: str | None = None,
+    sandbox_provider: str = "vmvm",
 ) -> tuple[dict[str, Any], dict[str, Any]]:
     client = config.get("client")
     sampling = config.get("sampling")
@@ -714,9 +775,22 @@ def _contract(
             raise EvalIdentityError(f"{label}_invalid")
     if model == "Kimi-K3" and require_kimi_steady_state_concurrency:
         validate_kimi_steady_state_concurrency_contract(config)
+    if sandbox_provider not in {"vmvm", "sandoq"}:
+        raise EvalIdentityError("sandbox_provider_invalid")
     runtime = harness.get("runtime")
-    if not isinstance(runtime, dict) or runtime.get("type") != "vmvm":
-        raise EvalIdentityError("vmvm_runtime_required")
+    if not isinstance(runtime, dict) or runtime.get("type") != sandbox_provider:
+        error = "vmvm_runtime_required" if sandbox_provider == "vmvm" else "sandbox_runtime_mismatch"
+        raise EvalIdentityError(error)
+    if sandbox_provider == "sandoq" and (
+        runtime.get("mode") != "oci-runner"
+        or runtime.get("network_access") is not False
+        or runtime.get("host_tunnel") != "sandoq"
+        or runtime.get("expected_environment") != "oci-runner-firecracker-tunnel-pull"
+        or not isinstance(runtime.get("ecr_token_file"), str)
+        or not Path(runtime["ecr_token_file"]).is_absolute()
+        or runtime.get("guest_tunnel_url") != "http://127.0.0.1:8485"
+    ):
+        raise EvalIdentityError("sandoq_runtime_contract_invalid")
     sampling_max_tokens = sampling.get("max_tokens")
     if (
         not isinstance(sampling_max_tokens, int)
@@ -736,13 +810,16 @@ def _contract(
         "outbound_body_denylist": sorted(EXPECTED_DENYLIST),
         "retain_traces": False,
     }
-    return contract, {
+    execution = {
         "rollout_concurrency": rollout_concurrency,
         "multiplex": multiplex,
         "http_max_connections": http_connections,
         "http_max_keepalive_connections": http_keepalive,
         "runtime": runtime,
     }
+    if sandbox_provider == "sandoq":
+        execution["cleanup_must_succeed"] = True
+    return contract, execution
 
 
 def _checkpoint_artifact(payload: dict[str, Any], name: str) -> dict[str, str]:
@@ -1059,6 +1136,135 @@ def _effective_vmvm_environment(args: argparse.Namespace, rollout_concurrency: i
     }
 
 
+def _effective_sandoq_environment(
+    args: argparse.Namespace, rollout_concurrency: int, output_dir: Path
+) -> dict[str, Any]:
+    pool_size = _positive_int(args.sandoq_pool_size, "sandoq_pool_size")
+    try:
+        pool_min_size = int(args.sandoq_pool_min_size)
+    except ValueError as error:
+        raise EvalIdentityError("sandoq_pool_min_size_invalid") from error
+    if pool_min_size != 0:
+        raise EvalIdentityError("sandoq_pool_min_size_invalid")
+    if pool_size < rollout_concurrency:
+        raise EvalIdentityError("sandoq_pool_size_below_rollout_concurrency")
+    if args.sandoq_environment != "oci-runner-firecracker-tunnel-pull":
+        raise EvalIdentityError("sandoq_environment_invalid")
+    if args.sandoq_task_network != "host":
+        raise EvalIdentityError("sandoq_task_network_invalid")
+    if args.sandoq_tunnel_policy != "named-tunnel-loopback":
+        raise EvalIdentityError("sandoq_tunnel_policy_invalid")
+    if (
+        args.sandoq_base_url != "https://sandoq.eks-prod.cf.aws.metafb.cloud"
+        or not re.fullmatch(r"[A-Za-z0-9._-]+", args.sandoq_owner or "")
+        or args.sandoq_transport_proxy_policy != "official-client-auto-no-global-proxy"
+        or any(
+            os.environ.get(name)
+            for name in (
+                "HTTP_PROXY",
+                "HTTPS_PROXY",
+                "http_proxy",
+                "https_proxy",
+                "ALL_PROXY",
+                "all_proxy",
+                "SANDOQ_TUNNEL_HTTPS_PROXY",
+            )
+        )
+    ):
+        raise EvalIdentityError("sandoq_transport_policy_invalid")
+    if (
+        args.sandoq_use_ecr != "1"
+        or args.sandoq_ecr_registry != "168653207203.dkr.ecr.us-east-2.amazonaws.com"
+        or args.sandoq_ecr_region != "us-east-2"
+        or args.sandoq_ecr_pull_through_prefix != "pt_dockerio"
+        or args.sandoq_allow_dockerhub_fallback != "0"
+    ):
+        raise EvalIdentityError("sandoq_ecr_policy_invalid")
+    ecr_token_file = Path(args.sandoq_ecr_token_file)
+    if not ecr_token_file.is_absolute() or os.environ.get("OCI_RUNNER_ECR_TOKEN_FILE") != str(ecr_token_file):
+        raise EvalIdentityError("sandoq_ecr_token_file_invalid")
+    try:
+        token_stat = ecr_token_file.lstat()
+    except OSError as error:
+        raise EvalIdentityError("sandoq_ecr_token_file_unavailable") from error
+    if not stat.S_ISREG(token_stat.st_mode) or ecr_token_file.is_symlink() or stat.S_IMODE(token_stat.st_mode) != 0o600:
+        raise EvalIdentityError("sandoq_ecr_token_file_permissions_invalid")
+    pool_socket = Path(args.sandoq_pool_socket)
+    expected_socket = (
+        Path(os.environ.get("SLURM_TMPDIR", "/tmp")) / f"oci-runner-pool-{os.getuid()}" / f"{args.slurm_job_id}.sock"
+    )
+    pool_wal = Path(args.sandoq_pool_wal)
+    pool_event_log = Path(args.sandoq_pool_event_log)
+    if (
+        pool_socket != expected_socket
+        or os.environ.get("OCI_RUNNER_POOL_SOCKET") != str(pool_socket)
+        or pool_wal != output_dir / "control/sandoq-pool.wal.jsonl"
+        or pool_event_log != output_dir / "pool_events.jsonl"
+        or os.environ.get("OCI_RUNNER_POOL_WAL") != str(pool_wal)
+        or os.environ.get("OCI_RUNNER_POOL_EVENT_LOG") != str(pool_event_log)
+        or os.environ.get("PRIME_RL_OUTPUT_DIR") != str(output_dir)
+        or any(
+            os.environ.get(name)
+            for name in (
+                "OCI_RUNNER_DOCKERHUB_USERNAME",
+                "OCI_RUNNER_DOCKERHUB_TOKEN_FILE",
+                "OCI_RUNNER_REQUIRE_DOCKERHUB_AUTH",
+            )
+        )
+    ):
+        raise EvalIdentityError("sandoq_storage_or_auth_policy_invalid")
+    exact_policy = {
+        "create_deadline": "30m",
+        "pull_timeout": "1200",
+        "pull_poll_max_errors": "10",
+        "gateway_retry_attempts": "15",
+        "gateway_retry_interval": "2s",
+        "podman_ignore_chown_errors": "1",
+        "require_resource_limits": "1",
+        "exec_timeout_ceiling": "270",
+        "task_pids_limit": "512",
+        "observability": "1",
+        "pool_heartbeat_timeout": "45s",
+        "pool_create_workers": str(min(pool_size, 32)),
+        "pool_bootstrap_workers": str(min(pool_size, 64)),
+        "pool_bootstrap_per_image": str(min(pool_size, 8)),
+        "pool_drain_workers": str(min(pool_size, 32)),
+        "pool_drain_timeout": "240",
+        "pool_renew_workers": str(min(pool_size, 16)),
+        "session_reuse": "1",
+        "pool_max_reuse_count": "6",
+        "pool_reuse_jitter": "2",
+        "image_cache_max_entries": "2",
+        "secret_cache_ttl": "5s",
+        "lease_duration": "1h",
+        "pool_renew_interval": "5m",
+    }
+    for field, expected in exact_policy.items():
+        if getattr(args, f"sandoq_{field}") != expected:
+            raise EvalIdentityError(f"sandoq_{field}_invalid")
+    return {
+        "environment": args.sandoq_environment,
+        "task_network": args.sandoq_task_network,
+        "pool_size": pool_size,
+        "pool_min_size": pool_min_size,
+        "tunnel_policy": args.sandoq_tunnel_policy,
+        "base_url": args.sandoq_base_url,
+        "owner": args.sandoq_owner,
+        "transport_proxy_policy": args.sandoq_transport_proxy_policy,
+        "pool_socket_scope": "job-node-local",
+        "pool_wal": str(pool_wal),
+        "pool_event_log": str(pool_event_log),
+        "use_ecr": True,
+        "ecr_registry": args.sandoq_ecr_registry,
+        "ecr_region": args.sandoq_ecr_region,
+        "ecr_pull_through_prefix": args.sandoq_ecr_pull_through_prefix,
+        "ecr_token_file": str(ecr_token_file),
+        "ecr_auth_policy": "private-token-file-mode-0600",
+        "allow_dockerhub_fallback": False,
+        **exact_policy,
+    }
+
+
 def _load_resolved_config(path: Path) -> dict[str, Any]:
     raw = _read_bytes(path, label="resolved_config")
     try:
@@ -1164,11 +1370,11 @@ def _validate_identity_shape(identity: object) -> dict[str, Any]:
         raise EvalIdentityError("eval_run_identity_schema_invalid")
 
     role = identity.get("role")
-    if role not in {"smoke", "tb4", "mobius"}:
+    if role not in {"smoke", "tb4", "mobius", "qwen-direct"}:
         raise EvalIdentityError("eval_run_identity_schema_invalid")
 
     source = identity.get("source")
-    source_keys = {
+    common_source_keys = {
         "project_root",
         "prime_rl_commit",
         "prime_rl_tree_sha256",
@@ -1176,23 +1382,55 @@ def _validate_identity_shape(identity: object) -> dict[str, Any]:
         "verifiers_tree_sha256",
         "renderers_commit",
         "renderers_tree_sha256",
-        "vmvm_tb_v2_sha256",
     }
-    if not isinstance(source, dict) or set(source) != source_keys:
+    if not isinstance(source, dict):
+        raise EvalIdentityError("eval_run_identity_schema_invalid")
+    sandbox_provider = source.get("sandbox_provider", "vmvm")
+    source_keys = (
+        common_source_keys | {"vmvm_tb_v2_sha256"}
+        if sandbox_provider == "vmvm"
+        else common_source_keys
+        | {
+            "sandbox_provider",
+            "sandoq_provider_commit",
+            "sandoq_provider_tree",
+            "sandoq_client_version",
+            "sandoq_site",
+            "sandoq_site_sha256",
+            "derived_image_manifest_sha256",
+        }
+    )
+    if sandbox_provider not in {"vmvm", "sandoq"} or set(source) != source_keys:
         raise EvalIdentityError("eval_run_identity_schema_invalid")
     project_root = source.get("project_root")
     if not isinstance(project_root, str) or not project_root or not Path(project_root).is_absolute():
         raise EvalIdentityError("eval_run_identity_schema_invalid")
-    for key in ("prime_rl_commit", "verifiers_commit", "renderers_commit"):
+    if sandbox_provider == "sandoq" and (
+        not isinstance(source.get("sandoq_site"), str) or not Path(source["sandoq_site"]).is_absolute()
+    ):
+        raise EvalIdentityError("eval_run_identity_schema_invalid")
+    revision_keys = (
+        "prime_rl_commit",
+        "verifiers_commit",
+        "renderers_commit",
+    )
+    if sandbox_provider == "sandoq":
+        revision_keys += ("sandoq_provider_commit", "sandoq_provider_tree")
+    for key in revision_keys:
         value = source.get(key)
         if not isinstance(value, str) or REVISION_RE.fullmatch(value) is None:
             raise EvalIdentityError("eval_run_identity_schema_invalid")
-    for key in (
+    digest_keys = (
         "prime_rl_tree_sha256",
         "verifiers_tree_sha256",
         "renderers_tree_sha256",
-        "vmvm_tb_v2_sha256",
-    ):
+    )
+    digest_keys += (
+        ("vmvm_tb_v2_sha256",)
+        if sandbox_provider == "vmvm"
+        else ("derived_image_manifest_sha256", "sandoq_site_sha256")
+    )
+    for key in digest_keys:
         value = source.get(key)
         if not isinstance(value, str) or SHA256_RE.fullmatch(value) is None:
             raise EvalIdentityError("eval_run_identity_schema_invalid")
@@ -1214,6 +1452,11 @@ def _validate_identity_shape(identity: object) -> dict[str, Any]:
         raise EvalIdentityError("eval_run_identity_schema_invalid")
     if inputs["image_manifest"] is not None:
         _validate_artifact_shape(inputs["image_manifest"])
+    if sandbox_provider == "sandoq" and (
+        inputs["image_manifest"] is None
+        or inputs["image_manifest"]["sha256"] != source["derived_image_manifest_sha256"]
+    ):
+        raise EvalIdentityError("eval_run_identity_schema_invalid")
 
     dataset = identity.get("dataset")
     if not isinstance(dataset, dict) or set(dataset) != {
@@ -1252,7 +1495,32 @@ def _validate_identity_shape(identity: object) -> dict[str, Any]:
         raise EvalIdentityError("eval_run_identity_schema_invalid")
 
     deployment = identity.get("deployment")
-    if not isinstance(deployment, dict) or set(deployment) != {
+    if role == "qwen-direct":
+        if not isinstance(deployment, dict) or set(deployment) != {
+            "kind",
+            "worker_manifest",
+            "spec_sha256",
+            "endpoint_bundle_sha256",
+            "base_url",
+            "router",
+        }:
+            raise EvalIdentityError("eval_run_identity_schema_invalid")
+        _validate_artifact_shape(deployment["worker_manifest"])
+        router = deployment.get("router")
+        if (
+            deployment.get("kind") != "direct_qwen"
+            or SHA256_RE.fullmatch(str(deployment.get("spec_sha256", ""))) is None
+            or SHA256_RE.fullmatch(str(deployment.get("endpoint_bundle_sha256", ""))) is None
+            or not isinstance(deployment.get("base_url"), str)
+            or not isinstance(router, dict)
+            or set(router) != {"policy", "request_id_headers", "provider_concurrency"}
+            or router.get("policy") != "consistent_hash"
+            or router.get("request_id_headers") != ["x-session-id"]
+            or not _validate_positive_integer(router.get("provider_concurrency"))
+        ):
+            raise EvalIdentityError("eval_run_identity_schema_invalid")
+        proxy_policy = None
+    elif not isinstance(deployment, dict) or set(deployment) != {
         "id",
         "endpoint",
         "serving_route_generation",
@@ -1264,22 +1532,29 @@ def _validate_identity_shape(identity: object) -> dict[str, Any]:
         "promotion_certificate",
     }:
         raise EvalIdentityError("eval_run_identity_schema_invalid")
-    deployment_id = deployment.get("id")
-    if not isinstance(deployment_id, str) or METADATA_ID_RE.fullmatch(deployment_id) is None:
+    if role != "qwen-direct":
+        deployment_id = deployment.get("id")
+    if role != "qwen-direct" and (
+        not isinstance(deployment_id, str) or METADATA_ID_RE.fullmatch(deployment_id) is None
+    ):
         raise EvalIdentityError("eval_run_identity_schema_invalid")
     try:
+        if role == "qwen-direct":
+            raise StopIteration
         validate_endpoint_binding(deployment.get("endpoint"))
         validate_route_generation(deployment.get("serving_route_generation"))
         proxy_policy = validate_proxy_policy_binding(deployment.get("proxy_policy"))
+    except StopIteration:
+        pass
     except (
         EndpointBindingError,
         RouteGenerationError,
         DeploymentProxyPolicyError,
     ) as error:
         raise EvalIdentityError("eval_run_identity_schema_invalid") from error
-    routing = deployment.get("routing")
+    routing = deployment.get("routing") if role != "qwen-direct" else None
     routing_id = routing.get("deployment_id") if isinstance(routing, dict) else None
-    if (
+    if role != "qwen-direct" and (
         not isinstance(routing, dict)
         or set(routing) != {"deployment_id", "headers"}
         or (routing_id is not None and not isinstance(routing_id, str))
@@ -1287,16 +1562,17 @@ def _validate_identity_shape(identity: object) -> dict[str, Any]:
         or (routing_id is not None and routing_id != deployment_id)
     ):
         raise EvalIdentityError("eval_run_identity_schema_invalid")
-    _validate_artifact_shape(deployment["spec"])
-    _validate_artifact_shape(deployment["readiness_checkpoint"])
+    if role != "qwen-direct":
+        _validate_artifact_shape(deployment["spec"])
+        _validate_artifact_shape(deployment["readiness_checkpoint"])
     if role == "smoke":
         if deployment["smoke_checkpoint"] is not None:
             raise EvalIdentityError("eval_run_identity_schema_invalid")
-    else:
+    elif role != "qwen-direct":
         _validate_artifact_shape(deployment["smoke_checkpoint"])
     if role == "mobius":
         _validate_artifact_shape(deployment["promotion_certificate"])
-    elif deployment["promotion_certificate"] is not None:
+    elif role != "qwen-direct" and deployment["promotion_certificate"] is not None:
         raise EvalIdentityError("eval_run_identity_schema_invalid")
 
     contract = identity.get("contract")
@@ -1334,18 +1610,21 @@ def _validate_identity_shape(identity: object) -> dict[str, Any]:
         or contract.get("retain_traces") is not False
     ):
         raise EvalIdentityError("eval_run_identity_schema_invalid")
-    if proxy_policy["request_timeout"] != request_timeout_for_model(model):
+    if role != "qwen-direct" and proxy_policy["request_timeout"] != request_timeout_for_model(model):
         raise EvalIdentityError("eval_run_identity_schema_invalid")
 
     execution = identity.get("execution")
-    if not isinstance(execution, dict) or set(execution) != {
+    common_execution_keys = {
         "rollout_concurrency",
         "multiplex",
         "http_max_connections",
         "http_max_keepalive_connections",
         "runtime",
-        "vmvm_environment",
-    }:
+    }
+    if sandbox_provider == "sandoq":
+        common_execution_keys.add("cleanup_must_succeed")
+    environment_key = f"{sandbox_provider}_environment"
+    if not isinstance(execution, dict) or set(execution) != common_execution_keys | {environment_key}:
         raise EvalIdentityError("eval_run_identity_schema_invalid")
     if any(
         not _validate_positive_integer(execution.get(key))
@@ -1358,9 +1637,112 @@ def _validate_identity_shape(identity: object) -> dict[str, Any]:
     ):
         raise EvalIdentityError("eval_run_identity_schema_invalid")
     runtime = execution.get("runtime")
-    environment = execution.get("vmvm_environment")
-    if not isinstance(runtime, dict) or runtime.get("type") != "vmvm":
+    environment = execution.get(environment_key)
+    if not isinstance(runtime, dict) or runtime.get("type") != sandbox_provider:
         raise EvalIdentityError("eval_run_identity_schema_invalid")
+    if sandbox_provider == "sandoq":
+        if execution.get("cleanup_must_succeed") is not True:
+            raise EvalIdentityError("eval_run_identity_schema_invalid")
+        if not isinstance(environment, dict) or set(environment) != {
+            "environment",
+            "task_network",
+            "pool_size",
+            "pool_min_size",
+            "tunnel_policy",
+            "base_url",
+            "owner",
+            "transport_proxy_policy",
+            "pool_socket_scope",
+            "pool_wal",
+            "pool_event_log",
+            "use_ecr",
+            "ecr_registry",
+            "ecr_region",
+            "ecr_pull_through_prefix",
+            "ecr_token_file",
+            "ecr_auth_policy",
+            "allow_dockerhub_fallback",
+            "create_deadline",
+            "pull_timeout",
+            "pull_poll_max_errors",
+            "gateway_retry_attempts",
+            "gateway_retry_interval",
+            "podman_ignore_chown_errors",
+            "require_resource_limits",
+            "exec_timeout_ceiling",
+            "task_pids_limit",
+            "observability",
+            "pool_heartbeat_timeout",
+            "pool_create_workers",
+            "pool_bootstrap_workers",
+            "pool_bootstrap_per_image",
+            "pool_drain_workers",
+            "pool_drain_timeout",
+            "pool_renew_workers",
+            "session_reuse",
+            "pool_max_reuse_count",
+            "pool_reuse_jitter",
+            "image_cache_max_entries",
+            "secret_cache_ttl",
+            "lease_duration",
+            "pool_renew_interval",
+        }:
+            raise EvalIdentityError("eval_run_identity_schema_invalid")
+        if (
+            environment.get("environment") != "oci-runner-firecracker-tunnel-pull"
+            or environment.get("task_network") != "host"
+            or environment.get("tunnel_policy") != "named-tunnel-loopback"
+            or environment.get("use_ecr") is not True
+            or environment.get("ecr_registry") != "168653207203.dkr.ecr.us-east-2.amazonaws.com"
+            or environment.get("ecr_region") != "us-east-2"
+            or environment.get("ecr_pull_through_prefix") != "pt_dockerio"
+            or not isinstance(environment.get("ecr_token_file"), str)
+            or not Path(environment["ecr_token_file"]).is_absolute()
+            or environment.get("ecr_auth_policy") != "private-token-file-mode-0600"
+            or environment.get("base_url") != "https://sandoq.eks-prod.cf.aws.metafb.cloud"
+            or not re.fullmatch(r"[A-Za-z0-9._-]+", str(environment.get("owner", "")))
+            or environment.get("transport_proxy_policy") != "official-client-auto-no-global-proxy"
+            or environment.get("pool_socket_scope") != "job-node-local"
+            or not isinstance(environment.get("pool_wal"), str)
+            or not isinstance(environment.get("pool_event_log"), str)
+            or environment.get("allow_dockerhub_fallback") is not False
+            or runtime.get("ecr_token_file") != environment.get("ecr_token_file")
+            or not _validate_positive_integer(environment.get("pool_size"))
+            or not isinstance(environment.get("pool_min_size"), int)
+            or environment["pool_min_size"] < 0
+            or environment["pool_min_size"] > environment["pool_size"]
+            or environment["pool_size"] < execution["rollout_concurrency"]
+        ):
+            raise EvalIdentityError("eval_run_identity_schema_invalid")
+        expected_policy = {
+            "create_deadline": "30m",
+            "pull_timeout": "1200",
+            "pull_poll_max_errors": "10",
+            "gateway_retry_attempts": "15",
+            "gateway_retry_interval": "2s",
+            "podman_ignore_chown_errors": "1",
+            "require_resource_limits": "1",
+            "exec_timeout_ceiling": "270",
+            "task_pids_limit": "512",
+            "observability": "1",
+            "pool_heartbeat_timeout": "45s",
+            "pool_create_workers": str(min(environment["pool_size"], 32)),
+            "pool_bootstrap_workers": str(min(environment["pool_size"], 64)),
+            "pool_bootstrap_per_image": str(min(environment["pool_size"], 8)),
+            "pool_drain_workers": str(min(environment["pool_size"], 32)),
+            "pool_drain_timeout": "240",
+            "pool_renew_workers": str(min(environment["pool_size"], 16)),
+            "session_reuse": "1",
+            "pool_max_reuse_count": "6",
+            "pool_reuse_jitter": "2",
+            "image_cache_max_entries": "2",
+            "secret_cache_ttl": "5s",
+            "lease_duration": "1h",
+            "pool_renew_interval": "5m",
+        }
+        if any(environment.get(key) != value for key, value in expected_policy.items()):
+            raise EvalIdentityError("eval_run_identity_schema_invalid")
+        return identity
     if not isinstance(environment, dict) or set(environment) != {
         "vacli_bin",
         "lease_start_concurrency",
@@ -1545,7 +1927,7 @@ def _verify_checkpoint_records(
 
 
 def _verify_source_record(source: object) -> None:
-    expected_keys = {
+    common_keys = {
         "project_root",
         "prime_rl_commit",
         "prime_rl_tree_sha256",
@@ -1553,9 +1935,25 @@ def _verify_source_record(source: object) -> None:
         "verifiers_tree_sha256",
         "renderers_commit",
         "renderers_tree_sha256",
-        "vmvm_tb_v2_sha256",
     }
-    if not isinstance(source, dict) or set(source) != expected_keys:
+    if not isinstance(source, dict):
+        raise EvalIdentityError("eval_run_identity_schema_invalid")
+    sandbox_provider = source.get("sandbox_provider", "vmvm")
+    expected_keys = (
+        common_keys | {"vmvm_tb_v2_sha256"}
+        if sandbox_provider == "vmvm"
+        else common_keys
+        | {
+            "sandbox_provider",
+            "sandoq_provider_commit",
+            "sandoq_provider_tree",
+            "sandoq_client_version",
+            "sandoq_site",
+            "sandoq_site_sha256",
+            "derived_image_manifest_sha256",
+        }
+    )
+    if sandbox_provider not in {"vmvm", "sandoq"} or set(source) != expected_keys:
         raise EvalIdentityError("eval_run_identity_schema_invalid")
     root = Path(source["project_root"]).resolve(strict=True)
     for label, repository, revision_key, tree_key in (
@@ -1577,8 +1975,22 @@ def _verify_source_record(source: object) -> None:
         )
         if source[tree_key] != _sha256_bytes(status.encode()) or status.strip():
             raise EvalIdentityError(f"{label}_worktree_not_clean")
-    if source["vmvm_tb_v2_sha256"] != _vmvm_source_sha256(root):
+    if sandbox_provider == "vmvm" and source["vmvm_tb_v2_sha256"] != _vmvm_source_sha256(root):
         raise EvalIdentityError("vmvm_source_sha256_mismatch")
+    if sandbox_provider == "sandoq":
+        provider = root / "deps/sandoq-provider"
+        if (
+            _git_output(provider, "rev-parse", "HEAD", label="sandoq_provider").strip()
+            != source["sandoq_provider_commit"]
+            or _git_output(provider, "rev-parse", "HEAD^{tree}", label="sandoq_provider").strip()
+            != source["sandoq_provider_tree"]
+            or _git_output(
+                provider, "status", "--porcelain=v1", "--untracked-files=all", label="sandoq_provider"
+            ).strip()
+        ):
+            raise EvalIdentityError("sandoq_provider_mismatch")
+        if source["sandoq_site_sha256"] != _sandoq_site_sha256(Path(source["sandoq_site"])):
+            raise EvalIdentityError("sandoq_site_sha256_mismatch")
 
 
 def _verify_config_and_inputs(
@@ -1616,8 +2028,9 @@ def _verify_config_and_inputs(
     observed_contract, observed_execution = _contract(
         config,
         identity["contract"]["model"],
-        identity["deployment"]["routing"]["deployment_id"],
+        (None if identity["role"] == "qwen-direct" else identity["deployment"]["routing"]["deployment_id"]),
         role=identity["role"],
+        sandbox_provider=identity["source"].get("sandbox_provider", "vmvm"),
     )
     client = config.get("client")
     if not isinstance(client, dict) or client.get("base_url") != endpoint_client_base_url:
@@ -1627,9 +2040,9 @@ def _verify_config_and_inputs(
     ):
         raise EvalIdentityError("eval_config_contract_mismatch")
     expected_request_timeout = request_timeout_for_model(observed_contract["model"])
-    if (
-        identity["deployment"]["proxy_policy"]["request_timeout"] != expected_request_timeout
-        or config["client"].get("timeout") != expected_request_timeout
+    if config["client"].get("timeout") != expected_request_timeout or (
+        identity["role"] != "qwen-direct"
+        and identity["deployment"]["proxy_policy"]["request_timeout"] != expected_request_timeout
     ):
         raise EvalIdentityError("deployment_proxy_timeout_mismatch")
 
@@ -1651,6 +2064,7 @@ def _verify_config_and_inputs(
 
 def _verify_saved_provenance(output_dir: Path, identity: dict[str, Any], identity_sha256: str) -> None:
     source = identity["source"]
+    sandbox_provider = source.get("sandbox_provider", "vmvm")
     stable = {
         "prime_rl": source["prime_rl_commit"],
         "prime_rl_tree": source["prime_rl_tree_sha256"],
@@ -1658,15 +2072,92 @@ def _verify_saved_provenance(output_dir: Path, identity: dict[str, Any], identit
         "verifiers_tree": source["verifiers_tree_sha256"],
         "renderers": source["renderers_commit"],
         "renderers_tree": source["renderers_tree_sha256"],
-        "vmvm_tb_v2": source["vmvm_tb_v2_sha256"],
-        "deployment_id": identity["deployment"]["id"],
-        "deployment_endpoint_authority_sha256": identity["deployment"]["endpoint"]["authority_sha256"],
-        "deployment_proxy_info_sha256": identity["deployment"]["endpoint"]["proxy_info"]["sha256"],
         "eval_run_role": identity["role"],
         "eval_run_identity_sha256": identity_sha256,
         "approval_task_file_sha256": identity["inputs"]["task_file"]["sha256"],
         "approval_task_count": str(identity["inputs"]["task_file"]["count"]),
     }
+    if identity["role"] == "qwen-direct":
+        stable.update(
+            {
+                "direct_worker_manifest_sha256": identity["deployment"]["worker_manifest"]["sha256"],
+                "direct_spec_sha256": identity["deployment"]["spec_sha256"],
+                "direct_endpoint_bundle_sha256": identity["deployment"]["endpoint_bundle_sha256"],
+            }
+        )
+    else:
+        stable.update(
+            {
+                "deployment_id": identity["deployment"]["id"],
+                "deployment_endpoint_authority_sha256": identity["deployment"]["endpoint"]["authority_sha256"],
+                "deployment_proxy_info_sha256": identity["deployment"]["endpoint"]["proxy_info"]["sha256"],
+            }
+        )
+    if sandbox_provider == "vmvm":
+        stable["vmvm_tb_v2"] = source["vmvm_tb_v2_sha256"]
+    else:
+        environment = identity["execution"]["sandoq_environment"]
+        stable.update(
+            {
+                "sandbox_provider": "sandoq",
+                "sandoq_provider_commit": source["sandoq_provider_commit"],
+                "sandoq_provider_tree": source["sandoq_provider_tree"],
+                "sandoq_client_version": source["sandoq_client_version"],
+                "sandoq_site_sha256": source["sandoq_site_sha256"],
+                "derived_image_manifest_sha256": source["derived_image_manifest_sha256"],
+                "sandoq_environment": environment["environment"],
+                "sandoq_task_network": environment["task_network"],
+                "sandoq_pool_size": str(environment["pool_size"]),
+                "sandoq_pool_min_size": str(environment["pool_min_size"]),
+                "sandoq_tunnel_policy": environment["tunnel_policy"],
+                "sandoq_base_url": environment["base_url"],
+                "sandoq_owner": environment["owner"],
+                "sandoq_transport_proxy_policy": environment["transport_proxy_policy"],
+                "sandoq_pool_socket_scope": environment["pool_socket_scope"],
+                "sandoq_pool_wal": environment["pool_wal"],
+                "sandoq_pool_event_log": environment["pool_event_log"],
+                "sandoq_use_ecr": str(environment["use_ecr"]).lower(),
+                "sandoq_ecr_registry": environment["ecr_registry"],
+                "sandoq_ecr_region": environment["ecr_region"],
+                "sandoq_ecr_pull_through_prefix": environment["ecr_pull_through_prefix"],
+                "sandoq_ecr_token_file": environment["ecr_token_file"],
+                "sandoq_ecr_auth_policy": environment["ecr_auth_policy"],
+                "sandoq_allow_dockerhub_fallback": str(environment["allow_dockerhub_fallback"]).lower(),
+            }
+        )
+        stable.update(
+            {
+                f"sandoq_{key}": str(value).lower() if isinstance(value, bool) else str(value)
+                for key, value in environment.items()
+                if key
+                in {
+                    "create_deadline",
+                    "pull_timeout",
+                    "pull_poll_max_errors",
+                    "gateway_retry_attempts",
+                    "gateway_retry_interval",
+                    "podman_ignore_chown_errors",
+                    "require_resource_limits",
+                    "exec_timeout_ceiling",
+                    "task_pids_limit",
+                    "observability",
+                    "pool_heartbeat_timeout",
+                    "pool_create_workers",
+                    "pool_bootstrap_workers",
+                    "pool_bootstrap_per_image",
+                    "pool_drain_workers",
+                    "pool_drain_timeout",
+                    "pool_renew_workers",
+                    "session_reuse",
+                    "pool_max_reuse_count",
+                    "pool_reuse_jitter",
+                    "image_cache_max_entries",
+                    "secret_cache_ttl",
+                    "lease_duration",
+                    "pool_renew_interval",
+                }
+            }
+        )
     saved = _parse_provenance(output_dir / "provenance.txt")
     if (
         set(saved) != {*stable, "host", "slurm_job_id"}
@@ -1717,8 +2208,20 @@ def load_eval_run_identity(
             if not isinstance(record["path"], str) or not isinstance(record["sha256"], str):
                 raise EvalIdentityError("eval_run_identity_schema_invalid")
             _artifact(Path(record["path"]), record["sha256"], label=label)
-    endpoint_info = _load_bound_endpoint(identity)
-    _verify_config_and_inputs(identity, path.resolve().parent, endpoint_info.client_base_url)
+    direct_qwen = identity["role"] == "qwen-direct"
+    if direct_qwen:
+        deployment = identity["deployment"]
+        _artifact(
+            Path(deployment["worker_manifest"]["path"]),
+            deployment["worker_manifest"]["sha256"],
+            label="direct_worker_manifest",
+        )
+        endpoint_client_base_url = deployment["base_url"]
+        endpoint_info = None
+    else:
+        endpoint_info = _load_bound_endpoint(identity)
+        endpoint_client_base_url = endpoint_info.client_base_url
+    _verify_config_and_inputs(identity, path.resolve().parent, endpoint_client_base_url)
     dataset = identity["dataset"]
     if not isinstance(dataset, dict):
         raise EvalIdentityError("eval_run_identity_schema_invalid")
@@ -1743,12 +2246,14 @@ def load_eval_run_identity(
             raise EvalIdentityError("dataset_worktree_not_clean")
     else:
         raise EvalIdentityError("eval_run_identity_schema_invalid")
-    _verify_checkpoint_records(
-        identity,
-        endpoint_info.binding,
-        deployment_spec_snapshot=deployment_spec_snapshot,
-        proxy_policy_snapshot=proxy_policy_snapshot,
-    )
+    if not direct_qwen:
+        assert endpoint_info is not None
+        _verify_checkpoint_records(
+            identity,
+            endpoint_info.binding,
+            deployment_spec_snapshot=deployment_spec_snapshot,
+            proxy_policy_snapshot=proxy_policy_snapshot,
+        )
     assert isinstance(digest, str)
     _verify_saved_provenance(path.resolve().parent, identity, digest)
     return envelope
@@ -1808,6 +2313,7 @@ def _bind_provenance(
     args: argparse.Namespace,
 ) -> None:
     source = identity["source"]
+    sandbox_provider = source.get("sandbox_provider", "vmvm")
     stable = {
         "prime_rl": source["prime_rl_commit"],
         "prime_rl_tree": source["prime_rl_tree_sha256"],
@@ -1815,15 +2321,92 @@ def _bind_provenance(
         "verifiers_tree": source["verifiers_tree_sha256"],
         "renderers": source["renderers_commit"],
         "renderers_tree": source["renderers_tree_sha256"],
-        "vmvm_tb_v2": source["vmvm_tb_v2_sha256"],
-        "deployment_id": identity["deployment"]["id"],
-        "deployment_endpoint_authority_sha256": identity["deployment"]["endpoint"]["authority_sha256"],
-        "deployment_proxy_info_sha256": identity["deployment"]["endpoint"]["proxy_info"]["sha256"],
         "eval_run_role": identity["role"],
         "eval_run_identity_sha256": identity_sha256,
         "approval_task_file_sha256": identity["inputs"]["task_file"]["sha256"],
         "approval_task_count": str(identity["inputs"]["task_file"]["count"]),
     }
+    if identity["role"] == "qwen-direct":
+        stable.update(
+            {
+                "direct_worker_manifest_sha256": identity["deployment"]["worker_manifest"]["sha256"],
+                "direct_spec_sha256": identity["deployment"]["spec_sha256"],
+                "direct_endpoint_bundle_sha256": identity["deployment"]["endpoint_bundle_sha256"],
+            }
+        )
+    else:
+        stable.update(
+            {
+                "deployment_id": identity["deployment"]["id"],
+                "deployment_endpoint_authority_sha256": identity["deployment"]["endpoint"]["authority_sha256"],
+                "deployment_proxy_info_sha256": identity["deployment"]["endpoint"]["proxy_info"]["sha256"],
+            }
+        )
+    if sandbox_provider == "vmvm":
+        stable["vmvm_tb_v2"] = source["vmvm_tb_v2_sha256"]
+    else:
+        environment = identity["execution"]["sandoq_environment"]
+        stable.update(
+            {
+                "sandbox_provider": sandbox_provider,
+                "sandoq_provider_commit": source["sandoq_provider_commit"],
+                "sandoq_provider_tree": source["sandoq_provider_tree"],
+                "sandoq_client_version": source["sandoq_client_version"],
+                "sandoq_site_sha256": source["sandoq_site_sha256"],
+                "derived_image_manifest_sha256": source["derived_image_manifest_sha256"],
+                "sandoq_environment": environment["environment"],
+                "sandoq_task_network": environment["task_network"],
+                "sandoq_pool_size": str(environment["pool_size"]),
+                "sandoq_pool_min_size": str(environment["pool_min_size"]),
+                "sandoq_tunnel_policy": environment["tunnel_policy"],
+                "sandoq_base_url": environment["base_url"],
+                "sandoq_owner": environment["owner"],
+                "sandoq_transport_proxy_policy": environment["transport_proxy_policy"],
+                "sandoq_pool_socket_scope": environment["pool_socket_scope"],
+                "sandoq_pool_wal": environment["pool_wal"],
+                "sandoq_pool_event_log": environment["pool_event_log"],
+                "sandoq_use_ecr": str(environment["use_ecr"]).lower(),
+                "sandoq_ecr_registry": environment["ecr_registry"],
+                "sandoq_ecr_region": environment["ecr_region"],
+                "sandoq_ecr_pull_through_prefix": environment["ecr_pull_through_prefix"],
+                "sandoq_ecr_token_file": environment["ecr_token_file"],
+                "sandoq_ecr_auth_policy": environment["ecr_auth_policy"],
+                "sandoq_allow_dockerhub_fallback": str(environment["allow_dockerhub_fallback"]).lower(),
+            }
+        )
+        stable.update(
+            {
+                f"sandoq_{key}": str(value).lower() if isinstance(value, bool) else str(value)
+                for key, value in environment.items()
+                if key
+                in {
+                    "create_deadline",
+                    "pull_timeout",
+                    "pull_poll_max_errors",
+                    "gateway_retry_attempts",
+                    "gateway_retry_interval",
+                    "podman_ignore_chown_errors",
+                    "require_resource_limits",
+                    "exec_timeout_ceiling",
+                    "task_pids_limit",
+                    "observability",
+                    "pool_heartbeat_timeout",
+                    "pool_create_workers",
+                    "pool_bootstrap_workers",
+                    "pool_bootstrap_per_image",
+                    "pool_drain_workers",
+                    "pool_drain_timeout",
+                    "pool_renew_workers",
+                    "session_reuse",
+                    "pool_max_reuse_count",
+                    "pool_reuse_jitter",
+                    "image_cache_max_entries",
+                    "secret_cache_ttl",
+                    "lease_duration",
+                    "pool_renew_interval",
+                }
+            }
+        )
     expected_keys = {*stable, "host", "slurm_job_id"}
     path = output_dir / "provenance.txt"
     if args.mode == "resume":
@@ -1837,22 +2420,9 @@ def _bind_provenance(
             raise EvalIdentityError("eval_provenance_mismatch")
     else:
         records = {
-            "prime_rl": stable["prime_rl"],
-            "prime_rl_tree": stable["prime_rl_tree"],
-            "verifiers": stable["verifiers"],
-            "verifiers_tree": stable["verifiers_tree"],
-            "renderers": stable["renderers"],
-            "renderers_tree": stable["renderers_tree"],
-            "vmvm_tb_v2": stable["vmvm_tb_v2"],
-            "deployment_id": stable["deployment_id"],
-            "deployment_endpoint_authority_sha256": stable["deployment_endpoint_authority_sha256"],
-            "deployment_proxy_info_sha256": stable["deployment_proxy_info_sha256"],
-            "eval_run_role": stable["eval_run_role"],
-            "eval_run_identity_sha256": stable["eval_run_identity_sha256"],
+            **stable,
             "host": args.invocation_host,
             "slurm_job_id": args.slurm_job_id,
-            "approval_task_file_sha256": stable["approval_task_file_sha256"],
-            "approval_task_count": stable["approval_task_count"],
         }
         try:
             with path.open("x", encoding="utf-8") as handle:
@@ -1888,7 +2458,9 @@ def _bind_provenance(
 
 
 def prepare(args: argparse.Namespace) -> str:
-    if METADATA_ID_RE.fullmatch(args.deployment_id) is None:
+    if args.role == "qwen-direct":
+        return _prepare_direct_qwen(args)
+    if not isinstance(args.deployment_id, str) or METADATA_ID_RE.fullmatch(args.deployment_id) is None:
         raise EvalIdentityError("deployment_id_invalid")
     if args.routing_deployment_id is not None:
         if METADATA_ID_RE.fullmatch(args.routing_deployment_id) is None:
@@ -1901,7 +2473,7 @@ def prepare(args: argparse.Namespace) -> str:
         raise EvalIdentityError("invocation_host_invalid")
     if not args.slurm_job_id.isdigit():
         raise EvalIdentityError("slurm_job_id_invalid")
-    if not args.vacli_bin.strip():
+    if args.sandbox_provider == "vmvm" and not args.vacli_bin.strip():
         raise EvalIdentityError("vacli_bin_invalid")
     try:
         endpoint_info = load_deployment_endpoint(
@@ -1943,13 +2515,24 @@ def prepare(args: argparse.Namespace) -> str:
         args.expected_model,
         args.routing_deployment_id,
         role=args.role,
+        sandbox_provider=args.sandbox_provider,
     )
     client = config.get("client")
     if not isinstance(client, dict) or client.get("base_url") != endpoint_info.client_base_url:
         raise EvalIdentityError("model_endpoint_binding_mismatch")
     rollout_concurrency = execution["rollout_concurrency"]
-    execution["vmvm_environment"] = _effective_vmvm_environment(args, rollout_concurrency)
+    if args.sandbox_provider == "vmvm":
+        execution["vmvm_environment"] = _effective_vmvm_environment(args, rollout_concurrency)
+    else:
+        execution["sandoq_environment"] = _effective_sandoq_environment(args, rollout_concurrency, output_dir)
+        if execution["runtime"].get("ecr_token_file") != execution["sandoq_environment"]["ecr_token_file"]:
+            raise EvalIdentityError("sandoq_ecr_token_file_invalid")
     source = _source_identity(args)
+    if args.sandbox_provider == "sandoq" and (
+        inputs["image_manifest"] is None
+        or inputs["image_manifest"]["sha256"] != source["derived_image_manifest_sha256"]
+    ):
+        raise EvalIdentityError("derived_image_manifest_sha256_mismatch")
     deployment = _checkpoint_identity(args, endpoint_info.binding)
     expected_request_timeout = request_timeout_for_model(contract["model"])
     if (
@@ -2002,6 +2585,101 @@ def prepare(args: argparse.Namespace) -> str:
     return identity_sha256
 
 
+def _prepare_direct_qwen(args: argparse.Namespace) -> str:
+    if args.mode != "fresh" or args.sandbox_provider != "sandoq":
+        raise EvalIdentityError("direct_qwen_requires_fresh_sandoq")
+    if args.expected_model != "Qwen3.8-2.4T-A95B":
+        raise EvalIdentityError("direct_qwen_model_invalid")
+    if (
+        not args.invocation_host.strip()
+        or any(character in args.invocation_host for character in "\r\n=")
+        or not args.slurm_job_id.isdigit()
+    ):
+        raise EvalIdentityError("direct_qwen_invocation_invalid")
+    if args.client_base_url is None:
+        raise EvalIdentityError("client_base_url_required")
+    output_dir = args.output_dir.resolve()
+    inputs_dir = args.inputs_dir.resolve(strict=True)
+    config_path = output_dir / "config.toml"
+    config = _write_resolved_config(
+        output_dir,
+        inputs_dir,
+        args.client_base_url,
+        args.model_override,
+        args.approved_task_file_sha256,
+    )
+    inputs, source_config = _input_identity(
+        inputs_dir,
+        config,
+        args.approved_task_file_sha256,
+        args.approved_task_count,
+    )
+    contract, execution = _contract(
+        config,
+        args.expected_model,
+        role="qwen-direct",
+        sandbox_provider="sandoq",
+    )
+    execution["sandoq_environment"] = _effective_sandoq_environment(args, execution["rollout_concurrency"], output_dir)
+    if execution["runtime"].get("ecr_token_file") != execution["sandoq_environment"]["ecr_token_file"]:
+        raise EvalIdentityError("sandoq_ecr_token_file_invalid")
+    source = _source_identity(args)
+    if (
+        inputs["image_manifest"] is None
+        or inputs["image_manifest"]["sha256"] != source["derived_image_manifest_sha256"]
+    ):
+        raise EvalIdentityError("derived_image_manifest_sha256_mismatch")
+    worker_manifest = _artifact(
+        args.direct_worker_manifest,
+        args.direct_worker_manifest_sha256,
+        label="direct_worker_manifest",
+    )
+    for value, label in (
+        (args.direct_spec_sha256, "direct_spec_sha256"),
+        (args.direct_endpoint_bundle_sha256, "direct_endpoint_bundle_sha256"),
+    ):
+        if SHA256_RE.fullmatch(value or "") is None:
+            raise EvalIdentityError(f"{label}_invalid")
+    if args.direct_router_policy != "consistent_hash" or args.direct_request_id_headers != "x-session-id":
+        raise EvalIdentityError("direct_router_policy_invalid")
+    identity = {
+        "schema_version": SCHEMA_VERSION,
+        "role": "qwen-direct",
+        "source": source,
+        "config": {
+            "source": source_config,
+            "resolved": _artifact(
+                config_path,
+                _sha256_file(config_path, label="resolved_config"),
+                label="resolved_config",
+            ),
+        },
+        "inputs": inputs,
+        "dataset": _dataset_identity(config, args),
+        "deployment": {
+            "kind": "direct_qwen",
+            "worker_manifest": worker_manifest,
+            "spec_sha256": args.direct_spec_sha256,
+            "endpoint_bundle_sha256": args.direct_endpoint_bundle_sha256,
+            "base_url": args.client_base_url,
+            "router": {
+                "policy": args.direct_router_policy,
+                "request_id_headers": [args.direct_request_id_headers],
+                "provider_concurrency": _positive_int(
+                    args.direct_provider_concurrency,
+                    "direct_provider_concurrency",
+                ),
+            },
+        },
+        "contract": contract,
+        "execution": execution,
+    }
+    _validate_identity_shape(identity)
+    digest = _bind_identity(output_dir, identity, resume=False)
+    _bind_provenance(output_dir, identity, digest, args)
+    return digest
+
+
 def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--mode", choices=("fresh", "resume"), required=True)
@@ -2012,37 +2690,92 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--expected-model", required=True)
     parser.add_argument("--approved-task-file-sha256", required=True)
     parser.add_argument("--approved-task-count", type=int, required=True)
-    parser.add_argument("--role", choices=("smoke", "tb4", "mobius"), required=True)
+    parser.add_argument("--role", choices=("smoke", "tb4", "mobius", "qwen-direct"), required=True)
     parser.add_argument("--dataset-revision")
     parser.add_argument("--dataset-archive", type=Path)
     parser.add_argument("--dataset-archive-sha256")
     parser.add_argument("--dataset-content-sha256")
-    parser.add_argument("--deployment-id", required=True)
+    parser.add_argument("--deployment-id")
     parser.add_argument("--routing-deployment-id")
-    parser.add_argument("--deployment-spec", type=Path, required=True)
-    parser.add_argument("--deployment-spec-sha256", required=True)
-    parser.add_argument("--readiness-checkpoint", type=Path, required=True)
-    parser.add_argument("--readiness-checkpoint-sha256", required=True)
-    parser.add_argument("--deployment-proxy-info", type=Path, required=True)
-    parser.add_argument("--deployment-proxy-info-sha256", required=True)
+    parser.add_argument("--deployment-spec", type=Path)
+    parser.add_argument("--deployment-spec-sha256")
+    parser.add_argument("--readiness-checkpoint", type=Path)
+    parser.add_argument("--readiness-checkpoint-sha256")
+    parser.add_argument("--deployment-proxy-info", type=Path)
+    parser.add_argument("--deployment-proxy-info-sha256")
     parser.add_argument("--smoke-checkpoint", type=Path)
     parser.add_argument("--smoke-checkpoint-sha256")
     parser.add_argument("--promotion-certificate", type=Path)
     parser.add_argument("--promotion-certificate-sha256")
     parser.add_argument("--project-root", type=Path, required=True)
+    parser.add_argument("--sandbox-provider", choices=("vmvm", "sandoq"), default="vmvm")
     parser.add_argument("--prime-rl-commit", required=True)
     parser.add_argument("--prime-rl-tree-sha256", required=True)
     parser.add_argument("--verifiers-commit", required=True)
     parser.add_argument("--verifiers-tree-sha256", required=True)
     parser.add_argument("--renderers-commit", required=True)
     parser.add_argument("--renderers-tree-sha256", required=True)
-    parser.add_argument("--vmvm-tb-v2-sha256", required=True)
-    parser.add_argument("--vacli-bin", required=True)
-    parser.add_argument("--vacli-max-concurrent-leases", required=True)
-    parser.add_argument("--vacli-lease-retries", required=True)
-    parser.add_argument("--vacli-max-pull-retries", required=True)
-    parser.add_argument("--vacli-image-pull-timeout-seconds", required=True)
-    parser.add_argument("--vacli-container-privileged", required=True)
+    parser.add_argument("--vmvm-tb-v2-sha256", default="")
+    parser.add_argument("--vacli-bin", default="")
+    parser.add_argument("--vacli-max-concurrent-leases", default="")
+    parser.add_argument("--vacli-lease-retries", default="")
+    parser.add_argument("--vacli-max-pull-retries", default="")
+    parser.add_argument("--vacli-image-pull-timeout-seconds", default="")
+    parser.add_argument("--vacli-container-privileged", default="")
+    parser.add_argument("--sandoq-provider-commit")
+    parser.add_argument("--sandoq-provider-tree")
+    parser.add_argument("--sandoq-client-version")
+    parser.add_argument("--sandoq-site", type=Path)
+    parser.add_argument("--sandoq-site-sha256")
+    parser.add_argument("--derived-image-manifest-sha256")
+    parser.add_argument("--sandoq-environment", default="")
+    parser.add_argument("--sandoq-task-network", default="")
+    parser.add_argument("--sandoq-pool-size", default="")
+    parser.add_argument("--sandoq-pool-min-size", default="")
+    parser.add_argument("--sandoq-tunnel-policy", default="")
+    parser.add_argument("--sandoq-base-url", default="")
+    parser.add_argument("--sandoq-owner", default="")
+    parser.add_argument("--sandoq-transport-proxy-policy", default="")
+    parser.add_argument("--sandoq-pool-socket", default="")
+    parser.add_argument("--sandoq-pool-wal", default="")
+    parser.add_argument("--sandoq-pool-event-log", default="")
+    parser.add_argument("--sandoq-use-ecr", default="")
+    parser.add_argument("--sandoq-ecr-registry", default="")
+    parser.add_argument("--sandoq-ecr-region", default="")
+    parser.add_argument("--sandoq-ecr-pull-through-prefix", default="")
+    parser.add_argument("--sandoq-ecr-token-file", default="")
+    parser.add_argument("--sandoq-allow-dockerhub-fallback", default="")
+    parser.add_argument("--sandoq-create-deadline", default="")
+    parser.add_argument("--sandoq-pull-timeout", default="")
+    parser.add_argument("--sandoq-pull-poll-max-errors", default="")
+    parser.add_argument("--sandoq-gateway-retry-attempts", default="")
+    parser.add_argument("--sandoq-gateway-retry-interval", default="")
+    parser.add_argument("--sandoq-podman-ignore-chown-errors", default="")
+    parser.add_argument("--sandoq-require-resource-limits", default="")
+    parser.add_argument("--sandoq-exec-timeout-ceiling", default="")
+    parser.add_argument("--sandoq-task-pids-limit", default="")
+    parser.add_argument("--sandoq-observability", default="")
+    parser.add_argument("--sandoq-pool-heartbeat-timeout", default="")
+    parser.add_argument("--sandoq-pool-create-workers", default="")
+    parser.add_argument("--sandoq-pool-bootstrap-workers", default="")
+    parser.add_argument("--sandoq-pool-bootstrap-per-image", default="")
+    parser.add_argument("--sandoq-pool-drain-workers", default="")
+    parser.add_argument("--sandoq-pool-drain-timeout", default="")
+    parser.add_argument("--sandoq-pool-renew-workers", default="")
+    parser.add_argument("--sandoq-session-reuse", default="")
+    parser.add_argument("--sandoq-pool-max-reuse-count", default="")
+    parser.add_argument("--sandoq-pool-reuse-jitter", default="")
+    parser.add_argument("--sandoq-image-cache-max-entries", default="")
+    parser.add_argument("--sandoq-secret-cache-ttl", default="")
+    parser.add_argument("--sandoq-lease-duration", default="")
+    parser.add_argument("--sandoq-pool-renew-interval", default="")
+    parser.add_argument("--direct-worker-manifest", type=Path)
+    parser.add_argument("--direct-worker-manifest-sha256")
+    parser.add_argument("--direct-spec-sha256")
+    parser.add_argument("--direct-endpoint-bundle-sha256")
+    parser.add_argument("--direct-router-policy")
+    parser.add_argument("--direct-request-id-headers")
+    parser.add_argument("--direct-provider-concurrency", default="")
     parser.add_argument("--invocation-host", required=True)
     parser.add_argument("--slurm-job-id", required=True)
     return parser

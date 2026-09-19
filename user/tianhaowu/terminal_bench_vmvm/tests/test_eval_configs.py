@@ -31,6 +31,7 @@ ACTIVE_KIMI_CONFIGS = [
 ]
 ACTIVE_QWEN_CONFIGS = [
     "mobius_qwen_a95b_2500.toml",
+    "mobius_qwen_a95b_2500_sandoq.toml",
     "tb4_qwen_a95b_miniswe.toml",
     "tb4_qwen_token_smoke.toml",
 ]
@@ -322,6 +323,41 @@ def test_mobius_qwen_production_retention_and_concurrency() -> None:
     assert set(config["retries"]["rollout"]["include"]) == QWEN_ROLLOUT_RETRY_ERRORS
 
 
+def test_mobius_qwen_sandoq_contract_is_explicit_and_digest_pinned() -> None:
+    config = tomllib.loads((CONFIG_DIR / "mobius_qwen_a95b_2500_sandoq.toml").read_text())
+
+    assert config["num_tasks"] == 2_500
+    assert config["max_concurrent"] == config["multiplex"] == 64
+    assert config["taskset"]["image_manifest"].endswith("/mobius_images.sandoq.json")
+    assert config["taskset"]["image_manifest_sha256"] == (
+        "a3fb4ec9ac9d1ee8376013013f171584c288321923f2050177157edac58340c8"
+    )
+    runtime = config["harness"]["runtime"]
+    assert runtime == {
+        "type": "sandoq",
+        "mode": "oci-runner",
+        "session_timeout": 43_200,
+        "network_access": False,
+        "host_tunnel": "sandoq",
+        "expected_environment": "oci-runner-firecracker-tunnel-pull",
+        "ecr_token_file": "/storage/home/tianhaowu/.config/oci-runner/ecr-token",
+        "guest_tunnel_url": "http://127.0.0.1:8485",
+        "tunnel_pool_size": 8,
+        "tunnel_ready_timeout": 30,
+    }
+    assert set(config["retries"]["rollout"]["include"]) == QWEN_ROLLOUT_RETRY_ERRORS
+
+    resolved = _resolved_eval_config("mobius_qwen_a95b_2500_sandoq.toml")
+    _contract(
+        resolved,
+        "Qwen3.8-2.4T-A95B",
+        role="mobius",
+        sandbox_provider="sandoq",
+    )
+    with pytest.raises(EvalIdentityError, match="vmvm_runtime_required"):
+        _contract(resolved, "Qwen3.8-2.4T-A95B", role="mobius")
+
+
 @pytest.mark.parametrize(
     ("filename", "expected_count", "expected_sha256", "expected_concurrency"),
     [
@@ -487,6 +523,14 @@ def test_eval_controller_is_cpu_only_and_supports_high_vmvm_concurrency() -> Non
     # soon as each tunnel is ready, so the evaluator can still reach 64 active
     # rollouts without stampeding vacli with 64 setup requests at once.
     assert "VACLI_MAX_CONCURRENT_LEASES=${VACLI_MAX_CONCURRENT_LEASES:-32}" in text
+    assert "get_gateway_adapter" in text
+    assert "create_client(config)" in text
+    assert "verify_references=True" in text
+    assert "verify_pool_cleanup.py" in text
+    assert "sanitize_sandoq_cleanup_audit.py" in text
+    assert text.index("worktrees must all be clean") < text.index("create_client(config)")
+    assert text.index("approved cutover source") < text.index("create_client(config)")
+    assert text.index("approved closure") < text.index("create_client(config)")
 
 
 def test_kimi_tb4_gate_sequences_smoke_before_full_evaluation() -> None:
@@ -529,6 +573,8 @@ def test_direct_qwen_launcher_is_fail_closed() -> None:
     wrapper = (workflow_dir / "run_qwen_direct_eval.sbatch").read_text()
     driver = (workflow_dir / "run_direct_qwen_eval_driver.sh").read_text()
 
+    assert "#SBATCH --time=7-00:00:00" in wrapper
+
     assert '--policy "$router_policy"' in wrapper
     assert '--request-id-headers "$router_request_id_header"' in wrapper
     assert '[[ "$router_policy" != consistent_hash ]]' in wrapper
@@ -558,6 +604,34 @@ def test_direct_qwen_launcher_is_fail_closed() -> None:
     assert "validate_task_approval.py" in driver
     assert '.writer.lock"' in driver
     assert "Direct Qwen driver received a forbidden generic-eval override" in driver
+    assert '[[ "$sandbox_provider" == sandoq && -n "$resume_dir" ]]' in driver
+    assert "oci-runner-firecracker-tunnel-pull" in driver
+    assert "OCI_RUNNER_ALLOW_DOCKERHUB_FALLBACK=0" in driver
+    assert "sandoq_site_sha256" in driver
+    assert "unset HTTP_PROXY HTTPS_PROXY http_proxy https_proxy ALL_PROXY all_proxy" in driver
+    assert "${#worker_urls[@]} -ne 24" in wrapper
+    assert '"$active_workers" == 24' in wrapper
+    assert "--preflight" in wrapper
+    assert "--role qwen-direct --sandbox-provider sandoq" in driver
+    assert 'args=(--resume "$output_dir")' in driver
+    assert "eval_run_identity.py" in driver
+    assert "certify_direct_qwen_sandoq.py" in wrapper
+    assert "OCI_RUNNER_POOL_MIN_SIZE=0" in driver
+    assert 'expected_pool_socket="$pool_socket_dir/${SLURM_JOB_ID:?}.sock"' in driver
+    assert '"$output_dir/pool_events.jsonl"' in driver
+    assert '"$output_dir/control/sandoq-pool.wal.jsonl"' in driver
+    assert "SANDOQ_RAMP_RECEIPT" in driver
+    assert "validate_predecessor" in driver
+    assert "verify_references=True" in driver
+    assert "verify_pool_cleanup.py" in driver
+    assert "sanitize_sandoq_cleanup_audit.py" in driver
+    assert "router was not live at certification" in wrapper
+    assert "no longer has exactly 24 active workers" in wrapper
+    assert "serving generation drifted during evaluation" in wrapper
+    assert "validate_post_eval_generation" in wrapper
+    assert "4890302104d76220cef791c86d2009168597d35f" in wrapper
+    assert "4890302104d76220cef791c86d2009168597d35f" in driver
+    assert wrapper.index("approved clean source closure") < wrapper.index('"$workflow_dir/direct_qwen_workers.py"')
 
 
 def test_direct_qwen_router_probe_is_infrastructure_only() -> None:
