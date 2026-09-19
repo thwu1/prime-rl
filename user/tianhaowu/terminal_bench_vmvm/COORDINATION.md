@@ -1,6 +1,6 @@
 # VMVM sandbox coordination
 
-Last updated: 2026-09-19 14:46 UTC
+Last updated: 2026-09-19 15:09 UTC
 
 ## First message to the next teammate
 
@@ -41,6 +41,20 @@ this shared branch again.
 Add new rows below this line; do not overwrite another owner's row.
 
 ## Open coordination requests
+
+- **2026-09-19 15:09 UTC, infrastructure-retry v12 validate-only failed
+  closed:** independent review approved exactly one no-write input validation,
+  which ran through the canonical pane and returned the aggregate-safe code
+  `snapshot_module_import_invalid` with exit 2. It created none of the five
+  selection/run/reservation/log/audit namespaces, created no pycache, queried
+  or submitted no Slurm job, and left all eight frozen hashes unchanged. The
+  public-only cause is exact: `source_wheels.py` requires `packaging` and then
+  falls back to `pip._vendor.packaging`, while the pinned interpreter under
+  required `-I -S -B` exposes neither. V12 is ineligible and must not be
+  rerun. Fresh v13 must retain isolation and freeze the lockfile-pinned
+  pure-Python `packaging` dependency behind a manifest/hash-bound in-memory
+  loader, carry its provenance through selection/launch/audit, and add an
+  exact real-entrypoint subprocess regression before new review.
 
 - **2026-09-19 14:46 UTC, infrastructure-retry v10/v11 rejected without
   execution:** both frozen candidates remain immutable and all of their private
