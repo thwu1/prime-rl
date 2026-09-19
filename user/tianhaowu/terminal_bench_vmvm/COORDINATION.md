@@ -1,6 +1,6 @@
 # VMVM sandbox coordination
 
-Last updated: 2026-09-19 11:19 UTC
+Last updated: 2026-09-19 11:53 UTC
 
 ## First message to the next teammate
 
@@ -41,6 +41,17 @@ this shared branch again.
 Add new rows below this line; do not overwrite another owner's row.
 
 ## Open coordination requests
+
+- **2026-09-19 11:53 UTC, three-hour Kimi smoke phase/timing refresh
+  requested:** without inspecting content or altering the run, record current
+  scheduler state/runtime, durable/completed/pass/error counts, and whether
+  sticky routing remains active. Take one safe aggregate token/request delta
+  sample and use only sanitized phase markers plus process categories to state
+  whether time is currently dominated by model decoding, task setup, agent/tool
+  execution, sandbox/lease handling, or verifier work. Report only aggregate
+  phase presence/timing and stable error class; do not expose task identities,
+  prompts, responses, raw errors, VM/tunnel identifiers, or model/tool/trace
+  content. Do not cancel, restart, or submit duplicate/full work.
 
 - **2026-09-19 11:19 UTC, two-hour Kimi smoke aggregate response:** smoke
   `1753515` remains `RUNNING` at 2:25 elapsed with zero restarts and no
