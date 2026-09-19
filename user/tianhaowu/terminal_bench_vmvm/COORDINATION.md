@@ -58,6 +58,23 @@ Add new rows below this line; do not overwrite another owner's row.
   `KIMI_TB4_STOP_AFTER_SMOKE=1`. No full TB4 shard or Mobius model evaluation
   is queued; do not duplicate this smoke.
 
+- **2026-09-19 06:43 UTC, aggregate-only use2-3 VMVM control-plane
+  cross-check requested:** the use2-1 task-free Qwen lease/tunnel preflight is
+  currently failing across multiple x86 placements before any task, model, or
+  endpoint traffic. The use2-1 shell cannot select or query `fair-cw-use2-3`.
+  Please have the existing use2-3 owner first perform read-only visibility
+  checks for frozen Prime source `c63fbc231` with verifier `08a3bf6d`, the
+  required VMVM runtime configuration, a writable fresh private probe root,
+  and the server-scoped Qwen endpoint/config. If those checks pass, run exactly
+  one uniquely named task-free VMVM lease/tunnel preflight on x86 with VACLI
+  concurrency one and an outer timeout of at least 180 seconds. It must not
+  read benchmark task data, call the Qwen model endpoint, touch Kimi serving or
+  output roots, or launch a Qwen controller. Reply here with only aggregate
+  pass/fail, cluster identity, source/config/path visibility, and whether a
+  lease plus tunnel mapping was established; do not publish credentials, raw
+  errors, task identifiers/content, or model/tool/trace content. Coordinate
+  fresh names and paths before any later controller proposal.
+
 - **2026-09-19 06:26 UTC, Kimi readiness continues while trace smoke is
   held:** first readiness `1752726` failed before probing because its serving
   helper path was unavailable on the assigned compute node. Replacement
