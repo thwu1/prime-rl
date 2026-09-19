@@ -213,11 +213,17 @@ invocation must be the final module statement. No resource-context form is
 supported. Unrelated legacy metadata computation may remain only within the
 positive grammar for literals, confined source-relative metadata reads, fixed
 string/path transforms, static package discovery, and explicit Python version
-guards. Reject resource downloads, URL/network access, temporary-directory
-builders, archive extraction, `Extension`, `ext_modules`, and `cffi_modules`.
-Reserve `__file__` across every binding scope, and require every accepted
-package, `package_dir`, package-data, metadata-file, and egg-base path to remain
-within the source tree without absolute or parent components.
+guards. Reject setup-script resource downloads, URL/network access,
+temporary-directory builders, archive extraction, `Extension`, `ext_modules`,
+and `cffi_modules`. Reserve `__file__` across every binding scope. Under setup.py
+grammar `positive-static-legacy-metadata-confined-exact-paths-v7` and setup.cfg
+grammar `allowlisted-static-options-confined-exact-paths-v3`, require every
+read-bearing metadata path, `package_dir` value, package-data path, and egg-base
+path to be one exact, non-expanding source-relative value without absolute or
+parent components, URI schemes, backslashes, or glob syntax. Before parsing or
+extracting the source, require every archive member to be inside its one
+canonical `PKG-INFO` root and reject sibling members, symlinks, `MANIFEST.in`,
+and pre-generated egg-info/SOURCES metadata.
 Permit a local metadata reader helper only when it matches that grammar and is
 used exactly once as `long_description`; reject arbitrary imports, assignments,
 helper calls, side effects, and dynamic non-dependency keywords. Permit only
@@ -235,8 +241,8 @@ annotations, and function type parameters. Take
 literal `setup_requires` from that call or deterministic `setup.cfg` `[options]`
 configuration. Apply explicit section/option allowlists and the same path
 confinement to `setup.cfg`; reject defaults, `attr:`/`file:`/`find:` directives,
-custom build options, automatic package-data inclusion, and command aliases
-except the exact inert `test = pytest` declaration. Combine
+custom build options, automatic package-data inclusion, and every command
+alias, including the otherwise inert `test = pytest` declaration. Combine
 the result with setuptools `build-system.requires`; allow no other
 `pyproject.toml` table and reject conflicting declarations, in-tree or
 alternate backends, and ambiguity. Surface parser rejection only as the stable
@@ -251,12 +257,14 @@ base-image commands. Preload the attested venv setuptools package before adding
 the source root after the attested site roots, and reject source-local
 `setuptools.py`, `setuptools.pyc`, extension, or `setuptools/` shadows.
 Reattest the exact environment after the backend returns and reject any
-mutation. Require schema-bound equality of the complete raw wheel ZIP after
-zeroing only local and central DOS time/date fields while retaining each raw
-artifact's size and SHA-256, validate the exact output closure, and prove
-offline installation of the selected raw wheel on a clean target with the same
-runtime fingerprint. Reject Compose and cap the exceptional builder path at
-one lease.
+mutation. Require both builders to produce the same complete wheel filename
+set, byte-identical complete raw wheel ZIPs, and a byte-identical
+deterministically packed wheelhouse. Retain each raw artifact's size and
+SHA-256. Keep the schema-bound digest that zeroes only local and central DOS
+time/date fields as supplementary evidence; it must never authorize a raw-byte
+mismatch. Validate the exact output closure and prove offline installation of
+the common exact wheelhouse on a clean target with the same runtime fingerprint.
+Reject Compose and cap the exceptional builder path at one lease.
 
 Before enabling the policy, run the tracked
 `terminal_bench_vmvm/run_source_wheel_proof_clean_env.sbatch` wrapper from a
@@ -294,18 +302,21 @@ declarations, in-tree backends, and ambiguity.
 Validate every wheel from its raw bytes as a comment-free ZIP containing unique
 normalized regular-file paths, with no extra fields, signatures, special modes,
 unsupported flags, ambiguous encodings, local/central disagreement, gaps,
-overlap, or orphan bytes. Require the two builds' normalized raw ZIP digests to
-match after zeroing only local and central DOS time/date fields. Member order,
-compression method and bytes, headers, offsets, layout, payload, mode, and every
-other byte must remain bound. Retain each builder's raw size/SHA-256 evidence
-and bind the final policy and clean target install to the first builder's exact
-raw wheel. The clean target must be isolated before receiving the archive and
-must prove the exact closure with an offline install.
+overlap, or orphan bytes. Require the two builds' complete raw wheel filename
+sets and wheel bytes to be identical, and require their deterministically packed
+wheelhouses to be byte-identical. Member order, compression method and bytes,
+headers, offsets, layout, payload, mode, and every other byte must match. Retain
+each builder's raw size/SHA-256 evidence. Keep the normalized digest that zeroes
+only local and central DOS time/date fields as supplementary evidence; it must
+never authorize a raw mismatch. Bind the final policy and clean target install
+to the common exact wheelhouse. The clean target must be isolated before
+receiving the archive and must prove the exact closure with an offline install.
 The pre-run identity must bind the source-build-environment and semantic-digest
-schema versions, the two normalized DOS timestamp fields, the all-other-bytes
-rule, and forbidden ZIP features. The non-runnable candidate must list
-semantic equality, venv-only child execution, and static setup/config parsing;
-never resume an output created under a different identity or schema.
+schema versions, mandatory exact raw-wheel and wheelhouse equality, the
+supplementary two-field DOS timestamp normalization, and forbidden ZIP features.
+The non-runnable candidate must list raw and semantic equality, venv-only child
+execution, and static setup/config parsing; never resume an output created under
+a different identity or schema.
 
 Default to two entries and six live VMVMs; never exceed three entries and nine
 VMVMs. Set `VACLI_LEASE_RETRIES=1`; a hidden backend re-lease would violate the
