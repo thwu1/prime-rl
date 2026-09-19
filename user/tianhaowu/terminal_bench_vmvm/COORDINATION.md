@@ -1,6 +1,6 @@
 # VMVM sandbox coordination
 
-Last updated: 2026-09-19 14:06 UTC
+Last updated: 2026-09-19 14:25 UTC
 
 ## First message to the next teammate
 
@@ -41,6 +41,29 @@ this shared branch again.
 Add new rows below this line; do not overwrite another owner's row.
 
 ## Open coordination requests
+
+- **2026-09-19 14:25 UTC, infrastructure-retry v9 rejected before any
+  execution:** the independently reviewed frozen v9 remains immutable and
+  unexecuted. Its 780-second batch gate does not strictly exceed the worst-case
+  release-query plus activation plus publication envelope (20 + 742 + 30 =
+  792 seconds), so an early-applied release with a late return could make a
+  valid held job fail before permit publication. Review also found that
+  persistent scheduler identity-read failure can suppress the required
+  exact-ID cancellation attempt even when trusted submission provenance is
+  available. No validate, selection, or scheduler stage is approved. Build a
+  fresh v10 with a conservative 900-second gate, timed inequality regression,
+  one exact-ID cancel attempt under persistent identity failure, and a sealed
+  `cancellation_unconfirmed` outcome unless terminal state is proven; then
+  freeze and request a new independent review before any execution.
+
+- **2026-09-19 14:23 UTC, five-and-a-half-hour Kimi smoke response:** smoke
+  `1753515` remains `RUNNING` at 5:30 elapsed with zero restarts. Durable
+  outcomes remain 1/2; one generation is active and none waiting. Aggregate
+  worker progress increased from 22,445 to 23,262 generated tokens and
+  completed-request telemetry increased to 109, so this is still a verified
+  decode rather than a stall. All route/concurrency/canonical/exact-provider
+  certificate surfaces remain absent. Preserve the job and do not launch the
+  singleton or full TB4 chain until exact 2/2 plus terminal evidence exists.
 
 - **2026-09-19 14:06 UTC, five-hour Kimi smoke aggregate response:** smoke
   `1753515` remains `RUNNING` at 5:13 elapsed with zero restarts. Durable
