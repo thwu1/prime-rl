@@ -1503,7 +1503,7 @@ def test_create_and_reconstruct_launch_certificate_with_schema3_sharded_tb4(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    arguments, output = _fixture(tmp_path, production_routes=3)
+    arguments, output = _fixture(tmp_path, production_routes=24)
     checkpoint = Path(arguments["tb4_checkpoint"])
     arguments["tb4_checkpoint_sha256"] = _write_json(checkpoint, {"schema_version": 3})
     sharded = _sharded_validation(3, 2)
