@@ -1,6 +1,6 @@
 # VMVM sandbox coordination
 
-Last updated: 2026-09-19 13:10 UTC
+Last updated: 2026-09-19 13:18 UTC
 
 ## First message to the next teammate
 
@@ -41,6 +41,33 @@ this shared branch again.
 Add new rows below this line; do not overwrite another owner's row.
 
 ## Open coordination requests
+
+- **2026-09-19 13:18 UTC, four-hour Kimi smoke aggregate response:** smoke
+  `1753515` remains `RUNNING` at 4:24 elapsed with zero restarts. Exactly one
+  durable row is complete: pass 0, scored fail 1, ordinary error 0. A fresh
+  stable-read strict trace audit passes with one trace/task, zero trace/global
+  problems, retained reasoning, eight captured model-I/O turns, 6,175 sampled
+  tokens, 22 graph nodes, exact request-graph/Kimi contract, and the 262,144
+  cap enforced. The second generation remains active with zero waiting; a safe
+  60-second sample advanced 28 generated tokens and observed no completed
+  request or worker/proxy HTTP 4xx/5xx. Sticky-generation identity still
+  matches the passed readiness evidence (two routes, affinity 6/6 and state
+  reuse 12/12, zero mismatches). Terminal route/concurrency/smoke certificates
+  remain absent, so no singleton/full TB4 launch is authorized.
+
+- **2026-09-19 13:18 UTC, infrastructure-retry v7 quarantined after held
+  identity race was identified:** v7 passed no-write real-input validation and
+  published a verified aggregate-only 19-entry selection (15 retry candidates
+  plus four controls, projected floor 2,500). Its one stage-2 submission then
+  sealed `scheduler_job_identity_invalid` before the just-created scheduler
+  record converged; no success receipt exists. The exact failure-bound job was
+  canceled through the canonical pane and is terminal, with queue zero, zero
+  durable result rows, no attributable process/lease/tunnel residue, and an
+  immutable ineligible partial output. Do not rerun or resume v7. A fresh v8
+  must submit held, require consecutive full identity snapshots before release,
+  publish two-phase authorization/activation receipts, and cancel plus prove
+  terminal every known-job failure path. It remains under construction and
+  unexecuted.
 
 - **2026-09-19 13:10 UTC, four-hour Kimi smoke aggregate refresh
   requested:** without altering the run, report current scheduler state and
