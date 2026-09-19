@@ -2,6 +2,7 @@ from collections import Counter
 
 import pytest
 from datasets import Dataset, interleave_datasets
+from renderers.base import RenderedTokens
 from transformers import AutoTokenizer
 
 from prime_rl.configs.sft import SFTDataConfig
@@ -20,6 +21,147 @@ def test_init_sft_dataset(build_dummy_dataset):
     dataset = build_dummy_dataset("a", 1)
     sft_dataset = SFTDataset(dataset, tokenizer=None)
     assert sft_dataset is not None
+
+
+def test_format_v3_dataset_requires_validated_attestation() -> None:
+    dataset = Dataset.from_list(
+        [
+            {
+                "assistant_target_count": 1,
+                "history_reasoning_policy": "preserve_all_assistant_reasoning",
+                "target_assistant_message_index": 1,
+                "target_finish_reason": "stop",
+                "transcript_fidelity": {},
+            }
+        ]
+    )
+
+    with pytest.raises(ValueError, match="Format-v3 SFT exports require"):
+        SFTDataset(dataset, tokenizer=None)
+
+    assert SFTDataset(dataset, tokenizer=None, attested_export=True) is not None
+
+
+def test_format_v3_canonicalization_removes_dataset_schema_padding() -> None:
+    messages = sft_data._canonicalize_attested_messages(
+        [
+            {
+                "role": "user",
+                "content": "question",
+                "trainable": False,
+                "reasoning_content": None,
+                "finish_reason": None,
+            },
+            {
+                "role": "assistant",
+                "content": "answer",
+                "trainable": True,
+                "reasoning_content": "reasoning",
+                "finish_reason": "stop",
+            },
+        ]
+    )
+    tools = sft_data._canonicalize_attested_tools(
+        [
+            {
+                "type": "function",
+                "function": {
+                    "name": "terminal",
+                    "description": "synthetic",
+                    "parameters": {"type": "object", "properties": {"command": {"type": "string"}, "cwd": None}},
+                    "strict": None,
+                },
+            }
+        ]
+    )
+
+    assert messages[0] == {"role": "user", "content": "question", "trainable": False}
+    assert messages[1]["reasoning_content"] == "reasoning"
+    assert tools == [
+        {
+            "type": "function",
+            "function": {
+                "name": "terminal",
+                "description": "synthetic",
+                "parameters": {"type": "object", "properties": {"command": {"type": "string"}}},
+            },
+        }
+    ]
+
+
+def test_attested_loader_preserves_reasoning_and_exact_target_loss_mask() -> None:
+    class SyntheticTokenizer:
+        eos_token_id = 99
+
+    class SyntheticRenderer:
+        def __init__(self):
+            self.messages = None
+            self.tools = None
+
+        def render(self, messages, *, tools=None, add_generation_prompt=False):
+            assert not add_generation_prompt
+            self.messages = messages
+            self.tools = tools
+            return RenderedTokens(
+                token_ids=[10, 70, 59, 66, 99],
+                message_indices=[0, 1, 1, 1, 1],
+                sampled_mask=[False, False, True, True, True],
+                is_content=[True, False, True, True, False],
+                message_roles=["user", "assistant"],
+            )
+
+    def row(*, include_optional_schema: bool) -> dict:
+        properties = {"command": {"type": "string"}}
+        if include_optional_schema:
+            properties["cwd"] = {"type": "string"}
+        return {
+            "assistant_target_count": 1,
+            "history_reasoning_policy": "preserve_all_assistant_reasoning",
+            "messages": [
+                {"role": "user", "content": "question", "trainable": False},
+                {
+                    "role": "assistant",
+                    "content": "answer",
+                    "finish_reason": "stop",
+                    "reasoning_content": "reasoning",
+                    "trainable": True,
+                },
+            ],
+            "target_assistant_message_index": 1,
+            "target_finish_reason": "stop",
+            "tools": [
+                {
+                    "type": "function",
+                    "function": {
+                        "description": "synthetic",
+                        "name": "terminal",
+                        "parameters": {"type": "object", "properties": properties},
+                        **({"strict": False} if include_optional_schema else {}),
+                    },
+                }
+            ],
+            "transcript_fidelity": {},
+        }
+
+    renderer = SyntheticRenderer()
+    raw_dataset = Dataset.from_list([row(include_optional_schema=False), row(include_optional_schema=True)])
+    dataset = SFTDataset(
+        raw_dataset,
+        tokenizer=SyntheticTokenizer(),
+        renderer=renderer,
+        shuffle=False,
+        max_examples=1,
+        attested_export=True,
+    )
+
+    sample = next(iter(dataset))
+
+    assert renderer.messages[1]["reasoning_content"] == "reasoning"
+    assert renderer.tools[0]["type"] == "function"
+    assert "strict" not in renderer.tools[0]["function"]
+    assert "cwd" not in renderer.tools[0]["function"]["parameters"]["properties"]
+    assert sample["target_ids"] == [70, 59, 66, 99]
+    assert sample["loss_mask"] == [False, True, True, True]
 
 
 def test_raise_error_if_no_prompt_and_completion(build_dummy_dataset):
@@ -96,6 +238,7 @@ def test_fixed_stack_has_exact_cardinality_and_resumes(monkeypatch):
     first_batch = next(dataiter)
 
     assert first_batch["input_ids"] == [[10, 11, 0, 0], [20, 21, 22, 23]]
+    assert first_batch["position_ids"] == [[0, 1, 2, 3], [0, 1, 2, 3]]
     assert first_batch["loss_mask"] == [[True, False, False, False], [True, False, True, False]]
     assert first_batch["loss_weight"] == [[0.1, 0.1, 0.0, 0.0], [0.2, 0.2, 0.2, 0.2]]
     state_dict = dataloader.state_dict()
@@ -108,6 +251,7 @@ def test_fixed_stack_has_exact_cardinality_and_resumes(monkeypatch):
     second_batch = next(resumed_iter)
 
     assert second_batch["input_ids"] == [[30, 0, 0, 0], [40, 41, 42, 43]]
+    assert second_batch["position_ids"] == [[0, 1, 2, 3], [0, 1, 2, 3]]
     assert resumed_dataloader.state_dict()["dataset_state"] == {"dataset": {"step": 4, "epoch": 0}}
     with pytest.raises(StopIteration):
         next(resumed_iter)
@@ -281,6 +425,28 @@ def test_multiturn_loss_mask():
     dataset = SFTDataset(dataset, tokenizer=tokenizer, max_examples=1)
     sample = next(iter(dataset))
     print_sample(sample["input_ids"], sample["loss_mask"], tokenizer)
+
+
+def test_message_trainable_flag_overrides_role_mask():
+    config = SFTDataConfig().loss_mask
+
+    assert not sft_data._message_is_trainable(
+        {"role": "assistant", "content": "context", "trainable": False},
+        config,
+    )
+    assert sft_data._message_is_trainable(
+        {"role": "assistant", "content": "target", "trainable": True},
+        config,
+    )
+    assert not sft_data._message_is_trainable(
+        {"role": "user", "content": "prompt"},
+        config,
+    )
+    with pytest.raises(TypeError, match="must be a boolean"):
+        sft_data._message_is_trainable(
+            {"role": "assistant", "content": "target", "trainable": 1},
+            config,
+        )
 
 
 def test_multiturn_loss_mask_with_tools():

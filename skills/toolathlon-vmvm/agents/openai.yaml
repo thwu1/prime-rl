@@ -1,0 +1,4 @@
+interface:
+  display_name: "Toolathlon VMVM"
+  short_description: "Run and audit Toolathlon evaluations on VMVM"
+  default_prompt: "Use $toolathlon-vmvm to launch, resume, monitor, and audit a Toolathlon evaluation on VMVM."

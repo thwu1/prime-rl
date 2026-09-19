@@ -1,0 +1,93 @@
+# Fresh-optimizer DeepSWE continuation from the immutable v18 step-80 weights.
+# Fixed stacking keeps each cumulative trajectory intact. With global batch 16,
+# 48 steps cover 768 slots, just over one pass through 744 training trajectories.
+output_dir = "/checkpoint/ram/tianhaowu/sft_nemotron/outputs/nemotron-super-120b-deepswe-all-kimi-v23-from-v18-step80-262k-cp4-ep8-ulysses-48steps-seed3"
+max_steps = 48
+loss_impl = "liger_fused"  # fuse lm_head+CE instead of materializing full sequence logits
+dist_timeout_seconds = 3600  # 600s default too tight -> multi-node rendezvous timed out on a straggler (matches RL)
+
+[model]
+name = "/checkpoint/ram/tianhaowu/sft_nemotron/seeds/nemotron-super-sft-v18-step80-for-deepswe-all-kimi-v23"
+seq_len = 262144
+impl = "custom"
+attn = "flash_attention_2"
+ep = 8
+cp = 4
+cp_style = "ulysses"  # NemotronH Mamba layers do not support ring context parallelism.
+optim_cpu_offload = true
+# optimization_dtype/reduce_dtype left at float32 defaults (do NOT change — load-bearing)
+
+[model.ac]                 # activation checkpointing
+
+[model.compile]
+
+[model.ac_offloading]
+max_inflight_activations = 1  # reduce peak GPU memory after parity-v2 backward OOM
+
+[tokenizer]
+name = "nvidia/NVIDIA-Nemotron-3-Super-120B-A12B-BF16"
+
+[renderer]
+name = "nemotron-3"
+enable_thinking = true
+preserve_all_thinking = true
+truncate_history_thinking = false
+normalize_tool_response_wrappers = false
+
+[data]
+type = "sft"
+name = "/checkpoint/ram/tianhaowu/datasets/deepswe-sft/processed/kimi-k3-v2-sft-deepswe-eval-harness-all-kimi-v3/all-outcomes-committed-submitted-max262144/train"  # 744 cumulative Kimi trajectories
+seq_len = 262144
+batch_size = 16
+micro_batch_size = 1
+pack_function = "fixed_stack"
+shuffle = true
+seed = 3
+# [data.loss_mask] defaults: assistant=true, system/user/tool=false.
+
+# The 32 task-disjoint validation trajectories give every data rank exactly two
+# fixed-stack examples, so validation covers the complete split without truncation.
+[val]
+interval = 8
+eval_on_start = true
+
+[val.data]
+type = "sft"
+name = "/checkpoint/ram/tianhaowu/datasets/deepswe-sft/processed/kimi-k3-v2-sft-deepswe-eval-harness-all-kimi-v3/all-outcomes-committed-submitted-max262144/validation"
+seq_len = 262144
+batch_size = 16
+micro_batch_size = 1
+pack_function = "fixed_stack"
+shuffle = false
+seed = 0
+
+[optim]
+lr = 1e-6
+
+[deployment]
+type = "multi_node"
+num_nodes = 8
+
+[slurm]
+job_name = "sft-nemotron-deepswe-all-kimi-v23-cp4-ulysses"
+account = "ram"
+partition = "h200"
+exclude = "h200-004-016,h200-045-135,h200-045-216,h200-070-085,h200-086-005,h200-088-234,h200-089-039,h200-093-129,h200-156-160,h200-157-026,h200-194-161,h200-197-003,h200-221-179,h200-233-242,h200-235-051,h200-235-167"
+time = "12:00:00"
+project_dir = "/storage/home/tianhaowu/prime-rl"
+template_path = "/storage/home/tianhaowu/prime-rl/user/tianhaowu/fair-sc-3/templates/multi_node_sft_nemotron.sbatch.j2"
+sync_environment = false
+pre_run_command = "export UV_PROJECT_ENVIRONMENT=/storage/home/tianhaowu/.venvs/prime-rl-nemotron-sft; export CUDA_HOME=/public/apps/cuda/12.6.1; export PATH=$CUDA_HOME/bin:$PATH; export HF_HOME=/checkpoint/ram-h100-2/tianhaowu/.cache/huggingface; export HF_HUB_CACHE=$HF_HOME/hub"
+
+[ckpt]
+interval = 8
+weights_only = true
+keep_last = 4
+
+[ckpt.weights]
+save_sharded = true
+save_format = "safetensors"
+
+[wandb]
+name = "sft-nemotron-super-120b-deepswe-all-kimi-v23-from-v18-step80-262k-cp4-ep8-ulysses-48steps-seed3"
+offline = false  # online: proxy unset in template so wandb.ai is reachable (see RL)
