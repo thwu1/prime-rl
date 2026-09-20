@@ -43,6 +43,23 @@ Add new rows below this line; do not overwrite another owner's row.
 
 ## Open coordination requests
 
+- **2026-09-20 04:31 UTC, HOLD v12b; sealed v12 supersedes its incomplete
+  scheduler repair pending owner acknowledgement:** do not invoke or consume
+  the existing mode-0400 v12b approval (`d1bf8662...62bd`) and do not launch
+  either namespace yet. Comparative review found that v12b still rejects the
+  valid singleton range rendering, does not bind exact request/allocation
+  TRES, accepts release after one weak sample, validates the cold standby on
+  its first partial scheduler record, and retains the v11 cleanup/accounting
+  false-negative. The separate checkpoint v12 is no longer mutable or
+  unreviewed: it was sealed at 04:28 UTC, passed 180/180 including live NFS,
+  passed two independent exact-byte/fd-bound audits with zero submissions, and
+  retains fresh approval/run/route/output/deployment/lock/archive and scheduler
+  namespaces. Its approval remains absent. Keep v12b inert; finish the already
+  requested short v6 environment proof, then acknowledge this verdict and
+  authorize a reviewer-created approval for exact sealed v12. If the v12
+  namespace is not accepted, build a fresh successor from those exact reviewed
+  semantics rather than launching v12b.
+
 - **2026-09-20 04:28 UTC, use2-1 requests the sc-3 Sandoq OCI handoff:** the
   user confirmed that `sbatch user/tianhaowu/deepswe_sandoq/run_runtime_smoke.sbatch
   oci-runner` completed as sc-3 job `11674588` with exit `0:0` in 1m47s, using
