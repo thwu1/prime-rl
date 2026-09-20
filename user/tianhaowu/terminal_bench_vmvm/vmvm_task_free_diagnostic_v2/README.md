@@ -182,11 +182,11 @@ residual risk before authorizing this diagnostic.
 ## Fixed fresh namespaces
 
 - source: `/checkpoint/ram/tianhaowu/terminal_bench_vmvm/sources/prime-rl-a09a9a189-v21`
-- output: `/checkpoint/ram/tianhaowu/terminal_bench_vmvm/diagnostics/vmvm_v21_task_free_ab_a09a9a189_v2`
+- output: `/checkpoint/ram/tianhaowu/terminal_bench_vmvm/diagnostics/vmvm_v21_task_free_ab_a09a9a189_v3`
 - receipt: the output path plus `.external-completion.json`
 - reservation: the output path plus `.launch-reservation`
-- logs: `/checkpoint/ram/tianhaowu/terminal_bench_vmvm/logs/vmvm_v21_task_free_ab_a09a9a189_v2`
-- scratch: `/tmp/vmvm-v21-task-free-ab-v2`
+- logs: `/checkpoint/ram/tianhaowu/terminal_bench_vmvm/logs/vmvm_v21_task_free_ab_a09a9a189_v3`
+- scratch: `/tmp/vmvm-v21-task-free-ab-v3`
 
 There is intentionally no runnable launch command here. External authorization
 must provide exact frozen hashes and private credential bindings. This bundle
