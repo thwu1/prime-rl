@@ -29,12 +29,12 @@ readonly worker="${GATE_SOURCE_ROOT}/vllm_tools/serve_api_v2/src/serve_api_v2/wo
 readonly aws_creds="${GATE_SOURCE_ROOT}/vllm_tools/serve_api_v2/src/serve_api_v2/worker/aws_creds.sh"
 readonly podman_guard="${GATE_BUNDLE}/podman_guard.sh"
 readonly scrubber=${GATE_LOCAL_SCRUBBER:-}
-readonly expected_source_root=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/sources/ram-common-35f08dd
+readonly expected_source_root=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/sources/ram-common-69af238
 readonly expected_image=588845226011.dkr.ecr.us-east-2.amazonaws.com/msl_infra/vllm-openai:kimi-k3-kda-logprobs-fix-v2-20260916@sha256:642f60668388b6c8e2d98f93577c9cd6a8aafaca7344dc4ab6a9e040774dec20
 readonly tools_manifest=${GATE_LOCAL_TOOL_MANIFEST:-}
 [[ "${GATE_SOURCE_ROOT:-}" == "$expected_source_root" \
-    && "${GATE_SOURCE_REVISION:-}" == 35f08dd04e9cbad34d56b6c386c7874679b21b3c \
-    && "${GATE_SOURCE_TREE:-}" == 19b7a066b0631dab87a8187127ed2229756e26e9 \
+    && "${GATE_SOURCE_REVISION:-}" == 69af238b4f86eec8e8cdb0b233bcdcb2052138a2 \
+    && "${GATE_SOURCE_TREE:-}" == 79f2da98eeaa693fd2e3066597c57170e28c9e99 \
     && "${GATE_IMAGE:-}" == "$expected_image" \
     && "${GATE_IMAGE_DIGEST:-}" == sha256:642f60668388b6c8e2d98f93577c9cd6a8aafaca7344dc4ab6a9e040774dec20 \
     && "$(/usr/bin/stat -Lc '%F:%a:%u:%h' -- "$worker")" == 'regular file:500:656177:1' \
