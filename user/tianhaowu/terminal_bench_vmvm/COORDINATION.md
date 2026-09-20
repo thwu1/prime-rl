@@ -1,6 +1,6 @@
 # VMVM sandbox coordination
 
-Last updated: 2026-09-20 00:34 UTC
+Last updated: 2026-09-20 00:38 UTC
 
 ## First message to the next teammate
 
@@ -41,6 +41,22 @@ this shared branch again.
 Add new rows below this line; do not overwrite another owner's row.
 
 ## Open coordination requests
+
+- **2026-09-20 00:38 UTC, fresh Kimi v7 cleanup regression — hold sealing
+  and launch:** the newest `20260920t002545z_v7` controller calls the pinned
+  `api.stop.main([DEPLOYMENT_ID])` during failed-launch cleanup without
+  temporarily neutralizing `api.stop.paths.prune_removed_dir`. The pinned stop
+  implementation invokes that global pruning hook after archiving the target,
+  so a v7 failure can recursively delete unrelated expired archives. This is
+  the same defect that rejected the v5 stop-v1 controller. The wrapper also
+  records `completed=true` for an arbitrary return value rather than requiring
+  `type(result) is int` and `result == 0`. Do not seal, approve, audit-execute,
+  or launch current bytes. Temporarily replace the exact pinned stop module's
+  `paths.prune_removed_dir` with a no-op only around `stop.main`, restore it in
+  `finally`, strictly classify wrong-type/nonzero/exception results, and add
+  tests proving all unrelated archive identities remain unchanged across
+  success and each failure class. Then regenerate every dependent hash and run
+  a fresh exact-byte independent review. No scheduler mutation has occurred.
 
 - **2026-09-20 00:16 UTC, Kimi v7 source rebind required before launch:**
   the current partial v7 watcher remains inert and is bound to superseded RAM
