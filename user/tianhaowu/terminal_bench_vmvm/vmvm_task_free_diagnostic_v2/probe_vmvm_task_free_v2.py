@@ -3059,7 +3059,7 @@ def validate_batch_admission(environment: Mapping[str, str], script_path: Path) 
     for prefix in ("BASH_FUNC_", "LD_", "GIT_"):
         if any(name.startswith(prefix) for name in environment):
             raise DiagnosticError("child_invalid")
-    if any(name.startswith("UV_") and name != "UV_BIN_X86_64" for name in environment):
+    if "UV" in environment or any(name.startswith("UV_") and name != "UV_BIN_X86_64" for name in environment):
         raise DiagnosticError("child_invalid")
     if any(
         name.startswith("PYTHON_")

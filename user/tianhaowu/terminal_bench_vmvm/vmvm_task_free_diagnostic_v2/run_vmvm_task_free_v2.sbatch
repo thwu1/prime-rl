@@ -25,7 +25,8 @@ fail() {
             path_shape|digest_shape|identity_shape|count_shape|directory_open|\
             directory_identity|bundle_inventory|bundle_artifacts|runtime_resolution|\
             runtime_artifacts|source_attestation|activation_gate|executable_binding|\
-            sealed_builder|probe_admission|probe_response|post_preflight_source|\
+            sealed_builder|uv_sanitizer|uv_environment|uv_probe_exec|\
+            probe_admission|probe_response|post_preflight_source|\
             namespace_freshness|lineage_hashes|internal) ;;
         *) stage=internal ;;
     esac
@@ -98,7 +99,7 @@ for variable in "${!PYTHON_@}"; do
         || $variable == PYTHON_SITE_X86_64_MANIFEST_SHA256 \
         || $variable == PYTHON_SITE_X86_64_TOTAL_BYTES ]] || fail
 done
-if [[ -n ${BASH_ENV+x} || -n ${ENV+x} || -n ${CDPATH+x} \
+if [[ -n ${BASH_ENV+x} || -n ${ENV+x} || -n ${CDPATH+x} || -n ${UV+x} \
     || -n ${PYTHONHOME+x} || -n ${PYTHONPATH+x} || -n ${PYTHONSTARTUP+x} \
     || -n ${PYTHONINSPECT+x} || -n ${PYTHONPYCACHEPREFIX+x} \
     || -n ${PYTHONNOUSERSITE+x} || -n ${PYTHONSAFEPATH+x} \
@@ -375,6 +376,75 @@ readonly BOUND_UV="/proc/self/fd/$uv_fd"
 validate_fd_file "$BOUND_PROBE" 500 "$DIAG_PROBE_SHA256" "$DIAG_PROBE_PATH"
 validate_fd_file "$BOUND_UV" 755 "$X86_UV_SHA256" "$UV_BIN_X86_64"
 
+# uv has a fixed, verified three-field child-environment delta. Restore the
+# authorized environment before the sealed probe observes it, and reject any
+# additional mutation by comparing the complete restored environment digest.
+readonly UV_SANITIZER_PROGRAM='
+import hashlib
+import os
+import sys
+
+EXPECTED_PATH = "/usr/local/bin:/usr/bin:/bin"
+EXPECTED_UV = "/memfd:vmvm-uv-v2 (deleted)"
+RESTORED_PATH = "/usr/bin:/bin"
+
+
+def fail(status=124):
+    raise SystemExit(status)
+
+
+def environment_sha256(environment):
+    digest = hashlib.sha256()
+    for name in sorted(environment):
+        encoded_name = os.fsencode(name)
+        encoded_value = os.fsencode(environment[name])
+        if b"=" in encoded_name or b"\0" in encoded_name or b"\0" in encoded_value:
+            fail()
+        digest.update(encoded_name)
+        digest.update(b"=")
+        digest.update(encoded_value)
+        digest.update(b"\0")
+    return digest.hexdigest()
+
+
+def main():
+    if len(sys.argv) < 3 or sys.argv[0] != "-c":
+        fail()
+    probe_path = sys.argv[1]
+    expected_environment_sha256 = sys.argv[2]
+    environment = dict(os.environ)
+    probe_fd = environment.get("DIAG_EXEC_PROBE_FD", "")
+    if (
+        not probe_fd.isdigit()
+        or probe_path != f"/proc/self/fd/{probe_fd}"
+        or len(expected_environment_sha256) != 64
+        or any(value not in "0123456789abcdef" for value in expected_environment_sha256)
+        or environment.get("UV_RUN_RECURSION_DEPTH") != "1"
+        or environment.get("UV") != EXPECTED_UV
+        or environment.get("PATH") != EXPECTED_PATH
+    ):
+        fail()
+    del environment["UV_RUN_RECURSION_DEPTH"]
+    del environment["UV"]
+    environment["PATH"] = RESTORED_PATH
+    if environment_sha256(environment) != expected_environment_sha256:
+        fail(123)
+    try:
+        os.execve(
+            "/proc/self/exe",
+            ["/proc/self/exe", "-I", "-S", "-B", probe_path, *sys.argv[3:]],
+            environment,
+        )
+    except OSError:
+        fail(122)
+
+
+try:
+    main()
+except (UnicodeError, ValueError):
+    fail()
+'
+
 # Copy each executable from its already-bound descriptor into a sealed anonymous
 # inode. The original pathname is never consulted by exec or by the Python
 # interpreter after this point.
@@ -396,6 +466,20 @@ REQUIRED_SEALS = (
 
 def fail():
     raise SystemExit(125)
+
+
+def environment_sha256(environment):
+    digest = hashlib.sha256()
+    for name in sorted(environment):
+        encoded_name = os.fsencode(name)
+        encoded_value = os.fsencode(environment[name])
+        if b"=" in encoded_name or b"\0" in encoded_name or b"\0" in encoded_value:
+            fail()
+        digest.update(encoded_name)
+        digest.update(b"=")
+        digest.update(encoded_value)
+        digest.update(b"\0")
+    return digest.hexdigest()
 
 
 def copy_sealed(source_fd, name, expected_digest, expected_mode, maximum):
@@ -489,11 +573,22 @@ for public_fd in (public_stdout_fd, public_stderr_fd):
 environment = dict(os.environ)
 environment["DIAG_EXEC_PROBE_FD"] = str(probe_fd)
 environment["DIAG_EXEC_UV_FD"] = str(uv_fd)
+authorized_environment_sha256 = environment_sha256(environment)
 uv_path = f"/proc/self/fd/{uv_fd}"
 probe_path = f"/proc/self/fd/{probe_fd}"
-if sys.argv[7:].count("__VMVM_PROBE__") != 1:
+if (
+    sys.argv[7:].count("__VMVM_PROBE__") != 1
+    or sys.argv[7:].count("__VMVM_AUTHORIZED_ENVIRONMENT_SHA256__") != 1
+):
     fail()
-arguments = [probe_path if value == "__VMVM_PROBE__" else value for value in sys.argv[7:]]
+arguments = [
+    probe_path
+    if value == "__VMVM_PROBE__"
+    else authorized_environment_sha256
+    if value == "__VMVM_AUTHORIZED_ENVIRONMENT_SHA256__"
+    else value
+    for value in sys.argv[7:]
+]
 try:
     os.execve(uv_path, [uv_path, *arguments], environment)
 except OSError:
@@ -505,7 +600,8 @@ run_sealed_probe() {
         "$probe_fd" "$DIAG_PROBE_SHA256" "$uv_fd" "$X86_UV_SHA256" \
         "$public_stdout_fd" "$public_stderr_fd" \
         run --no-project --offline --python "$PYTHON_BIN_X86_64" \
-        python3 -I -S -B __VMVM_PROBE__ "$@"
+        python3 -I -S -B -c "$UV_SANITIZER_PROGRAM" \
+        __VMVM_PROBE__ __VMVM_AUTHORIZED_ENVIRONMENT_SHA256__ "$@"
 }
 
 failure_stage=sealed_builder
@@ -521,6 +617,18 @@ preflight_output=$(
 preflight_rc=$?
 set -e
 if (( preflight_rc == 125 )); then
+    fail
+fi
+if (( preflight_rc == 124 )); then
+    failure_stage=uv_sanitizer
+    fail
+fi
+if (( preflight_rc == 123 )); then
+    failure_stage=uv_environment
+    fail
+fi
+if (( preflight_rc == 122 )); then
+    failure_stage=uv_probe_exec
     fail
 fi
 if (( preflight_rc != 0 )); then

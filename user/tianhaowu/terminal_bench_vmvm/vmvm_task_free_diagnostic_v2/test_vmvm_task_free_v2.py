@@ -693,15 +693,51 @@ def test_wrapper_public_output_domains_are_closed() -> None:
         "runtime_resolution",
         "sealed_builder",
         "source_attestation",
+        "uv_environment",
+        "uv_probe_exec",
+        "uv_sanitizer",
     }
     assigned_stages = set(re.findall(r"^\s*failure_stage=([a-z_]+)$", source, re.MULTILINE))
     assert assigned_stages == allowed_stages
     assert "exec >/dev/null 2>&1" in source
     assert "for public_fd in (public_stdout_fd, public_stderr_fd):" in source
     assert "os.close(public_fd)" in source
+    assert 'EXPECTED_UV = "/memfd:vmvm-uv-v2 (deleted)"' in source
+    assert 'EXPECTED_PATH = "/usr/local/bin:/usr/bin:/bin"' in source
+    assert 'os.execve(\n            "/proc/self/exe"' in source
     assert "printf '%s\\n' \"$preflight_output\"" not in source
     assert source.count('>&"$public_stderr_fd"') == 1
     assert source.count('>&"$public_stdout_fd"') == 1
+
+
+def test_uv_internal_environment_is_never_exported() -> None:
+    private = {
+        "bundle_identity": "1:2:448:656177",
+        "job_name": "vmvm-v4-preflight-" + "a" * 24,
+        "output_parent_identity": "1:3:448:656177",
+        "site_entry_count": "1",
+        "site_identity": "1:4:365:656177",
+        "site_manifest_sha256": "a" * 64,
+        "site_total_bytes": "1",
+        "source_identity": "1:5:365:656177",
+        **{name: "/private/tls" for name in LAUNCH.TLS_NAMES},
+        **{name: "private" for name in LAUNCH.X2P_NAMES},
+    }
+    environment = LAUNCH._submission_environment(
+        private=private,
+        authorization=Path("/private/authorization.json"),
+        authorization_file_sha256="a" * 64,
+        authorization_sha256="b" * 64,
+        launcher_sha256="c" * 64,
+        wrapper_sha256="d" * 64,
+        probe_sha256="e" * 64,
+        finalizer_sha256="f" * 64,
+        reservation_identity="1:6:320:656177",
+    )
+    assert {name for name in environment if name == "UV" or name.startswith("UV_")} == {"UV_BIN_X86_64"}
+    assert environment["PATH"] == "/usr/bin:/bin"
+    wrapper = (ROOT / "run_vmvm_task_free_v2.sbatch").read_text()
+    assert "-n ${UV+x}" in wrapper
 
 
 def test_source_contains_no_task_or_model_entrypoint() -> None:
@@ -1825,7 +1861,21 @@ def test_finalizer_subprocess_requires_and_executes_its_sealed_bytes(tmp_path: P
 
 @pytest.mark.parametrize(
     "failure_case",
-    ("success", "device_only", "multiple", "unreadable", "probe_rejected", "probe_response"),
+    (
+        "success",
+        "device_only",
+        "multiple",
+        "unreadable",
+        "probe_rejected",
+        "probe_response",
+        "uv_depth_missing",
+        "uv_depth_wrong",
+        "uv_value_wrong",
+        "uv_path_wrong",
+        "uv_extra_mutation",
+        "outer_uv",
+        "persisted_uv",
+    ),
 )
 def test_real_wrapper_emits_only_static_preflight_telemetry(tmp_path: Path, failure_case: str) -> None:
     base = tmp_path / "base"
@@ -1853,14 +1903,21 @@ def test_real_wrapper_emits_only_static_preflight_telemetry(tmp_path: Path, fail
         "import os,sys\n"
         "args=sys.argv[1:]\n"
         "if '--validate-batch' in args:\n"
+        f" mode={failure_case!r}\n"
         f" reject={failure_case == 'probe_rejected'!r}\n"
         f" invalid_response={failure_case == 'probe_response'!r}\n"
         " if reject or invalid_response:\n"
         "  print(os.environ['X2P_ENV'])\n"
         "  print(os.environ['DIAG_SOURCE_ROOT'],file=sys.stderr)\n"
         "  raise SystemExit(2 if reject else 0)\n"
+        " child_environment=dict(os.environ)\n"
+        " if mode != 'uv_depth_missing':\n"
+        "  child_environment['UV_RUN_RECURSION_DEPTH']='2' if mode == 'uv_depth_wrong' else '1'\n"
+        " child_environment['UV']='/wrong/uv' if mode == 'uv_value_wrong' else '/memfd:vmvm-uv-v2 (deleted)'\n"
+        " child_environment['PATH']='/unexpected/bin:/usr/bin:/bin' if mode == 'uv_path_wrong' else '/usr/local/bin:/usr/bin:/bin'\n"
+        " if mode == 'uv_extra_mutation': child_environment['UV_UNEXPECTED_MUTATION']='private-extra'\n"
         " start=args.index('-I')\n"
-        " os.execve('/usr/bin/python3',['/usr/bin/python3',*args[start:]],dict(os.environ))\n"
+        " os.execve('/usr/bin/python3',['/usr/bin/python3',*args[start:]],child_environment)\n"
         "print('RAW_SUPERVISOR_OUTPUT_MUST_NOT_RUN',file=sys.stderr)\n"
         "raise SystemExit(91)\n"
     )
@@ -2099,7 +2156,12 @@ def test_real_wrapper_emits_only_static_preflight_telemetry(tmp_path: Path, fail
         **{name: str(tls_path) for name in PROBE.TLS_NAMES},
         **x2p_values,
     }
-    environment_raw = b"".join(f"{name}={exported[name]}".encode() + b"\0" for name in sorted(exported))
+    persisted_environment = dict(exported)
+    if failure_case == "persisted_uv":
+        persisted_environment["UV_RUN_RECURSION_DEPTH"] = "1"
+    environment_raw = b"".join(
+        f"{name}={persisted_environment[name]}".encode() + b"\0" for name in sorted(persisted_environment)
+    )
     environment_sha = PROBE.sha256_bytes(environment_raw)
     launch_intent = {
         "artifact_type": "vmvm_task_free_launch_intent_v2",
@@ -2179,6 +2241,8 @@ def test_real_wrapper_emits_only_static_preflight_telemetry(tmp_path: Path, fail
     elif failure_case == "unreadable":
         exported["DIAG_SOURCE_ROOT"] = str(raw_missing_path)
     runtime_environment = {**exported, "SLURM_JOB_ID": "42", "SLURM_JOB_NAME": job_name}
+    if failure_case == "outer_uv":
+        runtime_environment["UV"] = raw_secret
     result = subprocess.run(
         [str(wrapper_path)],
         env=runtime_environment,
@@ -2213,6 +2277,41 @@ def test_real_wrapper_emits_only_static_preflight_telemetry(tmp_path: Path, fail
             b'"output_parent":"match","reservation":"match","site":"match","source":"match"},'
             b'"stage":"probe_response","state":"failed"}\n'
         ),
+        "uv_depth_missing": (
+            b'{"code":"diagnostic_job_failed","directory_identities":{"bundle":"match",'
+            b'"output_parent":"match","reservation":"match","site":"match","source":"match"},'
+            b'"stage":"uv_sanitizer","state":"failed"}\n'
+        ),
+        "uv_depth_wrong": (
+            b'{"code":"diagnostic_job_failed","directory_identities":{"bundle":"match",'
+            b'"output_parent":"match","reservation":"match","site":"match","source":"match"},'
+            b'"stage":"uv_sanitizer","state":"failed"}\n'
+        ),
+        "uv_value_wrong": (
+            b'{"code":"diagnostic_job_failed","directory_identities":{"bundle":"match",'
+            b'"output_parent":"match","reservation":"match","site":"match","source":"match"},'
+            b'"stage":"uv_sanitizer","state":"failed"}\n'
+        ),
+        "uv_path_wrong": (
+            b'{"code":"diagnostic_job_failed","directory_identities":{"bundle":"match",'
+            b'"output_parent":"match","reservation":"match","site":"match","source":"match"},'
+            b'"stage":"uv_sanitizer","state":"failed"}\n'
+        ),
+        "uv_extra_mutation": (
+            b'{"code":"diagnostic_job_failed","directory_identities":{"bundle":"match",'
+            b'"output_parent":"match","reservation":"match","site":"match","source":"match"},'
+            b'"stage":"uv_environment","state":"failed"}\n'
+        ),
+        "outer_uv": (
+            b'{"code":"diagnostic_job_failed","directory_identities":{"bundle":"not_checked",'
+            b'"output_parent":"not_checked","reservation":"not_checked","site":"not_checked",'
+            b'"source":"not_checked"},"stage":"forbidden_environment","state":"failed"}\n'
+        ),
+        "persisted_uv": (
+            b'{"code":"diagnostic_job_failed","directory_identities":{"bundle":"match",'
+            b'"output_parent":"match","reservation":"match","site":"match","source":"match"},'
+            b'"stage":"probe_admission","state":"failed"}\n'
+        ),
     }
     if failure_case == "success":
         assert result.returncode == 0, result.stderr.decode(errors="replace")
@@ -2231,6 +2330,9 @@ def test_real_wrapper_emits_only_static_preflight_telemetry(tmp_path: Path, fail
     assert str(raw_missing_path).encode() not in public_output
     assert str(expected_source).encode() not in public_output
     assert b"RAW_SUPERVISOR_OUTPUT_MUST_NOT_RUN" not in public_output
+    assert b"/wrong/uv" not in public_output
+    assert b"/unexpected/bin" not in public_output
+    assert b"private-extra" not in public_output
     assert all(value.encode() not in public_output for value in x2p_values.values())
     assert not output.exists()
     assert not completion.exists()

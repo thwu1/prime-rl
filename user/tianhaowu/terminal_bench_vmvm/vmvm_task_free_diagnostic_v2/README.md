@@ -34,7 +34,8 @@ The wrapper performs these operations, in order:
    submodules, and imported VMVM implementation.
 5. Validate the sealed reservation and activation lineage.
 6. Copy the already-bound probe and uv bytes into anonymous memfds, apply the
-   write/grow/shrink/exec/seal seals, and execute one admission-only probe.
+   write/grow/shrink/exec/seal seals, and execute one admission-only probe
+   through the fixed uv child-environment sanitizer.
 7. Reattest the probe and source, prove the output/receipt/scratch names remain
    absent, and hash the three private lineage artifacts.
 
@@ -48,6 +49,17 @@ ordinary process output to `/dev/null`. The sealed builder closes those public
 descriptors before executing uv or the probe. Probe stdout/stderr is captured
 and compared only to the exact admission token; it is never forwarded.
 
+The outer and persisted environments forbid bare `UV` and every `UV_*` name
+except the authorized `UV_BIN_X86_64`. The pinned uv executable is expected to
+introduce exactly three fields in its child: `UV=/memfd:vmvm-uv-v2 (deleted)`,
+`UV_RUN_RECURSION_DEPTH=1`, and `PATH=/usr/local/bin:/usr/bin:/bin`. A Python
+trampoline between uv and the probe validates that exact tuple, removes `UV`
+and `UV_RUN_RECURSION_DEPTH`, restores `PATH=/usr/bin:/bin`, and compares a
+SHA-256 commitment over the entire restored environment with the pre-uv
+environment. Missing, changed, or additional uv mutations fail closed before
+the probe. The trampoline then re-executes the selected interpreter through
+`/proc/self/exe` with the sealed probe descriptor.
+
 Failure output is one canonical JSON object composed only from literal,
 allowlisted values. Its `stage` is one of:
 
@@ -56,7 +68,8 @@ entry required_environment forbidden_environment fixed_environment path_shape
 digest_shape identity_shape count_shape directory_open directory_identity
 bundle_inventory bundle_artifacts runtime_resolution runtime_artifacts
 source_attestation activation_gate executable_binding sealed_builder
-probe_admission probe_response post_preflight_source namespace_freshness
+uv_sanitizer uv_environment uv_probe_exec probe_admission probe_response
+post_preflight_source namespace_freshness
 lineage_hashes internal
 ```
 
