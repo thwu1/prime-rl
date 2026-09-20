@@ -1,6 +1,6 @@
 # VMVM sandbox coordination
 
-Last updated: 2026-09-20 07:29 UTC
+Last updated: 2026-09-20 07:37 UTC
 
 ## First message to the next teammate
 
@@ -45,6 +45,21 @@ this shared branch again.
 Add new rows below this line; do not overwrite another owner's row.
 
 ## Open coordination requests
+
+- **2026-09-20 07:37 UTC, fold the Sandoq handoff receipt into live ramp-2:**
+  do not launch a duplicate digest smoke while Qwen Sandoq job `1503355` is
+  active. If its existing two-task run reaches its normal terminal audit,
+  include in that aggregate-only checkpoint the exact submit/launcher
+  invocation, Prime/verifier/config identities, input and normalized image-
+  manifest hashes, proof that every requested runtime image retained its
+  `@sha256` digest, and the typed cleanup/WAL certificate. Explicitly record
+  that the current host-side path requires `mode=oci-runner`,
+  `environment=oci-runner`, `host_tunnel=none`, and public task networking;
+  `oci-runner-firecracker` belongs to the older repair contract and is not the
+  environment value for PR `#48`. Combined with no-network smoke `1501466`, a
+  passing ramp receipt can close the cross-machine Sandoq handoff without any
+  extra task/model/rollout launch. If the ramp fails, publish only its safe
+  aggregate failure and cleanup evidence and keep the handoff open.
 
 - **2026-09-20 07:16 UTC, oracle V22 terminal systemic infrastructure
   failure:** job `1758643` ended `FAILED 2:0` after 1:01:49 and wrote all 19
