@@ -29,6 +29,9 @@ from __future__ import annotations
 import asyncio
 import atexit
 import ctypes
+import errno
+import fcntl
+import functools
 import hashlib
 import io
 import ipaddress
@@ -39,6 +42,9 @@ import os
 import re
 import shlex
 import signal
+import socket
+import stat
+import struct
 import subprocess
 import sys
 import tarfile
@@ -46,6 +52,7 @@ import tempfile
 import threading
 import time
 import uuid
+import weakref
 from dataclasses import dataclass, field
 from pathlib import Path, PurePosixPath
 from typing import Any, Literal
@@ -57,10 +64,9 @@ from .types import BackendInitError, BashResult
 logger = logging.getLogger(__name__)
 
 
-# `latest` (793 on 2026-09-15) starts an x2p helper that requires a newer
-# GLIBC symbol than some otherwise healthy cpu_x86 nodes provide. The stable
-# channel (788) is compatible across the current heterogeneous CPU fleet.
-# Keep an escape hatch so a rollout canary can test a newer build explicitly.
+# Keep the default on the fleet-supported stable channel. Sealed launchers bind
+# the resolved binary and digest so an alias rotation cannot change a live run.
+# Keep an escape hatch so a rollout canary can test a candidate build explicitly.
 VACLI_BIN = os.environ.get("VACLI_BIN", "/public/fbpkgs/x86_64/vacli/stable/vacli")
 DEFAULT_TENANT = "async_2347641"
 DEFAULT_LEASE_TTL = "500s"
@@ -80,6 +86,10 @@ _PR_SET_PDEATHSIG = 1
 _VACLI_SPAWN_OWNER_LIVENESS_POLL_SECONDS = 0.1
 _VACLI_SPAWN_TIMEOUT_SECONDS = 30.0
 _VACLI_FORCED_REAP_TIMEOUT_SECONDS = 5.0
+_CONTROL_MASTER_EXIT_TIMEOUT_SECONDS = 10.0
+_CONTROL_MASTER_ABSENCE_SECONDS = 2.0
+_AF_UNIX_PATH_MAX_BYTES = 107
+_ARTIFACT_MUTATION_SIGNALS = {signal.SIGHUP, signal.SIGINT, signal.SIGTERM}
 _PDEATHSIG_EXEC_WRAPPER = """\
 import ctypes
 import os
@@ -563,6 +573,739 @@ class _VacliRestartFlight:
     result: int | None = None
 
 
+class _ArtifactCleanupError(RuntimeError):
+    """A backend-owned local artifact could not be safely retired."""
+
+
+class _ControlNotReady(_ArtifactCleanupError):
+    """The creation-bound OpenSSH master has not published its socket yet."""
+
+
+@dataclass
+class _ControlBinding:
+    identity: tuple[int, int, int, int, int]
+    descriptor: int
+    close_indeterminate: bool = False
+
+
+@dataclass
+class _OwnedControlArtifact:
+    name: str
+    ports: set[int] = field(default_factory=set)
+    process: Any = None
+    process_reaped: bool = False
+    binding: _ControlBinding | None = None
+    verified_absent: bool = False
+    retained_inert: bool = False
+
+
+@dataclass
+class _LogBinding:
+    identity: tuple[int, int, int, int, int]
+    descriptor: int
+    close_indeterminate: bool = False
+
+
+@dataclass
+class _OwnedLogArtifact:
+    name: str
+    binding: _LogBinding | None = None
+    verified_absent: bool = False
+    sanitized_retained: bool = False
+
+
+def _close_artifact_descriptors(
+    controls: dict[str, _OwnedControlArtifact],
+    logs: dict[str, _OwnedLogArtifact],
+) -> None:
+    """Close only retained FDs when an abandoned registry becomes unreachable."""
+    for record in controls.values():
+        binding = record.binding
+        if binding is None or binding.descriptor < 0:
+            continue
+        descriptor = binding.descriptor
+        binding.descriptor = -1
+        try:
+            os.close(descriptor)
+        except OSError:
+            pass
+    for record in logs.values():
+        binding = record.binding
+        if binding is None or binding.descriptor < 0:
+            continue
+        descriptor = binding.descriptor
+        binding.descriptor = -1
+        try:
+            os.close(descriptor)
+        except OSError:
+            pass
+
+
+class _VacliLocalArtifacts:
+    """Own every local ControlMaster socket and vacli log for one backend."""
+
+    def __init__(self, root: Path, subprocess_mod: Any) -> None:
+        self.root = root.resolve(strict=True)
+        self._sp = subprocess_mod
+        self._lock = threading.RLock()
+        self._sealed = False
+        root_fd = self._open_root_unbound()
+        try:
+            info = os.fstat(root_fd)
+            self._root_identity = (info.st_dev, info.st_ino, stat.S_IMODE(info.st_mode), info.st_uid)
+        finally:
+            os.close(root_fd)
+        control_leaf = f"vacli_ctl_{os.getpid()}_{'0' * 32}"
+        self._control_root = self.root
+        if len(os.fsencode(str(self._control_root / control_leaf))) > _AF_UNIX_PATH_MAX_BYTES:
+            self._control_root = Path("/tmp").resolve(strict=True)
+        if len(os.fsencode(str(self._control_root / control_leaf))) > _AF_UNIX_PATH_MAX_BYTES:
+            raise _ArtifactCleanupError("vacli control path exceeds the AF_UNIX path limit")
+        control_root_fd = self._open_root_unbound(self._control_root)
+        try:
+            info = os.fstat(control_root_fd)
+            self._control_root_identity = (info.st_dev, info.st_ino, stat.S_IMODE(info.st_mode), info.st_uid)
+        finally:
+            os.close(control_root_fd)
+        self._controls: dict[str, _OwnedControlArtifact] = {}
+        self._logs: dict[str, _OwnedLogArtifact] = {}
+        self._descriptor_finalizer = weakref.finalize(
+            self,
+            _close_artifact_descriptors,
+            self._controls,
+            self._logs,
+        )
+
+    def _open_root_unbound(self, root: Path | None = None) -> int:
+        selected_root = self.root if root is None else root
+        try:
+            descriptor = os.open(
+                selected_root,
+                os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC,
+            )
+        except OSError as error:
+            raise _ArtifactCleanupError("vacli artifact root is unavailable") from error
+        info = os.fstat(descriptor)
+        if not stat.S_ISDIR(info.st_mode):
+            os.close(descriptor)
+            raise _ArtifactCleanupError("vacli artifact root identity is invalid")
+        return descriptor
+
+    def _open_root(self) -> int:
+        descriptor = self._open_root_unbound()
+        info = os.fstat(descriptor)
+        observed = (info.st_dev, info.st_ino, stat.S_IMODE(info.st_mode), info.st_uid)
+        if observed != self._root_identity:
+            os.close(descriptor)
+            raise _ArtifactCleanupError("vacli artifact root identity changed")
+        return descriptor
+
+    def _open_control_root(self) -> int:
+        descriptor = self._open_root_unbound(self._control_root)
+        info = os.fstat(descriptor)
+        observed = (info.st_dev, info.st_ino, stat.S_IMODE(info.st_mode), info.st_uid)
+        if observed != self._control_root_identity:
+            os.close(descriptor)
+            raise _ArtifactCleanupError("vacli control root identity changed")
+        return descriptor
+
+    def _name(self, path: Path | str) -> str:
+        candidate = Path(path)
+        if candidate.parent != self.root or not candidate.name or "/" in candidate.name:
+            raise _ArtifactCleanupError("vacli artifact path escaped its root")
+        return candidate.name
+
+    def new_attempt_paths(self) -> tuple[str, Path]:
+        with self._lock:
+            if self._sealed:
+                raise _ArtifactCleanupError("vacli artifact registry is sealed")
+            nonce = uuid.uuid4().hex
+            control = self._control_root / f"vacli_ctl_{os.getpid()}_{nonce}"
+            log = self.root / f"vacli_lease_{os.getpid()}_{nonce}.log"
+            if len(os.fsencode(str(control))) > _AF_UNIX_PATH_MAX_BYTES:
+                raise _ArtifactCleanupError("vacli control path exceeds the AF_UNIX path limit")
+            if str(control) in self._controls or str(log) in self._logs:
+                raise _ArtifactCleanupError("vacli artifact nonce was reused")
+            control_root_fd = self._open_control_root()
+            log_root_fd = self._open_root()
+            try:
+                for descriptor, name in (
+                    (control_root_fd, control.name),
+                    (log_root_fd, log.name),
+                ):
+                    try:
+                        os.stat(name, dir_fd=descriptor, follow_symlinks=False)
+                    except FileNotFoundError:
+                        continue
+                    raise _ArtifactCleanupError("vacli artifact name already exists")
+            finally:
+                os.close(log_root_fd)
+                os.close(control_root_fd)
+            self._controls[str(control)] = _OwnedControlArtifact(control.name)
+            self._logs[str(log)] = _OwnedLogArtifact(log.name)
+            return str(control), log
+
+    def new_control_path(self) -> str:
+        with self._lock:
+            if self._sealed:
+                raise _ArtifactCleanupError("vacli artifact registry is sealed")
+            for _attempt in range(8):
+                control = self._control_root / f"vacli_ctl_{os.getpid()}_{uuid.uuid4().hex}"
+                if len(os.fsencode(str(control))) > _AF_UNIX_PATH_MAX_BYTES:
+                    raise _ArtifactCleanupError("vacli control path exceeds the AF_UNIX path limit")
+                if str(control) in self._controls:
+                    continue
+                root_fd = self._open_control_root()
+                try:
+                    try:
+                        os.stat(control.name, dir_fd=root_fd, follow_symlinks=False)
+                    except FileNotFoundError:
+                        self._controls[str(control)] = _OwnedControlArtifact(control.name)
+                        return str(control)
+                finally:
+                    os.close(root_fd)
+            raise _ArtifactCleanupError("vacli control nonce allocation failed")
+
+    def start_control(self, path: str, command: list[str]) -> Any:
+        """Spawn and publish the exact foreground OpenSSH master we own."""
+        with self._lock:
+            if self._sealed:
+                raise _ArtifactCleanupError("vacli artifact registry is sealed")
+            record = self._controls.get(path)
+            if record is None or record.process is not None or record.binding is not None:
+                raise _ArtifactCleanupError("vacli control process was not reserved exactly once")
+            previous_mask = signal.pthread_sigmask(signal.SIG_BLOCK, _ARTIFACT_MUTATION_SIGNALS)
+            process = None
+            try:
+                process = self._sp.Popen(
+                    command,
+                    stdin=self._sp.DEVNULL,
+                    stdout=self._sp.DEVNULL,
+                    stderr=self._sp.DEVNULL,
+                    start_new_session=True,
+                )
+                if type(getattr(process, "pid", None)) is not int or process.pid <= 1 or process.pid == os.getpid():
+                    raise _ArtifactCleanupError("vacli control process identity is invalid")
+                record.process = process
+                return process
+            finally:
+                cleanup_error: BaseException | None = None
+                if process is not None and record.process is not process:
+                    try:
+                        if (
+                            type(getattr(process, "pid", None)) is int
+                            and process.pid > 1
+                            and process.pid != os.getpid()
+                        ):
+                            process.kill()
+                            process.wait(timeout=_CONTROL_MASTER_EXIT_TIMEOUT_SECONDS)
+                    except (OSError, ProcessLookupError, self._sp.TimeoutExpired) as error:
+                        cleanup_error = error
+                try:
+                    signal.pthread_sigmask(signal.SIG_SETMASK, previous_mask)
+                except BaseException as error:
+                    cleanup_error = cleanup_error or error
+                if cleanup_error is not None:
+                    raise cleanup_error
+
+    @staticmethod
+    def _control_peer_pid(descriptor: int) -> tuple[int, int]:
+        peer = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        try:
+            peer.settimeout(_CONTROL_MASTER_EXIT_TIMEOUT_SECONDS)
+            peer.connect(f"/proc/self/fd/{descriptor}")
+            raw = peer.getsockopt(socket.SOL_SOCKET, socket.SO_PEERCRED, struct.calcsize("3i"))
+        except OSError as error:
+            if error.errno in {errno.ECONNREFUSED, errno.ENOENT}:
+                raise _ControlNotReady("vacli control master is not ready") from error
+            raise _ArtifactCleanupError("vacli control master is unavailable") from error
+        finally:
+            peer.close()
+        pid, uid, _gid = struct.unpack("3i", raw)
+        if pid <= 1 or uid != os.getuid():
+            raise _ArtifactCleanupError("vacli control master identity is invalid")
+        return pid, uid
+
+    def bind_control(self, path: str, *, required: bool = True) -> bool:
+        """Bind the socket inode and owning process created by SSH."""
+        with self._lock:
+            if self._sealed:
+                raise _ArtifactCleanupError("vacli artifact registry is sealed")
+            record = self._controls.get(path)
+            if record is None:
+                raise _ArtifactCleanupError("vacli control path was not reserved")
+            if record.verified_absent or record.retained_inert:
+                if required:
+                    raise _ArtifactCleanupError("vacli control path was already retired")
+                root_fd = self._open_control_root()
+                try:
+                    if record.verified_absent:
+                        if not self._stable_absence(root_fd, record.name):
+                            raise _ArtifactCleanupError("vacli control path reappeared")
+                    else:
+                        self._validate_retained_control(root_fd, record)
+                finally:
+                    os.close(root_fd)
+                return False
+            process = record.process
+            if process is None:
+                root_fd = self._open_control_root()
+                try:
+                    if not required and self._stable_absence(root_fd, record.name):
+                        return False
+                finally:
+                    os.close(root_fd)
+                raise _ArtifactCleanupError("vacli control process was not started")
+            if record.binding is not None:
+                binding = record.binding
+                current = self._control_identity(binding)
+                if current[:4] != binding.identity[:4]:
+                    raise _ArtifactCleanupError("vacli control binding changed")
+                root_fd = self._open_control_root()
+                try:
+                    named = self._optional_stat(root_fd, record.name)
+                    if current[4] == 0:
+                        if named is not None:
+                            raise _ArtifactCleanupError("vacli control path was replaced")
+                    elif named is None or self._leaf_identity(named, stat.S_IFSOCK) != binding.identity:
+                        raise _ArtifactCleanupError("vacli control path was replaced")
+                finally:
+                    os.close(root_fd)
+                return True
+
+            previous_mask = signal.pthread_sigmask(signal.SIG_BLOCK, _ARTIFACT_MUTATION_SIGNALS)
+            root_fd = -1
+            descriptor = -1
+            binding: _ControlBinding | None = None
+            try:
+                root_fd = self._open_control_root()
+                try:
+                    descriptor = os.open(
+                        record.name,
+                        os.O_PATH | os.O_NOFOLLOW | os.O_CLOEXEC,
+                        dir_fd=root_fd,
+                    )
+                except FileNotFoundError:
+                    if required:
+                        raise _ArtifactCleanupError("vacli control socket was not created")
+                    return False
+                identity = self._leaf_identity(os.fstat(descriptor), stat.S_IFSOCK)
+                named = os.stat(record.name, dir_fd=root_fd, follow_symlinks=False)
+                if self._leaf_identity(named, stat.S_IFSOCK) != identity:
+                    raise _ArtifactCleanupError("vacli control path was replaced")
+                if process.poll() is not None:
+                    raise _ArtifactCleanupError("vacli control master exited before binding")
+                pid, _uid = self._control_peer_pid(descriptor)
+                if pid != process.pid or process.poll() is not None:
+                    raise _ArtifactCleanupError("vacli control master ownership mismatch")
+                named = os.stat(record.name, dir_fd=root_fd, follow_symlinks=False)
+                if self._leaf_identity(named, stat.S_IFSOCK) != identity:
+                    raise _ArtifactCleanupError("vacli control path was replaced while binding")
+                binding = _ControlBinding(identity, descriptor)
+                record.binding = binding
+                return True
+            finally:
+                cleanup_error: BaseException | None = None
+                if (binding is None or record.binding is not binding) and descriptor >= 0:
+                    descriptor_to_close = descriptor
+                    descriptor = -1
+                    try:
+                        os.close(descriptor_to_close)
+                    except OSError as error:
+                        cleanup_error = error
+                if root_fd >= 0:
+                    root_to_close = root_fd
+                    root_fd = -1
+                    try:
+                        os.close(root_to_close)
+                    except OSError as error:
+                        cleanup_error = cleanup_error or error
+                try:
+                    signal.pthread_sigmask(signal.SIG_SETMASK, previous_mask)
+                except BaseException as error:
+                    cleanup_error = cleanup_error or error
+                if cleanup_error is not None:
+                    raise cleanup_error
+
+    def register_resume_log(self, path: Path) -> None:
+        with self._lock:
+            if self._sealed:
+                raise _ArtifactCleanupError("vacli artifact registry is sealed")
+            name = self._name(path)
+            if str(path) in self._logs:
+                raise _ArtifactCleanupError("vacli log path was reused")
+            self._logs[str(path)] = _OwnedLogArtifact(name)
+
+    def open_log(self, path: Path) -> Any:
+        with self._lock:
+            if self._sealed:
+                raise _ArtifactCleanupError("vacli artifact registry is sealed")
+            record = self._logs.get(str(path))
+            if record is None or record.binding is not None or record.verified_absent:
+                raise _ArtifactCleanupError("vacli log path was not reserved exactly once")
+            root_fd = self._open_root()
+            descriptor = -1
+            retained_descriptor = -1
+            binding: _LogBinding | None = None
+            previous_mask = signal.pthread_sigmask(signal.SIG_BLOCK, _ARTIFACT_MUTATION_SIGNALS)
+            try:
+                descriptor = os.open(
+                    record.name,
+                    os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW | os.O_CLOEXEC,
+                    0o600,
+                    dir_fd=root_fd,
+                )
+                info = os.fstat(descriptor)
+                identity = self._leaf_identity(info, stat.S_IFREG, expected_mode=0o600)
+                named = os.stat(record.name, dir_fd=root_fd, follow_symlinks=False)
+                if self._leaf_identity(named, stat.S_IFREG, expected_mode=0o600) != identity:
+                    raise _ArtifactCleanupError("vacli log identity is invalid")
+                retained_descriptor = fcntl.fcntl(descriptor, fcntl.F_DUPFD_CLOEXEC, 0)
+                binding = _LogBinding(identity, retained_descriptor)
+                record.binding = binding
+                stream = os.fdopen(descriptor, "wb")
+                descriptor = -1
+                return stream
+            except BaseException:
+                raise
+            finally:
+                cleanup_error: BaseException | None = None
+                try:
+                    if binding is None or record.binding is not binding:
+                        if retained_descriptor >= 0:
+                            retained_to_close = retained_descriptor
+                            retained_descriptor = -1
+                            try:
+                                os.close(retained_to_close)
+                            except OSError as error:
+                                cleanup_error = error
+                    if descriptor >= 0:
+                        descriptor_to_close = descriptor
+                        descriptor = -1
+                        try:
+                            os.close(descriptor_to_close)
+                        except OSError as error:
+                            cleanup_error = cleanup_error or error
+                    root_to_close = root_fd
+                    root_fd = -1
+                    try:
+                        os.close(root_to_close)
+                    except OSError as error:
+                        cleanup_error = cleanup_error or error
+                finally:
+                    try:
+                        signal.pthread_sigmask(signal.SIG_SETMASK, previous_mask)
+                    except BaseException as error:
+                        cleanup_error = cleanup_error or error
+                if cleanup_error is not None:
+                    raise cleanup_error
+
+    def record_control_port(self, path: str, port: int) -> None:
+        with self._lock:
+            if self._sealed or type(port) is not int or not 0 < port <= 65_535:
+                raise _ArtifactCleanupError("vacli control endpoint is invalid")
+            record = self._controls.get(path)
+            if record is None:
+                raise _ArtifactCleanupError("vacli control path was not reserved")
+            record.ports.add(port)
+
+    def seal(self) -> None:
+        with self._lock:
+            self._sealed = True
+
+    @property
+    def sealed(self) -> bool:
+        with self._lock:
+            return self._sealed
+
+    @staticmethod
+    def _leaf_identity(
+        info: os.stat_result,
+        expected_type: int,
+        *,
+        expected_mode: int | None = None,
+    ) -> tuple[int, int, int, int, int]:
+        identity = (
+            info.st_dev,
+            info.st_ino,
+            stat.S_IMODE(info.st_mode),
+            info.st_uid,
+            info.st_nlink,
+        )
+        if (
+            stat.S_IFMT(info.st_mode) != expected_type
+            or identity[3:] != (os.getuid(), 1)
+            or (expected_mode is not None and identity[2] != expected_mode)
+        ):
+            raise _ArtifactCleanupError("vacli artifact identity is invalid")
+        return identity
+
+    def _path_absent(self, root_fd: int, name: str) -> bool:
+        try:
+            os.stat(name, dir_fd=root_fd, follow_symlinks=False)
+        except FileNotFoundError:
+            return True
+        return False
+
+    def _stable_absence(self, root_fd: int, name: str) -> bool:
+        deadline = time.monotonic() + _CONTROL_MASTER_ABSENCE_SECONDS
+        while time.monotonic() < deadline:
+            if not self._path_absent(root_fd, name):
+                return False
+            time.sleep(min(0.1, deadline - time.monotonic()))
+        return self._path_absent(root_fd, name)
+
+    @staticmethod
+    def _close_bound_descriptor(binding: _ControlBinding | _LogBinding) -> None:
+        if binding.descriptor < 0 or binding.close_indeterminate:
+            raise _ArtifactCleanupError("vacli artifact descriptor close state is indeterminate")
+        descriptor = binding.descriptor
+        binding.descriptor = -1
+        binding.close_indeterminate = True
+        try:
+            os.close(descriptor)
+        except OSError as error:
+            raise _ArtifactCleanupError("vacli artifact descriptor close was not verified") from error
+        binding.close_indeterminate = False
+
+    def cleanup_controls(self, selected: set[str] | None = None) -> None:
+        with self._lock:
+            root_fd = self._open_control_root()
+            try:
+                for path, record in self._controls.items():
+                    if selected is not None and path not in selected:
+                        continue
+                    if record.verified_absent:
+                        if (
+                            record.binding is not None
+                            or (record.process is not None and not record.process_reaped)
+                            or not self._stable_absence(root_fd, record.name)
+                        ):
+                            raise _ArtifactCleanupError("vacli control path reappeared")
+                        continue
+                    if record.retained_inert:
+                        self._validate_retained_control(root_fd, record)
+                        continue
+                    self._cleanup_control_record(root_fd, record)
+            finally:
+                os.close(root_fd)
+
+    def _stop_control_process(self, record: _OwnedControlArtifact) -> None:
+        process = record.process
+        if process is None:
+            return
+        if record.process_reaped:
+            if process.poll() is None:
+                raise _ArtifactCleanupError("vacli control master reap state changed")
+            return
+        previous_mask = signal.pthread_sigmask(signal.SIG_BLOCK, _ARTIFACT_MUTATION_SIGNALS)
+        try:
+            if process.poll() is None:
+                try:
+                    process.kill()
+                except ProcessLookupError:
+                    pass
+            try:
+                process.wait(timeout=_CONTROL_MASTER_EXIT_TIMEOUT_SECONDS)
+            except self._sp.TimeoutExpired as error:
+                raise _ArtifactCleanupError("vacli control master did not exit") from error
+            if process.poll() is None:
+                raise _ArtifactCleanupError("vacli control master exit was not verified")
+            record.process_reaped = True
+        finally:
+            signal.pthread_sigmask(signal.SIG_SETMASK, previous_mask)
+
+    @staticmethod
+    def _control_socket_accepts(path: str) -> bool:
+        peer = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        try:
+            peer.settimeout(0.25)
+            peer.connect(path)
+            return True
+        except OSError as error:
+            if error.errno in {errno.ECONNREFUSED, errno.ENOENT}:
+                return False
+            raise _ArtifactCleanupError("vacli control socket liveness is ambiguous") from error
+        finally:
+            peer.close()
+
+    def _control_identity(self, binding: _ControlBinding) -> tuple[int, int, int, int, int]:
+        if binding.descriptor < 0 or binding.close_indeterminate:
+            raise _ArtifactCleanupError("vacli control descriptor is unavailable")
+        info = os.fstat(binding.descriptor)
+        identity = (
+            info.st_dev,
+            info.st_ino,
+            stat.S_IMODE(info.st_mode),
+            info.st_uid,
+            info.st_nlink,
+        )
+        if stat.S_IFMT(info.st_mode) != stat.S_IFSOCK or info.st_uid != os.getuid() or info.st_nlink not in {0, 1}:
+            raise _ArtifactCleanupError("vacli control socket identity is invalid")
+        return identity
+
+    def _validate_retained_control(self, root_fd: int, record: _OwnedControlArtifact) -> None:
+        binding = record.binding
+        if (
+            binding is None
+            or binding.descriptor >= 0
+            or binding.close_indeterminate
+            or not record.process_reaped
+            or record.process is None
+            or record.process.poll() is None
+        ):
+            raise _ArtifactCleanupError("vacli retained control master was not reaped")
+        named = self._optional_stat(root_fd, record.name)
+        if named is None:
+            raise _ArtifactCleanupError("vacli retained control socket disappeared")
+        if self._leaf_identity(named, stat.S_IFSOCK) != binding.identity:
+            raise _ArtifactCleanupError("vacli retained control socket was replaced")
+        path = str(self._control_root / record.name)
+        if self._control_socket_accepts(path):
+            raise _ArtifactCleanupError("vacli retained control socket is still active")
+        repeated = os.stat(record.name, dir_fd=root_fd, follow_symlinks=False)
+        if self._leaf_identity(repeated, stat.S_IFSOCK) != binding.identity:
+            raise _ArtifactCleanupError("vacli retained control socket changed during validation")
+
+    def _cleanup_control_record(
+        self,
+        root_fd: int,
+        record: _OwnedControlArtifact,
+    ) -> None:
+        self._stop_control_process(record)
+        binding = record.binding
+        if binding is None:
+            observed = self._optional_stat(root_fd, record.name)
+            if observed is None:
+                if self._stable_absence(root_fd, record.name):
+                    record.verified_absent = True
+                    return
+                raise _ArtifactCleanupError("owned vacli control path disappeared")
+            raise _ArtifactCleanupError("unbound vacli control occupied a reserved path")
+        if not record.ports:
+            raise _ArtifactCleanupError("vacli control endpoint was never recorded")
+        current = self._control_identity(binding)
+        if current[:4] != binding.identity[:4] or current[4] not in {0, 1}:
+            raise _ArtifactCleanupError("vacli control socket identity changed")
+        named = self._optional_stat(root_fd, record.name)
+        if current[4] == 0:
+            if named is not None or not self._stable_absence(root_fd, record.name):
+                raise _ArtifactCleanupError("vacli control path was replaced")
+            previous_mask = signal.pthread_sigmask(signal.SIG_BLOCK, _ARTIFACT_MUTATION_SIGNALS)
+            try:
+                self._close_bound_descriptor(binding)
+                record.binding = None
+                record.verified_absent = True
+            finally:
+                signal.pthread_sigmask(signal.SIG_SETMASK, previous_mask)
+            return
+        if named is None or self._leaf_identity(named, stat.S_IFSOCK) != binding.identity:
+            raise _ArtifactCleanupError("vacli control path was replaced")
+        path = str(self._control_root / record.name)
+        if self._control_socket_accepts(path):
+            raise _ArtifactCleanupError("vacli control socket remained active after owner reap")
+        repeated = self._control_identity(binding)
+        named = self._optional_stat(root_fd, record.name)
+        if repeated != binding.identity or named is None:
+            raise _ArtifactCleanupError("vacli control socket changed during retirement")
+        if self._leaf_identity(named, stat.S_IFSOCK) != binding.identity:
+            raise _ArtifactCleanupError("vacli control socket was replaced during retirement")
+        previous_mask = signal.pthread_sigmask(signal.SIG_BLOCK, _ARTIFACT_MUTATION_SIGNALS)
+        try:
+            self._close_bound_descriptor(binding)
+            record.retained_inert = True
+        finally:
+            signal.pthread_sigmask(signal.SIG_SETMASK, previous_mask)
+
+    def cleanup_logs(self, selected: set[str] | None = None) -> None:
+        with self._lock:
+            root_fd = self._open_root()
+            try:
+                for path, record in self._logs.items():
+                    if selected is not None and path not in selected:
+                        continue
+                    if record.verified_absent:
+                        if not self._stable_absence(root_fd, record.name):
+                            raise _ArtifactCleanupError("vacli log path reappeared")
+                        continue
+                    if record.sanitized_retained:
+                        self._validate_sanitized_log(root_fd, record)
+                        continue
+                    if record.binding is None:
+                        if self._stable_absence(root_fd, record.name):
+                            record.verified_absent = True
+                            continue
+                        raise _ArtifactCleanupError("unowned vacli log occupied a reserved path")
+                    self._cleanup_log_record(root_fd, record)
+            finally:
+                os.close(root_fd)
+
+    def _optional_stat(self, root_fd: int, name: str) -> os.stat_result | None:
+        try:
+            return os.stat(name, dir_fd=root_fd, follow_symlinks=False)
+        except FileNotFoundError:
+            return None
+
+    def _validate_sanitized_log(self, root_fd: int, record: _OwnedLogArtifact) -> None:
+        binding = record.binding
+        if binding is None or binding.close_indeterminate:
+            raise _ArtifactCleanupError("vacli sanitized log descriptor is unavailable")
+        named = self._optional_stat(root_fd, record.name)
+        if binding.descriptor >= 0:
+            info = os.fstat(binding.descriptor)
+            current = self._leaf_identity(info, stat.S_IFREG, expected_mode=0o600)
+            if current != binding.identity or info.st_size != 0:
+                raise _ArtifactCleanupError("vacli sanitized log descriptor changed")
+        if (
+            named is None
+            or self._leaf_identity(named, stat.S_IFREG, expected_mode=0o600) != binding.identity
+            or named.st_size != 0
+        ):
+            raise _ArtifactCleanupError("vacli sanitized log identity changed")
+
+    def _cleanup_log_record(self, root_fd: int, record: _OwnedLogArtifact) -> None:
+        binding = record.binding
+        if binding is None or binding.descriptor < 0 or binding.close_indeterminate:
+            raise _ArtifactCleanupError("owned vacli log descriptor is unavailable")
+        before = os.fstat(binding.descriptor)
+        if self._leaf_identity(before, stat.S_IFREG, expected_mode=0o600) != binding.identity:
+            raise _ArtifactCleanupError("owned vacli log identity changed")
+        os.ftruncate(binding.descriptor, 0)
+        os.fsync(binding.descriptor)
+        after = os.fstat(binding.descriptor)
+        if self._leaf_identity(after, stat.S_IFREG, expected_mode=0o600) != binding.identity or after.st_size != 0:
+            raise _ArtifactCleanupError("owned vacli log sanitization was not verified")
+        named = self._optional_stat(root_fd, record.name)
+        if named is None or self._leaf_identity(named, stat.S_IFREG, expected_mode=0o600) != binding.identity:
+            raise _ArtifactCleanupError("owned vacli log was moved or replaced")
+        previous_mask = signal.pthread_sigmask(signal.SIG_BLOCK, _ARTIFACT_MUTATION_SIGNALS)
+        try:
+            self._close_bound_descriptor(binding)
+            record.sanitized_retained = True
+        finally:
+            signal.pthread_sigmask(signal.SIG_SETMASK, previous_mask)
+
+
+def _lifecycle_serialized(method: Any) -> Any:
+    """Keep one admitted backend operation ahead of destructive teardown."""
+
+    @functools.wraps(method)
+    def locked(self: Any, *args: Any, **kwargs: Any) -> Any:
+        destroy_requested = getattr(self, "_destroy_requested", None)
+        if destroy_requested is not None and destroy_requested.is_set() and not getattr(self, "_destroying", False):
+            raise RuntimeError("VMVM operation rejected while destruction is pending")
+        with self._lifecycle_lock:
+            if destroy_requested is not None and destroy_requested.is_set() and not getattr(self, "_destroying", False):
+                raise RuntimeError("VMVM operation rejected while destruction is pending")
+            cancel_requested = getattr(self, "_command_cancel_requested", None)
+            if cancel_requested is not None and cancel_requested.is_set() and not getattr(self, "_destroying", False):
+                raise RuntimeError("VMVM operation rejected while command cancellation is active")
+            return method(self, *args, **kwargs)
+
+    locked._vmvm_lifecycle_serialized = True
+    return locked
+
+
 # ---------------------------------------------------------------------------
 # Lease + SSH helpers — small, reusable, easy to stub
 # ---------------------------------------------------------------------------
@@ -593,6 +1336,7 @@ class VacliLease:
         subprocess_mod: Any = None,
         image_url: str | None = None,
         cancel_event: threading.Event | None = None,
+        artifact_registry: _VacliLocalArtifacts | None = None,
     ) -> None:
         self.tenant_id = tenant_id
         self.log_path = log_path
@@ -602,6 +1346,8 @@ class VacliLease:
         self._sp = subprocess_mod or subprocess
         self._image_url = image_url
         self._cancel_event = cancel_event
+        self._artifact_registry = artifact_registry
+        self._owned_log_paths: set[str] = {str(log_path)}
         self.proc: Any = None
         self.ssh_port: int | None = None
         self._cleaned_up = False
@@ -615,7 +1361,38 @@ class VacliLease:
         self.lease_response: str | None = None
         self.session_identity_sha256: str | None = None
         self._resume_count = 0
-        atexit.register(self.cleanup)
+        self._cleanup_atexit_callback = self._cleanup_at_exit
+        atexit.register(self._cleanup_atexit_callback)
+
+    def _cleanup_at_exit(self) -> None:
+        try:
+            self.cleanup()
+        except BaseException:
+            logger.exception("vacli: non-fatal atexit cleanup failure")
+
+    def _open_log(self, path: Path) -> Any:
+        if self._artifact_registry is not None:
+            return self._artifact_registry.open_log(path)
+        descriptor = os.open(
+            path,
+            os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW | os.O_CLOEXEC,
+            0o600,
+        )
+        info = os.fstat(descriptor)
+        if (
+            not stat.S_ISREG(info.st_mode)
+            or stat.S_IMODE(info.st_mode) != 0o600
+            or info.st_uid != os.getuid()
+            or info.st_nlink != 1
+        ):
+            os.close(descriptor)
+            raise BackendInitError("vacli log identity is invalid")
+        return os.fdopen(descriptor, "wb")
+
+    @property
+    def owned_log_paths(self) -> set[str]:
+        with self._cleanup_lock:
+            return set(self._owned_log_paths)
 
     def _publish_process(
         self,
@@ -660,7 +1437,7 @@ class VacliLease:
                 # `with open(...)` closes the parent's fd after Popen returns;
                 # the child has already inherited its own dup'd copy after Popen.
                 log_path = self.log_path
-                with open(log_path, "wb") as log_fh:
+                with self._open_log(log_path) as log_fh:
                     _popen_vacli(
                         cmd,
                         log_fh,
@@ -843,15 +1620,13 @@ class VacliLease:
                 self._resume_count += 1
                 logger.info("vacli.restart_tunnel: resuming session (attempt %d)", self._resume_count)
                 # Fresh log per resume so wait_for_tunnel() parses the new mapping.
-                _old_log = self.log_path
                 base = self.log_path.name.split(".resume")[0]
                 log_path = self.log_path.with_name(f"{base}.resume{self._resume_count}.log")
+                if self._artifact_registry is not None:
+                    self._artifact_registry.register_resume_log(log_path)
+                self._owned_log_paths.add(str(log_path))
                 self.log_path = log_path
-                try:
-                    _old_log.unlink()
-                except (FileNotFoundError, OSError):
-                    pass
-                with open(log_path, "wb") as log_fh:
+                with self._open_log(log_path) as log_fh:
                     _popen_vacli(
                         cmd,
                         log_fh,
@@ -887,6 +1662,18 @@ class VacliLease:
         self._cleanup_requested.set()
         with self._cleanup_lock:
             self._cleanup_locked()
+            self._disarm_cleanup_at_exit_locked()
+
+    def _disarm_cleanup_at_exit_locked(self) -> None:
+        """Drop shutdown roots only after the lease is positively inactive."""
+        callback = self._cleanup_atexit_callback
+        if callback is not None:
+            atexit.unregister(callback)
+            self._cleanup_atexit_callback = None
+        # A failed backend constructor may abandon its registry after local
+        # artifact retirement becomes indeterminate.  Do not let a successfully
+        # retired lease keep that registry (and its retained FDs) alive.
+        self._artifact_registry = None
 
     def _cleanup_locked(self) -> None:
         pending_permit = self._take_pending_tunnel_locked()
@@ -909,8 +1696,10 @@ class VacliLease:
                     pass
                 try:
                     self.proc.wait(timeout=5)  # reap so vacli doesn't linger as a zombie
-                except Exception:
-                    pass
+                except self._sp.TimeoutExpired as error:
+                    raise BackendInitError("vacli process could not be reaped during cleanup") from error
+            if self.proc.poll() is None:
+                raise BackendInitError("vacli process cleanup returned before reap")
         finally:
             if pending_permit is not None:
                 pending_permit.release()
@@ -960,20 +1749,13 @@ class VacliLease:
         return "\n".join("  " + ln for ln in lines[-n:])
 
 
-def _ssh_opts(
+def _ssh_base_opts(
     port: int,
-    control_path: str | None = None,
     *,
     connect_timeout: int = 5,
 ) -> list[str]:
-    """Build the ssh argv prefix for a vacli x2p tunnel target.
-
-    When `control_path` is set, enable ControlMaster=auto so subsequent
-    `run_bash` calls reuse the same TCP+auth handshake. Each VM has a fresh
-    host key (no point persisting it in known_hosts).
-    """
-    args = [
-        "ssh",
+    return [
+        "/usr/bin/ssh",
         "-o",
         "StrictHostKeyChecking=no",
         "-o",
@@ -992,16 +1774,42 @@ def _ssh_opts(
         "-p",
         str(port),
     ]
-    if control_path is not None:
-        args += [
-            "-o",
-            "ControlMaster=auto",
-            "-o",
-            f"ControlPath={control_path}",
-            "-o",
-            "ControlPersist=600",
-        ]
-    return args
+
+
+def _ssh_opts(
+    port: int,
+    control_path: str | None = None,
+    *,
+    connect_timeout: int = 5,
+) -> list[str]:
+    """Build a client-only SSH argv that can never publish a master."""
+    path = "none" if control_path is None else control_path
+    return _ssh_base_opts(port, connect_timeout=connect_timeout) + [
+        "-o",
+        "ControlMaster=no",
+        "-o",
+        f"ControlPath={path}",
+        "-o",
+        "ControlPersist=no",
+        "-o",
+        "ForkAfterAuthentication=no",
+    ]
+
+
+def _ssh_master_command(port: int, control_path: str) -> list[str]:
+    command = _ssh_base_opts(port)
+    return command + [
+        "-o",
+        "ControlMaster=yes",
+        "-o",
+        f"ControlPath={control_path}",
+        "-o",
+        "ControlPersist=no",
+        "-o",
+        "ForkAfterAuthentication=no",
+        "-N",
+        "root@localhost",
+    ]
 
 
 def _wait_for_sshd(
@@ -1390,7 +2198,7 @@ class VacliVMVMBackend:
 
     Each instance:
       1. Leases a VMVM via vacli (--release-on-exit + atexit safety net).
-      2. Opens a long-lived SSH master connection via ControlMaster=auto.
+      2. Owns a foreground OpenSSH master process for the full runtime.
       3. Pulls + runs a podman container for `image_url`.
       4. Runs all subsequent `run_bash` calls inside the container, reusing
          the SSH master so handshake cost is paid once.
@@ -1407,13 +2215,18 @@ class VacliVMVMBackend:
         self._sp = config.subprocess_mod or subprocess
         self.init_start_time = time.perf_counter()
         self._destroyed = False
+        self._destroying = False
+        self._destroy_requested = threading.Event()
+        self._destroy_atexit_callback: Any = None
+        self._remote_cleanup_complete = False
         self._telemetry_runtime_active = False
+        self._lifecycle_lock = threading.RLock()
         # Random nonces keep multiple backends on the same host from sharing
         # ssh control sockets / vacli log files.
-        nonce = uuid.uuid4().hex[:8]
+        instance_nonce = uuid.uuid4().hex
         tmp = Path(tempfile.gettempdir())
-        self._control_path = str(tmp / f"vacli_ctl_{os.getpid()}_{nonce}")
-        self._vacli_log = tmp / f"vacli_lease_{os.getpid()}_{nonce}.log"
+        self._local_artifacts = _VacliLocalArtifacts(tmp, self._sp)
+        self._control_path, self._vacli_log = self._local_artifacts.new_attempt_paths()
 
         self._lease = VacliLease(
             tenant_id=config.tenant_id,
@@ -1422,6 +2235,7 @@ class VacliVMVMBackend:
             tunnel_ready_timeout=config.tunnel_ready_timeout,
             subprocess_mod=config.subprocess_mod,
             cancel_event=config.provisioning_cancel_event,
+            artifact_registry=self._local_artifacts,
         )
         self._container_id: str | None = None
         self._compose_project: str | None = None
@@ -1456,6 +2270,7 @@ class VacliVMVMBackend:
         self._active_command_done = threading.Event()
         self._active_command_done.set()
         self._command_cancel_requested = threading.Event()
+        self._command_cancel_failed = threading.Event()
         # Set by restart_session when it had to REBUILD a dead in-container shell
         # (state lost); recover_last() then declines transparent recovery.
         self._shell_was_reset = False
@@ -1481,7 +2296,7 @@ class VacliVMVMBackend:
 
         cancellation_watcher = threading.Thread(
             target=cancel_partial_lease,
-            name=f"vmvm-provision-cancel-{nonce}",
+            name=f"vmvm-provision-cancel-{instance_nonce}",
             daemon=True,
         )
         cancellation_watcher.start()
@@ -1496,6 +2311,7 @@ class VacliVMVMBackend:
                 try:
                     self._lease.start()
                     self._ssh_port = self._lease.wait_for_tunnel()
+                    self._local_artifacts.record_control_port(self._control_path, self._ssh_port)
                     self._raise_if_provisioning_cancelled()
                     # Full bring-up inside the retry envelope: sshd readiness and
                     # container pull/start are the ssh-dependent steps that saturate
@@ -1506,19 +2322,17 @@ class VacliVMVMBackend:
                     _wait_for_sshd(
                         self._ssh_port,
                         timeout=config.sshd_ready_timeout,
-                        control_path=self._control_path,
+                        control_path=None,
                         subprocess_mod=config.subprocess_mod,
                         cancel_event=config.provisioning_cancel_event,
                     )
+                    self._start_control_master()
                     self._raise_if_provisioning_cancelled()
                     self._container_id = self._start_container()
                     self._raise_if_provisioning_cancelled()
                     break
                 except BackendInitError as _e:
-                    try:
-                        self._lease.cleanup()
-                    except Exception:
-                        pass
+                    self._retire_failed_attempt()
                     self._container_id = None
                     self._raise_if_provisioning_cancelled()
                     if _attempt + 1 >= MAX_LEASE_RETRIES:
@@ -1535,9 +2349,7 @@ class VacliVMVMBackend:
                     elif cancel_event.wait(timeout=_wait):
                         raise BackendInitError("VMVM provisioning cancelled during retry backoff")
                     self._raise_if_provisioning_cancelled()
-                    _nonce = uuid.uuid4().hex[:8]
-                    self._control_path = str(tmp / f"vacli_ctl_{os.getpid()}_{_nonce}")
-                    self._vacli_log = tmp / f"vacli_lease_{os.getpid()}_{_nonce}.log"
+                    self._control_path, self._vacli_log = self._local_artifacts.new_attempt_paths()
                     self._lease = VacliLease(
                         tenant_id=config.tenant_id,
                         log_path=self._vacli_log,
@@ -1545,6 +2357,7 @@ class VacliVMVMBackend:
                         tunnel_ready_timeout=config.tunnel_ready_timeout,
                         subprocess_mod=config.subprocess_mod,
                         cancel_event=config.provisioning_cancel_event,
+                        artifact_registry=self._local_artifacts,
                     )
             # Persistent bash inside the container, driven via stdin over the
             # SSH master. Non-interactive `bash` (NOT `bash -i`): interactive
@@ -1560,19 +2373,89 @@ class VacliVMVMBackend:
             self._raise_if_provisioning_cancelled()
             if TELEMETRY is not None:
                 TELEMETRY.vmvm_runtime_became_ready()
-        except Exception:
+        except BaseException:
             # Roll back any partial state so an init failure doesn't leak a
             # leased VM.
-            self.destroy()
+            try:
+                self.destroy()
+            except BaseException as cleanup_error:
+                raise _ArtifactCleanupError("VMVM constructor rollback was not verified") from cleanup_error
             raise
         finally:
             provisioning_done.set()
             cancellation_watcher.join(timeout=0.2)
+        self._destroy_atexit_callback = self._destroy_at_exit
+        atexit.register(self._destroy_atexit_callback)
+
+    def _destroy_at_exit(self) -> None:
+        try:
+            self.destroy()
+        except BaseException:
+            logger.exception("vacli: non-fatal backend atexit cleanup failure")
 
     def _raise_if_provisioning_cancelled(self) -> None:
         cancel_event = self.config.provisioning_cancel_event
         if cancel_event is not None and cancel_event.is_set():
             raise BackendInitError("VMVM provisioning cancelled")
+
+    def _start_control_master(self) -> None:
+        process = self._local_artifacts.start_control(
+            self._control_path,
+            _ssh_master_command(self._ssh_port, self._control_path),
+        )
+        deadline = time.monotonic() + _CONTROL_MASTER_EXIT_TIMEOUT_SECONDS
+        while True:
+            self._raise_if_provisioning_cancelled()
+            if process.poll() is not None:
+                raise BackendInitError("OpenSSH control master exited during startup")
+            try:
+                if self._local_artifacts.bind_control(self._control_path, required=False):
+                    return
+            except _ControlNotReady:
+                pass
+            except _ArtifactCleanupError as error:
+                raise BackendInitError("could not bind the SSH control master") from error
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                raise BackendInitError("OpenSSH control master did not publish its socket")
+            cancel_event = self.config.provisioning_cancel_event
+            if cancel_event is None:
+                time.sleep(min(0.05, remaining))
+            elif cancel_event.wait(timeout=min(0.05, remaining)):
+                raise BackendInitError("VMVM provisioning cancelled while starting SSH control master")
+
+    def _retire_control_master(self, path: str) -> None:
+        bind_error: BaseException | None = None
+        cleanup_error: BaseException | None = None
+        try:
+            self._local_artifacts.bind_control(path, required=False)
+        except BaseException as error:
+            bind_error = error
+        try:
+            self._local_artifacts.cleanup_controls({path})
+        except BaseException as error:
+            cleanup_error = error
+        if bind_error is not None or cleanup_error is not None:
+            raise _ArtifactCleanupError("OpenSSH control master retirement was not verified") from (
+                cleanup_error or bind_error
+            )
+
+    def _retire_failed_attempt(self) -> None:
+        errors: list[BaseException] = []
+        try:
+            self._retire_control_master(self._control_path)
+        except BaseException as error:
+            errors.append(error)
+        try:
+            self._lease.cleanup()
+        except BaseException as error:
+            errors.append(error)
+        try:
+            self._local_artifacts.cleanup_logs(self._lease.owned_log_paths)
+        except BaseException as error:
+            errors.append(error)
+        if errors:
+            raise _ArtifactCleanupError("VMVM failed-attempt retirement was not verified") from errors[0]
 
     @property
     def lease_identity_sha256(self) -> str:
@@ -1887,7 +2770,8 @@ class VacliVMVMBackend:
         with self._command_state_lock:
             if self._active_command_thread is not None:
                 raise RuntimeError("concurrent VMVM shell commands are forbidden")
-            self._command_cancel_requested.clear()
+            if self._command_cancel_requested.is_set():
+                raise RuntimeError("VMVM command rejected while cancellation is active")
             self._active_command_thread = threading.get_ident()
             self._active_command_done.clear()
 
@@ -1901,17 +2785,52 @@ class VacliVMVMBackend:
 
         Returns ``False`` if the command cannot be stopped and joined within the
         caller's grace period or if shell restoration fails.  The caller must
-        destroy and invalidate the runtime on that fail-closed path.
+        destroy and invalidate the runtime on that fail-closed path.  This method
+        interrupts before taking ``_lifecycle_lock`` because the active command
+        holds it.  Once that command drains, the cancellation flag prevents new
+        lifecycle operations from entering SSH while reset acquires the lock.
         """
+
+        def poison() -> None:
+            with self._command_state_lock:
+                self._command_cancel_failed.set()
+                self._command_cancel_requested.set()
+
         if timeout <= 0:
+            poison()
             return False
         deadline = time.monotonic() + timeout
-        self._command_cancel_requested.set()
-        with self._command_cancel_lock:
+        remaining = deadline - time.monotonic()
+        if remaining <= 0 or not self._command_cancel_lock.acquire(timeout=remaining):
+            poison()
+            return False
+
+        request_published = False
+        succeeded = False
+        try:
             with self._command_state_lock:
+                if self._command_cancel_failed.is_set():
+                    self._command_cancel_requested.set()
+                    request_published = True
+                    return False
+                self._command_cancel_requested.set()
+                request_published = True
                 active = self._active_command_thread is not None or self._pending is not None
             if not active:
-                return not self._destroyed
+                remaining = deadline - time.monotonic()
+                if remaining <= 0 or not self._lifecycle_lock.acquire(timeout=remaining):
+                    return False
+                try:
+                    if self._destroyed:
+                        return False
+                    with self._command_state_lock:
+                        if self._command_cancel_failed.is_set():
+                            return False
+                        self._command_cancel_requested.clear()
+                        succeeded = True
+                    return True
+                finally:
+                    self._lifecycle_lock.release()
             if self._destroyed:
                 return False
 
@@ -1944,29 +2863,46 @@ class VacliVMVMBackend:
             if self._destroyed:
                 return False
 
-            if not fifo_mode:
-                remaining = deadline - time.monotonic()
-                if remaining <= 0 or not session.stop(timeout=remaining):
-                    return False
-                if self._session is session:
-                    self._session = None
-                # Legacy streamed sessions cannot preserve a known-good shell
-                # state across interruption.  The command is drained, but the
-                # runtime must be invalidated so grading is never run on it.
+            remaining = deadline - time.monotonic()
+            if remaining <= 0 or not self._lifecycle_lock.acquire(timeout=remaining):
                 return False
-
             try:
-                if not self._teardown_fifo_shell(deadline):
+                if self._destroyed:
                     return False
-                self._setup_fifo_shell(
-                    run_entrypoint=False,
-                    run_start_script=True,
-                    deadline=deadline,
-                )
-            except Exception:
-                logger.exception("vacli: shell restoration after cancellation failed")
-                return False
-            return True
+                if not fifo_mode:
+                    remaining = deadline - time.monotonic()
+                    if remaining <= 0 or not session.stop(timeout=remaining):
+                        return False
+                    if self._session is session:
+                        self._session = None
+                    # Legacy streamed sessions cannot preserve a known-good shell
+                    # state across interruption.  The command is drained, but the
+                    # runtime must be invalidated so grading is never run on it.
+                    return False
+
+                try:
+                    if not self._teardown_fifo_shell(deadline):
+                        return False
+                    self._setup_fifo_shell(
+                        run_entrypoint=False,
+                        run_start_script=True,
+                        deadline=deadline,
+                    )
+                except Exception:
+                    logger.exception("vacli: shell restoration after cancellation failed")
+                    return False
+                with self._command_state_lock:
+                    if self._command_cancel_failed.is_set():
+                        return False
+                    self._command_cancel_requested.clear()
+                    succeeded = True
+                return True
+            finally:
+                self._lifecycle_lock.release()
+        finally:
+            if request_published and not succeeded:
+                poison()
+            self._command_cancel_lock.release()
 
     def _fifo_stage(self, seq: int, command: str, fresh: bool = False) -> bool:
         """Stage the command body into c<seq> atomically (write tmp + rename), via
@@ -2223,6 +3159,7 @@ class VacliVMVMBackend:
                 logger.warning("fifo: shell recreate after timeout failed: %s", e)
         return res
 
+    @_lifecycle_serialized
     def recover_last(self) -> "BashResult | None":
         """After restart_session() re-establishes the tunnel, finish the command
         the drop interrupted -- WITHOUT re-running one that already executed. The
@@ -2282,6 +3219,16 @@ class VacliVMVMBackend:
         Returns False (caller should give up and score env_error) when the box
         is genuinely gone — lease/sshd dead or the container no longer running —
         because there is then nothing to grade."""
+        if self._destroy_requested.is_set():
+            return False
+        with self._lifecycle_lock:
+            if self._destroy_requested.is_set() and not self._destroying:
+                return False
+            if self._command_cancel_requested.is_set() and not self._destroying:
+                return False
+            return self._restart_session_locked()
+
+    def _restart_session_locked(self) -> bool:
         if self._destroyed or self._container_id is None:
             return False
         # Drop the dead session.
@@ -2291,17 +3238,16 @@ class VacliVMVMBackend:
             except Exception:
                 pass
             self._session = None
-        # Clear any stale ssh master socket, then re-open it via ControlMaster=auto.
+        # A recovery attempt may create a new OpenSSH master. Retire the exact
+        # old master first and give the attempt a fresh random path so a late
+        # unlink or a stale socket can never be mistaken for the new owner.
         try:
-            self._sp.run(
-                _ssh_opts(self._ssh_port, self._control_path) + ["-O", "exit", "root@localhost"],
-                stdin=self._sp.DEVNULL,
-                stdout=self._sp.DEVNULL,
-                stderr=self._sp.DEVNULL,
-                timeout=10,
-            )
-        except Exception:
-            pass
+            self._retire_control_master(self._control_path)
+        except _ArtifactCleanupError as cleanup_error:
+            logger.warning("vacli.restart_session: control cleanup failed: %s", cleanup_error)
+            return False
+        self._control_path = self._local_artifacts.new_control_path()
+        self._local_artifacts.record_control_port(self._control_path, self._ssh_port)
         try:
             _wait_for_sshd(
                 self._ssh_port,
@@ -2315,10 +3261,17 @@ class VacliVMVMBackend:
                 # those rollouts are dropped anyway, and it converts the common
                 # self-healing blips into clean seamless recoveries.
                 timeout=min(float(self.config.sshd_ready_timeout), 60.0),
-                control_path=self._control_path,
+                control_path=None,
                 subprocess_mod=self.config.subprocess_mod,
             )
-        except Exception as e:
+            self._start_control_master()
+        except BaseException as e:
+            try:
+                self._retire_control_master(self._control_path)
+            except BaseException as cleanup_error:
+                raise _ArtifactCleanupError("failed SSH recovery control was not retired") from cleanup_error
+            if not isinstance(e, Exception):
+                raise
             # sshd unreachable on the existing tunnel: the x2p tunnel (or the
             # vacli that owned it) is gone. Don't give up — the VM itself is
             # almost always still alive (we essentially never see the container
@@ -2328,26 +3281,24 @@ class VacliVMVMBackend:
             if new_port is None:
                 logger.warning("vacli.restart_session: tunnel resume failed; box unrecoverable")
                 return False
+            self._control_path = self._local_artifacts.new_control_path()
             self._ssh_port = new_port
-            # Drop the stale ssh master (it pointed at the dead tunnel port).
-            try:
-                self._sp.run(
-                    _ssh_opts(self._ssh_port, self._control_path) + ["-O", "exit", "root@localhost"],
-                    stdin=self._sp.DEVNULL,
-                    stdout=self._sp.DEVNULL,
-                    stderr=self._sp.DEVNULL,
-                    timeout=10,
-                )
-            except Exception:
-                pass
+            self._local_artifacts.record_control_port(self._control_path, new_port)
             try:
                 _wait_for_sshd(
                     self._ssh_port,
                     timeout=min(float(self.config.sshd_ready_timeout), 60.0),
-                    control_path=self._control_path,
+                    control_path=None,
                     subprocess_mod=self.config.subprocess_mod,
                 )
-            except Exception as e2:
+                self._start_control_master()
+            except BaseException as e2:
+                try:
+                    self._retire_control_master(self._control_path)
+                except BaseException as cleanup_error:
+                    raise _ArtifactCleanupError("resumed SSH control was not retired") from cleanup_error
+                if not isinstance(e2, Exception):
+                    raise
                 logger.warning("vacli.restart_session: sshd still unreachable after resume: %s", e2)
                 return False
             logger.info(
@@ -2461,6 +3412,7 @@ class VacliVMVMBackend:
             detail = (written.stdout or b"").decode("utf-8", errors="replace")
             raise BackendInitError(f"writing compose file failed: {detail[-1000:]}")
 
+    @_lifecycle_serialized
     def start_compose(self, compose_yaml: bytes) -> str:
         """Replace the single task container with the task's Compose project.
 
@@ -2595,6 +3547,7 @@ class VacliVMVMBackend:
                 logger.exception("vacli: failed to clean up partial compose project")
             raise
 
+    @_lifecycle_serialized
     def run_service_bash(
         self,
         service: str,
@@ -2604,6 +3557,8 @@ class VacliVMVMBackend:
         user: str | int | None = None,
     ) -> BashResult:
         """Run one command in a Compose sidecar (or the persistent main shell)."""
+        if self._destroyed:
+            raise RuntimeError("run_service_bash called after destroy")
         if service in ("", "main"):
             return self.run_bash(command, timeout)
         if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]*", service):
@@ -2625,6 +3580,7 @@ class VacliVMVMBackend:
             return _bash_result("error", output, "exit", exit_code=result.returncode)
         return _bash_result("success", output, "none", exit_code=0)
 
+    @_lifecycle_serialized
     def run_root_bash(self, command: str, timeout: float = 60.0) -> BashResult:
         """Run one runtime-management command as root in the main container.
 
@@ -2646,8 +3602,11 @@ class VacliVMVMBackend:
             return _bash_result("error", output, "exit", exit_code=result.returncode)
         return _bash_result("success", output, "none", exit_code=0)
 
+    @_lifecycle_serialized
     def read_service_file(self, service: str, remote_path: str | Path) -> bytes:
         """Read a file from a Compose sidecar without mixing stderr into bytes."""
+        if self._destroyed:
+            raise RuntimeError("read_service_file called after destroy")
         if service in ("", "main"):
             return self.read_file(remote_path)
         if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]*", service):
@@ -2692,6 +3651,7 @@ class VacliVMVMBackend:
 
     # -- public ToolBackend surface ----------------------------------------
 
+    @_lifecycle_serialized
     def run_bash(self, command: str, timeout: float = 60.0) -> BashResult:
         """Run a command inside the container's persistent shell.
 
@@ -2711,6 +3671,7 @@ class VacliVMVMBackend:
         finally:
             self._end_command()
 
+    @_lifecycle_serialized
     def run_bash_with_recovery(
         self,
         command: str,
@@ -2849,6 +3810,7 @@ class VacliVMVMBackend:
             networks[name] = settings
         return networks
 
+    @_lifecycle_serialized
     def prepare_network_isolation(self) -> None:
         """Attach all workload containers to one private internal network.
 
@@ -3042,8 +4004,11 @@ class VacliVMVMBackend:
             )
         isolation.allowed_tunnel_ports.discard(remote_port)
 
+    @_lifecycle_serialized
     def activate_network_isolation(self) -> None:
         """Remove public networks and permit only internal DNS and host tunnels."""
+        if self._destroyed:
+            raise RuntimeError("network policy activated after destroy")
         isolation = self._network_isolation
         if isolation is None:
             raise RuntimeError("network isolation was not prepared")
@@ -3143,16 +4108,62 @@ class VacliVMVMBackend:
     def destroy(self) -> None:
         # Cancellation may be rebuilding the persistent shell.  Serialize lease
         # destruction with that state transition so teardown never races a reset.
+        self._destroy_requested.set()
         with self._command_cancel_lock:
-            self._destroy_locked()
+            with self._lifecycle_lock:
+                self._destroy_locked()
+                callback = getattr(self, "_destroy_atexit_callback", None)
+                if callback is not None:
+                    atexit.unregister(callback)
+                    self._destroy_atexit_callback = None
 
     def _destroy_locked(self) -> None:
-        # Teardown is deliberately re-entrant.  A cancelled non-command backend
-        # call can pass its initial ``_destroyed`` check, overlap the first destroy,
-        # and publish a resource afterwards.  The runtime therefore makes a final
-        # destroy pass after every data worker is joined; that pass must rescan and
-        # remove any late-created container, Compose project, tunnel, or network.
         self._destroyed = True
+        self._destroying = True
+        try:
+            registry_error: BaseException | None = None
+            remote_error: BaseException | None = None
+            lease_error: BaseException | None = None
+            if not getattr(self, "_remote_cleanup_complete", False):
+                try:
+                    self._destroy_remote_resources()
+                except BaseException as error:
+                    remote_error = error
+                finally:
+                    self._remote_cleanup_complete = True
+            if not self._local_artifacts.sealed:
+                try:
+                    self._local_artifacts.bind_control(self._control_path, required=False)
+                    self._local_artifacts.seal()
+                except BaseException as error:
+                    registry_error = error
+            try:
+                self._lease.cleanup()
+            except BaseException as error:
+                lease_error = error
+            if lease_error is None:
+                for cleanup in (
+                    self._local_artifacts.cleanup_controls,
+                    self._local_artifacts.cleanup_logs,
+                ):
+                    try:
+                        cleanup()
+                    except BaseException as error:
+                        registry_error = registry_error or error
+            if lease_error is not None or registry_error is not None:
+                cleanup_error = _ArtifactCleanupError("VMVM local artifact cleanup was not verified")
+                if remote_error is not None:
+                    cleanup_error.add_note(f"remote teardown also failed: {type(remote_error).__name__}")
+                raise cleanup_error from (lease_error or registry_error)
+            if remote_error is not None:
+                raise remote_error
+        finally:
+            self._destroying = False
+
+    def _destroy_remote_resources(self) -> None:
+        # Teardown remains re-entrant even though public remote operations are
+        # lifecycle-serialized. A second call rechecks remote state and every
+        # previously retired local artifact instead of trusting an old result.
         if getattr(self, "_telemetry_runtime_active", False):
             self._telemetry_runtime_active = False
             if TELEMETRY is not None:
@@ -3232,19 +4243,8 @@ class VacliVMVMBackend:
             except Exception:
                 logger.exception("vacli: internal network teardown failed")
             self._network_isolation = None
-        # Close the SSH master so the lease can be released cleanly.
-        try:
-            self._sp.run(
-                _ssh_opts(self._ssh_port, self._control_path) + ["-O", "exit", "root@localhost"],
-                stdin=self._sp.DEVNULL,
-                stdout=self._sp.DEVNULL,
-                stderr=self._sp.DEVNULL,
-                timeout=10,
-            )
-        except Exception:
-            pass
-        self._lease.cleanup()
 
+    @_lifecycle_serialized
     def transfer_file(self, file_content: str | bytes, remote_path: str | Path) -> None:
         """Stream a file's bytes into the container via tar over the SSH master.
 
@@ -3287,6 +4287,7 @@ class VacliVMVMBackend:
             err = (result.stderr or b"").decode("utf-8", errors="replace")
             raise RuntimeError(f"transfer_file failed (rc={result.returncode}, path={remote_path}): {err}")
 
+    @_lifecycle_serialized
     def read_file(self, remote_path: str | Path) -> bytes:
         """Read a file from the container without mixing SSH stderr into its bytes."""
         if self._destroyed:
@@ -3309,6 +4310,7 @@ class VacliVMVMBackend:
             raise RuntimeError(f"read_file failed (rc={result.returncode}, path={remote_path}): {err}")
         return result.stdout or b""
 
+    @_lifecycle_serialized
     def open_host_tunnel(self, local_port: int) -> tuple[VacliHostTunnel, str]:
         """Make a host-local TCP service reachable from the VMVM container.
 
@@ -3456,9 +4458,12 @@ class VacliVMVMBackend:
             )
         return True
 
+    @_lifecycle_serialized
     def close_host_tunnel(self, tunnel: object) -> None:
         if not isinstance(tunnel, VacliHostTunnel):
             raise TypeError(f"unexpected VMVM host tunnel: {type(tunnel).__name__}")
+        if self._destroyed and not self._destroying:
+            raise RuntimeError("close_host_tunnel called after destroy")
         self._host_tunnels.discard(tunnel)
         self._remove_isolated_tunnel(tunnel.remote_port)
         relay_log = f"/tmp/vacli_host_tunnel_{tunnel.remote_port}.log"
