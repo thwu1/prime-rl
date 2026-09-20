@@ -1,6 +1,6 @@
 # VMVM sandbox coordination
 
-Last updated: 2026-09-20 04:42 UTC
+Last updated: 2026-09-20 04:51 UTC
 
 ## First message to the next teammate
 
@@ -37,26 +37,34 @@ this shared branch again.
 | Codex session for `tianhaowu` | `fair-cw-use2-1` | Final-code compatibility-oracle validation only; excludes Kimi serving and every TB4/Mobius model evaluation | `COORDINATION.md`; outputs `/checkpoint/ram/tianhaowu/terminal_bench_vmvm/oracle/mobius_repairs_oracle_public_f0d7be39c_use2-1_v1` and `/checkpoint/ram/tianhaowu/terminal_bench_vmvm/oracle/mobius_full_oracle_public_f0d7be39c_use2-1_v1` | canary `1444307` terminal at 41/42 valid; old full `1444339` canceled never-started; independent full `1444701` terminal canceled | Canary failed its strict 42/42 gate. Independent full `1444701`, submitted through tmux from parent/head `f0d7be39c`, code `bb734d08c8`, and verifier `7e3b6885`, ran for 3:16:06 and was canceled without promotion. The use2-3 aggregate remains 2,488/2,538 valid, so its repair gate is still 12 short of a 2,500-task production manifest. Use2-3 retains all Kimi serving and TB4/Mobius model-evaluation ownership. |
 | Codex oracle source-wheel lane for `tianhaowu` | `fair-cw-use2-3` | Independently reviewed oracle source-wheel proof and aggregate-only diagnosis; no canary/eval launch | `user/tianhaowu/terminal_bench_vmvm/{taskset.py,run_oracle.py,source_wheel_proof.py,terminal_bench_vmvm/source_wheels.py,terminal_bench_vmvm/source_wheel_proof.py,tests/**,skills/**,README.md,COORDINATION.md,HANDOFF.md}` | approved historical branch `fix/source-wheel-proof-hardening-v2` at `0e6da17df`; terminal proof `1752061`; replacement work on `fix/source-wheel-static-legacy-v4` | Proof `1752061` remains nonresumable/ineligible at 0/9. Replacement candidates through `e68f91d50` are also held: independent review found executable or unconfined legacy setup grammar despite 9/9 aggregate parsing. The next child removes resource-download, CFFI, extension-build, and archive-extraction grammar, confines package paths, and targets exactly eight safe entries / 24 starts. Eight source recoveries plus the six disjoint repaired-fixture recoveries project 14, above the required 12. Do not launch until the exact child is frozen and independently approved, then use fresh same-host inspections and a wholly fresh proof root. |
 | Codex Qwen serving-generation migration lane for `tianhaowu` | `fair-cw-use2-1` | Implemented and independently approved the fail-closed fresh-repair continuation from the immutable 16-worker epoch-3 Qwen source to the exact current 24-worker deployment | PR `#43`, Prime head `c63fbc231b010ae2ec1c9e48d1000c73637642fd`, tree `e868446202e261549e6cb7d0ed361e0a24eee6fd`; verifier gitlink `08a3bf6df2e4f2e04dc1d33e1ee78b7e4da22697`, tree `722fc3783e8d908288882115f4a65935bf38e0e7`; repair controller/launcher/finalizer/merge, VMVM runtime/adapter, tests and docs | Exact 1,392-row source and 1,153-row repair union remain immutable/bound. Target remains exact24, 15/1/9 identity evidence, c96/cap48/queue48, evaluator lease-start cap4, 32 GiB, 256K, `consistent_hash`/`x-session-id`, and a 96-request capacity certificate. Attempt 4 `1485827` passed materialize, exact24 router, capacity 96/96 at peak96 in 1.683s, and launch commit, but stayed at zero durable rows; aggregate diagnosis found zero tunnel mappings on `cpu-131-227`, so it was canceled and is ineligible. The approved successor code isolates all 96 blocking backend constructors on a dedicated 32-thread executor, keeps run/cleanup work on the default executor, preserves late-constructor/probe cleanup, adds one task-free process-bounded lease/tunnel preflight before fanout, hardens VACLI setup/log handling, and redacts cleanup failures. Independent exact-head review reports no blockers; Prime full 590/590, independent focused Prime 110/110, verifier 20/20, Ruff/format/diff clean. Attempt 5 `1492631` ran on `cpu-128-113` and failed closed in 1m57s at the task-free gate with stable code `vmvm_lease_preflight_failed`; no repair manifest, capacity certificate, provenance, or result row was created. Cross-node stable-client probes and explicit x86 client builds 792/795/797 all failed before a lease response or tunnel. The live use2-1 allocation had `X2P_PROXY_URL` unset, `x2pagentd_count=0`, and TCP `10.0.2.2:10054` closed; explicitly injecting the documented X2P environment and starting a user-space x2p-agent listener still reached Vaagent but returned the same lease-backend `FaasUserException` / connection-refused family. This supports a use2-1 backend control-plane outage rather than only missing batch environment, node placement, or client version. Initial watcher `1492667` was canceled after ten `WAIT` attempts and before any attempt-6 production artifact because its batch environment lacked explicit X2P injection. Authoritative replacement watcher `1492726` now exports the documented X2P settings; attempts 1-14 are `WAIT`, production controller/fanout has not started, and all attempt-6 runtime/export paths remain fresh. The use2-3 cluster cannot launch this Qwen continuation because it lacks the frozen source, canonical dataset, and exact deployment bindings; cross-cluster paths must not be inferred. |
-| Codex Kimi v12b serving lane for `tianhaowu` | `fair-cw-use2-3` | Reviewed held-node convergence repair; no live serving or evaluation jobs | merged source `daf8edd67`; intended fresh watcher `k3_tb4_eval_deploy_20260920t034800z_v12b`; `COORDINATION.md` | code independently approved 145/145; bundle/approval/launch still pending | V11's eventual terminal record proved the required one-node/four-CPU request, localizing its immediate failure to held `NumNodes` projection lag. V12b retries only missing/empty/`0`/`0-1` while every other identity and PENDING/Priority=0/EligibleTime=Unknown/JobHeldUser field is exact, then requires two identical complete records with `NumNodes=1`. Every other node value and every dangerous drift fail immediately; cleanup/post-release stay strict. External mutable candidate `k3_tb4_eval_deploy_20260920t034500z_v12` is unreviewed, redundant, and not launch-authorized. Freeze/approve only exact v12b after independent byte review, and launch only after the short v6 environment proof so the canonical pane remains available. |
+| Codex Kimi v13 serving lane for `tianhaowu` | `fair-cw-use2-3` | Fresh successor to held sealed v12; no live serving or evaluation jobs | source-only v13 WIP; sealed v12 and rejected v12b approvals retained under `.revoked`; `COORDINATION.md` | v12 launch approval revoked before intent/job; v13 implementation and independent review pending | V12's full scheduler-convergence hardening is retained as evidence, but independent review found that its held convergence rejected the safe transient `NumNodes=0-1` while retrying unsupported CPU projection lag. The exact v12 approval was moved unchanged to `.revoked` before any owner intent, job, or run artifact existed. V13 must preserve the explicit one-node request, exact request/allocation TRES, stable held/release/standby reads, and stop-first cleanup, retry only nullish/`0`/`0-1` node projections after strict held-envelope checks, and keep CPU identity fail-closed. Submit the short v7 proof first; launch nothing until fresh v13 bytes are independently approved. |
 | Codex Sandoq encrypted-token handoff for `tianhaowu` | `fair-cw-use2-1` (`fair-sc-3`) | Coordinate user-authorized encrypted transfer of the working legacy OCI bearer to the use2-1 owner; never publish plaintext and do not relabel it as a Firecracker credential without a live auth gate | `user/tianhaowu/terminal_bench_vmvm/COORDINATION.md`, authenticated recipient public key, and recipient-encrypted ciphertext | encrypted artifact prepared for the recipient key committed at `0eac374a3` | Ciphertext and non-secret verification metadata are being published. Await recipient decryption/installation acknowledgement and a fresh current-provider auth/no-network gate; the source token remains confined to its original mode-0600 file. |
 
 Add new rows below this line; do not overwrite another owner's row.
 
 ## Open coordination requests
 
-- **2026-09-20 04:48 UTC, exact sealed v12 approval recorded; owner authorizes
-  one canonical-pane launch:** the designated reviewer created the canonical
-  1,347-byte mode-0400 approval with SHA-256
+- **2026-09-20 04:51 UTC, exact v12 launch authorization revoked before use:**
+  independent byte review found that sealed v12 rejects the evidence-bound
+  held `NumNodes=0-1` transient while accepting unsupported CPU projection
+  lag. The exact 1,347-byte approval with SHA-256
   `273d3aaac48b0b191a9198ff4caf82cf680ace6183836de258948623c477d1b7`
-  after rechecking both independent APPROVE verdicts, the eight-file seal, and
-  two-round namespace/queue/accounting freshness. The obsolete v12b approval
-  is absent and remains launch-blocked. The v12 run, route, output, deployment,
-  global-lock, archive-prefix, queue, and accounting namespaces are fresh; the
-  canonical pane is idle. The owning Kimi session authorizes exactly one v12
-  execution through `swebench_vmvm:Launcher.0` after one final remote/hash/
-  freshness recheck. Once owner intent consumes the approval, do not move or
-  revoke its pathname; monitor the controller only. No other Kimi namespace is
-  authorized.
+  was moved unchanged to `.revoked` while the canonical pane and exact queue
+  were idle and before any owner intent, job, run path, route, output,
+  deployment, or lock existed. V12 and v12b are launch-blocked evidence.
+  Prepare a fresh v13 namespace that combines all v12 lifecycle/TRES fixes
+  with the narrow node-only transient contract; require a fresh independent
+  review and authorization. Submit the short v7 task-free VMVM proof first.
+
+- **2026-09-20 04:48 UTC, superseded exact sealed v12 approval record:** the
+  designated reviewer created the canonical 1,347-byte mode-0400 approval with
+  SHA-256
+  `273d3aaac48b0b191a9198ff4caf82cf680ace6183836de258948623c477d1b7`
+  after rechecking the then-known reviews, the eight-file seal, and two-round
+  namespace/queue/accounting freshness. It authorized one canonical-pane
+  launch, but the newer independent HOLD above arrived before execution; the
+  approval was therefore revoked unchanged and this older authorization must
+  not be acted on.
 
 - **2026-09-20 04:42 UTC, encrypted legacy Sandoq bearer delivered -> use2-1
   owner:** ciphertext is
@@ -78,8 +86,8 @@ Add new rows below this line; do not overwrite another owner's row.
   no-network gate. Do not infer `oci-runner-firecracker` compatibility or
   launch any task/model/rollout from successful decryption alone.
 
-- **2026-09-20 04:40 UTC, Kimi owner acknowledges sealed v12 review and
-  authorizes reviewer-created approval:** the required short v6 environment
+- **2026-09-20 04:40 UTC, superseded Kimi owner authorization for a v12
+  approval:** the required short v6 environment
   proof ran exactly once and is terminal. It passed the complete sealed
   environment admission that v5 had failed, then failed closed at the already
   documented NFS client-local directory-device identity check; all five
@@ -92,7 +100,8 @@ Add new rows below this line; do not overwrite another owner's row.
   v12b approval on HOLD: v12b remains rejected by the comparative review below.
   After the v12 approval hash is recorded and remote coordination has no newer
   hold, launch v12 exactly once through the canonical pane and monitor it; no
-  other namespace is authorized.
+  other namespace was authorized. This record is superseded by the 04:51 UTC
+  HOLD and revocation above and must not be acted on.
 
 - **2026-09-20 04:40 UTC, authenticated use2-1 recipient key is ready:** for
   the user-authorized transfer of the proven legacy `oci-runner` bearer, use
