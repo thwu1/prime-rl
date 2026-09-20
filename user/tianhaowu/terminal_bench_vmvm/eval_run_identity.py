@@ -704,8 +704,6 @@ def _input_identity(
     config: dict[str, Any],
     approved_sha256: str,
     approved_count: int,
-    *,
-    execution_count: int | None = None,
 ) -> tuple[dict[str, Any], dict[str, str]]:
     if SHA256_RE.fullmatch(approved_sha256) is None or approved_count < 1:
         raise EvalIdentityError("approval_metadata_invalid")
@@ -750,13 +748,7 @@ def _input_identity(
         raise EvalIdentityError("resolved_taskset_invalid")
     if Path(str(taskset.get("task_file"))).resolve() != Path(task_record["path"]):
         raise EvalIdentityError("resolved_task_file_path_mismatch")
-    expected_execution_count = approved_count if execution_count is None else execution_count
-    if (
-        type(expected_execution_count) is not int
-        or not 1 <= expected_execution_count <= approved_count
-        or taskset.get("task_file_sha256") != approved_sha256
-        or config.get("num_tasks") != expected_execution_count
-    ):
+    if taskset.get("task_file_sha256") != approved_sha256 or config.get("num_tasks") != approved_count:
         raise EvalIdentityError("resolved_task_selection_mismatch")
     image_record = records["image_manifest"]
     if image_record is None:
@@ -2332,7 +2324,6 @@ def _verify_config_and_inputs(
         config,
         inputs["task_file"]["sha256"],
         inputs["task_file"]["count"],
-        execution_count=1 if identity["role"] == "kimi-direct-smoke" else None,
     )
     if observed_inputs != inputs or observed_source != config_section["source"]:
         raise EvalIdentityError("eval_inputs_identity_mismatch")
@@ -3045,7 +3036,6 @@ def _prepare_direct_kimi(args: argparse.Namespace) -> str:
         config,
         args.approved_task_file_sha256,
         args.approved_task_count,
-        execution_count=1 if args.role == "kimi-direct-smoke" else None,
     )
     contract, execution = _contract(
         config,

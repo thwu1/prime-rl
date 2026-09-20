@@ -85,12 +85,11 @@ fi
 
 if [[ "$stage" == smoke ]]; then
     eval_config="$server_dir/tb4_kimi_k3_sandoq_smoke.toml"
-    # Authorize the reviewed two-task non-security TB4 smoke set; num_tasks=1
-    # deterministically executes only the first sorted task without exposing
-    # its identifier in the launcher or aggregate reporting.
-    task_file="$workflow_dir/configs/eval/tb4_kimi_token_smoke.tasks.txt"
-    task_sha256=ecdcbc6e4f54b690e64b4566de5eecf33467088c8ca3436738cd7308d4e45b83
-    task_count=2
+    # Exact one-task authorization derived ID-blind from the reviewed
+    # non-security TB4 smoke set. Never print its task identifier.
+    task_file="$workflow_dir/configs/eval/tb4_kimi_k3_short_smoke.tasks.txt"
+    task_sha256=70425597db477c2c05b42c62ab2ddb5db76df8b04cfaf7022dbe2aa82aebe922
+    task_count=1
     stage_capacity=1
     identity_role=kimi-direct-smoke
 else
