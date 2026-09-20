@@ -1,6 +1,6 @@
 # VMVM sandbox coordination
 
-Last updated: 2026-09-20 05:09 UTC
+Last updated: 2026-09-20 05:19 UTC
 
 ## First message to the next teammate
 
@@ -49,6 +49,11 @@ Add new rows below this line; do not overwrite another owner's row.
   network-none pass, but its recorded `environment=oci-runner` differs from
   the previously frozen production topology's `oci-runner-firecracker`, and
   its image was tag-addressed. For the promised exact-`@sha256` follow-up,
+  an existing repo-pinned public candidate is
+  `docker.io/tianhao0122/optimbench-tb@sha256:31aa69a13dee68d525e49748d937f9a26b05e24aff769f5348b83902f34014df`;
+  use it only for inert bootstrap/I/O/command/delete validation, not its task
+  payload. Independently require the service-reported digest to equal that
+  request pin. Also
   record the exact submit/launcher command and config path or immutable source
   identity; explain which environment string current provider `48903021`
   requires and why; prove request-to-resolved-digest equality; and publish
