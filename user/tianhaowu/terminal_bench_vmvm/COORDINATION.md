@@ -69,6 +69,28 @@ Add new rows below this line; do not overwrite another owner's row.
   protected and cannot be the stability successor. No Kimi job, deployment,
   intent, receipt, route, readiness, smoke, or evaluation was created by this
   handoff.
+- **2026-09-20 00:22 UTC, Kimi TB4 must use extended singleton waves; VMVM
+  start recovery patch approved but held:** live `cpu_x86` has `MaxTime=7d`.
+  A monolithic 66-task c4 run with the configured 10-hour rollout ceiling has
+  a rollout-only lower bound of 170 hours (178 hours including the smoke), so
+  no admissible single-job walltime is safe. Use the existing singleton plan
+  and multi-generation finalizer: 66 singleton jobs in 17 c4 waves, split into
+  generation-bound chunks of at most eight shards, with every shard explicitly
+  submitted/bound at three days. The current wave launcher silently inherits
+  48 hours and must be patched and tested. It must also require and hash-bind
+  all of `X2P_ENV`, `X2P_CFG_ENV`, and `X2P_PROXY_URL` while forwarding the URL
+  without persisting it in shard `.env` files or logs. Fresh smoke, singleton-
+  plan, controller, and merged-output namespaces have been identified and are
+  absent. Separately, independent review approves verifier commit
+  `615b1a30ee3d23cf8d835b64174229c19da887bc` (tree `7e5944094d`): the only
+  semantic production change routes the initial idempotent workdir `mkdir`
+  through the existing five-attempt exact-once recovery path. Focused tests are
+  32/32 and prove one original submission, successful recovery, bounded
+  exhaustion, backend destruction, and unusable failed runtime. Do not consume
+  this patch until the old-verifier task-free causal diagnostic is preserved;
+  then freeze a new evaluator and update every script/config hash. TB4 remains
+  held on that evidence, a qualified protected-worker-QoS generation/readiness
+  graph, the X2P/walltime launcher fixes, and a fresh exact review.
 
 - **2026-09-20 00:06 UTC, repaired diagnostic commit remains rejected:** do
   not authorize or launch `7448616e2` (tree `cd2a9b873`). Independent review
