@@ -40,11 +40,11 @@ X86_SITE = BASE / "python_x86_64"
 VACLI = Path("/public/fbpkgs/x86_64/vacli/stable/vacli")
 VACLI_RESOLVED = Path("/infra/public/fbpkgs/x86_64/vacli/794/vacli")
 VACLI_SHA256 = "8be49a764bd0fac1a3ef2bef053ced556d18397d44642660eb8a2d22a7c235b3"
-OUTPUT_ROOT = BASE / "diagnostics/vmvm_v21_task_free_preflight_a09a9a189_v7_portable_identity"
+OUTPUT_ROOT = BASE / "diagnostics/vmvm_v21_task_free_preflight_a09a9a189_v8_sealed_wrapper"
 RESERVATION = Path(f"{OUTPUT_ROOT}.launch-reservation")
 COMPLETION_RECEIPT = Path(f"{OUTPUT_ROOT}.external-completion.json")
-LOG_ROOT = BASE / "logs/vmvm_v21_task_free_preflight_a09a9a189_v7_portable_identity"
-SCRATCH_ROOT = Path("/tmp/vmvm-v21-task-free-preflight-v7-portable-identity")
+LOG_ROOT = BASE / "logs/vmvm_v21_task_free_preflight_a09a9a189_v8_sealed_wrapper"
+SCRATCH_ROOT = Path("/tmp/vmvm-v21-task-free-preflight-v8-sealed-wrapper")
 CLUSTER = "fair-cw-use2-3"
 OWNER = "tianhaowu"
 OWNER_IDENTITY = "tianhaowu(656177)"
@@ -70,7 +70,7 @@ SHA_RE = re.compile(r"[0-9a-f]{64}")
 REV_RE = re.compile(r"[0-9a-f]{40}")
 JOB_RE = re.compile(r"[1-9][0-9]*")
 TOKEN_RE = re.compile(r"[0-9a-f]{24}")
-NAME_RE = re.compile(r"vmvm-v7-preflight-([0-9a-f]{24})")
+NAME_RE = re.compile(r"vmvm-v8-preflight-([0-9a-f]{24})")
 ACTIVE_STATES = {"PENDING", "CONFIGURING", "RUNNING", "COMPLETING"}
 TERMINAL_STATES = {
     "BOOT_FAIL",
@@ -714,7 +714,7 @@ def validate_authorization(
         "cluster": CLUSTER,
         "completion_receipt": str(COMPLETION_RECEIPT),
         "comment": (
-            f"vmvm-v7-preflight:{NAME_RE.fullmatch(str(launch.get('job_name'))).group(1)}"
+            f"vmvm-v8-preflight:{NAME_RE.fullmatch(str(launch.get('job_name'))).group(1)}"
             if NAME_RE.fullmatch(str(launch.get("job_name"))) is not None
             else None
         ),
@@ -1182,7 +1182,7 @@ def _base_mismatches(record: Mapping[str, str], job_id: str, job_name: str) -> s
     expected = {
         "Account": "ram",
         "Command": "(null)",
-        "Comment": f"vmvm-v7-preflight:{token.group(1)}",
+        "Comment": f"vmvm-v8-preflight:{token.group(1)}",
         "Dependency": "(null)",
         "JobId": job_id,
         "JobName": job_name,
@@ -1571,6 +1571,7 @@ def _submission_environment(
     authorization_sha256: str,
     launcher_sha256: str,
     wrapper_sha256: str,
+    wrapper_size: int,
     probe_sha256: str,
     finalizer_sha256: str,
     reservation_identity: Mapping[str, object],
@@ -1612,6 +1613,7 @@ def _submission_environment(
         "DIAG_WRAPPER_GATE_TIMEOUT_SECONDS": str(WRAPPER_GATE_TIMEOUT_SECONDS),
         "DIAG_WRAPPER_PATH": str(Path(__file__).resolve(strict=True).parent / "run_vmvm_task_free_v2.sbatch"),
         "DIAG_WRAPPER_SHA256": wrapper_sha256,
+        "DIAG_WRAPPER_SIZE": str(wrapper_size),
         "HOME": "/storage/home/tianhaowu",
         "LANG": "C",
         "LC_ALL": "C",
@@ -1652,7 +1654,7 @@ def _sbatch_command(job_name: str, environment_path: Path) -> list[str]:
         "--parsable",
         "--hold",
         f"--job-name={job_name}",
-        f"--comment=vmvm-v7-preflight:{token.group(1)}",
+        f"--comment=vmvm-v8-preflight:{token.group(1)}",
         f"--chdir={SOURCE_ROOT}",
         f"--time={JOB_TIME_LIMIT}",
         "--nodes=1",
@@ -2181,6 +2183,7 @@ def launch(authorization_path: Path, authorization_file_sha256: str) -> dict[str
             authorization_sha256=authorization_sha256,
             launcher_sha256=sha256_bytes(launcher_raw),
             wrapper_sha256=sha256_bytes(wrapper_raw),
+            wrapper_size=len(wrapper_raw),
             probe_sha256=sha256_bytes(probe_raw),
             finalizer_sha256=sha256_bytes(finalizer_raw),
             reservation_identity=admitted_reservation_identity,

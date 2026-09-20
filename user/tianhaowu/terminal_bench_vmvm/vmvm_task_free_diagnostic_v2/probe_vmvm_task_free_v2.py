@@ -76,14 +76,14 @@ PREFLIGHT_PROTOCOL = {
 ENVIRONMENT_EXPORT_POLICY = "sealed_nul_file_only"
 BASE = Path("/checkpoint/ram/tianhaowu/terminal_bench_vmvm")
 EXPECTED_SOURCE_ROOT = BASE / "sources/prime-rl-a09a9a189-v21"
-EXPECTED_OUTPUT_ROOT = BASE / "diagnostics/vmvm_v21_task_free_preflight_a09a9a189_v7_portable_identity"
+EXPECTED_OUTPUT_ROOT = BASE / "diagnostics/vmvm_v21_task_free_preflight_a09a9a189_v8_sealed_wrapper"
 EXPECTED_RESERVATION = Path(f"{EXPECTED_OUTPUT_ROOT}.launch-reservation")
-EXPECTED_SCRATCH_ROOT = Path("/tmp/vmvm-v21-task-free-preflight-v7-portable-identity")
+EXPECTED_SCRATCH_ROOT = Path("/tmp/vmvm-v21-task-free-preflight-v8-sealed-wrapper")
 EXPECTED_COMPLETION_RECEIPT = Path(f"{EXPECTED_OUTPUT_ROOT}.external-completion.json")
 EXPECTED_CLUSTER = "fair-cw-use2-3"
 EXPECTED_OWNER = "tianhaowu"
 SHA_RE = re.compile(r"[0-9a-f]{64}")
-NAME_RE = re.compile(r"vmvm-v7-preflight-[0-9a-f]{24}")
+NAME_RE = re.compile(r"vmvm-v8-preflight-[0-9a-f]{24}")
 STAGES = (
     "direct_client",
     "same_thread_raw",
@@ -3111,6 +3111,7 @@ def validate_batch_admission(environment: Mapping[str, str], script_path: Path) 
         "DIAG_WRAPPER_GATE_TIMEOUT_SECONDS",
         "DIAG_WRAPPER_PATH",
         "DIAG_WRAPPER_SHA256",
+        "DIAG_WRAPPER_SIZE",
         "HOME",
         "LANG",
         "LC_ALL",
@@ -3468,7 +3469,7 @@ def validate_batch_admission(environment: Mapping[str, str], script_path: Path) 
         or launch.get("cluster") != EXPECTED_CLUSTER
         or launch.get("environment_export") != ENVIRONMENT_EXPORT_POLICY
         or launch.get("comment")
-        != f"vmvm-v7-preflight:{environment['DIAG_JOB_NAME'].removeprefix('vmvm-v7-preflight-')}"
+        != f"vmvm-v8-preflight:{environment['DIAG_JOB_NAME'].removeprefix('vmvm-v8-preflight-')}"
         or launch.get("job_name") != environment["DIAG_JOB_NAME"]
         or launch.get("output_root") != str(EXPECTED_OUTPUT_ROOT)
         or launch.get("completion_receipt") != str(EXPECTED_COMPLETION_RECEIPT)
@@ -3478,7 +3479,7 @@ def validate_batch_admission(environment: Mapping[str, str], script_path: Path) 
         or portable_directory_identity(launch["output_parent_identity"]) != launch["output_parent_portable_identity"]
         or launch.get("reservation") != str(EXPECTED_RESERVATION)
         or launch.get("scratch_root") != str(EXPECTED_SCRATCH_ROOT)
-        or launch.get("log_root") != str(BASE / "logs/vmvm_v21_task_free_preflight_a09a9a189_v7_portable_identity")
+        or launch.get("log_root") != str(BASE / "logs/vmvm_v21_task_free_preflight_a09a9a189_v8_sealed_wrapper")
         or launch.get("nodes") != 1
         or launch.get("cpus") != 2
         or launch.get("memory") != "8G"
@@ -3612,6 +3613,13 @@ def validate_batch_admission(environment: Mapping[str, str], script_path: Path) 
         mode=0o500,
         expected_sha256=environment["DIAG_PROBE_SHA256"],
     )
+    wrapper_raw = _stable_bytes(
+        bundle_root / "run_vmvm_task_free_v2.sbatch",
+        mode=0o500,
+        expected_sha256=environment["DIAG_WRAPPER_SHA256"],
+    )
+    if environment["DIAG_WRAPPER_SIZE"] != str(len(wrapper_raw)):
+        raise DiagnosticError("child_invalid")
     os.close(bundle_fd)
     tls = credentials.get("tls")
     x2p = credentials.get("x2p")

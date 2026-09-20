@@ -1,4 +1,4 @@
-# VMVM V21 task-free pre-lease diagnostic v7
+# VMVM V21 task-free pre-lease diagnostic v8
 
 This is an inert, aggregate-only preflight bundle. It does not authorize a
 Slurm job, create a VMVM lease, run the supervisor or a worker, read benchmark
@@ -7,19 +7,24 @@ unlaunched until an independent reviewer freezes all six files, publishes a
 separate mode-0400 authorization, proves every namespace is fresh, and approves
 the canonical-pane invocation.
 
-The v7 executable path exists only to verify the diagnosed v6 cross-host NFS
-identity failure on an x86 node. V6 proved the export-file repair: all required
+The v8 executable path exists only to verify the diagnosed v6 cross-host NFS
+identity failure on an x86 node after closing v7's mutable-wrapper re-exec
+window. V6 proved the export-file repair: all required
 environment values arrived, then all five directory comparisons reported only
-`device_only`. No uv, probe, or VMVM lease was reached. V7 retains exactly one
+`device_only`. No uv, probe, or VMVM lease was reached. V8 retains exactly one
 sealed `--export-file` and no `--export=NONE`. NFS `st_dev` is local
-to each client, so v7 retains the complete login-side device/inode/mode/owner
+to each client, so v8 retains the complete login-side device/inode/mode/owner
 binding and adds a separately authorized batch tuple of inode/mode/owner.
 Only the device may vary. Every path remains fixed, absolute, canonical, and
 symlink-free. Each directory is opened component-by-component from a held root
 descriptor with `openat(O_NOFOLLOW)`, and a second anchored walk must reproduce
 the complete ancestor chain before the leaf descriptor is admitted. The batch
-wrapper re-executes its exact bound bytes with those five directory descriptors
-inherited, so it never checks a pathname and then reopens it. All existing
+wrapper opens its bound pathname once, validates mode, owner, link count,
+authorized size and digest across stable before/after/named identities, copies
+only those validated bytes into a mode-0500 memfd, applies the write/grow/
+shrink/seal seals, and re-executes Bash on that inherited memfd with the five
+directory descriptors. Subsequent pathname or content replacement cannot
+change the executing bytes. All existing
 content, Git, inventory, authorization, and receipt hashes remain mandatory.
 The authorization protocol is exactly:
 
@@ -31,7 +36,7 @@ The sealed probe CLI accepts only `--validate-batch`; worker and supervisor
 arguments are not registered. The batch wrapper invokes that admission path
 exactly once and exits after its post-admission read-only checks. Although the
 six-file layout retains reviewed supervisor and finalizer library code, neither
-is reachable from the v7 command line or wrapper.
+is reachable from the v8 command line or wrapper.
 
 ## Read-only stages
 
@@ -76,7 +81,7 @@ the probe. The trampoline then re-executes the selected interpreter through
 Failure output is one canonical JSON object composed only from literal,
 allowlisted values. At `required_environment`, it reports the complete missing
 and empty classifications as lists of names drawn from the wrapper's fixed
-62-name allowlist. It never reports values, lengths, hashes, or shell errors:
+63-name allowlist. It never reports values, lengths, hashes, or shell errors:
 
 ```json
 {"code":"diagnostic_job_failed","required_environment":{"empty":["X2P_ENV"],"missing":["SLURM_EXPORT_ENV"]},"stage":"required_environment","state":"failed"}
@@ -111,7 +116,7 @@ Successful admission emits only:
 ```
 
 NFS `st_dev` values are client-local and may differ across login and compute
-hosts. V7 permits that difference only when every portable tuple and all
+hosts. V8 permits that difference only when every portable tuple and all
 content/provenance checks pass. Inode, mode, owner, path, or content drift still
 fails closed, while telemetry continues to expose only the allowlisted class.
 
@@ -125,18 +130,18 @@ and `X2P_PROXY_URL`. Credential values are consumed only inside admission and
 never persisted in public telemetry. Source and site validation is read-only.
 
 The Linux pathname-removal limitation documented for the full diagnostic is
-outside this preflight: v7 creates no output or scratch tree and invokes no
+outside this preflight: v8 creates no output or scratch tree and invokes no
 removal operation. Absence checks therefore remain simple fail-closed gates.
 
 ## Fixed fresh namespaces
 
 - source: `/checkpoint/ram/tianhaowu/terminal_bench_vmvm/sources/prime-rl-a09a9a189-v21`
-- output: `/checkpoint/ram/tianhaowu/terminal_bench_vmvm/diagnostics/vmvm_v21_task_free_preflight_a09a9a189_v7_portable_identity`
+- output: `/checkpoint/ram/tianhaowu/terminal_bench_vmvm/diagnostics/vmvm_v21_task_free_preflight_a09a9a189_v8_sealed_wrapper`
 - receipt: the output path plus `.external-completion.json`
 - reservation: the output path plus `.launch-reservation`
-- logs: `/checkpoint/ram/tianhaowu/terminal_bench_vmvm/logs/vmvm_v21_task_free_preflight_a09a9a189_v7_portable_identity`
-- scratch: `/tmp/vmvm-v21-task-free-preflight-v7-portable-identity`
-- job name: `vmvm-v7-preflight-` plus the authorization's 24-hex token
+- logs: `/checkpoint/ram/tianhaowu/terminal_bench_vmvm/logs/vmvm_v21_task_free_preflight_a09a9a189_v8_sealed_wrapper`
+- scratch: `/tmp/vmvm-v21-task-free-preflight-v8-sealed-wrapper`
+- job name: `vmvm-v8-preflight-` plus the authorization's 24-hex token
 
 There is intentionally no runnable launch command here. No Slurm command was
 run while preparing this bundle, and no result from it authorizes an oracle,
