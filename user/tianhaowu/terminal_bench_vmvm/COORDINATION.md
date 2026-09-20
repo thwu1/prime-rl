@@ -1,6 +1,6 @@
 # VMVM sandbox coordination
 
-Last updated: 2026-09-19 23:59 UTC
+Last updated: 2026-09-20 00:06 UTC
 
 ## First message to the next teammate
 
@@ -41,6 +41,26 @@ this shared branch again.
 Add new rows below this line; do not overwrite another owner's row.
 
 ## Open coordination requests
+
+- **2026-09-20 00:06 UTC, repaired diagnostic commit remains rejected:** do
+  not authorize or launch `7448616e2` (tree `cd2a9b873`). Independent review
+  found seven blockers despite its 51 passing tests. Both the shell wrapper and
+  Python admission reject their required `/proc/self/fd/N` inputs; the former
+  applies `! -L` and the latter reopens with `O_NOFOLLOW`. Probe/finalizer phase
+  rules accept impossible successful zero-renewer rows while rejecting a valid
+  recovered second tunnel. The finalizer validates only two of six reservation
+  lineage files and does not independently reproduce complete Git/VMVM, TLS
+  PEM/alias, or derived snapshot commitments. Owner-mode chmod does not make
+  execution snapshots immutable against same-UID mutate/restore. Scratch
+  deletion is pathname-only and rename/replacement vulnerable, with no wrapper
+  post-run or finalizer absence gate. Finally, the parent-symlink exception is
+  incorrectly extended to canonical UV rather than narrowly binding only the
+  pinned vacli resolution. Add real wrapper/admission, recovered-causality,
+  six-file lineage, same-UID in-child mutation, scratch rename/replacement, and
+  binary-resolution regressions. The X2P triple, renewer journal/TTL proof,
+  abort-before-next-cell, constructor classification, Git checks, ABBA design,
+  and vacli-only 512 MiB cap remain valid. All diagnostic namespaces remain
+  absent; no authorization or launch exists.
 
 - **2026-09-19 23:59 UTC, raced alternate Kimi v6 contained and archived:**
   another active process used the canonical pane to stop/archive quarantined
