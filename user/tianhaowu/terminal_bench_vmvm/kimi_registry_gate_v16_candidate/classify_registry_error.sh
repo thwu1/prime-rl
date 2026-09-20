@@ -4,11 +4,20 @@
 # diagnostic is never printed or copied. Phase and class must come from the same
 # fixed worker line so explanatory prose cannot change a login into a pull.
 classify_registry_error_file() {
-    local error_file=$1 rc=$2 line phase= safe_class=
+    local error_file=$1 rc=$2 expected_identity=${3:-} observed_identity line phase= safe_class=
     REGISTRY_SAFE_CATEGORY=
-    [[ "$error_file" == /* && -f "$error_file" && ! -L "$error_file" \
-        && "$(/usr/bin/stat -c '%a:%u:%h' -- "$error_file" 2>/dev/null)" == '600:656177:1' ]] \
-        || return 1
+    [[ "$error_file" == /* ]] || return 1
+    if [[ -n "$expected_identity" ]]; then
+        [[ "$error_file" =~ ^/proc/self/fd/[1-9][0-9]*$ && -f "$error_file" ]] || return 1
+        observed_identity=$(/usr/bin/stat -Lc '%d:%i:%a:%u:%h' -- "$error_file" 2>/dev/null) \
+            || return 1
+        [[ "$observed_identity" == "$expected_identity" \
+            && "$observed_identity" == *':600:656177:1' ]] || return 1
+    else
+        [[ -f "$error_file" && ! -L "$error_file" \
+            && "$(/usr/bin/stat -c '%a:%u:%h' -- "$error_file" 2>/dev/null)" == '600:656177:1' ]] \
+            || return 1
+    fi
     if /usr/bin/grep -q '^gate_category=allocation_identity$' "$error_file" 2>/dev/null; then
         REGISTRY_SAFE_CATEGORY=allocation_identity
     elif /usr/bin/grep -q '^gate_category=source_identity$' "$error_file" 2>/dev/null; then

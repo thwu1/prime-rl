@@ -27,6 +27,7 @@ blocked() {
 
 readonly worker="${GATE_SOURCE_ROOT}/vllm_tools/serve_api_v2/src/serve_api_v2/worker/worker_vllm.sh"
 readonly aws_creds="${GATE_SOURCE_ROOT}/vllm_tools/serve_api_v2/src/serve_api_v2/worker/aws_creds.sh"
+readonly podman_guard="${GATE_BUNDLE}/podman_guard.sh"
 readonly expected_source_root=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/sources/ram-common-b1f0aa6
 readonly expected_image=588845226011.dkr.ecr.us-east-2.amazonaws.com/msl_infra/vllm-openai:kimi-k3-kda-logprobs-fix-v2-20260916@sha256:642f60668388b6c8e2d98f93577c9cd6a8aafaca7344dc4ab6a9e040774dec20
 readonly tools_manifest=${GATE_LOCAL_TOOL_MANIFEST:-}
@@ -46,12 +47,17 @@ readonly tools_manifest=${GATE_LOCAL_TOOL_MANIFEST:-}
     && "$tools_manifest" != /proc/self/fd/* \
     && "$tools_manifest" == "$(/usr/bin/readlink -f -- "$tools_manifest" 2>/dev/null)" \
     && "$(/usr/bin/stat -Lc '%F:%a:%u:%h' -- "$tools_manifest")" == 'regular file:400:656177:1' \
-    && "$(/usr/bin/sha256sum -- "$tools_manifest" | /usr/bin/cut -d' ' -f1)" == "${GATE_TOOL_MANIFEST_SHA256:-}" ]] \
+    && "$(/usr/bin/sha256sum -- "$tools_manifest" | /usr/bin/cut -d' ' -f1)" == "${GATE_TOOL_MANIFEST_SHA256:-}" \
+    && "$podman_guard" == /checkpoint/ram/tianhaowu/terminal_bench_vmvm/watchers/k3_registry_pull_gate_20260920t084500z_v16/podman_guard.sh \
+    && "$(/usr/bin/stat -Lc '%F:%a:%u:%h' -- "$podman_guard")" == 'regular file:500:656177:1' \
+    && "$(/usr/bin/sha256sum -- "$podman_guard" | /usr/bin/cut -d' ' -f1)" == "${GATE_PODMAN_GUARD_SHA256:-}" ]] \
     || blocked source_identity
 worker_before=$(/usr/bin/stat -Lc '%d:%i:%a:%u:%h:%s' -- "$worker") || blocked source_identity
 aws_before=$(/usr/bin/stat -Lc '%d:%i:%a:%u:%h:%s' -- "$aws_creds") || blocked source_identity
 tools_before=$(/usr/bin/stat -Lc '%d:%i:%a:%u:%h:%s' -- "$tools_manifest") || blocked source_identity
-if ! exec 9<"$worker" 8<"$aws_creds" 7<"$tools_manifest" 2>/dev/null; then
+guard_before=$(/usr/bin/stat -Lc '%d:%i:%a:%u:%h:%s' -- "$podman_guard") || blocked source_identity
+podman_guard_fd=-1
+if ! exec 9<"$worker" 8<"$aws_creds" 7<"$tools_manifest" {podman_guard_fd}<"$podman_guard" 2>/dev/null; then
     blocked source_identity
 fi
 [[ "$worker_before" == "$(/usr/bin/stat -Lc '%d:%i:%a:%u:%h:%s' -- /proc/self/fd/9)" \
@@ -60,9 +66,12 @@ fi
     && "$aws_before" == "$(/usr/bin/stat -Lc '%d:%i:%a:%u:%h:%s' -- "$aws_creds")" \
     && "$tools_before" == "$(/usr/bin/stat -Lc '%d:%i:%a:%u:%h:%s' -- /proc/self/fd/7)" \
     && "$tools_before" == "$(/usr/bin/stat -Lc '%d:%i:%a:%u:%h:%s' -- "$tools_manifest")" \
+    && "$guard_before" == "$(/usr/bin/stat -Lc '%d:%i:%a:%u:%h:%s' -- "/proc/self/fd/$podman_guard_fd")" \
+    && "$guard_before" == "$(/usr/bin/stat -Lc '%d:%i:%a:%u:%h:%s' -- "$podman_guard")" \
     && "$(/usr/bin/sha256sum -- /proc/self/fd/9 | /usr/bin/cut -d' ' -f1)" == "${GATE_WORKER_SHA256:-}" \
     && "$(/usr/bin/sha256sum -- /proc/self/fd/8 | /usr/bin/cut -d' ' -f1)" == "${GATE_AWS_CREDS_SHA256:-}" \
-    && "$(/usr/bin/sha256sum -- /proc/self/fd/7 | /usr/bin/cut -d' ' -f1)" == "${GATE_TOOL_MANIFEST_SHA256:-}" ]] \
+    && "$(/usr/bin/sha256sum -- /proc/self/fd/7 | /usr/bin/cut -d' ' -f1)" == "${GATE_TOOL_MANIFEST_SHA256:-}" \
+    && "$(/usr/bin/sha256sum -- "/proc/self/fd/$podman_guard_fd" | /usr/bin/cut -d' ' -f1)" == "${GATE_PODMAN_GUARD_SHA256:-}" ]] \
     || blocked source_identity
 /usr/bin/sha256sum -c --strict /proc/self/fd/7 >/dev/null 2>&1 || blocked source_identity
 [[ "$(/usr/bin/stat -Lc '%F:%a:%u:%h' -- /usr/bin/podman)" == 'regular file:755:0:1' \
@@ -118,6 +127,7 @@ private_dir_paths=()
 private_dir_fds=()
 private_dir_anchors=()
 private_dir_identities=()
+private_dir_manifests=()
 storage_conf_fd=-1
 storage_conf_identity=
 local_tls_fd=-1
@@ -126,6 +136,7 @@ inspect_fd=-1
 inspect_identity=
 cleanup_complete=0
 cleanup_attempted=0
+private_runtime_armed=0
 
 private_root_bound() {
     [[ "$private_root_anchor_trusted" == 1 \
@@ -161,65 +172,90 @@ private_dirs_bound() {
     done
 }
 
-scrub_anchored_directory() {
-    local anchor=$1 identity=$2 records record dev uid kind links leftover root_dev
+mount_free_anchored_tree() {
+    local anchor=$1 resolved mountpoint
+    resolved=$(/usr/bin/readlink -f -- "$anchor" 2>/dev/null) || return 1
+    [[ "$resolved" == /* ]] || return 1
+    # mountinfo identifies bind mounts even when they share st_dev with the
+    # parent. Generated roots contain no mountinfo escape characters.
+    while IFS=' ' read -r _ _ _ _ mountpoint _; do
+        case "$mountpoint" in
+            "$resolved"|"$resolved"/*) return 1 ;;
+        esac
+    done < /proc/self/mountinfo
+}
+
+preflight_anchored_directory() {
+    local anchor=$1 identity=$2 records dev inode uid kind links path root_dev manifest
     [[ -d "$anchor" && ! -L "$anchor" \
         && "$identity" == "$(/usr/bin/stat -Lc '%d:%i:%a:%u' -- "$anchor" 2>/dev/null || true)" ]] \
         || return 1
+    mount_free_anchored_tree "$anchor" || return 1
     root_dev=${identity%%:*}
-    # Preflight every entry before the first mutation. A cross-device mount is
-    # visited but never descended because of -xdev, and its differing %D is
-    # rejected. Only owned directories, symlinks, and single-link regular files
-    # are eligible for the later descriptor-rooted deletion.
     records=$(/usr/bin/timeout --signal=TERM --kill-after=3s 12s \
-        /usr/bin/find "$anchor" -xdev -mindepth 1 -printf '%D:%U:%y:%n\n' 2>/dev/null) \
+        /usr/bin/find "$anchor" -xdev -mindepth 1 -printf '%D:%i:%U:%y:%n:%p\n' 2>/dev/null) \
         || return 1
-    while IFS=: read -r dev uid kind links; do
+    while IFS=: read -r dev inode uid kind links path; do
         [[ -z "$dev" ]] && continue
-        [[ "$dev" == "$root_dev" && "$uid" == "${GATE_EXPECTED_UID}" ]] || return 1
+        [[ "$dev" == "$root_dev" && "$inode" =~ ^[0-9]+$ \
+            && "$uid" == "${GATE_EXPECTED_UID}" && -n "$path" ]] || return 1
         case "$kind" in
-            d|l) ;;
-            f) [[ "$links" == 1 ]] || return 1 ;;
+            d) ;;
+            f|l) [[ "$links" == 1 ]] || return 1 ;;
             *) return 1 ;;
         esac
     done <<< "$records"
-    /usr/bin/timeout --signal=TERM --kill-after=5s 15s \
+    manifest=$(/usr/bin/printf '%s' "$records" | /usr/bin/sha256sum | /usr/bin/cut -d' ' -f1) \
+        || return 1
+    [[ "$manifest" =~ ^[0-9a-f]{64}$ ]] || return 1
+    /usr/bin/printf '%s\n' "$manifest"
+}
+
+scrub_anchored_directory() {
+    local anchor=$1 identity=$2 expected_manifest=$3 observed_manifest leftover
+    observed_manifest=$(preflight_anchored_directory "$anchor" "$identity") || return 1
+    [[ "$observed_manifest" == "$expected_manifest" ]] || return 1
+    /usr/bin/timeout --signal=TERM --kill-after=3s 10s \
         /usr/bin/find "$anchor" -xdev -mindepth 1 -uid "${GATE_EXPECTED_UID}" \
             \( -type d -o \( -type f -links 1 \) \) \
             -exec /usr/bin/chmod u+rwx -- '{}' + 2>/dev/null \
         || return 1
-    /usr/bin/timeout --signal=TERM --kill-after=5s 20s \
+    /usr/bin/timeout --signal=TERM --kill-after=3s 15s \
         /usr/bin/find "$anchor" -xdev -mindepth 1 -type f \
             -uid "${GATE_EXPECTED_UID}" -links 1 \
             -exec /usr/bin/truncate -s 0 -- '{}' + 2>/dev/null \
         || return 1
     /usr/bin/timeout --signal=TERM --kill-after=5s 30s \
         /usr/bin/find "$anchor" -xdev -mindepth 1 -depth \
-            \( \( -type d -o -type l \) -uid "${GATE_EXPECTED_UID}" \
+            \( \( -type d -o \( -type l -links 1 \) \) -uid "${GATE_EXPECTED_UID}" \
                 -o -type f -uid "${GATE_EXPECTED_UID}" -links 1 \) -delete 2>/dev/null \
         || return 1
-    leftover=$(/usr/bin/timeout --signal=TERM --kill-after=2s 5s \
+    leftover=$(/usr/bin/timeout --signal=TERM --kill-after=1s 3s \
         /usr/bin/find "$anchor" -xdev -mindepth 1 -print -quit 2>/dev/null) \
         || return 1
     [[ -z "$leftover" ]]
 }
 
-scrub_exact_probe_file() {
-    local fd=$1 expected=$2 observed observed_dev_inode expected_dev_inode observed_uid
-    [[ "$fd" =~ ^[0-9]+$ && "$fd" -ge 10 && -n "$expected" ]] || return 1
-    observed=$(/usr/bin/stat -Lc '%d:%i:%a:%u:%h' -- "/proc/self/fd/$fd" 2>/dev/null) \
+preflight_exact_probe_file() {
+    local fd=$1 expected_dev_inode=$2 observed
+    [[ "$fd" =~ ^[0-9]+$ && "$fd" -ge 10 \
+        && "$expected_dev_inode" =~ ^[0-9]+:[0-9]+$ ]] || return 1
+    observed=$(/usr/bin/stat -Lc '%d:%i:%u:%h' -- "/proc/self/fd/$fd" 2>/dev/null) \
         || return 1
-    observed_dev_inode=${observed%:*:*:*}
-    expected_dev_inode=${expected%:*:*:*}
-    observed_uid=${observed%:*}
-    observed_uid=${observed_uid##*:}
-    [[ -f "/proc/self/fd/$fd" && "$observed_dev_inode" == "$expected_dev_inode" \
-        && "$observed_uid" == "${GATE_EXPECTED_UID}" ]] || return 1
+    [[ -f "/proc/self/fd/$fd" \
+        && "$observed" == "${expected_dev_inode}:${GATE_EXPECTED_UID}:1" ]]
+}
+
+scrub_exact_probe_file() {
+    local fd=$1 expected_dev_inode=$2
+    preflight_exact_probe_file "$fd" "$expected_dev_inode" || return 1
     /usr/bin/timeout --signal=TERM --kill-after=1s 2s \
         /usr/bin/chmod 600 -- "/proc/self/fd/$fd" 2>/dev/null || return 1
     /usr/bin/timeout --signal=TERM --kill-after=1s 5s \
         /usr/bin/truncate -s 0 -- "/proc/self/fd/$fd" 2>/dev/null || return 1
-    [[ "$observed" == "$expected" ]]
+    [[ -f "/proc/self/fd/$fd" \
+        && "$(/usr/bin/stat -Lc '%d:%i:%a:%u:%h:%s' -- "/proc/self/fd/$fd" 2>/dev/null)" \
+            == "${expected_dev_inode}:600:${GATE_EXPECTED_UID}:1:0" ]]
 }
 
 close_probe_private_fds() {
@@ -239,6 +275,10 @@ close_probe_private_fds() {
     storage_conf_fd=-1
     local_tls_fd=-1
     inspect_fd=-1
+    if [[ "$podman_guard_fd" =~ ^[0-9]+$ && "$podman_guard_fd" -ge 10 ]]; then
+        exec {podman_guard_fd}<&- || true
+        podman_guard_fd=-1
+    fi
     if [[ "$private_root_fd" =~ ^[0-9]+$ && "$private_root_fd" -ge 10 ]]; then
         exec {private_root_fd}<&- || true
         private_root_fd=-1
@@ -246,26 +286,106 @@ close_probe_private_fds() {
 }
 
 scrub_private_contents() {
-    local index pid result=0 named_now anchored_after unexpected storage_named tls_named inspect_named
+    local index pid fd identity manifest preflight_output result=0
+    local named_now anchored_after unexpected storage_named tls_named inspect_named
     local pids=()
     private_root_bound || return 1
-    # Each top-level private directory has its own retained descriptor. Run the
-    # bounded scrubs concurrently so a moved graphroot/runroot is still erased
-    # without multiplying the signal deadline by the number of directories.
-    for index in "${!private_dir_anchors[@]}"; do
-        scrub_anchored_directory "${private_dir_anchors[$index]}" "${private_dir_identities[$index]}" &
-        pids+=("$!")
+
+    # Trust boundary: only this probe and its supervised Podman children may
+    # mutate the mode-0700 private tree. Cleanup starts after those children are
+    # reaped. Within that boundary, validate every target globally before the
+    # first chmod/truncate/delete, then require the same inode manifest again at
+    # each anchored directory's mutation boundary. A hostile process with the
+    # same uid is outside this authorization boundary and invalidates the gate.
+    mount_free_anchored_tree "$private_root_anchor" || return 1
+    unexpected=$(/usr/bin/timeout --signal=TERM --kill-after=1s 3s \
+        /usr/bin/find "$private_root_anchor" -xdev -mindepth 1 -maxdepth 1 \
+            ! -name graphroot ! -name runroot ! -name xdg-runtime ! -name xdg-config \
+            ! -name xdg-data ! -name home ! -name tmp ! -name storage.conf \
+            ! -name tls-combined.pem ! -name inspect -print -quit 2>/dev/null) \
+        || return 1
+    [[ -z "$unexpected" ]] || return 1
+    private_dir_manifests=()
+    if (( private_runtime_armed )); then
+        ((${#private_dir_fds[@]} == 7 \
+            && ${#private_dir_anchors[@]} == 7 \
+            && ${#private_dir_identities[@]} == 7)) || return 1
+        preflight_output=$(
+            child_result=0
+            child_pids=()
+            for index in "${!private_dir_anchors[@]}"; do
+                (
+                    manifest=$(preflight_anchored_directory \
+                        "${private_dir_anchors[$index]}" "${private_dir_identities[$index]}") \
+                        || exit 1
+                    /usr/bin/printf '%s:%s\n' "$index" "$manifest"
+                ) &
+                child_pids+=("$!")
+            done
+            for pid in "${child_pids[@]}"; do
+                wait "$pid" || child_result=1
+            done
+            (( child_result == 0 ))
+        ) || return 1
+        while IFS=: read -r index manifest; do
+            [[ "$index" =~ ^[0-9]+$ && "$manifest" =~ ^[0-9a-f]{64}$ \
+                && -z "${private_dir_manifests[$index]+x}" ]] || return 1
+            private_dir_manifests[$index]=$manifest
+        done <<< "$preflight_output"
+    fi
+    ((${#private_dir_manifests[@]} == ${#private_dir_anchors[@]} || ! private_runtime_armed)) \
+        || return 1
+    if (( private_runtime_armed )); then
+        for index in "${!private_dir_anchors[@]}"; do
+            [[ -n "${private_dir_manifests[$index]:-}" ]] || return 1
+        done
+    fi
+    for fd in "$storage_conf_fd" "$local_tls_fd" "$inspect_fd"; do
+        case "$fd" in
+            "$storage_conf_fd") identity=$storage_conf_identity ;;
+            "$local_tls_fd") identity=$local_tls_identity ;;
+            "$inspect_fd") identity=$inspect_identity ;;
+            *) return 1 ;;
+        esac
+        if [[ "$fd" =~ ^[0-9]+$ && "$fd" -ge 10 ]]; then
+            preflight_exact_probe_file "$fd" "$identity" || return 1
+        elif [[ "$fd" != -1 || -n "$identity" ]]; then
+            return 1
+        fi
+    done
+
+    # All targets passed the global phase. Run the independent anchored scrubs
+    # concurrently so the signal bound is the slowest scrub, not their sum.
+    if (( private_runtime_armed )); then
+        for index in "${!private_dir_anchors[@]}"; do
+            scrub_anchored_directory "${private_dir_anchors[$index]}" \
+                "${private_dir_identities[$index]}" "${private_dir_manifests[$index]}" &
+            pids+=("$!")
+        done
+    fi
+    for fd in "$storage_conf_fd" "$local_tls_fd" "$inspect_fd"; do
+        case "$fd" in
+            "$storage_conf_fd") identity=$storage_conf_identity ;;
+            "$local_tls_fd") identity=$local_tls_identity ;;
+            "$inspect_fd") identity=$inspect_identity ;;
+            *) return 1 ;;
+        esac
+        if [[ "$fd" =~ ^[0-9]+$ && "$fd" -ge 10 ]]; then
+            scrub_exact_probe_file "$fd" "$identity" &
+            pids+=("$!")
+        fi
     done
     for pid in "${pids[@]}"; do
         wait "$pid" || result=1
     done
-    scrub_exact_probe_file "$storage_conf_fd" "$storage_conf_identity" || result=1
-    scrub_exact_probe_file "$local_tls_fd" "$local_tls_identity" || result=1
-    scrub_exact_probe_file "$inspect_fd" "$inspect_identity" || result=1
     # Never remove the main or top-level directory names. The children are
     # verified empty and the main root contains only those children plus three
     # zero-length bound files, eliminating stat-to-rmdir replacement races.
-    private_dirs_bound || result=1
+    if (( private_runtime_armed )); then
+        private_dirs_bound || result=1
+    else
+        result=1
+    fi
     named_now=$(/usr/bin/stat -c '%d:%i:%a:%u' -- "$private_root" 2>/dev/null || true)
     anchored_after=$(/usr/bin/stat -Lc '%d:%i:%a:%u' -- "$private_root_anchor" 2>/dev/null || true)
     [[ "$named_now" == "$private_root_identity" && "$anchored_after" == "$private_root_identity" ]] \
@@ -273,12 +393,12 @@ scrub_private_contents() {
     storage_named=$(/usr/bin/stat -c '%d:%i:%a:%u:%h:%s' -- "$storage_conf" 2>/dev/null || true)
     tls_named=$(/usr/bin/stat -c '%d:%i:%a:%u:%h:%s' -- "$local_tls" 2>/dev/null || true)
     inspect_named=$(/usr/bin/stat -c '%d:%i:%a:%u:%h:%s' -- "$inspect_file" 2>/dev/null || true)
-    [[ "${storage_named%:*}" == "$storage_conf_identity" && "$storage_named" == *':0' \
-        && "${tls_named%:*:*:*:*}" == "${local_tls_identity%:*:*:*}" \
-        && "$tls_named" == *":600:${GATE_EXPECTED_UID}:1:0" \
-        && "${inspect_named%:*}" == "$inspect_identity" && "$inspect_named" == *':0' ]] \
+    [[ "$storage_named" == "${storage_conf_identity}:600:${GATE_EXPECTED_UID}:1:0" \
+        && "$tls_named" == "${local_tls_identity}:600:${GATE_EXPECTED_UID}:1:0" \
+        && "$inspect_named" == "${inspect_identity}:600:${GATE_EXPECTED_UID}:1:0" ]] \
         || result=1
-    unexpected=$(/usr/bin/find "$private_root_anchor" -xdev -mindepth 1 -maxdepth 1 \
+    unexpected=$(/usr/bin/timeout --signal=TERM --kill-after=1s 3s \
+        /usr/bin/find "$private_root_anchor" -xdev -mindepth 1 -maxdepth 1 \
         ! -name graphroot ! -name runroot ! -name xdg-runtime ! -name xdg-config \
         ! -name xdg-data ! -name home ! -name tmp ! -name storage.conf \
         ! -name tls-combined.pem ! -name inspect -print -quit 2>/dev/null) \
@@ -353,8 +473,17 @@ readonly local_tls=$private_root/tls-combined.pem
 /usr/bin/touch "$inspect_file" 2>/dev/null || blocked private_environment
 /usr/bin/chmod 600 "$inspect_file" 2>/dev/null || blocked private_environment
 exec {storage_conf_fd}<>"$storage_conf" 2>/dev/null || blocked private_environment
+storage_conf_identity=$(/usr/bin/stat -Lc '%d:%i' -- "/proc/self/fd/$storage_conf_fd") \
+    || blocked private_environment
 exec {local_tls_fd}<>"$local_tls" 2>/dev/null || blocked private_environment
+# Arm the immutable TLS inode identity before the first byte is copied. Any
+# signal/error after this point can scrub the exact retained descriptor even if
+# the final mode/hash validation has not run yet.
+local_tls_identity=$(/usr/bin/stat -Lc '%d:%i' -- "/proc/self/fd/$local_tls_fd") \
+    || blocked private_environment
 exec {inspect_fd}<>"$inspect_file" 2>/dev/null || blocked private_environment
+inspect_identity=$(/usr/bin/stat -Lc '%d:%i' -- "/proc/self/fd/$inspect_fd") \
+    || blocked private_environment
 /usr/bin/cp -- /proc/self/fd/4 "/proc/self/fd/$local_tls_fd" 2>/dev/null || blocked private_environment
 /usr/bin/chmod 500 "/proc/self/fd/$local_tls_fd" 2>/dev/null || blocked private_environment
 [[ "$(/usr/bin/stat -c '%a:%u:%h' -- "$storage_conf")" == "600:${GATE_EXPECTED_UID}:1" ]] \
@@ -364,18 +493,15 @@ exec {inspect_fd}<>"$inspect_file" 2>/dev/null || blocked private_environment
     && "$(/usr/bin/stat -c '%a:%u:%h:%s' -- "$local_tls")" == "500:${GATE_EXPECTED_UID}:1:${GATE_TLS_SIZE}" \
     && "$(/usr/bin/sha256sum -- "$local_tls" | /usr/bin/cut -d' ' -f1)" == "${GATE_TLS_SHA256:-}" ]] \
     || blocked private_environment
-storage_conf_identity=$(/usr/bin/stat -Lc '%d:%i:%a:%u:%h' -- "/proc/self/fd/$storage_conf_fd") \
-    || blocked private_environment
-local_tls_identity=$(/usr/bin/stat -Lc '%d:%i:%a:%u:%h' -- "/proc/self/fd/$local_tls_fd") \
-    || blocked private_environment
-inspect_identity=$(/usr/bin/stat -c '%d:%i:%a:%u:%h' -- "$inspect_file") \
-    || blocked private_environment
-[[ "$storage_conf_identity" == *":600:${GATE_EXPECTED_UID}:1" \
-    && "$local_tls_identity" == *":500:${GATE_EXPECTED_UID}:1" \
-    && "$inspect_identity" == *":600:${GATE_EXPECTED_UID}:1" \
-    && "$storage_conf_identity" == "$(/usr/bin/stat -c '%d:%i:%a:%u:%h' -- "$storage_conf")" \
-    && "$local_tls_identity" == "$(/usr/bin/stat -c '%d:%i:%a:%u:%h' -- "$local_tls")" \
-    && "$inspect_identity" == "$(/usr/bin/stat -Lc '%d:%i:%a:%u:%h' -- "/proc/self/fd/$inspect_fd")" ]] \
+[[ "$(/usr/bin/stat -Lc '%d:%i:%a:%u:%h' -- "/proc/self/fd/$storage_conf_fd")" \
+        == "${storage_conf_identity}:600:${GATE_EXPECTED_UID}:1" \
+    && "$(/usr/bin/stat -Lc '%d:%i:%a:%u:%h' -- "/proc/self/fd/$local_tls_fd")" \
+        == "${local_tls_identity}:500:${GATE_EXPECTED_UID}:1" \
+    && "$(/usr/bin/stat -Lc '%d:%i:%a:%u:%h' -- "/proc/self/fd/$inspect_fd")" \
+        == "${inspect_identity}:600:${GATE_EXPECTED_UID}:1" \
+    && "${storage_conf_identity}:600:${GATE_EXPECTED_UID}:1" == "$(/usr/bin/stat -c '%d:%i:%a:%u:%h' -- "$storage_conf")" \
+    && "${local_tls_identity}:500:${GATE_EXPECTED_UID}:1" == "$(/usr/bin/stat -c '%d:%i:%a:%u:%h' -- "$local_tls")" \
+    && "${inspect_identity}:600:${GATE_EXPECTED_UID}:1" == "$(/usr/bin/stat -c '%d:%i:%a:%u:%h' -- "$inspect_file")" ]] \
     || blocked private_environment
 exec 4<&-
 
@@ -420,6 +546,32 @@ for private_fd_value in "${private_dir_fds[@]}"; do
 done
 unset private_fd_value
 private_dirs_bound || blocked private_environment
+readonly podman_guard_alias=$private_tmp/podman
+/usr/bin/ln -s -- "/proc/self/fd/$podman_guard_fd" "$podman_guard_alias" 2>/dev/null \
+    || blocked private_environment
+[[ -L "$podman_guard_alias" \
+    && "$(/usr/bin/readlink -- "$podman_guard_alias" 2>/dev/null)" == "/proc/self/fd/$podman_guard_fd" \
+    && "${guard_before%:*}" == "$(/usr/bin/stat -Lc '%d:%i:%a:%u:%h' -- "$podman_guard_alias" 2>/dev/null)" ]] \
+    || blocked private_environment
+export GATE_PRIVATE_ROOT_PATH=$private_root
+export GATE_PRIVATE_ROOT_ANCHOR=$private_root_anchor
+export GATE_PRIVATE_ROOT_IDENTITY=$private_root_identity
+export GATE_PODMAN_GUARD_FD=$podman_guard_fd
+export GATE_PODMAN_GUARD_IDENTITY=${guard_before%:*}
+export GATE_PODMAN_GUARD_ALIAS=$podman_guard_alias
+for index in "${!private_dir_paths[@]}"; do
+    export "GATE_PRIVATE_PATH_${index}=${private_dir_paths[$index]}"
+    export "GATE_PRIVATE_ANCHOR_${index}=${private_dir_anchors[$index]}"
+    export "GATE_PRIVATE_IDENTITY_${index}=${private_dir_identities[$index]}"
+    readonly "GATE_PRIVATE_PATH_${index}" "GATE_PRIVATE_ANCHOR_${index}" \
+        "GATE_PRIVATE_IDENTITY_${index}"
+done
+unset index
+readonly GATE_PRIVATE_ROOT_PATH GATE_PRIVATE_ROOT_ANCHOR GATE_PRIVATE_ROOT_IDENTITY
+readonly GATE_PODMAN_GUARD_FD GATE_PODMAN_GUARD_IDENTITY GATE_PODMAN_GUARD_ALIAS
+readonly GATE_PODMAN_GUARD_SHA256 GATE_EXPECTED_UID
+export PATH=$private_tmp:/usr/bin:/bin
+private_runtime_armed=1
 
 cleanup_private_tree() {
     retain_private_root

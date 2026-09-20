@@ -63,11 +63,12 @@ ACCOUNT = "ram"
 QOS = "g3_lowest"
 WALLTIME = "00:30:00"
 SIGNAL_LEAD_SECONDS = 240
-PROBE_CLEANUP_BOUND_SECONDS = 110
+PODMAN_GUARD_SIGNAL_BOUND_SECONDS = 3
+PROBE_CLEANUP_BOUND_SECONDS = 125
 OUTER_KILL_GRACE_SECONDS = 150
 PARENT_TERM_GRACE_SECONDS = 160
 PARENT_KILL_REAP_SECONDS = 5
-BATCH_CLEANUP_BOUND_SECONDS = 30
+BATCH_CLEANUP_BOUND_SECONDS = 25
 RESULT_PUBLICATION_BOUND_SECONDS = 20
 SIGNAL_TEARDOWN_BOUND_SECONDS = (
     PARENT_TERM_GRACE_SECONDS
@@ -107,6 +108,7 @@ HASH_ENV = {
     "batch": "EXPECTED_BATCH_SHA256",
     "probe": "EXPECTED_PROBE_SHA256",
     "classifier": "EXPECTED_CLASSIFIER_SHA256",
+    "podman_guard": "EXPECTED_PODMAN_GUARD_SHA256",
     "tools_manifest": "EXPECTED_TOOLS_MANIFEST_SHA256",
     "readme": "EXPECTED_README_SHA256",
     "tests": "EXPECTED_TEST_SHA256",
@@ -118,6 +120,7 @@ BUNDLE_FILES = {
     "batch": ("run_registry_gate.sbatch", 0o500),
     "probe": ("probe_registry_gate.sh", 0o500),
     "classifier": ("classify_registry_error.sh", 0o500),
+    "podman_guard": ("podman_guard.sh", 0o500),
     "tools_manifest": ("compute_tools.sha256", 0o400),
     "readme": ("README.md", 0o400),
     "tests": ("test_controller.py", 0o400),
@@ -510,8 +513,13 @@ def approval_contract(hashes: Mapping[str, str], tls: Mapping[str, object] | Non
             "retained_scrubbed_roots": True,
             "retained_raw_stream_fds": True,
             "podman_directory_inode_binding": True,
+            "per_attempt_podman_directory_binding": True,
             "unsafe_entry_preflight": True,
+            "mountpoint_rejection": True,
+            "global_cleanup_preflight": True,
+            "cleanup_single_writer_required": True,
             "bounded_signal_cleanup_seconds": SIGNAL_TEARDOWN_BOUND_SECONDS,
+            "podman_guard_signal_bound_seconds": PODMAN_GUARD_SIGNAL_BOUND_SECONDS,
             "malformed_submit_output_reconciled": True,
             "discovered_id_bound_before_identity_wait": True,
             "unknown_id_cleanup_reconciled": True,
@@ -1421,6 +1429,7 @@ def execute(hashes: Mapping[str, str]) -> None:
             "GATE_BATCH_SHA256": hashes["batch"],
             "GATE_PROBE_SHA256": hashes["probe"],
             "GATE_CLASSIFIER_SHA256": hashes["classifier"],
+            "GATE_PODMAN_GUARD_SHA256": hashes["podman_guard"],
             "GATE_TOOL_MANIFEST_SHA256": hashes["tools_manifest"],
             "GATE_JOB_RESULT": str(RUN_ROOT / "job_result.json"),
             "GATE_JOB_NAME": JOB_NAME,

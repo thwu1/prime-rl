@@ -9,6 +9,7 @@ import os
 import stat
 import subprocess
 import sys
+import time
 from pathlib import Path
 
 import pytest
@@ -68,8 +69,13 @@ def test_approval_is_diagnostic_only() -> None:
     assert contract["protocol"]["retained_scrubbed_roots"] is True
     assert contract["protocol"]["retained_raw_stream_fds"] is True
     assert contract["protocol"]["podman_directory_inode_binding"] is True
+    assert contract["protocol"]["per_attempt_podman_directory_binding"] is True
     assert contract["protocol"]["unsafe_entry_preflight"] is True
-    assert contract["protocol"]["bounded_signal_cleanup_seconds"] == 215
+    assert contract["protocol"]["mountpoint_rejection"] is True
+    assert contract["protocol"]["global_cleanup_preflight"] is True
+    assert contract["protocol"]["cleanup_single_writer_required"] is True
+    assert contract["protocol"]["podman_guard_signal_bound_seconds"] == 3
+    assert contract["protocol"]["bounded_signal_cleanup_seconds"] == 210
     assert contract["protocol"]["malformed_submit_output_reconciled"] is True
     assert contract["protocol"]["discovered_id_bound_before_identity_wait"] is True
     assert contract["protocol"]["unknown_id_cleanup_reconciled"] is True
@@ -567,6 +573,7 @@ def test_exact_bytes_are_executed_from_bound_descriptors() -> None:
     assert 'exec 9<"${BASH_SOURCE[0]}" 7<"$classifier" 6<"$probe" 5<"$tools_manifest"' in batch
     assert "/usr/bin/sha256sum -- /proc/self/fd/9" in batch
     assert 'exec </proc/self/fd/6 >&"$stdout_fd" 2>&"$stderr_fd"' in batch
+    assert 'classify_registry_error_file "$stderr_stream" "$rc" "$stderr_identity"' in batch
     assert "exec /usr/bin/setsid /usr/bin/timeout" in batch
     assert "/usr/bin/bash -p -s" in batch
     assert "source /proc/self/fd/8" in probe
@@ -596,7 +603,7 @@ def test_cleanup_traps_precede_first_mktemp() -> None:
 def test_private_cleanup_makes_read_only_files_writable_before_truncation() -> None:
     batch = (HERE / "run_registry_gate.sbatch").read_text()
     probe = (HERE / "probe_registry_gate.sh").read_text()
-    scrub = batch[batch.index("scrub_batch_contents()") : batch.index("retain_batch_root()")]
+    scrub = batch[batch.index("scrub_exact_batch_file()") : batch.index("scrub_batch_contents()")]
     assert scrub.index('/usr/bin/chmod 600 -- "/proc/self/fd/$fd"') < scrub.index(
         '/usr/bin/truncate -s 0 -- "/proc/self/fd/$fd"'
     )
@@ -614,7 +621,7 @@ def _batch_cleanup_functions() -> str:
 
 def _batch_fd_setup() -> str:
     return (
-        "set -euo pipefail\n"
+        "set -euo pipefail\nGATE_EXPECTED_UID=$(id -u)\n"
         "private=$1/original\n"
         'mkdir -m 700 -- "$private"\n'
         "private_fd=-1\nstdout_fd=-1\nstderr_fd=-1\nlocal_tools_fd=-1\n"
@@ -631,23 +638,21 @@ def _batch_fd_setup() -> str:
         "stdout_identity=$(stat -Lc '%d:%i:%a:%u:%h' /proc/self/fd/$stdout_fd)\n"
         "stderr_identity=$(stat -Lc '%d:%i:%a:%u:%h' /proc/self/fd/$stderr_fd)\n"
         "local_tools_identity=$(stat -Lc '%d:%i:%a:%u:%h' /proc/self/fd/$local_tools_fd)\n"
-        'printf stdout-secret > /proc/self/fd/$stdout_fd\n'
-        'printf stderr-secret > /proc/self/fd/$stderr_fd\n'
-        'exec {check_stdout}>&$stdout_fd {check_stderr}>&$stderr_fd\n'
+        "printf stdout-secret > /proc/self/fd/$stdout_fd\n"
+        "printf stderr-secret > /proc/self/fd/$stderr_fd\n"
+        "exec {check_stdout}>&$stdout_fd {check_stderr}>&$stderr_fd\n"
     )
 
 
 def test_batch_retains_scrubbed_root_and_exact_log_descriptors(tmp_path: Path) -> None:
     script = (
-        _batch_fd_setup()
-        + _batch_cleanup_functions()
-        + "\nretain_batch_root\n"
+        _batch_fd_setup() + _batch_cleanup_functions() + "\nretain_batch_root\n"
         "[[ -d $private && ! -L $private ]]\n"
         "[[ $private_fd == -1 && $stdout_fd == -1 && $stderr_fd == -1 && $local_tools_fd == -1 ]]\n"
         "[[ $(stat -Lc %s /proc/self/fd/$check_stdout) == 0 ]]\n"
         "[[ $(stat -Lc %s /proc/self/fd/$check_stderr) == 0 ]]\n"
-        "[[ $(stat -c %s \"$private/stdout\") == 0 && $(stat -c %s \"$private/stderr\") == 0 ]]\n"
-        "[[ $(stat -c %s \"$private/compute_tools.sha256\") == 0 ]]\n"
+        '[[ $(stat -c %s "$private/stdout") == 0 && $(stat -c %s "$private/stderr") == 0 ]]\n'
+        '[[ $(stat -c %s "$private/compute_tools.sha256") == 0 ]]\n'
         '[[ -z "$(find "$private" -mindepth 1 ! -name stdout ! -name stderr ! -name compute_tools.sha256 -print -quit)" ]]\n'
         "exec {check_stdout}>&- {check_stderr}>&-\n"
     )
@@ -690,9 +695,25 @@ def test_batch_named_log_replacement_is_preserved_while_exact_inode_is_scrubbed(
     assert result.returncode == 0, result.stderr.decode()
 
 
+def test_batch_global_preflight_rejects_before_any_log_mutation(tmp_path: Path) -> None:
+    script = (
+        _batch_fd_setup() + _batch_cleanup_functions() + '\nln "$private/compute_tools.sha256" "$1/outside-hardlink"\n'
+        "set +e; scrub_batch_contents; rc=$?; set -e\n"
+        "[[ $rc -ne 0 ]]\n"
+        '[[ $(<"$private/stdout") == stdout-secret && $(<"$private/stderr") == stderr-secret ]]\n'
+        '[[ $(<"$private/compute_tools.sha256") == tools ]]\n'
+        "exec {check_stdout}>&- {check_stderr}>&-\n"
+    )
+    result = subprocess.run(
+        ["/usr/bin/bash", "-p", "-c", script, "batch-global-preflight", str(tmp_path)],
+        capture_output=True,
+    )
+    assert result.returncode == 0, result.stderr.decode()
+
+
 def _probe_directory_scrubber() -> str:
     text = (HERE / "probe_registry_gate.sh").read_text()
-    return text[text.index("scrub_anchored_directory()") : text.index("scrub_exact_probe_file()")]
+    return text[text.index("mount_free_anchored_tree()") : text.index("preflight_exact_probe_file()")]
 
 
 def _probe_cleanup_functions() -> str:
@@ -700,29 +721,91 @@ def _probe_cleanup_functions() -> str:
     return text[text.index("private_root_bound()") : text.index("early_cleanup()")]
 
 
+def _probe_exact_file_scrubber() -> str:
+    text = (HERE / "probe_registry_gate.sh").read_text()
+    return text[text.index("preflight_exact_probe_file()") : text.index("close_probe_private_fds()")]
+
+
+def test_tls_inode_is_armed_before_copy_and_signal_scrubs_partial_bytes(tmp_path: Path) -> None:
+    probe = (HERE / "probe_registry_gate.sh").read_text()
+    open_at = probe.index('exec {local_tls_fd}<>"$local_tls"')
+    armed_at = probe.index("local_tls_identity=$(/usr/bin/stat -Lc '%d:%i'", open_at)
+    copy_at = probe.index('/usr/bin/cp -- /proc/self/fd/4 "/proc/self/fd/$local_tls_fd"')
+    assert open_at < armed_at < copy_at
+
+    tls_copy = tmp_path / "tls-combined.pem"
+    shell = (
+        "set -euo pipefail\nGATE_EXPECTED_UID=$(id -u)\nlocal_tls=$1\n"
+        'touch "$local_tls"; chmod 600 "$local_tls"; exec {local_tls_fd}<>"$local_tls"\n'
+        "local_tls_identity=$(stat -Lc '%d:%i' /proc/self/fd/$local_tls_fd)\n"
+        + _probe_exact_file_scrubber()
+        + '\ntrap \'scrub_exact_probe_file "$local_tls_fd" "$local_tls_identity"; exit 130\' TERM\n'
+        'printf partial-private-tls > "/proc/self/fd/$local_tls_fd"\nkill -TERM $$\n'
+    )
+    result = subprocess.run(
+        ["/usr/bin/bash", "-p", "-c", shell, "tls-signal-test", str(tls_copy)],
+        check=False,
+        capture_output=True,
+    )
+    assert result.returncode == 130
+    assert tls_copy.stat().st_size == 0
+
+
+def test_early_cleanup_scrubs_tls_before_directory_descriptors_exist(tmp_path: Path) -> None:
+    shell = (
+        "set -euo pipefail\nshopt -u varredir_close\nGATE_EXPECTED_UID=$(id -u)\n"
+        'private_root=$1/root\nmkdir -m 700 -- "$private_root"\n'
+        'exec {private_root_fd}<"$private_root"\nprivate_root_anchor=/proc/self/fd/${private_root_fd}/.\n'
+        "private_root_identity=$(stat -Lc '%d:%i:%a:%u' \"$private_root_anchor\")\n"
+        "private_root_anchor_trusted=1\ncleanup_attempted=0\ncleanup_complete=0\n"
+        "private_runtime_armed=0\npodman_guard_fd=-1\n"
+        "private_dir_paths=()\nprivate_dir_fds=()\nprivate_dir_anchors=()\n"
+        "private_dir_identities=()\nprivate_dir_manifests=()\n"
+        'mkdir -m 700 -- "$private_root/graphroot" "$private_root/runroot" "$private_root/xdg-runtime" '
+        '"$private_root/xdg-config" "$private_root/home" "$private_root/tmp"\n'
+        "storage_conf=$private_root/storage.conf; local_tls=$private_root/tls-combined.pem; inspect_file=$private_root/inspect\n"
+        'printf config > "$storage_conf"; printf partial-private-tls > "$local_tls"; : > "$inspect_file"\n'
+        'chmod 600 "$storage_conf" "$local_tls" "$inspect_file"\n'
+        'exec {storage_conf_fd}<>"$storage_conf" {local_tls_fd}<>"$local_tls" {inspect_fd}<>"$inspect_file"\n'
+        "storage_conf_identity=$(stat -Lc '%d:%i' /proc/self/fd/$storage_conf_fd)\n"
+        "local_tls_identity=$(stat -Lc '%d:%i' /proc/self/fd/$local_tls_fd)\n"
+        "inspect_identity=$(stat -Lc '%d:%i' /proc/self/fd/$inspect_fd)\n"
+        + _probe_cleanup_functions()
+        + "\nset +e; scrub_private_contents; rc=$?; set -e\n"
+        '[[ $rc -ne 0 && $(stat -c %s "$local_tls") == 0 ]]\n'
+    )
+    result = subprocess.run(
+        ["/usr/bin/bash", "-p", "-c", shell, "early-tls-cleanup", str(tmp_path)],
+        check=False,
+        capture_output=True,
+    )
+    assert result.returncode == 0, result.stderr.decode()
+
+
 def test_probe_retains_verified_scrubbed_root_and_child_directories(tmp_path: Path) -> None:
     script = (
         "set -euo pipefail\nshopt -u varredir_close\nGATE_EXPECTED_UID=$(id -u)\n"
-        "private_root=$1/root\nmkdir -m 700 -- \"$private_root\"\n"
-        "private_root_fd=-1\nexec {private_root_fd}<\"$private_root\"\n"
+        'private_root=$1/root\nmkdir -m 700 -- "$private_root"\n'
+        'private_root_fd=-1\nexec {private_root_fd}<"$private_root"\n'
         "private_root_anchor=/proc/self/fd/${private_root_fd}/.\n"
         "private_root_identity=$(stat -Lc '%d:%i:%a:%u' \"$private_root_anchor\")\n"
-        "private_root_anchor_trusted=1\ncleanup_attempted=0\n"
+        "private_root_anchor_trusted=1\ncleanup_attempted=0\nprivate_runtime_armed=1\n"
         "private_dir_paths=()\nprivate_dir_fds=()\nprivate_dir_anchors=()\nprivate_dir_identities=()\n"
+        "private_dir_manifests=()\npodman_guard_fd=-1\n"
         "for name in graphroot runroot xdg-runtime xdg-config xdg-data home tmp; do\n"
         ' path="$private_root/$name"; mkdir -m 700 -- "$path"; printf secret > "$path/private"\n'
         ' exec {held}<"$path"; private_dir_paths+=("$path"); private_dir_fds+=("$held")\n'
         ' private_dir_anchors+=("/proc/self/fd/${held}/.")\n'
-        ' private_dir_identities+=("$(stat -Lc \'%d:%i:%a:%u\' /proc/self/fd/${held}/.)")\n'
+        " private_dir_identities+=(\"$(stat -Lc '%d:%i:%a:%u' /proc/self/fd/${held}/.)\")\n"
         " unset held\ndone\n"
         "storage_conf=$private_root/storage.conf\nlocal_tls=$private_root/tls-combined.pem\ninspect_file=$private_root/inspect\n"
         'printf config > "$storage_conf"; printf tls > "$local_tls"; printf inspect > "$inspect_file"\n'
         'chmod 600 "$storage_conf" "$local_tls" "$inspect_file"\n'
         'exec {storage_conf_fd}<>"$storage_conf" {local_tls_fd}<>"$local_tls" {inspect_fd}<>"$inspect_file"\n'
         'chmod 500 "$local_tls"\n'
-        "storage_conf_identity=$(stat -Lc '%d:%i:%a:%u:%h' /proc/self/fd/$storage_conf_fd)\n"
-        "local_tls_identity=$(stat -Lc '%d:%i:%a:%u:%h' /proc/self/fd/$local_tls_fd)\n"
-        "inspect_identity=$(stat -Lc '%d:%i:%a:%u:%h' /proc/self/fd/$inspect_fd)\n"
+        "storage_conf_identity=$(stat -Lc '%d:%i' /proc/self/fd/$storage_conf_fd)\n"
+        "local_tls_identity=$(stat -Lc '%d:%i' /proc/self/fd/$local_tls_fd)\n"
+        "inspect_identity=$(stat -Lc '%d:%i' /proc/self/fd/$inspect_fd)\n"
         + _probe_cleanup_functions()
         + "\nretain_private_root\n"
         '[[ -d "$private_root" && ! -L "$private_root" ]]\n'
@@ -747,7 +830,8 @@ def test_probe_scrubs_moved_podman_directory_by_fd_and_preserves_replacement(
         "identity=$(stat -Lc '%d:%i:%a:%u' \"$anchor\")\n"
         + _probe_directory_scrubber()
         + '\nmv "$original" "$moved"\nmkdir -m 700 -- "$replacement"\nprintf keep > "$replacement/sentinel"\n'
-        'scrub_anchored_directory "$anchor" "$identity"\n'
+        'manifest=$(preflight_anchored_directory "$anchor" "$identity")\n'
+        'scrub_anchored_directory "$anchor" "$identity" "$manifest"\n'
         '[[ -z "$(find "$moved" -mindepth 1 -print -quit)" ]]\n'
         '[[ $(<"$replacement/sentinel") == keep ]]\nexec {held_fd}<&-\n'
     )
@@ -770,13 +854,84 @@ def test_probe_preflight_rejects_hardlinks_and_specials_before_mutation(tmp_path
         'exec {held_fd}<"$root"\nanchor=/proc/self/fd/${held_fd}/.\n'
         "identity=$(stat -Lc '%d:%i:%a:%u' \"$anchor\")\n"
         + _probe_directory_scrubber()
-        + '\nset +e; scrub_anchored_directory "$anchor" "$identity"; rc=$?; set -e\n'
-        "[[ $rc -ne 0 ]]\n[[ $(<\"$root/private\") == secret ]]\n"
+        + '\nset +e; preflight_anchored_directory "$anchor" "$identity" >/dev/null; rc=$?; set -e\n'
+        '[[ $rc -ne 0 ]]\n[[ $(<"$root/private") == secret ]]\n'
         '[[ -p "$root/fifo" ]]\nexec {held_fd}<&-\n'
     )
     result = subprocess.run(["/usr/bin/bash", "-p", "-c", script, "preflight-test", str(root)], capture_output=True)
     assert result.returncode == 0, result.stderr.decode()
     assert outside.read_text() == "secret"
+
+
+def test_probe_manifest_recheck_rejects_swap_before_mutation(tmp_path: Path) -> None:
+    root = tmp_path / "root"
+    root.mkdir(mode=0o700)
+    private = root / "private"
+    private.write_text("original-secret")
+    script = (
+        "set -euo pipefail\nGATE_EXPECTED_UID=$(id -u)\nroot=$1/root\n"
+        'exec {held_fd}<"$root"\nanchor=/proc/self/fd/${held_fd}/.\n'
+        "identity=$(stat -Lc '%d:%i:%a:%u' \"$anchor\")\n"
+        + _probe_directory_scrubber()
+        + '\nmanifest=$(preflight_anchored_directory "$anchor" "$identity")\n'
+        'mv "$root/private" "$1/moved"\nprintf replacement > "$root/private"\n'
+        'set +e; scrub_anchored_directory "$anchor" "$identity" "$manifest"; rc=$?; set -e\n'
+        '[[ $rc -ne 0 && $(<"$root/private") == replacement && $(<"$1/moved") == original-secret ]]\n'
+    )
+    result = subprocess.run(
+        ["/usr/bin/bash", "-p", "-c", script, "manifest-swap", str(tmp_path)],
+        capture_output=True,
+    )
+    assert result.returncode == 0, result.stderr.decode()
+
+
+def test_mount_table_check_rejects_exact_mountpoint() -> None:
+    script = (
+        "set -euo pipefail\nGATE_EXPECTED_UID=$(id -u)\n"
+        + _probe_directory_scrubber()
+        + "\nset +e; mount_free_anchored_tree /proc; rc=$?; set -e\n[[ $rc -ne 0 ]]\n"
+    )
+    result = subprocess.run(
+        ["/usr/bin/bash", "-p", "-c", script, "mount-test"],
+        capture_output=True,
+    )
+    assert result.returncode == 0, result.stderr.decode()
+
+
+def test_global_preflight_rejects_one_bad_tree_before_mutating_any_target(tmp_path: Path) -> None:
+    script = (
+        "set -euo pipefail\nshopt -u varredir_close\nGATE_EXPECTED_UID=$(id -u)\n"
+        'private_root=$1/root\nmkdir -m 700 -- "$private_root"\n'
+        'exec {private_root_fd}<"$private_root"\nprivate_root_anchor=/proc/self/fd/${private_root_fd}/.\n'
+        "private_root_identity=$(stat -Lc '%d:%i:%a:%u' \"$private_root_anchor\")\n"
+        "private_root_anchor_trusted=1\ncleanup_attempted=0\ncleanup_complete=0\n"
+        "private_runtime_armed=1\npodman_guard_fd=-1\n"
+        "private_dir_paths=()\nprivate_dir_fds=()\nprivate_dir_anchors=()\n"
+        "private_dir_identities=()\nprivate_dir_manifests=()\n"
+        "for name in graphroot runroot xdg-runtime xdg-config xdg-data home tmp; do\n"
+        ' path="$private_root/$name"; mkdir -m 700 -- "$path"; printf secret > "$path/private"\n'
+        ' exec {held}<"$path"; private_dir_paths+=("$path"); private_dir_fds+=("$held")\n'
+        ' private_dir_anchors+=("/proc/self/fd/${held}/.")\n'
+        " private_dir_identities+=(\"$(stat -Lc '%d:%i:%a:%u' /proc/self/fd/${held}/.)\")\n"
+        " unset held\ndone\n"
+        "storage_conf=$private_root/storage.conf; local_tls=$private_root/tls-combined.pem; inspect_file=$private_root/inspect\n"
+        'printf config > "$storage_conf"; printf tls-secret > "$local_tls"; printf inspect > "$inspect_file"\n'
+        'chmod 600 "$storage_conf" "$local_tls" "$inspect_file"\n'
+        'exec {storage_conf_fd}<>"$storage_conf" {local_tls_fd}<>"$local_tls" {inspect_fd}<>"$inspect_file"\n'
+        "storage_conf_identity=$(stat -Lc '%d:%i' /proc/self/fd/$storage_conf_fd)\n"
+        "local_tls_identity=$(stat -Lc '%d:%i' /proc/self/fd/$local_tls_fd)\n"
+        "inspect_identity=$(stat -Lc '%d:%i' /proc/self/fd/$inspect_fd)\n"
+        + _probe_cleanup_functions()
+        + '\nmkfifo "$private_root/tmp/reject-fifo"\n'
+        "set +e; scrub_private_contents; rc=$?; set -e\n"
+        '[[ $rc -ne 0 && $(<"$private_root/graphroot/private") == secret ]]\n'
+        '[[ $(<"$local_tls") == tls-secret && -p "$private_root/tmp/reject-fifo" ]]\n'
+    )
+    result = subprocess.run(
+        ["/usr/bin/bash", "-p", "-c", script, "global-preflight", str(tmp_path)],
+        capture_output=True,
+    )
+    assert result.returncode == 0, result.stderr.decode()
 
 
 def test_cleanup_retains_roots_and_binds_every_podman_directory() -> None:
@@ -790,23 +945,138 @@ def test_cleanup_retains_roots_and_binds_every_podman_directory() -> None:
     assert probe.count("private_dirs_bound || blocked") >= 14
     assert 'exec {auth_fd}<>"$auth_path"' in probe
     assert '/usr/bin/truncate -s 0 -- "/proc/self/fd/$auth_fd"' in probe
+    assert "done < /proc/self/mountinfo" in batch
+    assert "done < /proc/self/mountinfo" in probe
     storage_block = probe[probe.index("readonly graphroot=") : probe.index("cleanup_private_tree()")]
     assert 'graphroot = "%s"' in storage_block and 'runroot = "%s"' in storage_block
-    assert "/proc/self/fd" not in storage_block[storage_block.index("/usr/bin/printf '[storage]") : storage_block.index("/usr/bin/chmod 600 \"$storage_conf\"")]
+    assert (
+        "/proc/self/fd"
+        not in storage_block[
+            storage_block.index("/usr/bin/printf '[storage]") : storage_block.index(
+                '/usr/bin/chmod 600 "$storage_conf"'
+            )
+        ]
+    )
+
+
+def test_every_source_login_and_pull_attempt_uses_exact_guard_descriptor() -> None:
+    probe = (HERE / "probe_registry_gate.sh").read_text()
+    guard = (HERE / "podman_guard.sh").read_text()
+    worker = controller.WORKER.read_text()
+    assert worker.count("podman login --authfile") == 1
+    assert worker.count('podman pull "${auth_args[@]}"') == 1
+    assert "/usr/bin/podman login" not in worker
+    assert "/usr/bin/podman pull" not in worker
+    assert '/usr/bin/ln -s -- "/proc/self/fd/$podman_guard_fd" "$podman_guard_alias"' in probe
+    assert "export PATH=$private_tmp:/usr/bin:/bin" in probe
+    assert "GATE_PODMAN_GUARD_IDENTITY" in probe
+    call = '/usr/bin/podman "$@"'
+    assert guard.count(call) == 1
+    call_at = guard.index(call)
+    assert guard.rfind("private_dirs_bound || exit 125", 0, call_at) >= 0
+    assert guard.index("private_dirs_bound || exit 125", call_at) > call_at
+    assert '[[ $# -ge 1 && ( "$1" == login || "$1" == pull )' in guard
+
+
+def test_exact_guard_fd_executes_and_validates_around_no_network_help(tmp_path: Path) -> None:
+    if os.getuid() != controller.OWNER_UID:
+        pytest.skip("the frozen guard intentionally binds the production uid")
+    source_guard = HERE / "podman_guard.sh"
+    guard = tmp_path / "podman_guard.sh"
+    guard.write_bytes(source_guard.read_bytes())
+    guard.chmod(0o500)
+    private_root = tmp_path / "root"
+    private_root.mkdir(mode=0o700)
+    directories = []
+    for name in ("graphroot", "runroot", "xdg-runtime", "xdg-config", "xdg-data", "home", "tmp"):
+        path = private_root / name
+        path.mkdir(mode=0o700)
+        directories.append(path)
+
+    guard_fd = os.open(guard, os.O_RDONLY)
+    root_fd = os.open(private_root, os.O_RDONLY | os.O_DIRECTORY)
+    directory_fds = [os.open(path, os.O_RDONLY | os.O_DIRECTORY) for path in directories]
+    alias = directories[-1] / "podman"
+    alias.symlink_to(f"/proc/self/fd/{guard_fd}")
+    try:
+        root_info = os.fstat(root_fd)
+        guard_info = os.fstat(guard_fd)
+        env = {
+            "HOME": str(directories[-2]),
+            "PATH": f"{directories[-1]}:/usr/bin:/bin",
+            "GATE_PRIVATE_ROOT_PATH": str(private_root),
+            "GATE_PRIVATE_ROOT_ANCHOR": f"/proc/self/fd/{root_fd}/.",
+            "GATE_PRIVATE_ROOT_IDENTITY": (
+                f"{root_info.st_dev}:{root_info.st_ino}:{stat.S_IMODE(root_info.st_mode):o}:{root_info.st_uid}"
+            ),
+            "GATE_PODMAN_GUARD_FD": str(guard_fd),
+            "GATE_PODMAN_GUARD_IDENTITY": (
+                f"{guard_info.st_dev}:{guard_info.st_ino}:{stat.S_IMODE(guard_info.st_mode):o}:"
+                f"{guard_info.st_uid}:{guard_info.st_nlink}"
+            ),
+            "GATE_PODMAN_GUARD_SHA256": hashlib.sha256(guard.read_bytes()).hexdigest(),
+            "GATE_PODMAN_GUARD_ALIAS": str(alias),
+        }
+        for index, (path, fd) in enumerate(zip(directories, directory_fds, strict=True)):
+            info = os.fstat(fd)
+            env[f"GATE_PRIVATE_PATH_{index}"] = str(path)
+            env[f"GATE_PRIVATE_ANCHOR_{index}"] = f"/proc/self/fd/{fd}/."
+            env[f"GATE_PRIVATE_IDENTITY_{index}"] = (
+                f"{info.st_dev}:{info.st_ino}:{stat.S_IMODE(info.st_mode):o}:{info.st_uid}"
+            )
+        result = subprocess.run(
+            ["/usr/bin/timeout", "2s", str(alias), "login", "--help"],
+            env=env,
+            pass_fds=(guard_fd, root_fd, *directory_fds),
+            check=False,
+            capture_output=True,
+        )
+    finally:
+        for fd in directory_fds:
+            os.close(fd)
+        os.close(root_fd)
+        os.close(guard_fd)
+    assert result.returncode == 0
+
+
+def test_guard_signal_ladder_kills_and_reaps_term_ignoring_child() -> None:
+    guard = (HERE / "podman_guard.sh").read_text()
+    stop_function = guard[guard.index("process_identity()") : guard.index("trap 'forward_signal 129'")]
+    shell = (
+        "set -euo pipefail\nGATE_EXPECTED_UID=$(id -u)\n"
+        + stop_function
+        + "\n/usr/bin/bash -c 'trap \"\" TERM; exec /usr/bin/sleep 30' &\n"
+        "child=$!\n"
+        "/usr/bin/sleep 0.2\n"
+        'identity=$(process_identity "$child")\n'
+        'stop_and_reap_child "$child" "$identity"\n'
+        '[[ ! -e "/proc/$child" ]]\n'
+    )
+    started = time.monotonic()
+    result = subprocess.run(
+        ["/usr/bin/bash", "-p", "-c", shell, "guard-signal-test"],
+        check=False,
+        capture_output=True,
+    )
+    elapsed = time.monotonic() - started
+    assert result.returncode == 0, result.stderr.decode()
+    assert 1.5 <= elapsed < 4.0
 
 
 def test_probe_preflight_checks_device_owner_type_and_links() -> None:
     scrub = _probe_directory_scrubber()
-    assert "'%D:%U:%y:%n\\n'" in scrub
+    assert "'%D:%i:%U:%y:%n:%p\\n'" in scrub
     assert '"$dev" == "$root_dev"' in scrub
     assert '"$uid" == "${GATE_EXPECTED_UID}"' in scrub
-    assert 'f) [[ "$links" == 1 ]]' in scrub
+    assert 'f|l) [[ "$links" == 1 ]]' in scrub
     assert "*) return 1" in scrub
+    assert "done < /proc/self/mountinfo" in scrub
 
 
 def test_signal_grace_exceeds_anchored_cleanup_bound() -> None:
     batch = (HERE / "run_registry_gate.sbatch").read_text()
     probe = (HERE / "probe_registry_gate.sh").read_text()
+    guard = (HERE / "podman_guard.sh").read_text()
     assert "for _ in {1..1600}" in batch
     assert "for _ in {1..50}" in batch
     assert "--kill-after=150s 1560s" in batch
@@ -814,10 +1084,10 @@ def test_signal_grace_exceeds_anchored_cleanup_bound() -> None:
     assert "spawn_group_ready=0" in batch
     assert batch.count('wait "$active_pid"') == 1
     assert "--kill-after=3s 12s" in probe
-    assert "--kill-after=5s 15s" in probe
-    assert "--kill-after=5s 20s" in probe
+    assert "--kill-after=3s 10s" in probe
+    assert "--kill-after=3s 15s" in probe
     assert "--kill-after=5s 30s" in probe
-    assert "--kill-after=2s 5s" in probe
+    assert "--kill-after=1s 3s" in probe
     assert "/usr/bin/rm -r" not in batch
     assert "/usr/bin/rm -r" not in probe
     assert "/usr/bin/chmod -R" not in batch
@@ -825,25 +1095,36 @@ def test_signal_grace_exceeds_anchored_cleanup_bound() -> None:
     assert controller.PROBE_CLEANUP_BOUND_SECONDS < controller.OUTER_KILL_GRACE_SECONDS
     assert controller.OUTER_KILL_GRACE_SECONDS < controller.PARENT_TERM_GRACE_SECONDS
     assert controller.SIGNAL_TEARDOWN_BOUND_SECONDS < controller.SIGNAL_LEAD_SECONDS
-    assert controller.SIGNAL_TEARDOWN_BOUND_SECONDS == 215
+    assert controller.SIGNAL_TEARDOWN_BOUND_SECONDS == 210
     assert batch.count("/usr/bin/timeout --signal=TERM --kill-after=2s 8s") == 2
+    assert "/usr/bin/sleep 2" in guard
+    assert '/usr/bin/kill -KILL -- "$child"' in guard
+    assert 'wait "$child" 2>/dev/null' in guard
 
 
 def test_worst_case_signal_timing_is_mathematically_nested() -> None:
-    directory_failure_bound = max(
-        12 + 3,
-        12 + 15 + 5,
-        12 + 15 + 20 + 5,
-        12 + 15 + 20 + 30 + 5,
-        12 + 15 + 20 + 30 + 5 + 2,
+    global_root_preflight_bound = 3 + 1
+    global_directory_preflight_bound = 12 + 3
+    directory_mutation_bound = (12 + 3) + (10 + 3) + (15 + 3) + (30 + 5) + (3 + 1)
+    postflight_bound = 3 + 1
+    exact_file_mutation_bound = (2 + 1) + (5 + 1)
+    probe_failure_bound = (
+        global_root_preflight_bound
+        + global_directory_preflight_bound
+        + max(directory_mutation_bound, exact_file_mutation_bound)
+        + postflight_bound
     )
-    exact_file_failure_bound = 3 * (2 + 5 + 1)
-    batch_failure_bound = 3 * (2 + 5 + 1) + (3 + 1)
+    batch_failure_bound = (3 + 1) + max(2 + 1 + 5 + 1, 0) + (3 + 1)
+    # A successful sync returns before its soft deadline; a timeout stops the
+    # publication chain, so two kill-after tails cannot accumulate.
     publication_success_bound = 2 * 8
-    assert directory_failure_bound == 84
-    assert directory_failure_bound + exact_file_failure_bound <= controller.PROBE_CLEANUP_BOUND_SECONDS
-    assert batch_failure_bound == 28 <= controller.BATCH_CLEANUP_BOUND_SECONDS
+    publication_timeout_bound = 8 + 2
+    assert directory_mutation_bound == 85
+    assert probe_failure_bound == 108
+    assert controller.PODMAN_GUARD_SIGNAL_BOUND_SECONDS + probe_failure_bound <= controller.PROBE_CLEANUP_BOUND_SECONDS
+    assert batch_failure_bound == 17 <= controller.BATCH_CLEANUP_BOUND_SECONDS
     assert publication_success_bound <= controller.RESULT_PUBLICATION_BOUND_SECONDS
+    assert publication_timeout_bound <= controller.RESULT_PUBLICATION_BOUND_SECONDS
     assert controller.PROBE_CLEANUP_BOUND_SECONDS < controller.OUTER_KILL_GRACE_SECONDS
     assert controller.PARENT_TERM_GRACE_SECONDS + controller.PARENT_KILL_REAP_SECONDS == 165
     assert (
@@ -948,6 +1229,48 @@ def test_actual_shell_stderr_classification(tmp_path: Path, line: str, rc: int, 
     assert result.returncode == 0
     assert result.stderr == b""
     assert result.stdout.decode() == expected
+
+
+def test_exact_retained_stderr_descriptor_surfaces_login_authentication(tmp_path: Path) -> None:
+    error_file = tmp_path / "stderr"
+    error_file.write_text(
+        "ERROR: private registry login failed with category=authentication on attempt 1/8; refusing to retry\n"
+    )
+    error_file.chmod(0o600)
+    script = HERE / "classify_registry_error.sh"
+    shell = (
+        'source "$1"; exec {error_fd}<>"$2"; '
+        "identity=$(/usr/bin/stat -Lc '%d:%i:%a:%u:%h' -- /proc/self/fd/$error_fd); "
+        'classify_registry_error_file "/proc/self/fd/$error_fd" 1 "$identity"; '
+        '/usr/bin/printf "%s" "$REGISTRY_SAFE_CATEGORY"'
+    )
+    result = subprocess.run(
+        ["/usr/bin/bash", "-p", "-c", shell, "descriptor-classifier", str(script), str(error_file)],
+        check=False,
+        capture_output=True,
+    )
+    assert result.returncode == 0
+    assert result.stderr == b""
+    assert result.stdout == b"login_authentication"
+
+
+def test_retained_stderr_descriptor_rejects_wrong_inode_binding(tmp_path: Path) -> None:
+    error_file = tmp_path / "stderr"
+    error_file.write_text("ERROR: private registry login failed with category=authentication\n")
+    error_file.chmod(0o600)
+    script = HERE / "classify_registry_error.sh"
+    shell = (
+        'source "$1"; exec {error_fd}<>"$2"; '
+        'if classify_registry_error_file "/proc/self/fd/$error_fd" 1 "0:0:600:656177:1"; then exit 1; fi'
+    )
+    result = subprocess.run(
+        ["/usr/bin/bash", "-p", "-c", shell, "descriptor-classifier", str(script), str(error_file)],
+        check=False,
+        capture_output=True,
+    )
+    assert result.returncode == 0
+    assert result.stdout == b""
+    assert result.stderr == b""
 
 
 @pytest.mark.parametrize(

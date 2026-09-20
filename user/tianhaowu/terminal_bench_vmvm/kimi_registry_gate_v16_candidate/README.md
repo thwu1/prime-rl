@@ -27,13 +27,28 @@ exact inodes are truncated before their descriptors are closed. Their names and
 the scrubbed batch root are retained, so no cleanup unlink can hit a replacement.
 The shared Slurm log contains exactly one canonical, allowlisted JSON line.
 The Podman graphroot and runroot are fresh job-local directories; their exact
-real-path identities are checked around every Podman operation. The probe
-retains descriptors for every top-level private directory, rejects hardlinks,
-special files, and cross-device entries before deletion, and scrubs through
-those anchors even if a name moves. Both shells retain verified scrubbed roots;
-neither performs pathname `rmdir`. Signal teardown gives the concurrent probe
-scrubs 150 seconds, escalates at 160 seconds, and reserves a 240-second Slurm
-warning window for bounded batch cleanup and result publication.
+real-path identities are checked around every Podman operation. A hash-bound
+guard reached through a retained descriptor repeats those checks immediately
+before and after every individual production login and pull retry. The probe
+retains descriptors for every top-level private directory, globally preflights
+all cleanup targets before mutation, rejects hardlinks, special files,
+cross-device entries, and mount-table entries (including same-device bind
+mounts), and scrubs through those anchors even if a name moves. Each directory
+manifest is rechecked immediately at its mutation boundary. Both shells retain
+verified scrubbed roots; neither performs pathname `rmdir`.
+
+The cleanup trust boundary is the fresh mode-0700 job-local tree after all
+supervised Podman children have exited or been reaped. No concurrent writer is
+authorized inside it. A hostile process running as the same uid is outside the
+gate's authorization model; observed replacement still fails closed, but shell
+path traversal cannot provide kernel-enforced inode-conditional unlink against
+such an attacker. The per-attempt guard independently gives a Podman child two
+seconds after TERM, verifies its `/proc` identity before KILL, and positively
+waits/reaps it within a declared three-second bound. Signal teardown includes
+that bound and allows 125 seconds for the complete probe fallback,
+escalates the nested step after 160 seconds, and bounds batch cleanup plus
+publication to 45 seconds. The total declared teardown bound is 210 seconds,
+leaving 30 seconds inside the `TERM@240` warning window.
 
 `audit` validates sealed bytes, source provenance, scheduler/QoS semantics,
 and fresh namespaces without reading TLS variables and without submitting or

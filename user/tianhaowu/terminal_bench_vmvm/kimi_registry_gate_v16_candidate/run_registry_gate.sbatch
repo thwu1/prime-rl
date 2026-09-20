@@ -196,13 +196,30 @@ close_batch_private_fds() {
     fi
 }
 
-scrub_batch_contents() {
-    local fd expected observed observed_dev_inode expected_dev_inode observed_uid path path_observed leftover failed=0
+batch_mount_free() {
+    local resolved mountpoint
+    resolved=$(/usr/bin/readlink -f -- "$private_anchor" 2>/dev/null) || return 1
+    [[ "$resolved" == /* ]] || return 1
+    while IFS=' ' read -r _ _ _ _ mountpoint _; do
+        case "$mountpoint" in
+            "$resolved"|"$resolved"/*) return 1 ;;
+        esac
+    done < /proc/self/mountinfo
+}
+
+preflight_batch_contents() {
+    local fd expected observed leftover
     [[ "$private_anchor_trusted" == 1 \
         && "$private_fd" =~ ^[0-9]+$ && "$private_fd" -ge 10 \
         && -d "$private_anchor" && ! -L "$private_anchor" \
         && "$private_identity" == "$(/usr/bin/stat -Lc '%d:%i:%a:%u' -- "$private_anchor" 2>/dev/null || true)" ]] \
         || return 1
+    batch_mount_free || return 1
+    leftover=$(/usr/bin/timeout --signal=TERM --kill-after=1s 3s \
+        /usr/bin/find "$private_anchor" -xdev -mindepth 1 -maxdepth 1 \
+            ! -name stdout ! -name stderr ! -name compute_tools.sha256 -print -quit 2>/dev/null) \
+        || return 1
+    [[ -z "$leftover" ]] || return 1
     for fd in "$stdout_fd" "$stderr_fd" "$local_tools_fd"; do
         case "$fd" in
             "$stdout_fd") expected=$stdout_identity ;;
@@ -211,20 +228,42 @@ scrub_batch_contents() {
             *) return 1 ;;
         esac
         [[ "$fd" =~ ^[0-9]+$ && "$fd" -ge 10 && -n "$expected" ]] || return 1
-        observed=$(/usr/bin/stat -Lc '%d:%i:%a:%u:%h' -- "/proc/self/fd/$fd" 2>/dev/null || true)
-        observed_dev_inode=${observed%:*:*:*}
-        expected_dev_inode=${expected%:*:*:*}
-        observed_uid=${observed%:*}
-        observed_uid=${observed_uid##*:}
-        [[ -f "/proc/self/fd/$fd" && "$observed_dev_inode" == "$expected_dev_inode" \
-            && "$observed_uid" == 656177 ]] || { failed=1; continue; }
-        # These descriptors name only files created by this process. Scrub the
-        # exact inode even if an unexpected hard link appeared, then reject it.
-        /usr/bin/timeout --signal=TERM --kill-after=1s 2s \
-            /usr/bin/chmod 600 -- "/proc/self/fd/$fd" 2>/dev/null || { failed=1; continue; }
-        /usr/bin/timeout --signal=TERM --kill-after=1s 5s \
-            /usr/bin/truncate -s 0 -- "/proc/self/fd/$fd" 2>/dev/null || { failed=1; continue; }
-        [[ "$observed" == "$expected" ]] || failed=1
+        observed=$(/usr/bin/stat -Lc '%d:%i:%a:%u:%h' -- "/proc/self/fd/$fd" 2>/dev/null) \
+            || return 1
+        [[ -f "/proc/self/fd/$fd" && "$observed" == "$expected" ]] || return 1
+    done
+}
+
+scrub_exact_batch_file() {
+    local fd=$1 expected=$2 observed
+    observed=$(/usr/bin/stat -Lc '%d:%i:%a:%u:%h' -- "/proc/self/fd/$fd" 2>/dev/null) \
+        || return 1
+    [[ -f "/proc/self/fd/$fd" && "$observed" == "$expected" ]] || return 1
+    /usr/bin/timeout --signal=TERM --kill-after=1s 2s \
+        /usr/bin/chmod 600 -- "/proc/self/fd/$fd" 2>/dev/null || return 1
+    /usr/bin/timeout --signal=TERM --kill-after=1s 5s \
+        /usr/bin/truncate -s 0 -- "/proc/self/fd/$fd" 2>/dev/null || return 1
+}
+
+scrub_batch_contents() {
+    local fd expected path path_observed leftover pid failed=0
+    local pids=()
+    # The mode-0700 batch root is writable only by this job. After the nested
+    # step is reaped, validate every retained target and mount before the first
+    # mutation; each FD is revalidated at its mutation boundary.
+    preflight_batch_contents || return 1
+    for fd in "$stdout_fd" "$stderr_fd" "$local_tools_fd"; do
+        case "$fd" in
+            "$stdout_fd") expected=$stdout_identity ;;
+            "$stderr_fd") expected=$stderr_identity ;;
+            "$local_tools_fd") expected=$local_tools_identity ;;
+            *) return 1 ;;
+        esac
+        scrub_exact_batch_file "$fd" "$expected" &
+        pids+=("$!")
+    done
+    for pid in "${pids[@]}"; do
+        wait "$pid" || failed=1
     done
 
     # Verify that every retained name still resolves to the exact scrubbed
@@ -368,8 +407,8 @@ stop_child() {
     if /usr/bin/kill -0 -- "$group" 2>/dev/null || /usr/bin/kill -0 -- "$active_pid" 2>/dev/null; then
         /usr/bin/kill -TERM -- "$group" 2>/dev/null || true
         /usr/bin/kill -TERM -- "$active_pid" 2>/dev/null || true
-        # Seven directory scrubs run concurrently; with the three exact-file
-        # scrubs, the complete probe fallback is bounded below 120 seconds.
+        # Seven directory scrubs and the exact-file scrubs run concurrently;
+        # the complete globally preflighted probe fallback is bounded at 125 seconds.
         # Allow 160 seconds after TERM before escalating the whole step group.
         for _ in {1..1600}; do
             if ! /usr/bin/kill -0 -- "$group" 2>/dev/null \
@@ -486,7 +525,7 @@ if (( rc == 0 )) && [[ "$(/usr/bin/stat -Lc '%s' "$stdout_stream")" -eq $((${#su
     exit 0
 fi
 
-if classify_registry_error_file "$stderr_stream" "$rc"; then
+if classify_registry_error_file "$stderr_stream" "$rc" "$stderr_identity"; then
     category=$REGISTRY_SAFE_CATEGORY
 else
     category=internal
