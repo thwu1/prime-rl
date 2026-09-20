@@ -1141,6 +1141,136 @@ def test_setup_prefetches_shared_isolated_verifier_before_public_agent(
     assert events == ["prepare-agent-network", "trusted-setup", "prefetch-before-agent"]
 
 
+def test_setup_uses_online_dependencies_for_public_sandoq_override(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    taskset = dependency_taskset(tmp_path)
+    runtime = SandoqRuntime(
+        SandoqConfig(
+            image="registry.invalid/task@sha256:" + "a" * 64,
+            network_access=True,
+            mode="oci-runner",
+            host_tunnel="none",
+            expected_environment="oci-runner",
+            ecr_token_file=Path("/run/secrets/ecr-token"),
+        ),
+        name="public-sandoq",
+    )
+    events: list[str] = []
+
+    async def run_root(*args: object, **kwargs: object) -> ProgramResult:
+        events.append("trusted-setup")
+        return ProgramResult(exit_code=0, stdout="", stderr="")
+
+    async def configure_network(*args: object, **kwargs: object) -> None:
+        events.append("public-network-validated")
+
+    async def prefetch(*args: object, **kwargs: object) -> None:
+        pytest.fail("public Sandoq verifier dependencies must not be prefetched")
+
+    monkeypatch.setattr(taskset, "_run_root", run_root)
+    monkeypatch.setattr(taskset, "_configure_network_policy", configure_network)
+    monkeypatch.setattr(taskset, "_prefetch_test_dependencies", prefetch)
+    monkeypatch.setattr(taskset_module, "_dockerfile_startup_command", lambda task_dir: None)
+    task = SimpleNamespace(
+        name="opaque-task",
+        task_dir=str(tmp_path),
+        resources=SimpleNamespace(gpu=0),
+        workdir="/app",
+        verifier_mode="shared",
+        agent_network_mode="no-network",
+        verifier_network_mode="no-network",
+    )
+
+    asyncio.run(taskset.setup(task, runtime))
+
+    assert events == ["public-network-validated", "trusted-setup"]
+
+
+def test_run_verifier_installs_online_for_public_sandoq_override(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    taskset = dependency_taskset(tmp_path)
+    runtime = SandoqRuntime(
+        SandoqConfig(
+            image="registry.invalid/task@sha256:" + "a" * 64,
+            network_access=True,
+            mode="oci-runner",
+            host_tunnel="none",
+            expected_environment="oci-runner",
+            ecr_token_file=Path("/run/secrets/ecr-token"),
+        ),
+        name="public-sandoq",
+    )
+    events: list[str] = []
+
+    async def configure_network(*args: object, **kwargs: object) -> None:
+        events.append("public-network-validated")
+
+    async def stage_directory(*args: object, **kwargs: object) -> None:
+        events.append("tests-staged")
+
+    async def run_root(*args: object, **kwargs: object) -> ProgramResult:
+        events.append("verifier-paths-prepared")
+        return ProgramResult(exit_code=0, stdout="", stderr="")
+
+    async def install_online(*args: object, **kwargs: object) -> None:
+        events.append("online-dependencies-installed")
+
+    async def install_prefetched(*args: object, **kwargs: object) -> None:
+        pytest.fail("public Sandoq verifier must not require an offline wheelhouse")
+
+    responses = iter(
+        (
+            ProgramResult(exit_code=0, stdout="", stderr=""),
+            ProgramResult(exit_code=0, stdout="text", stderr=""),
+        )
+    )
+
+    async def run(*args: object, **kwargs: object) -> ProgramResult:
+        events.append("runtime-command")
+        return next(responses)
+
+    async def read(path: str) -> bytes:
+        assert path == "/logs/verifier/reward.txt"
+        events.append("reward-read")
+        return b"1\n"
+
+    monkeypatch.setattr(taskset, "_configure_network_policy", configure_network)
+    monkeypatch.setattr(taskset, "_stage_directory", stage_directory)
+    monkeypatch.setattr(taskset, "_run_root", run_root)
+    monkeypatch.setattr(taskset, "_ensure_test_dependencies", install_online)
+    monkeypatch.setattr(taskset, "_install_prefetched_test_dependencies", install_prefetched)
+    monkeypatch.setattr(runtime, "run", run)
+    monkeypatch.setattr(runtime, "read", read)
+    task = SimpleNamespace(
+        name="opaque-task",
+        task_dir=str(tmp_path),
+        verifier_network_mode="no-network",
+        verifier_workdir="/app",
+        verifier_timeout_sec=60.0,
+        verifier_env={},
+    )
+
+    result, timed_out, score, rewards = asyncio.run(taskset._run_verifier(task, runtime, stage_tests=True))
+
+    assert result.exit_code == 0
+    assert timed_out is False
+    assert score == 1.0
+    assert rewards == {"reward": 1.0}
+    assert events == [
+        "public-network-validated",
+        "tests-staged",
+        "verifier-paths-prepared",
+        "online-dependencies-installed",
+        "runtime-command",
+        "runtime-command",
+        "reward-read",
+    ]
+
+
 @pytest.mark.parametrize(
     ("solution_network_mode", "last_event"),
     [("declared", "deferred-startup"), ("public", "public-startup")],
