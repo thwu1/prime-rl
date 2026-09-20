@@ -114,11 +114,17 @@ readonly DIRECTORY_IDENTITY_POLICY=nfs_portable_inode_mode_uid_anchored_v2
 
 readonly DIRECTORY_BINDER_PROGRAM='
 import os
+import fcntl
+import hashlib
 import stat
 import sys
 
 FLAGS = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | getattr(os, "O_CLOEXEC", 0)
 LABELS = ("bundle", "source", "site", "reservation", "output_parent")
+MAX_WRAPPER_BYTES = 1 << 20
+OWNER_UID = 656177
+READ_CHUNK_BYTES = 1 << 14
+WRAPPER_MODE = 0o500
 
 
 class BindingError(RuntimeError):
@@ -131,6 +137,135 @@ def signature(descriptor):
     if not stat.S_ISDIR(info.st_mode):
         raise BindingError("not_checked")
     return info.st_dev, info.st_ino, info.st_mode, info.st_uid
+
+
+def file_signature(info):
+    return (
+        info.st_dev,
+        info.st_ino,
+        info.st_mode,
+        info.st_uid,
+        info.st_nlink,
+        info.st_size,
+        info.st_mtime_ns,
+        info.st_ctime_ns,
+    )
+
+
+def directory_event_signature(info):
+    if not stat.S_ISDIR(info.st_mode):
+        raise BindingError("bundle")
+    return (
+        info.st_dev,
+        info.st_ino,
+        info.st_mode,
+        info.st_uid,
+        info.st_nlink,
+        info.st_size,
+        info.st_mtime_ns,
+        info.st_ctime_ns,
+    )
+
+
+def expected_wrapper():
+    digest = os.environ.get("DIAG_WRAPPER_SHA256", "")
+    size_value = os.environ.get("DIAG_WRAPPER_SIZE", "")
+    if (
+        len(digest) != 64
+        or any(character not in "0123456789abcdef" for character in digest)
+        or not size_value.isdecimal()
+        or str(int(size_value)) != size_value
+    ):
+        raise BindingError("bundle")
+    size = int(size_value)
+    if size < 1 or size > MAX_WRAPPER_BYTES:
+        raise BindingError("bundle")
+    return digest, size
+
+
+def read_verified_wrapper(bundle_fd, wrapper_path):
+    expected_digest, expected_size = expected_wrapper()
+    name = os.path.basename(wrapper_path)
+    descriptor = -1
+    try:
+        bundle_before = os.fstat(bundle_fd)
+        descriptor = os.open(
+            name,
+            os.O_RDONLY | os.O_NOFOLLOW | getattr(os, "O_CLOEXEC", 0),
+            dir_fd=bundle_fd,
+        )
+        before = os.fstat(descriptor)
+        named_before = os.stat(name, dir_fd=bundle_fd, follow_symlinks=False)
+        if (
+            file_signature(before) != file_signature(named_before)
+            or not stat.S_ISREG(before.st_mode)
+            or stat.S_IMODE(before.st_mode) != WRAPPER_MODE
+            or os.getuid() != OWNER_UID
+            or before.st_uid != OWNER_UID
+            or before.st_nlink != 1
+            or before.st_size != expected_size
+        ):
+            raise BindingError("bundle")
+        raw = bytearray()
+        while len(raw) < expected_size:
+            chunk = os.read(descriptor, min(READ_CHUNK_BYTES, expected_size - len(raw)))
+            if not chunk:
+                break
+            raw.extend(chunk)
+        extra = os.read(descriptor, 1)
+        after = os.fstat(descriptor)
+        named_after = os.stat(name, dir_fd=bundle_fd, follow_symlinks=False)
+        bundle_after = os.fstat(bundle_fd)
+    except OSError as error:
+        raise BindingError("bundle") from error
+    finally:
+        if descriptor >= 0:
+            os.close(descriptor)
+    if (
+        directory_event_signature(bundle_before) != directory_event_signature(bundle_after)
+        or file_signature(before) != file_signature(after)
+        or file_signature(before) != file_signature(named_after)
+        or len(raw) != expected_size
+        or extra
+        or hashlib.sha256(raw).hexdigest() != expected_digest
+    ):
+        raise BindingError("bundle")
+    return bytes(raw)
+
+
+def sealed_wrapper(raw):
+    flags = os.MFD_CLOEXEC | os.MFD_ALLOW_SEALING
+    seals = fcntl.F_SEAL_WRITE | fcntl.F_SEAL_GROW | fcntl.F_SEAL_SHRINK | fcntl.F_SEAL_SEAL
+    descriptor = os.memfd_create("vmvm-wrapper-v8", flags)
+    try:
+        offset = 0
+        while offset < len(raw):
+            written = os.write(descriptor, raw[offset:])
+            if written < 1:
+                raise BindingError("bundle")
+            offset += written
+        os.fchmod(descriptor, WRAPPER_MODE)
+        os.fsync(descriptor)
+        fcntl.fcntl(descriptor, fcntl.F_ADD_SEALS, seals)
+        status = os.fstat(descriptor)
+        if (
+            fcntl.fcntl(descriptor, fcntl.F_GET_SEALS) != seals
+            or not stat.S_ISREG(status.st_mode)
+            or stat.S_IMODE(status.st_mode) != WRAPPER_MODE
+            or os.getuid() != OWNER_UID
+            or status.st_uid != OWNER_UID
+            or status.st_nlink != 0
+            or status.st_size != len(raw)
+            or os.pread(descriptor, len(raw) + 1, 0) != raw
+        ):
+            raise BindingError("bundle")
+        os.set_inheritable(descriptor, True)
+        if not os.get_inheritable(descriptor):
+            raise BindingError("bundle")
+        return descriptor
+    except BaseException:
+        os.close(descriptor)
+        raise
 
 
 def open_anchored_directory(raw_path, label):
@@ -204,17 +339,8 @@ def main():
         or os.path.basename(wrapper_path) != "run_vmvm_task_free_v2.sbatch"
     ):
         raise BindingError("bundle")
-    try:
-        wrapper_fd = os.open(
-            os.path.basename(wrapper_path),
-            os.O_RDONLY | os.O_NOFOLLOW | getattr(os, "O_CLOEXEC", 0),
-            dir_fd=descriptors["bundle"],
-        )
-        wrapper_status = os.fstat(wrapper_fd)
-    except OSError as error:
-        raise BindingError("bundle") from error
-    if not stat.S_ISREG(wrapper_status.st_mode):
-        raise BindingError("bundle")
+    wrapper_raw = read_verified_wrapper(descriptors["bundle"], wrapper_path)
+    wrapper_fd = sealed_wrapper(wrapper_raw)
     inherited = [*public_fds, *descriptors.values(), wrapper_fd]
     if len(set(inherited)) != len(inherited):
         raise BindingError("not_checked")
@@ -260,6 +386,7 @@ required_environment=(
     DIAG_SOURCE_REVISION DIAG_SOURCE_ROOT
     DIAG_SOURCE_TREE DIAG_SUBMISSION_RECEIPT DIAG_VMVM_SHA256
     DIAG_WRAPPER_GATE_TIMEOUT_SECONDS DIAG_WRAPPER_PATH DIAG_WRAPPER_SHA256
+    DIAG_WRAPPER_SIZE
     HOME LANG LC_ALL LOGNAME PATH PYTHONDONTWRITEBYTECODE PYTHON_BIN_X86_64
     PYTHON_SITE_X86_64 PYTHON_SITE_X86_64_ENTRY_COUNT
     PYTHON_SITE_X86_64_IDENTITY PYTHON_SITE_X86_64_PORTABLE_IDENTITY
@@ -379,7 +506,8 @@ for value in "$DIAG_BUNDLE_PORTABLE_IDENTITY" \
 done
 failure_stage=count_shape
 [[ $PYTHON_SITE_X86_64_ENTRY_COUNT =~ ^[1-9][0-9]*$ \
-    && $PYTHON_SITE_X86_64_TOTAL_BYTES =~ ^[1-9][0-9]*$ ]] || fail
+    && $PYTHON_SITE_X86_64_TOTAL_BYTES =~ ^[1-9][0-9]*$ \
+    && $DIAG_WRAPPER_SIZE =~ ^[1-9][0-9]*$ ]] || fail
 
 if (( directory_binding_ready == 0 )); then
     failure_stage=directory_open
@@ -601,9 +729,12 @@ failure_stage=bundle_artifacts
     && $DIAG_FINALIZER_PATH == "$DIAG_BUNDLE_ROOT/finalize_vmvm_task_free_v2.py" ]] || fail
 validate_file "$BOUND_BUNDLE_ROOT/launch_vmvm_task_free_v2.py" 500 "$DIAG_LAUNCHER_SHA256"
 validate_file "$BOUND_BUNDLE_ROOT/run_vmvm_task_free_v2.sbatch" 500 "$DIAG_WRAPPER_SHA256"
+[[ $(/usr/bin/stat -Lc '%s' -- "$BOUND_BUNDLE_ROOT/run_vmvm_task_free_v2.sbatch") \
+    == "$DIAG_WRAPPER_SIZE" ]] || fail
 validate_file "$BOUND_BUNDLE_ROOT/probe_vmvm_task_free_v2.py" 500 "$DIAG_PROBE_SHA256"
 validate_file "$BOUND_BUNDLE_ROOT/finalize_vmvm_task_free_v2.py" 500 "$DIAG_FINALIZER_SHA256"
-[[ $(digest_file "${BASH_SOURCE[0]}") == "$DIAG_WRAPPER_SHA256" ]] || fail
+[[ $(/usr/bin/stat -Lc '%s' -- "${BASH_SOURCE[0]}") == "$DIAG_WRAPPER_SIZE" \
+    && $(digest_file "${BASH_SOURCE[0]}") == "$DIAG_WRAPPER_SHA256" ]] || fail
 validate_file "$DIAG_AUTHORIZATION" 400 "$DIAG_AUTHORIZATION_FILE_SHA256"
 failure_stage=runtime_resolution
 [[ $(/usr/bin/readlink -f -- "$UV_BIN_X86_64") == "$UV_BIN_X86_64" \

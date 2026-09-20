@@ -485,7 +485,7 @@ def test_supervisor_runs_exact_matrix_and_publishes_completion_last(monkeypatch,
                 authorization_sha256="b" * 64,
                 job_authorization_sha256="e" * 64,
                 job_id="42",
-                job_name="vmvm-v7-preflight-" + "f" * 24,
+                job_name="vmvm-v8-preflight-" + "f" * 24,
                 submission_receipt_sha256="c" * 64,
             )
         )
@@ -530,7 +530,7 @@ def test_supervisor_runs_exact_matrix_and_publishes_completion_last(monkeypatch,
 
 
 def test_sbatch_is_held_single_job_and_uses_only_the_sealed_export_file() -> None:
-    command = LAUNCH._sbatch_command("vmvm-v7-preflight-" + "a" * 24, Path("/private/environment"))
+    command = LAUNCH._sbatch_command("vmvm-v8-preflight-" + "a" * 24, Path("/private/environment"))
     assert command[0] == "/usr/bin/sbatch"
     assert "--hold" in command
     assert [value for value in command if value.startswith("--export")] == ["--export-file=/private/environment"]
@@ -543,11 +543,11 @@ def test_sbatch_is_held_single_job_and_uses_only_the_sealed_export_file() -> Non
 
 def test_slurm_time_limit_uses_the_scheduler_canonical_identity() -> None:
     job_id = "42"
-    job_name = "vmvm-v7-preflight-" + "a" * 24
+    job_name = "vmvm-v8-preflight-" + "a" * 24
     record = {
         "Account": "ram",
         "Command": "(null)",
-        "Comment": "vmvm-v7-preflight:" + "a" * 24,
+        "Comment": "vmvm-v8-preflight:" + "a" * 24,
         "Dependency": "(null)",
         "JobId": job_id,
         "JobName": job_name,
@@ -569,14 +569,14 @@ def test_slurm_time_limit_uses_the_scheduler_canonical_identity() -> None:
     assert LAUNCH._base_mismatches(record, job_id, job_name) == {"TimeLimit"}
 
 
-def test_v7_preflight_namespaces_are_exact_and_fresh() -> None:
+def test_v8_preflight_namespaces_are_exact_and_fresh() -> None:
     assert LAUNCH.OUTPUT_ROOT == PROBE.EXPECTED_OUTPUT_ROOT == FINALIZE.OUTPUT_ROOT
     assert LAUNCH.SCRATCH_ROOT == PROBE.EXPECTED_SCRATCH_ROOT == FINALIZE.SCRATCH_ROOT
     assert LAUNCH.LOG_ROOT == FINALIZE.LOG_ROOT
-    assert LAUNCH.OUTPUT_ROOT.name == "vmvm_v21_task_free_preflight_a09a9a189_v7_portable_identity"
-    assert LAUNCH.LOG_ROOT.name == "vmvm_v21_task_free_preflight_a09a9a189_v7_portable_identity"
-    assert LAUNCH.SCRATCH_ROOT.name == "vmvm-v21-task-free-preflight-v7-portable-identity"
-    assert LAUNCH.NAME_RE.fullmatch("vmvm-v7-preflight-" + "a" * 24)
+    assert LAUNCH.OUTPUT_ROOT.name == "vmvm_v21_task_free_preflight_a09a9a189_v8_sealed_wrapper"
+    assert LAUNCH.LOG_ROOT.name == "vmvm_v21_task_free_preflight_a09a9a189_v8_sealed_wrapper"
+    assert LAUNCH.SCRATCH_ROOT.name == "vmvm-v21-task-free-preflight-v8-sealed-wrapper"
+    assert LAUNCH.NAME_RE.fullmatch("vmvm-v8-preflight-" + "a" * 24)
 
 
 def test_held_poll_requires_two_exact_snapshots(monkeypatch) -> None:
@@ -591,7 +591,7 @@ def test_held_poll_requires_two_exact_snapshots(monkeypatch) -> None:
     monkeypatch.setattr(LAUNCH, "_snapshot", lambda *args: next(outcomes))
     monkeypatch.setattr(LAUNCH.time, "monotonic", lambda: next(clock))
     monkeypatch.setattr(LAUNCH.time, "sleep", lambda value: None)
-    result = LAUNCH.poll_phase("1", "vmvm-v7-preflight-" + "a" * 24, "held", 20, set())
+    result = LAUNCH.poll_phase("1", "vmvm-v8-preflight-" + "a" * 24, "held", 20, set())
     assert result["converged"] is True
     assert result["polls"] == 3
     assert result["mismatch_occurrences"] == {"held_queue": 1}
@@ -605,7 +605,7 @@ def test_conflict_latch_is_monotonic(monkeypatch) -> None:
         ]
     )
     monkeypatch.setattr(LAUNCH, "_snapshot", lambda *args: next(outcomes))
-    result = LAUNCH.poll_phase("1", "vmvm-v7-preflight-" + "a" * 24, "held", 20, set())
+    result = LAUNCH.poll_phase("1", "vmvm-v8-preflight-" + "a" * 24, "held", 20, set())
     assert result["converged"] is False
     assert result["explicit_conflict_fields"] == ["JobName"]
     assert result["polls"] == 1
@@ -625,7 +625,7 @@ def test_cancel_conflict_never_calls_scancel(monkeypatch) -> None:
     monkeypatch.setattr(LAUNCH, "_run", lambda command, timeout=20: calls.append(list(command)))
     result = LAUNCH.cancel_and_prove(
         "1",
-        "vmvm-v7-preflight-" + "a" * 24,
+        "vmvm-v8-preflight-" + "a" * 24,
         set(),
         candidate_provenance="sbatch_stdout",
     )
@@ -737,7 +737,7 @@ def test_uv_internal_environment_is_never_exported() -> None:
     private = {
         "bundle_identity": "1:2:448:656177",
         "bundle_portable_identity": "2:448:656177",
-        "job_name": "vmvm-v7-preflight-" + "a" * 24,
+        "job_name": "vmvm-v8-preflight-" + "a" * 24,
         "output_parent_identity": "1:3:448:656177",
         "output_parent_portable_identity": "3:448:656177",
         "site_entry_count": "1",
@@ -757,6 +757,7 @@ def test_uv_internal_environment_is_never_exported() -> None:
         authorization_sha256="b" * 64,
         launcher_sha256="c" * 64,
         wrapper_sha256="d" * 64,
+        wrapper_size=123,
         probe_sha256="e" * 64,
         finalizer_sha256="f" * 64,
         reservation_identity={"device": 1, "inode": 6, "mode": 320, "owner_uid": 656177},
@@ -766,7 +767,7 @@ def test_uv_internal_environment_is_never_exported() -> None:
     wrapper = (ROOT / "run_vmvm_task_free_v2.sbatch").read_text()
     required_block = wrapper.split("required_environment=(", 1)[1].split("\n)", 1)[0]
     required_names = set(re.findall(r"[A-Z][A-Z0-9_]+", required_block))
-    assert len(required_names) == 62
+    assert len(required_names) == 63
     assert set(environment) == required_names
     assert "-n ${UV+x}" in wrapper
 
@@ -896,7 +897,7 @@ def test_supervisor_aborts_before_next_cell_on_unverifiable_result(
                     authorization_sha256="b" * 64,
                     job_authorization_sha256="e" * 64,
                     job_id="42",
-                    job_name="vmvm-v7-preflight-" + "f" * 24,
+                    job_name="vmvm-v8-preflight-" + "f" * 24,
                     submission_receipt_sha256="c" * 64,
                 )
             )
@@ -960,7 +961,7 @@ def test_resolve_submission_recovers_timeout_by_exact_name(monkeypatch) -> None:
     assert LAUNCH._resolve_submission(
         direct_candidate=None,
         outcome="timeout",
-        job_name="vmvm-v7-preflight-" + "a" * 24,
+        job_name="vmvm-v8-preflight-" + "a" * 24,
         start_date="2026-09-19",
     ) == ("42", "name_lookup")
 
@@ -971,7 +972,7 @@ def test_resolve_submission_rejects_direct_name_disagreement(monkeypatch) -> Non
         LAUNCH._resolve_submission(
             direct_candidate="42",
             outcome="completed",
-            job_name="vmvm-v7-preflight-" + "a" * 24,
+            job_name="vmvm-v8-preflight-" + "a" * 24,
             start_date="2026-09-19",
         )
 
@@ -998,7 +999,7 @@ def test_direct_candidate_unavailable_identity_attempts_one_exact_cancel(
     monkeypatch.setattr(LAUNCH, "_run", fake_run)
     result = LAUNCH.cancel_and_prove(
         "42",
-        "vmvm-v7-preflight-" + "a" * 24,
+        "vmvm-v8-preflight-" + "a" * 24,
         set(),
         candidate_provenance="sbatch_stdout",
     )
@@ -1018,7 +1019,7 @@ def test_precontrol_conflict_after_identity_proof_forbids_cancel(monkeypatch) ->
     monkeypatch.setattr(LAUNCH, "_run", lambda command, timeout=20: calls.append(list(command)))
     result = LAUNCH.cancel_and_prove(
         "42",
-        "vmvm-v7-preflight-" + "a" * 24,
+        "vmvm-v8-preflight-" + "a" * 24,
         set(),
         candidate_provenance="sbatch_stdout",
     )
@@ -1487,6 +1488,293 @@ def test_real_wrapper_binder_rejects_ancestor_rebinding(
     with pytest.raises(namespace["BindingError"]):
         namespace["open_anchored_directory"](str(leaf), "source")
     assert swapped
+
+
+def _wrapper_binder_fixture(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    raw: bytes = b"#!/usr/bin/bash\nexit 0\n",
+) -> tuple[dict[str, object], Path, Path, int, bytes]:
+    namespace = wrapper_directory_binder_namespace()
+    bundle = tmp_path / "bundle"
+    bundle.mkdir()
+    wrapper = bundle / "run_vmvm_task_free_v2.sbatch"
+    wrapper.write_bytes(raw)
+    wrapper.chmod(0o500)
+    monkeypatch.setenv("DIAG_WRAPPER_SHA256", hashlib.sha256(raw).hexdigest())
+    monkeypatch.setenv("DIAG_WRAPPER_SIZE", str(len(raw)))
+    descriptor = os.open(bundle, os.O_RDONLY | os.O_DIRECTORY)
+    return namespace, bundle, wrapper, descriptor, raw
+
+
+def test_wrapper_binder_rejects_preopen_replacement(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    namespace, _bundle, wrapper, descriptor, _raw = _wrapper_binder_fixture(tmp_path, monkeypatch)
+    trusted = wrapper.with_suffix(".trusted")
+    wrapper.rename(trusted)
+    wrapper.write_bytes(b"#!/usr/bin/bash\nexit 1\n")
+    wrapper.chmod(0o500)
+    try:
+        with pytest.raises(namespace["BindingError"]):
+            namespace["read_verified_wrapper"](descriptor, str(wrapper))
+    finally:
+        os.close(descriptor)
+
+
+def test_wrapper_binder_rejects_during_read_mutation(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    raw = b"a" * ((1 << 14) * 3)
+    namespace, _bundle, wrapper, descriptor, _raw = _wrapper_binder_fixture(tmp_path, monkeypatch, raw)
+    binder_os = namespace["os"]
+    real_read = binder_os.read
+    calls = 0
+
+    def racing_read(fd: int, count: int) -> bytes:
+        nonlocal calls
+        chunk = real_read(fd, count)
+        calls += 1
+        if calls == 1:
+            wrapper.chmod(0o700)
+            with wrapper.open("r+b", buffering=0) as stream:
+                stream.seek(1 << 14)
+                stream.write(b"b")
+                os.fsync(stream.fileno())
+            wrapper.chmod(0o500)
+        return chunk
+
+    monkeypatch.setattr(binder_os, "read", racing_read)
+    try:
+        with pytest.raises(namespace["BindingError"]):
+            namespace["read_verified_wrapper"](descriptor, str(wrapper))
+    finally:
+        os.close(descriptor)
+    assert calls >= 2
+
+
+def test_wrapper_binder_rejects_swap_restore_during_read(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    raw = b"a" * ((1 << 14) * 3)
+    namespace, bundle, wrapper, descriptor, _raw = _wrapper_binder_fixture(tmp_path, monkeypatch, raw)
+    replacement = bundle / "replacement"
+    replacement.write_bytes(b"b" * len(raw))
+    replacement.chmod(0o500)
+    parked = bundle / "parked"
+    original_inode = wrapper.stat().st_ino
+    binder_os = namespace["os"]
+    real_read = binder_os.read
+    swapped = False
+
+    def racing_read(fd: int, count: int) -> bytes:
+        nonlocal swapped
+        chunk = real_read(fd, count)
+        if not swapped:
+            wrapper.rename(parked)
+            replacement.rename(wrapper)
+            wrapper.rename(replacement)
+            parked.rename(wrapper)
+            swapped = True
+        return chunk
+
+    monkeypatch.setattr(binder_os, "read", racing_read)
+    try:
+        with pytest.raises(namespace["BindingError"]):
+            namespace["read_verified_wrapper"](descriptor, str(wrapper))
+    finally:
+        os.close(descriptor)
+    assert swapped
+    assert wrapper.stat().st_ino == original_inode
+    assert wrapper.read_bytes() == raw
+
+
+@pytest.mark.parametrize("violation", ("mode", "uid", "nlink", "size", "hash"))
+def test_wrapper_binder_rejects_wrong_file_contract(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    violation: str,
+) -> None:
+    namespace, bundle, wrapper, descriptor, raw = _wrapper_binder_fixture(tmp_path, monkeypatch)
+    if violation == "mode":
+        wrapper.chmod(0o400)
+    elif violation == "uid":
+        real_uid = os.getuid()
+        monkeypatch.setattr(namespace["os"], "getuid", lambda: real_uid + 1)
+    elif violation == "nlink":
+        os.link(wrapper, bundle / "wrapper-link")
+    elif violation == "size":
+        monkeypatch.setenv("DIAG_WRAPPER_SIZE", str(len(raw) + 1))
+    else:
+        monkeypatch.setenv("DIAG_WRAPPER_SHA256", "0" * 64)
+    try:
+        with pytest.raises(namespace["BindingError"]):
+            namespace["read_verified_wrapper"](descriptor, str(wrapper))
+    finally:
+        os.close(descriptor)
+
+
+@pytest.mark.parametrize("violation", ("content", "mode", "hardlink", "swap_restore"))
+def test_wrapper_binder_main_rejects_before_seal_or_exec(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    violation: str,
+) -> None:
+    namespace, bundle, wrapper, bundle_fd, raw = _wrapper_binder_fixture(tmp_path, monkeypatch)
+    os.close(bundle_fd)
+    other_paths = []
+    for label in ("source", "site", "reservation", "output-parent"):
+        path = tmp_path / label
+        path.mkdir()
+        other_paths.append(path)
+    replacement = bundle / "replacement"
+    parked = bundle / "parked"
+    if violation == "content":
+        wrapper.chmod(0o700)
+        wrapper.write_bytes(raw.replace(b"exit 0", b"exit 9"))
+        wrapper.chmod(0o500)
+    elif violation == "mode":
+        wrapper.chmod(0o400)
+    elif violation == "hardlink":
+        os.link(wrapper, bundle / "wrapper-link")
+    else:
+        replacement.write_bytes(raw.replace(b"exit 0", b"exit 9"))
+        replacement.chmod(0o500)
+        binder_os = namespace["os"]
+        real_read = binder_os.read
+        swapped = False
+
+        def racing_read(fd: int, count: int) -> bytes:
+            nonlocal swapped
+            chunk = real_read(fd, count)
+            if not swapped:
+                wrapper.rename(parked)
+                replacement.rename(wrapper)
+                wrapper.rename(replacement)
+                parked.rename(wrapper)
+                swapped = True
+            return chunk
+
+        monkeypatch.setattr(binder_os, "read", racing_read)
+
+    calls: list[str] = []
+
+    def forbidden_seal(_raw: bytes) -> int:
+        calls.append("seal")
+        return -1
+
+    def forbidden_exec(_path: str, _argv: list[str], _environment: dict[str, str]) -> None:
+        calls.append("exec")
+
+    opened: list[int] = []
+    real_open_directory = namespace["open_anchored_directory"]
+
+    def tracked_open_directory(path: str, label: str) -> int:
+        descriptor = real_open_directory(path, label)
+        opened.append(descriptor)
+        return descriptor
+
+    public_fds = [os.dup(1), os.dup(2)]
+    monkeypatch.setitem(namespace, "open_anchored_directory", tracked_open_directory)
+    monkeypatch.setitem(namespace, "sealed_wrapper", forbidden_seal)
+    monkeypatch.setattr(namespace["os"], "execve", forbidden_exec)
+    monkeypatch.setattr(
+        namespace["sys"],
+        "argv",
+        [
+            "binder",
+            str(public_fds[0]),
+            str(public_fds[1]),
+            str(wrapper),
+            str(bundle),
+            *(str(path) for path in other_paths),
+        ],
+    )
+    try:
+        with pytest.raises(namespace["BindingError"]):
+            namespace["main"]()
+    finally:
+        for descriptor in [*opened, *public_fds]:
+            os.close(descriptor)
+    assert calls == []
+    if violation == "swap_restore":
+        assert swapped
+        assert wrapper.read_bytes() == raw
+
+
+def test_wrapper_binder_executes_sealed_memfd_after_posthash_path_mutation(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    namespace, bundle, wrapper, bundle_fd, raw = _wrapper_binder_fixture(tmp_path, monkeypatch)
+    os.close(bundle_fd)
+    other_paths = []
+    for label in ("source", "site", "reservation", "output-parent"):
+        path = tmp_path / label
+        path.mkdir()
+        other_paths.append(path)
+    public_fds = [os.dup(1), os.dup(2)]
+    real_reader = namespace["read_verified_wrapper"]
+    captured: dict[str, object] = {}
+
+    def mutate_after_hash(descriptor: int, wrapper_path: str) -> bytes:
+        verified = real_reader(descriptor, wrapper_path)
+        wrapper.chmod(0o700)
+        wrapper.write_bytes(b"x" * len(verified))
+        wrapper.chmod(0o500)
+        return verified
+
+    class ExecIntercept(BaseException):
+        pass
+
+    def capture_exec(path: str, argv: list[str], environment: dict[str, str]) -> None:
+        captured.update(path=path, argv=argv, environment=environment)
+        raise ExecIntercept
+
+    monkeypatch.setitem(namespace, "read_verified_wrapper", mutate_after_hash)
+    monkeypatch.setattr(namespace["os"], "execve", capture_exec)
+    monkeypatch.setattr(
+        namespace["sys"],
+        "argv",
+        [
+            "binder",
+            str(public_fds[0]),
+            str(public_fds[1]),
+            str(wrapper),
+            str(bundle),
+            *(str(path) for path in other_paths),
+        ],
+    )
+    opened: set[int] = set(public_fds)
+    try:
+        with pytest.raises(ExecIntercept):
+            namespace["main"]()
+        argv = captured["argv"]
+        environment = captured["environment"]
+        assert captured["path"] == "/usr/bin/bash"
+        assert argv[0] == "/usr/bin/bash"
+        match = re.fullmatch(r"/proc/self/fd/([3-9]|[1-9][0-9]+)", argv[1])
+        assert match is not None
+        wrapper_fd = int(match.group(1))
+        opened.add(wrapper_fd)
+        opened.update(int(environment[f"VMVM_BOUND_{label.upper()}_FD"]) for label in namespace["LABELS"])
+        seals = fcntl.F_SEAL_WRITE | fcntl.F_SEAL_GROW | fcntl.F_SEAL_SHRINK | fcntl.F_SEAL_SEAL
+        assert fcntl.fcntl(wrapper_fd, fcntl.F_GET_SEALS) == seals
+        assert os.get_inheritable(wrapper_fd)
+        assert stat.S_IMODE(os.fstat(wrapper_fd).st_mode) == 0o500
+        assert os.pread(wrapper_fd, len(raw) + 1, 0) == raw
+        assert wrapper.read_bytes() != raw
+        with pytest.raises(OSError):
+            os.write(wrapper_fd, b"x")
+    finally:
+        for descriptor in opened:
+            try:
+                os.close(descriptor)
+            except OSError:
+                pass
 
 
 def test_real_wrapper_uses_only_inherited_anchored_directory_descriptors() -> None:
@@ -2043,6 +2331,9 @@ def test_finalizer_subprocess_requires_and_executes_its_sealed_bytes(tmp_path: P
         "mode_only",
         "owner_only",
         "content_drift",
+        "wrapper_content",
+        "wrapper_mode",
+        "wrapper_hardlink",
         "path_drift",
         "symlink_path",
         "multiple",
@@ -2071,11 +2362,11 @@ def test_real_wrapper_emits_only_static_preflight_telemetry(tmp_path: Path, fail
     (site / "runtime.py").write_text("VALUE = 1\n")
     diagnostics = base / "diagnostics"
     diagnostics.mkdir()
-    output = diagnostics / "vmvm_v21_task_free_preflight_a09a9a189_v7_portable_identity"
+    output = diagnostics / "vmvm_v21_task_free_preflight_a09a9a189_v8_sealed_wrapper"
     reservation = Path(f"{output}.launch-reservation")
     completion = Path(f"{output}.external-completion.json")
     scratch = tmp_path / "scratch"
-    log_root = base / "logs/vmvm_v21_task_free_preflight_a09a9a189_v7_portable_identity"
+    log_root = base / "logs/vmvm_v21_task_free_preflight_a09a9a189_v8_sealed_wrapper"
     bundle = tmp_path / "bundle"
     bundle.mkdir(mode=0o700)
     bundle.chmod(0o700)
@@ -2119,7 +2410,7 @@ def test_real_wrapper_emits_only_static_preflight_telemetry(tmp_path: Path, fail
         f'VMVM_SHA256 = "{PROBE.VMVM_SHA256}"': f'VMVM_SHA256 = "{revisions["vmvm"]}"',
         f'X86_UV_SHA256 = "{PROBE.X86_UV_SHA256}"': f'X86_UV_SHA256 = "{uv_sha}"',
         'BASE = Path("/checkpoint/ram/tianhaowu/terminal_bench_vmvm")': f"BASE = Path({str(base)!r})",
-        'EXPECTED_SCRATCH_ROOT = Path("/tmp/vmvm-v21-task-free-preflight-v7-portable-identity")': (
+        'EXPECTED_SCRATCH_ROOT = Path("/tmp/vmvm-v21-task-free-preflight-v8-sealed-wrapper")': (
             f"EXPECTED_SCRATCH_ROOT = Path({str(scratch)!r})"
         ),
         'environment["UV_BIN_X86_64"] != "/storage/home/tianhaowu/.local/x86_64/bin/uv"': (
@@ -2217,7 +2508,7 @@ def test_real_wrapper_emits_only_static_preflight_telemetry(tmp_path: Path, fail
         "X2P_CFG_ENV": "fixture-configuration",
         "X2P_PROXY_URL": "https://fixture.invalid/proxy",
     }
-    job_name = "vmvm-v7-preflight-" + "f" * 24
+    job_name = "vmvm-v8-preflight-" + "f" * 24
     launch_body = {
         "artifact_type": "vmvm_task_free_diagnostic_authorization_v2",
         "bundle": {
@@ -2232,7 +2523,7 @@ def test_real_wrapper_emits_only_static_preflight_telemetry(tmp_path: Path, fail
         "launch": {
             "account": "ram",
             "cluster": PROBE.EXPECTED_CLUSTER,
-            "comment": "vmvm-v7-preflight:" + "f" * 24,
+            "comment": "vmvm-v8-preflight:" + "f" * 24,
             "completion_receipt": str(completion),
             "cpus": 2,
             "environment_export": PROBE.ENVIRONMENT_EXPORT_POLICY,
@@ -2347,6 +2638,7 @@ def test_real_wrapper_emits_only_static_preflight_telemetry(tmp_path: Path, fail
         "DIAG_WRAPPER_GATE_TIMEOUT_SECONDS": "900",
         "DIAG_WRAPPER_PATH": bundle_records["wrapper"]["path"],
         "DIAG_WRAPPER_SHA256": bundle_records["wrapper"]["sha256"],
+        "DIAG_WRAPPER_SIZE": str((bundle / "run_vmvm_task_free_v2.sbatch").stat().st_size),
         "HOME": "/storage/home/tianhaowu",
         "LANG": "C",
         "LC_ALL": "C",
@@ -2457,6 +2749,14 @@ def test_real_wrapper_emits_only_static_preflight_telemetry(tmp_path: Path, fail
         probe_path.chmod(0o700)
         probe_path.write_bytes(probe_path.read_bytes() + b"# changed\n")
         probe_path.chmod(0o500)
+    elif failure_case == "wrapper_content":
+        wrapper_path.chmod(0o700)
+        wrapper_path.write_bytes(wrapper_path.read_bytes().replace(b"aggregate-only", b"aggregate-onlz", 1))
+        wrapper_path.chmod(0o500)
+    elif failure_case == "wrapper_mode":
+        wrapper_path.chmod(0o400)
+    elif failure_case == "wrapper_hardlink":
+        os.link(wrapper_path, bundle / "wrapper-link")
     elif failure_case == "path_drift":
         exported["DIAG_SOURCE_ROOT"] = str(expected_source.parent / ".." / "sources" / expected_source.name)
     elif failure_case == "symlink_path":
@@ -2474,8 +2774,9 @@ def test_real_wrapper_emits_only_static_preflight_telemetry(tmp_path: Path, fail
     runtime_environment = {**exported, "SLURM_JOB_ID": "42", "SLURM_JOB_NAME": job_name}
     if failure_case == "outer_uv":
         runtime_environment["UV"] = raw_secret
+    wrapper_contract_failure = failure_case in {"wrapper_content", "wrapper_mode", "wrapper_hardlink"}
     result = subprocess.run(
-        [str(wrapper_path)],
+        ["/usr/bin/bash", "-c", wrapper_source] if wrapper_contract_failure else [str(wrapper_path)],
         env=runtime_environment,
         stdin=subprocess.DEVNULL,
         capture_output=True,
@@ -2502,6 +2803,21 @@ def test_real_wrapper_emits_only_static_preflight_telemetry(tmp_path: Path, fail
             b'{"code":"diagnostic_job_failed","directory_identities":{"bundle":"match",'
             b'"output_parent":"match","reservation":"match","site":"match","source":"match"},'
             b'"stage":"bundle_artifacts","state":"failed"}\n'
+        ),
+        "wrapper_content": (
+            b'{"code":"diagnostic_job_failed","directory_identities":{"bundle":"unreadable",'
+            b'"output_parent":"not_checked","reservation":"not_checked","site":"not_checked",'
+            b'"source":"not_checked"},"stage":"directory_open","state":"failed"}\n'
+        ),
+        "wrapper_mode": (
+            b'{"code":"diagnostic_job_failed","directory_identities":{"bundle":"unreadable",'
+            b'"output_parent":"not_checked","reservation":"not_checked","site":"not_checked",'
+            b'"source":"not_checked"},"stage":"directory_open","state":"failed"}\n'
+        ),
+        "wrapper_hardlink": (
+            b'{"code":"diagnostic_job_failed","directory_identities":{"bundle":"unreadable",'
+            b'"output_parent":"not_checked","reservation":"not_checked","site":"not_checked",'
+            b'"source":"not_checked"},"stage":"directory_open","state":"failed"}\n'
         ),
         "path_drift": (
             b'{"code":"diagnostic_job_failed","directory_identities":{"bundle":"not_checked",'
@@ -3256,7 +3572,7 @@ def test_external_finalizer_writes_receipt_outside_sealed_output(monkeypatch, tm
     job = {
         "cluster": "fair-cw-use2-3",
         "job_id": "42",
-        "job_name": "vmvm-v7-preflight-" + "f" * 24,
+        "job_name": "vmvm-v8-preflight-" + "f" * 24,
     }
     source_root, source_revisions = build_git_source_fixture(tmp_path)
     site_root = tmp_path / "site-root"
@@ -3376,7 +3692,7 @@ def test_external_finalizer_writes_receipt_outside_sealed_output(monkeypatch, tm
         "launch": {
             "account": "ram",
             "cluster": FINALIZE.CLUSTER,
-            "comment": f"vmvm-v7-preflight:{'f' * 24}",
+            "comment": f"vmvm-v8-preflight:{'f' * 24}",
             "completion_receipt": str(receipt_path),
             "cpus": 2,
             "environment_export": FINALIZE.ENVIRONMENT_EXPORT_POLICY,
@@ -3583,6 +3899,7 @@ def test_external_finalizer_writes_receipt_outside_sealed_output(monkeypatch, tm
         "DIAG_WRAPPER_GATE_TIMEOUT_SECONDS": str(FINALIZE.WRAPPER_GATE_TIMEOUT_SECONDS),
         "DIAG_WRAPPER_PATH": bundle_records["wrapper"]["path"],
         "DIAG_WRAPPER_SHA256": bundle_records["wrapper"]["sha256"],
+        "DIAG_WRAPPER_SIZE": str((bundle_root / "run_vmvm_task_free_v2.sbatch").stat().st_size),
         "HOME": "/storage/home/tianhaowu",
         "LANG": "C",
         "LC_ALL": "C",

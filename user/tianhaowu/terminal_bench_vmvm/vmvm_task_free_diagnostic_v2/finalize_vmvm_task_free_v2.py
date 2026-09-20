@@ -21,11 +21,11 @@ from typing import Any
 
 BASE = Path("/checkpoint/ram/tianhaowu/terminal_bench_vmvm")
 SOURCE_ROOT = BASE / "sources/prime-rl-a09a9a189-v21"
-OUTPUT_ROOT = BASE / "diagnostics/vmvm_v21_task_free_preflight_a09a9a189_v7_portable_identity"
+OUTPUT_ROOT = BASE / "diagnostics/vmvm_v21_task_free_preflight_a09a9a189_v8_sealed_wrapper"
 COMPLETION_RECEIPT = Path(f"{OUTPUT_ROOT}.external-completion.json")
 RESERVATION = Path(f"{OUTPUT_ROOT}.launch-reservation")
-LOG_ROOT = BASE / "logs/vmvm_v21_task_free_preflight_a09a9a189_v7_portable_identity"
-SCRATCH_ROOT = Path("/tmp/vmvm-v21-task-free-preflight-v7-portable-identity")
+LOG_ROOT = BASE / "logs/vmvm_v21_task_free_preflight_a09a9a189_v8_sealed_wrapper"
+SCRATCH_ROOT = Path("/tmp/vmvm-v21-task-free-preflight-v8-sealed-wrapper")
 X86_UV = Path("/storage/home/tianhaowu/.local/x86_64/bin/uv")
 X86_SITE = BASE / "python_x86_64"
 VACLI = Path("/public/fbpkgs/x86_64/vacli/stable/vacli")
@@ -599,7 +599,7 @@ def validate_certificate(
         or set(job) != {"cluster", "job_id", "job_name"}
         or job.get("cluster") != "fair-cw-use2-3"
         or JOB_RE.fullmatch(str(job.get("job_id"))) is None
-        or re.fullmatch(r"vmvm-v7-preflight-[0-9a-f]{24}", str(job.get("job_name"))) is None
+        or re.fullmatch(r"vmvm-v8-preflight-[0-9a-f]{24}", str(job.get("job_name"))) is None
         or protocol
         != {
             "causal_scope": "construction_backend_ready",
@@ -1191,7 +1191,7 @@ def _validate_launch_authorization(
     record: object,
     *,
     execution_binding: Mapping[str, object],
-) -> tuple[str, str, str, dict[str, object], dict[str, Any], str]:
+) -> tuple[str, str, str, dict[str, object], dict[str, Any], str, int]:
     if (
         set(execution_binding) != {"bundle_root", "seals", "sha256", "size"}
         or not isinstance(execution_binding.get("bundle_root"), str)
@@ -1299,6 +1299,7 @@ def _validate_launch_authorization(
     ) != portable_directory_identity(bundle["root_identity"]):
         fail("authorization_invalid")
     bundle_fd = _open_bound_directory(bundle_root, bundle.get("root_identity"), required_mode=0o700)
+    bundle_sizes: dict[str, int] = {}
     try:
         bundle_status = os.fstat(bundle_fd)
         if (
@@ -1322,6 +1323,7 @@ def _validate_launch_authorization(
                 code="authorization_invalid",
                 expected_mode=expected_mode,
             )
+            bundle_sizes[label] = len(artifact_raw)
             if label == "finalizer" and len(artifact_raw) != execution_binding["size"]:
                 fail("finalizer_execution_invalid")
     finally:
@@ -1431,11 +1433,11 @@ def _validate_launch_authorization(
             fail("authorization_invalid")
 
     job_name = str(launch.get("job_name"))
-    token_match = re.fullmatch(r"vmvm-v7-preflight-([0-9a-f]{24})", job_name)
+    token_match = re.fullmatch(r"vmvm-v8-preflight-([0-9a-f]{24})", job_name)
     expected_launch = {
         "account": "ram",
         "cluster": CLUSTER,
-        "comment": f"vmvm-v7-preflight:{token_match.group(1)}" if token_match else None,
+        "comment": f"vmvm-v8-preflight:{token_match.group(1)}" if token_match else None,
         "completion_receipt": str(COMPLETION_RECEIPT),
         "cpus": 2,
         "environment_export": ENVIRONMENT_EXPORT_POLICY,
@@ -1465,7 +1467,7 @@ def _validate_launch_authorization(
         "site_snapshot": site_snapshot,
         "source_snapshot": source_snapshot,
     }
-    return file_sha256, body_sha256, job_name, execution_inputs, value, str(path)
+    return file_sha256, body_sha256, job_name, execution_inputs, value, str(path), bundle_sizes["wrapper"]
 
 
 def _identity_string(value: Mapping[str, object]) -> str:
@@ -1615,6 +1617,7 @@ def _validate_submission_lineage(
     launch_authorization_sha256: str,
     launch_authorization_path: str,
     launch_authorization: Mapping[str, Any],
+    wrapper_size: int,
 ) -> tuple[dict[str, Any], str, str, str]:
     if not isinstance(record, dict) or set(record) != {
         "activation_permit_sha256",
@@ -1751,7 +1754,7 @@ def _validate_submission_lineage(
         or set(job) != {"cluster", "job_id", "job_name"}
         or job.get("cluster") != "fair-cw-use2-3"
         or JOB_RE.fullmatch(str(job.get("job_id"))) is None
-        or re.fullmatch(r"vmvm-v7-preflight-[0-9a-f]{24}", str(job.get("job_name"))) is None
+        or re.fullmatch(r"vmvm-v8-preflight-[0-9a-f]{24}", str(job.get("job_name"))) is None
     ):
         fail("submission_lineage_invalid")
     _validate_scheduler_telemetry(
@@ -1834,6 +1837,7 @@ def _validate_submission_lineage(
         "DIAG_WRAPPER_GATE_TIMEOUT_SECONDS": str(WRAPPER_GATE_TIMEOUT_SECONDS),
         "DIAG_WRAPPER_PATH": str(bundle["wrapper"]["path"]),
         "DIAG_WRAPPER_SHA256": str(bundle["wrapper"]["sha256"]),
+        "DIAG_WRAPPER_SIZE": str(wrapper_size),
         "HOME": "/storage/home/tianhaowu",
         "LANG": "C",
         "LC_ALL": "C",
@@ -1945,6 +1949,7 @@ def finalize(
         expected_execution_inputs,
         launch_authorization,
         launch_authorization_path,
+        wrapper_size,
     ) = _validate_launch_authorization(
         authorization.get("launch_authorization"),
         execution_binding=execution_binding,
@@ -1960,6 +1965,7 @@ def finalize(
         launch_authorization_sha256=launch_authorization_sha256,
         launch_authorization_path=launch_authorization_path,
         launch_authorization=launch_authorization,
+        wrapper_size=wrapper_size,
     )
     job = authorization.get("job")
     if (
@@ -1974,7 +1980,7 @@ def finalize(
         }
         or job.get("cluster") != "fair-cw-use2-3"
         or JOB_RE.fullmatch(str(job.get("job_id"))) is None
-        or re.fullmatch(r"vmvm-v7-preflight-[0-9a-f]{24}", str(job.get("job_name"))) is None
+        or re.fullmatch(r"vmvm-v8-preflight-[0-9a-f]{24}", str(job.get("job_name"))) is None
         or job.get("terminal_state") not in {"COMPLETED", "FAILED", "TIMEOUT", "CANCELLED"}
         or SHA_RE.fullmatch(str(job.get("terminal_observation_sha256"))) is None
         or {
