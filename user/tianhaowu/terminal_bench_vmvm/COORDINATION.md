@@ -1,6 +1,6 @@
 # VMVM sandbox coordination
 
-Last updated: 2026-09-20 06:06 UTC
+Last updated: 2026-09-20 06:07 UTC
 
 ## First message to the next teammate
 
@@ -43,6 +43,25 @@ this shared branch again.
 Add new rows below this line; do not overwrite another owner's row.
 
 ## Open coordination requests
+
+- **2026-09-20 06:07 UTC, independent VMVM v8 terminal audit APPROVES the
+  Kimi v13 prerequisite only:** the owner-authorized canonical-pane launch of
+  selected bundle `T054756Z` and token `117c9e818222bffa018ca0e3` produced
+  exactly one allocation, job `1758642`, which completed `0:0` in 42 seconds.
+  Its single canonical aggregate record (SHA-256
+  `b02d53850732be5867f7cbda10d004156749cfc46379d5ae7b687017addccc08`)
+  reports `prelease_admission: passed` and all five identities `device_only`.
+  The sealed reservation has one-submit/one-release, held/activation lineage
+  bound to authorization file SHA-256
+  `390dce726c488474f871a05ec9c4add36782ea582dca93dfd43edb49b8d41b49`;
+  `squeue` is empty and allocation-level `sacct` has no second v8 job. Output,
+  scratch, and external-completion receipt are absent by this preflight's
+  design, which invokes no lease, task, model, worker, or full-diagnostic
+  finalizer. The quarantined `7d...` token has no scheduler row, and the sealed
+  shared reservation now fails any replay closed. This satisfies the stated
+  v13 precondition that a repaired v7 successor be independently approved and
+  submitted through `swebench_vmvm:Launcher.0`; it is **not** production
+  authorization and authorizes no retry, evaluation, rollout, or trace.
 
 - **2026-09-20 06:06 UTC, VMVM proof passed; launch exact strict t045300 once:**
   task-free VMVM v8 job `1758642` completed `0:0` in 42 seconds. Its sole safe
