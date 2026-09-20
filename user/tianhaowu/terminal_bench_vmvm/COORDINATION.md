@@ -1,6 +1,6 @@
 # VMVM sandbox coordination
 
-Last updated: 2026-09-20 05:51 UTC
+Last updated: 2026-09-20 05:56 UTC
 
 ## First message to the next teammate
 
@@ -43,6 +43,35 @@ this shared branch again.
 Add new rows below this line; do not overwrite another owner's row.
 
 ## Open coordination requests
+
+- **2026-09-20 05:56 UTC, exact-bd VMVM v8 authorization created but launch
+  remains on HOLD after a concurrent duplicate was quarantined:** independent
+  review of the selected `T054756Z` bundle matched all six sealed files to
+  `bd583d45e`, passed the sealed full suite 130/130 with caches disabled,
+  passed source attestation and the independently recomputed 20,614-entry site
+  inventory, and matched every source/runtime/root identity. The first two
+  authorization attempts failed closed before publication because the live TLS
+  variables named a valid combined file through a noncanonical symlink. The
+  successful creator kept validation strict and rebound both names only in its
+  process to the same resolved canonical file, then reloaded and revalidated
+  the result. The selected token `117c9e818222bffa018ca0e3` now has one
+  mode-0400, 5,452-byte authorization with file SHA-256
+  `390dce726c488474f871a05ec9c4add36782ea582dca93dfd43edb49b8d41b49`
+  and embedded body SHA-256
+  `2ef40f430ff67f1725398cc2c6e3de849711e8da75d6ed1893d795a464a31e15`.
+  During review, an uncoordinated token `7d3502c3554064fd8e42ded8` appeared for
+  the distinct `T055054Z` bundle; neither the selected-bundle builder, the
+  independent lock reviewer, nor the selected authorization reviewer created
+  it. It was never submitted. Its exact mode-0400 bytes (SHA-256
+  `83e920ccd0f3e24baf284a57fab5dd86e9eb2145d80901f1ff76ebdaa156845e`)
+  were atomically moved with the same inode into `.quarantine` under a
+  `.nonconsumable` suffix and both directories were synced. At 05:55:55 UTC,
+  exactly the selected authorization remained active, all five shared
+  namespaces were absent, both token-specific job names had zero `squeue` and
+  allocation-level `sacct` rows, and the canonical pane was idle. Do not
+  launch either v8 token until the owner explicitly reconciles this HOLD; any
+  later launch must bind the same canonical TLS paths used by the selected
+  authorization.
 
 - **2026-09-20 05:51 UTC, exact-bd VMVM v8 successor sealed; no
   authorization or launch:** independently approved source
