@@ -33,7 +33,11 @@ x86_uv=${UV_BIN_X86_64:-/storage/home/tianhaowu/.local/x86_64/bin/uv}
 python_bin=${PYTHON_BIN_X86_64:-python3}
 eval_root=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/evals
 generation_dir="$eval_root/kimi_k3_direct_generation_cpu-132-021_8103_${SLURM_JOB_ID}"
-output_dir="$eval_root/tb4_kimi_k3_direct_sandoq_cpu-132-021_8103_${SLURM_JOB_ID}_${stage}"
+if [[ "$stage" == mobius-smoke ]]; then
+    output_dir="$eval_root/mobius_kimi_k3_direct_sandoq_cpu-132-021_8103_${SLURM_JOB_ID}_smoke"
+else
+    output_dir="$eval_root/tb4_kimi_k3_direct_sandoq_cpu-132-021_8103_${SLURM_JOB_ID}_${stage}"
+fi
 manifest="$generation_dir/direct_kimi_workers.json"
 urls_file="$generation_dir/worker_urls.private.txt"
 ports_file="$generation_dir/router_ports.private.txt"
@@ -53,11 +57,11 @@ cleanup() {
 }
 trap cleanup EXIT INT TERM
 
-if [[ "$stage" != smoke && "$stage" != tb4 ]]; then
-    printf 'KIMI_SANDOQ_STAGE must be smoke or tb4\n' >&2
+if [[ "$stage" != smoke && "$stage" != mobius-smoke && "$stage" != tb4 ]]; then
+    printf 'KIMI_SANDOQ_STAGE must be smoke, mobius-smoke, or tb4\n' >&2
     exit 2
 fi
-if [[ "$stage" == smoke ]]; then
+if [[ "$stage" != tb4 ]]; then
     smoke_wall_limit=$(squeue -h -j "$SLURM_JOB_ID" -o '%l')
     if [[ "$smoke_wall_limit" != 20:00 ]]; then
         printf 'Direct Kimi smoke requires the exact 20-minute Slurm wall limit\n' >&2
@@ -98,6 +102,15 @@ if [[ "$stage" == smoke ]]; then
     task_count=1
     stage_capacity=1
     identity_role=kimi-direct-smoke
+    certificate_mode=smoke
+elif [[ "$stage" == mobius-smoke ]]; then
+    eval_config="$server_dir/mobius_kimi_k3_max_sandoq_smoke.toml"
+    task_file=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/private/use2/qwen_quick_debug/task.txt
+    task_sha256=86e00019cfdcff91e9d76ddabe8b14366bab4e4ecbe2e2cba9d4d8f6609b8504
+    task_count=1
+    stage_capacity=1
+    identity_role=kimi-direct-smoke
+    certificate_mode=smoke
 else
     eval_config="$server_dir/tb4_kimi_k3_sandoq_pass1.toml"
     task_file="$workflow_dir/configs/eval/tb4_qwen_a95b_miniswe.tasks.txt"
@@ -105,6 +118,7 @@ else
     task_count=66
     stage_capacity=24
     identity_role=kimi-direct-tb4
+    certificate_mode=tb4
     smoke_checkpoint=${KIMI_SANDOQ_SMOKE_CHECKPOINT:?Set KIMI_SANDOQ_SMOKE_CHECKPOINT}
     smoke_checkpoint_sha256=${KIMI_SANDOQ_SMOKE_CHECKPOINT_SHA256:?Set KIMI_SANDOQ_SMOKE_CHECKPOINT_SHA256}
     if [[ ! -f "$smoke_checkpoint" || -L "$smoke_checkpoint" \
@@ -235,7 +249,7 @@ chmod 0600 "$router_stats"
     --output "$output_dir/direct_kimi_router_final.json"
 
 certificate_args=(
-    "$workflow_dir/certify_direct_kimi.py" "$stage"
+    "$workflow_dir/certify_direct_kimi.py" "$certificate_mode"
     --run-dir "$output_dir"
     --expected-task-file "$task_file"
     --expected-task-file-sha256 "$task_sha256"
@@ -248,7 +262,7 @@ if [[ "$stage" == tb4 ]]; then
     )
 fi
 "$x86_uv" run --no-project --offline --python "$python_bin" python3 "${certificate_args[@]}"
-if [[ "$stage" == smoke ]]; then
+if [[ "$stage" != tb4 ]]; then
     printf '{"job_id":"%s","stage":"%s","state":"capacity-limited-passed"}\n' "$SLURM_JOB_ID" "$stage"
 else
     printf '{"job_id":"%s","stage":"%s","state":"passed"}\n' "$SLURM_JOB_ID" "$stage"

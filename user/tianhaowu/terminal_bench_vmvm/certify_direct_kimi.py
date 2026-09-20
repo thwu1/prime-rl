@@ -108,10 +108,12 @@ def _capacity_limited_smoke_scope(identity: dict[str, Any]) -> dict[str, Any]:
     if (
         isinstance(resource_multiplier, bool)
         or not isinstance(resource_multiplier, (int, float))
-        or resource_multiplier != 1.0
+        or resource_multiplier not in (1.0, 2.0)
     ):
         raise DirectKimiCertificateError("smoke_capacity_scope_invalid")
-    return dict(CAPACITY_LIMITED_SMOKE_SCOPE)
+    scope = dict(CAPACITY_LIMITED_SMOKE_SCOPE)
+    scope["resource_multiplier"] = float(resource_multiplier)
+    return scope
 
 
 def _validate_identity(run_dir: Path, *, role: str, expected_count: int) -> tuple[dict[str, Any], dict[str, Any]]:

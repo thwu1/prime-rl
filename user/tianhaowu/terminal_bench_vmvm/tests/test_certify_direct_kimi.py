@@ -33,10 +33,19 @@ def test_capacity_limited_smoke_scope_requires_declared_resources(tmp_path: Path
 
 def test_capacity_limited_smoke_scope_rejects_scaled_resources(tmp_path: Path) -> None:
     config = tmp_path / "config.toml"
-    config.write_text("[taskset]\nresource_multiplier = 2.0\n")
+    config.write_text("[taskset]\nresource_multiplier = 3.0\n")
 
     with pytest.raises(DirectKimiCertificateError, match="^smoke_capacity_scope_invalid$"):
         _capacity_limited_smoke_scope(_identity(config))
+
+
+def test_capacity_limited_smoke_scope_accepts_proven_mobius_multiplier(tmp_path: Path) -> None:
+    config = tmp_path / "config.toml"
+    config.write_text("[taskset]\nresource_multiplier = 2.0\n")
+
+    scope = _capacity_limited_smoke_scope(_identity(config))
+
+    assert scope["resource_multiplier"] == 2.0
 
 
 def _cleanup() -> dict:

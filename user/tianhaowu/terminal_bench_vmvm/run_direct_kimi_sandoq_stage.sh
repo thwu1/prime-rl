@@ -168,9 +168,6 @@ identity_args=(
     --expected-model Kimi-K3
     --approved-task-file-sha256 "$validated_task_sha256"
     --approved-task-count "$validated_task_count"
-    --dataset-archive /checkpoint/ram/tianhaowu/terminal_bench_vmvm/downloads/terminal-bench-prebuilt-v4.0.0.tar.gz
-    --dataset-archive-sha256 6d2c57cbcb1a75b5cdc0b0f989747fa68cdc65df8ff0a6893045a70ced7e668e
-    --dataset-content-sha256 564a42a4e2ce0a5efd23758656e4e419b3566a36234dfc09bae1029bc15326b2
     --project-root "$project_dir"
     --prime-rl-commit "$expected_revision"
     --prime-rl-tree-sha256 "$clean_tree_sha256"
@@ -238,6 +235,22 @@ identity_args=(
     --invocation-host "$(hostname)"
     --slurm-job-id "$SLURM_JOB_ID"
 )
+if [[ "$role" == kimi-direct-smoke ]] \
+    && [[ "$(python3 - "$eval_config" <<'PY'
+import sys
+import tomllib
+with open(sys.argv[1], "rb") as handle:
+    print(tomllib.load(handle).get("taskset", {}).get("dataset_revision", ""))
+PY
+)" == ac1f30b9ac0e6c6a20a9fe423900d9ed28a6d366 ]]; then
+    identity_args+=(--dataset-revision ac1f30b9ac0e6c6a20a9fe423900d9ed28a6d366)
+else
+    identity_args+=(
+        --dataset-archive /checkpoint/ram/tianhaowu/terminal_bench_vmvm/downloads/terminal-bench-prebuilt-v4.0.0.tar.gz
+        --dataset-archive-sha256 6d2c57cbcb1a75b5cdc0b0f989747fa68cdc65df8ff0a6893045a70ced7e668e
+        --dataset-content-sha256 564a42a4e2ce0a5efd23758656e4e419b3566a36234dfc09bae1029bc15326b2
+    )
+fi
 if [[ "$role" == kimi-direct-tb4 ]]; then
     identity_args+=(
         --smoke-checkpoint "${DIRECT_KIMI_SMOKE_CHECKPOINT:?Set DIRECT_KIMI_SMOKE_CHECKPOINT}"
