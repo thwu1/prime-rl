@@ -50,12 +50,13 @@ FINALIZATION_BUDGET_SECONDS = 600
 ADMISSION_TIMEOUT_SECONDS = 300
 SUPERVISOR_TIMEOUT_SECONDS = 2_700
 TIMEOUT_KILL_GRACE_SECONDS = 120
+TIMEOUT_KILL_GRACE_COUNT = 2
 if (
     STAGE_TIMEOUT_SECONDS >= SUPERVISOR_TIMEOUT_SECONDS
     or WRAPPER_GATE_TIMEOUT_SECONDS
     + ADMISSION_TIMEOUT_SECONDS
     + SUPERVISOR_TIMEOUT_SECONDS
-    + TIMEOUT_KILL_GRACE_SECONDS
+    + TIMEOUT_KILL_GRACE_COUNT * TIMEOUT_KILL_GRACE_SECONDS
     + FINALIZATION_BUDGET_SECONDS
     >= JOB_SECONDS - SIGNAL_LEAD_SECONDS
 ):
@@ -89,6 +90,7 @@ DIAGNOSTIC_PROTOCOL = {
     "cell_count": 1,
     "directory_identity_policy": DIRECTORY_IDENTITY_POLICY,
     "diagnostic_only": True,
+    "external_completion_handoff": "shared_nfs_portable_inode_mode_uid_v1",
     "fixed_commands": 2,
     "forced_recoveries": 1,
     "lease_attempt_limit": LEASE_ATTEMPT_LIMIT,
@@ -101,7 +103,7 @@ BASE = Path("/checkpoint/ram/tianhaowu/terminal_bench_vmvm")
 EXPECTED_SOURCE_ROOT = BASE / "sources/prime-rl-9d7841b36"
 EXPECTED_OUTPUT_ROOT = BASE / "diagnostics/vmvm_owner_lifecycle_9d7841b36_v1"
 EXPECTED_RESERVATION = Path(f"{EXPECTED_OUTPUT_ROOT}.launch-reservation")
-EXPECTED_SCRATCH_ROOT = Path("/tmp/vmvm-owner-lifecycle-9d7841b36-v1")
+EXPECTED_SCRATCH_ROOT = Path(f"{EXPECTED_OUTPUT_ROOT}.scratch")
 EXPECTED_COMPLETION_RECEIPT = Path(f"{EXPECTED_OUTPUT_ROOT}.external-completion.json")
 EXPECTED_CLUSTER = "fair-cw-use2-3"
 EXPECTED_OWNER = "tianhaowu"
@@ -344,33 +346,6 @@ def inherited_descriptor(path: Path) -> int | None:
         return None
     descriptor = int(match.group(1))
     os.fstat(descriptor)
-    return descriptor
-
-
-def inherited_bound_directory(
-    path: Path,
-    expected: Mapping[str, object],
-    *,
-    code: str,
-    required_mode: int | None = None,
-) -> int:
-    """Duplicate an inherited directory descriptor without reopening its path."""
-    try:
-        inherited = inherited_descriptor(path)
-        if inherited is None:
-            raise DiagnosticError(code)
-        descriptor = os.dup(inherited)
-    except (OSError, ValueError) as error:
-        raise DiagnosticError(code) from error
-    identity = descriptor_identity(descriptor)
-    if (
-        set(expected) != {"device", "inode", "mode", "owner_uid"}
-        or identity != expected
-        or identity["owner_uid"] != os.getuid()
-        or (required_mode is not None and identity["mode"] != required_mode)
-    ):
-        os.close(descriptor)
-        raise DiagnosticError(code)
     return descriptor
 
 
@@ -3570,6 +3545,7 @@ def validate_batch_admission(environment: Mapping[str, str], script_path: Path) 
             "stage": STAGE_TIMEOUT_SECONDS,
             "supervisor": SUPERVISOR_TIMEOUT_SECONDS,
             "timeout_kill_grace": TIMEOUT_KILL_GRACE_SECONDS,
+            "timeout_kill_grace_count": TIMEOUT_KILL_GRACE_COUNT,
             "wrapper_gate": WRAPPER_GATE_TIMEOUT_SECONDS,
         }
     ):
@@ -3824,15 +3800,15 @@ def run_supervisor(args: argparse.Namespace) -> dict[str, object]:
         or completion_receipt.is_symlink()
     ):
         raise DiagnosticError("child_invalid")
-    output_parent_fd = inherited_bound_directory(
+    output_parent_fd = inherited_portable_bound_directory(
         args.output_dir.parent,
-        parse_identity(os.environ["DIAG_OUTPUT_PARENT_IDENTITY"]),
+        parse_portable_identity(os.environ["DIAG_OUTPUT_PARENT_PORTABLE_IDENTITY"]),
         code="output_binding_invalid",
     )
-    scratch_parent_fd = os.open(
-        args.scratch_root.parent,
-        os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW,
-    )
+    # Scratch and output are siblings on the shared NFS output parent. Reuse the
+    # already inherited, portable-identity-verified descriptor instead of
+    # reopening an absolute path on the compute host.
+    scratch_parent_fd = os.dup(output_parent_fd)
     output_fd: int | None = None
     output_identity: dict[str, int] | None = None
     output_published = False
@@ -3844,14 +3820,14 @@ def run_supervisor(args: argparse.Namespace) -> dict[str, object]:
     snapshot_guard: SnapshotGuard | None = None
     scratch_created = False
     results: list[dict[str, object]] = []
-    source_fd = inherited_bound_directory(
+    source_fd = inherited_portable_bound_directory(
         source_root,
-        parse_identity(os.environ["DIAG_SOURCE_IDENTITY"]),
+        parse_portable_identity(os.environ["DIAG_SOURCE_PORTABLE_IDENTITY"]),
         code="source_binding_invalid",
     )
-    site_fd = inherited_bound_directory(
+    site_fd = inherited_portable_bound_directory(
         site_root,
-        parse_identity(os.environ["PYTHON_SITE_X86_64_IDENTITY"]),
+        parse_portable_identity(os.environ["PYTHON_SITE_X86_64_PORTABLE_IDENTITY"]),
         code="site_binding_invalid",
     )
     cleanup_failed = False
@@ -3949,6 +3925,7 @@ def run_supervisor(args: argparse.Namespace) -> dict[str, object]:
         ):
             raise DiagnosticError("cleanup_failed")
         retained_scratch_identity = descriptor_identity(scratch_fd)
+        retained_scratch_portable_identity = portable_directory_identity(retained_scratch_identity)
         if retained_scratch_identity["mode"] != 0o700 or os.listdir(scratch_fd):
             raise DiagnosticError("cleanup_failed")
         scratch_created = False
@@ -3967,7 +3944,7 @@ def run_supervisor(args: argparse.Namespace) -> dict[str, object]:
             "environment_sha256": args.environment_sha256,
             "execution_inputs": {
                 "authorized_site": expected_site_inventory,
-                "scratch_root_identity": retained_scratch_identity,
+                "scratch_root_portable_identity": retained_scratch_portable_identity,
                 "source_snapshot": source_snapshot_inventory,
                 "site_snapshot": site_snapshot_inventory,
             },
@@ -4017,9 +3994,9 @@ def run_supervisor(args: argparse.Namespace) -> dict[str, object]:
                 "job_name": args.job_name,
             },
             "job_authorization_sha256": args.job_authorization_sha256,
-            "output_root_identity": sealed_identity,
+            "output_root_portable_identity": portable_directory_identity(sealed_identity),
             "production_authorized": False,
-            "scratch_root_identity": retained_scratch_identity,
+            "scratch_root_portable_identity": retained_scratch_portable_identity,
             "state": "awaiting_external_completion",
             "submission_receipt_sha256": args.submission_receipt_sha256,
         }

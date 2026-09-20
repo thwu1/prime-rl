@@ -45,7 +45,7 @@ OUTPUT_ROOT = BASE / "diagnostics/vmvm_owner_lifecycle_9d7841b36_v1"
 RESERVATION = Path(f"{OUTPUT_ROOT}.launch-reservation")
 COMPLETION_RECEIPT = Path(f"{OUTPUT_ROOT}.external-completion.json")
 LOG_ROOT = BASE / "logs/vmvm_owner_lifecycle_9d7841b36_v1"
-SCRATCH_ROOT = Path("/tmp/vmvm-owner-lifecycle-9d7841b36-v1")
+SCRATCH_ROOT = Path(f"{OUTPUT_ROOT}.scratch")
 CLUSTER = "fair-cw-use2-3"
 OWNER = "tianhaowu"
 OWNER_IDENTITY = "tianhaowu(656177)"
@@ -71,6 +71,7 @@ FINALIZATION_BUDGET_SECONDS = 600
 ADMISSION_TIMEOUT_SECONDS = 300
 SUPERVISOR_TIMEOUT_SECONDS = 2_700
 TIMEOUT_KILL_GRACE_SECONDS = 120
+TIMEOUT_KILL_GRACE_COUNT = 2
 JOB_CPUS = "2"
 JOB_MEMORY = "8G"
 SHA_RE = re.compile(r"[0-9a-f]{64}")
@@ -104,6 +105,7 @@ DIAGNOSTIC_PROTOCOL = {
     "cell_count": 1,
     "directory_identity_policy": DIRECTORY_IDENTITY_POLICY,
     "diagnostic_only": True,
+    "external_completion_handoff": "shared_nfs_portable_inode_mode_uid_v1",
     "fixed_commands": 2,
     "forced_recoveries": 1,
     "lease_attempt_limit": 1,
@@ -121,7 +123,7 @@ if (
     or WRAPPER_GATE_TIMEOUT_SECONDS
     + ADMISSION_TIMEOUT_SECONDS
     + SUPERVISOR_TIMEOUT_SECONDS
-    + TIMEOUT_KILL_GRACE_SECONDS
+    + TIMEOUT_KILL_GRACE_COUNT * TIMEOUT_KILL_GRACE_SECONDS
     + FINALIZATION_BUDGET_SECONDS
     >= JOB_SECONDS - SIGNAL_LEAD_SECONDS
 ):
@@ -757,6 +759,7 @@ def validate_authorization(
             "stage": STAGE_TIMEOUT_SECONDS,
             "supervisor": SUPERVISOR_TIMEOUT_SECONDS,
             "timeout_kill_grace": TIMEOUT_KILL_GRACE_SECONDS,
+            "timeout_kill_grace_count": TIMEOUT_KILL_GRACE_COUNT,
             "wrapper_gate": WRAPPER_GATE_TIMEOUT_SECONDS,
         },
     }

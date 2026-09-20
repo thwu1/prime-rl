@@ -45,7 +45,7 @@ The bundle contains exactly these six entries and no `__pycache__`:
 
 Before creating an authorization, remove bytecode outside this directory, verify the six-name inventory, set the directory to `0700`, set Python/sbatch executables to `0500`, set README/tests to `0400`, and record each SHA-256 plus the root identity. The launcher rejects extra entries, hardlinks, symlinks, wrong owners/modes, path replacement, or hash drift.
 
-The worker may mutate only its descriptor-bound scratch cell. Cleanup recursively opens entries with `O_NOFOLLOW`, accepts only same-owner single-link regular files and directories, atomically quarantines each entry with `RENAME_NOREPLACE`, verifies inode identity and inotify events, and preserves unrelated replacements. The top-level scratch directory is deliberately retained as the same empty `0700` inode; neither the worker nor finalizer removes it. Its exact identity is bound into the certificate and completion request, then rechecked by both the wrapper and finalizer. The successful output root is retained at `0500` with exactly `diagnostic_certificate.json` and `completion_request.json`, both `0400`.
+The worker may mutate only its descriptor-bound scratch cell. Scratch and output are siblings below the same shared NFS output parent, and the supervisor duplicates that already-bound parent descriptor rather than reopening the scratch pathname. Cleanup recursively opens entries with `O_NOFOLLOW`, accepts only same-owner single-link regular files and directories, atomically quarantines each entry with `RENAME_NOREPLACE`, verifies inode identity and inotify events, and preserves unrelated replacements. The top-level scratch directory is deliberately retained as the same empty `0700` inode; neither the worker nor finalizer removes it. Its portable inode/mode/owner identity is bound into the certificate and completion request, then rechecked by both the wrapper on the compute host and the external finalizer on the canonical host. The output-root handoff is portable for the same reason; launcher-host authorization and finalizer-local checks retain full device/inode binding. The successful output root is retained at `0500` with exactly `diagnostic_certificate.json` and `completion_request.json`, both `0400`.
 
 Public job output is one canonical aggregate line only:
 
@@ -61,7 +61,7 @@ The unused one-shot namespace is:
 - reservation: the output path plus `.launch-reservation`
 - completion receipt: the output path plus `.external-completion.json`
 - logs: `/checkpoint/ram/tianhaowu/terminal_bench_vmvm/logs/vmvm_owner_lifecycle_9d7841b36_v1`
-- scratch: `/tmp/vmvm-owner-lifecycle-9d7841b36-v1`
+- scratch: `/checkpoint/ram/tianhaowu/terminal_bench_vmvm/diagnostics/vmvm_owner_lifecycle_9d7841b36_v1.scratch`
 
 ## Sealing and timing
 
@@ -75,13 +75,13 @@ The fixed bounds are:
 - sealed admission: 300 seconds
 - one-cell worker: 1,800 seconds
 - complete supervisor: 2,700 seconds
-- timeout TERM-to-KILL grace: 120 seconds
+- timeout TERM-to-KILL grace: 120 seconds for each of the two sealed-probe invocations
 - finalization reserve: 600 seconds
 
-The strict dominance check is `600 + 300 + 2700 + 120 + 600 < 5400 - 600`, and the worker bound is strictly below the supervisor bound. The wrapper uses `timeout` with TERM and bounded KILL escalation; the probe tears down the worker process group and performs the external lease-TTL absence check on every controlled failure path.
+The strict dominance check is `600 + 300 + (2 * 120) + 2700 + 600 = 4440 < 5400 - 600 = 4800`, leaving 360 seconds of margin, and the worker bound is strictly below the supervisor bound. The two kill graces cover the admission and supervisor invocations independently. The wrapper uses `timeout` with TERM and bounded KILL escalation; the probe tears down the worker process group and performs the external lease-TTL absence check on every controlled failure path.
 
 ## Authorization boundary
 
 `launch_vmvm_owner_lifecycle_v1.py` accepts only a canonical, external `vmvm_owner_lifecycle_diagnostic_authorization_v1` document whose source, runtime, credentials, launch settings, protocol, bundle hashes, and directory identities exactly match this README and the code. It submits one held job, verifies the scheduler record, writes a sealed NUL environment, releases the hold once, and records the lineage artifacts. It never approves its own authorization.
 
-After a successful job, `finalize_vmvm_owner_lifecycle_v1.py` must itself execute from the named sealed finalizer memfd. It requires a separate canonical `vmvm_owner_lifecycle_external_completion_authorization_v1`, revalidates all source/runtime/bundle/submission/certificate commitments, verifies the retained empty scratch root, and atomically creates the external completion receipt. Neither launcher nor finalizer is invoked by the test suite.
+After a successful job, `finalize_vmvm_owner_lifecycle_v1.py` must itself execute from the named sealed finalizer memfd on the canonical launcher host. It requires a separate canonical `vmvm_owner_lifecycle_external_completion_authorization_v1`, revalidates all source/runtime/bundle/submission/certificate commitments, reopens the shared retained scratch root, permits only the documented cross-host device-number variance while requiring the exact portable inode/mode/owner identity, and atomically creates the external completion receipt. The completion authorizer must independently bind the output root's full canonical-host identity; the compute-generated request carries only its matching portable identity. Neither launcher nor finalizer is invoked by the test suite.

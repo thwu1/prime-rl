@@ -115,11 +115,12 @@ readonly VACLI_RESOLVED=/infra/public/fbpkgs/x86_64/vacli/794/vacli
 readonly DIRECTORY_IDENTITY_POLICY=nfs_portable_inode_mode_uid_anchored_v2
 readonly JOB_SECONDS=5400 SIGNAL_LEAD_SECONDS=600 STAGE_TIMEOUT_SECONDS=1800
 readonly ADMISSION_TIMEOUT_SECONDS=300 SUPERVISOR_TIMEOUT_SECONDS=2700
-readonly TIMEOUT_KILL_GRACE_SECONDS=120 FINALIZATION_BUDGET_SECONDS=600
+readonly TIMEOUT_KILL_GRACE_SECONDS=120 TIMEOUT_KILL_GRACE_COUNT=2
+readonly FINALIZATION_BUDGET_SECONDS=600
 (( STAGE_TIMEOUT_SECONDS < SUPERVISOR_TIMEOUT_SECONDS \
     && DIAG_WRAPPER_GATE_TIMEOUT_SECONDS + ADMISSION_TIMEOUT_SECONDS \
         + SUPERVISOR_TIMEOUT_SECONDS + FINALIZATION_BUDGET_SECONDS \
-        + TIMEOUT_KILL_GRACE_SECONDS \
+        + TIMEOUT_KILL_GRACE_COUNT * TIMEOUT_KILL_GRACE_SECONDS \
     < JOB_SECONDS - SIGNAL_LEAD_SECONDS )) || fail
 
 readonly DIRECTORY_BINDER_PROGRAM='
@@ -245,7 +246,14 @@ def read_verified_wrapper(bundle_fd, wrapper_path):
 
 def sealed_wrapper(raw):
     flags = os.MFD_CLOEXEC | os.MFD_ALLOW_SEALING
-    seals = fcntl.F_SEAL_WRITE | fcntl.F_SEAL_GROW | fcntl.F_SEAL_SHRINK | fcntl.F_SEAL_SEAL
+    required_seals = (
+        fcntl.F_SEAL_WRITE
+        | fcntl.F_SEAL_GROW
+        | fcntl.F_SEAL_SHRINK
+        | fcntl.F_SEAL_SEAL
+        | 0x20  # F_SEAL_EXEC; absent from Python 3.12 fcntl constants.
+    )
+    allowed_seals = required_seals | 0x10  # Kernel may imply F_SEAL_FUTURE_WRITE.
     descriptor = os.memfd_create("vmvm-owner-wrapper-v1", flags)
     try:
         offset = 0
@@ -256,10 +264,12 @@ def sealed_wrapper(raw):
             offset += written
         os.fchmod(descriptor, WRAPPER_MODE)
         os.fsync(descriptor)
-        fcntl.fcntl(descriptor, fcntl.F_ADD_SEALS, seals)
+        fcntl.fcntl(descriptor, fcntl.F_ADD_SEALS, required_seals)
         status = os.fstat(descriptor)
+        observed_seals = fcntl.fcntl(descriptor, fcntl.F_GET_SEALS)
         if (
-            fcntl.fcntl(descriptor, fcntl.F_GET_SEALS) != seals
+            observed_seals & required_seals != required_seals
+            or observed_seals & ~allowed_seals
             or not stat.S_ISREG(status.st_mode)
             or stat.S_IMODE(status.st_mode) != WRAPPER_MODE
             or os.getuid() != OWNER_UID
@@ -775,7 +785,6 @@ def identity(descriptor):
     if not stat.S_ISDIR(info.st_mode):
         abort()
     return {
-        "device": info.st_dev,
         "inode": info.st_ino,
         "mode": stat.S_IMODE(info.st_mode),
         "owner_uid": info.st_uid,
@@ -828,8 +837,8 @@ def main():
         abort()
     if json.dumps(certificate, sort_keys=True, separators=(",", ":"), ensure_ascii=True).encode() + b"\n" != raw:
         abort()
-    expected = certificate.get("execution_inputs", {}).get("scratch_root_identity")
-    if not isinstance(expected, dict) or set(expected) != {"device", "inode", "mode", "owner_uid"}:
+    expected = certificate.get("execution_inputs", {}).get("scratch_root_portable_identity")
+    if not isinstance(expected, dict) or set(expected) != {"inode", "mode", "owner_uid"}:
         abort()
     scratch_fd = anchored(sys.argv[3])
     if identity(scratch_fd) != expected or expected["mode"] != 0o700 or expected["owner_uid"] != os.getuid():

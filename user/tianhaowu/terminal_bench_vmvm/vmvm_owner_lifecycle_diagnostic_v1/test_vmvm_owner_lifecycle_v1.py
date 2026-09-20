@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import fcntl
 import hashlib
 import importlib.util
 import json
@@ -73,16 +74,21 @@ def test_exact_source_and_runtime_bindings(probe: Any, launcher: Any, finalizer:
     frozen_backend = FROZEN_SOURCE / probe.BACKEND_RELATIVE_PATH
     assert stat.S_IMODE(frozen_backend.stat().st_mode) == 0o444
     assert digest(frozen_backend) == BACKEND_SHA256
-    parent = subprocess.run(
-        ["git", "rev-parse", "HEAD^"], cwd=ROOT, check=True, capture_output=True, text=True
-    ).stdout.strip()
-    parent_tree = subprocess.run(
-        ["git", "rev-parse", "HEAD^^{tree}"], cwd=ROOT, check=True, capture_output=True, text=True
+    source_tree = subprocess.run(
+        ["git", "rev-parse", f"{SOURCE_REVISION}^{{tree}}"], cwd=ROOT, check=True, capture_output=True, text=True
     ).stdout.strip()
     gitlink = subprocess.run(
-        ["git", "rev-parse", "HEAD:deps/verifiers"], cwd=ROOT, check=True, capture_output=True, text=True
+        ["git", "rev-parse", f"{SOURCE_REVISION}:deps/verifiers"], cwd=ROOT, check=True, capture_output=True, text=True
     ).stdout.strip()
-    assert (parent, parent_tree, gitlink) == (SOURCE_REVISION, SOURCE_TREE, VERIFIERS_REVISION)
+    assert (
+        subprocess.run(
+            ["git", "merge-base", "--is-ancestor", SOURCE_REVISION, "HEAD"],
+            cwd=ROOT,
+            check=False,
+        ).returncode
+        == 0
+    )
+    assert (source_tree, gitlink) == (SOURCE_TREE, VERIFIERS_REVISION)
     frozen = tuple(
         subprocess.run(
             ["git", "rev-parse", expression],
@@ -138,6 +144,7 @@ def test_protocol_is_one_cell_and_exact(probe: Any, launcher: Any, finalizer: An
         "cell_count": 1,
         "diagnostic_only": True,
         "directory_identity_policy": probe.DIRECTORY_IDENTITY_POLICY,
+        "external_completion_handoff": "shared_nfs_portable_inode_mode_uid_v1",
         "fixed_commands": 2,
         "forced_recoveries": 1,
         "lease_attempt_limit": 1,
@@ -153,20 +160,27 @@ def test_protocol_is_one_cell_and_exact(probe: Any, launcher: Any, finalizer: An
 def test_timeout_arithmetic_and_scheduler_signal(probe: Any, launcher: Any, finalizer: Any) -> None:
     for module in (probe, launcher, finalizer):
         assert module.STAGE_TIMEOUT_SECONDS < module.SUPERVISOR_TIMEOUT_SECONDS
-        assert (
+        guarded_seconds = (
             module.WRAPPER_GATE_TIMEOUT_SECONDS
             + module.ADMISSION_TIMEOUT_SECONDS
             + module.SUPERVISOR_TIMEOUT_SECONDS
-            + module.TIMEOUT_KILL_GRACE_SECONDS
+            + module.TIMEOUT_KILL_GRACE_COUNT * module.TIMEOUT_KILL_GRACE_SECONDS
             + module.FINALIZATION_BUDGET_SECONDS
-            < module.JOB_SECONDS - module.SIGNAL_LEAD_SECONDS
         )
+        assert guarded_seconds == 4_440
+        assert module.JOB_SECONDS - module.SIGNAL_LEAD_SECONDS - guarded_seconds == 360
     command = launcher._sbatch_command("vmvm-owner-life-" + "a" * 24, Path("/tmp/environment.bin"))
     assert "--time=01:30:00" in command
     assert "--signal=B:TERM@600" in command
     wrapper = WRAPPER_PATH.read_text()
     assert "ADMISSION_TIMEOUT_SECONDS=300 SUPERVISOR_TIMEOUT_SECONDS=2700" in wrapper
+    assert "TIMEOUT_KILL_GRACE_SECONDS=120 TIMEOUT_KILL_GRACE_COUNT=2" in wrapper
+    assert "+ TIMEOUT_KILL_GRACE_COUNT * TIMEOUT_KILL_GRACE_SECONDS" in wrapper
     assert '--kill-after="$TIMEOUT_KILL_GRACE_SECONDS"' in wrapper
+    for path in (PROBE_PATH, LAUNCHER_PATH, FINALIZER_PATH):
+        source = path.read_text()
+        assert "+ TIMEOUT_KILL_GRACE_COUNT * TIMEOUT_KILL_GRACE_SECONDS" in source
+        assert '"timeout_kill_grace_count": TIMEOUT_KILL_GRACE_COUNT' in source
     assert "coproc DIAGNOSTIC_RUN" in wrapper
     assert 'kill -TERM -- "-$active_probe_pid"' in wrapper
 
@@ -241,8 +255,7 @@ def test_wrapper_retained_root_validator_binds_certificate_identity(tmp_path: Pa
     info = scratch.stat()
     certificate = {
         "execution_inputs": {
-            "scratch_root_identity": {
-                "device": info.st_dev,
+            "scratch_root_portable_identity": {
                 "inode": info.st_ino,
                 "mode": stat.S_IMODE(info.st_mode),
                 "owner_uid": info.st_uid,
@@ -266,6 +279,68 @@ def test_wrapper_retained_root_validator_binds_certificate_identity(tmp_path: Pa
         os.close(parent_fd)
     assert completed.returncode == 0
     assert not completed.stdout and not completed.stderr
+
+
+def test_cross_host_two_root_handoff_uses_shared_portable_identities(
+    probe: Any,
+    launcher: Any,
+    finalizer: Any,
+    monkeypatch: Any,
+    tmp_path: Path,
+) -> None:
+    expected_scratch = Path(f"{launcher.OUTPUT_ROOT}.scratch")
+    assert expected_scratch.parent == launcher.OUTPUT_ROOT.parent
+    assert str(expected_scratch).startswith("/checkpoint/ram/")
+    assert probe.EXPECTED_SCRATCH_ROOT == finalizer.SCRATCH_ROOT == expected_scratch
+
+    compute_scratch = {"device": 101, "inode": 2001, "mode": 0o700, "owner_uid": os.getuid()}
+    finalizer_scratch = {**compute_scratch, "device": 202}
+    compute_output = {"device": 101, "inode": 2002, "mode": 0o500, "owner_uid": os.getuid()}
+    finalizer_output = {**compute_output, "device": 202}
+    assert compute_scratch != finalizer_scratch
+    assert compute_output != finalizer_output
+    for module in (probe, launcher, finalizer):
+        assert module.portable_directory_identity(compute_scratch) == module.portable_directory_identity(
+            finalizer_scratch
+        )
+        assert module.portable_directory_identity(compute_output) == module.portable_directory_identity(
+            finalizer_output
+        )
+
+    probe_source = PROBE_PATH.read_text()
+    finalizer_source = FINALIZER_PATH.read_text()
+    wrapper_source = WRAPPER_PATH.read_text()
+    assert "scratch_parent_fd = os.dup(output_parent_fd)" in probe_source
+    assert "def inherited_bound_directory(" not in probe_source
+    assert probe_source.count("inherited_portable_bound_directory(") == 7
+    probe_request = probe_source.split("completion_request = {", 1)[1].split("completion_payload =", 1)[0]
+    finalizer_request = finalizer_source.split("if request != {", 1)[1].split("}:\n", 1)[0]
+    for request_source in (probe_request, finalizer_request):
+        assert '"output_root_portable_identity"' in request_source
+        assert '"scratch_root_portable_identity"' in request_source
+        assert '"output_root_identity"' not in request_source
+        assert '"scratch_root_identity"' not in request_source
+    assert 'get("scratch_root_portable_identity")' in wrapper_source
+
+    shared_parent = tmp_path / "shared"
+    shared_parent.mkdir()
+    output = shared_parent / "output"
+    output.mkdir(mode=0o500)
+    scratch = shared_parent / "output.scratch"
+    scratch.mkdir(mode=0o700)
+    scratch_fd = os.open(scratch, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+    try:
+        observed_scratch = finalizer.descriptor_identity(scratch_fd)
+    finally:
+        os.close(scratch_fd)
+    simulated_compute_scratch = {**observed_scratch, "device": observed_scratch["device"] + 1}
+    expected_portable = finalizer.portable_directory_identity(simulated_compute_scratch)
+    monkeypatch.setattr(finalizer, "SCRATCH_ROOT", scratch)
+    assert finalizer._validate_retained_scratch(expected_portable_identity=expected_portable) == expected_portable
+    with pytest.raises(finalizer.FinalizeError, match="scratch_cleanup_unverified"):
+        finalizer._validate_retained_scratch(
+            expected_portable_identity={**expected_portable, "inode": expected_portable["inode"] + 1}
+        )
 
 
 class _FakeLease:
@@ -502,8 +577,7 @@ def test_exact_certificate_schema_round_trips_finalizer(probe: Any, finalizer: A
     }
     execution_inputs = {
         "authorized_site": inventory,
-        "scratch_root_identity": {
-            "device": 1,
+        "scratch_root_portable_identity": {
             "inode": 2,
             "mode": 0o700,
             "owner_uid": os.getuid(),
@@ -716,6 +790,37 @@ def test_sealed_wrapper_and_uv_environment_hardening_are_retained() -> None:
         "os.O_NOFOLLOW",
     ):
         assert required in text
+
+
+def test_outer_binder_seals_wrapper_with_exec_and_reexecutes() -> None:
+    text = WRAPPER_PATH.read_text()
+    binder = text.split("readonly DIRECTORY_BINDER_PROGRAM='\n", 1)[1].split("\n'\n\nrequired_environment=(", 1)[0]
+    binder_without_entrypoint = binder.rsplit("\nmain()\n", 1)[0]
+    namespace: dict[str, Any] = {}
+    exec(compile(binder_without_entrypoint, "<directory-binder>", "exec"), namespace)
+    descriptor = namespace["sealed_wrapper"](b"exit 37\n")
+    try:
+        required = fcntl.F_SEAL_SEAL | fcntl.F_SEAL_SHRINK | fcntl.F_SEAL_GROW | fcntl.F_SEAL_WRITE | 0x20
+        observed = fcntl.fcntl(descriptor, fcntl.F_GET_SEALS)
+        assert observed & required == required
+        assert observed & ~(required | 0x10) == 0
+        assert os.readlink(f"/proc/self/fd/{descriptor}") == "/memfd:vmvm-owner-wrapper-v1 (deleted)"
+        with pytest.raises(OSError):
+            os.pwrite(descriptor, b"x", 0)
+        with pytest.raises(OSError):
+            os.fchmod(descriptor, 0o400)
+        completed = subprocess.run(
+            ["/usr/bin/bash", f"/proc/self/fd/{descriptor}"],
+            pass_fds=(descriptor,),
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            check=False,
+        )
+        assert completed.returncode == 37
+        assert not completed.stdout and not completed.stderr
+    finally:
+        os.close(descriptor)
 
 
 def test_finalizer_is_sealed_and_self_bound(finalizer: Any) -> None:

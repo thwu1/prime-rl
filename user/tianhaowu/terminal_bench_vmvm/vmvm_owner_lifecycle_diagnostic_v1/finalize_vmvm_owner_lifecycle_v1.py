@@ -25,7 +25,7 @@ OUTPUT_ROOT = BASE / "diagnostics/vmvm_owner_lifecycle_9d7841b36_v1"
 COMPLETION_RECEIPT = Path(f"{OUTPUT_ROOT}.external-completion.json")
 RESERVATION = Path(f"{OUTPUT_ROOT}.launch-reservation")
 LOG_ROOT = BASE / "logs/vmvm_owner_lifecycle_9d7841b36_v1"
-SCRATCH_ROOT = Path("/tmp/vmvm-owner-lifecycle-9d7841b36-v1")
+SCRATCH_ROOT = Path(f"{OUTPUT_ROOT}.scratch")
 X86_UV = Path("/storage/home/tianhaowu/.local/x86_64/bin/uv")
 X86_SITE = BASE / "python_x86_64"
 VACLI = Path("/public/fbpkgs/x86_64/vacli/stable/vacli")
@@ -56,6 +56,7 @@ DIAGNOSTIC_PROTOCOL = {
     "cell_count": 1,
     "directory_identity_policy": DIRECTORY_IDENTITY_POLICY,
     "diagnostic_only": True,
+    "external_completion_handoff": "shared_nfs_portable_inode_mode_uid_v1",
     "fixed_commands": 2,
     "forced_recoveries": 1,
     "lease_attempt_limit": 1,
@@ -101,13 +102,14 @@ SIGNAL_LEAD_SECONDS = 600
 ADMISSION_TIMEOUT_SECONDS = 300
 SUPERVISOR_TIMEOUT_SECONDS = 2_700
 TIMEOUT_KILL_GRACE_SECONDS = 120
+TIMEOUT_KILL_GRACE_COUNT = 2
 FINALIZATION_BUDGET_SECONDS = 600
 if (
     STAGE_TIMEOUT_SECONDS >= SUPERVISOR_TIMEOUT_SECONDS
     or WRAPPER_GATE_TIMEOUT_SECONDS
     + ADMISSION_TIMEOUT_SECONDS
     + SUPERVISOR_TIMEOUT_SECONDS
-    + TIMEOUT_KILL_GRACE_SECONDS
+    + TIMEOUT_KILL_GRACE_COUNT * TIMEOUT_KILL_GRACE_SECONDS
     + FINALIZATION_BUDGET_SECONDS
     >= JOB_SECONDS - SIGNAL_LEAD_SECONDS
 ):
@@ -516,7 +518,13 @@ def validate_certificate(
         or certificate.get("image") != IMAGE
         or not isinstance(execution_inputs, dict)
         or execution_inputs != expected_execution_inputs
-        or set(execution_inputs) != {"authorized_site", "scratch_root_identity", "site_snapshot", "source_snapshot"}
+        or set(execution_inputs)
+        != {
+            "authorized_site",
+            "scratch_root_portable_identity",
+            "site_snapshot",
+            "source_snapshot",
+        }
         or any(
             not isinstance(inventory, dict)
             or set(inventory) != {"entry_count", "manifest_sha256", "owner_uid", "total_bytes"}
@@ -532,15 +540,12 @@ def validate_certificate(
                 execution_inputs.get("source_snapshot"),
             )
         )
-        or not isinstance(execution_inputs.get("scratch_root_identity"), dict)
-        or set(execution_inputs["scratch_root_identity"]) != {"device", "inode", "mode", "owner_uid"}
-        or execution_inputs["scratch_root_identity"].get("mode") != 0o700
-        or execution_inputs["scratch_root_identity"].get("owner_uid") != os.getuid()
-        or any(
-            type(execution_inputs["scratch_root_identity"].get(field)) is not int
-            or int(execution_inputs["scratch_root_identity"][field]) <= 0
-            for field in ("device", "inode")
-        )
+        or not isinstance(execution_inputs.get("scratch_root_portable_identity"), dict)
+        or set(execution_inputs["scratch_root_portable_identity"]) != {"inode", "mode", "owner_uid"}
+        or execution_inputs["scratch_root_portable_identity"].get("mode") != 0o700
+        or execution_inputs["scratch_root_portable_identity"].get("owner_uid") != os.getuid()
+        or type(execution_inputs["scratch_root_portable_identity"].get("inode")) is not int
+        or int(execution_inputs["scratch_root_portable_identity"]["inode"]) <= 0
         or any(
             SHA_RE.fullmatch(str(certificate.get(name))) is None
             for name in (
@@ -1420,6 +1425,7 @@ def _validate_launch_authorization(
             "stage": STAGE_TIMEOUT_SECONDS,
             "supervisor": SUPERVISOR_TIMEOUT_SECONDS,
             "timeout_kill_grace": TIMEOUT_KILL_GRACE_SECONDS,
+            "timeout_kill_grace_count": TIMEOUT_KILL_GRACE_COUNT,
             "wrapper_gate": WRAPPER_GATE_TIMEOUT_SECONDS,
         },
     }
@@ -1854,13 +1860,7 @@ def _validate_submission_lineage(
     )
 
 
-def finalize(
-    authorization_path: Path,
-    authorization_file_sha256: str,
-    *,
-    execution_binding: Mapping[str, object],
-) -> dict[str, str]:
-    retained_scratch_identity: dict[str, int]
+def _validate_retained_scratch(*, expected_portable_identity: Mapping[str, object] | None = None) -> dict[str, int]:
     try:
         scratch_fd = _open_anchored_directory(SCRATCH_ROOT)
     except FinalizeError:
@@ -1869,9 +1869,21 @@ def finalize(
         scratch_info = os.fstat(scratch_fd)
         if scratch_info.st_uid != os.getuid() or stat.S_IMODE(scratch_info.st_mode) != 0o700 or os.listdir(scratch_fd):
             fail("scratch_cleanup_unverified")
-        retained_scratch_identity = descriptor_identity(scratch_fd)
+        retained_scratch_portable_identity = portable_directory_identity(descriptor_identity(scratch_fd))
+        if expected_portable_identity is not None and retained_scratch_portable_identity != expected_portable_identity:
+            fail("scratch_cleanup_unverified")
+        return retained_scratch_portable_identity
     finally:
         os.close(scratch_fd)
+
+
+def finalize(
+    authorization_path: Path,
+    authorization_file_sha256: str,
+    *,
+    execution_binding: Mapping[str, object],
+) -> dict[str, str]:
+    retained_scratch_portable_identity = _validate_retained_scratch()
     if SHA_RE.fullmatch(authorization_file_sha256) is None:
         fail("authorization_invalid")
     auth_fd = os.open(authorization_path, os.O_RDONLY | os.O_NOFOLLOW)
@@ -1935,7 +1947,7 @@ def finalize(
     )
     expected_execution_inputs = {
         **expected_execution_inputs,
-        "scratch_root_identity": retained_scratch_identity,
+        "scratch_root_portable_identity": retained_scratch_portable_identity,
     }
     (
         lineage_job,
@@ -2056,9 +2068,9 @@ def finalize(
                 "external_completion_receipt": str(COMPLETION_RECEIPT),
                 "job": expected_job,
                 "job_authorization_sha256": job_authorization_sha256,
-                "output_root_identity": descriptor_identity(output_fd),
+                "output_root_portable_identity": portable_directory_identity(descriptor_identity(output_fd)),
                 "production_authorized": False,
-                "scratch_root_identity": retained_scratch_identity,
+                "scratch_root_portable_identity": retained_scratch_portable_identity,
                 "state": "awaiting_external_completion",
                 "submission_receipt_sha256": submission_receipt_sha256,
             }:
@@ -2082,20 +2094,16 @@ def finalize(
                 "launch_authorization_sha256": launch_authorization_sha256,
                 "output_inventory": output["inventory"],
                 "output_root_identity": descriptor_identity(output_fd),
+                "output_root_portable_identity": portable_directory_identity(descriptor_identity(output_fd)),
                 "production_authorized": False,
-                "scratch_root_identity": retained_scratch_identity,
+                "scratch_root_portable_identity": retained_scratch_portable_identity,
                 "source_revision": SOURCE_REVISION,
                 "state": "complete",
                 "submission_receipt_sha256": submission_receipt_sha256,
             }
         finally:
             os.close(output_fd)
-        scratch_recheck_fd = _open_anchored_directory(SCRATCH_ROOT)
-        try:
-            if descriptor_identity(scratch_recheck_fd) != retained_scratch_identity or os.listdir(scratch_recheck_fd):
-                fail("scratch_cleanup_unverified")
-        finally:
-            os.close(scratch_recheck_fd)
+        _validate_retained_scratch(expected_portable_identity=retained_scratch_portable_identity)
         receipt_sha256 = _write_receipt(parent_fd, COMPLETION_RECEIPT.name, receipt)
     finally:
         os.close(parent_fd)
