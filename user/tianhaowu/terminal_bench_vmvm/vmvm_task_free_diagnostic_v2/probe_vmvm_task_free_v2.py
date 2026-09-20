@@ -60,7 +60,15 @@ REQUIRED_MEMFD_SEALS = (
 )
 X2P_NAMES = ("X2P_ENV", "X2P_CFG_ENV", "X2P_PROXY_URL")
 TLS_NAMES = ("THRIFT_TLS_CL_CERT_PATH", "THRIFT_TLS_CL_KEY_PATH")
+DIRECTORY_IDENTITY_POLICY_NAME = "nfs_portable_inode_mode_uid_v1"
+DIRECTORY_IDENTITY_POLICY = {
+    "batch_fields": ["inode", "mode", "owner_uid"],
+    "cross_host_variance": ["device"],
+    "launcher_fields": ["device", "inode", "mode", "owner_uid"],
+    "path_binding": "absolute_canonical_no_symlink",
+}
 PREFLIGHT_PROTOCOL = {
+    "directory_identity_policy": DIRECTORY_IDENTITY_POLICY,
     "diagnostic_only": True,
     "preflight_only": True,
     "production_authorized": False,
@@ -68,14 +76,14 @@ PREFLIGHT_PROTOCOL = {
 ENVIRONMENT_EXPORT_POLICY = "sealed_nul_file_only"
 BASE = Path("/checkpoint/ram/tianhaowu/terminal_bench_vmvm")
 EXPECTED_SOURCE_ROOT = BASE / "sources/prime-rl-a09a9a189-v21"
-EXPECTED_OUTPUT_ROOT = BASE / "diagnostics/vmvm_v21_task_free_preflight_a09a9a189_v6_export_file"
+EXPECTED_OUTPUT_ROOT = BASE / "diagnostics/vmvm_v21_task_free_preflight_a09a9a189_v7_portable_identity"
 EXPECTED_RESERVATION = Path(f"{EXPECTED_OUTPUT_ROOT}.launch-reservation")
-EXPECTED_SCRATCH_ROOT = Path("/tmp/vmvm-v21-task-free-preflight-v6-export-file")
+EXPECTED_SCRATCH_ROOT = Path("/tmp/vmvm-v21-task-free-preflight-v7-portable-identity")
 EXPECTED_COMPLETION_RECEIPT = Path(f"{EXPECTED_OUTPUT_ROOT}.external-completion.json")
 EXPECTED_CLUSTER = "fair-cw-use2-3"
 EXPECTED_OWNER = "tianhaowu"
 SHA_RE = re.compile(r"[0-9a-f]{64}")
-NAME_RE = re.compile(r"vmvm-v6-preflight-[0-9a-f]{24}")
+NAME_RE = re.compile(r"vmvm-v7-preflight-[0-9a-f]{24}")
 STAGES = (
     "direct_client",
     "same_thread_raw",
@@ -213,6 +221,21 @@ def descriptor_identity(descriptor: int) -> dict[str, int]:
     }
 
 
+def portable_directory_identity(identity: Mapping[str, object]) -> dict[str, int]:
+    if set(identity) != {"device", "inode", "mode", "owner_uid"} or any(
+        type(identity.get(name)) is not int for name in ("device", "inode", "mode", "owner_uid")
+    ):
+        raise DiagnosticError("child_invalid")
+    return {name: int(identity[name]) for name in ("inode", "mode", "owner_uid")}
+
+
+def canonical_directory_path(path: Path) -> bool:
+    try:
+        return path.is_absolute() and path == Path(os.path.normpath(path)) and path.resolve(strict=True) == path
+    except OSError:
+        return False
+
+
 def open_bound_directory(
     path: Path,
     expected: Mapping[str, object],
@@ -233,6 +256,30 @@ def open_bound_directory(
     ):
         os.close(descriptor)
         raise DiagnosticError("source_binding_invalid")
+    return descriptor
+
+
+def open_portable_bound_directory(
+    path: Path,
+    expected: Mapping[str, object],
+    *,
+    code: str = "source_binding_invalid",
+    required_mode: int | None = None,
+) -> int:
+    if set(expected) != {"inode", "mode", "owner_uid"} or not canonical_directory_path(path):
+        raise DiagnosticError(code)
+    try:
+        descriptor = os.open(path, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+    except OSError as error:
+        raise DiagnosticError(code) from error
+    identity = portable_directory_identity(descriptor_identity(descriptor))
+    if (
+        identity != expected
+        or identity["owner_uid"] != os.getuid()
+        or (required_mode is not None and identity["mode"] != required_mode)
+    ):
+        os.close(descriptor)
+        raise DiagnosticError(code)
     return descriptor
 
 
@@ -267,6 +314,33 @@ def inherited_bound_directory(
     identity = descriptor_identity(descriptor)
     if (
         set(expected) != {"device", "inode", "mode", "owner_uid"}
+        or identity != expected
+        or identity["owner_uid"] != os.getuid()
+        or (required_mode is not None and identity["mode"] != required_mode)
+    ):
+        os.close(descriptor)
+        raise DiagnosticError(code)
+    return descriptor
+
+
+def inherited_portable_bound_directory(
+    path: Path,
+    expected: Mapping[str, object],
+    *,
+    code: str,
+    required_mode: int | None = None,
+) -> int:
+    """Duplicate an inherited directory descriptor and verify its portable identity."""
+    try:
+        inherited = inherited_descriptor(path)
+        if inherited is None:
+            raise DiagnosticError(code)
+        descriptor = os.dup(inherited)
+    except (OSError, ValueError) as error:
+        raise DiagnosticError(code) from error
+    identity = portable_directory_identity(descriptor_identity(descriptor))
+    if (
+        set(expected) != {"inode", "mode", "owner_uid"}
         or identity != expected
         or identity["owner_uid"] != os.getuid()
         or (required_mode is not None and identity["mode"] != required_mode)
@@ -2957,6 +3031,14 @@ def parse_identity(value: str) -> dict[str, int]:
     }
 
 
+def parse_portable_identity(value: str) -> dict[str, int]:
+    parts = value.split(":")
+    if len(parts) != 3 or any(re.fullmatch(r"[0-9]+", part) is None for part in parts):
+        raise DiagnosticError("child_invalid")
+    inode, mode, owner_uid = (int(part) for part in parts)
+    return {"inode": inode, "mode": mode, "owner_uid": owner_uid}
+
+
 def validate_batch_admission(environment: Mapping[str, str], script_path: Path) -> dict[str, object]:
     _validate_execution_memfds(environment, script_path, require_uv=True)
     required = {
@@ -2965,8 +3047,10 @@ def validate_batch_admission(environment: Mapping[str, str], script_path: Path) 
         "DIAG_AUTHORIZATION_FILE_SHA256",
         "DIAG_AUTHORIZATION_SHA256",
         "DIAG_BUNDLE_IDENTITY",
+        "DIAG_BUNDLE_PORTABLE_IDENTITY",
         "DIAG_BUNDLE_ROOT",
         "DIAG_COMPLETION_RECEIPT",
+        "DIAG_DIRECTORY_IDENTITY_POLICY",
         "DIAG_FINALIZER_PATH",
         "DIAG_FINALIZER_SHA256",
         "DIAG_JOB_AUTHORIZATION",
@@ -2975,14 +3059,17 @@ def validate_batch_admission(environment: Mapping[str, str], script_path: Path) 
         "DIAG_LAUNCHER_SHA256",
         "DIAG_OUTPUT_ROOT",
         "DIAG_OUTPUT_PARENT_IDENTITY",
+        "DIAG_OUTPUT_PARENT_PORTABLE_IDENTITY",
         "DIAG_PROBE_PATH",
         "DIAG_PROBE_SHA256",
         "DIAG_RESERVATION",
         "DIAG_RESERVATION_IDENTITY",
+        "DIAG_RESERVATION_PORTABLE_IDENTITY",
         "DIAG_SCRATCH_ROOT",
         "DIAG_SOURCE_REVISION",
         "DIAG_SOURCE_ROOT",
         "DIAG_SOURCE_IDENTITY",
+        "DIAG_SOURCE_PORTABLE_IDENTITY",
         "DIAG_SOURCE_TREE",
         "DIAG_SUBMISSION_RECEIPT",
         "DIAG_VMVM_SHA256",
@@ -2999,6 +3086,7 @@ def validate_batch_admission(environment: Mapping[str, str], script_path: Path) 
         "PYTHON_SITE_X86_64",
         "PYTHON_SITE_X86_64_ENTRY_COUNT",
         "PYTHON_SITE_X86_64_IDENTITY",
+        "PYTHON_SITE_X86_64_PORTABLE_IDENTITY",
         "PYTHON_SITE_X86_64_MANIFEST_SHA256",
         "PYTHON_SITE_X86_64_TOTAL_BYTES",
         "SLURM_EXPORT_ENV",
@@ -3023,6 +3111,7 @@ def validate_batch_admission(environment: Mapping[str, str], script_path: Path) 
         or environment["DIAG_SOURCE_REVISION"] != SOURCE_REVISION
         or environment["DIAG_SOURCE_TREE"] != SOURCE_TREE
         or environment["DIAG_VMVM_SHA256"] != VMVM_SHA256
+        or environment["DIAG_DIRECTORY_IDENTITY_POLICY"] != DIRECTORY_IDENTITY_POLICY_NAME
         or environment["DIAG_OUTPUT_ROOT"] != str(EXPECTED_OUTPUT_ROOT)
         or environment["DIAG_COMPLETION_RECEIPT"] != str(EXPECTED_COMPLETION_RECEIPT)
         or environment["DIAG_RESERVATION"] != str(EXPECTED_RESERVATION)
@@ -3071,6 +3160,7 @@ def validate_batch_admission(environment: Mapping[str, str], script_path: Path) 
             "PYTHON_SITE_X86_64",
             "PYTHON_SITE_X86_64_ENTRY_COUNT",
             "PYTHON_SITE_X86_64_IDENTITY",
+            "PYTHON_SITE_X86_64_PORTABLE_IDENTITY",
             "PYTHON_SITE_X86_64_MANIFEST_SHA256",
             "PYTHON_SITE_X86_64_TOTAL_BYTES",
         }
@@ -3078,10 +3168,32 @@ def validate_batch_admission(environment: Mapping[str, str], script_path: Path) 
     ):
         raise DiagnosticError("child_invalid")
 
+    identity_pairs = (
+        ("DIAG_BUNDLE_IDENTITY", "DIAG_BUNDLE_PORTABLE_IDENTITY"),
+        ("DIAG_OUTPUT_PARENT_IDENTITY", "DIAG_OUTPUT_PARENT_PORTABLE_IDENTITY"),
+        ("DIAG_RESERVATION_IDENTITY", "DIAG_RESERVATION_PORTABLE_IDENTITY"),
+        ("DIAG_SOURCE_IDENTITY", "DIAG_SOURCE_PORTABLE_IDENTITY"),
+        ("PYTHON_SITE_X86_64_IDENTITY", "PYTHON_SITE_X86_64_PORTABLE_IDENTITY"),
+    )
+    for full_name, portable_name in identity_pairs:
+        if portable_directory_identity(parse_identity(environment[full_name])) != parse_portable_identity(
+            environment[portable_name]
+        ):
+            raise DiagnosticError("child_invalid")
+    for path in (
+        Path(environment["DIAG_BUNDLE_ROOT"]),
+        Path(environment["DIAG_SOURCE_ROOT"]),
+        Path(environment["PYTHON_SITE_X86_64"]),
+        Path(environment["DIAG_RESERVATION"]),
+        Path(environment["DIAG_OUTPUT_ROOT"]).parent,
+    ):
+        if not canonical_directory_path(path):
+            raise DiagnosticError("child_invalid")
+
     reservation_path = Path(environment["DIAG_RESERVATION"])
-    reservation_fd = open_bound_directory(
+    reservation_fd = open_portable_bound_directory(
         reservation_path,
-        parse_identity(environment["DIAG_RESERVATION_IDENTITY"]),
+        parse_portable_identity(environment["DIAG_RESERVATION_PORTABLE_IDENTITY"]),
         required_mode=0o500,
     )
     reservation = descriptor_path(reservation_fd)
@@ -3262,6 +3374,7 @@ def validate_batch_admission(environment: Mapping[str, str], script_path: Path) 
     assert isinstance(protocol, dict)
     if source != {
         "path": str(EXPECTED_SOURCE_ROOT),
+        "portable_root_identity": parse_portable_identity(environment["DIAG_SOURCE_PORTABLE_IDENTITY"]),
         "revision": SOURCE_REVISION,
         "tree": SOURCE_TREE,
         "verifiers_revision": VERIFIERS_REVISION,
@@ -3271,7 +3384,9 @@ def validate_batch_admission(environment: Mapping[str, str], script_path: Path) 
         "vmvm_sha256": VMVM_SHA256,
     }:
         raise DiagnosticError("child_invalid")
-    source_fd = open_bound_directory(Path(environment["DIAG_SOURCE_ROOT"]), source["root_identity"])
+    if portable_directory_identity(source["root_identity"]) != source["portable_root_identity"]:
+        raise DiagnosticError("child_invalid")
+    source_fd = open_portable_bound_directory(Path(environment["DIAG_SOURCE_ROOT"]), source["portable_root_identity"])
     try:
         attest_imported_source(source_fd)
     finally:
@@ -3291,6 +3406,7 @@ def validate_batch_admission(environment: Mapping[str, str], script_path: Path) 
                 "total_bytes": int(environment["PYTHON_SITE_X86_64_TOTAL_BYTES"]),
             },
             "path": str(BASE / "python_x86_64"),
+            "portable_root_identity": parse_portable_identity(environment["PYTHON_SITE_X86_64_PORTABLE_IDENTITY"]),
             "root_identity": parse_identity(environment["PYTHON_SITE_X86_64_IDENTITY"]),
         }
         or set(launch)
@@ -3306,6 +3422,7 @@ def validate_batch_admission(environment: Mapping[str, str], script_path: Path) 
             "memory",
             "nodes",
             "output_parent_identity",
+            "output_parent_portable_identity",
             "output_root",
             "partition",
             "qos",
@@ -3316,14 +3433,17 @@ def validate_batch_admission(environment: Mapping[str, str], script_path: Path) 
         or launch.get("cluster") != EXPECTED_CLUSTER
         or launch.get("environment_export") != ENVIRONMENT_EXPORT_POLICY
         or launch.get("comment")
-        != f"vmvm-v6-preflight:{environment['DIAG_JOB_NAME'].removeprefix('vmvm-v6-preflight-')}"
+        != f"vmvm-v7-preflight:{environment['DIAG_JOB_NAME'].removeprefix('vmvm-v7-preflight-')}"
         or launch.get("job_name") != environment["DIAG_JOB_NAME"]
         or launch.get("output_root") != str(EXPECTED_OUTPUT_ROOT)
         or launch.get("completion_receipt") != str(EXPECTED_COMPLETION_RECEIPT)
         or launch.get("output_parent_identity") != parse_identity(environment["DIAG_OUTPUT_PARENT_IDENTITY"])
+        or launch.get("output_parent_portable_identity")
+        != parse_portable_identity(environment["DIAG_OUTPUT_PARENT_PORTABLE_IDENTITY"])
+        or portable_directory_identity(launch["output_parent_identity"]) != launch["output_parent_portable_identity"]
         or launch.get("reservation") != str(EXPECTED_RESERVATION)
         or launch.get("scratch_root") != str(EXPECTED_SCRATCH_ROOT)
-        or launch.get("log_root") != str(BASE / "logs/vmvm_v21_task_free_preflight_a09a9a189_v6_export_file")
+        or launch.get("log_root") != str(BASE / "logs/vmvm_v21_task_free_preflight_a09a9a189_v7_portable_identity")
         or launch.get("nodes") != 1
         or launch.get("cpus") != 2
         or launch.get("memory") != "8G"
@@ -3335,7 +3455,9 @@ def validate_batch_admission(environment: Mapping[str, str], script_path: Path) 
         raise DiagnosticError("child_invalid")
     if protocol != PREFLIGHT_PROTOCOL:
         raise DiagnosticError("child_invalid")
-    site_fd = open_bound_directory(Path(environment["PYTHON_SITE_X86_64"]), site["root_identity"])
+    if portable_directory_identity(site["root_identity"]) != site["portable_root_identity"]:
+        raise DiagnosticError("child_invalid")
+    site_fd = open_portable_bound_directory(Path(environment["PYTHON_SITE_X86_64"]), site["portable_root_identity"])
     try:
         if directory_manifest(site_fd, expected_owner_uid=os.getuid()) != site["inventory"]:
             raise DiagnosticError("child_invalid")
@@ -3372,8 +3494,11 @@ def validate_batch_admission(environment: Mapping[str, str], script_path: Path) 
         "tests",
         "wrapper",
     }
-    if set(bundle) != artifact_labels | {"root_identity"} or bundle.get("root_identity") != parse_identity(
-        environment["DIAG_BUNDLE_IDENTITY"]
+    if (
+        set(bundle) != artifact_labels | {"portable_root_identity", "root_identity"}
+        or bundle.get("root_identity") != parse_identity(environment["DIAG_BUNDLE_IDENTITY"])
+        or bundle.get("portable_root_identity") != parse_portable_identity(environment["DIAG_BUNDLE_PORTABLE_IDENTITY"])
+        or portable_directory_identity(bundle["root_identity"]) != bundle["portable_root_identity"]
     ):
         raise DiagnosticError("child_invalid")
     if any(
@@ -3405,9 +3530,9 @@ def validate_batch_admission(environment: Mapping[str, str], script_path: Path) 
             raise DiagnosticError("child_invalid")
         if record.get("path") != environment[f"DIAG_{label.upper()}_PATH"]:
             raise DiagnosticError("child_invalid")
-    bundle_fd = open_bound_directory(
+    bundle_fd = open_portable_bound_directory(
         Path(environment["DIAG_BUNDLE_ROOT"]),
-        parse_identity(environment["DIAG_BUNDLE_IDENTITY"]),
+        parse_portable_identity(environment["DIAG_BUNDLE_PORTABLE_IDENTITY"]),
         required_mode=0o700,
     )
     bundle_root = descriptor_path(bundle_fd)
@@ -3491,15 +3616,15 @@ def validate_cli_paths(
     *,
     require_output: bool,
 ) -> None:
-    source_fd = inherited_bound_directory(
+    source_fd = inherited_portable_bound_directory(
         args.source_root,
-        parse_identity(environment["DIAG_SOURCE_IDENTITY"]),
+        parse_portable_identity(environment["DIAG_SOURCE_PORTABLE_IDENTITY"]),
         code="source_binding_invalid",
     )
     os.close(source_fd)
-    site_fd = inherited_bound_directory(
+    site_fd = inherited_portable_bound_directory(
         args.site_root,
-        parse_identity(environment["PYTHON_SITE_X86_64_IDENTITY"]),
+        parse_portable_identity(environment["PYTHON_SITE_X86_64_PORTABLE_IDENTITY"]),
         code="site_binding_invalid",
     )
     try:
@@ -3524,9 +3649,9 @@ def validate_cli_paths(
         or args.output_dir.parent != args.completion_receipt.parent
     ):
         raise DiagnosticError("child_invalid")
-    output_parent_fd = inherited_bound_directory(
+    output_parent_fd = inherited_portable_bound_directory(
         args.output_dir.parent,
-        parse_identity(environment["DIAG_OUTPUT_PARENT_IDENTITY"]),
+        parse_portable_identity(environment["DIAG_OUTPUT_PARENT_PORTABLE_IDENTITY"]),
         code="output_binding_invalid",
     )
     os.close(output_parent_fd)

@@ -474,7 +474,7 @@ def test_supervisor_runs_exact_matrix_and_publishes_completion_last(monkeypatch,
                 authorization_sha256="b" * 64,
                 job_authorization_sha256="e" * 64,
                 job_id="42",
-                job_name="vmvm-v6-preflight-" + "f" * 24,
+                job_name="vmvm-v7-preflight-" + "f" * 24,
                 submission_receipt_sha256="c" * 64,
             )
         )
@@ -519,7 +519,7 @@ def test_supervisor_runs_exact_matrix_and_publishes_completion_last(monkeypatch,
 
 
 def test_sbatch_is_held_single_job_and_uses_only_the_sealed_export_file() -> None:
-    command = LAUNCH._sbatch_command("vmvm-v6-preflight-" + "a" * 24, Path("/private/environment"))
+    command = LAUNCH._sbatch_command("vmvm-v7-preflight-" + "a" * 24, Path("/private/environment"))
     assert command[0] == "/usr/bin/sbatch"
     assert "--hold" in command
     assert [value for value in command if value.startswith("--export")] == ["--export-file=/private/environment"]
@@ -532,11 +532,11 @@ def test_sbatch_is_held_single_job_and_uses_only_the_sealed_export_file() -> Non
 
 def test_slurm_time_limit_uses_the_scheduler_canonical_identity() -> None:
     job_id = "42"
-    job_name = "vmvm-v6-preflight-" + "a" * 24
+    job_name = "vmvm-v7-preflight-" + "a" * 24
     record = {
         "Account": "ram",
         "Command": "(null)",
-        "Comment": "vmvm-v6-preflight:" + "a" * 24,
+        "Comment": "vmvm-v7-preflight:" + "a" * 24,
         "Dependency": "(null)",
         "JobId": job_id,
         "JobName": job_name,
@@ -558,14 +558,14 @@ def test_slurm_time_limit_uses_the_scheduler_canonical_identity() -> None:
     assert LAUNCH._base_mismatches(record, job_id, job_name) == {"TimeLimit"}
 
 
-def test_v6_preflight_namespaces_are_exact_and_fresh() -> None:
+def test_v7_preflight_namespaces_are_exact_and_fresh() -> None:
     assert LAUNCH.OUTPUT_ROOT == PROBE.EXPECTED_OUTPUT_ROOT == FINALIZE.OUTPUT_ROOT
     assert LAUNCH.SCRATCH_ROOT == PROBE.EXPECTED_SCRATCH_ROOT == FINALIZE.SCRATCH_ROOT
     assert LAUNCH.LOG_ROOT == FINALIZE.LOG_ROOT
-    assert LAUNCH.OUTPUT_ROOT.name == "vmvm_v21_task_free_preflight_a09a9a189_v6_export_file"
-    assert LAUNCH.LOG_ROOT.name == "vmvm_v21_task_free_preflight_a09a9a189_v6_export_file"
-    assert LAUNCH.SCRATCH_ROOT.name == "vmvm-v21-task-free-preflight-v6-export-file"
-    assert LAUNCH.NAME_RE.fullmatch("vmvm-v6-preflight-" + "a" * 24)
+    assert LAUNCH.OUTPUT_ROOT.name == "vmvm_v21_task_free_preflight_a09a9a189_v7_portable_identity"
+    assert LAUNCH.LOG_ROOT.name == "vmvm_v21_task_free_preflight_a09a9a189_v7_portable_identity"
+    assert LAUNCH.SCRATCH_ROOT.name == "vmvm-v21-task-free-preflight-v7-portable-identity"
+    assert LAUNCH.NAME_RE.fullmatch("vmvm-v7-preflight-" + "a" * 24)
 
 
 def test_held_poll_requires_two_exact_snapshots(monkeypatch) -> None:
@@ -580,7 +580,7 @@ def test_held_poll_requires_two_exact_snapshots(monkeypatch) -> None:
     monkeypatch.setattr(LAUNCH, "_snapshot", lambda *args: next(outcomes))
     monkeypatch.setattr(LAUNCH.time, "monotonic", lambda: next(clock))
     monkeypatch.setattr(LAUNCH.time, "sleep", lambda value: None)
-    result = LAUNCH.poll_phase("1", "vmvm-v6-preflight-" + "a" * 24, "held", 20, set())
+    result = LAUNCH.poll_phase("1", "vmvm-v7-preflight-" + "a" * 24, "held", 20, set())
     assert result["converged"] is True
     assert result["polls"] == 3
     assert result["mismatch_occurrences"] == {"held_queue": 1}
@@ -594,7 +594,7 @@ def test_conflict_latch_is_monotonic(monkeypatch) -> None:
         ]
     )
     monkeypatch.setattr(LAUNCH, "_snapshot", lambda *args: next(outcomes))
-    result = LAUNCH.poll_phase("1", "vmvm-v6-preflight-" + "a" * 24, "held", 20, set())
+    result = LAUNCH.poll_phase("1", "vmvm-v7-preflight-" + "a" * 24, "held", 20, set())
     assert result["converged"] is False
     assert result["explicit_conflict_fields"] == ["JobName"]
     assert result["polls"] == 1
@@ -614,7 +614,7 @@ def test_cancel_conflict_never_calls_scancel(monkeypatch) -> None:
     monkeypatch.setattr(LAUNCH, "_run", lambda command, timeout=20: calls.append(list(command)))
     result = LAUNCH.cancel_and_prove(
         "1",
-        "vmvm-v6-preflight-" + "a" * 24,
+        "vmvm-v7-preflight-" + "a" * 24,
         set(),
         candidate_provenance="sbatch_stdout",
     )
@@ -661,6 +661,12 @@ def test_probe_cli_exposes_only_preflight_admission() -> None:
 def test_preflight_protocol_is_minimal_and_consistent() -> None:
     expected = {
         "diagnostic_only": True,
+        "directory_identity_policy": {
+            "batch_fields": ["inode", "mode", "owner_uid"],
+            "cross_host_variance": ["device"],
+            "launcher_fields": ["device", "inode", "mode", "owner_uid"],
+            "path_binding": "absolute_canonical_no_symlink",
+        },
         "preflight_only": True,
         "production_authorized": False,
     }
@@ -713,13 +719,17 @@ def test_wrapper_public_output_domains_are_closed() -> None:
 def test_uv_internal_environment_is_never_exported() -> None:
     private = {
         "bundle_identity": "1:2:448:656177",
-        "job_name": "vmvm-v6-preflight-" + "a" * 24,
+        "bundle_portable_identity": "2:448:656177",
+        "job_name": "vmvm-v7-preflight-" + "a" * 24,
         "output_parent_identity": "1:3:448:656177",
+        "output_parent_portable_identity": "3:448:656177",
         "site_entry_count": "1",
         "site_identity": "1:4:365:656177",
+        "site_portable_identity": "4:365:656177",
         "site_manifest_sha256": "a" * 64,
         "site_total_bytes": "1",
         "source_identity": "1:5:365:656177",
+        "source_portable_identity": "5:365:656177",
         **{name: "/private/tls" for name in LAUNCH.TLS_NAMES},
         **{name: "private" for name in LAUNCH.X2P_NAMES},
     }
@@ -732,14 +742,14 @@ def test_uv_internal_environment_is_never_exported() -> None:
         wrapper_sha256="d" * 64,
         probe_sha256="e" * 64,
         finalizer_sha256="f" * 64,
-        reservation_identity="1:6:320:656177",
+        reservation_identity={"device": 1, "inode": 6, "mode": 320, "owner_uid": 656177},
     )
     assert {name for name in environment if name == "UV" or name.startswith("UV_")} == {"UV_BIN_X86_64"}
     assert environment["PATH"] == "/usr/bin:/bin"
     wrapper = (ROOT / "run_vmvm_task_free_v2.sbatch").read_text()
     required_block = wrapper.split("required_environment=(", 1)[1].split("\n)", 1)[0]
     required_names = set(re.findall(r"[A-Z][A-Z0-9_]+", required_block))
-    assert len(required_names) == 56
+    assert len(required_names) == 62
     assert set(environment) == required_names
     assert "-n ${UV+x}" in wrapper
 
@@ -869,7 +879,7 @@ def test_supervisor_aborts_before_next_cell_on_unverifiable_result(
                     authorization_sha256="b" * 64,
                     job_authorization_sha256="e" * 64,
                     job_id="42",
-                    job_name="vmvm-v6-preflight-" + "f" * 24,
+                    job_name="vmvm-v7-preflight-" + "f" * 24,
                     submission_receipt_sha256="c" * 64,
                 )
             )
@@ -933,7 +943,7 @@ def test_resolve_submission_recovers_timeout_by_exact_name(monkeypatch) -> None:
     assert LAUNCH._resolve_submission(
         direct_candidate=None,
         outcome="timeout",
-        job_name="vmvm-v6-preflight-" + "a" * 24,
+        job_name="vmvm-v7-preflight-" + "a" * 24,
         start_date="2026-09-19",
     ) == ("42", "name_lookup")
 
@@ -944,7 +954,7 @@ def test_resolve_submission_rejects_direct_name_disagreement(monkeypatch) -> Non
         LAUNCH._resolve_submission(
             direct_candidate="42",
             outcome="completed",
-            job_name="vmvm-v6-preflight-" + "a" * 24,
+            job_name="vmvm-v7-preflight-" + "a" * 24,
             start_date="2026-09-19",
         )
 
@@ -971,7 +981,7 @@ def test_direct_candidate_unavailable_identity_attempts_one_exact_cancel(
     monkeypatch.setattr(LAUNCH, "_run", fake_run)
     result = LAUNCH.cancel_and_prove(
         "42",
-        "vmvm-v6-preflight-" + "a" * 24,
+        "vmvm-v7-preflight-" + "a" * 24,
         set(),
         candidate_provenance="sbatch_stdout",
     )
@@ -991,7 +1001,7 @@ def test_precontrol_conflict_after_identity_proof_forbids_cancel(monkeypatch) ->
     monkeypatch.setattr(LAUNCH, "_run", lambda command, timeout=20: calls.append(list(command)))
     result = LAUNCH.cancel_and_prove(
         "42",
-        "vmvm-v6-preflight-" + "a" * 24,
+        "vmvm-v7-preflight-" + "a" * 24,
         set(),
         candidate_provenance="sbatch_stdout",
     )
@@ -1345,6 +1355,50 @@ def test_bound_directory_rejects_rename_replacement(tmp_path: Path) -> None:
         os.close(descriptor)
 
 
+def test_portable_identity_allows_device_variance_but_launcher_remains_strict(tmp_path: Path) -> None:
+    root = tmp_path / "root"
+    root.mkdir()
+    descriptor = os.open(root, os.O_RDONLY | os.O_DIRECTORY)
+    try:
+        full = PROBE.descriptor_identity(descriptor)
+    finally:
+        os.close(descriptor)
+    portable = PROBE.portable_directory_identity(full)
+    device_drift = {**full, "device": full["device"] + 1}
+    with pytest.raises(LAUNCH.LaunchError, match="directory_binding_invalid"):
+        LAUNCH.open_bound_directory(root, device_drift)
+    bound = PROBE.open_portable_bound_directory(root, portable)
+    os.close(bound)
+
+
+@pytest.mark.parametrize("field", ("inode", "mode", "owner_uid"))
+def test_portable_identity_rejects_nondevice_drift(tmp_path: Path, field: str) -> None:
+    root = tmp_path / "root"
+    root.mkdir()
+    descriptor = os.open(root, os.O_RDONLY | os.O_DIRECTORY)
+    try:
+        portable = PROBE.portable_directory_identity(PROBE.descriptor_identity(descriptor))
+    finally:
+        os.close(descriptor)
+    drifted = {**portable, field: portable[field] + 1}
+    with pytest.raises(PROBE.DiagnosticError, match="source_binding_invalid"):
+        PROBE.open_portable_bound_directory(root, drifted)
+
+
+def test_portable_identity_rejects_symlink_path(tmp_path: Path) -> None:
+    root = tmp_path / "root"
+    root.mkdir()
+    alias = tmp_path / "alias"
+    alias.symlink_to(root, target_is_directory=True)
+    descriptor = os.open(root, os.O_RDONLY | os.O_DIRECTORY)
+    try:
+        portable = PROBE.portable_directory_identity(PROBE.descriptor_identity(descriptor))
+    finally:
+        os.close(descriptor)
+    with pytest.raises(PROBE.DiagnosticError, match="source_binding_invalid"):
+        PROBE.open_portable_bound_directory(alias, portable)
+
+
 def test_bundle_file_is_read_from_bound_dirfd_after_path_swap(tmp_path: Path) -> None:
     bundle = tmp_path / "bundle"
     bundle.mkdir()
@@ -1521,11 +1575,20 @@ def test_cli_source_binding_rejects_swap_before_supervisor(tmp_path: Path) -> No
     try:
         environment = {
             "DIAG_SOURCE_IDENTITY": ":".join(str(value) for value in PROBE.descriptor_identity(source_fd).values()),
+            "DIAG_SOURCE_PORTABLE_IDENTITY": ":".join(
+                str(value) for value in PROBE.portable_directory_identity(PROBE.descriptor_identity(source_fd)).values()
+            ),
             "PYTHON_SITE_X86_64_IDENTITY": ":".join(
                 str(value) for value in PROBE.descriptor_identity(site_fd).values()
             ),
+            "PYTHON_SITE_X86_64_PORTABLE_IDENTITY": ":".join(
+                str(value) for value in PROBE.portable_directory_identity(PROBE.descriptor_identity(site_fd)).values()
+            ),
             "DIAG_OUTPUT_PARENT_IDENTITY": ":".join(
                 str(value) for value in PROBE.descriptor_identity(output_fd).values()
+            ),
+            "DIAG_OUTPUT_PARENT_PORTABLE_IDENTITY": ":".join(
+                str(value) for value in PROBE.portable_directory_identity(PROBE.descriptor_identity(output_fd)).values()
             ),
         }
         source.rename(tmp_path / "source-original")
@@ -1553,14 +1616,23 @@ def test_cli_paths_require_inherited_fds_and_bind_output_parent(monkeypatch, tmp
         site_inventory = PROBE.directory_manifest(site_fd, expected_owner_uid=os.getuid())
         environment = {
             "DIAG_SOURCE_IDENTITY": ":".join(str(value) for value in PROBE.descriptor_identity(source_fd).values()),
+            "DIAG_SOURCE_PORTABLE_IDENTITY": ":".join(
+                str(value) for value in PROBE.portable_directory_identity(PROBE.descriptor_identity(source_fd)).values()
+            ),
             "PYTHON_SITE_X86_64_IDENTITY": ":".join(
                 str(value) for value in PROBE.descriptor_identity(site_fd).values()
+            ),
+            "PYTHON_SITE_X86_64_PORTABLE_IDENTITY": ":".join(
+                str(value) for value in PROBE.portable_directory_identity(PROBE.descriptor_identity(site_fd)).values()
             ),
             "PYTHON_SITE_X86_64_ENTRY_COUNT": str(site_inventory["entry_count"]),
             "PYTHON_SITE_X86_64_MANIFEST_SHA256": str(site_inventory["manifest_sha256"]),
             "PYTHON_SITE_X86_64_TOTAL_BYTES": str(site_inventory["total_bytes"]),
             "DIAG_OUTPUT_PARENT_IDENTITY": ":".join(
                 str(value) for value in PROBE.descriptor_identity(output_fd).values()
+            ),
+            "DIAG_OUTPUT_PARENT_PORTABLE_IDENTITY": ":".join(
+                str(value) for value in PROBE.portable_directory_identity(PROBE.descriptor_identity(output_fd)).values()
             ),
         }
         monkeypatch.setattr(PROBE, "EXPECTED_OUTPUT_ROOT", Path("/authorized/output"))
@@ -1868,6 +1940,12 @@ def test_finalizer_subprocess_requires_and_executes_its_sealed_bytes(tmp_path: P
     (
         "success",
         "device_only",
+        "inode_only",
+        "mode_only",
+        "owner_only",
+        "content_drift",
+        "path_drift",
+        "symlink_path",
         "multiple",
         "unreadable",
         "probe_rejected",
@@ -1894,11 +1972,11 @@ def test_real_wrapper_emits_only_static_preflight_telemetry(tmp_path: Path, fail
     (site / "runtime.py").write_text("VALUE = 1\n")
     diagnostics = base / "diagnostics"
     diagnostics.mkdir()
-    output = diagnostics / "vmvm_v21_task_free_preflight_a09a9a189_v6_export_file"
+    output = diagnostics / "vmvm_v21_task_free_preflight_a09a9a189_v7_portable_identity"
     reservation = Path(f"{output}.launch-reservation")
     completion = Path(f"{output}.external-completion.json")
     scratch = tmp_path / "scratch"
-    log_root = base / "logs/vmvm_v21_task_free_preflight_a09a9a189_v6_export_file"
+    log_root = base / "logs/vmvm_v21_task_free_preflight_a09a9a189_v7_portable_identity"
     bundle = tmp_path / "bundle"
     bundle.mkdir(mode=0o700)
     bundle.chmod(0o700)
@@ -1942,7 +2020,7 @@ def test_real_wrapper_emits_only_static_preflight_telemetry(tmp_path: Path, fail
         f'VMVM_SHA256 = "{PROBE.VMVM_SHA256}"': f'VMVM_SHA256 = "{revisions["vmvm"]}"',
         f'X86_UV_SHA256 = "{PROBE.X86_UV_SHA256}"': f'X86_UV_SHA256 = "{uv_sha}"',
         'BASE = Path("/checkpoint/ram/tianhaowu/terminal_bench_vmvm")': f"BASE = Path({str(base)!r})",
-        'EXPECTED_SCRATCH_ROOT = Path("/tmp/vmvm-v21-task-free-preflight-v6-export-file")': (
+        'EXPECTED_SCRATCH_ROOT = Path("/tmp/vmvm-v21-task-free-preflight-v7-portable-identity")': (
             f"EXPECTED_SCRATCH_ROOT = Path({str(scratch)!r})"
         ),
         'environment["UV_BIN_X86_64"] != "/storage/home/tianhaowu/.local/x86_64/bin/uv"': (
@@ -1997,6 +2075,21 @@ def test_real_wrapper_emits_only_static_preflight_telemetry(tmp_path: Path, fail
         finally:
             os.close(descriptor)
 
+    def authorized_identity(path: Path) -> dict[str, int]:
+        value = identity(path)
+        if failure_case == "device_only":
+            value["device"] += 1
+        elif failure_case == "inode_only" and path == expected_source:
+            value["inode"] += 1
+        elif failure_case == "mode_only" and path == site:
+            value["mode"] += 1
+        elif failure_case == "owner_only" and path == diagnostics:
+            value["owner_uid"] += 1
+        return value
+
+    def portable(value: dict[str, int]) -> dict[str, int]:
+        return PROBE.portable_directory_identity(value)
+
     site_fd = os.open(site, os.O_RDONLY | os.O_DIRECTORY)
     try:
         site_inventory = PROBE.directory_manifest(site_fd, expected_owner_uid=os.getuid())
@@ -2025,10 +2118,14 @@ def test_real_wrapper_emits_only_static_preflight_telemetry(tmp_path: Path, fail
         "X2P_CFG_ENV": "fixture-configuration",
         "X2P_PROXY_URL": "https://fixture.invalid/proxy",
     }
-    job_name = "vmvm-v6-preflight-" + "f" * 24
+    job_name = "vmvm-v7-preflight-" + "f" * 24
     launch_body = {
         "artifact_type": "vmvm_task_free_diagnostic_authorization_v2",
-        "bundle": {**bundle_records, "root_identity": identity(bundle)},
+        "bundle": {
+            **bundle_records,
+            "portable_root_identity": portable(authorized_identity(bundle)),
+            "root_identity": authorized_identity(bundle),
+        },
         "credentials": {
             "tls": {name: tls_record for name in PROBE.TLS_NAMES},
             "x2p": {name: {"sha256": hashlib.sha256(value.encode()).hexdigest()} for name, value in x2p_values.items()},
@@ -2036,7 +2133,7 @@ def test_real_wrapper_emits_only_static_preflight_telemetry(tmp_path: Path, fail
         "launch": {
             "account": "ram",
             "cluster": PROBE.EXPECTED_CLUSTER,
-            "comment": "vmvm-v6-preflight:" + "f" * 24,
+            "comment": "vmvm-v7-preflight:" + "f" * 24,
             "completion_receipt": str(completion),
             "cpus": 2,
             "environment_export": PROBE.ENVIRONMENT_EXPORT_POLICY,
@@ -2044,7 +2141,8 @@ def test_real_wrapper_emits_only_static_preflight_telemetry(tmp_path: Path, fail
             "log_root": str(log_root),
             "memory": "8G",
             "nodes": 1,
-            "output_parent_identity": identity(diagnostics),
+            "output_parent_identity": authorized_identity(diagnostics),
+            "output_parent_portable_identity": portable(authorized_identity(diagnostics)),
             "output_root": str(output),
             "partition": "cpu_x86",
             "qos": "cpu_x86_lowest",
@@ -2052,15 +2150,16 @@ def test_real_wrapper_emits_only_static_preflight_telemetry(tmp_path: Path, fail
             "scratch_root": str(scratch),
             "time_limit": "1-12:00:00",
         },
-        "protocol": {
-            "diagnostic_only": True,
-            "preflight_only": True,
-            "production_authorized": False,
-        },
+        "protocol": PROBE.PREFLIGHT_PROTOCOL,
         "runtime": {
             "image": PROBE.IMAGE,
             "python_name": "python3",
-            "site": {"inventory": site_inventory, "path": str(site), "root_identity": identity(site)},
+            "site": {
+                "inventory": site_inventory,
+                "path": str(site),
+                "portable_root_identity": portable(authorized_identity(site)),
+                "root_identity": authorized_identity(site),
+            },
             "uv": {"path": str(uv_path), "sha256": uv_sha},
             "vacli": {
                 "path": "/public/fbpkgs/x86_64/vacli/stable/vacli",
@@ -2074,7 +2173,8 @@ def test_real_wrapper_emits_only_static_preflight_telemetry(tmp_path: Path, fail
             "pydantic_config_revision": revisions["pydantic_config"],
             "renderers_revision": revisions["renderers"],
             "revision": revisions["revision"],
-            "root_identity": identity(expected_source),
+            "portable_root_identity": portable(authorized_identity(expected_source)),
+            "root_identity": authorized_identity(expected_source),
             "tree": revisions["tree"],
             "verifiers_revision": revisions["verifiers"],
             "vmvm_sha256": revisions["vmvm"],
@@ -2096,6 +2196,8 @@ def test_real_wrapper_emits_only_static_preflight_telemetry(tmp_path: Path, fail
     writer_lock.chmod(0o600)
     reservation_identity = identity(reservation)
     reservation_identity["mode"] = 0o500
+    if failure_case == "device_only":
+        reservation_identity["device"] += 1
     job = {"cluster": PROBE.EXPECTED_CLUSTER, "job_id": "42", "job_name": job_name}
     job_authorization = {
         "artifact_type": "vmvm_task_free_job_authorization_v2",
@@ -2108,28 +2210,36 @@ def test_real_wrapper_emits_only_static_preflight_telemetry(tmp_path: Path, fail
     job_authorization_raw = PROBE.canonical_json(job_authorization) + b"\n"
     job_authorization_sha = PROBE.sha256_bytes(job_authorization_raw)
     identity_string = lambda value: ":".join(str(value[name]) for name in ("device", "inode", "mode", "owner_uid"))
+    portable_identity_string = lambda value: ":".join(str(value[name]) for name in ("inode", "mode", "owner_uid"))
     exported = {
         "DIAG_ACTIVATION_PERMIT": str(reservation / "activation_permit.json"),
         "DIAG_AUTHORIZATION": str(launch_path),
         "DIAG_AUTHORIZATION_FILE_SHA256": launch_file_sha,
         "DIAG_AUTHORIZATION_SHA256": launch_sha,
-        "DIAG_BUNDLE_IDENTITY": identity_string(identity(bundle)),
+        "DIAG_BUNDLE_IDENTITY": identity_string(launch_body["bundle"]["root_identity"]),
+        "DIAG_BUNDLE_PORTABLE_IDENTITY": portable_identity_string(launch_body["bundle"]["portable_root_identity"]),
         "DIAG_BUNDLE_ROOT": str(bundle),
         "DIAG_COMPLETION_RECEIPT": str(completion),
+        "DIAG_DIRECTORY_IDENTITY_POLICY": PROBE.DIRECTORY_IDENTITY_POLICY_NAME,
         "DIAG_FINALIZER_PATH": bundle_records["finalizer"]["path"],
         "DIAG_FINALIZER_SHA256": bundle_records["finalizer"]["sha256"],
         "DIAG_JOB_AUTHORIZATION": str(reservation / "job_authorization.json"),
         "DIAG_JOB_NAME": job_name,
         "DIAG_LAUNCHER_PATH": bundle_records["launcher"]["path"],
         "DIAG_LAUNCHER_SHA256": bundle_records["launcher"]["sha256"],
-        "DIAG_OUTPUT_PARENT_IDENTITY": identity_string(identity(diagnostics)),
+        "DIAG_OUTPUT_PARENT_IDENTITY": identity_string(launch_body["launch"]["output_parent_identity"]),
+        "DIAG_OUTPUT_PARENT_PORTABLE_IDENTITY": portable_identity_string(
+            launch_body["launch"]["output_parent_portable_identity"]
+        ),
         "DIAG_OUTPUT_ROOT": str(output),
         "DIAG_PROBE_PATH": bundle_records["probe"]["path"],
         "DIAG_PROBE_SHA256": bundle_records["probe"]["sha256"],
         "DIAG_RESERVATION": str(reservation),
         "DIAG_RESERVATION_IDENTITY": identity_string(reservation_identity),
+        "DIAG_RESERVATION_PORTABLE_IDENTITY": portable_identity_string(portable(reservation_identity)),
         "DIAG_SCRATCH_ROOT": str(scratch),
-        "DIAG_SOURCE_IDENTITY": identity_string(identity(expected_source)),
+        "DIAG_SOURCE_IDENTITY": identity_string(launch_body["source"]["root_identity"]),
+        "DIAG_SOURCE_PORTABLE_IDENTITY": portable_identity_string(launch_body["source"]["portable_root_identity"]),
         "DIAG_SOURCE_REVISION": revisions["revision"],
         "DIAG_SOURCE_ROOT": str(expected_source),
         "DIAG_SOURCE_TREE": revisions["tree"],
@@ -2147,7 +2257,10 @@ def test_real_wrapper_emits_only_static_preflight_telemetry(tmp_path: Path, fail
         "PYTHON_BIN_X86_64": "python3",
         "PYTHON_SITE_X86_64": str(site),
         "PYTHON_SITE_X86_64_ENTRY_COUNT": str(site_inventory["entry_count"]),
-        "PYTHON_SITE_X86_64_IDENTITY": identity_string(identity(site)),
+        "PYTHON_SITE_X86_64_IDENTITY": identity_string(launch_body["runtime"]["site"]["root_identity"]),
+        "PYTHON_SITE_X86_64_PORTABLE_IDENTITY": portable_identity_string(
+            launch_body["runtime"]["site"]["portable_root_identity"]
+        ),
         "PYTHON_SITE_X86_64_MANIFEST_SHA256": str(site_inventory["manifest_sha256"]),
         "PYTHON_SITE_X86_64_TOTAL_BYTES": str(site_inventory["total_bytes"]),
         "SLURM_EXPORT_ENV": "NONE",
@@ -2236,15 +2349,21 @@ def test_real_wrapper_emits_only_static_preflight_telemetry(tmp_path: Path, fail
 
     raw_secret = "RAW_PRIVATE_CREDENTIAL_MUST_NOT_APPEAR"
     raw_missing_path = tmp_path / f"missing-{raw_secret}"
-    if failure_case == "device_only":
-        values = exported["DIAG_BUNDLE_IDENTITY"].split(":")
-        values[0] = str(int(values[0]) + 1)
-        exported["DIAG_BUNDLE_IDENTITY"] = ":".join(values)
-    elif failure_case == "multiple":
+    if failure_case == "multiple":
         values = exported["DIAG_SOURCE_IDENTITY"].split(":")
         values[0] = str(int(values[0]) + 1)
         values[1] = str(int(values[1]) + 1)
         exported["DIAG_SOURCE_IDENTITY"] = ":".join(values)
+    elif failure_case == "content_drift":
+        probe_path.chmod(0o700)
+        probe_path.write_bytes(probe_path.read_bytes() + b"# changed\n")
+        probe_path.chmod(0o500)
+    elif failure_case == "path_drift":
+        exported["DIAG_SOURCE_ROOT"] = str(expected_source.parent / ".." / "sources" / expected_source.name)
+    elif failure_case == "symlink_path":
+        source_alias = tmp_path / "source-alias"
+        source_alias.symlink_to(expected_source, target_is_directory=True)
+        exported["DIAG_SOURCE_ROOT"] = str(source_alias)
     elif failure_case == "unreadable":
         exported["DIAG_SOURCE_ROOT"] = str(raw_missing_path)
     elif failure_case == "required_missing":
@@ -2265,10 +2384,35 @@ def test_real_wrapper_emits_only_static_preflight_telemetry(tmp_path: Path, fail
         check=False,
     )
     expected_failure = {
-        "device_only": (
-            b'{"code":"diagnostic_job_failed","directory_identities":{"bundle":"device_only",'
-            b'"output_parent":"match","reservation":"match","site":"match","source":"match"},'
+        "inode_only": (
+            b'{"code":"diagnostic_job_failed","directory_identities":{"bundle":"match",'
+            b'"output_parent":"match","reservation":"match","site":"match","source":"inode_only"},'
             b'"stage":"directory_identity","state":"failed"}\n'
+        ),
+        "mode_only": (
+            b'{"code":"diagnostic_job_failed","directory_identities":{"bundle":"match",'
+            b'"output_parent":"match","reservation":"match","site":"mode_only","source":"match"},'
+            b'"stage":"directory_identity","state":"failed"}\n'
+        ),
+        "owner_only": (
+            b'{"code":"diagnostic_job_failed","directory_identities":{"bundle":"match",'
+            b'"output_parent":"owner_only","reservation":"match","site":"match","source":"match"},'
+            b'"stage":"directory_identity","state":"failed"}\n'
+        ),
+        "content_drift": (
+            b'{"code":"diagnostic_job_failed","directory_identities":{"bundle":"match",'
+            b'"output_parent":"match","reservation":"match","site":"match","source":"match"},'
+            b'"stage":"bundle_artifacts","state":"failed"}\n'
+        ),
+        "path_drift": (
+            b'{"code":"diagnostic_job_failed","directory_identities":{"bundle":"not_checked",'
+            b'"output_parent":"not_checked","reservation":"not_checked","site":"not_checked",'
+            b'"source":"not_checked"},"stage":"path_shape","state":"failed"}\n'
+        ),
+        "symlink_path": (
+            b'{"code":"diagnostic_job_failed","directory_identities":{"bundle":"not_checked",'
+            b'"output_parent":"not_checked","reservation":"not_checked","site":"not_checked",'
+            b'"source":"not_checked"},"stage":"path_shape","state":"failed"}\n'
         ),
         "multiple": (
             b'{"code":"diagnostic_job_failed","directory_identities":{"bundle":"match",'
@@ -2336,13 +2480,22 @@ def test_real_wrapper_emits_only_static_preflight_telemetry(tmp_path: Path, fail
             b'"stage":"required_environment","state":"failed"}\n'
         ),
     }
-    if failure_case == "success":
+    if failure_case in {"success", "device_only"}:
         assert result.returncode == 0, result.stderr.decode(errors="replace")
         assert result.stderr == b""
+        classification = b"device_only" if failure_case == "device_only" else b"match"
         assert result.stdout == (
-            b'{"directory_identities":{"bundle":"match","output_parent":"match",'
-            b'"reservation":"match","site":"match","source":"match"},'
-            b'"stage":"prelease_admission","state":"passed"}\n'
+            b'{"directory_identities":{"bundle":"'
+            + classification
+            + b'","output_parent":"'
+            + classification
+            + b'","reservation":"'
+            + classification
+            + b'","site":"'
+            + classification
+            + b'","source":"'
+            + classification
+            + b'"},"stage":"prelease_admission","state":"passed"}\n'
         )
     else:
         assert result.returncode == 2
@@ -3004,7 +3157,7 @@ def test_external_finalizer_writes_receipt_outside_sealed_output(monkeypatch, tm
     job = {
         "cluster": "fair-cw-use2-3",
         "job_id": "42",
-        "job_name": "vmvm-v6-preflight-" + "f" * 24,
+        "job_name": "vmvm-v7-preflight-" + "f" * 24,
     }
     source_root, source_revisions = build_git_source_fixture(tmp_path)
     site_root = tmp_path / "site-root"
@@ -3065,6 +3218,9 @@ def test_external_finalizer_writes_receipt_outside_sealed_output(monkeypatch, tm
         finally:
             os.close(descriptor)
 
+    def portable(value: dict[str, int]) -> dict[str, int]:
+        return FINALIZE.portable_directory_identity(value)
+
     site_fd = os.open(site_root, os.O_RDONLY | os.O_DIRECTORY)
     try:
         site_inventory = FINALIZE._directory_manifest(site_fd)
@@ -3111,6 +3267,7 @@ def test_external_finalizer_writes_receipt_outside_sealed_output(monkeypatch, tm
         "artifact_type": "vmvm_task_free_diagnostic_authorization_v2",
         "bundle": {
             **bundle_records,
+            "portable_root_identity": portable(identity(bundle_root)),
             "root_identity": identity(bundle_root),
         },
         "credentials": {
@@ -3120,7 +3277,7 @@ def test_external_finalizer_writes_receipt_outside_sealed_output(monkeypatch, tm
         "launch": {
             "account": "ram",
             "cluster": FINALIZE.CLUSTER,
-            "comment": f"vmvm-v6-preflight:{'f' * 24}",
+            "comment": f"vmvm-v7-preflight:{'f' * 24}",
             "completion_receipt": str(receipt_path),
             "cpus": 2,
             "environment_export": FINALIZE.ENVIRONMENT_EXPORT_POLICY,
@@ -3129,6 +3286,7 @@ def test_external_finalizer_writes_receipt_outside_sealed_output(monkeypatch, tm
             "memory": "8G",
             "nodes": 1,
             "output_parent_identity": identity(tmp_path),
+            "output_parent_portable_identity": portable(identity(tmp_path)),
             "output_root": str(output),
             "partition": "cpu_x86",
             "qos": "cpu_x86_lowest",
@@ -3136,17 +3294,14 @@ def test_external_finalizer_writes_receipt_outside_sealed_output(monkeypatch, tm
             "scratch_root": str(FINALIZE.SCRATCH_ROOT),
             "time_limit": FINALIZE.JOB_TIME_LIMIT,
         },
-        "protocol": {
-            "diagnostic_only": True,
-            "preflight_only": True,
-            "production_authorized": False,
-        },
+        "protocol": FINALIZE.PREFLIGHT_PROTOCOL,
         "runtime": {
             "image": FINALIZE.IMAGE,
             "python_name": "python3",
             "site": {
                 "inventory": site_inventory,
                 "path": str(site_root),
+                "portable_root_identity": portable(identity(site_root)),
                 "root_identity": identity(site_root),
             },
             "uv": {
@@ -3165,6 +3320,7 @@ def test_external_finalizer_writes_receipt_outside_sealed_output(monkeypatch, tm
             "pydantic_config_revision": FINALIZE.PYDANTIC_CONFIG_REVISION,
             "renderers_revision": FINALIZE.RENDERERS_REVISION,
             "revision": FINALIZE.SOURCE_REVISION,
+            "portable_root_identity": portable(identity(source_root)),
             "root_identity": identity(source_root),
             "tree": FINALIZE.SOURCE_TREE,
             "verifiers_revision": FINALIZE.VERIFIERS_REVISION,
@@ -3193,6 +3349,20 @@ def test_external_finalizer_writes_receipt_outside_sealed_output(monkeypatch, tm
             "missing-export-policy",
             "authorization_invalid",
             lambda body: body["launch"].pop("environment_export"),
+        ),
+        (
+            "bad-directory-identity-policy",
+            "authorization_invalid",
+            lambda body: body["protocol"]["directory_identity_policy"].update(
+                {"cross_host_variance": ["device", "inode"]}
+            ),
+        ),
+        (
+            "bad-portable-identity",
+            "authorization_invalid",
+            lambda body: body["source"]["portable_root_identity"].update(
+                {"inode": body["source"]["portable_root_identity"]["inode"] + 1}
+            ),
         ),
         (
             "bad-bundle-self-hash",
@@ -3272,28 +3442,40 @@ def test_external_finalizer_writes_receipt_outside_sealed_output(monkeypatch, tm
     job_authorization_raw = FINALIZE.canonical_json(job_authorization) + b"\n"
     job_authorization_sha = FINALIZE.sha256_bytes(job_authorization_raw)
     identity_string = lambda value: ":".join(str(value[name]) for name in ("device", "inode", "mode", "owner_uid"))
+    portable_identity_string = lambda value: ":".join(str(value[name]) for name in ("inode", "mode", "owner_uid"))
     exported = {
         "DIAG_ACTIVATION_PERMIT": str(reservation / "activation_permit.json"),
         "DIAG_AUTHORIZATION": str(launch_authorization_path),
         "DIAG_AUTHORIZATION_FILE_SHA256": launch_authorization_file_sha,
         "DIAG_AUTHORIZATION_SHA256": launch_authorization_sha,
-        "DIAG_BUNDLE_IDENTITY": identity_string(identity(bundle_root)),
+        "DIAG_BUNDLE_IDENTITY": identity_string(launch_authorization_body["bundle"]["root_identity"]),
+        "DIAG_BUNDLE_PORTABLE_IDENTITY": portable_identity_string(
+            launch_authorization_body["bundle"]["portable_root_identity"]
+        ),
         "DIAG_BUNDLE_ROOT": str(bundle_root),
         "DIAG_COMPLETION_RECEIPT": str(receipt_path),
+        "DIAG_DIRECTORY_IDENTITY_POLICY": FINALIZE.DIRECTORY_IDENTITY_POLICY_NAME,
         "DIAG_FINALIZER_PATH": bundle_records["finalizer"]["path"],
         "DIAG_FINALIZER_SHA256": bundle_records["finalizer"]["sha256"],
         "DIAG_JOB_AUTHORIZATION": str(reservation / "job_authorization.json"),
         "DIAG_JOB_NAME": job["job_name"],
         "DIAG_LAUNCHER_PATH": bundle_records["launcher"]["path"],
         "DIAG_LAUNCHER_SHA256": bundle_records["launcher"]["sha256"],
-        "DIAG_OUTPUT_PARENT_IDENTITY": identity_string(identity(tmp_path)),
+        "DIAG_OUTPUT_PARENT_IDENTITY": identity_string(launch_authorization_body["launch"]["output_parent_identity"]),
+        "DIAG_OUTPUT_PARENT_PORTABLE_IDENTITY": portable_identity_string(
+            launch_authorization_body["launch"]["output_parent_portable_identity"]
+        ),
         "DIAG_OUTPUT_ROOT": str(output),
         "DIAG_PROBE_PATH": bundle_records["probe"]["path"],
         "DIAG_PROBE_SHA256": bundle_records["probe"]["sha256"],
         "DIAG_RESERVATION": str(reservation),
         "DIAG_RESERVATION_IDENTITY": identity_string(reservation_environment_identity),
+        "DIAG_RESERVATION_PORTABLE_IDENTITY": portable_identity_string(portable(reservation_environment_identity)),
         "DIAG_SCRATCH_ROOT": str(FINALIZE.SCRATCH_ROOT),
-        "DIAG_SOURCE_IDENTITY": identity_string(identity(source_root)),
+        "DIAG_SOURCE_IDENTITY": identity_string(launch_authorization_body["source"]["root_identity"]),
+        "DIAG_SOURCE_PORTABLE_IDENTITY": portable_identity_string(
+            launch_authorization_body["source"]["portable_root_identity"]
+        ),
         "DIAG_SOURCE_REVISION": FINALIZE.SOURCE_REVISION,
         "DIAG_SOURCE_ROOT": str(source_root),
         "DIAG_SOURCE_TREE": FINALIZE.SOURCE_TREE,
@@ -3311,7 +3493,10 @@ def test_external_finalizer_writes_receipt_outside_sealed_output(monkeypatch, tm
         "PYTHON_BIN_X86_64": "python3",
         "PYTHON_SITE_X86_64": str(site_root),
         "PYTHON_SITE_X86_64_ENTRY_COUNT": str(site_inventory["entry_count"]),
-        "PYTHON_SITE_X86_64_IDENTITY": identity_string(identity(site_root)),
+        "PYTHON_SITE_X86_64_IDENTITY": identity_string(launch_authorization_body["runtime"]["site"]["root_identity"]),
+        "PYTHON_SITE_X86_64_PORTABLE_IDENTITY": portable_identity_string(
+            launch_authorization_body["runtime"]["site"]["portable_root_identity"]
+        ),
         "PYTHON_SITE_X86_64_MANIFEST_SHA256": site_inventory["manifest_sha256"],
         "PYTHON_SITE_X86_64_TOTAL_BYTES": str(site_inventory["total_bytes"]),
         "SLURM_EXPORT_ENV": "NONE",

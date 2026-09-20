@@ -40,11 +40,11 @@ X86_SITE = BASE / "python_x86_64"
 VACLI = Path("/public/fbpkgs/x86_64/vacli/stable/vacli")
 VACLI_RESOLVED = Path("/infra/public/fbpkgs/x86_64/vacli/794/vacli")
 VACLI_SHA256 = "8be49a764bd0fac1a3ef2bef053ced556d18397d44642660eb8a2d22a7c235b3"
-OUTPUT_ROOT = BASE / "diagnostics/vmvm_v21_task_free_preflight_a09a9a189_v6_export_file"
+OUTPUT_ROOT = BASE / "diagnostics/vmvm_v21_task_free_preflight_a09a9a189_v7_portable_identity"
 RESERVATION = Path(f"{OUTPUT_ROOT}.launch-reservation")
 COMPLETION_RECEIPT = Path(f"{OUTPUT_ROOT}.external-completion.json")
-LOG_ROOT = BASE / "logs/vmvm_v21_task_free_preflight_a09a9a189_v6_export_file"
-SCRATCH_ROOT = Path("/tmp/vmvm-v21-task-free-preflight-v6-export-file")
+LOG_ROOT = BASE / "logs/vmvm_v21_task_free_preflight_a09a9a189_v7_portable_identity"
+SCRATCH_ROOT = Path("/tmp/vmvm-v21-task-free-preflight-v7-portable-identity")
 CLUSTER = "fair-cw-use2-3"
 OWNER = "tianhaowu"
 OWNER_IDENTITY = "tianhaowu(656177)"
@@ -70,7 +70,7 @@ SHA_RE = re.compile(r"[0-9a-f]{64}")
 REV_RE = re.compile(r"[0-9a-f]{40}")
 JOB_RE = re.compile(r"[1-9][0-9]*")
 TOKEN_RE = re.compile(r"[0-9a-f]{24}")
-NAME_RE = re.compile(r"vmvm-v6-preflight-([0-9a-f]{24})")
+NAME_RE = re.compile(r"vmvm-v7-preflight-([0-9a-f]{24})")
 ACTIVE_STATES = {"PENDING", "CONFIGURING", "RUNNING", "COMPLETING"}
 TERMINAL_STATES = {
     "BOOT_FAIL",
@@ -86,7 +86,15 @@ TERMINAL_STATES = {
 }
 X2P_NAMES = ("X2P_ENV", "X2P_CFG_ENV", "X2P_PROXY_URL")
 TLS_NAMES = ("THRIFT_TLS_CL_CERT_PATH", "THRIFT_TLS_CL_KEY_PATH")
+DIRECTORY_IDENTITY_POLICY_NAME = "nfs_portable_inode_mode_uid_v1"
+DIRECTORY_IDENTITY_POLICY = {
+    "batch_fields": ["inode", "mode", "owner_uid"],
+    "cross_host_variance": ["device"],
+    "launcher_fields": ["device", "inode", "mode", "owner_uid"],
+    "path_binding": "absolute_canonical_no_symlink",
+}
 PREFLIGHT_PROTOCOL = {
+    "directory_identity_policy": DIRECTORY_IDENTITY_POLICY,
     "diagnostic_only": True,
     "preflight_only": True,
     "production_authorized": False,
@@ -176,12 +184,36 @@ def directory_identity(descriptor: int) -> dict[str, int]:
     }
 
 
+def portable_directory_identity(
+    identity: Mapping[str, object], *, code: str = "directory_binding_invalid"
+) -> dict[str, int]:
+    if set(identity) != {"device", "inode", "mode", "owner_uid"} or any(
+        type(identity.get(name)) is not int for name in ("device", "inode", "mode", "owner_uid")
+    ):
+        fail(code)
+    return {name: int(identity[name]) for name in ("inode", "mode", "owner_uid")}
+
+
+def portable_identity_string(identity: Mapping[str, object]) -> str:
+    if set(identity) != {"inode", "mode", "owner_uid"} or any(
+        type(identity.get(name)) is not int for name in ("inode", "mode", "owner_uid")
+    ):
+        fail("directory_binding_invalid")
+    return ":".join(str(identity[name]) for name in ("inode", "mode", "owner_uid"))
+
+
 def open_bound_directory(
     path: Path,
     expected: Mapping[str, object] | None = None,
     *,
     code: str = "directory_binding_invalid",
 ) -> int:
+    try:
+        canonical = path.is_absolute() and path == Path(os.path.normpath(path)) and path.resolve(strict=True) == path
+    except OSError as error:
+        raise LaunchError(code) from error
+    if not canonical:
+        fail(code)
     try:
         descriptor = os.open(path, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
     except OSError as error:
@@ -462,6 +494,7 @@ def validate_authorization(
     assert isinstance(protocol, dict)
     if set(source) != {
         "path",
+        "portable_root_identity",
         "pydantic_config_revision",
         "renderers_revision",
         "revision",
@@ -483,7 +516,12 @@ def validate_authorization(
     ):
         fail("authorization_source_invalid")
     source_identity = source.get("root_identity")
-    if not isinstance(source_identity, dict):
+    source_portable_identity = source.get("portable_root_identity")
+    if (
+        not isinstance(source_identity, dict)
+        or not isinstance(source_portable_identity, dict)
+        or source_portable_identity != portable_directory_identity(source_identity, code="authorization_source_invalid")
+    ):
         fail("authorization_source_invalid")
     source_fd = open_bound_directory(SOURCE_ROOT, source_identity, code="authorization_source_invalid")
     os.close(source_fd)
@@ -501,8 +539,11 @@ def validate_authorization(
         fail("authorization_bundle_invalid")
     artifact_fd = open_bound_directory(artifact_root, bundle_identity, code="authorization_bundle_invalid")
     root_status = os.fstat(artifact_fd)
+    bundle_portable_identity = bundle.get("portable_root_identity")
     if (
-        set(bundle) != set(expected_bundle) | {"root_identity"}
+        set(bundle) != set(expected_bundle) | {"portable_root_identity", "root_identity"}
+        or not isinstance(bundle_portable_identity, dict)
+        or bundle_portable_identity != portable_directory_identity(bundle_identity, code="authorization_bundle_invalid")
         or artifact_root.resolve(strict=True) != artifact_root
         or not stat.S_ISDIR(root_status.st_mode)
         or stat.S_IMODE(root_status.st_mode) != 0o700
@@ -526,13 +567,19 @@ def validate_authorization(
     site = runtime.get("site")
     if (
         not isinstance(site, dict)
-        or set(site) != {"inventory", "path", "root_identity"}
+        or set(site) != {"inventory", "path", "portable_root_identity", "root_identity"}
         or site.get("path") != str(X86_SITE)
     ):
         fail("authorization_runtime_invalid")
     site_identity = site.get("root_identity")
+    site_portable_identity = site.get("portable_root_identity")
     inventory = site.get("inventory")
-    if not isinstance(site_identity, dict) or not isinstance(inventory, dict):
+    if (
+        not isinstance(site_identity, dict)
+        or not isinstance(site_portable_identity, dict)
+        or site_portable_identity != portable_directory_identity(site_identity, code="authorization_runtime_invalid")
+        or not isinstance(inventory, dict)
+    ):
         fail("authorization_runtime_invalid")
     site_fd = open_bound_directory(X86_SITE, site_identity, code="authorization_runtime_invalid")
     try:
@@ -637,7 +684,7 @@ def validate_authorization(
         "cluster": CLUSTER,
         "completion_receipt": str(COMPLETION_RECEIPT),
         "comment": (
-            f"vmvm-v6-preflight:{NAME_RE.fullmatch(str(launch.get('job_name'))).group(1)}"
+            f"vmvm-v7-preflight:{NAME_RE.fullmatch(str(launch.get('job_name'))).group(1)}"
             if NAME_RE.fullmatch(str(launch.get("job_name"))) is not None
             else None
         ),
@@ -648,6 +695,7 @@ def validate_authorization(
         "memory": "8G",
         "nodes": 1,
         "output_parent_identity": launch.get("output_parent_identity"),
+        "output_parent_portable_identity": launch.get("output_parent_portable_identity"),
         "output_root": str(OUTPUT_ROOT),
         "partition": "cpu_x86",
         "qos": "cpu_x86_lowest",
@@ -658,7 +706,13 @@ def validate_authorization(
     if launch != expected_launch or NAME_RE.fullmatch(str(launch.get("job_name"))) is None:
         fail("authorization_launch_invalid")
     output_parent_identity = launch.get("output_parent_identity")
-    if not isinstance(output_parent_identity, dict):
+    output_parent_portable_identity = launch.get("output_parent_portable_identity")
+    if (
+        not isinstance(output_parent_identity, dict)
+        or not isinstance(output_parent_portable_identity, dict)
+        or output_parent_portable_identity
+        != portable_directory_identity(output_parent_identity, code="authorization_launch_invalid")
+    ):
         fail("authorization_launch_invalid")
     output_parent_fd = open_bound_directory(
         OUTPUT_ROOT.parent,
@@ -670,12 +724,16 @@ def validate_authorization(
         fail("authorization_protocol_invalid")
     private["job_name"] = str(launch["job_name"])
     private["source_identity"] = identity_string(source_identity)
+    private["source_portable_identity"] = portable_identity_string(source_portable_identity)
     private["bundle_identity"] = identity_string(bundle_identity)
+    private["bundle_portable_identity"] = portable_identity_string(bundle_portable_identity)
     private["site_identity"] = identity_string(site_identity)
+    private["site_portable_identity"] = portable_identity_string(site_portable_identity)
     private["site_manifest_sha256"] = str(inventory.get("manifest_sha256"))
     private["site_entry_count"] = str(inventory.get("entry_count"))
     private["site_total_bytes"] = str(inventory.get("total_bytes"))
     private["output_parent_identity"] = identity_string(output_parent_identity)
+    private["output_parent_portable_identity"] = portable_identity_string(output_parent_portable_identity)
     return private
 
 
@@ -1094,7 +1152,7 @@ def _base_mismatches(record: Mapping[str, str], job_id: str, job_name: str) -> s
     expected = {
         "Account": "ram",
         "Command": "(null)",
-        "Comment": f"vmvm-v6-preflight:{token.group(1)}",
+        "Comment": f"vmvm-v7-preflight:{token.group(1)}",
         "Dependency": "(null)",
         "JobId": job_id,
         "JobName": job_name,
@@ -1489,13 +1547,14 @@ def _submission_environment(
     wrapper_sha256: str,
     probe_sha256: str,
     finalizer_sha256: str,
-    reservation_identity: str,
+    reservation_identity: Mapping[str, object],
 ) -> dict[str, str]:
     values = {
         "DIAG_ACTIVATION_PERMIT": str(RESERVATION / "activation_permit.json"),
         "DIAG_AUTHORIZATION": str(authorization),
         "DIAG_AUTHORIZATION_FILE_SHA256": authorization_file_sha256,
         "DIAG_AUTHORIZATION_SHA256": authorization_sha256,
+        "DIAG_BUNDLE_PORTABLE_IDENTITY": private["bundle_portable_identity"],
         "DIAG_BUNDLE_ROOT": str(Path(__file__).resolve(strict=True).parent),
         "DIAG_BUNDLE_IDENTITY": private["bundle_identity"],
         "DIAG_COMPLETION_RECEIPT": str(COMPLETION_RECEIPT),
@@ -1505,16 +1564,22 @@ def _submission_environment(
         "DIAG_JOB_NAME": private["job_name"],
         "DIAG_LAUNCHER_PATH": str(Path(__file__).resolve(strict=True)),
         "DIAG_LAUNCHER_SHA256": launcher_sha256,
+        "DIAG_DIRECTORY_IDENTITY_POLICY": DIRECTORY_IDENTITY_POLICY_NAME,
         "DIAG_OUTPUT_ROOT": str(OUTPUT_ROOT),
         "DIAG_OUTPUT_PARENT_IDENTITY": private["output_parent_identity"],
+        "DIAG_OUTPUT_PARENT_PORTABLE_IDENTITY": private["output_parent_portable_identity"],
         "DIAG_PROBE_PATH": str(Path(__file__).resolve(strict=True).parent / "probe_vmvm_task_free_v2.py"),
         "DIAG_PROBE_SHA256": probe_sha256,
         "DIAG_RESERVATION": str(RESERVATION),
-        "DIAG_RESERVATION_IDENTITY": reservation_identity,
+        "DIAG_RESERVATION_IDENTITY": identity_string(reservation_identity),
+        "DIAG_RESERVATION_PORTABLE_IDENTITY": portable_identity_string(
+            portable_directory_identity(reservation_identity)
+        ),
         "DIAG_SCRATCH_ROOT": str(SCRATCH_ROOT),
         "DIAG_SOURCE_REVISION": SOURCE_REVISION,
         "DIAG_SOURCE_ROOT": str(SOURCE_ROOT),
         "DIAG_SOURCE_IDENTITY": private["source_identity"],
+        "DIAG_SOURCE_PORTABLE_IDENTITY": private["source_portable_identity"],
         "DIAG_SOURCE_TREE": SOURCE_TREE,
         "DIAG_SUBMISSION_RECEIPT": str(RESERVATION / "submission_receipt.json"),
         "DIAG_VMVM_SHA256": VMVM_SHA256,
@@ -1531,6 +1596,7 @@ def _submission_environment(
         "PYTHON_SITE_X86_64": str(X86_SITE),
         "PYTHON_SITE_X86_64_ENTRY_COUNT": private["site_entry_count"],
         "PYTHON_SITE_X86_64_IDENTITY": private["site_identity"],
+        "PYTHON_SITE_X86_64_PORTABLE_IDENTITY": private["site_portable_identity"],
         "PYTHON_SITE_X86_64_MANIFEST_SHA256": private["site_manifest_sha256"],
         "PYTHON_SITE_X86_64_TOTAL_BYTES": private["site_total_bytes"],
         "SLURM_EXPORT_ENV": "NONE",
@@ -1560,7 +1626,7 @@ def _sbatch_command(job_name: str, environment_path: Path) -> list[str]:
         "--parsable",
         "--hold",
         f"--job-name={job_name}",
-        f"--comment=vmvm-v6-preflight:{token.group(1)}",
+        f"--comment=vmvm-v7-preflight:{token.group(1)}",
         f"--chdir={SOURCE_ROOT}",
         f"--time={JOB_TIME_LIMIT}",
         "--nodes=1",
@@ -2091,7 +2157,7 @@ def launch(authorization_path: Path, authorization_file_sha256: str) -> dict[str
             wrapper_sha256=sha256_bytes(wrapper_raw),
             probe_sha256=sha256_bytes(probe_raw),
             finalizer_sha256=sha256_bytes(finalizer_raw),
-            reservation_identity=identity_string(admitted_reservation_identity),
+            reservation_identity=admitted_reservation_identity,
         )
         environment_path = Path(f"/proc/self/fd/{reservation_fd}/slurm_environment.bin")
         environment_raw, environment_sha = _write_environment_at(reservation_fd, "slurm_environment.bin", environment)

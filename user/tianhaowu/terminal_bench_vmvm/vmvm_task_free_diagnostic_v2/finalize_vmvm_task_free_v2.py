@@ -21,11 +21,11 @@ from typing import Any
 
 BASE = Path("/checkpoint/ram/tianhaowu/terminal_bench_vmvm")
 SOURCE_ROOT = BASE / "sources/prime-rl-a09a9a189-v21"
-OUTPUT_ROOT = BASE / "diagnostics/vmvm_v21_task_free_preflight_a09a9a189_v6_export_file"
+OUTPUT_ROOT = BASE / "diagnostics/vmvm_v21_task_free_preflight_a09a9a189_v7_portable_identity"
 COMPLETION_RECEIPT = Path(f"{OUTPUT_ROOT}.external-completion.json")
 RESERVATION = Path(f"{OUTPUT_ROOT}.launch-reservation")
-LOG_ROOT = BASE / "logs/vmvm_v21_task_free_preflight_a09a9a189_v6_export_file"
-SCRATCH_ROOT = Path("/tmp/vmvm-v21-task-free-preflight-v6-export-file")
+LOG_ROOT = BASE / "logs/vmvm_v21_task_free_preflight_a09a9a189_v7_portable_identity"
+SCRATCH_ROOT = Path("/tmp/vmvm-v21-task-free-preflight-v7-portable-identity")
 X86_UV = Path("/storage/home/tianhaowu/.local/x86_64/bin/uv")
 X86_SITE = BASE / "python_x86_64"
 VACLI = Path("/public/fbpkgs/x86_64/vacli/stable/vacli")
@@ -44,7 +44,15 @@ CLUSTER = "fair-cw-use2-3"
 JOB_TIME_LIMIT = "1-12:00:00"
 TLS_NAMES = ("THRIFT_TLS_CL_CERT_PATH", "THRIFT_TLS_CL_KEY_PATH")
 X2P_NAMES = ("X2P_ENV", "X2P_CFG_ENV", "X2P_PROXY_URL")
+DIRECTORY_IDENTITY_POLICY_NAME = "nfs_portable_inode_mode_uid_v1"
+DIRECTORY_IDENTITY_POLICY = {
+    "batch_fields": ["inode", "mode", "owner_uid"],
+    "cross_host_variance": ["device"],
+    "launcher_fields": ["device", "inode", "mode", "owner_uid"],
+    "path_binding": "absolute_canonical_no_symlink",
+}
 PREFLIGHT_PROTOCOL = {
+    "directory_identity_policy": DIRECTORY_IDENTITY_POLICY,
     "diagnostic_only": True,
     "preflight_only": True,
     "production_authorized": False,
@@ -152,6 +160,14 @@ def descriptor_identity(descriptor: int) -> dict[str, int]:
         "mode": stat.S_IMODE(info.st_mode),
         "owner_uid": info.st_uid,
     }
+
+
+def portable_directory_identity(identity: Mapping[str, object]) -> dict[str, int]:
+    if set(identity) != {"device", "inode", "mode", "owner_uid"} or any(
+        type(identity.get(name)) is not int for name in ("device", "inode", "mode", "owner_uid")
+    ):
+        fail("authorization_invalid")
+    return {name: int(identity[name]) for name in ("inode", "mode", "owner_uid")}
 
 
 def stable_file_at(
@@ -583,7 +599,7 @@ def validate_certificate(
         or set(job) != {"cluster", "job_id", "job_name"}
         or job.get("cluster") != "fair-cw-use2-3"
         or JOB_RE.fullmatch(str(job.get("job_id"))) is None
-        or re.fullmatch(r"vmvm-v6-preflight-[0-9a-f]{24}", str(job.get("job_name"))) is None
+        or re.fullmatch(r"vmvm-v7-preflight-[0-9a-f]{24}", str(job.get("job_name"))) is None
         or protocol
         != {
             "causal_scope": "construction_backend_ready",
@@ -706,6 +722,8 @@ def _open_bound_directory(
     }:
         fail("authorization_invalid")
     try:
+        if not path.is_absolute() or path != Path(os.path.normpath(path)) or path.resolve(strict=True) != path:
+            fail("authorization_invalid")
         descriptor = os.open(path, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
     except OSError as error:
         raise FinalizeError("authorization_invalid") from error
@@ -1205,6 +1223,7 @@ def _validate_launch_authorization(
 
     if set(source) != {
         "path",
+        "portable_root_identity",
         "pydantic_config_revision",
         "renderers_revision",
         "revision",
@@ -1214,6 +1233,7 @@ def _validate_launch_authorization(
         "vmvm_sha256",
     } or source != {
         "path": str(SOURCE_ROOT),
+        "portable_root_identity": source.get("portable_root_identity"),
         "pydantic_config_revision": PYDANTIC_CONFIG_REVISION,
         "renderers_revision": RENDERERS_REVISION,
         "revision": SOURCE_REVISION,
@@ -1222,6 +1242,8 @@ def _validate_launch_authorization(
         "verifiers_revision": VERIFIERS_REVISION,
         "vmvm_sha256": VMVM_SHA256,
     }:
+        fail("authorization_invalid")
+    if source.get("portable_root_identity") != portable_directory_identity(source["root_identity"]):
         fail("authorization_invalid")
     source_fd = _open_bound_directory(SOURCE_ROOT, source["root_identity"])
     try:
@@ -1238,7 +1260,9 @@ def _validate_launch_authorization(
         "tests": (bundle_root / "test_vmvm_task_free_v2.py", 0o400),
         "wrapper": (bundle_root / "run_vmvm_task_free_v2.sbatch", 0o500),
     }
-    if set(bundle) != set(expected_bundle) | {"root_identity"}:
+    if set(bundle) != set(expected_bundle) | {"portable_root_identity", "root_identity"} or bundle.get(
+        "portable_root_identity"
+    ) != portable_directory_identity(bundle["root_identity"]):
         fail("authorization_invalid")
     bundle_fd = _open_bound_directory(bundle_root, bundle.get("root_identity"), required_mode=0o700)
     try:
@@ -1276,9 +1300,10 @@ def _validate_launch_authorization(
         runtime.get("image") != IMAGE
         or runtime.get("python_name") != "python3"
         or not isinstance(site, dict)
-        or set(site) != {"inventory", "path", "root_identity"}
+        or set(site) != {"inventory", "path", "portable_root_identity", "root_identity"}
         or site.get("path") != str(X86_SITE)
         or not isinstance(site.get("inventory"), dict)
+        or site.get("portable_root_identity") != portable_directory_identity(site["root_identity"])
     ):
         fail("authorization_invalid")
     site_fd = _open_bound_directory(X86_SITE, site.get("root_identity"))
@@ -1372,11 +1397,11 @@ def _validate_launch_authorization(
             fail("authorization_invalid")
 
     job_name = str(launch.get("job_name"))
-    token_match = re.fullmatch(r"vmvm-v6-preflight-([0-9a-f]{24})", job_name)
+    token_match = re.fullmatch(r"vmvm-v7-preflight-([0-9a-f]{24})", job_name)
     expected_launch = {
         "account": "ram",
         "cluster": CLUSTER,
-        "comment": f"vmvm-v6-preflight:{token_match.group(1)}" if token_match else None,
+        "comment": f"vmvm-v7-preflight:{token_match.group(1)}" if token_match else None,
         "completion_receipt": str(COMPLETION_RECEIPT),
         "cpus": 2,
         "environment_export": ENVIRONMENT_EXPORT_POLICY,
@@ -1385,6 +1410,7 @@ def _validate_launch_authorization(
         "memory": "8G",
         "nodes": 1,
         "output_parent_identity": launch.get("output_parent_identity"),
+        "output_parent_portable_identity": launch.get("output_parent_portable_identity"),
         "output_root": str(OUTPUT_ROOT),
         "partition": "cpu_x86",
         "qos": "cpu_x86_lowest",
@@ -1393,6 +1419,8 @@ def _validate_launch_authorization(
         "time_limit": JOB_TIME_LIMIT,
     }
     if token_match is None or launch != expected_launch:
+        fail("authorization_invalid")
+    if launch.get("output_parent_portable_identity") != portable_directory_identity(launch["output_parent_identity"]):
         fail("authorization_invalid")
     output_parent_fd = _open_bound_directory(OUTPUT_ROOT.parent, launch["output_parent_identity"])
     os.close(output_parent_fd)
@@ -1412,6 +1440,12 @@ def _identity_string(value: Mapping[str, object]) -> str:
     ):
         fail("submission_lineage_invalid")
     return ":".join(str(value[name]) for name in ("device", "inode", "mode", "owner_uid"))
+
+
+def _portable_identity_string(value: Mapping[str, object]) -> str:
+    if set(value) != {"inode", "mode", "owner_uid"} or any(type(value.get(name)) is not int for name in value):
+        fail("submission_lineage_invalid")
+    return ":".join(str(value[name]) for name in ("inode", "mode", "owner_uid"))
 
 
 def _parse_environment(raw: bytes) -> dict[str, str]:
@@ -1683,7 +1717,7 @@ def _validate_submission_lineage(
         or set(job) != {"cluster", "job_id", "job_name"}
         or job.get("cluster") != "fair-cw-use2-3"
         or JOB_RE.fullmatch(str(job.get("job_id"))) is None
-        or re.fullmatch(r"vmvm-v6-preflight-[0-9a-f]{24}", str(job.get("job_name"))) is None
+        or re.fullmatch(r"vmvm-v7-preflight-[0-9a-f]{24}", str(job.get("job_name"))) is None
     ):
         fail("submission_lineage_invalid")
     _validate_scheduler_telemetry(
@@ -1735,8 +1769,10 @@ def _validate_submission_lineage(
         "DIAG_AUTHORIZATION_FILE_SHA256": launch_file_sha256,
         "DIAG_AUTHORIZATION_SHA256": launch_authorization_sha256,
         "DIAG_BUNDLE_IDENTITY": _identity_string(bundle["root_identity"]),
+        "DIAG_BUNDLE_PORTABLE_IDENTITY": _portable_identity_string(bundle["portable_root_identity"]),
         "DIAG_BUNDLE_ROOT": str(Path(str(bundle["finalizer"]["path"])).parent),
         "DIAG_COMPLETION_RECEIPT": str(COMPLETION_RECEIPT),
+        "DIAG_DIRECTORY_IDENTITY_POLICY": DIRECTORY_IDENTITY_POLICY_NAME,
         "DIAG_FINALIZER_PATH": str(bundle["finalizer"]["path"]),
         "DIAG_FINALIZER_SHA256": str(bundle["finalizer"]["sha256"]),
         "DIAG_JOB_AUTHORIZATION": str(RESERVATION / "job_authorization.json"),
@@ -1744,13 +1780,18 @@ def _validate_submission_lineage(
         "DIAG_LAUNCHER_PATH": str(bundle["launcher"]["path"]),
         "DIAG_LAUNCHER_SHA256": str(bundle["launcher"]["sha256"]),
         "DIAG_OUTPUT_PARENT_IDENTITY": _identity_string(launch["output_parent_identity"]),
+        "DIAG_OUTPUT_PARENT_PORTABLE_IDENTITY": _portable_identity_string(launch["output_parent_portable_identity"]),
         "DIAG_OUTPUT_ROOT": str(OUTPUT_ROOT),
         "DIAG_PROBE_PATH": str(bundle["probe"]["path"]),
         "DIAG_PROBE_SHA256": str(bundle["probe"]["sha256"]),
         "DIAG_RESERVATION": str(RESERVATION),
         "DIAG_RESERVATION_IDENTITY": _identity_string(record["reservation_root_identity"]),
+        "DIAG_RESERVATION_PORTABLE_IDENTITY": _portable_identity_string(
+            portable_directory_identity(record["reservation_root_identity"])
+        ),
         "DIAG_SCRATCH_ROOT": str(SCRATCH_ROOT),
         "DIAG_SOURCE_IDENTITY": _identity_string(source["root_identity"]),
+        "DIAG_SOURCE_PORTABLE_IDENTITY": _portable_identity_string(source["portable_root_identity"]),
         "DIAG_SOURCE_REVISION": SOURCE_REVISION,
         "DIAG_SOURCE_ROOT": str(SOURCE_ROOT),
         "DIAG_SOURCE_TREE": SOURCE_TREE,
@@ -1769,6 +1810,7 @@ def _validate_submission_lineage(
         "PYTHON_SITE_X86_64": str(X86_SITE),
         "PYTHON_SITE_X86_64_ENTRY_COUNT": str(inventory["entry_count"]),
         "PYTHON_SITE_X86_64_IDENTITY": _identity_string(site["root_identity"]),
+        "PYTHON_SITE_X86_64_PORTABLE_IDENTITY": _portable_identity_string(site["portable_root_identity"]),
         "PYTHON_SITE_X86_64_MANIFEST_SHA256": str(inventory["manifest_sha256"]),
         "PYTHON_SITE_X86_64_TOTAL_BYTES": str(inventory["total_bytes"]),
         "SLURM_EXPORT_ENV": "NONE",
@@ -1898,7 +1940,7 @@ def finalize(
         }
         or job.get("cluster") != "fair-cw-use2-3"
         or JOB_RE.fullmatch(str(job.get("job_id"))) is None
-        or re.fullmatch(r"vmvm-v6-preflight-[0-9a-f]{24}", str(job.get("job_name"))) is None
+        or re.fullmatch(r"vmvm-v7-preflight-[0-9a-f]{24}", str(job.get("job_name"))) is None
         or job.get("terminal_state") not in {"COMPLETED", "FAILED", "TIMEOUT", "CANCELLED"}
         or SHA_RE.fullmatch(str(job.get("terminal_observation_sha256"))) is None
         or {

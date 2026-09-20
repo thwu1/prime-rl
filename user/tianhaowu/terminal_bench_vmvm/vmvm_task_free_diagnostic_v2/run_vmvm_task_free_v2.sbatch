@@ -101,21 +101,26 @@ readonly VMVM_SHA256=1e7c8ac2906a45d8212d609b5900fdc3d30f91ba73d4bcdb1c36dfc8bfd
 readonly X86_UV_SHA256=ec831939765474162efb6c8c813e2b10908b26b04eaf98ac3e2972fa12d189b9
 readonly VACLI_SHA256=8be49a764bd0fac1a3ef2bef053ced556d18397d44642660eb8a2d22a7c235b3
 readonly VACLI_RESOLVED=/infra/public/fbpkgs/x86_64/vacli/794/vacli
+readonly DIRECTORY_IDENTITY_POLICY=nfs_portable_inode_mode_uid_v1
 
 required_environment=(
     DIAG_ACTIVATION_PERMIT DIAG_AUTHORIZATION DIAG_AUTHORIZATION_FILE_SHA256
     DIAG_AUTHORIZATION_SHA256
-    DIAG_BUNDLE_IDENTITY DIAG_BUNDLE_ROOT DIAG_COMPLETION_RECEIPT
-    DIAG_FINALIZER_PATH DIAG_FINALIZER_SHA256 DIAG_JOB_AUTHORIZATION
+    DIAG_BUNDLE_IDENTITY DIAG_BUNDLE_PORTABLE_IDENTITY DIAG_BUNDLE_ROOT
+    DIAG_COMPLETION_RECEIPT DIAG_DIRECTORY_IDENTITY_POLICY DIAG_FINALIZER_PATH
+    DIAG_FINALIZER_SHA256 DIAG_JOB_AUTHORIZATION
     DIAG_JOB_NAME DIAG_LAUNCHER_PATH DIAG_LAUNCHER_SHA256 DIAG_OUTPUT_ROOT
-    DIAG_OUTPUT_PARENT_IDENTITY DIAG_PROBE_PATH DIAG_PROBE_SHA256
-    DIAG_RESERVATION DIAG_RESERVATION_IDENTITY DIAG_SCRATCH_ROOT
-    DIAG_SOURCE_IDENTITY DIAG_SOURCE_REVISION DIAG_SOURCE_ROOT
+    DIAG_OUTPUT_PARENT_IDENTITY DIAG_OUTPUT_PARENT_PORTABLE_IDENTITY
+    DIAG_PROBE_PATH DIAG_PROBE_SHA256 DIAG_RESERVATION
+    DIAG_RESERVATION_IDENTITY DIAG_RESERVATION_PORTABLE_IDENTITY
+    DIAG_SCRATCH_ROOT DIAG_SOURCE_IDENTITY DIAG_SOURCE_PORTABLE_IDENTITY
+    DIAG_SOURCE_REVISION DIAG_SOURCE_ROOT
     DIAG_SOURCE_TREE DIAG_SUBMISSION_RECEIPT DIAG_VMVM_SHA256
     DIAG_WRAPPER_GATE_TIMEOUT_SECONDS DIAG_WRAPPER_PATH DIAG_WRAPPER_SHA256
     HOME LANG LC_ALL LOGNAME PATH PYTHONDONTWRITEBYTECODE PYTHON_BIN_X86_64
     PYTHON_SITE_X86_64 PYTHON_SITE_X86_64_ENTRY_COUNT
-    PYTHON_SITE_X86_64_IDENTITY PYTHON_SITE_X86_64_MANIFEST_SHA256
+    PYTHON_SITE_X86_64_IDENTITY PYTHON_SITE_X86_64_PORTABLE_IDENTITY
+    PYTHON_SITE_X86_64_MANIFEST_SHA256
     PYTHON_SITE_X86_64_TOTAL_BYTES SLURM_EXPORT_ENV TZ USER UV_BIN_X86_64 VACLI_BIN
     VACLI_CONTAINER_PRIVILEGED VACLI_IMAGE_PULL_TIMEOUT_SECONDS
     VACLI_LEASE_RETRIES VACLI_MAX_CONCURRENT_LEASES VACLI_MAX_PULL_RETRIES
@@ -144,6 +149,7 @@ for variable in "${!PYTHON_@}"; do
         || $variable == PYTHON_SITE_X86_64 \
         || $variable == PYTHON_SITE_X86_64_ENTRY_COUNT \
         || $variable == PYTHON_SITE_X86_64_IDENTITY \
+        || $variable == PYTHON_SITE_X86_64_PORTABLE_IDENTITY \
         || $variable == PYTHON_SITE_X86_64_MANIFEST_SHA256 \
         || $variable == PYTHON_SITE_X86_64_TOTAL_BYTES ]] || fail
 done
@@ -159,6 +165,7 @@ failure_stage=fixed_environment
 if [[ $DIAG_SOURCE_REVISION != "$SOURCE_REVISION" \
     || $DIAG_SOURCE_TREE != "$SOURCE_TREE" \
     || $DIAG_VMVM_SHA256 != "$VMVM_SHA256" \
+    || $DIAG_DIRECTORY_IDENTITY_POLICY != "$DIRECTORY_IDENTITY_POLICY" \
     || $DIAG_WRAPPER_GATE_TIMEOUT_SECONDS != 900 \
     || $HOME != /storage/home/tianhaowu \
     || $LANG != C || $LC_ALL != C || $LOGNAME != tianhaowu \
@@ -185,6 +192,10 @@ for value in "$DIAG_BUNDLE_ROOT" "$DIAG_LAUNCHER_PATH" "$DIAG_WRAPPER_PATH" \
     "$VACLI_BIN" "$THRIFT_TLS_CL_CERT_PATH" "$THRIFT_TLS_CL_KEY_PATH"; do
     [[ $value == /* && $value != *$'\n'* && $value != *$'\r'* ]] || fail
 done
+for value in "$DIAG_BUNDLE_ROOT" "$DIAG_SOURCE_ROOT" "$PYTHON_SITE_X86_64" \
+    "$DIAG_RESERVATION" "${DIAG_OUTPUT_ROOT%/*}"; do
+    [[ ! -L $value && $(/usr/bin/readlink -f -- "$value") == "$value" ]] || fail
+done
 failure_stage=digest_shape
 for value in "$DIAG_AUTHORIZATION_FILE_SHA256" "$DIAG_AUTHORIZATION_SHA256" \
     "$DIAG_LAUNCHER_SHA256" \
@@ -197,6 +208,12 @@ for value in "$DIAG_BUNDLE_IDENTITY" "$DIAG_OUTPUT_PARENT_IDENTITY" \
     "$DIAG_RESERVATION_IDENTITY" "$DIAG_SOURCE_IDENTITY" \
     "$PYTHON_SITE_X86_64_IDENTITY"; do
     [[ $value =~ ^[0-9]+:[0-9]+:[0-9]+:[0-9]+$ ]] || fail
+done
+for value in "$DIAG_BUNDLE_PORTABLE_IDENTITY" \
+    "$DIAG_OUTPUT_PARENT_PORTABLE_IDENTITY" \
+    "$DIAG_RESERVATION_PORTABLE_IDENTITY" "$DIAG_SOURCE_PORTABLE_IDENTITY" \
+    "$PYTHON_SITE_X86_64_PORTABLE_IDENTITY"; do
+    [[ $value =~ ^[0-9]+:[0-9]+:[0-9]+$ ]] || fail
 done
 failure_stage=count_shape
 [[ $PYTHON_SITE_X86_64_ENTRY_COUNT =~ ^[1-9][0-9]*$ \
@@ -231,6 +248,15 @@ classify_directory_identity() {
     esac
 }
 
+portable_directory_identity() {
+    local fd=$1 raw inode permissions owner
+    raw=$(/usr/bin/stat -Lc '%i:%a:%u' -- "/proc/self/fd/$fd") || return 1
+    IFS=: read -r inode permissions owner <<< "$raw"
+    [[ $inode =~ ^[0-9]+$ && $permissions =~ ^[0-7]+$ && $owner =~ ^[0-9]+$ ]] \
+        || return 1
+    printf '%s:%s:%s' "$inode" "$((8#$permissions))" "$owner"
+}
+
 failure_stage=directory_open
 exec {bundle_fd}<"$DIAG_BUNDLE_ROOT" || {
     identity_bundle=unreadable
@@ -258,9 +284,17 @@ identity_source=$(classify_directory_identity "$source_fd" "$DIAG_SOURCE_IDENTIT
 identity_site=$(classify_directory_identity "$site_fd" "$PYTHON_SITE_X86_64_IDENTITY")
 identity_reservation=$(classify_directory_identity "$reservation_fd" "$DIAG_RESERVATION_IDENTITY")
 identity_output_parent=$(classify_directory_identity "$output_parent_fd" "$DIAG_OUTPUT_PARENT_IDENTITY")
-[[ $identity_bundle == match && $identity_source == match \
-    && $identity_site == match && $identity_reservation == match \
-    && $identity_output_parent == match ]] || fail
+[[ $identity_bundle == match || $identity_bundle == device_only ]] \
+    && [[ $identity_source == match || $identity_source == device_only ]] \
+    && [[ $identity_site == match || $identity_site == device_only ]] \
+    && [[ $identity_reservation == match || $identity_reservation == device_only ]] \
+    && [[ $identity_output_parent == match || $identity_output_parent == device_only ]] \
+    && [[ $(portable_directory_identity "$bundle_fd") == "$DIAG_BUNDLE_PORTABLE_IDENTITY" ]] \
+    && [[ $(portable_directory_identity "$source_fd") == "$DIAG_SOURCE_PORTABLE_IDENTITY" ]] \
+    && [[ $(portable_directory_identity "$site_fd") == "$PYTHON_SITE_X86_64_PORTABLE_IDENTITY" ]] \
+    && [[ $(portable_directory_identity "$reservation_fd") == "$DIAG_RESERVATION_PORTABLE_IDENTITY" ]] \
+    && [[ $(portable_directory_identity "$output_parent_fd") == "$DIAG_OUTPUT_PARENT_PORTABLE_IDENTITY" ]] \
+    || fail
 readonly BOUND_BUNDLE_ROOT="/proc/self/fd/$bundle_fd"
 readonly BOUND_SOURCE_ROOT="/proc/self/fd/$source_fd"
 readonly BOUND_SITE_ROOT="/proc/self/fd/$site_fd"
@@ -721,5 +755,6 @@ set -e
 (( job_authorization_rc == 0 )) \
     && [[ $job_authorization_sha256 =~ ^[0-9a-f]{64}$ ]] || fail
 readonly job_authorization_sha256
-printf '{"directory_identities":{"bundle":"match","output_parent":"match","reservation":"match","site":"match","source":"match"},"stage":"prelease_admission","state":"passed"}\n' \
-    >&"$public_stdout_fd"
+printf '{"directory_identities":{"bundle":"%s","output_parent":"%s","reservation":"%s","site":"%s","source":"%s"},"stage":"prelease_admission","state":"passed"}\n' \
+    "$identity_bundle" "$identity_output_parent" "$identity_reservation" \
+    "$identity_site" "$identity_source" >&"$public_stdout_fd"

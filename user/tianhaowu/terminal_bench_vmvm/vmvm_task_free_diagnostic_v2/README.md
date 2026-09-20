@@ -1,4 +1,4 @@
-# VMVM V21 task-free pre-lease diagnostic v6
+# VMVM V21 task-free pre-lease diagnostic v7
 
 This is an inert, aggregate-only preflight bundle. It does not authorize a
 Slurm job, create a VMVM lease, run the supervisor or a worker, read benchmark
@@ -7,24 +7,26 @@ unlaunched until an independent reviewer freezes all six files, publishes a
 separate mode-0400 authorization, proves every namespace is fresh, and approves
 the canonical-pane invocation.
 
-The v6 executable path exists only to verify the diagnosed v5 environment
-transport failure on an x86 node. V5 failed at `required_environment` with 49
-of 56 names missing and no empty names: Slurm retained only its baseline and
-two ambient X2P names because the submission combined `--export=NONE` with
-`--export-file`. V6 removes only the conflicting `--export=NONE`; its single
-private NUL-delimited export file remains the complete clean job environment
-and the authorization binds `environment_export=sealed_nul_file_only`. The
-authorization protocol is exactly:
+The v7 executable path exists only to verify the diagnosed v6 cross-host NFS
+identity failure on an x86 node. V6 proved the export-file repair: all required
+environment values arrived, then all five directory comparisons reported only
+`device_only`. No uv, probe, or VMVM lease was reached. V7 retains exactly one
+sealed `--export-file` and no `--export=NONE`. NFS `st_dev` is local
+to each client, so v7 retains the complete login-side device/inode/mode/owner
+binding and adds a separately authorized batch tuple of inode/mode/owner.
+Only the device may vary. Every path remains fixed, absolute, canonical, and
+symlink-free, and all existing content, Git, inventory, authorization, and
+receipt hashes remain mandatory. The authorization protocol is exactly:
 
 ```json
-{"diagnostic_only":true,"preflight_only":true,"production_authorized":false}
+{"diagnostic_only":true,"directory_identity_policy":{"batch_fields":["inode","mode","owner_uid"],"cross_host_variance":["device"],"launcher_fields":["device","inode","mode","owner_uid"],"path_binding":"absolute_canonical_no_symlink"},"preflight_only":true,"production_authorized":false}
 ```
 
 The sealed probe CLI accepts only `--validate-batch`; worker and supervisor
 arguments are not registered. The batch wrapper invokes that admission path
 exactly once and exits after its post-admission read-only checks. Although the
 six-file layout retains reviewed supervisor and finalizer library code, neither
-is reachable from the v6 command line or wrapper.
+is reachable from the v7 command line or wrapper.
 
 ## Read-only stages
 
@@ -34,8 +36,8 @@ The wrapper performs these operations, in order:
    digests, directory identities, and inventory counts.
 2. Open and retain descriptors for the frozen bundle, source, x86 Python site,
    reservation, and output parent.
-3. Classify each observed directory identity against its authorized
-   device/inode/mode/owner tuple.
+3. Classify each observed directory identity against its full launcher tuple,
+   then require its separately bound portable inode/mode/owner tuple exactly.
 4. Re-hash the six-file bundle, uv, vacli, authorization, source revision/tree,
    submodules, and imported VMVM implementation.
 5. Validate the sealed reservation and activation lineage.
@@ -69,7 +71,7 @@ the probe. The trampoline then re-executes the selected interpreter through
 Failure output is one canonical JSON object composed only from literal,
 allowlisted values. At `required_environment`, it reports the complete missing
 and empty classifications as lists of names drawn from the wrapper's fixed
-56-name allowlist. It never reports values, lengths, hashes, or shell errors:
+62-name allowlist. It never reports values, lengths, hashes, or shell errors:
 
 ```json
 {"code":"diagnostic_job_failed","required_environment":{"empty":["X2P_ENV"],"missing":["SLURM_EXPORT_ENV"]},"stage":"required_environment","state":"failed"}
@@ -94,40 +96,42 @@ After required-environment admission, the `directory_identities` object has the 
 credential, exception, or child output. For example:
 
 ```json
-{"code":"diagnostic_job_failed","directory_identities":{"bundle":"device_only","output_parent":"match","reservation":"match","site":"match","source":"match"},"stage":"directory_identity","state":"failed"}
+{"code":"diagnostic_job_failed","directory_identities":{"bundle":"match","output_parent":"match","reservation":"match","site":"match","source":"inode_only"},"stage":"directory_identity","state":"failed"}
 ```
 
 Successful admission emits only:
 
 ```json
-{"directory_identities":{"bundle":"match","output_parent":"match","reservation":"match","site":"match","source":"match"},"stage":"prelease_admission","state":"passed"}
+{"directory_identities":{"bundle":"device_only","output_parent":"device_only","reservation":"device_only","site":"device_only","source":"device_only"},"stage":"prelease_admission","state":"passed"}
 ```
 
 NFS `st_dev` values are client-local and may differ across login and compute
-hosts. V6 deliberately continues to fail closed on such a mismatch while
-reporting only `device_only`; it does not weaken the reviewed identity binding.
+hosts. V7 permits that difference only when every portable tuple and all
+content/provenance checks pass. Inode, mode, owner, path, or content drift still
+fails closed, while telemetry continues to expose only the allowlisted class.
 
 ## Descriptor and credential bindings
 
 The external authorization binds the exact source revision/tree/gitlinks,
-six bundle hashes, directory identities, x86-site manifest, uv/vacli bytes,
+six bundle hashes, full and portable directory identities, the explicit
+cross-host identity policy, x86-site manifest, uv/vacli bytes,
 image, TLS file hashes, and private commitments to `X2P_ENV`, `X2P_CFG_ENV`,
 and `X2P_PROXY_URL`. Credential values are consumed only inside admission and
 never persisted in public telemetry. Source and site validation is read-only.
 
 The Linux pathname-removal limitation documented for the full diagnostic is
-outside this preflight: v6 creates no output or scratch tree and invokes no
+outside this preflight: v7 creates no output or scratch tree and invokes no
 removal operation. Absence checks therefore remain simple fail-closed gates.
 
 ## Fixed fresh namespaces
 
 - source: `/checkpoint/ram/tianhaowu/terminal_bench_vmvm/sources/prime-rl-a09a9a189-v21`
-- output: `/checkpoint/ram/tianhaowu/terminal_bench_vmvm/diagnostics/vmvm_v21_task_free_preflight_a09a9a189_v6_export_file`
+- output: `/checkpoint/ram/tianhaowu/terminal_bench_vmvm/diagnostics/vmvm_v21_task_free_preflight_a09a9a189_v7_portable_identity`
 - receipt: the output path plus `.external-completion.json`
 - reservation: the output path plus `.launch-reservation`
-- logs: `/checkpoint/ram/tianhaowu/terminal_bench_vmvm/logs/vmvm_v21_task_free_preflight_a09a9a189_v6_export_file`
-- scratch: `/tmp/vmvm-v21-task-free-preflight-v6-export-file`
-- job name: `vmvm-v6-preflight-` plus the authorization's 24-hex token
+- logs: `/checkpoint/ram/tianhaowu/terminal_bench_vmvm/logs/vmvm_v21_task_free_preflight_a09a9a189_v7_portable_identity`
+- scratch: `/tmp/vmvm-v21-task-free-preflight-v7-portable-identity`
+- job name: `vmvm-v7-preflight-` plus the authorization's 24-hex token
 
 There is intentionally no runnable launch command here. No Slurm command was
 run while preparing this bundle, and no result from it authorizes an oracle,
