@@ -40,11 +40,11 @@ X86_SITE = BASE / "python_x86_64"
 VACLI = Path("/public/fbpkgs/x86_64/vacli/stable/vacli")
 VACLI_RESOLVED = Path("/infra/public/fbpkgs/x86_64/vacli/794/vacli")
 VACLI_SHA256 = "8be49a764bd0fac1a3ef2bef053ced556d18397d44642660eb8a2d22a7c235b3"
-OUTPUT_ROOT = BASE / "diagnostics/vmvm_v21_task_free_preflight_a09a9a189_v5_required_env"
+OUTPUT_ROOT = BASE / "diagnostics/vmvm_v21_task_free_preflight_a09a9a189_v6_export_file"
 RESERVATION = Path(f"{OUTPUT_ROOT}.launch-reservation")
 COMPLETION_RECEIPT = Path(f"{OUTPUT_ROOT}.external-completion.json")
-LOG_ROOT = BASE / "logs/vmvm_v21_task_free_preflight_a09a9a189_v5_required_env"
-SCRATCH_ROOT = Path("/tmp/vmvm-v21-task-free-preflight-v5-required-env")
+LOG_ROOT = BASE / "logs/vmvm_v21_task_free_preflight_a09a9a189_v6_export_file"
+SCRATCH_ROOT = Path("/tmp/vmvm-v21-task-free-preflight-v6-export-file")
 CLUSTER = "fair-cw-use2-3"
 OWNER = "tianhaowu"
 OWNER_IDENTITY = "tianhaowu(656177)"
@@ -70,7 +70,7 @@ SHA_RE = re.compile(r"[0-9a-f]{64}")
 REV_RE = re.compile(r"[0-9a-f]{40}")
 JOB_RE = re.compile(r"[1-9][0-9]*")
 TOKEN_RE = re.compile(r"[0-9a-f]{24}")
-NAME_RE = re.compile(r"vmvm-v5-preflight-([0-9a-f]{24})")
+NAME_RE = re.compile(r"vmvm-v6-preflight-([0-9a-f]{24})")
 ACTIVE_STATES = {"PENDING", "CONFIGURING", "RUNNING", "COMPLETING"}
 TERMINAL_STATES = {
     "BOOT_FAIL",
@@ -91,6 +91,7 @@ PREFLIGHT_PROTOCOL = {
     "preflight_only": True,
     "production_authorized": False,
 }
+ENVIRONMENT_EXPORT_POLICY = "sealed_nul_file_only"
 LEASE_ATTEMPT_LIMIT = 2
 IMAGE_PULL_TIMEOUT_SECONDS = 300
 IMAGE_PULL_RETRY_LIMIT = 1
@@ -636,11 +637,12 @@ def validate_authorization(
         "cluster": CLUSTER,
         "completion_receipt": str(COMPLETION_RECEIPT),
         "comment": (
-            f"vmvm-v5-preflight:{NAME_RE.fullmatch(str(launch.get('job_name'))).group(1)}"
+            f"vmvm-v6-preflight:{NAME_RE.fullmatch(str(launch.get('job_name'))).group(1)}"
             if NAME_RE.fullmatch(str(launch.get("job_name"))) is not None
             else None
         ),
         "cpus": 2,
+        "environment_export": ENVIRONMENT_EXPORT_POLICY,
         "job_name": launch.get("job_name"),
         "log_root": str(LOG_ROOT),
         "memory": "8G",
@@ -1092,7 +1094,7 @@ def _base_mismatches(record: Mapping[str, str], job_id: str, job_name: str) -> s
     expected = {
         "Account": "ram",
         "Command": "(null)",
-        "Comment": f"vmvm-v5-preflight:{token.group(1)}",
+        "Comment": f"vmvm-v6-preflight:{token.group(1)}",
         "Dependency": "(null)",
         "JobId": job_id,
         "JobName": job_name,
@@ -1558,7 +1560,7 @@ def _sbatch_command(job_name: str, environment_path: Path) -> list[str]:
         "--parsable",
         "--hold",
         f"--job-name={job_name}",
-        f"--comment=vmvm-v5-preflight:{token.group(1)}",
+        f"--comment=vmvm-v6-preflight:{token.group(1)}",
         f"--chdir={SOURCE_ROOT}",
         f"--time={JOB_TIME_LIMIT}",
         "--nodes=1",
@@ -1572,7 +1574,6 @@ def _sbatch_command(job_name: str, environment_path: Path) -> list[str]:
         f"--output={log}",
         f"--error={log}",
         "--open-mode=truncate",
-        "--export=NONE",
         f"--export-file={environment_path}",
     ]
 

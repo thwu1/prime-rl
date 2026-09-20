@@ -21,11 +21,11 @@ from typing import Any
 
 BASE = Path("/checkpoint/ram/tianhaowu/terminal_bench_vmvm")
 SOURCE_ROOT = BASE / "sources/prime-rl-a09a9a189-v21"
-OUTPUT_ROOT = BASE / "diagnostics/vmvm_v21_task_free_preflight_a09a9a189_v5_required_env"
+OUTPUT_ROOT = BASE / "diagnostics/vmvm_v21_task_free_preflight_a09a9a189_v6_export_file"
 COMPLETION_RECEIPT = Path(f"{OUTPUT_ROOT}.external-completion.json")
 RESERVATION = Path(f"{OUTPUT_ROOT}.launch-reservation")
-LOG_ROOT = BASE / "logs/vmvm_v21_task_free_preflight_a09a9a189_v5_required_env"
-SCRATCH_ROOT = Path("/tmp/vmvm-v21-task-free-preflight-v5-required-env")
+LOG_ROOT = BASE / "logs/vmvm_v21_task_free_preflight_a09a9a189_v6_export_file"
+SCRATCH_ROOT = Path("/tmp/vmvm-v21-task-free-preflight-v6-export-file")
 X86_UV = Path("/storage/home/tianhaowu/.local/x86_64/bin/uv")
 X86_SITE = BASE / "python_x86_64"
 VACLI = Path("/public/fbpkgs/x86_64/vacli/stable/vacli")
@@ -49,6 +49,7 @@ PREFLIGHT_PROTOCOL = {
     "preflight_only": True,
     "production_authorized": False,
 }
+ENVIRONMENT_EXPORT_POLICY = "sealed_nul_file_only"
 REQUIRED_MEMFD_SEALS = (
     fcntl.F_SEAL_SEAL
     | fcntl.F_SEAL_SHRINK
@@ -582,7 +583,7 @@ def validate_certificate(
         or set(job) != {"cluster", "job_id", "job_name"}
         or job.get("cluster") != "fair-cw-use2-3"
         or JOB_RE.fullmatch(str(job.get("job_id"))) is None
-        or re.fullmatch(r"vmvm-v5-preflight-[0-9a-f]{24}", str(job.get("job_name"))) is None
+        or re.fullmatch(r"vmvm-v6-preflight-[0-9a-f]{24}", str(job.get("job_name"))) is None
         or protocol
         != {
             "causal_scope": "construction_backend_ready",
@@ -1371,13 +1372,14 @@ def _validate_launch_authorization(
             fail("authorization_invalid")
 
     job_name = str(launch.get("job_name"))
-    token_match = re.fullmatch(r"vmvm-v5-preflight-([0-9a-f]{24})", job_name)
+    token_match = re.fullmatch(r"vmvm-v6-preflight-([0-9a-f]{24})", job_name)
     expected_launch = {
         "account": "ram",
         "cluster": CLUSTER,
-        "comment": f"vmvm-v5-preflight:{token_match.group(1)}" if token_match else None,
+        "comment": f"vmvm-v6-preflight:{token_match.group(1)}" if token_match else None,
         "completion_receipt": str(COMPLETION_RECEIPT),
         "cpus": 2,
+        "environment_export": ENVIRONMENT_EXPORT_POLICY,
         "job_name": job_name,
         "log_root": str(LOG_ROOT),
         "memory": "8G",
@@ -1681,7 +1683,7 @@ def _validate_submission_lineage(
         or set(job) != {"cluster", "job_id", "job_name"}
         or job.get("cluster") != "fair-cw-use2-3"
         or JOB_RE.fullmatch(str(job.get("job_id"))) is None
-        or re.fullmatch(r"vmvm-v5-preflight-[0-9a-f]{24}", str(job.get("job_name"))) is None
+        or re.fullmatch(r"vmvm-v6-preflight-[0-9a-f]{24}", str(job.get("job_name"))) is None
     ):
         fail("submission_lineage_invalid")
     _validate_scheduler_telemetry(
@@ -1896,7 +1898,7 @@ def finalize(
         }
         or job.get("cluster") != "fair-cw-use2-3"
         or JOB_RE.fullmatch(str(job.get("job_id"))) is None
-        or re.fullmatch(r"vmvm-v5-preflight-[0-9a-f]{24}", str(job.get("job_name"))) is None
+        or re.fullmatch(r"vmvm-v6-preflight-[0-9a-f]{24}", str(job.get("job_name"))) is None
         or job.get("terminal_state") not in {"COMPLETED", "FAILED", "TIMEOUT", "CANCELLED"}
         or SHA_RE.fullmatch(str(job.get("terminal_observation_sha256"))) is None
         or {

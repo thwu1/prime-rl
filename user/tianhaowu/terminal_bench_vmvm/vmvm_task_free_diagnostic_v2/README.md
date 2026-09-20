@@ -1,4 +1,4 @@
-# VMVM V21 task-free pre-lease diagnostic v5
+# VMVM V21 task-free pre-lease diagnostic v6
 
 This is an inert, aggregate-only preflight bundle. It does not authorize a
 Slurm job, create a VMVM lease, run the supervisor or a worker, read benchmark
@@ -7,10 +7,13 @@ unlaunched until an independent reviewer freezes all six files, publishes a
 separate mode-0400 authorization, proves every namespace is fresh, and approves
 the canonical-pane invocation.
 
-The v5 executable path exists only to localize the v4 allocation's
-`required_environment` failure on an x86 node. V4's sealed export file had all
-56 required names with nonempty values, so the remaining failure boundary is
-the environment Slurm and Bash materialize on the compute node. The
+The v6 executable path exists only to verify the diagnosed v5 environment
+transport failure on an x86 node. V5 failed at `required_environment` with 49
+of 56 names missing and no empty names: Slurm retained only its baseline and
+two ambient X2P names because the submission combined `--export=NONE` with
+`--export-file`. V6 removes only the conflicting `--export=NONE`; its single
+private NUL-delimited export file remains the complete clean job environment
+and the authorization binds `environment_export=sealed_nul_file_only`. The
 authorization protocol is exactly:
 
 ```json
@@ -21,7 +24,7 @@ The sealed probe CLI accepts only `--validate-batch`; worker and supervisor
 arguments are not registered. The batch wrapper invokes that admission path
 exactly once and exits after its post-admission read-only checks. Although the
 six-file layout retains reviewed supervisor and finalizer library code, neither
-is reachable from the v5 command line or wrapper.
+is reachable from the v6 command line or wrapper.
 
 ## Read-only stages
 
@@ -101,7 +104,7 @@ Successful admission emits only:
 ```
 
 NFS `st_dev` values are client-local and may differ across login and compute
-hosts. V5 deliberately continues to fail closed on such a mismatch while
+hosts. V6 deliberately continues to fail closed on such a mismatch while
 reporting only `device_only`; it does not weaken the reviewed identity binding.
 
 ## Descriptor and credential bindings
@@ -113,18 +116,18 @@ and `X2P_PROXY_URL`. Credential values are consumed only inside admission and
 never persisted in public telemetry. Source and site validation is read-only.
 
 The Linux pathname-removal limitation documented for the full diagnostic is
-outside this preflight: v5 creates no output or scratch tree and invokes no
+outside this preflight: v6 creates no output or scratch tree and invokes no
 removal operation. Absence checks therefore remain simple fail-closed gates.
 
 ## Fixed fresh namespaces
 
 - source: `/checkpoint/ram/tianhaowu/terminal_bench_vmvm/sources/prime-rl-a09a9a189-v21`
-- output: `/checkpoint/ram/tianhaowu/terminal_bench_vmvm/diagnostics/vmvm_v21_task_free_preflight_a09a9a189_v5_required_env`
+- output: `/checkpoint/ram/tianhaowu/terminal_bench_vmvm/diagnostics/vmvm_v21_task_free_preflight_a09a9a189_v6_export_file`
 - receipt: the output path plus `.external-completion.json`
 - reservation: the output path plus `.launch-reservation`
-- logs: `/checkpoint/ram/tianhaowu/terminal_bench_vmvm/logs/vmvm_v21_task_free_preflight_a09a9a189_v5_required_env`
-- scratch: `/tmp/vmvm-v21-task-free-preflight-v5-required-env`
-- job name: `vmvm-v5-preflight-` plus the authorization's 24-hex token
+- logs: `/checkpoint/ram/tianhaowu/terminal_bench_vmvm/logs/vmvm_v21_task_free_preflight_a09a9a189_v6_export_file`
+- scratch: `/tmp/vmvm-v21-task-free-preflight-v6-export-file`
+- job name: `vmvm-v6-preflight-` plus the authorization's 24-hex token
 
 There is intentionally no runnable launch command here. No Slurm command was
 run while preparing this bundle, and no result from it authorizes an oracle,

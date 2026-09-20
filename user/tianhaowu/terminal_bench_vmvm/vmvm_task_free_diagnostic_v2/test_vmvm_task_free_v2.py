@@ -474,7 +474,7 @@ def test_supervisor_runs_exact_matrix_and_publishes_completion_last(monkeypatch,
                 authorization_sha256="b" * 64,
                 job_authorization_sha256="e" * 64,
                 job_id="42",
-                job_name="vmvm-v5-preflight-" + "f" * 24,
+                job_name="vmvm-v6-preflight-" + "f" * 24,
                 submission_receipt_sha256="c" * 64,
             )
         )
@@ -518,11 +518,11 @@ def test_supervisor_runs_exact_matrix_and_publishes_completion_last(monkeypatch,
     assert not scratch.exists()
 
 
-def test_sbatch_is_held_single_job_and_uses_stdin_wrapper() -> None:
-    command = LAUNCH._sbatch_command("vmvm-v5-preflight-" + "a" * 24, Path("/private/environment"))
+def test_sbatch_is_held_single_job_and_uses_only_the_sealed_export_file() -> None:
+    command = LAUNCH._sbatch_command("vmvm-v6-preflight-" + "a" * 24, Path("/private/environment"))
     assert command[0] == "/usr/bin/sbatch"
     assert "--hold" in command
-    assert "--export=NONE" in command
+    assert [value for value in command if value.startswith("--export")] == ["--export-file=/private/environment"]
     assert "--nodes=1" in command
     assert "--ntasks=1" in command
     assert "--cpus-per-task=2" in command
@@ -532,11 +532,11 @@ def test_sbatch_is_held_single_job_and_uses_stdin_wrapper() -> None:
 
 def test_slurm_time_limit_uses_the_scheduler_canonical_identity() -> None:
     job_id = "42"
-    job_name = "vmvm-v5-preflight-" + "a" * 24
+    job_name = "vmvm-v6-preflight-" + "a" * 24
     record = {
         "Account": "ram",
         "Command": "(null)",
-        "Comment": "vmvm-v5-preflight:" + "a" * 24,
+        "Comment": "vmvm-v6-preflight:" + "a" * 24,
         "Dependency": "(null)",
         "JobId": job_id,
         "JobName": job_name,
@@ -558,14 +558,14 @@ def test_slurm_time_limit_uses_the_scheduler_canonical_identity() -> None:
     assert LAUNCH._base_mismatches(record, job_id, job_name) == {"TimeLimit"}
 
 
-def test_v5_preflight_namespaces_are_exact_and_fresh() -> None:
+def test_v6_preflight_namespaces_are_exact_and_fresh() -> None:
     assert LAUNCH.OUTPUT_ROOT == PROBE.EXPECTED_OUTPUT_ROOT == FINALIZE.OUTPUT_ROOT
     assert LAUNCH.SCRATCH_ROOT == PROBE.EXPECTED_SCRATCH_ROOT == FINALIZE.SCRATCH_ROOT
     assert LAUNCH.LOG_ROOT == FINALIZE.LOG_ROOT
-    assert LAUNCH.OUTPUT_ROOT.name == "vmvm_v21_task_free_preflight_a09a9a189_v5_required_env"
-    assert LAUNCH.LOG_ROOT.name == "vmvm_v21_task_free_preflight_a09a9a189_v5_required_env"
-    assert LAUNCH.SCRATCH_ROOT.name == "vmvm-v21-task-free-preflight-v5-required-env"
-    assert LAUNCH.NAME_RE.fullmatch("vmvm-v5-preflight-" + "a" * 24)
+    assert LAUNCH.OUTPUT_ROOT.name == "vmvm_v21_task_free_preflight_a09a9a189_v6_export_file"
+    assert LAUNCH.LOG_ROOT.name == "vmvm_v21_task_free_preflight_a09a9a189_v6_export_file"
+    assert LAUNCH.SCRATCH_ROOT.name == "vmvm-v21-task-free-preflight-v6-export-file"
+    assert LAUNCH.NAME_RE.fullmatch("vmvm-v6-preflight-" + "a" * 24)
 
 
 def test_held_poll_requires_two_exact_snapshots(monkeypatch) -> None:
@@ -580,7 +580,7 @@ def test_held_poll_requires_two_exact_snapshots(monkeypatch) -> None:
     monkeypatch.setattr(LAUNCH, "_snapshot", lambda *args: next(outcomes))
     monkeypatch.setattr(LAUNCH.time, "monotonic", lambda: next(clock))
     monkeypatch.setattr(LAUNCH.time, "sleep", lambda value: None)
-    result = LAUNCH.poll_phase("1", "vmvm-v5-preflight-" + "a" * 24, "held", 20, set())
+    result = LAUNCH.poll_phase("1", "vmvm-v6-preflight-" + "a" * 24, "held", 20, set())
     assert result["converged"] is True
     assert result["polls"] == 3
     assert result["mismatch_occurrences"] == {"held_queue": 1}
@@ -594,7 +594,7 @@ def test_conflict_latch_is_monotonic(monkeypatch) -> None:
         ]
     )
     monkeypatch.setattr(LAUNCH, "_snapshot", lambda *args: next(outcomes))
-    result = LAUNCH.poll_phase("1", "vmvm-v5-preflight-" + "a" * 24, "held", 20, set())
+    result = LAUNCH.poll_phase("1", "vmvm-v6-preflight-" + "a" * 24, "held", 20, set())
     assert result["converged"] is False
     assert result["explicit_conflict_fields"] == ["JobName"]
     assert result["polls"] == 1
@@ -614,7 +614,7 @@ def test_cancel_conflict_never_calls_scancel(monkeypatch) -> None:
     monkeypatch.setattr(LAUNCH, "_run", lambda command, timeout=20: calls.append(list(command)))
     result = LAUNCH.cancel_and_prove(
         "1",
-        "vmvm-v5-preflight-" + "a" * 24,
+        "vmvm-v6-preflight-" + "a" * 24,
         set(),
         candidate_provenance="sbatch_stdout",
     )
@@ -713,7 +713,7 @@ def test_wrapper_public_output_domains_are_closed() -> None:
 def test_uv_internal_environment_is_never_exported() -> None:
     private = {
         "bundle_identity": "1:2:448:656177",
-        "job_name": "vmvm-v5-preflight-" + "a" * 24,
+        "job_name": "vmvm-v6-preflight-" + "a" * 24,
         "output_parent_identity": "1:3:448:656177",
         "site_entry_count": "1",
         "site_identity": "1:4:365:656177",
@@ -869,7 +869,7 @@ def test_supervisor_aborts_before_next_cell_on_unverifiable_result(
                     authorization_sha256="b" * 64,
                     job_authorization_sha256="e" * 64,
                     job_id="42",
-                    job_name="vmvm-v5-preflight-" + "f" * 24,
+                    job_name="vmvm-v6-preflight-" + "f" * 24,
                     submission_receipt_sha256="c" * 64,
                 )
             )
@@ -933,7 +933,7 @@ def test_resolve_submission_recovers_timeout_by_exact_name(monkeypatch) -> None:
     assert LAUNCH._resolve_submission(
         direct_candidate=None,
         outcome="timeout",
-        job_name="vmvm-v5-preflight-" + "a" * 24,
+        job_name="vmvm-v6-preflight-" + "a" * 24,
         start_date="2026-09-19",
     ) == ("42", "name_lookup")
 
@@ -944,7 +944,7 @@ def test_resolve_submission_rejects_direct_name_disagreement(monkeypatch) -> Non
         LAUNCH._resolve_submission(
             direct_candidate="42",
             outcome="completed",
-            job_name="vmvm-v5-preflight-" + "a" * 24,
+            job_name="vmvm-v6-preflight-" + "a" * 24,
             start_date="2026-09-19",
         )
 
@@ -971,7 +971,7 @@ def test_direct_candidate_unavailable_identity_attempts_one_exact_cancel(
     monkeypatch.setattr(LAUNCH, "_run", fake_run)
     result = LAUNCH.cancel_and_prove(
         "42",
-        "vmvm-v5-preflight-" + "a" * 24,
+        "vmvm-v6-preflight-" + "a" * 24,
         set(),
         candidate_provenance="sbatch_stdout",
     )
@@ -991,7 +991,7 @@ def test_precontrol_conflict_after_identity_proof_forbids_cancel(monkeypatch) ->
     monkeypatch.setattr(LAUNCH, "_run", lambda command, timeout=20: calls.append(list(command)))
     result = LAUNCH.cancel_and_prove(
         "42",
-        "vmvm-v5-preflight-" + "a" * 24,
+        "vmvm-v6-preflight-" + "a" * 24,
         set(),
         candidate_provenance="sbatch_stdout",
     )
@@ -1894,11 +1894,11 @@ def test_real_wrapper_emits_only_static_preflight_telemetry(tmp_path: Path, fail
     (site / "runtime.py").write_text("VALUE = 1\n")
     diagnostics = base / "diagnostics"
     diagnostics.mkdir()
-    output = diagnostics / "vmvm_v21_task_free_preflight_a09a9a189_v5_required_env"
+    output = diagnostics / "vmvm_v21_task_free_preflight_a09a9a189_v6_export_file"
     reservation = Path(f"{output}.launch-reservation")
     completion = Path(f"{output}.external-completion.json")
     scratch = tmp_path / "scratch"
-    log_root = base / "logs/vmvm_v21_task_free_preflight_a09a9a189_v5_required_env"
+    log_root = base / "logs/vmvm_v21_task_free_preflight_a09a9a189_v6_export_file"
     bundle = tmp_path / "bundle"
     bundle.mkdir(mode=0o700)
     bundle.chmod(0o700)
@@ -1942,7 +1942,7 @@ def test_real_wrapper_emits_only_static_preflight_telemetry(tmp_path: Path, fail
         f'VMVM_SHA256 = "{PROBE.VMVM_SHA256}"': f'VMVM_SHA256 = "{revisions["vmvm"]}"',
         f'X86_UV_SHA256 = "{PROBE.X86_UV_SHA256}"': f'X86_UV_SHA256 = "{uv_sha}"',
         'BASE = Path("/checkpoint/ram/tianhaowu/terminal_bench_vmvm")': f"BASE = Path({str(base)!r})",
-        'EXPECTED_SCRATCH_ROOT = Path("/tmp/vmvm-v21-task-free-preflight-v5-required-env")': (
+        'EXPECTED_SCRATCH_ROOT = Path("/tmp/vmvm-v21-task-free-preflight-v6-export-file")': (
             f"EXPECTED_SCRATCH_ROOT = Path({str(scratch)!r})"
         ),
         'environment["UV_BIN_X86_64"] != "/storage/home/tianhaowu/.local/x86_64/bin/uv"': (
@@ -2025,7 +2025,7 @@ def test_real_wrapper_emits_only_static_preflight_telemetry(tmp_path: Path, fail
         "X2P_CFG_ENV": "fixture-configuration",
         "X2P_PROXY_URL": "https://fixture.invalid/proxy",
     }
-    job_name = "vmvm-v5-preflight-" + "f" * 24
+    job_name = "vmvm-v6-preflight-" + "f" * 24
     launch_body = {
         "artifact_type": "vmvm_task_free_diagnostic_authorization_v2",
         "bundle": {**bundle_records, "root_identity": identity(bundle)},
@@ -2036,9 +2036,10 @@ def test_real_wrapper_emits_only_static_preflight_telemetry(tmp_path: Path, fail
         "launch": {
             "account": "ram",
             "cluster": PROBE.EXPECTED_CLUSTER,
-            "comment": "vmvm-v5-preflight:" + "f" * 24,
+            "comment": "vmvm-v6-preflight:" + "f" * 24,
             "completion_receipt": str(completion),
             "cpus": 2,
+            "environment_export": PROBE.ENVIRONMENT_EXPORT_POLICY,
             "job_name": job_name,
             "log_root": str(log_root),
             "memory": "8G",
@@ -3003,7 +3004,7 @@ def test_external_finalizer_writes_receipt_outside_sealed_output(monkeypatch, tm
     job = {
         "cluster": "fair-cw-use2-3",
         "job_id": "42",
-        "job_name": "vmvm-v5-preflight-" + "f" * 24,
+        "job_name": "vmvm-v6-preflight-" + "f" * 24,
     }
     source_root, source_revisions = build_git_source_fixture(tmp_path)
     site_root = tmp_path / "site-root"
@@ -3119,9 +3120,10 @@ def test_external_finalizer_writes_receipt_outside_sealed_output(monkeypatch, tm
         "launch": {
             "account": "ram",
             "cluster": FINALIZE.CLUSTER,
-            "comment": f"vmvm-v5-preflight:{'f' * 24}",
+            "comment": f"vmvm-v6-preflight:{'f' * 24}",
             "completion_receipt": str(receipt_path),
             "cpus": 2,
+            "environment_export": FINALIZE.ENVIRONMENT_EXPORT_POLICY,
             "job_name": job["job_name"],
             "log_root": str(FINALIZE.LOG_ROOT),
             "memory": "8G",
@@ -3182,6 +3184,16 @@ def test_external_finalizer_writes_receipt_outside_sealed_output(monkeypatch, tm
 
     for name, expected_error, mutate in (
         ("bad-launch-semantics", "authorization_invalid", lambda body: body["launch"].update({"cpus": 3})),
+        (
+            "bad-export-policy",
+            "authorization_invalid",
+            lambda body: body["launch"].update({"environment_export": "ambient"}),
+        ),
+        (
+            "missing-export-policy",
+            "authorization_invalid",
+            lambda body: body["launch"].pop("environment_export"),
+        ),
         (
             "bad-bundle-self-hash",
             "finalizer_execution_invalid",
