@@ -774,9 +774,7 @@ def static_identity(record: Mapping[str, str], job_id: str, token: str) -> None:
 def held_identity(record: Mapping[str, str], job_id: str, token: str) -> tuple[str | None, ...]:
     static_identity(record, job_id, token)
     assigned_node = record.get("NodeList")
-    if assigned_node != "(null)":
-        if assigned_node in NULLISH:
-            raise IdentityTransient("held_nodelist")
+    if assigned_node not in {None, ""}:
         fail("held_nodelist")
     if (
         record.get("JobState", "").split("+")[0] != "PENDING"
@@ -815,9 +813,7 @@ def released_identity(record: Mapping[str, str], job_id: str, token: str) -> tup
         fail("released_state")
     if state == "PENDING":
         assigned_node = record.get("NodeList")
-        if assigned_node != "(null)":
-            if assigned_node in NULLISH:
-                raise IdentityTransient("released_nodelist")
+        if assigned_node not in {None, ""}:
             fail("released_nodelist")
         if record.get("AllocTRES") not in {"", "None", "(null)"}:
             fail("released_alloc_tres")
@@ -1764,7 +1760,7 @@ def cancellation_envelope(record: Mapping[str, str], job_id: str, token: str) ->
     if requested_node not in NULLISH and requested_node != "(null)":
         fail("cleanup_identity_conflict")
     assigned_node = record.get("NodeList")
-    if assigned_node not in NULLISH and assigned_node != "(null)" and not acceptable_node(assigned_node):
+    if assigned_node not in {None, ""} and not acceptable_node(assigned_node):
         fail("cleanup_identity_conflict")
     return complete
 

@@ -39,7 +39,6 @@ def held_record() -> dict[str, str]:
         "QOS": controller.QOS,
         "Partition": controller.PARTITION,
         "ReqNodeList": "(null)",
-        "NodeList": "(null)",
         "TimeLimit": controller.WALLTIME,
         "StdOut": str(controller.LOG_ROOT / f"slurm-{job_id}.log"),
         "StdErr": str(controller.LOG_ROOT / f"slurm-{job_id}.log"),
@@ -231,19 +230,19 @@ def test_requested_node_propagation_is_transient(raw: str | None) -> None:
         controller.held_identity(record, "12345", "a" * 24)
 
 
-def test_held_job_requires_unassigned_node() -> None:
+@pytest.mark.parametrize("node", [None, ""])
+def test_held_job_accepts_exact_unassigned_node_renderings(node: str | None) -> None:
     record = held_record()
+    if node is not None:
+        record["NodeList"] = node
     assert controller.held_identity(record, "12345", "a" * 24)
-    record["NodeList"] = "g3-154-202"
-    with pytest.raises(controller.GateError, match="held_nodelist"):
-        controller.held_identity(record, "12345", "a" * 24)
 
 
-@pytest.mark.parametrize("raw", [None, "", "None", "Unknown"])
-def test_held_assigned_node_propagation_is_transient(raw: str | None) -> None:
+@pytest.mark.parametrize("node", ["(null)", "None", "Unknown", "g3-154-202"])
+def test_held_job_rejects_null_tokens_and_assigned_nodes(node: str) -> None:
     record = held_record()
-    record["NodeList"] = raw  # type: ignore[assignment]
-    with pytest.raises(controller.IdentityTransient, match="held_nodelist"):
+    record["NodeList"] = node
+    with pytest.raises(controller.GateError, match="held_nodelist"):
         controller.held_identity(record, "12345", "a" * 24)
 
 
@@ -277,15 +276,18 @@ def test_released_pending_requires_positive_projections() -> None:
     record = held_record()
     record.update(Priority="12", EligibleTime="2026-09-20T06:00:00", Reason="Resources")
     assert controller.released_identity(record, "12345", "a" * 24)
+    record["NodeList"] = ""
+    assert controller.released_identity(record, "12345", "a" * 24)
 
 
-def test_released_pending_must_remain_unassigned() -> None:
+@pytest.mark.parametrize("node", ["(null)", "None", "Unknown", "g3-154-202"])
+def test_released_pending_rejects_null_tokens_and_assigned_nodes(node: str) -> None:
     record = held_record()
     record.update(
         Priority="12",
         EligibleTime="2026-09-20T06:00:00",
         Reason="Resources",
-        NodeList="g3-154-202",
+        NodeList=node,
     )
     with pytest.raises(controller.GateError, match="released_nodelist"):
         controller.released_identity(record, "12345", "a" * 24)
@@ -443,6 +445,10 @@ def test_cleanup_envelope_accepts_only_known_propagation_gaps() -> None:
         record[field] = "(null)"
     record["NumNodes"] = "0-1"
     assert controller.cancellation_envelope(record, "12345", "a" * 24)
+    record["NodeList"] = ""
+    assert controller.cancellation_envelope(record, "12345", "a" * 24)
+    record["NodeList"] = "g3-154-202"
+    assert controller.cancellation_envelope(record, "12345", "a" * 24)
 
 
 def test_cleanup_envelope_rejects_owner_or_resource_drift() -> None:
@@ -450,10 +456,11 @@ def test_cleanup_envelope_rejects_owner_or_resource_drift() -> None:
     record["UserId"] = "other(1)"
     with pytest.raises(controller.GateError, match="cleanup_identity_conflict"):
         controller.cancellation_envelope(record, "12345", "a" * 24)
-    record = held_record()
-    record["NodeList"] = "g3-136-221"
-    with pytest.raises(controller.GateError, match="cleanup_identity_conflict"):
-        controller.cancellation_envelope(record, "12345", "a" * 24)
+    for node in ("(null)", "None", "Unknown", "g3-136-221"):
+        record = held_record()
+        record["NodeList"] = node
+        with pytest.raises(controller.GateError, match="cleanup_identity_conflict"):
+            controller.cancellation_envelope(record, "12345", "a" * 24)
     record = held_record()
     record["NumCPUs"] = "8"
     with pytest.raises(controller.GateError, match="cleanup_identity_conflict"):

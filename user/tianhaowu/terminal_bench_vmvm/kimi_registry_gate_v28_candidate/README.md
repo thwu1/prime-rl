@@ -2,11 +2,12 @@
 
 This successor removes v27's single-node request so the scheduler may select
 any strictly shaped `g3-NNN-NNN` node other than the four reviewed exclusions.
-The held record must remain unassigned, and the batch shell binds the eventual
-single-node allocation from Slurm's own environment before launching its one
-nested step on that same node. The selected node is never published. Every
-candidate node must still pass the unchanged exact 32-tool manifest before any
-Podman command runs.
+The held and released-but-pending records must render `NodeList` as omitted or
+exactly empty; literal null tokens and assigned nodes are rejected. The batch
+shell binds the eventual single-node allocation from Slurm's own environment
+before launching its one nested step on that same node. The selected node is
+never published. Every candidate node must still pass the unchanged exact
+32-tool manifest before any Podman command runs.
 
 This successor splits v26's coarse `podman_info` result into fixed command,
 shape, graph-root, run-root, driver, unexpectedly-present-image, and
