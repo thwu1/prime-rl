@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 from pathlib import Path
 
 import pytest
@@ -10,6 +11,42 @@ import sft_run_identity as identity
 
 def _sha256(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+@pytest.mark.parametrize("mode", [0o644, 0o640])
+def test_private_union_artifact_rejects_exposed_mode(tmp_path: Path, mode: int) -> None:
+    run = tmp_path / "run"
+    run.mkdir(mode=0o700)
+    path = run / identity.PROVIDER_UNION_CERTIFICATE_FILENAME
+    path.write_text("{}\n")
+    path.chmod(mode)
+
+    with pytest.raises(identity.SftRunIdentityError, match="^provider_union_artifact_not_private$"):
+        identity._read_private_union_artifact(run, identity.PROVIDER_UNION_CERTIFICATE_FILENAME)
+
+
+def test_private_union_artifact_rejects_exposed_root(tmp_path: Path) -> None:
+    run = tmp_path / "run"
+    run.mkdir(mode=0o755)
+    run.chmod(0o755)
+    path = run / identity.PROVIDER_UNION_CERTIFICATE_FILENAME
+    path.write_text("{}\n")
+    path.chmod(0o600)
+
+    with pytest.raises(identity.SftRunIdentityError, match="^provider_union_artifact_not_private$"):
+        identity._read_private_union_artifact(run, identity.PROVIDER_UNION_CERTIFICATE_FILENAME)
+
+
+def test_private_union_artifact_rejects_hardlink(tmp_path: Path) -> None:
+    run = tmp_path / "run"
+    run.mkdir(mode=0o700)
+    path = run / identity.PROVIDER_UNION_CERTIFICATE_FILENAME
+    path.write_text("{}\n")
+    path.chmod(0o600)
+    os.link(path, tmp_path / "alias.json")
+
+    with pytest.raises(identity.SftRunIdentityError, match="^provider_union_artifact_not_private$"):
+        identity._read_private_union_artifact(run, identity.PROVIDER_UNION_CERTIFICATE_FILENAME)
 
 
 def _write_run(tmp_path: Path) -> tuple[Path, dict[str, identity.IdentityArtifact], dict]:
