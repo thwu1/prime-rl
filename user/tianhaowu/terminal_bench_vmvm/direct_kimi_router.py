@@ -229,6 +229,7 @@ class ApiHandler(BaseHTTPRequestHandler):
             _json_error(self, 429, "router_capacity_exhausted")
             return
         connection: http.client.HTTPConnection | None = None
+        headers_sent = False
         try:
             host, port = self.state.workers[worker]
             headers = {
@@ -254,16 +255,19 @@ class ApiHandler(BaseHTTPRequestHandler):
                 self.send_header("Connection", "close")
                 self.close_connection = True
             self.end_headers()
-            while chunk := response.read(64 * 1024):
+            headers_sent = True
+            while chunk := response.read1(64 * 1024):
                 self.wfile.write(chunk)
                 self.wfile.flush()
         except (OSError, http.client.HTTPException):
             self.state.record_upstream_failure()
-            if not self.wfile.closed:
+            if not headers_sent and not self.wfile.closed:
                 try:
                     _json_error(self, 502, "upstream_failed")
                 except OSError:
                     pass
+            else:
+                self.close_connection = True
         finally:
             if connection is not None:
                 connection.close()
