@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import base64
 import hashlib
 import importlib.util
 import json
@@ -9,6 +10,7 @@ import stat
 import subprocess
 import sys
 import threading
+import time
 from pathlib import Path
 from types import SimpleNamespace
 from typing import ClassVar
@@ -29,6 +31,11 @@ def load_module(name: str, filename: str):
 PROBE = load_module("vmvm_task_free_probe_v2_test", "probe_vmvm_task_free_v2.py")
 LAUNCH = load_module("vmvm_task_free_launch_v2_test", "launch_vmvm_task_free_v2.py")
 FINALIZE = load_module("vmvm_task_free_finalize_v2_test", "finalize_vmvm_task_free_v2.py")
+
+
+class CleanSnapshotGuard:
+    def is_clean(self) -> bool:
+        return True
 
 
 def valid_phase_metadata(stage: str, module=PROBE) -> dict[str, object]:
@@ -65,6 +72,64 @@ def set_site_inventory_environment(monkeypatch, site: Path) -> None:
     monkeypatch.setenv("PYTHON_SITE_X86_64_ENTRY_COUNT", str(inventory["entry_count"]))
     monkeypatch.setenv("PYTHON_SITE_X86_64_MANIFEST_SHA256", inventory["manifest_sha256"])
     monkeypatch.setenv("PYTHON_SITE_X86_64_TOTAL_BYTES", str(inventory["total_bytes"]))
+
+
+def build_git_source_fixture(tmp_path: Path) -> tuple[Path, dict[str, str]]:
+    def git(repository: Path, *args: str) -> str:
+        result = subprocess.run(
+            ["/usr/bin/git", "-c", "protocol.file.allow=always", "-C", str(repository), *args],
+            env={
+                "GIT_CONFIG_GLOBAL": "/dev/null",
+                "GIT_CONFIG_NOSYSTEM": "1",
+                "HOME": "/nonexistent",
+                "LANG": "C",
+                "LC_ALL": "C",
+                "PATH": "/usr/bin:/bin",
+            },
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        return result.stdout.strip()
+
+    dependencies: dict[str, tuple[Path, str]] = {}
+    for name in ("verifiers", "renderers", "pydantic-config"):
+        repository = tmp_path / f"{name}-origin"
+        repository.mkdir()
+        git(repository, "init", "-q")
+        git(repository, "config", "user.email", "fixture@example.invalid")
+        git(repository, "config", "user.name", "Fixture")
+        (repository / f"{name}.py").write_text(f"NAME = {name!r}\n")
+        git(repository, "add", ".")
+        git(repository, "commit", "-qm", "fixture")
+        dependencies[name] = (repository, git(repository, "rev-parse", "HEAD"))
+
+    source = tmp_path / "source-root"
+    source.mkdir()
+    git(source, "init", "-q")
+    git(source, "config", "user.email", "fixture@example.invalid")
+    git(source, "config", "user.name", "Fixture")
+    vmvm_file = source / "environments/vmvm_tb_v2/vmvm_tb_v2/_vacli/backend.py"
+    vmvm_file.parent.mkdir(parents=True)
+    vmvm_file.write_text("VALUE = 1\n")
+    git(source, "add", ".")
+    for name, (repository, _revision) in dependencies.items():
+        git(source, "submodule", "add", "-q", str(repository), f"deps/{name}")
+        git(source / "deps" / name, "checkout", "--detach", "-q")
+    git(source, "commit", "-qm", "fixture")
+    revision = git(source, "rev-parse", "HEAD")
+    tree = git(source, "rev-parse", "HEAD^{tree}")
+    git(source, "checkout", "--detach", "-q")
+    relative = "environments/vmvm_tb_v2/vmvm_tb_v2/_vacli/backend.py"
+    row = f"{hashlib.sha256(vmvm_file.read_bytes()).hexdigest()}  {relative}\n".encode()
+    return source, {
+        "revision": revision,
+        "tree": tree,
+        "verifiers": dependencies["verifiers"][1],
+        "renderers": dependencies["renderers"][1],
+        "pydantic_config": dependencies["pydantic-config"][1],
+        "vmvm": hashlib.sha256(row).hexdigest(),
+    }
 
 
 def test_failure_classifier_is_allowlisted_and_drops_detail() -> None:
@@ -343,11 +408,11 @@ def test_supervisor_runs_exact_matrix_and_publishes_completion_last(monkeypatch,
         return snapshot_source, snapshot_site, *inventories
 
     monkeypatch.setattr(PROBE, "create_execution_snapshot", fake_snapshot)
-    original_remove = PROBE._remove_tree_verified
+    original_remove = PROBE._remove_bound_tree_verified
     original_atomic_write = PROBE._atomic_write
 
-    def observed_remove(path):
-        result = original_remove(path)
+    def observed_remove(*args):
+        result = original_remove(*args)
         publication_events.append("scratch_removed" if result else "scratch_remove_failed")
         return result
 
@@ -355,7 +420,7 @@ def test_supervisor_runs_exact_matrix_and_publishes_completion_last(monkeypatch,
         publication_events.append("output_published")
         return original_atomic_write(*args, **kwargs)
 
-    monkeypatch.setattr(PROBE, "_remove_tree_verified", observed_remove)
+    monkeypatch.setattr(PROBE, "_remove_bound_tree_verified", observed_remove)
     monkeypatch.setattr(PROBE, "_atomic_write", observed_write)
     set_site_inventory_environment(monkeypatch, site)
     source_fd = os.open(source, os.O_RDONLY | os.O_DIRECTORY)
@@ -412,7 +477,10 @@ def test_supervisor_runs_exact_matrix_and_publishes_completion_last(monkeypatch,
     assert publication_events == ["scratch_removed", "output_published", "output_published"]
     certificate = json.loads((output / "diagnostic_certificate.json").read_bytes())
     completion = json.loads((output / "completion_request.json").read_bytes())
-    FINALIZE.validate_certificate(certificate)
+    FINALIZE.validate_certificate(
+        certificate,
+        expected_execution_inputs=certificate["execution_inputs"],
+    )
     assert certificate["task_data_accessed"] is False
     assert certificate["model_endpoint_accessed"] is False
     assert certificate["production_authorized"] is False
@@ -677,6 +745,22 @@ def test_runtime_binary_limit_covers_the_pinned_vacli() -> None:
     assert LAUNCH.VACLI.stat().st_size > 128 << 20
 
 
+def test_vacli_parent_symlink_must_resolve_to_the_exact_inode(tmp_path: Path) -> None:
+    target_directory = tmp_path / "version-794"
+    target_directory.mkdir()
+    target = target_directory / "vacli"
+    target.write_bytes(b"same bytes\n")
+    alias_directory = tmp_path / "stable"
+    alias_directory.symlink_to(target_directory, target_is_directory=True)
+    alias = alias_directory / "vacli"
+    copy = tmp_path / "copy"
+    copy.write_bytes(target.read_bytes())
+    for module in (LAUNCH, PROBE, FINALIZE):
+        function = getattr(module, "same_open_file", None) or module._same_open_file
+        assert function(alias, target)
+        assert not function(alias, copy)
+
+
 def test_resolve_submission_recovers_timeout_by_exact_name(monkeypatch) -> None:
     monkeypatch.setattr(LAUNCH, "_lookup_submission", lambda *args, **kwargs: ("unique", "42"))
     assert LAUNCH._resolve_submission(
@@ -800,6 +884,7 @@ def test_wrapper_gate_bound_and_bundle_inventory_are_static() -> None:
     assert "DIAG_WRAPPER_GATE_TIMEOUT_SECONDS != 900" in source
     assert "${#bundle_entries[@]} == 6" in source
     assert "DIAG_AUTHORIZATION_FILE_SHA256" in source
+    assert '&& ! -e "$DIAG_SCRATCH_ROOT" && ! -L "$DIAG_SCRATCH_ROOT"' in source
 
 
 def test_combined_pem_profile_is_narrow() -> None:
@@ -1152,31 +1237,104 @@ def test_source_attestation_rejects_index_flags_and_blob_drift(tmp_path: Path) -
     git("checkout", "-q", "--detach", revision)
     descriptor = os.open(repository, os.O_RDONLY | os.O_DIRECTORY)
     try:
-        for module in (LAUNCH, PROBE):
+        for module in (LAUNCH, PROBE, FINALIZE):
             module._attest_git_repository(descriptor, expected_revision=revision)
         git("update-index", "--assume-unchanged", "tracked.py")
         tracked.write_text("VALUE = 2\n")
-        for module in (LAUNCH, PROBE):
+        for module in (LAUNCH, PROBE, FINALIZE):
             with pytest.raises(
-                (LAUNCH.LaunchError, PROBE.DiagnosticError),
-                match="source_binding_invalid",
+                (LAUNCH.LaunchError, PROBE.DiagnosticError, FINALIZE.FinalizeError),
+                match="source_binding_invalid|authorization_invalid",
             ):
                 module._attest_git_repository(descriptor, expected_revision=revision)
         git("update-index", "--no-assume-unchanged", "tracked.py")
-        for module in (LAUNCH, PROBE):
+        for module in (LAUNCH, PROBE, FINALIZE):
             with pytest.raises(
-                (LAUNCH.LaunchError, PROBE.DiagnosticError),
-                match="source_binding_invalid",
+                (LAUNCH.LaunchError, PROBE.DiagnosticError, FINALIZE.FinalizeError),
+                match="source_binding_invalid|authorization_invalid",
             ):
                 module._attest_git_repository(descriptor, expected_revision=revision)
         tracked.write_text("VALUE = 1\n")
         git("update-index", "--skip-worktree", "tracked.py")
-        for module in (LAUNCH, PROBE):
+        for module in (LAUNCH, PROBE, FINALIZE):
             with pytest.raises(
-                (LAUNCH.LaunchError, PROBE.DiagnosticError),
-                match="source_binding_invalid",
+                (LAUNCH.LaunchError, PROBE.DiagnosticError, FINALIZE.FinalizeError),
+                match="source_binding_invalid|authorization_invalid",
             ):
                 module._attest_git_repository(descriptor, expected_revision=revision)
+    finally:
+        os.close(descriptor)
+
+
+def test_finalizer_attests_every_submodule_and_derives_exact_source_snapshot(monkeypatch, tmp_path: Path) -> None:
+    source, revisions = build_git_source_fixture(tmp_path)
+    for module in (PROBE, FINALIZE):
+        monkeypatch.setattr(module, "SOURCE_REVISION", revisions["revision"])
+        monkeypatch.setattr(module, "SOURCE_TREE", revisions["tree"])
+        monkeypatch.setattr(module, "VERIFIERS_REVISION", revisions["verifiers"])
+        monkeypatch.setattr(module, "RENDERERS_REVISION", revisions["renderers"])
+        monkeypatch.setattr(module, "PYDANTIC_CONFIG_REVISION", revisions["pydantic_config"])
+        monkeypatch.setattr(module, "VMVM_SHA256", revisions["vmvm"])
+    source_fd = os.open(source, os.O_RDONLY | os.O_DIRECTORY)
+    scratch = tmp_path / "scratch"
+    site = tmp_path / "site"
+    scratch.mkdir(mode=0o700)
+    site.mkdir()
+    (site / "runtime.py").write_text("VALUE = 1\n")
+    site_fd = os.open(site, os.O_RDONLY | os.O_DIRECTORY)
+    try:
+        finalizer_records = FINALIZE._attest_imported_source(source_fd)
+        expected_source = FINALIZE._source_snapshot_commitment(finalizer_records)
+        expected_site = PROBE.directory_manifest(site_fd, expected_owner_uid=os.getuid())
+        _, _, observed_source, _ = PROBE.create_execution_snapshot(
+            source_fd,
+            site_fd,
+            scratch,
+            expected_site,
+        )
+        assert observed_source == expected_source
+        subprocess.run(
+            [
+                "/usr/bin/git",
+                "-C",
+                str(source / "deps/verifiers"),
+                "update-index",
+                "--skip-worktree",
+                "verifiers.py",
+            ],
+            check=True,
+        )
+        with pytest.raises(FINALIZE.FinalizeError, match="authorization_invalid"):
+            FINALIZE._attest_imported_source(source_fd)
+    finally:
+        os.close(site_fd)
+        os.close(source_fd)
+
+
+def test_finalizer_rejects_an_empty_git_source(tmp_path: Path) -> None:
+    repository = tmp_path / "empty"
+    repository.mkdir()
+    for arguments in (
+        ("init", "-q"),
+        ("config", "user.email", "fixture@example.invalid"),
+        ("config", "user.name", "Fixture"),
+        ("commit", "--allow-empty", "-qm", "empty"),
+    ):
+        subprocess.run(["/usr/bin/git", "-C", str(repository), *arguments], check=True)
+    revision = subprocess.run(
+        ["/usr/bin/git", "-C", str(repository), "rev-parse", "HEAD"],
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+    subprocess.run(
+        ["/usr/bin/git", "-C", str(repository), "checkout", "--detach", "-q"],
+        check=True,
+    )
+    descriptor = os.open(repository, os.O_RDONLY | os.O_DIRECTORY)
+    try:
+        with pytest.raises(FINALIZE.FinalizeError, match="authorization_invalid"):
+            FINALIZE._attest_git_repository(descriptor, expected_revision=revision)
     finally:
         os.close(descriptor)
 
@@ -1311,6 +1469,412 @@ def test_python_subprocess_executes_script_and_output_through_inherited_fds(tmp_
     assert (output / "fd-proof").read_bytes() == b"bound\n"
 
 
+def test_descriptor_reader_uses_pread_and_rejects_alias_or_inode_substitution(tmp_path: Path) -> None:
+    authorized = tmp_path / "authorized.py"
+    substituted = tmp_path / "substituted.py"
+    authorized.write_bytes(b"authorized bytes\n")
+    substituted.write_bytes(authorized.read_bytes())
+    authorized.chmod(0o500)
+    substituted.chmod(0o500)
+    descriptor = os.open(authorized, os.O_RDONLY)
+    authorized_fd = os.open(authorized, os.O_RDONLY)
+    substituted_fd = os.open(substituted, os.O_RDONLY)
+    digest = hashlib.sha256(authorized.read_bytes()).hexdigest()
+    try:
+        os.lseek(descriptor, 7, os.SEEK_SET)
+        assert (
+            PROBE._stable_descriptor_bytes(
+                Path(f"/proc/self/fd/{descriptor}"),
+                authorized_fd=authorized_fd,
+                authorized_path=authorized,
+                mode=0o500,
+                expected_sha256=digest,
+            )
+            == b"authorized bytes\n"
+        )
+        assert os.lseek(descriptor, 0, os.SEEK_CUR) == 7
+        with pytest.raises(PROBE.DiagnosticError, match="source_binding_invalid"):
+            PROBE._stable_descriptor_bytes(
+                Path(f"/proc/self/fd/{descriptor}"),
+                authorized_fd=substituted_fd,
+                authorized_path=authorized,
+                mode=0o500,
+                expected_sha256=digest,
+            )
+        with pytest.raises(PROBE.DiagnosticError, match="source_binding_invalid"):
+            PROBE._stable_descriptor_bytes(
+                Path(f"/proc/self/fd/{descriptor}"),
+                authorized_fd=authorized_fd,
+                authorized_path=substituted,
+                mode=0o500,
+                expected_sha256=digest,
+            )
+        assert PROBE.inherited_descriptor(Path(f"/proc/self/fd/0{descriptor}")) is None
+    finally:
+        os.close(substituted_fd)
+        os.close(authorized_fd)
+        os.close(descriptor)
+
+
+@pytest.mark.parametrize("leave_scratch", (False, True))
+def test_real_wrapper_invokes_actual_batch_admission_through_procfd(tmp_path: Path, leave_scratch: bool) -> None:
+    base = tmp_path / "base"
+    source, revisions = build_git_source_fixture(tmp_path)
+    expected_source = base / "sources/prime-rl-a09a9a189-v21"
+    expected_source.parent.mkdir(parents=True)
+    source.rename(expected_source)
+    site = base / "python_x86_64"
+    site.mkdir(parents=True)
+    (site / "runtime.py").write_text("VALUE = 1\n")
+    diagnostics = base / "diagnostics"
+    diagnostics.mkdir()
+    output = diagnostics / "vmvm_v21_task_free_ab_a09a9a189_v2"
+    reservation = Path(f"{output}.launch-reservation")
+    completion = Path(f"{output}.external-completion.json")
+    scratch = tmp_path / "scratch"
+    log_root = base / "logs/vmvm_v21_task_free_ab_a09a9a189_v2"
+    bundle = tmp_path / "bundle"
+    bundle.mkdir(mode=0o700)
+    bundle.chmod(0o700)
+
+    uv_path = tmp_path / "uv"
+    uv_path.write_text(
+        "#!/usr/bin/python3\n"
+        "import os,sys\n"
+        "args=sys.argv[1:]\n"
+        "if '--validate-batch' in args:\n"
+        " start=args.index('-I')\n"
+        " os.execve('/usr/bin/python3',['/usr/bin/python3',*args[start:]],dict(os.environ))\n"
+        "output=args[args.index('--output-dir')+1]\n"
+        "os.mkdir(output,0o700)\n"
+        "os.chmod(output,0o500)\n"
+        f"leave_scratch={leave_scratch!r}\n"
+        "if leave_scratch: os.mkdir(args[args.index('--scratch-root')+1],0o700)\n"
+        'print(\'{"failure_categories":0,"passed":48,"stages":48,"state":"awaiting_external_completion"}\')\n'
+    )
+    uv_path.chmod(0o755)
+    uv_sha = hashlib.sha256(uv_path.read_bytes()).hexdigest()
+
+    probe_source = (ROOT / "probe_vmvm_task_free_v2.py").read_text()
+    probe_replacements = {
+        f'SOURCE_REVISION = "{PROBE.SOURCE_REVISION}"': f'SOURCE_REVISION = "{revisions["revision"]}"',
+        f'SOURCE_TREE = "{PROBE.SOURCE_TREE}"': f'SOURCE_TREE = "{revisions["tree"]}"',
+        f'VERIFIERS_REVISION = "{PROBE.VERIFIERS_REVISION}"': (f'VERIFIERS_REVISION = "{revisions["verifiers"]}"'),
+        f'RENDERERS_REVISION = "{PROBE.RENDERERS_REVISION}"': (f'RENDERERS_REVISION = "{revisions["renderers"]}"'),
+        f'PYDANTIC_CONFIG_REVISION = "{PROBE.PYDANTIC_CONFIG_REVISION}"': (
+            f'PYDANTIC_CONFIG_REVISION = "{revisions["pydantic_config"]}"'
+        ),
+        f'VMVM_SHA256 = "{PROBE.VMVM_SHA256}"': f'VMVM_SHA256 = "{revisions["vmvm"]}"',
+        f'X86_UV_SHA256 = "{PROBE.X86_UV_SHA256}"': f'X86_UV_SHA256 = "{uv_sha}"',
+        'BASE = Path("/checkpoint/ram/tianhaowu/terminal_bench_vmvm")': f"BASE = Path({str(base)!r})",
+        'EXPECTED_SCRATCH_ROOT = Path("/tmp/vmvm-v21-task-free-ab-v2")': (
+            f"EXPECTED_SCRATCH_ROOT = Path({str(scratch)!r})"
+        ),
+        'environment["UV_BIN_X86_64"] != "/storage/home/tianhaowu/.local/x86_64/bin/uv"': (
+            f'environment["UV_BIN_X86_64"] != {str(uv_path)!r}'
+        ),
+    }
+    for old, new in probe_replacements.items():
+        assert old in probe_source
+        probe_source = probe_source.replace(old, new)
+    probe_path = bundle / "probe_vmvm_task_free_v2.py"
+    probe_path.write_text(probe_source)
+    probe_path.chmod(0o500)
+
+    wrapper_source = (ROOT / "run_vmvm_task_free_v2.sbatch").read_text()
+    wrapper_replacements = {
+        f"readonly SOURCE_REVISION={PROBE.SOURCE_REVISION}": f"readonly SOURCE_REVISION={revisions['revision']}",
+        f"readonly SOURCE_TREE={PROBE.SOURCE_TREE}": f"readonly SOURCE_TREE={revisions['tree']}",
+        f"readonly VERIFIERS_REVISION={PROBE.VERIFIERS_REVISION}": (
+            f"readonly VERIFIERS_REVISION={revisions['verifiers']}"
+        ),
+        f"readonly RENDERERS_REVISION={PROBE.RENDERERS_REVISION}": (
+            f"readonly RENDERERS_REVISION={revisions['renderers']}"
+        ),
+        f"readonly PYDANTIC_CONFIG_REVISION={PROBE.PYDANTIC_CONFIG_REVISION}": (
+            f"readonly PYDANTIC_CONFIG_REVISION={revisions['pydantic_config']}"
+        ),
+        f"readonly VMVM_SHA256={PROBE.VMVM_SHA256}": f"readonly VMVM_SHA256={revisions['vmvm']}",
+        f"readonly X86_UV_SHA256={PROBE.X86_UV_SHA256}": f"readonly X86_UV_SHA256={uv_sha}",
+        "/checkpoint/ram/tianhaowu/terminal_bench_vmvm/python_x86_64": str(site),
+        "/storage/home/tianhaowu/.local/x86_64/bin/uv": str(uv_path),
+    }
+    for old, new in wrapper_replacements.items():
+        assert old in wrapper_source
+        wrapper_source = wrapper_source.replace(old, new)
+    wrapper_path = bundle / "run_vmvm_task_free_v2.sbatch"
+    wrapper_path.write_text(wrapper_source)
+    wrapper_path.chmod(0o500)
+    for name, mode in (
+        ("README.md", 0o400),
+        ("finalize_vmvm_task_free_v2.py", 0o500),
+        ("launch_vmvm_task_free_v2.py", 0o500),
+        ("test_vmvm_task_free_v2.py", 0o400),
+    ):
+        target = bundle / name
+        target.write_bytes((ROOT / name).read_bytes())
+        target.chmod(mode)
+
+    def identity(path: Path) -> dict[str, int]:
+        descriptor = os.open(path, os.O_RDONLY | os.O_DIRECTORY)
+        try:
+            return PROBE.descriptor_identity(descriptor)
+        finally:
+            os.close(descriptor)
+
+    site_fd = os.open(site, os.O_RDONLY | os.O_DIRECTORY)
+    try:
+        site_inventory = PROBE.directory_manifest(site_fd, expected_owner_uid=os.getuid())
+    finally:
+        os.close(site_fd)
+    bundle_records = {
+        label: {
+            "path": str(bundle / name),
+            "sha256": hashlib.sha256((bundle / name).read_bytes()).hexdigest(),
+        }
+        for label, name in (
+            ("finalizer", "finalize_vmvm_task_free_v2.py"),
+            ("launcher", "launch_vmvm_task_free_v2.py"),
+            ("probe", "probe_vmvm_task_free_v2.py"),
+            ("readme", "README.md"),
+            ("tests", "test_vmvm_task_free_v2.py"),
+            ("wrapper", "run_vmvm_task_free_v2.sbatch"),
+        )
+    }
+    tls_path = tmp_path / "tls.pem"
+    tls_path.write_bytes(b"fixture-tls\n")
+    tls_path.chmod(0o500)
+    tls_record = {"path": str(tls_path), "sha256": hashlib.sha256(tls_path.read_bytes()).hexdigest()}
+    x2p_values = {
+        "X2P_ENV": "fixture-environment",
+        "X2P_CFG_ENV": "fixture-configuration",
+        "X2P_PROXY_URL": "https://fixture.invalid/proxy",
+    }
+    job_name = "vmvm-diag-" + "f" * 24
+    launch_body = {
+        "artifact_type": "vmvm_task_free_diagnostic_authorization_v2",
+        "bundle": {**bundle_records, "root_identity": identity(bundle)},
+        "credentials": {
+            "tls": {name: tls_record for name in PROBE.TLS_NAMES},
+            "x2p": {name: {"sha256": hashlib.sha256(value.encode()).hexdigest()} for name, value in x2p_values.items()},
+        },
+        "launch": {
+            "account": "ram",
+            "cluster": PROBE.EXPECTED_CLUSTER,
+            "comment": "vmvm-task-free-v2:" + "f" * 24,
+            "completion_receipt": str(completion),
+            "cpus": 2,
+            "job_name": job_name,
+            "log_root": str(log_root),
+            "memory": "8G",
+            "nodes": 1,
+            "output_parent_identity": identity(diagnostics),
+            "output_root": str(output),
+            "partition": "cpu_x86",
+            "qos": "cpu_x86_lowest",
+            "reservation": str(reservation),
+            "scratch_root": str(scratch),
+            "time_limit": "36:00:00",
+        },
+        "protocol": {
+            "diagnostic_only": True,
+            "lease_attempt_limit_per_cell": PROBE.LEASE_ATTEMPT_LIMIT,
+            "mode_orders": [list(order) for order in PROBE.MODE_ORDERS],
+            "production_authorized": False,
+            "repetitions_per_mode": PROBE.REPETITIONS,
+            "stage_timeout_seconds": PROBE.STAGE_TIMEOUT_SECONDS,
+        },
+        "runtime": {
+            "image": PROBE.IMAGE,
+            "python_name": "python3",
+            "site": {"inventory": site_inventory, "path": str(site), "root_identity": identity(site)},
+            "uv": {"path": str(uv_path), "sha256": uv_sha},
+            "vacli": {
+                "path": "/public/fbpkgs/x86_64/vacli/stable/vacli",
+                "resolved_path": PROBE.VACLI_RESOLVED,
+                "sha256": PROBE.VACLI_SHA256,
+            },
+        },
+        "schema_version": 2,
+        "source": {
+            "path": str(expected_source),
+            "pydantic_config_revision": revisions["pydantic_config"],
+            "renderers_revision": revisions["renderers"],
+            "revision": revisions["revision"],
+            "root_identity": identity(expected_source),
+            "tree": revisions["tree"],
+            "verifiers_revision": revisions["verifiers"],
+            "vmvm_sha256": revisions["vmvm"],
+        },
+        "state": "approved",
+    }
+    launch_sha = PROBE.sha256_bytes(PROBE.canonical_json(launch_body))
+    launch_authorization = {**launch_body, "authorization_sha256": launch_sha}
+    launch_raw = PROBE.canonical_json(launch_authorization) + b"\n"
+    launch_path = tmp_path / "launch-authorization.json"
+    launch_path.write_bytes(launch_raw)
+    launch_path.chmod(0o400)
+    launch_file_sha = PROBE.sha256_bytes(launch_raw)
+
+    reservation.mkdir(mode=0o700)
+    reservation.chmod(0o700)
+    writer_lock = reservation / ".writer.lock"
+    writer_lock.write_bytes(b"")
+    writer_lock.chmod(0o600)
+    reservation_identity = identity(reservation)
+    reservation_identity["mode"] = 0o500
+    job = {"cluster": PROBE.EXPECTED_CLUSTER, "job_id": "42", "job_name": job_name}
+    job_authorization = {
+        "artifact_type": "vmvm_task_free_job_authorization_v2",
+        "authorization_file_sha256": launch_file_sha,
+        "authorization_sha256": launch_sha,
+        "job": job,
+        "production_authorized": False,
+        "state": "held_verified",
+    }
+    job_authorization_raw = PROBE.canonical_json(job_authorization) + b"\n"
+    job_authorization_sha = PROBE.sha256_bytes(job_authorization_raw)
+    identity_string = lambda value: ":".join(str(value[name]) for name in ("device", "inode", "mode", "owner_uid"))
+    exported = {
+        "DIAG_ACTIVATION_PERMIT": str(reservation / "activation_permit.json"),
+        "DIAG_AUTHORIZATION": str(launch_path),
+        "DIAG_AUTHORIZATION_FILE_SHA256": launch_file_sha,
+        "DIAG_AUTHORIZATION_SHA256": launch_sha,
+        "DIAG_BUNDLE_IDENTITY": identity_string(identity(bundle)),
+        "DIAG_BUNDLE_ROOT": str(bundle),
+        "DIAG_COMPLETION_RECEIPT": str(completion),
+        "DIAG_FINALIZER_PATH": bundle_records["finalizer"]["path"],
+        "DIAG_FINALIZER_SHA256": bundle_records["finalizer"]["sha256"],
+        "DIAG_JOB_AUTHORIZATION": str(reservation / "job_authorization.json"),
+        "DIAG_JOB_NAME": job_name,
+        "DIAG_LAUNCHER_PATH": bundle_records["launcher"]["path"],
+        "DIAG_LAUNCHER_SHA256": bundle_records["launcher"]["sha256"],
+        "DIAG_OUTPUT_PARENT_IDENTITY": identity_string(identity(diagnostics)),
+        "DIAG_OUTPUT_ROOT": str(output),
+        "DIAG_PROBE_PATH": bundle_records["probe"]["path"],
+        "DIAG_PROBE_SHA256": bundle_records["probe"]["sha256"],
+        "DIAG_RESERVATION": str(reservation),
+        "DIAG_RESERVATION_IDENTITY": identity_string(reservation_identity),
+        "DIAG_SCRATCH_ROOT": str(scratch),
+        "DIAG_SOURCE_IDENTITY": identity_string(identity(expected_source)),
+        "DIAG_SOURCE_REVISION": revisions["revision"],
+        "DIAG_SOURCE_ROOT": str(expected_source),
+        "DIAG_SOURCE_TREE": revisions["tree"],
+        "DIAG_SUBMISSION_RECEIPT": str(reservation / "submission_receipt.json"),
+        "DIAG_VMVM_SHA256": revisions["vmvm"],
+        "DIAG_WRAPPER_GATE_TIMEOUT_SECONDS": "900",
+        "DIAG_WRAPPER_PATH": bundle_records["wrapper"]["path"],
+        "DIAG_WRAPPER_SHA256": bundle_records["wrapper"]["sha256"],
+        "HOME": "/storage/home/tianhaowu",
+        "LANG": "C",
+        "LC_ALL": "C",
+        "LOGNAME": PROBE.EXPECTED_OWNER,
+        "PATH": "/usr/bin:/bin",
+        "PYTHONDONTWRITEBYTECODE": "1",
+        "PYTHON_BIN_X86_64": "python3",
+        "PYTHON_SITE_X86_64": str(site),
+        "PYTHON_SITE_X86_64_ENTRY_COUNT": str(site_inventory["entry_count"]),
+        "PYTHON_SITE_X86_64_IDENTITY": identity_string(identity(site)),
+        "PYTHON_SITE_X86_64_MANIFEST_SHA256": str(site_inventory["manifest_sha256"]),
+        "PYTHON_SITE_X86_64_TOTAL_BYTES": str(site_inventory["total_bytes"]),
+        "SLURM_EXPORT_ENV": "NONE",
+        "TZ": "UTC",
+        "USER": PROBE.EXPECTED_OWNER,
+        "UV_BIN_X86_64": str(uv_path),
+        "VACLI_BIN": "/public/fbpkgs/x86_64/vacli/stable/vacli",
+        "VACLI_CONTAINER_PRIVILEGED": "1",
+        "VACLI_IMAGE_PULL_TIMEOUT_SECONDS": str(PROBE.IMAGE_PULL_TIMEOUT_SECONDS),
+        "VACLI_LEASE_RETRIES": str(PROBE.LEASE_ATTEMPT_LIMIT),
+        "VACLI_MAX_CONCURRENT_LEASES": "1",
+        "VACLI_MAX_PULL_RETRIES": str(PROBE.IMAGE_PULL_RETRY_LIMIT),
+        **{name: str(tls_path) for name in PROBE.TLS_NAMES},
+        **x2p_values,
+    }
+    environment_raw = b"".join(f"{name}={exported[name]}".encode() + b"\0" for name in sorted(exported))
+    environment_sha = PROBE.sha256_bytes(environment_raw)
+    launch_intent = {
+        "artifact_type": "vmvm_task_free_launch_intent_v2",
+        "authorization_file_sha256": launch_file_sha,
+        "authorization_sha256": launch_sha,
+        "bundle_sha256": {
+            label: bundle_records[label]["sha256"] for label in ("finalizer", "launcher", "probe", "wrapper")
+        },
+        "environment_sha256": environment_sha,
+        "job_name": job_name,
+        "production_authorized": False,
+        "state": "reserved",
+    }
+    telemetry = {
+        "converged": True,
+        "deadline_seconds": 1,
+        "elapsed_milliseconds": 1,
+        "explicit_conflict_fields": [],
+        "final_mismatch_fields": [],
+        "mismatch_occurrences": {},
+        "polls": 2,
+        "required_consecutive": 2,
+    }
+    submission_receipt = {
+        "activation": telemetry,
+        "artifact_type": "vmvm_task_free_submission_receipt_v2",
+        "authorization_file_sha256": launch_file_sha,
+        "authorization_sha256": launch_sha,
+        "environment_sha256": environment_sha,
+        "held": {
+            **telemetry,
+            "pre_authorization_mismatch_fields": [],
+            "post_authorization_mismatch_fields": [],
+        },
+        "job": job,
+        "job_authorization_sha256": job_authorization_sha,
+        "production_authorized": False,
+        "release_attempts": 1,
+        "release_outcome": "completed",
+        "state": "submitted",
+        "submission_attempts": 1,
+    }
+    submission_raw = PROBE.canonical_json(submission_receipt) + b"\n"
+    activation_permit = {
+        "artifact_type": "vmvm_task_free_activation_permit_v2",
+        "authorization_file_sha256": launch_file_sha,
+        "authorization_sha256": launch_sha,
+        "environment_sha256": environment_sha,
+        "job_authorization_sha256": job_authorization_sha,
+        "production_authorized": False,
+        "state": "activated",
+        "submission_receipt_sha256": PROBE.sha256_bytes(submission_raw),
+    }
+    for name, raw, mode in (
+        ("activation_permit.json", PROBE.canonical_json(activation_permit) + b"\n", 0o400),
+        ("job_authorization.json", job_authorization_raw, 0o400),
+        ("launch_intent.json", PROBE.canonical_json(launch_intent) + b"\n", 0o400),
+        ("slurm_environment.bin", environment_raw, 0o400),
+        ("submission_receipt.json", submission_raw, 0o400),
+    ):
+        target = reservation / name
+        target.write_bytes(raw)
+        target.chmod(mode)
+    reservation.chmod(0o500)
+
+    runtime_environment = {**exported, "SLURM_JOB_ID": "42", "SLURM_JOB_NAME": job_name}
+    result = subprocess.run(
+        [str(wrapper_path)],
+        env=runtime_environment,
+        stdin=subprocess.DEVNULL,
+        capture_output=True,
+        timeout=30,
+        check=False,
+    )
+    assert result.returncode == (2 if leave_scratch else 0), result.stderr.decode(errors="replace")
+    assert result.stderr == (b'{"code":"diagnostic_job_failed","state":"failed"}\n' if leave_scratch else b"")
+    assert result.stdout == (
+        b""
+        if leave_scratch
+        else b'{"failure_categories":0,"passed":48,"stages":48,"state":"awaiting_external_completion"}\n'
+    )
+    assert output.is_dir() and stat.S_IMODE(output.stat().st_mode) == 0o500
+
+
 def test_execution_snapshot_defeats_mutate_restore_race(monkeypatch, tmp_path: Path) -> None:
     source = tmp_path / "source"
     site = tmp_path / "site"
@@ -1319,7 +1883,8 @@ def test_execution_snapshot_defeats_mutate_restore_race(monkeypatch, tmp_path: P
     site_file = site / "dependency.py"
     source_file.parent.mkdir(parents=True)
     site.mkdir()
-    scratch.mkdir()
+    scratch.mkdir(mode=0o700)
+    scratch.chmod(0o700)
     source_raw = b"SOURCE = 'authorized'\n"
     site_raw = b"SITE = 'authorized'\n"
     source_file.write_bytes(source_raw)
@@ -1358,22 +1923,185 @@ def test_execution_snapshot_defeats_mutate_restore_race(monkeypatch, tmp_path: P
     finally:
         os.close(site_fd)
         os.close(source_fd)
-    assert PROBE._remove_tree_verified(scratch)
+    scratch_fd = os.open(scratch, os.O_RDONLY | os.O_DIRECTORY)
+    parent_fd = os.open(tmp_path, os.O_RDONLY | os.O_DIRECTORY)
+    try:
+        assert PROBE._remove_bound_tree_verified(
+            parent_fd,
+            scratch.name,
+            scratch_fd,
+            PROBE.descriptor_identity(scratch_fd),
+        )
+    finally:
+        os.close(parent_fd)
+        os.close(scratch_fd)
     assert not scratch.exists()
+
+
+def test_landlock_child_can_write_only_to_its_stage(tmp_path: Path) -> None:
+    source = tmp_path / "source"
+    stage = tmp_path / "stage"
+    source.mkdir()
+    stage.mkdir()
+    source_file = source / "authorized.py"
+    source_file.write_text("VALUE = 1\n")
+    source_file.chmod(0o600)
+    stage_fd = os.open(stage, os.O_RDONLY | os.O_DIRECTORY)
+    ruleset_fd = PROBE._create_worker_write_ruleset(stage_fd)
+    program = (
+        "import os,sys\n"
+        "source,stage=sys.argv[1:]\n"
+        "blocked=0\n"
+        "for operation in (\n"
+        " lambda: open(source,'wb').write(b'tampered'),\n"
+        " lambda: os.rename(source,source+'.moved'),\n"
+        "):\n"
+        " try: operation()\n"
+        " except PermissionError: blocked += 1\n"
+        "open(os.path.join(stage,'allowed'),'wb').write(b'ok')\n"
+        "raise SystemExit(0 if blocked == 2 else 3)\n"
+    )
+    try:
+        result = subprocess.run(
+            [sys.executable, "-I", "-S", "-B", "-c", program, str(source_file), str(stage)],
+            capture_output=True,
+            check=False,
+            pass_fds=(stage_fd, ruleset_fd),
+            preexec_fn=lambda: PROBE._restrict_worker_writes(ruleset_fd),
+        )
+    finally:
+        os.close(ruleset_fd)
+        os.close(stage_fd)
+    assert result.returncode == 0, result.stderr.decode(errors="replace")
+    assert source_file.read_text() == "VALUE = 1\n"
+    assert (stage / "allowed").read_bytes() == b"ok"
+
+
+def test_snapshot_guard_detects_external_sibling_mutate_restore(tmp_path: Path) -> None:
+    snapshot = tmp_path / "snapshot"
+    snapshot.mkdir(mode=0o700)
+    source = snapshot / "authorized.py"
+    source.write_bytes(b"authorized\n")
+    source.chmod(0o400)
+    snapshot.chmod(0o500)
+    snapshot_fd = os.open(snapshot, os.O_RDONLY | os.O_DIRECTORY)
+    guard = PROBE.SnapshotGuard((Path(f"/proc/self/fd/{snapshot_fd}"),))
+    program = (
+        "import os,sys\n"
+        "root,path=sys.argv[1:]\n"
+        "moved=path+'.moved'\n"
+        "os.chmod(root,0o700)\n"
+        "os.rename(path,moved)\n"
+        "os.rename(moved,path)\n"
+        "os.chmod(root,0o500)\n"
+    )
+    sibling = subprocess.run(
+        [sys.executable, "-I", "-S", "-B", "-c", program, str(snapshot), str(source)],
+        capture_output=True,
+        check=False,
+    )
+    assert sibling.returncode == 0, sibling.stderr.decode(errors="replace")
+    assert source.read_bytes() == b"authorized\n"
+    assert not guard.is_clean()
+    assert not guard.close()
+    os.close(snapshot_fd)
+
+
+def test_snapshot_guard_read_lease_blocks_external_sibling_write(tmp_path: Path) -> None:
+    snapshot = tmp_path / "snapshot"
+    snapshot.mkdir(mode=0o700)
+    source = snapshot / "authorized.py"
+    source.write_bytes(b"authorized\n")
+    source.chmod(0o600)
+    snapshot.chmod(0o500)
+    snapshot_fd = os.open(snapshot, os.O_RDONLY | os.O_DIRECTORY)
+    guard = PROBE.SnapshotGuard((Path(f"/proc/self/fd/{snapshot_fd}"),))
+    writer = subprocess.Popen(
+        [
+            sys.executable,
+            "-I",
+            "-S",
+            "-B",
+            "-c",
+            "import pathlib,sys; pathlib.Path(sys.argv[1]).write_bytes(b'tampered\\n')",
+            str(source),
+        ],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+    deadline = time.monotonic() + 5
+    try:
+        while guard.is_clean() and writer.poll() is None and time.monotonic() < deadline:
+            time.sleep(0.01)
+        assert not guard.is_clean()
+        assert writer.poll() is None
+        writer.terminate()
+        writer.communicate(timeout=5)
+        assert source.read_bytes() == b"authorized\n"
+        assert not guard.close()
+    finally:
+        if writer.poll() is None:
+            writer.kill()
+            writer.communicate(timeout=5)
+        os.close(snapshot_fd)
 
 
 def test_verified_tree_deletion_fails_closed_on_symlink(tmp_path: Path) -> None:
     removable = tmp_path / "removable"
-    removable.mkdir()
+    removable.mkdir(mode=0o700)
+    removable.chmod(0o700)
     (removable / "log").write_text("diagnostic\n")
-    assert PROBE._remove_tree_verified(removable)
+    parent_fd = os.open(tmp_path, os.O_RDONLY | os.O_DIRECTORY)
+    removable_fd = os.open(removable, os.O_RDONLY | os.O_DIRECTORY)
+    try:
+        assert PROBE._remove_bound_tree_verified(
+            parent_fd,
+            removable.name,
+            removable_fd,
+            PROBE.descriptor_identity(removable_fd),
+        )
+    finally:
+        os.close(removable_fd)
     unsafe = tmp_path / "unsafe"
-    unsafe.mkdir()
+    unsafe.mkdir(mode=0o700)
+    unsafe.chmod(0o700)
     link = unsafe / "link"
     link.symlink_to(tmp_path)
-    assert not PROBE._remove_tree_verified(unsafe)
+    unsafe_fd = os.open(unsafe, os.O_RDONLY | os.O_DIRECTORY)
+    try:
+        assert not PROBE._remove_bound_tree_verified(
+            parent_fd,
+            unsafe.name,
+            unsafe_fd,
+            PROBE.descriptor_identity(unsafe_fd),
+        )
+    finally:
+        os.close(unsafe_fd)
+        os.close(parent_fd)
     link.unlink()
     unsafe.rmdir()
+
+
+@pytest.mark.parametrize("replacement", (False, True))
+def test_verified_tree_deletion_rejects_missing_or_replaced_root(tmp_path: Path, replacement: bool) -> None:
+    root = tmp_path / "scratch"
+    root.mkdir(mode=0o700)
+    root.chmod(0o700)
+    root_fd = os.open(root, os.O_RDONLY | os.O_DIRECTORY)
+    parent_fd = os.open(tmp_path, os.O_RDONLY | os.O_DIRECTORY)
+    expected = PROBE.descriptor_identity(root_fd)
+    displaced = tmp_path / "displaced"
+    root.rename(displaced)
+    if replacement:
+        root.mkdir(mode=0o700)
+        root.chmod(0o700)
+    try:
+        assert not PROBE._remove_bound_tree_verified(parent_fd, root.name, root_fd, expected)
+        assert displaced.is_dir()
+        assert root.is_dir() is replacement
+    finally:
+        os.close(parent_fd)
+        os.close(root_fd)
 
 
 def test_valid_child_requires_external_absence_check(monkeypatch, tmp_path: Path) -> None:
@@ -1398,9 +2126,38 @@ def test_valid_child_requires_external_absence_check(monkeypatch, tmp_path: Path
                 },
                 {
                     "artifact_type": "vmvm_renewer_journal_event_v2",
-                    "event": "audit_complete",
-                    "renewer_processes": 0,
+                    "event": "operation_started",
+                    "lease_id": 101,
+                    "operation": "start",
+                    "operation_id": 0,
                     "sequence": 1,
+                },
+                {
+                    "artifact_type": "vmvm_renewer_journal_event_v2",
+                    "event": "renewer_observed",
+                    "lease_id": 101,
+                    "operation": "start",
+                    "operation_id": 0,
+                    "pid": 2_000_000_102,
+                    "process_group": 2_000_000_102,
+                    "running": False,
+                    "sequence": 2,
+                    "start_ticks": None,
+                },
+                {
+                    "artifact_type": "vmvm_renewer_journal_event_v2",
+                    "event": "operation_finished",
+                    "lease_id": 101,
+                    "operation": "start",
+                    "operation_id": 0,
+                    "outcome": "process_observed",
+                    "sequence": 3,
+                },
+                {
+                    "artifact_type": "vmvm_renewer_journal_event_v2",
+                    "event": "audit_complete",
+                    "renewer_processes": 1,
+                    "sequence": 4,
                 },
             )
             os.write(self.journal_fd, b"".join(PROBE.canonical_json(event) + b"\n" for event in events))
@@ -1411,9 +2168,12 @@ def test_valid_child_requires_external_absence_check(monkeypatch, tmp_path: Path
                 failure=None,
                 cleanup_complete=True,
                 elapsed_seconds=0,
-                phase_metadata={**valid_phase_metadata("direct_client"), "renewer_processes": 0},
+                phase_metadata=valid_phase_metadata("direct_client"),
             )
             return PROBE.canonical_json(result) + b"\n", b""
+
+        def poll(self):
+            return self.returncode
 
     def verify(journal_fd, child_process_group, *, require_complete=False, **kwargs):
         del journal_fd, child_process_group, kwargs
@@ -1435,7 +2195,8 @@ def test_valid_child_requires_external_absence_check(monkeypatch, tmp_path: Path
             python=Path(sys.executable),
             source_root=Path(f"/proc/self/fd/{descriptors[1]}"),
             site_root=Path(f"/proc/self/fd/{descriptors[2]}"),
-            scratch_root=tmp_path,
+            scratch_root_fd=descriptors[1],
+            snapshot_guard=CleanSnapshotGuard(),
             mode="absent",
             stage="direct_client",
             pair_index=0,
@@ -1449,14 +2210,14 @@ def test_valid_child_requires_external_absence_check(monkeypatch, tmp_path: Path
 
 
 def test_stage_child_fails_closed_when_scratch_deletion_is_unverified(monkeypatch, tmp_path: Path) -> None:
-    original_remove = PROBE._remove_tree_verified
+    original_remove = PROBE._remove_bound_tree_verified
 
     def fail_to_spawn(*args, **kwargs):
         del args, kwargs
         raise OSError("fixture spawn failure")
 
     monkeypatch.setattr(PROBE.subprocess, "Popen", fail_to_spawn)
-    monkeypatch.setattr(PROBE, "_remove_tree_verified", lambda path: False)
+    monkeypatch.setattr(PROBE, "_remove_bound_tree_verified", lambda *args: False)
     for name in PROBE.TLS_NAMES:
         monkeypatch.setenv(name, "/fixture/tls")
     descriptors = [
@@ -1471,7 +2232,8 @@ def test_stage_child_fails_closed_when_scratch_deletion_is_unverified(monkeypatc
                 python=Path(sys.executable),
                 source_root=Path(f"/proc/self/fd/{descriptors[1]}"),
                 site_root=Path(f"/proc/self/fd/{descriptors[2]}"),
-                scratch_root=tmp_path,
+                scratch_root_fd=descriptors[1],
+                snapshot_guard=CleanSnapshotGuard(),
                 mode="absent",
                 stage="direct_client",
                 pair_index=0,
@@ -1482,7 +2244,18 @@ def test_stage_child_fails_closed_when_scratch_deletion_is_unverified(monkeypatc
             os.close(descriptor)
     leftovers = [path for path in tmp_path.iterdir() if path.is_dir()]
     assert len(leftovers) == 1
-    assert original_remove(leftovers[0])
+    leftover_fd = os.open(leftovers[0], os.O_RDONLY | os.O_DIRECTORY)
+    parent_fd = os.open(tmp_path, os.O_RDONLY | os.O_DIRECTORY)
+    try:
+        assert original_remove(
+            parent_fd,
+            leftovers[0].name,
+            leftover_fd,
+            PROBE.descriptor_identity(leftover_fd),
+        )
+    finally:
+        os.close(parent_fd)
+        os.close(leftover_fd)
 
 
 def test_finalizer_rejects_impossible_phase_causality() -> None:
@@ -1503,6 +2276,37 @@ def test_finalizer_rejects_impossible_phase_causality() -> None:
         FINALIZE._validate_stage_result(result)
 
 
+def test_finalizer_refuses_completion_while_scratch_name_exists(monkeypatch, tmp_path: Path) -> None:
+    scratch = tmp_path / "scratch"
+    scratch.mkdir()
+    monkeypatch.setattr(FINALIZE, "SCRATCH_ROOT", scratch)
+    with pytest.raises(FINALIZE.FinalizeError, match="scratch_cleanup_unverified"):
+        FINALIZE.finalize(tmp_path / "unused.json", "0" * 64)
+
+
+@pytest.mark.parametrize(
+    ("module", "error_type", "error_code"),
+    (
+        (PROBE, PROBE.DiagnosticError, "stage_result_invalid"),
+        (FINALIZE, FINALIZE.FinalizeError, "certificate_phase_invalid"),
+    ),
+)
+def test_phase_causality_binds_tunnel_success_to_a_journaled_renewer(module, error_type, error_code) -> None:
+    metadata = valid_phase_metadata("same_thread_raw", module)
+    metadata["renewer_processes"] = 0
+    with pytest.raises(error_type, match=error_code):
+        module._validate_phase_causality("same_thread_raw", "passed", None, metadata)
+
+
+@pytest.mark.parametrize("module", (PROBE, FINALIZE))
+def test_phase_causality_accepts_one_lease_one_recovery_and_two_tunnels(module) -> None:
+    metadata = valid_phase_metadata("same_thread_recovery", module)
+    metadata["transport_recovery_attempts"] = 1
+    metadata["renewer_processes"] = 2
+    metadata["phase_counts"]["tunnel_ready"] = 2
+    module._validate_phase_causality("same_thread_recovery", "passed", None, metadata)
+
+
 def test_external_finalizer_writes_receipt_outside_sealed_output(monkeypatch, tmp_path: Path) -> None:
     output = tmp_path / "candidate"
     receipt_path = tmp_path / "candidate.external-completion.json"
@@ -1513,10 +2317,9 @@ def test_external_finalizer_writes_receipt_outside_sealed_output(monkeypatch, tm
         "job_id": "42",
         "job_name": "vmvm-diag-" + "f" * 24,
     }
-    source_root = tmp_path / "source-root"
+    source_root, source_revisions = build_git_source_fixture(tmp_path)
     site_root = tmp_path / "site-root"
     bundle_root = tmp_path / "bundle"
-    source_root.mkdir()
     site_root.mkdir()
     bundle_root.mkdir(mode=0o700)
     (site_root / "runtime.py").write_text("VALUE = 1\n")
@@ -1538,12 +2341,26 @@ def test_external_finalizer_writes_receipt_outside_sealed_output(monkeypatch, tm
             "sha256": FINALIZE.sha256_bytes(path.read_bytes()),
         }
     uv_path = tmp_path / "uv"
-    vacli_path = tmp_path / "vacli"
-    for path in (uv_path, vacli_path):
-        path.write_bytes(b"fixture executable\n")
-        path.chmod(0o755)
+    uv_path.write_bytes(b"fixture executable\n")
+    uv_path.chmod(0o755)
+    vacli_target_dir = tmp_path / "vacli-794"
+    vacli_target_dir.mkdir()
+    vacli_resolved = vacli_target_dir / "vacli"
+    vacli_resolved.write_bytes(b"fixture vacli executable\n")
+    vacli_resolved.chmod(0o755)
+    vacli_stable_dir = tmp_path / "vacli-stable"
+    vacli_stable_dir.symlink_to(vacli_target_dir, target_is_directory=True)
+    vacli_path = vacli_stable_dir / "vacli"
     tls_path = tmp_path / "tls.pem"
-    tls_path.write_bytes(b"x" * FINALIZE.TLS_EXPECTED_SIZE)
+    pem = b"".join(
+        b"-----BEGIN " + label + b"-----\n" + base64.b64encode(payload) + b"\n-----END " + label + b"-----\n"
+        for label, payload in (
+            (b"CERTIFICATE", b"certificate-one"),
+            (b"CERTIFICATE", b"certificate-two"),
+            (b"RSA PRIVATE KEY", b"private-key"),
+        )
+    ).ljust(FINALIZE.TLS_EXPECTED_SIZE, b"\n")
+    tls_path.write_bytes(pem)
     tls_path.chmod(0o500)
 
     def identity(path: Path) -> dict[str, int]:
@@ -1559,21 +2376,43 @@ def test_external_finalizer_writes_receipt_outside_sealed_output(monkeypatch, tm
     finally:
         os.close(site_fd)
     monkeypatch.setattr(FINALIZE, "SOURCE_ROOT", source_root)
+    monkeypatch.setattr(FINALIZE, "SOURCE_REVISION", source_revisions["revision"])
+    monkeypatch.setattr(FINALIZE, "SOURCE_TREE", source_revisions["tree"])
+    monkeypatch.setattr(FINALIZE, "VERIFIERS_REVISION", source_revisions["verifiers"])
+    monkeypatch.setattr(FINALIZE, "RENDERERS_REVISION", source_revisions["renderers"])
+    monkeypatch.setattr(FINALIZE, "PYDANTIC_CONFIG_REVISION", source_revisions["pydantic_config"])
+    monkeypatch.setattr(FINALIZE, "VMVM_SHA256", source_revisions["vmvm"])
     monkeypatch.setattr(FINALIZE, "BUNDLE_ROOT", bundle_root)
     monkeypatch.setattr(FINALIZE, "X86_SITE", site_root)
     monkeypatch.setattr(FINALIZE, "X86_UV", uv_path)
     monkeypatch.setattr(FINALIZE, "X86_UV_SHA256", FINALIZE.sha256_bytes(uv_path.read_bytes()))
     monkeypatch.setattr(FINALIZE, "VACLI", vacli_path)
-    monkeypatch.setattr(FINALIZE, "VACLI_SHA256", FINALIZE.sha256_bytes(vacli_path.read_bytes()))
+    monkeypatch.setattr(FINALIZE, "VACLI_RESOLVED", vacli_resolved)
+    monkeypatch.setattr(FINALIZE, "VACLI_SHA256", FINALIZE.sha256_bytes(vacli_resolved.read_bytes()))
     monkeypatch.setattr(FINALIZE, "VACLI_OWNER_UID", os.getuid())
     monkeypatch.setattr(FINALIZE, "OUTPUT_ROOT", output)
     monkeypatch.setattr(FINALIZE, "COMPLETION_RECEIPT", receipt_path)
     monkeypatch.setattr(FINALIZE, "RESERVATION", reservation)
     monkeypatch.setattr(FINALIZE, "LOG_ROOT", tmp_path / "logs")
+    monkeypatch.setattr(FINALIZE, "SCRATCH_ROOT", tmp_path / "scratch")
+    source_fd = os.open(source_root, os.O_RDONLY | os.O_DIRECTORY)
+    site_fd = os.open(site_root, os.O_RDONLY | os.O_DIRECTORY)
+    try:
+        source_snapshot_commitment = FINALIZE._source_snapshot_commitment(FINALIZE._attest_imported_source(source_fd))
+        sealed_site_commitment = FINALIZE._directory_manifest(site_fd, sealed_modes=True)
+    finally:
+        os.close(site_fd)
+        os.close(source_fd)
+    execution_inputs = {
+        "authorized_site": site_inventory,
+        "site_snapshot": sealed_site_commitment,
+        "source_snapshot": source_snapshot_commitment,
+    }
     tls_record = {
         "path": str(tls_path),
         "sha256": FINALIZE.sha256_bytes(tls_path.read_bytes()),
     }
+    x2p_values = {name: f"fixture-{name.lower()}" for name in FINALIZE.X2P_NAMES}
     launch_authorization_body = {
         "artifact_type": "vmvm_task_free_diagnostic_authorization_v2",
         "bundle": {
@@ -1582,7 +2421,7 @@ def test_external_finalizer_writes_receipt_outside_sealed_output(monkeypatch, tm
         },
         "credentials": {
             "tls": {name: tls_record for name in FINALIZE.TLS_NAMES},
-            "x2p": {name: {"sha256": "1" * 64} for name in FINALIZE.X2P_NAMES},
+            "x2p": {name: {"sha256": FINALIZE.sha256_bytes(value.encode())} for name, value in x2p_values.items()},
         },
         "launch": {
             "account": "ram",
@@ -1624,6 +2463,7 @@ def test_external_finalizer_writes_receipt_outside_sealed_output(monkeypatch, tm
             },
             "vacli": {
                 "path": str(vacli_path),
+                "resolved_path": str(vacli_resolved),
                 "sha256": FINALIZE.VACLI_SHA256,
             },
         },
@@ -1656,6 +2496,10 @@ def test_external_finalizer_writes_receipt_outside_sealed_output(monkeypatch, tm
             "bad-bundle-self-hash",
             lambda body: body["bundle"]["finalizer"].update({"sha256": "0" * 64}),
         ),
+        (
+            "bad-vacli-target",
+            lambda body: body["runtime"]["vacli"].update({"resolved_path": str(vacli_path)}),
+        ),
     ):
         bad_launch_body = json.loads(FINALIZE.canonical_json(launch_authorization_body))
         mutate(bad_launch_body)
@@ -1674,7 +2518,43 @@ def test_external_finalizer_writes_receipt_outside_sealed_output(monkeypatch, tm
                 }
             )
 
+    invalid_tls = tmp_path / "invalid-combined.pem"
+    invalid_tls.write_bytes(
+        (
+            b"-----BEGIN CERTIFICATE-----\n" + base64.b64encode(b"certificate-only") + b"\n-----END CERTIFICATE-----\n"
+        ).ljust(FINALIZE.TLS_EXPECTED_SIZE, b"\n")
+    )
+    invalid_tls.chmod(0o500)
+    invalid_tls_body = json.loads(FINALIZE.canonical_json(launch_authorization_body))
+    invalid_tls_record = {
+        "path": str(invalid_tls),
+        "sha256": FINALIZE.sha256_bytes(invalid_tls.read_bytes()),
+    }
+    invalid_tls_body["credentials"]["tls"] = {name: invalid_tls_record for name in FINALIZE.TLS_NAMES}
+    invalid_tls_sha = FINALIZE.sha256_bytes(FINALIZE.canonical_json(invalid_tls_body))
+    invalid_tls_authorization = {
+        **invalid_tls_body,
+        "authorization_sha256": invalid_tls_sha,
+    }
+    invalid_tls_raw = FINALIZE.canonical_json(invalid_tls_authorization) + b"\n"
+    invalid_tls_auth_path = tmp_path / "invalid-tls-authorization.json"
+    invalid_tls_auth_path.write_bytes(invalid_tls_raw)
+    invalid_tls_auth_path.chmod(0o400)
+    with pytest.raises(FINALIZE.FinalizeError, match="authorization_invalid"):
+        FINALIZE._validate_launch_authorization(
+            {
+                "authorization_sha256": invalid_tls_sha,
+                "file_sha256": FINALIZE.sha256_bytes(invalid_tls_raw),
+                "path": str(invalid_tls_auth_path),
+            }
+        )
+
     reservation.mkdir(mode=0o700)
+    writer_lock = reservation / ".writer.lock"
+    writer_lock.write_bytes(b"")
+    writer_lock.chmod(0o600)
+    reservation_environment_identity = identity(reservation)
+    reservation_environment_identity["mode"] = 0o500
     job_authorization = {
         "artifact_type": "vmvm_task_free_job_authorization_v2",
         "authorization_file_sha256": launch_authorization_file_sha,
@@ -1685,13 +2565,105 @@ def test_external_finalizer_writes_receipt_outside_sealed_output(monkeypatch, tm
     }
     job_authorization_raw = FINALIZE.canonical_json(job_authorization) + b"\n"
     job_authorization_sha = FINALIZE.sha256_bytes(job_authorization_raw)
+    identity_string = lambda value: ":".join(str(value[name]) for name in ("device", "inode", "mode", "owner_uid"))
+    exported = {
+        "DIAG_ACTIVATION_PERMIT": str(reservation / "activation_permit.json"),
+        "DIAG_AUTHORIZATION": str(launch_authorization_path),
+        "DIAG_AUTHORIZATION_FILE_SHA256": launch_authorization_file_sha,
+        "DIAG_AUTHORIZATION_SHA256": launch_authorization_sha,
+        "DIAG_BUNDLE_IDENTITY": identity_string(identity(bundle_root)),
+        "DIAG_BUNDLE_ROOT": str(bundle_root),
+        "DIAG_COMPLETION_RECEIPT": str(receipt_path),
+        "DIAG_FINALIZER_PATH": bundle_records["finalizer"]["path"],
+        "DIAG_FINALIZER_SHA256": bundle_records["finalizer"]["sha256"],
+        "DIAG_JOB_AUTHORIZATION": str(reservation / "job_authorization.json"),
+        "DIAG_JOB_NAME": job["job_name"],
+        "DIAG_LAUNCHER_PATH": bundle_records["launcher"]["path"],
+        "DIAG_LAUNCHER_SHA256": bundle_records["launcher"]["sha256"],
+        "DIAG_OUTPUT_PARENT_IDENTITY": identity_string(identity(tmp_path)),
+        "DIAG_OUTPUT_ROOT": str(output),
+        "DIAG_PROBE_PATH": bundle_records["probe"]["path"],
+        "DIAG_PROBE_SHA256": bundle_records["probe"]["sha256"],
+        "DIAG_RESERVATION": str(reservation),
+        "DIAG_RESERVATION_IDENTITY": identity_string(reservation_environment_identity),
+        "DIAG_SCRATCH_ROOT": str(FINALIZE.SCRATCH_ROOT),
+        "DIAG_SOURCE_IDENTITY": identity_string(identity(source_root)),
+        "DIAG_SOURCE_REVISION": FINALIZE.SOURCE_REVISION,
+        "DIAG_SOURCE_ROOT": str(source_root),
+        "DIAG_SOURCE_TREE": FINALIZE.SOURCE_TREE,
+        "DIAG_SUBMISSION_RECEIPT": str(reservation / "submission_receipt.json"),
+        "DIAG_VMVM_SHA256": FINALIZE.VMVM_SHA256,
+        "DIAG_WRAPPER_GATE_TIMEOUT_SECONDS": str(FINALIZE.WRAPPER_GATE_TIMEOUT_SECONDS),
+        "DIAG_WRAPPER_PATH": bundle_records["wrapper"]["path"],
+        "DIAG_WRAPPER_SHA256": bundle_records["wrapper"]["sha256"],
+        "HOME": "/storage/home/tianhaowu",
+        "LANG": "C",
+        "LC_ALL": "C",
+        "LOGNAME": FINALIZE.OWNER,
+        "PATH": "/usr/bin:/bin",
+        "PYTHONDONTWRITEBYTECODE": "1",
+        "PYTHON_BIN_X86_64": "python3",
+        "PYTHON_SITE_X86_64": str(site_root),
+        "PYTHON_SITE_X86_64_ENTRY_COUNT": str(site_inventory["entry_count"]),
+        "PYTHON_SITE_X86_64_IDENTITY": identity_string(identity(site_root)),
+        "PYTHON_SITE_X86_64_MANIFEST_SHA256": site_inventory["manifest_sha256"],
+        "PYTHON_SITE_X86_64_TOTAL_BYTES": str(site_inventory["total_bytes"]),
+        "SLURM_EXPORT_ENV": "NONE",
+        "TZ": "UTC",
+        "USER": FINALIZE.OWNER,
+        "UV_BIN_X86_64": str(uv_path),
+        "VACLI_BIN": str(vacli_path),
+        "VACLI_CONTAINER_PRIVILEGED": "1",
+        "VACLI_IMAGE_PULL_TIMEOUT_SECONDS": str(FINALIZE.IMAGE_PULL_TIMEOUT_SECONDS),
+        "VACLI_LEASE_RETRIES": str(FINALIZE.LEASE_ATTEMPT_LIMIT),
+        "VACLI_MAX_CONCURRENT_LEASES": "1",
+        "VACLI_MAX_PULL_RETRIES": str(FINALIZE.IMAGE_PULL_RETRY_LIMIT),
+        **{name: str(tls_path) for name in FINALIZE.TLS_NAMES},
+        **x2p_values,
+    }
+    environment_raw = b"".join(f"{name}={exported[name]}".encode() + b"\0" for name in sorted(exported))
+    environment_sha = FINALIZE.sha256_bytes(environment_raw)
+    launch_intent = {
+        "artifact_type": "vmvm_task_free_launch_intent_v2",
+        "authorization_file_sha256": launch_authorization_file_sha,
+        "authorization_sha256": launch_authorization_sha,
+        "bundle_sha256": {
+            label: bundle_records[label]["sha256"] for label in ("finalizer", "launcher", "probe", "wrapper")
+        },
+        "environment_sha256": environment_sha,
+        "job_name": job["job_name"],
+        "production_authorized": False,
+        "state": "reserved",
+    }
+    launch_intent_raw = FINALIZE.canonical_json(launch_intent) + b"\n"
+
+    def telemetry(deadline: int, *, held: bool) -> dict[str, object]:
+        value: dict[str, object] = {
+            "converged": True,
+            "deadline_seconds": deadline,
+            "elapsed_milliseconds": 1,
+            "explicit_conflict_fields": [],
+            "final_mismatch_fields": [],
+            "mismatch_occurrences": {},
+            "polls": FINALIZE.REQUIRED_CONSECUTIVE,
+            "required_consecutive": FINALIZE.REQUIRED_CONSECUTIVE,
+        }
+        if held:
+            value.update(
+                {
+                    "post_authorization_mismatch_fields": [],
+                    "pre_authorization_mismatch_fields": [],
+                }
+            )
+        return value
+
     submission_receipt = {
-        "activation": {},
+        "activation": telemetry(FINALIZE.ACTIVATION_TIMEOUT_SECONDS, held=False),
         "artifact_type": "vmvm_task_free_submission_receipt_v2",
         "authorization_file_sha256": launch_authorization_file_sha,
         "authorization_sha256": launch_authorization_sha,
-        "environment_sha256": "a" * 64,
-        "held": {},
+        "environment_sha256": environment_sha,
+        "held": telemetry(FINALIZE.HELD_TIMEOUT_SECONDS, held=True),
         "job": job,
         "job_authorization_sha256": job_authorization_sha,
         "production_authorized": False,
@@ -1702,12 +2674,22 @@ def test_external_finalizer_writes_receipt_outside_sealed_output(monkeypatch, tm
     }
     submission_receipt_raw = FINALIZE.canonical_json(submission_receipt) + b"\n"
     submission_receipt_sha = FINALIZE.sha256_bytes(submission_receipt_raw)
+    activation_permit = {
+        "artifact_type": "vmvm_task_free_activation_permit_v2",
+        "authorization_file_sha256": launch_authorization_file_sha,
+        "authorization_sha256": launch_authorization_sha,
+        "environment_sha256": environment_sha,
+        "job_authorization_sha256": job_authorization_sha,
+        "production_authorized": False,
+        "state": "activated",
+        "submission_receipt_sha256": submission_receipt_sha,
+    }
+    activation_permit_raw = FINALIZE.canonical_json(activation_permit) + b"\n"
     for name, payload, mode in (
-        (".writer.lock", b"lock", 0o600),
-        ("activation_permit.json", b"permit", 0o400),
+        ("activation_permit.json", activation_permit_raw, 0o400),
         ("job_authorization.json", job_authorization_raw, 0o400),
-        ("launch_intent.json", b"intent", 0o400),
-        ("slurm_environment.bin", b"environment", 0o400),
+        ("launch_intent.json", launch_intent_raw, 0o400),
+        ("slurm_environment.bin", environment_raw, 0o400),
         ("submission_receipt.json", submission_receipt_raw, 0o400),
     ):
         path = reservation / name
@@ -1745,22 +2727,8 @@ def test_external_finalizer_writes_receipt_outside_sealed_output(monkeypatch, tm
         "causal_assessment": summary["causal_assessment"],
         "causal_contrasts": summary["causal_contrasts"],
         "diagnostic_only": True,
-        "environment_sha256": "a" * 64,
-        "execution_inputs": {
-            "authorized_site": site_inventory,
-            "site_snapshot": {
-                "entry_count": 1,
-                "manifest_sha256": "7" * 64,
-                "owner_uid": os.getuid(),
-                "total_bytes": 1,
-            },
-            "source_snapshot": {
-                "entry_count": 1,
-                "manifest_sha256": "8" * 64,
-                "owner_uid": os.getuid(),
-                "total_bytes": 1,
-            },
-        },
+        "environment_sha256": environment_sha,
+        "execution_inputs": execution_inputs,
         "image": FINALIZE.IMAGE,
         "job": job,
         "job_authorization_sha256": job_authorization_sha,
@@ -1805,7 +2773,7 @@ def test_external_finalizer_writes_receipt_outside_sealed_output(monkeypatch, tm
         "authorization_sha256": launch_authorization_sha,
         "certificate_sha256": FINALIZE.sha256_bytes(certificate_raw),
         "diagnostic_only": True,
-        "environment_sha256": "a" * 64,
+        "environment_sha256": environment_sha,
         "external_completion_receipt": str(receipt_path),
         "job": job,
         "job_authorization_sha256": job_authorization_sha,
@@ -1848,10 +2816,14 @@ def test_external_finalizer_writes_receipt_outside_sealed_output(monkeypatch, tm
         "schema_version": 2,
         "state": "approved",
         "submission": {
+            "activation_permit_sha256": FINALIZE.sha256_bytes(activation_permit_raw),
+            "environment_sha256": environment_sha,
             "job_authorization_sha256": job_authorization_sha,
+            "launch_intent_sha256": FINALIZE.sha256_bytes(launch_intent_raw),
             "reservation_path": str(reservation),
             "reservation_root_identity": reservation_identity,
             "submission_receipt_sha256": submission_receipt_sha,
+            "writer_lock_sha256": FINALIZE.sha256_bytes(b""),
         },
     }
     body_sha = FINALIZE.sha256_bytes(FINALIZE.canonical_json(authorization_body))
@@ -1861,21 +2833,40 @@ def test_external_finalizer_writes_receipt_outside_sealed_output(monkeypatch, tm
     authorization_path.write_bytes(authorization_raw)
     authorization_path.chmod(0o400)
 
-    bad_body = json.loads(FINALIZE.canonical_json(authorization_body))
-    bad_body["submission"]["submission_receipt_sha256"] = "0" * 64
-    bad_body_sha = FINALIZE.sha256_bytes(FINALIZE.canonical_json(bad_body))
-    bad_authorization = {**bad_body, "authorization_sha256": bad_body_sha}
-    bad_raw = FINALIZE.canonical_json(bad_authorization) + b"\n"
-    bad_path = tmp_path / "bad-completion-authorization.json"
-    bad_path.write_bytes(bad_raw)
-    bad_path.chmod(0o400)
-    with pytest.raises(FINALIZE.FinalizeError, match="submission_lineage_invalid"):
-        FINALIZE.finalize(bad_path, FINALIZE.sha256_bytes(bad_raw))
+    for field in (
+        "activation_permit_sha256",
+        "environment_sha256",
+        "job_authorization_sha256",
+        "launch_intent_sha256",
+        "submission_receipt_sha256",
+        "writer_lock_sha256",
+    ):
+        bad_body = json.loads(FINALIZE.canonical_json(authorization_body))
+        bad_body["submission"][field] = "0" * 64
+        bad_body_sha = FINALIZE.sha256_bytes(FINALIZE.canonical_json(bad_body))
+        bad_authorization = {**bad_body, "authorization_sha256": bad_body_sha}
+        bad_raw = FINALIZE.canonical_json(bad_authorization) + b"\n"
+        bad_path = tmp_path / f"bad-{field}.json"
+        bad_path.write_bytes(bad_raw)
+        bad_path.chmod(0o400)
+        with pytest.raises(FINALIZE.FinalizeError, match="submission_lineage_invalid"):
+            FINALIZE.finalize(bad_path, FINALIZE.sha256_bytes(bad_raw))
 
     tampered_certificate = json.loads(FINALIZE.canonical_json(certificate))
     tampered_certificate["result_counts"]["passed"] -= 1
     with pytest.raises(FINALIZE.FinalizeError, match="certificate_aggregate_invalid"):
-        FINALIZE.validate_certificate(tampered_certificate)
+        FINALIZE.validate_certificate(
+            tampered_certificate,
+            expected_execution_inputs=execution_inputs,
+        )
+
+    arbitrary_snapshot = json.loads(FINALIZE.canonical_json(certificate))
+    arbitrary_snapshot["execution_inputs"]["source_snapshot"]["manifest_sha256"] = "0" * 64
+    with pytest.raises(FINALIZE.FinalizeError, match="certificate_invalid"):
+        FINALIZE.validate_certificate(
+            arbitrary_snapshot,
+            expected_execution_inputs=execution_inputs,
+        )
 
     result = FINALIZE.finalize(authorization_path, FINALIZE.sha256_bytes(authorization_raw))
     assert result["state"] == "complete"

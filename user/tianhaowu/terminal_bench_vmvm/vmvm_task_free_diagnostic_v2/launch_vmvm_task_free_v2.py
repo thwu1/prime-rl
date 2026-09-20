@@ -38,6 +38,7 @@ X86_UV = Path("/storage/home/tianhaowu/.local/x86_64/bin/uv")
 X86_UV_SHA256 = "ec831939765474162efb6c8c813e2b10908b26b04eaf98ac3e2972fa12d189b9"
 X86_SITE = BASE / "python_x86_64"
 VACLI = Path("/public/fbpkgs/x86_64/vacli/stable/vacli")
+VACLI_RESOLVED = Path("/infra/public/fbpkgs/x86_64/vacli/794/vacli")
 VACLI_SHA256 = "8be49a764bd0fac1a3ef2bef053ced556d18397d44642660eb8a2d22a7c235b3"
 OUTPUT_ROOT = BASE / "diagnostics/vmvm_v21_task_free_ab_a09a9a189_v2"
 RESERVATION = Path(f"{OUTPUT_ROOT}.launch-reservation")
@@ -358,6 +359,23 @@ def stable_file(
     return bytes(raw)
 
 
+def same_open_file(first: Path, second: Path) -> bool:
+    descriptors: list[int] = []
+    try:
+        for path in (first, second):
+            descriptors.append(os.open(path, os.O_RDONLY | os.O_NOFOLLOW))
+        identities = [
+            (info.st_dev, info.st_ino, info.st_mode, info.st_uid, info.st_nlink, info.st_size)
+            for info in (os.fstat(descriptor) for descriptor in descriptors)
+        ]
+        return identities[0] == identities[1]
+    except OSError:
+        return False
+    finally:
+        for descriptor in descriptors:
+            os.close(descriptor)
+
+
 def _strict_json(raw: bytes, code: str) -> dict[str, Any]:
     try:
         value = json.loads(raw)
@@ -484,8 +502,7 @@ def validate_authorization(
         or stat.S_IMODE(root_status.st_mode) != 0o700
         or root_status.st_uid != os.getuid()
         or root_status.st_nlink != 2
-        or {entry.name for entry in os.scandir(artifact_root)}
-        != {path.name for path, _mode in expected_bundle.values()}
+        or {entry.name for entry in os.scandir(artifact_fd)} != {path.name for path, _mode in expected_bundle.values()}
     ):
         os.close(artifact_fd)
         fail("authorization_bundle_invalid")
@@ -517,20 +534,52 @@ def validate_authorization(
             fail("authorization_runtime_invalid")
     finally:
         os.close(site_fd)
-    for label, expected_path, expected_digest in (
-        ("uv", X86_UV, X86_UV_SHA256),
-        ("vacli", VACLI, VACLI_SHA256),
-    ):
+    for label, expected_path, expected_digest in (("uv", X86_UV, X86_UV_SHA256),):
         path_value, digest = _artifact_record(runtime.get(label))
         if path_value != str(expected_path) or digest != expected_digest:
+            fail("authorization_runtime_invalid")
+        if expected_path.resolve(strict=True) != expected_path:
             fail("authorization_runtime_invalid")
         stable_file(
             expected_path,
             mode=0o755,
             expected_sha256=expected_digest,
-            expected_uid=0 if label == "vacli" else os.getuid(),
-            maximum=(512 << 20) if label == "vacli" else (128 << 20),
+            expected_uid=os.getuid(),
+            maximum=128 << 20,
         )
+    vacli_record = runtime.get("vacli")
+    if not isinstance(vacli_record, dict) or set(vacli_record) != {
+        "path",
+        "resolved_path",
+        "sha256",
+    }:
+        fail("authorization_runtime_invalid")
+    if (
+        vacli_record.get("path") != str(VACLI)
+        or vacli_record.get("resolved_path") != str(VACLI_RESOLVED)
+        or vacli_record.get("sha256") != VACLI_SHA256
+        or VACLI.resolve(strict=True) != VACLI_RESOLVED
+        or not same_open_file(VACLI, VACLI_RESOLVED)
+    ):
+        fail("authorization_runtime_invalid")
+    vacli_raw = stable_file(
+        VACLI,
+        mode=0o755,
+        expected_sha256=VACLI_SHA256,
+        expected_uid=0,
+        maximum=512 << 20,
+    )
+    if (
+        stable_file(
+            VACLI_RESOLVED,
+            mode=0o755,
+            expected_sha256=VACLI_SHA256,
+            expected_uid=0,
+            maximum=512 << 20,
+        )
+        != vacli_raw
+    ):
+        fail("authorization_runtime_invalid")
     if set(credentials) != {"tls", "x2p"}:
         fail("authorization_credentials_invalid")
     tls = credentials.get("tls")
@@ -2033,6 +2082,8 @@ def launch(authorization_path: Path, authorization_file_sha256: str) -> dict[str
         wrapper_raw = stable_file_at(bundle_fd, wrapper.name, mode=0o500)
         probe_raw = stable_file_at(bundle_fd, probe.name, mode=0o500)
         finalizer_raw = stable_file_at(bundle_fd, finalizer.name, mode=0o500)
+        admitted_reservation_identity = directory_identity(reservation_fd)
+        admitted_reservation_identity["mode"] = 0o500
         environment = _submission_environment(
             private=private,
             authorization=authorization_path,
@@ -2042,7 +2093,7 @@ def launch(authorization_path: Path, authorization_file_sha256: str) -> dict[str
             wrapper_sha256=sha256_bytes(wrapper_raw),
             probe_sha256=sha256_bytes(probe_raw),
             finalizer_sha256=sha256_bytes(finalizer_raw),
-            reservation_identity=identity_string(directory_identity(reservation_fd)),
+            reservation_identity=identity_string(admitted_reservation_identity),
         )
         environment_path = Path(f"/proc/self/fd/{reservation_fd}/slurm_environment.bin")
         environment_raw, environment_sha = _write_environment_at(reservation_fd, "slurm_environment.bin", environment)

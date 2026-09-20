@@ -7,6 +7,8 @@ from __future__ import annotations
 import argparse
 import asyncio
 import contextlib
+import ctypes
+import fcntl
 import hashlib
 import json
 import logging
@@ -32,6 +34,7 @@ PYDANTIC_CONFIG_REVISION = "896ade4e69d8d8dff2d4b0a431b7e1c7c12d638f"
 VMVM_SHA256 = "1e7c8ac2906a45d8212d609b5900fdc3d30f91ba73d4bcdb1c36dfc8bfdd09e2"
 X86_UV_SHA256 = "ec831939765474162efb6c8c813e2b10908b26b04eaf98ac3e2972fa12d189b9"
 VACLI_SHA256 = "8be49a764bd0fac1a3ef2bef053ced556d18397d44642660eb8a2d22a7c235b3"
+VACLI_RESOLVED = "/infra/public/fbpkgs/x86_64/vacli/794/vacli"
 IMAGE = "python:3.12-slim"
 WORKDIR = "/app"
 TENANT_ID = "async_2347641"
@@ -118,6 +121,44 @@ class DiagnosticError(RuntimeError):
         self.code = code
 
 
+class _LandlockRulesetAttr(ctypes.Structure):
+    _fields_ = [("handled_access_fs", ctypes.c_uint64)]
+
+
+class _LandlockPathBeneathAttr(ctypes.Structure):
+    _fields_ = [
+        ("allowed_access", ctypes.c_uint64),
+        ("parent_fd", ctypes.c_int32),
+        ("reserved", ctypes.c_uint32),
+    ]
+
+
+_LANDLOCK_CREATE_RULESET = 444
+_LANDLOCK_ADD_RULE = 445
+_LANDLOCK_RESTRICT_SELF = 446
+_LANDLOCK_CREATE_RULESET_VERSION = 1
+_LANDLOCK_RULE_PATH_BENEATH = 1
+_PR_SET_NO_NEW_PRIVS = 38
+_LANDLOCK_WRITE_ACCESS = sum(1 << bit for bit in (1, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14))
+_INOTIFY_MUTATION_MASK = sum(
+    value
+    for value in (
+        0x00000002,  # IN_MODIFY
+        0x00000004,  # IN_ATTRIB
+        0x00000008,  # IN_CLOSE_WRITE
+        0x00000040,  # IN_MOVED_FROM
+        0x00000080,  # IN_MOVED_TO
+        0x00000100,  # IN_CREATE
+        0x00000200,  # IN_DELETE
+        0x00000400,  # IN_DELETE_SELF
+        0x00000800,  # IN_MOVE_SELF
+        0x00002000,  # IN_UNMOUNT
+        0x00004000,  # IN_Q_OVERFLOW
+        0x00008000,  # IN_IGNORED
+    )
+)
+
+
 def canonical_json(value: object) -> bytes:
     return json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=True).encode()
 
@@ -164,7 +205,7 @@ def descriptor_path(descriptor: int) -> Path:
 
 
 def inherited_descriptor(path: Path) -> int | None:
-    match = re.fullmatch(r"/proc/self/fd/([0-9]+)", str(path))
+    match = re.fullmatch(r"/proc/self/fd/([3-9]|[1-9][0-9]+)", str(path))
     if match is None:
         return None
     descriptor = int(match.group(1))
@@ -711,33 +752,91 @@ def create_execution_snapshot(
     return source_snapshot, site_snapshot, source_inventory, site_inventory
 
 
-def _remove_tree_verified(path: Path) -> bool:
-    """Delete an owned tree and prove that neither it nor a symlink remains."""
-    try:
-        if not os.path.lexists(path):
-            return True
-        if path.is_symlink() or not path.is_dir():
-            return False
-        directories: list[Path] = []
-        for root, names, files in os.walk(path, topdown=True, followlinks=False):
-            root_path = Path(root)
-            directories.append(root_path)
-            root_path.chmod(0o700)
-            for name in names:
-                child = root_path / name
-                if child.is_symlink():
-                    return False
-            for name in files:
-                child = root_path / name
-                if child.is_symlink() or not child.is_file():
-                    return False
-                child.chmod(0o600)
-        for directory in reversed(directories):
-            directory.chmod(0o700)
-        shutil.rmtree(path)
-    except OSError:
+def _directory_entry_identity(parent_fd: int, name: str) -> dict[str, int]:
+    info = os.stat(name, dir_fd=parent_fd, follow_symlinks=False)
+    if not stat.S_ISDIR(info.st_mode):
+        raise DiagnosticError("cleanup_failed")
+    return {
+        "device": info.st_dev,
+        "inode": info.st_ino,
+        "mode": stat.S_IMODE(info.st_mode),
+        "owner_uid": info.st_uid,
+    }
+
+
+def _remove_bound_tree_verified(
+    parent_fd: int,
+    name: str,
+    root_fd: int,
+    expected_identity: Mapping[str, object],
+) -> bool:
+    """Delete only the still-bound created tree and prove its name is absent."""
+    if not name or "/" in name or name in {".", ".."}:
         return False
-    return not os.path.lexists(path)
+
+    def same_object(left: Mapping[str, object], right: Mapping[str, object]) -> bool:
+        return all(left.get(field) == right.get(field) for field in ("device", "inode", "owner_uid"))
+
+    def remove_contents(directory_fd: int) -> None:
+        os.fchmod(directory_fd, 0o700)
+        for child_name in sorted(os.listdir(directory_fd)):
+            info = os.stat(child_name, dir_fd=directory_fd, follow_symlinks=False)
+            if info.st_uid != os.getuid():
+                raise DiagnosticError("cleanup_failed")
+            if stat.S_ISDIR(info.st_mode):
+                child_fd = os.open(
+                    child_name,
+                    os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW,
+                    dir_fd=directory_fd,
+                )
+                try:
+                    child_identity = _directory_entry_identity(directory_fd, child_name)
+                    if not same_object(descriptor_identity(child_fd), child_identity):
+                        raise DiagnosticError("cleanup_failed")
+                    remove_contents(child_fd)
+                    if not same_object(_directory_entry_identity(directory_fd, child_name), child_identity):
+                        raise DiagnosticError("cleanup_failed")
+                    os.rmdir(child_name, dir_fd=directory_fd)
+                finally:
+                    os.close(child_fd)
+            elif stat.S_ISREG(info.st_mode):
+                file_fd = os.open(child_name, os.O_RDONLY | os.O_NOFOLLOW, dir_fd=directory_fd)
+                try:
+                    before = os.fstat(file_fd)
+                    if (
+                        before.st_dev != info.st_dev
+                        or before.st_ino != info.st_ino
+                        or before.st_uid != os.getuid()
+                        or before.st_nlink != 1
+                    ):
+                        raise DiagnosticError("cleanup_failed")
+                    os.unlink(child_name, dir_fd=directory_fd)
+                finally:
+                    os.close(file_fd)
+            else:
+                raise DiagnosticError("cleanup_failed")
+        os.fsync(directory_fd)
+
+    try:
+        if (
+            descriptor_identity(root_fd) != expected_identity
+            or expected_identity.get("mode") != 0o700
+            or expected_identity.get("owner_uid") != os.getuid()
+            or _directory_entry_identity(parent_fd, name) != expected_identity
+        ):
+            return False
+        remove_contents(root_fd)
+        if _directory_entry_identity(parent_fd, name) != expected_identity:
+            return False
+        os.rmdir(name, dir_fd=parent_fd)
+        os.fsync(parent_fd)
+        try:
+            os.stat(name, dir_fd=parent_fd, follow_symlinks=False)
+        except FileNotFoundError:
+            return True
+        return False
+    except (DiagnosticError, FileNotFoundError, OSError):
+        return False
 
 
 def _exception_chain(error: BaseException) -> str:
@@ -1717,13 +1816,163 @@ def verify_timeout_release(
     return _process_group_absent(process_group)
 
 
+def _create_worker_write_ruleset(stage_fd: int) -> int:
+    """Create a Landlock ruleset that permits filesystem mutation only in one cell."""
+    libc = ctypes.CDLL(None, use_errno=True)
+    abi = libc.syscall(
+        _LANDLOCK_CREATE_RULESET,
+        ctypes.c_void_p(),
+        ctypes.c_size_t(0),
+        ctypes.c_uint(_LANDLOCK_CREATE_RULESET_VERSION),
+    )
+    if abi < 3:
+        raise DiagnosticError("child_invalid")
+    ruleset_attr = _LandlockRulesetAttr(_LANDLOCK_WRITE_ACCESS)
+    ruleset_fd = libc.syscall(
+        _LANDLOCK_CREATE_RULESET,
+        ctypes.byref(ruleset_attr),
+        ctypes.sizeof(ruleset_attr),
+        ctypes.c_uint(0),
+    )
+    if ruleset_fd < 0:
+        raise DiagnosticError("child_invalid")
+    path_fd = -1
+    try:
+        path_fd = os.open(".", os.O_PATH | os.O_DIRECTORY | os.O_CLOEXEC, dir_fd=stage_fd)
+        path_attr = _LandlockPathBeneathAttr(_LANDLOCK_WRITE_ACCESS, path_fd, 0)
+        if (
+            libc.syscall(
+                _LANDLOCK_ADD_RULE,
+                ctypes.c_int(ruleset_fd),
+                ctypes.c_int(_LANDLOCK_RULE_PATH_BENEATH),
+                ctypes.byref(path_attr),
+                ctypes.c_uint(0),
+            )
+            != 0
+        ):
+            raise DiagnosticError("child_invalid")
+    except BaseException:
+        os.close(ruleset_fd)
+        raise
+    finally:
+        if path_fd >= 0:
+            os.close(path_fd)
+    return int(ruleset_fd)
+
+
+def _restrict_worker_writes(ruleset_fd: int) -> None:
+    libc = ctypes.CDLL(None, use_errno=True)
+    if (
+        libc.prctl(_PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0) != 0
+        or libc.syscall(
+            _LANDLOCK_RESTRICT_SELF,
+            ctypes.c_int(ruleset_fd),
+            ctypes.c_uint(0),
+        )
+        != 0
+    ):
+        raise OSError(ctypes.get_errno(), "Landlock restriction failed")
+    os.close(ruleset_fd)
+
+
+class SnapshotGuard:
+    """Kernel-backed write detection and denial for the sealed input tree."""
+
+    def __init__(self, roots: Sequence[Path]) -> None:
+        self._lease_fds: list[int] = []
+        self._violated = False
+        self._closed = False
+        self._previous_sigio = signal.getsignal(signal.SIGIO)
+        signal.signal(signal.SIGIO, self._lease_break)
+        libc = ctypes.CDLL(None, use_errno=True)
+        self._inotify_fd = int(libc.inotify_init1(os.O_NONBLOCK | os.O_CLOEXEC))
+        if self._inotify_fd < 0:
+            signal.signal(signal.SIGIO, self._previous_sigio)
+            raise DiagnosticError("source_binding_invalid")
+        try:
+            for root in roots:
+                for directory, names, files in os.walk(root, topdown=True, followlinks=False):
+                    directory_path = Path(directory)
+                    if any((directory_path / name).is_symlink() for name in (*names, *files)):
+                        raise DiagnosticError("source_binding_invalid")
+                    encoded = os.fsencode(directory_path)
+                    if (
+                        libc.inotify_add_watch(
+                            ctypes.c_int(self._inotify_fd),
+                            ctypes.c_char_p(encoded),
+                            ctypes.c_uint32(_INOTIFY_MUTATION_MASK),
+                        )
+                        < 0
+                    ):
+                        raise DiagnosticError("source_binding_invalid")
+                    for name in files:
+                        file_fd = os.open(
+                            directory_path / name,
+                            os.O_RDONLY | os.O_NOFOLLOW | os.O_CLOEXEC,
+                        )
+                        try:
+                            info = os.fstat(file_fd)
+                            if not stat.S_ISREG(info.st_mode) or info.st_uid != os.getuid() or info.st_nlink != 1:
+                                raise DiagnosticError("source_binding_invalid")
+                            fcntl.fcntl(file_fd, fcntl.F_SETOWN, os.getpid())
+                            fcntl.fcntl(file_fd, fcntl.F_SETLEASE, fcntl.F_RDLCK)
+                        except BaseException:
+                            os.close(file_fd)
+                            raise
+                        self._lease_fds.append(file_fd)
+        except BaseException:
+            self.close()
+            raise
+
+    def _lease_break(self, signum: int, frame: object) -> None:
+        del signum, frame
+        self._violated = True
+
+    def is_clean(self) -> bool:
+        if self._closed or self._violated:
+            return False
+        while True:
+            try:
+                raw = os.read(self._inotify_fd, 1 << 20)
+            except BlockingIOError:
+                break
+            except OSError:
+                self._violated = True
+                break
+            if not raw:
+                self._violated = True
+                break
+            self._violated = True
+        return not self._violated
+
+    def close(self) -> bool:
+        if self._closed:
+            return False
+        clean = self.is_clean()
+        self._closed = True
+        for descriptor in self._lease_fds:
+            try:
+                fcntl.fcntl(descriptor, fcntl.F_SETLEASE, fcntl.F_UNLCK)
+                os.close(descriptor)
+            except OSError:
+                clean = False
+        self._lease_fds.clear()
+        try:
+            os.close(self._inotify_fd)
+        except OSError:
+            clean = False
+        signal.signal(signal.SIGIO, self._previous_sigio)
+        return clean
+
+
 def run_stage_child(
     *,
     script: Path,
     python: Path,
     source_root: Path,
     site_root: Path,
-    scratch_root: Path,
+    scratch_root_fd: int,
+    snapshot_guard: SnapshotGuard,
     mode: str,
     stage: str,
     pair_index: int,
@@ -1739,17 +1988,38 @@ def run_stage_child(
     )
     if any(descriptor is None for descriptor in inherited):
         raise DiagnosticError("child_invalid")
-    stage_scratch = scratch_root / (f"pair-{pair_index:02d}-position-{order_position}-{mode}-{stage}")
-    stage_scratch.mkdir(mode=0o700)
+    stage_name = f"pair-{pair_index:02d}-position-{order_position}-{mode}-{stage}"
+    os.mkdir(stage_name, mode=0o700, dir_fd=scratch_root_fd)
+    stage_fd = os.open(
+        stage_name,
+        os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW,
+        dir_fd=scratch_root_fd,
+    )
+    stage_identity = descriptor_identity(stage_fd)
+    stage_scratch = descriptor_path(stage_fd)
+    journal_fd = -1
+    landlock_fd = -1
     try:
-        (stage_scratch / "pycache").mkdir(mode=0o500)
+        os.mkdir("pycache", mode=0o500, dir_fd=stage_fd)
         journal_fd = os.open(
-            stage_scratch / "renewer-journal.jsonl",
+            "renewer-journal.jsonl",
             os.O_RDWR | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW | os.O_APPEND,
             0o600,
+            dir_fd=stage_fd,
         )
+        landlock_fd = _create_worker_write_ruleset(stage_fd)
     except BaseException:
-        if not _remove_tree_verified(stage_scratch):
+        for descriptor in (journal_fd, landlock_fd):
+            if descriptor >= 0:
+                os.close(descriptor)
+        removed = _remove_bound_tree_verified(
+            scratch_root_fd,
+            stage_name,
+            stage_fd,
+            stage_identity,
+        )
+        os.close(stage_fd)
+        if not removed:
             raise DiagnosticError("cleanup_failed")
         raise
     command = [
@@ -1776,28 +2046,73 @@ def run_stage_child(
         "--renewer-journal-fd",
         str(journal_fd),
     ]
+    process: subprocess.Popen[bytes] | None = None
+    release_checked = False
     try:
-        process = subprocess.Popen(
-            command,
-            env=_child_environment(mode, stage_scratch, journal_fd),
-            stdin=subprocess.DEVNULL,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            start_new_session=True,
-            pass_fds=tuple(
-                descriptor
-                for descriptor in (
-                    *inherited,
-                    journal_fd,
-                )
-                if descriptor is not None
-            ),
-        )
+        if not snapshot_guard.is_clean():
+            raise DiagnosticError("source_binding_invalid")
         try:
-            stdout, stderr = process.communicate(timeout=STAGE_TIMEOUT_SECONDS)
-        except subprocess.TimeoutExpired:
+            process = subprocess.Popen(
+                command,
+                env=_child_environment(mode, stage_scratch, journal_fd),
+                stdin=subprocess.DEVNULL,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                start_new_session=True,
+                pass_fds=tuple(
+                    descriptor
+                    for descriptor in (
+                        *inherited,
+                        stage_fd,
+                        journal_fd,
+                        landlock_fd,
+                    )
+                    if descriptor is not None
+                ),
+                preexec_fn=lambda: _restrict_worker_writes(landlock_fd),
+            )
+        finally:
+            os.close(landlock_fd)
+            landlock_fd = -1
+        deadline = time.monotonic() + STAGE_TIMEOUT_SECONDS
+        guard_violation = False
+        while True:
+            if not snapshot_guard.is_clean():
+                guard_violation = True
+                break
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                break
+            try:
+                stdout, stderr = process.communicate(timeout=min(1.0, remaining))
+                break
+            except subprocess.TimeoutExpired:
+                continue
+        if guard_violation:
             terminated = _terminate_process_group(process)
             released = terminated and verify_external_renewer_release(journal_fd, process.pid)
+            release_checked = True
+            renewer_processes = len(_journal_process_identities(journal_fd)) if released else 0
+            return _result_payload(
+                mode=mode,
+                stage=stage,
+                state="failed",
+                failure="source_binding_invalid" if released else "cleanup_failed",
+                cleanup_complete=released,
+                elapsed_seconds=max(0.0, STAGE_TIMEOUT_SECONDS - max(0.0, deadline - time.monotonic())),
+                pair_index=pair_index,
+                order_position=order_position,
+                phase_metadata={
+                    **_empty_phase_metadata(released),
+                    "last_phase": ("release_verified" if released else "worker_started"),
+                    "release_verified": released,
+                    "renewer_processes": renewer_processes,
+                },
+            )
+        if process.poll() is None:
+            terminated = _terminate_process_group(process)
+            released = terminated and verify_external_renewer_release(journal_fd, process.pid)
+            release_checked = True
             renewer_processes = len(_journal_process_identities(journal_fd)) if released else 0
             return _result_payload(
                 mode=mode,
@@ -1815,6 +2130,8 @@ def run_stage_child(
                     "renewer_processes": renewer_processes,
                 },
             )
+        if not snapshot_guard.is_clean():
+            raise DiagnosticError("source_binding_invalid")
         overflow = len(stdout) > MAX_CHILD_OUTPUT_BYTES or len(stderr) > MAX_CHILD_OUTPUT_BYTES
         try:
             value = json.loads(stdout) if not overflow else None
@@ -1827,7 +2144,6 @@ def run_stage_child(
             and isinstance(value, dict)
             and canonical_json(value) + b"\n" == stdout
         )
-        release_checked = False
         released = False
         if valid:
             try:
@@ -1859,6 +2175,7 @@ def run_stage_child(
             return value
         if not release_checked:
             released = verify_external_renewer_release(journal_fd, process.pid)
+            release_checked = True
         renewer_processes = len(_journal_process_identities(journal_fd)) if released else 0
         return _result_payload(
             mode=mode,
@@ -1878,13 +2195,30 @@ def run_stage_child(
                 "renewer_processes": renewer_processes,
             },
         )
+    except BaseException as error:
+        if process is not None and not release_checked:
+            terminated = process.poll() is not None or _terminate_process_group(process)
+            try:
+                released = terminated and verify_external_renewer_release(journal_fd, process.pid)
+            except BaseException:
+                released = False
+            if not released:
+                raise DiagnosticError("cleanup_failed") from error
+        raise
     finally:
         try:
             os.close(journal_fd)
             journal_closed = True
         except OSError:
             journal_closed = False
-        if not _remove_tree_verified(stage_scratch) or not journal_closed:
+        removed = _remove_bound_tree_verified(
+            scratch_root_fd,
+            stage_name,
+            stage_fd,
+            stage_identity,
+        )
+        os.close(stage_fd)
+        if not removed or not journal_closed:
             raise DiagnosticError("cleanup_failed")
 
 
@@ -1992,7 +2326,8 @@ def _validate_phase_causality(
         or count("release_verified") != 1
         or count("lease_start") != lease_attempts
         or count("cleanup_called") != lease_attempts
-        or count("tunnel_ready") > lease_attempts
+        or count("tunnel_ready") > lease_attempts + recovery_attempts
+        or count("tunnel_ready") > renewers
         or count("backend_ready") not in (0, 1)
         or count("backend_ready") > count("tunnel_ready")
         or count("command_started") not in (0, 1)
@@ -2000,6 +2335,7 @@ def _validate_phase_causality(
         or count("command_succeeded") > count("command_started")
         or count("command_started") > count("backend_ready")
         or renewers > lease_attempts + recovery_attempts
+        or (count("backend_ready") == 1 and renewers == 0)
         or failure
         in {
             "child_invalid",
@@ -2097,6 +2433,80 @@ def _stable_bytes(
     if expected_sha256 is not None and sha256_bytes(raw) != expected_sha256:
         raise DiagnosticError("source_binding_invalid")
     return bytes(raw)
+
+
+def _stable_descriptor_bytes(
+    path: Path,
+    *,
+    authorized_fd: int,
+    authorized_path: Path,
+    mode: int,
+    expected_sha256: str,
+    maximum: int = 2 << 20,
+) -> bytes:
+    """Read an inherited procfd with pread and bind it to an authorized inode."""
+    try:
+        descriptor = inherited_descriptor(path)
+        if descriptor is None or os.readlink(path) != str(authorized_path):
+            raise DiagnosticError("source_binding_invalid")
+        before = os.fstat(descriptor)
+        authorized = os.fstat(authorized_fd)
+        stable_fields = (
+            "st_dev",
+            "st_ino",
+            "st_mode",
+            "st_uid",
+            "st_nlink",
+            "st_size",
+            "st_mtime_ns",
+            "st_ctime_ns",
+        )
+        if (
+            any(getattr(before, field) != getattr(authorized, field) for field in stable_fields)
+            or not stat.S_ISREG(before.st_mode)
+            or stat.S_IMODE(before.st_mode) != mode
+            or before.st_uid != os.getuid()
+            or before.st_nlink != 1
+            or not 0 < before.st_size <= maximum
+        ):
+            raise DiagnosticError("source_binding_invalid")
+        raw = bytearray()
+        offset = 0
+        while offset <= maximum:
+            chunk = os.pread(descriptor, min(1 << 20, maximum + 1 - offset), offset)
+            if not chunk:
+                break
+            raw.extend(chunk)
+            offset += len(chunk)
+        after = os.fstat(descriptor)
+        authorized_after = os.fstat(authorized_fd)
+    except (OSError, ValueError) as error:
+        raise DiagnosticError("source_binding_invalid") from error
+    if (
+        any(getattr(before, field) != getattr(after, field) for field in stable_fields)
+        or any(getattr(authorized, field) != getattr(authorized_after, field) for field in stable_fields)
+        or len(raw) != before.st_size
+        or sha256_bytes(raw) != expected_sha256
+    ):
+        raise DiagnosticError("source_binding_invalid")
+    return bytes(raw)
+
+
+def _same_open_file(first: Path, second: Path) -> bool:
+    descriptors: list[int] = []
+    try:
+        for path in (first, second):
+            descriptors.append(os.open(path, os.O_RDONLY | os.O_NOFOLLOW))
+        identities = [
+            (info.st_dev, info.st_ino, info.st_mode, info.st_uid, info.st_nlink, info.st_size)
+            for info in (os.fstat(descriptor) for descriptor in descriptors)
+        ]
+        return identities[0] == identities[1]
+    except OSError:
+        return False
+    finally:
+        for descriptor in descriptors:
+            os.close(descriptor)
 
 
 def _load_canonical_json(path: Path, *, mode: int, expected_sha256: str) -> dict[str, Any]:
@@ -2456,8 +2866,8 @@ def validate_batch_admission(environment: Mapping[str, str], script_path: Path) 
         "revision": SOURCE_REVISION,
         "tree": SOURCE_TREE,
         "verifiers_revision": VERIFIERS_REVISION,
-        "renderers_revision": "044d9e2541f6a911cacae9da353fc063911ef1f8",
-        "pydantic_config_revision": "896ade4e69d8d8dff2d4b0a431b7e1c7c12d638f",
+        "renderers_revision": RENDERERS_REVISION,
+        "pydantic_config_revision": PYDANTIC_CONFIG_REVISION,
         "root_identity": parse_identity(environment["DIAG_SOURCE_IDENTITY"]),
         "vmvm_sha256": VMVM_SHA256,
     }:
@@ -2536,13 +2946,23 @@ def validate_batch_admission(environment: Mapping[str, str], script_path: Path) 
             raise DiagnosticError("child_invalid")
     finally:
         os.close(site_fd)
-    for label, expected_path, expected_digest in (
-        ("uv", environment["UV_BIN_X86_64"], X86_UV_SHA256),
-        ("vacli", environment["VACLI_BIN"], VACLI_SHA256),
-    ):
+    for label, expected_path, expected_digest in (("uv", environment["UV_BIN_X86_64"], X86_UV_SHA256),):
         record = runtime.get(label)
         if record != {"path": expected_path, "sha256": expected_digest}:
             raise DiagnosticError("child_invalid")
+        if Path(expected_path).resolve(strict=True) != Path(expected_path):
+            raise DiagnosticError("child_invalid")
+    if (
+        runtime.get("vacli")
+        != {
+            "path": environment["VACLI_BIN"],
+            "resolved_path": VACLI_RESOLVED,
+            "sha256": VACLI_SHA256,
+        }
+        or Path(environment["VACLI_BIN"]).resolve(strict=True) != Path(VACLI_RESOLVED)
+        or not _same_open_file(Path(environment["VACLI_BIN"]), Path(VACLI_RESOLVED))
+    ):
+        raise DiagnosticError("child_invalid")
     artifact_labels = {
         "finalizer",
         "launcher",
@@ -2626,7 +3046,21 @@ def validate_batch_admission(environment: Mapping[str, str], script_path: Path) 
     probe_record = bundle["probe"]
     if not isinstance(probe_record, dict) or probe_record.get("path") != environment["DIAG_PROBE_PATH"]:
         raise DiagnosticError("child_invalid")
-    _stable_bytes(script_path, mode=0o500, expected_sha256=environment["DIAG_PROBE_SHA256"])
+    authorized_probe_fd = os.open(
+        "probe_vmvm_task_free_v2.py",
+        os.O_RDONLY | os.O_NOFOLLOW,
+        dir_fd=bundle_fd,
+    )
+    try:
+        _stable_descriptor_bytes(
+            script_path,
+            authorized_fd=authorized_probe_fd,
+            authorized_path=Path(environment["DIAG_PROBE_PATH"]),
+            mode=0o500,
+            expected_sha256=environment["DIAG_PROBE_SHA256"],
+        )
+    finally:
+        os.close(authorized_probe_fd)
     os.close(bundle_fd)
     tls = credentials.get("tls")
     x2p = credentials.get("x2p")
@@ -2802,9 +3236,16 @@ def run_supervisor(args: argparse.Namespace) -> dict[str, object]:
         parse_identity(os.environ["DIAG_OUTPUT_PARENT_IDENTITY"]),
         code="output_binding_invalid",
     )
+    scratch_parent_fd = os.open(
+        args.scratch_root.parent,
+        os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW,
+    )
     output_fd: int | None = None
+    scratch_fd: int | None = None
+    scratch_identity: dict[str, int] | None = None
     source_snapshot_fd: int | None = None
     site_snapshot_fd: int | None = None
+    snapshot_guard: SnapshotGuard | None = None
     scratch_created = False
     results: list[dict[str, object]] = []
     source_fd = inherited_bound_directory(
@@ -2825,7 +3266,19 @@ def run_supervisor(args: argparse.Namespace) -> dict[str, object]:
             os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW,
             dir_fd=output_parent_fd,
         )
-        args.scratch_root.mkdir(mode=0o700)
+        try:
+            os.stat(args.scratch_root.name, dir_fd=scratch_parent_fd, follow_symlinks=False)
+        except FileNotFoundError:
+            pass
+        else:
+            raise DiagnosticError("child_invalid")
+        os.mkdir(args.scratch_root.name, mode=0o700, dir_fd=scratch_parent_fd)
+        scratch_fd = os.open(
+            args.scratch_root.name,
+            os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW,
+            dir_fd=scratch_parent_fd,
+        )
+        scratch_identity = descriptor_identity(scratch_fd)
         scratch_created = True
         expected_site_inventory = {
             "entry_count": int(os.environ["PYTHON_SITE_X86_64_ENTRY_COUNT"]),
@@ -2841,7 +3294,7 @@ def run_supervisor(args: argparse.Namespace) -> dict[str, object]:
         ) = create_execution_snapshot(
             source_fd,
             site_fd,
-            args.scratch_root,
+            descriptor_path(scratch_fd),
             expected_site_inventory,
         )
         source_snapshot_fd = os.open(
@@ -2854,11 +3307,13 @@ def run_supervisor(args: argparse.Namespace) -> dict[str, object]:
         )
         snapshot_source_root = descriptor_path(source_snapshot_fd)
         snapshot_site_root = descriptor_path(site_snapshot_fd)
+        snapshot_guard = SnapshotGuard((snapshot_source_root, snapshot_site_root))
         for stage in STAGES:
             for pair_index, order in enumerate(MODE_ORDERS):
                 for order_position, mode in enumerate(order):
                     if (
-                        directory_manifest(source_snapshot_fd, expected_owner_uid=os.getuid())
+                        not snapshot_guard.is_clean()
+                        or directory_manifest(source_snapshot_fd, expected_owner_uid=os.getuid())
                         != source_snapshot_inventory
                         or directory_manifest(site_snapshot_fd, expected_owner_uid=os.getuid())
                         != site_snapshot_inventory
@@ -2869,7 +3324,8 @@ def run_supervisor(args: argparse.Namespace) -> dict[str, object]:
                         python=Path(sys.executable).resolve(strict=True),
                         source_root=snapshot_source_root,
                         site_root=snapshot_site_root,
-                        scratch_root=args.scratch_root,
+                        scratch_root_fd=scratch_fd,
+                        snapshot_guard=snapshot_guard,
                         mode=mode,
                         stage=stage,
                         pair_index=pair_index,
@@ -2891,7 +3347,8 @@ def run_supervisor(args: argparse.Namespace) -> dict[str, object]:
                         expected_order_position=order_position,
                     )
                     if (
-                        directory_manifest(source_snapshot_fd, expected_owner_uid=os.getuid())
+                        not snapshot_guard.is_clean()
+                        or directory_manifest(source_snapshot_fd, expected_owner_uid=os.getuid())
                         != source_snapshot_inventory
                         or directory_manifest(site_snapshot_fd, expected_owner_uid=os.getuid())
                         != site_snapshot_inventory
@@ -2903,13 +3360,23 @@ def run_supervisor(args: argparse.Namespace) -> dict[str, object]:
             raise DiagnosticError("site_binding_invalid")
         if len(results) != CELL_COUNT:
             raise DiagnosticError("stage_result_invalid")
+        if not snapshot_guard.close():
+            raise DiagnosticError("source_binding_invalid")
+        snapshot_guard = None
         os.close(source_snapshot_fd)
         source_snapshot_fd = None
         os.close(site_snapshot_fd)
         site_snapshot_fd = None
-        if not _remove_tree_verified(args.scratch_root):
+        if not _remove_bound_tree_verified(
+            scratch_parent_fd,
+            args.scratch_root.name,
+            scratch_fd,
+            scratch_identity,
+        ):
             raise DiagnosticError("cleanup_failed")
         scratch_created = False
+        os.close(scratch_fd)
+        scratch_fd = None
         summary = summarize_stage_results(results)
         counts = summary["result_counts"]
         failures = summary["safe_failure_counts"]
@@ -3011,6 +3478,8 @@ def run_supervisor(args: argparse.Namespace) -> dict[str, object]:
             "state": "awaiting_external_completion",
         }
     finally:
+        if snapshot_guard is not None and not snapshot_guard.close():
+            cleanup_failed = True
         for descriptor in (
             source_fd,
             site_fd,
@@ -3022,7 +3491,26 @@ def run_supervisor(args: argparse.Namespace) -> dict[str, object]:
                     os.close(descriptor)
                 except OSError:
                     cleanup_failed = True
-        if scratch_created and not _remove_tree_verified(args.scratch_root):
+        if scratch_created:
+            if (
+                scratch_fd is None
+                or scratch_identity is None
+                or not _remove_bound_tree_verified(
+                    scratch_parent_fd,
+                    args.scratch_root.name,
+                    scratch_fd,
+                    scratch_identity,
+                )
+            ):
+                cleanup_failed = True
+        if scratch_fd is not None:
+            try:
+                os.close(scratch_fd)
+            except OSError:
+                cleanup_failed = True
+        try:
+            os.close(scratch_parent_fd)
+        except OSError:
             cleanup_failed = True
         if output_fd is not None:
             try:

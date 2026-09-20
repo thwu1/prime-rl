@@ -71,8 +71,9 @@ candidate certificate. The supervisor independently performs the full
 PID/PGID absence interval even for a structurally valid successful child and
 aborts before starting the next matrix cell on any unverified result or cleanup
 failure. Each per-cell scratch directory (including vacli logs) and the final
-snapshot scratch tree are deleted without ignored errors, and absence is
-verified before publication. When a backend constructor raises after its audited
+snapshot scratch tree are deleted relative to held parent/root descriptors;
+missing, renamed, or inode-replaced roots fail closed, and absence is verified
+again by the wrapper and finalizer before publication or completion. When a backend constructor raises after its audited
 rollback cleaned every attempted lease, the original constructor failure class
 is retained instead of being overwritten with `cleanup_failed`.
 
@@ -88,7 +89,8 @@ The external launch authorization binds:
   over every directory and regular file (relative path, mode, owner, size, and
   content hash);
 - the exact uv/vacli binaries, image, TLS file hashes, and private commitments
-  to all three X2P values;
+  to all three X2P values; uv must be canonical, while the one allowed vacli
+  parent symlink must open the exact pinned target inode;
 - the ABBA schedule, repetitions, retry ceilings, timeout, and all CLI paths;
 - output parent, output, reservation, scratch, log, and external-receipt paths.
 
@@ -97,15 +99,24 @@ and reservation. Reservation files are created relative to the held dirfd; the
 writer lock and receipts stay on that same inode. Wrapper bytes are submitted
 through stdin. The batch wrapper matches every authorized device/inode tuple,
 opens the probe from the bundle dirfd, and invokes it as `/proc/self/fd/N`.
+Both the wrapper and Python preflight validate that inherited descriptor's
+strict grammar, readlink target, fstat identity, mode, owner, link count, size,
+and digest; Python uses `pread`, so an inherited file offset is irrelevant.
 The Python preflight rejects pathname invocation: the probe, source, site, and
 output parent must all arrive as inherited `/proc/self/fd/N` descriptors. Before
 the first cell, the supervisor copies the fully attested imported source and
 the authorized x86 site into a private, read-only execution snapshot. It
 verifies both copied content manifests against the held inputs, reattests the
 originals, and gives worker children only held descriptors for those snapshots.
-Both snapshot manifests are checked immediately before and after every child
+Each worker enters a fail-closed Landlock write domain limited to its cell
+scratch directory. Independently, the supervisor holds kernel read leases on
+all snapshot files, watches every snapshot directory with inotify, and checks
+the guard throughout each child; a same-UID sibling write, rename, metadata
+change, watcher overflow, or lease break aborts the run. Landlock ABI 3 or
+newer, file leases, and inotify are runtime admission requirements. Both
+snapshot manifests are also checked immediately before and after every child
 and recorded in the certificate. A mutate-then-restore race against either
-original input therefore cannot change executed bytes. The finalizer also
+original input therefore cannot silently change executed bytes. The finalizer also
 validates every semantic field of the original launch authorization and
 re-hashes the exact six-file bundle, including its own authorized path and
 bytes, before accepting a completion authorization.
@@ -121,7 +132,9 @@ After the allocation is terminal, an independent reviewer must publish a
 separate mode-0400 completion authorization binding the terminal scheduler
 observation, candidate directory identity and inventory hash, certificate and
 request hashes, original launch-authorization path/file/body hashes, sealed
-reservation identity, submission-receipt and held-job-authorization hashes,
+reservation identity, and hashes for all six reservation artifacts (writer
+lock, launch intent, environment, held-job authorization, submission receipt,
+and activation permit),
 exact cluster/job/name lineage, and receipt path. Only
 `finalize_vmvm_task_free_v2.py` consumes it. The finalizer reopens and re-hashes
 the launch authorization, reservation lineage, and sealed output by dirfd;

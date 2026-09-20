@@ -20,6 +20,7 @@ readonly PYDANTIC_CONFIG_REVISION=896ade4e69d8d8dff2d4b0a431b7e1c7c12d638f
 readonly VMVM_SHA256=1e7c8ac2906a45d8212d609b5900fdc3d30f91ba73d4bcdb1c36dfc8bfdd09e2
 readonly X86_UV_SHA256=ec831939765474162efb6c8c813e2b10908b26b04eaf98ac3e2972fa12d189b9
 readonly VACLI_SHA256=8be49a764bd0fac1a3ef2bef053ced556d18397d44642660eb8a2d22a7c235b3
+readonly VACLI_RESOLVED=/infra/public/fbpkgs/x86_64/vacli/794/vacli
 
 required_environment=(
     DIAG_ACTIVATION_PERMIT DIAG_AUTHORIZATION DIAG_AUTHORIZATION_FILE_SHA256
@@ -109,20 +110,29 @@ done
 [[ $PYTHON_SITE_X86_64_ENTRY_COUNT =~ ^[1-9][0-9]*$ \
     && $PYTHON_SITE_X86_64_TOTAL_BYTES =~ ^[1-9][0-9]*$ ]] || fail
 
+directory_identity() {
+    local path=$1 raw device inode permissions owner
+    raw=$(/usr/bin/stat -Lc '%d %i %a %u' -- "$path" 2>/dev/null) || fail
+    read -r device inode permissions owner <<< "$raw"
+    [[ $device =~ ^[0-9]+$ && $inode =~ ^[0-9]+$ \
+        && $permissions =~ ^[0-7]+$ && $owner =~ ^[0-9]+$ ]] || fail
+    printf '%s:%s:%s:%s' "$device" "$inode" "$((8#$permissions))" "$owner"
+}
+
 exec {bundle_fd}<"$DIAG_BUNDLE_ROOT" || fail
 exec {source_fd}<"$DIAG_SOURCE_ROOT" || fail
 exec {site_fd}<"$PYTHON_SITE_X86_64" || fail
 exec {reservation_fd}<"$DIAG_RESERVATION" || fail
 exec {output_parent_fd}<"${DIAG_OUTPUT_ROOT%/*}" || fail
-[[ $(/usr/bin/stat -Lc '%d:%i:%a:%u' "/proc/self/fd/$bundle_fd") \
+[[ $(directory_identity "/proc/self/fd/$bundle_fd") \
         == "$DIAG_BUNDLE_IDENTITY" \
-    && $(/usr/bin/stat -Lc '%d:%i:%a:%u' "/proc/self/fd/$source_fd") \
+    && $(directory_identity "/proc/self/fd/$source_fd") \
         == "$DIAG_SOURCE_IDENTITY" \
-    && $(/usr/bin/stat -Lc '%d:%i:%a:%u' "/proc/self/fd/$site_fd") \
+    && $(directory_identity "/proc/self/fd/$site_fd") \
         == "$PYTHON_SITE_X86_64_IDENTITY" \
-    && $(/usr/bin/stat -Lc '%d:%i:%a:%u' "/proc/self/fd/$reservation_fd") \
+    && $(directory_identity "/proc/self/fd/$reservation_fd") \
         == "$DIAG_RESERVATION_IDENTITY" \
-    && $(/usr/bin/stat -Lc '%d:%i:%a:%u' "/proc/self/fd/$output_parent_fd") \
+    && $(directory_identity "/proc/self/fd/$output_parent_fd") \
         == "$DIAG_OUTPUT_PARENT_IDENTITY" ]] || fail
 readonly BOUND_BUNDLE_ROOT="/proc/self/fd/$bundle_fd"
 readonly BOUND_SOURCE_ROOT="/proc/self/fd/$source_fd"
@@ -221,6 +231,24 @@ validate_file() {
         && $(digest_file "$path") == "$digest" ]] || fail
 }
 
+validate_fd_file() {
+    local path=$1 mode=$2 digest=$3 authorized_path=$4
+    local owner=${5:-$(/usr/bin/id -u)} fd target observed authorized
+    [[ $path =~ ^/proc/self/fd/([3-9]|[1-9][0-9]+)$ ]] || fail
+    fd=${BASH_REMATCH[1]}
+    [[ -r /proc/self/fd/$fd ]] || fail
+    target=$(/usr/bin/readlink -- "/proc/self/fd/$fd") || fail
+    [[ $target == "$authorized_path" ]] || fail
+    observed=$(/usr/bin/stat -Lc '%F:%d:%i:%a:%u:%h:%s' -- "/proc/self/fd/$fd") \
+        || fail
+    authorized=$(/usr/bin/stat -Lc '%F:%d:%i:%a:%u:%h:%s' -- "$authorized_path") \
+        || fail
+    [[ $observed == "regular file:"* \
+        && $observed == "$authorized" \
+        && $observed == *":$mode:$owner:1:"* \
+        && $(digest_file "/proc/self/fd/$fd") == "$digest" ]] || fail
+}
+
 [[ $DIAG_LAUNCHER_PATH == "$DIAG_BUNDLE_ROOT/launch_vmvm_task_free_v2.py" \
     && $DIAG_WRAPPER_PATH == "$DIAG_BUNDLE_ROOT/run_vmvm_task_free_v2.sbatch" \
     && $DIAG_PROBE_PATH == "$DIAG_BUNDLE_ROOT/probe_vmvm_task_free_v2.py" \
@@ -231,8 +259,13 @@ validate_file "$BOUND_BUNDLE_ROOT/probe_vmvm_task_free_v2.py" 500 "$DIAG_PROBE_S
 validate_file "$BOUND_BUNDLE_ROOT/finalize_vmvm_task_free_v2.py" 500 "$DIAG_FINALIZER_SHA256"
 [[ $(digest_file "${BASH_SOURCE[0]}") == "$DIAG_WRAPPER_SHA256" ]] || fail
 validate_file "$DIAG_AUTHORIZATION" 400 "$DIAG_AUTHORIZATION_FILE_SHA256"
+[[ $(/usr/bin/readlink -f -- "$UV_BIN_X86_64") == "$UV_BIN_X86_64" \
+    && $(/usr/bin/readlink -f -- "$VACLI_BIN") == "$VACLI_RESOLVED" \
+    && $(/usr/bin/stat -Lc '%d:%i' -- "$VACLI_BIN") \
+        == $(/usr/bin/stat -Lc '%d:%i' -- "$VACLI_RESOLVED") ]] || fail
 validate_file "$UV_BIN_X86_64" 755 "$X86_UV_SHA256"
 validate_file "$VACLI_BIN" 755 "$VACLI_SHA256" 0
+validate_file "$VACLI_RESOLVED" 755 "$VACLI_SHA256" 0
 validate_source "$BOUND_SOURCE_ROOT"
 
 # A released allocation may start before its permit is durably committed.
@@ -254,8 +287,8 @@ exec {probe_fd}<"$BOUND_BUNDLE_ROOT/probe_vmvm_task_free_v2.py" || fail
 exec {uv_fd}<"$UV_BIN_X86_64" || fail
 readonly BOUND_PROBE="/proc/self/fd/$probe_fd"
 readonly BOUND_UV="/proc/self/fd/$uv_fd"
-validate_file "$BOUND_PROBE" 500 "$DIAG_PROBE_SHA256"
-validate_file "$BOUND_UV" 755 "$X86_UV_SHA256"
+validate_fd_file "$BOUND_PROBE" 500 "$DIAG_PROBE_SHA256" "$DIAG_PROBE_PATH"
+validate_fd_file "$BOUND_UV" 755 "$X86_UV_SHA256" "$UV_BIN_X86_64"
 
 preflight_output=""
 set +e
@@ -273,7 +306,7 @@ set -e
 
 # Publication-adjacent source and executable validation. No task/dataset input
 # is opened anywhere in this wrapper or its probe.
-validate_file "$BOUND_PROBE" 500 "$DIAG_PROBE_SHA256"
+validate_fd_file "$BOUND_PROBE" 500 "$DIAG_PROBE_SHA256" "$DIAG_PROBE_PATH"
 validate_source "$BOUND_SOURCE_ROOT"
 [[ ! -e $DIAG_OUTPUT_ROOT && ! -L $DIAG_OUTPUT_ROOT \
     && ! -e $DIAG_COMPLETION_RECEIPT && ! -L $DIAG_COMPLETION_RECEIPT \
@@ -320,13 +353,15 @@ probe_output=$(
 )
 probe_rc=$?
 set -e
-validate_file "$BOUND_PROBE" 500 "$DIAG_PROBE_SHA256"
+validate_fd_file "$BOUND_PROBE" 500 "$DIAG_PROBE_SHA256" "$DIAG_PROBE_PATH"
 validate_source "$BOUND_SOURCE_ROOT"
+readonly probe_output_pattern='^\{"failure_categories":[0-9]+,"passed":[0-9]+,"stages":48,"state":"awaiting_external_completion"\}$'
 if (( probe_rc != 0 )) \
-    || [[ ! $probe_output =~ ^\{"failure_categories":[0-9]+,"passed":[0-9]+,"stages":48,"state":"awaiting_external_completion"\}$ ]]; then
+    || [[ ! $probe_output =~ $probe_output_pattern ]]; then
     fail
 fi
 [[ $(/usr/bin/stat -Lc '%a:%u' -- "$BOUND_OUTPUT_PARENT/${DIAG_OUTPUT_ROOT##*/}") \
     == "500:$(/usr/bin/id -u)" \
-    && ! -e "$BOUND_OUTPUT_PARENT/${DIAG_COMPLETION_RECEIPT##*/}" ]] || fail
+    && ! -e "$BOUND_OUTPUT_PARENT/${DIAG_COMPLETION_RECEIPT##*/}" \
+    && ! -e "$DIAG_SCRATCH_ROOT" && ! -L "$DIAG_SCRATCH_ROOT" ]] || fail
 printf '%s\n' "$probe_output"
