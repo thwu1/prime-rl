@@ -26,6 +26,7 @@ from eval_run_identity import (
     _dataset_identity,
     _effective_vmvm_environment,
     _identity_envelope,
+    _launch_contract_provenance,
     _tree_digest,
     _verify_checkpoint_records,
     _write_resolved_config,
@@ -191,6 +192,24 @@ def _identity() -> dict:
     }
 
 
+def _kimi_smoke_identity() -> dict:
+    identity = _identity()
+    identity["schema_version"] = 2
+    identity["contract"]["model"] = "Kimi-K3"
+    identity["deployment"]["proxy_policy"]["request_timeout"] = 43_200
+    identity["execution"]["launch_contract"] = {
+        "schema_version": 2,
+        "transport": "anonymous_slurm_export_fd_v1",
+        "slurm_time_limit": "3-00:00:00",
+        "x2p_environment_sha256": {
+            "X2P_ENV": "6" * 64,
+            "X2P_CFG_ENV": "7" * 64,
+            "X2P_PROXY_URL": "8" * 64,
+        },
+    }
+    return identity
+
+
 def _sha256(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
@@ -240,6 +259,56 @@ def test_eval_identity_rejects_legacy_and_mismatched_resume(tmp_path: Path) -> N
         _bind_identity(tmp_path, changed, resume=True)
 
 
+def test_kimi_smoke_identity_requires_schema_v2_launch_contract() -> None:
+    identity = _kimi_smoke_identity()
+
+    assert _identity_envelope(identity)["schema_version"] == 2
+
+    legacy = _kimi_smoke_identity()
+    legacy["schema_version"] = 1
+    with pytest.raises(EvalIdentityError, match="schema_invalid"):
+        _identity_envelope(legacy)
+
+    missing = _kimi_smoke_identity()
+    missing["execution"].pop("launch_contract")
+    with pytest.raises(EvalIdentityError, match="schema_invalid"):
+        _identity_envelope(missing)
+
+    drifted = _kimi_smoke_identity()
+    drifted["execution"]["launch_contract"]["slurm_time_limit"] = "2-00:00:00"
+    with pytest.raises(EvalIdentityError, match="schema_invalid"):
+        _identity_envelope(drifted)
+
+    non_kimi = _identity()
+    non_kimi["execution"]["launch_contract"] = identity["execution"]["launch_contract"]
+    with pytest.raises(EvalIdentityError, match="schema_invalid"):
+        _identity_envelope(non_kimi)
+
+
+def test_kimi_smoke_launch_arguments_cannot_downgrade() -> None:
+    valid = SimpleNamespace(
+        launch_contract_schema_version="2",
+        launch_transport="anonymous_slurm_export_fd_v1",
+        launch_slurm_time_limit="3-00:00:00",
+        x2p_env_sha256="6" * 64,
+        x2p_cfg_env_sha256="7" * 64,
+        x2p_proxy_url_sha256="8" * 64,
+    )
+
+    assert (
+        eval_run_identity._kimi_smoke_launch_contract(valid) == _kimi_smoke_identity()["execution"]["launch_contract"]
+    )
+    for field, value in (
+        ("launch_contract_schema_version", "1"),
+        ("launch_transport", "legacy_export_all"),
+        ("launch_slurm_time_limit", "2-00:00:00"),
+        ("x2p_proxy_url_sha256", None),
+    ):
+        changed = SimpleNamespace(**{**valid.__dict__, field: value})
+        with pytest.raises(EvalIdentityError, match="kimi_smoke_launch_contract_invalid"):
+            eval_run_identity._kimi_smoke_launch_contract(changed)
+
+
 def test_eval_provenance_binds_endpoint_hashes_write_once(tmp_path: Path) -> None:
     identity = _identity()
     digest = hashlib.sha256(canonical_json(identity)).hexdigest()
@@ -258,6 +327,56 @@ def test_eval_provenance_binds_endpoint_hashes_write_once(tmp_path: Path) -> Non
 
     args.mode = "resume"
     _bind_provenance(tmp_path, identity, digest, args)
+
+
+def test_kimi_smoke_fresh_provenance_round_trip_requires_launch_commitment(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    identity = _kimi_smoke_identity()
+    digest = _bind_identity(tmp_path, identity, resume=False)
+    args = SimpleNamespace(
+        mode="fresh",
+        invocation_host="unit-test-host",
+        slurm_job_id="12345",
+    )
+
+    _bind_provenance(tmp_path, identity, digest, args)
+
+    expected = _launch_contract_provenance(identity)
+    provenance = tmp_path / "provenance.txt"
+    records = dict(line.split("=", 1) for line in provenance.read_text().splitlines())
+    assert records["kimi_smoke_launch_contract_sha256"] == expected["kimi_smoke_launch_contract_sha256"]
+    monkeypatch.setattr(eval_run_identity, "_verify_source_record", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(eval_run_identity, "_artifact", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(
+        eval_run_identity,
+        "_load_bound_endpoint",
+        lambda *_args, **_kwargs: SimpleNamespace(
+            binding={},
+            client_base_url="http://127.0.0.1:8000/v1",
+        ),
+    )
+    monkeypatch.setattr(eval_run_identity, "_verify_config_and_inputs", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(
+        eval_run_identity,
+        "_git_output",
+        lambda _root, operation, *_args, **_kwargs: identity["dataset"]["revision"] if operation == "rev-parse" else "",
+    )
+    monkeypatch.setattr(eval_run_identity, "_verify_checkpoint_records", lambda *_args, **_kwargs: None)
+    assert load_eval_run_identity(tmp_path / "eval_run_identity.json") == _identity_envelope(identity)
+
+    original = provenance.read_text()
+    without_commitment = "\n".join(
+        line for line in original.splitlines() if not line.startswith("kimi_smoke_launch_contract_sha256=")
+    )
+    provenance.write_text(without_commitment + "\n")
+    with pytest.raises(EvalIdentityError, match="eval_provenance_mismatch"):
+        load_eval_run_identity(tmp_path / "eval_run_identity.json")
+
+    provenance.write_text(original.replace(expected["kimi_smoke_launch_contract_sha256"], "0" * 64))
+    with pytest.raises(EvalIdentityError, match="eval_provenance_mismatch"):
+        load_eval_run_identity(tmp_path / "eval_run_identity.json")
 
 
 def test_eval_contract_binds_required_training_and_concurrency_settings() -> None:
@@ -625,8 +744,7 @@ def test_checkpoint_chain_is_hashed_and_role_aware(tmp_path: Path, monkeypatch: 
         )
         + "\n"
     )
-    smoke_identity = _identity()
-    smoke_identity["contract"]["model"] = "Kimi-K3"
+    smoke_identity = _kimi_smoke_identity()
     smoke_identity["deployment"] = {
         "id": deployment_id,
         "endpoint": endpoint,
@@ -718,6 +836,7 @@ def test_checkpoint_chain_is_hashed_and_role_aware(tmp_path: Path, monkeypatch: 
         "endpoint": endpoint,
         "serving_route_generation": serving_route_generation,
         "proxy_policy": proxy_policy,
+        "launch_contract": smoke_identity["execution"]["launch_contract"],
         "audit_policy": {
             "expected_traces": 2,
             "rollouts_per_task": 1,
@@ -726,6 +845,8 @@ def test_checkpoint_chain_is_hashed_and_role_aware(tmp_path: Path, monkeypatch: 
             "model_io_contract": eval_run_identity.EXPECTED_MODEL_IO_CONTRACT,
             "require_request_graph_match": True,
             "require_clean_stop": True,
+            "require_x2p_launch_contract": True,
+            "required_slurm_time_limit": "3-00:00:00",
             "require_token_data": False,
             "require_logprobs": False,
             "max_sequence_tokens": 262_144,

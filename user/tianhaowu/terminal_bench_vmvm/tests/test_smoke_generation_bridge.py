@@ -664,6 +664,8 @@ def test_target_evaluator_requires_same_source_config_and_contract(tmp_path: Pat
     (package / "taskset.py").write_text("VALUE = 1\n")
     (vmvm / "runtime.py").write_text("VALUE = 2\n")
     (workflow / "run_eval.sbatch").write_text("#!/bin/bash\n")
+    (workflow / "run_kimi_tb4_gate.sbatch").write_text("#!/bin/bash\n")
+    (workflow / "kimi_smoke_launch.py").write_text("VALUE = 3\n")
     config_path = tmp_path / "config.toml"
     config_path.write_text(
         """model = "Kimi-K3"
@@ -754,6 +756,16 @@ include = ["ProviderError", "SandboxError", "TunnelError", "InterceptionError"]
         "identity_contract": contract,
         "model_io_contract": qualification._expected_model_contract("Kimi-K3"),
         "tool_contract": qualification._tool_contract(parsed),
+        "launch_contract": {
+            "schema_version": 2,
+            "transport": "anonymous_slurm_export_fd_v1",
+            "slurm_time_limit": "3-00:00:00",
+            "x2p_environment_sha256": {
+                "X2P_ENV": "1" * 64,
+                "X2P_CFG_ENV": "2" * 64,
+                "X2P_PROXY_URL": "3" * 64,
+            },
+        },
     }
     identity = {
         "role": "tb4",

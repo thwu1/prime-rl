@@ -223,7 +223,6 @@ if [[ ( -n "$eval_dataset_revision" && -n "$eval_dataset_archive" ) \
     printf 'Supply exactly one dataset authority: EVAL_DATASET_REVISION or archive tuple\n' >&2
     exit 2
 fi
-
 export VACLI_LEASE_RETRIES=${VACLI_LEASE_RETRIES:-20}
 export VACLI_MAX_CONCURRENT_LEASES=${VACLI_MAX_CONCURRENT_LEASES:-32}
 export VACLI_MAX_PULL_RETRIES=${VACLI_MAX_PULL_RETRIES:-20}
@@ -254,6 +253,14 @@ verifiers_tree_sha256=$(printf '%s' "$verifiers_status" | sha256sum | cut -d' ' 
 renderers_tree_sha256=$(printf '%s' "$renderers_status" | sha256sum | cut -d' ' -f1)
 vmvm_tb_v2_sha256=$(sha256sum environments/vmvm_tb_v2/vmvm_tb_v2/_vacli/*.py \
     | sha256sum | cut -d' ' -f1)
+
+if [[ "$eval_run_role" == smoke && "$eval_expected_model" == Kimi-K3 ]]; then
+    if ! "$x86_uv" run --no-project --offline --python "$python_bin" \
+        python3 "$workflow_dir/kimi_smoke_launch.py" validate-current >/dev/null; then
+        printf 'Kimi smoke launch contract validation failed\n' >&2
+        exit 2
+    fi
+fi
 
 if [[ "$eval_run_role" == mobius ]]; then
     if ! effective_lease_start_concurrency=$(
@@ -442,6 +449,16 @@ identity_args=(
     --invocation-host "$(hostname)"
     --slurm-job-id "$SLURM_JOB_ID"
 )
+if [[ "$eval_run_role" == smoke && "$eval_expected_model" == Kimi-K3 ]]; then
+    identity_args+=(
+        --launch-contract-schema-version "$KIMI_SMOKE_LAUNCH_CONTRACT_SCHEMA_VERSION"
+        --launch-transport "$KIMI_SMOKE_LAUNCH_TRANSPORT"
+        --launch-slurm-time-limit "$KIMI_SMOKE_SLURM_TIME_LIMIT"
+        --x2p-env-sha256 "$KIMI_SMOKE_X2P_ENV_SHA256"
+        --x2p-cfg-env-sha256 "$KIMI_SMOKE_X2P_CFG_ENV_SHA256"
+        --x2p-proxy-url-sha256 "$KIMI_SMOKE_X2P_PROXY_URL_SHA256"
+    )
+fi
 if [[ -n "$inference_deployment_id" ]]; then
     identity_args+=(--routing-deployment-id "$inference_deployment_id")
 fi

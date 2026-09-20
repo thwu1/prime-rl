@@ -565,15 +565,25 @@ transcript smoke. `INFERENCE_READINESS_CHECKPOINT_SHA256` is the external file
 SHA-256 of the completed readiness JSON, not its embedded deployment-spec
 digest.
 
+Kimi smoke submission must go through `kimi_smoke_launch.py submit`, never a
+direct `sbatch`. The launcher requires `X2P_ENV`, `X2P_CFG_ENV`, and
+`X2P_PROXY_URL` together with both `THRIFT_TLS_CL_*` paths in its ambient
+environment. It sends the raw tuple only through an anonymous mode-0600,
+link-count-zero Slurm export descriptor; no raw X2P value is written to a
+`.env`, command line, receipt, log, or result. The job re-hashes all three
+values, verifies the schema-2 commitments and its live Slurm time limit before
+creating the output directory, and records only those commitments plus the
+exact `3-00:00:00` limit in the run identity and smoke checkpoint. Export the
+three raw X2P values in the protected launcher pane rather than spelling them
+in the command below.
+
 ```bash
 tmux send-keys -t swebench_vmvm:Launcher.0 \
-  "cd /checkpoint/ram/tianhaowu/terminal_bench_vmvm/sources/prime-rl-<commit> && env PROJECT_DIR=\$PWD EVAL_EXPECTED_PRIME_RL_REVISION=<commit> EVAL_RUN_ROLE=smoke EVAL_DEPLOYMENT_ID=tianhaowu-k3-kda-tb1-low-20260916 EVAL_EXPECTED_MODEL=Kimi-K3 EVAL_APPROVED_TASK_FILE=\$PWD/user/tianhaowu/terminal_bench_vmvm/configs/eval/tb4_kimi_token_smoke.tasks.txt EVAL_APPROVED_TASK_FILE_SHA256=ecdcbc6e4f54b690e64b4566de5eecf33467088c8ca3436738cd7308d4e45b83 EVAL_CONFIG=\$PWD/user/tianhaowu/terminal_bench_vmvm/configs/eval/tb4_kimi_k3_approved_smoke.toml EVAL_DATASET_ARCHIVE=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/downloads/terminal-bench-prebuilt-v4.0.0.tar.gz EVAL_DATASET_ARCHIVE_SHA256=6d2c57cbcb1a75b5cdc0b0f989747fa68cdc65df8ff0a6893045a70ced7e668e EVAL_DATASET_CONTENT_SHA256=564a42a4e2ce0a5efd23758656e4e419b3566a36234dfc09bae1029bc15326b2 INFERENCE_DEPLOYMENT_SPEC=/checkpoint/ram/shared/vllm_deployments_v2/tianhaowu-k3-kda-tb1-low-20260916/spec.yaml INFERENCE_DEPLOYMENT_SPEC_SHA256=<readiness-bound-spec-sha256> INFERENCE_READINESS_CHECKPOINT=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/gates/k3_kda_tb1_low_readiness_v1.json INFERENCE_READINESS_CHECKPOINT_SHA256=<passed-readiness-file-sha256> INFERENCE_PROXY_INFO=/checkpoint/ram/shared/vllm_deployments_v2/tianhaowu-k3-kda-tb1-low-20260916/proxy_info.json INFERENCE_PROXY_INFO_SHA256=<readiness-bound-proxy-info-sha256> OUTPUT_DIR=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/evals/tb4_kimi_k3_sticky_smoke_v1 VACLI_MAX_CONCURRENT_LEASES=2 sbatch --parsable \$PWD/user/tianhaowu/terminal_bench_vmvm/run_eval.sbatch" C-m
-
-tmux send-keys -t swebench_vmvm:Launcher.0 \
-  "cd /checkpoint/ram/tianhaowu/terminal_bench_vmvm/sources/prime-rl-<commit> && env PROJECT_DIR=\$PWD RESULTS_DIR=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/evals/tb4_kimi_k3_sticky_smoke_v1 SMOKE_TASK_FILE=\$PWD/user/tianhaowu/terminal_bench_vmvm/configs/eval/tb4_kimi_token_smoke.tasks.txt SMOKE_TASK_FILE_SHA256=ecdcbc6e4f54b690e64b4566de5eecf33467088c8ca3436738cd7308d4e45b83 SMOKE_EXPECTED_TRACES=2 sbatch --parsable \$PWD/user/tianhaowu/terminal_bench_vmvm/run_trace_smoke_audit.sbatch" C-m
+  "cd /checkpoint/ram/tianhaowu/terminal_bench_vmvm/sources/prime-rl-<commit> && env PROJECT_DIR=\$PWD EVAL_EXPECTED_PRIME_RL_REVISION=<commit> EVAL_DEPLOYMENT_ID=tianhaowu-k3-kda-tb1-low-20260916 INFERENCE_DEPLOYMENT_SPEC=/checkpoint/ram/shared/vllm_deployments_v2/tianhaowu-k3-kda-tb1-low-20260916/spec.yaml INFERENCE_DEPLOYMENT_SPEC_SHA256=<readiness-bound-spec-sha256> INFERENCE_READINESS_CHECKPOINT=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/gates/k3_kda_tb1_low_readiness_v1.json EVAL_DATASET_ARCHIVE=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/downloads/terminal-bench-prebuilt-v4.0.0.tar.gz EVAL_DATASET_ARCHIVE_SHA256=6d2c57cbcb1a75b5cdc0b0f989747fa68cdc65df8ff0a6893045a70ced7e668e EVAL_DATASET_CONTENT_SHA256=564a42a4e2ce0a5efd23758656e4e419b3566a36234dfc09bae1029bc15326b2 SMOKE_OUTPUT_DIR=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/evals/tb4_kimi_k3_sticky_smoke_v1 uv run --no-project python3 \$PWD/user/tianhaowu/terminal_bench_vmvm/kimi_smoke_launch.py submit" C-m
 ```
 
-After that audit publishes `smoke_checkpoint.json`, hash the file and launch
+The submitted gate runs the two-trace, exact-provider audit in the same
+allocation and publishes `smoke_checkpoint.json`. After it passes, hash the file and launch
 the full 66-task pass@1 run with the same passed readiness artifact:
 
 If the standard checkpoint already exists, a post-run exact-provider audit can
@@ -626,7 +636,8 @@ setting and secret must be byte-semantically equal, and both route URL sets
 must hash to their readiness generations. The source and target route sets
 must differ, so this mechanism cannot certify a proxy, coordinator, policy,
 model, or deployment rotation. It recursively revalidates the source
-schema-1 smoke, its identity, configuration, results hashes, guard receipt,
+schema-1 smoke certificate, its schema-2 Kimi identity and launch contract,
+configuration, results hashes, guard receipt,
 single non-resume invocation, and evaluator/model-I/O/tool/thinking contract.
 
 The fresh bridge probe reuses readiness's sticky representative session for

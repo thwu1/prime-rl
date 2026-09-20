@@ -42,6 +42,14 @@ from inference_route_generation import (
     validate_readiness_route_generation,
     validate_route_generation,
 )
+from kimi_smoke_launch import (
+    EXPECTED_SLURM_TIME_LIMIT as EXPECTED_KIMI_SMOKE_SLURM_TIME_LIMIT,
+)
+from kimi_smoke_launch import (
+    REQUIRED_X2P_ENV,
+    KimiSmokeLaunchError,
+    validate_launch_contract,
+)
 from pydantic_config import cli
 from smoke_qualification import (
     SmokeQualificationError,
@@ -52,6 +60,7 @@ from verifiers.v1.cli.resolve import narrow_config
 from verifiers.v1.configs.eval import EvalConfig
 
 SCHEMA_VERSION = 1
+KIMI_SMOKE_IDENTITY_SCHEMA_VERSION = 2
 SHA256_RE = re.compile(r"[0-9a-f]{64}")
 REVISION_RE = re.compile(r"[0-9a-f]{40}")
 METADATA_ID_RE = re.compile(r"[A-Za-z0-9._:-]+")
@@ -80,6 +89,32 @@ KIMI_FULL_RETRY_EXCEPTIONS = frozenset({"ProviderError", "SandboxError", "Tunnel
 
 class EvalIdentityError(ValueError):
     """The proposed evaluation cannot be bound to immutable provenance."""
+
+
+def _is_kimi_smoke(role: object, model: object) -> bool:
+    return role == "smoke" and model == "Kimi-K3"
+
+
+def _kimi_smoke_launch_contract(args: argparse.Namespace) -> dict[str, Any]:
+    try:
+        schema_version = int(args.launch_contract_schema_version)
+    except (AttributeError, TypeError, ValueError) as error:
+        raise EvalIdentityError("kimi_smoke_launch_contract_invalid") from error
+    try:
+        return validate_launch_contract(
+            {
+                "schema_version": schema_version,
+                "transport": args.launch_transport,
+                "slurm_time_limit": args.launch_slurm_time_limit,
+                "x2p_environment_sha256": {
+                    REQUIRED_X2P_ENV[0]: args.x2p_env_sha256,
+                    REQUIRED_X2P_ENV[1]: args.x2p_cfg_env_sha256,
+                    REQUIRED_X2P_ENV[2]: args.x2p_proxy_url_sha256,
+                },
+            }
+        )
+    except (AttributeError, KimiSmokeLaunchError) as error:
+        raise EvalIdentityError("kimi_smoke_launch_contract_invalid") from error
 
 
 def validate_kimi_timeout_contract(
@@ -814,10 +849,12 @@ def _validate_smoke_checkpoint_payload(
         smoke_endpoint = validate_endpoint_binding(payload.get("endpoint"))
         smoke_generation = validate_route_generation(payload.get("serving_route_generation"))
         smoke_proxy_policy = validate_proxy_policy_binding(payload.get("proxy_policy"))
+        smoke_launch_contract = validate_launch_contract(payload.get("launch_contract"))
     except (
         EndpointBindingError,
         RouteGenerationError,
         DeploymentProxyPolicyError,
+        KimiSmokeLaunchError,
     ) as error:
         raise EvalIdentityError("smoke_checkpoint_endpoint_invalid") from error
     policy = payload.get("audit_policy")
@@ -840,6 +877,8 @@ def _validate_smoke_checkpoint_payload(
         or policy.get("require_model_io") is not True
         or policy.get("require_request_graph_match") is not True
         or policy.get("require_clean_stop") is not True
+        or policy.get("require_x2p_launch_contract") is not True
+        or policy.get("required_slurm_time_limit") != EXPECTED_KIMI_SMOKE_SLURM_TIME_LIMIT
         or canonical_json(policy.get("model_io_contract")) != canonical_json(EXPECTED_MODEL_IO_CONTRACT)
         or policy.get("require_token_data") is not False
         or policy.get("require_logprobs") is not False
@@ -896,6 +935,7 @@ def _validate_smoke_checkpoint_payload(
     smoke_identity = envelope["identity"]
     smoke_deployment = smoke_identity.get("deployment")
     smoke_readiness = smoke_deployment.get("readiness_checkpoint") if isinstance(smoke_deployment, dict) else None
+    smoke_execution = smoke_identity.get("execution")
     if (
         payload.get("eval_run_identity_sha256") != envelope.get("eval_run_identity_sha256")
         or not isinstance(smoke_deployment, dict)
@@ -908,6 +948,8 @@ def _validate_smoke_checkpoint_payload(
         or not isinstance(smoke_readiness, dict)
         or smoke_readiness != readiness
         or smoke_identity.get("inputs", {}).get("task_file", {}).get("count") != expected_traces
+        or not isinstance(smoke_execution, dict)
+        or smoke_execution.get("launch_contract") != smoke_launch_contract
     ):
         raise EvalIdentityError("smoke_checkpoint_identity_mismatch")
     results_artifact = _checkpoint_artifact(payload, "results")
@@ -1174,7 +1216,7 @@ def _write_resolved_config(
 def _identity_envelope(identity: dict[str, Any]) -> dict[str, Any]:
     identity = _validate_identity_shape(identity)
     return {
-        "schema_version": SCHEMA_VERSION,
+        "schema_version": identity["schema_version"],
         "eval_run_identity_sha256": _sha256_bytes(canonical_json(identity)),
         "identity": identity,
     }
@@ -1213,11 +1255,18 @@ def _validate_identity_shape(identity: object) -> dict[str, Any]:
         "contract",
         "execution",
     }
-    if not isinstance(identity, dict) or set(identity) != expected_keys or identity.get("schema_version") != 1:
+    if not isinstance(identity, dict) or set(identity) != expected_keys:
         raise EvalIdentityError("eval_run_identity_schema_invalid")
 
     role = identity.get("role")
     if role not in {"smoke", "tb4", "mobius"}:
+        raise EvalIdentityError("eval_run_identity_schema_invalid")
+    contract_value = identity.get("contract")
+    contract_model = contract_value.get("model") if isinstance(contract_value, dict) else None
+    expected_schema_version = (
+        KIMI_SMOKE_IDENTITY_SCHEMA_VERSION if _is_kimi_smoke(role, contract_model) else SCHEMA_VERSION
+    )
+    if identity.get("schema_version") != expected_schema_version:
         raise EvalIdentityError("eval_run_identity_schema_invalid")
 
     source = identity.get("source")
@@ -1391,14 +1440,17 @@ def _validate_identity_shape(identity: object) -> dict[str, Any]:
         raise EvalIdentityError("eval_run_identity_schema_invalid")
 
     execution = identity.get("execution")
-    if not isinstance(execution, dict) or set(execution) != {
+    execution_keys = {
         "rollout_concurrency",
         "multiplex",
         "http_max_connections",
         "http_max_keepalive_connections",
         "runtime",
         "vmvm_environment",
-    }:
+    }
+    if _is_kimi_smoke(role, model):
+        execution_keys.add("launch_contract")
+    if not isinstance(execution, dict) or set(execution) != execution_keys:
         raise EvalIdentityError("eval_run_identity_schema_invalid")
     if any(
         not _validate_positive_integer(execution.get(key))
@@ -1439,6 +1491,11 @@ def _validate_identity_shape(identity: object) -> dict[str, Any]:
         or not isinstance(environment.get("container_privileged"), bool)
     ):
         raise EvalIdentityError("eval_run_identity_schema_invalid")
+    if _is_kimi_smoke(role, model):
+        try:
+            validate_launch_contract(execution.get("launch_contract"))
+        except KimiSmokeLaunchError as error:
+            raise EvalIdentityError("eval_run_identity_schema_invalid") from error
     return identity
 
 
@@ -1702,6 +1759,13 @@ def _verify_config_and_inputs(
     return config
 
 
+def _launch_contract_provenance(identity: dict[str, Any]) -> dict[str, str]:
+    if not _is_kimi_smoke(identity.get("role"), identity.get("contract", {}).get("model")):
+        return {}
+    launch_contract = validate_launch_contract(identity["execution"]["launch_contract"])
+    return {"kimi_smoke_launch_contract_sha256": _sha256_bytes(canonical_json(launch_contract))}
+
+
 def _verify_saved_provenance(output_dir: Path, identity: dict[str, Any], identity_sha256: str) -> None:
     source = identity["source"]
     stable = {
@@ -1719,6 +1783,7 @@ def _verify_saved_provenance(output_dir: Path, identity: dict[str, Any], identit
         "eval_run_identity_sha256": identity_sha256,
         "approval_task_file_sha256": identity["inputs"]["task_file"]["sha256"],
         "approval_task_count": str(identity["inputs"]["task_file"]["count"]),
+        **_launch_contract_provenance(identity),
     }
     saved = _parse_provenance(output_dir / "provenance.txt")
     if (
@@ -1750,7 +1815,9 @@ def load_eval_run_identity(
         raise EvalIdentityError("eval_run_identity_schema_invalid")
     identity = _validate_identity_shape(envelope.get("identity"))
     digest = envelope.get("eval_run_identity_sha256")
-    if envelope.get("schema_version") != 1 or digest != _sha256_bytes(canonical_json(identity)):
+    if envelope.get("schema_version") != identity["schema_version"] or digest != _sha256_bytes(
+        canonical_json(identity)
+    ):
         raise EvalIdentityError("eval_run_identity_digest_mismatch")
     if not verify_references:
         return envelope
@@ -1876,6 +1943,7 @@ def _bind_provenance(
         "eval_run_identity_sha256": identity_sha256,
         "approval_task_file_sha256": identity["inputs"]["task_file"]["sha256"],
         "approval_task_count": str(identity["inputs"]["task_file"]["count"]),
+        **_launch_contract_provenance(identity),
     }
     expected_keys = {*stable, "host", "slurm_job_id"}
     path = output_dir / "provenance.txt"
@@ -1906,6 +1974,7 @@ def _bind_provenance(
             "slurm_job_id": args.slurm_job_id,
             "approval_task_file_sha256": stable["approval_task_file_sha256"],
             "approval_task_count": stable["approval_task_count"],
+            **_launch_contract_provenance(identity),
         }
         try:
             with path.open("x", encoding="utf-8") as handle:
@@ -2002,6 +2071,21 @@ def prepare(args: argparse.Namespace) -> str:
         raise EvalIdentityError("model_endpoint_binding_mismatch")
     rollout_concurrency = execution["rollout_concurrency"]
     execution["vmvm_environment"] = _effective_vmvm_environment(args, rollout_concurrency)
+    kimi_smoke = _is_kimi_smoke(args.role, contract["model"])
+    if kimi_smoke:
+        execution["launch_contract"] = _kimi_smoke_launch_contract(args)
+    elif any(
+        getattr(args, name, None) is not None
+        for name in (
+            "launch_contract_schema_version",
+            "launch_transport",
+            "launch_slurm_time_limit",
+            "x2p_env_sha256",
+            "x2p_cfg_env_sha256",
+            "x2p_proxy_url_sha256",
+        )
+    ):
+        raise EvalIdentityError("kimi_smoke_launch_contract_role_invalid")
     source = _source_identity(args)
     deployment = _checkpoint_identity(args, endpoint_info.binding)
     expected_request_timeout = request_timeout_for_model(contract["model"])
@@ -2017,7 +2101,7 @@ def prepare(args: argparse.Namespace) -> str:
         label="resolved_config",
     )
     identity = {
-        "schema_version": SCHEMA_VERSION,
+        "schema_version": KIMI_SMOKE_IDENTITY_SCHEMA_VERSION if kimi_smoke else SCHEMA_VERSION,
         "role": args.role,
         "source": source,
         "config": {"source": source_config, "resolved": resolved_config},
@@ -2098,6 +2182,12 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--vacli-container-privileged", required=True)
     parser.add_argument("--invocation-host", required=True)
     parser.add_argument("--slurm-job-id", required=True)
+    parser.add_argument("--launch-contract-schema-version")
+    parser.add_argument("--launch-transport")
+    parser.add_argument("--launch-slurm-time-limit")
+    parser.add_argument("--x2p-env-sha256")
+    parser.add_argument("--x2p-cfg-env-sha256")
+    parser.add_argument("--x2p-proxy-url-sha256")
     return parser
 
 

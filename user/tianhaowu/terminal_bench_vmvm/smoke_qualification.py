@@ -32,6 +32,13 @@ from inference_route_generation import (
     validate_readiness_route_generation,
     validate_route_generation,
 )
+from kimi_smoke_launch import (
+    EXPECTED_SLURM_TIME_LIMIT as EXPECTED_KIMI_SMOKE_SLURM_TIME_LIMIT,
+)
+from kimi_smoke_launch import (
+    KimiSmokeLaunchError,
+    validate_launch_contract,
+)
 
 SHA256_RE = re.compile(r"[0-9a-f]{64}")
 SUPPLEMENTAL_SMOKE_NAME_RE = re.compile(r"smoke_checkpoint_[a-z0-9][a-z0-9_-]{0,63}\.json")
@@ -535,7 +542,11 @@ def _evaluator_source_evidence(source: Mapping[str, Any]) -> dict[str, Any]:
         root / "environments/vmvm_tb_v2/vmvm_tb_v2",
     )
     try:
-        paths = [workflow / "run_eval.sbatch"]
+        paths = [
+            workflow / "kimi_smoke_launch.py",
+            workflow / "run_eval.sbatch",
+            workflow / "run_kimi_tb4_gate.sbatch",
+        ]
         for source_root in roots:
             if not source_root.is_dir():
                 raise SmokeQualificationError("smoke_evaluator_source_invalid")
@@ -603,6 +614,7 @@ def _evaluator_evidence(
     source = identity.get("source")
     config_identity = identity.get("config")
     contract = identity.get("contract")
+    execution = identity.get("execution")
     model_io_contract = policy.get("model_io_contract")
     if (
         not isinstance(source, dict)
@@ -610,6 +622,7 @@ def _evaluator_evidence(
         or set(config_identity) != {"source", "resolved"}
         or config_identity.get("resolved") != config_artifact.record
         or not isinstance(contract, dict)
+        or not isinstance(execution, dict)
         or contract.get("model") != model
         or contract.get("reasoning_effort") != "max"
         or not _same_json(
@@ -622,6 +635,10 @@ def _evaluator_evidence(
         or config.get("model") != model
     ):
         raise SmokeQualificationError("smoke_evaluator_contract_invalid")
+    try:
+        launch_contract = validate_launch_contract(execution.get("launch_contract"))
+    except KimiSmokeLaunchError as error:
+        raise SmokeQualificationError("smoke_evaluator_launch_contract_invalid") from error
     source_config = artifact_from_record(
         config_identity.get("source"),
         label="smoke_source_config",
@@ -648,6 +665,7 @@ def _evaluator_evidence(
             config,
             required_timeout_profile=timeout_profile,
         ),
+        "launch_contract": launch_contract,
     }
 
 
@@ -676,6 +694,7 @@ def validate_target_evaluator_compatibility(
             "identity_contract",
             "model_io_contract",
             "tool_contract",
+            "launch_contract",
         }
     ):
         raise SmokeQualificationError("target_evaluator_contract_invalid")
@@ -703,6 +722,10 @@ def validate_target_evaluator_compatibility(
         )
     ):
         raise SmokeQualificationError("target_evaluator_contract_mismatch")
+    try:
+        validate_launch_contract(evaluator_evidence.get("launch_contract"))
+    except KimiSmokeLaunchError as error:
+        raise SmokeQualificationError("target_evaluator_contract_mismatch") from error
     resolved = artifact_from_record(
         config.get("resolved"),
         label="target_resolved_config",
@@ -731,18 +754,24 @@ def _load_source_identity(
         envelope = identity_loader(artifact.path, verify_references=True)
     except (OSError, RuntimeError, ValueError) as error:
         raise SmokeQualificationError("smoke_eval_run_identity_invalid") from error
+    identity = envelope.get("identity") if isinstance(envelope, dict) else None
+    contract = identity.get("contract") if isinstance(identity, dict) else None
     if (
         not isinstance(envelope, dict)
         or set(envelope) != {"schema_version", "eval_run_identity_sha256", "identity"}
         or type(envelope.get("schema_version")) is not int
-        or envelope["schema_version"] != 1
+        or envelope["schema_version"] != 2
         or not isinstance(envelope.get("eval_run_identity_sha256"), str)
         or SHA256_RE.fullmatch(envelope["eval_run_identity_sha256"]) is None
-        or not isinstance(envelope.get("identity"), dict)
-        or envelope["eval_run_identity_sha256"] != sha256_bytes(canonical_json(envelope["identity"]))
+        or not isinstance(identity, dict)
+        or identity.get("schema_version") != 2
+        or identity.get("role") != "smoke"
+        or not isinstance(contract, dict)
+        or contract.get("model") != "Kimi-K3"
+        or envelope["eval_run_identity_sha256"] != sha256_bytes(canonical_json(identity))
     ):
         raise SmokeQualificationError("smoke_eval_run_identity_invalid")
-    return envelope["identity"], envelope["eval_run_identity_sha256"]
+    return identity, envelope["eval_run_identity_sha256"]
 
 
 def validate_v1_smoke(
@@ -776,6 +805,7 @@ def validate_v1_smoke(
         "endpoint",
         "serving_route_generation",
         "proxy_policy",
+        "launch_contract",
         "qualified_execution",
         "audit_policy",
         "counts",
@@ -795,6 +825,8 @@ def validate_v1_smoke(
         "require_model_io",
         "model_io_contract",
         "require_request_graph_match",
+        "require_x2p_launch_contract",
+        "required_slurm_time_limit",
         "require_token_data",
         "require_logprobs",
         "max_sequence_tokens",
@@ -808,9 +840,11 @@ def validate_v1_smoke(
         smoke_endpoint = validate_endpoint_binding(payload.get("endpoint"))
         smoke_generation = validate_route_generation(payload.get("serving_route_generation"))
         smoke_policy = validate_proxy_policy_binding(payload.get("proxy_policy"))
+        smoke_launch_contract = validate_launch_contract(payload.get("launch_contract"))
     except (
         EndpointBindingError,
         RouteGenerationError,
+        KimiSmokeLaunchError,
         ValueError,
     ) as error:
         raise SmokeQualificationError("smoke_checkpoint_invalid") from error
@@ -840,6 +874,8 @@ def validate_v1_smoke(
         or policy.get("require_reasoning") is not True
         or policy.get("require_model_io") is not True
         or policy.get("require_request_graph_match") is not True
+        or policy.get("require_x2p_launch_contract") is not True
+        or policy.get("required_slurm_time_limit") != EXPECTED_KIMI_SMOKE_SLURM_TIME_LIMIT
         or not _same_json(
             policy.get("model_io_contract"),
             _expected_model_contract(model),
@@ -932,6 +968,7 @@ def validate_v1_smoke(
     )
     identity_deployment = identity.get("deployment")
     identity_inputs = identity.get("inputs")
+    identity_execution = identity.get("execution")
     if (
         payload.get("eval_run_identity_sha256") != identity_sha256
         or identity.get("role") != "smoke"
@@ -950,6 +987,8 @@ def validate_v1_smoke(
         or identity_inputs.get("task_file", {}).get("count") != expected_traces
         or identity.get("config", {}).get("resolved") != artifact_records["config"].record
         or identity_inputs.get("manifest") != artifact_records["inputs_manifest"].record
+        or not isinstance(identity_execution, dict)
+        or identity_execution.get("launch_contract") != smoke_launch_contract
     ):
         raise SmokeQualificationError("smoke_checkpoint_identity_mismatch")
 
