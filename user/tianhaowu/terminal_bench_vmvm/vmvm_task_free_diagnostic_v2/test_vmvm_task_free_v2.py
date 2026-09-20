@@ -2349,6 +2349,110 @@ def test_verified_tree_deletion_does_not_remove_a_during_detach_replacement(
         os.close(root_fd)
 
 
+def test_verified_tree_deletion_removes_an_ordinary_nested_tree(tmp_path: Path) -> None:
+    root = tmp_path / "scratch"
+    nested = root / "first" / "second"
+    nested.mkdir(parents=True, mode=0o700)
+    root.chmod(0o700)
+    (nested / "payload").write_text("scratch\n")
+    root_fd = os.open(root, os.O_RDONLY | os.O_DIRECTORY)
+    parent_fd = os.open(tmp_path, os.O_RDONLY | os.O_DIRECTORY)
+    try:
+        assert PROBE._remove_bound_tree_verified(
+            parent_fd,
+            root.name,
+            root_fd,
+            PROBE.descriptor_identity(root_fd),
+        )
+        assert not root.exists()
+    finally:
+        os.close(parent_fd)
+        os.close(root_fd)
+
+
+def test_verified_tree_deletion_preserves_nested_file_swap(monkeypatch, tmp_path: Path) -> None:
+    root = tmp_path / "scratch"
+    nested = root / "nested"
+    payload = nested / "payload"
+    displaced = nested / "displaced-payload"
+    nested.mkdir(parents=True, mode=0o700)
+    root.chmod(0o700)
+    payload.write_text("bound file\n")
+    root_fd = os.open(root, os.O_RDONLY | os.O_DIRECTORY)
+    parent_fd = os.open(tmp_path, os.O_RDONLY | os.O_DIRECTORY)
+    expected = PROBE.descriptor_identity(root_fd)
+    original_rename = PROBE._rename_noreplace
+    swapped = False
+
+    def swap_file_before_detach(source_parent_fd, source, target_parent_fd, target):
+        nonlocal swapped
+        if not swapped and source == payload.name:
+            swapped = True
+            os.rename(source, displaced.name, src_dir_fd=source_parent_fd, dst_dir_fd=source_parent_fd)
+            replacement_fd = os.open(
+                source,
+                os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW,
+                0o600,
+                dir_fd=source_parent_fd,
+            )
+            os.write(replacement_fd, b"unrelated file\n")
+            os.close(replacement_fd)
+        original_rename(source_parent_fd, source, target_parent_fd, target)
+
+    monkeypatch.setattr(PROBE, "_rename_noreplace", swap_file_before_detach)
+    try:
+        assert not PROBE._remove_bound_tree_verified(parent_fd, root.name, root_fd, expected)
+        assert displaced.read_text() == "bound file\n"
+        assert payload.read_text() == "unrelated file\n"
+    finally:
+        os.close(parent_fd)
+        os.close(root_fd)
+
+
+def test_verified_tree_deletion_preserves_nested_directory_swap(monkeypatch, tmp_path: Path) -> None:
+    root = tmp_path / "scratch"
+    nested = root / "nested"
+    child = nested / "child"
+    displaced = nested / "displaced-child"
+    child.mkdir(parents=True, mode=0o700)
+    root.chmod(0o700)
+    (child / "scratch-file").write_text("remove me\n")
+    root_fd = os.open(root, os.O_RDONLY | os.O_DIRECTORY)
+    parent_fd = os.open(tmp_path, os.O_RDONLY | os.O_DIRECTORY)
+    expected = PROBE.descriptor_identity(root_fd)
+    original_rename = PROBE._rename_noreplace
+    swapped = False
+
+    def swap_directory_before_detach(source_parent_fd, source, target_parent_fd, target):
+        nonlocal swapped
+        if not swapped and source == child.name:
+            swapped = True
+            os.rename(source, displaced.name, src_dir_fd=source_parent_fd, dst_dir_fd=source_parent_fd)
+            os.mkdir(source, mode=0o700, dir_fd=source_parent_fd)
+            replacement_fd = os.open(source, os.O_RDONLY | os.O_DIRECTORY, dir_fd=source_parent_fd)
+            try:
+                marker_fd = os.open(
+                    "unrelated",
+                    os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW,
+                    0o600,
+                    dir_fd=replacement_fd,
+                )
+                os.close(marker_fd)
+            finally:
+                os.close(replacement_fd)
+        original_rename(source_parent_fd, source, target_parent_fd, target)
+
+    monkeypatch.setattr(PROBE, "_rename_noreplace", swap_directory_before_detach)
+    try:
+        assert not PROBE._remove_bound_tree_verified(parent_fd, root.name, root_fd, expected)
+        assert displaced.is_dir()
+        assert not any(displaced.iterdir())
+        assert (child / "unrelated").is_file()
+    finally:
+        os.close(parent_fd)
+        os.close(root_fd)
+
+
 def test_verified_tree_deletion_rejects_name_creation_during_final_rmdir(
     monkeypatch,
     tmp_path: Path,

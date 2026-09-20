@@ -158,21 +158,26 @@ Its returned SHA-256 is the external completion hash. Without that receipt, the
 diagnostic is not complete.
 
 Linux 6.14 on the target hosts has no `rmdir` operation that accepts an already
-opened directory descriptor (`unlinkat` rejects `AT_EMPTY_PATH|AT_REMOVEDIR`).
+opened directory descriptor (`unlinkat` rejects `AT_EMPTY_PATH|AT_REMOVEDIR`),
+and its `unlinkat` likewise rejects `AT_EMPTY_PATH` for regular files.
 Cleanup therefore atomically detaches each scratch root with
 `renameat2(RENAME_NOREPLACE)` to a fresh 256-bit quarantine name and verifies
 the moved inode before traversal. An inotify watch on the held parent requires
 the exact detach pair, a quiet queue immediately before `rmdir`, the exact
 quarantine deletion event, and no event through the final public-name absence
-check. If the public name was swapped, the unrelated replacement is restored
-when possible (otherwise retained under quarantine) and cleanup fails closed.
+check. Every nested regular file and directory is likewise atomically detached
+and inode-verified, then deleted under a fresh watch on its immediate parent;
+that gate accepts only the exact delete event and rejects move, create, modify,
+attribute, overflow, unmount, or ignored-watch events. If a public name was
+swapped, the unrelated replacement is restored when possible (otherwise
+retained under quarantine) and cleanup fails closed.
 Any inability to prove both removal of the bound quarantine and continued
 absence of the public name also fails the diagnostic; unrelated replacements
 are never deliberately removed. The kernel still cannot make the last identity
-check and pathname `rmdir` one operation: inotify makes any observed
-interference fatal, but cannot roll back an adversarial swap that lands inside
-that final syscall boundary. Independent review must accept that residual risk
-before authorizing this diagnostic.
+check and pathname `unlink` or `rmdir` one operation: inotify makes any
+observed interference fatal, but cannot roll back an adversarial swap that
+lands inside that final syscall boundary. Independent review must accept that
+residual risk before authorizing this diagnostic.
 
 ## Fixed fresh namespaces
 

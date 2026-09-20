@@ -168,6 +168,9 @@ _INOTIFY_MUTATION_MASK = sum(
 _INOTIFY_CLEANUP_MASK = sum(
     value
     for value in (
+        0x00000002,  # IN_MODIFY
+        0x00000004,  # IN_ATTRIB
+        0x00000008,  # IN_CLOSE_WRITE
         0x00000040,  # IN_MOVED_FROM
         0x00000080,  # IN_MOVED_TO
         0x00000100,  # IN_CREATE
@@ -870,6 +873,102 @@ def _rename_noreplace(source_parent_fd: int, source: str, target_parent_fd: int,
         raise OSError(error, os.strerror(error), source, target)
 
 
+def _regular_entry_identity(parent_fd: int, name: str) -> dict[str, int]:
+    info = os.stat(name, dir_fd=parent_fd, follow_symlinks=False)
+    if not stat.S_ISREG(info.st_mode):
+        raise DiagnosticError("cleanup_failed")
+    return {
+        "device": info.st_dev,
+        "inode": info.st_ino,
+        "mode": stat.S_IMODE(info.st_mode),
+        "nlink": info.st_nlink,
+        "owner_uid": info.st_uid,
+        "size": info.st_size,
+    }
+
+
+def _restore_detached_entry(parent_fd: int, quarantine_name: str, original_name: str) -> None:
+    try:
+        _rename_noreplace(parent_fd, quarantine_name, parent_fd, original_name)
+        os.fsync(parent_fd)
+    except OSError:
+        pass
+
+
+def _detach_entry_verified(
+    parent_fd: int,
+    name: str,
+    expected_identity: Mapping[str, object],
+    *,
+    directory: bool,
+) -> str | None:
+    watch_fd = -1
+    quarantine_name: str | None = None
+    identity = _directory_entry_identity if directory else _regular_entry_identity
+    try:
+        watch_fd = _open_cleanup_watch(parent_fd)
+        if _read_cleanup_events(watch_fd) or identity(parent_fd, name) != expected_identity:
+            return None
+        for _attempt in range(8):
+            candidate = f".vmvm-cleanup-{os.getpid()}-{os.getrandom(32).hex()}"
+            try:
+                _rename_noreplace(parent_fd, name, parent_fd, candidate)
+            except FileExistsError:
+                continue
+            quarantine_name = candidate
+            break
+        if quarantine_name is None:
+            return None
+        os.fsync(parent_fd)
+        if (
+            not _expected_detach_events(_read_cleanup_events(watch_fd), name, quarantine_name)
+            or identity(parent_fd, quarantine_name) != expected_identity
+        ):
+            _restore_detached_entry(parent_fd, quarantine_name, name)
+            return None
+        return quarantine_name
+    except (DiagnosticError, FileNotFoundError, OSError):
+        if quarantine_name is not None:
+            _restore_detached_entry(parent_fd, quarantine_name, name)
+        return None
+    finally:
+        if watch_fd >= 0:
+            os.close(watch_fd)
+
+
+def _delete_detached_entry_verified(
+    parent_fd: int,
+    name: str,
+    bound_fd: int,
+    expected_identity: Mapping[str, object],
+    *,
+    directory: bool,
+) -> bool:
+    watch_fd = -1
+    identity = _directory_entry_identity if directory else _regular_entry_identity
+    try:
+        watch_fd = _open_cleanup_watch(parent_fd)
+        if _read_cleanup_events(watch_fd) or identity(parent_fd, name) != expected_identity:
+            return False
+        if directory:
+            os.rmdir(name, dir_fd=parent_fd)
+        else:
+            os.unlink(name, dir_fd=parent_fd)
+        os.fsync(parent_fd)
+        removed = os.fstat(bound_fd)
+        return (
+            removed.st_dev == expected_identity.get("device")
+            and removed.st_ino == expected_identity.get("inode")
+            and removed.st_nlink == 0
+            and _read_cleanup_events(watch_fd) == [(_IN_DELETE, 0, os.fsencode(name))]
+        )
+    except (DiagnosticError, FileNotFoundError, OSError):
+        return False
+    finally:
+        if watch_fd >= 0:
+            os.close(watch_fd)
+
+
 def _remove_bound_tree_verified(
     parent_fd: int,
     name: str,
@@ -884,7 +983,8 @@ def _remove_bound_tree_verified(
         return all(left.get(field) == right.get(field) for field in ("device", "inode", "owner_uid"))
 
     def remove_contents(directory_fd: int) -> None:
-        os.fchmod(directory_fd, 0o700)
+        if stat.S_IMODE(os.fstat(directory_fd).st_mode) != 0o700:
+            os.fchmod(directory_fd, 0o700)
         for child_name in sorted(os.listdir(directory_fd)):
             info = os.stat(child_name, dir_fd=directory_fd, follow_symlinks=False)
             if info.st_uid != os.getuid():
@@ -900,9 +1000,24 @@ def _remove_bound_tree_verified(
                     if not same_object(descriptor_identity(child_fd), child_identity):
                         raise DiagnosticError("cleanup_failed")
                     remove_contents(child_fd)
-                    if not same_object(_directory_entry_identity(directory_fd, child_name), child_identity):
+                    child_identity = descriptor_identity(child_fd)
+                    quarantine = _detach_entry_verified(
+                        directory_fd,
+                        child_name,
+                        child_identity,
+                        directory=True,
+                    )
+                    if quarantine is None:
                         raise DiagnosticError("cleanup_failed")
-                    os.rmdir(child_name, dir_fd=directory_fd)
+                    if not _delete_detached_entry_verified(
+                        directory_fd,
+                        quarantine,
+                        child_fd,
+                        child_identity,
+                        directory=True,
+                    ):
+                        _restore_detached_entry(directory_fd, quarantine, child_name)
+                        raise DiagnosticError("cleanup_failed")
                 finally:
                     os.close(child_fd)
             elif stat.S_ISREG(info.st_mode):
@@ -916,7 +1031,31 @@ def _remove_bound_tree_verified(
                         or before.st_nlink != 1
                     ):
                         raise DiagnosticError("cleanup_failed")
-                    os.unlink(child_name, dir_fd=directory_fd)
+                    file_identity = {
+                        "device": before.st_dev,
+                        "inode": before.st_ino,
+                        "mode": stat.S_IMODE(before.st_mode),
+                        "nlink": before.st_nlink,
+                        "owner_uid": before.st_uid,
+                        "size": before.st_size,
+                    }
+                    quarantine = _detach_entry_verified(
+                        directory_fd,
+                        child_name,
+                        file_identity,
+                        directory=False,
+                    )
+                    if quarantine is None:
+                        raise DiagnosticError("cleanup_failed")
+                    if not _delete_detached_entry_verified(
+                        directory_fd,
+                        quarantine,
+                        file_fd,
+                        file_identity,
+                        directory=False,
+                    ):
+                        _restore_detached_entry(directory_fd, quarantine, child_name)
+                        raise DiagnosticError("cleanup_failed")
                 finally:
                     os.close(file_fd)
             else:
@@ -978,7 +1117,13 @@ def _remove_bound_tree_verified(
             raise DiagnosticError("cleanup_failed")
         os.rmdir(quarantine_name, dir_fd=parent_fd)
         os.fsync(parent_fd)
-        if _read_cleanup_events(cleanup_watch_fd) != [(_IN_DELETE, 0, os.fsencode(quarantine_name))]:
+        removed_root = os.fstat(root_fd)
+        if (
+            removed_root.st_dev != expected_identity.get("device")
+            or removed_root.st_ino != expected_identity.get("inode")
+            or removed_root.st_nlink != 0
+            or _read_cleanup_events(cleanup_watch_fd) != [(_IN_DELETE, 0, os.fsencode(quarantine_name))]
+        ):
             raise DiagnosticError("cleanup_failed")
         try:
             os.stat(quarantine_name, dir_fd=parent_fd, follow_symlinks=False)
