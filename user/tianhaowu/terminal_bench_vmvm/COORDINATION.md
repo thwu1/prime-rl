@@ -1,6 +1,6 @@
 # VMVM sandbox coordination
 
-Last updated: 2026-09-20 00:16 UTC
+Last updated: 2026-09-20 00:22 UTC
 
 ## First message to the next teammate
 
@@ -61,8 +61,14 @@ Add new rows below this line; do not overwrite another owner's row.
   tree, bundle/source paths and hashes to `0322cd439`, include the exact four
   proven bad-node exclusions in the worker-only deploy argv, regenerate all
   dependent plan/README/test/pending/runtime hashes, and obtain a fresh
-  independent exact-byte approval. No Kimi job, deployment, intent, receipt,
-  route, readiness, smoke, or evaluation was created by this handoff.
+  independent exact-byte approval. Also replace the current `normal` worker
+  QoS with `g3_lowest` and retain the truthful `preemptible=true` policy: live
+  `sacctmgr` reports `normal` at priority 0 with no outbound preemption, while
+  `g3_lowest` is priority 1 and may preempt `normal`; all QoSes that may preempt
+  `g3_lowest` may also preempt `normal`. Thus `normal` is strictly less
+  protected and cannot be the stability successor. No Kimi job, deployment,
+  intent, receipt, route, readiness, smoke, or evaluation was created by this
+  handoff.
 
 - **2026-09-20 00:06 UTC, repaired diagnostic commit remains rejected:** do
   not authorize or launch `7448616e2` (tree `cd2a9b873`). Independent review
