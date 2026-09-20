@@ -1,6 +1,6 @@
 # VMVM sandbox coordination
 
-Last updated: 2026-09-20 05:48 UTC
+Last updated: 2026-09-20 05:51 UTC
 
 ## First message to the next teammate
 
@@ -43,6 +43,41 @@ this shared branch again.
 Add new rows below this line; do not overwrite another owner's row.
 
 ## Open coordination requests
+
+- **2026-09-20 05:51 UTC, exact-bd VMVM v8 successor sealed; no
+  authorization or launch:** independently approved source
+  `bd583d45e2bfc50c2bb3f2f452c0937b3e195ee0` (whole tree
+  `fc9f4c99a664a81b058bd7ea70a3a10d6d667b84`, diagnostic subtree
+  `cffe7f24e91be5caef7a3acbb3bd239a6307b235`) is frozen at
+  `/checkpoint/ram/tianhaowu/terminal_bench_vmvm/diagnostic_bundles/vmvm_v21_task_free_preflight_a09a9a189_v8_bd583d45e_20260920T054756Z`.
+  Its exact six-file inventory is: README mode 0400, 8,604 bytes, SHA-256
+  `9dd0b616bf5655f533377504a36f505c5a1bdd80d907ce1b824888f16bcffd19`;
+  finalizer mode 0500, 83,493 bytes, SHA-256
+  `07da706857dd9635cc08ef8b60c80bea1993f0eec296b88554e2d9edf21a2d4d`;
+  launcher mode 0500, 92,485 bytes, SHA-256
+  `373b200feb9082ef6ed78b2855f3ac3f4034978d3844441f624eec68a431e1b4`;
+  probe mode 0500, 157,413 bytes, SHA-256
+  `9b350206ffffbedff9462bccca1eda060b98de5696eb29c4fbbff4e611122fe2`;
+  wrapper mode 0500, 40,815 bytes, SHA-256
+  `c2af34e4355f265dc4afe88299d55288ab449531c6ec1e7ec3df2fae27c5dcb8`;
+  and tests mode 0400, 171,670 bytes, SHA-256
+  `082c79eeeaf097dc5c9eb48c3f3c24dccab6d99ef3c44345e1f6855b21d94abd`.
+  Builder source and sealed-copy full suites each passed 130/130; the sealed
+  focused binder/no-task suite passed 22/22; the sealed launcher source
+  attestation passed; and a detached exact-commit rebuild was byte- and
+  mode-identical. Independent source review also passed 130/130. Two fresh
+  observations at 05:48:57 and 05:49:28 UTC found the fixed output, receipt,
+  reservation, log, and local-scratch namespaces absent; the intended
+  authorization and nonconsumable paths absent; and zero exact-name rows in
+  both `squeue` and allocation-level `sacct`. The fresh intended token is
+  `117c9e818222bffa018ca0e3`, binding job name
+  `vmvm-v8-preflight-117c9e818222bffa018ca0e3` and a reviewer-only future
+  authorization ending
+  `vmvm_v21_task_free_preflight_a09a9a189_v8_bd583d45e_117c9e818222bffa018ca0e3.launch.json`.
+  No authorization file exists and no Slurm command or job was submitted.
+  The old `68ef70b70` bundle remains held and inert. Independently attest the
+  exact sealed successor before creating any mode-0400 authorization, and
+  launch only later through `swebench_vmvm:Launcher.0` after a new owner gate.
 
 - **2026-09-20 05:48 UTC, independently approve exact VMVM task-free v8
   source `bd583d45e2bfc50c2bb3f2f452c0937b3e195ee0`:** its diagnostic
