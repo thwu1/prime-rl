@@ -87,6 +87,8 @@ SANDOQ_UPSTREAM_COMMIT = "4890302104d76220cef791c86d2009168597d35f"
 SANDOQ_UPSTREAM_TREE = "33f092a3982916660e12f472588e6ce34a906fc2"
 SANDOQ_UPSTREAM_SUBTREE = "10b5bd9bbc76eba1b8253637e1869d6b63b7fc42"
 SANDOQ_UPSTREAM_INVENTORY_SHA256 = "5db69d90ddd34cfbfdcffdacab09353e8be22e917f894e33ddafb5020ca43e73"
+DIRECT_KIMI_ROLES = frozenset({"kimi-direct-smoke", "kimi-direct-tb4"})
+DIRECT_ROLES = frozenset({"qwen-direct", *DIRECT_KIMI_ROLES})
 
 
 class EvalIdentityError(ValueError):
@@ -793,9 +795,9 @@ def _contract(
     require_kimi_steady_state_concurrency = role == "mobius"
     if model == "Kimi-K3":
         required_profile: str | None = None
-        if role in {"tb4", "mobius"}:
+        if role in {"tb4", "mobius", "kimi-direct-tb4"}:
             required_profile = "full"
-        elif role == "smoke":
+        elif role in {"smoke", "kimi-direct-smoke"}:
             taskset = config.get("taskset")
             if not isinstance(taskset, dict):
                 raise EvalIdentityError("resolved_contract_invalid")
@@ -1557,7 +1559,7 @@ def _validate_identity_shape(identity: object) -> dict[str, Any]:
         raise EvalIdentityError("eval_run_identity_schema_invalid")
 
     role = identity.get("role")
-    if role not in {"smoke", "tb4", "mobius", "qwen-direct"}:
+    if role not in {"smoke", "tb4", "mobius", *DIRECT_ROLES}:
         raise EvalIdentityError("eval_run_identity_schema_invalid")
 
     source = identity.get("source")
@@ -1687,6 +1689,7 @@ def _validate_identity_shape(identity: object) -> dict[str, Any]:
         raise EvalIdentityError("eval_run_identity_schema_invalid")
 
     deployment = identity.get("deployment")
+    direct_role = role in DIRECT_ROLES
     if role == "qwen-direct":
         if not isinstance(deployment, dict) or set(deployment) != {
             "kind",
@@ -1712,6 +1715,55 @@ def _validate_identity_shape(identity: object) -> dict[str, Any]:
         ):
             raise EvalIdentityError("eval_run_identity_schema_invalid")
         proxy_policy = None
+    elif role in DIRECT_KIMI_ROLES:
+        if not isinstance(deployment, dict) or set(deployment) != {
+            "kind",
+            "worker_manifest",
+            "spec_sha256",
+            "endpoint_bundle_sha256",
+            "base_url",
+            "router",
+            "smoke_checkpoint",
+        }:
+            raise EvalIdentityError("eval_run_identity_schema_invalid")
+        _validate_artifact_shape(deployment["worker_manifest"])
+        smoke_checkpoint = deployment.get("smoke_checkpoint")
+        router = deployment.get("router")
+        try:
+            parsed_base_url = urlsplit(str(deployment.get("base_url", "")))
+            base_url_port = parsed_base_url.port
+        except ValueError as error:
+            raise EvalIdentityError("eval_run_identity_schema_invalid") from error
+        if (
+            deployment.get("kind") != "direct_kimi"
+            or SHA256_RE.fullmatch(str(deployment.get("spec_sha256", ""))) is None
+            or SHA256_RE.fullmatch(str(deployment.get("endpoint_bundle_sha256", ""))) is None
+            or parsed_base_url.scheme != "http"
+            or parsed_base_url.hostname != "127.0.0.1"
+            or parsed_base_url.username is not None
+            or parsed_base_url.password is not None
+            or base_url_port is None
+            or not 1 <= base_url_port <= 65_535
+            or parsed_base_url.netloc != f"127.0.0.1:{base_url_port}"
+            or parsed_base_url.path != "/v1"
+            or parsed_base_url.query
+            or parsed_base_url.fragment
+            or not isinstance(router, dict)
+            or router
+            != {
+                "policy": "consistent_hash",
+                "request_id_headers": ["x-session-id"],
+                "provider_concurrency": 24,
+                "request_timeout_seconds": KIMI_REQUEST_TIMEOUT_SECONDS,
+                "retries": 0,
+                "worker_count": 24,
+            }
+            or (role == "kimi-direct-smoke" and smoke_checkpoint is not None)
+        ):
+            raise EvalIdentityError("eval_run_identity_schema_invalid")
+        if role == "kimi-direct-tb4":
+            _validate_artifact_shape(smoke_checkpoint)
+        proxy_policy = None
     elif not isinstance(deployment, dict) or set(deployment) != {
         "id",
         "endpoint",
@@ -1724,14 +1776,14 @@ def _validate_identity_shape(identity: object) -> dict[str, Any]:
         "promotion_certificate",
     }:
         raise EvalIdentityError("eval_run_identity_schema_invalid")
-    if role != "qwen-direct":
+    if not direct_role:
         deployment_id = deployment.get("id")
-    if role != "qwen-direct" and (
+    if not direct_role and (
         not isinstance(deployment_id, str) or METADATA_ID_RE.fullmatch(deployment_id) is None
     ):
         raise EvalIdentityError("eval_run_identity_schema_invalid")
     try:
-        if role == "qwen-direct":
+        if direct_role:
             raise StopIteration
         validate_endpoint_binding(deployment.get("endpoint"))
         validate_route_generation(deployment.get("serving_route_generation"))
@@ -1744,9 +1796,9 @@ def _validate_identity_shape(identity: object) -> dict[str, Any]:
         DeploymentProxyPolicyError,
     ) as error:
         raise EvalIdentityError("eval_run_identity_schema_invalid") from error
-    routing = deployment.get("routing") if role != "qwen-direct" else None
+    routing = deployment.get("routing") if not direct_role else None
     routing_id = routing.get("deployment_id") if isinstance(routing, dict) else None
-    if role != "qwen-direct" and (
+    if not direct_role and (
         not isinstance(routing, dict)
         or set(routing) != {"deployment_id", "headers"}
         or (routing_id is not None and not isinstance(routing_id, str))
@@ -1754,17 +1806,17 @@ def _validate_identity_shape(identity: object) -> dict[str, Any]:
         or (routing_id is not None and routing_id != deployment_id)
     ):
         raise EvalIdentityError("eval_run_identity_schema_invalid")
-    if role != "qwen-direct":
+    if not direct_role:
         _validate_artifact_shape(deployment["spec"])
         _validate_artifact_shape(deployment["readiness_checkpoint"])
-    if role == "smoke":
+    if not direct_role and role == "smoke":
         if deployment["smoke_checkpoint"] is not None:
             raise EvalIdentityError("eval_run_identity_schema_invalid")
-    elif role != "qwen-direct":
+    elif not direct_role:
         _validate_artifact_shape(deployment["smoke_checkpoint"])
     if role == "mobius":
         _validate_artifact_shape(deployment["promotion_certificate"])
-    elif role != "qwen-direct" and deployment["promotion_certificate"] is not None:
+    elif not direct_role and deployment["promotion_certificate"] is not None:
         raise EvalIdentityError("eval_run_identity_schema_invalid")
 
     contract = identity.get("contract")
@@ -1808,6 +1860,8 @@ def _validate_identity_shape(identity: object) -> dict[str, Any]:
         or contract.get("retain_traces") is not False
     ):
         raise EvalIdentityError("eval_run_identity_schema_invalid")
+    if role in DIRECT_KIMI_ROLES and model != "Kimi-K3":
+        raise EvalIdentityError("eval_run_identity_schema_invalid")
     if "harness" in contract and contract.get("harness") != {
         "id": "terminal-bench-sandoq-host",
         "placement": "host",
@@ -1822,7 +1876,7 @@ def _validate_identity_shape(identity: object) -> dict[str, Any]:
         raise EvalIdentityError("eval_run_identity_schema_invalid")
     if sandbox_provider == "sandoq" and "harness" not in contract:
         raise EvalIdentityError("eval_run_identity_schema_invalid")
-    if role != "qwen-direct" and proxy_policy["request_timeout"] != request_timeout_for_model(model):
+    if not direct_role and proxy_policy["request_timeout"] != request_timeout_for_model(model):
         raise EvalIdentityError("eval_run_identity_schema_invalid")
 
     execution = identity.get("execution")
@@ -2255,10 +2309,11 @@ def _verify_config_and_inputs(
     if observed_inputs != inputs or observed_source != config_section["source"]:
         raise EvalIdentityError("eval_inputs_identity_mismatch")
 
+    direct_role = identity["role"] in DIRECT_ROLES
     observed_contract, observed_execution = _contract(
         config,
         identity["contract"]["model"],
-        (None if identity["role"] == "qwen-direct" else identity["deployment"]["routing"]["deployment_id"]),
+        (None if direct_role else identity["deployment"]["routing"]["deployment_id"]),
         role=identity["role"],
         sandbox_provider=identity["source"].get("sandbox_provider", "vmvm"),
     )
@@ -2271,7 +2326,7 @@ def _verify_config_and_inputs(
         raise EvalIdentityError("eval_config_contract_mismatch")
     expected_request_timeout = request_timeout_for_model(observed_contract["model"])
     if config["client"].get("timeout") != expected_request_timeout or (
-        identity["role"] != "qwen-direct"
+        not direct_role
         and identity["deployment"]["proxy_policy"]["request_timeout"] != expected_request_timeout
     ):
         raise EvalIdentityError("deployment_proxy_timeout_mismatch")
@@ -2307,7 +2362,7 @@ def _verify_saved_provenance(output_dir: Path, identity: dict[str, Any], identit
         "approval_task_file_sha256": identity["inputs"]["task_file"]["sha256"],
         "approval_task_count": str(identity["inputs"]["task_file"]["count"]),
     }
-    if identity["role"] == "qwen-direct":
+    if identity["role"] in DIRECT_ROLES:
         stable.update(
             {
                 "direct_worker_manifest_sha256": identity["deployment"]["worker_manifest"]["sha256"],
@@ -2315,6 +2370,8 @@ def _verify_saved_provenance(output_dir: Path, identity: dict[str, Any], identit
                 "direct_endpoint_bundle_sha256": identity["deployment"]["endpoint_bundle_sha256"],
             }
         )
+        if identity["role"] == "kimi-direct-tb4":
+            stable["direct_kimi_smoke_checkpoint_sha256"] = identity["deployment"]["smoke_checkpoint"]["sha256"]
     else:
         stable.update(
             {
@@ -2439,14 +2496,17 @@ def load_eval_run_identity(
             if not isinstance(record["path"], str) or not isinstance(record["sha256"], str):
                 raise EvalIdentityError("eval_run_identity_schema_invalid")
             _artifact(Path(record["path"]), record["sha256"], label=label)
-    direct_qwen = identity["role"] == "qwen-direct"
-    if direct_qwen:
+    direct_role = identity["role"] in DIRECT_ROLES
+    if direct_role:
         deployment = identity["deployment"]
         _artifact(
             Path(deployment["worker_manifest"]["path"]),
             deployment["worker_manifest"]["sha256"],
             label="direct_worker_manifest",
         )
+        if identity["role"] == "kimi-direct-tb4":
+            smoke = deployment["smoke_checkpoint"]
+            _artifact(Path(smoke["path"]), smoke["sha256"], label="direct_kimi_smoke_checkpoint")
         endpoint_client_base_url = deployment["base_url"]
         endpoint_info = None
     else:
@@ -2477,7 +2537,7 @@ def load_eval_run_identity(
             raise EvalIdentityError("dataset_worktree_not_clean")
     else:
         raise EvalIdentityError("eval_run_identity_schema_invalid")
-    if not direct_qwen:
+    if not direct_role:
         assert endpoint_info is not None
         _verify_checkpoint_records(
             identity,
@@ -2557,7 +2617,7 @@ def _bind_provenance(
         "approval_task_file_sha256": identity["inputs"]["task_file"]["sha256"],
         "approval_task_count": str(identity["inputs"]["task_file"]["count"]),
     }
-    if identity["role"] == "qwen-direct":
+    if identity["role"] in DIRECT_ROLES:
         stable.update(
             {
                 "direct_worker_manifest_sha256": identity["deployment"]["worker_manifest"]["sha256"],
@@ -2565,6 +2625,8 @@ def _bind_provenance(
                 "direct_endpoint_bundle_sha256": identity["deployment"]["endpoint_bundle_sha256"],
             }
         )
+        if identity["role"] == "kimi-direct-tb4":
+            stable["direct_kimi_smoke_checkpoint_sha256"] = identity["deployment"]["smoke_checkpoint"]["sha256"]
     else:
         stable.update(
             {
@@ -2692,6 +2754,8 @@ def _bind_provenance(
 def prepare(args: argparse.Namespace) -> str:
     if args.role == "qwen-direct":
         return _prepare_direct_qwen(args)
+    if args.role in DIRECT_KIMI_ROLES:
+        return _prepare_direct_kimi(args)
     if not isinstance(args.deployment_id, str) or METADATA_ID_RE.fullmatch(args.deployment_id) is None:
         raise EvalIdentityError("deployment_id_invalid")
     if args.routing_deployment_id is not None:
@@ -2922,6 +2986,155 @@ def _prepare_direct_qwen(args: argparse.Namespace) -> str:
     return digest
 
 
+def _prepare_direct_kimi(args: argparse.Namespace) -> str:
+    from direct_kimi_workers import validate_saved_manifest
+
+    if args.mode != "fresh" or args.sandbox_provider != "sandoq":
+        raise EvalIdentityError("direct_kimi_requires_fresh_sandoq_identity")
+    if args.expected_model != "Kimi-K3" or args.role not in DIRECT_KIMI_ROLES:
+        raise EvalIdentityError("direct_kimi_model_or_role_invalid")
+    if (
+        not args.invocation_host.strip()
+        or any(character in args.invocation_host for character in "\r\n=")
+        or not args.slurm_job_id.isdigit()
+    ):
+        raise EvalIdentityError("direct_kimi_invocation_invalid")
+    if args.client_base_url is None:
+        raise EvalIdentityError("client_base_url_required")
+
+    output_dir = args.output_dir.resolve()
+    inputs_dir = args.inputs_dir.resolve(strict=True)
+    config_path = output_dir / "config.toml"
+    config = _write_resolved_config(
+        output_dir,
+        inputs_dir,
+        args.client_base_url,
+        args.model_override,
+        args.approved_task_file_sha256,
+    )
+    inputs, source_config = _input_identity(
+        inputs_dir,
+        config,
+        args.approved_task_file_sha256,
+        args.approved_task_count,
+    )
+    contract, execution = _contract(
+        config,
+        args.expected_model,
+        role=args.role,
+        sandbox_provider="sandoq",
+    )
+    expected_concurrency = 2 if args.role == "kimi-direct-smoke" else 24
+    if any(
+        execution.get(key) != expected_concurrency
+        for key in (
+            "rollout_concurrency",
+            "multiplex",
+            "http_max_connections",
+            "http_max_keepalive_connections",
+        )
+    ):
+        raise EvalIdentityError("direct_kimi_concurrency_invalid")
+    execution["sandoq_environment"] = _effective_sandoq_environment(
+        args,
+        execution["rollout_concurrency"],
+        output_dir,
+    )
+    if execution["runtime"].get("ecr_token_file") != execution["sandoq_environment"]["ecr_token_file"]:
+        raise EvalIdentityError("sandoq_ecr_token_file_invalid")
+    source = _source_identity(args)
+    if inputs["image_manifest"] is None or (
+        inputs["image_manifest"]["sha256"] != source["derived_image_manifest_sha256"]
+    ):
+        raise EvalIdentityError("derived_image_manifest_sha256_mismatch")
+
+    worker_manifest = _artifact(
+        args.direct_worker_manifest,
+        args.direct_worker_manifest_sha256,
+        label="direct_kimi_worker_manifest",
+    )
+    try:
+        manifest = validate_saved_manifest(Path(worker_manifest["path"]))
+    except (OSError, ValueError) as error:
+        raise EvalIdentityError("direct_kimi_worker_manifest_invalid") from error
+    router = manifest["router"]
+    if (
+        args.client_base_url != f"http://127.0.0.1:{router['port']}/v1"
+        or args.direct_spec_sha256 != manifest["source_spec_sha256"]
+        or args.direct_endpoint_bundle_sha256 != manifest["endpoint_bundle_sha256"]
+        or args.direct_router_policy != router["policy"]
+        or args.direct_request_id_headers != router["request_id_headers"][0]
+        or _positive_int(args.direct_provider_concurrency, "direct_provider_concurrency")
+        != router["max_concurrent_requests"]
+        or _positive_int(args.direct_request_timeout_seconds, "direct_request_timeout_seconds")
+        != router["request_timeout_seconds"]
+        or args.direct_retries != str(router["retries"])
+        or _positive_int(args.direct_worker_count, "direct_worker_count") != len(manifest["workers"])
+    ):
+        raise EvalIdentityError("direct_kimi_router_contract_invalid")
+
+    smoke_checkpoint = None
+    if args.role == "kimi-direct-smoke":
+        if args.smoke_checkpoint is not None or args.smoke_checkpoint_sha256 is not None:
+            raise EvalIdentityError("direct_kimi_smoke_checkpoint_invalid")
+    else:
+        if args.smoke_checkpoint is None or args.smoke_checkpoint_sha256 is None:
+            raise EvalIdentityError("direct_kimi_smoke_checkpoint_required")
+        smoke_checkpoint = _artifact(
+            args.smoke_checkpoint,
+            args.smoke_checkpoint_sha256,
+            label="direct_kimi_smoke_checkpoint",
+        )
+        payload = _json_artifact(smoke_checkpoint, label="direct_kimi_smoke_checkpoint")
+        if (
+            payload.get("schema_version") != 1
+            or payload.get("kind") != "direct-kimi-sandoq-smoke"
+            or payload.get("state") != "passed"
+            or payload.get("model") != "Kimi-K3"
+            or payload.get("source_spec_sha256") != manifest["source_spec_sha256"]
+            or payload.get("endpoint_bundle_sha256") != manifest["endpoint_bundle_sha256"]
+        ):
+            raise EvalIdentityError("direct_kimi_smoke_checkpoint_invalid")
+
+    identity = {
+        "schema_version": SCHEMA_VERSION,
+        "role": args.role,
+        "source": source,
+        "config": {
+            "source": source_config,
+            "resolved": _artifact(
+                config_path,
+                _sha256_file(config_path, label="resolved_config"),
+                label="resolved_config",
+            ),
+        },
+        "inputs": inputs,
+        "dataset": _dataset_identity(config, args),
+        "deployment": {
+            "kind": "direct_kimi",
+            "worker_manifest": worker_manifest,
+            "spec_sha256": manifest["source_spec_sha256"],
+            "endpoint_bundle_sha256": manifest["endpoint_bundle_sha256"],
+            "base_url": args.client_base_url,
+            "router": {
+                "policy": router["policy"],
+                "request_id_headers": router["request_id_headers"],
+                "provider_concurrency": router["max_concurrent_requests"],
+                "request_timeout_seconds": router["request_timeout_seconds"],
+                "retries": router["retries"],
+                "worker_count": len(manifest["workers"]),
+            },
+            "smoke_checkpoint": smoke_checkpoint,
+        },
+        "contract": contract,
+        "execution": execution,
+    }
+    _validate_identity_shape(identity)
+    digest = _bind_identity(output_dir, identity, resume=False)
+    _bind_provenance(output_dir, identity, digest, args)
+    return digest
+
+
 def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--mode", choices=("fresh", "resume"), required=True)
@@ -2932,7 +3145,11 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--expected-model", required=True)
     parser.add_argument("--approved-task-file-sha256", required=True)
     parser.add_argument("--approved-task-count", type=int, required=True)
-    parser.add_argument("--role", choices=("smoke", "tb4", "mobius", "qwen-direct"), required=True)
+    parser.add_argument(
+        "--role",
+        choices=("smoke", "tb4", "mobius", "qwen-direct", "kimi-direct-smoke", "kimi-direct-tb4"),
+        required=True,
+    )
     parser.add_argument("--dataset-revision")
     parser.add_argument("--dataset-archive", type=Path)
     parser.add_argument("--dataset-archive-sha256")
@@ -3018,6 +3235,9 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--direct-router-policy")
     parser.add_argument("--direct-request-id-headers")
     parser.add_argument("--direct-provider-concurrency", default="")
+    parser.add_argument("--direct-request-timeout-seconds", default="")
+    parser.add_argument("--direct-retries", default="")
+    parser.add_argument("--direct-worker-count", default="")
     parser.add_argument("--invocation-host", required=True)
     parser.add_argument("--slurm-job-id", required=True)
     return parser

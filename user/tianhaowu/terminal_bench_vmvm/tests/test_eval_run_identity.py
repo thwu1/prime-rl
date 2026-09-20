@@ -453,6 +453,88 @@ def test_direct_qwen_identity_reference_verification_does_not_require_routing(tm
     assert load_eval_run_identity(path, verify_references=True) == envelope
 
 
+def _direct_kimi_identity(*, smoke: bool) -> dict:
+    identity = _sandoq_identity()
+    concurrency = 2 if smoke else 24
+    config = _sandoq_kimi_config(smoke=smoke)
+    config["max_concurrent"] = concurrency
+    config["multiplex"] = concurrency
+    config["client"]["max_connections"] = concurrency
+    config["client"]["max_keepalive_connections"] = concurrency
+    contract, execution = _contract(
+        config,
+        "Kimi-K3",
+        role="kimi-direct-smoke" if smoke else "kimi-direct-tb4",
+        sandbox_provider="sandoq",
+    )
+    environment = identity["execution"]["sandoq_environment"]
+    environment["ecr_token_file"] = "/private/ecr-token"
+    environment["pool_size"] = concurrency
+    for key, cap in (
+        ("pool_create_workers", 4),
+        ("pool_bootstrap_workers", 64),
+        ("pool_bootstrap_per_image", 8),
+        ("pool_drain_workers", 32),
+        ("pool_renew_workers", 16),
+    ):
+        environment[key] = str(min(concurrency, cap))
+    execution["sandoq_environment"] = environment
+    identity["role"] = "kimi-direct-smoke" if smoke else "kimi-direct-tb4"
+    identity["contract"] = contract
+    identity["execution"] = execution
+    identity["deployment"] = {
+        "kind": "direct_kimi",
+        "worker_manifest": {"path": "/run/direct_kimi_workers.json", "sha256": "8" * 64},
+        "spec_sha256": "9" * 64,
+        "endpoint_bundle_sha256": "a" * 64,
+        "base_url": "http://127.0.0.1:23456/v1",
+        "router": {
+            "policy": "consistent_hash",
+            "request_id_headers": ["x-session-id"],
+            "provider_concurrency": 24,
+            "request_timeout_seconds": 43_200,
+            "retries": 0,
+            "worker_count": 24,
+        },
+        "smoke_checkpoint": (
+            None
+            if smoke
+            else {"path": "/run/smoke_checkpoint.json", "sha256": "b" * 64}
+        ),
+    }
+    return identity
+
+
+def test_direct_kimi_sandoq_identity_binds_router_and_smoke_lineage() -> None:
+    smoke = _direct_kimi_identity(smoke=True)
+    assert _validate_identity_shape(smoke) == smoke
+    full = _direct_kimi_identity(smoke=False)
+    assert _validate_identity_shape(full) == full
+
+    for path, value in (
+        (("deployment", "router", "policy"), "round_robin"),
+        (("deployment", "router", "request_timeout_seconds"), 600),
+        (("deployment", "router", "retries"), 2),
+        (("deployment", "smoke_checkpoint"), None),
+    ):
+        mismatched = json.loads(json.dumps(full))
+        target = mismatched
+        for key in path[:-1]:
+            target = target[key]
+        target[path[-1]] = value
+        with pytest.raises(EvalIdentityError, match="schema_invalid"):
+            _validate_identity_shape(mismatched)
+
+
+def test_direct_kimi_identity_envelope_round_trip(tmp_path: Path) -> None:
+    identity = _direct_kimi_identity(smoke=True)
+    envelope = _identity_envelope(identity)
+    path = tmp_path / "eval_run_identity.json"
+    path.write_text(json.dumps(envelope))
+
+    assert load_eval_run_identity(path, verify_references=False) == envelope
+
+
 def test_sandoq_source_rejects_unobserved_client_version(tmp_path: Path, monkeypatch) -> None:
     clean = hashlib.sha256(b"").hexdigest()
     args = SimpleNamespace(
