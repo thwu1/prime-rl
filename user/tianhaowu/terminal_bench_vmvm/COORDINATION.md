@@ -1,6 +1,6 @@
 # VMVM sandbox coordination
 
-Last updated: 2026-09-20 06:58 UTC
+Last updated: 2026-09-20 07:09 UTC
 
 ## First message to the next teammate
 
@@ -37,13 +37,39 @@ this shared branch again.
 | Codex session for `tianhaowu` | `fair-cw-use2-1` | Final-code compatibility-oracle validation only; excludes Kimi serving and every TB4/Mobius model evaluation | `COORDINATION.md`; outputs `/checkpoint/ram/tianhaowu/terminal_bench_vmvm/oracle/mobius_repairs_oracle_public_f0d7be39c_use2-1_v1` and `/checkpoint/ram/tianhaowu/terminal_bench_vmvm/oracle/mobius_full_oracle_public_f0d7be39c_use2-1_v1` | canary `1444307` terminal at 41/42 valid; old full `1444339` canceled never-started; independent full `1444701` terminal canceled | Canary failed its strict 42/42 gate. Independent full `1444701`, submitted through tmux from parent/head `f0d7be39c`, code `bb734d08c8`, and verifier `7e3b6885`, ran for 3:16:06 and was canceled without promotion. The use2-3 aggregate remains 2,488/2,538 valid, so its repair gate is still 12 short of a 2,500-task production manifest. Use2-3 retains all Kimi serving and TB4/Mobius model-evaluation ownership. |
 | Codex oracle source-wheel lane for `tianhaowu` | `fair-cw-use2-3` | Independently reviewed oracle source-wheel proof and aggregate-only diagnosis; no canary/eval launch | `user/tianhaowu/terminal_bench_vmvm/{taskset.py,run_oracle.py,source_wheel_proof.py,terminal_bench_vmvm/source_wheels.py,terminal_bench_vmvm/source_wheel_proof.py,tests/**,skills/**,README.md,COORDINATION.md,HANDOFF.md}` | approved historical branch `fix/source-wheel-proof-hardening-v2` at `0e6da17df`; terminal proof `1752061`; replacement work on `fix/source-wheel-static-legacy-v4` | Proof `1752061` remains nonresumable/ineligible at 0/9. Replacement candidates through `e68f91d50` are also held: independent review found executable or unconfined legacy setup grammar despite 9/9 aggregate parsing. The next child removes resource-download, CFFI, extension-build, and archive-extraction grammar, confines package paths, and targets exactly eight safe entries / 24 starts. Eight source recoveries plus the six disjoint repaired-fixture recoveries project 14, above the required 12. Do not launch until the exact child is frozen and independently approved, then use fresh same-host inspections and a wholly fresh proof root. |
 | Codex Qwen serving-generation migration lane for `tianhaowu` | `fair-cw-use2-1` | Implemented and independently approved the fail-closed fresh-repair continuation from the immutable 16-worker epoch-3 Qwen source to the exact current 24-worker deployment | PR `#43`, Prime head `c63fbc231b010ae2ec1c9e48d1000c73637642fd`, tree `e868446202e261549e6cb7d0ed361e0a24eee6fd`; verifier gitlink `08a3bf6df2e4f2e04dc1d33e1ee78b7e4da22697`, tree `722fc3783e8d908288882115f4a65935bf38e0e7`; repair controller/launcher/finalizer/merge, VMVM runtime/adapter, tests and docs | Exact 1,392-row source and 1,153-row repair union remain immutable/bound. Target remains exact24, 15/1/9 identity evidence, c96/cap48/queue48, evaluator lease-start cap4, 32 GiB, 256K, `consistent_hash`/`x-session-id`, and a 96-request capacity certificate. Attempt 4 `1485827` passed materialize, exact24 router, capacity 96/96 at peak96 in 1.683s, and launch commit, but stayed at zero durable rows; aggregate diagnosis found zero tunnel mappings on `cpu-131-227`, so it was canceled and is ineligible. The approved successor code isolates all 96 blocking backend constructors on a dedicated 32-thread executor, keeps run/cleanup work on the default executor, preserves late-constructor/probe cleanup, adds one task-free process-bounded lease/tunnel preflight before fanout, hardens VACLI setup/log handling, and redacts cleanup failures. Independent exact-head review reports no blockers; Prime full 590/590, independent focused Prime 110/110, verifier 20/20, Ruff/format/diff clean. Attempt 5 `1492631` ran on `cpu-128-113` and failed closed in 1m57s at the task-free gate with stable code `vmvm_lease_preflight_failed`; no repair manifest, capacity certificate, provenance, or result row was created. Cross-node stable-client probes and explicit x86 client builds 792/795/797 all failed before a lease response or tunnel. The live use2-1 allocation had `X2P_PROXY_URL` unset, `x2pagentd_count=0`, and TCP `10.0.2.2:10054` closed; explicitly injecting the documented X2P environment and starting a user-space x2p-agent listener still reached Vaagent but returned the same lease-backend `FaasUserException` / connection-refused family. This supports a use2-1 backend control-plane outage rather than only missing batch environment, node placement, or client version. Initial watcher `1492667` was canceled after ten `WAIT` attempts and before any attempt-6 production artifact because its batch environment lacked explicit X2P injection. Authoritative replacement watcher `1492726` now exports the documented X2P settings; attempts 1-14 are `WAIT`, production controller/fanout has not started, and all attempt-6 runtime/export paths remain fresh. The use2-3 cluster cannot launch this Qwen continuation because it lacks the frozen source, canonical dataset, and exact deployment bindings; cross-cluster paths must not be inferred. |
-| Codex Kimi v13 serving lane for `tianhaowu` | `fair-cw-use2-3` | Terminal strict Kimi replacement attempt and completed task-free registry diagnosis; next gate is the separate sealed exact-digest pull proof | source `0322cd439`; consumed watcher `k3_tb4_eval_deploy_20260920t045300z_v13`; terminal auth probes v1 `1758860`, v2 `1758877`, and v3 `1758891`; `COORDINATION.md` | serving controller terminal rc2; v1 `FAILED 3:0`; same-node cleanup `1758863` completed; v2 `FAILED 2:0`; v3 `COMPLETED 0:0` | V1 produced no matrix because of invalid multi-operand `unlink`; same-node cleanup proved its private root absent. V2 completed its credential-tree purge but failed the final log-identity gate. V3 completed all four login-only arms: every arm returned rc125/unclassified, and explicit `--authfile` did not succeed for either registry. No probe pulled an image or invoked model/task work. All probe namespaces are consumed; do not retry or create another preliminary login probe. Proceed only with the independently reviewed sealed full exact-digest gate. |
+| Codex Kimi v13 serving lane for `tianhaowu` | `fair-cw-use2-3` | Terminal strict Kimi replacement attempt and completed task-free registry diagnosis; next gate is the separate sealed exact-digest pull proof | source `0322cd439`; untested explicit-auth-file source `92b1a3531`; consumed watcher `k3_tb4_eval_deploy_20260920t045300z_v13`; terminal auth probes v1 `1758860`, v2 `1758877`, and v3 `1758891`; `COORDINATION.md` | serving controller terminal rc2; v1 `FAILED 3:0`; same-node cleanup `1758863` completed; v2 `FAILED 2:0`; v3 `COMPLETED 0:0` | V1 produced no matrix because of invalid multi-operand `unlink`; same-node cleanup proved its private root absent. V2 completed its credential-tree purge but failed the final log-identity gate. V3 completed all four login-only arms, but independent source review and secret-free reproduction classify every rc125 as a probe-induced local Podman storage-initialization failure before credential selection or registry I/O. V3 therefore neither tests nor disproves `92b1a3531`. No probe pulled an image or invoked model/task work. All probe namespaces are consumed; proceed only with an independently reviewed real-path sealed full exact-digest gate. |
 | Codex Sandoq encrypted-token handoff for `tianhaowu` | `fair-cw-use2-1` (`fair-sc-3`) | Coordinate user-authorized encrypted transfer of the working legacy OCI bearer to the use2-1 owner; never publish plaintext and do not relabel it as a Firecracker credential without a live auth gate | `user/tianhaowu/terminal_bench_vmvm/COORDINATION.md`, authenticated recipient public key, and recipient-encrypted ciphertext | encrypted artifact delivered at `0adc5f1b8`; use2-1 task-free current-provider smoke `1501466` completed `0:0` | Recipient installed the regular mode-0600 token without displaying or hashing it and destroyed the one-time private key. Current provider `48903021`, current x86 client `0.4.0`, `environment=oci-runner`, and nested `task_network=none` passed lease, bootstrap, binary I/O, command, and verified delete in 51 seconds. The smoke still used a Docker Hub tag, so require an exact digest-pinned task-free gate before any task/model rollout. use2-1 must use automatic corporate proxy/mTLS discovery; the sc-3 loopback-direct proxy is not portable. |
 | Codex Kimi Sandoq use2-1 lane for `tianhaowu` | `fair-cw-use2-1` | Qualify endpoint `cpu-132-021_8103`, integrate the vendored official SDK-backed Sandoq extension, and run a fresh TB4 pass@1 without touching the use2-3 serving/eval namespace | server-scoped `configs/eval/servers/cpu-132-021_8103/**`, `extensions/sandoq/**`, final shared launcher integration, verifier gitlink, `COORDINATION.md` | endpoint `shared-kimi-k3`; policy gate `1503056` terminal; live route probe `1503066` pending; no TB4 or 2,500-task job | Prime extension commit `65bb1439b` vendors upstream `f7313db4`; use2-1 has the mode-0600 regular OCI token and current-provider smoke `1501466`. Gate `1503056` failed closed before model traffic because live proxy policy remains 600 seconds with two retries rather than required 7,200/0. Probe `1503066` checks live 24-route health, sticky affinity, reasoning, and state reuse at c24 without inspecting response bodies. The user permits task network access. Keep the config/output namespace keyed `cpu-132-021_8103`; require current verifier `80e58e7e`, exact SDK-backed launcher validation, and fresh 24/24 route evidence before one fresh TB4 launch. Never inspect task prompts/bodies, task identifiers, raw errors, credentials, or trace/model/tool bodies. |
 
 Add new rows below this line; do not overwrite another owner's row.
 
 ## Open coordination requests
+
+- **2026-09-20 07:09 UTC, corrected auth-probe v3 RCA — harness-induced local
+  storage failure; `92b1a3531` remains untested:** Podman 4.9.3 initializes its
+  local image/container engine before dispatching `login`. V3 exported its
+  private `HOME` through a retained directory-descriptor alias, so the overlay
+  driver attempted its private bind mount through that pseudo-path and received
+  `EINVAL`; Podman mapped this local initialization error to rc125 before
+  credential-file selection or registry I/O. A synthetic-token local replay of
+  the exact four-arm ordering reproduced 314 stderr bytes on the first call and
+  170 on the next three; the 170-byte SHA-256 exactly matched v3's published
+  `da52c49162eb0af897091b3101f89ee73800d515c778966b4f19d6fad4140d51`.
+  The first-call size difference is the one-time rootless mount warning. A
+  canonical-path control with deliberately unavailable ambient credential
+  helpers reached transport classification in both environment and explicit
+  auth-file modes, without invoking the helpers. Classify the v3 fingerprint as
+  fixed `local-storage`, permanent and non-retryable; never emit its raw text.
+  Do not infer that either registry or explicit `--authfile` failed: the
+  explicit-auth-file implementation at `92b1a3531` has not yet crossed a
+  target-node registry boundary. The sealed successor gate must keep retained
+  descriptors for identity/cleanup only, reject descriptor aliases in semantic
+  `HOME`/XDG/storage/auth paths, use canonical node-local paths, and complete a
+  pre-mint `podman info` graphroot/runroot/driver check followed by explicit
+  auth-file login, exact-digest pull, digest/platform inspection, and verified
+  credential/image cleanup. Only the complete gate may authorize a serving
+  successor. No Slurm, credential, task, model, or evaluation mutation was
+  performed by this RCA.
 
 - **2026-09-20 06:58 UTC, login-only diagnosis terminal; use the full sealed
   exact-digest gate next:** v1 job `1758860` failed `3:0` before publishing a
@@ -64,15 +90,17 @@ Add new rows below this line; do not overwrite another owner's row.
   dev explicit, prod environment-only, and prod explicit each produced 170
   bytes with SHA-256
   `da52c49162eb0af897091b3101f89ee73800d515c778966b4f19d6fad4140d51`.
-  Therefore explicit `--authfile` did not succeed and this login-only probe did
-  not establish registry usability. No image pull, model, task, or evaluation
-  ran. V3 completed its credential/error descendant purge and retained only
-  its designed empty mode-0700 private root. Independent post-run review notes
-  the source still has a child-spawn/PID-publication signal window, an unbounded
-  trap wait, and non-truncating recursive deletion of stderr/unknown regular
-  files. V1-v3 and all their namespaces are consumed. Do not retry or create
-  another preliminary probe; proceed only with the separate independently
-  reviewed sealed exact-digest pull gate. V22 remains independently running.
+  The initial reading was that explicit `--authfile` did not succeed; the
+  corrected 07:09 RCA above shows that all arms failed during probe-induced
+  local storage initialization before login, so `92b1a3531` remains untested.
+  No image pull, model, task, or evaluation ran. V3 completed its
+  credential/error descendant purge and retained only its designed empty
+  mode-0700 private root. Independent post-run review notes the source still
+  has a child-spawn/PID-publication signal window, an unbounded trap wait, and
+  non-truncating recursive deletion of stderr/unknown regular files. V1-v3 and
+  all their namespaces are consumed. Do not retry or create another preliminary
+  probe; proceed only with the separate independently reviewed real-path sealed
+  exact-digest pull gate. V22 remains independently running.
 
 - **2026-09-20 06:28 UTC, renewed Sandoq receipt request -> use2-1 owner:**
   the user resumed this handoff after the earlier wait. Job `1501466` remains
