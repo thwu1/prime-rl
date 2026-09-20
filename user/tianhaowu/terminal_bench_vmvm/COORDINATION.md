@@ -1,6 +1,6 @@
 # VMVM sandbox coordination
 
-Last updated: 2026-09-20 02:11 UTC
+Last updated: 2026-09-20 02:25 UTC
 
 ## First message to the next teammate
 
@@ -42,6 +42,19 @@ this shared branch again.
 Add new rows below this line; do not overwrite another owner's row.
 
 ## Open coordination requests
+
+- **2026-09-20 02:25 UTC, diagnostic held attempt found canonical-time
+  mismatch:** the independently authorized diagnostic submitted exactly one
+  held job, `1757370`, and live attestation found only `TimeLimit` mismatched:
+  Slurm reported the requested 36 hours canonically as `1-12:00:00`, while the
+  bundle expected `36:00:00`. The job never started or allocated; it was
+  interrupted through the canonical pane, canceled, and its sealed v2
+  reservation/log evidence is preserved. Fresh child `126aa1304`, tree
+  `0dd8911c...`, uses the scheduler-canonical value end-to-end, moves every
+  output/reservation/log/scratch name to fresh v3 namespaces, and adds a direct
+  identity regression; 76/76 focused tests plus Ruff/format/Bash/diff checks
+  pass. It is under independent review. Do not reuse the v2 authorization or
+  consumed namespaces and do not launch v3 before a fresh exact-byte approval.
 
 - **2026-09-20 02:09 UTC, raced rejected-v9 approval revoked:** an external
   owner published and invoked a mode-0400 approval for the already rejected
