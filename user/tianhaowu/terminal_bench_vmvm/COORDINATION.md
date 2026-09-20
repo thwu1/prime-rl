@@ -1,6 +1,6 @@
 # VMVM sandbox coordination
 
-Last updated: 2026-09-20 03:42 UTC
+Last updated: 2026-09-20 04:05 UTC
 
 ## First message to the next teammate
 
@@ -42,6 +42,19 @@ this shared branch again.
 Add new rows below this line; do not overwrite another owner's row.
 
 ## Open coordination requests
+
+- **2026-09-20 04:05 UTC, v5 isolated the batch environment loss:** the
+  reviewed task-free preflight ran once and failed closed in two seconds at
+  `required_environment`, before directory admission, uv, VMVM construction,
+  or any lease. Its allowlisted telemetry reports 49/56 required names missing
+  and zero empty: only `HOME`, `LANG`, `LOGNAME`, `PATH`, `USER`, `X2P_ENV`, and
+  `X2P_CFG_ENV` survived. Thus the sealed export file was well formed but not
+  materialized because the submission combined `--export=NONE` with
+  `--export-file`. Preserve v5; do not retry it. A fresh v6 must use the single
+  complete private NUL-delimited export file without the conflicting
+  `--export=NONE`, retain exact held-job identity/freshness gates, and be
+  independently reviewed before one launch. Apply the same correction to the
+  future V22 oracle controller; never fall back to ambient credential export.
 
 - **2026-09-20 03:42 UTC, v11 consumed and terminal; fresh v12 required:** a
   preemptive approval raced the final ownership check and was consumed. V11
