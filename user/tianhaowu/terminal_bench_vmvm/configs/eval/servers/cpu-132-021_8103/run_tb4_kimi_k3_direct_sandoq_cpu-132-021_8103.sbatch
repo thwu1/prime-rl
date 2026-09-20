@@ -57,6 +57,13 @@ if [[ "$stage" != smoke && "$stage" != tb4 ]]; then
     printf 'KIMI_SANDOQ_STAGE must be smoke or tb4\n' >&2
     exit 2
 fi
+if [[ "$stage" == smoke ]]; then
+    smoke_wall_limit=$(squeue -h -j "$SLURM_JOB_ID" -o '%l')
+    if [[ "$smoke_wall_limit" != 20:00 ]]; then
+        printf 'Direct Kimi smoke requires the exact 20-minute Slurm wall limit\n' >&2
+        exit 2
+    fi
+fi
 if [[ "$preflight_only" != 0 && "$preflight_only" != 1 ]]; then
     printf 'KIMI_SANDOQ_PREFLIGHT_ONLY must be 0 or 1\n' >&2
     exit 2
@@ -87,7 +94,7 @@ if [[ "$stage" == smoke ]]; then
     # Exact one-task authorization derived ID-blind from the reviewed
     # non-security TB4 smoke set. Never print its task identifier.
     task_file="$workflow_dir/configs/eval/tb4_kimi_k3_short_smoke.tasks.txt"
-    task_sha256=70425597db477c2c05b42c62ab2ddb5db76df8b04cfaf7022dbe2aa82aebe922
+    task_sha256=c1f745d4a1d3861deefb3fba4daa23f52ff3d1d4952a9fe2ba0ccbdc4040af97
     task_count=1
     stage_capacity=1
     identity_role=kimi-direct-smoke
@@ -242,7 +249,7 @@ if [[ "$stage" == tb4 ]]; then
 fi
 "$x86_uv" run --no-project --offline --python "$python_bin" python3 "${certificate_args[@]}"
 if [[ "$stage" == smoke ]]; then
-    printf '{"job_id":"%s","stage":"%s","state":"capacity-and-dialect-limited-passed"}\n' "$SLURM_JOB_ID" "$stage"
+    printf '{"job_id":"%s","stage":"%s","state":"capacity-limited-passed"}\n' "$SLURM_JOB_ID" "$stage"
 else
     printf '{"job_id":"%s","stage":"%s","state":"passed"}\n' "$SLURM_JOB_ID" "$stage"
 fi

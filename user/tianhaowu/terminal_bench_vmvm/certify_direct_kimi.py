@@ -11,7 +11,6 @@ import os
 import re
 import tempfile
 import tomllib
-from dataclasses import replace
 from pathlib import Path
 from typing import Any
 
@@ -45,7 +44,7 @@ TB4_MAX_SUPPORTED_PASS_RATE = 0.22
 MAX_SEQUENCE_TOKENS = 262_144
 CAPACITY_LIMITED_SMOKE_SCOPE = {
     "kind": "legacy-public-oci-capacity-limited",
-    "reasoning_effort": "high",
+    "reasoning_effort": "max",
     "resource_multiplier": 1.0,
     "outer_memory_gib": 8,
     "required_outer_headroom_gib": 2,
@@ -380,7 +379,7 @@ def certify_smoke(
             require_logprobs=False,
             require_model_io=True,
             aggregate_only=True,
-            model_io_contract=replace(KIMI_K3_MAX_MODEL_IO_CONTRACT, reasoning_effort="high"),
+            model_io_contract=KIMI_K3_MAX_MODEL_IO_CONTRACT,
             require_request_graph_match=True,
             require_exact_provider_json=True,
             max_sequence_tokens=MAX_SEQUENCE_TOKENS,
@@ -415,7 +414,7 @@ def certify_smoke(
             "source_spec_sha256": manifest["source_spec_sha256"],
             "endpoint_bundle_sha256": manifest["endpoint_bundle_sha256"],
             "worker_count": EXPECTED_ENDPOINTS,
-            "qualification_scope": "capacity-and-dialect-limited-smoke-only",
+            "qualification_scope": "capacity-limited-smoke-only",
             "capacity_scope": capacity_scope,
             "full_tb4_ready": False,
             "trace_count": summary["traces"],
