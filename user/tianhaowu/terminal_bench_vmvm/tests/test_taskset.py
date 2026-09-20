@@ -1,6 +1,7 @@
 import ast
 import asyncio
 import base64
+import errno
 import gc
 import hashlib
 import io
@@ -8,6 +9,7 @@ import json
 import os
 import shutil
 import signal
+import socket
 import stat
 import struct
 import subprocess
@@ -4255,6 +4257,8 @@ def test_task_file_selects_exact_tasks(tmp_path: Path) -> None:
 def _cancellable_backend() -> VacliVMVMBackend:
     backend = object.__new__(VacliVMVMBackend)
     backend._destroyed = False
+    backend._destroying = False
+    backend._destroy_requested = threading.Event()
     backend._fifo_mode = True
     backend._sess_dir = "/tmp/session"
     backend._container_id = "a" * 12
@@ -4262,10 +4266,12 @@ def _cancellable_backend() -> VacliVMVMBackend:
     backend._pending = None
     backend._command_state_lock = threading.Lock()
     backend._command_cancel_lock = threading.Lock()
+    backend._lifecycle_lock = threading.RLock()
     backend._active_command_thread = None
     backend._active_command_done = threading.Event()
     backend._active_command_done.set()
     backend._command_cancel_requested = threading.Event()
+    backend._command_cancel_failed = threading.Event()
     return backend
 
 
@@ -4343,6 +4349,71 @@ def test_vmvm_cancel_active_command_reset_failure_leaves_no_worker() -> None:
 
     assert not worker.is_alive()
     assert backend._active_command_done.is_set()
+    assert backend._command_cancel_requested.is_set()
+    assert backend._command_cancel_failed.is_set()
+    assert backend.cancel_active_command(1) is False
+    with pytest.raises(RuntimeError, match="cancellation"):
+        backend.run_bash("must-not-run", 1)
+
+
+def test_vmvm_cancel_zero_budget_poison_is_sticky() -> None:
+    backend = _cancellable_backend()
+
+    assert backend.cancel_active_command(0) is False
+    assert backend._command_cancel_requested.is_set()
+    assert backend._command_cancel_failed.is_set()
+    assert backend.cancel_active_command(1) is False
+    with pytest.raises(RuntimeError, match="cancellation"):
+        backend.run_bash("must-not-run", 1)
+
+
+def test_vmvm_cancel_lock_wait_is_deadline_bounded() -> None:
+    backend = _cancellable_backend()
+    backend._command_cancel_lock.acquire()
+    results: list[bool] = []
+    started = time.monotonic()
+    worker = threading.Thread(target=lambda: results.append(backend.cancel_active_command(0.05)))
+    try:
+        worker.start()
+        worker.join(timeout=1)
+    finally:
+        backend._command_cancel_lock.release()
+
+    assert not worker.is_alive()
+    assert results == [False]
+    assert time.monotonic() - started < 0.5
+    assert backend._command_cancel_requested.is_set()
+    assert backend._command_cancel_failed.is_set()
+
+
+def test_vmvm_cancel_baseexception_during_reset_poison_is_sticky() -> None:
+    backend = _cancellable_backend()
+    started = threading.Event()
+    release = threading.Event()
+
+    def fifo_run(command: str, timeout: float) -> dict[str, object]:
+        backend._pending = (13, command, timeout, time.monotonic())
+        started.set()
+        assert release.wait(timeout=2)
+        backend._pending = None
+        return {"status": "error", "output": "", "error_type": "exit", "exit_code": 130}
+
+    backend._fifo_run = fifo_run
+    backend._interrupt_fifo_command = lambda timeout: release.set() or True
+    backend._teardown_fifo_shell = lambda deadline=None: True
+    backend._setup_fifo_shell = lambda **kwargs: (_ for _ in ()).throw(KeyboardInterrupt("reset interrupted"))
+    worker = threading.Thread(target=backend.run_bash, args=("agent", 10))
+    worker.start()
+    assert started.wait(timeout=1)
+
+    with pytest.raises(KeyboardInterrupt, match="reset interrupted"):
+        backend.cancel_active_command(1)
+    worker.join(timeout=1)
+
+    assert not worker.is_alive()
+    assert backend._command_cancel_requested.is_set()
+    assert backend._command_cancel_failed.is_set()
+    assert backend.cancel_active_command(1) is False
 
 
 def test_vmvm_destroy_waits_for_cancellation_reset_owner() -> None:
@@ -4394,6 +4465,83 @@ def test_vmvm_destroy_waits_for_cancellation_reset_owner() -> None:
     assert not cancellation.is_alive()
     assert not teardown.is_alive()
     assert destroyed.is_set()
+
+
+def test_vmvm_cancellation_rejects_or_delays_new_command_until_reset() -> None:
+    backend = _cancellable_backend()
+    first_started = threading.Event()
+    first_release = threading.Event()
+    interrupt_started = threading.Event()
+    allow_interrupt = threading.Event()
+    reset_started = threading.Event()
+    reset_release = threading.Event()
+    reset_complete = threading.Event()
+    runs: list[tuple[str, bool]] = []
+    cancellation_result: list[bool] = []
+    contender_results: list[dict[str, object]] = []
+    contender_errors: list[BaseException] = []
+
+    def fifo_run(command: str, timeout: float) -> dict[str, object]:
+        runs.append((command, reset_complete.is_set()))
+        if command == "first":
+            backend._pending = (11, command, timeout, time.monotonic())
+            first_started.set()
+            assert first_release.wait(timeout=2)
+            backend._pending = None
+            return {"status": "error", "output": "", "error_type": "exit", "exit_code": 130}
+        return {"status": "success", "output": "", "error_type": "none", "exit_code": 0}
+
+    def interrupt(_timeout: float) -> bool:
+        interrupt_started.set()
+        assert allow_interrupt.wait(timeout=2)
+        first_release.set()
+        return True
+
+    def setup(**_kwargs: object) -> None:
+        reset_started.set()
+        assert reset_release.wait(timeout=2)
+        reset_complete.set()
+
+    def run_contender() -> None:
+        try:
+            contender_results.append(backend.run_bash("second", 1))
+        except BaseException as error:
+            contender_errors.append(error)
+
+    backend._fifo_run = fifo_run
+    backend._interrupt_fifo_command = interrupt
+    backend._teardown_fifo_shell = lambda deadline=None: True
+    backend._setup_fifo_shell = setup
+    first = threading.Thread(target=backend.run_bash, args=("first", 10))
+    cancellation = threading.Thread(
+        target=lambda: cancellation_result.append(backend.cancel_active_command(2)),
+    )
+    contender = threading.Thread(target=run_contender)
+
+    first.start()
+    assert first_started.wait(timeout=1)
+    cancellation.start()
+    assert interrupt_started.wait(timeout=1)
+    contender.start()
+    allow_interrupt.set()
+    assert reset_started.wait(timeout=1)
+    assert runs == [("first", False)]
+    reset_release.set()
+
+    first.join(timeout=1)
+    cancellation.join(timeout=1)
+    contender.join(timeout=1)
+    assert not first.is_alive()
+    assert not cancellation.is_alive()
+    assert not contender.is_alive()
+    assert cancellation_result == [True]
+    if contender_results:
+        assert contender_results[0]["status"] == "success"
+        assert runs[-1] == ("second", True)
+    else:
+        assert len(contender_errors) == 1
+        assert isinstance(contender_errors[0], RuntimeError)
+        assert "cancellation" in str(contender_errors[0])
 
 
 def test_vmvm_cancellation_scope_covers_transport_recovery() -> None:
@@ -4492,6 +4640,9 @@ def test_vmvm_legacy_cancellation_drains_and_fails_closed() -> None:
     assert backend._session is None
     assert len(stop_timeouts) == 1
     assert stop_timeouts[0] is not None and 0 < stop_timeouts[0] <= 1
+    assert backend._command_cancel_requested.is_set()
+    assert backend._command_cancel_failed.is_set()
+    assert backend.cancel_active_command(1) is False
 
 
 def test_vacli_session_interrupt_keeps_loop_alive_until_communicate_drains() -> None:
@@ -4599,6 +4750,11 @@ class _CountingLeaseLimiter:
         self.released += 1
 
 
+def _add_backend_lifecycle_state(backend: VacliVMVMBackend) -> None:
+    backend._lifecycle_lock = threading.RLock()
+    backend._destroying = False
+
+
 def test_vacli_lease_injected_subprocess_stays_direct(
     monkeypatch,
     tmp_path: Path,
@@ -4691,6 +4847,1229 @@ def test_vacli_initial_and_resume_spawns_delegate_to_process_owner(
         assert "preexec_fn" not in kwargs
         assert kwargs["cleanup_timeout"] == lease.cleanup_timeout
         assert kwargs["spawn_timeout"] == vacli_backend._VACLI_SPAWN_TIMEOUT_SECONDS
+
+
+def _owned_control_listener_command(path: str) -> list[str]:
+    program = """
+import socket
+import sys
+
+listener = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+listener.bind(sys.argv[1])
+listener.listen()
+while True:
+    connection, _ = listener.accept()
+    connection.close()
+"""
+    return [sys.executable, "-I", "-S", "-B", "-c", program, path]
+
+
+def _start_bound_test_control(
+    artifacts: vacli_backend._VacliLocalArtifacts,
+    path: str,
+) -> subprocess.Popen[bytes]:
+    process = artifacts.start_control(path, _owned_control_listener_command(path))
+    deadline = time.monotonic() + 2
+    while time.monotonic() < deadline:
+        assert process.poll() is None
+        try:
+            if artifacts.bind_control(path, required=False):
+                return process
+        except vacli_backend._ControlNotReady:
+            pass
+        time.sleep(0.01)
+    raise AssertionError("test control listener did not become ready")
+
+
+def _reap_test_control_listener(process: subprocess.Popen[bytes]) -> None:
+    if process.poll() is None:
+        process.kill()
+    process.wait(timeout=2)
+
+
+def test_vacli_owned_log_is_exclusive_and_sanitized_in_place(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    monkeypatch.setattr(vacli_backend, "_CONTROL_MASTER_ABSENCE_SECONDS", 0.01)
+    artifacts = vacli_backend._VacliLocalArtifacts(tmp_path, subprocess)
+    control_path, log_path = artifacts.new_attempt_paths()
+    with artifacts.open_log(log_path) as output:
+        output.write(b"fixed")
+    held = os.open(log_path, os.O_RDONLY | os.O_NOFOLLOW)
+    try:
+        assert stat.S_IMODE(os.fstat(held).st_mode) == 0o600
+        artifacts.cleanup_controls({control_path})
+        artifacts.cleanup_logs({str(log_path)})
+        assert log_path.read_bytes() == b""
+        assert os.fstat(held).st_size == 0
+        assert os.fstat(held).st_nlink == 1
+        assert artifacts._logs[str(log_path)].sanitized_retained
+        artifacts.cleanup_logs({str(log_path)})
+    finally:
+        os.close(held)
+
+
+def test_vacli_owned_log_replacement_is_retained(
+    tmp_path: Path,
+) -> None:
+    artifacts = vacli_backend._VacliLocalArtifacts(tmp_path, subprocess)
+    _control_path, log_path = artifacts.new_attempt_paths()
+    with artifacts.open_log(log_path) as output:
+        output.write(b"original")
+    original = tmp_path / "original.log"
+    log_path.rename(original)
+    log_path.write_bytes(b"replacement")
+
+    with pytest.raises(vacli_backend._ArtifactCleanupError, match="identity|replaced"):
+        artifacts.cleanup_logs({str(log_path)})
+
+    # The exact descriptor-bound owned inode is sanitized. The replacement is
+    # never opened for mutation or removed.
+    assert original.read_bytes() == b""
+    assert log_path.read_bytes() == b"replacement"
+
+
+def test_vacli_owned_log_cleanup_retries_after_post_fsync_interrupt(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    artifacts = vacli_backend._VacliLocalArtifacts(tmp_path, subprocess)
+    _control_path, log_path = artifacts.new_attempt_paths()
+    with artifacts.open_log(log_path) as output:
+        output.write(b"owned")
+    real_fsync = vacli_backend.os.fsync
+    interrupted = False
+
+    def fsync_then_interrupt(descriptor: int) -> None:
+        nonlocal interrupted
+        real_fsync(descriptor)
+        if not interrupted:
+            interrupted = True
+            raise KeyboardInterrupt
+
+    monkeypatch.setattr(vacli_backend.os, "fsync", fsync_then_interrupt)
+    with pytest.raises(KeyboardInterrupt):
+        artifacts.cleanup_logs({str(log_path)})
+
+    record = artifacts._logs[str(log_path)]
+    assert record.binding is not None
+    assert record.binding.descriptor >= 0
+    assert not record.sanitized_retained
+    assert log_path.read_bytes() == b""
+
+    monkeypatch.setattr(vacli_backend.os, "fsync", real_fsync)
+    artifacts.cleanup_logs({str(log_path)})
+    assert record.binding.descriptor == -1
+    assert record.sanitized_retained
+    assert log_path.read_bytes() == b""
+
+
+def test_vacli_log_close_then_error_never_reuses_stale_descriptor(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    artifacts = vacli_backend._VacliLocalArtifacts(tmp_path, subprocess)
+    _control_path, log_path = artifacts.new_attempt_paths()
+    with artifacts.open_log(log_path) as output:
+        output.write(b"owned")
+    record = artifacts._logs[str(log_path)]
+    assert record.binding is not None
+    target = record.binding.descriptor
+    real_close = vacli_backend.os.close
+    injected = False
+
+    def close_then_error(descriptor: int) -> None:
+        nonlocal injected
+        real_close(descriptor)
+        if descriptor == target and not injected:
+            injected = True
+            raise OSError(errno.EIO, "synthetic close uncertainty")
+
+    monkeypatch.setattr(vacli_backend.os, "close", close_then_error)
+    with pytest.raises(vacli_backend._ArtifactCleanupError, match="close was not verified"):
+        artifacts.cleanup_logs({str(log_path)})
+    assert record.binding.descriptor == -1
+    assert record.binding.close_indeterminate
+    assert log_path.read_bytes() == b""
+
+    reused = os.open("/dev/null", os.O_RDONLY)
+    try:
+        with pytest.raises(vacli_backend._ArtifactCleanupError, match="descriptor is unavailable"):
+            artifacts.cleanup_logs({str(log_path)})
+        os.fstat(reused)
+    finally:
+        real_close(reused)
+
+
+def test_vacli_registry_finalizer_is_close_only_after_lease_rollback(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    callbacks: list[object] = []
+
+    def register(callback):
+        callbacks.append(callback)
+        return callback
+
+    def unregister(callback):
+        callbacks[:] = [candidate for candidate in callbacks if candidate != callback]
+
+    monkeypatch.setattr(vacli_backend.atexit, "register", register)
+    monkeypatch.setattr(vacli_backend.atexit, "unregister", unregister)
+    artifacts = vacli_backend._VacliLocalArtifacts(tmp_path, subprocess)
+    _control_path, log_path = artifacts.new_attempt_paths()
+    with artifacts.open_log(log_path) as output:
+        output.write(b"retained")
+    record = artifacts._logs[str(log_path)]
+    assert record.binding is not None
+    descriptor = record.binding.descriptor
+    lease = vacli_backend.VacliLease(
+        "test-tenant",
+        log_path,
+        artifact_registry=artifacts,
+    )
+    artifacts_reference = ref(artifacts)
+
+    assert callbacks == [lease._cleanup_atexit_callback]
+    lease.cleanup()
+    assert callbacks == []
+    assert lease._cleanup_atexit_callback is None
+    assert lease._artifact_registry is None
+
+    del record
+    del artifacts
+    gc.collect()
+
+    assert artifacts_reference() is None
+    with pytest.raises(OSError):
+        os.fstat(descriptor)
+    assert log_path.read_bytes() == b"retained"
+
+
+def test_vacli_verified_absence_is_rechecked(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    monkeypatch.setattr(vacli_backend, "_CONTROL_MASTER_ABSENCE_SECONDS", 0.01)
+    artifacts = vacli_backend._VacliLocalArtifacts(tmp_path, subprocess)
+    control_path, log_path = artifacts.new_attempt_paths()
+    artifacts.cleanup_controls({control_path})
+    artifacts.cleanup_logs({str(log_path)})
+
+    server = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+    server.bind(control_path)
+    log_path.write_bytes(b"late")
+    try:
+        with pytest.raises(vacli_backend._ArtifactCleanupError, match="reappeared"):
+            artifacts.cleanup_controls({control_path})
+        with pytest.raises(vacli_backend._ArtifactCleanupError, match="reappeared"):
+            artifacts.cleanup_logs({str(log_path)})
+        assert Path(control_path).exists()
+        assert log_path.read_bytes() == b"late"
+    finally:
+        Path(control_path).unlink(missing_ok=True)
+        log_path.unlink(missing_ok=True)
+        server.close()
+
+
+def test_vacli_long_tmpdir_uses_bound_short_control_root(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    monkeypatch.setattr(vacli_backend, "_CONTROL_MASTER_ABSENCE_SECONDS", 0.01)
+    long_root = tmp_path / ("a" * 70) / ("b" * 70)
+    long_root.mkdir(parents=True)
+    artifacts = vacli_backend._VacliLocalArtifacts(long_root, subprocess)
+    control_path, log_path = artifacts.new_attempt_paths()
+
+    assert len(os.fsencode(control_path)) <= vacli_backend._AF_UNIX_PATH_MAX_BYTES
+    assert Path(control_path).parent == Path("/tmp").resolve()
+    assert log_path.parent == long_root.resolve()
+    artifacts.seal()
+    artifacts.cleanup_controls()
+    artifacts.cleanup_logs()
+
+
+@pytest.mark.parametrize("kind", ("symlink", "hardlink"))
+def test_vacli_log_creation_and_cleanup_reject_aliases(
+    tmp_path: Path,
+    kind: str,
+) -> None:
+    artifacts = vacli_backend._VacliLocalArtifacts(tmp_path, subprocess)
+    _control_path, log_path = artifacts.new_attempt_paths()
+    target = tmp_path / "target"
+    target.write_bytes(b"untouched")
+    if kind == "symlink":
+        log_path.symlink_to(target)
+        with pytest.raises(FileExistsError):
+            artifacts.open_log(log_path)
+    else:
+        with artifacts.open_log(log_path) as output:
+            output.write(b"owned")
+        alias = tmp_path / "alias"
+        os.link(log_path, alias)
+        with pytest.raises(vacli_backend._ArtifactCleanupError, match="identity"):
+            artifacts.cleanup_logs({str(log_path)})
+        assert alias.read_bytes() == b"owned"
+    assert target.read_bytes() == b"untouched"
+
+
+def test_vacli_control_master_is_pid_bound_killed_and_retained_inert(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    monkeypatch.setattr(vacli_backend, "_CONTROL_MASTER_ABSENCE_SECONDS", 0.01)
+    artifacts = vacli_backend._VacliLocalArtifacts(tmp_path, subprocess)
+    control_path, _log_path = artifacts.new_attempt_paths()
+    artifacts.record_control_port(control_path, 10022)
+    process = _start_bound_test_control(artifacts, control_path)
+    held = os.open(control_path, os.O_PATH | os.O_NOFOLLOW)
+    try:
+        artifacts.cleanup_controls({control_path})
+        assert process.wait(timeout=2) == -signal.SIGKILL
+        assert Path(control_path).is_socket()
+        assert os.fstat(held).st_nlink == 1
+        record = artifacts._controls[control_path]
+        assert record.retained_inert
+        assert record.binding is not None
+        assert record.binding.descriptor == -1
+        assert record.process_reaped
+        artifacts.cleanup_controls({control_path})
+    finally:
+        os.close(held)
+        _reap_test_control_listener(process)
+        Path(control_path).unlink(missing_ok=True)
+
+
+def test_vacli_control_master_reappearance_fails_closed(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    monkeypatch.setattr(vacli_backend, "_CONTROL_MASTER_ABSENCE_SECONDS", 0.01)
+    artifacts = vacli_backend._VacliLocalArtifacts(tmp_path, subprocess)
+    control_path, _log_path = artifacts.new_attempt_paths()
+    artifacts.record_control_port(control_path, 10022)
+    original = _start_bound_test_control(artifacts, control_path)
+    Path(control_path).unlink()
+    replacement = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+    replacement.bind(control_path)
+    try:
+        with pytest.raises(vacli_backend._ArtifactCleanupError, match="replaced"):
+            artifacts.cleanup_controls({control_path})
+        assert Path(control_path).exists()
+        assert original.wait(timeout=2) == -signal.SIGKILL
+    finally:
+        _reap_test_control_listener(original)
+        replacement.close()
+        Path(control_path).unlink(missing_ok=True)
+
+
+def test_vacli_control_close_then_error_never_reuses_stale_descriptor(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    artifacts = vacli_backend._VacliLocalArtifacts(tmp_path, subprocess)
+    control_path, _log_path = artifacts.new_attempt_paths()
+    artifacts.record_control_port(control_path, 10022)
+    process = _start_bound_test_control(artifacts, control_path)
+    record = artifacts._controls[control_path]
+    assert record.binding is not None
+    target = record.binding.descriptor
+    real_close = vacli_backend.os.close
+    injected = False
+
+    def close_then_error(descriptor: int) -> None:
+        nonlocal injected
+        real_close(descriptor)
+        if descriptor == target and not injected:
+            injected = True
+            raise OSError(errno.EIO, "synthetic close uncertainty")
+
+    monkeypatch.setattr(vacli_backend.os, "close", close_then_error)
+    try:
+        with pytest.raises(vacli_backend._ArtifactCleanupError, match="close was not verified"):
+            artifacts.cleanup_controls({control_path})
+        assert process.wait(timeout=2) == -signal.SIGKILL
+        assert record.binding.descriptor == -1
+        assert record.binding.close_indeterminate
+
+        reused = os.open("/dev/null", os.O_RDONLY)
+        try:
+            with pytest.raises(vacli_backend._ArtifactCleanupError, match="descriptor is unavailable"):
+                artifacts.cleanup_controls({control_path})
+            os.fstat(reused)
+        finally:
+            real_close(reused)
+    finally:
+        _reap_test_control_listener(process)
+        Path(control_path).unlink(missing_ok=True)
+
+
+def test_vacli_control_master_timeout_retains_socket(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    artifacts = vacli_backend._VacliLocalArtifacts(tmp_path, subprocess)
+    control_path, _log_path = artifacts.new_attempt_paths()
+    artifacts.record_control_port(control_path, 10022)
+    process = _start_bound_test_control(artifacts, control_path)
+    monkeypatch.setattr(
+        artifacts,
+        "_stop_control_process",
+        lambda _record: (_ for _ in ()).throw(vacli_backend._ArtifactCleanupError("timed out")),
+    )
+    try:
+        with pytest.raises(vacli_backend._ArtifactCleanupError, match="timed out"):
+            artifacts.cleanup_controls({control_path})
+        assert Path(control_path).exists()
+        assert process.poll() is None
+    finally:
+        _reap_test_control_listener(process)
+        Path(control_path).unlink(missing_ok=True)
+
+
+def test_vacli_control_binding_never_signals_same_uid_substitution(tmp_path: Path) -> None:
+    artifacts = vacli_backend._VacliLocalArtifacts(tmp_path, subprocess)
+    control_path, _log_path = artifacts.new_attempt_paths()
+    artifacts.record_control_port(control_path, 10022)
+    owned = artifacts.start_control(
+        control_path,
+        [sys.executable, "-I", "-S", "-B", "-c", "import time; time.sleep(30)"],
+    )
+    substitution = subprocess.Popen(
+        _owned_control_listener_command(control_path),
+        stdin=subprocess.DEVNULL,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        start_new_session=True,
+    )
+    deadline = time.monotonic() + 2
+    while not Path(control_path).exists() and time.monotonic() < deadline:
+        time.sleep(0.01)
+    try:
+        with pytest.raises(vacli_backend._ArtifactCleanupError, match="ownership mismatch"):
+            artifacts.bind_control(control_path)
+        with pytest.raises(vacli_backend._ArtifactCleanupError, match="unbound"):
+            artifacts.cleanup_controls({control_path})
+        assert owned.wait(timeout=2) == -signal.SIGKILL
+        assert substitution.poll() is None
+        assert Path(control_path).is_socket()
+    finally:
+        _reap_test_control_listener(owned)
+        _reap_test_control_listener(substitution)
+        Path(control_path).unlink(missing_ok=True)
+
+
+def test_vacli_control_spawn_publication_survives_pending_signal(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    monkeypatch.setattr(vacli_backend, "_CONTROL_MASTER_ABSENCE_SECONDS", 0.01)
+
+    class SpawnInterrupted(BaseException):
+        pass
+
+    class Subprocess:
+        DEVNULL = subprocess.DEVNULL
+        TimeoutExpired = subprocess.TimeoutExpired
+
+        @staticmethod
+        def Popen(command, **kwargs):
+            process = subprocess.Popen(command, **kwargs)
+            os.kill(os.getpid(), signal.SIGTERM)
+            return process
+
+    artifacts = vacli_backend._VacliLocalArtifacts(tmp_path, Subprocess)
+    control_path, _log_path = artifacts.new_attempt_paths()
+    artifacts.record_control_port(control_path, 10022)
+    previous_handler = signal.getsignal(signal.SIGTERM)
+    previous_mask = signal.pthread_sigmask(signal.SIG_BLOCK, set())
+
+    def interrupt(_signum: int, _frame: object) -> None:
+        raise SpawnInterrupted
+
+    signal.signal(signal.SIGTERM, interrupt)
+    try:
+        with pytest.raises(SpawnInterrupted):
+            artifacts.start_control(
+                control_path,
+                [sys.executable, "-I", "-S", "-B", "-c", "import time; time.sleep(30)"],
+            )
+    finally:
+        signal.signal(signal.SIGTERM, previous_handler)
+        signal.pthread_sigmask(signal.SIG_SETMASK, previous_mask)
+
+    record = artifacts._controls[control_path]
+    assert record.process is not None
+    assert record.process.poll() is None
+    artifacts.cleanup_controls({control_path})
+    assert record.process_reaped
+    assert record.verified_absent
+
+
+def test_vacli_control_cleanup_rejects_inherited_live_listener(tmp_path: Path) -> None:
+    artifacts = vacli_backend._VacliLocalArtifacts(tmp_path, subprocess)
+    control_path, _log_path = artifacts.new_attempt_paths()
+    artifacts.record_control_port(control_path, 10022)
+    child_pid_path = tmp_path / "listener-child.pid"
+    program = """
+import os
+import signal
+import socket
+import sys
+import time
+from pathlib import Path
+
+listener = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+listener.bind(sys.argv[1])
+listener.listen()
+child = os.fork()
+if child == 0:
+    while True:
+        connection, _ = listener.accept()
+        connection.close()
+Path(sys.argv[2]).write_text(str(child))
+while True:
+    signal.pause()
+"""
+    process = artifacts.start_control(
+        control_path,
+        [sys.executable, "-I", "-S", "-B", "-c", program, control_path, str(child_pid_path)],
+    )
+    deadline = time.monotonic() + 2
+    while not child_pid_path.exists() and time.monotonic() < deadline:
+        time.sleep(0.01)
+    assert child_pid_path.exists()
+    deadline = time.monotonic() + 2
+    while time.monotonic() < deadline:
+        try:
+            if artifacts.bind_control(control_path, required=False):
+                break
+        except vacli_backend._ControlNotReady:
+            pass
+        time.sleep(0.01)
+    else:
+        raise AssertionError("shared test listener did not become ready")
+    try:
+        with pytest.raises(vacli_backend._ArtifactCleanupError, match="remained active"):
+            artifacts.cleanup_controls({control_path})
+        assert process.wait(timeout=2) == -signal.SIGKILL
+        assert Path(control_path).is_socket()
+    finally:
+        try:
+            os.killpg(process.pid, signal.SIGKILL)
+        except ProcessLookupError:
+            child_pid = int(child_pid_path.read_text())
+            try:
+                os.kill(child_pid, signal.SIGKILL)
+            except ProcessLookupError:
+                pass
+        _reap_test_control_listener(process)
+        Path(control_path).unlink(missing_ok=True)
+
+
+def test_ssh_master_command_is_foreground_and_client_cannot_replace_it() -> None:
+    path = "/tmp/test-control"
+    master = vacli_backend._ssh_master_command(10022, path)
+    client = vacli_backend._ssh_opts(10022, path)
+    direct = vacli_backend._ssh_opts(10022)
+
+    assert master[0] == "/usr/bin/ssh"
+    assert client[0] == "/usr/bin/ssh"
+    assert direct[0] == "/usr/bin/ssh"
+    assert "-N" in master and "-f" not in master
+    assert "ControlMaster=yes" in master
+    assert "ControlPersist=no" in master
+    assert "ForkAfterAuthentication=no" in master
+    assert "ControlMaster=no" in client
+    assert "ControlMaster=auto" not in client
+    assert "ControlPersist=no" in client
+    assert "ForkAfterAuthentication=no" in client
+    assert "ControlMaster=no" in direct
+    assert "ControlPath=none" in direct
+    assert "ControlPersist=no" in direct
+
+
+def test_vacli_artifact_seal_blocks_late_publication(tmp_path: Path) -> None:
+    artifacts = vacli_backend._VacliLocalArtifacts(tmp_path, subprocess)
+    _control_path, log_path = artifacts.new_attempt_paths()
+    artifacts.seal()
+
+    with pytest.raises(vacli_backend._ArtifactCleanupError, match="sealed"):
+        artifacts.new_attempt_paths()
+    with pytest.raises(vacli_backend._ArtifactCleanupError, match="sealed"):
+        artifacts.register_resume_log(log_path.with_name(f"{log_path.name}.resume1.log"))
+    with pytest.raises(vacli_backend._ArtifactCleanupError, match="sealed"):
+        artifacts.open_log(log_path)
+
+
+def test_vacli_resume_retains_every_log_until_owner_cleanup(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    limiter = _CountingLeaseLimiter()
+    monkeypatch.setattr(vacli_backend, "_lease_concurrency", limiter)
+    artifacts = vacli_backend._VacliLocalArtifacts(tmp_path, subprocess)
+    _control_path, log_path = artifacts.new_attempt_paths()
+
+    class Process:
+        next_pid = 12370
+
+        def __init__(self) -> None:
+            self.pid = Process.next_pid
+            Process.next_pid += 1
+            self.returncode: int | None = None
+
+        def poll(self) -> int | None:
+            return self.returncode
+
+        def wait(self, timeout: float) -> int:
+            assert self.returncode is not None
+            return self.returncode
+
+    class Subprocess:
+        STDOUT = subprocess.STDOUT
+        TimeoutExpired = subprocess.TimeoutExpired
+
+        @staticmethod
+        def Popen(command, **kwargs):
+            return Process()
+
+    monkeypatch.setattr(vacli_backend.os, "getpgid", lambda pid: pid)
+    monkeypatch.setattr(
+        vacli_backend.os,
+        "killpg",
+        lambda pid, sent_signal: setattr(lease.proc, "returncode", -sent_signal),
+    )
+    lease = vacli_backend.VacliLease(
+        "test-tenant",
+        log_path,
+        subprocess_mod=Subprocess,
+        artifact_registry=artifacts,
+    )
+    lease.start()
+    lease.lease_response = '{"sessionId":{"id":"test"},"auth_token":{}}'
+
+    def ready() -> int:
+        assert lease._pending_tunnel is not None
+        lease._pending_tunnel[1].release()
+        lease._pending_tunnel = None
+        return 10022
+
+    monkeypatch.setattr(lease, "wait_for_tunnel", ready)
+    assert lease.restart_tunnel() == 10022
+    paths = lease.owned_log_paths
+    assert len(paths) == 2
+    assert all(Path(path).exists() for path in paths)
+    lease.cleanup()
+    artifacts.cleanup_logs(paths)
+    assert all(Path(path).read_bytes() == b"" for path in paths)
+    assert all(artifacts._logs[path].sanitized_retained for path in paths)
+    assert (limiter.acquired, limiter.released) == (2, 2)
+
+
+def test_vmvm_constructor_retry_tracks_and_retires_each_attempt(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    monkeypatch.setattr(vacli_backend.tempfile, "tempdir", str(tmp_path))
+    monkeypatch.setattr(vacli_backend, "_CONTROL_MASTER_ABSENCE_SECONDS", 0.01)
+    monkeypatch.setattr(vacli_backend, "MAX_LEASE_RETRIES", 2)
+    monkeypatch.setattr(vacli_backend.time, "sleep", lambda _seconds: None)
+    monkeypatch.setattr(vacli_backend, "_wait_for_sshd", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(VacliVMVMBackend, "_start_control_master", lambda self: None)
+
+    def bind_control(self, path: str, *, required: bool = True) -> bool:
+        assert path in self._controls
+        return True
+
+    def cleanup_controls(self, selected: set[str] | None = None) -> None:
+        for path, record in self._controls.items():
+            if selected is None or path in selected:
+                record.verified_absent = True
+
+    monkeypatch.setattr(vacli_backend._VacliLocalArtifacts, "bind_control", bind_control)
+    monkeypatch.setattr(vacli_backend._VacliLocalArtifacts, "cleanup_controls", cleanup_controls)
+    attempts = 0
+    processes: dict[int, Any] = {}
+
+    class Process:
+        next_pid = 12400
+
+        def __init__(self) -> None:
+            self.pid = Process.next_pid
+            Process.next_pid += 1
+            self.returncode: int | None = None
+            processes[self.pid] = self
+
+        def poll(self) -> int | None:
+            return self.returncode
+
+        def wait(self, timeout: float) -> int:
+            assert self.returncode is not None
+            return self.returncode
+
+    class Subprocess:
+        DEVNULL = subprocess.DEVNULL
+        PIPE = subprocess.PIPE
+        STDOUT = subprocess.STDOUT
+        TimeoutExpired = subprocess.TimeoutExpired
+
+        @staticmethod
+        def Popen(command, **kwargs):
+            kwargs["stdout"].write(b'[{"vm_port":22,"local_port":10022}]\n')
+            kwargs["stdout"].flush()
+            return Process()
+
+        @staticmethod
+        def run(command, **kwargs):
+            return subprocess.CompletedProcess(command, 0, stdout=b"")
+
+    def start_container(self) -> str:
+        nonlocal attempts
+        attempts += 1
+        if attempts == 1:
+            raise BackendInitError("retry")
+        return "a" * 12
+
+    monkeypatch.setattr(VacliVMVMBackend, "_start_container", start_container)
+    monkeypatch.setattr(VacliVMVMBackend, "_open_session", lambda self, run_entrypoint=True: None)
+    monkeypatch.setattr(VacliVMVMBackend, "_destroy_remote_resources", lambda self: None)
+    monkeypatch.setattr(vacli_backend.os, "getpgid", lambda pid: pid)
+    monkeypatch.setattr(
+        vacli_backend.os,
+        "killpg",
+        lambda pid, sent_signal: setattr(processes[pid], "returncode", -sent_signal),
+    )
+
+    backend = VacliVMVMBackend(
+        vacli_backend.VacliVMVMConfig(
+            image_url="registry.invalid/image",
+            work_dir="/app",
+            session_timeout=10,
+            subprocess_mod=Subprocess,
+        )
+    )
+    assert attempts == 2
+    assert len(backend._local_artifacts._controls) == 2
+    assert len(backend._local_artifacts._logs) == 2
+    assert sum(record.verified_absent for record in backend._local_artifacts._controls.values()) == 1
+    assert sum(record.sanitized_retained for record in backend._local_artifacts._logs.values()) == 1
+
+    backend.destroy()
+
+    assert all(record.verified_absent for record in backend._local_artifacts._controls.values())
+    assert all(record.sanitized_retained for record in backend._local_artifacts._logs.values())
+    assert all(path.stat().st_size == 0 for path in tmp_path.iterdir())
+    backend.destroy = lambda: None
+
+
+def test_vmvm_constructor_keyboard_interrupt_rolls_back_lease_and_artifacts(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    monkeypatch.setattr(vacli_backend.tempfile, "tempdir", str(tmp_path))
+    monkeypatch.setattr(vacli_backend, "_CONTROL_MASTER_ABSENCE_SECONDS", 0.01)
+    monkeypatch.setattr(vacli_backend, "_wait_for_sshd", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(VacliVMVMBackend, "_start_control_master", lambda self: None)
+
+    def bind_control(self, path: str, *, required: bool = True) -> bool:
+        assert path in self._controls
+        return True
+
+    def cleanup_controls(self, selected: set[str] | None = None) -> None:
+        for path, record in self._controls.items():
+            if selected is None or path in selected:
+                record.verified_absent = True
+
+    monkeypatch.setattr(vacli_backend._VacliLocalArtifacts, "bind_control", bind_control)
+    monkeypatch.setattr(vacli_backend._VacliLocalArtifacts, "cleanup_controls", cleanup_controls)
+    limiter = _CountingLeaseLimiter()
+    monkeypatch.setattr(vacli_backend, "_lease_concurrency", limiter)
+    processes: dict[int, object] = {}
+    captured: list[VacliVMVMBackend] = []
+
+    class Process:
+        pid = 12420
+        returncode: int | None = None
+
+        def __init__(self) -> None:
+            processes[self.pid] = self
+
+        def poll(self) -> int | None:
+            return self.returncode
+
+        def wait(self, timeout: float) -> int:
+            assert self.returncode is not None
+            return self.returncode
+
+    class Subprocess:
+        DEVNULL = subprocess.DEVNULL
+        PIPE = subprocess.PIPE
+        STDOUT = subprocess.STDOUT
+        TimeoutExpired = subprocess.TimeoutExpired
+
+        @staticmethod
+        def Popen(command, **kwargs):
+            kwargs["stdout"].write(b'[{"vm_port":22,"local_port":10022}]\n')
+            kwargs["stdout"].flush()
+            return Process()
+
+        @staticmethod
+        def run(command, **kwargs):
+            return subprocess.CompletedProcess(command, 0, stdout=b"")
+
+    def interrupt_start(self) -> str:
+        captured.append(self)
+        raise KeyboardInterrupt
+
+    monkeypatch.setattr(VacliVMVMBackend, "_start_container", interrupt_start)
+    monkeypatch.setattr(VacliVMVMBackend, "_destroy_remote_resources", lambda self: None)
+    monkeypatch.setattr(vacli_backend.os, "getpgid", lambda pid: pid)
+    monkeypatch.setattr(
+        vacli_backend.os,
+        "killpg",
+        lambda pid, sent_signal: setattr(processes[pid], "returncode", -sent_signal),
+    )
+
+    with pytest.raises(KeyboardInterrupt):
+        VacliVMVMBackend(
+            vacli_backend.VacliVMVMConfig(
+                image_url="registry.invalid/image",
+                work_dir="/app",
+                session_timeout=10,
+                subprocess_mod=Subprocess,
+            )
+        )
+
+    backend = captured[0]
+    assert backend._destroyed
+    assert all(process.poll() is not None for process in processes.values())
+    assert all(record.verified_absent for record in backend._local_artifacts._controls.values())
+    assert all(record.sanitized_retained for record in backend._local_artifacts._logs.values())
+    assert all(path.stat().st_size == 0 for path in tmp_path.iterdir())
+    assert (limiter.acquired, limiter.released) == (1, 1)
+
+
+def test_vmvm_destroy_releases_lease_before_artifact_cleanup() -> None:
+    events: list[str] = []
+
+    class Lease:
+        def cleanup(self) -> None:
+            events.append("lease")
+
+    class Artifacts:
+        sealed = False
+
+        def bind_control(self, path: str, *, required: bool = True) -> bool:
+            assert path == "control"
+            events.append("bind")
+            return True
+
+        def seal(self) -> None:
+            self.sealed = True
+            events.append("seal")
+
+        def cleanup_controls(self) -> None:
+            events.append("controls")
+
+        def cleanup_logs(self) -> None:
+            events.append("logs")
+
+    backend = object.__new__(VacliVMVMBackend)
+    backend._destroyed = False
+    backend._remote_cleanup_complete = False
+    backend._local_artifacts = Artifacts()
+    backend._lease = Lease()
+    backend._control_path = "control"
+    backend._destroy_remote_resources = lambda: events.append("remote")
+
+    backend._destroy_locked()
+
+    assert events == ["remote", "bind", "seal", "lease", "controls", "logs"]
+
+
+@pytest.mark.parametrize("marker", [RuntimeError("remote"), KeyboardInterrupt("remote")])
+def test_vmvm_destroy_remote_failure_still_retires_local_resources(marker: BaseException) -> None:
+    events: list[str] = []
+
+    class Lease:
+        def cleanup(self) -> None:
+            events.append("lease")
+
+    class Artifacts:
+        sealed = False
+
+        def bind_control(self, path: str, *, required: bool = True) -> bool:
+            events.append("bind")
+            return True
+
+        def seal(self) -> None:
+            self.sealed = True
+            events.append("seal")
+
+        def cleanup_controls(self) -> None:
+            events.append("controls")
+
+        def cleanup_logs(self) -> None:
+            events.append("logs")
+
+    backend = object.__new__(VacliVMVMBackend)
+    backend._destroyed = False
+    backend._remote_cleanup_complete = False
+    backend._local_artifacts = Artifacts()
+    backend._lease = Lease()
+    backend._control_path = "control"
+    remote_calls = 0
+
+    def remote_cleanup() -> None:
+        nonlocal remote_calls
+        remote_calls += 1
+        events.append("remote")
+        if remote_calls == 1:
+            raise marker
+
+    backend._destroy_remote_resources = remote_cleanup
+
+    with pytest.raises(type(marker), match="remote"):
+        backend._destroy_locked()
+
+    assert events == ["remote", "bind", "seal", "lease", "controls", "logs"]
+    assert backend._remote_cleanup_complete
+
+    backend._destroy_locked()
+
+    assert events == [
+        "remote",
+        "bind",
+        "seal",
+        "lease",
+        "controls",
+        "logs",
+        "lease",
+        "controls",
+        "logs",
+    ]
+
+
+def test_vmvm_destroy_artifact_failure_retries_without_remote_ssh() -> None:
+    events: list[str] = []
+
+    class Lease:
+        def cleanup(self) -> None:
+            events.append("lease")
+
+    class Artifacts:
+        sealed = False
+        control_attempts = 0
+
+        def bind_control(self, path: str, *, required: bool = True) -> bool:
+            events.append("bind")
+            return True
+
+        def seal(self) -> None:
+            self.sealed = True
+            events.append("seal")
+
+        def cleanup_controls(self) -> None:
+            self.control_attempts += 1
+            events.append("controls")
+            if self.control_attempts == 1:
+                raise RuntimeError("persistent")
+
+        def cleanup_logs(self) -> None:
+            events.append("logs")
+
+    backend = object.__new__(VacliVMVMBackend)
+    backend._destroyed = False
+    backend._remote_cleanup_complete = False
+    backend._local_artifacts = Artifacts()
+    backend._lease = Lease()
+    backend._control_path = "control"
+    backend._destroy_remote_resources = lambda: events.append("remote")
+
+    with pytest.raises(vacli_backend._ArtifactCleanupError):
+        backend._destroy_locked()
+
+    assert events == ["remote", "bind", "seal", "lease", "controls", "logs"]
+
+    backend._destroy_locked()
+
+    assert events == [
+        "remote",
+        "bind",
+        "seal",
+        "lease",
+        "controls",
+        "logs",
+        "lease",
+        "controls",
+        "logs",
+    ]
+
+
+def test_vmvm_restart_and_destroy_share_lifecycle_lock() -> None:
+    backend = object.__new__(VacliVMVMBackend)
+    backend._command_cancel_lock = threading.Lock()
+    backend._lifecycle_lock = threading.RLock()
+    backend._command_cancel_requested = threading.Event()
+    backend._destroy_requested = threading.Event()
+    backend._destroying = False
+    restart_entered = threading.Event()
+    restart_release = threading.Event()
+    destroyed = threading.Event()
+
+    def restart() -> bool:
+        restart_entered.set()
+        assert restart_release.wait(timeout=2)
+        return True
+
+    backend._restart_session_locked = restart
+    backend._destroy_locked = destroyed.set
+    restarter = threading.Thread(target=backend.restart_session)
+    destroyer = threading.Thread(target=backend.destroy)
+    restarter.start()
+    assert restart_entered.wait(timeout=1)
+    destroyer.start()
+    assert backend._destroy_requested.wait(timeout=1)
+    assert not destroyed.wait(timeout=0.05)
+    assert backend.restart_session() is False
+    restart_release.set()
+    restarter.join(timeout=1)
+    destroyer.join(timeout=1)
+    assert not restarter.is_alive()
+    assert not destroyer.is_alive()
+    assert destroyed.is_set()
+
+
+def test_vmvm_restart_retires_first_attempt_on_control_flow_exception(monkeypatch) -> None:
+    events: list[str] = []
+
+    class Artifacts:
+        def bind_control(self, path: str, *, required: bool = True) -> bool:
+            events.append(f"bind:{path}")
+            return False
+
+        def cleanup_controls(self, selected: set[str]) -> None:
+            events.append(f"cleanup:{next(iter(selected))}")
+
+        def new_control_path(self) -> str:
+            events.append("allocate:new")
+            return "new"
+
+        def record_control_port(self, path: str, port: int) -> None:
+            events.append(f"port:{path}:{port}")
+
+    backend = object.__new__(VacliVMVMBackend)
+    backend._destroyed = False
+    backend._container_id = "a" * 12
+    backend._session = None
+    backend._local_artifacts = Artifacts()
+    backend._control_path = "old"
+    backend._ssh_port = 10022
+    backend.config = SimpleNamespace(sshd_ready_timeout=60, subprocess_mod=None)
+    backend._lease = SimpleNamespace(
+        restart_tunnel=lambda: (_ for _ in ()).throw(AssertionError("must not resume after control flow"))
+    )
+    backend._start_control_master = lambda: (_ for _ in ()).throw(KeyboardInterrupt("stop"))
+    monkeypatch.setattr(vacli_backend, "_wait_for_sshd", lambda *_args, **_kwargs: events.append("wait"))
+
+    with pytest.raises(KeyboardInterrupt, match="stop"):
+        backend._restart_session_locked()
+
+    assert events == [
+        "bind:old",
+        "cleanup:old",
+        "allocate:new",
+        "port:new:10022",
+        "wait",
+        "bind:new",
+        "cleanup:new",
+    ]
+
+
+def test_vmvm_restart_retires_both_failed_control_generations(monkeypatch) -> None:
+    events: list[str] = []
+    allocated = iter(("first", "second"))
+
+    class Artifacts:
+        def bind_control(self, path: str, *, required: bool = True) -> bool:
+            events.append(f"bind:{path}")
+            return False
+
+        def cleanup_controls(self, selected: set[str]) -> None:
+            events.append(f"cleanup:{next(iter(selected))}")
+
+        def new_control_path(self) -> str:
+            path = next(allocated)
+            events.append(f"allocate:{path}")
+            return path
+
+        def record_control_port(self, path: str, port: int) -> None:
+            events.append(f"port:{path}:{port}")
+
+    backend = object.__new__(VacliVMVMBackend)
+    backend._destroyed = False
+    backend._container_id = "a" * 12
+    backend._session = None
+    backend._local_artifacts = Artifacts()
+    backend._control_path = "old"
+    backend._ssh_port = 10022
+    backend.config = SimpleNamespace(sshd_ready_timeout=60, subprocess_mod=None)
+    backend._lease = SimpleNamespace(restart_tunnel=lambda: events.append("resume") or 10023)
+    backend._start_control_master = lambda: (_ for _ in ()).throw(BackendInitError("unreachable"))
+    monkeypatch.setattr(vacli_backend, "_wait_for_sshd", lambda *_args, **_kwargs: events.append("wait"))
+
+    assert backend._restart_session_locked() is False
+    assert events == [
+        "bind:old",
+        "cleanup:old",
+        "allocate:first",
+        "port:first:10022",
+        "wait",
+        "bind:first",
+        "cleanup:first",
+        "resume",
+        "allocate:second",
+        "port:second:10023",
+        "wait",
+        "bind:second",
+        "cleanup:second",
+    ]
+
+
+def test_vmvm_admitted_control_master_creation_finishes_before_destroy(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    monkeypatch.setattr(vacli_backend, "_CONTROL_MASTER_ABSENCE_SECONDS", 0.01)
+
+    artifacts = vacli_backend._VacliLocalArtifacts(tmp_path, subprocess)
+    control_path, _log_path = artifacts.new_attempt_paths()
+    artifacts.record_control_port(control_path, 10022)
+    backend = object.__new__(VacliVMVMBackend)
+    backend._destroyed = False
+    backend._destroying = False
+    backend._destroy_requested = threading.Event()
+    backend._command_cancel_lock = threading.Lock()
+    backend._lifecycle_lock = threading.RLock()
+    backend._command_state_lock = threading.Lock()
+    backend._active_command_thread = None
+    backend._active_command_done = threading.Event()
+    backend._active_command_done.set()
+    backend._command_cancel_requested = threading.Event()
+    entered = threading.Event()
+    release = threading.Event()
+    destroyed = threading.Event()
+    results: list[dict[str, object]] = []
+    processes: list[subprocess.Popen[bytes]] = []
+
+    def run_once(command: str, timeout: float) -> dict[str, object]:
+        entered.set()
+        assert release.wait(timeout=2)
+        processes.append(_start_bound_test_control(artifacts, control_path))
+        return {"status": "success", "output": "", "error_type": "none", "exit_code": 0}
+
+    backend._local_artifacts = artifacts
+    backend._lease = SimpleNamespace(cleanup=lambda: None)
+    backend._control_path = control_path
+    backend._destroy_remote_resources = lambda: destroyed.set()
+    backend._run_bash_once = run_once
+    runner = threading.Thread(target=lambda: results.append(backend.run_bash("true")))
+    destroyer = threading.Thread(target=backend.destroy)
+    runner.start()
+    assert entered.wait(timeout=1)
+    destroyer.start()
+    assert not destroyed.wait(timeout=0.05)
+    release.set()
+    runner.join(timeout=1)
+    destroyer.join(timeout=1)
+    assert not runner.is_alive()
+    assert not destroyer.is_alive()
+    assert results[0]["status"] == "success"
+    assert destroyed.is_set()
+    assert len(processes) == 1
+    assert processes[0].wait(timeout=2) == -signal.SIGKILL
+    assert Path(control_path).is_socket()
+    assert all(record.retained_inert for record in artifacts._controls.values())
+    assert all(record.verified_absent for record in artifacts._logs.values())
+    backend.destroy()
+    _reap_test_control_listener(processes[0])
+    Path(control_path).unlink(missing_ok=True)
+
+
+def test_all_public_control_master_operations_are_lifecycle_serialized() -> None:
+    expected = {
+        "activate_network_isolation",
+        "close_host_tunnel",
+        "open_host_tunnel",
+        "prepare_network_isolation",
+        "read_file",
+        "read_service_file",
+        "recover_last",
+        "run_bash",
+        "run_bash_with_recovery",
+        "run_root_bash",
+        "run_service_bash",
+        "start_compose",
+        "transfer_file",
+    }
+    assert all(getattr(getattr(VacliVMVMBackend, name), "_vmvm_lifecycle_serialized", False) for name in expected)
+
+
+def test_vacli_atexit_cleanup_is_non_raising(tmp_path: Path) -> None:
+    lease = vacli_backend.VacliLease("test-tenant", tmp_path / "lease.log")
+    lease.cleanup = lambda: (_ for _ in ()).throw(RuntimeError("late cleanup"))
+    lease._cleanup_at_exit()
+    lease.cleanup = lambda: None
+
+    backend = object.__new__(VacliVMVMBackend)
+    backend.destroy = lambda: (_ for _ in ()).throw(RuntimeError("late destroy"))
+    backend._destroy_at_exit()
+
+
+def test_vmvm_successful_destroy_unregisters_atexit(monkeypatch) -> None:
+    backend = object.__new__(VacliVMVMBackend)
+    backend._command_cancel_lock = threading.Lock()
+    backend._lifecycle_lock = threading.RLock()
+    backend._destroy_requested = threading.Event()
+    backend._destroy_locked = lambda: None
+    callback = backend._destroy_at_exit
+    backend._destroy_atexit_callback = callback
+    unregistered: list[object] = []
+    monkeypatch.setattr(vacli_backend.atexit, "unregister", unregistered.append)
+
+    backend.destroy()
+
+    assert unregistered == [callback]
+    assert backend._destroy_atexit_callback is None
+
+
+def test_vacli_cleanup_requires_positive_process_reap(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    class Process:
+        pid = 12450
+
+        @staticmethod
+        def poll() -> None:
+            return None
+
+        @staticmethod
+        def wait(timeout: float) -> int:
+            return 0
+
+    lease = vacli_backend.VacliLease("test-tenant", tmp_path / "lease.log")
+    lease.proc = Process()
+    monkeypatch.setattr(vacli_backend.os, "getpgid", lambda pid: pid)
+    monkeypatch.setattr(vacli_backend.os, "killpg", lambda pid, sent_signal: None)
+
+    with pytest.raises(BackendInitError, match="before reap"):
+        lease.cleanup()
+
+    lease.proc = None
 
 
 @pytest.mark.parametrize("operation", ["start", "resume"])
@@ -5598,6 +6977,7 @@ def test_vacli_restart_refuses_replacement_until_prior_process_is_reaped(
 def test_vmvm_provisioning_cancel_stops_live_partial_lease(
     monkeypatch,
 ) -> None:
+    monkeypatch.setattr(vacli_backend, "_CONTROL_MASTER_ABSENCE_SECONDS", 0.01)
     cancel_event = threading.Event()
     process_started = threading.Event()
 
@@ -5661,6 +7041,7 @@ def test_vmvm_provisioning_cancel_stops_live_partial_lease(
 
 def test_vmvm_root_exec_classifies_ssh_exit_255_as_transport_failure() -> None:
     backend = object.__new__(VacliVMVMBackend)
+    _add_backend_lifecycle_state(backend)
     backend._destroyed = False
     backend._container_id = "a" * 12
     backend._ssh_call_raw = lambda command, *, timeout: subprocess.CompletedProcess(
@@ -5695,6 +7076,7 @@ def test_vmvm_host_tunnel_setup_uses_and_releases_shared_vacli_slot(monkeypatch)
     limiter = LeaseStartConcurrencyLimiter(1, telemetry)
     monkeypatch.setattr(vacli_backend, "_lease_concurrency", limiter)
     backend = object.__new__(VacliVMVMBackend)
+    _add_backend_lifecycle_state(backend)
     backend._destroyed = False
     backend._container_id = "a" * 12
     tunnel = VacliHostTunnel("10.89.0.1", 42000, 1234, 99)
@@ -5750,6 +7132,8 @@ def test_vmvm_host_tunnel_setup_uses_and_releases_shared_vacli_slot(monkeypatch)
 
 def test_vmvm_sidecar_exec_classifies_ssh_exit_255_as_transport_failure() -> None:
     backend = object.__new__(VacliVMVMBackend)
+    _add_backend_lifecycle_state(backend)
+    backend._destroyed = False
     backend._compose_command = lambda args, *, timeout: subprocess.CompletedProcess(
         args=[],
         returncode=255,
@@ -5822,6 +7206,8 @@ def test_vmvm_compose_gateway_detection_fails_closed() -> None:
 
 def test_vmvm_network_isolation_preserves_internal_network_and_is_idempotent() -> None:
     backend = object.__new__(VacliVMVMBackend)
+    _add_backend_lifecycle_state(backend)
+    backend._destroyed = False
     isolation = _VacliNetworkIsolation(
         network="vf-internal-test",
         gateway="10.89.0.1",
@@ -5916,6 +7302,7 @@ def test_vmvm_network_targets_include_each_compose_service() -> None:
 
 def test_vmvm_network_prepare_preserves_declared_compose_aliases(monkeypatch) -> None:
     backend = object.__new__(VacliVMVMBackend)
+    _add_backend_lifecycle_state(backend)
     backend._destroyed = False
     backend._network_isolation = None
     backend._container_id = "a" * 12
@@ -5981,6 +7368,7 @@ def test_vmvm_network_prepare_rejects_additional_address_families(
     metadata: dict,
 ) -> None:
     backend = object.__new__(VacliVMVMBackend)
+    _add_backend_lifecycle_state(backend)
     backend._destroyed = False
     backend._network_isolation = None
     calls: list[str] = []
@@ -6000,6 +7388,8 @@ def test_vmvm_network_prepare_rejects_additional_address_families(
 
 def test_vmvm_network_activation_failure_pauses_and_rolls_back_firewall() -> None:
     backend = object.__new__(VacliVMVMBackend)
+    _add_backend_lifecycle_state(backend)
+    backend._destroyed = False
     isolation = _VacliNetworkIsolation(
         network="vf-internal-test",
         gateway="10.89.0.1",
@@ -6041,6 +7431,8 @@ def test_vmvm_network_activation_failure_pauses_and_rolls_back_firewall() -> Non
 
 def test_vmvm_partial_firewall_install_is_rolled_back() -> None:
     backend = object.__new__(VacliVMVMBackend)
+    _add_backend_lifecycle_state(backend)
+    backend._destroyed = False
     isolation = _VacliNetworkIsolation(
         network="vf-internal-test",
         gateway="10.89.0.1",

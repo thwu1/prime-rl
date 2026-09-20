@@ -42,12 +42,11 @@ sbatch user/tianhaowu/deepswe_vmvm/run_runtime_smoke.sbatch
 ```
 
 Use the `cpu_x86` partition with `cpu_x86_lowest`; the historical `cpu` /
-`cpu_lowest` names are no longer valid. Pin vacli to
-`/public/fbpkgs/x86_64/vacli/stable/vacli` (or leave the backend default). The
-moving `latest` build 793 launches an x2p helper with an unavailable GLIBC
-symbol on some otherwise healthy CPU nodes, producing misleading repeated
-lease failures. Test a candidate binary with `probe_vmvm.sbatch` before rolling
-it out fleet-wide. Because the login host is ARM64 and CPU workers are x86_64,
+`cpu_lowest` names are no longer valid. Use
+`/public/fbpkgs/x86_64/vacli/stable/vacli` (the backend default), and bind its
+resolved target and digest in sealed launches. Test any candidate binary with a
+task-free probe before rolling it out fleet-wide. Because the login host is
+ARM64 and CPU workers are x86_64,
 never put the login host's `~/.local/bin/uv` first on a CPU job's `PATH`; use an
 x86-specific binary or a dependency tree staged for x86_64.
 
@@ -65,6 +64,28 @@ reaped. Initial leases and resumed tunnels use this path; injected subprocess
 test doubles remain direct. Provider-specific lease variants customize
 `_lease_command()` and inherit `start()`; they must not reintroduce direct
 `Popen`, `preexec_fn`, or `stdbuf` wrappers.
+
+Treat every local vacli log and OpenSSH ControlMaster path as a backend-owned
+resource. Reserve randomized names before use, create logs exclusively with
+`O_NOFOLLOW`, and retain all initial, retry, and resume identities. Keep Unix
+socket paths within the platform `sockaddr_un` limit by using a separately
+identity-bound short root when `TMPDIR` is too long. Destruction must first stop
+admission and drain every lifecycle-serialized SSH operation. Create each SSH
+master as an explicit foreground `Popen` owned by the backend, with
+`ControlMaster=yes` and `ControlPersist=no`; all clients use
+`ControlMaster=no` and may never publish a replacement master. Bind the socket
+inode and `SO_PEERCRED` peer back to that still-live creation-owned process.
+Cleanup sends `SIGKILL` only through the creation-owned process handle, reaps it,
+then proves the bound socket is absent or still the same inactive inode. Never
+derive kill authority from a pathname, peer PID, or same-UID check, and never
+unlink or rename a control socket. Truncate and fsync each exact retained log
+descriptor to zero, prove its pathname still names that inode, then retain the
+empty mode-0600 file; never unlink or rename it. Revalidate every terminal
+artifact state on repeated destroy. An identity replacement, active inherited
+listener, unbound occupied path, late reappearance, or incomplete reap is a
+cleanup failure: retain the ambiguous artifact and surface the error from
+explicit destroy. The `atexit` wrapper must make the same attempt without
+raising during interpreter shutdown.
 
 When submitting with Slurm `--export-file` or another isolated environment,
 explicitly carry `THRIFT_TLS_CL_CERT_PATH` and `THRIFT_TLS_CL_KEY_PATH` from the
@@ -822,8 +843,11 @@ bypass the gate through the generic SFT loader.
 DeepSWE launcher derives it from TOML `sandbox_startup_timeout_sec` and uses one
 hour by default; keep the command/session ceiling separate because verification
 can legitimately outlive startup.
-Use `verifier_timeout_multiplier = 4.0` in full VMVM TOMLs and
-`--verifier-timeout-multiplier 4` for the oracle. This retains the task's own
-timeout ratios while allowing slow remote verifier execution to complete.
+For full DeepSWE VMVM TOMLs, use `verifier_timeout_multiplier = 4.0`; for the
+DeepSWE oracle, use `--verifier-timeout-multiplier 4`. Terminal-Bench uses the
+separate `[taskset].timeout_multiplier` key, which must remain bound to the
+qualified Terminal-Bench launch configuration. These multipliers retain each
+task's own timeout ratios while allowing slow remote verifier execution to
+complete.
 For a targeted model-eval recovery, set top-level TOML `task_names` to exact
 task directory names. Do not use Pier's generated `trial-name__SUFFIX` value.
