@@ -679,6 +679,14 @@ Provisioning cancellation must wake lease-capacity waits and retry backoffs,
 terminate any partial lease, and keep an atomic worker-owned cleanup fallback
 until a completed backend is handed to the async runtime.
 
+An oracle attempt must not let a primary setup, validation, timeout, or
+cancellation exception hide a concurrent taskset-cleanup or runtime-stop
+failure. Capture the primary `BaseException`, always attempt both teardown
+stages, and, if either teardown stage fails, raise a retry-visible
+`SandboxError` chained from the primary error. Re-raise the original primary
+error unchanged only when teardown was fully successful. Otherwise an oracle
+certificate can falsely report zero cleanup failures.
+
 If the in-flight command depends on a registered host tunnel,
 `restart_session()` must restore that reverse forward on the replacement SSH
 control master before `recover_last()`. Keep the same remote port so the

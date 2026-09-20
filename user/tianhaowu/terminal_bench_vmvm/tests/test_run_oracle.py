@@ -10,10 +10,24 @@ from types import SimpleNamespace
 import pytest
 
 RUN_ORACLE = Path(__file__).parents[1] / "run_oracle.py"
+RUN_ORACLE_SBATCH = Path(__file__).parents[1] / "run_oracle.sbatch"
 SPEC = importlib.util.spec_from_file_location("terminal_bench_vmvm_run_oracle", RUN_ORACLE)
 assert SPEC is not None and SPEC.loader is not None
 run_oracle = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(run_oracle)
+
+
+def test_oracle_wrapper_binds_resume_and_python_cache_policy() -> None:
+    source = RUN_ORACLE_SBATCH.read_text()
+
+    assert "oracle_resume=${ORACLE_RESUME:-1}" in source
+    assert "args+=(--no-resume)" in source
+    assert "args+=(--resume)" in source
+    assert "export PYTHONPYCACHEPREFIX=/dev/null" in source
+    assert "export UV_NO_CONFIG=1" in source
+    assert '"$x86_uv" --no-config run --no-project --offline' in source
+    assert 'python3 -B "$workflow_dir/run_oracle.py"' in source
+    assert "character special file:666:0:0:1:3:1" in source
 
 
 def _identity_args(tmp_path: Path) -> SimpleNamespace:
@@ -483,6 +497,128 @@ def test_oracle_attempt_cleans_taskset_before_runtime_stop_on_cancellation(monke
     assert events[-2:] == ["taskset-cleanup", "runtime-stop"]
 
 
+def test_oracle_attempt_drains_teardown_after_repeated_cancellation(monkeypatch) -> None:
+    events: list[str] = []
+    setup_started = asyncio.Event()
+    cleanup_started = asyncio.Event()
+    release_cleanup = asyncio.Event()
+
+    class Runtime:
+        descriptor = "runtime"
+
+        async def start(self) -> None:
+            events.append("runtime-start")
+
+        async def stop(self) -> None:
+            events.append("runtime-stop")
+
+    class Taskset:
+        async def setup_oracle(self, task, runtime) -> None:
+            events.append("taskset-setup")
+            setup_started.set()
+            await asyncio.Event().wait()
+
+        async def validate(self, task, runtime) -> bool:
+            raise AssertionError("cancelled setup must not reach validation")
+
+        async def cleanup(self, task, trace, runtime) -> None:
+            assert trace is None
+            events.append("taskset-cleanup-start")
+            cleanup_started.set()
+            await release_cleanup.wait()
+            events.append("taskset-cleanup-done")
+
+    monkeypatch.setattr(run_oracle, "resolve_runtime_config", lambda config, task: config)
+    monkeypatch.setattr(run_oracle, "make_runtime", lambda config, name: Runtime())
+
+    async def exercise() -> None:
+        attempt = asyncio.create_task(
+            run_oracle._attempt(
+                Taskset(),
+                SimpleNamespace(idx=0, name="test"),
+                SimpleNamespace(),
+                setup_timeout=30,
+                validate_timeout=30,
+                attempt=1,
+            )
+        )
+        await setup_started.wait()
+        attempt.cancel()
+        await cleanup_started.wait()
+        attempt.cancel()
+        release_cleanup.set()
+        with pytest.raises(asyncio.CancelledError):
+            await attempt
+
+    asyncio.run(exercise())
+
+    assert events[-2:] == ["taskset-cleanup-done", "runtime-stop"]
+
+
+def test_oracle_teardown_preserves_cancellation_when_operation_finishes_same_turn() -> None:
+    async def exercise() -> None:
+        current = asyncio.current_task()
+        assert current is not None
+        asyncio.get_running_loop().call_soon(current.cancel)
+        operation_errors, interruptions = await run_oracle._drain_teardown(asyncio.sleep(0))
+        assert operation_errors == []
+        assert len(interruptions) == 1
+        assert isinstance(interruptions[0], asyncio.CancelledError)
+
+    asyncio.run(exercise())
+
+
+def test_oracle_teardown_failure_chains_same_turn_cancellation(monkeypatch) -> None:
+    class Runtime:
+        descriptor = "runtime"
+
+        async def start(self) -> None:
+            return None
+
+        async def stop(self) -> None:
+            return None
+
+    class Taskset:
+        async def setup_oracle(self, task, runtime) -> None:
+            return None
+
+        async def validate(self, task, runtime) -> bool:
+            return True
+
+        async def cleanup(self, task, trace, runtime) -> None:
+            current = asyncio.current_task()
+            assert current is not None
+            caller = next(
+                candidate
+                for candidate in asyncio.all_tasks()
+                if candidate is not current and candidate.get_name() == "oracle-attempt"
+            )
+            asyncio.get_running_loop().call_soon(caller.cancel)
+            raise RuntimeError("cleanup boom")
+
+    monkeypatch.setattr(run_oracle, "resolve_runtime_config", lambda config, task: config)
+    monkeypatch.setattr(run_oracle, "make_runtime", lambda config, name: Runtime())
+
+    async def exercise() -> None:
+        attempt = asyncio.create_task(
+            run_oracle._attempt(
+                Taskset(),
+                SimpleNamespace(idx=0, name="test"),
+                SimpleNamespace(),
+                setup_timeout=30,
+                validate_timeout=30,
+                attempt=1,
+            ),
+            name="oracle-attempt",
+        )
+        with pytest.raises(run_oracle.SandboxError) as error:
+            await attempt
+        assert isinstance(error.value.__cause__, asyncio.CancelledError)
+        assert "taskset cleanup RuntimeError: cleanup boom" in str(error.value)
+
+    asyncio.run(exercise())
+
+
 def test_oracle_attempt_rejects_success_after_both_teardown_failures(monkeypatch) -> None:
     events: list[str] = []
 
@@ -527,6 +663,70 @@ def test_oracle_attempt_rejects_success_after_both_teardown_failures(monkeypatch
 
     assert "taskset cleanup RuntimeError: cleanup boom" in str(error.value)
     assert "runtime stop RuntimeError: stop boom" in str(error.value)
+    assert events[-2:] == ["taskset-cleanup", "runtime-stop"]
+
+
+@pytest.mark.parametrize(
+    "primary_factory",
+    [
+        pytest.param(lambda: run_oracle.SandboxError("primary sandbox"), id="sandbox"),
+        pytest.param(lambda: run_oracle.OracleFailure("primary oracle"), id="oracle"),
+        pytest.param(lambda: asyncio.TimeoutError("primary timeout"), id="timeout"),
+        pytest.param(lambda: RuntimeError("primary runtime"), id="generic"),
+        pytest.param(lambda: BaseException("primary base"), id="base-exception"),
+        pytest.param(lambda: asyncio.CancelledError("primary cancellation"), id="cancellation"),
+    ],
+)
+@pytest.mark.parametrize("failing_teardown", ["taskset", "runtime"])
+def test_oracle_teardown_failure_overrides_and_chains_every_primary_error(
+    monkeypatch, primary_factory, failing_teardown: str
+) -> None:
+    events: list[str] = []
+    primary = primary_factory()
+
+    class Runtime:
+        descriptor = "runtime"
+
+        async def start(self) -> None:
+            events.append("runtime-start")
+
+        async def stop(self) -> None:
+            events.append("runtime-stop")
+            if failing_teardown == "runtime":
+                raise RuntimeError("stop boom")
+
+    class Taskset:
+        async def setup_oracle(self, task, runtime) -> None:
+            events.append("taskset-setup")
+
+        async def validate(self, task, runtime) -> bool:
+            events.append("validate")
+            raise primary
+
+        async def cleanup(self, task, trace, runtime) -> None:
+            assert trace is None
+            events.append("taskset-cleanup")
+            if failing_teardown == "taskset":
+                raise RuntimeError("cleanup boom")
+
+    monkeypatch.setattr(run_oracle, "resolve_runtime_config", lambda config, task: config)
+    monkeypatch.setattr(run_oracle, "make_runtime", lambda config, name: Runtime())
+
+    with pytest.raises(run_oracle.SandboxError) as error:
+        asyncio.run(
+            run_oracle._attempt(
+                Taskset(),
+                SimpleNamespace(idx=0, name="test"),
+                SimpleNamespace(),
+                setup_timeout=30,
+                validate_timeout=30,
+                attempt=1,
+            )
+        )
+
+    assert error.value.__cause__ is primary
+    expected_label = "taskset cleanup" if failing_teardown == "taskset" else "runtime stop"
+    assert expected_label in str(error.value)
     assert events[-2:] == ["taskset-cleanup", "runtime-stop"]
 
 

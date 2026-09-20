@@ -32,6 +32,7 @@ task_file_sha256=${TASK_FILE_SHA256:-}
 output_dir=${OUTPUT_DIR:-/checkpoint/ram/tianhaowu/terminal_bench_vmvm/oracle/run_${SLURM_JOB_ID}}
 max_concurrent=${MAX_CONCURRENT:-64}
 oracle_solution_network_mode=${ORACLE_SOLUTION_NETWORK_MODE:-declared}
+oracle_resume=${ORACLE_RESUME:-1}
 python_bin=${PYTHON_BIN_X86_64:-python3}
 x86_uv=${UV_BIN_X86_64:-/storage/home/tianhaowu/.local/x86_64/bin/uv}
 x86_site=${PYTHON_SITE_X86_64:-/checkpoint/ram/tianhaowu/terminal_bench_vmvm/python_x86_64}
@@ -106,6 +107,10 @@ if [[ "$vacli_container_privileged" != 0 && "$vacli_container_privileged" != 1 ]
     printf 'VACLI_CONTAINER_PRIVILEGED must be 0 or 1\n' >&2
     exit 2
 fi
+if [[ "$oracle_resume" != 0 && "$oracle_resume" != 1 ]]; then
+    printf 'ORACLE_RESUME must be 0 or 1\n' >&2
+    exit 2
+fi
 
 case "$oracle_solution_network_mode" in
     declared|public) ;;
@@ -125,6 +130,11 @@ if [[ ! -d "$x86_site/pydantic" ]]; then
 fi
 if [[ ! -x "$x86_uv" ]]; then
     printf 'Missing x86_64 uv binary: %s\n' "$x86_uv" >&2
+    exit 2
+fi
+if [[ "$(/usr/bin/stat -Lc '%F:%a:%u:%g:%t:%T:%h' -- /dev/null)" \
+    != 'character special file:666:0:0:1:3:1' ]]; then
+    printf 'The Python cache sink is not the root-owned null device\n' >&2
     exit 2
 fi
 
@@ -149,7 +159,9 @@ mkdir -p "$output_dir" /checkpoint/ram/tianhaowu/terminal_bench_vmvm/logs
 
 unset HTTP_PROXY HTTPS_PROXY http_proxy https_proxy ALL_PROXY all_proxy
 export PYTHONDONTWRITEBYTECODE=1
+export PYTHONPYCACHEPREFIX=/dev/null
 export PYTHONPATH="$workflow_dir:$project_dir/environments/vmvm_tb_v2:$project_dir/deps/verifiers:$project_dir/deps/renderers:$project_dir/deps/pydantic-config/src:$x86_site${PYTHONPATH:+:$PYTHONPATH}"
+export UV_NO_CONFIG=1
 export VACLI_LEASE_RETRIES="$vacli_lease_retries"
 export VACLI_MAX_CONCURRENT_LEASES="$vacli_max_concurrent_leases"
 export VACLI_MAX_PULL_RETRIES="$vacli_max_pull_retries"
@@ -183,6 +195,11 @@ args=(
     --invocation-host "$invocation_host"
     --slurm-job-id "$SLURM_JOB_ID"
 )
+if [[ "$oracle_resume" == 1 ]]; then
+    args+=(--resume)
+else
+    args+=(--no-resume)
+fi
 if [[ -n "$dataset_revision" ]]; then
     args+=(--dataset-revision "$dataset_revision")
 else
@@ -217,5 +234,5 @@ if [[ "${ENABLE_COMPOSE:-0}" == 1 ]]; then
     args+=(--enable-compose)
 fi
 
-exec "$x86_uv" run --no-project --offline --python "$python_bin" \
-    python3 "$workflow_dir/run_oracle.py" "${args[@]}"
+exec "$x86_uv" --no-config run --no-project --offline --python "$python_bin" \
+    python3 -B "$workflow_dir/run_oracle.py" "${args[@]}"

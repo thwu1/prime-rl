@@ -17,6 +17,7 @@ import signal
 import stat
 import tarfile
 import time
+from collections.abc import Awaitable
 from pathlib import Path, PurePosixPath
 
 from terminal_bench_vmvm.source_wheels import (
@@ -863,6 +864,36 @@ def _validate_existing_artifacts(
     return prior_by_slug
 
 
+async def _drain_teardown(
+    operation: Awaitable[object],
+) -> tuple[list[BaseException], list[BaseException]]:
+    """Finish one teardown operation despite cancellation of its caller."""
+
+    task = asyncio.ensure_future(operation)
+    interruptions: list[BaseException] = []
+    terminal_await_error: BaseException | None = None
+    while not task.done():
+        try:
+            await asyncio.shield(task)
+        except BaseException as error:  # noqa: BLE001
+            if task.done():
+                terminal_await_error = error
+                break
+            interruptions.append(error)
+    operation_errors: list[BaseException] = []
+    try:
+        task.result()
+    except BaseException as error:  # noqa: BLE001
+        operation_errors.append(error)
+    if (
+        terminal_await_error is not None
+        and not (task.cancelled() and isinstance(terminal_await_error, asyncio.CancelledError))
+        and all(terminal_await_error is not error for error in operation_errors)
+    ):
+        interruptions.append(terminal_await_error)
+    return operation_errors, interruptions
+
+
 async def _attempt(
     taskset: TerminalBenchVMVMTaskset,
     task: TerminalBenchTask,
@@ -879,6 +910,7 @@ async def _attempt(
     descriptor = None
     outcome: tuple[bool, dict] | None = None
     cleanup_failures: list[str] = []
+    primary_error: BaseException | None = None
     try:
         await asyncio.wait_for(runtime.start(), timeout=setup_timeout)
         descriptor = runtime.descriptor
@@ -892,23 +924,30 @@ async def _attempt(
                 "elapsed_sec": round(time.time() - started, 3),
             },
         )
+    except BaseException as error:  # noqa: BLE001
+        primary_error = error
     finally:
-        try:
-            try:
-                await taskset.cleanup(task, None, runtime)
-            except Exception as error:
-                failure = f"taskset cleanup {type(error).__name__}: {error}"
-                cleanup_failures.append(failure)
-                logger.warning("%s %s", task.name, failure)
-        finally:
-            try:
-                await asyncio.shield(runtime.stop())
-            except Exception as error:
-                failure = f"runtime stop {type(error).__name__}: {error}"
-                cleanup_failures.append(failure)
-                logger.warning("%s %s", task.name, failure)
+        cleanup_errors, interruptions = await _drain_teardown(taskset.cleanup(task, None, runtime))
+        if primary_error is None and interruptions:
+            primary_error = interruptions[0]
+        for error in cleanup_errors:
+            failure = f"taskset cleanup {type(error).__name__}: {error}"
+            cleanup_failures.append(failure)
+            logger.warning("%s %s", task.name, failure)
+        stop_errors, interruptions = await _drain_teardown(runtime.stop())
+        if primary_error is None and interruptions:
+            primary_error = interruptions[0]
+        for error in stop_errors:
+            failure = f"runtime stop {type(error).__name__}: {error}"
+            cleanup_failures.append(failure)
+            logger.warning("%s %s", task.name, failure)
     if cleanup_failures:
-        raise SandboxError(f"{task.name}: oracle teardown failed: {'; '.join(cleanup_failures)}")
+        teardown_error = SandboxError(f"{task.name}: oracle teardown failed: {'; '.join(cleanup_failures)}")
+        if primary_error is not None:
+            raise teardown_error from primary_error
+        raise teardown_error
+    if primary_error is not None:
+        raise primary_error
     if outcome is None:
         raise AssertionError("oracle attempt completed without an outcome")
     return outcome
