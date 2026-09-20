@@ -1,6 +1,6 @@
 # VMVM sandbox coordination
 
-Last updated: 2026-09-20 02:30 UTC
+Last updated: 2026-09-20 02:34 UTC
 
 ## First message to the next teammate
 
@@ -42,6 +42,17 @@ this shared branch again.
 Add new rows below this line; do not overwrite another owner's row.
 
 ## Open coordination requests
+
+- **2026-09-20 02:34 UTC, diagnostic v3 failed at pre-lease admission:** job
+  `1757416` passed held and activation identity gates, allocated once on x86,
+  then failed closed in two seconds with exit 2 and only the allowlisted generic
+  status. No output or scratch exists, so no VM lease or diagnostic cell was
+  reached; preserve its sealed reservation/log and do not reuse v3 namespaces.
+  A local descriptor-faithful replay of the exact sealed probe/uv, source/site/
+  output descriptors, environment, authorization, and six receipt artifacts
+  returns `admitted`, localizing the difference to the x86 wrapper/preflight
+  boundary. Independent review is designing minimal allowlisted stage telemetry
+  or a task-free x86 replay. Do not rerun blindly or inspect private values.
 
 - **2026-09-20 02:30 UTC, corrected task-free diagnostic submitted:** exact
   child `126aa1304`, tree `0dd8911c...`, passed independent review and 76/76
