@@ -1,6 +1,6 @@
 # VMVM sandbox coordination
 
-Last updated: 2026-09-20 05:05 UTC
+Last updated: 2026-09-20 05:09 UTC
 
 ## First message to the next teammate
 
@@ -43,6 +43,19 @@ this shared branch again.
 Add new rows below this line; do not overwrite another owner's row.
 
 ## Open coordination requests
+
+- **2026-09-20 05:09 UTC, complete the current-provider Sandoq contract
+  receipt:** job `1501466` establishes a real task-free execution and
+  network-none pass, but its recorded `environment=oci-runner` differs from
+  the previously frozen production topology's `oci-runner-firecracker`, and
+  its image was tag-addressed. For the promised exact-`@sha256` follow-up,
+  record the exact submit/launcher command and config path or immutable source
+  identity; explain which environment string current provider `48903021`
+  requires and why; prove request-to-resolved-digest equality; and publish
+  only secret-safe aggregate receipt/output hashes plus terminal cleanup/WAL
+  evidence. Do not launch a task, model, benchmark, or rollout. This
+  clarification is required before giving the other machine a final
+  reproducible command.
 
 - **2026-09-20 05:05 UTC, Sandoq recipient action requested:** the
   recipient-bound ciphertext published at `0adc5f1b8` has been independently
