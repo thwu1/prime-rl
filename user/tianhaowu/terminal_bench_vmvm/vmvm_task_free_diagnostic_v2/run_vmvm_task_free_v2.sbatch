@@ -15,11 +15,34 @@ identity_source=not_checked
 identity_site=not_checked
 identity_reservation=not_checked
 identity_output_parent=not_checked
+missing_required=()
+empty_required=()
+
+required_name_allowed() {
+    local candidate=$1 required
+    for required in "${required_environment[@]}"; do
+        [[ $candidate != "$required" ]] || return 0
+    done
+    return 1
+}
+
+print_required_names() {
+    local destination=$1 name separator=""
+    shift
+    printf '[' >&"$destination"
+    for name in "$@"; do
+        printf '%s"%s"' "$separator" "$name" >&"$destination"
+        separator=,
+    done
+    printf ']' >&"$destination"
+}
 
 fail() {
     local stage=$failure_stage identity variable
     local bundle=$identity_bundle output_parent=$identity_output_parent
     local reservation=$identity_reservation site=$identity_site source=$identity_source
+    local required
+    local -a missing=("${missing_required[@]}") empty=("${empty_required[@]}")
     case $stage in
         entry|required_environment|forbidden_environment|fixed_environment|\
             path_shape|digest_shape|identity_shape|count_shape|directory_open|\
@@ -40,6 +63,26 @@ fail() {
                 ;;
         esac
     done
+    if [[ $stage == required_environment ]]; then
+        for required in "${missing[@]}" "${empty[@]}"; do
+            if ! required_name_allowed "$required"; then
+                missing=()
+                empty=()
+                stage=internal
+                break
+            fi
+        done
+    fi
+    if [[ $stage == required_environment ]]; then
+        printf '{"code":"diagnostic_job_failed","required_environment":{"empty":' \
+            >&"$public_stderr_fd"
+        print_required_names "$public_stderr_fd" "${empty[@]}"
+        printf ',"missing":' >&"$public_stderr_fd"
+        print_required_names "$public_stderr_fd" "${missing[@]}"
+        printf '},"stage":"required_environment","state":"failed"}\n' \
+            >&"$public_stderr_fd"
+        exit 2
+    fi
     printf '{"code":"diagnostic_job_failed","directory_identities":{"bundle":"%s","output_parent":"%s","reservation":"%s","site":"%s","source":"%s"},"stage":"%s","state":"failed"}\n' \
         "$bundle" "$output_parent" "$reservation" "$site" "$source" "$stage" \
         >&"$public_stderr_fd"
@@ -81,8 +124,13 @@ required_environment=(
 )
 failure_stage=required_environment
 for variable in "${required_environment[@]}"; do
-    [[ -n ${!variable:-} ]] || fail
+    if [[ -z ${!variable+x} ]]; then
+        missing_required+=("$variable")
+    elif [[ -z ${!variable} ]]; then
+        empty_required+=("$variable")
+    fi
 done
+(( ${#missing_required[@]} == 0 && ${#empty_required[@]} == 0 )) || fail
 failure_stage=forbidden_environment
 for variable in "${!BASH_FUNC_@}" "${!LD_@}" "${!GIT_@}"; do
     [[ -z $variable ]] || fail
