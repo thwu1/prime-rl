@@ -1054,34 +1054,42 @@ def _start_supervised_evaluator(
     parent_flags = os.O_RDONLY | os.O_DIRECTORY | os.O_CLOEXEC
     if hasattr(os, "O_NOFOLLOW"):
         parent_flags |= os.O_NOFOLLOW
-    try:
-        parent_descriptor = os.open(socket_parent, parent_flags)
-    except OSError as error:
-        raise GuardViolation("supervisor_socket_setup_failed") from error
+    parent_descriptor = -1
     root_descriptor = -1
     root_identity: tuple[int, ...] | None = None
     socket_identity: tuple[int, ...] | None = None
-    socket_root = Path(tempfile.mkdtemp(prefix=f"sandoq-supervisor-{os.getuid()}-", dir="/tmp"))
-    root_name = socket_root.name
-    socket_path = socket_root / "channel.sock"
-    listener = socket.socket(socket.AF_UNIX, socket.SOCK_SEQPACKET)
+    root_name: str | None = None
+    socket_path: Path | None = None
+    listener: socket.socket | None = None
     connection: socket.socket | None = None
     process = None
     try:
-        socket_root.chmod(0o700)
-        initial_root = socket_root.lstat()
+        parent_descriptor = os.open(socket_parent, parent_flags)
+        socket_root = Path(
+            tempfile.mkdtemp(prefix=f"sandoq-supervisor-{os.getuid()}-", dir="/tmp")
+        )
+        root_name = socket_root.name
+        initial_root = os.stat(
+            root_name, dir_fd=parent_descriptor, follow_symlinks=False
+        )
         root_identity = _supervisor_root_identity(initial_root)
+        os.chmod(root_name, 0o700, dir_fd=parent_descriptor, follow_symlinks=False)
         root_descriptor = os.open(root_name, parent_flags, dir_fd=parent_descriptor)
         root_status = os.fstat(root_descriptor)
         named_root = os.stat(root_name, dir_fd=parent_descriptor, follow_symlinks=False)
+        socket_path = socket_root / "channel.sock"
         if (
-            root_identity != _supervisor_root_identity(root_status)
-            or root_identity != _supervisor_root_identity(named_root)
+            (initial_root.st_dev, initial_root.st_ino)
+            != (root_status.st_dev, root_status.st_ino)
+            or _supervisor_root_identity(root_status)
+            != _supervisor_root_identity(named_root)
             or not stat.S_ISDIR(root_status.st_mode)
             or root_status.st_uid != os.getuid()
             or stat.S_IMODE(root_status.st_mode) != 0o700
         ):
             raise GuardViolation("supervisor_socket_setup_failed")
+        root_identity = _supervisor_root_identity(root_status)
+        listener = socket.socket(socket.AF_UNIX, socket.SOCK_SEQPACKET)
         listener.bind(str(socket_path))
         os.chmod("channel.sock", 0o600, dir_fd=root_descriptor, follow_symlinks=False)
         socket_status = os.stat(
@@ -1166,12 +1174,13 @@ def _start_supervised_evaluator(
             raise GuardViolation("supervisor_handshake_failed")
         connection.setblocking(False)
     except BaseException as error:
-        with contextlib.suppress(OSError):
-            listener.close()
+        if listener is not None:
+            with contextlib.suppress(OSError):
+                listener.close()
         if connection is not None:
             with contextlib.suppress(OSError):
                 connection.close()
-        if root_descriptor >= 0 and root_identity is not None:
+        if root_descriptor >= 0 and root_identity is not None and root_name is not None:
             try:
                 _remove_supervisor_socket(
                     parent_descriptor=parent_descriptor,
@@ -1185,7 +1194,7 @@ def _start_supervised_evaluator(
         else:
             if root_descriptor >= 0:
                 os.close(root_descriptor)
-            elif root_identity is not None:
+            elif root_identity is not None and root_name is not None and parent_descriptor >= 0:
                 try:
                     named_root = os.stat(
                         root_name, dir_fd=parent_descriptor, follow_symlinks=False
@@ -1196,7 +1205,8 @@ def _start_supervised_evaluator(
                     os.fsync(parent_descriptor)
                 except BaseException as cleanup_error:
                     error.add_note(f"supervisor socket cleanup failed: {cleanup_error!r}")
-            os.close(parent_descriptor)
+            if parent_descriptor >= 0:
+                os.close(parent_descriptor)
         if process is not None:
             try:
                 terminate_process_group(process, termination_timeout)
@@ -1207,9 +1217,10 @@ def _start_supervised_evaluator(
         if isinstance(error, GuardViolation):
             raise
         raise GuardViolation("supervisor_handshake_failed") from error
+    assert listener is not None
     listener.close()
     assert connection is not None
-    assert root_identity is not None and socket_identity is not None
+    assert root_identity is not None and socket_identity is not None and root_name is not None
     return process, _SupervisorChannel(
         connection,
         parent_descriptor,
