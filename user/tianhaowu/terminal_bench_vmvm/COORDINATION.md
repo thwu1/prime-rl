@@ -5110,3 +5110,27 @@ replay passed 263/263. The aggregate decode/cleanup boundary is unchanged.
 - The canonical launcher pane is idle and `squeue` contains no user jobs. Kimi
   v28/v29 recovery, registry v30, serving, TB4 evaluation, and trace generation
   remain unlaunched.
+
+## 2026-09-20 19:50 UTC — destructive recovery TOCTOU remains held
+
+- Kimi v29 recovery child `6dd2a795069fc15dd2bbf66c29669755997413fb`
+  passes 59/59 focused and 324/324 combined tests and closes the prior
+  owner-intent, terminal-publication, and early-quarantine gaps. Independent
+  fault injection nevertheless swaps the quarantine name after its final
+  identity check but inside `unlink`; the helper deletes the unrelated
+  replacement before detecting the retained-inode mismatch. Treat this exact
+  source as **HOLD** and do not integrate or execute it.
+- VMVM v4 recovery tip
+  `88e2afb572689e67397ae71a64c1c4ac4c081b04` similarly passes 73/73 plus its
+  exact source audit but remains **HOLD**. Independent review reproduced both a
+  rename-success/interruption-before-state-publication gap and the same final
+  identity-check-to-unlink replacement deletion. No v4 bundle was installed
+  and no recovery job was submitted.
+- Because Linux supplies no conditional unlink-by-retained-inode primitive,
+  both one-off recovery paths are being redesigned around non-destructive
+  retained-FD sanitization/quarantine. Sensitive Kimi regular files must be
+  zeroed through their already-bound writable descriptors and reverified;
+  untrusted names must never be unlinked. Receipts must report sanitized or
+  quarantined retention truthfully rather than claim deletion. Production
+  backend cleanup remains a separate lane and is still held pending its own
+  race review.
