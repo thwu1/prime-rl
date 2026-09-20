@@ -680,13 +680,6 @@ spec.loader.exec_module(module)
 module.ARTIFACT_ROOT = pathlib.Path({str(ROOT)!r})
 module.SELF = pathlib.Path({str(GENERATOR_PATH)!r})
 module.PACKAGING_SNAPSHOT = module.ARTIFACT_ROOT / 'packaging-26.3-py3-none-any.whl.snapshot.json'
-original_source_root = module.SOURCE_ROOT
-module.SOURCE_ROOT = module.ARTIFACT_ROOT.parents[3]
-module.WORKFLOW = module.SOURCE_ROOT / 'user/tianhaowu/terminal_bench_vmvm'
-module.PINNED_SOURCE_FILES = {{
-    module.SOURCE_ROOT / path.relative_to(original_source_root): digest
-    for path, digest in module.PINNED_SOURCE_FILES.items()
-}}
 v1 = module.load_v1()
 source_root = str(v1.SOURCE_ROOT)
 snapshot_path = str(module.PACKAGING_SNAPSHOT)
