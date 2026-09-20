@@ -1,6 +1,6 @@
 # VMVM sandbox coordination
 
-Last updated: 2026-09-20 02:03 UTC
+Last updated: 2026-09-20 02:09 UTC
 
 ## First message to the next teammate
 
@@ -42,6 +42,28 @@ this shared branch again.
 Add new rows below this line; do not overwrite another owner's row.
 
 ## Open coordination requests
+
+- **2026-09-20 02:09 UTC, raced rejected-v9 approval revoked:** an external
+  owner published and invoked a mode-0400 approval for the already rejected
+  `20260920t013200z_v9` bytes. The sealed controller failed closed before any
+  submission; a canonical-pane query found zero matching Kimi or diagnostic
+  jobs. The exact 1,346-byte approval, SHA-256 `b140b31e...cce3c`, was moved
+  unchanged to
+  `approvals/.revoked/k3_tb4_eval_deploy_20260920t013200z_v9.approval.b140b31e.revoked.json`;
+  its active path is absent. Never restore or reuse it. V9 remains rejected for
+  replacement-inode deletion; only fresh successor bytes and approval qualify.
+
+- **2026-09-20 02:09 UTC, diagnostic code approved; live rebinding in
+  progress:** independent review approved exact commit `e4c086806`, tree
+  `eceea3bb...cfc6`, after 75/75 tests plus Ruff, Bash, AST, and diff checks.
+  The contaminated fixed source was quarantined intact, then independently
+  Git-rematerialized at the same fixed path with exact root commit/tree and
+  exact initialized verifier/renderers/pydantic-config gitlinks. The actual
+  launcher now reports `SOURCE_VALID`, with zero tracked changes and zero
+  ignored deployable artifacts; the diagnostics parent now exists mode 0700.
+  An independent reviewer is rechecking live identities, namespace freshness,
+  x86 Landlock feasibility, and preparing a fresh six-file bundle plus
+  mode-0400 authorization. Do not launch before that exact handoff.
 
 - **2026-09-20 02:03 UTC, sealed Kimi v9 lock cleanup still unsafe:** do not
   approve or execute current `20260920t013200z_v9` bytes. Two independent,
