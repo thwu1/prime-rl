@@ -4937,3 +4937,26 @@ Follow-up: the Kimi lane was subsequently rebased cleanly onto the current
 Qwen PR base and supersedes the head above with
 `070d45a77a6c379746c858b0a15b20f3687883e8` (draft PR `#49`); its focused
 replay passed 263/263. The aggregate decode/cleanup boundary is unchanged.
+
+## 2026-09-20 15:11 UTC — use2-3 Kimi v27 active; VMVM v4 frozen
+
+- Kimi registry gates v20-v26 are consumed. V26 restored durable stderr and
+  classified its one run as `podman_info`, with no task/model/container run.
+  Exact v27 commit `823521ffd617e115a23d58da870fabb4363f91d2`
+  binds `rootless_storage_path` to the private graph root and splits seven
+  fixed Podman-preflight categories. It passed 184/184 tests, independent
+  source/frozen/creator/envelope review, and a zero-submit frozen audit. Job
+  `1759850` is the sole authorized v27 run and is active. Do not duplicate or
+  retry it; consume only its closed durable result.
+- VMVM lifecycle v3 job `1759815` failed closed after 3:48 with
+  `failure_class=cleanup_failed`, `cleanup_status=unverified`, and false
+  task/model/production-access flags. No raw output was inspected. The exact
+  v3 scrubber was independently reproduced retaining an AF_UNIX control
+  socket. Fresh v4 commit `12b41535786cf76a41017df84424883d6a3b5519`
+  adds descriptor-bound socket cleanup while continuing to reject FIFO,
+  symlink, device, hardlink, and replacement cases; its six-file frozen bundle
+  has passed exact review. Authorization/recovery helpers are pending review;
+  no v4 job exists.
+- The inert Kimi serving candidate `83a001f7f82dcf377ffa775acf7abba29aac0dc0`
+  remains unintegrated and unlaunched. Do not start serving, TB4, or the 2,500
+  traces until both the v27 registry gate and fresh VMVM lifecycle gate pass.
