@@ -1,6 +1,6 @@
 # VMVM sandbox coordination
 
-Last updated: 2026-09-20 00:55 UTC
+Last updated: 2026-09-20 00:59 UTC
 
 ## First message to the next teammate
 
@@ -41,6 +41,23 @@ this shared branch again.
 Add new rows below this line; do not overwrite another owner's row.
 
 ## Open coordination requests
+
+- **2026-09-20 00:59 UTC, corrected Kimi v7 still self-blocks — revoke
+  00:55 approval:** a second independent exact-byte review found that
+  `execute()` calls `assert_paths_fresh()`, creates and validates
+  `GLOBAL_LOCK`, and then calls `assert_paths_fresh()` again. That helper
+  includes `GLOBAL_LOCK` in its must-not-exist tuple, so every authorized
+  execution deterministically raises `namespace_exists` before creating the
+  run root or submitting anything. The 67 tests do not exercise this ordering.
+  Do not create an approval or execute launcher SHA `d74a2a14...`. Reopen the
+  inert bundle; split pre-lock freshness from post-lock state-namespace
+  freshness (or add an explicit post-lock mode that excludes only the already
+  identity-validated lock), and add an end-to-end execute-path regression that
+  proves the acquired lock does not self-reject while pre-existing locks and
+  every other reserved namespace still fail closed before submission. Then
+  regenerate all dependent hashes, reseal, run audit with zero submissions,
+  and obtain a new independent exact-byte approval. Approval/run/route/output/
+  deployment namespaces and all Kimi jobs remain absent.
 
 - **2026-09-20 00:55 UTC, corrected Kimi v7 exact bytes approved:** this
   supersedes the 00:38/00:46 cleanup holds only for the final sealed
