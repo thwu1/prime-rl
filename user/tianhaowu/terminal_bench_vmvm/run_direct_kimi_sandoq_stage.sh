@@ -178,8 +178,8 @@ identity_args=(
     --verifiers-tree-sha256 "$clean_tree_sha256"
     --renderers-commit "$(git -C "$project_dir/deps/renderers" rev-parse HEAD)"
     --renderers-tree-sha256 "$clean_tree_sha256"
-    --sandoq-provider-commit f7313db42eea4b3be8bcbe16a8072f73cf6abed5
-    --sandoq-provider-tree 9cb669ad045a67e92bbd0a04fb353489457003aa
+    --sandoq-provider-commit 4890302104d76220cef791c86d2009168597d35f
+    --sandoq-provider-tree 33f092a3982916660e12f472588e6ce34a906fc2
     --sandoq-client-version "$sandoq_client_version"
     --sandoq-site "$sandoq_site"
     --sandoq-site-sha256 "$sandoq_site_sha256"
