@@ -16,7 +16,7 @@ from pathlib import Path
 import pytest
 
 HERE = Path(__file__).resolve().parent
-SPEC = importlib.util.spec_from_file_location("registry_gate_v17_controller", HERE / "controller.py")
+SPEC = importlib.util.spec_from_file_location("registry_gate_v18_controller", HERE / "controller.py")
 assert SPEC is not None and SPEC.loader is not None
 controller = importlib.util.module_from_spec(SPEC)
 sys.modules[SPEC.name] = controller
@@ -714,7 +714,7 @@ def test_batch_emit_runs_bound_publisher_under_remaining_deadline(tmp_path: Path
     assert result.returncode == 0, result.stderr.decode()
     expected = (
         '{"category":"success","image_digest":"sha256:synthetic",'
-        '"kind":"k3-registry-pull-gate-v17","platform":"linux/arm64","state":"complete"}\n'
+        '"kind":"k3-registry-pull-gate-v18","platform":"linux/arm64","state":"complete"}\n'
     )
     assert result_path.read_text() == expected
     assert log_path.read_text() == expected
@@ -862,6 +862,18 @@ def test_exact_bytes_are_executed_from_bound_descriptors() -> None:
     assert '"$scrubber" == "$(/usr/bin/readlink -f -- "$scrubber" 2>/dev/null)"' in probe
 
 
+def test_batch_normalizes_sealed_copy_modes_before_rw_descriptor_open() -> None:
+    batch = (HERE / "run_registry_gate.sbatch").read_text()
+    tools_copy = batch.index('/usr/bin/cp -- /proc/self/fd/5 "$local_tools"')
+    tools_chmod = batch.index('/usr/bin/chmod 600 "$local_tools"', tools_copy)
+    tools_open = batch.index('exec {local_tools_fd}<>"$local_tools"', tools_chmod)
+    scrubber_copy = batch.index('/usr/bin/cp -- /proc/self/fd/3 "$local_scrubber"')
+    scrubber_chmod = batch.index('/usr/bin/chmod 600 "$local_scrubber"', scrubber_copy)
+    scrubber_open = batch.index('exec {local_scrubber_fd}<>"$local_scrubber"', scrubber_chmod)
+    assert tools_copy < tools_chmod < tools_open
+    assert scrubber_copy < scrubber_chmod < scrubber_open
+
+
 def test_cleanup_traps_precede_first_mktemp() -> None:
     batch = (HERE / "run_registry_gate.sbatch").read_text()
     probe = (HERE / "probe_registry_gate.sh").read_text()
@@ -959,7 +971,7 @@ def test_fd_scrubber_rejects_simulated_device_crossing(tmp_path: Path, monkeypat
     root.mkdir(mode=0o700)
     crossing = root / "crossing"
     crossing.write_bytes(b"synthetic-crossing")
-    spec = importlib.util.spec_from_file_location("registry_gate_v17_scrubber", HERE / "scrub_private_tree.py")
+    spec = importlib.util.spec_from_file_location("registry_gate_v18_scrubber", HERE / "scrub_private_tree.py")
     assert spec is not None and spec.loader is not None
     scrubber = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(scrubber)
@@ -1113,6 +1125,7 @@ def _batch_fd_setup() -> str:
         "local_scrubber=$private_anchor/scrub_private_tree.py\n"
         'touch "$stdout" "$stderr" "$local_tools"\n'
         'printf tools > "$local_tools"; cp "$2" "$local_scrubber"\n'
+        'chmod 600 "$local_tools" "$local_scrubber"\n'
         'exec {stdout_fd}<>"$stdout" {stderr_fd}<>"$stderr" {local_tools_fd}<>"$local_tools" {local_scrubber_fd}<>"$local_scrubber"\n'
         'chmod 600 "$stdout" "$stderr"; chmod 400 "$local_tools"; chmod 500 "$local_scrubber"\n'
         "stdout_clean=0\nstderr_clean=0\nlocal_tools_clean=0\nlocal_scrubber_clean=0\n"
@@ -2208,7 +2221,7 @@ def test_safe_worker_categories_are_allowed(category: str) -> None:
     payload = {
         "category": category,
         "image_digest": controller.IMAGE_DIGEST,
-        "kind": "k3-registry-pull-gate-v17",
+        "kind": "k3-registry-pull-gate-v18",
         "platform": "linux/arm64",
         "state": "blocked",
     }
@@ -2223,7 +2236,7 @@ def test_public_success_log_contract(tmp_path: Path, monkeypatch: pytest.MonkeyP
     payload = {
         "category": "success",
         "image_digest": controller.IMAGE_DIGEST,
-        "kind": "k3-registry-pull-gate-v17",
+        "kind": "k3-registry-pull-gate-v18",
         "platform": "linux/arm64",
         "state": "complete",
     }
@@ -2241,7 +2254,7 @@ def test_public_log_rejects_extra_field(tmp_path: Path, monkeypatch: pytest.Monk
     payload = {
         "category": "success",
         "image_digest": controller.IMAGE_DIGEST,
-        "kind": "k3-registry-pull-gate-v17",
+        "kind": "k3-registry-pull-gate-v18",
         "platform": "linux/arm64",
         "state": "complete",
         "raw": "forbidden",

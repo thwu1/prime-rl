@@ -5,8 +5,8 @@ shopt -u varredir_close
 umask 077
 readonly expected_digest=sha256:642f60668388b6c8e2d98f93577c9cd6a8aafaca7344dc4ab6a9e040774dec20
 readonly expected_image=588845226011.dkr.ecr.us-east-2.amazonaws.com/msl_infra/vllm-openai:kimi-k3-kda-logprobs-fix-v2-20260916@sha256:642f60668388b6c8e2d98f93577c9cd6a8aafaca7344dc4ab6a9e040774dec20
-readonly expected_bundle=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/watchers/k3_registry_pull_gate_20260920t102000z_v17
-readonly expected_result=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/diagnostics/k3_registry_pull_gate_20260920t102000z_v17/job_result.json
+readonly expected_bundle=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/watchers/k3_registry_pull_gate_20260920t105800z_v18
+readonly expected_result=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/diagnostics/k3_registry_pull_gate_20260920t105800z_v18/job_result.json
 readonly teardown_budget_seconds=210
 readonly publication_reserve_seconds=20
 teardown_deadline=0
@@ -183,7 +183,7 @@ emit() {
     publication_checkpoint parent_after_started
     [[ "$category" == success ]] && state=complete
     arm_teardown_deadline
-    raw=$(/usr/bin/printf '{"category":"%s","image_digest":"%s","kind":"k3-registry-pull-gate-v17","platform":"linux/arm64","state":"%s"}\n' \
+    raw=$(/usr/bin/printf '{"category":"%s","image_digest":"%s","kind":"k3-registry-pull-gate-v18","platform":"linux/arm64","state":"%s"}\n' \
         "$category" "$expected_digest" "$state")
     raw+=$'\n'
     temp=${GATE_JOB_RESULT:-$expected_result}."${SLURM_JOB_ID:-unknown}"."$RANDOM".tmp
@@ -326,7 +326,7 @@ fi
     && "$node" != g3-136-247 && "$node" != g3-136-251 && "$node" != g3-136-253 ]] \
     || block allocation_identity
 
-log=${GATE_BUNDLE%/watchers/*}/logs/k3_registry_pull_gate_20260920t102000z_v17/slurm-${SLURM_JOB_ID}.log
+log=${GATE_BUNDLE%/watchers/*}/logs/k3_registry_pull_gate_20260920t105800z_v18/slurm-${SLURM_JOB_ID}.log
 stable_log_reads=0
 last_log_identity=
 for _ in {1..30}; do
@@ -709,7 +709,7 @@ trap exit_cleanup EXIT
 trap 'early_signal HUP' HUP
 trap 'early_signal INT' INT
 trap 'early_signal TERM' TERM
-private=$(/usr/bin/mktemp -d "$local_parent/k3-registry-pull-v17.batch.${SLURM_JOB_ID}.XXXXXX" 2>/dev/null) \
+private=$(/usr/bin/mktemp -d "$local_parent/k3-registry-pull-v18.batch.${SLURM_JOB_ID}.XXXXXX" 2>/dev/null) \
     || block private_environment
 readonly private
 [[ "$private" != /proc/self/fd/* \
@@ -753,12 +753,16 @@ fi
     || block private_environment
 /usr/bin/cp -- /proc/self/fd/5 "$local_tools" 2>/dev/null \
     || block private_environment
+/usr/bin/chmod 600 "$local_tools" 2>/dev/null \
+    || block private_environment
 if ! exec {local_tools_fd}<>"$local_tools" 2>/dev/null; then
     block private_environment
 fi
 /usr/bin/chmod 400 "$local_tools" 2>/dev/null \
     || block private_environment
 /usr/bin/cp -- /proc/self/fd/3 "$local_scrubber" 2>/dev/null \
+    || block private_environment
+/usr/bin/chmod 600 "$local_scrubber" 2>/dev/null \
     || block private_environment
 if ! exec {local_scrubber_fd}<>"$local_scrubber" 2>/dev/null; then
     block private_environment
@@ -902,7 +906,7 @@ fi
 arm_teardown_deadline
 set -e
 
-success='{"category":"success","image_digest":"sha256:642f60668388b6c8e2d98f93577c9cd6a8aafaca7344dc4ab6a9e040774dec20","kind":"k3-registry-pull-gate-v17","platform":"linux/arm64","state":"complete"}'
+success='{"category":"success","image_digest":"sha256:642f60668388b6c8e2d98f93577c9cd6a8aafaca7344dc4ab6a9e040774dec20","kind":"k3-registry-pull-gate-v18","platform":"linux/arm64","state":"complete"}'
 if (( rc == 0 )) && [[ "$(/usr/bin/stat -Lc '%s' "$stdout_stream")" -eq $((${#success} + 1)) \
     && "$(<"$stdout_stream")" == "$success" ]]; then
     if ! cleanup_private_tree; then

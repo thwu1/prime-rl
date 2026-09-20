@@ -2,7 +2,7 @@
 set -euo pipefail
 umask 077
 
-readonly bundle=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/watchers/k3_registry_pull_gate_20260920t102000z_v17
+readonly bundle=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/watchers/k3_registry_pull_gate_20260920t105800z_v18
 readonly launcher=$bundle/launch.sh
 readonly controller=$bundle/controller.py
 readonly python=/usr/bin/python3.12
@@ -68,7 +68,7 @@ finally: os.close(fd)
 named=os.lstat(path); raw=b"".join(parts)
 if sig(before)!=sig(opened) or sig(opened)!=sig(after) or sig(after)!=sig(named) or not stat.S_ISREG(opened.st_mode) or stat.S_IMODE(opened.st_mode)!=0o500 or opened.st_uid!=656177 or opened.st_nlink!=1 or hashlib.sha256(raw).hexdigest()!=os.environ["EXPECTED_CONTROLLER_SHA256"]: raise SystemExit(82)
 seals=fcntl.F_SEAL_SEAL|fcntl.F_SEAL_SHRINK|fcntl.F_SEAL_GROW|fcntl.F_SEAL_WRITE
-mem=os.memfd_create("k3-registry-pull-gate-v17-controller",os.MFD_ALLOW_SEALING); view=memoryview(raw)
+mem=os.memfd_create("k3-registry-pull-gate-v18-controller",os.MFD_ALLOW_SEALING); view=memoryview(raw)
 while view:
  n=os.write(mem,view)
  if n<=0: raise SystemExit(83)

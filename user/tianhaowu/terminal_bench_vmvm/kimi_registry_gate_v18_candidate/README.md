@@ -1,4 +1,4 @@
-# Kimi registry pull gate v17
+# Kimi registry pull gate v18
 
 This inert bundle is a one-shot, task-free admission gate for RAM Common
 revision `b1f0aa6c1aabcad9182d85a694faaa2eaa3d0f6e`. It exists only to prove that

@@ -41,21 +41,21 @@ readonly tools_manifest=${GATE_LOCAL_TOOL_MANIFEST:-}
     && "$(/usr/bin/stat -Lc '%F:%a:%u:%h' -- "$aws_creds")" == 'regular file:500:656177:1' \
     && "$(/usr/bin/sha256sum -- "$worker" | /usr/bin/cut -d' ' -f1)" == "${GATE_WORKER_SHA256:-}" \
     && "$(/usr/bin/sha256sum -- "$aws_creds" | /usr/bin/cut -d' ' -f1)" == "${GATE_AWS_CREDS_SHA256:-}" \
-    && ( "$tools_manifest" == /var/slurm-tmp/k3-registry-pull-v17.batch.*.*/compute_tools.sha256 \
-        || "$tools_manifest" == /var/slurm-tmp/*/k3-registry-pull-v17.batch.*.*/compute_tools.sha256 \
-        || "$tools_manifest" == /tmp/k3-registry-pull-v17.batch.*.*/compute_tools.sha256 \
-        || "$tools_manifest" == /tmp/*/k3-registry-pull-v17.batch.*.*/compute_tools.sha256 ) \
+    && ( "$tools_manifest" == /var/slurm-tmp/k3-registry-pull-v18.batch.*.*/compute_tools.sha256 \
+        || "$tools_manifest" == /var/slurm-tmp/*/k3-registry-pull-v18.batch.*.*/compute_tools.sha256 \
+        || "$tools_manifest" == /tmp/k3-registry-pull-v18.batch.*.*/compute_tools.sha256 \
+        || "$tools_manifest" == /tmp/*/k3-registry-pull-v18.batch.*.*/compute_tools.sha256 ) \
     && "$tools_manifest" != /proc/self/fd/* \
     && "$tools_manifest" == "$(/usr/bin/readlink -f -- "$tools_manifest" 2>/dev/null)" \
     && "$(/usr/bin/stat -Lc '%F:%a:%u:%h' -- "$tools_manifest")" == 'regular file:400:656177:1' \
     && "$(/usr/bin/sha256sum -- "$tools_manifest" | /usr/bin/cut -d' ' -f1)" == "${GATE_TOOL_MANIFEST_SHA256:-}" \
-    && "$podman_guard" == /checkpoint/ram/tianhaowu/terminal_bench_vmvm/watchers/k3_registry_pull_gate_20260920t102000z_v17/podman_guard.sh \
+    && "$podman_guard" == /checkpoint/ram/tianhaowu/terminal_bench_vmvm/watchers/k3_registry_pull_gate_20260920t105800z_v18/podman_guard.sh \
     && "$(/usr/bin/stat -Lc '%F:%a:%u:%h' -- "$podman_guard")" == 'regular file:500:656177:1' \
     && "$(/usr/bin/sha256sum -- "$podman_guard" | /usr/bin/cut -d' ' -f1)" == "${GATE_PODMAN_GUARD_SHA256:-}" \
-    && ( "$scrubber" == /var/slurm-tmp/k3-registry-pull-v17.batch.*.*/scrub_private_tree.py \
-        || "$scrubber" == /var/slurm-tmp/*/k3-registry-pull-v17.batch.*.*/scrub_private_tree.py \
-        || "$scrubber" == /tmp/k3-registry-pull-v17.batch.*.*/scrub_private_tree.py \
-        || "$scrubber" == /tmp/*/k3-registry-pull-v17.batch.*.*/scrub_private_tree.py ) \
+    && ( "$scrubber" == /var/slurm-tmp/k3-registry-pull-v18.batch.*.*/scrub_private_tree.py \
+        || "$scrubber" == /var/slurm-tmp/*/k3-registry-pull-v18.batch.*.*/scrub_private_tree.py \
+        || "$scrubber" == /tmp/k3-registry-pull-v18.batch.*.*/scrub_private_tree.py \
+        || "$scrubber" == /tmp/*/k3-registry-pull-v18.batch.*.*/scrub_private_tree.py ) \
     && "$scrubber" != /proc/self/fd/* \
     && "$scrubber" == "$(/usr/bin/readlink -f -- "$scrubber" 2>/dev/null)" \
     && "$(/usr/bin/stat -Lc '%F:%a:%u:%h' -- "$scrubber")" == 'regular file:500:656177:1' \
@@ -684,9 +684,9 @@ trap exit_cleanup EXIT
 trap 'handle_signal HUP' HUP
 trap 'handle_signal INT' INT
 trap 'handle_signal TERM' TERM
-private_root=$(/usr/bin/mktemp -d "$local_parent/k3-registry-pull-v17.${SLURM_JOB_ID}.${SLURM_STEP_ID}.XXXXXX") \
+private_root=$(/usr/bin/mktemp -d "$local_parent/k3-registry-pull-v18.${SLURM_JOB_ID}.${SLURM_STEP_ID}.XXXXXX") \
     || blocked private_environment
-[[ "$private_root" == "$local_parent"/k3-registry-pull-v17."${SLURM_JOB_ID}"."${SLURM_STEP_ID}".* \
+[[ "$private_root" == "$local_parent"/k3-registry-pull-v18."${SLURM_JOB_ID}"."${SLURM_STEP_ID}".* \
     && -d "$private_root" && ! -L "$private_root" ]] \
     || blocked private_environment
 private_root_before=$(/usr/bin/stat -c '%d:%i:%a:%u' -- "$private_root" 2>/dev/null) \
@@ -954,5 +954,5 @@ if [[ -n "$pending_signal" ]]; then
     exit "$pending_signal_status"
 fi
 trap - EXIT HUP INT TERM
-/usr/bin/printf '{"category":"success","image_digest":"%s","kind":"k3-registry-pull-gate-v17","platform":"linux/arm64","state":"complete"}\n' \
+/usr/bin/printf '{"category":"success","image_digest":"%s","kind":"k3-registry-pull-gate-v18","platform":"linux/arm64","state":"complete"}\n' \
     "$GATE_IMAGE_DIGEST"
