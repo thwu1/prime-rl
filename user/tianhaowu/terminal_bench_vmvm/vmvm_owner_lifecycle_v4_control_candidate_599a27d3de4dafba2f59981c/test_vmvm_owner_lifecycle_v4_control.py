@@ -554,6 +554,129 @@ def test_signal_after_success_write_cannot_emit_second_record(
     assert not set(module.METADATA_HASH_ENV.values()) & set(environment)
 
 
+@pytest.mark.parametrize("fixture_name", ("recovery", "launch"))
+def test_signal_immediately_before_terminal_mask_cannot_escape_or_skip_scrub(
+    fixture_name: str,
+    request: pytest.FixtureRequest,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    module = request.getfixturevalue(fixture_name)
+    outputs: list[bytes] = []
+    injected = False
+    environment = {
+        "X2P_PROXY_URL": "test-only-proxy",
+        module.SELF_SHA_ENV: "a" * 64,
+        **{name: "b" * 64 for name in module.METADATA_HASH_ENV.values()},
+    }
+    if fixture_name == "launch":
+        environment[module.AUTHORIZATION_SHA_ENV] = "c" * 64
+
+    def inject_before_block(operation: int, _mask: set[signal.Signals]) -> set[signal.Signals]:
+        nonlocal injected
+        if operation == signal.SIG_BLOCK and not injected:
+            injected = True
+            module.signal_handler(signal.SIGTERM, None)
+        return set()
+
+    monkeypatch.setattr(module.signal, "pthread_sigmask", inject_before_block)
+    monkeypatch.setattr(module.signal, "signal", lambda _signum, _handler: None)
+    monkeypatch.setattr(module.os, "write", lambda _descriptor, payload: outputs.append(payload) or len(payload))
+    monkeypatch.setattr(module.os, "environ", environment)
+    monkeypatch.setattr(module, "TERMINAL_LATCHED", True)
+    secret_state: dict[str, str | None] = {"proxy": "test-only-proxy"}
+    assert module.terminalize(1, module.SUCCESS_OUTPUT, 0, secret_state) == 0
+    assert injected
+    assert outputs == [module.SUCCESS_OUTPUT]
+    assert secret_state == {"proxy": None}
+    assert "X2P_PROXY_URL" not in environment
+
+
+def test_launch_commit_latch_precedes_signal_delivery(launch: Any, monkeypatch: pytest.MonkeyPatch) -> None:
+    class FakeLauncher:
+        def __init__(self) -> None:
+            self._publish_success = self.publish_success
+
+        @staticmethod
+        def publish_success(*_args: object, **kwargs: object) -> str:
+            kwargs["commit_state"]["committed"] = True
+            return "receipt"
+
+        def launch(self, _authorization: Path, _authorization_sha: str) -> dict[str, object]:
+            commit_state = {"committed": False}
+            self._publish_success(commit_state=commit_state)
+            assert launch.SUBMISSION_COMMITTED
+            launch.signal_handler(signal.SIGTERM, None)
+            return {"state": "submitted", "submission_attempts": 1}
+
+    monkeypatch.setattr(launch.signal, "pthread_sigmask", lambda _operation, _signals: set())
+    monkeypatch.setattr(launch, "INTERRUPTED", False)
+    monkeypatch.setattr(launch, "SUBMISSION_COMMITTED", False)
+    monkeypatch.setattr(launch, "TERMINAL_LATCHED", False)
+    fake = FakeLauncher()
+    assert launch.launch_with_commit_latch(fake, "a" * 64) == {
+        "state": "submitted",
+        "submission_attempts": 1,
+    }
+    assert launch.SUBMISSION_COMMITTED
+    assert launch.TERMINAL_LATCHED
+    assert fake._publish_success == fake.publish_success
+
+
+def test_committed_launch_interrupt_before_success_assignment_reports_submitted_once(
+    launch: Any,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    metadata = {label: character * 64 for (label, _name), character in zip(launch.METADATA_HASH_ENV.items(), "cdef")}
+    environment = {
+        "THRIFT_TLS_CL_CERT_PATH": "/canonical/cert",
+        "THRIFT_TLS_CL_KEY_PATH": "/canonical/key",
+        "X2P_ENV": "test-environment",
+        "X2P_CFG_ENV": "test-config",
+        launch.SELF_SHA_ENV: "a" * 64,
+        launch.AUTHORIZATION_SHA_ENV: "b" * 64,
+        **{environment_name: metadata[label] for label, environment_name in launch.METADATA_HASH_ENV.items()},
+    }
+    self_path = Path(launch.__file__).resolve(strict=True)
+    launcher_path = Path("/checkpoint/example/launch_vmvm_owner_lifecycle_v4.py")
+    outputs: list[tuple[int, bytes]] = []
+
+    class FakeRecovery:
+        METADATA_HASH_ENV = launch.METADATA_HASH_ENV
+
+        @staticmethod
+        def recover_proxy(_received: dict[str, str]) -> str:
+            return "test-only-proxy"
+
+    fake_launcher = SimpleNamespace(_validate_outer_environment=lambda: None)
+
+    def committed_then_interrupted(_launcher: object, _authorization_sha: str) -> dict[str, object]:
+        launch.SUBMISSION_COMMITTED = True
+        launch.TERMINAL_LATCHED = True
+        raise launch.LaunchRecoveryInterrupted
+
+    monkeypatch.setattr(launch.os, "environ", environment)
+    monkeypatch.setattr(launch.sys, "argv", [str(self_path), "execute"])
+    monkeypatch.setattr(launch, "SELF_PATH", self_path)
+    monkeypatch.setattr(launch, "LAUNCHER", launcher_path)
+    monkeypatch.setattr(launch, "install_signal_handlers", lambda: None)
+    monkeypatch.setattr(launch, "validate_environment", lambda: ("a" * 64, "b" * 64, metadata))
+    monkeypatch.setattr(
+        launch,
+        "stable_file",
+        lambda path, **_kwargs: b"exact launcher bytes" if path == launcher_path else b"validated",
+    )
+    monkeypatch.setattr(launch, "stable_recovery_module", lambda: FakeRecovery)
+    monkeypatch.setattr(launch, "stable_launcher_module", lambda _raw: fake_launcher)
+    monkeypatch.setattr(launch, "canonicalize_tls", lambda _environment: None)
+    monkeypatch.setattr(launch, "launch_with_commit_latch", committed_then_interrupted)
+    monkeypatch.setattr(launch.signal, "pthread_sigmask", lambda _operation, _signals: set())
+    monkeypatch.setattr(launch.signal, "signal", lambda _signum, _handler: None)
+    monkeypatch.setattr(launch, "emit_bounded", lambda descriptor, payload: outputs.append((descriptor, payload)))
+    assert launch.main() == 0
+    assert outputs == [(1, launch.SUBMISSION_OUTPUT)]
+    assert "X2P_PROXY_URL" not in launch.os.environ
+
+
 @pytest.mark.parametrize("fixture_name", ("creator", "recovery", "launch"))
 def test_public_output_is_fixed_canonical_and_bounded(
     fixture_name: str,

@@ -17,7 +17,7 @@ RECOVERY_HELPER = Path(
     "/checkpoint/ram/tianhaowu/terminal_bench_vmvm/diagnostics/"
     "vmvm_v4_recover_and_create_auth_599a27d3de4dafba2f59981c.py"
 )
-RECOVERY_HELPER_SHA256 = "85772e4af97d47aa1cc34a32d886f4ad9b7058ef7f57577fad0d9cc9946206c5"
+RECOVERY_HELPER_SHA256 = "e1bdd66650218e647ca874145fc8b31afaa7594e56d2d08c54b78d93040cb68c"
 LAUNCHER = Path(
     "/checkpoint/ram/tianhaowu/terminal_bench_vmvm/watchers/"
     "vmvm_owner_lifecycle_9d7841b36_v4/launch_vmvm_owner_lifecycle_v4.py"
@@ -44,6 +44,8 @@ SUCCESS_OUTPUT = b'{"kind":"vmvm_v4_launch_recovery_candidate","state":"passed"}
 SUBMISSION_OUTPUT = b'{"state":"submitted","submission_attempts":1}\n'
 FAILURE_OUTPUT = b'{"code":"vmvm_v4_launch_recovery_failed","state":"failed"}\n'
 INTERRUPTED = False
+TERMINAL_LATCHED = False
+SUBMISSION_COMMITTED = False
 
 
 class LaunchRecoveryInterrupted(BaseException):
@@ -51,8 +53,11 @@ class LaunchRecoveryInterrupted(BaseException):
 
 
 def signal_handler(_signum: int, _frame: object) -> None:
-    global INTERRUPTED
+    global INTERRUPTED, TERMINAL_LATCHED
     INTERRUPTED = True
+    if TERMINAL_LATCHED:
+        return
+    TERMINAL_LATCHED = True
     raise LaunchRecoveryInterrupted
 
 
@@ -252,6 +257,30 @@ def audit_launcher(launcher: types.ModuleType, authorization_sha: str) -> None:
     del authorization_raw
 
 
+def launch_with_commit_latch(launcher: types.ModuleType, authorization_sha: str) -> dict[str, object]:
+    global SUBMISSION_COMMITTED, TERMINAL_LATCHED
+    original_publish_success = launcher._publish_success
+
+    def publish_success(*args: object, **kwargs: object) -> object:
+        global SUBMISSION_COMMITTED, TERMINAL_LATCHED
+        previous_mask = signal.pthread_sigmask(signal.SIG_BLOCK, HANDLED_SIGNALS)
+        try:
+            return original_publish_success(*args, **kwargs)
+        finally:
+            commit_state = kwargs.get("commit_state")
+            if isinstance(commit_state, dict) and commit_state == {"committed": True}:
+                SUBMISSION_COMMITTED = True
+                TERMINAL_LATCHED = True
+            signal.pthread_sigmask(signal.SIG_SETMASK, previous_mask)
+
+    launcher._publish_success = publish_success
+    try:
+        result = launcher.launch(AUTHORIZATION, authorization_sha)
+    finally:
+        launcher._publish_success = original_publish_success
+    return result
+
+
 def terminalize(
     descriptor: int,
     payload: bytes,
@@ -278,6 +307,10 @@ def terminalize(
 
 
 def main() -> int:
+    global INTERRUPTED, SUBMISSION_COMMITTED, TERMINAL_LATCHED
+    INTERRUPTED = False
+    SUBMISSION_COMMITTED = False
+    TERMINAL_LATCHED = False
     terminal = (2, FAILURE_OUTPUT, 2)
     terminal_result = 2
     secret_state: dict[str, str | None] = {"proxy": None}
@@ -344,13 +377,14 @@ def main() -> int:
             terminal = (1, SUCCESS_OUTPUT, 0)
         else:
             launcher._validate_outer_environment()
-            launcher._install_signal_handlers()
-            result = launcher.launch(AUTHORIZATION, authorization_sha)
+            result = launch_with_commit_latch(launcher, authorization_sha)
             if result != {"state": "submitted", "submission_attempts": 1}:
                 raise RuntimeError("launcher_result")
             terminal = (1, SUBMISSION_OUTPUT, 0)
+        TERMINAL_LATCHED = True
     except BaseException:  # noqa: BLE001
-        terminal = (2, FAILURE_OUTPUT, 2)
+        TERMINAL_LATCHED = True
+        terminal = (1, SUBMISSION_OUTPUT, 0) if SUBMISSION_COMMITTED else (2, FAILURE_OUTPUT, 2)
     finally:
         terminal_result = terminalize(*terminal, secret_state)
     return terminal_result

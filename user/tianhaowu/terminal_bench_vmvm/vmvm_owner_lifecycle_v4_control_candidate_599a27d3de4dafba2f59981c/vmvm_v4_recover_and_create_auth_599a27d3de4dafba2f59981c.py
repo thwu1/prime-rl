@@ -40,6 +40,7 @@ HANDLED_SIGNALS = {signal.SIGINT, signal.SIGTERM, signal.SIGHUP}
 SUCCESS_OUTPUT = b'{"kind":"vmvm_v4_credential_recovery_candidate","state":"passed"}\n'
 FAILURE_OUTPUT = b'{"code":"credential_recovery_failed","state":"failed"}\n'
 INTERRUPTED = False
+TERMINAL_LATCHED = False
 
 
 class RecoveryInterrupted(BaseException):
@@ -47,8 +48,11 @@ class RecoveryInterrupted(BaseException):
 
 
 def signal_handler(_signum: int, _frame: object) -> None:
-    global INTERRUPTED
+    global INTERRUPTED, TERMINAL_LATCHED
     INTERRUPTED = True
+    if TERMINAL_LATCHED:
+        return
+    TERMINAL_LATCHED = True
     raise RecoveryInterrupted
 
 
@@ -365,6 +369,9 @@ def terminalize(
 
 
 def main() -> int:
+    global INTERRUPTED, TERMINAL_LATCHED
+    INTERRUPTED = False
+    TERMINAL_LATCHED = False
     terminal = (2, FAILURE_OUTPUT, 2)
     terminal_result = 2
     secret_state: dict[str, str | None] = {"proxy": None}
@@ -413,7 +420,9 @@ def main() -> int:
             creator.install_signal_handlers()
             creator.create_authorization()
             terminal = (1, creator.SUCCESS_OUTPUT, 0)
+        TERMINAL_LATCHED = True
     except BaseException:
+        TERMINAL_LATCHED = True
         terminal = (2, FAILURE_OUTPUT, 2)
     finally:
         terminal_result = terminalize(*terminal, secret_state)
