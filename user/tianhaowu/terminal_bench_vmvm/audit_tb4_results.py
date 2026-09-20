@@ -33,7 +33,12 @@ from deployment_proxy_policy import (
     revalidate_deployment_proxy_policy,
     validate_proxy_policy_binding,
 )
-from eval_run_identity import EvalIdentityError, canonical_json, load_eval_run_identity
+from eval_run_identity import (
+    EvalIdentityError,
+    _verify_saved_provenance,
+    canonical_json,
+    load_eval_run_identity,
+)
 from guard_success_receipt import (
     GuardReceiptError,
     load_guard_success_receipt,
@@ -54,6 +59,8 @@ EXPECTED_SUPPORTED_TASK_COUNT = 63
 EXPECTED_MODEL = "Kimi-K3"
 EXPECTED_TB4_ROLLOUT_CONCURRENCY = 4
 EXPECTED_TB4_LEASE_START_CONCURRENCY = 2
+EXPECTED_SANDOQ_TB4_ROLLOUT_CONCURRENCY = 24
+EXPECTED_SANDOQ_TB4_LEASE_START_CONCURRENCY = 4
 EXPECTED_MIN_SUPPORTED_PASS_RATE = 0.04
 EXPECTED_MAX_SUPPORTED_PASS_RATE = 0.22
 EXPECTED_OUTBOUND_BODY_DENYLIST = frozenset({"logprobs", "prompt_logprobs", "return_token_ids", "top_logprobs"})
@@ -391,14 +398,41 @@ def _validate_tb4_identity(envelope: dict[str, Any]) -> dict[str, Any]:
         or not 0 < sampling_max_tokens <= DEFAULT_MAX_SEQUENCE_TOKENS
     ):
         raise TB4AuditError("eval_run_identity_contract_invalid")
-    vmvm_environment = execution.get("vmvm_environment")
+    source = identity.get("source")
+    provider = source.get("sandbox_provider", "vmvm") if isinstance(source, dict) else None
+    if provider == "vmvm":
+        environment = execution.get("vmvm_environment")
+        lease_start_concurrency = (
+            environment.get("lease_start_concurrency") if isinstance(environment, dict) else None
+        )
+        rollout_concurrency = EXPECTED_TB4_ROLLOUT_CONCURRENCY
+        expected_lease_start_concurrency = EXPECTED_TB4_LEASE_START_CONCURRENCY
+    elif provider == "sandoq":
+        environment = execution.get("sandoq_environment")
+        raw_lease_start_concurrency = (
+            environment.get("pool_create_workers") if isinstance(environment, dict) else None
+        )
+        if (
+            not isinstance(environment, dict)
+            or environment.get("environment") != "oci-runner"
+            or environment.get("task_network") != "public"
+            or type(environment.get("pool_size")) is not int
+            or environment["pool_size"] < EXPECTED_SANDOQ_TB4_ROLLOUT_CONCURRENCY
+            or not isinstance(raw_lease_start_concurrency, str)
+            or not raw_lease_start_concurrency.isdigit()
+        ):
+            raise TB4AuditError("tb4_concurrency_contract_invalid")
+        lease_start_concurrency = int(raw_lease_start_concurrency)
+        rollout_concurrency = EXPECTED_SANDOQ_TB4_ROLLOUT_CONCURRENCY
+        expected_lease_start_concurrency = EXPECTED_SANDOQ_TB4_LEASE_START_CONCURRENCY
+    else:
+        raise TB4AuditError("tb4_concurrency_contract_invalid")
     if (
-        execution.get("rollout_concurrency") != EXPECTED_TB4_ROLLOUT_CONCURRENCY
-        or execution.get("multiplex") != EXPECTED_TB4_ROLLOUT_CONCURRENCY
-        or execution.get("http_max_connections") != EXPECTED_TB4_ROLLOUT_CONCURRENCY
-        or execution.get("http_max_keepalive_connections") != EXPECTED_TB4_ROLLOUT_CONCURRENCY
-        or not isinstance(vmvm_environment, dict)
-        or vmvm_environment.get("lease_start_concurrency") != EXPECTED_TB4_LEASE_START_CONCURRENCY
+        execution.get("rollout_concurrency") != rollout_concurrency
+        or execution.get("multiplex") != rollout_concurrency
+        or execution.get("http_max_connections") != rollout_concurrency
+        or execution.get("http_max_keepalive_connections") != rollout_concurrency
+        or lease_start_concurrency != expected_lease_start_concurrency
     ):
         raise TB4AuditError("tb4_concurrency_contract_invalid")
     return identity
@@ -431,50 +465,12 @@ def _validate_provenance(
     identity: dict[str, Any],
     identity_sha256: str,
 ) -> None:
-    try:
-        lines = path.read_text(encoding="utf-8").splitlines()
-    except OSError as error:
-        raise TB4AuditError("provenance_unreadable") from error
-    records: dict[str, str] = {}
-    for line in lines:
-        key, separator, value = line.partition("=")
-        if not separator or not key or not value or key in records:
-            raise TB4AuditError("provenance_invalid")
-        records[key] = value
-
-    source = identity.get("source")
-    deployment = identity.get("deployment")
-    inputs = identity.get("inputs")
-    if not all(isinstance(value, dict) for value in (source, deployment, inputs)):
-        raise TB4AuditError("eval_run_identity_schema_invalid")
-    assert isinstance(source, dict) and isinstance(deployment, dict) and isinstance(inputs, dict)
-    task_file = inputs.get("task_file")
-    if not isinstance(task_file, dict):
-        raise TB4AuditError("eval_run_identity_schema_invalid")
-    stable = {
-        "prime_rl": source.get("prime_rl_commit"),
-        "prime_rl_tree": source.get("prime_rl_tree_sha256"),
-        "verifiers": source.get("verifiers_commit"),
-        "verifiers_tree": source.get("verifiers_tree_sha256"),
-        "renderers": source.get("renderers_commit"),
-        "renderers_tree": source.get("renderers_tree_sha256"),
-        "vmvm_tb_v2": source.get("vmvm_tb_v2_sha256"),
-        "deployment_id": deployment.get("id"),
-        "deployment_endpoint_authority_sha256": deployment.get("endpoint", {}).get("authority_sha256"),
-        "deployment_proxy_info_sha256": deployment.get("endpoint", {}).get("proxy_info", {}).get("sha256"),
-        "eval_run_role": "tb4",
-        "eval_run_identity_sha256": identity_sha256,
-        "approval_task_file_sha256": task_file.get("sha256"),
-        "approval_task_count": str(EXPECTED_TASK_COUNT),
-    }
-    expected_keys = {*stable, "host", "slurm_job_id"}
-    if (
-        set(records) != expected_keys
-        or any(not isinstance(value, str) or records.get(key) != value for key, value in stable.items())
-        or not records.get("host", "").strip()
-        or not records.get("slurm_job_id", "").isdigit()
-    ):
+    if path != path.parent / "provenance.txt":
         raise TB4AuditError("provenance_mismatch")
+    try:
+        _verify_saved_provenance(path.parent, identity, identity_sha256)
+    except EvalIdentityError as error:
+        raise TB4AuditError("provenance_mismatch") from error
 
 
 def _validate_deployment_checkpoints_legacy(
@@ -828,6 +824,13 @@ def certify_tb4_results(
         ):
             raise TB4AuditError("identity_artifact_sha256_mismatch")
 
+        sandbox_provider = identity["source"].get("sandbox_provider", "vmvm")
+        if sandbox_provider == "sandoq":
+            expected_rollout_concurrency = EXPECTED_SANDOQ_TB4_ROLLOUT_CONCURRENCY
+            expected_lease_start_concurrency = EXPECTED_SANDOQ_TB4_LEASE_START_CONCURRENCY
+        else:
+            expected_rollout_concurrency = EXPECTED_TB4_ROLLOUT_CONCURRENCY
+            expected_lease_start_concurrency = EXPECTED_TB4_LEASE_START_CONCURRENCY
         unsigned = {
             "schema_version": 1,
             "state": "passed",
@@ -848,8 +851,8 @@ def certify_tb4_results(
                 "model": EXPECTED_MODEL,
                 "reasoning_effort": "max",
                 "max_sequence_tokens": max_sequence_tokens,
-                "rollout_concurrency": EXPECTED_TB4_ROLLOUT_CONCURRENCY,
-                "lease_start_concurrency": EXPECTED_TB4_LEASE_START_CONCURRENCY,
+                "rollout_concurrency": expected_rollout_concurrency,
+                "lease_start_concurrency": expected_lease_start_concurrency,
                 "require_reasoning": True,
                 "require_response": True,
                 "require_model_io": True,

@@ -225,6 +225,33 @@ def _write_once(path: Path, payload: dict[str, Any], *, allow_identical_existing
         temporary.unlink(missing_ok=True)
 
 
+def _lease_start_concurrency(
+    identity: dict[str, Any],
+    execution: dict[str, Any],
+) -> int:
+    if not isinstance(execution, dict):
+        raise SmokeCertificateError("eval_identity_execution_invalid")
+    source = identity.get("source")
+    provider = source.get("sandbox_provider", "vmvm") if isinstance(source, dict) else "vmvm"
+    if provider == "vmvm":
+        environment = execution.get("vmvm_environment")
+        value = environment.get("lease_start_concurrency") if isinstance(environment, dict) else None
+    elif provider == "sandoq":
+        environment = execution.get("sandoq_environment")
+        raw_value = environment.get("pool_create_workers") if isinstance(environment, dict) else None
+        if not isinstance(raw_value, str) or re.fullmatch(r"[1-9][0-9]*", raw_value) is None:
+            raise SmokeCertificateError("eval_identity_execution_invalid")
+        value = int(raw_value)
+        pool_size = environment.get("pool_size") if isinstance(environment, dict) else None
+        if type(pool_size) is not int or pool_size < value:
+            raise SmokeCertificateError("eval_identity_execution_invalid")
+    else:
+        raise SmokeCertificateError("eval_identity_execution_invalid")
+    if type(value) is not int or value < 1:
+        raise SmokeCertificateError("eval_identity_execution_invalid")
+    return value
+
+
 def certify_smoke(
     run_dir: Path,
     *,
@@ -329,7 +356,6 @@ def certify_smoke(
             raise SmokeCertificateError("eval_identity_deployment_invalid")
         endpoint = _validated_endpoint(identity)
         execution = identity.get("execution")
-        vmvm_environment = execution.get("vmvm_environment") if isinstance(execution, dict) else None
         deployment_id = deployment.get("id")
         spec = deployment.get("spec")
         try:
@@ -359,9 +385,7 @@ def certify_smoke(
             "http_max_keepalive_connections": (
                 execution.get("http_max_keepalive_connections") if isinstance(execution, dict) else None
             ),
-            "lease_start_concurrency": (
-                vmvm_environment.get("lease_start_concurrency") if isinstance(vmvm_environment, dict) else None
-            ),
+            "lease_start_concurrency": _lease_start_concurrency(identity, execution),
         }
         if any(
             isinstance(value, bool) or not isinstance(value, int) or value < 1 for value in execution_fields.values()

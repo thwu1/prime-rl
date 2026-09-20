@@ -17,7 +17,7 @@ capture_model_io = true
 outbound_body_denylist = ["logprobs", "prompt_logprobs", "top_logprobs", "return_token_ids"]
 base_url = "http://127.0.0.1:8000/v1"
 api_key_var = "OPENAI_API_KEY"
-timeout = 7200
+timeout = 43200
 connect_timeout = 120
 max_connections = 2
 max_keepalive_connections = 2
@@ -53,7 +53,7 @@ request_timeout_seconds = 15000
 [harness.runtime]
 type = "sandoq"
 mode = "oci-runner"
-session_timeout = 43200
+session_timeout = 32400
 network_access = true
 host_tunnel = "none"
 expected_environment = "oci-runner"
@@ -61,7 +61,7 @@ ecr_token_file = "/storage/home/tianhaowu/.config/oci-runner/ecr-token"
 
 [timeout]
 setup = 3600
-rollout = 36000
+rollout = 28800
 finalize = 3600
 scoring = 21600
 

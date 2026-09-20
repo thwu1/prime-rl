@@ -46,6 +46,31 @@ def _json_digest(value: dict) -> str:
     return _sha256_bytes(encoded)
 
 
+def test_sandoq_lease_start_concurrency_uses_pool_create_workers() -> None:
+    identity = {"source": {"sandbox_provider": "sandoq"}}
+    execution = {
+        "sandoq_environment": {
+            "pool_size": 24,
+            "pool_create_workers": "4",
+        }
+    }
+
+    assert smoke_module._lease_start_concurrency(identity, execution) == 4
+
+
+def test_sandoq_lease_start_concurrency_rejects_pool_overcommit() -> None:
+    identity = {"source": {"sandbox_provider": "sandoq"}}
+    execution = {
+        "sandoq_environment": {
+            "pool_size": 2,
+            "pool_create_workers": "4",
+        }
+    }
+
+    with pytest.raises(SmokeCertificateError, match="^eval_identity_execution_invalid$"):
+        smoke_module._lease_start_concurrency(identity, execution)
+
+
 def _trace(trace_id: str, task: str, *, start: float, end: float) -> dict:
     request = {
         "model": "Kimi-K3",

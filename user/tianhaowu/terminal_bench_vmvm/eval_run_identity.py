@@ -66,6 +66,7 @@ EXPECTED_MODEL_IO_CONTRACT = {
 }
 MAX_METADATA_BYTES = 64 * 1024 * 1024
 KIMI_REQUEST_TIMEOUT_SECONDS = 43_200
+KIMI_HOST_HARNESS_REQUEST_TIMEOUT_SECONDS = 15_000
 KIMI_CONNECT_TIMEOUT_SECONDS = 120
 KIMI_SETUP_TIMEOUT_SECONDS = 3_600
 KIMI_FINALIZE_TIMEOUT_SECONDS = 3_600
@@ -107,15 +108,26 @@ def validate_kimi_timeout_contract(
     timeouts = config.get("timeout")
     runtime = harness.get("runtime") if isinstance(harness, dict) else None
     overrides = harness.get("config_overrides") if isinstance(harness, dict) else None
-    if (
-        not all(isinstance(value, dict) for value in (client, timeouts, runtime))
-        or not isinstance(overrides, list)
-        or any(not isinstance(value, str) for value in overrides)
-    ):
+    if not all(isinstance(value, dict) for value in (client, harness, timeouts, runtime)):
         raise EvalIdentityError("kimi_timeout_contract_invalid")
     assert isinstance(client, dict) and isinstance(timeouts, dict) and isinstance(runtime, dict)
-    harness_timeout_override = f"model.model_kwargs.timeout={KIMI_REQUEST_TIMEOUT_SECONDS}"
-    harness_timeout_entries = [value for value in overrides if value.startswith("model.model_kwargs.timeout=")]
+    assert isinstance(harness, dict)
+    host_harness = harness.get("id") == "terminal-bench-sandoq-host"
+    if host_harness:
+        harness_timeout_valid = (
+            overrides is None
+            and harness.get("request_timeout_seconds") == KIMI_HOST_HARNESS_REQUEST_TIMEOUT_SECONDS
+        )
+        harness_request_timeout = KIMI_HOST_HARNESS_REQUEST_TIMEOUT_SECONDS
+    else:
+        if not isinstance(overrides, list) or any(not isinstance(value, str) for value in overrides):
+            raise EvalIdentityError("kimi_timeout_contract_invalid")
+        harness_timeout_override = f"model.model_kwargs.timeout={KIMI_REQUEST_TIMEOUT_SECONDS}"
+        harness_timeout_entries = [
+            value for value in overrides if value.startswith("model.model_kwargs.timeout=")
+        ]
+        harness_timeout_valid = harness_timeout_entries == [harness_timeout_override]
+        harness_request_timeout = KIMI_REQUEST_TIMEOUT_SECONDS
     request_timeout = client.get("timeout")
     connect_timeout = client.get("connect_timeout")
     setup_timeout = timeouts.get("setup")
@@ -143,7 +155,7 @@ def validate_kimi_timeout_contract(
 
     if (
         not exact_number(request_timeout, KIMI_REQUEST_TIMEOUT_SECONDS)
-        or harness_timeout_entries != [harness_timeout_override]
+        or not harness_timeout_valid
         or not exact_number(connect_timeout, KIMI_CONNECT_TIMEOUT_SECONDS)
         or not exact_number(setup_timeout, KIMI_SETUP_TIMEOUT_SECONDS)
         or not any(exact_number(rollout_timeout, profile["rollout_timeout"]) for profile in allowed_profiles.values())
@@ -155,7 +167,7 @@ def validate_kimi_timeout_contract(
         raise EvalIdentityError("kimi_timeout_contract_invalid")
     return {
         "request_timeout": request_timeout,
-        "harness_request_timeout": KIMI_REQUEST_TIMEOUT_SECONDS,
+        "harness_request_timeout": harness_request_timeout,
         "connect_timeout": connect_timeout,
         "setup_timeout": setup_timeout,
         "rollout_timeout": rollout_timeout,
@@ -173,6 +185,9 @@ def validate_kimi_retry_contract(config: dict[str, Any]) -> dict[str, Any]:
     expected = KIMI_FULL_RETRY_EXCEPTIONS
     include = rollout.get("include") if isinstance(rollout, dict) else None
     exclude = rollout.get("exclude") if isinstance(rollout, dict) else None
+    harness = config.get("harness")
+    host_harness = isinstance(harness, dict) and harness.get("id") == "terminal-bench-sandoq-host"
+    expected_retries = 0 if host_harness else 2
     if (
         not isinstance(retries, dict)
         or set(retries) != {"rollout"}
@@ -180,7 +195,7 @@ def validate_kimi_retry_contract(config: dict[str, Any]) -> dict[str, Any]:
         or not {"max_retries", "include"}.issubset(rollout)
         or not set(rollout).issubset({"max_retries", "include", "exclude"})
         or type(rollout.get("max_retries")) is not int
-        or rollout["max_retries"] != 2
+        or rollout["max_retries"] != expected_retries
         or not isinstance(include, list)
         or any(not isinstance(value, str) for value in include)
         or len(include) != len(expected)
@@ -190,7 +205,7 @@ def validate_kimi_retry_contract(config: dict[str, Any]) -> dict[str, Any]:
     ):
         raise EvalIdentityError("kimi_retry_contract_invalid")
     return {
-        "max_retries": 2,
+        "max_retries": expected_retries,
         "include": sorted(expected),
         "exclude": [],
     }

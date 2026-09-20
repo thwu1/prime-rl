@@ -101,6 +101,32 @@ def _resolved_config() -> dict:
     }
 
 
+def _sandoq_kimi_config(*, smoke: bool) -> dict:
+    config = _resolved_config()
+    config["model"] = "Kimi-K3"
+    config["client"]["timeout"] = 43_200
+    config["harness"] = {
+        "id": "terminal-bench-sandoq-host",
+        "command_timeout_seconds": 240,
+        "command_kill_grace_seconds": 10,
+        "max_command_output_chars": 100_000,
+        "request_timeout_seconds": 15_000,
+        "runtime": {
+            "type": "sandoq",
+            "mode": "oci-runner",
+            "network_access": True,
+            "host_tunnel": "none",
+            "expected_environment": "oci-runner",
+            "ecr_token_file": "/private/ecr-token",
+            "session_timeout": 32_400 if smoke else 43_200,
+        },
+    }
+    config["taskset"] = {"verifier_runtime_retries": 0}
+    config["retries"]["rollout"]["max_retries"] = 0
+    config["timeout"]["rollout"] = 28_800 if smoke else 36_000
+    return config
+
+
 def _identity() -> dict:
     artifact_sha256 = "a" * 64
     clean_sha256 = hashlib.sha256(b"").hexdigest()
@@ -739,6 +765,28 @@ def test_kimi_eval_role_selects_approved_smoke_or_full_timeout_profile() -> None
     _contract(config, "Kimi-K3", role="smoke")
     with pytest.raises(EvalIdentityError, match="^kimi_timeout_contract_invalid$"):
         _contract(config, "Kimi-K3", role="tb4")
+
+
+@pytest.mark.parametrize(("role", "smoke"), [("smoke", True), ("tb4", False)])
+def test_kimi_sandoq_host_contract_uses_approved_timeout_and_zero_retry(
+    role: str,
+    smoke: bool,
+) -> None:
+    config = _sandoq_kimi_config(smoke=smoke)
+
+    timeout_contract = validate_kimi_timeout_contract(config, required_profile="smoke" if smoke else "full")
+    retry_contract = validate_kimi_retry_contract(config)
+    contract, execution = _contract(
+        config,
+        "Kimi-K3",
+        role=role,
+        sandbox_provider="sandoq",
+    )
+
+    assert timeout_contract["harness_request_timeout"] == 15_000
+    assert retry_contract["max_retries"] == 0
+    assert contract["harness"]["id"] == "terminal-bench-sandoq-host"
+    assert execution["runtime"]["type"] == "sandoq"
 
 
 @pytest.mark.parametrize(
