@@ -1,6 +1,6 @@
 # VMVM sandbox coordination
 
-Last updated: 2026-09-20 20:08 UTC
+Last updated: 2026-09-20 20:17 UTC
 
 ## First message to the next teammate
 
@@ -30,7 +30,7 @@ this shared branch again.
 
 | Owner | Cluster | Scope | Files | Live resources | State / next gate |
 |---|---|---|---|---|---|
-| Codex continuation for `tianhaowu` | `fair-cw-use2-3` | Review and qualify the source-bound Kimi registry v31 gate; repair VMVM retained-artifact cleanup without destructive pathname races; no serving/eval/trace launch until both task-free gates pass | `user/tianhaowu/terminal_bench_vmvm/kimi_registry_direct_pull_v31_candidate/**`, `environments/vmvm_tb_v2/**`, VMVM task-free diagnostic/recovery controls, `COORDINATION.md` | registry v30 `1760502` completed `0:0`; v31 candidate `70cf8a075`; no active Slurm jobs | V30 proved the exact-digest registry path against old source `b1f0aa6`; v31 binds corrected RAM source `468a6e5` but remains unsealed and unapproved. Exact-head offline tests pass 647/647, shell syntax and lint pass; format check currently fails on two Python files, so regenerate and review all hashes after formatting. VMVM lifecycle canary remains blocked by cleanup and retained-recovery TOCTOU holds. No approval, job, serving deployment, TB4 evaluation, or trace rollout has been created. |
+| Codex continuation for `tianhaowu` | `fair-cw-use2-3` | Review and qualify the source-bound Kimi registry gate; repair VMVM retained-artifact cleanup without destructive pathname races; no serving/eval/trace launch until both task-free gates pass | `user/tianhaowu/terminal_bench_vmvm/kimi_registry_direct_pull_v{31,32}_candidate/**`, `environments/vmvm_tb_v2/**`, VMVM task-free diagnostic/recovery controls, `COORDINATION.md` | registry v30 `1760502` completed `0:0`; v31 `1760687` canceled while held; v32 source `2585141c8`; no active Slurm jobs | V31 was manually interrupted while its sole job was still held: zero allocation/runtime, no public log or result, terminal lock category `signal`; its approval and namespace are consumed. Fresh V32 preserves source binding to corrected RAM `468a6e5`, rotates every mutable namespace, and makes the Python sources format-clean. Exact-Python-3.12 tests pass 647/647; lint, format, shell syntax, pending-contract, and stale-namespace checks pass. V32 remains unsealed and unapproved pending independent exact-source review. VMVM lifecycle remains blocked by cleanup and retained-recovery TOCTOU holds. No serving, TB4 evaluation, or trace rollout has launched. |
 | Codex session for `tianhaowu` | `fair-cw-use2-3` | Kimi serving, full TB4 pass@1, and gated 2,500-task rollout | `user/tianhaowu/terminal_bench_vmvm/**`, `user/tianhaowu/deepswe_vmvm/{README.md,run_runtime_smoke.sbatch,smoke_runtime.py}`, `environments/vmvm_tb_v2/**`, `deps/verifiers` gitlink | terminal VMVM v8 proof `1758642`; terminal V22 oracle canary `1758643`; held-only comparator `1759098`; terminal VMVM client comparator `1759106`; consumed registry gates v16-v18 (`1759515`, `1759581`); consumed fresh VMVM lifecycle `1759580` | VMVM owner-thread/wrapper fix is integrated at `fc65951fb`; the repaired lifecycle diagnostic is integrated at `95b8012a9`. Its fresh reviewed launch reached `probe_execution` but failed before certificate publication, so the result is preserved and a classified successor is required. Kimi v18 is integrated/pushed at `0614ff15c`; its stable terminal-accounting repair worked and produced a durable result, but the job failed in batch `source_identity` preflight before any numeric `srun` step, registry call, or probe. Both namespaces are consumed. The inert serving successor remains gated on successful fresh registry and VMVM canaries. No serving, TB4, or 2,500-task trace rollout has launched. Never inspect task prompts/bodies, task identifiers, raw errors, credential values, or model/tool/trace content. |
 | Codex session for `tianhaowu` | `fair-cw-use2-1` | Add a direct one-token KDA state-reuse probe; no serving or eval mutation | `user/tianhaowu/terminal_bench_vmvm/{probe_inference_routes.py,tests/test_probe_inference_routes.py,HANDOFF.md,COORDINATION.md}` | none | Extend the existing readiness probe with serial raw-completion predecessor/one-token-target cycles on every discovered sticky backend, without logprobs or response token IDs. Fail closed on unsupported routing, semantic corruption, or predecessor-dependent target output. |
 | Codex session for `tianhaowu` | `fair-cw-use2-1` | Qwen accepted TB4 gate and 2,500-task production rollout | Qwen direct-router configs, VMVM backend, repair/export controller, focused tests, runtime skill | accepted TB4 diagnostic `1435776`; cap-32 affinity producer `1454171` running; exact-head x86 smoke `1468446` completed; reviewed replacement chain `1468451` dependency-pending; obsolete chains `1457232` and `1465246` canceled; endpoint `shared_qwen38_2p4t`; PRs `thwu1/prime-rl#35`, `#36`, `#37`, `#38`, `#39`, and `#40`; verifier PR `thwu1/verifiers#2` | The user explicitly accepted the existing 7/66 TB4 result as the approximately 11% gate and directed us not to rerun it. The live producer retains 64 task sessions, 32 client/provider slots, two lease starts, fail-closed `consistent_hash` / `x-session-id`, and a 256K cap. Immutable prefix 1,000 has SHA-256 `7862f68057aecc9c2bdb22a15e5cbe21ec03aa10059a625e2fa1316e4c347117`: 583 pass, 381 scored fail, 36 ordinary error, zero invalid, for a 60.48% scored pass rate. Exact SFT trainability validation accepts 581/583 passing traces and quarantines two; the audit covers 41,220,772 sampled completion tokens and 19,358 captured model-I/O turns. At 08:01 UTC the producer remained healthy and RUNNING with 1,002 durable rows, recent throughput approximately 47 rows/hour, and approximately 32 hours remaining. Draft PR `#40` is independently approved at exact head `fe813c0f6`; frozen-source x86 smoke `1468446` passed 249/249, and replacement controller `1468451` is pending on `afterany:1454171`. Obsolete held controller `1465246` was canceled only after the replacement was verified dependency-held. Broad `HarnessError` retry and retry exclusions remain forbidden. Never inspect task IDs, prompts, responses, raw errors, or trace/model/tool bodies. |
@@ -5135,3 +5135,23 @@ replay passed 263/263. The aggregate decode/cleanup boundary is unchanged.
   quarantined retention truthfully rather than claim deletion. Production
   backend cleanup remains a separate lane and is still held pending its own
   race review.
+
+## 2026-09-20 20:17 UTC — v31 interrupted while held; v32 source ready for independent review
+
+- V31 was frozen and privately approved, but its execute command received a
+  manual interrupt while the sole submitted job `1760687` remained user-held.
+  Accounting proves zero allocation, zero elapsed runtime, and no assigned
+  node. The controller canceled the exact job and published terminal lock
+  category `signal`; no public log, durable job result, registry call, image
+  operation, or final result exists. The V31 approval and all of its namespaces
+  are consumed and must never be retried.
+- Fresh V32 source `2585141c8` rotates the bundle, approval, lock, output, log,
+  job-name, scheduler-comment, kind, and memfd namespaces while retaining exact
+  reviewed RAM source `468a6e5b83ba51a8fe0389f1105f34dd18fa03f3` and its
+  immutable source bundle. Python 3.12 tests pass 647/647; Ruff lint and format,
+  Bash syntax, canonical pending-contract, diff, and stale-namespace checks
+  pass. It remains inert: no frozen bundle, approval, audit, or scheduler job
+  exists. Require an independent exact-source and frozen-byte review before
+  creating one new approval or invoking execute.
+- VMVM retained recovery and production cleanup remain independently held.
+  Do not launch serving, TB4, or trace generation from registry evidence alone.
