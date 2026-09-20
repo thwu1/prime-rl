@@ -98,10 +98,15 @@ The launcher holds open descriptors for source, bundle, x86 site, output parent,
 and reservation. Reservation files are created relative to the held dirfd; the
 writer lock and receipts stay on that same inode. Wrapper bytes are submitted
 through stdin. The batch wrapper matches every authorized device/inode tuple,
-opens the probe from the bundle dirfd, and invokes it as `/proc/self/fd/N`.
-Both the wrapper and Python preflight validate that inherited descriptor's
-strict grammar, readlink target, fstat identity, mode, owner, link count, size,
-and digest; Python uses `pread`, so an inherited file offset is irrelevant.
+opens the probe and uv from their authorized locations, copies each descriptor
+with `pread` into a named `memfd`, applies `F_SEAL_WRITE`, `F_SEAL_GROW`,
+`F_SEAL_SHRINK`, `F_SEAL_EXEC`, and `F_SEAL_SEAL`, and executes only the
+anonymous uv and probe inodes after re-hashing each sealed destination. Every
+probe process verifies the inherited descriptor name, fstat identity, mode,
+owner, zero link count, seal mask, size,
+and digest before admission or worker activity. A restored pathname can
+therefore neither alter the bytes already selected for execution nor satisfy a
+changed digest.
 The Python preflight rejects pathname invocation: the probe, source, site, and
 output parent must all arrive as inherited `/proc/self/fd/N` descriptors. Before
 the first cell, the supervisor copies the fully attested imported source and
@@ -116,10 +121,11 @@ change, watcher overflow, or lease break aborts the run. Landlock ABI 3 or
 newer, file leases, and inotify are runtime admission requirements. Both
 snapshot manifests are also checked immediately before and after every child
 and recorded in the certificate. A mutate-then-restore race against either
-original input therefore cannot silently change executed bytes. The finalizer also
-validates every semantic field of the original launch authorization and
-re-hashes the exact six-file bundle, including its own authorized path and
-bytes, before accepting a completion authorization.
+original input therefore cannot silently change executed bytes. The finalizer
+also requires sealed-memfd invocation. It verifies its loaded anonymous bytes
+before parsing the completion authorization, then binds their digest and size
+to the finalizer record in the original launch authorization; re-hashing the
+pathname alone is insufficient.
 
 ## Two-party completion
 
@@ -136,14 +142,37 @@ reservation identity, and hashes for all six reservation artifacts (writer
 lock, launch intent, environment, held-job authorization, submission receipt,
 and activation permit),
 exact cluster/job/name lineage, and receipt path. Only
-`finalize_vmvm_task_free_v2.py` consumes it. The finalizer reopens and re-hashes
-the launch authorization, reservation lineage, and sealed output by dirfd;
+`finalize_vmvm_task_free_v2.py` consumes it. A pathname invocation is rejected:
+the independent reviewer must first read the mode-0500, single-link finalizer,
+verify its frozen SHA-256, copy those bytes to a `vmvm-finalizer-v2` memfd, apply
+the write/grow/shrink/exec/seal seals, and invoke Python on that inherited
+`/proc/self/fd/N`. The required CLI additionally supplies `--bundle-root` and
+`--self-sha256`; the latter must be the frozen bundle's finalizer digest. The
+finalizer reopens and re-hashes the launch authorization, reservation lineage,
+and sealed output by dirfd;
 cross-checks all hashes and job identities; independently recomputes result,
 failure, retry/phase, construction-contrast, outcome-contrast, and causal
 aggregates from all 48 stage rows; and writes
 `<output>.external-completion.json` outside the output directory with `O_EXCL`.
 Its returned SHA-256 is the external completion hash. Without that receipt, the
 diagnostic is not complete.
+
+Linux 6.14 on the target hosts has no `rmdir` operation that accepts an already
+opened directory descriptor (`unlinkat` rejects `AT_EMPTY_PATH|AT_REMOVEDIR`).
+Cleanup therefore atomically detaches each scratch root with
+`renameat2(RENAME_NOREPLACE)` to a fresh 256-bit quarantine name and verifies
+the moved inode before traversal. An inotify watch on the held parent requires
+the exact detach pair, a quiet queue immediately before `rmdir`, the exact
+quarantine deletion event, and no event through the final public-name absence
+check. If the public name was swapped, the unrelated replacement is restored
+when possible (otherwise retained under quarantine) and cleanup fails closed.
+Any inability to prove both removal of the bound quarantine and continued
+absence of the public name also fails the diagnostic; unrelated replacements
+are never deliberately removed. The kernel still cannot make the last identity
+check and pathname `rmdir` one operation: inotify makes any observed
+interference fatal, but cannot roll back an adversarial swap that lands inside
+that final syscall boundary. Independent review must accept that residual risk
+before authorizing this diagnostic.
 
 ## Fixed fresh namespaces
 

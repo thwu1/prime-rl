@@ -26,7 +26,6 @@ COMPLETION_RECEIPT = Path(f"{OUTPUT_ROOT}.external-completion.json")
 RESERVATION = Path(f"{OUTPUT_ROOT}.launch-reservation")
 LOG_ROOT = BASE / "logs/vmvm_v21_task_free_ab_a09a9a189_v2"
 SCRATCH_ROOT = Path("/tmp/vmvm-v21-task-free-ab-v2")
-BUNDLE_ROOT = Path(__file__).resolve(strict=True).parent
 X86_UV = Path("/storage/home/tianhaowu/.local/x86_64/bin/uv")
 X86_SITE = BASE / "python_x86_64"
 VACLI = Path("/public/fbpkgs/x86_64/vacli/stable/vacli")
@@ -45,6 +44,13 @@ CLUSTER = "fair-cw-use2-3"
 JOB_TIME_LIMIT = "36:00:00"
 TLS_NAMES = ("THRIFT_TLS_CL_CERT_PATH", "THRIFT_TLS_CL_KEY_PATH")
 X2P_NAMES = ("X2P_ENV", "X2P_CFG_ENV", "X2P_PROXY_URL")
+REQUIRED_MEMFD_SEALS = (
+    fcntl.F_SEAL_SEAL
+    | fcntl.F_SEAL_SHRINK
+    | fcntl.F_SEAL_GROW
+    | fcntl.F_SEAL_WRITE
+    | 0x20  # F_SEAL_EXEC; absent from Python 3.12 fcntl constants.
+)
 TLS_EXPECTED_SIZE = 5580
 STAGES = (
     "direct_client",
@@ -184,6 +190,72 @@ def stable_file_at(
     if expected_sha256 is not None and digest != expected_sha256:
         fail(code)
     return bytes(raw)
+
+
+def validate_finalizer_execution(
+    script_path: Path,
+    *,
+    bundle_root: Path,
+    expected_sha256: str,
+) -> dict[str, object]:
+    match = re.fullmatch(r"/proc/self/fd/([3-9]|[1-9][0-9]+)", str(script_path))
+    if (
+        match is None
+        or SHA_RE.fullmatch(expected_sha256) is None
+        or not bundle_root.is_absolute()
+        or bundle_root.name in {"", ".", ".."}
+    ):
+        fail("finalizer_execution_invalid")
+    descriptor = int(match.group(1))
+    try:
+        if os.readlink(script_path) != "/memfd:vmvm-finalizer-v2 (deleted)":
+            fail("finalizer_execution_invalid")
+        before = os.fstat(descriptor)
+        stable_fields = (
+            "st_dev",
+            "st_ino",
+            "st_mode",
+            "st_uid",
+            "st_nlink",
+            "st_size",
+            "st_mtime_ns",
+            "st_ctime_ns",
+        )
+        seals = fcntl.fcntl(descriptor, fcntl.F_GET_SEALS)
+        if (
+            not stat.S_ISREG(before.st_mode)
+            or stat.S_IMODE(before.st_mode) != 0o500
+            or before.st_uid != os.getuid()
+            or before.st_nlink != 0
+            or not 0 < before.st_size <= (2 << 20)
+            or seals & REQUIRED_MEMFD_SEALS != REQUIRED_MEMFD_SEALS
+        ):
+            fail("finalizer_execution_invalid")
+        raw = bytearray()
+        offset = 0
+        while offset < before.st_size:
+            chunk = os.pread(descriptor, min(1 << 20, before.st_size - offset), offset)
+            if not chunk:
+                fail("finalizer_execution_invalid")
+            raw.extend(chunk)
+            offset += len(chunk)
+        after = os.fstat(descriptor)
+        observed_seals = fcntl.fcntl(descriptor, fcntl.F_GET_SEALS)
+    except (OSError, ValueError) as error:
+        raise FinalizeError("finalizer_execution_invalid") from error
+    if (
+        any(getattr(before, field) != getattr(after, field) for field in stable_fields)
+        or observed_seals != seals
+        or len(raw) != before.st_size
+        or sha256_bytes(raw) != expected_sha256
+    ):
+        fail("finalizer_execution_invalid")
+    return {
+        "bundle_root": str(bundle_root),
+        "seals": seals,
+        "sha256": expected_sha256,
+        "size": len(raw),
+    }
 
 
 def load_canonical(raw: bytes, code: str) -> dict[str, Any]:
@@ -1059,7 +1131,20 @@ def _pem_profile(raw: bytes) -> str:
 
 def _validate_launch_authorization(
     record: object,
+    *,
+    execution_binding: Mapping[str, object],
 ) -> tuple[str, str, str, dict[str, object], dict[str, Any], str]:
+    if (
+        set(execution_binding) != {"bundle_root", "seals", "sha256", "size"}
+        or not isinstance(execution_binding.get("bundle_root"), str)
+        or SHA_RE.fullmatch(str(execution_binding.get("sha256"))) is None
+        or type(execution_binding.get("seals")) is not int
+        or int(execution_binding["seals"]) & REQUIRED_MEMFD_SEALS != REQUIRED_MEMFD_SEALS
+        or type(execution_binding.get("size")) is not int
+        or not 0 < int(execution_binding["size"]) <= (2 << 20)
+    ):
+        fail("finalizer_execution_invalid")
+    bundle_root = Path(str(execution_binding["bundle_root"]))
     if not isinstance(record, dict) or set(record) != {
         "authorization_sha256",
         "file_sha256",
@@ -1140,21 +1225,21 @@ def _validate_launch_authorization(
         os.close(source_fd)
 
     expected_bundle = {
-        "finalizer": (BUNDLE_ROOT / "finalize_vmvm_task_free_v2.py", 0o500),
-        "launcher": (BUNDLE_ROOT / "launch_vmvm_task_free_v2.py", 0o500),
-        "probe": (BUNDLE_ROOT / "probe_vmvm_task_free_v2.py", 0o500),
-        "readme": (BUNDLE_ROOT / "README.md", 0o400),
-        "tests": (BUNDLE_ROOT / "test_vmvm_task_free_v2.py", 0o400),
-        "wrapper": (BUNDLE_ROOT / "run_vmvm_task_free_v2.sbatch", 0o500),
+        "finalizer": (bundle_root / "finalize_vmvm_task_free_v2.py", 0o500),
+        "launcher": (bundle_root / "launch_vmvm_task_free_v2.py", 0o500),
+        "probe": (bundle_root / "probe_vmvm_task_free_v2.py", 0o500),
+        "readme": (bundle_root / "README.md", 0o400),
+        "tests": (bundle_root / "test_vmvm_task_free_v2.py", 0o400),
+        "wrapper": (bundle_root / "run_vmvm_task_free_v2.sbatch", 0o500),
     }
     if set(bundle) != set(expected_bundle) | {"root_identity"}:
         fail("authorization_invalid")
-    bundle_fd = _open_bound_directory(BUNDLE_ROOT, bundle.get("root_identity"), required_mode=0o700)
+    bundle_fd = _open_bound_directory(bundle_root, bundle.get("root_identity"), required_mode=0o700)
     try:
         bundle_status = os.fstat(bundle_fd)
         if (
-            not BUNDLE_ROOT.is_absolute()
-            or BUNDLE_ROOT.resolve(strict=True) != BUNDLE_ROOT
+            not bundle_root.is_absolute()
+            or bundle_root.resolve(strict=True) != bundle_root
             or bundle_status.st_nlink != 2
             or {entry.name for entry in os.scandir(bundle_fd)}
             != {expected.name for expected, _mode in expected_bundle.values()}
@@ -1164,13 +1249,17 @@ def _validate_launch_authorization(
             authorized_path, digest = _artifact_record(bundle[label])
             if authorized_path != expected_path.resolve(strict=True):
                 fail("authorization_invalid")
-            stable_file_at(
+            if label == "finalizer" and digest != execution_binding["sha256"]:
+                fail("finalizer_execution_invalid")
+            artifact_raw = stable_file_at(
                 bundle_fd,
                 expected_path.name,
                 expected_sha256=digest,
                 code="authorization_invalid",
                 expected_mode=expected_mode,
             )
+            if label == "finalizer" and len(artifact_raw) != execution_binding["size"]:
+                fail("finalizer_execution_invalid")
     finally:
         os.close(bundle_fd)
 
@@ -1646,7 +1735,7 @@ def _validate_submission_lineage(
         "DIAG_AUTHORIZATION_FILE_SHA256": launch_file_sha256,
         "DIAG_AUTHORIZATION_SHA256": launch_authorization_sha256,
         "DIAG_BUNDLE_IDENTITY": _identity_string(bundle["root_identity"]),
-        "DIAG_BUNDLE_ROOT": str(BUNDLE_ROOT),
+        "DIAG_BUNDLE_ROOT": str(Path(str(bundle["finalizer"]["path"])).parent),
         "DIAG_COMPLETION_RECEIPT": str(COMPLETION_RECEIPT),
         "DIAG_FINALIZER_PATH": str(bundle["finalizer"]["path"]),
         "DIAG_FINALIZER_SHA256": str(bundle["finalizer"]["sha256"]),
@@ -1716,7 +1805,12 @@ def _validate_submission_lineage(
     )
 
 
-def finalize(authorization_path: Path, authorization_file_sha256: str) -> dict[str, str]:
+def finalize(
+    authorization_path: Path,
+    authorization_file_sha256: str,
+    *,
+    execution_binding: Mapping[str, object],
+) -> dict[str, str]:
     if os.path.lexists(SCRATCH_ROOT):
         fail("scratch_cleanup_unverified")
     if SHA_RE.fullmatch(authorization_file_sha256) is None:
@@ -1775,7 +1869,10 @@ def finalize(authorization_path: Path, authorization_file_sha256: str) -> dict[s
         expected_execution_inputs,
         launch_authorization,
         launch_authorization_path,
-    ) = _validate_launch_authorization(authorization.get("launch_authorization"))
+    ) = _validate_launch_authorization(
+        authorization.get("launch_authorization"),
+        execution_binding=execution_binding,
+    )
     (
         lineage_job,
         job_authorization_sha256,
@@ -1902,6 +1999,11 @@ def finalize(authorization_path: Path, authorization_file_sha256: str) -> dict[s
                 "completion_request_sha256": sha256_bytes(request_raw),
                 "diagnostic_only": True,
                 "environment_sha256": environment_sha256,
+                "finalizer_execution": {
+                    "seals": execution_binding["seals"],
+                    "sha256": execution_binding["sha256"],
+                    "size": execution_binding["size"],
+                },
                 "job": job,
                 "job_authorization_sha256": job_authorization_sha256,
                 "launch_authorization_file_sha256": launch_file_sha256,
@@ -1929,9 +2031,20 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--authorization", type=Path, required=True)
     parser.add_argument("--authorization-file-sha256", required=True)
+    parser.add_argument("--bundle-root", type=Path, required=True)
+    parser.add_argument("--self-sha256", required=True)
     args = parser.parse_args(argv)
     try:
-        result = finalize(args.authorization, args.authorization_file_sha256)
+        execution_binding = validate_finalizer_execution(
+            Path(__file__),
+            bundle_root=args.bundle_root,
+            expected_sha256=args.self_sha256,
+        )
+        result = finalize(
+            args.authorization,
+            args.authorization_file_sha256,
+            execution_binding=execution_binding,
+        )
     except BaseException as error:
         code = error.code if isinstance(error, FinalizeError) else "finalizer_failed"
         print(canonical_json({"code": code, "state": "failed"}).decode(), file=sys.stderr)

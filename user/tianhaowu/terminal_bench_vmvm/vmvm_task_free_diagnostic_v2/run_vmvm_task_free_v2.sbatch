@@ -290,11 +290,132 @@ readonly BOUND_UV="/proc/self/fd/$uv_fd"
 validate_fd_file "$BOUND_PROBE" 500 "$DIAG_PROBE_SHA256" "$DIAG_PROBE_PATH"
 validate_fd_file "$BOUND_UV" 755 "$X86_UV_SHA256" "$UV_BIN_X86_64"
 
+# Copy each executable from its already-bound descriptor into a sealed anonymous
+# inode. The original pathname is never consulted by exec or by the Python
+# interpreter after this point.
+readonly SEALED_EXEC_PROGRAM='
+import fcntl
+import hashlib
+import os
+import stat
+import sys
+
+REQUIRED_SEALS = (
+    fcntl.F_SEAL_SEAL
+    | fcntl.F_SEAL_SHRINK
+    | fcntl.F_SEAL_GROW
+    | fcntl.F_SEAL_WRITE
+    | 0x20  # F_SEAL_EXEC; absent from Python 3.12 fcntl constants.
+)
+
+
+def fail():
+    raise SystemExit(125)
+
+
+def copy_sealed(source_fd, name, expected_digest, expected_mode, maximum):
+    try:
+        before = os.fstat(source_fd)
+        stable = (
+            "st_dev",
+            "st_ino",
+            "st_mode",
+            "st_uid",
+            "st_nlink",
+            "st_size",
+            "st_mtime_ns",
+            "st_ctime_ns",
+        )
+        if (
+            not stat.S_ISREG(before.st_mode)
+            or stat.S_IMODE(before.st_mode) != expected_mode
+            or before.st_uid != os.getuid()
+            or before.st_nlink != 1
+            or not 0 < before.st_size <= maximum
+        ):
+            fail()
+        sealed_fd = os.memfd_create(name, os.MFD_CLOEXEC | os.MFD_ALLOW_SEALING)
+        digest = hashlib.sha256()
+        offset = 0
+        while offset < before.st_size:
+            chunk = os.pread(source_fd, min(1 << 20, before.st_size - offset), offset)
+            if not chunk:
+                fail()
+            digest.update(chunk)
+            view = memoryview(chunk)
+            while view:
+                written = os.write(sealed_fd, view)
+                if written <= 0:
+                    fail()
+                view = view[written:]
+            offset += len(chunk)
+        after = os.fstat(source_fd)
+        if (
+            any(getattr(before, field) != getattr(after, field) for field in stable)
+            or digest.hexdigest() != expected_digest
+        ):
+            fail()
+        os.fchmod(sealed_fd, expected_mode)
+        fcntl.fcntl(sealed_fd, fcntl.F_ADD_SEALS, REQUIRED_SEALS)
+        sealed = os.fstat(sealed_fd)
+        sealed_digest = hashlib.sha256()
+        sealed_offset = 0
+        while sealed_offset < sealed.st_size:
+            sealed_chunk = os.pread(
+                sealed_fd,
+                min(1 << 20, sealed.st_size - sealed_offset),
+                sealed_offset,
+            )
+            if not sealed_chunk:
+                fail()
+            sealed_digest.update(sealed_chunk)
+            sealed_offset += len(sealed_chunk)
+        if (
+            not stat.S_ISREG(sealed.st_mode)
+            or stat.S_IMODE(sealed.st_mode) != expected_mode
+            or sealed.st_uid != os.getuid()
+            or sealed.st_nlink != 0
+            or sealed.st_size != before.st_size
+            or fcntl.fcntl(sealed_fd, fcntl.F_GET_SEALS) & REQUIRED_SEALS != REQUIRED_SEALS
+            or sealed_digest.hexdigest() != expected_digest
+        ):
+            fail()
+        os.set_inheritable(sealed_fd, True)
+        return sealed_fd
+    except (OSError, ValueError):
+        fail()
+
+
+probe_source_fd = int(sys.argv[1])
+probe_digest = sys.argv[2]
+uv_source_fd = int(sys.argv[3])
+uv_digest = sys.argv[4]
+probe_fd = copy_sealed(probe_source_fd, "vmvm-probe-v2", probe_digest, 0o500, 2 << 20)
+uv_fd = copy_sealed(uv_source_fd, "vmvm-uv-v2", uv_digest, 0o755, 64 << 20)
+os.close(probe_source_fd)
+os.close(uv_source_fd)
+environment = dict(os.environ)
+environment["DIAG_EXEC_PROBE_FD"] = str(probe_fd)
+environment["DIAG_EXEC_UV_FD"] = str(uv_fd)
+uv_path = f"/proc/self/fd/{uv_fd}"
+probe_path = f"/proc/self/fd/{probe_fd}"
+if sys.argv[5:].count("__VMVM_PROBE__") != 1:
+    fail()
+arguments = [probe_path if value == "__VMVM_PROBE__" else value for value in sys.argv[5:]]
+os.execve(uv_path, [uv_path, *arguments], environment)
+'
+
+run_sealed_probe() {
+    /usr/bin/python3 -I -S -B -c "$SEALED_EXEC_PROGRAM" \
+        "$probe_fd" "$DIAG_PROBE_SHA256" "$uv_fd" "$X86_UV_SHA256" \
+        run --no-project --offline --python "$PYTHON_BIN_X86_64" \
+        python3 -I -S -B __VMVM_PROBE__ "$@"
+}
+
 preflight_output=""
 set +e
 preflight_output=$(
-    "$BOUND_UV" run --no-project --offline --python "$PYTHON_BIN_X86_64" \
-        python3 -I -S -B "$BOUND_PROBE" --validate-batch \
+    run_sealed_probe --validate-batch \
         --source-root "$BOUND_SOURCE_ROOT" --site-root "$BOUND_SITE_ROOT" \
         --scratch-root "$DIAG_SCRATCH_ROOT" \
         --output-dir "$BOUND_OUTPUT_PARENT/${DIAG_OUTPUT_ROOT##*/}" \
@@ -338,8 +459,7 @@ readonly job_authorization_sha256
 probe_output=""
 set +e
 probe_output=$(
-    "$BOUND_UV" run --no-project --offline --python "$PYTHON_BIN_X86_64" \
-        python3 -I -S -B "$BOUND_PROBE" \
+    run_sealed_probe \
         --source-root "$BOUND_SOURCE_ROOT" --site-root "$BOUND_SITE_ROOT" \
         --scratch-root "$DIAG_SCRATCH_ROOT" \
         --output-dir "$BOUND_OUTPUT_PARENT/${DIAG_OUTPUT_ROOT##*/}" \

@@ -17,6 +17,7 @@ import re
 import shutil
 import signal
 import stat
+import struct
 import subprocess
 import sys
 import threading
@@ -50,6 +51,13 @@ RELEASE_GRACE_SECONDS = 5
 MAX_CHILD_OUTPUT_BYTES = 1 << 20
 MAX_RESULT_BYTES = 1 << 20
 MAX_RENEWER_JOURNAL_BYTES = 1 << 20
+REQUIRED_MEMFD_SEALS = (
+    fcntl.F_SEAL_SEAL
+    | fcntl.F_SEAL_SHRINK
+    | fcntl.F_SEAL_GROW
+    | fcntl.F_SEAL_WRITE
+    | 0x20  # F_SEAL_EXEC; absent from Python 3.12 fcntl constants.
+)
 X2P_NAMES = ("X2P_ENV", "X2P_CFG_ENV", "X2P_PROXY_URL")
 TLS_NAMES = ("THRIFT_TLS_CL_CERT_PATH", "THRIFT_TLS_CL_KEY_PATH")
 BASE = Path("/checkpoint/ram/tianhaowu/terminal_bench_vmvm")
@@ -157,6 +165,25 @@ _INOTIFY_MUTATION_MASK = sum(
         0x00008000,  # IN_IGNORED
     )
 )
+_INOTIFY_CLEANUP_MASK = sum(
+    value
+    for value in (
+        0x00000040,  # IN_MOVED_FROM
+        0x00000080,  # IN_MOVED_TO
+        0x00000100,  # IN_CREATE
+        0x00000200,  # IN_DELETE
+        0x00000400,  # IN_DELETE_SELF
+        0x00000800,  # IN_MOVE_SELF
+        0x00002000,  # IN_UNMOUNT
+        0x00004000,  # IN_Q_OVERFLOW
+        0x00008000,  # IN_IGNORED
+    )
+)
+_IN_MOVED_FROM = 0x00000040
+_IN_MOVED_TO = 0x00000080
+_IN_DELETE = 0x00000200
+_IN_ISDIR = 0x40000000
+_INOTIFY_EVENT = struct.Struct("iIII")
 
 
 def canonical_json(value: object) -> bytes:
@@ -764,13 +791,92 @@ def _directory_entry_identity(parent_fd: int, name: str) -> dict[str, int]:
     }
 
 
+def _open_cleanup_watch(parent_fd: int) -> int:
+    libc = ctypes.CDLL(None, use_errno=True)
+    descriptor = int(libc.inotify_init1(os.O_NONBLOCK | os.O_CLOEXEC))
+    if descriptor < 0:
+        raise DiagnosticError("cleanup_failed")
+    try:
+        watch = int(
+            libc.inotify_add_watch(
+                ctypes.c_int(descriptor),
+                ctypes.c_char_p(os.fsencode(descriptor_path(parent_fd))),
+                ctypes.c_uint32(_INOTIFY_CLEANUP_MASK),
+            )
+        )
+        if watch < 0:
+            raise DiagnosticError("cleanup_failed")
+    except BaseException:
+        os.close(descriptor)
+        raise
+    return descriptor
+
+
+def _read_cleanup_events(descriptor: int) -> list[tuple[int, int, bytes]]:
+    events: list[tuple[int, int, bytes]] = []
+    while True:
+        try:
+            raw = os.read(descriptor, 1 << 20)
+        except BlockingIOError:
+            break
+        if not raw:
+            raise DiagnosticError("cleanup_failed")
+        offset = 0
+        while offset < len(raw):
+            if len(raw) - offset < _INOTIFY_EVENT.size:
+                raise DiagnosticError("cleanup_failed")
+            _watch, mask, cookie, name_length = _INOTIFY_EVENT.unpack_from(raw, offset)
+            offset += _INOTIFY_EVENT.size
+            if name_length > len(raw) - offset:
+                raise DiagnosticError("cleanup_failed")
+            name = raw[offset : offset + name_length].split(b"\0", 1)[0]
+            offset += name_length
+            events.append((mask & ~_IN_ISDIR, cookie, name))
+    return events
+
+
+def _expected_detach_events(events: Sequence[tuple[int, int, bytes]], source: str, target: str) -> bool:
+    return (
+        len(events) == 2
+        and events[0][0] == _IN_MOVED_FROM
+        and events[0][1] != 0
+        and events[0][2] == os.fsencode(source)
+        and events[1] == (_IN_MOVED_TO, events[0][1], os.fsencode(target))
+    )
+
+
+def _rename_noreplace(source_parent_fd: int, source: str, target_parent_fd: int, target: str) -> None:
+    libc = ctypes.CDLL(None, use_errno=True)
+    renameat2 = libc.renameat2
+    renameat2.argtypes = (
+        ctypes.c_int,
+        ctypes.c_char_p,
+        ctypes.c_int,
+        ctypes.c_char_p,
+        ctypes.c_uint,
+    )
+    renameat2.restype = ctypes.c_int
+    if (
+        renameat2(
+            source_parent_fd,
+            os.fsencode(source),
+            target_parent_fd,
+            os.fsencode(target),
+            1,  # RENAME_NOREPLACE
+        )
+        != 0
+    ):
+        error = ctypes.get_errno()
+        raise OSError(error, os.strerror(error), source, target)
+
+
 def _remove_bound_tree_verified(
     parent_fd: int,
     name: str,
     root_fd: int,
     expected_identity: Mapping[str, object],
 ) -> bool:
-    """Delete only the still-bound created tree and prove its name is absent."""
+    """Atomically detach, then delete only the still-bound created tree."""
     if not name or "/" in name or name in {".", ".."}:
         return False
 
@@ -817,7 +923,22 @@ def _remove_bound_tree_verified(
                 raise DiagnosticError("cleanup_failed")
         os.fsync(directory_fd)
 
+    quarantine_name: str | None = None
+    cleanup_watch_fd = -1
+
+    def restore_quarantine() -> None:
+        if quarantine_name is None:
+            return
+        try:
+            _rename_noreplace(parent_fd, quarantine_name, parent_fd, name)
+            os.fsync(parent_fd)
+        except OSError:
+            pass
+
     try:
+        cleanup_watch_fd = _open_cleanup_watch(parent_fd)
+        if _read_cleanup_events(cleanup_watch_fd):
+            raise DiagnosticError("cleanup_failed")
         if (
             descriptor_identity(root_fd) != expected_identity
             or expected_identity.get("mode") != 0o700
@@ -825,18 +946,54 @@ def _remove_bound_tree_verified(
             or _directory_entry_identity(parent_fd, name) != expected_identity
         ):
             return False
-        remove_contents(root_fd)
-        if _directory_entry_identity(parent_fd, name) != expected_identity:
+        for _attempt in range(8):
+            candidate = f".vmvm-cleanup-{os.getpid()}-{os.getrandom(32).hex()}"
+            try:
+                _rename_noreplace(parent_fd, name, parent_fd, candidate)
+            except FileExistsError:
+                continue
+            quarantine_name = candidate
+            break
+        if quarantine_name is None:
             return False
-        os.rmdir(name, dir_fd=parent_fd)
         os.fsync(parent_fd)
+        if not _expected_detach_events(
+            _read_cleanup_events(cleanup_watch_fd),
+            name,
+            quarantine_name,
+        ):
+            raise DiagnosticError("cleanup_failed")
+        moved_identity = _directory_entry_identity(parent_fd, quarantine_name)
+        if moved_identity != expected_identity:
+            try:
+                _rename_noreplace(parent_fd, quarantine_name, parent_fd, name)
+                os.fsync(parent_fd)
+            except OSError:
+                pass
+            return False
+        remove_contents(root_fd)
+        if _directory_entry_identity(parent_fd, quarantine_name) != expected_identity:
+            return False
+        if _read_cleanup_events(cleanup_watch_fd):
+            raise DiagnosticError("cleanup_failed")
+        os.rmdir(quarantine_name, dir_fd=parent_fd)
+        os.fsync(parent_fd)
+        if _read_cleanup_events(cleanup_watch_fd) != [(_IN_DELETE, 0, os.fsencode(quarantine_name))]:
+            raise DiagnosticError("cleanup_failed")
         try:
-            os.stat(name, dir_fd=parent_fd, follow_symlinks=False)
+            os.stat(quarantine_name, dir_fd=parent_fd, follow_symlinks=False)
         except FileNotFoundError:
-            return True
+            try:
+                os.stat(name, dir_fd=parent_fd, follow_symlinks=False)
+            except FileNotFoundError:
+                return not _read_cleanup_events(cleanup_watch_fd)
         return False
     except (DiagnosticError, FileNotFoundError, OSError):
+        restore_quarantine()
         return False
+    finally:
+        if cleanup_watch_fd >= 0:
+            os.close(cleanup_watch_fd)
 
 
 def _exception_chain(error: BaseException) -> str:
@@ -1544,6 +1701,12 @@ def _child_environment(mode: str, scratch: Path, renewer_journal_fd: int | None 
     }
     if renewer_journal_fd is not None:
         allowed["DIAG_RENEWER_JOURNAL_FD"] = str(renewer_journal_fd)
+    probe_descriptor = os.environ.get("DIAG_EXEC_PROBE_FD")
+    probe_sha256 = os.environ.get("DIAG_PROBE_SHA256")
+    if not probe_descriptor or not probe_sha256:
+        raise DiagnosticError("child_invalid")
+    allowed["DIAG_EXEC_PROBE_FD"] = probe_descriptor
+    allowed["DIAG_PROBE_SHA256"] = probe_sha256
     for name in TLS_NAMES:
         value = os.environ.get(name)
         if not value:
@@ -2492,6 +2655,95 @@ def _stable_descriptor_bytes(
     return bytes(raw)
 
 
+def _sealed_executable_bytes(
+    path: Path,
+    *,
+    expected_descriptor: str,
+    expected_name: str,
+    expected_mode: int,
+    expected_sha256: str,
+    maximum: int,
+) -> bytes:
+    """Read and verify the immutable memfd from which this process executes."""
+    try:
+        descriptor = inherited_descriptor(path)
+        if (
+            descriptor is None
+            or str(descriptor) != expected_descriptor
+            or os.readlink(path) != f"/memfd:{expected_name} (deleted)"
+        ):
+            raise DiagnosticError("source_binding_invalid")
+        before = os.fstat(descriptor)
+        stable_fields = (
+            "st_dev",
+            "st_ino",
+            "st_mode",
+            "st_uid",
+            "st_nlink",
+            "st_size",
+            "st_mtime_ns",
+            "st_ctime_ns",
+        )
+        seals = fcntl.fcntl(descriptor, fcntl.F_GET_SEALS)
+        if (
+            not stat.S_ISREG(before.st_mode)
+            or stat.S_IMODE(before.st_mode) != expected_mode
+            or before.st_uid != os.getuid()
+            or before.st_nlink != 0
+            or not 0 < before.st_size <= maximum
+            or seals & REQUIRED_MEMFD_SEALS != REQUIRED_MEMFD_SEALS
+        ):
+            raise DiagnosticError("source_binding_invalid")
+        raw = bytearray()
+        offset = 0
+        while offset < before.st_size:
+            chunk = os.pread(descriptor, min(1 << 20, before.st_size - offset), offset)
+            if not chunk:
+                raise DiagnosticError("source_binding_invalid")
+            raw.extend(chunk)
+            offset += len(chunk)
+        after = os.fstat(descriptor)
+    except (OSError, ValueError) as error:
+        raise DiagnosticError("source_binding_invalid") from error
+    if (
+        any(getattr(before, field) != getattr(after, field) for field in stable_fields)
+        or fcntl.fcntl(descriptor, fcntl.F_GET_SEALS) != seals
+        or len(raw) != before.st_size
+        or sha256_bytes(raw) != expected_sha256
+    ):
+        raise DiagnosticError("source_binding_invalid")
+    return bytes(raw)
+
+
+def _validate_execution_memfds(
+    environment: Mapping[str, str],
+    script_path: Path,
+    *,
+    require_uv: bool,
+) -> None:
+    probe_descriptor = environment.get("DIAG_EXEC_PROBE_FD", "")
+    _sealed_executable_bytes(
+        script_path,
+        expected_descriptor=probe_descriptor,
+        expected_name="vmvm-probe-v2",
+        expected_mode=0o500,
+        expected_sha256=environment.get("DIAG_PROBE_SHA256", ""),
+        maximum=2 << 20,
+    )
+    if require_uv:
+        uv_descriptor = environment.get("DIAG_EXEC_UV_FD", "")
+        if re.fullmatch(r"([3-9]|[1-9][0-9]+)", uv_descriptor) is None:
+            raise DiagnosticError("source_binding_invalid")
+        _sealed_executable_bytes(
+            Path(f"/proc/self/fd/{uv_descriptor}"),
+            expected_descriptor=uv_descriptor,
+            expected_name="vmvm-uv-v2",
+            expected_mode=0o755,
+            expected_sha256=X86_UV_SHA256,
+            maximum=64 << 20,
+        )
+
+
 def _same_open_file(first: Path, second: Path) -> bool:
     descriptors: list[int] = []
     try:
@@ -2555,11 +2807,7 @@ def parse_identity(value: str) -> dict[str, int]:
 
 
 def validate_batch_admission(environment: Mapping[str, str], script_path: Path) -> dict[str, object]:
-    try:
-        if inherited_descriptor(script_path) is None:
-            raise DiagnosticError("child_invalid")
-    except (OSError, ValueError) as error:
-        raise DiagnosticError("child_invalid") from error
+    _validate_execution_memfds(environment, script_path, require_uv=True)
     required = {
         "DIAG_ACTIVATION_PERMIT",
         "DIAG_AUTHORIZATION",
@@ -2952,6 +3200,12 @@ def validate_batch_admission(environment: Mapping[str, str], script_path: Path) 
             raise DiagnosticError("child_invalid")
         if Path(expected_path).resolve(strict=True) != Path(expected_path):
             raise DiagnosticError("child_invalid")
+        _stable_bytes(
+            Path(expected_path),
+            mode=0o755,
+            expected_sha256=expected_digest,
+            maximum=64 << 20,
+        )
     if (
         runtime.get("vacli")
         != {
@@ -3046,21 +3300,11 @@ def validate_batch_admission(environment: Mapping[str, str], script_path: Path) 
     probe_record = bundle["probe"]
     if not isinstance(probe_record, dict) or probe_record.get("path") != environment["DIAG_PROBE_PATH"]:
         raise DiagnosticError("child_invalid")
-    authorized_probe_fd = os.open(
-        "probe_vmvm_task_free_v2.py",
-        os.O_RDONLY | os.O_NOFOLLOW,
-        dir_fd=bundle_fd,
+    _stable_bytes(
+        bundle_root / "probe_vmvm_task_free_v2.py",
+        mode=0o500,
+        expected_sha256=environment["DIAG_PROBE_SHA256"],
     )
-    try:
-        _stable_descriptor_bytes(
-            script_path,
-            authorized_fd=authorized_probe_fd,
-            authorized_path=Path(environment["DIAG_PROBE_PATH"]),
-            mode=0o500,
-            expected_sha256=environment["DIAG_PROBE_SHA256"],
-        )
-    finally:
-        os.close(authorized_probe_fd)
     os.close(bundle_fd)
     tls = credentials.get("tls")
     x2p = credentials.get("x2p")
@@ -3569,6 +3813,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 args.renewer_journal_fd,
             ):
                 raise DiagnosticError("child_invalid")
+            _validate_execution_memfds(os.environ, Path(__file__), require_uv=False)
             result = execute_worker(
                 args.stage,
                 args.x2p_mode,

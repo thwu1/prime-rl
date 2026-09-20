@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import base64
+import fcntl
 import hashlib
 import importlib.util
 import json
@@ -72,6 +73,24 @@ def set_site_inventory_environment(monkeypatch, site: Path) -> None:
     monkeypatch.setenv("PYTHON_SITE_X86_64_ENTRY_COUNT", str(inventory["entry_count"]))
     monkeypatch.setenv("PYTHON_SITE_X86_64_MANIFEST_SHA256", inventory["manifest_sha256"])
     monkeypatch.setenv("PYTHON_SITE_X86_64_TOTAL_BYTES", str(inventory["total_bytes"]))
+
+
+def set_probe_execution_environment(monkeypatch, descriptor: int = 9) -> None:
+    monkeypatch.setenv("DIAG_EXEC_PROBE_FD", str(descriptor))
+    monkeypatch.setenv("DIAG_PROBE_SHA256", "0" * 64)
+
+
+def sealed_memfd(raw: bytes, *, name: str, mode: int) -> int:
+    descriptor = os.memfd_create(name, os.MFD_CLOEXEC | os.MFD_ALLOW_SEALING)
+    view = memoryview(raw)
+    while view:
+        written = os.write(descriptor, view)
+        assert written > 0
+        view = view[written:]
+    os.fchmod(descriptor, mode)
+    fcntl.fcntl(descriptor, fcntl.F_ADD_SEALS, PROBE.REQUIRED_MEMFD_SEALS)
+    os.set_inheritable(descriptor, True)
+    return descriptor
 
 
 def build_git_source_fixture(tmp_path: Path) -> tuple[Path, dict[str, str]]:
@@ -308,6 +327,7 @@ def test_x2p_modes_are_exact_and_values_never_enter_result(monkeypatch, tmp_path
     }
     for key, value in private.items():
         monkeypatch.setenv(key, value)
+    set_probe_execution_environment(monkeypatch)
     absent = PROBE._child_environment("absent", tmp_path)
     present = PROBE._child_environment("present", tmp_path)
     assert set(absent).isdisjoint(PROBE.X2P_NAMES)
@@ -603,6 +623,7 @@ def test_child_environment_is_exact_and_stage_local(monkeypatch, tmp_path: Path)
         "X2P_PROXY_URL": "private-proxy",
     }.items():
         monkeypatch.setenv(name, value)
+    set_probe_execution_environment(monkeypatch)
     environment = PROBE._child_environment("present", tmp_path)
     assert environment["TMPDIR"] == str(tmp_path)
     assert environment["VACLI_MAX_CONCURRENT_LEASES"] == "1"
@@ -1516,6 +1537,184 @@ def test_descriptor_reader_uses_pread_and_rejects_alias_or_inode_substitution(tm
         os.close(descriptor)
 
 
+def test_probe_execution_binding_requires_sealed_named_memfds(tmp_path: Path) -> None:
+    probe_raw = b"print('probe')\n"
+    uv_raw = b"#!/usr/bin/python3\nprint('uv')\n"
+    probe_fd = sealed_memfd(probe_raw, name="vmvm-probe-v2", mode=0o500)
+    uv_fd = sealed_memfd(uv_raw, name="vmvm-uv-v2", mode=0o755)
+    environment = {
+        "DIAG_EXEC_PROBE_FD": str(probe_fd),
+        "DIAG_EXEC_UV_FD": str(uv_fd),
+        "DIAG_PROBE_SHA256": hashlib.sha256(probe_raw).hexdigest(),
+    }
+    try:
+        PROBE._validate_execution_memfds(
+            environment,
+            Path(f"/proc/self/fd/{probe_fd}"),
+            require_uv=False,
+        )
+        with pytest.raises(PROBE.DiagnosticError, match="source_binding_invalid"):
+            PROBE._validate_execution_memfds(
+                {**environment, "DIAG_PROBE_SHA256": "0" * 64},
+                Path(f"/proc/self/fd/{probe_fd}"),
+                require_uv=False,
+            )
+        ordinary = tmp_path / "ordinary.py"
+        ordinary.write_bytes(probe_raw)
+        ordinary.chmod(0o500)
+        ordinary_fd = os.open(ordinary, os.O_RDONLY)
+        try:
+            with pytest.raises(PROBE.DiagnosticError, match="source_binding_invalid"):
+                PROBE._validate_execution_memfds(
+                    {**environment, "DIAG_EXEC_PROBE_FD": str(ordinary_fd)},
+                    Path(f"/proc/self/fd/{ordinary_fd}"),
+                    require_uv=False,
+                )
+        finally:
+            os.close(ordinary_fd)
+    finally:
+        os.close(uv_fd)
+        os.close(probe_fd)
+
+
+def test_sealed_probe_and_uv_execute_after_originals_mutate_and_restore(monkeypatch, tmp_path: Path) -> None:
+    authorized_marker = tmp_path / "authorized"
+    malicious_marker = tmp_path / "malicious"
+    probe_path = tmp_path / "probe.py"
+    uv_path = tmp_path / "uv"
+    probe_raw = b"import pathlib,sys\npathlib.Path(sys.argv[1]).write_text('authorized\\n')\n"
+    uv_raw = (
+        b"#!/usr/bin/python3\n"
+        b"import os,sys\n"
+        b"os.execve('/usr/bin/python3',['/usr/bin/python3','-I','-S','-B',*sys.argv[1:]],dict(os.environ))\n"
+    )
+    probe_path.write_bytes(probe_raw)
+    probe_path.chmod(0o500)
+    uv_path.write_bytes(uv_raw)
+    uv_path.chmod(0o755)
+    probe_source_fd = os.open(probe_path, os.O_RDONLY)
+    uv_source_fd = os.open(uv_path, os.O_RDONLY)
+    probe_fd = sealed_memfd(os.pread(probe_source_fd, len(probe_raw), 0), name="vmvm-probe-v2", mode=0o500)
+    uv_fd = sealed_memfd(os.pread(uv_source_fd, len(uv_raw), 0), name="vmvm-uv-v2", mode=0o755)
+    try:
+        assert (
+            hashlib.sha256(os.pread(probe_source_fd, len(probe_raw), 0)).hexdigest()
+            == hashlib.sha256(probe_raw).hexdigest()
+        )
+        assert hashlib.sha256(os.pread(uv_source_fd, len(uv_raw), 0)).hexdigest() == hashlib.sha256(uv_raw).hexdigest()
+        monkeypatch.setattr(PROBE, "X86_UV_SHA256", hashlib.sha256(uv_raw).hexdigest())
+        PROBE._validate_execution_memfds(
+            {
+                "DIAG_EXEC_PROBE_FD": str(probe_fd),
+                "DIAG_EXEC_UV_FD": str(uv_fd),
+                "DIAG_PROBE_SHA256": hashlib.sha256(probe_raw).hexdigest(),
+            },
+            Path(f"/proc/self/fd/{probe_fd}"),
+            require_uv=True,
+        )
+        probe_path.chmod(0o700)
+        probe_path.write_text(f"import pathlib\npathlib.Path({str(malicious_marker)!r}).touch()\n")
+        probe_path.chmod(0o500)
+        uv_path.chmod(0o700)
+        uv_path.write_text(f"#!/usr/bin/python3\nimport pathlib\npathlib.Path({str(malicious_marker)!r}).touch()\n")
+        uv_path.chmod(0o755)
+        result = subprocess.run(
+            [f"/proc/self/fd/{uv_fd}", f"/proc/self/fd/{probe_fd}", str(authorized_marker)],
+            stdin=subprocess.DEVNULL,
+            capture_output=True,
+            check=False,
+            pass_fds=(probe_fd, uv_fd),
+            timeout=10,
+        )
+        probe_path.chmod(0o700)
+        probe_path.write_bytes(probe_raw)
+        probe_path.chmod(0o500)
+        uv_path.chmod(0o700)
+        uv_path.write_bytes(uv_raw)
+        uv_path.chmod(0o755)
+        assert result.returncode == 0, result.stderr.decode(errors="replace")
+        assert authorized_marker.read_text() == "authorized\n"
+        assert not malicious_marker.exists()
+    finally:
+        os.close(uv_fd)
+        os.close(probe_fd)
+        os.close(uv_source_fd)
+        os.close(probe_source_fd)
+
+
+def test_finalizer_subprocess_requires_and_executes_its_sealed_bytes(tmp_path: Path) -> None:
+    original = tmp_path / "finalize_vmvm_task_free_v2.py"
+    raw = (ROOT / "finalize_vmvm_task_free_v2.py").read_bytes()
+    original.write_bytes(raw)
+    original.chmod(0o500)
+    digest = hashlib.sha256(raw).hexdigest()
+    descriptor = sealed_memfd(raw, name="vmvm-finalizer-v2", mode=0o500)
+    malicious_marker = tmp_path / "malicious-finalizer"
+    binding = FINALIZE.validate_finalizer_execution(
+        Path(f"/proc/self/fd/{descriptor}"),
+        bundle_root=tmp_path,
+        expected_sha256=digest,
+    )
+    assert binding["sha256"] == digest
+    original.chmod(0o700)
+    original.write_text(f"from pathlib import Path\nPath({str(malicious_marker)!r}).touch()\n")
+    original.chmod(0o500)
+    try:
+        result = subprocess.run(
+            [
+                sys.executable,
+                "-I",
+                "-S",
+                "-B",
+                f"/proc/self/fd/{descriptor}",
+                "--authorization",
+                str(tmp_path / "missing.json"),
+                "--authorization-file-sha256",
+                "0" * 64,
+                "--bundle-root",
+                str(tmp_path),
+                "--self-sha256",
+                digest,
+            ],
+            stdin=subprocess.DEVNULL,
+            capture_output=True,
+            check=False,
+            pass_fds=(descriptor,),
+            timeout=10,
+        )
+        original.chmod(0o700)
+        original.write_bytes(raw)
+        original.chmod(0o500)
+        assert result.returncode == 2
+        assert result.stderr == b'{"code":"finalizer_failed","state":"failed"}\n'
+        assert not malicious_marker.exists()
+        pathname_result = subprocess.run(
+            [
+                sys.executable,
+                "-I",
+                "-S",
+                "-B",
+                str(original),
+                "--authorization",
+                str(tmp_path / "missing.json"),
+                "--authorization-file-sha256",
+                "0" * 64,
+                "--bundle-root",
+                str(tmp_path),
+                "--self-sha256",
+                digest,
+            ],
+            stdin=subprocess.DEVNULL,
+            capture_output=True,
+            check=False,
+            timeout=10,
+        )
+        assert pathname_result.returncode == 2
+        assert pathname_result.stderr == b'{"code":"finalizer_execution_invalid","state":"failed"}\n'
+    finally:
+        os.close(descriptor)
+
+
 @pytest.mark.parametrize("leave_scratch", (False, True))
 def test_real_wrapper_invokes_actual_batch_admission_through_procfd(tmp_path: Path, leave_scratch: bool) -> None:
     base = tmp_path / "base"
@@ -2104,6 +2303,93 @@ def test_verified_tree_deletion_rejects_missing_or_replaced_root(tmp_path: Path,
         os.close(root_fd)
 
 
+def test_verified_tree_deletion_does_not_remove_a_during_detach_replacement(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    root = tmp_path / "scratch"
+    displaced = tmp_path / "displaced"
+    root.mkdir(mode=0o700)
+    root.chmod(0o700)
+    (root / "owned").write_text("bound tree\n")
+    root_fd = os.open(root, os.O_RDONLY | os.O_DIRECTORY)
+    parent_fd = os.open(tmp_path, os.O_RDONLY | os.O_DIRECTORY)
+    expected = PROBE.descriptor_identity(root_fd)
+    original_rename = PROBE._rename_noreplace
+    swapped = False
+
+    def swap_before_detach(source_parent_fd, source, target_parent_fd, target):
+        nonlocal swapped
+        if not swapped and source == root.name:
+            swapped = True
+            os.rename(root.name, displaced.name, src_dir_fd=parent_fd, dst_dir_fd=parent_fd)
+            os.mkdir(root.name, mode=0o700, dir_fd=parent_fd)
+            replacement_fd = os.open(root.name, os.O_RDONLY | os.O_DIRECTORY, dir_fd=parent_fd)
+            try:
+                marker_fd = os.open(
+                    "unrelated",
+                    os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW,
+                    0o600,
+                    dir_fd=replacement_fd,
+                )
+                os.close(marker_fd)
+            finally:
+                os.close(replacement_fd)
+        original_rename(source_parent_fd, source, target_parent_fd, target)
+
+    monkeypatch.setattr(PROBE, "_rename_noreplace", swap_before_detach)
+    try:
+        assert not PROBE._remove_bound_tree_verified(parent_fd, root.name, root_fd, expected)
+        assert displaced.is_dir()
+        assert (displaced / "owned").read_text() == "bound tree\n"
+        assert root.is_dir()
+        assert (root / "unrelated").is_file()
+    finally:
+        os.close(parent_fd)
+        os.close(root_fd)
+
+
+def test_verified_tree_deletion_rejects_name_creation_during_final_rmdir(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    root = tmp_path / "scratch"
+    root.mkdir(mode=0o700)
+    root.chmod(0o700)
+    root_fd = os.open(root, os.O_RDONLY | os.O_DIRECTORY)
+    parent_fd = os.open(tmp_path, os.O_RDONLY | os.O_DIRECTORY)
+    expected = PROBE.descriptor_identity(root_fd)
+    original_rmdir = os.rmdir
+    injected = False
+
+    def create_replacement_before_rmdir(path, *, dir_fd=None):
+        nonlocal injected
+        if not injected and isinstance(path, str) and path.startswith(".vmvm-cleanup-"):
+            injected = True
+            os.mkdir(root.name, mode=0o700, dir_fd=parent_fd)
+            replacement_fd = os.open(root.name, os.O_RDONLY | os.O_DIRECTORY, dir_fd=parent_fd)
+            try:
+                marker_fd = os.open(
+                    "unrelated",
+                    os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW,
+                    0o600,
+                    dir_fd=replacement_fd,
+                )
+                os.close(marker_fd)
+            finally:
+                os.close(replacement_fd)
+        original_rmdir(path, dir_fd=dir_fd)
+
+    monkeypatch.setattr(PROBE.os, "rmdir", create_replacement_before_rmdir)
+    try:
+        assert not PROBE._remove_bound_tree_verified(parent_fd, root.name, root_fd, expected)
+        assert root.is_dir()
+        assert (root / "unrelated").is_file()
+    finally:
+        os.close(parent_fd)
+        os.close(root_fd)
+
+
 def test_valid_child_requires_external_absence_check(monkeypatch, tmp_path: Path) -> None:
     observed: list[bool] = []
 
@@ -2182,6 +2468,7 @@ def test_valid_child_requires_external_absence_check(monkeypatch, tmp_path: Path
 
     monkeypatch.setattr(PROBE.subprocess, "Popen", Process)
     monkeypatch.setattr(PROBE, "verify_external_renewer_release", verify)
+    set_probe_execution_environment(monkeypatch)
     for name in PROBE.TLS_NAMES:
         monkeypatch.setenv(name, "/fixture/tls")
     descriptors = [
@@ -2218,6 +2505,7 @@ def test_stage_child_fails_closed_when_scratch_deletion_is_unverified(monkeypatc
 
     monkeypatch.setattr(PROBE.subprocess, "Popen", fail_to_spawn)
     monkeypatch.setattr(PROBE, "_remove_bound_tree_verified", lambda *args: False)
+    set_probe_execution_environment(monkeypatch)
     for name in PROBE.TLS_NAMES:
         monkeypatch.setenv(name, "/fixture/tls")
     descriptors = [
@@ -2281,7 +2569,16 @@ def test_finalizer_refuses_completion_while_scratch_name_exists(monkeypatch, tmp
     scratch.mkdir()
     monkeypatch.setattr(FINALIZE, "SCRATCH_ROOT", scratch)
     with pytest.raises(FINALIZE.FinalizeError, match="scratch_cleanup_unverified"):
-        FINALIZE.finalize(tmp_path / "unused.json", "0" * 64)
+        FINALIZE.finalize(
+            tmp_path / "unused.json",
+            "0" * 64,
+            execution_binding={
+                "bundle_root": str(tmp_path),
+                "seals": FINALIZE.REQUIRED_MEMFD_SEALS,
+                "sha256": "0" * 64,
+                "size": 1,
+            },
+        )
 
 
 @pytest.mark.parametrize(
@@ -2340,6 +2637,12 @@ def test_external_finalizer_writes_receipt_outside_sealed_output(monkeypatch, tm
             "path": str(path),
             "sha256": FINALIZE.sha256_bytes(path.read_bytes()),
         }
+    execution_binding = {
+        "bundle_root": str(bundle_root),
+        "seals": FINALIZE.REQUIRED_MEMFD_SEALS,
+        "sha256": bundle_records["finalizer"]["sha256"],
+        "size": (bundle_root / "finalize_vmvm_task_free_v2.py").stat().st_size,
+    }
     uv_path = tmp_path / "uv"
     uv_path.write_bytes(b"fixture executable\n")
     uv_path.chmod(0o755)
@@ -2382,7 +2685,6 @@ def test_external_finalizer_writes_receipt_outside_sealed_output(monkeypatch, tm
     monkeypatch.setattr(FINALIZE, "RENDERERS_REVISION", source_revisions["renderers"])
     monkeypatch.setattr(FINALIZE, "PYDANTIC_CONFIG_REVISION", source_revisions["pydantic_config"])
     monkeypatch.setattr(FINALIZE, "VMVM_SHA256", source_revisions["vmvm"])
-    monkeypatch.setattr(FINALIZE, "BUNDLE_ROOT", bundle_root)
     monkeypatch.setattr(FINALIZE, "X86_SITE", site_root)
     monkeypatch.setattr(FINALIZE, "X86_UV", uv_path)
     monkeypatch.setattr(FINALIZE, "X86_UV_SHA256", FINALIZE.sha256_bytes(uv_path.read_bytes()))
@@ -2490,14 +2792,16 @@ def test_external_finalizer_writes_receipt_outside_sealed_output(monkeypatch, tm
     launch_authorization_path.chmod(0o400)
     launch_authorization_file_sha = FINALIZE.sha256_bytes(launch_authorization_raw)
 
-    for name, mutate in (
-        ("bad-launch-semantics", lambda body: body["launch"].update({"cpus": 3})),
+    for name, expected_error, mutate in (
+        ("bad-launch-semantics", "authorization_invalid", lambda body: body["launch"].update({"cpus": 3})),
         (
             "bad-bundle-self-hash",
+            "finalizer_execution_invalid",
             lambda body: body["bundle"]["finalizer"].update({"sha256": "0" * 64}),
         ),
         (
             "bad-vacli-target",
+            "authorization_invalid",
             lambda body: body["runtime"]["vacli"].update({"resolved_path": str(vacli_path)}),
         ),
     ):
@@ -2509,13 +2813,14 @@ def test_external_finalizer_writes_receipt_outside_sealed_output(monkeypatch, tm
         bad_launch_path = tmp_path / f"{name}.json"
         bad_launch_path.write_bytes(bad_launch_raw)
         bad_launch_path.chmod(0o400)
-        with pytest.raises(FINALIZE.FinalizeError, match="authorization_invalid"):
+        with pytest.raises(FINALIZE.FinalizeError, match=expected_error):
             FINALIZE._validate_launch_authorization(
                 {
                     "authorization_sha256": bad_launch_sha,
                     "file_sha256": FINALIZE.sha256_bytes(bad_launch_raw),
                     "path": str(bad_launch_path),
-                }
+                },
+                execution_binding=execution_binding,
             )
 
     invalid_tls = tmp_path / "invalid-combined.pem"
@@ -2546,7 +2851,8 @@ def test_external_finalizer_writes_receipt_outside_sealed_output(monkeypatch, tm
                 "authorization_sha256": invalid_tls_sha,
                 "file_sha256": FINALIZE.sha256_bytes(invalid_tls_raw),
                 "path": str(invalid_tls_auth_path),
-            }
+            },
+            execution_binding=execution_binding,
         )
 
     reservation.mkdir(mode=0o700)
@@ -2850,7 +3156,11 @@ def test_external_finalizer_writes_receipt_outside_sealed_output(monkeypatch, tm
         bad_path.write_bytes(bad_raw)
         bad_path.chmod(0o400)
         with pytest.raises(FINALIZE.FinalizeError, match="submission_lineage_invalid"):
-            FINALIZE.finalize(bad_path, FINALIZE.sha256_bytes(bad_raw))
+            FINALIZE.finalize(
+                bad_path,
+                FINALIZE.sha256_bytes(bad_raw),
+                execution_binding=execution_binding,
+            )
 
     tampered_certificate = json.loads(FINALIZE.canonical_json(certificate))
     tampered_certificate["result_counts"]["passed"] -= 1
@@ -2868,7 +3178,11 @@ def test_external_finalizer_writes_receipt_outside_sealed_output(monkeypatch, tm
             expected_execution_inputs=execution_inputs,
         )
 
-    result = FINALIZE.finalize(authorization_path, FINALIZE.sha256_bytes(authorization_raw))
+    result = FINALIZE.finalize(
+        authorization_path,
+        FINALIZE.sha256_bytes(authorization_raw),
+        execution_binding=execution_binding,
+    )
     assert result["state"] == "complete"
     assert result["receipt_sha256"] == FINALIZE.sha256_bytes(receipt_path.read_bytes())
     assert stat.S_IMODE(output.stat().st_mode) == 0o500
@@ -2877,6 +3191,11 @@ def test_external_finalizer_writes_receipt_outside_sealed_output(monkeypatch, tm
     assert completion_receipt["launch_authorization_sha256"] == (launch_authorization_sha)
     assert completion_receipt["submission_receipt_sha256"] == (submission_receipt_sha)
     assert completion_receipt["job_authorization_sha256"] == job_authorization_sha
+    assert completion_receipt["finalizer_execution"] == {
+        "seals": FINALIZE.REQUIRED_MEMFD_SEALS,
+        "sha256": bundle_records["finalizer"]["sha256"],
+        "size": execution_binding["size"],
+    }
     assert completion_receipt["job"] == {
         **job,
         "terminal_observation_sha256": "d" * 64,
