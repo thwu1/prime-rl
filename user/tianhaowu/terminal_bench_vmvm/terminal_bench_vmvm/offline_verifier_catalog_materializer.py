@@ -129,6 +129,7 @@ _LIBC = ctypes.CDLL(None, use_errno=True)
 _ENVIRONMENT_NAME_RE = re.compile(r"[A-Z][A-Z0-9_]{0,127}")
 _ALLOWED_WORKER_ENVIRONMENT_NAMES = {
     "OCI_RUNNER_BASE_URL",
+    "OCI_RUNNER_ALLOW_DOCKERHUB_FALLBACK",
     "OCI_RUNNER_CREATE_DEADLINE",
     "OCI_RUNNER_ECR_AUXILIARY_REGISTRIES",
     "OCI_RUNNER_ECR_CLIENT_CERT_PATH",
@@ -178,6 +179,16 @@ _ALLOWED_WORKER_ENVIRONMENT_NAMES = {
     "THRIFT_TLS_CL_CERT_PATH",
     "THRIFT_TLS_CL_KEY_PATH",
     "VF_SANDBOX_PROVIDER",
+    "SANDOQ_CATALOG_WORKER_MODULE",
+    "SANDOQ_CATALOG_WORKER_PYTHON",
+    "SANDOQ_CATALOG_BUILDER_IMAGE",
+    "SANDOQ_CATALOG_EXCLUSIVE_POOL",
+    "SANDOQ_CATALOG_PYTHON_RUNTIME_MANIFEST_SHA256",
+    "SANDOQ_CATALOG_WORKER_PROVISION_IDENTITY_SHA256",
+    "SANDOQ_CATALOG_WORKER_SITE_MANIFEST",
+    "SANDOQ_CATALOG_WORKER_SITE_MANIFEST_SHA256",
+    "SANDOQ_CATALOG_WORKER_SITE_ROOT",
+    "SANDOQ_PROVIDER_ROOT",
 }
 _WORKER_PATH_ENVIRONMENT_NAMES = {
     "OCI_RUNNER_ECR_CLIENT_CERT_PATH",
@@ -192,6 +203,11 @@ _WORKER_PATH_ENVIRONMENT_NAMES = {
     "SSL_CERT_FILE",
     "THRIFT_TLS_CL_CERT_PATH",
     "THRIFT_TLS_CL_KEY_PATH",
+    "SANDOQ_CATALOG_WORKER_MODULE",
+    "SANDOQ_CATALOG_WORKER_PYTHON",
+    "SANDOQ_CATALOG_WORKER_SITE_MANIFEST",
+    "SANDOQ_CATALOG_WORKER_SITE_ROOT",
+    "SANDOQ_PROVIDER_ROOT",
 }
 _WORKER_CREDENTIAL_FILE_ENVIRONMENT_NAMES = {
     "OCI_RUNNER_ECR_CLIENT_CERT_PATH",
@@ -214,11 +230,7 @@ _REQUIRED_SANDOQ_ENVIRONMENT_NAMES = frozenset({*_REQUIRED_SANDOQ_ENVIRONMENT, "
 
 
 def _directory_identity(status: os.stat_result, code: str) -> tuple[int, int, int, int]:
-    if (
-        not stat.S_ISDIR(status.st_mode)
-        or stat.S_IMODE(status.st_mode) != 0o700
-        or status.st_uid != os.geteuid()
-    ):
+    if not stat.S_ISDIR(status.st_mode) or stat.S_IMODE(status.st_mode) != 0o700 or status.st_uid != os.geteuid():
         _fail(code)
     return status.st_dev, status.st_ino, status.st_mode, status.st_uid
 
@@ -892,6 +904,18 @@ def _parse_worker_policy(value: object) -> WorkerPolicy:
         raw["ecr_rotator_sha256"] is not None
     ):
         _fail("worker_policy_invalid")
+    probe_concurrency = _bounded_integer(concurrency["probe"], MAX_CONCURRENCY, "worker_policy_invalid")
+    build_concurrency = _bounded_integer(concurrency["build"], MAX_CONCURRENCY, "worker_policy_invalid")
+    validate_concurrency = _bounded_integer(concurrency["validate"], MAX_CONCURRENCY, "worker_policy_invalid")
+    if "SANDOQ_CATALOG_EXCLUSIVE_POOL" in environment_names and (
+        probe_concurrency,
+        build_concurrency,
+        validate_concurrency,
+    ) != (1, 1, 1):
+        # This worker drains its shared provider pool and proves a zero-live WAL
+        # after every request. Concurrent leases would let one finisher poison
+        # another, so the exclusive-pool contract is deliberately serial.
+        _fail("worker_shared_pool_concurrency_invalid")
     return WorkerPolicy(
         executable_sha256=str(raw["executable_sha256"]),
         runtime_sha256=str(raw["runtime_sha256"]),
@@ -913,9 +937,9 @@ def _parse_worker_policy(value: object) -> WorkerPolicy:
             MAX_TIMEOUT_SECONDS,
             "worker_policy_invalid",
         ),
-        probe_concurrency=_bounded_integer(concurrency["probe"], MAX_CONCURRENCY, "worker_policy_invalid"),
-        build_concurrency=_bounded_integer(concurrency["build"], MAX_CONCURRENCY, "worker_policy_invalid"),
-        validate_concurrency=_bounded_integer(concurrency["validate"], MAX_CONCURRENCY, "worker_policy_invalid"),
+        probe_concurrency=probe_concurrency,
+        build_concurrency=build_concurrency,
+        validate_concurrency=validate_concurrency,
     )
 
 
@@ -2234,9 +2258,7 @@ def _parse_probe_result(
     closure = None
     if satisfied:
         closure = _parse_closure(raw["closure"], "probe_result_invalid")
-        if (not task.requirements and closure.distributions) or not set(closure.distributions).issubset(
-            set(inventory)
-        ):
+        if (not task.requirements and closure.distributions) or not set(closure.distributions).issubset(set(inventory)):
             _fail("probe_result_invalid")
         _validate_root_requirements(task.requirements, closure, "probe_result_invalid")
     elif raw["closure"] is not None:
@@ -2790,11 +2812,7 @@ class OfflineCatalogMaterializer:
                 _, recovery_interrupted = await _drain_task(recovery_task)
             except BaseException as recovery_error:
                 _fail("worker_recovery_failed", recovery_error)
-            if (
-                isinstance(error, asyncio.CancelledError)
-                or local_recovery_interrupted
-                or recovery_interrupted
-            ):
+            if isinstance(error, asyncio.CancelledError) or local_recovery_interrupted or recovery_interrupted:
                 raise asyncio.CancelledError from error
             raise error.with_traceback(error.__traceback__)
 
@@ -3120,10 +3138,13 @@ class OfflineCatalogMaterializer:
                     dir_fd=parent_descriptor,
                 )
                 try:
-                    if _directory_identity(
-                        os.fstat(final_descriptor),
-                        "catalog_publish_failed",
-                    ) != staging_identity:
+                    if (
+                        _directory_identity(
+                            os.fstat(final_descriptor),
+                            "catalog_publish_failed",
+                        )
+                        != staging_identity
+                    ):
                         _fail("catalog_publish_failed")
                     _seal_and_fsync_directory_tree(final_descriptor, expected_files)
                 finally:
@@ -3344,10 +3365,13 @@ def _seal_and_fsync_directory_tree(
         try:
             if sorted(os.listdir(directory_descriptor)) != names:
                 _fail("catalog_staging_invalid")
-            if _directory_identity(
-                os.fstat(directory_descriptor),
-                "catalog_staging_invalid",
-            ) != directory_identity:
+            if (
+                _directory_identity(
+                    os.fstat(directory_descriptor),
+                    "catalog_staging_invalid",
+                )
+                != directory_identity
+            ):
                 _fail("catalog_staging_invalid")
             os.fsync(directory_descriptor)
         except OSError as error:
