@@ -75,6 +75,7 @@ KIMI_TIMEOUT_PROFILES = {
     "smoke": {"rollout_timeout": 28_800, "session_timeout": 32_400},
     "full": {"rollout_timeout": 36_000, "session_timeout": 43_200},
     "quick": {"rollout_timeout": 900, "session_timeout": 2_400},
+    "diagnostic": {"rollout_timeout": 480, "session_timeout": 2_400},
 }
 KIMI_FULL_RETRY_EXCEPTIONS = frozenset({"ProviderError", "SandboxError", "TunnelError", "InterceptionError"})
 VMVM_HOST_CLEANUP_CONTRACT = {
@@ -148,9 +149,10 @@ def validate_kimi_timeout_contract(
         else {key: KIMI_TIMEOUT_PROFILES[key] for key in ("smoke", "full")}
     )
 
-    setup_timeout_seconds = 600 if required_profile == "quick" else KIMI_SETUP_TIMEOUT_SECONDS
-    finalize_timeout_seconds = 300 if required_profile == "quick" else KIMI_FINALIZE_TIMEOUT_SECONDS
-    scoring_timeout_seconds = 600 if required_profile == "quick" else KIMI_SCORING_TIMEOUT_SECONDS
+    bounded_smoke = required_profile in {"quick", "diagnostic"}
+    setup_timeout_seconds = 600 if bounded_smoke else KIMI_SETUP_TIMEOUT_SECONDS
+    finalize_timeout_seconds = 300 if bounded_smoke else KIMI_FINALIZE_TIMEOUT_SECONDS
+    scoring_timeout_seconds = 600 if bounded_smoke else KIMI_SCORING_TIMEOUT_SECONDS
 
     def exact_number(value: object, expected: int) -> bool:
         return (
@@ -803,7 +805,10 @@ def _contract(
         if role in {"tb4", "mobius", "kimi-direct-tb4"}:
             required_profile = "full"
         elif role == "kimi-direct-smoke":
-            required_profile = "quick"
+            taskset = config.get("taskset")
+            if not isinstance(taskset, dict):
+                raise EvalIdentityError("resolved_contract_invalid")
+            required_profile = "diagnostic" if taskset.get("dataset_revision") is not None else "quick"
         elif role == "smoke":
             taskset = config.get("taskset")
             if not isinstance(taskset, dict):
