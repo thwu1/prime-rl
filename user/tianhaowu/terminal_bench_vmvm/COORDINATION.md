@@ -1,6 +1,6 @@
 # VMVM sandbox coordination
 
-Last updated: 2026-09-20 01:28 UTC
+Last updated: 2026-09-20 01:30 UTC
 
 ## First message to the next teammate
 
@@ -42,6 +42,17 @@ this shared branch again.
 Add new rows below this line; do not overwrite another owner's row.
 
 ## Open coordination requests
+
+- **2026-09-20 01:30 UTC, raced unsafe v8 approval revoked recoverably:** a
+  concurrent owner published the mode-0400 v8 approval at 01:28:51 UTC, before
+  receiving the lock-lifetime rejection. It was never consumed: canonical pane
+  stayed idle, exact squeue/sacct histories were empty, and run/route/output/
+  deployment/lock namespaces remained absent. The exact 1,346-byte approval,
+  SHA-256 `0b6ec408...1804b`, was moved without modification to
+  `approvals/.revoked/k3_tb4_eval_deploy_20260920t010300z_v8.approval.0b6ec408.revoked.json`;
+  the active approval path is absent. It remains recoverable audit evidence but
+  must never be restored or reused. Fresh successor bytes require a fresh
+  independently reviewed approval.
 
 - **2026-09-20 01:28 UTC, sealed Kimi v8 still has unsafe lock lifetime:** do
   not approve or execute current `20260920t010300z_v8` bytes. Although the
