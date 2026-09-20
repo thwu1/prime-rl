@@ -103,14 +103,19 @@ The operations are:
    networking disabled. Return the full installed distribution inventory,
    exact reachable closure when satisfied, marker environment, supported wheel
    tags, runtime fingerprint, and the approved probe attestation.
-3. `build`: use a separate trusted network-enabled builder. Return a
-   deterministic `wheelhouse.tar`, full wheel inventory, full reachable
-   closure, compatibility evidence, exact toolchain evidence, binary/source
-   origin for every wheel, and approved source-build attestation hashes. The
-   approved source-build policy must require independent reproducibility and a
-   clean offline install. A discovery build may be shared only when every
-   wheel is universal; otherwise the materializer requests an image-bound
-   build for each exact image.
+3. `build`: use a separate trusted network-enabled builder session whose
+   digest-pinned image comes from `SANDOQ_CATALOG_BUILDER_IMAGE`. The builder
+   image must be independently audited and must differ from every task or
+   verifier image; a benchmark image is never started with networking. The
+   pinned worker supplies target Python/implementation/ABI/platform flags from
+   the sealed runtime fingerprint, accepts binary wheels only
+   (`--only-binary=:all:`), and fails closed on an sdist. Source builds remain
+   delegated to a separately reviewed, independently reproducible builder.
+   Return a deterministic
+   `wheelhouse.tar`, full wheel inventory and closure, compatibility evidence,
+   exact toolchain evidence, and an approved immutable binary policy for every
+   wheel. A discovery build may be shared only when every wheel is universal;
+   otherwise the materializer requests an image-bound build for each image.
 4. `validate`: start a new clean exact-image runtime with networking disabled,
    upload the sealed archive, install into an isolated target with
    `PIP_NO_INDEX=1`, `--no-index`, `--no-deps`, and `--require-hashes`, and run
@@ -125,14 +130,36 @@ For production Sandoq probe and validation operations, the worker must use the
 pinned host-side runtime with `mode=oci-runner`, `network_access=false`,
 `host_tunnel=none`, `expected_environment=oci-runner-firecracker`, an absolute
 private ECR token path, and provider `OCI_RUNNER_TASK_NETWORK=none`. A trusted
-network builder must run in a separate process/configuration; it must never
-enable networking in the task runtime.
+network builder is a distinct materializer worker invocation and fresh Sandoq
+assignment/configuration. Its image digest is committed by the worker
+environment and approved toolchain evidence, and its observed Python/pip
+versions must match that preapproved toolchain. It must never enable
+networking in a probe, validation, or evaluation task runtime.
+
+The concrete entrypoint is `bin/sandoq-offline-catalog-worker`. Its sealed
+launcher opens and hashes the worker module before executing those exact bytes
+with a canonical, non-symlink Python interpreter using `-I -B -S`. Before any
+third-party import, the worker verifies the canonical manifest and exact tree
+of `SANDOQ_CATALOG_WORKER_SITE_ROOT`, then inserts only its declared site
+directory. The site root and directories are owned mode 0500; files are
+single-link mode 0400/0500; symlinks, bytecode, `.pth`, `.egg-link`,
+`sitecustomize`, unowned files, duplicate canonical distributions, and extra
+distributions all fail closed. Legitimate RECORD paths such as
+`../../../bin/<script>` are normalized only when their target remains inside
+the sealed runtime root. The worker rejects provider source other than commit
+`4890302104d76220cef791c86d2009168597d35f`, hashes the full active transitive
+installed-distribution file closure, stages only the pinned provider Python files into the private job,
+and suppresses operational stdout/stderr. `--print-contract` emits only
+non-secret contract hashes and required environment-variable names; it neither
+creates a lease nor reads credentials.
 
 The inherited worker configuration is a redacted canonical commitment and is
 revalidated before cache lookup. Production requires
 `VF_SANDBOX_PROVIDER=sandoq`,
 `OCI_RUNNER_ENVIRONMENT=oci-runner-firecracker`,
-`OCI_RUNNER_TASK_NETWORK=none`, and a scoped `SANDOQ_OWNER`. Recovery is
+`OCI_RUNNER_TASK_NETWORK=none`, a digest-pinned
+`SANDOQ_CATALOG_BUILDER_IMAGE` that is not a benchmark image, and a scoped
+`SANDOQ_OWNER`. Recovery is
 restricted to the digest of that owner plus environment. Direct secret values
 are forbidden. Immutable credential files are copied into the private work
 root and resealed; the ECR token remains at one canonical owned mode-0600 path
@@ -141,6 +168,30 @@ audit from a separately pinned rotator metadata file. The audit must match the
 current token inode and metadata, have a heartbeat no more than five minutes
 old, and retain at least ten minutes of expiry margin. This prevents cached
 evidence from crossing rotations without pinning an expiring token.
+
+Prepare the dedicated CPython 3.12 x86-64 dependency root outside the source
+checkout, remove all bytecode and path-hook files, set files to 0400/0500 and
+directories to 0500, and write its private canonical manifest with:
+
+```text
+python3 -B terminal_bench_vmvm/sandoq_catalog_worker.py \
+  --write-site-manifest /absolute/private/runtime-manifest.json \
+  --site-root /absolute/private/runtime-root \
+  --site-directory lib/python3.12/site-packages
+```
+
+The manifest parent must be owned mode 0700. Bind its SHA-256 and paths through
+`SANDOQ_CATALOG_WORKER_SITE_MANIFEST_SHA256`,
+`SANDOQ_CATALOG_WORKER_SITE_MANIFEST`, and
+`SANDOQ_CATALOG_WORKER_SITE_ROOT`. The independently approved provisioning
+receipt must additionally bind the complete relocated interpreter/stdlib tree
+and full provision identity through
+`SANDOQ_CATALOG_PYTHON_RUNTIME_MANIFEST_SHA256` and
+`SANDOQ_CATALOG_WORKER_PROVISION_IDENTITY_SHA256`. The sealed runtime launcher
+must verify both commitments before invoking the worker wrapper; the values are
+also committed by the worker runtime and environment records. Then run the task-free
+`bin/sandoq-offline-catalog-worker --print-contract` on an x86 host. This step
+does not read credential files or create a Sandoq lease.
 
 The worker must shield Sandoq deletion from SIGTERM/SIGINT and persist every
 lease transition to the provider WAL before acknowledging it. Killing the
@@ -161,6 +212,13 @@ reported as infrastructure failure even when cancellation triggered it.
 Startup kills every WAL-bound stale local group whose leader PID and start time
 still match. A live group with an absent or changed leader is ambiguous and
 fails closed without signalling it.
+
+The concrete worker owns one provider pool/WAL and drains it after every
+request. Set `SANDOQ_CATALOG_EXCLUSIVE_POOL=1`; the materializer rejects the
+plan unless probe, build, and validation concurrency are all exactly one. Do
+not run another materializer against the same owner/socket/WAL epoch. This
+serial one-time bootstrap prevents one request's drain from poisoning another
+active catalog session.
 
 The worker executable is copied alone into the private work root, sealed mode
 0500, rehashed, and executed from a verified open file descriptor. `PYTHONPATH`
@@ -210,9 +268,9 @@ entry, artifact, or catalog hashes.
 Load the catalog with its exact private digest and both protected roots. Build
 all expected bindings from the frozen taskset, selecting the real dependency
 runtime image according to verifier mode. Call `preflight(...,
-expected_task_count=2499)` before creating any evaluator or sandbox.
+expected_task_count=IDENTITY_COUNT)` before creating any evaluator or sandbox.
 
-The 2/8/24/64 execution ramps still preflight the full canonical 2499-binding
+The 2/8/24/64 execution ramps still preflight the full canonical binding
 plan against the production catalog. Only after that succeeds may the ramp
 driver select its sealed stage subset and call `resolve(...)` for those tasks.
 Do not pass the ramp subset as `expected_tasks` and do not weaken exact-set
@@ -236,3 +294,21 @@ paths must be distinct descendants of
 reject `/`, system directories, parent traversal, repeated-slash aliases,
 all ASCII C0 control characters and DEL, equal paths, and
 ancestor/descendant aliases.
+
+## Taskset activation
+
+Configure `offline_verifier_catalog`, its exact SHA-256,
+`offline_verifier_catalog_identity`, a separately SHA-pinned
+`offline_verifier_catalog_task_file` for the full selection, and the frozen
+`offline_verifier_project_root`. All fields are required together. The catalog
+task file remains the full selection even when the ordinary `task_file` is a
+small ramp.
+
+`load_tasks()` derives the actual shared-agent or separate-verifier dependency
+image and ordered exact requirements for every full-selection member and
+finishes exhaustive preflight before returning the runnable subset. It exposes
+only the aggregate receipt. Each clean runtime is then fingerprinted and
+resolved against its exact binding. Image inventories are closure-probed in
+place; wheelhouses are re-read, uploaded, hash-checked, installed with
+`--no-index --no-deps --require-hashes` into an isolated site, and
+closure-probed before the verifier is allowed to run.
