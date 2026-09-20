@@ -358,6 +358,7 @@ def build_provider_environment(
     for name in PROXY_ENVIRONMENT_NAMES:
         environment.pop(name, None)
     environment.pop("OCI_RUNNER_TASK_NETWORK", None)
+    environment.pop("OCI_RUNNER_ALLOW_DOCKERHUB_FALLBACK", None)
     environment.pop("VF_SANDBOX_PROVIDER", None)
     environment.pop("FIRECRACKER_KEY", None)
     python_paths = [

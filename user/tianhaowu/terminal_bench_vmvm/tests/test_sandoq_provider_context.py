@@ -42,6 +42,7 @@ def test_build_provider_environment_matches_sc3_context_without_reading_tokens(
             "all_proxy": "http://inherited.invalid",
             "VF_SANDBOX_PROVIDER": "wrong",
             "FIRECRACKER_KEY": "must-not-survive",
+            "OCI_RUNNER_ALLOW_DOCKERHUB_FALLBACK": "0",
             "PYTHONPATH": "/existing",
         },
         **arguments,
@@ -65,6 +66,7 @@ def test_build_provider_environment_matches_sc3_context_without_reading_tokens(
     assert "all_proxy" not in environment
     assert "VF_SANDBOX_PROVIDER" not in environment
     assert "FIRECRACKER_KEY" not in environment
+    assert "OCI_RUNNER_ALLOW_DOCKERHUB_FALLBACK" not in environment
     assert not Path(arguments["provider_token_file"]).exists()
 
 

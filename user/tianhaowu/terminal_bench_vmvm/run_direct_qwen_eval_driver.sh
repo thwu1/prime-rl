@@ -108,6 +108,11 @@ if [[ -n "$(git status --porcelain=v1 --untracked-files=all)" \
     exit 2
 fi
 if [[ "$sandbox_provider" == sandoq ]]; then
+    if [[ "$(git -C deps/verifiers rev-parse HEAD)" \
+        != 80e58e7e2b194e9c1b8dc0990c00b7a839127eea ]]; then
+        printf 'Verifiers revision is not the approved public Sandoq host-harness source\n' >&2
+        exit 2
+    fi
     if [[ ${SANDOQ_PROVIDER_CONTEXT_ACTIVE:-} != 1 \
         || -z ${SANDOQ_PROVIDER_CONTEXT_RECEIPT:-} ]]; then
         printf 'Sandoq provider context must supervise the complete evaluator lifecycle\n' >&2

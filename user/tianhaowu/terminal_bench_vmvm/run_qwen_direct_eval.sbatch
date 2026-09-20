@@ -533,7 +533,7 @@ PY
         --cleanup-audit "$output_dir/sandoq_cleanup_audit.json" \
         --ramp-receipt "$ramp_receipt" --ramp-receipt-sha256 "$ramp_receipt_sha256" \
         --canonical-task-source "$workflow_dir/configs/eval/mobius_valid_tasks_2500.txt" \
-        --canonical-template "$workflow_dir/configs/eval/mobius_qwen_a95b_2500_sandoq.toml" \
+        --canonical-template "$workflow_dir/configs/eval/shared_qwen38_2p4t/mobius_qwen_a95b_2500_sandoq.toml" \
         --output "$output_dir/direct_qwen_sandoq_certificate.json"
     )
     if [[ -n ${SANDOQ_PREDECESSOR_CERTIFICATE:-} || -n ${SANDOQ_PREDECESSOR_CERTIFICATE_SHA256:-} ]]; then

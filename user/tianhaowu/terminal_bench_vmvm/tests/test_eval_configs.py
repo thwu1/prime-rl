@@ -651,6 +651,8 @@ def test_direct_qwen_launcher_is_fail_closed() -> None:
     assert "validate_post_eval_generation" in wrapper
     assert "f7313db42eea4b3be8bcbe16a8072f73cf6abed5" in wrapper
     assert "f7313db42eea4b3be8bcbe16a8072f73cf6abed5" in driver
+    assert "80e58e7e2b194e9c1b8dc0990c00b7a839127eea" in driver
+    assert "configs/eval/shared_qwen38_2p4t/mobius_qwen_a95b_2500_sandoq.toml" in wrapper
     assert wrapper.index("approved clean source closure") < wrapper.index('"$workflow_dir/direct_qwen_workers.py"')
 
     generic_wrapper = (workflow_dir / "run_eval.sbatch").read_text()
