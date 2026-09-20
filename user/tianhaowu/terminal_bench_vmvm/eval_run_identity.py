@@ -3091,6 +3091,7 @@ def _prepare_direct_kimi(args: argparse.Namespace) -> str:
             or payload.get("kind") != "direct-kimi-sandoq-smoke"
             or payload.get("state") != "passed"
             or payload.get("model") != "Kimi-K3"
+            or payload.get("full_tb4_ready") is not True
             or payload.get("source_spec_sha256") != manifest["source_spec_sha256"]
             or payload.get("endpoint_bundle_sha256") != manifest["endpoint_bundle_sha256"]
         ):

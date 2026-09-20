@@ -247,4 +247,8 @@ if [[ "$stage" == tb4 ]]; then
     )
 fi
 "$x86_uv" run --no-project --offline --python "$python_bin" python3 "${certificate_args[@]}"
-printf '{"job_id":"%s","stage":"%s","state":"passed"}\n' "$SLURM_JOB_ID" "$stage"
+if [[ "$stage" == smoke ]]; then
+    printf '{"job_id":"%s","stage":"%s","state":"capacity-limited-passed"}\n' "$SLURM_JOB_ID" "$stage"
+else
+    printf '{"job_id":"%s","stage":"%s","state":"passed"}\n' "$SLURM_JOB_ID" "$stage"
+fi

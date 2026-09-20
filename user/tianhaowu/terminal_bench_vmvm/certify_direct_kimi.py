@@ -10,6 +10,7 @@ import json
 import os
 import re
 import tempfile
+import tomllib
 from pathlib import Path
 from typing import Any
 
@@ -41,6 +42,14 @@ SMOKE_TASK_COUNT = 2
 TB4_MIN_SUPPORTED_PASS_RATE = 0.04
 TB4_MAX_SUPPORTED_PASS_RATE = 0.22
 MAX_SEQUENCE_TOKENS = 262_144
+CAPACITY_LIMITED_SMOKE_SCOPE = {
+    "kind": "legacy-public-oci-capacity-limited",
+    "resource_multiplier": 1.0,
+    "outer_memory_gib": 8,
+    "required_outer_headroom_gib": 2,
+    "maximum_compatible_task_memory_gib": 6,
+    "full_tb4_ready": False,
+}
 
 
 class DirectKimiCertificateError(ValueError):
@@ -80,6 +89,28 @@ def _read_json(path: Path, *, label: str) -> dict[str, Any]:
     if not isinstance(value, dict):
         raise DirectKimiCertificateError(f"{label}_invalid")
     return value
+
+
+def _capacity_limited_smoke_scope(identity: dict[str, Any]) -> dict[str, Any]:
+    record = identity.get("config", {}).get("resolved")
+    if not isinstance(record, dict) or set(record) != {"path", "sha256"}:
+        raise DirectKimiCertificateError("smoke_capacity_scope_invalid")
+    path = Path(str(record["path"]))
+    if _sha256(path) != record["sha256"]:
+        raise DirectKimiCertificateError("smoke_capacity_scope_invalid")
+    try:
+        config = tomllib.loads(path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeDecodeError, tomllib.TOMLDecodeError) as error:
+        raise DirectKimiCertificateError("smoke_capacity_scope_invalid") from error
+    taskset = config.get("taskset")
+    resource_multiplier = taskset.get("resource_multiplier") if isinstance(taskset, dict) else None
+    if (
+        isinstance(resource_multiplier, bool)
+        or not isinstance(resource_multiplier, (int, float))
+        or resource_multiplier != 1.0
+    ):
+        raise DirectKimiCertificateError("smoke_capacity_scope_invalid")
+    return dict(CAPACITY_LIMITED_SMOKE_SCOPE)
 
 
 def _validate_identity(run_dir: Path, *, role: str, expected_count: int) -> tuple[dict[str, Any], dict[str, Any]]:
@@ -181,7 +212,13 @@ def _validate_router_receipt(path: Path, manifest: dict[str, Any], manifest_sha2
     return receipt
 
 
-def _validate_cleanup(path: Path, *, expected_count: int, expected_concurrency: int) -> tuple[dict[str, Any], bytes]:
+def _validate_cleanup(
+    path: Path,
+    *,
+    expected_count: int,
+    expected_concurrency: int,
+    require_saturation: bool = True,
+) -> tuple[dict[str, Any], bytes]:
     try:
         raw = path.resolve(strict=True).read_bytes()
         cleanup = json.loads(raw)
@@ -230,8 +267,14 @@ def _validate_cleanup(path: Path, *, expected_count: int, expected_concurrency: 
         or cleanup["recorded_outer_sessions"] != cleanup["outer_sessions_created"]
         or cleanup["recorded_outer_sessions"] != cleanup["outer_sessions_deleted"]
         or cleanup["recorded_outer_sessions"] < 1
-        or cleanup["outer_session_high_water"] < expected_concurrency
-        or cleanup["assignment_measured_high_water"] != expected_concurrency
+        or not 1 <= cleanup["assignment_measured_high_water"] <= expected_concurrency
+        or not cleanup["assignment_measured_high_water"]
+        <= cleanup["outer_session_high_water"]
+        <= expected_concurrency
+        or (
+            require_saturation
+            and cleanup["assignment_measured_high_water"] != expected_concurrency
+        )
         or cleanup["assignments_acquired"] < expected_count
         or cleanup["assignments_cleanup_verified"] != cleanup["assignments_acquired"]
         or cleanup["assignment_release_rows"] + cleanup["assignment_cancellation_rows"]
@@ -293,6 +336,7 @@ def certify_smoke(
             expected_count=SMOKE_TASK_COUNT,
         )
         identity = envelope["identity"]
+        capacity_scope = _capacity_limited_smoke_scope(identity)
         expected_slugs = _validate_task_selection(identity, expected_task_file, expected_task_file_sha256)
         if len(expected_slugs) != SMOKE_TASK_COUNT:
             raise DirectKimiCertificateError("task_selection_invalid")
@@ -327,6 +371,7 @@ def certify_smoke(
             run_dir / "sandoq_cleanup_audit.json",
             expected_count=SMOKE_TASK_COUNT,
             expected_concurrency=SMOKE_TASK_COUNT,
+            require_saturation=False,
         )
         artifacts = _common_artifacts(run_dir)
         certificate = {
@@ -341,6 +386,9 @@ def certify_smoke(
             "source_spec_sha256": manifest["source_spec_sha256"],
             "endpoint_bundle_sha256": manifest["endpoint_bundle_sha256"],
             "worker_count": EXPECTED_ENDPOINTS,
+            "qualification_scope": "capacity-limited-smoke-only",
+            "capacity_scope": capacity_scope,
+            "full_tb4_ready": False,
             "trace_count": summary["traces"],
             "model_io_turns": summary["model_io_turns"],
             "sampled_tokens": summary["sampled_tokens"],
@@ -395,6 +443,7 @@ def certify_tb4(
             or smoke.get("kind") != "direct-kimi-sandoq-smoke"
             or smoke.get("state") != "passed"
             or smoke.get("model") != EXPECTED_MODEL
+            or smoke.get("full_tb4_ready") is not True
             or SHA256_RE.fullmatch(str(smoke.get("worker_manifest_sha256", ""))) is None
             or smoke.get("source_spec_sha256") != manifest["source_spec_sha256"]
             or smoke.get("endpoint_bundle_sha256") != manifest["endpoint_bundle_sha256"]
@@ -522,6 +571,8 @@ def main() -> None:
                 "kind": certificate["kind"],
                 "state": "passed",
                 "scores": certificate.get("scores"),
+                "qualification_scope": certificate.get("qualification_scope"),
+                "full_tb4_ready": certificate.get("full_tb4_ready"),
             },
             sort_keys=True,
         )

@@ -41,7 +41,10 @@ use_declared_images = true
 enable_compose = true
 verifier_runtime_retries = 0
 timeout_multiplier = 2.0
-resource_multiplier = 2.0
+# The legacy public OCI environment has 8 GiB total and the audited provider
+# reserves 2 GiB for the outer runtime. Use the task's declared resources for
+# this capacity-limited semantic smoke; this does not qualify the full TB4 run.
+resource_multiplier = 1.0
 
 [harness]
 id = "terminal-bench-sandoq-host"
