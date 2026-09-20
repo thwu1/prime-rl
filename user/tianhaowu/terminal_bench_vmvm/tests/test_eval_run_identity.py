@@ -455,7 +455,7 @@ def test_direct_qwen_identity_reference_verification_does_not_require_routing(tm
 
 def _direct_kimi_identity(*, smoke: bool) -> dict:
     identity = _sandoq_identity()
-    concurrency = 2 if smoke else 24
+    concurrency = 1 if smoke else 24
     config = _sandoq_kimi_config(smoke=smoke)
     config["max_concurrent"] = concurrency
     config["multiplex"] = concurrency
@@ -463,6 +463,8 @@ def _direct_kimi_identity(*, smoke: bool) -> dict:
     config["client"]["max_keepalive_connections"] = concurrency
     if smoke:
         config["sampling"]["reasoning_effort"] = "high"
+        config["timeout"].update(setup=600, rollout=900, finalize=300, scoring=600)
+        config["harness"]["runtime"]["session_timeout"] = 2_400
     contract, execution = _contract(
         config,
         "Kimi-K3",

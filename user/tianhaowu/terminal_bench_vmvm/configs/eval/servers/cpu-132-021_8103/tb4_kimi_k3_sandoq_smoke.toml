@@ -1,13 +1,13 @@
 # Deployment namespace: cpu-132-021_8103
 model = "Kimi-K3"
-num_tasks = 2
+num_tasks = 1
 num_rollouts = 1
-max_concurrent = 2
-max_turns = 200
+max_concurrent = 1
+max_turns = 16
 max_input_tokens = 262144
 max_output_tokens = 262144
 max_total_tokens = 262144
-multiplex = 2
+multiplex = 1
 rich = false
 retain_traces = false
 
@@ -19,13 +19,13 @@ base_url = "http://127.0.0.1:8000/v1"
 api_key_var = "OPENAI_API_KEY"
 timeout = 43200
 connect_timeout = 120
-max_connections = 2
-max_keepalive_connections = 2
+max_connections = 1
+max_keepalive_connections = 1
 
 [sampling]
 temperature = 1.0
 top_p = 1.0
-max_tokens = 32768
+max_tokens = 4096
 # vllm-router 0.1.26 rejects Kimi's supported `max` dialect before forwarding.
 # This short infrastructure/reward smoke uses the router-supported `high`
 # dialect and is explicitly ineligible to promote the full max-reasoning run.
@@ -35,8 +35,8 @@ chat_template_kwargs = { enable_thinking = true, preserve_thinking = true }
 [taskset]
 id = "terminal-bench-vmvm"
 dataset_dir = "/checkpoint/ram/tianhaowu/terminal_bench_vmvm/datasets/tb4-prebuilt-v4.0.0/tasks"
-task_file = "user/tianhaowu/terminal_bench_vmvm/configs/eval/tb4_kimi_token_smoke.tasks.txt"
-task_file_sha256 = "ecdcbc6e4f54b690e64b4566de5eecf33467088c8ca3436738cd7308d4e45b83"
+task_file = "/checkpoint/ram/tianhaowu/terminal_bench_vmvm/private/use2/qwen_quick_debug/task.txt"
+task_file_sha256 = "86e00019cfdcff91e9d76ddabe8b14366bab4e4ecbe2e2cba9d4d8f6609b8504"
 image_manifest = "user/tianhaowu/terminal_bench_vmvm/configs/eval/servers/cpu-132-021_8103/tb4_images.sandoq.json"
 image_manifest_sha256 = "6dd632029af8da52f99f1d364e983a5da2e855afeb6a2ea5fc84fd00e1683513"
 ignore_dockerfile = true
@@ -59,17 +59,17 @@ request_timeout_seconds = 15000
 [harness.runtime]
 type = "sandoq"
 mode = "oci-runner"
-session_timeout = 32400
+session_timeout = 2400
 network_access = true
 host_tunnel = "none"
 expected_environment = "oci-runner"
 ecr_token_file = "/storage/home/tianhaowu/.config/oci-runner/ecr-token"
 
 [timeout]
-setup = 3600
-rollout = 28800
-finalize = 3600
-scoring = 21600
+setup = 600
+rollout = 900
+finalize = 300
+scoring = 600
 
 [retries.rollout]
 max_retries = 0

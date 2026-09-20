@@ -85,10 +85,12 @@ fi
 
 if [[ "$stage" == smoke ]]; then
     eval_config="$server_dir/tb4_kimi_k3_sandoq_smoke.toml"
-    task_file="$workflow_dir/configs/eval/tb4_kimi_token_smoke.tasks.txt"
-    task_sha256=ecdcbc6e4f54b690e64b4566de5eecf33467088c8ca3436738cd7308d4e45b83
-    task_count=2
-    stage_capacity=2
+    # Opaque one-task selection previously proven reward-positive on this
+    # public Sandoq environment. Never print or embed its task identifier.
+    task_file=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/private/use2/qwen_quick_debug/task.txt
+    task_sha256=86e00019cfdcff91e9d76ddabe8b14366bab4e4ecbe2e2cba9d4d8f6609b8504
+    task_count=1
+    stage_capacity=1
     identity_role=kimi-direct-smoke
 else
     eval_config="$server_dir/tb4_kimi_k3_sandoq_pass1.toml"

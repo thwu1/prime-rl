@@ -39,7 +39,7 @@ from direct_kimi_workers import (
 from eval_run_identity import canonical_json, load_eval_run_identity
 
 SHA256_RE = re.compile(r"[0-9a-f]{64}")
-SMOKE_TASK_COUNT = 2
+SMOKE_TASK_COUNT = 1
 TB4_MIN_SUPPORTED_PASS_RATE = 0.04
 TB4_MAX_SUPPORTED_PASS_RATE = 0.22
 MAX_SEQUENCE_TOKENS = 262_144
@@ -139,7 +139,7 @@ def _validate_identity(run_dir: Path, *, role: str, expected_count: int) -> tupl
         or task.get("count") != expected_count
     ):
         raise DirectKimiCertificateError("eval_identity_invalid")
-    expected_concurrency = 2 if role == "kimi-direct-smoke" else 24
+    expected_concurrency = 1 if role == "kimi-direct-smoke" else 24
     environment = execution.get("sandoq_environment")
     if (
         any(

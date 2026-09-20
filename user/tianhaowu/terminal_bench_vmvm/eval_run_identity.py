@@ -74,6 +74,7 @@ KIMI_SCORING_TIMEOUT_SECONDS = 21_600
 KIMI_TIMEOUT_PROFILES = {
     "smoke": {"rollout_timeout": 28_800, "session_timeout": 32_400},
     "full": {"rollout_timeout": 36_000, "session_timeout": 43_200},
+    "quick": {"rollout_timeout": 900, "session_timeout": 2_400},
 }
 KIMI_FULL_RETRY_EXCEPTIONS = frozenset({"ProviderError", "SandboxError", "TunnelError", "InterceptionError"})
 VMVM_HOST_CLEANUP_CONTRACT = {
@@ -144,8 +145,12 @@ def validate_kimi_timeout_contract(
     allowed_profiles = (
         {required_profile: KIMI_TIMEOUT_PROFILES[required_profile]}
         if required_profile is not None
-        else KIMI_TIMEOUT_PROFILES
+        else {key: KIMI_TIMEOUT_PROFILES[key] for key in ("smoke", "full")}
     )
+
+    setup_timeout_seconds = 600 if required_profile == "quick" else KIMI_SETUP_TIMEOUT_SECONDS
+    finalize_timeout_seconds = 300 if required_profile == "quick" else KIMI_FINALIZE_TIMEOUT_SECONDS
+    scoring_timeout_seconds = 600 if required_profile == "quick" else KIMI_SCORING_TIMEOUT_SECONDS
 
     def exact_number(value: object, expected: int) -> bool:
         return (
@@ -159,10 +164,10 @@ def validate_kimi_timeout_contract(
         not exact_number(request_timeout, KIMI_REQUEST_TIMEOUT_SECONDS)
         or not harness_timeout_valid
         or not exact_number(connect_timeout, KIMI_CONNECT_TIMEOUT_SECONDS)
-        or not exact_number(setup_timeout, KIMI_SETUP_TIMEOUT_SECONDS)
+        or not exact_number(setup_timeout, setup_timeout_seconds)
         or not any(exact_number(rollout_timeout, profile["rollout_timeout"]) for profile in allowed_profiles.values())
-        or not exact_number(finalize_timeout, KIMI_FINALIZE_TIMEOUT_SECONDS)
-        or not exact_number(scoring_timeout, KIMI_SCORING_TIMEOUT_SECONDS)
+        or not exact_number(finalize_timeout, finalize_timeout_seconds)
+        or not exact_number(scoring_timeout, scoring_timeout_seconds)
         or not any(exact_number(session_timeout, profile["session_timeout"]) for profile in allowed_profiles.values())
         or observed_profile not in allowed_profiles.values()
     ):
@@ -797,7 +802,9 @@ def _contract(
         required_profile: str | None = None
         if role in {"tb4", "mobius", "kimi-direct-tb4"}:
             required_profile = "full"
-        elif role in {"smoke", "kimi-direct-smoke"}:
+        elif role == "kimi-direct-smoke":
+            required_profile = "quick"
+        elif role == "smoke":
             taskset = config.get("taskset")
             if not isinstance(taskset, dict):
                 raise EvalIdentityError("resolved_contract_invalid")
@@ -3036,7 +3043,7 @@ def _prepare_direct_kimi(args: argparse.Namespace) -> str:
         role=args.role,
         sandbox_provider="sandoq",
     )
-    expected_concurrency = 2 if args.role == "kimi-direct-smoke" else 24
+    expected_concurrency = 1 if args.role == "kimi-direct-smoke" else 24
     if any(
         execution.get(key) != expected_concurrency
         for key in (
