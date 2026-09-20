@@ -648,6 +648,9 @@ def test_direct_qwen_launcher_is_fail_closed() -> None:
     assert '"$canonical_dataset"' in driver
     assert '--canonical-dataset "$canonical_dataset"' in wrapper
     assert "validate_predecessor" in driver
+    assert 'sandoq_host_harness_sha256=$(\n        sha256sum -- "$workflow_dir/terminal_bench_vmvm/sandoq_host_harness.py"' in driver
+    assert '"sandoq_host_harness_sha256", "sandoq_client_version"' in driver
+    assert "sys.argv[13:24]" in driver
     assert "verify_references=True" in driver
     assert "sandoq_pool_cleanup.py" in driver
     assert "sanitize_sandoq_cleanup_audit.py" in driver

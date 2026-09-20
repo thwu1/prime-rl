@@ -316,6 +316,13 @@ print(path)
 PY
 )
     source_image_manifest_sha256=$(sha256sum -- "$source_image_manifest" | cut -d' ' -f1)
+    sandoq_host_harness_sha256=$(
+        sha256sum -- "$workflow_dir/terminal_bench_vmvm/sandoq_host_harness.py" | cut -d' ' -f1
+    )
+    if [[ ! "$sandoq_host_harness_sha256" =~ ^[0-9a-f]{64}$ ]]; then
+        printf 'Sandoq host harness digest is invalid\n' >&2
+        exit 2
+    fi
     if [[ "$diagnostic_mode" -eq 0 ]]; then
         "$x86_uv" run --no-project --offline --python "$python_bin" \
         python3 - "$sandoq_stage_count" "$approved_task_file_sha256" "$approved_task_file" \
@@ -327,7 +334,8 @@ PY
         "$approved_task_file" "$(git rev-parse HEAD)" "$(git -C deps/verifiers rev-parse HEAD)" \
         "$(git -C deps/renderers rev-parse HEAD)" "$sandoq_provider_commit" \
         "$sandoq_provider_tree" \
-        "$sandoq_client_version" "$sandoq_site_sha256" "$source_image_manifest_sha256" \
+        "$sandoq_host_harness_sha256" "$sandoq_client_version" "$sandoq_site_sha256" \
+        "$source_image_manifest_sha256" \
         "$direct_spec_sha256" "$direct_bundle_sha256" <<'PY'
 import sys
 from pathlib import Path
@@ -341,10 +349,10 @@ ramp = validate_ramp_receipt(
 source = dict(zip(
     (
         "prime_rl_commit", "verifiers_commit", "renderers_commit", "sandoq_provider_commit", "sandoq_provider_tree",
-        "sandoq_client_version", "sandoq_site_sha256", "derived_image_manifest_sha256",
+        "sandoq_host_harness_sha256", "sandoq_client_version", "sandoq_site_sha256", "derived_image_manifest_sha256",
         "direct_spec_sha256", "direct_endpoint_bundle_sha256",
     ),
-    sys.argv[13:23],
+    sys.argv[13:24],
     strict=True,
 ))
 validate_predecessor(
