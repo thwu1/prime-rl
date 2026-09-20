@@ -461,6 +461,8 @@ def _direct_kimi_identity(*, smoke: bool) -> dict:
     config["multiplex"] = concurrency
     config["client"]["max_connections"] = concurrency
     config["client"]["max_keepalive_connections"] = concurrency
+    if smoke:
+        config["sampling"]["reasoning_effort"] = "high"
     contract, execution = _contract(
         config,
         "Kimi-K3",
@@ -510,6 +512,8 @@ def test_direct_kimi_sandoq_identity_binds_router_and_smoke_lineage() -> None:
     assert _validate_identity_shape(smoke) == smoke
     full = _direct_kimi_identity(smoke=False)
     assert _validate_identity_shape(full) == full
+    assert smoke["contract"]["reasoning_effort"] == "high"
+    assert full["contract"]["reasoning_effort"] == "max"
 
     for path, value in (
         (("deployment", "router", "policy"), "round_robin"),

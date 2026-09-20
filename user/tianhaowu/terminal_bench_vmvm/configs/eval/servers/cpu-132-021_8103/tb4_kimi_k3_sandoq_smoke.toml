@@ -26,7 +26,10 @@ max_keepalive_connections = 2
 temperature = 1.0
 top_p = 1.0
 max_tokens = 32768
-reasoning_effort = "max"
+# vllm-router 0.1.26 rejects Kimi's supported `max` dialect before forwarding.
+# This short infrastructure/reward smoke uses the router-supported `high`
+# dialect and is explicitly ineligible to promote the full max-reasoning run.
+reasoning_effort = "high"
 chat_template_kwargs = { enable_thinking = true, preserve_thinking = true }
 
 [taskset]

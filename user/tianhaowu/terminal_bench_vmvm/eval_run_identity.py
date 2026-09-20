@@ -809,7 +809,13 @@ def _contract(
         raise EvalIdentityError("pass_at_1_required")
     thinking = sampling.get("chat_template_kwargs")
     expected_thinking = {"enable_thinking": True, "preserve_thinking": True}
-    expected_reasoning_effort = "medium" if model == "Qwen3.8-2.4T-A95B" else "max"
+    expected_reasoning_effort = (
+        "high"
+        if role == "kimi-direct-smoke"
+        else "medium"
+        if model == "Qwen3.8-2.4T-A95B"
+        else "max"
+    )
     if sampling.get("reasoning_effort") != expected_reasoning_effort or canonical_json(
         thinking
     ) != canonical_json(expected_thinking):
@@ -1847,7 +1853,13 @@ def _validate_identity_shape(identity: object) -> dict[str, Any]:
         or contract.get("pass_at_1") is not True
         or contract.get("num_rollouts") != 1
         or contract.get("reasoning_effort")
-        != ("medium" if model == "Qwen3.8-2.4T-A95B" else "max")
+        != (
+            "high"
+            if role == "kimi-direct-smoke"
+            else "medium"
+            if model == "Qwen3.8-2.4T-A95B"
+            else "max"
+        )
         or canonical_json(contract.get("thinking"))
         != canonical_json({"enable_thinking": True, "preserve_thinking": True})
         or not isinstance(context, dict)
