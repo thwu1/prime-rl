@@ -8,6 +8,7 @@ import json
 import os
 import re
 import shutil
+import signal
 import stat
 import subprocess
 import sys
@@ -18,6 +19,7 @@ from types import SimpleNamespace
 from typing import ClassVar
 
 import pytest
+from vmvm_tb_v2._vacli import backend as vacli_backend
 
 ROOT = Path(__file__).parent
 
@@ -1327,6 +1329,62 @@ def test_lease_audit_journals_initial_and_resumed_renewers(tmp_path: Path) -> No
         (2_000_000_011, 2_000_000_011, None),
         (2_000_000_012, 2_000_000_012, None),
     }
+
+
+def test_tracked_vacli_lease_resume_uses_no_arg_wait_override(monkeypatch, tmp_path: Path) -> None:
+    processes: dict[int, object] = {}
+
+    class Process:
+        def __init__(self, pid: int, returncode: int | None = None) -> None:
+            self.pid = pid
+            self.returncode = returncode
+            processes[pid] = self
+
+        def poll(self) -> int | None:
+            return self.returncode
+
+        def wait(self, timeout: float) -> int:
+            del timeout
+            assert self.returncode is not None
+            return self.returncode
+
+    resumed_process = Process(2_000_000_022)
+
+    class Subprocess:
+        STDOUT = subprocess.STDOUT
+        TimeoutExpired = subprocess.TimeoutExpired
+
+        @staticmethod
+        def Popen(command, **kwargs):
+            assert "--resume-with-session" in command
+            kwargs["stdout"].write(b'[{"vm_port":22,"local_port":10022}]\n')
+            kwargs["stdout"].flush()
+            return resumed_process
+
+    def killpg(pid: int, sent_signal: int) -> None:
+        process = processes[pid]
+        process.returncode = -sent_signal  # type: ignore[attr-defined]
+
+    monkeypatch.setattr(vacli_backend.os, "getpgid", lambda pid: pid)
+    monkeypatch.setattr(vacli_backend.os, "killpg", killpg)
+    monkeypatch.setattr(PROBE, "_process_start_ticks", lambda _pid: 12345)
+    audit = PROBE.LeaseAudit()
+    tracked_lease_type = audit.tracking_lease_type(vacli_backend.VacliLease)
+    lease = tracked_lease_type(
+        "test-tenant",
+        tmp_path / "lease.log",
+        tunnel_ready_timeout=1,
+        subprocess_mod=Subprocess,
+    )
+    lease.proc = Process(2_000_000_021, 0)
+    lease.lease_response = '{"sessionId":{"id":"test"},"auth_token":{}}'
+
+    assert lease.restart_tunnel() == 10022
+    assert audit.phase_counts["tunnel_ready"] == 1
+    assert audit._leases[id(lease)]["process"] is resumed_process
+
+    lease.cleanup()
+    assert resumed_process.returncode == -signal.SIGTERM
 
 
 def test_external_renewer_journal_fails_closed_when_spawn_is_unjournaled(

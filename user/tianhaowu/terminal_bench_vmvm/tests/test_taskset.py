@@ -4671,8 +4671,9 @@ def test_vacli_initial_and_resume_spawns_delegate_to_process_owner(
     lease._pending_tunnel = None
     lease.lease_response = '{"sessionId":{"id":"test"},"auth_token":{}}'
 
-    def wait_for_tunnel(**kwargs) -> int:
-        kwargs["permit"].release()
+    def wait_for_tunnel() -> int:
+        assert lease._pending_tunnel is not None
+        lease._pending_tunnel[1].release()
         lease._pending_tunnel = None
         return 10022
 
@@ -5123,8 +5124,9 @@ def test_vacli_child_receives_sigterm_when_owner_process_exits(tmp_path: Path) -
         text=True,
     )
     child_pid = None
+    owner_timeout = vacli_backend._VACLI_SPAWN_TIMEOUT_SECONDS + vacli_backend._VACLI_FORCED_REAP_TIMEOUT_SECONDS + 10
     try:
-        stdout, stderr = owner.communicate(timeout=5)
+        stdout, stderr = owner.communicate(timeout=owner_timeout)
         assert owner.returncode == 0, stderr
         child_pid = int(stdout.strip())
         deadline = time.monotonic() + 3
@@ -5132,6 +5134,13 @@ def test_vacli_child_receives_sigterm_when_owner_process_exits(tmp_path: Path) -
             time.sleep(0.01)
         assert child_terminated.exists()
     finally:
+        if owner.poll() is None:
+            owner.terminate()
+            try:
+                owner.communicate(timeout=5)
+            except subprocess.TimeoutExpired:
+                owner.kill()
+                owner.communicate(timeout=5)
         if child_pid is not None and not child_terminated.exists():
             try:
                 child_pgid = os.getpgid(child_pid)
@@ -5433,10 +5442,11 @@ def test_vacli_concurrent_restarts_share_one_flight_and_one_permit(
     )
     lease.lease_response = '{"sessionId":{"id":"test"},"auth_token":{}}'
 
-    def wait_for_tunnel(**kwargs) -> int:
+    def wait_for_tunnel() -> int:
         wait_entered.set()
         assert allow_ready.wait(timeout=1)
-        kwargs["permit"].release()
+        assert lease._pending_tunnel is not None
+        lease._pending_tunnel[1].release()
         lease._pending_tunnel = None
         return 10022
 
@@ -5507,7 +5517,7 @@ def test_vacli_readiness_rejects_process_cleaned_after_mapping(
 
     def wait() -> None:
         try:
-            lease.wait_for_tunnel(expected_process=process, permit=permit, log_path=log_path)
+            lease._wait_for_tunnel_process(process, permit, log_path)
         except BaseException as error:
             errors.append(error)
 

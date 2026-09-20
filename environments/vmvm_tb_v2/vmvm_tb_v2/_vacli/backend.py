@@ -683,13 +683,7 @@ class VacliLease:
             self._resolve_failed_spawn(permit)
             raise
 
-    def wait_for_tunnel(
-        self,
-        *,
-        expected_process: Any = None,
-        permit: _LeaseConcurrencyPermit | None = None,
-        log_path: Path | None = None,
-    ) -> int:
+    def wait_for_tunnel(self) -> int:
         """Poll the vacli log for the tunnel mapping; return the local port for vm_port=22.
 
         Per [[vacli-coreweave-stderr-noise]]: we look at stdout content, not
@@ -697,17 +691,24 @@ class VacliLease:
         being printed to stdout.
         """
         with self._cleanup_lock:
-            process = self.proc if expected_process is None else expected_process
+            process = self.proc
             pending = self._pending_tunnel
             if pending is not None and pending[0] is process:
-                if permit is None:
-                    permit = pending[1]
-                if log_path is None:
-                    log_path = pending[2]
-            if log_path is None:
+                permit = pending[1]
+                log_path = pending[2]
+            else:
+                permit = None
                 log_path = self.log_path
             if process is None:
                 raise BackendInitError("vacli lease never started; call .start() first")
+        return self._wait_for_tunnel_process(process, permit, log_path)
+
+    def _wait_for_tunnel_process(
+        self,
+        process: Any,
+        permit: _LeaseConcurrencyPermit | None,
+        log_path: Path,
+    ) -> int:
         try:
             deadline = time.time() + self.tunnel_ready_timeout
             while time.time() < deadline:
@@ -877,11 +878,7 @@ class VacliLease:
         assert permit is not None
         assert process is not None
         try:
-            return self.wait_for_tunnel(
-                expected_process=process,
-                permit=permit,
-                log_path=log_path,
-            )
+            return self.wait_for_tunnel()
         except BackendInitError as e:
             logger.warning("vacli.restart_tunnel: resume tunnel not ready: %s", e)
             return None
