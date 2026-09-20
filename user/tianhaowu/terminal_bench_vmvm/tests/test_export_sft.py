@@ -8,7 +8,14 @@ from pathlib import Path
 import direct_qwen_workers as direct_workers
 import export_sft as exporter
 import pytest
-from audit_traces import _json_sha256
+from audit_traces import (
+    QWEN3_A95B_EPOCH3_MODEL_IO_CONTRACT,
+    QWEN3_A95B_EPOCH3_MODEL_IO_CONTRACT_ID,
+    QWEN3_A95B_MODEL_IO_CONTRACT,
+    QWEN3_A95B_MODEL_IO_CONTRACT_ID,
+    _json_sha256,
+    model_io_contract_sha256,
+)
 from datasets import load_dataset
 from export_sft import (
     ExportError,
@@ -201,12 +208,17 @@ def _assistant_node(
     }
 
 
-def _linear_trace(trace_id: str = "trace-pass", *, reward: float = 1.0, task_name: str = "synthetic-task") -> dict:
+def _linear_trace(
+    trace_id: str = "trace-pass",
+    *,
+    reward: float = 1.0,
+    task_name: str = "synthetic-task",
+    historical_reasoning_effort: bool = False,
+) -> dict:
     calls = [{"id": "call-1", "name": "terminal", "arguments": '{"command":"pwd"}'}]
     tools = [_tool()]
     first_request = {
         "model": direct_workers.EXPECTED_MODEL,
-        "reasoning_effort": "max",
         "chat_template_kwargs": {
             "enable_thinking": True,
             "preserve_thinking": True,
@@ -218,6 +230,8 @@ def _linear_trace(trace_id: str = "trace-pass", *, reward: float = 1.0, task_nam
         "tools": tools,
         "max_tokens": 100,
     }
+    if not historical_reasoning_effort:
+        first_request["reasoning_effort"] = "max"
     second_request = {
         **first_request,
         "messages": [
@@ -382,6 +396,32 @@ def _write_exclusion_selection(
         path = selection_dir / filename
         path.write_bytes(body)
         path.chmod(0o600)
+    parsed: dict[str, dict] = {}
+    for raw_line in results.read_bytes().splitlines():
+        try:
+            trace = json.loads(raw_line)
+        except (UnicodeDecodeError, json.JSONDecodeError):
+            continue
+        if not isinstance(trace, dict) or not isinstance(trace.get("task"), dict):
+            continue
+        task = trace["task"]
+        name = task.get("slug") or task.get("name")
+        if isinstance(name, str) and name:
+            parsed[name.rsplit("/", 1)[-1]] = trace
+    unseen = set(approved) - set(parsed)
+    claimed_errors = missing_or_errored - unseen
+    remaining = set(approved) - union
+    reward_zero = 0
+    for slug in remaining:
+        trace = parsed.get(slug)
+        if not isinstance(trace, dict) or trace.get("errors"):
+            continue
+        rewards = trace.get("rewards")
+        if isinstance(rewards, dict) and rewards and sum(rewards.values()) == 0:
+            reward_zero += 1
+    retained_valid_positive = len(remaining) - reward_zero
+    positive_reward = retained_valid_positive + len(strict_invalid_pass)
+    seen = len(approved) - len(unseen)
     repository = Path(exporter.__file__).resolve().parents[3]
     revision = subprocess.check_output(["git", "-C", str(repository), "rev-parse", "HEAD"], text=True).strip()
     submodules = {}
@@ -420,6 +460,7 @@ def _write_exclusion_selection(
             "max_total_tokens": 262_144,
             "preserve_thinking": True,
             "provider_concurrency": direct_workers.PRODUCTION_PROVIDER_CONCURRENCY,
+            "reasoning_effort": "max",
             "retry_class_count": len(direct_workers.ROLLOUT_RETRY_POLICY),
             "retry_policy_sha256": hashlib.sha256(retry_bytes).hexdigest(),
             "sha256": "a" * 64,
@@ -462,6 +503,30 @@ def _write_exclusion_selection(
             },
             "routing_epoch": 3,
             "task_count": len(approved),
+        },
+        "source_partition": {
+            "error_traces": len(claimed_errors),
+            "exhaustive": True,
+            "invalid_positive_traces": len(strict_invalid_pass),
+            "positive_reward_traces": positive_reward,
+            "repair_tasks": len(union),
+            "retained_original_tasks": retained_valid_positive + reward_zero,
+            "retained_valid_positive_traces": retained_valid_positive,
+            "reward_zero_traces": reward_zero,
+            "seen_traces": seen,
+            "source_task_count": len(approved),
+            "superseded_legacy_empty_reasoning_traces": 0,
+            "unseen_tasks": len(unseen),
+        },
+        "trace_contracts": {
+            "repair": {
+                "id": QWEN3_A95B_MODEL_IO_CONTRACT_ID,
+                "sha256": model_io_contract_sha256(QWEN3_A95B_MODEL_IO_CONTRACT),
+            },
+            "source": {
+                "id": QWEN3_A95B_EPOCH3_MODEL_IO_CONTRACT_ID,
+                "sha256": model_io_contract_sha256(QWEN3_A95B_EPOCH3_MODEL_IO_CONTRACT),
+            },
         },
     }
     manifest_path = selection_dir / "repair_manifest.json"
@@ -765,6 +830,77 @@ def test_captured_response_rejects_nonredundant_kimi_provider_fields(provider_fi
 
     with pytest.raises(ExportError, match="^captured_response_invalid$"):
         exporter._validate_captured_response(node)
+
+
+def test_captured_response_accepts_only_null_openai_optional_fields() -> None:
+    trace = _linear_trace()
+    node = trace["nodes"][2]
+    raw_message = node["model_io"]["response"]["body"]["choices"][0]["message"]
+    raw_message.update(
+        {
+            "annotations": None,
+            "audio": None,
+            "function_call": None,
+            "refusal": None,
+        }
+    )
+
+    exporter._validate_captured_response(node)
+
+    for field in ("annotations", "audio", "function_call", "refusal"):
+        raw_message[field] = {"unexpected": True}
+        with pytest.raises(ExportError, match="^captured_response_invalid$"):
+            exporter._validate_captured_response(node)
+        raw_message[field] = None
+
+
+def test_epoch3_trainability_accepts_absent_effort_and_explicit_empty_reasoning() -> None:
+    trace = _linear_trace(historical_reasoning_effort=True)
+    first = trace["nodes"][2]
+    first["message"].pop("reasoning_content")
+    first_response = first["model_io"]["response"]
+    first_response["body"]["choices"][0]["message"]["reasoning"] = ""
+    first_response["sha256"] = _json_sha256(first_response["body"])
+    second_request = trace["nodes"][4]["model_io"]["request"]
+    second_request["append_fields"]["messages"][0].pop("reasoning_content")
+    first_request = first["model_io"]["request"]["body"]
+    second_request["sha256"] = _json_sha256(
+        {
+            **first_request,
+            "messages": [
+                *first_request["messages"],
+                *second_request["append_fields"]["messages"],
+            ],
+        }
+    )
+
+    exporter._validate_trainable_trace(
+        trace,
+        reward=1.0,
+        max_sequence_tokens=262_144,
+        model_io_contract=QWEN3_A95B_EPOCH3_MODEL_IO_CONTRACT,
+    )
+
+    for value in (None, "max"):
+        first_request["reasoning_effort"] = value
+        first["model_io"]["request"]["sha256"] = _json_sha256(first_request)
+        second_request["sha256"] = _json_sha256(
+            {
+                **first_request,
+                "messages": [
+                    *first_request["messages"],
+                    *second_request["append_fields"]["messages"],
+                ],
+            }
+        )
+        with pytest.raises(ExportError, match="^trace_validation_failed$"):
+            exporter._validate_trainable_trace(
+                trace,
+                reward=1.0,
+                max_sequence_tokens=262_144,
+                model_io_contract=QWEN3_A95B_EPOCH3_MODEL_IO_CONTRACT,
+            )
+        first_request.pop("reasoning_effort")
 
 
 def test_export_rejects_nonredundant_kimi_provider_fields_in_captured_response(tmp_path: Path) -> None:
@@ -1141,6 +1277,7 @@ def test_exact_provider_json_requirement_is_hash_bound_in_manifest(tmp_path: Pat
     manifest = json.loads((output / "manifest.json").read_bytes())
     assert manifest["source_validation"] == {
         "max_sequence_tokens": 262_144,
+        "model_io_contract": QWEN3_A95B_MODEL_IO_CONTRACT_ID,
         "require_exact_provider_json": True,
         "require_model_io": True,
         "require_reasoning": True,
@@ -1281,6 +1418,7 @@ def test_export_is_byte_deterministic_and_records_provenance_hashes(tmp_path: Pa
     assert manifest["target_rendering"] == exporter.TARGET_RENDERING_CONTRACT
     assert manifest["source_validation"] == {
         "max_sequence_tokens": 262_144,
+        "model_io_contract": QWEN3_A95B_MODEL_IO_CONTRACT_ID,
         "require_exact_provider_json": False,
         "require_model_io": True,
         "require_reasoning": True,
@@ -2038,7 +2176,12 @@ def test_attested_exclusion_cross_binds_name_to_evaluator_index(tmp_path: Path) 
 
 
 def _name_only_trace(trace_id: str, slug: str, index: int, *, reward: float = 1.0) -> dict:
-    trace = _linear_trace(trace_id=trace_id, reward=reward, task_name=slug)
+    trace = _linear_trace(
+        trace_id=trace_id,
+        reward=reward,
+        task_name=slug,
+        historical_reasoning_effort=True,
+    )
     trace["task"] = {"idx": index, "name": f"synthetic-suite/{slug}"}
     return trace
 
@@ -2114,8 +2257,31 @@ def test_attested_exclusion_unions_errors_missing_and_multiple_strict_invalid_pa
         "strict_invalid_pass_count": 3,
         "union_count": 5,
     }
+    manifest = json.loads((tmp_path / "dataset" / "manifest.json").read_bytes())
+    assert manifest["source_validation"]["model_io_contract"] == (
+        QWEN3_A95B_EPOCH3_MODEL_IO_CONTRACT_ID
+    )
     serialized = json.dumps(summary, sort_keys=True)
     assert all(slug not in serialized for slug in approved)
+
+    forged = json.loads(selection.read_text())
+    forged["source_partition"]["positive_reward_traces"] -= 1
+    forged["source_partition"]["retained_valid_positive_traces"] -= 1
+    forged["source_partition"]["reward_zero_traces"] += 1
+    selection.write_text(json.dumps(forged, indent=2, sort_keys=True) + "\n")
+    selection.chmod(0o600)
+    with pytest.raises(ExportError, match="^exclusion_selection_accounting_mismatch$"):
+        export_sft(
+            _options(
+                results,
+                tmp_path / "dataset-forged-partition",
+                selection="pass-only",
+                expected_count=len(approved),
+                routing_epoch_index=routing,
+                exclusion_selection_manifest=selection,
+                exclusion_selection_manifest_sha256=_sha256(selection),
+            )
+        )
 
 
 def test_attested_exclusion_rejects_selected_scored_failure(tmp_path: Path) -> None:
@@ -2228,6 +2394,43 @@ def test_attested_exclusion_rejects_tampered_category_file(tmp_path: Path) -> No
                 routing_epoch_index=routing,
                 exclusion_selection_manifest=selection,
                 exclusion_selection_manifest_sha256=digest,
+            )
+        )
+
+
+@pytest.mark.parametrize("tamper", ("schema", "source_contract", "repair_contract"))
+def test_attested_exclusion_rejects_stale_or_swapped_trace_contracts(
+    tmp_path: Path,
+    tamper: str,
+) -> None:
+    approved = ["missing", "valid"]
+    valid = _name_only_trace("trace-valid", "valid", 1)
+    results = _write_run(tmp_path / "run", [valid], approved_slugs=approved)
+    routing = _write_routing_epoch_index(results, [2])
+    selection, _digest_value = _write_exclusion_selection(
+        results,
+        missing_or_errored={"missing"},
+        strict_invalid_pass=set(),
+    )
+    manifest = json.loads(selection.read_bytes())
+    if tamper == "schema":
+        manifest["schema_version"] = 2
+    elif tamper == "source_contract":
+        manifest["trace_contracts"]["source"] = manifest["trace_contracts"]["repair"]
+    else:
+        manifest["trace_contracts"]["repair"] = manifest["trace_contracts"]["source"]
+    selection.write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n")
+
+    with pytest.raises(ExportError, match="^exclusion_selection_invalid$"):
+        export_sft(
+            _options(
+                results,
+                tmp_path / "dataset",
+                selection="pass-only",
+                expected_count=2,
+                routing_epoch_index=routing,
+                exclusion_selection_manifest=selection,
+                exclusion_selection_manifest_sha256=_sha256(selection),
             )
         )
 

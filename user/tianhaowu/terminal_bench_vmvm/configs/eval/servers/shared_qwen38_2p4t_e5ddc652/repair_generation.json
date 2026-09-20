@@ -4,8 +4,8 @@
   "repair": {
     "approved_task_count": 2500,
     "missing_or_errored_count": 1151,
-    "repair_union_count": 1153,
-    "strict_invalid_pass_count": 2
+    "repair_union_count": 1233,
+    "strict_invalid_pass_count": 82
   },
   "routing": {
     "capacity_smoke_requests": 96,

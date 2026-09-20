@@ -308,7 +308,7 @@ def _load_contract(path: Path = CONTRACT_PATH) -> dict[str, Any]:
             repair.get("strict_invalid_pass_count"),
             repair.get("repair_union_count"),
         )
-        != (2_500, 1_151, 2, 1_153)
+        != (2_500, 1_151, 82, 1_233)
         or routing
         != {
             "capacity_smoke_requests": CAPACITY_SMOKE_REQUESTS,
@@ -396,6 +396,67 @@ def _source_artifacts(source: Path) -> dict[str, dict[str, int | str]]:
     }
 
 
+def is_historical_source_generation(
+    source: Path,
+    *,
+    contract_path: Path = CONTRACT_PATH,
+) -> bool:
+    """Return whether ``source`` is the exact path named by the sealed repair contract."""
+    contract = _load_contract(contract_path)
+    try:
+        resolved = source.resolve(strict=True)
+    except OSError as error:
+        raise GenerationMigrationError("source_path_invalid") from error
+    return str(resolved) == contract["source_generation"]["canonical_path"]
+
+
+def audit_historical_source_generation(
+    source: Path,
+    *,
+    contract_path: Path = CONTRACT_PATH,
+) -> dict[str, Any]:
+    """Audit the immutable source with its sealed historical worker generation."""
+    contract = _load_contract(contract_path)
+    resolved = _directory(source, "source_path_invalid")
+    expected = contract["source_generation"]
+    if str(resolved) != expected["canonical_path"]:
+        raise GenerationMigrationError("source_path_mismatch")
+    before = _source_artifacts(resolved)
+    if before != expected["artifacts"]:
+        raise GenerationMigrationError("source_artifact_mismatch")
+
+    def validate_manifest(path: Path) -> dict[str, Any]:
+        return direct.validate_saved_manifest(
+            path,
+            expected_endpoints=expected["worker_count"],
+            expected_spec_sha256=expected["spec_sha256"],
+            expected_bundle_sha256=expected["endpoint_bundle_sha256"],
+        )
+
+    try:
+        summary = direct.audit_run_directory(
+            resolved,
+            manifest_validator=validate_manifest,
+        )
+    except direct.DirectWorkerError as error:
+        raise _direct_error("source_routing_contract_invalid", error) from error
+    if (
+        summary.get("ok") is not True
+        or summary.get("routing_epoch") != expected["routing_epoch"]
+        or summary.get("endpoints") != expected["worker_count"]
+        or summary.get("spec_sha256") != expected["spec_sha256"]
+        or summary.get("endpoint_bundle_sha256") != expected["endpoint_bundle_sha256"]
+        or summary.get("manifest_schema_version") != direct.ROUTER_MANIFEST_SCHEMA_VERSION
+        or summary.get("provider_concurrency") != 32
+        or summary.get("queue_size") != 32
+        or summary.get("router_policy") != "consistent_hash"
+        or summary.get("request_id_headers") != ["x-session-id"]
+        or _source_artifacts(resolved) != before
+    ):
+        raise GenerationMigrationError("source_routing_contract_invalid")
+    return dict(summary)
+
+
 def _selection_artifacts(selection: Path) -> dict[str, dict[str, int | str]]:
     return {
         relative: _artifact(selection / relative, "repair_selection_invalid")
@@ -443,7 +504,7 @@ def _load_selection(selection: Path, contract: Mapping[str, Any]) -> SelectionBi
             loaded.strict_invalid_pass_count,
             loaded.task_count,
         )
-        != (2_500, 1_151, 2, 1_153)
+        != (2_500, 1_151, 82, 1_233)
     ):
         raise GenerationMigrationError("repair_selection_contract_mismatch")
     return SelectionBinding(
@@ -771,14 +832,31 @@ def materialize(
     *,
     contract_path: Path = CONTRACT_PATH,
     terminal_check: Callable[[str], bool] = migration.slurm_job_is_terminal,
-    source_auditor: Callable[[Path], Mapping[str, Any]] = direct.audit_run_directory,
+    source_auditor: Callable[[Path], Mapping[str, Any]] | None = None,
     worker_loader: Callable[..., tuple[list[direct.Worker], str, str]] = direct.load_workers,
     worker_probe: Callable[[list[direct.Worker]], None] = direct.probe_workers,
     code_state: Callable[[], Mapping[str, Any]] = _code_state,
-    source_manifest_validator: Callable[[Path], Mapping[str, Any]] = direct.validate_saved_manifest,
+    source_manifest_validator: Callable[[Path], Mapping[str, Any]] | None = None,
     selection_loader: Callable[[Path, Mapping[str, Any]], SelectionBinding] = _load_selection,
 ) -> dict[str, Any]:
     contract = _load_contract(contract_path)
+    if source_manifest_validator is None:
+
+        def source_manifest_validator(path: Path) -> Mapping[str, Any]:
+            return direct.validate_saved_manifest(
+                path,
+                expected_endpoints=contract["source_generation"]["worker_count"],
+                expected_spec_sha256=contract["source_generation"]["spec_sha256"],
+                expected_bundle_sha256=contract["source_generation"]["endpoint_bundle_sha256"],
+            )
+
+    if source_auditor is None:
+
+        def source_auditor(path: Path) -> Mapping[str, Any]:
+            return audit_historical_source_generation(
+                path,
+                contract_path=contract_path,
+            )
     source = _directory(inputs.source_dir, "source_path_invalid")
     selection = _directory(inputs.selection_dir, "repair_selection_path_invalid")
     deployment = _directory(inputs.deployment_root, "target_deployment_path_invalid")
@@ -795,6 +873,8 @@ def materialize(
         with migration._source_locks(source):
             if any(not terminal_check(job) for job in migration._provenance_job_ids(source / "provenance.txt")):
                 raise GenerationMigrationError("source_job_not_terminal")
+            if _source_artifacts(source) != contract["source_generation"]["artifacts"]:
+                raise GenerationMigrationError("source_artifact_mismatch")
             try:
                 summary = source_auditor(source)
             except direct.DirectWorkerError as error:
@@ -812,8 +892,6 @@ def materialize(
                 or summary.get("request_id_headers") != ["x-session-id"]
             ):
                 raise GenerationMigrationError("source_routing_contract_invalid")
-            if _source_artifacts(source) != contract["source_generation"]["artifacts"]:
-                raise GenerationMigrationError("source_artifact_mismatch")
             selection_binding = selection_loader(selection, contract)
             try:
                 workers, spec, endpoint_bundle = worker_loader(

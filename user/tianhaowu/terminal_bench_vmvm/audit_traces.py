@@ -66,11 +66,51 @@ QWEN3_A95B_EPOCH3_MODEL_IO_CONTRACT = CapturedModelIOContract(
         ("preserve_thinking", True),
     ),
 )
+QWEN3_A95B_MODEL_IO_CONTRACT_ID = "qwen3-a95b"
+QWEN3_A95B_EPOCH3_MODEL_IO_CONTRACT_ID = "qwen3-a95b-epoch3"
+QWEN3_A95B_REPAIRED_SFT_MODEL_IO_CONTRACT_ID = "qwen3-a95b-epoch3-source+qwen3-a95b-repair"
 MODEL_IO_CONTRACTS = {
     "kimi-k3-max": KIMI_K3_MAX_MODEL_IO_CONTRACT,
-    "qwen3-a95b": QWEN3_A95B_MODEL_IO_CONTRACT,
-    "qwen3-a95b-epoch3": QWEN3_A95B_EPOCH3_MODEL_IO_CONTRACT,
+    QWEN3_A95B_MODEL_IO_CONTRACT_ID: QWEN3_A95B_MODEL_IO_CONTRACT,
+    QWEN3_A95B_EPOCH3_MODEL_IO_CONTRACT_ID: QWEN3_A95B_EPOCH3_MODEL_IO_CONTRACT,
 }
+
+
+def model_io_contract_value(contract: CapturedModelIOContract) -> dict[str, object]:
+    return {
+        "chat_template_kwargs": dict(contract.chat_template_kwargs),
+        "provider_route": contract.provider_route,
+        "reasoning_effort": {
+            "presence": "forbidden" if contract.reasoning_effort is None else "required",
+            "value": contract.reasoning_effort,
+        },
+        "request_model": contract.request_model,
+        "response_model": contract.response_model,
+    }
+
+
+def model_io_contract_sha256(contract: CapturedModelIOContract) -> str:
+    body = json.dumps(
+        model_io_contract_value(contract),
+        allow_nan=False,
+        ensure_ascii=False,
+        separators=(",", ":"),
+        sort_keys=True,
+    ).encode("utf-8")
+    return hashlib.sha256(body).hexdigest()
+
+
+def qwen_repair_trace_contracts_value() -> dict[str, dict[str, str]]:
+    return {
+        "repair": {
+            "id": QWEN3_A95B_MODEL_IO_CONTRACT_ID,
+            "sha256": model_io_contract_sha256(QWEN3_A95B_MODEL_IO_CONTRACT),
+        },
+        "source": {
+            "id": QWEN3_A95B_EPOCH3_MODEL_IO_CONTRACT_ID,
+            "sha256": model_io_contract_sha256(QWEN3_A95B_EPOCH3_MODEL_IO_CONTRACT),
+        },
+    }
 
 
 class TraceJSONLError(ValueError):

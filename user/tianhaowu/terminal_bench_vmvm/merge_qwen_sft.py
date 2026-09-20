@@ -27,6 +27,12 @@ from typing import Any, BinaryIO, Mapping
 
 import migrate_qwen_serving_generation as generation
 import sft_run_identity
+from audit_traces import (
+    QWEN3_A95B_EPOCH3_MODEL_IO_CONTRACT_ID,
+    QWEN3_A95B_MODEL_IO_CONTRACT_ID,
+    QWEN3_A95B_REPAIRED_SFT_MODEL_IO_CONTRACT_ID,
+    qwen_repair_trace_contracts_value,
+)
 
 FORMAT_VERSION = 3
 MERGE_SCHEMA_VERSION = 4
@@ -98,6 +104,7 @@ TARGET_RENDERING_CONTRACT = {
 SOURCE_VALIDATION_KEYS = frozenset(
     {
         "max_sequence_tokens",
+        "model_io_contract",
         "require_exact_provider_json",
         "require_model_io",
         "require_reasoning",
@@ -213,7 +220,7 @@ class ExportBundle:
     train_tasks: frozenset[str]
     validation_tasks: frozenset[str]
     source_artifacts: Mapping[str, FileArtifact]
-    source_validation: Mapping[str, int | bool]
+    source_validation: Mapping[str, int | bool | str]
     exporter_sha256: str
     taskset_id: str
     dataset_revision: str
@@ -579,13 +586,18 @@ def _artifact_record(value: object, code: str) -> FileArtifact:
     return FileArtifact(bytes=size, sha256=digest)
 
 
-def _source_validation_policy(value: object, code: str) -> dict[str, int | bool]:
+def _source_validation_policy(value: object, code: str) -> dict[str, int | bool | str]:
     if (
         not isinstance(value, dict)
         or set(value) != SOURCE_VALIDATION_KEYS
         or value.get("require_reasoning") is not True
         or value.get("require_model_io") is not True
         or value.get("require_request_graph_match") is not True
+        or value.get("model_io_contract")
+        not in {
+            QWEN3_A95B_EPOCH3_MODEL_IO_CONTRACT_ID,
+            QWEN3_A95B_MODEL_IO_CONTRACT_ID,
+        }
         or not isinstance(value.get("require_exact_provider_json"), bool)
         or not _is_plain_int(value.get("max_sequence_tokens"))
         or value["max_sequence_tokens"] != MAX_SEQUENCE_TOKENS
@@ -1242,11 +1254,26 @@ def _load_repair_selection(path: Path, expected_sha256: str) -> RepairSelection:
     selection = manifest.get("selection")
     planner = manifest.get("planner")
     source = manifest.get("source")
+    source_partition = manifest.get("source_partition")
+    trace_contracts = manifest.get("trace_contracts")
     if (
-        set(manifest) != {"approval", "code", "config", "kind", "planner", "schema_version", "selection", "source"}
+        set(manifest)
+        != {
+            "approval",
+            "code",
+            "config",
+            "kind",
+            "planner",
+            "schema_version",
+            "selection",
+            "source",
+            "source_partition",
+            "trace_contracts",
+        }
         or manifest.get("kind") != REPAIR_SELECTION_KIND
         or not _is_plain_int(manifest.get("schema_version"))
-        or manifest["schema_version"] != 2
+        or manifest["schema_version"] != 3
+        or trace_contracts != qwen_repair_trace_contracts_value()
         or not isinstance(approval, dict)
         or set(approval) != {"approved_task_count", "approved_task_file_sha256"}
         or not _is_plain_int(approval.get("approved_task_count"))
@@ -1276,6 +1303,7 @@ def _load_repair_selection(path: Path, expected_sha256: str) -> RepairSelection:
             "max_total_tokens",
             "preserve_thinking",
             "provider_concurrency",
+            "reasoning_effort",
             "retry_class_count",
             "retry_policy_sha256",
             "sha256",
@@ -1284,6 +1312,7 @@ def _load_repair_selection(path: Path, expected_sha256: str) -> RepairSelection:
         or config.get("capture_model_io") is not True
         or config.get("enable_thinking") is not True
         or config.get("preserve_thinking") is not True
+        or config.get("reasoning_effort") != "max"
         or config.get("max_concurrent") != 64
         or config.get("max_total_tokens") != MAX_SEQUENCE_TOKENS
         or config.get("provider_concurrency") != 32
@@ -1357,6 +1386,46 @@ def _load_repair_selection(path: Path, expected_sha256: str) -> RepairSelection:
         or approval["approved_task_count"] != source["task_count"]
         or planner["approved_task_count"] != source["task_count"]
         or planner["retained_count"] + planner["missing_or_errored_count"] != source["task_count"]
+        or not isinstance(source_partition, dict)
+        or set(source_partition)
+        != {
+            "error_traces",
+            "exhaustive",
+            "invalid_positive_traces",
+            "positive_reward_traces",
+            "repair_tasks",
+            "retained_original_tasks",
+            "retained_valid_positive_traces",
+            "reward_zero_traces",
+            "seen_traces",
+            "source_task_count",
+            "superseded_legacy_empty_reasoning_traces",
+            "unseen_tasks",
+        }
+        or source_partition.get("exhaustive") is not True
+        or any(
+            not _is_plain_int(source_partition.get(name)) or source_partition[name] < 0
+            for name in set(source_partition) - {"exhaustive"}
+        )
+        or source_partition.get("source_task_count") != source["task_count"]
+        or source_partition.get("repair_tasks") != selection["approved_repair_count"]
+        or source_partition.get("invalid_positive_traces") != selection["strict_invalid_pass_count"]
+        or source_partition.get("error_traces", 0) + source_partition.get("unseen_tasks", 0)
+        != selection["missing_or_errored_count"]
+        or source_partition.get("positive_reward_traces", 0)
+        != source_partition.get("retained_valid_positive_traces", 0)
+        + source_partition.get("invalid_positive_traces", 0)
+        or source_partition.get("seen_traces", 0)
+        != source_partition.get("positive_reward_traces", 0)
+        + source_partition.get("reward_zero_traces", 0)
+        + source_partition.get("error_traces", 0)
+        or source["task_count"]
+        != source_partition.get("seen_traces", 0) + source_partition.get("unseen_tasks", 0)
+        or source_partition.get("retained_original_tasks", 0)
+        != source_partition.get("retained_valid_positive_traces", 0)
+        + source_partition.get("reward_zero_traces", 0)
+        or source["task_count"]
+        != source_partition.get("retained_original_tasks", 0) + selection["approved_repair_count"]
     ):
         raise MergeError("repair_selection_contract_invalid")
     source_artifacts = {
@@ -1996,7 +2065,15 @@ def merge_qwen_sft(
         raise MergeError("split_contract_mismatch")
     if original.target_rendering_contract_body != repair.target_rendering_contract_body:
         raise MergeError("target_rendering_contract_mismatch")
-    if original.source_validation != repair.source_validation:
+    original_validation_policy = dict(original.source_validation)
+    repair_validation_policy = dict(repair.source_validation)
+    original_contract = original_validation_policy.pop("model_io_contract", None)
+    repair_contract = repair_validation_policy.pop("model_io_contract", None)
+    if (
+        original_validation_policy != repair_validation_policy
+        or original_contract != QWEN3_A95B_EPOCH3_MODEL_IO_CONTRACT_ID
+        or repair_contract != QWEN3_A95B_MODEL_IO_CONTRACT_ID
+    ):
         raise MergeError("source_validation_mismatch")
     if (original.taskset_id, original.dataset_revision) != (
         repair.taskset_id,
@@ -2245,7 +2322,10 @@ def merge_qwen_sft(
             "max_sequence_tokens": MAX_SEQUENCE_TOKENS,
             "schema_version": MERGE_SCHEMA_VERSION,
             "selection": "pass-only",
-            "source_validation": dict(original.source_validation),
+            "source_validation": {
+                **original_validation_policy,
+                "model_io_contract": QWEN3_A95B_REPAIRED_SFT_MODEL_IO_CONTRACT_ID,
+            },
             "split": original.split.as_dict(),
             "target_rendering": TARGET_RENDERING_CONTRACT,
         }

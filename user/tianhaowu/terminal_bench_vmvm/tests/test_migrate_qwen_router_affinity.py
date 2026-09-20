@@ -8,10 +8,12 @@ import subprocess
 import sys
 import threading
 import tomllib
+import types
 from pathlib import Path
 
 import direct_qwen_workers as direct
 import migrate_qwen_router_affinity as migration
+import migrate_qwen_serving_generation as generation
 import pytest
 from validate_task_approval import validate_approval
 
@@ -468,6 +470,74 @@ def test_migrate_admission_is_copy_on_write_and_preserves_full_lineage(
     assert label_summary["epoch_3_rows"] == 1
 
 
+def test_historical_generation_audit_uses_real_epoch3_old16_validator(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    legacy, _deployment, _workers, spec_sha256, bundle_sha256 = _write_source_run(
+        tmp_path,
+        monkeypatch,
+        production=True,
+        verifiers_revision=migration.EXPECTED_VERIFIERS_REVISION,
+    )
+    epoch2 = tmp_path / "epoch2-historical"
+    epoch3 = tmp_path / "epoch3-historical"
+    migration.migrate(legacy, epoch2, terminal_check=lambda _job_id: True)
+    migration.migrate_admission(epoch2, epoch3, terminal_check=lambda _job_id: True)
+    contract = {
+        "kind": "qwen-direct-repair-serving-generation-contract",
+        "model": direct.EXPECTED_MODEL,
+        "repair": {
+            "approved_task_count": 2_500,
+            "missing_or_errored_count": 1_151,
+            "repair_union_count": 1_233,
+            "strict_invalid_pass_count": 82,
+        },
+        "routing": {
+            "capacity_smoke_requests": generation.CAPACITY_SMOKE_REQUESTS,
+            "max_concurrent_requests": generation.PROVIDER_CONCURRENCY,
+            "policy": "consistent_hash",
+            "queue_size": generation.QUEUE_SIZE,
+            "request_id_headers": ["x-session-id"],
+            "rollout_concurrency": generation.ROLLOUT_CONCURRENCY,
+            "vmvm_lease_concurrency": generation.VMVM_LEASE_CONCURRENCY,
+        },
+        "schema_version": 1,
+        "server_identifier": generation.SERVER_IDENTIFIER,
+        "source_generation": {
+            "artifacts": generation._source_artifacts(epoch3),
+            "canonical_path": str(epoch3.resolve()),
+            "endpoint_bundle_sha256": bundle_sha256,
+            "results_row_count": 1_392,
+            "routing_epoch": 3,
+            "spec_sha256": spec_sha256,
+            "worker_count": 16,
+        },
+        "target_generation": {
+            "deployment_root": str((tmp_path / "target-generation").resolve()),
+            "endpoint_bundle_sha256": "b" * 64,
+            "expected_added_workers": 9,
+            "expected_overlap_workers": 15,
+            "expected_retired_workers": 1,
+            "spec_sha256": "a" * 64,
+            "worker_count": 24,
+        },
+    }
+    contract_path = tmp_path / "historical-generation-contract.json"
+    contract_path.write_text(json.dumps(contract, indent=2, sort_keys=True) + "\n")
+
+    summary = generation.audit_historical_source_generation(
+        epoch3,
+        contract_path=contract_path,
+    )
+
+    assert summary["ok"] is True
+    assert summary["routing_epoch"] == 3
+    assert summary["endpoints"] == 16
+    assert summary["provider_concurrency"] == 32
+    assert summary["queue_size"] == 32
+
+
 def test_admission_planner_materializes_exact_pinned_offsets(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -873,6 +943,20 @@ def test_pinned_resume_planner_loads_with_isolated_python_path() -> None:
     )
 
 
+def test_pinned_resume_planner_replaces_ambient_module_cache(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    ambient = types.ModuleType("verifiers.v1.cli.eval.resume")
+    ambient.__file__ = "/tmp/ambient-verifiers/resume.py"
+    monkeypatch.setitem(sys.modules, "verifiers.v1.cli.eval.resume", ambient)
+
+    loaded = migration._load_verifiers_resume(migration.EXPECTED_VERIFIERS_REVISION)
+
+    assert Path(loaded.__file__).resolve() == (
+        Path(__file__).parents[4] / "deps" / "verifiers" / "verifiers" / "v1" / "cli" / "eval" / "resume.py"
+    ).resolve()
+
+
 def test_resume_planner_compatibility_is_explicit_and_narrow() -> None:
     assert migration.COMPATIBLE_RESUME_VERIFIERS_REVISIONS == {
         migration.EXPECTED_VERIFIERS_REVISION,
@@ -880,6 +964,7 @@ def test_resume_planner_compatibility_is_explicit_and_narrow() -> None:
         "7d23d73f018a70709f4297e558e0f77b678b7b5c",
         "fbfbe91d987e0f5bdbcae3eef8c0a272ab9805d5",
         "08a3bf6df2e4f2e04dc1d33e1ee78b7e4da22697",
+        "c461322dc51329dd1a42d5247017905cf3dc123e",
     }
 
 

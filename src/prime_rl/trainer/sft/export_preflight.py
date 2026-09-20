@@ -68,10 +68,18 @@ EXPECTED_TARGET_RENDERING_CONTRACT: dict[str, Any] = {
 SOURCE_VALIDATION_KEYS = frozenset(
     {
         "max_sequence_tokens",
+        "model_io_contract",
         "require_exact_provider_json",
         "require_model_io",
         "require_reasoning",
         "require_request_graph_match",
+    }
+)
+SUPPORTED_MODEL_IO_CONTRACTS = frozenset(
+    {
+        "qwen3-a95b",
+        "qwen3-a95b-epoch3",
+        "qwen3-a95b-epoch3-source+qwen3-a95b-repair",
     }
 )
 REQUIRED_EXPORT_ARTIFACTS = {
@@ -578,13 +586,14 @@ def _assert_tokenizer_snapshot(snapshot: TokenizerSnapshotBinding) -> None:
         raise SFTPreflightError("tokenizer_snapshot_changed")
 
 
-def _source_validation_policy(value: object, code: str) -> dict[str, int | bool]:
+def _source_validation_policy(value: object, code: str) -> dict[str, int | bool | str]:
     if (
         not isinstance(value, dict)
         or set(value) != SOURCE_VALIDATION_KEYS
         or value.get("require_reasoning") is not True
         or value.get("require_model_io") is not True
         or value.get("require_request_graph_match") is not True
+        or value.get("model_io_contract") not in SUPPORTED_MODEL_IO_CONTRACTS
         or not isinstance(value.get("require_exact_provider_json"), bool)
         or not _is_plain_int(value.get("max_sequence_tokens"))
         or value["max_sequence_tokens"] != EXPECTED_TARGET_RENDERING_CONTRACT["max_sequence_tokens"]

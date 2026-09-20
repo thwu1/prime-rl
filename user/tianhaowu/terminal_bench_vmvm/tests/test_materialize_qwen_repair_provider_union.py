@@ -8,6 +8,7 @@ import finalize_qwen_repair_sft as repair_finalizer
 import materialize_qwen_provider_union as full_union
 import materialize_qwen_repair_provider_union as repair_union
 import pytest
+from audit_traces import qwen_repair_trace_contracts_value
 
 
 def _sha(body: bytes) -> str:
@@ -45,7 +46,10 @@ def _selection(tmp_path: Path, members: tuple[str, ...]) -> repair_finalizer.Rep
         materializer_sha256="4" * 64,
         exporter_sha256="5" * 64,
         repository_revision="6" * 40,
+        source_artifacts={},
+        source_partition={},
         submodules={},
+        trace_contracts=qwen_repair_trace_contracts_value(),
     )
 
 
@@ -82,6 +86,12 @@ def _inputs(
     output = tmp_path / full_union.DEPLOYMENT_NAMESPACE
     output.mkdir(mode=0o700)
     output.chmod(0o700)
+    historical_source = tmp_path / "historical-source"
+    historical_source.mkdir()
+    for name in (".writer.lock", ".direct_router.lock"):
+        lock = historical_source / name
+        lock.touch()
+        lock.chmod(0o600)
 
     monkeypatch.setattr(full_union, "CANONICAL_SOURCE_COUNT", len(canonical))
     monkeypatch.setattr(full_union, "SANDOQ_COUNT", len(canonical) - 1)
@@ -92,6 +102,7 @@ def _inputs(
     monkeypatch.setattr(repair_union, "CANONICAL_SOURCE_SHA256", _sha(source.read_bytes()))
     monkeypatch.setattr(repair_union, "verify_canonical_dataset", lambda path: path.resolve(strict=True))
     monkeypatch.setattr(repair_union, "_load_selection", lambda *_args: (selection, members))
+    monkeypatch.setattr(repair_union, "_validate_selection_source_and_code", lambda *_args: None)
 
     return {
         "source": source,
@@ -100,6 +111,7 @@ def _inputs(
         "vmvm_template": vmvm_template,
         "repair_selection_manifest": tmp_path / "selection" / "repair_manifest.json",
         "repair_selection_manifest_sha256": selection.sha256,
+        "historical_source_dir": historical_source,
         "sandoq_tasks": output / "repair_sandoq_tasks.txt",
         "vmvm_tasks": output / "repair_vmvm_tasks.txt",
         "sandoq_config": output / "repair_sandoq_config.toml",
@@ -112,8 +124,6 @@ def _inputs(
 @pytest.mark.parametrize(
     ("members", "expected_sandoq_members", "expected_vmvm_members"),
     [
-        (("opaque-a", "opaque-d"), ("opaque-a",), ("opaque-d",)),
-        (("opaque-d", "opaque-a"), ("opaque-a",), ("opaque-d",)),
         (("opaque-a", "opaque-b"), ("opaque-a", "opaque-b"), ()),
     ],
 )
@@ -150,17 +160,9 @@ def test_materializes_exact_repair_intersection_without_full_corpus_launch(
     assert all(member not in encoded_receipt for member in members)
     assert "sandoq_tasks" not in encoded_receipt
     assert "vmvm_tasks" not in encoded_receipt
-    if expected_vmvm == 0:
-        assert Path(paths["vmvm_tasks"]).read_bytes() == b""
-        assert "num_tasks = 0" in Path(paths["vmvm_config"]).read_text()
-        assert "max_concurrent = 0" in Path(paths["vmvm_config"]).read_text()
-    else:
-        vmvm_config = Path(paths["vmvm_config"]).read_text()
-        assert "num_tasks = 1" in vmvm_config
-        assert f"max_concurrent = {repair_union.generation.ROLLOUT_CONCURRENCY}" in vmvm_config
-        assert f"multiplex = {repair_union.generation.ROLLOUT_CONCURRENCY}" in vmvm_config
-        assert f"max_connections = {repair_union.generation.PROVIDER_CONCURRENCY}" in vmvm_config
-        assert f"max_keepalive_connections = {repair_union.generation.PROVIDER_CONCURRENCY}" in vmvm_config
+    assert Path(paths["vmvm_tasks"]).read_bytes() == b""
+    assert "num_tasks = 0" in Path(paths["vmvm_config"]).read_text()
+    assert "max_concurrent = 0" in Path(paths["vmvm_config"]).read_text()
     validated = repair_union.validate_materialization(
         **paths,
         receipt_sha256=_sha(Path(paths["receipt"]).read_bytes()),
@@ -177,6 +179,19 @@ def test_repair_intersection_rejects_noncanonical_member(
     with pytest.raises(
         repair_union.RepairProviderMaterializationError,
         match="^repair_selection_not_canonical_subset$",
+    ):
+        repair_union.materialize(**paths)
+
+
+def test_repair_intersection_requires_certified_empty_vmvm_lane(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    paths = _inputs(tmp_path, monkeypatch, ("opaque-a", "opaque-d"))
+
+    with pytest.raises(
+        repair_union.RepairProviderMaterializationError,
+        match="^repair_provider_partition_invalid$",
     ):
         repair_union.materialize(**paths)
 

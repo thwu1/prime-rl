@@ -57,12 +57,12 @@ def _layout(tmp_path: Path) -> tuple[generation.BundleInputs, Path, list[direct.
         path = source / relative
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_bytes(body)
-    repair_tasks = "".join(f"test-task-{index}\n" for index in range(1_153)).encode()
+    repair_tasks = "".join(f"test-task-{index}\n" for index in range(1_233)).encode()
     image_manifest = selection / "image_manifest.json"
     image_manifest.write_bytes(b"{}\n")
     template = (Path(generation.__file__).parent / "configs" / "eval" / "mobius_qwen_a95b_2500.toml").read_text()
     replacements = {
-        "num_tasks": "1153",
+        "num_tasks": "1233",
         "task_file": json.dumps(str(selection / "repair_tasks.txt")),
         "task_file_sha256": json.dumps(_digest(repair_tasks)),
         "image_manifest": json.dumps(str(image_manifest)),
@@ -95,8 +95,8 @@ def _layout(tmp_path: Path) -> tuple[generation.BundleInputs, Path, list[direct.
         "repair": {
             "approved_task_count": 2_500,
             "missing_or_errored_count": 1_151,
-            "repair_union_count": 1_153,
-            "strict_invalid_pass_count": 2,
+            "repair_union_count": 1_233,
+            "strict_invalid_pass_count": 82,
         },
         "routing": {
             "capacity_smoke_requests": 96,
@@ -134,9 +134,9 @@ def _layout(tmp_path: Path) -> tuple[generation.BundleInputs, Path, list[direct.
         manifest_sha256=_artifact(selection / "repair_manifest.json")["sha256"],
         task_file_sha256=_artifact(selection / "repair_tasks.txt")["sha256"],
         union_indices_sha256="5" * 64,
-        union_count=1_153,
+        union_count=1_233,
         missing_count=1_151,
-        strict_invalid_count=2,
+        strict_invalid_count=82,
         source_artifacts={},
     )
     return generation.BundleInputs(source, selection, deployment, repair, output), contract_path, target, binding
@@ -222,7 +222,7 @@ def _patch_launch_dependencies(
 def test_materialize_attests_exact_transition_without_row_or_task_content(tmp_path: Path) -> None:
     inputs, contract_path, _target, binding, summary = _materialize(tmp_path)
     assert summary["source_rows"] == 1_392
-    assert summary["repair_union_count"] == 1_153
+    assert summary["repair_union_count"] == 1_233
     assert (summary["overlap_workers"], summary["retired_workers"], summary["added_workers"]) == (15, 1, 9)
     config = tomllib.loads((inputs.output_dir / generation.GENERATION_CONFIG_FILENAME).read_text())
     assert (config["max_concurrent"], config["multiplex"]) == (96, 96)

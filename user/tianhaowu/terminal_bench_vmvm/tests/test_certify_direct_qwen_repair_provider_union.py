@@ -12,6 +12,7 @@ import certify_direct_qwen_repair_provider as provider
 import certify_direct_qwen_repair_provider_union as union
 import materialize_qwen_repair_provider_union as materializer
 import pytest
+from audit_traces import qwen_repair_trace_contracts_value
 from direct_qwen_union_contract import HOST_HARNESS_CONTRACT, canonical_json, sha256_bytes
 
 
@@ -33,7 +34,22 @@ def _materialization(vmvm_count: int) -> dict:
         "repair_selection": {
             "count": provider.EXPECTED_REPAIR_COUNT,
             "manifest_sha256": "1" * 64,
+            "source_partition": {
+                "error_traces": 43,
+                "exhaustive": True,
+                "invalid_positive_traces": 82,
+                "positive_reward_traces": 831,
+                "repair_tasks": provider.EXPECTED_REPAIR_COUNT,
+                "retained_original_tasks": 1_267,
+                "retained_valid_positive_traces": 749,
+                "reward_zero_traces": 518,
+                "seen_traces": 1_392,
+                "source_task_count": 2_500,
+                "superseded_legacy_empty_reasoning_traces": 1,
+                "unseen_tasks": 1_108,
+            },
             "task_file_sha256": "2" * 64,
+            "trace_contracts": qwen_repair_trace_contracts_value(),
             "union_indices_sha256": "3" * 64,
         },
         "partition": {
@@ -371,7 +387,7 @@ def test_sandoq_certificate_binds_dynamic_lane_and_stage64(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    materialization = _materialization(1)
+    materialization = _materialization(0)
     inputs = _inputs(tmp_path, materialization)
     run_dir = tmp_path / "sandoq-run"
     run_dir.mkdir(mode=0o700)
@@ -406,7 +422,11 @@ def test_sandoq_certificate_binds_dynamic_lane_and_stage64(
         }
 
     monkeypatch.setattr(provider.sandoq_ramp, "validate_predecessor", predecessor)
-    monkeypatch.setattr(provider, "audit_results", lambda *_args: ("d" * 64, _trace(1_152)))
+    monkeypatch.setattr(
+        provider,
+        "audit_results",
+        lambda *_args: ("d" * 64, _trace(provider.EXPECTED_REPAIR_COUNT)),
+    )
     monkeypatch.setattr(provider.sandoq_evidence, "validate_cleanup", cleanup)
     monkeypatch.setattr(provider.sandoq_evidence, "validate_auth_rotation", lambda *_args, **_kwargs: _auth())
 
@@ -421,17 +441,17 @@ def test_sandoq_certificate_binds_dynamic_lane_and_stage64(
         materialization_inputs=inputs,
     )
 
-    assert value["task_count"] == 1_152
+    assert value["task_count"] == provider.EXPECTED_REPAIR_COUNT
     assert value["lane_binding"]["eval_run_identity_sha256"] == "a" * 64
     assert value["lane_binding"]["results_sha256"] == "d" * 64
     assert captured == {
         "predecessor_count": provider.CANONICAL_SANDOQ_COUNT,
-        "cleanup_count": 1_152,
+        "cleanup_count": provider.EXPECTED_REPAIR_COUNT,
         "cleanup_concurrency": 64,
     }
 
 
-def test_vmvm_certificate_binds_identity_results_and_cleanup_ledger(
+def test_vmvm_repair_certificate_rejects_unexpected_selected_lane(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -479,19 +499,18 @@ def test_vmvm_certificate_binds_identity_results_and_cleanup_ledger(
     )
     monkeypatch.setattr(provider.vmvm_evidence, "_provider_source", lambda _identity: {"source": "closed"})
 
-    value = provider.certify_vmvm(
-        run_dir=run_dir,
-        task_file_sha256=_digest(inputs.vmvm_tasks.read_bytes()),
-        config_sha256=_digest(inputs.vmvm_config.read_bytes()),
-        cleanup_receipt=tmp_path / "cleanup.jsonl",
-        lifecycle_receipt=tmp_path / "lifecycle.jsonl",
-        materialization_inputs=inputs,
-    )
-
-    assert value["execution_proof"]["rollout_concurrency"] == 96
-    assert value["lane_binding"]["eval_run_identity_sha256"] == "a" * 64
-    assert value["lane_binding"]["results_sha256"] == "d" * 64
-    assert value["runtime_cleanup"] == cleanup
+    with pytest.raises(
+        provider.RepairProviderCertificateError,
+        match="^repair_materialization_invalid$",
+    ):
+        provider.certify_vmvm(
+            run_dir=run_dir,
+            task_file_sha256=_digest(inputs.vmvm_tasks.read_bytes()),
+            config_sha256=_digest(inputs.vmvm_config.read_bytes()),
+            cleanup_receipt=tmp_path / "cleanup.jsonl",
+            lifecycle_receipt=tmp_path / "lifecycle.jsonl",
+            materialization_inputs=inputs,
+        )
 
 
 def test_vmvm_zero_lane_creates_absence_proof_without_run_inputs(
@@ -517,7 +536,7 @@ def test_vmvm_absence_rejects_selected_lane(tmp_path: Path) -> None:
     materialization = _materialization(1)
     inputs = _inputs(tmp_path, materialization)
 
-    with pytest.raises(provider.RepairProviderCertificateError, match="^vmvm_lane_selected$"):
+    with pytest.raises(provider.RepairProviderCertificateError, match="^repair_materialization_invalid$"):
         provider.certify_vmvm_absence(
             task_file_sha256=_digest(inputs.vmvm_tasks.read_bytes()),
             config_sha256=_digest(inputs.vmvm_config.read_bytes()),
@@ -525,62 +544,36 @@ def test_vmvm_absence_rejects_selected_lane(tmp_path: Path) -> None:
         )
 
 
-@pytest.mark.parametrize("vmvm_count", [0, 1])
-def test_union_certifies_exact_repair_partition(tmp_path: Path, vmvm_count: int) -> None:
-    result, _sandoq, _vmvm = _certify(tmp_path, vmvm_count)
+def test_union_certifies_exact_repair_partition(tmp_path: Path) -> None:
+    result, _sandoq, _vmvm = _certify(tmp_path, 0)
 
-    assert result["task_count"] == 1_153
+    assert result["task_count"] == provider.EXPECTED_REPAIR_COUNT
     assert result["partition"] == {
-        "sandoq": 1_153 - vmvm_count,
-        "vmvm": vmvm_count,
-        "total": 1_153,
+        "sandoq": provider.EXPECTED_REPAIR_COUNT,
+        "vmvm": 0,
+        "total": provider.EXPECTED_REPAIR_COUNT,
         "disjoint": True,
         "exhaustive": True,
         "member_details_public": False,
     }
-    assert result["providers"]["vmvm"]["state"] == ("passed" if vmvm_count else "absent")
-    assert result["trace_audit"]["traces"] == 1_153
+    assert result["providers"]["vmvm"]["state"] == "absent"
+    assert result["trace_audit"]["traces"] == provider.EXPECTED_REPAIR_COUNT
     assert result["generation"] == {"worker_count": 24, "provider_neutral": True}
-    assert result["execution"]["vmvm"]["rollout_concurrency"] == (96 if vmvm_count else 0)
+    assert result["execution"]["vmvm"]["rollout_concurrency"] == 0
 
 
-def test_union_rejects_cross_provider_generation_drift(tmp_path: Path) -> None:
+def test_union_rejects_any_unexpected_vmvm_repair_member(tmp_path: Path) -> None:
     materialization = _materialization(1)
     inputs = _inputs(tmp_path, materialization)
     sandoq = _sandoq_certificate(materialization, inputs)
     vmvm = _vmvm_certificate(materialization, inputs)
-    vmvm["shared_contract"]["deployment"]["worker_generation_sha256"] = "f" * 64
-    vmvm["shared_contract_sha256"] = sha256_bytes(canonical_json(vmvm["shared_contract"]))
     private = inputs.private_output_root
     sandoq_path = private / "sandoq-certificate.json"
     vmvm_path = private / "vmvm-certificate.json"
 
     with pytest.raises(
         union.RepairProviderUnionCertificateError,
-        match="^provider_union_generation_drift$",
-    ):
-        union.certify_union(
-            sandoq_certificate=sandoq_path,
-            sandoq_certificate_sha256=_write_private(sandoq_path, sandoq),
-            vmvm_certificate=vmvm_path,
-            vmvm_certificate_sha256=_write_private(vmvm_path, vmvm),
-            materialization_inputs=inputs,
-        )
-
-
-def test_union_rejects_vmvm_admission_drift(tmp_path: Path) -> None:
-    materialization = _materialization(1)
-    inputs = _inputs(tmp_path, materialization)
-    sandoq = _sandoq_certificate(materialization, inputs)
-    vmvm = _vmvm_certificate(materialization, inputs)
-    vmvm["execution_proof"]["rollout_concurrency"] = 64
-    private = inputs.private_output_root
-    sandoq_path = private / "sandoq-certificate.json"
-    vmvm_path = private / "vmvm-certificate.json"
-
-    with pytest.raises(
-        union.RepairProviderUnionCertificateError,
-        match="^vmvm_certificate_invalid$",
+        match="^repair_materialization_invalid$",
     ):
         union.certify_union(
             sandoq_certificate=sandoq_path,
@@ -615,7 +608,7 @@ def test_union_rejects_lane_artifact_drift(tmp_path: Path) -> None:
 
 
 def test_public_union_recursively_excludes_private_evidence(tmp_path: Path) -> None:
-    result, sandoq, vmvm = _certify(tmp_path, 1)
+    result, sandoq, vmvm = _certify(tmp_path, 0)
     encoded = json.dumps(result, sort_keys=True)
     private_values = {
         *union._private_strings(sandoq),

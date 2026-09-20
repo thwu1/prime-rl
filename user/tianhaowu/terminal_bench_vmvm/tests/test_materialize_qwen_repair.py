@@ -10,7 +10,13 @@ from pathlib import Path
 import direct_qwen_workers as direct
 import materialize_qwen_repair as repair
 import pytest
-from audit_traces import QWEN3_A95B_EPOCH3_MODEL_IO_CONTRACT
+from audit_traces import (
+    QWEN3_A95B_EPOCH3_MODEL_IO_CONTRACT,
+    QWEN3_A95B_EPOCH3_MODEL_IO_CONTRACT_ID,
+    QWEN3_A95B_MODEL_IO_CONTRACT,
+    QWEN3_A95B_MODEL_IO_CONTRACT_ID,
+    model_io_contract_sha256,
+)
 from verifiers.v1.cli.eval import resume as resume_planner
 
 
@@ -155,10 +161,12 @@ def test_materialize_uses_sorted_evaluator_indices_for_unsorted_approval(
         "enable_thinking": True,
         "preserve_thinking": True,
     }
+    assert config["sampling"]["reasoning_effort"] == "max"
     assert set(config["retries"]["rollout"]["include"]) == direct.ROLLOUT_RETRY_POLICY
 
     manifest_bytes = (output / repair.MANIFEST_FILENAME).read_bytes()
     manifest = json.loads(manifest_bytes)
+    assert manifest["schema_version"] == 3
     assert manifest["planner"]["retained_count"] == 1
     assert manifest["planner"]["missing_or_errored_count"] == 2
     assert manifest["planner"]["task_index_order_sha256"] == summary["task_index_order_sha256"]
@@ -169,7 +177,32 @@ def test_materialize_uses_sorted_evaluator_indices_for_unsorted_approval(
     assert manifest["selection"]["approved_repair_count"] == 2
     assert manifest["selection"]["missing_or_errored_count"] == 2
     assert manifest["selection"]["strict_invalid_pass_count"] == 0
+    assert manifest["trace_contracts"] == {
+        "repair": {
+            "id": QWEN3_A95B_MODEL_IO_CONTRACT_ID,
+            "sha256": model_io_contract_sha256(QWEN3_A95B_MODEL_IO_CONTRACT),
+        },
+        "source": {
+            "id": QWEN3_A95B_EPOCH3_MODEL_IO_CONTRACT_ID,
+            "sha256": model_io_contract_sha256(QWEN3_A95B_EPOCH3_MODEL_IO_CONTRACT),
+        },
+    }
     assert summary["strict_invalid_pass_count"] == 0
+    assert summary["source_partition"] == {
+        "error_traces": 1,
+        "exhaustive": True,
+        "invalid_positive_traces": 0,
+        "positive_reward_traces": 0,
+        "repair_tasks": 2,
+        "retained_original_tasks": 1,
+        "retained_valid_positive_traces": 0,
+        "reward_zero_traces": 1,
+        "seen_traces": 2,
+        "source_task_count": 3,
+        "superseded_legacy_empty_reasoning_traces": 0,
+        "unseen_tasks": 1,
+    }
+    assert manifest["source_partition"] == summary["source_partition"]
     for identifier in synthetic_identifiers:
         assert identifier.encode() not in manifest_bytes
     assert b"private-source-metadata" not in manifest_bytes
@@ -193,7 +226,7 @@ def test_materialize_validates_positive_source_rows_under_epoch3_contract(
         assert reward == 1.0
         assert max_sequence_tokens == 262_144
         observed_contracts.append(model_io_contract)
-        return [], []
+        return [{"sampled": True, "message": {"reasoning_content": ""}}], []
 
     monkeypatch.setattr(repair.exporter, "_validate_trainable_trace", validate)
     summary = repair.materialize(
@@ -207,6 +240,7 @@ def test_materialize_validates_positive_source_rows_under_epoch3_contract(
     assert observed_contracts == [QWEN3_A95B_EPOCH3_MODEL_IO_CONTRACT]
     assert summary["missing_or_errored_count"] == 2
     assert summary["strict_invalid_pass_count"] == 0
+    assert summary["source_partition"]["superseded_legacy_empty_reasoning_traces"] == 1
 
 
 def test_materialize_unions_missing_error_with_multiple_name_only_invalid_passes(

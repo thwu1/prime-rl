@@ -55,7 +55,7 @@ REQUIRED_SOURCE_FILES = (
 EXPECTED_VERIFIERS_REVISION = direct.ADMISSION_VERIFIERS_REVISION
 EXPECTED_RESUME_MODULE_SHA256 = direct.ADMISSION_RESUME_MODULE_SHA256
 REPAIR_SELECTION_KIND = "qwen-aggregate-repair-selection"
-REPAIR_SELECTION_SCHEMA_VERSION = 2
+REPAIR_SELECTION_SCHEMA_VERSION = 3
 MAX_REPAIR_SELECTION_BYTES = 1 << 20
 COMPATIBLE_RESUME_VERIFIERS_REVISIONS = frozenset(
     {
@@ -64,6 +64,7 @@ COMPATIBLE_RESUME_VERIFIERS_REVISIONS = frozenset(
         "7d23d73f018a70709f4297e558e0f77b678b7b5c",
         "fbfbe91d987e0f5bdbcae3eef8c0a272ab9805d5",
         "08a3bf6df2e4f2e04dc1d33e1ee78b7e4da22697",
+        "c461322dc51329dd1a42d5247017905cf3dc123e",
     }
 )
 
@@ -738,14 +739,16 @@ def _load_verifiers_resume(expected_revision: str):
     resume_path = dependency / "verifiers" / "v1" / "cli" / "eval" / "resume.py"
     if not resume_path.is_file() or resume_path.is_symlink() or _sha256(resume_path) != EXPECTED_RESUME_MODULE_SHA256:
         raise MigrationError("verifiers_resume_module_mismatch")
-    for entry in (
+    import_paths = (
         dependency,
         repository / "deps" / "renderers",
         repository / "deps" / "pydantic-config" / "src",
-    ):
+    )
+    for entry in reversed(import_paths):
         value = str(entry)
-        if value not in sys.path:
-            sys.path.insert(0, value)
+        while value in sys.path:
+            sys.path.remove(value)
+        sys.path.insert(0, value)
     try:
         importlib.import_module("pydantic_core")
     except ImportError:
@@ -758,6 +761,14 @@ def _load_verifiers_resume(expected_revision: str):
         sys.path.insert(0, str(staged_site))
     try:
         sys.dont_write_bytecode = True
+        # This tool is commonly imported after the launcher's installed verifier
+        # package.  An ambient module cache must not override the exact, hash-bound
+        # checkout above.  Drop only that namespace, then import it again with the
+        # reviewed dependency at the front of ``sys.path``.
+        for name in tuple(sys.modules):
+            if name == "verifiers" or name.startswith("verifiers."):
+                del sys.modules[name]
+        importlib.invalidate_caches()
         module = importlib.import_module("verifiers.v1.cli.eval.resume")
     except (ImportError, OSError) as error:
         raise MigrationError("verifiers_resume_planner_unavailable") from error
@@ -1375,9 +1386,32 @@ def label_routing_epochs(
         job_ids = _provenance_job_ids(run / "provenance.txt")
         if any(not terminal_check(job_id) for job_id in job_ids):
             raise MigrationError("run_slurm_job_not_terminal")
-        manifest = direct.validate_saved_manifest(run / "direct_workers.json")
+        manifest_validator = direct.validate_saved_manifest
+        try:
+            import migrate_qwen_serving_generation as serving_generation
+
+            if serving_generation.is_historical_source_generation(run):
+                serving_generation.audit_historical_source_generation(run)
+                contract = serving_generation._load_contract()
+                source_contract = contract["source_generation"]
+
+                def manifest_validator(path: Path) -> dict[str, Any]:
+                    return direct.validate_saved_manifest(
+                        path,
+                        expected_endpoints=source_contract["worker_count"],
+                        expected_spec_sha256=source_contract["spec_sha256"],
+                        expected_bundle_sha256=source_contract["endpoint_bundle_sha256"],
+                    )
+        except serving_generation.GenerationMigrationError as error:
+            raise MigrationError("historical_source_validation_failed") from error
+        manifest = manifest_validator(run / "direct_workers.json")
         provenance = direct._read_provenance(run / "provenance.txt")
-        direct.validate_routing_transition(run, manifest, provenance)
+        direct.validate_routing_transition(
+            run,
+            manifest,
+            provenance,
+            manifest_validator=manifest_validator,
+        )
         current_epoch = int(provenance.get("qwen_router_epoch", "1"))
         epoch1_hashes = set(direct._read_epoch1_row_hashes(run / direct.ROUTING_EPOCH1_ROWS_FILENAME))
         epoch2_lineage = (

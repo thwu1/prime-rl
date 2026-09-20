@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Any
 
 import finalize_qwen_repair_sft as repair_finalizer
+import materialize_qwen_repair as repair_selection_materializer
 import migrate_qwen_serving_generation as generation
 from materialize_qwen_provider_union import (
     CANONICAL_SOURCE_COUNT,
@@ -70,6 +71,37 @@ def _load_selection(
     return selection, members
 
 
+def _validate_selection_source_and_code(
+    selection: repair_finalizer.RepairSelection,
+    historical_source_dir: Path,
+) -> None:
+    project = Path(__file__).resolve().parents[3]
+    workflow = Path(__file__).resolve().parent
+    try:
+        submodules = repair_finalizer._validate_submodule_revisions(
+            repair_finalizer._submodule_revisions(project, selection.repository_revision)
+        )
+        repair_finalizer._validate_selection_code(
+            selection,
+            project,
+            workflow,
+            selection.repository_revision,
+            submodules,
+        )
+        if not generation.is_historical_source_generation(historical_source_dir):
+            raise RepairProviderMaterializationError("repair_source_invalid")
+        generation.audit_historical_source_generation(historical_source_dir)
+        if repair_selection_materializer._source_fingerprints(historical_source_dir) != selection.source_artifacts:
+            raise RepairProviderMaterializationError("repair_source_changed")
+    except (
+        OSError,
+        repair_finalizer.RepairFinalizationError,
+        generation.GenerationMigrationError,
+        repair_selection_materializer.RepairMaterializationError,
+    ) as error:
+        raise RepairProviderMaterializationError("repair_selection_provenance_invalid") from error
+
+
 def _partition_selection(
     members: tuple[str, ...],
     *,
@@ -85,7 +117,7 @@ def _partition_selection(
     vmvm_members = tuple(member for member in members if member in set(full.vmvm))
     if (
         not sandoq_members
-        or len(vmvm_members) not in {0, 1}
+        or vmvm_members
         or set(sandoq_members) & set(vmvm_members)
         or set(sandoq_members) | set(vmvm_members) != selected
     ):
@@ -111,7 +143,9 @@ def _receipt_value(
         "repair_selection": {
             "count": selection.task_count,
             "manifest_sha256": selection.sha256,
+            "source_partition": selection.source_partition,
             "task_file_sha256": selection.task_file_sha256,
+            "trace_contracts": selection.trace_contracts,
             "union_indices_sha256": selection.repair_union_indices_sha256,
         },
         "partition": {
@@ -169,6 +203,7 @@ def materialize(
     vmvm_template: Path,
     repair_selection_manifest: Path,
     repair_selection_manifest_sha256: str,
+    historical_source_dir: Path,
     sandoq_tasks: Path,
     vmvm_tasks: Path,
     sandoq_config: Path,
@@ -183,7 +218,7 @@ def materialize(
             outputs,
             forbidden_roots=(Path(__file__).resolve().parents[3], dataset),
             validate_existing=False,
-        ) as private_root:
+        ) as private_root, repair_finalizer._hold_source_locks(historical_source_dir):
             source_raw = _read_regular(source)
             if sha256(source_raw) != CANONICAL_SOURCE_SHA256:
                 raise RepairProviderMaterializationError("canonical_source_mismatch")
@@ -192,6 +227,7 @@ def materialize(
                 repair_selection_manifest,
                 repair_selection_manifest_sha256,
             )
+            _validate_selection_source_and_code(selection, historical_source_dir)
             sandoq_members, vmvm_members = _partition_selection(
                 selected_members,
                 canonical_source=source_raw,
@@ -222,6 +258,7 @@ def materialize(
                 repair_finalizer._validate_selection_unchanged(selection)
             except repair_finalizer.RepairFinalizationError as error:
                 raise RepairProviderMaterializationError("repair_selection_changed") from error
+            _validate_selection_source_and_code(selection, historical_source_dir)
             if (
                 _read_regular(source) != source_raw
                 or _read_regular(sandoq_template) != sandoq_template_raw
@@ -239,7 +276,7 @@ def materialize(
                     (receipt, _canonical_json(receipt_value)),
                 ],
             )
-    except MixedMaterializationError as error:
+    except (MixedMaterializationError, repair_finalizer.RepairFinalizationError) as error:
         raise RepairProviderMaterializationError(str(error)) from error
     return {
         "state": "materialized",
@@ -257,6 +294,7 @@ def validate_materialization(
     vmvm_template: Path,
     repair_selection_manifest: Path,
     repair_selection_manifest_sha256: str,
+    historical_source_dir: Path,
     sandoq_tasks: Path,
     vmvm_tasks: Path,
     sandoq_config: Path,
@@ -271,7 +309,7 @@ def validate_materialization(
             private_output_root,
             outputs,
             forbidden_roots=(Path(__file__).resolve().parents[3], dataset),
-        ) as private_root:
+        ) as private_root, repair_finalizer._hold_source_locks(historical_source_dir):
             source_raw = _read_regular(source)
             if sha256(source_raw) != CANONICAL_SOURCE_SHA256:
                 raise RepairProviderMaterializationError("canonical_source_mismatch")
@@ -280,6 +318,7 @@ def validate_materialization(
                 repair_selection_manifest,
                 repair_selection_manifest_sha256,
             )
+            _validate_selection_source_and_code(selection, historical_source_dir)
             sandoq_members, vmvm_members = _partition_selection(
                 selected_members,
                 canonical_source=source_raw,
@@ -315,9 +354,10 @@ def validate_materialization(
                 repair_finalizer._validate_selection_unchanged(selection)
             except repair_finalizer.RepairFinalizationError as error:
                 raise RepairProviderMaterializationError("repair_selection_changed") from error
+            _validate_selection_source_and_code(selection, historical_source_dir)
             if sha256(receipt_raw) != receipt_sha256 or receipt_raw != _canonical_json(value):
                 raise RepairProviderMaterializationError("repair_provider_receipt_invalid")
-    except MixedMaterializationError as error:
+    except (MixedMaterializationError, repair_finalizer.RepairFinalizationError) as error:
         raise RepairProviderMaterializationError(str(error)) from error
     return value
 
@@ -330,6 +370,7 @@ def main() -> None:
     parser.add_argument("--vmvm-template", type=Path, required=True)
     parser.add_argument("--repair-selection-manifest", type=Path, required=True)
     parser.add_argument("--repair-selection-manifest-sha256", required=True)
+    parser.add_argument("--historical-source-dir", type=Path, required=True)
     parser.add_argument("--sandoq-tasks", type=Path, required=True)
     parser.add_argument("--vmvm-tasks", type=Path, required=True)
     parser.add_argument("--sandoq-config", type=Path, required=True)

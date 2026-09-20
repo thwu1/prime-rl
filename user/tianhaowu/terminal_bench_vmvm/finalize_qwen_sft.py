@@ -28,7 +28,12 @@ from typing import Any, Literal
 import direct_qwen_workers as direct
 import export_sft as exporter
 import migrate_qwen_router_affinity as migration
+import migrate_qwen_serving_generation as serving_generation
 import sft_run_identity
+from audit_traces import (
+    QWEN3_A95B_EPOCH3_MODEL_IO_CONTRACT_ID,
+    QWEN3_A95B_MODEL_IO_CONTRACT_ID,
+)
 
 INDEX_FILENAME = "qwen_router_epochs.jsonl"
 MAX_CHILD_OUTPUT_BYTES = 1 << 20
@@ -468,8 +473,12 @@ def _audit_source(source_dir: Path, expected_count: int, expected_provenance_sha
             "sandbox_provider": "sandoq",
         }
     try:
-        summary = direct.audit_run_directory(source_dir)
-    except (OSError, ValueError, direct.DirectWorkerError) as error:
+        summary = (
+            serving_generation.audit_historical_source_generation(source_dir)
+            if serving_generation.is_historical_source_generation(source_dir)
+            else direct.audit_run_directory(source_dir)
+        )
+    except (OSError, ValueError, direct.DirectWorkerError, serving_generation.GenerationMigrationError) as error:
         raise FinalizationError("source_routing_provenance_invalid") from error
     if (
         summary.get("routing_epoch") != 3
@@ -585,6 +594,8 @@ def _validate_sandoq_export_summary(
     expected_exporter_sha256: str,
     validation_permyriad: int,
     split_salt: str,
+    *,
+    allow_incomplete_marker: bool = False,
 ) -> None:
     expected_summary_keys = {
         "approved_tasks",
@@ -637,6 +648,8 @@ def _validate_sandoq_export_summary(
         "train",
         "validation",
     }
+    if allow_incomplete_marker:
+        expected_names.add(direct.MIGRATION_INCOMPLETE_FILENAME)
     if {entry.name for entry in published.iterdir()} != expected_names or any(
         {entry.name for entry in directory.iterdir()} != {"train.jsonl"} for directory in split_directories.values()
     ):
@@ -848,6 +861,8 @@ def _validate_export_summary(
     validation_permyriad: int,
     split_salt: str,
     expected_exclusion_sha256: str | None = None,
+    *,
+    allow_incomplete_marker: bool = False,
 ) -> None:
     if expected_index_sha256 is None:
         if expected_exclusion_sha256 is not None:
@@ -861,6 +876,7 @@ def _validate_export_summary(
             expected_exporter_sha256,
             validation_permyriad,
             split_salt,
+            allow_incomplete_marker=allow_incomplete_marker,
         )
         return
     has_run_identity = sft_run_identity.EVAL_RUN_IDENTITY_FILENAME in source_artifacts
@@ -955,14 +971,17 @@ def _validate_export_summary(
     split_directories = {
         name: _canonical_existing_directory(published / name, "sft_output_invalid") for name in ("train", "validation")
     }
-    if {entry.name for entry in published.iterdir()} != {
+    expected_names = {
         "manifest.json",
         "task-split.json",
         INDEX_FILENAME,
         exporter.TARGET_RENDERING_CONTRACT_FILENAME,
         "train",
         "validation",
-    } or any(
+    }
+    if allow_incomplete_marker:
+        expected_names.add(direct.MIGRATION_INCOMPLETE_FILENAME)
+    if {entry.name for entry in published.iterdir()} != expected_names or any(
         {entry.name for entry in directory.iterdir()} != {"train.jsonl"} for directory in split_directories.values()
     ):
         raise FinalizationError("sft_output_contract_invalid")
@@ -1066,6 +1085,7 @@ def _validate_export_summary(
         or set(source_validation)
         != {
             "max_sequence_tokens",
+            "model_io_contract",
             "require_exact_provider_json",
             "require_model_io",
             "require_reasoning",
@@ -1073,6 +1093,12 @@ def _validate_export_summary(
         }
         or not _is_plain_int(source_validation.get("max_sequence_tokens"))
         or source_validation["max_sequence_tokens"] != MAX_SEQUENCE_TOKENS
+        or source_validation.get("model_io_contract")
+        != (
+            QWEN3_A95B_EPOCH3_MODEL_IO_CONTRACT_ID
+            if expected_exclusion_sha256 is not None
+            else QWEN3_A95B_MODEL_IO_CONTRACT_ID
+        )
         or source_validation.get("require_exact_provider_json") is not False
         or source_validation.get("require_model_io") is not True
         or source_validation.get("require_reasoning") is not True
@@ -1443,13 +1469,18 @@ def finalize_qwen_sft(
         _publish_output(
             staged_output,
             paths.output_dir,
-            lambda path, _incomplete: _validate_export_summary(
+            lambda path, incomplete: _validate_export_summary(
                 export_summary,
                 path,
                 options.expected_count,
                 options.selection,
-                label_summary["index_sha256"],
+                label_summary["index_sha256"] if label_summary is not None else None,
+                source_artifacts,
+                expected_exporter_sha256,
+                options.validation_permyriad,
+                options.split_salt,
                 exclusion_sha256,
+                allow_incomplete_marker=incomplete,
             ),
         )
 

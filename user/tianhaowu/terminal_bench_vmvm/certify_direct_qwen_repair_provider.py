@@ -18,6 +18,7 @@ import certify_direct_qwen_sandoq_partition as sandoq_evidence
 import certify_direct_qwen_vmvm_compose as vmvm_evidence
 import materialize_qwen_repair_provider_union as repair_materializer
 import migrate_qwen_serving_generation as serving_generation
+from audit_traces import qwen_repair_trace_contracts_value
 from direct_qwen_union_contract import (
     HOST_HARNESS_CONTRACT,
     SHA256_RE,
@@ -30,7 +31,8 @@ from direct_qwen_union_contract import (
 )
 from materialize_qwen_provider_union import SANDOQ_COUNT as CANONICAL_SANDOQ_COUNT
 
-EXPECTED_REPAIR_COUNT = 1_153
+EXPECTED_REPAIR_COUNT = 1_233
+EXPECTED_VMVM_COUNT = 0
 SANDOQ_CONCURRENCY = 64
 SANDOQ_HTTP_CONCURRENCY = 32
 VMVM_CONCURRENCY = 96
@@ -50,6 +52,7 @@ class RepairMaterializationInputs:
     vmvm_template: Path
     repair_selection_manifest: Path
     repair_selection_manifest_sha256: str
+    historical_source_dir: Path
     sandoq_tasks: Path
     vmvm_tasks: Path
     sandoq_config: Path
@@ -67,6 +70,7 @@ class RepairMaterializationInputs:
                 vmvm_template=self.vmvm_template,
                 repair_selection_manifest=self.repair_selection_manifest,
                 repair_selection_manifest_sha256=self.repair_selection_manifest_sha256,
+                historical_source_dir=self.historical_source_dir,
                 sandoq_tasks=self.sandoq_tasks,
                 vmvm_tasks=self.vmvm_tasks,
                 sandoq_config=self.sandoq_config,
@@ -126,8 +130,24 @@ def _validate_materialization_value(value: object) -> dict[str, Any]:
             "sha256": repair_materializer.CANONICAL_SOURCE_SHA256,
         }
         or not isinstance(selection, dict)
-        or set(selection) != {"count", *digest_fields}
+        or set(selection) != {"count", "source_partition", "trace_contracts", *digest_fields}
         or selection.get("count") != _sealed_repair_count()
+        or selection.get("trace_contracts") != qwen_repair_trace_contracts_value()
+        or selection.get("source_partition")
+        != {
+            "error_traces": 43,
+            "exhaustive": True,
+            "invalid_positive_traces": 82,
+            "positive_reward_traces": 831,
+            "repair_tasks": EXPECTED_REPAIR_COUNT,
+            "retained_original_tasks": 1_267,
+            "retained_valid_positive_traces": 749,
+            "reward_zero_traces": 518,
+            "seen_traces": 1_392,
+            "source_task_count": 2_500,
+            "superseded_legacy_empty_reasoning_traces": 1,
+            "unseen_tasks": 1_108,
+        }
         or any(SHA256_RE.fullmatch(str(selection.get(key, ""))) is None for key in digest_fields)
         or not isinstance(partition, dict)
         or set(partition)
@@ -135,9 +155,10 @@ def _validate_materialization_value(value: object) -> dict[str, Any]:
         or partition.get("disjoint") is not True
         or partition.get("exhaustive") is not True
         or not _integer(partition.get("sandoq_count"), minimum=1)
-        or partition.get("vmvm_count") not in {0, 1}
+        or partition.get("vmvm_count") != EXPECTED_VMVM_COUNT
         or partition.get("total_count") != EXPECTED_REPAIR_COUNT
         or partition["sandoq_count"] + partition["vmvm_count"] != EXPECTED_REPAIR_COUNT
+        or partition["sandoq_count"] != EXPECTED_REPAIR_COUNT
     ):
         raise RepairProviderCertificateError("repair_materialization_invalid")
     return value
@@ -481,7 +502,7 @@ def certify_sandoq(
     predecessor_sha256: str,
     materialization_inputs: RepairMaterializationInputs,
 ) -> dict[str, Any]:
-    materialization = materialization_inputs.validate()
+    materialization = _validate_materialization_value(materialization_inputs.validate())
     task_count = materialization["partition"]["sandoq_count"]
     with _locked_run(run_dir):
         envelope, shared, execution = _load_identity(
@@ -567,7 +588,7 @@ def certify_vmvm(
     lifecycle_receipt: Path,
     materialization_inputs: RepairMaterializationInputs,
 ) -> dict[str, Any]:
-    materialization = materialization_inputs.validate()
+    materialization = _validate_materialization_value(materialization_inputs.validate())
     if materialization["partition"]["vmvm_count"] != 1:
         raise RepairProviderCertificateError("vmvm_lane_not_selected")
     with _locked_run(run_dir):
@@ -643,7 +664,7 @@ def certify_vmvm_absence(
     config_sha256: str,
     materialization_inputs: RepairMaterializationInputs,
 ) -> dict[str, Any]:
-    materialization = materialization_inputs.validate()
+    materialization = _validate_materialization_value(materialization_inputs.validate())
     if materialization["partition"]["vmvm_count"] != 0:
         raise RepairProviderCertificateError("vmvm_lane_selected")
     _validate_artifact(
@@ -714,6 +735,7 @@ def _add_materialization_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--vmvm-template", type=Path, required=True)
     parser.add_argument("--repair-selection-manifest", type=Path, required=True)
     parser.add_argument("--repair-selection-manifest-sha256", required=True)
+    parser.add_argument("--historical-source-dir", type=Path, required=True)
     parser.add_argument("--sandoq-tasks", type=Path, required=True)
     parser.add_argument("--vmvm-tasks", type=Path, required=True)
     parser.add_argument("--sandoq-config", type=Path, required=True)
@@ -734,6 +756,7 @@ def _materialization_inputs(args: argparse.Namespace) -> RepairMaterializationIn
         vmvm_template=args.vmvm_template,
         repair_selection_manifest=args.repair_selection_manifest,
         repair_selection_manifest_sha256=args.repair_selection_manifest_sha256,
+        historical_source_dir=args.historical_source_dir,
         sandoq_tasks=args.sandoq_tasks,
         vmvm_tasks=args.vmvm_tasks,
         sandoq_config=args.sandoq_config,

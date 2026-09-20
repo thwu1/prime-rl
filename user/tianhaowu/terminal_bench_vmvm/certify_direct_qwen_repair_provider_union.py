@@ -574,7 +574,12 @@ def certify_union(
     vmvm_certificate_sha256: str,
     materialization_inputs: provider_certificate.RepairMaterializationInputs,
 ) -> dict[str, Any]:
-    materialization = materialization_inputs.validate()
+    try:
+        materialization = provider_certificate._validate_materialization_value(
+            materialization_inputs.validate()
+        )
+    except provider_certificate.RepairProviderCertificateError as error:
+        raise RepairProviderUnionCertificateError("repair_materialization_invalid") from error
     sandoq = _load_private(sandoq_certificate, sandoq_certificate_sha256)
     vmvm = _load_private(vmvm_certificate, vmvm_certificate_sha256)
     sandoq_lane, sandoq_evidence = _validate_sandoq(
@@ -724,6 +729,7 @@ def _add_materialization_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--vmvm-template", type=Path, required=True)
     parser.add_argument("--repair-selection-manifest", type=Path, required=True)
     parser.add_argument("--repair-selection-manifest-sha256", required=True)
+    parser.add_argument("--historical-source-dir", type=Path, required=True)
     parser.add_argument("--sandoq-tasks", type=Path, required=True)
     parser.add_argument("--vmvm-tasks", type=Path, required=True)
     parser.add_argument("--sandoq-config", type=Path, required=True)
@@ -749,6 +755,7 @@ def main() -> None:
         vmvm_template=args.vmvm_template,
         repair_selection_manifest=args.repair_selection_manifest,
         repair_selection_manifest_sha256=args.repair_selection_manifest_sha256,
+        historical_source_dir=args.historical_source_dir,
         sandoq_tasks=args.sandoq_tasks,
         vmvm_tasks=args.vmvm_tasks,
         sandoq_config=args.sandoq_config,

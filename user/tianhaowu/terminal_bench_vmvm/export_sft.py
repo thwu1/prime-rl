@@ -32,12 +32,16 @@ import direct_qwen_workers as direct_workers
 import sft_run_identity
 from audit_traces import (
     DEFAULT_MAX_SEQUENCE_TOKENS,
+    QWEN3_A95B_EPOCH3_MODEL_IO_CONTRACT,
+    QWEN3_A95B_EPOCH3_MODEL_IO_CONTRACT_ID,
     QWEN3_A95B_MODEL_IO_CONTRACT,
+    QWEN3_A95B_MODEL_IO_CONTRACT_ID,
     TRAINABLE_FINISH_REASONS,
     CapturedModelIOContract,
     _audit_trace,
     _valid_redundant_provider_specific_fields,
     _valid_tool_arguments,
+    qwen_repair_trace_contracts_value,
 )
 
 FORMAT_VERSION = 3
@@ -53,7 +57,7 @@ ROUTING_EPOCH1_ROWS_FILENAME = "qwen_router_epoch1_rows.sha256"
 ROUTING_EPOCH2_LINEAGE_FILENAME = "qwen_router_epoch2_lineage.jsonl"
 DIRECT_WORKERS_FILENAME = "direct_workers.json"
 REPAIR_SELECTION_KIND = "qwen-aggregate-repair-selection"
-REPAIR_SELECTION_SCHEMA_VERSION = 2
+REPAIR_SELECTION_SCHEMA_VERSION = 3
 REPAIR_SELECTION_MANIFEST_FILENAME = "repair_manifest.json"
 REPAIR_SELECTION_TASK_FILENAME = "repair_tasks.txt"
 REPAIR_MISSING_ERROR_TASK_FILENAME = "repair_missing_or_errored_tasks.txt"
@@ -186,6 +190,8 @@ class ExclusionSelection:
     strict_invalid_pass_slugs: frozenset[str]
     union_slugs: frozenset[str]
     source_artifacts: Mapping[str, FileArtifact]
+    source_partition: Mapping[str, int | bool]
+    source_model_io_contract: CapturedModelIOContract
 
     @property
     def count(self) -> int:
@@ -636,8 +642,23 @@ def _load_exclusion_selection(
     planner = manifest.get("planner")
     selection = manifest.get("selection")
     source = manifest.get("source")
+    source_partition = manifest.get("source_partition")
+    trace_contracts = manifest.get("trace_contracts")
+    expected_trace_contracts = qwen_repair_trace_contracts_value()
     if (
-        set(manifest) != {"approval", "code", "config", "kind", "planner", "schema_version", "selection", "source"}
+        set(manifest)
+        != {
+            "approval",
+            "code",
+            "config",
+            "kind",
+            "planner",
+            "schema_version",
+            "selection",
+            "source",
+            "source_partition",
+            "trace_contracts",
+        }
         or manifest.get("kind") != REPAIR_SELECTION_KIND
         or manifest.get("schema_version") != REPAIR_SELECTION_SCHEMA_VERSION
         or not isinstance(approval, dict)
@@ -651,6 +672,7 @@ def _load_exclusion_selection(
             "max_total_tokens",
             "preserve_thinking",
             "provider_concurrency",
+            "reasoning_effort",
             "retry_class_count",
             "retry_policy_sha256",
             "sha256",
@@ -681,6 +703,23 @@ def _load_exclusion_selection(
         }
         or not isinstance(source, dict)
         or set(source) != {"artifacts", "routing_epoch", "task_count"}
+        or not isinstance(source_partition, dict)
+        or set(source_partition)
+        != {
+            "error_traces",
+            "exhaustive",
+            "invalid_positive_traces",
+            "positive_reward_traces",
+            "repair_tasks",
+            "retained_original_tasks",
+            "retained_valid_positive_traces",
+            "reward_zero_traces",
+            "seen_traces",
+            "source_task_count",
+            "superseded_legacy_empty_reasoning_traces",
+            "unseen_tasks",
+        }
+        or trace_contracts != expected_trace_contracts
     ):
         raise ExportError("exclusion_selection_invalid")
     approved_count = approval.get("approved_task_count")
@@ -713,9 +752,34 @@ def _load_exclusion_selection(
         or planner.get("task_index_order_sha256") != _selection_task_order_sha256(task_identity.approved_slugs)
         or source.get("routing_epoch") != 3
         or source.get("task_count") != approved_count
+        or source_partition.get("exhaustive") is not True
+        or any(
+            isinstance(source_partition.get(name), bool)
+            or not isinstance(source_partition.get(name), int)
+            or source_partition[name] < 0
+            for name in set(source_partition) - {"exhaustive"}
+        )
+        or source_partition.get("source_task_count") != approved_count
+        or source_partition.get("repair_tasks") != union_count
+        or source_partition.get("invalid_positive_traces") != strict_count
+        or source_partition.get("error_traces", 0) + source_partition.get("unseen_tasks", 0)
+        != missing_count
+        or source_partition.get("positive_reward_traces", 0)
+        != source_partition.get("retained_valid_positive_traces", 0) + strict_count
+        or source_partition.get("seen_traces", 0)
+        != source_partition.get("positive_reward_traces", 0)
+        + source_partition.get("reward_zero_traces", 0)
+        + source_partition.get("error_traces", 0)
+        or approved_count
+        != source_partition.get("seen_traces", 0) + source_partition.get("unseen_tasks", 0)
+        or source_partition.get("retained_original_tasks", 0)
+        != source_partition.get("retained_valid_positive_traces", 0)
+        + source_partition.get("reward_zero_traces", 0)
+        or approved_count != source_partition.get("retained_original_tasks", 0) + union_count
         or config.get("capture_model_io") is not True
         or config.get("enable_thinking") is not True
         or config.get("preserve_thinking") is not True
+        or config.get("reasoning_effort") != "max"
         or config.get("max_concurrent") != direct_workers.MAX_DIRECT_CONCURRENCY
         or config.get("provider_concurrency") != direct_workers.PRODUCTION_PROVIDER_CONCURRENCY
         or config.get("max_total_tokens") != DEFAULT_MAX_SEQUENCE_TOKENS
@@ -796,6 +860,8 @@ def _load_exclusion_selection(
         strict_invalid_pass_slugs=strict,
         union_slugs=union,
         source_artifacts=selection_sources,
+        source_partition=dict(source_partition),
+        source_model_io_contract=QWEN3_A95B_EPOCH3_MODEL_IO_CONTRACT,
     )
 
 
@@ -1037,8 +1103,14 @@ def _load_epoch3_routing_provenance(
         raise ExportError("routing_admission_transition_mismatch")
 
     try:
-        routing_summary = direct_workers.audit_run_directory(resolved_run)
-    except direct_workers.DirectWorkerError as error:
+        import migrate_qwen_serving_generation as serving_generation
+
+        routing_summary = (
+            serving_generation.audit_historical_source_generation(resolved_run)
+            if serving_generation.is_historical_source_generation(resolved_run)
+            else direct_workers.audit_run_directory(resolved_run)
+        )
+    except (direct_workers.DirectWorkerError, serving_generation.GenerationMigrationError) as error:
         raise ExportError("routing_schema3_provenance_invalid") from error
     if (
         routing_summary.get("routing_epoch") != 3
@@ -1521,17 +1593,23 @@ def _validate_captured_response(node: dict[str, Any]) -> None:
     if raw_message.get("role") != "assistant":
         raise ExportError("captured_response_invalid")
     allowed_raw_message_keys = {
+        "annotations",
+        "audio",
         "role",
         "content",
+        "function_call",
         "provider_state",
         "reasoning",
         "reasoning_content",
         "reasoning_details",
+        "refusal",
         "tool_calls",
     }
     if kind == "exact_provider_json":
         allowed_raw_message_keys.add("provider_specific_fields")
     if "role" not in raw_message or not set(raw_message).issubset(allowed_raw_message_keys):
+        raise ExportError("captured_response_invalid")
+    if any(raw_message.get(field) is not None for field in ("annotations", "audio", "function_call", "refusal")):
         raise ExportError("captured_response_invalid")
     if not _valid_redundant_provider_specific_fields(raw_message):
         raise ExportError("captured_response_invalid")
@@ -2144,7 +2222,7 @@ def export_sft(options: ExportOptions) -> dict[str, Any]:
                                 trace,
                                 reward=reward,
                                 max_sequence_tokens=options.max_sequence_tokens,
-                                model_io_contract=QWEN3_A95B_MODEL_IO_CONTRACT,
+                                model_io_contract=exclusion_selection.source_model_io_contract,
                                 require_exact_provider_json=options.require_exact_provider_json,
                             )
                         except ExportError:
@@ -2170,13 +2248,25 @@ def export_sft(options: ExportOptions) -> dict[str, Any]:
                     counts["selection_excluded_fail_traces"] += 1
                     continue
 
-                _nodes, tools = _validate_trainable_trace(
+                validated_nodes, tools = _validate_trainable_trace(
                     trace,
                     reward=reward,
                     max_sequence_tokens=options.max_sequence_tokens,
-                    model_io_contract=QWEN3_A95B_MODEL_IO_CONTRACT,
+                    model_io_contract=(
+                        exclusion_selection.source_model_io_contract
+                        if exclusion_selection is not None
+                        else QWEN3_A95B_MODEL_IO_CONTRACT
+                    ),
                     require_exact_provider_json=options.require_exact_provider_json,
                 )
+                if any(
+                    node.get("sampled") is True
+                    and isinstance(node.get("message"), dict)
+                    and isinstance(node["message"].get("reasoning_content"), str)
+                    and not node["message"]["reasoning_content"].strip()
+                    for node in validated_nodes
+                ):
+                    counts["superseded_legacy_empty_reasoning_traces"] += 1
                 split = _split_for_task(
                     task_sha256,
                     salt=options.split_salt,
@@ -2227,6 +2317,23 @@ def export_sft(options: ExportOptions) -> dict[str, Any]:
             else:
                 unseen = task_identity.approved_slugs - seen_task_slugs
                 expected_unseen = exclusion_selection.missing_or_errored_slugs - seen_missing_or_error_slugs
+                observed_source_partition: dict[str, int | bool] = {
+                    "error_traces": counts["excluded_error_traces"],
+                    "exhaustive": True,
+                    "invalid_positive_traces": len(seen_strict_invalid_pass_slugs),
+                    "positive_reward_traces": counts["scored_pass_traces"],
+                    "repair_tasks": len(exclusion_selection.union_slugs),
+                    "retained_original_tasks": counts["selected_pass_traces"]
+                    + counts["scored_fail_traces"],
+                    "retained_valid_positive_traces": counts["selected_pass_traces"],
+                    "reward_zero_traces": counts["scored_fail_traces"],
+                    "seen_traces": counts["input_traces"],
+                    "source_task_count": exclusion_selection.approved_task_count,
+                    "superseded_legacy_empty_reasoning_traces": counts[
+                        "superseded_legacy_empty_reasoning_traces"
+                    ],
+                    "unseen_tasks": len(unseen),
+                }
                 if (
                     seen_strict_invalid_pass_slugs != exclusion_selection.strict_invalid_pass_slugs
                     or unseen != expected_unseen
@@ -2235,6 +2342,7 @@ def export_sft(options: ExportOptions) -> dict[str, Any]:
                     != task_identity.approved_slugs - exclusion_selection.union_slugs
                     or counts["input_traces"] + len(unseen) != exclusion_selection.approved_task_count
                     or options.expected_count != exclusion_selection.approved_task_count
+                    or observed_source_partition != exclusion_selection.source_partition
                 ):
                     raise ExportError("exclusion_selection_accounting_mismatch")
                 counts["approved_tasks"] = exclusion_selection.approved_task_count
@@ -2303,6 +2411,11 @@ def export_sft(options: ExportOptions) -> dict[str, Any]:
                 "selection": options.selection,
                 "source_validation": {
                     "max_sequence_tokens": options.max_sequence_tokens,
+                    "model_io_contract": (
+                        QWEN3_A95B_EPOCH3_MODEL_IO_CONTRACT_ID
+                        if exclusion_selection is not None
+                        else QWEN3_A95B_MODEL_IO_CONTRACT_ID
+                    ),
                     "require_exact_provider_json": options.require_exact_provider_json,
                     "require_model_io": True,
                     "require_reasoning": True,

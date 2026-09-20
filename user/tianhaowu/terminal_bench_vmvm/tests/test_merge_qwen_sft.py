@@ -10,6 +10,11 @@ import merge_qwen_sft as merger
 import migrate_qwen_serving_generation as generation
 import pytest
 import sft_run_identity
+from audit_traces import (
+    QWEN3_A95B_EPOCH3_MODEL_IO_CONTRACT_ID,
+    QWEN3_A95B_MODEL_IO_CONTRACT_ID,
+    QWEN3_A95B_REPAIRED_SFT_MODEL_IO_CONTRACT_ID,
+)
 from merge_qwen_sft import (
     FORMAT_VERSION,
     LOSS_MASK,
@@ -234,6 +239,11 @@ def _write_export(
         "selection": selection,
         "source_validation": {
             "max_sequence_tokens": MAX_SEQUENCE_TOKENS,
+            "model_io_contract": (
+                QWEN3_A95B_EPOCH3_MODEL_IO_CONTRACT_ID
+                if routing_epoch is not None
+                else QWEN3_A95B_MODEL_IO_CONTRACT_ID
+            ),
             "require_exact_provider_json": False,
             "require_model_io": True,
             "require_reasoning": True,
@@ -360,6 +370,7 @@ def _write_repair_selection(
                 "max_total_tokens": MAX_SEQUENCE_TOKENS,
                 "preserve_thinking": True,
                 "provider_concurrency": 32,
+                "reasoning_effort": "max",
                 "retry_class_count": 4,
                 "retry_policy_sha256": "e" * 64,
                 "sha256": repair_manifest["source_artifacts"]["inputs/source_config.toml"]["sha256"],
@@ -374,7 +385,7 @@ def _write_repair_selection(
                 "retained_count": source_task_count - len(missing_slugs),
                 "task_index_order_sha256": "3" * 64,
             },
-            "schema_version": 2,
+            "schema_version": 3,
             "selection": {
                 "approved_repair_count": repair_task_count,
                 "missing_or_errored_count": len(missing_slugs),
@@ -397,6 +408,21 @@ def _write_repair_selection(
                 "routing_epoch": 3,
                 "task_count": source_task_count,
             },
+            "source_partition": {
+                "error_traces": len(missing_slugs),
+                "exhaustive": True,
+                "invalid_positive_traces": len(strict_slugs),
+                "positive_reward_traces": source_task_count - len(missing_slugs),
+                "repair_tasks": repair_task_count,
+                "retained_original_tasks": source_task_count - repair_task_count,
+                "retained_valid_positive_traces": source_task_count - repair_task_count,
+                "reward_zero_traces": 0,
+                "seen_traces": source_task_count,
+                "source_task_count": source_task_count,
+                "superseded_legacy_empty_reasoning_traces": 0,
+                "unseen_tasks": 0,
+            },
+            "trace_contracts": merger.qwen_repair_trace_contracts_value(),
         }
     )
     path.write_bytes(body)
@@ -754,6 +780,7 @@ def test_merge_is_deterministic_redacted_and_preserves_all_rows(tmp_path: Path) 
     assert merged_manifest["format"]["target"].startswith("authentic reasoning_content")
     assert merged_manifest["source_validation"] == {
         "max_sequence_tokens": MAX_SEQUENCE_TOKENS,
+        "model_io_contract": QWEN3_A95B_REPAIRED_SFT_MODEL_IO_CONTRACT_ID,
         "require_exact_provider_json": False,
         "require_model_io": True,
         "require_reasoning": True,

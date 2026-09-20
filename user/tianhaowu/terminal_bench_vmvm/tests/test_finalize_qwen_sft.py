@@ -9,6 +9,10 @@ from pathlib import Path
 
 import finalize_qwen_sft as finalizer
 import pytest
+from audit_traces import (
+    QWEN3_A95B_EPOCH3_MODEL_IO_CONTRACT_ID,
+    QWEN3_A95B_MODEL_IO_CONTRACT_ID,
+)
 from finalize_qwen_sft import FinalizationError, FinalizeOptions
 
 
@@ -197,6 +201,7 @@ def _export_summary(output: Path, expected_count: int, routing_index: Path, sour
                 "selection": "pass-only",
                 "source_validation": {
                     "max_sequence_tokens": 262144,
+                    "model_io_contract": QWEN3_A95B_MODEL_IO_CONTRACT_ID,
                     "require_exact_provider_json": False,
                     "require_model_io": True,
                     "require_reasoning": True,
@@ -305,6 +310,7 @@ def test_finalizer_runs_label_before_export_and_emits_only_aggregates(
     assert staged_outputs and not staged_outputs[0].exists()
     assert json.loads((options.output_dir / "manifest.json").read_bytes())["source_validation"] == {
         "max_sequence_tokens": 262_144,
+        "model_io_contract": QWEN3_A95B_MODEL_IO_CONTRACT_ID,
         "require_exact_provider_json": False,
         "require_model_io": True,
         "require_reasoning": True,
@@ -369,7 +375,7 @@ def test_sandoq_finalizer_skips_vmvm_router_labeling(
     )
 
     assert len(calls) == 1
-    assert validated == [None]
+    assert validated == [None, None]
     assert summary["sandbox_provider"] == "sandoq"
     assert "routing_epoch_rows" not in summary
 
@@ -411,6 +417,9 @@ def test_finalizer_passes_private_exclusion_and_rejects_toctou(
             "union_count": 1,
         }
         manifest = json.loads((output / "manifest.json").read_text())
+        manifest["source_validation"]["model_io_contract"] = (
+            QWEN3_A95B_EPOCH3_MODEL_IO_CONTRACT_ID
+        )
         manifest["counts"].update(
             {
                 "exclusion_missing_tasks": 0,
@@ -487,6 +496,9 @@ def test_finalizer_accounts_for_attested_missing_source_row(
             "union_count": 1,
         }
         manifest = json.loads((output / "manifest.json").read_text())
+        manifest["source_validation"]["model_io_contract"] = (
+            QWEN3_A95B_EPOCH3_MODEL_IO_CONTRACT_ID
+        )
         manifest["counts"].update(
             {
                 "excluded_error_traces": 0,

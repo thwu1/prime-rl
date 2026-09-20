@@ -21,9 +21,13 @@ from typing import Any
 import direct_qwen_workers as direct
 import export_sft as exporter
 import migrate_qwen_router_affinity as migration
-from audit_traces import QWEN3_A95B_EPOCH3_MODEL_IO_CONTRACT
+import migrate_qwen_serving_generation as serving_generation
+from audit_traces import (
+    QWEN3_A95B_EPOCH3_MODEL_IO_CONTRACT,
+    qwen_repair_trace_contracts_value,
+)
 
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 3
 MANIFEST_KIND = "qwen-aggregate-repair-selection"
 TASK_FILENAME = "repair_tasks.txt"
 MISSING_ERROR_TASK_FILENAME = "repair_missing_or_errored_tasks.txt"
@@ -56,6 +60,44 @@ class RepairMaterializationError(ValueError):
 @dataclass(frozen=True, slots=True)
 class TaskRecord:
     identifier: str
+
+
+@dataclass(frozen=True, slots=True)
+class SourceTracePartition:
+    error_traces: int
+    invalid_positive_traces: int
+    positive_reward_traces: int
+    retained_valid_positive_traces: int
+    reward_zero_traces: int
+    seen_traces: int
+    superseded_legacy_empty_reasoning_traces: int
+    unseen_tasks: int
+
+    def as_dict(self, *, repair_tasks: int, source_task_count: int) -> dict[str, int | bool]:
+        retained_original_tasks = self.retained_valid_positive_traces + self.reward_zero_traces
+        if (
+            self.positive_reward_traces
+            != self.retained_valid_positive_traces + self.invalid_positive_traces
+            or self.seen_traces
+            != self.positive_reward_traces + self.reward_zero_traces + self.error_traces
+            or source_task_count != self.seen_traces + self.unseen_tasks
+            or source_task_count != retained_original_tasks + repair_tasks
+        ):
+            raise RepairMaterializationError("source_trace_partition_invalid")
+        return {
+            "error_traces": self.error_traces,
+            "exhaustive": True,
+            "invalid_positive_traces": self.invalid_positive_traces,
+            "positive_reward_traces": self.positive_reward_traces,
+            "repair_tasks": repair_tasks,
+            "retained_original_tasks": retained_original_tasks,
+            "retained_valid_positive_traces": self.retained_valid_positive_traces,
+            "reward_zero_traces": self.reward_zero_traces,
+            "seen_traces": self.seen_traces,
+            "source_task_count": source_task_count,
+            "superseded_legacy_empty_reasoning_traces": self.superseded_legacy_empty_reasoning_traces,
+            "unseen_tasks": self.unseen_tasks,
+        }
 
 
 def _json_bytes(value: object) -> bytes:
@@ -285,6 +327,19 @@ def _replace_assignment(text: str, key: str, value: object) -> str:
     return rewritten
 
 
+def _set_sampling_reasoning_effort(text: str) -> str:
+    assignment = re.compile(r'(?m)^(\s*reasoning_effort\s*=\s*).*$')
+    if len(assignment.findall(text)) > 1:
+        raise RepairMaterializationError("repair_config_reasoning_effort_not_unique")
+    if assignment.search(text):
+        return assignment.sub(r'\g<1>"max"', text)
+    table = re.compile(r"(?m)^\[sampling\]\s*$")
+    rewritten, count = table.subn('[sampling]\nreasoning_effort = "max"', text)
+    if count != 1:
+        raise RepairMaterializationError("repair_config_sampling_not_unique")
+    return rewritten
+
+
 def _render_repair_config(
     template: bytes,
     source_config: dict[str, Any],
@@ -316,7 +371,7 @@ def _render_repair_config(
     )
     for key, value in replacements:
         text = _replace_assignment(text, key, value)
-    return text.encode()
+    return _set_sampling_reasoning_effort(text).encode()
 
 
 def _validate_repair_config(
@@ -352,6 +407,7 @@ def _validate_repair_config(
         or not isinstance(template, dict)
         or template.get("enable_thinking") is not True
         or template.get("preserve_thinking") is not True
+        or sampling.get("reasoning_effort") != "max"
         or not isinstance(taskset, dict)
         or Path(str(taskset.get("task_file", ""))).resolve() != task_file.resolve()
         or taskset.get("task_file_sha256") != task_file_sha256
@@ -409,13 +465,16 @@ def _strict_invalid_pass_indices(
     source: Path,
     ordered_records: list[TaskRecord],
     missing_or_errored_indices: set[int],
-) -> set[int]:
+) -> tuple[set[int], SourceTracePartition]:
     """Find scored passes rejected by the exact exporter trainability contract."""
     results_path = source / SOURCE_ARTIFACTS["results"]
     descriptor = _open_regular(results_path, "source_results")
     seen: set[int] = set()
     errored: set[int] = set()
     invalid_passes: set[int] = set()
+    positive_count = 0
+    reward_zero_count = 0
+    superseded_legacy_empty_reasoning_count = 0
     evaluator_order = tuple(record.identifier for record in ordered_records)
     try:
         before = os.fstat(descriptor)
@@ -457,6 +516,7 @@ def _strict_invalid_pass_indices(
                 except exporter.ExportError as error:
                     raise RepairMaterializationError("source_results_invalid") from error
                 if reward == 0.0:
+                    reward_zero_count += 1
                     stop_condition = trace.get("stop_condition")
                     if (
                         trace.get("is_completed") is not True
@@ -465,8 +525,9 @@ def _strict_invalid_pass_indices(
                     ):
                         raise RepairMaterializationError("source_results_invalid")
                     continue
+                positive_count += 1
                 try:
-                    exporter._validate_trainable_trace(
+                    validated_nodes, _tools = exporter._validate_trainable_trace(
                         trace,
                         reward=reward,
                         max_sequence_tokens=262_144,
@@ -474,6 +535,15 @@ def _strict_invalid_pass_indices(
                     )
                 except exporter.ExportError:
                     invalid_passes.add(index)
+                else:
+                    if any(
+                        node.get("sampled") is True
+                        and isinstance(node.get("message"), dict)
+                        and isinstance(node["message"].get("reasoning_content"), str)
+                        and not node["message"]["reasoning_content"].strip()
+                        for node in validated_nodes
+                    ):
+                        superseded_legacy_empty_reasoning_count += 1
             after = os.fstat(handle.fileno())
     except OSError as error:
         raise RepairMaterializationError("source_results_unreadable") from error
@@ -487,14 +557,28 @@ def _strict_invalid_pass_indices(
     missing = set(range(len(ordered_records))) - seen
     if errored | missing != missing_or_errored_indices or errored & missing:
         raise RepairMaterializationError("resume_plan_source_mismatch")
-    return invalid_passes
+    partition = SourceTracePartition(
+        error_traces=len(errored),
+        invalid_positive_traces=len(invalid_passes),
+        positive_reward_traces=positive_count,
+        retained_valid_positive_traces=positive_count - len(invalid_passes),
+        reward_zero_traces=reward_zero_count,
+        seen_traces=len(seen),
+        superseded_legacy_empty_reasoning_traces=superseded_legacy_empty_reasoning_count,
+        unseen_tasks=len(missing),
+    )
+    return invalid_passes, partition
 
 
-def _validate_source_contract(summary: dict[str, Any]) -> None:
+def _validate_source_contract(
+    summary: dict[str, Any],
+    *,
+    expected_endpoints: int,
+) -> None:
     if (
         summary.get("ok") is not True
         or summary.get("model") != direct.EXPECTED_MODEL
-        or summary.get("endpoints") != direct.EXPECTED_ENDPOINTS
+        or summary.get("endpoints") != expected_endpoints
         or summary.get("manifest_schema_version") != direct.ROUTER_MANIFEST_SCHEMA_VERSION
         or summary.get("provider_concurrency") != direct.PRODUCTION_PROVIDER_CONCURRENCY
         or summary.get("queue_size") != direct.MAX_DIRECT_CONCURRENCY - direct.PRODUCTION_PROVIDER_CONCURRENCY
@@ -607,7 +691,7 @@ def materialize(
     output_dir: Path,
     *,
     terminal_check: Callable[[str], bool] = migration.slurm_job_is_terminal,
-) -> dict[str, int | str | bool]:
+) -> dict[str, Any]:
     if re.fullmatch(r"[0-9a-f]{64}", approved_task_file_sha256) is None:
         raise RepairMaterializationError("approval_sha256_invalid")
     try:
@@ -642,10 +726,22 @@ def materialize(
             if not terminal:
                 raise RepairMaterializationError("source_job_not_terminal")
             try:
-                source_summary = direct.audit_run_directory(source)
-            except direct.DirectWorkerError as error:
+                historical_source = serving_generation.is_historical_source_generation(source)
+                source_summary = (
+                    serving_generation.audit_historical_source_generation(source)
+                    if historical_source
+                    else direct.audit_run_directory(source)
+                )
+            except (direct.DirectWorkerError, serving_generation.GenerationMigrationError) as error:
                 raise RepairMaterializationError("source_validation_failed") from error
-            _validate_source_contract(source_summary)
+            _validate_source_contract(
+                source_summary,
+                expected_endpoints=(
+                    serving_generation._load_contract()["source_generation"]["worker_count"]
+                    if historical_source
+                    else direct.EXPECTED_ENDPOINTS
+                ),
+            )
 
             source_fingerprints = _source_fingerprints(source)
             source_task_bytes = _read_regular(
@@ -678,7 +774,7 @@ def materialize(
             )
 
             retained_count, owed_indices = _plan_owed(source, num_tasks)
-            strict_invalid_pass_indices = _strict_invalid_pass_indices(
+            strict_invalid_pass_indices, source_partition = _strict_invalid_pass_indices(
                 source,
                 ordered_source_records,
                 owed_indices,
@@ -686,6 +782,12 @@ def materialize(
             if strict_invalid_pass_indices & owed_indices:
                 raise RepairMaterializationError("repair_selection_partition_invalid")
             selected_index_set = owed_indices | strict_invalid_pass_indices
+            source_partition_value = source_partition.as_dict(
+                repair_tasks=len(selected_index_set),
+                source_task_count=num_tasks,
+            )
+            if source_partition.seen_traces != retained_count + source_partition.error_traces:
+                raise RepairMaterializationError("source_trace_partition_invalid")
             missing_or_errored_indices_sha256 = _sha256_bytes(_indices_bytes(owed_indices))
             strict_invalid_pass_indices_sha256 = _sha256_bytes(_indices_bytes(strict_invalid_pass_indices))
             repair_union_indices_sha256 = _sha256_bytes(_indices_bytes(selected_index_set))
@@ -703,6 +805,7 @@ def materialize(
                     "repair_union_indices_sha256": repair_union_indices_sha256,
                     "status": "nothing_to_repair",
                     "strict_invalid_pass_count": 0,
+                    "source_partition": source_partition_value,
                     "task_index_order_sha256": task_index_order_sha256,
                 }
             code_provenance = _validated_code_provenance(_code_provenance())
@@ -765,6 +868,7 @@ def materialize(
                     "max_total_tokens": 262_144,
                     "preserve_thinking": True,
                     "provider_concurrency": direct.PRODUCTION_PROVIDER_CONCURRENCY,
+                    "reasoning_effort": "max",
                     "retry_class_count": len(direct.ROLLOUT_RETRY_POLICY),
                     "retry_policy_sha256": _sha256_bytes(retry_policy_bytes),
                     "sha256": config_sha256,
@@ -796,6 +900,8 @@ def materialize(
                     "routing_epoch": 3,
                     "task_count": num_tasks,
                 },
+                "source_partition": source_partition_value,
+                "trace_contracts": qwen_repair_trace_contracts_value(),
             }
             manifest_bytes = _json_bytes(manifest)
 
@@ -850,6 +956,7 @@ def materialize(
         "repair_union_indices_sha256": repair_union_indices_sha256,
         "status": "materialized",
         "strict_invalid_pass_count": len(strict_invalid_pass_indices),
+        "source_partition": source_partition_value,
         "task_file_sha256": task_sha256,
         "task_index_order_sha256": task_index_order_sha256,
     }

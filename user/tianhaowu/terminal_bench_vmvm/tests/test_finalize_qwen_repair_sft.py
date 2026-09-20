@@ -7,6 +7,7 @@ from pathlib import Path
 import direct_qwen_workers as direct
 import finalize_qwen_repair_sft as finalizer
 import pytest
+from audit_traces import QWEN3_A95B_MODEL_IO_CONTRACT_ID, qwen_repair_trace_contracts_value
 
 
 def _sha256(body: bytes) -> str:
@@ -82,6 +83,7 @@ def _write_layout(tmp_path: Path, *, expected_count: int = 2) -> tuple[finalizer
             "max_total_tokens": 262_144,
             "preserve_thinking": True,
             "provider_concurrency": direct.PRODUCTION_PROVIDER_CONCURRENCY,
+            "reasoning_effort": "max",
             "retry_class_count": len(direct.ROLLOUT_RETRY_POLICY),
             "retry_policy_sha256": _sha256(
                 "".join(f"{name}\n" for name in sorted(direct.ROLLOUT_RETRY_POLICY)).encode()
@@ -98,7 +100,7 @@ def _write_layout(tmp_path: Path, *, expected_count: int = 2) -> tuple[finalizer
             "retained_count": 1,
             "task_index_order_sha256": "7" * 64,
         },
-        "schema_version": 2,
+        "schema_version": 3,
         "selection": {
             "approved_repair_count": expected_count,
             "missing_or_errored_count": expected_count,
@@ -115,6 +117,21 @@ def _write_layout(tmp_path: Path, *, expected_count: int = 2) -> tuple[finalizer
             "routing_epoch": 3,
             "task_count": approved_count,
         },
+        "source_partition": {
+            "error_traces": expected_count - 1,
+            "exhaustive": True,
+            "invalid_positive_traces": 0,
+            "positive_reward_traces": 0,
+            "repair_tasks": expected_count,
+            "retained_original_tasks": 1,
+            "retained_valid_positive_traces": 0,
+            "reward_zero_traces": 1,
+            "seen_traces": 2,
+            "source_task_count": approved_count,
+            "superseded_legacy_empty_reasoning_traces": 0,
+            "unseen_tasks": 1,
+        },
+        "trace_contracts": qwen_repair_trace_contracts_value(),
     }
     selection_body = json.dumps(selection, indent=2, sort_keys=True).encode() + b"\n"
     selection_path = tmp_path / "repair" / "repair_manifest.json"
@@ -232,6 +249,7 @@ def _write_export(output: Path, source: Path, project: Path, expected_count: int
         "selection": "pass-only",
         "source_validation": {
             "max_sequence_tokens": 262_144,
+            "model_io_contract": QWEN3_A95B_MODEL_IO_CONTRACT_ID,
             "require_exact_provider_json": False,
             "require_model_io": True,
             "require_reasoning": True,
@@ -349,6 +367,7 @@ def test_finalize_publishes_exact_fresh_repair_attestation(
     manifest = json.loads((options.output_dir / "manifest.json").read_bytes())
     assert manifest["source_validation"] == {
         "max_sequence_tokens": 262_144,
+        "model_io_contract": QWEN3_A95B_MODEL_IO_CONTRACT_ID,
         "require_exact_provider_json": False,
         "require_model_io": True,
         "require_reasoning": True,
@@ -555,11 +574,14 @@ task_file_sha256 = "{task_file_sha256}"
         materializer_sha256="d" * 64,
         exporter_sha256="f" * 64,
         repository_revision="a" * 40,
+        source_artifacts={},
+        source_partition={},
         submodules={
             "deps/pydantic-config": "c" * 40,
             "deps/renderers": "d" * 40,
             "deps/verifiers": "e" * 40,
         },
+        trace_contracts=qwen_repair_trace_contracts_value(),
     )
     monkeypatch.setattr(
         finalizer.direct,
@@ -667,6 +689,20 @@ def test_selection_accepts_exact_mixed_category_union(tmp_path: Path) -> None:
     selection["selection"]["missing_or_errored_task_file_sha256"] = _sha256(missing_body)
     selection["selection"]["strict_invalid_pass_count"] = 1
     selection["selection"]["strict_invalid_pass_task_file_sha256"] = _sha256(strict_body)
+    selection["source_partition"] = {
+        "error_traces": 0,
+        "exhaustive": True,
+        "invalid_positive_traces": 1,
+        "positive_reward_traces": 1,
+        "repair_tasks": 2,
+        "retained_original_tasks": 1,
+        "retained_valid_positive_traces": 0,
+        "reward_zero_traces": 1,
+        "seen_traces": 2,
+        "source_task_count": 3,
+        "superseded_legacy_empty_reasoning_traces": 0,
+        "unseen_tasks": 1,
+    }
     body = json.dumps(selection, indent=2, sort_keys=True).encode() + b"\n"
     options.repair_selection_manifest.write_bytes(body)
 

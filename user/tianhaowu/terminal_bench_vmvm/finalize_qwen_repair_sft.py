@@ -30,6 +30,7 @@ import finalize_qwen_sft as common
 import migrate_qwen_router_affinity as migration
 import migrate_qwen_serving_generation as generation
 import sft_run_identity
+from audit_traces import QWEN3_A95B_MODEL_IO_CONTRACT_ID, qwen_repair_trace_contracts_value
 
 ATTESTATION_FILENAME = "qwen_repair_attestation.json"
 ATTESTATION_KIND = "qwen-direct-repair-attestation"
@@ -146,7 +147,10 @@ class RepairSelection:
     materializer_sha256: str
     exporter_sha256: str
     repository_revision: str
+    source_artifacts: Mapping[str, Mapping[str, int | str]]
+    source_partition: Mapping[str, int | bool]
     submodules: Mapping[str, str]
+    trace_contracts: Mapping[str, Mapping[str, str]]
 
 
 RepositoryValidator = Callable[[Path, str], Path]
@@ -270,11 +274,25 @@ def _load_repair_selection(path: Path, expected_sha256: str, expected_count: int
     approval = manifest.get("approval")
     code = manifest.get("code")
     source = manifest.get("source")
+    source_partition = manifest.get("source_partition")
+    trace_contracts = manifest.get("trace_contracts")
     if (
-        set(manifest) != {"approval", "code", "config", "kind", "planner", "schema_version", "selection", "source"}
+        set(manifest)
+        != {
+            "approval",
+            "code",
+            "config",
+            "kind",
+            "planner",
+            "schema_version",
+            "selection",
+            "source",
+            "source_partition",
+            "trace_contracts",
+        }
         or manifest.get("kind") != "qwen-aggregate-repair-selection"
         or not _is_plain_int(manifest.get("schema_version"))
-        or manifest.get("schema_version") != 2
+        or manifest.get("schema_version") != 3
         or not isinstance(selection, dict)
         or set(selection)
         != {
@@ -297,6 +315,7 @@ def _load_repair_selection(path: Path, expected_sha256: str, expected_count: int
             "max_total_tokens",
             "preserve_thinking",
             "provider_concurrency",
+            "reasoning_effort",
             "retry_class_count",
             "retry_policy_sha256",
             "sha256",
@@ -318,6 +337,23 @@ def _load_repair_selection(path: Path, expected_sha256: str, expected_count: int
         or set(code) != {"exporter_sha256", "materializer_sha256", "repository_revision", "submodules"}
         or not isinstance(source, dict)
         or set(source) != {"artifacts", "routing_epoch", "task_count"}
+        or not isinstance(source_partition, dict)
+        or set(source_partition)
+        != {
+            "error_traces",
+            "exhaustive",
+            "invalid_positive_traces",
+            "positive_reward_traces",
+            "repair_tasks",
+            "retained_original_tasks",
+            "retained_valid_positive_traces",
+            "reward_zero_traces",
+            "seen_traces",
+            "source_task_count",
+            "superseded_legacy_empty_reasoning_traces",
+            "unseen_tasks",
+        }
+        or trace_contracts != qwen_repair_trace_contracts_value()
     ):
         raise RepairFinalizationError("repair_selection_invalid")
     task_count = selection.get("approved_repair_count")
@@ -378,6 +414,7 @@ def _load_repair_selection(path: Path, expected_sha256: str, expected_count: int
         or config.get("capture_model_io") is not True
         or config.get("enable_thinking") is not True
         or config.get("preserve_thinking") is not True
+        or config.get("reasoning_effort") != "max"
         or not _is_plain_int(config.get("max_concurrent"))
         or config.get("max_concurrent") != direct.MAX_DIRECT_CONCURRENCY
         or not _is_plain_int(config.get("provider_concurrency"))
@@ -398,6 +435,28 @@ def _load_repair_selection(path: Path, expected_sha256: str, expected_count: int
         or source.get("routing_epoch") != 3
         or not _is_plain_int(source.get("task_count"))
         or source.get("task_count") != approved_task_count
+        or source_partition.get("exhaustive") is not True
+        or any(
+            not _is_plain_int(source_partition.get(name)) or source_partition[name] < 0
+            for name in set(source_partition) - {"exhaustive"}
+        )
+        or source_partition.get("source_task_count") != approved_task_count
+        or source_partition.get("repair_tasks") != task_count
+        or source_partition.get("invalid_positive_traces") != strict_invalid_pass_count
+        or source_partition.get("error_traces", 0) + source_partition.get("unseen_tasks", 0)
+        != missing_or_errored_count
+        or source_partition.get("positive_reward_traces", 0)
+        != source_partition.get("retained_valid_positive_traces", 0) + strict_invalid_pass_count
+        or source_partition.get("seen_traces", 0)
+        != source_partition.get("positive_reward_traces", 0)
+        + source_partition.get("reward_zero_traces", 0)
+        + source_partition.get("error_traces", 0)
+        or approved_task_count
+        != source_partition.get("seen_traces", 0) + source_partition.get("unseen_tasks", 0)
+        or source_partition.get("retained_original_tasks", 0)
+        != source_partition.get("retained_valid_positive_traces", 0)
+        + source_partition.get("reward_zero_traces", 0)
+        or approved_task_count != source_partition.get("retained_original_tasks", 0) + task_count
     ):
         raise RepairFinalizationError("repair_selection_contract_mismatch")
     selection_bodies: dict[str, bytes] = {SELECTION_COPY_FILENAME: body}
@@ -454,7 +513,10 @@ def _load_repair_selection(path: Path, expected_sha256: str, expected_count: int
         materializer_sha256=str(materializer_sha256),
         exporter_sha256=str(exporter_sha256),
         repository_revision=str(repository_revision),
+        source_artifacts=dict(source_artifacts),
+        source_partition=dict(source_partition),
         submodules=dict(submodules),
+        trace_contracts=qwen_repair_trace_contracts_value(),
     )
 
 
@@ -1171,6 +1233,7 @@ def _validate_export_summary(
         or set(source_validation)
         != {
             "max_sequence_tokens",
+            "model_io_contract",
             "require_exact_provider_json",
             "require_model_io",
             "require_reasoning",
@@ -1178,6 +1241,7 @@ def _validate_export_summary(
         }
         or not _is_plain_int(source_validation.get("max_sequence_tokens"))
         or source_validation["max_sequence_tokens"] != MAX_SEQUENCE_TOKENS
+        or source_validation.get("model_io_contract") != QWEN3_A95B_MODEL_IO_CONTRACT_ID
         or source_validation.get("require_exact_provider_json") is not False
         or source_validation.get("require_model_io") is not True
         or source_validation.get("require_reasoning") is not True
@@ -1477,7 +1541,8 @@ def finalize_qwen_repair_sft(
                 "kind": ATTESTATION_KIND,
                 "schema_version": (
                     GENERATION_ATTESTATION_SCHEMA_VERSION
-                    if "serving_generation" in audit["routing"]
+                    if sandbox_provider == "vmvm"
+                    and "serving_generation" in audit["routing"]
                     else ATTESTATION_SCHEMA_VERSION
                 ),
                 "repair_selection_manifest_sha256": repair_selection.sha256,
