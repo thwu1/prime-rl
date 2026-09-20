@@ -324,8 +324,16 @@ type = "vmvm"
     artifacts["config"] = _record(resolved_config)
     artifacts["inputs_manifest"] = _record(manifest)
 
+    smoke_launch_contract = {
+        "schema_version": 2,
+        "transport": "anonymous_slurm_export_fd_v1",
+        "slurm_time_limit": "3-00:00:00",
+        "x2p_environment_sha256": {
+            key: hashlib.sha256(value.encode()).hexdigest() for key, value in X2P_VALUES.items()
+        },
+    }
     identity = {
-        "schema_version": 1,
+        "schema_version": 2,
         "role": "smoke",
         "source": {
             "project_root": str(tmp_path / "source"),
@@ -391,6 +399,7 @@ type = "vmvm"
                 "image_pull_timeout_sec": 3600,
                 "container_privileged": True,
             },
+            "launch_contract": smoke_launch_contract,
         },
         "deployment": {
             "id": deployment_id,
@@ -409,7 +418,7 @@ type = "vmvm"
     identity_path.write_text(
         json.dumps(
             {
-                "schema_version": 1,
+                "schema_version": 2,
                 "eval_run_identity_sha256": identity_sha256,
                 "identity": identity,
             }
@@ -438,6 +447,7 @@ type = "vmvm"
                 "slurm_job_id": "904",
                 "approval_task_file_sha256": _sha256(task_file),
                 "approval_task_count": "1",
+                "kimi_smoke_launch_contract_sha256": hashlib.sha256(canonical_json(smoke_launch_contract)).hexdigest(),
             }.items()
         )
     )
@@ -539,6 +549,7 @@ type = "vmvm"
         "endpoint": endpoint,
         "serving_route_generation": generation,
         "proxy_policy": policy,
+        "launch_contract": smoke_launch_contract,
         "qualified_execution": {
             "rollout_concurrency": 4,
             "multiplex": 4,
@@ -554,6 +565,8 @@ type = "vmvm"
             "model_io_contract": launcher.EXPECTED_MODEL_IO_CONTRACT,
             "require_request_graph_match": True,
             "require_clean_stop": True,
+            "require_x2p_launch_contract": True,
+            "required_slurm_time_limit": "3-00:00:00",
             "require_token_data": False,
             "require_logprobs": False,
             "max_sequence_tokens": 262_144,

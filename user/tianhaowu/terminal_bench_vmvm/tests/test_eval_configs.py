@@ -525,6 +525,11 @@ def test_eval_controller_is_cpu_only_and_supports_high_vmvm_concurrency() -> Non
 def test_kimi_tb4_gate_sequences_smoke_before_full_evaluation() -> None:
     wrapper = (CONFIG_DIR.parents[1] / "run_kimi_tb4_gate.sbatch").read_text()
 
+    assert "#SBATCH --time=3-00:00:00" in wrapper
+    assert 'python3 "$workflow_dir/kimi_smoke_launch.py" validate-current' in wrapper
+    assert "SMOKE_OUTPUT_DIR:?" in wrapper
+    assert "Kimi gate outputs must use fresh absent paths" in wrapper
+    assert 'mkdir -m 700 -- "$smoke_output_dir"' in wrapper
     assert "EVAL_EXPECTED_PRIME_RL_REVISION:?" in wrapper
     assert '!= "$expected_project_revision"' in wrapper
     assert 'export EVAL_EXPECTED_PRIME_RL_REVISION="$expected_project_revision"' in wrapper
@@ -532,6 +537,7 @@ def test_kimi_tb4_gate_sequences_smoke_before_full_evaluation() -> None:
     assert "EVAL_RUN_ROLE=smoke" in wrapper
     assert "EVAL_RUN_ROLE=tb4" in wrapper
     assert "SMOKE_EXPECTED_TRACES=2" in wrapper
+    assert "SMOKE_REQUIRE_EXACT_PROVIDER_JSON=1" in wrapper
     assert "KIMI_TB4_STOP_AFTER_SMOKE" in wrapper
     assert 'if [[ "$stop_after_smoke" == 1 ]]' in wrapper
     assert "VACLI_MAX_CONCURRENT_LEASES=2" in wrapper
@@ -543,6 +549,23 @@ def test_kimi_tb4_gate_sequences_smoke_before_full_evaluation() -> None:
     assert wrapper.index("EVAL_RUN_ROLE=smoke") < wrapper.index("run_trace_smoke_audit.sbatch")
     assert wrapper.index("run_trace_smoke_audit.sbatch") < wrapper.index("EVAL_RUN_ROLE=tb4")
     assert wrapper.index("EVAL_RUN_ROLE=tb4") < wrapper.index("run_tb4_audit.sbatch")
+
+
+def test_kimi_smoke_eval_requires_bound_x2p_and_live_walltime() -> None:
+    wrapper = (CONFIG_DIR.parents[1] / "run_eval.sbatch").read_text()
+
+    assert "#SBATCH --time=2-00:00:00" in wrapper
+    assert '"$eval_run_role" == smoke && "$eval_expected_model" == Kimi-K3' in wrapper
+    assert 'python3 "$workflow_dir/kimi_smoke_launch.py" validate-current' in wrapper
+    for option in (
+        "--launch-contract-schema-version",
+        "--launch-transport",
+        "--launch-slurm-time-limit",
+        "--x2p-env-sha256",
+        "--x2p-cfg-env-sha256",
+        "--x2p-proxy-url-sha256",
+    ):
+        assert option in wrapper
 
 
 def test_trace_smoke_audit_wrapper_exposes_exact_provider_json_opt_in() -> None:

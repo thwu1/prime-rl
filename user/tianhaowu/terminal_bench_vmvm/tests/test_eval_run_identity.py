@@ -191,6 +191,24 @@ def _identity() -> dict:
     }
 
 
+def _kimi_smoke_identity() -> dict:
+    identity = _identity()
+    identity["schema_version"] = 2
+    identity["contract"]["model"] = "Kimi-K3"
+    identity["deployment"]["proxy_policy"]["request_timeout"] = 43_200
+    identity["execution"]["launch_contract"] = {
+        "schema_version": 2,
+        "transport": "anonymous_slurm_export_fd_v1",
+        "slurm_time_limit": "3-00:00:00",
+        "x2p_environment_sha256": {
+            "X2P_ENV": "6" * 64,
+            "X2P_CFG_ENV": "7" * 64,
+            "X2P_PROXY_URL": "8" * 64,
+        },
+    }
+    return identity
+
+
 def _sha256(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
@@ -238,6 +256,56 @@ def test_eval_identity_rejects_legacy_and_mismatched_resume(tmp_path: Path) -> N
     changed["contract"]["model"] = "other-approved-model"
     with pytest.raises(EvalIdentityError, match="identity_mismatch"):
         _bind_identity(tmp_path, changed, resume=True)
+
+
+def test_kimi_smoke_identity_requires_schema_v2_launch_contract() -> None:
+    identity = _kimi_smoke_identity()
+
+    assert _identity_envelope(identity)["schema_version"] == 2
+
+    legacy = _kimi_smoke_identity()
+    legacy["schema_version"] = 1
+    with pytest.raises(EvalIdentityError, match="schema_invalid"):
+        _identity_envelope(legacy)
+
+    missing = _kimi_smoke_identity()
+    missing["execution"].pop("launch_contract")
+    with pytest.raises(EvalIdentityError, match="schema_invalid"):
+        _identity_envelope(missing)
+
+    drifted = _kimi_smoke_identity()
+    drifted["execution"]["launch_contract"]["slurm_time_limit"] = "2-00:00:00"
+    with pytest.raises(EvalIdentityError, match="schema_invalid"):
+        _identity_envelope(drifted)
+
+    non_kimi = _identity()
+    non_kimi["execution"]["launch_contract"] = identity["execution"]["launch_contract"]
+    with pytest.raises(EvalIdentityError, match="schema_invalid"):
+        _identity_envelope(non_kimi)
+
+
+def test_kimi_smoke_launch_arguments_cannot_downgrade() -> None:
+    valid = SimpleNamespace(
+        launch_contract_schema_version="2",
+        launch_transport="anonymous_slurm_export_fd_v1",
+        launch_slurm_time_limit="3-00:00:00",
+        x2p_env_sha256="6" * 64,
+        x2p_cfg_env_sha256="7" * 64,
+        x2p_proxy_url_sha256="8" * 64,
+    )
+
+    assert (
+        eval_run_identity._kimi_smoke_launch_contract(valid) == _kimi_smoke_identity()["execution"]["launch_contract"]
+    )
+    for field, value in (
+        ("launch_contract_schema_version", "1"),
+        ("launch_transport", "legacy_export_all"),
+        ("launch_slurm_time_limit", "2-00:00:00"),
+        ("x2p_proxy_url_sha256", None),
+    ):
+        changed = SimpleNamespace(**{**valid.__dict__, field: value})
+        with pytest.raises(EvalIdentityError, match="kimi_smoke_launch_contract_invalid"):
+            eval_run_identity._kimi_smoke_launch_contract(changed)
 
 
 def test_eval_provenance_binds_endpoint_hashes_write_once(tmp_path: Path) -> None:
@@ -625,8 +693,7 @@ def test_checkpoint_chain_is_hashed_and_role_aware(tmp_path: Path, monkeypatch: 
         )
         + "\n"
     )
-    smoke_identity = _identity()
-    smoke_identity["contract"]["model"] = "Kimi-K3"
+    smoke_identity = _kimi_smoke_identity()
     smoke_identity["deployment"] = {
         "id": deployment_id,
         "endpoint": endpoint,
@@ -718,6 +785,7 @@ def test_checkpoint_chain_is_hashed_and_role_aware(tmp_path: Path, monkeypatch: 
         "endpoint": endpoint,
         "serving_route_generation": serving_route_generation,
         "proxy_policy": proxy_policy,
+        "launch_contract": smoke_identity["execution"]["launch_contract"],
         "audit_policy": {
             "expected_traces": 2,
             "rollouts_per_task": 1,
@@ -726,6 +794,8 @@ def test_checkpoint_chain_is_hashed_and_role_aware(tmp_path: Path, monkeypatch: 
             "model_io_contract": eval_run_identity.EXPECTED_MODEL_IO_CONTRACT,
             "require_request_graph_match": True,
             "require_clean_stop": True,
+            "require_x2p_launch_contract": True,
+            "required_slurm_time_limit": "3-00:00:00",
             "require_token_data": False,
             "require_logprobs": False,
             "max_sequence_tokens": 262_144,

@@ -74,6 +74,19 @@ present the same X2P commitments, while an intentional rotation uses a fresh
 generation-bound controller root and preserves the per-shard commitments in
 multigeneration finalization.
 
+The canonical Kimi two-task smoke uses
+`user/tianhaowu/terminal_bench_vmvm/kimi_smoke_launch.py submit`; do not submit
+`run_eval.sbatch` or `run_kimi_tb4_gate.sbatch` directly. The launcher requires
+the same complete X2P tuple and both TLS paths, filters the job environment,
+and transports it with an anonymous mode-0600, link-count-zero Slurm export
+descriptor. It requests `3-00:00:00`. Before creating output, both the gate and
+the evaluator recompute all three X2P commitments and require an exact live
+`squeue` JobID/time-limit observation. The Kimi smoke run identity is schema 2;
+its smoke checkpoint and audit bind the schema-2 launch contract, which contains
+only SHA-256 commitments, the transport identifier, and the walltime. Missing,
+partial, legacy, or drifted Kimi smoke contracts fail closed. Non-Kimi run
+identities remain schema 1.
+
 For Harbor tasks with Compose sidecars, retain the VMVM lease and replace the
 bootstrap task container with a Podman Compose project. Start
 `podman system service --time=0 unix:///run/podman/podman.sock` first because

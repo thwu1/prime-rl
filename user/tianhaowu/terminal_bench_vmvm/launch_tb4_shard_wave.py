@@ -39,6 +39,15 @@ from inference_route_generation import (
     validate_readiness_route_generation,
     validate_route_generation,
 )
+from kimi_smoke_launch import (
+    EXPECTED_SLURM_TIME_LIMIT as EXPECTED_KIMI_SMOKE_SLURM_TIME_LIMIT,
+)
+from kimi_smoke_launch import (
+    KimiSmokeLaunchError,
+)
+from kimi_smoke_launch import (
+    validate_launch_contract as validate_kimi_smoke_launch_contract,
+)
 from smoke_qualification import (
     SmokeQualificationError,
     validate_smoke_qualification,
@@ -624,6 +633,7 @@ def _validate_identity_references(
     endpoint: Any,
     generation: dict[str, Any],
     proxy_policy: dict[str, Any],
+    launch_contract: Mapping[str, Any],
     invocation: Mapping[str, Any],
 ) -> None:
     if (
@@ -641,7 +651,7 @@ def _validate_identity_references(
             "execution",
         }
         or type(identity.get("schema_version")) is not int
-        or identity["schema_version"] != 1
+        or identity["schema_version"] != 2
         or identity.get("role") != "smoke"
     ):
         raise WaveLaunchError("smoke_checkpoint_identity_mismatch")
@@ -793,19 +803,28 @@ def _validate_identity_references(
             "http_max_keepalive_connections",
             "runtime",
             "vmvm_environment",
+            "launch_contract",
         }
         or any(execution.get(key) != value for key, value in expected_execution.items())
     ):
         raise WaveLaunchError("smoke_identity_config_invalid")
+    try:
+        identity_launch_contract = validate_kimi_smoke_launch_contract(execution.get("launch_contract"))
+    except KimiSmokeLaunchError as error:
+        raise WaveLaunchError("smoke_identity_execution_invalid") from error
     vmvm = execution.get("vmvm_environment")
-    if vmvm != {
-        "vacli_bin": DEFAULT_VACLI_BIN,
-        "lease_start_concurrency": 2,
-        "lease_retries": 20,
-        "max_pull_retries": 20,
-        "image_pull_timeout_sec": 3600,
-        "container_privileged": True,
-    }:
+    if (
+        vmvm
+        != {
+            "vacli_bin": DEFAULT_VACLI_BIN,
+            "lease_start_concurrency": 2,
+            "lease_retries": 20,
+            "max_pull_retries": 20,
+            "image_pull_timeout_sec": 3600,
+            "container_privileged": True,
+        }
+        or identity_launch_contract != launch_contract
+    ):
         raise WaveLaunchError("smoke_identity_execution_invalid")
     deployment = identity.get("deployment")
     if (
@@ -860,6 +879,7 @@ def _validate_identity_references(
         "eval_run_identity_sha256": _sha256_bytes(canonical_json(identity)),
         "approval_task_file_sha256": task_file.sha256,
         "approval_task_count": str(expected_traces),
+        "kimi_smoke_launch_contract_sha256": _sha256_bytes(canonical_json(identity_launch_contract)),
     }
     if (
         set(provenance) != {*expected_provenance, "host", "slurm_job_id"}
@@ -918,7 +938,8 @@ def _validate_generation_bindings_legacy(
     try:
         smoke_endpoint = validate_endpoint_binding(smoke_value.get("endpoint"))
         smoke_generation = validate_route_generation(smoke_value.get("serving_route_generation"))
-    except (EndpointBindingError, RouteGenerationError) as error:
+        smoke_launch_contract = validate_kimi_smoke_launch_contract(smoke_value.get("launch_contract"))
+    except (EndpointBindingError, RouteGenerationError, KimiSmokeLaunchError) as error:
         raise WaveLaunchError("smoke_checkpoint_not_passed") from error
     smoke_policy = _proxy_policy(smoke_value.get("proxy_policy"))
     if (
@@ -948,6 +969,8 @@ def _validate_generation_bindings_legacy(
         or policy.get("require_model_io") is not True
         or policy.get("require_request_graph_match") is not True
         or policy.get("require_clean_stop") is not True
+        or policy.get("require_x2p_launch_contract") is not True
+        or policy.get("required_slurm_time_limit") != EXPECTED_KIMI_SMOKE_SLURM_TIME_LIMIT
         or canonical_json(policy.get("model_io_contract")) != canonical_json(EXPECTED_MODEL_IO_CONTRACT)
         or policy.get("require_token_data") is not False
         or policy.get("require_logprobs") is not False
@@ -1039,7 +1062,7 @@ def _validate_generation_bindings_legacy(
             "eval_run_identity_sha256",
             "identity",
         }
-        or identity_envelope.get("schema_version") != 1
+        or identity_envelope.get("schema_version") != 2
         or not isinstance(identity, dict)
         or not isinstance(identity_digest, str)
         or identity_digest != _sha256_bytes(canonical_json(identity))
@@ -1078,6 +1101,7 @@ def _validate_generation_bindings_legacy(
         endpoint=endpoint,
         generation=generation,
         proxy_policy=readiness_policy,
+        launch_contract=smoke_launch_contract,
         invocation=invocation,
     )
     qualified = smoke_value.get("qualified_execution")

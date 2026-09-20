@@ -43,6 +43,13 @@ from inference_route_generation import (
     validate_readiness_route_generation,
     validate_route_generation,
 )
+from kimi_smoke_launch import (
+    EXPECTED_SLURM_TIME_LIMIT as EXPECTED_KIMI_SMOKE_SLURM_TIME_LIMIT,
+)
+from kimi_smoke_launch import (
+    KimiSmokeLaunchError,
+    validate_launch_contract,
+)
 from trace_concurrency import TraceConcurrencyError, measure_peak_active_rollouts
 from vmvm_tb_v2._vacli.concurrency_telemetry import (
     ConcurrencyTelemetryError,
@@ -142,7 +149,7 @@ def _validated_endpoint(identity: dict[str, Any]) -> dict[str, Any]:
     return endpoint
 
 
-def _require_contract(identity: dict[str, Any]) -> None:
+def _require_contract(identity: dict[str, Any]) -> dict[str, Any]:
     if identity.get("role") != "smoke":
         raise SmokeCertificateError("eval_identity_role_invalid")
     contract = identity.get("contract")
@@ -153,7 +160,8 @@ def _require_contract(identity: dict[str, Any]) -> None:
     denylist = contract.get("outbound_body_denylist")
     sampling_max_tokens = contract.get("sampling_max_tokens")
     if (
-        contract.get("model") != "Kimi-K3"
+        identity.get("schema_version") != 2
+        or contract.get("model") != "Kimi-K3"
         or contract.get("pass_at_1") is not True
         or contract.get("num_rollouts") != 1
         or contract.get("reasoning_effort") != "max"
@@ -172,6 +180,11 @@ def _require_contract(identity: dict[str, Any]) -> None:
         or set(denylist) != {"logprobs", "prompt_logprobs", "return_token_ids", "top_logprobs"}
     ):
         raise SmokeCertificateError("eval_identity_contract_invalid")
+    execution = identity.get("execution")
+    try:
+        return validate_launch_contract(execution.get("launch_contract") if isinstance(execution, dict) else None)
+    except KimiSmokeLaunchError as cause:
+        raise SmokeCertificateError("eval_identity_launch_contract_invalid") from cause
 
 
 def _identity_artifact(identity: dict[str, Any], section: str, name: str) -> dict[str, str]:
@@ -282,7 +295,7 @@ def certify_smoke(
         identity_sha256 = envelope.get("eval_run_identity_sha256")
         if not isinstance(identity, dict) or not isinstance(identity_sha256, str):
             raise SmokeCertificateError("eval_run_identity_invalid")
-        _require_contract(identity)
+        launch_contract = _require_contract(identity)
 
         task_bytes = expected_task_file.resolve(strict=True).read_bytes()
         if _sha256_bytes(task_bytes) != expected_task_file_sha256:
@@ -497,6 +510,8 @@ def certify_smoke(
             "model_io_contract": EXPECTED_MODEL_IO_CONTRACT,
             "require_request_graph_match": True,
             "require_clean_stop": True,
+            "require_x2p_launch_contract": True,
+            "required_slurm_time_limit": EXPECTED_KIMI_SMOKE_SLURM_TIME_LIMIT,
             "require_token_data": False,
             "require_logprobs": False,
             "max_sequence_tokens": MAX_SEQUENCE_TOKENS,
@@ -518,6 +533,7 @@ def certify_smoke(
             "endpoint": endpoint,
             "serving_route_generation": serving_route_generation,
             "proxy_policy": proxy_policy,
+            "launch_contract": launch_contract,
             "qualified_execution": execution_fields,
             "audit_policy": audit_policy,
             "counts": {
