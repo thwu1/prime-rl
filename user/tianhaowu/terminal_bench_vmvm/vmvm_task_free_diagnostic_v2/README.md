@@ -1,4 +1,4 @@
-# VMVM V21 task-free pre-lease diagnostic v4
+# VMVM V21 task-free pre-lease diagnostic v5
 
 This is an inert, aggregate-only preflight bundle. It does not authorize a
 Slurm job, create a VMVM lease, run the supervisor or a worker, read benchmark
@@ -7,8 +7,11 @@ unlaunched until an independent reviewer freezes all six files, publishes a
 separate mode-0400 authorization, proves every namespace is fresh, and approves
 the canonical-pane invocation.
 
-The v4 executable path exists only to localize the v3 allocation's generic
-early failure on an x86 node. The authorization protocol is exactly:
+The v5 executable path exists only to localize the v4 allocation's
+`required_environment` failure on an x86 node. V4's sealed export file had all
+56 required names with nonempty values, so the remaining failure boundary is
+the environment Slurm and Bash materialize on the compute node. The
+authorization protocol is exactly:
 
 ```json
 {"diagnostic_only":true,"preflight_only":true,"production_authorized":false}
@@ -18,7 +21,7 @@ The sealed probe CLI accepts only `--validate-batch`; worker and supervisor
 arguments are not registered. The batch wrapper invokes that admission path
 exactly once and exits after its post-admission read-only checks. Although the
 six-file layout retains reviewed supervisor and finalizer library code, neither
-is reachable from the v4 command line or wrapper.
+is reachable from the v5 command line or wrapper.
 
 ## Read-only stages
 
@@ -61,7 +64,15 @@ the probe. The trampoline then re-executes the selected interpreter through
 `/proc/self/exe` with the sealed probe descriptor.
 
 Failure output is one canonical JSON object composed only from literal,
-allowlisted values. Its `stage` is one of:
+allowlisted values. At `required_environment`, it reports the complete missing
+and empty classifications as lists of names drawn from the wrapper's fixed
+56-name allowlist. It never reports values, lengths, hashes, or shell errors:
+
+```json
+{"code":"diagnostic_job_failed","required_environment":{"empty":["X2P_ENV"],"missing":["SLURM_EXPORT_ENV"]},"stage":"required_environment","state":"failed"}
+```
+
+Its `stage` is one of:
 
 ```text
 entry required_environment forbidden_environment fixed_environment path_shape
@@ -73,7 +84,7 @@ post_preflight_source namespace_freshness
 lineage_hashes internal
 ```
 
-The `directory_identities` object always has the fixed keys `bundle`,
+After required-environment admission, the `directory_identities` object has the fixed keys `bundle`,
 `output_parent`, `reservation`, `site`, and `source`. Each value is one of
 `match`, `not_checked`, `unreadable`, `device_only`, `inode_only`, `mode_only`,
 `owner_only`, or `multiple`. It contains no numeric identity, pathname,
@@ -90,7 +101,7 @@ Successful admission emits only:
 ```
 
 NFS `st_dev` values are client-local and may differ across login and compute
-hosts. V4 deliberately continues to fail closed on such a mismatch while
+hosts. V5 deliberately continues to fail closed on such a mismatch while
 reporting only `device_only`; it does not weaken the reviewed identity binding.
 
 ## Descriptor and credential bindings
@@ -102,18 +113,18 @@ and `X2P_PROXY_URL`. Credential values are consumed only inside admission and
 never persisted in public telemetry. Source and site validation is read-only.
 
 The Linux pathname-removal limitation documented for the full diagnostic is
-outside this preflight: v4 creates no output or scratch tree and invokes no
+outside this preflight: v5 creates no output or scratch tree and invokes no
 removal operation. Absence checks therefore remain simple fail-closed gates.
 
 ## Fixed fresh namespaces
 
 - source: `/checkpoint/ram/tianhaowu/terminal_bench_vmvm/sources/prime-rl-a09a9a189-v21`
-- output: `/checkpoint/ram/tianhaowu/terminal_bench_vmvm/diagnostics/vmvm_v21_task_free_preflight_a09a9a189_v4`
+- output: `/checkpoint/ram/tianhaowu/terminal_bench_vmvm/diagnostics/vmvm_v21_task_free_preflight_a09a9a189_v5_required_env`
 - receipt: the output path plus `.external-completion.json`
 - reservation: the output path plus `.launch-reservation`
-- logs: `/checkpoint/ram/tianhaowu/terminal_bench_vmvm/logs/vmvm_v21_task_free_preflight_a09a9a189_v4`
-- scratch: `/tmp/vmvm-v21-task-free-preflight-v4`
-- job name: `vmvm-v4-preflight-` plus the authorization's 24-hex token
+- logs: `/checkpoint/ram/tianhaowu/terminal_bench_vmvm/logs/vmvm_v21_task_free_preflight_a09a9a189_v5_required_env`
+- scratch: `/tmp/vmvm-v21-task-free-preflight-v5-required-env`
+- job name: `vmvm-v5-preflight-` plus the authorization's 24-hex token
 
 There is intentionally no runnable launch command here. No Slurm command was
 run while preparing this bundle, and no result from it authorizes an oracle,

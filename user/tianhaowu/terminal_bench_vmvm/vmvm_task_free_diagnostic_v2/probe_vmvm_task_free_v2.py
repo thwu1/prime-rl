@@ -67,14 +67,14 @@ PREFLIGHT_PROTOCOL = {
 }
 BASE = Path("/checkpoint/ram/tianhaowu/terminal_bench_vmvm")
 EXPECTED_SOURCE_ROOT = BASE / "sources/prime-rl-a09a9a189-v21"
-EXPECTED_OUTPUT_ROOT = BASE / "diagnostics/vmvm_v21_task_free_preflight_a09a9a189_v4"
+EXPECTED_OUTPUT_ROOT = BASE / "diagnostics/vmvm_v21_task_free_preflight_a09a9a189_v5_required_env"
 EXPECTED_RESERVATION = Path(f"{EXPECTED_OUTPUT_ROOT}.launch-reservation")
-EXPECTED_SCRATCH_ROOT = Path("/tmp/vmvm-v21-task-free-preflight-v4")
+EXPECTED_SCRATCH_ROOT = Path("/tmp/vmvm-v21-task-free-preflight-v5-required-env")
 EXPECTED_COMPLETION_RECEIPT = Path(f"{EXPECTED_OUTPUT_ROOT}.external-completion.json")
 EXPECTED_CLUSTER = "fair-cw-use2-3"
 EXPECTED_OWNER = "tianhaowu"
 SHA_RE = re.compile(r"[0-9a-f]{64}")
-NAME_RE = re.compile(r"vmvm-v4-preflight-[0-9a-f]{24}")
+NAME_RE = re.compile(r"vmvm-v5-preflight-[0-9a-f]{24}")
 STAGES = (
     "direct_client",
     "same_thread_raw",
@@ -3313,14 +3313,14 @@ def validate_batch_admission(environment: Mapping[str, str], script_path: Path) 
         }
         or launch.get("cluster") != EXPECTED_CLUSTER
         or launch.get("comment")
-        != f"vmvm-v4-preflight:{environment['DIAG_JOB_NAME'].removeprefix('vmvm-v4-preflight-')}"
+        != f"vmvm-v5-preflight:{environment['DIAG_JOB_NAME'].removeprefix('vmvm-v5-preflight-')}"
         or launch.get("job_name") != environment["DIAG_JOB_NAME"]
         or launch.get("output_root") != str(EXPECTED_OUTPUT_ROOT)
         or launch.get("completion_receipt") != str(EXPECTED_COMPLETION_RECEIPT)
         or launch.get("output_parent_identity") != parse_identity(environment["DIAG_OUTPUT_PARENT_IDENTITY"])
         or launch.get("reservation") != str(EXPECTED_RESERVATION)
         or launch.get("scratch_root") != str(EXPECTED_SCRATCH_ROOT)
-        or launch.get("log_root") != str(BASE / "logs/vmvm_v21_task_free_preflight_a09a9a189_v4")
+        or launch.get("log_root") != str(BASE / "logs/vmvm_v21_task_free_preflight_a09a9a189_v5_required_env")
         or launch.get("nodes") != 1
         or launch.get("cpus") != 2
         or launch.get("memory") != "8G"
