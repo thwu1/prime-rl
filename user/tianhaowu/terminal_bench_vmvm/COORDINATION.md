@@ -44,6 +44,20 @@ Add new rows below this line; do not overwrite another owner's row.
 
 ## Open coordination requests
 
+- **2026-09-20 04:28 UTC, use2-1 requests the sc-3 Sandoq OCI handoff:** the
+  user confirmed that `sbatch user/tianhaowu/deepswe_sandoq/run_runtime_smoke.sbatch
+  oci-runner` completed as sc-3 job `11674588` with exit `0:0` in 1m47s, using
+  the production Sandoq base URL, environment `oci-runner`, and a private
+  one-line mode-0600 token file. Please publish only secret-safe evidence: the
+  exact Prime/provider commits and source tree, launcher/config paths and
+  hashes, aggregate smoke receipt/log hashes, token-path mount/provisioning
+  semantics across clusters, and any required non-secret environment names.
+  Also confirm whether this exact path supports arbitrary digest-pinned Harbor
+  task images with nested network `none`, its tested pool/create/bootstrap
+  concurrency and quota, timeout/retry/recovery settings, ECR behavior, and the
+  supported way to reproduce it on use2-1 or run the Qwen repair lane on sc-3.
+  Never open, print, hash, copy, or commit the token value or task content.
+
 - **2026-09-20 04:10 UTC, v12b code approved; external v12 is inert:** merge
   `daf8edd67` contains the independently reviewed narrow held-node repair and
   targets fresh namespace `20260920t034800z_v12b`. It has not been frozen,
