@@ -5090,3 +5090,23 @@ replay passed 263/263. The aggregate decode/cleanup boundary is unchanged.
   quarantine state, name-swap mutation of replacement log/socket objects, and
   FIFO reset racing a new lifecycle operation. Do not integrate them until a
   reviewed child closes every listed race.
+
+## 2026-09-20 19:16 UTC — v4 recovery controls held on inherited races
+
+- The source-only v4 scratch-recovery controls remain uncommitted and must not
+  be frozen, installed, authorized, or submitted. A primary rereview found that
+  the integrated helper's `_detach_delete` has a validation-to-rename gap: a
+  same-UID replacement can be moved into quarantine and then left displaced
+  when identity verification fails. Its `_request_control_exit` also validates
+  a socket and subsequently gives OpenSSH the mutable pathname, permitting an
+  intervening replacement to receive the control command.
+- A corrected child must preserve any object actually moved on every
+  `BaseException`, avoid pathname signaling of live control sockets (the
+  preferred recovery policy is to reject live owners and remove only stale,
+  unreferenced sockets), and retain parent/root watchers plus pending-signal
+  validation through the terminal recovery publication. Rebind the control
+  bundle to the corrected helper commit/subtree/hash and independently review
+  both artifacts before any operational action.
+- The canonical launcher pane is idle and `squeue` contains no user jobs. Kimi
+  v28/v29 recovery, registry v30, serving, TB4 evaluation, and trace generation
+  remain unlaunched.
