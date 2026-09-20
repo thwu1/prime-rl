@@ -105,8 +105,8 @@ if [[ "$stage" == smoke ]]; then
     certificate_mode=smoke
 elif [[ "$stage" == mobius-smoke ]]; then
     eval_config="$server_dir/mobius_kimi_k3_max_sandoq_smoke.toml"
-    task_file=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/private/use2/qwen_quick_debug/task.txt
-    task_sha256=86e00019cfdcff91e9d76ddabe8b14366bab4e4ecbe2e2cba9d4d8f6609b8504
+    task_file=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/private/use2/qwen_quick_debug/task_stable.txt
+    task_sha256=1f6489ac59a4562b7674ae1779832be08c6e7b859d691dba7e81c89fa91147ca
     task_count=1
     stage_capacity=1
     identity_role=kimi-direct-smoke
