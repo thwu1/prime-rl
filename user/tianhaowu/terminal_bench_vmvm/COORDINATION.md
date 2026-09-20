@@ -5024,3 +5024,36 @@ replay passed 263/263. The aggregate decode/cleanup boundary is unchanged.
   unquiesced OpenSSH ControlPersist/socket or log race and confirms v4 still
   collapses several cleanup scopes. V5 must add closed scope/reason categories,
   bounded quiescence/fixed-point cleanup, and asynchronous socket/log tests.
+
+## 2026-09-20 17:49 UTC — Kimi v29 closed; VMVM production cleanup separated
+
+- Kimi v29 source is exact commit
+  `1aea1e0a4dde7b297f46dd610f79d421d3f23911` (tree
+  `b18cdf375fda206b2c32ce577839b7b69007505a`, subtree
+  `bb94c035f0e535f36c17e7e0de8e139e8df24731`) and controls are exact commit
+  `270a2b75b3deb34a45d70f42d02ca6c94076eaf6`. Independent source, control,
+  frozen, and installed reviews passed; source+controls replayed 265/265. The
+  frozen bundle is the exact ten-file mode-`0500` directory at
+  `/checkpoint/ram/tianhaowu/terminal_bench_vmvm/watchers/k3_registry_pull_gate_20260920t170000z_v29`.
+  Its canonical approval SHA-256 is
+  `c49c65fab6aeb1fb3930e01add6cc034ab126f5d5f40a977d63c172b9f0add26`.
+- The sole authorized v29 job `1760258` ran on `g3-154-095` and failed `1:0`
+  after 27 seconds. Public log and durable `job_result.json` are byte-identical,
+  SHA-256 `90fc9a694814c2b4653e72d2dceaf5abcf3f50b4127703e9aabbd3d3f1bcddb4`,
+  with category `podman_info_command` and `cleanup_status=unverified`; canonical
+  `result.json` SHA-256 is
+  `23f571b7134130fcdd48e66510d32b3febee32a1e21613a76d8d50987a42a5a5`.
+  The failure was the first credential-free Podman storage call, before cold-
+  image inspection, worker sourcing, registry login/pull, container, task,
+  model, or endpoint access. TLS had already been copied locally, so an exact
+  pinned recovery attestor must safely close the retained v29 root. Never rerun
+  v29 or reuse its approval/namespace. V30 must move TLS staging after a new
+  credential-free storage-only diagnostic and split Podman and cleanup reasons.
+- VMVM v5 diagnostic source was integrated as `d5103c19a`; independent replay
+  passed 382/382. It safely tracks and quiesces diagnostic artifacts but does
+  not repair production cleanup. Production backend candidate `862871850`
+  separately adds owned retry/resume ControlMaster and log cleanup and remains
+  under exact review. The first v4 node-recovery source `ccfa23456` is on HOLD:
+  it lacked mount-boundary rejection and complete directory/cwd/root owner
+  detection and could mutate before refusal. Do not integrate or execute it;
+  a hardened child and separate held-node authorization are required.
