@@ -12,6 +12,7 @@ import os
 import re
 import stat
 import subprocess
+import tempfile
 import tomllib
 from contextlib import ExitStack, contextmanager
 from dataclasses import dataclass
@@ -1420,6 +1421,7 @@ def materialize(
         private_parent = private_root.parent.resolve(strict=True)
         candidate_root = private_parent / private_root.name
         protected = (
+            Path(__file__).resolve().parents[3],
             _normalized_absolute(epoch3_source_run, "epoch3_source_invalid").resolve(strict=True),
             selection_manifest.parent.resolve(strict=True),
             provider_receipt.parent.resolve(strict=True),
@@ -1901,11 +1903,34 @@ def _validate_run_identity(
     run: Path,
     root: PrivateDirectory,
     validated: ValidatedPlan,
+    expected_snapshots: Mapping[str, ArtifactSnapshot],
 ) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any]]:
+    snapshot_context: tempfile.TemporaryDirectory[str] | None = None
     try:
         import eval_run_identity as eval_identity
 
-        anchored = Path(f"/proc/self/fd/{root.descriptor}")
+        live_anchored = Path(f"/proc/self/fd/{root.descriptor}")
+        snapshot_context = tempfile.TemporaryDirectory(prefix="qwen-continuation-evidence-")
+        anchored = Path(snapshot_context.name)
+        os.chmod(anchored, 0o700)
+        for relative in (
+            "eval_run_identity.json",
+            "direct_workers.json",
+            "config.toml",
+            "provenance.txt",
+            "inputs/manifest.json",
+            "inputs/source_config.toml",
+            "inputs/task_file.txt",
+            "inputs/image_manifest.json",
+        ):
+            body = root.read(relative, "run_evidence_invalid")
+            expected = expected_snapshots.get(relative)
+            if expected is None or _sha256(body) != expected.sha256 or len(body) != expected.size:
+                raise SourceContinuationError("run_evidence_invalid")
+            destination = anchored / relative
+            destination.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+            destination.write_bytes(body)
+            destination.chmod(0o600)
         envelope = eval_identity.load_eval_run_identity(
             anchored / "eval_run_identity.json",
             verify_references=False,
@@ -1924,7 +1949,7 @@ def _validate_run_identity(
         image_sha = _run_record_path(inputs.get("image_manifest"), run / "inputs/image_manifest.json")
         worker_sha = _run_record_path(deployment.get("worker_manifest"), run / "direct_workers.json")
         expected_artifacts = {
-            "eval_run_identity.json": _sha256(root.read("eval_run_identity.json", "run_identity_invalid")),
+            "eval_run_identity.json": expected_snapshots["eval_run_identity.json"].sha256,
             "config.toml": config_section["resolved"]["sha256"],
             "inputs/source_config.toml": source_config_sha,
             "inputs/manifest.json": inputs["manifest"]["sha256"],
@@ -1933,7 +1958,7 @@ def _validate_run_identity(
             "direct_workers.json": worker_sha,
         }
         for relative, expected in expected_artifacts.items():
-            if root.artifact(relative, "run_artifact_invalid")["sha256"] != expected:
+            if expected_snapshots[relative].sha256 != expected:
                 raise SourceContinuationError("run_artifact_invalid")
         if (
             inputs["task_file"].get("count") != CONTINUATION_COUNT
@@ -1963,7 +1988,7 @@ def _validate_run_identity(
             sandbox_provider="sandoq",
         )
         observed_inputs, observed_source_config = eval_identity._input_identity(
-            anchored / "inputs",
+            live_anchored / "inputs",
             resolved_config,
             CONTINUATION_TASK_SHA256,
             CONTINUATION_COUNT,
@@ -1973,6 +1998,13 @@ def _validate_run_identity(
             or any(identity["execution"].get(key) != item for key, item in observed_execution.items())
             or observed_inputs != inputs
             or observed_source_config != config_section["source"]
+            or observed_inputs["manifest"]["sha256"] != expected_snapshots["inputs/manifest.json"].sha256
+            or observed_inputs["task_file"]["sha256"]
+            != expected_snapshots["inputs/task_file.txt"].sha256
+            or observed_inputs["image_manifest"]["sha256"]
+            != expected_snapshots["inputs/image_manifest.json"].sha256
+            or observed_source_config["sha256"]
+            != expected_snapshots["inputs/source_config.toml"].sha256
             or Path(str(resolved_config.get("output_dir"))).resolve() != run.resolve(strict=True)
             or Path(str(resolved_config.get("taskset", {}).get("task_file"))).resolve(strict=True)
             != (run / "inputs/task_file.txt").resolve(strict=True)
@@ -2004,6 +2036,9 @@ def _validate_run_identity(
         raise
     except Exception as error:
         raise SourceContinuationError("run_identity_invalid") from error
+    finally:
+        if snapshot_context is not None:
+            snapshot_context.cleanup()
     if (
         shared.get("contract", {}).get("sampling_max_tokens") != EXECUTION_CONTRACT["sampling_max_tokens"]
         or shared.get("contract", {}).get("harness") != HOST_HARNESS_CONTRACT
@@ -2140,12 +2175,16 @@ def _run_evidence_snapshots(root: PrivateDirectory) -> dict[str, ArtifactSnapsho
     }
 
 
-def _audit_results_anchored(root: PrivateDirectory) -> tuple[str, dict[str, int]]:
-    task_body = root.read("inputs/task_file.txt", "continuation_evidence_invalid")
+def _audit_results_anchored(
+    root: PrivateDirectory,
+    expected_task_body: bytes,
+) -> tuple[str, dict[str, int]]:
+    if _sha256(expected_task_body) != CONTINUATION_TASK_SHA256:
+        raise SourceContinuationError("continuation_evidence_invalid")
     try:
         expected = {
             line.strip().split("\t", 1)[0]
-            for line in task_body.decode("utf-8").splitlines()
+            for line in expected_task_body.decode("utf-8").splitlines()
             if line.strip() and not line.lstrip().startswith("#")
         }
     except UnicodeDecodeError as error:
@@ -2218,10 +2257,11 @@ def _certify_bound(
         run=run,
         root=run_root,
         validated=validated,
+        expected_snapshots=before,
     )
     _validate_execution(execution)
     try:
-        results_sha256, traces = _audit_results_anchored(run_root)
+        results_sha256, traces = _audit_results_anchored(run_root, validated.task_body)
         with run_root.open_binary(
             "sandoq_cleanup_audit.json",
             "continuation_evidence_invalid",

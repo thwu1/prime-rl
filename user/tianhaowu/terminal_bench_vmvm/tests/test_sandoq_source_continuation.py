@@ -218,6 +218,27 @@ def test_materialize_rejects_private_root_inside_an_input_namespace(
         continuation.materialize(**fixture["materialize"])
 
 
+def test_materialize_rejects_private_root_inside_repository(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    fixture = _materialization_fixture(tmp_path, monkeypatch)
+    root = Path(continuation.__file__).resolve().parents[3] / (
+        f".source-continuation-test-{tmp_path.name}"
+    )
+    fixture["materialize"].update(
+        private_root=root,
+        task_output=root / "source_continuation.tasks",
+        config_output=root / "source_continuation.toml",
+        receipt_output=root / "source_continuation_receipt.json",
+        plan_output=root / "source_continuation_plan.json",
+    )
+
+    with pytest.raises(continuation.SourceContinuationError, match="private_root_invalid"):
+        continuation.materialize(**fixture["materialize"])
+    assert not root.exists()
+
+
 def test_old_max_selection_contract_cannot_be_claimed_as_continuation_contract(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -505,6 +526,41 @@ def test_certify_rejects_invalid_or_incomplete_evidence_without_outputs(
 
     assert not fixture["args"]["identity_output"].exists()
     assert not fixture["args"]["output"].exists()
+
+
+def test_anchored_audit_uses_plan_bound_task_body(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    run = _private_dir(tmp_path / "run")
+    inputs = _private_dir(run / "inputs")
+    _private_file(inputs / "task_file.txt", b"alternate\n")
+    _private_file(run / "results.jsonl", b"{}\n")
+    planned = b"planned\n"
+    monkeypatch.setattr(continuation, "CONTINUATION_COUNT", 1)
+    monkeypatch.setattr(continuation, "CONTINUATION_TASK_SHA256", _sha(planned))
+
+    def summarize(traces, *, expected_slugs, **_kwargs):
+        assert expected_slugs == {"planned"}
+        assert list(traces) == [{}]
+        return (
+            {
+                "traces": 1,
+                "tasks": 1,
+                "sampled_tokens": 0,
+                "model_io_turns": 1,
+                "provider_reported_zero_reasoning_tool_turns": 0,
+                "provider_explicit_empty_reasoning_tool_turns": 0,
+            },
+            False,
+        )
+
+    monkeypatch.setattr(continuation, "_summarize_traces", summarize)
+    with continuation.PrivateDirectory.open(run, "run_invalid") as root:
+        digest, summary = continuation._audit_results_anchored(root, planned)
+
+    assert digest == _sha(b"{}\n")
+    assert summary["tasks"] == 1
 
 
 def test_cli_validate_plan_stdout_is_aggregate_only(
