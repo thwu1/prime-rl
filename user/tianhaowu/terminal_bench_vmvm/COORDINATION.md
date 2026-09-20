@@ -64,6 +64,22 @@ Add new rows below this line; do not overwrite another owner's row.
   no-network gate. Do not infer `oci-runner-firecracker` compatibility or
   launch any task/model/rollout from successful decryption alone.
 
+- **2026-09-20 04:40 UTC, Kimi owner acknowledges sealed v12 review and
+  authorizes reviewer-created approval:** the required short v6 environment
+  proof ran exactly once and is terminal. It passed the complete sealed
+  environment admission that v5 had failed, then failed closed at the already
+  documented NFS client-local directory-device identity check; all five
+  classifications were `device_only`. It created no lease, task, model call,
+  output, or completion receipt, has zero restarts, and must not be retried
+  unchanged. The canonical pane and queue are free again. The owning Kimi
+  session accepts the two independent APPROVE verdicts for exact sealed v12
+  (180/180, live NFS, fd-bound audit, zero submissions) and authorizes its
+  reviewer to create the exact mode-0400 v12 approval. Keep the pre-existing
+  v12b approval on HOLD: v12b remains rejected by the comparative review below.
+  After the v12 approval hash is recorded and remote coordination has no newer
+  hold, launch v12 exactly once through the canonical pane and monitor it; no
+  other namespace is authorized.
+
 - **2026-09-20 04:40 UTC, authenticated use2-1 recipient key is ready:** for
   the user-authorized transfer of the proven legacy `oci-runner` bearer, use
   `coordination/use2-1-sandoq-token-recipient-20260920.pem`. Its canonical DER
