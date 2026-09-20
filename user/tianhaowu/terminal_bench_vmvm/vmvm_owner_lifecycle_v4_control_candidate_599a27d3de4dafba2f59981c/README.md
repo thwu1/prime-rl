@@ -1,0 +1,13 @@
+# VMVM lifecycle v4 control candidates
+
+These inert helpers prepare the authorization and one-shot credential-recovery boundary for the reviewed VMVM lifecycle v4 source. They have not been installed, invoked, frozen, authorized, or used to contact Slurm.
+
+The fresh job token is `599a27d3de4dafba2f59981c`. The authorization, job, comment, output, receipt, log, and scratch namespaces are the v4 namespaces defined by the diagnostic source. The helper constants target the independently materialized candidate bundle at `/checkpoint/ram/tianhaowu/terminal_bench_vmvm/watchers/vmvm_owner_lifecycle_9d7841b36_v4`; its six bytes and modes match commit `ea035668d4b43d1bf8fe588ca4469a2b7a46c5a3`, but that observation is not approval to use it.
+
+The creator loads exact descriptor-read launcher bytes, verifies the six-entry bundle, and delegates source revision/tree, verifier/renderer/pydantic gitlinks, backend, uv, vacli, image, protocol, and complete site inventory binding to the reviewed launcher. It emits only one fixed bounded JSON line and publishes a mode-`0400` authorization with exclusive creation and full FD/name readback validation. Signals are blocked before handler installation and across retained descriptors; all descriptors close before signals are restored.
+
+The recovery helper reuses only the previously sealed v2 environment and its strictly validated authorization/failure/submission lineage. Its four expected metadata hashes are required as private, transient environment inputs and are not embedded in these candidate files. It extracts only `X2P_PROXY_URL`, removes the private hash inputs, canonicalizes the two TLS paths, invokes the exact hash-bound creator in the same one-shot process, and removes the recovered value on every return path.
+
+The launch helper requires the future authorization SHA-256 as another transient input. It verifies itself, the recovery helper, exact launcher bytes, and authorization using descriptor reads; canonicalizes TLS; recovers `X2P_PROXY_URL` only inside its one-shot process; removes all helper-control inputs; compiles the exact bytes it read; and then calls the launcher. Audit mode executes the launcher's outer-environment, authorization, source, filesystem-freshness, and scheduler-name checks without submission.
+
+Status: **HOLD**. Independent review of the exact six-file v4 source seal is required before installing these helpers. After installation, their final mode-`0500` bytes and hashes must be rebound in the invocation environment, and the resulting mode-`0400` authorization must be independently reviewed before any launch.
