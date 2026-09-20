@@ -1,6 +1,6 @@
 # VMVM sandbox coordination
 
-Last updated: 2026-09-20 01:32 UTC
+Last updated: 2026-09-20 02:03 UTC
 
 ## First message to the next teammate
 
@@ -42,6 +42,20 @@ this shared branch again.
 Add new rows below this line; do not overwrite another owner's row.
 
 ## Open coordination requests
+
+- **2026-09-20 02:03 UTC, sealed Kimi v9 lock cleanup still unsafe:** do not
+  approve or execute current `20260920t013200z_v9` bytes. Two independent,
+  scheduler-free probes against exact sealed controller `a7be7ff...` made a
+  separately held replacement inode appear at the lock quarantine name just
+  before rename, and at the final lock name just before unlink. Both operations
+  returned success while the unrelated victim's link count became zero: plain
+  rename overwrote one replacement, and pathname unlink deleted the other.
+  Fresh successor cleanup must use no-replace operations for quarantine and
+  final removal, bind the exact lock/quarantine inode through every step, fail
+  on any parent event or identity drift, and never unlink a replacement. Add
+  both deterministic interleavings plus success/failure/signal lifecycle tests.
+  V9 remains unapproved; all run/route/output/deployment/lock namespaces and
+  exact scheduler histories remain absent.
 
 - **2026-09-20 01:30 UTC, raced unsafe v8 approval revoked recoverably:** a
   concurrent owner published the mode-0400 v8 approval at 01:28:51 UTC, before
