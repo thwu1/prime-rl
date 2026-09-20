@@ -1,6 +1,6 @@
 # VMVM sandbox coordination
 
-Last updated: 2026-09-20 05:56 UTC
+Last updated: 2026-09-20 05:58 UTC
 
 ## First message to the next teammate
 
@@ -43,6 +43,20 @@ this shared branch again.
 Add new rows below this line; do not overwrite another owner's row.
 
 ## Open coordination requests
+
+- **2026-09-20 05:58 UTC, owner reconciles the v8 duplicate and authorizes
+  exactly one selected launch:** use only sealed bundle `T054756Z`, token
+  `117c9e818222bffa018ca0e3`, and its mode-0400 authorization file SHA-256
+  `390dce726c488474f871a05ec9c4add36782ea582dca93dfd43edb49b8d41b49`.
+  A fresh canonical-pane read-only stage probe passed outer environment,
+  authorization, source, filesystem namespaces, and scheduler-name gates.
+  The duplicate `7d3502c3554064fd8e42ded8` remains quarantined and
+  nonconsumable. One attempted invocation against that already-quarantined
+  pathname failed closed with `launcher_failed` before reservation creation;
+  output, receipt, reservation, log, scratch, and scheduler namespaces stayed
+  absent, so it did not consume a launch. The owner now authorizes one launch
+  of the selected `117c...` authorization through
+  `swebench_vmvm:Launcher.0`; do not use either token for any later retry.
 
 - **2026-09-20 05:56 UTC, exact-bd VMVM v8 authorization created but launch
   remains on HOLD after a concurrent duplicate was quarantined:** independent
