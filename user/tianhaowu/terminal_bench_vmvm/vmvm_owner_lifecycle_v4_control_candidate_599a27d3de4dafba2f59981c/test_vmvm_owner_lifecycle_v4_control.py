@@ -6,6 +6,7 @@ import json
 import os
 import signal
 import stat
+import subprocess
 import sys
 from pathlib import Path
 from types import SimpleNamespace
@@ -20,6 +21,7 @@ TOKEN = "599a27d3de4dafba2f59981c"
 CREATOR_PATH = HERE / f"create_vmvm_owner_lifecycle_authorization_v4_{TOKEN}.py"
 RECOVERY_PATH = HERE / f"vmvm_v4_recover_and_create_auth_{TOKEN}.py"
 LAUNCH_PATH = HERE / f"vmvm_v4_recover_and_launch_{TOKEN}.py"
+INVOCATION_PATH = HERE / f"invoke_vmvm_owner_lifecycle_v4_{TOKEN}.py"
 
 
 def load_module(name: str, path: Path) -> Any:
@@ -43,6 +45,11 @@ def recovery() -> Any:
 @pytest.fixture(scope="module")
 def launch() -> Any:
     return load_module("vmvm_v4_candidate_launch", LAUNCH_PATH)
+
+
+@pytest.fixture(scope="module")
+def invocation() -> Any:
+    return load_module("vmvm_v4_candidate_invocation", INVOCATION_PATH)
 
 
 def digest(path: Path) -> str:
@@ -100,7 +107,7 @@ def test_authorizer_preserves_launcher_owned_source_runtime_and_site_contract(cr
 
 def test_private_v2_metadata_hashes_are_runtime_only(recovery: Any, launch: Any) -> None:
     assert recovery.METADATA_HASH_ENV == launch.METADATA_HASH_ENV
-    for path in (RECOVERY_PATH, LAUNCH_PATH):
+    for path in (RECOVERY_PATH, LAUNCH_PATH, INVOCATION_PATH):
         source = path.read_text()
         for stale_constant in (
             "AUTH_V2_SHA256 =",
@@ -705,7 +712,7 @@ def test_public_output_is_fixed_canonical_and_bounded(
 
 
 def test_candidates_do_not_embed_credential_values() -> None:
-    combined = b"\n".join(path.read_bytes() for path in (CREATOR_PATH, RECOVERY_PATH, LAUNCH_PATH))
+    combined = b"\n".join(path.read_bytes() for path in (CREATOR_PATH, RECOVERY_PATH, LAUNCH_PATH, INVOCATION_PATH))
     assert b"X2P_PROXY_URL=" not in combined
     assert b"BEGIN CERTIFICATE" not in combined
     assert b"PRIVATE KEY" not in combined
@@ -714,10 +721,607 @@ def test_candidates_do_not_embed_credential_values() -> None:
 def test_readme_requires_retained_fd_invocation() -> None:
     readme = (HERE / "README.md").read_text()
     for required in (
-        "retained read-only descriptor",
-        "open with `O_NOFOLLOW`",
-        "keep that same FD open for the complete child lifetime",
-        "execute `/proc/self/fd/<fd>`",
-        "invoking an installed helper/creator by its mutable pathname, is forbidden",
+        "only proposed operator-facing entrypoint",
+        "opened with `O_NOFOLLOW`",
+        "remain open across the entire child lifetime",
+        "`/usr/bin/python3.12 -I -S -B /proc/self/fd/<fd> <mode>`",
+        "Direct pathname invocation of the envelope or any helper is forbidden",
     ):
         assert required in readme
+
+
+def invocation_outer_environment() -> dict[str, str]:
+    return {
+        "TMUX": "/tmp/test-tmux,1,0",
+        "TMUX_PANE": "%0",
+        "THRIFT_TLS_CL_CERT_PATH": "/test/tls-certificate",
+        "THRIFT_TLS_CL_KEY_PATH": "/test/tls-key",
+        "X2P_ENV": "test-environment",
+        "X2P_CFG_ENV": "test-configuration",
+        "X2P_PROXY_URL": "must-not-be-forwarded",
+        "UNRELATED_SECRET": "must-not-be-forwarded",
+        "PATH": "/ambient/path",
+    }
+
+
+def test_invocation_binds_exact_control_chain_without_private_v2_hashes(invocation: Any) -> None:
+    assert invocation.CONTROL_FILES == {
+        "creator": (invocation.BASE / "diagnostics" / CREATOR_PATH.name, digest(CREATOR_PATH)),
+        "create": (invocation.BASE / "diagnostics" / RECOVERY_PATH.name, digest(RECOVERY_PATH)),
+        "launch": (invocation.BASE / "diagnostics" / LAUNCH_PATH.name, digest(LAUNCH_PATH)),
+    }
+    source = INVOCATION_PATH.read_text()
+    for forbidden in (
+        "AUTHORIZATION_V2_SHA256 =",
+        "FAILURE_V2_SHA256 =",
+        "RECEIPT_V2_SHA256 =",
+        "ENVIRONMENT_V2_SHA256 =",
+    ):
+        assert forbidden not in source
+    assert set(invocation.LINEAGE_FILES) == set(invocation.METADATA_HASH_ENV)
+
+
+def test_invocation_builds_exact_clean_child_environment(
+    invocation: Any,
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    monkeypatch.setattr(invocation, "OWNER_UID", os.getuid())
+    monkeypatch.setattr(invocation, "WORKING_DIRECTORY", tmp_path)
+    monkeypatch.setattr(invocation, "SYSTEM_PYTHON", Path(sys.executable).resolve(strict=True))
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(
+        invocation.sys,
+        "flags",
+        SimpleNamespace(isolated=1, no_site=1, dont_write_bytecode=1),
+    )
+    child = invocation.build_child_environment(invocation_outer_environment())
+    assert child == {
+        "HOME": str(tmp_path),
+        "LANG": "C",
+        "LC_ALL": "C",
+        "LOGNAME": "tianhaowu",
+        "PATH": "/usr/bin:/bin",
+        "PYTHONDONTWRITEBYTECODE": "1",
+        "TMUX": "/tmp/test-tmux,1,0",
+        "TMUX_PANE": "%0",
+        "TZ": "UTC",
+        "USER": "tianhaowu",
+        "THRIFT_TLS_CL_CERT_PATH": "/test/tls-certificate",
+        "THRIFT_TLS_CL_KEY_PATH": "/test/tls-key",
+        "X2P_ENV": "test-environment",
+        "X2P_CFG_ENV": "test-configuration",
+    }
+    assert "X2P_PROXY_URL" not in child
+    assert "UNRELATED_SECRET" not in child
+
+    exact_child = dict(child)
+    exact_child[invocation.HELPER_SHA_ENV["create"]] = invocation.CONTROL_FILES["create"][1]
+    exact_child.update({name: "a" * 64 for name in invocation.METADATA_HASH_ENV.values()})
+    invocation.validate_child_environment("create", exact_child)
+    for name, value in (
+        ("X2P_PROXY_URL", "not-allowed"),
+        (invocation.HELPER_SHA_ENV["create"], "b" * 64),
+    ):
+        invalid_child = dict(exact_child)
+        invalid_child[name] = value
+        with pytest.raises(RuntimeError, match="child_environment"):
+            invocation.validate_child_environment("create", invalid_child)
+
+    for name, value in (
+        ("TMUX_PANE", "%1"),
+        ("X2P_ENV", ""),
+        ("X2P_CFG_ENV", "bad\nvalue"),
+        ("THRIFT_TLS_CL_CERT_PATH", "relative"),
+    ):
+        invalid = invocation_outer_environment()
+        invalid[name] = value
+        with pytest.raises(RuntimeError):
+            invocation.build_child_environment(invalid)
+
+
+def test_invocation_self_requires_exact_retained_descriptor(
+    invocation: Any,
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    source = tmp_path / "installed-envelope.py"
+    raw = b"reviewed envelope bytes\n"
+    source.write_bytes(raw)
+    source.chmod(0o500)
+    descriptor = os.open(source, os.O_RDONLY | os.O_CLOEXEC | os.O_NOFOLLOW)
+    try:
+        proc_path = f"/proc/self/fd/{descriptor}"
+        monkeypatch.setattr(invocation, "OWNER_UID", os.getuid())
+        monkeypatch.setattr(invocation, "SELF_PATH", source)
+        monkeypatch.setattr(invocation, "__file__", proc_path)
+        monkeypatch.setattr(invocation.sys, "argv", [proc_path, "create", "audit"])
+        invocation.validate_self_invocation(hashlib.sha256(raw).hexdigest())
+
+        replacement = tmp_path / "replacement"
+        source.rename(replacement)
+        source.write_bytes(raw)
+        source.chmod(0o500)
+        with pytest.raises(RuntimeError, match="self_identity"):
+            invocation.validate_self_invocation(hashlib.sha256(raw).hexdigest())
+    finally:
+        os.close(descriptor)
+
+
+def test_invocation_stable_hash_rejects_symlink_hardlink_and_replacement(
+    invocation: Any,
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    monkeypatch.setattr(invocation, "OWNER_UID", os.getuid())
+    regular = tmp_path / "regular"
+    regular.write_bytes(b"bound bytes")
+    regular.chmod(0o400)
+    expected = hashlib.sha256(regular.read_bytes()).hexdigest()
+    assert invocation.stable_hash(regular, mode=0o400, expected_sha256=expected) == expected
+
+    symlink = tmp_path / "symlink"
+    symlink.symlink_to(regular)
+    with pytest.raises(OSError):
+        invocation.stable_hash(symlink, mode=0o400)
+
+    hardlink = tmp_path / "hardlink"
+    os.link(regular, hardlink)
+    with pytest.raises(RuntimeError, match="file_identity"):
+        invocation.stable_hash(regular, mode=0o400)
+    hardlink.unlink()
+
+    original_hash = invocation.read_descriptor_hash
+    old = tmp_path / "old"
+    swapped = False
+
+    def replace_after_read(descriptor: int, maximum: int) -> tuple[str, int]:
+        nonlocal swapped
+        result = original_hash(descriptor, maximum)
+        if not swapped:
+            swapped = True
+            regular.rename(old)
+            regular.write_bytes(b"replacement")
+            regular.chmod(0o400)
+        return result
+
+    monkeypatch.setattr(invocation, "read_descriptor_hash", replace_after_read)
+    with pytest.raises(RuntimeError, match="file_identity"):
+        invocation.stable_hash(regular, mode=0o400, expected_sha256=expected)
+
+
+@pytest.mark.parametrize("target", ("create", "launch"))
+def test_invocation_computes_lineage_and_authorization_hashes_internally(
+    target: str,
+    invocation: Any,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls: list[tuple[Path, int, str | None]] = []
+
+    def fake_stable_hash(path: Path, *, mode: int, expected_sha256: str | None = None) -> str:
+        calls.append((path, mode, expected_sha256))
+        return hashlib.sha256(str(path).encode()).hexdigest()
+
+    helper_path, helper_hash = invocation.CONTROL_FILES[target]
+    bound = invocation.BoundFile(91, 92, helper_path, (1,), helper_hash)
+    monkeypatch.setattr(invocation, "stable_hash", fake_stable_hash)
+    monkeypatch.setattr(invocation, "open_bound_file", lambda *_args, **_kwargs: bound)
+    environment: dict[str, str] = {}
+    observed_bound, child = invocation.prepare_invocation(target, environment)
+    assert observed_bound == bound
+    assert child[invocation.HELPER_SHA_ENV[target]] == helper_hash
+    for label, path in invocation.LINEAGE_FILES.items():
+        assert child[invocation.METADATA_HASH_ENV[label]] == hashlib.sha256(str(path).encode()).hexdigest()
+        assert (path, 0o400, None) in calls
+    for label, (path, expected) in invocation.CONTROL_FILES.items():
+        if label != target:
+            assert (path, 0o500, expected) in calls
+    if target == "launch":
+        assert (
+            child[invocation.AUTHORIZATION_SHA_ENV]
+            == hashlib.sha256(str(invocation.AUTHORIZATION_V4).encode()).hexdigest()
+        )
+        assert (invocation.AUTHORIZATION_V4, 0o400, None) in calls
+    else:
+        assert invocation.AUTHORIZATION_SHA_ENV not in child
+        assert all(path != invocation.AUTHORIZATION_V4 for path, _mode, _expected in calls)
+
+
+def test_invocation_rejects_helper_name_replacement_before_spawn(
+    invocation: Any,
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    helper = tmp_path / "helper.py"
+    raw = b"reviewed helper\n"
+    helper.write_bytes(raw)
+    helper.chmod(0o500)
+    monkeypatch.setattr(invocation, "OWNER_UID", os.getuid())
+    bound = invocation.open_bound_file(
+        helper,
+        mode=0o500,
+        expected_sha256=hashlib.sha256(raw).hexdigest(),
+    )
+    original = tmp_path / "original"
+    helper.rename(original)
+    helper.write_bytes(raw)
+    helper.chmod(0o500)
+    monkeypatch.setattr(invocation, "validate_child_environment", lambda _target, _environment: None)
+    try:
+        with pytest.raises(RuntimeError, match="file_identity"):
+            invocation.invoke_helper(
+                bound,
+                target="create",
+                mode="audit",
+                environment={"PATH": "/usr/bin:/bin"},
+            )
+    finally:
+        invocation.close_bound_file(bound)
+
+
+def test_invocation_executes_exact_fd_and_retains_it_until_child_exit(
+    invocation: Any,
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    expected = invocation.EXPECTED_CHILD_OUTPUT[("create", "audit")]
+    helper = tmp_path / "helper.py"
+    helper.write_text(
+        f"import os\nfrom pathlib import Path\nfd = int(Path(__file__).name)\nos.fstat(fd)\nos.write(1, {expected!r})\n"
+    )
+    helper.chmod(0o500)
+    raw = helper.read_bytes()
+    monkeypatch.setattr(invocation, "OWNER_UID", os.getuid())
+    monkeypatch.setattr(invocation, "SYSTEM_PYTHON", Path(sys.executable).resolve(strict=True))
+    monkeypatch.setattr(invocation, "WORKING_DIRECTORY", tmp_path)
+    monkeypatch.setattr(invocation, "CHILD_TIMEOUT_SECONDS", 10)
+    monkeypatch.setattr(invocation, "CHILD_TERM_GRACE_SECONDS", 2)
+    monkeypatch.setattr(invocation, "CHILD_KILL_GRACE_SECONDS", 2)
+    monkeypatch.setattr(invocation, "INTERRUPTED", False)
+    monkeypatch.setattr(invocation, "validate_child_environment", lambda _target, _environment: None)
+    bound = invocation.open_bound_file(
+        helper,
+        mode=0o500,
+        expected_sha256=hashlib.sha256(raw).hexdigest(),
+    )
+    try:
+        returncode, stdout, stderr = invocation.invoke_helper(
+            bound,
+            target="create",
+            mode="audit",
+            environment={"PATH": "/usr/bin:/bin"},
+        )
+        assert (returncode, stdout, stderr) == (0, expected, b"")
+        os.fstat(bound.descriptor)
+    finally:
+        invocation.close_bound_file(bound)
+    with pytest.raises(OSError):
+        os.fstat(bound.descriptor)
+
+
+def test_invocation_child_argv_and_environment_never_mix_private_values(
+    invocation: Any,
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    helper = tmp_path / "helper.py"
+    helper.write_bytes(b"reviewed helper\n")
+    helper.chmod(0o500)
+    monkeypatch.setattr(invocation, "OWNER_UID", os.getuid())
+    bound = invocation.open_bound_file(helper, mode=0o500)
+    captured: dict[str, object] = {}
+    private_values = {
+        "HOME": str(invocation.WORKING_DIRECTORY),
+        "LANG": "C",
+        "LC_ALL": "C",
+        "LOGNAME": "tianhaowu",
+        "PATH": "/usr/bin:/bin",
+        "PYTHONDONTWRITEBYTECODE": "1",
+        "TMUX": "/tmp/private-tmux,1,0",
+        "TMUX_PANE": "%0",
+        "TZ": "UTC",
+        "USER": "tianhaowu",
+        "THRIFT_TLS_CL_CERT_PATH": "/private/certificate",
+        "THRIFT_TLS_CL_KEY_PATH": "/private/key",
+        "X2P_ENV": "private-environment",
+        "X2P_CFG_ENV": "private-configuration",
+        invocation.HELPER_SHA_ENV["create"]: invocation.CONTROL_FILES["create"][1],
+        **{name: "a" * 64 for name in invocation.METADATA_HASH_ENV.values()},
+    }
+
+    class FakeProcess:
+        pid = 123456
+        returncode = 0
+
+        @staticmethod
+        def poll() -> int:
+            return 0
+
+        @staticmethod
+        def communicate(*, timeout: float) -> tuple[bytes, bytes]:
+            assert timeout > 0
+            os.fstat(bound.descriptor)
+            return invocation.EXPECTED_CHILD_OUTPUT[("create", "audit")], b""
+
+    def fake_popen(arguments: list[str], **kwargs: object) -> FakeProcess:
+        captured["arguments"] = tuple(arguments)
+        captured.update(kwargs)
+        return FakeProcess()
+
+    monkeypatch.setattr(invocation.subprocess, "Popen", fake_popen)
+    monkeypatch.setattr(invocation, "process_start_ticks", lambda _pid: 7)
+    monkeypatch.setattr(invocation, "same_process", lambda _pid, _ticks: False)
+    monkeypatch.setattr(invocation.os, "getpgid", lambda pid: pid)
+    monkeypatch.setattr(invocation, "group_exists", lambda _group: False)
+    monkeypatch.setattr(invocation.signal, "pthread_sigmask", lambda _operation, _signals: set())
+    monkeypatch.setattr(invocation, "INTERRUPTED", False)
+    try:
+        result = invocation.invoke_helper(
+            bound,
+            target="create",
+            mode="audit",
+            environment=private_values,
+        )
+        assert result == (0, invocation.EXPECTED_CHILD_OUTPUT[("create", "audit")], b"")
+        assert captured["arguments"] == (
+            str(invocation.SYSTEM_PYTHON),
+            "-I",
+            "-S",
+            "-B",
+            f"/proc/self/fd/{bound.descriptor}",
+            "audit",
+        )
+        assert captured["pass_fds"] == (bound.descriptor,)
+        assert captured["close_fds"] is True
+        assert captured["start_new_session"] is True
+        assert captured["env"] == private_values
+        flattened_arguments = "\0".join(captured["arguments"])
+        private_names = {
+            "TMUX",
+            "THRIFT_TLS_CL_CERT_PATH",
+            "THRIFT_TLS_CL_KEY_PATH",
+            "X2P_ENV",
+            "X2P_CFG_ENV",
+            invocation.HELPER_SHA_ENV["create"],
+            *invocation.METADATA_HASH_ENV.values(),
+        }
+        assert all(private_values[name] not in flattened_arguments for name in private_names)
+        os.fstat(bound.descriptor)
+    finally:
+        invocation.close_bound_file(bound)
+
+
+def test_invocation_forwards_signal_and_preserves_exact_child_outcome(
+    invocation: Any,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    bound = invocation.BoundFile(91, 92, Path("/fixed/helper"), (1,), "a" * 64)
+    forwarded: list[int] = []
+
+    class FakeProcess:
+        pid = 123456
+        returncode: int | None = None
+        calls = 0
+
+        @staticmethod
+        def poll() -> int | None:
+            return FakeProcess.returncode
+
+        @staticmethod
+        def communicate(*, timeout: float) -> tuple[bytes, bytes]:
+            assert timeout > 0
+            FakeProcess.calls += 1
+            if FakeProcess.calls == 1:
+                invocation.INTERRUPTED = True
+                invocation.INTERRUPT_SIGNAL = signal.SIGTERM
+                raise subprocess.TimeoutExpired("helper", timeout)
+            FakeProcess.returncode = 0
+            return invocation.EXPECTED_CHILD_OUTPUT[("launch", "execute")], b""
+
+    monkeypatch.setattr(invocation, "validate_child_environment", lambda _target, _environment: None)
+    monkeypatch.setattr(invocation, "verify_bound_name", lambda _bound: None)
+    monkeypatch.setattr(invocation.subprocess, "Popen", lambda *_args, **_kwargs: FakeProcess())
+    monkeypatch.setattr(invocation, "process_start_ticks", lambda _pid: 7)
+    monkeypatch.setattr(invocation, "same_process", lambda _pid, _ticks: False)
+    monkeypatch.setattr(invocation.os, "getpgid", lambda pid: pid)
+    monkeypatch.setattr(invocation, "group_exists", lambda _group: False)
+    monkeypatch.setattr(
+        invocation,
+        "signal_child_group",
+        lambda _process, _group, _ticks, signum: forwarded.append(signum),
+    )
+    monkeypatch.setattr(invocation.signal, "pthread_sigmask", lambda _operation, _signals: set())
+    monkeypatch.setattr(invocation, "INTERRUPTED", False)
+    monkeypatch.setattr(invocation, "INTERRUPT_SIGNAL", None)
+    monkeypatch.setattr(invocation, "TERMINAL_LATCHED", False)
+    monkeypatch.setattr(invocation, "CHILD_OUTCOME", None)
+    result = invocation.invoke_helper(
+        bound,
+        target="launch",
+        mode="execute",
+        environment={},
+    )
+    assert result == (0, invocation.EXPECTED_CHILD_OUTPUT[("launch", "execute")], b"")
+    assert forwarded == [signal.SIGTERM]
+    assert invocation.CHILD_OUTCOME == ("launch", "execute")
+    assert invocation.TERMINAL_LATCHED
+
+
+def test_invocation_reaps_child_when_spawn_identity_binding_fails(
+    invocation: Any,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    bound = invocation.BoundFile(91, 92, Path("/fixed/helper"), (1,), "a" * 64)
+    reaped: list[object] = []
+
+    class FakeProcess:
+        pid = 123456
+
+    process = FakeProcess()
+    monkeypatch.setattr(invocation, "validate_child_environment", lambda _target, _environment: None)
+    monkeypatch.setattr(invocation, "verify_bound_name", lambda _bound: None)
+    monkeypatch.setattr(invocation.subprocess, "Popen", lambda *_args, **_kwargs: process)
+    monkeypatch.setattr(
+        invocation,
+        "process_start_ticks",
+        lambda _pid: (_ for _ in ()).throw(RuntimeError("identity")),
+    )
+    monkeypatch.setattr(invocation, "reap_spawn_failure", lambda observed: reaped.append(observed))
+    monkeypatch.setattr(invocation.signal, "pthread_sigmask", lambda _operation, _signals: set())
+    monkeypatch.setattr(invocation, "INTERRUPTED", False)
+    with pytest.raises(RuntimeError, match="identity"):
+        invocation.invoke_helper(bound, target="create", mode="audit", environment={})
+    assert reaped == [process]
+
+
+def test_invocation_signal_tolerates_bound_child_exit_race(
+    invocation: Any,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    polls = iter((None, 0))
+
+    class ExitingProcess:
+        pid = 123456
+
+        @staticmethod
+        def poll() -> int | None:
+            return next(polls)
+
+    monkeypatch.setattr(invocation, "same_process", lambda _pid, _ticks: False)
+    monkeypatch.setattr(invocation, "group_exists", lambda _group: False)
+    invocation.signal_child_group(ExitingProcess(), 123456, 7, signal.SIGTERM)
+
+
+def test_invocation_never_relays_unexpected_child_output(
+    invocation: Any,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    dummy = invocation.BoundFile(91, 92, Path("/fixed/helper"), (1,), "a" * 64)
+    public: list[tuple[int, bytes]] = []
+    environment = invocation_outer_environment()
+    environment[invocation.SELF_SHA_ENV] = "b" * 64
+    monkeypatch.setattr(invocation.os, "environ", environment)
+    monkeypatch.setattr(invocation.sys, "argv", ["/proc/self/fd/9", "create", "audit"])
+    monkeypatch.setattr(invocation, "install_signal_handlers", lambda: None)
+    monkeypatch.setattr(invocation, "validate_self_invocation", lambda _expected: None)
+    monkeypatch.setattr(invocation, "build_child_environment", lambda _environment: {"PRIVATE": "value"})
+    monkeypatch.setattr(invocation, "prepare_invocation", lambda _target, child: (dummy, child))
+    monkeypatch.setattr(invocation, "verify_bound_name", lambda _bound: None)
+    monkeypatch.setattr(
+        invocation,
+        "invoke_helper",
+        lambda *_args, **_kwargs: (0, b"unexpected-private-child-output\n", b""),
+    )
+    monkeypatch.setattr(invocation, "close_bound_file", lambda _bound: None)
+    monkeypatch.setattr(invocation.signal, "pthread_sigmask", lambda _operation, _signals: set())
+    monkeypatch.setattr(invocation.signal, "signal", lambda _signum, _handler: None)
+    monkeypatch.setattr(
+        invocation,
+        "emit_bounded",
+        lambda descriptor, payload: public.append((descriptor, payload)),
+    )
+    assert invocation.main() == 2
+    assert public == [(2, invocation.FAILURE_OUTPUT)]
+    assert b"unexpected-private-child-output" not in b"".join(payload for _descriptor, payload in public)
+    assert not invocation.os.environ
+
+
+def test_invocation_preserves_latched_child_outcome_across_late_cleanup_failure(
+    invocation: Any,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    target = "launch"
+    mode = "execute"
+    dummy = invocation.BoundFile(91, 92, Path("/fixed/helper"), (1,), "a" * 64)
+    public: list[tuple[int, bytes]] = []
+    environment = invocation_outer_environment()
+    environment[invocation.SELF_SHA_ENV] = "b" * 64
+
+    def committed_then_failed(*_args: object, **_kwargs: object) -> tuple[int, bytes, bytes]:
+        invocation.CHILD_OUTCOME = (target, mode)
+        invocation.TERMINAL_LATCHED = True
+        raise RuntimeError("late_cleanup")
+
+    monkeypatch.setattr(invocation.os, "environ", environment)
+    monkeypatch.setattr(invocation.sys, "argv", ["/proc/self/fd/9", target, mode])
+    monkeypatch.setattr(invocation, "install_signal_handlers", lambda: None)
+    monkeypatch.setattr(invocation, "validate_self_invocation", lambda _expected: None)
+    monkeypatch.setattr(invocation, "build_child_environment", lambda _environment: {"PRIVATE": "value"})
+    monkeypatch.setattr(invocation, "prepare_invocation", lambda _target, child: (dummy, child))
+    monkeypatch.setattr(invocation, "verify_bound_name", lambda _bound: None)
+    monkeypatch.setattr(invocation, "invoke_helper", committed_then_failed)
+    monkeypatch.setattr(
+        invocation,
+        "close_bound_file",
+        lambda _bound: (_ for _ in ()).throw(RuntimeError("close")),
+    )
+    monkeypatch.setattr(invocation.signal, "pthread_sigmask", lambda _operation, _signals: set())
+    monkeypatch.setattr(invocation.signal, "signal", lambda _signum, _handler: None)
+    monkeypatch.setattr(
+        invocation,
+        "emit_bounded",
+        lambda descriptor, payload: public.append((descriptor, payload)),
+    )
+    assert invocation.main() == 0
+    assert public == [(1, invocation.SUCCESS_OUTPUT[(target, mode)])]
+    assert not invocation.os.environ
+
+
+@pytest.mark.parametrize("target", ("create", "launch"))
+@pytest.mark.parametrize("mode", ("audit", "execute"))
+def test_invocation_emits_one_fixed_success_after_exact_child_outcome(
+    target: str,
+    mode: str,
+    invocation: Any,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    dummy = invocation.BoundFile(91, 92, Path("/fixed/helper"), (1,), "a" * 64)
+    public: list[tuple[int, bytes]] = []
+    environment = invocation_outer_environment()
+    environment[invocation.SELF_SHA_ENV] = "b" * 64
+    monkeypatch.setattr(invocation.os, "environ", environment)
+    monkeypatch.setattr(invocation.sys, "argv", ["/proc/self/fd/9", target, mode])
+    monkeypatch.setattr(invocation, "install_signal_handlers", lambda: None)
+    monkeypatch.setattr(invocation, "validate_self_invocation", lambda _expected: None)
+    monkeypatch.setattr(invocation, "build_child_environment", lambda _environment: {"PRIVATE": "value"})
+    monkeypatch.setattr(invocation, "prepare_invocation", lambda _target, child: (dummy, child))
+    monkeypatch.setattr(invocation, "verify_bound_name", lambda _bound: None)
+    monkeypatch.setattr(
+        invocation,
+        "invoke_helper",
+        lambda *_args, **_kwargs: (0, invocation.EXPECTED_CHILD_OUTPUT[(target, mode)], b""),
+    )
+    monkeypatch.setattr(invocation, "close_bound_file", lambda _bound: None)
+    monkeypatch.setattr(invocation.signal, "pthread_sigmask", lambda _operation, _signals: set())
+    monkeypatch.setattr(invocation.signal, "signal", lambda _signum, _handler: None)
+    monkeypatch.setattr(
+        invocation,
+        "emit_bounded",
+        lambda descriptor, payload: public.append((descriptor, payload)),
+    )
+    assert invocation.main() == 0
+    assert public == [(1, invocation.SUCCESS_OUTPUT[(target, mode)])]
+    assert not invocation.os.environ
+
+
+def test_invocation_public_output_is_fixed_canonical_and_bounded(
+    invocation: Any,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    writes: list[tuple[int, bytes]] = []
+    monkeypatch.setattr(
+        invocation.os,
+        "write",
+        lambda descriptor, payload: writes.append((descriptor, payload)) or len(payload),
+    )
+    for payload in (*invocation.SUCCESS_OUTPUT.values(), invocation.FAILURE_OUTPUT):
+        assert len(payload) <= 256
+        assert payload.endswith(b"\n")
+        assert payload.count(b"\n") == 1
+        assert json.dumps(json.loads(payload), sort_keys=True, separators=(",", ":")).encode() + b"\n" == payload
+        invocation.emit_bounded(1, payload)
+    assert writes == [(1, payload) for payload in (*invocation.SUCCESS_OUTPUT.values(), invocation.FAILURE_OUTPUT)]
+    with pytest.raises(RuntimeError, match="output_contract"):
+        invocation.emit_bounded(1, b"x" * 256 + b"\n")
+    with pytest.raises(RuntimeError, match="output_contract"):
+        invocation.emit_bounded(1, b"{}\n{}\n")
