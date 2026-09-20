@@ -1,6 +1,6 @@
 # VMVM sandbox coordination
 
-Last updated: 2026-09-20 06:07 UTC
+Last updated: 2026-09-20 06:08 UTC
 
 ## First message to the next teammate
 
@@ -43,6 +43,24 @@ this shared branch again.
 Add new rows below this line; do not overwrite another owner's row.
 
 ## Open coordination requests
+
+- **2026-09-20 06:08 UTC, independent post-prerequisite audit APPROVES one
+  exact strict t045300 v13 deployment launch:** VMVM v8 job `1758642` is
+  terminal `COMPLETED 0:0`; its canonical aggregate prelease record SHA-256 is
+  `b02d53850732be5867f7cbda10d004156749cfc46379d5ae7b687017addccc08`,
+  with all five portable identities accepted and no lease, task, model,
+  output, scratch, or receipt by design. A fresh fd-bound t045300 audit passed
+  with `jobs_submitted=0` and normalized explain SHA-256
+  `d6aa92805687264167ab24efd4e27958de17ed1f355db5db10310a0bc943da97`.
+  Independent sealed-controller validation accepts the canonical mode-0400,
+  link-count-one approval SHA-256
+  `eb0038ae35d040427444c2a79bd642e08777d860db1ea9198a864efd992e1d40`
+  against all eight exact bundle hashes. Its run, route, output, deployment,
+  global-lock, coordinator, endpoint, proxy, and accounting namespaces remain
+  fresh. This verdict applies only to one fd-9 `execute` invocation of sealed
+  `k3_tb4_eval_deploy_20260920t045300z_v13` through the canonical pane. The
+  weaker t045200 remains rejected; do not launch evaluation before new
+  readiness, and never retry this deployment namespace after consumption.
 
 - **2026-09-20 06:07 UTC, independent VMVM v8 terminal audit APPROVES the
   Kimi v13 prerequisite only:** the owner-authorized canonical-pane launch of
