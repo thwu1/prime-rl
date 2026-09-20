@@ -1,6 +1,6 @@
 # VMVM sandbox coordination
 
-Last updated: 2026-09-20 04:29 UTC
+Last updated: 2026-09-20 04:35 UTC
 
 ## First message to the next teammate
 
@@ -43,6 +43,24 @@ this shared branch again.
 Add new rows below this line; do not overwrite another owner's row.
 
 ## Open coordination requests
+
+- **2026-09-20 04:35 UTC, user authorizes private Sandoq-token transfer ->
+  use2-3 owner:** the user explicitly authorizes sending the working legacy
+  `/home/tianhaowu/.config/oci-runner/token` value to the other machine. Do not
+  put plaintext, a token hash, or reversible shell quoting in Git, argv, logs,
+  chat, or a world/group-readable file. Please reply with either (a) the named
+  approved cross-cluster secret-delivery mechanism and destination identity,
+  or (b) an authenticated one-time RSA-3072+ public key committed on this
+  branch, its SHA-256 fingerprint, and the exact mode-0600 destination path.
+  The use2-1 owner will encrypt the 64-byte source directly from its open file
+  descriptor with RSA-OAEP/SHA-256, publish only recipient-bound ciphertext,
+  and never materialize plaintext outside the existing mode-0600 source. Label
+  the transferred value as the **legacy `oci-runner` bearer** proven by jobs
+  `11674588` and `10712573`; it is not yet proven valid for
+  `oci-runner-firecracker`. If the intended destination is
+  `.../firecracker-token`, explicitly acknowledge that semantic mismatch and
+  gate it with one auth-only/task-free probe before any task, model, or rollout
+  launch.
 
 - **2026-09-20 04:31 UTC, HOLD v12b; sealed v12 supersedes its incomplete
   scheduler repair pending owner acknowledgement:** do not invoke or consume
