@@ -1,5 +1,5 @@
 #!/usr/bin/bash -p
-#SBATCH --job-name=vmvm-vacli-versions-074900-v1b
+#SBATCH --job-name=vmvm-vacli-versions-075300-v1c
 #SBATCH --partition=cpu_x86
 #SBATCH --account=ram
 #SBATCH --qos=cpu_x86_lowest
@@ -9,7 +9,7 @@
 #SBATCH --mem=4G
 #SBATCH --time=00:15:00
 #SBATCH --no-requeue
-#SBATCH --output=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/diagnostics/vmvm_vacli_versions_20260920t074900z_v1b/slurm-%j.log
+#SBATCH --output=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/diagnostics/vmvm_vacli_versions_20260920t075300z_v1c/slurm-%j.log
 
 set +x
 set -euo pipefail
@@ -27,8 +27,8 @@ unset HTTP_PROXY HTTPS_PROXY ALL_PROXY NO_PROXY
 unset http_proxy https_proxy all_proxy no_proxy
 [[ "$-" != *x* ]] || exit 2
 
-readonly output_root=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/diagnostics/vmvm_vacli_versions_20260920t074900z_v1b
-readonly expected_job_name=vmvm-vacli-versions-074900-v1b
+readonly output_root=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/diagnostics/vmvm_vacli_versions_20260920t075300z_v1c
+readonly expected_job_name=vmvm-vacli-versions-075300-v1c
 readonly client_788=/public/fbpkgs/x86_64/vacli/788/vacli
 readonly client_788_sha256=c9ab15d9886f7d5845dba6de8b7cbc8368bbfe6e53da3f32f239d8a520a28224
 readonly client_794=/public/fbpkgs/x86_64/vacli/794/vacli
