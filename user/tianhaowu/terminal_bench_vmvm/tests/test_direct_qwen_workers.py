@@ -8,6 +8,7 @@ from pathlib import Path
 import direct_qwen_workers as direct
 import pytest
 from materialize_qwen_provider_union import derive_partition
+from materialize_sandoq_ramp import CANONICAL_TEMPLATE_SHA256, materialize_config
 
 
 def test_production_worker_generation_is_exactly_the_certified_24_routes() -> None:
@@ -431,6 +432,78 @@ def test_prepare_snapshots_only_non_secret_worker_metadata(tmp_path: Path, monke
     assert "api_key" not in serialized
     assert "authorization" not in serialized
     assert oct(manifest_path.stat().st_mode & 0o777) == "0o600"
+
+
+def test_sandoq_stage2_preflight_uses_fresh_task_bound_live24_manifest(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    deployment_root, spec_sha256, bundle_sha256, workers = _write_deployment(tmp_path, count=24)
+    monkeypatch.setattr(direct, "EXPECTED_SPEC_SHA256", spec_sha256)
+    monkeypatch.setattr(direct, "EXPECTED_ENDPOINT_BUNDLE_SHA256", bundle_sha256)
+    load_workers = direct.load_workers
+    monkeypatch.setattr(
+        direct,
+        "load_workers",
+        lambda root: load_workers(
+            root,
+            expected_spec_sha256=spec_sha256,
+            expected_bundle_sha256=bundle_sha256,
+            expected_count=24,
+        ),
+    )
+    monkeypatch.setattr(direct, "probe_workers", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(direct, "sandoq_compose_task_count", lambda *_args, **_kwargs: 0)
+    task_file = tmp_path / "approved-sandoq-ramp2.tasks.txt"
+    task_file.write_text("approved-fixture-a\napproved-fixture-b\n")
+    task_sha256 = hashlib.sha256(task_file.read_bytes()).hexdigest()
+    template = (
+        Path(__file__).parents[1]
+        / "configs/eval/shared_qwen38_2p4t/mobius_qwen_a95b_2500_sandoq.toml"
+    )
+    config = tmp_path / "approved-sandoq-ramp2.toml"
+    config.write_bytes(
+        materialize_config(
+            template,
+            CANONICAL_TEMPLATE_SHA256,
+            count=2,
+            task_file=task_file,
+            task_file_sha256=task_sha256,
+        )
+    )
+    run_dir = tmp_path / "fresh-stage2"
+    manifest_path = run_dir / "direct_workers.json"
+    urls = tmp_path / "worker-urls.txt"
+    ports = tmp_path / "router-fields.txt"
+
+    manifest = direct.prepare(
+        deployment_root,
+        config,
+        manifest_path,
+        urls,
+        ports,
+        task_file,
+        task_sha256,
+        resume=False,
+        probe_timeout=1,
+    )
+
+    assert len(manifest["workers"]) == 24
+    assert manifest["approved_task_allowlist_sha256"] == task_sha256
+    assert manifest["spec_sha256"] == spec_sha256
+    assert manifest["endpoint_bundle_sha256"] == bundle_sha256
+    assert manifest["admission"]["rollout_concurrency"] == 2
+    assert manifest["router"]["max_concurrent_requests"] == 2
+    assert manifest["router"]["queue_size"] == 0
+    assert manifest["router"]["policy"] == "consistent_hash"
+    assert manifest["router"]["request_id_headers"] == ["x-session-id"]
+    assert len(urls.read_text().splitlines()) == 24
+    assert direct.validate_post_eval_generation(
+        manifest_path,
+        deployment_root,
+        router_alive=True,
+        active_workers=24,
+    ) == hashlib.sha256(manifest_path.read_bytes()).hexdigest()
 
 
 @pytest.mark.parametrize("retry_value", [1, False])

@@ -631,6 +631,9 @@ def test_direct_qwen_launcher_is_fail_closed() -> None:
     assert "unset HTTP_PROXY HTTPS_PROXY http_proxy https_proxy ALL_PROXY all_proxy" in driver
     assert '${#worker_urls[@]} -ne "$expected_worker_count"' in wrapper
     assert '"$active_workers" == "$expected_worker_count"' in wrapper
+    assert "expected_worker_count=24" in wrapper
+    assert "expected_worker_count=16" not in wrapper
+    assert "Sandoq ramps require a fresh task-bound live24 manifest" in wrapper
     assert "--preflight" in wrapper
     assert "--role qwen-direct --sandbox-provider sandoq" in driver
     assert 'args=(--resume "$output_dir")' in driver

@@ -88,6 +88,11 @@ with open(sys.argv[1], "rb") as handle:
     print(tomllib.load(handle).get("harness", {}).get("runtime", {}).get("type", ""))
 PY
 )
+if [[ "$sandbox_provider" == sandoq && -n "$serving_generation_bundle" ]]; then
+    printf '%s\n' \
+        'Sandoq ramps require a fresh task-bound live24 manifest, not a repair serving-generation bundle' >&2
+    exit 2
+fi
 if [[ "$sandbox_provider" == sandoq && -n "$resume_dir" ]]; then
     printf 'Sandoq direct Qwen runs require fresh output\n' >&2
     exit 2
@@ -327,7 +332,7 @@ fi
 
 mapfile -t worker_urls < "$urls_file"
 mapfile -t ports < "$ports_file"
-expected_worker_count=16
+expected_worker_count=24
 expected_port_fields=7
 expected_vmvm_lease_concurrency=2
 generation_transition_sha256=

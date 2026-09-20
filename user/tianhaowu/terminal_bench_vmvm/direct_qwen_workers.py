@@ -380,9 +380,9 @@ def validate_eval_config(
         if (
             not host_harness
             or runtime.get("mode") != "oci-runner"
-            or runtime.get("network_access") is not False
+            or runtime.get("network_access") is not True
             or runtime.get("host_tunnel") != "none"
-            or runtime.get("expected_environment") != "oci-runner-firecracker"
+            or runtime.get("expected_environment") != "oci-runner"
             or "guest_tunnel_url" in runtime
             or "tunnel_pool_size" in runtime
             or "tunnel_ready_timeout" in runtime
