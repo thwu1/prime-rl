@@ -4891,3 +4891,24 @@ Add new rows below this line; do not overwrite another owner's row.
   offline/local-only loading. Carry that binding through source review,
   preflight, frozen evidence, approval, and pre/post integrity checks. r3
   evidence/frozen intent/approval remain absent; no downstream job was launched.
+
+## 2026-09-20 11:25 UTC — use2-1 Qwen ramps and Kimi decode boundary
+
+- Qwen uses the frozen launch source `f58af6b387affd1ecd72db2dea2882f6dd28c35d`
+  (tree `e467e582dc7c3dc75edeb9b8dec7c20f8f1af98c`), exact 24-worker
+  consistent-hash routing with `x-session-id`, and the truthful direct
+  `reasoning_effort=medium` contract. Ramp-2 job `1503824` completed 0:0:
+  2/2 complete, zero errors, one pass, 64/64 nonempty-reasoning and model-I/O
+  turns, verified cleanup 2/2, and a passing private certificate. Ramp-8 job
+  `1504617` is active with concurrency/high-water 8; current durable aggregate
+  is 3/8 complete, zero errors, two passes, and 34/34 reasoning/model-I/O turns.
+  Do not advance the launch checkout mid-chain because each predecessor binds
+  the exact Prime revision.
+- Kimi head `c083121f752cf144be18f07bf84d53285871c7ab` remains a separate lane.
+  Diagnostic job `1504387` reached a late completed, zero-error, reward-zero row
+  with no sampled/model-I/O turn before its bounded wall timeout; cleanup passed
+  1/1 with verified HTTP 404 and zero failures. Worker telemetry showed active
+  decoding with no queue pressure, low KV utilization, no preemption, and only
+  24 generated tokens per 10 seconds. The current blocker is slow max-reasoning
+  decode completion, not Sandoq lifecycle, router admission, queueing, or KV
+  pressure. Full Kimi TB4/2,500 execution has not launched.
