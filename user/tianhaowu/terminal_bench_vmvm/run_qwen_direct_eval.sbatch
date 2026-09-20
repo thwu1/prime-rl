@@ -118,13 +118,25 @@ if [[ "$sandbox_provider" == sandoq ]]; then
             exit 2
         fi
     done
-    expected_count=$(python3 - "$eval_config" <<'PY'
+    mapfile -t sandoq_run_values < <(python3 - "$eval_config" <<'PY'
 import sys
 import tomllib
+from pathlib import Path
 with open(sys.argv[1], "rb") as handle:
-    print(tomllib.load(handle)["num_tasks"])
+    config = tomllib.load(handle)
+dataset = Path(config["taskset"]["dataset_dir"])
+if not dataset.is_absolute():
+    raise SystemExit(2)
+print(config["num_tasks"])
+print(dataset)
 PY
 )
+    if [[ ${#sandoq_run_values[@]} -ne 2 ]]; then
+        printf 'Sandoq task count/dataset binding is invalid\n' >&2
+        exit 2
+    fi
+    expected_count=${sandoq_run_values[0]}
+    canonical_dataset=${sandoq_run_values[1]}
     ramp_receipt=${SANDOQ_RAMP_RECEIPT:?SANDOQ_RAMP_RECEIPT is required}
     ramp_receipt_sha256=${SANDOQ_RAMP_RECEIPT_SHA256:?SANDOQ_RAMP_RECEIPT_SHA256 is required}
 fi
@@ -538,6 +550,7 @@ PY
         --cleanup-audit "$output_dir/sandoq_cleanup_audit.json" \
         --ramp-receipt "$ramp_receipt" --ramp-receipt-sha256 "$ramp_receipt_sha256" \
         --canonical-task-source "$workflow_dir/configs/eval/mobius_valid_tasks_2500.txt" \
+        --canonical-dataset "$canonical_dataset" \
         --canonical-template "$workflow_dir/configs/eval/shared_qwen38_2p4t/mobius_qwen_a95b_2500_sandoq.toml" \
         --output "$output_dir/direct_qwen_sandoq_certificate.json"
     )

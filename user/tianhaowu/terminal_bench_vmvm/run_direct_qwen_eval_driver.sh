@@ -292,10 +292,22 @@ path = Path(value)
 print(path if path.is_absolute() else Path.cwd() / path)
 PY
 )
+    canonical_dataset=$(python3 - "$eval_config" <<'PY'
+import sys
+import tomllib
+from pathlib import Path
+with open(sys.argv[1], "rb") as handle:
+    path = Path(tomllib.load(handle)["taskset"]["dataset_dir"])
+if not path.is_absolute():
+    raise SystemExit(2)
+print(path)
+PY
+)
     source_image_manifest_sha256=$(sha256sum -- "$source_image_manifest" | cut -d' ' -f1)
     "$x86_uv" run --no-project --offline --python "$python_bin" \
         python3 - "$sandoq_stage_count" "$approved_task_file_sha256" "$approved_task_file" \
         "$workflow_dir/configs/eval/mobius_valid_tasks_2500.txt" \
+        "$canonical_dataset" \
         "$workflow_dir/configs/eval/shared_qwen38_2p4t/mobius_qwen_a95b_2500_sandoq.toml" "$eval_config" \
         "$ramp_receipt" "$ramp_receipt_sha256" \
         "${SANDOQ_PREDECESSOR_CERTIFICATE:-}" "${SANDOQ_PREDECESSOR_CERTIFICATE_SHA256:-}" \
@@ -311,7 +323,7 @@ from certify_direct_qwen_sandoq import validate_predecessor, validate_ramp_recei
 count = int(sys.argv[1])
 ramp = validate_ramp_receipt(
     count, sys.argv[2], Path(sys.argv[3]), Path(sys.argv[4]), Path(sys.argv[5]),
-    Path(sys.argv[6]), Path(sys.argv[7]), sys.argv[8]
+    Path(sys.argv[6]), Path(sys.argv[7]), Path(sys.argv[8]), sys.argv[9]
 )
 source = dict(zip(
     (
@@ -319,16 +331,16 @@ source = dict(zip(
         "sandoq_client_version", "sandoq_site_sha256", "derived_image_manifest_sha256",
         "direct_spec_sha256", "direct_endpoint_bundle_sha256",
     ),
-    sys.argv[12:22],
+    sys.argv[13:23],
     strict=True,
 ))
 validate_predecessor(
     count,
-    Path(sys.argv[9]) if sys.argv[9] else None,
-    sys.argv[10] or None,
+    Path(sys.argv[10]) if sys.argv[10] else None,
+    sys.argv[11] or None,
     expected_source=source,
     expected_ramp=ramp,
-    current_task_file=Path(sys.argv[11]),
+    current_task_file=Path(sys.argv[12]),
 )
 PY
 fi

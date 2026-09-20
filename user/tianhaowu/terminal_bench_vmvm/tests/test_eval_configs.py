@@ -644,6 +644,8 @@ def test_direct_qwen_launcher_is_fail_closed() -> None:
     assert '"$output_dir/pool_events.jsonl"' in driver
     assert '"$output_dir/control/sandoq-pool.wal.jsonl"' in driver
     assert "SANDOQ_RAMP_RECEIPT" in driver
+    assert '"$canonical_dataset"' in driver
+    assert '--canonical-dataset "$canonical_dataset"' in wrapper
     assert "validate_predecessor" in driver
     assert "verify_references=True" in driver
     assert "sandoq_pool_cleanup.py" in driver

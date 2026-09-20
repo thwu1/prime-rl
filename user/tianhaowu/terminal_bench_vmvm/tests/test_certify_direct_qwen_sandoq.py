@@ -1,5 +1,6 @@
 import hashlib
 import json
+import sys
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -341,3 +342,52 @@ def test_ramp_receipt_rejects_altered_canonical_template(tmp_path: Path, monkeyp
             receipt,
             _sha(receipt),
         )
+
+
+def test_cli_threads_canonical_dataset_into_certification(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    captured: list[object] = []
+
+    def fake_certify(*args: object) -> dict[str, object]:
+        captured.extend(args)
+        return {"state": "passed"}
+
+    output = tmp_path / "certificate.json"
+    canonical_dataset = tmp_path / "canonical-dataset"
+    monkeypatch.setattr(certificate_module, "certify", fake_certify)
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "certify_direct_qwen_sandoq.py",
+            "--run-dir",
+            str(tmp_path / "run"),
+            "--expected-task-file",
+            str(tmp_path / "tasks.txt"),
+            "--expected-task-file-sha256",
+            "a" * 64,
+            "--expected-count",
+            "2",
+            "--output",
+            str(output),
+            "--cleanup-audit",
+            str(tmp_path / "cleanup.json"),
+            "--ramp-receipt",
+            str(tmp_path / "ramp.json"),
+            "--ramp-receipt-sha256",
+            "b" * 64,
+            "--canonical-task-source",
+            str(tmp_path / "canonical.txt"),
+            "--canonical-dataset",
+            str(canonical_dataset),
+            "--canonical-template",
+            str(tmp_path / "template.toml"),
+        ],
+    )
+
+    certificate_module.main()
+
+    assert captured[8] == canonical_dataset
+    assert json.loads(output.read_text()) == {"state": "passed"}
