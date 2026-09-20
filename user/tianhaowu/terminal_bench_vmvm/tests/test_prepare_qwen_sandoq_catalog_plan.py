@@ -4,6 +4,7 @@ import hashlib
 import json
 import os
 import stat
+import sys
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -74,6 +75,7 @@ def _config(
         f"num_tasks = {count}\n"
         "num_rollouts = 1\n"
         "max_concurrent = 64\n"
+        "max_turns = 200\n"
         "max_input_tokens = 262144\n"
         "max_output_tokens = 262144\n"
         "max_total_tokens = 262144\n"
@@ -82,10 +84,19 @@ def _config(
         "[client]\n"
         'type = "eval"\n'
         "capture_model_io = true\n"
+        'outbound_body_denylist = ["logprobs", "prompt_logprobs", "top_logprobs", "return_token_ids"]\n'
+        'base_url = "http://127.0.0.1:8000/v1"\n'
+        'api_key_var = "OPENAI_API_KEY"\n'
+        "timeout = 7200\n"
+        "connect_timeout = 30\n"
         "max_connections = 32\n"
         "max_keepalive_connections = 32\n"
         "[sampling]\n"
         'reasoning_effort = "max"\n'
+        "temperature = 0.7\n"
+        "top_p = 0.95\n"
+        "top_k = 20\n"
+        "max_tokens = 32768\n"
         "chat_template_kwargs = { enable_thinking = true, preserve_thinking = true }\n"
         "[taskset]\n"
         'id = "terminal-bench-vmvm"\n'
@@ -100,13 +111,22 @@ def _config(
         "verifier_runtime_retries = 0\n"
         "[harness]\n"
         'id = "terminal-bench-sandoq-host"\n'
+        "command_timeout_seconds = 240\n"
+        "command_kill_grace_seconds = 10\n"
+        "max_command_output_chars = 100000\n"
         "request_timeout_seconds = 15000\n"
         "[harness.runtime]\n"
         'type = "sandoq"\n'
         'mode = "oci-runner"\n'
+        "session_timeout = 43200\n"
         "network_access = false\n"
         'host_tunnel = "none"\n'
         'expected_environment = "oci-runner-firecracker"\n'
+        "[timeout]\n"
+        "setup = 3600\n"
+        "rollout = 36000\n"
+        "finalize = 3600\n"
+        "scoring = 21600\n"
         "[retries.rollout]\n"
         "max_retries = 0\n"
     ).encode()
@@ -464,8 +484,21 @@ def test_cli_failure_is_aggregate_only(
     monkeypatch.setattr(
         prepare,
         "prepare",
-        lambda **_arguments: (_ for _ in ()).throw(prepare.CatalogPlanError(secret)),
+        lambda **_arguments: (_ for _ in ()).throw(RuntimeError(secret)),
     )
+    assert prepare.main() == 1
+    output = capsys.readouterr()
+    assert secret not in output.out
+    assert secret not in output.err
+    assert json.loads(output.out) == {"error": "catalog_plan_invalid", "state": "failed"}
+
+
+def test_cli_argument_failure_is_aggregate_only(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    secret = "private-task-member"
+    monkeypatch.setattr(sys, "argv", ["prepare", f"--{secret}"])
     assert prepare.main() == 1
     output = capsys.readouterr()
     assert secret not in output.out
@@ -489,3 +522,97 @@ def test_prepare_rejects_private_root_replacement_before_publish(
         prepare.prepare(**inputs)
     assert not Path(inputs["plan"]).exists()
     assert not Path(inputs["plan_receipt"]).exists()
+
+
+def test_plan_rejects_symlinked_dependency_parent(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    inputs = _inputs(tmp_path, monkeypatch)
+    task = Path(inputs["dataset"]) / "opaque-a"
+    outside = tmp_path / "outside-tests"
+    outside.mkdir()
+    (outside / "test.sh").write_text("python3 -m pip install pytest==8.3.4\n")
+    (task / "tests" / "test.sh").unlink()
+    (task / "tests").rmdir()
+    (task / "tests").symlink_to(outside, target_is_directory=True)
+
+    with pytest.raises(prepare.CatalogPlanError, match="catalog_plan_dataset_invalid"):
+        prepare.prepare(**inputs)
+
+
+def test_plan_rejects_dependency_mutation_during_extraction(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    inputs = _inputs(tmp_path, monkeypatch)
+    original = TerminalBenchVMVMTaskset._test_requirements
+    changed = False
+
+    def mutate_after_read(task: object) -> tuple[str, ...]:
+        nonlocal changed
+        requirements = original(task)  # type: ignore[arg-type]
+        if not changed:
+            changed = True
+            script = Path(getattr(task, "task_dir")) / "tests" / "test.sh"
+            script.write_text(script.read_text() + "python3 -m pip install pluggy==1.5.0\n")
+        return requirements
+
+    monkeypatch.setattr(
+        TerminalBenchVMVMTaskset,
+        "_test_requirements",
+        staticmethod(mutate_after_read),
+    )
+    with pytest.raises(prepare.CatalogPlanError, match="catalog_plan_dataset_changed"):
+        prepare.prepare(**inputs)
+
+
+def test_plan_revalidates_dataset_revision_after_extraction(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    inputs = _inputs(tmp_path, monkeypatch)
+    calls = 0
+
+    def validate_revision(_taskset: object, _dataset: Path) -> None:
+        nonlocal calls
+        calls += 1
+
+    monkeypatch.setattr(
+        TerminalBenchVMVMTaskset,
+        "_validate_dataset_revision",
+        validate_revision,
+    )
+    prepare._derive_plan(inputs)
+    assert calls == 2
+
+
+@pytest.mark.parametrize(
+    ("before", "after"),
+    [
+        ("max_turns = 200", "max_turns = 199"),
+        ("timeout = 7200", "timeout = 7199"),
+        ("connect_timeout = 30", "connect_timeout = 29"),
+        ("max_tokens = 32768", "max_tokens = 32767"),
+        ("session_timeout = 43200", "session_timeout = 43199"),
+        ("rollout = 36000", "rollout = 35999"),
+        (
+            'outbound_body_denylist = ["logprobs", "prompt_logprobs", "top_logprobs", "return_token_ids"]',
+            'outbound_body_denylist = ["logprobs"]',
+        ),
+    ],
+)
+def test_plan_rejects_runtime_contract_drift(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    before: str,
+    after: str,
+) -> None:
+    inputs = _inputs(tmp_path, monkeypatch)
+    config = Path(inputs["sandoq_config"])
+    body = config.read_text()
+    assert body.count(before) == 1
+    config.write_text(body.replace(before, after))
+
+    with pytest.raises(prepare.CatalogPlanError, match="catalog_plan_config_invalid"):
+        prepare.prepare(**inputs)

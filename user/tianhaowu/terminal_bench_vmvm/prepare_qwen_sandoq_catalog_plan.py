@@ -75,6 +75,7 @@ from terminal_bench_vmvm.taskset import (
     TerminalBenchVMVMTaskset,
     _image_ref,
     _network_modes,
+    _test_script_requirements,
     offline_requirements_extractor_sha256,
 )
 
@@ -85,9 +86,22 @@ EXPECTED_SANDOQ_COUNT = 1233
 EXPECTED_VMVM_COUNT = 0
 EXPECTED_ROLLOUT_CONCURRENCY = 64
 EXPECTED_PROVIDER_CONCURRENCY = 32
+EXPECTED_OUTBOUND_DENYLIST = [
+    "logprobs",
+    "prompt_logprobs",
+    "top_logprobs",
+    "return_token_ids",
+]
+EXPECTED_PHASE_TIMEOUTS = {
+    "setup": 3_600,
+    "rollout": 36_000,
+    "finalize": 3_600,
+    "scoring": 21_600,
+}
 MAX_POLICY_BYTES = 16 * 1024 * 1024
 MAX_CONFIG_BYTES = 4 * 1024 * 1024
 MAX_TASK_METADATA_BYTES = 4 * 1024 * 1024
+MAX_DEPENDENCY_SOURCE_BYTES = 16 * 1024 * 1024
 MAX_IMAGE_MANIFEST_BYTES = 64 * 1024 * 1024
 SHA256_RE = re.compile(r"[0-9a-f]{64}")
 TASK_KEY_RE = re.compile(r"[A-Za-z0-9][A-Za-z0-9_.-]{0,511}")
@@ -95,6 +109,11 @@ TASK_KEY_RE = re.compile(r"[A-Za-z0-9][A-Za-z0-9_.-]{0,511}")
 
 class CatalogPlanError(ValueError):
     """Stable, aggregate-only preparation failure."""
+
+
+class StableArgumentParser(argparse.ArgumentParser):
+    def error(self, _message: str) -> None:
+        raise CatalogPlanError("arguments_invalid")
 
 
 def _fail(code: str, error: BaseException | None = None) -> None:
@@ -217,6 +236,17 @@ class PlanPolicy:
     approved_binary_artifacts: tuple[str, ...]
     approved_source_attestations: tuple[str, ...]
     approved_toolchains: tuple[str, ...]
+
+
+@dataclass(frozen=True)
+class DatasetPathSeal:
+    task_root: Path
+    relative: Path
+    required: bool
+    read_content: bool
+    parent_identities: tuple[tuple[int, ...] | None, ...]
+    file_identity: tuple[int, ...] | None
+    content_sha256: str | None
 
 
 def _parse_allowlist(value: object, code: str, *, allow_empty: bool = True) -> tuple[str, ...]:
@@ -529,13 +559,102 @@ def _image_manifest(body: bytes) -> dict[str, dict[str, str]]:
     return normalized
 
 
-def _regular_dataset_file(path: Path, *, required: bool) -> bool:
+def _dataset_identity(value: os.stat_result) -> tuple[int, ...]:
+    return (
+        value.st_dev,
+        value.st_ino,
+        value.st_mode,
+        value.st_uid,
+        value.st_nlink,
+        value.st_size,
+        value.st_mtime_ns,
+        value.st_ctime_ns,
+    )
+
+
+def _dataset_parent_identities(
+    task_root: Path,
+    relative: Path,
+) -> tuple[tuple[int, ...] | None, ...]:
+    if relative.is_absolute() or not relative.name or ".." in relative.parts:
+        _fail("catalog_plan_dataset_invalid")
+    candidates = [task_root]
+    current = task_root
+    for component in relative.parts[:-1]:
+        current /= component
+        candidates.append(current)
+    identities: list[tuple[int, ...] | None] = []
+    missing = False
+    for candidate in candidates:
+        if missing:
+            identities.append(None)
+            continue
+        try:
+            listed = candidate.lstat()
+            resolved = candidate.resolve(strict=True)
+        except FileNotFoundError:
+            missing = True
+            identities.append(None)
+            continue
+        except OSError as error:
+            _fail("catalog_plan_dataset_invalid", error)
+        if (
+            not stat.S_ISDIR(listed.st_mode)
+            or listed.st_uid != os.geteuid()
+            or bool(listed.st_mode & 0o022)
+            or resolved != candidate
+            or (candidate != task_root and not resolved.is_relative_to(task_root))
+        ):
+            _fail("catalog_plan_dataset_invalid")
+        identities.append(_dataset_identity(listed))
+    return tuple(identities)
+
+
+def _dataset_path_state(
+    task_root: Path,
+    relative: Path,
+    *,
+    required: bool,
+    read_content: bool,
+) -> tuple[DatasetPathSeal, bytes | None]:
+    parent_identities = _dataset_parent_identities(task_root, relative)
+    path = task_root / relative
+    if any(identity is None for identity in parent_identities):
+        if required or os.path.lexists(path):
+            _fail("catalog_plan_dataset_invalid")
+        return (
+            DatasetPathSeal(
+                task_root=task_root,
+                relative=relative,
+                required=required,
+                read_content=read_content,
+                parent_identities=parent_identities,
+                file_identity=None,
+                content_sha256=None,
+            ),
+            None,
+        )
     try:
         listed = path.lstat()
     except FileNotFoundError:
         if required:
             _fail("catalog_plan_dataset_invalid")
-        return False
+        return (
+            DatasetPathSeal(
+                task_root=task_root,
+                relative=relative,
+                required=required,
+                read_content=read_content,
+                parent_identities=parent_identities,
+                file_identity=None,
+                content_sha256=None,
+            ),
+            None,
+        )
+    except OSError as error:
+        _fail("catalog_plan_dataset_invalid", error)
+    try:
+        resolved = path.resolve(strict=True)
     except OSError as error:
         _fail("catalog_plan_dataset_invalid", error)
     if (
@@ -543,9 +662,63 @@ def _regular_dataset_file(path: Path, *, required: bool) -> bool:
         or listed.st_uid != os.geteuid()
         or listed.st_nlink != 1
         or bool(listed.st_mode & 0o022)
+        or resolved != path
+        or not resolved.is_relative_to(task_root)
     ):
         _fail("catalog_plan_dataset_invalid")
-    return True
+    body: bytes | None = None
+    if read_content:
+        try:
+            body = _read_regular(path)
+        except MixedMaterializationError as error:
+            _fail("catalog_plan_dataset_invalid", error)
+        if len(body) > MAX_DEPENDENCY_SOURCE_BYTES:
+            _fail("catalog_plan_dataset_invalid")
+    try:
+        listed_after = path.lstat()
+    except OSError as error:
+        _fail("catalog_plan_dataset_invalid", error)
+    parent_identities_after = _dataset_parent_identities(task_root, relative)
+    if (
+        _dataset_identity(listed) != _dataset_identity(listed_after)
+        or parent_identities != parent_identities_after
+    ):
+        _fail("catalog_plan_dataset_changed")
+    return (
+        DatasetPathSeal(
+            task_root=task_root,
+            relative=relative,
+            required=required,
+            read_content=read_content,
+            parent_identities=parent_identities,
+            file_identity=_dataset_identity(listed),
+            content_sha256=sha256(body) if body is not None else None,
+        ),
+        body,
+    )
+
+
+def _verify_dataset_path_seal(seal: DatasetPathSeal) -> None:
+    observed, _ = _dataset_path_state(
+        seal.task_root,
+        seal.relative,
+        required=seal.required,
+        read_content=seal.read_content,
+    )
+    if observed != seal:
+        _fail("catalog_plan_dataset_changed")
+
+
+def _extract_test_requirements(task_dir: Path) -> tuple[str, ...]:
+    _test_script_requirements.cache_clear()
+    try:
+        return TerminalBenchVMVMTaskset._test_requirements(
+            SimpleNamespace(task_dir=str(task_dir))
+        )
+    except (OSError, RuntimeError, ValueError) as error:
+        _fail("catalog_plan_requirements_invalid", error)
+    finally:
+        _test_script_requirements.cache_clear()
 
 
 def _extract_bindings(
@@ -558,6 +731,7 @@ def _extract_bindings(
     except OSError as error:
         _fail("catalog_plan_dataset_invalid", error)
     bindings: list[ExpectedTaskBinding] = []
+    all_seals: list[DatasetPathSeal] = []
     for member in members:
         task_dir = dataset / member
         try:
@@ -573,23 +747,42 @@ def _extract_bindings(
             or resolved_task.parent != dataset
         ):
             _fail("catalog_plan_dataset_invalid")
-        task_toml = task_dir / "task.toml"
-        _regular_dataset_file(task_toml, required=True)
+        task_seals: list[DatasetPathSeal] = []
+        metadata_seal, metadata_body = _dataset_path_state(
+            task_dir,
+            Path("task.toml"),
+            required=True,
+            read_content=True,
+        )
+        task_seals.append(metadata_seal)
         # Presence is required by the real task loader, but the plan generator
         # deliberately never opens task instructions.
-        _regular_dataset_file(task_dir / "instruction.md", required=True)
-        for relative, required in (
-            (Path("environment/Dockerfile"), False),
-            (Path("tests/Dockerfile"), False),
-            (Path("tests/test.sh"), False),
+        instruction_seal, _ = _dataset_path_state(
+            task_dir,
+            Path("instruction.md"),
+            required=True,
+            read_content=False,
+        )
+        task_seals.append(instruction_seal)
+        dependency_seals: dict[Path, DatasetPathSeal] = {}
+        for relative in (
+            Path("environment/Dockerfile"),
+            Path("tests/Dockerfile"),
+            Path("tests/test.sh"),
         ):
-            _regular_dataset_file(task_dir / relative, required=required)
+            seal, _ = _dataset_path_state(
+                task_dir,
+                relative,
+                required=relative == Path("tests/test.sh"),
+                read_content=True,
+            )
+            dependency_seals[relative] = seal
+            task_seals.append(seal)
         try:
-            metadata_body = _read_regular(task_toml)
-            if len(metadata_body) > MAX_TASK_METADATA_BYTES:
+            if metadata_body is None or len(metadata_body) > MAX_TASK_METADATA_BYTES:
                 _fail("catalog_plan_dataset_invalid")
             metadata = tomllib.loads(metadata_body.decode("utf-8"))
-        except (UnicodeDecodeError, tomllib.TOMLDecodeError, MixedMaterializationError) as error:
+        except (UnicodeDecodeError, tomllib.TOMLDecodeError) as error:
             _fail("catalog_plan_dataset_invalid", error)
         environment = metadata.get("environment", {})
         verifier = metadata.get("verifier", {})
@@ -614,18 +807,14 @@ def _extract_bindings(
         # always wins over a task.toml declaration, even when
         # use_declared_images is set.
         agent_image = manifested["agent"]
-        tests_dockerfile = task_dir / "tests" / "Dockerfile"
-        verifier_tests_baked = tests_dockerfile.is_file()
+        verifier_tests_baked = (
+            dependency_seals[Path("tests/Dockerfile")].file_identity is not None
+        )
         if mode == "shared":
             runtime_role = "shared-agent"
             image = agent_image
             network = agent_network
-            try:
-                requirements = TerminalBenchVMVMTaskset._test_requirements(
-                    SimpleNamespace(task_dir=str(task_dir))
-                )
-            except (OSError, RuntimeError, ValueError) as error:
-                _fail("catalog_plan_requirements_invalid", error)
+            requirements = _extract_test_requirements(task_dir)
         else:
             runtime_role = "separate-verifier"
             declared_verifier = verifier_environment.get("docker_image")
@@ -646,12 +835,10 @@ def _extract_bindings(
             if verifier_tests_baked:
                 requirements = ()
             else:
-                try:
-                    requirements = TerminalBenchVMVMTaskset._test_requirements(
-                        SimpleNamespace(task_dir=str(task_dir))
-                    )
-                except (OSError, RuntimeError, ValueError) as error:
-                    _fail("catalog_plan_requirements_invalid", error)
+                requirements = _extract_test_requirements(task_dir)
+        for seal in task_seals:
+            _verify_dataset_path_seal(seal)
+        all_seals.extend(task_seals)
         if network != "no-network" or not is_digest_pinned_image(image):
             _fail("catalog_plan_runtime_binding_invalid")
         bindings.append(
@@ -664,6 +851,12 @@ def _extract_bindings(
         )
     if len(bindings) != EXPECTED_SANDOQ_COUNT:
         _fail("catalog_plan_binding_incomplete")
+    try:
+        TerminalBenchVMVMTaskset(config)._validate_dataset_revision(dataset)
+    except (OSError, RuntimeError, ValueError) as error:
+        _fail("catalog_plan_dataset_invalid", error)
+    for seal in all_seals:
+        _verify_dataset_path_seal(seal)
     return tuple(bindings)
 
 
@@ -694,6 +887,7 @@ def _validate_sandoq_config(
     sampling = raw.get("sampling")
     harness = raw.get("harness")
     runtime = harness.get("runtime") if isinstance(harness, dict) else None
+    timeouts = raw.get("timeout")
     retries = raw.get("retries")
     rollout_retries = retries.get("rollout") if isinstance(retries, dict) else None
     if (
@@ -701,6 +895,7 @@ def _validate_sandoq_config(
         or raw.get("num_tasks") != EXPECTED_SANDOQ_COUNT
         or raw.get("num_rollouts") != 1
         or raw.get("max_concurrent") != EXPECTED_ROLLOUT_CONCURRENCY
+        or raw.get("max_turns") != 200
         or raw.get("multiplex") != EXPECTED_ROLLOUT_CONCURRENCY
         or raw.get("max_input_tokens") != 262_144
         or raw.get("max_output_tokens") != 262_144
@@ -709,21 +904,35 @@ def _validate_sandoq_config(
         or not isinstance(client, dict)
         or client.get("type") != "eval"
         or client.get("capture_model_io") is not True
+        or client.get("outbound_body_denylist") != EXPECTED_OUTBOUND_DENYLIST
+        or client.get("base_url") != "http://127.0.0.1:8000/v1"
+        or client.get("api_key_var") != "OPENAI_API_KEY"
+        or client.get("timeout") != 7_200
+        or client.get("connect_timeout") != 30
         or client.get("max_connections") != EXPECTED_PROVIDER_CONCURRENCY
         or client.get("max_keepalive_connections") != EXPECTED_PROVIDER_CONCURRENCY
         or not isinstance(sampling, dict)
         or sampling.get("reasoning_effort") != "max"
+        or sampling.get("temperature") != 0.7
+        or sampling.get("top_p") != 0.95
+        or sampling.get("top_k") != 20
+        or sampling.get("max_tokens") != 32_768
         or sampling.get("chat_template_kwargs")
         != {"enable_thinking": True, "preserve_thinking": True}
         or not isinstance(harness, dict)
         or harness.get("id") != "terminal-bench-sandoq-host"
+        or harness.get("command_timeout_seconds") != 240
+        or harness.get("command_kill_grace_seconds") != 10
+        or harness.get("max_command_output_chars") != 100_000
         or harness.get("request_timeout_seconds") != 15_000
         or not isinstance(runtime, dict)
         or runtime.get("type") != "sandoq"
         or runtime.get("mode") != "oci-runner"
+        or runtime.get("session_timeout") != 43_200
         or runtime.get("network_access") is not False
         or runtime.get("host_tunnel") != "none"
         or runtime.get("expected_environment") != "oci-runner-firecracker"
+        or timeouts != EXPECTED_PHASE_TIMEOUTS
         or not isinstance(rollout_retries, dict)
         or rollout_retries.get("max_retries") != 0
         or config.verifier_runtime_retries != 0
@@ -983,6 +1192,13 @@ def _derive_plan(
         )
         image_manifest = _image_manifest(image_manifest_body)
         bindings = _extract_bindings(config, members, image_manifest)
+        image_manifest_path = config.image_manifest
+        if image_manifest_path is None:
+            _fail("catalog_plan_image_manifest_changed")
+        _validate_owned_regular(image_manifest_path)
+        if _read_regular(image_manifest_path) != image_manifest_body:
+            _fail("catalog_plan_image_manifest_changed")
+        _validate_owned_regular(image_manifest_path)
         policy = _load_policy(
             policy_body,
             arguments["policy_sha256"],
@@ -1108,7 +1324,7 @@ def validate(**arguments: Any) -> dict[str, int]:
 
 
 def _parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description=__doc__)
+    parser = StableArgumentParser(description=__doc__)
     parser.add_argument("--source", type=Path, required=True)
     parser.add_argument("--dataset", type=Path, required=True)
     parser.add_argument("--sandoq-template", type=Path, required=True)
@@ -1135,11 +1351,13 @@ def _parse_args() -> argparse.Namespace:
 
 
 def main() -> int:
-    arguments = vars(_parse_args())
-    validate_only = bool(arguments.pop("validate"))
     try:
+        arguments = vars(_parse_args())
+        validate_only = bool(arguments.pop("validate"))
         summary = validate(**arguments) if validate_only else prepare(**arguments)
-    except (CatalogPlanError, OfflineCatalogError, OSError):
+    # This CLI is a privacy boundary: unexpected ordinary exceptions must not
+    # surface task paths, dependency strings, or member names in a traceback.
+    except Exception:
         print(json.dumps({"state": "failed", "error": "catalog_plan_invalid"}, sort_keys=True))
         return 1
     print(json.dumps({"state": "sealed", "counts": summary}, sort_keys=True))
