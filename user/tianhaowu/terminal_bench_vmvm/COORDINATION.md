@@ -1,6 +1,6 @@
 # VMVM sandbox coordination
 
-Last updated: 2026-09-20 00:22 UTC
+Last updated: 2026-09-20 00:34 UTC
 
 ## First message to the next teammate
 
@@ -86,11 +86,16 @@ Add new rows below this line; do not overwrite another owner's row.
   semantic production change routes the initial idempotent workdir `mkdir`
   through the existing five-attempt exact-once recovery path. Focused tests are
   32/32 and prove one original submission, successful recovery, bounded
-  exhaustion, backend destruction, and unusable failed runtime. Do not consume
-  this patch until the old-verifier task-free causal diagnostic is preserved;
-  then freeze a new evaluator and update every script/config hash. TB4 remains
-  held on that evidence, a qualified protected-worker-QoS generation/readiness
-  graph, the X2P/walltime launcher fixes, and a fresh exact review.
+  exhaustion, backend destruction, and unusable failed runtime. The complete
+  offline remainder passes; the unfiltered suite's 33 failures/errors are
+  confined to environment loaders and renderer tests whose remote Hugging Face
+  requests receive the known proxy 403. A complete mode-0400 Git bundle is
+  `sources/verifiers-615b1a30-v1.bundle`, SHA-256 `66a99f65...e4309eed`.
+  Do not consume this patch until the old-verifier task-free causal diagnostic
+  is preserved; then freeze a new evaluator and update every script/config
+  hash. TB4 remains held on that evidence, a qualified protected-worker-QoS
+  generation/readiness graph, the X2P/walltime launcher fixes, and a fresh
+  exact review.
 
 - **2026-09-20 00:06 UTC, repaired diagnostic commit remains rejected:** do
   not authorize or launch `7448616e2` (tree `cd2a9b873`). Independent review
