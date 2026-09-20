@@ -45,6 +45,21 @@ from verifiers.v1.task import TaskResources, TaskTimeout
 from verifiers.v1.tasksets.harbor_v1 import HarborConfig, HarborTask, HarborTaskset
 from verifiers.v1.tasksets.harbor_v1.taskset import Author, make_tar, parse_resources
 
+from terminal_bench_vmvm.offline_verifier_catalog import (
+    CLOSURE_PROBE_CODE,
+    RUNTIME_FINGERPRINT_PROBE_CODE,
+    CatalogIdentity,
+    CoveragePlan,
+    ExpectedTaskBinding,
+    OfflineVerifierCatalog,
+    RuntimeFingerprint,
+    _read_private_file,
+    _verified_source_digest,
+    closure_probe_argv,
+    offline_install_argv,
+    offline_install_environment,
+    validate_runtime_staging_paths,
+)
 from terminal_bench_vmvm.source_wheels import (
     SOURCE_BUILD_HOME_DIR,
     SOURCE_BUILD_TMP_DIR,
@@ -88,6 +103,22 @@ VERIFIER_TIMEOUT_MARKER = "__TERMINAL_BENCH_VERIFIER_TIMEOUT__"
 TEST_DEPENDENCY_MARKER = "Test dependencies prebaked so the verifier runs offline"
 PYTEST_COMPATIBILITY_REQUIREMENT = "pytest==8.3.4"
 _VERIFIER_SITE_ENV = "TERMINAL_BENCH_VERIFIER_SITE"
+
+
+def offline_requirements_extractor_sha256() -> str:
+    """Bind catalog construction to this exact task/requirement extraction code."""
+
+    return hashlib.sha256(
+        canonical_json(
+            {
+                "schema_version": 1,
+                "contract": "terminal-bench-runtime-role-and-exact-test-requirements-v1",
+                "taskset_source_sha256": _verified_source_digest((("taskset", Path(__file__)),)),
+            }
+        )
+    ).hexdigest()
+
+
 _EXACT_PIP_REQUIREMENT_RE = re.compile(r"[A-Za-z0-9][A-Za-z0-9_.-]*(?:\[[A-Za-z0-9_,.-]+\])?==[A-Za-z0-9.!+_-]+")
 _PIP_EXECUTABLE_RE = re.compile(r"pip(?:3(?:\.[0-9]+)?)?")
 _PYTHON_EXECUTABLE_RE = re.compile(r"python(?:3(?:\.[0-9]+)?)?")
@@ -293,6 +324,48 @@ class TerminalBenchVMVMConfig(HarborConfig):
     oracle_source_wheel_attestation_sha256: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
     """Required ledger digest when resuming a source-enabled oracle."""
 
+    offline_verifier_catalog: Path | None = None
+    """Private absolute path to the exhaustively preflighted offline catalog."""
+
+    offline_verifier_catalog_sha256: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
+    """Exact digest of ``offline_verifier_catalog``."""
+
+    offline_verifier_catalog_identity: "OfflineVerifierCatalogIdentityConfig | None" = None
+    """Independent identity expected from the private catalog."""
+
+    offline_verifier_catalog_task_file: Path | None = None
+    """Canonical full-selection task file; ramps must not substitute their subset."""
+
+    offline_verifier_catalog_task_file_sha256: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
+    """Exact digest of the canonical full-selection task file."""
+
+    offline_verifier_project_root: Path | None = None
+    """Frozen project root used for private-catalog overlap checks."""
+
+
+class OfflineVerifierCatalogIdentityConfig(vf.StrictBaseModel):
+    dataset_revision: str = Field(pattern=r"^[0-9a-f]{40}$")
+    task_selection_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    expected_task_count: int = Field(ge=1, le=100_000)
+    binding_plan_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    catalog_consumer_code_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    image_manifest_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    requirements_extractor_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    inventory_probe_code_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    inventory_probe_environment_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    inventory_probe_approval_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    source_policy_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    source_policy_approval_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    approved_binary_artifacts_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    approved_source_attestations_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    approved_toolchains_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+
+    def catalog_identity(self) -> CatalogIdentity:
+        return CatalogIdentity(**self.model_dump())
+
+
+TerminalBenchVMVMConfig.model_rebuild()
+
 
 class ArtifactSpec(vf.StrictBaseModel):
     source: str
@@ -375,6 +448,15 @@ class VerifierDependencyOverlay:
 
 
 @dataclass(frozen=True)
+class CatalogPrefetchedTestDependencies:
+    task_key: str
+    runtime_role: Literal["shared-agent", "separate-verifier"]
+    image: str
+    requirements: tuple[str, ...]
+    plan: CoveragePlan
+
+
+@dataclass(frozen=True)
 class RuntimeWheelFingerprints:
     image: str
     resolution: str
@@ -412,7 +494,6 @@ def _sandoq_no_network_environment_is_safe(expected_ecr_token_file: Path | None)
         "OCI_RUNNER_ENVIRONMENT": "oci-runner-firecracker",
         "OCI_RUNNER_TASK_NETWORK": "none",
         "OCI_RUNNER_ECR_REGISTRY": "168653207203.dkr.ecr.us-east-2.amazonaws.com",
-        "OCI_RUNNER_USE_ECR": "1",
         "OCI_RUNNER_ECR_REGION": "us-east-2",
         "OCI_RUNNER_ECR_PULL_THROUGH_PREFIX": "pt_dockerio",
         "OCI_RUNNER_ALLOW_DOCKERHUB_FALLBACK": "0",
@@ -1062,6 +1143,28 @@ class TerminalBenchVMVMTaskset(
             )
         if config.oracle_source_wheel_attestation_sha256 is not None and config.oracle_source_wheel_policy is None:
             raise ValueError("oracle source-wheel attestation SHA-256 requires a source-wheel policy")
+        catalog_fields = (
+            config.offline_verifier_catalog,
+            config.offline_verifier_catalog_sha256,
+            config.offline_verifier_catalog_identity,
+            config.offline_verifier_catalog_task_file,
+            config.offline_verifier_catalog_task_file_sha256,
+            config.offline_verifier_project_root,
+        )
+        if any(value is not None for value in catalog_fields) and any(value is None for value in catalog_fields):
+            raise ValueError(
+                "offline verifier catalog, SHA-256, identity, full task file, task-file SHA-256, "
+                "and project root must be supplied together"
+            )
+        if config.offline_verifier_catalog is not None:
+            assert config.offline_verifier_catalog_task_file is not None
+            assert config.offline_verifier_project_root is not None
+            if (
+                not config.offline_verifier_catalog.is_absolute()
+                or not config.offline_verifier_catalog_task_file.is_absolute()
+                or not config.offline_verifier_project_root.is_absolute()
+            ):
+                raise ValueError("offline verifier catalog inputs must use absolute paths")
         self._source_wheel_policy = (
             load_source_wheel_policy(
                 config.oracle_source_wheel_policy,
@@ -1077,7 +1180,13 @@ class TerminalBenchVMVMTaskset(
         self._source_builder_semaphore = asyncio.Semaphore(1)
         self._task_source_wheel_attestations: dict[str, set[str]] = {}
         self._artifact_payloads: dict[str, dict[str, bytes]] = {}
-        self._prefetched_test_dependencies: WeakKeyDictionary[Runtime, PrefetchedTestDependencies] = WeakKeyDictionary()
+        self._prefetched_test_dependencies: WeakKeyDictionary[
+            Runtime,
+            PrefetchedTestDependencies | CatalogPrefetchedTestDependencies,
+        ] = WeakKeyDictionary()
+        self._offline_verifier_catalog: OfflineVerifierCatalog | None = None
+        self._offline_verifier_catalog_receipt: dict[str, object] | None = None
+        self._offline_verifier_selection_seal = None
         self._runtime_wheel_fingerprints: WeakKeyDictionary[Runtime, RuntimeWheelFingerprints] = WeakKeyDictionary()
         # ``none-any`` describes wheel payloads, not the marker-conditioned
         # dependency closure that pip selected for the runtime.
@@ -1778,6 +1887,125 @@ class TerminalBenchVMVMTaskset(
         if observed != expected:
             raise ValueError(f"{field} SHA-256 mismatch: expected {expected}, observed {observed}")
 
+    @staticmethod
+    def _validate_private_catalog_selection(path: Path, expected_sha256: str):
+        try:
+            payload, seal = _read_private_file(
+                path.parent,
+                path,
+                maximum=16 * 1024 * 1024,
+                code="catalog_selection_invalid",
+            )
+        except (OSError, RuntimeError):
+            raise ValueError("offline verifier catalog selection file is not a sealed private file") from None
+        if hashlib.sha256(payload).hexdigest() != expected_sha256:
+            raise ValueError("offline verifier catalog selection file changed or failed its digest")
+        try:
+            text = payload.decode("utf-8")
+        except UnicodeDecodeError:
+            raise ValueError("offline verifier catalog selection file is not UTF-8") from None
+        names = tuple(
+            line.strip().split("\t", 1)[0]
+            for line in text.splitlines()
+            if line.strip() and not line.lstrip().startswith("#")
+        )
+        if not names or len(names) != len(set(names)):
+            raise ValueError("offline verifier catalog selection file is empty or contains duplicates")
+        return names, seal
+
+    @staticmethod
+    def _offline_catalog_binding(task: TerminalBenchTask) -> ExpectedTaskBinding:
+        if task.verifier_mode == "shared":
+            runtime_role: Literal["shared-agent", "separate-verifier"] = "shared-agent"
+            image = task.image
+            network_mode = task.agent_network_mode
+            requirements = TerminalBenchVMVMTaskset._test_requirements(task)
+        else:
+            runtime_role = "separate-verifier"
+            image = task.verifier_image
+            network_mode = task.verifier_network_mode
+            requirements = () if task.verifier_tests_baked else TerminalBenchVMVMTaskset._test_requirements(task)
+        if network_mode != "no-network" or not isinstance(image, str) or not is_digest_pinned_image(image):
+            raise ValueError("offline verifier catalog binding is not a digest-pinned no-network runtime")
+        return ExpectedTaskBinding(
+            task_key=task.slug,
+            runtime_role=runtime_role,
+            image=image,
+            requirements=requirements,
+        )
+
+    def _preflight_offline_verifier_catalog(
+        self,
+        root: Path,
+        selected_tasks: list[TerminalBenchTask],
+    ) -> None:
+        config = self.config
+        if config.offline_verifier_catalog is None:
+            return
+        assert config.offline_verifier_catalog_sha256 is not None
+        assert config.offline_verifier_catalog_identity is not None
+        assert config.offline_verifier_catalog_task_file is not None
+        assert config.offline_verifier_catalog_task_file_sha256 is not None
+        assert config.offline_verifier_project_root is not None
+        selection_names, selection_seal = self._validate_private_catalog_selection(
+            config.offline_verifier_catalog_task_file,
+            config.offline_verifier_catalog_task_file_sha256,
+        )
+        identity = config.offline_verifier_catalog_identity.catalog_identity()
+        if (
+            identity.dataset_revision != config.dataset_revision
+            or identity.task_selection_sha256 != config.offline_verifier_catalog_task_file_sha256
+            or identity.image_manifest_sha256 != config.image_manifest_sha256
+            or identity.requirements_extractor_sha256 != offline_requirements_extractor_sha256()
+        ):
+            raise ValueError("offline verifier catalog identity does not match the frozen taskset inputs")
+        binding_config = config.model_copy(
+            update={
+                # Never reopen the selection pathname during binding extraction:
+                # derive the nested selection from the exact descriptor-sealed bytes.
+                "tasks": list(selection_names),
+                "task_file": None,
+                "task_file_sha256": None,
+                "offline_verifier_catalog": None,
+                "offline_verifier_catalog_sha256": None,
+                "offline_verifier_catalog_identity": None,
+                "offline_verifier_catalog_task_file": None,
+                "offline_verifier_catalog_task_file_sha256": None,
+                "offline_verifier_project_root": None,
+            }
+        )
+        try:
+            binding_tasks = type(self)(binding_config).load_tasks()
+            bindings = [self._offline_catalog_binding(task) for task in binding_tasks]
+        except (OSError, RuntimeError, ValueError):
+            raise ValueError("offline verifier catalog binding selection is invalid") from None
+        if not {task.slug for task in selected_tasks}.issubset({task.task_key for task in bindings}):
+            raise ValueError("runtime task selection is not covered by the offline verifier catalog")
+        catalog = OfflineVerifierCatalog.load(
+            config.offline_verifier_catalog,
+            config.offline_verifier_catalog_sha256,
+            identity,
+            project_root=config.offline_verifier_project_root.resolve(strict=True),
+            dataset_root=root,
+        )
+        receipt = catalog.preflight(bindings, expected_task_count=identity.expected_task_count)
+        selection_seal.read_verified(
+            config.offline_verifier_catalog_task_file.parent,
+            maximum=16 * 1024 * 1024,
+            code="catalog_selection_changed",
+        )
+        if receipt.uncovered != 0 or receipt.tasks != identity.expected_task_count:
+            raise ValueError("offline verifier catalog preflight is incomplete")
+        self._offline_verifier_catalog = catalog
+        self._offline_verifier_catalog_receipt = receipt.to_public_dict()
+        self._offline_verifier_selection_seal = selection_seal
+
+    @property
+    def offline_verifier_catalog_receipt(self) -> dict[str, object] | None:
+        if self._offline_verifier_catalog_receipt is None:
+            return None
+        return json.loads(json.dumps(self._offline_verifier_catalog_receipt))
+
     def load_tasks(self) -> list[TerminalBenchTask]:
         root = self.config.dataset_dir.resolve()
         if not root.is_dir():
@@ -1895,6 +2123,7 @@ class TerminalBenchVMVMTaskset(
                 verifier_network_mode=verifier_network_mode,
             )
             tasks.append(TerminalBenchTask(**task_data))
+        self._preflight_offline_verifier_catalog(root, tasks)
         return tasks
 
     @staticmethod
@@ -3330,6 +3559,53 @@ for requirement in sys.argv[1:]:
         """Cache a complete wheelhouse without mutating the task environment."""
         self._prefetched_test_dependencies.pop(runtime, None)
         requirements = self._test_requirements(task)
+        if self.config.offline_verifier_catalog is not None:
+            if task.verifier_mode == "shared":
+                runtime_role: Literal["shared-agent", "separate-verifier"] = "shared-agent"
+                image = task.image
+            else:
+                runtime_role = "separate-verifier"
+                image = task.verifier_image
+                requirements = () if task.verifier_tests_baked else requirements
+            catalog = self._offline_verifier_catalog
+            selection_seal = self._offline_verifier_selection_seal
+            selection_path = self.config.offline_verifier_catalog_task_file
+            if catalog is None or selection_seal is None or selection_path is None:
+                raise RuntimeError("offline verifier catalog was not exhaustively preflighted")
+            if catalog.identity.requirements_extractor_sha256 != offline_requirements_extractor_sha256():
+                raise RuntimeError("offline verifier requirements extractor changed after preflight")
+            selection_seal.read_verified(
+                selection_path.parent,
+                maximum=16 * 1024 * 1024,
+                code="catalog_selection_changed",
+            )
+            if not isinstance(runtime, SandoqRuntime):
+                raise UnsupportedTaskError("offline verifier catalog activation requires SandoqRuntime")
+            if not isinstance(image, str) or runtime.config.image != image:
+                raise RuntimeError("offline verifier catalog runtime image binding mismatch")
+            fingerprint_result = await runtime.run(
+                ["python3", "-c", RUNTIME_FINGERPRINT_PROBE_CODE],
+                {"PYTHONNOUSERSITE": "1"},
+            )
+            if fingerprint_result.exit_code != 0 or fingerprint_result.stderr:
+                raise RuntimeError("offline verifier runtime fingerprint probe failed")
+            fingerprint = RuntimeFingerprint.from_probe_payload(fingerprint_result.stdout)
+            plan = catalog.resolve(
+                task.slug,
+                runtime_role,
+                image,
+                requirements,
+                fingerprint,
+            )
+            plan.revalidate()
+            self._prefetched_test_dependencies[runtime] = CatalogPrefetchedTestDependencies(
+                task_key=task.slug,
+                runtime_role=runtime_role,
+                image=image,
+                requirements=requirements,
+                plan=plan,
+            )
+            return
         if not requirements:
             self._prefetched_test_dependencies[runtime] = PrefetchedTestDependencies(
                 requirements=(),
@@ -3357,6 +3633,8 @@ for requirement in sys.argv[1:]:
         prefetched = self._prefetched_test_dependencies.pop(runtime, None)
         if prefetched is None:
             raise RuntimeError(f"{task.name}: isolated verifier dependencies were not prefetched")
+        if isinstance(prefetched, CatalogPrefetchedTestDependencies):
+            return await self._install_catalog_test_dependencies(task, runtime, prefetched)
         if not prefetched.requirements:
             return None
         primary_error: BaseException | None = None
@@ -3473,6 +3751,143 @@ for requirement in sys.argv[1:]:
                             raise RuntimeError(f"{task.name}: restored verifier wheelhouse cleanup failed: {detail}")
                         logger.warning("%s restored verifier wheelhouse cleanup failed: %s", task.name, detail)
 
+    async def _install_catalog_test_dependencies(
+        self,
+        task: TerminalBenchTask,
+        runtime: Runtime,
+        prefetched: CatalogPrefetchedTestDependencies,
+    ) -> VerifierDependencyOverlay | None:
+        plan = prefetched.plan
+        plan.revalidate()
+        nonce = uuid.uuid4().hex
+        root = PurePosixPath("/tmp/terminal-bench-offline-verifier") / nonce
+        paths = {
+            "archive": str(root / "wheelhouse.tar"),
+            "wheel_directory": str(root / "wheels"),
+            "site_directory": str(root / "site"),
+            "install_request": str(root / "requirements.txt"),
+            "probe_script": str(root / "closure-probe.py"),
+            "probe_control": str(root / "closure-control.json"),
+            "bootstrap": str(root / "bootstrap"),
+        }
+        validate_runtime_staging_paths(tuple(paths.values()))
+        primary_error: BaseException | None = None
+        retain_overlay = False
+        try:
+            prepared = await self._run_root(
+                runtime,
+                f"rm -rf {shlex.quote(str(root))} && mkdir -p {shlex.quote(str(root))}",
+            )
+            if prepared.exit_code != 0:
+                raise RuntimeError("offline verifier staging preparation failed")
+            if plan.guarantee == "image-inventory":
+                probe_control = plan.probe_control_payload(None)
+                await runtime.write(paths["probe_script"], CLOSURE_PROBE_CODE.encode())
+                await runtime.write(paths["probe_control"], probe_control)
+                probe = await runtime.run(
+                    list(
+                        closure_probe_argv(
+                            paths["probe_script"],
+                            paths["probe_control"],
+                            hashlib.sha256(probe_control).hexdigest(),
+                        )
+                    ),
+                    {"PYTHONNOUSERSITE": "1"},
+                )
+                expected = canonical_json({"count": len(plan.closure), "status": "ok"}).decode()
+                if probe.exit_code != 0 or probe.stdout.strip() != expected or probe.stderr:
+                    raise RuntimeError("offline verifier image inventory drifted")
+                plan.revalidate()
+                return None
+
+            archive = await asyncio.to_thread(plan.read_verified_archive)
+            archive_sha256 = hashlib.sha256(archive).hexdigest()
+            install_request = plan.install_request_payload(paths["wheel_directory"])
+            probe_control = plan.probe_control_payload(paths["site_directory"])
+            await runtime.write(paths["archive"], archive)
+            await runtime.write(paths["install_request"], install_request)
+            await runtime.write(paths["probe_script"], CLOSURE_PROBE_CODE.encode())
+            await runtime.write(paths["probe_control"], probe_control)
+            restored = await self._run_root(
+                runtime,
+                f"mkdir -p {shlex.quote(paths['wheel_directory'])} {shlex.quote(paths['site_directory'])} "
+                f"{shlex.quote(paths['bootstrap'])} && "
+                f"test \"$(sha256sum {shlex.quote(paths['archive'])} | cut -d' ' -f1)\" = "
+                f"{shlex.quote(archive_sha256)} && "
+                f"tar --no-same-owner --no-same-permissions -xf {shlex.quote(paths['archive'])} "
+                f"-C {shlex.quote(paths['wheel_directory'])} && "
+                f'test -z "$(find {shlex.quote(paths["wheel_directory"])} -mindepth 1 -maxdepth 1 '
+                "! -type f -o -type f ! -name '*.whl')\"",
+            )
+            if restored.exit_code != 0:
+                raise RuntimeError("offline verifier wheelhouse restoration failed")
+            installed = await runtime.run(
+                list(offline_install_argv(paths["site_directory"], paths["install_request"])),
+                offline_install_environment(),
+            )
+            if installed.exit_code != 0:
+                raise RuntimeError("offline verifier dependency installation failed")
+            hardened = await self._run_root(
+                runtime,
+                f"test ! -e {shlex.quote(paths['site_directory'])}/sitecustomize.py && "
+                f"test ! -e {shlex.quote(paths['site_directory'])}/usercustomize.py && "
+                f"chmod -R a+rX {shlex.quote(paths['site_directory'])}",
+            )
+            if hardened.exit_code != 0:
+                raise RuntimeError("offline verifier dependency overlay failed policy checks")
+            probe = await runtime.run(
+                list(
+                    closure_probe_argv(
+                        paths["probe_script"],
+                        paths["probe_control"],
+                        hashlib.sha256(probe_control).hexdigest(),
+                    )
+                ),
+                {"PYTHONNOUSERSITE": "1"},
+            )
+            expected = canonical_json({"count": len(plan.closure), "status": "ok"}).decode()
+            if probe.exit_code != 0 or probe.stdout.strip() != expected or probe.stderr:
+                raise RuntimeError("offline verifier dependency closure probe failed")
+            bootstrap_path = f"{paths['bootstrap']}/sitecustomize.py"
+            await runtime.write(bootstrap_path, _verifier_site_bootstrap(paths["site_directory"]))
+            bootstrap_ready = await self._run_root(
+                runtime,
+                f"test -f {shlex.quote(bootstrap_path)} && "
+                f'test "$(find {shlex.quote(paths["bootstrap"])} -mindepth 1 -maxdepth 1 | wc -l)" -eq 1 && '
+                f"chmod -R a+rX {shlex.quote(paths['bootstrap'])}",
+            )
+            if bootstrap_ready.exit_code != 0:
+                raise RuntimeError("offline verifier dependency bootstrap validation failed")
+            plan.revalidate()
+            retain_overlay = True
+            return VerifierDependencyOverlay(
+                site_path=paths["site_directory"],
+                bootstrap_path=paths["bootstrap"],
+            )
+        except BaseException as error:
+            primary_error = error
+            raise
+        finally:
+            cleanup = [
+                paths["archive"],
+                paths["wheel_directory"],
+                paths["install_request"],
+                paths["probe_script"],
+                paths["probe_control"],
+            ]
+            if not retain_overlay:
+                cleanup.extend((paths["site_directory"], paths["bootstrap"]))
+            try:
+                cleaned = await self._run_root(runtime, f"rm -rf {shlex.join(cleanup)}")
+            except BaseException:
+                if primary_error is None:
+                    raise
+            else:
+                if cleaned.exit_code != 0 and primary_error is None:
+                    raise RuntimeError("offline verifier staging cleanup failed")
+            if primary_error is None:
+                plan.revalidate()
+
     async def _run_verifier(
         self,
         task: TerminalBenchTask,
@@ -3481,7 +3896,10 @@ for requirement in sys.argv[1:]:
         stage_tests: bool,
     ) -> tuple[ProgramResult, bool, float, dict[str, float]]:
         isolated_staged_tests = stage_tests and task.verifier_network_mode == "no-network"
-        if isolated_staged_tests and runtime not in self._prefetched_test_dependencies:
+        catalog_isolated_runtime = (
+            self.config.offline_verifier_catalog is not None and task.verifier_network_mode == "no-network"
+        )
+        if (isolated_staged_tests or catalog_isolated_runtime) and runtime not in self._prefetched_test_dependencies:
             raise RuntimeError(
                 f"{task.name}: isolated verifier dependencies were not prefetched before the untrusted phase"
             )
@@ -3507,11 +3925,10 @@ for requirement in sys.argv[1:]:
         verifier_overlay = None
         verifier_failed = False
         try:
-            if stage_tests:
-                if isolated_staged_tests:
-                    verifier_overlay = await self._install_prefetched_test_dependencies(task, runtime)
-                else:
-                    await self._ensure_test_dependencies(task, runtime)
+            if isolated_staged_tests or catalog_isolated_runtime:
+                verifier_overlay = await self._install_prefetched_test_dependencies(task, runtime)
+            elif stage_tests:
+                await self._ensure_test_dependencies(task, runtime)
             if task.verifier_network_mode == "public":
                 await self._configure_network_policy(
                     task,
@@ -3621,8 +4038,19 @@ for requirement in sys.argv[1:]:
             try:
                 await verifier.start()
                 descriptor = verifier.descriptor
+                if self.config.offline_verifier_catalog is not None and task.verifier_network_mode == "no-network":
+                    # Prove the immutable Firecracker/no-route contract before
+                    # even the pristine catalog fingerprint probe runs.
+                    await self._configure_network_policy(
+                        task,
+                        verifier,
+                        task.verifier_network_mode,
+                        activate=False,
+                    )
                 stage_tests = not task.verifier_tests_baked
-                if stage_tests and task.verifier_network_mode == "no-network":
+                if (stage_tests or self.config.offline_verifier_catalog is not None) and (
+                    task.verifier_network_mode == "no-network"
+                ):
                     # Cache wheels while this verifier runtime is still pristine,
                     # before restoring any agent-produced artifact into it.
                     await self._prefetch_test_dependencies(task, verifier)
