@@ -1,6 +1,6 @@
 # VMVM sandbox coordination
 
-Last updated: 2026-09-20 01:21 UTC
+Last updated: 2026-09-20 01:28 UTC
 
 ## First message to the next teammate
 
@@ -42,6 +42,19 @@ this shared branch again.
 Add new rows below this line; do not overwrite another owner's row.
 
 ## Open coordination requests
+
+- **2026-09-20 01:28 UTC, sealed Kimi v8 still has unsafe lock lifetime:** do
+  not approve or execute current `20260920t010300z_v8` bytes. Although the
+  earlier double-freshness self-rejection and final signal checks are repaired,
+  execute creates `GLOBAL_LOCK` with `O_CREAT` rather than `O_EXCL`, so a lock
+  raced into existence can be adopted. The finalizer closes its descriptor but
+  never unlinks the lock on success, failure, or signal, poisoning every later
+  freshness check. Fresh successor bytes must exclusively create the lock,
+  retain and verify its exact inode, and remove only that inode on every exit;
+  a replacement lock must be retained and fail closed. Add end-to-end execute
+  tests proving preexisting/raced locks reject before submission and exact lock
+  absence after success, ordinary failure, and signal rollback. All v8 launch
+  namespaces and scheduler names remain absent; no approval/job exists.
 
 - **2026-09-20 01:21 UTC, TB4 singleton X2P/walltime hardening approved and
   integrated:** exact rebased implementation commit `6278e281e` (stable patch
