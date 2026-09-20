@@ -18,11 +18,15 @@ import json
 import os
 import platform
 import pwd
+import re
 import secrets
+import select
 import signal
 import socket
 import stat
+import struct
 import subprocess
+import sys
 import tempfile
 import threading
 import time
@@ -50,6 +54,10 @@ DEFAULT_FINAL_SAFETY_SECONDS = 10 * 60
 MAX_SECRET_BYTES = 64 * 1024
 MAX_EVENT_LOG_BYTES = 64 * 1024 * 1024
 MAX_RESULTS_BYTES = 16 * 1024 * 1024 * 1024
+SHA256_RE = re.compile(r"[0-9a-f]{64}")
+GIT_REVISION_RE = re.compile(r"[0-9a-f]{40}")
+VERIFIED_CLEANUP_BASE_URL = "https://sandoq.eks-prod.cf.aws.metafb.cloud"
+VERIFIED_CLEANUP_CONCURRENCY = 32
 
 
 class RotationError(RuntimeError):
@@ -764,8 +772,64 @@ def _guard_event(log: DurableEventLog, event: str, now: int, state: Mapping[str,
 
 
 PROCESS_GROUP_POLL_SECONDS = 0.05
-SUPERVISOR_HANDSHAKE_ENV = "SANDOQ_CLEANUP_SUPERVISOR_FD"
+SUPERVISOR_HANDSHAKE_ENV = "SANDOQ_CLEANUP_SUPERVISOR_SOCKET"
 SUPERVISOR_HANDSHAKE_KIND = "sandoq-cleanup-supervisor-v1"
+SUPERVISOR_HANDSHAKE_TIMEOUT_SECONDS = 30
+
+
+@dataclass
+class _SupervisorChannel:
+    connection: socket.socket
+    socket_path: Path
+    socket_root: Path
+    closed: bool = False
+
+    def fileno(self) -> int:
+        return self.connection.fileno()
+
+    def recv(self, size: int, flags: int = 0) -> bytes:
+        return self.connection.recv(size, flags)
+
+    def close(self) -> None:
+        if self.closed:
+            return
+        self.closed = True
+        error: OSError | None = None
+        try:
+            self.connection.close()
+        except OSError as caught:
+            error = caught
+        try:
+            self.socket_path.unlink(missing_ok=True)
+            self.socket_root.rmdir()
+        except OSError as caught:
+            if error is None:
+                error = caught
+        if error is not None:
+            raise error
+
+
+def _peer_credentials(channel: socket.socket) -> tuple[int, int, int]:
+    try:
+        raw = channel.getsockopt(socket.SOL_SOCKET, socket.SO_PEERCRED, struct.calcsize("3i"))
+        return struct.unpack("3i", raw)
+    except (AttributeError, OSError, struct.error) as error:
+        raise GuardViolation("supervisor_handshake_failed") from error
+
+
+def _supervisor_channel_alive(channel: _SupervisorChannel) -> bool:
+    try:
+        readable, _, exceptional = select.select([channel], [], [channel], 0)
+        if exceptional:
+            raise GuardViolation("supervisor_channel_failed")
+        if not readable:
+            return True
+        payload = channel.recv(1, socket.MSG_PEEK)
+    except (OSError, ValueError) as error:
+        raise GuardViolation("supervisor_channel_failed") from error
+    if payload == b"":
+        return False
+    raise GuardViolation("supervisor_channel_protocol_violation")
 
 
 def _process_group_id(process: Any) -> int:
@@ -907,19 +971,58 @@ def _start_supervised_evaluator(
     process_factory: Callable[..., Any],
     termination_timeout: int,
     terminate_process_group: Callable[[Any, int], None],
-) -> tuple[Any, socket.socket]:
-    parent, child = socket.socketpair(socket.AF_UNIX, socket.SOCK_SEQPACKET)
+) -> tuple[Any, _SupervisorChannel]:
+    socket_root = Path(tempfile.mkdtemp(prefix=f"sandoq-supervisor-{os.getuid()}-", dir="/tmp"))
+    socket_root.chmod(0o700)
+    socket_path = socket_root / "channel.sock"
+    listener = socket.socket(socket.AF_UNIX, socket.SOCK_SEQPACKET)
+    connection: socket.socket | None = None
     process = None
     try:
+        listener.bind(str(socket_path))
+        socket_path.chmod(0o600)
+        listener.listen(1)
+        listener.settimeout(SUPERVISOR_HANDSHAKE_TIMEOUT_SECONDS)
         environment = os.environ.copy()
-        environment[SUPERVISOR_HANDSHAKE_ENV] = str(child.fileno())
+        environment[SUPERVISOR_HANDSHAKE_ENV] = str(socket_path)
+        wrapped_command = [
+            sys.executable,
+            "-B",
+            str(Path(__file__).resolve()),
+            "exec-supervised",
+            "--",
+            *command,
+        ]
         process = process_factory(
-            list(command),
+            wrapped_command,
             start_new_session=True,
-            pass_fds=(child.fileno(),),
             env=environment,
         )
-        child.close()
+        connection, _address = listener.accept()
+        connection.settimeout(SUPERVISOR_HANDSHAKE_TIMEOUT_SECONDS)
+        peer_pid, peer_uid, _peer_gid = _peer_credentials(connection)
+        hello_raw = connection.recv(4097)
+        if len(hello_raw) > 4096:
+            raise GuardViolation("supervisor_handshake_failed")
+        try:
+            hello = json.loads(hello_raw)
+        except (UnicodeDecodeError, json.JSONDecodeError) as error:
+            raise GuardViolation("supervisor_handshake_failed") from error
+        expected_pid = _process_group_id(process)
+        expected_start_ticks = _process_start_ticks(expected_pid)
+        if (
+            peer_uid != os.getuid()
+            or peer_pid != expected_pid
+            or hello
+            != {
+                "schema_version": 1,
+                "kind": f"{SUPERVISOR_HANDSHAKE_KIND}-hello",
+                "evaluator_pid": expected_pid,
+                "evaluator_process_group_id": expected_pid,
+                "evaluator_start_ticks": expected_start_ticks,
+            }
+        ):
+            raise GuardViolation("supervisor_handshake_failed")
         nonce = secrets.token_hex(32)
         payload = {
             "schema_version": 1,
@@ -927,13 +1030,12 @@ def _start_supervised_evaluator(
             "nonce": nonce,
             "guard_pid": os.getpid(),
             "guard_start_ticks": _process_start_ticks(os.getpid()),
-            "evaluator_pid": _process_group_id(process),
-            "evaluator_start_ticks": _process_start_ticks(_process_group_id(process)),
-            "evaluator_process_group_id": _process_group_id(process),
+            "evaluator_pid": expected_pid,
+            "evaluator_start_ticks": expected_start_ticks,
+            "evaluator_process_group_id": expected_pid,
         }
-        parent.sendall(canonical_json(payload))
-        parent.settimeout(30)
-        response = parent.recv(4097)
+        connection.sendall(canonical_json(payload))
+        response = connection.recv(4097)
         if len(response) > 4096:
             raise GuardViolation("supervisor_handshake_failed")
         try:
@@ -944,13 +1046,21 @@ def _start_supervised_evaluator(
             "schema_version": 1,
             "kind": f"{SUPERVISOR_HANDSHAKE_KIND}-ack",
             "nonce": nonce,
-            "evaluator_pid": _process_group_id(process),
+            "evaluator_pid": expected_pid,
+            "evaluator_start_ticks": expected_start_ticks,
         }:
             raise GuardViolation("supervisor_handshake_failed")
-        parent.settimeout(None)
+        connection.setblocking(False)
     except BaseException as error:
-        parent.close()
-        child.close()
+        with contextlib.suppress(OSError):
+            listener.close()
+        if connection is not None:
+            with contextlib.suppress(OSError):
+                connection.close()
+        with contextlib.suppress(OSError):
+            socket_path.unlink(missing_ok=True)
+        with contextlib.suppress(OSError):
+            socket_root.rmdir()
         if process is not None:
             try:
                 terminate_process_group(process, termination_timeout)
@@ -961,7 +1071,75 @@ def _start_supervised_evaluator(
         if isinstance(error, GuardViolation):
             raise
         raise GuardViolation("supervisor_handshake_failed") from error
-    return process, parent
+    listener.close()
+    assert connection is not None
+    return process, _SupervisorChannel(connection, socket_path, socket_root)
+
+
+def exec_supervised_evaluator(command: Sequence[str]) -> None:
+    """Authenticate the post-exec evaluator process, retain liveness FD, then exec."""
+    socket_value = os.environ.get(SUPERVISOR_HANDSHAKE_ENV)
+    if (
+        not command
+        or socket_value is None
+        or not socket_value
+        or "\x00" in socket_value
+        or not Path(socket_value).is_absolute()
+    ):
+        raise GuardViolation("supervisor_handshake_failed")
+    channel = socket.socket(socket.AF_UNIX, socket.SOCK_SEQPACKET)
+    try:
+        channel.settimeout(SUPERVISOR_HANDSHAKE_TIMEOUT_SECONDS)
+        channel.connect(socket_value)
+        evaluator_pid = os.getpid()
+        evaluator_start_ticks = _process_start_ticks(evaluator_pid)
+        hello = {
+            "schema_version": 1,
+            "kind": f"{SUPERVISOR_HANDSHAKE_KIND}-hello",
+            "evaluator_pid": evaluator_pid,
+            "evaluator_process_group_id": os.getpgrp(),
+            "evaluator_start_ticks": evaluator_start_ticks,
+        }
+        channel.sendall(canonical_json(hello))
+        payload_raw = channel.recv(4097)
+        if len(payload_raw) > 4096:
+            raise GuardViolation("supervisor_handshake_failed")
+        try:
+            payload = json.loads(payload_raw)
+        except (UnicodeDecodeError, json.JSONDecodeError) as error:
+            raise GuardViolation("supervisor_handshake_failed") from error
+        peer_pid, peer_uid, _peer_gid = _peer_credentials(channel)
+        if (
+            peer_uid != os.getuid()
+            or peer_pid != os.getppid()
+            or payload.get("schema_version") != 1
+            or payload.get("kind") != SUPERVISOR_HANDSHAKE_KIND
+            or not isinstance(payload.get("nonce"), str)
+            or re.fullmatch(r"[0-9a-f]{64}", payload["nonce"]) is None
+            or payload.get("guard_pid") != peer_pid
+            or payload.get("guard_start_ticks") != _process_start_ticks(peer_pid)
+            or payload.get("evaluator_pid") != evaluator_pid
+            or payload.get("evaluator_start_ticks") != evaluator_start_ticks
+            or payload.get("evaluator_process_group_id") != os.getpgrp()
+        ):
+            raise GuardViolation("supervisor_handshake_failed")
+        acknowledgement = {
+            "schema_version": 1,
+            "kind": f"{SUPERVISOR_HANDSHAKE_KIND}-ack",
+            "nonce": payload["nonce"],
+            "evaluator_pid": evaluator_pid,
+            "evaluator_start_ticks": evaluator_start_ticks,
+        }
+        channel.sendall(canonical_json(acknowledgement))
+        channel.settimeout(None)
+        os.set_inheritable(channel.fileno(), True)
+        environment = os.environ.copy()
+        environment.pop(SUPERVISOR_HANDSHAKE_ENV, None)
+        environment["SANDOQ_CLEANUP_SUPERVISOR_CHANNEL_FD"] = str(channel.fileno())
+        os.execvpe(command[0], list(command), environment)
+    except BaseException:
+        channel.close()
+        raise
 
 
 def _process_start_ticks(process_id: int) -> int:
@@ -1020,6 +1198,7 @@ def supervise_rollout(
     pending_error: BaseException | None = None
     cleanup_error: BaseException | None = None
     cleanup_succeeded = False
+    evaluator_attempted = False
     last_wall: int | None = None
     last_monotonic: float | None = None
     heartbeat_value: int | None = None
@@ -1036,6 +1215,7 @@ def supervise_rollout(
         last_monotonic = monotonic_now
         heartbeat_value = state["heartbeat_at_unix"]
         heartbeat_monotonic = monotonic_now
+        evaluator_attempted = True
         process, supervisor_channel = evaluator_starter(
             evaluator_command,
             process_factory=process_factory,
@@ -1084,6 +1264,11 @@ def supervise_rollout(
             if evaluator_code is not None:
                 _guard_event(log, "evaluator_exited", now, state, detail=str(evaluator_code))
                 break
+            if supervisor_channel is not None and not _supervisor_channel_alive(supervisor_channel):
+                trigger = "supervisor_channel_closed"
+                assert prior is not None
+                _guard_event(log, "guard_triggered", now, prior, detail=trigger)
+                break
             clock.sleep(config.poll_seconds)
     except BaseException as error:
         pending_error = error
@@ -1116,7 +1301,7 @@ def supervise_rollout(
             except BaseException as error:
                 if pending_error is None:
                     pending_error = error
-        if process is not None and prior is not None:
+        if evaluator_attempted and prior is not None:
             try:
                 now = _integer_time(clock)
             except BaseException as error:
@@ -1172,7 +1357,7 @@ def supervise_rollout(
         raise cleanup_error
     if pending_error is not None:
         raise pending_error
-    if process is not None and not cleanup_succeeded:
+    if evaluator_attempted and not cleanup_succeeded:
         raise GuardViolation("cleanup_failed")
     if trigger is not None:
         return 86
@@ -1444,6 +1629,8 @@ def sanitize_rotation_audit(
 
 
 def _command_from_json(path: Path) -> list[str]:
+    _validate_private_parent(path)
+    _validate_existing_private_file(path, allow_missing=False)
     try:
         value = json.loads(read_regular(path, max_bytes=64 * 1024))
     except (json.JSONDecodeError, UnionContractError) as error:
@@ -1452,6 +1639,143 @@ def _command_from_json(path: Path) -> list[str]:
         not isinstance(value, list)
         or not value
         or any(not isinstance(item, str) or not item or "\x00" in item for item in value)
+    ):
+        raise RotationError("command_file_invalid")
+    project_root = Path(__file__).resolve(strict=True).parents[3]
+    cleanup_script = project_root / "user/tianhaowu/terminal_bench_vmvm/run_sandoq_verified_cleanup.py"
+    provider_root = project_root / "deps/sandoq-provider"
+    provider_cleanup = (
+        provider_root / "recipes/sandoq_swerebench_v2_oci/verify_pool_cleanup.py"
+    )
+    if value[:3] != [sys.executable, "-B", os.fspath(cleanup_script)]:
+        raise RotationError("command_file_invalid")
+    arguments = value[3:]
+    if len(arguments) % 2:
+        raise RotationError("command_file_invalid")
+    parsed: dict[str, str] = {}
+    for option, argument in zip(arguments[::2], arguments[1::2], strict=True):
+        if not option.startswith("--") or option in parsed:
+            raise RotationError("command_file_invalid")
+        parsed[option] = argument
+    expected_options = {
+        "--output-dir",
+        "--provider-cleanup",
+        "--base-url",
+        "--owner",
+        "--concurrency",
+        "--event-log",
+        "--wal",
+        "--drain-marker",
+        "--sanitized-output",
+        "--project-root",
+        "--provider-root",
+        "--expected-prime-commit",
+        "--expected-prime-tree",
+        "--expected-self-sha256",
+        "--expected-sanitizer-sha256",
+        "--expected-provider-cleanup-sha256",
+    }
+    digest_options = {
+        "--expected-self-sha256",
+        "--expected-sanitizer-sha256",
+        "--expected-provider-cleanup-sha256",
+    }
+    if (
+        set(parsed) != expected_options
+        or parsed["--project-root"] != os.fspath(project_root)
+        or parsed["--provider-root"] != os.fspath(provider_root)
+        or parsed["--provider-cleanup"] != os.fspath(provider_cleanup)
+        or parsed["--base-url"] != VERIFIED_CLEANUP_BASE_URL
+        or parsed["--concurrency"] != str(VERIFIED_CLEANUP_CONCURRENCY)
+        or GIT_REVISION_RE.fullmatch(parsed["--expected-prime-commit"]) is None
+        or GIT_REVISION_RE.fullmatch(parsed["--expected-prime-tree"]) is None
+        or any(SHA256_RE.fullmatch(parsed[option]) is None for option in digest_options)
+        or not parsed["--owner"]
+        or any(character in parsed["--owner"] for character in "\r\n=")
+    ):
+        raise RotationError("command_file_invalid")
+    required_environment = {
+        "PRIME_RL_OUTPUT_DIR": "--output-dir",
+        "SANDOQ_OWNER": "--owner",
+        "OCI_RUNNER_POOL_EVENT_LOG": "--event-log",
+        "OCI_RUNNER_POOL_WAL": "--wal",
+    }
+    if any(
+        not os.environ.get(variable)
+        or parsed[option] != os.environ[variable]
+        for variable, option in required_environment.items()
+    ):
+        raise RotationError("command_file_invalid")
+    pool_socket_value = os.environ.get("OCI_RUNNER_POOL_SOCKET")
+    if not pool_socket_value or not pool_socket_value.endswith(".sock"):
+        raise RotationError("command_file_invalid")
+    expected_drain_marker = f"{pool_socket_value[:-5]}.drained.json"
+    if parsed["--drain-marker"] != expected_drain_marker:
+        raise RotationError("command_file_invalid")
+    output_dir = Path(parsed["--output-dir"])
+    try:
+        resolved_output = output_dir.resolve(strict=True)
+        output_metadata = output_dir.lstat()
+    except OSError as error:
+        raise RotationError("command_file_invalid") from error
+    if (
+        output_dir != resolved_output
+        or output_dir.is_symlink()
+        or not stat.S_ISDIR(output_metadata.st_mode)
+        or output_metadata.st_uid != os.getuid()
+        or stat.S_IMODE(output_metadata.st_mode) != 0o700
+    ):
+        raise RotationError("command_file_invalid")
+    try:
+        resolved_command_file = path.resolve(strict=True)
+        resolved_command_file.relative_to(resolved_output)
+    except (OSError, ValueError) as error:
+        raise RotationError("command_file_invalid") from error
+    if path != resolved_command_file or path.is_symlink():
+        raise RotationError("command_file_invalid")
+    expected_output_paths = {
+        "--event-log": resolved_output / "pool_events.jsonl",
+        "--wal": resolved_output / "control/sandoq-pool.wal.jsonl",
+        "--sanitized-output": resolved_output / "sandoq_cleanup_audit.json",
+    }
+    if any(Path(parsed[option]) != expected for option, expected in expected_output_paths.items()):
+        raise RotationError("command_file_invalid")
+    for option in ("--event-log", "--wal"):
+        candidate = Path(parsed[option])
+        try:
+            resolved_candidate = candidate.resolve(strict=os.path.lexists(candidate))
+            resolved_candidate.relative_to(resolved_output)
+        except (OSError, ValueError) as error:
+            raise RotationError("command_file_invalid") from error
+        if candidate != resolved_candidate or candidate.is_symlink():
+            raise RotationError("command_file_invalid")
+        _validate_private_parent(candidate)
+        _validate_existing_private_file(candidate, allow_missing=True)
+    for option in ("--sanitized-output",):
+        candidate = Path(parsed[option]).resolve(strict=False)
+        try:
+            candidate.relative_to(resolved_output)
+        except ValueError as error:
+            raise RotationError("command_file_invalid") from error
+        if candidate.is_symlink() or os.path.lexists(candidate):
+            raise RotationError("command_file_invalid")
+    drain_marker = Path(parsed["--drain-marker"])
+    pool_socket = Path(pool_socket_value)
+    try:
+        pool_parent = pool_socket.parent.resolve(strict=True)
+        pool_parent_metadata = pool_socket.parent.lstat()
+    except OSError as error:
+        raise RotationError("command_file_invalid") from error
+    if (
+        not pool_socket.is_absolute()
+        or pool_socket != pool_parent / pool_socket.name
+        or pool_socket.parent.is_symlink()
+        or not stat.S_ISDIR(pool_parent_metadata.st_mode)
+        or pool_parent_metadata.st_uid != os.getuid()
+        or stat.S_IMODE(pool_parent_metadata.st_mode) != 0o700
+        or drain_marker != pool_parent / drain_marker.name
+        or drain_marker.is_symlink()
+        or os.path.lexists(drain_marker)
     ):
         raise RotationError("command_file_invalid")
     return value
@@ -1478,6 +1802,8 @@ def main() -> None:
     guard.add_argument("--event-log", type=Path, required=True)
     guard.add_argument("--cleanup-command-json", type=Path, required=True)
     guard.add_argument("evaluator", nargs=argparse.REMAINDER)
+    supervised = subparsers.add_parser("exec-supervised")
+    supervised.add_argument("evaluator", nargs=argparse.REMAINDER)
     audit = subparsers.add_parser("audit")
     audit.add_argument("--rotator-log", type=Path, required=True)
     audit.add_argument("--guard-log", type=Path, required=True)
@@ -1519,6 +1845,11 @@ def main() -> None:
                 stop_requested=stop.is_set,
             )
             raise SystemExit(code)
+        elif args.command == "exec-supervised":
+            evaluator = list(args.evaluator)
+            if evaluator and evaluator[0] == "--":
+                evaluator.pop(0)
+            exec_supervised_evaluator(evaluator)
         else:
             try:
                 from eval_run_identity import EvalIdentityError, load_eval_run_identity

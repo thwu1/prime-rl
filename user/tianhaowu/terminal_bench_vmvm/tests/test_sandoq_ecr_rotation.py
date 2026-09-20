@@ -4,6 +4,7 @@ import importlib.util
 import json
 import os
 import signal
+import socket
 import subprocess
 import sys
 import threading
@@ -66,13 +67,8 @@ def _fake_groups(*processes: FakeProcess):
     return lambda process_id: by_pid[process_id].group_alive
 
 
-class FakeSupervisorChannel:
-    def close(self) -> None:
-        pass
-
-
 def _start_fake_evaluator(command, *, process_factory, **_kwargs):
-    return process_factory(list(command), start_new_session=True), FakeSupervisorChannel()
+    return process_factory(list(command), start_new_session=True), None
 
 
 def _private_dir(tmp_path: Path) -> Path:
@@ -96,6 +92,69 @@ def _state(token_path: Path, now: int = 0, *, status: str = "running") -> dict:
         consecutive_failures=0,
         token_identity=rotation._token_identity(token_path),
     )
+
+
+def _verified_cleanup_command(monkeypatch, tmp_path: Path) -> tuple[Path, list[str]]:
+    output_dir = tmp_path / "output"
+    output_dir.mkdir(mode=0o700)
+    control_dir = output_dir / "control"
+    control_dir.mkdir(mode=0o700)
+    event_log = output_dir / "pool_events.jsonl"
+    wal = control_dir / "sandoq-pool.wal.jsonl"
+    _write_private(event_log, b"fixture\n")
+    _write_private(wal, b"fixture\n")
+    pool_root = tmp_path / "pool"
+    pool_root.mkdir(mode=0o700)
+    pool_socket = pool_root / "job.sock"
+    project_root = Path(rotation.__file__).resolve().parents[3]
+    command = [
+        sys.executable,
+        "-B",
+        str(project_root / "user/tianhaowu/terminal_bench_vmvm/run_sandoq_verified_cleanup.py"),
+        "--output-dir",
+        str(output_dir),
+        "--provider-cleanup",
+        str(
+            project_root
+            / "deps/sandoq-provider/recipes/sandoq_swerebench_v2_oci/verify_pool_cleanup.py"
+        ),
+        "--base-url",
+        rotation.VERIFIED_CLEANUP_BASE_URL,
+        "--owner",
+        "fixture-owner",
+        "--concurrency",
+        str(rotation.VERIFIED_CLEANUP_CONCURRENCY),
+        "--event-log",
+        str(event_log),
+        "--wal",
+        str(wal),
+        "--drain-marker",
+        str(pool_root / "job.drained.json"),
+        "--sanitized-output",
+        str(output_dir / "sandoq_cleanup_audit.json"),
+        "--project-root",
+        str(project_root),
+        "--provider-root",
+        str(project_root / "deps/sandoq-provider"),
+        "--expected-prime-commit",
+        "1" * 40,
+        "--expected-prime-tree",
+        "2" * 40,
+        "--expected-self-sha256",
+        "3" * 64,
+        "--expected-sanitizer-sha256",
+        "4" * 64,
+        "--expected-provider-cleanup-sha256",
+        "5" * 64,
+    ]
+    command_file = control_dir / "cleanup-command.json"
+    _write_private(command_file, rotation.canonical_json(command))
+    monkeypatch.setenv("PRIME_RL_OUTPUT_DIR", str(output_dir))
+    monkeypatch.setenv("SANDOQ_OWNER", "fixture-owner")
+    monkeypatch.setenv("OCI_RUNNER_POOL_EVENT_LOG", str(event_log))
+    monkeypatch.setenv("OCI_RUNNER_POOL_WAL", str(wal))
+    monkeypatch.setenv("OCI_RUNNER_POOL_SOCKET", str(pool_socket))
+    return command_file, command
 
 
 def test_fake_ucloud_mints_without_echoing_or_hashing_secret(tmp_path: Path, capsys) -> None:
@@ -302,31 +361,23 @@ import os
 import socket
 from pathlib import Path
 
-descriptor = int(os.environ["SANDOQ_CLEANUP_SUPERVISOR_FD"])
-metadata = os.fstat(descriptor)
+if "SANDOQ_CLEANUP_SUPERVISOR_SOCKET" in os.environ:
+    raise SystemExit(2)
+descriptor = int(os.environ["SANDOQ_CLEANUP_SUPERVISOR_CHANNEL_FD"])
 channel = socket.socket(fileno=descriptor)
-body = channel.recv(4097)
-value = json.loads(body)
 peer_pid, peer_uid, _peer_gid = __import__("struct").unpack(
     "3i", channel.getsockopt(socket.SOL_SOCKET, socket.SO_PEERCRED, 12)
 )
 if (
     channel.getsockopt(socket.SOL_SOCKET, socket.SO_TYPE) != socket.SOCK_SEQPACKET
     or peer_uid != os.getuid()
-    or peer_pid != value["guard_pid"]
-    or value["evaluator_pid"] != os.getpgrp()
-    or value["evaluator_process_group_id"] != os.getpgrp()
+    or peer_pid != os.getppid()
+    or os.getpid() != os.getpgrp()
 ):
     raise SystemExit(2)
-channel.sendall(json.dumps({
-    "schema_version": 1,
-    "kind": "sandoq-cleanup-supervisor-v1-ack",
-    "nonce": value["nonce"],
-    "evaluator_pid": value["evaluator_pid"],
-}, sort_keys=True, separators=(",", ":")).encode() + b"\\n")
 Path(os.environ["HANDSHAKE_OUTPUT"]).write_text(json.dumps({
-    "kind": value["kind"],
-    "evaluator_pid": value["evaluator_pid"],
+    "channel_inherited": True,
+    "evaluator_pid": os.getpid(),
 }, sort_keys=True))
 """
     previous = os.environ.get("HANDSHAKE_OUTPUT")
@@ -347,9 +398,194 @@ Path(os.environ["HANDSHAKE_OUTPUT"]).write_text(json.dumps({
             os.environ["HANDSHAKE_OUTPUT"] = previous
 
     assert json.loads(observed.read_text()) == {
-        "kind": rotation.SUPERVISOR_HANDSHAKE_KIND,
+        "channel_inherited": True,
         "evaluator_pid": process.pid,
     }
+
+
+def test_supervisor_rejects_spoofed_post_exec_identity() -> None:
+    processes: list[subprocess.Popen] = []
+    script = """
+import json
+import os
+import socket
+import time
+
+channel = socket.socket(socket.AF_UNIX, socket.SOCK_SEQPACKET)
+channel.connect(os.environ["SANDOQ_CLEANUP_SUPERVISOR_SOCKET"])
+channel.sendall(json.dumps({
+    "schema_version": 1,
+    "kind": "sandoq-cleanup-supervisor-v1-hello",
+    "evaluator_pid": os.getpid(),
+    "evaluator_process_group_id": os.getpgrp(),
+    "evaluator_start_ticks": 1,
+}, sort_keys=True, separators=(",", ":")).encode() + b"\\n")
+time.sleep(30)
+"""
+
+    def malicious_factory(_command, **kwargs):
+        process = subprocess.Popen([sys.executable, "-c", script], **kwargs)
+        processes.append(process)
+        return process
+
+    with pytest.raises(rotation.GuardViolation, match="^supervisor_handshake_failed$"):
+        rotation._start_supervised_evaluator(
+            [sys.executable, "-c", "raise SystemExit(0)"],
+            process_factory=malicious_factory,
+            termination_timeout=2,
+            terminate_process_group=rotation._terminate_process_group,
+        )
+
+    assert len(processes) == 1
+    assert processes[0].poll() is not None
+
+
+def test_supervisor_start_failure_still_runs_cleanup(tmp_path: Path) -> None:
+    directory = _private_dir(tmp_path)
+    token_path = directory / "ecr-token"
+    state_path = directory / "state.json"
+    guard_log = directory / "guard.jsonl"
+    _write_private(token_path, b"private-fixture\n")
+    _write_private(state_path, rotation.canonical_json(_state(token_path)))
+    cleanup_process = FakeProcess(code=0)
+    cleanups = 0
+
+    def failing_starter(*_args, **_kwargs):
+        raise rotation.GuardViolation("supervisor_handshake_failed")
+
+    def cleanup_process_factory(command, **kwargs):
+        nonlocal cleanups
+        assert command == ["cleanup"]
+        assert kwargs["start_new_session"] is True
+        cleanups += 1
+        return cleanup_process
+
+    with pytest.raises(rotation.GuardViolation, match="^supervisor_handshake_failed$"):
+        rotation.supervise_rollout(
+            rotation.GuardConfig(
+                token_file=token_path,
+                state_file=state_path,
+                event_log=guard_log,
+                cleanup_reserve_seconds=10,
+                fail_closed_before_expiry_seconds=2,
+                termination_timeout_seconds=2,
+                cleanup_timeout_seconds=5,
+                final_safety_seconds=2,
+            ),
+            ["evaluator"],
+            ["cleanup"],
+            clock=FakeClock(0),
+            machine=lambda: "x86_64",
+            cleanup_process_factory=cleanup_process_factory,
+            process_group_exists=_fake_groups(cleanup_process),
+            terminate_process_group=_terminate_fake_group,
+            evaluator_starter=failing_starter,
+        )
+
+    assert cleanups == 1
+    assert "cleanup_completed" in guard_log.read_text()
+
+
+def test_supervisor_channel_eof_terminates_group_then_cleans(tmp_path: Path) -> None:
+    directory = _private_dir(tmp_path)
+    token_path = directory / "ecr-token"
+    state_path = directory / "state.json"
+    guard_log = directory / "guard.jsonl"
+    _write_private(token_path, b"private-fixture\n")
+    _write_private(state_path, rotation.canonical_json(_state(token_path)))
+    process = FakeProcess()
+    cleanup_process = FakeProcess(code=0)
+    guard_channel, evaluator_channel = socket.socketpair(
+        socket.AF_UNIX, socket.SOCK_SEQPACKET
+    )
+    evaluator_channel.close()
+
+    def starter(*_args, **_kwargs):
+        return process, guard_channel
+
+    code = rotation.supervise_rollout(
+        rotation.GuardConfig(
+            token_file=token_path,
+            state_file=state_path,
+            event_log=guard_log,
+            cleanup_reserve_seconds=10,
+            fail_closed_before_expiry_seconds=2,
+            termination_timeout_seconds=2,
+            cleanup_timeout_seconds=5,
+            final_safety_seconds=2,
+        ),
+        ["evaluator"],
+        ["cleanup"],
+        clock=FakeClock(0),
+        machine=lambda: "x86_64",
+        cleanup_process_factory=lambda *_args, **_kwargs: cleanup_process,
+        process_group_exists=_fake_groups(process, cleanup_process),
+        terminate_process_group=_terminate_fake_group,
+        evaluator_starter=starter,
+    )
+
+    assert code == 86
+    assert process.terminated
+    assert not process.group_alive
+    assert "supervisor_channel_closed" in guard_log.read_text()
+
+
+def test_cleanup_command_is_bound_to_verified_cleanup_contract(
+    monkeypatch, tmp_path: Path
+) -> None:
+    command_file, command = _verified_cleanup_command(monkeypatch, tmp_path)
+
+    assert rotation._command_from_json(command_file) == command
+
+
+def test_cleanup_command_allows_broker_evidence_to_be_created_after_guard_start(
+    monkeypatch, tmp_path: Path
+) -> None:
+    command_file, command = _verified_cleanup_command(monkeypatch, tmp_path)
+    Path(os.environ["OCI_RUNNER_POOL_EVENT_LOG"]).unlink()
+    Path(os.environ["OCI_RUNNER_POOL_WAL"]).unlink()
+
+    assert rotation._command_from_json(command_file) == command
+
+
+@pytest.mark.parametrize(
+    ("target", "replacement"),
+    [
+        ("program", "/bin/true"),
+        ("--base-url", "https://example.invalid"),
+        ("--concurrency", "1"),
+        ("--sanitized-output", "/tmp/forged-cleanup.json"),
+    ],
+)
+def test_cleanup_command_rejects_unbound_or_noop_program(
+    monkeypatch, tmp_path: Path, target: str, replacement: str
+) -> None:
+    command_file, command = _verified_cleanup_command(monkeypatch, tmp_path)
+    if target == "program":
+        command[0] = replacement
+    else:
+        command[command.index(target) + 1] = replacement
+    command_file.write_bytes(rotation.canonical_json(command))
+    command_file.chmod(0o600)
+
+    with pytest.raises(rotation.RotationError, match="^command_file_invalid$"):
+        rotation._command_from_json(command_file)
+
+
+def test_cleanup_command_rejects_public_or_hardlinked_plan(
+    monkeypatch, tmp_path: Path
+) -> None:
+    command_file, _command = _verified_cleanup_command(monkeypatch, tmp_path)
+    command_file.chmod(0o644)
+
+    with pytest.raises(rotation.RotationError, match="^private_file_invalid$"):
+        rotation._command_from_json(command_file)
+
+    command_file.chmod(0o600)
+    alias = command_file.with_name("cleanup-command-alias.json")
+    os.link(command_file, alias)
+    with pytest.raises(rotation.RotationError, match="^private_file_invalid$"):
+        rotation._command_from_json(command_file)
 
 
 def test_guard_signal_request_terminates_then_cleans_once(tmp_path: Path) -> None:
