@@ -700,6 +700,13 @@ def test_direct_qwen_launcher_is_fail_closed() -> None:
     assert wrapper.index('kill -TERM -- "-$router_pid"', preflight_cleanup) < wrapper.index(
         'rmdir -- "$output_dir"', preflight_cleanup
     )
+    assert wrapper.index("flock -u 8", preflight_cleanup) < wrapper.index(
+        'rm -f -- "$manifest"', preflight_cleanup
+    )
+    assert wrapper.index("exec 8>&-", preflight_cleanup) < wrapper.index(
+        'rm -f -- "$manifest"', preflight_cleanup
+    )
+    assert "for _attempt in $(seq 1 30)" in wrapper
     assert "80e58e7e2b194e9c1b8dc0990c00b7a839127eea" in driver
     assert "configs/eval/shared_qwen38_2p4t/mobius_qwen_a95b_2500_sandoq.toml" in wrapper
     assert wrapper.index("approved clean source closure") < wrapper.index('"$workflow_dir/direct_qwen_workers.py"')

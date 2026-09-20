@@ -580,16 +580,33 @@ if [[ "$sandbox_provider" == sandoq && "$preflight_only" -eq 1 ]]; then
         wait "$router_pid" 2>/dev/null || true
     fi
     router_pid=
+    if ! flock -u 8; then
+        printf 'Direct-router preflight lock release failed\n' >&2
+        exit 2
+    fi
+    exec 8>&-
     rm -f -- "$manifest" "$router_log" "$output_dir/.direct_router.lock"
     if [[ "$source_continuation_mode" -eq 1 ]]; then
-        if [[ -e "$output_dir/control" || -L "$output_dir/control" ]]; then
-            if [[ -L "$output_dir/control" || ! -d "$output_dir/control" ]] \
-                || ! rmdir -- "$output_dir/control" 2>/dev/null; then
+        preflight_output_removed=0
+        for _attempt in $(seq 1 30); do
+            if [[ -e "$output_dir/control" || -L "$output_dir/control" ]]; then
+                if [[ -L "$output_dir/control" || ! -d "$output_dir/control" ]]; then
+                    printf 'Source-continuation preflight cleanup failed\n' >&2
+                    exit 2
+                fi
+                rmdir -- "$output_dir/control" 2>/dev/null || true
+            fi
+            if rmdir -- "$output_dir" 2>/dev/null; then
+                preflight_output_removed=1
+                break
+            fi
+            sleep 1
+        done
+        if [[ "$preflight_output_removed" -ne 1 ]]; then
+            if [[ -L "$output_dir" || ! -d "$output_dir" ]]; then
                 printf 'Source-continuation preflight cleanup failed\n' >&2
                 exit 2
             fi
-        fi
-        if ! rmdir -- "$output_dir" 2>/dev/null; then
             printf 'Source-continuation preflight cleanup failed\n' >&2
             exit 2
         fi
