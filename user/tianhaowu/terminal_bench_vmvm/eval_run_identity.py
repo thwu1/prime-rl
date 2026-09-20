@@ -76,6 +76,7 @@ KIMI_TIMEOUT_PROFILES = {
     "full": {"rollout_timeout": 36_000, "session_timeout": 43_200},
     "quick": {"rollout_timeout": 900, "session_timeout": 2_400},
     "diagnostic": {"rollout_timeout": 300, "session_timeout": 600},
+    "reward_diagnostic": {"rollout_timeout": 600, "session_timeout": 600},
 }
 KIMI_FULL_RETRY_EXCEPTIONS = frozenset({"ProviderError", "SandboxError", "TunnelError", "InterceptionError"})
 VMVM_HOST_CLEANUP_CONTRACT = {
@@ -149,15 +150,16 @@ def validate_kimi_timeout_contract(
         else {key: KIMI_TIMEOUT_PROFILES[key] for key in ("smoke", "full")}
     )
 
-    bounded_smoke = required_profile in {"quick", "diagnostic"}
+    bounded_smoke = required_profile in {"quick", "diagnostic", "reward_diagnostic"}
+    tight_diagnostic = required_profile in {"diagnostic", "reward_diagnostic"}
     setup_timeout_seconds = (
-        180 if required_profile == "diagnostic" else 600 if bounded_smoke else KIMI_SETUP_TIMEOUT_SECONDS
+        180 if tight_diagnostic else 600 if bounded_smoke else KIMI_SETUP_TIMEOUT_SECONDS
     )
     finalize_timeout_seconds = (
-        60 if required_profile == "diagnostic" else 300 if bounded_smoke else KIMI_FINALIZE_TIMEOUT_SECONDS
+        60 if tight_diagnostic else 300 if bounded_smoke else KIMI_FINALIZE_TIMEOUT_SECONDS
     )
     scoring_timeout_seconds = (
-        120 if required_profile == "diagnostic" else 600 if bounded_smoke else KIMI_SCORING_TIMEOUT_SECONDS
+        120 if tight_diagnostic else 600 if bounded_smoke else KIMI_SCORING_TIMEOUT_SECONDS
     )
 
     def exact_number(value: object, expected: int) -> bool:
@@ -820,7 +822,12 @@ def _contract(
         elif role == "kimi-direct-smoke":
             if not isinstance(taskset, dict):
                 raise EvalIdentityError("resolved_contract_invalid")
-            required_profile = "diagnostic" if taskset.get("dataset_revision") is not None else "quick"
+            if taskset.get("dataset_revision") is not None:
+                timeout = config.get("timeout")
+                reward_diagnostic = isinstance(timeout, dict) and timeout.get("rollout") == 600
+                required_profile = "reward_diagnostic" if reward_diagnostic else "diagnostic"
+            else:
+                required_profile = "quick"
         elif role == "smoke":
             if not isinstance(taskset, dict):
                 raise EvalIdentityError("resolved_contract_invalid")

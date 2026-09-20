@@ -835,6 +835,16 @@ def test_kimi_timeout_contract_distinguishes_smoke_and_full_profiles() -> None:
         validate_kimi_timeout_contract(smoke, required_profile="full")
 
 
+def test_kimi_timeout_contract_accepts_bounded_reward_diagnostic_profile() -> None:
+    config = _sandoq_kimi_config(smoke=True)
+    config["timeout"].update({"setup": 180, "rollout": 600, "finalize": 60, "scoring": 120})
+    config["harness"]["runtime"]["session_timeout"] = 600
+
+    validate_kimi_timeout_contract(config, required_profile="reward_diagnostic")
+    with pytest.raises(EvalIdentityError, match="^kimi_timeout_contract_invalid$"):
+        validate_kimi_timeout_contract(config, required_profile="diagnostic")
+
+
 def test_kimi_eval_role_selects_approved_smoke_or_full_timeout_profile() -> None:
     config = _resolved_config()
     config["model"] = "Kimi-K3"
