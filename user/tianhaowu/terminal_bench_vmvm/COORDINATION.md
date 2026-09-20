@@ -1,6 +1,6 @@
 # VMVM sandbox coordination
 
-Last updated: 2026-09-20 11:08 UTC
+Last updated: 2026-09-20 11:46 UTC
 
 ## First message to the next teammate
 
@@ -30,7 +30,7 @@ this shared branch again.
 
 | Owner | Cluster | Scope | Files | Live resources | State / next gate |
 |---|---|---|---|---|---|
-| Codex session for `tianhaowu` | `fair-cw-use2-3` | Kimi serving, full TB4 pass@1, and gated 2,500-task rollout | `user/tianhaowu/terminal_bench_vmvm/**`, `user/tianhaowu/deepswe_vmvm/{README.md,run_runtime_smoke.sbatch,smoke_runtime.py}`, `environments/vmvm_tb_v2/**`, `deps/verifiers` gitlink | terminal VMVM v8 proof `1758642`; terminal V22 oracle canary `1758643`; terminal strict t045300 Kimi chain `1758688`-`1758691`; held-only comparator `1759098`; terminal VMVM client comparator `1759106`; consumed registry gates v16 and v17 (`1759515`) | VMVM owner-thread/wrapper fix is integrated at `fc65951fb`; the repaired fresh lifecycle diagnostic is integrated at `95b8012a9`, independently reviewed, frozen as an exact six-file bundle, and approved for creation of one launch authorization plus one held submission. Kimi v16 failed before submission on a literal `-`; v17 fixed submission and created exact job `1759515`, but a transient accounting shape aborted the controller and canceled the completing allocation before a durable registry result. A v18 accounting-propagation successor is under test and not launch-authorized. The inert serving successor remains gated on successful registry and VMVM canaries plus fresh staging/approval. No serving, TB4, or 2,500-task trace rollout has launched. Never inspect task prompts/bodies, task identifiers, raw errors, credential values, or model/tool/trace content. |
+| Codex session for `tianhaowu` | `fair-cw-use2-3` | Kimi serving, full TB4 pass@1, and gated 2,500-task rollout | `user/tianhaowu/terminal_bench_vmvm/**`, `user/tianhaowu/deepswe_vmvm/{README.md,run_runtime_smoke.sbatch,smoke_runtime.py}`, `environments/vmvm_tb_v2/**`, `deps/verifiers` gitlink | terminal VMVM v8 proof `1758642`; terminal V22 oracle canary `1758643`; held-only comparator `1759098`; terminal VMVM client comparator `1759106`; consumed registry gates v16-v18 (`1759515`, `1759581`); consumed fresh VMVM lifecycle `1759580` | VMVM owner-thread/wrapper fix is integrated at `fc65951fb`; the repaired lifecycle diagnostic is integrated at `95b8012a9`. Its fresh reviewed launch reached `probe_execution` but failed before certificate publication, so the result is preserved and a classified successor is required. Kimi v18 is integrated/pushed at `0614ff15c`; its stable terminal-accounting repair worked and produced a durable result, but the job failed in batch `source_identity` preflight before any numeric `srun` step, registry call, or probe. Both namespaces are consumed. The inert serving successor remains gated on successful fresh registry and VMVM canaries. No serving, TB4, or 2,500-task trace rollout has launched. Never inspect task prompts/bodies, task identifiers, raw errors, credential values, or model/tool/trace content. |
 | Codex session for `tianhaowu` | `fair-cw-use2-1` | Add a direct one-token KDA state-reuse probe; no serving or eval mutation | `user/tianhaowu/terminal_bench_vmvm/{probe_inference_routes.py,tests/test_probe_inference_routes.py,HANDOFF.md,COORDINATION.md}` | none | Extend the existing readiness probe with serial raw-completion predecessor/one-token-target cycles on every discovered sticky backend, without logprobs or response token IDs. Fail closed on unsupported routing, semantic corruption, or predecessor-dependent target output. |
 | Codex session for `tianhaowu` | `fair-cw-use2-1` | Qwen accepted TB4 gate and 2,500-task production rollout | Qwen direct-router configs, VMVM backend, repair/export controller, focused tests, runtime skill | accepted TB4 diagnostic `1435776`; cap-32 affinity producer `1454171` running; exact-head x86 smoke `1468446` completed; reviewed replacement chain `1468451` dependency-pending; obsolete chains `1457232` and `1465246` canceled; endpoint `shared_qwen38_2p4t`; PRs `thwu1/prime-rl#35`, `#36`, `#37`, `#38`, `#39`, and `#40`; verifier PR `thwu1/verifiers#2` | The user explicitly accepted the existing 7/66 TB4 result as the approximately 11% gate and directed us not to rerun it. The live producer retains 64 task sessions, 32 client/provider slots, two lease starts, fail-closed `consistent_hash` / `x-session-id`, and a 256K cap. Immutable prefix 1,000 has SHA-256 `7862f68057aecc9c2bdb22a15e5cbe21ec03aa10059a625e2fa1316e4c347117`: 583 pass, 381 scored fail, 36 ordinary error, zero invalid, for a 60.48% scored pass rate. Exact SFT trainability validation accepts 581/583 passing traces and quarantines two; the audit covers 41,220,772 sampled completion tokens and 19,358 captured model-I/O turns. At 08:01 UTC the producer remained healthy and RUNNING with 1,002 durable rows, recent throughput approximately 47 rows/hour, and approximately 32 hours remaining. Draft PR `#40` is independently approved at exact head `fe813c0f6`; frozen-source x86 smoke `1468446` passed 249/249, and replacement controller `1468451` is pending on `afterany:1454171`. Obsolete held controller `1465246` was canceled only after the replacement was verified dependency-held. Broad `HarnessError` retry and retry exclusions remain forbidden. Never inspect task IDs, prompts, responses, raw errors, or trace/model/tool bodies. |
 | Codex Qwen Sandoq rollout lane for `tianhaowu` | `fair-cw-use2-1` | SDK-backed Sandoq 2→8→24→64 qualification, then gated non-Compose rollout | draft Prime PR `#48`, exact head `b82c1551a78b7ae8d1b84339d454202ace34ebf9`; verifier `80e58e7e2b194e9c1b8dc0990c00b7a839127eea`; server namespace `shared_qwen38_2p4t` | task-free preflight `1503352` completed `0:0`; ramp-2 rollout `1503355` failed after two invalid setup-only rows and remains ineligible; exact hash-bound non-certifying count-1 diagnostic is ready but not launched | Uses vendored official SDK source `48903021`, truthful public-network `oci-runner` runtime, and the exact 24-worker Qwen deployment. The successor uses endpoint-supported `reasoning_effort=high`, online verifier dependencies for the exact public override, and verified event-log flush before the zero-drop drain marker. A fresh task-bound manifest is probed before routing and revalidated after evaluation; router policy is `consistent_hash` with `x-session-id`, retries remain zero, and no repair-bound serving bundle is reused. Advance only after the diagnostic and a fresh ramp result pass with verified cleanup. The separate Kimi Sandoq/TB4 lane owns its own server-scoped config and jobs; do not merge or duplicate those launches. Never inspect task identifiers, prompts, responses, raw errors, credentials, or trace/model/tool bodies. |
@@ -45,6 +45,26 @@ this shared branch again.
 Add new rows below this line; do not overwrite another owner's row.
 
 ## Open coordination requests
+
+- **2026-09-20 11:46 UTC, fresh VMVM and Kimi canaries consumed with bounded
+  classifications:** the rotated VMVM authorization creator canonicalized the
+  two TLS aliases, passed a no-write body/validation dry run, and created one
+  externally reviewed authorization. Job `1759580` passed held identity and
+  release, then ended `FAILED 2:0` after 2m27s. Its only public record is valid
+  canonical JSON with stage `probe_execution`; no output certificate or
+  external-completion request exists, and the retained scratch contains the
+  sealed source/site inputs. Do not inspect or publish suppressed probe output;
+  create a fresh successor that durably maps only the probe's allowlisted safe
+  failure class. Separately, v18 commit `0614ff15c` was independently reviewed,
+  pushed, frozen, audited with `jobs_submitted=0`, privately approved, and run
+  once as job `1759581`. The controller correctly tolerated accounting
+  propagation and published a durable terminal result. The allocation ended
+  `FAILED 2:0` after 13 seconds with category `source_identity`; accounting has
+  only allocation/batch/extern rows and no numeric nested step, proving the
+  failure occurred in batch preflight before registry login/pull. Preserve both
+  consumed namespaces. Diagnose the exact batch source/tool binding with a
+  fresh fixed-category task-free probe, then rebuild the registry gate; do not
+  launch serving, TB4, or traces yet.
 
 - **2026-09-20 11:08 UTC, v17 registry gate consumed during accounting;
   repaired VMVM lifecycle bundle ready for authorization:** independently
