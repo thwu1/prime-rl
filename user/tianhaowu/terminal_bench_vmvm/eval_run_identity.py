@@ -1974,6 +1974,7 @@ def _bind_provenance(
             "slurm_job_id": args.slurm_job_id,
             "approval_task_file_sha256": stable["approval_task_file_sha256"],
             "approval_task_count": stable["approval_task_count"],
+            **_launch_contract_provenance(identity),
         }
         try:
             with path.open("x", encoding="utf-8") as handle:

@@ -26,6 +26,7 @@ from eval_run_identity import (
     _dataset_identity,
     _effective_vmvm_environment,
     _identity_envelope,
+    _launch_contract_provenance,
     _tree_digest,
     _verify_checkpoint_records,
     _write_resolved_config,
@@ -326,6 +327,56 @@ def test_eval_provenance_binds_endpoint_hashes_write_once(tmp_path: Path) -> Non
 
     args.mode = "resume"
     _bind_provenance(tmp_path, identity, digest, args)
+
+
+def test_kimi_smoke_fresh_provenance_round_trip_requires_launch_commitment(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    identity = _kimi_smoke_identity()
+    digest = _bind_identity(tmp_path, identity, resume=False)
+    args = SimpleNamespace(
+        mode="fresh",
+        invocation_host="unit-test-host",
+        slurm_job_id="12345",
+    )
+
+    _bind_provenance(tmp_path, identity, digest, args)
+
+    expected = _launch_contract_provenance(identity)
+    provenance = tmp_path / "provenance.txt"
+    records = dict(line.split("=", 1) for line in provenance.read_text().splitlines())
+    assert records["kimi_smoke_launch_contract_sha256"] == expected["kimi_smoke_launch_contract_sha256"]
+    monkeypatch.setattr(eval_run_identity, "_verify_source_record", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(eval_run_identity, "_artifact", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(
+        eval_run_identity,
+        "_load_bound_endpoint",
+        lambda *_args, **_kwargs: SimpleNamespace(
+            binding={},
+            client_base_url="http://127.0.0.1:8000/v1",
+        ),
+    )
+    monkeypatch.setattr(eval_run_identity, "_verify_config_and_inputs", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(
+        eval_run_identity,
+        "_git_output",
+        lambda _root, operation, *_args, **_kwargs: identity["dataset"]["revision"] if operation == "rev-parse" else "",
+    )
+    monkeypatch.setattr(eval_run_identity, "_verify_checkpoint_records", lambda *_args, **_kwargs: None)
+    assert load_eval_run_identity(tmp_path / "eval_run_identity.json") == _identity_envelope(identity)
+
+    original = provenance.read_text()
+    without_commitment = "\n".join(
+        line for line in original.splitlines() if not line.startswith("kimi_smoke_launch_contract_sha256=")
+    )
+    provenance.write_text(without_commitment + "\n")
+    with pytest.raises(EvalIdentityError, match="eval_provenance_mismatch"):
+        load_eval_run_identity(tmp_path / "eval_run_identity.json")
+
+    provenance.write_text(original.replace(expected["kimi_smoke_launch_contract_sha256"], "0" * 64))
+    with pytest.raises(EvalIdentityError, match="eval_provenance_mismatch"):
+        load_eval_run_identity(tmp_path / "eval_run_identity.json")
 
 
 def test_eval_contract_binds_required_training_and_concurrency_settings() -> None:
