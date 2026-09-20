@@ -4960,3 +4960,31 @@ replay passed 263/263. The aggregate decode/cleanup boundary is unchanged.
 - The inert Kimi serving candidate `83a001f7f82dcf377ffa775acf7abba29aac0dc0`
   remains unintegrated and unlaunched. Do not start serving, TB4, or the 2,500
   traces until both the v27 registry gate and fresh VMVM lifecycle gate pass.
+
+## 2026-09-20 15:47 UTC — Kimi v27 closed; v28 and VMVM v4 source gates reviewed
+
+- The sole Kimi v27 job `1759850` never allocated: it remained pending for
+  resources with zero runtime until its bounded controller cleanup canceled it.
+  Accounting records `CANCELLED by 656177`, exit `0:0`, and elapsed `00:00:00`;
+  the controller returned `2` with fixed category `accounting_shape`, and its
+  durable lock is terminal with that category. No registry probe, Podman task,
+  model endpoint, evaluator, or task data ran, and v27 therefore supplies no
+  registry-readiness evidence. Never retry or duplicate its consumed namespace.
+- Scheduler-selected Kimi gate v28 is exact commit
+  `4d7b256fdce51a3d2a0dd7f336e18a927dd768ef` (tree
+  `572b4bd1fd2db7deab150374398a9760a7ebf719`, subtree
+  `8196764b93e052b4d897eb05cf1e98a123e2003a`). It removes the single-node
+  request, retains all resource/QoS/exclusion and 32-tool/Podman bindings, and
+  uses the proven held `NodeList` omission/empty rendering while keeping
+  `ReqNodeList=(null)`. Independent review and 227/227 tests pass. Its exact
+  ten-file bundle is frozen mode-`0500` at
+  `/checkpoint/ram/tianhaowu/terminal_bench_vmvm/watchers/k3_registry_pull_gate_20260920t153000z_v28`;
+  approval, run, log, and lock namespaces remain absent pending frozen/control
+  review. Do not invoke it yet.
+- VMVM lifecycle v4 control commit
+  `99d607d4e17ba0b7a7ab32d11b0a4fb37d966888` closes the terminalization and
+  post-submission signal races. Independent review proved the authorization
+  creator's non-raising postcommit boundary and the launch commit latch; the
+  combined suite passes 64/64. Nothing is installed or invoked, no v4
+  authorization exists, and no v4 job exists. A descriptor-retaining,
+  secret-safe invocation envelope is still required and under review.
