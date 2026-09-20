@@ -44,13 +44,16 @@ from smoke_qualification import (
     validate_smoke_qualification,
 )
 from tb4_shard_workflow import (
+    EXPECTED_SHARD_SLURM_TIME_LIMIT,
+    REQUIRED_X2P_ENV,
     PlannedShard,
     ShardWorkflowError,
     canonical_json,
     load_plan,
+    validate_shard_launch_contract,
 )
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 MAX_WAVE_SIZE = 4
 DEFAULT_SUBMISSION_TIMEOUT_SECONDS = 30.0
 EXPECTED_MODEL = "Kimi-K3"
@@ -1357,6 +1360,85 @@ def _vacli_auth_environment(environment: Mapping[str, str]) -> dict[str, str]:
     return values
 
 
+def _x2p_environment(environment: Mapping[str, str]) -> dict[str, str]:
+    """Return the complete X2P tuple without ever including values in errors."""
+
+    present = {key for key in REQUIRED_X2P_ENV if key in environment}
+    if present != set(REQUIRED_X2P_ENV):
+        raise WaveLaunchError("x2p_environment_invalid")
+    values: dict[str, str] = {}
+    for key in REQUIRED_X2P_ENV:
+        value = environment.get(key)
+        if not isinstance(value, str) or not value or any(character in value for character in "\x00\r\n"):
+            raise WaveLaunchError("x2p_environment_invalid")
+        try:
+            value.encode("utf-8")
+        except UnicodeEncodeError as error:
+            raise WaveLaunchError("x2p_environment_invalid") from error
+        values[key] = value
+    return values
+
+
+def _x2p_environment_sha256(environment: Mapping[str, str]) -> dict[str, str]:
+    values = _x2p_environment(environment)
+    return {key: _sha256_bytes(values[key].encode("utf-8")) for key in REQUIRED_X2P_ENV}
+
+
+def _launch_contract(x2p_environment: Mapping[str, str]) -> dict[str, Any]:
+    return validate_shard_launch_contract(
+        {
+            "slurm_time_limit": EXPECTED_SHARD_SLURM_TIME_LIMIT,
+            "x2p_environment_sha256": _x2p_environment_sha256(x2p_environment),
+        }
+    )
+
+
+def _submit_with_transient_environment(
+    *,
+    command_runner: RunCommand,
+    job_name: str,
+    run_eval: Path,
+    environment_values: Mapping[str, str],
+    x2p_environment: Mapping[str, str],
+    cwd: Path,
+    timeout: float,
+) -> subprocess.CompletedProcess[str]:
+    """Submit through an anonymous export file so X2P values are never retained."""
+
+    x2p = _x2p_environment(x2p_environment)
+    if set(environment_values) & set(REQUIRED_X2P_ENV):
+        raise WaveLaunchError("job_environment_invalid")
+    encoded = _encode_environment({**environment_values, **x2p})
+    with tempfile.TemporaryFile(mode="w+b") as export_file:
+        descriptor = export_file.fileno()
+        os.fchmod(descriptor, 0o600)
+        status = os.fstat(descriptor)
+        if not stat.S_ISREG(status.st_mode) or stat.S_IMODE(status.st_mode) != 0o600 or status.st_nlink != 0:
+            raise WaveLaunchError("transient_environment_invalid")
+        if descriptor < 3:
+            raise WaveLaunchError("transient_environment_invalid")
+        export_file.write(encoded)
+        export_file.flush()
+        export_file.seek(0)
+        return command_runner(
+            [
+                DEFAULT_SBATCH,
+                "--parsable",
+                f"--time={EXPECTED_SHARD_SLURM_TIME_LIMIT}",
+                f"--job-name={job_name}",
+                f"--export-file={descriptor}",
+                str(run_eval),
+            ],
+            check=False,
+            capture_output=True,
+            text=True,
+            cwd=cwd,
+            env={},
+            pass_fds=(descriptor,),
+            timeout=timeout,
+        )
+
+
 def _job_environment(
     *,
     project_dir: Path,
@@ -1728,6 +1810,8 @@ def launch_wave(
     if "RESUME_DIR" in environment:
         raise WaveLaunchError("resume_forbidden")
     vacli_auth_environment = _vacli_auth_environment(environment)
+    x2p_environment = _x2p_environment(environment)
+    launch_contract = _launch_contract(x2p_environment)
     if not isinstance(deployment_id, str) or DEPLOYMENT_RE.fullmatch(deployment_id) is None:
         raise WaveLaunchError("deployment_id_invalid")
     if REVISION_RE.fullmatch(project_revision) is None:
@@ -1873,6 +1957,7 @@ def launch_wave(
                 "task_count": shard.task_count,
                 "config_sha256": shard.config_sha256,
                 "task_manifest_sha256": shard.task_manifest_sha256,
+                "launch_contract": launch_contract,
                 "environment": {
                     "path": str(env_path),
                     "sha256": _sha256_bytes(encoded_environment),
@@ -1911,6 +1996,7 @@ def launch_wave(
                 "content_sha256": dataset_content_sha256,
             }
         ),
+        "launch_contract": launch_contract,
         "vmvm_environment": EXPECTED_VMVM_ENV,
         "wave_size": len(jobs),
         "jobs": jobs,
@@ -1983,24 +2069,36 @@ def launch_wave(
                 job["submission_token"] = None
                 job["submission_started_at"] = None
                 raise WaveSubmissionInterrupted("submission_interrupted")
-            _stable_artifact(
+            environment_artifact = _stable_artifact(
                 environment_path,
                 job["environment"]["sha256"],
                 label="job_environment",
+                load_bytes=True,
             )
-            result = command_runner(
-                [
-                    DEFAULT_SBATCH,
-                    "--parsable",
-                    f"--job-name=tb4-shard-{job['shard_index']:03d}-{submission_token}",
-                    f"--export-file={environment_path}",
-                    str(run_eval),
-                ],
-                check=False,
-                capture_output=True,
-                text=True,
+            environment_values = _job_environment(
+                project_dir=project,
+                project_revision=project_revision,
+                shard=shard,
+                output_dir=Path(job["output_dir"]),
+                deployment_id=deployment_id,
+                deployment_spec=deployment_spec,
+                readiness=readiness,
+                proxy_info=proxy_info,
+                smoke=smoke,
+                dataset_revision=dataset_revision,
+                dataset_archive=dataset_archive,
+                dataset_content_sha256=dataset_content_sha256,
+                vacli_auth_environment=vacli_auth_environment,
+            )
+            if _encode_environment(environment_values) != environment_artifact.raw:
+                raise WaveLaunchError("job_environment_invalid")
+            result = _submit_with_transient_environment(
+                command_runner=command_runner,
+                job_name=f"tb4-shard-{job['shard_index']:03d}-{submission_token}",
+                run_eval=run_eval,
+                environment_values=environment_values,
+                x2p_environment=x2p_environment,
                 cwd=project,
-                env={},
                 timeout=submission_timeout_seconds,
             )
             try:

@@ -12,8 +12,20 @@ from types import SimpleNamespace
 import pytest
 import run_tb4_shard_wave_train as train
 from inference_route_guard import RouteBinding
-from launch_tb4_shard_wave import EXPECTED_TMUX_TARGET, PinnedArtifact
+from launch_tb4_shard_wave import (
+    DEFAULT_SBATCH,
+    EXPECTED_TMUX_TARGET,
+    REQUIRED_X2P_ENV,
+    PinnedArtifact,
+    _launch_contract,
+)
 from tb4_shard_workflow import PlannedShard
+
+X2P_VALUES = {
+    "X2P_ENV": "unit-test-environment",
+    "X2P_CFG_ENV": "unit-test-config",
+    "X2P_PROXY_URL": "http://unit-test-secret.invalid:10054",
+}
 
 
 def _digest(value: bytes) -> str:
@@ -134,6 +146,7 @@ def _prepared(tmp_path: Path, *, count: int = 5) -> train.PreparedTrain:
         plan={
             "plan_sha256": "e" * 64,
             "base_config": {"semantics_sha256": "f" * 64},
+            "scheduler": {"slurm_time_limit": train.EXPECTED_SHARD_SLURM_TIME_LIMIT},
         },
         shards=tuple(shards),
         selected_indices=tuple(range(count)),
@@ -150,7 +163,9 @@ def _prepared(tmp_path: Path, *, count: int = 5) -> train.PreparedTrain:
             "THRIFT_TLS_CL_CERT_PATH": str(tls_cert.path),
             "THRIFT_TLS_CL_KEY_PATH": str(tls_key.path),
             "TMUX_PANE": "%1",
+            **X2P_VALUES,
         },
+        x2p_environment_sha256=_launch_contract(X2P_VALUES)["x2p_environment_sha256"],
     )
 
 
@@ -182,10 +197,16 @@ class _Harness:
                 "shard_index": index,
                 "slurm_job_id": str(10_000 + index),
                 "output_dir": str(output_root / f"shard-{index:03d}-attempt-001"),
+                "launch_contract": train._expected_launch_contract(prepared),
             }
             for index in indices
         ]
-        wave = {"state": "submitted", "wave_sha256": f"{wave_number + 1:064x}", "jobs": jobs}
+        wave = {
+            "state": "submitted",
+            "wave_sha256": f"{wave_number + 1:064x}",
+            "launch_contract": train._expected_launch_contract(prepared),
+            "jobs": jobs,
+        }
         self.waves[output_root] = wave
         return wave
 
@@ -202,7 +223,12 @@ class _Harness:
     def scheduler(self, job_ids) -> dict[str, train.SchedulerObservation]:
         self.events.append(("poll", tuple(int(job_id) - 10_000 for job_id in job_ids)))
         return {
-            job_id: train.SchedulerObservation(self.scheduler_state, self.scheduler_exit_code) for job_id in job_ids
+            job_id: train.SchedulerObservation(
+                self.scheduler_state,
+                self.scheduler_exit_code,
+                train.EXPECTED_SHARD_SLURM_TIME_LIMIT,
+            )
+            for job_id in job_ids
         }
 
     def validate(
@@ -221,12 +247,13 @@ class _Harness:
             eval_run_identity_sha256=f"{shard.index + 30:064x}",
             guard_success_receipt_sha256=f"{shard.index + 40:064x}",
             route_generation_sha256=prepared.generation_sha256,
+            launch_contract=train._expected_launch_contract(prepared),
         )
 
 
 def _drive(prepared: train.PreparedTrain, harness: _Harness, **overrides):
     values = {
-        "ambient_env": {"TMUX_PANE": "%1"},
+        "ambient_env": {"TMUX_PANE": "%1", **X2P_VALUES},
         "command_runner": harness.command,
         "launch_callback": harness.launch,
         "wave_loader": harness.load,
@@ -401,6 +428,21 @@ def test_failed_job_stops_train_and_never_launches_next_wave(tmp_path: Path):
     assert harness.launched == [(0, 1, 2, 3)]
 
 
+def test_scheduler_walltime_drift_stops_train(tmp_path: Path):
+    prepared = _prepared(tmp_path, count=1)
+    harness = _Harness()
+
+    def drifted(job_ids):
+        return {job_id: train.SchedulerObservation("COMPLETED", "0:0", "2-00:00:00") for job_id in job_ids}
+
+    with pytest.raises(train.WaveTrainError, match="scheduler_time_limit_mismatch"):
+        _drive(prepared, harness, scheduler_reader=drifted)
+
+    state = json.loads((prepared.controller_root / "state.json").read_text())
+    assert state["state"] == "failed"
+    assert harness.launched == [(0,)]
+
+
 def test_missing_guarded_artifacts_stops_train(tmp_path: Path):
     prepared = _prepared(tmp_path)
     harness = _Harness()
@@ -491,14 +533,24 @@ def test_query_scheduler_combines_squeue_and_sacct():
     def runner(arguments, **_kwargs):
         calls.append(arguments)
         if arguments[0] == train.SQUEUE:
-            return subprocess.CompletedProcess(arguments, 0, "101|RUNNING\n", "")
-        return subprocess.CompletedProcess(arguments, 0, "102|COMPLETED|0:0\n", "")
+            return subprocess.CompletedProcess(
+                arguments,
+                0,
+                f"101|RUNNING|{train.EXPECTED_SHARD_SLURM_TIME_LIMIT}\n",
+                "",
+            )
+        return subprocess.CompletedProcess(
+            arguments,
+            0,
+            f"102|COMPLETED|0:0|{train.EXPECTED_SHARD_SLURM_TIME_LIMIT}\n",
+            "",
+        )
 
     observed = train.query_scheduler(("101", "102"), runner=runner)
 
     assert observed == {
-        "101": train.SchedulerObservation("RUNNING", None),
-        "102": train.SchedulerObservation("COMPLETED", "0:0"),
+        "101": train.SchedulerObservation("RUNNING", None, train.EXPECTED_SHARD_SLURM_TIME_LIMIT),
+        "102": train.SchedulerObservation("COMPLETED", "0:0", train.EXPECTED_SHARD_SLURM_TIME_LIMIT),
     }
     assert calls[1][0] == train.SACCT
     assert "--allocations" in calls[1]
@@ -508,10 +560,12 @@ def test_query_scheduler_combines_squeue_and_sacct():
     ("squeue_output", "sacct_output", "error"),
     [
         ("", "", "scheduler_job_missing"),
-        ("999|RUNNING\n", "", "scheduler_response_invalid"),
-        ("101|MYSTERY\n", "", "scheduler_response_invalid"),
-        ("", "101|COMPLETED|bad\n", "scheduler_response_invalid"),
-        ("101|RUNNING\n101|PENDING\n", "", "scheduler_response_invalid"),
+        ("999|RUNNING|3-00:00:00\n", "", "scheduler_response_invalid"),
+        ("101|MYSTERY|3-00:00:00\n", "", "scheduler_response_invalid"),
+        ("", "101|COMPLETED|bad|3-00:00:00\n", "scheduler_response_invalid"),
+        ("101|RUNNING|3-00:00:00\n101|PENDING|3-00:00:00\n", "", "scheduler_response_invalid"),
+        ("101|RUNNING|2-00:00:00\n", "", "scheduler_response_invalid"),
+        ("", "101|COMPLETED|0:0|2-00:00:00\n", "scheduler_response_invalid"),
     ],
 )
 def test_query_scheduler_fails_closed(squeue_output: str, sacct_output: str, error: str):
@@ -569,6 +623,7 @@ def _write_exact_wave(
                 "task_count": 1,
                 "config_sha256": shard.config_sha256,
                 "task_manifest_sha256": shard.task_manifest_sha256,
+                "launch_contract": train._expected_launch_contract(prepared),
                 "environment": {
                     "path": str(environment_path),
                     "sha256": _digest(environment_raw),
@@ -580,7 +635,7 @@ def _write_exact_wave(
             }
         )
     body = {
-        "schema_version": 1,
+        "schema_version": train.SCHEMA_VERSION,
         "state": "submitted" if set(phases) == {"recorded"} else "submitting",
         "dry_run": False,
         "plan": {
@@ -599,6 +654,7 @@ def _write_exact_wave(
             "model": "Kimi-K3",
         },
         "dataset": train._dataset_record(prepared),
+        "launch_contract": train._expected_launch_contract(prepared),
         "vmvm_environment": train.EXPECTED_VMVM_ENV,
         "wave_size": len(indices),
         "jobs": jobs,
@@ -618,6 +674,68 @@ def test_wave_metadata_revalidates_exact_environment(tmp_path: Path):
     environment.write_bytes(environment.read_bytes() + b"RESUME_DIR=forbidden\0")
     with pytest.raises(train.WaveTrainError, match="wave_environment_invalid"):
         train._load_wave_metadata(prepared, 0, (0,), root, False)
+
+
+def test_wave_metadata_rejects_walltime_or_x2p_commitment_drift(tmp_path: Path):
+    prepared = _prepared(tmp_path, count=1)
+    root, _expected = _write_exact_wave(prepared)
+    path = root / "wave.json"
+
+    for field, replacement in (
+        ("slurm_time_limit", "2-00:00:00"),
+        ("X2P_PROXY_URL", "0" * 64),
+    ):
+        value = json.loads(path.read_text())
+        if field == "slurm_time_limit":
+            value["launch_contract"][field] = replacement
+        else:
+            value["launch_contract"]["x2p_environment_sha256"][field] = replacement
+        body = {key: item for key, item in value.items() if key != "wave_sha256"}
+        value["wave_sha256"] = _digest(train.canonical_json(body))
+        path.write_text(json.dumps(value) + "\n")
+        path.chmod(0o600)
+        with pytest.raises(train.WaveTrainError, match="wave_metadata_invalid"):
+            train._load_wave_metadata(prepared, 0, (0,), root, False)
+        root, _expected = _write_exact_wave(replace(prepared, controller_root=tmp_path / f"controller-{field}"))
+        path = root / "wave.json"
+
+
+def test_controller_resume_rejects_x2p_hash_drift(tmp_path: Path):
+    prepared = _prepared(tmp_path, count=1)
+    assert all(secret not in repr(prepared) for secret in X2P_VALUES.values())
+    train._ensure_controller_root(prepared)
+    with train._controller_lock(prepared.controller_root):
+        train._initialize_or_load(prepared)
+    persisted = b"".join(path.read_bytes() for path in prepared.controller_root.iterdir() if path.is_file())
+    assert all(secret.encode() not in persisted for secret in X2P_VALUES.values())
+    drifted_hashes = dict(prepared.x2p_environment_sha256)
+    drifted_hashes["X2P_PROXY_URL"] = "0" * 64
+    drifted = replace(prepared, x2p_environment_sha256=drifted_hashes)
+
+    with train._controller_lock(prepared.controller_root):
+        with pytest.raises(train.WaveTrainError, match="train_spec_mismatch"):
+            train._initialize_or_load(drifted)
+
+
+def test_partial_submission_rejects_x2p_value_drift_before_scheduler_access(tmp_path: Path):
+    prepared = _prepared(tmp_path, count=1)
+    root, wave = _write_exact_wave(prepared, phases=("unstarted",))
+    drifted = {**X2P_VALUES, "X2P_PROXY_URL": "http://rotated-secret.invalid:10054"}
+
+    with pytest.raises(train.WaveTrainError, match="x2p_environment_commitment_mismatch"):
+        train._resume_partial_wave_submission(
+            prepared,
+            (0,),
+            root,
+            wave,
+            ambient_env={"TMUX_PANE": "%1", **drifted},
+            command_runner=lambda *_args, **_kwargs: (_ for _ in ()).throw(
+                AssertionError("scheduler must not be accessed")
+            ),
+            route_verifier=lambda _prepared: None,
+            submission_lookup=lambda *_args: (_ for _ in ()).throw(AssertionError("scheduler must not be accessed")),
+            stop_requested=lambda: False,
+        )
 
 
 def test_recovery_rejects_wave_without_durable_job_id(tmp_path: Path):
@@ -759,7 +877,12 @@ def test_prepare_train_validates_generation_with_proxy_config_snapshot(
         train,
         "load_plan",
         lambda _path: (
-            {"plan_sha256": "e" * 64, "shard_size": 1, "base_config": {"semantics_sha256": "f" * 64}},
+            {
+                "plan_sha256": "e" * 64,
+                "shard_size": 1,
+                "base_config": {"semantics_sha256": "f" * 64},
+                "scheduler": {"slurm_time_limit": train.EXPECTED_SHARD_SLURM_TIME_LIMIT},
+            },
             (shard,),
         ),
     )
@@ -816,6 +939,7 @@ def test_prepare_train_validates_generation_with_proxy_config_snapshot(
         ambient_env={
             "THRIFT_TLS_CL_CERT_PATH": str(tls_cert.path),
             "THRIFT_TLS_CL_KEY_PATH": str(tls_key.path),
+            **X2P_VALUES,
         },
     )
 
@@ -855,7 +979,15 @@ def test_partial_submission_recovers_accepted_job_and_submits_only_tail(
     def runner(arguments, **_kwargs):
         if arguments[0] == "tmux":
             return subprocess.CompletedProcess(arguments, 0, EXPECTED_TMUX_TARGET + "\n", "")
-        assert arguments[0] == train.DEFAULT_SBATCH
+        assert arguments[0] == DEFAULT_SBATCH
+        assert f"--time={train.EXPECTED_SHARD_SLURM_TIME_LIMIT}" in arguments
+        descriptor = _kwargs["pass_fds"][0]
+        assert f"--export-file={descriptor}" in arguments
+        raw = Path(f"/proc/self/fd/{descriptor}").read_bytes()
+        values = dict(record.decode().split("=", 1) for record in raw.split(b"\0") if record)
+        assert {key: values[key] for key in REQUIRED_X2P_ENV} == X2P_VALUES
+        assert len(_kwargs["pass_fds"]) == 1
+        assert all(secret not in repr(arguments) for secret in X2P_VALUES.values())
         submitted_names.append(next(value for value in arguments if value.startswith("--job-name=")))
         return subprocess.CompletedProcess(arguments, 0, "22000\n", "")
 
@@ -865,7 +997,7 @@ def test_partial_submission_recovers_accepted_job_and_submits_only_tail(
         (0, 1, 2),
         root,
         wave,
-        ambient_env={"TMUX_PANE": "%1"},
+        ambient_env={"TMUX_PANE": "%1", **X2P_VALUES},
         command_runner=runner,
         route_verifier=lambda _prepared: None,
         submission_lookup=lambda _name, _started: "21000",
@@ -877,6 +1009,8 @@ def test_partial_submission_recovers_accepted_job_and_submits_only_tail(
     assert len(submitted_names) == 1
     assert submitted_names[0].startswith("--job-name=tb4-shard-002-")
     assert train._load_wave_metadata(prepared, 0, (0, 1, 2), root, False) == recovered
+    persisted = b"".join(path.read_bytes() for path in root.iterdir() if path.is_file())
+    assert all(secret.encode() not in persisted for secret in X2P_VALUES.values())
 
 
 def test_completed_receipt_is_preserved_across_route_rollover(tmp_path: Path):
@@ -894,7 +1028,10 @@ def test_completed_receipt_is_preserved_across_route_rollover(tmp_path: Path):
         scheduler_calls += 1
         if scheduler_calls == 1:
             raise train.SchedulerQueryUnavailable("scheduler_job_missing")
-        return {job_id: train.SchedulerObservation("COMPLETED", "0:0") for job_id in job_ids}
+        return {
+            job_id: train.SchedulerObservation("COMPLETED", "0:0", train.EXPECTED_SHARD_SLURM_TIME_LIMIT)
+            for job_id in job_ids
+        }
 
     def route_must_not_run(_prepared):
         raise AssertionError("completed guarded output must be certified before route liveness")
@@ -928,7 +1065,10 @@ def test_transient_scheduler_failure_is_retried(tmp_path: Path):
         attempts += 1
         if attempts < train.MAX_CONSECUTIVE_SCHEDULER_FAILURES:
             raise train.SchedulerQueryUnavailable("scheduler_query_unavailable")
-        return {job_id: train.SchedulerObservation("COMPLETED", "0:0") for job_id in job_ids}
+        return {
+            job_id: train.SchedulerObservation("COMPLETED", "0:0", train.EXPECTED_SHARD_SLURM_TIME_LIMIT)
+            for job_id in job_ids
+        }
 
     final = _drive(
         prepared,

@@ -36,7 +36,11 @@ from finalize_tb4_shard_wave_train import (
     _stable_private_bytes,
     finalize_multigen_wave_train,
 )
-from tb4_shard_workflow import ShardWorkflowError
+from tb4_shard_workflow import (
+    EXPECTED_SHARD_SLURM_TIME_LIMIT,
+    ShardWorkflowError,
+    validate_shard_launch_contract,
+)
 
 TOP_LEVEL_KEYS = frozenset(
     {
@@ -71,6 +75,7 @@ CONTROLLER_KEYS = frozenset(
         "proxy_config_snapshot_sha256",
         "smoke_checkpoint",
         "smoke_checkpoint_sha256",
+        "x2p_environment_sha256",
         "first_shard_index",
         "shard_count",
         "wave_size",
@@ -142,6 +147,18 @@ def _controller_from_manifest(shared: dict[str, Any], item: dict[str, Any]) -> C
         or not isinstance(wave_size, int)
     ):
         raise FinalizationError("manifest_invalid")
+    x2p_environment_sha256 = item.get("x2p_environment_sha256")
+    if not isinstance(x2p_environment_sha256, dict):
+        raise FinalizationError("manifest_invalid")
+    try:
+        launch_contract = validate_shard_launch_contract(
+            {
+                "slurm_time_limit": EXPECTED_SHARD_SLURM_TIME_LIMIT,
+                "x2p_environment_sha256": x2p_environment_sha256,
+            }
+        )
+    except ShardWorkflowError as error:
+        raise FinalizationError("manifest_invalid") from error
     controller = WaveTrainConfig(
         controller_root=_required_path(item, "controller_root"),
         project_dir=_required_path(shared, "project_dir"),
@@ -169,6 +186,7 @@ def _controller_from_manifest(shared: dict[str, Any], item: dict[str, Any]) -> C
         shard_count=count,
         wave_size=wave_size,
         poll_interval_seconds=_optional_float(shared, "controller_poll_interval_seconds", 15.0),
+        x2p_environment_sha256=launch_contract["x2p_environment_sha256"],
     )
     return ControllerFinalizerInput(
         controller=controller,

@@ -808,6 +808,30 @@ The evaluator and oracle are network-bound CPU controllers; their checked-in
 Slurm defaults request `cpu_x86`, 8 CPUs, 16 GiB, and no GPUs. Rollout
 concurrency does not require one controller CPU per sandbox.
 
+### Kimi singleton wave execution
+
+The full Kimi TB4 evaluation uses a private singleton plan and
+`run_tb4_shard_wave_train.py`. Run generation-bound controller chunks of at
+most eight singleton shards and let each controller submit waves of at most
+four jobs. Every shard submission explicitly requests `3-00:00:00`; the plan,
+controller train, wave metadata, completion history, merged certificate, and
+live Slurm observations all bind that exact limit.
+
+The controller process must receive nonempty `X2P_ENV`, `X2P_CFG_ENV`, and
+`X2P_PROXY_URL` together with the two allowlisted TLS credential-file paths.
+It writes only per-variable SHA-256 commitments to controller and shard
+metadata. Raw X2P values are combined with the allowlisted job environment in
+an anonymous mode-0600 export file descriptor for the `sbatch` call, then the
+descriptor is closed. They are deliberately absent from the persistent shard
+`.env` files, commands, receipts, summaries, and public merged output.
+
+For a controller restart, supply the same X2P triple; a commitment change fails
+before any remaining shard is submitted. A deliberate serving-generation or
+X2P rotation requires a fresh controller root. Record that controller's three
+commitments in its `finalize_tb4_multigen_chunk_train.py` manifest entry under
+`x2p_environment_sha256`; the multigeneration finalizer permits distinct
+commitment sets while preserving each shard's exact launch binding.
+
 ### Two-worker direct fallback
 
 When the 24-route RAM deployment is unavailable, the checked-in direct-worker

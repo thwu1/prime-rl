@@ -62,6 +62,18 @@ trusted launcher environment. Vacli maps them to its required `--tls-cert` and
 vacli exit locally before it requests a lease, while using Slurm's default
 export-all can hide the omission during smoke testing.
 
+Kimi TB4 singleton-wave controllers additionally require nonempty `X2P_ENV`,
+`X2P_CFG_ENV`, and `X2P_PROXY_URL` as one complete tuple. Hash-bind each value
+in the controller and shard records, but never put a raw X2P value in a
+persistent shard `.env`, command line, receipt, log, or public output. Pass the
+three values only in the anonymous mode-0600 `sbatch --export-file` descriptor,
+alongside the two TLS paths and the existing narrow job environment. Every
+singleton submission must use an explicit `--time=3-00:00:00`; verify that
+exact scheduler limit before accepting completion. A controller restart must
+present the same X2P commitments, while an intentional rotation uses a fresh
+generation-bound controller root and preserves the per-shard commitments in
+multigeneration finalization.
+
 For Harbor tasks with Compose sidecars, retain the VMVM lease and replace the
 bootstrap task container with a Podman Compose project. Start
 `podman system service --time=0 unix:///run/podman/podman.sock` first because

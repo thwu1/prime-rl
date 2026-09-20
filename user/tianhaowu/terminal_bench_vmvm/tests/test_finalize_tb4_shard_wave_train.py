@@ -12,6 +12,17 @@ import pytest
 from run_tb4_shard_wave_train import WaveTrainConfig, WaveTrainError
 
 
+def _x2p_hashes(seed: str = "x2p") -> dict[str, str]:
+    return {key: hashlib.sha256(f"{seed}-{key}".encode()).hexdigest() for key in finalizer.REQUIRED_X2P_ENV}
+
+
+def _launch_contract(seed: str = "x2p") -> dict[str, object]:
+    return {
+        "slurm_time_limit": finalizer.EXPECTED_SHARD_SLURM_TIME_LIMIT,
+        "x2p_environment_sha256": _x2p_hashes(seed),
+    }
+
+
 def _controller_config(tmp_path: Path) -> WaveTrainConfig:
     return WaveTrainConfig(
         controller_root=tmp_path / "controller",
@@ -33,6 +44,7 @@ def _controller_config(tmp_path: Path) -> WaveTrainConfig:
         shard_count=66,
         wave_size=4,
         poll_interval_seconds=15,
+        x2p_environment_sha256=_x2p_hashes(),
     )
 
 
@@ -83,6 +95,7 @@ def _candidate_config(tmp_path: Path, candidates: tuple[Path, ...]) -> finalizer
         dataset_revision=controller.dataset_revision,
         wave_size=controller.wave_size,
         controller_poll_interval_seconds=controller.poll_interval_seconds,
+        x2p_environment_sha256=controller.x2p_environment_sha256,
     )
 
 
@@ -302,6 +315,7 @@ def _prepared(
             "plan_sha256": "2" * 64,
             "universe": {"sha256": "3" * 64},
             "base_config": {"semantics_sha256": "4" * 64},
+            "scheduler": {"slurm_time_limit": finalizer.EXPECTED_SHARD_SLURM_TIME_LIMIT},
         },
         dataset_path=dataset.resolve(),
         deployment_spec=SimpleNamespace(path=(tmp_path / f"{root_name}-spec.yaml").resolve(), sha256="b" * 64),
@@ -309,6 +323,7 @@ def _prepared(
         proxy_info=proxy_info,
         smoke=SimpleNamespace(path=(tmp_path / f"{root_name}-smoke.json").resolve(), sha256="7" * 64),
         generation_sha256=hashlib.sha256(finalizer.canonical_json(route_generation)).hexdigest(),
+        x2p_environment_sha256=_x2p_hashes(root_name),
         proxy_config_snapshot=SimpleNamespace(
             path=(tmp_path / f"{root_name}-proxy-config.yaml").resolve(),
             sha256="9" * 64,
@@ -353,6 +368,7 @@ def _evidence(tmp_path: Path, prepared) -> finalizer.ControllerEvidence:
                 "route_generation_sha256": prepared.generation_sha256,
                 "endpoint_binding_sha256": endpoint_sha,
                 "expected_routes": 1,
+                "launch_contract": _launch_contract(prepared.controller_root.name),
             }
         )
     return finalizer.ControllerEvidence(
@@ -379,6 +395,12 @@ def _validated(prepared) -> dict:
         "proxy_policy_sha256": policy_sha,
         "deployment_spec_sha256": prepared.deployment_spec.sha256,
         "certificate_sha256": "9" * 64,
+        "shard_slurm_time_limit": finalizer.EXPECTED_SHARD_SLURM_TIME_LIMIT,
+        "x2p_environment_commitment_sha256s": [
+            hashlib.sha256(
+                finalizer.canonical_json(_launch_contract(prepared.controller_root.name)["x2p_environment_sha256"])
+            ).hexdigest()
+        ],
     }
 
 
@@ -431,6 +453,7 @@ def _range_evidence(tmp_path: Path, prepared) -> finalizer.ControllerEvidence:
                 "route_generation_sha256": prepared.generation_sha256,
                 "endpoint_binding_sha256": endpoint_sha,
                 "expected_routes": 1,
+                "launch_contract": _launch_contract(prepared.controller_root.name),
             }
         )
     supported = sum(index < 63 for index in prepared.selected_indices)
@@ -478,6 +501,12 @@ def _validated_multi(prepared, evidence: finalizer.ControllerEvidence) -> dict:
     base["proxy_policy_semantics_sha256"] = hashlib.sha256(finalizer.canonical_json(policy)).hexdigest()
     base["route_generation_sha256s"] = sorted({record["route_generation_sha256"] for record in evidence.shard_records})
     base["endpoint_binding_sha256s"] = sorted({record["endpoint_binding_sha256"] for record in evidence.shard_records})
+    base["x2p_environment_commitment_sha256s"] = sorted(
+        {
+            hashlib.sha256(finalizer.canonical_json(record["launch_contract"]["x2p_environment_sha256"])).hexdigest()
+            for record in evidence.shard_records
+        }
+    )
     base["supported_passes"] = evidence.solved_count
     base["supported_pass_rate"] = evidence.solved_count / 63
     base["all_task_pass_rate"] = evidence.solved_count / 66
@@ -506,6 +535,7 @@ def test_collect_revalidates_complete_history_and_derives_exact_receipts(tmp_pat
                     "guard_success_receipt_sha256": record["guard_success_receipt_sha256"],
                     "eval_run_identity_sha256": record["eval_run_identity_sha256"],
                     "route_generation_sha256": record["route_generation_sha256"],
+                    "launch_contract": record["launch_contract"],
                 }
             )
         supported = sum(index < 63 for index in indices)
@@ -514,6 +544,7 @@ def test_collect_revalidates_complete_history_and_derives_exact_receipts(tmp_pat
         completions[wave_number] = (
             {
                 "jobs": jobs,
+                "launch_contract": _launch_contract(prepared.controller_root.name),
                 "counts": {
                     "jobs": len(indices),
                     "supported": supported,
@@ -531,6 +562,7 @@ def test_collect_revalidates_complete_history_and_derives_exact_receipts(tmp_pat
                     "path": str(prepared.controller_root / f"wave-{wave_number:03d}" / "completion.json"),
                     "sha256": file_sha256,
                 },
+                "launch_contract": _launch_contract(prepared.controller_root.name),
             }
         )
         position = stop
@@ -611,6 +643,10 @@ def test_multigen_finalizer_allows_disjoint_ranges_with_different_route_generati
                 (second, evidence_by_root[second.controller_root]),
             )
         )
+        assert _kwargs["launch_contracts"] == {
+            receipt: record["launch_contract"]
+            for receipt, record in zip(evidence.receipt_paths, evidence.shard_records, strict=True)
+        }
         value = _multi_value(evidence, first, output_dir)
         _write_output(output_dir, value, multigen=True)
         return value
@@ -646,6 +682,8 @@ def test_multigen_finalizer_allows_disjoint_ranges_with_different_route_generati
     assert summary["state"] == "passed"
     assert summary["combined_trace_count"] == 66
     assert summary["distinct_route_generations"] == 2
+    assert summary["shard_slurm_time_limit"] == finalizer.EXPECTED_SHARD_SLURM_TIME_LIMIT
+    assert len(summary["x2p_environment_commitment_sha256s"]) == 2
 
 
 def test_multigen_finalizer_rejects_gap_and_overlap(tmp_path: Path):
@@ -829,6 +867,7 @@ def _valid_multigen_manifest(tmp_path: Path) -> dict:
                 "proxy_config_snapshot_sha256": "9" * 64,
                 "smoke_checkpoint": str(tmp_path / "smoke-a.json"),
                 "smoke_checkpoint_sha256": "8" * 64,
+                "x2p_environment_sha256": _x2p_hashes("controller-a"),
                 "first_shard_index": 0,
                 "shard_count": 66,
             }
@@ -857,6 +896,26 @@ def test_multigen_manifest_rejects_unknown_keys_and_dataset_aliases(tmp_path: Pa
     _write_manifest(path, manifest)
     with pytest.raises(finalizer.FinalizationError, match="manifest_invalid"):
         multigen_cli.config_from_manifest(path, tmp_path / "final")
+
+
+def test_multigen_manifest_binds_x2p_commitments_and_rejects_missing_or_drifted_member(tmp_path: Path):
+    manifest = _valid_multigen_manifest(tmp_path)
+    path = tmp_path / "manifest.json"
+    _write_manifest(path, manifest)
+
+    config = multigen_cli.config_from_manifest(path, tmp_path / "final")
+
+    assert config.controllers[0].controller.x2p_environment_sha256 == _x2p_hashes("controller-a")
+    for mutation in ("missing", "invalid"):
+        changed = _valid_multigen_manifest(tmp_path)
+        commitments = changed["controllers"][0]["x2p_environment_sha256"]
+        if mutation == "missing":
+            commitments.pop("X2P_PROXY_URL")
+        else:
+            commitments["X2P_PROXY_URL"] = "0" * 63
+        _write_manifest(path, changed)
+        with pytest.raises(finalizer.FinalizationError, match="manifest_invalid"):
+            multigen_cli.config_from_manifest(path, tmp_path / "final")
 
 
 def test_multigen_manifest_rejects_duplicate_keys(tmp_path: Path):
@@ -1254,14 +1313,27 @@ def test_checkpoint_is_exactly_cross_bound_to_controller(tmp_path: Path, monkeyp
     assert observed_raw == raw
 
 
-def test_checkpoint_rejects_generation_or_output_member_mismatch(tmp_path: Path, monkeypatch):
+@pytest.mark.parametrize(
+    ("field", "replacement"),
+    [
+        ("route_generation_sha256s", ["0" * 64]),
+        ("shard_slurm_time_limit", "2-00:00:00"),
+        ("x2p_environment_commitment_sha256s", ["0" * 64]),
+    ],
+)
+def test_checkpoint_rejects_controller_binding_or_output_member_mismatch(
+    tmp_path: Path,
+    monkeypatch,
+    field: str,
+    replacement: object,
+):
     prepared = _prepared(tmp_path)
     evidence = _evidence(tmp_path, prepared)
     output = tmp_path / "final"
     value = _checkpoint_value(evidence, prepared, output)
     _write_output(output, value)
     bad = _validated(prepared)
-    bad["route_generation_sha256s"] = ["0" * 64]
+    bad[field] = replacement
     monkeypatch.setattr(finalizer, "validate_sharded_checkpoint", lambda *_args, **_kwargs: bad)
 
     with pytest.raises(finalizer.FinalizationError, match="sharded_checkpoint_controller_mismatch"):
@@ -1373,6 +1445,12 @@ def test_cli_failure_is_aggregate_only(monkeypatch, capsys, tmp_path: Path):
         str(tmp_path / "proxy"),
         "--proxy-info-sha256",
         "5" * 64,
+        "--x2p-env-sha256",
+        "a" * 64,
+        "--x2p-cfg-env-sha256",
+        "b" * 64,
+        "--x2p-proxy-url-sha256",
+        "c" * 64,
         "--smoke-checkpoint",
         str(tmp_path / "smoke"),
         "--smoke-checkpoint-sha256",

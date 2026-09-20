@@ -29,6 +29,7 @@ from run_tb4_shard_wave_train import (
     WaveTrainConfig,
     WaveTrainError,
     _controller_lock,
+    _expected_launch_contract,
     _load_completion,
     _load_private_json,
     _load_wave_metadata,
@@ -44,9 +45,11 @@ from smoke_qualification import _worker_only_rotation
 from tb4_shard_workflow import (
     DEFAULT_MAX_SEQUENCE_TOKENS,
     EXPECTED_MODEL,
+    EXPECTED_SHARD_SLURM_TIME_LIMIT,
     EXPECTED_SUPPORTED_TASK_COUNT,
     EXPECTED_TASK_COUNT,
     EXPECTED_UNSUPPORTED_TASK_COUNT,
+    REQUIRED_X2P_ENV,
     ShardWorkflowError,
     _load_json,
     _stable_read,
@@ -54,6 +57,7 @@ from tb4_shard_workflow import (
     merge_multigen_shards,
     merge_shards,
     validate_multigen_sharded_checkpoint,
+    validate_shard_launch_contract,
     validate_sharded_checkpoint,
 )
 
@@ -122,6 +126,7 @@ class CandidateControllerConfig:
     dataset_content_sha256: str | None = None
     wave_size: int = EXPECTED_WAVE_SIZE
     controller_poll_interval_seconds: float = 15.0
+    x2p_environment_sha256: Mapping[str, str] | None = None
 
 
 @dataclass(frozen=True)
@@ -210,6 +215,7 @@ def _candidate_controller(
         shard_count=EXPECTED_TASK_COUNT,
         wave_size=config.wave_size,
         poll_interval_seconds=config.controller_poll_interval_seconds,
+        x2p_environment_sha256=config.x2p_environment_sha256,
     )
 
 
@@ -266,7 +272,11 @@ def resolve_candidate_controller(
                         candidate,
                         hashlib.sha256(raw).hexdigest(),
                     )
-                    prepared = prepare_train(controller, command_runner=command_runner)
+                    prepared = prepare_train(
+                        controller,
+                        command_runner=command_runner,
+                        require_x2p_values=False,
+                    )
                     body = _train_body(prepared)
                     train_sha256 = hashlib.sha256(canonical_json(body)).hexdigest()
                     if train == {**body, "train_sha256": train_sha256}:
@@ -355,6 +365,9 @@ def _expected_checkpoint_record(
     if not isinstance(routes, list) or not routes:
         raise FinalizationError("controller_evidence_invalid")
     try:
+        launch_contract = validate_shard_launch_contract(job["launch_contract"])
+        if launch_contract != _expected_launch_contract(prepared):
+            raise FinalizationError("controller_evidence_invalid")
         record = {
             "index": index,
             "task_count": 1,
@@ -369,10 +382,21 @@ def _expected_checkpoint_record(
             "route_generation_sha256": job["route_generation_sha256"],
             "endpoint_binding_sha256": endpoint_sha256,
             "expected_routes": len(routes),
+            "launch_contract": launch_contract,
         }
-    except (KeyError, TypeError) as error:
+    except (KeyError, TypeError, ShardWorkflowError) as error:
         raise FinalizationError("controller_evidence_invalid") from error
     return record, receipt_path
+
+
+def _launch_contract_summary(records: Sequence[Mapping[str, Any]]) -> tuple[str, list[str]]:
+    contracts = [validate_shard_launch_contract(record.get("launch_contract")) for record in records]
+    return (
+        EXPECTED_SHARD_SLURM_TIME_LIMIT,
+        sorted(
+            {hashlib.sha256(canonical_json(contract["x2p_environment_sha256"])).hexdigest() for contract in contracts}
+        ),
+    )
 
 
 def _collect_controller_evidence(
@@ -621,6 +645,7 @@ def _load_and_validate_checkpoint(
     )
     endpoint_sha256 = hashlib.sha256(canonical_json(prepared.route_binding.endpoint)).hexdigest()
     proxy_policy_sha256 = hashlib.sha256(canonical_json(prepared.route_binding.proxy_policy)).hexdigest()
+    expected_time_limit, expected_x2p_commitments = _launch_contract_summary(evidence.shard_records)
     if (
         value.get("shards") != list(evidence.shard_records)
         or value.get("plan")
@@ -637,6 +662,8 @@ def _load_and_validate_checkpoint(
         or validated.get("endpoint_binding_sha256s") != [endpoint_sha256]
         or validated.get("proxy_policy_sha256") != proxy_policy_sha256
         or validated.get("deployment_spec_sha256") != prepared.deployment_spec.sha256
+        or validated.get("shard_slurm_time_limit") != expected_time_limit
+        or validated.get("x2p_environment_commitment_sha256s") != expected_x2p_commitments
     ):
         raise FinalizationError("sharded_checkpoint_controller_mismatch")
     return validated, raw
@@ -679,6 +706,7 @@ def _controller_policy_fingerprint(prepared: PreparedTrain) -> dict[str, Any]:
             "plan_sha256": prepared.plan["plan_sha256"],
             "universe_sha256": prepared.plan["universe"]["sha256"],
             "config_semantics_sha256": prepared.plan["base_config"]["semantics_sha256"],
+            "scheduler": prepared.plan["scheduler"],
             "task_mapping": [
                 {
                     "index": index,
@@ -854,6 +882,7 @@ def _load_and_validate_multigen_checkpoint(
     proxy_policy = dict(prepared.route_binding.proxy_policy)
     proxy_policy.pop("proxy_litellm_config", None)
     proxy_policy_semantics_sha256 = hashlib.sha256(canonical_json(proxy_policy)).hexdigest()
+    expected_time_limit, expected_x2p_commitments = _launch_contract_summary(evidence.shard_records)
     if (
         validated.get("shard_count") != EXPECTED_TASK_COUNT
         or validated.get("supported_passes") != evidence.solved_count
@@ -861,6 +890,8 @@ def _load_and_validate_multigen_checkpoint(
         or sorted(validated.get("endpoint_binding_sha256s", [])) != endpoint_hashes
         or validated.get("proxy_policy_semantics_sha256") != proxy_policy_semantics_sha256
         or validated.get("deployment_spec_sha256") != prepared.deployment_spec.sha256
+        or validated.get("shard_slurm_time_limit") != expected_time_limit
+        or validated.get("x2p_environment_commitment_sha256s") != expected_x2p_commitments
     ):
         raise FinalizationError("sharded_checkpoint_controller_mismatch")
     return validated, raw
@@ -940,7 +971,11 @@ def _finalize_multigen_locked(
     for controller_input in config.controllers:
         if SHA256_RE.fullmatch(controller_input.expected_train_sha256) is None:
             raise FinalizationError("train_sha256_invalid")
-        prepared = prepare_train(controller_input.controller, command_runner=command_runner)
+        prepared = prepare_train(
+            controller_input.controller,
+            command_runner=command_runner,
+            require_x2p_values=False,
+        )
         if prepared.proxy_config_snapshot is None:
             raise FinalizationError("proxy_config_snapshot_required")
         _validate_controller_root(prepared.controller_root)
@@ -971,6 +1006,10 @@ def _finalize_multigen_locked(
             max_supported_pass_rate=EXPECTED_MAX_SUPPORTED_PASS_RATE,
             max_sequence_tokens=DEFAULT_MAX_SEQUENCE_TOKENS,
             proxy_config_snapshots=proxy_config_snapshots,
+            launch_contracts={
+                receipt: record["launch_contract"]
+                for receipt, record in zip(evidence.receipt_paths, evidence.shard_records, strict=True)
+            },
         )
     route_hashes = [record["route_generation_sha256"] for record in evidence.shard_records]
     endpoint_hashes = [record["endpoint_binding_sha256"] for record in evidence.shard_records]
@@ -982,6 +1021,7 @@ def _finalize_multigen_locked(
         expected_route_generation_sha256s=route_hashes,
         expected_endpoint_binding_sha256s=endpoint_hashes,
     )
+    shard_slurm_time_limit, x2p_commitments = _launch_contract_summary(evidence.shard_records)
     return {
         "state": "passed",
         "reused_existing": reused_existing,
@@ -996,6 +1036,8 @@ def _finalize_multigen_locked(
         "checkpoint_file_sha256": hashlib.sha256(checkpoint_raw).hexdigest(),
         "controller_train_sha256s": [item[1].train["train_sha256"] for item in prepared_items],
         "controller_state_sha256s": [item[1].state["state_sha256"] for item in prepared_items],
+        "shard_slurm_time_limit": shard_slurm_time_limit,
+        "x2p_environment_commitment_sha256s": x2p_commitments,
     }
 
 
@@ -1004,7 +1046,11 @@ def _finalize_locked(
     *,
     command_runner: Callable[..., Any],
 ) -> dict[str, Any]:
-    prepared = prepare_train(config.controller, command_runner=command_runner)
+    prepared = prepare_train(
+        config.controller,
+        command_runner=command_runner,
+        require_x2p_values=False,
+    )
     if (
         prepared.config.wave_size != EXPECTED_WAVE_SIZE
         or prepared.selected_indices != tuple(range(EXPECTED_TASK_COUNT))
@@ -1025,6 +1071,10 @@ def _finalize_locked(
             min_supported_pass_rate=EXPECTED_MIN_SUPPORTED_PASS_RATE,
             max_supported_pass_rate=EXPECTED_MAX_SUPPORTED_PASS_RATE,
             max_sequence_tokens=DEFAULT_MAX_SEQUENCE_TOKENS,
+            launch_contracts={
+                receipt: record["launch_contract"]
+                for receipt, record in zip(evidence.receipt_paths, evidence.shard_records, strict=True)
+            },
         )
     validated, checkpoint_raw = _load_and_validate_checkpoint(
         output,
@@ -1032,6 +1082,7 @@ def _finalize_locked(
         evidence,
         expected_value=published,
     )
+    shard_slurm_time_limit, x2p_commitments = _launch_contract_summary(evidence.shard_records)
     return {
         "state": "passed",
         "reused_existing": reused_existing,
@@ -1045,6 +1096,8 @@ def _finalize_locked(
         "tb4_certificate_sha256": validated["certificate_sha256"],
         "checkpoint_file_sha256": hashlib.sha256(checkpoint_raw).hexdigest(),
         "controller_state_sha256": evidence.state["state_sha256"],
+        "shard_slurm_time_limit": shard_slurm_time_limit,
+        "x2p_environment_commitment_sha256s": x2p_commitments,
     }
 
 
@@ -1145,6 +1198,9 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--readiness-checkpoint-sha256", required=True)
     parser.add_argument("--proxy-info", type=Path, required=True)
     parser.add_argument("--proxy-info-sha256", required=True)
+    parser.add_argument("--x2p-env-sha256", required=True)
+    parser.add_argument("--x2p-cfg-env-sha256", required=True)
+    parser.add_argument("--x2p-proxy-url-sha256", required=True)
     parser.add_argument("--smoke-checkpoint", type=Path)
     parser.add_argument("--smoke-checkpoint-sha256")
     parser.add_argument(
@@ -1190,6 +1246,11 @@ def _candidate_config_from_args(args: argparse.Namespace) -> CandidateController
         dataset_content_sha256=args.dataset_content_sha256,
         wave_size=args.wave_size,
         controller_poll_interval_seconds=args.controller_poll_interval_seconds,
+        x2p_environment_sha256={
+            REQUIRED_X2P_ENV[0]: args.x2p_env_sha256,
+            REQUIRED_X2P_ENV[1]: args.x2p_cfg_env_sha256,
+            REQUIRED_X2P_ENV[2]: args.x2p_proxy_url_sha256,
+        },
     )
 
 
