@@ -1000,27 +1000,81 @@ def test_atomic_probe_failure_receipt_and_wrapper_normalization(probe: Any, tmp_
     assert invoke(symlink_parent, "failure.json").returncode != 0
     assert outside.read_text() == "preserve"
 
+    directory_parent = tmp_path / "directory"
+    directory_parent.mkdir(mode=0o700)
+    (directory_parent / "failure.json").mkdir(mode=0o700)
+    assert invoke(directory_parent, "failure.json").returncode != 0
+    assert (directory_parent / "failure.json").is_dir()
+
     partial_parent = tmp_path / "partial"
     partial_parent.mkdir(mode=0o700)
     partial_source = program.replace(
-        "        rename_noreplace(parent_fd, temporary, target)\n        published = True",
-        '        raise OSError("injected-before-publish")',
+        "        offset = 0\n        while offset < len(payload):",
+        '        os.write(descriptor, b"{")\n'
+        "        os.fsync(descriptor)\n"
+        '        raise OSError("injected-after-create")\n'
+        "        offset = 0\n"
+        "        while offset < len(payload):",
     )
     assert partial_source != program
     assert invoke(partial_parent, "failure.json", source=partial_source).returncode != 0
-    assert list(partial_parent.iterdir()) == []
+    partial_receipt = partial_parent / "failure.json"
+    assert partial_receipt.read_bytes() == b"{"
+    assert stat.S_IMODE(partial_receipt.stat().st_mode) == 0o600
+    assert list(partial_parent.iterdir()) == [partial_receipt]
 
     signal_parent = tmp_path / "signal"
     signal_parent.mkdir(mode=0o700)
     signal_source = program.replace(
-        '    temporary = f".vmvm-owner-v2-failure-{os.getpid()}-{os.getrandom(16).hex()}"',
-        "    os.kill(os.getpid(), signal.SIGTERM)\n"
-        '    temporary = f".vmvm-owner-v2-failure-{os.getpid()}-{os.getrandom(16).hex()}"',
+        "    descriptor = -1",
+        "    os.kill(os.getpid(), signal.SIGTERM)\n    descriptor = -1",
     )
     assert signal_source != program
     assert invoke(signal_parent, "failure.json", source=signal_source).returncode == -signal.SIGTERM
     assert json.loads((signal_parent / "failure.json").read_bytes())["failure_class"] == "backend_tunnel"
-    assert not [path for path in signal_parent.iterdir() if path.name.startswith(".vmvm-owner-v2-failure-")]
+
+    concurrent_parent = tmp_path / "concurrent"
+    concurrent_parent.mkdir(mode=0o700)
+    concurrent_fd = os.open(concurrent_parent, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+    concurrent_argv = [
+        "/usr/bin/python3",
+        "-I",
+        "-S",
+        "-B",
+        "-c",
+        program,
+        str(concurrent_fd),
+        "failure.json",
+        "backend_tunnel",
+        "verified",
+        *hashes,
+        "123",
+        job_name,
+    ]
+    try:
+        contenders = [
+            subprocess.Popen(
+                concurrent_argv,
+                pass_fds=(concurrent_fd,),
+                stdin=subprocess.DEVNULL,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+            )
+            for _index in range(2)
+        ]
+        outcomes = [process.communicate(timeout=10) + (process.returncode,) for process in contenders]
+    finally:
+        os.close(concurrent_fd)
+    assert sorted(outcome[2] for outcome in outcomes)[0] == 0
+    assert sum(outcome[2] == 0 for outcome in outcomes) == 1
+    concurrent_raw = (concurrent_parent / "failure.json").read_bytes()
+    assert concurrent_raw == receipt_raw
+    assert stat.S_IMODE((concurrent_parent / "failure.json").stat().st_mode) == 0o400
+
+    for unsupported in ("renameat2", "RENAME_NOREPLACE", "os.rename(", "os.unlink(", "temporary"):
+        assert unsupported not in program
+    assert "os.O_RDWR | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW | os.O_CLOEXEC" in program
+    assert program.count("os.pread(descriptor, len(payload) + 1, 0) != payload") == 2
 
     assert "probe_rc == 124" in wrapper
     assert "primary_failure=unclassified" in wrapper

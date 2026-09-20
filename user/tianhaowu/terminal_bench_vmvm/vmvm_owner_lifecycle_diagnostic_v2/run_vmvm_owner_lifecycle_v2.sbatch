@@ -947,9 +947,6 @@ failure_cleanup_status_at() {
 }
 
 readonly FAILURE_RECEIPT_WRITER_PROGRAM='
-import ctypes
-import errno
-import hashlib
 import json
 import os
 import re
@@ -957,7 +954,6 @@ import signal
 import stat
 import sys
 
-RENAME_NOREPLACE = 1
 SHA = re.compile(r"[0-9a-f]{64}")
 FAILURES = {
     "backend_cancelled", "backend_container", "backend_fifo_wiring",
@@ -977,22 +973,6 @@ def canonical(value):
 def same(left, right):
     fields = ("st_dev", "st_ino", "st_mode", "st_uid", "st_nlink", "st_size")
     return all(getattr(left, field) == getattr(right, field) for field in fields)
-
-
-def rename_noreplace(parent_fd, source, target):
-    renameat2 = ctypes.CDLL(None, use_errno=True).renameat2
-    renameat2.argtypes = (ctypes.c_int, ctypes.c_char_p, ctypes.c_int, ctypes.c_char_p, ctypes.c_uint)
-    renameat2.restype = ctypes.c_int
-    result = renameat2(
-        parent_fd,
-        os.fsencode(source),
-        parent_fd,
-        os.fsencode(target),
-        RENAME_NOREPLACE,
-    )
-    if result != 0:
-        number = ctypes.get_errno()
-        raise OSError(number, os.strerror(number))
 
 
 def main():
@@ -1046,30 +1026,21 @@ def main():
     }) + b"\n"
     blocked = {signal.SIGHUP, signal.SIGINT, signal.SIGTERM}
     previous = signal.pthread_sigmask(signal.SIG_BLOCK, blocked)
-    temporary = f".vmvm-owner-v2-failure-{os.getpid()}-{os.getrandom(16).hex()}"
     descriptor = -1
-    published = False
-    identity = None
     try:
-        try:
-            os.stat(target, dir_fd=parent_fd, follow_symlinks=False)
-        except FileNotFoundError:
-            pass
-        else:
-            raise FileExistsError(errno.EEXIST, "destination exists")
         descriptor = os.open(
-            temporary,
+            target,
             os.O_RDWR | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW | os.O_CLOEXEC,
             0o600,
             dir_fd=parent_fd,
         )
-        identity = os.fstat(descriptor)
+        initial = os.fstat(descriptor)
         if (
-            not stat.S_ISREG(identity.st_mode)
-            or stat.S_IMODE(identity.st_mode) != 0o600
-            or identity.st_uid != os.getuid()
-            or identity.st_nlink != 1
-            or identity.st_size != 0
+            not stat.S_ISREG(initial.st_mode)
+            or stat.S_IMODE(initial.st_mode) != 0o600
+            or initial.st_uid != os.getuid()
+            or initial.st_nlink != 1
+            or initial.st_size != 0
         ):
             raise OSError
         offset = 0
@@ -1081,32 +1052,31 @@ def main():
         os.fchmod(descriptor, 0o400)
         os.fsync(descriptor)
         final = os.fstat(descriptor)
+        named = os.stat(target, dir_fd=parent_fd, follow_symlinks=False)
         if (
             not stat.S_ISREG(final.st_mode)
             or stat.S_IMODE(final.st_mode) != 0o400
             or final.st_uid != os.getuid()
             or final.st_nlink != 1
             or final.st_size != len(payload)
+            or final.st_dev != initial.st_dev
+            or final.st_ino != initial.st_ino
+            or not same(final, named)
             or os.pread(descriptor, len(payload) + 1, 0) != payload
         ):
             raise OSError
-        rename_noreplace(parent_fd, temporary, target)
-        published = True
-        named = os.stat(target, dir_fd=parent_fd, follow_symlinks=False)
-        if not same(final, named):
-            raise OSError
         os.fsync(parent_fd)
+        verified = os.fstat(descriptor)
+        named_verified = os.stat(target, dir_fd=parent_fd, follow_symlinks=False)
+        if (
+            not same(final, verified)
+            or not same(final, named_verified)
+            or os.pread(descriptor, len(payload) + 1, 0) != payload
+        ):
+            raise OSError
     finally:
         if descriptor >= 0:
             os.close(descriptor)
-        if not published and identity is not None:
-            try:
-                named = os.stat(temporary, dir_fd=parent_fd, follow_symlinks=False)
-                if named.st_dev == identity.st_dev and named.st_ino == identity.st_ino:
-                    os.unlink(temporary, dir_fd=parent_fd)
-                    os.fsync(parent_fd)
-            except OSError:
-                pass
         signal.pthread_sigmask(signal.SIG_SETMASK, previous)
 
 
