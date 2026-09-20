@@ -19,8 +19,8 @@ x86_uv=${UV_BIN_X86_64:-/storage/home/tianhaowu/.local/x86_64/bin/uv}
 python_bin=${PYTHON_BIN_X86_64:-python3}
 sandoq_site=${SANDOQ_PYTHON_SITE_X86_64:-/checkpoint/ram/tianhaowu/terminal_bench_vmvm/sandoq_x86_64_ram_prime_f7313db4}
 sandoq_extension="$project_dir/extensions/sandoq"
-sandoq_provider_commit=f7313db42eea4b3be8bcbe16a8072f73cf6abed5
-sandoq_provider_tree=9cb669ad045a67e92bbd0a04fb353489457003aa
+sandoq_provider_commit=4890302104d76220cef791c86d2009168597d35f
+sandoq_provider_tree=33f092a3982916660e12f472588e6ce34a906fc2
 resume_dir=${RESUME_DIR:-}
 output_dir=${OUTPUT_DIR:?The direct Qwen wrapper must set OUTPUT_DIR}
 inference_base_url=${INFERENCE_BASE_URL:?The direct Qwen wrapper must set INFERENCE_BASE_URL}
@@ -123,7 +123,7 @@ if [[ "$sandbox_provider" == sandoq ]]; then
         --receipt "$SANDOQ_PROVIDER_CONTEXT_RECEIPT" >/dev/null
     if [[ ! -f "$sandoq_extension/UPSTREAM.md" ]] \
         || ! grep -Fq "$sandoq_provider_commit" "$sandoq_extension/UPSTREAM.md" \
-        || ! grep -Fq '46ee7064345aa0e8cee47b61a21feeb2d9049361' "$sandoq_extension/UPSTREAM.md"; then
+        || ! grep -Fq '10b5bd9bbc76eba1b8253637e1869d6b63b7fc42' "$sandoq_extension/UPSTREAM.md"; then
         printf 'Vendored Sandoq extension provenance is invalid\n' >&2
         exit 2
     fi
@@ -280,8 +280,20 @@ if [[ ! "$worker_manifest_sha256" =~ ^[0-9a-f]{64}$ \
     exit 2
 fi
 if [[ "$sandbox_provider" == sandoq ]]; then
-    ramp_receipt=${SANDOQ_RAMP_RECEIPT:?SANDOQ_RAMP_RECEIPT is required}
-    ramp_receipt_sha256=${SANDOQ_RAMP_RECEIPT_SHA256:?SANDOQ_RAMP_RECEIPT_SHA256 is required}
+    diagnostic_config_sha256=${QWEN_SANDOQ_NONCERTIFYING_DIAGNOSTIC_CONFIG_SHA256:-}
+    diagnostic_mode=0
+    if [[ -n "$diagnostic_config_sha256" ]]; then
+        diagnostic_mode=1
+        if [[ "$sandoq_stage_count" != 1 \
+            || ! "$diagnostic_config_sha256" =~ ^[0-9a-f]{64}$ \
+            || "$(sha256sum -- "$eval_config" | cut -d' ' -f1)" != "$diagnostic_config_sha256" ]]; then
+            printf 'Non-certifying diagnostic inputs are invalid\n' >&2
+            exit 2
+        fi
+    else
+        ramp_receipt=${SANDOQ_RAMP_RECEIPT:?SANDOQ_RAMP_RECEIPT is required}
+        ramp_receipt_sha256=${SANDOQ_RAMP_RECEIPT_SHA256:?SANDOQ_RAMP_RECEIPT_SHA256 is required}
+    fi
     source_image_manifest=$(python3 - "$eval_config" <<'PY'
 import sys
 import tomllib
@@ -304,7 +316,8 @@ print(path)
 PY
 )
     source_image_manifest_sha256=$(sha256sum -- "$source_image_manifest" | cut -d' ' -f1)
-    "$x86_uv" run --no-project --offline --python "$python_bin" \
+    if [[ "$diagnostic_mode" -eq 0 ]]; then
+        "$x86_uv" run --no-project --offline --python "$python_bin" \
         python3 - "$sandoq_stage_count" "$approved_task_file_sha256" "$approved_task_file" \
         "$workflow_dir/configs/eval/mobius_valid_tasks_2500.txt" \
         "$canonical_dataset" \
@@ -343,6 +356,7 @@ validate_predecessor(
     current_task_file=Path(sys.argv[12]),
 )
 PY
+    fi
 fi
 identity_preflight_dir=
 if [[ "$preflight_only" -eq 1 && "$sandbox_provider" == vmvm ]]; then

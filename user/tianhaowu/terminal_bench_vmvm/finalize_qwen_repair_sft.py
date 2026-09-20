@@ -414,7 +414,7 @@ def _load_repair_selection(path: Path, expected_sha256: str, expected_count: int
         or config.get("capture_model_io") is not True
         or config.get("enable_thinking") is not True
         or config.get("preserve_thinking") is not True
-        or config.get("reasoning_effort") != "max"
+        or config.get("reasoning_effort") != "high"
         or not _is_plain_int(config.get("max_concurrent"))
         or config.get("max_concurrent") != direct.MAX_DIRECT_CONCURRENCY
         or not _is_plain_int(config.get("provider_concurrency"))

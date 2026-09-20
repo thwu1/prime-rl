@@ -26,8 +26,8 @@ CANONICAL_SOURCE_COUNT = 2500
 DEPLOYMENT_NAMESPACE = "shared_qwen38_2p4t"
 CANONICAL_DATASET_REVISION = "ac1f30b9ac0e6c6a20a9fe423900d9ed28a6d366"
 CANONICAL_DATASET_TREE = "a6c036e1b9abfd7075902ca38ef757587079a59b"
-CANONICAL_SANDOQ_TEMPLATE_SHA256 = "17535de4db8788ef981130fea198060a4103e98830083969b968ffca0d7d56e5"
-CANONICAL_VMVM_TEMPLATE_SHA256 = "78bc527f9491b179f46e8d8bd06f5a7685a8c5cc9956644f6994112341803b13"
+CANONICAL_SANDOQ_TEMPLATE_SHA256 = "458e30fbfe378ba8ef908b1e403ff1bfa4308a7800bbf3a5bd8d5c0229023991"
+CANONICAL_VMVM_TEMPLATE_SHA256 = "9e8f9226187121c9052b4e8b8fed0029e528b97ff20298414fcee038e5b08dc8"
 SANDOQ_COUNT = 2499
 VMVM_COUNT = 1
 COMPOSE_FILENAMES = (
@@ -331,7 +331,7 @@ def materialize_vmvm_config(
         ("max_keepalive_connections = 32", f"max_keepalive_connections = {task_count}"),
     ):
         text = _replace_once(text, old, new)
-    if text.count('reasoning_effort = "max"') != 1:
+    if text.count('reasoning_effort = "high"') != 1:
         raise MixedMaterializationError("canonical_vmvm_template_shape_mismatch")
     if text.count("enable_compose = true") != 1:
         raise MixedMaterializationError("canonical_vmvm_template_shape_mismatch")

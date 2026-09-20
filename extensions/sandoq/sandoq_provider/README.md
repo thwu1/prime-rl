@@ -150,6 +150,7 @@ chmod 0600 "$OCI_RUNNER_DOCKERHUB_TOKEN_FILE"
 | `OCI_RUNNER_DOCKERHUB_USERNAME` | unset | Docker Hub user or service account |
 | `OCI_RUNNER_DOCKERHUB_TOKEN_FILE` | unset | Mode-`0600` Docker Hub PAT file on the Prime-RL host |
 | `OCI_RUNNER_REQUIRE_DOCKERHUB_AUTH` | unset | Set to `1` to fail before pulling rather than use anonymous Docker Hub access |
+| `OCI_RUNNER_ALLOW_DOCKERHUB_FALLBACK` | `1` | Set to `0` to fail closed on an ECR pull-through upstream-auth failure instead of trying Docker Hub directly |
 | `OCI_RUNNER_PODMAN_IGNORE_CHOWN_ERRORS` | unset | Set to `1` for rootless Podman to detect its `vfs`/`overlay` driver and squash image ownership outside its UID/GID map |
 | `OCI_RUNNER_USE_ECR` | recipe-specific | Filtered-recipe switch; defaults to `1` there and `0` rolls back to Docker Hub |
 | `OCI_RUNNER_ECR_REGISTRY` | unset | ECR hostname; enables Docker Hub reference rewriting and ECR authentication |
@@ -203,8 +204,9 @@ are not placed in commands, metadata, event logs, or rollout records.
 
 Outer-lease renewal is separate from managed-shell activity. The broker renews
 all live outer sessions in bounded parallel sweeps. Recovery-critical lifecycle
-records live in a node-local WAL; non-secret `pool_events.jsonl` telemetry is
-batched by one background writer and never blocks lease assignment. Clients use
+records live in the durable output-local WAL; only the Unix socket is node-local.
+Non-secret `pool_events.jsonl` telemetry is batched by one background writer and
+never blocks lease assignment. Clients use
 persistent framed Unix-socket connections and FIFO acquisition tickets. It does
 not send commands or keepalives to managed shells.
 

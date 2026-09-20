@@ -267,8 +267,8 @@ if [[ "$sandbox_provider" != vmvm && "$sandbox_provider" != sandoq ]]; then
     exit 2
 fi
 if [[ "$sandbox_provider" == sandoq ]]; then
-    sandoq_approved_provider_commit=${SANDOQ_APPROVED_PROVIDER_COMMIT:-f7313db42eea4b3be8bcbe16a8072f73cf6abed5}
-    sandoq_approved_provider_tree=${SANDOQ_APPROVED_PROVIDER_TREE:-9cb669ad045a67e92bbd0a04fb353489457003aa}
+    sandoq_approved_provider_commit=${SANDOQ_APPROVED_PROVIDER_COMMIT:-4890302104d76220cef791c86d2009168597d35f}
+    sandoq_approved_provider_tree=${SANDOQ_APPROVED_PROVIDER_TREE:-33f092a3982916660e12f472588e6ce34a906fc2}
     sandoq_approved_provider_source_sha256=${SANDOQ_APPROVED_PROVIDER_SOURCE_SHA256:-ca983f92d79b6079b0813f5670823449802028e55fbc23512d2aec69c1e3be86}
     sandoq_approved_client_version=${SANDOQ_APPROVED_CLIENT_VERSION:-0.4.0.2026.8.20.58304.0+hga81e4ca4d312}
     sandoq_approved_site_sha256=${SANDOQ_APPROVED_SITE_SHA256:-852f66db48c06e3928c6a5ff974c94bb21c93511342b205c2b7d1b99e73c3d6b}
@@ -403,8 +403,8 @@ sandoq_client_version=
 sandoq_site_sha256=
 derived_image_manifest_sha256=
 if [[ "$sandbox_provider" == sandoq ]]; then
-    sandoq_provider_commit=f7313db42eea4b3be8bcbe16a8072f73cf6abed5
-    sandoq_provider_tree=9cb669ad045a67e92bbd0a04fb353489457003aa
+    sandoq_provider_commit=4890302104d76220cef791c86d2009168597d35f
+    sandoq_provider_tree=33f092a3982916660e12f472588e6ce34a906fc2
     sandoq_provider_source_sha256=ca983f92d79b6079b0813f5670823449802028e55fbc23512d2aec69c1e3be86
     if [[ "$verifiers_commit" != 80e58e7e2b194e9c1b8dc0990c00b7a839127eea ]]; then
         printf 'Verifiers revision is not the approved host-harness topology source\n' >&2
@@ -467,7 +467,7 @@ PY
     fi
     if [[ ! -f "$sandoq_extension/UPSTREAM.md" ]] \
         || ! grep -Fq "$sandoq_provider_commit" "$sandoq_extension/UPSTREAM.md" \
-        || ! grep -Fq '46ee7064345aa0e8cee47b61a21feeb2d9049361' "$sandoq_extension/UPSTREAM.md"; then
+        || ! grep -Fq '10b5bd9bbc76eba1b8253637e1869d6b63b7fc42' "$sandoq_extension/UPSTREAM.md"; then
         printf 'Vendored Sandoq extension provenance is invalid\n' >&2
         exit 2
     fi

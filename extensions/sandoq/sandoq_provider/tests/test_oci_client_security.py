@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import asyncio
+import time
+from dataclasses import fields
 from types import SimpleNamespace
 
 import pytest
@@ -168,6 +170,121 @@ def test_host_task_network_requires_firecracker(monkeypatch: pytest.MonkeyPatch)
 
     with pytest.raises(APIError, match="supported only by Firecracker"):
         get_oci_config()
+
+
+def test_direct_dockerhub_fallback_is_enabled_by_default(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("OCI_RUNNER_ALLOW_DOCKERHUB_FALLBACK", raising=False)
+
+    assert get_oci_config().allow_dockerhub_fallback is True
+
+
+def test_oci_config_preserves_legacy_positional_constructor() -> None:
+    observed = get_oci_config()
+    legacy_values = [
+        getattr(observed, field.name) for field in fields(observed) if field.name != "allow_dockerhub_fallback"
+    ]
+
+    reconstructed = type(observed)(*legacy_values)
+
+    assert reconstructed.allow_dockerhub_fallback is True
+
+
+def test_direct_dockerhub_fallback_can_be_disabled(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("OCI_RUNNER_ALLOW_DOCKERHUB_FALLBACK", "0")
+
+    assert get_oci_config().allow_dockerhub_fallback is False
+
+
+def test_direct_dockerhub_fallback_rejects_ambiguous_value(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("OCI_RUNNER_ALLOW_DOCKERHUB_FALLBACK", "false")
+
+    with pytest.raises(APIError, match="must be '0' or '1'"):
+        get_oci_config()
+
+
+@pytest.mark.parametrize("allow_fallback", [False, True])
+def test_ecr_upstream_auth_failure_obeys_direct_fallback_policy(
+    allow_fallback: bool,
+) -> None:
+    registry = "123456789012.dkr.ecr.us-east-2.amazonaws.com"
+    ecr = ECRConfig(
+        registry=registry,
+        region="us-east-2",
+        pull_through_prefix="pt_dockerio",
+        token_file=None,
+        client_cert_path=None,
+        ucloud_executable="ucloud",
+        refresh_interval_s=3600,
+        command_timeout_s=60,
+    )
+    client = object.__new__(OCIRunnerAsyncSandboxClient)
+    client._oci_cfg = SimpleNamespace(
+        allow_dockerhub_fallback=allow_fallback,
+        ecr=ecr,
+        podman_ignore_chown_errors=False,
+        pull_poll_max_errors=1,
+        pull_timeout_s=30,
+    )
+    client._podman_pull_command = lambda *_args, **_kwargs: "podman pull image"
+    responses = iter(
+        [
+            CommandResponse(stdout="LAUNCHED:123\n", stderr="", exit_code=0),
+            CommandResponse(
+                stdout=("FINISHED:1\nauthentication to the upstream registry failed"),
+                stderr="",
+                exit_code=0,
+            ),
+            CommandResponse(stdout="", stderr="", exit_code=0),
+        ]
+    )
+
+    async def outer_exec(*_args: object, **_kwargs: object) -> CommandResponse:
+        return next(responses)
+
+    fallback_calls: list[str] = []
+
+    async def pull_image(
+        _info: object,
+        image: str,
+        **_kwargs: object,
+    ) -> None:
+        fallback_calls.append(image)
+
+    async def ensure_auth(*_args: object, **_kwargs: object) -> None:
+        return None
+
+    client._outer_exec_idempotent = outer_exec
+    client._pull_image = pull_image
+    client._ensure_dockerhub_authentication = ensure_auth
+    info = SimpleNamespace(
+        metadata={},
+        session_id="session-1",
+        source_image="docker.io/example/task@sha256:" + "a" * 64,
+    )
+    requested = f"{registry}/pt_dockerio/example/task@sha256:" + "a" * 64
+
+    operation = client._pull_image_once(
+        info,
+        requested,
+        deadline=time.monotonic() + 30,
+        pull_id="0123456789abcdef0123456789abcdef",
+        allow_ecr_fallback=True,
+    )
+    if allow_fallback:
+        asyncio.run(operation)
+        assert fallback_calls == [info.source_image]
+        assert info.metadata["image_pull_fallback"] == "direct_dockerhub"
+    else:
+        with pytest.raises(APIError, match="podman pull failed"):
+            asyncio.run(operation)
+        assert fallback_calls == []
+        assert "image_pull_fallback" not in info.metadata
 
 
 def test_background_job_paths_reject_untrusted_job_id() -> None:

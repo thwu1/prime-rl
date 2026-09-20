@@ -332,9 +332,9 @@ def _set_sampling_reasoning_effort(text: str) -> str:
     if len(assignment.findall(text)) > 1:
         raise RepairMaterializationError("repair_config_reasoning_effort_not_unique")
     if assignment.search(text):
-        return assignment.sub(r'\g<1>"max"', text)
+        return assignment.sub(r'\g<1>"high"', text)
     table = re.compile(r"(?m)^\[sampling\]\s*$")
-    rewritten, count = table.subn('[sampling]\nreasoning_effort = "max"', text)
+    rewritten, count = table.subn('[sampling]\nreasoning_effort = "high"', text)
     if count != 1:
         raise RepairMaterializationError("repair_config_sampling_not_unique")
     return rewritten
@@ -407,7 +407,7 @@ def _validate_repair_config(
         or not isinstance(template, dict)
         or template.get("enable_thinking") is not True
         or template.get("preserve_thinking") is not True
-        or sampling.get("reasoning_effort") != "max"
+        or sampling.get("reasoning_effort") != "high"
         or not isinstance(taskset, dict)
         or Path(str(taskset.get("task_file", ""))).resolve() != task_file.resolve()
         or taskset.get("task_file_sha256") != task_file_sha256
@@ -868,7 +868,7 @@ def materialize(
                     "max_total_tokens": 262_144,
                     "preserve_thinking": True,
                     "provider_concurrency": direct.PRODUCTION_PROVIDER_CONCURRENCY,
-                    "reasoning_effort": "max",
+                    "reasoning_effort": "high",
                     "retry_class_count": len(direct.ROLLOUT_RETRY_POLICY),
                     "retry_policy_sha256": _sha256_bytes(retry_policy_bytes),
                     "sha256": config_sha256,

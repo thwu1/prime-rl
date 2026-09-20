@@ -779,7 +779,7 @@ def _load_exclusion_selection(
         or config.get("capture_model_io") is not True
         or config.get("enable_thinking") is not True
         or config.get("preserve_thinking") is not True
-        or config.get("reasoning_effort") != "max"
+        or config.get("reasoning_effort") != "high"
         or config.get("max_concurrent") != direct_workers.MAX_DIRECT_CONCURRENCY
         or config.get("provider_concurrency") != direct_workers.PRODUCTION_PROVIDER_CONCURRENCY
         or config.get("max_total_tokens") != DEFAULT_MAX_SEQUENCE_TOKENS

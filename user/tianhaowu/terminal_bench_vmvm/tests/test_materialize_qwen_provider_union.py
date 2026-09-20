@@ -37,8 +37,8 @@ def _templates(tmp_path: Path, monkeypatch) -> tuple[Path, Path]:
     )
     sandoq = tmp_path / "sandoq.toml"
     vmvm = tmp_path / "vmvm.toml"
-    sandoq.write_text(common + 'reasoning_effort = "max"\n')
-    vmvm.write_text(common + 'reasoning_effort = "max"\nenable_compose = true\n')
+    sandoq.write_text(common + 'reasoning_effort = "high"\n')
+    vmvm.write_text(common + 'reasoning_effort = "high"\nenable_compose = true\n')
     monkeypatch.setattr(union, "CANONICAL_SANDOQ_TEMPLATE_SHA256", _sha(sandoq.read_bytes()))
     monkeypatch.setattr(union, "CANONICAL_VMVM_TEMPLATE_SHA256", _sha(vmvm.read_bytes()))
     return sandoq, vmvm
@@ -102,7 +102,7 @@ def test_materializes_private_disjoint_exhaustive_partition(tmp_path: Path, monk
     assert validation["partition"]["sandoq_count"] == 3
     assert validation["partition"]["vmvm_count"] == 1
     assert "enable_compose = true" in paths["vmvm_config"].read_text()
-    assert 'reasoning_effort = "max"' in paths["vmvm_config"].read_text()
+    assert 'reasoning_effort = "high"' in paths["vmvm_config"].read_text()
     for name in ("sandoq_tasks", "vmvm_tasks", "sandoq_config", "vmvm_config", "receipt"):
         metadata = paths[name].stat()
         assert metadata.st_uid == os.getuid()

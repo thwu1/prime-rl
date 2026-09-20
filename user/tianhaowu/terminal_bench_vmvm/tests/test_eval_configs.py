@@ -349,6 +349,7 @@ def test_mobius_qwen_sandoq_contract_is_explicit_and_digest_pinned() -> None:
         "expected_environment": "oci-runner",
         "ecr_token_file": "/storage/home/tianhaowu/.config/oci-runner/ecr-token",
     }
+    assert config["sampling"]["reasoning_effort"] == "high"
     assert set(config["retries"]["rollout"]["include"]) == QWEN_ROLLOUT_RETRY_ERRORS
 
     resolved = _resolved_eval_config(
@@ -654,8 +655,13 @@ def test_direct_qwen_launcher_is_fail_closed() -> None:
     assert "no longer has exactly 24 active workers" in wrapper
     assert "serving generation drifted during evaluation" in wrapper
     assert "validate_post_eval_generation" in wrapper
-    assert "f7313db42eea4b3be8bcbe16a8072f73cf6abed5" in wrapper
-    assert "f7313db42eea4b3be8bcbe16a8072f73cf6abed5" in driver
+    assert "4890302104d76220cef791c86d2009168597d35f" in wrapper
+    assert "4890302104d76220cef791c86d2009168597d35f" in driver
+    assert "QWEN_SANDOQ_NONCERTIFYING_DIAGNOSTIC_CONFIG_SHA256" in wrapper
+    assert "QWEN_SANDOQ_NONCERTIFYING_DIAGNOSTIC_CONFIG_SHA256" in driver
+    assert "summarize_qwen_sandoq_diagnostic.py" in wrapper
+    assert 'if [[ "$diagnostic_mode" -eq 0 ]]' in driver
+    assert 'if [[ "$diagnostic_mode" -eq 1 ]]' in wrapper
     assert "80e58e7e2b194e9c1b8dc0990c00b7a839127eea" in driver
     assert "configs/eval/shared_qwen38_2p4t/mobius_qwen_a95b_2500_sandoq.toml" in wrapper
     assert wrapper.index("approved clean source closure") < wrapper.index('"$workflow_dir/direct_qwen_workers.py"')

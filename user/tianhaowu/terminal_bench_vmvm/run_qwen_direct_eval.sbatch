@@ -58,6 +58,15 @@ approved_task_file=${DIRECT_QWEN_APPROVED_TASK_FILE:-}
 approved_task_file_sha256=${DIRECT_QWEN_APPROVED_TASK_FILE_SHA256:-}
 unset PYTHONPATH PYTHONHOME
 serving_generation_bundle=${QWEN_SERVING_GENERATION_BUNDLE:-}
+diagnostic_config_sha256=${QWEN_SANDOQ_NONCERTIFYING_DIAGNOSTIC_CONFIG_SHA256:-}
+diagnostic_mode=0
+if [[ -n "$diagnostic_config_sha256" ]]; then
+    diagnostic_mode=1
+    if [[ ! "$diagnostic_config_sha256" =~ ^[0-9a-f]{64}$ ]]; then
+        printf 'Non-certifying diagnostic config SHA-256 is invalid\n' >&2
+        exit 2
+    fi
+fi
 
 if [[ -z "$approved_task_file" || -z "$approved_task_file_sha256" ]]; then
     printf '%s\n' \
@@ -105,7 +114,8 @@ if [[ "$sandbox_provider" == sandoq ]]; then
     for stale in \
         inputs config.toml results.jsonl provenance.txt eval_run_identity.json eval_invocations.jsonl \
         direct_workers.json direct_router.log pool_events.jsonl control/sandoq-pool.wal.jsonl \
-        pool_cleanup_audit.json sandoq_cleanup_audit.json direct_qwen_sandoq_certificate.json; do
+        pool_cleanup_audit.json sandoq_cleanup_audit.json direct_qwen_sandoq_certificate.json \
+        qwen_sandoq_diagnostic_summary.json; do
         if [[ -e "$output_dir/$stale" || -L "$output_dir/$stale" ]]; then
             printf 'Sandoq direct runs require a fresh output namespace\n' >&2
             exit 2
@@ -137,8 +147,20 @@ PY
     fi
     expected_count=${sandoq_run_values[0]}
     canonical_dataset=${sandoq_run_values[1]}
-    ramp_receipt=${SANDOQ_RAMP_RECEIPT:?SANDOQ_RAMP_RECEIPT is required}
-    ramp_receipt_sha256=${SANDOQ_RAMP_RECEIPT_SHA256:?SANDOQ_RAMP_RECEIPT_SHA256 is required}
+    if [[ "$diagnostic_mode" -eq 1 ]]; then
+        if [[ "$expected_count" != 1 \
+            || "$(sha256sum -- "$eval_config" | cut -d' ' -f1)" != "$diagnostic_config_sha256" \
+            || -n ${SANDOQ_RAMP_RECEIPT:-} \
+            || -n ${SANDOQ_RAMP_RECEIPT_SHA256:-} \
+            || -n ${SANDOQ_PREDECESSOR_CERTIFICATE:-} \
+            || -n ${SANDOQ_PREDECESSOR_CERTIFICATE_SHA256:-} ]]; then
+            printf 'Non-certifying diagnostic inputs are invalid\n' >&2
+            exit 2
+        fi
+    else
+        ramp_receipt=${SANDOQ_RAMP_RECEIPT:?SANDOQ_RAMP_RECEIPT is required}
+        ramp_receipt_sha256=${SANDOQ_RAMP_RECEIPT_SHA256:?SANDOQ_RAMP_RECEIPT_SHA256 is required}
+    fi
 fi
 
 if [[ "$(uname -m)" != x86_64 || ! -d "$x86_site/pydantic" ]]; then
@@ -222,8 +244,8 @@ if [[ "$sandbox_provider" == sandoq ]]; then
         exit 2
     fi
     if [[ ! -f "$sandoq_extension/UPSTREAM.md" ]] \
-        || ! grep -Fq 'f7313db42eea4b3be8bcbe16a8072f73cf6abed5' "$sandoq_extension/UPSTREAM.md" \
-        || ! grep -Fq '46ee7064345aa0e8cee47b61a21feeb2d9049361' "$sandoq_extension/UPSTREAM.md"; then
+        || ! grep -Fq '4890302104d76220cef791c86d2009168597d35f' "$sandoq_extension/UPSTREAM.md" \
+        || ! grep -Fq '10b5bd9bbc76eba1b8253637e1869d6b63b7fc42' "$sandoq_extension/UPSTREAM.md"; then
         printf 'Vendored Sandoq extension provenance is invalid\n' >&2
         exit 2
     fi
@@ -542,26 +564,35 @@ PY
         printf 'Direct Qwen serving generation drifted during evaluation\n' >&2
         exit 2
     fi
-    certificate_args=(
-        "$workflow_dir/certify_direct_qwen_sandoq.py"
-        --run-dir "$output_dir" --expected-task-file "$approved_task_file" \
-        --expected-task-file-sha256 "$approved_task_file_sha256" \
-        --expected-count "$expected_count" \
-        --cleanup-audit "$output_dir/sandoq_cleanup_audit.json" \
-        --ramp-receipt "$ramp_receipt" --ramp-receipt-sha256 "$ramp_receipt_sha256" \
-        --canonical-task-source "$workflow_dir/configs/eval/mobius_valid_tasks_2500.txt" \
-        --canonical-dataset "$canonical_dataset" \
-        --canonical-template "$workflow_dir/configs/eval/shared_qwen38_2p4t/mobius_qwen_a95b_2500_sandoq.toml" \
-        --output "$output_dir/direct_qwen_sandoq_certificate.json"
-    )
-    if [[ -n ${SANDOQ_PREDECESSOR_CERTIFICATE:-} || -n ${SANDOQ_PREDECESSOR_CERTIFICATE_SHA256:-} ]]; then
-        certificate_args+=(
-            --predecessor "${SANDOQ_PREDECESSOR_CERTIFICATE:-}"
-            --predecessor-sha256 "${SANDOQ_PREDECESSOR_CERTIFICATE_SHA256:-}"
+    if [[ "$diagnostic_mode" -eq 1 ]]; then
+        "$x86_uv" run --no-project --offline --python "$python_bin" \
+            python3 "$workflow_dir/summarize_qwen_sandoq_diagnostic.py" \
+            --results "$output_dir/results.jsonl" \
+            --expected-task-file "$approved_task_file" \
+            --cleanup-audit "$output_dir/sandoq_cleanup_audit.json" \
+            --output "$output_dir/qwen_sandoq_diagnostic_summary.json"
+    else
+        certificate_args=(
+            "$workflow_dir/certify_direct_qwen_sandoq.py"
+            --run-dir "$output_dir" --expected-task-file "$approved_task_file" \
+            --expected-task-file-sha256 "$approved_task_file_sha256" \
+            --expected-count "$expected_count" \
+            --cleanup-audit "$output_dir/sandoq_cleanup_audit.json" \
+            --ramp-receipt "$ramp_receipt" --ramp-receipt-sha256 "$ramp_receipt_sha256" \
+            --canonical-task-source "$workflow_dir/configs/eval/mobius_valid_tasks_2500.txt" \
+            --canonical-dataset "$canonical_dataset" \
+            --canonical-template "$workflow_dir/configs/eval/shared_qwen38_2p4t/mobius_qwen_a95b_2500_sandoq.toml" \
+            --output "$output_dir/direct_qwen_sandoq_certificate.json"
         )
+        if [[ -n ${SANDOQ_PREDECESSOR_CERTIFICATE:-} || -n ${SANDOQ_PREDECESSOR_CERTIFICATE_SHA256:-} ]]; then
+            certificate_args+=(
+                --predecessor "${SANDOQ_PREDECESSOR_CERTIFICATE:-}"
+                --predecessor-sha256 "${SANDOQ_PREDECESSOR_CERTIFICATE_SHA256:-}"
+            )
+        fi
+        "$x86_uv" run --no-project --offline --python "$python_bin" \
+            python3 "${certificate_args[@]}" >/dev/null
     fi
-    "$x86_uv" run --no-project --offline --python "$python_bin" \
-        python3 "${certificate_args[@]}" >/dev/null
     rm -f -- "$output_dir/pool_cleanup_audit.json" "$output_dir/pool_events.jsonl" \
         "$output_dir/control/sandoq-pool.wal.jsonl" \
         "${OCI_RUNNER_POOL_SOCKET%.sock}.drained.json"

@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import atexit
 import concurrent.futures
+import contextlib
 import fcntl
 import json
 import os
@@ -259,6 +260,8 @@ class _EventWriter:
         self.path = path
         self.pending: queue.Queue[str | None] = queue.Queue(maxsize=10_000)
         self.dropped = 0
+        self.state_lock = threading.Lock()
+        self.closing = threading.Event()
         self.stopped = threading.Event()
         self.thread: threading.Thread | None = None
         if path is not None:
@@ -267,7 +270,12 @@ class _EventWriter:
             self.thread.start()
 
     def append(self, encoded: str) -> None:
-        if self.path is not None and not self.stopped.is_set():
+        if self.path is None:
+            return
+        with self.state_lock:
+            if self.stopped.is_set() or self.closing.is_set():
+                self.dropped += 1
+                return
             try:
                 self.pending.put_nowait(encoded)
             except queue.Full:
@@ -280,14 +288,17 @@ class _EventWriter:
         self.pending.join()
 
     def close(self, timeout: float = 5.0) -> None:
-        if self.thread is None or self.stopped.is_set():
-            return
-        self.stopped.set()
-        try:
-            self.pending.put_nowait(None)
-        except queue.Full:
-            pass
+        with self.state_lock:
+            if self.thread is None or self.stopped.is_set():
+                return
+            self.closing.set()
+            try:
+                self.pending.put(None, timeout=max(timeout, 0.0))
+            except queue.Full as exc:
+                raise TimeoutError("OCI pool event queue did not accept its shutdown marker") from exc
         self.thread.join(timeout=timeout)
+        if self.thread.is_alive() or not self.stopped.is_set():
+            raise TimeoutError("OCI pool event writer did not flush before shutdown")
 
     def _run(self) -> None:
         assert self.path is not None
@@ -343,6 +354,8 @@ class PoolBroker:
         self.draining = False
         self.stopped = threading.Event()
         self.started = False
+        self._startup_stop = threading.Event()
+        self._startup_done = threading.Event()
         self.departure_generation = 0
         self.drain_deletions: list[dict[str, object]] = []
         self.drain_failures: dict[int, str] = {}
@@ -350,6 +363,9 @@ class PoolBroker:
         self.active_creates = 0
         self._wal_lock = threading.Lock()
         self._reconcile_event = threading.Event()
+        self._maintenance_stop = threading.Event()
+        self._reconcile_thread: threading.Thread | None = None
+        self._maintenance_thread: threading.Thread | None = None
         self._create_executor = concurrent.futures.ThreadPoolExecutor(
             max_workers=config.create_workers,
             thread_name_prefix="oci-create",
@@ -370,35 +386,52 @@ class PoolBroker:
             if self.started:
                 return
             self.started = True
-        self.config.socket_path.with_suffix(".drained.json").unlink(missing_ok=True)
-        self._event(
-            "pool_started",
-            size=self.config.size,
-            min_size=self.config.min_size,
-            lease_duration=self.config.lease_duration,
-            renewal_interval_seconds=self.config.renewal_interval_s,
-            renewal_workers=self.config.renewal_workers,
-            create_workers=self.config.create_workers,
-            bootstrap_workers=self.config.bootstrap_workers,
-            bootstrap_workers_per_image=self.config.bootstrap_workers_per_image,
-            drain_workers=self.config.drain_workers,
-            max_reuse_count=self.config.max_reuse_count,
-            reuse_jitter=self.config.reuse_jitter,
-            image_cache_max_entries=self.config.image_cache_max_entries,
-            recovering=True,
-        )
-        while not self.stopped.is_set() and not self._recover_orphans():
-            self._event("pool_recovery_retry", retry_delay_seconds=5.0)
-            self.stopped.wait(5.0)
-        with self.changed:
-            if not self.draining:
+        try:
+            with self.lock:
+                if self.draining or self._startup_stop.is_set() or self.stopped.is_set():
+                    return
+            self.config.socket_path.with_suffix(".drained.json").unlink(missing_ok=True)
+            self._event(
+                "pool_started",
+                size=self.config.size,
+                min_size=self.config.min_size,
+                lease_duration=self.config.lease_duration,
+                renewal_interval_seconds=self.config.renewal_interval_s,
+                renewal_workers=self.config.renewal_workers,
+                create_workers=self.config.create_workers,
+                bootstrap_workers=self.config.bootstrap_workers,
+                bootstrap_workers_per_image=self.config.bootstrap_workers_per_image,
+                drain_workers=self.config.drain_workers,
+                max_reuse_count=self.config.max_reuse_count,
+                reuse_jitter=self.config.reuse_jitter,
+                image_cache_max_entries=self.config.image_cache_max_entries,
+                recovering=True,
+            )
+            while not self._startup_stop.is_set() and not self.stopped.is_set() and not self._recover_orphans():
+                self._event("pool_recovery_retry", retry_delay_seconds=5.0)
+                self._startup_stop.wait(5.0)
+            with self.changed:
+                if self.draining or self._startup_stop.is_set() or self.stopped.is_set():
+                    return
                 self.recovering = False
                 self.accepting = True
-            self.changed.notify_all()
-        self._event("pool_recovery_completed", accepting=self.accepting)
-        threading.Thread(target=self._reconcile_loop, daemon=True, name="oci-pool-reconciler").start()
-        threading.Thread(target=self._maintenance_loop, daemon=True, name="oci-pool-maintenance").start()
-        self._reconcile_event.set()
+                self._event("pool_recovery_completed", accepting=True)
+                self._reconcile_thread = threading.Thread(
+                    target=self._reconcile_loop,
+                    daemon=True,
+                    name="oci-pool-reconciler",
+                )
+                self._maintenance_thread = threading.Thread(
+                    target=self._maintenance_loop,
+                    daemon=True,
+                    name="oci-pool-maintenance",
+                )
+                self._reconcile_thread.start()
+                self._maintenance_thread.start()
+                self.changed.notify_all()
+            self._reconcile_event.set()
+        finally:
+            self._startup_done.set()
 
     def _event(self, event: str, **values: object) -> None:
         if self.config.event_log is None:
@@ -667,7 +700,16 @@ class PoolBroker:
             }
             by_image[selected.requested_image] = by_image.get(selected.requested_image, 0) + 1
             unready += 1
-            self._event("assignment_acquired", **selected.response, requested_image=selected.requested_image)
+            # Capture the count while the assignment table is still protected by
+            # ``self.lock``.  Replaying acquired/released event order is not an
+            # authoritative concurrency measurement because release telemetry is
+            # emitted after the slot is made available to another waiter.
+            self._event(
+                "assignment_acquired",
+                **selected.response,
+                requested_image=selected.requested_image,
+                active_assignment_count=len(self.assignments),
+            )
 
     def _create_slot(self, slot: Slot) -> None:
         try:
@@ -1027,15 +1069,19 @@ class PoolBroker:
         if cache is None:
             raise RuntimeError(f"ECR registry is not configured for authentication: {registry!r}")
         credential = cache.get()
-        self._event(
-            "ecr_credential_vended",
-            assignment_id=assignment_id,
-            registry=registry,
-            source=credential["source"],
-            generation=credential["generation"],
-            reused=credential["reused"],
-            age_seconds=credential["age_seconds"],
-        )
+        with self.lock:
+            assignment = self.assignments.get(assignment_id)
+            if assignment is None or assignment.client_id != client_id:
+                raise RuntimeError("unknown pool assignment")
+            self._event(
+                "ecr_credential_vended",
+                assignment_id=assignment_id,
+                registry=registry,
+                source=credential["source"],
+                generation=credential["generation"],
+                reused=credential["reused"],
+                age_seconds=credential["age_seconds"],
+            )
         return credential
 
     def acquire(
@@ -1118,12 +1164,20 @@ class PoolBroker:
                 self.assignments.pop(assignment_to_cancel.assignment_id, None)
                 slot.assignment_id = None
                 slot.reuse_count = max(slot.reuse_count - 1, 0)
+                self._event(
+                    "assignment_cancelled",
+                    assignment_id=assignment_to_cancel.assignment_id,
+                    outer_session_id=slot.outer_session_id,
+                    slot_id=slot.slot_id,
+                    generation=slot.generation,
+                    requested_image=assignment_to_cancel.requested_image,
+                    cancellation_verified=True,
+                )
                 self._append_idle_locked(slot)
         self._reconcile_event.set()
         return {"cancelled": True, "ticket_id": ticket_id}
 
     def update(self, client_id: str, assignment_id: str, values: dict[str, object]) -> dict[str, object]:
-        became_ready = False
         with self.lock:
             assignment = self.assignments.get(assignment_id)
             if assignment is None or assignment.client_id != client_id:
@@ -1145,16 +1199,14 @@ class PoolBroker:
                 slot.images[image] = cached_at
             if values.get("ready") is True and not assignment.ready:
                 assignment.ready = True
-                became_ready = True
+                self._event(
+                    "assignment_ready",
+                    assignment_id=assignment_id,
+                    slot_id=assignment.slot_id,
+                    requested_image=assignment.requested_image,
+                    bootstrap_seconds=max(time.time() - assignment.acquired_at, 0.0),
+                )
                 self._assign_waiters_locked()
-        if became_ready:
-            self._event(
-                "assignment_ready",
-                assignment_id=assignment_id,
-                slot_id=assignment.slot_id,
-                requested_image=assignment.requested_image,
-                bootstrap_seconds=max(time.time() - assignment.acquired_at, 0.0),
-            )
         return {"updated": True}
 
     def _remember_release_locked(self, assignment_id: str, response: dict[str, object]) -> None:
@@ -1310,9 +1362,12 @@ class PoolBroker:
             response["error"] = str(error)
         with self.changed:
             self._remember_release_locked(assignment_id, response)
+            # Publish the terminal lifecycle row before declaring the release
+            # complete. Drain waits on ``releasing_assignments``, so it cannot
+            # close the event writer while this row is still pending enqueue.
+            self._event("assignment_released", **response, reason=reason)
             self.releasing_assignments.discard(assignment_id)
             self.changed.notify_all()
-        self._event("assignment_released", **response, reason=reason)
         return response
 
     def depart(self, client_id: str) -> dict[str, object]:
@@ -1487,9 +1542,11 @@ class PoolBroker:
     def _maintenance_loop(self) -> None:
         renew_interval = self.config.renewal_interval_s
         last_renewal = 0.0
-        while not self.stopped.wait(5.0):
+        while not self._maintenance_stop.wait(5.0) and not self.stopped.is_set():
             now = time.monotonic()
             with self.lock:
+                if self.draining:
+                    return
                 self._expire_waiters_locked()
                 stale_clients = [
                     client_id
@@ -1547,17 +1604,33 @@ class PoolBroker:
             self.waiter_order.clear()
             self.waiters.clear()
             self.changed.notify_all()
+        maintenance_stop = getattr(self, "_maintenance_stop", None)
+        if maintenance_stop is not None:
+            maintenance_stop.set()
+        startup_stop = getattr(self, "_startup_stop", None)
+        if startup_stop is not None:
+            startup_stop.set()
         self._reconcile_event.set()
         deadline = time.monotonic() + self.config.drain_timeout_s
         self.drain_deadline = deadline
+        startup_done = getattr(self, "_startup_done", None)
+        startup_incomplete = False
+        if self.started and startup_done is not None:
+            startup_incomplete = not startup_done.wait(timeout=max(deadline - time.monotonic(), 0.0))
+        maintenance_thread = getattr(self, "_maintenance_thread", None)
+        maintenance_incomplete = False
+        if maintenance_thread is not None and maintenance_thread is not threading.current_thread():
+            maintenance_thread.join(timeout=max(deadline - time.monotonic(), 0.0))
+            maintenance_incomplete = maintenance_thread.is_alive()
         assignment_deadline = deadline - min(60.0, self.config.drain_timeout_s / 4.0)
         with self.changed:
-            while self.assignments and time.monotonic() < assignment_deadline:
+            while (self.assignments or self.releasing_assignments) and time.monotonic() < assignment_deadline:
                 self.changed.wait(timeout=min(assignment_deadline - time.monotonic(), 0.25))
 
         abandoned: list[tuple[Assignment, str | None, int, int]] = []
         with self.lock:
             has_remaining_assignments = bool(self.assignments)
+            incomplete_release_count = len(self.releasing_assignments)
         if has_remaining_assignments:
             with self.changed:
                 for assignment in self.assignments.values():
@@ -1572,6 +1645,12 @@ class PoolBroker:
         with self.lock:
             results = list(self.drain_deletions)
         failures: dict[int, str] = {}
+        if startup_incomplete:
+            failures[-3] = "pool startup did not stop before the drain deadline"
+        if maintenance_incomplete:
+            failures[-2] = "pool maintenance did not stop before the drain deadline"
+        if incomplete_release_count:
+            failures[-1] = f"{incomplete_release_count} assignment releases exceeded the pool drain deadline"
         if slots:
             executor = concurrent.futures.ThreadPoolExecutor(
                 max_workers=min(self.config.drain_workers, len(slots)),
@@ -1585,7 +1664,17 @@ class PoolBroker:
             for future in done:
                 slot = futures[future]
                 try:
-                    results.append(future.result())
+                    deletion = future.result()
+                    # A maintenance deletion can win the race after ``slots``
+                    # was snapshotted.  _delete_slot then returns the exact
+                    # verified no-op receipt below; the real session tombstone
+                    # is already durable and a synthetic ``null`` session must
+                    # not be published in the final drain marker.
+                    if deletion.get("outer_session_id") is None:
+                        if deletion.get("verified_http_status") != 404:
+                            raise RuntimeError("no-op outer deletion was not verified")
+                    else:
+                        results.append(deletion)
                 except Exception as exc:
                     failures[slot.slot_id] = str(exc)
             for future in pending:
@@ -1639,9 +1728,52 @@ class PoolBroker:
                 if slot.state == "creating":
                     failures.setdefault(slot.slot_id, "outer creation was still active at the pool drain deadline")
         marker = self.config.socket_path.with_suffix(".drained.json")
-        if failures:
+        gateway_close_error_type: str | None = None
+        event_writer_close_error: Exception | None = None
+        try:
+            if failures:
+                marker.unlink(missing_ok=True)
+                self._event(
+                    "pool_drain_incomplete",
+                    reason=reason,
+                    deleted=len(results),
+                    failures=failures,
+                    event_records_dropped=getattr(self._event_writer, "dropped", 0),
+                )
+            else:
+                self._event(
+                    "pool_drained",
+                    reason=reason,
+                    deleted=len(results),
+                    failures={},
+                    event_records_dropped=getattr(self._event_writer, "dropped", 0),
+                )
+        finally:
+            # Resource cleanup has already completed. Stop local workers and
+            # flush telemetry before publishing the authoritative drain marker
+            # so a successful marker cannot cover a partial event log.
+            with contextlib.suppress(Exception):
+                self._delete_executor.shutdown(wait=False, cancel_futures=True)
+            with contextlib.suppress(Exception):
+                self._create_executor.shutdown(wait=False, cancel_futures=True)
+            try:
+                self.gateway.close()
+            except Exception as exc:
+                # The official client's telemetry exporter may time out after
+                # every session is already gone. Preserve only the non-secret
+                # exception type for observability and keep the verified drain.
+                gateway_close_error_type = type(exc).__name__
+                with contextlib.suppress(Exception):
+                    self._event("gateway_close_failed", error_type=gateway_close_error_type)
+            finally:
+                self.stopped.set()
+                try:
+                    self._event_writer.close()
+                except Exception as exc:  # noqa: BLE001 - fail closed below
+                    event_writer_close_error = exc
+        event_records_dropped = getattr(self._event_writer, "dropped", 0)
+        if failures or event_writer_close_error is not None:
             marker.unlink(missing_ok=True)
-            self._event("pool_drain_incomplete", reason=reason, deleted=len(results), failures=failures)
         else:
             marker.write_text(
                 json.dumps(
@@ -1651,18 +1783,22 @@ class PoolBroker:
                         "timestamp": time.time(),
                         "deleted": results,
                         "failures": {},
+                        "event_records_dropped": event_records_dropped,
                     },
                     sort_keys=True,
                 )
                 + "\n"
             )
-            self._event("pool_drained", reason=reason, deleted=len(results), failures={})
-        self._event_writer.close()
-        self._delete_executor.shutdown(wait=False, cancel_futures=True)
-        self._create_executor.shutdown(wait=False, cancel_futures=True)
-        self.gateway.close()
-        self.stopped.set()
-        return {"drained": not failures, "deleted": results, "failures": failures}
+        if event_writer_close_error is not None:
+            raise RuntimeError("OCI pool event log did not close cleanly") from event_writer_close_error
+        response: dict[str, object] = {
+            "drained": not failures,
+            "deleted": results,
+            "failures": failures,
+        }
+        if gateway_close_error_type is not None:
+            response["gateway_close_error_type"] = gateway_close_error_type
+        return response
 
     def dispatch(self, request: dict[str, Any]) -> dict[str, object]:
         operation = request.get("operation")

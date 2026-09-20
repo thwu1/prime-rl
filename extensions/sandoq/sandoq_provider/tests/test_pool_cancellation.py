@@ -1,13 +1,49 @@
 from __future__ import annotations
 
 import json
+import queue
 import threading
 import time
 from collections import deque
 from types import SimpleNamespace
 
 import pytest
-from sandoq_provider.pool import AcquireWaiter, Assignment, PoolBroker, Slot
+from sandoq_provider.pool import AcquireWaiter, Assignment, PoolBroker, Slot, _EventWriter
+
+
+def test_event_writer_close_flushes_pending_rows(tmp_path) -> None:
+    path = tmp_path / "events.jsonl"
+    writer = _EventWriter(path)
+    rows = [json.dumps({"row": index}) + "\n" for index in range(512)]
+    for row in rows:
+        writer.append(row)
+
+    writer.close()
+
+    assert path.read_text().splitlines() == [row.rstrip("\n") for row in rows]
+    assert writer.dropped == 0
+    assert writer.stopped.is_set()
+
+    writer.append(json.dumps({"row": "late"}) + "\n")
+    assert writer.dropped == 1
+    assert path.read_text().splitlines() == [row.rstrip("\n") for row in rows]
+
+
+def test_event_writer_close_fails_if_shutdown_marker_cannot_be_queued(tmp_path) -> None:
+    writer = object.__new__(_EventWriter)
+    writer.path = tmp_path / "events.jsonl"
+    writer.pending = queue.Queue(maxsize=1)
+    writer.pending.put_nowait("occupied\n")
+    writer.dropped = 0
+    writer.state_lock = threading.Lock()
+    writer.closing = threading.Event()
+    writer.stopped = threading.Event()
+    writer.thread = SimpleNamespace(is_alive=lambda: True, join=lambda timeout: None)
+
+    with pytest.raises(TimeoutError, match="shutdown marker"):
+        writer.close(timeout=0)
+
+    assert writer.closing.is_set()
 
 
 def _assigned_broker(*, releasing: bool) -> PoolBroker:
@@ -19,7 +55,14 @@ def _assigned_broker(*, releasing: bool) -> PoolBroker:
     broker.idle_slots = deque()
     broker.waiter_order = deque()
     broker.slots = [
-        Slot(slot_id=0, state="recycling" if releasing else "assigned", assignment_id="assignment-1", reuse_count=2)
+        Slot(
+            slot_id=0,
+            state="recycling" if releasing else "assigned",
+            outer_session_id="outer-1",
+            exec_url="https://outer-1.example/",
+            assignment_id="assignment-1",
+            reuse_count=2,
+        )
     ]
     broker.assignments = {
         "assignment-1": Assignment(
@@ -42,6 +85,8 @@ def _assigned_broker(*, releasing: bool) -> PoolBroker:
         )
     }
     broker.releasing_assignments = {"assignment-1"} if releasing else set()
+    broker.release_results = {}
+    broker._event = lambda *args, **kwargs: None
     return broker
 
 
@@ -60,6 +105,8 @@ def test_cancel_acquire_does_not_reclaim_an_assignment_during_release() -> None:
 
 def test_cancel_acquire_reclaims_an_unobserved_assignment() -> None:
     broker = _assigned_broker(releasing=False)
+    events: list[tuple[str, dict[str, object]]] = []
+    broker._event = lambda event, **values: events.append((event, values))
 
     result = broker.cancel_acquire("client-1", "ticket-1")
 
@@ -70,6 +117,88 @@ def test_cancel_acquire_reclaims_an_unobserved_assignment() -> None:
     assert list(broker.idle_slots) == [0]
     assert "assignment-1" not in broker.assignments
     assert "ticket-1" not in broker.waiters
+    assert events == [
+        (
+            "assignment_cancelled",
+            {
+                "assignment_id": "assignment-1",
+                "outer_session_id": "outer-1",
+                "slot_id": 0,
+                "generation": 0,
+                "requested_image": "image",
+                "cancellation_verified": True,
+            },
+        )
+    ]
+
+
+def test_assignment_acquired_records_authoritative_active_count() -> None:
+    broker = object.__new__(PoolBroker)
+    broker.lock = threading.RLock()
+    broker.changed = threading.Condition(broker.lock)
+    broker.accepting = True
+    broker.idle_slots = deque((0, 1))
+    broker.waiter_order = deque(("ticket-1", "ticket-2"))
+    broker.waiters = {
+        ticket_id: AcquireWaiter(
+            ticket_id=ticket_id,
+            client_id="client-1",
+            requested_image="image",
+            created_at=time.monotonic(),
+            expires_at=time.monotonic() + 60,
+        )
+        for ticket_id in broker.waiter_order
+    }
+    broker.clients = {"client-1": time.monotonic()}
+    broker.assignments = {}
+    broker.slots = [
+        Slot(
+            slot_id=slot_id,
+            state="idle",
+            outer_session_id=f"outer-{slot_id}",
+            exec_url=f"https://outer-{slot_id}.example/",
+            reuse_threshold=6,
+            created_at=time.time(),
+        )
+        for slot_id in range(2)
+    ]
+    broker.config = SimpleNamespace(
+        bootstrap_workers=2,
+        bootstrap_workers_per_image=2,
+        max_reuse_count=6,
+    )
+    events: list[tuple[str, dict[str, object]]] = []
+    broker._event = lambda event, **values: events.append((event, values))
+
+    with broker.lock:
+        broker._assign_waiters_locked()
+
+    acquired = [values for event, values in events if event == "assignment_acquired"]
+    assert [row["active_assignment_count"] for row in acquired] == [1, 2]
+    assert len(broker.assignments) == 2
+
+
+def test_release_publishes_terminal_event_before_marking_complete() -> None:
+    broker = _assigned_broker(releasing=False)
+    assignment = broker.assignments["assignment-1"]
+    assignment.shell_id = "shell-1"
+    broker.slots[0].outer_session_id = "outer-1"
+    broker.config = SimpleNamespace(max_reuse_count=6, size=2)
+    broker.draining = False
+    broker._delete_shell = lambda *args, **kwargs: None
+    broker._outer_exec = lambda *args, **kwargs: SimpleNamespace(exit_code=0)
+    broker._prune_images = lambda slot: None
+    broker._append_idle_locked = lambda slot: setattr(slot, "state", "idle")
+    observations: list[bool] = []
+    broker._event = lambda event, **values: observations.append(
+        event == "assignment_released" and values["assignment_id"] in broker.releasing_assignments
+    )
+
+    response = broker.release("client-1", "assignment-1")
+
+    assert response["status"] == "recycled"
+    assert observations == [True]
+    assert broker.releasing_assignments == set()
 
 
 def test_update_tracks_task_and_auxiliary_images_for_cache_pruning() -> None:
@@ -85,6 +214,45 @@ def test_update_tracks_task_and_auxiliary_images_for_cache_pruning() -> None:
 
     assert result == {"updated": True}
     assert set(broker.slots[0].images) == {"task-image", "toolbox-image"}
+
+
+def test_update_publishes_ready_event_under_assignment_lock() -> None:
+    broker = _assigned_broker(releasing=False)
+    observations: list[tuple[bool, bool]] = []
+    broker._event = lambda event, **values: observations.append(
+        (
+            broker.lock._is_owned(),  # type: ignore[attr-defined]
+            values["assignment_id"] in broker.assignments,
+        )
+    )
+    broker._assign_waiters_locked = lambda: None
+
+    broker.update("client-1", "assignment-1", {"ready": True})
+
+    assert observations == [(True, True)]
+
+
+def test_ecr_credential_revalidates_assignment_before_event() -> None:
+    broker = _assigned_broker(releasing=False)
+    events: list[str] = []
+    broker._event = lambda event, **values: events.append(event)
+
+    def credential() -> dict[str, object]:
+        with broker.lock:
+            broker.assignments.clear()
+        return {
+            "source": "test",
+            "generation": 1,
+            "reused": False,
+            "age_seconds": 0.0,
+        }
+
+    broker.ecr_credentials = {"registry.example": SimpleNamespace(get=credential)}
+
+    with pytest.raises(RuntimeError, match="unknown pool assignment"):
+        broker.ecr_credential("client-1", "assignment-1", "registry.example")
+
+    assert events == []
 
 
 def test_prune_images_shell_quotes_image_references() -> None:
@@ -221,3 +389,223 @@ def test_created_slot_is_locked_until_wal_is_durable() -> None:
 
     assert wal_observations == [(True, "outer-1")]
     assert slot.state == "idle"
+
+
+def _empty_drain_broker(tmp_path, *, socket_path=None) -> PoolBroker:
+    broker = object.__new__(PoolBroker)
+    broker.lock = threading.RLock()
+    broker.changed = threading.Condition(broker.lock)
+    broker.config = SimpleNamespace(
+        drain_timeout_s=0.1,
+        drain_workers=1,
+        socket_path=socket_path or tmp_path / "pool.sock",
+    )
+    broker.accepting = True
+    broker.draining = False
+    broker.waiter_order = deque()
+    broker.waiters = {}
+    broker.assignments = {}
+    broker.releasing_assignments = set()
+    broker.slots = []
+    broker.drain_deletions = []
+    broker.drain_failures = {}
+    broker.active_creates = 0
+    broker._reconcile_event = threading.Event()
+    broker._maintenance_stop = threading.Event()
+    broker._reconcile_thread = None
+    broker._maintenance_thread = None
+    broker.started = False
+    broker._startup_stop = threading.Event()
+    broker._startup_done = threading.Event()
+    broker._event = lambda *args, **kwargs: None
+    broker._event_writer = SimpleNamespace(close=lambda: None, dropped=0)
+    broker._delete_executor = SimpleNamespace(shutdown=lambda **kwargs: None)
+    broker._create_executor = SimpleNamespace(shutdown=lambda **kwargs: None)
+    broker.gateway = SimpleNamespace(close=lambda: None)
+    broker.stopped = threading.Event()
+    return broker
+
+
+def test_verified_drain_stops_when_gateway_close_fails(tmp_path) -> None:
+    broker = _empty_drain_broker(tmp_path)
+    events: list[tuple[str, dict[str, object]]] = []
+    closed: list[str] = []
+    broker._event = lambda event, **values: events.append((event, values))
+    broker._event_writer = SimpleNamespace(close=lambda: closed.append("events"))
+    broker._delete_executor = SimpleNamespace(shutdown=lambda **kwargs: closed.append("delete_executor"))
+    broker._create_executor = SimpleNamespace(shutdown=lambda **kwargs: closed.append("create_executor"))
+
+    def fail_close() -> None:
+        raise TimeoutError("telemetry exporter did not stop")
+
+    broker.gateway = SimpleNamespace(close=fail_close)
+
+    result = broker.drain("final_client_departure")
+
+    assert result == {
+        "drained": True,
+        "deleted": [],
+        "failures": {},
+        "gateway_close_error_type": "TimeoutError",
+    }
+    assert broker.stopped.is_set()
+    marker = json.loads((tmp_path / "pool.drained.json").read_text())
+    assert marker["schema_version"] == 3
+    assert marker["reason"] == "final_client_departure"
+    assert marker["failures"] == {}
+    assert marker["event_records_dropped"] == 0
+    assert events[-1] == ("gateway_close_failed", {"error_type": "TimeoutError"})
+    assert closed == ["delete_executor", "create_executor", "events"]
+
+
+def test_drain_marker_failure_still_stops_and_closes_local_resources(tmp_path) -> None:
+    missing_parent = tmp_path / "missing"
+    broker = _empty_drain_broker(
+        tmp_path,
+        socket_path=missing_parent / "pool.sock",
+    )
+    closed: list[str] = []
+    broker._event_writer = SimpleNamespace(close=lambda: closed.append("events"))
+    broker._delete_executor = SimpleNamespace(shutdown=lambda **kwargs: closed.append("delete_executor"))
+    broker._create_executor = SimpleNamespace(shutdown=lambda **kwargs: closed.append("create_executor"))
+    broker.gateway = SimpleNamespace(close=lambda: closed.append("gateway"))
+
+    with pytest.raises(FileNotFoundError):
+        broker.drain("final_client_departure")
+
+    assert broker.stopped.is_set()
+    assert closed == ["delete_executor", "create_executor", "gateway", "events"]
+
+
+def test_event_writer_close_failure_prevents_verified_drain_marker(tmp_path) -> None:
+    broker = _empty_drain_broker(tmp_path)
+    broker._event_writer = SimpleNamespace(
+        close=lambda: (_ for _ in ()).throw(TimeoutError("event writer timeout")),
+        dropped=0,
+    )
+
+    with pytest.raises(RuntimeError, match="event log did not close cleanly"):
+        broker.drain("final_client_departure")
+
+    assert broker.stopped.is_set()
+    assert not (tmp_path / "pool.drained.json").exists()
+
+
+def test_drain_marker_records_dropped_event_count(tmp_path) -> None:
+    broker = _empty_drain_broker(tmp_path)
+    broker._event_writer = SimpleNamespace(close=lambda: None, dropped=3)
+
+    result = broker.drain("final_client_departure")
+
+    assert result["drained"] is True
+    marker = json.loads((tmp_path / "pool.drained.json").read_text())
+    assert marker["event_records_dropped"] == 3
+
+
+def test_drain_waits_for_terminal_release_event(tmp_path) -> None:
+    broker = _empty_drain_broker(tmp_path)
+    broker.releasing_assignments = {"assignment-1"}
+    events: list[str] = []
+    broker._event = lambda event, **values: events.append(event)
+
+    def finish_release() -> None:
+        time.sleep(0.01)
+        with broker.changed:
+            broker._event("assignment_released", assignment_id="assignment-1")
+            broker.releasing_assignments.clear()
+            broker.changed.notify_all()
+
+    release_thread = threading.Thread(target=finish_release)
+    release_thread.start()
+    result = broker.drain("final_client_departure")
+    release_thread.join()
+
+    assert result["drained"] is True
+    assert events.index("assignment_released") < events.index("pool_drained")
+
+
+def test_drain_rejects_a_blocked_maintenance_producer(tmp_path) -> None:
+    broker = _empty_drain_broker(tmp_path)
+    started = threading.Event()
+    unblock = threading.Event()
+
+    def blocked_renewal() -> None:
+        started.set()
+        unblock.wait()
+        broker._event("outer_renewed")
+
+    maintenance_thread = threading.Thread(target=blocked_renewal)
+    broker._maintenance_thread = maintenance_thread
+    maintenance_thread.start()
+    assert started.wait(timeout=1.0)
+
+    result = broker.drain("final_client_departure")
+
+    assert result["drained"] is False
+    assert result["failures"] == {-2: "pool maintenance did not stop before the drain deadline"}
+    assert not (tmp_path / "pool.drained.json").exists()
+    unblock.set()
+    maintenance_thread.join(timeout=1.0)
+
+
+def test_drain_rejects_a_blocked_startup_producer(tmp_path) -> None:
+    broker = _empty_drain_broker(tmp_path)
+    broker.started = True
+
+    result = broker.drain("final_client_departure")
+
+    assert broker._startup_stop.is_set()
+    assert result["drained"] is False
+    assert result["failures"] == {-3: "pool startup did not stop before the drain deadline"}
+    assert not (tmp_path / "pool.drained.json").exists()
+
+
+def test_start_after_drain_cannot_publish_or_start_producers(tmp_path) -> None:
+    broker = _empty_drain_broker(tmp_path)
+    events: list[str] = []
+    broker._event = lambda event, **values: events.append(event)
+
+    result = broker.drain("final_client_departure")
+    broker.start()
+
+    assert result["drained"] is True
+    assert events == ["pool_drained"]
+    assert broker._startup_done.is_set()
+    assert broker._reconcile_thread is None
+    assert broker._maintenance_thread is None
+
+
+def test_drain_omits_verified_noop_from_concurrent_delete(tmp_path) -> None:
+    broker = _empty_drain_broker(tmp_path)
+    broker.slots = [Slot(slot_id=0, state="poisoned", outer_session_id="outer-1")]
+
+    def already_deleted(slot, _reason, *, deadline=None):
+        slot.outer_session_id = None
+        return {"outer_session_id": None, "verified_http_status": 404}
+
+    broker._delete_slot = already_deleted
+
+    result = broker.drain("final_client_departure")
+
+    assert result["drained"] is True
+    assert result["deleted"] == []
+    marker = json.loads((tmp_path / "pool.drained.json").read_text())
+    assert marker["deleted"] == []
+
+
+def test_drain_rejects_unverified_noop_from_concurrent_delete(tmp_path) -> None:
+    broker = _empty_drain_broker(tmp_path)
+    broker.slots = [Slot(slot_id=0, state="poisoned", outer_session_id="outer-1")]
+
+    def unverified_noop(slot, _reason, *, deadline=None):
+        slot.outer_session_id = None
+        return {"outer_session_id": None, "verified_http_status": None}
+
+    broker._delete_slot = unverified_noop
+
+    result = broker.drain("final_client_departure")
+
+    assert result["drained"] is False
+    assert result["deleted"] == []
+    assert result["failures"] == {0: "no-op outer deletion was not verified"}
+    assert not (tmp_path / "pool.drained.json").exists()

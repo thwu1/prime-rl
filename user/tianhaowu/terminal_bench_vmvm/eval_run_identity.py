@@ -82,10 +82,10 @@ VMVM_HOST_CLEANUP_CONTRACT = {
     "remote_deletion_verified": False,
 }
 SANDOQ_VENDOR_RELATIVE = Path("extensions/sandoq")
-SANDOQ_UPSTREAM_COMMIT = "f7313db42eea4b3be8bcbe16a8072f73cf6abed5"
-SANDOQ_UPSTREAM_TREE = "9cb669ad045a67e92bbd0a04fb353489457003aa"
-SANDOQ_UPSTREAM_SUBTREE = "46ee7064345aa0e8cee47b61a21feeb2d9049361"
-SANDOQ_UPSTREAM_INVENTORY_SHA256 = "9fe562f29c37aefb32ce6bf8ad79270434d6ccc6c94f6b044ec72e7e377e1439"
+SANDOQ_UPSTREAM_COMMIT = "4890302104d76220cef791c86d2009168597d35f"
+SANDOQ_UPSTREAM_TREE = "33f092a3982916660e12f472588e6ce34a906fc2"
+SANDOQ_UPSTREAM_SUBTREE = "10b5bd9bbc76eba1b8253637e1869d6b63b7fc42"
+SANDOQ_UPSTREAM_INVENTORY_SHA256 = "5db69d90ddd34cfbfdcffdacab09353e8be22e917f894e33ddafb5020ca43e73"
 
 
 class EvalIdentityError(ValueError):
@@ -792,8 +792,11 @@ def _contract(
         raise EvalIdentityError("pass_at_1_required")
     thinking = sampling.get("chat_template_kwargs")
     expected_thinking = {"enable_thinking": True, "preserve_thinking": True}
-    if sampling.get("reasoning_effort") != "max" or canonical_json(thinking) != canonical_json(expected_thinking):
-        raise EvalIdentityError("max_reasoning_contract_required")
+    expected_reasoning_effort = "high" if model == "Qwen3.8-2.4T-A95B" else "max"
+    if sampling.get("reasoning_effort") != expected_reasoning_effort or canonical_json(
+        thinking
+    ) != canonical_json(expected_thinking):
+        raise EvalIdentityError("reasoning_contract_required")
     limits = {
         "max_input_tokens": config.get("max_input_tokens"),
         "max_output_tokens": config.get("max_output_tokens"),
@@ -885,7 +888,7 @@ def _contract(
         "model": model,
         "pass_at_1": True,
         "num_rollouts": 1,
-        "reasoning_effort": "max",
+        "reasoning_effort": expected_reasoning_effort,
         "thinking": {"enable_thinking": True, "preserve_thinking": True},
         "context_tokens": limits,
         "sampling_max_tokens": sampling_max_tokens,
@@ -1776,7 +1779,8 @@ def _validate_identity_shape(identity: object) -> dict[str, Any]:
         or any(character in model for character in "\r\n")
         or contract.get("pass_at_1") is not True
         or contract.get("num_rollouts") != 1
-        or contract.get("reasoning_effort") != "max"
+        or contract.get("reasoning_effort")
+        != ("high" if model == "Qwen3.8-2.4T-A95B" else "max")
         or canonical_json(contract.get("thinking"))
         != canonical_json({"enable_thinking": True, "preserve_thinking": True})
         or not isinstance(context, dict)

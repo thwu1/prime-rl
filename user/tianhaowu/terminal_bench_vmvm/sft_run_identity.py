@@ -581,7 +581,7 @@ def validate_manifest_identity(value: object, *, counts: Mapping[str, Any]) -> d
         }
         or not isinstance(contract.get("model"), str)
         or not contract["model"]
-        or contract.get("reasoning_effort") != "max"
+        or contract.get("reasoning_effort") != "high"
         or contract.get("thinking") != {"enable_thinking": True, "preserve_thinking": True}
         or contract.get("context_tokens")
         != {

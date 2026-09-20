@@ -86,6 +86,7 @@ See `recipes/sandoq_math_python/` for a complete working example.
 | `OCI_RUNNER_TOKEN_FILE` | `~/.config/oci-runner/firecracker-token` | Firecracker bearer token; must be a regular mode-`0600` file |
 | `OCI_RUNNER_DOCKERHUB_USERNAME` / `OCI_RUNNER_DOCKERHUB_TOKEN_FILE` | unset | authenticated Docker Hub pulls; PAT file must be mode `0600` |
 | `OCI_RUNNER_REQUIRE_DOCKERHUB_AUTH` | unset | set to `1` to prohibit anonymous pull fallback |
+| `OCI_RUNNER_ALLOW_DOCKERHUB_FALLBACK` | `1` | set to `0` to prohibit any direct Docker Hub fallback after an ECR pull-through failure |
 | `OCI_RUNNER_ECR_REGISTRY` / `OCI_RUNNER_ECR_REGION` | unset / `us-east-2` | ECR pull-through and FAIR `ucloud` authentication |
 | `OCI_RUNNER_ECR_AUXILIARY_REGISTRIES` | unset | Extra AWS ECR hosts to authenticate without pull-through rewriting |
 | `OCI_RUNNER_ECR_CLIENT_CERT_PATH` | auto-discovered | optional FAIR x509 PEM scoped to the `ucloud` subprocess |

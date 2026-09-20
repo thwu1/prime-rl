@@ -129,7 +129,7 @@ def validate_shared_identity(
         contract.get("model") != QWEN_MODEL
         or contract.get("pass_at_1") is not True
         or contract.get("num_rollouts") != 1
-        or contract.get("reasoning_effort") != "max"
+        or contract.get("reasoning_effort") != "high"
         or contract.get("thinking") != {"enable_thinking": True, "preserve_thinking": True}
         or context
         != {

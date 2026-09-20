@@ -641,7 +641,7 @@ def test_eval_contract_binds_required_training_and_concurrency_settings() -> Non
     ):
         unsafe = _resolved_config()
         unsafe["sampling"]["chat_template_kwargs"] = invalid_thinking
-        with pytest.raises(EvalIdentityError, match="max_reasoning_contract_required"):
+        with pytest.raises(EvalIdentityError, match="reasoning_contract_required"):
             _contract(unsafe, "approved-model")
 
 

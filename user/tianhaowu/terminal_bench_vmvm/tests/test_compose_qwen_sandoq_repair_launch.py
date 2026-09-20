@@ -65,7 +65,7 @@ def _config(
         "max_connections = 32\n"
         "max_keepalive_connections = 32\n"
         "[sampling]\n"
-        'reasoning_effort = "max"\n'
+        'reasoning_effort = "high"\n'
         "temperature = 0.7\n"
         "top_p = 0.95\n"
         "top_k = 20\n"
@@ -489,7 +489,7 @@ def synthetic(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict[str, obje
             "phase_timeouts_seconds": plan_generator.EXPECTED_PHASE_TIMEOUTS,
             "capture_model_io": True,
             "preserve_thinking": True,
-            "reasoning_effort": "max",
+            "reasoning_effort": "high",
             "cleanup_must_succeed": True,
             "fresh_output_required": True,
             "resume_allowed": False,

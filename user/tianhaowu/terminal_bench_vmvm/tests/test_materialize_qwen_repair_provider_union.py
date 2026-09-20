@@ -73,7 +73,7 @@ def _inputs(
         "max_connections = 32\n"
         "max_keepalive_connections = 32\n"
         "[sampling]\n"
-        'reasoning_effort = "max"\n'
+        'reasoning_effort = "high"\n'
         "[taskset]\n"
         'task_file = "user/tianhaowu/terminal_bench_vmvm/configs/eval/mobius_valid_tasks_2500.txt"\n'
         f'task_file_sha256 = "{_sha(source.read_bytes())}"\n'

@@ -101,6 +101,7 @@ class OCIRunnerConfig:
     require_dockerhub_auth: bool
     podman_ignore_chown_errors: bool
     ecr: ECRConfig
+    allow_dockerhub_fallback: bool = True
 
     @property
     def dockerhub_auth_enabled(self) -> bool:
@@ -365,6 +366,9 @@ def get_oci_config() -> OCIRunnerConfig:
     dockerhub_username = os.environ.get("OCI_RUNNER_DOCKERHUB_USERNAME", "").strip() or None
     dockerhub_token_path = os.environ.get("OCI_RUNNER_DOCKERHUB_TOKEN_FILE", "").strip() or None
     require_dockerhub_auth = os.environ.get("OCI_RUNNER_REQUIRE_DOCKERHUB_AUTH") == "1"
+    allow_dockerhub_fallback_value = os.environ.get("OCI_RUNNER_ALLOW_DOCKERHUB_FALLBACK", "1")
+    if allow_dockerhub_fallback_value not in {"0", "1"}:
+        raise APIError("OCI_RUNNER_ALLOW_DOCKERHUB_FALLBACK must be '0' or '1'")
     if dockerhub_username is not None and ("\n" in dockerhub_username or "\r" in dockerhub_username):
         raise APIError("OCI_RUNNER_DOCKERHUB_USERNAME must be a single line")
     if (dockerhub_username is None) != (dockerhub_token_path is None):
@@ -422,6 +426,7 @@ def get_oci_config() -> OCIRunnerConfig:
         dockerhub_username=dockerhub_username,
         dockerhub_token_file=Path(dockerhub_token_path).expanduser() if dockerhub_token_path else None,
         require_dockerhub_auth=require_dockerhub_auth,
+        allow_dockerhub_fallback=allow_dockerhub_fallback_value == "1",
         podman_ignore_chown_errors=os.environ.get("OCI_RUNNER_PODMAN_IGNORE_CHOWN_ERRORS") == "1",
         ecr=ECRConfig.from_env(),
     )
@@ -792,6 +797,7 @@ class OCIRunnerAsyncSandboxClient(SandoqAsyncSandboxClient):
                 "pull_image": image,
                 "image_mounts": image_mounts,
                 "image_reference_rewritten": source_image != image,
+                "allow_dockerhub_fallback": self._oci_cfg.allow_dockerhub_fallback,
                 "resolved_digest": None,
                 "nested_ready": False,
                 "shell_id": None,
@@ -855,6 +861,7 @@ class OCIRunnerAsyncSandboxClient(SandoqAsyncSandboxClient):
             "pull_image": image,
             "image_mounts": image_mounts,
             "image_reference_rewritten": source_image != image,
+            "allow_dockerhub_fallback": self._oci_cfg.allow_dockerhub_fallback,
             "resolved_digest": None,
             "nested_ready": False,
             "shell_id": None,
@@ -1590,6 +1597,7 @@ class OCIRunnerAsyncSandboxClient(SandoqAsyncSandboxClient):
                 if pull_exit_code != 0:
                     if (
                         allow_ecr_fallback
+                        and self._oci_cfg.allow_dockerhub_fallback
                         and _ECR_UPSTREAM_AUTH_FAILURE in details.lower()
                         and is_configured_ecr_image(requested_image, self._oci_cfg.ecr)
                         and (info.source_image or "").startswith(
@@ -3220,6 +3228,7 @@ true
             "shell_failure_status": info.shell_failure_status,
             "shell_command_mode": metadata.get("shell_command_mode"),
             "image_pull_fallback": metadata.get("image_pull_fallback"),
+            "allow_dockerhub_fallback": metadata.get("allow_dockerhub_fallback"),
             "podman_storage_driver": metadata.get("podman_storage_driver"),
             "podman_ignore_chown_errors": metadata.get("podman_ignore_chown_errors"),
             "failure_reason": metadata.get("failure_reason"),

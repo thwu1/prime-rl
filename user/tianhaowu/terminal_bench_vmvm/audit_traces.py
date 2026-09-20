@@ -50,7 +50,7 @@ QWEN3_A95B_MODEL_IO_CONTRACT = CapturedModelIOContract(
     provider_route="/chat/completions",
     request_model="Qwen3.8-2.4T-A95B",
     response_model="Qwen3.8-2.4T-A95B",
-    reasoning_effort="max",
+    reasoning_effort="high",
     chat_template_kwargs=(
         ("enable_thinking", True),
         ("preserve_thinking", True),

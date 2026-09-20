@@ -161,7 +161,7 @@ def test_materialize_uses_sorted_evaluator_indices_for_unsorted_approval(
         "enable_thinking": True,
         "preserve_thinking": True,
     }
-    assert config["sampling"]["reasoning_effort"] == "max"
+    assert config["sampling"]["reasoning_effort"] == "high"
     assert set(config["retries"]["rollout"]["include"]) == direct.ROLLOUT_RETRY_POLICY
 
     manifest_bytes = (output / repair.MANIFEST_FILENAME).read_bytes()
