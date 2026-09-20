@@ -55,6 +55,27 @@ Plan creation computes `binding_plan_sha256(...)`,
 the exact approved binary-artifact, source-attestation, and toolchain digest
 allowlists; no allowlist is inferred from worker output.
 
+For the Qwen repair lane, `prepare_qwen_sandoq_catalog_plan.py` is the only
+supported plan generator. It revalidates the sealed schema-v3 provider
+materialization before and after extraction, requires the exact 1,233/0
+Sandoq/VMVM split, and reads only task metadata, image records, Dockerfiles,
+and verifier dependency declarations; it never opens task instructions. The
+generator accepts a separately approved canonical policy plus the task-free
+x86 worker contract, requires both as private mode-0600 single-link files,
+and derives all 1,233 runtime-role/image/ordered-requirement bindings before
+publishing a deterministic private plan and receipt. Its stdout contains only
+aggregate counts. The private policy must pin the generator, worker launcher,
+worker runtime, materializer, cleanup verifier, ECR rotator, environment,
+catalog consumer, requirement extractor, probe approval, source policy,
+toolchains, and artifact allowlists. A policy is approval input; worker output
+can never expand an allowlist.
+
+The sealed catalog plan is not rollout authorization. The repair launcher must
+separately bind generation concurrency 64, an outer-provider pool capacity of
+at least 64, lease-start admission, 7,200/43,200-second request/task timeouts,
+the 256K token cap, consistent-hash routing with `x-session-id`, model-I/O
+capture, preserved thinking, and the no-network task contract.
+
 ## Worker protocol
 
 The materializer invokes one absolute executable without a shell:
@@ -100,11 +121,15 @@ The operations are:
 1. `recover`: before any new lease, replay the durable provider WAL and drain,
    retire, or delete every orphan from an abnormal prior worker exit. The
    response must prove zero remaining sessions and verified cleanup receipts.
-2. `probe`: start a clean immutable dependency-runtime image with nested task
+2. `anchor`: after startup recovery, register and heartbeat one controller-
+   owned provider client across every worker wave and inter-wave gap. Once all
+   child groups are extinct, this client performs the sole terminal drain and
+   returns the final zero-live WAL proof used by publication.
+3. `probe`: start a clean immutable dependency-runtime image with nested task
    networking disabled. Return the full installed distribution inventory,
    exact reachable closure when satisfied, marker environment, supported wheel
    tags, runtime fingerprint, and the approved probe attestation.
-3. `build`: use a separate trusted network-enabled builder session whose
+4. `build`: use a separate trusted network-enabled builder session whose
    digest-pinned image comes from `SANDOQ_CATALOG_BUILDER_IMAGE`. The builder
    image must be independently audited and must differ from every task or
    verifier image; a benchmark image is never started with networking. The
@@ -117,7 +142,7 @@ The operations are:
    exact toolchain evidence, and an approved immutable binary policy for every
    wheel. A discovery build may be shared only when every wheel is universal;
    otherwise the materializer requests an image-bound build for each image.
-4. `validate`: start a new clean exact-image runtime with networking disabled,
+5. `validate`: start a new clean exact-image runtime with networking disabled,
    upload the sealed archive, install into an isolated target with
    `PIP_NO_INDEX=1`, `--no-index`, `--no-deps`, and `--require-hashes`, and run
    the supplied closure probe. Return observed archive/wheel-inventory hashes,
