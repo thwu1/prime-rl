@@ -780,8 +780,11 @@ SUPERVISOR_HANDSHAKE_TIMEOUT_SECONDS = 30
 @dataclass
 class _SupervisorChannel:
     connection: socket.socket
-    socket_path: Path
-    socket_root: Path
+    parent_descriptor: int
+    root_descriptor: int
+    root_name: str
+    root_identity: tuple[int, ...]
+    socket_identity: tuple[int, ...]
     closed: bool = False
 
     def fileno(self) -> int:
@@ -794,19 +797,94 @@ class _SupervisorChannel:
         if self.closed:
             return
         self.closed = True
-        error: OSError | None = None
+        error: BaseException | None = None
         try:
             self.connection.close()
-        except OSError as caught:
+        except BaseException as caught:
             error = caught
         try:
-            self.socket_path.unlink(missing_ok=True)
-            self.socket_root.rmdir()
-        except OSError as caught:
+            _remove_supervisor_socket(
+                parent_descriptor=self.parent_descriptor,
+                root_descriptor=self.root_descriptor,
+                root_name=self.root_name,
+                root_identity=self.root_identity,
+                socket_identity=self.socket_identity,
+            )
+        except BaseException as caught:
             if error is None:
                 error = caught
         if error is not None:
             raise error
+
+
+def _supervisor_root_identity(value: os.stat_result) -> tuple[int, ...]:
+    return (value.st_dev, value.st_ino, value.st_mode, value.st_uid, value.st_nlink)
+
+
+def _supervisor_socket_identity(value: os.stat_result) -> tuple[int, ...]:
+    return (
+        value.st_dev,
+        value.st_ino,
+        value.st_mode,
+        value.st_uid,
+        value.st_nlink,
+        value.st_ctime_ns,
+    )
+
+
+def _remove_supervisor_socket(
+    *,
+    parent_descriptor: int,
+    root_descriptor: int,
+    root_name: str,
+    root_identity: tuple[int, ...],
+    socket_identity: tuple[int, ...] | None,
+) -> None:
+    error: BaseException | None = None
+    try:
+        root_status = os.fstat(root_descriptor)
+        named_root = os.stat(root_name, dir_fd=parent_descriptor, follow_symlinks=False)
+        if (
+            _supervisor_root_identity(root_status) != root_identity
+            or _supervisor_root_identity(named_root) != root_identity
+        ):
+            raise GuardViolation("supervisor_socket_cleanup_failed")
+        try:
+            named_socket = os.stat(
+                "channel.sock", dir_fd=root_descriptor, follow_symlinks=False
+            )
+        except FileNotFoundError:
+            named_socket = None
+        if socket_identity is None:
+            if named_socket is not None:
+                raise GuardViolation("supervisor_socket_cleanup_failed")
+        else:
+            if (
+                named_socket is None
+                or _supervisor_socket_identity(named_socket) != socket_identity
+            ):
+                raise GuardViolation("supervisor_socket_cleanup_failed")
+            os.unlink("channel.sock", dir_fd=root_descriptor)
+            os.fsync(root_descriptor)
+        if _supervisor_root_identity(
+            os.stat(root_name, dir_fd=parent_descriptor, follow_symlinks=False)
+        ) != root_identity:
+            raise GuardViolation("supervisor_socket_cleanup_failed")
+        os.rmdir(root_name, dir_fd=parent_descriptor)
+        os.fsync(parent_descriptor)
+    except BaseException as caught:
+        error = caught
+    finally:
+        for descriptor in (root_descriptor, parent_descriptor):
+            try:
+                os.close(descriptor)
+            except OSError as caught:
+                if error is None:
+                    error = caught
+    if error is not None:
+        if isinstance(error, GuardViolation):
+            raise error
+        raise GuardViolation("supervisor_socket_cleanup_failed") from error
 
 
 def _peer_credentials(channel: socket.socket) -> tuple[int, int, int]:
@@ -972,15 +1050,51 @@ def _start_supervised_evaluator(
     termination_timeout: int,
     terminate_process_group: Callable[[Any, int], None],
 ) -> tuple[Any, _SupervisorChannel]:
+    socket_parent = Path("/tmp")
+    parent_flags = os.O_RDONLY | os.O_DIRECTORY | os.O_CLOEXEC
+    if hasattr(os, "O_NOFOLLOW"):
+        parent_flags |= os.O_NOFOLLOW
+    try:
+        parent_descriptor = os.open(socket_parent, parent_flags)
+    except OSError as error:
+        raise GuardViolation("supervisor_socket_setup_failed") from error
+    root_descriptor = -1
+    root_identity: tuple[int, ...] | None = None
+    socket_identity: tuple[int, ...] | None = None
     socket_root = Path(tempfile.mkdtemp(prefix=f"sandoq-supervisor-{os.getuid()}-", dir="/tmp"))
-    socket_root.chmod(0o700)
+    root_name = socket_root.name
     socket_path = socket_root / "channel.sock"
     listener = socket.socket(socket.AF_UNIX, socket.SOCK_SEQPACKET)
     connection: socket.socket | None = None
     process = None
     try:
+        socket_root.chmod(0o700)
+        initial_root = socket_root.lstat()
+        root_identity = _supervisor_root_identity(initial_root)
+        root_descriptor = os.open(root_name, parent_flags, dir_fd=parent_descriptor)
+        root_status = os.fstat(root_descriptor)
+        named_root = os.stat(root_name, dir_fd=parent_descriptor, follow_symlinks=False)
+        if (
+            root_identity != _supervisor_root_identity(root_status)
+            or root_identity != _supervisor_root_identity(named_root)
+            or not stat.S_ISDIR(root_status.st_mode)
+            or root_status.st_uid != os.getuid()
+            or stat.S_IMODE(root_status.st_mode) != 0o700
+        ):
+            raise GuardViolation("supervisor_socket_setup_failed")
         listener.bind(str(socket_path))
-        socket_path.chmod(0o600)
+        os.chmod("channel.sock", 0o600, dir_fd=root_descriptor, follow_symlinks=False)
+        socket_status = os.stat(
+            "channel.sock", dir_fd=root_descriptor, follow_symlinks=False
+        )
+        socket_identity = _supervisor_socket_identity(socket_status)
+        if (
+            not stat.S_ISSOCK(socket_status.st_mode)
+            or socket_status.st_uid != os.getuid()
+            or stat.S_IMODE(socket_status.st_mode) != 0o600
+            or socket_status.st_nlink != 1
+        ):
+            raise GuardViolation("supervisor_socket_setup_failed")
         listener.listen(1)
         listener.settimeout(SUPERVISOR_HANDSHAKE_TIMEOUT_SECONDS)
         environment = os.environ.copy()
@@ -1057,10 +1171,32 @@ def _start_supervised_evaluator(
         if connection is not None:
             with contextlib.suppress(OSError):
                 connection.close()
-        with contextlib.suppress(OSError):
-            socket_path.unlink(missing_ok=True)
-        with contextlib.suppress(OSError):
-            socket_root.rmdir()
+        if root_descriptor >= 0 and root_identity is not None:
+            try:
+                _remove_supervisor_socket(
+                    parent_descriptor=parent_descriptor,
+                    root_descriptor=root_descriptor,
+                    root_name=root_name,
+                    root_identity=root_identity,
+                    socket_identity=socket_identity,
+                )
+            except BaseException as cleanup_error:
+                error.add_note(f"supervisor socket cleanup failed: {cleanup_error!r}")
+        else:
+            if root_descriptor >= 0:
+                os.close(root_descriptor)
+            elif root_identity is not None:
+                try:
+                    named_root = os.stat(
+                        root_name, dir_fd=parent_descriptor, follow_symlinks=False
+                    )
+                    if _supervisor_root_identity(named_root) != root_identity:
+                        raise GuardViolation("supervisor_socket_cleanup_failed")
+                    os.rmdir(root_name, dir_fd=parent_descriptor)
+                    os.fsync(parent_descriptor)
+                except BaseException as cleanup_error:
+                    error.add_note(f"supervisor socket cleanup failed: {cleanup_error!r}")
+            os.close(parent_descriptor)
         if process is not None:
             try:
                 terminate_process_group(process, termination_timeout)
@@ -1073,7 +1209,15 @@ def _start_supervised_evaluator(
         raise GuardViolation("supervisor_handshake_failed") from error
     listener.close()
     assert connection is not None
-    return process, _SupervisorChannel(connection, socket_path, socket_root)
+    assert root_identity is not None and socket_identity is not None
+    return process, _SupervisorChannel(
+        connection,
+        parent_descriptor,
+        root_descriptor,
+        root_name,
+        root_identity,
+        socket_identity,
+    )
 
 
 def exec_supervised_evaluator(command: Sequence[str]) -> None:
@@ -1628,12 +1772,86 @@ def sanitize_rotation_audit(
     }
 
 
-def _command_from_json(path: Path) -> list[str]:
-    _validate_private_parent(path)
-    _validate_existing_private_file(path, allow_missing=False)
+def _read_private_command_file(path: Path) -> bytes:
+    if (
+        not path.is_absolute()
+        or path.name in {"", ".", ".."}
+        or path != Path(os.path.normpath(path))
+    ):
+        raise RotationError("command_file_invalid")
+    parent_flags = os.O_RDONLY | os.O_DIRECTORY | os.O_CLOEXEC
+    file_flags = os.O_RDONLY | os.O_CLOEXEC
+    if hasattr(os, "O_NOFOLLOW"):
+        parent_flags |= os.O_NOFOLLOW
+        file_flags |= os.O_NOFOLLOW
     try:
-        value = json.loads(read_regular(path, max_bytes=64 * 1024))
-    except (json.JSONDecodeError, UnionContractError) as error:
+        parent_descriptor = os.open(path.parent, parent_flags)
+    except OSError as error:
+        raise RotationError("command_file_invalid") from error
+    descriptor = -1
+    try:
+        parent_before = os.fstat(parent_descriptor)
+        if (
+            not stat.S_ISDIR(parent_before.st_mode)
+            or parent_before.st_uid != os.getuid()
+            or stat.S_IMODE(parent_before.st_mode) != 0o700
+        ):
+            raise RotationError("command_file_invalid")
+        descriptor = os.open(path.name, file_flags, dir_fd=parent_descriptor)
+        before = os.fstat(descriptor)
+        if (
+            not stat.S_ISREG(before.st_mode)
+            or before.st_uid != os.getuid()
+            or stat.S_IMODE(before.st_mode) != 0o600
+            or before.st_nlink != 1
+            or before.st_size > 64 * 1024
+        ):
+            raise RotationError("command_file_invalid")
+        body = bytearray()
+        while chunk := os.read(descriptor, 16 * 1024):
+            body.extend(chunk)
+            if len(body) > 64 * 1024:
+                raise RotationError("command_file_invalid")
+        after = os.fstat(descriptor)
+        named = os.stat(path.name, dir_fd=parent_descriptor, follow_symlinks=False)
+        parent_after = os.fstat(parent_descriptor)
+    except (OSError, ValueError) as error:
+        raise RotationError("command_file_invalid") from error
+    finally:
+        if descriptor >= 0:
+            os.close(descriptor)
+        os.close(parent_descriptor)
+    file_identity = lambda item: (
+        item.st_dev,
+        item.st_ino,
+        item.st_mode,
+        item.st_uid,
+        item.st_nlink,
+        item.st_size,
+        item.st_mtime_ns,
+        item.st_ctime_ns,
+    )
+    directory_identity = lambda item: (
+        item.st_dev,
+        item.st_ino,
+        item.st_mode,
+        item.st_uid,
+        item.st_nlink,
+    )
+    if (
+        file_identity(before) != file_identity(after)
+        or file_identity(after) != file_identity(named)
+        or directory_identity(parent_before) != directory_identity(parent_after)
+        or len(body) != before.st_size
+    ):
+        raise RotationError("command_file_invalid")
+    return bytes(body)
+
+
+def _command_from_json(path: Path) -> list[str]:
+    try:
+        value = json.loads(_read_private_command_file(path))
+    except json.JSONDecodeError as error:
         raise RotationError("command_file_invalid") from error
     if (
         not isinstance(value, list)
@@ -1726,12 +1944,7 @@ def _command_from_json(path: Path) -> list[str]:
         or stat.S_IMODE(output_metadata.st_mode) != 0o700
     ):
         raise RotationError("command_file_invalid")
-    try:
-        resolved_command_file = path.resolve(strict=True)
-        resolved_command_file.relative_to(resolved_output)
-    except (OSError, ValueError) as error:
-        raise RotationError("command_file_invalid") from error
-    if path != resolved_command_file or path.is_symlink():
+    if path.parent != resolved_output / "control":
         raise RotationError("command_file_invalid")
     expected_output_paths = {
         "--event-log": resolved_output / "pool_events.jsonl",

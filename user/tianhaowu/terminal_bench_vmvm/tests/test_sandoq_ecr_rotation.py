@@ -440,6 +440,44 @@ time.sleep(30)
     assert processes[0].poll() is not None
 
 
+def test_supervisor_close_rejects_socket_path_substitution(tmp_path: Path) -> None:
+    root = tmp_path / "supervisor"
+    root.mkdir(mode=0o700)
+    parent_descriptor = os.open(tmp_path, os.O_RDONLY | os.O_DIRECTORY)
+    root_descriptor = os.open(root, os.O_RDONLY | os.O_DIRECTORY)
+    root_identity = rotation._supervisor_root_identity(os.fstat(root_descriptor))
+    socket_path = root / "channel.sock"
+    original = socket.socket(socket.AF_UNIX, socket.SOCK_SEQPACKET)
+    original.bind(str(socket_path))
+    socket_path.chmod(0o600)
+    socket_identity = rotation._supervisor_socket_identity(socket_path.lstat())
+    connection, peer = socket.socketpair(socket.AF_UNIX, socket.SOCK_SEQPACKET)
+    channel = rotation._SupervisorChannel(
+        connection,
+        parent_descriptor,
+        root_descriptor,
+        root.name,
+        root_identity,
+        socket_identity,
+    )
+    socket_path.unlink()
+    replacement = socket.socket(socket.AF_UNIX, socket.SOCK_SEQPACKET)
+    replacement.bind(str(socket_path))
+    socket_path.chmod(0o600)
+
+    with pytest.raises(
+        rotation.GuardViolation, match="^supervisor_socket_cleanup_failed$"
+    ):
+        channel.close()
+
+    assert socket_path.exists()
+    peer.close()
+    original.close()
+    replacement.close()
+    socket_path.unlink()
+    root.rmdir()
+
+
 def test_supervisor_start_failure_still_runs_cleanup(tmp_path: Path) -> None:
     directory = _private_dir(tmp_path)
     token_path = directory / "ecr-token"
@@ -578,13 +616,35 @@ def test_cleanup_command_rejects_public_or_hardlinked_plan(
     command_file, _command = _verified_cleanup_command(monkeypatch, tmp_path)
     command_file.chmod(0o644)
 
-    with pytest.raises(rotation.RotationError, match="^private_file_invalid$"):
+    with pytest.raises(rotation.RotationError, match="^command_file_invalid$"):
         rotation._command_from_json(command_file)
 
     command_file.chmod(0o600)
     alias = command_file.with_name("cleanup-command-alias.json")
     os.link(command_file, alias)
-    with pytest.raises(rotation.RotationError, match="^private_file_invalid$"):
+    with pytest.raises(rotation.RotationError, match="^command_file_invalid$"):
+        rotation._command_from_json(command_file)
+
+
+def test_cleanup_command_rejects_same_directory_path_substitution(
+    monkeypatch, tmp_path: Path
+) -> None:
+    command_file, _command = _verified_cleanup_command(monkeypatch, tmp_path)
+    original_read = rotation.os.read
+    replaced = False
+
+    def racing_read(descriptor: int, size: int) -> bytes:
+        nonlocal replaced
+        chunk = original_read(descriptor, size)
+        if chunk and not replaced:
+            replaced = True
+            backup = command_file.with_name("original-command.json")
+            command_file.rename(backup)
+            _write_private(command_file, rotation.canonical_json(["/bin/true"]))
+        return chunk
+
+    monkeypatch.setattr(rotation.os, "read", racing_read)
+    with pytest.raises(rotation.RotationError, match="^command_file_invalid$"):
         rotation._command_from_json(command_file)
 
 
