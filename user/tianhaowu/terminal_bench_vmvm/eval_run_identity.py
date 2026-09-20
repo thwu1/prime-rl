@@ -75,7 +75,7 @@ KIMI_TIMEOUT_PROFILES = {
     "smoke": {"rollout_timeout": 28_800, "session_timeout": 32_400},
     "full": {"rollout_timeout": 36_000, "session_timeout": 43_200},
     "quick": {"rollout_timeout": 900, "session_timeout": 2_400},
-    "diagnostic": {"rollout_timeout": 480, "session_timeout": 2_400},
+    "diagnostic": {"rollout_timeout": 300, "session_timeout": 600},
 }
 KIMI_FULL_RETRY_EXCEPTIONS = frozenset({"ProviderError", "SandboxError", "TunnelError", "InterceptionError"})
 VMVM_HOST_CLEANUP_CONTRACT = {
@@ -150,9 +150,15 @@ def validate_kimi_timeout_contract(
     )
 
     bounded_smoke = required_profile in {"quick", "diagnostic"}
-    setup_timeout_seconds = 600 if bounded_smoke else KIMI_SETUP_TIMEOUT_SECONDS
-    finalize_timeout_seconds = 300 if bounded_smoke else KIMI_FINALIZE_TIMEOUT_SECONDS
-    scoring_timeout_seconds = 600 if bounded_smoke else KIMI_SCORING_TIMEOUT_SECONDS
+    setup_timeout_seconds = (
+        180 if required_profile == "diagnostic" else 600 if bounded_smoke else KIMI_SETUP_TIMEOUT_SECONDS
+    )
+    finalize_timeout_seconds = (
+        60 if required_profile == "diagnostic" else 300 if bounded_smoke else KIMI_FINALIZE_TIMEOUT_SECONDS
+    )
+    scoring_timeout_seconds = (
+        120 if required_profile == "diagnostic" else 600 if bounded_smoke else KIMI_SCORING_TIMEOUT_SECONDS
+    )
 
     def exact_number(value: object, expected: int) -> bool:
         return (
@@ -799,18 +805,23 @@ def _contract(
     model = config.get("model")
     if not expected_model or model != expected_model:
         raise EvalIdentityError("model_contract_mismatch")
+    taskset = config.get("taskset")
+    direct_kimi_diagnostic = (
+        model == "Kimi-K3"
+        and role == "kimi-direct-smoke"
+        and isinstance(taskset, dict)
+        and taskset.get("dataset_revision") is not None
+    )
     require_kimi_steady_state_concurrency = role == "mobius"
     if model == "Kimi-K3":
         required_profile: str | None = None
         if role in {"tb4", "mobius", "kimi-direct-tb4"}:
             required_profile = "full"
         elif role == "kimi-direct-smoke":
-            taskset = config.get("taskset")
             if not isinstance(taskset, dict):
                 raise EvalIdentityError("resolved_contract_invalid")
             required_profile = "diagnostic" if taskset.get("dataset_revision") is not None else "quick"
         elif role == "smoke":
-            taskset = config.get("taskset")
             if not isinstance(taskset, dict):
                 raise EvalIdentityError("resolved_contract_invalid")
             require_kimi_steady_state_concurrency = taskset.get("dataset_revision") is not None
@@ -898,8 +909,9 @@ def _contract(
             or taskset.get("verifier_runtime_retries") != 0
         ):
             raise EvalIdentityError(f"{sandbox_provider}_cleanup_retry_contract_invalid")
+    expected_host_command_timeout = 60 if direct_kimi_diagnostic else 240
     if host_harness and (
-        harness.get("command_timeout_seconds") != 240
+        harness.get("command_timeout_seconds") != expected_host_command_timeout
         or harness.get("command_kill_grace_seconds") != 10
         or harness.get("max_command_output_chars") != 100_000
         or harness.get("request_timeout_seconds") != 15_000
@@ -930,7 +942,7 @@ def _contract(
             "id": "terminal-bench-sandoq-host",
             "placement": "host",
             "tool": "bash",
-            "command_timeout_seconds": 240,
+            "command_timeout_seconds": expected_host_command_timeout,
             "command_kill_grace_seconds": 10,
             "max_command_output_chars": 100_000,
             "request_timeout_seconds": 15_000,
@@ -1877,11 +1889,14 @@ def _validate_identity_shape(identity: object) -> dict[str, Any]:
         raise EvalIdentityError("eval_run_identity_schema_invalid")
     if role in DIRECT_KIMI_ROLES and model != "Kimi-K3":
         raise EvalIdentityError("eval_run_identity_schema_invalid")
+    expected_harness_command_timeout = (
+        60 if role == "kimi-direct-smoke" and dataset.get("kind") == "git_revision" else 240
+    )
     if "harness" in contract and contract.get("harness") != {
         "id": "terminal-bench-sandoq-host",
         "placement": "host",
         "tool": "bash",
-        "command_timeout_seconds": 240,
+        "command_timeout_seconds": expected_harness_command_timeout,
         "command_kill_grace_seconds": 10,
         "max_command_output_chars": 100_000,
         "request_timeout_seconds": 15_000,
