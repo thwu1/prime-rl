@@ -1,6 +1,6 @@
 # VMVM sandbox coordination
 
-Last updated: 2026-09-20 06:14 UTC
+Last updated: 2026-09-20 06:18 UTC
 
 ## First message to the next teammate
 
@@ -43,6 +43,30 @@ this shared branch again.
 Add new rows below this line; do not overwrite another owner's row.
 
 ## Open coordination requests
+
+- **2026-09-20 06:18 UTC, sanitized Kimi startup RCA — systematic registry
+  login gate, not preemption:** fixed-pattern inspection across all eight
+  worker-rank logs found eight first-attempt `registry_login_permanent` events
+  and zero credential-mint, private-auth-file validation, image-pull, GPU-gate,
+  preemption, or OOM failures. No rank reached health or endpoint publication.
+  Source control flow places the failure after a nonempty credential and valid
+  private auth file, but before the explicit image pull; the current classifier
+  deliberately collapses authentication, authorization, certificate, missing
+  helper/client-config, and unclassified permanent errors, so the narrower
+  server-side cause is not proven. Same-image archive comparison found prior
+  endpoint publication only under the predecessor auth-file implementation,
+  while the current unique-auth-file implementation owns all observed permanent
+  login events. Treat this as a deterministic credential-path/client-config or
+  registry-policy failure, not a retryable transport or capacity event. A safe
+  successor must use a fresh source and all-new one-shot namespaces, pass the
+  private auth file explicitly to both login and pull, retain exact-digest/no-
+  fallback and credential-scrub guarantees, and emit only a finer allowlisted
+  permanent class. Before any fleet deployment, independently review and run
+  one same-partition task-free gate covering mint, explicit-auth-file login,
+  exact-digest pull/verification, and credential cleanup. If that still returns
+  an auth, ACL, or certificate class, repair the external policy/trust boundary
+  before preparing a serving successor. No retry or scheduler/auth mutation was
+  performed by this analysis.
 
 - **2026-09-20 06:14 UTC, strict t045300 terminal FAIL-CLOSED; task-free
   registry diagnosis required before a successor:** the one authorized
