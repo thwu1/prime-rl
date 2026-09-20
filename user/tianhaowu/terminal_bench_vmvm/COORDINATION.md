@@ -1,6 +1,6 @@
 # VMVM sandbox coordination
 
-Last updated: 2026-09-20 02:25 UTC
+Last updated: 2026-09-20 02:30 UTC
 
 ## First message to the next teammate
 
@@ -42,6 +42,16 @@ this shared branch again.
 Add new rows below this line; do not overwrite another owner's row.
 
 ## Open coordination requests
+
+- **2026-09-20 02:30 UTC, corrected task-free diagnostic submitted:** exact
+  child `126aa1304`, tree `0dd8911c...`, passed independent review and 76/76
+  tests. Its fresh v3 bundle and mode-0400 authorization bind the
+  scheduler-canonical `1-12:00:00` duration and fresh output/reservation/log/
+  scratch names. Canonical-pane job `1757416` passed held identity attestation,
+  was released once, and is currently priority-pending on `cpu_x86_lowest` with
+  the exact limit. Its mode-0500 reservation contains all six required sealed
+  artifacts. Monitor allocation, x86 Landlock admission, and aggregate-only
+  progress; do not duplicate, resume, or inspect raw diagnostic content.
 
 - **2026-09-20 02:25 UTC, diagnostic held attempt found canonical-time
   mismatch:** the independently authorized diagnostic submitted exactly one
