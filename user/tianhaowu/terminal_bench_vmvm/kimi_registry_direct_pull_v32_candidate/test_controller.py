@@ -4004,7 +4004,7 @@ def test_compute_manifest_is_bound_to_measured_node() -> None:
     assert "/usr/bin/python3.12" in manifest_paths
 
 
-def test_all_33_manifest_entries_are_the_exact_fresh_v5_projection(tmp_path: Path) -> None:
+def test_all_33_manifest_entries_are_the_exact_fresh_v7_projection(tmp_path: Path) -> None:
     raw = (HERE / "compute_tools.sha256").read_bytes()
     assert len(raw.splitlines()) == 33
     assert hashlib.sha256(raw).hexdigest() == controller.COMPUTE_PROJECTION_SHA256

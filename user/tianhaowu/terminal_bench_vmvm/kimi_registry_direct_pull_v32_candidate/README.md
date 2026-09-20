@@ -2,7 +2,7 @@
 
 This candidate derives byte-for-byte from reviewed V30 commit
 `a7ae446d908e54e8449d4468c24002a14f30207f` before the V32 namespace and
-source-binding barrier were added. It remains bound to the completed V5
+source-binding barrier were added. It remains bound to the completed V7
 compute-tool evidence and pinned to `g3-128-185`. V32 is bound to reviewed RAM
 Common successor `468a6e5b83ba51a8fe0389f1105f34dd18fa03f3`, which adds fail-closed
 rank-0 process-group cleanup proof, early-signal coverage, cleanup-status
@@ -46,14 +46,14 @@ published.
 
 The gate requests one node, one task, one GPU, four CPUs, 16 GiB, and 30
 minutes on `g3/g3_lowest` under account `ram`, excluding the four reviewed bad
-nodes. It is pinned to `g3-128-185`, the node measured by the completed V5
+nodes. It is pinned to `g3-128-185`, the node measured by the completed V7
 compute-tool diagnostic. The controller binds the exact mode-0400 private
-manifest, controller result, public job result, and V5 approval by hash and
+manifest, controller result, public job result, and V7 approval by hash and
 size. It independently requires all 33 primary rows to be labeled
 `fresh_compute_node`, requires both nofollow path and followed-target identities
 to be root-owned regular mode-0755 single-link files, reconstructs
 `compute_tools.sha256` strictly from the 33 observed hashes, and requires exact
-byte equality with the sealed manifest. The V5 aggregate and selected Python
+byte equality with the sealed manifest. The V7 aggregate and selected Python
 identity are cross-validated. No reviewed hash from an older node is reused.
 The runtime attestation applies the same nofollow and followed identity rules,
 so symlinks fail explicitly. All 33 entries must match at runtime. The batch
@@ -131,11 +131,11 @@ aggregate result only after exact terminal accounting followed by a fresh,
 stable absence proof for the scheduler namespace; pre-terminal absence is
 never reused as that final proof.
 
-`audit` validates sealed bytes, all three immutable V5 result artifacts, their
+`audit` validates sealed bytes, all three immutable V7 result artifacts, their
 fresh 33-row projection, source provenance, scheduler/QoS semantics, and fresh
 namespaces without reading TLS variables and without submitting or cancelling
 a job. `execute`
-first enforces the same source barrier, then revalidates the V5 evidence before reading TLS and
+first enforces the same source barrier, then revalidates the V7 evidence before reading TLS and
 again at the owner-intent boundary. It additionally requires the canonical tmux pane, two
 canonicalized TLS aliases resolving to the same strict private file, and an
 independently created mode-0400 approval whose canonical payload matches the
