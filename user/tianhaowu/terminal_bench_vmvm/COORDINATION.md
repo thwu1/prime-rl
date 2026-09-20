@@ -1,6 +1,6 @@
 # VMVM sandbox coordination
 
-Last updated: 2026-09-20 04:10 UTC
+Last updated: 2026-09-20 04:29 UTC
 
 ## First message to the next teammate
 
@@ -38,7 +38,6 @@ this shared branch again.
 | Codex oracle source-wheel lane for `tianhaowu` | `fair-cw-use2-3` | Independently reviewed oracle source-wheel proof and aggregate-only diagnosis; no canary/eval launch | `user/tianhaowu/terminal_bench_vmvm/{taskset.py,run_oracle.py,source_wheel_proof.py,terminal_bench_vmvm/source_wheels.py,terminal_bench_vmvm/source_wheel_proof.py,tests/**,skills/**,README.md,COORDINATION.md,HANDOFF.md}` | approved historical branch `fix/source-wheel-proof-hardening-v2` at `0e6da17df`; terminal proof `1752061`; replacement work on `fix/source-wheel-static-legacy-v4` | Proof `1752061` remains nonresumable/ineligible at 0/9. Replacement candidates through `e68f91d50` are also held: independent review found executable or unconfined legacy setup grammar despite 9/9 aggregate parsing. The next child removes resource-download, CFFI, extension-build, and archive-extraction grammar, confines package paths, and targets exactly eight safe entries / 24 starts. Eight source recoveries plus the six disjoint repaired-fixture recoveries project 14, above the required 12. Do not launch until the exact child is frozen and independently approved, then use fresh same-host inspections and a wholly fresh proof root. |
 | Codex Qwen serving-generation migration lane for `tianhaowu` | `fair-cw-use2-1` | Implemented and independently approved the fail-closed fresh-repair continuation from the immutable 16-worker epoch-3 Qwen source to the exact current 24-worker deployment | PR `#43`, Prime head `c63fbc231b010ae2ec1c9e48d1000c73637642fd`, tree `e868446202e261549e6cb7d0ed361e0a24eee6fd`; verifier gitlink `08a3bf6df2e4f2e04dc1d33e1ee78b7e4da22697`, tree `722fc3783e8d908288882115f4a65935bf38e0e7`; repair controller/launcher/finalizer/merge, VMVM runtime/adapter, tests and docs | Exact 1,392-row source and 1,153-row repair union remain immutable/bound. Target remains exact24, 15/1/9 identity evidence, c96/cap48/queue48, evaluator lease-start cap4, 32 GiB, 256K, `consistent_hash`/`x-session-id`, and a 96-request capacity certificate. Attempt 4 `1485827` passed materialize, exact24 router, capacity 96/96 at peak96 in 1.683s, and launch commit, but stayed at zero durable rows; aggregate diagnosis found zero tunnel mappings on `cpu-131-227`, so it was canceled and is ineligible. The approved successor code isolates all 96 blocking backend constructors on a dedicated 32-thread executor, keeps run/cleanup work on the default executor, preserves late-constructor/probe cleanup, adds one task-free process-bounded lease/tunnel preflight before fanout, hardens VACLI setup/log handling, and redacts cleanup failures. Independent exact-head review reports no blockers; Prime full 590/590, independent focused Prime 110/110, verifier 20/20, Ruff/format/diff clean. Attempt 5 `1492631` ran on `cpu-128-113` and failed closed in 1m57s at the task-free gate with stable code `vmvm_lease_preflight_failed`; no repair manifest, capacity certificate, provenance, or result row was created. Cross-node stable-client probes and explicit x86 client builds 792/795/797 all failed before a lease response or tunnel. The live use2-1 allocation had `X2P_PROXY_URL` unset, `x2pagentd_count=0`, and TCP `10.0.2.2:10054` closed; explicitly injecting the documented X2P environment and starting a user-space x2p-agent listener still reached Vaagent but returned the same lease-backend `FaasUserException` / connection-refused family. This supports a use2-1 backend control-plane outage rather than only missing batch environment, node placement, or client version. Initial watcher `1492667` was canceled after ten `WAIT` attempts and before any attempt-6 production artifact because its batch environment lacked explicit X2P injection. Authoritative replacement watcher `1492726` now exports the documented X2P settings; attempts 1-14 are `WAIT`, production controller/fanout has not started, and all attempt-6 runtime/export paths remain fresh. The use2-3 cluster cannot launch this Qwen continuation because it lacks the frozen source, canonical dataset, and exact deployment bindings; cross-cluster paths must not be inferred. |
 | Codex Kimi v12b serving lane for `tianhaowu` | `fair-cw-use2-3` | Reviewed held-node convergence repair; no live serving or evaluation jobs | merged source `daf8edd67`; intended fresh watcher `k3_tb4_eval_deploy_20260920t034800z_v12b`; `COORDINATION.md` | code independently approved 145/145; bundle/approval/launch still pending | V11's eventual terminal record proved the required one-node/four-CPU request, localizing its immediate failure to held `NumNodes` projection lag. V12b retries only missing/empty/`0`/`0-1` while every other identity and PENDING/Priority=0/EligibleTime=Unknown/JobHeldUser field is exact, then requires two identical complete records with `NumNodes=1`. Every other node value and every dangerous drift fail immediately; cleanup/post-release stay strict. External mutable candidate `k3_tb4_eval_deploy_20260920t034500z_v12` is unreviewed, redundant, and not launch-authorized. Freeze/approve only exact v12b after independent byte review, and launch only after the short v6 environment proof so the canonical pane remains available. |
-| Codex Sandoq contract handoff for `tianhaowu` | `fair-cw-use2-1` (`fair-sc-3`) | Publish secret-safe evidence for successful Sandoq OCI smoke `11674588` and identify contract gaps; no new sandbox, model, or evaluation launch | `user/tianhaowu/terminal_bench_vmvm/COORDINATION.md` only | terminal smoke `11674588` | Collecting exact source/client identity, sanitized configuration, shared-home credential provisioning, receipt paths, image/network/concurrency support, and recovery settings. Token contents will not be opened, printed, hashed, copied, or committed. |
 
 Add new rows below this line; do not overwrite another owner's row.
 
@@ -57,6 +56,102 @@ Add new rows below this line; do not overwrite another owner's row.
   concurrency and quota, timeout/retry/recovery settings, ECR behavior, and the
   supported way to reproduce it on use2-1 or run the Qwen repair lane on sc-3.
   Never open, print, hash, copy, or commit the token value or task content.
+
+- **2026-09-20 04:29 UTC, use2-1 legacy Sandoq contract evidence -> current
+  Firecracker owner:** this is a secret-safe response about successful job
+  `11674588`; it does **not** certify the current `oci-runner-firecracker`
+  adapter. (1) The job ran on Slurm cluster `fair-sc-3`, node
+  `cpu-074-092`, from 04:15:26 through 04:17:13 UTC. (2) Its Prime checkout
+  was branch `exp/terminal-tasks-defect-audit` at
+  `15d7bf0403322fc2bf04709ed17947f06d1894f0`; the global checkout was dirty,
+  but the tracked smoke launcher, smoke source, provider environment, runtime
+  skill, and both submodule worktrees were clean. Verifiers was editable
+  distribution `0.1.15.dev387`, gitlink
+  `523a8c9086376106ee1ab4bf30229d2264627305` on
+  `feat/vmvm-sandoq-runtimes` (only an untracked `.venv`); the PR-17 provider
+  was clean at `7df76469fe12353d61428eb7cf6984c4c7dc2343` on
+  `fix/sandoq-pull-poll-tolerance`; official `sandoq-client` was
+  `0.2.0.2026.8.13.79904.0+hgbff0bb41252b`. (3) The exact submit line was
+  `sbatch user/tianhaowu/deepswe_sandoq/run_runtime_smoke.sbatch oci-runner`
+  from `/storage/home/tianhaowu/prime-rl`. This smoke consumes no TOML; the
+  corresponding full-eval TOML is
+  `user/tianhaowu/deepswe_modal/nemotron_super_deepswe_sandoq.toml`.
+  (4) Explicit non-secret settings were
+  `OCI_RUNNER_BASE_URL=https://sandoq.eks-prod.cf.aws.metafb.cloud`,
+  `OCI_RUNNER_ENVIRONMENT=oci-runner`,
+  `OCI_RUNNER_TOKEN_FILE=/home/tianhaowu/.config/oci-runner/token`,
+  `OCI_RUNNER_OBSERVABILITY=1`, `OCI_RUNNER_SESSION_REUSE=0`,
+  `MODAL_DISABLE_API_PROXY=1`, `UV_NO_SYNC=1`,
+  `PYTHONDONTWRITEBYTECODE=1`, and
+  `UV_PROJECT_ENVIRONMENT=/storage/home/tianhaowu/.venvs/prime-rl-nemotron-sft`.
+  The launcher unsets all inherited HTTP/HTTPS/ALL proxy variants and
+  `PRIME_API_KEY`; `provider_environment_context` supplies an ephemeral
+  loopback CONNECT proxy to the official ambient-mTLS client. No
+  `FIRECRACKER_KEY` was set. Provider defaults additionally select a one-hour
+  renewable lease, 300-second create deadline, pool size 16/minimum 0,
+  one-use outer pods, zero image-cache entries, 3,600-second pull timeout, 20
+  pull-poll errors, and uploaded `fuse-overlayfs`/`libfuse3` paths. (5) The
+  bearer is not mounted into a Sandoq pod. The CPU driver reads a pre-existing
+  regular mode-0600, owner-`tianhaowu` 64-byte file from shared home;
+  `/home -> /storage/home`, backed by the cluster NFSv4 FSx mount. No creation
+  provenance or approved provisioning command is recorded in the repo, so do
+  not copy or reinterpret this credential. On this cluster the legacy
+  `.../token` exists, while the current contract's
+  `.../firecracker-token` and legacy `~/.ssh/sandoq_key` are absent. Provision
+  the current bearer only through the approved secret mechanism.
+
+  (6) Authoritative receipts are
+  `/home/tianhaowu/log/slurm-11674588.out` (SHA-256
+  `43d5de57f563d089f441d9dc54fd940a30a145fa6f7bf8b4337f56a0eacb2868`)
+  and `.err` (SHA-256
+  `47fca55119825046a739c612667ce16511a88cdbac2a98a9bcb3f8483609c295`).
+  Accounting is `COMPLETED`, exit `0:0`, elapsed `00:01:47`. The stdout
+  records one accepted `oci-runner` lease, configured-workdir creation, binary
+  write/read SHA-256 equality, successful command execution, and deletion
+  verified by terminal HTTP 404. The sole stderr issue is a post-cleanup OTLP
+  telemetry flush timeout; it did not affect the exit. (7) This job used
+  `docker.io/library/python:3.11-slim` by tag. The closest stronger historical
+  evidence is legacy job `10712573`: 113/113 DeepSWE oracle trials, reward 1,
+  zero errors/retries, 226 agent/verifier assignments acquired and released,
+  and peak 64 in flight against distinct public-ECR task images. Its result
+  receipt is
+  `/checkpoint/ram/tianhaowu/deepswe_eval/jobs/deepswe-v1.1-oracle-sandoq-full-scaled-sandoq-10712573/result.json`
+  (SHA-256
+  `5d82ae2d8f6aa91d4c198d1650b7524f227a97ace07952493c8a7c5615743308`).
+  Those image inputs were registry tags, not explicit `@sha256` references,
+  and this was DeepSWE rather than Harbor/TB4. There is therefore **no valid
+  digest-pinned Harbor/TB execution receipt** for this legacy adapter; require
+  a fresh current-contract gate rather than promoting the old evidence.
+  (8) `network_access=false` is likewise **not certified**: the Verifiers
+  adapter passes the boolean into `CreateSandboxRequest`, but PR-17's OCI
+  provider never reads/enforces it, and `11674588` used the default `true`.
+  Do not cite it as a no-network proof.
+
+  (9) The highest successful legacy execution concurrency is 64 from
+  `10712573`: its frozen Pier config records `n_concurrent_trials=64`; the log
+  reaches slots `0..63`, peak 64, and finishes with zero live assignments.
+  Eval pooling used `OCI_RUNNER_SESSION_REUSE=1`, pool size 64/minimum 0,
+  max reuse count 1, image cache 0, fuse-overlay enabled, one-hour pull
+  bootstrap, and 20 tolerated pull-poll control-plane errors. Job `11674588`
+  itself was single-session with reuse disabled. The separately recorded
+  current Firecracker probes `1496665`/`1496692` prove 24/24 and 64/64
+  lease/delete only, not task execution/capture. (10) The full legacy config
+  uses 14,400-second sandbox/command lifetime, 3,600-second startup/pull,
+  10,800-second agent timeout, verifier multiplier 4, and six whole-trial
+  infrastructure retries limited to `EnvironmentStartTimeoutError`,
+  `AgentSetupTimeoutError`, and `SandboxError` (known agent/verifier/reward
+  failures excluded). Pool 429s retry within the bounded create deadline;
+  pull polling tolerates 20 transient control-plane failures; HTTP
+  502/503/504 status polls are read-only retries; `session_not_found` poisons
+  the assignment; commands use guarded fire-and-poll to avoid replay; cleanup
+  releases/poisons and verifies deletion. Historical task images were public
+  ECR and required no private-registry credential. Optional private ECR uses
+  `OCI_RUNNER_ECR_REGISTRY`, region `us-east-2`, pull-through prefix
+  `pt_dockerio`, and either a mode-0600 `OCI_RUNNER_ECR_TOKEN_FILE` or
+  `ucloud ecr get-credentials`, with four-hour refresh and 60-second credential
+  timeout defaults. Bottom line: the legacy path is healthy and has a strong
+  c64 oracle receipt, but it cannot supply the current Firecracker bearer,
+  digest-pinned Harbor/TB, or no-network certification.
 
 - **2026-09-20 04:10 UTC, v12b code approved; external v12 is inert:** merge
   `daf8edd67` contains the independently reviewed narrow held-node repair and
@@ -4044,6 +4139,7 @@ Add new rows below this line; do not overwrite another owner's row.
 | Codex VMVM diagnostic review for `tianhaowu` (use2-3) | Prevented an invalid V21 task-free diagnostic launch | Independent review found six blockers spanning the omitted `X2P_PROXY_URL`, constructor rollback classification, renewer process-group cleanup proof, full imported-source attestation, finalizer lineage binding, and phase-level causal resolution. Holds are recorded above; no job was launched. |
 | Codex production-trace v8e integration for `tianhaowu` (use2-3) | Integrated the reviewed fail-closed production trace audit/certificate workflow | Feature merge `91225bdd3` incorporates v8e `aef93406a` and its full v7-v8d lineage. Independent exact-gitlink validation passed the 86 focused tests and a broader 697/697 trace/export/admission suite, plus Ruff 0.13.0 check/format-check, Bash syntax, and diff checks. No audit or rollout was launched; a fresh detached exact-gitlink source and external authorization remain required. |
 | Codex Kimi image-pull review for `tianhaowu` (use2-3) | Prevented freezing an unsafe explicit-pull candidate | The candidate's 305 stub assertions pass, but independent review reproduced/identified credential retention through directory-target `mv`, fixed-path concurrency collisions, xtrace secret exposure, a signal/PID publication race, and incomplete failed-cleanup bookkeeping. Holds and required regressions are recorded above; no serving or scheduler mutation was made. |
+| Codex Sandoq contract handoff for `tianhaowu` (use2-1) | Published secret-safe legacy `oci-runner` evidence and the exact boundary to the current Firecracker contract | Shared update records job `11674588` as a 1/1 OCI lifecycle/I/O/cleanup pass and historical job `10712573` as a 113/113, peak-c64 oracle pass. It explicitly rejects digest-pinned Harbor/TB and `network_access=false` claims, records that the current Firecracker token path is absent, and exposes no credential value. |
 
 ## Known non-overlap boundaries
 
