@@ -2045,6 +2045,12 @@ def test_compute_manifest_covers_all_reachable_gate_tools() -> None:
     assert required <= paths
     assert "/usr/bin/sync" not in paths
     assert len(rows) == 32
+    assert {path: digest for digest, path in rows}["/usr/bin/python3.12"] == (
+        "50d2b4d722d4b3b275e16d1d3b23457e5649428af598cc56f83c8544914e4690"
+    )
+    assert controller.TOOLS[Path("/usr/bin/python3.12")] == (
+        "1a301bb1763139d48ae638d97b11edf56de6cd185e1b054eae6dc28c271c0c5f"
+    )
     vector = json.dumps([digest for digest, _path in rows], separators=(",", ":")).encode()
     assert hashlib.sha256(vector).hexdigest() == controller.COMPUTE_TOOL_VECTOR_SHA256
 

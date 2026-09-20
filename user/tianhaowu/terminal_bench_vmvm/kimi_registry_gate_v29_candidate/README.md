@@ -68,10 +68,13 @@ No raw registry output is exposed by this refinement.
 This successor preserves the v18 accounting repair and v19's distinct
 compute-tool classification. It retains 31 executable hashes from the
 reviewed, credential-scrubbing probe `k3-tools-121000-v3` and replaces the now
-unused `sync` entry with the exact Python 3.12 executable used by the direct
-result publisher. All 32 entries retain strict regular-0755/root/single-link
-metadata. The complete manifest must match on the scheduler-selected node
-before the nested registry probe can start.
+unused `sync` entry with the compute-node Python 3.12 executable used by the
+direct result publisher. That Python digest was measured by the completed,
+credential-free 33-record G3 manifest diagnostic job 1760060; the other 31
+rows match that diagnostic exactly. The launch host keeps its distinct reviewed
+Python binding. All 32 compute entries retain strict
+regular-0755/root/single-link metadata. The complete manifest must match on the
+scheduler-selected node before the nested registry probe can start.
 
 This inert bundle is a one-shot, task-free admission gate for RAM Common
 revision `b1f0aa6c1aabcad9182d85a694faaa2eaa3d0f6e`. It exists only to prove that
