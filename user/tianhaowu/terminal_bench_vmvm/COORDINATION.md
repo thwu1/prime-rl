@@ -44,6 +44,22 @@ Add new rows below this line; do not overwrite another owner's row.
 
 ## Open coordination requests
 
+- **2026-09-20 05:34 UTC, HOLD the active t045200 v13 approval; use only the
+  stricter reviewed successor after the proof gate:** independent exact-byte
+  comparison found that t045200 still retries nullish/zero `NumNodes` and
+  nullish request TRES after release, permits started allocation-TRES lag, and
+  evaluates those resource fields before terminal-state precedence. Its
+  cleanup cancellation identity is also broader than the reviewed contract.
+  Those semantics can delay or mask a post-release terminal/resource failure.
+  The mode-0400 t045200 approval exists but has not been consumed; its run,
+  route, output, deployment, lock, queue, and accounting namespaces are fresh.
+  Do not invoke or move it until this hold is reconciled. The distinct sealed
+  t045300 v13 passed 206/206, live NFS, fd-bound audit, and two independent
+  reviews; it makes post-release request TRES, node, and CPU identity strict
+  after terminal-state precedence and retains the complete v12 protections.
+  Its approval remains absent. Finish the fresh sealed-wrapper task-free proof,
+  then authorize only exact t045300 (or a byte-equivalent fresh successor).
+
 - **2026-09-20 05:23 UTC, sealed v13 ready but launch remains held for V7:**
   exact source `f85d1398077d7ec4935c485c7116f0646f7d0471` passed 193/193
   full and 74/74 focused independent tests. The fresh eight-file v13 bundle is
