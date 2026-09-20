@@ -60,12 +60,12 @@ REQUIRED_MEMFD_SEALS = (
 )
 X2P_NAMES = ("X2P_ENV", "X2P_CFG_ENV", "X2P_PROXY_URL")
 TLS_NAMES = ("THRIFT_TLS_CL_CERT_PATH", "THRIFT_TLS_CL_KEY_PATH")
-DIRECTORY_IDENTITY_POLICY_NAME = "nfs_portable_inode_mode_uid_v1"
+DIRECTORY_IDENTITY_POLICY_NAME = "nfs_portable_inode_mode_uid_anchored_v2"
 DIRECTORY_IDENTITY_POLICY = {
     "batch_fields": ["inode", "mode", "owner_uid"],
     "cross_host_variance": ["device"],
     "launcher_fields": ["device", "inode", "mode", "owner_uid"],
-    "path_binding": "absolute_canonical_no_symlink",
+    "path_binding": "absolute_anchored_openat_nofollow",
 }
 PREFLIGHT_PROTOCOL = {
     "directory_identity_policy": DIRECTORY_IDENTITY_POLICY,
@@ -229,11 +229,52 @@ def portable_directory_identity(identity: Mapping[str, object]) -> dict[str, int
     return {name: int(identity[name]) for name in ("inode", "mode", "owner_uid")}
 
 
+def open_anchored_directory(path: Path, *, code: str = "source_binding_invalid") -> int:
+    """Open an absolute directory without following any pathname component."""
+
+    raw_path = os.fspath(path)
+    if (
+        not path.is_absolute()
+        or path.anchor != "/"
+        or raw_path != os.path.normpath(raw_path)
+        or any(part in {"", ".", ".."} for part in path.parts[1:])
+    ):
+        raise DiagnosticError(code)
+    flags = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | getattr(os, "O_CLOEXEC", 0)
+    chains: list[list[int]] = []
+    result = -1
+    try:
+        for _pass in range(2):
+            chain = [os.open("/", flags)]
+            chains.append(chain)
+            for part in path.parts[1:]:
+                chain.append(os.open(part, flags, dir_fd=chain[-1]))
+        signatures = [
+            [
+                (info.st_dev, info.st_ino, info.st_mode, info.st_uid)
+                for info in (os.fstat(descriptor) for descriptor in chain)
+            ]
+            for chain in chains
+        ]
+        if signatures[0] != signatures[1]:
+            raise DiagnosticError(code)
+        result = os.dup(chains[0][-1])
+    except OSError as error:
+        raise DiagnosticError(code) from error
+    finally:
+        for chain in chains:
+            for descriptor in reversed(chain):
+                os.close(descriptor)
+    return result
+
+
 def canonical_directory_path(path: Path) -> bool:
     try:
-        return path.is_absolute() and path == Path(os.path.normpath(path)) and path.resolve(strict=True) == path
-    except OSError:
+        descriptor = open_anchored_directory(path, code="child_invalid")
+    except DiagnosticError:
         return False
+    os.close(descriptor)
+    return True
 
 
 def open_bound_directory(
@@ -244,10 +285,7 @@ def open_bound_directory(
 ) -> int:
     if set(expected) != {"device", "inode", "mode", "owner_uid"}:
         raise DiagnosticError("source_binding_invalid")
-    try:
-        descriptor = os.open(path, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
-    except OSError as error:
-        raise DiagnosticError("source_binding_invalid") from error
+    descriptor = open_anchored_directory(path)
     identity = descriptor_identity(descriptor)
     if (
         identity != expected
@@ -266,12 +304,9 @@ def open_portable_bound_directory(
     code: str = "source_binding_invalid",
     required_mode: int | None = None,
 ) -> int:
-    if set(expected) != {"inode", "mode", "owner_uid"} or not canonical_directory_path(path):
+    if set(expected) != {"inode", "mode", "owner_uid"}:
         raise DiagnosticError(code)
-    try:
-        descriptor = os.open(path, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
-    except OSError as error:
-        raise DiagnosticError(code) from error
+    descriptor = open_anchored_directory(path, code=code)
     identity = portable_directory_identity(descriptor_identity(descriptor))
     if (
         identity != expected
@@ -838,7 +873,7 @@ def create_execution_snapshot(
         site_snapshot,
         copy_function=shutil.copy2,
     )
-    copied_site_fd = os.open(site_snapshot, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+    copied_site_fd = open_anchored_directory(site_snapshot, code="site_binding_invalid")
     try:
         copied_site_inventory = directory_manifest(copied_site_fd, expected_owner_uid=os.getuid())
     finally:
@@ -851,8 +886,8 @@ def create_execution_snapshot(
         raise DiagnosticError("site_binding_invalid")
     _seal_tree(source_snapshot)
     _seal_tree(site_snapshot)
-    source_snapshot_fd = os.open(source_snapshot, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
-    site_snapshot_fd = os.open(site_snapshot, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+    source_snapshot_fd = open_anchored_directory(source_snapshot)
+    site_snapshot_fd = open_anchored_directory(site_snapshot, code="site_binding_invalid")
     try:
         source_inventory = directory_manifest(source_snapshot_fd, expected_owner_uid=os.getuid())
         site_inventory = directory_manifest(site_snapshot_fd, expected_owner_uid=os.getuid())
@@ -2753,7 +2788,7 @@ def _atomic_write(directory: Path | int, name: str, payload: bytes, mode: int) -
     directory_fd = (
         os.dup(directory)
         if isinstance(directory, int)
-        else os.open(directory, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+        else open_anchored_directory(directory, code="output_binding_invalid")
     )
     temporary = f".{name}.tmp"
     descriptor = os.open(

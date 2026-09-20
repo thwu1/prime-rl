@@ -86,12 +86,12 @@ TERMINAL_STATES = {
 }
 X2P_NAMES = ("X2P_ENV", "X2P_CFG_ENV", "X2P_PROXY_URL")
 TLS_NAMES = ("THRIFT_TLS_CL_CERT_PATH", "THRIFT_TLS_CL_KEY_PATH")
-DIRECTORY_IDENTITY_POLICY_NAME = "nfs_portable_inode_mode_uid_v1"
+DIRECTORY_IDENTITY_POLICY_NAME = "nfs_portable_inode_mode_uid_anchored_v2"
 DIRECTORY_IDENTITY_POLICY = {
     "batch_fields": ["inode", "mode", "owner_uid"],
     "cross_host_variance": ["device"],
     "launcher_fields": ["device", "inode", "mode", "owner_uid"],
-    "path_binding": "absolute_canonical_no_symlink",
+    "path_binding": "absolute_anchored_openat_nofollow",
 }
 PREFLIGHT_PROTOCOL = {
     "directory_identity_policy": DIRECTORY_IDENTITY_POLICY,
@@ -202,22 +202,52 @@ def portable_identity_string(identity: Mapping[str, object]) -> str:
     return ":".join(str(identity[name]) for name in ("inode", "mode", "owner_uid"))
 
 
+def open_anchored_directory(path: Path, *, code: str = "directory_binding_invalid") -> int:
+    """Open an absolute directory without following any pathname component."""
+
+    raw_path = os.fspath(path)
+    if (
+        not path.is_absolute()
+        or path.anchor != "/"
+        or raw_path != os.path.normpath(raw_path)
+        or any(part in {"", ".", ".."} for part in path.parts[1:])
+    ):
+        fail(code)
+    flags = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | getattr(os, "O_CLOEXEC", 0)
+    chains: list[list[int]] = []
+    result = -1
+    try:
+        for _pass in range(2):
+            chain = [os.open("/", flags)]
+            chains.append(chain)
+            for part in path.parts[1:]:
+                chain.append(os.open(part, flags, dir_fd=chain[-1]))
+        signatures = [
+            [
+                (info.st_dev, info.st_ino, info.st_mode, info.st_uid)
+                for info in (os.fstat(descriptor) for descriptor in chain)
+            ]
+            for chain in chains
+        ]
+        if signatures[0] != signatures[1]:
+            fail(code)
+        result = os.dup(chains[0][-1])
+    except OSError as error:
+        raise LaunchError(code) from error
+    finally:
+        for chain in chains:
+            for descriptor in reversed(chain):
+                os.close(descriptor)
+    return result
+
+
 def open_bound_directory(
     path: Path,
     expected: Mapping[str, object] | None = None,
     *,
     code: str = "directory_binding_invalid",
 ) -> int:
-    try:
-        canonical = path.is_absolute() and path == Path(os.path.normpath(path)) and path.resolve(strict=True) == path
-    except OSError as error:
-        raise LaunchError(code) from error
-    if not canonical:
-        fail(code)
-    try:
-        descriptor = os.open(path, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
-    except OSError as error:
-        raise LaunchError(code) from error
+    descriptor = open_anchored_directory(path, code=code)
     identity = directory_identity(descriptor)
     if identity["owner_uid"] != os.getuid() or (expected is not None and identity != expected):
         os.close(descriptor)
@@ -1389,11 +1419,7 @@ def _write_file(
     mode: int = 0o400,
 ) -> tuple[bytes, str]:
     payload = canonical_json(value) + b"\n"
-    directory_fd = (
-        os.dup(directory)
-        if isinstance(directory, int)
-        else os.open(directory, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
-    )
+    directory_fd = os.dup(directory) if isinstance(directory, int) else open_anchored_directory(directory)
     descriptor = os.open(
         name,
         os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW,
@@ -1453,7 +1479,7 @@ def _write_environment(path: Path, values: Mapping[str, str]) -> tuple[bytes, st
 
 
 def _sync_directory(path: Path | int) -> None:
-    descriptor = os.dup(path) if isinstance(path, int) else os.open(path, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+    descriptor = os.dup(path) if isinstance(path, int) else open_anchored_directory(path)
     try:
         os.fsync(descriptor)
     finally:

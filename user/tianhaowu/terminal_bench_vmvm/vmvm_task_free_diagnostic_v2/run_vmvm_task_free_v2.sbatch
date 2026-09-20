@@ -4,8 +4,17 @@
 set -euo pipefail
 umask 077
 
-exec {public_stdout_fd}>&1 || exit 2
-exec {public_stderr_fd}>&2 || exit 2
+if [[ ${VMVM_DIRECTORY_BINDING_STAGE:-} == bound \
+    && ${VMVM_PUBLIC_STDOUT_FD:-} =~ ^([3-9]|[1-9][0-9]+)$ \
+    && ${VMVM_PUBLIC_STDERR_FD:-} =~ ^([3-9]|[1-9][0-9]+)$ \
+    && -e /proc/self/fd/${VMVM_PUBLIC_STDOUT_FD:-0} \
+    && -e /proc/self/fd/${VMVM_PUBLIC_STDERR_FD:-0} ]]; then
+    public_stdout_fd=$VMVM_PUBLIC_STDOUT_FD
+    public_stderr_fd=$VMVM_PUBLIC_STDERR_FD
+else
+    exec {public_stdout_fd}>&1 || exit 2
+    exec {public_stderr_fd}>&2 || exit 2
+fi
 exec >/dev/null 2>&1 || exit 2
 readonly public_stdout_fd public_stderr_fd
 
@@ -101,7 +110,141 @@ readonly VMVM_SHA256=1e7c8ac2906a45d8212d609b5900fdc3d30f91ba73d4bcdb1c36dfc8bfd
 readonly X86_UV_SHA256=ec831939765474162efb6c8c813e2b10908b26b04eaf98ac3e2972fa12d189b9
 readonly VACLI_SHA256=8be49a764bd0fac1a3ef2bef053ced556d18397d44642660eb8a2d22a7c235b3
 readonly VACLI_RESOLVED=/infra/public/fbpkgs/x86_64/vacli/794/vacli
-readonly DIRECTORY_IDENTITY_POLICY=nfs_portable_inode_mode_uid_v1
+readonly DIRECTORY_IDENTITY_POLICY=nfs_portable_inode_mode_uid_anchored_v2
+
+readonly DIRECTORY_BINDER_PROGRAM='
+import os
+import stat
+import sys
+
+FLAGS = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | getattr(os, "O_CLOEXEC", 0)
+LABELS = ("bundle", "source", "site", "reservation", "output_parent")
+
+
+class BindingError(RuntimeError):
+    def __init__(self, label):
+        self.label = label
+
+
+def signature(descriptor):
+    info = os.fstat(descriptor)
+    if not stat.S_ISDIR(info.st_mode):
+        raise BindingError("not_checked")
+    return info.st_dev, info.st_ino, info.st_mode, info.st_uid
+
+
+def open_anchored_directory(raw_path, label):
+    if (
+        not raw_path.startswith("/")
+        or raw_path.startswith("//")
+        or raw_path != os.path.normpath(raw_path)
+        or any(part in ("", ".", "..") for part in raw_path.split("/")[1:])
+    ):
+        raise BindingError(label)
+    components = raw_path.split("/")[1:]
+    chains = []
+    result = -1
+    try:
+        for _pass in range(2):
+            chain = [os.open("/", FLAGS)]
+            chains.append(chain)
+            for component in components:
+                chain.append(os.open(component, FLAGS, dir_fd=chain[-1]))
+        if [[signature(descriptor) for descriptor in chain] for chain in chains][0] != [
+            signature(descriptor) for descriptor in chains[1]
+        ]:
+            raise BindingError(label)
+        result = os.dup(chains[0][-1])
+        return result
+    except OSError as error:
+        raise BindingError(label) from error
+    finally:
+        for chain in chains:
+            for descriptor in reversed(chain):
+                os.close(descriptor)
+
+
+def abort(label):
+    identities = {name: "not_checked" for name in LABELS}
+    if label in identities:
+        identities[label] = "unreadable"
+    payload = (
+        "{\"code\":\"diagnostic_job_failed\",\"directory_identities\":"
+        "{\"bundle\":\"%s\",\"output_parent\":\"%s\","
+        "\"reservation\":\"%s\",\"site\":\"%s\",\"source\":\"%s\"},"
+        "\"stage\":\"directory_open\",\"state\":\"failed\"}\n"
+        % (
+            identities["bundle"],
+            identities["output_parent"],
+            identities["reservation"],
+            identities["site"],
+            identities["source"],
+        )
+    ).encode("ascii")
+    try:
+        os.write(int(sys.argv[2]), payload)
+    except BaseException:
+        pass
+    raise SystemExit(2)
+
+
+def main():
+    if len(sys.argv) != 9:
+        raise BindingError("not_checked")
+    public_fds = [int(sys.argv[1]), int(sys.argv[2])]
+    if any(descriptor < 3 for descriptor in public_fds):
+        raise BindingError("not_checked")
+    wrapper_path = sys.argv[3]
+    raw_paths = dict(zip(LABELS, sys.argv[4:], strict=True))
+    descriptors = {
+        label: open_anchored_directory(raw_paths[label], label) for label in LABELS
+    }
+    if (
+        os.path.dirname(wrapper_path) != raw_paths["bundle"]
+        or os.path.basename(wrapper_path) != "run_vmvm_task_free_v2.sbatch"
+    ):
+        raise BindingError("bundle")
+    try:
+        wrapper_fd = os.open(
+            os.path.basename(wrapper_path),
+            os.O_RDONLY | os.O_NOFOLLOW | getattr(os, "O_CLOEXEC", 0),
+            dir_fd=descriptors["bundle"],
+        )
+        wrapper_status = os.fstat(wrapper_fd)
+    except OSError as error:
+        raise BindingError("bundle") from error
+    if not stat.S_ISREG(wrapper_status.st_mode):
+        raise BindingError("bundle")
+    inherited = [*public_fds, *descriptors.values(), wrapper_fd]
+    if len(set(inherited)) != len(inherited):
+        raise BindingError("not_checked")
+    for descriptor in inherited:
+        os.set_inheritable(descriptor, True)
+    environment = dict(os.environ)
+    environment.update(
+        {
+            "VMVM_DIRECTORY_BINDING_STAGE": "bound",
+            "VMVM_PUBLIC_STDOUT_FD": str(public_fds[0]),
+            "VMVM_PUBLIC_STDERR_FD": str(public_fds[1]),
+            **{
+                f"VMVM_BOUND_{label.upper()}_FD": str(descriptor)
+                for label, descriptor in descriptors.items()
+            },
+        }
+    )
+    os.execve(
+        "/usr/bin/bash",
+        ["/usr/bin/bash", f"/proc/self/fd/{wrapper_fd}"],
+        environment,
+    )
+
+
+if __name__ == "__main__":
+    try:
+        main()
+    except BaseException as error:
+        abort(error.label if isinstance(error, BindingError) else "not_checked")
+'
 
 required_environment=(
     DIAG_ACTIVATION_PERMIT DIAG_AUTHORIZATION DIAG_AUTHORIZATION_FILE_SHA256
@@ -160,6 +303,29 @@ if [[ -n ${BASH_ENV+x} || -n ${ENV+x} || -n ${CDPATH+x} || -n ${UV+x} \
     || -n ${VIRTUAL_ENV+x} || -n ${CONDA_PREFIX+x} ]]; then
     fail
 fi
+bound_environment=(
+    VMVM_BOUND_BUNDLE_FD VMVM_BOUND_OUTPUT_PARENT_FD VMVM_BOUND_RESERVATION_FD
+    VMVM_BOUND_SITE_FD VMVM_BOUND_SOURCE_FD VMVM_DIRECTORY_BINDING_STAGE
+    VMVM_PUBLIC_STDERR_FD VMVM_PUBLIC_STDOUT_FD
+)
+directory_binding_ready=0
+if [[ -z ${VMVM_DIRECTORY_BINDING_STAGE+x} ]]; then
+    for variable in "${bound_environment[@]}"; do
+        [[ -z ${!variable+x} ]] || fail
+    done
+elif [[ $VMVM_DIRECTORY_BINDING_STAGE == bound ]]; then
+    directory_binding_ready=1
+    for variable in "${bound_environment[@]}"; do
+        [[ -n ${!variable:-} ]] || fail
+    done
+    for variable in VMVM_BOUND_BUNDLE_FD VMVM_BOUND_OUTPUT_PARENT_FD \
+        VMVM_BOUND_RESERVATION_FD VMVM_BOUND_SITE_FD VMVM_BOUND_SOURCE_FD \
+        VMVM_PUBLIC_STDERR_FD VMVM_PUBLIC_STDOUT_FD; do
+        [[ ${!variable} =~ ^([3-9]|[1-9][0-9]+)$ && -e /proc/self/fd/${!variable} ]] || fail
+    done
+else
+    fail
+fi
 
 failure_stage=fixed_environment
 if [[ $DIAG_SOURCE_REVISION != "$SOURCE_REVISION" \
@@ -192,10 +358,6 @@ for value in "$DIAG_BUNDLE_ROOT" "$DIAG_LAUNCHER_PATH" "$DIAG_WRAPPER_PATH" \
     "$VACLI_BIN" "$THRIFT_TLS_CL_CERT_PATH" "$THRIFT_TLS_CL_KEY_PATH"; do
     [[ $value == /* && $value != *$'\n'* && $value != *$'\r'* ]] || fail
 done
-for value in "$DIAG_BUNDLE_ROOT" "$DIAG_SOURCE_ROOT" "$PYTHON_SITE_X86_64" \
-    "$DIAG_RESERVATION" "${DIAG_OUTPUT_ROOT%/*}"; do
-    [[ ! -L $value && $(/usr/bin/readlink -f -- "$value") == "$value" ]] || fail
-done
 failure_stage=digest_shape
 for value in "$DIAG_AUTHORIZATION_FILE_SHA256" "$DIAG_AUTHORIZATION_SHA256" \
     "$DIAG_LAUNCHER_SHA256" \
@@ -218,6 +380,14 @@ done
 failure_stage=count_shape
 [[ $PYTHON_SITE_X86_64_ENTRY_COUNT =~ ^[1-9][0-9]*$ \
     && $PYTHON_SITE_X86_64_TOTAL_BYTES =~ ^[1-9][0-9]*$ ]] || fail
+
+if (( directory_binding_ready == 0 )); then
+    failure_stage=directory_open
+    exec /usr/bin/python3 -I -S -B -c "$DIRECTORY_BINDER_PROGRAM" \
+        "$public_stdout_fd" "$public_stderr_fd" "$DIAG_WRAPPER_PATH" \
+        "$DIAG_BUNDLE_ROOT" "$DIAG_SOURCE_ROOT" "$PYTHON_SITE_X86_64" \
+        "$DIAG_RESERVATION" "${DIAG_OUTPUT_ROOT%/*}"
+fi
 
 classify_directory_identity() {
     local fd=$1 expected=$2
@@ -258,23 +428,36 @@ portable_directory_identity() {
 }
 
 failure_stage=directory_open
-exec {bundle_fd}<"$DIAG_BUNDLE_ROOT" || {
+bundle_fd=$VMVM_BOUND_BUNDLE_FD
+source_fd=$VMVM_BOUND_SOURCE_FD
+site_fd=$VMVM_BOUND_SITE_FD
+reservation_fd=$VMVM_BOUND_RESERVATION_FD
+output_parent_fd=$VMVM_BOUND_OUTPUT_PARENT_FD
+unset VMVM_BOUND_BUNDLE_FD VMVM_BOUND_OUTPUT_PARENT_FD VMVM_BOUND_RESERVATION_FD
+unset VMVM_BOUND_SITE_FD VMVM_BOUND_SOURCE_FD VMVM_DIRECTORY_BINDING_STAGE
+unset VMVM_PUBLIC_STDERR_FD VMVM_PUBLIC_STDOUT_FD
+[[ -d /proc/self/fd/$bundle_fd \
+    && $(/usr/bin/readlink -- "/proc/self/fd/$bundle_fd") == "$DIAG_BUNDLE_ROOT" ]] || {
     identity_bundle=unreadable
     fail
 }
-exec {source_fd}<"$DIAG_SOURCE_ROOT" || {
+[[ -d /proc/self/fd/$source_fd \
+    && $(/usr/bin/readlink -- "/proc/self/fd/$source_fd") == "$DIAG_SOURCE_ROOT" ]] || {
     identity_source=unreadable
     fail
 }
-exec {site_fd}<"$PYTHON_SITE_X86_64" || {
+[[ -d /proc/self/fd/$site_fd \
+    && $(/usr/bin/readlink -- "/proc/self/fd/$site_fd") == "$PYTHON_SITE_X86_64" ]] || {
     identity_site=unreadable
     fail
 }
-exec {reservation_fd}<"$DIAG_RESERVATION" || {
+[[ -d /proc/self/fd/$reservation_fd \
+    && $(/usr/bin/readlink -- "/proc/self/fd/$reservation_fd") == "$DIAG_RESERVATION" ]] || {
     identity_reservation=unreadable
     fail
 }
-exec {output_parent_fd}<"${DIAG_OUTPUT_ROOT%/*}" || {
+[[ -d /proc/self/fd/$output_parent_fd \
+    && $(/usr/bin/readlink -- "/proc/self/fd/$output_parent_fd") == "${DIAG_OUTPUT_ROOT%/*}" ]] || {
     identity_output_parent=unreadable
     fail
 }

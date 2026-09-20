@@ -15,11 +15,16 @@ sealed `--export-file` and no `--export=NONE`. NFS `st_dev` is local
 to each client, so v7 retains the complete login-side device/inode/mode/owner
 binding and adds a separately authorized batch tuple of inode/mode/owner.
 Only the device may vary. Every path remains fixed, absolute, canonical, and
-symlink-free, and all existing content, Git, inventory, authorization, and
-receipt hashes remain mandatory. The authorization protocol is exactly:
+symlink-free. Each directory is opened component-by-component from a held root
+descriptor with `openat(O_NOFOLLOW)`, and a second anchored walk must reproduce
+the complete ancestor chain before the leaf descriptor is admitted. The batch
+wrapper re-executes its exact bound bytes with those five directory descriptors
+inherited, so it never checks a pathname and then reopens it. All existing
+content, Git, inventory, authorization, and receipt hashes remain mandatory.
+The authorization protocol is exactly:
 
 ```json
-{"diagnostic_only":true,"directory_identity_policy":{"batch_fields":["inode","mode","owner_uid"],"cross_host_variance":["device"],"launcher_fields":["device","inode","mode","owner_uid"],"path_binding":"absolute_canonical_no_symlink"},"preflight_only":true,"production_authorized":false}
+{"diagnostic_only":true,"directory_identity_policy":{"batch_fields":["inode","mode","owner_uid"],"cross_host_variance":["device"],"launcher_fields":["device","inode","mode","owner_uid"],"path_binding":"absolute_anchored_openat_nofollow"},"preflight_only":true,"production_authorized":false}
 ```
 
 The sealed probe CLI accepts only `--validate-batch`; worker and supervisor

@@ -35,6 +35,17 @@ LAUNCH = load_module("vmvm_task_free_launch_v2_test", "launch_vmvm_task_free_v2.
 FINALIZE = load_module("vmvm_task_free_finalize_v2_test", "finalize_vmvm_task_free_v2.py")
 
 
+def wrapper_directory_binder_namespace() -> dict[str, object]:
+    source = (ROOT / "run_vmvm_task_free_v2.sbatch").read_text()
+    prefix = "readonly DIRECTORY_BINDER_PROGRAM='\n"
+    assert source.count(prefix) == 1
+    program, suffix = source.split(prefix, 1)[1].split("\n'\n\nrequired_environment=(", 1)
+    assert suffix
+    namespace: dict[str, object] = {"__name__": "wrapper_directory_binder_test"}
+    exec(compile(program, "<wrapper-directory-binder>", "exec"), namespace)
+    return namespace
+
+
 class CleanSnapshotGuard:
     def is_clean(self) -> bool:
         return True
@@ -665,12 +676,18 @@ def test_preflight_protocol_is_minimal_and_consistent() -> None:
             "batch_fields": ["inode", "mode", "owner_uid"],
             "cross_host_variance": ["device"],
             "launcher_fields": ["device", "inode", "mode", "owner_uid"],
-            "path_binding": "absolute_canonical_no_symlink",
+            "path_binding": "absolute_anchored_openat_nofollow",
         },
         "preflight_only": True,
         "production_authorized": False,
     }
     assert LAUNCH.PREFLIGHT_PROTOCOL == PROBE.PREFLIGHT_PROTOCOL == FINALIZE.PREFLIGHT_PROTOCOL == expected
+    assert (
+        LAUNCH.DIRECTORY_IDENTITY_POLICY_NAME
+        == PROBE.DIRECTORY_IDENTITY_POLICY_NAME
+        == FINALIZE.DIRECTORY_IDENTITY_POLICY_NAME
+        == "nfs_portable_inode_mode_uid_anchored_v2"
+    )
 
 
 def test_wrapper_public_output_domains_are_closed() -> None:
@@ -1397,6 +1414,88 @@ def test_portable_identity_rejects_symlink_path(tmp_path: Path) -> None:
         os.close(descriptor)
     with pytest.raises(PROBE.DiagnosticError, match="source_binding_invalid"):
         PROBE.open_portable_bound_directory(alias, portable)
+
+
+@pytest.mark.parametrize("replacement", ("directory", "symlink"))
+@pytest.mark.parametrize(
+    ("module", "opener_name", "error_type"),
+    (
+        (LAUNCH, "open_anchored_directory", LAUNCH.LaunchError),
+        (PROBE, "open_anchored_directory", PROBE.DiagnosticError),
+        (FINALIZE, "_open_anchored_directory", FINALIZE.FinalizeError),
+    ),
+)
+def test_anchored_directory_walk_rejects_ancestor_rebinding(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    replacement: str,
+    module,
+    opener_name: str,
+    error_type: type[BaseException],
+) -> None:
+    parent = tmp_path / "parent"
+    leaf = parent / "leaf"
+    leaf.mkdir(parents=True)
+    moved = tmp_path / "moved"
+    real_open = os.open
+    swapped = False
+
+    def racing_open(path, flags, mode=0o777, *, dir_fd=None):
+        nonlocal swapped
+        if path == leaf.name and dir_fd is not None and not swapped:
+            parent.rename(moved)
+            if replacement == "symlink":
+                parent.symlink_to(moved, target_is_directory=True)
+            else:
+                (parent / leaf.name).mkdir(parents=True)
+            swapped = True
+        return real_open(path, flags, mode, dir_fd=dir_fd)
+
+    monkeypatch.setattr(module.os, "open", racing_open)
+    with pytest.raises(error_type):
+        getattr(module, opener_name)(leaf)
+    assert swapped
+
+
+@pytest.mark.parametrize("replacement", ("directory", "symlink"))
+def test_real_wrapper_binder_rejects_ancestor_rebinding(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    replacement: str,
+) -> None:
+    namespace = wrapper_directory_binder_namespace()
+    parent = tmp_path / "parent"
+    leaf = parent / "leaf"
+    leaf.mkdir(parents=True)
+    moved = tmp_path / "moved"
+    binder_os = namespace["os"]
+    real_open = binder_os.open
+    swapped = False
+
+    def racing_open(path, flags, mode=0o777, *, dir_fd=None):
+        nonlocal swapped
+        if path == leaf.name and dir_fd is not None and not swapped:
+            parent.rename(moved)
+            if replacement == "symlink":
+                parent.symlink_to(moved, target_is_directory=True)
+            else:
+                (parent / leaf.name).mkdir(parents=True)
+            swapped = True
+        return real_open(path, flags, mode, dir_fd=dir_fd)
+
+    monkeypatch.setattr(binder_os, "open", racing_open)
+    with pytest.raises(namespace["BindingError"]):
+        namespace["open_anchored_directory"](str(leaf), "source")
+    assert swapped
+
+
+def test_real_wrapper_uses_only_inherited_anchored_directory_descriptors() -> None:
+    source = (ROOT / "run_vmvm_task_free_v2.sbatch").read_text()
+    assert "os.open(component, FLAGS, dir_fd=chain[-1])" in source
+    assert "os.O_NOFOLLOW" in source
+    assert "for _pass in range(2)" in source
+    assert "exec {bundle_fd}<" not in source
+    assert '$(/usr/bin/readlink -f -- "$value") == "$value"' not in source
 
 
 def test_bundle_file_is_read_from_bound_dirfd_after_path_swap(tmp_path: Path) -> None:
@@ -2407,12 +2506,12 @@ def test_real_wrapper_emits_only_static_preflight_telemetry(tmp_path: Path, fail
         "path_drift": (
             b'{"code":"diagnostic_job_failed","directory_identities":{"bundle":"not_checked",'
             b'"output_parent":"not_checked","reservation":"not_checked","site":"not_checked",'
-            b'"source":"not_checked"},"stage":"path_shape","state":"failed"}\n'
+            b'"source":"unreadable"},"stage":"directory_open","state":"failed"}\n'
         ),
         "symlink_path": (
             b'{"code":"diagnostic_job_failed","directory_identities":{"bundle":"not_checked",'
             b'"output_parent":"not_checked","reservation":"not_checked","site":"not_checked",'
-            b'"source":"not_checked"},"stage":"path_shape","state":"failed"}\n'
+            b'"source":"unreadable"},"stage":"directory_open","state":"failed"}\n'
         ),
         "multiple": (
             b'{"code":"diagnostic_job_failed","directory_identities":{"bundle":"match",'

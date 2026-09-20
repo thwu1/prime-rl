@@ -44,12 +44,12 @@ CLUSTER = "fair-cw-use2-3"
 JOB_TIME_LIMIT = "1-12:00:00"
 TLS_NAMES = ("THRIFT_TLS_CL_CERT_PATH", "THRIFT_TLS_CL_KEY_PATH")
 X2P_NAMES = ("X2P_ENV", "X2P_CFG_ENV", "X2P_PROXY_URL")
-DIRECTORY_IDENTITY_POLICY_NAME = "nfs_portable_inode_mode_uid_v1"
+DIRECTORY_IDENTITY_POLICY_NAME = "nfs_portable_inode_mode_uid_anchored_v2"
 DIRECTORY_IDENTITY_POLICY = {
     "batch_fields": ["inode", "mode", "owner_uid"],
     "cross_host_variance": ["device"],
     "launcher_fields": ["device", "inode", "mode", "owner_uid"],
-    "path_binding": "absolute_canonical_no_symlink",
+    "path_binding": "absolute_anchored_openat_nofollow",
 }
 PREFLIGHT_PROTOCOL = {
     "directory_identity_policy": DIRECTORY_IDENTITY_POLICY,
@@ -721,12 +721,7 @@ def _open_bound_directory(
         "owner_uid",
     }:
         fail("authorization_invalid")
-    try:
-        if not path.is_absolute() or path != Path(os.path.normpath(path)) or path.resolve(strict=True) != path:
-            fail("authorization_invalid")
-        descriptor = os.open(path, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
-    except OSError as error:
-        raise FinalizeError("authorization_invalid") from error
+    descriptor = _open_anchored_directory(path)
     identity = descriptor_identity(descriptor)
     if (
         identity != expected
@@ -736,6 +731,45 @@ def _open_bound_directory(
         os.close(descriptor)
         fail("authorization_invalid")
     return descriptor
+
+
+def _open_anchored_directory(path: Path) -> int:
+    """Open an absolute directory without following any pathname component."""
+
+    raw_path = os.fspath(path)
+    if (
+        not path.is_absolute()
+        or path.anchor != "/"
+        or raw_path != os.path.normpath(raw_path)
+        or any(part in {"", ".", ".."} for part in path.parts[1:])
+    ):
+        fail("authorization_invalid")
+    flags = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | getattr(os, "O_CLOEXEC", 0)
+    chains: list[list[int]] = []
+    result = -1
+    try:
+        for _pass in range(2):
+            chain = [os.open("/", flags)]
+            chains.append(chain)
+            for part in path.parts[1:]:
+                chain.append(os.open(part, flags, dir_fd=chain[-1]))
+        signatures = [
+            [
+                (info.st_dev, info.st_ino, info.st_mode, info.st_uid)
+                for info in (os.fstat(descriptor) for descriptor in chain)
+            ]
+            for chain in chains
+        ]
+        if signatures[0] != signatures[1]:
+            fail("authorization_invalid")
+        result = os.dup(chains[0][-1])
+    except OSError as error:
+        raise FinalizeError("authorization_invalid") from error
+    finally:
+        for chain in chains:
+            for descriptor in reversed(chain):
+                os.close(descriptor)
+    return result
 
 
 def _directory_manifest(descriptor: int, *, sealed_modes: bool = False) -> dict[str, object]:
@@ -1609,7 +1643,7 @@ def _validate_submission_lineage(
         )
     ):
         fail("authorization_invalid")
-    reservation_fd = os.open(RESERVATION, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+    reservation_fd = _open_anchored_directory(RESERVATION)
     try:
         reservation_identity = descriptor_identity(reservation_fd)
         if (
@@ -1968,9 +2002,15 @@ def finalize(
         or not isinstance(output.get("inventory"), dict)
     ):
         fail("authorization_invalid")
-    parent_fd = os.open(OUTPUT_ROOT.parent, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+    parent_fd = _open_anchored_directory(OUTPUT_ROOT.parent)
     try:
-        if COMPLETION_RECEIPT.exists() or COMPLETION_RECEIPT.is_symlink():
+        if descriptor_identity(parent_fd) != launch_authorization["launch"]["output_parent_identity"]:
+            fail("authorization_invalid")
+        try:
+            os.stat(COMPLETION_RECEIPT.name, dir_fd=parent_fd, follow_symlinks=False)
+        except FileNotFoundError:
+            pass
+        else:
             fail("receipt_exists")
         output_fd = os.open(
             OUTPUT_ROOT.name,
