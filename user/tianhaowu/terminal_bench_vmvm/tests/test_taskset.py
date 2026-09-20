@@ -101,7 +101,7 @@ class _VerifierRuntime:
 
 
 @pytest.mark.asyncio
-async def test_sandoq_no_network_requires_host_harness_firecracker_isolation(
+async def test_sandoq_declared_no_network_requires_explicit_public_override(
     monkeypatch,
 ) -> None:
     runtime = SandoqRuntime(
@@ -113,9 +113,11 @@ async def test_sandoq_no_network_requires_host_harness_firecracker_isolation(
             ecr_token_file=Path("/run/secrets/ecr-token"),
         )
     )
+    runtime.config.expected_environment = "oci-runner"
+    runtime.config.network_access = True
     task = SimpleNamespace(name="opaque-task")
 
-    monkeypatch.setenv("OCI_RUNNER_ENVIRONMENT", "oci-runner-firecracker")
+    monkeypatch.setenv("OCI_RUNNER_ENVIRONMENT", "oci-runner")
     monkeypatch.setenv("OCI_RUNNER_BASE_URL", "https://sandoq.eks-prod.cf.aws.metafb.cloud")
     monkeypatch.setenv("SANDOQ_OWNER", "test-user")
     monkeypatch.setenv("SLURM_JOB_ID", "123")
@@ -127,7 +129,13 @@ async def test_sandoq_no_network_requires_host_harness_firecracker_isolation(
     monkeypatch.setenv("OCI_RUNNER_POOL_WAL", "/run/control/sandoq-pool.wal.jsonl")
     monkeypatch.setenv("OCI_RUNNER_POOL_EVENT_LOG", "/run/pool_events.jsonl")
     monkeypatch.delenv("SLURM_TMPDIR", raising=False)
-    monkeypatch.setenv("OCI_RUNNER_TASK_NETWORK", "none")
+    monkeypatch.delenv("OCI_RUNNER_TASK_NETWORK", raising=False)
+    monkeypatch.setenv("SANDOQ_EFFECTIVE_TASK_NETWORK", "public")
+    monkeypatch.setenv(
+        "OCI_RUNNER_TOKEN_FILE",
+        "/run/secrets/provider-token",
+    )
+    monkeypatch.setattr(taskset_module, "provider_context_is_active", lambda _environment: True)
     monkeypatch.setenv("OCI_RUNNER_USE_ECR", "1")
     monkeypatch.setenv(
         "OCI_RUNNER_ECR_REGISTRY",
@@ -135,7 +143,7 @@ async def test_sandoq_no_network_requires_host_harness_firecracker_isolation(
     )
     monkeypatch.setenv("OCI_RUNNER_ECR_REGION", "us-east-2")
     monkeypatch.setenv("OCI_RUNNER_ECR_PULL_THROUGH_PREFIX", "pt_dockerio")
-    monkeypatch.setenv("OCI_RUNNER_ALLOW_DOCKERHUB_FALLBACK", "0")
+    monkeypatch.delenv("OCI_RUNNER_ALLOW_DOCKERHUB_FALLBACK", raising=False)
     monkeypatch.setenv(
         "OCI_RUNNER_ECR_TOKEN_FILE",
         "/run/secrets/ecr-token",
@@ -148,8 +156,8 @@ async def test_sandoq_no_network_requires_host_harness_firecracker_isolation(
     monkeypatch.setattr(taskset_module.Path, "is_symlink", lambda _path: False)
     for key, value in {
         "OCI_RUNNER_CREATE_DEADLINE": "30m",
-        "OCI_RUNNER_PULL_TIMEOUT": "1200",
-        "OCI_RUNNER_PULL_POLL_MAX_ERRORS": "10",
+        "OCI_RUNNER_PULL_TIMEOUT": "3600s",
+        "OCI_RUNNER_PULL_POLL_MAX_ERRORS": "20",
         "OCI_RUNNER_GATEWAY_RETRY_ATTEMPTS": "15",
         "OCI_RUNNER_GATEWAY_RETRY_INTERVAL": "2s",
         "OCI_RUNNER_PODMAN_IGNORE_CHOWN_ERRORS": "1",
@@ -159,9 +167,12 @@ async def test_sandoq_no_network_requires_host_harness_firecracker_isolation(
         "OCI_RUNNER_OBSERVABILITY": "1",
         "OCI_RUNNER_POOL_HEARTBEAT_TIMEOUT": "45s",
         "OCI_RUNNER_SESSION_REUSE": "1",
-        "OCI_RUNNER_POOL_MAX_REUSE_COUNT": "6",
-        "OCI_RUNNER_POOL_REUSE_JITTER": "2",
-        "OCI_RUNNER_IMAGE_CACHE_MAX_ENTRIES": "2",
+        "OCI_RUNNER_POOL_MAX_REUSE_COUNT": "1",
+        "OCI_RUNNER_POOL_REUSE_JITTER": "0",
+        "OCI_RUNNER_IMAGE_CACHE_MAX_ENTRIES": "0",
+        "OCI_RUNNER_PODMAN_FUSE_OVERLAYFS": "1",
+        "OCI_RUNNER_FUSE_OVERLAYFS_PATH": "/usr/bin/fuse-overlayfs",
+        "OCI_RUNNER_LIBFUSE3_PATH": "/lib/x86_64-linux-gnu/libfuse3.so.3",
         "OCI_RUNNER_SECRET_CACHE_TTL": "5s",
         "OCI_RUNNER_LEASE_DURATION": "1h",
         "OCI_RUNNER_POOL_RENEW_INTERVAL": "5m",
@@ -193,8 +204,8 @@ async def test_sandoq_no_network_requires_host_harness_firecracker_isolation(
         monkeypatch.delenv(key, raising=False)
     await TerminalBenchVMVMTaskset._configure_network_policy(task, runtime, "no-network", activate=False)
 
-    monkeypatch.setenv("OCI_RUNNER_TASK_NETWORK", "host")
-    with pytest.raises(UnsupportedTaskError, match="Sandoq no-network requires"):
+    monkeypatch.setenv("OCI_RUNNER_TASK_NETWORK", "none")
+    with pytest.raises(UnsupportedTaskError, match="explicit audited public-network override"):
         await TerminalBenchVMVMTaskset._configure_network_policy(task, runtime, "no-network", activate=False)
 
 

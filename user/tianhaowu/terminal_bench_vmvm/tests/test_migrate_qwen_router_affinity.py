@@ -965,6 +965,7 @@ def test_resume_planner_compatibility_is_explicit_and_narrow() -> None:
         "fbfbe91d987e0f5bdbcae3eef8c0a272ab9805d5",
         "08a3bf6df2e4f2e04dc1d33e1ee78b7e4da22697",
         "c461322dc51329dd1a42d5247017905cf3dc123e",
+        "80e58e7e2b194e9c1b8dc0990c00b7a839127eea",
     }
 
 

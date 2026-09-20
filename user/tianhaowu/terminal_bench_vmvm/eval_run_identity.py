@@ -798,9 +798,9 @@ def _contract(
         raise EvalIdentityError(error)
     if sandbox_provider == "sandoq" and (
         runtime.get("mode") != "oci-runner"
-        or runtime.get("network_access") is not False
+        or runtime.get("network_access") is not True
         or runtime.get("host_tunnel") != "none"
-        or runtime.get("expected_environment") != "oci-runner-firecracker"
+        or runtime.get("expected_environment") != "oci-runner"
         or not isinstance(runtime.get("ecr_token_file"), str)
         or not Path(runtime["ecr_token_file"]).is_absolute()
     ):
@@ -1208,28 +1208,63 @@ def _effective_sandoq_environment(
         raise EvalIdentityError("sandoq_pool_min_size_invalid")
     if pool_size < rollout_concurrency:
         raise EvalIdentityError("sandoq_pool_size_below_rollout_concurrency")
-    if args.sandoq_environment != "oci-runner-firecracker":
+    if args.sandoq_environment != "oci-runner":
         raise EvalIdentityError("sandoq_environment_invalid")
-    if args.sandoq_task_network != "none":
+    if args.sandoq_task_network != "public":
         raise EvalIdentityError("sandoq_task_network_invalid")
     if args.sandoq_tunnel_policy != "host-interception-no-tunnel":
         raise EvalIdentityError("sandoq_tunnel_policy_invalid")
+    proxy_policy = args.sandoq_transport_proxy_policy
+    proxy_environment = {
+        name: os.environ.get(name)
+        for name in (
+            "HTTP_PROXY",
+            "HTTPS_PROXY",
+            "http_proxy",
+            "https_proxy",
+            "ALL_PROXY",
+            "all_proxy",
+            "SANDOQ_TUNNEL_HTTPS_PROXY",
+        )
+    }
+    if proxy_policy == "official-client-auto":
+        proxy_valid = not any(proxy_environment.values())
+    elif proxy_policy == "official-client-supervised-loopback-connect-proxy":
+        https_proxy = proxy_environment["HTTPS_PROXY"]
+        try:
+            parsed_proxy = urlsplit(https_proxy or "")
+            proxy_port = parsed_proxy.port
+        except ValueError:
+            proxy_valid = False
+        else:
+            proxy_valid = (
+                https_proxy == proxy_environment["https_proxy"]
+                and parsed_proxy.scheme == "http"
+                and parsed_proxy.hostname == "127.0.0.1"
+                and proxy_port is not None
+                and 1 <= proxy_port <= 65_535
+                and parsed_proxy.username is None
+                and parsed_proxy.password is None
+                and parsed_proxy.path in ("", "/")
+                and not parsed_proxy.query
+                and not parsed_proxy.fragment
+                and not any(
+                    proxy_environment[name]
+                    for name in (
+                        "HTTP_PROXY",
+                        "http_proxy",
+                        "ALL_PROXY",
+                        "all_proxy",
+                        "SANDOQ_TUNNEL_HTTPS_PROXY",
+                    )
+                )
+            )
+    else:
+        proxy_valid = False
     if (
         args.sandoq_base_url != "https://sandoq.eks-prod.cf.aws.metafb.cloud"
         or not re.fullmatch(r"[A-Za-z0-9._-]+", args.sandoq_owner or "")
-        or args.sandoq_transport_proxy_policy != "official-client-auto-no-global-proxy"
-        or any(
-            os.environ.get(name)
-            for name in (
-                "HTTP_PROXY",
-                "HTTPS_PROXY",
-                "http_proxy",
-                "https_proxy",
-                "ALL_PROXY",
-                "all_proxy",
-                "SANDOQ_TUNNEL_HTTPS_PROXY",
-            )
-        )
+        or not proxy_valid
     ):
         raise EvalIdentityError("sandoq_transport_policy_invalid")
     if (
@@ -1237,7 +1272,7 @@ def _effective_sandoq_environment(
         or args.sandoq_ecr_registry != "168653207203.dkr.ecr.us-east-2.amazonaws.com"
         or args.sandoq_ecr_region != "us-east-2"
         or args.sandoq_ecr_pull_through_prefix != "pt_dockerio"
-        or args.sandoq_allow_dockerhub_fallback != "0"
+        or args.sandoq_allow_dockerhub_fallback != "1"
     ):
         raise EvalIdentityError("sandoq_ecr_policy_invalid")
     ecr_token_file = Path(args.sandoq_ecr_token_file)
@@ -1275,8 +1310,8 @@ def _effective_sandoq_environment(
         raise EvalIdentityError("sandoq_storage_or_auth_policy_invalid")
     exact_policy = {
         "create_deadline": "30m",
-        "pull_timeout": "1200",
-        "pull_poll_max_errors": "10",
+        "pull_timeout": "3600s",
+        "pull_poll_max_errors": "20",
         "gateway_retry_attempts": "15",
         "gateway_retry_interval": "2s",
         "podman_ignore_chown_errors": "1",
@@ -1285,16 +1320,16 @@ def _effective_sandoq_environment(
         "task_pids_limit": "512",
         "observability": "1",
         "pool_heartbeat_timeout": "45s",
-        "pool_create_workers": str(min(pool_size, 32)),
+        "pool_create_workers": str(min(pool_size, 4)),
         "pool_bootstrap_workers": str(min(pool_size, 64)),
         "pool_bootstrap_per_image": str(min(pool_size, 8)),
         "pool_drain_workers": str(min(pool_size, 32)),
         "pool_drain_timeout": "240",
         "pool_renew_workers": str(min(pool_size, 16)),
         "session_reuse": "1",
-        "pool_max_reuse_count": "6",
-        "pool_reuse_jitter": "2",
-        "image_cache_max_entries": "2",
+        "pool_max_reuse_count": "1",
+        "pool_reuse_jitter": "0",
+        "image_cache_max_entries": "0",
         "secret_cache_ttl": "5s",
         "lease_duration": "1h",
         "pool_renew_interval": "5m",
@@ -1320,7 +1355,7 @@ def _effective_sandoq_environment(
         "ecr_pull_through_prefix": args.sandoq_ecr_pull_through_prefix,
         "ecr_token_file": str(ecr_token_file),
         "ecr_auth_policy": "private-token-file-mode-0600",
-        "allow_dockerhub_fallback": False,
+        "allow_dockerhub_fallback": True,
         **exact_policy,
     }
 
@@ -1809,8 +1844,8 @@ def _validate_identity_shape(identity: object) -> dict[str, Any]:
         }:
             raise EvalIdentityError("eval_run_identity_schema_invalid")
         if (
-            environment.get("environment") != "oci-runner-firecracker"
-            or environment.get("task_network") != "none"
+            environment.get("environment") != "oci-runner"
+            or environment.get("task_network") != "public"
             or environment.get("tunnel_policy") != "host-interception-no-tunnel"
             or environment.get("use_ecr") is not True
             or environment.get("ecr_registry") != "168653207203.dkr.ecr.us-east-2.amazonaws.com"
@@ -1821,15 +1856,19 @@ def _validate_identity_shape(identity: object) -> dict[str, Any]:
             or environment.get("ecr_auth_policy") != "private-token-file-mode-0600"
             or environment.get("base_url") != "https://sandoq.eks-prod.cf.aws.metafb.cloud"
             or not re.fullmatch(r"[A-Za-z0-9._-]+", str(environment.get("owner", "")))
-            or environment.get("transport_proxy_policy") != "official-client-auto-no-global-proxy"
+            or environment.get("transport_proxy_policy")
+            not in {
+                "official-client-auto",
+                "official-client-supervised-loopback-connect-proxy",
+            }
             or environment.get("pool_socket_scope") != "job-node-local"
             or not isinstance(environment.get("pool_wal"), str)
             or not isinstance(environment.get("pool_event_log"), str)
-            or environment.get("allow_dockerhub_fallback") is not False
+            or environment.get("allow_dockerhub_fallback") is not True
             or runtime.get("mode") != "oci-runner"
-            or runtime.get("network_access") is not False
+            or runtime.get("network_access") is not True
             or runtime.get("host_tunnel") != "none"
-            or runtime.get("expected_environment") != "oci-runner-firecracker"
+            or runtime.get("expected_environment") != "oci-runner"
             or any(
                 key in runtime
                 for key in ("guest_tunnel_url", "tunnel_pool_size", "tunnel_ready_timeout")
@@ -1844,8 +1883,8 @@ def _validate_identity_shape(identity: object) -> dict[str, Any]:
             raise EvalIdentityError("eval_run_identity_schema_invalid")
         expected_policy = {
             "create_deadline": "30m",
-            "pull_timeout": "1200",
-            "pull_poll_max_errors": "10",
+            "pull_timeout": "3600s",
+            "pull_poll_max_errors": "20",
             "gateway_retry_attempts": "15",
             "gateway_retry_interval": "2s",
             "podman_ignore_chown_errors": "1",
@@ -1854,16 +1893,16 @@ def _validate_identity_shape(identity: object) -> dict[str, Any]:
             "task_pids_limit": "512",
             "observability": "1",
             "pool_heartbeat_timeout": "45s",
-            "pool_create_workers": str(min(environment["pool_size"], 32)),
+            "pool_create_workers": str(min(environment["pool_size"], 4)),
             "pool_bootstrap_workers": str(min(environment["pool_size"], 64)),
             "pool_bootstrap_per_image": str(min(environment["pool_size"], 8)),
             "pool_drain_workers": str(min(environment["pool_size"], 32)),
             "pool_drain_timeout": "240",
             "pool_renew_workers": str(min(environment["pool_size"], 16)),
             "session_reuse": "1",
-            "pool_max_reuse_count": "6",
-            "pool_reuse_jitter": "2",
-            "image_cache_max_entries": "2",
+            "pool_max_reuse_count": "1",
+            "pool_reuse_jitter": "0",
+            "image_cache_max_entries": "0",
             "secret_cache_ttl": "5s",
             "lease_duration": "1h",
             "pool_renew_interval": "5m",

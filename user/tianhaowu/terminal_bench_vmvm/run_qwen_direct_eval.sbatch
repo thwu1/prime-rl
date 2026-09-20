@@ -50,6 +50,7 @@ deployment_root=${DIRECT_QWEN_DEPLOYMENT_ROOT:-/checkpoint/ram/shared/vllm_deplo
 router_site=${DIRECT_ROUTER_SITE:-/checkpoint/ram/tianhaowu/terminal_bench_vmvm/vllm_router_x86_64_0.1.26}
 x86_site=${PYTHON_SITE_X86_64:-/checkpoint/ram/tianhaowu/terminal_bench_vmvm/python_x86_64}
 sandoq_site=${SANDOQ_PYTHON_SITE_X86_64:-/checkpoint/ram/tianhaowu/terminal_bench_vmvm/sandoq_x86_64_ram_prime_f7313db4}
+sandoq_extension="$project_dir/extensions/sandoq"
 x86_uv=${UV_BIN_X86_64:-/storage/home/tianhaowu/.local/x86_64/bin/uv}
 python_bin=${PYTHON_BIN_X86_64:-python3}
 resume_dir=${RESUME_DIR:-}
@@ -144,15 +145,69 @@ if [[ ! -r "$eval_config" ]]; then
     printf 'Missing evaluation config: %s\n' "$eval_config" >&2
     exit 2
 fi
+if [[ "$sandbox_provider" == sandoq ]]; then
+    mapfile -t sandoq_context_values < <(python3 - "$eval_config" <<'PY'
+import sys
+import tomllib
+with open(sys.argv[1], "rb") as handle:
+    config = tomllib.load(handle)
+capacity = min(config["num_tasks"], config["max_concurrent"])
+ecr_token_file = config["harness"]["runtime"].get("ecr_token_file", "")
+if capacity < 1 or not isinstance(ecr_token_file, str) or not ecr_token_file.startswith("/"):
+    raise SystemExit(2)
+print(capacity)
+print(ecr_token_file)
+PY
+    )
+    if [[ ${#sandoq_context_values[@]} -ne 2 ]]; then
+        printf 'Sandoq provider context inputs are invalid\n' >&2
+        exit 2
+    fi
+    sandoq_capacity=${sandoq_context_values[0]}
+    sandoq_ecr_token_file=${sandoq_context_values[1]}
+    sandoq_ecr_token_metadata=${OCI_RUNNER_ECR_TOKEN_METADATA_PATH:-${sandoq_ecr_token_file}.metadata.json}
+    sandoq_provider_profile=${SANDOQ_PROVIDER_CONTEXT_PROFILE:-$workflow_dir/configs/provider_context/use2/qwen_sandoq.json}
+    sandoq_provider_profile_sha256=${SANDOQ_PROVIDER_CONTEXT_PROFILE_SHA256:-965511eb9578aa303d287491a7414e145241d6dbbf61469d13abbe801980a95a}
+    sandoq_lease_create_cap=$(( sandoq_capacity < 4 ? sandoq_capacity : 4 ))
+    provider_context="$workflow_dir/terminal_bench_vmvm/sandoq_provider_context.py"
+    if [[ ${SANDOQ_PROVIDER_CONTEXT_ACTIVE:-} == 1 ]]; then
+        PYTHONPATH="$workflow_dir" \
+            "$x86_uv" run --no-project --offline --python "$python_bin" \
+            python3 "$provider_context" verify \
+            --receipt "${SANDOQ_PROVIDER_CONTEXT_RECEIPT:?}" >/dev/null
+    else
+        if [[ -n ${SANDOQ_PROVIDER_CONTEXT_ACTIVE:-} \
+            || -n ${SANDOQ_PROVIDER_CONTEXT_RECEIPT:-} ]]; then
+            printf 'Partial Sandoq provider context is forbidden\n' >&2
+            exit 2
+        fi
+        exec env PYTHONPATH="$workflow_dir" \
+            "$x86_uv" run --no-project --offline --python "$python_bin" \
+            python3 "$provider_context" supervise \
+            --profile "$sandoq_provider_profile" \
+            --profile-sha256 "$sandoq_provider_profile_sha256" \
+            --concurrency "$sandoq_capacity" \
+            --lease-create-cap "$sandoq_lease_create_cap" \
+            --startup-timeout-seconds 3600 \
+            --ecr-token-file "$sandoq_ecr_token_file" \
+            --ecr-token-metadata "$sandoq_ecr_token_metadata" \
+            --project-root "$project_dir" --sandoq-site "$sandoq_site" \
+            -- bash "$workflow_dir/run_qwen_direct_eval.sbatch" "$@"
+    fi
+fi
 cd "$project_dir"
 
 if [[ "$sandbox_provider" == sandoq ]]; then
     if [[ -n "$(git status --porcelain=v1 --untracked-files=all)" \
         || -n "$(git -C deps/verifiers status --porcelain=v1 --untracked-files=all)" \
-        || -n "$(git -C deps/renderers status --porcelain=v1 --untracked-files=all)" \
-        || -n "$(git -C deps/sandoq-provider status --porcelain=v1 --untracked-files=all)" \
-        || "$(git -C deps/sandoq-provider rev-parse HEAD)" != 4890302104d76220cef791c86d2009168597d35f ]]; then
+        || -n "$(git -C deps/renderers status --porcelain=v1 --untracked-files=all)" ]]; then
         printf 'Sandoq direct wrapper requires the approved clean source closure\n' >&2
+        exit 2
+    fi
+    if [[ ! -f "$sandoq_extension/UPSTREAM.md" ]] \
+        || ! grep -Fq 'f7313db42eea4b3be8bcbe16a8072f73cf6abed5' "$sandoq_extension/UPSTREAM.md" \
+        || ! grep -Fq '46ee7064345aa0e8cee47b61a21feeb2d9049361' "$sandoq_extension/UPSTREAM.md"; then
+        printf 'Vendored Sandoq extension provenance is invalid\n' >&2
         exit 2
     fi
     if [[ ! -d "$sandoq_site/sandoq_client" ]]; then
@@ -229,11 +284,13 @@ cleanup() {
 }
 trap cleanup EXIT INT TERM
 
-while IFS= read -r variable_name; do
-    if [[ ${variable_name,,} == *_proxy && $variable_name != SANDOQ_TUNNEL_HTTPS_PROXY ]]; then
-        unset "$variable_name"
-    fi
-done < <(compgen -e)
+if [[ "$sandbox_provider" != sandoq ]]; then
+    while IFS= read -r variable_name; do
+        if [[ ${variable_name,,} == *_proxy && $variable_name != SANDOQ_TUNNEL_HTTPS_PROXY ]]; then
+            unset "$variable_name"
+        fi
+    done < <(compgen -e)
+fi
 
 if [[ -n "$serving_generation_bundle" ]]; then
     prepare_args=(

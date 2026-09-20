@@ -56,9 +56,9 @@ request_timeout_seconds = 15000
 type = "sandoq"
 mode = "oci-runner"
 session_timeout = 43200
-network_access = false
+network_access = true
 host_tunnel = "none"
-expected_environment = "oci-runner-firecracker"
+expected_environment = "oci-runner"
 ecr_token_file = "/storage/home/tianhaowu/.config/oci-runner/ecr-token"
 
 [timeout]

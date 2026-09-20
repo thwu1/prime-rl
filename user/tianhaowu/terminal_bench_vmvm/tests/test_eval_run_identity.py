@@ -214,22 +214,22 @@ def _sandoq_identity() -> dict:
         "runtime": {
             "type": "sandoq",
             "mode": "oci-runner",
-            "network_access": False,
+            "network_access": True,
             "host_tunnel": "none",
-            "expected_environment": "oci-runner-firecracker",
+            "expected_environment": "oci-runner",
             "ecr_token_file": "/run/secrets/ecr-token",
         },
     }
     contract, execution = _contract(config, "approved-model", sandbox_provider="sandoq")
     execution["sandoq_environment"] = {
-        "environment": "oci-runner-firecracker",
-        "task_network": "none",
+        "environment": "oci-runner",
+        "task_network": "public",
         "pool_size": 4,
         "pool_min_size": 0,
         "tunnel_policy": "host-interception-no-tunnel",
         "base_url": "https://sandoq.eks-prod.cf.aws.metafb.cloud",
         "owner": "test-user",
-        "transport_proxy_policy": "official-client-auto-no-global-proxy",
+        "transport_proxy_policy": "official-client-auto",
         "pool_socket_scope": "job-node-local",
         "pool_wal": "/run/control/sandoq-pool.wal.jsonl",
         "pool_event_log": "/run/pool_events.jsonl",
@@ -239,10 +239,10 @@ def _sandoq_identity() -> dict:
         "ecr_pull_through_prefix": "pt_dockerio",
         "ecr_token_file": "/run/secrets/ecr-token",
         "ecr_auth_policy": "private-token-file-mode-0600",
-        "allow_dockerhub_fallback": False,
+        "allow_dockerhub_fallback": True,
         "create_deadline": "30m",
-        "pull_timeout": "1200",
-        "pull_poll_max_errors": "10",
+        "pull_timeout": "3600s",
+        "pull_poll_max_errors": "20",
         "gateway_retry_attempts": "15",
         "gateway_retry_interval": "2s",
         "podman_ignore_chown_errors": "1",
@@ -258,9 +258,9 @@ def _sandoq_identity() -> dict:
         "pool_drain_timeout": "240",
         "pool_renew_workers": "4",
         "session_reuse": "1",
-        "pool_max_reuse_count": "6",
-        "pool_reuse_jitter": "2",
-        "image_cache_max_entries": "2",
+        "pool_max_reuse_count": "1",
+        "pool_reuse_jitter": "0",
+        "image_cache_max_entries": "0",
         "secret_cache_ttl": "5s",
         "lease_duration": "1h",
         "pool_renew_interval": "5m",
@@ -312,7 +312,7 @@ def test_sandoq_provenance_round_trip(tmp_path: Path) -> None:
     _verify_saved_provenance(tmp_path, identity, "8" * 64)
     provenance = (tmp_path / "provenance.txt").read_text()
     assert "sandbox_provider=sandoq\n" in provenance
-    assert "sandoq_allow_dockerhub_fallback=false\n" in provenance
+    assert "sandoq_allow_dockerhub_fallback=true\n" in provenance
 
 
 def test_direct_qwen_sandoq_identity_binds_worker_generation() -> None:

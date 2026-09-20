@@ -60,6 +60,7 @@ from terminal_bench_vmvm.offline_verifier_catalog import (
     offline_install_environment,
     validate_runtime_staging_paths,
 )
+from terminal_bench_vmvm.sandoq_provider_context import provider_context_is_active
 from terminal_bench_vmvm.source_wheels import (
     SOURCE_BUILD_HOME_DIR,
     SOURCE_BUILD_TMP_DIR,
@@ -489,17 +490,16 @@ class TerminalBenchTask(HarborTask):
     verifier_network_mode: Literal["public", "no-network"] = Field(default="public", exclude=True)
 
 
-def _sandoq_no_network_environment_is_safe(expected_ecr_token_file: Path | None) -> bool:
+def _sandoq_public_network_override_is_safe(expected_ecr_token_file: Path | None) -> bool:
     exact = {
-        "OCI_RUNNER_ENVIRONMENT": "oci-runner-firecracker",
-        "OCI_RUNNER_TASK_NETWORK": "none",
+        "OCI_RUNNER_ENVIRONMENT": "oci-runner",
+        "SANDOQ_EFFECTIVE_TASK_NETWORK": "public",
         "OCI_RUNNER_ECR_REGISTRY": "168653207203.dkr.ecr.us-east-2.amazonaws.com",
         "OCI_RUNNER_ECR_REGION": "us-east-2",
         "OCI_RUNNER_ECR_PULL_THROUGH_PREFIX": "pt_dockerio",
-        "OCI_RUNNER_ALLOW_DOCKERHUB_FALLBACK": "0",
         "OCI_RUNNER_CREATE_DEADLINE": "30m",
-        "OCI_RUNNER_PULL_TIMEOUT": "1200",
-        "OCI_RUNNER_PULL_POLL_MAX_ERRORS": "10",
+        "OCI_RUNNER_PULL_TIMEOUT": "3600s",
+        "OCI_RUNNER_PULL_POLL_MAX_ERRORS": "20",
         "OCI_RUNNER_GATEWAY_RETRY_ATTEMPTS": "15",
         "OCI_RUNNER_GATEWAY_RETRY_INTERVAL": "2s",
         "OCI_RUNNER_PODMAN_IGNORE_CHOWN_ERRORS": "1",
@@ -509,9 +509,12 @@ def _sandoq_no_network_environment_is_safe(expected_ecr_token_file: Path | None)
         "OCI_RUNNER_OBSERVABILITY": "1",
         "OCI_RUNNER_POOL_HEARTBEAT_TIMEOUT": "45s",
         "OCI_RUNNER_SESSION_REUSE": "1",
-        "OCI_RUNNER_POOL_MAX_REUSE_COUNT": "6",
-        "OCI_RUNNER_POOL_REUSE_JITTER": "2",
-        "OCI_RUNNER_IMAGE_CACHE_MAX_ENTRIES": "2",
+        "OCI_RUNNER_POOL_MAX_REUSE_COUNT": "1",
+        "OCI_RUNNER_POOL_REUSE_JITTER": "0",
+        "OCI_RUNNER_IMAGE_CACHE_MAX_ENTRIES": "0",
+        "OCI_RUNNER_PODMAN_FUSE_OVERLAYFS": "1",
+        "OCI_RUNNER_FUSE_OVERLAYFS_PATH": "/usr/bin/fuse-overlayfs",
+        "OCI_RUNNER_LIBFUSE3_PATH": "/lib/x86_64-linux-gnu/libfuse3.so.3",
         "OCI_RUNNER_SECRET_CACHE_TTL": "5s",
         "OCI_RUNNER_LEASE_DURATION": "1h",
         "OCI_RUNNER_POOL_RENEW_INTERVAL": "5m",
@@ -530,19 +533,22 @@ def _sandoq_no_network_environment_is_safe(expected_ecr_token_file: Path | None)
         or os.environ.get("OCI_RUNNER_POOL_SOCKET") != str(expected_socket)
         or os.environ.get("OCI_RUNNER_POOL_WAL") != str(output_dir / "control/sandoq-pool.wal.jsonl")
         or os.environ.get("OCI_RUNNER_POOL_EVENT_LOG") != str(output_dir / "pool_events.jsonl")
+        or os.environ.get("VF_SANDBOX_PROVIDER")
+        or os.environ.get("FIRECRACKER_KEY")
+        or os.environ.get("OCI_RUNNER_TASK_NETWORK")
+        or not provider_context_is_active(os.environ)
         or any(
             os.environ.get(name)
             for name in (
                 "HTTP_PROXY",
-                "HTTPS_PROXY",
                 "http_proxy",
-                "https_proxy",
                 "ALL_PROXY",
                 "all_proxy",
                 "SANDOQ_TUNNEL_HTTPS_PROXY",
                 "OCI_RUNNER_DOCKERHUB_USERNAME",
                 "OCI_RUNNER_DOCKERHUB_TOKEN_FILE",
                 "OCI_RUNNER_REQUIRE_DOCKERHUB_AUTH",
+                "OCI_RUNNER_ALLOW_DOCKERHUB_FALLBACK",
                 "OCI_RUNNER_ECR_AUXILIARY_REGISTRIES",
                 "OCI_RUNNER_ECR_CLIENT_CERT_PATH",
                 "OCI_RUNNER_ECR_UCLOUD",
@@ -550,18 +556,35 @@ def _sandoq_no_network_environment_is_safe(expected_ecr_token_file: Path | None)
         )
     ):
         return False
-    configured_token_file = os.environ.get("OCI_RUNNER_ECR_TOKEN_FILE")
-    if expected_ecr_token_file is None or not configured_token_file:
+    configured_ecr_token_file = os.environ.get("OCI_RUNNER_ECR_TOKEN_FILE")
+    configured_provider_token_file = os.environ.get("OCI_RUNNER_TOKEN_FILE")
+    if (
+        expected_ecr_token_file is None
+        or not configured_ecr_token_file
+        or not configured_provider_token_file
+    ):
         return False
-    token_file = Path(configured_token_file)
-    if not token_file.is_absolute() or token_file != expected_ecr_token_file.expanduser():
+    ecr_token_file = Path(configured_ecr_token_file)
+    provider_token_file = Path(configured_provider_token_file)
+    if (
+        not ecr_token_file.is_absolute()
+        or ecr_token_file != expected_ecr_token_file.expanduser()
+        or not provider_token_file.is_absolute()
+    ):
         return False
-    try:
-        token_stat = token_file.lstat()
-    except OSError:
-        return False
-    if token_file.is_symlink() or not stat.S_ISREG(token_stat.st_mode) or stat.S_IMODE(token_stat.st_mode) != 0o600:
-        return False
+    for token_file in (ecr_token_file, provider_token_file):
+        try:
+            token_stat = token_file.lstat()
+        except OSError:
+            return False
+        if (
+            token_file.is_symlink()
+            or not stat.S_ISREG(token_stat.st_mode)
+            or stat.S_IMODE(token_stat.st_mode) != 0o600
+            or getattr(token_stat, "st_uid", os.geteuid()) != os.geteuid()
+            or getattr(token_stat, "st_nlink", 1) != 1
+        ):
+            return False
     try:
         pool = int(os.environ["OCI_RUNNER_POOL_SIZE"])
         pool_min = int(os.environ["OCI_RUNNER_POOL_MIN_SIZE"])
@@ -2139,19 +2162,18 @@ class TerminalBenchVMVMTaskset(
                 config = runtime.config
                 if (
                     config.mode != "oci-runner"
-                    or config.network_access
+                    or not config.network_access
                     or config.host_tunnel != "none"
-                    or config.expected_environment != "oci-runner-firecracker"
-                    or not _sandoq_no_network_environment_is_safe(config.ecr_token_file)
+                    or config.expected_environment != "oci-runner"
+                    or not _sandoq_public_network_override_is_safe(config.ecr_token_file)
                 ):
                     raise UnsupportedTaskError(
-                        f"{task.name}: Sandoq no-network requires the production OCI Firecracker "
-                        "environment, network_access=false, nested task network 'none', and a "
-                        "host-side harness without a guest tunnel"
+                        f"{task.name}: Sandoq execution of a declared no-network task requires "
+                        "the explicit audited public-network override, approved OCI environment, "
+                        "supervised provider transport, and host-side harness"
                     )
-            # Sandoq's Firecracker boundary and nested ``--network none`` exist before
-            # task setup.  The model/tool loop stays on the controller, so the sandbox
-            # never needs a reverse tunnel or a mutable post-setup network transition.
+            # The model/tool loop stays on the controller.  This path records that the
+            # current OCI provider does not enforce the task's declared no-network mode.
             return
         if not isinstance(runtime, VMVMRuntime):
             if mode == "no-network":

@@ -43,6 +43,13 @@ from terminal_bench_vmvm.offline_verifier_catalog_materializer import (
     MAX_SHARED_POOL_VALIDATE_CONCURRENCY,
     materializer_controller_code_sha256,
 )
+from terminal_bench_vmvm.sandoq_provider_context import (
+    BASE_URL as SANDOQ_BASE_URL,
+)
+from terminal_bench_vmvm.sandoq_provider_context import (
+    ENVIRONMENT as SANDOQ_ENVIRONMENT,
+)
+from terminal_bench_vmvm.sandoq_provider_context import load_provider_profile
 from terminal_bench_vmvm.source_wheels import (
     canonical_json as compact_json,
 )
@@ -85,10 +92,12 @@ RUNTIME_ARTIFACT_KEYS = {
     "ecr_amd64_manifest_sha256",
     "ecr_config_sha256",
     "ecr_index_sha256",
+    "evaluator_sandoq_site_sha256",
     "generator_sha256",
     "host_harness_sha256",
     "provider_environment_context_sha256",
     "direct_connect_proxy_sha256",
+    "provider_profile_sha256",
     "requirements_extractor_sha256",
     "sealed_launcher_path_identity_sha256",
 }
@@ -307,6 +316,8 @@ def _validate_provider_access(execution: Mapping[str, Any]) -> None:
     context = _exact(
         execution["provider_context"],
         {
+            "transport_mode",
+            "effective_task_network",
             "startup_timeout_seconds",
             "lease_duration",
             "session_reuse",
@@ -333,10 +344,53 @@ def _validate_provider_access(execution: Mapping[str, Any]) -> None:
         parsed = urllib.parse.urlsplit(base_url)
     except (TypeError, ValueError) as error:
         _fail("runtime_approval_invalid", error)
+    common_context = {
+        "startup_timeout_seconds": 3_600,
+        "effective_task_network": "public",
+        "lease_duration": "1h",
+        "session_reuse": 1,
+        "pool_max_reuse_count": 1,
+        "image_cache_max_entries": 0,
+        "podman_fuse_overlayfs": 1,
+        "fuse_overlayfs_path": "/usr/bin/fuse-overlayfs",
+        "libfuse3_path": "/lib/x86_64-linux-gnu/libfuse3.so.3",
+        "pull_timeout": "3600s",
+        "pull_poll_max_errors": 20,
+        "cleared_proxy_environment_names": list(PROXY_ENVIRONMENT_NAMES),
+        "vf_sandbox_provider_removed": True,
+        "starts_before_provider": True,
+        "lives_through_final_cleanup": True,
+    }
+    if execution["transport_mode"] == "loopback":
+        expected_context = {
+            **common_context,
+            "transport_mode": "loopback",
+            "proxy_required": True,
+            "proxy_bind_host": "127.0.0.1",
+            "proxy_target_port": 443,
+            "proxy_target_suffix": ".metafb.cloud",
+            "proxy_environment_names": ["HTTPS_PROXY", "https_proxy"],
+        }
+    elif execution["transport_mode"] == "auto":
+        expected_context = {
+            **common_context,
+            "transport_mode": "auto",
+            "proxy_required": False,
+            "proxy_bind_host": "",
+            "proxy_target_port": 0,
+            "proxy_target_suffix": "",
+            "proxy_environment_names": [],
+        }
+    else:
+        _fail("runtime_approval_invalid")
     if (
         not isinstance(environment, str)
         or not ENVIRONMENT_RE.fullmatch(environment)
+        or environment != SANDOQ_ENVIRONMENT
+        or not isinstance(execution["cluster_identifier"], str)
+        or not ENVIRONMENT_RE.fullmatch(execution["cluster_identifier"])
         or not isinstance(base_url, str)
+        or base_url != SANDOQ_BASE_URL
         or parsed.scheme != "https"
         or not parsed.hostname
         or parsed.username is not None
@@ -352,28 +406,7 @@ def _validate_provider_access(execution: Mapping[str, Any]) -> None:
         )
         or len({token_file, ecr_token_file, ecr_metadata}) != 3
         or "FIRECRACKER_KEY" in execution
-        or context
-        != {
-            "startup_timeout_seconds": 3_600,
-            "lease_duration": "1h",
-            "session_reuse": 1,
-            "pool_max_reuse_count": 1,
-            "image_cache_max_entries": 0,
-            "podman_fuse_overlayfs": 1,
-            "fuse_overlayfs_path": "/usr/bin/fuse-overlayfs",
-            "libfuse3_path": "/lib/x86_64-linux-gnu/libfuse3.so.3",
-            "pull_timeout": "3600s",
-            "pull_poll_max_errors": 20,
-            "proxy_required": True,
-            "proxy_bind_host": "127.0.0.1",
-            "proxy_target_port": 443,
-            "proxy_target_suffix": ".metafb.cloud",
-            "proxy_environment_names": ["HTTPS_PROXY", "https_proxy"],
-            "cleared_proxy_environment_names": list(PROXY_ENVIRONMENT_NAMES),
-            "vf_sandbox_provider_removed": True,
-            "starts_before_provider": True,
-            "lives_through_final_cleanup": True,
-        }
+        or context != expected_context
     ):
         _fail("runtime_approval_invalid")
 
@@ -427,6 +460,7 @@ def _load_runtime_approval(
             "provision_approval_sha256",
             "provision_approval",
             "catalog_policy",
+            "network_policy",
             "serving",
             "execution",
             "ramps",
@@ -495,11 +529,29 @@ def _load_runtime_approval(
         },
         "runtime_approval_invalid",
     )
+    network_policy = _exact(
+        value["network_policy"],
+        {
+            "state",
+            "provider_commit",
+            "environment",
+            "declared_task_network",
+            "effective_task_network",
+            "network_isolation_verified",
+            "network_access_explicitly_allowed",
+            "authorization_sha256",
+            "production_task_inputs_accessed",
+        },
+        "runtime_approval_invalid",
+    )
     execution = _exact(
         value["execution"],
         {
             "sandbox_provider",
+            "cluster_identifier",
+            "provider_profile_relative_path",
             "environment",
+            "transport_mode",
             "base_url",
             "token_file_path",
             "ecr_token_file_path",
@@ -567,6 +619,14 @@ def _load_runtime_approval(
     ):
         _fail("runtime_approval_invalid")
     _validate_provider_access(execution)
+    expected_profile = (
+        "user/tianhaowu/terminal_bench_vmvm/configs/provider_context/"
+        f"{execution['cluster_identifier']}/qwen_sandoq.json"
+    )
+    profile = load_provider_profile(
+        (project_root / expected_profile).resolve(strict=True),
+        artifacts["provider_profile_sha256"],
+    )
     if (
         value["schema_version"] != SCHEMA_VERSION
         or value["kind"] != RUNTIME_KIND
@@ -666,8 +726,25 @@ def _load_runtime_approval(
         )
         or serving["routing_policy"] != "consistent_hash"
         or serving["request_id_header"] != "x-session-id"
+        or network_policy
+        != {
+            "state": "explicitly-authorized",
+            "provider_commit": provider["commit"],
+            "environment": execution["environment"],
+            "declared_task_network": "no-network",
+            "effective_task_network": "public",
+            "network_isolation_verified": False,
+            "network_access_explicitly_allowed": True,
+            "authorization_sha256": network_policy["authorization_sha256"],
+            "production_task_inputs_accessed": False,
+        }
+        or not _is_sha256(network_policy["authorization_sha256"])
         or execution["sandbox_provider"] != "sandoq"
-        or execution["task_network"] != "none"
+        or execution["provider_profile_relative_path"] != expected_profile
+        or profile.cluster_identifier != execution["cluster_identifier"]
+        or profile.transport_mode != execution["transport_mode"]
+        or str(profile.provider_token_file) != execution["token_file_path"]
+        or execution["task_network"] != "public"
         or execution["host_tunnel"] != "none"
         or execution["host_harness"] is not True
         or execution["rollout_concurrency"] != ROLLOUT_CONCURRENCY
@@ -915,6 +992,10 @@ def compose_policy(
                 runtime_approval_sha256,
                 project_root=project_root,
             )
+            if private_output_root.parent.name != runtime.value["execution"][
+                "cluster_identifier"
+            ]:
+                _fail("deployment_namespace_invalid")
             binding = _load_repair_binding(binding_body, repair_binding_sha256)
             if runtime.value["repair_binding_sha256"] != binding.sha256:
                 _fail("repair_binding_not_approved")
@@ -1252,7 +1333,7 @@ def _validate_source_config(
         or harness_runtime.get("mode") != "oci-runner"
         or harness_runtime.get("session_timeout")
         != execution["runtime_session_timeout_seconds"]
-        or harness_runtime.get("network_access") is not False
+        or harness_runtime.get("network_access") is not True
         or harness_runtime.get("host_tunnel") != execution["host_tunnel"]
         or harness_runtime.get("expected_environment") != execution["environment"]
         or harness_runtime.get("ecr_token_file") != execution["ecr_token_file_path"]
@@ -1486,6 +1567,7 @@ def _launch_contract_value(
     catalog_identity_sha256: str,
     catalog_launch_sha256: str,
     catalog_sha256: str,
+    project_root: Path,
     eval_config: Path,
     eval_config_sha256: str,
     catalog_path: Path,
@@ -1493,6 +1575,14 @@ def _launch_contract_value(
 ) -> dict[str, Any]:
     execution = runtime.value["execution"]
     serving = runtime.value["serving"]
+    dynamic_environment = (
+        {
+            "HTTPS_PROXY": "supervised_loopback_direct_connect_proxy_url",
+            "https_proxy": "supervised_loopback_direct_connect_proxy_url",
+        }
+        if execution["transport_mode"] == "loopback"
+        else {}
+    )
     return {
         "schema_version": SCHEMA_VERSION,
         "kind": LAUNCH_KIND,
@@ -1515,6 +1605,7 @@ def _launch_contract_value(
         "serving": serving,
         "execution": execution,
         "ramps": runtime.value["ramps"],
+        "network_policy": runtime.value["network_policy"],
         "catalog": {
             "path": str(catalog_path),
             "expected_task_count": TASK_COUNT,
@@ -1536,11 +1627,30 @@ def _launch_contract_value(
             "MODAL_DISABLE_API_PROXY": "1",
             "OCI_RUNNER_BASE_URL": execution["base_url"],
             "OCI_RUNNER_ENVIRONMENT": execution["environment"],
+            "SANDOQ_TRANSPORT_MODE": execution["transport_mode"],
+            "SANDOQ_CLUSTER_IDENTIFIER": execution["cluster_identifier"],
+            "SANDOQ_PROVIDER_CONTEXT_PROFILE": str(
+                project_root / execution["provider_profile_relative_path"]
+            ),
+            "SANDOQ_PROVIDER_CONTEXT_PROFILE_SHA256": runtime.value[
+                "runtime_artifacts"
+            ]["provider_profile_sha256"],
+            "SANDOQ_APPROVED_PROVIDER_COMMIT": runtime.value["provider"]["commit"],
+            "SANDOQ_APPROVED_PROVIDER_TREE": runtime.value["provider"]["tree"],
+            "SANDOQ_APPROVED_PROVIDER_SOURCE_SHA256": runtime.value["provider"][
+                "source_sha256"
+            ],
+            "SANDOQ_APPROVED_CLIENT_VERSION": runtime.value["provider"][
+                "client_version"
+            ],
+            "SANDOQ_APPROVED_SITE_SHA256": runtime.value["runtime_artifacts"][
+                "evaluator_sandoq_site_sha256"
+            ],
             "OCI_RUNNER_ECR_TOKEN_FILE": execution["ecr_token_file_path"],
             "OCI_RUNNER_ECR_TOKEN_METADATA_PATH": execution[
                 "ecr_token_metadata_path"
             ],
-            "OCI_RUNNER_TASK_NETWORK": "none",
+            "SANDOQ_EFFECTIVE_TASK_NETWORK": "public",
             "OCI_RUNNER_TOKEN_FILE": execution["token_file_path"],
             "OCI_RUNNER_POOL_SIZE": str(execution["provider_pool_capacity"]),
             "OCI_RUNNER_POOL_MIN_SIZE": "0",
@@ -1557,12 +1667,10 @@ def _launch_contract_value(
             "OCI_RUNNER_PULL_POLL_MAX_ERRORS": "20",
             "SANDOQ_CATALOG_EXCLUSIVE_POOL": "1",
         },
-        "dynamic_environment": {
-            "HTTPS_PROXY": "supervised_loopback_direct_connect_proxy_url",
-            "https_proxy": "supervised_loopback_direct_connect_proxy_url",
-        },
+        "dynamic_environment": dynamic_environment,
         "provider_context": {
             **execution["provider_context"],
+            "profile_relative_path": execution["provider_profile_relative_path"],
             "implementation_sha256": runtime.value["runtime_artifacts"][
                 "provider_environment_context_sha256"
             ],
@@ -1571,6 +1679,7 @@ def _launch_contract_value(
             ],
         },
         "forbidden_environment": ["FIRECRACKER_KEY", "RESUME_DIR"],
+        "required_environment": [],
         "trust_boundary": runtime.value["trust_boundary"],
     }
 
@@ -1660,6 +1769,10 @@ def compose_launch(
                 runtime_approval_sha256,
                 project_root=project_root,
             )
+            if private_output_root.parent.name != runtime.value["execution"][
+                "cluster_identifier"
+            ]:
+                _fail("deployment_namespace_invalid")
             binding = _load_repair_binding(
                 bodies[repair_binding],
                 repair_binding_sha256,
@@ -1778,6 +1891,7 @@ def compose_launch(
                 catalog_identity_sha256=catalog_identity_sha256,
                 catalog_launch_sha256=catalog_launch_receipt_sha256,
                 catalog_sha256=catalog_sha256,
+                project_root=project_root,
                 eval_config=eval_config_output,
                 eval_config_sha256=eval_config_sha256,
                 catalog_path=catalog_path,

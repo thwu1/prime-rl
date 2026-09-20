@@ -91,7 +91,7 @@ def _config(
         'type = "sandoq"\n'
         'mode = "oci-runner"\n'
         "session_timeout = 43200\n"
-        "network_access = false\n"
+        "network_access = true\n"
         'host_tunnel = "none"\n'
         f"expected_environment = {quote(environment)}\n"
         f"ecr_token_file = {quote(ecr_token_file)}\n"
@@ -177,7 +177,26 @@ def synthetic(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict[str, obje
     harness = project / "user/tianhaowu/terminal_bench_vmvm/terminal_bench_vmvm/sandoq_host_harness.py"
     harness.parent.mkdir(parents=True)
     harness.write_text("synthetic harness\n")
-    private_root = tmp_path / "private" / DEPLOYMENT_NAMESPACE
+    profile_relative = (
+        "user/tianhaowu/terminal_bench_vmvm/configs/provider_context/"
+        "synthetic_cluster/qwen_sandoq.json"
+    )
+    profile = project / profile_relative
+    profile.parent.mkdir(parents=True)
+    profile.write_bytes(
+        _canonical_json(
+            {
+                "schema_version": 1,
+                "cluster_identifier": "synthetic_cluster",
+                "transport_mode": "loopback",
+                "effective_task_network": "public",
+                "base_url": composer.SANDOQ_BASE_URL,
+                "environment": "oci-runner",
+                "provider_token_file": str(tmp_path / "credentials/provider-token"),
+            }
+        )
+    )
+    private_root = tmp_path / "synthetic_cluster" / DEPLOYMENT_NAMESPACE
     private_root.mkdir(parents=True, mode=0o700)
     private_root.chmod(0o700)
     code = {
@@ -351,6 +370,7 @@ def synthetic(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict[str, obje
             "catalog_consumer_sha256": composer.catalog_consumer_code_sha256(),
             "requirements_extractor_sha256": composer.offline_requirements_extractor_sha256(),
             "host_harness_sha256": composer._source_sha256(harness),
+            "provider_profile_sha256": composer._source_sha256(profile),
             "sealed_launcher_path_identity_sha256": worker_path_identity,
         }
     )
@@ -395,6 +415,17 @@ def synthetic(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict[str, obje
         "provision_approval_sha256": _sha(canonical_json(provision)),
         "provision_approval": provision,
         "catalog_policy": catalog_policy,
+        "network_policy": {
+            "state": "explicitly-authorized",
+            "provider_commit": worker_contract["provider_commit"],
+            "environment": environment,
+            "declared_task_network": "no-network",
+            "effective_task_network": "public",
+            "network_isolation_verified": False,
+            "network_access_explicitly_allowed": True,
+            "authorization_sha256": _sha("network authorization"),
+            "production_task_inputs_accessed": False,
+        },
         "serving": {
             "deployment_id": DEPLOYMENT_NAMESPACE,
             "worker_count": 24,
@@ -408,12 +439,17 @@ def synthetic(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict[str, obje
         },
         "execution": {
             "sandbox_provider": "sandoq",
+            "cluster_identifier": "synthetic_cluster",
+            "provider_profile_relative_path": profile_relative,
             "environment": environment,
-            "base_url": "https://sandoq.invalid",
+            "transport_mode": "loopback",
+            "base_url": composer.SANDOQ_BASE_URL,
             "token_file_path": token_file,
             "ecr_token_file_path": ecr_token_file,
             "ecr_token_metadata_path": ecr_metadata,
             "provider_context": {
+                "transport_mode": "loopback",
+                "effective_task_network": "public",
                 "startup_timeout_seconds": 3600,
                 "lease_duration": "1h",
                 "session_reuse": 1,
@@ -436,7 +472,7 @@ def synthetic(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict[str, obje
                 "starts_before_provider": True,
                 "lives_through_final_cleanup": True,
             },
-            "task_network": "none",
+            "task_network": "public",
             "host_tunnel": "none",
             "host_harness": True,
             "rollout_concurrency": 64,
@@ -694,6 +730,7 @@ def _prepare_launch(synthetic: dict[str, object]) -> dict[str, object]:
         catalog_identity_sha256=_sha(canonical_json(identity.record())),
         catalog_launch_sha256=_sha(catalog_launch_body),
         catalog_sha256=_sha(catalog_body),
+        project_root=project,
         eval_config=eval_config_output,
         eval_config_sha256=_sha(eval_body),
         catalog_path=catalog_root / "catalog.json",
@@ -759,7 +796,8 @@ def test_composes_task_free_policy_and_fresh_launch(synthetic: dict[str, object]
     assert contract["serving"]["routing_policy"] == "consistent_hash"
     assert contract["serving"]["request_id_header"] == "x-session-id"
     assert contract["environment"]["OCI_RUNNER_ENVIRONMENT"] == "oci-runner"
-    assert contract["environment"]["OCI_RUNNER_TASK_NETWORK"] == "none"
+    assert contract["environment"]["SANDOQ_EFFECTIVE_TASK_NETWORK"] == "public"
+    assert "OCI_RUNNER_TASK_NETWORK" not in contract["environment"]
     assert contract["evaluation"]["mode"] == "fresh"
     assert contract["evaluation"]["resume_allowed"] is False
     assert contract["evaluation"]["execution_performed"] is False
@@ -785,6 +823,8 @@ def test_composes_task_free_policy_and_fresh_launch(synthetic: dict[str, object]
         ("execution", "resume_allowed", True),
         ("serving", "routing_policy", "round_robin"),
         ("serving", "request_id_header", "x-other"),
+        ("network_policy", "network_access_explicitly_allowed", False),
+        ("network_policy", "provider_commit", "f" * 40),
     ],
 )
 def test_runtime_approval_rejects_execution_drift(
@@ -809,12 +849,59 @@ def test_runtime_environment_is_parameterized_but_fail_closed(
     body = _canonical_json(runtime)
     with pytest.raises(composer.LaunchCompositionError, match="runtime_approval_invalid"):
         composer._load_runtime_approval(body, _sha(body), project_root=synthetic["project"])
+
+
+def test_runtime_rejects_legacy_firecracker_key(
+    synthetic: dict[str, object],
+) -> None:
     runtime = copy.deepcopy(synthetic["runtime"])
     runtime["catalog_policy"]["worker_environment_names"].append("FIRECRACKER_KEY")
     runtime["catalog_policy"]["worker_environment_names"].sort()
     body = _canonical_json(runtime)
     with pytest.raises(composer.LaunchCompositionError, match="runtime_approval_invalid"):
         composer._load_runtime_approval(body, _sha(body), project_root=synthetic["project"])
+
+
+def test_runtime_approval_supports_cluster_specific_auto_transport(
+    synthetic: dict[str, object],
+) -> None:
+    runtime = copy.deepcopy(synthetic["runtime"])
+    runtime["execution"]["transport_mode"] = "auto"
+    context = runtime["execution"]["provider_context"]
+    context.update(
+        {
+            "transport_mode": "auto",
+            "proxy_required": False,
+            "proxy_bind_host": "",
+            "proxy_target_port": 0,
+            "proxy_target_suffix": "",
+            "proxy_environment_names": [],
+        }
+    )
+    profile = synthetic["project"] / runtime["execution"]["provider_profile_relative_path"]
+    profile.write_bytes(
+        _canonical_json(
+            {
+                "schema_version": 1,
+                "cluster_identifier": "synthetic_cluster",
+                "transport_mode": "auto",
+                "effective_task_network": "public",
+                "base_url": composer.SANDOQ_BASE_URL,
+                "environment": "oci-runner",
+                "provider_token_file": runtime["execution"]["token_file_path"],
+            }
+        )
+    )
+    runtime["runtime_artifacts"]["provider_profile_sha256"] = _sha(profile.read_bytes())
+    body = _canonical_json(runtime)
+
+    loaded = composer._load_runtime_approval(
+        body,
+        _sha(body),
+        project_root=synthetic["project"],
+    )
+
+    assert loaded.value["execution"]["transport_mode"] == "auto"
 
 
 def test_launch_rejects_nonterminal_catalog_recovery(synthetic: dict[str, object]) -> None:

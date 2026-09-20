@@ -4,7 +4,7 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
-from eval_run_identity import EvalIdentityError, _contract
+from eval_run_identity import EvalIdentityError, _contract, _resolved_config_data
 from verifiers.v1.configs.eval import EvalConfig
 from verifiers.v1.retries import RolloutRetryConfig, should_retry
 
@@ -31,7 +31,7 @@ ACTIVE_KIMI_CONFIGS = [
 ]
 ACTIVE_QWEN_CONFIGS = [
     "mobius_qwen_a95b_2500.toml",
-    "mobius_qwen_a95b_2500_sandoq.toml",
+    "shared_qwen38_2p4t/mobius_qwen_a95b_2500_sandoq.toml",
     "tb4_qwen_a95b_miniswe.toml",
     "tb4_qwen_token_smoke.toml",
 ]
@@ -60,7 +60,7 @@ def _mobius_task_file_sha256() -> str:
 
 def _resolved_eval_config(filename: str) -> dict:
     raw = tomllib.loads((CONFIG_DIR / filename).read_text())
-    return EvalConfig.model_validate(raw).model_dump(mode="json", exclude_none=True)
+    return _resolved_config_data(EvalConfig.model_validate(raw), explicit=raw)
 
 
 @pytest.mark.parametrize("config_path", EVAL_CONFIGS, ids=lambda path: path.name)
@@ -109,7 +109,8 @@ def test_kimi_configs_pin_exact_timeout_and_retry_contract(
         "scoring": 21_600,
     }
     rollout_retries = config["retries"]["rollout"]
-    assert rollout_retries["max_retries"] == 2
+    expected_retries = 0 if "sandoq" in filename else 2
+    assert rollout_retries["max_retries"] == expected_retries
     assert len(rollout_retries["include"]) == len(retry_exceptions)
     assert set(rollout_retries["include"]) == retry_exceptions
     assert "HarnessError" not in rollout_retries["include"]
@@ -195,7 +196,8 @@ def test_active_rollout_retry_policy_is_model_specific(filename: str) -> None:
     config = tomllib.loads((CONFIG_DIR / filename).read_text())
     rollout_retries = config["retries"]["rollout"]
 
-    assert rollout_retries["max_retries"] == 2
+    expected_retries = 0 if "sandoq" in filename else 2
+    assert rollout_retries["max_retries"] == expected_retries
     expected_by_model = {
         "Kimi-K3": KIMI_ROLLOUT_RETRY_ERRORS,
         "Qwen3.8-2.4T-A95B": QWEN_ROLLOUT_RETRY_ERRORS,
@@ -324,7 +326,12 @@ def test_mobius_qwen_production_retention_and_concurrency() -> None:
 
 
 def test_mobius_qwen_sandoq_contract_is_explicit_and_digest_pinned() -> None:
-    config = tomllib.loads((CONFIG_DIR / "mobius_qwen_a95b_2500_sandoq.toml").read_text())
+    config = tomllib.loads(
+        (
+            CONFIG_DIR
+            / "shared_qwen38_2p4t/mobius_qwen_a95b_2500_sandoq.toml"
+        ).read_text()
+    )
 
     assert config["num_tasks"] == 2_500
     assert config["max_concurrent"] == config["multiplex"] == 64
@@ -337,17 +344,16 @@ def test_mobius_qwen_sandoq_contract_is_explicit_and_digest_pinned() -> None:
         "type": "sandoq",
         "mode": "oci-runner",
         "session_timeout": 43_200,
-        "network_access": False,
-        "host_tunnel": "sandoq",
-        "expected_environment": "oci-runner-firecracker-tunnel-pull",
+        "network_access": True,
+        "host_tunnel": "none",
+        "expected_environment": "oci-runner",
         "ecr_token_file": "/storage/home/tianhaowu/.config/oci-runner/ecr-token",
-        "guest_tunnel_url": "http://127.0.0.1:8485",
-        "tunnel_pool_size": 8,
-        "tunnel_ready_timeout": 30,
     }
     assert set(config["retries"]["rollout"]["include"]) == QWEN_ROLLOUT_RETRY_ERRORS
 
-    resolved = _resolved_eval_config("mobius_qwen_a95b_2500_sandoq.toml")
+    resolved = _resolved_eval_config(
+        "shared_qwen38_2p4t/mobius_qwen_a95b_2500_sandoq.toml"
+    )
     _contract(
         resolved,
         "Qwen3.8-2.4T-A95B",
@@ -526,7 +532,7 @@ def test_eval_controller_is_cpu_only_and_supports_high_vmvm_concurrency() -> Non
     assert "get_gateway_adapter" in text
     assert "create_client(config)" in text
     assert "verify_references=True" in text
-    assert "verify_pool_cleanup.py" in text
+    assert "sandoq_pool_cleanup.py" in text
     assert "sanitize_sandoq_cleanup_audit.py" in text
     assert text.index("worktrees must all be clean") < text.index("create_client(config)")
     assert text.index("approved cutover source") < text.index("create_client(config)")
@@ -616,32 +622,35 @@ def test_direct_qwen_launcher_is_fail_closed() -> None:
     assert '.writer.lock"' in driver
     assert "Direct Qwen driver received a forbidden generic-eval override" in driver
     assert '[[ "$sandbox_provider" == sandoq && -n "$resume_dir" ]]' in driver
-    assert "oci-runner-firecracker-tunnel-pull" in driver
-    assert "OCI_RUNNER_ALLOW_DOCKERHUB_FALLBACK=0" in driver
+    provider_context = (
+        workflow_dir / "terminal_bench_vmvm/sandoq_provider_context.py"
+    ).read_text()
+    assert 'ENVIRONMENT = "oci-runner"' in provider_context
+    assert "SANDOQ_EFFECTIVE_TASK_NETWORK" in driver
     assert "sandoq_site_sha256" in driver
     assert "unset HTTP_PROXY HTTPS_PROXY http_proxy https_proxy ALL_PROXY all_proxy" in driver
-    assert "${#worker_urls[@]} -ne 24" in wrapper
-    assert '"$active_workers" == 24' in wrapper
+    assert '${#worker_urls[@]} -ne "$expected_worker_count"' in wrapper
+    assert '"$active_workers" == "$expected_worker_count"' in wrapper
     assert "--preflight" in wrapper
     assert "--role qwen-direct --sandbox-provider sandoq" in driver
     assert 'args=(--resume "$output_dir")' in driver
     assert "eval_run_identity.py" in driver
     assert "certify_direct_qwen_sandoq.py" in wrapper
-    assert "OCI_RUNNER_POOL_MIN_SIZE=0" in driver
+    assert '"$OCI_RUNNER_POOL_MIN_SIZE" != 0' in driver
     assert 'expected_pool_socket="$pool_socket_dir/${SLURM_JOB_ID:?}.sock"' in driver
     assert '"$output_dir/pool_events.jsonl"' in driver
     assert '"$output_dir/control/sandoq-pool.wal.jsonl"' in driver
     assert "SANDOQ_RAMP_RECEIPT" in driver
     assert "validate_predecessor" in driver
     assert "verify_references=True" in driver
-    assert "verify_pool_cleanup.py" in driver
+    assert "sandoq_pool_cleanup.py" in driver
     assert "sanitize_sandoq_cleanup_audit.py" in driver
     assert "router was not live at certification" in wrapper
     assert "no longer has exactly 24 active workers" in wrapper
     assert "serving generation drifted during evaluation" in wrapper
     assert "validate_post_eval_generation" in wrapper
-    assert "4890302104d76220cef791c86d2009168597d35f" in wrapper
-    assert "4890302104d76220cef791c86d2009168597d35f" in driver
+    assert "f7313db42eea4b3be8bcbe16a8072f73cf6abed5" in wrapper
+    assert "f7313db42eea4b3be8bcbe16a8072f73cf6abed5" in driver
     assert wrapper.index("approved clean source closure") < wrapper.index('"$workflow_dir/direct_qwen_workers.py"')
 
     generic_wrapper = (workflow_dir / "run_eval.sbatch").read_text()
