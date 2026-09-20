@@ -4988,3 +4988,39 @@ replay passed 263/263. The aggregate decode/cleanup boundary is unchanged.
   combined suite passes 64/64. Nothing is installed or invoked, no v4
   authorization exists, and no v4 job exists. A descriptor-retaining,
   secret-safe invocation envelope is still required and under review.
+
+## 2026-09-20 16:39 UTC — v28 registry and VMVM v4 live diagnostics closed
+
+- Kimi v28 controls are exact commit
+  `f7e5498e86d1ad524d2a05a2af1ccbefe2511c17`; their 247-test replay,
+  source review, frozen review, and installed review passed. The non-submitting
+  audit returned exactly one passing `jobs_submitted:0` record. Its canonical
+  mode-`0400` approval has SHA-256
+  `53dbae2fa27cac7474a8561de2fd35399f0df7c9a0f6d2bd8bef7e873d686f5b`
+  and passed independent payload/TLS/freshness review.
+- The sole authorized v28 job `1760071` allocated immediately on an eligible
+  scheduler-selected G3 node and failed `3:0` after 28 seconds. Its public
+  canonical allowlisted result (SHA-256
+  `835fb21cf1f5ff4bd02b5619f66b861e8d8dda2a703431894efe15cb69e4a451`)
+  is `podman_info_runroot`; no registry login/pull, task, model, or container
+  run occurred. The durable job-result publication did not commit, and the
+  terminal lock closed as `file_identity` (SHA-256
+  `e167a7ac92dbaeb2785a17df15ff59f40225830b39d3d0412acff0054f2d91c1`).
+  V29 must fix/better classify the rootless runroot binding and replace the
+  temporary-hardlink publisher with retained-FD `O_EXCL` publication.
+- VMVM v4 invocation envelope commit
+  `1c593c10589a150b37531cbe25eb18fa8e8e1217` passed 83/83 tests and source
+  and installed review. Create-audit, create-execute, and launch-audit each
+  returned their single expected record. The canonical mode-`0400` launch
+  authorization SHA-256 is
+  `8f6791da36b52134a2bd8152a1cb14cdb9e9e9561cd9d85b84f59dd35733448a`
+  and passed independent full-lineage review.
+- The sole v4 job `1760059` failed `2:0` after 3:59. Its canonical failure
+  receipt (SHA-256
+  `d99b126b71913a59304e9cc8af400dee09ac84901a0f4dad52eef18111824ae2`)
+  reports `cleanup_failed`, `cleanup_status=unverified`, and false
+  task/model/production access. The output root is empty mode `0700`; external
+  completion is ineligible and must not run. Static review points to an
+  unquiesced OpenSSH ControlPersist/socket or log race and confirms v4 still
+  collapses several cleanup scopes. V5 must add closed scope/reason categories,
+  bounded quiescence/fixed-point cleanup, and asynchronous socket/log tests.
