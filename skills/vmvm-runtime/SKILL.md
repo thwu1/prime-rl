@@ -55,6 +55,17 @@ Invoke vacli directly. Do not wrap it in the host `stdbuf`: the injected
 `libstdbuf.so` may require GLIBC 2.38 while vacli selects an older bundled libc,
 causing lease startup to fail before any VM is requested.
 
+Keep each real vacli child on its dedicated process-lifetime spawn-owner thread.
+Linux binds `PR_SET_PDEATHSIG` to the thread that creates the child, so spawning
+from a short-lived provision or recovery thread makes a healthy lease process
+exit as soon as that operation returns. The owner uses a fail-closed exec wrapper
+to install the signal without a multithreaded `preexec_fn`, publishes the child
+before waking its caller, and retains late timed-out children until they are
+reaped. Initial leases and resumed tunnels use this path; injected subprocess
+test doubles remain direct. Provider-specific lease variants customize
+`_lease_command()` and inherit `start()`; they must not reintroduce direct
+`Popen`, `preexec_fn`, or `stdbuf` wrappers.
+
 When submitting with Slurm `--export-file` or another isolated environment,
 explicitly carry `THRIFT_TLS_CL_CERT_PATH` and `THRIFT_TLS_CL_KEY_PATH` from the
 trusted launcher environment. Vacli maps them to its required `--tls-cert` and

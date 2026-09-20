@@ -7,6 +7,7 @@ import io
 import json
 import os
 import shutil
+import signal
 import stat
 import struct
 import subprocess
@@ -4579,7 +4580,26 @@ def test_vmvm_fifo_setup_clamps_readiness_sleep_to_deadline(monkeypatch) -> None
     assert sleeps == [pytest.approx(0.01)]
 
 
-def test_vacli_lease_process_has_parent_death_and_release_guards(
+def _test_vacli_permit() -> tuple[object, list[None]]:
+    releases: list[None] = []
+    limiter = SimpleNamespace(release=lambda: releases.append(None))
+    return vacli_backend._LeaseConcurrencyPermit(limiter), releases
+
+
+class _CountingLeaseLimiter:
+    def __init__(self) -> None:
+        self.acquired = 0
+        self.released = 0
+
+    def acquire(self, cancel_event=None) -> bool:
+        self.acquired += 1
+        return True
+
+    def release(self) -> None:
+        self.released += 1
+
+
+def test_vacli_lease_injected_subprocess_stays_direct(
     monkeypatch,
     tmp_path: Path,
 ) -> None:
@@ -4591,23 +4611,615 @@ def test_vacli_lease_process_has_parent_death_and_release_guards(
         def poll(self) -> int:
             return 0
 
-    def popen(command, **kwargs):
-        captured["command"] = command
-        captured["kwargs"] = kwargs
-        return Process()
+    class Subprocess:
+        STDOUT = subprocess.STDOUT
+        TimeoutExpired = subprocess.TimeoutExpired
 
-    monkeypatch.setattr(vacli_backend.subprocess, "Popen", popen)
+        @staticmethod
+        def Popen(command, **kwargs):
+            captured["command"] = command
+            captured["kwargs"] = kwargs
+            return Process()
+
+    monkeypatch.setattr(
+        vacli_backend,
+        "_get_vacli_spawn_owner",
+        lambda: pytest.fail("injected subprocess must not use the real spawn owner"),
+    )
     lease = vacli_backend.VacliLease(
         "test-tenant",
         tmp_path / "lease.log",
         lease_ttl="60s",
+        subprocess_mod=Subprocess,
     )
     lease.start()
     lease.cleanup()
 
     assert "--release-on-exit" in captured["command"]
     assert captured["kwargs"]["process_group"] == 0
-    assert captured["kwargs"]["preexec_fn"] is vacli_backend._child_pdeathsig
+    assert "preexec_fn" not in captured["kwargs"]
+
+
+def test_vacli_initial_and_resume_spawns_delegate_to_process_owner(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    calls: list[tuple[list[str], dict[str, object]]] = []
+
+    class Process:
+        returncode = 0
+
+        def poll(self) -> int:
+            return 0
+
+    class Owner:
+        def popen(self, command, **kwargs):
+            calls.append((command, kwargs))
+            kwargs["permit"].transfer_to_owner()
+            kwargs["publish"](Process(), kwargs["permit"])
+
+    owner = Owner()
+    monkeypatch.setattr(vacli_backend, "_get_vacli_spawn_owner", lambda: owner)
+    lease = vacli_backend.VacliLease(
+        "test-tenant",
+        tmp_path / "lease.log",
+        lease_ttl="60s",
+    )
+    lease.start()
+    assert lease._pending_tunnel is not None
+    lease._pending_tunnel[1].release()
+    lease._pending_tunnel = None
+    lease.lease_response = '{"sessionId":{"id":"test"},"auth_token":{}}'
+
+    def wait_for_tunnel(**kwargs) -> int:
+        kwargs["permit"].release()
+        lease._pending_tunnel = None
+        return 10022
+
+    monkeypatch.setattr(lease, "wait_for_tunnel", wait_for_tunnel)
+    assert lease.restart_tunnel() == 10022
+    lease.cleanup()
+
+    assert len(calls) == 2
+    initial_command, initial_kwargs = calls[0]
+    resume_command, resume_kwargs = calls[1]
+    assert "--resume-with-session" not in initial_command
+    assert "--resume-with-session" in resume_command
+    for kwargs in (initial_kwargs, resume_kwargs):
+        assert kwargs["process_group"] == 0
+        assert "preexec_fn" not in kwargs
+        assert kwargs["cleanup_timeout"] == lease.cleanup_timeout
+        assert kwargs["spawn_timeout"] == vacli_backend._VACLI_SPAWN_TIMEOUT_SECONDS
+
+
+@pytest.mark.parametrize("operation", ["start", "resume"])
+@pytest.mark.parametrize("error_kind", ["control-flow", "ordinary"])
+def test_vacli_error_during_publication_reaps_and_releases_slot(
+    monkeypatch,
+    tmp_path: Path,
+    operation: str,
+    error_kind: str,
+) -> None:
+    class CallerExit(BaseException):
+        pass
+
+    marker = CallerExit(operation) if error_kind == "control-flow" else RuntimeError(operation)
+
+    class Process:
+        pid = 12345
+        returncode: int | None = None
+
+        def poll(self) -> int | None:
+            return self.returncode
+
+        def wait(self, timeout: float) -> int:
+            assert self.returncode is not None
+            return self.returncode
+
+    process = Process()
+    permits: list[object] = []
+
+    class Owner:
+        @staticmethod
+        def popen(command, **kwargs) -> None:
+            permit = kwargs["permit"]
+            permits.append(permit)
+            permit.transfer_to_owner()
+            kwargs["publish"](process, permit)
+            raise marker
+
+    signals: list[signal.Signals] = []
+    monkeypatch.setattr(vacli_backend, "_get_vacli_spawn_owner", lambda: Owner())
+    monkeypatch.setattr(vacli_backend.os, "getpgid", lambda pid: pid)
+
+    def killpg(pid: int, sent_signal: signal.Signals) -> None:
+        signals.append(sent_signal)
+        process.returncode = -sent_signal
+
+    monkeypatch.setattr(vacli_backend.os, "killpg", killpg)
+    lease = vacli_backend.VacliLease("test-tenant", tmp_path / "lease.log")
+    if operation == "resume":
+        lease.lease_response = '{"sessionId":{"id":"test"},"auth_token":{}}'
+
+    def invoke() -> int | None:
+        if operation == "start":
+            lease.start()
+            return None
+        else:
+            return lease.restart_tunnel()
+
+    if error_kind == "ordinary" and operation == "resume":
+        assert invoke() is None
+    else:
+        with pytest.raises(type(marker)) as raised:
+            invoke()
+        assert raised.value is marker
+    assert lease.proc is process
+    assert process.returncode == -signal.SIGTERM
+    assert signals == [signal.SIGTERM]
+    assert lease._cleaned_up is True
+    assert len(permits) == 1
+    assert permits[0].state == "released"
+
+
+def test_vacli_process_owner_fails_if_worker_dies_after_enqueue(monkeypatch) -> None:
+    class DeadOwner(vacli_backend._VacliSpawnOwner):
+        def _run(self, request) -> None:
+            return None
+
+    owner = DeadOwner(os.getpid())
+    permit, releases = _test_vacli_permit()
+    monkeypatch.setattr(vacli_backend, "_VACLI_SPAWN_OWNER_LIVENESS_POLL_SECONDS", 0.001)
+
+    with pytest.raises(RuntimeError, match="spawn owner exited"):
+        owner.popen(
+            ["unused"],
+            publish=lambda process, owned_permit: None,
+            permit=permit,
+            cleanup_timeout=0.01,
+            spawn_timeout=0.1,
+        )
+    assert releases == [None]
+
+
+@pytest.mark.parametrize("phase", ["queued", "spawning", "published"])
+def test_vacli_process_owner_preserves_interruption_and_resolves_request(
+    monkeypatch,
+    phase: str,
+) -> None:
+    class CallerExit(BaseException):
+        pass
+
+    class Process:
+        pid = 12346
+        returncode: int | None = None
+
+        def poll(self) -> int | None:
+            return self.returncode
+
+    marker = CallerExit(phase)
+    process = Process()
+    popen_entered = threading.Event()
+    request_known = threading.Event()
+    request_holder: list[object] = []
+    published: list[Process] = []
+    terminated: list[tuple[Process, float]] = []
+
+    def popen_impl(command, **kwargs):
+        popen_entered.set()
+        if phase == "spawning":
+            assert request_known.wait(timeout=1)
+            assert request_holder[0].abandoned.wait(timeout=1)
+        return process
+
+    class Owner(vacli_backend._VacliSpawnOwner):
+        def _run(self, request) -> None:
+            if phase == "queued":
+                assert request.abandoned.wait(timeout=1)
+            super()._run(request)
+
+    owner = Owner(os.getpid(), popen_impl=popen_impl)
+    permit, releases = _test_vacli_permit()
+
+    def interrupt(request, owner_thread, deadline) -> bool:
+        request_holder.append(request)
+        request_known.set()
+        if phase == "spawning":
+            assert popen_entered.wait(timeout=1)
+        elif phase == "published":
+            assert request.ready.wait(timeout=1)
+            assert published == [process]
+        raise marker
+
+    def terminate(spawned_process, cleanup_timeout: float) -> None:
+        terminated.append((spawned_process, cleanup_timeout))
+        spawned_process.returncode = -signal.SIGTERM
+
+    owner._wait_until_ready = interrupt
+    monkeypatch.setattr(vacli_backend, "_terminate_and_reap_spawned_vacli", terminate)
+
+    def publish(spawned_process, owned_permit) -> None:
+        owned_permit.transfer_to_lease()
+        published.append(spawned_process)
+
+    with pytest.raises(CallerExit) as raised:
+        owner.popen(
+            ["vacli", "lease"],
+            publish=publish,
+            permit=permit,
+            cleanup_timeout=0.25,
+            spawn_timeout=1,
+        )
+
+    assert raised.value is marker
+    assert owner._thread is not None
+    owner._thread.join(timeout=1)
+    assert not owner._thread.is_alive()
+    if phase == "queued":
+        assert not popen_entered.is_set()
+        assert published == []
+        assert terminated == []
+    else:
+        assert process.returncode == -signal.SIGTERM
+        assert terminated == [(process, 0.25)]
+        assert published == ([process] if phase == "published" else [])
+    assert releases == [None]
+
+
+def test_vacli_process_owner_timeout_cleans_late_result_without_blocking_next_spawn(
+    monkeypatch,
+) -> None:
+    class Process:
+        def __init__(self, pid: int, returncode: int | None = None) -> None:
+            self.pid = pid
+            self.returncode = returncode
+
+        def poll(self) -> int | None:
+            return self.returncode
+
+    blocked_process = Process(12347)
+    next_process = Process(12348, 0)
+    popen_entered = threading.Event()
+    allow_return = threading.Event()
+    late_cleanup = threading.Event()
+    blocked_published: list[Process] = []
+    next_published: list[Process] = []
+    blocked_permit, blocked_releases = _test_vacli_permit()
+    next_permit, next_releases = _test_vacli_permit()
+
+    def blocked_popen(command, **kwargs):
+        popen_entered.set()
+        assert allow_return.wait(timeout=2)
+        return blocked_process
+
+    def terminate(process, cleanup_timeout: float) -> None:
+        assert process is blocked_process
+        process.returncode = -signal.SIGTERM
+        late_cleanup.set()
+
+    monkeypatch.setattr(vacli_backend, "_terminate_and_reap_spawned_vacli", terminate)
+
+    def publish_blocked(process, permit) -> None:
+        permit.transfer_to_lease()
+        blocked_published.append(process)
+
+    def publish_next(process, permit) -> None:
+        permit.transfer_to_lease()
+        next_published.append(process)
+
+    blocked_owner = vacli_backend._VacliSpawnOwner(os.getpid(), popen_impl=blocked_popen)
+    with pytest.raises(TimeoutError, match="process creation exceeded"):
+        blocked_owner.popen(
+            ["vacli", "lease"],
+            publish=publish_blocked,
+            permit=blocked_permit,
+            cleanup_timeout=0.25,
+            spawn_timeout=0.02,
+        )
+    assert popen_entered.is_set()
+    assert blocked_published == []
+    assert blocked_permit.state == "owner"
+    assert blocked_releases == []
+
+    next_owner = vacli_backend._VacliSpawnOwner(
+        os.getpid(),
+        popen_impl=lambda command, **kwargs: next_process,
+    )
+    next_owner.popen(
+        ["vacli", "lease"],
+        publish=publish_next,
+        permit=next_permit,
+        cleanup_timeout=0.25,
+        spawn_timeout=1,
+    )
+    assert next_published == [next_process]
+    assert next_owner._thread is not None
+    next_owner._thread.join(timeout=1)
+    assert next_releases == [None]
+
+    allow_return.set()
+    assert late_cleanup.wait(timeout=1)
+    assert blocked_owner._thread is not None
+    blocked_owner._thread.join(timeout=1)
+    assert not blocked_owner._thread.is_alive()
+    assert blocked_process.returncode == -signal.SIGTERM
+    assert blocked_published == []
+    assert blocked_releases == [None]
+
+
+def test_vacli_process_owner_rebinds_after_fork_pid_change(monkeypatch) -> None:
+    class Process:
+        returncode = 0
+
+        def poll(self) -> int:
+            return 0
+
+    process = Process()
+    calls: list[list[str]] = []
+
+    class ReplacementOwner:
+        @staticmethod
+        def popen(command, **kwargs) -> None:
+            calls.append(command)
+            permit = kwargs["permit"]
+            permit.transfer_to_owner()
+            kwargs["publish"](process, permit)
+            permit.release()
+
+    monkeypatch.setattr(vacli_backend, "_get_vacli_spawn_owner", lambda: ReplacementOwner())
+    stale_owner = vacli_backend._VacliSpawnOwner(
+        os.getpid() + 1,
+        popen_impl=lambda command, **kwargs: pytest.fail("stale owner used after fork"),
+    )
+    published: list[Process] = []
+    permit, releases = _test_vacli_permit()
+
+    def publish(spawned_process, owned_permit) -> None:
+        owned_permit.transfer_to_lease()
+        published.append(spawned_process)
+
+    stale_owner.popen(
+        ["vacli", "lease"],
+        publish=publish,
+        permit=permit,
+        cleanup_timeout=0.25,
+        spawn_timeout=1,
+    )
+
+    assert calls == [["vacli", "lease"]]
+    assert published == [process]
+    assert stale_owner._thread is None
+    assert releases == [None]
+
+
+def test_vacli_process_owners_allow_concurrent_spawn_fan_in() -> None:
+    class Process:
+        returncode = 0
+
+        def __init__(self, pid: int) -> None:
+            self.pid = pid
+
+        def poll(self) -> int:
+            return 0
+
+    count = 6
+    barrier = threading.Barrier(count)
+    state_lock = threading.Lock()
+    owner_thread_ids: set[int] = set()
+    published: list[int] = []
+    errors: list[BaseException] = []
+
+    def popen_impl(command, **kwargs):
+        with state_lock:
+            owner_thread_ids.add(threading.get_native_id())
+        barrier.wait(timeout=2)
+        return Process(int(command[-1]))
+
+    def spawn(index: int) -> None:
+        try:
+            permit, _ = _test_vacli_permit()
+            owner = vacli_backend._VacliSpawnOwner(os.getpid(), popen_impl=popen_impl)
+
+            def publish(process, owned_permit) -> None:
+                owned_permit.transfer_to_lease()
+                published.append(process.pid)
+
+            owner.popen(
+                ["vacli", "lease", str(index)],
+                publish=publish,
+                permit=permit,
+                cleanup_timeout=0.25,
+                spawn_timeout=3,
+            )
+        except BaseException as error:
+            errors.append(error)
+
+    callers = [threading.Thread(target=spawn, args=(index,)) for index in range(count)]
+    for caller in callers:
+        caller.start()
+    for caller in callers:
+        caller.join(timeout=5)
+
+    assert all(not caller.is_alive() for caller in callers)
+    assert errors == []
+    assert sorted(published) == list(range(count))
+    assert len(owner_thread_ids) == count
+
+
+def test_pdeathsig_exec_wrapper_fails_closed_for_missing_parent_thread(tmp_path: Path) -> None:
+    marker = tmp_path / "exec-ran"
+    target = [sys.executable, "-c", f"from pathlib import Path; Path({str(marker)!r}).touch()"]
+    command = vacli_backend._pdeathsig_exec_command(target, os.getpid(), 2**31 - 1, 0)
+
+    result = subprocess.run(command, check=False, timeout=5)
+
+    assert result.returncode == 125
+    assert not marker.exists()
+    assert command[-len(target) :] == target
+
+
+def test_gdpval_preloaded_lease_uses_durable_base_start() -> None:
+    provider_path = Path(__file__).resolve().parents[2] / "gdpval_vmvm" / "vmvm_provider.py"
+    source = provider_path.read_text()
+    module = ast.parse(source)
+    lease_class = next(
+        node for node in module.body if isinstance(node, ast.ClassDef) and node.name == "_PreloadedImageLease"
+    )
+    methods = {node.name: node for node in lease_class.body if isinstance(node, ast.FunctionDef)}
+    command_source = ast.get_source_segment(source, methods["_lease_command"])
+
+    assert "start" not in methods
+    assert command_source is not None
+    assert '"stdbuf"' not in command_source
+    assert "preexec_fn" not in command_source
+    assert '"--tiername"' in command_source
+    assert '"--tier-overrides"' in command_source
+
+
+@pytest.mark.skipif(vacli_backend._libc is None, reason="requires Linux prctl")
+def test_vacli_child_receives_sigterm_when_owner_process_exits(tmp_path: Path) -> None:
+    child_ready = tmp_path / "child-ready"
+    child_terminated = tmp_path / "child-terminated"
+    child_code = (
+        "import os, signal, time\n"
+        "from pathlib import Path\n"
+        f"ready = Path({str(child_ready)!r})\n"
+        f"terminated = Path({str(child_terminated)!r})\n"
+        "def stop(*_):\n"
+        "    terminated.touch()\n"
+        "    os._exit(0)\n"
+        "signal.signal(signal.SIGTERM, stop)\n"
+        "ready.touch()\n"
+        "while True:\n"
+        "    time.sleep(1)\n"
+    )
+    owner_code = (
+        "import os, subprocess, sys, time\n"
+        "from pathlib import Path\n"
+        "from vmvm_tb_v2._vacli import backend\n"
+        f"ready = Path({str(child_ready)!r})\n"
+        "children = []\n"
+        "class Limiter:\n"
+        "    def release(self):\n"
+        "        pass\n"
+        "permit = backend._LeaseConcurrencyPermit(Limiter())\n"
+        "def publish(process, owned_permit):\n"
+        "    owned_permit.transfer_to_lease()\n"
+        "    children.append(process)\n"
+        "with open(os.devnull, 'wb') as output:\n"
+        f"    backend._popen_vacli([sys.executable, '-c', {child_code!r}], output, subprocess, publish, permit, 1)\n"
+        "deadline = time.monotonic() + 3\n"
+        "while not ready.exists() and time.monotonic() < deadline:\n"
+        "    time.sleep(0.01)\n"
+        "if not ready.exists():\n"
+        "    raise RuntimeError('child did not become ready')\n"
+        "print(children[0].pid, flush=True)\n"
+        "os._exit(0)\n"
+    )
+    owner = subprocess.Popen(
+        [sys.executable, "-c", owner_code],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+    )
+    child_pid = None
+    try:
+        stdout, stderr = owner.communicate(timeout=5)
+        assert owner.returncode == 0, stderr
+        child_pid = int(stdout.strip())
+        deadline = time.monotonic() + 3
+        while not child_terminated.exists() and time.monotonic() < deadline:
+            time.sleep(0.01)
+        assert child_terminated.exists()
+    finally:
+        if child_pid is not None and not child_terminated.exists():
+            try:
+                child_pgid = os.getpgid(child_pid)
+            except ProcessLookupError:
+                pass
+            else:
+                if child_pgid == child_pid:
+                    os.killpg(child_pgid, signal.SIGKILL)
+
+
+@pytest.mark.skipif(vacli_backend._libc is None, reason="requires Linux prctl")
+def test_vacli_process_owner_outlives_short_lived_initial_and_resume_callers(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    harmless_vacli = tmp_path / "harmless-vacli"
+    harmless_vacli.write_text(
+        f"#!{sys.executable}\n"
+        'print(\'{"sessionId":{"id":"test"},"auth_token":{}}\', flush=True)\n'
+        'print(\'[{"vm_port":22,"local_port":10022}]\', flush=True)\n'
+        "import time\n"
+        "time.sleep(30)\n"
+    )
+    harmless_vacli.chmod(0o700)
+    monkeypatch.setattr(vacli_backend, "VACLI_BIN", str(harmless_vacli))
+    lease = vacli_backend.VacliLease(
+        "test-tenant",
+        tmp_path / "lease.log",
+        lease_ttl="60s",
+        tunnel_ready_timeout=5,
+        cleanup_timeout=2,
+    )
+    errors: list[BaseException] = []
+    ports: list[int | None] = []
+    resumed_process = None
+    resumed_pid = None
+
+    def start_and_wait() -> None:
+        try:
+            lease.start()
+            ports.append(lease.wait_for_tunnel())
+        except BaseException as error:
+            errors.append(error)
+
+    initial_caller = threading.Thread(target=start_and_wait)
+    initial_caller.start()
+    initial_caller.join(timeout=5)
+    try:
+        assert not initial_caller.is_alive()
+        assert errors == []
+        assert ports == [10022]
+        assert lease.proc is not None
+        initial_process = lease.proc
+        initial_pid = initial_process.pid
+        assert os.getpgid(initial_pid) == initial_pid
+        time.sleep(0.1)
+        assert initial_process.poll() is None
+
+        def restart_and_wait() -> None:
+            try:
+                ports.append(lease.restart_tunnel())
+            except BaseException as error:
+                errors.append(error)
+
+        resume_caller = threading.Thread(target=restart_and_wait)
+        resume_caller.start()
+        resume_caller.join(timeout=5)
+        assert not resume_caller.is_alive()
+        assert errors == []
+        assert ports == [10022, 10022]
+        assert initial_process.returncode == -signal.SIGKILL
+        with pytest.raises(ProcessLookupError):
+            os.getpgid(initial_pid)
+        assert lease.proc is not None
+        resumed_process = lease.proc
+        resumed_pid = resumed_process.pid
+        assert resumed_pid != initial_pid
+        assert os.getpgid(resumed_pid) == resumed_pid
+        time.sleep(0.1)
+        assert resumed_process.poll() is None
+    finally:
+        lease.cleanup()
+
+    assert resumed_process is not None
+    assert resumed_pid is not None
+    assert resumed_process.wait(timeout=2) == -signal.SIGTERM
+    with pytest.raises(ProcessLookupError):
+        os.getpgid(resumed_pid)
 
 
 def test_lease_start_limiter_wait_is_cooperatively_cancellable() -> None:
@@ -4697,6 +5309,280 @@ def test_vacli_lease_start_publication_is_serialized_with_cancel_cleanup(
     assert isinstance(start_errors[0], BackendInitError)
     assert lease._cleaned_up is True
     assert process.returncode == 0
+
+
+def test_vacli_restart_publication_is_serialized_with_cleanup(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    popen_entered = threading.Event()
+    publish = threading.Event()
+    cleanup_started = threading.Event()
+    cleanup_finished = threading.Event()
+
+    class Process:
+        pid = 12349
+        returncode: int | None = None
+
+        def poll(self) -> int | None:
+            return self.returncode
+
+        def wait(self, timeout: float) -> int:
+            assert self.returncode is not None
+            return self.returncode
+
+    process = Process()
+
+    class Subprocess:
+        STDOUT = subprocess.STDOUT
+        TimeoutExpired = subprocess.TimeoutExpired
+
+        @staticmethod
+        def Popen(command, **kwargs):
+            popen_entered.set()
+            assert publish.wait(timeout=1)
+            return process
+
+    monkeypatch.setattr(vacli_backend.os, "getpgid", lambda pid: pid)
+    monkeypatch.setattr(
+        vacli_backend.os,
+        "killpg",
+        lambda pid, sent_signal: setattr(process, "returncode", -sent_signal),
+    )
+    lease = vacli_backend.VacliLease(
+        "test-tenant",
+        tmp_path / "lease.log",
+        subprocess_mod=Subprocess,
+    )
+    lease.lease_response = '{"sessionId":{"id":"test"},"auth_token":{}}'
+
+    monkeypatch.setattr(
+        lease,
+        "wait_for_tunnel",
+        lambda **kwargs: pytest.fail("cleaned resume must not report tunnel readiness"),
+    )
+    results: list[int | None] = []
+    restarter = threading.Thread(target=lambda: results.append(lease.restart_tunnel()))
+    restarter.start()
+    assert popen_entered.wait(timeout=1)
+
+    def cleanup() -> None:
+        cleanup_started.set()
+        lease.cleanup()
+        cleanup_finished.set()
+
+    cleaner = threading.Thread(target=cleanup)
+    cleaner.start()
+    assert cleanup_started.wait(timeout=1)
+    assert not cleanup_finished.wait(timeout=0.02)
+    publish.set()
+    restarter.join(timeout=2)
+    cleaner.join(timeout=2)
+
+    assert not restarter.is_alive()
+    assert not cleaner.is_alive()
+    assert results == [None]
+    assert lease.proc is process
+    assert lease._cleaned_up is True
+    assert process.returncode == -signal.SIGTERM
+    assert lease._pending_tunnel is None
+
+
+def test_vacli_concurrent_restarts_share_one_flight_and_one_permit(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    limiter = _CountingLeaseLimiter()
+    monkeypatch.setattr(vacli_backend, "_lease_concurrency", limiter)
+    wait_entered = threading.Event()
+    allow_ready = threading.Event()
+    popen_calls: list[list[str]] = []
+
+    class Process:
+        pid = 12350
+        returncode: int | None = None
+
+        def poll(self) -> int | None:
+            return self.returncode
+
+        def wait(self, timeout: float) -> int:
+            assert self.returncode is not None
+            return self.returncode
+
+    process = Process()
+
+    class Subprocess:
+        STDOUT = subprocess.STDOUT
+        TimeoutExpired = subprocess.TimeoutExpired
+
+        @staticmethod
+        def Popen(command, **kwargs):
+            popen_calls.append(command)
+            return process
+
+    monkeypatch.setattr(vacli_backend.os, "getpgid", lambda pid: pid)
+    monkeypatch.setattr(
+        vacli_backend.os,
+        "killpg",
+        lambda pid, sent_signal: setattr(process, "returncode", -sent_signal),
+    )
+    lease = vacli_backend.VacliLease(
+        "test-tenant",
+        tmp_path / "lease.log",
+        subprocess_mod=Subprocess,
+    )
+    lease.lease_response = '{"sessionId":{"id":"test"},"auth_token":{}}'
+
+    def wait_for_tunnel(**kwargs) -> int:
+        wait_entered.set()
+        assert allow_ready.wait(timeout=1)
+        kwargs["permit"].release()
+        lease._pending_tunnel = None
+        return 10022
+
+    monkeypatch.setattr(lease, "wait_for_tunnel", wait_for_tunnel)
+    results: list[int | None] = []
+    callers = [threading.Thread(target=lambda: results.append(lease.restart_tunnel())) for _ in range(2)]
+    callers[0].start()
+    assert wait_entered.wait(timeout=1)
+    callers[1].start()
+    time.sleep(0.02)
+    assert len(popen_calls) == 1
+    assert limiter.acquired == 1
+    allow_ready.set()
+    for caller in callers:
+        caller.join(timeout=2)
+
+    assert all(not caller.is_alive() for caller in callers)
+    assert sorted(results) == [10022, 10022]
+    assert len(popen_calls) == 1
+    assert (limiter.acquired, limiter.released) == (1, 1)
+    lease.cleanup()
+
+
+def test_vacli_readiness_rejects_process_cleaned_after_mapping(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    limiter = _CountingLeaseLimiter()
+    assert limiter.acquire()
+    permit = vacli_backend._LeaseConcurrencyPermit(limiter)
+    permit.transfer_to_lease()
+    mapping_parsed = threading.Event()
+    cleanup_finished = threading.Event()
+
+    class Process:
+        pid = 12351
+        returncode: int | None = None
+
+        def poll(self) -> int | None:
+            return self.returncode
+
+        def wait(self, timeout: float) -> int:
+            assert self.returncode is not None
+            return self.returncode
+
+    process = Process()
+    log_path = tmp_path / "lease.log"
+    log_path.write_text('[{"vm_port":22,"local_port":10022}]\n')
+    lease = vacli_backend.VacliLease("test-tenant", log_path)
+    lease.proc = process
+    lease.lease_response = '{"sessionId":{"id":"test"},"auth_token":{}}'
+    lease._pending_tunnel = (process, permit, log_path)
+    monkeypatch.setattr(vacli_backend.os, "getpgid", lambda pid: pid)
+    monkeypatch.setattr(
+        vacli_backend.os,
+        "killpg",
+        lambda pid, sent_signal: setattr(process, "returncode", -sent_signal),
+    )
+    original_loads = vacli_backend.json.loads
+
+    def loads(value):
+        mapping_parsed.set()
+        assert cleanup_finished.wait(timeout=1)
+        return original_loads(value)
+
+    monkeypatch.setattr(vacli_backend.json, "loads", loads)
+    errors: list[BaseException] = []
+
+    def wait() -> None:
+        try:
+            lease.wait_for_tunnel(expected_process=process, permit=permit, log_path=log_path)
+        except BaseException as error:
+            errors.append(error)
+
+    waiter = threading.Thread(target=wait)
+    waiter.start()
+    assert mapping_parsed.wait(timeout=1)
+    lease.cleanup()
+    cleanup_finished.set()
+    waiter.join(timeout=2)
+
+    assert not waiter.is_alive()
+    assert len(errors) == 1
+    assert isinstance(errors[0], BackendInitError)
+    assert "stale" in str(errors[0])
+    assert lease.ssh_port is None
+    assert process.returncode == -signal.SIGTERM
+    assert (limiter.acquired, limiter.released) == (1, 1)
+
+
+@pytest.mark.parametrize("failure", ["kill", "wait"])
+def test_vacli_restart_refuses_replacement_until_prior_process_is_reaped(
+    monkeypatch,
+    tmp_path: Path,
+    failure: str,
+) -> None:
+    limiter = _CountingLeaseLimiter()
+    monkeypatch.setattr(vacli_backend, "_lease_concurrency", limiter)
+    popen_calls: list[list[str]] = []
+
+    class Process:
+        pid = 12352
+        returncode: int | None = None
+
+        def poll(self) -> int | None:
+            return self.returncode
+
+        def wait(self, timeout: float) -> int:
+            if failure == "wait":
+                raise subprocess.TimeoutExpired("vacli", timeout)
+            return 0
+
+    prior_process = Process()
+
+    class Subprocess:
+        STDOUT = subprocess.STDOUT
+        TimeoutExpired = subprocess.TimeoutExpired
+
+        @staticmethod
+        def Popen(command, **kwargs):
+            popen_calls.append(command)
+            return Process()
+
+    monkeypatch.setattr(vacli_backend.os, "getpgid", lambda pid: pid)
+
+    def killpg(pid: int, sent_signal: signal.Signals) -> None:
+        if failure == "kill":
+            raise PermissionError
+
+    monkeypatch.setattr(vacli_backend.os, "killpg", killpg)
+    lease = vacli_backend.VacliLease(
+        "test-tenant",
+        tmp_path / "lease.log",
+        subprocess_mod=Subprocess,
+    )
+    lease.proc = prior_process
+    lease.lease_response = '{"sessionId":{"id":"test"},"auth_token":{}}'
+
+    assert lease.restart_tunnel() is None
+    assert lease.proc is prior_process
+    assert popen_calls == []
+    assert (limiter.acquired, limiter.released) == (1, 1)
+    assert lease._cleaned_up is False
+
+    prior_process.returncode = 0
+    lease.cleanup()
 
 
 def test_vmvm_provisioning_cancel_stops_live_partial_lease(

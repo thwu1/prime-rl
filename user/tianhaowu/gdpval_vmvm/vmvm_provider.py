@@ -1,10 +1,8 @@
 from __future__ import annotations
 
 import json
-import logging
 import math
 import shlex
-import subprocess
 import sys
 import threading
 import types
@@ -34,17 +32,12 @@ if "vmvm_tb_v2" not in sys.modules:
 from vmvm_tb_v2._vacli import backend as vacli_backend
 from vmvm_tb_v2._vacli.backend import VacliVMVMBackend, VacliVMVMConfig
 
-logger = logging.getLogger(__name__)
 _LEASE_CLASS_LOCK = threading.Lock()
 
 
 class _PreloadedImageLease(vacli_backend.VacliLease):
-    def start(self) -> None:
-        vacli_backend._lease_concurrency.acquire()
-        self._concurrency_held = True
+    def _lease_command(self) -> list[str]:
         command = [
-            "stdbuf",
-            "-oL",
             vacli_backend.VACLI_BIN,
             "--x2p",
             "--tiername",
@@ -61,20 +54,7 @@ class _PreloadedImageLease(vacli_backend.VacliLease):
         ]
         if self._image_url:
             command.extend(["--tier-overrides", f"img:{self._image_url}"])
-        logger.info("vacli: leasing GDPval VM with preloaded image %s", self._image_url)
-        try:
-            with self.log_path.open("wb") as log:
-                popen_kwargs: dict[str, Any] = {
-                    "stdout": log,
-                    "stderr": self._sp.STDOUT,
-                    "process_group": 0,
-                }
-                if self._sp is subprocess:
-                    popen_kwargs["preexec_fn"] = vacli_backend._child_pdeathsig
-                self.proc = self._sp.Popen(command, **popen_kwargs)
-        except Exception:
-            self._release_concurrency_slot()
-            raise
+        return command
 
 
 class _PreloadedImageBackend(VacliVMVMBackend):

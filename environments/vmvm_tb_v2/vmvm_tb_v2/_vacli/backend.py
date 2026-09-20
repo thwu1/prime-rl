@@ -40,6 +40,7 @@ import re
 import shlex
 import signal
 import subprocess
+import sys
 import tarfile
 import tempfile
 import threading
@@ -76,6 +77,29 @@ MAVEN_PROXY_OPTS = (
 )
 
 _PR_SET_PDEATHSIG = 1
+_VACLI_SPAWN_OWNER_LIVENESS_POLL_SECONDS = 0.1
+_VACLI_SPAWN_TIMEOUT_SECONDS = 30.0
+_VACLI_FORCED_REAP_TIMEOUT_SECONDS = 5.0
+_PDEATHSIG_EXEC_WRAPPER = """\
+import ctypes
+import os
+import signal
+import sys
+
+libc = ctypes.CDLL("libc.so.6", use_errno=True)
+if libc.prctl(1, signal.SIGTERM, 0, 0, 0) != 0:
+    os._exit(126)
+try:
+    if os.getppid() != int(sys.argv[1]):
+        raise ValueError
+    with open(f"/proc/{int(sys.argv[1])}/task/{int(sys.argv[2])}/stat") as task_stat:
+        fields = task_stat.read().rpartition(")")[2].split()
+    if len(fields) <= 19 or int(fields[19]) != int(sys.argv[3]):
+        raise ValueError
+except (OSError, ValueError):
+    os._exit(125)
+os.execv(sys.argv[4], sys.argv[4:])
+"""
 try:
     _libc = ctypes.CDLL("libc.so.6", use_errno=True)
 except OSError:
@@ -85,11 +109,279 @@ except OSError:
 def _child_pdeathsig() -> None:
     """preexec_fn for the vacli child: one prctl syscall (fork-safe).
     PR_SET_PDEATHSIG makes the kernel send this child SIGTERM the moment its
-    parent (the env worker) dies -- even on a hard SIGKILL of the worker -- so
-    vacli's --release-on-exit fires and the VM is freed instead of orphaned.
+    parent (the process-lifetime spawn thread) dies -- even on a hard SIGKILL
+    of the worker process -- so vacli's --release-on-exit fires and the VM is
+    freed instead of orphaned.
     """
     if _libc is not None:
         _libc.prctl(_PR_SET_PDEATHSIG, signal.SIGTERM)
+
+
+@dataclass
+class _LeaseConcurrencyPermit:
+    limiter: Any
+    _state: Literal["local", "owner", "lease", "released"] = "local"
+    _lock: threading.Lock = field(default_factory=threading.Lock)
+
+    def transfer_to_owner(self) -> None:
+        with self._lock:
+            if self._state != "local":
+                raise RuntimeError(f"cannot transfer {self._state} lease permit to spawn owner")
+            self._state = "owner"
+
+    def transfer_to_lease(self) -> None:
+        with self._lock:
+            if self._state not in ("local", "owner"):
+                raise RuntimeError(f"cannot transfer {self._state} lease permit to lease")
+            self._state = "lease"
+
+    def release(self) -> None:
+        with self._lock:
+            if self._state == "released":
+                return
+            self._state = "released"
+        self.limiter.release()
+
+    @property
+    def state(self) -> Literal["local", "owner", "lease", "released"]:
+        with self._lock:
+            return self._state
+
+
+@dataclass
+class _VacliSpawnRequest:
+    command: list[str]
+    kwargs: dict[str, Any]
+    publish: Any
+    permit: _LeaseConcurrencyPermit
+    cleanup_timeout: float
+    ready: threading.Event = field(default_factory=threading.Event)
+    resolved: threading.Event = field(default_factory=threading.Event)
+    abandoned: threading.Event = field(default_factory=threading.Event)
+    lock: threading.Lock = field(default_factory=threading.Lock)
+    state: Literal["queued", "spawning", "publishing", "published", "resolved"] = "queued"
+    published: bool = False
+    process: Any = None
+    error: BaseException | None = None
+
+
+class _VacliSpawnOwner:
+    """Own one real vacli child for its complete process lifetime."""
+
+    def __init__(self, pid: int, popen_impl: Any = None) -> None:
+        self.pid = pid
+        self._popen_impl = subprocess.Popen if popen_impl is None else popen_impl
+        self._thread: threading.Thread | None = None
+
+    def popen(
+        self,
+        command: list[str],
+        *,
+        publish: Any,
+        permit: _LeaseConcurrencyPermit,
+        cleanup_timeout: float,
+        spawn_timeout: float,
+        **kwargs: Any,
+    ) -> None:
+        if os.getpid() != self.pid:
+            _get_vacli_spawn_owner().popen(
+                command,
+                publish=publish,
+                permit=permit,
+                cleanup_timeout=cleanup_timeout,
+                spawn_timeout=spawn_timeout,
+                **kwargs,
+            )
+            return
+        request = _VacliSpawnRequest(command, kwargs, publish, permit, cleanup_timeout)
+        owner_thread = threading.Thread(
+            target=self._run,
+            args=(request,),
+            name="vacli-spawn-owner",
+            daemon=True,
+        )
+        self._thread = owner_thread
+        deadline = time.monotonic() + spawn_timeout
+        try:
+            permit.transfer_to_owner()
+            owner_thread.start()
+            if not self._wait_until_ready(request, owner_thread, deadline):
+                if not owner_thread.is_alive():
+                    raise RuntimeError("vacli spawn owner exited before process creation completed")
+                raise TimeoutError(f"vacli process creation exceeded {spawn_timeout}s")
+            if request.error is not None:
+                raise request.error
+        except BaseException:
+            self._abandon_and_wait(request, owner_thread, deadline)
+            if not owner_thread.is_alive():
+                permit.release()
+            raise
+
+    def _run(self, request: _VacliSpawnRequest) -> None:
+        process = None
+        try:
+            with request.lock:
+                if request.abandoned.is_set():
+                    return
+                request.state = "spawning"
+            parent_tid = threading.get_native_id()
+            parent_start_ticks = _task_start_ticks(self.pid, parent_tid)
+            wrapped_command = _pdeathsig_exec_command(
+                request.command,
+                self.pid,
+                parent_tid,
+                parent_start_ticks,
+            )
+            process = self._popen_impl(wrapped_command, **request.kwargs)
+            with request.lock:
+                request.process = process
+                request.state = "publishing"
+            with request.lock:
+                if not request.abandoned.is_set():
+                    request.publish(process, request.permit)
+                    request.published = True
+                    request.state = "published"
+            request.ready.set()
+            if request.abandoned.is_set() or not request.published:
+                _terminate_and_reap_spawned_vacli(process, request.cleanup_timeout)
+                return
+            while process.poll() is None:
+                if request.abandoned.wait(_VACLI_SPAWN_OWNER_LIVENESS_POLL_SECONDS):
+                    _terminate_and_reap_spawned_vacli(process, request.cleanup_timeout)
+                    return
+        except BaseException as error:
+            request.error = error
+            request.ready.set()
+            if process is not None:
+                _terminate_and_reap_spawned_vacli(process, request.cleanup_timeout)
+        finally:
+            with request.lock:
+                request.state = "resolved"
+            request.permit.release()
+            request.ready.set()
+            request.resolved.set()
+
+    def _wait_until_ready(
+        self,
+        request: _VacliSpawnRequest,
+        owner_thread: threading.Thread,
+        deadline: float,
+    ) -> bool:
+        while True:
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                return request.ready.is_set()
+            if request.ready.wait(min(_VACLI_SPAWN_OWNER_LIVENESS_POLL_SECONDS, remaining)):
+                return True
+            if not owner_thread.is_alive():
+                return request.ready.is_set()
+
+    def _abandon_and_wait(
+        self,
+        request: _VacliSpawnRequest,
+        owner_thread: threading.Thread,
+        spawn_deadline: float,
+    ) -> None:
+        while True:
+            try:
+                with request.lock:
+                    request.abandoned.set()
+                break
+            except BaseException:
+                continue
+        resolution_deadline = spawn_deadline
+        cleanup_deadline_set = False
+        while not request.resolved.is_set():
+            if request.ready.is_set() and not cleanup_deadline_set:
+                resolution_deadline = max(
+                    resolution_deadline,
+                    time.monotonic() + request.cleanup_timeout + _VACLI_FORCED_REAP_TIMEOUT_SECONDS,
+                )
+                cleanup_deadline_set = True
+            remaining = resolution_deadline - time.monotonic()
+            if remaining <= 0 or not owner_thread.is_alive():
+                return
+            try:
+                request.resolved.wait(min(_VACLI_SPAWN_OWNER_LIVENESS_POLL_SECONDS, remaining))
+            except BaseException:
+                continue
+
+
+def _task_start_ticks(pid: int, tid: int) -> int:
+    fields = Path(f"/proc/{pid}/task/{tid}/stat").read_text().rpartition(")")[2].split()
+    if len(fields) <= 19:
+        raise RuntimeError("unable to read vacli spawn-owner thread identity")
+    return int(fields[19])
+
+
+def _pdeathsig_exec_command(
+    command: list[str],
+    parent_pid: int,
+    parent_tid: int,
+    parent_start_ticks: int | None = None,
+) -> list[str]:
+    if parent_start_ticks is None:
+        parent_start_ticks = _task_start_ticks(parent_pid, parent_tid)
+    return [
+        sys.executable,
+        "-I",
+        "-S",
+        "-B",
+        "-c",
+        _PDEATHSIG_EXEC_WRAPPER,
+        str(parent_pid),
+        str(parent_tid),
+        str(parent_start_ticks),
+        *command,
+    ]
+
+
+def _terminate_and_reap_spawned_vacli(process: Any, cleanup_timeout: float) -> None:
+    if process.poll() is not None:
+        return
+    try:
+        os.killpg(os.getpgid(process.pid), signal.SIGTERM)
+    except (ProcessLookupError, PermissionError):
+        pass
+    try:
+        process.wait(timeout=max(0.0, cleanup_timeout))
+        return
+    except subprocess.TimeoutExpired:
+        pass
+    try:
+        os.killpg(os.getpgid(process.pid), signal.SIGKILL)
+    except (ProcessLookupError, PermissionError):
+        pass
+    try:
+        process.wait(timeout=_VACLI_FORCED_REAP_TIMEOUT_SECONDS)
+    except subprocess.TimeoutExpired:
+        logger.error("vacli spawn owner could not reap PID %d after SIGKILL", process.pid)
+
+
+def _get_vacli_spawn_owner() -> _VacliSpawnOwner:
+    return _VacliSpawnOwner(os.getpid())
+
+
+def _popen_vacli(
+    command: list[str],
+    stdout: Any,
+    subprocess_mod: Any,
+    publish: Any,
+    permit: _LeaseConcurrencyPermit,
+    cleanup_timeout: float,
+) -> None:
+    kwargs = dict(stdout=stdout, stderr=subprocess_mod.STDOUT, process_group=0)
+    if subprocess_mod is subprocess:
+        _get_vacli_spawn_owner().popen(
+            command,
+            publish=publish,
+            permit=permit,
+            cleanup_timeout=cleanup_timeout,
+            spawn_timeout=_VACLI_SPAWN_TIMEOUT_SECONDS,
+            **kwargs,
+        )
+        return
+    publish(subprocess_mod.Popen(command, **kwargs), permit)
 
 
 # Cap concurrent in-flight vacli leases per process: bursts of simultaneous
@@ -265,6 +557,12 @@ class _VacliNetworkIsolation:
     allowed_tunnel_ports: set[int] = field(default_factory=set)
 
 
+@dataclass
+class _VacliRestartFlight:
+    completed: threading.Event = field(default_factory=threading.Event)
+    result: int | None = None
+
+
 # ---------------------------------------------------------------------------
 # Lease + SSH helpers — small, reusable, easy to stub
 # ---------------------------------------------------------------------------
@@ -307,9 +605,11 @@ class VacliLease:
         self.proc: Any = None
         self.ssh_port: int | None = None
         self._cleaned_up = False
+        self._cleanup_requested = threading.Event()
         self._cleanup_lock = threading.Lock()
-        self._concurrency_state_lock = threading.Lock()
-        self._concurrency_held = False
+        self._pending_tunnel: tuple[Any, _LeaseConcurrencyPermit, Path] | None = None
+        self._restart_state_lock = threading.Lock()
+        self._restart_flight: _VacliRestartFlight | None = None
         # Raw LeaseVmResponse JSON (captured from the lease log) — input to
         # `--resume-with-session` when re-establishing a dropped tunnel.
         self.lease_response: str | None = None
@@ -317,9 +617,20 @@ class VacliLease:
         self._resume_count = 0
         atexit.register(self.cleanup)
 
-    def start(self) -> None:
-        self._acquire_concurrency_slot()
-        cmd = [
+    def _publish_process(
+        self,
+        process: Any,
+        permit: _LeaseConcurrencyPermit,
+        log_path: Path,
+    ) -> None:
+        permit.transfer_to_lease()
+        self.proc = process
+        self._pending_tunnel = (process, permit, log_path)
+
+    def _lease_command(self) -> list[str]:
+        # Standard VMVM images are pulled inside the VM. Specialized providers
+        # may override this command to request a preloaded image tier.
+        return [
             VACLI_BIN,
             "--x2p",
             "--faas-tenant-id",
@@ -332,56 +643,84 @@ class VacliLease:
             "22",
             "--release-on-exit",
         ]
-        # NOTE: image pre-pull via --tier-overrides removed; podman pull
-        # inside the VM uses vmvm-registry.fbinfra.net mirror instead.
-        logger.info(f"vacli: leasing VMVM (tenant={self.tenant_id}); log={self.log_path}")
-        with self._cleanup_lock:
-            if self._cleaned_up or (self._cancel_event is not None and self._cancel_event.is_set()):
-                self._release_concurrency_slot()
-                raise BackendInitError("VMVM provisioning cancelled before lease start")
-            try:
+
+    def start(self) -> None:
+        permit: _LeaseConcurrencyPermit | None = None
+        try:
+            permit = self._acquire_concurrency_slot()
+            cmd = self._lease_command()
+            logger.info(f"vacli: leasing VMVM (tenant={self.tenant_id}); log={self.log_path}")
+            with self._cleanup_lock:
+                if (
+                    self._cleaned_up
+                    or self._cleanup_requested.is_set()
+                    or (self._cancel_event is not None and self._cancel_event.is_set())
+                ):
+                    raise BackendInitError("VMVM provisioning cancelled before lease start")
                 # `with open(...)` closes the parent's fd after Popen returns;
                 # the child has already inherited its own dup'd copy after Popen.
-                with open(self.log_path, "wb") as log_fh:
-                    _popen_kwargs = dict(
-                        stdout=log_fh,
-                        stderr=self._sp.STDOUT,
-                        process_group=0,
+                log_path = self.log_path
+                with open(log_path, "wb") as log_fh:
+                    _popen_vacli(
+                        cmd,
+                        log_fh,
+                        self._sp,
+                        lambda process, owned_permit: self._publish_process(
+                            process,
+                            owned_permit,
+                            log_path,
+                        ),
+                        permit,
+                        self.cleanup_timeout,
                     )
-                    if self._sp is subprocess:
-                        # Parent death closes vacli, whose release-on-exit then
-                        # releases the lease even if Python teardown cannot run.
-                        _popen_kwargs["preexec_fn"] = _child_pdeathsig
-                    self.proc = self._sp.Popen(cmd, **_popen_kwargs)
-            except Exception:
-                self._release_concurrency_slot()
-                raise
-            if self._cancel_event is not None and self._cancel_event.is_set():
-                self._cleanup_locked()
-                raise BackendInitError("VMVM provisioning cancelled during lease start")
+                if self._cleanup_requested.is_set() or (self._cancel_event is not None and self._cancel_event.is_set()):
+                    self._cleanup_locked()
+                    raise BackendInitError("VMVM provisioning cancelled during lease start")
+        except Exception:
+            self._resolve_failed_spawn(permit)
+            raise
+        except BaseException:
+            self._resolve_failed_spawn(permit)
+            raise
 
-    def wait_for_tunnel(self) -> int:
+    def wait_for_tunnel(
+        self,
+        *,
+        expected_process: Any = None,
+        permit: _LeaseConcurrencyPermit | None = None,
+        log_path: Path | None = None,
+    ) -> int:
         """Poll the vacli log for the tunnel mapping; return the local port for vm_port=22.
 
         Per [[vacli-coreweave-stderr-noise]]: we look at stdout content, not
         exit code or stderr. The success signal is the JSON tunnel mapping
         being printed to stdout.
         """
-        if self.proc is None:
-            raise BackendInitError("vacli lease never started; call .start() first")
+        with self._cleanup_lock:
+            process = self.proc if expected_process is None else expected_process
+            pending = self._pending_tunnel
+            if pending is not None and pending[0] is process:
+                if permit is None:
+                    permit = pending[1]
+                if log_path is None:
+                    log_path = pending[2]
+            if log_path is None:
+                log_path = self.log_path
+            if process is None:
+                raise BackendInitError("vacli lease never started; call .start() first")
         try:
             deadline = time.time() + self.tunnel_ready_timeout
             while time.time() < deadline:
-                if self._cancel_event is not None and self._cancel_event.is_set():
+                if self._cleanup_requested.is_set() or (self._cancel_event is not None and self._cancel_event.is_set()):
                     raise BackendInitError("VMVM provisioning cancelled while waiting for lease")
                 # If vacli died, the lease is gone; surface a useful tail.
-                if self.proc.poll() is not None:
-                    tail = self._log_tail(20)
+                if process.poll() is not None:
+                    tail = self._log_tail(20, log_path)
                     raise BackendInitError(
-                        f"vacli died before tunnel was ready (exit {self.proc.returncode}). Tail of log:\n{tail}"
+                        f"vacli died before tunnel was ready (exit {process.returncode}). Tail of log:\n{tail}"
                     )
                 try:
-                    text = self.log_path.read_text(errors="replace")
+                    text = log_path.read_text(errors="replace")
                 except FileNotFoundError:
                     text = ""
                 # Capture the LeaseVmResponse once (needed later for resume).
@@ -398,21 +737,38 @@ class VacliLease:
                         continue
                     for t in tunnels:
                         if t.get("vm_port") == 22:
-                            self.ssh_port = int(t["local_port"])
+                            port = int(t["local_port"])
+                            with self._cleanup_lock:
+                                if (
+                                    self._cleaned_up
+                                    or self._cleanup_requested.is_set()
+                                    or self.proc is not process
+                                    or process.poll() is not None
+                                ):
+                                    raise BackendInitError("vacli tunnel became stale during readiness")
+                                self.ssh_port = port
                             if TELEMETRY is not None:
                                 TELEMETRY.lease_tunnel_became_ready()
-                            logger.info(f"vacli: tunnel ready, ssh port = {self.ssh_port}")
-                            return self.ssh_port
+                            logger.info(f"vacli: tunnel ready, ssh port = {port}")
+                            return port
                 if self._cancel_event is None:
                     time.sleep(1)
                 elif self._cancel_event.wait(timeout=1):
                     raise BackendInitError("VMVM provisioning cancelled while waiting for lease")
             raise BackendInitError(
                 f"vacli never printed tunnel mapping in {self.tunnel_ready_timeout}s. "
-                f"Tail of log:\n{self._log_tail(30)}"
+                f"Tail of log:\n{self._log_tail(30, log_path)}"
             )
         finally:
-            self._release_concurrency_slot()
+            with self._cleanup_lock:
+                if (
+                    self._pending_tunnel is not None
+                    and self._pending_tunnel[0] is process
+                    and self._pending_tunnel[1] is permit
+                ):
+                    self._pending_tunnel = None
+            if permit is not None:
+                permit.release()
 
     def restart_tunnel(self) -> "int | None":
         """Re-establish the x2p tunnel to the SAME VM after a dropped tunnel,
@@ -426,31 +782,30 @@ class VacliLease:
 
         Validated: SIGKILL keeps the VM alive and resume reconnects to it with
         files intact (see scripts/_resume_e2e_test.sh)."""
+        with self._restart_state_lock:
+            flight = self._restart_flight
+            if flight is not None and not flight.completed.is_set():
+                leader = False
+            else:
+                flight = _VacliRestartFlight()
+                self._restart_flight = flight
+                leader = True
+        if not leader:
+            flight.completed.wait()
+            return flight.result
+        try:
+            result = self._restart_tunnel_once()
+        except BaseException:
+            flight.completed.set()
+            raise
+        flight.result = result
+        flight.completed.set()
+        return result
+
+    def _restart_tunnel_once(self) -> int | None:
         if not self.lease_response:
             logger.warning("vacli.restart_tunnel: no LeaseVmResponse captured; cannot resume")
             return None
-        # Hard-kill the current vacli (NOT SIGTERM: that would release the VM).
-        if self.proc is not None and self.proc.poll() is None:
-            try:
-                os.killpg(os.getpgid(self.proc.pid), signal.SIGKILL)
-            except (ProcessLookupError, PermissionError):
-                pass
-            try:
-                self.proc.wait(timeout=10)
-            except Exception:
-                pass
-        self.proc = None
-        self.ssh_port = None
-        self._resume_count += 1
-        # Fresh log per resume so wait_for_tunnel() parses the new mapping. Unlink
-        # the prior log first so repeated resumes don't accumulate files on the host.
-        _old_log = self.log_path
-        base = self.log_path.name.split(".resume")[0]
-        self.log_path = self.log_path.with_name(f"{base}.resume{self._resume_count}.log")
-        try:
-            _old_log.unlink()
-        except (FileNotFoundError, OSError):
-            pass
         cmd = [
             VACLI_BIN,
             "--x2p",
@@ -466,77 +821,143 @@ class VacliLease:
             "22",
             "--release-on-exit",
         ]
-        logger.info("vacli.restart_tunnel: resuming session (attempt %d)", self._resume_count)
         # Respect the bring-up concurrency cap (released by wait_for_tunnel's finally).
-        self._acquire_concurrency_slot()
+        prior_process = self.proc
+        permit: _LeaseConcurrencyPermit | None = None
+        process = None
+        log_path = self.log_path
         try:
-            with open(self.log_path, "wb") as log_fh:
-                _popen_kwargs = dict(stdout=log_fh, stderr=self._sp.STDOUT, process_group=0)
-                if self._sp is subprocess:
-                    _popen_kwargs["preexec_fn"] = _child_pdeathsig
-                self.proc = self._sp.Popen(cmd, **_popen_kwargs)
+            permit = self._acquire_concurrency_slot()
+            with self._cleanup_lock:
+                if self._cleaned_up or self._cleanup_requested.is_set():
+                    raise BackendInitError("VMVM cleanup started before tunnel resume")
+                # Hard-kill the current vacli (NOT SIGTERM: that would release the VM).
+                if self.proc is not None and not self._stop_prior_for_resume_locked(self.proc):
+                    raise BackendInitError("prior vacli process could not be reaped before tunnel resume")
+                old_pending = self._take_pending_tunnel_locked(self.proc)
+                if old_pending is not None:
+                    old_pending.release()
+                self.proc = None
+                self.ssh_port = None
+                self._resume_count += 1
+                logger.info("vacli.restart_tunnel: resuming session (attempt %d)", self._resume_count)
+                # Fresh log per resume so wait_for_tunnel() parses the new mapping.
+                _old_log = self.log_path
+                base = self.log_path.name.split(".resume")[0]
+                log_path = self.log_path.with_name(f"{base}.resume{self._resume_count}.log")
+                self.log_path = log_path
+                try:
+                    _old_log.unlink()
+                except (FileNotFoundError, OSError):
+                    pass
+                with open(log_path, "wb") as log_fh:
+                    _popen_vacli(
+                        cmd,
+                        log_fh,
+                        self._sp,
+                        lambda spawned_process, owned_permit: self._publish_process(
+                            spawned_process,
+                            owned_permit,
+                            log_path,
+                        ),
+                        permit,
+                        self.cleanup_timeout,
+                    )
+                process = self.proc
+                if self._cleanup_requested.is_set():
+                    self._cleanup_locked()
+                    raise BackendInitError("VMVM cleanup started during tunnel resume")
         except Exception as e:
-            self._release_concurrency_slot()
+            self._resolve_failed_spawn(permit, prior_process)
             logger.warning("vacli.restart_tunnel: failed to spawn resume vacli: %s", e)
             return None
+        except BaseException:
+            self._resolve_failed_spawn(permit, prior_process)
+            raise
+        assert permit is not None
+        assert process is not None
         try:
-            return self.wait_for_tunnel()  # sets self.ssh_port; releases the slot
+            return self.wait_for_tunnel(
+                expected_process=process,
+                permit=permit,
+                log_path=log_path,
+            )
         except BackendInitError as e:
             logger.warning("vacli.restart_tunnel: resume tunnel not ready: %s", e)
             return None
 
     def cleanup(self) -> None:
+        self._cleanup_requested.set()
         with self._cleanup_lock:
             self._cleanup_locked()
 
     def _cleanup_locked(self) -> None:
-        if self._cleaned_up or self.proc is None or self.proc.poll() is not None:
-            self._cleaned_up = True
-            self._release_concurrency_slot()
-            return
+        pending_permit = self._take_pending_tunnel_locked()
         self._cleaned_up = True
-        logger.info("vacli: SIGTERM — releasing lease (--release-on-exit)")
         try:
-            os.killpg(os.getpgid(self.proc.pid), signal.SIGTERM)
-        except (ProcessLookupError, PermissionError):
-            pass
-        try:
-            self.proc.wait(timeout=self.cleanup_timeout)
-        except self._sp.TimeoutExpired:
-            logger.warning(f"vacli: alive after {self.cleanup_timeout}s; SIGKILL (lease will expire via TTL)")
+            if self.proc is None or self.proc.poll() is not None:
+                return
+            logger.info("vacli: SIGTERM — releasing lease (--release-on-exit)")
             try:
-                os.killpg(os.getpgid(self.proc.pid), signal.SIGKILL)
+                os.killpg(os.getpgid(self.proc.pid), signal.SIGTERM)
             except (ProcessLookupError, PermissionError):
                 pass
             try:
-                self.proc.wait(timeout=5)  # reap so vacli doesn't linger as a zombie
-            except Exception:
-                pass
-        # Defensive: release if start() succeeded but wait_for_tunnel never ran.
-        self._release_concurrency_slot()
+                self.proc.wait(timeout=self.cleanup_timeout)
+            except self._sp.TimeoutExpired:
+                logger.warning(f"vacli: alive after {self.cleanup_timeout}s; SIGKILL (lease will expire via TTL)")
+                try:
+                    os.killpg(os.getpgid(self.proc.pid), signal.SIGKILL)
+                except (ProcessLookupError, PermissionError):
+                    pass
+                try:
+                    self.proc.wait(timeout=5)  # reap so vacli doesn't linger as a zombie
+                except Exception:
+                    pass
+        finally:
+            if pending_permit is not None:
+                pending_permit.release()
 
-    def _acquire_concurrency_slot(self) -> None:
+    def _acquire_concurrency_slot(self) -> _LeaseConcurrencyPermit:
         if not _lease_concurrency.acquire(cancel_event=self._cancel_event):
             raise BackendInitError("VMVM provisioning cancelled while waiting for lease capacity")
-        with self._concurrency_state_lock:
-            self._concurrency_held = True
+        return _LeaseConcurrencyPermit(_lease_concurrency)
 
-    def _release_concurrency_slot(self) -> None:
-        """Release the `_lease_concurrency` slot if held. Idempotent."""
-        release = False
-        with self._concurrency_state_lock:
-            if self._concurrency_held:
-                self._concurrency_held = False
-                release = True
-        if release:
-            try:
-                _lease_concurrency.release()
-            except ValueError:
-                pass
+    def _take_pending_tunnel_locked(self, process: Any = None) -> _LeaseConcurrencyPermit | None:
+        pending = self._pending_tunnel
+        if pending is None or (process is not None and pending[0] is not process):
+            return None
+        self._pending_tunnel = None
+        return pending[1]
 
-    def _log_tail(self, n: int) -> str:
+    def _stop_prior_for_resume_locked(self, process: Any) -> bool:
         try:
-            lines = self.log_path.read_text(errors="replace").splitlines()
+            if process.poll() is not None:
+                return True
+            process_group = os.getpgid(process.pid)
+            os.killpg(process_group, signal.SIGKILL)
+            process.wait(timeout=10)
+            return process.poll() is not None
+        except (ProcessLookupError, PermissionError, self._sp.TimeoutExpired):
+            return False
+
+    def _resolve_failed_spawn(
+        self,
+        permit: _LeaseConcurrencyPermit | None,
+        prior_process: Any = None,
+    ) -> None:
+        if permit is None:
+            return
+        if permit.state == "owner":
+            return
+        if permit.state == "lease" and self.proc is not prior_process:
+            self.cleanup()
+            return
+        permit.release()
+
+    def _log_tail(self, n: int, log_path: Path | None = None) -> str:
+        try:
+            lines = (self.log_path if log_path is None else log_path).read_text(errors="replace").splitlines()
         except FileNotFoundError:
             return "(log file not found)"
         return "\n".join("  " + ln for ln in lines[-n:])
