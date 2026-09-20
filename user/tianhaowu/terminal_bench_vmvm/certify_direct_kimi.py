@@ -39,7 +39,8 @@ from direct_kimi_workers import (
 from eval_run_identity import canonical_json, load_eval_run_identity
 
 SHA256_RE = re.compile(r"[0-9a-f]{64}")
-SMOKE_TASK_COUNT = 1
+SMOKE_APPROVED_TASK_COUNT = 2
+SMOKE_RESULT_COUNT = 1
 TB4_MIN_SUPPORTED_PASS_RATE = 0.04
 TB4_MAX_SUPPORTED_PASS_RATE = 0.22
 MAX_SEQUENCE_TOKENS = 262_144
@@ -335,19 +336,20 @@ def certify_smoke(
         envelope, manifest = _validate_identity(
             run_dir,
             role="kimi-direct-smoke",
-            expected_count=SMOKE_TASK_COUNT,
+            expected_count=SMOKE_APPROVED_TASK_COUNT,
         )
         identity = envelope["identity"]
         capacity_scope = _capacity_limited_smoke_scope(identity)
         expected_slugs = _validate_task_selection(identity, expected_task_file, expected_task_file_sha256)
-        if len(expected_slugs) != SMOKE_TASK_COUNT:
+        if len(expected_slugs) != SMOKE_APPROVED_TASK_COUNT:
             raise DirectKimiCertificateError("task_selection_invalid")
+        executed_slugs = sorted(expected_slugs)[:SMOKE_RESULT_COUNT]
         results = run_dir / "results.jsonl"
         before = _sha256(results)
         summary, failed = _summarize_traces(
             _iter_traces(results),
-            expected_slugs=expected_slugs,
-            expected_count=SMOKE_TASK_COUNT,
+            expected_slugs=executed_slugs,
+            expected_count=SMOKE_RESULT_COUNT,
             rollouts_per_task=1,
             require_reasoning=True,
             require_token_data=False,
@@ -359,7 +361,7 @@ def certify_smoke(
             require_exact_provider_json=True,
             max_sequence_tokens=MAX_SEQUENCE_TOKENS,
         )
-        if failed or summary.get("model_io_turns", 0) < SMOKE_TASK_COUNT or summary.get("sampled_tokens", 0) < 1:
+        if failed or summary.get("model_io_turns", 0) < SMOKE_RESULT_COUNT or summary.get("sampled_tokens", 0) < 1:
             raise DirectKimiCertificateError("trace_audit_failed")
         if _sha256(results) != before:
             raise DirectKimiCertificateError("results_changed")
@@ -371,8 +373,8 @@ def certify_smoke(
         )
         cleanup, cleanup_raw = _validate_cleanup(
             run_dir / "sandoq_cleanup_audit.json",
-            expected_count=SMOKE_TASK_COUNT,
-            expected_concurrency=SMOKE_TASK_COUNT,
+            expected_count=SMOKE_RESULT_COUNT,
+            expected_concurrency=SMOKE_RESULT_COUNT,
             require_saturation=False,
         )
         artifacts = _common_artifacts(run_dir)
