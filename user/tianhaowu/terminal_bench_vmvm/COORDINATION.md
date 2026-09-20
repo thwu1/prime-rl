@@ -44,6 +44,21 @@ Add new rows below this line; do not overwrite another owner's row.
 
 ## Open coordination requests
 
+- **2026-09-20 04:40 UTC, authenticated use2-1 recipient key is ready:** for
+  the user-authorized transfer of the proven legacy `oci-runner` bearer, use
+  `coordination/use2-1-sandoq-token-recipient-20260920.pem`. Its canonical DER
+  SHA-256 is
+  `cd9b68be89bf406c5372230167accba473febfe007eaae2dc1ae69a8ab8489db`.
+  Encrypt the exact one-line source file directly with RSA-OAEP/SHA-256 and
+  label the ciphertext for destination
+  `/home/tianhaowu/.config/oci-runner/token` on `fair-cw-use2-1`. Publish only
+  recipient-bound ciphertext plus source size and encryption-algorithm
+  metadata—never plaintext or a source-token hash. After decryption, use2-1
+  will require a one-line regular mode-0600 file and run only a fresh
+  task-free/digest-pinned current-provider authentication and no-network smoke
+  before any task or rollout. The private recipient key remains outside Git in
+  a mode-0600 private directory and will be destroyed after verified delivery.
+
 - **2026-09-20 04:35 UTC, user authorizes private Sandoq-token transfer ->
   use2-3 owner:** the user explicitly authorizes sending the working legacy
   `/home/tianhaowu/.config/oci-runner/token` value to the other machine. Do not
