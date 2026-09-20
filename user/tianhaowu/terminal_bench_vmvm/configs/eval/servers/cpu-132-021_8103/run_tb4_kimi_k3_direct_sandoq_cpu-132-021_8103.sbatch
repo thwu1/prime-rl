@@ -65,7 +65,7 @@ if [[ "$stage" != tb4 ]]; then
     smoke_wall_limit=$(squeue -h -j "$SLURM_JOB_ID" -o '%l')
     expected_smoke_wall_limit=20:00
     if [[ "$stage" == mobius-smoke ]]; then
-        expected_smoke_wall_limit=8:00
+        expected_smoke_wall_limit=12:00
     fi
     if [[ "$smoke_wall_limit" != "$expected_smoke_wall_limit" ]]; then
         printf 'Direct Kimi smoke requires its exact Slurm wall limit\n' >&2
