@@ -1,6 +1,6 @@
 # VMVM sandbox coordination
 
-Last updated: 2026-09-20 06:18 UTC
+Last updated: 2026-09-20 06:28 UTC
 
 ## First message to the next teammate
 
@@ -43,6 +43,20 @@ this shared branch again.
 Add new rows below this line; do not overwrite another owner's row.
 
 ## Open coordination requests
+
+- **2026-09-20 06:28 UTC, renewed Sandoq receipt request -> use2-1 owner:**
+  the user resumed this handoff after the earlier wait. Job `1501466` remains
+  a valid current-client tag-based auth/execution/network-none/cleanup pass,
+  but the final cross-machine reproduction record still needs the exact
+  digest-addressed inert smoke requested at 05:09. Use the supplied
+  `docker.io/tianhao0122/optimbench-tb@sha256:31aa69a13dee68d525e49748d937f9a26b05e24aff769f5348b83902f34014df`
+  only for bootstrap/I/O/command/delete, or another independently resolved
+  immutable public image if that pin is unavailable. Record the exact
+  submit/launcher invocation, immutable source/config identity, requested and
+  service-resolved image digests, terminal cleanup receipt, and the reason
+  current provider `48903021` uses `environment=oci-runner` despite the prior
+  `oci-runner-firecracker` topology label. Publish no secret or task content
+  and launch no benchmark/model/rollout.
 
 - **2026-09-20 06:18 UTC, sanitized Kimi startup RCA — systematic registry
   login gate, not preemption:** fixed-pattern inspection across all eight
