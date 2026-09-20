@@ -32,12 +32,12 @@ LOG_ROOT = BASE / "logs/k3_registry_direct_pull_gate_20260920t193000z_v31"
 LOCK = BASE / "locks/k3_registry_direct_pull_gate_20260920t193000z_v31.lock"
 # V31 is bound to the reviewed cleanup-safe direct-pull successor.
 SOURCE_BOUND = True
-SOURCE_ROOT = BASE / "sources/ram-common-69af238"
-SOURCE_BUNDLE = BASE / "sources/ram-common-69af238.bundle"
-SOURCE_REVISION = "69af238b4f86eec8e8cdb0b233bcdcb2052138a2"
-SOURCE_TREE = "79f2da98eeaa693fd2e3066597c57170e28c9e99"
-SOURCE_BUNDLE_SHA256 = "70c9ab91a9b623f33b43dd851756cdf52d1dbbc3b2294f33c1ded1f8ab46a76b"
-SOURCE_BUNDLE_SIZE = 5_446_176
+SOURCE_ROOT = BASE / "sources/ram-common-468a6e5"
+SOURCE_BUNDLE = BASE / "sources/ram-common-468a6e5.bundle"
+SOURCE_REVISION = "468a6e5b83ba51a8fe0389f1105f34dd18fa03f3"
+SOURCE_TREE = "bd6d81b7748c5055876100b9dc115eed8a764fe0"
+SOURCE_BUNDLE_SHA256 = "7aaeec5142d7d3e0fdaabebc441094e79300adb36aee370f8a397a3f356968a3"
+SOURCE_BUNDLE_SIZE = 5_436_664
 COMPUTE_PROBE_ROOT = BASE / "diagnostics/k3_compute_tool_manifest_diag_20260920t162000z_v5"
 COMPUTE_PROBE_PRIVATE = COMPUTE_PROBE_ROOT / "private_manifest.tsv"
 COMPUTE_PROBE_PRIVATE_SHA256 = "d2a6b3f58dc05eb6c329213a4190a70afdacfe66434240f6f022db6254d1c7a2"
@@ -62,7 +62,7 @@ AWS_CREDS = SOURCE_ROOT / "vllm_tools/serve_api_v2/src/serve_api_v2/worker/aws_c
 ARG_TEST = SOURCE_ROOT / "vllm_tools/serve_api_v2/tests/script_tests/smoke_container_args.sh"
 MODEL_CARD = SOURCE_ROOT / "vllm_tools/serve_api_v2/config/models/kimi-k3/card.toml"
 SOURCE_FILES = {
-    WORKER: "53eb89da40a6d0824ec24a5c4cb3474042af74f969aed1184375fbe1814c1bd8",
+    WORKER: "a73b75e3d1dc6bdef78842a5346db49a7e2f9649e661ce9e48424c5e05f3f6c5",
     AWS_CREDS: "f5f6abc7a2c8663a86f630a54ad41ff50efe85bca736dd7413e5882e036b4358",
     ARG_TEST: "6cc6f76dc55136ec0e63afb3469635949113903ba8c7ccc13ff2ca5c62cef677",
     MODEL_CARD: "af24f4a86e7dc0a360f5e68bcca82adf88dfb4847abc8c4d26aaebb4355adf8e",

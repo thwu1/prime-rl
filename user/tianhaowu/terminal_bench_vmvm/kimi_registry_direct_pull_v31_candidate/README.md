@@ -4,7 +4,7 @@ This candidate derives byte-for-byte from reviewed V30 commit
 `a7ae446d908e54e8449d4468c24002a14f30207f` before the V31 namespace and
 source-binding barrier were added. It remains bound to the completed V5
 compute-tool evidence and pinned to `g3-128-109`. V31 is bound to reviewed RAM
-Common successor `69af238b4f86eec8e8cdb0b233bcdcb2052138a2`, which adds fail-closed
+Common successor `468a6e5b83ba51a8fe0389f1105f34dd18fa03f3`, which adds fail-closed
 rank-0 process-group cleanup proof, early-signal coverage, cleanup-status
 propagation, and correct optional-hook handling on top of the direct-pull
 implementation.
@@ -177,7 +177,7 @@ alone.
 The approval is logically consumed when owner intent is published; the
 namespace and lock are intentionally single-use on success, failure, or signal.
 
-The rendered source fields bind the immutable `69af238` source root and bundle,
+The rendered source fields bind the immutable `468a6e5` source root and bundle,
 and `probe_registry_gate.sh` independently checks the same revision and tree.
 Regenerate `pending.json` after every candidate-byte change, rerun the complete
 offline suite and bound audit, and independently review the exact sealed bytes.

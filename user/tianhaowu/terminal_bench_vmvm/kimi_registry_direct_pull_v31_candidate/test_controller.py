@@ -227,11 +227,11 @@ def test_source_is_explicitly_bound_and_image_remains_bound() -> None:
     assert controller.SOURCE_BOUND is True
     assert contract["state"] == "approved_once"
     assert contract["source_bound"] is True
-    assert contract["source_root"] == "/checkpoint/ram/tianhaowu/terminal_bench_vmvm/sources/ram-common-69af238"
-    assert contract["source_revision"] == "69af238b4f86eec8e8cdb0b233bcdcb2052138a2"
-    assert contract["source_tree"] == "79f2da98eeaa693fd2e3066597c57170e28c9e99"
-    assert contract["source_bundle_sha256"] == "70c9ab91a9b623f33b43dd851756cdf52d1dbbc3b2294f33c1ded1f8ab46a76b"
-    assert controller.SOURCE_BUNDLE_SIZE == 5_446_176
+    assert contract["source_root"] == "/checkpoint/ram/tianhaowu/terminal_bench_vmvm/sources/ram-common-468a6e5"
+    assert contract["source_revision"] == "468a6e5b83ba51a8fe0389f1105f34dd18fa03f3"
+    assert contract["source_tree"] == "bd6d81b7748c5055876100b9dc115eed8a764fe0"
+    assert contract["source_bundle_sha256"] == "7aaeec5142d7d3e0fdaabebc441094e79300adb36aee370f8a397a3f356968a3"
+    assert controller.SOURCE_BUNDLE_SIZE == 5_436_664
     assert contract["image"].endswith("@" + controller.IMAGE_DIGEST)
     assert set(contract["source_files"]) == {
         "vllm_tools/serve_api_v2/config/models/kimi-k3/card.toml",
@@ -325,9 +325,9 @@ def test_probe_contains_exact_bound_source() -> None:
     probe = (HERE / "probe_registry_gate.sh").read_text()
     assert "ram-common-b1f0aa6" not in probe
     assert "adef5c3" not in probe
-    assert "expected_source_root=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/sources/ram-common-69af238" in probe
-    assert '"${GATE_SOURCE_REVISION:-}" == 69af238b4f86eec8e8cdb0b233bcdcb2052138a2' in probe
-    assert '"${GATE_SOURCE_TREE:-}" == 79f2da98eeaa693fd2e3066597c57170e28c9e99' in probe
+    assert "expected_source_root=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/sources/ram-common-468a6e5" in probe
+    assert '"${GATE_SOURCE_REVISION:-}" == 468a6e5b83ba51a8fe0389f1105f34dd18fa03f3' in probe
+    assert '"${GATE_SOURCE_TREE:-}" == bd6d81b7748c5055876100b9dc115eed8a764fe0' in probe
 
 
 @pytest.mark.parametrize("mode", ["audit", "execute"])
