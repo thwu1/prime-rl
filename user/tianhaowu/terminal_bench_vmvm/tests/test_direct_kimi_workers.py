@@ -63,6 +63,8 @@ def test_direct_kimi_manifest_is_secret_free_and_revalidates(tmp_path: Path, mon
     manifest = prepare_generation(root, generation, manifest_path, urls_path, ports_path)
     assert len(manifest["workers"]) == 24
     assert manifest["router"]["policy"] == "consistent_hash"
+    assert manifest["router"]["implementation"] == "direct-kimi-transparent-v1"
+    assert len(manifest["router"]["implementation_sha256"]) == 64
     assert manifest["router"]["request_id_headers"] == ["x-session-id"]
     assert manifest["router"]["request_timeout_seconds"] == 43_200
     assert manifest["router"]["retries"] == 0
@@ -88,13 +90,38 @@ def test_direct_kimi_router_receipt_is_exact(tmp_path: Path, monkeypatch) -> Non
     )
     digest = hashlib.sha256(manifest_path.read_bytes()).hexdigest()
     output = generation / "router.json"
+    stats = generation / "router-stats.json"
+    stats.write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "kind": "direct-kimi-transparent-router",
+                "implementation": "direct-kimi-transparent-v1",
+                "policy": "consistent_hash",
+                "request_id_headers": ["x-session-id"],
+                "request_timeout_seconds": 43_200,
+                "retries": 0,
+                "worker_count": 24,
+                "active_workers": 24,
+                "active_requests": 0,
+                "max_active_requests": 1,
+                "total_requests": 1,
+                "chat_requests": 1,
+                "missing_session_rejections": 0,
+                "upstream_failures": 0,
+                "worker_request_counts": [1, *([0] * 23)],
+            }
+        )
+    )
 
-    receipt = certify_router(manifest_path, digest, 24, output)
+    receipt = certify_router(manifest_path, digest, 24, stats, output)
     assert json.loads(output.read_text()) == receipt
     assert receipt["request_timeout_seconds"] == 43_200
     assert receipt["retries"] == 0
+    assert receipt["implementation"] == "direct-kimi-transparent-v1"
+    assert receipt["chat_requests"] == 1
     with pytest.raises(DirectKimiWorkerError, match="active_worker_count_mismatch"):
-        certify_router(manifest_path, digest, 23, generation / "bad.json")
+        certify_router(manifest_path, digest, 23, stats, generation / "bad.json")
 
 
 def test_direct_kimi_source_rejects_worker_credentials(tmp_path: Path, monkeypatch) -> None:

@@ -27,7 +27,6 @@ expected_revision=${KIMI_SANDOQ_EXPECTED_PRIME_RL_REVISION:?Set KIMI_SANDOQ_EXPE
 stage=${KIMI_SANDOQ_STAGE:-smoke}
 preflight_only=${KIMI_SANDOQ_PREFLIGHT_ONLY:-0}
 deployment_root=/checkpoint/ram/shared/vllm_deployments_v2/shared-kimi-k3
-router_site=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/vllm_router_x86_64_0.1.26
 x86_site=${PYTHON_SITE_X86_64:-/checkpoint/ram/tianhaowu/terminal_bench_vmvm/python_x86_64}
 sandoq_site=${SANDOQ_PYTHON_SITE_X86_64:-/checkpoint/ram/tianhaowu/terminal_bench_vmvm/sandoq_x86_64_ram_prime_f7313db4}
 x86_uv=${UV_BIN_X86_64:-/storage/home/tianhaowu/.local/x86_64/bin/uv}
@@ -39,6 +38,7 @@ manifest="$generation_dir/direct_kimi_workers.json"
 urls_file="$generation_dir/worker_urls.private.txt"
 ports_file="$generation_dir/router_ports.private.txt"
 router_log="$generation_dir/direct_router.log"
+router_stats="$generation_dir/direct_router_stats.private.json"
 provider_profile="$server_dir/sandoq_use2.json"
 router_pid=
 
@@ -71,8 +71,7 @@ if [[ -e "$generation_dir" || -L "$generation_dir" || -e "$output_dir" || -L "$o
     printf 'Direct Kimi output namespace is not fresh\n' >&2
     exit 2
 fi
-if [[ ! -d "$router_site/site-packages/vllm_router-0.1.26.dist-info" \
-    || ! -d "$x86_site/pydantic" || ! -d "$sandoq_site/sandoq_client" \
+if [[ ! -d "$x86_site/pydantic" || ! -d "$sandoq_site/sandoq_client" \
     || ! -x "$x86_uv" || ! -f "$provider_profile" || -L "$provider_profile" ]]; then
     printf 'Direct Kimi pinned runtime is unavailable\n' >&2
     exit 2
@@ -140,23 +139,12 @@ while IFS= read -r variable_name; do
         unset "$variable_name"
     fi
 done < <(compgen -e)
-setsid env PYTHONPATH="$router_site/site-packages" \
-    "$x86_uv" run --no-project --offline --python "$python_bin" \
-    python3 -c 'from vllm_router.launch_router import main; main()' \
-        --policy consistent_hash \
-        --request-id-headers x-session-id \
+setsid "$x86_uv" run --no-project --offline --python "$python_bin" \
+    python3 "$workflow_dir/direct_kimi_router.py" \
+        --worker-urls-file "$urls_file" \
         --host 127.0.0.1 \
         --port "$router_port" \
-        --prometheus-host 127.0.0.1 \
-        --prometheus-port "$metrics_port" \
-        --worker-startup-timeout-secs 120 \
-        --request-timeout-secs 43200 \
-        --disable-retries \
-        --max-concurrent-requests 24 \
-        --queue-size 0 \
-        --queue-timeout-secs 43200 \
-        --log-level warning \
-        --worker-urls "${worker_urls[@]}" >"$router_log" 2>&1 &
+        --metrics-port "$metrics_port" >"$router_log" 2>&1 &
 router_pid=$!
 
 for attempt in $(seq 1 120); do
@@ -230,10 +218,14 @@ active_workers=$(
         | awk '$1 == "vllm_router_active_workers" {print $2}' \
         | tail -n 1
 )
+curl --noproxy '*' --fail --silent --show-error --max-time 10 \
+    "http://127.0.0.1:${router_port}/stats" --output "$router_stats"
+chmod 0600 "$router_stats"
 "$x86_uv" run --no-project --offline --python "$python_bin" \
     python3 "$workflow_dir/direct_kimi_workers.py" certify-router \
     --manifest "$manifest" --manifest-sha256 "$manifest_sha256" \
-    --active-workers "$active_workers" --output "$output_dir/direct_kimi_router_final.json"
+    --active-workers "$active_workers" --router-stats "$router_stats" \
+    --output "$output_dir/direct_kimi_router_final.json"
 
 certificate_args=(
     "$workflow_dir/certify_direct_kimi.py" "$stage"

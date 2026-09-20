@@ -31,6 +31,7 @@ ROUTER_RETRIES = 0
 ROUTER_PROVIDER_CONCURRENCY = 24
 ROUTER_QUEUE_SIZE = 0
 ROUTER_QUEUE_TIMEOUT_SECONDS = 43_200
+ROUTER_IMPLEMENTATION = "direct-kimi-transparent-v1"
 MANIFEST_SCHEMA_VERSION = 1
 MAX_CONFIG_BYTES = 4 * 1024 * 1024
 MAX_MODELS_BYTES = 1 << 20
@@ -201,6 +202,8 @@ def _manifest(
         "endpoint_bundle_sha256": endpoint_bundle_sha256,
         "workers": [worker.public_record for worker in workers],
         "router": {
+            "implementation": ROUTER_IMPLEMENTATION,
+            "implementation_sha256": _sha256_file(Path(__file__).with_name("direct_kimi_router.py")),
             "host": "127.0.0.1",
             "port": router_port,
             "metrics_host": "127.0.0.1",
@@ -297,6 +300,8 @@ def validate_saved_manifest(path: Path, *, revalidate_live_source: bool = True) 
         or not isinstance(router, dict)
         or router
         != {
+            "implementation": ROUTER_IMPLEMENTATION,
+            "implementation_sha256": _sha256_file(Path(__file__).with_name("direct_kimi_router.py")),
             "host": "127.0.0.1",
             "port": router.get("port"),
             "metrics_host": "127.0.0.1",
@@ -386,6 +391,7 @@ def certify_router(
     manifest_path: Path,
     manifest_sha256: str,
     active_workers: int,
+    router_stats_path: Path,
     output: Path,
 ) -> dict[str, Any]:
     if SHA256_RE.fullmatch(manifest_sha256) is None or _sha256_file(manifest_path) != manifest_sha256:
@@ -393,6 +399,62 @@ def certify_router(
     manifest = validate_saved_manifest(manifest_path)
     if active_workers != EXPECTED_ENDPOINTS:
         raise DirectKimiWorkerError("active_worker_count_mismatch")
+    try:
+        router_stats = json.loads(router_stats_path.resolve(strict=True).read_bytes())
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError) as error:
+        raise DirectKimiWorkerError("router_stats_invalid") from error
+    expected_stats_keys = {
+        "schema_version",
+        "kind",
+        "implementation",
+        "policy",
+        "request_id_headers",
+        "request_timeout_seconds",
+        "retries",
+        "worker_count",
+        "active_workers",
+        "active_requests",
+        "max_active_requests",
+        "total_requests",
+        "chat_requests",
+        "missing_session_rejections",
+        "upstream_failures",
+        "worker_request_counts",
+    }
+    counts = router_stats.get("worker_request_counts") if isinstance(router_stats, dict) else None
+    if (
+        not isinstance(router_stats, dict)
+        or set(router_stats) != expected_stats_keys
+        or router_stats.get("schema_version") != 1
+        or router_stats.get("kind") != "direct-kimi-transparent-router"
+        or router_stats.get("implementation") != ROUTER_IMPLEMENTATION
+        or router_stats.get("policy") != ROUTER_POLICY
+        or router_stats.get("request_id_headers") != list(ROUTER_REQUEST_ID_HEADERS)
+        or router_stats.get("request_timeout_seconds") != ROUTER_REQUEST_TIMEOUT_SECONDS
+        or router_stats.get("retries") != ROUTER_RETRIES
+        or router_stats.get("worker_count") != EXPECTED_ENDPOINTS
+        or router_stats.get("active_workers") != EXPECTED_ENDPOINTS
+        or router_stats.get("active_requests") != 0
+        or not isinstance(counts, list)
+        or len(counts) != EXPECTED_ENDPOINTS
+        or any(type(value) is not int or value < 0 for value in counts)
+        or any(
+            type(router_stats.get(key)) is not int or router_stats[key] < 0
+            for key in (
+                "max_active_requests",
+                "total_requests",
+                "chat_requests",
+                "missing_session_rejections",
+                "upstream_failures",
+            )
+        )
+        or not 0 <= router_stats["max_active_requests"] <= ROUTER_PROVIDER_CONCURRENCY
+        or router_stats["chat_requests"] > router_stats["total_requests"]
+        or sum(counts) != router_stats["total_requests"]
+        or router_stats["missing_session_rejections"] != 0
+        or router_stats["upstream_failures"] != 0
+    ):
+        raise DirectKimiWorkerError("router_stats_invalid")
     receipt = {
         "schema_version": 1,
         "kind": "direct-kimi-router-final",
@@ -400,10 +462,18 @@ def certify_router(
         "worker_manifest_sha256": manifest_sha256,
         "endpoint_bundle_sha256": manifest["endpoint_bundle_sha256"],
         "active_workers": active_workers,
+        "implementation": ROUTER_IMPLEMENTATION,
+        "implementation_sha256": manifest["router"]["implementation_sha256"],
         "policy": ROUTER_POLICY,
         "request_id_headers": list(ROUTER_REQUEST_ID_HEADERS),
         "request_timeout_seconds": ROUTER_REQUEST_TIMEOUT_SECONDS,
         "retries": ROUTER_RETRIES,
+        "max_active_requests": router_stats["max_active_requests"],
+        "total_requests": router_stats["total_requests"],
+        "chat_requests": router_stats["chat_requests"],
+        "worker_request_counts_sha256": _sha256_bytes(
+            (json.dumps(counts, separators=(",", ":")) + "\n").encode()
+        ),
         "source_generation_revalidated": True,
     }
     _atomic_write(
@@ -428,6 +498,7 @@ def main() -> None:
     certify.add_argument("--manifest", type=Path, required=True)
     certify.add_argument("--manifest-sha256", required=True)
     certify.add_argument("--active-workers", type=int, required=True)
+    certify.add_argument("--router-stats", type=Path, required=True)
     certify.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
     if args.command == "certify-router":
@@ -435,6 +506,7 @@ def main() -> None:
             args.manifest,
             args.manifest_sha256,
             args.active_workers,
+            args.router_stats,
             args.output,
         )
         print(json.dumps({"active_workers": receipt["active_workers"], "ok": True}, sort_keys=True))

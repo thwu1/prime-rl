@@ -173,6 +173,8 @@ def _validate_identity(run_dir: Path, *, role: str, expected_count: int) -> tupl
         or deployment.get("endpoint_bundle_sha256") != manifest["endpoint_bundle_sha256"]
         or deployment.get("router")
         != {
+            "implementation": "direct-kimi-transparent-v1",
+            "implementation_sha256": manifest["router"]["implementation_sha256"],
             "policy": ROUTER_POLICY,
             "request_id_headers": list(ROUTER_REQUEST_ID_HEADERS),
             "provider_concurrency": ROUTER_PROVIDER_CONCURRENCY,
@@ -195,21 +197,45 @@ def _validate_task_selection(identity: dict[str, Any], expected_task_file: Path,
     return expected_slugs
 
 
-def _validate_router_receipt(path: Path, manifest: dict[str, Any], manifest_sha256: str) -> dict[str, Any]:
+def _validate_router_receipt(
+    path: Path,
+    manifest: dict[str, Any],
+    manifest_sha256: str,
+    *,
+    minimum_chat_requests: int,
+) -> dict[str, Any]:
     receipt = _read_json(path, label="router_receipt")
-    if receipt != {
+    expected = {
         "schema_version": 1,
         "kind": "direct-kimi-router-final",
         "state": "passed",
         "worker_manifest_sha256": manifest_sha256,
         "endpoint_bundle_sha256": manifest["endpoint_bundle_sha256"],
         "active_workers": EXPECTED_ENDPOINTS,
+        "implementation": "direct-kimi-transparent-v1",
+        "implementation_sha256": manifest["router"]["implementation_sha256"],
         "policy": ROUTER_POLICY,
         "request_id_headers": list(ROUTER_REQUEST_ID_HEADERS),
         "request_timeout_seconds": ROUTER_REQUEST_TIMEOUT_SECONDS,
         "retries": ROUTER_RETRIES,
         "source_generation_revalidated": True,
-    }:
+    }
+    dynamic_keys = {
+        "max_active_requests",
+        "total_requests",
+        "chat_requests",
+        "worker_request_counts_sha256",
+    }
+    if (
+        not isinstance(receipt, dict)
+        or set(receipt) != {*expected, *dynamic_keys}
+        or any(receipt.get(key) != value for key, value in expected.items())
+        or any(type(receipt.get(key)) is not int or receipt[key] < 0 for key in dynamic_keys - {"worker_request_counts_sha256"})
+        or not 1 <= receipt["max_active_requests"] <= 24
+        or receipt["total_requests"] < receipt["chat_requests"]
+        or receipt["chat_requests"] < minimum_chat_requests
+        or SHA256_RE.fullmatch(str(receipt.get("worker_request_counts_sha256", ""))) is None
+    ):
         raise DirectKimiCertificateError("router_receipt_invalid")
     return receipt
 
@@ -368,6 +394,7 @@ def certify_smoke(
             run_dir / "direct_kimi_router_final.json",
             manifest,
             manifest_record["sha256"],
+            minimum_chat_requests=SMOKE_TASK_COUNT,
         )
         cleanup, cleanup_raw = _validate_cleanup(
             run_dir / "sandoq_cleanup_audit.json",
@@ -472,6 +499,7 @@ def certify_tb4(
             run_dir / "direct_kimi_router_final.json",
             manifest,
             manifest_record["sha256"],
+            minimum_chat_requests=EXPECTED_TASK_COUNT,
         )
         cleanup, cleanup_raw = _validate_cleanup(
             run_dir / "sandoq_cleanup_audit.json",

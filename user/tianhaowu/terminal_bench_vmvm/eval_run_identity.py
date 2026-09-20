@@ -1764,6 +1764,8 @@ def _validate_identity_shape(identity: object) -> dict[str, Any]:
             or not isinstance(router, dict)
             or router
             != {
+                "implementation": "direct-kimi-transparent-v1",
+                "implementation_sha256": router.get("implementation_sha256"),
                 "policy": "consistent_hash",
                 "request_id_headers": ["x-session-id"],
                 "provider_concurrency": 24,
@@ -1771,6 +1773,7 @@ def _validate_identity_shape(identity: object) -> dict[str, Any]:
                 "retries": 0,
                 "worker_count": 24,
             }
+            or SHA256_RE.fullmatch(str(router.get("implementation_sha256", ""))) is None
             or (role == "kimi-direct-smoke" and smoke_checkpoint is not None)
         ):
             raise EvalIdentityError("eval_run_identity_schema_invalid")
@@ -3137,6 +3140,8 @@ def _prepare_direct_kimi(args: argparse.Namespace) -> str:
             "endpoint_bundle_sha256": manifest["endpoint_bundle_sha256"],
             "base_url": args.client_base_url,
             "router": {
+                "implementation": router["implementation"],
+                "implementation_sha256": router["implementation_sha256"],
                 "policy": router["policy"],
                 "request_id_headers": router["request_id_headers"],
                 "provider_concurrency": router["max_concurrent_requests"],

@@ -493,6 +493,8 @@ def _direct_kimi_identity(*, smoke: bool) -> dict:
         "endpoint_bundle_sha256": "a" * 64,
         "base_url": "http://127.0.0.1:23456/v1",
         "router": {
+            "implementation": "direct-kimi-transparent-v1",
+            "implementation_sha256": "c" * 64,
             "policy": "consistent_hash",
             "request_id_headers": ["x-session-id"],
             "provider_concurrency": 24,
