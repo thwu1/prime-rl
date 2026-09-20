@@ -49,6 +49,7 @@ workflow_dir="$project_dir/user/tianhaowu/terminal_bench_vmvm"
 deployment_root=${DIRECT_QWEN_DEPLOYMENT_ROOT:-/checkpoint/ram/shared/vllm_deployments_v2/shared_qwen38_2p4t}
 router_site=${DIRECT_ROUTER_SITE:-/checkpoint/ram/tianhaowu/terminal_bench_vmvm/vllm_router_x86_64_0.1.26}
 x86_site=${PYTHON_SITE_X86_64:-/checkpoint/ram/tianhaowu/terminal_bench_vmvm/python_x86_64}
+post_eval_pythonpath="$workflow_dir:$project_dir/environments/vmvm_tb_v2:$project_dir/deps/verifiers:$project_dir/deps/renderers:$project_dir/deps/pydantic-config/src:$x86_site"
 sandoq_site=${SANDOQ_PYTHON_SITE_X86_64:-/checkpoint/ram/tianhaowu/terminal_bench_vmvm/sandoq_x86_64_ram_prime_f7313db4}
 sandoq_extension="$project_dir/extensions/sandoq"
 x86_uv=${UV_BIN_X86_64:-/storage/home/tianhaowu/.local/x86_64/bin/uv}
@@ -565,7 +566,8 @@ PY
         exit 2
     fi
     if [[ "$diagnostic_mode" -eq 1 ]]; then
-        "$x86_uv" run --no-project --offline --python "$python_bin" \
+        env PYTHONPATH="$post_eval_pythonpath" \
+            "$x86_uv" run --no-project --offline --python "$python_bin" \
             python3 "$workflow_dir/summarize_qwen_sandoq_diagnostic.py" \
             --results "$output_dir/results.jsonl" \
             --expected-task-file "$approved_task_file" \
@@ -590,7 +592,8 @@ PY
                 --predecessor-sha256 "${SANDOQ_PREDECESSOR_CERTIFICATE_SHA256:-}"
             )
         fi
-        "$x86_uv" run --no-project --offline --python "$python_bin" \
+        env PYTHONPATH="$post_eval_pythonpath" \
+            "$x86_uv" run --no-project --offline --python "$python_bin" \
             python3 "${certificate_args[@]}" >/dev/null
     fi
     rm -f -- "$output_dir/pool_cleanup_audit.json" "$output_dir/pool_events.jsonl" \

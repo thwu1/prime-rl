@@ -660,6 +660,8 @@ def test_direct_qwen_launcher_is_fail_closed() -> None:
     assert "QWEN_SANDOQ_NONCERTIFYING_DIAGNOSTIC_CONFIG_SHA256" in wrapper
     assert "QWEN_SANDOQ_NONCERTIFYING_DIAGNOSTIC_CONFIG_SHA256" in driver
     assert "summarize_qwen_sandoq_diagnostic.py" in wrapper
+    assert 'post_eval_pythonpath="$workflow_dir:$project_dir/environments/vmvm_tb_v2:' in wrapper
+    assert wrapper.count('env PYTHONPATH="$post_eval_pythonpath"') == 2
     assert 'if [[ "$diagnostic_mode" -eq 0 ]]' in driver
     assert 'if [[ "$diagnostic_mode" -eq 1 ]]' in wrapper
     assert "80e58e7e2b194e9c1b8dc0990c00b7a839127eea" in driver
