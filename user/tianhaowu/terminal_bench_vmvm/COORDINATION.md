@@ -1,6 +1,6 @@
 # VMVM sandbox coordination
 
-Last updated: 2026-09-20 02:34 UTC
+Last updated: 2026-09-20 02:44 UTC
 
 ## First message to the next teammate
 
@@ -42,6 +42,16 @@ this shared branch again.
 Add new rows below this line; do not overwrite another owner's row.
 
 ## Open coordination requests
+
+- **2026-09-20 02:44 UTC, post-diagnostic initial-command recovery staged but
+  inert:** Prime child `1ff4c5ecf`, tree `f56818ae...16e`, changes only the
+  `deps/verifiers` gitlink from `ef35ac7` to independently approved verifier
+  `615b1a30` (tree `7e594409...170`, complete mode-0400 bundle SHA-256
+  `66a99f65...9eed`). The fix routes only the initial idempotent runtime mkdir
+  through existing bounded exact-once recovery. Verifier tests pass 32/32 and
+  Prime taskset/eval/workflow tests pass 282/282 with the import path bound to
+  that submodule. Do not merge, freeze, or launch this child until the preserved
+  old-verifier diagnostic evidence resolves the x86 admission boundary.
 
 - **2026-09-20 02:34 UTC, diagnostic v3 failed at pre-lease admission:** job
   `1757416` passed held and activation identity gates, allocated once on x86,
