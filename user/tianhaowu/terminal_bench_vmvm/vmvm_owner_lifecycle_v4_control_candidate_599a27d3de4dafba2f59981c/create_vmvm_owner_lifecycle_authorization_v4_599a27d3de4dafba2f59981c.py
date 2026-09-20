@@ -379,43 +379,62 @@ def publish_exclusive(path: Path, raw: bytes) -> tuple[int, int]:
         signal.pthread_sigmask(signal.SIG_SETMASK, previous_mask)
 
 
-def main() -> int:
-    if len(sys.argv) != 1:
-        return 2
-    install_signal_handlers()
+def create_authorization() -> None:
+    launcher = load_launcher()
+    validate_environment(launcher)
+    if AUTHORIZATION.exists() or AUTHORIZATION.is_symlink():
+        raise RuntimeError("authorization_exists")
+    launcher.validate_source()
+    launcher._ensure_absent()
+    if not launcher._name_absent(JOB_NAME, datetime.now(UTC).date().isoformat()):
+        raise RuntimeError("job_name_exists")
+    body = authorization_body(launcher)
+    authorization_sha = launcher.sha256_bytes(launcher.canonical_json(body))
+    authorization = {**body, "authorization_sha256": authorization_sha}
+    raw = launcher.canonical_json(authorization)
+    paths = {label: LAUNCHER.parent / name for label, (name, _mode) in FILE_MODES.items()}
+    launcher.validate_authorization(
+        authorization,
+        launcher=paths["launcher"],
+        wrapper=paths["wrapper"],
+        probe=paths["probe"],
+        finalizer=paths["finalizer"],
+    )
+    launcher.validate_source()
+    launcher._ensure_absent()
+    if not launcher._name_absent(JOB_NAME, datetime.now(UTC).date().isoformat()):
+        raise RuntimeError("job_name_exists")
+    if INTERRUPTED:
+        raise RuntimeError("interrupted")
+    publish_exclusive(AUTHORIZATION, raw)
+
+
+def terminalize(descriptor: int, payload: bytes, returncode: int) -> int:
+    previous_mask = signal.pthread_sigmask(signal.SIG_BLOCK, HANDLED_SIGNALS)
     try:
-        launcher = load_launcher()
-        validate_environment(launcher)
-        if AUTHORIZATION.exists() or AUTHORIZATION.is_symlink():
-            raise RuntimeError("authorization_exists")
-        launcher.validate_source()
-        launcher._ensure_absent()
-        if not launcher._name_absent(JOB_NAME, datetime.now(UTC).date().isoformat()):
-            raise RuntimeError("job_name_exists")
-        body = authorization_body(launcher)
-        authorization_sha = launcher.sha256_bytes(launcher.canonical_json(body))
-        authorization = {**body, "authorization_sha256": authorization_sha}
-        raw = launcher.canonical_json(authorization)
-        paths = {label: LAUNCHER.parent / name for label, (name, _mode) in FILE_MODES.items()}
-        launcher.validate_authorization(
-            authorization,
-            launcher=paths["launcher"],
-            wrapper=paths["wrapper"],
-            probe=paths["probe"],
-            finalizer=paths["finalizer"],
-        )
-        launcher.validate_source()
-        launcher._ensure_absent()
-        if not launcher._name_absent(JOB_NAME, datetime.now(UTC).date().isoformat()):
-            raise RuntimeError("job_name_exists")
-        if INTERRUPTED:
-            raise RuntimeError("interrupted")
-        publish_exclusive(AUTHORIZATION, raw)
+        for signum in HANDLED_SIGNALS:
+            signal.signal(signum, signal.SIG_IGN)
+        try:
+            emit_bounded(descriptor, payload)
+        except BaseException:
+            return 2
+    finally:
+        signal.pthread_sigmask(signal.SIG_SETMASK, previous_mask)
+    return returncode
+
+
+def main() -> int:
+    terminal = (2, FAILURE_OUTPUT, 2)
+    try:
+        if len(sys.argv) != 1:
+            raise RuntimeError("arguments")
+        install_signal_handlers()
+        create_authorization()
+        terminal = (1, SUCCESS_OUTPUT, 0)
     except BaseException:
-        emit_bounded(2, FAILURE_OUTPUT)
-        return 2
-    emit_bounded(1, SUCCESS_OUTPUT)
-    return 0
+        terminal = (2, FAILURE_OUTPUT, 2)
+    finally:
+        return terminalize(*terminal)
 
 
 if __name__ == "__main__":

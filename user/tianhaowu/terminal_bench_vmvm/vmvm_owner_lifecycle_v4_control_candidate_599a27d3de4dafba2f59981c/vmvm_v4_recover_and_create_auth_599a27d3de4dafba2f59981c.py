@@ -24,7 +24,7 @@ RECEIPT_V2 = RESERVATION_V2 / "submission_receipt.json"
 ENVIRONMENT_V2 = RESERVATION_V2 / "slurm_environment.bin"
 CREATOR_V4 = BASE / "diagnostics/create_vmvm_owner_lifecycle_authorization_v4_599a27d3de4dafba2f59981c.py"
 SELF_PATH = BASE / ("diagnostics/vmvm_v4_recover_and_create_auth_599a27d3de4dafba2f59981c.py")
-CREATOR_V4_SHA256 = "41d69ce3e82bf525a244df61247d9f210d0770f8f9c712aa0ceea5c95fef0784"
+CREATOR_V4_SHA256 = "b80177040312e767b3be316be9938e5172495e4317b724eaf2d951392b2b8d97"
 SELF_SHA_ENV = "EXPECTED_VMVM_V4_RECOVERY_CREATE_SHA256"
 METADATA_HASH_ENV = {
     "authorization": "VMVM_V4_RECOVERY_V2_AUTHORIZATION_SHA256",
@@ -340,27 +340,53 @@ def canonicalize_tls(environment: dict[str, str]) -> None:
         environment[name] = str(path)
 
 
-def main() -> int:
-    if len(sys.argv) != 2 or sys.argv[1] not in {"audit", "execute"}:
-        return 2
-    mode = sys.argv[1]
-    install_signal_handlers()
-    proxy: str | None = None
+def terminalize(
+    descriptor: int,
+    payload: bytes,
+    returncode: int,
+    secret_state: dict[str, str | None],
+) -> int:
+    previous_mask = signal.pthread_sigmask(signal.SIG_BLOCK, HANDLED_SIGNALS)
     try:
+        for signum in HANDLED_SIGNALS:
+            signal.signal(signum, signal.SIG_IGN)
+        os.environ.pop("X2P_PROXY_URL", None)
+        os.environ.pop(SELF_SHA_ENV, None)
+        for environment_name in METADATA_HASH_ENV.values():
+            os.environ.pop(environment_name, None)
+        secret_state["proxy"] = None
+        try:
+            emit_bounded(descriptor, payload)
+        except BaseException:
+            return 2
+    finally:
+        signal.pthread_sigmask(signal.SIG_SETMASK, previous_mask)
+    return returncode
+
+
+def main() -> int:
+    terminal = (2, FAILURE_OUTPUT, 2)
+    terminal_result = 2
+    secret_state: dict[str, str | None] = {"proxy": None}
+    try:
+        if len(sys.argv) != 2 or sys.argv[1] not in {"audit", "execute"}:
+            raise RuntimeError("arguments")
+        mode = sys.argv[1]
+        install_signal_handlers()
         self_sha, metadata_hashes = validate_environment()
         if Path(__file__).resolve(strict=True) != SELF_PATH:
             raise RuntimeError("self_path")
         stable_file(SELF_PATH, mode=0o500, expected=self_sha)
         if INTERRUPTED:
             raise RuntimeError("interrupted")
-        proxy = recover_proxy(metadata_hashes)
+        secret_state["proxy"] = recover_proxy(metadata_hashes)
         creator = stable_creator()
         if INTERRUPTED:
             raise RuntimeError("interrupted")
         os.environ.pop(SELF_SHA_ENV, None)
         for environment_name in METADATA_HASH_ENV.values():
             os.environ.pop(environment_name, None)
-        os.environ["X2P_PROXY_URL"] = proxy
+        os.environ["X2P_PROXY_URL"] = secret_state["proxy"] or ""
         canonicalize_tls(os.environ)
         if mode == "audit":
             launcher = creator.load_launcher()
@@ -382,19 +408,16 @@ def main() -> int:
                 probe=paths["probe"],
                 finalizer=paths["finalizer"],
             )
-            emit_bounded(1, SUCCESS_OUTPUT)
-            return 0
-        sys.argv = [str(CREATOR_V4)]
-        return int(creator.main())
+            terminal = (1, SUCCESS_OUTPUT, 0)
+        else:
+            creator.install_signal_handlers()
+            creator.create_authorization()
+            terminal = (1, creator.SUCCESS_OUTPUT, 0)
     except BaseException:
-        emit_bounded(2, FAILURE_OUTPUT)
-        return 2
+        terminal = (2, FAILURE_OUTPUT, 2)
     finally:
-        os.environ.pop("X2P_PROXY_URL", None)
-        os.environ.pop(SELF_SHA_ENV, None)
-        for environment_name in METADATA_HASH_ENV.values():
-            os.environ.pop(environment_name, None)
-        proxy = None
+        terminal_result = terminalize(*terminal, secret_state)
+    return terminal_result
 
 
 if __name__ == "__main__":

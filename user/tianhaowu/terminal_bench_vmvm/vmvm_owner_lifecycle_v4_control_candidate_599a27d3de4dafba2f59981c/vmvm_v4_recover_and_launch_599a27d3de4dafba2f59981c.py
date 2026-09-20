@@ -17,7 +17,7 @@ RECOVERY_HELPER = Path(
     "/checkpoint/ram/tianhaowu/terminal_bench_vmvm/diagnostics/"
     "vmvm_v4_recover_and_create_auth_599a27d3de4dafba2f59981c.py"
 )
-RECOVERY_HELPER_SHA256 = "8c0014f727c0df2de7959e73b5169df1964116149bbd7e3284062963d75a7755"
+RECOVERY_HELPER_SHA256 = "85772e4af97d47aa1cc34a32d886f4ad9b7058ef7f57577fad0d9cc9946206c5"
 LAUNCHER = Path(
     "/checkpoint/ram/tianhaowu/terminal_bench_vmvm/watchers/"
     "vmvm_owner_lifecycle_9d7841b36_v4/launch_vmvm_owner_lifecycle_v4.py"
@@ -41,6 +41,7 @@ METADATA_HASH_ENV = {
 }
 HANDLED_SIGNALS = {signal.SIGINT, signal.SIGTERM, signal.SIGHUP}
 SUCCESS_OUTPUT = b'{"kind":"vmvm_v4_launch_recovery_candidate","state":"passed"}\n'
+SUBMISSION_OUTPUT = b'{"state":"submitted","submission_attempts":1}\n'
 FAILURE_OUTPUT = b'{"code":"vmvm_v4_launch_recovery_failed","state":"failed"}\n'
 INTERRUPTED = False
 
@@ -251,13 +252,40 @@ def audit_launcher(launcher: types.ModuleType, authorization_sha: str) -> None:
     del authorization_raw
 
 
-def main() -> int:
-    if len(sys.argv) != 2 or sys.argv[1] not in {"audit", "execute"}:
-        return 2
-    mode = sys.argv[1]
-    install_signal_handlers()
-    proxy: str | None = None
+def terminalize(
+    descriptor: int,
+    payload: bytes,
+    returncode: int,
+    secret_state: dict[str, str | None],
+) -> int:
+    previous_mask = signal.pthread_sigmask(signal.SIG_BLOCK, HANDLED_SIGNALS)
     try:
+        for signum in HANDLED_SIGNALS:
+            signal.signal(signum, signal.SIG_IGN)
+        os.environ.pop("X2P_PROXY_URL", None)
+        os.environ.pop(SELF_SHA_ENV, None)
+        os.environ.pop(AUTHORIZATION_SHA_ENV, None)
+        for environment_name in METADATA_HASH_ENV.values():
+            os.environ.pop(environment_name, None)
+        secret_state["proxy"] = None
+        try:
+            emit_bounded(descriptor, payload)
+        except BaseException:
+            return 2
+    finally:
+        signal.pthread_sigmask(signal.SIG_SETMASK, previous_mask)
+    return returncode
+
+
+def main() -> int:
+    terminal = (2, FAILURE_OUTPUT, 2)
+    terminal_result = 2
+    secret_state: dict[str, str | None] = {"proxy": None}
+    try:
+        if len(sys.argv) != 2 or sys.argv[1] not in {"audit", "execute"}:
+            raise RuntimeError("arguments")
+        mode = sys.argv[1]
+        install_signal_handlers()
         self_sha, authorization_sha, metadata_hashes = validate_environment()
         if Path(__file__).resolve(strict=True) != SELF_PATH:
             raise RuntimeError("self_path")
@@ -284,7 +312,7 @@ def main() -> int:
         )
         if INTERRUPTED:
             raise LaunchRecoveryInterrupted
-        proxy = recovery.recover_proxy(metadata_hashes)
+        secret_state["proxy"] = recovery.recover_proxy(metadata_hashes)
         if INTERRUPTED:
             raise LaunchRecoveryInterrupted
         child_environment = {
@@ -298,7 +326,7 @@ def main() -> int:
             }
         }
         child_environment["APPROVED_DIAGNOSTIC_LAUNCHER_SHA256"] = LAUNCHER_SHA256
-        child_environment["X2P_PROXY_URL"] = proxy
+        child_environment["X2P_PROXY_URL"] = secret_state["proxy"] or ""
         canonicalize_tls(child_environment)
         arguments = [
             str(LAUNCHER),
@@ -313,19 +341,19 @@ def main() -> int:
         sys.argv = arguments
         if mode == "audit":
             audit_launcher(launcher, authorization_sha)
-            emit_bounded(1, SUCCESS_OUTPUT)
-            return 0
-        return int(launcher.main(arguments[1:]))
+            terminal = (1, SUCCESS_OUTPUT, 0)
+        else:
+            launcher._validate_outer_environment()
+            launcher._install_signal_handlers()
+            result = launcher.launch(AUTHORIZATION, authorization_sha)
+            if result != {"state": "submitted", "submission_attempts": 1}:
+                raise RuntimeError("launcher_result")
+            terminal = (1, SUBMISSION_OUTPUT, 0)
     except BaseException:  # noqa: BLE001
-        emit_bounded(2, FAILURE_OUTPUT)
-        return 2
+        terminal = (2, FAILURE_OUTPUT, 2)
     finally:
-        os.environ.pop("X2P_PROXY_URL", None)
-        os.environ.pop(SELF_SHA_ENV, None)
-        os.environ.pop(AUTHORIZATION_SHA_ENV, None)
-        for environment_name in METADATA_HASH_ENV.values():
-            os.environ.pop(environment_name, None)
-        proxy = None
+        terminal_result = terminalize(*terminal, secret_state)
+    return terminal_result
 
 
 if __name__ == "__main__":

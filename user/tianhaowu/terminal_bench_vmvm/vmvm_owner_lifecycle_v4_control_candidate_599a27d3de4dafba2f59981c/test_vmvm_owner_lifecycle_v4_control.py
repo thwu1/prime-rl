@@ -460,6 +460,8 @@ def test_one_shot_launch_keeps_proxy_out_of_argv_and_scrubs_control_environment(
     monkeypatch.setattr(
         launch, "emit_bounded", lambda descriptor, payload: calls.append(("output", descriptor, payload))
     )
+    monkeypatch.setattr(launch.signal, "pthread_sigmask", lambda _operation, _signals: set())
+    monkeypatch.setattr(launch.signal, "signal", lambda _signum, _handler: None)
     assert launch.main() == 0
     audit = next(call for call in calls if isinstance(call, tuple) and call[0] == "audit")
     child_environment = audit[2]
@@ -475,6 +477,83 @@ def test_one_shot_launch_keeps_proxy_out_of_argv_and_scrubs_control_environment(
     assert "X2P_PROXY_URL" not in launch.os.environ
 
 
+@pytest.mark.parametrize("fixture_name", ("recovery", "launch"))
+def test_pending_signal_at_handler_unmask_is_caught_and_terminalized_once(
+    fixture_name: str,
+    request: pytest.FixtureRequest,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    module = request.getfixturevalue(fixture_name)
+    handlers: dict[signal.Signals, object] = {}
+    outputs: list[tuple[int, bytes]] = []
+    restores = 0
+
+    def fake_signal(signum: signal.Signals, handler: object) -> None:
+        handlers[signum] = handler
+
+    def fake_mask(operation: int, _mask: set[signal.Signals]) -> set[signal.Signals]:
+        nonlocal restores
+        if operation == signal.SIG_SETMASK:
+            restores += 1
+            if restores == 1:
+                handler = handlers[signal.SIGTERM]
+                assert callable(handler)
+                handler(signal.SIGTERM, None)
+        return set()
+
+    monkeypatch.setattr(module.signal, "signal", fake_signal)
+    monkeypatch.setattr(module.signal, "pthread_sigmask", fake_mask)
+    monkeypatch.setattr(module, "emit_bounded", lambda descriptor, payload: outputs.append((descriptor, payload)))
+    monkeypatch.setattr(module.os, "environ", {})
+    monkeypatch.setattr(module.sys, "argv", [str(module.__file__), "audit"])
+    monkeypatch.setattr(module, "INTERRUPTED", False)
+    assert module.main() == 2
+    assert outputs == [(2, module.FAILURE_OUTPUT)]
+    assert restores == 2
+
+
+@pytest.mark.parametrize("fixture_name", ("recovery", "launch"))
+def test_signal_after_success_write_cannot_emit_second_record(
+    fixture_name: str,
+    request: pytest.FixtureRequest,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    module = request.getfixturevalue(fixture_name)
+    handlers: dict[signal.Signals, object] = {signum: module.signal_handler for signum in module.HANDLED_SIGNALS}
+    outputs: list[bytes] = []
+    environment = {
+        "X2P_PROXY_URL": "test-only-proxy",
+        module.SELF_SHA_ENV: "a" * 64,
+        **{name: "b" * 64 for name in module.METADATA_HASH_ENV.values()},
+    }
+    if fixture_name == "launch":
+        environment[module.AUTHORIZATION_SHA_ENV] = "c" * 64
+
+    def fake_signal(signum: signal.Signals, handler: object) -> None:
+        handlers[signum] = handler
+
+    def fake_write(_descriptor: int, payload: bytes) -> int:
+        outputs.append(payload)
+        handler = handlers[signal.SIGTERM]
+        if callable(handler):
+            handler(signal.SIGTERM, None)
+        else:
+            assert handler == signal.SIG_IGN
+        return len(payload)
+
+    monkeypatch.setattr(module.signal, "signal", fake_signal)
+    monkeypatch.setattr(module.signal, "pthread_sigmask", lambda _operation, _signals: set())
+    monkeypatch.setattr(module.os, "write", fake_write)
+    monkeypatch.setattr(module.os, "environ", environment)
+    secret_state: dict[str, str | None] = {"proxy": "test-only-proxy"}
+    assert module.terminalize(1, module.SUCCESS_OUTPUT, 0, secret_state) == 0
+    assert outputs == [module.SUCCESS_OUTPUT]
+    assert secret_state == {"proxy": None}
+    assert "X2P_PROXY_URL" not in environment
+    assert module.SELF_SHA_ENV not in environment
+    assert not set(module.METADATA_HASH_ENV.values()) & set(environment)
+
+
 @pytest.mark.parametrize("fixture_name", ("creator", "recovery", "launch"))
 def test_public_output_is_fixed_canonical_and_bounded(
     fixture_name: str,
@@ -486,13 +565,16 @@ def test_public_output_is_fixed_canonical_and_bounded(
     monkeypatch.setattr(
         module.os, "write", lambda descriptor, payload: writes.append((descriptor, payload)) or len(payload)
     )
-    for payload in (module.SUCCESS_OUTPUT, module.FAILURE_OUTPUT):
+    payloads = [module.SUCCESS_OUTPUT, module.FAILURE_OUTPUT]
+    if fixture_name == "launch":
+        payloads.append(module.SUBMISSION_OUTPUT)
+    for payload in payloads:
         assert len(payload) <= 256
         assert payload.endswith(b"\n")
         assert payload.count(b"\n") == 1
         assert json.dumps(json.loads(payload), sort_keys=True, separators=(",", ":")).encode() + b"\n" == payload
         module.emit_bounded(1, payload)
-    assert writes == [(1, module.SUCCESS_OUTPUT), (1, module.FAILURE_OUTPUT)]
+    assert writes == [(1, payload) for payload in payloads]
     with pytest.raises(RuntimeError, match="output_contract"):
         module.emit_bounded(1, b"x" * 256 + b"\n")
     with pytest.raises(RuntimeError, match="output_contract"):
@@ -504,3 +586,15 @@ def test_candidates_do_not_embed_credential_values() -> None:
     assert b"X2P_PROXY_URL=" not in combined
     assert b"BEGIN CERTIFICATE" not in combined
     assert b"PRIVATE KEY" not in combined
+
+
+def test_readme_requires_retained_fd_invocation() -> None:
+    readme = (HERE / "README.md").read_text()
+    for required in (
+        "retained read-only descriptor",
+        "open with `O_NOFOLLOW`",
+        "keep that same FD open for the complete child lifetime",
+        "execute `/proc/self/fd/<fd>`",
+        "invoking an installed helper/creator by its mutable pathname, is forbidden",
+    ):
+        assert required in readme
