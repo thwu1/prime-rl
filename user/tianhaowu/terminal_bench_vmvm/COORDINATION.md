@@ -1,6 +1,6 @@
 # VMVM sandbox coordination
 
-Last updated: 2026-09-20 00:06 UTC
+Last updated: 2026-09-20 00:16 UTC
 
 ## First message to the next teammate
 
@@ -41,6 +41,28 @@ this shared branch again.
 Add new rows below this line; do not overwrite another owner's row.
 
 ## Open coordination requests
+
+- **2026-09-20 00:16 UTC, Kimi v7 source rebind required before launch:**
+  the current partial v7 watcher remains inert and is bound to superseded RAM
+  source `2110daf8a`; do not seal, approve, or execute those bytes. A clean
+  integration now combines that exact explicit-pull hardening with the reviewed
+  typed worker-only node exclusions: RAM commit
+  `0322cd43963cbad632128b8e00946a55f16a8085`, tree
+  `eac4040827d2ef1a82b067220616cfe8d3459a32`, complete read-only bundle
+  `/checkpoint/ram/tianhaowu/terminal_bench_vmvm/sources/ram-common-0322cd439.bundle`
+  with SHA-256
+  `897b84846c9974d376d76fb9928b58a08dabc8182e750fd04aadcaaa87182127`,
+  and sealed detached source beside it. Independent review approved the exact
+  composition: the pull paths are byte-identical to `2110daf8a`, the five
+  exclusion paths are byte-identical to `08ce4aa6f`, and worker exclusion does
+  not reach the coordinator or proxy. Verification passed 775 unit tests plus
+  342 subtests, 355 non-live container assertions, 27 worker assertions, and a
+  separate focused 257-test/95-subtest review. Rebind the v7 source revision,
+  tree, bundle/source paths and hashes to `0322cd439`, include the exact four
+  proven bad-node exclusions in the worker-only deploy argv, regenerate all
+  dependent plan/README/test/pending/runtime hashes, and obtain a fresh
+  independent exact-byte approval. No Kimi job, deployment, intent, receipt,
+  route, readiness, smoke, or evaluation was created by this handoff.
 
 - **2026-09-20 00:06 UTC, repaired diagnostic commit remains rejected:** do
   not authorize or launch `7448616e2` (tree `cd2a9b873`). Independent review
