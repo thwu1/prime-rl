@@ -175,11 +175,13 @@ def test_direct_sandoq_certificate_binds_identity_and_aggregate_results(tmp_path
             "eval_run_identity_sha256": "b" * 64,
         },
     )
-    monkeypatch.setattr(
-        certificate_module,
-        "_summarize_traces",
-        lambda *_args, **_kwargs: ({"model_io_turns": 2}, []),
-    )
+    observed_contracts = []
+
+    def summarize(*_args, **kwargs):
+        observed_contracts.append(kwargs["model_io_contract"])
+        return {"model_io_turns": 2}, []
+
+    monkeypatch.setattr(certificate_module, "_summarize_traces", summarize)
     monkeypatch.setattr(certificate_module, "validate_saved_manifest", lambda _path: {"workers": [{}] * 24})
 
     result = certify(
@@ -187,6 +189,7 @@ def test_direct_sandoq_certificate_binds_identity_and_aggregate_results(tmp_path
     )
 
     assert result["state"] == "passed"
+    assert observed_contracts == [certificate_module.QWEN3_A95B_DIRECT_MEDIUM_MODEL_IO_CONTRACT]
     assert result["pool_cleanup"]["outer_session_high_water"] == 2
     assert result["ramp"]["canonical_source_sha256"] == canonical_sha
 

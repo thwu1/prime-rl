@@ -231,7 +231,7 @@ def _linear_trace(
         "max_tokens": 100,
     }
     if not historical_reasoning_effort:
-        first_request["reasoning_effort"] = "high"
+        first_request["reasoning_effort"] = "max"
     second_request = {
         **first_request,
         "messages": [
@@ -460,7 +460,7 @@ def _write_exclusion_selection(
             "max_total_tokens": 262_144,
             "preserve_thinking": True,
             "provider_concurrency": direct_workers.PRODUCTION_PROVIDER_CONCURRENCY,
-            "reasoning_effort": "high",
+            "reasoning_effort": "max",
             "retry_class_count": len(direct_workers.ROLLOUT_RETRY_POLICY),
             "retry_policy_sha256": hashlib.sha256(retry_bytes).hexdigest(),
             "sha256": "a" * 64,

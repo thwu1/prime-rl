@@ -349,7 +349,7 @@ def test_mobius_qwen_sandoq_contract_is_explicit_and_digest_pinned() -> None:
         "expected_environment": "oci-runner",
         "ecr_token_file": "/storage/home/tianhaowu/.config/oci-runner/ecr-token",
     }
-    assert config["sampling"]["reasoning_effort"] == "high"
+    assert config["sampling"]["reasoning_effort"] == "medium"
     assert set(config["retries"]["rollout"]["include"]) == QWEN_ROLLOUT_RETRY_ERRORS
 
     resolved = _resolved_eval_config(

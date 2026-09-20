@@ -68,7 +68,7 @@ def _shared_contract() -> dict:
             "model": "Qwen3.8-2.4T-A95B",
             "pass_at_1": True,
             "num_rollouts": 1,
-            "reasoning_effort": "high",
+            "reasoning_effort": "max",
             "thinking": {"enable_thinking": True, "preserve_thinking": True},
             "context_tokens": {
                 "max_input_tokens": 262_144,

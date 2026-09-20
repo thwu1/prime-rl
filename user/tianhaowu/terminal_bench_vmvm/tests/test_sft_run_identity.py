@@ -107,7 +107,7 @@ def _write_run(tmp_path: Path) -> tuple[Path, dict[str, identity.IdentityArtifac
         },
         "contract": {
             "model": "Qwen3.8-2.4T-A95B",
-            "reasoning_effort": "high",
+            "reasoning_effort": "max",
             "thinking": {"enable_thinking": True, "preserve_thinking": True},
             "context_tokens": {
                 "max_input_tokens": 262_144,

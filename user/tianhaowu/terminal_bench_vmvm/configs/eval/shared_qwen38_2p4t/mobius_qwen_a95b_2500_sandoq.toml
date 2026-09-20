@@ -23,7 +23,7 @@ max_connections = 32
 max_keepalive_connections = 32
 
 [sampling]
-reasoning_effort = "high"
+reasoning_effort = "medium"
 temperature = 0.7
 top_p = 0.95
 top_k = 20

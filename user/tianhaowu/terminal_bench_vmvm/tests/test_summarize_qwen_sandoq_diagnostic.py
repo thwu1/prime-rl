@@ -26,10 +26,11 @@ def test_summary_is_aggregate_only_and_explicitly_noncertifying(
         )
     )
     output = private / "summary.json"
-    monkeypatch.setattr(
-        diagnostic,
-        "_summarize_traces",
-        lambda *_args, **_kwargs: (
+    observed_contracts = []
+
+    def summarize(*_args, **kwargs):
+        observed_contracts.append(kwargs["model_io_contract"])
+        return (
             {
                 "traces": 1,
                 "trace_failures": 0,
@@ -37,8 +38,9 @@ def test_summary_is_aggregate_only_and_explicitly_noncertifying(
                 "problem_counts": {},
             },
             False,
-        ),
-    )
+        )
+
+    monkeypatch.setattr(diagnostic, "_summarize_traces", summarize)
 
     value = diagnostic.summarize(results, task_file, cleanup, output)
 
@@ -54,6 +56,7 @@ def test_summary_is_aggregate_only_and_explicitly_noncertifying(
         "reward": 1.0,
         "cleanup_verified": True,
     }
+    assert observed_contracts == [diagnostic.QWEN3_A95B_DIRECT_MEDIUM_MODEL_IO_CONTRACT]
     assert "opaque-task" not in output.read_text()
     metadata = output.stat()
     assert metadata.st_mode & 0o777 == 0o600

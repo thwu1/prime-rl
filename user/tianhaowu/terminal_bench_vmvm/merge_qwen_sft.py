@@ -1312,7 +1312,7 @@ def _load_repair_selection(path: Path, expected_sha256: str) -> RepairSelection:
         or config.get("capture_model_io") is not True
         or config.get("enable_thinking") is not True
         or config.get("preserve_thinking") is not True
-        or config.get("reasoning_effort") != "high"
+        or config.get("reasoning_effort") != "max"
         or config.get("max_concurrent") != 64
         or config.get("max_total_tokens") != MAX_SEQUENCE_TOKENS
         or config.get("provider_concurrency") != 32

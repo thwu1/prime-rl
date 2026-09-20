@@ -390,7 +390,7 @@ def validate_eval_config(
             or not Path(runtime["ecr_token_file"]).is_absolute()
         ):
             raise DirectWorkerError("eval_sandoq_host_harness_invalid")
-        if sampling.get("reasoning_effort") != "high":
+        if sampling.get("reasoning_effort") != "medium":
             raise DirectWorkerError("eval_sandoq_reasoning_effort_mismatch")
         dataset_dir = Path(taskset.get("dataset_dir", ""))
         compose_count = sandoq_compose_task_count(dataset_dir, task_file)

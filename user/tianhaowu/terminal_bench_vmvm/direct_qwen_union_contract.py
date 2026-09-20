@@ -129,7 +129,7 @@ def validate_shared_identity(
         contract.get("model") != QWEN_MODEL
         or contract.get("pass_at_1") is not True
         or contract.get("num_rollouts") != 1
-        or contract.get("reasoning_effort") != "high"
+        or contract.get("reasoning_effort") != "medium"
         or contract.get("thinking") != {"enable_thinking": True, "preserve_thinking": True}
         or context
         != {
@@ -276,7 +276,7 @@ def validate_shared_identity(
 
 def audit_results(results: Path, task_file: Path, expected_count: int) -> tuple[str, dict[str, int]]:
     from audit_traces import (
-        QWEN3_A95B_MODEL_IO_CONTRACT,
+        QWEN3_A95B_DIRECT_MEDIUM_MODEL_IO_CONTRACT,
         _iter_traces,
         _read_expected_slugs,
         _summarize_traces,
@@ -296,7 +296,7 @@ def audit_results(results: Path, task_file: Path, expected_count: int) -> tuple[
         require_logprobs=False,
         require_model_io=True,
         aggregate_only=True,
-        model_io_contract=QWEN3_A95B_MODEL_IO_CONTRACT,
+        model_io_contract=QWEN3_A95B_DIRECT_MEDIUM_MODEL_IO_CONTRACT,
         require_request_graph_match=True,
         max_sequence_tokens=FULL_CONTEXT_TOKENS,
     )

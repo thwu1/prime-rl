@@ -7,6 +7,7 @@ from pathlib import Path
 import pytest
 from audit_traces import (
     KIMI_K3_MAX_MODEL_IO_CONTRACT,
+    QWEN3_A95B_DIRECT_MEDIUM_MODEL_IO_CONTRACT,
     QWEN3_A95B_EPOCH3_MODEL_IO_CONTRACT,
     QWEN3_A95B_MODEL_IO_CONTRACT,
     _audit_trace,
@@ -17,6 +18,12 @@ from audit_traces import (
     _valid_tool_arguments,
     main,
 )
+
+
+def test_qwen_medium_direct_contract_does_not_rewrite_historical_contracts() -> None:
+    assert QWEN3_A95B_MODEL_IO_CONTRACT.reasoning_effort == "max"
+    assert QWEN3_A95B_EPOCH3_MODEL_IO_CONTRACT.reasoning_effort is None
+    assert QWEN3_A95B_DIRECT_MEDIUM_MODEL_IO_CONTRACT.reasoning_effort == "medium"
 
 
 def _trace(trace_id: str, slug: str, *, valid: bool = True) -> dict:

@@ -912,7 +912,7 @@ def _validate_sandoq_config(
         or client.get("max_connections") != EXPECTED_PROVIDER_CONCURRENCY
         or client.get("max_keepalive_connections") != EXPECTED_PROVIDER_CONCURRENCY
         or not isinstance(sampling, dict)
-        or sampling.get("reasoning_effort") != "high"
+        or sampling.get("reasoning_effort") != "max"
         or sampling.get("temperature") != 0.7
         or sampling.get("top_p") != 0.95
         or sampling.get("top_k") != 20

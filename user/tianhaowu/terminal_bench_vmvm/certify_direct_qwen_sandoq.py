@@ -13,7 +13,7 @@ import tempfile
 from pathlib import Path
 
 from audit_traces import (
-    QWEN3_A95B_MODEL_IO_CONTRACT,
+    QWEN3_A95B_DIRECT_MEDIUM_MODEL_IO_CONTRACT,
     _iter_traces,
     _read_expected_slugs,
     _summarize_traces,
@@ -361,7 +361,7 @@ def certify(
             require_token_data=False,
             require_logprobs=False,
             require_model_io=True,
-            model_io_contract=QWEN3_A95B_MODEL_IO_CONTRACT,
+            model_io_contract=QWEN3_A95B_DIRECT_MEDIUM_MODEL_IO_CONTRACT,
             require_request_graph_match=True,
             max_sequence_tokens=262_144,
         )

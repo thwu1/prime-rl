@@ -763,7 +763,7 @@ def _load_runtime_approval(
         or phase_timeouts != plan_generator.EXPECTED_PHASE_TIMEOUTS
         or execution["capture_model_io"] is not True
         or execution["preserve_thinking"] is not True
-        or execution["reasoning_effort"] != "high"
+        or execution["reasoning_effort"] != "max"
         or execution["cleanup_must_succeed"] is not True
         or execution["fresh_output_required"] is not True
         or execution["resume_allowed"] is not False

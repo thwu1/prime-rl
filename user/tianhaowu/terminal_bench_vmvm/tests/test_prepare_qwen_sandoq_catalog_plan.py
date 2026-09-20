@@ -92,7 +92,7 @@ def _config(
         "max_connections = 32\n"
         "max_keepalive_connections = 32\n"
         "[sampling]\n"
-        'reasoning_effort = "high"\n'
+        'reasoning_effort = "max"\n'
         "temperature = 0.7\n"
         "top_p = 0.95\n"
         "top_k = 20\n"

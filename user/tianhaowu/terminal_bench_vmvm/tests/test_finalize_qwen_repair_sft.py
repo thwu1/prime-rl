@@ -83,7 +83,7 @@ def _write_layout(tmp_path: Path, *, expected_count: int = 2) -> tuple[finalizer
             "max_total_tokens": 262_144,
             "preserve_thinking": True,
             "provider_concurrency": direct.PRODUCTION_PROVIDER_CONCURRENCY,
-            "reasoning_effort": "high",
+            "reasoning_effort": "max",
             "retry_class_count": len(direct.ROLLOUT_RETRY_POLICY),
             "retry_policy_sha256": _sha256(
                 "".join(f"{name}\n" for name in sorted(direct.ROLLOUT_RETRY_POLICY)).encode()

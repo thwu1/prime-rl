@@ -50,7 +50,17 @@ QWEN3_A95B_MODEL_IO_CONTRACT = CapturedModelIOContract(
     provider_route="/chat/completions",
     request_model="Qwen3.8-2.4T-A95B",
     response_model="Qwen3.8-2.4T-A95B",
-    reasoning_effort="high",
+    reasoning_effort="max",
+    chat_template_kwargs=(
+        ("enable_thinking", True),
+        ("preserve_thinking", True),
+    ),
+)
+QWEN3_A95B_DIRECT_MEDIUM_MODEL_IO_CONTRACT = CapturedModelIOContract(
+    provider_route="/chat/completions",
+    request_model="Qwen3.8-2.4T-A95B",
+    response_model="Qwen3.8-2.4T-A95B",
+    reasoning_effort="medium",
     chat_template_kwargs=(
         ("enable_thinking", True),
         ("preserve_thinking", True),
@@ -67,11 +77,13 @@ QWEN3_A95B_EPOCH3_MODEL_IO_CONTRACT = CapturedModelIOContract(
     ),
 )
 QWEN3_A95B_MODEL_IO_CONTRACT_ID = "qwen3-a95b"
+QWEN3_A95B_DIRECT_MEDIUM_MODEL_IO_CONTRACT_ID = "qwen3-a95b-direct-medium"
 QWEN3_A95B_EPOCH3_MODEL_IO_CONTRACT_ID = "qwen3-a95b-epoch3"
 QWEN3_A95B_REPAIRED_SFT_MODEL_IO_CONTRACT_ID = "qwen3-a95b-epoch3-source+qwen3-a95b-repair"
 MODEL_IO_CONTRACTS = {
     "kimi-k3-max": KIMI_K3_MAX_MODEL_IO_CONTRACT,
     QWEN3_A95B_MODEL_IO_CONTRACT_ID: QWEN3_A95B_MODEL_IO_CONTRACT,
+    QWEN3_A95B_DIRECT_MEDIUM_MODEL_IO_CONTRACT_ID: QWEN3_A95B_DIRECT_MEDIUM_MODEL_IO_CONTRACT,
     QWEN3_A95B_EPOCH3_MODEL_IO_CONTRACT_ID: QWEN3_A95B_EPOCH3_MODEL_IO_CONTRACT,
 }
 
