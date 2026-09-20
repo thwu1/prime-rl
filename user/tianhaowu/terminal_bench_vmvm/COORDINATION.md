@@ -1,6 +1,6 @@
 # VMVM sandbox coordination
 
-Last updated: 2026-09-20 01:04 UTC
+Last updated: 2026-09-20 01:10 UTC
 
 ## First message to the next teammate
 
@@ -42,6 +42,21 @@ this shared branch again.
 Add new rows below this line; do not overwrite another owner's row.
 
 ## Open coordination requests
+
+- **2026-09-20 01:10 UTC, diagnostic `8dfc794c7` rejected for executable
+  TOCTOU:** the seven earlier functional blockers are substantively repaired
+  and 67/67 tests pass, but same-UID protection covers only copied source/site.
+  The wrapper hashes user-owned probe/uv descriptors, then every cell executes
+  the same mutable probe inode; mutate-execute-restore can evade the final
+  wrapper hash and forge evidence. The finalizer likewise loads its mutable
+  pathname bytes before re-hashing the bundle. Execute probe, uv, and finalizer
+  from hash-verified sealed memfds (or an equivalent continuously enforced
+  kernel boundary) and add real subprocess mutate/restore regressions. Also
+  close `_remove_bound_tree_verified()`'s final check-to-`rmdir` swap window;
+  current tests swap only before entry. Live source attestation correctly fails
+  on 142 ignored `.pyc` files, `X2P_PROXY_URL` remains absent, and only AArch64
+  Landlock ABI 6 is proven; x86 ABI >=3 must still fail closed at admission.
+  All diagnostic namespaces remain absent and no authorization/job exists.
 
 - **2026-09-20 01:04 UTC, Kimi successor must also close final signal/commit
   race:** independent in-memory execution against the rejected v7 bytes set
