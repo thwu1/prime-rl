@@ -6,6 +6,7 @@ import hashlib
 import importlib.util
 import json
 import os
+import re
 import shutil
 import stat
 import subprocess
@@ -473,7 +474,7 @@ def test_supervisor_runs_exact_matrix_and_publishes_completion_last(monkeypatch,
                 authorization_sha256="b" * 64,
                 job_authorization_sha256="e" * 64,
                 job_id="42",
-                job_name="vmvm-diag-" + "f" * 24,
+                job_name="vmvm-v4-preflight-" + "f" * 24,
                 submission_receipt_sha256="c" * 64,
             )
         )
@@ -518,7 +519,7 @@ def test_supervisor_runs_exact_matrix_and_publishes_completion_last(monkeypatch,
 
 
 def test_sbatch_is_held_single_job_and_uses_stdin_wrapper() -> None:
-    command = LAUNCH._sbatch_command("vmvm-diag-" + "a" * 24, Path("/private/environment"))
+    command = LAUNCH._sbatch_command("vmvm-v4-preflight-" + "a" * 24, Path("/private/environment"))
     assert command[0] == "/usr/bin/sbatch"
     assert "--hold" in command
     assert "--export=NONE" in command
@@ -531,11 +532,11 @@ def test_sbatch_is_held_single_job_and_uses_stdin_wrapper() -> None:
 
 def test_slurm_time_limit_uses_the_scheduler_canonical_identity() -> None:
     job_id = "42"
-    job_name = "vmvm-diag-" + "a" * 24
+    job_name = "vmvm-v4-preflight-" + "a" * 24
     record = {
         "Account": "ram",
         "Command": "(null)",
-        "Comment": "vmvm-task-free-v2:" + "a" * 24,
+        "Comment": "vmvm-v4-preflight:" + "a" * 24,
         "Dependency": "(null)",
         "JobId": job_id,
         "JobName": job_name,
@@ -557,6 +558,16 @@ def test_slurm_time_limit_uses_the_scheduler_canonical_identity() -> None:
     assert LAUNCH._base_mismatches(record, job_id, job_name) == {"TimeLimit"}
 
 
+def test_v4_preflight_namespaces_are_exact_and_fresh() -> None:
+    assert LAUNCH.OUTPUT_ROOT == PROBE.EXPECTED_OUTPUT_ROOT == FINALIZE.OUTPUT_ROOT
+    assert LAUNCH.SCRATCH_ROOT == PROBE.EXPECTED_SCRATCH_ROOT == FINALIZE.SCRATCH_ROOT
+    assert LAUNCH.LOG_ROOT == FINALIZE.LOG_ROOT
+    assert LAUNCH.OUTPUT_ROOT.name == "vmvm_v21_task_free_preflight_a09a9a189_v4"
+    assert LAUNCH.LOG_ROOT.name == "vmvm_v21_task_free_preflight_a09a9a189_v4"
+    assert LAUNCH.SCRATCH_ROOT.name == "vmvm-v21-task-free-preflight-v4"
+    assert LAUNCH.NAME_RE.fullmatch("vmvm-v4-preflight-" + "a" * 24)
+
+
 def test_held_poll_requires_two_exact_snapshots(monkeypatch) -> None:
     outcomes = iter(
         [
@@ -569,7 +580,7 @@ def test_held_poll_requires_two_exact_snapshots(monkeypatch) -> None:
     monkeypatch.setattr(LAUNCH, "_snapshot", lambda *args: next(outcomes))
     monkeypatch.setattr(LAUNCH.time, "monotonic", lambda: next(clock))
     monkeypatch.setattr(LAUNCH.time, "sleep", lambda value: None)
-    result = LAUNCH.poll_phase("1", "vmvm-diag-" + "a" * 24, "held", 20, set())
+    result = LAUNCH.poll_phase("1", "vmvm-v4-preflight-" + "a" * 24, "held", 20, set())
     assert result["converged"] is True
     assert result["polls"] == 3
     assert result["mismatch_occurrences"] == {"held_queue": 1}
@@ -583,7 +594,7 @@ def test_conflict_latch_is_monotonic(monkeypatch) -> None:
         ]
     )
     monkeypatch.setattr(LAUNCH, "_snapshot", lambda *args: next(outcomes))
-    result = LAUNCH.poll_phase("1", "vmvm-diag-" + "a" * 24, "held", 20, set())
+    result = LAUNCH.poll_phase("1", "vmvm-v4-preflight-" + "a" * 24, "held", 20, set())
     assert result["converged"] is False
     assert result["explicit_conflict_fields"] == ["JobName"]
     assert result["polls"] == 1
@@ -603,7 +614,7 @@ def test_cancel_conflict_never_calls_scancel(monkeypatch) -> None:
     monkeypatch.setattr(LAUNCH, "_run", lambda command, timeout=20: calls.append(list(command)))
     result = LAUNCH.cancel_and_prove(
         "1",
-        "vmvm-diag-" + "a" * 24,
+        "vmvm-v4-preflight-" + "a" * 24,
         set(),
         candidate_provenance="sbatch_stdout",
     )
@@ -612,19 +623,121 @@ def test_cancel_conflict_never_calls_scancel(monkeypatch) -> None:
     assert not calls
 
 
-def test_wrapper_orders_admission_before_runtime_or_output() -> None:
+def test_wrapper_is_preflight_only_and_never_invokes_supervisor() -> None:
     source = (ROOT / "run_vmvm_task_free_v2.sbatch").read_text()
     permit = source.index("preflight_output=")
     final_gate = source.index("validate_source", permit)
     output_gate = source.index("[[ ! -e $DIAG_OUTPUT_ROOT", final_gate)
-    probe = source.index("probe_output=", output_gate)
-    assert permit < final_gate < output_gate < probe
+    success = source.index('"stage":"prelease_admission"', output_gate)
+    assert permit < final_gate < output_gate < success
     assert all(name in source for name in PROBE.X2P_NAMES)
-    assert "--validate-batch" in source
+    assert source.count("run_sealed_probe --validate-batch") == 1
     assert "--scratch-root" in source
+    assert "probe_output=" not in source
+    assert "--environment-sha256" not in source
+    assert "run_supervisor" not in source
     preflight = source[permit:final_gate]
     assert '--output-dir "$BOUND_OUTPUT_PARENT/' in preflight
     assert '--completion-receipt "$BOUND_OUTPUT_PARENT/' in preflight
+
+
+def test_probe_cli_exposes_only_preflight_admission() -> None:
+    destinations = {action.dest for action in PROBE._parser()._actions}
+    assert destinations == {
+        "completion_receipt",
+        "help",
+        "output_dir",
+        "scratch_root",
+        "site_root",
+        "source_root",
+        "validate_batch",
+    }
+    source = (ROOT / "probe_vmvm_task_free_v2.py").read_text()
+    main = source[source.index("def main(") :]
+    assert "run_supervisor" not in main
+    assert "execute_worker" not in main
+
+
+def test_preflight_protocol_is_minimal_and_consistent() -> None:
+    expected = {
+        "diagnostic_only": True,
+        "preflight_only": True,
+        "production_authorized": False,
+    }
+    assert LAUNCH.PREFLIGHT_PROTOCOL == PROBE.PREFLIGHT_PROTOCOL == FINALIZE.PREFLIGHT_PROTOCOL == expected
+
+
+def test_wrapper_public_output_domains_are_closed() -> None:
+    source = (ROOT / "run_vmvm_task_free_v2.sbatch").read_text()
+    allowed_stages = {
+        "activation_gate",
+        "bundle_artifacts",
+        "bundle_inventory",
+        "count_shape",
+        "digest_shape",
+        "directory_identity",
+        "directory_open",
+        "entry",
+        "executable_binding",
+        "fixed_environment",
+        "forbidden_environment",
+        "identity_shape",
+        "lineage_hashes",
+        "namespace_freshness",
+        "path_shape",
+        "post_preflight_source",
+        "probe_admission",
+        "probe_response",
+        "required_environment",
+        "runtime_artifacts",
+        "runtime_resolution",
+        "sealed_builder",
+        "source_attestation",
+        "uv_environment",
+        "uv_probe_exec",
+        "uv_sanitizer",
+    }
+    assigned_stages = set(re.findall(r"^\s*failure_stage=([a-z_]+)$", source, re.MULTILINE))
+    assert assigned_stages == allowed_stages
+    assert "exec >/dev/null 2>&1" in source
+    assert "for public_fd in (public_stdout_fd, public_stderr_fd):" in source
+    assert "os.close(public_fd)" in source
+    assert 'EXPECTED_UV = "/memfd:vmvm-uv-v2 (deleted)"' in source
+    assert 'EXPECTED_PATH = "/usr/local/bin:/usr/bin:/bin"' in source
+    assert 'os.execve(\n            "/proc/self/exe"' in source
+    assert "printf '%s\\n' \"$preflight_output\"" not in source
+    assert source.count('>&"$public_stderr_fd"') == 1
+    assert source.count('>&"$public_stdout_fd"') == 1
+
+
+def test_uv_internal_environment_is_never_exported() -> None:
+    private = {
+        "bundle_identity": "1:2:448:656177",
+        "job_name": "vmvm-v4-preflight-" + "a" * 24,
+        "output_parent_identity": "1:3:448:656177",
+        "site_entry_count": "1",
+        "site_identity": "1:4:365:656177",
+        "site_manifest_sha256": "a" * 64,
+        "site_total_bytes": "1",
+        "source_identity": "1:5:365:656177",
+        **{name: "/private/tls" for name in LAUNCH.TLS_NAMES},
+        **{name: "private" for name in LAUNCH.X2P_NAMES},
+    }
+    environment = LAUNCH._submission_environment(
+        private=private,
+        authorization=Path("/private/authorization.json"),
+        authorization_file_sha256="a" * 64,
+        authorization_sha256="b" * 64,
+        launcher_sha256="c" * 64,
+        wrapper_sha256="d" * 64,
+        probe_sha256="e" * 64,
+        finalizer_sha256="f" * 64,
+        reservation_identity="1:6:320:656177",
+    )
+    assert {name for name in environment if name == "UV" or name.startswith("UV_")} == {"UV_BIN_X86_64"}
+    assert environment["PATH"] == "/usr/bin:/bin"
+    wrapper = (ROOT / "run_vmvm_task_free_v2.sbatch").read_text()
+    assert "-n ${UV+x}" in wrapper
 
 
 def test_source_contains_no_task_or_model_entrypoint() -> None:
@@ -752,7 +865,7 @@ def test_supervisor_aborts_before_next_cell_on_unverifiable_result(
                     authorization_sha256="b" * 64,
                     job_authorization_sha256="e" * 64,
                     job_id="42",
-                    job_name="vmvm-diag-" + "f" * 24,
+                    job_name="vmvm-v4-preflight-" + "f" * 24,
                     submission_receipt_sha256="c" * 64,
                 )
             )
@@ -816,7 +929,7 @@ def test_resolve_submission_recovers_timeout_by_exact_name(monkeypatch) -> None:
     assert LAUNCH._resolve_submission(
         direct_candidate=None,
         outcome="timeout",
-        job_name="vmvm-diag-" + "a" * 24,
+        job_name="vmvm-v4-preflight-" + "a" * 24,
         start_date="2026-09-19",
     ) == ("42", "name_lookup")
 
@@ -827,7 +940,7 @@ def test_resolve_submission_rejects_direct_name_disagreement(monkeypatch) -> Non
         LAUNCH._resolve_submission(
             direct_candidate="42",
             outcome="completed",
-            job_name="vmvm-diag-" + "a" * 24,
+            job_name="vmvm-v4-preflight-" + "a" * 24,
             start_date="2026-09-19",
         )
 
@@ -854,7 +967,7 @@ def test_direct_candidate_unavailable_identity_attempts_one_exact_cancel(
     monkeypatch.setattr(LAUNCH, "_run", fake_run)
     result = LAUNCH.cancel_and_prove(
         "42",
-        "vmvm-diag-" + "a" * 24,
+        "vmvm-v4-preflight-" + "a" * 24,
         set(),
         candidate_provenance="sbatch_stdout",
     )
@@ -874,7 +987,7 @@ def test_precontrol_conflict_after_identity_proof_forbids_cancel(monkeypatch) ->
     monkeypatch.setattr(LAUNCH, "_run", lambda command, timeout=20: calls.append(list(command)))
     result = LAUNCH.cancel_and_prove(
         "42",
-        "vmvm-diag-" + "a" * 24,
+        "vmvm-v4-preflight-" + "a" * 24,
         set(),
         candidate_provenance="sbatch_stdout",
     )
@@ -934,7 +1047,9 @@ def test_wrapper_gate_bound_and_bundle_inventory_are_static() -> None:
     assert "DIAG_WRAPPER_GATE_TIMEOUT_SECONDS != 900" in source
     assert "${#bundle_entries[@]} == 6" in source
     assert "DIAG_AUTHORIZATION_FILE_SHA256" in source
-    assert '&& ! -e "$DIAG_SCRATCH_ROOT" && ! -L "$DIAG_SCRATCH_ROOT"' in source
+    assert "&& ! -e $DIAG_SCRATCH_ROOT && ! -L $DIAG_SCRATCH_ROOT" in source
+    assert "device_only" in source
+    assert "multiple" in source
 
 
 def test_combined_pem_profile_is_narrow() -> None:
@@ -1744,8 +1859,25 @@ def test_finalizer_subprocess_requires_and_executes_its_sealed_bytes(tmp_path: P
         os.close(descriptor)
 
 
-@pytest.mark.parametrize("leave_scratch", (False, True))
-def test_real_wrapper_invokes_actual_batch_admission_through_procfd(tmp_path: Path, leave_scratch: bool) -> None:
+@pytest.mark.parametrize(
+    "failure_case",
+    (
+        "success",
+        "device_only",
+        "multiple",
+        "unreadable",
+        "probe_rejected",
+        "probe_response",
+        "uv_depth_missing",
+        "uv_depth_wrong",
+        "uv_value_wrong",
+        "uv_path_wrong",
+        "uv_extra_mutation",
+        "outer_uv",
+        "persisted_uv",
+    ),
+)
+def test_real_wrapper_emits_only_static_preflight_telemetry(tmp_path: Path, failure_case: str) -> None:
     base = tmp_path / "base"
     source, revisions = build_git_source_fixture(tmp_path)
     expected_source = base / "sources/prime-rl-a09a9a189-v21"
@@ -1756,11 +1888,11 @@ def test_real_wrapper_invokes_actual_batch_admission_through_procfd(tmp_path: Pa
     (site / "runtime.py").write_text("VALUE = 1\n")
     diagnostics = base / "diagnostics"
     diagnostics.mkdir()
-    output = diagnostics / "vmvm_v21_task_free_ab_a09a9a189_v3"
+    output = diagnostics / "vmvm_v21_task_free_preflight_a09a9a189_v4"
     reservation = Path(f"{output}.launch-reservation")
     completion = Path(f"{output}.external-completion.json")
     scratch = tmp_path / "scratch"
-    log_root = base / "logs/vmvm_v21_task_free_ab_a09a9a189_v3"
+    log_root = base / "logs/vmvm_v21_task_free_preflight_a09a9a189_v4"
     bundle = tmp_path / "bundle"
     bundle.mkdir(mode=0o700)
     bundle.chmod(0o700)
@@ -1771,14 +1903,23 @@ def test_real_wrapper_invokes_actual_batch_admission_through_procfd(tmp_path: Pa
         "import os,sys\n"
         "args=sys.argv[1:]\n"
         "if '--validate-batch' in args:\n"
+        f" mode={failure_case!r}\n"
+        f" reject={failure_case == 'probe_rejected'!r}\n"
+        f" invalid_response={failure_case == 'probe_response'!r}\n"
+        " if reject or invalid_response:\n"
+        "  print(os.environ['X2P_ENV'])\n"
+        "  print(os.environ['DIAG_SOURCE_ROOT'],file=sys.stderr)\n"
+        "  raise SystemExit(2 if reject else 0)\n"
+        " child_environment=dict(os.environ)\n"
+        " if mode != 'uv_depth_missing':\n"
+        "  child_environment['UV_RUN_RECURSION_DEPTH']='2' if mode == 'uv_depth_wrong' else '1'\n"
+        " child_environment['UV']='/wrong/uv' if mode == 'uv_value_wrong' else '/memfd:vmvm-uv-v2 (deleted)'\n"
+        " child_environment['PATH']='/unexpected/bin:/usr/bin:/bin' if mode == 'uv_path_wrong' else '/usr/local/bin:/usr/bin:/bin'\n"
+        " if mode == 'uv_extra_mutation': child_environment['UV_UNEXPECTED_MUTATION']='private-extra'\n"
         " start=args.index('-I')\n"
-        " os.execve('/usr/bin/python3',['/usr/bin/python3',*args[start:]],dict(os.environ))\n"
-        "output=args[args.index('--output-dir')+1]\n"
-        "os.mkdir(output,0o700)\n"
-        "os.chmod(output,0o500)\n"
-        f"leave_scratch={leave_scratch!r}\n"
-        "if leave_scratch: os.mkdir(args[args.index('--scratch-root')+1],0o700)\n"
-        'print(\'{"failure_categories":0,"passed":48,"stages":48,"state":"awaiting_external_completion"}\')\n'
+        " os.execve('/usr/bin/python3',['/usr/bin/python3',*args[start:]],child_environment)\n"
+        "print('RAW_SUPERVISOR_OUTPUT_MUST_NOT_RUN',file=sys.stderr)\n"
+        "raise SystemExit(91)\n"
     )
     uv_path.chmod(0o755)
     uv_sha = hashlib.sha256(uv_path.read_bytes()).hexdigest()
@@ -1795,7 +1936,7 @@ def test_real_wrapper_invokes_actual_batch_admission_through_procfd(tmp_path: Pa
         f'VMVM_SHA256 = "{PROBE.VMVM_SHA256}"': f'VMVM_SHA256 = "{revisions["vmvm"]}"',
         f'X86_UV_SHA256 = "{PROBE.X86_UV_SHA256}"': f'X86_UV_SHA256 = "{uv_sha}"',
         'BASE = Path("/checkpoint/ram/tianhaowu/terminal_bench_vmvm")': f"BASE = Path({str(base)!r})",
-        'EXPECTED_SCRATCH_ROOT = Path("/tmp/vmvm-v21-task-free-ab-v3")': (
+        'EXPECTED_SCRATCH_ROOT = Path("/tmp/vmvm-v21-task-free-preflight-v4")': (
             f"EXPECTED_SCRATCH_ROOT = Path({str(scratch)!r})"
         ),
         'environment["UV_BIN_X86_64"] != "/storage/home/tianhaowu/.local/x86_64/bin/uv"': (
@@ -1878,7 +2019,7 @@ def test_real_wrapper_invokes_actual_batch_admission_through_procfd(tmp_path: Pa
         "X2P_CFG_ENV": "fixture-configuration",
         "X2P_PROXY_URL": "https://fixture.invalid/proxy",
     }
-    job_name = "vmvm-diag-" + "f" * 24
+    job_name = "vmvm-v4-preflight-" + "f" * 24
     launch_body = {
         "artifact_type": "vmvm_task_free_diagnostic_authorization_v2",
         "bundle": {**bundle_records, "root_identity": identity(bundle)},
@@ -1889,7 +2030,7 @@ def test_real_wrapper_invokes_actual_batch_admission_through_procfd(tmp_path: Pa
         "launch": {
             "account": "ram",
             "cluster": PROBE.EXPECTED_CLUSTER,
-            "comment": "vmvm-task-free-v2:" + "f" * 24,
+            "comment": "vmvm-v4-preflight:" + "f" * 24,
             "completion_receipt": str(completion),
             "cpus": 2,
             "job_name": job_name,
@@ -1906,11 +2047,8 @@ def test_real_wrapper_invokes_actual_batch_admission_through_procfd(tmp_path: Pa
         },
         "protocol": {
             "diagnostic_only": True,
-            "lease_attempt_limit_per_cell": PROBE.LEASE_ATTEMPT_LIMIT,
-            "mode_orders": [list(order) for order in PROBE.MODE_ORDERS],
+            "preflight_only": True,
             "production_authorized": False,
-            "repetitions_per_mode": PROBE.REPETITIONS,
-            "stage_timeout_seconds": PROBE.STAGE_TIMEOUT_SECONDS,
         },
         "runtime": {
             "image": PROBE.IMAGE,
@@ -2018,7 +2156,12 @@ def test_real_wrapper_invokes_actual_batch_admission_through_procfd(tmp_path: Pa
         **{name: str(tls_path) for name in PROBE.TLS_NAMES},
         **x2p_values,
     }
-    environment_raw = b"".join(f"{name}={exported[name]}".encode() + b"\0" for name in sorted(exported))
+    persisted_environment = dict(exported)
+    if failure_case == "persisted_uv":
+        persisted_environment["UV_RUN_RECURSION_DEPTH"] = "1"
+    environment_raw = b"".join(
+        f"{name}={persisted_environment[name]}".encode() + b"\0" for name in sorted(persisted_environment)
+    )
     environment_sha = PROBE.sha256_bytes(environment_raw)
     launch_intent = {
         "artifact_type": "vmvm_task_free_launch_intent_v2",
@@ -2084,7 +2227,22 @@ def test_real_wrapper_invokes_actual_batch_admission_through_procfd(tmp_path: Pa
         target.chmod(mode)
     reservation.chmod(0o500)
 
+    raw_secret = "RAW_PRIVATE_CREDENTIAL_MUST_NOT_APPEAR"
+    raw_missing_path = tmp_path / f"missing-{raw_secret}"
+    if failure_case == "device_only":
+        values = exported["DIAG_BUNDLE_IDENTITY"].split(":")
+        values[0] = str(int(values[0]) + 1)
+        exported["DIAG_BUNDLE_IDENTITY"] = ":".join(values)
+    elif failure_case == "multiple":
+        values = exported["DIAG_SOURCE_IDENTITY"].split(":")
+        values[0] = str(int(values[0]) + 1)
+        values[1] = str(int(values[1]) + 1)
+        exported["DIAG_SOURCE_IDENTITY"] = ":".join(values)
+    elif failure_case == "unreadable":
+        exported["DIAG_SOURCE_ROOT"] = str(raw_missing_path)
     runtime_environment = {**exported, "SLURM_JOB_ID": "42", "SLURM_JOB_NAME": job_name}
+    if failure_case == "outer_uv":
+        runtime_environment["UV"] = raw_secret
     result = subprocess.run(
         [str(wrapper_path)],
         env=runtime_environment,
@@ -2093,14 +2251,92 @@ def test_real_wrapper_invokes_actual_batch_admission_through_procfd(tmp_path: Pa
         timeout=30,
         check=False,
     )
-    assert result.returncode == (2 if leave_scratch else 0), result.stderr.decode(errors="replace")
-    assert result.stderr == (b'{"code":"diagnostic_job_failed","state":"failed"}\n' if leave_scratch else b"")
-    assert result.stdout == (
-        b""
-        if leave_scratch
-        else b'{"failure_categories":0,"passed":48,"stages":48,"state":"awaiting_external_completion"}\n'
-    )
-    assert output.is_dir() and stat.S_IMODE(output.stat().st_mode) == 0o500
+    expected_failure = {
+        "device_only": (
+            b'{"code":"diagnostic_job_failed","directory_identities":{"bundle":"device_only",'
+            b'"output_parent":"match","reservation":"match","site":"match","source":"match"},'
+            b'"stage":"directory_identity","state":"failed"}\n'
+        ),
+        "multiple": (
+            b'{"code":"diagnostic_job_failed","directory_identities":{"bundle":"match",'
+            b'"output_parent":"match","reservation":"match","site":"match","source":"multiple"},'
+            b'"stage":"directory_identity","state":"failed"}\n'
+        ),
+        "unreadable": (
+            b'{"code":"diagnostic_job_failed","directory_identities":{"bundle":"not_checked",'
+            b'"output_parent":"not_checked","reservation":"not_checked","site":"not_checked",'
+            b'"source":"unreadable"},"stage":"directory_open","state":"failed"}\n'
+        ),
+        "probe_rejected": (
+            b'{"code":"diagnostic_job_failed","directory_identities":{"bundle":"match",'
+            b'"output_parent":"match","reservation":"match","site":"match","source":"match"},'
+            b'"stage":"probe_admission","state":"failed"}\n'
+        ),
+        "probe_response": (
+            b'{"code":"diagnostic_job_failed","directory_identities":{"bundle":"match",'
+            b'"output_parent":"match","reservation":"match","site":"match","source":"match"},'
+            b'"stage":"probe_response","state":"failed"}\n'
+        ),
+        "uv_depth_missing": (
+            b'{"code":"diagnostic_job_failed","directory_identities":{"bundle":"match",'
+            b'"output_parent":"match","reservation":"match","site":"match","source":"match"},'
+            b'"stage":"uv_sanitizer","state":"failed"}\n'
+        ),
+        "uv_depth_wrong": (
+            b'{"code":"diagnostic_job_failed","directory_identities":{"bundle":"match",'
+            b'"output_parent":"match","reservation":"match","site":"match","source":"match"},'
+            b'"stage":"uv_sanitizer","state":"failed"}\n'
+        ),
+        "uv_value_wrong": (
+            b'{"code":"diagnostic_job_failed","directory_identities":{"bundle":"match",'
+            b'"output_parent":"match","reservation":"match","site":"match","source":"match"},'
+            b'"stage":"uv_sanitizer","state":"failed"}\n'
+        ),
+        "uv_path_wrong": (
+            b'{"code":"diagnostic_job_failed","directory_identities":{"bundle":"match",'
+            b'"output_parent":"match","reservation":"match","site":"match","source":"match"},'
+            b'"stage":"uv_sanitizer","state":"failed"}\n'
+        ),
+        "uv_extra_mutation": (
+            b'{"code":"diagnostic_job_failed","directory_identities":{"bundle":"match",'
+            b'"output_parent":"match","reservation":"match","site":"match","source":"match"},'
+            b'"stage":"uv_environment","state":"failed"}\n'
+        ),
+        "outer_uv": (
+            b'{"code":"diagnostic_job_failed","directory_identities":{"bundle":"not_checked",'
+            b'"output_parent":"not_checked","reservation":"not_checked","site":"not_checked",'
+            b'"source":"not_checked"},"stage":"forbidden_environment","state":"failed"}\n'
+        ),
+        "persisted_uv": (
+            b'{"code":"diagnostic_job_failed","directory_identities":{"bundle":"match",'
+            b'"output_parent":"match","reservation":"match","site":"match","source":"match"},'
+            b'"stage":"probe_admission","state":"failed"}\n'
+        ),
+    }
+    if failure_case == "success":
+        assert result.returncode == 0, result.stderr.decode(errors="replace")
+        assert result.stderr == b""
+        assert result.stdout == (
+            b'{"directory_identities":{"bundle":"match","output_parent":"match",'
+            b'"reservation":"match","site":"match","source":"match"},'
+            b'"stage":"prelease_admission","state":"passed"}\n'
+        )
+    else:
+        assert result.returncode == 2
+        assert result.stdout == b""
+        assert result.stderr == expected_failure[failure_case]
+    public_output = result.stdout + result.stderr
+    assert raw_secret.encode() not in public_output
+    assert str(raw_missing_path).encode() not in public_output
+    assert str(expected_source).encode() not in public_output
+    assert b"RAW_SUPERVISOR_OUTPUT_MUST_NOT_RUN" not in public_output
+    assert b"/wrong/uv" not in public_output
+    assert b"/unexpected/bin" not in public_output
+    assert b"private-extra" not in public_output
+    assert all(value.encode() not in public_output for value in x2p_values.values())
+    assert not output.exists()
+    assert not completion.exists()
+    assert not scratch.exists()
 
 
 def test_execution_snapshot_defeats_mutate_restore_race(monkeypatch, tmp_path: Path) -> None:
@@ -2745,7 +2981,7 @@ def test_external_finalizer_writes_receipt_outside_sealed_output(monkeypatch, tm
     job = {
         "cluster": "fair-cw-use2-3",
         "job_id": "42",
-        "job_name": "vmvm-diag-" + "f" * 24,
+        "job_name": "vmvm-v4-preflight-" + "f" * 24,
     }
     source_root, source_revisions = build_git_source_fixture(tmp_path)
     site_root = tmp_path / "site-root"
@@ -2861,7 +3097,7 @@ def test_external_finalizer_writes_receipt_outside_sealed_output(monkeypatch, tm
         "launch": {
             "account": "ram",
             "cluster": FINALIZE.CLUSTER,
-            "comment": f"vmvm-task-free-v2:{'f' * 24}",
+            "comment": f"vmvm-v4-preflight:{'f' * 24}",
             "completion_receipt": str(receipt_path),
             "cpus": 2,
             "job_name": job["job_name"],
@@ -2878,11 +3114,8 @@ def test_external_finalizer_writes_receipt_outside_sealed_output(monkeypatch, tm
         },
         "protocol": {
             "diagnostic_only": True,
-            "lease_attempt_limit_per_cell": FINALIZE.LEASE_ATTEMPT_LIMIT,
-            "mode_orders": [list(order) for order in FINALIZE.MODE_ORDERS],
+            "preflight_only": True,
             "production_authorized": False,
-            "repetitions_per_mode": len(FINALIZE.MODE_ORDERS),
-            "stage_timeout_seconds": FINALIZE.STAGE_TIMEOUT_SECONDS,
         },
         "runtime": {
             "image": FINALIZE.IMAGE,

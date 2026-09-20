@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Seal a completed task-free diagnostic from an external authorization."""
+"""Validate completion artifacts for the task-free diagnostic bundle."""
 
 from __future__ import annotations
 
@@ -21,11 +21,11 @@ from typing import Any
 
 BASE = Path("/checkpoint/ram/tianhaowu/terminal_bench_vmvm")
 SOURCE_ROOT = BASE / "sources/prime-rl-a09a9a189-v21"
-OUTPUT_ROOT = BASE / "diagnostics/vmvm_v21_task_free_ab_a09a9a189_v3"
+OUTPUT_ROOT = BASE / "diagnostics/vmvm_v21_task_free_preflight_a09a9a189_v4"
 COMPLETION_RECEIPT = Path(f"{OUTPUT_ROOT}.external-completion.json")
 RESERVATION = Path(f"{OUTPUT_ROOT}.launch-reservation")
-LOG_ROOT = BASE / "logs/vmvm_v21_task_free_ab_a09a9a189_v3"
-SCRATCH_ROOT = Path("/tmp/vmvm-v21-task-free-ab-v3")
+LOG_ROOT = BASE / "logs/vmvm_v21_task_free_preflight_a09a9a189_v4"
+SCRATCH_ROOT = Path("/tmp/vmvm-v21-task-free-preflight-v4")
 X86_UV = Path("/storage/home/tianhaowu/.local/x86_64/bin/uv")
 X86_SITE = BASE / "python_x86_64"
 VACLI = Path("/public/fbpkgs/x86_64/vacli/stable/vacli")
@@ -44,6 +44,11 @@ CLUSTER = "fair-cw-use2-3"
 JOB_TIME_LIMIT = "1-12:00:00"
 TLS_NAMES = ("THRIFT_TLS_CL_CERT_PATH", "THRIFT_TLS_CL_KEY_PATH")
 X2P_NAMES = ("X2P_ENV", "X2P_CFG_ENV", "X2P_PROXY_URL")
+PREFLIGHT_PROTOCOL = {
+    "diagnostic_only": True,
+    "preflight_only": True,
+    "production_authorized": False,
+}
 REQUIRED_MEMFD_SEALS = (
     fcntl.F_SEAL_SEAL
     | fcntl.F_SEAL_SHRINK
@@ -577,7 +582,7 @@ def validate_certificate(
         or set(job) != {"cluster", "job_id", "job_name"}
         or job.get("cluster") != "fair-cw-use2-3"
         or JOB_RE.fullmatch(str(job.get("job_id"))) is None
-        or re.fullmatch(r"vmvm-diag-[0-9a-f]{24}", str(job.get("job_name"))) is None
+        or re.fullmatch(r"vmvm-v4-preflight-[0-9a-f]{24}", str(job.get("job_name"))) is None
         or protocol
         != {
             "causal_scope": "construction_backend_ready",
@@ -1366,11 +1371,11 @@ def _validate_launch_authorization(
             fail("authorization_invalid")
 
     job_name = str(launch.get("job_name"))
-    token_match = re.fullmatch(r"vmvm-diag-([0-9a-f]{24})", job_name)
+    token_match = re.fullmatch(r"vmvm-v4-preflight-([0-9a-f]{24})", job_name)
     expected_launch = {
         "account": "ram",
         "cluster": CLUSTER,
-        "comment": f"vmvm-task-free-v2:{token_match.group(1)}" if token_match else None,
+        "comment": f"vmvm-v4-preflight:{token_match.group(1)}" if token_match else None,
         "completion_receipt": str(COMPLETION_RECEIPT),
         "cpus": 2,
         "job_name": job_name,
@@ -1389,14 +1394,7 @@ def _validate_launch_authorization(
         fail("authorization_invalid")
     output_parent_fd = _open_bound_directory(OUTPUT_ROOT.parent, launch["output_parent_identity"])
     os.close(output_parent_fd)
-    if protocol != {
-        "diagnostic_only": True,
-        "lease_attempt_limit_per_cell": LEASE_ATTEMPT_LIMIT,
-        "mode_orders": [list(order) for order in MODE_ORDERS],
-        "production_authorized": False,
-        "repetitions_per_mode": len(MODE_ORDERS),
-        "stage_timeout_seconds": STAGE_TIMEOUT_SECONDS,
-    }:
+    if protocol != PREFLIGHT_PROTOCOL:
         fail("authorization_invalid")
     execution_inputs = {
         "authorized_site": dict(site["inventory"]),
@@ -1683,7 +1681,7 @@ def _validate_submission_lineage(
         or set(job) != {"cluster", "job_id", "job_name"}
         or job.get("cluster") != "fair-cw-use2-3"
         or JOB_RE.fullmatch(str(job.get("job_id"))) is None
-        or re.fullmatch(r"vmvm-diag-[0-9a-f]{24}", str(job.get("job_name"))) is None
+        or re.fullmatch(r"vmvm-v4-preflight-[0-9a-f]{24}", str(job.get("job_name"))) is None
     ):
         fail("submission_lineage_invalid")
     _validate_scheduler_telemetry(
@@ -1898,7 +1896,7 @@ def finalize(
         }
         or job.get("cluster") != "fair-cw-use2-3"
         or JOB_RE.fullmatch(str(job.get("job_id"))) is None
-        or re.fullmatch(r"vmvm-diag-[0-9a-f]{24}", str(job.get("job_name"))) is None
+        or re.fullmatch(r"vmvm-v4-preflight-[0-9a-f]{24}", str(job.get("job_name"))) is None
         or job.get("terminal_state") not in {"COMPLETED", "FAILED", "TIMEOUT", "CANCELLED"}
         or SHA_RE.fullmatch(str(job.get("terminal_observation_sha256"))) is None
         or {

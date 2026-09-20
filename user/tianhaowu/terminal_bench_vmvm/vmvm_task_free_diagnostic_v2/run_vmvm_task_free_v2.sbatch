@@ -1,11 +1,48 @@
 #!/usr/bin/bash
-# Task-free, aggregate-only VMVM transport diagnostic.
+# Task-free, aggregate-only VMVM pre-lease admission diagnostic.
 
 set -euo pipefail
 umask 077
 
+exec {public_stdout_fd}>&1 || exit 2
+exec {public_stderr_fd}>&2 || exit 2
+exec >/dev/null 2>&1 || exit 2
+readonly public_stdout_fd public_stderr_fd
+
+failure_stage=entry
+identity_bundle=not_checked
+identity_source=not_checked
+identity_site=not_checked
+identity_reservation=not_checked
+identity_output_parent=not_checked
+
 fail() {
-    printf '{"code":"diagnostic_job_failed","state":"failed"}\n' >&2
+    local stage=$failure_stage identity variable
+    local bundle=$identity_bundle output_parent=$identity_output_parent
+    local reservation=$identity_reservation site=$identity_site source=$identity_source
+    case $stage in
+        entry|required_environment|forbidden_environment|fixed_environment|\
+            path_shape|digest_shape|identity_shape|count_shape|directory_open|\
+            directory_identity|bundle_inventory|bundle_artifacts|runtime_resolution|\
+            runtime_artifacts|source_attestation|activation_gate|executable_binding|\
+            sealed_builder|uv_sanitizer|uv_environment|uv_probe_exec|\
+            probe_admission|probe_response|post_preflight_source|\
+            namespace_freshness|lineage_hashes|internal) ;;
+        *) stage=internal ;;
+    esac
+    for variable in bundle output_parent reservation site source; do
+        identity=${!variable}
+        case $identity in
+            match|not_checked|unreadable|device_only|inode_only|mode_only|owner_only|multiple) ;;
+            *)
+                printf -v "$variable" %s not_checked
+                stage=internal
+                ;;
+        esac
+    done
+    printf '{"code":"diagnostic_job_failed","directory_identities":{"bundle":"%s","output_parent":"%s","reservation":"%s","site":"%s","source":"%s"},"stage":"%s","state":"failed"}\n' \
+        "$bundle" "$output_parent" "$reservation" "$site" "$source" "$stage" \
+        >&"$public_stderr_fd"
     exit 2
 }
 
@@ -42,9 +79,11 @@ required_environment=(
     THRIFT_TLS_CL_CERT_PATH THRIFT_TLS_CL_KEY_PATH X2P_ENV X2P_CFG_ENV
     X2P_PROXY_URL
 )
+failure_stage=required_environment
 for variable in "${required_environment[@]}"; do
     [[ -n ${!variable:-} ]] || fail
 done
+failure_stage=forbidden_environment
 for variable in "${!BASH_FUNC_@}" "${!LD_@}" "${!GIT_@}"; do
     [[ -z $variable ]] || fail
 done
@@ -60,7 +99,7 @@ for variable in "${!PYTHON_@}"; do
         || $variable == PYTHON_SITE_X86_64_MANIFEST_SHA256 \
         || $variable == PYTHON_SITE_X86_64_TOTAL_BYTES ]] || fail
 done
-if [[ -n ${BASH_ENV+x} || -n ${ENV+x} || -n ${CDPATH+x} \
+if [[ -n ${BASH_ENV+x} || -n ${ENV+x} || -n ${CDPATH+x} || -n ${UV+x} \
     || -n ${PYTHONHOME+x} || -n ${PYTHONPATH+x} || -n ${PYTHONSTARTUP+x} \
     || -n ${PYTHONINSPECT+x} || -n ${PYTHONPYCACHEPREFIX+x} \
     || -n ${PYTHONNOUSERSITE+x} || -n ${PYTHONSAFEPATH+x} \
@@ -68,6 +107,7 @@ if [[ -n ${BASH_ENV+x} || -n ${ENV+x} || -n ${CDPATH+x} \
     fail
 fi
 
+failure_stage=fixed_environment
 if [[ $DIAG_SOURCE_REVISION != "$SOURCE_REVISION" \
     || $DIAG_SOURCE_TREE != "$SOURCE_TREE" \
     || $DIAG_VMVM_SHA256 != "$VMVM_SHA256" \
@@ -87,6 +127,7 @@ if [[ $DIAG_SOURCE_REVISION != "$SOURCE_REVISION" \
     || $VACLI_MAX_PULL_RETRIES != 1 ]]; then
     fail
 fi
+failure_stage=path_shape
 for value in "$DIAG_BUNDLE_ROOT" "$DIAG_LAUNCHER_PATH" "$DIAG_WRAPPER_PATH" \
     "$DIAG_PROBE_PATH" "$DIAG_FINALIZER_PATH" "$DIAG_SOURCE_ROOT" \
     "$DIAG_OUTPUT_ROOT" "$DIAG_COMPLETION_RECEIPT" \
@@ -96,50 +137,89 @@ for value in "$DIAG_BUNDLE_ROOT" "$DIAG_LAUNCHER_PATH" "$DIAG_WRAPPER_PATH" \
     "$VACLI_BIN" "$THRIFT_TLS_CL_CERT_PATH" "$THRIFT_TLS_CL_KEY_PATH"; do
     [[ $value == /* && $value != *$'\n'* && $value != *$'\r'* ]] || fail
 done
+failure_stage=digest_shape
 for value in "$DIAG_AUTHORIZATION_FILE_SHA256" "$DIAG_AUTHORIZATION_SHA256" \
     "$DIAG_LAUNCHER_SHA256" \
     "$DIAG_WRAPPER_SHA256" "$DIAG_PROBE_SHA256" "$DIAG_FINALIZER_SHA256" \
     "$PYTHON_SITE_X86_64_MANIFEST_SHA256"; do
     [[ $value =~ ^[0-9a-f]{64}$ ]] || fail
 done
+failure_stage=identity_shape
 for value in "$DIAG_BUNDLE_IDENTITY" "$DIAG_OUTPUT_PARENT_IDENTITY" \
     "$DIAG_RESERVATION_IDENTITY" "$DIAG_SOURCE_IDENTITY" \
     "$PYTHON_SITE_X86_64_IDENTITY"; do
     [[ $value =~ ^[0-9]+:[0-9]+:[0-9]+:[0-9]+$ ]] || fail
 done
+failure_stage=count_shape
 [[ $PYTHON_SITE_X86_64_ENTRY_COUNT =~ ^[1-9][0-9]*$ \
     && $PYTHON_SITE_X86_64_TOTAL_BYTES =~ ^[1-9][0-9]*$ ]] || fail
 
-directory_identity() {
-    local path=$1 raw device inode permissions owner
-    raw=$(/usr/bin/stat -Lc '%d %i %a %u' -- "$path" 2>/dev/null) || fail
-    read -r device inode permissions owner <<< "$raw"
-    [[ $device =~ ^[0-9]+$ && $inode =~ ^[0-9]+$ \
-        && $permissions =~ ^[0-7]+$ && $owner =~ ^[0-9]+$ ]] || fail
-    printf '%s:%s:%s:%s' "$device" "$inode" "$((8#$permissions))" "$owner"
+classify_directory_identity() {
+    local fd=$1 expected=$2
+    local raw device inode permissions owner
+    local expected_device expected_inode expected_mode expected_owner mask=0
+    raw=$(/usr/bin/stat -Lc '%d:%i:%a:%u' -- "/proc/self/fd/$fd") || {
+        printf unreadable
+        return
+    }
+    IFS=: read -r device inode permissions owner <<< "$raw"
+    IFS=: read -r expected_device expected_inode expected_mode expected_owner <<< "$expected"
+    if [[ ! $device =~ ^[0-9]+$ || ! $inode =~ ^[0-9]+$ \
+        || ! $permissions =~ ^[0-7]+$ || ! $owner =~ ^[0-9]+$ ]]; then
+        printf unreadable
+        return
+    fi
+    [[ $device == "$expected_device" ]] || mask=$((mask | 1))
+    [[ $inode == "$expected_inode" ]] || mask=$((mask | 2))
+    [[ $((8#$permissions)) == "$expected_mode" ]] || mask=$((mask | 4))
+    [[ $owner == "$expected_owner" ]] || mask=$((mask | 8))
+    case $mask in
+        0) printf match ;;
+        1) printf device_only ;;
+        2) printf inode_only ;;
+        4) printf mode_only ;;
+        8) printf owner_only ;;
+        *) printf multiple ;;
+    esac
 }
 
-exec {bundle_fd}<"$DIAG_BUNDLE_ROOT" || fail
-exec {source_fd}<"$DIAG_SOURCE_ROOT" || fail
-exec {site_fd}<"$PYTHON_SITE_X86_64" || fail
-exec {reservation_fd}<"$DIAG_RESERVATION" || fail
-exec {output_parent_fd}<"${DIAG_OUTPUT_ROOT%/*}" || fail
-[[ $(directory_identity "/proc/self/fd/$bundle_fd") \
-        == "$DIAG_BUNDLE_IDENTITY" \
-    && $(directory_identity "/proc/self/fd/$source_fd") \
-        == "$DIAG_SOURCE_IDENTITY" \
-    && $(directory_identity "/proc/self/fd/$site_fd") \
-        == "$PYTHON_SITE_X86_64_IDENTITY" \
-    && $(directory_identity "/proc/self/fd/$reservation_fd") \
-        == "$DIAG_RESERVATION_IDENTITY" \
-    && $(directory_identity "/proc/self/fd/$output_parent_fd") \
-        == "$DIAG_OUTPUT_PARENT_IDENTITY" ]] || fail
+failure_stage=directory_open
+exec {bundle_fd}<"$DIAG_BUNDLE_ROOT" || {
+    identity_bundle=unreadable
+    fail
+}
+exec {source_fd}<"$DIAG_SOURCE_ROOT" || {
+    identity_source=unreadable
+    fail
+}
+exec {site_fd}<"$PYTHON_SITE_X86_64" || {
+    identity_site=unreadable
+    fail
+}
+exec {reservation_fd}<"$DIAG_RESERVATION" || {
+    identity_reservation=unreadable
+    fail
+}
+exec {output_parent_fd}<"${DIAG_OUTPUT_ROOT%/*}" || {
+    identity_output_parent=unreadable
+    fail
+}
+failure_stage=directory_identity
+identity_bundle=$(classify_directory_identity "$bundle_fd" "$DIAG_BUNDLE_IDENTITY")
+identity_source=$(classify_directory_identity "$source_fd" "$DIAG_SOURCE_IDENTITY")
+identity_site=$(classify_directory_identity "$site_fd" "$PYTHON_SITE_X86_64_IDENTITY")
+identity_reservation=$(classify_directory_identity "$reservation_fd" "$DIAG_RESERVATION_IDENTITY")
+identity_output_parent=$(classify_directory_identity "$output_parent_fd" "$DIAG_OUTPUT_PARENT_IDENTITY")
+[[ $identity_bundle == match && $identity_source == match \
+    && $identity_site == match && $identity_reservation == match \
+    && $identity_output_parent == match ]] || fail
 readonly BOUND_BUNDLE_ROOT="/proc/self/fd/$bundle_fd"
 readonly BOUND_SOURCE_ROOT="/proc/self/fd/$source_fd"
 readonly BOUND_SITE_ROOT="/proc/self/fd/$site_fd"
 readonly BOUND_RESERVATION="/proc/self/fd/$reservation_fd"
 readonly BOUND_OUTPUT_PARENT="/proc/self/fd/$output_parent_fd"
 
+failure_stage=bundle_inventory
 [[ -d $BOUND_BUNDLE_ROOT \
     && $(/usr/bin/stat -Lc '%a:%u:%h' -- "$BOUND_BUNDLE_ROOT" 2>/dev/null) \
         == "700:$(/usr/bin/id -u):2" ]] || fail
@@ -161,7 +241,7 @@ digest_file() {
     output=$(/usr/bin/sha256sum -- "$1" 2>/dev/null)
     rc=$?
     set -e
-    (( rc == 0 )) || fail
+    (( rc == 0 )) || return 1
     printf '%s' "${output%% *}"
 }
 
@@ -249,6 +329,7 @@ validate_fd_file() {
         && $(digest_file "/proc/self/fd/$fd") == "$digest" ]] || fail
 }
 
+failure_stage=bundle_artifacts
 [[ $DIAG_LAUNCHER_PATH == "$DIAG_BUNDLE_ROOT/launch_vmvm_task_free_v2.py" \
     && $DIAG_WRAPPER_PATH == "$DIAG_BUNDLE_ROOT/run_vmvm_task_free_v2.sbatch" \
     && $DIAG_PROBE_PATH == "$DIAG_BUNDLE_ROOT/probe_vmvm_task_free_v2.py" \
@@ -259,16 +340,20 @@ validate_file "$BOUND_BUNDLE_ROOT/probe_vmvm_task_free_v2.py" 500 "$DIAG_PROBE_S
 validate_file "$BOUND_BUNDLE_ROOT/finalize_vmvm_task_free_v2.py" 500 "$DIAG_FINALIZER_SHA256"
 [[ $(digest_file "${BASH_SOURCE[0]}") == "$DIAG_WRAPPER_SHA256" ]] || fail
 validate_file "$DIAG_AUTHORIZATION" 400 "$DIAG_AUTHORIZATION_FILE_SHA256"
+failure_stage=runtime_resolution
 [[ $(/usr/bin/readlink -f -- "$UV_BIN_X86_64") == "$UV_BIN_X86_64" \
     && $(/usr/bin/readlink -f -- "$VACLI_BIN") == "$VACLI_RESOLVED" \
     && $(/usr/bin/stat -Lc '%d:%i' -- "$VACLI_BIN") \
         == $(/usr/bin/stat -Lc '%d:%i' -- "$VACLI_RESOLVED") ]] || fail
+failure_stage=runtime_artifacts
 validate_file "$UV_BIN_X86_64" 755 "$X86_UV_SHA256"
 validate_file "$VACLI_BIN" 755 "$VACLI_SHA256" 0
 validate_file "$VACLI_RESOLVED" 755 "$VACLI_SHA256" 0
+failure_stage=source_attestation
 validate_source "$BOUND_SOURCE_ROOT"
 
 # A released allocation may start before its permit is durably committed.
+failure_stage=activation_gate
 readonly gate_deadline=$((SECONDS + DIAG_WRAPPER_GATE_TIMEOUT_SECONDS))
 while :; do
     [[ ! -e "$BOUND_RESERVATION/submission_failure.json" ]] || fail
@@ -283,12 +368,82 @@ while :; do
     /usr/bin/sleep 1
 done
 
+failure_stage=executable_binding
 exec {probe_fd}<"$BOUND_BUNDLE_ROOT/probe_vmvm_task_free_v2.py" || fail
 exec {uv_fd}<"$UV_BIN_X86_64" || fail
 readonly BOUND_PROBE="/proc/self/fd/$probe_fd"
 readonly BOUND_UV="/proc/self/fd/$uv_fd"
 validate_fd_file "$BOUND_PROBE" 500 "$DIAG_PROBE_SHA256" "$DIAG_PROBE_PATH"
 validate_fd_file "$BOUND_UV" 755 "$X86_UV_SHA256" "$UV_BIN_X86_64"
+
+# uv has a fixed, verified three-field child-environment delta. Restore the
+# authorized environment before the sealed probe observes it, and reject any
+# additional mutation by comparing the complete restored environment digest.
+readonly UV_SANITIZER_PROGRAM='
+import hashlib
+import os
+import sys
+
+EXPECTED_PATH = "/usr/local/bin:/usr/bin:/bin"
+EXPECTED_UV = "/memfd:vmvm-uv-v2 (deleted)"
+RESTORED_PATH = "/usr/bin:/bin"
+
+
+def fail(status=124):
+    raise SystemExit(status)
+
+
+def environment_sha256(environment):
+    digest = hashlib.sha256()
+    for name in sorted(environment):
+        encoded_name = os.fsencode(name)
+        encoded_value = os.fsencode(environment[name])
+        if b"=" in encoded_name or b"\0" in encoded_name or b"\0" in encoded_value:
+            fail()
+        digest.update(encoded_name)
+        digest.update(b"=")
+        digest.update(encoded_value)
+        digest.update(b"\0")
+    return digest.hexdigest()
+
+
+def main():
+    if len(sys.argv) < 3 or sys.argv[0] != "-c":
+        fail()
+    probe_path = sys.argv[1]
+    expected_environment_sha256 = sys.argv[2]
+    environment = dict(os.environ)
+    probe_fd = environment.get("DIAG_EXEC_PROBE_FD", "")
+    if (
+        not probe_fd.isdigit()
+        or probe_path != f"/proc/self/fd/{probe_fd}"
+        or len(expected_environment_sha256) != 64
+        or any(value not in "0123456789abcdef" for value in expected_environment_sha256)
+        or environment.get("UV_RUN_RECURSION_DEPTH") != "1"
+        or environment.get("UV") != EXPECTED_UV
+        or environment.get("PATH") != EXPECTED_PATH
+    ):
+        fail()
+    del environment["UV_RUN_RECURSION_DEPTH"]
+    del environment["UV"]
+    environment["PATH"] = RESTORED_PATH
+    if environment_sha256(environment) != expected_environment_sha256:
+        fail(123)
+    try:
+        os.execve(
+            "/proc/self/exe",
+            ["/proc/self/exe", "-I", "-S", "-B", probe_path, *sys.argv[3:]],
+            environment,
+        )
+    except OSError:
+        fail(122)
+
+
+try:
+    main()
+except (UnicodeError, ValueError):
+    fail()
+'
 
 # Copy each executable from its already-bound descriptor into a sealed anonymous
 # inode. The original pathname is never consulted by exec or by the Python
@@ -311,6 +466,20 @@ REQUIRED_SEALS = (
 
 def fail():
     raise SystemExit(125)
+
+
+def environment_sha256(environment):
+    digest = hashlib.sha256()
+    for name in sorted(environment):
+        encoded_name = os.fsencode(name)
+        encoded_value = os.fsencode(environment[name])
+        if b"=" in encoded_name or b"\0" in encoded_name or b"\0" in encoded_value:
+            fail()
+        digest.update(encoded_name)
+        digest.update(b"=")
+        digest.update(encoded_value)
+        digest.update(b"\0")
+    return digest.hexdigest()
 
 
 def copy_sealed(source_fd, name, expected_digest, expected_mode, maximum):
@@ -394,24 +563,48 @@ probe_fd = copy_sealed(probe_source_fd, "vmvm-probe-v2", probe_digest, 0o500, 2 
 uv_fd = copy_sealed(uv_source_fd, "vmvm-uv-v2", uv_digest, 0o755, 64 << 20)
 os.close(probe_source_fd)
 os.close(uv_source_fd)
+public_stdout_fd = int(sys.argv[5])
+public_stderr_fd = int(sys.argv[6])
+for public_fd in (public_stdout_fd, public_stderr_fd):
+    try:
+        os.close(public_fd)
+    except OSError:
+        pass
 environment = dict(os.environ)
 environment["DIAG_EXEC_PROBE_FD"] = str(probe_fd)
 environment["DIAG_EXEC_UV_FD"] = str(uv_fd)
+authorized_environment_sha256 = environment_sha256(environment)
 uv_path = f"/proc/self/fd/{uv_fd}"
 probe_path = f"/proc/self/fd/{probe_fd}"
-if sys.argv[5:].count("__VMVM_PROBE__") != 1:
+if (
+    sys.argv[7:].count("__VMVM_PROBE__") != 1
+    or sys.argv[7:].count("__VMVM_AUTHORIZED_ENVIRONMENT_SHA256__") != 1
+):
     fail()
-arguments = [probe_path if value == "__VMVM_PROBE__" else value for value in sys.argv[5:]]
-os.execve(uv_path, [uv_path, *arguments], environment)
+arguments = [
+    probe_path
+    if value == "__VMVM_PROBE__"
+    else authorized_environment_sha256
+    if value == "__VMVM_AUTHORIZED_ENVIRONMENT_SHA256__"
+    else value
+    for value in sys.argv[7:]
+]
+try:
+    os.execve(uv_path, [uv_path, *arguments], environment)
+except OSError:
+    fail()
 '
 
 run_sealed_probe() {
     /usr/bin/python3 -I -S -B -c "$SEALED_EXEC_PROGRAM" \
         "$probe_fd" "$DIAG_PROBE_SHA256" "$uv_fd" "$X86_UV_SHA256" \
+        "$public_stdout_fd" "$public_stderr_fd" \
         run --no-project --offline --python "$PYTHON_BIN_X86_64" \
-        python3 -I -S -B __VMVM_PROBE__ "$@"
+        python3 -I -S -B -c "$UV_SANITIZER_PROGRAM" \
+        __VMVM_PROBE__ __VMVM_AUTHORIZED_ENVIRONMENT_SHA256__ "$@"
 }
 
+failure_stage=sealed_builder
 preflight_output=""
 set +e
 preflight_output=$(
@@ -423,15 +616,40 @@ preflight_output=$(
 )
 preflight_rc=$?
 set -e
-[[ $preflight_rc == 0 && $preflight_output == '{"state":"admitted"}' ]] || fail
+if (( preflight_rc == 125 )); then
+    fail
+fi
+if (( preflight_rc == 124 )); then
+    failure_stage=uv_sanitizer
+    fail
+fi
+if (( preflight_rc == 123 )); then
+    failure_stage=uv_environment
+    fail
+fi
+if (( preflight_rc == 122 )); then
+    failure_stage=uv_probe_exec
+    fail
+fi
+if (( preflight_rc != 0 )); then
+    failure_stage=probe_admission
+    fail
+fi
+if [[ $preflight_output != '{"state":"admitted"}' ]]; then
+    failure_stage=probe_response
+    fail
+fi
 
 # Publication-adjacent source and executable validation. No task/dataset input
 # is opened anywhere in this wrapper or its probe.
+failure_stage=post_preflight_source
 validate_fd_file "$BOUND_PROBE" 500 "$DIAG_PROBE_SHA256" "$DIAG_PROBE_PATH"
 validate_source "$BOUND_SOURCE_ROOT"
+failure_stage=namespace_freshness
 [[ ! -e $DIAG_OUTPUT_ROOT && ! -L $DIAG_OUTPUT_ROOT \
     && ! -e $DIAG_COMPLETION_RECEIPT && ! -L $DIAG_COMPLETION_RECEIPT \
     && ! -e $DIAG_SCRATCH_ROOT && ! -L $DIAG_SCRATCH_ROOT ]] || fail
+failure_stage=lineage_hashes
 environment_sha256=""
 set +e
 environment_sha256=$(digest_file "$BOUND_RESERVATION/slurm_environment.bin")
@@ -455,33 +673,5 @@ set -e
 (( job_authorization_rc == 0 )) \
     && [[ $job_authorization_sha256 =~ ^[0-9a-f]{64}$ ]] || fail
 readonly job_authorization_sha256
-
-probe_output=""
-set +e
-probe_output=$(
-    run_sealed_probe \
-        --source-root "$BOUND_SOURCE_ROOT" --site-root "$BOUND_SITE_ROOT" \
-        --scratch-root "$DIAG_SCRATCH_ROOT" \
-        --output-dir "$BOUND_OUTPUT_PARENT/${DIAG_OUTPUT_ROOT##*/}" \
-        --completion-receipt "$BOUND_OUTPUT_PARENT/${DIAG_COMPLETION_RECEIPT##*/}" \
-        --environment-sha256 "$environment_sha256" \
-        --authorization-file-sha256 "$DIAG_AUTHORIZATION_FILE_SHA256" \
-        --authorization-sha256 "$DIAG_AUTHORIZATION_SHA256" \
-        --job-authorization-sha256 "$job_authorization_sha256" \
-        --job-id "$SLURM_JOB_ID" --job-name "$DIAG_JOB_NAME" \
-        --submission-receipt-sha256 "$submission_receipt_sha256" 2>&1
-)
-probe_rc=$?
-set -e
-validate_fd_file "$BOUND_PROBE" 500 "$DIAG_PROBE_SHA256" "$DIAG_PROBE_PATH"
-validate_source "$BOUND_SOURCE_ROOT"
-readonly probe_output_pattern='^\{"failure_categories":[0-9]+,"passed":[0-9]+,"stages":48,"state":"awaiting_external_completion"\}$'
-if (( probe_rc != 0 )) \
-    || [[ ! $probe_output =~ $probe_output_pattern ]]; then
-    fail
-fi
-[[ $(/usr/bin/stat -Lc '%a:%u' -- "$BOUND_OUTPUT_PARENT/${DIAG_OUTPUT_ROOT##*/}") \
-    == "500:$(/usr/bin/id -u)" \
-    && ! -e "$BOUND_OUTPUT_PARENT/${DIAG_COMPLETION_RECEIPT##*/}" \
-    && ! -e "$DIAG_SCRATCH_ROOT" && ! -L "$DIAG_SCRATCH_ROOT" ]] || fail
-printf '%s\n' "$probe_output"
+printf '{"directory_identities":{"bundle":"match","output_parent":"match","reservation":"match","site":"match","source":"match"},"stage":"prelease_admission","state":"passed"}\n' \
+    >&"$public_stdout_fd"

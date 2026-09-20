@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # ruff: noqa: BLE001
-"""Submit one held, task-free VMVM diagnostic after external authorization."""
+"""Submit one held, task-free VMVM preflight after external authorization."""
 
 from __future__ import annotations
 
@@ -40,11 +40,11 @@ X86_SITE = BASE / "python_x86_64"
 VACLI = Path("/public/fbpkgs/x86_64/vacli/stable/vacli")
 VACLI_RESOLVED = Path("/infra/public/fbpkgs/x86_64/vacli/794/vacli")
 VACLI_SHA256 = "8be49a764bd0fac1a3ef2bef053ced556d18397d44642660eb8a2d22a7c235b3"
-OUTPUT_ROOT = BASE / "diagnostics/vmvm_v21_task_free_ab_a09a9a189_v3"
+OUTPUT_ROOT = BASE / "diagnostics/vmvm_v21_task_free_preflight_a09a9a189_v4"
 RESERVATION = Path(f"{OUTPUT_ROOT}.launch-reservation")
 COMPLETION_RECEIPT = Path(f"{OUTPUT_ROOT}.external-completion.json")
-LOG_ROOT = BASE / "logs/vmvm_v21_task_free_ab_a09a9a189_v3"
-SCRATCH_ROOT = Path("/tmp/vmvm-v21-task-free-ab-v3")
+LOG_ROOT = BASE / "logs/vmvm_v21_task_free_preflight_a09a9a189_v4"
+SCRATCH_ROOT = Path("/tmp/vmvm-v21-task-free-preflight-v4")
 CLUSTER = "fair-cw-use2-3"
 OWNER = "tianhaowu"
 OWNER_IDENTITY = "tianhaowu(656177)"
@@ -70,7 +70,7 @@ SHA_RE = re.compile(r"[0-9a-f]{64}")
 REV_RE = re.compile(r"[0-9a-f]{40}")
 JOB_RE = re.compile(r"[1-9][0-9]*")
 TOKEN_RE = re.compile(r"[0-9a-f]{24}")
-NAME_RE = re.compile(r"vmvm-diag-([0-9a-f]{24})")
+NAME_RE = re.compile(r"vmvm-v4-preflight-([0-9a-f]{24})")
 ACTIVE_STATES = {"PENDING", "CONFIGURING", "RUNNING", "COMPLETING"}
 TERMINAL_STATES = {
     "BOOT_FAIL",
@@ -86,6 +86,11 @@ TERMINAL_STATES = {
 }
 X2P_NAMES = ("X2P_ENV", "X2P_CFG_ENV", "X2P_PROXY_URL")
 TLS_NAMES = ("THRIFT_TLS_CL_CERT_PATH", "THRIFT_TLS_CL_KEY_PATH")
+PREFLIGHT_PROTOCOL = {
+    "diagnostic_only": True,
+    "preflight_only": True,
+    "production_authorized": False,
+}
 LEASE_ATTEMPT_LIMIT = 2
 IMAGE_PULL_TIMEOUT_SECONDS = 300
 IMAGE_PULL_RETRY_LIMIT = 1
@@ -631,7 +636,7 @@ def validate_authorization(
         "cluster": CLUSTER,
         "completion_receipt": str(COMPLETION_RECEIPT),
         "comment": (
-            f"vmvm-task-free-v2:{NAME_RE.fullmatch(str(launch.get('job_name'))).group(1)}"
+            f"vmvm-v4-preflight:{NAME_RE.fullmatch(str(launch.get('job_name'))).group(1)}"
             if NAME_RE.fullmatch(str(launch.get("job_name"))) is not None
             else None
         ),
@@ -659,15 +664,7 @@ def validate_authorization(
         code="authorization_launch_invalid",
     )
     os.close(output_parent_fd)
-    expected_protocol = {
-        "diagnostic_only": True,
-        "lease_attempt_limit_per_cell": LEASE_ATTEMPT_LIMIT,
-        "mode_orders": [list(order) for order in MODE_ORDERS],
-        "production_authorized": False,
-        "repetitions_per_mode": REPETITIONS,
-        "stage_timeout_seconds": STAGE_TIMEOUT_SECONDS,
-    }
-    if protocol != expected_protocol:
+    if protocol != PREFLIGHT_PROTOCOL:
         fail("authorization_protocol_invalid")
     private["job_name"] = str(launch["job_name"])
     private["source_identity"] = identity_string(source_identity)
@@ -1095,7 +1092,7 @@ def _base_mismatches(record: Mapping[str, str], job_id: str, job_name: str) -> s
     expected = {
         "Account": "ram",
         "Command": "(null)",
-        "Comment": f"vmvm-task-free-v2:{token.group(1)}",
+        "Comment": f"vmvm-v4-preflight:{token.group(1)}",
         "Dependency": "(null)",
         "JobId": job_id,
         "JobName": job_name,
@@ -1561,7 +1558,7 @@ def _sbatch_command(job_name: str, environment_path: Path) -> list[str]:
         "--parsable",
         "--hold",
         f"--job-name={job_name}",
-        f"--comment=vmvm-task-free-v2:{token.group(1)}",
+        f"--comment=vmvm-v4-preflight:{token.group(1)}",
         f"--chdir={SOURCE_ROOT}",
         f"--time={JOB_TIME_LIMIT}",
         "--nodes=1",
