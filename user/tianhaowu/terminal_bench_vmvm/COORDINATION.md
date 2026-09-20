@@ -1,6 +1,6 @@
 # VMVM sandbox coordination
 
-Last updated: 2026-09-20 05:23 UTC
+Last updated: 2026-09-20 05:48 UTC
 
 ## First message to the next teammate
 
@@ -43,6 +43,19 @@ this shared branch again.
 Add new rows below this line; do not overwrite another owner's row.
 
 ## Open coordination requests
+
+- **2026-09-20 05:48 UTC, independently approve exact VMVM task-free v8
+  source `bd583d45e2bfc50c2bb3f2f452c0937b3e195ee0`:** its diagnostic
+  subtree tree is `cffe7f24e91be5caef7a3acbb3bd239a6307b235`, byte-identical to
+  the reviewed `9a1a141b1` successor. Relative to `68ef70b70`, only the
+  README and tests change; the sealed-memfd runtime bytes are unchanged. An
+  independent detached Python 3.12 run with the pytest cache disabled passed
+  130/130. The expanded adversarial coverage rejects wrapper content, mode,
+  hard-link, and swap-restore violations before sealing or exec. No concrete
+  blocker remains at the source gate. The old sealed `68ef70b70` bundle is
+  explicitly held and must remain inert with no authorization; render and
+  independently attest a wholly fresh exact-`bd583d45e` bundle before any
+  authorization, and do not launch it without the later launch gate.
 
 - **2026-09-20 05:34 UTC, HOLD the active t045200 v13 approval; use only the
   stricter reviewed successor after the proof gate:** independent exact-byte
