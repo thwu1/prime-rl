@@ -12,7 +12,7 @@ if not os.path.isabs(path) or os.path.normpath(path) != path or any(ord(characte
 descriptor = os.open(path, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0))
 try:
     before = os.fstat(descriptor)
-    if not stat.S_ISREG(before.st_mode) or before.st_uid != os.geteuid() or before.st_nlink != 1 or before.st_size != 119031:
+    if not stat.S_ISREG(before.st_mode) or before.st_uid != os.geteuid() or before.st_nlink != 1 or before.st_size != 127026:
         raise SystemExit(126)
     chunks = []
     while True:
@@ -25,7 +25,7 @@ finally:
     os.close(descriptor)
 payload = b"".join(chunks)
 identity = lambda item: (item.st_dev, item.st_ino, item.st_mode, item.st_nlink, item.st_uid, item.st_size, item.st_mtime_ns, item.st_ctime_ns)
-if identity(before) != identity(after) or hashlib.sha256(payload).hexdigest() != "a63b71b96c79b3aebbb66dc89ac559d1e664d7b73c5848a51bb3817eae3a65ce":
+if identity(before) != identity(after) or hashlib.sha256(payload).hexdigest() != "53280138f565f1c9f69dd1a1c77d28261c4f0b50fbf664c271359467315adda7":
     raise SystemExit(126)
 sys.argv = [path, *sys.argv[2:]]
 namespace = {"__name__": "__main__", "__file__": path}

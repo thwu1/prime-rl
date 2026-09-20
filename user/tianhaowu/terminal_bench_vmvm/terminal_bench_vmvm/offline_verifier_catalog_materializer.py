@@ -40,6 +40,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import contextlib
 import ctypes
 import errno
 import fcntl
@@ -108,10 +109,10 @@ from terminal_bench_vmvm.source_wheels import (
     strict_json_loads,
 )
 
-MATERIALIZATION_PLAN_SCHEMA_VERSION = 1
-WORKER_PROTOCOL_VERSION = 1
+MATERIALIZATION_PLAN_SCHEMA_VERSION = 2
+WORKER_PROTOCOL_VERSION = 2
 WORKER_COMPLETION_SCHEMA_VERSION = 1
-PRIVATE_LAUNCH_RECEIPT_SCHEMA_VERSION = 1
+PRIVATE_LAUNCH_RECEIPT_SCHEMA_VERSION = 2
 MAX_PLAN_BYTES = 64 * 1024 * 1024
 MAX_WORKER_RESPONSE_BYTES = 32 * 1024 * 1024
 MAX_WORKER_EXECUTABLE_BYTES = 256 * 1024 * 1024
@@ -121,6 +122,10 @@ MAX_ROTATOR_HEARTBEAT_AGE_SECONDS = 300
 MIN_ROTATING_CREDENTIAL_EXPIRY_MARGIN_SECONDS = 600
 MAX_CLOCK_SKEW_SECONDS = 60
 MAX_CONCURRENCY = 256
+MAX_SHARED_POOL_PROBE_CONCURRENCY = 24
+MAX_SHARED_POOL_BUILD_CONCURRENCY = 4
+MAX_SHARED_POOL_VALIDATE_CONCURRENCY = 24
+PROVIDER_ANCHOR_HEARTBEAT_INTERVAL_SECONDS = 5
 MAX_TIMEOUT_SECONDS = 86_400
 _RENAME_NOREPLACE = 1
 _PR_SET_PDEATHSIG = 1
@@ -224,9 +229,18 @@ _PRIVATE_OUTPUT_NAME_RE = re.compile(r"[A-Za-z0-9][A-Za-z0-9_.-]{0,127}")
 _REQUIRED_SANDOQ_ENVIRONMENT = {
     "OCI_RUNNER_ENVIRONMENT": "oci-runner-firecracker",
     "OCI_RUNNER_TASK_NETWORK": "none",
+    "SANDOQ_CATALOG_EXCLUSIVE_POOL": "1",
     "VF_SANDBOX_PROVIDER": "sandoq",
 }
-_REQUIRED_SANDOQ_ENVIRONMENT_NAMES = frozenset({*_REQUIRED_SANDOQ_ENVIRONMENT, "SANDOQ_OWNER"})
+_REQUIRED_SANDOQ_ENVIRONMENT_NAMES = frozenset(
+    {
+        *_REQUIRED_SANDOQ_ENVIRONMENT,
+        "OCI_RUNNER_POOL_SOCKET",
+        "OCI_RUNNER_POOL_WAL",
+        "SANDOQ_CATALOG_EXCLUSIVE_POOL",
+        "SANDOQ_OWNER",
+    }
+)
 
 
 def _directory_identity(status: os.stat_result, code: str) -> tuple[int, int, int, int]:
@@ -810,6 +824,16 @@ class WorkerResponse:
     artifact_directory: Path
 
 
+@dataclass
+class ProviderAnchor:
+    request_sha256: str
+    run_nonce: str
+    ready_path: Path
+    stop_path: Path
+    task: asyncio.Task[WorkerResponse]
+    stopped: bool = False
+
+
 def _parse_identity(value: object) -> CatalogIdentity:
     raw = _exact_keys(
         value,
@@ -908,13 +932,13 @@ def _parse_worker_policy(value: object) -> WorkerPolicy:
     build_concurrency = _bounded_integer(concurrency["build"], MAX_CONCURRENCY, "worker_policy_invalid")
     validate_concurrency = _bounded_integer(concurrency["validate"], MAX_CONCURRENCY, "worker_policy_invalid")
     if "SANDOQ_CATALOG_EXCLUSIVE_POOL" in environment_names and (
-        probe_concurrency,
-        build_concurrency,
-        validate_concurrency,
-    ) != (1, 1, 1):
-        # This worker drains its shared provider pool and proves a zero-live WAL
-        # after every request. Concurrent leases would let one finisher poison
-        # another, so the exclusive-pool contract is deliberately serial.
+        probe_concurrency > MAX_SHARED_POOL_PROBE_CONCURRENCY
+        or build_concurrency > MAX_SHARED_POOL_BUILD_CONCURRENCY
+        or validate_concurrency > MAX_SHARED_POOL_VALIDATE_CONCURRENCY
+    ):
+        # The materialization epoch owns one provider pool. Normal workers use
+        # assignment-scoped release only; global recovery runs after all child
+        # groups are extinct at phase boundaries.
         _fail("worker_shared_pool_concurrency_invalid")
     return WorkerPolicy(
         executable_sha256=str(raw["executable_sha256"]),
@@ -1513,6 +1537,77 @@ class WorkerRunner:
         self.environment = environment
         self._local_process_root = _ensure_private_subdirectory(work_root, Path("local-processes"))
         self._active_processes: dict[int, asyncio.subprocess.Process] = {}
+        self._active_anchor_processes: set[int] = set()
+        self._provider_epoch_active = False
+        self._provider_epoch_directories: tuple[
+            tuple[Path, tuple[int, int, int, int]], ...
+        ] = ()
+
+    @contextlib.contextmanager
+    def provider_epoch(self):
+        """Exclusively own both the configured broker socket and durable WAL."""
+
+        if self._provider_epoch_active:
+            _fail("materialization_epoch_invalid")
+        source_paths = (
+            Path(self._inherited_environment["OCI_RUNNER_POOL_SOCKET"]),
+            Path(self._inherited_environment["OCI_RUNNER_POOL_WAL"]),
+        )
+        lock_paths = tuple(
+            sorted(path.with_name(f".{path.name}.catalog-epoch.lock") for path in source_paths)
+        )
+        if len(set(lock_paths)) != 2:
+            _fail("materialization_epoch_invalid")
+        with contextlib.ExitStack() as stack:
+            locked_directories: list[tuple[Path, tuple[int, int, int, int]]] = []
+            for lock_path in lock_paths:
+                descriptor, status, _ = _open_absolute_nofollow(
+                    lock_path.parent,
+                    "materialization_epoch_invalid",
+                )
+                stack.callback(os.close, descriptor)
+                directory_identity = _directory_identity(
+                    status,
+                    "materialization_epoch_invalid",
+                )
+                stack.enter_context(
+                    _ExclusiveFileLock(
+                        lock_path,
+                        "materialization_epoch_locked",
+                        directory_descriptor=descriptor,
+                    )
+                )
+                _revalidate_directory_path(
+                    lock_path.parent,
+                    directory_identity,
+                    "materialization_epoch_invalid",
+                )
+                locked_directories.append((lock_path.parent, directory_identity))
+            self._provider_epoch_active = True
+            self._provider_epoch_directories = tuple(locked_directories)
+            try:
+                yield
+            finally:
+                try:
+                    for directory, identity in self._provider_epoch_directories:
+                        _revalidate_directory_path(
+                            directory,
+                            identity,
+                            "materialization_epoch_invalid",
+                        )
+                finally:
+                    self._provider_epoch_active = False
+                    self._provider_epoch_directories = ()
+
+    def require_provider_epoch(self) -> None:
+        if not self._provider_epoch_active or len(self._provider_epoch_directories) != 2:
+            _fail("materialization_epoch_not_held")
+        for directory, identity in self._provider_epoch_directories:
+            _revalidate_directory_path(
+                directory,
+                identity,
+                "materialization_epoch_invalid",
+            )
 
     def _revalidate_environment(self) -> None:
         record, inherited = _worker_environment_record(self.policy.environment_names)
@@ -1627,6 +1722,8 @@ class WorkerRunner:
         interrupted = False
         try:
             for pid in sorted(self._active_processes):
+                if pid in self._active_anchor_processes:
+                    continue
                 process = self._active_processes[pid]
                 cleanup_task = asyncio.create_task(_terminate_process(process))
                 _, cleanup_interrupted = await _drain_task(cleanup_task)
@@ -1675,6 +1772,20 @@ class WorkerRunner:
                 ):
                     _fail("worker_process_record_invalid")
                 observed_start_ticks = _process_start_ticks(pid)
+                if pid in self._active_anchor_processes:
+                    anchor_process = self._active_processes.get(pid)
+                    try:
+                        observed_process_group = os.getpgid(pid)
+                    except OSError:
+                        observed_process_group = None
+                    if (
+                        anchor_process is None
+                        or anchor_process.returncode is not None
+                        or observed_start_ticks != start_ticks
+                        or observed_process_group != process_group
+                    ):
+                        _fail("worker_process_identity_invalid")
+                    continue
                 if observed_start_ticks == start_ticks:
                     try:
                         if os.getpgid(pid) != process_group:
@@ -1711,10 +1822,17 @@ class WorkerRunner:
         }[operation]
 
     async def invoke(self, request: dict[str, object]) -> WorkerResponse:
+        self.require_provider_epoch()
         self._revalidate_environment()
         request = self._bind_rotation_audit(request)
         operation = request.get("operation")
-        if operation not in {"recover", "probe", "build", "validate"}:
+        if operation not in {"recover", "probe", "build", "validate", "anchor"}:
+            _fail("worker_request_invalid")
+        return await self._invoke_bound(request)
+
+    async def _invoke_bound(self, request: dict[str, object]) -> WorkerResponse:
+        operation = request.get("operation")
+        if operation not in {"recover", "probe", "build", "validate", "anchor"}:
             _fail("worker_request_invalid")
         request_sha256 = _sha256(canonical_json(request))
         job = _ensure_private_subdirectory(
@@ -1728,17 +1846,139 @@ class WorkerRunner:
         finally:
             job_lock.__exit__()
 
-    async def recover_provider(self) -> None:
+    async def recover_provider(self, phase: str = "startup") -> dict[str, object]:
+        self.require_provider_epoch()
         async with self._recovery_lock:
-            response = await self.invoke(_recovery_request(self.policy, os.urandom(16).hex()))
-            _parse_recovery_result(response, self.policy)
+            response = await self.invoke(
+                _recovery_request(self.policy, os.urandom(16).hex(), phase)
+            )
+            return _parse_recovery_result(
+                response,
+                self.policy,
+                expected_phase=phase,
+            )
+
+    async def start_provider_anchor(self) -> ProviderAnchor:
+        """Register one persistent broker client before launching a worker wave."""
+
+        self.require_provider_epoch()
+        self._revalidate_environment()
+        run_nonce = os.urandom(16).hex()
+        request = self._bind_rotation_audit(_anchor_request(self.policy, run_nonce))
+        request_sha256 = _sha256(canonical_json(request))
+        artifact_directory = _ensure_private_subdirectory(
+            self.work_root,
+            Path("jobs") / "anchor" / request_sha256[:2] / request_sha256 / "artifacts",
+        )
+        ready_path = artifact_directory / "anchor-ready.json"
+        stop_path = artifact_directory / "anchor-stop.json"
+        if os.path.lexists(ready_path) or os.path.lexists(stop_path):
+            _fail("worker_anchor_state_invalid")
+        task = asyncio.create_task(self._invoke_bound(request))
+        anchor = ProviderAnchor(
+            request_sha256=request_sha256,
+            run_nonce=run_nonce,
+            ready_path=ready_path,
+            stop_path=stop_path,
+            task=task,
+        )
+        loop = asyncio.get_running_loop()
+        deadline = loop.time() + self.policy.recovery_timeout_seconds
+        try:
+            while not os.path.lexists(ready_path):
+                if task.done():
+                    await task
+                    _fail("worker_anchor_start_failed")
+                if loop.time() >= deadline:
+                    _fail("worker_anchor_start_timeout")
+                await asyncio.sleep(0.05)
+            ready_payload, _ = _read_private_file(
+                self.work_root,
+                ready_path,
+                maximum=MAX_WORKER_RESPONSE_BYTES,
+                code="worker_anchor_state_invalid",
+            )
+            try:
+                ready_raw = strict_json_loads(ready_payload)
+            except (TypeError, ValueError, json.JSONDecodeError) as error:
+                _fail("worker_anchor_state_invalid", error)
+            if not isinstance(ready_raw, dict) or ready_payload != canonical_json(ready_raw):
+                _fail("worker_anchor_state_invalid")
+            ready = _exact_keys(
+                ready_raw,
+                {
+                    "schema_version",
+                    "request_sha256",
+                    "recovery_scope_sha256",
+                    "active_client_registered",
+                    "pool_accepting",
+                    "pool_draining",
+                },
+                "worker_anchor_state_invalid",
+            )
+            if (
+                type(ready["schema_version"]) is not int
+                or ready["schema_version"] != 1
+                or ready["request_sha256"] != request_sha256
+                or ready["recovery_scope_sha256"] != self.policy.recovery_scope_sha256
+                or ready["active_client_registered"] is not True
+                or ready["pool_accepting"] is not True
+                or ready["pool_draining"] is not False
+                or task.done()
+            ):
+                _fail("worker_anchor_state_invalid")
+            return anchor
+        except BaseException as error:
+            if not task.done():
+                task.cancel()
+            cleanup_error: BaseException | None = None
+            try:
+                await _drain_task(task)
+            except BaseException as observed:
+                cleanup_error = observed
+            if cleanup_error is not None:
+                raise error.with_traceback(error.__traceback__) from cleanup_error
+            raise
+
+    async def stop_provider_anchor(
+        self,
+        anchor: ProviderAnchor,
+        phase: Literal["final", "failure"],
+    ) -> tuple[dict[str, object], bool]:
+        """Ask the anchor to perform the sole quiescent drain and prove zero WAL."""
+
+        self.require_provider_epoch()
+        if anchor.stopped or phase not in {"final", "failure"} or anchor.task.done():
+            _fail("worker_anchor_state_invalid")
+        stop_payload = canonical_json(
+            {
+                "schema_version": 1,
+                "request_sha256": anchor.request_sha256,
+                "run_nonce": anchor.run_nonce,
+                "phase": phase,
+            }
+        )
+        if os.path.lexists(anchor.stop_path):
+            _fail("worker_anchor_state_invalid")
+        atomic_write_bytes(anchor.stop_path, stop_payload, mode=0o400)
+        try:
+            response, interrupted = await _drain_task(anchor.task)
+        finally:
+            anchor.stopped = True
+        parsed = _parse_recovery_result(
+            response,
+            self.policy,
+            expected_phase=phase,
+            expected_anchor=True,
+        )
+        return parsed, interrupted
 
     async def _invoke_once(self, request: dict[str, object]) -> WorkerResponse:
         self._revalidate_environment()
         request_payload = canonical_json(request)
         request_sha256 = _sha256(request_payload)
         operation = request.get("operation")
-        if operation not in {"recover", "probe", "build", "validate"}:
+        if operation not in {"recover", "probe", "build", "validate", "anchor"}:
             _fail("worker_request_invalid")
         worker = _exact_keys(
             request.get("worker"),
@@ -1827,16 +2067,21 @@ class WorkerRunner:
                     except BaseException as spawn_error:
                         raise cancellation from spawn_error
                     self._active_processes[process.pid] = process
+                    if operation == "anchor":
+                        self._active_anchor_processes.add(process.pid)
                     cleanup_task = asyncio.create_task(_terminate_process(process))
                     try:
                         await _drain_task(cleanup_task)
                     except BaseException as cleanup_error:
                         raise cancellation from cleanup_error
                     self._active_processes.pop(process.pid)
+                    self._active_anchor_processes.discard(process.pid)
                     raise cancellation.with_traceback(cancellation.__traceback__)
             finally:
                 os.close(executable_fd)
             self._active_processes[process.pid] = process
+            if operation == "anchor":
+                self._active_anchor_processes.add(process.pid)
             try:
                 process_record = await self._record_process(
                     request_sha256,
@@ -1852,6 +2097,7 @@ class WorkerRunner:
                         raise error from cleanup_error
                     raise
                 self._active_processes.pop(process.pid)
+                self._active_anchor_processes.discard(process.pid)
                 if cleanup_interrupted and not isinstance(error, asyncio.CancelledError):
                     raise asyncio.CancelledError from error
                 raise error.with_traceback(error.__traceback__)
@@ -1860,14 +2106,18 @@ class WorkerRunner:
                 assert return_code is not None
             else:
                 try:
-                    return_code = await asyncio.wait_for(
-                        process.wait(),
-                        timeout=self._timeout(str(operation), self.policy),
-                    )
+                    if operation == "anchor":
+                        return_code = await process.wait()
+                    else:
+                        return_code = await asyncio.wait_for(
+                            process.wait(),
+                            timeout=self._timeout(str(operation), self.policy),
+                        )
                 except TimeoutError as error:
                     cleanup_task = asyncio.create_task(_terminate_process(process))
                     _, cleanup_interrupted = await _drain_task(cleanup_task)
                     self._active_processes.pop(process.pid)
+                    self._active_anchor_processes.discard(process.pid)
                     self._remove_process_record(process_record)
                     if cleanup_interrupted:
                         raise asyncio.CancelledError from error
@@ -1879,6 +2129,7 @@ class WorkerRunner:
                     except BaseException as cleanup_error:
                         raise cancellation from cleanup_error
                     self._active_processes.pop(process.pid)
+                    self._active_anchor_processes.discard(process.pid)
                     self._remove_process_record(process_record)
                     raise cancellation.with_traceback(cancellation.__traceback__)
             try:
@@ -1890,6 +2141,7 @@ class WorkerRunner:
                 except BaseException as cleanup_error:
                     raise cancellation from cleanup_error
                 self._active_processes.pop(process.pid)
+                self._active_anchor_processes.discard(process.pid)
                 if process_record is not None:
                     self._remove_process_record(process_record)
                 raise cancellation.with_traceback(cancellation.__traceback__)
@@ -1897,6 +2149,7 @@ class WorkerRunner:
                 cleanup_task = asyncio.create_task(_terminate_process(process))
                 _, cleanup_interrupted = await _drain_task(cleanup_task)
                 self._active_processes.pop(process.pid)
+                self._active_anchor_processes.discard(process.pid)
                 if process_record is not None:
                     self._remove_process_record(process_record)
                 if cleanup_interrupted:
@@ -1905,6 +2158,7 @@ class WorkerRunner:
             if process_record is not None:
                 self._remove_process_record(process_record)
             self._active_processes.pop(process.pid)
+            self._active_anchor_processes.discard(process.pid)
             if return_code != 0:
                 _fail(f"worker_{operation}_failed")
         self.executable.revalidate()
@@ -2000,11 +2254,12 @@ class WorkerRunner:
         )
         expected_network = {
             "recover": "control-plane",
+            "anchor": "control-plane",
             "probe": "none",
             "build": "trusted-builder",
             "validate": "none",
         }[operation]
-        expected_session_started = operation != "recover"
+        expected_session_started = operation not in {"recover", "anchor"}
         if (
             type(response["schema_version"]) is not int
             or response["schema_version"] != 1
@@ -2026,7 +2281,7 @@ class WorkerRunner:
         ):
             _fail("worker_lifecycle_unverified")
         provider_cleanup = lifecycle["provider_cleanup"]
-        if operation == "recover":
+        if operation in {"recover", "anchor"}:
             if provider_cleanup is not None:
                 _fail("worker_lifecycle_unverified")
         else:
@@ -2037,7 +2292,7 @@ class WorkerRunner:
                     "request_sha256",
                     "recovery_scope_sha256",
                     "session_sha256",
-                    "wal_entry_sha256",
+                    "assignment_sha256",
                     "receipt_sha256",
                     "receipt_verifier_sha256",
                     "terminal_state",
@@ -2049,10 +2304,10 @@ class WorkerRunner:
                 or cleanup["request_sha256"] != request_sha256
                 or cleanup["recovery_scope_sha256"] != self.policy.recovery_scope_sha256
                 or not _is_sha256(cleanup["session_sha256"])
-                or not _is_sha256(cleanup["wal_entry_sha256"])
+                or not _is_sha256(cleanup["assignment_sha256"])
                 or not _is_sha256(cleanup["receipt_sha256"])
                 or cleanup["receipt_verifier_sha256"] != self.policy.cleanup_receipt_verifier_sha256
-                or cleanup["terminal_state"] != "deleted"
+                or cleanup["terminal_state"] not in {"deleted", "recycled"}
             ):
                 _fail("worker_lifecycle_unverified")
         if not cached_response:
@@ -2099,7 +2354,16 @@ def _compatibility_record(probe: ProbeResult) -> dict[str, object]:
     }
 
 
-def _recovery_request(worker: WorkerPolicy, run_nonce: str) -> dict[str, object]:
+_RECOVERY_PHASES = frozenset({"startup", "final", "failure"})
+
+
+def _recovery_request(
+    worker: WorkerPolicy,
+    run_nonce: str,
+    phase: str = "startup",
+) -> dict[str, object]:
+    if phase not in _RECOVERY_PHASES:
+        _fail("worker_recovery_phase_invalid")
     return {
         "schema_version": 1,
         "protocol_version": WORKER_PROTOCOL_VERSION,
@@ -2114,6 +2378,7 @@ def _recovery_request(worker: WorkerPolicy, run_nonce: str) -> dict[str, object]
             "ecr_rotator_sha256": worker.ecr_rotator_sha256,
         },
         "run_nonce": run_nonce,
+        "phase": phase,
         "network": "control-plane",
         "recovery_contract": {
             "durable_provider_wal": True,
@@ -2123,25 +2388,63 @@ def _recovery_request(worker: WorkerPolicy, run_nonce: str) -> dict[str, object]
     }
 
 
-def _parse_recovery_result(response: WorkerResponse, policy: WorkerPolicy) -> None:
+def _anchor_request(worker: WorkerPolicy, run_nonce: str) -> dict[str, object]:
+    if len(run_nonce) != 32 or any(character not in "0123456789abcdef" for character in run_nonce):
+        _fail("worker_anchor_state_invalid")
+    return {
+        "schema_version": 1,
+        "protocol_version": WORKER_PROTOCOL_VERSION,
+        "operation": "anchor",
+        "worker": {
+            "executable_sha256": worker.executable_sha256,
+            "runtime_sha256": worker.runtime_sha256,
+            "materializer_code_sha256": worker.materializer_code_sha256,
+            "cleanup_receipt_verifier_sha256": worker.cleanup_receipt_verifier_sha256,
+            "environment_sha256": worker.environment_sha256,
+            "recovery_scope_sha256": worker.recovery_scope_sha256,
+            "ecr_rotator_sha256": worker.ecr_rotator_sha256,
+        },
+        "run_nonce": run_nonce,
+        "network": "control-plane",
+        "anchor_contract": {
+            "active_client_required": True,
+            "heartbeat_interval_seconds": PROVIDER_ANCHOR_HEARTBEAT_INTERVAL_SECONDS,
+            "sole_terminal_drain": True,
+            "zero_live_wal_required": True,
+        },
+    }
+
+
+def _parse_recovery_result(
+    response: WorkerResponse,
+    policy: WorkerPolicy,
+    *,
+    expected_phase: str = "startup",
+    expected_anchor: bool = False,
+) -> dict[str, object]:
+    expected_keys = {
+        "durable_provider_wal",
+        "recovery_attempted",
+        "remaining_sessions",
+        "cleanup_receipts_verified",
+        "recovery_scope_sha256",
+        "phase",
+        "wal_snapshot_sha256",
+        "recovery_receipt_sha256",
+        "receipt_verifier_sha256",
+    }
+    if expected_anchor:
+        expected_keys.add("anchor_liveness")
     raw = _exact_keys(
         response.result,
-        {
-            "durable_provider_wal",
-            "recovery_attempted",
-            "remaining_sessions",
-            "cleanup_receipts_verified",
-            "recovery_scope_sha256",
-            "wal_snapshot_sha256",
-            "recovery_receipt_sha256",
-            "receipt_verifier_sha256",
-        },
+        expected_keys,
         "worker_recovery_unverified",
     )
     if (
         raw["durable_provider_wal"] is not True
         or raw["recovery_attempted"] is not True
         or raw["cleanup_receipts_verified"] is not True
+        or raw["phase"] != expected_phase
         or type(raw["remaining_sessions"]) is not int
         or raw["remaining_sessions"] != 0
         or raw["recovery_scope_sha256"] != policy.recovery_scope_sha256
@@ -2150,6 +2453,20 @@ def _parse_recovery_result(response: WorkerResponse, policy: WorkerPolicy) -> No
         or raw["receipt_verifier_sha256"] != policy.cleanup_receipt_verifier_sha256
     ):
         _fail("worker_recovery_unverified")
+    if expected_anchor:
+        liveness = _exact_keys(
+            raw["anchor_liveness"],
+            {"active_client_registered", "heartbeat_checks", "stop_received"},
+            "worker_recovery_unverified",
+        )
+        if (
+            liveness["active_client_registered"] is not True
+            or type(liveness["heartbeat_checks"]) is not int
+            or liveness["heartbeat_checks"] < 0
+            or liveness["stop_received"] is not True
+        ):
+            _fail("worker_recovery_unverified")
+    return dict(raw)
 
 
 def _probe_request(task: MaterializationTask, plan: MaterializationPlan) -> dict[str, object]:
@@ -2750,6 +3067,61 @@ async def _bounded_map(
         raise error.with_traceback(error.__traceback__)
 
 
+def _raise_provider_anchor_lost(anchor: ProviderAnchor) -> None:
+    if not anchor.task.done():
+        _fail("provider_anchor_lost")
+    try:
+        anchor.task.result()
+    except BaseException as error:
+        _fail("provider_anchor_lost", error)
+    _fail("provider_anchor_lost")
+
+
+async def _bounded_map_with_anchor(
+    anchor: ProviderAnchor,
+    items: Sequence[object],
+    concurrency: int,
+    operation,
+) -> list[object]:
+    """Run a worker wave while continuously treating anchor exit as fatal."""
+
+    if anchor.stopped or anchor.task.done():
+        _raise_provider_anchor_lost(anchor)
+    batch = asyncio.create_task(_bounded_map(items, concurrency, operation))
+    try:
+        completed, _ = await asyncio.wait(
+            {batch, anchor.task},
+            return_when=asyncio.FIRST_COMPLETED,
+        )
+    except BaseException as error:
+        batch.cancel()
+        try:
+            _, interrupted = await _drain_task(batch)
+        except BaseException as cleanup_error:
+            raise error.with_traceback(error.__traceback__) from cleanup_error
+        if interrupted and not isinstance(error, asyncio.CancelledError):
+            raise asyncio.CancelledError from error
+        raise
+    if anchor.task in completed:
+        batch.cancel()
+        try:
+            await _drain_task(batch)
+        except BaseException as cleanup_error:
+            try:
+                anchor.task.result()
+            except BaseException as anchor_error:
+                raise OfflineCatalogError("provider_anchor_lost") from BaseExceptionGroup(
+                    "anchor loss and worker cleanup failed",
+                    [anchor_error, cleanup_error],
+                )
+            raise OfflineCatalogError("provider_anchor_lost") from cleanup_error
+        _raise_provider_anchor_lost(anchor)
+    result = await batch
+    if anchor.task.done():
+        _raise_provider_anchor_lost(anchor)
+    return result
+
+
 class OfflineCatalogMaterializer:
     def __init__(
         self,
@@ -2796,27 +3168,60 @@ class OfflineCatalogMaterializer:
             _fail("catalog_output_overlap")
 
     async def materialize(self):
+        self.runner.require_provider_epoch()
         self.plan.revalidate()
+        anchor: ProviderAnchor | None = None
         try:
             await self.runner.recover_stale_local_processes()
-            await self.runner.recover_provider()
-            return await self._materialize_after_recovery()
+            await self.runner.recover_provider("startup")
+            anchor = await self.runner.start_provider_anchor()
+            return await self._materialize_after_recovery(anchor)
         except BaseException as error:
             local_recovery_task = asyncio.create_task(self.runner.recover_stale_local_processes())
             try:
                 _, local_recovery_interrupted = await _drain_task(local_recovery_task)
             except BaseException as local_recovery_error:
                 _fail("worker_local_recovery_failed", local_recovery_error)
-            recovery_task = asyncio.create_task(self.runner.recover_provider())
+            anchor_failure: BaseException | None = None
+            if anchor is not None and not anchor.stopped and anchor.task.done():
+                try:
+                    anchor.task.result()
+                except BaseException as observed:
+                    anchor_failure = observed
+                anchor.stopped = True
+            if anchor is not None and not anchor.stopped:
+                recovery_task = asyncio.create_task(
+                    self.runner.stop_provider_anchor(anchor, "failure")
+                )
+            else:
+                recovery_task = asyncio.create_task(self.runner.recover_provider("failure"))
+            recovery_interrupted = False
             try:
                 _, recovery_interrupted = await _drain_task(recovery_task)
             except BaseException as recovery_error:
-                _fail("worker_recovery_failed", recovery_error)
+                # A dead or malformed anchor is already process-group gated by
+                # ``invoke``. Only then may a fresh client perform fallback
+                # recovery against the same epoch-locked socket and WAL.
+                fallback_task = asyncio.create_task(self.runner.recover_provider("failure"))
+                try:
+                    _, fallback_interrupted = await _drain_task(fallback_task)
+                except BaseException as fallback_error:
+                    failures = [recovery_error, fallback_error]
+                    if anchor_failure is not None:
+                        failures.insert(0, anchor_failure)
+                    _fail(
+                        "worker_recovery_failed",
+                        BaseExceptionGroup(
+                            "anchor and fallback recovery failed",
+                            failures,
+                        ),
+                    )
+                recovery_interrupted = recovery_interrupted or fallback_interrupted
             if isinstance(error, asyncio.CancelledError) or local_recovery_interrupted or recovery_interrupted:
                 raise asyncio.CancelledError from error
             raise error.with_traceback(error.__traceback__)
 
-    async def _materialize_after_recovery(self):
+    async def _materialize_after_recovery(self, anchor: ProviderAnchor):
         unique_probe_tasks: dict[tuple[str, str, str], MaterializationTask] = {}
         for task in self.plan.tasks:
             unique_probe_tasks.setdefault(
@@ -2834,7 +3239,12 @@ class OfflineCatalogMaterializer:
                 _parse_probe_result(response, task, self.plan),
             )
 
-        probe_pairs = await _bounded_map(probe_inputs, self.plan.worker.probe_concurrency, probe_one)
+        probe_pairs = await _bounded_map_with_anchor(
+            anchor,
+            probe_inputs,
+            self.plan.worker.probe_concurrency,
+            probe_one,
+        )
         probes = dict(probe_pairs)  # type: ignore[arg-type]
 
         missing_groups: dict[tuple[str, str], list[MaterializationTask]] = {}
@@ -2850,7 +3260,6 @@ class OfflineCatalogMaterializer:
             sorted(tasks, key=lambda task: (task.image, task.task_key, task.runtime_role))[0]
             for _, tasks in sorted(missing_groups.items())
         ]
-
         async def build_discovery(raw_task: object) -> tuple[tuple[str, str], MaterializationTask, BuiltWheelhouse]:
             task = raw_task
             assert isinstance(task, MaterializationTask)
@@ -2859,7 +3268,8 @@ class OfflineCatalogMaterializer:
             built = _parse_build_result(response, task, probe, self.plan, "discover")
             return (task.requirements_sha256, probe.runtime_fingerprint.sha256), task, built
 
-        discovered = await _bounded_map(
+        discovered = await _bounded_map_with_anchor(
+            anchor,
             representative_inputs,
             self.plan.worker.build_concurrency,
             build_discovery,
@@ -2896,7 +3306,8 @@ class OfflineCatalogMaterializer:
                 "image",
             )
 
-        image_build_pairs = await _bounded_map(
+        image_build_pairs = await _bounded_map_with_anchor(
+            anchor,
             [unique_image_builds[key] for key in sorted(unique_image_builds)],
             self.plan.worker.build_concurrency,
             build_image,
@@ -2925,20 +3336,29 @@ class OfflineCatalogMaterializer:
             response = await self.runner.invoke(request)
             _parse_validate_result(response, task, probe, built)
 
-        await _bounded_map(
+        await _bounded_map_with_anchor(
+            anchor,
             [validation_contracts[key] for key in sorted(validation_contracts)],
             self.plan.worker.validate_concurrency,
             validate_one,
         )
         self.plan.revalidate()
         self.runner.executable.revalidate()
-        return self._publish(probes, built_by_task)
+        await self.runner.recover_stale_local_processes()
+        final_recovery, interrupted = await self.runner.stop_provider_anchor(anchor, "final")
+        if interrupted:
+            raise asyncio.CancelledError
+        self.plan.revalidate()
+        self.runner.executable.revalidate()
+        return self._publish(probes, built_by_task, final_recovery)
 
     def _publish(
         self,
         probes: Mapping[tuple[str, str, str], ProbeResult],
         built_by_task: Mapping[str, BuiltWheelhouse],
+        final_recovery: Mapping[str, object],
     ):
+        self.runner.require_provider_epoch()
         output_parent = self.output_root.parent
         parent_descriptor, parent_status, _ = _open_absolute_nofollow(
             output_parent,
@@ -3103,6 +3523,11 @@ class OfflineCatalogMaterializer:
                     "catalog_sha256": catalog_sha256,
                     "identity_sha256": self.plan.identity.sha256,
                     "expected_task_count": self.plan.expected_task_count,
+                    "provider_epoch": {
+                        "exclusive_socket_lock": True,
+                        "exclusive_wal_lock": True,
+                    },
+                    "provider_recovery": dict(final_recovery),
                 }
             )
             atomic_write_bytes(staging / "launch.json", launch_receipt, mode=0o400)
@@ -3512,15 +3937,16 @@ async def materialize_catalog(
     validated_work_root = _validate_private_root(work_root, project_root, dataset_root)
     with _ExclusiveFileLock(validated_work_root / ".materialize.lock", "materialization_already_running"):
         runner = WorkerRunner(worker_path, plan.worker, validated_work_root)
-        materializer = OfflineCatalogMaterializer(
-            plan,
-            runner,
-            work_root=validated_work_root,
-            output_root=output_root,
-            project_root=project_root,
-            dataset_root=dataset_root,
-        )
-        return await materializer.materialize()
+        with runner.provider_epoch():
+            materializer = OfflineCatalogMaterializer(
+                plan,
+                runner,
+                work_root=validated_work_root,
+                output_root=output_root,
+                project_root=project_root,
+                dataset_root=dataset_root,
+            )
+            return await materializer.materialize()
 
 
 def _parse_args() -> argparse.Namespace:

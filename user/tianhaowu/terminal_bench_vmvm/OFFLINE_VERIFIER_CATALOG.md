@@ -89,10 +89,11 @@ the job. Cancellation and timeout terminate and reap the worker process group;
 a pinned Sandoq worker must additionally finish sandbox deletion and verify the
 provider cleanup receipt before publishing its response.
 For every started session, `lifecycle.provider_cleanup` binds the request,
-recovery scope, private session digest, durable-WAL entry, authoritative
-provider cleanup receipt, pinned receipt verifier, and terminal `deleted`
-state. Recovery responses likewise bind their WAL snapshot and aggregate
-recovery receipt to the same scope and verifier.
+recovery scope, private assignment/session digests, authoritative registry
+cleanup receipt, pinned receipt verifier, and a terminal `recycled` or
+`deleted` state. Normal workers never read the live WAL or globally drain the
+shared pool. Recovery responses bind their quiescent WAL snapshot and
+aggregate recovery receipt to the same scope and verifier.
 
 The operations are:
 
@@ -202,23 +203,33 @@ epoch, publication, and each job; these locks are released by process death and
 cannot become stale sentinels. Each local worker is armed with Linux
 parent-death signaling and recorded in a private PID/start-time/process-group
 WAL. Spawn is cancellation-shielded until the PID is known. Cancellation,
-timeout, SIGINT, and SIGTERM perform shielded TERM/KILL, prove process-group
-extinction, drain sibling jobs, then obtain a scoped provider recovery receipt
-before returning failure. Repeated cancellation is recorded but cannot detach
-or re-cancel cleanup already in progress; it is propagated only after that
-cleanup and recovery finish. Local process cleanup and a second WAL scan must
-succeed before provider recovery may claim zero sessions. A cleanup failure is
-reported as infrastructure failure even when cancellation triggered it.
+timeout, SIGINT, and SIGTERM perform shielded TERM/KILL and prove all worker
+process groups extinct before the controller invokes global provider recovery.
+Repeated cancellation is recorded but cannot detach or re-cancel cleanup
+already in progress; it is propagated only after that cleanup and recovery
+finish. Local process cleanup and a second process-WAL scan must succeed before
+provider recovery may claim zero sessions. A cleanup failure is reported as
+infrastructure failure even when cancellation triggered it.
 Startup kills every WAL-bound stale local group whose leader PID and start time
 still match. A live group with an absent or changed leader is ambiguous and
 fails closed without signalling it.
 
-The concrete worker owns one provider pool/WAL and drains it after every
-request. Set `SANDOQ_CATALOG_EXCLUSIVE_POOL=1`; the materializer rejects the
-plan unless probe, build, and validation concurrency are all exactly one. Do
-not run another materializer against the same owner/socket/WAL epoch. This
-serial one-time bootstrap prevents one request's drain from poisoning another
-active catalog session.
+The materializer holds nonblocking kernel epoch locks adjacent to both the
+configured provider socket and WAL. `SANDOQ_CATALOG_EXCLUSIVE_POOL=1` denotes
+this whole-run ownership and excludes another materializer even when it uses a
+different work root. After startup recovery, the controller starts a pinned
+anchor worker that registers one provider client before any bounded worker
+wave and keeps its heartbeat alive across every inter-wave gap. Normal workers
+perform only assignment-scoped release, so their departure cannot become the
+broker's last-client drain. After all child groups are extinct, the anchor
+performs the sole terminal global recovery on success or failure. A dead or
+invalid anchor is group-reaped before a fresh recovery client is admitted.
+The private launch receipt binds the final zero-live WAL/recovery proof.
+Concurrency is capped at 24 probe, 4 build, and 24 validation workers; a plan
+exceeding any cap fails before a sandbox starts. Build assignments use the
+trusted host-network nested container, while every probe and validation uses a
+fresh nested container with network `none`, so the validated artifact is never
+accepted solely from the networked builder environment.
 
 The worker executable is copied alone into the private work root, sealed mode
 0500, rehashed, and executed from a verified open file descriptor. `PYTHONPATH`

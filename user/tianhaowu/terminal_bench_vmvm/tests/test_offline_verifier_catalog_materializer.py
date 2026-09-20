@@ -27,10 +27,12 @@ from terminal_bench_vmvm.offline_verifier_catalog import (
 )
 from terminal_bench_vmvm.offline_verifier_catalog_materializer import (
     MaterializationPlan,
+    ProviderAnchor,
     WorkerPolicy,
     WorkerResponse,
     WorkerRunner,
     _bounded_map,
+    _bounded_map_with_anchor,
     _directory_identity,
     _drain_task,
     _ExclusiveFileLock,
@@ -122,6 +124,7 @@ def _worker_script(
     bad_validation: bool,
     exit_after_response: bool,
     hang_after_response: bool,
+    nonzero_final_recovery: bool,
 ) -> str:
     return (
         r"""#!__PYTHON__
@@ -152,12 +155,52 @@ if operation == "recover":
     result = {
         "durable_provider_wal": True,
         "recovery_attempted": True,
-        "remaining_sessions": 0,
+        "remaining_sessions": 1 if (__NONZERO_FINAL_RECOVERY__ and request["phase"] == "final") else 0,
         "cleanup_receipts_verified": True,
         "recovery_scope_sha256": request["worker"]["recovery_scope_sha256"],
+        "phase": request["phase"],
         "wal_snapshot_sha256": hashlib.sha256(b"wal-snapshot").hexdigest(),
         "recovery_receipt_sha256": hashlib.sha256(b"recovery-receipt").hexdigest(),
         "receipt_verifier_sha256": request["worker"]["cleanup_receipt_verifier_sha256"],
+    }
+elif operation == "anchor":
+    ready = args.artifact_dir / "anchor-ready.json"
+    ready_tmp = args.artifact_dir / "anchor-ready.tmp"
+    ready_tmp.write_bytes(canonical({
+        "schema_version": 1,
+        "request_sha256": args.request_sha256,
+        "recovery_scope_sha256": request["worker"]["recovery_scope_sha256"],
+        "active_client_registered": True,
+        "pool_accepting": True,
+        "pool_draining": False,
+    }))
+    ready_tmp.chmod(0o400)
+    os.replace(ready_tmp, ready)
+    stop_path = args.artifact_dir / "anchor-stop.json"
+    while not stop_path.exists():
+        time.sleep(0.01)
+    stop = json.loads(stop_path.read_bytes())
+    if (
+        stop.get("request_sha256") != args.request_sha256
+        or stop.get("run_nonce") != request["run_nonce"]
+        or stop.get("phase") not in {"final", "failure"}
+    ):
+        raise SystemExit(6)
+    result = {
+        "durable_provider_wal": True,
+        "recovery_attempted": True,
+        "remaining_sessions": 1 if (__NONZERO_FINAL_RECOVERY__ and stop["phase"] == "final") else 0,
+        "cleanup_receipts_verified": True,
+        "recovery_scope_sha256": request["worker"]["recovery_scope_sha256"],
+        "phase": stop["phase"],
+        "wal_snapshot_sha256": hashlib.sha256(b"wal-snapshot").hexdigest(),
+        "recovery_receipt_sha256": hashlib.sha256(b"anchor-recovery-receipt").hexdigest(),
+        "receipt_verifier_sha256": request["worker"]["cleanup_receipt_verifier_sha256"],
+        "anchor_liveness": {
+            "active_client_registered": True,
+            "heartbeat_checks": 0,
+            "stop_received": True,
+        },
     }
 elif operation == "probe":
     if fixture["orphan_probe"]:
@@ -228,21 +271,21 @@ elif operation == "validate":
 else:
     raise SystemExit(5)
 lifecycle = {
-    "network": "control-plane" if operation == "recover" else (
+    "network": "control-plane" if operation in {"recover", "anchor"} else (
         "trusted-builder" if operation == "build" else "none"
     ),
-    "session_started": operation != "recover",
+    "session_started": operation not in {"recover", "anchor"},
     "process_cleanup_verified": True,
     "cleanup_verified": __CLEANUP_VERIFIED__,
-    "provider_cleanup": None if operation == "recover" else {
+    "provider_cleanup": None if operation in {"recover", "anchor"} else {
         "provider": "sandoq",
         "request_sha256": args.request_sha256,
         "recovery_scope_sha256": request["worker"]["recovery_scope_sha256"],
         "session_sha256": hashlib.sha256((args.request_sha256 + ":session").encode()).hexdigest(),
-        "wal_entry_sha256": hashlib.sha256((args.request_sha256 + ":wal").encode()).hexdigest(),
+        "assignment_sha256": hashlib.sha256((args.request_sha256 + ":assignment").encode()).hexdigest(),
         "receipt_sha256": hashlib.sha256((args.request_sha256 + ":receipt").encode()).hexdigest(),
         "receipt_verifier_sha256": request["worker"]["cleanup_receipt_verifier_sha256"],
-        "terminal_state": "deleted",
+        "terminal_state": "recycled",
     },
 }
 response = {
@@ -274,6 +317,7 @@ if __HANG_AFTER_RESPONSE__:
         .replace("__BAD_VALIDATION__", repr(bad_validation))
         .replace("__EXIT_AFTER_RESPONSE__", repr(exit_after_response))
         .replace("__HANG_AFTER_RESPONSE__", repr(hang_after_response))
+        .replace("__NONZERO_FINAL_RECOVERY__", repr(nonzero_final_recovery))
     )
 
 
@@ -289,6 +333,7 @@ def _inputs(
     immutable_credential: bool = False,
     exit_after_response: bool = False,
     hang_after_response: bool = False,
+    nonzero_final_recovery: bool = False,
 ):
     project = _private_directory(tmp_path / "project")
     dataset = _private_directory(tmp_path / "dataset")
@@ -439,18 +484,27 @@ def _inputs(
             bad_validation=bad_validation,
             exit_after_response=exit_after_response,
             hang_after_response=hang_after_response,
+            nonzero_final_recovery=nonzero_final_recovery,
         ).encode(),
         mode=0o500,
     )
     worker_sha256 = _digest(worker_path.read_bytes())
     worker_environment_names = [
         "OCI_RUNNER_ENVIRONMENT",
+        "OCI_RUNNER_POOL_SOCKET",
+        "OCI_RUNNER_POOL_WAL",
         "OCI_RUNNER_TASK_NETWORK",
+        "SANDOQ_CATALOG_EXCLUSIVE_POOL",
         "SANDOQ_OWNER",
         "VF_SANDBOX_PROVIDER",
     ]
+    pool_root = _private_directory(tmp_path / "pool")
+    provider_state_root = _private_directory(tmp_path / "provider-state")
     monkeypatch.setenv("OCI_RUNNER_ENVIRONMENT", "oci-runner-firecracker")
+    monkeypatch.setenv("OCI_RUNNER_POOL_SOCKET", str(pool_root / "catalog.sock"))
+    monkeypatch.setenv("OCI_RUNNER_POOL_WAL", str(provider_state_root / "catalog.wal.jsonl"))
     monkeypatch.setenv("OCI_RUNNER_TASK_NETWORK", "none")
+    monkeypatch.setenv("SANDOQ_CATALOG_EXCLUSIVE_POOL", "1")
     monkeypatch.setenv("SANDOQ_OWNER", "synthetic-catalog-owner")
     monkeypatch.setenv("VF_SANDBOX_PROVIDER", "sandoq")
     immutable_credential_path = fixture_root / "immutable-worker-credential"
@@ -515,7 +569,16 @@ def _inputs(
         "token": token_path,
         "token_metadata": fixture_root / "ecr-token-metadata.json",
         "immutable_credential": immutable_credential_path,
+        "pool_root": pool_root,
+        "provider_state_root": provider_state_root,
     }
+
+
+def _terminal_recovery_response_count(work_root: Path) -> int:
+    return sum(
+        len(list((work_root / "jobs" / operation).glob("*/*/response.json")))
+        for operation in ("recover", "anchor")
+    )
 
 
 def test_materializer_runs_all_phases_publishes_and_resumes(
@@ -549,6 +612,9 @@ def test_materializer_runs_all_phases_publishes_and_resumes(
     assert "synthetic" not in json.dumps(public)
 
     launch = json.loads((output / "launch.json").read_bytes())
+    assert launch["schema_version"] == 2
+    assert launch["provider_recovery"]["phase"] == "final"
+    assert launch["provider_recovery"]["remaining_sessions"] == 0
     catalog = OfflineVerifierCatalog.load(
         output / launch["catalog_file"],
         launch["catalog_sha256"],
@@ -570,6 +636,7 @@ def test_materializer_runs_all_phases_publishes_and_resumes(
 
     assert len(list((inputs["work"] / "jobs" / "probe").glob("*/*/response.json"))) == 4
     assert len(list((inputs["work"] / "jobs" / "recover").glob("*/*/response.json"))) == 1
+    assert len(list((inputs["work"] / "jobs" / "anchor").glob("*/*/response.json"))) == 1
     assert len(list((inputs["work"] / "jobs" / "build").glob("*/*/response.json"))) == 1
     assert len(list((inputs["work"] / "jobs" / "validate").glob("*/*/response.json"))) == 2
 
@@ -588,6 +655,111 @@ def test_materializer_runs_all_phases_publishes_and_resumes(
     assert resumed == receipt
     assert (resumed_output / "catalog.json").read_bytes() == (output / "catalog.json").read_bytes()
     assert len(list((inputs["work"] / "jobs" / "recover").glob("*/*/response.json"))) == 2
+    assert len(list((inputs["work"] / "jobs" / "anchor").glob("*/*/response.json"))) == 2
+
+
+def test_materializer_rejects_nonzero_final_wal_before_publish(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    inputs = _inputs(tmp_path, monkeypatch, nonzero_final_recovery=True)
+    output = tmp_path / "catalog-output"
+
+    with pytest.raises(OfflineCatalogError, match="worker_recovery_unverified"):
+        asyncio.run(
+            materialize_catalog(
+                plan_path=inputs["plan"],
+                plan_sha256=inputs["plan_sha256"],
+                worker_path=inputs["worker"],
+                work_root=inputs["work"],
+                output_root=output,
+                project_root=inputs["project"],
+                dataset_root=inputs["dataset"],
+            )
+        )
+
+    assert not output.exists()
+
+
+def test_provider_epoch_lock_rejects_second_materializer_scope(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    inputs = _inputs(tmp_path, monkeypatch)
+    plan = MaterializationPlan.load(
+        inputs["plan"],
+        inputs["plan_sha256"],
+        project_root=inputs["project"],
+        dataset_root=inputs["dataset"],
+    )
+    first = WorkerRunner(inputs["worker"], plan.worker, inputs["work"])
+    second_work = _private_directory(tmp_path / "second-work")
+    second = WorkerRunner(inputs["worker"], plan.worker, second_work)
+
+    with first.provider_epoch():
+        with pytest.raises(OfflineCatalogError, match="materialization_epoch_locked"):
+            with second.provider_epoch():
+                raise AssertionError("second provider epoch was admitted")
+
+
+def test_provider_epoch_rejects_replaced_lock_parent(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    inputs = _inputs(tmp_path, monkeypatch)
+    plan = MaterializationPlan.load(
+        inputs["plan"],
+        inputs["plan_sha256"],
+        project_root=inputs["project"],
+        dataset_root=inputs["dataset"],
+    )
+    runner = WorkerRunner(inputs["worker"], plan.worker, inputs["work"])
+    pool_root = inputs["pool_root"]
+    replaced = pool_root.with_name(f"{pool_root.name}-replaced")
+
+    with pytest.raises(OfflineCatalogError, match="materialization_epoch_invalid"):
+        with runner.provider_epoch():
+            pool_root.rename(replaced)
+            pool_root.mkdir(mode=0o700)
+            runner.require_provider_epoch()
+
+
+def test_materializer_binds_network_phases_and_final_quiescence(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    inputs = _inputs(tmp_path, monkeypatch)
+    asyncio.run(
+        materialize_catalog(
+            plan_path=inputs["plan"],
+            plan_sha256=inputs["plan_sha256"],
+            worker_path=inputs["worker"],
+            work_root=inputs["work"],
+            output_root=tmp_path / "catalog-output",
+            project_root=inputs["project"],
+            dataset_root=inputs["dataset"],
+        )
+    )
+
+    requests = [
+        json.loads(path.read_bytes())
+        for path in (inputs["work"] / "jobs").glob("*/*/*/request.json")
+    ]
+    recovery_phases = [
+        request["phase"] for request in requests if request["operation"] == "recover"
+    ]
+    assert recovery_phases == ["startup"]
+    anchor_responses = [
+        json.loads(path.read_bytes())
+        for path in (inputs["work"] / "jobs" / "anchor").glob("*/*/response.json")
+    ]
+    assert [response["result"]["phase"] for response in anchor_responses] == ["final"]
+    assert {
+        request["network"] for request in requests if request["operation"] == "build"
+    } == {"trusted-builder"}
+    assert {
+        request["network"] for request in requests if request["operation"] == "validate"
+    } == {"none"}
 
 
 def test_materializer_rejects_unverified_worker_cleanup(
@@ -629,7 +801,7 @@ def test_materializer_rejects_echoed_policy_without_successful_install(
             )
         )
     assert not list((inputs["work"] / "local-processes").glob("*.json"))
-    assert len(list((inputs["work"] / "jobs" / "recover").glob("*/*/response.json"))) >= 2
+    assert _terminal_recovery_response_count(inputs["work"]) >= 2
 
 
 def test_cancellation_kills_worker_group_and_runs_scoped_recovery(
@@ -651,10 +823,10 @@ def test_cancellation_kills_worker_group_and_runs_scoped_recovery(
             )
         )
         for _ in range(200):
-            if inputs["child_pid"].exists():
+            if inputs["child_pid"].exists() and inputs["child_pid"].stat().st_size:
                 break
             await asyncio.sleep(0.01)
-        assert inputs["child_pid"].exists()
+        assert inputs["child_pid"].exists() and inputs["child_pid"].stat().st_size
         materialization.cancel()
         with pytest.raises(asyncio.CancelledError):
             await materialization
@@ -663,7 +835,7 @@ def test_cancellation_kills_worker_group_and_runs_scoped_recovery(
     child_pid = int(inputs["child_pid"].read_text())
     assert _process_start_ticks(child_pid) is None
     assert not list((inputs["work"] / "local-processes").glob("*.json"))
-    assert len(list((inputs["work"] / "jobs" / "recover").glob("*/*/response.json"))) >= 2
+    assert _terminal_recovery_response_count(inputs["work"]) >= 2
 
 
 def test_cancellation_during_spawn_captures_then_cleans_worker_before_recovery(
@@ -708,7 +880,7 @@ def test_cancellation_during_spawn_captures_then_cleans_worker_before_recovery(
 
     asyncio.run(cancel_spawn())
     assert not list((inputs["work"] / "local-processes").glob("*.json"))
-    assert len(list((inputs["work"] / "jobs" / "recover").glob("*/*/response.json"))) >= 1
+    assert _terminal_recovery_response_count(inputs["work"]) >= 1
 
 
 def test_repeated_cancellation_during_process_cleanup_cannot_detach_worker(
@@ -758,7 +930,7 @@ def test_repeated_cancellation_during_process_cleanup_cannot_detach_worker(
     child_pid = int(inputs["child_pid"].read_text())
     assert _process_start_ticks(child_pid) is None
     assert not list((inputs["work"] / "local-processes").glob("*.json"))
-    assert len(list((inputs["work"] / "jobs" / "recover").glob("*/*/response.json"))) >= 2
+    assert _terminal_recovery_response_count(inputs["work"]) >= 2
 
 
 def test_worker_timeout_kills_group_then_runs_local_and_provider_recovery(
@@ -787,7 +959,7 @@ def test_worker_timeout_kills_group_then_runs_local_and_provider_recovery(
     child_pid = int(inputs["child_pid"].read_text())
     assert _process_start_ticks(child_pid) is None
     assert not list((inputs["work"] / "local-processes").glob("*.json"))
-    assert len(list((inputs["work"] / "jobs" / "recover").glob("*/*/response.json"))) >= 2
+    assert _terminal_recovery_response_count(inputs["work"]) >= 2
 
 
 def test_exited_worker_leader_with_live_descendant_is_killed_and_fails_closed(
@@ -816,7 +988,7 @@ def test_exited_worker_leader_with_live_descendant_is_killed_and_fails_closed(
     child_pid = int(inputs["child_pid"].read_text())
     assert _process_start_ticks(child_pid) is None
     assert not list((inputs["work"] / "local-processes").glob("*.json"))
-    assert len(list((inputs["work"] / "jobs" / "recover").glob("*/*/response.json"))) >= 2
+    assert _terminal_recovery_response_count(inputs["work"]) >= 2
 
 
 def test_local_group_cleanup_failure_blocks_post_failure_provider_recovery(
@@ -1245,6 +1417,35 @@ def test_bounded_map_retains_child_cleanup_failure_on_cancellation() -> None:
     asyncio.run(cancel_with_cleanup_failure())
 
 
+def test_bounded_map_cancels_and_drains_workers_when_anchor_exits() -> None:
+    async def run() -> None:
+        worker_cleanup = asyncio.Event()
+
+        async def lose_anchor() -> WorkerResponse:
+            await asyncio.sleep(0.01)
+            raise RuntimeError("synthetic anchor loss")
+
+        async def pending_worker(_item: object) -> object:
+            try:
+                await asyncio.sleep(60)
+            finally:
+                worker_cleanup.set()
+            return None
+
+        anchor = ProviderAnchor(
+            request_sha256="1" * 64,
+            run_nonce="2" * 32,
+            ready_path=Path("/private/ready"),
+            stop_path=Path("/private/stop"),
+            task=asyncio.create_task(lose_anchor()),
+        )
+        with pytest.raises(OfflineCatalogError, match="provider_anchor_lost"):
+            await _bounded_map_with_anchor(anchor, (object(),), 1, pending_worker)
+        assert worker_cleanup.is_set()
+
+    asyncio.run(run())
+
+
 def test_materialization_lock_is_kernel_held_and_recoverable(tmp_path: Path) -> None:
     lock_path = tmp_path / "materialize.lock"
     with _ExclusiveFileLock(lock_path, "locked"):
@@ -1404,13 +1605,14 @@ def test_cached_response_revalidates_staged_worker_executable(
     )
     runner = WorkerRunner(inputs["worker"], plan.worker, inputs["work"])
     request = _recovery_request(plan.worker, "0" * 32)
-    asyncio.run(runner.invoke(request))
-    staged_worker = runner.executable.path
-    staged_worker.chmod(0o700)
-    staged_worker.write_bytes(staged_worker.read_bytes() + b"changed")
-    staged_worker.chmod(0o500)
-    with pytest.raises(OfflineCatalogError, match="worker_executable_changed"):
+    with runner.provider_epoch():
         asyncio.run(runner.invoke(request))
+        staged_worker = runner.executable.path
+        staged_worker.chmod(0o700)
+        staged_worker.write_bytes(staged_worker.read_bytes() + b"changed")
+        staged_worker.chmod(0o500)
+        with pytest.raises(OfflineCatalogError, match="worker_executable_changed"):
+            asyncio.run(runner.invoke(request))
 
 
 def test_response_written_before_nonzero_exit_never_becomes_cached_success(
@@ -1426,12 +1628,13 @@ def test_response_written_before_nonzero_exit_never_becomes_cached_success(
     )
     runner = WorkerRunner(inputs["worker"], plan.worker, inputs["work"])
     request = _recovery_request(plan.worker, "1" * 32)
-    with pytest.raises(OfflineCatalogError, match="worker_recover_failed"):
-        asyncio.run(runner.invoke(request))
-    assert list((inputs["work"] / "jobs" / "recover").glob("*/*/response.json"))
-    assert not list((inputs["work"] / "jobs" / "recover").glob("*/*/controller-completion.json"))
-    with pytest.raises(OfflineCatalogError, match="worker_response_incomplete"):
-        asyncio.run(runner.invoke(request))
+    with runner.provider_epoch():
+        with pytest.raises(OfflineCatalogError, match="worker_recover_failed"):
+            asyncio.run(runner.invoke(request))
+        assert list((inputs["work"] / "jobs" / "recover").glob("*/*/response.json"))
+        assert not list((inputs["work"] / "jobs" / "recover").glob("*/*/controller-completion.json"))
+        with pytest.raises(OfflineCatalogError, match="worker_response_incomplete"):
+            asyncio.run(runner.invoke(request))
 
 
 def test_response_written_before_timeout_never_becomes_cached_success(
@@ -1453,12 +1656,13 @@ def test_response_written_before_timeout_never_becomes_cached_success(
     )
     runner = WorkerRunner(inputs["worker"], plan.worker, inputs["work"])
     request = _recovery_request(plan.worker, "2" * 32)
-    with pytest.raises(OfflineCatalogError, match="worker_recover_timeout"):
-        asyncio.run(runner.invoke(request))
-    assert list((inputs["work"] / "jobs" / "recover").glob("*/*/response.json"))
-    assert not list((inputs["work"] / "jobs" / "recover").glob("*/*/controller-completion.json"))
-    with pytest.raises(OfflineCatalogError, match="worker_response_incomplete"):
-        asyncio.run(runner.invoke(request))
+    with runner.provider_epoch():
+        with pytest.raises(OfflineCatalogError, match="worker_recover_timeout"):
+            asyncio.run(runner.invoke(request))
+        assert list((inputs["work"] / "jobs" / "recover").glob("*/*/response.json"))
+        assert not list((inputs["work"] / "jobs" / "recover").glob("*/*/controller-completion.json"))
+        with pytest.raises(OfflineCatalogError, match="worker_response_incomplete"):
+            asyncio.run(runner.invoke(request))
 
 
 def test_response_written_before_cancellation_never_becomes_cached_success(
@@ -1486,10 +1690,11 @@ def test_response_written_before_cancellation_never_becomes_cached_success(
         with pytest.raises(asyncio.CancelledError):
             await invocation
 
-    asyncio.run(cancel_after_response())
-    assert not list((inputs["work"] / "jobs" / "recover").glob("*/*/controller-completion.json"))
-    with pytest.raises(OfflineCatalogError, match="worker_response_incomplete"):
-        asyncio.run(runner.invoke(request))
+    with runner.provider_epoch():
+        asyncio.run(cancel_after_response())
+        assert not list((inputs["work"] / "jobs" / "recover").glob("*/*/controller-completion.json"))
+        with pytest.raises(OfflineCatalogError, match="worker_response_incomplete"):
+            asyncio.run(runner.invoke(request))
 
 
 def test_atomic_ecr_token_rotation_updates_private_audit_without_config_drift(
@@ -1529,20 +1734,28 @@ def test_credential_file_must_be_owned_private_and_single_link(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    pool_root = _private_directory(tmp_path / "pool")
+    wal_root = _private_directory(tmp_path / "wal")
     token = tmp_path / "token"
     _write_private(token, b"synthetic-token", mode=0o600)
     os.link(token, tmp_path / "token-hardlink")
     monkeypatch.setenv("OCI_RUNNER_TOKEN_FILE", str(token))
     monkeypatch.setenv("OCI_RUNNER_ENVIRONMENT", "oci-runner-firecracker")
+    monkeypatch.setenv("OCI_RUNNER_POOL_SOCKET", str(pool_root / "catalog.sock"))
+    monkeypatch.setenv("OCI_RUNNER_POOL_WAL", str(wal_root / "catalog.wal.jsonl"))
     monkeypatch.setenv("OCI_RUNNER_TASK_NETWORK", "none")
+    monkeypatch.setenv("SANDOQ_CATALOG_EXCLUSIVE_POOL", "1")
     monkeypatch.setenv("SANDOQ_OWNER", "synthetic-catalog-owner")
     monkeypatch.setenv("VF_SANDBOX_PROVIDER", "sandoq")
     with pytest.raises(OfflineCatalogError, match="worker_credential_file_invalid"):
         worker_environment_sha256(
             (
                 "OCI_RUNNER_ENVIRONMENT",
+                "OCI_RUNNER_POOL_SOCKET",
+                "OCI_RUNNER_POOL_WAL",
                 "OCI_RUNNER_TASK_NETWORK",
                 "OCI_RUNNER_TOKEN_FILE",
+                "SANDOQ_CATALOG_EXCLUSIVE_POOL",
                 "SANDOQ_OWNER",
                 "VF_SANDBOX_PROVIDER",
             )
@@ -1633,6 +1846,7 @@ def test_recovery_result_rejects_boolean_remaining_count(
             "remaining_sessions": False,
             "cleanup_receipts_verified": True,
             "recovery_scope_sha256": plan.worker.recovery_scope_sha256,
+            "phase": "startup",
             "wal_snapshot_sha256": _digest("wal"),
             "recovery_receipt_sha256": _digest("receipt"),
             "receipt_verifier_sha256": plan.worker.cleanup_receipt_verifier_sha256,

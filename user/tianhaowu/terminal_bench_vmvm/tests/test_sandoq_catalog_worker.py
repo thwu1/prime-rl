@@ -6,7 +6,6 @@ from types import SimpleNamespace
 from zipfile import ZIP_DEFLATED, ZipFile, ZipInfo
 
 import pytest
-
 import terminal_bench_vmvm.offline_verifier_catalog_materializer as materializer
 import terminal_bench_vmvm.sandoq_catalog_worker as worker
 
@@ -52,6 +51,14 @@ class FakeBackend:
         self.inventory_result: dict[str, object] | None = None
         self.cleanup_started = asyncio.Event()
         self.cleanup_release: asyncio.Event | None = None
+
+    async def anchor_status(self) -> dict[str, object]:
+        self.events.append("anchor")
+        return {"accepting": True, "draining": False, "clients": 1}
+
+    async def anchor_heartbeat(self) -> dict[str, object]:
+        self.events.append("anchor-heartbeat")
+        return {"accepting": True, "draining": False, "clients": 1}
 
     async def recover(self, reason: str) -> dict[str, object]:
         del reason
@@ -112,8 +119,14 @@ class FakeBackend:
             return 0, json.dumps(names, separators=(",", ":")), ""
         return 0, "", ""
 
-    async def cleanup(self, session: worker.RemoteSession, reason: str) -> dict[str, object]:
-        del session, reason
+    async def cleanup(
+        self,
+        session: worker.RemoteSession,
+        reason: str,
+        *,
+        poison: bool,
+    ) -> dict[str, object]:
+        del session, reason, poison
         self.events.append("cleanup-start")
         self.cleanup_started.set()
         if self.cleanup_release is not None:
@@ -123,7 +136,7 @@ class FakeBackend:
 
 
 @pytest.mark.asyncio
-async def test_probe_uses_no_network_session_and_drains_before_return() -> None:
+async def test_probe_uses_no_network_session_and_releases_before_return() -> None:
     backend = FakeBackend()
     marker = {"python_version": "3.12", "sys_platform": "linux"}
     tags = ["py3-none-any"]
@@ -153,7 +166,7 @@ async def test_probe_uses_no_network_session_and_drains_before_return() -> None:
     runtime_sha256 = "a" * 64
     request = {
         "schema_version": 1,
-        "protocol_version": 1,
+        "protocol_version": worker.WORKER_PROTOCOL_VERSION,
         "operation": "probe",
         "worker": _worker_record(runtime_sha256),
         "runtime_role": "shared-agent",
@@ -222,7 +235,7 @@ async def test_auth_failure_returns_no_private_payload(capsys: pytest.CaptureFix
 
 
 @pytest.mark.asyncio
-async def test_cleanup_always_drains_after_delete_failure() -> None:
+async def test_cleanup_never_globally_drains_after_delete_failure() -> None:
     class Client:
         drained = False
 
@@ -247,12 +260,12 @@ async def test_cleanup_always_drains_after_delete_failure() -> None:
     )
     backend = worker.PinnedSandoqBackend.__new__(worker.PinnedSandoqBackend)
     with pytest.raises(RuntimeError, match="delete failed"):
-        await backend.cleanup(session, "failure")
-    assert client.drained is True
+        await backend.cleanup(session, "failure", poison=True)
+    assert client.drained is False
 
 
 @pytest.mark.asyncio
-async def test_failed_or_cancelled_create_drains_provider_before_return(
+async def test_failed_or_cancelled_create_defers_global_recovery_to_controller(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setenv("OCI_RUNNER_TASK_NETWORK", "none")
@@ -313,11 +326,11 @@ async def test_failed_or_cancelled_create_drains_provider_before_return(
             with pytest.raises(RuntimeError, match="401"):
                 await task
             assert client.deleted is True
-        assert client.drained is True
+        assert client.drained is False
 
 
 @pytest.mark.asyncio
-async def test_ambiguous_create_without_assignment_handle_still_drains(
+async def test_ambiguous_create_without_assignment_handle_defers_global_recovery(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setenv("OCI_RUNNER_TASK_NETWORK", "none")
@@ -356,12 +369,12 @@ async def test_ambiguous_create_without_assignment_handle_still_drains(
             network="none",
         )
     assert client.deleted is False
-    assert client.drained is True
+    assert client.drained is False
 
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("cancel_metadata", [False, True])
-async def test_metadata_failure_or_signal_after_create_deletes_and_drains(
+async def test_metadata_failure_or_signal_deletes_assignment_without_global_drain(
     monkeypatch: pytest.MonkeyPatch,
     cancel_metadata: bool,
 ) -> None:
@@ -425,11 +438,11 @@ async def test_metadata_failure_or_signal_after_create_deletes_and_drains(
         with pytest.raises(RuntimeError, match="metadata failure"):
             await asyncio.wait_for(task, timeout=1)
     assert client.deleted is True
-    assert client.drained is True
+    assert client.drained is False
 
 
 @pytest.mark.asyncio
-async def test_repeated_signal_during_delete_cannot_skip_pool_drain() -> None:
+async def test_repeated_signal_during_delete_cannot_skip_assignment_release() -> None:
     class Client:
         delete_started = asyncio.Event()
         delete_release = asyncio.Event()
@@ -462,8 +475,14 @@ async def test_repeated_signal_during_delete_cannot_skip_pool_drain() -> None:
                 metadata={"environment": "oci-runner-firecracker", "task_network": "none"},
             )
 
-        async def cleanup(self, session: worker.RemoteSession, reason: str) -> dict[str, object]:
-            return await pinned.cleanup(session, reason)
+        async def cleanup(
+            self,
+            session: worker.RemoteSession,
+            reason: str,
+            *,
+            poison: bool,
+        ) -> dict[str, object]:
+            return await pinned.cleanup(session, reason, poison=poison)
 
     async def operation(_session: worker.RemoteSession) -> None:
         await asyncio.sleep(60)
@@ -485,7 +504,334 @@ async def test_repeated_signal_during_delete_cannot_skip_pool_drain() -> None:
     client.delete_release.set()
     with pytest.raises(asyncio.CancelledError):
         await asyncio.wait_for(task, timeout=1)
-    assert client.drained is True
+    assert client.drained is False
+
+
+@pytest.mark.asyncio
+async def test_twenty_four_overlapping_sessions_release_without_global_drain() -> None:
+    started = 0
+    release = asyncio.Event()
+    clients = []
+
+    class Client:
+        def __init__(self, index: int) -> None:
+            self.index = index
+            self.deleted = 0
+            self.drained = 0
+
+        async def delete(self, sandbox_id: str) -> dict[str, object]:
+            self.deleted += 1
+            return {
+                "status": "recycled",
+                "assignment_id": sandbox_id,
+                "outer_session_id": f"outer-{self.index}",
+                "nested_recycle_verified": True,
+                "shell_deleted": True,
+            }
+
+        async def poison_assignment(self, *_args, **_kwargs) -> None:
+            raise AssertionError("successful catalog work must remain recyclable")
+
+        async def drain_pool(self) -> dict[str, object]:
+            self.drained += 1
+            raise AssertionError("normal worker cleanup must not globally drain")
+
+    class Registry:
+        def __init__(self, index: int) -> None:
+            self.index = index
+
+        def pop_cleanup_receipt(self, runtime_name: str) -> dict[str, object]:
+            return {
+                "runtime_name": runtime_name,
+                "assignment_id": f"assignment-{self.index}",
+                "outer_session_id": f"outer-{self.index}",
+                "cleanup_verified": True,
+                "shell_deleted": True,
+            }
+
+    class Backend(worker.PinnedSandoqBackend):
+        def __init__(self) -> None:
+            pass
+
+        async def start(
+            self, image: str, request_sha256: str, *, network: str
+        ) -> worker.RemoteSession:
+            nonlocal started
+            del image, request_sha256
+            assert network == "none"
+            index = started
+            started += 1
+            client = Client(index)
+            clients.append(client)
+            if started == 24:
+                release.set()
+            return worker.RemoteSession(
+                client=client,
+                registry=Registry(index),
+                sandbox_id=f"assignment-{index}",
+                runtime_name=f"runtime-{index}",
+                outer_session_id=f"outer-{index}",
+                metadata={"environment": "oci-runner-firecracker", "task_network": "none"},
+            )
+
+        async def execute(
+            self,
+            session: worker.RemoteSession,
+            command: str,
+            *,
+            timeout: int,
+            environment: dict[str, str] | None = None,
+        ) -> tuple[int, str, str]:
+            del session, command, timeout, environment
+            return 0, '{"default_route":false,"interfaces":["lo"],"network":"none"}', ""
+
+    async def operation(_session: worker.RemoteSession) -> None:
+        await release.wait()
+
+    results = await asyncio.gather(
+        *(
+            worker._run_in_session(
+                Backend(),
+                f"registry.invalid/image@sha256:{index:064x}",
+                f"{index:064x}",
+                operation,
+            )
+            for index in range(1, 25)
+        )
+    )
+
+    assert started == 24
+    assert len(results) == 24
+    assert all(client.deleted == 1 and client.drained == 0 for client in clients)
+
+
+def test_assignment_cleanup_receipt_is_bound_and_never_reads_live_wal(monkeypatch) -> None:
+    cleanup = {
+        "assignment_id": "private-assignment",
+        "runtime_name": "private-runtime",
+        "outer_session_id": "private-outer",
+        "release": {
+            "status": "recycled",
+            "assignment_id": "private-assignment",
+            "outer_session_id": "private-outer",
+            "nested_recycle_verified": True,
+            "shell_deleted": True,
+        },
+        "registry_receipt": {
+            "runtime_name": "private-runtime",
+            "assignment_id": "private-assignment",
+            "outer_session_id": "private-outer",
+            "cleanup_verified": True,
+            "shell_deleted": True,
+        },
+    }
+    monkeypatch.setattr(
+        worker,
+        "_wal_snapshot",
+        lambda: (_ for _ in ()).throw(AssertionError("live WAL must not be read")),
+    )
+
+    receipt = worker._provider_cleanup_record(
+        "1" * 64,
+        "2" * 64,
+        "3" * 64,
+        cleanup,
+    )
+
+    assert receipt["terminal_state"] == "recycled"
+    assert "wal_entry_sha256" not in receipt
+
+
+def test_assignment_cleanup_rejects_swapped_registry_receipt() -> None:
+    cleanup = {
+        "assignment_id": "private-assignment",
+        "runtime_name": "private-runtime",
+        "outer_session_id": "private-outer",
+        "release": {
+            "status": "recycled",
+            "assignment_id": "private-assignment",
+            "outer_session_id": "private-outer",
+            "nested_recycle_verified": True,
+            "shell_deleted": True,
+        },
+        "registry_receipt": {
+            "runtime_name": "private-runtime",
+            "assignment_id": "different-assignment",
+            "outer_session_id": "private-outer",
+            "cleanup_verified": True,
+            "shell_deleted": True,
+        },
+    }
+
+    with pytest.raises(worker.WorkerError, match="^provider_cleanup_unverified$"):
+        worker._provider_cleanup_record("1" * 64, "2" * 64, "3" * 64, cleanup)
+
+
+@pytest.mark.asyncio
+async def test_anchor_spans_worker_handoff_gap_and_performs_one_terminal_recovery(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    backend = FakeBackend()
+    artifact_directory = tmp_path / "anchor-artifacts"
+    artifact_directory.mkdir(mode=0o700)
+    request_sha256 = "4" * 64
+    run_nonce = "5" * 32
+    request = {
+        "schema_version": 1,
+        "protocol_version": worker.WORKER_PROTOCOL_VERSION,
+        "operation": "anchor",
+        "worker": _worker_record(),
+        "run_nonce": run_nonce,
+        "network": "control-plane",
+        "anchor_contract": {
+            "active_client_required": True,
+            "heartbeat_interval_seconds": worker.PROVIDER_ANCHOR_HEARTBEAT_INTERVAL_SECONDS,
+            "sole_terminal_drain": True,
+            "zero_live_wal_required": True,
+        },
+    }
+    monkeypatch.setattr(worker, "_wal_snapshot", lambda: (_digest("empty-wal"), 0))
+    anchor = asyncio.create_task(
+        worker._anchor(request, request_sha256, artifact_directory, backend)
+    )
+    ready_path = artifact_directory / "anchor-ready.json"
+    for _ in range(100):
+        if ready_path.exists():
+            break
+        await asyncio.sleep(0.01)
+    assert ready_path.exists()
+    assert backend.events == ["anchor"]
+
+    async def operation(_session: worker.RemoteSession) -> None:
+        await asyncio.sleep(0)
+
+    await asyncio.gather(
+        *(
+            worker._run_in_session(
+                backend,
+                f"registry.invalid/image@sha256:{index:064x}",
+                f"{index:064x}",
+                operation,
+            )
+            for index in range(1, 25)
+        )
+    )
+    await asyncio.sleep(0)
+    assert not anchor.done()
+    assert "recover" not in backend.events
+
+    stop_path = artifact_directory / "anchor-stop.json"
+    stop_path.write_bytes(
+        worker._canonical(
+            {
+                "schema_version": 1,
+                "request_sha256": request_sha256,
+                "run_nonce": run_nonce,
+                "phase": "final",
+            }
+        )
+    )
+    stop_path.chmod(0o400)
+    result = await anchor
+
+    assert result["phase"] == "final"
+    assert result["remaining_sessions"] == 0
+    assert backend.events.count("recover") == 1
+    assert backend.events[-1] == "recover"
+
+
+@pytest.mark.asyncio
+async def test_repeated_anchor_cancellation_cannot_skip_terminal_recovery(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class SlowRecoveryBackend(FakeBackend):
+        def __init__(self) -> None:
+            super().__init__()
+            self.recovery_started = asyncio.Event()
+            self.recovery_release = asyncio.Event()
+
+        async def recover(self, reason: str) -> dict[str, object]:
+            del reason
+            self.events.append("recover")
+            self.recovery_started.set()
+            await self.recovery_release.wait()
+            return {"drained": True, "deleted": [], "failures": {}}
+
+    backend = SlowRecoveryBackend()
+    artifact_directory = tmp_path / "anchor-artifacts"
+    artifact_directory.mkdir(mode=0o700)
+    request_sha256 = "6" * 64
+    request = {
+        "schema_version": 1,
+        "protocol_version": worker.WORKER_PROTOCOL_VERSION,
+        "operation": "anchor",
+        "worker": _worker_record(),
+        "run_nonce": "7" * 32,
+        "network": "control-plane",
+        "anchor_contract": {
+            "active_client_required": True,
+            "heartbeat_interval_seconds": worker.PROVIDER_ANCHOR_HEARTBEAT_INTERVAL_SECONDS,
+            "sole_terminal_drain": True,
+            "zero_live_wal_required": True,
+        },
+    }
+    monkeypatch.setattr(worker, "_wal_snapshot", lambda: (_digest("empty-wal"), 0))
+    anchor = asyncio.create_task(
+        worker._anchor(request, request_sha256, artifact_directory, backend)
+    )
+    ready_path = artifact_directory / "anchor-ready.json"
+    for _ in range(100):
+        if ready_path.exists():
+            break
+        await asyncio.sleep(0.01)
+    assert ready_path.exists()
+
+    anchor.cancel()
+    await backend.recovery_started.wait()
+    anchor.cancel()
+    await asyncio.sleep(0)
+    assert not anchor.done()
+    backend.recovery_release.set()
+    with pytest.raises(asyncio.CancelledError):
+        await anchor
+    assert backend.events.count("recover") == 1
+
+
+@pytest.mark.asyncio
+async def test_anchor_heartbeat_failure_runs_terminal_recovery(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class FailedHeartbeatBackend(FakeBackend):
+        async def anchor_heartbeat(self) -> dict[str, object]:
+            self.events.append("anchor-heartbeat")
+            raise RuntimeError("synthetic heartbeat failure")
+
+    backend = FailedHeartbeatBackend()
+    artifact_directory = tmp_path / "anchor-artifacts"
+    artifact_directory.mkdir(mode=0o700)
+    monkeypatch.setattr(worker, "PROVIDER_ANCHOR_HEARTBEAT_INTERVAL_SECONDS", 0.01)
+    monkeypatch.setattr(worker, "_wal_snapshot", lambda: (_digest("empty-wal"), 0))
+    request = {
+        "schema_version": 1,
+        "protocol_version": worker.WORKER_PROTOCOL_VERSION,
+        "operation": "anchor",
+        "worker": _worker_record(),
+        "run_nonce": "8" * 32,
+        "network": "control-plane",
+        "anchor_contract": {
+            "active_client_required": True,
+            "heartbeat_interval_seconds": 0.01,
+            "sole_terminal_drain": True,
+            "zero_live_wal_required": True,
+        },
+    }
+
+    with pytest.raises(RuntimeError, match="synthetic heartbeat failure"):
+        await worker._anchor(request, "9" * 64, artifact_directory, backend)
+    assert backend.events == ["anchor", "anchor-heartbeat", "recover"]
 
 
 @pytest.mark.asyncio
@@ -497,10 +843,11 @@ async def test_recovery_is_completed_before_a_later_lease(tmp_path: Path, monkey
     backend = FakeBackend()
     request = {
         "schema_version": 1,
-        "protocol_version": 1,
+        "protocol_version": worker.WORKER_PROTOCOL_VERSION,
         "operation": "recover",
         "worker": _worker_record(),
         "run_nonce": "0" * 32,
+        "phase": "startup",
         "network": "control-plane",
         "recovery_contract": {
             "durable_provider_wal": True,
@@ -510,6 +857,7 @@ async def test_recovery_is_completed_before_a_later_lease(tmp_path: Path, monkey
     }
     result = await worker._recover(request, "4" * 64, backend)
     assert result["remaining_sessions"] == 0
+    assert result["phase"] == "startup"
     await backend.start(f"registry.invalid/image@sha256:{'2' * 64}", "4" * 64, network="none")
     assert backend.events[:2] == ["recover", "start"]
 
@@ -584,7 +932,7 @@ async def test_binary_builder_runs_only_in_isolated_trusted_session(
     approved_toolchains = [_digest(worker._canonical(toolchain))]
     request = {
         "schema_version": 1,
-        "protocol_version": 1,
+        "protocol_version": worker.WORKER_PROTOCOL_VERSION,
         "operation": "build",
         "worker": worker_record,
         "image": f"registry.invalid/image@sha256:{'2' * 64}",
@@ -905,11 +1253,18 @@ def test_environment_contract_requires_rotator_metadata_and_no_fallback() -> Non
     assert worker._REQUIRED_ENVIRONMENT["SANDOQ_CATALOG_EXCLUSIVE_POOL"] == "1"
 
 
-def test_shared_pool_policy_rejects_concurrent_worker_processes(
+def test_shared_pool_policy_bounds_parallel_worker_processes(
     monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
 ) -> None:
+    pool_root = tmp_path / "pool"
+    pool_root.mkdir(mode=0o700)
+    wal_root = tmp_path / "wal"
+    wal_root.mkdir(mode=0o700)
     values = {
         "OCI_RUNNER_ENVIRONMENT": "oci-runner-firecracker",
+        "OCI_RUNNER_POOL_SOCKET": str(pool_root / "catalog.sock"),
+        "OCI_RUNNER_POOL_WAL": str(wal_root / "catalog.wal.jsonl"),
         "OCI_RUNNER_TASK_NETWORK": "none",
         "SANDOQ_CATALOG_EXCLUSIVE_POOL": "1",
         "SANDOQ_OWNER": "synthetic-exclusive-owner",
@@ -932,15 +1287,15 @@ def test_shared_pool_policy_rejects_concurrent_worker_processes(
         probe_timeout_seconds=30,
         build_timeout_seconds=30,
         validate_timeout_seconds=30,
-        probe_concurrency=2,
-        build_concurrency=1,
-        validate_concurrency=1,
+        probe_concurrency=25,
+        build_concurrency=4,
+        validate_concurrency=24,
     )
     with pytest.raises(materializer.OfflineCatalogError, match="worker_shared_pool_concurrency_invalid"):
         materializer._parse_worker_policy(policy.record())
 
-    serial = materializer.WorkerPolicy(**{**policy.__dict__, "probe_concurrency": 1})
-    assert materializer._parse_worker_policy(serial.record()).probe_concurrency == 1
+    bounded = materializer.WorkerPolicy(**{**policy.__dict__, "probe_concurrency": 24})
+    assert materializer._parse_worker_policy(bounded.record()).probe_concurrency == 24
 
 
 def test_operational_main_redacts_raw_failure_output(

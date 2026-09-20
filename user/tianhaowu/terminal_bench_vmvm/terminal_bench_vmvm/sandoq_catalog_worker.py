@@ -4,9 +4,10 @@ This executable is intentionally separate from rollout execution.  ``probe``
 and ``validate`` run in the exact digest-pinned task image inside the pinned
 OCI Firecracker provider with nested networking disabled.  ``build`` resolves
 binary artifacts in a fresh, pinned Firecracker trusted-builder session, then
-validates the result in the same image with networking disabled.  Every
-provider session is covered by the provider WAL and an authoritative drain
-receipt before a response is committed.
+validates the result in the same image with networking disabled. Every
+provider session is covered by the provider WAL and an authoritative,
+assignment-bound release receipt before a response is committed. Global drain
+and zero-live WAL proofs are reserved for quiescent controller boundaries.
 
 Operational stdout/stderr are redirected to ``/dev/null``.  Worker response
 files and the provider WAL are private; the controller publishes hashes and
@@ -38,7 +39,7 @@ from typing import Any, Protocol
 from zipfile import ZipFile
 
 SCHEMA_VERSION = 1
-WORKER_PROTOCOL_VERSION = 1
+WORKER_PROTOCOL_VERSION = 2
 PINNED_PROVIDER_COMMIT = "4890302104d76220cef791c86d2009168597d35f"
 PINNED_PROVIDER_TREE = "33f092a3982916660e12f472588e6ce34a906fc2"
 PINNED_SANDOQ_CLIENT = "0.4.0.2026.8.20.58304.0+hga81e4ca4d312"
@@ -48,6 +49,7 @@ MAX_ARCHIVE_BYTES = 2 * 1024 * 1024 * 1024
 MAX_COMMAND_OUTPUT_BYTES = 16 * 1024 * 1024
 MAX_WORKER_SITE_BYTES = 2 * 1024 * 1024 * 1024
 MAX_WORKER_SITE_FILES = 100_000
+PROVIDER_ANCHOR_HEARTBEAT_INTERVAL_SECONDS = 5
 RUNTIME_ROOT = PurePosixPath("/tmp/terminal-bench-offline-verifier")
 _SHA256_RE = re.compile(r"[0-9a-f]{64}")
 _DIGEST_IMAGE_RE = re.compile(r"[^\s]+@sha256:[0-9a-f]{64}")
@@ -113,13 +115,15 @@ _WORKER_KEYS = (
 )
 
 CLEANUP_RECEIPT_VERIFIER_CONTRACT = {
-    "schema_version": 1,
+    "schema_version": 2,
     "provider": "sandoq",
     "provider_commit": PINNED_PROVIDER_COMMIT,
     "outer_terminal_status": 404,
     "nested_cleanup_required": True,
     "provider_wal_required": True,
     "recovery_remaining_sessions": 0,
+    "normal_cleanup": "assignment-release-only",
+    "terminal_states": ["deleted", "recycled"],
 }
 _STAGED_PROVIDER_ROOT: Path | None = None
 _WORKER_SITE_ROOT: Path | None = None
@@ -1168,6 +1172,10 @@ class RemoteSession:
 
 
 class SessionBackend(Protocol):
+    async def anchor_status(self) -> dict[str, object]: ...
+
+    async def anchor_heartbeat(self) -> dict[str, object]: ...
+
     async def recover(self, reason: str) -> dict[str, object]: ...
 
     async def start(self, image: str, request_sha256: str, *, network: str) -> RemoteSession: ...
@@ -1185,7 +1193,13 @@ class SessionBackend(Protocol):
         environment: dict[str, str] | None = None,
     ) -> tuple[int, str, str]: ...
 
-    async def cleanup(self, session: RemoteSession, reason: str) -> dict[str, object]: ...
+    async def cleanup(
+        self,
+        session: RemoteSession,
+        reason: str,
+        *,
+        poison: bool,
+    ) -> dict[str, object]: ...
 
 
 class PinnedSandoqBackend:
@@ -1216,6 +1230,21 @@ class PinnedSandoqBackend:
         _provider_source_record(_STAGED_PROVIDER_ROOT, exact_staged_tree=True)
         self._registry = registry
         self._client_type = OCIRunnerAsyncSandboxClient
+
+    async def anchor_status(self) -> dict[str, object]:
+        from sandoq_provider.pool import get_pool_client
+
+        client = await asyncio.to_thread(get_pool_client)
+        return await asyncio.to_thread(client._request, "status", 10.0)  # noqa: SLF001 - pinned API.
+
+    async def anchor_heartbeat(self) -> dict[str, object]:
+        from sandoq_provider.pool import get_pool_client
+
+        client = await asyncio.to_thread(get_pool_client)
+        heartbeat = await asyncio.to_thread(client._request, "heartbeat", 10.0)  # noqa: SLF001 - pinned API.
+        if heartbeat.get("heartbeat") is not True:
+            _fail("provider_anchor_unverified")
+        return await asyncio.to_thread(client._request, "status", 10.0)  # noqa: SLF001 - pinned API.
 
     async def recover(self, reason: str) -> dict[str, object]:
         from sandoq_provider.pool import get_pool_client
@@ -1294,10 +1323,6 @@ class PinnedSandoqBackend:
                             await client.delete(sandbox.id)
                         except BaseException as error:
                             cleanup_errors.append(error)
-                    try:
-                        await client.drain_pool()
-                    except BaseException as error:
-                        cleanup_errors.append(error)
                     if len(cleanup_errors) == 1:
                         raise cleanup_errors[0]
                     if cleanup_errors:
@@ -1359,33 +1384,26 @@ class PinnedSandoqBackend:
             _fail("provider_command_output_too_large")
         return int(result.exit_code), stdout, stderr
 
-    async def cleanup(self, session: RemoteSession, reason: str) -> dict[str, object]:
-        release: object = None
-        registry_receipt: object = None
-        release_error: BaseException | None = None
-        drain: object = None
-        drain_error: BaseException | None = None
-        with contextlib.suppress(BaseException):
-            await session.client.poison_assignment(session.sandbox_id, reason=reason)
+    async def cleanup(
+        self,
+        session: RemoteSession,
+        reason: str,
+        *,
+        poison: bool,
+    ) -> dict[str, object]:
+        if poison:
+            with contextlib.suppress(BaseException):
+                await session.client.poison_assignment(session.sandbox_id, reason=reason)
         try:
             release = await session.client.delete(session.sandbox_id)
             registry_receipt = session.registry.pop_cleanup_receipt(session.runtime_name)
         except BaseException as error:
-            release_error = error
-        try:
-            drain = await session.client.drain_pool()
-        except BaseException as error:
-            drain_error = error
-        if release_error is not None and drain_error is not None:
-            raise BaseExceptionGroup("provider cleanup failed", [release_error, drain_error])
-        if release_error is not None:
-            raise release_error
-        if drain_error is not None:
-            raise drain_error
+            raise error.with_traceback(error.__traceback__)
         return {
             "release": release,
             "registry_receipt": registry_receipt,
-            "drain": drain,
+            "assignment_id": session.sandbox_id,
+            "runtime_name": session.runtime_name,
             "outer_session_id": session.outer_session_id,
         }
 
@@ -1714,37 +1732,64 @@ def _provider_cleanup_record(
     cleanup: dict[str, object],
 ) -> dict[str, object]:
     outer = cleanup.get("outer_session_id")
-    if not isinstance(outer, str) or not outer:
+    assignment = cleanup.get("assignment_id")
+    runtime_name = cleanup.get("runtime_name")
+    if (
+        not isinstance(outer, str)
+        or not outer
+        or not isinstance(assignment, str)
+        or not assignment
+        or not isinstance(runtime_name, str)
+        or not runtime_name
+    ):
         _fail("provider_cleanup_unverified")
     release = cleanup.get("release")
     receipt = cleanup.get("registry_receipt")
-    drain = cleanup.get("drain")
     if not isinstance(release, dict) or not isinstance(receipt, dict):
         _fail("provider_cleanup_unverified")
-    nested_verified = (
-        release.get("nested_recycle_verified") is True or release.get("outer_deletion_verified_http_status") == 404
+    release_status = release.get("status")
+    nested_recycled = (
+        release_status == "recycled"
+        and release.get("nested_recycle_verified") is True
+        and release.get("shell_deleted") is True
+        and release.get("outer_session_id") == outer
     )
-    if receipt.get("cleanup_verified") is not True or not nested_verified:
+    outer_deleted = (
+        release_status in {"poisoned", "retired", "deleted"}
+        and (
+            release.get("outer_deletion_verified_http_status") == 404
+            or release.get("verified_http_status") == 404
+        )
+        and release.get("outer_session_id", outer) == outer
+    )
+    if (
+        release.get("assignment_id", release.get("sandbox_id")) != assignment
+        or receipt.get("runtime_name") != runtime_name
+        or receipt.get("assignment_id") != assignment
+        or receipt.get("outer_session_id") != outer
+        or receipt.get("cleanup_verified") is not True
+        or receipt.get("shell_deleted") is not True
+        or not (nested_recycled or outer_deleted)
+    ):
         _fail("provider_cleanup_unverified")
-    deletion = _verify_drain(drain, outer)
-    wal_sha256, _ = _wal_snapshot()
     private_receipt = {
-        "schema_version": 1,
+        "schema_version": 2,
         "request_sha256": request_sha256,
+        "assignment_sha256": _sha256(assignment.encode()),
+        "runtime_name_sha256": _sha256(runtime_name.encode()),
         "outer_session_sha256": _sha256(outer.encode()),
         "nested_cleanup_verified": True,
-        "outer_deletion_status": deletion["verified_http_status"],
-        "wal_snapshot_sha256": wal_sha256,
+        "terminal_state": "recycled" if nested_recycled else "deleted",
     }
     return {
         "provider": "sandoq",
         "request_sha256": request_sha256,
         "recovery_scope_sha256": recovery_scope_sha256,
         "session_sha256": _sha256(outer.encode()),
-        "wal_entry_sha256": wal_sha256,
+        "assignment_sha256": _sha256(assignment.encode()),
         "receipt_sha256": _sha256(_canonical(private_receipt)),
         "receipt_verifier_sha256": cleanup_verifier_sha256,
-        "terminal_state": "deleted",
+        "terminal_state": "recycled" if nested_recycled else "deleted",
     }
 
 
@@ -1776,7 +1821,13 @@ async def _run_in_session(
     if session is None:
         assert primary_error is not None
         raise primary_error.with_traceback(primary_error.__traceback__)
-    cleanup_task = asyncio.create_task(backend.cleanup(session, f"catalog_{request_sha256[:16]}"))
+    cleanup_task = asyncio.create_task(
+        backend.cleanup(
+            session,
+            f"catalog_{request_sha256[:16]}",
+            poison=primary_error is not None,
+        )
+    )
     cancellation: asyncio.CancelledError | None = None
     cleanup_error: BaseException | None = None
     while not cleanup_task.done():
@@ -2691,7 +2742,7 @@ def _validate_common_request(request: object, request_sha256: str) -> dict[str, 
     if type(request.get("protocol_version")) is not int or request.get("protocol_version") != WORKER_PROTOCOL_VERSION:
         _fail("worker_request_invalid")
     operation = request.get("operation")
-    if operation not in {"recover", "probe", "build", "validate"}:
+    if operation not in {"recover", "probe", "build", "validate", "anchor"}:
         _fail("worker_request_invalid")
     worker = _exact(request.get("worker"), set(_WORKER_KEYS), "worker_request_invalid")
     if (
@@ -2716,6 +2767,39 @@ def _validate_common_request(request: object, request_sha256: str) -> dict[str, 
     return request
 
 
+async def _provider_recovery_result(
+    request: dict[str, object],
+    request_sha256: str,
+    backend: SessionBackend,
+    *,
+    phase: str,
+    reason: str,
+) -> dict[str, object]:
+    drain = await backend.recover(reason)
+    _verify_drain(drain)
+    wal_sha256, remaining = _wal_snapshot()
+    worker = _exact(request["worker"], set(_WORKER_KEYS), "worker_request_invalid")
+    receipt = {
+        "schema_version": 1,
+        "request_sha256": request_sha256,
+        "recovery_scope_sha256": worker["recovery_scope_sha256"],
+        "phase": phase,
+        "wal_snapshot_sha256": wal_sha256,
+        "remaining_sessions": remaining,
+    }
+    return {
+        "durable_provider_wal": True,
+        "recovery_attempted": True,
+        "remaining_sessions": remaining,
+        "cleanup_receipts_verified": True,
+        "recovery_scope_sha256": worker["recovery_scope_sha256"],
+        "phase": phase,
+        "wal_snapshot_sha256": wal_sha256,
+        "recovery_receipt_sha256": _sha256(_canonical(receipt)),
+        "receipt_verifier_sha256": worker["cleanup_receipt_verifier_sha256"],
+    }
+
+
 async def _recover(request: dict[str, object], request_sha256: str, backend: SessionBackend) -> dict[str, object]:
     _exact(
         request,
@@ -2725,6 +2809,7 @@ async def _recover(request: dict[str, object], request_sha256: str, backend: Ses
             "operation",
             "worker",
             "run_nonce",
+            "phase",
             "network",
             "recovery_contract",
         },
@@ -2739,30 +2824,171 @@ async def _recover(request: dict[str, object], request_sha256: str, backend: Ses
         request["network"] != "control-plane"
         or not isinstance(request["run_nonce"], str)
         or len(request["run_nonce"]) != 32
+        or request["phase"] not in {"startup", "final", "failure"}
         or any(value is not True for value in contract.values())
     ):
         _fail("worker_request_invalid")
-    drain = await backend.recover(f"catalog_recover_{request_sha256[:16]}")
-    _verify_drain(drain)
-    wal_sha256, remaining = _wal_snapshot()
+    return await _provider_recovery_result(
+        request,
+        request_sha256,
+        backend,
+        phase=str(request["phase"]),
+        reason=f"catalog_recover_{request_sha256[:16]}",
+    )
+
+
+async def _anchor(
+    request: dict[str, object],
+    request_sha256: str,
+    artifact_directory: Path,
+    backend: SessionBackend,
+) -> dict[str, object]:
+    _exact(
+        request,
+        {
+            "schema_version",
+            "protocol_version",
+            "operation",
+            "worker",
+            "run_nonce",
+            "network",
+            "anchor_contract",
+        },
+        "worker_request_invalid",
+    )
+    contract = _exact(
+        request["anchor_contract"],
+        {
+            "active_client_required",
+            "heartbeat_interval_seconds",
+            "sole_terminal_drain",
+            "zero_live_wal_required",
+        },
+        "worker_request_invalid",
+    )
+    run_nonce = request["run_nonce"]
+    if (
+        request["network"] != "control-plane"
+        or not isinstance(run_nonce, str)
+        or len(run_nonce) != 32
+        or any(character not in "0123456789abcdef" for character in run_nonce)
+        or contract
+        != {
+            "active_client_required": True,
+            "heartbeat_interval_seconds": PROVIDER_ANCHOR_HEARTBEAT_INTERVAL_SECONDS,
+            "sole_terminal_drain": True,
+            "zero_live_wal_required": True,
+        }
+    ):
+        _fail("worker_request_invalid")
+    status = await backend.anchor_status()
+    active_clients = status.get("clients")
+    if (
+        type(active_clients) is not int
+        or active_clients < 1
+        or status.get("accepting") is not True
+        or status.get("draining") is not False
+    ):
+        _fail("provider_anchor_unverified")
     worker = _exact(request["worker"], set(_WORKER_KEYS), "worker_request_invalid")
-    receipt = {
-        "schema_version": 1,
-        "request_sha256": request_sha256,
-        "recovery_scope_sha256": worker["recovery_scope_sha256"],
-        "wal_snapshot_sha256": wal_sha256,
-        "remaining_sessions": remaining,
+    ready_path = artifact_directory / "anchor-ready.json"
+    stop_path = artifact_directory / "anchor-stop.json"
+    _atomic_private_write(
+        ready_path,
+        _canonical(
+            {
+                "schema_version": 1,
+                "request_sha256": request_sha256,
+                "recovery_scope_sha256": worker["recovery_scope_sha256"],
+                "active_client_registered": True,
+                "pool_accepting": True,
+                "pool_draining": False,
+            }
+        ),
+    )
+    phase: str | None = None
+    heartbeat_checks = 0
+    try:
+        loop = asyncio.get_running_loop()
+        next_heartbeat = loop.time() + PROVIDER_ANCHOR_HEARTBEAT_INTERVAL_SECONDS
+        while phase is None:
+            if os.path.lexists(stop_path):
+                stop_payload = _private_file(stop_path, MAX_JSON_BYTES, "provider_anchor_stop_invalid")
+                stop = _exact(
+                    _strict_json(stop_payload),
+                    {"schema_version", "request_sha256", "run_nonce", "phase"},
+                    "provider_anchor_stop_invalid",
+                )
+                if (
+                    stop_payload != _canonical(stop)
+                    or type(stop["schema_version"]) is not int
+                    or stop["schema_version"] != 1
+                    or stop["request_sha256"] != request_sha256
+                    or stop["run_nonce"] != run_nonce
+                    or stop["phase"] not in {"final", "failure"}
+                ):
+                    _fail("provider_anchor_stop_invalid")
+                phase = str(stop["phase"])
+                break
+            now = loop.time()
+            if now >= next_heartbeat:
+                status = await backend.anchor_heartbeat()
+                if (
+                    type(status.get("clients")) is not int
+                    or status["clients"] < 1
+                    or status.get("accepting") is not True
+                    or status.get("draining") is not False
+                ):
+                    _fail("provider_anchor_unverified")
+                heartbeat_checks += 1
+                next_heartbeat = now + PROVIDER_ANCHOR_HEARTBEAT_INTERVAL_SECONDS
+            await asyncio.sleep(
+                min(0.1, max(next_heartbeat - loop.time(), 0.01))
+            )
+    except BaseException as primary_error:
+        cleanup_task = asyncio.create_task(
+            _provider_recovery_result(
+                request,
+                request_sha256,
+                backend,
+                phase="failure",
+                reason=f"catalog_anchor_cancelled_{request_sha256[:16]}",
+            )
+        )
+        cleanup_error: BaseException | None = None
+        interrupted = isinstance(primary_error, asyncio.CancelledError)
+        while not cleanup_task.done():
+            try:
+                await asyncio.shield(cleanup_task)
+            except asyncio.CancelledError:
+                interrupted = True
+                continue
+            except BaseException as error:
+                cleanup_error = error
+                break
+        if cleanup_error is None:
+            try:
+                cleanup_task.result()
+            except BaseException as error:
+                cleanup_error = error
+        if cleanup_error is not None:
+            raise primary_error.with_traceback(primary_error.__traceback__) from cleanup_error
+        if interrupted and not isinstance(primary_error, asyncio.CancelledError):
+            raise asyncio.CancelledError from primary_error
+        raise primary_error.with_traceback(primary_error.__traceback__)
+    recovery = await _provider_recovery_result(
+        request,
+        request_sha256,
+        backend,
+        phase=phase,
+        reason=f"catalog_anchor_{phase}_{request_sha256[:16]}",
+    )
+    recovery["anchor_liveness"] = {
+        "active_client_registered": True,
+        "heartbeat_checks": heartbeat_checks,
+        "stop_received": True,
     }
-    return {
-        "durable_provider_wal": True,
-        "recovery_attempted": True,
-        "remaining_sessions": remaining,
-        "cleanup_receipts_verified": True,
-        "recovery_scope_sha256": worker["recovery_scope_sha256"],
-        "wal_snapshot_sha256": wal_sha256,
-        "recovery_receipt_sha256": _sha256(_canonical(receipt)),
-        "receipt_verifier_sha256": worker["cleanup_receipt_verifier_sha256"],
-    }
+    return recovery
 
 
 async def _dispatch(
@@ -2774,6 +3000,8 @@ async def _dispatch(
     operation = request["operation"]
     if operation == "recover":
         return await _recover(request, request_sha256, backend), None
+    if operation == "anchor":
+        return await _anchor(request, request_sha256, artifact_directory, backend), None
     if operation == "probe":
         return await _probe(request, request_sha256, backend)
     if operation == "build":
@@ -2827,9 +3055,9 @@ async def _run_worker(args: argparse.Namespace, backend: SessionBackend | None =
         "status": "complete",
         "lifecycle": {
             "network": "control-plane"
-            if operation == "recover"
+            if operation in {"recover", "anchor"}
             else ("trusted-builder" if operation == "build" else "none"),
-            "session_started": operation != "recover",
+            "session_started": operation not in {"recover", "anchor"},
             "process_cleanup_verified": True,
             "cleanup_verified": True,
             "provider_cleanup": provider_cleanup,
