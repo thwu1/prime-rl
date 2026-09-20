@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # ruff: noqa: BLE001
-"""Aggregate-only, task-free VMVM transport diagnostic."""
+"""Aggregate-only, task-free VMVM pre-lease admission diagnostic."""
 
 from __future__ import annotations
 
@@ -60,16 +60,21 @@ REQUIRED_MEMFD_SEALS = (
 )
 X2P_NAMES = ("X2P_ENV", "X2P_CFG_ENV", "X2P_PROXY_URL")
 TLS_NAMES = ("THRIFT_TLS_CL_CERT_PATH", "THRIFT_TLS_CL_KEY_PATH")
+PREFLIGHT_PROTOCOL = {
+    "diagnostic_only": True,
+    "preflight_only": True,
+    "production_authorized": False,
+}
 BASE = Path("/checkpoint/ram/tianhaowu/terminal_bench_vmvm")
 EXPECTED_SOURCE_ROOT = BASE / "sources/prime-rl-a09a9a189-v21"
-EXPECTED_OUTPUT_ROOT = BASE / "diagnostics/vmvm_v21_task_free_ab_a09a9a189_v3"
+EXPECTED_OUTPUT_ROOT = BASE / "diagnostics/vmvm_v21_task_free_preflight_a09a9a189_v4"
 EXPECTED_RESERVATION = Path(f"{EXPECTED_OUTPUT_ROOT}.launch-reservation")
-EXPECTED_SCRATCH_ROOT = Path("/tmp/vmvm-v21-task-free-ab-v3")
+EXPECTED_SCRATCH_ROOT = Path("/tmp/vmvm-v21-task-free-preflight-v4")
 EXPECTED_COMPLETION_RECEIPT = Path(f"{EXPECTED_OUTPUT_ROOT}.external-completion.json")
 EXPECTED_CLUSTER = "fair-cw-use2-3"
 EXPECTED_OWNER = "tianhaowu"
 SHA_RE = re.compile(r"[0-9a-f]{64}")
-NAME_RE = re.compile(r"vmvm-diag-[0-9a-f]{24}")
+NAME_RE = re.compile(r"vmvm-v4-preflight-[0-9a-f]{24}")
 STAGES = (
     "direct_client",
     "same_thread_raw",
@@ -3307,14 +3312,15 @@ def validate_batch_admission(environment: Mapping[str, str], script_path: Path) 
             "time_limit",
         }
         or launch.get("cluster") != EXPECTED_CLUSTER
-        or launch.get("comment") != f"vmvm-task-free-v2:{environment['DIAG_JOB_NAME'].removeprefix('vmvm-diag-')}"
+        or launch.get("comment")
+        != f"vmvm-v4-preflight:{environment['DIAG_JOB_NAME'].removeprefix('vmvm-v4-preflight-')}"
         or launch.get("job_name") != environment["DIAG_JOB_NAME"]
         or launch.get("output_root") != str(EXPECTED_OUTPUT_ROOT)
         or launch.get("completion_receipt") != str(EXPECTED_COMPLETION_RECEIPT)
         or launch.get("output_parent_identity") != parse_identity(environment["DIAG_OUTPUT_PARENT_IDENTITY"])
         or launch.get("reservation") != str(EXPECTED_RESERVATION)
         or launch.get("scratch_root") != str(EXPECTED_SCRATCH_ROOT)
-        or launch.get("log_root") != str(BASE / "logs/vmvm_v21_task_free_ab_a09a9a189_v3")
+        or launch.get("log_root") != str(BASE / "logs/vmvm_v21_task_free_preflight_a09a9a189_v4")
         or launch.get("nodes") != 1
         or launch.get("cpus") != 2
         or launch.get("memory") != "8G"
@@ -3324,14 +3330,7 @@ def validate_batch_admission(environment: Mapping[str, str], script_path: Path) 
         or launch.get("time_limit") != "1-12:00:00"
     ):
         raise DiagnosticError("child_invalid")
-    if protocol != {
-        "diagnostic_only": True,
-        "lease_attempt_limit_per_cell": LEASE_ATTEMPT_LIMIT,
-        "mode_orders": [list(order) for order in MODE_ORDERS],
-        "production_authorized": False,
-        "repetitions_per_mode": REPETITIONS,
-        "stage_timeout_seconds": STAGE_TIMEOUT_SECONDS,
-    }:
+    if protocol != PREFLIGHT_PROTOCOL:
         raise DiagnosticError("child_invalid")
     site_fd = open_bound_directory(Path(environment["PYTHON_SITE_X86_64"]), site["root_identity"])
     try:
@@ -3916,26 +3915,12 @@ def run_supervisor(args: argparse.Namespace) -> dict[str, object]:
 
 def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--worker", action="store_true")
     parser.add_argument("--validate-batch", action="store_true")
-    parser.add_argument("--stage", choices=STAGES)
-    parser.add_argument("--x2p-mode", choices=MODES)
-    parser.add_argument("--pair-index", type=int, choices=range(REPETITIONS))
-    parser.add_argument("--order-position", type=int, choices=(0, 1))
     parser.add_argument("--source-root", type=Path, required=True)
     parser.add_argument("--site-root", type=Path, required=True)
-    parser.add_argument("--scratch", type=Path)
-    parser.add_argument("--renewer-journal-fd", type=int)
     parser.add_argument("--scratch-root", type=Path)
     parser.add_argument("--output-dir", type=Path)
     parser.add_argument("--completion-receipt", type=Path)
-    parser.add_argument("--environment-sha256")
-    parser.add_argument("--authorization-file-sha256")
-    parser.add_argument("--authorization-sha256")
-    parser.add_argument("--job-authorization-sha256")
-    parser.add_argument("--job-id")
-    parser.add_argument("--job-name")
-    parser.add_argument("--submission-receipt-sha256")
     return parser
 
 
@@ -3943,57 +3928,10 @@ def main(argv: Sequence[str] | None = None) -> int:
     logging.disable(logging.CRITICAL)
     args = _parser().parse_args(argv)
     try:
-        if args.validate_batch:
-            if args.worker:
-                raise DiagnosticError("child_invalid")
-            result = validate_batch_admission(os.environ, Path(__file__))
-            validate_cli_paths(args, os.environ, require_output=True)
-        elif args.worker:
-            if None in (
-                args.stage,
-                args.x2p_mode,
-                args.scratch,
-                args.pair_index,
-                args.order_position,
-                args.renewer_journal_fd,
-            ):
-                raise DiagnosticError("child_invalid")
-            _validate_execution_memfds(os.environ, Path(__file__), require_uv=False)
-            result = execute_worker(
-                args.stage,
-                args.x2p_mode,
-                args.source_root,
-                args.site_root,
-                args.scratch,
-                args.pair_index,
-                args.order_position,
-                args.renewer_journal_fd,
-            )
-        else:
-            if (
-                args.scratch_root is None
-                or args.output_dir is None
-                or args.completion_receipt is None
-                or not isinstance(args.environment_sha256, str)
-                or SHA_RE.fullmatch(args.environment_sha256) is None
-                or not isinstance(args.authorization_sha256, str)
-                or SHA_RE.fullmatch(args.authorization_sha256) is None
-                or not isinstance(args.authorization_file_sha256, str)
-                or SHA_RE.fullmatch(args.authorization_file_sha256) is None
-                or not isinstance(args.job_authorization_sha256, str)
-                or SHA_RE.fullmatch(args.job_authorization_sha256) is None
-                or not isinstance(args.job_id, str)
-                or re.fullmatch(r"[1-9][0-9]*", args.job_id) is None
-                or not isinstance(args.job_name, str)
-                or NAME_RE.fullmatch(args.job_name) is None
-                or not isinstance(args.submission_receipt_sha256, str)
-                or SHA_RE.fullmatch(args.submission_receipt_sha256) is None
-            ):
-                raise DiagnosticError("child_invalid")
-            if validate_batch_admission(os.environ, Path(__file__)) != {"state": "admitted"}:
-                raise DiagnosticError("child_invalid")
-            validate_cli_paths(args, os.environ, require_output=True)
-            result = run_supervisor(args)
+        if not args.validate_batch:
+            raise DiagnosticError("child_invalid")
+        result = validate_batch_admission(os.environ, Path(__file__))
+        validate_cli_paths(args, os.environ, require_output=True)
     except BaseException as error:
         code = error.code if isinstance(error, DiagnosticError) else classify_failure(error)
         print(canonical_json({"code": code, "state": "failed"}).decode(), file=sys.stderr)
