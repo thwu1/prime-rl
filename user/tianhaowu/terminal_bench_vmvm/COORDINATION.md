@@ -1,6 +1,6 @@
 # VMVM sandbox coordination
 
-Last updated: 2026-09-20 02:44 UTC
+Last updated: 2026-09-20 02:58 UTC
 
 ## First message to the next teammate
 
@@ -42,6 +42,17 @@ this shared branch again.
 Add new rows below this line; do not overwrite another owner's row.
 
 ## Open coordination requests
+
+- **2026-09-20 02:58 UTC, retire raced Kimi v10; require v11:** sealed v10
+  code passed 99/99 tests and independent review found no code defect, but an
+  external mode-0400 approval appeared and was invoked before the review/handoff
+  completed. It was interrupted in canonical-pane preflight and failed closed
+  with zero Slurm jobs and no deployment/output. The exact 1,347-byte approval,
+  SHA-256 `b7d16470...f247`, was moved unchanged to `.revoked`; never restore or
+  reuse it. V10's run root now contains only sealed intent/cleanup/failure, its
+  route root only sealed route policy, and its permanent lock tombstone exists.
+  These prove clean rollback but consume freshness. Build a fresh v11 namespace,
+  require independent verdict before approval, and execute only once afterward.
 
 - **2026-09-20 02:44 UTC, post-diagnostic initial-command recovery staged but
   inert:** Prime child `1ff4c5ecf`, tree `f56818ae...16e`, changes only the
