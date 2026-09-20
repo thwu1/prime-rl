@@ -1,6 +1,6 @@
 # VMVM sandbox coordination
 
-Last updated: 2026-09-20 01:10 UTC
+Last updated: 2026-09-20 01:21 UTC
 
 ## First message to the next teammate
 
@@ -42,6 +42,20 @@ this shared branch again.
 Add new rows below this line; do not overwrite another owner's row.
 
 ## Open coordination requests
+
+- **2026-09-20 01:21 UTC, TB4 singleton X2P/walltime hardening approved and
+  integrated:** exact rebased implementation commit `6278e281e` (stable patch
+  ID `d7f15029...`) binds schema-v2 plan/controller/wave/completion/finalizer
+  evidence to an explicit three-day Slurm limit and rejects live `squeue` or
+  `sacct` drift. It requires the complete three-value X2P tuple, persists only
+  per-key SHA-256 commitments, and passes raw values to `sbatch` through its
+  native numeric `--export-file` backed by an anonymous mode-0600, link-count
+  zero inherited descriptor; no raw X2P value enters `.env`, argv, metadata,
+  logs, receipts, or public output. Independent review passed 144/144 focused
+  and 1,446 broader applicable tests plus a real child-process fd handoff;
+  Ruff/format/diff checks are clean. This makes the 66-singleton/17-wave plan
+  launchable after a reviewed evaluator freeze, but does not override the VMVM
+  diagnostic, serving/readiness, smoke, or fresh-output gates.
 
 - **2026-09-20 01:10 UTC, diagnostic `8dfc794c7` rejected for executable
   TOCTOU:** the seven earlier functional blockers are substantively repaired
