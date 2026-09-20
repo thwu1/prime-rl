@@ -525,7 +525,36 @@ def test_sbatch_is_held_single_job_and_uses_stdin_wrapper() -> None:
     assert "--nodes=1" in command
     assert "--ntasks=1" in command
     assert "--cpus-per-task=2" in command
+    assert "--time=1-12:00:00" in command
     assert not any(value.endswith(".sbatch") for value in command)
+
+
+def test_slurm_time_limit_uses_the_scheduler_canonical_identity() -> None:
+    job_id = "42"
+    job_name = "vmvm-diag-" + "a" * 24
+    record = {
+        "Account": "ram",
+        "Command": "(null)",
+        "Comment": "vmvm-task-free-v2:" + "a" * 24,
+        "Dependency": "(null)",
+        "JobId": job_id,
+        "JobName": job_name,
+        "MinMemoryNode": LAUNCH.JOB_MEMORY,
+        "NumCPUs": LAUNCH.JOB_CPUS,
+        "Partition": "cpu_x86",
+        "QOS": "cpu_x86_lowest",
+        "Requeue": "0",
+        "Restarts": "0",
+        "StdErr": str(LAUNCH.LOG_ROOT / f"diagnostic_{job_id}.log"),
+        "StdOut": str(LAUNCH.LOG_ROOT / f"diagnostic_{job_id}.log"),
+        "TimeLimit": "1-12:00:00",
+        "UserId": LAUNCH.OWNER_IDENTITY,
+        "WorkDir": str(LAUNCH.SOURCE_ROOT),
+    }
+    assert LAUNCH.JOB_TIME_LIMIT == FINALIZE.JOB_TIME_LIMIT == "1-12:00:00"
+    assert LAUNCH._base_mismatches(record, job_id, job_name) == set()
+    record["TimeLimit"] = "36:00:00"
+    assert LAUNCH._base_mismatches(record, job_id, job_name) == {"TimeLimit"}
 
 
 def test_held_poll_requires_two_exact_snapshots(monkeypatch) -> None:
@@ -1727,11 +1756,11 @@ def test_real_wrapper_invokes_actual_batch_admission_through_procfd(tmp_path: Pa
     (site / "runtime.py").write_text("VALUE = 1\n")
     diagnostics = base / "diagnostics"
     diagnostics.mkdir()
-    output = diagnostics / "vmvm_v21_task_free_ab_a09a9a189_v2"
+    output = diagnostics / "vmvm_v21_task_free_ab_a09a9a189_v3"
     reservation = Path(f"{output}.launch-reservation")
     completion = Path(f"{output}.external-completion.json")
     scratch = tmp_path / "scratch"
-    log_root = base / "logs/vmvm_v21_task_free_ab_a09a9a189_v2"
+    log_root = base / "logs/vmvm_v21_task_free_ab_a09a9a189_v3"
     bundle = tmp_path / "bundle"
     bundle.mkdir(mode=0o700)
     bundle.chmod(0o700)
@@ -1766,7 +1795,7 @@ def test_real_wrapper_invokes_actual_batch_admission_through_procfd(tmp_path: Pa
         f'VMVM_SHA256 = "{PROBE.VMVM_SHA256}"': f'VMVM_SHA256 = "{revisions["vmvm"]}"',
         f'X86_UV_SHA256 = "{PROBE.X86_UV_SHA256}"': f'X86_UV_SHA256 = "{uv_sha}"',
         'BASE = Path("/checkpoint/ram/tianhaowu/terminal_bench_vmvm")': f"BASE = Path({str(base)!r})",
-        'EXPECTED_SCRATCH_ROOT = Path("/tmp/vmvm-v21-task-free-ab-v2")': (
+        'EXPECTED_SCRATCH_ROOT = Path("/tmp/vmvm-v21-task-free-ab-v3")': (
             f"EXPECTED_SCRATCH_ROOT = Path({str(scratch)!r})"
         ),
         'environment["UV_BIN_X86_64"] != "/storage/home/tianhaowu/.local/x86_64/bin/uv"': (
@@ -1873,7 +1902,7 @@ def test_real_wrapper_invokes_actual_batch_admission_through_procfd(tmp_path: Pa
             "qos": "cpu_x86_lowest",
             "reservation": str(reservation),
             "scratch_root": str(scratch),
-            "time_limit": "36:00:00",
+            "time_limit": "1-12:00:00",
         },
         "protocol": {
             "diagnostic_only": True,

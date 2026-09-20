@@ -21,11 +21,11 @@ from typing import Any
 
 BASE = Path("/checkpoint/ram/tianhaowu/terminal_bench_vmvm")
 SOURCE_ROOT = BASE / "sources/prime-rl-a09a9a189-v21"
-OUTPUT_ROOT = BASE / "diagnostics/vmvm_v21_task_free_ab_a09a9a189_v2"
+OUTPUT_ROOT = BASE / "diagnostics/vmvm_v21_task_free_ab_a09a9a189_v3"
 COMPLETION_RECEIPT = Path(f"{OUTPUT_ROOT}.external-completion.json")
 RESERVATION = Path(f"{OUTPUT_ROOT}.launch-reservation")
-LOG_ROOT = BASE / "logs/vmvm_v21_task_free_ab_a09a9a189_v2"
-SCRATCH_ROOT = Path("/tmp/vmvm-v21-task-free-ab-v2")
+LOG_ROOT = BASE / "logs/vmvm_v21_task_free_ab_a09a9a189_v3"
+SCRATCH_ROOT = Path("/tmp/vmvm-v21-task-free-ab-v3")
 X86_UV = Path("/storage/home/tianhaowu/.local/x86_64/bin/uv")
 X86_SITE = BASE / "python_x86_64"
 VACLI = Path("/public/fbpkgs/x86_64/vacli/stable/vacli")
@@ -41,7 +41,7 @@ X86_UV_SHA256 = "ec831939765474162efb6c8c813e2b10908b26b04eaf98ac3e2972fa12d189b
 VACLI_SHA256 = "8be49a764bd0fac1a3ef2bef053ced556d18397d44642660eb8a2d22a7c235b3"
 IMAGE = "python:3.12-slim"
 CLUSTER = "fair-cw-use2-3"
-JOB_TIME_LIMIT = "36:00:00"
+JOB_TIME_LIMIT = "1-12:00:00"
 TLS_NAMES = ("THRIFT_TLS_CL_CERT_PATH", "THRIFT_TLS_CL_KEY_PATH")
 X2P_NAMES = ("X2P_ENV", "X2P_CFG_ENV", "X2P_PROXY_URL")
 REQUIRED_MEMFD_SEALS = (

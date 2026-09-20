@@ -62,9 +62,9 @@ X2P_NAMES = ("X2P_ENV", "X2P_CFG_ENV", "X2P_PROXY_URL")
 TLS_NAMES = ("THRIFT_TLS_CL_CERT_PATH", "THRIFT_TLS_CL_KEY_PATH")
 BASE = Path("/checkpoint/ram/tianhaowu/terminal_bench_vmvm")
 EXPECTED_SOURCE_ROOT = BASE / "sources/prime-rl-a09a9a189-v21"
-EXPECTED_OUTPUT_ROOT = BASE / "diagnostics/vmvm_v21_task_free_ab_a09a9a189_v2"
+EXPECTED_OUTPUT_ROOT = BASE / "diagnostics/vmvm_v21_task_free_ab_a09a9a189_v3"
 EXPECTED_RESERVATION = Path(f"{EXPECTED_OUTPUT_ROOT}.launch-reservation")
-EXPECTED_SCRATCH_ROOT = Path("/tmp/vmvm-v21-task-free-ab-v2")
+EXPECTED_SCRATCH_ROOT = Path("/tmp/vmvm-v21-task-free-ab-v3")
 EXPECTED_COMPLETION_RECEIPT = Path(f"{EXPECTED_OUTPUT_ROOT}.external-completion.json")
 EXPECTED_CLUSTER = "fair-cw-use2-3"
 EXPECTED_OWNER = "tianhaowu"
@@ -3314,14 +3314,14 @@ def validate_batch_admission(environment: Mapping[str, str], script_path: Path) 
         or launch.get("output_parent_identity") != parse_identity(environment["DIAG_OUTPUT_PARENT_IDENTITY"])
         or launch.get("reservation") != str(EXPECTED_RESERVATION)
         or launch.get("scratch_root") != str(EXPECTED_SCRATCH_ROOT)
-        or launch.get("log_root") != str(BASE / "logs/vmvm_v21_task_free_ab_a09a9a189_v2")
+        or launch.get("log_root") != str(BASE / "logs/vmvm_v21_task_free_ab_a09a9a189_v3")
         or launch.get("nodes") != 1
         or launch.get("cpus") != 2
         or launch.get("memory") != "8G"
         or launch.get("partition") != "cpu_x86"
         or launch.get("qos") != "cpu_x86_lowest"
         or launch.get("account") != "ram"
-        or launch.get("time_limit") != "36:00:00"
+        or launch.get("time_limit") != "1-12:00:00"
     ):
         raise DiagnosticError("child_invalid")
     if protocol != {
