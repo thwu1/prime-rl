@@ -241,6 +241,89 @@ def test_wrapper_backend_validator_runs_against_frozen_source() -> None:
     assert not completed.stdout and not completed.stderr
 
 
+def test_execution_snapshot_is_descriptor_relative_and_inventory_stable(
+    probe: Any,
+    monkeypatch: Any,
+    tmp_path: Path,
+) -> None:
+    source = tmp_path / "source"
+    site = tmp_path / "site"
+    scratch = tmp_path / "scratch"
+    source.mkdir(mode=0o700)
+    site.mkdir(mode=0o700)
+    scratch.mkdir(mode=0o700)
+    (site / "package").mkdir(mode=0o700)
+    (site / "package/module.py").write_bytes(b"site-data\n")
+    os.chmod(site / "package/module.py", 0o600)
+    source_raw = b"source-data\n"
+    source_records = {"package/source.py": ("100644", "a" * 40)}
+    source_fd = os.open(source, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+    site_fd = os.open(site, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+    scratch_fd = os.open(scratch, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+    expected_site = probe.directory_manifest(site_fd, expected_owner_uid=os.getuid())
+    monkeypatch.setattr(probe, "attest_imported_source", lambda _descriptor: source_records)
+
+    def read_blob(_descriptor: int, relative: str, git_mode: str, object_id: str) -> bytes:
+        assert (relative, git_mode, object_id) == ("package/source.py", "100644", "a" * 40)
+        return source_raw
+
+    monkeypatch.setattr(probe, "_read_attested_source_blob", read_blob)
+    original_open_anchored = probe.open_anchored_directory
+
+    def reject_procfd_reopen(path: Path, *, code: str = "source_binding_invalid") -> int:
+        assert not str(path).startswith("/proc/self/fd/")
+        return original_open_anchored(path, code=code)
+
+    monkeypatch.setattr(probe, "open_anchored_directory", reject_procfd_reopen)
+    source_snapshot_fd = -1
+    site_snapshot_fd = -1
+    try:
+        source_snapshot_fd, site_snapshot_fd, source_inventory, site_inventory = probe.create_execution_snapshot(
+            source_fd,
+            site_fd,
+            scratch_fd,
+            expected_site,
+        )
+        assert os.path.samefile(
+            f"/proc/self/fd/{source_snapshot_fd}",
+            scratch / "sealed-inputs/source",
+        )
+        assert os.path.samefile(
+            f"/proc/self/fd/{site_snapshot_fd}",
+            scratch / "sealed-inputs/site",
+        )
+        with pytest.raises(probe.DiagnosticError, match="site_binding_invalid"):
+            original_open_anchored(
+                Path(f"/proc/self/fd/{scratch_fd}/sealed-inputs/site"),
+                code="site_binding_invalid",
+            )
+        assert source_inventory == probe.directory_manifest(source_snapshot_fd, expected_owner_uid=os.getuid())
+        assert site_inventory == probe.directory_manifest(site_snapshot_fd, expected_owner_uid=os.getuid())
+        assert source_inventory["entry_count"] == 2
+        assert site_inventory["entry_count"] == expected_site["entry_count"]
+        assert site_inventory["manifest_sha256"] != expected_site["manifest_sha256"]
+        assert stat.S_IMODE(os.fstat(source_snapshot_fd).st_mode) == 0o500
+        assert stat.S_IMODE(os.fstat(site_snapshot_fd).st_mode) == 0o500
+        assert stat.S_IMODE((scratch / "sealed-inputs/source/package/source.py").stat().st_mode) == 0o400
+        assert stat.S_IMODE((scratch / "sealed-inputs/site/package/module.py").stat().st_mode) == 0o400
+    finally:
+        for descriptor in (source_snapshot_fd, site_snapshot_fd, scratch_fd, site_fd, source_fd):
+            if descriptor >= 0:
+                os.close(descriptor)
+    outside = tmp_path / "outside"
+    outside.write_text("preserve")
+    unsafe = tmp_path / "unsafe"
+    unsafe.mkdir(mode=0o700)
+    (unsafe / "link").symlink_to(outside)
+    unsafe_fd = os.open(unsafe, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+    try:
+        with pytest.raises(probe.DiagnosticError, match="site_binding_invalid"):
+            probe._seal_tree(unsafe_fd, code="site_binding_invalid")
+    finally:
+        os.close(unsafe_fd)
+    assert outside.read_text() == "preserve"
+
+
 def test_wrapper_compute_cleanup_validator_binds_certificate_identity(tmp_path: Path) -> None:
     wrapper = WRAPPER_PATH.read_text()
     program = wrapper.split("readonly COMPUTE_CLEANUP_VALIDATOR_PROGRAM='\n", 1)[1].split(

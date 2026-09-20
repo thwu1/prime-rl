@@ -410,19 +410,20 @@ def directory_manifest(
     expected_owner_uid: int,
     maximum_entries: int = 50_000,
     maximum_bytes: int = 1 << 30,
+    code: str = "site_binding_invalid",
 ) -> dict[str, object]:
     entries: list[bytes] = []
     total_bytes = 0
     root_identity = descriptor_identity(descriptor)
     if root_identity["owner_uid"] != expected_owner_uid:
-        raise DiagnosticError("site_binding_invalid")
+        raise DiagnosticError(code)
 
     def visit(current_fd: int, relative_root: str) -> None:
         nonlocal total_bytes
         for name in sorted(os.listdir(current_fd)):
             info = os.stat(name, dir_fd=current_fd, follow_symlinks=False)
             if info.st_uid != expected_owner_uid:
-                raise DiagnosticError("site_binding_invalid")
+                raise DiagnosticError(code)
             relative = f"{relative_root}/{name}".lstrip("/")
             if stat.S_ISDIR(info.st_mode):
                 entries.append(f"d\0{relative}\0{stat.S_IMODE(info.st_mode):o}\0{info.st_uid}\n".encode())
@@ -438,13 +439,13 @@ def directory_manifest(
                         "mode": stat.S_IMODE(info.st_mode),
                         "owner_uid": info.st_uid,
                     }:
-                        raise DiagnosticError("site_binding_invalid")
+                        raise DiagnosticError(code)
                     visit(child_fd, relative)
                 finally:
                     os.close(child_fd)
                 continue
             if not stat.S_ISREG(info.st_mode):
-                raise DiagnosticError("site_binding_invalid")
+                raise DiagnosticError(code)
             file_descriptor = os.open(name, os.O_RDONLY | os.O_NOFOLLOW, dir_fd=current_fd)
             try:
                 before = os.fstat(file_descriptor)
@@ -458,7 +459,7 @@ def directory_manifest(
                     size += len(chunk)
                     total_bytes += len(chunk)
                     if total_bytes > maximum_bytes:
-                        raise DiagnosticError("site_binding_invalid")
+                        raise DiagnosticError(code)
                 after = os.fstat(file_descriptor)
             finally:
                 os.close(file_descriptor)
@@ -467,7 +468,7 @@ def directory_manifest(
                 any(getattr(before, field) != getattr(after, field) for field in stable_fields)
                 or size != before.st_size
             ):
-                raise DiagnosticError("site_binding_invalid")
+                raise DiagnosticError(code)
             entries.append(
                 (
                     f"f\0{relative}\0{stat.S_IMODE(info.st_mode):o}\0{info.st_uid}"
@@ -475,11 +476,11 @@ def directory_manifest(
                 ).encode()
             )
             if len(entries) > maximum_entries:
-                raise DiagnosticError("site_binding_invalid")
+                raise DiagnosticError(code)
 
     visit(descriptor, "")
     if descriptor_identity(descriptor) != root_identity:
-        raise DiagnosticError("site_binding_invalid")
+        raise DiagnosticError(code)
     entries.sort()
     digest = hashlib.sha256()
     for entry in entries:
@@ -875,9 +876,48 @@ def _read_attested_source_blob(
     return bytes(raw)
 
 
-def _write_snapshot_file(path: Path, raw: bytes, mode: int) -> None:
-    path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
-    descriptor = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, mode)
+def _write_snapshot_file_at(root_fd: int, relative: str, raw: bytes, mode: int) -> None:
+    components = relative.split("/")
+    if not components or any(component in {"", ".", ".."} for component in components) or mode not in {0o400, 0o500}:
+        raise DiagnosticError("source_binding_invalid")
+    parent_fd = os.dup(root_fd)
+    try:
+        for component in components[:-1]:
+            try:
+                os.mkdir(component, mode=0o700, dir_fd=parent_fd)
+            except FileExistsError:
+                pass
+            child_fd = -1
+            try:
+                child_fd = os.open(
+                    component,
+                    os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC,
+                    dir_fd=parent_fd,
+                )
+                child = os.fstat(child_fd)
+                named = os.stat(component, dir_fd=parent_fd, follow_symlinks=False)
+                if (
+                    child.st_dev != named.st_dev
+                    or child.st_ino != named.st_ino
+                    or not stat.S_ISDIR(child.st_mode)
+                    or child.st_uid != os.getuid()
+                    or stat.S_IMODE(child.st_mode) != 0o700
+                ):
+                    raise DiagnosticError("source_binding_invalid")
+            except BaseException:
+                if child_fd >= 0:
+                    os.close(child_fd)
+                raise
+            os.close(parent_fd)
+            parent_fd = child_fd
+        descriptor = os.open(
+            components[-1],
+            os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW | os.O_CLOEXEC,
+            mode,
+            dir_fd=parent_fd,
+        )
+    finally:
+        os.close(parent_fd)
     try:
         offset = 0
         while offset < len(raw):
@@ -887,73 +927,213 @@ def _write_snapshot_file(path: Path, raw: bytes, mode: int) -> None:
         os.close(descriptor)
 
 
-def _seal_tree(path: Path) -> None:
-    directories: list[Path] = []
-    for root, names, files in os.walk(path, topdown=True, followlinks=False):
-        root_path = Path(root)
-        directories.append(root_path)
-        for name in (*names, *files):
-            entry = root_path / name
-            if entry.is_symlink():
-                raise DiagnosticError("site_binding_invalid")
-        for name in files:
-            entry = root_path / name
-            info = entry.stat(follow_symlinks=False)
-            if not stat.S_ISREG(info.st_mode) or info.st_uid != os.getuid():
-                raise DiagnosticError("site_binding_invalid")
-            entry.chmod(0o500 if info.st_mode & 0o111 else 0o400)
-    for directory in reversed(directories):
-        directory.chmod(0o500)
+def _seal_tree(root_fd: int, *, code: str) -> None:
+    """Seal a fresh snapshot through held descriptors without reopening procfd paths."""
+
+    def seal(directory_fd: int) -> None:
+        for name in sorted(os.listdir(directory_fd)):
+            named = os.stat(name, dir_fd=directory_fd, follow_symlinks=False)
+            if named.st_uid != os.getuid():
+                raise DiagnosticError(code)
+            if stat.S_ISDIR(named.st_mode):
+                child_fd = os.open(
+                    name,
+                    os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC,
+                    dir_fd=directory_fd,
+                )
+                try:
+                    child = os.fstat(child_fd)
+                    if child.st_dev != named.st_dev or child.st_ino != named.st_ino or child.st_uid != os.getuid():
+                        raise DiagnosticError(code)
+                    seal(child_fd)
+                    child_after = os.fstat(child_fd)
+                    named_after = os.stat(name, dir_fd=directory_fd, follow_symlinks=False)
+                    if (
+                        child_after.st_dev != child.st_dev
+                        or child_after.st_ino != child.st_ino
+                        or child_after.st_uid != os.getuid()
+                        or stat.S_IMODE(child_after.st_mode) != 0o500
+                        or child_after.st_dev != named_after.st_dev
+                        or child_after.st_ino != named_after.st_ino
+                        or child_after.st_mode != named_after.st_mode
+                    ):
+                        raise DiagnosticError(code)
+                finally:
+                    os.close(child_fd)
+                continue
+            if not stat.S_ISREG(named.st_mode) or named.st_nlink != 1:
+                raise DiagnosticError(code)
+            file_fd = os.open(name, os.O_RDONLY | os.O_NOFOLLOW | os.O_CLOEXEC, dir_fd=directory_fd)
+            try:
+                before = os.fstat(file_fd)
+                if (
+                    before.st_dev != named.st_dev
+                    or before.st_ino != named.st_ino
+                    or before.st_uid != os.getuid()
+                    or before.st_nlink != 1
+                ):
+                    raise DiagnosticError(code)
+                os.fchmod(file_fd, 0o500 if before.st_mode & 0o111 else 0o400)
+                os.fsync(file_fd)
+                after = os.fstat(file_fd)
+                named_after = os.stat(name, dir_fd=directory_fd, follow_symlinks=False)
+                if (
+                    after.st_dev != before.st_dev
+                    or after.st_ino != before.st_ino
+                    or after.st_uid != os.getuid()
+                    or after.st_nlink != 1
+                    or after.st_size != before.st_size
+                    or after.st_mode != named_after.st_mode
+                    or after.st_dev != named_after.st_dev
+                    or after.st_ino != named_after.st_ino
+                ):
+                    raise DiagnosticError(code)
+            finally:
+                os.close(file_fd)
+        os.fchmod(directory_fd, 0o500)
+        os.fsync(directory_fd)
+
+    root = os.fstat(root_fd)
+    if not stat.S_ISDIR(root.st_mode) or root.st_uid != os.getuid():
+        raise DiagnosticError(code)
+    seal(root_fd)
+    root_after = os.fstat(root_fd)
+    if (
+        root_after.st_dev != root.st_dev
+        or root_after.st_ino != root.st_ino
+        or root_after.st_uid != os.getuid()
+        or stat.S_IMODE(root_after.st_mode) != 0o500
+    ):
+        raise DiagnosticError(code)
+
+
+def _verify_snapshot_directory(parent_fd: int, name: str, descriptor: int, *, mode: int, code: str) -> None:
+    observed = os.fstat(descriptor)
+    named = os.stat(name, dir_fd=parent_fd, follow_symlinks=False)
+    if (
+        not stat.S_ISDIR(observed.st_mode)
+        or observed.st_dev != named.st_dev
+        or observed.st_ino != named.st_ino
+        or observed.st_mode != named.st_mode
+        or observed.st_uid != os.getuid()
+        or stat.S_IMODE(observed.st_mode) != mode
+    ):
+        raise DiagnosticError(code)
 
 
 def create_execution_snapshot(
     source_fd: int,
     site_fd: int,
-    scratch_root: Path,
+    scratch_root_fd: int,
     expected_site_inventory: Mapping[str, object],
-) -> tuple[Path, Path, dict[str, object], dict[str, object]]:
+) -> tuple[int, int, dict[str, object], dict[str, object]]:
     """Copy authorized inputs once, then execute only from the sealed copies."""
     source_records = attest_imported_source(source_fd)
     if directory_manifest(site_fd, expected_owner_uid=os.getuid()) != expected_site_inventory:
         raise DiagnosticError("site_binding_invalid")
-    snapshot_root = scratch_root / "sealed-inputs"
-    source_snapshot = snapshot_root / "source"
-    site_snapshot = snapshot_root / "site"
-    source_snapshot.mkdir(mode=0o700, parents=True)
-    for relative, (git_mode, object_id) in source_records.items():
-        raw = _read_attested_source_blob(source_fd, relative, git_mode, object_id)
-        _write_snapshot_file(
-            source_snapshot / relative,
-            raw,
-            0o500 if git_mode == "100755" else 0o400,
-        )
-    shutil.copytree(
-        descriptor_path(site_fd),
-        site_snapshot,
-        copy_function=shutil.copy2,
+    os.mkdir("sealed-inputs", mode=0o700, dir_fd=scratch_root_fd)
+    snapshot_root_fd = os.open(
+        "sealed-inputs",
+        os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC,
+        dir_fd=scratch_root_fd,
     )
-    copied_site_fd = open_anchored_directory(site_snapshot, code="site_binding_invalid")
+    source_snapshot_fd = -1
+    site_snapshot_fd = -1
     try:
-        copied_site_inventory = directory_manifest(copied_site_fd, expected_owner_uid=os.getuid())
-    finally:
-        os.close(copied_site_fd)
-    if copied_site_inventory != expected_site_inventory:
-        raise DiagnosticError("site_binding_invalid")
-    if attest_imported_source(source_fd) != source_records:
-        raise DiagnosticError("source_binding_invalid")
-    if directory_manifest(site_fd, expected_owner_uid=os.getuid()) != expected_site_inventory:
-        raise DiagnosticError("site_binding_invalid")
-    _seal_tree(source_snapshot)
-    _seal_tree(site_snapshot)
-    source_snapshot_fd = open_anchored_directory(source_snapshot)
-    site_snapshot_fd = open_anchored_directory(site_snapshot, code="site_binding_invalid")
-    try:
-        source_inventory = directory_manifest(source_snapshot_fd, expected_owner_uid=os.getuid())
+        _verify_snapshot_directory(
+            scratch_root_fd,
+            "sealed-inputs",
+            snapshot_root_fd,
+            mode=0o700,
+            code="source_binding_invalid",
+        )
+        os.mkdir("source", mode=0o700, dir_fd=snapshot_root_fd)
+        source_snapshot_fd = os.open(
+            "source",
+            os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC,
+            dir_fd=snapshot_root_fd,
+        )
+        _verify_snapshot_directory(
+            snapshot_root_fd,
+            "source",
+            source_snapshot_fd,
+            mode=0o700,
+            code="source_binding_invalid",
+        )
+        for relative, (git_mode, object_id) in source_records.items():
+            raw = _read_attested_source_blob(source_fd, relative, git_mode, object_id)
+            _write_snapshot_file_at(
+                source_snapshot_fd,
+                relative,
+                raw,
+                0o500 if git_mode == "100755" else 0o400,
+            )
+        shutil.copytree(
+            descriptor_path(site_fd),
+            descriptor_path(snapshot_root_fd) / "site",
+            copy_function=shutil.copy2,
+        )
+        site_snapshot_fd = os.open(
+            "site",
+            os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC,
+            dir_fd=snapshot_root_fd,
+        )
+        site_mode = stat.S_IMODE(os.fstat(site_snapshot_fd).st_mode)
+        _verify_snapshot_directory(
+            snapshot_root_fd,
+            "site",
+            site_snapshot_fd,
+            mode=site_mode,
+            code="site_binding_invalid",
+        )
+        copied_site_inventory = directory_manifest(site_snapshot_fd, expected_owner_uid=os.getuid())
+        if copied_site_inventory != expected_site_inventory:
+            raise DiagnosticError("site_binding_invalid")
+        if attest_imported_source(source_fd) != source_records:
+            raise DiagnosticError("source_binding_invalid")
+        if directory_manifest(site_fd, expected_owner_uid=os.getuid()) != expected_site_inventory:
+            raise DiagnosticError("site_binding_invalid")
+        _seal_tree(source_snapshot_fd, code="source_binding_invalid")
+        _seal_tree(site_snapshot_fd, code="site_binding_invalid")
+        _verify_snapshot_directory(
+            snapshot_root_fd,
+            "source",
+            source_snapshot_fd,
+            mode=0o500,
+            code="source_binding_invalid",
+        )
+        _verify_snapshot_directory(
+            snapshot_root_fd,
+            "site",
+            site_snapshot_fd,
+            mode=0o500,
+            code="site_binding_invalid",
+        )
+        source_inventory = directory_manifest(
+            source_snapshot_fd,
+            expected_owner_uid=os.getuid(),
+            code="source_binding_invalid",
+        )
         site_inventory = directory_manifest(site_snapshot_fd, expected_owner_uid=os.getuid())
+        os.fchmod(snapshot_root_fd, 0o500)
+        os.fsync(snapshot_root_fd)
+        _verify_snapshot_directory(
+            scratch_root_fd,
+            "sealed-inputs",
+            snapshot_root_fd,
+            mode=0o500,
+            code="source_binding_invalid",
+        )
+        os.fsync(scratch_root_fd)
+        return source_snapshot_fd, site_snapshot_fd, source_inventory, site_inventory
+    except BaseException:
+        for descriptor in (source_snapshot_fd, site_snapshot_fd):
+            if descriptor >= 0:
+                with contextlib.suppress(OSError):
+                    os.close(descriptor)
+        raise
     finally:
-        os.close(source_snapshot_fd)
-        os.close(site_snapshot_fd)
-    return source_snapshot, site_snapshot, source_inventory, site_inventory
+        os.close(snapshot_root_fd)
 
 
 def _directory_entry_identity(parent_fd: int, name: str) -> dict[str, int]:
@@ -3943,30 +4123,27 @@ def run_supervisor(args: argparse.Namespace) -> dict[str, object]:
             "total_bytes": int(os.environ["PYTHON_SITE_X86_64_TOTAL_BYTES"]),
         }
         (
-            source_snapshot,
-            site_snapshot,
+            source_snapshot_fd,
+            site_snapshot_fd,
             source_snapshot_inventory,
             site_snapshot_inventory,
         ) = create_execution_snapshot(
             source_fd,
             site_fd,
-            descriptor_path(scratch_fd),
+            scratch_fd,
             expected_site_inventory,
-        )
-        source_snapshot_fd = os.open(
-            source_snapshot,
-            os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW,
-        )
-        site_snapshot_fd = os.open(
-            site_snapshot,
-            os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW,
         )
         snapshot_source_root = descriptor_path(source_snapshot_fd)
         snapshot_site_root = descriptor_path(site_snapshot_fd)
         snapshot_guard = SnapshotGuard((snapshot_source_root, snapshot_site_root))
         if (
             not snapshot_guard.is_clean()
-            or directory_manifest(source_snapshot_fd, expected_owner_uid=os.getuid()) != source_snapshot_inventory
+            or directory_manifest(
+                source_snapshot_fd,
+                expected_owner_uid=os.getuid(),
+                code="source_binding_invalid",
+            )
+            != source_snapshot_inventory
             or directory_manifest(site_snapshot_fd, expected_owner_uid=os.getuid()) != site_snapshot_inventory
         ):
             raise DiagnosticError("source_binding_invalid")
@@ -3988,7 +4165,12 @@ def run_supervisor(args: argparse.Namespace) -> dict[str, object]:
         validate_stage_result(result)
         if (
             not snapshot_guard.is_clean()
-            or directory_manifest(source_snapshot_fd, expected_owner_uid=os.getuid()) != source_snapshot_inventory
+            or directory_manifest(
+                source_snapshot_fd,
+                expected_owner_uid=os.getuid(),
+                code="source_binding_invalid",
+            )
+            != source_snapshot_inventory
             or directory_manifest(site_snapshot_fd, expected_owner_uid=os.getuid()) != site_snapshot_inventory
         ):
             raise DiagnosticError("source_binding_invalid")
