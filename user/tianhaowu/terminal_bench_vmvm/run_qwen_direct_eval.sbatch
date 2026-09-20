@@ -577,8 +577,14 @@ eval_pid=
 if [[ "$sandbox_provider" == sandoq && "$preflight_only" -eq 1 ]]; then
     rm -f -- "$manifest" "$router_log" "$output_dir/.direct_router.lock"
     if [[ "$source_continuation_mode" -eq 1 ]]; then
-        if ! rmdir -- "$output_dir/control" 2>/dev/null \
-            || ! rmdir -- "$output_dir" 2>/dev/null; then
+        if [[ -e "$output_dir/control" || -L "$output_dir/control" ]]; then
+            if [[ -L "$output_dir/control" || ! -d "$output_dir/control" ]] \
+                || ! rmdir -- "$output_dir/control" 2>/dev/null; then
+                printf 'Source-continuation preflight cleanup failed\n' >&2
+                exit 2
+            fi
+        fi
+        if ! rmdir -- "$output_dir" 2>/dev/null; then
             printf 'Source-continuation preflight cleanup failed\n' >&2
             exit 2
         fi
