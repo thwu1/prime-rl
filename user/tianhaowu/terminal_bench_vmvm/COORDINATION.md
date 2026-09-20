@@ -4912,3 +4912,8 @@ Add new rows below this line; do not overwrite another owner's row.
   24 generated tokens per 10 seconds. The current blocker is slow max-reasoning
   decode completion, not Sandoq lifecycle, router admission, queueing, or KV
   pressure. Full Kimi TB4/2,500 execution has not launched.
+
+Follow-up: the Kimi lane was subsequently rebased cleanly onto the current
+Qwen PR base and supersedes the head above with
+`070d45a77a6c379746c858b0a15b20f3687883e8` (draft PR `#49`); its focused
+replay passed 263/263. The aggregate decode/cleanup boundary is unchanged.
