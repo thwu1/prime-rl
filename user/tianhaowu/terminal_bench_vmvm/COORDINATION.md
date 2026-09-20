@@ -1,6 +1,6 @@
 # VMVM sandbox coordination
 
-Last updated: 2026-09-20 07:55 UTC
+Last updated: 2026-09-20 07:57 UTC
 
 ## First message to the next teammate
 
@@ -45,6 +45,18 @@ this shared branch again.
 Add new rows below this line; do not overwrite another owner's row.
 
 ## Open coordination requests
+
+- **2026-09-20 07:57 UTC, HOLD the mutable Kimi exact-digest gate runtime:**
+  independent pre-review became stale when `test_controller.py` changed after
+  its snapshot, so it grants no exact-byte verdict. The runtime scripts that
+  remained unchanged still recursively chmod/find/remove mutable pathname
+  roots after pathname checks and retain no directory descriptor; a same-UID
+  rename/replacement can redirect deletion or strand credential, image, or raw
+  diagnostic state. Signal cleanup also allows only about 35 seconds before
+  killing a child whose own bounded cleanup may take up to 210 seconds. Repair
+  both issues, stabilize and seal all candidate bytes, and request a fresh
+  exact review. The stale snapshot passed 82 candidate tests and 374 source
+  registry tests; no Podman, credential, Slurm, task, or model action ran.
 
 - **2026-09-20 07:37 UTC, fold the Sandoq handoff receipt into live ramp-2:**
   do not launch a duplicate digest smoke while Qwen Sandoq job `1503355` is
