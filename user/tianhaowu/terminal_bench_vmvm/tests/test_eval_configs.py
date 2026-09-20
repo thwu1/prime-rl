@@ -694,6 +694,12 @@ def test_direct_qwen_launcher_is_fail_closed() -> None:
     assert "Source continuation output directory is not private" in driver
     assert 'rmdir -- "$output_dir/control"' in wrapper
     assert "Source-continuation preflight cleanup failed" in wrapper
+    preflight_cleanup = wrapper.index(
+        'if [[ "$sandbox_provider" == sandoq && "$preflight_only" -eq 1 ]]'
+    )
+    assert wrapper.index('kill -TERM -- "-$router_pid"', preflight_cleanup) < wrapper.index(
+        'rmdir -- "$output_dir"', preflight_cleanup
+    )
     assert "80e58e7e2b194e9c1b8dc0990c00b7a839127eea" in driver
     assert "configs/eval/shared_qwen38_2p4t/mobius_qwen_a95b_2500_sandoq.toml" in wrapper
     assert wrapper.index("approved clean source closure") < wrapper.index('"$workflow_dir/direct_qwen_workers.py"')

@@ -575,6 +575,11 @@ eval_pid=$!
 wait "$eval_pid"
 eval_pid=
 if [[ "$sandbox_provider" == sandoq && "$preflight_only" -eq 1 ]]; then
+    if [[ -n "$router_pid" ]] && kill -0 "$router_pid" 2>/dev/null; then
+        kill -TERM -- "-$router_pid" 2>/dev/null || true
+        wait "$router_pid" 2>/dev/null || true
+    fi
+    router_pid=
     rm -f -- "$manifest" "$router_log" "$output_dir/.direct_router.lock"
     if [[ "$source_continuation_mode" -eq 1 ]]; then
         if [[ -e "$output_dir/control" || -L "$output_dir/control" ]]; then
