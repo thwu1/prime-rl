@@ -463,6 +463,7 @@ def _direct_kimi_identity(*, smoke: bool) -> dict:
     config["client"]["max_keepalive_connections"] = concurrency
     if smoke:
         config["sampling"]["reasoning_effort"] = "max"
+        config["harness"]["command_timeout_seconds"] = 60
         config["timeout"].update(setup=600, rollout=900, finalize=300, scoring=600)
         config["harness"]["runtime"]["session_timeout"] = 2_400
     contract, execution = _contract(
