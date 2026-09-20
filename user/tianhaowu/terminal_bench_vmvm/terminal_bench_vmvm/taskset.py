@@ -558,11 +558,7 @@ def _sandoq_public_network_override_is_safe(expected_ecr_token_file: Path | None
         return False
     configured_ecr_token_file = os.environ.get("OCI_RUNNER_ECR_TOKEN_FILE")
     configured_provider_token_file = os.environ.get("OCI_RUNNER_TOKEN_FILE")
-    if (
-        expected_ecr_token_file is None
-        or not configured_ecr_token_file
-        or not configured_provider_token_file
-    ):
+    if expected_ecr_token_file is None or not configured_ecr_token_file or not configured_provider_token_file:
         return False
     ecr_token_file = Path(configured_ecr_token_file)
     provider_token_file = Path(configured_provider_token_file)
@@ -606,6 +602,20 @@ def _sandoq_public_network_override_is_safe(expected_ecr_token_file: Path | None
         and all(1 <= value <= pool for value in workers)
         and 1 <= per_image <= min(8, pool)
         and os.environ.get("OCI_RUNNER_POOL_DRAIN_TIMEOUT") == "240"
+    )
+
+
+def _declares_sandoq_public_network_override(runtime: Runtime) -> bool:
+    if not isinstance(runtime, SandoqRuntime):
+        return False
+    config = runtime.config
+    return (
+        config.mode == "oci-runner"
+        and config.network_access is True
+        and config.host_tunnel == "none"
+        and config.expected_environment == "oci-runner"
+        and config.ecr_token_file is not None
+        and config.ecr_token_file.is_absolute()
     )
 
 
@@ -2160,12 +2170,8 @@ class TerminalBenchVMVMTaskset(
         if isinstance(runtime, SandoqRuntime):
             if mode == "no-network":
                 config = runtime.config
-                if (
-                    config.mode != "oci-runner"
-                    or not config.network_access
-                    or config.host_tunnel != "none"
-                    or config.expected_environment != "oci-runner"
-                    or not _sandoq_public_network_override_is_safe(config.ecr_token_file)
+                if not _declares_sandoq_public_network_override(runtime) or not _sandoq_public_network_override_is_safe(
+                    config.ecr_token_file
                 ):
                     raise UnsupportedTaskError(
                         f"{task.name}: Sandoq execution of a declared no-network task requires "
@@ -2238,7 +2244,21 @@ class TerminalBenchVMVMTaskset(
         if cleaned.exit_code != 0:
             raise RuntimeError(f"{task.name}: AppleDouble cleanup failed: {(cleaned.stdout + cleaned.stderr)[-2000:]}")
 
-        if task.verifier_mode == "shared" and task.verifier_network_mode == "no-network":
+        # The audited plain ``oci-runner`` override is intentionally public:
+        # f731 leaves Podman's default network enabled there. Installing the
+        # verifier dependencies online is both truthful and avoids routing
+        # public wheels through the isolated source-wheel proof machinery.
+        verifier_uses_online_dependencies = (
+            task.verifier_mode == "shared"
+            and task.verifier_network_mode == "no-network"
+            and self.config.offline_verifier_catalog is None
+            and _declares_sandoq_public_network_override(runtime)
+        )
+        if (
+            task.verifier_mode == "shared"
+            and task.verifier_network_mode == "no-network"
+            and not verifier_uses_online_dependencies
+        ):
             await self._prefetch_test_dependencies(task, runtime)
 
         if not compose_started:
@@ -3917,7 +3937,15 @@ for requirement in sys.argv[1:]:
         *,
         stage_tests: bool,
     ) -> tuple[ProgramResult, bool, float, dict[str, float]]:
-        isolated_staged_tests = stage_tests and task.verifier_network_mode == "no-network"
+        verifier_uses_online_dependencies = (
+            stage_tests
+            and task.verifier_network_mode == "no-network"
+            and self.config.offline_verifier_catalog is None
+            and _declares_sandoq_public_network_override(runtime)
+        )
+        isolated_staged_tests = (
+            stage_tests and task.verifier_network_mode == "no-network" and not verifier_uses_online_dependencies
+        )
         catalog_isolated_runtime = (
             self.config.offline_verifier_catalog is not None and task.verifier_network_mode == "no-network"
         )
