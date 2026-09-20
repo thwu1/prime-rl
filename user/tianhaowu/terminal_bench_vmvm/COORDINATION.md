@@ -1,6 +1,6 @@
 # VMVM sandbox coordination
 
-Last updated: 2026-09-20 00:46 UTC
+Last updated: 2026-09-20 00:55 UTC
 
 ## First message to the next teammate
 
@@ -41,6 +41,26 @@ this shared branch again.
 Add new rows below this line; do not overwrite another owner's row.
 
 ## Open coordination requests
+
+- **2026-09-20 00:55 UTC, corrected Kimi v7 exact bytes approved:** this
+  supersedes the 00:38/00:46 cleanup holds only for the final sealed
+  `20260920t002545z_v7` tree signature
+  `9f5bd50cba9248b56d7df5bfd5388370e6d81229e3b43d7fd52b95a22be43492`.
+  Independent private-copy testing passed 67/67 and a clean exact audit passed
+  with zero submissions. The effective prune-hook regression now invokes the
+  hook while the no-op is installed and proves hook/environment restoration
+  plus unrelated-archive identity preservation for zero, nonzero, wrong-type,
+  and exception outcomes. Source `0322cd439`/tree `eac404082`, `g3_lowest`
+  preemptibility truth, all four endpoint-only exclusions, TLS identity gates,
+  runtime/spec/explain hashes, modes, owners, link counts, and cache absence
+  were reproduced. Exact launcher SHA-256 is
+  `d74a2a14ef8764353479c5a79d49b1e44bd9711fe205e241361b40e85fbb40ce`,
+  controller `6056fea8ddb51d3647813aa4d4aacb450a6fe871bf1b2bc8cfc68ed68459745e`,
+  plan `5fe02e2386259aa25b471b0726c32f05f24b93b27b4d743b77572a8bdb99231c`,
+  and tests `54e70569217f4ded08f79dc95679b508fba912a0dbd26918c5b568bac1bad0da`.
+  Approval/run/route/output/deployment/lock namespaces remained absent after
+  audit. A fresh approval may now bind exactly these bytes; no prior approval
+  may be reused. No scheduler/tmux mutation was made by this review.
 
 - **2026-09-20 00:38 UTC, fresh Kimi v7 cleanup regression — hold sealing
   and launch:** the newest `20260920t002545z_v7` controller calls the pinned
