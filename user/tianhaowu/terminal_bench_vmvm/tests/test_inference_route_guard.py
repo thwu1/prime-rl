@@ -16,6 +16,7 @@ from inference_route_generation import route_generation_from_status_endpoints
 from inference_route_guard import (
     RouteBinding,
     RouteGuardError,
+    configure_concurrency_telemetry_environment,
     load_route_binding,
     prepare_guard_receipt,
     publish_guard_success_receipt,
@@ -306,6 +307,7 @@ def test_guard_receipt_removes_stale_and_binds_final_run_artifacts(
             "eval_run_identity_sha256": identity_sha256,
             "identity": {
                 "role": "smoke",
+                "source": {"sandbox_provider": "vmvm"},
                 "deployment": {
                     "id": binding.deployment_id,
                     "spec": {
@@ -334,6 +336,7 @@ def test_guard_receipt_removes_stale_and_binds_final_run_artifacts(
     )
 
     assert not receipt_path.exists()
+    assert plan.sandbox_provider == "vmvm"
     assert plan.concurrency_telemetry == run_dir / "concurrency_telemetry.json"
     assert plan.slurm_job_id == "1"
     results.write_text('{"aggregate":"result"}\n')
@@ -360,6 +363,88 @@ def test_guard_receipt_removes_stale_and_binds_final_run_artifacts(
     assert receipt["state"] == "passed"
     assert receipt["artifacts"]["results"]["path"] == str(results)
     assert receipt["artifacts"]["concurrency_telemetry"]["path"] == str(plan.concurrency_telemetry)
+    assert receipt_path.stat().st_mode & 0o777 == 0o600
+
+
+def test_sandoq_guard_receipt_omits_vmvm_telemetry_and_clears_inherited_environment(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    binding, _ = _binding(tmp_path, model="Qwen3-Coder-480B-A35B-Instruct-FP8")
+    run_dir = tmp_path / "run"
+    run_dir.mkdir()
+    identity_path = run_dir / "eval_run_identity.json"
+    identity_path.write_text("{}\n")
+    identity_sha256 = "d" * 64
+    invocations = run_dir / "eval_invocations.jsonl"
+    invocations.write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "eval_run_identity_sha256": identity_sha256,
+                "role": "smoke",
+                "resume": False,
+                "host": "test-host",
+                "slurm_job_id": "1",
+            }
+        )
+        + "\n"
+    )
+    results = run_dir / "results.jsonl"
+    receipt_path = run_dir / "route_guard_success.json"
+    monkeypatch.setattr(
+        guard_module,
+        "load_eval_run_identity",
+        lambda *_args, **_kwargs: {
+            "eval_run_identity_sha256": identity_sha256,
+            "identity": {
+                "role": "smoke",
+                "source": {"sandbox_provider": "sandoq"},
+                "deployment": {
+                    "id": binding.deployment_id,
+                    "spec": {
+                        "path": str(binding.deployment_spec),
+                        "sha256": binding.deployment_spec_sha256,
+                    },
+                    "readiness_checkpoint": {
+                        "path": str(binding.readiness_checkpoint),
+                        "sha256": binding.readiness_checkpoint_sha256,
+                    },
+                    "endpoint": binding.endpoint,
+                    "serving_route_generation": binding.route_generation,
+                    "proxy_policy": binding.proxy_policy,
+                },
+            },
+        },
+    )
+
+    plan = prepare_guard_receipt(
+        binding,
+        eval_run_identity=identity_path,
+        eval_run_identity_sha256=identity_sha256,
+        eval_invocations=invocations,
+        results=results,
+        receipt=receipt_path,
+    )
+
+    assert plan.sandbox_provider == "sandoq"
+    assert plan.concurrency_telemetry is None
+    telemetry_names = (
+        guard_module.TELEMETRY_PATH_ENV,
+        guard_module.TELEMETRY_EVAL_IDENTITY_ENV,
+        guard_module.TELEMETRY_EVAL_ROLE_ENV,
+        guard_module.TELEMETRY_SLURM_JOB_ID_ENV,
+    )
+    for name in telemetry_names:
+        monkeypatch.setenv(name, "stale-vmvm-binding")
+    configure_concurrency_telemetry_environment(plan)
+    assert all(name not in guard_module.os.environ for name in telemetry_names)
+
+    results.write_text('{"aggregate":"result"}\n')
+    publish_guard_success_receipt(binding, plan)
+    receipt = load_guard_success_receipt(receipt_path)
+    assert receipt["schema_version"] == 1
+    assert "concurrency_telemetry" not in receipt["artifacts"]
     assert receipt_path.stat().st_mode & 0o777 == 0o600
 
 

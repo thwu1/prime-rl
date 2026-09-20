@@ -1,5 +1,10 @@
 import hashlib
+import json
+import os
+from pathlib import Path
+from types import SimpleNamespace
 
+import materialize_sandoq_ramp as ramp
 import pytest
 from materialize_sandoq_ramp import main, materialize, materialize_config
 
@@ -90,3 +95,76 @@ def test_materialize_64_stage_keeps_bounded_rollout_and_http_concurrency(tmp_pat
     assert b"multiplex = 64\n" in payload
     assert b"max_connections = 32\n" in payload
     assert b"max_concurrent = 2500" not in payload
+
+
+def test_main_accepts_existing_private_source_and_atomically_publishes_fresh_outputs(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    canonical_members = ("opaque-a", "opaque-b", "opaque-c", "opaque-compose")
+    canonical_source = tmp_path / "canonical.txt"
+    canonical_source.write_text("".join(f"{member}\n" for member in canonical_members))
+    dataset = tmp_path / "dataset"
+    dataset.mkdir()
+    private_root = tmp_path / "shared_qwen38_2p4t"
+    private_root.mkdir(mode=0o700)
+    private_root.chmod(0o700)
+    provider_source = private_root / "full-sandoq.tasks.txt"
+    provider_source.write_text("opaque-a\nopaque-b\nopaque-c\n")
+    provider_source.chmod(0o600)
+    output = private_root / "ramp2.tasks.txt"
+    receipt = private_root / "ramp2.receipt.json"
+    config_output = private_root / "ramp2.toml"
+    canonical_template = (
+        Path(ramp.__file__).resolve().parent
+        / "configs/eval/shared_qwen38_2p4t/mobius_qwen_a95b_2500_sandoq.toml"
+    )
+    monkeypatch.setattr(ramp, "CANONICAL_SOURCE_SHA256", hashlib.sha256(canonical_source.read_bytes()).hexdigest())
+    monkeypatch.setattr(ramp, "SANDOQ_COUNT", 3)
+    monkeypatch.setattr(ramp, "verify_canonical_dataset", lambda path: path.resolve(strict=True))
+    monkeypatch.setattr(
+        ramp,
+        "derive_partition",
+        lambda _raw, _dataset: SimpleNamespace(sandoq=canonical_members[:3]),
+    )
+    monkeypatch.setattr(
+        "sys.argv",
+        [
+            "materialize_sandoq_ramp.py",
+            "--source",
+            str(provider_source),
+            "--source-sha256",
+            hashlib.sha256(provider_source.read_bytes()).hexdigest(),
+            "--count",
+            "2",
+            "--canonical-source",
+            str(canonical_source),
+            "--canonical-dataset",
+            str(dataset),
+            "--private-output-root",
+            str(private_root),
+            "--output",
+            str(output),
+            "--receipt",
+            str(receipt),
+            "--template",
+            str(canonical_template),
+            "--template-sha256",
+            ramp.CANONICAL_TEMPLATE_SHA256,
+            "--config-output",
+            str(config_output),
+        ],
+    )
+
+    main()
+
+    assert json.loads(capsys.readouterr().out) == {"count": 2, "state": "materialized"}
+    assert output.read_text() == "opaque-a\nopaque-b\n"
+    assert json.loads(receipt.read_text())["selected_count"] == 2
+    assert f'num_tasks = 2' in config_output.read_text()
+    for path in (provider_source, output, receipt, config_output):
+        metadata = path.stat()
+        assert metadata.st_uid == os.getuid()
+        assert metadata.st_nlink == 1
+        assert metadata.st_mode & 0o777 == 0o600

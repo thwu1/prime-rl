@@ -14,10 +14,14 @@ from materialize_qwen_provider_union import (
     CANONICAL_SANDOQ_TEMPLATE_SHA256,
     CANONICAL_SOURCE_SHA256,
     SANDOQ_COUNT,
+    _open_private_output_root,
+    _read_private_artifact,
     _task_payload,
     derive_partition,
-    validate_private_output_root,
     verify_canonical_dataset,
+)
+from materialize_qwen_provider_union import (
+    publish_exclusive as publish_private_outputs,
 )
 
 CANONICAL_TEMPLATE_SHA256 = CANONICAL_SANDOQ_TEMPLATE_SHA256
@@ -27,8 +31,7 @@ def sha256(payload: bytes) -> str:
     return hashlib.sha256(payload).hexdigest()
 
 
-def materialize(source: Path, source_sha256: str, count: int) -> tuple[bytes, dict]:
-    raw = source.read_bytes()
+def _materialize_payload(raw: bytes, source_sha256: str, count: int) -> tuple[bytes, dict]:
     if sha256(raw) != source_sha256:
         raise ValueError("source allowlist SHA-256 mismatch")
     lines = raw.decode().splitlines()
@@ -43,6 +46,10 @@ def materialize(source: Path, source_sha256: str, count: int) -> tuple[bytes, di
         "selected_count": count,
         "selected_sha256": sha256(payload),
     }
+
+
+def materialize(source: Path, source_sha256: str, count: int) -> tuple[bytes, dict]:
+    return _materialize_payload(source.read_bytes(), source_sha256, count)
 
 
 def materialize_config(
@@ -142,13 +149,6 @@ def main() -> None:
     dataset = verify_canonical_dataset(args.canonical_dataset)
     partition = derive_partition(canonical_raw, dataset)
     expected_provider_source = _task_payload(partition.sandoq)
-    source_raw = args.source.resolve(strict=True).read_bytes()
-    if (
-        len(partition.sandoq) != SANDOQ_COUNT
-        or source_raw != expected_provider_source
-        or sha256(source_raw) != args.source_sha256
-    ):
-        raise ValueError("private provider partition is not the canonical non-Compose selection")
     canonical_template = (
         Path(__file__).resolve().parent
         / "configs/eval/shared_qwen38_2p4t/mobius_qwen_a95b_2500_sandoq.toml"
@@ -160,35 +160,44 @@ def main() -> None:
     ):
         raise ValueError("template config is not the approved canonical Sandoq config")
     project_root = Path(__file__).resolve().parents[3]
-    private_root = validate_private_output_root(
+    output_paths = (args.source, args.output, args.receipt, args.config_output)
+    with _open_private_output_root(
         args.private_output_root,
-        (args.source, args.output, args.receipt, args.config_output),
+        output_paths,
         forbidden_roots=(project_root, dataset),
-    )
-    if args.source.parent != private_root:
-        raise ValueError("private provider partition is outside the private root")
-    payload, receipt = materialize(args.source, args.source_sha256, args.count)
-    if receipt["source_count"] != SANDOQ_COUNT:
-        raise ValueError("private provider partition has the wrong cardinality")
-    receipt["canonical_source_sha256"] = CANONICAL_SOURCE_SHA256
-    config_payload = materialize_config(
-        args.template,
-        args.template_sha256,
-        count=args.count,
-        task_file=args.output,
-        task_file_sha256=receipt["selected_sha256"],
-    )
-    receipt["template_sha256"] = args.template_sha256
-    receipt["config_sha256"] = sha256(config_payload)
-    outputs = [(args.output, payload)]
-    outputs.append((args.config_output, config_payload))
-    outputs.append(
-        (
-            args.receipt,
-            (json.dumps(receipt, sort_keys=True, separators=(",", ":")) + "\n").encode(),
+        validate_existing=False,
+    ) as private_root:
+        source_raw = _read_private_artifact(private_root, args.source)
+        if (
+            len(partition.sandoq) != SANDOQ_COUNT
+            or source_raw != expected_provider_source
+            or sha256(source_raw) != args.source_sha256
+        ):
+            raise ValueError("private provider partition is not the canonical non-Compose selection")
+        payload, receipt = _materialize_payload(source_raw, args.source_sha256, args.count)
+        if receipt["source_count"] != SANDOQ_COUNT:
+            raise ValueError("private provider partition has the wrong cardinality")
+        receipt["canonical_source_sha256"] = CANONICAL_SOURCE_SHA256
+        config_payload = materialize_config(
+            args.template,
+            args.template_sha256,
+            count=args.count,
+            task_file=args.output,
+            task_file_sha256=receipt["selected_sha256"],
         )
-    )
-    publish_exclusive(outputs)
+        receipt["template_sha256"] = args.template_sha256
+        receipt["config_sha256"] = sha256(config_payload)
+        outputs = [(args.output, payload)]
+        outputs.append((args.config_output, config_payload))
+        outputs.append(
+            (
+                args.receipt,
+                (json.dumps(receipt, sort_keys=True, separators=(",", ":")) + "\n").encode(),
+            )
+        )
+        if _read_private_artifact(private_root, args.source) != source_raw:
+            raise ValueError("private provider partition changed")
+        publish_private_outputs(private_root, outputs)
     print(
         json.dumps(
             {

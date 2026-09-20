@@ -104,7 +104,8 @@ class GuardReceiptPlan:
     eval_invocations: Path
     eval_invocations_sha256: str
     results: Path
-    concurrency_telemetry: Path
+    sandbox_provider: str
+    concurrency_telemetry: Path | None
     slurm_job_id: str
 
 
@@ -320,9 +321,12 @@ def prepare_guard_receipt(
         raise RouteGuardError("guard_receipt_binding_invalid") from error
     identity = envelope.get("identity")
     deployment = identity.get("deployment") if isinstance(identity, dict) else None
+    source = identity.get("source") if isinstance(identity, dict) else None
     eval_run_role = identity.get("role") if isinstance(identity, dict) else None
+    sandbox_provider = source.get("sandbox_provider", "vmvm") if isinstance(source, dict) else None
     if (
         envelope.get("eval_run_identity_sha256") != eval_run_identity_sha256
+        or sandbox_provider not in {"vmvm", "sandoq"}
         or not isinstance(deployment, dict)
         or deployment.get("id") != binding.deployment_id
         or deployment.get("spec")
@@ -356,9 +360,10 @@ def prepare_guard_receipt(
         raise RouteGuardError("stale_guard_receipt_remove_failed") from error
     if receipt_path.exists():
         raise RouteGuardError("stale_guard_receipt_remove_failed")
-    concurrency_telemetry = run_dir / "concurrency_telemetry.json"
-    if os.path.lexists(concurrency_telemetry):
+    telemetry_path = run_dir / "concurrency_telemetry.json"
+    if os.path.lexists(telemetry_path):
         raise RouteGuardError("concurrency_telemetry_already_exists")
+    concurrency_telemetry = telemetry_path if sandbox_provider == "vmvm" else None
     return GuardReceiptPlan(
         receipt=receipt_path,
         eval_run_identity=identity_path,
@@ -368,9 +373,33 @@ def prepare_guard_receipt(
         eval_invocations=invocations_path,
         eval_invocations_sha256=invocations_sha256,
         results=results_path,
+        sandbox_provider=sandbox_provider,
         concurrency_telemetry=concurrency_telemetry,
         slurm_job_id=invocation["slurm_job_id"],
     )
+
+
+def configure_concurrency_telemetry_environment(plan: GuardReceiptPlan) -> None:
+    """Expose VMVM telemetry bindings, or remove them for non-VMVM evaluators."""
+
+    environment_names = (
+        TELEMETRY_PATH_ENV,
+        TELEMETRY_EVAL_IDENTITY_ENV,
+        TELEMETRY_EVAL_ROLE_ENV,
+        TELEMETRY_SLURM_JOB_ID_ENV,
+    )
+    if plan.sandbox_provider == "sandoq":
+        if plan.concurrency_telemetry is not None:
+            raise RouteGuardError("concurrency_telemetry_provider_mismatch")
+        for name in environment_names:
+            os.environ.pop(name, None)
+        return
+    if plan.sandbox_provider != "vmvm" or plan.concurrency_telemetry is None:
+        raise RouteGuardError("concurrency_telemetry_provider_mismatch")
+    os.environ[TELEMETRY_PATH_ENV] = str(plan.concurrency_telemetry)
+    os.environ[TELEMETRY_EVAL_IDENTITY_ENV] = plan.eval_run_identity_sha256
+    os.environ[TELEMETRY_EVAL_ROLE_ENV] = plan.eval_run_role
+    os.environ[TELEMETRY_SLURM_JOB_ID_ENV] = plan.slurm_job_id
 
 
 def publish_guard_success_receipt(
@@ -408,7 +437,15 @@ def publish_guard_success_receipt(
         if (
             receipt["artifacts"]["eval_run_identity"]["sha256"] != plan.eval_run_identity_file_sha256
             or receipt["artifacts"]["eval_invocations"]["sha256"] != plan.eval_invocations_sha256
-            or receipt["artifacts"].get("concurrency_telemetry", {}).get("path") != str(plan.concurrency_telemetry)
+        ):
+            raise RouteGuardError("guard_receipt_metadata_changed")
+        telemetry_artifact = receipt["artifacts"].get("concurrency_telemetry")
+        if plan.concurrency_telemetry is None:
+            if telemetry_artifact is not None:
+                raise RouteGuardError("guard_receipt_metadata_changed")
+        elif (
+            not isinstance(telemetry_artifact, dict)
+            or telemetry_artifact.get("path") != str(plan.concurrency_telemetry)
         ):
             raise RouteGuardError("guard_receipt_metadata_changed")
         write_guard_success_receipt(plan.receipt, receipt)
@@ -658,10 +695,7 @@ def main() -> None:
             results=args.results,
             receipt=args.success_receipt,
         )
-        os.environ[TELEMETRY_PATH_ENV] = str(receipt_plan.concurrency_telemetry)
-        os.environ[TELEMETRY_EVAL_IDENTITY_ENV] = receipt_plan.eval_run_identity_sha256
-        os.environ[TELEMETRY_EVAL_ROLE_ENV] = receipt_plan.eval_run_role
-        os.environ[TELEMETRY_SLURM_JOB_ID_ENV] = receipt_plan.slurm_job_id
+        configure_concurrency_telemetry_environment(receipt_plan)
         returncode = run_guarded(
             command,
             binding,
