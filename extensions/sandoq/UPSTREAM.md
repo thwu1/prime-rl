@@ -4,6 +4,7 @@ This directory vendors `extensions/sandoq` from
 `fairinternal/ram_prime_rl` commit
 `f7313db42eea4b3be8bcbe16a8072f73cf6abed5`.
 
+- Upstream repository tree: `9cb669ad045a67e92bbd0a04fb353489457003aa`
 - Upstream subtree: `46ee7064345aa0e8cee47b61a21feeb2d9049361`
 - Upstream tracked-inventory SHA-256:
   `9fe562f29c37aefb32ce6bf8ad79270434d6ccc6c94f6b044ec72e7e377e1439`

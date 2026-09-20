@@ -428,7 +428,6 @@ def test_direct_qwen_identity_reference_verification_does_not_require_routing(tm
 
 
 def test_sandoq_source_rejects_unobserved_client_version(tmp_path: Path, monkeypatch) -> None:
-    (tmp_path / "deps/sandoq-provider").mkdir(parents=True)
     clean = hashlib.sha256(b"").hexdigest()
     args = SimpleNamespace(
         project_root=tmp_path,
@@ -459,9 +458,26 @@ def test_sandoq_source_rejects_unobserved_client_version(tmp_path: Path, monkeyp
         }[label]
 
     monkeypatch.setattr(eval_run_identity, "_git_output", git_output)
+    monkeypatch.setattr(eval_run_identity, "_validate_vendored_sandoq_provider", lambda *_args, **_kwargs: None)
     monkeypatch.setattr(eval_run_identity.importlib.metadata, "version", lambda _name: "observed")
     with pytest.raises(EvalIdentityError, match="client_version_mismatch"):
         _source_identity(args)
+
+
+def test_vendored_sandoq_provider_matches_pinned_upstream_inventory() -> None:
+    project_root = Path(__file__).resolve().parents[4]
+
+    eval_run_identity._validate_vendored_sandoq_provider(
+        project_root,
+        expected_commit=eval_run_identity.SANDOQ_UPSTREAM_COMMIT,
+        expected_tree=eval_run_identity.SANDOQ_UPSTREAM_TREE,
+    )
+    with pytest.raises(EvalIdentityError, match="sandoq_provider_mismatch"):
+        eval_run_identity._validate_vendored_sandoq_provider(
+            project_root,
+            expected_commit="0" * 40,
+            expected_tree=eval_run_identity.SANDOQ_UPSTREAM_TREE,
+        )
 
 
 def test_sandoq_site_digest_binds_non_cache_runtime_files(tmp_path: Path) -> None:

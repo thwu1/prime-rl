@@ -81,6 +81,11 @@ VMVM_HOST_CLEANUP_CONTRACT = {
     "release_on_exit_completed": True,
     "remote_deletion_verified": False,
 }
+SANDOQ_VENDOR_RELATIVE = Path("extensions/sandoq")
+SANDOQ_UPSTREAM_COMMIT = "f7313db42eea4b3be8bcbe16a8072f73cf6abed5"
+SANDOQ_UPSTREAM_TREE = "9cb669ad045a67e92bbd0a04fb353489457003aa"
+SANDOQ_UPSTREAM_SUBTREE = "46ee7064345aa0e8cee47b61a21feeb2d9049361"
+SANDOQ_UPSTREAM_INVENTORY_SHA256 = "9fe562f29c37aefb32ce6bf8ad79270434d6ccc6c94f6b044ec72e7e377e1439"
 
 
 class EvalIdentityError(ValueError):
@@ -349,6 +354,50 @@ def _sandoq_host_harness_sha256(project_root: Path) -> str:
     return _sha256_file(path, label="sandoq_host_harness")
 
 
+def _validate_vendored_sandoq_provider(
+    project_root: Path,
+    *,
+    expected_commit: str,
+    expected_tree: str,
+) -> None:
+    if expected_commit != SANDOQ_UPSTREAM_COMMIT or expected_tree != SANDOQ_UPSTREAM_TREE:
+        raise EvalIdentityError("sandoq_provider_mismatch")
+    vendor_root = project_root / SANDOQ_VENDOR_RELATIVE
+    upstream = vendor_root / "UPSTREAM.md"
+    try:
+        metadata = upstream.lstat()
+        body = upstream.read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError) as error:
+        raise EvalIdentityError("sandoq_provider_mismatch") from error
+    expected_markers = (
+        SANDOQ_UPSTREAM_COMMIT,
+        SANDOQ_UPSTREAM_TREE,
+        SANDOQ_UPSTREAM_SUBTREE,
+        SANDOQ_UPSTREAM_INVENTORY_SHA256,
+    )
+    if (
+        not stat.S_ISREG(metadata.st_mode)
+        or metadata.st_nlink != 1
+        or any(body.count(marker) != 1 for marker in expected_markers)
+    ):
+        raise EvalIdentityError("sandoq_provider_mismatch")
+    listing = _git_output(
+        project_root,
+        "ls-tree",
+        "-r",
+        "HEAD",
+        "--",
+        SANDOQ_VENDOR_RELATIVE.as_posix(),
+        label="sandoq_provider",
+    ).splitlines()
+    inventory = [line for line in listing if not line.endswith("\textensions/sandoq/UPSTREAM.md")]
+    if (
+        len(inventory) != 43
+        or _sha256_bytes(("\n".join(inventory) + "\n").encode()) != SANDOQ_UPSTREAM_INVENTORY_SHA256
+    ):
+        raise EvalIdentityError("sandoq_provider_mismatch")
+
+
 def _source_identity(args: argparse.Namespace) -> dict[str, str]:
     root = args.project_root.resolve(strict=True)
     revisions = {
@@ -391,20 +440,13 @@ def _source_identity(args: argparse.Namespace) -> dict[str, str]:
             raise EvalIdentityError("vmvm_source_sha256_mismatch")
         return {**identity, "vmvm_tb_v2_sha256": args.vmvm_tb_v2_sha256}
 
-    provider_root = root / "deps/sandoq-provider"
     if REVISION_RE.fullmatch(args.sandoq_provider_commit or "") is None:
         raise EvalIdentityError("sandoq_provider_commit_invalid")
-    if (
-        _git_output(provider_root, "rev-parse", "--verify", "HEAD", label="sandoq_provider").strip()
-        != args.sandoq_provider_commit
-        or _git_output(
-            provider_root, "status", "--porcelain=v1", "--untracked-files=all", label="sandoq_provider"
-        ).strip()
-    ):
-        raise EvalIdentityError("sandoq_provider_mismatch")
-    observed_tree = _git_output(provider_root, "rev-parse", "HEAD^{tree}", label="sandoq_provider").strip()
-    if args.sandoq_provider_tree != observed_tree:
-        raise EvalIdentityError("sandoq_provider_tree_mismatch")
+    _validate_vendored_sandoq_provider(
+        root,
+        expected_commit=args.sandoq_provider_commit,
+        expected_tree=args.sandoq_provider_tree,
+    )
     if not args.sandoq_client_version or any(character in args.sandoq_client_version for character in "\r\n="):
         raise EvalIdentityError("sandoq_client_version_invalid")
     try:
@@ -2151,17 +2193,11 @@ def _verify_source_record(source: object) -> None:
     if sandbox_provider == "vmvm" and source["vmvm_tb_v2_sha256"] != _vmvm_source_sha256(root):
         raise EvalIdentityError("vmvm_source_sha256_mismatch")
     if sandbox_provider == "sandoq":
-        provider = root / "deps/sandoq-provider"
-        if (
-            _git_output(provider, "rev-parse", "HEAD", label="sandoq_provider").strip()
-            != source["sandoq_provider_commit"]
-            or _git_output(provider, "rev-parse", "HEAD^{tree}", label="sandoq_provider").strip()
-            != source["sandoq_provider_tree"]
-            or _git_output(
-                provider, "status", "--porcelain=v1", "--untracked-files=all", label="sandoq_provider"
-            ).strip()
-        ):
-            raise EvalIdentityError("sandoq_provider_mismatch")
+        _validate_vendored_sandoq_provider(
+            root,
+            expected_commit=source["sandoq_provider_commit"],
+            expected_tree=source["sandoq_provider_tree"],
+        )
         if source["sandoq_site_sha256"] != _sandoq_site_sha256(Path(source["sandoq_site"])):
             raise EvalIdentityError("sandoq_site_sha256_mismatch")
         if source["sandoq_host_harness_sha256"] != _sandoq_host_harness_sha256(root):
