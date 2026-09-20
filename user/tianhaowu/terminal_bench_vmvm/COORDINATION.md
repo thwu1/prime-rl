@@ -1,6 +1,6 @@
 # VMVM sandbox coordination
 
-Last updated: 2026-09-20 00:38 UTC
+Last updated: 2026-09-20 00:46 UTC
 
 ## First message to the next teammate
 
@@ -55,8 +55,12 @@ Add new rows below this line; do not overwrite another owner's row.
   `paths.prune_removed_dir` with a no-op only around `stop.main`, restore it in
   `finally`, strictly classify wrong-type/nonzero/exception results, and add
   tests proving all unrelated archive identities remain unchanged across
-  success and each failure class. Then regenerate every dependent hash and run
-  a fresh exact-byte independent review. No scheduler mutation has occurred.
+  success and each failure class. The fake `stop.main` in those tests must
+  actually invoke its `paths.prune_removed_dir` hook and observe the installed
+  no-op; merely creating an unrelated archive without calling the hook is a
+  vacuous check that would still pass if the protection were removed. Then
+  regenerate every dependent hash and run a fresh exact-byte independent
+  review. No scheduler mutation has occurred.
 
 - **2026-09-20 00:16 UTC, Kimi v7 source rebind required before launch:**
   the current partial v7 watcher remains inert and is bound to superseded RAM
