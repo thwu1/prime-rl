@@ -5,8 +5,8 @@ shopt -u varredir_close
 umask 077
 readonly expected_digest=sha256:642f60668388b6c8e2d98f93577c9cd6a8aafaca7344dc4ab6a9e040774dec20
 readonly expected_image=588845226011.dkr.ecr.us-east-2.amazonaws.com/msl_infra/vllm-openai:kimi-k3-kda-logprobs-fix-v2-20260916@sha256:642f60668388b6c8e2d98f93577c9cd6a8aafaca7344dc4ab6a9e040774dec20
-readonly expected_bundle=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/watchers/k3_registry_pull_gate_20260920t081300z_v15
-readonly expected_result=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/diagnostics/k3_registry_pull_gate_20260920t081300z_v15/job_result.json
+readonly expected_bundle=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/watchers/k3_registry_pull_gate_20260920t084500z_v16
+readonly expected_result=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/diagnostics/k3_registry_pull_gate_20260920t084500z_v16/job_result.json
 # Preserve the two inherited Slurm log descriptors solely for identity proof
 # and the one allowlisted result. Silence every other command by construction.
 exec 8>&1 4>&2 >/dev/null 2>/dev/null || exit 3
@@ -15,7 +15,7 @@ emit() {
     local category=$1 state=blocked
     [[ "$category" == success ]] && state=complete
     local raw temp temp_meta result_sha published=0
-    raw=$(/usr/bin/printf '{"category":"%s","image_digest":"%s","kind":"k3-registry-pull-gate-v15","platform":"linux/arm64","state":"%s"}\n' \
+    raw=$(/usr/bin/printf '{"category":"%s","image_digest":"%s","kind":"k3-registry-pull-gate-v16","platform":"linux/arm64","state":"%s"}\n' \
         "$category" "$expected_digest" "$state")
     raw+=$'\n'
     if [[ "${GATE_JOB_RESULT:-}" == "$expected_result" \
@@ -24,7 +24,7 @@ emit() {
         temp=${GATE_JOB_RESULT}."${SLURM_JOB_ID:-unknown}"."$RANDOM".tmp
         if (set -o noclobber; /usr/bin/printf '%s' "$raw" > "$temp") 2>/dev/null \
             && /usr/bin/chmod 400 "$temp" 2>/dev/null \
-            && /usr/bin/sync -f "$temp" 2>/dev/null \
+            && /usr/bin/timeout --signal=TERM --kill-after=2s 8s /usr/bin/sync -f "$temp" 2>/dev/null \
             && /usr/bin/ln -- "$temp" "$GATE_JOB_RESULT" 2>/dev/null \
             && [[ "$(/usr/bin/stat -Lc '%F:%a:%u:%h' -- "$temp")" == 'regular file:400:656177:2' \
                 && "$(/usr/bin/stat -Lc '%d:%i' -- "$temp")" == "$(/usr/bin/stat -Lc '%d:%i' -- "$GATE_JOB_RESULT")" ]] \
@@ -33,7 +33,8 @@ emit() {
                 && "$(/usr/bin/stat -Lc '%F:%a:%u:%h' -- "$GATE_JOB_RESULT")" == 'regular file:400:656177:1' ]]; then
             result_sha=$(/usr/bin/printf '%s' "$raw" | /usr/bin/sha256sum | /usr/bin/cut -d' ' -f1)
             if [[ "$result_sha" == "$(/usr/bin/sha256sum -- "$GATE_JOB_RESULT" | /usr/bin/cut -d' ' -f1)" ]] \
-                && /usr/bin/sync -f "${GATE_JOB_RESULT%/*}" 2>/dev/null; then
+                && /usr/bin/timeout --signal=TERM --kill-after=2s 8s \
+                    /usr/bin/sync -f "${GATE_JOB_RESULT%/*}" 2>/dev/null; then
                 published=1
             fi
         fi
@@ -124,7 +125,7 @@ fi
     && "$node" != g3-136-247 && "$node" != g3-136-251 && "$node" != g3-136-253 ]] \
     || block allocation_identity
 
-log=${GATE_BUNDLE%/watchers/*}/logs/k3_registry_pull_gate_20260920t081300z_v15/slurm-${SLURM_JOB_ID}.log
+log=${GATE_BUNDLE%/watchers/*}/logs/k3_registry_pull_gate_20260920t084500z_v16/slurm-${SLURM_JOB_ID}.log
 stable_log_reads=0
 last_log_identity=
 for _ in {1..30}; do
@@ -167,59 +168,97 @@ stdout=
 stderr=
 local_tools=
 local_tools_export=
+stdout_fd=-1
+stderr_fd=-1
+local_tools_fd=-1
 stdout_identity=
 stderr_identity=
 local_tools_identity=
 cleanup_complete=0
 cleanup_attempted=0
 
+close_batch_private_fds() {
+    if [[ "$stdout_fd" =~ ^[0-9]+$ && "$stdout_fd" -ge 10 ]]; then
+        exec {stdout_fd}>&- || true
+        stdout_fd=-1
+    fi
+    if [[ "$stderr_fd" =~ ^[0-9]+$ && "$stderr_fd" -ge 10 ]]; then
+        exec {stderr_fd}>&- || true
+        stderr_fd=-1
+    fi
+    if [[ "$local_tools_fd" =~ ^[0-9]+$ && "$local_tools_fd" -ge 10 ]]; then
+        exec {local_tools_fd}<&- || true
+        local_tools_fd=-1
+    fi
+    if [[ "$private_fd" =~ ^[0-9]+$ && "$private_fd" -ge 10 ]]; then
+        exec {private_fd}<&- || true
+        private_fd=-1
+    fi
+}
+
 scrub_batch_contents() {
-    local owned expected observed leftover failed=0
+    local fd expected observed observed_dev_inode expected_dev_inode observed_uid path path_observed leftover failed=0
     [[ "$private_anchor_trusted" == 1 \
         && "$private_fd" =~ ^[0-9]+$ && "$private_fd" -ge 10 \
         && -d "$private_anchor" && ! -L "$private_anchor" \
         && "$private_identity" == "$(/usr/bin/stat -Lc '%d:%i:%a:%u' -- "$private_anchor" 2>/dev/null || true)" ]] \
         || return 1
-    for owned in "$stdout" "$stderr" "$local_tools"; do
-        [[ -n "$owned" ]] || continue
-        case "$owned" in
+    for fd in "$stdout_fd" "$stderr_fd" "$local_tools_fd"; do
+        case "$fd" in
+            "$stdout_fd") expected=$stdout_identity ;;
+            "$stderr_fd") expected=$stderr_identity ;;
+            "$local_tools_fd") expected=$local_tools_identity ;;
+            *) return 1 ;;
+        esac
+        [[ "$fd" =~ ^[0-9]+$ && "$fd" -ge 10 && -n "$expected" ]] || return 1
+        observed=$(/usr/bin/stat -Lc '%d:%i:%a:%u:%h' -- "/proc/self/fd/$fd" 2>/dev/null || true)
+        observed_dev_inode=${observed%:*:*:*}
+        expected_dev_inode=${expected%:*:*:*}
+        observed_uid=${observed%:*}
+        observed_uid=${observed_uid##*:}
+        [[ -f "/proc/self/fd/$fd" && "$observed_dev_inode" == "$expected_dev_inode" \
+            && "$observed_uid" == 656177 ]] || { failed=1; continue; }
+        # These descriptors name only files created by this process. Scrub the
+        # exact inode even if an unexpected hard link appeared, then reject it.
+        /usr/bin/timeout --signal=TERM --kill-after=1s 2s \
+            /usr/bin/chmod 600 -- "/proc/self/fd/$fd" 2>/dev/null || { failed=1; continue; }
+        /usr/bin/timeout --signal=TERM --kill-after=1s 5s \
+            /usr/bin/truncate -s 0 -- "/proc/self/fd/$fd" 2>/dev/null || { failed=1; continue; }
+        [[ "$observed" == "$expected" ]] || failed=1
+    done
+
+    # Verify that every retained name still resolves to the exact scrubbed
+    # inode. A replacement is preserved and makes cleanup fail closed.
+    for path in "$stdout" "$stderr" "$local_tools"; do
+        case "$path" in
             "$stdout") expected=$stdout_identity ;;
             "$stderr") expected=$stderr_identity ;;
             "$local_tools") expected=$local_tools_identity ;;
             *) return 1 ;;
         esac
-        if [[ -e "$owned" || -L "$owned" ]]; then
-            observed=$(/usr/bin/stat -c '%d:%i:%a:%u:%h' -- "$owned" 2>/dev/null || true)
-            if [[ -n "$expected" ]]; then
-                [[ "$observed" == "$expected" ]] || { failed=1; continue; }
-            else
-                [[ -f "$owned" && ! -L "$owned" && "$observed" == *':656177:1' ]] \
-                    || { failed=1; continue; }
-            fi
-            /usr/bin/chmod 600 -- "$owned" 2>/dev/null || { failed=1; continue; }
-            /usr/bin/truncate -s 0 -- "$owned" 2>/dev/null || { failed=1; continue; }
-            /usr/bin/unlink -- "$owned" 2>/dev/null || failed=1
-        fi
+        path_observed=$(/usr/bin/stat -c '%d:%i:%a:%u:%h:%s' -- "$path" 2>/dev/null || true)
+        [[ "${path_observed%:*:*:*:*}" == "${expected%:*:*:*}" \
+            && "$path_observed" == *':600:656177:1:0' ]] \
+            || failed=1
     done
-    leftover=$(/usr/bin/find "$private_anchor" -xdev -mindepth 1 -maxdepth 1 -print -quit 2>/dev/null) \
+    leftover=$(/usr/bin/timeout --signal=TERM --kill-after=1s 3s \
+        /usr/bin/find "$private_anchor" -xdev -mindepth 1 -maxdepth 1 \
+            ! -name stdout ! -name stderr ! -name compute_tools.sha256 -print -quit 2>/dev/null) \
         || failed=1
     [[ -z "$leftover" ]] || failed=1
     (( failed == 0 ))
 }
 
-remove_batch_root() {
-    local anchored_after expected_dev_inode named_now
+retain_batch_root() {
+    local anchored_after named_now result=0
     cleanup_attempted=1
-    scrub_batch_contents || return 1
-    named_now=$(/usr/bin/stat -c '%d:%i:%a:%u' -- "$private" 2>/dev/null) || return 1
-    [[ "$named_now" == "$private_identity" ]] || return 1
-    /usr/bin/rmdir -- "$private" 2>/dev/null || return 1
-    anchored_after=$(/usr/bin/stat -Lc '%d:%i:%h' -- "$private_anchor" 2>/dev/null) || return 1
-    expected_dev_inode=${private_identity%:*:*}
-    [[ "$anchored_after" == "$expected_dev_inode:0" && ! -e "$private" && ! -L "$private" ]] \
-        || return 1
-    exec {private_fd}<&-
-    private_fd=-1
+    scrub_batch_contents || result=1
+    anchored_after=$(/usr/bin/stat -Lc '%d:%i:%a:%u' -- "$private_anchor" 2>/dev/null) || result=1
+    [[ "$anchored_after" == "$private_identity" ]] || result=1
+    named_now=$(/usr/bin/stat -c '%d:%i:%a:%u' -- "$private" 2>/dev/null || true)
+    [[ "$named_now" == "$private_identity" ]] || result=1
+    close_batch_private_fds
+    (( result == 0 ))
 }
 
 early_cleanup() {
@@ -227,11 +266,9 @@ early_cleanup() {
     trap - EXIT HUP INT TERM
     if (( ! cleanup_complete && ! cleanup_attempted )) \
         && [[ "$private_fd" =~ ^[0-9]+$ && "$private_fd" -ge 10 ]]; then
-        remove_batch_root >/dev/null 2>&1 || true
+        retain_batch_root >/dev/null 2>&1 || true
     fi
-    if [[ "$private_fd" =~ ^[0-9]+$ && "$private_fd" -ge 10 ]]; then
-        exec {private_fd}<&- || true
-    fi
+    close_batch_private_fds
     exit "$saved"
 }
 early_signal() {
@@ -241,7 +278,7 @@ early_signal() {
 }
 trap early_cleanup EXIT
 trap early_signal HUP INT TERM
-private=$(/usr/bin/mktemp -d "$local_parent/k3-registry-pull-v15.batch.${SLURM_JOB_ID}.XXXXXX" 2>/dev/null) \
+private=$(/usr/bin/mktemp -d "$local_parent/k3-registry-pull-v16.batch.${SLURM_JOB_ID}.XXXXXX" 2>/dev/null) \
     || block private_environment
 readonly private
 [[ "$private" != /proc/self/fd/* \
@@ -282,6 +319,9 @@ readonly stdout stderr local_tools local_tools_export
     || block private_environment
 /usr/bin/chmod 400 "$local_tools" 2>/dev/null \
     || block private_environment
+if ! exec {stdout_fd}<>"$stdout" {stderr_fd}<>"$stderr" {local_tools_fd}<"$local_tools" 2>/dev/null; then
+    block private_environment
+fi
 stdout_identity=$(/usr/bin/stat -c '%d:%i:%a:%u:%h' -- "$stdout" 2>/dev/null) \
     || block private_environment
 stderr_identity=$(/usr/bin/stat -c '%d:%i:%a:%u:%h' -- "$stderr" 2>/dev/null) \
@@ -293,12 +333,18 @@ local_tools_identity=$(/usr/bin/stat -c '%d:%i:%a:%u:%h' -- "$local_tools" 2>/de
     && "$stdout_identity" == *':600:656177:1' \
     && "$stderr_identity" == *':600:656177:1' \
     && "$local_tools_identity" == *':400:656177:1' \
+    && "$stdout_identity" == "$(/usr/bin/stat -Lc '%d:%i:%a:%u:%h' -- "/proc/self/fd/$stdout_fd")" \
+    && "$stderr_identity" == "$(/usr/bin/stat -Lc '%d:%i:%a:%u:%h' -- "/proc/self/fd/$stderr_fd")" \
+    && "$local_tools_identity" == "$(/usr/bin/stat -Lc '%d:%i:%a:%u:%h' -- "/proc/self/fd/$local_tools_fd")" \
     && "$(/usr/bin/sha256sum -- "$local_tools" 2>/dev/null | /usr/bin/cut -d' ' -f1)" == "${GATE_TOOL_MANIFEST_SHA256:-}" ]] \
     || block private_environment
+readonly stdout_identity stderr_identity local_tools_identity
+readonly stdout_stream=/proc/self/fd/${stdout_fd}
+readonly stderr_stream=/proc/self/fd/${stderr_fd}
 export GATE_LOCAL_TOOL_MANIFEST=$local_tools_export
 
 cleanup_private_tree() {
-    remove_batch_root
+    retain_batch_root
 }
 
 cleanup() {
@@ -306,11 +352,9 @@ cleanup() {
     trap - EXIT HUP INT TERM
     if (( ! cleanup_complete && ! cleanup_attempted )) \
         && [[ "$private_fd" =~ ^[0-9]+$ && "$private_fd" -ge 10 ]]; then
-        remove_batch_root >/dev/null 2>&1 || true
+        retain_batch_root >/dev/null 2>&1 || true
     fi
-    if [[ "$private_fd" =~ ^[0-9]+$ && "$private_fd" -ge 10 ]]; then
-        exec {private_fd}<&- || true
-    fi
+    close_batch_private_fds
     exit "$saved"
 }
 active_pid=
@@ -324,9 +368,10 @@ stop_child() {
     if /usr/bin/kill -0 -- "$group" 2>/dev/null || /usr/bin/kill -0 -- "$active_pid" 2>/dev/null; then
         /usr/bin/kill -TERM -- "$group" 2>/dev/null || true
         /usr/bin/kill -TERM -- "$active_pid" 2>/dev/null || true
-        # The probe's complete anchored fallback is bounded below 80 seconds.
-        # Give it 110 seconds after TERM before escalating the whole step group.
-        for _ in {1..1100}; do
+        # Seven directory scrubs run concurrently; with the three exact-file
+        # scrubs, the complete probe fallback is bounded below 120 seconds.
+        # Allow 160 seconds after TERM before escalating the whole step group.
+        for _ in {1..1600}; do
             if ! /usr/bin/kill -0 -- "$group" 2>/dev/null \
                 && ! /usr/bin/kill -0 -- "$active_pid" 2>/dev/null; then
                 break
@@ -360,8 +405,12 @@ handle_signal() {
     fi
     trap - HUP INT TERM
     if ! stop_child; then
-        cleanup_complete=1
-        emit internal || exit 3
+        if cleanup_private_tree; then
+            cleanup_complete=1
+            emit internal || exit 3
+        else
+            emit private_cleanup || exit 3
+        fi
         exit 130
     fi
     if cleanup_private_tree; then
@@ -381,10 +430,11 @@ trap 'handle_signal TERM' TERM
 set +e
 spawning=1
 (
-    exec </proc/self/fd/6 >"$stdout" 2>"$stderr"
+    exec </proc/self/fd/6 >&"$stdout_fd" 2>&"$stderr_fd"
     exec {private_fd}<&-
+    exec {stdout_fd}>&- {stderr_fd}>&- {local_tools_fd}<&-
     exec 4>&- 5>&- 6>&- 7>&- 8>&- 9>&-
-    exec /usr/bin/setsid /usr/bin/timeout --signal=TERM --kill-after=100s 1680s \
+    exec /usr/bin/setsid /usr/bin/timeout --signal=TERM --kill-after=150s 1560s \
         /usr/bin/srun -M fair-cw-use2-3 --overlap --nodes=1 --ntasks=1 -w "$node" \
         --gpus-per-node=1 --cpus-per-task=4 --cpu-bind=none --export=ALL \
         /usr/bin/bash -p -s
@@ -407,8 +457,12 @@ if (( ! spawn_group_ready )) && /usr/bin/kill -0 -- "$active_pid" 2>/dev/null; t
     if stop_child; then
         rc=125
     else
-        cleanup_complete=1
-        emit internal || exit 3
+        if cleanup_private_tree; then
+            cleanup_complete=1
+            emit internal || exit 3
+        else
+            emit private_cleanup || exit 3
+        fi
         exit 1
     fi
 else
@@ -418,9 +472,9 @@ else
 fi
 set -e
 
-success='{"category":"success","image_digest":"sha256:642f60668388b6c8e2d98f93577c9cd6a8aafaca7344dc4ab6a9e040774dec20","kind":"k3-registry-pull-gate-v15","platform":"linux/arm64","state":"complete"}'
-if (( rc == 0 )) && [[ "$(/usr/bin/stat -c '%s' "$stdout")" -eq $((${#success} + 1)) \
-    && "$(<"$stdout")" == "$success" ]]; then
+success='{"category":"success","image_digest":"sha256:642f60668388b6c8e2d98f93577c9cd6a8aafaca7344dc4ab6a9e040774dec20","kind":"k3-registry-pull-gate-v16","platform":"linux/arm64","state":"complete"}'
+if (( rc == 0 )) && [[ "$(/usr/bin/stat -Lc '%s' "$stdout_stream")" -eq $((${#success} + 1)) \
+    && "$(<"$stdout_stream")" == "$success" ]]; then
     if ! cleanup_private_tree; then
         trap - HUP INT TERM
         emit private_cleanup || exit 3
@@ -432,7 +486,7 @@ if (( rc == 0 )) && [[ "$(/usr/bin/stat -c '%s' "$stdout")" -eq $((${#success} +
     exit 0
 fi
 
-if classify_registry_error_file "$stderr" "$rc"; then
+if classify_registry_error_file "$stderr_stream" "$rc"; then
     category=$REGISTRY_SAFE_CATEGORY
 else
     category=internal

@@ -14,7 +14,7 @@ from pathlib import Path
 import pytest
 
 HERE = Path(__file__).resolve().parent
-SPEC = importlib.util.spec_from_file_location("registry_gate_v15_controller", HERE / "controller.py")
+SPEC = importlib.util.spec_from_file_location("registry_gate_v16_controller", HERE / "controller.py")
 assert SPEC is not None and SPEC.loader is not None
 controller = importlib.util.module_from_spec(SPEC)
 sys.modules[SPEC.name] = controller
@@ -65,7 +65,11 @@ def test_approval_is_diagnostic_only() -> None:
     assert contract["protocol"]["spooled_batch_self_hash"] is True
     assert contract["protocol"]["fd_bound_runtime_sources"] is True
     assert contract["protocol"]["dirfd_anchored_cleanup"] is True
-    assert contract["protocol"]["bounded_signal_cleanup_seconds"] == 115
+    assert contract["protocol"]["retained_scrubbed_roots"] is True
+    assert contract["protocol"]["retained_raw_stream_fds"] is True
+    assert contract["protocol"]["podman_directory_inode_binding"] is True
+    assert contract["protocol"]["unsafe_entry_preflight"] is True
+    assert contract["protocol"]["bounded_signal_cleanup_seconds"] == 215
     assert contract["protocol"]["malformed_submit_output_reconciled"] is True
     assert contract["protocol"]["discovered_id_bound_before_identity_wait"] is True
     assert contract["protocol"]["unknown_id_cleanup_reconciled"] is True
@@ -184,7 +188,7 @@ def test_sbatch_command_is_exact_and_held() -> None:
     assert command.count("--mem=16G") == 1
     assert command.count("--time=00:30:00") == 1
     assert command.count("--no-requeue") == 1
-    assert command.count("--signal=B:TERM@120") == 1
+    assert command.count("--signal=B:TERM@240") == 1
     assert [part for part in command if part.startswith("--export")] == ["--export-file=/private/environment.bin"]
     assert str(controller.BUNDLE / "run_registry_gate.sbatch") not in command
     assert command[-2:] == ["--export-file=/private/environment.bin", "-"]
@@ -534,7 +538,7 @@ def test_batch_public_output_is_only_emit() -> None:
     assert "/usr/bin/printf '%s' \"$raw\" | /usr/bin/sha256sum" in text
     assert text.count("\n    /usr/bin/printf '%s' \"$raw\" >&8\n") == 1
     assert "exec 8>&1 4>&2 >/dev/null 2>/dev/null" in text
-    assert '>"$stdout" 2>"$stderr"' in text
+    assert '>&"$stdout_fd" 2>&"$stderr_fd"' in text
     assert "GATE_JOB_RESULT" in text
     assert '/usr/bin/ln -- "$temp" "$GATE_JOB_RESULT"' in text
     for line in text.splitlines():
@@ -562,7 +566,7 @@ def test_exact_bytes_are_executed_from_bound_descriptors() -> None:
     probe = (HERE / "probe_registry_gate.sh").read_text()
     assert 'exec 9<"${BASH_SOURCE[0]}" 7<"$classifier" 6<"$probe" 5<"$tools_manifest"' in batch
     assert "/usr/bin/sha256sum -- /proc/self/fd/9" in batch
-    assert 'exec </proc/self/fd/6 >"$stdout" 2>"$stderr"' in batch
+    assert 'exec </proc/self/fd/6 >&"$stdout_fd" 2>&"$stderr_fd"' in batch
     assert "exec /usr/bin/setsid /usr/bin/timeout" in batch
     assert "/usr/bin/bash -p -s" in batch
     assert "source /proc/self/fd/8" in probe
@@ -592,138 +596,224 @@ def test_cleanup_traps_precede_first_mktemp() -> None:
 def test_private_cleanup_makes_read_only_files_writable_before_truncation() -> None:
     batch = (HERE / "run_registry_gate.sbatch").read_text()
     probe = (HERE / "probe_registry_gate.sh").read_text()
-    scrub = batch[batch.index("scrub_batch_contents()") : batch.index("remove_batch_root()")]
-    assert scrub.index('/usr/bin/chmod 600 -- "$owned"') < scrub.index('/usr/bin/truncate -s 0 -- "$owned"')
-    scrub = probe[probe.index("scrub_private_contents()") : probe.index("remove_private_root()")]
+    scrub = batch[batch.index("scrub_batch_contents()") : batch.index("retain_batch_root()")]
+    assert scrub.index('/usr/bin/chmod 600 -- "/proc/self/fd/$fd"') < scrub.index(
+        '/usr/bin/truncate -s 0 -- "/proc/self/fd/$fd"'
+    )
+    scrub = probe[probe.index("scrub_anchored_directory()") : probe.index("scrub_exact_probe_file()")]
     chmod = scrub.index("-exec /usr/bin/chmod u+rwx")
     truncate = scrub.index("-exec /usr/bin/truncate")
     assert chmod < truncate
     assert "-type f -links 1" in scrub
 
 
-def test_batch_anchored_cleanup_rejects_renamed_root_without_touching_replacement(tmp_path: Path) -> None:
+def _batch_cleanup_functions() -> str:
     text = (HERE / "run_registry_gate.sbatch").read_text()
-    functions = text[text.index("scrub_batch_contents()") : text.index("early_cleanup()")]
-    script = (
+    return text[text.index("close_batch_private_fds()") : text.index("early_cleanup()")]
+
+
+def _batch_fd_setup() -> str:
+    return (
         "set -euo pipefail\n"
-        "local_parent=$1\n"
-        "private=$local_parent/original\n"
-        "moved=$local_parent/moved\n"
+        "private=$1/original\n"
         'mkdir -m 700 -- "$private"\n'
-        "private_fd=-1\n"
+        "private_fd=-1\nstdout_fd=-1\nstderr_fd=-1\nlocal_tools_fd=-1\n"
         'exec {private_fd}<"$private"\n'
         "private_anchor=/proc/self/fd/${private_fd}/.\n"
         "private_identity=$(stat -Lc '%d:%i:%a:%u' \"$private_anchor\")\n"
-        "private_anchor_trusted=1\n"
-        "stdout=$private_anchor/stdout\n"
-        "stderr=$private_anchor/stderr\n"
+        "private_anchor_trusted=1\ncleanup_attempted=0\n"
+        "stdout=$private_anchor/stdout\nstderr=$private_anchor/stderr\n"
         "local_tools=$private_anchor/compute_tools.sha256\n"
         'touch "$stdout" "$stderr" "$local_tools"\n'
+        'printf tools > "$local_tools"\n'
         'chmod 600 "$stdout" "$stderr"; chmod 400 "$local_tools"\n'
-        "stdout_identity=$(stat -c '%d:%i:%a:%u:%h' \"$stdout\")\n"
-        "stderr_identity=$(stat -c '%d:%i:%a:%u:%h' \"$stderr\")\n"
-        "local_tools_identity=$(stat -c '%d:%i:%a:%u:%h' \"$local_tools\")\n" + functions + '\nmv "$private" "$moved"\n'
-        'mkdir -m 700 -- "$private"\n'
-        'printf keep > "$private/replacement"\n'
-        "set +e; remove_batch_root; rc=$?; set -e\n"
-        "[[ $rc -ne 0 ]]\n"
-        '[[ -z "$(find "$moved" -mindepth 1 -print -quit)" ]]\n'
-        '[[ $(<"$private/replacement") == keep ]]\n'
-        "exec {private_fd}<&-\n"
+        'exec {stdout_fd}<>"$stdout" {stderr_fd}<>"$stderr" {local_tools_fd}<"$local_tools"\n'
+        "stdout_identity=$(stat -Lc '%d:%i:%a:%u:%h' /proc/self/fd/$stdout_fd)\n"
+        "stderr_identity=$(stat -Lc '%d:%i:%a:%u:%h' /proc/self/fd/$stderr_fd)\n"
+        "local_tools_identity=$(stat -Lc '%d:%i:%a:%u:%h' /proc/self/fd/$local_tools_fd)\n"
+        'printf stdout-secret > /proc/self/fd/$stdout_fd\n'
+        'printf stderr-secret > /proc/self/fd/$stderr_fd\n'
+        'exec {check_stdout}>&$stdout_fd {check_stderr}>&$stderr_fd\n'
     )
-    result = subprocess.run(["/usr/bin/bash", "-p", "-c", script, "anchor-test", str(tmp_path)], capture_output=True)
-    assert result.returncode == 0, result.stderr.decode()
 
 
-def test_batch_anchored_cleanup_removes_the_bound_root(tmp_path: Path) -> None:
-    text = (HERE / "run_registry_gate.sbatch").read_text()
-    functions = text[text.index("scrub_batch_contents()") : text.index("early_cleanup()")]
+def test_batch_retains_scrubbed_root_and_exact_log_descriptors(tmp_path: Path) -> None:
     script = (
-        "set -euo pipefail\n"
-        "local_parent=$1\n"
-        "private=$local_parent/original\n"
-        'mkdir -m 700 -- "$private"\n'
-        "private_fd=-1\n"
-        'exec {private_fd}<"$private"\n'
-        "private_anchor=/proc/self/fd/${private_fd}/.\n"
-        "private_identity=$(stat -Lc '%d:%i:%a:%u' \"$private_anchor\")\n"
-        "private_anchor_trusted=1\n"
-        "stdout=$private_anchor/stdout\n"
-        "stderr=$private_anchor/stderr\n"
-        "local_tools=$private_anchor/compute_tools.sha256\n"
-        'touch "$stdout" "$stderr" "$local_tools"\n'
-        'chmod 600 "$stdout" "$stderr"; chmod 400 "$local_tools"\n'
-        "stdout_identity=$(stat -c '%d:%i:%a:%u:%h' \"$stdout\")\n"
-        "stderr_identity=$(stat -c '%d:%i:%a:%u:%h' \"$stderr\")\n"
-        "local_tools_identity=$(stat -c '%d:%i:%a:%u:%h' \"$local_tools\")\n" + functions + "\nremove_batch_root\n"
-        "[[ $private_fd == -1 ]]\n"
-        "[[ ! -e $private && ! -L $private ]]\n"
+        _batch_fd_setup()
+        + _batch_cleanup_functions()
+        + "\nretain_batch_root\n"
+        "[[ -d $private && ! -L $private ]]\n"
+        "[[ $private_fd == -1 && $stdout_fd == -1 && $stderr_fd == -1 && $local_tools_fd == -1 ]]\n"
+        "[[ $(stat -Lc %s /proc/self/fd/$check_stdout) == 0 ]]\n"
+        "[[ $(stat -Lc %s /proc/self/fd/$check_stderr) == 0 ]]\n"
+        "[[ $(stat -c %s \"$private/stdout\") == 0 && $(stat -c %s \"$private/stderr\") == 0 ]]\n"
+        "[[ $(stat -c %s \"$private/compute_tools.sha256\") == 0 ]]\n"
+        '[[ -z "$(find "$private" -mindepth 1 ! -name stdout ! -name stderr ! -name compute_tools.sha256 -print -quit)" ]]\n'
+        "exec {check_stdout}>&- {check_stderr}>&-\n"
     )
     result = subprocess.run(["/usr/bin/bash", "-p", "-c", script, "anchor-test", str(tmp_path)], capture_output=True)
     assert result.returncode == 0, result.stderr.decode()
 
 
-def test_probe_anchored_cleanup_rejects_renamed_root_without_touching_replacement(tmp_path: Path) -> None:
+def test_batch_empty_root_swap_after_scrub_is_preserved(tmp_path: Path) -> None:
+    script = (
+        _batch_fd_setup()
+        + _batch_cleanup_functions()
+        + '\nscrub_batch_contents\nmoved=$1/moved\nmv "$private" "$moved"\nmkdir -m 700 -- "$private"\n'
+        'replacement_identity=$(stat -c "%d:%i" "$private")\n'
+        "set +e; retain_batch_root; rc=$?; set -e\n"
+        "[[ $rc -ne 0 ]]\n"
+        '[[ $(stat -c "%d:%i" "$private") == "$replacement_identity" ]]\n'
+        '[[ $(stat -c %s "$moved/compute_tools.sha256") == 0 ]]\n'
+        "[[ $(stat -Lc %s /proc/self/fd/$check_stdout) == 0 ]]\n"
+        "[[ $(stat -Lc %s /proc/self/fd/$check_stderr) == 0 ]]\n"
+        "exec {check_stdout}>&- {check_stderr}>&-\n"
+    )
+    result = subprocess.run(["/usr/bin/bash", "-p", "-c", script, "anchor-test", str(tmp_path)], capture_output=True)
+    assert result.returncode == 0, result.stderr.decode()
+
+
+def test_batch_named_log_replacement_is_preserved_while_exact_inode_is_scrubbed(tmp_path: Path) -> None:
+    script = (
+        _batch_fd_setup()
+        + _batch_cleanup_functions()
+        + '\nmv "$private/stdout" "$1/moved-stdout"\nprintf keep > "$private/stdout"\n'
+        "set +e; retain_batch_root; rc=$?; set -e\n"
+        "[[ $rc -ne 0 ]]\n"
+        '[[ $(<"$private/stdout") == keep ]]\n'
+        '[[ $(stat -c %s "$1/moved-stdout") == 0 ]]\n'
+        "[[ $(stat -Lc %s /proc/self/fd/$check_stdout) == 0 ]]\n"
+        "[[ $(stat -Lc %s /proc/self/fd/$check_stderr) == 0 ]]\n"
+        "exec {check_stdout}>&- {check_stderr}>&-\n"
+    )
+    result = subprocess.run(["/usr/bin/bash", "-p", "-c", script, "inode-test", str(tmp_path)], capture_output=True)
+    assert result.returncode == 0, result.stderr.decode()
+
+
+def _probe_directory_scrubber() -> str:
     text = (HERE / "probe_registry_gate.sh").read_text()
-    functions = text[text.index("private_root_bound()") : text.index("early_cleanup()")]
+    return text[text.index("scrub_anchored_directory()") : text.index("scrub_exact_probe_file()")]
+
+
+def _probe_cleanup_functions() -> str:
+    text = (HERE / "probe_registry_gate.sh").read_text()
+    return text[text.index("private_root_bound()") : text.index("early_cleanup()")]
+
+
+def test_probe_retains_verified_scrubbed_root_and_child_directories(tmp_path: Path) -> None:
+    script = (
+        "set -euo pipefail\nshopt -u varredir_close\nGATE_EXPECTED_UID=$(id -u)\n"
+        "private_root=$1/root\nmkdir -m 700 -- \"$private_root\"\n"
+        "private_root_fd=-1\nexec {private_root_fd}<\"$private_root\"\n"
+        "private_root_anchor=/proc/self/fd/${private_root_fd}/.\n"
+        "private_root_identity=$(stat -Lc '%d:%i:%a:%u' \"$private_root_anchor\")\n"
+        "private_root_anchor_trusted=1\ncleanup_attempted=0\n"
+        "private_dir_paths=()\nprivate_dir_fds=()\nprivate_dir_anchors=()\nprivate_dir_identities=()\n"
+        "for name in graphroot runroot xdg-runtime xdg-config xdg-data home tmp; do\n"
+        ' path="$private_root/$name"; mkdir -m 700 -- "$path"; printf secret > "$path/private"\n'
+        ' exec {held}<"$path"; private_dir_paths+=("$path"); private_dir_fds+=("$held")\n'
+        ' private_dir_anchors+=("/proc/self/fd/${held}/.")\n'
+        ' private_dir_identities+=("$(stat -Lc \'%d:%i:%a:%u\' /proc/self/fd/${held}/.)")\n'
+        " unset held\ndone\n"
+        "storage_conf=$private_root/storage.conf\nlocal_tls=$private_root/tls-combined.pem\ninspect_file=$private_root/inspect\n"
+        'printf config > "$storage_conf"; printf tls > "$local_tls"; printf inspect > "$inspect_file"\n'
+        'chmod 600 "$storage_conf" "$local_tls" "$inspect_file"\n'
+        'exec {storage_conf_fd}<>"$storage_conf" {local_tls_fd}<>"$local_tls" {inspect_fd}<>"$inspect_file"\n'
+        'chmod 500 "$local_tls"\n'
+        "storage_conf_identity=$(stat -Lc '%d:%i:%a:%u:%h' /proc/self/fd/$storage_conf_fd)\n"
+        "local_tls_identity=$(stat -Lc '%d:%i:%a:%u:%h' /proc/self/fd/$local_tls_fd)\n"
+        "inspect_identity=$(stat -Lc '%d:%i:%a:%u:%h' /proc/self/fd/$inspect_fd)\n"
+        + _probe_cleanup_functions()
+        + "\nretain_private_root\n"
+        '[[ -d "$private_root" && ! -L "$private_root" ]]\n'
+        'for path in "${private_dir_paths[@]}"; do [[ -d "$path" && -z "$(find "$path" -mindepth 1 -print -quit)" ]]; done\n'
+        '[[ $(stat -c %s "$storage_conf") == 0 && $(stat -c %s "$local_tls") == 0 && $(stat -c %s "$inspect_file") == 0 ]]\n'
+        "[[ $private_root_fd == -1 && $storage_conf_fd == -1 && $local_tls_fd == -1 && $inspect_fd == -1 ]]\n"
+    )
+    result = subprocess.run(["/usr/bin/bash", "-p", "-c", script, "probe-retain", str(tmp_path)], capture_output=True)
+    assert result.returncode == 0, result.stderr.decode()
+
+
+@pytest.mark.parametrize("directory_name", ["graphroot", "runroot"])
+def test_probe_scrubs_moved_podman_directory_by_fd_and_preserves_replacement(
+    tmp_path: Path, directory_name: str
+) -> None:
     script = (
         "set -euo pipefail\n"
         "GATE_EXPECTED_UID=$(id -u)\n"
-        "private_root=$1/original\n"
-        "moved=$1/moved\n"
-        'mkdir -m 700 -- "$private_root"\n'
-        "private_root_fd=-1\n"
-        'exec {private_root_fd}<"$private_root"\n'
-        "private_root_anchor=/proc/self/fd/${private_root_fd}/.\n"
-        "private_root_identity=$(stat -Lc '%d:%i:%a:%u' \"$private_root_anchor\")\n"
-        "private_root_anchor_trusted=1\n"
-        'mkdir "$private_root/nested"\n'
-        'printf secret > "$private_root/nested/private"\n'
-        'chmod 400 "$private_root/nested/private"\n' + functions + '\nmv "$private_root" "$moved"\n'
-        'mkdir -m 700 -- "$private_root"\n'
-        'printf keep > "$private_root/replacement"\n'
-        "set +e; remove_private_root; rc=$?; set -e\n"
-        "[[ $rc -ne 0 ]]\n"
+        "original=$1/$2\nmoved=$1/moved-$2\nreplacement=$1/$2\n"
+        'mkdir -m 700 -- "$original"\nmkdir "$original/nested"\nprintf secret > "$original/nested/private"\n'
+        'exec {held_fd}<"$original"\nanchor=/proc/self/fd/${held_fd}/.\n'
+        "identity=$(stat -Lc '%d:%i:%a:%u' \"$anchor\")\n"
+        + _probe_directory_scrubber()
+        + '\nmv "$original" "$moved"\nmkdir -m 700 -- "$replacement"\nprintf keep > "$replacement/sentinel"\n'
+        'scrub_anchored_directory "$anchor" "$identity"\n'
         '[[ -z "$(find "$moved" -mindepth 1 -print -quit)" ]]\n'
-        '[[ $(<"$private_root/replacement") == keep ]]\n'
-        "exec {private_root_fd}<&-\n"
+        '[[ $(<"$replacement/sentinel") == keep ]]\nexec {held_fd}<&-\n'
     )
-    result = subprocess.run(["/usr/bin/bash", "-p", "-c", script, "anchor-test", str(tmp_path)], capture_output=True)
+    result = subprocess.run(
+        ["/usr/bin/bash", "-p", "-c", script, "anchor-test", str(tmp_path), directory_name], capture_output=True
+    )
     assert result.returncode == 0, result.stderr.decode()
 
 
-def test_probe_anchored_cleanup_removes_the_bound_root(tmp_path: Path) -> None:
-    text = (HERE / "probe_registry_gate.sh").read_text()
-    functions = text[text.index("private_root_bound()") : text.index("early_cleanup()")]
+def test_probe_preflight_rejects_hardlinks_and_specials_before_mutation(tmp_path: Path) -> None:
+    root = tmp_path / "root"
+    root.mkdir(mode=0o700)
+    private = root / "private"
+    private.write_text("secret")
+    outside = tmp_path / "outside"
+    os.link(private, outside)
+    os.mkfifo(root / "fifo", mode=0o600)
     script = (
-        "set -euo pipefail\n"
-        "GATE_EXPECTED_UID=$(id -u)\n"
-        "private_root=$1/original\n"
-        'mkdir -m 700 -- "$private_root"\n'
-        "private_root_fd=-1\n"
-        'exec {private_root_fd}<"$private_root"\n'
-        "private_root_anchor=/proc/self/fd/${private_root_fd}/.\n"
-        "private_root_identity=$(stat -Lc '%d:%i:%a:%u' \"$private_root_anchor\")\n"
-        "private_root_anchor_trusted=1\n"
-        'mkdir "$private_root/nested"\n'
-        'printf secret > "$private_root/nested/private"\n'
-        'chmod 400 "$private_root/nested/private"\n' + functions + "\nremove_private_root\n"
-        "[[ $private_root_fd == -1 ]]\n"
-        "[[ ! -e $private_root && ! -L $private_root ]]\n"
+        "set -euo pipefail\nGATE_EXPECTED_UID=$(id -u)\nroot=$1\n"
+        'exec {held_fd}<"$root"\nanchor=/proc/self/fd/${held_fd}/.\n'
+        "identity=$(stat -Lc '%d:%i:%a:%u' \"$anchor\")\n"
+        + _probe_directory_scrubber()
+        + '\nset +e; scrub_anchored_directory "$anchor" "$identity"; rc=$?; set -e\n'
+        "[[ $rc -ne 0 ]]\n[[ $(<\"$root/private\") == secret ]]\n"
+        '[[ -p "$root/fifo" ]]\nexec {held_fd}<&-\n'
     )
-    result = subprocess.run(["/usr/bin/bash", "-p", "-c", script, "anchor-test", str(tmp_path)], capture_output=True)
+    result = subprocess.run(["/usr/bin/bash", "-p", "-c", script, "preflight-test", str(root)], capture_output=True)
     assert result.returncode == 0, result.stderr.decode()
+    assert outside.read_text() == "secret"
+
+
+def test_cleanup_retains_roots_and_binds_every_podman_directory() -> None:
+    batch = (HERE / "run_registry_gate.sbatch").read_text()
+    probe = (HERE / "probe_registry_gate.sh").read_text()
+    assert "/usr/bin/rmdir" not in batch and "/usr/bin/rmdir" not in probe
+    assert "/usr/bin/rm -r" not in batch and "/usr/bin/rm -r" not in probe
+    assert "retain_batch_root" in batch and "retain_private_root" in probe
+    assert 'private_dir_paths=("$graphroot" "$runroot"' in probe
+    assert "private_dirs_bound || blocked" in probe
+    assert probe.count("private_dirs_bound || blocked") >= 14
+    assert 'exec {auth_fd}<>"$auth_path"' in probe
+    assert '/usr/bin/truncate -s 0 -- "/proc/self/fd/$auth_fd"' in probe
+    storage_block = probe[probe.index("readonly graphroot=") : probe.index("cleanup_private_tree()")]
+    assert 'graphroot = "%s"' in storage_block and 'runroot = "%s"' in storage_block
+    assert "/proc/self/fd" not in storage_block[storage_block.index("/usr/bin/printf '[storage]") : storage_block.index("/usr/bin/chmod 600 \"$storage_conf\"")]
+
+
+def test_probe_preflight_checks_device_owner_type_and_links() -> None:
+    scrub = _probe_directory_scrubber()
+    assert "'%D:%U:%y:%n\\n'" in scrub
+    assert '"$dev" == "$root_dev"' in scrub
+    assert '"$uid" == "${GATE_EXPECTED_UID}"' in scrub
+    assert 'f) [[ "$links" == 1 ]]' in scrub
+    assert "*) return 1" in scrub
 
 
 def test_signal_grace_exceeds_anchored_cleanup_bound() -> None:
     batch = (HERE / "run_registry_gate.sbatch").read_text()
     probe = (HERE / "probe_registry_gate.sh").read_text()
-    assert "for _ in {1..1100}" in batch
+    assert "for _ in {1..1600}" in batch
     assert "for _ in {1..50}" in batch
-    assert "--kill-after=100s 1680s" in batch
+    assert "--kill-after=150s 1560s" in batch
     assert "if (( spawning )); then" in batch
     assert "spawn_group_ready=0" in batch
     assert batch.count('wait "$active_pid"') == 1
+    assert "--kill-after=3s 12s" in probe
     assert "--kill-after=5s 15s" in probe
     assert "--kill-after=5s 20s" in probe
     assert "--kill-after=5s 30s" in probe
@@ -732,9 +822,38 @@ def test_signal_grace_exceeds_anchored_cleanup_bound() -> None:
     assert "/usr/bin/rm -r" not in probe
     assert "/usr/bin/chmod -R" not in batch
     assert "/usr/bin/chmod -R" not in probe
-    for line in probe.splitlines():
-        if "/usr/bin/find" in line and ("-delete" in line or "-exec /usr/bin/truncate" in line):
-            assert '"$private_root_anchor"' in line
+    assert controller.PROBE_CLEANUP_BOUND_SECONDS < controller.OUTER_KILL_GRACE_SECONDS
+    assert controller.OUTER_KILL_GRACE_SECONDS < controller.PARENT_TERM_GRACE_SECONDS
+    assert controller.SIGNAL_TEARDOWN_BOUND_SECONDS < controller.SIGNAL_LEAD_SECONDS
+    assert controller.SIGNAL_TEARDOWN_BOUND_SECONDS == 215
+    assert batch.count("/usr/bin/timeout --signal=TERM --kill-after=2s 8s") == 2
+
+
+def test_worst_case_signal_timing_is_mathematically_nested() -> None:
+    directory_failure_bound = max(
+        12 + 3,
+        12 + 15 + 5,
+        12 + 15 + 20 + 5,
+        12 + 15 + 20 + 30 + 5,
+        12 + 15 + 20 + 30 + 5 + 2,
+    )
+    exact_file_failure_bound = 3 * (2 + 5 + 1)
+    batch_failure_bound = 3 * (2 + 5 + 1) + (3 + 1)
+    publication_success_bound = 2 * 8
+    assert directory_failure_bound == 84
+    assert directory_failure_bound + exact_file_failure_bound <= controller.PROBE_CLEANUP_BOUND_SECONDS
+    assert batch_failure_bound == 28 <= controller.BATCH_CLEANUP_BOUND_SECONDS
+    assert publication_success_bound <= controller.RESULT_PUBLICATION_BOUND_SECONDS
+    assert controller.PROBE_CLEANUP_BOUND_SECONDS < controller.OUTER_KILL_GRACE_SECONDS
+    assert controller.PARENT_TERM_GRACE_SECONDS + controller.PARENT_KILL_REAP_SECONDS == 165
+    assert (
+        controller.PARENT_TERM_GRACE_SECONDS
+        + controller.PARENT_KILL_REAP_SECONDS
+        + controller.BATCH_CLEANUP_BOUND_SECONDS
+        + controller.RESULT_PUBLICATION_BOUND_SECONDS
+        == controller.SIGNAL_TEARDOWN_BOUND_SECONDS
+        < controller.SIGNAL_LEAD_SECONDS
+    )
 
 
 def test_probe_proves_cold_store_and_documented_absence_rc() -> None:
@@ -846,7 +965,7 @@ def test_safe_worker_categories_are_allowed(category: str) -> None:
     payload = {
         "category": category,
         "image_digest": controller.IMAGE_DIGEST,
-        "kind": "k3-registry-pull-gate-v15",
+        "kind": "k3-registry-pull-gate-v16",
         "platform": "linux/arm64",
         "state": "blocked",
     }
@@ -861,7 +980,7 @@ def test_public_success_log_contract(tmp_path: Path, monkeypatch: pytest.MonkeyP
     payload = {
         "category": "success",
         "image_digest": controller.IMAGE_DIGEST,
-        "kind": "k3-registry-pull-gate-v15",
+        "kind": "k3-registry-pull-gate-v16",
         "platform": "linux/arm64",
         "state": "complete",
     }
@@ -879,7 +998,7 @@ def test_public_log_rejects_extra_field(tmp_path: Path, monkeypatch: pytest.Monk
     payload = {
         "category": "success",
         "image_digest": controller.IMAGE_DIGEST,
-        "kind": "k3-registry-pull-gate-v15",
+        "kind": "k3-registry-pull-gate-v16",
         "platform": "linux/arm64",
         "state": "complete",
         "raw": "forbidden",

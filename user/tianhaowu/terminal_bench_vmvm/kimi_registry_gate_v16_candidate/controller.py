@@ -25,11 +25,11 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 BASE = Path("/checkpoint/ram/tianhaowu/terminal_bench_vmvm")
-BUNDLE = BASE / "watchers/k3_registry_pull_gate_20260920t081300z_v15"
-APPROVAL = BASE / "approvals/k3_registry_pull_gate_20260920t081300z_v15.approval.json"
-RUN_ROOT = BASE / "diagnostics/k3_registry_pull_gate_20260920t081300z_v15"
-LOG_ROOT = BASE / "logs/k3_registry_pull_gate_20260920t081300z_v15"
-LOCK = BASE / "locks/k3_registry_pull_gate_20260920t081300z_v15.lock"
+BUNDLE = BASE / "watchers/k3_registry_pull_gate_20260920t084500z_v16"
+APPROVAL = BASE / "approvals/k3_registry_pull_gate_20260920t084500z_v16.approval.json"
+RUN_ROOT = BASE / "diagnostics/k3_registry_pull_gate_20260920t084500z_v16"
+LOG_ROOT = BASE / "logs/k3_registry_pull_gate_20260920t084500z_v16"
+LOCK = BASE / "locks/k3_registry_pull_gate_20260920t084500z_v16.lock"
 SOURCE_ROOT = BASE / "sources/ram-common-b1f0aa6"
 SOURCE_BUNDLE = BASE / "sources/ram-common-b1f0aa6.bundle"
 SOURCE_REVISION = "b1f0aa6c1aabcad9182d85a694faaa2eaa3d0f6e"
@@ -56,12 +56,25 @@ CLUSTER = "fair-cw-use2-3"
 OWNER = "tianhaowu"
 OWNER_UID = 656177
 OWNER_RECORD = "tianhaowu(656177)"
-JOB_NAME = "k3-reg-pull-081300-v15"
-COMMENT_PREFIX = "k3-reg-pull-v15:"
+JOB_NAME = "k3-reg-pull-084500-v16"
+COMMENT_PREFIX = "k3-reg-pull-v16:"
 PARTITION = "g3"
 ACCOUNT = "ram"
 QOS = "g3_lowest"
 WALLTIME = "00:30:00"
+SIGNAL_LEAD_SECONDS = 240
+PROBE_CLEANUP_BOUND_SECONDS = 110
+OUTER_KILL_GRACE_SECONDS = 150
+PARENT_TERM_GRACE_SECONDS = 160
+PARENT_KILL_REAP_SECONDS = 5
+BATCH_CLEANUP_BOUND_SECONDS = 30
+RESULT_PUBLICATION_BOUND_SECONDS = 20
+SIGNAL_TEARDOWN_BOUND_SECONDS = (
+    PARENT_TERM_GRACE_SECONDS
+    + PARENT_KILL_REAP_SECONDS
+    + BATCH_CLEANUP_BOUND_SECONDS
+    + RESULT_PUBLICATION_BOUND_SECONDS
+)
 CPUS = 4
 MEMORY = "16G"
 EXCLUDED = ("g3-136-221", "g3-136-247", "g3-136-251", "g3-136-253")
@@ -444,7 +457,7 @@ def qos_contract() -> None:
 def approval_contract(hashes: Mapping[str, str], tls: Mapping[str, object] | None = None) -> dict[str, object]:
     return {
         "schema_version": 1,
-        "kind": "k3-registry-pull-gate-v15-approval",
+        "kind": "k3-registry-pull-gate-v16-approval",
         "state": "approved_once",
         "diagnostic_only": True,
         "production_authorized": False,
@@ -468,7 +481,7 @@ def approval_contract(hashes: Mapping[str, str], tls: Mapping[str, object] | Non
             "memory": MEMORY,
             "time": WALLTIME,
             "no_requeue": True,
-            "signal": "TERM@120",
+            "signal": f"TERM@{SIGNAL_LEAD_SECONDS}",
             "exclude": list(EXCLUDED),
             "held_submit": True,
             "release_once": True,
@@ -494,7 +507,11 @@ def approval_contract(hashes: Mapping[str, str], tls: Mapping[str, object] | Non
             "spooled_batch_self_hash": True,
             "fd_bound_runtime_sources": True,
             "dirfd_anchored_cleanup": True,
-            "bounded_signal_cleanup_seconds": 115,
+            "retained_scrubbed_roots": True,
+            "retained_raw_stream_fds": True,
+            "podman_directory_inode_binding": True,
+            "unsafe_entry_preflight": True,
+            "bounded_signal_cleanup_seconds": SIGNAL_TEARDOWN_BOUND_SECONDS,
             "malformed_submit_output_reconciled": True,
             "discovered_id_bound_before_identity_wait": True,
             "unknown_id_cleanup_reconciled": True,
@@ -506,7 +523,7 @@ def approval_contract(hashes: Mapping[str, str], tls: Mapping[str, object] | Non
 def pending_contract(hashes: Mapping[str, str] | None = None) -> dict[str, object]:
     return {
         "schema_version": 1,
-        "kind": "k3-registry-pull-gate-v15-plan",
+        "kind": "k3-registry-pull-gate-v16-plan",
         "state": "pending_independent_approval",
         "launch_eligible": False,
         "approval_path": str(APPROVAL),
@@ -875,7 +892,7 @@ def write_fd(fd: int, raw: bytes) -> None:
 
 
 def finalize_lock(lock: LockState, category: str) -> None:
-    payload = canonical({"category": category, "kind": "k3-registry-pull-gate-v15-lock", "state": "terminal"})
+    payload = canonical({"category": category, "kind": "k3-registry-pull-gate-v16-lock", "state": "terminal"})
     write_fd(lock.fd, payload)
     opened = os.fstat(lock.fd)
     named = os.stat(LOCK.name, dir_fd=lock.parent_fd, follow_symlinks=False)
@@ -984,7 +1001,7 @@ def sbatch_command(environment_path: Path, token: str) -> list[str]:
         f"--mem={MEMORY}",
         f"--time={WALLTIME}",
         "--no-requeue",
-        "--signal=B:TERM@120",
+        f"--signal=B:TERM@{SIGNAL_LEAD_SECONDS}",
         f"--exclude={','.join(EXCLUDED)}",
         f"--output={LOG_ROOT}/slurm-%j.log",
         f"--error={LOG_ROOT}/slurm-%j.log",
@@ -1029,7 +1046,7 @@ def submit_once(environment_path: Path, token: str, batch_raw: bytes) -> str:
     command = sbatch_command(environment_path, token)
     batch_fd = -1
     try:
-        batch_fd = os.memfd_create("k3-registry-pull-gate-v15-batch", os.MFD_ALLOW_SEALING | os.MFD_CLOEXEC)
+        batch_fd = os.memfd_create("k3-registry-pull-gate-v16-batch", os.MFD_ALLOW_SEALING | os.MFD_CLOEXEC)
         view = memoryview(batch_raw)
         while view:
             count = os.write(batch_fd, view)
@@ -1211,7 +1228,7 @@ def validate_result_payload(captured: Capture, succeeded: bool) -> tuple[str, st
     if (
         captured.raw != canonical(payload)
         or set(payload) != {"category", "image_digest", "kind", "platform", "state"}
-        or payload.get("kind") != "k3-registry-pull-gate-v15"
+        or payload.get("kind") != "k3-registry-pull-gate-v16"
         or payload.get("image_digest") != IMAGE_DIGEST
         or payload.get("platform") != "linux/arm64"
         or (category not in ALLOWED_PUBLIC_CATEGORIES and not classified_worker_failure)
@@ -1220,7 +1237,7 @@ def validate_result_payload(captured: Capture, succeeded: bool) -> tuple[str, st
     if succeeded and payload != {
         "category": "success",
         "image_digest": IMAGE_DIGEST,
-        "kind": "k3-registry-pull-gate-v15",
+        "kind": "k3-registry-pull-gate-v16",
         "platform": "linux/arm64",
         "state": "complete",
     }:
@@ -1425,7 +1442,7 @@ def execute(hashes: Mapping[str, str]) -> None:
             fail("approval_revalidation")
         intent = {
             "schema_version": 1,
-            "kind": "k3-registry-pull-gate-v15-owner-intent",
+            "kind": "k3-registry-pull-gate-v16-owner-intent",
             "state": "armed",
             "created_at": datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),
             "approval_sha256": approval_sha,
@@ -1446,7 +1463,7 @@ def execute(hashes: Mapping[str, str]) -> None:
         publish_exclusive(
             RUN_ROOT,
             "submission.json",
-            {"job_id": job_id, "kind": "k3-registry-pull-gate-v15-submission", "state": "held_identity_proven"},
+            {"job_id": job_id, "kind": "k3-registry-pull-gate-v16-submission", "state": "held_identity_proven"},
         )
         release_once(job_id, token)
         terminal = wait_terminal(job_id, token)
@@ -1457,7 +1474,7 @@ def execute(hashes: Mapping[str, str]) -> None:
         final_category = category if not success else "success"
         result = {
             "schema_version": 1,
-            "kind": "k3-registry-pull-gate-v15-result",
+            "kind": "k3-registry-pull-gate-v16-result",
             "state": "passed" if success else "failed",
             "category": final_category,
             "job_id": job_id,
@@ -1502,7 +1519,7 @@ def audit(hashes: Mapping[str, str]) -> dict[str, object]:
         fail("pending_contract")
     return {
         "jobs_submitted": 0,
-        "kind": "k3-registry-pull-gate-v15-audit",
+        "kind": "k3-registry-pull-gate-v16-audit",
         "source_revision": SOURCE_REVISION,
         "state": "passed",
     }
@@ -1523,7 +1540,7 @@ def main() -> int:
         result = audit(hashes)
         if sys.argv[1] == "execute":
             execute(hashes)
-            result = {"jobs_submitted": 1, "kind": "k3-registry-pull-gate-v15-execute", "state": "complete"}
+            result = {"jobs_submitted": 1, "kind": "k3-registry-pull-gate-v16-execute", "state": "complete"}
     except BaseException as error:
         print(canonical({"category": error_code(error), "state": "blocked"}).decode(), end="", file=sys.stderr)
         return 2

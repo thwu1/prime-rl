@@ -1,4 +1,4 @@
-# Kimi registry pull gate v15
+# Kimi registry pull gate v16
 
 This inert bundle is a one-shot, task-free admission gate for RAM Common
 revision `b1f0aa6c1aabcad9182d85a694faaa2eaa3d0f6e`. It exists only to prove that
@@ -22,14 +22,18 @@ only `_container_registry_arm_cleanup`, `_container_registry_login`,
 calls `container_run`, `podman run`, GPU enumeration, a checkpoint, a model, an
 endpoint, a sandbox, a task, or an evaluator.
 
-Raw command output remains in a job-local mode-0700 directory and is removed.
+Raw command output is written only through two descriptor-retained files; their
+exact inodes are truncated before their descriptors are closed. Their names and
+the scrubbed batch root are retained, so no cleanup unlink can hit a replacement.
 The shared Slurm log contains exactly one canonical, allowlisted JSON line.
 The Podman graphroot and runroot are fresh job-local directories; their exact
-scope is checked before the digest-pinned image is removed. Both shells retain
-directory descriptors and perform all recursive cleanup through those anchors;
-name drift cannot redirect deletion, and successful removal is proven by the
-anchored directory reaching link count zero. Signal teardown waits longer than
-the probe's aggregate bounded cleanup before escalating its process group.
+real-path identities are checked around every Podman operation. The probe
+retains descriptors for every top-level private directory, rejects hardlinks,
+special files, and cross-device entries before deletion, and scrubs through
+those anchors even if a name moves. Both shells retain verified scrubbed roots;
+neither performs pathname `rmdir`. Signal teardown gives the concurrent probe
+scrubs 150 seconds, escalates at 160 seconds, and reserves a 240-second Slurm
+warning window for bounded batch cleanup and result publication.
 
 `audit` validates sealed bytes, source provenance, scheduler/QoS semantics,
 and fresh namespaces without reading TLS variables and without submitting or

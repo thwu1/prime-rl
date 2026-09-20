@@ -39,10 +39,10 @@ readonly tools_manifest=${GATE_LOCAL_TOOL_MANIFEST:-}
     && "$(/usr/bin/stat -Lc '%F:%a:%u:%h' -- "$aws_creds")" == 'regular file:500:656177:1' \
     && "$(/usr/bin/sha256sum -- "$worker" | /usr/bin/cut -d' ' -f1)" == "${GATE_WORKER_SHA256:-}" \
     && "$(/usr/bin/sha256sum -- "$aws_creds" | /usr/bin/cut -d' ' -f1)" == "${GATE_AWS_CREDS_SHA256:-}" \
-    && ( "$tools_manifest" == /var/slurm-tmp/k3-registry-pull-v15.batch.*.*/compute_tools.sha256 \
-        || "$tools_manifest" == /var/slurm-tmp/*/k3-registry-pull-v15.batch.*.*/compute_tools.sha256 \
-        || "$tools_manifest" == /tmp/k3-registry-pull-v15.batch.*.*/compute_tools.sha256 \
-        || "$tools_manifest" == /tmp/*/k3-registry-pull-v15.batch.*.*/compute_tools.sha256 ) \
+    && ( "$tools_manifest" == /var/slurm-tmp/k3-registry-pull-v16.batch.*.*/compute_tools.sha256 \
+        || "$tools_manifest" == /var/slurm-tmp/*/k3-registry-pull-v16.batch.*.*/compute_tools.sha256 \
+        || "$tools_manifest" == /tmp/k3-registry-pull-v16.batch.*.*/compute_tools.sha256 \
+        || "$tools_manifest" == /tmp/*/k3-registry-pull-v16.batch.*.*/compute_tools.sha256 ) \
     && "$tools_manifest" != /proc/self/fd/* \
     && "$tools_manifest" == "$(/usr/bin/readlink -f -- "$tools_manifest" 2>/dev/null)" \
     && "$(/usr/bin/stat -Lc '%F:%a:%u:%h' -- "$tools_manifest")" == 'regular file:400:656177:1' \
@@ -114,6 +114,16 @@ private_root_identity=
 private_root_fd=-1
 private_root_anchor=
 private_root_anchor_trusted=0
+private_dir_paths=()
+private_dir_fds=()
+private_dir_anchors=()
+private_dir_identities=()
+storage_conf_fd=-1
+storage_conf_identity=
+local_tls_fd=-1
+local_tls_identity=
+inspect_fd=-1
+inspect_identity=
 cleanup_complete=0
 cleanup_attempted=0
 
@@ -130,41 +140,159 @@ private_root_named_bound() {
             && "$private_root_identity" == "$(/usr/bin/stat -c '%d:%i:%a:%u' -- "$private_root" 2>/dev/null || true)" ]]
 }
 
-scrub_private_contents() {
-    local leftover
-    private_root_bound || return 1
+private_dirs_bound() {
+    local index path fd anchor identity
+    private_root_named_bound || return 1
+    ((${#private_dir_paths[@]} == 7 \
+        && ${#private_dir_fds[@]} == 7 \
+        && ${#private_dir_anchors[@]} == 7 \
+        && ${#private_dir_identities[@]} == 7)) || return 1
+    for index in "${!private_dir_paths[@]}"; do
+        path=${private_dir_paths[$index]}
+        fd=${private_dir_fds[$index]}
+        anchor=${private_dir_anchors[$index]}
+        identity=${private_dir_identities[$index]}
+        [[ "$fd" =~ ^[0-9]+$ && "$fd" -ge 10 \
+            && -d "$anchor" && ! -L "$anchor" \
+            && "$identity" == "$(/usr/bin/stat -Lc '%d:%i:%a:%u' -- "$anchor" 2>/dev/null || true)" \
+            && -d "$path" && ! -L "$path" \
+            && "$identity" == "$(/usr/bin/stat -c '%d:%i:%a:%u' -- "$path" 2>/dev/null || true)" ]] \
+            || return 1
+    done
+}
+
+scrub_anchored_directory() {
+    local anchor=$1 identity=$2 records record dev uid kind links leftover root_dev
+    [[ -d "$anchor" && ! -L "$anchor" \
+        && "$identity" == "$(/usr/bin/stat -Lc '%d:%i:%a:%u' -- "$anchor" 2>/dev/null || true)" ]] \
+        || return 1
+    root_dev=${identity%%:*}
+    # Preflight every entry before the first mutation. A cross-device mount is
+    # visited but never descended because of -xdev, and its differing %D is
+    # rejected. Only owned directories, symlinks, and single-link regular files
+    # are eligible for the later descriptor-rooted deletion.
+    records=$(/usr/bin/timeout --signal=TERM --kill-after=3s 12s \
+        /usr/bin/find "$anchor" -xdev -mindepth 1 -printf '%D:%U:%y:%n\n' 2>/dev/null) \
+        || return 1
+    while IFS=: read -r dev uid kind links; do
+        [[ -z "$dev" ]] && continue
+        [[ "$dev" == "$root_dev" && "$uid" == "${GATE_EXPECTED_UID}" ]] || return 1
+        case "$kind" in
+            d|l) ;;
+            f) [[ "$links" == 1 ]] || return 1 ;;
+            *) return 1 ;;
+        esac
+    done <<< "$records"
     /usr/bin/timeout --signal=TERM --kill-after=5s 15s \
-        /usr/bin/find "$private_root_anchor" -xdev -mindepth 1 -user "${GATE_EXPECTED_UID}" \
+        /usr/bin/find "$anchor" -xdev -mindepth 1 -uid "${GATE_EXPECTED_UID}" \
             \( -type d -o \( -type f -links 1 \) \) \
             -exec /usr/bin/chmod u+rwx -- '{}' + 2>/dev/null \
         || return 1
     /usr/bin/timeout --signal=TERM --kill-after=5s 20s \
-        /usr/bin/find "$private_root_anchor" -xdev -mindepth 1 -type f \
-            -user "${GATE_EXPECTED_UID}" -links 1 \
+        /usr/bin/find "$anchor" -xdev -mindepth 1 -type f \
+            -uid "${GATE_EXPECTED_UID}" -links 1 \
             -exec /usr/bin/truncate -s 0 -- '{}' + 2>/dev/null \
         || return 1
     /usr/bin/timeout --signal=TERM --kill-after=5s 30s \
-        /usr/bin/find "$private_root_anchor" -xdev -mindepth 1 -depth -delete 2>/dev/null \
+        /usr/bin/find "$anchor" -xdev -mindepth 1 -depth \
+            \( \( -type d -o -type l \) -uid "${GATE_EXPECTED_UID}" \
+                -o -type f -uid "${GATE_EXPECTED_UID}" -links 1 \) -delete 2>/dev/null \
         || return 1
     leftover=$(/usr/bin/timeout --signal=TERM --kill-after=2s 5s \
-        /usr/bin/find "$private_root_anchor" -xdev -mindepth 1 -print -quit 2>/dev/null) \
+        /usr/bin/find "$anchor" -xdev -mindepth 1 -print -quit 2>/dev/null) \
         || return 1
     [[ -z "$leftover" ]]
 }
 
-remove_private_root() {
-    local anchored_after expected_dev_inode named_now
-    cleanup_attempted=1
-    scrub_private_contents || return 1
-    named_now=$(/usr/bin/stat -c '%d:%i:%a:%u' -- "$private_root" 2>/dev/null) || return 1
-    [[ "$named_now" == "$private_root_identity" ]] || return 1
-    /usr/bin/rmdir -- "$private_root" 2>/dev/null || return 1
-    anchored_after=$(/usr/bin/stat -Lc '%d:%i:%h' -- "$private_root_anchor" 2>/dev/null) || return 1
-    expected_dev_inode=${private_root_identity%:*:*}
-    [[ "$anchored_after" == "$expected_dev_inode:0" && ! -e "$private_root" && ! -L "$private_root" ]] \
+scrub_exact_probe_file() {
+    local fd=$1 expected=$2 observed observed_dev_inode expected_dev_inode observed_uid
+    [[ "$fd" =~ ^[0-9]+$ && "$fd" -ge 10 && -n "$expected" ]] || return 1
+    observed=$(/usr/bin/stat -Lc '%d:%i:%a:%u:%h' -- "/proc/self/fd/$fd" 2>/dev/null) \
         || return 1
-    exec {private_root_fd}<&-
-    private_root_fd=-1
+    observed_dev_inode=${observed%:*:*:*}
+    expected_dev_inode=${expected%:*:*:*}
+    observed_uid=${observed%:*}
+    observed_uid=${observed_uid##*:}
+    [[ -f "/proc/self/fd/$fd" && "$observed_dev_inode" == "$expected_dev_inode" \
+        && "$observed_uid" == "${GATE_EXPECTED_UID}" ]] || return 1
+    /usr/bin/timeout --signal=TERM --kill-after=1s 2s \
+        /usr/bin/chmod 600 -- "/proc/self/fd/$fd" 2>/dev/null || return 1
+    /usr/bin/timeout --signal=TERM --kill-after=1s 5s \
+        /usr/bin/truncate -s 0 -- "/proc/self/fd/$fd" 2>/dev/null || return 1
+    [[ "$observed" == "$expected" ]]
+}
+
+close_probe_private_fds() {
+    local index fd
+    for index in "${!private_dir_fds[@]}"; do
+        fd=${private_dir_fds[$index]}
+        if [[ "$fd" =~ ^[0-9]+$ && "$fd" -ge 10 ]]; then
+            exec {fd}<&- || true
+        fi
+    done
+    private_dir_fds=()
+    for fd in "$storage_conf_fd" "$local_tls_fd" "$inspect_fd"; do
+        if [[ "$fd" =~ ^[0-9]+$ && "$fd" -ge 10 ]]; then
+            exec {fd}>&- || true
+        fi
+    done
+    storage_conf_fd=-1
+    local_tls_fd=-1
+    inspect_fd=-1
+    if [[ "$private_root_fd" =~ ^[0-9]+$ && "$private_root_fd" -ge 10 ]]; then
+        exec {private_root_fd}<&- || true
+        private_root_fd=-1
+    fi
+}
+
+scrub_private_contents() {
+    local index pid result=0 named_now anchored_after unexpected storage_named tls_named inspect_named
+    local pids=()
+    private_root_bound || return 1
+    # Each top-level private directory has its own retained descriptor. Run the
+    # bounded scrubs concurrently so a moved graphroot/runroot is still erased
+    # without multiplying the signal deadline by the number of directories.
+    for index in "${!private_dir_anchors[@]}"; do
+        scrub_anchored_directory "${private_dir_anchors[$index]}" "${private_dir_identities[$index]}" &
+        pids+=("$!")
+    done
+    for pid in "${pids[@]}"; do
+        wait "$pid" || result=1
+    done
+    scrub_exact_probe_file "$storage_conf_fd" "$storage_conf_identity" || result=1
+    scrub_exact_probe_file "$local_tls_fd" "$local_tls_identity" || result=1
+    scrub_exact_probe_file "$inspect_fd" "$inspect_identity" || result=1
+    # Never remove the main or top-level directory names. The children are
+    # verified empty and the main root contains only those children plus three
+    # zero-length bound files, eliminating stat-to-rmdir replacement races.
+    private_dirs_bound || result=1
+    named_now=$(/usr/bin/stat -c '%d:%i:%a:%u' -- "$private_root" 2>/dev/null || true)
+    anchored_after=$(/usr/bin/stat -Lc '%d:%i:%a:%u' -- "$private_root_anchor" 2>/dev/null || true)
+    [[ "$named_now" == "$private_root_identity" && "$anchored_after" == "$private_root_identity" ]] \
+        || result=1
+    storage_named=$(/usr/bin/stat -c '%d:%i:%a:%u:%h:%s' -- "$storage_conf" 2>/dev/null || true)
+    tls_named=$(/usr/bin/stat -c '%d:%i:%a:%u:%h:%s' -- "$local_tls" 2>/dev/null || true)
+    inspect_named=$(/usr/bin/stat -c '%d:%i:%a:%u:%h:%s' -- "$inspect_file" 2>/dev/null || true)
+    [[ "${storage_named%:*}" == "$storage_conf_identity" && "$storage_named" == *':0' \
+        && "${tls_named%:*:*:*:*}" == "${local_tls_identity%:*:*:*}" \
+        && "$tls_named" == *":600:${GATE_EXPECTED_UID}:1:0" \
+        && "${inspect_named%:*}" == "$inspect_identity" && "$inspect_named" == *':0' ]] \
+        || result=1
+    unexpected=$(/usr/bin/find "$private_root_anchor" -xdev -mindepth 1 -maxdepth 1 \
+        ! -name graphroot ! -name runroot ! -name xdg-runtime ! -name xdg-config \
+        ! -name xdg-data ! -name home ! -name tmp ! -name storage.conf \
+        ! -name tls-combined.pem ! -name inspect -print -quit 2>/dev/null) \
+        || result=1
+    [[ -z "$unexpected" ]] || result=1
+    (( result == 0 ))
+}
+
+retain_private_root() {
+    local result=0
+    cleanup_attempted=1
+    scrub_private_contents || result=1
+    close_probe_private_fds
+    (( result == 0 ))
 }
 
 early_cleanup() {
@@ -172,18 +300,16 @@ early_cleanup() {
     trap - EXIT HUP INT TERM
     if (( ! cleanup_complete && ! cleanup_attempted )) \
         && [[ "$private_root_fd" =~ ^[0-9]+$ && "$private_root_fd" -ge 10 ]]; then
-        remove_private_root >/dev/null 2>&1 || true
+        retain_private_root >/dev/null 2>&1 || true
     fi
-    if [[ "$private_root_fd" =~ ^[0-9]+$ && "$private_root_fd" -ge 10 ]]; then
-        exec {private_root_fd}<&- || true
-    fi
+    close_probe_private_fds
     exit "$saved"
 }
 trap early_cleanup EXIT
 trap 'exit 130' HUP INT TERM
-private_root=$(/usr/bin/mktemp -d "$local_parent/k3-registry-pull-v15.${SLURM_JOB_ID}.${SLURM_STEP_ID}.XXXXXX") \
+private_root=$(/usr/bin/mktemp -d "$local_parent/k3-registry-pull-v16.${SLURM_JOB_ID}.${SLURM_STEP_ID}.XXXXXX") \
     || blocked private_environment
-[[ "$private_root" == "$local_parent"/k3-registry-pull-v15."${SLURM_JOB_ID}"."${SLURM_STEP_ID}".* \
+[[ "$private_root" == "$local_parent"/k3-registry-pull-v16."${SLURM_JOB_ID}"."${SLURM_STEP_ID}".* \
     && -d "$private_root" && ! -L "$private_root" ]] \
     || blocked private_environment
 private_root_before=$(/usr/bin/stat -c '%d:%i:%a:%u' -- "$private_root" 2>/dev/null) \
@@ -212,23 +338,44 @@ readonly runroot=$private_root/runroot
 readonly xdg_runtime=$private_root/xdg-runtime
 readonly xdg_config=$private_root/xdg-config
 readonly private_home=$private_root/home
+readonly private_tmp=$private_root/tmp
 readonly storage_conf=$private_root/storage.conf
 readonly inspect_file=$private_root/inspect
 readonly local_tls=$private_root/tls-combined.pem
-/usr/bin/mkdir -m 700 -- "$graphroot" "$runroot" "$xdg_runtime" "$xdg_config" "$private_home" \
+/usr/bin/mkdir -m 700 -- "$graphroot" "$runroot" "$xdg_runtime" "$xdg_config" "$private_home" "$private_tmp" \
     || blocked private_environment
 /usr/bin/printf '[storage]\ndriver = "overlay"\ngraphroot = "%s"\nrunroot = "%s"\n' \
     "$graphroot" "$runroot" > "$storage_conf" \
     || blocked private_environment
 /usr/bin/chmod 600 "$storage_conf" || blocked private_environment
-/usr/bin/cp -- /proc/self/fd/4 "$local_tls" 2>/dev/null || blocked private_environment
-/usr/bin/chmod 500 "$local_tls" 2>/dev/null || blocked private_environment
+/usr/bin/touch "$local_tls" 2>/dev/null || blocked private_environment
+/usr/bin/chmod 600 "$local_tls" 2>/dev/null || blocked private_environment
+/usr/bin/touch "$inspect_file" 2>/dev/null || blocked private_environment
+/usr/bin/chmod 600 "$inspect_file" 2>/dev/null || blocked private_environment
+exec {storage_conf_fd}<>"$storage_conf" 2>/dev/null || blocked private_environment
+exec {local_tls_fd}<>"$local_tls" 2>/dev/null || blocked private_environment
+exec {inspect_fd}<>"$inspect_file" 2>/dev/null || blocked private_environment
+/usr/bin/cp -- /proc/self/fd/4 "/proc/self/fd/$local_tls_fd" 2>/dev/null || blocked private_environment
+/usr/bin/chmod 500 "/proc/self/fd/$local_tls_fd" 2>/dev/null || blocked private_environment
 [[ "$(/usr/bin/stat -c '%a:%u:%h' -- "$storage_conf")" == "600:${GATE_EXPECTED_UID}:1" ]] \
     || blocked private_environment
 [[ "$local_tls" == "$(/usr/bin/readlink -f -- "$local_tls" 2>/dev/null)" \
     && -f "$local_tls" && ! -L "$local_tls" \
     && "$(/usr/bin/stat -c '%a:%u:%h:%s' -- "$local_tls")" == "500:${GATE_EXPECTED_UID}:1:${GATE_TLS_SIZE}" \
     && "$(/usr/bin/sha256sum -- "$local_tls" | /usr/bin/cut -d' ' -f1)" == "${GATE_TLS_SHA256:-}" ]] \
+    || blocked private_environment
+storage_conf_identity=$(/usr/bin/stat -Lc '%d:%i:%a:%u:%h' -- "/proc/self/fd/$storage_conf_fd") \
+    || blocked private_environment
+local_tls_identity=$(/usr/bin/stat -Lc '%d:%i:%a:%u:%h' -- "/proc/self/fd/$local_tls_fd") \
+    || blocked private_environment
+inspect_identity=$(/usr/bin/stat -c '%d:%i:%a:%u:%h' -- "$inspect_file") \
+    || blocked private_environment
+[[ "$storage_conf_identity" == *":600:${GATE_EXPECTED_UID}:1" \
+    && "$local_tls_identity" == *":500:${GATE_EXPECTED_UID}:1" \
+    && "$inspect_identity" == *":600:${GATE_EXPECTED_UID}:1" \
+    && "$storage_conf_identity" == "$(/usr/bin/stat -c '%d:%i:%a:%u:%h' -- "$storage_conf")" \
+    && "$local_tls_identity" == "$(/usr/bin/stat -c '%d:%i:%a:%u:%h' -- "$local_tls")" \
+    && "$inspect_identity" == "$(/usr/bin/stat -Lc '%d:%i:%a:%u:%h' -- "/proc/self/fd/$inspect_fd")" ]] \
     || blocked private_environment
 exec 4<&-
 
@@ -237,12 +384,12 @@ export XDG_RUNTIME_DIR=$xdg_runtime
 export XDG_CONFIG_HOME=$xdg_config
 export XDG_DATA_HOME=$private_root/xdg-data
 export CONTAINERS_STORAGE_CONF=$storage_conf
-export TMPDIR=$private_root
+export TMPDIR=$private_tmp
 export THRIFT_TLS_CL_CERT_PATH=$local_tls
 export THRIFT_TLS_CL_KEY_PATH=$local_tls
 /usr/bin/mkdir -m 700 -- "$XDG_DATA_HOME" || blocked private_environment
 for private_path in "$private_root" "$graphroot" "$runroot" "$xdg_runtime" \
-    "$xdg_config" "$XDG_DATA_HOME" "$private_home"; do
+    "$xdg_config" "$XDG_DATA_HOME" "$private_home" "$private_tmp"; do
     [[ "$private_path" != /proc/self/fd/* \
         && ( "$private_path" == "$private_root" || "$private_path" == "$private_root"/* ) ]] \
         || blocked private_environment
@@ -252,10 +399,30 @@ for private_path in "$private_root" "$graphroot" "$runroot" "$xdg_runtime" \
         || blocked private_environment
 done
 unset private_path
-private_root_named_bound || blocked private_environment
+graphroot_fd=-1
+runroot_fd=-1
+xdg_runtime_fd=-1
+xdg_config_fd=-1
+xdg_data_fd=-1
+private_home_fd=-1
+private_tmp_fd=-1
+if ! exec {graphroot_fd}<"$graphroot" {runroot_fd}<"$runroot" \
+    {xdg_runtime_fd}<"$xdg_runtime" {xdg_config_fd}<"$xdg_config" \
+    {xdg_data_fd}<"$XDG_DATA_HOME" {private_home_fd}<"$private_home" \
+    {private_tmp_fd}<"$private_tmp" 2>/dev/null; then
+    blocked private_environment
+fi
+private_dir_paths=("$graphroot" "$runroot" "$xdg_runtime" "$xdg_config" "$XDG_DATA_HOME" "$private_home" "$private_tmp")
+private_dir_fds=("$graphroot_fd" "$runroot_fd" "$xdg_runtime_fd" "$xdg_config_fd" "$xdg_data_fd" "$private_home_fd" "$private_tmp_fd")
+for private_fd_value in "${private_dir_fds[@]}"; do
+    private_dir_anchors+=("/proc/self/fd/${private_fd_value}/.")
+    private_dir_identities+=("$(/usr/bin/stat -Lc '%d:%i:%a:%u' -- "/proc/self/fd/${private_fd_value}/." 2>/dev/null)")
+done
+unset private_fd_value
+private_dirs_bound || blocked private_environment
 
 cleanup_private_tree() {
-    remove_private_root
+    retain_private_root
 }
 
 cleanup() {
@@ -264,54 +431,75 @@ cleanup() {
     unset REGISTRY_AUTH_FILE DOCKER_CONFIG
     if (( ! cleanup_complete && ! cleanup_attempted )) \
         && [[ "$private_root_fd" =~ ^[0-9]+$ && "$private_root_fd" -ge 10 ]]; then
-        remove_private_root >/dev/null 2>&1 || true
+        retain_private_root >/dev/null 2>&1 || true
     fi
-    if [[ "$private_root_fd" =~ ^[0-9]+$ && "$private_root_fd" -ge 10 ]]; then
-        exec {private_root_fd}<&- || true
-    fi
+    close_probe_private_fds
     exit "$saved"
 }
 trap cleanup EXIT
 trap 'exit 130' HUP INT TERM
 
-private_root_named_bound || blocked private_environment
+private_dirs_bound || blocked private_environment
 store=$(/usr/bin/podman info --format '{{.Store.GraphRoot}}|{{.Store.RunRoot}}|{{.Store.GraphDriverName}}' 2>/dev/null) \
     || blocked podman_info
+private_dirs_bound || blocked private_environment
 [[ "$store" == "$graphroot|$runroot|overlay" ]] || blocked podman_info
 unset store
 set +e
+private_dirs_bound || blocked private_environment
 /usr/bin/podman image exists "$GATE_IMAGE" >/dev/null 2>&1
 cold_exists_rc=$?
 set -e
+private_dirs_bound || blocked private_environment
 if (( cold_exists_rc != 1 )); then
     blocked podman_info
 fi
 unset cold_exists_rc
-private_root_named_bound || blocked private_environment
+private_dirs_bound || blocked private_environment
 
 # Source only the reviewed registry functions in a child shell. Its hardened
 # registry trap therefore cannot replace this probe's job-local cleanup trap.
 # No worker main, model path, GPU enumeration, container construction, or
 # podman run entry point is invoked.
-private_root_named_bound || blocked private_environment
+private_dirs_bound || blocked private_environment
 (
     source /proc/self/fd/8 || blocked source_identity
     source /proc/self/fd/9 || blocked source_identity
     exec 7<&- 8<&- 9<&-
-    exec {private_root_fd}<&-
     _container_registry_arm_cleanup
+    private_dirs_bound || blocked private_environment
     _container_registry_login "$GATE_IMAGE"
+    private_dirs_bound || blocked private_environment
     auth_path=${_CONTAINER_REGISTRY_AUTH_PATH:-}
+    auth_fd=-1
     [[ "$auth_path" == "$xdg_runtime"/serve-api-v2-registry-auth.* \
         && "$(/usr/bin/stat -c '%a:%u:%h' -- "$auth_path")" == "600:${GATE_EXPECTED_UID}:1" ]] \
         || blocked registry_login
+    exec {auth_fd}<>"$auth_path" 2>/dev/null || blocked registry_login
+    auth_identity=$(/usr/bin/stat -c '%d:%i:%a:%u:%h' -- "$auth_path") \
+        || blocked registry_login
+    [[ "$auth_identity" == "$(/usr/bin/stat -Lc '%d:%i:%a:%u:%h' -- "/proc/self/fd/$auth_fd")" ]] \
+        || blocked registry_login
+    private_dirs_bound || blocked private_environment
     _container_registry_pull "$GATE_IMAGE"
+    private_dirs_bound || blocked private_environment
     _container_registry_disarm_cleanup
+    private_dirs_bound || blocked private_environment
+    /usr/bin/timeout --signal=TERM --kill-after=1s 5s \
+        /usr/bin/truncate -s 0 -- "/proc/self/fd/$auth_fd" 2>/dev/null \
+        || blocked private_cleanup
+    auth_after=$(/usr/bin/stat -Lc '%d:%i:%a:%u:%h:%s' -- "/proc/self/fd/$auth_fd") \
+        || blocked private_cleanup
     [[ ! -e "$auth_path" && ! -L "$auth_path" && -z "${REGISTRY_AUTH_FILE+x}" ]] \
         || blocked private_cleanup
+    [[ "${auth_after%:*:*:*:*}" == "${auth_identity%:*:*:*}" \
+        && "$auth_after" == *":600:${GATE_EXPECTED_UID}:0:0" ]] \
+        || blocked private_cleanup
+    exec {auth_fd}>&-
 )
-private_root_named_bound || blocked private_cleanup
-if ! leftover_auth=$(/usr/bin/find "$xdg_runtime" -xdev -name 'serve-api-v2-registry-auth.*' -print -quit); then
+private_dirs_bound || blocked private_cleanup
+if ! leftover_auth=$(/usr/bin/find "${private_dir_anchors[2]}" -xdev \
+    -name 'serve-api-v2-registry-auth.*' -print -quit); then
     blocked private_cleanup
 fi
 if [[ -n "$leftover_auth" ]]; then
@@ -319,43 +507,49 @@ if [[ -n "$leftover_auth" ]]; then
 fi
 unset leftover_auth
 
+private_dirs_bound || blocked private_cleanup
+: > "/proc/self/fd/$inspect_fd" || blocked private_environment
 /usr/bin/podman image inspect \
     --format '{{.Digest}}|{{.Os}}|{{.Architecture}}|{{join .RepoDigests ","}}' \
-    "$GATE_IMAGE" > "$inspect_file" 2>/dev/null \
+    "$GATE_IMAGE" > "/proc/self/fd/$inspect_fd" 2>/dev/null \
     || blocked image_identity
-private_root_named_bound || blocked private_cleanup
-/usr/bin/chmod 600 "$inspect_file" || blocked private_environment
-IFS='|' read -r observed_digest observed_os observed_arch observed_repodigests < "$inspect_file" \
+private_dirs_bound || blocked private_cleanup
+IFS='|' read -r observed_digest observed_os observed_arch observed_repodigests < "/proc/self/fd/$inspect_fd" \
     || blocked image_identity
 [[ "$observed_digest" == "$GATE_IMAGE_DIGEST" \
     && "$observed_os" == linux && "$observed_arch" == arm64 \
     && ",$observed_repodigests," == *,*"@${GATE_IMAGE_DIGEST}"*,* ]] \
     || blocked image_identity
-: > "$inspect_file"
-/usr/bin/unlink -- "$inspect_file" || blocked private_cleanup
+: > "/proc/self/fd/$inspect_fd"
 unset observed_digest observed_os observed_arch observed_repodigests
 
+private_dirs_bound || blocked private_cleanup
 store=$(/usr/bin/podman info --format '{{.Store.GraphRoot}}|{{.Store.RunRoot}}' 2>/dev/null) \
     || blocked private_cleanup
+private_dirs_bound || blocked private_cleanup
 [[ "$store" == "$graphroot|$runroot" ]] || blocked private_cleanup
+private_dirs_bound || blocked private_cleanup
 /usr/bin/podman image rm --force "$GATE_IMAGE" >/dev/null 2>&1 \
     || blocked private_cleanup
+private_dirs_bound || blocked private_cleanup
 set +e
+private_dirs_bound || blocked private_cleanup
 /usr/bin/podman image exists "$GATE_IMAGE" >/dev/null 2>&1
 image_exists_rc=$?
 set -e
+private_dirs_bound || blocked private_cleanup
 if (( image_exists_rc == 0 )); then
     blocked private_cleanup
 elif (( image_exists_rc != 1 )); then
     blocked private_cleanup
 fi
 unset store image_exists_rc
-private_root_named_bound || blocked private_cleanup
+private_dirs_bound || blocked private_cleanup
 
 if ! cleanup_private_tree; then
     blocked private_cleanup
 fi
 cleanup_complete=1
 trap - EXIT HUP INT TERM
-/usr/bin/printf '{"category":"success","image_digest":"%s","kind":"k3-registry-pull-gate-v15","platform":"linux/arm64","state":"complete"}\n' \
+/usr/bin/printf '{"category":"success","image_digest":"%s","kind":"k3-registry-pull-gate-v16","platform":"linux/arm64","state":"complete"}\n' \
     "$GATE_IMAGE_DIGEST"
