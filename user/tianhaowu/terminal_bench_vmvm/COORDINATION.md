@@ -5057,3 +5057,36 @@ replay passed 263/263. The aggregate decode/cleanup boundary is unchanged.
   it lacked mount-boundary rejection and complete directory/cwd/root owner
   detection and could mutate before refusal. Do not integrate or execute it;
   a hardened child and separate held-node authorization are required.
+
+## 2026-09-20 18:40 UTC — registry login evidence and recovery review holds
+
+- A separate teammate-owned task-free registry-login diagnostic job `1760255`
+  completed `0:0` in 37 seconds on `g3-128-109`. Its public and durable result
+  are byte-identical (SHA-256
+  `175e478a92c544c696382e9c571836bc5787827f4024890070b426504840f34b`).
+  The closed category proves isolated `podman info` and offline auth lookup
+  passed, a valid 2--4 KiB text credential was minted in under five seconds,
+  but the sole network `podman login` returned `125` in under five seconds and
+  remained only `guard_child`-classified. Diagnostic completion is not registry
+  readiness; no image operation or pull occurred. A successor must split the
+  rc-125 cause without exposing raw output.
+- Credential-free local reproduction with the exact Podman 4.9.3 binary proves
+  explicit global `--runroot` rejects paths longer than 50 bytes with rc 125;
+  an exact 50-byte path succeeds. Cluster `TmpFS` is `/tmp`, so this is a
+  required v30 guard and candidate explanation, not yet a proven root cause for
+  job `1760258`. Use the already proven rootless layout with runroot aligned to
+  `XDG_RUNTIME_DIR/containers`, and keep all TLS staging after storage checks.
+- The inert v4 scratch-recovery source is integrated as `1a8addb34`; its fixed
+  source passed 22/22 plus 37/37 original-v4 tests, but no freeze, authorization,
+  or job exists. The inert v28 recovery source was integrated as `bf22bf5c6`
+  after one positive review, then a stronger cross-review found that child FDs
+  were closed after inventory and descendants reopened by name for scrub. Treat
+  `bf22bf5c6` as operationally held; a child must retain every root/directory/
+  leaf descriptor continuously through quiescence and cleanup and add real
+  root-owner, mount-boundary, pending-signal, and replacement tests.
+- Production backend cleanup candidates `862871850` and child `62c6ea89` are
+  also held. Deterministic review reproduced late post-destroy ControlMaster
+  creation, BaseException rollback gaps, interruption-unsafe log publication/
+  quarantine state, name-swap mutation of replacement log/socket objects, and
+  FIFO reset racing a new lifecycle operation. Do not integrate them until a
+  reviewed child closes every listed race.
