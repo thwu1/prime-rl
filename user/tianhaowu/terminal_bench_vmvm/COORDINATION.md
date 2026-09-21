@@ -1,6 +1,6 @@
 # VMVM sandbox coordination
 
-Last updated: 2026-09-20 20:08 UTC
+Last updated: 2026-09-21 02:06 UTC
 
 ## First message to the next teammate
 
@@ -46,6 +46,25 @@ this shared branch again.
 Add new rows below this line; do not overwrite another owner's row.
 
 ## Open coordination requests
+
+- **2026-09-21 02:06 UTC, sc-3 tokenizer-only handoff requested for the
+  use2-1 Qwen SFT preflight:** use2-1 rollout `1514358` remains healthy and
+  must not be touched.  Its pass-only post-run render attestation pins
+  `nvidia/NVIDIA-Nemotron-3-Super-120B-A12B-BF16` at revision
+  `d51eab0d1f979ebc26b546e634a04f450d99158e`, but use2-1 cannot reach the
+  model registry and cannot see sc-3's
+  `/checkpoint/ram-h100-2/tianhaowu/.cache/huggingface` mount.  The sc-3 owner
+  is asked to load that exact revision from the existing local cache and call
+  `save_pretrained` into the shared, fresh path
+  `/storage/home/tianhaowu/.cache/terminal_bench_vmvm/tokenizers/nemotron3_super_120b_d51eab0_sc3_handoff`.
+  Publish real regular files only (no symlinks or hardlinks), directories mode
+  `0500`, files mode `0400`, and a mode-`0600` sibling JSON receipt containing
+  the repository, exact revision, file count, byte count, and deterministic
+  tree SHA-256.  Re-open the destination with `local_files_only=True` before
+  publishing the receipt.  Do not copy weights, credentials, cache symlinks,
+  task data, or response content.  Record the aggregate result and receipt
+  path here; use2-1 will independently re-fingerprint it before binding the
+  queued SFT preflight.
 
 - **2026-09-20 11:46 UTC, fresh VMVM and Kimi canaries consumed with bounded
   classifications:** the rotated VMVM authorization creator canonicalized the
