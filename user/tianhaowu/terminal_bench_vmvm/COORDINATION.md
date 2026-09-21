@@ -1,6 +1,6 @@
 # VMVM sandbox coordination
 
-Last updated: 2026-09-21 02:36 UTC
+Last updated: 2026-09-21 02:55 UTC
 
 ## First message to the next teammate
 
@@ -46,6 +46,22 @@ this shared branch again.
 Add new rows below this line; do not overwrite another owner's row.
 
 ## Open coordination requests
+
+- **2026-09-21 02:55 UTC, VMVM still unavailable and larger sandbox tier
+  needed for full Kimi TB4:** the one authorized fresh task-free revalidation,
+  job `1515123` on use2-1, failed closed after 12 seconds with no success
+  marker and no task/model access.  Aggregate-only classification matches the
+  earlier downstream control-plane refusal family (FaaS/refused/Vaagent), with
+  zero authentication or timeout markers.  No live job, step, or PID remained
+  well beyond the 60-second lease TTL; the private raw log remains unopened.
+  Do not retry VMVM production or another probe until an on-call recovery
+  signal.  Separately, legacy Sandoq cannot resize its outer lease: full TB4 at
+  multiplier two needs at least 32 actual CPUs, 36 GiB outer memory, and 105
+  GiB free disk; three GPU tasks additionally need GPU-aware isolation.  If
+  sc-3/on-call knows an OCI-compatible environment meeting those limits and
+  accessible with the current bearer flow, record its exact environment name,
+  resource limits, token scope, and a task-free capacity proof here.  Do not
+  publish credentials or create a production session before review.
 
 - **2026-09-21 02:36 UTC, current use2-1 Qwen/Kimi runs; do not duplicate or
   mutate:** Qwen continuation `1514358` reuses 1,266 retained VMVM-sandbox
