@@ -299,8 +299,16 @@ if [[ "$sandbox_provider" == sandoq ]]; then
         --sandoq-pool-renew-interval "$OCI_RUNNER_POOL_RENEW_INTERVAL"
     )
 else
-    vmvm_tb_v2_sha256=$(sha256sum "$project_dir"/environments/vmvm_tb_v2/vmvm_tb_v2/_vacli/*.py \
-        | sha256sum | cut -d' ' -f1)
+    vmvm_tb_v2_sha256=$(
+        "$x86_uv" run --no-project --offline --python "$python_bin" \
+            python3 - "$project_dir" <<'PY'
+import sys
+from pathlib import Path
+from eval_run_identity import _vmvm_source_sha256
+
+print(_vmvm_source_sha256(Path(sys.argv[1])))
+PY
+    )
     identity_args+=(
         --vmvm-tb-v2-sha256 "$vmvm_tb_v2_sha256"
         --vacli-bin "${VACLI_BIN:-/public/fbpkgs/x86_64/vacli/stable/vacli}"

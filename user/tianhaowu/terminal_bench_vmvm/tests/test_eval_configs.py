@@ -625,6 +625,8 @@ def test_direct_kimi_sandoq_scored_smoke_launcher_is_pinned() -> None:
     assert "--direct-provider-concurrency 24" in stage
     assert "--direct-retries 0" in stage
     assert "--direct-worker-count 24" in stage
+    assert "from eval_run_identity import _vmvm_source_sha256" in stage
+    assert 'sha256sum "$project_dir"/environments/vmvm_tb_v2' not in stage
 
 
 def test_eval_controller_is_cpu_only_and_supports_high_vmvm_concurrency() -> None:
