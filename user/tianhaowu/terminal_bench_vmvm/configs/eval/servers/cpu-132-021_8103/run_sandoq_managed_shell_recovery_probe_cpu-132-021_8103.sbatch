@@ -38,6 +38,8 @@ ecr_token_file=${OCI_RUNNER_ECR_TOKEN_FILE:-/storage/home/tianhaowu/.config/oci-
 ecr_token_metadata=${OCI_RUNNER_ECR_TOKEN_METADATA_PATH:-${ecr_token_file}.metadata.json}
 output_root=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/diagnostics/kimi-managed-shell-recovery-cpu132021-8103-v1
 output_dir="$output_root/${SLURM_JOB_ID:?SLURM_JOB_ID is required}-${probe_mode}"
+export PYTHONDONTWRITEBYTECODE=1
+export PYTHONPATH="$workflow_dir:$project_dir/environments/vmvm_tb_v2:$project_dir/deps/verifiers:$project_dir/deps/renderers:$project_dir/deps/pydantic-config/src:$project_dir/extensions/sandoq:$sandoq_site:$x86_site"
 
 blocked() {
     printf '{"category":"%s","state":"blocked"}\n' "$1" >&2

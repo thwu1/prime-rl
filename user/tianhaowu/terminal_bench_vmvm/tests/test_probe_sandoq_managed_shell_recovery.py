@@ -8,6 +8,12 @@ from types import SimpleNamespace
 import probe_sandoq_managed_shell_recovery as probe
 import pytest
 
+WORKFLOW_DIR = Path(__file__).parents[1]
+PROBE_LAUNCHER = (
+    WORKFLOW_DIR
+    / "configs/eval/servers/cpu-132-021_8103/run_sandoq_managed_shell_recovery_probe_cpu-132-021_8103.sbatch"
+)
+
 
 class _FakeClient:
     def __init__(self) -> None:
@@ -175,3 +181,17 @@ def test_cli_redacts_unexpected_failure(monkeypatch: pytest.MonkeyPatch, capsys:
     assert result == 2
     assert secret not in captured.err
     assert "managed_shell_recovery_probe_failed" in captured.err
+
+
+def test_probe_launcher_seals_complete_pythonpath_before_provider_supervision() -> None:
+    launcher = PROBE_LAUNCHER.read_text()
+    export = (
+        'export PYTHONPATH="$workflow_dir:$project_dir/environments/vmvm_tb_v2:'
+        "$project_dir/deps/verifiers:$project_dir/deps/renderers:"
+        "$project_dir/deps/pydantic-config/src:$project_dir/extensions/sandoq:"
+        '$sandoq_site:$x86_site"'
+    )
+
+    assert launcher.count(export) == 1
+    assert launcher.index(export) < launcher.index("if [[ ${SANDOQ_PROVIDER_CONTEXT_ACTIVE:-} != 1 ]]")
+    assert '-- /usr/bin/bash -p "${BASH_SOURCE[0]}"' in launcher

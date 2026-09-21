@@ -173,7 +173,10 @@ to quiesce before broker-owned cleanup reaps the assignment.
 Run the task-free forced-delete probe before restarting Kimi TB4, then run the
 3,900-second idle-endurance probe before a full rollout. Both use a disposable,
 digest-pinned utility image and access neither benchmark tasks nor a model
-endpoint. Submit Slurm work only through the launcher tmux pane:
+endpoint. The checked-in probe launcher seeds the complete pinned Python path
+before provider-context supervision; do not invoke the probe module directly
+or replace that path with the shared dependency target alone. Submit Slurm work
+only through the launcher tmux pane:
 
 ```bash
 tmux send-keys -t swebench_vmvm:Launcher.0 \
