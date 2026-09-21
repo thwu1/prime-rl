@@ -5,7 +5,15 @@ import json
 import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-from direct_kimi_router import ApiHandler, RouterServer, RouterState, worker_index
+import pytest
+from direct_kimi_router import (
+    C64_CAPACITY_PROFILE,
+    ApiHandler,
+    RouterError,
+    RouterServer,
+    RouterState,
+    worker_index,
+)
 
 
 class _Backend(BaseHTTPRequestHandler):
@@ -46,10 +54,7 @@ def _session_for(index: int) -> str:
 def test_transparent_router_preserves_max_body_and_streams_without_retry() -> None:
     _Backend.bodies = []
     backend, backend_thread = _server(_Backend)
-    workers = tuple(
-        ("127.0.0.1", backend.server_address[1] if index == 0 else 30_000 + index)
-        for index in range(24)
-    )
+    workers = tuple(("127.0.0.1", backend.server_address[1] if index == 0 else 30_000 + index) for index in range(24))
     state = RouterState(workers)
     router = RouterServer(("127.0.0.1", 0), ApiHandler, state)
     router_thread = threading.Thread(target=router.serve_forever, daemon=True)
@@ -126,3 +131,50 @@ def test_transparent_router_requires_sticky_header_and_does_not_retry() -> None:
         router.shutdown()
         router.server_close()
         router_thread.join(timeout=5)
+
+
+def test_c64_profile_is_explicit_bounded_and_tracks_sticky_routes() -> None:
+    workers = tuple(("127.0.0.1", 31_000 + index) for index in range(24))
+    state = RouterState(
+        workers,
+        capacity_profile=C64_CAPACITY_PROFILE,
+        endpoint_identifier="cpu-132-021_8103",
+    )
+    sessions = [f"capacity-{index}" for index in range(65)]
+    indexes = [worker_index(session) for session in sessions]
+
+    for session, index in zip(sessions[:64], indexes[:64], strict=True):
+        assert state.acquire(chat=True, index=index, session_id=session)
+    assert not state.acquire(chat=True, index=indexes[64], session_id=sessions[64])
+    for _ in range(64):
+        state.release(chat=True)
+
+    assert state.acquire(chat=True, index=indexes[0], session_id=sessions[0])
+    state.release(chat=True)
+    with pytest.raises(RouterError, match="cross_route_anomaly"):
+        state.acquire(chat=True, index=(indexes[0] + 1) % 24, session_id=sessions[0])
+
+    snapshot = state.snapshot()
+    assert snapshot["schema_version"] == 2
+    assert snapshot["configured_capacity"] == 64
+    assert snapshot["max_active_chat_requests"] == 64
+    assert snapshot["capacity_rejections"] == 1
+    assert snapshot["queue_overflow_rejections"] == 1
+    assert snapshot["cross_route_anomalies"] == 1
+    assert snapshot["route_tracking_overflows"] == 0
+
+
+def test_legacy_router_profile_retains_c24_snapshot_shape() -> None:
+    workers = tuple(("127.0.0.1", 31_000 + index) for index in range(24))
+    state = RouterState(workers)
+    for _ in range(24):
+        assert state.acquire(chat=False, index=0)
+    assert not state.acquire(chat=False, index=0)
+    for _ in range(24):
+        state.release(chat=False)
+
+    snapshot = state.snapshot()
+    assert snapshot["schema_version"] == 1
+    assert snapshot["max_active_requests"] == 24
+    assert "capacity_profile" not in snapshot
+    assert "capacity_rejections" not in snapshot

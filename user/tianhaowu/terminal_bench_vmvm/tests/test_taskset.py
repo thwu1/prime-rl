@@ -335,6 +335,11 @@ async def test_sandoq_declared_no_network_requires_explicit_public_override(
     with pytest.raises(UnsupportedTaskError, match="explicit audited public-network override"):
         await TerminalBenchVMVMTaskset._configure_network_policy(task, runtime, "no-network", activate=False)
 
+    runtime.config.network_access = False
+    await TerminalBenchVMVMTaskset._configure_network_policy(task, runtime, "no-network", activate=False)
+    with pytest.raises(UnsupportedTaskError, match="incompatible with the isolated Sandoq runtime"):
+        await TerminalBenchVMVMTaskset._configure_network_policy(task, runtime, "public", activate=False)
+
 
 def test_separate_verifier_clones_sandoq_runtime_config() -> None:
     runtime = SandoqRuntime(

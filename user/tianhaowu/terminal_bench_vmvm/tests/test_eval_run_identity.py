@@ -609,6 +609,43 @@ def test_direct_kimi_fallback_concurrency_is_bound_to_exact_lane_count() -> None
     assert eval_run_identity.KIMI_PROVIDER_SPLIT_COUNTS.isdisjoint({17, 4})
 
 
+def test_direct_kimi_capacity_profile_is_exact_and_sandoq_only() -> None:
+    role = "kimi-direct-capacity-smoke"
+    assert eval_run_identity._direct_kimi_expected_concurrency(role, "sandoq", 64) == 64
+    for provider, task_count in (("vmvm", 64), ("sandoq", 63), ("sandoq", 65)):
+        with pytest.raises(EvalIdentityError, match="direct_kimi_capacity_scope_invalid"):
+            eval_run_identity._direct_kimi_expected_concurrency(role, provider, task_count)
+
+    config = {
+        "num_tasks": 64,
+        "max_concurrent": 64,
+        "multiplex": 64,
+        "max_turns": 1,
+        "client": {
+            "max_connections": 64,
+            "max_keepalive_connections": 64,
+            "max_retries": 0,
+        },
+        "sampling": {"max_tokens": 256},
+        "taskset": {"enable_compose": False, "verifier_runtime_retries": 0},
+        "harness": {"runtime": {"network_access": False}},
+    }
+    eval_run_identity._validate_direct_kimi_capacity_config(config, role)
+    for section, field, value in (
+        ("top", "max_concurrent", 65),
+        ("client", "max_retries", 1),
+        ("taskset", "enable_compose", True),
+        ("runtime", "network_access", True),
+    ):
+        invalid = json.loads(json.dumps(config))
+        target = (
+            invalid if section == "top" else invalid["harness"]["runtime"] if section == "runtime" else invalid[section]
+        )
+        target[field] = value
+        with pytest.raises(EvalIdentityError, match="direct_kimi_capacity_config_invalid"):
+            eval_run_identity._validate_direct_kimi_capacity_config(invalid, role)
+
+
 @pytest.mark.parametrize(("task_count", "multiplier"), ((17, 0.75), (4, 0.375)))
 def test_direct_kimi_fallback_config_binds_lossy_resource_semantics(
     task_count: int,

@@ -22,7 +22,15 @@ POLICY = "consistent_hash"
 SESSION_HEADER = "x-session-id"
 REQUEST_TIMEOUT_SECONDS = 43_200
 RETRIES = 0
-MAX_CONCURRENT_REQUESTS = 24
+LEGACY_CAPACITY_PROFILE = "legacy-c24"
+C64_CAPACITY_PROFILE = "sandoq-c64-v1"
+CAPACITY_PROFILES = {
+    LEGACY_CAPACITY_PROFILE: 24,
+    C64_CAPACITY_PROFILE: 64,
+}
+DEFAULT_CAPACITY_PROFILE = LEGACY_CAPACITY_PROFILE
+MAX_CONCURRENT_REQUESTS = CAPACITY_PROFILES[DEFAULT_CAPACITY_PROFILE]
+MAX_TRACKED_SESSIONS = 65_536
 MAX_REQUEST_BYTES = 64 * 1024 * 1024
 _HOP_BY_HOP = {
     "connection",
@@ -39,6 +47,30 @@ _HOP_BY_HOP = {
 
 class RouterError(ValueError):
     """The transparent router contract is invalid."""
+
+
+def capacity_for_profile(value: str) -> int:
+    try:
+        return CAPACITY_PROFILES[value]
+    except (KeyError, TypeError) as error:
+        raise RouterError("capacity_profile_invalid") from error
+
+
+def validate_endpoint_identifier(value: str | None, *, capacity_profile: str) -> str | None:
+    if capacity_profile == LEGACY_CAPACITY_PROFILE:
+        if value is not None:
+            raise RouterError("endpoint_identifier_unexpected")
+        return None
+    if (
+        not isinstance(value, str)
+        or not value
+        or len(value.encode()) > 128
+        or any(
+            character not in "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789._:-" for character in value
+        )
+    ):
+        raise RouterError("endpoint_identifier_invalid")
+    return value
 
 
 def worker_index(session_id: str, worker_count: int = EXPECTED_WORKERS) -> int:
@@ -93,36 +125,77 @@ def load_worker_urls(path: Path) -> tuple[tuple[str, int], ...]:
 
 
 class RouterState:
-    def __init__(self, workers: tuple[tuple[str, int], ...]) -> None:
+    def __init__(
+        self,
+        workers: tuple[tuple[str, int], ...],
+        *,
+        capacity_profile: str = DEFAULT_CAPACITY_PROFILE,
+        endpoint_identifier: str | None = None,
+    ) -> None:
         if len(workers) != EXPECTED_WORKERS:
             raise RouterError("worker_count_invalid")
+        capacity = capacity_for_profile(capacity_profile)
         self.workers = workers
-        self.capacity = threading.BoundedSemaphore(MAX_CONCURRENT_REQUESTS)
+        self.capacity_profile = capacity_profile
+        self.endpoint_identifier = validate_endpoint_identifier(
+            endpoint_identifier,
+            capacity_profile=capacity_profile,
+        )
+        self.max_concurrent_requests = capacity
+        self.capacity = threading.BoundedSemaphore(capacity)
         self.lock = threading.Lock()
         self.active = 0
         self.max_active = 0
+        self.active_chat = 0
+        self.max_active_chat = 0
         self.total = 0
         self.chat = 0
         self.missing_session = 0
         self.upstream_failures = 0
+        self.capacity_rejections = 0
+        self.route_tracking_overflows = 0
+        self.cross_route_anomalies = 0
+        self.session_routes: dict[bytes, int] = {}
         self.worker_requests = [0] * len(workers)
 
-    def acquire(self, *, chat: bool, index: int | None) -> bool:
+    def acquire(self, *, chat: bool, index: int | None, session_id: str | None = None) -> bool:
         if not self.capacity.acquire(blocking=False):
+            with self.lock:
+                self.capacity_rejections += 1
             return False
         with self.lock:
+            if self.capacity_profile == C64_CAPACITY_PROFILE and chat:
+                if session_id is None or index is None:
+                    self.capacity.release()
+                    raise RouterError("route_tracking_invalid")
+                session_digest = hashlib.sha256(session_id.encode()).digest()
+                previous = self.session_routes.get(session_digest)
+                if previous is None:
+                    if len(self.session_routes) >= MAX_TRACKED_SESSIONS:
+                        self.route_tracking_overflows += 1
+                        self.capacity.release()
+                        raise RouterError("route_tracking_capacity_exhausted")
+                    self.session_routes[session_digest] = index
+                elif previous != index:
+                    self.cross_route_anomalies += 1
+                    self.capacity.release()
+                    raise RouterError("cross_route_anomaly")
             self.active += 1
             self.max_active = max(self.max_active, self.active)
             self.total += 1
             if chat:
                 self.chat += 1
+                self.active_chat += 1
+                self.max_active_chat = max(self.max_active_chat, self.active_chat)
             if index is not None:
                 self.worker_requests[index] += 1
         return True
 
-    def release(self) -> None:
+    def release(self, *, chat: bool) -> None:
         with self.lock:
             self.active -= 1
+            if chat:
+                self.active_chat -= 1
         self.capacity.release()
 
     def record_missing_session(self) -> None:
@@ -135,7 +208,7 @@ class RouterState:
 
     def snapshot(self) -> dict[str, Any]:
         with self.lock:
-            return {
+            snapshot = {
                 "schema_version": 1,
                 "kind": "direct-kimi-transparent-router",
                 "implementation": IMPLEMENTATION,
@@ -153,6 +226,23 @@ class RouterState:
                 "upstream_failures": self.upstream_failures,
                 "worker_request_counts": list(self.worker_requests),
             }
+            if self.capacity_profile == C64_CAPACITY_PROFILE:
+                snapshot.update(
+                    {
+                        "schema_version": 2,
+                        "capacity_profile": self.capacity_profile,
+                        "endpoint_identifier": self.endpoint_identifier,
+                        "configured_capacity": self.max_concurrent_requests,
+                        "active_chat_requests": self.active_chat,
+                        "max_active_chat_requests": self.max_active_chat,
+                        "capacity_rejections": self.capacity_rejections,
+                        "queue_overflow_rejections": self.capacity_rejections,
+                        "route_tracking_overflows": self.route_tracking_overflows,
+                        "cross_route_anomalies": self.cross_route_anomalies,
+                        "tracked_sessions": len(self.session_routes),
+                    }
+                )
+            return snapshot
 
 
 def _json_error(handler: BaseHTTPRequestHandler, status: int, code: str) -> None:
@@ -222,10 +312,22 @@ class ApiHandler(BaseHTTPRequestHandler):
         except (RouterError, ValueError):
             _json_error(self, 400, "request_invalid")
             return
-        self._forward(chat=True, worker=index, body=body)
+        self._forward(chat=True, worker=index, body=body, session_id=session_id)
 
-    def _forward(self, *, chat: bool, worker: int, body: bytes | None) -> None:
-        if not self.state.acquire(chat=chat, index=worker):
+    def _forward(
+        self,
+        *,
+        chat: bool,
+        worker: int,
+        body: bytes | None,
+        session_id: str | None = None,
+    ) -> None:
+        try:
+            admitted = self.state.acquire(chat=chat, index=worker, session_id=session_id)
+        except RouterError:
+            _json_error(self, 503, "router_route_tracking_failed")
+            return
+        if not admitted:
             _json_error(self, 429, "router_capacity_exhausted")
             return
         connection: http.client.HTTPConnection | None = None
@@ -271,7 +373,7 @@ class ApiHandler(BaseHTTPRequestHandler):
         finally:
             if connection is not None:
                 connection.close()
-            self.state.release()
+            self.state.release(chat=chat)
 
 
 class MetricsHandler(BaseHTTPRequestHandler):
@@ -289,8 +391,11 @@ class MetricsHandler(BaseHTTPRequestHandler):
         raw = (
             f"vllm_router_active_workers {snapshot['active_workers']}\n"
             f"direct_kimi_router_active_requests {snapshot['active_requests']}\n"
+            f"direct_kimi_router_max_active_requests {snapshot['max_active_requests']}\n"
             f"direct_kimi_router_total_requests {snapshot['total_requests']}\n"
             f"direct_kimi_router_upstream_failures {snapshot['upstream_failures']}\n"
+            f"direct_kimi_router_capacity_rejections {snapshot.get('capacity_rejections', 0)}\n"
+            f"direct_kimi_router_cross_route_anomalies {snapshot.get('cross_route_anomalies', 0)}\n"
         ).encode()
         self.send_response(200)
         self.send_header("Content-Type", "text/plain; version=0.0.4")
@@ -304,14 +409,27 @@ class RouterServer(ThreadingHTTPServer):
     allow_reuse_address = False
 
     def __init__(self, address: tuple[str, int], handler: type[BaseHTTPRequestHandler], state: RouterState) -> None:
+        self.request_queue_size = state.max_concurrent_requests
         super().__init__(address, handler)
         self.router_state = state
 
 
-def serve(workers: tuple[tuple[str, int], ...], host: str, port: int, metrics_port: int) -> None:
+def serve(
+    workers: tuple[tuple[str, int], ...],
+    host: str,
+    port: int,
+    metrics_port: int,
+    *,
+    capacity_profile: str = DEFAULT_CAPACITY_PROFILE,
+    endpoint_identifier: str | None = None,
+) -> None:
     if host != "127.0.0.1" or not all(1 <= value <= 65_535 for value in (port, metrics_port)) or port == metrics_port:
         raise RouterError("listen_address_invalid")
-    state = RouterState(workers)
+    state = RouterState(
+        workers,
+        capacity_profile=capacity_profile,
+        endpoint_identifier=endpoint_identifier,
+    )
     api = RouterServer((host, port), ApiHandler, state)
     metrics = RouterServer((host, metrics_port), MetricsHandler, state)
     metrics_thread = threading.Thread(target=metrics.serve_forever, name="metrics", daemon=True)
@@ -337,8 +455,21 @@ def main() -> None:
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, required=True)
     parser.add_argument("--metrics-port", type=int, required=True)
+    parser.add_argument(
+        "--capacity-profile",
+        choices=tuple(CAPACITY_PROFILES),
+        default=DEFAULT_CAPACITY_PROFILE,
+    )
+    parser.add_argument("--endpoint-identifier")
     args = parser.parse_args()
-    serve(load_worker_urls(args.worker_urls_file), args.host, args.port, args.metrics_port)
+    serve(
+        load_worker_urls(args.worker_urls_file),
+        args.host,
+        args.port,
+        args.metrics_port,
+        capacity_profile=args.capacity_profile,
+        endpoint_identifier=args.endpoint_identifier,
+    )
 
 
 if __name__ == "__main__":

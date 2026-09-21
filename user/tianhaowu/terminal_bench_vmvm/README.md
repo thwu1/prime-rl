@@ -1075,6 +1075,55 @@ setup, scoring, cleanup, and certificate publication. Do not use the shared
 front proxy as the evaluator base URL; the launcher derives and probes all 24
 direct workers before starting its loopback router.
 
+### Bounded direct-Kimi c64 capacity gate
+
+The router remains on the legacy `legacy-c24` profile unless a caller
+explicitly selects `sandoq-c64-v1`. The latter is fixed at 64 requests, accepts
+only endpoint identifier `cpu-132-021_8103`, has no overflow queue or retry,
+and is restricted to the Sandoq `kimi-direct-capacity-smoke` role. Values above
+64 and unbounded values are rejected. A production launcher must not select
+this profile until it has validated a capacity certificate from the exact
+source, config, worker manifest, and endpoint namespace it will use.
+
+The checked-in `mobius_kimi_k3_sandoq_capacity64.example.toml` is a template,
+not a runnable selector. An operator must privately review exactly 64
+non-sensitive, no-network, non-Compose tasks, store that selector in a
+mode-0600 file, and materialize the run config without printing the selector:
+
+```bash
+uv run --no-project python \
+  user/tianhaowu/terminal_bench_vmvm/direct_kimi_capacity.py materialize-config \
+  --template "$PWD/user/tianhaowu/terminal_bench_vmvm/configs/eval/servers/cpu-132-021_8103/mobius_kimi_k3_sandoq_capacity64.example.toml" \
+  --task-file /absolute/private/capacity-selector.txt \
+  --output /absolute/private/mobius_kimi_k3_sandoq_capacity64.toml
+```
+
+Set the four `KIMI_SANDOQ_CAPACITY_*` config/selector path and SHA-256
+variables, choose `KIMI_SANDOQ_STAGE=capacity-smoke`, and submit the
+server-scoped launcher with an exact two-hour wall only after that review. The
+stage runs one aggregate-only trace per selected task, two 64-request router
+probe waves, and cleanup certification. It publishes
+`direct_kimi_capacity_certificate.json` only when router request and chat
+overlap both reach 64; Sandoq assignment-order, measured-assignment, and outer
+session high-water marks all reach 64; every assignment and outer session is
+cleaned; and queue overflow, retry, cross-route, cleanup, and trace anomaly
+counts are zero. The certificate stores hashes and aggregate counts, never
+task identifiers, prompts, responses, or raw errors.
+
+Consumers validate the write-once certificate and its live artifacts before
+using the measured cap:
+
+```bash
+uv run --no-project python \
+  user/tianhaowu/terminal_bench_vmvm/direct_kimi_capacity.py verify \
+  --certificate /absolute/private/run/direct_kimi_capacity_certificate.json \
+  --certificate-sha256 <sha256> \
+  --required-concurrency 64 \
+  --endpoint-identifier cpu-132-021_8103 \
+  --worker-manifest-sha256 <sha256> \
+  --config-sha256 <sha256>
+```
+
 ## Transcript capture gate
 
 Never request provider log probabilities in this workflow. RAM issue `#279`

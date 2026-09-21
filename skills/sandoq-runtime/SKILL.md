@@ -207,6 +207,32 @@ tmux send-keys -t swebench_vmvm:Launcher.0 \
 Use only the checked-in, digest-pinned non-security selector. Do not print its
 contents or task identifier while validating or monitoring the run.
 
+### Direct-Kimi c64 capacity certificate
+
+Direct Kimi defaults to `legacy-c24`. The only larger profile is the bounded
+`sandoq-c64-v1` profile: exactly 64 concurrent requests, endpoint identifier
+`cpu-132-021_8103`, consistent hashing on `X-Session-ID`, and zero router,
+client, verifier, or whole-rollout retries. It is valid only for the Sandoq
+`kimi-direct-capacity-smoke` role. Never substitute an unbounded value or use
+the c64 manifest as evidence by itself.
+
+Use `direct_kimi_capacity.py materialize-config` with the checked-in c64
+example and an operator-reviewed, private mode-0600 selector containing
+exactly 64 non-sensitive no-network tasks. The materializer checks only task
+metadata and Compose filenames and emits aggregate counts and hashes; do not
+print the selector or task records. Run the server-scoped launcher with stage
+`capacity-smoke` and an exact two-hour Slurm wall. Do not reuse this capacity
+certificate for another source/config hash, worker manifest, or endpoint
+namespace.
+
+Promotion requires `direct_kimi_capacity.py verify` to rehash every retained
+artifact and accept the certificate. Qualification requires measured router
+request and chat overlap of 64, Sandoq assignment and outer-session high-water
+of 64, verified cleanup of all 64 assignments and sessions, and zero queue
+overflow, retry, route-tracking, cross-route, cleanup, or trace anomalies. The
+certificate is aggregate-only and must not contain task identifiers, prompts,
+responses, or raw errors.
+
 ## Long-Kimi managed-shell recovery gate
 
 Only the sealed `kimi-tb4-long` lease profile enables managed-shell recovery.

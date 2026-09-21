@@ -17,6 +17,13 @@ from pathlib import Path
 from typing import Any
 
 import yaml
+from direct_kimi_router import (
+    C64_CAPACITY_PROFILE,
+    DEFAULT_CAPACITY_PROFILE,
+    LEGACY_CAPACITY_PROFILE,
+    capacity_for_profile,
+    validate_endpoint_identifier,
+)
 
 EXPECTED_MODEL = "Kimi-K3"
 EXPECTED_ENDPOINTS = 24
@@ -29,10 +36,13 @@ ROUTER_REQUEST_ID_HEADERS = ("x-session-id",)
 ROUTER_REQUEST_TIMEOUT_SECONDS = 43_200
 ROUTER_RETRIES = 0
 ROUTER_PROVIDER_CONCURRENCY = 24
+ROUTER_MAX_PROVIDER_CONCURRENCY = 64
 ROUTER_QUEUE_SIZE = 0
 ROUTER_QUEUE_TIMEOUT_SECONDS = 43_200
 ROUTER_IMPLEMENTATION = "direct-kimi-transparent-v1"
+EXPECTED_ENDPOINT_IDENTIFIER = "cpu-132-021_8103"
 MANIFEST_SCHEMA_VERSION = 1
+C64_MANIFEST_SCHEMA_VERSION = 2
 MAX_CONFIG_BYTES = 4 * 1024 * 1024
 MAX_MODELS_BYTES = 1 << 20
 MAX_RUN_BINDING_BYTES = 2 * 1024 * 1024
@@ -427,9 +437,43 @@ def _manifest(
     endpoint_bundle_sha256: str,
     router_port: int,
     metrics_port: int,
+    *,
+    capacity_profile: str = DEFAULT_CAPACITY_PROFILE,
+    endpoint_identifier: str | None = None,
 ) -> dict[str, Any]:
+    capacity = capacity_for_profile(capacity_profile)
+    endpoint_identifier = validate_endpoint_identifier(
+        endpoint_identifier,
+        capacity_profile=capacity_profile,
+    )
+    if capacity_profile == C64_CAPACITY_PROFILE and endpoint_identifier != EXPECTED_ENDPOINT_IDENTIFIER:
+        raise DirectKimiWorkerError("endpoint_identifier_invalid")
+    router = {
+        "implementation": ROUTER_IMPLEMENTATION,
+        "implementation_sha256": _sha256_file(Path(__file__).with_name("direct_kimi_router.py")),
+        "host": "127.0.0.1",
+        "port": router_port,
+        "metrics_host": "127.0.0.1",
+        "metrics_port": metrics_port,
+        "policy": ROUTER_POLICY,
+        "request_id_headers": list(ROUTER_REQUEST_ID_HEADERS),
+        "request_timeout_seconds": ROUTER_REQUEST_TIMEOUT_SECONDS,
+        "max_concurrent_requests": capacity,
+        "queue_size": ROUTER_QUEUE_SIZE,
+        "queue_timeout_seconds": ROUTER_QUEUE_TIMEOUT_SECONDS,
+        "retries": ROUTER_RETRIES,
+    }
+    schema_version = MANIFEST_SCHEMA_VERSION
+    if capacity_profile == C64_CAPACITY_PROFILE:
+        schema_version = C64_MANIFEST_SCHEMA_VERSION
+        router.update(
+            {
+                "capacity_profile": capacity_profile,
+                "endpoint_identifier": endpoint_identifier,
+            }
+        )
     return {
-        "schema_version": MANIFEST_SCHEMA_VERSION,
+        "schema_version": schema_version,
         "kind": "direct-kimi-worker-generation",
         "deployment_root": str(deployment_root.resolve()),
         "model": EXPECTED_MODEL,
@@ -437,21 +481,7 @@ def _manifest(
         "source_proxy_config_sha256": proxy_config_sha256,
         "endpoint_bundle_sha256": endpoint_bundle_sha256,
         "workers": [worker.public_record for worker in workers],
-        "router": {
-            "implementation": ROUTER_IMPLEMENTATION,
-            "implementation_sha256": _sha256_file(Path(__file__).with_name("direct_kimi_router.py")),
-            "host": "127.0.0.1",
-            "port": router_port,
-            "metrics_host": "127.0.0.1",
-            "metrics_port": metrics_port,
-            "policy": ROUTER_POLICY,
-            "request_id_headers": list(ROUTER_REQUEST_ID_HEADERS),
-            "request_timeout_seconds": ROUTER_REQUEST_TIMEOUT_SECONDS,
-            "max_concurrent_requests": ROUTER_PROVIDER_CONCURRENCY,
-            "queue_size": ROUTER_QUEUE_SIZE,
-            "queue_timeout_seconds": ROUTER_QUEUE_TIMEOUT_SECONDS,
-            "retries": ROUTER_RETRIES,
-        },
+        "router": router,
     }
 
 
@@ -783,6 +813,9 @@ def prepare_generation(
     manifest_path: Path,
     urls_path: Path,
     ports_path: Path,
+    *,
+    capacity_profile: str = DEFAULT_CAPACITY_PROFILE,
+    endpoint_identifier: str | None = None,
 ) -> dict[str, Any]:
     output_root = _absolute_path(output_root, code="output_parent_invalid")
     publication_paths = tuple(
@@ -806,6 +839,8 @@ def prepare_generation(
         endpoint_bundle_sha256,
         router_port,
         metrics_port,
+        capacity_profile=capacity_profile,
+        endpoint_identifier=endpoint_identifier,
     )
     files = {
         publication_paths[0].name: (json.dumps(manifest, sort_keys=True, separators=(",", ":")) + "\n").encode(),
@@ -848,10 +883,54 @@ def validate_manifest_value(
     }
     router = manifest.get("router") if isinstance(manifest, dict) else None
     workers = manifest.get("workers") if isinstance(manifest, dict) else None
+    schema_version = manifest.get("schema_version") if isinstance(manifest, dict) else None
+    capacity_profile = (
+        router.get("capacity_profile")
+        if isinstance(router, dict) and "capacity_profile" in router
+        else DEFAULT_CAPACITY_PROFILE
+    )
+    try:
+        capacity = capacity_for_profile(capacity_profile)
+        endpoint_identifier = validate_endpoint_identifier(
+            router.get("endpoint_identifier") if isinstance(router, dict) else None,
+            capacity_profile=capacity_profile,
+        )
+    except ValueError as error:
+        raise DirectKimiWorkerError("manifest_invalid") from error
+    if capacity_profile == C64_CAPACITY_PROFILE and endpoint_identifier != EXPECTED_ENDPOINT_IDENTIFIER:
+        raise DirectKimiWorkerError("manifest_invalid")
+    expected_router = {
+        "implementation": ROUTER_IMPLEMENTATION,
+        "implementation_sha256": _sha256_file(
+            Path(__file__).with_name("direct_kimi_router.py"),
+            held=held,
+        ),
+        "host": "127.0.0.1",
+        "port": router.get("port") if isinstance(router, dict) else None,
+        "metrics_host": "127.0.0.1",
+        "metrics_port": router.get("metrics_port") if isinstance(router, dict) else None,
+        "policy": ROUTER_POLICY,
+        "request_id_headers": list(ROUTER_REQUEST_ID_HEADERS),
+        "request_timeout_seconds": ROUTER_REQUEST_TIMEOUT_SECONDS,
+        "max_concurrent_requests": capacity,
+        "queue_size": ROUTER_QUEUE_SIZE,
+        "queue_timeout_seconds": ROUTER_QUEUE_TIMEOUT_SECONDS,
+        "retries": ROUTER_RETRIES,
+    }
+    if capacity_profile == C64_CAPACITY_PROFILE:
+        expected_router.update(
+            {
+                "capacity_profile": capacity_profile,
+                "endpoint_identifier": endpoint_identifier,
+            }
+        )
+    expected_schema_version = (
+        C64_MANIFEST_SCHEMA_VERSION if capacity_profile == C64_CAPACITY_PROFILE else MANIFEST_SCHEMA_VERSION
+    )
     if (
         not isinstance(manifest, dict)
         or set(manifest) != expected_keys
-        or manifest.get("schema_version") != MANIFEST_SCHEMA_VERSION
+        or schema_version != expected_schema_version
         or manifest.get("kind") != "direct-kimi-worker-generation"
         or manifest.get("model") != EXPECTED_MODEL
         or manifest.get("source_spec_sha256") != EXPECTED_SPEC_SHA256
@@ -860,25 +939,7 @@ def validate_manifest_value(
         or not isinstance(workers, list)
         or len(workers) != EXPECTED_ENDPOINTS
         or not isinstance(router, dict)
-        or router
-        != {
-            "implementation": ROUTER_IMPLEMENTATION,
-            "implementation_sha256": _sha256_file(
-                Path(__file__).with_name("direct_kimi_router.py"),
-                held=held,
-            ),
-            "host": "127.0.0.1",
-            "port": router.get("port"),
-            "metrics_host": "127.0.0.1",
-            "metrics_port": router.get("metrics_port"),
-            "policy": ROUTER_POLICY,
-            "request_id_headers": list(ROUTER_REQUEST_ID_HEADERS),
-            "request_timeout_seconds": ROUTER_REQUEST_TIMEOUT_SECONDS,
-            "max_concurrent_requests": ROUTER_PROVIDER_CONCURRENCY,
-            "queue_size": ROUTER_QUEUE_SIZE,
-            "queue_timeout_seconds": ROUTER_QUEUE_TIMEOUT_SECONDS,
-            "retries": ROUTER_RETRIES,
-        }
+        or router != expected_router
         or any(
             not isinstance(router.get(key), int) or isinstance(router.get(key), bool) or not 1 <= router[key] <= 65_535
             for key in ("port", "metrics_port")
@@ -1218,6 +1279,7 @@ def validate_run_binding_bytes(
         or role
         not in {
             "kimi-direct-smoke",
+            "kimi-direct-capacity-smoke",
             "kimi-direct-tb4",
             "kimi-direct-tb4-diagnostic",
             "kimi-direct-tb4-sandoq-fallback-diagnostic",
@@ -1353,6 +1415,13 @@ def _validate_deployment_binding(
         "retries": manifest["router"]["retries"],
         "worker_count": len(manifest["workers"]),
     }
+    if manifest["router"].get("capacity_profile") == C64_CAPACITY_PROFILE:
+        expected_router.update(
+            {
+                "capacity_profile": C64_CAPACITY_PROFILE,
+                "endpoint_identifier": manifest["router"]["endpoint_identifier"],
+            }
+        )
     if (
         set(router) != set(expected_router)
         or router != expected_router
@@ -1402,6 +1471,9 @@ def certify_router(
             )
         except (UnicodeDecodeError, json.JSONDecodeError) as error:
             raise DirectKimiWorkerError("router_stats_invalid") from error
+        capacity_profile = manifest["router"].get("capacity_profile", DEFAULT_CAPACITY_PROFILE)
+        capacity = capacity_for_profile(capacity_profile)
+        c64_profile = capacity_profile == C64_CAPACITY_PROFILE
         expected_stats_keys = {
             "schema_version",
             "kind",
@@ -1420,11 +1492,26 @@ def certify_router(
             "upstream_failures",
             "worker_request_counts",
         }
+        if c64_profile:
+            expected_stats_keys.update(
+                {
+                    "capacity_profile",
+                    "endpoint_identifier",
+                    "configured_capacity",
+                    "active_chat_requests",
+                    "max_active_chat_requests",
+                    "capacity_rejections",
+                    "queue_overflow_rejections",
+                    "route_tracking_overflows",
+                    "cross_route_anomalies",
+                    "tracked_sessions",
+                }
+            )
         counts = router_stats.get("worker_request_counts") if isinstance(router_stats, dict) else None
         if (
             not isinstance(router_stats, dict)
             or set(router_stats) != expected_stats_keys
-            or router_stats.get("schema_version") != 1
+            or router_stats.get("schema_version") != (2 if c64_profile else 1)
             or router_stats.get("kind") != "direct-kimi-transparent-router"
             or router_stats.get("implementation") != ROUTER_IMPLEMENTATION
             or router_stats.get("policy") != ROUTER_POLICY
@@ -1447,15 +1534,40 @@ def certify_router(
                     "upstream_failures",
                 )
             )
-            or not 0 <= router_stats["max_active_requests"] <= ROUTER_PROVIDER_CONCURRENCY
+            or not 0 <= router_stats["max_active_requests"] <= capacity
             or router_stats["chat_requests"] > router_stats["total_requests"]
             or sum(counts) != router_stats["total_requests"]
             or router_stats["missing_session_rejections"] != 0
             or router_stats["upstream_failures"] != 0
         ):
             raise DirectKimiWorkerError("router_stats_invalid")
+        if c64_profile and (
+            router_stats.get("capacity_profile") != C64_CAPACITY_PROFILE
+            or router_stats.get("endpoint_identifier") != manifest["router"]["endpoint_identifier"]
+            or router_stats.get("configured_capacity") != capacity
+            or router_stats.get("active_chat_requests") != 0
+            or any(
+                type(router_stats.get(key)) is not int or router_stats[key] < 0
+                for key in (
+                    "max_active_chat_requests",
+                    "capacity_rejections",
+                    "queue_overflow_rejections",
+                    "route_tracking_overflows",
+                    "cross_route_anomalies",
+                    "tracked_sessions",
+                )
+            )
+            or router_stats["max_active_chat_requests"] > capacity
+            or router_stats["max_active_chat_requests"] > router_stats["max_active_requests"]
+            or router_stats["capacity_rejections"] != 0
+            or router_stats["queue_overflow_rejections"] != router_stats["capacity_rejections"]
+            or router_stats["route_tracking_overflows"] != 0
+            or router_stats["cross_route_anomalies"] != 0
+            or router_stats["tracked_sessions"] > router_stats["chat_requests"]
+        ):
+            raise DirectKimiWorkerError("router_stats_invalid")
         receipt = {
-            "schema_version": 2,
+            "schema_version": 3 if c64_profile else 2,
             "kind": "direct-kimi-router-final",
             "state": "passed",
             "eval_run_identity_sha256": eval_run_identity_sha256,
@@ -1475,6 +1587,20 @@ def certify_router(
             "worker_request_counts_sha256": _sha256_bytes((json.dumps(counts, separators=(",", ":")) + "\n").encode()),
             "source_generation_revalidated": True,
         }
+        if c64_profile:
+            receipt.update(
+                {
+                    "capacity_profile": C64_CAPACITY_PROFILE,
+                    "endpoint_identifier": manifest["router"]["endpoint_identifier"],
+                    "configured_capacity": capacity,
+                    "max_active_chat_requests": router_stats["max_active_chat_requests"],
+                    "capacity_rejections": router_stats["capacity_rejections"],
+                    "queue_overflow_rejections": router_stats["queue_overflow_rejections"],
+                    "route_tracking_overflows": router_stats["route_tracking_overflows"],
+                    "cross_route_anomalies": router_stats["cross_route_anomalies"],
+                    "tracked_sessions": router_stats["tracked_sessions"],
+                }
+            )
         held.revalidate()
         _atomic_write(
             output,
@@ -1497,6 +1623,12 @@ def main() -> None:
     prepare.add_argument("--manifest", type=Path, required=True)
     prepare.add_argument("--urls-output", type=Path, required=True)
     prepare.add_argument("--ports-output", type=Path, required=True)
+    prepare.add_argument(
+        "--capacity-profile",
+        choices=(LEGACY_CAPACITY_PROFILE, C64_CAPACITY_PROFILE),
+        default=DEFAULT_CAPACITY_PROFILE,
+    )
+    prepare.add_argument("--endpoint-identifier")
     prepare.add_argument("--probe", action="store_true")
     certify = subparsers.add_parser("certify-router")
     certify.add_argument("--manifest", type=Path, required=True)
@@ -1527,6 +1659,8 @@ def main() -> None:
         args.manifest,
         args.urls_output,
         args.ports_output,
+        capacity_profile=args.capacity_profile,
+        endpoint_identifier=args.endpoint_identifier,
     )
     if args.probe:
         workers, _, _, _ = load_workers(args.deployment_root)

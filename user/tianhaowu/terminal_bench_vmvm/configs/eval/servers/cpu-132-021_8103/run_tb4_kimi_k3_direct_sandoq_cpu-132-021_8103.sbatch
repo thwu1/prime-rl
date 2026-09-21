@@ -37,6 +37,8 @@ eval_root=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/evals
 generation_dir="$eval_root/kimi_k3_direct_generation_cpu-132-021_8103_${SLURM_JOB_ID}"
 if [[ "$stage" == mobius-smoke ]]; then
     output_dir="$eval_root/mobius_kimi_k3_direct_sandoq_cpu-132-021_8103_${SLURM_JOB_ID}_smoke"
+elif [[ "$stage" == capacity-smoke ]]; then
+    output_dir="$eval_root/mobius_kimi_k3_direct_sandoq_cpu-132-021_8103_${SLURM_JOB_ID}_capacity64"
 elif [[ "$stage" == provider-split-legacy ]]; then
     output_dir="$eval_root/tb4_kimi_k3_direct_sandoq_cpu-132-021_8103_${SLURM_JOB_ID}_legacy"
 elif [[ "$stage" == provider-split-large ]]; then
@@ -65,12 +67,16 @@ cleanup() {
 }
 trap cleanup EXIT INT TERM
 
-if [[ "$stage" != smoke && "$stage" != mobius-smoke && "$stage" != tb4 \
+if [[ "$stage" != smoke && "$stage" != mobius-smoke && "$stage" != capacity-smoke && "$stage" != tb4 \
     && "$stage" != provider-split-legacy \
     && "$stage" != provider-split-large \
     && "$stage" != sandoq-fallback-memory-8g \
     && "$stage" != sandoq-fallback-memory-16g ]]; then
     printf 'KIMI_SANDOQ_STAGE is invalid\n' >&2
+    exit 2
+fi
+if [[ "$stage" == capacity-smoke && "$sandbox_provider" != sandoq ]]; then
+    printf 'Kimi capacity smoke requires Sandoq\n' >&2
     exit 2
 fi
 if [[ "$sandbox_provider" != sandoq && "$sandbox_provider" != vmvm ]] \
@@ -79,11 +85,13 @@ if [[ "$sandbox_provider" != sandoq && "$sandbox_provider" != vmvm ]] \
     printf 'Direct Kimi stage/provider pairing is invalid\n' >&2
     exit 2
 fi
-if [[ "$stage" == smoke || "$stage" == mobius-smoke ]]; then
+if [[ "$stage" == smoke || "$stage" == mobius-smoke || "$stage" == capacity-smoke ]]; then
     smoke_wall_limit=$(squeue -h -j "$SLURM_JOB_ID" -o '%l')
     expected_smoke_wall_limit=4:00:00
     if [[ "$stage" == mobius-smoke ]]; then
         expected_smoke_wall_limit=12:00
+    elif [[ "$stage" == capacity-smoke ]]; then
+        expected_smoke_wall_limit=2:00:00
     fi
     if [[ "$smoke_wall_limit" != "$expected_smoke_wall_limit" ]]; then
         printf 'Direct Kimi smoke requires its exact Slurm wall limit\n' >&2
@@ -205,7 +213,18 @@ elif [[ -n ${KIMI_PROVIDER_LAUNCH_PLAN:-} || -n ${KIMI_PROVIDER_LAUNCH_PLAN_SHA2
     exit 2
 fi
 
-if [[ "$stage" == smoke ]]; then
+if [[ "$stage" == capacity-smoke ]]; then
+    eval_config=${KIMI_SANDOQ_CAPACITY_EVAL_CONFIG:?Set KIMI_SANDOQ_CAPACITY_EVAL_CONFIG}
+    eval_config_sha256=${KIMI_SANDOQ_CAPACITY_EVAL_CONFIG_SHA256:?Set KIMI_SANDOQ_CAPACITY_EVAL_CONFIG_SHA256}
+    task_file=${KIMI_SANDOQ_CAPACITY_TASK_FILE:?Set KIMI_SANDOQ_CAPACITY_TASK_FILE}
+    task_sha256=${KIMI_SANDOQ_CAPACITY_TASK_FILE_SHA256:?Set KIMI_SANDOQ_CAPACITY_TASK_FILE_SHA256}
+    task_count=64
+    stage_capacity=64
+    identity_role=kimi-direct-capacity-smoke
+    certificate_mode=capacity
+    router_capacity_profile=sandoq-c64-v1
+    endpoint_identifier=cpu-132-021_8103
+elif [[ "$stage" == smoke ]]; then
     eval_config="$server_dir/tb4_kimi_k3_sandoq_smoke.toml"
     # Exact one-task authorization derived ID-blind from the reviewed
     # non-security TB4 smoke set. Never print its task identifier.
@@ -313,10 +332,15 @@ if ! flock -n 8; then
 fi
 export PYTHONDONTWRITEBYTECODE=1
 export PYTHONPATH="$workflow_dir:$project_dir/environments/vmvm_tb_v2:$project_dir/deps/verifiers:$project_dir/deps/renderers:$project_dir/deps/pydantic-config/src:$x86_site"
+router_profile_args=(--capacity-profile "${router_capacity_profile:-legacy-c24}")
+if [[ -n ${endpoint_identifier:-} ]]; then
+    router_profile_args+=(--endpoint-identifier "$endpoint_identifier")
+fi
 "$x86_uv" run --no-project --offline --python "$python_bin" \
     python3 "$workflow_dir/direct_kimi_workers.py" prepare \
     --deployment-root "$deployment_root" --output-root "$generation_dir" \
-    --manifest "$manifest" --urls-output "$urls_file" --ports-output "$ports_file" --probe
+    --manifest "$manifest" --urls-output "$urls_file" --ports-output "$ports_file" --probe \
+    "${router_profile_args[@]}"
 manifest_sha256=$(sha256sum "$manifest" | cut -d' ' -f1)
 mapfile -t worker_urls < "$urls_file"
 mapfile -t router_ports < "$ports_file"
@@ -337,7 +361,8 @@ setsid "$x86_uv" run --no-project --offline --python "$python_bin" \
         --worker-urls-file "$urls_file" \
         --host 127.0.0.1 \
         --port "$router_port" \
-        --metrics-port "$metrics_port" >"$router_log" 2>&1 &
+        --metrics-port "$metrics_port" \
+        "${router_profile_args[@]}" >"$router_log" 2>&1 &
 router_pid=$!
 
 for attempt in $(seq 1 120); do
@@ -382,6 +407,8 @@ stage_env=(
     DIRECT_KIMI_PREFLIGHT_ONLY="$preflight_only"
     DIRECT_KIMI_SANDBOX_PROVIDER="$sandbox_provider"
     DIRECT_KIMI_EXECUTION_MODE="$execution_mode"
+    DIRECT_KIMI_ROUTER_CAPACITY_PROFILE="${router_capacity_profile:-legacy-c24}"
+    DIRECT_KIMI_ENDPOINT_IDENTIFIER="${endpoint_identifier:-}"
 )
 if [[ "$identity_role" == kimi-direct-tb4 ]]; then
     stage_env+=(
@@ -450,6 +477,14 @@ if [[ "$preflight_only" == 1 ]]; then
     exit 0
 fi
 
+if [[ "$stage" == capacity-smoke ]]; then
+    "$x86_uv" run --no-project --offline --python "$python_bin" \
+        python3 "$workflow_dir/direct_kimi_capacity.py" probe \
+        --run-dir "$output_dir" --manifest "$manifest" --manifest-sha256 "$manifest_sha256" \
+        --base-url "http://127.0.0.1:${router_port}/v1" \
+        --output "$output_dir/control/direct_kimi_capacity_probe.json"
+fi
+
 if ! kill -0 "$router_pid" 2>/dev/null; then
     printf 'Direct Kimi router exited before certification\n' >&2
     exit 2
@@ -503,6 +538,14 @@ if [[ ( "$stage" == provider-split-legacy || "$stage" == provider-split-large ) 
         --manifest-sha256 "$resource_manifest_sha256" \
         --output "$output_dir/provider_partition_certificate.json" \
         "${provider_certificate_args[@]}"
+elif [[ "$stage" == capacity-smoke ]]; then
+    "$x86_uv" run --no-project --offline --python "$python_bin" \
+        python3 "$workflow_dir/direct_kimi_capacity.py" certify \
+        --run-dir "$output_dir" \
+        --expected-task-file "$task_file" \
+        --expected-task-file-sha256 "$task_sha256" \
+        --capacity-probe "$output_dir/control/direct_kimi_capacity_probe.json" \
+        --output "$output_dir/direct_kimi_capacity_certificate.json"
 elif [[ "$execution_mode" == certified ]]; then
     certificate_args=(
         "$workflow_dir/certify_direct_kimi.py" "$certificate_mode"
@@ -519,7 +562,9 @@ elif [[ "$execution_mode" == certified ]]; then
     fi
     "$x86_uv" run --no-project --offline --python "$python_bin" python3 "${certificate_args[@]}"
 fi
-if [[ "$stage" == smoke || "$stage" == mobius-smoke ]]; then
+if [[ "$stage" == capacity-smoke ]]; then
+    printf '{"job_id":"%s","stage":"%s","state":"capacity-qualified"}\n' "$SLURM_JOB_ID" "$stage"
+elif [[ "$stage" == smoke || "$stage" == mobius-smoke ]]; then
     printf '{"job_id":"%s","stage":"%s","state":"capacity-limited-passed"}\n' "$SLURM_JOB_ID" "$stage"
 elif [[ "$execution_mode" != certified ]]; then
     printf '{"certification_eligible":false,"job_id":"%s","stage":"%s","state":"diagnostic-completed","trace_rollout_eligible":false}\n' "$SLURM_JOB_ID" "$stage"

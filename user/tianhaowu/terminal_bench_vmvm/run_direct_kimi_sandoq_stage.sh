@@ -23,11 +23,26 @@ expected_revision=${DIRECT_KIMI_EXPECTED_PRIME_RL_REVISION:?Set DIRECT_KIMI_EXPE
 preflight_only=${DIRECT_KIMI_PREFLIGHT_ONLY:-0}
 sandbox_provider=${DIRECT_KIMI_SANDBOX_PROVIDER:-sandoq}
 execution_mode=${DIRECT_KIMI_EXECUTION_MODE:-certified}
+router_capacity_profile=${DIRECT_KIMI_ROUTER_CAPACITY_PROFILE:-legacy-c24}
+endpoint_identifier=${DIRECT_KIMI_ENDPOINT_IDENTIFIER:-}
 
-if [[ "$role" != kimi-direct-smoke && "$role" != kimi-direct-tb4 \
+if [[ "$role" != kimi-direct-smoke && "$role" != kimi-direct-capacity-smoke \
+    && "$role" != kimi-direct-tb4 \
     && "$role" != kimi-direct-tb4-diagnostic \
     && "$role" != kimi-direct-tb4-sandoq-fallback-diagnostic ]]; then
     printf 'Invalid direct Kimi stage role\n' >&2
+    exit 2
+fi
+if [[ "$role" == kimi-direct-capacity-smoke ]]; then
+    if [[ "$sandbox_provider" != sandoq || "$execution_mode" != certified \
+        || "$rollout_concurrency" != 64 \
+        || "$router_capacity_profile" != sandoq-c64-v1 \
+        || "$endpoint_identifier" != cpu-132-021_8103 ]]; then
+        printf 'Direct Kimi capacity smoke requires the exact bounded c64 profile\n' >&2
+        exit 2
+    fi
+elif [[ "$router_capacity_profile" != legacy-c24 || -n "$endpoint_identifier" ]]; then
+    printf 'Legacy direct Kimi stages require the default c24 router profile\n' >&2
     exit 2
 fi
 if [[ "$execution_mode" != certified && "$execution_mode" != diagnostic \
@@ -297,12 +312,29 @@ from pathlib import Path
 from direct_kimi_workers import validate_saved_manifest
 
 manifest = validate_saved_manifest(Path(sys.argv[1]))
-print(manifest["source_spec_sha256"], manifest["endpoint_bundle_sha256"], sep="\t")
+router = manifest["router"]
+print(
+    manifest["source_spec_sha256"],
+    manifest["endpoint_bundle_sha256"],
+    router.get("capacity_profile", "legacy-c24"),
+    router.get("endpoint_identifier", "-"),
+    router["max_concurrent_requests"],
+    sep="\t",
+)
 PY
 )
-IFS=$'\t' read -r direct_spec_sha256 direct_endpoint_bundle_sha256 manifest_extra <<< "$manifest_metadata"
+IFS=$'\t' read -r direct_spec_sha256 direct_endpoint_bundle_sha256 direct_capacity_profile \
+    direct_endpoint_identifier direct_router_concurrency manifest_extra <<< "$manifest_metadata"
+expected_endpoint_identifier=${endpoint_identifier:--}
+expected_router_concurrency=24
+if [[ "$router_capacity_profile" == sandoq-c64-v1 ]]; then
+    expected_router_concurrency=64
+fi
 if [[ ! "$direct_spec_sha256" =~ ^[0-9a-f]{64}$ \
     || ! "$direct_endpoint_bundle_sha256" =~ ^[0-9a-f]{64}$ \
+    || "$direct_capacity_profile" != "$router_capacity_profile" \
+    || "$direct_endpoint_identifier" != "$expected_endpoint_identifier" \
+    || "$direct_router_concurrency" != "$expected_router_concurrency" \
     || -n "$manifest_extra" || "$manifest_metadata" == *$'\n'* ]]; then
     printf 'Direct Kimi worker manifest validation failed\n' >&2
     exit 2
@@ -331,7 +363,7 @@ identity_args=(
     --direct-endpoint-bundle-sha256 "$direct_endpoint_bundle_sha256"
     --direct-router-policy consistent_hash
     --direct-request-id-headers x-session-id
-    --direct-provider-concurrency 24
+    --direct-provider-concurrency "$direct_router_concurrency"
     --direct-request-timeout-seconds 43200
     --direct-retries 0
     --direct-worker-count 24
@@ -419,7 +451,7 @@ PY
         --vacli-container-privileged "${VACLI_CONTAINER_PRIVILEGED:-1}"
     )
 fi
-if [[ "$role" == kimi-direct-smoke ]] \
+if [[ ( "$role" == kimi-direct-smoke || "$role" == kimi-direct-capacity-smoke ) ]] \
     && [[ "$(python3 - "$eval_config" <<'PY'
 import sys
 import tomllib

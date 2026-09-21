@@ -643,6 +643,21 @@ def _declares_sandoq_public_network_override(runtime: Runtime) -> bool:
     )
 
 
+def _declares_sandoq_no_network(runtime: Runtime) -> bool:
+    if not isinstance(runtime, SandoqRuntime):
+        return False
+    config = runtime.config
+    return (
+        config.mode == "oci-runner"
+        and config.network_access is False
+        and config.host_tunnel == "none"
+        and config.expected_environment == "oci-runner"
+        and config.ecr_token_file is not None
+        and config.ecr_token_file.is_absolute()
+        and os.environ.get("OCI_RUNNER_TASK_NETWORK", "none").strip().lower() == "none"
+    )
+
+
 def _environment_workdir(dockerfile: Path, default: str = "/app") -> str:
     """Return the final literal WORKDIR, matching Harbor's container semantics."""
     if not dockerfile.is_file():
@@ -2212,18 +2227,24 @@ class TerminalBenchVMVMTaskset(
         if isinstance(runtime, SandoqRuntime):
             if mode == "no-network":
                 config = runtime.config
-                if not _declares_sandoq_public_network_override(runtime) or not _sandoq_public_network_override_is_safe(
+                isolated = _declares_sandoq_no_network(runtime)
+                public_override = _declares_sandoq_public_network_override(runtime) and _sandoq_public_network_override_is_safe(
                     config
-                ):
+                )
+                if not isolated and not public_override:
                     raise UnsupportedTaskError(
                         f"{task.name}: Sandoq execution of a declared no-network task requires "
-                        "the explicit audited public-network override, approved OCI environment, "
-                        "supervised provider transport, and host-side harness"
+                        "the isolated OCI runtime or the explicit audited public-network override"
                     )
-            # The model/tool loop stays on the controller.  This path records that the
-            # current OCI provider does not enforce the task's declared no-network mode.
-            # The native-tunnel diagnostic is equally explicit: its nested host network
-            # is required only so the Firecracker guest can reach the reverse tunnel.
+                # A native-tunnel override intentionally exposes nested host networking
+                # so an in-sandbox harness can reach the controller's loopback relay.
+                # It is public execution, never evidence of declared network isolation.
+                if public_override:
+                    return
+            elif _declares_sandoq_no_network(runtime):
+                raise UnsupportedTaskError(
+                    f"{task.name}: network_mode='public' is incompatible with the isolated Sandoq runtime"
+                )
             return
         if not isinstance(runtime, VMVMRuntime):
             if mode == "no-network":

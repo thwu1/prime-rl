@@ -93,6 +93,13 @@ def _binding_files(
                 "worker_count": len(manifest["workers"]),
             },
         }
+        if "capacity_profile" in router:
+            deployment["router"].update(
+                {
+                    "capacity_profile": router["capacity_profile"],
+                    "endpoint_identifier": router["endpoint_identifier"],
+                }
+            )
     identity_value = {
         "role": role,
         "source": {"sandbox_provider": "sandoq"},
@@ -183,6 +190,40 @@ def test_direct_kimi_manifest_is_secret_free_and_revalidates(tmp_path: Path, mon
     (root / "proxy_litellm_config.yaml").write_text("changed\n")
     with pytest.raises(DirectKimiWorkerError, match="source_generation_mismatch"):
         validate_saved_manifest(manifest_path)
+
+
+def test_direct_kimi_c64_manifest_requires_explicit_profile_and_endpoint(tmp_path: Path, monkeypatch) -> None:
+    root = _deployment(tmp_path, monkeypatch)
+    generation = tmp_path / "generation"
+    manifest_path = generation / direct_kimi_workers.GENERATION_MANIFEST_NAME
+    manifest = prepare_generation(
+        root,
+        generation,
+        manifest_path,
+        generation / direct_kimi_workers.GENERATION_URLS_NAME,
+        generation / direct_kimi_workers.GENERATION_PORTS_NAME,
+        capacity_profile="sandoq-c64-v1",
+        endpoint_identifier="cpu-132-021_8103",
+    )
+
+    assert manifest["schema_version"] == 2
+    assert manifest["router"]["capacity_profile"] == "sandoq-c64-v1"
+    assert manifest["router"]["endpoint_identifier"] == "cpu-132-021_8103"
+    assert manifest["router"]["max_concurrent_requests"] == 64
+    assert manifest["router"]["queue_size"] == 0
+    assert manifest["router"]["retries"] == 0
+    assert validate_saved_manifest(manifest_path) == manifest
+
+    another = tmp_path / "another"
+    with pytest.raises(ValueError, match="endpoint_identifier_invalid"):
+        prepare_generation(
+            root,
+            another,
+            another / direct_kimi_workers.GENERATION_MANIFEST_NAME,
+            another / direct_kimi_workers.GENERATION_URLS_NAME,
+            another / direct_kimi_workers.GENERATION_PORTS_NAME,
+            capacity_profile="sandoq-c64-v1",
+        )
 
 
 def test_direct_kimi_atomic_publication_is_exclusive(tmp_path: Path) -> None:
@@ -411,6 +452,82 @@ def test_direct_kimi_router_receipt_is_exact(tmp_path: Path, monkeypatch) -> Non
             eval_invocations=invocations,
             provenance=provenance,
         )
+
+
+def test_direct_kimi_c64_router_receipt_requires_measured_clean_overlap(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    root = _deployment(tmp_path, monkeypatch)
+    generation = tmp_path / "generation"
+    manifest_path = generation / direct_kimi_workers.GENERATION_MANIFEST_NAME
+    prepare_generation(
+        root,
+        generation,
+        manifest_path,
+        generation / direct_kimi_workers.GENERATION_URLS_NAME,
+        generation / direct_kimi_workers.GENERATION_PORTS_NAME,
+        capacity_profile="sandoq-c64-v1",
+        endpoint_identifier="cpu-132-021_8103",
+    )
+    manifest_sha256 = hashlib.sha256(manifest_path.read_bytes()).hexdigest()
+    stats = generation / "router-stats.json"
+    stats.write_text(
+        json.dumps(
+            {
+                "schema_version": 2,
+                "kind": "direct-kimi-transparent-router",
+                "implementation": "direct-kimi-transparent-v1",
+                "policy": "consistent_hash",
+                "request_id_headers": ["x-session-id"],
+                "request_timeout_seconds": 43_200,
+                "retries": 0,
+                "worker_count": 24,
+                "active_workers": 24,
+                "capacity_profile": "sandoq-c64-v1",
+                "endpoint_identifier": "cpu-132-021_8103",
+                "configured_capacity": 64,
+                "active_requests": 0,
+                "active_chat_requests": 0,
+                "max_active_requests": 64,
+                "max_active_chat_requests": 64,
+                "total_requests": 128,
+                "chat_requests": 128,
+                "missing_session_rejections": 0,
+                "capacity_rejections": 0,
+                "queue_overflow_rejections": 0,
+                "route_tracking_overflows": 0,
+                "cross_route_anomalies": 0,
+                "upstream_failures": 0,
+                "tracked_sessions": 64,
+                "worker_request_counts": [128, *([0] * 23)],
+            }
+        )
+    )
+    stats.chmod(0o600)
+    identity, invocations, provenance, identity_sha256 = _binding_files(
+        generation,
+        role="kimi-direct-capacity-smoke",
+        manifest_path=manifest_path,
+    )
+
+    receipt = certify_router(
+        manifest_path,
+        manifest_sha256,
+        24,
+        stats,
+        generation / "router.json",
+        eval_run_identity=identity,
+        eval_invocations=invocations,
+        provenance=provenance,
+    )
+
+    assert receipt["schema_version"] == 3
+    assert receipt["eval_run_identity_sha256"] == identity_sha256
+    assert receipt["capacity_profile"] == "sandoq-c64-v1"
+    assert receipt["configured_capacity"] == 64
+    assert receipt["max_active_chat_requests"] == 64
+    assert receipt["queue_overflow_rejections"] == 0
 
 
 @pytest.mark.parametrize(

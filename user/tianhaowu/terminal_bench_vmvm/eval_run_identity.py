@@ -69,6 +69,7 @@ KIMI_REQUEST_TIMEOUT_SECONDS = 43_200
 KIMI_HOST_HARNESS_REQUEST_TIMEOUT_SECONDS = 15_000
 KIMI_DIRECT_SCORED_SMOKE_REQUEST_TIMEOUT_SECONDS = 10_800
 KIMI_DIRECT_SCORED_SMOKE_HOST_HARNESS_REQUEST_TIMEOUT_SECONDS = 9_600
+KIMI_DIRECT_CAPACITY_REQUEST_TIMEOUT_SECONDS = 1_800
 KIMI_CONNECT_TIMEOUT_SECONDS = 120
 KIMI_SETUP_TIMEOUT_SECONDS = 3_600
 KIMI_FINALIZE_TIMEOUT_SECONDS = 3_600
@@ -81,6 +82,7 @@ KIMI_TIMEOUT_PROFILES = {
     "diagnostic": {"rollout_timeout": 300, "session_timeout": 600},
     "reward_diagnostic": {"rollout_timeout": 600, "session_timeout": 600},
     "direct_scored_smoke": {"rollout_timeout": 9_000, "session_timeout": 10_800},
+    "direct_capacity": {"rollout_timeout": 1_800, "session_timeout": 2_400},
 }
 KIMI_FULL_RETRY_EXCEPTIONS = frozenset({"ProviderError", "SandboxError", "TunnelError", "InterceptionError"})
 VMVM_HOST_CLEANUP_CONTRACT = {
@@ -95,12 +97,19 @@ SANDOQ_UPSTREAM_TREE = "33f092a3982916660e12f472588e6ce34a906fc2"
 SANDOQ_UPSTREAM_SUBTREE = "10b5bd9bbc76eba1b8253637e1869d6b63b7fc42"
 SANDOQ_UPSTREAM_INVENTORY_SHA256 = "d014e103e12bb37db5edd8f6bf77f156aa2d021d79e449bb6b5e9d82574c7d8b"
 KIMI_SANDOQ_FALLBACK_ROLE = "kimi-direct-tb4-sandoq-fallback-diagnostic"
+KIMI_CAPACITY_SMOKE_ROLE = "kimi-direct-capacity-smoke"
 KIMI_PROVIDER_SPLIT_COUNTS = frozenset({31, 32})
 KIMI_SANDOQ_LONG_LEASE_ROLES = frozenset(
     {"tb4", "mobius", "kimi-direct-tb4", "kimi-direct-tb4-diagnostic", KIMI_SANDOQ_FALLBACK_ROLE}
 )
 DIRECT_KIMI_ROLES = frozenset(
-    {"kimi-direct-smoke", "kimi-direct-tb4", "kimi-direct-tb4-diagnostic", KIMI_SANDOQ_FALLBACK_ROLE}
+    {
+        "kimi-direct-smoke",
+        KIMI_CAPACITY_SMOKE_ROLE,
+        "kimi-direct-tb4",
+        "kimi-direct-tb4-diagnostic",
+        KIMI_SANDOQ_FALLBACK_ROLE,
+    }
 )
 DIRECT_ROLES = frozenset({"qwen-direct", *DIRECT_KIMI_ROLES})
 
@@ -112,6 +121,10 @@ class EvalIdentityError(ValueError):
 def _direct_kimi_expected_concurrency(role: str, sandbox_provider: str, task_count: int) -> int:
     if role == "kimi-direct-smoke":
         return 1
+    if role == KIMI_CAPACITY_SMOKE_ROLE:
+        if sandbox_provider != "sandoq" or task_count != 64:
+            raise EvalIdentityError("direct_kimi_capacity_scope_invalid")
+        return 64
     if role == KIMI_SANDOQ_FALLBACK_ROLE:
         fallback_concurrency = {17: 6, 4: 2}
         if sandbox_provider != "sandoq" or task_count not in fallback_concurrency:
@@ -138,12 +151,40 @@ def _validate_direct_kimi_fallback_config(config: dict[str, Any], role: str, tas
         raise EvalIdentityError("direct_kimi_fallback_config_invalid")
 
 
+def _validate_direct_kimi_capacity_config(config: dict[str, Any], role: str) -> None:
+    if role != KIMI_CAPACITY_SMOKE_ROLE:
+        return
+    taskset = config.get("taskset")
+    harness = config.get("harness")
+    runtime = harness.get("runtime") if isinstance(harness, dict) else None
+    sampling = config.get("sampling")
+    client = config.get("client")
+    if (
+        config.get("num_tasks") != 64
+        or config.get("max_concurrent") != 64
+        or config.get("multiplex") != 64
+        or config.get("max_turns") != 1
+        or not isinstance(client, dict)
+        or client.get("max_connections") != 64
+        or client.get("max_keepalive_connections") != 64
+        or client.get("max_retries") != 0
+        or not isinstance(sampling, dict)
+        or sampling.get("max_tokens") != 256
+        or not isinstance(taskset, dict)
+        or taskset.get("enable_compose") is not False
+        or taskset.get("verifier_runtime_retries") != 0
+        or not isinstance(runtime, dict)
+        or runtime.get("network_access") is not False
+    ):
+        raise EvalIdentityError("direct_kimi_capacity_config_invalid")
+
+
 def _validate_direct_kimi_approved_config(
     source_config: Mapping[str, str],
     role: str,
     approved_sha256: str | None,
 ) -> None:
-    diagnostic_roles = {"kimi-direct-tb4-diagnostic", KIMI_SANDOQ_FALLBACK_ROLE}
+    diagnostic_roles = {"kimi-direct-tb4-diagnostic", KIMI_SANDOQ_FALLBACK_ROLE, KIMI_CAPACITY_SMOKE_ROLE}
     if role in diagnostic_roles:
         if SHA256_RE.fullmatch(approved_sha256 or "") is None or source_config["sha256"] != approved_sha256:
             raise EvalIdentityError("direct_kimi_approved_config_mismatch")
@@ -177,14 +218,16 @@ def validate_kimi_timeout_contract(
     assert isinstance(client, dict) and isinstance(timeouts, dict) and isinstance(runtime, dict)
     assert isinstance(harness, dict)
     direct_scored_smoke = required_profile == "direct_scored_smoke"
-    expected_request_timeout = (
-        KIMI_DIRECT_SCORED_SMOKE_REQUEST_TIMEOUT_SECONDS if direct_scored_smoke else KIMI_REQUEST_TIMEOUT_SECONDS
-    )
-    expected_host_harness_request_timeout = (
-        KIMI_DIRECT_SCORED_SMOKE_HOST_HARNESS_REQUEST_TIMEOUT_SECONDS
-        if direct_scored_smoke
-        else KIMI_HOST_HARNESS_REQUEST_TIMEOUT_SECONDS
-    )
+    direct_capacity = required_profile == "direct_capacity"
+    if direct_scored_smoke:
+        expected_request_timeout = KIMI_DIRECT_SCORED_SMOKE_REQUEST_TIMEOUT_SECONDS
+        expected_host_harness_request_timeout = KIMI_DIRECT_SCORED_SMOKE_HOST_HARNESS_REQUEST_TIMEOUT_SECONDS
+    elif direct_capacity:
+        expected_request_timeout = KIMI_DIRECT_CAPACITY_REQUEST_TIMEOUT_SECONDS
+        expected_host_harness_request_timeout = KIMI_DIRECT_CAPACITY_REQUEST_TIMEOUT_SECONDS
+    else:
+        expected_request_timeout = KIMI_REQUEST_TIMEOUT_SECONDS
+        expected_host_harness_request_timeout = KIMI_HOST_HARNESS_REQUEST_TIMEOUT_SECONDS
     host_harness = harness.get("id") == "terminal-bench-sandoq-host"
     if host_harness:
         harness_timeout_valid = overrides is None and (
@@ -220,12 +263,17 @@ def validate_kimi_timeout_contract(
         "diagnostic",
         "reward_diagnostic",
         "direct_scored_smoke",
+        "direct_capacity",
     }
     tight_diagnostic = required_profile in {"diagnostic", "reward_diagnostic"}
-    setup_timeout_seconds = 180 if tight_diagnostic else 600 if bounded_smoke else KIMI_SETUP_TIMEOUT_SECONDS
+    setup_timeout_seconds = (
+        1_800 if direct_capacity else 180 if tight_diagnostic else 600 if bounded_smoke else KIMI_SETUP_TIMEOUT_SECONDS
+    )
     finalize_timeout_seconds = 60 if tight_diagnostic else 300 if bounded_smoke else KIMI_FINALIZE_TIMEOUT_SECONDS
     if direct_scored_smoke:
         scoring_timeout_seconds = 900
+    elif direct_capacity:
+        scoring_timeout_seconds = 600
     else:
         scoring_timeout_seconds = 120 if tight_diagnostic else 600 if bounded_smoke else KIMI_SCORING_TIMEOUT_SECONDS
 
@@ -888,6 +936,7 @@ def _contract(
     if _allow_legacy_direct_scored_smoke and not direct_kimi_archive_smoke:
         raise EvalIdentityError("resolved_contract_invalid")
     direct_kimi_scored_smoke = direct_kimi_archive_smoke and not _allow_legacy_direct_scored_smoke
+    direct_kimi_capacity_smoke = model == "Kimi-K3" and role == KIMI_CAPACITY_SMOKE_ROLE
     require_kimi_steady_state_concurrency = role == "mobius"
     if model == "Kimi-K3":
         required_profile: str | None = None
@@ -908,6 +957,8 @@ def _contract(
                 required_profile = "reward_diagnostic" if reward_diagnostic else "diagnostic"
             else:
                 required_profile = "quick" if _allow_legacy_direct_scored_smoke else "direct_scored_smoke"
+        elif role == KIMI_CAPACITY_SMOKE_ROLE:
+            required_profile = "direct_capacity"
         elif role == "smoke":
             if not isinstance(taskset, dict):
                 raise EvalIdentityError("resolved_contract_invalid")
@@ -984,9 +1035,10 @@ def _contract(
     if not isinstance(runtime, dict) or runtime.get("type") != sandbox_provider:
         error = "vmvm_runtime_required" if sandbox_provider == "vmvm" else "sandbox_runtime_mismatch"
         raise EvalIdentityError(error)
+    expected_network_access = False if direct_kimi_capacity_smoke else True
     if sandbox_provider == "sandoq" and (
         runtime.get("mode") != "oci-runner"
-        or runtime.get("network_access") is not True
+        or runtime.get("network_access") is not expected_network_access
         or runtime.get("host_tunnel") != "none"
         or runtime.get("expected_environment") != "oci-runner"
         or not isinstance(runtime.get("ecr_token_file"), str)
@@ -1011,10 +1063,12 @@ def _contract(
             or taskset.get("verifier_runtime_retries") != 0
         ):
             raise EvalIdentityError(f"{sandbox_provider}_cleanup_retry_contract_invalid")
-    expected_host_command_timeout = 60 if direct_kimi_diagnostic else 240
+    expected_host_command_timeout = 60 if direct_kimi_diagnostic or direct_kimi_capacity_smoke else 240
     expected_host_request_timeout = (
         KIMI_DIRECT_SCORED_SMOKE_HOST_HARNESS_REQUEST_TIMEOUT_SECONDS
         if direct_kimi_scored_smoke
+        else KIMI_DIRECT_CAPACITY_REQUEST_TIMEOUT_SECONDS
+        if direct_kimi_capacity_smoke
         else KIMI_HOST_HARNESS_REQUEST_TIMEOUT_SECONDS
     )
     if host_harness and (
@@ -1872,6 +1926,23 @@ def _validate_identity_shape(identity: object) -> dict[str, Any]:
             base_url_port = parsed_base_url.port
         except ValueError as error:
             raise EvalIdentityError("eval_run_identity_schema_invalid") from error
+        expected_router = {
+            "implementation": "direct-kimi-transparent-v1",
+            "implementation_sha256": router.get("implementation_sha256") if isinstance(router, dict) else None,
+            "policy": "consistent_hash",
+            "request_id_headers": ["x-session-id"],
+            "provider_concurrency": 64 if role == KIMI_CAPACITY_SMOKE_ROLE else 24,
+            "request_timeout_seconds": KIMI_REQUEST_TIMEOUT_SECONDS,
+            "retries": 0,
+            "worker_count": 24,
+        }
+        if role == KIMI_CAPACITY_SMOKE_ROLE:
+            expected_router.update(
+                {
+                    "capacity_profile": "sandoq-c64-v1",
+                    "endpoint_identifier": "cpu-132-021_8103",
+                }
+            )
         if (
             deployment.get("kind") != "direct_kimi"
             or SHA256_RE.fullmatch(str(deployment.get("spec_sha256", ""))) is None
@@ -1887,17 +1958,7 @@ def _validate_identity_shape(identity: object) -> dict[str, Any]:
             or parsed_base_url.query
             or parsed_base_url.fragment
             or not isinstance(router, dict)
-            or router
-            != {
-                "implementation": "direct-kimi-transparent-v1",
-                "implementation_sha256": router.get("implementation_sha256"),
-                "policy": "consistent_hash",
-                "request_id_headers": ["x-session-id"],
-                "provider_concurrency": 24,
-                "request_timeout_seconds": KIMI_REQUEST_TIMEOUT_SECONDS,
-                "retries": 0,
-                "worker_count": 24,
-            }
+            or router != expected_router
             or SHA256_RE.fullmatch(str(router.get("implementation_sha256", ""))) is None
             or (role != "kimi-direct-tb4" and smoke_checkpoint is not None)
         ):
@@ -2001,13 +2062,17 @@ def _validate_identity_shape(identity: object) -> dict[str, Any]:
     if role in DIRECT_KIMI_ROLES and model != "Kimi-K3":
         raise EvalIdentityError("eval_run_identity_schema_invalid")
     expected_harness_command_timeout = (
-        60 if role == "kimi-direct-smoke" and dataset.get("kind") == "git_revision" else 240
+        60
+        if (role == "kimi-direct-smoke" and dataset.get("kind") == "git_revision") or role == KIMI_CAPACITY_SMOKE_ROLE
+        else 240
     )
     allowed_harness_request_timeouts = {KIMI_HOST_HARNESS_REQUEST_TIMEOUT_SECONDS}
     if role == "kimi-direct-smoke" and dataset.get("kind") == "archive":
         # Schema-v1 scored-smoke identities written before the bounded profile used
         # the generic Kimi harness timeout. Keep those immutable records auditable.
         allowed_harness_request_timeouts.add(KIMI_DIRECT_SCORED_SMOKE_HOST_HARNESS_REQUEST_TIMEOUT_SECONDS)
+    if role == KIMI_CAPACITY_SMOKE_ROLE:
+        allowed_harness_request_timeouts = {KIMI_DIRECT_CAPACITY_REQUEST_TIMEOUT_SECONDS}
     observed_harness = contract.get("harness")
     if "harness" in contract and (
         not isinstance(observed_harness, dict)
@@ -2144,7 +2209,7 @@ def _validate_identity_shape(identity: object) -> dict[str, Any]:
             or not isinstance(environment.get("pool_event_log"), str)
             or environment.get("allow_dockerhub_fallback") is not True
             or runtime.get("mode") != "oci-runner"
-            or runtime.get("network_access") is not True
+            or runtime.get("network_access") is not (role != KIMI_CAPACITY_SMOKE_ROLE)
             or runtime.get("host_tunnel") != "none"
             or runtime.get("expected_environment") != "oci-runner"
             or any(key in runtime for key in ("guest_tunnel_url", "tunnel_pool_size", "tunnel_ready_timeout"))
@@ -2502,6 +2567,7 @@ def _verify_config_and_inputs(
         identity["role"],
         identity["inputs"]["task_file"]["count"],
     )
+    _validate_direct_kimi_capacity_config(config, identity["role"])
     client = config.get("client")
     if not isinstance(client, dict) or client.get("base_url") != endpoint_client_base_url:
         raise EvalIdentityError("model_endpoint_binding_mismatch")
@@ -2513,6 +2579,8 @@ def _verify_config_and_inputs(
     expected_request_timeout = (
         KIMI_DIRECT_SCORED_SMOKE_REQUEST_TIMEOUT_SECONDS
         if direct_kimi_scored_smoke and not legacy_direct_kimi_scored_smoke
+        else KIMI_DIRECT_CAPACITY_REQUEST_TIMEOUT_SECONDS
+        if identity["role"] == KIMI_CAPACITY_SMOKE_ROLE
         else request_timeout_for_model(observed_contract["model"])
     )
     if config["client"].get("timeout") != expected_request_timeout or (
@@ -3252,6 +3320,7 @@ def _prepare_direct_kimi(args: argparse.Namespace) -> str:
         sandbox_provider=args.sandbox_provider,
     )
     _validate_direct_kimi_fallback_config(config, args.role, args.approved_task_count)
+    _validate_direct_kimi_capacity_config(config, args.role)
     expected_concurrency = _direct_kimi_expected_concurrency(
         args.role,
         args.sandbox_provider,
@@ -3313,7 +3382,12 @@ def _prepare_direct_kimi(args: argparse.Namespace) -> str:
         raise EvalIdentityError("direct_kimi_router_contract_invalid")
 
     smoke_checkpoint = None
-    if args.role in {"kimi-direct-smoke", "kimi-direct-tb4-diagnostic", KIMI_SANDOQ_FALLBACK_ROLE}:
+    if args.role in {
+        "kimi-direct-smoke",
+        KIMI_CAPACITY_SMOKE_ROLE,
+        "kimi-direct-tb4-diagnostic",
+        KIMI_SANDOQ_FALLBACK_ROLE,
+    }:
         if args.smoke_checkpoint is not None or args.smoke_checkpoint_sha256 is not None:
             raise EvalIdentityError("direct_kimi_smoke_checkpoint_invalid")
     else:
@@ -3340,6 +3414,28 @@ def _prepare_direct_kimi(args: argparse.Namespace) -> str:
         ):
             raise EvalIdentityError("direct_kimi_smoke_checkpoint_invalid")
 
+    identity_router = {
+        "implementation": router["implementation"],
+        "implementation_sha256": router["implementation_sha256"],
+        "policy": router["policy"],
+        "request_id_headers": router["request_id_headers"],
+        "provider_concurrency": router["max_concurrent_requests"],
+        "request_timeout_seconds": router["request_timeout_seconds"],
+        "retries": router["retries"],
+        "worker_count": len(manifest["workers"]),
+    }
+    if "capacity_profile" in router or "endpoint_identifier" in router:
+        if args.role != KIMI_CAPACITY_SMOKE_ROLE:
+            raise EvalIdentityError("direct_kimi_capacity_profile_role_invalid")
+        identity_router.update(
+            {
+                "capacity_profile": router.get("capacity_profile"),
+                "endpoint_identifier": router.get("endpoint_identifier"),
+            }
+        )
+    elif args.role == KIMI_CAPACITY_SMOKE_ROLE:
+        raise EvalIdentityError("direct_kimi_capacity_profile_required")
+
     identity = {
         "schema_version": SCHEMA_VERSION,
         "role": args.role,
@@ -3360,16 +3456,7 @@ def _prepare_direct_kimi(args: argparse.Namespace) -> str:
             "spec_sha256": manifest["source_spec_sha256"],
             "endpoint_bundle_sha256": manifest["endpoint_bundle_sha256"],
             "base_url": args.client_base_url,
-            "router": {
-                "implementation": router["implementation"],
-                "implementation_sha256": router["implementation_sha256"],
-                "policy": router["policy"],
-                "request_id_headers": router["request_id_headers"],
-                "provider_concurrency": router["max_concurrent_requests"],
-                "request_timeout_seconds": router["request_timeout_seconds"],
-                "retries": router["retries"],
-                "worker_count": len(manifest["workers"]),
-            },
+            "router": identity_router,
             "smoke_checkpoint": smoke_checkpoint,
         },
         "contract": contract,
@@ -3400,6 +3487,7 @@ def _parser() -> argparse.ArgumentParser:
             "mobius",
             "qwen-direct",
             "kimi-direct-smoke",
+            KIMI_CAPACITY_SMOKE_ROLE,
             "kimi-direct-tb4",
             "kimi-direct-tb4-diagnostic",
             KIMI_SANDOQ_FALLBACK_ROLE,
