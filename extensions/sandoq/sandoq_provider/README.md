@@ -97,14 +97,24 @@ the old shell ID absent. The pool broker owns both serialization and the actual
 managed-shell HTTP request, using a dedicated executor so long commands cannot
 starve release or drain control calls. A worker cancellation or lost local RPC
 response therefore cannot release the reservation while the remote command may
-still be running. Responses proven not sent and definitive HTTP responses clear
-the reservation; ambiguous transport failures, HTTP 408, and 5xx responses
+still be running. Local request and response frames and streamed gateway bodies
+are capped at 16 MiB. The broker clears a definitive command reservation only
+after its bounded local response is atomically authorized before write and
+published within the broker-issued deadline; oversized, stale, stalled, or
+otherwise indeterminate publication poisons the assignment and is never
+replayed.
+Responses proven not sent and definitive HTTP responses otherwise clear the
+reservation; ambiguous transport failures, HTTP 408, and 5xx responses
 quarantine it through the full possible remote-command budget and retire the
-outer session instead of replaying the command. The broker then creates one
-replacement shell after a definitive 404/410, restores the validated workdir,
-records the transition durably, and permits exactly one replay of the rejected
-command. Shell binding/replacement WAL records are emitted only for that closed
-long-Kimi profile, leaving the standard/Qwen WAL byte contract unchanged.
+outer session instead of replaying the command. If a client departs during that
+window, its client ID is tombstoned against reconnection and no new lifecycle
+operation is admitted. Command completion and maintenance both schedule the
+retained assignment for cleanup without deleting while the command is running.
+The broker then creates one replacement shell after a definitive 404/410, restores
+the validated workdir, records the transition durably, and permits exactly one
+replay of the rejected command. Shell binding/replacement WAL records are
+emitted only for that closed long-Kimi profile, leaving the standard/Qwen WAL
+byte contract unchanged.
 
 Uploads and downloads use the authenticated outer command server and the shared
 mount:

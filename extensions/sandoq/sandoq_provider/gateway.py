@@ -36,6 +36,8 @@ _T = TypeVar("_T")
 # jitter). Keep an outer cancellation guard without truncating that contract.
 _OFFICIAL_DELETE_BUDGET_SECONDS = 270.0
 _CREATE_BACKOFF_CAP_SECONDS = 600.0
+MAX_HTTP_RESPONSE_BYTES = 16 * 1024 * 1024
+_HTTP_RESPONSE_CHUNK_BYTES = 64 * 1024
 
 
 @dataclass(frozen=True)
@@ -71,6 +73,26 @@ class SandoqHttpTransportError(RuntimeError):
         self.delivery_state = delivery_state
         self.http_status = http_status
         self.retryable = retryable
+
+
+class _SandoqHttpResponseTooLargeError(RuntimeError):
+    pass
+
+
+async def _read_bounded_response_text(response: Any) -> str:
+    content_length = response.content_length
+    if content_length is not None and content_length > MAX_HTTP_RESPONSE_BYTES:
+        raise _SandoqHttpResponseTooLargeError
+    payload = bytearray()
+    async for chunk in response.content.iter_chunked(_HTTP_RESPONSE_CHUNK_BYTES):
+        if len(payload) + len(chunk) > MAX_HTTP_RESPONSE_BYTES:
+            raise _SandoqHttpResponseTooLargeError
+        payload.extend(chunk)
+    encoding = response.charset or "utf-8"
+    try:
+        return payload.decode(encoding, errors="replace")
+    except LookupError:
+        return payload.decode("utf-8", errors="replace")
 
 
 def _classify_http_transport_error(method: str, error: BaseException) -> SandoqHttpTransportError | None:
@@ -330,7 +352,7 @@ class SandoqGatewayAdapter:
         try:
             async with asyncio.timeout(timeout):
                 async with client.http.request(method, url, **kwargs) as response:
-                    raw = await response.text(errors="replace")
+                    raw = await _read_bounded_response_text(response)
                     if not raw:
                         normalized: dict[str, Any] = {}
                     else:
@@ -342,6 +364,15 @@ class SandoqGatewayAdapter:
                             normalized = parsed if isinstance(parsed, dict) else {"raw": parsed}
                     return SandoqHttpResponse(status_code=response.status, body=normalized)
         except asyncio.CancelledError:
+            raise
+        except _SandoqHttpResponseTooLargeError:
+            raise SandoqHttpTransportError(
+                method,
+                "ResponseBodyTooLarge",
+                timed_out=False,
+                delivery_state="unknown",
+            ) from None
+        except SandoqHttpTransportError:
             raise
         except Exception as exc:
             classified = _classify_http_transport_error(method, exc)

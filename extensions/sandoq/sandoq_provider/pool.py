@@ -7,12 +7,14 @@ import atexit
 import concurrent.futures
 import contextlib
 import fcntl
+import itertools
 import json
 import math
 import os
 import posixpath
 import queue
 import random
+import select
 import shlex
 import signal
 import socket
@@ -37,6 +39,126 @@ _DEFAULT_GATEWAY_RETRY_INTERVAL_SECONDS = 2.0
 _DEFAULT_ENVIRONMENT = "oci-runner-firecracker"
 _DEFAULT_TOKEN_FILE = "~/.config/oci-runner/firecracker-token"
 _POOL_IPC_LIMIT_BYTES = 16 * 1024 * 1024
+_POOL_IPC_MAX_JSON_NESTING = 128
+_POOL_IPC_PUBLICATION_CONCURRENCY = 4
+_POOL_IPC_WRITE_TIMEOUT_SECONDS = 30.0
+
+
+class _PoolFrameTooLarge(RuntimeError):
+    pass
+
+
+class _PoolRequestTooLarge(_PoolFrameTooLarge):
+    pass
+
+
+class _PoolResponseTooLarge(_PoolFrameTooLarge):
+    pass
+
+
+def _validate_json_string_bounds(value: object) -> int:
+    pending: list[tuple[Any, int | None]] = [(iter((value,)), None)]
+    active_containers: set[int] = set()
+    maximum_depth = 0
+    while pending:
+        try:
+            current = next(pending[-1][0])
+        except StopIteration:
+            _, container_identity = pending.pop()
+            if container_identity is not None:
+                active_containers.remove(container_identity)
+            continue
+        if isinstance(current, str):
+            encoded_length = 2
+            for character in current:
+                codepoint = ord(character)
+                if character in {'"', "\\"}:
+                    encoded_length += 2
+                elif character in {"\b", "\f", "\n", "\r", "\t"}:
+                    encoded_length += 2
+                elif codepoint <= 0x1F:
+                    encoded_length += 6
+                elif codepoint <= 0x7F:
+                    encoded_length += 1
+                elif codepoint <= 0xFFFF:
+                    encoded_length += 6
+                elif codepoint > 0xFFFF:
+                    encoded_length += 12
+                if encoded_length + 1 > _POOL_IPC_LIMIT_BYTES:
+                    raise _PoolFrameTooLarge("OCI runner pool frame exceeds the 16 MiB limit")
+            continue
+        if isinstance(current, dict):
+            identity = id(current)
+            if identity in active_containers:
+                raise ValueError("circular JSON container")
+            if len(active_containers) >= _POOL_IPC_MAX_JSON_NESTING:
+                raise _PoolFrameTooLarge("OCI runner pool JSON nesting exceeds the limit")
+            active_containers.add(identity)
+            maximum_depth = max(maximum_depth, len(active_containers))
+            pending.append((iter(itertools.chain(current.keys(), current.values())), identity))
+        elif isinstance(current, (list, tuple)):
+            identity = id(current)
+            if identity in active_containers:
+                raise ValueError("circular JSON container")
+            if len(active_containers) >= _POOL_IPC_MAX_JSON_NESTING:
+                raise _PoolFrameTooLarge("OCI runner pool JSON nesting exceeds the limit")
+            active_containers.add(identity)
+            maximum_depth = max(maximum_depth, len(active_containers))
+            pending.append((iter(current), identity))
+    return maximum_depth
+
+
+def _encode_json_frame_bounded(value: object) -> bytes:
+    _validate_json_string_bounds(value)
+    encoded = bytearray()
+    encoder = json.JSONEncoder(ensure_ascii=True, separators=(",", ":"))
+    for chunk in encoder.iterencode(value):
+        if len(encoded) + len(chunk) + 1 > _POOL_IPC_LIMIT_BYTES:
+            raise _PoolFrameTooLarge("OCI runner pool frame exceeds the 16 MiB limit")
+        encoded.extend(chunk.encode("ascii"))
+    encoded.extend(b"\n")
+    return bytes(encoded)
+
+
+def _send_frame_before_deadline(connection: socket.socket, frame: bytes, deadline: float) -> None:
+    if len(frame) > _POOL_IPC_LIMIT_BYTES:
+        raise _PoolRequestTooLarge("OCI runner pool request exceeds the 16 MiB limit")
+    view = memoryview(frame)
+    flags = getattr(socket, "MSG_DONTWAIT", 0)
+    while view:
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            raise TimeoutError("OCI runner pool request send timed out")
+        _, writable, _ = select.select([], [connection], [], remaining)
+        if not writable:
+            raise TimeoutError("OCI runner pool request send timed out")
+        try:
+            sent = connection.send(view, flags)
+        except (BlockingIOError, InterruptedError):
+            continue
+        if sent <= 0:
+            raise _PoolConnectionError("OCI runner pool connection closed during request send")
+        view = view[sent:]
+
+
+def _read_bounded_file_line(reader: Any) -> bytes:
+    line = reader.readline(_POOL_IPC_LIMIT_BYTES + 1)
+    if len(line) > _POOL_IPC_LIMIT_BYTES:
+        raise _PoolResponseTooLarge("OCI runner pool response exceeds the 16 MiB limit")
+    if line and not line.endswith(b"\n"):
+        raise _PoolResponseTooLarge("OCI runner pool response frame is incomplete")
+    return line
+
+
+def _abort_stream_writer(writer: asyncio.StreamWriter) -> None:
+    transport = getattr(writer, "transport", None)
+    abort = getattr(transport, "abort", None)
+    if callable(abort):
+        abort()
+        return
+    close = getattr(writer, "close", None)
+    if callable(close):
+        close()
 
 
 def default_socket_path() -> Path:
@@ -255,6 +377,7 @@ class Assignment:
     active_shell_operation: str | None = None
     active_shell_operation_deadline: float = 0.0
     active_shell_operation_running: bool = False
+    active_shell_operation_publishing: bool = False
     managed_shell_failure_status: str | None = None
     managed_shell_recovery_count: int = 0
 
@@ -362,9 +485,11 @@ class PoolBroker:
         self.waiter_order: deque[str] = deque()
         self.waiters: dict[str, AcquireWaiter] = {}
         self.releasing_assignments: set[str] = set()
+        self.deferred_release_assignments: set[str] = set()
         self.release_results: dict[str, dict[str, object]] = {}
         self.clients: dict[str, float] = {}
         self.registered_clients: set[str] = set()
+        self.departed_clients: set[str] = set()
         self.accepting = False
         self.recovering = True
         self.draining = False
@@ -1065,6 +1190,8 @@ class PoolBroker:
         with self.changed:
             if self.draining:
                 raise RuntimeError("OCI runner pool is draining")
+            if client_id in self.departed_clients:
+                raise RuntimeError("pool client already departed")
             self.clients[client_id] = time.monotonic()
             self.registered_clients.add(client_id)
             return {"registered": True, "pool_size": self.config.size, "recovering": self.recovering}
@@ -1076,19 +1203,23 @@ class PoolBroker:
             self.clients[client_id] = time.monotonic()
         return {"heartbeat": True}
 
+    def _registered_assignment_locked(self, client_id: str, assignment_id: str) -> Assignment:
+        if client_id not in self.clients:
+            raise RuntimeError("pool client is not registered")
+        assignment = self.assignments.get(assignment_id)
+        if assignment is None or assignment.client_id != client_id:
+            raise RuntimeError("unknown pool assignment")
+        return assignment
+
     def ecr_credential(self, client_id: str, assignment_id: str, registry: str) -> dict[str, object]:
         with self.lock:
-            assignment = self.assignments.get(assignment_id)
-            if assignment is None or assignment.client_id != client_id:
-                raise RuntimeError("unknown pool assignment")
+            self._registered_assignment_locked(client_id, assignment_id)
         cache = self.ecr_credentials.get(registry)
         if cache is None:
             raise RuntimeError(f"ECR registry is not configured for authentication: {registry!r}")
         credential = cache.get()
         with self.lock:
-            assignment = self.assignments.get(assignment_id)
-            if assignment is None or assignment.client_id != client_id:
-                raise RuntimeError("unknown pool assignment")
+            self._registered_assignment_locked(client_id, assignment_id)
             self._event(
                 "ecr_credential_vended",
                 assignment_id=assignment_id,
@@ -1195,9 +1326,7 @@ class PoolBroker:
 
     def update(self, client_id: str, assignment_id: str, values: dict[str, object]) -> dict[str, object]:
         with self.changed:
-            assignment = self.assignments.get(assignment_id)
-            if assignment is None or assignment.client_id != client_id:
-                raise RuntimeError("unknown pool assignment")
+            assignment = self._registered_assignment_locked(client_id, assignment_id)
             if shell_id := values.get("shell_id"):
                 normalized_shell_id = str(shell_id)
                 if assignment.shell_id not in {None, normalized_shell_id}:
@@ -1247,6 +1376,7 @@ class PoolBroker:
         body: dict[str, object],
         request_timeout_seconds: float,
         admission_deadline_monotonic: float,
+        defer_ipc_publication: bool = False,
     ) -> dict[str, object]:
         """Run one managed-shell command while the broker owns serialization.
 
@@ -1279,9 +1409,7 @@ class PoolBroker:
                 remaining = admission_deadline_monotonic - time.monotonic()
                 if remaining < request_timeout_seconds:
                     raise TimeoutError("managed shell command admission timed out")
-                assignment = self.assignments.get(assignment_id)
-                if assignment is None or assignment.client_id != client_id:
-                    raise RuntimeError("unknown pool assignment")
+                assignment = self._registered_assignment_locked(client_id, assignment_id)
                 if assignment_id in self.releasing_assignments:
                     raise RuntimeError("pool assignment release is in progress")
                 if assignment.managed_shell_failure_status is not None:
@@ -1329,6 +1457,22 @@ class PoolBroker:
                 delivery_state="unknown",
             )
 
+        if transport_error is not None:
+            result: dict[str, object] = {
+                "status": "transport_error",
+                "error_type": transport_error.error_type,
+                "timed_out": transport_error.timed_out,
+                "delivery_state": transport_error.delivery_state,
+                "http_status": transport_error.http_status,
+                "retryable": transport_error.retryable,
+            }
+        else:
+            assert response is not None
+            result = {
+                "status": "response",
+                "http_status": response.status_code,
+                "body": response.body,
+            }
         ambiguous = (transport_error is not None and transport_error.delivery_state != "not_sent") or (
             response is not None and (response.status_code == 408 or 500 <= response.status_code <= 599)
         )
@@ -1347,26 +1491,81 @@ class PoolBroker:
                     )
                     assignment.managed_shell_failure_status = "managed_shell_command_outcome_unknown"
                     assignment.shell_failure_status = "managed_shell_command_outcome_unknown"
+                elif defer_ipc_publication:
+                    assignment.active_shell_operation_deadline = time.monotonic() + _POOL_IPC_WRITE_TIMEOUT_SECONDS
+                    result["_ipc_publication_token"] = operation_id
+                    result["_ipc_publication_deadline"] = assignment.active_shell_operation_deadline
                 else:
                     assignment.active_shell_operation = None
                     assignment.active_shell_operation_deadline = 0.0
+                    self._schedule_departed_assignment_release_locked(assignment)
                 self.changed.notify_all()
+        return result
 
-        if transport_error is not None:
-            return {
-                "status": "transport_error",
-                "error_type": transport_error.error_type,
-                "timed_out": transport_error.timed_out,
-                "delivery_state": transport_error.delivery_state,
-                "http_status": transport_error.http_status,
-                "retryable": transport_error.retryable,
-            }
-        assert response is not None
-        return {
-            "status": "response",
-            "http_status": response.status_code,
-            "body": response.body,
-        }
+    def authorize_managed_shell_ipc_response(
+        self,
+        client_id: str,
+        assignment_id: str,
+        operation_id: str,
+    ) -> bool:
+        with self.changed:
+            assignment = self.assignments.get(assignment_id)
+            if (
+                assignment is not None
+                and assignment.client_id == client_id
+                and assignment.active_shell_operation == operation_id
+                and not assignment.active_shell_operation_running
+                and not assignment.active_shell_operation_publishing
+                and assignment.managed_shell_failure_status is None
+                and time.monotonic() < assignment.active_shell_operation_deadline
+            ):
+                assignment.active_shell_operation_publishing = True
+                return True
+            if (
+                assignment is not None
+                and assignment.client_id == client_id
+                and assignment.active_shell_operation == operation_id
+            ):
+                self._finish_managed_shell_ipc_response_locked(assignment, delivered=False)
+            return False
+
+    def _finish_managed_shell_ipc_response_locked(self, assignment: Assignment, *, delivered: bool) -> None:
+        assignment.active_shell_operation_running = False
+        assignment.active_shell_operation_publishing = False
+        assignment.active_shell_operation = None
+        assignment.active_shell_operation_deadline = 0.0
+        if not delivered:
+            failure_status = assignment.managed_shell_failure_status or "managed_shell_ipc_response_delivery_unknown"
+            assignment.managed_shell_failure_status = failure_status
+            assignment.shell_failure_status = failure_status
+            self._event(
+                "managed_shell_ipc_response_delivery_failed",
+                assignment_id=assignment.assignment_id,
+                slot_id=assignment.slot_id,
+                shell_generation=assignment.shell_generation,
+            )
+        self._schedule_departed_assignment_release_locked(assignment)
+        self.changed.notify_all()
+
+    def complete_managed_shell_ipc_response(
+        self,
+        client_id: str,
+        assignment_id: str,
+        operation_id: str,
+        *,
+        delivered: bool,
+    ) -> None:
+        with self.changed:
+            assignment = self.assignments.get(assignment_id)
+            if (
+                assignment is None
+                or assignment.client_id != client_id
+                or assignment.active_shell_operation != operation_id
+            ):
+                return
+            if delivered and not assignment.active_shell_operation_publishing:
+                return
+            self._finish_managed_shell_ipc_response_locked(assignment, delivered=delivered)
 
     @staticmethod
     def _validated_managed_workdir(value: str) -> str:
@@ -1416,9 +1615,7 @@ class PoolBroker:
         reservation_deadline = time.monotonic() + 300.0
         with self.changed:
             while True:
-                assignment = self.assignments.get(assignment_id)
-                if assignment is None or assignment.client_id != client_id:
-                    raise RuntimeError("unknown pool assignment")
+                assignment = self._registered_assignment_locked(client_id, assignment_id)
                 if assignment_id in self.releasing_assignments:
                     raise RuntimeError("pool assignment release is in progress")
                 if assignment.managed_shell_failure_status is not None:
@@ -1556,6 +1753,57 @@ class PoolBroker:
         while len(self.release_results) > limit:
             self.release_results.pop(next(iter(self.release_results)))
 
+    def _schedule_departed_assignment_release_locked(self, assignment: Assignment) -> None:
+        clients = getattr(self, "clients", None)
+        if (
+            clients is None
+            or assignment.client_id in clients
+            or self.draining
+            or assignment.shell_recovering
+            or assignment.active_shell_operation is not None
+            or assignment.assignment_id in self.releasing_assignments
+        ):
+            return
+        scheduled = getattr(self, "deferred_release_assignments", None)
+        if scheduled is None:
+            scheduled = self.deferred_release_assignments = set()
+        if assignment.assignment_id in scheduled:
+            return
+        scheduled.add(assignment.assignment_id)
+        try:
+            self._delete_executor.submit(
+                self._retry_departed_assignment_release,
+                assignment.client_id,
+                assignment.assignment_id,
+            )
+        except RuntimeError:
+            scheduled.discard(assignment.assignment_id)
+
+    def _schedule_departed_assignment_releases(self) -> None:
+        with self.changed:
+            for assignment in list(self.assignments.values()):
+                self._schedule_departed_assignment_release_locked(assignment)
+
+    def _retry_departed_assignment_release(self, client_id: str, assignment_id: str) -> None:
+        try:
+            self.release(
+                client_id,
+                assignment_id,
+                poison=True,
+                reason="departed_client_retry",
+            )
+        except Exception as exc:
+            self._event(
+                "assignment_release_failed",
+                assignment_id=assignment_id,
+                reason="departed_client_retry",
+                error_type=type(exc).__name__,
+            )
+        finally:
+            with self.changed:
+                self.deferred_release_assignments.discard(assignment_id)
+                self.changed.notify_all()
+
     def release(
         self,
         client_id: str,
@@ -1611,6 +1859,7 @@ class PoolBroker:
                 if (
                     assignment.active_shell_operation is not None
                     and not assignment.active_shell_operation_running
+                    and not assignment.active_shell_operation_publishing
                     and assignment.active_shell_operation_deadline <= now
                 ):
                     assignment.active_shell_operation = None
@@ -1766,6 +2015,7 @@ class PoolBroker:
                 except ValueError:
                     pass
             self.clients.pop(client_id, None)
+            self.departed_clients.add(client_id)
             no_clients = not self.clients
             reached_expected = len(self.registered_clients) >= max(self.config.min_size, 1)
             self.departure_generation += 1
@@ -1927,6 +2177,7 @@ class PoolBroker:
                 if (
                     assignment.active_shell_operation is not None
                     and not assignment.active_shell_operation_running
+                    and not assignment.active_shell_operation_publishing
                     and assignment.active_shell_operation_deadline <= now
                 ):
                     assignment.active_shell_operation = None
@@ -1942,6 +2193,8 @@ class PoolBroker:
                     )
                     expired.append((assignment_id, assignment))
             if expired:
+                for _assignment_id, assignment in expired:
+                    self._schedule_departed_assignment_release_locked(assignment)
                 self.changed.notify_all()
 
     def _maintenance_loop(self) -> None:
@@ -1975,6 +2228,7 @@ class PoolBroker:
                         except ValueError:
                             pass
                     self.clients.pop(client_id, None)
+                    self.departed_clients.add(client_id)
                 for assignment_id in assignments:
                     try:
                         self.release(client_id, assignment_id, poison=True, reason="stale_client")
@@ -1990,6 +2244,7 @@ class PoolBroker:
             if retry_poisoned:
                 self._schedule_poisoned_deletes(now)
             self._expire_abandoned_shell_operations(now)
+            self._schedule_departed_assignment_releases()
             if now - last_renewal >= renew_interval:
                 with self.lock:
                     outer_ids = [
@@ -2247,6 +2502,7 @@ class PoolBroker:
                 body=dict(request.get("body") or {}),
                 request_timeout_seconds=float(request["request_timeout_seconds"]),
                 admission_deadline_monotonic=float(request["admission_deadline_monotonic"]),
+                defer_ipc_publication=True,
             )
         if operation == "recover_managed_shell":
             return self.recover_managed_shell(
@@ -2297,13 +2553,24 @@ class _AsyncUnixServer:
             max_workers=min(max(broker.config.size, 1), 64),
             thread_name_prefix="oci-shell-request",
         )
+        self.publication_semaphore = asyncio.Semaphore(
+            min(max(broker.config.size, 1), _POOL_IPC_PUBLICATION_CONCURRENCY)
+        )
         self.tasks: set[asyncio.Task[None]] = set()
 
     async def handle(self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> None:
         write_lock = asyncio.Lock()
         connection_tasks: set[asyncio.Task[None]] = set()
         try:
-            while line := await reader.readline():
+            while True:
+                try:
+                    line = await reader.readline()
+                except ValueError:
+                    break
+                if not line:
+                    break
+                if len(line) > _POOL_IPC_LIMIT_BYTES or not line.endswith(b"\n"):
+                    break
                 task = asyncio.create_task(self._process(line, writer, write_lock))
                 self.tasks.add(task)
                 connection_tasks.add(task)
@@ -2324,13 +2591,30 @@ class _AsyncUnixServer:
         writer: asyncio.StreamWriter,
         write_lock: asyncio.Lock,
     ) -> None:
-        request_id: object = None
+        request_id: str | None = None
+        request: dict[str, object] = {}
+        publication_token: str | None = None
+        publication_deadline: float | None = None
+        managed_shell_operation = False
         try:
             request = json.loads(line)
-            request_id = request.get("request_id")
-            if request.get("operation") in self._MANAGED_SHELL_OPERATIONS:
+            candidate_request_id = request.get("request_id")
+            if isinstance(candidate_request_id, str) and len(candidate_request_id) <= 128:
+                request_id = candidate_request_id
+            managed_shell_operation = request.get("operation") in self._MANAGED_SHELL_OPERATIONS
+            if managed_shell_operation:
                 loop = asyncio.get_running_loop()
                 result = await loop.run_in_executor(self.managed_shell_executor, self.broker.dispatch, request)
+                token = result.pop("_ipc_publication_token", None)
+                deadline = result.pop("_ipc_publication_deadline", None)
+                if isinstance(token, str):
+                    publication_token = token
+                    if (
+                        isinstance(deadline, (int, float))
+                        and not isinstance(deadline, bool)
+                        and math.isfinite(float(deadline))
+                    ):
+                        publication_deadline = float(deadline)
             elif request.get("operation") in self._BLOCKING_OPERATIONS:
                 loop = asyncio.get_running_loop()
                 result = await loop.run_in_executor(self.executor, self.broker.dispatch, request)
@@ -2339,13 +2623,114 @@ class _AsyncUnixServer:
             response = {"ok": True, "request_id": request_id, "result": result}
         except Exception as exc:
             response = {"ok": False, "request_id": request_id, "error": str(exc)}
-        encoded = (json.dumps(response, separators=(",", ":")) + "\n").encode()
+        publication_timeout = _POOL_IPC_WRITE_TIMEOUT_SECONDS
+        if publication_token is not None:
+            if publication_deadline is None:
+                self.broker.complete_managed_shell_ipc_response(
+                    str(request.get("client_id") or ""),
+                    str(request.get("assignment_id") or ""),
+                    publication_token,
+                    delivered=False,
+                )
+                _abort_stream_writer(writer)
+                return
+            publication_timeout = publication_deadline - time.monotonic()
+            if publication_timeout <= 0:
+                self.broker.complete_managed_shell_ipc_response(
+                    str(request.get("client_id") or ""),
+                    str(request.get("assignment_id") or ""),
+                    publication_token,
+                    delivered=False,
+                )
+                _abort_stream_writer(writer)
+                return
         try:
-            async with write_lock:
-                writer.write(encoded)
-                await writer.drain()
+            async with asyncio.timeout(publication_timeout):
+                async with write_lock:
+                    async with self.publication_semaphore:
+                        try:
+                            encoded = _encode_json_frame_bounded(response)
+                        except (TypeError, ValueError, _PoolFrameTooLarge):
+                            if managed_shell_operation and publication_token is not None:
+                                self.broker.complete_managed_shell_ipc_response(
+                                    str(request.get("client_id") or ""),
+                                    str(request.get("assignment_id") or ""),
+                                    publication_token,
+                                    delivered=False,
+                                )
+                                publication_token = None
+                                response = {
+                                    "ok": True,
+                                    "request_id": request_id,
+                                    "result": {
+                                        "status": "terminal_failure",
+                                        "failure_status": "managed_shell_ipc_response_delivery_unknown",
+                                    },
+                                }
+                            else:
+                                response = {
+                                    "ok": False,
+                                    "request_id": request_id,
+                                    "error": "OCI runner pool response exceeds the 16 MiB limit",
+                                }
+                            encoded = _encode_json_frame_bounded(response)
+                        if publication_token is not None and not self.broker.authorize_managed_shell_ipc_response(
+                            str(request.get("client_id") or ""),
+                            str(request.get("assignment_id") or ""),
+                            publication_token,
+                        ):
+                            publication_token = None
+                            _abort_stream_writer(writer)
+                            return
+                        writer.write(encoded)
+                        await writer.drain()
+        except asyncio.CancelledError:
+            if publication_token is not None:
+                self.broker.complete_managed_shell_ipc_response(
+                    str(request.get("client_id") or ""),
+                    str(request.get("assignment_id") or ""),
+                    publication_token,
+                    delivered=False,
+                )
+            _abort_stream_writer(writer)
+            raise
         except (ConnectionError, OSError):
+            if publication_token is not None:
+                self.broker.complete_managed_shell_ipc_response(
+                    str(request.get("client_id") or ""),
+                    str(request.get("assignment_id") or ""),
+                    publication_token,
+                    delivered=False,
+                )
+            _abort_stream_writer(writer)
             return
+        except TimeoutError:
+            if publication_token is not None:
+                self.broker.complete_managed_shell_ipc_response(
+                    str(request.get("client_id") or ""),
+                    str(request.get("assignment_id") or ""),
+                    publication_token,
+                    delivered=False,
+                )
+            _abort_stream_writer(writer)
+            return
+        except Exception:
+            if publication_token is not None:
+                self.broker.complete_managed_shell_ipc_response(
+                    str(request.get("client_id") or ""),
+                    str(request.get("assignment_id") or ""),
+                    publication_token,
+                    delivered=False,
+                )
+            _abort_stream_writer(writer)
+            return
+        if publication_token is not None:
+            self.broker.complete_managed_shell_ipc_response(
+                str(request.get("client_id") or ""),
+                str(request.get("assignment_id") or ""),
+                publication_token,
+                delivered=True,
+            )
 
     async def close(self) -> None:
         if self.tasks:
@@ -2451,26 +2836,49 @@ class PoolClient:
         if os.getpid() != self._owner_pid:
             self._reset_after_fork()
         deadline = time.monotonic() + timeout
-        connection = self._ensure_connection(deadline)
         request_id = uuid.uuid4().hex
+        framed = {"request_id": request_id, **payload}
+        try:
+            encoded = _encode_json_frame_bounded(framed)
+        except _PoolFrameTooLarge:
+            raise _PoolRequestTooLarge("OCI runner pool request exceeds the 16 MiB limit") from None
+        if time.monotonic() >= deadline:
+            raise TimeoutError("OCI runner pool request deadline expired before connect")
+        connection = self._ensure_connection(deadline)
         response_queue: queue.Queue[dict[str, object] | BaseException] = queue.Queue(maxsize=1)
         with self._pending_lock:
             self._pending[request_id] = response_queue
-        framed = {"request_id": request_id, **payload}
+        write_acquired = False
         try:
-            with self._write_lock:
-                connection.sendall((json.dumps(framed, separators=(",", ":")) + "\n").encode())
+            write_acquired = self._write_lock.acquire(timeout=max(deadline - time.monotonic(), 0.0))
+            if not write_acquired:
+                raise TimeoutError("OCI runner pool request send timed out")
+            _send_frame_before_deadline(connection, encoded, deadline)
+        except TimeoutError as exc:
+            with self._pending_lock:
+                self._pending.pop(request_id, None)
+            self._fail_connection(connection, _PoolConnectionError(type(exc).__name__))
+            raise
+        except _PoolConnectionError as exc:
+            with self._pending_lock:
+                self._pending.pop(request_id, None)
+            self._fail_connection(connection, exc)
+            raise
         except OSError as exc:
             with self._pending_lock:
                 self._pending.pop(request_id, None)
             self._fail_connection(connection, _PoolConnectionError(str(exc)))
             raise _PoolConnectionError(str(exc)) from exc
+        finally:
+            if write_acquired:
+                self._write_lock.release()
         remaining = deadline - time.monotonic()
         try:
             response = response_queue.get(timeout=max(remaining, 0.001))
         except queue.Empty as exc:
             with self._pending_lock:
                 self._pending.pop(request_id, None)
+            self._fail_connection(connection, _PoolConnectionError("OCI runner pool response deadline expired"))
             raise TimeoutError(f"OCI runner pool request {payload.get('operation')} timed out") from exc
         if isinstance(response, BaseException):
             raise response
@@ -2483,7 +2891,11 @@ class PoolClient:
             if self._connection is not None:
                 return self._connection
             connection = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-            connection.settimeout(max(deadline - time.monotonic(), 0.1))
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                connection.close()
+                raise TimeoutError("OCI runner pool connection deadline expired")
+            connection.settimeout(remaining)
             try:
                 connection.connect(str(self.config.socket_path))
             except OSError as exc:
@@ -2505,7 +2917,7 @@ class PoolClient:
     def _reader_loop(self, connection: socket.socket, reader: Any) -> None:
         error: BaseException = _PoolConnectionError("OCI runner pool broker closed the connection")
         try:
-            while line := reader.readline():
+            while line := _read_bounded_file_line(reader):
                 try:
                     response = json.loads(line)
                     request_id = str(response["request_id"])
@@ -2516,7 +2928,7 @@ class PoolClient:
                     response_queue = self._pending.pop(request_id, None)
                 if response_queue is not None:
                     response_queue.put(response)
-        except OSError as exc:
+        except (OSError, _PoolResponseTooLarge) as exc:
             error = _PoolConnectionError(str(exc))
         finally:
             try:
@@ -2706,6 +3118,14 @@ class PoolClient:
         }
         try:
             result = self._raw_request(payload, timeout=remaining + 10.0)
+        except _PoolRequestTooLarge as error:
+            raise SandoqHttpTransportError(
+                "POST",
+                type(error).__name__,
+                timed_out=False,
+                delivery_state="not_sent",
+                retryable=False,
+            ) from error
         except _PoolConnectionError as error:
             raise SandoqHttpTransportError(
                 "POST",
