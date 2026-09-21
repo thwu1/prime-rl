@@ -513,6 +513,120 @@ def test_kimi_smoke_config_pins_approved_tasks() -> None:
     assert len(task_bytes.decode().splitlines()) == 2
 
 
+def test_direct_kimi_sandoq_scored_smoke_is_bounded() -> None:
+    server_dir = CONFIG_DIR / "servers" / "cpu-132-021_8103"
+    config = tomllib.loads((server_dir / "tb4_kimi_k3_sandoq_smoke.toml").read_text())
+    resolved = _resolved_eval_config("servers/cpu-132-021_8103/tb4_kimi_k3_sandoq_smoke.toml")
+
+    assert config["num_tasks"] == config["num_rollouts"] == 1
+    assert config["max_concurrent"] == config["multiplex"] == 1
+    assert config["max_total_tokens"] == 262_144
+    assert config["sampling"] == {
+        "temperature": 1.0,
+        "top_p": 1.0,
+        "max_tokens": 4_096,
+        "reasoning_effort": "max",
+        "chat_template_kwargs": {
+            "enable_thinking": True,
+            "preserve_thinking": True,
+        },
+    }
+    assert config["client"]["capture_model_io"] is True
+    assert config["client"]["max_retries"] == 0
+    assert config["client"]["timeout"] == 10_800
+    assert config["client"]["max_connections"] == 1
+    assert config["client"]["max_keepalive_connections"] == 1
+    assert config["harness"]["request_timeout_seconds"] == 9_600
+    assert config["harness"]["runtime"]["session_timeout"] == 10_800
+    assert config["timeout"] == {
+        "setup": 600,
+        "rollout": 9_000,
+        "finalize": 300,
+        "scoring": 900,
+    }
+    assert config["retries"]["rollout"]["max_retries"] == 0
+    assert config["taskset"]["verifier_runtime_retries"] == 0
+
+    task_file = CONFIG_DIR.parents[4] / config["taskset"]["task_file"]
+    task_bytes = task_file.read_bytes()
+    assert hashlib.sha256(task_bytes).hexdigest() == config["taskset"]["task_file_sha256"]
+    assert len([line for line in task_bytes.splitlines() if line]) == 1
+
+    contract, execution = _contract(
+        resolved,
+        "Kimi-K3",
+        role="kimi-direct-smoke",
+        sandbox_provider="sandoq",
+    )
+    assert contract["harness"]["request_timeout_seconds"] == 9_600
+    assert execution["rollout_concurrency"] == 1
+
+
+def test_direct_kimi_sandoq_scored_smoke_rejects_legacy_profile_for_fresh_run() -> None:
+    config = _resolved_eval_config(
+        "servers/cpu-132-021_8103/tb4_kimi_k3_sandoq_smoke.toml"
+    )
+    config["client"]["timeout"] = 43_200
+    config["client"]["max_retries"] = 10
+    config["harness"]["request_timeout_seconds"] = 15_000
+    config["harness"]["runtime"]["session_timeout"] = 2_400
+    config["timeout"].update(setup=600, rollout=900, finalize=300, scoring=600)
+
+    with pytest.raises(EvalIdentityError, match="kimi_timeout_contract_invalid"):
+        _contract(
+            config,
+            "Kimi-K3",
+            role="kimi-direct-smoke",
+            sandbox_provider="sandoq",
+        )
+
+
+@pytest.mark.parametrize(
+    ("section", "key", "value"),
+    [
+        ("client", "max_retries", 1),
+        ("client", "timeout", 10_801),
+        ("harness", "request_timeout_seconds", 9_601),
+        ("harness.runtime", "session_timeout", 10_801),
+        ("timeout", "rollout", 9_001),
+        ("timeout", "scoring", 901),
+    ],
+)
+def test_direct_kimi_sandoq_scored_smoke_rejects_contract_drift(
+    section: str,
+    key: str,
+    value: int,
+) -> None:
+    config = _resolved_eval_config("servers/cpu-132-021_8103/tb4_kimi_k3_sandoq_smoke.toml")
+    target = config["harness"]["runtime"] if section == "harness.runtime" else config[section]
+    target[key] = value
+
+    with pytest.raises(EvalIdentityError, match="^kimi_(?:retry|timeout)_contract_invalid$"):
+        _contract(
+            config,
+            "Kimi-K3",
+            role="kimi-direct-smoke",
+            sandbox_provider="sandoq",
+        )
+
+
+def test_direct_kimi_sandoq_scored_smoke_launcher_is_pinned() -> None:
+    server_dir = CONFIG_DIR / "servers" / "cpu-132-021_8103"
+    launcher = (server_dir / "run_tb4_kimi_k3_direct_sandoq_cpu-132-021_8103.sbatch").read_text()
+    stage = (CONFIG_DIR.parents[1] / "run_direct_kimi_sandoq_stage.sh").read_text()
+
+    assert "expected_smoke_wall_limit=4:00:00" in launcher
+    assert "expected_smoke_wall_limit=20:00" not in launcher
+    assert "KIMI_SANDOQ_STAGE:-smoke" in launcher
+    assert "stage_capacity=1" in launcher
+    assert "tb4_kimi_k3_direct_sandoq_cpu-132-021_8103_${SLURM_JOB_ID}_${stage}" in launcher
+    assert "--direct-router-policy consistent_hash" in stage
+    assert "--direct-request-id-headers x-session-id" in stage
+    assert "--direct-provider-concurrency 24" in stage
+    assert "--direct-retries 0" in stage
+    assert "--direct-worker-count 24" in stage
+
+
 def test_eval_controller_is_cpu_only_and_supports_high_vmvm_concurrency() -> None:
     wrapper = CONFIG_DIR.parents[1] / "run_eval.sbatch"
     text = wrapper.read_text()

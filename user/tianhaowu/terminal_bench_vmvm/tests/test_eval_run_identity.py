@@ -31,6 +31,7 @@ from eval_run_identity import (
     _tree_digest,
     _validate_identity_shape,
     _verify_checkpoint_records,
+    _verify_config_and_inputs,
     _verify_saved_provenance,
     _write_resolved_config,
     canonical_json,
@@ -99,6 +100,32 @@ def _resolved_config() -> dict:
             }
         },
     }
+
+
+def _sandoq_kimi_config(*, smoke: bool) -> dict:
+    config = _resolved_config()
+    config["model"] = "Kimi-K3"
+    config["client"]["timeout"] = 43_200
+    config["harness"] = {
+        "id": "terminal-bench-sandoq-host",
+        "command_timeout_seconds": 240,
+        "command_kill_grace_seconds": 10,
+        "max_command_output_chars": 100_000,
+        "request_timeout_seconds": 15_000,
+        "runtime": {
+            "type": "sandoq",
+            "mode": "oci-runner",
+            "network_access": True,
+            "host_tunnel": "none",
+            "expected_environment": "oci-runner",
+            "ecr_token_file": "/private/ecr-token",
+            "session_timeout": 32_400 if smoke else 43_200,
+        },
+    }
+    config["taskset"] = {"verifier_runtime_retries": 0}
+    config["retries"]["rollout"]["max_retries"] = 0
+    config["timeout"]["rollout"] = 28_800 if smoke else 36_000
+    return config
 
 
 def _identity() -> dict:
@@ -427,6 +454,190 @@ def test_direct_qwen_identity_reference_verification_does_not_require_routing(tm
     assert load_eval_run_identity(path, verify_references=True) == envelope
 
 
+def _direct_kimi_identity(*, smoke: bool) -> dict:
+    identity = _sandoq_identity()
+    concurrency = 1 if smoke else 24
+    config = _sandoq_kimi_config(smoke=smoke)
+    config["max_concurrent"] = concurrency
+    config["multiplex"] = concurrency
+    config["client"]["max_connections"] = concurrency
+    config["client"]["max_keepalive_connections"] = concurrency
+    if smoke:
+        config["sampling"]["reasoning_effort"] = "max"
+        config["taskset"]["dataset_revision"] = "d" * 40
+        config["harness"]["command_timeout_seconds"] = 60
+        config["timeout"].update(setup=180, rollout=600, finalize=60, scoring=120)
+        config["harness"]["runtime"]["session_timeout"] = 600
+    contract, execution = _contract(
+        config,
+        "Kimi-K3",
+        role="kimi-direct-smoke" if smoke else "kimi-direct-tb4",
+        sandbox_provider="sandoq",
+    )
+    environment = identity["execution"]["sandoq_environment"]
+    environment["ecr_token_file"] = "/private/ecr-token"
+    environment["pool_size"] = concurrency
+    for key, cap in (
+        ("pool_create_workers", 4),
+        ("pool_bootstrap_workers", 64),
+        ("pool_bootstrap_per_image", 8),
+        ("pool_drain_workers", 32),
+        ("pool_renew_workers", 16),
+    ):
+        environment[key] = str(min(concurrency, cap))
+    execution["sandoq_environment"] = environment
+    identity["role"] = "kimi-direct-smoke" if smoke else "kimi-direct-tb4"
+    identity["contract"] = contract
+    identity["execution"] = execution
+    identity["deployment"] = {
+        "kind": "direct_kimi",
+        "worker_manifest": {"path": "/run/direct_kimi_workers.json", "sha256": "8" * 64},
+        "spec_sha256": "9" * 64,
+        "endpoint_bundle_sha256": "a" * 64,
+        "base_url": "http://127.0.0.1:23456/v1",
+        "router": {
+            "implementation": "direct-kimi-transparent-v1",
+            "implementation_sha256": "c" * 64,
+            "policy": "consistent_hash",
+            "request_id_headers": ["x-session-id"],
+            "provider_concurrency": 24,
+            "request_timeout_seconds": 43_200,
+            "retries": 0,
+            "worker_count": 24,
+        },
+        "smoke_checkpoint": (
+            None
+            if smoke
+            else {"path": "/run/smoke_checkpoint.json", "sha256": "b" * 64}
+        ),
+    }
+    return identity
+
+
+def test_direct_kimi_sandoq_identity_binds_router_and_smoke_lineage() -> None:
+    smoke = _direct_kimi_identity(smoke=True)
+    assert _validate_identity_shape(smoke) == smoke
+    full = _direct_kimi_identity(smoke=False)
+    assert _validate_identity_shape(full) == full
+    assert smoke["contract"]["reasoning_effort"] == "max"
+    assert full["contract"]["reasoning_effort"] == "max"
+
+    for path, value in (
+        (("deployment", "router", "policy"), "round_robin"),
+        (("deployment", "router", "request_timeout_seconds"), 600),
+        (("deployment", "router", "retries"), 2),
+        (("deployment", "smoke_checkpoint"), None),
+    ):
+        mismatched = json.loads(json.dumps(full))
+        target = mismatched
+        for key in path[:-1]:
+            target = target[key]
+        target[path[-1]] = value
+        with pytest.raises(EvalIdentityError, match="schema_invalid"):
+            _validate_identity_shape(mismatched)
+
+
+def test_direct_kimi_scored_smoke_identity_loads_bounded_and_legacy_profiles(
+    tmp_path: Path,
+) -> None:
+    for request_timeout in (9_600, 15_000):
+        identity = _direct_kimi_identity(smoke=True)
+        identity["dataset"] = {
+            "kind": "archive",
+            "path": "/pinned/dataset",
+            "revision": None,
+            "archive": {"path": "/pinned/dataset.tar.gz", "sha256": "e" * 64},
+            "content_sha256": "f" * 64,
+        }
+        identity["contract"]["harness"]["command_timeout_seconds"] = 240
+        identity["contract"]["harness"]["request_timeout_seconds"] = request_timeout
+        envelope = _identity_envelope(identity)
+        path = tmp_path / f"eval_run_identity_{request_timeout}.json"
+        path.write_text(json.dumps(envelope))
+
+        assert load_eval_run_identity(path, verify_references=False) == envelope
+
+    identity["contract"]["harness"]["request_timeout_seconds"] = 9_601
+    with pytest.raises(EvalIdentityError, match="schema_invalid"):
+        _validate_identity_shape(identity)
+
+
+@pytest.mark.parametrize("legacy", [False, True], ids=["bounded", "legacy"])
+def test_direct_kimi_scored_smoke_verifies_resolved_config(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    legacy: bool,
+) -> None:
+    config_path = (
+        Path(__file__).parents[1]
+        / "configs/eval/servers/cpu-132-021_8103/tb4_kimi_k3_sandoq_smoke.toml"
+    )
+    raw = tomllib.loads(config_path.read_text())
+    config = eval_run_identity._resolved_config_data(
+        eval_run_identity.EvalConfig.model_validate(raw),
+        explicit=raw,
+    )
+    if legacy:
+        config["client"]["timeout"] = 43_200
+        config["client"]["max_retries"] = 10
+        config["harness"]["request_timeout_seconds"] = 15_000
+        config["harness"]["runtime"]["session_timeout"] = 2_400
+        config["timeout"].update(setup=600, rollout=900, finalize=300, scoring=600)
+    config["output_dir"] = str(tmp_path)
+    contract, execution = _contract(
+        config,
+        "Kimi-K3",
+        role="kimi-direct-smoke",
+        sandbox_provider="sandoq",
+        _allow_legacy_direct_scored_smoke=legacy,
+    )
+
+    identity = _direct_kimi_identity(smoke=True)
+    execution["sandoq_environment"] = identity["execution"]["sandoq_environment"]
+    identity["role"] = "kimi-direct-smoke"
+    identity["contract"] = contract
+    identity["execution"] = execution
+    identity["dataset"] = {
+        "kind": "archive",
+        "path": config["taskset"]["dataset_dir"],
+        "revision": None,
+        "archive": {"path": "/pinned/dataset.tar.gz", "sha256": "e" * 64},
+        "content_sha256": "f" * 64,
+    }
+    identity["deployment"]["base_url"] = config["client"]["base_url"]
+
+    inputs_dir = tmp_path / "inputs"
+    inputs_dir.mkdir()
+    local_paths = {
+        ("config", "source"): inputs_dir / "source_config.toml",
+        ("config", "resolved"): tmp_path / "config.toml",
+        ("inputs", "manifest"): inputs_dir / "manifest.json",
+        ("inputs", "task_file"): inputs_dir / "task_file.txt",
+        ("inputs", "image_manifest"): inputs_dir / "image_manifest.json",
+    }
+    for (section, name), path in local_paths.items():
+        path.write_text("fixture")
+        identity[section][name]["path"] = str(path)
+
+    monkeypatch.setattr(eval_run_identity, "_load_resolved_config", lambda _path: config)
+    monkeypatch.setattr(
+        eval_run_identity,
+        "_input_identity",
+        lambda *_args: (identity["inputs"], identity["config"]["source"]),
+    )
+
+    assert _verify_config_and_inputs(identity, tmp_path, config["client"]["base_url"]) == config
+
+
+def test_direct_kimi_identity_envelope_round_trip(tmp_path: Path) -> None:
+    identity = _direct_kimi_identity(smoke=True)
+    envelope = _identity_envelope(identity)
+    path = tmp_path / "eval_run_identity.json"
+    path.write_text(json.dumps(envelope))
+
+    assert load_eval_run_identity(path, verify_references=False) == envelope
+
+
 def test_sandoq_source_rejects_unobserved_client_version(tmp_path: Path, monkeypatch) -> None:
     clean = hashlib.sha256(b"").hexdigest()
     args = SimpleNamespace(
@@ -719,6 +930,16 @@ def test_kimi_timeout_contract_distinguishes_smoke_and_full_profiles() -> None:
         validate_kimi_timeout_contract(smoke, required_profile="full")
 
 
+def test_kimi_timeout_contract_accepts_bounded_reward_diagnostic_profile() -> None:
+    config = _sandoq_kimi_config(smoke=True)
+    config["timeout"].update({"setup": 180, "rollout": 600, "finalize": 60, "scoring": 120})
+    config["harness"]["runtime"]["session_timeout"] = 600
+
+    validate_kimi_timeout_contract(config, required_profile="reward_diagnostic")
+    with pytest.raises(EvalIdentityError, match="^kimi_timeout_contract_invalid$"):
+        validate_kimi_timeout_contract(config, required_profile="diagnostic")
+
+
 def test_kimi_eval_role_selects_approved_smoke_or_full_timeout_profile() -> None:
     config = _resolved_config()
     config["model"] = "Kimi-K3"
@@ -739,6 +960,28 @@ def test_kimi_eval_role_selects_approved_smoke_or_full_timeout_profile() -> None
     _contract(config, "Kimi-K3", role="smoke")
     with pytest.raises(EvalIdentityError, match="^kimi_timeout_contract_invalid$"):
         _contract(config, "Kimi-K3", role="tb4")
+
+
+@pytest.mark.parametrize(("role", "smoke"), [("smoke", True), ("tb4", False)])
+def test_kimi_sandoq_host_contract_uses_approved_timeout_and_zero_retry(
+    role: str,
+    smoke: bool,
+) -> None:
+    config = _sandoq_kimi_config(smoke=smoke)
+
+    timeout_contract = validate_kimi_timeout_contract(config, required_profile="smoke" if smoke else "full")
+    retry_contract = validate_kimi_retry_contract(config)
+    contract, execution = _contract(
+        config,
+        "Kimi-K3",
+        role=role,
+        sandbox_provider="sandoq",
+    )
+
+    assert timeout_contract["harness_request_timeout"] == 15_000
+    assert retry_contract["max_retries"] == 0
+    assert contract["harness"]["id"] == "terminal-bench-sandoq-host"
+    assert execution["runtime"]["type"] == "sandoq"
 
 
 @pytest.mark.parametrize(

@@ -471,6 +471,33 @@ def test_accepts_exact_supported_and_gpu_unsupported_partition(tmp_path: Path) -
     assert summary["failure_examples"] == []
 
 
+def test_tb4_identity_accepts_sandoq_public_host_profile(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _, _, envelope, _ = _certificate_fixture(tmp_path, monkeypatch)
+    identity = envelope["identity"]
+    identity["source"]["sandbox_provider"] = "sandoq"
+    identity["execution"] = {
+        "rollout_concurrency": 24,
+        "multiplex": 24,
+        "http_max_connections": 24,
+        "http_max_keepalive_connections": 24,
+        "sandoq_environment": {
+            "environment": "oci-runner",
+            "task_network": "public",
+            "pool_size": 24,
+            "pool_create_workers": "4",
+        },
+    }
+
+    assert tb4._validate_tb4_identity(envelope) is identity
+
+    identity["execution"]["sandoq_environment"]["pool_create_workers"] = "3"
+    with pytest.raises(TB4AuditError, match="^tb4_concurrency_contract_invalid$"):
+        tb4._validate_tb4_identity(envelope)
+
+
 @pytest.mark.parametrize(
     ("field", "value", "problem"),
     [

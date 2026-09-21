@@ -130,3 +130,27 @@ exit, model failure, verifier failure, or malformed reward is never resampled.
 
 Pier's adapter materializes the DeepSWE verifier Dockerfile inside a separate
 Sandoq runtime. Hidden tests are never copied into the agent runtime.
+
+## Terminal Bench Kimi scored smoke
+
+The server-scoped Kimi TB4 smoke must use
+`configs/eval/servers/cpu-132-021_8103/tb4_kimi_k3_sandoq_smoke.toml` through
+`run_tb4_kimi_k3_direct_sandoq_cpu-132-021_8103.sbatch`. The launcher derives
+and probes all 24 pinned workers, then exposes a loopback router using
+consistent hashing on `X-Session-ID`; do not point the evaluator at the shared
+front proxy.
+
+This scored one-task smoke has a separate bounded timeout profile. Keep client
+retries, whole-rollout retries, verifier-runtime retries, and router retries at
+zero. Its exact timeout hierarchy is a 9,000-second rollout, 9,600-second host
+harness request, and 10,800-second Sandoq session/client timeout. Submit with
+an exact four-hour Slurm wall so setup, scoring, cleanup, and certificate
+publication remain outside the longest blocking model request:
+
+```bash
+tmux send-keys -t swebench_vmvm:Launcher.0 \
+  "cd /checkpoint/ram/tianhaowu/terminal_bench_vmvm/sources/prime-rl-<commit> && env PROJECT_DIR=\$PWD KIMI_SANDOQ_EXPECTED_PRIME_RL_REVISION=<commit> KIMI_SANDOQ_STAGE=smoke KIMI_SANDOQ_PREFLIGHT_ONLY=0 sbatch --parsable --time=04:00:00 \$PWD/user/tianhaowu/terminal_bench_vmvm/configs/eval/servers/cpu-132-021_8103/run_tb4_kimi_k3_direct_sandoq_cpu-132-021_8103.sbatch" C-m
+```
+
+Use only the checked-in, digest-pinned non-security selector. Do not print its
+contents or task identifier while validating or monitoring the run.
