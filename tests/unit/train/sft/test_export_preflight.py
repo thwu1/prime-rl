@@ -855,6 +855,13 @@ def test_attestation_rejects_invalid_source_validation_policy(
         export_preflight._validate_attestation_value(attestation)
 
 
+def test_source_validation_accepts_epoch3_direct_medium_union_contract() -> None:
+    source_validation = _attestation(Path("export"))["source_validation"]
+    source_validation["model_io_contract"] = export_preflight.QWEN3_A95B_EPOCH3_DIRECT_MEDIUM_MODEL_IO_CONTRACT_ID
+
+    assert export_preflight._source_validation_policy(source_validation, "invalid") == source_validation
+
+
 def test_repository_provenance_rejects_checked_out_renderer_gitlink_tamper(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

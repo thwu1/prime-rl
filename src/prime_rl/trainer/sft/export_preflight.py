@@ -75,10 +75,14 @@ SOURCE_VALIDATION_KEYS = frozenset(
         "require_request_graph_match",
     }
 )
+QWEN3_A95B_EPOCH3_DIRECT_MEDIUM_MODEL_IO_CONTRACT_ID = (
+    "qwen3-a95b-epoch3-source+qwen3-a95b-direct-medium"
+)
 SUPPORTED_MODEL_IO_CONTRACTS = frozenset(
     {
         "qwen3-a95b",
         "qwen3-a95b-epoch3",
+        QWEN3_A95B_EPOCH3_DIRECT_MEDIUM_MODEL_IO_CONTRACT_ID,
         "qwen3-a95b-epoch3-source+qwen3-a95b-repair",
     }
 )
