@@ -114,8 +114,6 @@ def sanitize(
     gateway_close_warnings = 0
     recovered_poisoned_assignments = 0
     managed_shell_recovery_events: Counter[str] = Counter()
-    managed_shell_recovery_failures = 0
-    abandoned_shell_operations = 0
     event_outer_ids: set[str] = set()
     for line_number, line in enumerate(event_raw.decode("utf-8").splitlines(), start=1):
         if not line.strip():
@@ -262,7 +260,6 @@ def sanitize(
                 or not event["error_type"]
             ):
                 raise CleanupAuditError("managed_shell_recovery_failure_event_invalid")
-            managed_shell_recovery_failures += 1
         elif event_name == "managed_shell_operation_abandoned":
             if (
                 not _managed_event_has_exact_keys(
@@ -278,7 +275,6 @@ def sanitize(
                 or event["shell_generation"] < 0
             ):
                 raise CleanupAuditError("managed_shell_abandonment_event_invalid")
-            abandoned_shell_operations += 1
         elif event_name == "pool_drain_incomplete":
             raise CleanupAuditError("pool_drain_incomplete")
         elif event_name == "pool_drained":
@@ -442,11 +438,6 @@ def sanitize(
         "pool_drain_deleted": len(drain["deleted"]),
         "gateway_close_warnings": gateway_close_warnings,
         "recovered_poisoned_assignments": recovered_poisoned_assignments,
-        "managed_shell_bindings": len(shell_bindings),
-        "managed_shell_recoveries": sum(managed_shell_recovery_wal.values()),
-        "assignments_with_managed_shell_recovery": len(managed_shell_recovery_wal),
-        "managed_shell_recovery_failures": managed_shell_recovery_failures,
-        "abandoned_shell_operations": abandoned_shell_operations,
         "failures": 0,
         "raw_audit_sha256": hashlib.sha256(audit_raw).hexdigest(),
         "pool_event_log_sha256": hashlib.sha256(event_raw).hexdigest(),

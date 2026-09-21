@@ -144,10 +144,13 @@ def test_sanitizer_accepts_strict_managed_shell_recovery_chain_without_publishin
     output = tmp_path / "sanitized.json"
     result = sanitize(raw, event, wal, drain, output)
 
-    assert result["managed_shell_bindings"] == 1
-    assert result["managed_shell_recoveries"] == 1
-    assert result["assignments_with_managed_shell_recovery"] == 1
-    assert result["managed_shell_recovery_failures"] == 0
+    assert not {
+        "managed_shell_bindings",
+        "managed_shell_recoveries",
+        "assignments_with_managed_shell_recovery",
+        "managed_shell_recovery_failures",
+        "abandoned_shell_operations",
+    } & set(result)
     assert "opaque-assignment" not in output.read_text()
     assert "opaque-shell-old" not in output.read_text()
     assert "opaque-shell-new" not in output.read_text()
@@ -158,9 +161,13 @@ def test_sanitizer_preserves_standard_wal_without_shell_lifecycle_rows(tmp_path:
 
     result = sanitize(raw, event, wal, drain, tmp_path / "sanitized.json")
 
-    assert result["managed_shell_bindings"] == 0
-    assert result["managed_shell_recoveries"] == 0
-    assert result["assignments_with_managed_shell_recovery"] == 0
+    assert not {
+        "managed_shell_bindings",
+        "managed_shell_recoveries",
+        "assignments_with_managed_shell_recovery",
+        "managed_shell_recovery_failures",
+        "abandoned_shell_operations",
+    } & set(result)
 
 
 def test_sanitizer_rejects_unlinked_managed_shell_recovery(tmp_path: Path) -> None:
