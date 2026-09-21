@@ -63,7 +63,7 @@ if [[ "$stage" != smoke && "$stage" != mobius-smoke && "$stage" != tb4 ]]; then
 fi
 if [[ "$stage" != tb4 ]]; then
     smoke_wall_limit=$(squeue -h -j "$SLURM_JOB_ID" -o '%l')
-    expected_smoke_wall_limit=20:00
+    expected_smoke_wall_limit=4:00:00
     if [[ "$stage" == mobius-smoke ]]; then
         expected_smoke_wall_limit=12:00
     fi

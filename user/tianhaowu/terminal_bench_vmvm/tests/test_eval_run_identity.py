@@ -31,6 +31,7 @@ from eval_run_identity import (
     _tree_digest,
     _validate_identity_shape,
     _verify_checkpoint_records,
+    _verify_config_and_inputs,
     _verify_saved_provenance,
     _write_resolved_config,
     canonical_json,
@@ -534,6 +535,98 @@ def test_direct_kimi_sandoq_identity_binds_router_and_smoke_lineage() -> None:
         target[path[-1]] = value
         with pytest.raises(EvalIdentityError, match="schema_invalid"):
             _validate_identity_shape(mismatched)
+
+
+def test_direct_kimi_scored_smoke_identity_loads_bounded_and_legacy_profiles(
+    tmp_path: Path,
+) -> None:
+    for request_timeout in (9_600, 15_000):
+        identity = _direct_kimi_identity(smoke=True)
+        identity["dataset"] = {
+            "kind": "archive",
+            "path": "/pinned/dataset",
+            "revision": None,
+            "archive": {"path": "/pinned/dataset.tar.gz", "sha256": "e" * 64},
+            "content_sha256": "f" * 64,
+        }
+        identity["contract"]["harness"]["command_timeout_seconds"] = 240
+        identity["contract"]["harness"]["request_timeout_seconds"] = request_timeout
+        envelope = _identity_envelope(identity)
+        path = tmp_path / f"eval_run_identity_{request_timeout}.json"
+        path.write_text(json.dumps(envelope))
+
+        assert load_eval_run_identity(path, verify_references=False) == envelope
+
+    identity["contract"]["harness"]["request_timeout_seconds"] = 9_601
+    with pytest.raises(EvalIdentityError, match="schema_invalid"):
+        _validate_identity_shape(identity)
+
+
+@pytest.mark.parametrize("legacy", [False, True], ids=["bounded", "legacy"])
+def test_direct_kimi_scored_smoke_verifies_resolved_config(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    legacy: bool,
+) -> None:
+    config_path = (
+        Path(__file__).parents[1]
+        / "configs/eval/servers/cpu-132-021_8103/tb4_kimi_k3_sandoq_smoke.toml"
+    )
+    raw = tomllib.loads(config_path.read_text())
+    config = eval_run_identity._resolved_config_data(
+        eval_run_identity.EvalConfig.model_validate(raw),
+        explicit=raw,
+    )
+    if legacy:
+        config["client"]["timeout"] = 43_200
+        config["client"]["max_retries"] = 10
+        config["harness"]["request_timeout_seconds"] = 15_000
+        config["harness"]["runtime"]["session_timeout"] = 2_400
+        config["timeout"].update(setup=600, rollout=900, finalize=300, scoring=600)
+    config["output_dir"] = str(tmp_path)
+    contract, execution = _contract(
+        config,
+        "Kimi-K3",
+        role="kimi-direct-smoke",
+        sandbox_provider="sandoq",
+        _allow_legacy_direct_scored_smoke=legacy,
+    )
+
+    identity = _direct_kimi_identity(smoke=True)
+    execution["sandoq_environment"] = identity["execution"]["sandoq_environment"]
+    identity["role"] = "kimi-direct-smoke"
+    identity["contract"] = contract
+    identity["execution"] = execution
+    identity["dataset"] = {
+        "kind": "archive",
+        "path": config["taskset"]["dataset_dir"],
+        "revision": None,
+        "archive": {"path": "/pinned/dataset.tar.gz", "sha256": "e" * 64},
+        "content_sha256": "f" * 64,
+    }
+    identity["deployment"]["base_url"] = config["client"]["base_url"]
+
+    inputs_dir = tmp_path / "inputs"
+    inputs_dir.mkdir()
+    local_paths = {
+        ("config", "source"): inputs_dir / "source_config.toml",
+        ("config", "resolved"): tmp_path / "config.toml",
+        ("inputs", "manifest"): inputs_dir / "manifest.json",
+        ("inputs", "task_file"): inputs_dir / "task_file.txt",
+        ("inputs", "image_manifest"): inputs_dir / "image_manifest.json",
+    }
+    for (section, name), path in local_paths.items():
+        path.write_text("fixture")
+        identity[section][name]["path"] = str(path)
+
+    monkeypatch.setattr(eval_run_identity, "_load_resolved_config", lambda _path: config)
+    monkeypatch.setattr(
+        eval_run_identity,
+        "_input_identity",
+        lambda *_args: (identity["inputs"], identity["config"]["source"]),
+    )
+
+    assert _verify_config_and_inputs(identity, tmp_path, config["client"]["base_url"]) == config
 
 
 def test_direct_kimi_identity_envelope_round_trip(tmp_path: Path) -> None:

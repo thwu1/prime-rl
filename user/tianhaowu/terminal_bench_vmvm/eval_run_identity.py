@@ -67,6 +67,8 @@ EXPECTED_MODEL_IO_CONTRACT = {
 MAX_METADATA_BYTES = 64 * 1024 * 1024
 KIMI_REQUEST_TIMEOUT_SECONDS = 43_200
 KIMI_HOST_HARNESS_REQUEST_TIMEOUT_SECONDS = 15_000
+KIMI_DIRECT_SCORED_SMOKE_REQUEST_TIMEOUT_SECONDS = 10_800
+KIMI_DIRECT_SCORED_SMOKE_HOST_HARNESS_REQUEST_TIMEOUT_SECONDS = 9_600
 KIMI_CONNECT_TIMEOUT_SECONDS = 120
 KIMI_SETUP_TIMEOUT_SECONDS = 3_600
 KIMI_FINALIZE_TIMEOUT_SECONDS = 3_600
@@ -77,6 +79,7 @@ KIMI_TIMEOUT_PROFILES = {
     "quick": {"rollout_timeout": 900, "session_timeout": 2_400},
     "diagnostic": {"rollout_timeout": 300, "session_timeout": 600},
     "reward_diagnostic": {"rollout_timeout": 600, "session_timeout": 600},
+    "direct_scored_smoke": {"rollout_timeout": 9_000, "session_timeout": 10_800},
 }
 KIMI_FULL_RETRY_EXCEPTIONS = frozenset({"ProviderError", "SandboxError", "TunnelError", "InterceptionError"})
 VMVM_HOST_CLEANUP_CONTRACT = {
@@ -117,17 +120,25 @@ def validate_kimi_timeout_contract(
         raise EvalIdentityError("kimi_timeout_contract_invalid")
     assert isinstance(client, dict) and isinstance(timeouts, dict) and isinstance(runtime, dict)
     assert isinstance(harness, dict)
+    direct_scored_smoke = required_profile == "direct_scored_smoke"
+    expected_request_timeout = (
+        KIMI_DIRECT_SCORED_SMOKE_REQUEST_TIMEOUT_SECONDS if direct_scored_smoke else KIMI_REQUEST_TIMEOUT_SECONDS
+    )
+    expected_host_harness_request_timeout = (
+        KIMI_DIRECT_SCORED_SMOKE_HOST_HARNESS_REQUEST_TIMEOUT_SECONDS
+        if direct_scored_smoke
+        else KIMI_HOST_HARNESS_REQUEST_TIMEOUT_SECONDS
+    )
     host_harness = harness.get("id") == "terminal-bench-sandoq-host"
     if host_harness:
-        harness_timeout_valid = (
-            overrides is None
-            and harness.get("request_timeout_seconds") == KIMI_HOST_HARNESS_REQUEST_TIMEOUT_SECONDS
+        harness_timeout_valid = overrides is None and (
+            harness.get("request_timeout_seconds") == expected_host_harness_request_timeout
         )
-        harness_request_timeout = KIMI_HOST_HARNESS_REQUEST_TIMEOUT_SECONDS
+        harness_request_timeout = expected_host_harness_request_timeout
     else:
         if not isinstance(overrides, list) or any(not isinstance(value, str) for value in overrides):
             raise EvalIdentityError("kimi_timeout_contract_invalid")
-        harness_timeout_override = f"model.model_kwargs.timeout={KIMI_REQUEST_TIMEOUT_SECONDS}"
+        harness_timeout_override = f"model.model_kwargs.timeout={expected_request_timeout}"
         harness_timeout_entries = [
             value for value in overrides if value.startswith("model.model_kwargs.timeout=")
         ]
@@ -150,17 +161,19 @@ def validate_kimi_timeout_contract(
         else {key: KIMI_TIMEOUT_PROFILES[key] for key in ("smoke", "full")}
     )
 
-    bounded_smoke = required_profile in {"quick", "diagnostic", "reward_diagnostic"}
+    bounded_smoke = required_profile in {
+        "quick",
+        "diagnostic",
+        "reward_diagnostic",
+        "direct_scored_smoke",
+    }
     tight_diagnostic = required_profile in {"diagnostic", "reward_diagnostic"}
-    setup_timeout_seconds = (
-        180 if tight_diagnostic else 600 if bounded_smoke else KIMI_SETUP_TIMEOUT_SECONDS
-    )
-    finalize_timeout_seconds = (
-        60 if tight_diagnostic else 300 if bounded_smoke else KIMI_FINALIZE_TIMEOUT_SECONDS
-    )
-    scoring_timeout_seconds = (
-        120 if tight_diagnostic else 600 if bounded_smoke else KIMI_SCORING_TIMEOUT_SECONDS
-    )
+    setup_timeout_seconds = 180 if tight_diagnostic else 600 if bounded_smoke else KIMI_SETUP_TIMEOUT_SECONDS
+    finalize_timeout_seconds = 60 if tight_diagnostic else 300 if bounded_smoke else KIMI_FINALIZE_TIMEOUT_SECONDS
+    if direct_scored_smoke:
+        scoring_timeout_seconds = 900
+    else:
+        scoring_timeout_seconds = 120 if tight_diagnostic else 600 if bounded_smoke else KIMI_SCORING_TIMEOUT_SECONDS
 
     def exact_number(value: object, expected: int) -> bool:
         return (
@@ -171,7 +184,7 @@ def validate_kimi_timeout_contract(
         )
 
     if (
-        not exact_number(request_timeout, KIMI_REQUEST_TIMEOUT_SECONDS)
+        not exact_number(request_timeout, expected_request_timeout)
         or not harness_timeout_valid
         or not exact_number(connect_timeout, KIMI_CONNECT_TIMEOUT_SECONDS)
         or not exact_number(setup_timeout, setup_timeout_seconds)
@@ -797,6 +810,7 @@ def _contract(
     *,
     role: str | None = None,
     sandbox_provider: str = "vmvm",
+    _allow_legacy_direct_scored_smoke: bool = False,
 ) -> tuple[dict[str, Any], dict[str, Any]]:
     client = config.get("client")
     sampling = config.get("sampling")
@@ -814,6 +828,17 @@ def _contract(
         and isinstance(taskset, dict)
         and taskset.get("dataset_revision") is not None
     )
+    direct_kimi_archive_smoke = (
+        model == "Kimi-K3"
+        and role == "kimi-direct-smoke"
+        and isinstance(taskset, dict)
+        and taskset.get("dataset_revision") is None
+    )
+    if _allow_legacy_direct_scored_smoke and not direct_kimi_archive_smoke:
+        raise EvalIdentityError("resolved_contract_invalid")
+    direct_kimi_scored_smoke = (
+        direct_kimi_archive_smoke and not _allow_legacy_direct_scored_smoke
+    )
     require_kimi_steady_state_concurrency = role == "mobius"
     if model == "Kimi-K3":
         required_profile: str | None = None
@@ -827,7 +852,9 @@ def _contract(
                 reward_diagnostic = isinstance(timeout, dict) and timeout.get("rollout") == 600
                 required_profile = "reward_diagnostic" if reward_diagnostic else "diagnostic"
             else:
-                required_profile = "quick"
+                required_profile = (
+                    "quick" if _allow_legacy_direct_scored_smoke else "direct_scored_smoke"
+                )
         elif role == "smoke":
             if not isinstance(taskset, dict):
                 raise EvalIdentityError("resolved_contract_invalid")
@@ -856,6 +883,8 @@ def _contract(
         raise EvalIdentityError("outbound_body_denylist_contract_mismatch")
     if client.get("type") != "eval" or client.get("capture_model_io") is not True:
         raise EvalIdentityError("model_io_capture_contract_required")
+    if direct_kimi_scored_smoke and client.get("max_retries") != 0:
+        raise EvalIdentityError("kimi_retry_contract_invalid")
     if config.get("retain_traces") is not False or config.get("rich") is not False:
         raise EvalIdentityError("durable_trace_contract_required")
     parsed_url = urlsplit(str(client.get("base_url", "")))
@@ -917,11 +946,16 @@ def _contract(
         ):
             raise EvalIdentityError(f"{sandbox_provider}_cleanup_retry_contract_invalid")
     expected_host_command_timeout = 60 if direct_kimi_diagnostic else 240
+    expected_host_request_timeout = (
+        KIMI_DIRECT_SCORED_SMOKE_HOST_HARNESS_REQUEST_TIMEOUT_SECONDS
+        if direct_kimi_scored_smoke
+        else KIMI_HOST_HARNESS_REQUEST_TIMEOUT_SECONDS
+    )
     if host_harness and (
         harness.get("command_timeout_seconds") != expected_host_command_timeout
         or harness.get("command_kill_grace_seconds") != 10
         or harness.get("max_command_output_chars") != 100_000
-        or harness.get("request_timeout_seconds") != 15_000
+        or harness.get("request_timeout_seconds") != expected_host_request_timeout
         or "config_overrides" in harness
     ):
         raise EvalIdentityError("sandoq_host_harness_contract_invalid")
@@ -952,7 +986,7 @@ def _contract(
             "command_timeout_seconds": expected_host_command_timeout,
             "command_kill_grace_seconds": 10,
             "max_command_output_chars": 100_000,
-            "request_timeout_seconds": 15_000,
+            "request_timeout_seconds": expected_host_request_timeout,
             "request_max_retries": 0,
             "stream": False,
         }
@@ -1899,17 +1933,31 @@ def _validate_identity_shape(identity: object) -> dict[str, Any]:
     expected_harness_command_timeout = (
         60 if role == "kimi-direct-smoke" and dataset.get("kind") == "git_revision" else 240
     )
-    if "harness" in contract and contract.get("harness") != {
-        "id": "terminal-bench-sandoq-host",
-        "placement": "host",
-        "tool": "bash",
-        "command_timeout_seconds": expected_harness_command_timeout,
-        "command_kill_grace_seconds": 10,
-        "max_command_output_chars": 100_000,
-        "request_timeout_seconds": 15_000,
-        "request_max_retries": 0,
-        "stream": False,
-    }:
+    allowed_harness_request_timeouts = {KIMI_HOST_HARNESS_REQUEST_TIMEOUT_SECONDS}
+    if role == "kimi-direct-smoke" and dataset.get("kind") == "archive":
+        # Schema-v1 scored-smoke identities written before the bounded profile used
+        # the generic Kimi harness timeout. Keep those immutable records auditable.
+        allowed_harness_request_timeouts.add(
+            KIMI_DIRECT_SCORED_SMOKE_HOST_HARNESS_REQUEST_TIMEOUT_SECONDS
+        )
+    observed_harness = contract.get("harness")
+    if "harness" in contract and (
+        not isinstance(observed_harness, dict)
+        or observed_harness.get("request_timeout_seconds")
+        not in allowed_harness_request_timeouts
+        or observed_harness
+        != {
+            "id": "terminal-bench-sandoq-host",
+            "placement": "host",
+            "tool": "bash",
+            "command_timeout_seconds": expected_harness_command_timeout,
+            "command_kill_grace_seconds": 10,
+            "max_command_output_chars": 100_000,
+            "request_timeout_seconds": observed_harness.get("request_timeout_seconds"),
+            "request_max_retries": 0,
+            "stream": False,
+        }
+    ):
         raise EvalIdentityError("eval_run_identity_schema_invalid")
     if sandbox_provider == "sandoq" and "harness" not in contract:
         raise EvalIdentityError("eval_run_identity_schema_invalid")
@@ -2347,12 +2395,21 @@ def _verify_config_and_inputs(
         raise EvalIdentityError("eval_inputs_identity_mismatch")
 
     direct_role = identity["role"] in DIRECT_ROLES
+    identity_harness = identity["contract"].get("harness")
+    legacy_direct_kimi_scored_smoke = (
+        identity["role"] == "kimi-direct-smoke"
+        and identity["dataset"].get("kind") == "archive"
+        and isinstance(identity_harness, dict)
+        and identity_harness.get("request_timeout_seconds")
+        == KIMI_HOST_HARNESS_REQUEST_TIMEOUT_SECONDS
+    )
     observed_contract, observed_execution = _contract(
         config,
         identity["contract"]["model"],
         (None if direct_role else identity["deployment"]["routing"]["deployment_id"]),
         role=identity["role"],
         sandbox_provider=identity["source"].get("sandbox_provider", "vmvm"),
+        _allow_legacy_direct_scored_smoke=legacy_direct_kimi_scored_smoke,
     )
     client = config.get("client")
     if not isinstance(client, dict) or client.get("base_url") != endpoint_client_base_url:
@@ -2361,7 +2418,15 @@ def _verify_config_and_inputs(
         identity["execution"].get(key) != value for key, value in observed_execution.items()
     ):
         raise EvalIdentityError("eval_config_contract_mismatch")
-    expected_request_timeout = request_timeout_for_model(observed_contract["model"])
+    direct_kimi_scored_smoke = (
+        identity["role"] == "kimi-direct-smoke"
+        and identity["dataset"].get("kind") == "archive"
+    )
+    expected_request_timeout = (
+        KIMI_DIRECT_SCORED_SMOKE_REQUEST_TIMEOUT_SECONDS
+        if direct_kimi_scored_smoke and not legacy_direct_kimi_scored_smoke
+        else request_timeout_for_model(observed_contract["model"])
+    )
     if config["client"].get("timeout") != expected_request_timeout or (
         not direct_role
         and identity["deployment"]["proxy_policy"]["request_timeout"] != expected_request_timeout

@@ -856,6 +856,31 @@ commands emit summaries only; do not print result rows. Resume only through
 `run_qwen_direct_eval.sbatch`, which reuses the snapshotted endpoint set and
 local port and fails if the live metadata no longer exactly matches.
 
+## Direct Kimi Sandoq scored smoke
+
+The server-scoped Kimi smoke uses one reviewed non-security TB4 task through a
+fresh 24-worker direct router. The router applies consistent hashing to
+`X-Session-ID` and performs no retries. The evaluator and verifier also perform
+no retries, retain captured model I/O and preserved thinking, and keep the
+262,144-token context bound with at most 4,096 sampled tokens per call.
+
+The measured backend rate requires a four-hour allocation for this scored
+smoke. Submit from an exact clean source snapshot, overriding the launcher's
+seven-day full-run default with the exact smoke wall:
+
+```bash
+tmux send-keys -t swebench_vmvm:Launcher.0 \
+  "cd /checkpoint/ram/tianhaowu/terminal_bench_vmvm/sources/prime-rl-<commit> && env PROJECT_DIR=\$PWD KIMI_SANDOQ_EXPECTED_PRIME_RL_REVISION=<commit> KIMI_SANDOQ_STAGE=smoke KIMI_SANDOQ_PREFLIGHT_ONLY=0 sbatch --parsable --time=04:00:00 \$PWD/user/tianhaowu/terminal_bench_vmvm/configs/eval/servers/cpu-132-021_8103/run_tb4_kimi_k3_direct_sandoq_cpu-132-021_8103.sbatch" C-m
+```
+
+The launcher generates a fresh server-and-job-specific output namespace and
+rejects any smoke allocation whose Slurm wall is not exactly four hours. It
+uses a 9,000-second rollout bound, a 9,600-second harness request bound, and a
+10,800-second Sandoq session/client bound, leaving the remainder of the job for
+setup, scoring, cleanup, and certificate publication. Do not use the shared
+front proxy as the evaluator base URL; the launcher derives and probes all 24
+direct workers before starting its loopback router.
+
 ## Transcript capture gate
 
 Never request provider log probabilities in this workflow. RAM issue `#279`

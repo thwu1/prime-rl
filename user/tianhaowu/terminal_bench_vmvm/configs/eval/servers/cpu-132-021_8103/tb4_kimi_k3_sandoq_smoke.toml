@@ -17,8 +17,9 @@ capture_model_io = true
 outbound_body_denylist = ["logprobs", "prompt_logprobs", "top_logprobs", "return_token_ids"]
 base_url = "http://127.0.0.1:8000/v1"
 api_key_var = "OPENAI_API_KEY"
-timeout = 43200
+timeout = 10800
 connect_timeout = 120
+max_retries = 0
 max_connections = 1
 max_keepalive_connections = 1
 
@@ -53,12 +54,12 @@ id = "terminal-bench-sandoq-host"
 command_timeout_seconds = 240
 command_kill_grace_seconds = 10
 max_command_output_chars = 100000
-request_timeout_seconds = 15000
+request_timeout_seconds = 9600
 
 [harness.runtime]
 type = "sandoq"
 mode = "oci-runner"
-session_timeout = 2400
+session_timeout = 10800
 network_access = true
 host_tunnel = "none"
 expected_environment = "oci-runner"
@@ -66,9 +67,9 @@ ecr_token_file = "/storage/home/tianhaowu/.config/oci-runner/ecr-token"
 
 [timeout]
 setup = 600
-rollout = 900
+rollout = 9000
 finalize = 300
-scoring = 600
+scoring = 900
 
 [retries.rollout]
 max_retries = 0
