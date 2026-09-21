@@ -23,7 +23,7 @@ from transformers import AutoTokenizer
 from transformers.tokenization_utils import PreTrainedTokenizer
 
 from prime_rl.configs.sft import LossMaskConfig, SFTConfig, SFTDataConfig
-from prime_rl.trainer.sft.data import (
+from prime_rl.trainer.sft.format_v3 import (
     _canonicalize_attested_messages,
     _canonicalize_attested_tools,
     _message_is_trainable,
@@ -75,9 +75,7 @@ SOURCE_VALIDATION_KEYS = frozenset(
         "require_request_graph_match",
     }
 )
-QWEN3_A95B_EPOCH3_DIRECT_MEDIUM_MODEL_IO_CONTRACT_ID = (
-    "qwen3-a95b-epoch3-source+qwen3-a95b-direct-medium"
-)
+QWEN3_A95B_EPOCH3_DIRECT_MEDIUM_MODEL_IO_CONTRACT_ID = "qwen3-a95b-epoch3-source+qwen3-a95b-direct-medium"
 SUPPORTED_MODEL_IO_CONTRACTS = frozenset(
     {
         "qwen3-a95b",
