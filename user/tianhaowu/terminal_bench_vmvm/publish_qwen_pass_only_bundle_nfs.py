@@ -67,11 +67,7 @@ def _file_identity(metadata: os.stat_result) -> tuple[int, int, int, int]:
 
 
 def _validate_directory_metadata(metadata: os.stat_result, code: str) -> None:
-    if (
-        not stat.S_ISDIR(metadata.st_mode)
-        or stat.S_IMODE(metadata.st_mode) != 0o700
-        or metadata.st_uid != os.getuid()
-    ):
+    if not stat.S_ISDIR(metadata.st_mode) or stat.S_IMODE(metadata.st_mode) != 0o700 or metadata.st_uid != os.getuid():
         raise PublishError(code)
 
 
@@ -103,9 +99,7 @@ def _open_private_directory(path: Path, code: str) -> tuple[int, tuple[int, int]
     return descriptor, _directory_identity(opened)
 
 
-def _assert_directory_binding(
-    descriptor: int, identity: tuple[int, int], code: str
-) -> None:
+def _assert_directory_binding(descriptor: int, identity: tuple[int, int], code: str) -> None:
     metadata = os.fstat(descriptor)
     _validate_directory_metadata(metadata, code)
     if _directory_identity(metadata) != identity:
@@ -130,9 +124,7 @@ def _assert_directory_path_binding(
         raise PublishError(code)
 
 
-def _open_child_directory(
-    parent_descriptor: int, name: str, code: str
-) -> tuple[int, tuple[int, int]]:
+def _open_child_directory(parent_descriptor: int, name: str, code: str) -> tuple[int, tuple[int, int]]:
     listed = os.stat(name, dir_fd=parent_descriptor, follow_symlinks=False)
     _validate_directory_metadata(listed, code)
     descriptor = os.open(name, _directory_flags(), dir_fd=parent_descriptor)
@@ -144,9 +136,7 @@ def _open_child_directory(
     return descriptor, _directory_identity(opened)
 
 
-def _open_regular(
-    parent_descriptor: int, name: str, code: str
-) -> tuple[int, tuple[int, int, int, int]]:
+def _open_regular(parent_descriptor: int, name: str, code: str) -> tuple[int, tuple[int, int, int, int]]:
     listed = os.stat(name, dir_fd=parent_descriptor, follow_symlinks=False)
     _validate_file_metadata(listed, code)
     descriptor = os.open(name, _file_flags(), dir_fd=parent_descriptor)
@@ -182,9 +172,7 @@ def _write_all(descriptor: int, body: bytes) -> None:
         view = view[written:]
 
 
-def _digest_open_file(
-    descriptor: int, identity: tuple[int, int, int, int], code: str
-) -> tuple[int, str]:
+def _digest_open_file(descriptor: int, identity: tuple[int, int, int, int], code: str) -> tuple[int, str]:
     digest = hashlib.sha256()
     size = 0
     os.lseek(descriptor, 0, os.SEEK_SET)
@@ -215,9 +203,7 @@ def _tree_records(
 ) -> list[tuple[str, str, int, int, str]]:
     root_metadata = os.fstat(descriptor)
     _validate_directory_metadata(root_metadata, "bundle_root_invalid")
-    records: list[tuple[str, str, int, int, str]] = [
-        ("directory", ".", stat.S_IMODE(root_metadata.st_mode), 0, "")
-    ]
+    records: list[tuple[str, str, int, int, str]] = [("directory", ".", stat.S_IMODE(root_metadata.st_mode), 0, "")]
 
     def walk(current: int, prefix: str, root: bool) -> None:
         for name in _names(current):
@@ -226,9 +212,7 @@ def _tree_records(
             metadata = os.stat(name, dir_fd=current, follow_symlinks=False)
             relative = f"{prefix}/{name}" if prefix else name
             if stat.S_ISDIR(metadata.st_mode):
-                child, identity = _open_child_directory(
-                    current, name, "bundle_entry_invalid"
-                )
+                child, identity = _open_child_directory(current, name, "bundle_entry_invalid")
                 try:
                     records.append(("directory", relative, 0o700, 0, ""))
                     walk(child, relative, False)
@@ -293,9 +277,7 @@ def _copy_payload(source: int, destination: int, *, root: bool = True) -> None:
             continue
         metadata = os.stat(name, dir_fd=source, follow_symlinks=False)
         if stat.S_ISDIR(metadata.st_mode):
-            source_child, source_identity = _open_child_directory(
-                source, name, "source_entry_invalid"
-            )
+            source_child, source_identity = _open_child_directory(source, name, "source_entry_invalid")
             try:
                 os.mkdir(name, 0o700, dir_fd=destination)
                 destination_child, destination_identity = _open_child_directory(
@@ -306,14 +288,10 @@ def _copy_payload(source: int, destination: int, *, root: bool = True) -> None:
                 try:
                     _copy_payload(source_child, destination_child, root=False)
                     os.fsync(destination_child)
-                    _assert_directory_binding(
-                        destination_child, destination_identity, "destination_changed"
-                    )
+                    _assert_directory_binding(destination_child, destination_identity, "destination_changed")
                 finally:
                     os.close(destination_child)
-                _assert_directory_binding(
-                    source_child, source_identity, "source_changed"
-                )
+                _assert_directory_binding(source_child, source_identity, "source_changed")
             finally:
                 os.close(source_child)
         elif stat.S_ISREG(metadata.st_mode):
@@ -327,9 +305,7 @@ def _manifest(
     expected_manifest_sha256: str,
     expected_certificate_sha256: str,
 ) -> tuple[bytes, dict[str, tuple[int, str]]]:
-    manifest_descriptor, manifest_identity = _open_regular(
-        source, MANIFEST, "manifest_invalid"
-    )
+    manifest_descriptor, manifest_identity = _open_regular(source, MANIFEST, "manifest_invalid")
     try:
         body = _read_all(manifest_descriptor, MAX_MANIFEST_BYTES, "manifest_invalid")
         if _file_identity(os.fstat(manifest_descriptor)) != manifest_identity:
@@ -375,20 +351,14 @@ def _manifest(
         ):
             raise PublishError("manifest_contract_invalid")
         expected_files[name] = (size, digest)
-    certificate_descriptor, certificate_identity = _open_regular(
-        source, CERTIFICATE, "certificate_invalid"
-    )
+    certificate_descriptor, certificate_identity = _open_regular(source, CERTIFICATE, "certificate_invalid")
     try:
-        certificate_body = _read_all(
-            certificate_descriptor, MAX_CERTIFICATE_BYTES, "certificate_invalid"
-        )
+        certificate_body = _read_all(certificate_descriptor, MAX_CERTIFICATE_BYTES, "certificate_invalid")
         if _file_identity(os.fstat(certificate_descriptor)) != certificate_identity:
             raise PublishError("certificate_changed")
     finally:
         os.close(certificate_descriptor)
-    if hashlib.sha256(
-        certificate_body
-    ).hexdigest() != expected_certificate_sha256 or certificate.get("bytes") != len(
+    if hashlib.sha256(certificate_body).hexdigest() != expected_certificate_sha256 or certificate.get("bytes") != len(
         certificate_body
     ):
         raise PublishError("certificate_invalid")
@@ -404,13 +374,9 @@ def _validate_payload_records(
     records: list[tuple[str, str, int, int, str]],
     expected_files: dict[str, tuple[int, str]],
 ) -> None:
-    observed_directories = {
-        path for kind, path, _mode, _size, _digest in records if kind == "directory"
-    }
+    observed_directories = {path for kind, path, _mode, _size, _digest in records if kind == "directory"}
     observed_files = {
-        path: (size, digest)
-        for kind, path, mode, size, digest in records
-        if kind == "file" and mode == 0o600
+        path: (size, digest) for kind, path, mode, size, digest in records if kind == "file" and mode == 0o600
     }
     if (
         observed_directories != EXPECTED_DIRECTORIES
@@ -445,21 +411,11 @@ def publish(
     expected_manifest_sha256: str,
     expected_certificate_sha256: str,
 ) -> dict[str, str]:
-    if not _valid_digest(expected_manifest_sha256) or not _valid_digest(
-        expected_certificate_sha256
-    ):
+    if not _valid_digest(expected_manifest_sha256) or not _valid_digest(expected_certificate_sha256):
         raise PublishError("expected_digest_invalid")
-    source_path = Path(
-        os.path.normpath(
-            source_path if source_path.is_absolute() else Path.cwd() / source_path
-        )
-    )
+    source_path = Path(os.path.normpath(source_path if source_path.is_absolute() else Path.cwd() / source_path))
     destination_path = Path(
-        os.path.normpath(
-            destination_path
-            if destination_path.is_absolute()
-            else Path.cwd() / destination_path
-        )
+        os.path.normpath(destination_path if destination_path.is_absolute() else Path.cwd() / destination_path)
     )
     if not destination_path.name:
         raise PublishError("destination_invalid")
@@ -470,9 +426,7 @@ def publish(
     ):
         raise PublishError("source_destination_overlap")
     source, source_identity = _open_private_directory(source_path, "source_invalid")
-    parent, parent_identity = _open_private_directory(
-        destination_path.parent, "destination_parent_invalid"
-    )
+    parent, parent_identity = _open_private_directory(destination_path.parent, "destination_parent_invalid")
     destination = -1
     destination_identity: tuple[int, int] | None = None
     temporary_manifest = f".{destination_path.name}.manifest-{secrets.token_hex(16)}"
@@ -489,9 +443,7 @@ def publish(
             destination_path.name,
             "destination_invalid",
         )
-        manifest_body, expected_files = _manifest(
-            source, expected_manifest_sha256, expected_certificate_sha256
-        )
+        manifest_body, expected_files = _manifest(source, expected_manifest_sha256, expected_certificate_sha256)
         _copy_payload(source, destination)
         source_payload = _tree_records(source, ignored_root_names=frozenset({MANIFEST}))
         destination_payload = _tree_records(destination)
@@ -499,9 +451,7 @@ def publish(
             raise PublishError("published_payload_mismatch")
         _validate_payload_records(destination_payload, expected_files)
         _assert_directory_binding(source, source_identity, "source_changed")
-        _assert_directory_binding(
-            destination, destination_identity, "destination_changed"
-        )
+        _assert_directory_binding(destination, destination_identity, "destination_changed")
         _assert_directory_binding(parent, parent_identity, "destination_parent_changed")
         temporary_manifest_descriptor = os.open(
             temporary_manifest,
@@ -529,18 +479,14 @@ def publish(
         _assert_directory_binding(source, source_identity, "source_changed")
         if _tree_records(destination) != destination_payload:
             raise PublishError("destination_changed")
-        _assert_directory_binding(
-            destination, destination_identity, "destination_changed"
-        )
+        _assert_directory_binding(destination, destination_identity, "destination_changed")
         _assert_directory_binding(parent, parent_identity, "destination_parent_changed")
         temporary_identity = _file_identity(os.fstat(temporary_manifest_descriptor))
         if temporary_identity != _file_identity(temporary_metadata):
             raise PublishError("temporary_manifest_changed")
         os.close(temporary_manifest_descriptor)
         temporary_manifest_descriptor = -1
-        listed_temporary = os.stat(
-            temporary_manifest, dir_fd=parent, follow_symlinks=False
-        )
+        listed_temporary = os.stat(temporary_manifest, dir_fd=parent, follow_symlinks=False)
         if _file_identity(listed_temporary) != temporary_identity:
             raise PublishError("temporary_manifest_changed")
         manifest_link_descriptor = os.open(
@@ -550,9 +496,7 @@ def publish(
         )
         if _file_identity(os.fstat(manifest_link_descriptor)) != temporary_identity:
             raise PublishError("temporary_manifest_changed")
-        _assert_directory_path_binding(
-            source_path, source, source_identity, "source_path_changed"
-        )
+        _assert_directory_path_binding(source_path, source, source_identity, "source_path_changed")
         _assert_directory_path_binding(
             destination_path.parent,
             parent,
@@ -569,9 +513,7 @@ def publish(
         _link_noreplace(manifest_link_descriptor, destination, MANIFEST)
         os.close(manifest_link_descriptor)
         manifest_link_descriptor = -1
-        listed_temporary = os.stat(
-            temporary_manifest, dir_fd=parent, follow_symlinks=False
-        )
+        listed_temporary = os.stat(temporary_manifest, dir_fd=parent, follow_symlinks=False)
         if _file_identity(listed_temporary) != temporary_identity:
             raise PublishError("temporary_manifest_changed")
         os.unlink(temporary_manifest, dir_fd=parent)
@@ -581,15 +523,11 @@ def publish(
             pass
         else:
             raise PublishError("temporary_manifest_unlink_failed")
-        published_manifest = os.stat(
-            MANIFEST, dir_fd=destination, follow_symlinks=False
-        )
+        published_manifest = os.stat(MANIFEST, dir_fd=destination, follow_symlinks=False)
         _validate_file_metadata(published_manifest, "published_manifest_invalid")
         if _file_identity(published_manifest) != temporary_identity:
             raise PublishError("published_manifest_invalid")
-        published_payload = _tree_records(
-            destination, ignored_root_names=frozenset({MANIFEST})
-        )
+        published_payload = _tree_records(destination, ignored_root_names=frozenset({MANIFEST}))
         if published_payload != destination_payload:
             raise PublishError("published_payload_changed")
         _validate_payload_records(published_payload, expected_files)

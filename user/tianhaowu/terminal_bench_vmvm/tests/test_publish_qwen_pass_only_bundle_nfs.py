@@ -11,7 +11,7 @@ from pathlib import Path
 import publish_qwen_pass_only_bundle_nfs as publisher
 import pytest
 
-REVIEWED_PUBLISHER_SHA256 = "abc3ff379029c32022bf848c2278c49144a1e90095b89461d6c3920d1b5e79e7"
+REVIEWED_PUBLISHER_SHA256 = "9f7b3c57445b3b2c2918d723b6a9632defde3ea6189ea386a33daa79fa146194"
 
 
 def _write_private(path: Path, body: bytes) -> None:
