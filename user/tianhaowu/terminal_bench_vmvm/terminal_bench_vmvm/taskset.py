@@ -306,6 +306,9 @@ class TerminalBenchVMVMConfig(HarborConfig):
     enable_compose: bool = False
     """Run an environment/docker-compose.yaml as infrastructure for this dataset."""
 
+    memory_resource_multiplier: Literal[0.375, 0.75] | None = None
+    """Fallback-only memory scaling; CPU, disk, and GPU requests remain declared."""
+
     verifier_runtime_retries: int = Field(2, ge=0)
     capture_convention_artifacts: bool = True
     """Also preserve Harbor's conventional /logs/artifacts directory when present."""
@@ -1143,7 +1146,7 @@ def _base_task(task_dir: Path, idx: int, raw: dict, config: TerminalBenchVMVMCon
             harness=harness_timeout * config.timeout_multiplier if harness_timeout is not None else None,
             scoring=scoring_timeout * config.timeout_multiplier if scoring_timeout is not None else None,
         ),
-        resources=parse_resources(environment, config.resource_multiplier),
+        resources=_task_resources(environment, config),
         keywords=task_config.get("keywords", []),
         authors=_authors(task_config, metadata),
         difficulty=metadata.get("difficulty"),
@@ -1151,6 +1154,27 @@ def _base_task(task_dir: Path, idx: int, raw: dict, config: TerminalBenchVMVMCon
         tags=metadata.get("tags", []),
         task_dir=str(task_dir),
     )
+
+
+def _task_resources(environment: dict, config: TerminalBenchVMVMConfig) -> TaskResources:
+    """Resolve resources while keeping the ordinary Harbor path unchanged."""
+
+    memory_multiplier = config.memory_resource_multiplier
+    if memory_multiplier is None:
+        return parse_resources(environment, config.resource_multiplier)
+    if config.resource_multiplier != 1.0:
+        raise ValueError("memory_resource_multiplier requires resource_multiplier=1")
+    resources = parse_resources(environment, 1.0)
+    if (
+        resources.cpu is None
+        or not math.isfinite(resources.cpu)
+        or not float(resources.cpu).is_integer()
+        or resources.memory is None
+        or resources.disk is None
+        or resources.gpu is not None
+    ):
+        raise ValueError("memory-only resource scaling requires declared integral CPU, memory, disk, and no GPU")
+    return resources.model_copy(update={"memory": resources.memory * memory_multiplier})
 
 
 @lru_cache(maxsize=1)
@@ -2146,10 +2170,7 @@ class TerminalBenchVMVMTaskset(
                 verifier_mode=mode,
                 verifier_image=verifier_image,
                 verifier_workdir=verifier_workdir,
-                verifier_resources=parse_resources(
-                    verifier_environment,
-                    self.config.resource_multiplier,
-                ),
+                verifier_resources=_task_resources(verifier_environment, self.config),
                 verifier_timeout_sec=float(verifier.get("timeout_sec", 600.0)) * self.config.timeout_multiplier,
                 verifier_env=_string_env(verifier.get("env")),
                 solution_env=_string_env(raw.get("solution", {}).get("env")),

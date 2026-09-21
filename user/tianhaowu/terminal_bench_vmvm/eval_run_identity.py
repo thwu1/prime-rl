@@ -121,15 +121,18 @@ def _direct_kimi_expected_concurrency(role: str, sandbox_provider: str, task_cou
 
 
 def _validate_direct_kimi_fallback_config(config: dict[str, Any], role: str, task_count: int) -> None:
-    if role != KIMI_SANDOQ_FALLBACK_ROLE:
-        return
-    expected_multiplier = {17: 0.75, 4: 0.375}.get(task_count)
     taskset = config.get("taskset")
+    if role != KIMI_SANDOQ_FALLBACK_ROLE:
+        if isinstance(taskset, dict) and "memory_resource_multiplier" in taskset:
+            raise EvalIdentityError("direct_kimi_fallback_config_invalid")
+        return
+    expected_memory_multiplier = {17: 0.75, 4: 0.375}.get(task_count)
     if (
-        expected_multiplier is None
+        expected_memory_multiplier is None
         or config.get("num_tasks") != task_count
         or not isinstance(taskset, dict)
-        or taskset.get("resource_multiplier") != expected_multiplier
+        or taskset.get("resource_multiplier") != 1.0
+        or taskset.get("memory_resource_multiplier") != expected_memory_multiplier
         or taskset.get("enable_compose") is not False
     ):
         raise EvalIdentityError("direct_kimi_fallback_config_invalid")

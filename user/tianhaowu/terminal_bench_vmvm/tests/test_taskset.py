@@ -100,6 +100,120 @@ class _VerifierRuntime:
             raise RuntimeError(self.stop_error)
 
 
+@pytest.mark.parametrize(
+    ("declared_memory_gib", "memory_multiplier"),
+    ((8, 0.75), (16, 0.375)),
+)
+def test_fallback_memory_scaling_preserves_integral_cpu_and_declared_disk(
+    declared_memory_gib: int,
+    memory_multiplier: float,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    environment = {"cpus": 2, "memory_mb": declared_memory_gib * 1024, "storage_mb": 10 * 1024}
+    config = TerminalBenchVMVMConfig(
+        id="terminal-bench-vmvm",
+        resource_multiplier=1.0,
+        memory_resource_multiplier=memory_multiplier,
+    )
+
+    resources = taskset_module._task_resources(environment, config)
+
+    assert resources.cpu == 2.0
+    assert resources.cpu.is_integer()
+    assert resources.memory == 6.0
+    assert resources.disk == 10.0
+    assert resources.gpu is None
+
+    monkeypatch.syspath_prepend(str(Path(__file__).parents[4] / "extensions/sandoq"))
+    from sandoq_provider.oci_client import _requested_resources
+
+    provider_request = _requested_resources(SimpleNamespace(), resources.model_dump(exclude_none=True))
+    assert provider_request.as_dict() == {
+        "cpu_count": 2,
+        "memory_bytes": 6 * 1024**3,
+        "disk_bytes": 10 * 1024**3,
+    }
+
+
+def test_standard_resource_scaling_is_unchanged_and_memory_only_mode_fails_closed() -> None:
+    environment = {"cpus": 2, "memory_mb": 8 * 1024, "storage_mb": 10 * 1024}
+    standard = TerminalBenchVMVMConfig(id="terminal-bench-vmvm", resource_multiplier=2.0)
+
+    assert taskset_module._task_resources(environment, standard).model_dump() == {
+        "cpu": 4.0,
+        "memory": 16.0,
+        "gpu": None,
+        "disk": 20.0,
+    }
+
+    invalid = TerminalBenchVMVMConfig(
+        id="terminal-bench-vmvm",
+        resource_multiplier=2.0,
+        memory_resource_multiplier=0.75,
+    )
+    with pytest.raises(ValueError, match="requires resource_multiplier=1"):
+        taskset_module._task_resources(environment, invalid)
+
+    fractional_cpu = {**environment, "cpus": 1.5}
+    fallback = TerminalBenchVMVMConfig(
+        id="terminal-bench-vmvm",
+        resource_multiplier=1.0,
+        memory_resource_multiplier=0.75,
+    )
+    with pytest.raises(ValueError, match="requires declared integral CPU"):
+        taskset_module._task_resources(fractional_cpu, fallback)
+
+
+def test_fallback_memory_scaling_applies_to_agent_and_separate_verifier(tmp_path: Path) -> None:
+    task_dir = tmp_path / "synthetic-task"
+    task_dir.mkdir()
+    (task_dir / "instruction.md").write_text("Exercise the sandbox.\n")
+    (task_dir / "task.toml").write_text(
+        """
+[task]
+name = "synthetic-task"
+
+[environment]
+cpus = 2
+memory_mb = 8192
+storage_mb = 10240
+
+[verifier]
+environment_mode = "separate"
+
+[verifier.environment]
+cpus = 4
+memory_mb = 8192
+storage_mb = 12288
+""".strip()
+        + "\n"
+    )
+    taskset = TerminalBenchVMVMTaskset(
+        TerminalBenchVMVMConfig(
+            id="terminal-bench-vmvm",
+            dataset_dir=tmp_path,
+            ignore_dockerfile=True,
+            resource_multiplier=1.0,
+            memory_resource_multiplier=0.75,
+        )
+    )
+
+    task = taskset.load_tasks()[0]
+
+    assert task.resources.model_dump() == {
+        "cpu": 2.0,
+        "memory": 6.0,
+        "gpu": None,
+        "disk": 10.0,
+    }
+    assert task.verifier_resources.model_dump() == {
+        "cpu": 4.0,
+        "memory": 6.0,
+        "gpu": None,
+        "disk": 12.0,
+    }
+
+
 @pytest.mark.asyncio
 async def test_sandoq_declared_no_network_requires_explicit_public_override(
     monkeypatch,

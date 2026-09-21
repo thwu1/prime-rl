@@ -84,8 +84,8 @@ def test_fallback_partition_is_exact_and_compose_is_independently_checked(
     assert observed.compose_excluded == tuple(groups["compose"])
     assert observed.gpu_unsupported == tuple(groups["gpu"])
     assert fallback.TOTAL_CONCURRENCY == 8
-    assert fallback._admissible_at_multiplier(entries[31], 0.75)
-    assert fallback._admissible_at_multiplier(entries[48], 0.375)
+    assert fallback._admissible_with_memory_multiplier(entries[31], 0.75)
+    assert fallback._admissible_with_memory_multiplier(entries[48], 0.375)
 
     mismatched = list(entries)
     mismatched[0] = SimpleNamespace(**{**vars(mismatched[0]), "requires_compose": True})
@@ -109,7 +109,7 @@ def test_fallback_configs_preserve_capture_and_reasoning_contract(
         base,
         count=count,
         concurrency=concurrency,
-        multiplier=multiplier,
+        memory_multiplier=multiplier,
         selector=Path("/private/fallback.tasks.txt"),
         selector_sha256="a" * 64,
         image_manifest=Path("/private/images.json"),
@@ -124,7 +124,8 @@ def test_fallback_configs_preserve_capture_and_reasoning_contract(
     assert config["client"]["capture_model_io"] is True
     assert config["client"]["max_retries"] == 0
     assert config["retries"]["rollout"]["max_retries"] == 0
-    assert config["taskset"]["resource_multiplier"] == multiplier
+    assert config["taskset"]["resource_multiplier"] == 1.0
+    assert config["taskset"]["memory_resource_multiplier"] == multiplier
     assert config["taskset"]["enable_compose"] is False
     assert config["harness"]["runtime"]["type"] == "sandoq"
     assert config["sampling"]["reasoning_effort"] == "max"
@@ -195,6 +196,8 @@ def test_private_plan_binds_both_lanes_and_requires_commit_markers(
         assert verified["provider"] == "sandoq"
         config = tomllib.loads(Path(verified["config"]).read_text())
         assert config["num_tasks"] == len(expected_members)
+        assert config["taskset"]["resource_multiplier"] == 1.0
+        assert config["taskset"]["memory_resource_multiplier"] == plan["lanes"][lane_name]["memory_resource_multiplier"]
 
     cli_label = "cpu132021-8103-test-v2"
     monkeypatch.setattr(

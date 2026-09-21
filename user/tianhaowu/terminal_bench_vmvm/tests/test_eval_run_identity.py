@@ -603,15 +603,29 @@ def test_direct_kimi_fallback_config_binds_lossy_resource_semantics(
     role = "kimi-direct-tb4-sandoq-fallback-diagnostic"
     config = {
         "num_tasks": task_count,
-        "taskset": {"resource_multiplier": multiplier, "enable_compose": False},
+        "taskset": {
+            "resource_multiplier": 1.0,
+            "memory_resource_multiplier": multiplier,
+            "enable_compose": False,
+        },
     }
 
     eval_run_identity._validate_direct_kimi_fallback_config(config, role, task_count)
-    for field, value in (("resource_multiplier", 1.0), ("enable_compose", True)):
+    for field, value in (
+        ("resource_multiplier", multiplier),
+        ("memory_resource_multiplier", 1.0),
+        ("enable_compose", True),
+    ):
         invalid = json.loads(json.dumps(config))
         invalid["taskset"][field] = value
         with pytest.raises(EvalIdentityError, match="direct_kimi_fallback_config_invalid"):
             eval_run_identity._validate_direct_kimi_fallback_config(invalid, role, task_count)
+
+    standard = {"num_tasks": 31, "taskset": {"resource_multiplier": 1.0, "enable_compose": False}}
+    eval_run_identity._validate_direct_kimi_fallback_config(standard, "kimi-direct-tb4-diagnostic", 31)
+    standard["taskset"]["memory_resource_multiplier"] = multiplier
+    with pytest.raises(EvalIdentityError, match="direct_kimi_fallback_config_invalid"):
+        eval_run_identity._validate_direct_kimi_fallback_config(standard, "kimi-direct-tb4-diagnostic", 31)
 
 
 def test_direct_kimi_diagnostic_identity_requires_plan_approved_config_digest() -> None:

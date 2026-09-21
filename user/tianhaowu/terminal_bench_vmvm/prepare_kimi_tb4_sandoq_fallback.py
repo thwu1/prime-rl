@@ -3,8 +3,9 @@
 
 Only the 21 high-resource, non-Compose CPU tasks are runnable.  They are split
 by declared memory so each task fits the fixed 8-GiB Sandoq outer sandbox after
-an explicitly lossy diagnostic resource multiplier.  Task identities are
-written solely to private mode-0600 selectors and never to stdout.
+an explicitly lossy diagnostic memory multiplier.  CPU and disk requests stay
+at their declared values.  Task identities are written solely to private
+mode-0600 selectors and never to stdout.
 """
 
 from __future__ import annotations
@@ -38,6 +39,9 @@ MEMORY_16G_CONCURRENCY = 2
 TOTAL_CONCURRENCY = MEMORY_8G_CONCURRENCY + MEMORY_16G_CONCURRENCY
 MEMORY_8G_MULTIPLIER = 0.75
 MEMORY_16G_MULTIPLIER = 0.375
+RESOURCE_MULTIPLIER = 1.0
+PARTITION_SCHEMA_VERSION = 2
+PLAN_SCHEMA_VERSION = 2
 
 RESOURCE_MANIFEST = common.RESOURCE_MANIFEST
 PINNED_IMAGE_MANIFEST = common.PINNED_IMAGE_MANIFEST
@@ -57,7 +61,7 @@ LANES = {
         "stage": "sandoq-fallback-memory-8g",
         "count": MEMORY_8G_TASKS,
         "concurrency": MEMORY_8G_CONCURRENCY,
-        "multiplier": MEMORY_8G_MULTIPLIER,
+        "memory_multiplier": MEMORY_8G_MULTIPLIER,
         "selector": MEMORY_8G_SELECTOR,
         "config": MEMORY_8G_CONFIG,
     },
@@ -65,7 +69,7 @@ LANES = {
         "stage": "sandoq-fallback-memory-16g",
         "count": MEMORY_16G_TASKS,
         "concurrency": MEMORY_16G_CONCURRENCY,
-        "multiplier": MEMORY_16G_MULTIPLIER,
+        "memory_multiplier": MEMORY_16G_MULTIPLIER,
         "selector": MEMORY_16G_SELECTOR,
         "config": MEMORY_16G_CONFIG,
     },
@@ -101,15 +105,14 @@ def _has_compose(task_dir: Path) -> bool:
     return bool(matched)
 
 
-def _admissible_at_multiplier(entry: split.ManifestEntry, multiplier: float) -> bool:
+def _admissible_with_memory_multiplier(entry: split.ManifestEntry, memory_multiplier: float) -> bool:
     for request in split._phase_requests(entry):
         if (
             request.gpu_count != 0
-            or math.ceil(request.cpu_count * multiplier) > split.LEGACY_CPU_COUNT
-            or math.ceil(request.memory_bytes * multiplier) + split.MIN_MEMORY_HEADROOM_BYTES
+            or request.cpu_count > split.LEGACY_CPU_COUNT
+            or math.ceil(request.memory_bytes * memory_multiplier) + split.MIN_MEMORY_HEADROOM_BYTES
             > split.LEGACY_OUTER_MEMORY_BYTES
-            or math.ceil(request.disk_bytes * multiplier) + split.DISK_HEADROOM_BYTES
-            > split.LEGACY_DISK_AVAILABLE_BYTES
+            or request.disk_bytes + split.DISK_HEADROOM_BYTES > split.LEGACY_DISK_AVAILABLE_BYTES
         ):
             return False
     return True
@@ -150,9 +153,9 @@ def derive_fallback_partition(
             ):
                 raise FallbackPreparationError("fallback_nonmemory_resource_unsupported")
             maximum_memory = max(request.memory_bytes for request in requests)
-            if maximum_memory == 8 * split.GIB and _admissible_at_multiplier(entry, MEMORY_8G_MULTIPLIER):
+            if maximum_memory == 8 * split.GIB and _admissible_with_memory_multiplier(entry, MEMORY_8G_MULTIPLIER):
                 memory_8g.append(entry.task_id)
-            elif maximum_memory == 16 * split.GIB and _admissible_at_multiplier(entry, MEMORY_16G_MULTIPLIER):
+            elif maximum_memory == 16 * split.GIB and _admissible_with_memory_multiplier(entry, MEMORY_16G_MULTIPLIER):
                 memory_16g.append(entry.task_id)
             else:
                 raise FallbackPreparationError("fallback_memory_class_unsupported")
@@ -186,7 +189,7 @@ def _partition_files(manifest_sha256: str, partition: FallbackPartition) -> dict
         GPU_SELECTOR: _selector(partition.gpu_unsupported),
     }
     receipt = {
-        "schema_version": 1,
+        "schema_version": PARTITION_SCHEMA_VERSION,
         "kind": PARTITION_KIND,
         "state": "materialized",
         "manifest_sha256": manifest_sha256,
@@ -209,11 +212,13 @@ def _partition_files(manifest_sha256: str, partition: FallbackPartition) -> dict
             "memory_headroom_bytes": split.MIN_MEMORY_HEADROOM_BYTES,
             "fallback_lanes": {
                 "memory_8g": {
-                    "resource_multiplier": MEMORY_8G_MULTIPLIER,
+                    "resource_multiplier": RESOURCE_MULTIPLIER,
+                    "memory_resource_multiplier": MEMORY_8G_MULTIPLIER,
                     "concurrency": MEMORY_8G_CONCURRENCY,
                 },
                 "memory_16g": {
-                    "resource_multiplier": MEMORY_16G_MULTIPLIER,
+                    "resource_multiplier": RESOURCE_MULTIPLIER,
+                    "memory_resource_multiplier": MEMORY_16G_MULTIPLIER,
                     "concurrency": MEMORY_16G_CONCURRENCY,
                 },
             },
@@ -232,7 +237,7 @@ def _fallback_config(
     *,
     count: int,
     concurrency: int,
-    multiplier: float,
+    memory_multiplier: float,
     selector: Path,
     selector_sha256: str,
     image_manifest: Path,
@@ -248,7 +253,8 @@ def _fallback_config(
         concurrency=concurrency,
     )
     value["num_tasks"] = count
-    value["taskset"]["resource_multiplier"] = multiplier
+    value["taskset"]["resource_multiplier"] = RESOURCE_MULTIPLIER
+    value["taskset"]["memory_resource_multiplier"] = memory_multiplier
     value["taskset"]["enable_compose"] = False
     value["client"]["max_retries"] = 0
     value["retries"]["rollout"]["max_retries"] = 0
@@ -314,7 +320,7 @@ def prepare(args: argparse.Namespace) -> dict[str, Any]:
             base,
             count=int(contract["count"]),
             concurrency=int(contract["concurrency"]),
-            multiplier=float(contract["multiplier"]),
+            memory_multiplier=float(contract["memory_multiplier"]),
             selector=selector_path,
             selector_sha256=split.sha256_bytes(selector_payload),
             image_manifest=image_path,
@@ -332,7 +338,8 @@ def prepare(args: argparse.Namespace) -> dict[str, Any]:
             "provider": "sandoq",
             "count": contract["count"],
             "concurrency": contract["concurrency"],
-            "resource_multiplier": contract["multiplier"],
+            "resource_multiplier": RESOURCE_MULTIPLIER,
+            "memory_resource_multiplier": contract["memory_multiplier"],
             "resource_fidelity": False,
             "selector": _artifact(selector_path, selector_payload),
             "config": _artifact(launch_dir / config_name, config_payload),
@@ -340,7 +347,7 @@ def prepare(args: argparse.Namespace) -> dict[str, Any]:
             "execution_mode": "sandoq-fallback-diagnostic",
         }
     plan = {
-        "schema_version": 1,
+        "schema_version": PLAN_SCHEMA_VERSION,
         "kind": KIND,
         "state": "materialized",
         "server_id": SERVER_ID,
@@ -438,7 +445,7 @@ def verify(plan_path: Path, expected_sha256: str, lane_name: str) -> dict[str, s
     if (
         split.canonical_json(plan) != plan_payload
         or set(plan) != {"schema_version", "kind", "state", "server_id", "evaluation", "source", "accounting", "lanes"}
-        or plan.get("schema_version") != 1
+        or plan.get("schema_version") != PLAN_SCHEMA_VERSION
         or plan.get("kind") != KIND
         or plan.get("state") != "materialized"
         or plan.get("server_id") != SERVER_ID
@@ -536,7 +543,8 @@ def verify(plan_path: Path, expected_sha256: str, lane_name: str) -> dict[str, s
             "provider": "sandoq",
             "count": contract["count"],
             "concurrency": contract["concurrency"],
-            "resource_multiplier": contract["multiplier"],
+            "resource_multiplier": RESOURCE_MULTIPLIER,
+            "memory_resource_multiplier": contract["memory_multiplier"],
             "resource_fidelity": False,
             "selector": lane.get("selector"),
             "config": lane.get("config"),
@@ -563,7 +571,7 @@ def verify(plan_path: Path, expected_sha256: str, lane_name: str) -> dict[str, s
             base,
             count=int(contract["count"]),
             concurrency=int(contract["concurrency"]),
-            multiplier=float(contract["multiplier"]),
+            memory_multiplier=float(contract["memory_multiplier"]),
             selector=selector_path,
             selector_sha256=split.sha256_bytes(selector_payload),
             image_manifest=image_path,
