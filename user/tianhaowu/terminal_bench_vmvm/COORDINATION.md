@@ -1,6 +1,6 @@
 # VMVM sandbox coordination
 
-Last updated: 2026-09-21 02:55 UTC
+Last updated: 2026-09-21 03:09 UTC
 
 ## First message to the next teammate
 
@@ -72,9 +72,11 @@ Add new rows below this line; do not overwrite another owner's row.
   `1515052` passed all 203 then-current positive traces: 7,082,080 sampled
   tokens, 4,101 model-I/O turns, zero trace failures, and zero reasoning-loss
   findings.  Replacement pass-only cert/export/render-preflight chain
-  `1514996` -> `1514999` -> `1515006` is dependency-held behind the producer,
+  `1514996` -> `1514999` -> `1515158` is dependency-held behind the producer,
   pinned to PR `#50` head `093e5fc93`, the local immutable tokenizer, and the
-  exact renderer wheel.  Kimi non-security scored smoke `1515020` runs from
+  exact renderer wheel.  Superseded preflight `1515006` was canceled before
+  execution after a stronger renderer-origin check.  Kimi non-security scored
+  smoke `1515020` runs from
   PR `#49` head `1da3ee04d` under the exact four-hour wall; one Sandoq sandbox
   is ready, all 24 direct routes are active, model work is in flight, and no
   upstream failure or result row exists yet.  Legacy Sandoq fits 35/66 TB4
