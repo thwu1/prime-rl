@@ -15,7 +15,7 @@ import json
 import os
 import re
 import stat
-from contextlib import ExitStack
+from contextlib import ExitStack, suppress
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Mapping
@@ -24,7 +24,7 @@ import direct_kimi_workers as direct_workers
 import kimi_tb4_provider_split as split
 import prepare_kimi_tb4_provider_split_launch as standard
 import prepare_kimi_tb4_sandoq_fallback as fallback
-from eval_run_identity import EvalIdentityError, load_eval_run_identity_bytes
+from eval_run_identity import EvalIdentityError, _verify_source_record, load_eval_run_identity_bytes
 
 KIND = "kimi-tb4-sandoq-diagnostic-union"
 SCHEMA_VERSION = 1
@@ -85,6 +85,7 @@ class RetainedAuditEvidence:
         self._runs: list[split._HeldRunEvidence] = []
         self._router_locks: dict[Path, Any] = {}
         self._tree_roots: dict[Path, _HeldTreeRoot] = {}
+        self._source_closures: dict[str, dict[str, Any]] = {}
 
     def __enter__(self) -> RetainedAuditEvidence:
         self._stack.__enter__()
@@ -95,6 +96,17 @@ class RetainedAuditEvidence:
 
     def __exit__(self, *exc_info: object) -> bool:
         return self._stack.__exit__(*exc_info)
+
+    def close_after_commit(self) -> None:
+        """Release local descriptors without turning a committed marker into failure."""
+
+        cleanup = self._stack.pop_all()
+        try:
+            cleanup.close()
+        except BaseException:
+            # The output marker is already authoritative. These are only local
+            # descriptors/locks and process exit is the final cleanup fallback.
+            pass
 
     def retain_run(self, run_dir: Path) -> split._HeldRunEvidence:
         evidence = split._open_held_run_evidence(run_dir)
@@ -157,6 +169,23 @@ class RetainedAuditEvidence:
             os.close(parent)
             raise
 
+    def retain_source_closure(self, source: Mapping[str, Any]) -> None:
+        try:
+            body = split.canonical_json(source)
+            value = json.loads(body)
+        except (TypeError, ValueError, json.JSONDecodeError) as error:
+            raise KimiDiagnosticUnionError("diagnostic_source_contract_invalid") from error
+        if not isinstance(value, dict):
+            raise KimiDiagnosticUnionError("diagnostic_source_contract_invalid")
+        self._source_closures[split.sha256_bytes(body)] = value
+
+    def revalidate_source_closures(self) -> None:
+        try:
+            for source in self._source_closures.values():
+                _verify_source_record(source)
+        except (EvalIdentityError, KeyError, OSError, TypeError, ValueError) as error:
+            raise KimiDiagnosticUnionError("diagnostic_source_closure_changed") from error
+
     def _close_tree_roots(self) -> None:
         for root in self._tree_roots.values():
             os.close(root.descriptor)
@@ -194,6 +223,13 @@ class RetainedAuditEvidence:
         roots.update(artifact.parent_path for artifact in self.artifacts.artifacts.values())
         roots.update(artifact.parent_path for artifact in self.direct_artifacts.artifacts.values())
         return tuple(sorted(roots, key=str))
+
+    def evidence_directory_descriptors(self) -> tuple[int, ...]:
+        descriptors = [root.descriptor for root in self._tree_roots.values()]
+        descriptors.extend(evidence.directory for evidence in self._runs)
+        descriptors.extend(artifact.parent for artifact in self.artifacts.artifacts.values())
+        descriptors.extend(artifact.parent for artifact in self.direct_artifacts.artifacts.values())
+        return tuple(descriptors)
 
 
 def _read_plan(
@@ -870,6 +906,7 @@ def _retain_identity_tree_roots(
     )
     if any(not isinstance(value, str) or not Path(value).is_absolute() for value in roots):
         raise KimiDiagnosticUnionError("diagnostic_evidence_root_invalid")
+    retained.retain_source_closure(source)
     for value in roots:
         assert isinstance(value, str)
         retained.retain_tree_root(Path(value))
@@ -933,6 +970,155 @@ def _validate_output_location(output: Path, evidence_roots: tuple[Path, ...]) ->
             raise KimiDiagnosticUnionError("diagnostic_evidence_root_invalid")
         if parent == root or parent.is_relative_to(root) or root.is_relative_to(parent):
             raise KimiDiagnosticUnionError("diagnostic_output_evidence_overlap")
+
+
+def _directory_ancestry(descriptor: int) -> tuple[tuple[int, int], ...]:
+    flags = os.O_RDONLY | os.O_CLOEXEC | getattr(os, "O_DIRECTORY", 0)
+    if hasattr(os, "O_NOFOLLOW"):
+        flags |= os.O_NOFOLLOW
+    current = os.dup(descriptor)
+    identities: list[tuple[int, int]] = []
+    try:
+        for _depth in range(4096):
+            metadata = os.fstat(current)
+            identity = (metadata.st_dev, metadata.st_ino)
+            if identity in identities:
+                if identity == identities[-1]:
+                    return tuple(identities)
+                raise KimiDiagnosticUnionError("diagnostic_directory_ancestry_invalid")
+            identities.append(identity)
+            parent = -1
+            try:
+                parent = os.open("..", flags, dir_fd=current)
+                parent_metadata = os.fstat(parent)
+            except BaseException:
+                if parent >= 0:
+                    with suppress(OSError):
+                        os.close(parent)
+                raise
+            parent_identity = (parent_metadata.st_dev, parent_metadata.st_ino)
+            previous = current
+            current = parent
+            os.close(previous)
+            if parent_identity == identity:
+                return tuple(identities)
+    except OSError as error:
+        raise KimiDiagnosticUnionError("diagnostic_directory_ancestry_invalid") from error
+    finally:
+        with suppress(OSError):
+            os.close(current)
+    raise KimiDiagnosticUnionError("diagnostic_directory_ancestry_invalid")
+
+
+def _validate_output_inode_disjoint(
+    output_parent: int,
+    evidence_directories: tuple[int, ...],
+) -> None:
+    output_ancestry = _directory_ancestry(output_parent)
+    output_identity = output_ancestry[0]
+    for descriptor in evidence_directories:
+        evidence_ancestry = _directory_ancestry(descriptor)
+        evidence_identity = evidence_ancestry[0]
+        if evidence_identity in output_ancestry or output_identity in evidence_ancestry:
+            raise KimiDiagnosticUnionError("diagnostic_output_evidence_overlap")
+
+
+@dataclass(slots=True)
+class _PendingDiagnosticOutput:
+    path: Path
+    parent: Path
+    parent_descriptor: int
+    parent_identity: tuple[int, int, int, int]
+    payload: bytes
+    payload_identity: tuple[int, ...]
+    marker_name: str
+    marker_payload: bytes
+
+    def revalidate(self, retained: RetainedAuditEvidence) -> None:
+        try:
+            if split._verify_file_at(self.parent_descriptor, self.path.name, self.payload) != self.payload_identity:
+                raise KimiDiagnosticUnionError("diagnostic_output_changed")
+            split._validate_private_parent(self.parent, self.parent_descriptor, self.parent_identity)
+            _validate_output_location(self.path, retained.evidence_roots())
+            _validate_output_inode_disjoint(
+                self.parent_descriptor,
+                retained.evidence_directory_descriptors(),
+            )
+            try:
+                os.stat(self.marker_name, dir_fd=self.parent_descriptor, follow_symlinks=False)
+            except FileNotFoundError:
+                pass
+            else:
+                raise KimiDiagnosticUnionError("diagnostic_output_marker_exists")
+            os.fsync(self.parent_descriptor)
+        except KimiDiagnosticUnionError:
+            raise
+        except (OSError, split.KimiProviderSplitError) as error:
+            raise KimiDiagnosticUnionError("diagnostic_output_changed") from error
+
+    def commit(self) -> None:
+        """Publish the marker as the final acceptance operation."""
+
+        try:
+            split._write_at(self.parent_descriptor, self.marker_name, self.marker_payload)
+        except (OSError, split.KimiProviderSplitError) as error:
+            raise KimiDiagnosticUnionError("diagnostic_output_publication_indeterminate") from error
+
+    def close_after_commit(self) -> None:
+        with suppress(OSError):
+            os.close(self.parent_descriptor)
+        self.parent_descriptor = -1
+
+    def close(self) -> None:
+        if self.parent_descriptor >= 0:
+            os.close(self.parent_descriptor)
+            self.parent_descriptor = -1
+
+
+def _prepare_diagnostic_output(
+    output: Path,
+    value: Mapping[str, Any],
+    retained: RetainedAuditEvidence,
+) -> _PendingDiagnosticOutput:
+    _validate_output_location(output, retained.evidence_roots())
+    try:
+        path = split._absolute_path(output)
+        parent, parent_descriptor, parent_identity = split._open_private_parent(path.parent)
+    except split.KimiProviderSplitError as error:
+        raise KimiDiagnosticUnionError("diagnostic_output_path_invalid") from error
+    payload = split.canonical_json(value)
+    marker_name = f".{path.name}{split.FILE_COMMIT_SUFFIX}"
+    marker_payload = split._file_commit_payload(path.name, payload)
+    try:
+        _validate_output_inode_disjoint(
+            parent_descriptor,
+            retained.evidence_directory_descriptors(),
+        )
+        for name in (path.name, marker_name):
+            try:
+                os.stat(name, dir_fd=parent_descriptor, follow_symlinks=False)
+            except FileNotFoundError:
+                pass
+            else:
+                raise KimiDiagnosticUnionError("diagnostic_output_already_exists")
+        payload_identity = split._write_at(parent_descriptor, path.name, payload)
+        if split._verify_file_at(parent_descriptor, path.name, payload) != payload_identity:
+            raise KimiDiagnosticUnionError("diagnostic_output_changed")
+        split._validate_private_parent(parent, parent_descriptor, parent_identity)
+        os.fsync(parent_descriptor)
+        return _PendingDiagnosticOutput(
+            path=path,
+            parent=parent,
+            parent_descriptor=parent_descriptor,
+            parent_identity=parent_identity,
+            payload=payload,
+            payload_identity=payload_identity,
+            marker_name=marker_name,
+            marker_payload=marker_payload,
+        )
+    except BaseException:
+        os.close(parent_descriptor)
+        raise
 
 
 def _validate_lane_compatibility(contracts: Mapping[str, Mapping[str, Any]]) -> None:
@@ -1191,14 +1377,6 @@ def _int_or_zero(value: object) -> int:
     return value
 
 
-def _implementation_sha256() -> str:
-    try:
-        body = Path(__file__).read_bytes()
-    except OSError as error:
-        raise KimiDiagnosticUnionError("implementation_unreadable") from error
-    return hashlib.sha256(body).hexdigest()
-
-
 def build_diagnostic_union(
     *,
     standard_plan_path: Path,
@@ -1210,6 +1388,16 @@ def build_diagnostic_union(
     output: Path,
 ) -> dict[str, Any]:
     with RetainedAuditEvidence() as retained:
+        try:
+            implementation_body = split.read_regular(
+                Path(__file__),
+                code="implementation_unreadable",
+                maximum_bytes=4 * 1024 * 1024,
+                private=False,
+                held=retained.artifacts,
+            )
+        except split.KimiProviderSplitError as error:
+            raise KimiDiagnosticUnionError("implementation_unreadable") from error
         plan = authenticate_plans(
             standard_plan_path,
             standard_plan_sha256,
@@ -1241,23 +1429,37 @@ def build_diagnostic_union(
         value = _summary(
             plan,
             lane_results,
-            _implementation_sha256(),
+            hashlib.sha256(implementation_body).hexdigest(),
             standard_source_revision=standard_source_revision,
             fallback_source_revision=fallback_source_revision,
         )
+        pending: _PendingDiagnosticOutput | None = None
+        committed = False
         try:
             retained.revalidate()
-        except (split.KimiProviderSplitError, direct_workers.DirectKimiWorkerError, OSError) as error:
-            raise KimiDiagnosticUnionError("diagnostic_evidence_changed") from error
-        try:
-            split._write_private_once(output, value)
-        except split.KimiProviderSplitError as error:
-            raise KimiDiagnosticUnionError("diagnostic_output_publish_failed") from error
-        try:
+            retained.revalidate_source_closures()
+            pending = _prepare_diagnostic_output(output, value, retained)
             retained.revalidate()
+            retained.revalidate_source_closures()
+            # Source verification invokes Git and hashes the bound Sandoq
+            # closure. Recheck every retained inode afterwards so a source
+            # pathname substitution during that verification cannot survive
+            # to the authoritative marker commit.
+            retained.revalidate()
+            pending.revalidate(retained)
+            pending.commit()
+            committed = True
+            pending.close_after_commit()
+            retained.close_after_commit()
+            return value
+        except KimiDiagnosticUnionError:
+            raise
         except (split.KimiProviderSplitError, direct_workers.DirectKimiWorkerError, OSError) as error:
             raise KimiDiagnosticUnionError("diagnostic_evidence_changed") from error
-        return value
+        finally:
+            if pending is not None and not committed:
+                with suppress(OSError):
+                    pending.close()
 
 
 def main() -> None:

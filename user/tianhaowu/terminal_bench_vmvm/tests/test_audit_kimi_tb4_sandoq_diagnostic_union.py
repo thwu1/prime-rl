@@ -346,6 +346,23 @@ def test_output_rejects_plan_bundle_and_run_directory_overlap(tmp_path: Path) ->
             )
 
 
+def test_inode_ancestry_rejects_bind_alias_shape(monkeypatch: pytest.MonkeyPatch) -> None:
+    ancestries = {
+        10: ((7, 30), (7, 20), (7, 1)),
+        20: ((7, 20), (7, 1)),
+        30: ((7, 40), (7, 1)),
+        40: ((7, 20), (7, 1)),
+        50: ((7, 50), (7, 20), (7, 1)),
+    }
+    monkeypatch.setattr(diagnostic, "_directory_ancestry", lambda descriptor: ancestries[descriptor])
+
+    with pytest.raises(diagnostic.KimiDiagnosticUnionError, match="^diagnostic_output_evidence_overlap$"):
+        diagnostic._validate_output_inode_disjoint(10, (20,))
+    with pytest.raises(diagnostic.KimiDiagnosticUnionError, match="^diagnostic_output_evidence_overlap$"):
+        diagnostic._validate_output_inode_disjoint(40, (50,))
+    diagnostic._validate_output_inode_disjoint(10, (30,))
+
+
 def test_identity_tree_roots_are_retained_and_revalidated(tmp_path: Path) -> None:
     project_root = tmp_path / "source"
     dataset_root = tmp_path / "dataset"
@@ -370,6 +387,21 @@ def test_identity_tree_roots_are_retained_and_revalidated(tmp_path: Path) -> Non
         project_root.mkdir()
         with pytest.raises(diagnostic.KimiDiagnosticUnionError, match="^diagnostic_evidence_root_changed$"):
             retained.revalidate()
+
+
+def test_authenticated_source_closure_is_revalidated(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    source = {"project_root": "/private/source", "prime_rl_commit": "a" * 40}
+    observed: list[dict] = []
+    monkeypatch.setattr(diagnostic, "_verify_source_record", lambda value: observed.append(value))
+
+    with diagnostic.RetainedAuditEvidence() as retained:
+        retained.retain_source_closure(source)
+        retained.retain_source_closure(dict(source))
+        retained.revalidate_source_closures()
+
+    assert observed == [source]
 
 
 def test_build_publishes_private_marker_gated_aggregate_only_output(
@@ -398,29 +430,27 @@ def test_build_publishes_private_marker_gated_aggregate_only_output(
     )
     events: list[str] = []
 
-    class FakeRetainedEvidence:
-        artifacts = object()
-
-        def __enter__(self) -> "FakeRetainedEvidence":
-            return self
-
-        def __exit__(self, *_args: object) -> None:
-            return None
-
+    class TrackingRetainedEvidence(diagnostic.RetainedAuditEvidence):
         def revalidate(self) -> None:
+            super().revalidate()
             events.append("revalidate")
 
-        def evidence_roots(self) -> tuple[Path, ...]:
-            return ()
+        def revalidate_source_closures(self) -> None:
+            super().revalidate_source_closures()
+            events.append("source-revalidate")
 
-    original_publish = split._write_private_once
+        def close_after_commit(self) -> None:
+            events.append("close-after-commit")
+            super().close_after_commit()
 
-    def publish(path: Path, value: dict) -> None:
-        events.append("publish")
-        original_publish(path, value)
+    original_commit = diagnostic._PendingDiagnosticOutput.commit
 
-    monkeypatch.setattr(diagnostic, "RetainedAuditEvidence", FakeRetainedEvidence)
-    monkeypatch.setattr(split, "_write_private_once", publish)
+    def commit(pending: diagnostic._PendingDiagnosticOutput) -> None:
+        original_commit(pending)
+        events.append("commit-marker")
+
+    monkeypatch.setattr(diagnostic, "RetainedAuditEvidence", TrackingRetainedEvidence)
+    monkeypatch.setattr(diagnostic._PendingDiagnosticOutput, "commit", commit)
     private = tmp_path / "private"
     private.mkdir(mode=0o700)
     output = private / "diagnostic-union.json"
@@ -449,7 +479,125 @@ def test_build_publishes_private_marker_gated_aggregate_only_output(
         "standard_and_fallback_revisions_distinct": True,
         "standard_and_fallback_source_closures_distinct": True,
     }
-    assert events == ["revalidate", "publish", "revalidate"]
+    assert events == [
+        "revalidate",
+        "source-revalidate",
+        "revalidate",
+        "source-revalidate",
+        "revalidate",
+        "commit-marker",
+        "close-after-commit",
+    ]
+
+
+def test_precommit_source_failure_leaves_no_authoritative_marker(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    plan = _plan(tmp_path)
+    results = _lane_results()
+    compatibility = {
+        "model_contract": {"model": "Kimi-K3"},
+        "worker_generation_contract_sha256": "4" * 64,
+    }
+    standard_source = {"prime_rl_commit": "a" * 40, "source": "standard"}
+    fallback_source = {"prime_rl_commit": "b" * 40, "source": "fallback"}
+    monkeypatch.setattr(diagnostic, "authenticate_plans", lambda *_args, **_kwargs: plan)
+    monkeypatch.setattr(
+        diagnostic,
+        "audit_lane",
+        lambda lane, _plan_value, **_kwargs: (
+            results[lane.name],
+            compatibility,
+            standard_source if lane.name == "standard_legacy" else fallback_source,
+        ),
+    )
+    source_checks = 0
+
+    def fail_second_source_check(_self: diagnostic.RetainedAuditEvidence) -> None:
+        nonlocal source_checks
+        source_checks += 1
+        if source_checks == 2:
+            raise diagnostic.KimiDiagnosticUnionError("diagnostic_source_closure_changed")
+
+    monkeypatch.setattr(diagnostic.RetainedAuditEvidence, "revalidate_source_closures", fail_second_source_check)
+    private = tmp_path / "private"
+    private.mkdir(mode=0o700)
+    output = private / "diagnostic-union.json"
+
+    with pytest.raises(diagnostic.KimiDiagnosticUnionError, match="^diagnostic_source_closure_changed$"):
+        diagnostic.build_diagnostic_union(
+            standard_plan_path=tmp_path / "standard-plan.json",
+            standard_plan_sha256=plan.standard_plan_sha256,
+            fallback_plan_path=tmp_path / "fallback-plan.json",
+            fallback_plan_sha256=plan.fallback_plan_sha256,
+            standard_source_revision="a" * 40,
+            fallback_source_revision="b" * 40,
+            output=output,
+        )
+
+    assert output.is_file()
+    assert not output.with_name(f".{output.name}{split.FILE_COMMIT_SUFFIX}").exists()
+
+
+def test_precommit_implementation_replacement_leaves_no_authoritative_marker(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    plan = _plan(tmp_path)
+    results = _lane_results()
+    compatibility = {
+        "model_contract": {"model": "Kimi-K3"},
+        "worker_generation_contract_sha256": "4" * 64,
+    }
+    standard_source = {"prime_rl_commit": "a" * 40, "source": "standard"}
+    fallback_source = {"prime_rl_commit": "b" * 40, "source": "fallback"}
+    monkeypatch.setattr(diagnostic, "authenticate_plans", lambda *_args, **_kwargs: plan)
+    monkeypatch.setattr(
+        diagnostic,
+        "audit_lane",
+        lambda lane, _plan_value, **_kwargs: (
+            results[lane.name],
+            compatibility,
+            standard_source if lane.name == "standard_legacy" else fallback_source,
+        ),
+    )
+    source_dir = tmp_path / "source-code"
+    source_dir.mkdir()
+    implementation = source_dir / "diagnostic.py"
+    implementation_body = b"authenticated implementation bytes\n"
+    implementation.write_bytes(implementation_body)
+    monkeypatch.setattr(diagnostic, "__file__", str(implementation))
+    original_prepare = diagnostic._prepare_diagnostic_output
+
+    def replace_after_payload(
+        output: Path,
+        value: dict,
+        retained: diagnostic.RetainedAuditEvidence,
+    ) -> diagnostic._PendingDiagnosticOutput:
+        pending = original_prepare(output, value, retained)
+        implementation.rename(source_dir / "original.py")
+        implementation.write_bytes(implementation_body)
+        return pending
+
+    monkeypatch.setattr(diagnostic, "_prepare_diagnostic_output", replace_after_payload)
+    private = tmp_path / "private"
+    private.mkdir(mode=0o700)
+    output = private / "diagnostic-union.json"
+
+    with pytest.raises(diagnostic.KimiDiagnosticUnionError, match="^diagnostic_evidence_changed$"):
+        diagnostic.build_diagnostic_union(
+            standard_plan_path=tmp_path / "standard-plan.json",
+            standard_plan_sha256=plan.standard_plan_sha256,
+            fallback_plan_path=tmp_path / "fallback-plan.json",
+            fallback_plan_sha256=plan.fallback_plan_sha256,
+            standard_source_revision="a" * 40,
+            fallback_source_revision="b" * 40,
+            output=output,
+        )
+
+    assert output.is_file()
+    assert not output.with_name(f".{output.name}{split.FILE_COMMIT_SUFFIX}").exists()
 
 
 def test_retained_evidence_detects_same_bytes_replacement_after_publication(tmp_path: Path) -> None:
