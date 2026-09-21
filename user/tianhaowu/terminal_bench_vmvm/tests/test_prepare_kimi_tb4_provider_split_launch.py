@@ -233,6 +233,7 @@ def test_verify_tsv_returns_exact_lane_count_and_concurrency(
         "stage": "provider-split-legacy",
         "provider": "sandoq",
         "config": "/private/legacy.toml",
+        "config_sha256": "d" * 64,
         "selector": "/private/legacy.tasks",
         "selector_sha256": "a" * 64,
         "count": split.LEGACY_SANDOQ_TASKS,
@@ -264,7 +265,7 @@ def test_verify_tsv_returns_exact_lane_count_and_concurrency(
     prepare.main()
 
     fields = capsys.readouterr().out.rstrip("\n").split("\t")
-    assert fields[5:7] == [str(split.LEGACY_SANDOQ_TASKS), str(prepare.DEFAULT_LEGACY_CONCURRENCY)]
+    assert fields[6:8] == [str(split.LEGACY_SANDOQ_TASKS), str(prepare.DEFAULT_LEGACY_CONCURRENCY)]
 
 
 def test_compose_detection_rejects_nonregular_metadata(tmp_path: Path) -> None:

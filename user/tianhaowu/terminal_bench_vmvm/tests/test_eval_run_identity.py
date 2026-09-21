@@ -289,6 +289,7 @@ def _sandoq_identity() -> dict:
         "pool_reuse_jitter": "0",
         "image_cache_max_entries": "0",
         "secret_cache_ttl": "5s",
+        "lease_profile": "standard",
         "lease_duration": "1h",
         "pool_renew_interval": "5m",
     }
@@ -484,6 +485,9 @@ def _direct_kimi_identity(*, smoke: bool) -> dict:
     ):
         environment[key] = str(min(concurrency, cap))
     execution["sandoq_environment"] = environment
+    if not smoke:
+        environment["lease_profile"] = "kimi-tb4-long"
+        environment["lease_duration"] = "12h"
     identity["role"] = "kimi-direct-smoke" if smoke else "kimi-direct-tb4"
     identity["contract"] = contract
     identity["execution"] = execution
@@ -531,11 +535,37 @@ def test_direct_kimi_sandoq_identity_binds_router_and_smoke_lineage() -> None:
             _validate_identity_shape(mismatched)
 
 
-def test_direct_kimi_tb4_diagnostic_is_full_budget_but_has_no_smoke_authority(
+def test_pre_profile_sandoq_identities_remain_loadable_but_fallback_requires_profile(
     tmp_path: Path,
 ) -> None:
+    historical_qwen = _sandoq_identity()
+    historical_qwen["execution"]["sandoq_environment"].pop("lease_profile")
+    historical_kimi = _direct_kimi_identity(smoke=False)
+    historical_kimi["execution"]["sandoq_environment"].pop("lease_profile")
+    historical_kimi["execution"]["sandoq_environment"]["lease_duration"] = "1h"
+    for name, identity in (("qwen", historical_qwen), ("kimi", historical_kimi)):
+        envelope = _identity_envelope(identity)
+        path = tmp_path / f"{name}-identity.json"
+        path.write_text(json.dumps(envelope))
+        assert load_eval_run_identity(path, verify_references=False) == envelope
+
+    fallback_identity = json.loads(json.dumps(historical_kimi))
+    fallback_identity["role"] = "kimi-direct-tb4-sandoq-fallback-diagnostic"
+    fallback_identity["deployment"]["smoke_checkpoint"] = None
+    with pytest.raises(EvalIdentityError, match="schema_invalid"):
+        _validate_identity_shape(fallback_identity)
+
+
+@pytest.mark.parametrize(
+    "role",
+    ("kimi-direct-tb4-diagnostic", "kimi-direct-tb4-sandoq-fallback-diagnostic"),
+)
+def test_direct_kimi_tb4_diagnostic_is_full_budget_but_has_no_smoke_authority(
+    tmp_path: Path,
+    role: str,
+) -> None:
     diagnostic = _direct_kimi_identity(smoke=False)
-    diagnostic["role"] = "kimi-direct-tb4-diagnostic"
+    diagnostic["role"] = role
     diagnostic["deployment"]["smoke_checkpoint"] = None
 
     assert _validate_identity_shape(diagnostic) == diagnostic
@@ -550,6 +580,76 @@ def test_direct_kimi_tb4_diagnostic_is_full_budget_but_has_no_smoke_authority(
     }
     with pytest.raises(EvalIdentityError, match="schema_invalid"):
         _validate_identity_shape(diagnostic)
+
+
+def test_direct_kimi_fallback_concurrency_is_bound_to_exact_lane_count() -> None:
+    role = "kimi-direct-tb4-sandoq-fallback-diagnostic"
+
+    assert eval_run_identity._direct_kimi_expected_concurrency(role, "sandoq", 17) == 6
+    assert eval_run_identity._direct_kimi_expected_concurrency(role, "sandoq", 4) == 2
+    with pytest.raises(EvalIdentityError, match="direct_kimi_fallback_scope_invalid"):
+        eval_run_identity._direct_kimi_expected_concurrency(role, "sandoq", 21)
+    with pytest.raises(EvalIdentityError, match="direct_kimi_fallback_scope_invalid"):
+        eval_run_identity._direct_kimi_expected_concurrency(role, "vmvm", 17)
+    assert eval_run_identity.KIMI_PROVIDER_SPLIT_COUNTS == {31, 32}
+    assert eval_run_identity.KIMI_PROVIDER_SPLIT_COUNTS.isdisjoint({17, 4})
+
+
+@pytest.mark.parametrize(("task_count", "multiplier"), ((17, 0.75), (4, 0.375)))
+def test_direct_kimi_fallback_config_binds_lossy_resource_semantics(
+    task_count: int,
+    multiplier: float,
+) -> None:
+    role = "kimi-direct-tb4-sandoq-fallback-diagnostic"
+    config = {
+        "num_tasks": task_count,
+        "taskset": {"resource_multiplier": multiplier, "enable_compose": False},
+    }
+
+    eval_run_identity._validate_direct_kimi_fallback_config(config, role, task_count)
+    for field, value in (("resource_multiplier", 1.0), ("enable_compose", True)):
+        invalid = json.loads(json.dumps(config))
+        invalid["taskset"][field] = value
+        with pytest.raises(EvalIdentityError, match="direct_kimi_fallback_config_invalid"):
+            eval_run_identity._validate_direct_kimi_fallback_config(invalid, role, task_count)
+
+
+def test_direct_kimi_diagnostic_identity_requires_plan_approved_config_digest() -> None:
+    digest = "a" * 64
+    source_config = {"path": "/run/inputs/source_config.toml", "sha256": digest}
+    for role in ("kimi-direct-tb4-diagnostic", "kimi-direct-tb4-sandoq-fallback-diagnostic"):
+        eval_run_identity._validate_direct_kimi_approved_config(source_config, role, digest)
+        with pytest.raises(EvalIdentityError, match="direct_kimi_approved_config_mismatch"):
+            eval_run_identity._validate_direct_kimi_approved_config(source_config, role, "b" * 64)
+    with pytest.raises(EvalIdentityError, match="direct_kimi_approved_config_role_invalid"):
+        eval_run_identity._validate_direct_kimi_approved_config(source_config, "kimi-direct-smoke", digest)
+
+
+def test_sandoq_lease_profile_is_role_and_model_bound() -> None:
+    for role in (
+        "tb4",
+        "mobius",
+        "kimi-direct-tb4",
+        "kimi-direct-tb4-diagnostic",
+        "kimi-direct-tb4-sandoq-fallback-diagnostic",
+    ):
+        assert eval_run_identity._sandoq_lease_contract("Kimi-K3", role) == (
+            "kimi-tb4-long",
+            "12h",
+        )
+    for role in ("smoke", "kimi-direct-smoke"):
+        assert eval_run_identity._sandoq_lease_contract("Kimi-K3", role) == (
+            "standard",
+            "1h",
+        )
+    assert eval_run_identity._sandoq_lease_contract("Qwen3", "tb4") == ("standard", "1h")
+    qwen = _sandoq_identity()
+    qwen["execution"]["sandoq_environment"].update(
+        lease_profile="kimi-tb4-long",
+        lease_duration="12h",
+    )
+    with pytest.raises(EvalIdentityError, match="schema_invalid"):
+        _validate_identity_shape(qwen)
 
 
 def test_direct_kimi_scored_smoke_identity_loads_bounded_and_legacy_profiles(

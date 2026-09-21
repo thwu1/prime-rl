@@ -174,6 +174,7 @@ async def test_sandoq_declared_no_network_requires_explicit_public_override(
         "OCI_RUNNER_FUSE_OVERLAYFS_PATH": "/usr/bin/fuse-overlayfs",
         "OCI_RUNNER_LIBFUSE3_PATH": "/lib/x86_64-linux-gnu/libfuse3.so.3",
         "OCI_RUNNER_SECRET_CACHE_TTL": "5s",
+        "SANDOQ_LEASE_PROFILE": "standard",
         "OCI_RUNNER_LEASE_DURATION": "1h",
         "OCI_RUNNER_POOL_RENEW_INTERVAL": "5m",
         "OCI_RUNNER_POOL_SIZE": "2",
@@ -203,6 +204,16 @@ async def test_sandoq_declared_no_network_requires_explicit_public_override(
     ):
         monkeypatch.delenv(key, raising=False)
     await TerminalBenchVMVMTaskset._configure_network_policy(task, runtime, "no-network", activate=False)
+
+    monkeypatch.setenv("SANDOQ_LEASE_PROFILE", "kimi-tb4-long")
+    monkeypatch.setenv("OCI_RUNNER_LEASE_DURATION", "12h")
+    await TerminalBenchVMVMTaskset._configure_network_policy(task, runtime, "no-network", activate=False)
+
+    monkeypatch.setenv("OCI_RUNNER_LEASE_DURATION", "13h")
+    with pytest.raises(UnsupportedTaskError, match="explicit audited public-network override"):
+        await TerminalBenchVMVMTaskset._configure_network_policy(task, runtime, "no-network", activate=False)
+    monkeypatch.setenv("SANDOQ_LEASE_PROFILE", "standard")
+    monkeypatch.setenv("OCI_RUNNER_LEASE_DURATION", "1h")
 
     monkeypatch.setenv("OCI_RUNNER_TASK_NETWORK", "none")
     with pytest.raises(UnsupportedTaskError, match="explicit audited public-network override"):

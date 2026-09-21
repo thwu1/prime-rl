@@ -215,6 +215,12 @@ PY
             "$x86_uv" run --no-project --offline --python "$python_bin" \
             python3 "$provider_context" verify \
             --receipt "${SANDOQ_PROVIDER_CONTEXT_RECEIPT:?}" >/dev/null
+        if [[ "$SANDOQ_LEASE_PROFILE" != standard \
+            || "$OCI_RUNNER_LEASE_DURATION" != 1h \
+            || "$OCI_RUNNER_POOL_RENEW_INTERVAL" != 5m ]]; then
+            printf 'Direct Qwen requires the standard Sandoq lease profile\n' >&2
+            exit 2
+        fi
     else
         if [[ -n ${SANDOQ_PROVIDER_CONTEXT_ACTIVE:-} \
             || -n ${SANDOQ_PROVIDER_CONTEXT_RECEIPT:-} ]]; then
@@ -229,6 +235,7 @@ PY
             --concurrency "$sandoq_capacity" \
             --lease-create-cap "$sandoq_lease_create_cap" \
             --startup-timeout-seconds 3600 \
+            --lease-profile standard \
             --ecr-token-file "$sandoq_ecr_token_file" \
             --ecr-token-metadata "$sandoq_ecr_token_metadata" \
             --project-root "$project_dir" --sandoq-site "$sandoq_site" \

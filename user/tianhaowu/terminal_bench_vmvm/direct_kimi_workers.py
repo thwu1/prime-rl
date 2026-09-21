@@ -1254,6 +1254,7 @@ def _run_binding(
             "kimi-direct-smoke",
             "kimi-direct-tb4",
             "kimi-direct-tb4-diagnostic",
+            "kimi-direct-tb4-sandoq-fallback-diagnostic",
         }
         or not isinstance(source, dict)
         or source.get("sandbox_provider", "vmvm") not in {"sandoq", "vmvm"}

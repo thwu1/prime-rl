@@ -42,6 +42,35 @@ def test_fresh_snapshot_matches_external_approval(tmp_path: Path) -> None:
     validate_approval(run_dir / "inputs", approved, digest)
 
 
+def test_plan_approved_config_binds_copied_snapshot_and_manifest(tmp_path: Path) -> None:
+    run_dir, approved, digest = _approved_run(tmp_path)
+    manifest_path = run_dir / "inputs/manifest.json"
+    manifest = json.loads(manifest_path.read_text())
+    approved_config = Path(manifest["config"]["source"])
+    approved_config_sha256 = _sha256(approved_config.read_bytes())
+
+    validate_approval(
+        run_dir / "inputs",
+        approved,
+        digest,
+        approved_config=approved_config,
+        approved_config_sha256=approved_config_sha256,
+    )
+
+    substituted = run_dir / "inputs/source_config.toml"
+    substituted.write_text(substituted.read_text() + "# substituted after plan verification\n")
+    manifest["config"]["sha256"] = _sha256(substituted.read_bytes())
+    manifest_path.write_text(json.dumps(manifest))
+    with pytest.raises(TaskApprovalError, match="^source_config_approval_hash_mismatch$"):
+        validate_approval(
+            run_dir / "inputs",
+            approved,
+            digest,
+            approved_config=approved_config,
+            approved_config_sha256=approved_config_sha256,
+        )
+
+
 @pytest.mark.parametrize(
     ("task_bytes", "count", "error"),
     [

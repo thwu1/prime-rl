@@ -516,10 +516,14 @@ def _sandoq_public_network_override_is_safe(expected_ecr_token_file: Path | None
         "OCI_RUNNER_FUSE_OVERLAYFS_PATH": "/usr/bin/fuse-overlayfs",
         "OCI_RUNNER_LIBFUSE3_PATH": "/lib/x86_64-linux-gnu/libfuse3.so.3",
         "OCI_RUNNER_SECRET_CACHE_TTL": "5s",
-        "OCI_RUNNER_LEASE_DURATION": "1h",
         "OCI_RUNNER_POOL_RENEW_INTERVAL": "5m",
     }
     if any(os.environ.get(key) != value for key, value in exact.items()):
+        return False
+    if (
+        os.environ.get("SANDOQ_LEASE_PROFILE"),
+        os.environ.get("OCI_RUNNER_LEASE_DURATION"),
+    ) not in {("standard", "1h"), ("kimi-tb4-long", "12h")}:
         return False
     owner = os.environ.get("SANDOQ_OWNER", "")
     output_dir = Path(os.environ.get("PRIME_RL_OUTPUT_DIR", ""))

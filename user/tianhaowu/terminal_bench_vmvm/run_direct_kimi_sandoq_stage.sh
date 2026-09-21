@@ -9,10 +9,13 @@ sandoq_site=${SANDOQ_PYTHON_SITE_X86_64:-/checkpoint/ram/tianhaowu/terminal_benc
 x86_uv=${UV_BIN_X86_64:-/storage/home/tianhaowu/.local/x86_64/bin/uv}
 python_bin=${PYTHON_BIN_X86_64:-python3}
 eval_config=${EVAL_CONFIG:?Set EVAL_CONFIG}
+eval_config_sha256=${DIRECT_KIMI_EVAL_CONFIG_SHA256:-}
 output_dir=${OUTPUT_DIR:?Set OUTPUT_DIR}
 role=${DIRECT_KIMI_ROLE:?Set DIRECT_KIMI_ROLE}
 approved_task_file=${DIRECT_KIMI_APPROVED_TASK_FILE:?Set DIRECT_KIMI_APPROVED_TASK_FILE}
 approved_task_file_sha256=${DIRECT_KIMI_APPROVED_TASK_FILE_SHA256:?Set DIRECT_KIMI_APPROVED_TASK_FILE_SHA256}
+approved_task_count=${DIRECT_KIMI_APPROVED_TASK_COUNT:?Set DIRECT_KIMI_APPROVED_TASK_COUNT}
+rollout_concurrency=${DIRECT_KIMI_ROLLOUT_CONCURRENCY:?Set DIRECT_KIMI_ROLLOUT_CONCURRENCY}
 worker_manifest=${DIRECT_KIMI_WORKER_MANIFEST:?Set DIRECT_KIMI_WORKER_MANIFEST}
 worker_manifest_sha256=${DIRECT_KIMI_WORKER_MANIFEST_SHA256:?Set DIRECT_KIMI_WORKER_MANIFEST_SHA256}
 client_base_url=${DIRECT_KIMI_BASE_URL:?Set DIRECT_KIMI_BASE_URL}
@@ -22,15 +25,66 @@ sandbox_provider=${DIRECT_KIMI_SANDBOX_PROVIDER:-sandoq}
 execution_mode=${DIRECT_KIMI_EXECUTION_MODE:-certified}
 
 if [[ "$role" != kimi-direct-smoke && "$role" != kimi-direct-tb4 \
-    && "$role" != kimi-direct-tb4-diagnostic ]]; then
+    && "$role" != kimi-direct-tb4-diagnostic \
+    && "$role" != kimi-direct-tb4-sandoq-fallback-diagnostic ]]; then
     printf 'Invalid direct Kimi stage role\n' >&2
     exit 2
 fi
-if [[ "$execution_mode" != certified && "$execution_mode" != diagnostic ]]; then
+if [[ "$execution_mode" != certified && "$execution_mode" != diagnostic \
+    && "$execution_mode" != sandoq-fallback-diagnostic ]]; then
     printf 'Invalid direct Kimi execution mode\n' >&2
     exit 2
 fi
-if [[ "$role" == kimi-direct-tb4-diagnostic ]]; then
+if [[ "$role" == kimi-direct-tb4-sandoq-fallback-diagnostic ]]; then
+    if [[ "$execution_mode" != sandoq-fallback-diagnostic || "$sandbox_provider" != sandoq ]]; then
+        printf 'Fallback direct Kimi role requires its Sandoq diagnostic execution mode\n' >&2
+        exit 2
+    fi
+    launch_plan=${DIRECT_KIMI_FALLBACK_PLAN:?Set DIRECT_KIMI_FALLBACK_PLAN}
+    launch_plan_sha256=${DIRECT_KIMI_FALLBACK_PLAN_SHA256:?Set DIRECT_KIMI_FALLBACK_PLAN_SHA256}
+    launch_lane=${DIRECT_KIMI_FALLBACK_LANE:?Set DIRECT_KIMI_FALLBACK_LANE}
+    case "$launch_lane" in
+        memory_8g)
+            expected_launch_stage=sandoq-fallback-memory-8g
+            expected_launch_count=17
+            expected_launch_concurrency=6
+            ;;
+        memory_16g)
+            expected_launch_stage=sandoq-fallback-memory-16g
+            expected_launch_count=4
+            expected_launch_concurrency=2
+            ;;
+        *) printf 'Fallback diagnostic lane is invalid\n' >&2; exit 2 ;;
+    esac
+    verified_launch=$(
+        PYTHONPATH="$workflow_dir:$project_dir/environments/vmvm_tb_v2:$project_dir/deps/verifiers:$project_dir/deps/renderers:$project_dir/deps/pydantic-config/src:$project_dir/extensions/sandoq:$sandoq_site:$x86_site" \
+        "$x86_uv" run --no-project --offline --python "$python_bin" \
+            python3 "$workflow_dir/prepare_kimi_tb4_sandoq_fallback.py" verify \
+            --launch-plan "$launch_plan" --launch-plan-sha256 "$launch_plan_sha256" \
+            --lane "$launch_lane" --format tsv
+    )
+    IFS=$'\t' read -r verified_stage verified_provider verified_config verified_config_sha256 \
+        verified_selector verified_selector_sha256 verified_count verified_concurrency verified_output \
+        verified_manifest verified_manifest_sha256 verified_partition verified_extra <<< "$verified_launch"
+    if [[ -n "$verified_extra" || "$verified_launch" == *$'\n'* \
+        || "$eval_config" != "$verified_config" \
+        || "$eval_config_sha256" != "$verified_config_sha256" \
+        || "$approved_task_file" != "$verified_selector" \
+        || "$approved_task_file_sha256" != "$verified_selector_sha256" \
+        || "$approved_task_count" != "$verified_count" \
+        || "$rollout_concurrency" != "$verified_concurrency" \
+        || "$expected_launch_count" != "$verified_count" \
+        || "$expected_launch_concurrency" != "$verified_concurrency" \
+        || "$expected_launch_stage" != "$verified_stage" \
+        || "$output_dir" != "$verified_output" \
+        || "$sandbox_provider" != "$verified_provider" \
+        || "${DIRECT_KIMI_RESOURCE_MANIFEST:?Set DIRECT_KIMI_RESOURCE_MANIFEST}" != "$verified_manifest" \
+        || "${DIRECT_KIMI_RESOURCE_MANIFEST_SHA256:?Set DIRECT_KIMI_RESOURCE_MANIFEST_SHA256}" != "$verified_manifest_sha256" \
+        || "${DIRECT_KIMI_PROVIDER_PARTITION_DIR:?Set DIRECT_KIMI_PROVIDER_PARTITION_DIR}" != "$verified_partition" ]]; then
+        printf 'Fallback diagnostic launch plan binding failed\n' >&2
+        exit 2
+    fi
+elif [[ "$role" == kimi-direct-tb4-diagnostic ]]; then
     if [[ "$execution_mode" != diagnostic ]]; then
         printf 'Diagnostic direct Kimi role requires diagnostic execution mode\n' >&2
         exit 2
@@ -38,6 +92,17 @@ if [[ "$role" == kimi-direct-tb4-diagnostic ]]; then
     launch_plan=${DIRECT_KIMI_LAUNCH_PLAN:?Set DIRECT_KIMI_LAUNCH_PLAN}
     launch_plan_sha256=${DIRECT_KIMI_LAUNCH_PLAN_SHA256:?Set DIRECT_KIMI_LAUNCH_PLAN_SHA256}
     launch_role=${DIRECT_KIMI_LAUNCH_ROLE:?Set DIRECT_KIMI_LAUNCH_ROLE}
+    expected_launch_stage=provider-split-legacy
+    expected_launch_count=31
+    expected_launch_concurrency=24
+    if [[ "$launch_role" == large_provider ]]; then
+        expected_launch_stage=provider-split-large
+        expected_launch_count=32
+        expected_launch_concurrency=4
+    elif [[ "$launch_role" != legacy_sandoq ]]; then
+        printf 'Diagnostic launch role is invalid\n' >&2
+        exit 2
+    fi
     verified_launch=$(
         PYTHONPATH="$workflow_dir:$project_dir/environments/vmvm_tb_v2:$project_dir/deps/verifiers:$project_dir/deps/renderers:$project_dir/deps/pydantic-config/src:$project_dir/extensions/sandoq:$sandoq_site:$x86_site" \
         "$x86_uv" run --no-project --offline --python "$python_bin" \
@@ -45,13 +110,19 @@ if [[ "$role" == kimi-direct-tb4-diagnostic ]]; then
             --launch-plan "$launch_plan" --launch-plan-sha256 "$launch_plan_sha256" \
             --role "$launch_role" --format tsv
     )
-    IFS=$'\t' read -r verified_stage verified_provider verified_config verified_selector \
-        verified_selector_sha256 verified_output verified_manifest verified_manifest_sha256 \
-        verified_partition verified_extra <<< "$verified_launch"
+    IFS=$'\t' read -r verified_stage verified_provider verified_config verified_config_sha256 \
+        verified_selector verified_selector_sha256 verified_count verified_concurrency verified_output \
+        verified_manifest verified_manifest_sha256 verified_partition verified_extra <<< "$verified_launch"
     if [[ -n "$verified_extra" || "$verified_launch" == *$'\n'* \
         || "$eval_config" != "$verified_config" \
+        || "$eval_config_sha256" != "$verified_config_sha256" \
         || "$approved_task_file" != "$verified_selector" \
         || "$approved_task_file_sha256" != "$verified_selector_sha256" \
+        || "$approved_task_count" != "$verified_count" \
+        || "$rollout_concurrency" != "$verified_concurrency" \
+        || "$expected_launch_count" != "$verified_count" \
+        || "$expected_launch_concurrency" != "$verified_concurrency" \
+        || "$expected_launch_stage" != "$verified_stage" \
         || "$output_dir" != "$verified_output" \
         || "$sandbox_provider" != "$verified_provider" \
         || "${DIRECT_KIMI_RESOURCE_MANIFEST:?Set DIRECT_KIMI_RESOURCE_MANIFEST}" != "$verified_manifest" \
@@ -68,7 +139,7 @@ if [[ "$preflight_only" != 0 && "$preflight_only" != 1 ]]; then
     printf 'DIRECT_KIMI_PREFLIGHT_ONLY must be 0 or 1\n' >&2
     exit 2
 fi
-if [[ "$execution_mode" == diagnostic && "$preflight_only" != 0 ]]; then
+if [[ "$execution_mode" != certified && "$preflight_only" != 0 ]]; then
     printf 'The sealed diagnostic plan is actual-only; use a distinct plan for preflight\n' >&2
     exit 2
 fi
@@ -76,11 +147,21 @@ if [[ "$sandbox_provider" != sandoq && "$sandbox_provider" != vmvm ]]; then
     printf 'Direct Kimi stage requires a supported sandbox provider\n' >&2
     exit 2
 fi
+expected_sandoq_lease_profile=standard
+expected_sandoq_lease_duration=1h
+if [[ "$role" == kimi-direct-tb4 || "$role" == kimi-direct-tb4-diagnostic \
+    || "$role" == kimi-direct-tb4-sandoq-fallback-diagnostic ]]; then
+    expected_sandoq_lease_profile=kimi-tb4-long
+    expected_sandoq_lease_duration=12h
+fi
 if [[ "$sandbox_provider" == sandoq ]] \
     && [[ ${SANDOQ_PROVIDER_CONTEXT_ACTIVE:-} != 1 \
         || -z ${SANDOQ_PROVIDER_CONTEXT_RECEIPT:-} \
         || "$OCI_RUNNER_ENVIRONMENT" != oci-runner \
         || "$SANDOQ_EFFECTIVE_TASK_NETWORK" != public \
+        || "$SANDOQ_LEASE_PROFILE" != "$expected_sandoq_lease_profile" \
+        || "$OCI_RUNNER_LEASE_DURATION" != "$expected_sandoq_lease_duration" \
+        || "$OCI_RUNNER_POOL_RENEW_INTERVAL" != 5m \
         || -n ${OCI_RUNNER_TASK_NETWORK:-} ]]; then
     printf 'Direct Kimi stage requires the sealed public-network Sandoq context\n' >&2
     exit 2
@@ -143,16 +224,25 @@ done
 
 "$x86_uv" run --no-project --offline --python "$python_bin" \
     python3 "$workflow_dir/snapshot_eval_inputs.py" "$eval_config" "$output_dir/inputs"
+approval_config_args=()
+if [[ -n "$eval_config_sha256" ]]; then
+    approval_config_args=(
+        --approved-config "$eval_config"
+        --approved-config-sha256 "$eval_config_sha256"
+    )
+fi
 approval_metadata=$(
     "$x86_uv" run --no-project --offline --python "$python_bin" \
         python3 "$workflow_dir/validate_task_approval.py" \
         --inputs-dir "$output_dir/inputs" \
         --approved-task-file "$approved_task_file" \
-        --approved-task-file-sha256 "$approved_task_file_sha256"
+        --approved-task-file-sha256 "$approved_task_file_sha256" \
+        "${approval_config_args[@]}"
 )
 IFS=$'\t' read -r validated_task_sha256 validated_task_count approval_extra <<< "$approval_metadata"
 if [[ "$validated_task_sha256" != "$approved_task_file_sha256" \
     || ! "$validated_task_count" =~ ^[1-9][0-9]*$ \
+    || "$validated_task_count" != "$approved_task_count" \
     || -n "$approval_extra" || "$approval_metadata" == *$'\n'* ]]; then
     printf 'Direct Kimi task approval validation failed\n' >&2
     exit 2
@@ -243,6 +333,9 @@ identity_args=(
     --invocation-host "$(hostname)"
     --slurm-job-id "$SLURM_JOB_ID"
 )
+if [[ -n "$eval_config_sha256" ]]; then
+    identity_args+=(--approved-config-sha256 "$eval_config_sha256")
+fi
 if [[ "$sandbox_provider" == sandoq ]]; then
     case "$SANDOQ_TRANSPORT_MODE" in
         auto) sandoq_transport_proxy_policy=official-client-auto ;;
@@ -295,6 +388,7 @@ if [[ "$sandbox_provider" == sandoq ]]; then
         --sandoq-pool-reuse-jitter "$OCI_RUNNER_POOL_REUSE_JITTER"
         --sandoq-image-cache-max-entries "$OCI_RUNNER_IMAGE_CACHE_MAX_ENTRIES"
         --sandoq-secret-cache-ttl "$OCI_RUNNER_SECRET_CACHE_TTL"
+        --sandoq-lease-profile "$SANDOQ_LEASE_PROFILE"
         --sandoq-lease-duration "$OCI_RUNNER_LEASE_DURATION"
         --sandoq-pool-renew-interval "$OCI_RUNNER_POOL_RENEW_INTERVAL"
     )

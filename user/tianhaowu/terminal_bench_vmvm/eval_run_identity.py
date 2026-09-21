@@ -94,12 +94,64 @@ SANDOQ_UPSTREAM_COMMIT = "4890302104d76220cef791c86d2009168597d35f"
 SANDOQ_UPSTREAM_TREE = "33f092a3982916660e12f472588e6ce34a906fc2"
 SANDOQ_UPSTREAM_SUBTREE = "10b5bd9bbc76eba1b8253637e1869d6b63b7fc42"
 SANDOQ_UPSTREAM_INVENTORY_SHA256 = "5db69d90ddd34cfbfdcffdacab09353e8be22e917f894e33ddafb5020ca43e73"
-DIRECT_KIMI_ROLES = frozenset({"kimi-direct-smoke", "kimi-direct-tb4", "kimi-direct-tb4-diagnostic"})
+KIMI_SANDOQ_FALLBACK_ROLE = "kimi-direct-tb4-sandoq-fallback-diagnostic"
+KIMI_PROVIDER_SPLIT_COUNTS = frozenset({31, 32})
+KIMI_SANDOQ_LONG_LEASE_ROLES = frozenset(
+    {"tb4", "mobius", "kimi-direct-tb4", "kimi-direct-tb4-diagnostic", KIMI_SANDOQ_FALLBACK_ROLE}
+)
+DIRECT_KIMI_ROLES = frozenset(
+    {"kimi-direct-smoke", "kimi-direct-tb4", "kimi-direct-tb4-diagnostic", KIMI_SANDOQ_FALLBACK_ROLE}
+)
 DIRECT_ROLES = frozenset({"qwen-direct", *DIRECT_KIMI_ROLES})
 
 
 class EvalIdentityError(ValueError):
     """The proposed evaluation cannot be bound to immutable provenance."""
+
+
+def _direct_kimi_expected_concurrency(role: str, sandbox_provider: str, task_count: int) -> int:
+    if role == "kimi-direct-smoke":
+        return 1
+    if role == KIMI_SANDOQ_FALLBACK_ROLE:
+        fallback_concurrency = {17: 6, 4: 2}
+        if sandbox_provider != "sandoq" or task_count not in fallback_concurrency:
+            raise EvalIdentityError("direct_kimi_fallback_scope_invalid")
+        return fallback_concurrency[task_count]
+    return 24 if sandbox_provider == "sandoq" else 4
+
+
+def _validate_direct_kimi_fallback_config(config: dict[str, Any], role: str, task_count: int) -> None:
+    if role != KIMI_SANDOQ_FALLBACK_ROLE:
+        return
+    expected_multiplier = {17: 0.75, 4: 0.375}.get(task_count)
+    taskset = config.get("taskset")
+    if (
+        expected_multiplier is None
+        or config.get("num_tasks") != task_count
+        or not isinstance(taskset, dict)
+        or taskset.get("resource_multiplier") != expected_multiplier
+        or taskset.get("enable_compose") is not False
+    ):
+        raise EvalIdentityError("direct_kimi_fallback_config_invalid")
+
+
+def _validate_direct_kimi_approved_config(
+    source_config: Mapping[str, str],
+    role: str,
+    approved_sha256: str | None,
+) -> None:
+    diagnostic_roles = {"kimi-direct-tb4-diagnostic", KIMI_SANDOQ_FALLBACK_ROLE}
+    if role in diagnostic_roles:
+        if SHA256_RE.fullmatch(approved_sha256 or "") is None or source_config["sha256"] != approved_sha256:
+            raise EvalIdentityError("direct_kimi_approved_config_mismatch")
+    elif approved_sha256 is not None:
+        raise EvalIdentityError("direct_kimi_approved_config_role_invalid")
+
+
+def _sandoq_lease_contract(expected_model: str, role: str) -> tuple[str, str]:
+    if expected_model == "Kimi-K3" and role in KIMI_SANDOQ_LONG_LEASE_ROLES:
+        return "kimi-tb4-long", "12h"
+    return "standard", "1h"
 
 
 def validate_kimi_timeout_contract(
@@ -836,7 +888,13 @@ def _contract(
     require_kimi_steady_state_concurrency = role == "mobius"
     if model == "Kimi-K3":
         required_profile: str | None = None
-        if role in {"tb4", "mobius", "kimi-direct-tb4", "kimi-direct-tb4-diagnostic"}:
+        if role in {
+            "tb4",
+            "mobius",
+            "kimi-direct-tb4",
+            "kimi-direct-tb4-diagnostic",
+            KIMI_SANDOQ_FALLBACK_ROLE,
+        }:
             required_profile = "full"
         elif role == "kimi-direct-smoke":
             if not isinstance(taskset, dict):
@@ -1440,6 +1498,13 @@ def _effective_sandoq_environment(
         )
     ):
         raise EvalIdentityError("sandoq_storage_or_auth_policy_invalid")
+    lease_profile, lease_duration = _sandoq_lease_contract(args.expected_model, args.role)
+    if (
+        os.environ.get("SANDOQ_LEASE_PROFILE") != lease_profile
+        or os.environ.get("OCI_RUNNER_LEASE_DURATION") != lease_duration
+        or os.environ.get("OCI_RUNNER_POOL_RENEW_INTERVAL") != "5m"
+    ):
+        raise EvalIdentityError("sandoq_lease_context_invalid")
     exact_policy = {
         "create_deadline": "30m",
         "pull_timeout": "3600s",
@@ -1463,7 +1528,8 @@ def _effective_sandoq_environment(
         "pool_reuse_jitter": "0",
         "image_cache_max_entries": "0",
         "secret_cache_ttl": "5s",
-        "lease_duration": "1h",
+        "lease_profile": lease_profile,
+        "lease_duration": lease_duration,
         "pool_renew_interval": "5m",
     }
     for field, expected in exact_policy.items():
@@ -1993,7 +2059,7 @@ def _validate_identity_shape(identity: object) -> dict[str, Any]:
     if sandbox_provider == "sandoq":
         if execution.get("cleanup_must_succeed") is not True:
             raise EvalIdentityError("eval_run_identity_schema_invalid")
-        if not isinstance(environment, dict) or set(environment) != {
+        sandoq_environment_keys = {
             "environment",
             "task_network",
             "pool_size",
@@ -2034,9 +2100,15 @@ def _validate_identity_shape(identity: object) -> dict[str, Any]:
             "pool_reuse_jitter",
             "image_cache_max_entries",
             "secret_cache_ttl",
+            "lease_profile",
             "lease_duration",
             "pool_renew_interval",
-        }:
+        }
+        if not isinstance(environment, dict):
+            raise EvalIdentityError("eval_run_identity_schema_invalid")
+        profiled_lease = set(environment) == sandoq_environment_keys
+        legacy_lease = set(environment) == sandoq_environment_keys - {"lease_profile"}
+        if not profiled_lease and not legacy_lease:
             raise EvalIdentityError("eval_run_identity_schema_invalid")
         if (
             environment.get("environment") != "oci-runner"
@@ -2073,6 +2145,11 @@ def _validate_identity_shape(identity: object) -> dict[str, Any]:
             or environment["pool_size"] < execution["rollout_concurrency"]
         ):
             raise EvalIdentityError("eval_run_identity_schema_invalid")
+        lease_profile, lease_duration = _sandoq_lease_contract(identity["contract"]["model"], role)
+        if legacy_lease:
+            if role == KIMI_SANDOQ_FALLBACK_ROLE or environment.get("lease_duration") != "1h":
+                raise EvalIdentityError("eval_run_identity_schema_invalid")
+            lease_duration = "1h"
         expected_policy = {
             "create_deadline": "30m",
             "pull_timeout": "3600s",
@@ -2096,9 +2173,11 @@ def _validate_identity_shape(identity: object) -> dict[str, Any]:
             "pool_reuse_jitter": "0",
             "image_cache_max_entries": "0",
             "secret_cache_ttl": "5s",
-            "lease_duration": "1h",
+            "lease_duration": lease_duration,
             "pool_renew_interval": "5m",
         }
+        if profiled_lease:
+            expected_policy["lease_profile"] = lease_profile
         if any(environment.get(key) != value for key, value in expected_policy.items()):
             raise EvalIdentityError("eval_run_identity_schema_invalid")
         return identity
@@ -2402,6 +2481,11 @@ def _verify_config_and_inputs(
         sandbox_provider=identity["source"].get("sandbox_provider", "vmvm"),
         _allow_legacy_direct_scored_smoke=legacy_direct_kimi_scored_smoke,
     )
+    _validate_direct_kimi_fallback_config(
+        config,
+        identity["role"],
+        identity["inputs"]["task_file"]["count"],
+    )
     client = config.get("client")
     if not isinstance(client, dict) or client.get("base_url") != endpoint_client_base_url:
         raise EvalIdentityError("model_endpoint_binding_mismatch")
@@ -2530,6 +2614,7 @@ def _verify_saved_provenance(output_dir: Path, identity: dict[str, Any], identit
                     "pool_reuse_jitter",
                     "image_cache_max_entries",
                     "secret_cache_ttl",
+                    "lease_profile",
                     "lease_duration",
                     "pool_renew_interval",
                 }
@@ -2818,6 +2903,7 @@ def _bind_provenance(
                     "pool_reuse_jitter",
                     "image_cache_max_entries",
                     "secret_cache_ttl",
+                    "lease_profile",
                     "lease_duration",
                     "pool_renew_interval",
                 }
@@ -3140,13 +3226,19 @@ def _prepare_direct_kimi(args: argparse.Namespace) -> str:
         args.approved_task_file_sha256,
         args.approved_task_count,
     )
+    _validate_direct_kimi_approved_config(source_config, args.role, args.approved_config_sha256)
     contract, execution = _contract(
         config,
         args.expected_model,
         role=args.role,
         sandbox_provider=args.sandbox_provider,
     )
-    expected_concurrency = 1 if args.role == "kimi-direct-smoke" else (24 if args.sandbox_provider == "sandoq" else 4)
+    _validate_direct_kimi_fallback_config(config, args.role, args.approved_task_count)
+    expected_concurrency = _direct_kimi_expected_concurrency(
+        args.role,
+        args.sandbox_provider,
+        args.approved_task_count,
+    )
     if any(
         execution.get(key) != expected_concurrency
         for key in (
@@ -3203,7 +3295,7 @@ def _prepare_direct_kimi(args: argparse.Namespace) -> str:
         raise EvalIdentityError("direct_kimi_router_contract_invalid")
 
     smoke_checkpoint = None
-    if args.role in {"kimi-direct-smoke", "kimi-direct-tb4-diagnostic"}:
+    if args.role in {"kimi-direct-smoke", "kimi-direct-tb4-diagnostic", KIMI_SANDOQ_FALLBACK_ROLE}:
         if args.smoke_checkpoint is not None or args.smoke_checkpoint_sha256 is not None:
             raise EvalIdentityError("direct_kimi_smoke_checkpoint_invalid")
     else:
@@ -3215,7 +3307,7 @@ def _prepare_direct_kimi(args: argparse.Namespace) -> str:
             label="direct_kimi_smoke_checkpoint",
         )
         payload = _json_artifact(smoke_checkpoint, label="direct_kimi_smoke_checkpoint")
-        provider_split_count = inputs["task_file"]["count"] in {28, 35}
+        provider_split_count = inputs["task_file"]["count"] in KIMI_PROVIDER_SPLIT_COUNTS
         if (
             payload.get("schema_version") != 1
             or payload.get("kind") != "direct-kimi-sandoq-smoke"
@@ -3281,6 +3373,7 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--expected-model", required=True)
     parser.add_argument("--approved-task-file-sha256", required=True)
     parser.add_argument("--approved-task-count", type=int, required=True)
+    parser.add_argument("--approved-config-sha256")
     parser.add_argument(
         "--role",
         choices=(
@@ -3291,6 +3384,7 @@ def _parser() -> argparse.ArgumentParser:
             "kimi-direct-smoke",
             "kimi-direct-tb4",
             "kimi-direct-tb4-diagnostic",
+            KIMI_SANDOQ_FALLBACK_ROLE,
         ),
         required=True,
     )
@@ -3370,6 +3464,7 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--sandoq-pool-reuse-jitter", default="")
     parser.add_argument("--sandoq-image-cache-max-entries", default="")
     parser.add_argument("--sandoq-secret-cache-ttl", default="")
+    parser.add_argument("--sandoq-lease-profile", default="")
     parser.add_argument("--sandoq-lease-duration", default="")
     parser.add_argument("--sandoq-pool-renew-interval", default="")
     parser.add_argument("--direct-worker-manifest", type=Path)

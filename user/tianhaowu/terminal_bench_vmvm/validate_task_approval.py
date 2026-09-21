@@ -143,6 +143,8 @@ def validate_approval(
     approved_task_file_sha256: str,
     *,
     resume_config: Path | None = None,
+    approved_config: Path | None = None,
+    approved_config_sha256: str | None = None,
 ) -> tuple[str, int]:
     """Validate approval against fresh input snapshots and an optional resume config."""
     if SHA256_RE.fullmatch(approved_task_file_sha256) is None:
@@ -173,6 +175,25 @@ def validate_approval(
         "config",
         expected_snapshot=source_config_path,
     )
+    if (approved_config is None) != (approved_config_sha256 is None):
+        raise TaskApprovalError("external_config_approval_incomplete")
+    if approved_config is not None and approved_config_sha256 is not None:
+        if SHA256_RE.fullmatch(approved_config_sha256) is None:
+            raise TaskApprovalError("external_config_approval_hash_invalid")
+        approved_config_path = _resolve(
+            approved_config,
+            strict=False,
+            error="external_config_approval_path_invalid",
+        )
+        recorded_config_source = _resolve(
+            Path(config_record["source"]),
+            strict=False,
+            error="input_config_record_invalid",
+        )
+        if recorded_config_source != approved_config_path:
+            raise TaskApprovalError("source_config_source_mismatch")
+        if config_record["sha256"] != approved_config_sha256:
+            raise TaskApprovalError("source_config_approval_hash_mismatch")
     task_record = _manifest_record(
         manifest,
         "task_file",
@@ -186,6 +207,8 @@ def validate_approval(
     )
     if _sha256(source_config_bytes) != config_record["sha256"]:
         raise TaskApprovalError("source_config_hash_mismatch")
+    if approved_config_sha256 is not None and _sha256(source_config_bytes) != approved_config_sha256:
+        raise TaskApprovalError("source_config_approval_hash_mismatch")
     source_config = _parse_config(source_config_bytes, error="source_config_invalid")
     source_task_file = _validate_config_selection(
         source_config,
@@ -257,6 +280,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--approved-task-file", type=Path, required=True)
     parser.add_argument("--approved-task-file-sha256", required=True)
     parser.add_argument("--resume-config", type=Path)
+    parser.add_argument("--approved-config", type=Path)
+    parser.add_argument("--approved-config-sha256")
     args = parser.parse_args(argv)
     try:
         approved_sha256, approved_count = validate_approval(
@@ -264,6 +289,8 @@ def main(argv: list[str] | None = None) -> int:
             args.approved_task_file,
             args.approved_task_file_sha256,
             resume_config=args.resume_config,
+            approved_config=args.approved_config,
+            approved_config_sha256=args.approved_config_sha256,
         )
     except TaskApprovalError as error:
         print(f"task_approval_error:{error}", file=sys.stderr)

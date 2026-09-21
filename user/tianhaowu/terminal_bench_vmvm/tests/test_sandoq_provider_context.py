@@ -43,6 +43,8 @@ def test_build_provider_environment_matches_sc3_context_without_reading_tokens(
             "VF_SANDBOX_PROVIDER": "wrong",
             "FIRECRACKER_KEY": "must-not-survive",
             "OCI_RUNNER_ALLOW_DOCKERHUB_FALLBACK": "0",
+            "OCI_RUNNER_LEASE_DURATION": "99h",
+            "SANDOQ_LEASE_PROFILE": "ambient-invalid",
             "PYTHONPATH": "/existing",
         },
         **arguments,
@@ -56,6 +58,9 @@ def test_build_provider_environment_matches_sc3_context_without_reading_tokens(
     assert environment["OCI_RUNNER_POOL_CREATE_WORKERS"] == "4"
     assert environment["OCI_RUNNER_SESSION_REUSE"] == "1"
     assert environment["OCI_RUNNER_POOL_MAX_REUSE_COUNT"] == "1"
+    assert environment["SANDOQ_LEASE_PROFILE"] == "standard"
+    assert environment["OCI_RUNNER_LEASE_DURATION"] == "1h"
+    assert environment["OCI_RUNNER_POOL_RENEW_INTERVAL"] == "5m"
     assert environment["OCI_RUNNER_IMAGE_CACHE_MAX_ENTRIES"] == "0"
     assert environment["OCI_RUNNER_PODMAN_FUSE_OVERLAYFS"] == "1"
     assert environment["OCI_RUNNER_PULL_TIMEOUT"] == "3600s"
@@ -88,6 +93,28 @@ def test_auto_transport_clears_proxy_environment(tmp_path: Path) -> None:
     assert all(name not in environment for name in context.PROXY_ENVIRONMENT_NAMES)
 
 
+def test_long_kimi_profile_sets_exact_twelve_hour_initial_lease(tmp_path: Path) -> None:
+    arguments = _arguments(tmp_path)
+    arguments.update({"transport_mode": "auto", "proxy_url": None, "lease_profile": "kimi-tb4-long"})
+
+    environment = context.build_provider_environment(
+        {
+            "USER": "synthetic-user",
+            "OCI_RUNNER_LEASE_DURATION": "1h",
+            "SANDOQ_LEASE_PROFILE": "standard",
+        },
+        **arguments,
+    )
+
+    assert environment["SANDOQ_LEASE_PROFILE"] == "kimi-tb4-long"
+    assert environment["OCI_RUNNER_LEASE_DURATION"] == "12h"
+    assert environment["OCI_RUNNER_POOL_RENEW_INTERVAL"] == "5m"
+
+    arguments["lease_profile"] = "arbitrary"
+    with pytest.raises(context.ProviderContextError, match="provider_context_configuration_invalid"):
+        context.build_provider_environment({"USER": "synthetic-user"}, **arguments)
+
+
 @pytest.mark.parametrize(
     "proxy_url",
     [
@@ -98,9 +125,7 @@ def test_auto_transport_clears_proxy_environment(tmp_path: Path) -> None:
         "http://127.0.0.1:1?secret=value",
     ],
 )
-def test_build_provider_environment_rejects_non_loopback_proxy(
-    tmp_path: Path, proxy_url: str
-) -> None:
+def test_build_provider_environment_rejects_non_loopback_proxy(tmp_path: Path, proxy_url: str) -> None:
     arguments = _arguments(tmp_path)
     arguments["proxy_url"] = proxy_url
     with pytest.raises(context.ProviderContextError, match="provider_proxy_invalid"):
@@ -120,8 +145,15 @@ def test_proxy_rejects_unapproved_connect_target() -> None:
     assert response == b"HTTP/1.1 403 Forbidden\r\n\r\n"
 
 
+@pytest.mark.parametrize(
+    ("lease_profile", "lease_duration"),
+    (("standard", "1h"), ("kimi-tb4-long", "12h")),
+)
 def test_supervisor_keeps_private_context_live_for_child(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    lease_profile: str,
+    lease_duration: str,
 ) -> None:
     result = tmp_path / "result.json"
     arguments = _arguments(tmp_path)
@@ -135,6 +167,9 @@ def test_supervisor_keeps_private_context_live_for_child(
         "environment=os.environ.get('OCI_RUNNER_ENVIRONMENT'), "
         "effective_network=os.environ.get('SANDOQ_EFFECTIVE_TASK_NETWORK'), "
         "task_network_present='OCI_RUNNER_TASK_NETWORK' in os.environ, "
+        "lease_profile=os.environ.get('SANDOQ_LEASE_PROFILE'), "
+        "lease_duration=os.environ.get('OCI_RUNNER_LEASE_DURATION'), "
+        "renew_interval=os.environ.get('OCI_RUNNER_POOL_RENEW_INTERVAL'), "
         "proxy_equal=os.environ.get('HTTPS_PROXY') == os.environ.get('https_proxy')); "
         f"Path({str(result)!r}).write_text(json.dumps(payload))"
     )
@@ -145,6 +180,7 @@ def test_supervisor_keeps_private_context_live_for_child(
         concurrency=int(arguments["concurrency"]),
         lease_create_cap=int(arguments["lease_create_cap"]),
         startup_timeout_seconds=int(arguments["startup_timeout_seconds"]),
+        lease_profile=lease_profile,
         provider_token_file=Path(arguments["provider_token_file"]),
         ecr_token_file=Path(arguments["ecr_token_file"]),
         ecr_token_metadata=Path(arguments["ecr_token_metadata"]),
@@ -158,6 +194,9 @@ def test_supervisor_keeps_private_context_live_for_child(
         "drift_rejected": True,
         "environment": "oci-runner",
         "effective_network": "public",
+        "lease_profile": lease_profile,
+        "lease_duration": lease_duration,
+        "renew_interval": "5m",
         "task_network_present": False,
         "proxy_equal": True,
     }
@@ -252,6 +291,7 @@ def test_launchers_wrap_sandoq_in_one_full_lifetime_context() -> None:
     workflow = Path(__file__).parents[1]
     generic = (workflow / "run_eval.sbatch").read_text()
     direct = (workflow / "run_qwen_direct_eval.sbatch").read_text()
+    direct_driver = (workflow / "run_direct_qwen_eval_driver.sh").read_text()
 
     for script in (generic, direct):
         assert "sandoq_provider_context.py" in script
@@ -260,19 +300,18 @@ def test_launchers_wrap_sandoq_in_one_full_lifetime_context() -> None:
         assert 'python3 "$provider_context" verify' in script
         assert 'python3 "$provider_context" supervise' in script
         assert "configs/provider_context/use2/qwen_sandoq.json" in script
-        assert context._sha256(
-            (
-                workflow / "configs/provider_context/use2/qwen_sandoq.json"
-            ).read_bytes()
-        ) in script
+        assert context._sha256((workflow / "configs/provider_context/use2/qwen_sandoq.json").read_bytes()) in script
         assert "--profile-sha256" in script
         assert "--lease-create-cap" in script
         assert "--startup-timeout-seconds 3600" in script
         assert "oci-runner-firecracker" not in script
         assert "firecracker-token" not in script
-    assert direct.index('python3 "$provider_context" supervise') < direct.index(
-        "approved clean source closure"
-    )
+    assert direct.index('python3 "$provider_context" supervise') < direct.index("approved clean source closure")
+    assert '--sandoq-lease-profile "$SANDOQ_LEASE_PROFILE"' in generic
+    assert '--sandoq-lease-profile "$SANDOQ_LEASE_PROFILE"' in direct_driver
+    assert '"$eval_run_role" == mobius' in generic
+    assert '--lease-profile "$sandoq_lease_profile"' in generic
+    assert "--lease-profile standard" in direct
     assert 'if [[ "$sandbox_provider" != sandoq ]]; then\n    unset HTTP_PROXY' in generic
 
 

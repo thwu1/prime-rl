@@ -32,6 +32,7 @@ from typing import Any
 SCHEMA_VERSION = 1
 BASE_URL = "https://sandoq.eks-prod.cf.aws.metafb.cloud"
 ENVIRONMENT = "oci-runner"
+LEASE_PROFILES = {"standard": "1h", "kimi-tb4-long": "12h"}
 DEFAULT_TOKEN_FILE = Path("/home/tianhaowu/.config/oci-runner/token")
 PROXY_ENVIRONMENT_NAMES = (
     "HTTP_PROXY",
@@ -122,11 +123,7 @@ def _parse_loopback_proxy(value: str) -> tuple[str, int]:
 
 
 def load_provider_profile(path: Path, expected_sha256: str) -> ProviderContextProfile:
-    if (
-        not path.is_absolute()
-        or path != Path(os.path.normpath(path))
-        or _SHA256_RE.fullmatch(expected_sha256) is None
-    ):
+    if not path.is_absolute() or path != Path(os.path.normpath(path)) or _SHA256_RE.fullmatch(expected_sha256) is None:
         _fail("provider_context_profile_invalid")
     try:
         if path.resolve(strict=True) != path:
@@ -174,8 +171,7 @@ def load_provider_profile(path: Path, expected_sha256: str) -> ProviderContextPr
         }
         or bytes(body) != _canonical_json(value)
         or value["schema_version"] != SCHEMA_VERSION
-        or re.fullmatch(r"[a-z][a-z0-9_-]{0,127}", str(value["cluster_identifier"]))
-        is None
+        or re.fullmatch(r"[a-z][a-z0-9_-]{0,127}", str(value["cluster_identifier"])) is None
         or value["transport_mode"] not in {"auto", "loopback"}
         or value["effective_task_network"] != "public"
         or value["base_url"] != BASE_URL
@@ -285,10 +281,14 @@ def _context_contract(
     concurrency: int,
     lease_create_cap: int,
     startup_timeout_seconds: int,
+    lease_profile: str,
     provider_token_file: Path,
     ecr_token_file: Path,
     ecr_token_metadata: Path,
 ) -> dict[str, Any]:
+    lease_duration = LEASE_PROFILES.get(lease_profile)
+    if lease_duration is None:
+        _fail("provider_context_configuration_invalid")
     return {
         "schema_version": SCHEMA_VERSION,
         "base_url": BASE_URL,
@@ -302,7 +302,9 @@ def _context_contract(
         "concurrency": concurrency,
         "lease_create_cap": lease_create_cap,
         "startup_timeout_seconds": startup_timeout_seconds,
-        "lease_duration": "1h",
+        "lease_profile": lease_profile,
+        "lease_duration": lease_duration,
+        "pool_renew_interval": "5m",
         "session_reuse": 1,
         "pool_max_reuse_count": 1,
         "image_cache_max_entries": 0,
@@ -331,6 +333,7 @@ def build_provider_environment(
     concurrency: int,
     lease_create_cap: int,
     startup_timeout_seconds: int,
+    lease_profile: str = "standard",
     provider_token_file: Path,
     ecr_token_file: Path,
     ecr_token_metadata: Path,
@@ -345,6 +348,7 @@ def build_provider_environment(
         or not 1 <= concurrency <= 64
         or not 1 <= lease_create_cap <= concurrency
         or startup_timeout_seconds != 3_600
+        or lease_profile not in LEASE_PROFILES
     ):
         _fail("provider_context_configuration_invalid")
     if proxy_url is not None:
@@ -379,10 +383,11 @@ def build_provider_environment(
             "SANDOQ_TRANSPORT_MODE": transport_mode,
             "SANDOQ_CLUSTER_IDENTIFIER": cluster_identifier,
             "SANDOQ_EFFECTIVE_TASK_NETWORK": "public",
+            "SANDOQ_LEASE_PROFILE": lease_profile,
             "OCI_RUNNER_TOKEN_FILE": str(provider_token_file),
             "OCI_RUNNER_OBSERVABILITY": "1",
             "OCI_RUNNER_CREATE_DEADLINE": "30m",
-            "OCI_RUNNER_LEASE_DURATION": "1h",
+            "OCI_RUNNER_LEASE_DURATION": LEASE_PROFILES[lease_profile],
             "OCI_RUNNER_SESSION_REUSE": "1",
             "OCI_RUNNER_POOL_MAX_REUSE_COUNT": "1",
             "OCI_RUNNER_POOL_REUSE_JITTER": "0",
@@ -545,11 +550,11 @@ def provider_context_is_active(environment: Mapping[str, str]) -> bool:
             or environment.get("OCI_RUNNER_POOL_MAX_REUSE_COUNT") != "1"
             or environment.get("OCI_RUNNER_IMAGE_CACHE_MAX_ENTRIES") != "0"
             or environment.get("OCI_RUNNER_PODMAN_FUSE_OVERLAYFS") != "1"
-            or environment.get("OCI_RUNNER_FUSE_OVERLAYFS_PATH")
-            != "/usr/bin/fuse-overlayfs"
-            or environment.get("OCI_RUNNER_LIBFUSE3_PATH")
-            != "/lib/x86_64-linux-gnu/libfuse3.so.3"
-            or environment.get("OCI_RUNNER_LEASE_DURATION") != "1h"
+            or environment.get("OCI_RUNNER_FUSE_OVERLAYFS_PATH") != "/usr/bin/fuse-overlayfs"
+            or environment.get("OCI_RUNNER_LIBFUSE3_PATH") != "/lib/x86_64-linux-gnu/libfuse3.so.3"
+            or environment.get("SANDOQ_LEASE_PROFILE") not in LEASE_PROFILES
+            or environment.get("OCI_RUNNER_LEASE_DURATION") != LEASE_PROFILES[environment["SANDOQ_LEASE_PROFILE"]]
+            or environment.get("OCI_RUNNER_POOL_RENEW_INTERVAL") != "5m"
             or environment.get("OCI_RUNNER_PULL_TIMEOUT") != "3600s"
             or environment.get("OCI_RUNNER_PULL_POLL_MAX_ERRORS") != "20"
             or environment.get("OCI_RUNNER_OBSERVABILITY") != "1"
@@ -563,10 +568,7 @@ def provider_context_is_active(environment: Mapping[str, str]) -> bool:
                 not isinstance(proxy_url, str)
                 or environment.get("HTTPS_PROXY") != proxy_url
                 or environment.get("https_proxy") != proxy_url
-                or any(
-                    environment.get(name)
-                    for name in ("HTTP_PROXY", "ALL_PROXY", "http_proxy", "all_proxy")
-                )
+                or any(environment.get(name) for name in ("HTTP_PROXY", "ALL_PROXY", "http_proxy", "all_proxy"))
             ):
                 return False
         elif proxy_url is not None or any(environment.get(name) for name in PROXY_ENVIRONMENT_NAMES):
@@ -577,6 +579,7 @@ def provider_context_is_active(environment: Mapping[str, str]) -> bool:
             concurrency=int(environment["OCI_RUNNER_POOL_SIZE"]),
             lease_create_cap=int(environment["OCI_RUNNER_POOL_CREATE_WORKERS"]),
             startup_timeout_seconds=3_600,
+            lease_profile=environment["SANDOQ_LEASE_PROFILE"],
             provider_token_file=_validate_absolute_path(
                 environment["OCI_RUNNER_TOKEN_FILE"],
                 "provider_context_receipt_invalid",
@@ -669,6 +672,7 @@ def supervise(
     concurrency: int,
     lease_create_cap: int,
     startup_timeout_seconds: int,
+    lease_profile: str = "standard",
     provider_token_file: Path,
     ecr_token_file: Path,
     ecr_token_metadata: Path,
@@ -713,6 +717,7 @@ def supervise(
                 concurrency=concurrency,
                 lease_create_cap=lease_create_cap,
                 startup_timeout_seconds=startup_timeout_seconds,
+                lease_profile=lease_profile,
                 provider_token_file=provider_token_file,
                 ecr_token_file=ecr_token_file,
                 ecr_token_metadata=ecr_token_metadata,
@@ -725,6 +730,7 @@ def supervise(
                 concurrency=concurrency,
                 lease_create_cap=lease_create_cap,
                 startup_timeout_seconds=startup_timeout_seconds,
+                lease_profile=lease_profile,
                 provider_token_file=provider_token_file,
                 ecr_token_file=ecr_token_file,
                 ecr_token_metadata=ecr_token_metadata,
@@ -793,6 +799,7 @@ def _parser() -> argparse.ArgumentParser:
     supervise_parser.add_argument("--concurrency", type=int, required=True)
     supervise_parser.add_argument("--lease-create-cap", type=int, required=True)
     supervise_parser.add_argument("--startup-timeout-seconds", type=int, required=True)
+    supervise_parser.add_argument("--lease-profile", choices=tuple(LEASE_PROFILES), default="standard")
     supervise_parser.add_argument("--ecr-token-file", type=Path, required=True)
     supervise_parser.add_argument("--ecr-token-metadata", type=Path, required=True)
     supervise_parser.add_argument("--project-root", type=Path, required=True)
@@ -823,6 +830,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             concurrency=arguments.concurrency,
             lease_create_cap=arguments.lease_create_cap,
             startup_timeout_seconds=arguments.startup_timeout_seconds,
+            lease_profile=arguments.lease_profile,
             provider_token_file=profile.provider_token_file,
             ecr_token_file=arguments.ecr_token_file,
             ecr_token_metadata=arguments.ecr_token_metadata,

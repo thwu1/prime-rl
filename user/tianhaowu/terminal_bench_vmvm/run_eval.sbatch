@@ -306,11 +306,24 @@ PY
     sandoq_provider_profile=${SANDOQ_PROVIDER_CONTEXT_PROFILE:-$workflow_dir/configs/provider_context/use2/qwen_sandoq.json}
     sandoq_provider_profile_sha256=${SANDOQ_PROVIDER_CONTEXT_PROFILE_SHA256:-965511eb9578aa303d287491a7414e145241d6dbbf61469d13abbe801980a95a}
     sandoq_lease_create_cap=$(( sandoq_capacity < 4 ? sandoq_capacity : 4 ))
+    sandoq_lease_profile=standard
+    sandoq_lease_duration=1h
+    if [[ "$eval_expected_model" == Kimi-K3 \
+        && ( "$eval_run_role" == tb4 || "$eval_run_role" == mobius ) ]]; then
+        sandoq_lease_profile=kimi-tb4-long
+        sandoq_lease_duration=12h
+    fi
     provider_context="$workflow_dir/terminal_bench_vmvm/sandoq_provider_context.py"
     if [[ ${SANDOQ_PROVIDER_CONTEXT_ACTIVE:-} == 1 ]]; then
         "$x86_uv" run --no-project --offline --python "$python_bin" \
             python3 "$provider_context" verify \
             --receipt "${SANDOQ_PROVIDER_CONTEXT_RECEIPT:?}" >/dev/null
+        if [[ "$SANDOQ_LEASE_PROFILE" != "$sandoq_lease_profile" \
+            || "$OCI_RUNNER_LEASE_DURATION" != "$sandoq_lease_duration" \
+            || "$OCI_RUNNER_POOL_RENEW_INTERVAL" != 5m ]]; then
+            printf 'Sandoq provider lease profile does not match the evaluation role\n' >&2
+            exit 2
+        fi
     else
         if [[ -n ${SANDOQ_PROVIDER_CONTEXT_ACTIVE:-} \
             || -n ${SANDOQ_PROVIDER_CONTEXT_RECEIPT:-} ]]; then
@@ -324,6 +337,7 @@ PY
             --concurrency "$sandoq_capacity" \
             --lease-create-cap "$sandoq_lease_create_cap" \
             --startup-timeout-seconds 3600 \
+            --lease-profile "$sandoq_lease_profile" \
             --ecr-token-file "$sandoq_ecr_token_file" \
             --ecr-token-metadata "$sandoq_ecr_token_metadata" \
             --project-root "$project_dir" --sandoq-site "$sandoq_site" \
@@ -834,6 +848,7 @@ else
         --sandoq-pool-reuse-jitter "$OCI_RUNNER_POOL_REUSE_JITTER"
         --sandoq-image-cache-max-entries "$OCI_RUNNER_IMAGE_CACHE_MAX_ENTRIES"
         --sandoq-secret-cache-ttl "$OCI_RUNNER_SECRET_CACHE_TTL"
+        --sandoq-lease-profile "$SANDOQ_LEASE_PROFILE"
         --sandoq-lease-duration "$OCI_RUNNER_LEASE_DURATION"
         --sandoq-pool-renew-interval "$OCI_RUNNER_POOL_RENEW_INTERVAL"
     )

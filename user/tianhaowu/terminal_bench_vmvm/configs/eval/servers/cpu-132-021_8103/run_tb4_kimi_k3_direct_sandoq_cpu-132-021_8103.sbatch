@@ -41,6 +41,8 @@ elif [[ "$stage" == provider-split-legacy ]]; then
     output_dir="$eval_root/tb4_kimi_k3_direct_sandoq_cpu-132-021_8103_${SLURM_JOB_ID}_legacy"
 elif [[ "$stage" == provider-split-large ]]; then
     output_dir="$eval_root/tb4_kimi_k3_direct_vmvm_cpu-132-021_8103_${SLURM_JOB_ID}_large"
+elif [[ "$stage" == sandoq-fallback-memory-8g || "$stage" == sandoq-fallback-memory-16g ]]; then
+    output_dir="$eval_root/tb4_kimi_k3_direct_cpu-132-021_8103_${SLURM_JOB_ID}_${stage}_diagnostic"
 else
     output_dir="$eval_root/tb4_kimi_k3_direct_sandoq_cpu-132-021_8103_${SLURM_JOB_ID}_${stage}"
 fi
@@ -65,7 +67,9 @@ trap cleanup EXIT INT TERM
 
 if [[ "$stage" != smoke && "$stage" != mobius-smoke && "$stage" != tb4 \
     && "$stage" != provider-split-legacy \
-    && "$stage" != provider-split-large ]]; then
+    && "$stage" != provider-split-large \
+    && "$stage" != sandoq-fallback-memory-8g \
+    && "$stage" != sandoq-fallback-memory-16g ]]; then
     printf 'KIMI_SANDOQ_STAGE is invalid\n' >&2
     exit 2
 fi
@@ -90,7 +94,7 @@ if [[ "$preflight_only" != 0 && "$preflight_only" != 1 ]]; then
     printf 'KIMI_SANDOQ_PREFLIGHT_ONLY must be 0 or 1\n' >&2
     exit 2
 fi
-if [[ "$execution_mode" == diagnostic && "$preflight_only" != 0 ]]; then
+if [[ "$execution_mode" != certified && "$preflight_only" != 0 ]]; then
     printf 'The sealed diagnostic plan is actual-only; use a distinct plan for preflight\n' >&2
     exit 2
 fi
@@ -113,11 +117,53 @@ if [[ "$sandbox_provider" == sandoq ]] \
     exit 2
 fi
 
-if [[ "$execution_mode" != certified && "$execution_mode" != diagnostic ]]; then
+if [[ "$execution_mode" != certified && "$execution_mode" != diagnostic \
+    && "$execution_mode" != sandoq-fallback-diagnostic ]]; then
     printf 'KIMI_EXECUTION_MODE is invalid\n' >&2
     exit 2
 fi
-if [[ "$execution_mode" == diagnostic ]]; then
+if [[ ( "$stage" == sandoq-fallback-memory-8g || "$stage" == sandoq-fallback-memory-16g ) \
+    && "$execution_mode" != sandoq-fallback-diagnostic ]]; then
+    printf 'Fallback stages cannot run as certified output\n' >&2
+    exit 2
+fi
+if [[ "$execution_mode" == sandoq-fallback-diagnostic ]]; then
+    if [[ "$stage" != sandoq-fallback-memory-8g && "$stage" != sandoq-fallback-memory-16g ]]; then
+        printf 'Fallback diagnostic execution requires an exact fallback lane\n' >&2
+        exit 2
+    fi
+    launch_plan=${KIMI_SANDOQ_FALLBACK_PLAN:?Set KIMI_SANDOQ_FALLBACK_PLAN}
+    launch_plan_sha256=${KIMI_SANDOQ_FALLBACK_PLAN_SHA256:?Set KIMI_SANDOQ_FALLBACK_PLAN_SHA256}
+    launch_lane=memory_8g
+    expected_launch_count=17
+    expected_launch_concurrency=6
+    if [[ "$stage" == sandoq-fallback-memory-16g ]]; then
+        launch_lane=memory_16g
+        expected_launch_count=4
+        expected_launch_concurrency=2
+    fi
+    verified_launch=$(
+        PYTHONPATH="$workflow_dir:$project_dir/environments/vmvm_tb_v2:$project_dir/deps/verifiers:$project_dir/deps/renderers:$project_dir/deps/pydantic-config/src:$project_dir/extensions/sandoq:$sandoq_site:$x86_site" \
+        "$x86_uv" run --no-project --offline --python "$python_bin" \
+            python3 "$workflow_dir/prepare_kimi_tb4_sandoq_fallback.py" verify \
+            --launch-plan "$launch_plan" --launch-plan-sha256 "$launch_plan_sha256" \
+            --lane "$launch_lane" --format tsv
+    )
+    IFS=$'\t' read -r verified_stage verified_provider eval_config eval_config_sha256 task_file \
+        task_sha256 verified_count verified_concurrency output_dir resource_manifest \
+        resource_manifest_sha256 partition_dir verified_extra \
+        <<< "$verified_launch"
+    if [[ -n "$verified_extra" || "$verified_launch" == *$'\n'* \
+        || ! "$verified_count" =~ ^[1-9][0-9]*$ || ! "$verified_concurrency" =~ ^[1-9][0-9]*$ \
+        || "$verified_count" != "$expected_launch_count" \
+        || "$verified_concurrency" != "$expected_launch_concurrency" \
+        || "$stage" != "$verified_stage" || "$sandbox_provider" != "$verified_provider" ]]; then
+        printf 'Fallback diagnostic launch plan binding failed\n' >&2
+        exit 2
+    fi
+    task_count=$verified_count
+    stage_capacity=$verified_concurrency
+elif [[ "$execution_mode" == diagnostic ]]; then
     if [[ "$stage" != provider-split-legacy && "$stage" != provider-split-large ]]; then
         printf 'Diagnostic execution requires one provider-split lane\n' >&2
         exit 2
@@ -125,8 +171,12 @@ if [[ "$execution_mode" == diagnostic ]]; then
     launch_plan=${KIMI_PROVIDER_LAUNCH_PLAN:?Set KIMI_PROVIDER_LAUNCH_PLAN}
     launch_plan_sha256=${KIMI_PROVIDER_LAUNCH_PLAN_SHA256:?Set KIMI_PROVIDER_LAUNCH_PLAN_SHA256}
     launch_role=legacy_sandoq
+    expected_launch_count=31
+    expected_launch_concurrency=24
     if [[ "$stage" == provider-split-large ]]; then
         launch_role=large_provider
+        expected_launch_count=32
+        expected_launch_concurrency=4
     fi
     verified_launch=$(
         PYTHONPATH="$workflow_dir:$project_dir/environments/vmvm_tb_v2:$project_dir/deps/verifiers:$project_dir/deps/renderers:$project_dir/deps/pydantic-config/src:$project_dir/extensions/sandoq:$sandoq_site:$x86_site" \
@@ -135,15 +185,22 @@ if [[ "$execution_mode" == diagnostic ]]; then
             --launch-plan "$launch_plan" --launch-plan-sha256 "$launch_plan_sha256" \
             --role "$launch_role" --format tsv
     )
-    IFS=$'\t' read -r verified_stage verified_provider eval_config task_file task_sha256 \
-        output_dir resource_manifest resource_manifest_sha256 partition_dir verified_extra \
+    IFS=$'\t' read -r verified_stage verified_provider eval_config eval_config_sha256 task_file \
+        task_sha256 verified_count verified_concurrency output_dir resource_manifest \
+        resource_manifest_sha256 partition_dir verified_extra \
         <<< "$verified_launch"
     if [[ -n "$verified_extra" || "$verified_launch" == *$'\n'* \
+        || ! "$verified_count" =~ ^[1-9][0-9]*$ || ! "$verified_concurrency" =~ ^[1-9][0-9]*$ \
+        || "$verified_count" != "$expected_launch_count" \
+        || "$verified_concurrency" != "$expected_launch_concurrency" \
         || "$stage" != "$verified_stage" || "$sandbox_provider" != "$verified_provider" ]]; then
         printf 'Diagnostic launch plan binding failed\n' >&2
         exit 2
     fi
-elif [[ -n ${KIMI_PROVIDER_LAUNCH_PLAN:-} || -n ${KIMI_PROVIDER_LAUNCH_PLAN_SHA256:-} ]]; then
+    task_count=$verified_count
+    stage_capacity=$verified_concurrency
+elif [[ -n ${KIMI_PROVIDER_LAUNCH_PLAN:-} || -n ${KIMI_PROVIDER_LAUNCH_PLAN_SHA256:-} \
+    || -n ${KIMI_SANDOQ_FALLBACK_PLAN:-} || -n ${KIMI_SANDOQ_FALLBACK_PLAN_SHA256:-} ]]; then
     printf 'Certified execution cannot consume a diagnostic launch plan\n' >&2
     exit 2
 fi
@@ -186,9 +243,9 @@ elif [[ "$stage" == provider-split-large ]]; then
         eval_config=${KIMI_VMVM_LARGE_EVAL_CONFIG:?Set KIMI_VMVM_LARGE_EVAL_CONFIG}
         task_file=${KIMI_VMVM_LARGE_TASK_FILE:?Set KIMI_VMVM_LARGE_TASK_FILE}
         task_sha256=${KIMI_VMVM_LARGE_TASK_FILE_SHA256:?Set KIMI_VMVM_LARGE_TASK_FILE_SHA256}
+        task_count=32
+        stage_capacity=4
     fi
-    task_count=28
-    stage_capacity=4
     identity_role=kimi-direct-tb4-diagnostic
     if [[ "$execution_mode" == certified ]]; then
         identity_role=kimi-direct-tb4
@@ -201,14 +258,18 @@ elif [[ "$stage" == provider-split-large ]]; then
             exit 2
         fi
     fi
+elif [[ "$stage" == sandoq-fallback-memory-8g ]]; then
+    identity_role=kimi-direct-tb4-sandoq-fallback-diagnostic
+elif [[ "$stage" == sandoq-fallback-memory-16g ]]; then
+    identity_role=kimi-direct-tb4-sandoq-fallback-diagnostic
 else
     if [[ "$execution_mode" == certified ]]; then
         eval_config=${KIMI_SANDOQ_LEGACY_EVAL_CONFIG:?Set KIMI_SANDOQ_LEGACY_EVAL_CONFIG}
         task_file=${KIMI_SANDOQ_LEGACY_TASK_FILE:?Set KIMI_SANDOQ_LEGACY_TASK_FILE}
         task_sha256=${KIMI_SANDOQ_LEGACY_TASK_FILE_SHA256:?Set KIMI_SANDOQ_LEGACY_TASK_FILE_SHA256}
+        task_count=31
+        stage_capacity=24
     fi
-    task_count=35
-    stage_capacity=24
     identity_role=kimi-direct-tb4-diagnostic
     if [[ "$execution_mode" == certified ]]; then
         identity_role=kimi-direct-tb4
@@ -234,6 +295,11 @@ for path in "$eval_config" "$task_file"; do
 done
 if [[ "$(sha256sum "$task_file" | cut -d' ' -f1)" != "$task_sha256" ]]; then
     printf 'Direct Kimi approved task set changed\n' >&2
+    exit 2
+fi
+if [[ -n ${eval_config_sha256:-} \
+    && "$(sha256sum "$eval_config" | cut -d' ' -f1)" != "$eval_config_sha256" ]]; then
+    printf 'Direct Kimi sealed evaluation config changed\n' >&2
     exit 2
 fi
 
@@ -302,10 +368,13 @@ ecr_token_metadata=${OCI_RUNNER_ECR_TOKEN_METADATA_PATH:-${ecr_token_file}.metad
 stage_env=(
     PROJECT_DIR="$project_dir"
     EVAL_CONFIG="$eval_config"
+    DIRECT_KIMI_EVAL_CONFIG_SHA256="${eval_config_sha256:-}"
     OUTPUT_DIR="$output_dir"
     DIRECT_KIMI_ROLE="$identity_role"
     DIRECT_KIMI_APPROVED_TASK_FILE="$task_file"
     DIRECT_KIMI_APPROVED_TASK_FILE_SHA256="$task_sha256"
+    DIRECT_KIMI_APPROVED_TASK_COUNT="$task_count"
+    DIRECT_KIMI_ROLLOUT_CONCURRENCY="$stage_capacity"
     DIRECT_KIMI_WORKER_MANIFEST="$manifest"
     DIRECT_KIMI_WORKER_MANIFEST_SHA256="$manifest_sha256"
     DIRECT_KIMI_BASE_URL="http://127.0.0.1:${router_port}/v1"
@@ -320,7 +389,16 @@ if [[ "$identity_role" == kimi-direct-tb4 ]]; then
         DIRECT_KIMI_SMOKE_CHECKPOINT_SHA256="$smoke_checkpoint_sha256"
     )
 fi
-if [[ "$execution_mode" == diagnostic ]]; then
+if [[ "$execution_mode" == sandoq-fallback-diagnostic ]]; then
+    stage_env+=(
+        DIRECT_KIMI_FALLBACK_PLAN="$launch_plan"
+        DIRECT_KIMI_FALLBACK_PLAN_SHA256="$launch_plan_sha256"
+        DIRECT_KIMI_FALLBACK_LANE="$launch_lane"
+        DIRECT_KIMI_RESOURCE_MANIFEST="$resource_manifest"
+        DIRECT_KIMI_RESOURCE_MANIFEST_SHA256="$resource_manifest_sha256"
+        DIRECT_KIMI_PROVIDER_PARTITION_DIR="$partition_dir"
+    )
+elif [[ "$execution_mode" == diagnostic ]]; then
     stage_env+=(
         DIRECT_KIMI_LAUNCH_PLAN="$launch_plan"
         DIRECT_KIMI_LAUNCH_PLAN_SHA256="$launch_plan_sha256"
@@ -331,6 +409,12 @@ if [[ "$execution_mode" == diagnostic ]]; then
     )
 fi
 if [[ "$sandbox_provider" == sandoq ]]; then
+    sandoq_lease_profile=standard
+    if [[ "$stage" == tb4 || "$stage" == provider-split-legacy \
+        || "$stage" == sandoq-fallback-memory-8g \
+        || "$stage" == sandoq-fallback-memory-16g ]]; then
+        sandoq_lease_profile=kimi-tb4-long
+    fi
     env "${stage_env[@]}" \
         "$x86_uv" run --no-project --offline --python "$python_bin" \
         python3 "$workflow_dir/terminal_bench_vmvm/sandoq_provider_context.py" supervise \
@@ -339,6 +423,7 @@ if [[ "$sandbox_provider" == sandoq ]]; then
         --concurrency "$stage_capacity" \
         --lease-create-cap "$(( stage_capacity < 4 ? stage_capacity : 4 ))" \
         --startup-timeout-seconds 3600 \
+        --lease-profile "$sandoq_lease_profile" \
         --ecr-token-file "$ecr_token_file" \
         --ecr-token-metadata "$ecr_token_metadata" \
         --project-root "$project_dir" --sandoq-site "$sandoq_site" \
@@ -418,7 +503,7 @@ if [[ ( "$stage" == provider-split-legacy || "$stage" == provider-split-large ) 
         --manifest-sha256 "$resource_manifest_sha256" \
         --output "$output_dir/provider_partition_certificate.json" \
         "${provider_certificate_args[@]}"
-elif [[ "$stage" != provider-split-legacy && "$stage" != provider-split-large ]]; then
+elif [[ "$execution_mode" == certified ]]; then
     certificate_args=(
         "$workflow_dir/certify_direct_kimi.py" "$certificate_mode"
         --run-dir "$output_dir"
@@ -436,7 +521,7 @@ elif [[ "$stage" != provider-split-legacy && "$stage" != provider-split-large ]]
 fi
 if [[ "$stage" == smoke || "$stage" == mobius-smoke ]]; then
     printf '{"job_id":"%s","stage":"%s","state":"capacity-limited-passed"}\n' "$SLURM_JOB_ID" "$stage"
-elif [[ "$execution_mode" == diagnostic ]]; then
+elif [[ "$execution_mode" != certified ]]; then
     printf '{"certification_eligible":false,"job_id":"%s","stage":"%s","state":"diagnostic-completed","trace_rollout_eligible":false}\n' "$SLURM_JOB_ID" "$stage"
 else
     printf '{"job_id":"%s","stage":"%s","state":"passed"}\n' "$SLURM_JOB_ID" "$stage"

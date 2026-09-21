@@ -129,6 +129,9 @@ if [[ "$sandbox_provider" == sandoq ]]; then
     fi
     if [[ "$OCI_RUNNER_ENVIRONMENT" != oci-runner \
         || "$SANDOQ_EFFECTIVE_TASK_NETWORK" != public \
+        || "$SANDOQ_LEASE_PROFILE" != standard \
+        || "$OCI_RUNNER_LEASE_DURATION" != 1h \
+        || "$OCI_RUNNER_POOL_RENEW_INTERVAL" != 5m \
         || -n ${OCI_RUNNER_TASK_NETWORK:-} \
         || "$OCI_RUNNER_POOL_SIZE" != "$sandoq_capacity" \
         || "$OCI_RUNNER_POOL_MIN_SIZE" != 0 \
@@ -493,6 +496,7 @@ PY
             --sandoq-pool-reuse-jitter "$OCI_RUNNER_POOL_REUSE_JITTER" \
             --sandoq-image-cache-max-entries "$OCI_RUNNER_IMAGE_CACHE_MAX_ENTRIES" \
             --sandoq-secret-cache-ttl "$OCI_RUNNER_SECRET_CACHE_TTL" \
+            --sandoq-lease-profile "$SANDOQ_LEASE_PROFILE" \
             --sandoq-lease-duration "$OCI_RUNNER_LEASE_DURATION" \
             --sandoq-pool-renew-interval "$OCI_RUNNER_POOL_RENEW_INTERVAL" \
             --direct-worker-manifest "$worker_manifest" \
