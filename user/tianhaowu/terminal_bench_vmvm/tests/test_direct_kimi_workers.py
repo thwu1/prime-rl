@@ -422,6 +422,23 @@ def test_direct_kimi_run_binding_rejects_nonprivate_inputs(tmp_path: Path) -> No
         direct_kimi_workers._run_binding(identity, invocations, provenance)
 
 
+def test_direct_kimi_router_binding_accepts_diagnostic_role(tmp_path: Path) -> None:
+    identity, invocations, provenance, identity_sha256 = _binding_files(
+        tmp_path / "run",
+        role="kimi-direct-tb4-diagnostic",
+    )
+
+    observed_identity_sha256, invocation_sha256, observed_identity = direct_kimi_workers._run_binding(
+        identity,
+        invocations,
+        provenance,
+    )
+
+    assert observed_identity_sha256 == identity_sha256
+    assert len(invocation_sha256) == 64
+    assert observed_identity["role"] == "kimi-direct-tb4-diagnostic"
+
+
 def test_direct_kimi_run_binding_rejects_hardlinks(tmp_path: Path) -> None:
     run_dir = tmp_path / "run"
     identity, invocations, provenance, _digest = _binding_files(run_dir)

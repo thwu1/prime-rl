@@ -75,6 +75,7 @@ KIMI_FINALIZE_TIMEOUT_SECONDS = 3_600
 KIMI_SCORING_TIMEOUT_SECONDS = 21_600
 KIMI_TIMEOUT_PROFILES = {
     "smoke": {"rollout_timeout": 28_800, "session_timeout": 32_400},
+    "recovery": {"rollout_timeout": 43_200, "session_timeout": 43_200},
     "full": {"rollout_timeout": 36_000, "session_timeout": 43_200},
     "quick": {"rollout_timeout": 900, "session_timeout": 2_400},
     "diagnostic": {"rollout_timeout": 300, "session_timeout": 600},
@@ -850,7 +851,21 @@ def _contract(
             if not isinstance(taskset, dict):
                 raise EvalIdentityError("resolved_contract_invalid")
             require_kimi_steady_state_concurrency = taskset.get("dataset_revision") is not None
-            required_profile = "full" if require_kimi_steady_state_concurrency else "smoke"
+            recovery_profile = KIMI_TIMEOUT_PROFILES["recovery"]
+            runtime = harness.get("runtime")
+            timeouts = config.get("timeout")
+            is_recovery_profile = (
+                isinstance(runtime, dict)
+                and isinstance(timeouts, dict)
+                and timeouts.get("rollout") == recovery_profile["rollout_timeout"]
+                and runtime.get("session_timeout") == recovery_profile["session_timeout"]
+            )
+            if require_kimi_steady_state_concurrency:
+                required_profile = "full"
+            elif is_recovery_profile:
+                required_profile = "recovery"
+            else:
+                required_profile = "smoke"
         validate_kimi_timeout_contract(config, required_profile=required_profile)
         validate_kimi_retry_contract(config)
     if config.get("num_rollouts") != 1:

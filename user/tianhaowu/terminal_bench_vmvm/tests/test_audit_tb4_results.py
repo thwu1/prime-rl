@@ -260,6 +260,22 @@ def _certificate_fixture(
         },
     }
     readiness.write_text(json.dumps(readiness_payload), encoding="utf-8")
+    smoke_results = tmp_path / "smoke_results.jsonl"
+    smoke_results.write_text(
+        "".join(
+            json.dumps(
+                {
+                    "id": f"smoke-{index}",
+                    "task": {"slug": f"smoke-task-{index}"},
+                    "is_completed": True,
+                    "stop_condition": "agent_completed",
+                }
+            )
+            + "\n"
+            for index in range(2)
+        ),
+        encoding="utf-8",
+    )
     smoke_payload = {
         "schema_version": 1,
         "state": "passed",
@@ -275,6 +291,7 @@ def _certificate_fixture(
             "require_model_io": True,
             "model_io_contract": tb4.EXPECTED_MODEL_IO_CONTRACT,
             "require_request_graph_match": True,
+            "require_clean_stop": True,
             "require_token_data": False,
             "require_logprobs": False,
             "max_sequence_tokens": 262144,
@@ -288,6 +305,10 @@ def _certificate_fixture(
             "global_problems": 0,
         },
         "artifacts": {
+            "results": {
+                "path": str(smoke_results),
+                "sha256": _file_digest(smoke_results),
+            },
             "readiness_checkpoint": {
                 "path": str(readiness),
                 "sha256": _file_digest(readiness),
@@ -441,6 +462,7 @@ def _certificate_fixture(
             "provenance": provenance,
             "readiness": readiness,
             "smoke": smoke,
+            "smoke_results": smoke_results,
             "proxy_info": proxy_info,
             "eval_invocations": invocations,
             "route_guard_success": guard_receipt_path,
@@ -588,6 +610,11 @@ def test_requires_model_io_on_every_supported_trace(tmp_path: Path) -> None:
         ("stop_condition", None, "supported_trace_stop_condition_invalid"),
         ("stop_condition", "", "supported_trace_stop_condition_invalid"),
         ("stop_condition", "error", "supported_trace_stop_condition_invalid"),
+        (
+            "stop_condition",
+            "harness_timeout",
+            "supported_trace_stop_condition_infrastructure",
+        ),
     ],
 )
 def test_requires_supported_rows_to_be_completed_with_a_nonerror_stop(
@@ -702,6 +729,7 @@ def test_certificate_is_aggregate_only_self_hashed_and_write_once(
     }
     assert certificate["artifacts"]["config"]["sha256"] == _file_digest(paths["config"])
     assert certificate["audit_policy"]["require_request_graph_match"] is True
+    assert certificate["audit_policy"]["require_clean_stop"] is True
     serialized = json.dumps(certificate, sort_keys=True)
     for forbidden in (
         "failure_examples",
@@ -768,7 +796,10 @@ def test_certificate_rejects_weakened_model_contract(
         )
 
 
-@pytest.mark.parametrize("tamper", ["self_hash", "policy", "graph_policy", "counts"])
+@pytest.mark.parametrize(
+    "tamper",
+    ["self_hash", "policy", "graph_policy", "clean_stop_policy", "counts"],
+)
 def test_certificate_rejects_smoke_integrity_tampering(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -782,6 +813,8 @@ def test_certificate_rejects_smoke_integrity_tampering(
         smoke["audit_policy"]["require_model_io"] = False
     elif tamper == "graph_policy":
         smoke["audit_policy"]["require_request_graph_match"] = False
+    elif tamper == "clean_stop_policy":
+        smoke["audit_policy"]["require_clean_stop"] = False
     else:
         smoke["counts"]["trace_failures"] = 1
     if tamper != "self_hash":
@@ -791,6 +824,31 @@ def test_certificate_rejects_smoke_integrity_tampering(
     envelope["identity"]["deployment"]["smoke_checkpoint"]["sha256"] = _file_digest(paths["smoke"])
 
     with pytest.raises(TB4AuditError, match="smoke_checkpoint"):
+        certify_tb4_results(
+            results,
+            certificate_path=checkpoint,
+            min_supported_pass_rate=0.04,
+            max_supported_pass_rate=0.22,
+        )
+
+
+def test_certificate_reaudits_legacy_smoke_stop_conditions(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    results, checkpoint, envelope, paths = _certificate_fixture(tmp_path, monkeypatch)
+    smoke_results = paths["smoke_results"]
+    rows = [json.loads(line) for line in smoke_results.read_text().splitlines()]
+    rows[0]["stop_condition"] = "HarnessTimeout"
+    smoke_results.write_text("".join(json.dumps(row) + "\n" for row in rows))
+    smoke = json.loads(paths["smoke"].read_text())
+    smoke["artifacts"]["results"]["sha256"] = _file_digest(smoke_results)
+    body = {key: value for key, value in smoke.items() if key != "smoke_checkpoint_sha256"}
+    smoke["smoke_checkpoint_sha256"] = _digest(body)
+    paths["smoke"].write_text(json.dumps(smoke))
+    envelope["identity"]["deployment"]["smoke_checkpoint"]["sha256"] = _file_digest(paths["smoke"])
+
+    with pytest.raises(TB4AuditError, match="^smoke_trace_audit_failed$"):
         certify_tb4_results(
             results,
             certificate_path=checkpoint,

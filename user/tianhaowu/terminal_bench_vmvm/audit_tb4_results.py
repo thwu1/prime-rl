@@ -20,7 +20,9 @@ from audit_traces import (
     KIMI_K3_MAX_MODEL_IO_CONTRACT,
     TraceJSONLError,
     _audit_trace,
+    _clean_stop_problem,
     _iter_traces,
+    _summarize_hashed_clean_stops,
     _task_slug,
 )
 from deployment_endpoint import (
@@ -302,11 +304,17 @@ def audit_results(
                 model_io_contract=KIMI_K3_MAX_MODEL_IO_CONTRACT,
                 require_request_graph_match=True,
             )
-            if row.get("is_completed") is not True:
+            stop_problem = _clean_stop_problem(row)
+            if stop_problem == "trace_not_completed":
                 problems.append("supported_trace_not_completed")
-            stop_condition = row.get("stop_condition")
-            if not isinstance(stop_condition, str) or not stop_condition.strip() or stop_condition == "error":
+            elif stop_problem == "trace_stop_condition_invalid":
                 problems.append("supported_trace_stop_condition_invalid")
+            elif stop_problem == "trace_stop_condition_infrastructure":
+                problems.append(
+                    "supported_trace_stop_condition_invalid"
+                    if row.get("stop_condition") == "error"
+                    else "supported_trace_stop_condition_infrastructure"
+                )
             score, score_problem = _score_problem(row)
             if score_problem is not None:
                 problems.append(score_problem)
@@ -547,6 +555,7 @@ def _validate_deployment_checkpoints_legacy(
         or policy.get("require_reasoning") is not True
         or policy.get("require_model_io") is not True
         or policy.get("require_request_graph_match") is not True
+        or policy.get("require_clean_stop") is not True
         or canonical_json(policy.get("model_io_contract")) != canonical_json(EXPECTED_MODEL_IO_CONTRACT)
         or policy.get("require_token_data") is not False
         or policy.get("require_logprobs") is not False
@@ -585,6 +594,22 @@ def _validate_deployment_checkpoints_legacy(
         or any(not isinstance(value, int) or isinstance(value, bool) or value < 1 for value in positive_counts)
     ):
         raise TB4AuditError("smoke_checkpoint_counts_invalid")
+    results_record = _identity_artifact(
+        smoke_artifacts.get("results") if isinstance(smoke_artifacts, dict) else None,
+        label="smoke_results",
+    )
+    try:
+        stop_summary, stop_failed = _summarize_hashed_clean_stops(
+            results_record[0],
+            expected_sha256=results_record[1],
+            expected_count=expected_traces,
+        )
+    except (OSError, TraceJSONLError) as error:
+        raise TB4AuditError("smoke_trace_audit_invalid") from error
+    if stop_failed or stop_summary["traces"] != counts.get("traces"):
+        raise TB4AuditError("smoke_trace_audit_failed")
+    if _identity_artifact(smoke_artifacts["results"], label="smoke_results") != results_record:
+        raise TB4AuditError("smoke_trace_audit_changed")
     return readiness, smoke
 
 
@@ -858,6 +883,7 @@ def certify_tb4_results(
                 "require_model_io": True,
                 "model_io_contract": EXPECTED_MODEL_IO_CONTRACT,
                 "require_request_graph_match": True,
+                "require_clean_stop": True,
                 "require_tool_schemas": True,
                 "require_tool_call_lineage": True,
                 "require_token_data": False,

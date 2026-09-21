@@ -7,7 +7,6 @@ from pathlib import Path
 import direct_qwen_workers as direct
 import finalize_qwen_repair_sft as finalizer
 import pytest
-from audit_traces import QWEN3_A95B_MODEL_IO_CONTRACT_ID, qwen_repair_trace_contracts_value
 
 
 def _sha256(body: bytes) -> str:
@@ -83,7 +82,6 @@ def _write_layout(tmp_path: Path, *, expected_count: int = 2) -> tuple[finalizer
             "max_total_tokens": 262_144,
             "preserve_thinking": True,
             "provider_concurrency": direct.PRODUCTION_PROVIDER_CONCURRENCY,
-            "reasoning_effort": "max",
             "retry_class_count": len(direct.ROLLOUT_RETRY_POLICY),
             "retry_policy_sha256": _sha256(
                 "".join(f"{name}\n" for name in sorted(direct.ROLLOUT_RETRY_POLICY)).encode()
@@ -100,7 +98,7 @@ def _write_layout(tmp_path: Path, *, expected_count: int = 2) -> tuple[finalizer
             "retained_count": 1,
             "task_index_order_sha256": "7" * 64,
         },
-        "schema_version": 3,
+        "schema_version": 2,
         "selection": {
             "approved_repair_count": expected_count,
             "missing_or_errored_count": expected_count,
@@ -117,21 +115,6 @@ def _write_layout(tmp_path: Path, *, expected_count: int = 2) -> tuple[finalizer
             "routing_epoch": 3,
             "task_count": approved_count,
         },
-        "source_partition": {
-            "error_traces": expected_count - 1,
-            "exhaustive": True,
-            "invalid_positive_traces": 0,
-            "positive_reward_traces": 0,
-            "repair_tasks": expected_count,
-            "retained_original_tasks": 1,
-            "retained_valid_positive_traces": 0,
-            "reward_zero_traces": 1,
-            "seen_traces": 2,
-            "source_task_count": approved_count,
-            "superseded_legacy_empty_reasoning_traces": 0,
-            "unseen_tasks": 1,
-        },
-        "trace_contracts": qwen_repair_trace_contracts_value(),
     }
     selection_body = json.dumps(selection, indent=2, sort_keys=True).encode() + b"\n"
     selection_path = tmp_path / "repair" / "repair_manifest.json"
@@ -249,7 +232,7 @@ def _write_export(output: Path, source: Path, project: Path, expected_count: int
         "selection": "pass-only",
         "source_validation": {
             "max_sequence_tokens": 262_144,
-            "model_io_contract": QWEN3_A95B_MODEL_IO_CONTRACT_ID,
+            "require_clean_stop": True,
             "require_exact_provider_json": False,
             "require_model_io": True,
             "require_reasoning": True,
@@ -367,7 +350,7 @@ def test_finalize_publishes_exact_fresh_repair_attestation(
     manifest = json.loads((options.output_dir / "manifest.json").read_bytes())
     assert manifest["source_validation"] == {
         "max_sequence_tokens": 262_144,
-        "model_io_contract": QWEN3_A95B_MODEL_IO_CONTRACT_ID,
+        "require_clean_stop": True,
         "require_exact_provider_json": False,
         "require_model_io": True,
         "require_reasoning": True,
@@ -380,106 +363,6 @@ def test_finalize_publishes_exact_fresh_repair_attestation(
         finalizer.exporter.TARGET_RENDERING_CONTRACT_FILENAME,
         "train/train.jsonl",
         "validation/train.jsonl",
-    }
-
-
-def test_sandoq_repair_uses_named_provider_transition_without_routing_epoch(
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    options, _selection_body = _write_layout(tmp_path)
-    (options.source_dir / "config.toml").write_text('[harness.runtime]\ntype = "sandoq"\n')
-    (options.source_dir / "eval_run_identity.json").write_text("{}\n")
-    monkeypatch.setattr(finalizer.platform, "machine", lambda: "x86_64")
-    provider = {
-        "eval_run_identity_sha256": "1" * 64,
-        "identity_compatibility_sha256": "2" * 64,
-        "sandbox_provider": "sandoq",
-        "transition_kind": finalizer.VMVM_TO_SANDOQ_TRANSITION_KIND,
-    }
-
-    def audit_source(source: Path, *_args: object) -> dict:
-        return {
-            "artifacts": finalizer._source_artifacts(
-                source,
-                sandbox_provider="sandoq",
-            ),
-            "corpus": {
-                "task_count": options.expected_count,
-                "task_file_sha256": _artifact(source / "inputs/task_file.txt")["sha256"],
-                "taskset_id": "terminal-bench-vmvm",
-                "dataset_revision": "b" * 40,
-            },
-            "provider": provider,
-        }
-
-    def run_command(command: list[str], _cwd: Path, code: str) -> dict:
-        assert code == "sft_export_failed"
-        assert "--routing-epoch-index" not in command
-        output = Path(command[command.index("--output-dir") + 1])
-        (output / "train").mkdir(parents=True)
-        (output / "validation").mkdir()
-        (output / "manifest.json").write_text("{}\n")
-        return {
-            "approved_tasks": options.expected_count,
-            "eval_run_identity_sha256": provider["eval_run_identity_sha256"],
-            "excluded_error_traces": 1,
-            "input_traces": options.expected_count,
-            "output_sha256": {},
-            "rows": {"total": 1, "train": 1, "validation": 0},
-            "sandbox_provider": "sandoq",
-            "selected_traces": 1,
-            "selection": "pass-only",
-            "status": "exported",
-        }
-
-    def validate_export(
-        summary: dict,
-        _output: Path,
-        _expected_count: int,
-        source_artifacts: dict,
-        _corpus: dict,
-        _validation_permyriad: int,
-        _split_salt: str,
-        _exporter_sha256: str,
-        observed_provider: dict,
-    ) -> tuple[dict, dict]:
-        assert observed_provider == provider
-        return {"source_artifacts": dict(source_artifacts)}, {"manifest.json": _artifact(_output / "manifest.json")}
-
-    monkeypatch.setattr(finalizer, "_validate_export_summary", validate_export)
-    monkeypatch.setattr(
-        finalizer.migration,
-        "_publish_directory",
-        lambda staged, output, _validator: staged.rename(output),
-    )
-    summary = finalizer.finalize_qwen_repair_sft(
-        options,
-        repository_validator=lambda path, _revision: path,
-        source_auditor=audit_source,
-        command_runner=run_command,
-        submodule_reader=lambda _project, _revision: {
-            "deps/pydantic-config": "c" * 40,
-            "deps/renderers": "d" * 40,
-            "deps/verifiers": "e" * 40,
-        },
-        runtime_validator=lambda project: project / "user" / "tianhaowu" / "terminal_bench_vmvm",
-    )
-
-    attestation = json.loads((options.output_dir / finalizer.ATTESTATION_FILENAME).read_text())
-    assert summary["sandbox_provider"] == "sandoq"
-    assert attestation["kind"] == finalizer.SANDOQ_ATTESTATION_KIND
-    assert attestation["schema_version"] == finalizer.SANDOQ_ATTESTATION_SCHEMA_VERSION
-    assert "routing" not in attestation
-    assert attestation["provider_transition"] == {
-        "cleanup_implied_successful_traces": 1,
-        "cleanup_must_succeed": True,
-        "kind": finalizer.VMVM_TO_SANDOQ_TRANSITION_KIND,
-        "repair_eval_run_identity_sha256": "1" * 64,
-        "repair_identity_compatibility_sha256": "2" * 64,
-        "repair_sandbox_provider": "sandoq",
-        "schema_version": 1,
-        "source_sandbox_provider": "vmvm",
     }
 
 
@@ -574,14 +457,11 @@ task_file_sha256 = "{task_file_sha256}"
         materializer_sha256="d" * 64,
         exporter_sha256="f" * 64,
         repository_revision="a" * 40,
-        source_artifacts={},
-        source_partition={},
         submodules={
             "deps/pydantic-config": "c" * 40,
             "deps/renderers": "d" * 40,
             "deps/verifiers": "e" * 40,
         },
-        trace_contracts=qwen_repair_trace_contracts_value(),
     )
     monkeypatch.setattr(
         finalizer.direct,
@@ -615,52 +495,6 @@ def test_runtime_origin_is_bound_to_loaded_modules(tmp_path: Path) -> None:
         finalizer._validate_runtime_origin(tmp_path)
 
 
-def test_generation_repair_audit_requires_exact_current24_contract(tmp_path: Path) -> None:
-    options, selection_body = _write_layout(tmp_path)
-    selection = finalizer._load_repair_selection(
-        options.repair_selection_manifest,
-        _sha256(selection_body),
-        options.expected_count,
-    )
-    contract = finalizer.generation._load_contract()
-    artifacts = {
-        name: {"bytes": 1, "sha256": "8" * 64}
-        for name in (*finalizer.SOURCE_ARTIFACTS, *finalizer.GENERATION_SOURCE_ARTIFACTS)
-    }
-    artifacts["inputs/task_file.txt"]["sha256"] = selection.task_file_sha256
-    artifacts[finalizer.generation.CAPACITY_SMOKE_FILENAME]["sha256"] = "7" * 64
-    routing = {
-        "capacity_smoke_sha256": "7" * 64,
-        "endpoint_bundle_sha256": contract["target_generation"]["endpoint_bundle_sha256"],
-        "manifest_schema_version": 3,
-        "provider_concurrency": 48,
-        "queue_size": 48,
-        "request_id_headers": ["x-session-id"],
-        "rollout_concurrency": 96,
-        "router_policy": "consistent_hash",
-        "routing_epoch": 1,
-        "serving_generation": 2,
-        "serving_generation_transition_sha256": "9" * 64,
-        "spec_sha256": contract["target_generation"]["spec_sha256"],
-        "worker_count": 24,
-        "vmvm_lease_concurrency": 4,
-    }
-    audit = {
-        "artifacts": artifacts,
-        "routing": routing,
-        "corpus": {
-            "dataset_revision": "a" * 40,
-            "task_count": options.expected_count,
-            "task_file_sha256": selection.task_file_sha256,
-            "taskset_id": "terminal-bench-vmvm",
-        },
-    }
-    finalizer._validate_source_audit(audit, selection, options.expected_count)
-    audit["routing"] = {**routing, "worker_count": 16}
-    with pytest.raises(finalizer.RepairFinalizationError, match="^source_audit_invalid$"):
-        finalizer._validate_source_audit(audit, selection, options.expected_count)
-
-
 def test_selection_rejects_extra_metadata(tmp_path: Path) -> None:
     options, selection_body = _write_layout(tmp_path)
     selection = json.loads(selection_body)
@@ -689,20 +523,6 @@ def test_selection_accepts_exact_mixed_category_union(tmp_path: Path) -> None:
     selection["selection"]["missing_or_errored_task_file_sha256"] = _sha256(missing_body)
     selection["selection"]["strict_invalid_pass_count"] = 1
     selection["selection"]["strict_invalid_pass_task_file_sha256"] = _sha256(strict_body)
-    selection["source_partition"] = {
-        "error_traces": 0,
-        "exhaustive": True,
-        "invalid_positive_traces": 1,
-        "positive_reward_traces": 1,
-        "repair_tasks": 2,
-        "retained_original_tasks": 1,
-        "retained_valid_positive_traces": 0,
-        "reward_zero_traces": 1,
-        "seen_traces": 2,
-        "source_task_count": 3,
-        "superseded_legacy_empty_reasoning_traces": 0,
-        "unseen_tasks": 1,
-    }
     body = json.dumps(selection, indent=2, sort_keys=True).encode() + b"\n"
     options.repair_selection_manifest.write_bytes(body)
 

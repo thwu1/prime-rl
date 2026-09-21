@@ -55,12 +55,48 @@ Invoke vacli directly. Do not wrap it in the host `stdbuf`: the injected
 `libstdbuf.so` may require GLIBC 2.38 while vacli selects an older bundled libc,
 causing lease startup to fail before any VM is requested.
 
+Keep each real vacli child on its dedicated process-lifetime spawn-owner thread.
+Linux binds `PR_SET_PDEATHSIG` to the thread that creates the child, so spawning
+from a short-lived provision or recovery thread makes a healthy lease process
+exit as soon as that operation returns. The owner uses a fail-closed exec wrapper
+to install the signal without a multithreaded `preexec_fn`, publishes the child
+before waking its caller, and retains late timed-out children until they are
+reaped. Initial leases and resumed tunnels use this path; injected subprocess
+test doubles remain direct. Provider-specific lease variants customize
+`_lease_command()` and inherit `start()`; they must not reintroduce direct
+`Popen`, `preexec_fn`, or `stdbuf` wrappers.
+
 When submitting with Slurm `--export-file` or another isolated environment,
 explicitly carry `THRIFT_TLS_CL_CERT_PATH` and `THRIFT_TLS_CL_KEY_PATH` from the
 trusted launcher environment. Vacli maps them to its required `--tls-cert` and
 `--tls-key` inputs. Keep the export allowlist narrow; omitting either path makes
 vacli exit locally before it requests a lease, while using Slurm's default
 export-all can hide the omission during smoke testing.
+
+Kimi TB4 singleton-wave controllers additionally require nonempty `X2P_ENV`,
+`X2P_CFG_ENV`, and `X2P_PROXY_URL` as one complete tuple. Hash-bind each value
+in the controller and shard records, but never put a raw X2P value in a
+persistent shard `.env`, command line, receipt, log, or public output. Pass the
+three values only in the anonymous mode-0600 `sbatch --export-file` descriptor,
+alongside the two TLS paths and the existing narrow job environment. Every
+singleton submission must use an explicit `--time=3-00:00:00`; verify that
+exact scheduler limit before accepting completion. A controller restart must
+present the same X2P commitments, while an intentional rotation uses a fresh
+generation-bound controller root and preserves the per-shard commitments in
+multigeneration finalization.
+
+The canonical Kimi two-task smoke uses
+`user/tianhaowu/terminal_bench_vmvm/kimi_smoke_launch.py submit`; do not submit
+`run_eval.sbatch` or `run_kimi_tb4_gate.sbatch` directly. The launcher requires
+the same complete X2P tuple and both TLS paths, filters the job environment,
+and transports it with an anonymous mode-0600, link-count-zero Slurm export
+descriptor. It requests `3-00:00:00`. Before creating output, both the gate and
+the evaluator recompute all three X2P commitments and require an exact live
+`squeue` JobID/time-limit observation. The Kimi smoke run identity is schema 2;
+its smoke checkpoint and audit bind the schema-2 launch contract, which contains
+only SHA-256 commitments, the transport identifier, and the walltime. Missing,
+partial, legacy, or drifted Kimi smoke contracts fail closed. Non-Kimi run
+identities remain schema 1.
 
 For Harbor tasks with Compose sidecars, retain the VMVM lease and replace the
 bootstrap task container with a Podman Compose project. Start
@@ -474,6 +510,51 @@ requires every hash-verified captured `/chat/completions` request to specify
 flags, and every parsed provider response to identify `Kimi-K3`. Request-side
 evidence proves that max reasoning was requested; provider-side proof that it
 was honored requires separate server attestation.
+
+Do not treat an interactive summary or zero evaluator exit as a production
+trace certificate. After the fresh Mobius allocation is terminal, require an
+independently authored mode-0400 authorization binding the exact run,
+launch/oracle/input artifacts, clean source/runtime import closure, and full
+terminal Slurm allocation/step/requeue identity plus two stable empty allocation
+and step queue views. The authorization also precommits the unique audit job,
+fresh reservation/log paths, resources, and stdin wrapper transport. Never
+execute `submit_trace_production_audit.sh` by mutable pathname: capture its exact
+authorized bytes into a write-sealed memfd and invoke fd 7 through `env -i`.
+The stdlib-only submit controller uses one exact held
+`/usr/bin/sbatch --export=NONE` call, sends captured wrapper bytes on stdin,
+binds literal `Command=(null)` plus token/job/user/resource identity, releases
+once, and seals the permit/receipt before batch setup. Keep the created
+reservation and its parent anchored by dirfd for the entire lifecycle, bind
+their device/inode identities into the v2 admission chain and immutable batch
+arguments, and require the batch bootstrap to match both identities. Known-job
+failure gets at most one exact-ID cancellation and six stable
+terminal/empty-queue views; identity conflict is latched across partial
+reads/signals and forbids control.
+Fresh leaf directories on the production checkpoint filesystem have a link
+count of two; require that exact value for the reservation in the submit
+controller, wrapper, and bootstrap. Never use a same-UID mutable directory as
+`sys.pycache_prefix`: `-B` suppresses writes but still reads unchecked-hash
+bytecode. Use the validated root-owned `/dev/null` character device as the
+cache sink and exercise the real batch wrapper before arming it.
+The local `sbatch` process group must also be boundedly reaped on every exit.
+The batch bootstrap uses the validated non-directory cache sink with Python
+`-I -S -B` and executes user-owned native extensions only
+from write-sealed memfds. The certifier holds dirfd-backed inputs and the writer
+lock, audits one immutable results snapshot with clean-stop plus strict
+reasoning/model-I/O/request-graph/262,144 checks, performs its last terminal
+query adjacent to publication, then commits the authoritative mode-0444
+completion marker last. The resulting certificate proves trace fidelity only.
+Its qualified rollout projection must bind 2,500 tasks, exact 24-way
+rollout/multiplex/HTTP concurrency, four VMVM lease starts, the reviewed full
+Kimi timeout envelope, max reasoning, 262,144-token limits, durable model-I/O,
+and the exact VMVM source digest, with the bounded-cancellation backend and
+Terminal-Bench taskset bytes bound directly in the executable source closure.
+SFT readiness still requires the downstream format-v3 export manifest and
+schema-v2 immutable-local-tokenizer-tree preflight attestation.
+These checked-in audit scripts are inert until the complete live qualification
+chain has produced a fresh non-resume run and an external authorization. Never
+reuse a plan or authorization after its inference generation is lost,
+preempted, or replaced.
 
 The required order is readiness and state-reuse gate, two-task transcript
 smoke, full 66-task TB4 pass@1 audit, deployment resize, fresh readiness gate,

@@ -1,4 +1,3 @@
-import errno
 import fcntl
 import hashlib
 import json
@@ -9,10 +8,6 @@ from pathlib import Path
 
 import finalize_qwen_sft as finalizer
 import pytest
-from audit_traces import (
-    QWEN3_A95B_EPOCH3_MODEL_IO_CONTRACT_ID,
-    QWEN3_A95B_MODEL_IO_CONTRACT_ID,
-)
 from finalize_qwen_sft import FinalizationError, FinalizeOptions
 
 
@@ -201,7 +196,7 @@ def _export_summary(output: Path, expected_count: int, routing_index: Path, sour
                 "selection": "pass-only",
                 "source_validation": {
                     "max_sequence_tokens": 262144,
-                    "model_io_contract": QWEN3_A95B_MODEL_IO_CONTRACT_ID,
+                    "require_clean_stop": True,
                     "require_exact_provider_json": False,
                     "require_model_io": True,
                     "require_reasoning": True,
@@ -310,7 +305,7 @@ def test_finalizer_runs_label_before_export_and_emits_only_aggregates(
     assert staged_outputs and not staged_outputs[0].exists()
     assert json.loads((options.output_dir / "manifest.json").read_bytes())["source_validation"] == {
         "max_sequence_tokens": 262_144,
-        "model_io_contract": QWEN3_A95B_MODEL_IO_CONTRACT_ID,
+        "require_clean_stop": True,
         "require_exact_provider_json": False,
         "require_model_io": True,
         "require_reasoning": True,
@@ -325,59 +320,6 @@ def test_finalizer_runs_label_before_export_and_emits_only_aggregates(
     encoded = json.dumps(summary)
     assert str(options.source_dir) not in encoded
     assert str(options.output_dir) not in encoded
-
-
-def test_sandoq_finalizer_skips_vmvm_router_labeling(
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    options, _ = _write_layout(tmp_path)
-    config = options.source_dir / "config.toml"
-    config.write_text(config.read_text() + '[harness.runtime]\ntype = "sandoq"\n')
-    (options.source_dir / "eval_run_identity.json").write_text("{}\n")
-    monkeypatch.setattr(finalizer.platform, "machine", lambda: "x86_64")
-    calls: list[list[str]] = []
-
-    def run_command(command: list[str], _cwd: Path, code: str) -> dict:
-        calls.append(command)
-        assert code == "sft_export_failed"
-        assert "--routing-epoch-index" not in command
-        output = Path(command[command.index("--output-dir") + 1])
-        output.mkdir()
-        return {
-            "approved_tasks": 3,
-            "eval_run_identity_sha256": "a" * 64,
-            "excluded_error_traces": 0,
-            "input_traces": 3,
-            "output_sha256": {},
-            "rows": {"total": 3, "train": 3, "validation": 0},
-            "sandbox_provider": "sandoq",
-            "selected_traces": 3,
-            "selection": "pass-only",
-            "status": "exported",
-        }
-
-    validated: list[object] = []
-
-    def validate_summary(*args, **_kwargs) -> None:
-        validated.append(args[4])
-        assert args[4] is None
-
-    monkeypatch.setattr(finalizer, "_validate_export_summary", validate_summary)
-    summary = finalizer.finalize_qwen_sft(
-        options,
-        repository_validator=lambda path, _revision: path,
-        source_auditor=lambda *_args: {
-            "eval_run_identity_sha256": "a" * 64,
-            "sandbox_provider": "sandoq",
-        },
-        command_runner=run_command,
-    )
-
-    assert len(calls) == 1
-    assert validated == [None, None]
-    assert summary["sandbox_provider"] == "sandoq"
-    assert "routing_epoch_rows" not in summary
 
 
 def test_finalizer_passes_private_exclusion_and_rejects_toctou(
@@ -417,9 +359,6 @@ def test_finalizer_passes_private_exclusion_and_rejects_toctou(
             "union_count": 1,
         }
         manifest = json.loads((output / "manifest.json").read_text())
-        manifest["source_validation"]["model_io_contract"] = (
-            QWEN3_A95B_EPOCH3_MODEL_IO_CONTRACT_ID
-        )
         manifest["counts"].update(
             {
                 "exclusion_missing_tasks": 0,
@@ -496,9 +435,6 @@ def test_finalizer_accounts_for_attested_missing_source_row(
             "union_count": 1,
         }
         manifest = json.loads((output / "manifest.json").read_text())
-        manifest["source_validation"]["model_io_contract"] = (
-            QWEN3_A95B_EPOCH3_MODEL_IO_CONTRACT_ID
-        )
         manifest["counts"].update(
             {
                 "excluded_error_traces": 0,
@@ -676,74 +612,16 @@ def test_publish_output_removes_its_directory_when_parent_fsync_fails(
     staged.mkdir()
     (staged / "artifact").write_text("new\n")
     destination = tmp_path / "destination"
-    original_fsync = finalizer.migration._fsync_directory
-
-    def fail_published_parent(path: Path) -> None:
-        if path == destination.parent and destination.exists():
-            raise OSError("synthetic fsync failure")
-        original_fsync(path)
-
     monkeypatch.setattr(
-        finalizer.migration,
+        finalizer,
         "_fsync_directory",
-        fail_published_parent,
+        lambda _path: (_ for _ in ()).throw(OSError("synthetic fsync failure")),
     )
 
     with pytest.raises(FinalizationError, match="^output_publish_failed$"):
         finalizer._publish_output(staged, destination)
 
     assert not destination.exists()
-
-
-def test_publish_output_uses_validated_fallback_when_renameat2_is_unsupported(
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    staged = tmp_path / "staged"
-    staged.mkdir()
-    (staged / "artifact").write_text("new\n")
-    destination = tmp_path / "destination"
-    validation_states: list[bool] = []
-    monkeypatch.setattr(
-        finalizer.migration,
-        "_rename_noreplace",
-        lambda _source, _destination: (_ for _ in ()).throw(OSError(errno.EINVAL, "unsupported")),
-    )
-
-    def validate(path: Path, incomplete: bool) -> None:
-        validation_states.append(incomplete)
-        assert (path / "artifact").read_text() == "new\n"
-        assert (path / finalizer.direct.MIGRATION_INCOMPLETE_FILENAME).is_file()
-
-    finalizer._publish_output(staged, destination, validate)
-
-    assert validation_states == [True]
-    assert (destination / "artifact").read_text() == "new\n"
-    assert not (destination / finalizer.direct.MIGRATION_INCOMPLETE_FILENAME).exists()
-    assert (staged / "artifact").read_text() == "new\n"
-
-
-def test_publish_output_fallback_preserves_racing_destination(
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    staged = tmp_path / "staged"
-    staged.mkdir()
-    (staged / "artifact").write_text("new\n")
-    destination = tmp_path / "destination"
-
-    def collide(_source: Path, observed_destination: Path) -> None:
-        observed_destination.mkdir()
-        (observed_destination / "sentinel").write_text("keep\n")
-        raise OSError(errno.EINVAL, "unsupported")
-
-    monkeypatch.setattr(finalizer.migration, "_rename_noreplace", collide)
-
-    with pytest.raises(FinalizationError, match="^output_already_exists$"):
-        finalizer._publish_output(staged, destination)
-
-    assert (destination / "sentinel").read_text() == "keep\n"
-    assert (staged / "artifact").read_text() == "new\n"
 
 
 def test_finalizer_refuses_busy_source_lock(tmp_path: Path) -> None:

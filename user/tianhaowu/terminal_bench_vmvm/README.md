@@ -565,15 +565,25 @@ transcript smoke. `INFERENCE_READINESS_CHECKPOINT_SHA256` is the external file
 SHA-256 of the completed readiness JSON, not its embedded deployment-spec
 digest.
 
+Kimi smoke submission must go through `kimi_smoke_launch.py submit`, never a
+direct `sbatch`. The launcher requires `X2P_ENV`, `X2P_CFG_ENV`, and
+`X2P_PROXY_URL` together with both `THRIFT_TLS_CL_*` paths in its ambient
+environment. It sends the raw tuple only through an anonymous mode-0600,
+link-count-zero Slurm export descriptor; no raw X2P value is written to a
+`.env`, command line, receipt, log, or result. The job re-hashes all three
+values, verifies the schema-2 commitments and its live Slurm time limit before
+creating the output directory, and records only those commitments plus the
+exact `3-00:00:00` limit in the run identity and smoke checkpoint. Export the
+three raw X2P values in the protected launcher pane rather than spelling them
+in the command below.
+
 ```bash
 tmux send-keys -t swebench_vmvm:Launcher.0 \
-  "cd /checkpoint/ram/tianhaowu/terminal_bench_vmvm/sources/prime-rl-<commit> && env PROJECT_DIR=\$PWD EVAL_EXPECTED_PRIME_RL_REVISION=<commit> EVAL_RUN_ROLE=smoke EVAL_DEPLOYMENT_ID=tianhaowu-k3-kda-tb1-low-20260916 EVAL_EXPECTED_MODEL=Kimi-K3 EVAL_APPROVED_TASK_FILE=\$PWD/user/tianhaowu/terminal_bench_vmvm/configs/eval/tb4_kimi_token_smoke.tasks.txt EVAL_APPROVED_TASK_FILE_SHA256=ecdcbc6e4f54b690e64b4566de5eecf33467088c8ca3436738cd7308d4e45b83 EVAL_CONFIG=\$PWD/user/tianhaowu/terminal_bench_vmvm/configs/eval/tb4_kimi_k3_approved_smoke.toml EVAL_DATASET_ARCHIVE=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/downloads/terminal-bench-prebuilt-v4.0.0.tar.gz EVAL_DATASET_ARCHIVE_SHA256=6d2c57cbcb1a75b5cdc0b0f989747fa68cdc65df8ff0a6893045a70ced7e668e EVAL_DATASET_CONTENT_SHA256=564a42a4e2ce0a5efd23758656e4e419b3566a36234dfc09bae1029bc15326b2 INFERENCE_DEPLOYMENT_SPEC=/checkpoint/ram/shared/vllm_deployments_v2/tianhaowu-k3-kda-tb1-low-20260916/spec.yaml INFERENCE_DEPLOYMENT_SPEC_SHA256=<readiness-bound-spec-sha256> INFERENCE_READINESS_CHECKPOINT=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/gates/k3_kda_tb1_low_readiness_v1.json INFERENCE_READINESS_CHECKPOINT_SHA256=<passed-readiness-file-sha256> INFERENCE_PROXY_INFO=/checkpoint/ram/shared/vllm_deployments_v2/tianhaowu-k3-kda-tb1-low-20260916/proxy_info.json INFERENCE_PROXY_INFO_SHA256=<readiness-bound-proxy-info-sha256> OUTPUT_DIR=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/evals/tb4_kimi_k3_sticky_smoke_v1 VACLI_MAX_CONCURRENT_LEASES=2 sbatch --parsable \$PWD/user/tianhaowu/terminal_bench_vmvm/run_eval.sbatch" C-m
-
-tmux send-keys -t swebench_vmvm:Launcher.0 \
-  "cd /checkpoint/ram/tianhaowu/terminal_bench_vmvm/sources/prime-rl-<commit> && env PROJECT_DIR=\$PWD RESULTS_DIR=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/evals/tb4_kimi_k3_sticky_smoke_v1 SMOKE_TASK_FILE=\$PWD/user/tianhaowu/terminal_bench_vmvm/configs/eval/tb4_kimi_token_smoke.tasks.txt SMOKE_TASK_FILE_SHA256=ecdcbc6e4f54b690e64b4566de5eecf33467088c8ca3436738cd7308d4e45b83 SMOKE_EXPECTED_TRACES=2 sbatch --parsable \$PWD/user/tianhaowu/terminal_bench_vmvm/run_trace_smoke_audit.sbatch" C-m
+  "cd /checkpoint/ram/tianhaowu/terminal_bench_vmvm/sources/prime-rl-<commit> && env PROJECT_DIR=\$PWD EVAL_EXPECTED_PRIME_RL_REVISION=<commit> EVAL_DEPLOYMENT_ID=tianhaowu-k3-kda-tb1-low-20260916 INFERENCE_DEPLOYMENT_SPEC=/checkpoint/ram/shared/vllm_deployments_v2/tianhaowu-k3-kda-tb1-low-20260916/spec.yaml INFERENCE_DEPLOYMENT_SPEC_SHA256=<readiness-bound-spec-sha256> INFERENCE_READINESS_CHECKPOINT=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/gates/k3_kda_tb1_low_readiness_v1.json EVAL_DATASET_ARCHIVE=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/downloads/terminal-bench-prebuilt-v4.0.0.tar.gz EVAL_DATASET_ARCHIVE_SHA256=6d2c57cbcb1a75b5cdc0b0f989747fa68cdc65df8ff0a6893045a70ced7e668e EVAL_DATASET_CONTENT_SHA256=564a42a4e2ce0a5efd23758656e4e419b3566a36234dfc09bae1029bc15326b2 SMOKE_OUTPUT_DIR=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/evals/tb4_kimi_k3_sticky_smoke_v1 uv run --no-project python3 \$PWD/user/tianhaowu/terminal_bench_vmvm/kimi_smoke_launch.py submit" C-m
 ```
 
-After that audit publishes `smoke_checkpoint.json`, hash the file and launch
+The submitted gate runs the two-trace, exact-provider audit in the same
+allocation and publishes `smoke_checkpoint.json`. After it passes, hash the file and launch
 the full 66-task pass@1 run with the same passed readiness artifact:
 
 If the standard checkpoint already exists, a post-run exact-provider audit can
@@ -626,7 +636,8 @@ setting and secret must be byte-semantically equal, and both route URL sets
 must hash to their readiness generations. The source and target route sets
 must differ, so this mechanism cannot certify a proxy, coordinator, policy,
 model, or deployment rotation. It recursively revalidates the source
-schema-1 smoke, its identity, configuration, results hashes, guard receipt,
+schema-1 smoke certificate, its schema-2 Kimi identity and launch contract,
+configuration, results hashes, guard receipt,
 single non-resume invocation, and evaluator/model-I/O/tool/thinking contract.
 
 The fresh bridge probe reuses readiness's sticky representative session for
@@ -700,6 +711,79 @@ exactly 3,600/3,600/21,600 seconds. The approved TB4 smoke uses the exact
 rollout/session pair 28,800/32,400 seconds; full TB4, the capacity smoke, and
 Mobius production use exactly 36,000/43,200 seconds. No intermediate or mixed
 pair is launchable.
+
+A narrowly scoped timeout recovery is available only after a guarded two-task
+smoke has stopped writing and published its success receipt. Run
+`smoke_timeout_recovery.py select` against the externally hash-pinned original
+two-task manifest, the hash-pinned `tb4_kimi_k3_recovery12h.toml` template, and
+the exact clean `PROJECT_DIR` recorded by the source run. The selector
+materializes `config.toml` with the derived one-task file path and digest before
+snapshotting, so `snapshot_eval_inputs.py` and `validate_task_approval.py`
+validate the same one-task approval. It accepts exactly one strictly audited
+clean trace plus either one absent row or one literal `harness_timeout` row. It
+rejects every other error, infrastructure stop, duplicate, extra row, ambiguous
+task, or normalized provider response. The selector atomically creates a
+mode-0700 namespace containing a mode-0400 one-line approval and a mode-0444
+self-hashed attestation; its stdout and errors contain aggregate counts and
+digests only.
+The attestation requires the recovery source to have the exact same Prime-RL,
+Verifiers, Renderers, and VMVM revisions as the original run. It also binds a
+per-file SHA-256 map and aggregate digest for the workflow Python/shell/Slurm
+code and VMVM Python package. If the original source predates this recovery
+policy, the one-task path is intentionally ineligible and the fresh-two path is
+required.
+
+Launch the reviewed `run_kimi_smoke_recovery.sbatch` from the authorized Slurm
+launcher with `KIMI_SMOKE_RECOVERY_MODE=one`, the selection path, and a fresh
+`OUTPUT_DIR` equal to the attested `<selection-namespace>/run`. The wrapper
+uses the attested `<selection-namespace>/config.toml`, never the unmodified
+template. `RESUME_DIR`
+must be absent, not merely empty. This lane uses
+`tb4_kimi_k3_recovery12h.toml`: one task, one rollout/HTTP/VMVM slot, 262,144
+tokens, 43,200-second evaluator/model/rollout/session limits, and a 48-hour
+Slurm envelope. After the one-task schema-1 certificate passes, the wrapper
+creates a separate fresh composite namespace. Its schema-3 certificate retains
+both source identities and route-guard receipts, requires identical
+deployment/spec/readiness/endpoint/route-generation/proxy bindings and
+compatible evaluator/dataset contracts, re-audits both traces with clean-stop
+and exact-provider requirements, proves a disjoint 1+1 union, and orders rows
+exactly as the original manifest. It never fabricates a route receipt for the
+composite.
+
+If selection is not uniquely eligible, use the same wrapper with
+`KIMI_SMOKE_RECOVERY_MODE=fresh-two` and a new output directory. The fallback
+`tb4_kimi_k3_fresh_smoke12h.toml` reruns both pinned tasks with two aligned
+rollout/HTTP/VMVM slots and the same 12-hour limits. Neither path reuses or
+modifies the incomplete run. Before starting `run_eval.sbatch`, the wrapper's
+dedicated `verify-fresh-two` preflight rejects selection/composite variables,
+any resume variable, an existing output path, a task/config outside the exact
+clean reviewed checkout, changed route inputs, or changed VMVM launch settings.
+It binds the exact Prime-RL commit, Verifiers/Renderers gitlinks, tracked VMVM
+tree and runtime digest, and the hashed workflow/VMVM Python and launcher
+closure. The fresh-two path therefore has no dependency on the original run or
+its incomplete results.
+
+Selection is a read-only operation on the completed source run. Supply a new
+namespace outside both run directories:
+
+```bash
+uv run --project user/tianhaowu/terminal_bench_vmvm \
+  python user/tianhaowu/terminal_bench_vmvm/smoke_timeout_recovery.py select \
+  --source-run-dir /path/to/completed-two-task-run \
+  --original-task-file /path/to/pinned-two-task-manifest \
+  --original-task-file-sha256 <two-task-manifest-sha256> \
+  --recovery-config-template user/tianhaowu/terminal_bench_vmvm/configs/eval/tb4_kimi_k3_recovery12h.toml \
+  --recovery-config-template-sha256 <template-sha256> \
+  --recovery-project-root "$PWD" \
+  --namespace /path/to/new-selection-namespace
+```
+
+The subsequent Slurm submission must execute
+`run_kimi_smoke_recovery.sbatch` from that same clean project root and bind the
+same `EVAL_EXPECTED_PRIME_RL_REVISION`; the wrapper rejects a copied launcher,
+changed policy closure, mismatched VMVM settings, changed route artifacts, an
+existing run/composite path, or any `RESUME_DIR` entry.
+
 The policy file is scoped to its readiness generation: a deliberate resize may
 rewrite both live policy files, so the sharded TB4 finalizer privately snapshots
 two canonical allowlisted records: one binds the historical spec hash and typed
@@ -734,6 +818,30 @@ the production run-identity contract; use the approved smoke config for gates.
 The evaluator and oracle are network-bound CPU controllers; their checked-in
 Slurm defaults request `cpu_x86`, 8 CPUs, 16 GiB, and no GPUs. Rollout
 concurrency does not require one controller CPU per sandbox.
+
+### Kimi singleton wave execution
+
+The full Kimi TB4 evaluation uses a private singleton plan and
+`run_tb4_shard_wave_train.py`. Run generation-bound controller chunks of at
+most eight singleton shards and let each controller submit waves of at most
+four jobs. Every shard submission explicitly requests `3-00:00:00`; the plan,
+controller train, wave metadata, completion history, merged certificate, and
+live Slurm observations all bind that exact limit.
+
+The controller process must receive nonempty `X2P_ENV`, `X2P_CFG_ENV`, and
+`X2P_PROXY_URL` together with the two allowlisted TLS credential-file paths.
+It writes only per-variable SHA-256 commitments to controller and shard
+metadata. Raw X2P values are combined with the allowlisted job environment in
+an anonymous mode-0600 export file descriptor for the `sbatch` call, then the
+descriptor is closed. They are deliberately absent from the persistent shard
+`.env` files, commands, receipts, summaries, and public merged output.
+
+For a controller restart, supply the same X2P triple; a commitment change fails
+before any remaining shard is submitted. A deliberate serving-generation or
+X2P rotation requires a fresh controller root. Record that controller's three
+commitments in its `finalize_tb4_multigen_chunk_train.py` manifest entry under
+`x2p_environment_sha256`; the multigeneration finalizer permits distinct
+commitment sets while preserving each shard's exact launch binding.
 
 ### Two-worker direct fallback
 
@@ -1081,6 +1189,91 @@ tool calls, and tool results. `--require-token-data` remains an explicit
 legacy/diagnostic mode for traces that intentionally contain exact token IDs,
 masks, and sampling logprobs. Scale only after the default gate passes on a
 fresh smoke run and after measuring stable VMVM lease concurrency.
+
+Interactive output is not a production attestation. After the fresh Mobius
+allocation is terminal, an independent reviewer must publish a canonical,
+mode-0400 audit authorization. It binds the exact non-resume run identity,
+task/config/launch/oracle inputs, clean detached source commit/tree/gitlinks,
+every executable auditor source, the isolated Python/stdlib/site manifests,
+and two stable complete terminal scheduler views. Each view requires the exact
+allocation and all recorded steps to be `COMPLETED 0:0`, zero restart/requeue
+evidence, and both allocation and step `squeue` queries to be empty. The same
+authorization precommits a unique audit job name derived from its nonce, fresh
+private reservation and log paths, exact resource tuple, and stdin wrapper
+transport.
+
+Direct pathname execution of `submit_trace_production_audit.sh` is forbidden.
+The independently reviewed launcher must first capture its exact authorized
+bytes into a write-sealed memfd, duplicate that descriptor to fd 7, and then
+invoke `/usr/bin/bash --noprofile --norc /proc/self/fd/7` through `env -i` with
+only the fixed locale/path, the two scheduler-auth paths, and
+`TRACE_SUBMITTER_SEALED_FD=7`. Pass the authorization/source/runtime hashes in
+the documented positional order; the additional hash immediately before the
+Python path is for `trace_production_submit_control.py`. Never retry a consumed
+reservation or job name.
+
+This repository intentionally does not mint the authorization: its terminal
+job observations, nonce, fresh paths, runtime manifests, and source hashes must
+come from a separate reviewer. The scripts below only validate and consume
+that write-once authorization; they cannot derive it from the run they audit.
+The checked-in scripts are therefore inert review artifacts, not a launch
+approval. A lost, preempted, or replaced inference generation invalidates any
+pending rollout plan; a later rollout needs fresh live-route qualification, a
+new non-resume run, and a newly authored authorization bound to that run.
+
+The sealed submitter revalidates its canonical counterpart and all submitted
+bytes immediately before its sole scheduler call. Its stdlib-only controller
+uses exact `/usr/bin/sbatch --hold --export=NONE`, sends the captured batch
+wrapper bytes on stdin, and never gives Slurm a mutable script pathname. It
+requires two exact held views (including literal `Command=(null)`, token comment,
+job/user/workdir/resources, no allocation/start/steps), publishes held
+authorization, revalidates immediately before one release, and requires two
+non-held activation views. It publishes the receipt and permit, fsyncs them,
+keeps the newly created reservation and its parent open by dirfd, binds their
+device/inode identities into the v2 admission records and immutable Slurm
+arguments, and seals that same reservation `0500` as the only commit point.
+Every known-job precommit failure performs at most one exact-ID cancellation and
+requires six stable terminal views with both live queues empty; explicit
+identity conflict is latched across partial scheduler reads and signals, forbids
+scheduler control, and seals an ambiguous failure. The local `sbatch` process
+group is also boundedly reaped on timeout, interruption, and normal return so a
+child cannot outlive an unknown submission result. There is no resubmit path.
+
+The released batch performs no setup until the sealed permit/receipt chain is
+present. It then rejects
+ambient Bash, loader, Python, uv, and Git injection; verifies its Slurm spool
+copy; validates root-owned `/dev/null` as a non-directory pycache sink; and
+enters the captured bootstrap with `python -I -S -B` under `env -i`. The
+bootstrap rejects dirty or
+non-detached source, wrong gitlinks, ignored/untracked importable or cache
+files, executable customization modules, unmanifested imports, and runtime or
+source changes before execution and again immediately before publication.
+User-owned native extensions are copied into write-sealed memfds before the
+dynamic loader executes; before/after pathname hashing alone is insufficient.
+Use
+a fresh dependency snapshot whose complete tree obeys the validated ownership
+and mode policy and contains no symlinks, `.pyc`, `sitecustomize.py`, or
+`usercustomize.py`; its canonical tree digest is part of the authorization.
+The root-owned distro stdlib is separately bound as a complete tree, including
+its inert distro customization file, while `-S` and the origin audit prove that
+the file is never imported.
+
+The certifier holds the exact run directory and writer lock by file descriptor,
+parses the task list from its hashed descriptor, audits one immutable anonymous
+snapshot of `results.jsonl`, and requires clean task stop conditions plus the
+strict reasoning/exact-provider-model-I/O/request-graph audit at the 262,144
+token cap. Its aggregate rollout contract also records exactly 2,500 tasks,
+24 rollout/multiplex/HTTP slots, four bounded VMVM lease starts, the full
+43,200-second Kimi request/session envelope, max reasoning, durable JSONL trace
+streaming, and the exact VMVM source digest; the source closure also binds the
+bounded-cancellation backend and Terminal-Bench taskset bytes directly. It
+publishes a non-authoritative payload first and atomically commits
+the mode-0444 `production_trace_checkpoint.json` completion marker last; no
+ordinary failure removes or contradicts a committed marker. Neither artifact
+exports or promotes traces. The certificate explicitly has
+`sft_training_readiness.established=false`: training additionally requires a
+format-v3 export manifest and schema-v2 immutable-local-tokenizer-tree preflight
+attestation.
 
 The Kimi contract checks each hash-verified request for the chat-completions
 route, exact `Kimi-K3` model, `reasoning_effort=max`, and exactly the two

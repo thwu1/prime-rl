@@ -25,26 +25,12 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, BinaryIO, Mapping
 
-import migrate_qwen_serving_generation as generation
-import sft_run_identity
-from audit_traces import (
-    QWEN3_A95B_EPOCH3_MODEL_IO_CONTRACT_ID,
-    QWEN3_A95B_MODEL_IO_CONTRACT_ID,
-    QWEN3_A95B_REPAIRED_SFT_MODEL_IO_CONTRACT_ID,
-    qwen_repair_trace_contracts_value,
-)
-
 FORMAT_VERSION = 3
 MERGE_SCHEMA_VERSION = 4
-MIXED_PROVIDER_MERGE_SCHEMA_VERSION = 5
 MERGE_KIND = "qwen-sft-aggregate-merge"
 REPAIR_SELECTION_KIND = "qwen-aggregate-repair-selection"
 REPAIR_ATTESTATION_KIND = "qwen-direct-repair-attestation"
 REPAIR_ATTESTATION_SCHEMA_VERSION = 2
-SANDOQ_REPAIR_ATTESTATION_KIND = "qwen-sandoq-native-repair-attestation"
-SANDOQ_REPAIR_ATTESTATION_SCHEMA_VERSION = 3
-VMVM_TO_SANDOQ_TRANSITION_KIND = "vmvm-epoch3-to-sandoq-native-repair-v1"
-REPAIR_GENERATION_ATTESTATION_SCHEMA_VERSION = 3
 REPAIR_SELECTION_COPY_FILENAME = "repair_selection_manifest.json"
 REPAIR_SELECTION_TASK_COPY_FILENAME = "repair_selection_tasks.txt"
 REPAIR_SELECTION_MISSING_ERROR_COPY_FILENAME = "repair_selection_missing_or_errored_tasks.txt"
@@ -104,7 +90,7 @@ TARGET_RENDERING_CONTRACT = {
 SOURCE_VALIDATION_KEYS = frozenset(
     {
         "max_sequence_tokens",
-        "model_io_contract",
+        "require_clean_stop",
         "require_exact_provider_json",
         "require_model_io",
         "require_reasoning",
@@ -127,14 +113,6 @@ ATTESTED_SOURCE_ARTIFACTS = (
     "provenance.txt",
     "results.jsonl",
     "direct_workers.json",
-)
-SANDOQ_ATTESTED_SOURCE_ARTIFACTS = (
-    "config.toml",
-    "inputs/task_file.txt",
-    "provenance.txt",
-    "results.jsonl",
-    "direct_workers.json",
-    sft_run_identity.EVAL_RUN_IDENTITY_FILENAME,
 )
 SELECTION_SOURCE_ARTIFACTS = {
     "config": "config.toml",
@@ -220,7 +198,7 @@ class ExportBundle:
     train_tasks: frozenset[str]
     validation_tasks: frozenset[str]
     source_artifacts: Mapping[str, FileArtifact]
-    source_validation: Mapping[str, int | bool | str]
+    source_validation: Mapping[str, int | bool]
     exporter_sha256: str
     taskset_id: str
     dataset_revision: str
@@ -229,7 +207,6 @@ class ExportBundle:
     routing_epoch: int | None
     declared_counts: Mapping[str, Any]
     exclusion: ExclusionBinding | None
-    run_identity: Mapping[str, Any] | None
     target_rendering_contract_body: bytes
 
     @property
@@ -304,9 +281,6 @@ class RepairAttestation:
     missing_or_errored_count: int
     strict_invalid_pass_count: int
     repair_union_indices_sha256: str
-    provider_transition: Mapping[str, Any] | None
-    schema_version: int
-    serving_generation_transition_sha256: str | None
 
 
 @dataclass(frozen=True, slots=True)
@@ -586,18 +560,14 @@ def _artifact_record(value: object, code: str) -> FileArtifact:
     return FileArtifact(bytes=size, sha256=digest)
 
 
-def _source_validation_policy(value: object, code: str) -> dict[str, int | bool | str]:
+def _source_validation_policy(value: object, code: str) -> dict[str, int | bool]:
     if (
         not isinstance(value, dict)
         or set(value) != SOURCE_VALIDATION_KEYS
         or value.get("require_reasoning") is not True
         or value.get("require_model_io") is not True
         or value.get("require_request_graph_match") is not True
-        or value.get("model_io_contract")
-        not in {
-            QWEN3_A95B_EPOCH3_MODEL_IO_CONTRACT_ID,
-            QWEN3_A95B_MODEL_IO_CONTRACT_ID,
-        }
+        or value.get("require_clean_stop") is not True
         or not isinstance(value.get("require_exact_provider_json"), bool)
         or not _is_plain_int(value.get("max_sequence_tokens"))
         or value["max_sequence_tokens"] != MAX_SEQUENCE_TOKENS
@@ -651,8 +621,6 @@ def _load_export(path: Path, role: str) -> ExportBundle:
         expected_manifest_keys.add("routing_epochs")
         if "exclusion_selection" in manifest:
             expected_manifest_keys.add("exclusion_selection")
-    if "eval_run_identity" in manifest:
-        expected_manifest_keys.add("eval_run_identity")
     if set(manifest) != expected_manifest_keys:
         raise MergeError(f"{role}_manifest_contract_invalid")
     exporter = manifest.get("exporter")
@@ -777,6 +745,8 @@ def _load_export(path: Path, role: str) -> ExportBundle:
         name: _artifact_record(record, f"{role}_manifest_source_artifacts_invalid")
         for name, record in source_artifact_values.items()
     }
+    if not set(SELECTION_SOURCE_ARTIFACTS.values()).issubset(source_artifacts):
+        raise MergeError(f"{role}_manifest_source_artifacts_invalid")
     input_traces = counts.get("input_traces")
     approved_tasks = counts.get("approved_tasks", input_traces)
     if (
@@ -787,32 +757,6 @@ def _load_export(path: Path, role: str) -> ExportBundle:
         or (role == "repair" and approved_tasks != input_traces)
     ):
         raise MergeError(f"{role}_manifest_counts_invalid")
-    try:
-        run_identity = sft_run_identity.validate_manifest_identity(
-            manifest.get("eval_run_identity"),
-            counts=counts,
-        )
-    except sft_run_identity.SftRunIdentityError as error:
-        raise MergeError(error.code) from error
-    identity_artifact = source_artifacts.get(sft_run_identity.EVAL_RUN_IDENTITY_FILENAME)
-    if run_identity is None:
-        if identity_artifact is not None:
-            raise MergeError(f"{role}_manifest_source_artifacts_invalid")
-    elif identity_artifact is None or identity_artifact.as_dict() != run_identity.get("artifact"):
-        raise MergeError(f"{role}_eval_run_identity_mismatch")
-    if run_identity is not None:
-        try:
-            sft_run_identity.validate_manifest_source_artifacts(
-                run_identity,
-                source_artifacts,
-            )
-        except sft_run_identity.SftRunIdentityError as error:
-            raise MergeError(error.code) from error
-    required_source_artifacts = set(SELECTION_SOURCE_ARTIFACTS.values())
-    if run_identity is not None and run_identity.get("sandbox_provider") == "sandoq":
-        required_source_artifacts.add(sft_run_identity.EVAL_RUN_IDENTITY_FILENAME)
-    if not required_source_artifacts.issubset(source_artifacts):
-        raise MergeError(f"{role}_manifest_source_artifacts_invalid")
     exclusion: ExclusionBinding | None = None
     if "exclusion_selection" in manifest:
         value = manifest["exclusion_selection"]
@@ -907,7 +851,6 @@ def _load_export(path: Path, role: str) -> ExportBundle:
         routing_epoch=routing_epoch,
         declared_counts=counts,
         exclusion=exclusion,
-        run_identity=run_identity,
         target_rendering_contract_body=target_rendering_contract_body,
     )
 
@@ -1254,26 +1197,11 @@ def _load_repair_selection(path: Path, expected_sha256: str) -> RepairSelection:
     selection = manifest.get("selection")
     planner = manifest.get("planner")
     source = manifest.get("source")
-    source_partition = manifest.get("source_partition")
-    trace_contracts = manifest.get("trace_contracts")
     if (
-        set(manifest)
-        != {
-            "approval",
-            "code",
-            "config",
-            "kind",
-            "planner",
-            "schema_version",
-            "selection",
-            "source",
-            "source_partition",
-            "trace_contracts",
-        }
+        set(manifest) != {"approval", "code", "config", "kind", "planner", "schema_version", "selection", "source"}
         or manifest.get("kind") != REPAIR_SELECTION_KIND
         or not _is_plain_int(manifest.get("schema_version"))
-        or manifest["schema_version"] != 3
-        or trace_contracts != qwen_repair_trace_contracts_value()
+        or manifest["schema_version"] != 2
         or not isinstance(approval, dict)
         or set(approval) != {"approved_task_count", "approved_task_file_sha256"}
         or not _is_plain_int(approval.get("approved_task_count"))
@@ -1303,7 +1231,6 @@ def _load_repair_selection(path: Path, expected_sha256: str) -> RepairSelection:
             "max_total_tokens",
             "preserve_thinking",
             "provider_concurrency",
-            "reasoning_effort",
             "retry_class_count",
             "retry_policy_sha256",
             "sha256",
@@ -1312,7 +1239,6 @@ def _load_repair_selection(path: Path, expected_sha256: str) -> RepairSelection:
         or config.get("capture_model_io") is not True
         or config.get("enable_thinking") is not True
         or config.get("preserve_thinking") is not True
-        or config.get("reasoning_effort") != "max"
         or config.get("max_concurrent") != 64
         or config.get("max_total_tokens") != MAX_SEQUENCE_TOKENS
         or config.get("provider_concurrency") != 32
@@ -1386,46 +1312,6 @@ def _load_repair_selection(path: Path, expected_sha256: str) -> RepairSelection:
         or approval["approved_task_count"] != source["task_count"]
         or planner["approved_task_count"] != source["task_count"]
         or planner["retained_count"] + planner["missing_or_errored_count"] != source["task_count"]
-        or not isinstance(source_partition, dict)
-        or set(source_partition)
-        != {
-            "error_traces",
-            "exhaustive",
-            "invalid_positive_traces",
-            "positive_reward_traces",
-            "repair_tasks",
-            "retained_original_tasks",
-            "retained_valid_positive_traces",
-            "reward_zero_traces",
-            "seen_traces",
-            "source_task_count",
-            "superseded_legacy_empty_reasoning_traces",
-            "unseen_tasks",
-        }
-        or source_partition.get("exhaustive") is not True
-        or any(
-            not _is_plain_int(source_partition.get(name)) or source_partition[name] < 0
-            for name in set(source_partition) - {"exhaustive"}
-        )
-        or source_partition.get("source_task_count") != source["task_count"]
-        or source_partition.get("repair_tasks") != selection["approved_repair_count"]
-        or source_partition.get("invalid_positive_traces") != selection["strict_invalid_pass_count"]
-        or source_partition.get("error_traces", 0) + source_partition.get("unseen_tasks", 0)
-        != selection["missing_or_errored_count"]
-        or source_partition.get("positive_reward_traces", 0)
-        != source_partition.get("retained_valid_positive_traces", 0)
-        + source_partition.get("invalid_positive_traces", 0)
-        or source_partition.get("seen_traces", 0)
-        != source_partition.get("positive_reward_traces", 0)
-        + source_partition.get("reward_zero_traces", 0)
-        + source_partition.get("error_traces", 0)
-        or source["task_count"]
-        != source_partition.get("seen_traces", 0) + source_partition.get("unseen_tasks", 0)
-        or source_partition.get("retained_original_tasks", 0)
-        != source_partition.get("retained_valid_positive_traces", 0)
-        + source_partition.get("reward_zero_traces", 0)
-        or source["task_count"]
-        != source_partition.get("retained_original_tasks", 0) + selection["approved_repair_count"]
     ):
         raise MergeError("repair_selection_contract_invalid")
     source_artifacts = {
@@ -1510,122 +1396,6 @@ def _load_repair_attestation(
     if artifact.sha256 != expected_sha256:
         raise MergeError("repair_attestation_digest_mismatch")
     manifest = _parse_json_object(body, "repair_attestation_invalid")
-    if manifest.get("kind") == SANDOQ_REPAIR_ATTESTATION_KIND:
-        expected_keys = {
-            "code",
-            "corpus",
-            "kind",
-            "provider_transition",
-            "repair_selection_manifest_sha256",
-            "selection",
-            "schema_version",
-            "source_artifacts",
-        }
-        source_values = manifest.get("source_artifacts")
-        corpus = manifest.get("corpus")
-        code = manifest.get("code")
-        selection = manifest.get("selection")
-        transition = manifest.get("provider_transition")
-        if (
-            set(manifest) != expected_keys
-            or manifest.get("schema_version") != SANDOQ_REPAIR_ATTESTATION_SCHEMA_VERSION
-            or manifest.get("repair_selection_manifest_sha256") != repair_selection_sha256
-            or not isinstance(source_values, dict)
-            or set(source_values) != set(SANDOQ_ATTESTED_SOURCE_ARTIFACTS)
-            or not isinstance(transition, dict)
-            or set(transition)
-            != {
-                "cleanup_implied_successful_traces",
-                "cleanup_must_succeed",
-                "kind",
-                "repair_eval_run_identity_sha256",
-                "repair_identity_compatibility_sha256",
-                "repair_sandbox_provider",
-                "schema_version",
-                "source_sandbox_provider",
-            }
-            or transition.get("kind") != VMVM_TO_SANDOQ_TRANSITION_KIND
-            or transition.get("schema_version") != 1
-            or transition.get("source_sandbox_provider") != "vmvm"
-            or transition.get("repair_sandbox_provider") != "sandoq"
-            or transition.get("cleanup_must_succeed") is not True
-            or not _is_plain_int(transition.get("cleanup_implied_successful_traces"))
-            or transition["cleanup_implied_successful_traces"] < 0
-            or not isinstance(transition.get("repair_eval_run_identity_sha256"), str)
-            or SHA256_PATTERN.fullmatch(transition["repair_eval_run_identity_sha256"]) is None
-            or not isinstance(transition.get("repair_identity_compatibility_sha256"), str)
-            or SHA256_PATTERN.fullmatch(transition["repair_identity_compatibility_sha256"]) is None
-            or not isinstance(corpus, dict)
-            or set(corpus) != {"dataset_revision", "task_count", "task_file_sha256", "taskset_id"}
-            or not _is_plain_int(corpus.get("task_count"))
-            or corpus["task_count"] < 1
-            or not isinstance(corpus.get("task_file_sha256"), str)
-            or SHA256_PATTERN.fullmatch(corpus["task_file_sha256"]) is None
-            or not isinstance(corpus.get("taskset_id"), str)
-            or not corpus["taskset_id"]
-            or "\x00" in corpus["taskset_id"]
-            or not isinstance(corpus.get("dataset_revision"), str)
-            or GIT_SHA_PATTERN.fullmatch(corpus["dataset_revision"]) is None
-            or not isinstance(code, dict)
-            or set(code) != {"repository_revision", "submodules"}
-            or not isinstance(code.get("repository_revision"), str)
-            or GIT_SHA_PATTERN.fullmatch(code["repository_revision"]) is None
-            or not isinstance(code.get("submodules"), dict)
-            or set(code["submodules"]) != set(REQUIRED_SUBMODULES)
-            or any(
-                not isinstance(revision, str) or GIT_SHA_PATTERN.fullmatch(revision) is None
-                for revision in code["submodules"].values()
-            )
-            or not isinstance(selection, dict)
-            or set(selection)
-            != {
-                "missing_or_errored_count",
-                "strict_invalid_pass_count",
-                "union_count",
-                "union_indices_sha256",
-                "union_task_file_sha256",
-            }
-            or not _is_plain_int(selection.get("missing_or_errored_count"))
-            or selection["missing_or_errored_count"] < 0
-            or not _is_plain_int(selection.get("strict_invalid_pass_count"))
-            or selection["strict_invalid_pass_count"] < 0
-            or not _is_plain_int(selection.get("union_count"))
-            or selection["union_count"] < 1
-            or selection["missing_or_errored_count"] + selection["strict_invalid_pass_count"]
-            != selection["union_count"]
-            or selection["union_count"] != corpus["task_count"]
-            or not isinstance(selection.get("union_indices_sha256"), str)
-            or SHA256_PATTERN.fullmatch(selection["union_indices_sha256"]) is None
-            or not isinstance(selection.get("union_task_file_sha256"), str)
-            or SHA256_PATTERN.fullmatch(selection["union_task_file_sha256"]) is None
-            or selection["union_task_file_sha256"] != corpus["task_file_sha256"]
-        ):
-            raise MergeError("repair_attestation_contract_invalid")
-        source_artifacts = {
-            name: _artifact_record(
-                source_values[name],
-                "repair_attestation_contract_invalid",
-            )
-            for name in SANDOQ_ATTESTED_SOURCE_ARTIFACTS
-        }
-        if source_artifacts["inputs/task_file.txt"].sha256 != corpus["task_file_sha256"]:
-            raise MergeError("repair_attestation_contract_invalid")
-        return RepairAttestation(
-            artifact=artifact,
-            source_artifacts=source_artifacts,
-            task_count=corpus["task_count"],
-            task_file_sha256=corpus["task_file_sha256"],
-            taskset_id=corpus["taskset_id"],
-            dataset_revision=corpus["dataset_revision"],
-            repository_revision=code["repository_revision"],
-            submodules={name: code["submodules"][name] for name in sorted(code["submodules"])},
-            missing_or_errored_count=selection["missing_or_errored_count"],
-            strict_invalid_pass_count=selection["strict_invalid_pass_count"],
-            repair_union_indices_sha256=selection["union_indices_sha256"],
-            provider_transition=dict(transition),
-            schema_version=SANDOQ_REPAIR_ATTESTATION_SCHEMA_VERSION,
-            serving_generation_transition_sha256=None,
-        )
     if set(manifest) != {
         "code",
         "corpus",
@@ -1642,56 +1412,31 @@ def _load_repair_attestation(
     corpus = manifest.get("corpus")
     code = manifest.get("code")
     selection = manifest.get("selection")
-    schema_version = manifest.get("schema_version")
-    generation_role = schema_version == REPAIR_GENERATION_ATTESTATION_SCHEMA_VERSION
-    generation_artifacts = {
-        f"{generation.RUN_BUNDLE_DIRECTORY}/{name}"
-        for name in (*sorted(generation.BUNDLE_FILES), generation.TRANSITION_FILENAME)
-    }
-    generation_artifacts.add(generation.CAPACITY_SMOKE_FILENAME)
-    expected_source_artifacts = set(ATTESTED_SOURCE_ARTIFACTS) | (generation_artifacts if generation_role else set())
-    expected_routing_fields = {
-        "manifest_schema_version",
-        "provider_concurrency",
-        "queue_size",
-        "request_id_headers",
-        "router_policy",
-        "routing_epoch",
-    }
-    if generation_role:
-        expected_routing_fields |= {
-            "capacity_smoke_sha256",
-            "endpoint_bundle_sha256",
-            "rollout_concurrency",
-            "serving_generation",
-            "serving_generation_transition_sha256",
-            "spec_sha256",
-            "worker_count",
-            "vmvm_lease_concurrency",
-        }
-    expected_provider_concurrency = generation.PROVIDER_CONCURRENCY if generation_role else 32
-    expected_queue_size = generation.QUEUE_SIZE if generation_role else 32
     if (
         manifest.get("kind") != REPAIR_ATTESTATION_KIND
-        or not _is_plain_int(schema_version)
-        or schema_version
-        not in {
-            REPAIR_ATTESTATION_SCHEMA_VERSION,
-            REPAIR_GENERATION_ATTESTATION_SCHEMA_VERSION,
-        }
+        or not _is_plain_int(manifest.get("schema_version"))
+        or manifest["schema_version"] != REPAIR_ATTESTATION_SCHEMA_VERSION
         or manifest.get("repair_selection_manifest_sha256") != repair_selection_sha256
         or not isinstance(source_values, dict)
-        or set(source_values) != expected_source_artifacts
+        or set(source_values) != set(ATTESTED_SOURCE_ARTIFACTS)
         or not isinstance(routing, dict)
-        or set(routing) != expected_routing_fields
+        or set(routing)
+        != {
+            "manifest_schema_version",
+            "provider_concurrency",
+            "queue_size",
+            "request_id_headers",
+            "router_policy",
+            "routing_epoch",
+        }
         or not _is_plain_int(routing.get("routing_epoch"))
         or routing["routing_epoch"] != 1
         or not _is_plain_int(routing.get("manifest_schema_version"))
         or routing["manifest_schema_version"] != 3
         or not _is_plain_int(routing.get("provider_concurrency"))
-        or routing["provider_concurrency"] != expected_provider_concurrency
+        or routing["provider_concurrency"] != 32
         or not _is_plain_int(routing.get("queue_size"))
-        or routing["queue_size"] != expected_queue_size
+        or routing["queue_size"] != 32
         or routing.get("router_policy") != "consistent_hash"
         or routing.get("request_id_headers") != ["x-session-id"]
         or not isinstance(corpus, dict)
@@ -1739,34 +1484,9 @@ def _load_repair_attestation(
         or selection["union_task_file_sha256"] != corpus.get("task_file_sha256")
     ):
         raise MergeError("repair_attestation_contract_invalid")
-    serving_generation_transition_sha256: str | None = None
-    if generation_role:
-        contract = generation._load_contract()
-        serving_generation_transition_sha256 = routing.get("serving_generation_transition_sha256")
-        transition_relative = f"{generation.RUN_BUNDLE_DIRECTORY}/{generation.TRANSITION_FILENAME}"
-        capacity_artifact = source_values.get(generation.CAPACITY_SMOKE_FILENAME)
-        if (
-            not isinstance(routing.get("capacity_smoke_sha256"), str)
-            or SHA256_PATTERN.fullmatch(routing["capacity_smoke_sha256"]) is None
-            or routing.get("provider_concurrency") != generation.PROVIDER_CONCURRENCY
-            or routing.get("queue_size") != generation.QUEUE_SIZE
-            or routing.get("rollout_concurrency") != generation.ROLLOUT_CONCURRENCY
-            or routing.get("serving_generation") != 2
-            or routing.get("worker_count") != contract["target_generation"]["worker_count"]
-            or routing.get("vmvm_lease_concurrency") != generation.VMVM_LEASE_CONCURRENCY
-            or routing.get("spec_sha256") != contract["target_generation"]["spec_sha256"]
-            or routing.get("endpoint_bundle_sha256") != contract["target_generation"]["endpoint_bundle_sha256"]
-            or not isinstance(serving_generation_transition_sha256, str)
-            or SHA256_PATTERN.fullmatch(serving_generation_transition_sha256) is None
-            or not isinstance(capacity_artifact, dict)
-            or capacity_artifact.get("sha256") != routing["capacity_smoke_sha256"]
-            or not isinstance(source_values.get(transition_relative), dict)
-            or source_values[transition_relative].get("sha256") != serving_generation_transition_sha256
-        ):
-            raise MergeError("repair_attestation_contract_invalid")
     source_artifacts = {
         name: _artifact_record(source_values[name], "repair_attestation_contract_invalid")
-        for name in expected_source_artifacts
+        for name in ATTESTED_SOURCE_ARTIFACTS
     }
     if source_artifacts["inputs/task_file.txt"].sha256 != corpus["task_file_sha256"]:
         raise MergeError("repair_attestation_contract_invalid")
@@ -1782,9 +1502,6 @@ def _load_repair_attestation(
         missing_or_errored_count=selection["missing_or_errored_count"],
         strict_invalid_pass_count=selection["strict_invalid_pass_count"],
         repair_union_indices_sha256=selection["union_indices_sha256"],
-        provider_transition=None,
-        schema_version=schema_version,
-        serving_generation_transition_sha256=serving_generation_transition_sha256,
     )
 
 
@@ -2037,17 +1754,6 @@ def merge_qwen_sft(
 
     original = _load_export(options.original_export_dir, "original")
     repair = _load_export(options.repair_export_dir, "repair")
-    original_provider = original.run_identity.get("sandbox_provider") if original.run_identity is not None else "vmvm"
-    repair_provider = repair.run_identity.get("sandbox_provider") if repair.run_identity is not None else "vmvm"
-    mixed_provider_transition = original_provider == "vmvm" and repair_provider == "sandoq"
-    if not mixed_provider_transition:
-        try:
-            sft_run_identity.compatible_manifest_identities(
-                original.run_identity,
-                repair.run_identity,
-            )
-        except sft_run_identity.SftRunIdentityError as error:
-            raise MergeError(error.code) from error
     if original.manifest.sha256 != options.original_export_manifest_sha256:
         raise MergeError("original_manifest_binding_mismatch")
     if repair.manifest.sha256 != options.repair_export_manifest_sha256:
@@ -2065,15 +1771,7 @@ def merge_qwen_sft(
         raise MergeError("split_contract_mismatch")
     if original.target_rendering_contract_body != repair.target_rendering_contract_body:
         raise MergeError("target_rendering_contract_mismatch")
-    original_validation_policy = dict(original.source_validation)
-    repair_validation_policy = dict(repair.source_validation)
-    original_contract = original_validation_policy.pop("model_io_contract", None)
-    repair_contract = repair_validation_policy.pop("model_io_contract", None)
-    if (
-        original_validation_policy != repair_validation_policy
-        or original_contract != QWEN3_A95B_EPOCH3_MODEL_IO_CONTRACT_ID
-        or repair_contract != QWEN3_A95B_MODEL_IO_CONTRACT_ID
-    ):
+    if original.source_validation != repair.source_validation:
         raise MergeError("source_validation_mismatch")
     if (original.taskset_id, original.dataset_revision) != (
         repair.taskset_id,
@@ -2140,33 +1838,6 @@ def merge_qwen_sft(
         options.repair_attestation_manifest_sha256,
         selection.artifact.sha256,
     )
-    if mixed_provider_transition:
-        transition = attestation.provider_transition
-        assert repair.run_identity is not None
-        cleanup = repair.run_identity.get("cleanup")
-        if (
-            not isinstance(transition, dict)
-            or transition.get("kind") != VMVM_TO_SANDOQ_TRANSITION_KIND
-            or transition.get("source_sandbox_provider") != "vmvm"
-            or transition.get("repair_sandbox_provider") != "sandoq"
-            or transition.get("repair_eval_run_identity_sha256") != repair.run_identity.get("eval_run_identity_sha256")
-            or transition.get("repair_identity_compatibility_sha256") != repair.run_identity.get("compatibility_sha256")
-            or transition.get("cleanup_must_succeed") is not True
-            or not isinstance(cleanup, dict)
-            or cleanup.get("must_succeed") is not True
-            or transition.get("cleanup_implied_successful_traces") != cleanup.get("cleanup_implied_successful_traces")
-            or transition.get("cleanup_implied_successful_traces") != repair.declared_counts.get("selected_traces")
-        ):
-            raise MergeError("provider_transition_mismatch")
-    elif attestation.provider_transition is not None:
-        raise MergeError("provider_transition_mismatch")
-    else:
-        production_source_sha256 = generation._load_contract()["source_generation"]["artifacts"]["results.jsonl"][
-            "sha256"
-        ]
-        requires_generation = selection.source_artifacts["results.jsonl"].sha256 == production_source_sha256
-        if requires_generation != (attestation.schema_version == REPAIR_GENERATION_ATTESTATION_SCHEMA_VERSION):
-            raise MergeError("repair_serving_generation_role_mismatch")
     bundled_selection = {
         name: _fingerprint_regular(
             repair.root / name,
@@ -2189,7 +1860,7 @@ def merge_qwen_sft(
         selection.task_count != repair.input_traces
         or selection.task_file_sha256 != repair.source_artifacts["inputs/task_file.txt"].sha256
         or repair_config_artifact is None
-        or (not mixed_provider_transition and repair_config_artifact.sha256 != selection.repair_config_sha256)
+        or repair_config_artifact.sha256 != selection.repair_config_sha256
         or attestation.task_count != repair.input_traces
         or attestation.task_file_sha256 != selection.task_file_sha256
         or attestation.missing_or_errored_count != selection.missing_or_errored_count
@@ -2322,38 +1993,10 @@ def merge_qwen_sft(
             "max_sequence_tokens": MAX_SEQUENCE_TOKENS,
             "schema_version": MERGE_SCHEMA_VERSION,
             "selection": "pass-only",
-            "source_validation": {
-                **original_validation_policy,
-                "model_io_contract": QWEN3_A95B_REPAIRED_SFT_MODEL_IO_CONTRACT_ID,
-            },
+            "source_validation": dict(original.source_validation),
             "split": original.split.as_dict(),
             "target_rendering": TARGET_RENDERING_CONTRACT,
         }
-        if mixed_provider_transition:
-            assert repair.run_identity is not None
-            assert attestation.provider_transition is not None
-            merge_manifest["provider_transition"] = {
-                **attestation.provider_transition,
-                "original_identity": "legacy-vmvm-routing-epoch-3"
-                if original.run_identity is None
-                else {
-                    "eval_run_identity_sha256": original.run_identity["eval_run_identity_sha256"],
-                    "sandbox_provider": "vmvm",
-                },
-                "original_manifest_sha256": original.manifest.sha256,
-                "repair_manifest_sha256": repair.manifest.sha256,
-                "repair_selection_manifest_sha256": selection.artifact.sha256,
-            }
-            merge_manifest["schema_version"] = MIXED_PROVIDER_MERGE_SCHEMA_VERSION
-        elif original.run_identity is not None:
-            assert repair.run_identity is not None
-            merge_manifest["eval_run_identity"] = {
-                "compatibility_sha256": original.run_identity["compatibility_sha256"],
-                "original_eval_run_identity_sha256": original.run_identity["eval_run_identity_sha256"],
-                "repair_eval_run_identity_sha256": repair.run_identity["eval_run_identity_sha256"],
-                "sandbox_provider": original.run_identity["sandbox_provider"],
-                "schema_version": 1,
-            }
         manifest_artifact = _write_exclusive(staging / "manifest.json", _json_bytes(merge_manifest))
 
         _validate_sources_unchanged(

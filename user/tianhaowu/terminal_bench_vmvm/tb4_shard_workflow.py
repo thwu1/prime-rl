@@ -46,7 +46,7 @@ from eval_run_identity import (
     validate_kimi_timeout_contract,
 )
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 PLAN_ALGORITHM = "ordered-contiguous-v1"
 EXPECTED_MODEL = "Kimi-K3"
 EXPECTED_TASK_COUNT = 66
@@ -54,6 +54,8 @@ EXPECTED_SUPPORTED_TASK_COUNT = 63
 EXPECTED_UNSUPPORTED_TASK_COUNT = 3
 EXPECTED_ROLLOUT_CONCURRENCY = 4
 EXPECTED_LEASE_START_CONCURRENCY = 2
+EXPECTED_SHARD_SLURM_TIME_LIMIT = "3-00:00:00"
+REQUIRED_X2P_ENV = ("X2P_ENV", "X2P_CFG_ENV", "X2P_PROXY_URL")
 DEFAULT_MAX_SEQUENCE_TOKENS = 262_144
 TASKSET_ID = "terminal-bench-vmvm"
 EXPECTED_DENYLIST = frozenset({"logprobs", "prompt_logprobs", "return_token_ids", "top_logprobs"})
@@ -126,6 +128,28 @@ def canonical_json(value: Any) -> bytes:
         separators=(",", ":"),
         sort_keys=True,
     ).encode("utf-8")
+
+
+def validate_shard_launch_contract(value: Any) -> dict[str, Any]:
+    """Validate the credential-free scheduler and X2P launch commitment."""
+
+    if (
+        not isinstance(value, dict)
+        or set(value) != {"slurm_time_limit", "x2p_environment_sha256"}
+        or value.get("slurm_time_limit") != EXPECTED_SHARD_SLURM_TIME_LIMIT
+    ):
+        raise ShardWorkflowError("shard_launch_contract_invalid")
+    x2p = value.get("x2p_environment_sha256")
+    if (
+        not isinstance(x2p, dict)
+        or set(x2p) != set(REQUIRED_X2P_ENV)
+        or any(not isinstance(x2p[key], str) or SHA256_RE.fullmatch(x2p[key]) is None for key in REQUIRED_X2P_ENV)
+    ):
+        raise ShardWorkflowError("shard_launch_contract_invalid")
+    return {
+        "slurm_time_limit": EXPECTED_SHARD_SLURM_TIME_LIMIT,
+        "x2p_environment_sha256": {key: x2p[key] for key in REQUIRED_X2P_ENV},
+    }
 
 
 def _sha256_bytes(value: bytes) -> str:
@@ -486,6 +510,7 @@ def create_plan(
             "schema_version": SCHEMA_VERSION,
             "algorithm": PLAN_ALGORITHM,
             "expected_model": EXPECTED_MODEL,
+            "scheduler": {"slurm_time_limit": EXPECTED_SHARD_SLURM_TIME_LIMIT},
             "universe": {
                 "path": str(final_universe),
                 "sha256": universe_manifest_sha256,
@@ -540,6 +565,7 @@ def load_plan(path: Path) -> tuple[dict[str, Any], tuple[PlannedShard, ...]]:
         "schema_version",
         "algorithm",
         "expected_model",
+        "scheduler",
         "universe",
         "base_config",
         "shard_size",
@@ -555,6 +581,7 @@ def load_plan(path: Path) -> tuple[dict[str, Any], tuple[PlannedShard, ...]]:
         value.get("schema_version") != SCHEMA_VERSION
         or value.get("algorithm") != PLAN_ALGORITHM
         or value.get("expected_model") != EXPECTED_MODEL
+        or value.get("scheduler") != {"slurm_time_limit": EXPECTED_SHARD_SLURM_TIME_LIMIT}
         or not isinstance(self_hash, str)
         or self_hash != _sha256_bytes(canonical_json(body))
     ):
@@ -1047,6 +1074,7 @@ def merge_shards(
     max_sequence_tokens: int = DEFAULT_MAX_SEQUENCE_TOKENS,
     allow_generation_artifact_rotation: bool = False,
     proxy_config_snapshots: Mapping[Path, Path] | None = None,
+    launch_contracts: Mapping[Path, Mapping[str, Any]] | None = None,
 ) -> dict[str, Any]:
     """Publish a full result only from one certified success per planned shard."""
 
@@ -1065,6 +1093,19 @@ def merge_shards(
         resolved_receipts.append(resolved)
     if len({str(path) for path in resolved_receipts}) != len(resolved_receipts):
         raise ShardWorkflowError("success_receipt_duplicate")
+    if launch_contracts is None:
+        raise ShardWorkflowError("shard_launch_contract_missing")
+    launch_contract_by_receipt: dict[Path, dict[str, Any]] = {}
+    try:
+        for receipt, contract in launch_contracts.items():
+            resolved_receipt = Path(receipt).resolve(strict=True)
+            if resolved_receipt not in resolved_receipts or resolved_receipt in launch_contract_by_receipt:
+                raise ShardWorkflowError("shard_launch_contract_invalid")
+            launch_contract_by_receipt[resolved_receipt] = validate_shard_launch_contract(contract)
+    except (OSError, RuntimeError) as error:
+        raise ShardWorkflowError("shard_launch_contract_invalid") from error
+    if set(launch_contract_by_receipt) != set(resolved_receipts):
+        raise ShardWorkflowError("shard_launch_contract_invalid")
     if not 0 <= min_supported_pass_rate <= max_supported_pass_rate <= 1:
         raise ShardWorkflowError("audit_score_bounds_invalid")
     if max_sequence_tokens < 1:
@@ -1286,6 +1327,7 @@ def merge_shards(
                     "route_generation_sha256": certified_by_index[index].route_generation_sha256,
                     "endpoint_binding_sha256": certified_by_index[index].endpoint_binding_sha256,
                     "expected_routes": certified_by_index[index].expected_routes,
+                    "launch_contract": launch_contract_by_receipt[certified_by_index[index].success_receipt],
                     **(
                         {
                             "proxy_config_snapshot": {
@@ -1359,11 +1401,14 @@ def merge_shards(
                     "max_sequence_tokens": max_sequence_tokens,
                     "rollout_concurrency": EXPECTED_ROLLOUT_CONCURRENCY,
                     "lease_start_concurrency": EXPECTED_LEASE_START_CONCURRENCY,
+                    "shard_slurm_time_limit": EXPECTED_SHARD_SLURM_TIME_LIMIT,
+                    "require_x2p_environment_commitments": True,
                     "require_reasoning": True,
                     "require_response": True,
                     "require_model_io": True,
                     "model_io_contract": EXPECTED_MODEL_IO_CONTRACT,
                     "require_request_graph_match": True,
+                    "require_clean_stop": True,
                     "require_tool_schemas": True,
                     "require_tool_call_lineage": True,
                     "require_token_data": False,
@@ -1448,6 +1493,7 @@ def merge_multigen_shards(
     max_supported_pass_rate: float = 0.22,
     max_sequence_tokens: int = DEFAULT_MAX_SEQUENCE_TOKENS,
     proxy_config_snapshots: Mapping[Path, Path] | None = None,
+    launch_contracts: Mapping[Path, Mapping[str, Any]] | None = None,
 ) -> dict[str, Any]:
     """Publish a full result from multiple generation-bound controller roots."""
 
@@ -1461,6 +1507,7 @@ def merge_multigen_shards(
         max_sequence_tokens=max_sequence_tokens,
         allow_generation_artifact_rotation=True,
         proxy_config_snapshots=proxy_config_snapshots,
+        launch_contracts=launch_contracts,
     )
 
 
@@ -1496,11 +1543,14 @@ def _validate_aggregate_sections(value: dict[str, Any]) -> tuple[int, float, flo
         "max_sequence_tokens": DEFAULT_MAX_SEQUENCE_TOKENS,
         "rollout_concurrency": EXPECTED_ROLLOUT_CONCURRENCY,
         "lease_start_concurrency": EXPECTED_LEASE_START_CONCURRENCY,
+        "shard_slurm_time_limit": EXPECTED_SHARD_SLURM_TIME_LIMIT,
+        "require_x2p_environment_commitments": True,
         "require_reasoning": True,
         "require_response": True,
         "require_model_io": True,
         "model_io_contract": EXPECTED_MODEL_IO_CONTRACT,
         "require_request_graph_match": True,
+        "require_clean_stop": True,
         "require_tool_schemas": True,
         "require_tool_call_lineage": True,
         "require_token_data": False,
@@ -1763,11 +1813,13 @@ def validate_sharded_checkpoint(
             "route_generation_sha256",
             "endpoint_binding_sha256",
             "expected_routes",
+            "launch_contract",
         }
         if allow_generation_artifact_rotation:
             expected_record_keys |= {"proxy_config_snapshot", "proxy_policy_sha256", "proxy_policy_artifact"}
         if not isinstance(record, dict) or set(record) != expected_record_keys:
             raise ShardWorkflowError("sharded_checkpoint_shards_invalid")
+        launch_contract = validate_shard_launch_contract(record.get("launch_contract"))
         index = record.get("index")
         if not isinstance(index, int) or isinstance(index, bool) or index in records_by_index:
             raise ShardWorkflowError("sharded_checkpoint_shards_invalid")
@@ -1854,6 +1906,7 @@ def validate_sharded_checkpoint(
                 "route_generation_sha256": certified.route_generation_sha256,
                 "endpoint_binding_sha256": certified.endpoint_binding_sha256,
                 "expected_routes": certified.expected_routes,
+                "launch_contract": launch_contract,
             }
             if allow_generation_artifact_rotation:
                 policy_sha256 = _sha256_bytes(
@@ -1985,6 +2038,13 @@ def validate_sharded_checkpoint(
             else {"proxy_policy_sha256": deployment["proxy_policy_sha256"]}
         ),
         "shard_count": len(planned),
+        "shard_slurm_time_limit": EXPECTED_SHARD_SLURM_TIME_LIMIT,
+        "x2p_environment_commitment_sha256s": sorted(
+            {
+                _sha256_bytes(canonical_json(record["launch_contract"]["x2p_environment_sha256"]))
+                for record in shard_records
+            }
+        ),
         "supported_pass_rate": supported_rate,
         "all_task_pass_rate": all_rate,
         "supported_passes": supported_passes,
@@ -2030,6 +2090,9 @@ def _parser() -> argparse.ArgumentParser:
     merge.add_argument("--success-receipt", type=Path, action="append", required=True)
     merge.add_argument("--output-dir", type=Path, required=True)
     merge.add_argument("--dataset-dir", type=Path, required=True)
+    merge.add_argument("--x2p-env-sha256", required=True)
+    merge.add_argument("--x2p-cfg-env-sha256", required=True)
+    merge.add_argument("--x2p-proxy-url-sha256", required=True)
     merge.add_argument("--min-supported-pass-rate", type=_rate, default=0.04)
     merge.add_argument("--max-supported-pass-rate", type=_rate, default=0.22)
     merge.add_argument("--max-sequence-tokens", type=int, default=DEFAULT_MAX_SEQUENCE_TOKENS)
@@ -2055,6 +2118,16 @@ def main(argv: Sequence[str] | None = None) -> int:
                 "plan_sha256": plan["plan_sha256"],
             }
         else:
+            launch_contract = validate_shard_launch_contract(
+                {
+                    "slurm_time_limit": EXPECTED_SHARD_SLURM_TIME_LIMIT,
+                    "x2p_environment_sha256": {
+                        REQUIRED_X2P_ENV[0]: args.x2p_env_sha256,
+                        REQUIRED_X2P_ENV[1]: args.x2p_cfg_env_sha256,
+                        REQUIRED_X2P_ENV[2]: args.x2p_proxy_url_sha256,
+                    },
+                }
+            )
             receipt = merge_shards(
                 args.plan,
                 args.success_receipt,
@@ -2063,6 +2136,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 min_supported_pass_rate=args.min_supported_pass_rate,
                 max_supported_pass_rate=args.max_supported_pass_rate,
                 max_sequence_tokens=args.max_sequence_tokens,
+                launch_contracts={path: launch_contract for path in args.success_receipt},
             )
             output = {
                 "state": receipt["state"],

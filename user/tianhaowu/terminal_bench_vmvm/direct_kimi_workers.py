@@ -975,7 +975,11 @@ def _run_binding(
         or set(envelope) != {"schema_version", "eval_run_identity_sha256", "identity"}
         or envelope.get("schema_version") != 1
         or not isinstance(identity, dict)
-        or role not in {"kimi-direct-smoke", "kimi-direct-tb4"}
+        or role not in {
+            "kimi-direct-smoke",
+            "kimi-direct-tb4",
+            "kimi-direct-tb4-diagnostic",
+        }
         or not isinstance(source, dict)
         or source.get("sandbox_provider", "vmvm") not in {"sandoq", "vmvm"}
         or not isinstance(deployment, dict)

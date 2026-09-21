@@ -584,6 +584,29 @@ def test_held_run_evidence_rejects_same_bytes_path_replacement(tmp_path: Path) -
         evidence.close()
 
 
+def test_held_certificate_artifact_rejects_post_audit_path_replacement(tmp_path: Path) -> None:
+    tmp_path.chmod(0o700)
+    result = tmp_path / "results.jsonl"
+    _private_file(result, b"audited bytes\n")
+    held = split._HeldArtifactSet.create()
+    try:
+        body, record = held.capture(
+            result,
+            code="provider_results_invalid",
+            maximum_bytes=1024,
+            private=True,
+        )
+        assert body == b"audited bytes\n"
+        assert record["sha256"] == hashlib.sha256(body).hexdigest()
+
+        result.rename(tmp_path / "results-original.jsonl")
+        _private_file(result, body)
+        with pytest.raises(split.KimiProviderSplitError, match="^provider_artifact_changed$"):
+            held.revalidate()
+    finally:
+        held.close()
+
+
 def test_checked_in_image_only_manifest_cannot_be_used_as_selector_source() -> None:
     path = Path(__file__).parents[1] / "configs/eval/servers/cpu-132-021_8103/tb4_images.sandoq.json"
     body = path.read_bytes()

@@ -4,26 +4,21 @@ import json
 import sys
 from pathlib import Path
 
+import audit_traces
 import pytest
 from audit_traces import (
     KIMI_K3_MAX_MODEL_IO_CONTRACT,
-    QWEN3_A95B_DIRECT_MEDIUM_MODEL_IO_CONTRACT,
-    QWEN3_A95B_EPOCH3_MODEL_IO_CONTRACT,
-    QWEN3_A95B_MODEL_IO_CONTRACT,
+    TraceJSONLError,
     _audit_trace,
     _captured_zero_reasoning_tool_turn,
     _iter_traces,
+    _summarize_clean_stops,
+    _summarize_hashed_clean_stops,
     _summarize_traces,
     _valid_redundant_provider_specific_fields,
     _valid_tool_arguments,
     main,
 )
-
-
-def test_qwen_medium_direct_contract_does_not_rewrite_historical_contracts() -> None:
-    assert QWEN3_A95B_MODEL_IO_CONTRACT.reasoning_effort == "max"
-    assert QWEN3_A95B_EPOCH3_MODEL_IO_CONTRACT.reasoning_effort is None
-    assert QWEN3_A95B_DIRECT_MEDIUM_MODEL_IO_CONTRACT.reasoning_effort == "medium"
 
 
 def _trace(trace_id: str, slug: str, *, valid: bool = True) -> dict:
@@ -44,6 +39,8 @@ def _trace(trace_id: str, slug: str, *, valid: bool = True) -> dict:
     return {
         "id": trace_id,
         "task": {"slug": slug},
+        "is_completed": True,
+        "stop_condition": "agent_completed",
         "nodes": [node],
     }
 
@@ -372,6 +369,237 @@ def test_aggregate_only_summary_omits_trace_and_task_identifiers() -> None:
         "wrong_rollout_multiplicity_count=1",
     ]
     assert summary["problem_counts"] == {"node_logprob_mismatch": 1}
+
+
+@pytest.mark.parametrize(
+    ("stop_condition", "problem"),
+    [
+        ("harness_timeout", "trace_stop_condition_infrastructure"),
+        ("HarnessTimeout", "trace_stop_condition_infrastructure"),
+        ("hArNeSs_TiMeOuT", "trace_stop_condition_infrastructure"),
+        ("Ｈａｒｎｅｓｓ＿Ｔｉｍｅｏｕｔ", "trace_stop_condition_infrastructure"),
+        ("timed-out", "trace_stop_condition_infrastructure"),
+        ("TimeLimitExceeded", "trace_stop_condition_infrastructure"),
+        ("timedout_cleanup", "trace_stop_condition_infrastructure"),
+        ("timelimit_exceeded", "trace_stop_condition_infrastructure"),
+        ("harnesstimeoutcleanup", "trace_stop_condition_infrastructure"),
+        ("deadline_exceeded", "trace_stop_condition_infrastructure"),
+        ("WallTimeExceeded", "trace_stop_condition_infrastructure"),
+        ("wall_clock_exceeded", "trace_stop_condition_infrastructure"),
+        ("WallClockExceeded", "trace_stop_condition_infrastructure"),
+        ("wallclockexceeded", "trace_stop_condition_infrastructure"),
+        ("HarnessAborted", "trace_stop_condition_infrastructure"),
+        ("cancellation_requested", "trace_stop_condition_infrastructure"),
+        ("workercancelledcleanup", "trace_stop_condition_infrastructure"),
+        ("rolloutInterrupted", "trace_stop_condition_infrastructure"),
+        ("rolloutinterruptedretry", "trace_stop_condition_infrastructure"),
+        ("WorkerKilled", "trace_stop_condition_infrastructure"),
+        ("workerkilledcleanup", "trace_stop_condition_infrastructure"),
+        ("gpu_preemption", "trace_stop_condition_infrastructure"),
+        ("ProcessTermination", "trace_stop_condition_infrastructure"),
+        ("ProviderError", "trace_stop_condition_infrastructure"),
+        ("task_errored", "trace_stop_condition_infrastructure"),
+        ("providererroredretry", "trace_stop_condition_infrastructure"),
+        ("multiple_errors", "trace_stop_condition_infrastructure"),
+        ("UnhandledException", "trace_stop_condition_infrastructure"),
+        ("setupexceptionhandled", "trace_stop_condition_infrastructure"),
+        ("TaskFailed", "trace_stop_condition_infrastructure"),
+        ("task_failure", "trace_stop_condition_infrastructure"),
+        ("RuntimeCrash", "trace_stop_condition_infrastructure"),
+        ("infra", "trace_stop_condition_infrastructure"),
+        ("InfrastructureFailure", "trace_stop_condition_infrastructure"),
+        ("infrastructurefailurehandled", "trace_stop_condition_infrastructure"),
+        ("OOM", "trace_stop_condition_infrastructure"),
+        ("OutOfMemory", "trace_stop_condition_infrastructure"),
+        ("outofmemory_recovered", "trace_stop_condition_infrastructure"),
+        ("outofmemoryrecovered", "trace_stop_condition_infrastructure"),
+        ("oomrecovered", "trace_stop_condition_infrastructure"),
+        ("workeroomrecovered", "trace_stop_condition_infrastructure"),
+        ("harnessoomcleanup", "trace_stop_condition_infrastructure"),
+        ("shutdown_requested", "trace_stop_condition_infrastructure"),
+        ("SignalReceived", "trace_stop_condition_infrastructure"),
+        ("sigtermhandled", "trace_stop_condition_infrastructure"),
+        ("workersigtermhandled", "trace_stop_condition_infrastructure"),
+        ("siginthandled", "trace_stop_condition_infrastructure"),
+        ("providersiginthandled", "trace_stop_condition_infrastructure"),
+        ("sigkillhandled", "trace_stop_condition_infrastructure"),
+        ("not a canonical stop", "trace_stop_condition_invalid"),
+        ("clean-stop", "trace_stop_condition_invalid"),
+        (None, "trace_stop_condition_invalid"),
+        (1, "trace_stop_condition_invalid"),
+    ],
+)
+def test_strict_stop_gate_rejects_unclean_or_malformed_terminal_outcomes(
+    stop_condition: object,
+    problem: str,
+) -> None:
+    trace = _trace("private-trace", "private-task")
+    trace["stop_condition"] = stop_condition
+
+    assert _audit_trace(trace, require_reasoning=True, require_clean_stop=True) == [problem]
+
+
+@pytest.mark.parametrize(
+    "stop_condition",
+    [
+        "agent_completed",
+        "max_turns",
+        "max_input_tokens",
+        "max_output_tokens",
+        "max_total_tokens",
+        "context_length",
+        "task_finished",
+        "allChecksPassed",
+        "résultat_prêt",
+        "skill",
+        "skill_completed",
+        "SkillCompleted",
+        "skilled_task",
+        "task_skill",
+        "reskill_completed",
+        "clockwork_complete",
+        "wallpaper_ready",
+        "room",
+        "room_recovered",
+        "roomrecovered",
+        "bloom",
+        "bloomcompleted",
+        "classroomready",
+        "groomcompleted",
+        "workerroomrecovered",
+        "providerroomready",
+        "customcleanuphandler",
+    ],
+)
+def test_strict_stop_gate_accepts_native_and_taskset_clean_stops(stop_condition: str) -> None:
+    trace = _trace("trace", "task")
+    trace["stop_condition"] = stop_condition
+
+    assert _audit_trace(trace, require_reasoning=True, require_clean_stop=True) == []
+
+
+def test_strict_stop_gate_requires_exact_boolean_completion() -> None:
+    trace = _trace("trace", "task")
+    trace["is_completed"] = 1
+
+    assert _audit_trace(trace, require_reasoning=True, require_clean_stop=True) == ["trace_not_completed"]
+
+
+def test_strict_stop_failure_is_aggregate_only_and_does_not_echo_value() -> None:
+    trace = _trace("private-trace", "private-task")
+    trace["stop_condition"] = "private_harness_timeout_marker"
+
+    summary, failed = _summarize_traces(
+        [trace],
+        expected_slugs=None,
+        expected_count=1,
+        rollouts_per_task=1,
+        require_reasoning=True,
+        require_clean_stop=True,
+        aggregate_only=True,
+    )
+
+    encoded = json.dumps(summary, sort_keys=True)
+    assert failed is True
+    assert summary["problem_counts"] == {"trace_stop_condition_infrastructure": 1}
+    assert "private_harness_timeout_marker" not in encoded
+    assert "private-trace" not in encoded
+    assert "private-task" not in encoded
+
+
+def test_stop_gate_is_explicitly_backward_compatible_when_disabled() -> None:
+    trace = _trace("trace", "task")
+    trace["stop_condition"] = "harness_timeout"
+
+    assert _audit_trace(trace, require_reasoning=True) == []
+
+
+def test_clean_stop_summary_is_aggregate_only() -> None:
+    clean = _trace("private-clean-trace", "private-clean-task")
+    timed_out = _trace("private-timeout-trace", "private-timeout-task")
+    timed_out["stop_condition"] = "HarnessTimeout"
+
+    summary, failed = _summarize_clean_stops([clean, timed_out], expected_count=2)
+
+    assert failed is True
+    assert summary == {
+        "traces": 2,
+        "clean_traces": 1,
+        "problem_counts": {"trace_stop_condition_infrastructure": 1},
+        "trace_count_matches": True,
+    }
+    encoded = json.dumps(summary, sort_keys=True)
+    assert "private-clean" not in encoded
+    assert "private-timeout" not in encoded
+
+
+def test_hashed_clean_stop_summary_hashes_the_parsed_bytes(tmp_path: Path) -> None:
+    results = tmp_path / "results.jsonl"
+    clean = _trace("private-clean-trace", "private-clean-task")
+    timed_out = _trace("private-timeout-trace", "private-timeout-task")
+    timed_out["stop_condition"] = "HarnessTimeout"
+    raw = b"\n".join(json.dumps(trace).encode() for trace in (clean, timed_out)) + b"\n"
+    results.write_bytes(raw)
+
+    summary, failed = _summarize_hashed_clean_stops(
+        results,
+        expected_sha256=hashlib.sha256(raw).hexdigest(),
+        expected_count=2,
+    )
+
+    assert failed is True
+    assert summary == {
+        "traces": 2,
+        "clean_traces": 1,
+        "problem_counts": {"trace_stop_condition_infrastructure": 1},
+        "trace_count_matches": True,
+    }
+    encoded = json.dumps(summary, sort_keys=True)
+    assert "private-clean" not in encoded
+    assert "private-timeout" not in encoded
+
+
+def test_hashed_clean_stop_summary_rejects_digest_mismatch_without_echoing_rows(tmp_path: Path) -> None:
+    results = tmp_path / "results.jsonl"
+    results.write_text(json.dumps(_trace("private-trace", "private-task")) + "\n")
+
+    with pytest.raises(TraceJSONLError, match="^trace_results_sha256_mismatch$") as raised:
+        _summarize_hashed_clean_stops(
+            results,
+            expected_sha256=hashlib.sha256(b"different").hexdigest(),
+            expected_count=1,
+        )
+
+    assert "private" not in str(raised.value)
+
+
+def test_hashed_clean_stop_summary_rejects_path_swap_during_audit(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    results = tmp_path / "results.jsonl"
+    replacement = tmp_path / "replacement.jsonl"
+    raw = (json.dumps(_trace("private-trace", "private-task")) + "\n").encode()
+    results.write_bytes(raw)
+    replacement.write_text(json.dumps(_trace("replacement-trace", "replacement-task")) + "\n")
+    original = audit_traces._clean_stop_problem
+    swapped = False
+
+    def swap_path(trace: dict) -> str | None:
+        nonlocal swapped
+        if not swapped:
+            replacement.replace(results)
+            swapped = True
+        return original(trace)
+
+    monkeypatch.setattr(audit_traces, "_clean_stop_problem", swap_path)
+
+    with pytest.raises(TraceJSONLError, match="^trace_results_changed$"):
+        _summarize_hashed_clean_stops(
+            results,
+            expected_sha256=hashlib.sha256(raw).hexdigest(),
+            expected_count=1,
+        )
 
 
 def test_audit_trace_validates_token_array_values() -> None:
@@ -711,38 +939,6 @@ def test_strict_kimi_contract_is_valid_and_implies_model_io() -> None:
         require_model_io=False,
         model_io_contract=KIMI_K3_MAX_MODEL_IO_CONTRACT,
     ) == ["node_0_model_io_missing", "no_model_io_tool_schemas"]
-
-
-def test_qwen_epoch3_contract_requires_reasoning_effort_to_be_absent() -> None:
-    trace = _trace_with_model_io()
-    node = trace["nodes"][0]
-    request = node["model_io"]["request"]
-    request["body"]["model"] = "Qwen3.8-2.4T-A95B"
-    request["body"].pop("reasoning_effort")
-    request["sha256"] = _digest(request["body"])
-    response = node["model_io"]["response"]
-    response["body"]["model"] = "Qwen3.8-2.4T-A95B"
-    response["sha256"] = _digest(response["body"])
-
-    assert _audit_trace(
-        trace,
-        require_reasoning=True,
-        model_io_contract=QWEN3_A95B_EPOCH3_MODEL_IO_CONTRACT,
-    ) == []
-    assert _audit_trace(
-        trace,
-        require_reasoning=True,
-        model_io_contract=QWEN3_A95B_MODEL_IO_CONTRACT,
-    ) == ["node_0_model_io_request_reasoning_effort_mismatch"]
-
-    for value in (None, "max"):
-        request["body"]["reasoning_effort"] = value
-        request["sha256"] = _digest(request["body"])
-        assert _audit_trace(
-            trace,
-            require_reasoning=True,
-            model_io_contract=QWEN3_A95B_EPOCH3_MODEL_IO_CONTRACT,
-        ) == ["node_0_model_io_request_reasoning_effort_mismatch"]
 
 
 @pytest.mark.parametrize(
@@ -1840,6 +2036,50 @@ def test_main_exact_provider_json_failure_is_aggregate_only_and_redacted(
     assert summary["problem_counts"] == {"normalized_stream_response_disallowed": 1}
     assert private_trace not in output
     assert private_task not in output
+
+
+def test_main_requires_clean_stop_by_default_and_can_explicitly_disable_it(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    trace = _trace_with_model_io("private-trace", "private-task")
+    trace["stop_condition"] = "harness_timeout"
+    results = tmp_path / "results.jsonl"
+    results.write_text(json.dumps(trace) + "\n")
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "audit_traces.py",
+            str(results),
+            "--aggregate-only",
+            "--no-require-request-graph-match",
+        ],
+    )
+
+    with pytest.raises(SystemExit) as exit_info:
+        main()
+
+    assert exit_info.value.code == 2
+    output = capsys.readouterr().out
+    assert json.loads(output)["problem_counts"] == {"trace_stop_condition_infrastructure": 1}
+    assert "private-trace" not in output
+    assert "private-task" not in output
+
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "audit_traces.py",
+            str(results),
+            "--aggregate-only",
+            "--no-require-request-graph-match",
+            "--no-require-clean-stop",
+        ],
+    )
+    main()
+    assert json.loads(capsys.readouterr().out)["trace_failures"] == 0
 
 
 def test_main_supports_strict_kimi_production_contract(

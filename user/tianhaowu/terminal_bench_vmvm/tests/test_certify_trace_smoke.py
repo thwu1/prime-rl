@@ -109,6 +109,8 @@ def _trace(trace_id: str, task: str, *, start: float, end: float) -> dict:
     return {
         "id": trace_id,
         "task": {"slug": task},
+        "is_completed": True,
+        "stop_condition": "agent_completed",
         "timing": {
             "setup": {"start": start, "end": start + 0.25},
             "scoring": {"start": end - 0.25, "end": end},
@@ -303,8 +305,18 @@ def _fixture(
     identity_path.write_text("{}\n")
     (run_dir / ".writer.lock").touch()
 
+    launch_contract = {
+        "schema_version": 2,
+        "transport": "anonymous_slurm_export_fd_v1",
+        "slurm_time_limit": "3-00:00:00",
+        "x2p_environment_sha256": {
+            "X2P_ENV": "1" * 64,
+            "X2P_CFG_ENV": "2" * 64,
+            "X2P_PROXY_URL": "3" * 64,
+        },
+    }
     identity = {
-        "schema_version": 1,
+        "schema_version": 2,
         "role": "smoke",
         "config": {"resolved": _record(config)},
         "inputs": {
@@ -347,10 +359,11 @@ def _fixture(
             "http_max_connections": 2,
             "http_max_keepalive_connections": 2,
             "vmvm_environment": {"lease_start_concurrency": 2},
+            "launch_contract": launch_contract,
         },
     }
     envelope = {
-        "schema_version": 1,
+        "schema_version": 2,
         "eval_run_identity_sha256": _json_digest(identity),
         "identity": identity,
     }
@@ -500,6 +513,8 @@ def _install_capacity_evaluator_contract(
     (evaluator / "taskset.py").write_text("VALUE = 1\n")
     (vmvm / "runtime.py").write_text("VALUE = 2\n")
     (evaluator.parent / "run_eval.sbatch").write_text("#!/bin/bash\n")
+    (evaluator.parent / "run_kimi_tb4_gate.sbatch").write_text("#!/bin/bash\n")
+    (evaluator.parent / "kimi_smoke_launch.py").write_text("VALUE = 3\n")
 
     identity = envelope["identity"]
     identity["source"] = {
@@ -632,12 +647,92 @@ def test_certifies_valid_smoke_without_task_metadata(tmp_path: Path) -> None:
     assert certificate["artifacts"]["proxy_info"] == certificate["endpoint"]["proxy_info"]
     assert certificate["audit_policy"]["model_io_contract"]["request_model"] == "Kimi-K3"
     assert certificate["audit_policy"]["require_request_graph_match"] is True
+    assert certificate["audit_policy"]["require_clean_stop"] is True
+    assert certificate["audit_policy"]["require_x2p_launch_contract"] is True
+    assert certificate["audit_policy"]["required_slurm_time_limit"] == "3-00:00:00"
+    assert certificate["launch_contract"] == envelope["identity"]["execution"]["launch_contract"]
     assert "require_exact_provider_json" not in certificate["audit_policy"]
     assert "opaque-a" not in json.dumps(certificate)
     body = {key: value for key, value in certificate.items() if key != "smoke_checkpoint_sha256"}
     assert certificate["smoke_checkpoint_sha256"] == _sha256_bytes(
         json.dumps(body, allow_nan=False, ensure_ascii=False, separators=(",", ":"), sort_keys=True).encode()
     )
+
+
+def test_kimi_smoke_cannot_certify_without_schema_v2_launch_contract(tmp_path: Path) -> None:
+    run_dir, task_file, task_sha256, envelope = _fixture(tmp_path)
+    envelope["identity"]["schema_version"] = 1
+    envelope["identity"]["execution"].pop("launch_contract")
+    envelope["schema_version"] = 1
+    envelope["eval_run_identity_sha256"] = _json_digest(envelope["identity"])
+
+    with pytest.raises(SmokeCertificateError, match="eval_identity_contract_invalid"):
+        certify_smoke(
+            run_dir,
+            expected_task_file=task_file,
+            expected_task_file_sha256=task_sha256,
+            expected_traces=2,
+            identity_loader=lambda *_args, **_kwargs: envelope,
+        )
+
+
+def test_smoke_qualification_rejects_resigned_launch_contract_drift(tmp_path: Path) -> None:
+    run_dir, task_file, task_sha256, envelope = _fixture(tmp_path)
+    certificate = certify_smoke(
+        run_dir,
+        expected_task_file=task_file,
+        expected_task_file_sha256=task_sha256,
+        expected_traces=2,
+        identity_loader=lambda *_args, **_kwargs: envelope,
+    )
+    certificate["launch_contract"]["x2p_environment_sha256"]["X2P_PROXY_URL"] = "f" * 64
+    body = {key: value for key, value in certificate.items() if key != "smoke_checkpoint_sha256"}
+    certificate["smoke_checkpoint_sha256"] = _sha256_bytes(smoke_module._canonical_json(body))
+    smoke_path = run_dir / "smoke_checkpoint.json"
+    smoke_path.chmod(0o600)
+    smoke_path.write_text(json.dumps(certificate, sort_keys=True) + "\n")
+    smoke_path.chmod(0o444)
+    deployment = envelope["identity"]["deployment"]
+
+    with pytest.raises(qualification.SmokeQualificationError, match="smoke_checkpoint_identity_mismatch"):
+        qualification.validate_v1_smoke(
+            qualification.Artifact(smoke_path.resolve(), _sha256_bytes(smoke_path.read_bytes())),
+            deployment_id=deployment["id"],
+            deployment_spec=qualification.Artifact(
+                Path(deployment["spec"]["path"]).resolve(),
+                deployment["spec"]["sha256"],
+            ),
+            readiness=qualification.Artifact(
+                Path(deployment["readiness_checkpoint"]["path"]).resolve(),
+                deployment["readiness_checkpoint"]["sha256"],
+            ),
+            endpoint=deployment["endpoint"],
+            generation=deployment["serving_route_generation"],
+            proxy_policy=deployment["proxy_policy"],
+            model="Kimi-K3",
+            identity_loader=lambda *_args, **_kwargs: envelope,
+        )
+
+
+def test_syntactically_valid_two_row_harness_timeout_cannot_certify(tmp_path: Path) -> None:
+    run_dir, task_file, task_sha256, envelope = _fixture(tmp_path)
+    results = run_dir / "results.jsonl"
+    rows = [json.loads(line) for line in results.read_text().splitlines()]
+    assert len(rows) == 2
+    for row in rows:
+        row["is_completed"] = True
+        row["stop_condition"] = "harness_timeout"
+    results.write_text("".join(f"{json.dumps(row)}\n" for row in rows))
+
+    with pytest.raises(SmokeCertificateError, match="^trace_audit_failed$"):
+        certify_smoke(
+            run_dir,
+            expected_task_file=task_file,
+            expected_task_file_sha256=task_sha256,
+            expected_traces=2,
+            identity_loader=lambda *_args, **_kwargs: envelope,
+        )
+    assert not (run_dir / "smoke_checkpoint.json").exists()
 
 
 def test_exact_provider_json_smoke_policy_rejects_normalized_stream_responses(tmp_path: Path) -> None:
@@ -731,6 +826,88 @@ def test_smoke_qualification_rejects_explicit_false_exact_provider_policy(tmp_pa
     deployment = envelope["identity"]["deployment"]
 
     with pytest.raises(qualification.SmokeQualificationError, match="^smoke_checkpoint_not_passed$"):
+        qualification.validate_v1_smoke(
+            qualification.Artifact(smoke_path.resolve(), _sha256_bytes(smoke_path.read_bytes())),
+            deployment_id=deployment["id"],
+            deployment_spec=qualification.Artifact(
+                Path(deployment["spec"]["path"]).resolve(),
+                deployment["spec"]["sha256"],
+            ),
+            readiness=qualification.Artifact(
+                Path(deployment["readiness_checkpoint"]["path"]).resolve(),
+                deployment["readiness_checkpoint"]["sha256"],
+            ),
+            endpoint=deployment["endpoint"],
+            generation=deployment["serving_route_generation"],
+            proxy_policy=deployment["proxy_policy"],
+            model="Kimi-K3",
+            identity_loader=lambda *_args, **_kwargs: envelope,
+        )
+
+
+def test_smoke_qualification_rejects_explicit_false_clean_stop_policy(tmp_path: Path) -> None:
+    run_dir, task_file, task_sha256, envelope = _fixture(tmp_path)
+    certificate = certify_smoke(
+        run_dir,
+        expected_task_file=task_file,
+        expected_task_file_sha256=task_sha256,
+        expected_traces=2,
+        identity_loader=lambda *_args, **_kwargs: envelope,
+    )
+    certificate["audit_policy"]["require_clean_stop"] = False
+    certificate_body = {key: value for key, value in certificate.items() if key != "smoke_checkpoint_sha256"}
+    certificate["smoke_checkpoint_sha256"] = _sha256_bytes(smoke_module._canonical_json(certificate_body))
+    smoke_path = run_dir / "smoke_checkpoint.json"
+    smoke_path.chmod(0o600)
+    smoke_path.write_text(json.dumps(certificate, sort_keys=True) + "\n")
+    smoke_path.chmod(0o444)
+    deployment = envelope["identity"]["deployment"]
+
+    with pytest.raises(qualification.SmokeQualificationError, match="^smoke_checkpoint_not_passed$"):
+        qualification.validate_v1_smoke(
+            qualification.Artifact(smoke_path.resolve(), _sha256_bytes(smoke_path.read_bytes())),
+            deployment_id=deployment["id"],
+            deployment_spec=qualification.Artifact(
+                Path(deployment["spec"]["path"]).resolve(),
+                deployment["spec"]["sha256"],
+            ),
+            readiness=qualification.Artifact(
+                Path(deployment["readiness_checkpoint"]["path"]).resolve(),
+                deployment["readiness_checkpoint"]["sha256"],
+            ),
+            endpoint=deployment["endpoint"],
+            generation=deployment["serving_route_generation"],
+            proxy_policy=deployment["proxy_policy"],
+            model="Kimi-K3",
+            identity_loader=lambda *_args, **_kwargs: envelope,
+        )
+
+
+def test_smoke_qualification_reaudits_clean_stop_for_legacy_policy(tmp_path: Path) -> None:
+    run_dir, task_file, task_sha256, envelope = _fixture(tmp_path)
+    certificate = certify_smoke(
+        run_dir,
+        expected_task_file=task_file,
+        expected_task_file_sha256=task_sha256,
+        expected_traces=2,
+        identity_loader=lambda *_args, **_kwargs: envelope,
+    )
+    certificate["audit_policy"].pop("require_clean_stop")
+    results = run_dir / "results.jsonl"
+    rows = [json.loads(line) for line in results.read_text().splitlines()]
+    for row in rows:
+        row["stop_condition"] = "harness_timeout"
+    results.write_text("".join(f"{json.dumps(row)}\n" for row in rows))
+    certificate["artifacts"]["results"] = _record(results)
+    certificate_body = {key: value for key, value in certificate.items() if key != "smoke_checkpoint_sha256"}
+    certificate["smoke_checkpoint_sha256"] = _sha256_bytes(smoke_module._canonical_json(certificate_body))
+    smoke_path = run_dir / "smoke_checkpoint.json"
+    smoke_path.chmod(0o600)
+    smoke_path.write_text(json.dumps(certificate, sort_keys=True) + "\n")
+    smoke_path.chmod(0o444)
+    deployment = envelope["identity"]["deployment"]
+
+    with pytest.raises(qualification.SmokeQualificationError, match="^smoke_trace_audit_failed$"):
         qualification.validate_v1_smoke(
             qualification.Artifact(smoke_path.resolve(), _sha256_bytes(smoke_path.read_bytes())),
             deployment_id=deployment["id"],

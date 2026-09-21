@@ -168,6 +168,139 @@ class _HeldRunEvidence:
         os.close(self.directory)
 
 
+@dataclass(slots=True)
+class _HeldArtifact:
+    path: Path
+    parent_path: Path
+    parent: int
+    parent_identity: tuple[int, int, int, int]
+    name: str
+    descriptor: int
+    identity: tuple[int, ...]
+    body: bytes
+    private: bool
+
+
+@dataclass(slots=True)
+class _HeldArtifactSet:
+    artifacts: dict[Path, _HeldArtifact]
+
+    @classmethod
+    def create(cls) -> _HeldArtifactSet:
+        return cls(artifacts={})
+
+    def capture(
+        self,
+        path: Path,
+        *,
+        code: str,
+        maximum_bytes: int,
+        private: bool,
+    ) -> tuple[bytes, dict[str, Any]]:
+        absolute = _absolute_path(path)
+        existing = self.artifacts.get(absolute)
+        if existing is not None:
+            if private and not existing.private:
+                raise KimiProviderSplitError(code)
+            return existing.body, self.record(absolute)
+        absolute, parent, descriptor, name = _open_anchored(
+            absolute,
+            directory=False,
+            code=code,
+        )
+        try:
+            before = os.fstat(descriptor)
+            parent_metadata = os.fstat(parent)
+            if (
+                not stat.S_ISREG(before.st_mode)
+                or before.st_size > maximum_bytes
+                or (private and before.st_uid != os.getuid())
+                or (private and stat.S_IMODE(before.st_mode) != 0o600)
+                or (private and before.st_nlink != 1)
+                or (
+                    private
+                    and (
+                        not stat.S_ISDIR(parent_metadata.st_mode)
+                        or parent_metadata.st_uid != os.getuid()
+                        or stat.S_IMODE(parent_metadata.st_mode) != 0o700
+                    )
+                )
+            ):
+                raise KimiProviderSplitError(code)
+            body = bytearray()
+            while chunk := os.read(descriptor, 1 << 20):
+                body.extend(chunk)
+                if len(body) > maximum_bytes:
+                    raise KimiProviderSplitError(code)
+            after = os.fstat(descriptor)
+            visible = os.stat(name, dir_fd=parent, follow_symlinks=False)
+            if (
+                _stat_identity(before) != _stat_identity(after)
+                or _stat_identity(after) != _stat_identity(visible)
+                or len(body) != after.st_size
+            ):
+                raise KimiProviderSplitError(f"{code}_changed")
+            captured = _HeldArtifact(
+                path=absolute,
+                parent_path=absolute.parent,
+                parent=parent,
+                parent_identity=_directory_identity(parent_metadata),
+                name=name,
+                descriptor=descriptor,
+                identity=_stat_identity(after),
+                body=bytes(body),
+                private=private,
+            )
+            self.artifacts[absolute] = captured
+        except BaseException:
+            os.close(descriptor)
+            os.close(parent)
+            raise
+        return captured.body, self.record(absolute)
+
+    def record(self, path: Path) -> dict[str, Any]:
+        artifact = self.artifacts[_absolute_path(path)]
+        return {
+            "path": str(artifact.path),
+            "bytes": len(artifact.body),
+            "sha256": sha256_bytes(artifact.body),
+        }
+
+    def revalidate(self) -> None:
+        for artifact in self.artifacts.values():
+            held_parent = os.fstat(artifact.parent)
+            visible_parent = artifact.parent_path.lstat()
+            if (
+                _directory_identity(held_parent) != artifact.parent_identity
+                or _directory_identity(visible_parent) != artifact.parent_identity
+                or artifact.parent_path.resolve(strict=True) != artifact.parent_path
+            ):
+                raise KimiProviderSplitError("provider_artifact_changed")
+            before = os.fstat(artifact.descriptor)
+            visible = os.stat(
+                artifact.name,
+                dir_fd=artifact.parent,
+                follow_symlinks=False,
+            )
+            os.lseek(artifact.descriptor, 0, os.SEEK_SET)
+            body = bytearray()
+            while chunk := os.read(artifact.descriptor, 1 << 20):
+                body.extend(chunk)
+            after = os.fstat(artifact.descriptor)
+            if (
+                _stat_identity(before) != artifact.identity
+                or _stat_identity(after) != artifact.identity
+                or _stat_identity(visible) != artifact.identity
+                or bytes(body) != artifact.body
+            ):
+                raise KimiProviderSplitError("provider_artifact_changed")
+
+    def close(self) -> None:
+        for artifact in self.artifacts.values():
+            os.close(artifact.descriptor)
+            os.close(artifact.parent)
+
+
 def canonical_json(value: object) -> bytes:
     try:
         return (
@@ -218,12 +351,14 @@ def read_regular(
     code: str,
     maximum_bytes: int = 128 * 1024 * 1024,
     private: bool = False,
+    held: _HeldArtifactSet | None = None,
 ) -> bytes:
     body, _record = _read_regular_evidence(
         path,
         code=code,
         maximum_bytes=maximum_bytes,
         private=private,
+        held=held,
     )
     return body
 
@@ -268,7 +403,15 @@ def _read_regular_evidence(
     code: str,
     maximum_bytes: int = 128 * 1024 * 1024,
     private: bool = False,
+    held: _HeldArtifactSet | None = None,
 ) -> tuple[bytes, dict[str, Any]]:
+    if held is not None:
+        return held.capture(
+            path,
+            code=code,
+            maximum_bytes=maximum_bytes,
+            private=private,
+        )
     try:
         absolute, parent, descriptor, name = _open_anchored(path, directory=False, code=code)
     except KimiProviderSplitError:
@@ -893,6 +1036,7 @@ def _read_partition_bundle(
     directory: Path,
     manifest: Path,
     manifest_sha256: str,
+    held: _HeldArtifactSet | None = None,
 ) -> tuple[Partition, dict[str, Any]]:
     try:
         root, descriptor, _identity = _open_private_parent(directory)
@@ -905,6 +1049,7 @@ def _read_partition_bundle(
         code="resource_manifest_invalid",
         maximum_bytes=8 * 1024 * 1024,
         private=True,
+        held=held,
     )
     _value, entries = parse_manifest(manifest_payload, manifest_sha256)
     partition = derive_partition(entries)
@@ -923,18 +1068,36 @@ def _read_partition_bundle(
     if observed_names != set(expected):
         raise KimiProviderSplitError("partition_bundle_invalid")
     for name, body in expected.items():
-        observed = read_regular(root / name, code="partition_bundle_invalid", private=True)
+        observed = read_regular(
+            root / name,
+            code="partition_bundle_invalid",
+            private=True,
+            held=held,
+        )
         if observed != body:
             raise KimiProviderSplitError("partition_bundle_invalid")
     return partition, _partition_receipt_value(manifest_sha256, partition)
 
 
-def _artifact(path: Path, *, private: bool = False) -> dict[str, Any]:
-    _body, record = _read_regular_evidence(path, code="artifact_invalid", private=private)
+def _artifact(
+    path: Path,
+    *,
+    private: bool = False,
+    held: _HeldArtifactSet | None = None,
+) -> dict[str, Any]:
+    _body, record = _read_regular_evidence(
+        path,
+        code="artifact_invalid",
+        private=private,
+        held=held,
+    )
     return record
 
 
-def _resolved_config(identity: Mapping[str, Any]) -> dict[str, Any]:
+def _resolved_config(
+    identity: Mapping[str, Any],
+    held: _HeldArtifactSet | None = None,
+) -> dict[str, Any]:
     record = identity.get("config", {}).get("resolved")
     if not isinstance(record, dict) or set(record) != {"path", "sha256"}:
         raise KimiProviderSplitError("run_identity_invalid")
@@ -944,6 +1107,7 @@ def _resolved_config(identity: Mapping[str, Any]) -> dict[str, Any]:
         code="run_config_invalid",
         maximum_bytes=2 * 1024 * 1024,
         private=True,
+        held=held,
     )
     if sha256_bytes(body) != record["sha256"]:
         raise KimiProviderSplitError("run_config_invalid")
@@ -1090,7 +1254,10 @@ def _provider_neutral_config(config: Mapping[str, Any]) -> dict[str, Any]:
     return value
 
 
-def _deployment_contract(identity: Mapping[str, Any]) -> dict[str, Any]:
+def _deployment_contract(
+    identity: Mapping[str, Any],
+    held: _HeldArtifactSet | None = None,
+) -> dict[str, Any]:
     deployment = identity.get("deployment")
     if not isinstance(deployment, dict) or deployment.get("kind") != "direct_kimi":
         raise KimiProviderSplitError("deployment_binding_invalid")
@@ -1114,6 +1281,7 @@ def _deployment_contract(identity: Mapping[str, Any]) -> dict[str, Any]:
         code="deployment_worker_manifest_invalid",
         maximum_bytes=4 * 1024 * 1024,
         private=True,
+        held=held,
     )
     if manifest_artifact["sha256"] != worker["sha256"]:
         raise KimiProviderSplitError("deployment_worker_manifest_invalid")
@@ -1154,7 +1322,11 @@ def _deployment_contract(identity: Mapping[str, Any]) -> dict[str, Any]:
     }
 
 
-def _shared_contract(identity: Mapping[str, Any], config: Mapping[str, Any]) -> dict[str, Any]:
+def _shared_contract(
+    identity: Mapping[str, Any],
+    config: Mapping[str, Any],
+    held: _HeldArtifactSet | None = None,
+) -> dict[str, Any]:
     source = identity.get("source")
     if not isinstance(source, dict):
         raise KimiProviderSplitError("run_identity_invalid")
@@ -1176,7 +1348,7 @@ def _shared_contract(identity: Mapping[str, Any], config: Mapping[str, Any]) -> 
         raise KimiProviderSplitError("source_closure_invalid")
     return {
         "model_contract": _model_contract(identity),
-        "deployment_contract": _deployment_contract(identity),
+        "deployment_contract": _deployment_contract(identity, held),
         "provider_neutral_config_sha256": sha256_bytes(canonical_json(_provider_neutral_config(config))),
         "source_revisions": revisions,
     }
@@ -1192,6 +1364,7 @@ def _validate_run_identity(
     expected_members: Sequence[str],
     selector_sha256: str,
     manifest_value: Mapping[str, Any],
+    held: _HeldArtifactSet | None = None,
 ) -> tuple[dict[str, Any], dict[str, Any], str, str, str]:
     try:
         envelope = load_eval_run_identity_bytes(
@@ -1224,10 +1397,11 @@ def _validate_run_identity(
         code="run_task_selector_invalid",
         maximum_bytes=1 << 20,
         private=True,
+        held=held,
     )
     if sha256_bytes(task_body) != selector_sha256 or task_body != _selector_payload(expected_members):
         raise KimiProviderSplitError("run_task_selector_invalid")
-    config = _resolved_config(identity)
+    config = _resolved_config(identity, held)
     multiplier = _config_resource_multiplier(config)
     if multiplier != (1.0 if role == "legacy_sandoq" else float(LARGE_RESOURCE_MULTIPLIER)):
         raise KimiProviderSplitError("resource_multiplier_invalid")
@@ -1244,7 +1418,7 @@ def _validate_run_identity(
     ):
         raise KimiProviderSplitError("execution_contract_invalid")
     _environment_identity(identity)
-    shared = _shared_contract(identity, config)
+    shared = _shared_contract(identity, config, held)
     digest = envelope.get("eval_run_identity_sha256")
     if not isinstance(digest, str) or SHA256_RE.fullmatch(digest) is None:
         raise KimiProviderSplitError("run_identity_invalid")
@@ -1324,11 +1498,13 @@ def _validate_direct_router_receipt(
     minimum_chat_requests: int,
     identity_sha256: str,
     invocation_identity_sha256: str,
+    held: _HeldArtifactSet | None = None,
 ) -> tuple[bytes, dict[str, Any], dict[str, Any]]:
     body, artifact = _read_regular_evidence(
         path,
         code="router_receipt_invalid",
         private=True,
+        held=held,
     )
     marker_path = path.with_name(f".{path.name}.complete")
     marker_body, marker_artifact = _read_regular_evidence(
@@ -1336,6 +1512,7 @@ def _validate_direct_router_receipt(
         code="router_receipt_commit_invalid",
         maximum_bytes=64 * 1024,
         private=True,
+        held=held,
     )
     expected_marker = canonical_json(
         {
@@ -1408,12 +1585,14 @@ def _audit_cpu_results(
     results: Path,
     expected_members: Sequence[str],
     verifier_modes: Mapping[str, str],
+    held: _HeldArtifactSet | None = None,
 ) -> tuple[dict[str, Any], dict[str, dict[str, Any]], dict[str, Any]]:
     body, artifact = _read_regular_evidence(
         results,
         code="provider_results_invalid",
         maximum_bytes=512 * 1024 * 1024,
         private=True,
+        held=held,
     )
     try:
         rows = [json.loads(line) for line in body.splitlines() if line.strip()]
@@ -1529,11 +1708,13 @@ def _validate_sandoq_cleanup(
     slurm_job_id: str,
     expected_count: int,
     expected_concurrency: int,
+    held: _HeldArtifactSet | None = None,
 ) -> tuple[dict[str, Any], dict[str, dict[str, Any]]]:
     body, cleanup_artifact = _read_regular_evidence(
         path,
         code="sandoq_cleanup_invalid",
         private=True,
+        held=held,
     )
     value = _json_object(body, code="sandoq_cleanup_invalid")
     count_keys = {
@@ -1594,18 +1775,21 @@ def _validate_sandoq_cleanup(
         code="sandoq_cleanup_invalid",
         maximum_bytes=32 * 1024 * 1024,
         private=True,
+        held=held,
     )
     event_body, event_artifact = _read_regular_evidence(
         event_path,
         code="sandoq_cleanup_invalid",
         maximum_bytes=128 * 1024 * 1024,
         private=True,
+        held=held,
     )
     wal_body, wal_artifact = _read_regular_evidence(
         wal_path,
         code="sandoq_cleanup_invalid",
         maximum_bytes=128 * 1024 * 1024,
         private=True,
+        held=held,
     )
     _json_object(raw_body, code="sandoq_cleanup_invalid")
     _validate_job_bound_jsonl(event_body, slurm_job_id, wal=False)
@@ -1676,6 +1860,7 @@ def _private_jsonl(
     path: Path,
     run_dir: Path,
     filename: str,
+    held: _HeldArtifactSet | None = None,
 ) -> tuple[list[dict[str, Any]], bytes, dict[str, Any]]:
     expected = run_dir / "control" / filename
     if _absolute_path(path) != _absolute_path(expected):
@@ -1685,6 +1870,7 @@ def _private_jsonl(
         code="vmvm_cleanup_invalid",
         maximum_bytes=16 * 1024 * 1024,
         private=True,
+        held=held,
     )
     if not body or not body.endswith(b"\n") or b"\r" in body:
         raise KimiProviderSplitError("vmvm_cleanup_invalid")
@@ -1700,6 +1886,7 @@ def _validate_vmvm_cleanup(
     identity_sha256: str,
     invocation_identity_sha256: str,
     expected_runtime_count: int,
+    held: _HeldArtifactSet | None = None,
 ) -> tuple[dict[str, Any], dict[str, dict[str, Any]], frozenset[str]]:
     lifecycle_path = run_dir / "control" / "vmvm_runtime_lifecycle.jsonl"
     cleanup_path = run_dir / "control" / "vmvm_cleanup_receipts.jsonl"
@@ -1707,8 +1894,14 @@ def _validate_vmvm_cleanup(
         lifecycle_path,
         run_dir,
         lifecycle_path.name,
+        held,
     )
-    cleanup, cleanup_body, cleanup_artifact = _private_jsonl(cleanup_path, run_dir, cleanup_path.name)
+    cleanup, cleanup_body, cleanup_artifact = _private_jsonl(
+        cleanup_path,
+        run_dir,
+        cleanup_path.name,
+        held,
+    )
     nonces: list[str] = []
     for value in lifecycle:
         nonce = value.get("runtime_instance_nonce")
@@ -1823,11 +2016,13 @@ def _capacity_payload(
     identity_sha256: str,
     invocation_identity_sha256: str,
     runtime_instance_nonces: frozenset[str],
+    held: _HeldArtifactSet | None = None,
 ) -> tuple[dict[str, Any], dict[str, dict[str, Any]]]:
     receipt_body, receipt_artifact = _read_regular_evidence(
         receipt,
         code="capacity_receipt_invalid",
         private=True,
+        held=held,
     )
     receipt_commit = receipt.with_name(f".{receipt.name}{FILE_COMMIT_SUFFIX}")
     commit_body, commit_artifact = _read_regular_evidence(
@@ -1835,6 +2030,7 @@ def _capacity_payload(
         code="capacity_commit_invalid",
         maximum_bytes=64 * 1024,
         private=True,
+        held=held,
     )
     expected_commit = canonical_json(
         {
@@ -1852,6 +2048,7 @@ def _capacity_payload(
         public_key,
         code="capacity_public_key_invalid",
         maximum_bytes=64 * 1024,
+        held=held,
     )
     if (
         commit_body != expected_commit
@@ -1963,9 +2160,10 @@ def _run_artifacts(
     run_dir: Path,
     results_artifact: Mapping[str, Any],
     run_evidence: _HeldRunEvidence,
+    held: _HeldArtifactSet,
 ) -> dict[str, dict[str, Any]]:
     artifacts = {
-        name: _artifact(run_dir / relative, private=True)
+        name: _artifact(run_dir / relative, private=True, held=held)
         for name, relative in {
             "config": "config.toml",
             "inputs_manifest": "inputs/manifest.json",
@@ -2071,11 +2269,18 @@ def _build_provider_certificate(
     publish_output: Path | None = None,
 ) -> tuple[dict[str, Any], dict[str, dict[str, Any]]]:
     run_dir = _absolute_path(run_dir)
-    partition, partition_receipt = _read_partition_bundle(partition_dir, manifest, manifest_sha256)
-    expected_members = partition.legacy_sandoq if role == "legacy_sandoq" else partition.large_provider
-    selector_name = LEGACY_SELECTOR if role == "legacy_sandoq" else LARGE_SELECTOR
-    selector_sha256 = partition_receipt["selectors"][role]["sha256"]
     with ExitStack() as locks:
+        retained = _HeldArtifactSet.create()
+        locks.callback(retained.close)
+        partition, partition_receipt = _read_partition_bundle(
+            partition_dir,
+            manifest,
+            manifest_sha256,
+            retained,
+        )
+        expected_members = partition.legacy_sandoq if role == "legacy_sandoq" else partition.large_provider
+        selector_name = LEGACY_SELECTOR if role == "legacy_sandoq" else LARGE_SELECTOR
+        selector_sha256 = partition_receipt["selectors"][role]["sha256"]
         run_evidence = _open_held_run_evidence(run_dir)
         locks.callback(run_evidence.close)
         router_lock_path = _router_lock_path(run_evidence.files["eval_run_identity.json"].body)
@@ -2092,6 +2297,7 @@ def _build_provider_certificate(
             code="resource_manifest_invalid",
             maximum_bytes=8 * 1024 * 1024,
             private=True,
+            held=retained,
         )
         manifest_value, _entries = parse_manifest(manifest_body, manifest_sha256)
         identity, shared, identity_sha256, invocation_identity_sha256, slurm_job_id = _validate_run_identity(
@@ -2103,15 +2309,21 @@ def _build_provider_certificate(
             expected_members=expected_members,
             selector_sha256=selector_sha256,
             manifest_value=manifest_value,
+            held=retained,
         )
         provider = _provider_name(identity)
         trace_audit, rows, results_artifact = _audit_cpu_results(
             run_dir / "results.jsonl",
             expected_members,
             partition.verifier_modes,
+            retained,
         )
-        artifacts = _run_artifacts(run_dir, results_artifact, run_evidence)
-        artifacts["selector"] = _artifact(partition_dir / selector_name, private=True)
+        artifacts = _run_artifacts(run_dir, results_artifact, run_evidence, retained)
+        artifacts["selector"] = _artifact(
+            partition_dir / selector_name,
+            private=True,
+            held=retained,
+        )
         if identity.get("deployment", {}).get("kind") == "direct_kimi":
             router_path = run_dir / "direct_kimi_router_final.json"
             router_body, router_artifact, router_commit_artifact = _validate_direct_router_receipt(
@@ -2120,6 +2332,7 @@ def _build_provider_certificate(
                 minimum_chat_requests=len(expected_members),
                 identity_sha256=identity_sha256,
                 invocation_identity_sha256=invocation_identity_sha256,
+                held=retained,
             )
             if router_artifact["sha256"] != sha256_bytes(router_body):
                 raise KimiProviderSplitError("router_receipt_changed")
@@ -2138,6 +2351,7 @@ def _build_provider_certificate(
                 slurm_job_id,
                 len(expected_members),
                 int(identity["execution"]["rollout_concurrency"]),
+                retained,
             )
             artifacts.update(cleanup_artifacts)
         else:
@@ -2149,6 +2363,7 @@ def _build_provider_certificate(
                 identity_sha256,
                 invocation_identity_sha256,
                 expected_runtime_count,
+                retained,
             )
             artifacts.update(cleanup_artifacts)
         if role == "large_provider":
@@ -2179,6 +2394,7 @@ def _build_provider_certificate(
                 identity_sha256=identity_sha256,
                 invocation_identity_sha256=invocation_identity_sha256,
                 runtime_instance_nonces=runtime_instance_nonces,
+                held=retained,
             )
             artifacts.update(capacity_artifacts)
             capacity_summary = {
@@ -2226,6 +2442,7 @@ def _build_provider_certificate(
             "artifacts": artifacts,
         }
         _revalidate_artifacts(artifacts)
+        retained.revalidate()
         if (
             read_regular(
                 manifest,
@@ -2236,13 +2453,20 @@ def _build_provider_certificate(
             != manifest_body
         ):
             raise KimiProviderSplitError("resource_manifest_changed")
-        final_partition, final_receipt = _read_partition_bundle(partition_dir, manifest, manifest_sha256)
+        final_partition, final_receipt = _read_partition_bundle(
+            partition_dir,
+            manifest,
+            manifest_sha256,
+            retained,
+        )
         if final_partition != partition or final_receipt != partition_receipt:
             raise KimiProviderSplitError("partition_bundle_changed")
         run_evidence.revalidate()
+        retained.revalidate()
         if publish_output is not None:
             _write_private_once(publish_output, certificate)
             run_evidence.revalidate()
+            retained.revalidate()
         return certificate, rows
 
 

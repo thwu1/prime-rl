@@ -19,6 +19,7 @@ from datetime import UTC, datetime
 from pathlib import Path, PurePosixPath
 from typing import Any, Callable, Mapping, Sequence
 
+from audit_traces import TraceJSONLError, _summarize_hashed_clean_stops
 from deployment_endpoint import (
     EndpointBindingError,
     load_deployment_endpoint,
@@ -38,18 +39,30 @@ from inference_route_generation import (
     validate_readiness_route_generation,
     validate_route_generation,
 )
+from kimi_smoke_launch import (
+    EXPECTED_SLURM_TIME_LIMIT as EXPECTED_KIMI_SMOKE_SLURM_TIME_LIMIT,
+)
+from kimi_smoke_launch import (
+    KimiSmokeLaunchError,
+)
+from kimi_smoke_launch import (
+    validate_launch_contract as validate_kimi_smoke_launch_contract,
+)
 from smoke_qualification import (
     SmokeQualificationError,
     validate_smoke_qualification,
 )
 from tb4_shard_workflow import (
+    EXPECTED_SHARD_SLURM_TIME_LIMIT,
+    REQUIRED_X2P_ENV,
     PlannedShard,
     ShardWorkflowError,
     canonical_json,
     load_plan,
+    validate_shard_launch_contract,
 )
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 MAX_WAVE_SIZE = 4
 DEFAULT_SUBMISSION_TIMEOUT_SECONDS = 30.0
 EXPECTED_MODEL = "Kimi-K3"
@@ -620,6 +633,7 @@ def _validate_identity_references(
     endpoint: Any,
     generation: dict[str, Any],
     proxy_policy: dict[str, Any],
+    launch_contract: Mapping[str, Any],
     invocation: Mapping[str, Any],
 ) -> None:
     if (
@@ -637,7 +651,7 @@ def _validate_identity_references(
             "execution",
         }
         or type(identity.get("schema_version")) is not int
-        or identity["schema_version"] != 1
+        or identity["schema_version"] != 2
         or identity.get("role") != "smoke"
     ):
         raise WaveLaunchError("smoke_checkpoint_identity_mismatch")
@@ -789,19 +803,28 @@ def _validate_identity_references(
             "http_max_keepalive_connections",
             "runtime",
             "vmvm_environment",
+            "launch_contract",
         }
         or any(execution.get(key) != value for key, value in expected_execution.items())
     ):
         raise WaveLaunchError("smoke_identity_config_invalid")
+    try:
+        identity_launch_contract = validate_kimi_smoke_launch_contract(execution.get("launch_contract"))
+    except KimiSmokeLaunchError as error:
+        raise WaveLaunchError("smoke_identity_execution_invalid") from error
     vmvm = execution.get("vmvm_environment")
-    if vmvm != {
-        "vacli_bin": DEFAULT_VACLI_BIN,
-        "lease_start_concurrency": 2,
-        "lease_retries": 20,
-        "max_pull_retries": 20,
-        "image_pull_timeout_sec": 3600,
-        "container_privileged": True,
-    }:
+    if (
+        vmvm
+        != {
+            "vacli_bin": DEFAULT_VACLI_BIN,
+            "lease_start_concurrency": 2,
+            "lease_retries": 20,
+            "max_pull_retries": 20,
+            "image_pull_timeout_sec": 3600,
+            "container_privileged": True,
+        }
+        or identity_launch_contract != launch_contract
+    ):
         raise WaveLaunchError("smoke_identity_execution_invalid")
     deployment = identity.get("deployment")
     if (
@@ -856,6 +879,7 @@ def _validate_identity_references(
         "eval_run_identity_sha256": _sha256_bytes(canonical_json(identity)),
         "approval_task_file_sha256": task_file.sha256,
         "approval_task_count": str(expected_traces),
+        "kimi_smoke_launch_contract_sha256": _sha256_bytes(canonical_json(identity_launch_contract)),
     }
     if (
         set(provenance) != {*expected_provenance, "host", "slurm_job_id"}
@@ -914,7 +938,8 @@ def _validate_generation_bindings_legacy(
     try:
         smoke_endpoint = validate_endpoint_binding(smoke_value.get("endpoint"))
         smoke_generation = validate_route_generation(smoke_value.get("serving_route_generation"))
-    except (EndpointBindingError, RouteGenerationError) as error:
+        smoke_launch_contract = validate_kimi_smoke_launch_contract(smoke_value.get("launch_contract"))
+    except (EndpointBindingError, RouteGenerationError, KimiSmokeLaunchError) as error:
         raise WaveLaunchError("smoke_checkpoint_not_passed") from error
     smoke_policy = _proxy_policy(smoke_value.get("proxy_policy"))
     if (
@@ -943,6 +968,9 @@ def _validate_generation_bindings_legacy(
         or policy.get("require_reasoning") is not True
         or policy.get("require_model_io") is not True
         or policy.get("require_request_graph_match") is not True
+        or policy.get("require_clean_stop") is not True
+        or policy.get("require_x2p_launch_contract") is not True
+        or policy.get("required_slurm_time_limit") != EXPECTED_KIMI_SMOKE_SLURM_TIME_LIMIT
         or canonical_json(policy.get("model_io_contract")) != canonical_json(EXPECTED_MODEL_IO_CONTRACT)
         or policy.get("require_token_data") is not False
         or policy.get("require_logprobs") is not False
@@ -998,6 +1026,21 @@ def _validate_generation_bindings_legacy(
         )
         for name in expected_paths
     }
+    try:
+        stop_summary, stop_failed = _summarize_hashed_clean_stops(
+            records["results"].path,
+            expected_sha256=records["results"].sha256,
+            expected_count=expected_traces,
+        )
+    except (OSError, TraceJSONLError) as error:
+        raise WaveLaunchError("smoke_trace_audit_invalid") from error
+    if stop_failed or stop_summary["traces"] != counts.get("traces"):
+        raise WaveLaunchError("smoke_trace_audit_failed")
+    _artifact_record(
+        smoke_artifacts.get("results"),
+        label="smoke_results",
+        expected=records["results"],
+    )
     run_dir = records["eval_run_identity"].path.parent
     if smoke.path != run_dir / "smoke_checkpoint.json" or any(
         records[name].path != run_dir / relative for name, relative in expected_paths.items()
@@ -1019,7 +1062,7 @@ def _validate_generation_bindings_legacy(
             "eval_run_identity_sha256",
             "identity",
         }
-        or identity_envelope.get("schema_version") != 1
+        or identity_envelope.get("schema_version") != 2
         or not isinstance(identity, dict)
         or not isinstance(identity_digest, str)
         or identity_digest != _sha256_bytes(canonical_json(identity))
@@ -1058,6 +1101,7 @@ def _validate_generation_bindings_legacy(
         endpoint=endpoint,
         generation=generation,
         proxy_policy=readiness_policy,
+        launch_contract=smoke_launch_contract,
         invocation=invocation,
     )
     qualified = smoke_value.get("qualified_execution")
@@ -1338,6 +1382,85 @@ def _vacli_auth_environment(environment: Mapping[str, str]) -> dict[str, str]:
             raise WaveLaunchError("vacli_auth_environment_invalid")
         values[key] = value
     return values
+
+
+def _x2p_environment(environment: Mapping[str, str]) -> dict[str, str]:
+    """Return the complete X2P tuple without ever including values in errors."""
+
+    present = {key for key in REQUIRED_X2P_ENV if key in environment}
+    if present != set(REQUIRED_X2P_ENV):
+        raise WaveLaunchError("x2p_environment_invalid")
+    values: dict[str, str] = {}
+    for key in REQUIRED_X2P_ENV:
+        value = environment.get(key)
+        if not isinstance(value, str) or not value or any(character in value for character in "\x00\r\n"):
+            raise WaveLaunchError("x2p_environment_invalid")
+        try:
+            value.encode("utf-8")
+        except UnicodeEncodeError as error:
+            raise WaveLaunchError("x2p_environment_invalid") from error
+        values[key] = value
+    return values
+
+
+def _x2p_environment_sha256(environment: Mapping[str, str]) -> dict[str, str]:
+    values = _x2p_environment(environment)
+    return {key: _sha256_bytes(values[key].encode("utf-8")) for key in REQUIRED_X2P_ENV}
+
+
+def _launch_contract(x2p_environment: Mapping[str, str]) -> dict[str, Any]:
+    return validate_shard_launch_contract(
+        {
+            "slurm_time_limit": EXPECTED_SHARD_SLURM_TIME_LIMIT,
+            "x2p_environment_sha256": _x2p_environment_sha256(x2p_environment),
+        }
+    )
+
+
+def _submit_with_transient_environment(
+    *,
+    command_runner: RunCommand,
+    job_name: str,
+    run_eval: Path,
+    environment_values: Mapping[str, str],
+    x2p_environment: Mapping[str, str],
+    cwd: Path,
+    timeout: float,
+) -> subprocess.CompletedProcess[str]:
+    """Submit through an anonymous export file so X2P values are never retained."""
+
+    x2p = _x2p_environment(x2p_environment)
+    if set(environment_values) & set(REQUIRED_X2P_ENV):
+        raise WaveLaunchError("job_environment_invalid")
+    encoded = _encode_environment({**environment_values, **x2p})
+    with tempfile.TemporaryFile(mode="w+b") as export_file:
+        descriptor = export_file.fileno()
+        os.fchmod(descriptor, 0o600)
+        status = os.fstat(descriptor)
+        if not stat.S_ISREG(status.st_mode) or stat.S_IMODE(status.st_mode) != 0o600 or status.st_nlink != 0:
+            raise WaveLaunchError("transient_environment_invalid")
+        if descriptor < 3:
+            raise WaveLaunchError("transient_environment_invalid")
+        export_file.write(encoded)
+        export_file.flush()
+        export_file.seek(0)
+        return command_runner(
+            [
+                DEFAULT_SBATCH,
+                "--parsable",
+                f"--time={EXPECTED_SHARD_SLURM_TIME_LIMIT}",
+                f"--job-name={job_name}",
+                f"--export-file={descriptor}",
+                str(run_eval),
+            ],
+            check=False,
+            capture_output=True,
+            text=True,
+            cwd=cwd,
+            env={},
+            pass_fds=(descriptor,),
+            timeout=timeout,
+        )
 
 
 def _job_environment(
@@ -1711,6 +1834,8 @@ def launch_wave(
     if "RESUME_DIR" in environment:
         raise WaveLaunchError("resume_forbidden")
     vacli_auth_environment = _vacli_auth_environment(environment)
+    x2p_environment = _x2p_environment(environment)
+    launch_contract = _launch_contract(x2p_environment)
     if not isinstance(deployment_id, str) or DEPLOYMENT_RE.fullmatch(deployment_id) is None:
         raise WaveLaunchError("deployment_id_invalid")
     if REVISION_RE.fullmatch(project_revision) is None:
@@ -1856,6 +1981,7 @@ def launch_wave(
                 "task_count": shard.task_count,
                 "config_sha256": shard.config_sha256,
                 "task_manifest_sha256": shard.task_manifest_sha256,
+                "launch_contract": launch_contract,
                 "environment": {
                     "path": str(env_path),
                     "sha256": _sha256_bytes(encoded_environment),
@@ -1894,6 +2020,7 @@ def launch_wave(
                 "content_sha256": dataset_content_sha256,
             }
         ),
+        "launch_contract": launch_contract,
         "vmvm_environment": EXPECTED_VMVM_ENV,
         "wave_size": len(jobs),
         "jobs": jobs,
@@ -1966,24 +2093,36 @@ def launch_wave(
                 job["submission_token"] = None
                 job["submission_started_at"] = None
                 raise WaveSubmissionInterrupted("submission_interrupted")
-            _stable_artifact(
+            environment_artifact = _stable_artifact(
                 environment_path,
                 job["environment"]["sha256"],
                 label="job_environment",
+                load_bytes=True,
             )
-            result = command_runner(
-                [
-                    DEFAULT_SBATCH,
-                    "--parsable",
-                    f"--job-name=tb4-shard-{job['shard_index']:03d}-{submission_token}",
-                    f"--export-file={environment_path}",
-                    str(run_eval),
-                ],
-                check=False,
-                capture_output=True,
-                text=True,
+            environment_values = _job_environment(
+                project_dir=project,
+                project_revision=project_revision,
+                shard=shard,
+                output_dir=Path(job["output_dir"]),
+                deployment_id=deployment_id,
+                deployment_spec=deployment_spec,
+                readiness=readiness,
+                proxy_info=proxy_info,
+                smoke=smoke,
+                dataset_revision=dataset_revision,
+                dataset_archive=dataset_archive,
+                dataset_content_sha256=dataset_content_sha256,
+                vacli_auth_environment=vacli_auth_environment,
+            )
+            if _encode_environment(environment_values) != environment_artifact.raw:
+                raise WaveLaunchError("job_environment_invalid")
+            result = _submit_with_transient_environment(
+                command_runner=command_runner,
+                job_name=f"tb4-shard-{job['shard_index']:03d}-{submission_token}",
+                run_eval=run_eval,
+                environment_values=environment_values,
+                x2p_environment=x2p_environment,
                 cwd=project,
-                env={},
                 timeout=submission_timeout_seconds,
             )
             try:

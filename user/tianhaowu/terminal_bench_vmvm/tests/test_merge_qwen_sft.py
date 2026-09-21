@@ -6,22 +6,13 @@ import stat
 from dataclasses import replace
 from pathlib import Path
 
-import merge_qwen_sft as merger
-import migrate_qwen_serving_generation as generation
 import pytest
-import sft_run_identity
-from audit_traces import (
-    QWEN3_A95B_EPOCH3_MODEL_IO_CONTRACT_ID,
-    QWEN3_A95B_MODEL_IO_CONTRACT_ID,
-    QWEN3_A95B_REPAIRED_SFT_MODEL_IO_CONTRACT_ID,
-)
 from merge_qwen_sft import (
     FORMAT_VERSION,
     LOSS_MASK,
     MAX_SEQUENCE_TOKENS,
     REPAIR_ATTESTATION_COPY_FILENAME,
     REPAIR_ATTESTATION_SCHEMA_VERSION,
-    REPAIR_GENERATION_ATTESTATION_SCHEMA_VERSION,
     REPAIR_SELECTION_COPY_FILENAME,
     REPAIR_SELECTION_KIND,
     REQUIRED_SUBMODULES,
@@ -33,7 +24,6 @@ from merge_qwen_sft import (
     MergeError,
     MergeOptions,
     _export_tree_sha256,
-    _load_repair_attestation,
     merge_qwen_sft,
 )
 
@@ -239,11 +229,7 @@ def _write_export(
         "selection": selection,
         "source_validation": {
             "max_sequence_tokens": MAX_SEQUENCE_TOKENS,
-            "model_io_contract": (
-                QWEN3_A95B_EPOCH3_MODEL_IO_CONTRACT_ID
-                if routing_epoch is not None
-                else QWEN3_A95B_MODEL_IO_CONTRACT_ID
-            ),
+            "require_clean_stop": True,
             "require_exact_provider_json": False,
             "require_model_io": True,
             "require_reasoning": True,
@@ -370,7 +356,6 @@ def _write_repair_selection(
                 "max_total_tokens": MAX_SEQUENCE_TOKENS,
                 "preserve_thinking": True,
                 "provider_concurrency": 32,
-                "reasoning_effort": "max",
                 "retry_class_count": 4,
                 "retry_policy_sha256": "e" * 64,
                 "sha256": repair_manifest["source_artifacts"]["inputs/source_config.toml"]["sha256"],
@@ -385,7 +370,7 @@ def _write_repair_selection(
                 "retained_count": source_task_count - len(missing_slugs),
                 "task_index_order_sha256": "3" * 64,
             },
-            "schema_version": 3,
+            "schema_version": 2,
             "selection": {
                 "approved_repair_count": repair_task_count,
                 "missing_or_errored_count": len(missing_slugs),
@@ -408,21 +393,6 @@ def _write_repair_selection(
                 "routing_epoch": 3,
                 "task_count": source_task_count,
             },
-            "source_partition": {
-                "error_traces": len(missing_slugs),
-                "exhaustive": True,
-                "invalid_positive_traces": len(strict_slugs),
-                "positive_reward_traces": source_task_count - len(missing_slugs),
-                "repair_tasks": repair_task_count,
-                "retained_original_tasks": source_task_count - repair_task_count,
-                "retained_valid_positive_traces": source_task_count - repair_task_count,
-                "reward_zero_traces": 0,
-                "seen_traces": source_task_count,
-                "source_task_count": source_task_count,
-                "superseded_legacy_empty_reasoning_traces": 0,
-                "unseen_tasks": 0,
-            },
-            "trace_contracts": merger.qwen_repair_trace_contracts_value(),
         }
     )
     path.write_bytes(body)
@@ -458,192 +428,52 @@ def _write_repair_attestation(
 ) -> str:
     repair_manifest = json.loads((repair_export / "manifest.json").read_text())
     source_artifacts = repair_manifest["source_artifacts"]
-    run_identity = repair_manifest.get("eval_run_identity")
     attested_names = (
-        (
-            "config.toml",
-            "inputs/task_file.txt",
-            "provenance.txt",
-            "results.jsonl",
-            "direct_workers.json",
-            sft_run_identity.EVAL_RUN_IDENTITY_FILENAME,
-        )
-        if run_identity is not None
-        else (
-            "config.toml",
-            "inputs/task_file.txt",
-            "provenance.txt",
-            "results.jsonl",
-            "direct_workers.json",
-        )
+        "config.toml",
+        "inputs/task_file.txt",
+        "provenance.txt",
+        "results.jsonl",
+        "direct_workers.json",
     )
     config = repair_manifest["config"]
     selection_manifest = json.loads(selection_path.read_text())
     selection_counts = selection_manifest["selection"]
-    value = {
-        "code": {
-            "repository_revision": "c" * 40,
-            "submodules": {name: "d" * 40 for name in REQUIRED_SUBMODULES},
-        },
-        "corpus": {
-            "dataset_revision": config["dataset_revision"],
-            "task_count": repair_manifest["counts"]["input_traces"],
-            "task_file_sha256": source_artifacts["inputs/task_file.txt"]["sha256"],
-            "taskset_id": config["taskset_id"],
-        },
-        "repair_selection_manifest_sha256": selection_sha256,
-        "selection": {
-            "missing_or_errored_count": selection_counts["missing_or_errored_count"],
-            "strict_invalid_pass_count": selection_counts["strict_invalid_pass_count"],
-            "union_count": repair_manifest["counts"]["input_traces"],
-            "union_indices_sha256": selection_counts["repair_union_indices_sha256"],
-            "union_task_file_sha256": source_artifacts["inputs/task_file.txt"]["sha256"],
-        },
-        "source_artifacts": {name: source_artifacts[name] for name in attested_names},
-    }
-    if run_identity is None:
-        value.update(
-            {
-                "kind": "qwen-direct-repair-attestation",
-                "routing": {
-                    "manifest_schema_version": 3,
-                    "provider_concurrency": 32,
-                    "queue_size": 32,
-                    "request_id_headers": ["x-session-id"],
-                    "router_policy": "consistent_hash",
-                    "routing_epoch": 1,
-                },
-                "schema_version": REPAIR_ATTESTATION_SCHEMA_VERSION,
-            }
-        )
-    else:
-        value.update(
-            {
-                "kind": merger.SANDOQ_REPAIR_ATTESTATION_KIND,
-                "provider_transition": {
-                    "cleanup_implied_successful_traces": repair_manifest["counts"]["selected_traces"],
-                    "cleanup_must_succeed": True,
-                    "kind": merger.VMVM_TO_SANDOQ_TRANSITION_KIND,
-                    "repair_eval_run_identity_sha256": run_identity["eval_run_identity_sha256"],
-                    "repair_identity_compatibility_sha256": run_identity["compatibility_sha256"],
-                    "repair_sandbox_provider": "sandoq",
-                    "schema_version": 1,
-                    "source_sandbox_provider": "vmvm",
-                },
-                "schema_version": merger.SANDOQ_REPAIR_ATTESTATION_SCHEMA_VERSION,
-            }
-        )
-    body = _json_bytes(value)
+    body = _json_bytes(
+        {
+            "code": {
+                "repository_revision": "c" * 40,
+                "submodules": {name: "d" * 40 for name in REQUIRED_SUBMODULES},
+            },
+            "corpus": {
+                "dataset_revision": config["dataset_revision"],
+                "task_count": repair_manifest["counts"]["input_traces"],
+                "task_file_sha256": source_artifacts["inputs/task_file.txt"]["sha256"],
+                "taskset_id": config["taskset_id"],
+            },
+            "kind": "qwen-direct-repair-attestation",
+            "repair_selection_manifest_sha256": selection_sha256,
+            "routing": {
+                "manifest_schema_version": 3,
+                "provider_concurrency": 32,
+                "queue_size": 32,
+                "request_id_headers": ["x-session-id"],
+                "router_policy": "consistent_hash",
+                "routing_epoch": 1,
+            },
+            "schema_version": REPAIR_ATTESTATION_SCHEMA_VERSION,
+            "selection": {
+                "missing_or_errored_count": selection_counts["missing_or_errored_count"],
+                "strict_invalid_pass_count": selection_counts["strict_invalid_pass_count"],
+                "union_count": repair_manifest["counts"]["input_traces"],
+                "union_indices_sha256": selection_counts["repair_union_indices_sha256"],
+                "union_task_file_sha256": source_artifacts["inputs/task_file.txt"]["sha256"],
+            },
+            "source_artifacts": {name: source_artifacts[name] for name in attested_names},
+        }
+    )
     path.write_bytes(body)
     path.chmod(0o600)
     return _sha256(body)
-
-
-def _inject_sandoq_identity(export: Path) -> None:
-    path = export / "manifest.json"
-    manifest = json.loads(path.read_text())
-    manifest["counts"].setdefault("excluded_error_traces", 0)
-    source = {
-        "derived_image_manifest_sha256": manifest["source_artifacts"]["inputs/image_manifest.json"]["sha256"],
-        "prime_rl_commit": "1" * 40,
-        "prime_rl_tree_sha256": "1" * 64,
-        "renderers_commit": "2" * 40,
-        "renderers_tree_sha256": "2" * 64,
-        "sandoq_client_version": "pinned-client",
-        "sandoq_provider_commit": "3" * 40,
-        "sandoq_provider_tree": "4" * 40,
-        "sandoq_site_sha256": "3" * 64,
-        "verifiers_commit": sft_run_identity.SANDOQ_CLEANUP_VERIFIER_COMMIT,
-        "verifiers_tree_sha256": "4" * 64,
-    }
-    concurrency = {
-        "http_max_connections": 32,
-        "http_max_keepalive_connections": 32,
-        "multiplex": 64,
-        "rollout_concurrency": 64,
-    }
-    environment = {
-        "allow_dockerhub_fallback": False,
-        "ecr_pull_through_prefix": sft_run_identity.SANDOQ_ECR_PULL_THROUGH_PREFIX,
-        "ecr_region": sft_run_identity.SANDOQ_ECR_REGION,
-        "ecr_registry": sft_run_identity.SANDOQ_ECR_REGISTRY,
-        "environment": sft_run_identity.SANDOQ_ENVIRONMENT,
-        "pool_min_size": 0,
-        "pool_size": 64,
-        "task_network": "host",
-        "tunnel_policy": "named-tunnel-loopback",
-        "use_ecr": True,
-        **sft_run_identity.sandoq_expected_policy(64),
-    }
-    runtime = {
-        "expected_environment": sft_run_identity.SANDOQ_ENVIRONMENT,
-        "guest_tunnel_url": "http://127.0.0.1:8485",
-        "host_tunnel": "sandoq",
-        "mode": "oci-runner",
-        "network_access": False,
-        "tunnel_pool_size": 8,
-        "type": "sandoq",
-    }
-    compatibility = {
-        "contract": {
-            "capture_model_io": True,
-            "context_tokens": {
-                "max_input_tokens": MAX_SEQUENCE_TOKENS,
-                "max_output_tokens": MAX_SEQUENCE_TOKENS,
-                "max_total_tokens": MAX_SEQUENCE_TOKENS,
-            },
-            "model": "Qwen3.8-2.4T-A95B",
-            "reasoning_effort": "max",
-            "sampling_max_tokens": 32_768,
-            "thinking": {"enable_thinking": True, "preserve_thinking": True},
-        },
-        "dataset": {"content_sha256": None, "kind": "git_revision", "revision": "7" * 40},
-        "deployment": {
-            "base_url_sha256": "5" * 64,
-            "endpoint_bundle_sha256": "6" * 64,
-            "kind": "direct_qwen",
-            "router": {
-                "policy": "consistent_hash",
-                "provider_concurrency": 32,
-                "request_id_headers": ["x-session-id"],
-            },
-            "spec_sha256": "7" * 64,
-            "worker_manifest": {"sha256": "2" * 64},
-        },
-        "execution": {
-            "cleanup_must_succeed": True,
-            "concurrency": concurrency,
-            "environment": environment,
-            "runtime": runtime,
-        },
-        "sandbox_provider": "sandoq",
-        "source": source,
-    }
-    compatibility_sha256 = hashlib.sha256(sft_run_identity._canonical_json(compatibility)).hexdigest()
-    identity_artifact = {"bytes": 123, "sha256": "6" * 64}
-    manifest["source_artifacts"][sft_run_identity.EVAL_RUN_IDENTITY_FILENAME] = identity_artifact
-    manifest["eval_run_identity"] = {
-        "artifact": identity_artifact,
-        "cleanup": {
-            "cleanup_implied_successful_traces": manifest["counts"]["selected_traces"],
-            "excluded_error_traces": manifest["counts"].get("excluded_error_traces", 0),
-            "must_succeed": True,
-            "selected_error_free_traces": manifest["counts"]["selected_traces"],
-            "semantics": "runtime teardown failure is captured as trace.error",
-        },
-        "cleanup_must_succeed": True,
-        "compatibility": compatibility,
-        "compatibility_sha256": compatibility_sha256,
-        "concurrency": concurrency,
-        "environment": environment,
-        "eval_run_identity_sha256": "7" * 64,
-        "role": "qwen-direct",
-        "runtime": runtime,
-        "sandbox_provider": "sandoq",
-        "schema_version": 1,
-        "source": source,
-    }
-    path.write_bytes(_json_bytes(manifest))
 
 
 def _code_provenance() -> dict:
@@ -780,7 +610,7 @@ def test_merge_is_deterministic_redacted_and_preserves_all_rows(tmp_path: Path) 
     assert merged_manifest["format"]["target"].startswith("authentic reasoning_content")
     assert merged_manifest["source_validation"] == {
         "max_sequence_tokens": MAX_SEQUENCE_TOKENS,
-        "model_io_contract": QWEN3_A95B_REPAIRED_SFT_MODEL_IO_CONTRACT_ID,
+        "require_clean_stop": True,
         "require_exact_provider_json": False,
         "require_model_io": True,
         "require_reasoning": True,
@@ -801,45 +631,6 @@ def test_merge_is_deterministic_redacted_and_preserves_all_rows(tmp_path: Path) 
         "validation/train.jsonl",
     }
     assert source_bytes == {path: path.read_bytes() for path in source_bytes}
-
-
-def test_named_vmvm_to_sandoq_repair_transition_is_explicit_and_bound(tmp_path: Path) -> None:
-    original, repair, selection, selection_sha256, _task_ids = _fixture_exports(tmp_path)
-    _inject_sandoq_identity(repair)
-    options = _options(original, repair, selection, selection_sha256, tmp_path / "merged")
-
-    summary = merge_qwen_sft(options, code_provenance=_code_provenance())
-
-    manifest = json.loads((options.output_dir / "manifest.json").read_text())
-    transition = manifest["provider_transition"]
-    assert summary["manifest_sha256"] == _sha256((options.output_dir / "manifest.json").read_bytes())
-    assert manifest["schema_version"] == merger.MIXED_PROVIDER_MERGE_SCHEMA_VERSION
-    assert transition["kind"] == merger.VMVM_TO_SANDOQ_TRANSITION_KIND
-    assert transition["original_identity"] == "legacy-vmvm-routing-epoch-3"
-    assert transition["source_sandbox_provider"] == "vmvm"
-    assert transition["repair_sandbox_provider"] == "sandoq"
-    assert transition["cleanup_must_succeed"] is True
-
-
-def test_vmvm_to_sandoq_transition_rejects_unrecognized_attestation(tmp_path: Path) -> None:
-    original, repair, selection, selection_sha256, _task_ids = _fixture_exports(tmp_path)
-    _inject_sandoq_identity(repair)
-    options = _options(original, repair, selection, selection_sha256, tmp_path / "merged")
-    attestation = json.loads(options.repair_attestation_manifest.read_text())
-    attestation["provider_transition"]["kind"] = "unapproved-transition"
-    body = _json_bytes(attestation)
-    options.repair_attestation_manifest.write_bytes(body)
-    options.repair_attestation_manifest.chmod(0o600)
-    (repair / REPAIR_ATTESTATION_COPY_FILENAME).write_bytes(body)
-    (repair / REPAIR_ATTESTATION_COPY_FILENAME).chmod(0o600)
-    options = replace(
-        options,
-        repair_attestation_manifest_sha256=_sha256(body),
-        repair_export_tree_sha256=_export_tree_sha256(repair, "test_repair_export_invalid"),
-    )
-
-    with pytest.raises(MergeError, match="^repair_attestation_contract_invalid$"):
-        merge_qwen_sft(options, code_provenance=_code_provenance())
 
 
 def test_tampered_artifact_is_rejected_without_output(tmp_path: Path) -> None:
@@ -1121,51 +912,6 @@ def test_repair_attestation_must_be_private_regular_file(tmp_path: Path) -> None
 
     with pytest.raises(MergeError, match="^repair_attestation_invalid$"):
         merge_qwen_sft(options, code_provenance=_code_provenance())
-
-
-def test_generation_repair_attestation_binds_exact_current24_contract(tmp_path: Path) -> None:
-    original, repair, selection, selection_sha256, _task_ids = _fixture_exports(tmp_path)
-    options = _options(original, repair, selection, selection_sha256, tmp_path / "merged")
-    attestation = json.loads(options.repair_attestation_manifest.read_text())
-    contract = generation._load_contract()
-    transition_relative = f"{generation.RUN_BUNDLE_DIRECTORY}/{generation.TRANSITION_FILENAME}"
-    for name in {
-        f"{generation.RUN_BUNDLE_DIRECTORY}/{item}"
-        for item in (
-            *sorted(generation.BUNDLE_FILES),
-            generation.TRANSITION_FILENAME,
-        )
-    }:
-        attestation["source_artifacts"][name] = {"bytes": 1, "sha256": "8" * 64}
-    attestation["source_artifacts"][generation.CAPACITY_SMOKE_FILENAME] = {
-        "bytes": 1,
-        "sha256": "7" * 64,
-    }
-    attestation["schema_version"] = REPAIR_GENERATION_ATTESTATION_SCHEMA_VERSION
-    attestation["routing"].update(
-        {
-            "capacity_smoke_sha256": "7" * 64,
-            "endpoint_bundle_sha256": contract["target_generation"]["endpoint_bundle_sha256"],
-            "provider_concurrency": generation.PROVIDER_CONCURRENCY,
-            "queue_size": generation.QUEUE_SIZE,
-            "rollout_concurrency": generation.ROLLOUT_CONCURRENCY,
-            "serving_generation": 2,
-            "serving_generation_transition_sha256": "9" * 64,
-            "spec_sha256": contract["target_generation"]["spec_sha256"],
-            "worker_count": 24,
-            "vmvm_lease_concurrency": generation.VMVM_LEASE_CONCURRENCY,
-        }
-    )
-    attestation["source_artifacts"][transition_relative]["sha256"] = "9" * 64
-    body = _json_bytes(attestation)
-    options.repair_attestation_manifest.write_bytes(body)
-    loaded = _load_repair_attestation(
-        options.repair_attestation_manifest,
-        _sha256(body),
-        selection_sha256,
-    )
-    assert loaded.schema_version == REPAIR_GENERATION_ATTESTATION_SCHEMA_VERSION
-    assert loaded.serving_generation_transition_sha256 == "9" * 64
 
 
 def test_repair_attestation_binds_direct_workers_artifact(tmp_path: Path) -> None:

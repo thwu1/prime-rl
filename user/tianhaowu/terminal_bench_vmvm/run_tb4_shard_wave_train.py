@@ -25,7 +25,7 @@ import subprocess
 import tempfile
 import threading
 from contextlib import contextmanager
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Callable, Iterator, Mapping, Sequence
@@ -36,6 +36,7 @@ from audit_traces import (
     KIMI_K3_MAX_MODEL_IO_CONTRACT,
     TraceJSONLError,
     _audit_trace,
+    _clean_stop_problem,
     _iter_traces,
     _task_slug,
 )
@@ -54,7 +55,6 @@ from inference_route_guard import (
     verify_live_route_generation,
 )
 from launch_tb4_shard_wave import (
-    DEFAULT_SBATCH,
     DEPLOYMENT_RE,
     EXPECTED_MODEL,
     EXPECTED_VMVM_ENV,
@@ -66,26 +66,31 @@ from launch_tb4_shard_wave import (
     WaveSubmissionOutcomeUnknown,
     _encode_environment,
     _job_environment,
+    _launch_contract,
     _parse_job_id,
     _require_tmux_launcher,
     _selected_dataset,
     _stable_artifact,
+    _submit_with_transient_environment,
     _vacli_auth_environment,
     _validate_dataset,
     _validate_generation_bindings,
+    _x2p_environment,
     launch_wave,
     validate_clean_project,
 )
 from tb4_shard_workflow import (
+    EXPECTED_SHARD_SLURM_TIME_LIMIT,
     CertifiedShard,
     PlannedShard,
     ShardWorkflowError,
     _certify_shard,
     canonical_json,
     load_plan,
+    validate_shard_launch_contract,
 )
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 CONTROLLER_TYPE = "terminal_bench_vmvm_tb4_singleton_wave_train"
 DEFAULT_POLL_INTERVAL_SECONDS = 15.0
 MIN_POLL_INTERVAL_SECONDS = 1.0
@@ -170,6 +175,7 @@ class WaveTrainConfig:
     shard_count: int | None = None
     wave_size: int = MAX_WAVE_SIZE
     poll_interval_seconds: float = DEFAULT_POLL_INTERVAL_SECONDS
+    x2p_environment_sha256: Mapping[str, str] | None = None
 
 
 @dataclass(frozen=True)
@@ -190,7 +196,8 @@ class PreparedTrain:
     dataset_archive: PinnedArtifact | None
     generation_sha256: str
     route_binding: RouteBinding
-    submission_environment: dict[str, str]
+    submission_environment: dict[str, str] = field(repr=False)
+    x2p_environment_sha256: dict[str, str]
     proxy_config_snapshot: PinnedArtifact | None = None
 
 
@@ -198,6 +205,7 @@ class PreparedTrain:
 class SchedulerObservation:
     state: str
     exit_code: str | None
+    slurm_time_limit: str
 
 
 @dataclass(frozen=True)
@@ -210,6 +218,7 @@ class ShardEvidence:
     eval_run_identity_sha256: str
     guard_success_receipt_sha256: str
     route_generation_sha256: str
+    launch_contract: dict[str, Any]
 
 
 CommandRunner = Callable[..., subprocess.CompletedProcess[str]]
@@ -451,7 +460,7 @@ def query_scheduler(
     joined = ",".join(requested)
     try:
         queued = runner(
-            [SQUEUE, "--noheader", f"--jobs={joined}", "--format=%A|%T"],
+            [SQUEUE, "--noheader", f"--jobs={joined}", "--format=%A|%T|%l"],
             check=False,
             capture_output=True,
             text=True,
@@ -467,12 +476,16 @@ def query_scheduler(
         if not raw_line.strip():
             continue
         fields = [field.strip() for field in raw_line.strip().split("|")]
-        if len(fields) != 2 or fields[0] not in requested_set or fields[0] in observations:
+        if len(fields) != 3 or fields[0] not in requested_set or fields[0] in observations:
             raise WaveTrainError("scheduler_response_invalid")
         state = _normalize_slurm_state(fields[1])
-        if state not in ACTIVE_SLURM_STATES:
+        if state not in ACTIVE_SLURM_STATES or fields[2] != EXPECTED_SHARD_SLURM_TIME_LIMIT:
             raise WaveTrainError("scheduler_response_invalid")
-        observations[fields[0]] = SchedulerObservation(state=state, exit_code=None)
+        observations[fields[0]] = SchedulerObservation(
+            state=state,
+            exit_code=None,
+            slurm_time_limit=fields[2],
+        )
 
     missing = [job_id for job_id in requested if job_id not in observations]
     if missing:
@@ -484,7 +497,7 @@ def query_scheduler(
                     "--parsable2",
                     "--allocations",
                     f"--jobs={','.join(missing)}",
-                    "--format=JobIDRaw,State,ExitCode",
+                    "--format=JobIDRaw,State,ExitCode,Timelimit",
                 ],
                 check=False,
                 capture_output=True,
@@ -500,15 +513,22 @@ def query_scheduler(
             if not raw_line.strip():
                 continue
             fields = [field.strip() for field in raw_line.strip().split("|")]
-            if len(fields) != 3 or fields[0] not in missing_set or fields[0] in observations:
+            if len(fields) != 4 or fields[0] not in missing_set or fields[0] in observations:
                 raise WaveTrainError("scheduler_response_invalid")
             state = _normalize_slurm_state(fields[1])
-            if state not in ACTIVE_SLURM_STATES | FAILED_SLURM_STATES | {"COMPLETED"}:
+            if (
+                state not in ACTIVE_SLURM_STATES | FAILED_SLURM_STATES | {"COMPLETED"}
+                or fields[3] != EXPECTED_SHARD_SLURM_TIME_LIMIT
+            ):
                 raise WaveTrainError("scheduler_response_invalid")
             exit_code = fields[2].strip()
             if not re.fullmatch(r"[0-9]+:[0-9]+", exit_code):
                 raise WaveTrainError("scheduler_response_invalid")
-            observations[fields[0]] = SchedulerObservation(state=state, exit_code=exit_code)
+            observations[fields[0]] = SchedulerObservation(
+                state=state,
+                exit_code=exit_code,
+                slurm_time_limit=fields[3],
+            )
     if set(observations) != requested_set:
         raise SchedulerQueryUnavailable("scheduler_job_missing")
     return {job_id: observations[job_id] for job_id in requested}
@@ -612,6 +632,16 @@ def _validate_config(config: WaveTrainConfig) -> None:
         or SHA256_RE.fullmatch(str(config.dataset_content_sha256)) is None
     ):
         raise WaveTrainError("dataset_archive_invalid")
+    if config.x2p_environment_sha256 is not None:
+        try:
+            validate_shard_launch_contract(
+                {
+                    "slurm_time_limit": EXPECTED_SHARD_SLURM_TIME_LIMIT,
+                    "x2p_environment_sha256": dict(config.x2p_environment_sha256),
+                }
+            )
+        except (TypeError, ShardWorkflowError) as error:
+            raise WaveTrainError("x2p_environment_commitment_invalid") from error
 
 
 def prepare_train(
@@ -619,6 +649,7 @@ def prepare_train(
     *,
     ambient_env: Mapping[str, str] | None = None,
     command_runner: CommandRunner = subprocess.run,
+    require_x2p_values: bool = True,
 ) -> PreparedTrain:
     """Resolve and validate every immutable controller input before use."""
 
@@ -630,6 +661,25 @@ def prepare_train(
         submission_environment = _vacli_auth_environment(environment)
     except WaveLaunchError as error:
         raise WaveTrainError("vacli_auth_environment_invalid") from error
+    configured_x2p = config.x2p_environment_sha256
+    if require_x2p_values:
+        try:
+            x2p_environment = _x2p_environment(environment)
+            launch_contract = _launch_contract(x2p_environment)
+        except WaveLaunchError as error:
+            raise WaveTrainError("x2p_environment_invalid") from error
+        if configured_x2p is not None and launch_contract["x2p_environment_sha256"] != dict(configured_x2p):
+            raise WaveTrainError("x2p_environment_commitment_mismatch")
+        submission_environment.update(x2p_environment)
+    else:
+        if configured_x2p is None:
+            raise WaveTrainError("x2p_environment_commitment_missing")
+        launch_contract = validate_shard_launch_contract(
+            {
+                "slurm_time_limit": EXPECTED_SHARD_SLURM_TIME_LIMIT,
+                "x2p_environment_sha256": dict(configured_x2p),
+            }
+        )
     if "TMUX_PANE" in environment:
         submission_environment["TMUX_PANE"] = environment["TMUX_PANE"]
     try:
@@ -655,6 +705,8 @@ def prepare_train(
         raise WaveTrainError("plan_invalid") from error
     if plan.get("shard_size") != 1 or any(shard.task_count != 1 for shard in shards):
         raise WaveTrainError("singleton_plan_required")
+    if plan.get("scheduler") != {"slurm_time_limit": EXPECTED_SHARD_SLURM_TIME_LIMIT}:
+        raise WaveTrainError("plan_launch_contract_invalid")
     stop = len(shards) if config.shard_count is None else config.first_shard_index + config.shard_count
     if config.first_shard_index >= len(shards) or stop > len(shards):
         raise WaveTrainError("shard_selection_invalid")
@@ -764,6 +816,7 @@ def prepare_train(
         generation_sha256=generation_sha256,
         route_binding=route_binding,
         submission_environment=submission_environment,
+        x2p_environment_sha256=launch_contract["x2p_environment_sha256"],
     )
 
 
@@ -779,8 +832,18 @@ def _dataset_record(prepared: PreparedTrain) -> dict[str, Any]:
     }
 
 
+def _expected_launch_contract(prepared: PreparedTrain) -> dict[str, Any]:
+    return validate_shard_launch_contract(
+        {
+            "slurm_time_limit": EXPECTED_SHARD_SLURM_TIME_LIMIT,
+            "x2p_environment_sha256": prepared.x2p_environment_sha256,
+        }
+    )
+
+
 def _train_body(prepared: PreparedTrain) -> dict[str, Any]:
     config = prepared.config
+    launch_contract = _expected_launch_contract(prepared)
     return {
         "schema_version": SCHEMA_VERSION,
         "controller_type": CONTROLLER_TYPE,
@@ -799,6 +862,7 @@ def _train_body(prepared: PreparedTrain) -> dict[str, Any]:
             "shard_count": len(prepared.selected_indices),
             "wave_size": config.wave_size,
         },
+        "launch_contract": launch_contract,
         "deployment": {
             "id": config.deployment_id,
             "spec": {
@@ -1032,6 +1096,7 @@ def _validate_state(
                 "wave_number",
                 "shard_indices",
                 "completion",
+                "launch_contract",
                 "job_count",
                 "supported_count",
                 "unsupported_count",
@@ -1047,6 +1112,7 @@ def _validate_state(
             or completion.get("path") != str(receipt_path)
             or not isinstance(completion.get("sha256"), str)
             or SHA256_RE.fullmatch(completion["sha256"]) is None
+            or record.get("launch_contract") != _expected_launch_contract(prepared)
             or type(record.get("job_count")) is not int
             or record.get("job_count") != len(indices)
             or type(record.get("supported_count")) is not int
@@ -1160,6 +1226,7 @@ def _load_wave_metadata(
         "project",
         "deployment",
         "dataset",
+        "launch_contract",
         "vmvm_environment",
         "wave_size",
         "jobs",
@@ -1178,7 +1245,7 @@ def _load_wave_metadata(
     if (
         set(value) != expected_keys
         or type(value.get("schema_version")) is not int
-        or value.get("schema_version") != 1
+        or value.get("schema_version") != SCHEMA_VERSION
         or value.get("state") not in allowed_states
         or value.get("dry_run") is not False
         or value.get("plan")
@@ -1190,6 +1257,7 @@ def _load_wave_metadata(
         or value.get("project") != {"path": str(prepared.project), "revisions": prepared.revisions}
         or value.get("deployment") != expected_deployment
         or value.get("dataset") != _dataset_record(prepared)
+        or value.get("launch_contract") != _expected_launch_contract(prepared)
         or value.get("vmvm_environment") != EXPECTED_VMVM_ENV
         or type(value.get("wave_size")) is not int
         or value.get("wave_size") != len(indices)
@@ -1241,6 +1309,7 @@ def _load_wave_metadata(
                 "task_count",
                 "config_sha256",
                 "task_manifest_sha256",
+                "launch_contract",
                 "environment",
                 "output_dir",
                 "submission_started_at",
@@ -1253,6 +1322,7 @@ def _load_wave_metadata(
             or job.get("task_count") != 1
             or job.get("config_sha256") != shard.config_sha256
             or job.get("task_manifest_sha256") != shard.task_manifest_sha256
+            or job.get("launch_contract") != _expected_launch_contract(prepared)
             or job.get("output_dir") != str(output_dir)
         ):
             raise WaveTrainError("wave_metadata_invalid")
@@ -1347,11 +1417,17 @@ def _validate_trace_semantics(certified: CertifiedShard) -> tuple[bool, int | No
         model_io_contract=KIMI_K3_MAX_MODEL_IO_CONTRACT,
         require_request_graph_match=True,
     )
-    if row.get("is_completed") is not True:
+    stop_problem = _clean_stop_problem(row)
+    if stop_problem == "trace_not_completed":
         problems.append("supported_trace_not_completed")
-    stop_condition = row.get("stop_condition")
-    if not isinstance(stop_condition, str) or not stop_condition.strip() or stop_condition == "error":
+    elif stop_problem == "trace_stop_condition_invalid":
         problems.append("supported_trace_stop_condition_invalid")
+    elif stop_problem == "trace_stop_condition_infrastructure":
+        problems.append(
+            "supported_trace_stop_condition_invalid"
+            if row.get("stop_condition") == "error"
+            else "supported_trace_stop_condition_infrastructure"
+        )
     score, score_problem = _score_problem(row)
     if score_problem is not None:
         problems.append(score_problem)
@@ -1368,10 +1444,11 @@ def validate_completed_shard(
     """Validate one completed singleton without returning task-bearing data."""
 
     if (
-        not {"shard_index", "slurm_job_id", "output_dir"}.issubset(job)
+        not {"shard_index", "slurm_job_id", "output_dir", "launch_contract"}.issubset(job)
         or job.get("shard_index") != shard.index
         or not isinstance(job.get("slurm_job_id"), str)
         or SLURM_JOB_ID_RE.fullmatch(job["slurm_job_id"]) is None
+        or job.get("launch_contract") != _expected_launch_contract(prepared)
     ):
         raise WaveTrainError("shard_job_metadata_invalid")
     expected_output = Path(str(job["output_dir"]))
@@ -1543,6 +1620,7 @@ def validate_completed_shard(
         eval_run_identity_sha256=envelope["eval_run_identity_sha256"],
         guard_success_receipt_sha256=certified.success_receipt_sha256,
         route_generation_sha256=certified.route_generation_sha256,
+        launch_contract=_expected_launch_contract(prepared),
     )
 
 
@@ -1558,6 +1636,7 @@ def _evidence_record(evidence: ShardEvidence) -> dict[str, Any]:
         "eval_run_identity_sha256": evidence.eval_run_identity_sha256,
         "guard_success_receipt_sha256": evidence.guard_success_receipt_sha256,
         "route_generation_sha256": evidence.route_generation_sha256,
+        "launch_contract": validate_shard_launch_contract(evidence.launch_contract),
     }
 
 
@@ -1580,6 +1659,7 @@ def _completion_body(
             "path": str(Path(str(wave["jobs"][0]["output_dir"])).parent / "wave.json"),
             "sha256": wave["wave_sha256"],
         },
+        "launch_contract": validate_shard_launch_contract(wave.get("launch_contract")),
         "jobs": [_evidence_record(evidence) for evidence in evidences],
         "counts": {
             "jobs": len(evidences),
@@ -1611,6 +1691,7 @@ def _load_completion(
         "train_sha256",
         "wave_number",
         "wave",
+        "launch_contract",
         "jobs",
         "counts",
         "completed_at",
@@ -1629,6 +1710,7 @@ def _load_completion(
             "path": str(_wave_root(prepared, wave_number) / "wave.json"),
             "sha256": wave["wave_sha256"],
         }
+        or value.get("launch_contract") != _expected_launch_contract(prepared)
         or not _valid_timestamp(value.get("completed_at"))
         or not isinstance(value.get("jobs"), list)
         or len(value["jobs"]) != len(indices)
@@ -1647,7 +1729,7 @@ def _load_completion(
             raise
         except Exception as error:
             raise WaveTrainError("shard_validation_failed") from error
-        if recorded != _evidence_record(evidence):
+        if evidence.launch_contract != _expected_launch_contract(prepared) or recorded != _evidence_record(evidence):
             raise WaveTrainError("wave_completion_artifact_mismatch")
         evidences.append(evidence)
     expected_counts = {
@@ -1715,6 +1797,7 @@ def _completed_state_record(
             "path": str(_wave_root(prepared, wave_number) / "completion.json"),
             "sha256": completion_file_sha256,
         },
+        "launch_contract": _expected_launch_contract(prepared),
         "job_count": counts["jobs"],
         "supported_count": counts["supported"],
         "unsupported_count": counts["unsupported"],
@@ -1981,6 +2064,12 @@ def _resume_partial_wave_submission(
 ) -> dict[str, Any]:
     """Finish a crashed launcher transaction without resubmitting recorded jobs."""
 
+    try:
+        x2p_environment = _x2p_environment(ambient_env)
+        if _launch_contract(x2p_environment) != _expected_launch_contract(prepared):
+            raise WaveTrainError("x2p_environment_commitment_mismatch")
+    except WaveLaunchError as error:
+        raise WaveTrainError("x2p_environment_invalid") from error
     if wave.get("state") == "submitted":
         return wave
     if wave.get("state") not in {"submitting", "submission_interrupted"}:
@@ -2029,11 +2118,22 @@ def _resume_partial_wave_submission(
                 environment_path,
                 label="wave_environment",
             )
-            if raw != _expected_job_environment(
-                prepared,
-                shard,
-                Path(job["output_dir"]),
-            ):
+            environment_values = _job_environment(
+                project_dir=prepared.project,
+                project_revision=prepared.config.project_revision,
+                shard=shard,
+                output_dir=Path(job["output_dir"]),
+                deployment_id=prepared.config.deployment_id,
+                deployment_spec=prepared.deployment_spec,
+                readiness=prepared.readiness,
+                proxy_info=prepared.proxy_info,
+                smoke=prepared.smoke,
+                dataset_revision=prepared.config.dataset_revision,
+                dataset_archive=prepared.dataset_archive,
+                dataset_content_sha256=prepared.config.dataset_content_sha256,
+                vacli_auth_environment={key: prepared.submission_environment[key] for key in REQUIRED_VACLI_AUTH_ENV},
+            )
+            if raw != _encode_environment(environment_values):
                 raise WaveTrainError("wave_environment_invalid")
             token = secrets.token_hex(8)
             job["submission_token"] = token
@@ -2044,19 +2144,13 @@ def _resume_partial_wave_submission(
                 job["submission_token"] = None
                 job["submission_started_at"] = None
                 raise ControllerInterrupted("submission_interrupted")
-            result = command_runner(
-                [
-                    DEFAULT_SBATCH,
-                    "--parsable",
-                    f"--job-name=tb4-shard-{index:03d}-{token}",
-                    f"--export-file={environment_path}",
-                    str(prepared.project / "user/tianhaowu/terminal_bench_vmvm/run_eval.sbatch"),
-                ],
-                check=False,
-                capture_output=True,
-                text=True,
+            result = _submit_with_transient_environment(
+                command_runner=command_runner,
+                job_name=f"tb4-shard-{index:03d}-{token}",
+                run_eval=prepared.project / "user/tianhaowu/terminal_bench_vmvm/run_eval.sbatch",
+                environment_values=environment_values,
+                x2p_environment=x2p_environment,
                 cwd=prepared.project,
-                env={},
                 timeout=SCHEDULER_TIMEOUT_SECONDS,
             )
             try:
@@ -2255,6 +2349,8 @@ def _observe_wave(
         observation = observations[job["slurm_job_id"]]
         if not isinstance(observation, SchedulerObservation):
             raise WaveTrainError("scheduler_response_invalid")
+        if observation.slurm_time_limit != EXPECTED_SHARD_SLURM_TIME_LIMIT:
+            raise WaveTrainError("scheduler_time_limit_mismatch")
         if observation.state in ACTIVE_SLURM_STATES:
             if observation.exit_code is not None:
                 raise WaveTrainError("scheduler_response_invalid")
@@ -2272,6 +2368,7 @@ def _observe_wave(
             evidence.shard_index != index
             or evidence.slurm_job_id != job["slurm_job_id"]
             or evidence.route_generation_sha256 != prepared.generation_sha256
+            or evidence.launch_contract != _expected_launch_contract(prepared)
         ):
             raise WaveTrainError("shard_validation_mismatch")
         evidences.append(evidence)

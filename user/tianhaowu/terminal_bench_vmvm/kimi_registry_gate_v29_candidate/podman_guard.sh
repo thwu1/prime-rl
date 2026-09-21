@@ -1,0 +1,127 @@
+#!/usr/bin/bash -p
+set +x
+set -euo pipefail
+
+private_dirs_bound() {
+    local index path_name anchor_name identity_name path anchor identity
+    [[ "${GATE_PRIVATE_ROOT_PATH:-}" == /* \
+        && "${GATE_PRIVATE_ROOT_ANCHOR:-}" =~ ^/proc/self/fd/[1-9][0-9]*/\.$ \
+        && -d "$GATE_PRIVATE_ROOT_PATH" && ! -L "$GATE_PRIVATE_ROOT_PATH" \
+        && -d "$GATE_PRIVATE_ROOT_ANCHOR" && ! -L "$GATE_PRIVATE_ROOT_ANCHOR" \
+        && "${GATE_PRIVATE_ROOT_IDENTITY:-}" == "$(/usr/bin/stat -c '%d:%i:%a:%u' -- "$GATE_PRIVATE_ROOT_PATH" 2>/dev/null || true)" \
+        && "$GATE_PRIVATE_ROOT_IDENTITY" == "$(/usr/bin/stat -Lc '%d:%i:%a:%u' -- "$GATE_PRIVATE_ROOT_ANCHOR" 2>/dev/null || true)" ]] \
+        || return 1
+    for index in 0 1 2 3 4 5 6; do
+        path_name=GATE_PRIVATE_PATH_$index
+        anchor_name=GATE_PRIVATE_ANCHOR_$index
+        identity_name=GATE_PRIVATE_IDENTITY_$index
+        path=${!path_name:-}
+        anchor=${!anchor_name:-}
+        identity=${!identity_name:-}
+        [[ "$path" == "$GATE_PRIVATE_ROOT_PATH"/* \
+            && "$anchor" =~ ^/proc/self/fd/[1-9][0-9]*/\.$ \
+            && -d "$path" && ! -L "$path" \
+            && -d "$anchor" && ! -L "$anchor" \
+            && "$identity" == "$(/usr/bin/stat -c '%d:%i:%a:%u' -- "$path" 2>/dev/null || true)" \
+            && "$identity" == "$(/usr/bin/stat -Lc '%d:%i:%a:%u' -- "$anchor" 2>/dev/null || true)" ]] \
+            || return 1
+    done
+}
+
+[[ $# -ge 1 && ( "$1" == login || "$1" == pull ) \
+    && "${BASH_SOURCE[0]}" == "${GATE_PODMAN_GUARD_ALIAS:-}" \
+    && -L "${BASH_SOURCE[0]}" \
+    && "$(/usr/bin/readlink -- "${BASH_SOURCE[0]}" 2>/dev/null)" \
+        == "/proc/self/fd/${GATE_PODMAN_GUARD_FD:-invalid}" ]] \
+    || exit 125
+guard_identity=$(/usr/bin/stat -Lc '%d:%i:%a:%u:%h' -- "${BASH_SOURCE[0]}" 2>/dev/null) \
+    || exit 125
+[[ "$guard_identity" == "${GATE_PODMAN_GUARD_IDENTITY:-}" \
+    && "$guard_identity" == *':500:656177:1' \
+    && "$(/usr/bin/sha256sum -- "${BASH_SOURCE[0]}" 2>/dev/null | /usr/bin/cut -d' ' -f1)" \
+        == "${GATE_PODMAN_GUARD_SHA256:-}" \
+    && "$(/usr/bin/stat -Lc '%F:%a:%u:%h' -- /usr/bin/podman 2>/dev/null)" == 'regular file:755:0:1' \
+    && "$(/usr/bin/sha256sum -- /usr/bin/podman 2>/dev/null | /usr/bin/cut -d' ' -f1)" \
+        == f93ee492920150e229b9b41729bfe675073a4df0569ee5d570a8106b5a64506a ]] \
+    || exit 125
+private_dirs_bound || exit 125
+readonly podman_runroot=${GATE_PRIVATE_PATH_1:-}
+[[ "$podman_runroot" == "${GATE_PRIVATE_ROOT_PATH}"/runroot ]] \
+    || exit 125
+
+active_pid=
+active_identity=
+pending_signal=0
+spawning=0
+forward_signal() {
+    local number=$1
+    pending_signal=$number
+    if (( ! spawning )) && [[ "${active_pid:-}" =~ ^[1-9][0-9]*$ ]]; then
+        /usr/bin/kill -TERM -- "$active_pid" 2>/dev/null || true
+    fi
+}
+process_identity() {
+    local child=$1 raw rest owner
+    local -a fields=()
+    [[ "$child" =~ ^[1-9][0-9]*$ ]] || return 1
+    IFS= read -r raw < "/proc/$child/stat" || return 1
+    rest=${raw##*) }
+    read -r -a fields <<< "$rest"
+    ((${#fields[@]} >= 20)) || return 1
+    owner=$(/usr/bin/stat -Lc '%u' -- "/proc/$child" 2>/dev/null) || return 1
+    [[ "${fields[1]}" == "$$" && "$owner" == "${GATE_EXPECTED_UID}" ]] || return 1
+    /usr/bin/printf '%s:%s:%s:%s\n' "$child" "${fields[1]}" "${fields[19]}" "$owner"
+}
+stop_and_reap_child() {
+    local child=$1 identity=$2 current watchdog=
+    [[ "$child" =~ ^[1-9][0-9]*$ ]] || return 1
+    if ! /usr/bin/kill -0 -- "$child" 2>/dev/null; then
+        wait "$child" 2>/dev/null || true
+        return 0
+    fi
+    current=$(process_identity "$child") || return 1
+    [[ -z "$identity" || "$identity" == "$current" ]] || return 1
+    identity=$current
+    /usr/bin/kill -TERM -- "$child" 2>/dev/null || true
+    (
+        /usr/bin/sleep 2
+        if [[ "$identity" == "$(process_identity "$child" 2>/dev/null || true)" ]]; then
+            /usr/bin/kill -KILL -- "$child" 2>/dev/null || true
+        fi
+    ) &
+    watchdog=$!
+    set +e
+    wait "$child" 2>/dev/null
+    set -e
+    /usr/bin/kill -KILL -- "$watchdog" 2>/dev/null || true
+    wait "$watchdog" 2>/dev/null || true
+    ! /usr/bin/kill -0 -- "$child" 2>/dev/null
+}
+trap 'forward_signal 129' HUP
+trap 'forward_signal 130' INT
+trap 'forward_signal 143' TERM
+
+set +e
+spawning=1
+/usr/bin/podman --runroot "$podman_runroot" "$@" &
+active_pid=$!
+active_identity=$(process_identity "$active_pid" 2>/dev/null || true)
+spawning=0
+if (( pending_signal != 0 )); then
+    trap '' HUP INT TERM
+    stop_and_reap_child "$active_pid" "$active_identity" || exit 125
+    rc=$pending_signal
+else
+    wait "$active_pid"
+    rc=$?
+    trap '' HUP INT TERM
+    if (( pending_signal != 0 )); then
+        stop_and_reap_child "$active_pid" "$active_identity" || exit 125
+        rc=$pending_signal
+    fi
+fi
+active_pid=
+active_identity=
+set -e
+private_dirs_bound || exit 125
+exit "$rc"

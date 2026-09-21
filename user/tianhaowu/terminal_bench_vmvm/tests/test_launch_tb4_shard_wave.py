@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import io
 import json
+import os
 import stat
 import subprocess
 import tarfile
@@ -13,6 +14,12 @@ import pytest
 from deployment_endpoint import load_deployment_endpoint
 from launch_tb4_shard_wave import EXPECTED_VMVM_ENV, WaveLaunchError, launch_wave
 from tb4_shard_workflow import canonical_json, create_plan
+
+X2P_VALUES = {
+    "X2P_ENV": "unit-test-environment",
+    "X2P_CFG_ENV": "unit-test-config",
+    "X2P_PROXY_URL": "http://unit-test-secret.invalid:10054",
+}
 
 
 def _sha256(path: Path) -> str:
@@ -299,13 +306,34 @@ type = "vmvm"
             "inputs_manifest",
             "provenance",
         }:
-            path.write_text(f"{name}\n")
+            if name == "results":
+                path.write_text(
+                    json.dumps(
+                        {
+                            "id": "smoke-0",
+                            "task": {"slug": "smoke-task-0"},
+                            "is_completed": True,
+                            "stop_condition": "agent_completed",
+                        }
+                    )
+                    + "\n"
+                )
+            else:
+                path.write_text(f"{name}\n")
             artifacts[name] = _record(path)
     artifacts["config"] = _record(resolved_config)
     artifacts["inputs_manifest"] = _record(manifest)
 
+    smoke_launch_contract = {
+        "schema_version": 2,
+        "transport": "anonymous_slurm_export_fd_v1",
+        "slurm_time_limit": "3-00:00:00",
+        "x2p_environment_sha256": {
+            key: hashlib.sha256(value.encode()).hexdigest() for key, value in X2P_VALUES.items()
+        },
+    }
     identity = {
-        "schema_version": 1,
+        "schema_version": 2,
         "role": "smoke",
         "source": {
             "project_root": str(tmp_path / "source"),
@@ -371,6 +399,7 @@ type = "vmvm"
                 "image_pull_timeout_sec": 3600,
                 "container_privileged": True,
             },
+            "launch_contract": smoke_launch_contract,
         },
         "deployment": {
             "id": deployment_id,
@@ -389,7 +418,7 @@ type = "vmvm"
     identity_path.write_text(
         json.dumps(
             {
-                "schema_version": 1,
+                "schema_version": 2,
                 "eval_run_identity_sha256": identity_sha256,
                 "identity": identity,
             }
@@ -418,6 +447,7 @@ type = "vmvm"
                 "slurm_job_id": "904",
                 "approval_task_file_sha256": _sha256(task_file),
                 "approval_task_count": "1",
+                "kimi_smoke_launch_contract_sha256": hashlib.sha256(canonical_json(smoke_launch_contract)).hexdigest(),
             }.items()
         )
     )
@@ -519,6 +549,7 @@ type = "vmvm"
         "endpoint": endpoint,
         "serving_route_generation": generation,
         "proxy_policy": policy,
+        "launch_contract": smoke_launch_contract,
         "qualified_execution": {
             "rollout_concurrency": 4,
             "multiplex": 4,
@@ -533,6 +564,9 @@ type = "vmvm"
             "require_model_io": True,
             "model_io_contract": launcher.EXPECTED_MODEL_IO_CONTRACT,
             "require_request_graph_match": True,
+            "require_clean_stop": True,
+            "require_x2p_launch_contract": True,
+            "required_slurm_time_limit": "3-00:00:00",
             "require_token_data": False,
             "require_logprobs": False,
             "max_sequence_tokens": 262_144,
@@ -610,6 +644,7 @@ def _fixture(tmp_path: Path, monkeypatch, *, with_telemetry: bool = False):
         "ambient_env": {
             "THRIFT_TLS_CL_CERT_PATH": str(tls_cert),
             "THRIFT_TLS_CL_KEY_PATH": str(tls_key),
+            **X2P_VALUES,
         },
     }
 
@@ -644,6 +679,7 @@ def test_dry_run_is_private_exact_and_never_submits(tmp_path: Path, monkeypatch,
         "archive_sha256": arguments["dataset_archive_sha256"],
         "content_sha256": arguments["dataset_content_sha256"],
     }
+    assert wave["launch_contract"] == launcher._launch_contract(X2P_VALUES)
     assert stat.S_IMODE(output.stat().st_mode) == 0o700
     assert all(stat.S_IMODE(path.stat().st_mode) == 0o600 for path in output.iterdir())
     for job in wave["jobs"]:
@@ -657,10 +693,14 @@ def test_dry_run_is_private_exact_and_never_submits(tmp_path: Path, monkeypatch,
         assert {key: values[key] for key in launcher.REQUIRED_VACLI_AUTH_ENV} == {
             key: arguments["ambient_env"][key] for key in launcher.REQUIRED_VACLI_AUTH_ENV
         }
+        assert not set(launcher.REQUIRED_X2P_ENV) & set(values)
         assert "RESUME_DIR" not in values
         assert "EVAL_MODEL" not in values
         assert "INFERENCE_BASE_URL" not in values
         assert "OPENAI_API_KEY" not in values
+        assert job["launch_contract"] == wave["launch_contract"]
+    persisted = b"".join(path.read_bytes() for path in output.iterdir() if path.is_file())
+    assert all(secret.encode() not in persisted for secret in X2P_VALUES.values())
 
 
 def test_fake_submit_uses_existing_run_eval_and_empty_client_environment(tmp_path: Path, monkeypatch):
@@ -668,6 +708,13 @@ def test_fake_submit_uses_existing_run_eval_and_empty_client_environment(tmp_pat
     calls: list[tuple[list[str], dict[str, object]]] = []
 
     def fake_runner(argv, **kwargs):
+        descriptor = kwargs["pass_fds"][0]
+        export_status = os.fstat(descriptor)
+        assert stat.S_IMODE(export_status.st_mode) == 0o600
+        assert export_status.st_nlink == 0
+        raw = Path(f"/proc/self/fd/{descriptor}").read_bytes()
+        values = dict(record.decode().split("=", 1) for record in raw.split(b"\0") if record)
+        assert {key: values[key] for key in launcher.REQUIRED_X2P_ENV} == X2P_VALUES
         calls.append((argv, kwargs))
         return subprocess.CompletedProcess(argv, 0, stdout=f"{1000 + len(calls)}\n", stderr="")
 
@@ -683,9 +730,14 @@ def test_fake_submit_uses_existing_run_eval_and_empty_client_environment(tmp_pat
     for argv, kwargs in calls:
         assert argv[0] == launcher.DEFAULT_SBATCH
         assert argv[-1].endswith("/run_eval.sbatch")
-        assert any(value.startswith("--export-file=") for value in argv)
+        assert f"--time={launcher.EXPECTED_SHARD_SLURM_TIME_LIMIT}" in argv
+        assert f"--export-file={kwargs['pass_fds'][0]}" in argv
+        assert all(secret not in repr(argv) for secret in X2P_VALUES.values())
         assert kwargs["env"] == {}
+        assert len(kwargs["pass_fds"]) == 1
         assert kwargs["timeout"] == launcher.DEFAULT_SUBMISSION_TIMEOUT_SECONDS
+    persisted = b"".join(path.read_bytes() for path in arguments["output_root"].iterdir() if path.is_file())
+    assert all(secret.encode() not in persisted for secret in X2P_VALUES.values())
 
 
 @pytest.mark.parametrize(
@@ -708,6 +760,38 @@ def test_rejects_missing_or_invalid_vacli_auth_environment(
     arguments["ambient_env"] = ambient_env
 
     with pytest.raises(WaveLaunchError, match="vacli_auth_environment_invalid"):
+        launch_wave(**arguments, dry_run=True)
+
+    assert not arguments["output_root"].exists()
+
+
+@pytest.mark.parametrize(
+    ("missing", "replacement"),
+    [
+        ("X2P_ENV", None),
+        ("X2P_ENV", ""),
+        ("X2P_CFG_ENV", None),
+        ("X2P_CFG_ENV", ""),
+        ("X2P_PROXY_URL", None),
+        ("X2P_PROXY_URL", ""),
+        ("X2P_PROXY_URL", "secret\nleak"),
+    ],
+)
+def test_rejects_incomplete_or_invalid_x2p_environment(
+    tmp_path: Path,
+    monkeypatch,
+    missing: str,
+    replacement: str | None,
+):
+    arguments = _fixture(tmp_path, monkeypatch)
+    ambient = dict(arguments["ambient_env"])
+    if replacement is None:
+        ambient.pop(missing)
+    else:
+        ambient[missing] = replacement
+    arguments["ambient_env"] = ambient
+
+    with pytest.raises(WaveLaunchError, match="x2p_environment_invalid"):
         launch_wave(**arguments, dry_run=True)
 
     assert not arguments["output_root"].exists()
@@ -824,17 +908,20 @@ def test_partial_fake_submission_is_recorded_and_stops(tmp_path: Path, monkeypat
         nonlocal calls
         calls += 1
         if calls == 2:
-            return subprocess.CompletedProcess(argv, 1, stdout="", stderr="private detail")
+            return subprocess.CompletedProcess(argv, 1, stdout="", stderr=X2P_VALUES["X2P_PROXY_URL"])
         return subprocess.CompletedProcess(argv, 0, stdout="1001\n", stderr="")
 
-    with pytest.raises(WaveLaunchError, match="wave_submission_incomplete"):
+    with pytest.raises(WaveLaunchError, match="wave_submission_incomplete") as captured:
         launch_wave(**arguments, dry_run=False, command_runner=fake_runner)
 
     assert calls == 2
+    assert all(secret not in str(captured.value) for secret in X2P_VALUES.values())
     metadata = json.loads((arguments["output_root"] / "wave.json").read_text())
     assert metadata["state"] == "partial_submission_failed"
     assert metadata["jobs"][0]["slurm_job_id"] == "1001"
     assert all(job["slurm_job_id"] is None for job in metadata["jobs"][1:])
+    persisted = b"".join(path.read_bytes() for path in arguments["output_root"].iterdir() if path.is_file())
+    assert all(secret.encode() not in persisted for secret in X2P_VALUES.values())
 
 
 def test_environment_is_rehashed_after_submission_intent_is_persisted(
@@ -892,6 +979,34 @@ def test_rejects_smoke_without_strict_graph_wire_policy(tmp_path: Path, monkeypa
     arguments["smoke_checkpoint_sha256"] = _sha256(smoke_path)
 
     with pytest.raises(WaveLaunchError, match="smoke_checkpoint_not_passed"):
+        launch_wave(**arguments, dry_run=True)
+
+
+def test_rejects_smoke_without_clean_stop_policy(tmp_path: Path, monkeypatch) -> None:
+    arguments = _fixture(tmp_path, monkeypatch)
+    smoke_path = Path(arguments["smoke_checkpoint_path"])
+    smoke = json.loads(smoke_path.read_text())
+    smoke["audit_policy"]["require_clean_stop"] = False
+    body = {key: item for key, item in smoke.items() if key != "smoke_checkpoint_sha256"}
+    smoke["smoke_checkpoint_sha256"] = hashlib.sha256(canonical_json(body)).hexdigest()
+    smoke_path.write_text(json.dumps(smoke) + "\n")
+    arguments["smoke_checkpoint_sha256"] = _sha256(smoke_path)
+
+    with pytest.raises(WaveLaunchError, match="smoke_checkpoint_not_passed"):
+        launch_wave(**arguments, dry_run=True)
+
+
+def test_reaudits_legacy_smoke_stop_conditions(tmp_path: Path, monkeypatch) -> None:
+    arguments = _fixture(tmp_path, monkeypatch)
+    smoke_path = Path(arguments["smoke_checkpoint_path"])
+    smoke = json.loads(smoke_path.read_text())
+    results = Path(smoke["artifacts"]["results"]["path"])
+    rows = [json.loads(line) for line in results.read_text().splitlines()]
+    rows[0]["stop_condition"] = "HarnessTimeout"
+    results.write_text("".join(json.dumps(row) + "\n" for row in rows))
+    _rewrite_smoke(arguments, ("results",))
+
+    with pytest.raises(WaveLaunchError, match="^smoke_trace_audit_failed$"):
         launch_wave(**arguments, dry_run=True)
 
 
@@ -957,7 +1072,9 @@ def test_large_archive_hashing_is_streaming(tmp_path: Path):
     assert pinned.sha256 == digest
 
 
-def test_main_wraps_plan_validation_without_traceback(tmp_path: Path, capsys):
+def test_main_wraps_plan_validation_without_traceback(tmp_path: Path, capsys, monkeypatch):
+    for key, value in X2P_VALUES.items():
+        monkeypatch.setenv(key, value)
     plan = tmp_path / "plan.json"
     _private_write(plan, b"not-json\n")
     result = launcher.main(

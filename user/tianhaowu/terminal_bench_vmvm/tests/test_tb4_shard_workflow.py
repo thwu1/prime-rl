@@ -120,6 +120,20 @@ def _refresh_checkpoint_hash(value: dict) -> None:
     value["tb4_certificate_sha256"] = hashlib.sha256(workflow.canonical_json(body)).hexdigest()
 
 
+def _launch_contract(seed: str = "x2p") -> dict[str, object]:
+    return {
+        "slurm_time_limit": workflow.EXPECTED_SHARD_SLURM_TIME_LIMIT,
+        "x2p_environment_sha256": {
+            key: hashlib.sha256(f"{seed}-{key}".encode()).hexdigest() for key in workflow.REQUIRED_X2P_ENV
+        },
+    }
+
+
+def _launch_contracts(receipts: list[Path], seed: str = "x2p") -> dict[Path, dict[str, object]]:
+    contract = _launch_contract(seed)
+    return {receipt.resolve(): contract for receipt in receipts}
+
+
 def _verify_artifact_root_regressions(
     checkpoint: dict,
     output: Path,
@@ -226,6 +240,8 @@ def test_plan_is_private_deterministic_and_exact(tmp_path: Path):
     loaded, shards = load_plan(output / "plan.json")
 
     assert plan["plan_sha256"] == loaded["plan_sha256"]
+    assert plan["schema_version"] == 2
+    assert plan["scheduler"] == {"slurm_time_limit": workflow.EXPECTED_SHARD_SLURM_TIME_LIMIT}
     assert len(shards) == 17
     assert [shard.task_count for shard in shards] == [4] * 16 + [2]
     assert set().union(*(set(shard.tasks) for shard in shards)) == set(identifiers)
@@ -233,6 +249,25 @@ def test_plan_is_private_deterministic_and_exact(tmp_path: Path):
     assert all(stat.S_IMODE(path.stat().st_mode) == 0o600 for path in output.iterdir())
     plan_text = (output / "plan.json").read_text()
     assert not any(identifier in plan_text for identifier in identifiers)
+
+
+@pytest.mark.parametrize("legacy", [False, True], ids=["walltime-drift", "schema1"])
+def test_plan_rejects_legacy_or_drifted_singleton_walltime(tmp_path: Path, legacy: bool):
+    _plan, output, _ = _make_plan(tmp_path)
+    plan_path = output / "plan.json"
+    value = json.loads(plan_path.read_text())
+    if legacy:
+        value["schema_version"] = 1
+        value.pop("scheduler")
+    else:
+        value["scheduler"]["slurm_time_limit"] = "2-00:00:00"
+    body = {key: item for key, item in value.items() if key != "plan_sha256"}
+    value["plan_sha256"] = hashlib.sha256(workflow.canonical_json(body)).hexdigest()
+    plan_path.write_text(json.dumps(value) + "\n")
+    plan_path.chmod(0o600)
+
+    with pytest.raises(ShardWorkflowError, match="plan_invalid"):
+        load_plan(plan_path)
 
 
 def test_plan_rejects_non_private_universe(tmp_path: Path):
@@ -619,8 +654,12 @@ def test_merge_publishes_only_complete_certified_partition(tmp_path: Path, monke
         receipt_paths,
         output_dir=output,
         dataset_dir=dataset,
+        launch_contracts=_launch_contracts(receipt_paths),
     )
     assert receipt["combined_trace_count"] == 66
+    assert receipt["audit_policy"]["require_clean_stop"] is True
+    assert receipt["audit_policy"]["shard_slurm_time_limit"] == workflow.EXPECTED_SHARD_SLURM_TIME_LIMIT
+    assert all(record["launch_contract"] == _launch_contract() for record in receipt["shards"])
     assert receipt["distinct_route_generations"] == len(shards)
     assert len((output / "results.jsonl").read_text().splitlines()) == 66
     assert stat.S_IMODE(output.stat().st_mode) == 0o700
@@ -661,6 +700,18 @@ def test_merge_publishes_only_complete_certified_partition(tmp_path: Path, monke
             artifact_root=output,
         )
 
+    weakened_stop_policy = json.loads(json.dumps(receipt))
+    weakened_stop_policy["audit_policy"]["require_clean_stop"] = False
+    unsigned = dict(weakened_stop_policy)
+    unsigned.pop("tb4_certificate_sha256")
+    weakened_stop_policy["tb4_certificate_sha256"] = hashlib.sha256(workflow.canonical_json(unsigned)).hexdigest()
+    with pytest.raises(ShardWorkflowError, match="sharded_checkpoint_policy_invalid"):
+        validate_sharded_checkpoint(
+            weakened_stop_policy,
+            deployment_id="deployment-test",
+            artifact_root=output,
+        )
+
     tampered = json.loads(json.dumps(receipt))
     tampered["shards"][0]["route_generation_sha256"] = "0" * 64
     unsigned = dict(tampered)
@@ -669,6 +720,16 @@ def test_merge_publishes_only_complete_certified_partition(tmp_path: Path, monke
     with pytest.raises(ShardWorkflowError, match="sharded_checkpoint_shard_mismatch"):
         validate_sharded_checkpoint(
             tampered,
+            deployment_id="deployment-test",
+            artifact_root=output,
+        )
+
+    drifted_walltime = json.loads(json.dumps(receipt))
+    drifted_walltime["shards"][0]["launch_contract"]["slurm_time_limit"] = "2-00:00:00"
+    _refresh_checkpoint_hash(drifted_walltime)
+    with pytest.raises(ShardWorkflowError, match="shard_launch_contract_invalid"):
+        validate_sharded_checkpoint(
+            drifted_walltime,
             deployment_id="deployment-test",
             artifact_root=output,
         )
@@ -865,6 +926,7 @@ def test_multigen_merge_and_checkpoint_allow_distinct_proxy_config_snapshots(tmp
             receipt_paths,
             output_dir=tmp_path / "strict",
             dataset_dir=dataset,
+            launch_contracts=_launch_contracts(receipt_paths),
         )
 
     bad_proxy_b = tmp_path / "generation-b-bad" / "proxy_litellm_config.yaml"
@@ -907,6 +969,7 @@ def test_multigen_merge_and_checkpoint_allow_distinct_proxy_config_snapshots(tmp
                     )
                     for path in receipt_paths
                 },
+                launch_contracts=_launch_contracts(receipt_paths),
             )
     finally:
         by_receipt.clear()
@@ -922,6 +985,7 @@ def test_multigen_merge_and_checkpoint_allow_distinct_proxy_config_snapshots(tmp
             path.resolve(): (proxy_a.resolve() if by_receipt[path.resolve()].spec.index < 33 else proxy_b.resolve())
             for path in receipt_paths
         },
+        launch_contracts=_launch_contracts(receipt_paths),
     )
 
     assert receipt["schema_version"] == 3
