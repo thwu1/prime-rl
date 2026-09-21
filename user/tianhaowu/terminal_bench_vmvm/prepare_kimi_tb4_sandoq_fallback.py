@@ -411,7 +411,13 @@ def _verify_bundle(directory: Path, files: dict[str, bytes], *, code: str) -> No
         raise FallbackPreparationError(code) from error
 
 
-def verify(plan_path: Path, expected_sha256: str, lane_name: str) -> dict[str, str]:
+def _verify(
+    plan_path: Path,
+    expected_sha256: str,
+    lane_name: str,
+    *,
+    require_fresh_output: bool = True,
+) -> dict[str, str]:
     if lane_name not in LANES:
         raise FallbackPreparationError("fallback_lane_invalid")
     try:
@@ -563,7 +569,7 @@ def verify(plan_path: Path, expected_sha256: str, lane_name: str) -> dict[str, s
             or not isinstance(output_value, str)
             or not output_path.is_absolute()
             or output_path in seen_outputs
-            or (name == lane_name and (output_path.exists() or output_path.is_symlink()))
+            or (require_fresh_output and name == lane_name and (output_path.exists() or output_path.is_symlink()))
         ):
             raise FallbackPreparationError("fallback_lane_invalid")
         seen_outputs.add(output_path)
@@ -594,6 +600,18 @@ def verify(plan_path: Path, expected_sha256: str, lane_name: str) -> dict[str, s
             "partition_dir": str(receipt_path.parent),
         }
     return verified[lane_name]
+
+
+def verify(plan_path: Path, expected_sha256: str, lane_name: str) -> dict[str, str]:
+    """Verify one launch lane and require its output namespace to be fresh."""
+
+    return _verify(plan_path, expected_sha256, lane_name, require_fresh_output=True)
+
+
+def verify_completed(plan_path: Path, expected_sha256: str, lane_name: str) -> dict[str, str]:
+    """Authenticate a plan after its exact output namespace has been populated."""
+
+    return _verify(plan_path, expected_sha256, lane_name, require_fresh_output=False)
 
 
 def _prepare_parser() -> argparse.ArgumentParser:

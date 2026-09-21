@@ -556,6 +556,22 @@ def test_direct_kimi_router_binding_accepts_diagnostic_role(tmp_path: Path, role
     assert observed_identity["role"] == role
 
 
+def test_direct_kimi_retained_bytes_binding_matches_path_binding(tmp_path: Path) -> None:
+    identity, invocations, provenance, _identity_sha256 = _binding_files(
+        tmp_path / "run",
+        role="kimi-direct-tb4-sandoq-fallback-diagnostic",
+    )
+
+    expected = direct_kimi_workers._run_binding(identity, invocations, provenance)
+    observed = direct_kimi_workers.validate_run_binding_bytes(
+        identity.read_bytes(),
+        invocations.read_bytes(),
+        provenance.read_bytes(),
+    )
+
+    assert observed == expected
+
+
 def test_direct_kimi_run_binding_rejects_hardlinks(tmp_path: Path) -> None:
     run_dir = tmp_path / "run"
     identity, invocations, provenance, _digest = _binding_files(run_dir)

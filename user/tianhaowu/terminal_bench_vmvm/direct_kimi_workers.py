@@ -920,6 +920,7 @@ def worker_generation_contract(
     manifest: object,
     *,
     revalidate_live_source: bool = True,
+    held: _HeldArtifactSet | None = None,
 ) -> dict[str, Any]:
     """Return the stable worker-generation semantics for cross-run matching.
 
@@ -932,6 +933,7 @@ def worker_generation_contract(
     value = validate_manifest_value(
         manifest,
         revalidate_live_source=revalidate_live_source,
+        held=held,
     )
     router = dict(value["router"])
     for key in ("host", "port", "metrics_host", "metrics_port"):
@@ -1188,49 +1190,13 @@ def _canonical_json(value: Any, *, newline: bool = False) -> bytes:
     return encoded + (b"\n" if newline else b"")
 
 
-def _run_binding(
-    eval_run_identity: Path,
-    eval_invocations: Path,
-    provenance: Path,
-    *,
-    held: _HeldArtifactSet | None = None,
+def validate_run_binding_bytes(
+    identity_body: bytes,
+    invocations_body: bytes,
+    provenance_body: bytes,
 ) -> tuple[str, str, dict[str, Any]]:
-    paths = tuple(_absolute_path(path) for path in (eval_run_identity, eval_invocations, provenance))
-    run_directory = paths[0].parent
-    if tuple(path.name for path in paths) != (
-        "eval_run_identity.json",
-        "eval_invocations.jsonl",
-        "provenance.txt",
-    ) or any(path.parent != run_directory for path in paths[1:]):
-        raise DirectKimiWorkerError("run_binding_invalid")
-    owned = held is None
-    evidence = held if held is not None else _HeldArtifactSet.create()
-    try:
-        identity_body = _read_bound_file(
-            paths[0],
-            maximum_bytes=MAX_RUN_BINDING_BYTES,
-            private=True,
-            code="run_binding_invalid",
-            held=evidence,
-        )
-        invocations_body = _read_bound_file(
-            paths[1],
-            maximum_bytes=MAX_RUN_BINDING_BYTES,
-            private=True,
-            code="run_binding_invalid",
-            held=evidence,
-        )
-        provenance_body = _read_bound_file(
-            paths[2],
-            maximum_bytes=MAX_RUN_BINDING_BYTES,
-            private=True,
-            code="run_binding_invalid",
-            held=evidence,
-        )
-        evidence.revalidate()
-    finally:
-        if owned:
-            evidence.close()
+    """Validate one already-retained direct-Kimi invocation snapshot."""
+
     try:
         envelope = json.loads(identity_body)
         invocations = [json.loads(line) for line in invocations_body.splitlines() if line.strip()]
@@ -1321,6 +1287,52 @@ def _run_binding(
     }
     invocation_identity_sha256 = _sha256_bytes(_canonical_json(binding, newline=True))
     return identity_sha256, invocation_identity_sha256, identity
+
+
+def _run_binding(
+    eval_run_identity: Path,
+    eval_invocations: Path,
+    provenance: Path,
+    *,
+    held: _HeldArtifactSet | None = None,
+) -> tuple[str, str, dict[str, Any]]:
+    paths = tuple(_absolute_path(path) for path in (eval_run_identity, eval_invocations, provenance))
+    run_directory = paths[0].parent
+    if tuple(path.name for path in paths) != (
+        "eval_run_identity.json",
+        "eval_invocations.jsonl",
+        "provenance.txt",
+    ) or any(path.parent != run_directory for path in paths[1:]):
+        raise DirectKimiWorkerError("run_binding_invalid")
+    owned = held is None
+    evidence = held if held is not None else _HeldArtifactSet.create()
+    try:
+        identity_body = _read_bound_file(
+            paths[0],
+            maximum_bytes=MAX_RUN_BINDING_BYTES,
+            private=True,
+            code="run_binding_invalid",
+            held=evidence,
+        )
+        invocations_body = _read_bound_file(
+            paths[1],
+            maximum_bytes=MAX_RUN_BINDING_BYTES,
+            private=True,
+            code="run_binding_invalid",
+            held=evidence,
+        )
+        provenance_body = _read_bound_file(
+            paths[2],
+            maximum_bytes=MAX_RUN_BINDING_BYTES,
+            private=True,
+            code="run_binding_invalid",
+            held=evidence,
+        )
+        evidence.revalidate()
+    finally:
+        if owned:
+            evidence.close()
+    return validate_run_binding_bytes(identity_body, invocations_body, provenance_body)
 
 
 def _validate_deployment_binding(

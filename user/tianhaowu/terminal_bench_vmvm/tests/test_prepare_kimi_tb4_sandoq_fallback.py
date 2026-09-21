@@ -185,6 +185,7 @@ def test_private_plan_binds_both_lanes_and_requires_commit_markers(
     assert result["fallback_memory_16g"] == 4
     assert result["resource_fidelity"] is False
     assert "manifest_sha256" not in result
+    assert plan["schema_version"] == fallback.PLAN_SCHEMA_VERSION == 2
     aggregate_output = json.dumps(result, sort_keys=True)
     assert all(member not in aggregate_output for members in groups.values() for member in members)
     assert set(plan["lanes"]) == {"memory_8g", "memory_16g"}
@@ -234,6 +235,7 @@ def test_private_plan_binds_both_lanes_and_requires_commit_markers(
     first_output = Path(plan["lanes"]["memory_8g"]["output_dir"])
     first_output.mkdir()
     assert fallback.verify(plan_path, plan_sha256, "memory_16g")["provider"] == "sandoq"
+    assert fallback.verify_completed(plan_path, plan_sha256, "memory_8g")["provider"] == "sandoq"
     with pytest.raises(fallback.FallbackPreparationError, match="fallback_lane_invalid"):
         fallback.verify(plan_path, plan_sha256, "memory_8g")
 
