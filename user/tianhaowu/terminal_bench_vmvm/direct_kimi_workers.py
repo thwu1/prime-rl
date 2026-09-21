@@ -68,6 +68,164 @@ class Worker:
         }
 
 
+@dataclass(slots=True)
+class _HeldArtifact:
+    path: Path
+    parent_path: Path
+    parent: int
+    parent_identity: tuple[int, int, int, int]
+    name: str
+    descriptor: int
+    identity: tuple[int, ...]
+    body: bytes
+    private: bool
+    changed_code: str
+
+
+@dataclass(slots=True)
+class _HeldArtifactSet:
+    """Retain each exact evidence inode and its parent through publication."""
+
+    artifacts: dict[Path, _HeldArtifact]
+
+    @classmethod
+    def create(cls) -> _HeldArtifactSet:
+        return cls(artifacts={})
+
+    def capture(
+        self,
+        path: Path,
+        *,
+        maximum_bytes: int,
+        private: bool,
+        code: str,
+    ) -> bytes:
+        absolute = _absolute_path(path, code=code)
+        changed_code = "run_binding_changed" if code == "run_binding_invalid" else f"{code}_changed"
+        existing = self.artifacts.get(absolute)
+        if existing is not None:
+            if len(existing.body) > maximum_bytes or (private and not existing.private):
+                raise DirectKimiWorkerError(code)
+            return existing.body
+
+        directory_flags = os.O_RDONLY | os.O_CLOEXEC | getattr(os, "O_DIRECTORY", 0)
+        file_flags = os.O_RDONLY | os.O_CLOEXEC
+        if hasattr(os, "O_NOFOLLOW"):
+            directory_flags |= os.O_NOFOLLOW
+            file_flags |= os.O_NOFOLLOW
+        parent = os.open("/", directory_flags)
+        try:
+            for component in absolute.parts[1:-1]:
+                child = os.open(component, directory_flags, dir_fd=parent)
+                os.close(parent)
+                parent = child
+            descriptor = os.open(absolute.name, file_flags, dir_fd=parent)
+        except OSError as error:
+            os.close(parent)
+            raise DirectKimiWorkerError(code) from error
+        try:
+            before = os.fstat(descriptor)
+            parent_before = os.fstat(parent)
+            if (
+                not stat.S_ISREG(before.st_mode)
+                or before.st_nlink != 1
+                or before.st_size > maximum_bytes
+                or (not private and stat.S_IMODE(before.st_mode) & 0o022)
+                or (private and before.st_uid != os.getuid())
+                or (private and stat.S_IMODE(before.st_mode) != 0o600)
+                or (
+                    private
+                    and (
+                        not stat.S_ISDIR(parent_before.st_mode)
+                        or parent_before.st_uid != os.getuid()
+                        or stat.S_IMODE(parent_before.st_mode) != 0o700
+                    )
+                )
+            ):
+                raise DirectKimiWorkerError(code)
+            body = bytearray()
+            while chunk := os.read(descriptor, 1 << 20):
+                body.extend(chunk)
+                if len(body) > maximum_bytes:
+                    raise DirectKimiWorkerError(code)
+            after = os.fstat(descriptor)
+            visible = os.stat(absolute.name, dir_fd=parent, follow_symlinks=False)
+            parent_after = os.fstat(parent)
+            parent_visible = absolute.parent.lstat()
+            resolved_parent = absolute.parent.resolve(strict=True)
+            parent_identity = _directory_identity(parent_after)
+            if (
+                _stat_identity(before) != _stat_identity(after)
+                or _stat_identity(after) != _stat_identity(visible)
+                or _directory_identity(parent_before) != parent_identity
+                or _directory_identity(parent_visible) != parent_identity
+                or resolved_parent != absolute.parent
+                or len(body) != after.st_size
+                or any(
+                    artifact.parent_path == absolute.parent and artifact.parent_identity != parent_identity
+                    for artifact in self.artifacts.values()
+                )
+            ):
+                raise DirectKimiWorkerError(changed_code)
+            self.artifacts[absolute] = _HeldArtifact(
+                path=absolute,
+                parent_path=absolute.parent,
+                parent=parent,
+                parent_identity=parent_identity,
+                name=absolute.name,
+                descriptor=descriptor,
+                identity=_stat_identity(after),
+                body=bytes(body),
+                private=private,
+                changed_code=changed_code,
+            )
+            return bytes(body)
+        except DirectKimiWorkerError:
+            os.close(descriptor)
+            os.close(parent)
+            raise
+        except (OSError, RuntimeError) as error:
+            os.close(descriptor)
+            os.close(parent)
+            raise DirectKimiWorkerError(changed_code) from error
+
+    def revalidate(self) -> None:
+        for artifact in self.artifacts.values():
+            try:
+                held_parent = os.fstat(artifact.parent)
+                visible_parent = artifact.parent_path.lstat()
+                resolved_parent = artifact.parent_path.resolve(strict=True)
+                before = os.fstat(artifact.descriptor)
+                visible = os.stat(
+                    artifact.name,
+                    dir_fd=artifact.parent,
+                    follow_symlinks=False,
+                )
+                os.lseek(artifact.descriptor, 0, os.SEEK_SET)
+                observed = bytearray()
+                while chunk := os.read(artifact.descriptor, 1 << 20):
+                    observed.extend(chunk)
+                after = os.fstat(artifact.descriptor)
+            except (OSError, RuntimeError) as error:
+                raise DirectKimiWorkerError(artifact.changed_code) from error
+            if (
+                _directory_identity(held_parent) != artifact.parent_identity
+                or _directory_identity(visible_parent) != artifact.parent_identity
+                or resolved_parent != artifact.parent_path
+                or _stat_identity(before) != artifact.identity
+                or _stat_identity(after) != artifact.identity
+                or _stat_identity(visible) != artifact.identity
+                or bytes(observed) != artifact.body
+            ):
+                raise DirectKimiWorkerError(artifact.changed_code)
+
+    def close(self) -> None:
+        for artifact in self.artifacts.values():
+            os.close(artifact.descriptor)
+            os.close(artifact.parent)
+        self.artifacts.clear()
+
+
 def _sha256_bytes(value: bytes) -> str:
     return hashlib.sha256(value).hexdigest()
 
@@ -78,8 +236,17 @@ def _read_bound_file(
     maximum_bytes: int = MAX_CONFIG_BYTES,
     private: bool = False,
     code: str = "source_unreadable",
+    held: _HeldArtifactSet | None = None,
 ) -> bytes:
     """Read one exact inode through retained no-follow descriptors."""
+
+    if held is not None:
+        return held.capture(
+            path,
+            maximum_bytes=maximum_bytes,
+            private=private,
+            code=code,
+        )
 
     absolute = _absolute_path(path, code=code)
     directory_flags = os.O_RDONLY | os.O_CLOEXEC | getattr(os, "O_DIRECTORY", 0)
@@ -146,8 +313,13 @@ def _read_bound_file(
     return bytes(body)
 
 
-def _sha256_file(path: Path, *, private: bool = False) -> str:
-    return _sha256_bytes(_read_bound_file(path, private=private))
+def _sha256_file(
+    path: Path,
+    *,
+    private: bool = False,
+    held: _HeldArtifactSet | None = None,
+) -> str:
+    return _sha256_bytes(_read_bound_file(path, private=private, held=held))
 
 
 def _read_yaml(body: bytes) -> dict[str, Any]:
@@ -183,12 +355,16 @@ def _canonical_worker_url(value: Any) -> str:
     return urllib.parse.urlunsplit(("http", parsed.netloc, "", "", ""))
 
 
-def load_workers(deployment_root: Path) -> tuple[list[Worker], str, str, str]:
+def load_workers(
+    deployment_root: Path,
+    *,
+    held: _HeldArtifactSet | None = None,
+) -> tuple[list[Worker], str, str, str]:
     root = _absolute_path(deployment_root, code="source_unreadable")
     spec = root / "spec.yaml"
     proxy_config = root / "proxy_litellm_config.yaml"
-    spec_body = _read_bound_file(spec)
-    proxy_body = _read_bound_file(proxy_config)
+    spec_body = _read_bound_file(spec, held=held)
+    proxy_body = _read_bound_file(proxy_config, held=held)
     if _sha256_bytes(spec_body) != EXPECTED_SPEC_SHA256 or _sha256_bytes(proxy_body) != EXPECTED_PROXY_CONFIG_SHA256:
         raise DirectKimiWorkerError("source_generation_mismatch")
     document = _read_yaml(proxy_body)
@@ -279,7 +455,13 @@ def _manifest(
     }
 
 
-def _atomic_write(path: Path, raw: bytes, *, exclusive: bool) -> None:
+def _atomic_write(
+    path: Path,
+    raw: bytes,
+    *,
+    exclusive: bool,
+    evidence: _HeldArtifactSet | None = None,
+) -> None:
     if not exclusive:
         raise DirectKimiWorkerError("output_overwrite_forbidden")
     absolute = _absolute_path(path, code="output_path_invalid")
@@ -288,6 +470,7 @@ def _atomic_write(path: Path, raw: bytes, *, exclusive: bool) -> None:
         {absolute.name: raw},
         marker_name=f".{absolute.name}.complete",
         kind=FILE_MARKER_KIND,
+        evidence=evidence,
     )
 
 
@@ -298,8 +481,7 @@ def _marker_body(kind: str, files: dict[str, bytes]) -> bytes:
                 "schema_version": 1,
                 "kind": kind,
                 "files": {
-                    name: {"bytes": len(body), "sha256": _sha256_bytes(body)}
-                    for name, body in sorted(files.items())
+                    name: {"bytes": len(body), "sha256": _sha256_bytes(body)} for name, body in sorted(files.items())
                 },
             },
             sort_keys=True,
@@ -357,6 +539,7 @@ def _publish_marked_bundle(
     *,
     marker_name: str,
     kind: str,
+    evidence: _HeldArtifactSet | None = None,
 ) -> None:
     parent_path = _absolute_path(parent_path, code="output_parent_invalid")
     try:
@@ -408,6 +591,8 @@ def _publish_marked_bundle(
                     code="output_existing_changed",
                 )
                 if observed_marker == marker and observed_files == files:
+                    if evidence is not None:
+                        evidence.revalidate()
                     return
             raise DirectKimiWorkerError("output_incomplete_or_conflicting")
 
@@ -415,6 +600,8 @@ def _publish_marked_bundle(
             descriptors[name] = _write_final_at(parent, name, body)
         _validate_private_directory(parent_path, parent, parent_identity, code="output_parent_changed")
         os.fsync(parent)
+        if evidence is not None:
+            evidence.revalidate()
         # The marker name is the commit point.  Once its O_EXCL creation is
         # attempted, any uncertain failure is publication-indeterminate and
         # callers may only adopt an exact complete bundle or choose a fresh
@@ -432,6 +619,8 @@ def _publish_marked_bundle(
             if held.st_dev != visible.st_dev or held.st_ino != visible.st_ino or bytes(observed) != expected:
                 raise DirectKimiWorkerError("output_publication_indeterminate")
         os.fsync(parent)
+        if evidence is not None:
+            evidence.revalidate()
         _validate_private_directory(
             parent_path,
             parent,
@@ -454,10 +643,64 @@ def _read_marked_bundle(
     kind: str,
     expected_file_count: int,
     code: str,
+    held: _HeldArtifactSet | None = None,
 ) -> dict[str, bytes]:
     """Read a marker-authorized bundle through one retained directory fd."""
 
     parent_path = _absolute_path(parent_path, code=code)
+    if held is not None:
+        marker_body = _read_bound_file(
+            parent_path / marker_name,
+            maximum_bytes=MAX_RUN_BINDING_BYTES,
+            private=True,
+            code=code,
+            held=held,
+        )
+        try:
+            marker = json.loads(marker_body)
+        except (UnicodeDecodeError, json.JSONDecodeError) as error:
+            raise DirectKimiWorkerError(code) from error
+        records = marker.get("files") if isinstance(marker, dict) else None
+        if (
+            not isinstance(marker, dict)
+            or set(marker) != {"schema_version", "kind", "files"}
+            or marker.get("schema_version") != 1
+            or marker.get("kind") != kind
+            or not isinstance(records, dict)
+            or len(records) != expected_file_count
+            or marker_name in records
+            or any(
+                not isinstance(name, str)
+                or not name
+                or "/" in name
+                or name in {".", ".."}
+                or not isinstance(record, dict)
+                or set(record) != {"bytes", "sha256"}
+                or type(record.get("bytes")) is not int
+                or not 0 <= record["bytes"] <= MAX_RUN_BINDING_BYTES
+                or SHA256_RE.fullmatch(str(record.get("sha256", ""))) is None
+                for name, record in records.items()
+            )
+        ):
+            raise DirectKimiWorkerError(code)
+        bodies = {
+            name: _read_bound_file(
+                parent_path / name,
+                maximum_bytes=MAX_RUN_BINDING_BYTES,
+                private=True,
+                code=code,
+                held=held,
+            )
+            for name in records
+        }
+        if any(
+            len(bodies[name]) != record["bytes"] or _sha256_bytes(bodies[name]) != record["sha256"]
+            for name, record in records.items()
+        ):
+            raise DirectKimiWorkerError(code)
+        held.revalidate()
+        return bodies
+
     parent, parent_identity = _open_private_directory(parent_path, code=code)
     try:
         marker_body = _read_private_at(
@@ -503,8 +746,7 @@ def _read_marked_bundle(
             for name in records
         }
         if any(
-            len(bodies[name]) != record["bytes"]
-            or _sha256_bytes(bodies[name]) != record["sha256"]
+            len(bodies[name]) != record["bytes"] or _sha256_bytes(bodies[name]) != record["sha256"]
             for name, record in records.items()
         ):
             raise DirectKimiWorkerError(code)
@@ -544,8 +786,7 @@ def prepare_generation(
 ) -> dict[str, Any]:
     output_root = _absolute_path(output_root, code="output_parent_invalid")
     publication_paths = tuple(
-        _absolute_path(path, code="output_path_invalid")
-        for path in (manifest_path, urls_path, ports_path)
+        _absolute_path(path, code="output_path_invalid") for path in (manifest_path, urls_path, ports_path)
     )
     if (
         any(path.parent != output_root for path in publication_paths)
@@ -567,9 +808,7 @@ def prepare_generation(
         metrics_port,
     )
     files = {
-        publication_paths[0].name: (
-            json.dumps(manifest, sort_keys=True, separators=(",", ":")) + "\n"
-        ).encode(),
+        publication_paths[0].name: (json.dumps(manifest, sort_keys=True, separators=(",", ":")) + "\n").encode(),
         publication_paths[1].name: "".join(f"{worker.url}\n" for worker in workers).encode(),
         publication_paths[2].name: f"{router_port}\n{metrics_port}\n".encode(),
     }
@@ -586,6 +825,7 @@ def validate_manifest_value(
     manifest: object,
     *,
     revalidate_live_source: bool = True,
+    held: _HeldArtifactSet | None = None,
 ) -> dict[str, Any]:
     """Validate one already-snapshotted worker manifest.
 
@@ -623,7 +863,10 @@ def validate_manifest_value(
         or router
         != {
             "implementation": ROUTER_IMPLEMENTATION,
-            "implementation_sha256": _sha256_file(Path(__file__).with_name("direct_kimi_router.py")),
+            "implementation_sha256": _sha256_file(
+                Path(__file__).with_name("direct_kimi_router.py"),
+                held=held,
+            ),
             "host": "127.0.0.1",
             "port": router.get("port"),
             "metrics_host": "127.0.0.1",
@@ -660,7 +903,8 @@ def validate_manifest_value(
         raise DirectKimiWorkerError("manifest_invalid")
     if revalidate_live_source:
         observed, spec_sha256, proxy_config_sha256, endpoint_bundle_sha256 = load_workers(
-            Path(manifest["deployment_root"])
+            Path(manifest["deployment_root"]),
+            held=held,
         )
         if (
             [worker.public_record for worker in observed] != workers
@@ -709,6 +953,7 @@ def load_saved_manifest(
     path: Path,
     *,
     revalidate_live_source: bool = True,
+    held: _HeldArtifactSet | None = None,
 ) -> tuple[bytes, dict[str, Any]]:
     """Return the exact marker-authorized body and its validated value."""
 
@@ -719,6 +964,7 @@ def load_saved_manifest(
         kind=GENERATION_MARKER_KIND,
         expected_file_count=3,
         code="manifest_invalid",
+        held=held,
     )
     if absolute.name != GENERATION_MANIFEST_NAME or set(bodies) != GENERATION_FILE_NAMES:
         raise DirectKimiWorkerError("manifest_invalid")
@@ -727,7 +973,11 @@ def load_saved_manifest(
         manifest = json.loads(body)
     except (UnicodeDecodeError, json.JSONDecodeError) as error:
         raise DirectKimiWorkerError("manifest_invalid") from error
-    return body, validate_manifest_value(manifest, revalidate_live_source=revalidate_live_source)
+    return body, validate_manifest_value(
+        manifest,
+        revalidate_live_source=revalidate_live_source,
+        held=held,
+    )
 
 
 def validate_saved_manifest(
@@ -735,10 +985,12 @@ def validate_saved_manifest(
     *,
     revalidate_live_source: bool = True,
     body: bytes | None = None,
+    held: _HeldArtifactSet | None = None,
 ) -> dict[str, Any]:
     published_body, manifest = load_saved_manifest(
         path,
         revalidate_live_source=revalidate_live_source,
+        held=held,
     )
     if body is not None and body != published_body:
         raise DirectKimiWorkerError("manifest_invalid")
@@ -940,6 +1192,8 @@ def _run_binding(
     eval_run_identity: Path,
     eval_invocations: Path,
     provenance: Path,
+    *,
+    held: _HeldArtifactSet | None = None,
 ) -> tuple[str, str, dict[str, Any]]:
     paths = tuple(_absolute_path(path) for path in (eval_run_identity, eval_invocations, provenance))
     run_directory = paths[0].parent
@@ -949,14 +1203,34 @@ def _run_binding(
         "provenance.txt",
     ) or any(path.parent != run_directory for path in paths[1:]):
         raise DirectKimiWorkerError("run_binding_invalid")
-    directory, directory_identity = _open_private_directory(run_directory)
+    owned = held is None
+    evidence = held if held is not None else _HeldArtifactSet.create()
     try:
-        identity_body = _read_private_at(directory, paths[0].name)
-        invocations_body = _read_private_at(directory, paths[1].name)
-        provenance_body = _read_private_at(directory, paths[2].name)
-        _validate_private_directory(run_directory, directory, directory_identity)
+        identity_body = _read_bound_file(
+            paths[0],
+            maximum_bytes=MAX_RUN_BINDING_BYTES,
+            private=True,
+            code="run_binding_invalid",
+            held=evidence,
+        )
+        invocations_body = _read_bound_file(
+            paths[1],
+            maximum_bytes=MAX_RUN_BINDING_BYTES,
+            private=True,
+            code="run_binding_invalid",
+            held=evidence,
+        )
+        provenance_body = _read_bound_file(
+            paths[2],
+            maximum_bytes=MAX_RUN_BINDING_BYTES,
+            private=True,
+            code="run_binding_invalid",
+            held=evidence,
+        )
+        evidence.revalidate()
     finally:
-        os.close(directory)
+        if owned:
+            evidence.close()
     try:
         envelope = json.loads(identity_body)
         invocations = [json.loads(line) for line in invocations_body.splitlines() if line.strip()]
@@ -975,7 +1249,8 @@ def _run_binding(
         or set(envelope) != {"schema_version", "eval_run_identity_sha256", "identity"}
         or envelope.get("schema_version") != 1
         or not isinstance(identity, dict)
-        or role not in {
+        or role
+        not in {
             "kimi-direct-smoke",
             "kimi-direct-tb4",
             "kimi-direct-tb4-diagnostic",
@@ -1088,107 +1363,116 @@ def certify_router(
     eval_invocations: Path,
     provenance: Path,
 ) -> dict[str, Any]:
-    eval_run_identity_sha256, invocation_identity_sha256, identity = _run_binding(
-        eval_run_identity,
-        eval_invocations,
-        provenance,
-    )
-    manifest_body, manifest = load_saved_manifest(manifest_path)
-    if SHA256_RE.fullmatch(manifest_sha256) is None or _sha256_bytes(manifest_body) != manifest_sha256:
-        raise DirectKimiWorkerError("manifest_sha256_mismatch")
-    _validate_deployment_binding(identity["deployment"], manifest_path, manifest_sha256, manifest)
-    if active_workers != EXPECTED_ENDPOINTS:
-        raise DirectKimiWorkerError("active_worker_count_mismatch")
+    held = _HeldArtifactSet.create()
     try:
-        router_stats = json.loads(
-            _read_bound_file(
-                router_stats_path,
-                maximum_bytes=MAX_MODELS_BYTES,
-                private=True,
-                code="router_stats_invalid",
-            )
+        eval_run_identity_sha256, invocation_identity_sha256, identity = _run_binding(
+            eval_run_identity,
+            eval_invocations,
+            provenance,
+            held=held,
         )
-    except (UnicodeDecodeError, json.JSONDecodeError) as error:
-        raise DirectKimiWorkerError("router_stats_invalid") from error
-    expected_stats_keys = {
-        "schema_version",
-        "kind",
-        "implementation",
-        "policy",
-        "request_id_headers",
-        "request_timeout_seconds",
-        "retries",
-        "worker_count",
-        "active_workers",
-        "active_requests",
-        "max_active_requests",
-        "total_requests",
-        "chat_requests",
-        "missing_session_rejections",
-        "upstream_failures",
-        "worker_request_counts",
-    }
-    counts = router_stats.get("worker_request_counts") if isinstance(router_stats, dict) else None
-    if (
-        not isinstance(router_stats, dict)
-        or set(router_stats) != expected_stats_keys
-        or router_stats.get("schema_version") != 1
-        or router_stats.get("kind") != "direct-kimi-transparent-router"
-        or router_stats.get("implementation") != ROUTER_IMPLEMENTATION
-        or router_stats.get("policy") != ROUTER_POLICY
-        or router_stats.get("request_id_headers") != list(ROUTER_REQUEST_ID_HEADERS)
-        or router_stats.get("request_timeout_seconds") != ROUTER_REQUEST_TIMEOUT_SECONDS
-        or router_stats.get("retries") != ROUTER_RETRIES
-        or router_stats.get("worker_count") != EXPECTED_ENDPOINTS
-        or router_stats.get("active_workers") != EXPECTED_ENDPOINTS
-        or router_stats.get("active_requests") != 0
-        or not isinstance(counts, list)
-        or len(counts) != EXPECTED_ENDPOINTS
-        or any(type(value) is not int or value < 0 for value in counts)
-        or any(
-            type(router_stats.get(key)) is not int or router_stats[key] < 0
-            for key in (
-                "max_active_requests",
-                "total_requests",
-                "chat_requests",
-                "missing_session_rejections",
-                "upstream_failures",
+        manifest_body, manifest = load_saved_manifest(manifest_path, held=held)
+        if SHA256_RE.fullmatch(manifest_sha256) is None or _sha256_bytes(manifest_body) != manifest_sha256:
+            raise DirectKimiWorkerError("manifest_sha256_mismatch")
+        _validate_deployment_binding(identity["deployment"], manifest_path, manifest_sha256, manifest)
+        if active_workers != EXPECTED_ENDPOINTS:
+            raise DirectKimiWorkerError("active_worker_count_mismatch")
+        try:
+            router_stats = json.loads(
+                _read_bound_file(
+                    router_stats_path,
+                    maximum_bytes=MAX_MODELS_BYTES,
+                    private=True,
+                    code="router_stats_invalid",
+                    held=held,
+                )
             )
+        except (UnicodeDecodeError, json.JSONDecodeError) as error:
+            raise DirectKimiWorkerError("router_stats_invalid") from error
+        expected_stats_keys = {
+            "schema_version",
+            "kind",
+            "implementation",
+            "policy",
+            "request_id_headers",
+            "request_timeout_seconds",
+            "retries",
+            "worker_count",
+            "active_workers",
+            "active_requests",
+            "max_active_requests",
+            "total_requests",
+            "chat_requests",
+            "missing_session_rejections",
+            "upstream_failures",
+            "worker_request_counts",
+        }
+        counts = router_stats.get("worker_request_counts") if isinstance(router_stats, dict) else None
+        if (
+            not isinstance(router_stats, dict)
+            or set(router_stats) != expected_stats_keys
+            or router_stats.get("schema_version") != 1
+            or router_stats.get("kind") != "direct-kimi-transparent-router"
+            or router_stats.get("implementation") != ROUTER_IMPLEMENTATION
+            or router_stats.get("policy") != ROUTER_POLICY
+            or router_stats.get("request_id_headers") != list(ROUTER_REQUEST_ID_HEADERS)
+            or router_stats.get("request_timeout_seconds") != ROUTER_REQUEST_TIMEOUT_SECONDS
+            or router_stats.get("retries") != ROUTER_RETRIES
+            or router_stats.get("worker_count") != EXPECTED_ENDPOINTS
+            or router_stats.get("active_workers") != EXPECTED_ENDPOINTS
+            or router_stats.get("active_requests") != 0
+            or not isinstance(counts, list)
+            or len(counts) != EXPECTED_ENDPOINTS
+            or any(type(value) is not int or value < 0 for value in counts)
+            or any(
+                type(router_stats.get(key)) is not int or router_stats[key] < 0
+                for key in (
+                    "max_active_requests",
+                    "total_requests",
+                    "chat_requests",
+                    "missing_session_rejections",
+                    "upstream_failures",
+                )
+            )
+            or not 0 <= router_stats["max_active_requests"] <= ROUTER_PROVIDER_CONCURRENCY
+            or router_stats["chat_requests"] > router_stats["total_requests"]
+            or sum(counts) != router_stats["total_requests"]
+            or router_stats["missing_session_rejections"] != 0
+            or router_stats["upstream_failures"] != 0
+        ):
+            raise DirectKimiWorkerError("router_stats_invalid")
+        receipt = {
+            "schema_version": 2,
+            "kind": "direct-kimi-router-final",
+            "state": "passed",
+            "eval_run_identity_sha256": eval_run_identity_sha256,
+            "invocation_identity_sha256": invocation_identity_sha256,
+            "worker_manifest_sha256": manifest_sha256,
+            "endpoint_bundle_sha256": manifest["endpoint_bundle_sha256"],
+            "active_workers": active_workers,
+            "implementation": ROUTER_IMPLEMENTATION,
+            "implementation_sha256": manifest["router"]["implementation_sha256"],
+            "policy": ROUTER_POLICY,
+            "request_id_headers": list(ROUTER_REQUEST_ID_HEADERS),
+            "request_timeout_seconds": ROUTER_REQUEST_TIMEOUT_SECONDS,
+            "retries": ROUTER_RETRIES,
+            "max_active_requests": router_stats["max_active_requests"],
+            "total_requests": router_stats["total_requests"],
+            "chat_requests": router_stats["chat_requests"],
+            "worker_request_counts_sha256": _sha256_bytes((json.dumps(counts, separators=(",", ":")) + "\n").encode()),
+            "source_generation_revalidated": True,
+        }
+        held.revalidate()
+        _atomic_write(
+            output,
+            (json.dumps(receipt, sort_keys=True, separators=(",", ":")) + "\n").encode(),
+            exclusive=True,
+            evidence=held,
         )
-        or not 0 <= router_stats["max_active_requests"] <= ROUTER_PROVIDER_CONCURRENCY
-        or router_stats["chat_requests"] > router_stats["total_requests"]
-        or sum(counts) != router_stats["total_requests"]
-        or router_stats["missing_session_rejections"] != 0
-        or router_stats["upstream_failures"] != 0
-    ):
-        raise DirectKimiWorkerError("router_stats_invalid")
-    receipt = {
-        "schema_version": 2,
-        "kind": "direct-kimi-router-final",
-        "state": "passed",
-        "eval_run_identity_sha256": eval_run_identity_sha256,
-        "invocation_identity_sha256": invocation_identity_sha256,
-        "worker_manifest_sha256": manifest_sha256,
-        "endpoint_bundle_sha256": manifest["endpoint_bundle_sha256"],
-        "active_workers": active_workers,
-        "implementation": ROUTER_IMPLEMENTATION,
-        "implementation_sha256": manifest["router"]["implementation_sha256"],
-        "policy": ROUTER_POLICY,
-        "request_id_headers": list(ROUTER_REQUEST_ID_HEADERS),
-        "request_timeout_seconds": ROUTER_REQUEST_TIMEOUT_SECONDS,
-        "retries": ROUTER_RETRIES,
-        "max_active_requests": router_stats["max_active_requests"],
-        "total_requests": router_stats["total_requests"],
-        "chat_requests": router_stats["chat_requests"],
-        "worker_request_counts_sha256": _sha256_bytes((json.dumps(counts, separators=(",", ":")) + "\n").encode()),
-        "source_generation_revalidated": True,
-    }
-    _atomic_write(
-        output,
-        (json.dumps(receipt, sort_keys=True, separators=(",", ":")) + "\n").encode(),
-        exclusive=True,
-    )
-    return receipt
+        held.revalidate()
+        return receipt
+    finally:
+        held.close()
 
 
 def main() -> None:

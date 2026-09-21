@@ -413,6 +413,119 @@ def test_direct_kimi_router_receipt_is_exact(tmp_path: Path, monkeypatch) -> Non
         )
 
 
+@pytest.mark.parametrize(
+    "evidence_name",
+    (
+        "eval_run_identity.json",
+        "eval_invocations.jsonl",
+        "provenance.txt",
+        direct_kimi_workers.GENERATION_MARKER_NAME,
+        direct_kimi_workers.GENERATION_MANIFEST_NAME,
+        direct_kimi_workers.GENERATION_URLS_NAME,
+        direct_kimi_workers.GENERATION_PORTS_NAME,
+        "router-stats.json",
+        "source-spec",
+        "source-proxy",
+        "router-implementation",
+    ),
+)
+def test_direct_kimi_router_receipt_rejects_evidence_swap_during_publication(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    evidence_name: str,
+) -> None:
+    router_implementation_body = Path(direct_kimi_workers.__file__).with_name("direct_kimi_router.py").read_bytes()
+    module_source = tmp_path / "module-source"
+    module_source.mkdir()
+    router_implementation = module_source / "direct_kimi_router.py"
+    router_implementation.write_bytes(router_implementation_body)
+    router_implementation.chmod(0o444)
+    monkeypatch.setattr(
+        direct_kimi_workers,
+        "__file__",
+        str(module_source / "direct_kimi_workers.py"),
+    )
+    root = _deployment(tmp_path, monkeypatch)
+    generation = tmp_path / "generation"
+    manifest_path = generation / direct_kimi_workers.GENERATION_MANIFEST_NAME
+    prepare_generation(
+        root,
+        generation,
+        manifest_path,
+        generation / direct_kimi_workers.GENERATION_URLS_NAME,
+        generation / direct_kimi_workers.GENERATION_PORTS_NAME,
+    )
+    manifest_sha256 = hashlib.sha256(manifest_path.read_bytes()).hexdigest()
+    stats = generation / "router-stats.json"
+    stats.write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "kind": "direct-kimi-transparent-router",
+                "implementation": "direct-kimi-transparent-v1",
+                "policy": "consistent_hash",
+                "request_id_headers": ["x-session-id"],
+                "request_timeout_seconds": 43_200,
+                "retries": 0,
+                "worker_count": 24,
+                "active_workers": 24,
+                "active_requests": 0,
+                "max_active_requests": 1,
+                "total_requests": 1,
+                "chat_requests": 1,
+                "missing_session_rejections": 0,
+                "upstream_failures": 0,
+                "worker_request_counts": [1, *([0] * 23)],
+            }
+        )
+    )
+    stats.chmod(0o600)
+    identity, invocations, provenance, _identity_sha256 = _binding_files(
+        generation,
+        manifest_path=manifest_path,
+    )
+    if evidence_name == "source-spec":
+        target = root / "spec.yaml"
+    elif evidence_name == "source-proxy":
+        target = root / "proxy_litellm_config.yaml"
+    elif evidence_name == "router-implementation":
+        target = router_implementation
+    else:
+        target = generation / evidence_name
+    target_body = target.read_bytes()
+    target_mode = stat.S_IMODE(target.stat().st_mode)
+    original_write = direct_kimi_workers._write_final_at
+    swapped = False
+
+    def write_then_swap(parent: int, name: str, body: bytes) -> int:
+        nonlocal swapped
+        descriptor = original_write(parent, name, body)
+        if not swapped:
+            swapped = True
+            target.rename(generation / f"held-{evidence_name.lstrip('.')}")
+            target.write_bytes(target_body)
+            target.chmod(target_mode)
+        return descriptor
+
+    monkeypatch.setattr(direct_kimi_workers, "_write_final_at", write_then_swap)
+    output = generation / "router.json"
+    with pytest.raises(DirectKimiWorkerError, match="changed"):
+        certify_router(
+            manifest_path,
+            manifest_sha256,
+            24,
+            stats,
+            output,
+            eval_run_identity=identity,
+            eval_invocations=invocations,
+            provenance=provenance,
+        )
+    assert output.exists()
+    assert not (generation / f".{output.name}.complete").exists()
+    with pytest.raises(DirectKimiWorkerError, match="published_file_invalid"):
+        direct_kimi_workers.read_published_file(output)
+
+
 def test_direct_kimi_run_binding_rejects_nonprivate_inputs(tmp_path: Path) -> None:
     run_dir = tmp_path / "run"
     identity, invocations, provenance, _digest = _binding_files(run_dir)
