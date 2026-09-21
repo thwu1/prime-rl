@@ -143,9 +143,9 @@ def _binding_files(
 def test_direct_kimi_manifest_is_secret_free_and_revalidates(tmp_path: Path, monkeypatch) -> None:
     root = _deployment(tmp_path, monkeypatch)
     generation = tmp_path / "generation"
-    manifest_path = generation / "manifest.json"
-    urls_path = generation / "urls.private.txt"
-    ports_path = generation / "ports.private.txt"
+    manifest_path = generation / direct_kimi_workers.GENERATION_MANIFEST_NAME
+    urls_path = generation / direct_kimi_workers.GENERATION_URLS_NAME
+    ports_path = generation / direct_kimi_workers.GENERATION_PORTS_NAME
 
     manifest = prepare_generation(root, generation, manifest_path, urls_path, ports_path)
     assert len(manifest["workers"]) == 24
@@ -159,9 +159,26 @@ def test_direct_kimi_manifest_is_secret_free_and_revalidates(tmp_path: Path, mon
     assert len(urls_path.read_text().splitlines()) == 24
     assert validate_saved_manifest(manifest_path) == manifest
     assert stat.S_IMODE(generation.stat().st_mode) == 0o700
-    for path in (manifest_path, urls_path, ports_path):
+    marker_path = generation / direct_kimi_workers.GENERATION_MARKER_NAME
+    marker = json.loads(marker_path.read_bytes())
+    assert set(marker["files"]) == {manifest_path.name, urls_path.name, ports_path.name}
+    for path in (manifest_path, urls_path, ports_path, marker_path):
         assert stat.S_IMODE(path.stat().st_mode) == 0o600
         assert path.stat().st_nlink == 1
+
+    held_marker = generation / "held-generation-marker"
+    marker_path.rename(held_marker)
+    with pytest.raises(DirectKimiWorkerError, match="manifest_invalid"):
+        validate_saved_manifest(manifest_path)
+    held_marker.rename(marker_path)
+
+    urls_body = urls_path.read_bytes()
+    urls_path.write_bytes(b"changed\n")
+    urls_path.chmod(0o600)
+    with pytest.raises(DirectKimiWorkerError, match="manifest_invalid"):
+        validate_saved_manifest(manifest_path)
+    urls_path.write_bytes(urls_body)
+    urls_path.chmod(0o600)
 
     (root / "proxy_litellm_config.yaml").write_text("changed\n")
     with pytest.raises(DirectKimiWorkerError, match="source_generation_mismatch"):
@@ -172,17 +189,21 @@ def test_direct_kimi_atomic_publication_is_exclusive(tmp_path: Path) -> None:
     output = tmp_path / "private" / "receipt.json"
     direct_kimi_workers._atomic_write(output, b"first\n", exclusive=True)
     direct_kimi_workers._atomic_write(output, b"first\n", exclusive=True)
-    with pytest.raises(DirectKimiWorkerError, match="output_already_exists"):
+    with pytest.raises(DirectKimiWorkerError, match="output_incomplete_or_conflicting"):
         direct_kimi_workers._atomic_write(output, b"second\n", exclusive=True)
 
     assert output.read_bytes() == b"first\n"
     assert stat.S_IMODE(output.parent.stat().st_mode) == 0o700
     assert stat.S_IMODE(output.stat().st_mode) == 0o600
     assert output.stat().st_nlink == 1
-    assert {entry.name for entry in output.parent.iterdir()} == {output.name}
+    assert {entry.name for entry in output.parent.iterdir()} == {
+        output.name,
+        f".{output.name}.complete",
+    }
+    assert direct_kimi_workers.read_published_file(output) == b"first\n"
 
 
-def test_direct_kimi_atomic_publication_precommit_failure_leaves_only_quarantine_and_retry_succeeds(
+def test_direct_kimi_atomic_publication_precommit_failure_is_not_authoritative(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -197,13 +218,16 @@ def test_direct_kimi_atomic_publication_precommit_failure_leaves_only_quarantine
     with pytest.raises(DirectKimiWorkerError, match="output_publish_failed"):
         direct_kimi_workers._atomic_write(output, b"value\n", exclusive=True)
     monkeypatch.setattr(direct_kimi_workers.os, "write", original_write)
-    assert not output.exists()
-    residues = list(output.parent.glob(".receipt.json.stage-*"))
-    assert len(residues) == 1
-    assert stat.S_IMODE(residues[0].stat().st_mode) == 0o600
+    assert output.exists()
+    assert not (output.parent / f".{output.name}.complete").exists()
+    with pytest.raises(DirectKimiWorkerError, match="published_file_invalid"):
+        direct_kimi_workers.read_published_file(output)
+    with pytest.raises(DirectKimiWorkerError, match="output_incomplete_or_conflicting"):
+        direct_kimi_workers._atomic_write(output, b"value\n", exclusive=True)
 
-    direct_kimi_workers._atomic_write(output, b"value\n", exclusive=True)
-    assert output.read_bytes() == b"value\n"
+    fresh = tmp_path / "fresh-private" / output.name
+    direct_kimi_workers._atomic_write(fresh, b"value\n", exclusive=True)
+    assert direct_kimi_workers.read_published_file(fresh) == b"value\n"
 
 
 def test_direct_kimi_atomic_publication_indeterminate_result_is_adoptable(
@@ -231,30 +255,35 @@ def test_direct_kimi_atomic_publication_indeterminate_result_is_adoptable(
     assert output.read_bytes() == b"value\n"
 
 
-def test_direct_kimi_atomic_publication_detects_stage_name_substitution(
+def test_direct_kimi_atomic_publication_detects_payload_name_substitution(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     output = tmp_path / "private" / "receipt.json"
-    original_rename = direct_kimi_workers._rename_noreplace
+    original_write_final = direct_kimi_workers._write_final_at
 
-    def substitute_after_rename(parent: int, source: str, destination: str) -> None:
-        original_rename(parent, source, destination)
-        os.rename(destination, ".owned-after-commit", src_dir_fd=parent, dst_dir_fd=parent)
+    def substitute_after_write(parent: int, name: str, body: bytes) -> int:
+        descriptor = original_write_final(parent, name, body)
+        if name != output.name:
+            return descriptor
+        os.rename(name, ".owned-before-commit", src_dir_fd=parent, dst_dir_fd=parent)
         flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_CLOEXEC | getattr(os, "O_NOFOLLOW", 0)
-        replacement = os.open(destination, flags, 0o600, dir_fd=parent)
+        replacement = os.open(name, flags, 0o600, dir_fd=parent)
         try:
             os.write(replacement, b"replacement\n")
             os.fsync(replacement)
         finally:
             os.close(replacement)
+        return descriptor
 
-    monkeypatch.setattr(direct_kimi_workers, "_rename_noreplace", substitute_after_rename)
+    monkeypatch.setattr(direct_kimi_workers, "_write_final_at", substitute_after_write)
     with pytest.raises(DirectKimiWorkerError, match="output_publication_indeterminate"):
         direct_kimi_workers._atomic_write(output, b"value\n", exclusive=True)
 
     assert output.read_bytes() == b"replacement\n"
-    assert (output.parent / ".owned-after-commit").read_bytes() == b"value\n"
+    assert (output.parent / ".owned-before-commit").read_bytes() == b"value\n"
+    with pytest.raises(DirectKimiWorkerError, match="published_file_invalid"):
+        direct_kimi_workers.read_published_file(output)
 
 
 def test_direct_kimi_atomic_publication_detects_parent_replacement(
@@ -262,14 +291,16 @@ def test_direct_kimi_atomic_publication_detects_parent_replacement(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     output = tmp_path / "private" / "receipt.json"
-    original_rename = direct_kimi_workers._rename_noreplace
+    original_write_final = direct_kimi_workers._write_final_at
 
-    def replace_parent_after_rename(parent: int, source: str, destination: str) -> None:
-        original_rename(parent, source, destination)
-        output.parent.rename(tmp_path / "held-private")
-        output.parent.mkdir(mode=0o700)
+    def replace_parent_after_marker(parent: int, name: str, body: bytes) -> int:
+        descriptor = original_write_final(parent, name, body)
+        if name == f".{output.name}.complete":
+            output.parent.rename(tmp_path / "held-private")
+            output.parent.mkdir(mode=0o700)
+        return descriptor
 
-    monkeypatch.setattr(direct_kimi_workers, "_rename_noreplace", replace_parent_after_rename)
+    monkeypatch.setattr(direct_kimi_workers, "_write_final_at", replace_parent_after_marker)
     with pytest.raises(DirectKimiWorkerError, match="output_publication_indeterminate"):
         direct_kimi_workers._atomic_write(output, b"value\n", exclusive=True)
 
@@ -291,13 +322,13 @@ def test_direct_kimi_atomic_publication_rejects_symlink_parent(tmp_path: Path) -
 def test_direct_kimi_router_receipt_is_exact(tmp_path: Path, monkeypatch) -> None:
     root = _deployment(tmp_path, monkeypatch)
     generation = tmp_path / "generation"
-    manifest_path = generation / "manifest.json"
+    manifest_path = generation / direct_kimi_workers.GENERATION_MANIFEST_NAME
     prepare_generation(
         root,
         generation,
         manifest_path,
-        generation / "urls.private.txt",
-        generation / "ports.private.txt",
+        generation / direct_kimi_workers.GENERATION_URLS_NAME,
+        generation / direct_kimi_workers.GENERATION_PORTS_NAME,
     )
     digest = hashlib.sha256(manifest_path.read_bytes()).hexdigest()
     output = generation / "router.json"

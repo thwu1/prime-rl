@@ -33,7 +33,9 @@ from direct_kimi_workers import (
     ROUTER_REQUEST_ID_HEADERS,
     ROUTER_REQUEST_TIMEOUT_SECONDS,
     ROUTER_RETRIES,
-    validate_saved_manifest,
+    _run_binding,
+    load_saved_manifest,
+    read_published_file,
 )
 from eval_run_identity import canonical_json, load_eval_run_identity
 
@@ -116,7 +118,12 @@ def _capacity_limited_smoke_scope(identity: dict[str, Any]) -> dict[str, Any]:
     return scope
 
 
-def _validate_identity(run_dir: Path, *, role: str, expected_count: int) -> tuple[dict[str, Any], dict[str, Any]]:
+def _validate_identity(
+    run_dir: Path,
+    *,
+    role: str,
+    expected_count: int,
+) -> tuple[dict[str, Any], dict[str, Any], dict[str, str]]:
     try:
         envelope = load_eval_run_identity(run_dir / "eval_run_identity.json", verify_references=True)
     except (OSError, ValueError) as error:
@@ -163,12 +170,21 @@ def _validate_identity(run_dir: Path, *, role: str, expected_count: int) -> tupl
     if not isinstance(manifest_record, dict) or set(manifest_record) != {"path", "sha256"}:
         raise DirectKimiCertificateError("worker_manifest_invalid")
     manifest_path = Path(str(manifest_record["path"]))
-    if _sha256(manifest_path) != manifest_record["sha256"]:
-        raise DirectKimiCertificateError("worker_manifest_invalid")
     try:
-        manifest = validate_saved_manifest(manifest_path)
+        manifest_body, manifest = load_saved_manifest(manifest_path)
+        eval_identity_sha256, invocation_identity_sha256, bound_identity = _run_binding(
+            run_dir / "eval_run_identity.json",
+            run_dir / "eval_invocations.jsonl",
+            run_dir / "provenance.txt",
+        )
     except (OSError, ValueError) as error:
         raise DirectKimiCertificateError("worker_manifest_invalid") from error
+    if (
+        hashlib.sha256(manifest_body).hexdigest() != manifest_record["sha256"]
+        or eval_identity_sha256 != envelope["eval_run_identity_sha256"]
+        or bound_identity != identity
+    ):
+        raise DirectKimiCertificateError("worker_manifest_invalid")
     if (
         deployment.get("spec_sha256") != manifest["source_spec_sha256"]
         or deployment.get("endpoint_bundle_sha256") != manifest["endpoint_bundle_sha256"]
@@ -185,7 +201,10 @@ def _validate_identity(run_dir: Path, *, role: str, expected_count: int) -> tupl
         }
     ):
         raise DirectKimiCertificateError("worker_generation_invalid")
-    return envelope, manifest
+    return envelope, manifest, {
+        "eval_run_identity_sha256": eval_identity_sha256,
+        "invocation_identity_sha256": invocation_identity_sha256,
+    }
 
 
 def _validate_task_selection(identity: dict[str, Any], expected_task_file: Path, expected_sha256: str) -> list[str]:
@@ -204,12 +223,18 @@ def _validate_router_receipt(
     manifest_sha256: str,
     *,
     minimum_chat_requests: int,
+    binding: dict[str, str],
 ) -> dict[str, Any]:
-    receipt = _read_json(path, label="router_receipt")
+    try:
+        receipt = json.loads(read_published_file(path))
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError, ValueError) as error:
+        raise DirectKimiCertificateError("router_receipt_invalid") from error
     expected = {
-        "schema_version": 1,
+        "schema_version": 2,
         "kind": "direct-kimi-router-final",
         "state": "passed",
+        "eval_run_identity_sha256": binding["eval_run_identity_sha256"],
+        "invocation_identity_sha256": binding["invocation_identity_sha256"],
         "worker_manifest_sha256": manifest_sha256,
         "endpoint_bundle_sha256": manifest["endpoint_bundle_sha256"],
         "active_workers": EXPECTED_ENDPOINTS,
@@ -359,7 +384,7 @@ def certify_smoke(
             fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
         except BlockingIOError as error:
             raise DirectKimiCertificateError("writer_active") from error
-        envelope, manifest = _validate_identity(
+        envelope, manifest, binding = _validate_identity(
             run_dir,
             role="kimi-direct-smoke",
             expected_count=SMOKE_TASK_COUNT,
@@ -396,6 +421,7 @@ def certify_smoke(
             manifest,
             manifest_record["sha256"],
             minimum_chat_requests=SMOKE_TASK_COUNT,
+            binding=binding,
         )
         cleanup, cleanup_raw = _validate_cleanup(
             run_dir / "sandoq_cleanup_audit.json",
@@ -448,7 +474,7 @@ def certify_tb4(
             fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
         except BlockingIOError as error:
             raise DirectKimiCertificateError("writer_active") from error
-        envelope, manifest = _validate_identity(
+        envelope, manifest, binding = _validate_identity(
             run_dir,
             role="kimi-direct-tb4",
             expected_count=EXPECTED_TASK_COUNT,
@@ -501,6 +527,7 @@ def certify_tb4(
             manifest,
             manifest_record["sha256"],
             minimum_chat_requests=EXPECTED_TASK_COUNT,
+            binding=binding,
         )
         cleanup, cleanup_raw = _validate_cleanup(
             run_dir / "sandoq_cleanup_audit.json",

@@ -1,15 +1,17 @@
 from __future__ import annotations
 
 import hashlib
+import json
 from pathlib import Path
 
+import direct_kimi_workers
 import pytest
-
 from certify_direct_kimi import (
     CAPACITY_LIMITED_SMOKE_SCOPE,
     DirectKimiCertificateError,
     _capacity_limited_smoke_scope,
     _validate_cleanup,
+    _validate_router_receipt,
 )
 
 
@@ -101,3 +103,51 @@ def test_full_run_still_requires_concurrency_saturation(tmp_path: Path) -> None:
 
     with pytest.raises(DirectKimiCertificateError, match="^pool_cleanup_invalid$"):
         _validate_cleanup(cleanup, expected_count=2, expected_concurrency=2)
+
+
+def test_certifier_accepts_marker_bound_schema_two_router_receipt(tmp_path: Path) -> None:
+    output = tmp_path / "private" / "direct_kimi_router_final.json"
+    binding = {
+        "eval_run_identity_sha256": "1" * 64,
+        "invocation_identity_sha256": "2" * 64,
+    }
+    manifest = {
+        "endpoint_bundle_sha256": "3" * 64,
+        "router": {"implementation_sha256": "4" * 64},
+    }
+    receipt = {
+        "schema_version": 2,
+        "kind": "direct-kimi-router-final",
+        "state": "passed",
+        **binding,
+        "worker_manifest_sha256": "5" * 64,
+        "endpoint_bundle_sha256": manifest["endpoint_bundle_sha256"],
+        "active_workers": 24,
+        "implementation": "direct-kimi-transparent-v1",
+        "implementation_sha256": manifest["router"]["implementation_sha256"],
+        "policy": "consistent_hash",
+        "request_id_headers": ["x-session-id"],
+        "request_timeout_seconds": 43_200,
+        "retries": 0,
+        "max_active_requests": 1,
+        "total_requests": 2,
+        "chat_requests": 2,
+        "worker_request_counts_sha256": "6" * 64,
+        "source_generation_revalidated": True,
+    }
+    direct_kimi_workers._atomic_write(
+        output,
+        (json.dumps(receipt, sort_keys=True, separators=(",", ":")) + "\n").encode(),
+        exclusive=True,
+    )
+
+    assert (
+        _validate_router_receipt(
+            output,
+            manifest,
+            "5" * 64,
+            minimum_chat_requests=1,
+            binding=binding,
+        )
+        == receipt
+    )

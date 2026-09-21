@@ -5,13 +5,10 @@ from __future__ import annotations
 
 import argparse
 import concurrent.futures
-import ctypes
-import errno
 import hashlib
 import json
 import os
 import re
-import secrets
 import stat
 import urllib.parse
 import urllib.request
@@ -40,6 +37,17 @@ MAX_CONFIG_BYTES = 4 * 1024 * 1024
 MAX_MODELS_BYTES = 1 << 20
 MAX_RUN_BINDING_BYTES = 2 * 1024 * 1024
 SHA256_RE = re.compile(r"[0-9a-f]{64}")
+GENERATION_MARKER_NAME = ".direct_kimi_generation.complete"
+GENERATION_MARKER_KIND = "direct-kimi-generation-publication"
+FILE_MARKER_KIND = "direct-kimi-file-publication"
+GENERATION_MANIFEST_NAME = "direct_kimi_workers.json"
+GENERATION_URLS_NAME = "worker_urls.private.txt"
+GENERATION_PORTS_NAME = "router_ports.private.txt"
+GENERATION_FILE_NAMES = {
+    GENERATION_MANIFEST_NAME,
+    GENERATION_URLS_NAME,
+    GENERATION_PORTS_NAME,
+}
 
 
 class DirectKimiWorkerError(ValueError):
@@ -275,132 +283,256 @@ def _atomic_write(path: Path, raw: bytes, *, exclusive: bool) -> None:
     if not exclusive:
         raise DirectKimiWorkerError("output_overwrite_forbidden")
     absolute = _absolute_path(path, code="output_path_invalid")
-    if not absolute.name or absolute.name in {".", ".."}:
+    _publish_marked_bundle(
+        absolute.parent,
+        {absolute.name: raw},
+        marker_name=f".{absolute.name}.complete",
+        kind=FILE_MARKER_KIND,
+    )
+
+
+def _marker_body(kind: str, files: dict[str, bytes]) -> bytes:
+    return (
+        json.dumps(
+            {
+                "schema_version": 1,
+                "kind": kind,
+                "files": {
+                    name: {"bytes": len(body), "sha256": _sha256_bytes(body)}
+                    for name, body in sorted(files.items())
+                },
+            },
+            sort_keys=True,
+            separators=(",", ":"),
+        )
+        + "\n"
+    ).encode()
+
+
+def _write_final_at(parent: int, name: str, body: bytes) -> int:
+    if not name or "/" in name or name in {".", ".."}:
         raise DirectKimiWorkerError("output_path_invalid")
+    flags = os.O_RDWR | os.O_CREAT | os.O_EXCL | os.O_CLOEXEC | getattr(os, "O_NOFOLLOW", 0)
     try:
-        absolute.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+        descriptor = os.open(name, flags, 0o600, dir_fd=parent)
+    except FileExistsError as error:
+        raise DirectKimiWorkerError("output_already_exists") from error
     except OSError as error:
-        raise DirectKimiWorkerError("output_parent_invalid") from error
-    parent, parent_identity = _open_private_directory(absolute.parent, code="output_parent_invalid")
-    temporary = f".{absolute.name}.stage-{secrets.token_hex(8)}"
-    flags = os.O_RDWR | os.O_CREAT | os.O_EXCL | os.O_CLOEXEC
-    if hasattr(os, "O_NOFOLLOW"):
-        flags |= os.O_NOFOLLOW
-    descriptor: int | None = None
-    published = False
+        raise DirectKimiWorkerError("output_publish_failed") from error
     try:
-        try:
-            os.stat(absolute.name, dir_fd=parent, follow_symlinks=False)
-        except FileNotFoundError:
-            pass
-        else:
-            existing = _read_private_at(
-                parent,
-                absolute.name,
-                invalid_code="output_existing_invalid",
-                changed_code="output_existing_changed",
-            )
-            _validate_private_directory(
-                absolute.parent,
-                parent,
-                parent_identity,
-                code="output_parent_changed",
-            )
-            if existing == raw:
-                return
-            raise DirectKimiWorkerError("output_already_exists")
-        descriptor = os.open(temporary, flags, 0o600, dir_fd=parent)
-        created = os.fstat(descriptor)
-        if (
-            not stat.S_ISREG(created.st_mode)
-            or created.st_uid != os.getuid()
-            or stat.S_IMODE(created.st_mode) != 0o600
-            or created.st_nlink != 1
-        ):
-            raise DirectKimiWorkerError("output_staging_invalid")
         os.fchmod(descriptor, 0o600)
-        remaining = memoryview(raw)
-        while remaining:
-            written = os.write(descriptor, remaining)
-            if written < 1:
+        view = memoryview(body)
+        while view:
+            count = os.write(descriptor, view)
+            if count < 1:
                 raise DirectKimiWorkerError("output_write_failed")
-            remaining = remaining[written:]
+            view = view[count:]
         os.fsync(descriptor)
-        written_metadata = os.fstat(descriptor)
-        if (
-            written_metadata.st_dev != created.st_dev
-            or written_metadata.st_ino != created.st_ino
-            or written_metadata.st_uid != os.getuid()
-            or stat.S_IMODE(written_metadata.st_mode) != 0o600
-            or written_metadata.st_nlink != 1
-            or written_metadata.st_size != len(raw)
-        ):
-            raise DirectKimiWorkerError("output_staging_changed")
         os.lseek(descriptor, 0, os.SEEK_SET)
         observed = bytearray()
         while chunk := os.read(descriptor, 1 << 20):
             observed.extend(chunk)
-        visible_stage = os.stat(temporary, dir_fd=parent, follow_symlinks=False)
-        if bytes(observed) != raw or _stat_identity(visible_stage) != _stat_identity(written_metadata):
-            raise DirectKimiWorkerError("output_staging_changed")
+        held = os.fstat(descriptor)
+        visible = os.stat(name, dir_fd=parent, follow_symlinks=False)
+        if (
+            not stat.S_ISREG(held.st_mode)
+            or held.st_uid != os.getuid()
+            or stat.S_IMODE(held.st_mode) != 0o600
+            or held.st_nlink != 1
+            or held.st_size != len(body)
+            or held.st_dev != visible.st_dev
+            or held.st_ino != visible.st_ino
+            or bytes(observed) != body
+        ):
+            raise DirectKimiWorkerError("output_write_changed")
+    except BaseException:
+        os.close(descriptor)
+        raise
+    return descriptor
+
+
+def _publish_marked_bundle(
+    parent_path: Path,
+    files: dict[str, bytes],
+    *,
+    marker_name: str,
+    kind: str,
+) -> None:
+    parent_path = _absolute_path(parent_path, code="output_parent_invalid")
+    try:
+        parent_path.mkdir(parents=True, exist_ok=True, mode=0o700)
+    except OSError as error:
+        raise DirectKimiWorkerError("output_parent_invalid") from error
+    if (
+        not files
+        or marker_name in files
+        or not marker_name
+        or "/" in marker_name
+        or marker_name in {".", ".."}
+        or len(set(files)) != len(files)
+    ):
+        raise DirectKimiWorkerError("output_path_invalid")
+    marker = _marker_body(kind, files)
+    parent, parent_identity = _open_private_directory(parent_path, code="output_parent_invalid")
+    descriptors: dict[str, int] = {}
+    marker_committed = False
+    try:
+        existing = []
+        for name in (*files, marker_name):
+            try:
+                os.stat(name, dir_fd=parent, follow_symlinks=False)
+            except FileNotFoundError:
+                continue
+            existing.append(name)
+        if existing:
+            if set(existing) == {*files, marker_name}:
+                observed_marker = _read_private_at(
+                    parent,
+                    marker_name,
+                    invalid_code="output_existing_invalid",
+                    changed_code="output_existing_changed",
+                )
+                observed_files = {
+                    name: _read_private_at(
+                        parent,
+                        name,
+                        invalid_code="output_existing_invalid",
+                        changed_code="output_existing_changed",
+                    )
+                    for name in files
+                }
+                _validate_private_directory(
+                    parent_path,
+                    parent,
+                    parent_identity,
+                    code="output_existing_changed",
+                )
+                if observed_marker == marker and observed_files == files:
+                    return
+            raise DirectKimiWorkerError("output_incomplete_or_conflicting")
+
+        for name, body in files.items():
+            descriptors[name] = _write_final_at(parent, name, body)
+        _validate_private_directory(parent_path, parent, parent_identity, code="output_parent_changed")
+        os.fsync(parent)
+        # The marker name is the commit point.  Once its O_EXCL creation is
+        # attempted, any uncertain failure is publication-indeterminate and
+        # callers may only adopt an exact complete bundle or choose a fresh
+        # output namespace.
+        marker_committed = True
+        descriptors[marker_name] = _write_final_at(parent, marker_name, marker)
+        for name, expected in {**files, marker_name: marker}.items():
+            descriptor = descriptors[name]
+            held = os.fstat(descriptor)
+            visible = os.stat(name, dir_fd=parent, follow_symlinks=False)
+            os.lseek(descriptor, 0, os.SEEK_SET)
+            observed = bytearray()
+            while chunk := os.read(descriptor, 1 << 20):
+                observed.extend(chunk)
+            if held.st_dev != visible.st_dev or held.st_ino != visible.st_ino or bytes(observed) != expected:
+                raise DirectKimiWorkerError("output_publication_indeterminate")
+        os.fsync(parent)
         _validate_private_directory(
-            absolute.parent,
+            parent_path,
             parent,
             parent_identity,
-            code="output_parent_changed",
+            code="output_publication_indeterminate",
         )
-        os.fsync(parent)
-        _rename_noreplace(parent, temporary, absolute.name)
-        published = True
-        try:
-            visible = os.stat(absolute.name, dir_fd=parent, follow_symlinks=False)
-            held = os.fstat(descriptor)
-            os.lseek(descriptor, 0, os.SEEK_SET)
-            published_body = bytearray()
-            while chunk := os.read(descriptor, 1 << 20):
-                published_body.extend(chunk)
-            if (
-                visible.st_dev != held.st_dev
-                or visible.st_ino != held.st_ino
-                or held.st_uid != os.getuid()
-                or stat.S_IMODE(held.st_mode) != 0o600
-                or held.st_nlink != 1
-                or bytes(published_body) != raw
-            ):
-                raise DirectKimiWorkerError("output_publication_indeterminate")
-            os.fsync(parent)
-            _validate_private_directory(
-                absolute.parent,
-                parent,
-                parent_identity,
-                code="output_publication_indeterminate",
-            )
-        except OSError as error:
-            raise DirectKimiWorkerError("output_publication_indeterminate") from error
     except OSError as error:
-        if published:
-            raise DirectKimiWorkerError("output_publication_indeterminate") from error
-        raise DirectKimiWorkerError("output_publish_failed") from error
+        code = "output_publication_indeterminate" if marker_committed else "output_publish_failed"
+        raise DirectKimiWorkerError(code) from error
     finally:
-        if descriptor is not None:
+        for descriptor in descriptors.values():
             os.close(descriptor)
         os.close(parent)
 
 
-def _rename_noreplace(parent: int, source: str, destination: str) -> None:
-    renameat2 = getattr(ctypes.CDLL(None, use_errno=True), "renameat2", None)
-    if renameat2 is None:
-        raise DirectKimiWorkerError("rename_noreplace_unavailable")
-    renameat2.argtypes = (ctypes.c_int, ctypes.c_char_p, ctypes.c_int, ctypes.c_char_p, ctypes.c_uint)
-    renameat2.restype = ctypes.c_int
-    if renameat2(parent, os.fsencode(source), parent, os.fsencode(destination), 1) != 0:
-        error_number = ctypes.get_errno()
-        if error_number == errno.EEXIST:
-            raise DirectKimiWorkerError("output_already_exists")
-        raise DirectKimiWorkerError("output_publish_failed") from OSError(
-            error_number,
-            os.strerror(error_number),
+def _read_marked_bundle(
+    parent_path: Path,
+    *,
+    marker_name: str,
+    kind: str,
+    expected_file_count: int,
+    code: str,
+) -> dict[str, bytes]:
+    """Read a marker-authorized bundle through one retained directory fd."""
+
+    parent_path = _absolute_path(parent_path, code=code)
+    parent, parent_identity = _open_private_directory(parent_path, code=code)
+    try:
+        marker_body = _read_private_at(
+            parent,
+            marker_name,
+            invalid_code=code,
+            changed_code=f"{code}_changed",
         )
+        try:
+            marker = json.loads(marker_body)
+        except (UnicodeDecodeError, json.JSONDecodeError) as error:
+            raise DirectKimiWorkerError(code) from error
+        records = marker.get("files") if isinstance(marker, dict) else None
+        if (
+            not isinstance(marker, dict)
+            or set(marker) != {"schema_version", "kind", "files"}
+            or marker.get("schema_version") != 1
+            or marker.get("kind") != kind
+            or not isinstance(records, dict)
+            or len(records) != expected_file_count
+            or marker_name in records
+            or any(
+                not isinstance(name, str)
+                or not name
+                or "/" in name
+                or name in {".", ".."}
+                or not isinstance(record, dict)
+                or set(record) != {"bytes", "sha256"}
+                or type(record.get("bytes")) is not int
+                or not 0 <= record["bytes"] <= MAX_RUN_BINDING_BYTES
+                or SHA256_RE.fullmatch(str(record.get("sha256", ""))) is None
+                for name, record in records.items()
+            )
+        ):
+            raise DirectKimiWorkerError(code)
+        bodies = {
+            name: _read_private_at(
+                parent,
+                name,
+                invalid_code=code,
+                changed_code=f"{code}_changed",
+            )
+            for name in records
+        }
+        if any(
+            len(bodies[name]) != record["bytes"]
+            or _sha256_bytes(bodies[name]) != record["sha256"]
+            for name, record in records.items()
+        ):
+            raise DirectKimiWorkerError(code)
+        _validate_private_directory(
+            parent_path,
+            parent,
+            parent_identity,
+            code=f"{code}_changed",
+        )
+        return bodies
+    finally:
+        os.close(parent)
+
+
+def read_published_file(path: Path) -> bytes:
+    """Read an exact one-file publication only when its marker authorizes it."""
+
+    absolute = _absolute_path(path, code="published_file_invalid")
+    bodies = _read_marked_bundle(
+        absolute.parent,
+        marker_name=f".{absolute.name}.complete",
+        kind=FILE_MARKER_KIND,
+        expected_file_count=1,
+        code="published_file_invalid",
+    )
+    if set(bodies) != {absolute.name}:
+        raise DirectKimiWorkerError("published_file_invalid")
+    return bodies[absolute.name]
 
 
 def prepare_generation(
@@ -410,6 +542,19 @@ def prepare_generation(
     urls_path: Path,
     ports_path: Path,
 ) -> dict[str, Any]:
+    output_root = _absolute_path(output_root, code="output_parent_invalid")
+    publication_paths = tuple(
+        _absolute_path(path, code="output_path_invalid")
+        for path in (manifest_path, urls_path, ports_path)
+    )
+    if (
+        any(path.parent != output_root for path in publication_paths)
+        or {path.name for path in publication_paths} != GENERATION_FILE_NAMES
+        or publication_paths[0].name != GENERATION_MANIFEST_NAME
+        or publication_paths[1].name != GENERATION_URLS_NAME
+        or publication_paths[2].name != GENERATION_PORTS_NAME
+    ):
+        raise DirectKimiWorkerError("output_path_invalid")
     workers, spec_sha256, proxy_config_sha256, endpoint_bundle_sha256 = load_workers(deployment_root)
     router_port, metrics_port = derive_ports(output_root)
     manifest = _manifest(
@@ -421,13 +566,19 @@ def prepare_generation(
         router_port,
         metrics_port,
     )
-    _atomic_write(
-        manifest_path,
-        (json.dumps(manifest, sort_keys=True, separators=(",", ":")) + "\n").encode(),
-        exclusive=True,
+    files = {
+        publication_paths[0].name: (
+            json.dumps(manifest, sort_keys=True, separators=(",", ":")) + "\n"
+        ).encode(),
+        publication_paths[1].name: "".join(f"{worker.url}\n" for worker in workers).encode(),
+        publication_paths[2].name: f"{router_port}\n{metrics_port}\n".encode(),
+    }
+    _publish_marked_bundle(
+        output_root,
+        files,
+        marker_name=GENERATION_MARKER_NAME,
+        kind=GENERATION_MARKER_KIND,
     )
-    _atomic_write(urls_path, "".join(f"{worker.url}\n" for worker in workers).encode(), exclusive=True)
-    _atomic_write(ports_path, f"{router_port}\n{metrics_port}\n".encode(), exclusive=True)
     return manifest
 
 
@@ -554,19 +705,44 @@ def worker_generation_contract(
     }
 
 
+def load_saved_manifest(
+    path: Path,
+    *,
+    revalidate_live_source: bool = True,
+) -> tuple[bytes, dict[str, Any]]:
+    """Return the exact marker-authorized body and its validated value."""
+
+    absolute = _absolute_path(path, code="manifest_invalid")
+    bodies = _read_marked_bundle(
+        absolute.parent,
+        marker_name=GENERATION_MARKER_NAME,
+        kind=GENERATION_MARKER_KIND,
+        expected_file_count=3,
+        code="manifest_invalid",
+    )
+    if absolute.name != GENERATION_MANIFEST_NAME or set(bodies) != GENERATION_FILE_NAMES:
+        raise DirectKimiWorkerError("manifest_invalid")
+    body = bodies[absolute.name]
+    try:
+        manifest = json.loads(body)
+    except (UnicodeDecodeError, json.JSONDecodeError) as error:
+        raise DirectKimiWorkerError("manifest_invalid") from error
+    return body, validate_manifest_value(manifest, revalidate_live_source=revalidate_live_source)
+
+
 def validate_saved_manifest(
     path: Path,
     *,
     revalidate_live_source: bool = True,
     body: bytes | None = None,
 ) -> dict[str, Any]:
-    try:
-        manifest = json.loads(
-            body if body is not None else _read_bound_file(path, private=True, code="manifest_invalid")
-        )
-    except (UnicodeDecodeError, json.JSONDecodeError) as error:
-        raise DirectKimiWorkerError("manifest_invalid") from error
-    return validate_manifest_value(manifest, revalidate_live_source=revalidate_live_source)
+    published_body, manifest = load_saved_manifest(
+        path,
+        revalidate_live_source=revalidate_live_source,
+    )
+    if body is not None and body != published_body:
+        raise DirectKimiWorkerError("manifest_invalid")
+    return manifest
 
 
 def _probe_worker(worker: Worker, timeout: float) -> None:
@@ -913,10 +1089,9 @@ def certify_router(
         eval_invocations,
         provenance,
     )
-    manifest_body = _read_bound_file(manifest_path, private=True, code="manifest_invalid")
+    manifest_body, manifest = load_saved_manifest(manifest_path)
     if SHA256_RE.fullmatch(manifest_sha256) is None or _sha256_bytes(manifest_body) != manifest_sha256:
         raise DirectKimiWorkerError("manifest_sha256_mismatch")
-    manifest = validate_saved_manifest(manifest_path, body=manifest_body)
     _validate_deployment_binding(identity["deployment"], manifest_path, manifest_sha256, manifest)
     if active_workers != EXPECTED_ENDPOINTS:
         raise DirectKimiWorkerError("active_worker_count_mismatch")
