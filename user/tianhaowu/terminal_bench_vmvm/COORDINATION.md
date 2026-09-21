@@ -1,6 +1,6 @@
 # VMVM sandbox coordination
 
-Last updated: 2026-09-21 02:14 UTC
+Last updated: 2026-09-21 02:36 UTC
 
 ## First message to the next teammate
 
@@ -46,6 +46,26 @@ this shared branch again.
 Add new rows below this line; do not overwrite another owner's row.
 
 ## Open coordination requests
+
+- **2026-09-21 02:36 UTC, current use2-1 Qwen/Kimi runs; do not duplicate or
+  mutate:** Qwen continuation `1514358` reuses 1,266 retained VMVM-sandbox
+  records and runs only the disjoint 1,233 remainder, yielding exact 2,499
+  coverage.  At 3h49m it remained healthy at c64 with 310 durable rows
+  (208 reward-positive, 95 scored-zero, seven ordinary errors), 32 provider
+  requests in flight, and 64 active Sandoq sessions.  Aggregate audit
+  `1515052` passed all 203 then-current positive traces: 7,082,080 sampled
+  tokens, 4,101 model-I/O turns, zero trace failures, and zero reasoning-loss
+  findings.  Replacement pass-only cert/export/render-preflight chain
+  `1514996` -> `1514999` -> `1515006` is dependency-held behind the producer,
+  pinned to PR `#50` head `093e5fc93`, the local immutable tokenizer, and the
+  exact renderer wheel.  Kimi non-security scored smoke `1515020` runs from
+  PR `#49` head `1da3ee04d` under the exact four-hour wall; one Sandoq sandbox
+  is ready, all 24 direct routes are active, model work is in flight, and no
+  upstream failure or result row exists yet.  Legacy Sandoq fits 35/66 TB4
+  tasks at multiplier one; it has no per-session outer-size knob, so the other
+  28 CPU tasks still require VMVM/a proven larger environment and three GPU
+  tasks remain unsupported.  Never inspect task identifiers/content, raw
+  errors, model/tool bodies, or credentials.
 
 - **2026-09-21 02:14 UTC, tokenizer-only handoff resolved locally; no sc-3
   action required:** use2-1 bypassed its blocked compute-node egress on the
