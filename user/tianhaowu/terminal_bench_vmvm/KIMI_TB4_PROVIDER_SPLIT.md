@@ -15,7 +15,7 @@ SHA-256 is supplied on every invocation. The manifest has this exact shape:
 
 ```json
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "kind": "terminal-bench-4-image-resource-manifest",
   "source": {
     "dataset_archive_sha256": "<canonical digest>",
@@ -42,7 +42,10 @@ SHA-256 is supplied on every invocation. The manifest has this exact shape:
         "disk_bytes": 1,
         "gpu_count": 0
       },
-      "verifier_mode": "shared"
+      "verifier_mode": "shared",
+      "runtime_requirements": {
+        "compose": false
+      }
     }
   ]
 }
@@ -50,19 +53,24 @@ SHA-256 is supplied on every invocation. The manifest has this exact shape:
 
 The real manifest must be canonical JSON with exactly 66 unique entries. Do
 not publish it or its generated selectors. The tool derives membership only
-from entry order and the two resource records; it does not accept hand-written
-include/exclude lists.
+from entry order, the two resource records, and the Compose capability bit
+derived from conventional files in each canonical task's `environment/`
+directory. The final canonical dataset-tree digest binds those file-presence
+decisions. It does not accept hand-written include/exclude lists.
 
 The deterministic partition must be exactly:
 
-- 35 CPU tasks fitting the legacy Sandoq envelope at multiplier 1: at most 8
-  CPUs, 8 GiB outer memory with 2 GiB headroom, and 100 GiB free disk with
-  5 GiB headroom.
-- 28 remaining CPU tasks for a large provider at multiplier 2.
+- 31 non-Compose CPU tasks fitting the legacy Sandoq envelope at multiplier 1:
+  at most 8 CPUs, 8 GiB outer memory with 2 GiB headroom, and 100 GiB free disk
+  with 5 GiB headroom.
+- 32 remaining CPU tasks for a large VMVM provider at multiplier 2. This lane
+  includes all 11 Compose tasks; four of those otherwise fit the legacy
+  resource envelope, while seven already require the large lane by resources.
 - 3 GPU tasks represented by deterministic unsupported outcomes.
 
-Any cardinality change, overlap, missing entry, mutable image reference, or
-resource request exceeding the large-provider minimum fails closed.
+Sandoq is explicitly treated as not Compose-capable. Any Compose task in its
+selector, cardinality change, overlap, missing entry, mutable image reference,
+or resource request exceeding the large-provider minimum fails closed.
 
 ## Private materialization
 

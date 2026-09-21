@@ -40,10 +40,11 @@ from direct_kimi_workers import DirectKimiWorkerError, worker_generation_contrac
 from eval_run_identity import load_eval_run_identity_bytes
 
 TOTAL_TASKS = 66
-LEGACY_SANDOQ_TASKS = 35
-LARGE_PROVIDER_TASKS = 28
+LEGACY_SANDOQ_TASKS = 31
+LARGE_PROVIDER_TASKS = 32
 GPU_UNSUPPORTED_TASKS = 3
 CPU_TASKS = LEGACY_SANDOQ_TASKS + LARGE_PROVIDER_TASKS
+COMPOSE_CPU_TASKS = 11
 MAX_SEQUENCE_TOKENS = 262_144
 SAMPLING_MAX_TOKENS = 32_768
 TB4_MIN_CPU_PASS_RATE = 0.04
@@ -61,7 +62,9 @@ LARGE_MIN_OUTER_MEMORY_BYTES = 36 * GIB
 LARGE_MIN_DISK_AVAILABLE_BYTES = 105 * GIB
 
 MANIFEST_KIND = "terminal-bench-4-image-resource-manifest"
+MANIFEST_SCHEMA_VERSION = 2
 PARTITION_KIND = "kimi-tb4-provider-partition"
+PARTITION_SCHEMA_VERSION = 2
 CAPACITY_KIND = "kimi-tb4-large-provider-capacity"
 PROVIDER_CERTIFICATE_KIND = "direct-kimi-tb4-provider-partition"
 UNION_CERTIFICATE_KIND = "direct-kimi-tb4-provider-union"
@@ -110,6 +113,7 @@ class ManifestEntry:
     agent_resources: ResourceRequest
     verifier_resources: ResourceRequest
     verifier_mode: Literal["shared", "separate"]
+    requires_compose: bool
 
 
 @dataclass(frozen=True, slots=True)
@@ -118,6 +122,7 @@ class Partition:
     large_provider: tuple[str, ...]
     gpu_unsupported: tuple[str, ...]
     verifier_modes: Mapping[str, str]
+    compose_required: tuple[str, ...]
 
 
 @dataclass(slots=True)
@@ -487,11 +492,13 @@ def _manifest_entry(value: object) -> ManifestEntry:
         "agent_resources",
         "verifier_resources",
         "verifier_mode",
+        "runtime_requirements",
     }:
         raise KimiProviderSplitError("resource_manifest_invalid")
     task_id = value.get("task_id")
     images = value.get("images")
     verifier_mode = value.get("verifier_mode")
+    runtime_requirements = value.get("runtime_requirements")
     if (
         not isinstance(task_id, str)
         or TASK_ID_RE.fullmatch(task_id) is None
@@ -499,6 +506,9 @@ def _manifest_entry(value: object) -> ManifestEntry:
         or set(images) != {"agent", "verifier"}
         or any(IMAGE_RE.fullmatch(str(images.get(role, ""))) is None for role in ("agent", "verifier"))
         or verifier_mode not in {"shared", "separate"}
+        or not isinstance(runtime_requirements, dict)
+        or set(runtime_requirements) != {"compose"}
+        or not isinstance(runtime_requirements.get("compose"), bool)
     ):
         raise KimiProviderSplitError("resource_manifest_invalid")
     return ManifestEntry(
@@ -506,6 +516,7 @@ def _manifest_entry(value: object) -> ManifestEntry:
         agent_resources=_resource(value.get("agent_resources")),
         verifier_resources=_resource(value.get("verifier_resources")),
         verifier_mode=verifier_mode,
+        requires_compose=runtime_requirements["compose"],
     )
 
 
@@ -514,6 +525,8 @@ def _phase_requests(entry: ManifestEntry) -> tuple[ResourceRequest, ResourceRequ
 
 
 def _legacy_admissible(entry: ManifestEntry) -> bool:
+    if entry.requires_compose:
+        return False
     for request in _phase_requests(entry):
         if (
             request.gpu_count != 0
@@ -540,7 +553,7 @@ def parse_manifest(payload: bytes, expected_sha256: str) -> tuple[dict[str, Any]
     value = _json_object(payload, code="resource_manifest_invalid", canonical=True)
     if (
         set(value) != {"schema_version", "kind", "source", "entries"}
-        or value.get("schema_version") != 1
+        or value.get("schema_version") != MANIFEST_SCHEMA_VERSION
         or value.get("kind") != MANIFEST_KIND
         or not _manifest_source_valid(value.get("source"))
         or not isinstance(value.get("entries"), list)
@@ -569,10 +582,13 @@ def derive_partition(entries: Sequence[ManifestEntry]) -> Partition:
     legacy: list[str] = []
     large: list[str] = []
     gpu: list[str] = []
+    compose: list[str] = []
     modes: dict[str, str] = {}
     for entry in entries:
         modes[entry.task_id] = entry.verifier_mode
         gpu_count = max(request.gpu_count for request in _phase_requests(entry))
+        if entry.requires_compose:
+            compose.append(entry.task_id)
         if gpu_count:
             if gpu_count != 1:
                 raise KimiProviderSplitError("gpu_partition_invalid")
@@ -581,6 +597,9 @@ def derive_partition(entries: Sequence[ManifestEntry]) -> Partition:
             legacy.append(entry.task_id)
         else:
             large.append(entry.task_id)
+    gpu_members = set(gpu)
+    if len(compose) != COMPOSE_CPU_TASKS or any(member in gpu_members for member in compose):
+        raise KimiProviderSplitError("compose_partition_invalid")
     if (len(legacy), len(large), len(gpu)) != (
         LEGACY_SANDOQ_TASKS,
         LARGE_PROVIDER_TASKS,
@@ -611,7 +630,7 @@ def derive_partition(entries: Sequence[ManifestEntry]) -> Partition:
         or required_disk + DISK_HEADROOM_BYTES > LARGE_MIN_DISK_AVAILABLE_BYTES
     ):
         raise KimiProviderSplitError("large_provider_minimum_insufficient")
-    return Partition(tuple(legacy), tuple(large), tuple(gpu), modes)
+    return Partition(tuple(legacy), tuple(large), tuple(gpu), modes, tuple(compose))
 
 
 def _selector_payload(members: Sequence[str]) -> bytes:
@@ -625,7 +644,7 @@ def _partition_receipt_value(manifest_sha256: str, partition: Partition) -> dict
         "gpu_unsupported": _selector_payload(partition.gpu_unsupported),
     }
     return {
-        "schema_version": 1,
+        "schema_version": PARTITION_SCHEMA_VERSION,
         "kind": PARTITION_KIND,
         "state": "materialized",
         "manifest_sha256": manifest_sha256,
@@ -634,6 +653,7 @@ def _partition_receipt_value(manifest_sha256: str, partition: Partition) -> dict
             "legacy_sandoq": LEGACY_SANDOQ_TASKS,
             "large_provider": LARGE_PROVIDER_TASKS,
             "gpu_unsupported": GPU_UNSUPPORTED_TASKS,
+            "compose_required_cpu": COMPOSE_CPU_TASKS,
             "disjoint": True,
             "exhaustive": True,
             "canonical_order": "manifest-entry-order",
@@ -647,12 +667,16 @@ def _partition_receipt_value(manifest_sha256: str, partition: Partition) -> dict
                 "memory_headroom_bytes": MIN_MEMORY_HEADROOM_BYTES,
                 "disk_available_bytes": LEGACY_DISK_AVAILABLE_BYTES,
                 "disk_headroom_bytes": DISK_HEADROOM_BYTES,
+                "compose_supported": False,
+                "compose_required_tasks": 0,
             },
             "large_provider": {
                 "resource_multiplier": LARGE_RESOURCE_MULTIPLIER,
                 "minimum_actual_cpu_count": LARGE_MIN_CPU_COUNT,
                 "minimum_outer_memory_bytes": LARGE_MIN_OUTER_MEMORY_BYTES,
                 "minimum_disk_available_bytes": LARGE_MIN_DISK_AVAILABLE_BYTES,
+                "compose_supported": True,
+                "compose_required_tasks": COMPOSE_CPU_TASKS,
             },
             "gpu": "deterministic-unsupported-outcome",
         },
@@ -1403,6 +1427,9 @@ def _validate_run_identity(
         raise KimiProviderSplitError("run_task_selector_invalid")
     config = _resolved_config(identity, held)
     multiplier = _config_resource_multiplier(config)
+    taskset = config.get("taskset")
+    if not isinstance(taskset, dict) or taskset.get("enable_compose") is not True:
+        raise KimiProviderSplitError("compose_contract_invalid")
     if multiplier != (1.0 if role == "legacy_sandoq" else float(LARGE_RESOURCE_MULTIPLIER)):
         raise KimiProviderSplitError("resource_multiplier_invalid")
     provider = _provider_name(identity)

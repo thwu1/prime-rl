@@ -34,6 +34,12 @@ REVIEWED_BASE_CONFIG = "reviewed-base.toml"
 LAUNCH_PLAN = "launch-plan.json"
 DEFAULT_LEGACY_CONCURRENCY = 24
 DEFAULT_LARGE_CONCURRENCY = 4
+COMPOSE_FILENAMES = (
+    "docker-compose.yaml",
+    "docker-compose.yml",
+    "compose.yaml",
+    "compose.yml",
+)
 APPROVED_BASE_CONFIG_SHA256 = "80b969d5423400b1eedf65e617e49ad946935ed5cc78bf228adb41c8e39c2177"
 RUN_LABEL_RE = re.compile(r"[a-z0-9][a-z0-9_-]{0,63}\Z")
 
@@ -120,6 +126,8 @@ def _task_entry(
     task_id: str,
     task_toml: bytes,
     images: object,
+    *,
+    requires_compose: bool,
 ) -> dict[str, Any]:
     try:
         value = tomllib.loads(task_toml.decode("utf-8"))
@@ -139,10 +147,9 @@ def _task_entry(
         raise PreparationError("verifier_resource_invalid")
     agent_image = environment.get("docker_image")
     verifier_image = verifier_environment.get("docker_image")
-    if (
-        _image_digest(agent_image) != _image_digest(images.get("agent"))
-        or _image_digest(verifier_image) != _image_digest(images.get("verifier"))
-    ):
+    if _image_digest(agent_image) != _image_digest(images.get("agent")) or _image_digest(
+        verifier_image
+    ) != _image_digest(images.get("verifier")):
         raise PreparationError("task_image_binding_mismatch")
     return {
         "task_id": task_id,
@@ -150,7 +157,25 @@ def _task_entry(
         "agent_resources": _resource(environment, allow_default_gpu=True),
         "verifier_resources": _resource(verifier_environment, allow_default_gpu=True),
         "verifier_mode": mode,
+        "runtime_requirements": {"compose": requires_compose},
     }
+
+
+def _requires_compose(task_dir: Path) -> bool:
+    environment = task_dir / "environment"
+    present = False
+    for filename in COMPOSE_FILENAMES:
+        path = environment / filename
+        try:
+            metadata = path.lstat()
+        except FileNotFoundError:
+            continue
+        except OSError as error:
+            raise PreparationError("task_runtime_requirement_invalid") from error
+        if not stat.S_ISREG(metadata.st_mode):
+            raise PreparationError("task_runtime_requirement_invalid")
+        present = True
+    return present
 
 
 def build_resource_manifest(
@@ -196,9 +221,17 @@ def build_resource_manifest(
 
     entries: list[dict[str, Any]] = []
     for task_id in identifiers:
-        task_path = root / task_id / "task.toml"
+        task_dir = root / task_id
+        task_path = task_dir / "task.toml"
         task_payload = _read(task_path, code="task_config_invalid", maximum_bytes=1 << 20)
-        entries.append(_task_entry(task_id, task_payload, images[task_id]))
+        entries.append(
+            _task_entry(
+                task_id,
+                task_payload,
+                images[task_id],
+                requires_compose=_requires_compose(task_dir),
+            )
+        )
     if (
         _tree_digest(root) != split.CANONICAL_DATASET_CONTENT_SHA256
         or _read(task_file, code="task_file_invalid", maximum_bytes=1 << 20) != selection_payload
@@ -207,7 +240,7 @@ def build_resource_manifest(
     if _read(image_manifest, code="image_manifest_invalid") != image_payload:
         raise PreparationError("image_manifest_changed")
     value = {
-        "schema_version": 1,
+        "schema_version": split.MANIFEST_SCHEMA_VERSION,
         "kind": split.MANIFEST_KIND,
         "source": {
             "dataset_archive_sha256": split.CANONICAL_DATASET_ARCHIVE_SHA256,
@@ -298,6 +331,7 @@ def _base_config(payload: bytes, expected_sha256: str) -> dict[str, Any]:
         or taskset.get("task_file_sha256") != split.CANONICAL_TASK_FILE_SHA256
         or taskset.get("image_manifest_sha256") != split.CANONICAL_IMAGE_MANIFEST_SHA256
         or taskset.get("use_declared_images") is not True
+        or taskset.get("enable_compose") is not True
         or taskset.get("verifier_runtime_retries") != 0
         or not isinstance(harness, dict)
         or harness.get("id") != "terminal-bench-sandoq-host"
@@ -464,7 +498,9 @@ def prepare(args: argparse.Namespace) -> dict[str, Any]:
     eval_root = args.eval_root.resolve(strict=True)
     legacy_output = eval_root / f"tb4-kimi-k3-{args.run_label}-diagnostic-legacy-sandoq"
     large_output = eval_root / f"tb4-kimi-k3-{args.run_label}-diagnostic-large-vmvm"
-    if legacy_output == large_output or any(path.exists() or path.is_symlink() for path in (legacy_output, large_output)):
+    if legacy_output == large_output or any(
+        path.exists() or path.is_symlink() for path in (legacy_output, large_output)
+    ):
         raise PreparationError("eval_output_not_fresh")
     plan = {
         "schema_version": 1,
@@ -527,18 +563,18 @@ def prepare(args: argparse.Namespace) -> dict[str, Any]:
     )
     return {
         "state": "materialized",
-        "manifest_sha256": manifest_digest,
         "total": split.TOTAL_TASKS,
         "legacy_sandoq": split.LEGACY_SANDOQ_TASKS,
         "large_provider": split.LARGE_PROVIDER_TASKS,
         "gpu_unsupported": split.GPU_UNSUPPORTED_TASKS,
+        "compose_required_cpu": split.COMPOSE_CPU_TASKS,
         "diagnostic": True,
         "certification_eligible": False,
         "trace_rollout_eligible": False,
     }
 
 
-def verify_launch_plan(plan_path: Path, expected_sha256: str, role: str) -> dict[str, str]:
+def verify_launch_plan(plan_path: Path, expected_sha256: str, role: str) -> dict[str, str | int]:
     try:
         plan_payload = split.read_regular(
             plan_path,
@@ -701,15 +737,11 @@ def verify_launch_plan(plan_path: Path, expected_sha256: str, role: str) -> dict
     ):
         raise PreparationError("lane_contract_mismatch")
     gpu_lane = lanes["gpu_unsupported"]
-    if (
-        not isinstance(gpu_lane, dict)
-        or gpu_lane
-        != {
-            "provider": "unsupported",
-            "count": split.GPU_UNSUPPORTED_TASKS,
-            "selector_sha256": _sha256(split._selector_payload(partition.gpu_unsupported)),
-        }
-    ):
+    if not isinstance(gpu_lane, dict) or gpu_lane != {
+        "provider": "unsupported",
+        "count": split.GPU_UNSUPPORTED_TASKS,
+        "selector_sha256": _sha256(split._selector_payload(partition.gpu_unsupported)),
+    }:
         raise PreparationError("gpu_lane_invalid")
     lane = lanes[role]
     return {
@@ -719,6 +751,8 @@ def verify_launch_plan(plan_path: Path, expected_sha256: str, role: str) -> dict
         "config": lane["config"]["path"],
         "selector": lane["selector"]["path"],
         "selector_sha256": lane["selector"]["sha256"],
+        "count": lane["count"],
+        "concurrency": lane["concurrency"],
         "output_dir": lane["output_dir"],
         "manifest": str(manifest_path),
         "manifest_sha256": manifest_sha256,
@@ -747,14 +781,17 @@ def main() -> None:
                 "config",
                 "selector",
                 "selector_sha256",
+                "count",
+                "concurrency",
                 "output_dir",
                 "manifest",
                 "manifest_sha256",
                 "partition_dir",
             )
-            if any("\t" in result[key] or "\n" in result[key] for key in fields):
+            rendered = tuple(str(result[key]) for key in fields)
+            if any("\t" in value or "\n" in value for value in rendered):
                 parser.error("launch_value_invalid")
-            print("\t".join(result[key] for key in fields))
+            print("\t".join(rendered))
         else:
             print(json.dumps(result, sort_keys=True, separators=(",", ":")))
         return

@@ -1,6 +1,7 @@
 import hashlib
 import json
 import os
+import sys
 import tomllib
 from pathlib import Path
 
@@ -106,7 +107,7 @@ def test_builds_exact_resource_partition_without_emitting_members(
     monkeypatch,
 ) -> None:
     digest = "a" * 64
-    identifiers = tuple(f"opaque-case-{index:02d}" for index in range(66))
+    identifiers = tuple(f"opaque-case-{index:02d}" for index in range(split.TOTAL_TASKS))
     task_payload = split._selector_payload(identifiers)
     task_file = tmp_path / "tasks.txt"
     task_file.write_bytes(task_payload)
@@ -114,14 +115,18 @@ def test_builds_exact_resource_partition_without_emitting_members(
     dataset.mkdir()
     images = {}
     for index, task_id in enumerate(identifiers):
-        if index < 35:
+        if index < split.LEGACY_SANDOQ_TASKS + 4:
             resources = (2, 4096, 10240, 0)
-        elif index < 63:
+        elif index < split.CPU_TASKS:
             resources = (16, 16384, 51200, 0)
         else:
             resources = (16, 32768, 1024000, 1)
         task_dir = dataset / task_id
         task_dir.mkdir()
+        if split.LEGACY_SANDOQ_TASKS <= index < split.LEGACY_SANDOQ_TASKS + split.COMPOSE_CPU_TASKS:
+            environment_dir = task_dir / "environment"
+            environment_dir.mkdir()
+            (environment_dir / "compose.yaml").write_text("services: {}\n", encoding="utf-8")
         resource_values = dict(zip(("cpu", "memory_mb", "storage_mb", "gpu"), resources))
         (task_dir / "task.toml").write_bytes(_task_toml(**resource_values, digest=digest))
         images[task_id] = {
@@ -154,8 +159,19 @@ def test_builds_exact_resource_partition_without_emitting_members(
     )
 
     value = json.loads(payload)
-    assert len(value["entries"]) == 66
-    assert (len(partition.legacy_sandoq), len(partition.large_provider), len(partition.gpu_unsupported)) == (35, 28, 3)
+    assert len(value["entries"]) == split.TOTAL_TASKS
+    assert (
+        len(partition.legacy_sandoq),
+        len(partition.large_provider),
+        len(partition.gpu_unsupported),
+    ) == (
+        split.LEGACY_SANDOQ_TASKS,
+        split.LARGE_PROVIDER_TASKS,
+        split.GPU_UNSUPPORTED_TASKS,
+    )
+    assert sum(entry["runtime_requirements"]["compose"] for entry in value["entries"]) == split.COMPOSE_CPU_TASKS
+    assert set(partition.compose_required).isdisjoint(partition.legacy_sandoq)
+    assert set(partition.compose_required).issubset(partition.large_provider)
     assert all(identifier.encode() in payload for identifier in identifiers)
 
 
@@ -180,8 +196,8 @@ def test_generated_lane_configs_are_merge_compatible_and_diagnostic_contract() -
         concurrency=4,
     )
 
-    assert legacy["num_tasks"] == 35
-    assert large["num_tasks"] == 28
+    assert legacy["num_tasks"] == split.LEGACY_SANDOQ_TASKS
+    assert large["num_tasks"] == split.LARGE_PROVIDER_TASKS
     assert legacy["taskset"]["resource_multiplier"] == 1.0
     assert large["taskset"]["resource_multiplier"] == 2.0
     assert legacy["harness"]["runtime"]["type"] == "sandoq"
@@ -194,10 +210,79 @@ def test_generated_lane_configs_are_merge_compatible_and_diagnostic_contract() -
     assert tomllib.loads(prepare._render_toml(large).decode()) == large
 
 
+def test_base_config_requires_compose_execution(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    value = _base_config(split.CANONICAL_TASK_FILE_SHA256, split.CANONICAL_IMAGE_MANIFEST_SHA256)
+    value["taskset"]["enable_compose"] = False
+    payload = prepare._render_toml(value)
+    digest = hashlib.sha256(payload).hexdigest()
+    monkeypatch.setattr(prepare, "APPROVED_BASE_CONFIG_SHA256", digest)
+
+    with pytest.raises(prepare.PreparationError, match="^base_config_contract_mismatch$"):
+        prepare._base_config(payload, digest)
+
+
+def test_verify_tsv_returns_exact_lane_count_and_concurrency(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    result: dict[str, str | int] = {
+        "role": "legacy_sandoq",
+        "stage": "provider-split-legacy",
+        "provider": "sandoq",
+        "config": "/private/legacy.toml",
+        "selector": "/private/legacy.tasks",
+        "selector_sha256": "a" * 64,
+        "count": split.LEGACY_SANDOQ_TASKS,
+        "concurrency": prepare.DEFAULT_LEGACY_CONCURRENCY,
+        "output_dir": "/private/output",
+        "manifest": "/private/manifest.json",
+        "manifest_sha256": "b" * 64,
+        "partition_dir": "/private/partition",
+        "base_config": "/private/base.toml",
+    }
+    monkeypatch.setattr(prepare, "verify_launch_plan", lambda *_args: result)
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "prepare_kimi_tb4_provider_split_launch.py",
+            "verify",
+            "--launch-plan",
+            str(tmp_path / "launch-plan.json"),
+            "--launch-plan-sha256",
+            "c" * 64,
+            "--role",
+            "legacy_sandoq",
+            "--format",
+            "tsv",
+        ],
+    )
+
+    prepare.main()
+
+    fields = capsys.readouterr().out.rstrip("\n").split("\t")
+    assert fields[5:7] == [str(split.LEGACY_SANDOQ_TASKS), str(prepare.DEFAULT_LEGACY_CONCURRENCY)]
+
+
+def test_compose_detection_rejects_nonregular_metadata(tmp_path: Path) -> None:
+    task_dir = tmp_path / "opaque-case"
+    environment_dir = task_dir / "environment"
+    environment_dir.mkdir(parents=True)
+    target = tmp_path / "compose-source.yaml"
+    target.write_text("services: {}\n", encoding="utf-8")
+    (environment_dir / "compose.yaml").symlink_to(target)
+
+    with pytest.raises(prepare.PreparationError, match="^task_runtime_requirement_invalid$"):
+        prepare._requires_compose(task_dir)
+
+
 def test_committed_bundle_marker_is_required_and_exact(tmp_path: Path) -> None:
     tmp_path.chmod(0o700)
     bundle = tmp_path / "bundle"
-    files = {"one.json": b'{}\n', "two.toml": b'value = true\n'}
+    files = {"one.json": b"{}\n", "two.toml": b"value = true\n"}
     split._publish_private_bundle(bundle, files)
 
     prepare._verify_committed_bundle(bundle, files, code="bundle_invalid")

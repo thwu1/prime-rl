@@ -37,16 +37,19 @@ def _manifest() -> dict:
     for index in range(split.TOTAL_TASKS):
         if index < split.LEGACY_SANDOQ_TASKS:
             resources = _resource()
+        elif index < split.LEGACY_SANDOQ_TASKS + 4:
+            resources = _resource()
         elif index < split.CPU_TASKS:
             resources = _resource(memory_gib=8)
         else:
             resources = _resource(gpu=1)
-        if index == split.LEGACY_SANDOQ_TASKS:
+        if index == split.LEGACY_SANDOQ_TASKS + 4:
             resources = _resource(cpu=16, memory_gib=8)
-        elif index == split.LEGACY_SANDOQ_TASKS + 1:
+        elif index == split.LEGACY_SANDOQ_TASKS + 5:
             resources = _resource(memory_gib=16)
-        elif index == split.LEGACY_SANDOQ_TASKS + 2:
+        elif index == split.LEGACY_SANDOQ_TASKS + 6:
             resources = _resource(memory_gib=8, disk_gib=50)
+        requires_compose = split.LEGACY_SANDOQ_TASKS <= index < split.LEGACY_SANDOQ_TASKS + 11
         entries.append(
             {
                 "task_id": f"opaque-case-{index:02d}",
@@ -57,6 +60,7 @@ def _manifest() -> dict:
                 "agent_resources": resources,
                 "verifier_resources": dict(resources),
                 "verifier_mode": "separate" if index % 2 else "shared",
+                "runtime_requirements": {"compose": requires_compose},
             }
         )
     task_file = ("\n".join(entry["task_id"] for entry in entries) + "\n").encode()
@@ -66,7 +70,7 @@ def _manifest() -> dict:
         "source": "terminal-bench-prebuilt-v4.0.0-approved-66",
     }
     return {
-        "schema_version": 1,
+        "schema_version": split.MANIFEST_SCHEMA_VERSION,
         "kind": split.MANIFEST_KIND,
         "source": {
             "dataset_archive_sha256": split.CANONICAL_DATASET_ARCHIVE_SHA256,
@@ -406,7 +410,7 @@ def _direct_identity(tmp_path: Path, provider: str) -> tuple[dict, dict]:
     config = {
         "output_dir": f"/private/{provider}-run",
         "model": "Kimi-K3",
-        "num_tasks": 35 if provider == "sandoq" else 28,
+        "num_tasks": split.LEGACY_SANDOQ_TASKS if provider == "sandoq" else split.LARGE_PROVIDER_TASKS,
         "num_rollouts": 1,
         "max_concurrent": 24 if provider == "sandoq" else 4,
         "max_turns": 200,
@@ -523,10 +527,13 @@ def test_manifest_partition_is_exact_disjoint_and_exhaustive(tmp_path: Path) -> 
     partition = split.derive_partition(entries)
 
     assert tuple(map(len, (partition.legacy_sandoq, partition.large_provider, partition.gpu_unsupported))) == (
-        35,
-        28,
+        31,
+        32,
         3,
     )
+    assert len(partition.compose_required) == 11
+    assert set(partition.compose_required).isdisjoint(partition.legacy_sandoq)
+    assert set(partition.compose_required).issubset(partition.large_provider)
     assert len(set(partition.legacy_sandoq) | set(partition.large_provider) | set(partition.gpu_unsupported)) == 66
 
 
@@ -544,6 +551,21 @@ def test_manifest_rejects_duplicate_or_wrong_partition_cardinality(tmp_path: Pat
     _parsed, entries = split.parse_manifest(body, hashlib.sha256(body).hexdigest())
     with pytest.raises(split.KimiProviderSplitError, match="^partition_cardinality_mismatch$"):
         split.derive_partition(entries)
+
+
+def test_manifest_requires_exact_compose_capability_partition() -> None:
+    value = _manifest()
+    value["entries"][split.LEGACY_SANDOQ_TASKS]["runtime_requirements"]["compose"] = False
+    body = split.canonical_json(value)
+    _parsed, entries = split.parse_manifest(body, hashlib.sha256(body).hexdigest())
+    with pytest.raises(split.KimiProviderSplitError, match="^compose_partition_invalid$"):
+        split.derive_partition(entries)
+
+    value = _manifest()
+    del value["entries"][0]["runtime_requirements"]
+    body = split.canonical_json(value)
+    with pytest.raises(split.KimiProviderSplitError, match="^resource_manifest_invalid$"):
+        split.parse_manifest(body, hashlib.sha256(body).hexdigest())
 
 
 def test_sensitive_manifest_requires_private_single_link(tmp_path: Path) -> None:
@@ -645,8 +667,9 @@ def test_materialized_bundle_is_private_and_stdout_is_aggregate_only(
         "disjoint": True,
         "exhaustive": True,
         "gpu_unsupported": 3,
-        "large_provider": 28,
-        "legacy_sandoq": 35,
+        "large_provider": 32,
+        "legacy_sandoq": 31,
+        "compose_required_cpu": 11,
         "total": 66,
     }
     assert stat.S_IMODE(output.stat().st_mode) == 0o700
@@ -857,8 +880,8 @@ def test_router_receipt_requires_exact_direct_publication_marker(tmp_path: Path)
         "retries": router["retries"],
         "source_generation_revalidated": True,
         "max_active_requests": 1,
-        "total_requests": 35,
-        "chat_requests": 35,
+        "total_requests": split.LEGACY_SANDOQ_TASKS,
+        "chat_requests": split.LEGACY_SANDOQ_TASKS,
         "worker_request_counts_sha256": "c" * 64,
     }
     receipt = tmp_path / "direct_kimi_router_final.json"
@@ -868,7 +891,7 @@ def test_router_receipt_requires_exact_direct_publication_marker(tmp_path: Path)
         split._validate_direct_router_receipt(
             receipt,
             identity,
-            minimum_chat_requests=35,
+            minimum_chat_requests=split.LEGACY_SANDOQ_TASKS,
             identity_sha256=identity_sha256,
             invocation_identity_sha256=invocation_sha256,
         )
@@ -884,7 +907,7 @@ def test_router_receipt_requires_exact_direct_publication_marker(tmp_path: Path)
     observed, _artifact, _marker_artifact = split._validate_direct_router_receipt(
         receipt,
         identity,
-        minimum_chat_requests=35,
+        minimum_chat_requests=split.LEGACY_SANDOQ_TASKS,
         identity_sha256=identity_sha256,
         invocation_identity_sha256=invocation_sha256,
     )
@@ -1204,19 +1227,19 @@ def _sandoq_cleanup(run_dir: Path, *, slurm_job_id: str = "123") -> tuple[Path, 
         "schema_version": 1,
         "kind": "sandoq-pool-cleanup",
         "state": "passed",
-        "recorded_outer_sessions": 35,
-        "verified_http_404": 35,
+        "recorded_outer_sessions": split.LEGACY_SANDOQ_TASKS,
+        "verified_http_404": split.LEGACY_SANDOQ_TASKS,
         "already_absent": 0,
-        "deleted_and_verified": 35,
-        "assignments_acquired": 35,
-        "assignment_release_rows": 35,
+        "deleted_and_verified": split.LEGACY_SANDOQ_TASKS,
+        "assignments_acquired": split.LEGACY_SANDOQ_TASKS,
+        "assignment_release_rows": split.LEGACY_SANDOQ_TASKS,
         "assignment_cancellation_rows": 0,
         "cleanup_gateway_retry_count": 0,
-        "assignments_cleanup_verified": 35,
+        "assignments_cleanup_verified": split.LEGACY_SANDOQ_TASKS,
         "assignment_event_order_high_water": 24,
         "assignment_measured_high_water": 24,
-        "outer_sessions_created": 35,
-        "outer_sessions_deleted": 35,
+        "outer_sessions_created": split.LEGACY_SANDOQ_TASKS,
+        "outer_sessions_deleted": split.LEGACY_SANDOQ_TASKS,
         "outer_session_high_water": 24,
         "pool_drain_deleted": 0,
         "gateway_close_warnings": 0,
@@ -1249,7 +1272,7 @@ def test_sandoq_cleanup_must_account_for_every_session_and_assignment(tmp_path: 
         "a" * 64,
         "b" * 64,
         "123",
-        35,
+        split.LEGACY_SANDOQ_TASKS,
         24,
     )
     assert summary["state"] == "passed"
@@ -1264,7 +1287,7 @@ def test_sandoq_cleanup_must_account_for_every_session_and_assignment(tmp_path: 
             "a" * 64,
             "b" * 64,
             "123",
-            35,
+            split.LEGACY_SANDOQ_TASKS,
             24,
         )
 
@@ -1280,7 +1303,7 @@ def test_sandoq_cleanup_rejects_replay_from_another_invocation(tmp_path: Path) -
             "a" * 64,
             "b" * 64,
             "124",
-            35,
+            split.LEGACY_SANDOQ_TASKS,
             24,
         )
 
