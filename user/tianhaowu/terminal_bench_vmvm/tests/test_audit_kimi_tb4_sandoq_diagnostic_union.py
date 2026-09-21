@@ -310,8 +310,14 @@ def test_source_revision_policy_rejects_equal_revision_and_equal_closure() -> No
 def test_output_rejects_plan_bundle_and_run_directory_overlap(tmp_path: Path) -> None:
     plan_bundle = tmp_path / "plan-bundle"
     run_dir = tmp_path / "run"
+    project_root = tmp_path / "source"
+    dataset_root = tmp_path / "dataset"
+    sandoq_site = tmp_path / "sandoq-site"
     plan_bundle.mkdir()
     run_dir.mkdir()
+    project_root.mkdir()
+    dataset_root.mkdir()
+    sandoq_site.mkdir()
 
     with pytest.raises(diagnostic.KimiDiagnosticUnionError, match="^diagnostic_output_evidence_overlap$"):
         diagnostic._validate_output_location(
@@ -330,6 +336,40 @@ def test_output_rejects_plan_bundle_and_run_directory_overlap(tmp_path: Path) ->
             tmp_path / "diagnostic.json",
             (plan_bundle, run_dir),
         )
+    for root in (project_root, dataset_root, sandoq_site):
+        sibling = root / "private"
+        sibling.mkdir()
+        with pytest.raises(diagnostic.KimiDiagnosticUnionError, match="^diagnostic_output_evidence_overlap$"):
+            diagnostic._validate_output_location(
+                sibling / "diagnostic.json",
+                (root,),
+            )
+
+
+def test_identity_tree_roots_are_retained_and_revalidated(tmp_path: Path) -> None:
+    project_root = tmp_path / "source"
+    dataset_root = tmp_path / "dataset"
+    sandoq_site = tmp_path / "sandoq-site"
+    for root in (project_root, dataset_root, sandoq_site):
+        root.mkdir()
+    identity = {
+        "source": {
+            "project_root": str(project_root),
+            "sandoq_site": str(sandoq_site),
+        },
+        "dataset": {"path": str(dataset_root)},
+    }
+
+    with diagnostic.RetainedAuditEvidence() as retained:
+        diagnostic._retain_identity_tree_roots(identity, retained)
+        assert set(retained.evidence_roots()) >= {project_root, dataset_root, sandoq_site}
+        retained.revalidate()
+
+        moved = tmp_path / "source-moved"
+        project_root.rename(moved)
+        project_root.mkdir()
+        with pytest.raises(diagnostic.KimiDiagnosticUnionError, match="^diagnostic_evidence_root_changed$"):
+            retained.revalidate()
 
 
 def test_build_publishes_private_marker_gated_aggregate_only_output(

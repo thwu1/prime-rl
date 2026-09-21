@@ -14,6 +14,7 @@ import hashlib
 import json
 import os
 import re
+import stat
 from contextlib import ExitStack
 from dataclasses import dataclass
 from pathlib import Path
@@ -63,6 +64,17 @@ class PlanBinding:
     gpu_unsupported: tuple[str, ...]
 
 
+@dataclass(frozen=True, slots=True)
+class _HeldTreeRoot:
+    path: Path
+    parent_path: Path
+    parent: int
+    descriptor: int
+    name: str
+    identity: tuple[int, int, int, int]
+    parent_identity: tuple[int, int, int, int]
+
+
 class RetainedAuditEvidence:
     """Keep every audited inode and quiescence lock alive through publication."""
 
@@ -72,11 +84,13 @@ class RetainedAuditEvidence:
         self.direct_artifacts = direct_workers._HeldArtifactSet.create()
         self._runs: list[split._HeldRunEvidence] = []
         self._router_locks: dict[Path, Any] = {}
+        self._tree_roots: dict[Path, _HeldTreeRoot] = {}
 
     def __enter__(self) -> RetainedAuditEvidence:
         self._stack.__enter__()
         self._stack.callback(self.artifacts.close)
         self._stack.callback(self.direct_artifacts.close)
+        self._stack.callback(self._close_tree_roots)
         return self
 
     def __exit__(self, *exc_info: object) -> bool:
@@ -102,14 +116,81 @@ class RetainedAuditEvidence:
         self._runs.append(evidence)
         return evidence
 
+    def retain_tree_root(self, path: Path) -> None:
+        """Retain one authenticated tree root and its immediate parent."""
+
+        try:
+            absolute = split._absolute_path(path)
+            if absolute in self._tree_roots:
+                return
+            absolute, parent, descriptor, name = split._open_anchored(
+                absolute,
+                directory=True,
+                code="diagnostic_evidence_root_invalid",
+            )
+        except split.KimiProviderSplitError as error:
+            raise KimiDiagnosticUnionError("diagnostic_evidence_root_invalid") from error
+        try:
+            metadata = os.fstat(descriptor)
+            visible = os.stat(name, dir_fd=parent, follow_symlinks=False)
+            parent_metadata = os.fstat(parent)
+            visible_parent = absolute.parent.lstat()
+            if (
+                not stat.S_ISDIR(metadata.st_mode)
+                or split._directory_identity(metadata) != split._directory_identity(visible)
+                or split._directory_identity(parent_metadata) != split._directory_identity(visible_parent)
+                or absolute.resolve(strict=True) != absolute
+                or absolute.parent.resolve(strict=True) != absolute.parent
+            ):
+                raise KimiDiagnosticUnionError("diagnostic_evidence_root_invalid")
+            self._tree_roots[absolute] = _HeldTreeRoot(
+                path=absolute,
+                parent_path=absolute.parent,
+                parent=parent,
+                descriptor=descriptor,
+                name=name,
+                identity=split._directory_identity(metadata),
+                parent_identity=split._directory_identity(parent_metadata),
+            )
+        except BaseException:
+            os.close(descriptor)
+            os.close(parent)
+            raise
+
+    def _close_tree_roots(self) -> None:
+        for root in self._tree_roots.values():
+            os.close(root.descriptor)
+            os.close(root.parent)
+        self._tree_roots.clear()
+
     def revalidate(self) -> None:
         for evidence in self._runs:
             evidence.revalidate()
         self.artifacts.revalidate()
         self.direct_artifacts.revalidate()
+        for root in self._tree_roots.values():
+            try:
+                held = os.fstat(root.descriptor)
+                visible = os.stat(root.name, dir_fd=root.parent, follow_symlinks=False)
+                held_parent = os.fstat(root.parent)
+                visible_parent = root.parent_path.lstat()
+                resolved = root.path.resolve(strict=True)
+                resolved_parent = root.parent_path.resolve(strict=True)
+            except (OSError, RuntimeError) as error:
+                raise KimiDiagnosticUnionError("diagnostic_evidence_root_changed") from error
+            if (
+                split._directory_identity(held) != root.identity
+                or split._directory_identity(visible) != root.identity
+                or split._directory_identity(held_parent) != root.parent_identity
+                or split._directory_identity(visible_parent) != root.parent_identity
+                or resolved != root.path
+                or resolved_parent != root.parent_path
+            ):
+                raise KimiDiagnosticUnionError("diagnostic_evidence_root_changed")
 
     def evidence_roots(self) -> tuple[Path, ...]:
-        roots = {evidence.root for evidence in self._runs}
+        roots = set(self._tree_roots)
+        roots.update(evidence.root for evidence in self._runs)
         roots.update(artifact.parent_path for artifact in self.artifacts.artifacts.values())
         roots.update(artifact.parent_path for artifact in self.direct_artifacts.artifacts.values())
         return tuple(sorted(roots, key=str))
@@ -774,6 +855,26 @@ def _retain_run_references(
             raise KimiDiagnosticUnionError("diagnostic_run_reference_invalid")
 
 
+def _retain_identity_tree_roots(
+    identity: Mapping[str, Any],
+    retained: RetainedAuditEvidence,
+) -> None:
+    source = identity.get("source")
+    dataset = identity.get("dataset")
+    if not isinstance(source, dict) or not isinstance(dataset, dict):
+        raise KimiDiagnosticUnionError("diagnostic_evidence_root_invalid")
+    roots = (
+        source.get("project_root"),
+        source.get("sandoq_site"),
+        dataset.get("path"),
+    )
+    if any(not isinstance(value, str) or not Path(value).is_absolute() for value in roots):
+        raise KimiDiagnosticUnionError("diagnostic_evidence_root_invalid")
+    for value in roots:
+        assert isinstance(value, str)
+        retained.retain_tree_root(Path(value))
+
+
 def _validate_expected_revision(value: str, *, code: str) -> str:
     if re.fullmatch(r"[0-9a-f]{40}", value or "") is None:
         raise KimiDiagnosticUnionError(code)
@@ -881,6 +982,7 @@ def _audit_lane_retained(
         verify_references=False,
         verify_saved_provenance=False,
     )
+    _retain_identity_tree_roots(envelope["identity"], retained)
     _retain_run_references(envelope["identity"], run_dir, retained.artifacts)
     envelope = load_eval_run_identity_bytes(
         identity_body,
