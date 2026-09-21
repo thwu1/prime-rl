@@ -93,13 +93,18 @@ Managed shells have a documented idle TTL of 1,800 seconds. The provider does
 not send speculative keepalives.  For the sealed long-Kimi lease profile, a
 definitive shell-command HTTP 404/410 is recoverable only when both outer health
 and the authenticated shell inventory remain HTTP 200 and that inventory proves
-the old shell ID absent.  The pool broker serializes recovery with commands and
-release, creates one replacement shell, restores the validated workdir, records
-the transition durably, and permits exactly one replay of the rejected command.
-Ambiguous transport failures, timeouts, and 5xx responses are never recovered or
-replayed by this path. The shell binding/replacement WAL records are emitted only
-for that closed long-Kimi profile, leaving the standard/Qwen WAL byte contract
-unchanged.
+the old shell ID absent. The pool broker owns both serialization and the actual
+managed-shell HTTP request, using a dedicated executor so long commands cannot
+starve release or drain control calls. A worker cancellation or lost local RPC
+response therefore cannot release the reservation while the remote command may
+still be running. Responses proven not sent and definitive HTTP responses clear
+the reservation; ambiguous transport failures, HTTP 408, and 5xx responses
+quarantine it through the full possible remote-command budget and retire the
+outer session instead of replaying the command. The broker then creates one
+replacement shell after a definitive 404/410, restores the validated workdir,
+records the transition durably, and permits exactly one replay of the rejected
+command. Shell binding/replacement WAL records are emitted only for that closed
+long-Kimi profile, leaving the standard/Qwen WAL byte contract unchanged.
 
 Uploads and downloads use the authenticated outer command server and the shared
 mount:

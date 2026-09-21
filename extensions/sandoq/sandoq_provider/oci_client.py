@@ -621,6 +621,7 @@ class OCIRunnerAsyncSandboxClient(SandoqAsyncSandboxClient):
         from sandoq_provider.pool import get_pool_client
 
         pool = get_pool_client()
+        admission_deadline = time.monotonic() + min(max(timeout + 30.0, 30.0), 300.0)
         while True:
             shell_id = info.shell_id
             if not shell_id:
@@ -630,16 +631,20 @@ class OCIRunnerAsyncSandboxClient(SandoqAsyncSandboxClient):
                     "persistent shell is unavailable",
                     failure_reason="managed_shell_lost",
                 )
-            reservation = await asyncio.to_thread(
-                pool.begin_shell_command,
+            body["shellId"] = shell_id
+            result = await asyncio.to_thread(
+                pool.managed_shell_request,
                 info.session_id,
                 shell_id,
-                timeout_seconds=min(max(timeout + 30.0, 30.0), 300.0),
+                body=dict(body),
                 request_timeout_seconds=timeout,
+                admission_deadline_monotonic=admission_deadline,
             )
-            status = reservation.get("status")
+            if isinstance(result, SandoqHttpResponse):
+                return result
+            status = result.get("status")
             if status == "shell_replaced":
-                replacement = reservation.get("shell_id")
+                replacement = result.get("shell_id")
                 if not isinstance(replacement, str) or not replacement:
                     raise self._poisoned_shell_error(
                         info,
@@ -654,65 +659,16 @@ class OCIRunnerAsyncSandboxClient(SandoqAsyncSandboxClient):
             if status == "terminal_failure":
                 raise self._poisoned_shell_error(
                     info,
-                    str(reservation.get("failure_status") or "managed_shell_lost"),
+                    str(result.get("failure_status") or "managed_shell_lost"),
                     "managed shell recovery previously failed",
                     failure_reason="managed_shell_lost",
                 )
-            operation_id = reservation.get("operation_id")
-            request_timeout_seconds = reservation.get("request_timeout_seconds")
-            operation_deadline = reservation.get("operation_deadline_monotonic")
-            if (
-                status != "authorized"
-                or not isinstance(operation_id, str)
-                or not operation_id
-                or not isinstance(request_timeout_seconds, (int, float))
-                or isinstance(request_timeout_seconds, bool)
-                or request_timeout_seconds != timeout
-                or not isinstance(operation_deadline, (int, float))
-                or isinstance(operation_deadline, bool)
-                or not math.isfinite(float(operation_deadline))
-            ):
-                raise self._poisoned_shell_error(
-                    info,
-                    "reservation_invalid",
-                    "managed shell command reservation is invalid",
-                    failure_reason="managed_shell_lost",
-                )
-            if time.monotonic() + timeout > float(operation_deadline):
-                try:
-                    await asyncio.shield(
-                        asyncio.to_thread(
-                            pool.complete_shell_command,
-                            info.session_id,
-                            operation_id,
-                        )
-                    )
-                except Exception:
-                    pass
-                raise self._poisoned_shell_error(
-                    info,
-                    "reservation_expired",
-                    "managed shell command reservation expired before delivery",
-                    failure_reason="managed_shell_lost",
-                )
-            body["shellId"] = info.shell_id
-            try:
-                return await self._request_json(
-                    info,
-                    "POST",
-                    "v1/exec",
-                    body=body,
-                    headers=self._auth_headers(),
-                    timeout=timeout,
-                )
-            finally:
-                await asyncio.shield(
-                    asyncio.to_thread(
-                        pool.complete_shell_command,
-                        info.session_id,
-                        operation_id,
-                    )
-                )
+            raise self._poisoned_shell_error(
+                info,
+                "broker_response_invalid",
+                "managed shell broker response is invalid",
+                failure_reason="managed_shell_lost",
+            )
 
     async def _recover_managed_shell(self, info: registry.SessionInfo, expected_shell_id: str) -> None:
         if not info.session_reuse or not self._oci_cfg.managed_shell_recovery:

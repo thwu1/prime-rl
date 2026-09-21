@@ -249,54 +249,48 @@ def test_definitive_missing_managed_shell_is_recovered_once(
         shell_failure_status=None,
     )
     calls: list[tuple[str, str, object]] = []
-    responses = iter(
+    diagnostic_responses = iter(
         [
-            SandoqHttpResponse(status_code=missing_status, body={}),
             SandoqHttpResponse(status_code=200, body={"status": "ok"}),
             SandoqHttpResponse(status_code=200, body={"shells": []}),
-            SandoqHttpResponse(
-                status_code=200,
-                body={"stdout": "ok", "stderr": "", "exitCode": 0, "timedOut": False},
-            ),
         ]
     )
 
     async def request_json(_info: object, method: str, path: str, **kwargs: object) -> SandoqHttpResponse:
         calls.append((method, path, kwargs.get("body")))
-        return next(responses)
+        return next(diagnostic_responses)
 
     client._request_json = request_json
 
     class Pool:
         def __init__(self) -> None:
-            self.operations: list[tuple[str, str]] = []
+            self.operations: list[str] = []
             self.recoveries = 0
+            self.responses = iter(
+                [
+                    SandoqHttpResponse(status_code=missing_status, body={}),
+                    SandoqHttpResponse(
+                        status_code=200,
+                        body={"stdout": "ok", "stderr": "", "exitCode": 0, "timedOut": False},
+                    ),
+                ]
+            )
 
-        def begin_shell_command(
+        def managed_shell_request(
             self,
             assignment_id: str,
             shell_id: str,
             *,
-            timeout_seconds: float,
+            body: dict[str, object],
             request_timeout_seconds: float,
-        ) -> dict[str, object]:
+            admission_deadline_monotonic: float,
+        ) -> SandoqHttpResponse:
             del assignment_id
-            assert 119.0 < timeout_seconds <= 120.0
             assert 89.0 < request_timeout_seconds <= 90.0
-            operation_id = f"operation-{len(self.operations)}"
-            self.operations.append(("begin", shell_id))
-            return {
-                "status": "authorized",
-                "operation_id": operation_id,
-                "shell_id": shell_id,
-                "request_timeout_seconds": request_timeout_seconds,
-                "operation_deadline_monotonic": time.monotonic() + 120.0,
-            }
-
-        def complete_shell_command(self, assignment_id: str, operation_id: str) -> dict[str, object]:
-            del assignment_id
-            self.operations.append(("complete", operation_id))
-            return {"completed": True}
+            assert admission_deadline_monotonic > time.monotonic() + request_timeout_seconds
+            assert body["shellId"] == shell_id
+            self.operations.append(shell_id)
+            return next(self.responses)
 
         def recover_managed_shell(
             self,
@@ -320,14 +314,8 @@ def test_definitive_missing_managed_shell_is_recovered_once(
     assert info.shell_id == "shell-new"
     assert info.metadata["managed_shell_recovery_count"] == 1
     assert pool.recoveries == 1
-    assert [call[:2] for call in calls] == [
-        ("POST", "v1/exec"),
-        ("GET", "healthz"),
-        ("GET", "v1/shells"),
-        ("POST", "v1/exec"),
-    ]
-    assert pool.operations[0] == ("begin", "shell-old")
-    assert pool.operations[2] == ("begin", "shell-new")
+    assert [call[:2] for call in calls] == [("GET", "healthz"), ("GET", "v1/shells")]
+    assert pool.operations == ["shell-old", "shell-new"]
 
 
 def test_ambiguous_managed_shell_failure_is_not_recovered(
@@ -353,7 +341,6 @@ def test_ambiguous_managed_shell_failure_is_not_recovered(
     )
     responses = iter(
         [
-            SandoqHttpResponse(status_code=502, body={}),
             SandoqHttpResponse(status_code=200, body={"status": "ok"}),
             SandoqHttpResponse(status_code=200, body={"shells": []}),
         ]
@@ -368,19 +355,9 @@ def test_ambiguous_managed_shell_failure_is_not_recovered(
     class Pool:
         recoveries = 0
 
-        def begin_shell_command(self, *args: object, **kwargs: object) -> dict[str, object]:
-            del args
-            return {
-                "status": "authorized",
-                "operation_id": "operation-1",
-                "shell_id": "shell-old",
-                "request_timeout_seconds": kwargs["request_timeout_seconds"],
-                "operation_deadline_monotonic": time.monotonic() + 120.0,
-            }
-
-        def complete_shell_command(self, *args: object, **kwargs: object) -> dict[str, object]:
+        def managed_shell_request(self, *args: object, **kwargs: object) -> SandoqHttpResponse:
             del args, kwargs
-            return {"completed": True}
+            return SandoqHttpResponse(status_code=502, body={})
 
         def recover_managed_shell(self, *args: object, **kwargs: object) -> dict[str, object]:
             del args, kwargs
@@ -474,7 +451,7 @@ def test_standard_profile_never_recovers_missing_managed_shell() -> None:
     assert raised.value.failure_reason == "outer_session_lost"
 
 
-def test_delayed_reservation_response_never_sends_after_broker_deadline(
+def test_invalid_broker_response_never_sends_directly(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     client = object.__new__(OCIRunnerAsyncSandboxClient)
@@ -505,22 +482,9 @@ def test_delayed_reservation_response_never_sends_after_broker_deadline(
     client._request_json = request
 
     class Pool:
-        completions = 0
-
-        def begin_shell_command(self, *args: object, **kwargs: object) -> dict[str, object]:
-            del args
-            return {
-                "status": "authorized",
-                "operation_id": "operation-stale",
-                "shell_id": "shell-old",
-                "request_timeout_seconds": kwargs["request_timeout_seconds"],
-                "operation_deadline_monotonic": time.monotonic() + 1.0,
-            }
-
-        def complete_shell_command(self, *args: object, **kwargs: object) -> dict[str, object]:
+        def managed_shell_request(self, *args: object, **kwargs: object) -> dict[str, object]:
             del args, kwargs
-            self.completions += 1
-            return {"completed": True}
+            return {"status": "unexpected"}
 
     pool = Pool()
     monkeypatch.setattr("sandoq_provider.pool.get_pool_client", lambda: pool)
@@ -530,7 +494,6 @@ def test_delayed_reservation_response_never_sends_after_broker_deadline(
 
     assert raised.value.failure_reason == "managed_shell_lost"
     assert requests == 0
-    assert pool.completions == 1
 
 
 @pytest.mark.parametrize("allow_fallback", [False, True])

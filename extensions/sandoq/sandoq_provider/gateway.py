@@ -13,6 +13,7 @@ import asyncio
 import atexit
 import concurrent.futures
 import json
+import math
 import random
 import threading
 import time
@@ -65,6 +66,7 @@ class SandoqHttpTransportError(RuntimeError):
         retryable: bool = False,
     ) -> None:
         super().__init__(f"Sandoq HTTP transport failed during {method.upper()} request ({error_type})")
+        self.error_type = error_type
         self.timed_out = timed_out
         self.delivery_state = delivery_state
         self.http_status = http_status
@@ -298,12 +300,27 @@ class SandoqGatewayAdapter:
         body: dict[str, Any] | None,
         headers: dict[str, str] | None,
         timeout: float,
+        latest_completion_monotonic: float | None = None,
     ) -> SandoqHttpResponse:
         import aiohttp
 
         request_headers = dict(headers or {})
         if body is not None:
             request_headers.setdefault("Content-Type", "application/json")
+        client = self._get_client()
+        if latest_completion_monotonic is not None:
+            if (
+                not isinstance(latest_completion_monotonic, (int, float))
+                or isinstance(latest_completion_monotonic, bool)
+                or not math.isfinite(float(latest_completion_monotonic))
+                or time.monotonic() + timeout > latest_completion_monotonic
+            ):
+                raise SandoqHttpTransportError(
+                    method,
+                    "AdmissionDeadlineExceeded",
+                    timed_out=True,
+                    delivery_state="not_sent",
+                )
         kwargs: dict[str, Any] = {
             "headers": request_headers,
             "timeout": aiohttp.ClientTimeout(total=timeout),
@@ -312,7 +329,7 @@ class SandoqGatewayAdapter:
             kwargs["json"] = body
         try:
             async with asyncio.timeout(timeout):
-                async with self._get_client().http.request(method, url, **kwargs) as response:
+                async with client.http.request(method, url, **kwargs) as response:
                     raw = await response.text(errors="replace")
                     if not raw:
                         normalized: dict[str, Any] = {}
@@ -340,9 +357,10 @@ class SandoqGatewayAdapter:
         body: dict[str, Any] | None = None,
         headers: dict[str, str] | None = None,
         timeout: float,
+        latest_completion_monotonic: float | None = None,
     ) -> SandoqHttpResponse:
         self._validate_http_url(url)
-        return await self._await(self._request_json(method, url, body, headers, timeout))
+        return await self._await(self._request_json(method, url, body, headers, timeout, latest_completion_monotonic))
 
     def request_json(
         self,
@@ -352,11 +370,12 @@ class SandoqGatewayAdapter:
         body: dict[str, Any] | None = None,
         headers: dict[str, str] | None = None,
         timeout: float,
+        latest_completion_monotonic: float | None = None,
     ) -> SandoqHttpResponse:
         self._validate_http_url(url)
         try:
             return self._wait(
-                self._request_json(method, url, body, headers, timeout),
+                self._request_json(method, url, body, headers, timeout, latest_completion_monotonic),
                 timeout=timeout + 1.0,
             )
         except TimeoutError:

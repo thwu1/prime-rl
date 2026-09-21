@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import json
 import queue
 import threading
@@ -8,8 +9,17 @@ from collections import deque
 from types import SimpleNamespace
 
 import pytest
-from sandoq_provider.gateway import SandoqHttpResponse
-from sandoq_provider.pool import AcquireWaiter, Assignment, PoolBroker, Slot, _EventWriter
+from sandoq_provider.gateway import SandoqGatewayAdapter, SandoqHttpResponse, SandoqHttpTransportError
+from sandoq_provider.pool import (
+    AcquireWaiter,
+    Assignment,
+    PoolBroker,
+    PoolClient,
+    Slot,
+    _AsyncUnixServer,
+    _EventWriter,
+    _PoolConnectionError,
+)
 
 
 def test_event_writer_close_flushes_pending_rows(tmp_path) -> None:
@@ -405,26 +415,41 @@ def test_shell_command_reservation_serializes_recovery() -> None:
         gateway_retry_attempts=1,
         gateway_retry_interval_s=0,
     )
-    broker.gateway = SimpleNamespace(
-        request_json=lambda method, url, **kwargs: (
-            SandoqHttpResponse(status_code=201, body={"shellId": "shell-new"})
-            if method == "POST" and url.endswith("/v1/shells")
-            else SandoqHttpResponse(
-                status_code=200,
-                body={"shells": []} if url.endswith("/v1/shells") else {"exitCode": 0, "timedOut": False},
-            )
+    command_started = threading.Event()
+    finish_command = threading.Event()
+
+    def request_json(method: str, url: str, **kwargs: object) -> SandoqHttpResponse:
+        del kwargs
+        if method == "POST" and url.endswith("/v1/exec") and not command_started.is_set():
+            command_started.set()
+            assert finish_command.wait(timeout=1)
+            return SandoqHttpResponse(status_code=200, body={"exitCode": 0, "timedOut": False})
+        if method == "POST" and url.endswith("/v1/shells"):
+            return SandoqHttpResponse(status_code=201, body={"shellId": "shell-new"})
+        return SandoqHttpResponse(
+            status_code=200,
+            body={"shells": []} if url.endswith("/v1/shells") else {"exitCode": 0, "timedOut": False},
         )
-    )
+
+    broker.gateway = SimpleNamespace(request_json=request_json)
     broker._auth_headers = lambda: {}
     broker._wal_event = lambda *args, **kwargs: None
     broker._event = lambda *args, **kwargs: None
-    reservation = broker.begin_shell_command(
-        "client-1",
-        "assignment-1",
-        "shell-old",
-        timeout_seconds=30,
-        request_timeout_seconds=10,
+    command_results: list[dict[str, object]] = []
+    command_thread = threading.Thread(
+        target=lambda: command_results.append(
+            broker.managed_shell_request(
+                "client-1",
+                "assignment-1",
+                "shell-old",
+                body={"command": ["true"], "shellId": "shell-old", "timeout": 5},
+                request_timeout_seconds=10,
+                admission_deadline_monotonic=time.monotonic() + 30,
+            )
+        )
     )
+    command_thread.start()
+    assert command_started.wait(timeout=1)
     recovered: list[dict[str, object]] = []
 
     thread = threading.Thread(
@@ -441,43 +466,166 @@ def test_shell_command_reservation_serializes_recovery() -> None:
     time.sleep(0.02)
     assert thread.is_alive()
 
-    broker.complete_shell_command(
-        "client-1",
-        "assignment-1",
-        str(reservation["operation_id"]),
-    )
+    finish_command.set()
+    command_thread.join(timeout=1)
     thread.join(timeout=1)
 
+    assert not command_thread.is_alive()
     assert not thread.is_alive()
+    assert command_results[0]["status"] == "response"
     assert recovered == [{"status": "recovered", "shell_id": "shell-new", "shell_generation": 1}]
 
 
-def test_lost_begin_or_complete_response_cannot_authorize_a_second_command() -> None:
+def test_unknown_command_outcome_quarantines_and_blocks_a_second_command() -> None:
     broker = _assigned_broker(releasing=False)
     assignment = broker.assignments["assignment-1"]
     assignment.shell_id = "shell-old"
     broker.config = SimpleNamespace(managed_shell_recovery=True)
+    broker._auth_headers = lambda: {}
+    broker.gateway = SimpleNamespace(
+        request_json=lambda *args, **kwargs: (_ for _ in ()).throw(
+            SandoqHttpTransportError("POST", "TimeoutError", timed_out=True, delivery_state="unknown")
+        )
+    )
 
-    first = broker.begin_shell_command(
+    first = broker.managed_shell_request(
         "client-1",
         "assignment-1",
         "shell-old",
-        timeout_seconds=30,
+        body={"command": ["true"], "shellId": "shell-old", "timeout": 5},
         request_timeout_seconds=10,
+        admission_deadline_monotonic=time.monotonic() + 30,
     )
-    with pytest.raises(TimeoutError, match="reservation timed out"):
-        broker.begin_shell_command(
-            "client-1",
-            "assignment-1",
-            "shell-old",
-            timeout_seconds=0.01,
-            request_timeout_seconds=0.005,
-        )
+    second = broker.managed_shell_request(
+        "client-1",
+        "assignment-1",
+        "shell-old",
+        body={"command": ["true"], "shellId": "shell-old", "timeout": 5},
+        request_timeout_seconds=10,
+        admission_deadline_monotonic=time.monotonic() + 30,
+    )
 
-    broker.complete_shell_command("client-1", "assignment-1", str(first["operation_id"]))
-    with pytest.raises(RuntimeError, match="reservation mismatch"):
-        broker.complete_shell_command("client-1", "assignment-1", str(first["operation_id"]))
+    assert first["status"] == "transport_error"
+    assert first["delivery_state"] == "unknown"
+    assert second == {
+        "status": "terminal_failure",
+        "failure_status": "managed_shell_command_outcome_unknown",
+    }
+    assert assignment.active_shell_operation is not None
+    assert assignment.active_shell_operation_running is False
+    assert assignment.managed_shell_failure_status == "managed_shell_command_outcome_unknown"
+    assignment.active_shell_operation_deadline = time.monotonic() - 1
+    events: list[str] = []
+    broker._event = lambda event, **values: events.append(event)
+    broker._expire_abandoned_shell_operations(time.monotonic())
     assert assignment.active_shell_operation is None
+    assert assignment.managed_shell_failure_status == "managed_shell_command_outcome_unknown"
+    assert events == ["managed_shell_operation_abandoned"]
+
+
+def test_proven_not_sent_command_clears_reservation_for_safe_retry() -> None:
+    broker = _assigned_broker(releasing=False)
+    assignment = broker.assignments["assignment-1"]
+    assignment.shell_id = "shell-old"
+    broker.config = SimpleNamespace(managed_shell_recovery=True)
+    broker._auth_headers = lambda: {}
+    responses: list[object] = [
+        SandoqHttpTransportError(
+            "POST",
+            "ClientConnectorError",
+            timed_out=False,
+            delivery_state="not_sent",
+            retryable=True,
+        ),
+        SandoqHttpResponse(status_code=200, body={"exitCode": 0, "timedOut": False}),
+    ]
+
+    def request_json(*args: object, **kwargs: object) -> SandoqHttpResponse:
+        del args, kwargs
+        result = responses.pop(0)
+        if isinstance(result, BaseException):
+            raise result
+        assert isinstance(result, SandoqHttpResponse)
+        return result
+
+    broker.gateway = SimpleNamespace(request_json=request_json)
+    deadline = time.monotonic() + 30
+    first = broker.managed_shell_request(
+        "client-1",
+        "assignment-1",
+        "shell-old",
+        body={"command": ["true"], "shellId": "shell-old", "timeout": 5},
+        request_timeout_seconds=10,
+        admission_deadline_monotonic=deadline,
+    )
+    second = broker.managed_shell_request(
+        "client-1",
+        "assignment-1",
+        "shell-old",
+        body={"command": ["true"], "shellId": "shell-old", "timeout": 5},
+        request_timeout_seconds=10,
+        admission_deadline_monotonic=deadline,
+    )
+
+    assert first["status"] == "transport_error"
+    assert first["delivery_state"] == "not_sent"
+    assert second["status"] == "response"
+    assert assignment.active_shell_operation is None
+    assert assignment.managed_shell_failure_status is None
+
+
+@pytest.mark.parametrize("http_status", [408, 500, 502, 503, 504])
+def test_ambiguous_http_response_keeps_quarantine(http_status: int) -> None:
+    broker = _assigned_broker(releasing=False)
+    assignment = broker.assignments["assignment-1"]
+    assignment.shell_id = "shell-old"
+    broker.config = SimpleNamespace(managed_shell_recovery=True)
+    broker._auth_headers = lambda: {}
+    broker.gateway = SimpleNamespace(
+        request_json=lambda *args, **kwargs: SandoqHttpResponse(status_code=http_status, body={})
+    )
+
+    response = broker.managed_shell_request(
+        "client-1",
+        "assignment-1",
+        "shell-old",
+        body={"command": ["true"], "shellId": "shell-old", "timeout": 5},
+        request_timeout_seconds=10,
+        admission_deadline_monotonic=time.monotonic() + 30,
+    )
+
+    assert response["status"] == "response"
+    assert response["http_status"] == http_status
+    assert assignment.active_shell_operation is not None
+    assert assignment.active_shell_operation_running is False
+    assert assignment.managed_shell_failure_status == "managed_shell_command_outcome_unknown"
+
+
+@pytest.mark.parametrize("http_status", [404, 410])
+def test_definitive_missing_shell_response_clears_reservation(http_status: int) -> None:
+    broker = _assigned_broker(releasing=False)
+    assignment = broker.assignments["assignment-1"]
+    assignment.shell_id = "shell-old"
+    broker.config = SimpleNamespace(managed_shell_recovery=True)
+    broker._auth_headers = lambda: {}
+    broker.gateway = SimpleNamespace(
+        request_json=lambda *args, **kwargs: SandoqHttpResponse(status_code=http_status, body={})
+    )
+
+    response = broker.managed_shell_request(
+        "client-1",
+        "assignment-1",
+        "shell-old",
+        body={"command": ["true"], "shellId": "shell-old", "timeout": 5},
+        request_timeout_seconds=10,
+        admission_deadline_monotonic=time.monotonic() + 30,
+    )
+
+    assert response["status"] == "response"
+    assert response["http_status"] == http_status
+    assert assignment.active_shell_operation is None
+    assert assignment.active_shell_operation_running is False
+    assert assignment.managed_shell_failure_status is None
 
 
 def test_waiter_crossing_deadline_is_never_authorized(
@@ -499,13 +647,14 @@ def test_waiter_crossing_deadline_is_never_authorized(
 
     monkeypatch.setattr(broker.changed, "wait", release_after_deadline)
 
-    with pytest.raises(TimeoutError, match="reservation timed out"):
-        broker.begin_shell_command(
+    with pytest.raises(TimeoutError, match="admission timed out"):
+        broker.managed_shell_request(
             "client-1",
             "assignment-1",
             "shell-old",
-            timeout_seconds=0.5,
-            request_timeout_seconds=0.4,
+            body={"command": ["true"], "shellId": "shell-old", "timeout": 1},
+            request_timeout_seconds=1,
+            admission_deadline_monotonic=101.5,
         )
 
     assert assignment.active_shell_operation is None
@@ -529,6 +678,135 @@ def test_abandoned_shell_operation_expires_without_delete_race() -> None:
     assert events == [("managed_shell_operation_abandoned", True)]
 
 
+def test_running_shell_operation_is_never_expired_by_maintenance() -> None:
+    broker = _assigned_broker(releasing=False)
+    assignment = broker.assignments["assignment-1"]
+    assignment.shell_id = "shell-old"
+    assignment.active_shell_operation = "shell-operation-running"
+    assignment.active_shell_operation_deadline = time.monotonic() - 1
+    assignment.active_shell_operation_running = True
+    events: list[str] = []
+    broker._event = lambda event, **values: events.append(event)
+
+    broker._expire_abandoned_shell_operations(time.monotonic())
+
+    assert assignment.active_shell_operation == "shell-operation-running"
+    assert assignment.active_shell_operation_running is True
+    assert assignment.managed_shell_failure_status is None
+    assert events == []
+
+
+def test_gateway_refuses_command_if_full_budget_no_longer_fits_before_send() -> None:
+    adapter = object.__new__(SandoqGatewayAdapter)
+    requests = 0
+
+    class Http:
+        def request(self, *args: object, **kwargs: object) -> object:
+            nonlocal requests
+            del args, kwargs
+            requests += 1
+            raise AssertionError("expired command must not open an HTTP request")
+
+    adapter._get_client = lambda: SimpleNamespace(http=Http())
+
+    async def run() -> None:
+        with pytest.raises(SandoqHttpTransportError) as raised:
+            await adapter._request_json(
+                "POST",
+                "https://outer.example/v1/exec",
+                {"command": ["true"], "shellId": "shell-old", "timeout": 5},
+                {},
+                10,
+                time.monotonic() + 1,
+            )
+        assert raised.value.delivery_state == "not_sent"
+
+    asyncio.run(run())
+    assert requests == 0
+
+
+def test_managed_shell_pool_request_never_uses_reconnecting_replay_path() -> None:
+    client = object.__new__(PoolClient)
+    client.client_id = "client-1"
+    raw_calls = 0
+
+    def raw_request(*args: object, **kwargs: object) -> dict[str, object]:
+        nonlocal raw_calls
+        del args, kwargs
+        raw_calls += 1
+        raise _PoolConnectionError("response lost")
+
+    client._raw_request = raw_request
+    client._request = lambda *args, **kwargs: (_ for _ in ()).throw(
+        AssertionError("non-idempotent command must not use reconnecting _request")
+    )
+
+    with pytest.raises(SandoqHttpTransportError) as raised:
+        client.managed_shell_request(
+            "assignment-1",
+            "shell-old",
+            body={"command": ["true"], "shellId": "shell-old", "timeout": 5},
+            request_timeout_seconds=10,
+            admission_deadline_monotonic=time.monotonic() + 30,
+        )
+
+    assert raised.value.delivery_state == "unknown"
+    assert raw_calls == 1
+
+
+def test_managed_shell_pool_request_reconstructs_sanitized_results() -> None:
+    client = object.__new__(PoolClient)
+    client.client_id = "client-1"
+    results = iter(
+        [
+            {
+                "status": "response",
+                "http_status": 404,
+                "body": {},
+            },
+            {
+                "status": "transport_error",
+                "error_type": "ClientConnectorError",
+                "timed_out": False,
+                "delivery_state": "not_sent",
+                "http_status": None,
+                "retryable": True,
+            },
+        ]
+    )
+    client._raw_request = lambda *args, **kwargs: next(results)
+    values = {
+        "assignment_id": "assignment-1",
+        "expected_shell_id": "shell-old",
+        "body": {"command": ["true"], "shellId": "shell-old", "timeout": 5},
+        "request_timeout_seconds": 10,
+        "admission_deadline_monotonic": time.monotonic() + 30,
+    }
+
+    response = client.managed_shell_request(**values)
+    assert response == SandoqHttpResponse(status_code=404, body={})
+    with pytest.raises(SandoqHttpTransportError) as raised:
+        client.managed_shell_request(**values)
+    assert raised.value.error_type == "ClientConnectorError"
+    assert raised.value.delivery_state == "not_sent"
+    assert raised.value.retryable is True
+
+
+def test_managed_shell_executor_saturation_does_not_starve_control_executor() -> None:
+    broker = SimpleNamespace(config=SimpleNamespace(drain_workers=1, size=64, drain_timeout_s=1))
+    server = _AsyncUnixServer(broker)
+    gate = threading.Event()
+    futures = [server.managed_shell_executor.submit(gate.wait) for _ in range(64)]
+    try:
+        assert server.managed_shell_executor._max_workers == 64
+        assert server.executor.submit(lambda: "control").result(timeout=1) == "control"
+    finally:
+        gate.set()
+        for future in futures:
+            future.result(timeout=1)
+        asyncio.run(server.close())
+
+
 def test_release_waits_for_shell_command_reservation() -> None:
     broker = _assigned_broker(releasing=False)
     assignment = broker.assignments["assignment-1"]
@@ -547,13 +825,29 @@ def test_release_waits_for_shell_command_reservation() -> None:
     broker._prune_images = lambda slot: None
     broker._append_idle_locked = lambda slot: setattr(slot, "state", "idle")
     broker._event = lambda *args, **kwargs: None
-    reservation = broker.begin_shell_command(
-        "client-1",
-        "assignment-1",
-        "shell-old",
-        timeout_seconds=30,
-        request_timeout_seconds=10,
+    broker._auth_headers = lambda: {}
+    command_started = threading.Event()
+    finish_command = threading.Event()
+
+    def request_json(*args: object, **kwargs: object) -> SandoqHttpResponse:
+        del args, kwargs
+        command_started.set()
+        assert finish_command.wait(timeout=1)
+        return SandoqHttpResponse(status_code=200, body={"exitCode": 0, "timedOut": False})
+
+    broker.gateway = SimpleNamespace(request_json=request_json)
+    command_thread = threading.Thread(
+        target=lambda: broker.managed_shell_request(
+            "client-1",
+            "assignment-1",
+            "shell-old",
+            body={"command": ["true"], "shellId": "shell-old", "timeout": 5},
+            request_timeout_seconds=10,
+            admission_deadline_monotonic=time.monotonic() + 30,
+        )
     )
+    command_thread.start()
+    assert command_started.wait(timeout=1)
     released: list[dict[str, object]] = []
     thread = threading.Thread(target=lambda: released.append(broker.release("client-1", "assignment-1")))
     thread.start()
@@ -561,25 +855,156 @@ def test_release_waits_for_shell_command_reservation() -> None:
 
     assert thread.is_alive()
     assert deleted == []
-    broker.complete_shell_command(
-        "client-1",
-        "assignment-1",
-        str(reservation["operation_id"]),
-    )
+    finish_command.set()
+    command_thread.join(timeout=1)
     thread.join(timeout=1)
 
+    assert not command_thread.is_alive()
     assert not thread.is_alive()
     assert deleted == ["shell-old"]
     assert released[0]["status"] == "recycled"
 
 
-def test_release_clears_stale_shell_reservation_and_retires_outer() -> None:
+def test_release_never_deletes_while_broker_gateway_call_is_running() -> None:
+    broker = _assigned_broker(releasing=False)
+    assignment = broker.assignments["assignment-1"]
+    assignment.shell_id = "shell-old"
+    assignment.active_shell_operation = "shell-operation-running"
+    assignment.active_shell_operation_deadline = time.monotonic() - 1
+    assignment.active_shell_operation_running = True
+    broker.config = SimpleNamespace(
+        managed_shell_recovery=True,
+        drain_timeout_s=0.01,
+        max_reuse_count=6,
+        size=2,
+    )
+    broker.clients = {}
+    broker.draining = False
+    deleted: list[str] = []
+    broker._delete_slot = lambda slot, reason: deleted.append(reason)
+    broker._event = lambda *args, **kwargs: None
+
+    with pytest.raises(TimeoutError, match="did not quiesce"):
+        broker.release("client-1", "assignment-1")
+
+    assert deleted == []
+    assert assignment.active_shell_operation == "shell-operation-running"
+    assert "assignment-1" in broker.assignments
+
+
+def test_unknown_command_release_waits_for_quarantine_then_retires_outer() -> None:
+    broker = _assigned_broker(releasing=False)
+    assignment = broker.assignments["assignment-1"]
+    assignment.shell_id = "shell-old"
+    broker.config = SimpleNamespace(
+        managed_shell_recovery=True,
+        drain_timeout_s=1.0,
+        max_reuse_count=6,
+        size=2,
+    )
+    broker.clients = {}
+    broker.draining = False
+    broker._auth_headers = lambda: {}
+    broker.gateway = SimpleNamespace(
+        request_json=lambda *args, **kwargs: (_ for _ in ()).throw(
+            SandoqHttpTransportError("POST", "TimeoutError", timed_out=True, delivery_state="unknown")
+        )
+    )
+    deleted: list[str] = []
+    broker._delete_slot = lambda slot, reason: (
+        deleted.append(reason) or {"outer_session_id": "outer-1", "verified_http_status": 404}
+    )
+    broker._event = lambda *args, **kwargs: None
+
+    broker.managed_shell_request(
+        "client-1",
+        "assignment-1",
+        "shell-old",
+        body={"command": ["true"], "shellId": "shell-old", "timeout": 1},
+        request_timeout_seconds=2,
+        admission_deadline_monotonic=time.monotonic() + 3,
+    )
+    released: list[dict[str, object]] = []
+    release_thread = threading.Thread(target=lambda: released.append(broker.release("client-1", "assignment-1")))
+    release_thread.start()
+    time.sleep(0.02)
+    assert release_thread.is_alive()
+    assert deleted == []
+
+    with broker.changed:
+        assignment.active_shell_operation_deadline = time.monotonic() - 1
+        broker.changed.notify_all()
+    release_thread.join(timeout=1)
+
+    assert not release_thread.is_alive()
+    assert deleted == ["poisoned:managed_shell_lost"]
+    assert released[0]["shell_failure_status"] == "managed_shell_command_outcome_unknown"
+    assert released[0]["outer_deletion_verified_http_status"] == 404
+
+
+def test_cancelled_worker_wait_does_not_release_broker_owned_gateway_call() -> None:
+    broker = _assigned_broker(releasing=False)
+    assignment = broker.assignments["assignment-1"]
+    assignment.shell_id = "shell-old"
+    broker.config = SimpleNamespace(managed_shell_recovery=True)
+    broker._auth_headers = lambda: {}
+    command_started = threading.Event()
+    finish_command = threading.Event()
+
+    def request_json(*args: object, **kwargs: object) -> SandoqHttpResponse:
+        del args, kwargs
+        command_started.set()
+        assert finish_command.wait(timeout=2)
+        return SandoqHttpResponse(status_code=200, body={"exitCode": 0, "timedOut": False})
+
+    broker.gateway = SimpleNamespace(request_json=request_json)
+
+    async def cancel_waiter() -> None:
+        task = asyncio.create_task(
+            asyncio.to_thread(
+                broker.managed_shell_request,
+                "client-1",
+                "assignment-1",
+                "shell-old",
+                body={"command": ["true"], "shellId": "shell-old", "timeout": 5},
+                request_timeout_seconds=10,
+                admission_deadline_monotonic=time.monotonic() + 30,
+            )
+        )
+        assert await asyncio.to_thread(command_started.wait, 1)
+        task.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await task
+        assert assignment.active_shell_operation is not None
+        assert assignment.active_shell_operation_running is True
+        finish_command.set()
+
+    asyncio.run(cancel_waiter())
+    deadline = time.monotonic() + 1
+    while assignment.active_shell_operation is not None and time.monotonic() < deadline:
+        time.sleep(0.01)
+    assert assignment.active_shell_operation is None
+    assert assignment.active_shell_operation_running is False
+
+
+@pytest.mark.parametrize(
+    ("initial_failure", "expected_failure"),
+    [
+        (None, "managed_shell_operation_abandoned"),
+        ("managed_shell_command_outcome_unknown", "managed_shell_command_outcome_unknown"),
+    ],
+)
+def test_release_clears_stale_shell_reservation_and_retires_outer(
+    initial_failure: str | None,
+    expected_failure: str,
+) -> None:
     broker = _assigned_broker(releasing=False)
     broker.clients = {}
     assignment = broker.assignments["assignment-1"]
     assignment.shell_id = "shell-old"
     assignment.active_shell_operation = "shell-operation-abandoned"
     assignment.active_shell_operation_deadline = time.monotonic() - 1
+    assignment.managed_shell_failure_status = initial_failure
     broker.config = SimpleNamespace(
         managed_shell_recovery=True,
         drain_timeout_s=1.0,
@@ -602,7 +1027,7 @@ def test_release_clears_stale_shell_reservation_and_retires_outer() -> None:
 
     assert deleted == ["poisoned:managed_shell_lost"]
     assert released["status"] == "poisoned"
-    assert released["shell_failure_status"] == "managed_shell_operation_abandoned"
+    assert released["shell_failure_status"] == expected_failure
     assert released["outer_deletion_verified_http_status"] == 404
 
 

@@ -8,6 +8,7 @@ import concurrent.futures
 import contextlib
 import fcntl
 import json
+import math
 import os
 import posixpath
 import queue
@@ -35,6 +36,7 @@ _DEFAULT_GATEWAY_RETRY_ATTEMPTS = 15
 _DEFAULT_GATEWAY_RETRY_INTERVAL_SECONDS = 2.0
 _DEFAULT_ENVIRONMENT = "oci-runner-firecracker"
 _DEFAULT_TOKEN_FILE = "~/.config/oci-runner/firecracker-token"
+_POOL_IPC_LIMIT_BYTES = 16 * 1024 * 1024
 
 
 def default_socket_path() -> Path:
@@ -252,6 +254,7 @@ class Assignment:
     shell_recovering: bool = False
     active_shell_operation: str | None = None
     active_shell_operation_deadline: float = 0.0
+    active_shell_operation_running: bool = False
     managed_shell_failure_status: str | None = None
     managed_shell_recovery_count: int = 0
 
@@ -1235,31 +1238,47 @@ class PoolBroker:
                 self._assign_waiters_locked()
         return {"updated": True}
 
-    def begin_shell_command(
+    def managed_shell_request(
         self,
         client_id: str,
         assignment_id: str,
         expected_shell_id: str,
         *,
-        timeout_seconds: float,
+        body: dict[str, object],
         request_timeout_seconds: float,
+        admission_deadline_monotonic: float,
     ) -> dict[str, object]:
+        """Run one managed-shell command while the broker owns serialization.
+
+        Keeping the actual gateway request in this process means a worker
+        cancellation or a lost Unix-socket response cannot release the shell
+        reservation while the remote command may still be running.
+        """
+        now = time.monotonic()
+        command_timeout = body.get("timeout")
         if (
             not self.config.managed_shell_recovery
             or not expected_shell_id
-            or not 0 < request_timeout_seconds <= timeout_seconds <= 300
+            or body.get("shellId") != expected_shell_id
+            or not isinstance(command_timeout, int)
+            or isinstance(command_timeout, bool)
+            or not isinstance(request_timeout_seconds, (int, float))
+            or isinstance(request_timeout_seconds, bool)
+            or not math.isfinite(float(request_timeout_seconds))
+            or not 0 < command_timeout <= request_timeout_seconds <= 300
+            or not isinstance(admission_deadline_monotonic, (int, float))
+            or isinstance(admission_deadline_monotonic, bool)
+            or not math.isfinite(float(admission_deadline_monotonic))
+            or not now < admission_deadline_monotonic <= now + 300
         ):
-            raise RuntimeError("managed shell command reservation is invalid")
-        deadline = time.monotonic() + timeout_seconds
+            raise RuntimeError("managed shell command request is invalid")
+
+        operation_id = "shell-operation-" + uuid.uuid4().hex
         with self.changed:
             while True:
-                remaining = deadline - time.monotonic()
-                # Never grant a reservation unless the caller still has its
-                # complete original HTTP budget. Otherwise its local timeout
-                # could release the token while the server-side command is
-                # still allowed to run.
+                remaining = admission_deadline_monotonic - time.monotonic()
                 if remaining < request_timeout_seconds:
-                    raise TimeoutError("managed shell command reservation timed out")
+                    raise TimeoutError("managed shell command admission timed out")
                 assignment = self.assignments.get(assignment_id)
                 if assignment is None or assignment.client_id != client_id:
                     raise RuntimeError("unknown pool assignment")
@@ -1279,40 +1298,75 @@ class PoolBroker:
                         "shell_generation": assignment.shell_generation,
                     }
                 if not assignment.shell_recovering and assignment.active_shell_operation is None:
-                    operation_id = "shell-operation-" + uuid.uuid4().hex
+                    slot = self.slots[assignment.slot_id]
+                    if not slot.exec_url:
+                        raise RuntimeError("managed shell outer endpoint is unavailable")
+                    exec_url = slot.exec_url
                     assignment.active_shell_operation = operation_id
-                    # The gateway request uses the remaining reservation
-                    # budget. Keep a small broker-side completion grace so a
-                    # request timing out at that boundary cannot race release.
-                    assignment.active_shell_operation_deadline = deadline + 5.0
-                    return {
-                        "status": "authorized",
-                        "operation_id": operation_id,
-                        "shell_id": assignment.shell_id,
-                        "shell_generation": assignment.shell_generation,
-                        "request_timeout_seconds": request_timeout_seconds,
-                        "operation_deadline_monotonic": assignment.active_shell_operation_deadline,
-                    }
+                    assignment.active_shell_operation_deadline = admission_deadline_monotonic + 5.0
+                    assignment.active_shell_operation_running = True
+                    break
                 self.changed.wait(timeout=min(remaining, 0.25))
 
-    def complete_shell_command(
-        self,
-        client_id: str,
-        assignment_id: str,
-        operation_id: str,
-    ) -> dict[str, object]:
+        response: SandoqHttpResponse | None = None
+        transport_error: SandoqHttpTransportError | None = None
+        try:
+            response = self.gateway.request_json(
+                "POST",
+                exec_url + "v1/exec",
+                body=dict(body),
+                headers=self._auth_headers(),
+                timeout=request_timeout_seconds,
+                latest_completion_monotonic=admission_deadline_monotonic,
+            )
+        except SandoqHttpTransportError as error:
+            transport_error = error
+        except Exception as error:
+            transport_error = SandoqHttpTransportError(
+                "POST",
+                type(error).__name__,
+                timed_out=isinstance(error, TimeoutError),
+                delivery_state="unknown",
+            )
+
+        ambiguous = (transport_error is not None and transport_error.delivery_state != "not_sent") or (
+            response is not None and (response.status_code == 408 or 500 <= response.status_code <= 599)
+        )
         with self.changed:
-            assignment = self.assignments.get(assignment_id)
-            if assignment is None or assignment.client_id != client_id:
-                if assignment_id in self.releasing_assignments:
-                    return {"completed": False, "release_in_progress": True}
-                raise RuntimeError("unknown pool assignment")
-            if assignment.active_shell_operation != operation_id:
-                raise RuntimeError("managed shell command reservation mismatch")
-            assignment.active_shell_operation = None
-            assignment.active_shell_operation_deadline = 0.0
-            self.changed.notify_all()
-            return {"completed": True}
+            current = self.assignments.get(assignment_id)
+            if current is assignment and assignment.active_shell_operation == operation_id:
+                assignment.active_shell_operation_running = False
+                if ambiguous:
+                    # A proxy/transport failure can arrive while the command
+                    # continues remotely.  Start the quarantine only after
+                    # the gateway returns, so delayed event-loop scheduling is
+                    # covered as well as the full server-side command budget.
+                    assignment.active_shell_operation_deadline = max(
+                        assignment.active_shell_operation_deadline,
+                        time.monotonic() + float(command_timeout) + 5.0,
+                    )
+                    assignment.managed_shell_failure_status = "managed_shell_command_outcome_unknown"
+                    assignment.shell_failure_status = "managed_shell_command_outcome_unknown"
+                else:
+                    assignment.active_shell_operation = None
+                    assignment.active_shell_operation_deadline = 0.0
+                self.changed.notify_all()
+
+        if transport_error is not None:
+            return {
+                "status": "transport_error",
+                "error_type": transport_error.error_type,
+                "timed_out": transport_error.timed_out,
+                "delivery_state": transport_error.delivery_state,
+                "http_status": transport_error.http_status,
+                "retryable": transport_error.retryable,
+            }
+        assert response is not None
+        return {
+            "status": "response",
+            "http_status": response.status_code,
+            "body": response.body,
+        }
 
     @staticmethod
     def _validated_managed_workdir(value: str) -> str:
@@ -1549,11 +1603,21 @@ class PoolBroker:
             )
             while assignment.shell_recovering or assignment.active_shell_operation is not None:
                 now = time.monotonic()
-                if assignment.active_shell_operation is not None and assignment.active_shell_operation_deadline <= now:
+                if assignment.active_shell_operation is not None:
+                    serialization_deadline = max(
+                        serialization_deadline,
+                        assignment.active_shell_operation_deadline + 5.0,
+                    )
+                if (
+                    assignment.active_shell_operation is not None
+                    and not assignment.active_shell_operation_running
+                    and assignment.active_shell_operation_deadline <= now
+                ):
                     assignment.active_shell_operation = None
                     assignment.active_shell_operation_deadline = 0.0
-                    assignment.managed_shell_failure_status = "managed_shell_operation_abandoned"
-                    assignment.shell_failure_status = "managed_shell_operation_abandoned"
+                    failure_status = assignment.managed_shell_failure_status or "managed_shell_operation_abandoned"
+                    assignment.managed_shell_failure_status = failure_status
+                    assignment.shell_failure_status = failure_status
                     self._event(
                         "managed_shell_operation_abandoned",
                         assignment_id=assignment_id,
@@ -1860,11 +1924,16 @@ class PoolBroker:
         expired: list[tuple[str, Assignment]] = []
         with self.changed:
             for assignment_id, assignment in self.assignments.items():
-                if assignment.active_shell_operation is not None and assignment.active_shell_operation_deadline <= now:
+                if (
+                    assignment.active_shell_operation is not None
+                    and not assignment.active_shell_operation_running
+                    and assignment.active_shell_operation_deadline <= now
+                ):
                     assignment.active_shell_operation = None
                     assignment.active_shell_operation_deadline = 0.0
-                    assignment.managed_shell_failure_status = "managed_shell_operation_abandoned"
-                    assignment.shell_failure_status = "managed_shell_operation_abandoned"
+                    failure_status = assignment.managed_shell_failure_status or "managed_shell_operation_abandoned"
+                    assignment.managed_shell_failure_status = failure_status
+                    assignment.shell_failure_status = failure_status
                     self._event(
                         "managed_shell_operation_abandoned",
                         assignment_id=assignment_id,
@@ -2170,19 +2239,14 @@ class PoolBroker:
             return self.cancel_acquire(client_id, str(request["ticket_id"]))
         if operation == "update":
             return self.update(client_id, str(request["assignment_id"]), dict(request.get("values") or {}))
-        if operation == "begin_shell_command":
-            return self.begin_shell_command(
+        if operation == "managed_shell_request":
+            return self.managed_shell_request(
                 client_id,
                 str(request["assignment_id"]),
                 str(request["expected_shell_id"]),
-                timeout_seconds=float(request["timeout_seconds"]),
+                body=dict(request.get("body") or {}),
                 request_timeout_seconds=float(request["request_timeout_seconds"]),
-            )
-        if operation == "complete_shell_command":
-            return self.complete_shell_command(
-                client_id,
-                str(request["assignment_id"]),
-                str(request["operation_id"]),
+                admission_deadline_monotonic=float(request["admission_deadline_monotonic"]),
             )
         if operation == "recover_managed_shell":
             return self.recover_managed_shell(
@@ -2214,7 +2278,6 @@ class _AsyncUnixServer:
     """Multiplex persistent clients without dedicating one broker thread each."""
 
     _BLOCKING_OPERATIONS = {
-        "begin_shell_command",
         "drain",
         "depart",
         "ecr_credential",
@@ -2222,11 +2285,17 @@ class _AsyncUnixServer:
         "release",
     }
 
+    _MANAGED_SHELL_OPERATIONS = {"managed_shell_request"}
+
     def __init__(self, broker: PoolBroker) -> None:
         self.broker = broker
         self.executor = concurrent.futures.ThreadPoolExecutor(
             max_workers=broker.config.drain_workers,
             thread_name_prefix="oci-request",
+        )
+        self.managed_shell_executor = concurrent.futures.ThreadPoolExecutor(
+            max_workers=min(max(broker.config.size, 1), 64),
+            thread_name_prefix="oci-shell-request",
         )
         self.tasks: set[asyncio.Task[None]] = set()
 
@@ -2259,7 +2328,10 @@ class _AsyncUnixServer:
         try:
             request = json.loads(line)
             request_id = request.get("request_id")
-            if request.get("operation") in self._BLOCKING_OPERATIONS:
+            if request.get("operation") in self._MANAGED_SHELL_OPERATIONS:
+                loop = asyncio.get_running_loop()
+                result = await loop.run_in_executor(self.managed_shell_executor, self.broker.dispatch, request)
+            elif request.get("operation") in self._BLOCKING_OPERATIONS:
                 loop = asyncio.get_running_loop()
                 result = await loop.run_in_executor(self.executor, self.broker.dispatch, request)
             else:
@@ -2283,6 +2355,7 @@ class _AsyncUnixServer:
             if pending:
                 await asyncio.gather(*pending, return_exceptions=True)
         self.executor.shutdown(wait=False, cancel_futures=True)
+        self.managed_shell_executor.shutdown(wait=False, cancel_futures=True)
 
 
 def run_broker() -> None:
@@ -2306,7 +2379,12 @@ def run_broker() -> None:
 
     async def serve() -> None:
         async_server = _AsyncUnixServer(broker)
-        server = await asyncio.start_unix_server(async_server.handle, path=str(config.socket_path), backlog=512)
+        server = await asyncio.start_unix_server(
+            async_server.handle,
+            path=str(config.socket_path),
+            backlog=512,
+            limit=_POOL_IPC_LIMIT_BYTES,
+        )
         config.socket_path.chmod(0o700)
         process_identity = broker.process_start_identity
         owner_path.write_text(
@@ -2597,30 +2675,82 @@ class PoolClient:
     def update(self, assignment_id: str, **values: object) -> dict[str, object]:
         return self._request("update", assignment_id=assignment_id, values=values)
 
-    def begin_shell_command(
+    def managed_shell_request(
         self,
         assignment_id: str,
         expected_shell_id: str,
         *,
-        timeout_seconds: float,
+        body: dict[str, object],
         request_timeout_seconds: float,
-    ) -> dict[str, object]:
-        return self._request(
-            "begin_shell_command",
-            timeout=timeout_seconds + 5.0,
-            assignment_id=assignment_id,
-            expected_shell_id=expected_shell_id,
-            timeout_seconds=timeout_seconds,
-            request_timeout_seconds=request_timeout_seconds,
-        )
-
-    def complete_shell_command(self, assignment_id: str, operation_id: str) -> dict[str, object]:
-        return self._request(
-            "complete_shell_command",
-            timeout=30.0,
-            assignment_id=assignment_id,
-            operation_id=operation_id,
-        )
+        admission_deadline_monotonic: float,
+    ) -> SandoqHttpResponse | dict[str, object]:
+        # This RPC carries a non-idempotent command.  Never use _request(),
+        # whose reconnect path deliberately retries ordinary control-plane
+        # operations after a lost Unix-socket response.
+        remaining = admission_deadline_monotonic - time.monotonic()
+        if remaining <= 0:
+            raise SandoqHttpTransportError(
+                "POST",
+                "AdmissionDeadlineExceeded",
+                timed_out=True,
+                delivery_state="not_sent",
+            )
+        payload: dict[str, object] = {
+            "operation": "managed_shell_request",
+            "client_id": self.client_id,
+            "assignment_id": assignment_id,
+            "expected_shell_id": expected_shell_id,
+            "body": body,
+            "request_timeout_seconds": request_timeout_seconds,
+            "admission_deadline_monotonic": admission_deadline_monotonic,
+        }
+        try:
+            result = self._raw_request(payload, timeout=remaining + 10.0)
+        except _PoolConnectionError as error:
+            raise SandoqHttpTransportError(
+                "POST",
+                type(error).__name__,
+                timed_out=False,
+                delivery_state="unknown",
+            ) from error
+        except TimeoutError as error:
+            raise SandoqHttpTransportError(
+                "POST",
+                type(error).__name__,
+                timed_out=True,
+                delivery_state="unknown",
+            ) from error
+        status = result.get("status")
+        if status == "transport_error":
+            error_type = result.get("error_type")
+            timed_out = result.get("timed_out")
+            delivery_state = result.get("delivery_state")
+            http_status = result.get("http_status")
+            retryable = result.get("retryable")
+            if (
+                not isinstance(error_type, str)
+                or not error_type
+                or not isinstance(timed_out, bool)
+                or delivery_state not in {"not_sent", "unknown"}
+                or (http_status is not None and (not isinstance(http_status, int) or isinstance(http_status, bool)))
+                or not isinstance(retryable, bool)
+            ):
+                raise RuntimeError("managed shell transport result is invalid")
+            raise SandoqHttpTransportError(
+                "POST",
+                error_type,
+                timed_out=timed_out,
+                delivery_state=str(delivery_state),
+                http_status=http_status,
+                retryable=retryable,
+            )
+        if status == "response":
+            http_status = result.get("http_status")
+            response_body = result.get("body")
+            if not isinstance(http_status, int) or isinstance(http_status, bool) or not isinstance(response_body, dict):
+                raise RuntimeError("managed shell response is invalid")
+            return SandoqHttpResponse(status_code=http_status, body=response_body)
+        return result
 
     def recover_managed_shell(
         self,
