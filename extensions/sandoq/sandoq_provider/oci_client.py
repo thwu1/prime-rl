@@ -635,6 +635,7 @@ class OCIRunnerAsyncSandboxClient(SandoqAsyncSandboxClient):
                 info.session_id,
                 shell_id,
                 timeout_seconds=min(max(timeout + 30.0, 30.0), 300.0),
+                request_timeout_seconds=timeout,
             )
             status = reservation.get("status")
             if status == "shell_replaced":
@@ -658,11 +659,40 @@ class OCIRunnerAsyncSandboxClient(SandoqAsyncSandboxClient):
                     failure_reason="managed_shell_lost",
                 )
             operation_id = reservation.get("operation_id")
-            if status != "authorized" or not isinstance(operation_id, str) or not operation_id:
+            request_timeout_seconds = reservation.get("request_timeout_seconds")
+            operation_deadline = reservation.get("operation_deadline_monotonic")
+            if (
+                status != "authorized"
+                or not isinstance(operation_id, str)
+                or not operation_id
+                or not isinstance(request_timeout_seconds, (int, float))
+                or isinstance(request_timeout_seconds, bool)
+                or request_timeout_seconds != timeout
+                or not isinstance(operation_deadline, (int, float))
+                or isinstance(operation_deadline, bool)
+                or not math.isfinite(float(operation_deadline))
+            ):
                 raise self._poisoned_shell_error(
                     info,
                     "reservation_invalid",
                     "managed shell command reservation is invalid",
+                    failure_reason="managed_shell_lost",
+                )
+            if time.monotonic() + timeout > float(operation_deadline):
+                try:
+                    await asyncio.shield(
+                        asyncio.to_thread(
+                            pool.complete_shell_command,
+                            info.session_id,
+                            operation_id,
+                        )
+                    )
+                except Exception:
+                    pass
+                raise self._poisoned_shell_error(
+                    info,
+                    "reservation_expired",
+                    "managed shell command reservation expired before delivery",
                     failure_reason="managed_shell_lost",
                 )
             body["shellId"] = info.shell_id

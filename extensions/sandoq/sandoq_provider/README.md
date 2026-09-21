@@ -97,7 +97,9 @@ the old shell ID absent.  The pool broker serializes recovery with commands and
 release, creates one replacement shell, restores the validated workdir, records
 the transition durably, and permits exactly one replay of the rejected command.
 Ambiguous transport failures, timeouts, and 5xx responses are never recovered or
-replayed by this path.
+replayed by this path. The shell binding/replacement WAL records are emitted only
+for that closed long-Kimi profile, leaving the standard/Qwen WAL byte contract
+unchanged.
 
 Uploads and downloads use the authenticated outer command server and the shared
 mount:

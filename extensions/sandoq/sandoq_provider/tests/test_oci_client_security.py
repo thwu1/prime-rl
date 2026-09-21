@@ -278,11 +278,20 @@ def test_definitive_missing_managed_shell_is_recovered_once(
             shell_id: str,
             *,
             timeout_seconds: float,
+            request_timeout_seconds: float,
         ) -> dict[str, object]:
-            del assignment_id, timeout_seconds
+            del assignment_id
+            assert 119.0 < timeout_seconds <= 120.0
+            assert 89.0 < request_timeout_seconds <= 90.0
             operation_id = f"operation-{len(self.operations)}"
             self.operations.append(("begin", shell_id))
-            return {"status": "authorized", "operation_id": operation_id, "shell_id": shell_id}
+            return {
+                "status": "authorized",
+                "operation_id": operation_id,
+                "shell_id": shell_id,
+                "request_timeout_seconds": request_timeout_seconds,
+                "operation_deadline_monotonic": time.monotonic() + 120.0,
+            }
 
         def complete_shell_command(self, assignment_id: str, operation_id: str) -> dict[str, object]:
             del assignment_id
@@ -360,8 +369,14 @@ def test_ambiguous_managed_shell_failure_is_not_recovered(
         recoveries = 0
 
         def begin_shell_command(self, *args: object, **kwargs: object) -> dict[str, object]:
-            del args, kwargs
-            return {"status": "authorized", "operation_id": "operation-1", "shell_id": "shell-old"}
+            del args
+            return {
+                "status": "authorized",
+                "operation_id": "operation-1",
+                "shell_id": "shell-old",
+                "request_timeout_seconds": kwargs["request_timeout_seconds"],
+                "operation_deadline_monotonic": time.monotonic() + 120.0,
+            }
 
         def complete_shell_command(self, *args: object, **kwargs: object) -> dict[str, object]:
             del args, kwargs
@@ -457,6 +472,65 @@ def test_standard_profile_never_recovers_missing_managed_shell() -> None:
         asyncio.run(client._nested_exec_argv(info, ["bash", "-c", "true"]))
 
     assert raised.value.failure_reason == "outer_session_lost"
+
+
+def test_delayed_reservation_response_never_sends_after_broker_deadline(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    client = object.__new__(OCIRunnerAsyncSandboxClient)
+    client._oci_cfg = SimpleNamespace(
+        exec_timeout_ceiling_s=270,
+        gateway_retry_attempts=1,
+        gateway_retry_interval_s=0,
+        managed_shell_recovery=True,
+    )
+    info = SimpleNamespace(
+        session_id="assignment-1",
+        shell_id="shell-old",
+        session_reuse=True,
+        env_vars={"OCI_EXPECTED_WORKDIR": "/testbed"},
+        metadata={},
+        assignment_poisoned=False,
+        assignment_poison_reason=None,
+        shell_failure_status=None,
+    )
+    requests = 0
+
+    async def request(*args: object, **kwargs: object) -> SandoqHttpResponse:
+        nonlocal requests
+        del args, kwargs
+        requests += 1
+        raise AssertionError("an expired authorization must not reach the gateway")
+
+    client._request_json = request
+
+    class Pool:
+        completions = 0
+
+        def begin_shell_command(self, *args: object, **kwargs: object) -> dict[str, object]:
+            del args
+            return {
+                "status": "authorized",
+                "operation_id": "operation-stale",
+                "shell_id": "shell-old",
+                "request_timeout_seconds": kwargs["request_timeout_seconds"],
+                "operation_deadline_monotonic": time.monotonic() + 1.0,
+            }
+
+        def complete_shell_command(self, *args: object, **kwargs: object) -> dict[str, object]:
+            del args, kwargs
+            self.completions += 1
+            return {"completed": True}
+
+    pool = Pool()
+    monkeypatch.setattr("sandoq_provider.pool.get_pool_client", lambda: pool)
+
+    with pytest.raises(OCIRunnerStageError) as raised:
+        asyncio.run(client._nested_exec_argv(info, ["bash", "-c", "true"]))
+
+    assert raised.value.failure_reason == "managed_shell_lost"
+    assert requests == 0
+    assert pool.completions == 1
 
 
 @pytest.mark.parametrize("allow_fallback", [False, True])

@@ -20,6 +20,20 @@ def _is_int(value: object) -> bool:
     return isinstance(value, int) and not isinstance(value, bool)
 
 
+def _managed_event_has_exact_keys(event: dict[str, object], fields: set[str]) -> bool:
+    base = {"schema_version", "event", "timestamp", "slurm_job_id", "wandb_run_id"}
+    timestamp = event.get("timestamp")
+    return (
+        set(event) == base | fields
+        and isinstance(timestamp, (int, float))
+        and not isinstance(timestamp, bool)
+        and timestamp > 0
+        and all(
+            event.get(name) is None or isinstance(event.get(name), str) for name in ("slurm_job_id", "wandb_run_id")
+        )
+    )
+
+
 def sanitize(
     raw_audit: Path,
     event_log: Path,
@@ -87,6 +101,8 @@ def sanitize(
         raise CleanupAuditError("pool_drain_not_verified")
     acquired_counts: Counter[str] = Counter()
     assignment_outer: dict[str, str] = {}
+    assignment_slots: dict[str, int] = {}
+    assignment_generations: dict[str, int] = {}
     release_counts: Counter[str] = Counter()
     cancellation_counts: Counter[str] = Counter()
     active_assignments: set[str] = set()
@@ -97,6 +113,9 @@ def sanitize(
     pool_drained = 0
     gateway_close_warnings = 0
     recovered_poisoned_assignments = 0
+    managed_shell_recovery_events: Counter[str] = Counter()
+    managed_shell_recovery_failures = 0
+    abandoned_shell_operations = 0
     event_outer_ids: set[str] = set()
     for line_number, line in enumerate(event_raw.decode("utf-8").splitlines(), start=1):
         if not line.strip():
@@ -123,6 +142,10 @@ def sanitize(
                 raise CleanupAuditError("pool_event_outer_identity_invalid")
             acquired_counts[assignment_id] += 1
             assignment_outer[assignment_id] = outer_id
+            if _is_int(event.get("slot_id")) and event["slot_id"] >= 0:
+                assignment_slots[assignment_id] = event["slot_id"]
+            if _is_int(event.get("generation")) and event["generation"] >= 1:
+                assignment_generations[assignment_id] = event["generation"]
             active_assignments.add(assignment_id)
             assignment_high_water = max(assignment_high_water, len(active_assignments))
             measured_active = event.get("active_assignment_count")
@@ -182,6 +205,80 @@ def sanitize(
             active_assignments.discard(assignment_id)
             if event.get("status") == "poisoned":
                 recovered_poisoned_assignments += 1
+        elif event_name == "managed_shell_recovered":
+            shell_generation = event.get("shell_generation")
+            recovery_count = event.get("recovery_count")
+            if (
+                not _managed_event_has_exact_keys(
+                    event,
+                    {
+                        "record_type",
+                        "assignment_id",
+                        "outer_session_id",
+                        "slot_id",
+                        "generation",
+                        "shell_generation",
+                        "recovery_count",
+                    },
+                )
+                or not isinstance(assignment_id, str)
+                or assignment_id not in active_assignments
+                or not isinstance(outer_id, str)
+                or assignment_outer.get(assignment_id) != outer_id
+                or not _is_int(event.get("slot_id"))
+                or assignment_slots.get(assignment_id) != event["slot_id"]
+                or not _is_int(event.get("generation"))
+                or assignment_generations.get(assignment_id) != event["generation"]
+                or not _is_int(shell_generation)
+                or shell_generation < 1
+                or not _is_int(recovery_count)
+                or recovery_count != shell_generation
+                or shell_generation != managed_shell_recovery_events[assignment_id] + 1
+            ):
+                raise CleanupAuditError("managed_shell_recovery_event_invalid")
+            managed_shell_recovery_events[assignment_id] += 1
+        elif event_name == "managed_shell_recovery_failed":
+            if (
+                not _managed_event_has_exact_keys(
+                    event,
+                    {
+                        "record_type",
+                        "assignment_id",
+                        "outer_session_id",
+                        "slot_id",
+                        "generation",
+                        "error_type",
+                    },
+                )
+                or not isinstance(assignment_id, str)
+                or assignment_id not in active_assignments
+                or not isinstance(outer_id, str)
+                or assignment_outer.get(assignment_id) != outer_id
+                or not _is_int(event.get("slot_id"))
+                or assignment_slots.get(assignment_id) != event["slot_id"]
+                or not _is_int(event.get("generation"))
+                or assignment_generations.get(assignment_id) != event["generation"]
+                or not isinstance(event.get("error_type"), str)
+                or not event["error_type"]
+            ):
+                raise CleanupAuditError("managed_shell_recovery_failure_event_invalid")
+            managed_shell_recovery_failures += 1
+        elif event_name == "managed_shell_operation_abandoned":
+            if (
+                not _managed_event_has_exact_keys(
+                    event,
+                    {"record_type", "assignment_id", "slot_id", "shell_generation"},
+                )
+                or not isinstance(assignment_id, str)
+                or assignment_id not in active_assignments
+                or outer_id is not None
+                or not _is_int(event.get("slot_id"))
+                or assignment_slots.get(assignment_id) != event["slot_id"]
+                or not _is_int(event.get("shell_generation"))
+                or event["shell_generation"] < 0
+            ):
+                raise CleanupAuditError("managed_shell_abandonment_event_invalid")
+            abandoned_shell_operations += 1
         elif event_name == "pool_drain_incomplete":
             raise CleanupAuditError("pool_drain_incomplete")
         elif event_name == "pool_drained":
@@ -208,6 +305,8 @@ def sanitize(
     outer_deleted_counts: Counter[str] = Counter()
     active_outer: set[str] = set()
     outer_high_water = 0
+    shell_bindings: dict[str, dict[str, object]] = {}
+    managed_shell_recovery_wal: Counter[str] = Counter()
     for line_number, line in enumerate(wal_raw.decode("utf-8").splitlines(), start=1):
         if not line.strip():
             continue
@@ -220,17 +319,82 @@ def sanitize(
         if event.get("schema_version") != 2:
             raise CleanupAuditError(f"pool_wal_schema_invalid_at_{line_number}")
         outer_id = event.get("outer_session_id")
-        if event.get("event") not in {"outer_created", "outer_deleted"}:
+        event_name = event.get("event")
+        if event_name not in {
+            "outer_created",
+            "outer_deleted",
+            "managed_shell_bound",
+            "managed_shell_recovered",
+        }:
             raise CleanupAuditError(f"pool_wal_event_invalid_at_{line_number}")
         if not isinstance(outer_id, str) or not outer_id:
             raise CleanupAuditError(f"pool_wal_identity_invalid_at_{line_number}")
-        if event.get("event") == "outer_created":
+        if event_name == "outer_created":
             outer_created_counts[outer_id] += 1
             active_outer.add(outer_id)
             outer_high_water = max(outer_high_water, len(active_outer))
-        else:
+        elif event_name == "outer_deleted":
             outer_deleted_counts[outer_id] += 1
             active_outer.discard(outer_id)
+        else:
+            assignment_id = event.get("assignment_id")
+            slot_id = event.get("slot_id")
+            generation = event.get("generation")
+            shell_id = event.get("shell_id")
+            shell_generation = event.get("shell_generation")
+            expected_fields = {
+                "assignment_id",
+                "outer_session_id",
+                "slot_id",
+                "generation",
+                "shell_id",
+                "shell_generation",
+            }
+            if event_name == "managed_shell_recovered":
+                expected_fields.add("prior_shell_id")
+            if (
+                not _managed_event_has_exact_keys(event, expected_fields)
+                or outer_id not in active_outer
+                or not isinstance(assignment_id, str)
+                or not assignment_id
+                or assignment_outer.get(assignment_id) != outer_id
+                or not _is_int(slot_id)
+                or slot_id < 0
+                or not _is_int(generation)
+                or generation < 1
+                or assignment_slots.get(assignment_id) != slot_id
+                or assignment_generations.get(assignment_id) != generation
+                or not isinstance(shell_id, str)
+                or not shell_id
+                or not _is_int(shell_generation)
+                or shell_generation < 0
+            ):
+                raise CleanupAuditError(f"managed_shell_wal_invalid_at_{line_number}")
+            current = shell_bindings.get(assignment_id)
+            if event_name == "managed_shell_bound":
+                if current is not None or shell_generation != 0:
+                    raise CleanupAuditError(f"managed_shell_wal_order_invalid_at_{line_number}")
+                shell_bindings[assignment_id] = {
+                    "outer_session_id": outer_id,
+                    "slot_id": slot_id,
+                    "generation": generation,
+                    "shell_id": shell_id,
+                    "shell_generation": 0,
+                }
+            else:
+                if (
+                    current is None
+                    or current["outer_session_id"] != outer_id
+                    or current["slot_id"] != slot_id
+                    or current["generation"] != generation
+                    or event.get("prior_shell_id") != current["shell_id"]
+                    or shell_id == current["shell_id"]
+                    or shell_generation != current["shell_generation"] + 1
+                ):
+                    raise CleanupAuditError(f"managed_shell_wal_order_invalid_at_{line_number}")
+                current["shell_id"] = shell_id
+                current["shell_generation"] = shell_generation
+                managed_shell_recovery_wal[assignment_id] += 1
     outer_created = set(outer_created_counts)
     outer_deleted = set(outer_deleted_counts)
     drain_outer_ids = [entry["outer_session_id"] for entry in drain["deleted"]]
@@ -246,6 +410,15 @@ def sanitize(
         or recorded != len(outer_created)
         or len(drain_outer_ids) != len(set(drain_outer_ids))
         or not set(drain_outer_ids).issubset(outer_created & outer_deleted)
+        or set(shell_bindings) - set(acquired_counts)
+        or any(
+            managed_shell_recovery_events[assignment_id] != count
+            for assignment_id, count in managed_shell_recovery_wal.items()
+        )
+        or any(
+            managed_shell_recovery_wal[assignment_id] != count
+            for assignment_id, count in managed_shell_recovery_events.items()
+        )
     ):
         raise CleanupAuditError("pool_wal_cleanup_coverage_incomplete")
     sanitized = {
@@ -269,6 +442,11 @@ def sanitize(
         "pool_drain_deleted": len(drain["deleted"]),
         "gateway_close_warnings": gateway_close_warnings,
         "recovered_poisoned_assignments": recovered_poisoned_assignments,
+        "managed_shell_bindings": len(shell_bindings),
+        "managed_shell_recoveries": sum(managed_shell_recovery_wal.values()),
+        "assignments_with_managed_shell_recovery": len(managed_shell_recovery_wal),
+        "managed_shell_recovery_failures": managed_shell_recovery_failures,
+        "abandoned_shell_operations": abandoned_shell_operations,
         "failures": 0,
         "raw_audit_sha256": hashlib.sha256(audit_raw).hexdigest(),
         "pool_event_log_sha256": hashlib.sha256(event_raw).hexdigest(),

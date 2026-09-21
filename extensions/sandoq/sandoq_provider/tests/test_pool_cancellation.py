@@ -234,6 +234,24 @@ def test_update_publishes_ready_event_under_assignment_lock() -> None:
     assert observations == [(True, True)]
 
 
+def test_initial_shell_wal_is_long_kimi_only() -> None:
+    standard = _assigned_broker(releasing=False)
+    standard.config = SimpleNamespace(managed_shell_recovery=False)
+    standard_wal: list[str] = []
+    standard._wal_event = lambda event, **values: standard_wal.append(event)
+    standard.update("client-1", "assignment-1", {"shell_id": "shell-standard"})
+
+    long_kimi = _assigned_broker(releasing=False)
+    long_kimi.config = SimpleNamespace(managed_shell_recovery=True)
+    long_wal: list[tuple[str, dict[str, object]]] = []
+    long_kimi._wal_event = lambda event, **values: long_wal.append((event, values))
+    long_kimi.update("client-1", "assignment-1", {"shell_id": "shell-long"})
+
+    assert standard_wal == []
+    assert [event for event, _values in long_wal] == ["managed_shell_bound"]
+    assert long_wal[0][1]["shell_generation"] == 0
+
+
 def test_managed_shell_recovery_is_single_owner_and_durable() -> None:
     broker = _assigned_broker(releasing=False)
     assignment = broker.assignments["assignment-1"]
@@ -261,8 +279,14 @@ def test_managed_shell_recovery_is_single_owner_and_durable() -> None:
     broker._auth_headers = lambda: {}
     wal: list[tuple[str, dict[str, object]]] = []
     events: list[tuple[str, dict[str, object]]] = []
+    event_lock_state: list[tuple[bool, bool]] = []
     broker._wal_event = lambda event, **values: wal.append((event, values))
-    broker._event = lambda event, **values: events.append((event, values))
+
+    def record_event(event: str, **values: object) -> None:
+        events.append((event, values))
+        event_lock_state.append((broker.lock._is_owned(), assignment.shell_recovering))  # type: ignore[attr-defined]
+
+    broker._event = record_event
 
     recovered = broker.recover_managed_shell(
         "client-1",
@@ -284,6 +308,7 @@ def test_managed_shell_recovery_is_single_owner_and_durable() -> None:
     assert len(requests) == 4
     assert wal[0][0] == "managed_shell_recovered"
     assert events[0][0] == "managed_shell_recovered"
+    assert event_lock_state == [(True, True)]
 
 
 def test_managed_shell_can_recover_again_after_a_later_expiry() -> None:
@@ -353,7 +378,10 @@ def test_managed_shell_recovery_requires_expected_shell_absent() -> None:
     broker.gateway = SimpleNamespace(request_json=lambda *args, **kwargs: next(responses))
     broker._auth_headers = lambda: {}
     broker._wal_event = lambda *args, **kwargs: None
-    broker._event = lambda *args, **kwargs: None
+    failure_event_state: list[tuple[str, bool, bool]] = []
+    broker._event = lambda event, **kwargs: failure_event_state.append(
+        (event, broker.lock._is_owned(), assignment.shell_recovering)  # type: ignore[attr-defined]
+    )
 
     with pytest.raises(RuntimeError, match="managed shell recovery failed"):
         broker.recover_managed_shell(
@@ -365,6 +393,7 @@ def test_managed_shell_recovery_requires_expected_shell_absent() -> None:
 
     assert assignment.shell_id == "shell-old"
     assert assignment.managed_shell_failure_status == "managed_shell_recovery_failed"
+    assert failure_event_state == [("managed_shell_recovery_failed", True, True)]
 
 
 def test_shell_command_reservation_serializes_recovery() -> None:
@@ -394,6 +423,7 @@ def test_shell_command_reservation_serializes_recovery() -> None:
         "assignment-1",
         "shell-old",
         timeout_seconds=30,
+        request_timeout_seconds=10,
     )
     recovered: list[dict[str, object]] = []
 
@@ -433,6 +463,7 @@ def test_lost_begin_or_complete_response_cannot_authorize_a_second_command() -> 
         "assignment-1",
         "shell-old",
         timeout_seconds=30,
+        request_timeout_seconds=10,
     )
     with pytest.raises(TimeoutError, match="reservation timed out"):
         broker.begin_shell_command(
@@ -440,11 +471,43 @@ def test_lost_begin_or_complete_response_cannot_authorize_a_second_command() -> 
             "assignment-1",
             "shell-old",
             timeout_seconds=0.01,
+            request_timeout_seconds=0.005,
         )
 
     broker.complete_shell_command("client-1", "assignment-1", str(first["operation_id"]))
     with pytest.raises(RuntimeError, match="reservation mismatch"):
         broker.complete_shell_command("client-1", "assignment-1", str(first["operation_id"]))
+    assert assignment.active_shell_operation is None
+
+
+def test_waiter_crossing_deadline_is_never_authorized(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    broker = _assigned_broker(releasing=False)
+    assignment = broker.assignments["assignment-1"]
+    assignment.shell_id = "shell-old"
+    assignment.active_shell_operation = "shell-operation-existing"
+    assignment.active_shell_operation_deadline = 200.0
+    broker.config = SimpleNamespace(managed_shell_recovery=True)
+    now = [100.0]
+    monkeypatch.setattr("sandoq_provider.pool.time.monotonic", lambda: now[0])
+
+    def release_after_deadline(*, timeout: float) -> None:
+        assert timeout == 0.25
+        assignment.active_shell_operation = None
+        now[0] = 101.0
+
+    monkeypatch.setattr(broker.changed, "wait", release_after_deadline)
+
+    with pytest.raises(TimeoutError, match="reservation timed out"):
+        broker.begin_shell_command(
+            "client-1",
+            "assignment-1",
+            "shell-old",
+            timeout_seconds=0.5,
+            request_timeout_seconds=0.4,
+        )
+
     assert assignment.active_shell_operation is None
 
 
@@ -454,14 +517,16 @@ def test_abandoned_shell_operation_expires_without_delete_race() -> None:
     assignment.shell_id = "shell-old"
     assignment.active_shell_operation = "shell-operation-stale"
     assignment.active_shell_operation_deadline = time.monotonic() - 1
-    events: list[str] = []
-    broker._event = lambda event, **values: events.append(event)
+    events: list[tuple[str, bool]] = []
+    broker._event = lambda event, **values: events.append(
+        (event, broker.lock._is_owned())  # type: ignore[attr-defined]
+    )
 
     broker._expire_abandoned_shell_operations(time.monotonic())
 
     assert assignment.active_shell_operation is None
     assert assignment.managed_shell_failure_status == "managed_shell_operation_abandoned"
-    assert events == ["managed_shell_operation_abandoned"]
+    assert events == [("managed_shell_operation_abandoned", True)]
 
 
 def test_release_waits_for_shell_command_reservation() -> None:
@@ -487,6 +552,7 @@ def test_release_waits_for_shell_command_reservation() -> None:
         "assignment-1",
         "shell-old",
         timeout_seconds=30,
+        request_timeout_seconds=10,
     )
     released: list[dict[str, object]] = []
     thread = threading.Thread(target=lambda: released.append(broker.release("client-1", "assignment-1")))

@@ -5,6 +5,17 @@ import pytest
 from sanitize_sandoq_cleanup_audit import CleanupAuditError, sanitize
 
 
+def _managed_event(event: str, **values: object) -> dict[str, object]:
+    return {
+        "schema_version": 2,
+        "event": event,
+        "timestamp": 1.0,
+        "slurm_job_id": "synthetic-job",
+        "wandb_run_id": None,
+        **values,
+    }
+
+
 def _write_evidence(root: Path, *, release: dict | None = None) -> tuple[Path, Path, Path, Path]:
     raw = root / "pool_cleanup_audit.json"
     raw.write_text(
@@ -81,6 +92,100 @@ def test_sanitizer_reconciles_all_cleanup_layers_without_publishing_ids(tmp_path
     assert result["outer_sessions_deleted"] == 1
     assert "opaque" not in output.read_text()
     assert all(path.exists() for path in (raw, event, wal, drain))
+
+
+def test_sanitizer_accepts_strict_managed_shell_recovery_chain_without_publishing_ids(tmp_path: Path) -> None:
+    raw, event, wal, drain = _write_evidence(tmp_path)
+    event_rows = [json.loads(line) for line in event.read_text().splitlines()]
+    event_rows[0].update(slot_id=0, generation=1)
+    event_rows.insert(
+        1,
+        _managed_event(
+            "managed_shell_recovered",
+            record_type="pool_event",
+            assignment_id="opaque-assignment",
+            outer_session_id="opaque-outer",
+            slot_id=0,
+            generation=1,
+            shell_generation=1,
+            recovery_count=1,
+        ),
+    )
+    event.write_text("".join(json.dumps(row) + "\n" for row in event_rows))
+    wal.write_text(
+        "".join(
+            json.dumps(row) + "\n"
+            for row in (
+                {"schema_version": 2, "event": "outer_created", "outer_session_id": "opaque-outer"},
+                _managed_event(
+                    "managed_shell_bound",
+                    assignment_id="opaque-assignment",
+                    outer_session_id="opaque-outer",
+                    slot_id=0,
+                    generation=1,
+                    shell_id="opaque-shell-old",
+                    shell_generation=0,
+                ),
+                _managed_event(
+                    "managed_shell_recovered",
+                    assignment_id="opaque-assignment",
+                    outer_session_id="opaque-outer",
+                    slot_id=0,
+                    generation=1,
+                    prior_shell_id="opaque-shell-old",
+                    shell_id="opaque-shell-new",
+                    shell_generation=1,
+                ),
+                {"schema_version": 2, "event": "outer_deleted", "outer_session_id": "opaque-outer"},
+            )
+        )
+    )
+
+    output = tmp_path / "sanitized.json"
+    result = sanitize(raw, event, wal, drain, output)
+
+    assert result["managed_shell_bindings"] == 1
+    assert result["managed_shell_recoveries"] == 1
+    assert result["assignments_with_managed_shell_recovery"] == 1
+    assert result["managed_shell_recovery_failures"] == 0
+    assert "opaque-assignment" not in output.read_text()
+    assert "opaque-shell-old" not in output.read_text()
+    assert "opaque-shell-new" not in output.read_text()
+
+
+def test_sanitizer_preserves_standard_wal_without_shell_lifecycle_rows(tmp_path: Path) -> None:
+    raw, event, wal, drain = _write_evidence(tmp_path)
+
+    result = sanitize(raw, event, wal, drain, tmp_path / "sanitized.json")
+
+    assert result["managed_shell_bindings"] == 0
+    assert result["managed_shell_recoveries"] == 0
+    assert result["assignments_with_managed_shell_recovery"] == 0
+
+
+def test_sanitizer_rejects_unlinked_managed_shell_recovery(tmp_path: Path) -> None:
+    raw, event, wal, drain = _write_evidence(tmp_path)
+    event_rows = [json.loads(line) for line in event.read_text().splitlines()]
+    event_rows[0].update(slot_id=0, generation=1)
+    event.write_text("".join(json.dumps(row) + "\n" for row in event_rows))
+    rows = [json.loads(line) for line in wal.read_text().splitlines()]
+    rows.insert(
+        1,
+        _managed_event(
+            "managed_shell_recovered",
+            assignment_id="opaque-assignment",
+            outer_session_id="opaque-outer",
+            slot_id=0,
+            generation=1,
+            prior_shell_id="opaque-shell-old",
+            shell_id="opaque-shell-new",
+            shell_generation=1,
+        ),
+    )
+    wal.write_text("".join(json.dumps(row) + "\n" for row in rows))
+
+    with pytest.raises(CleanupAuditError, match="managed_shell_wal_order_invalid"):
+        sanitize(raw, event, wal, drain, tmp_path / "sanitized.json")
 
 
 @pytest.mark.parametrize(
