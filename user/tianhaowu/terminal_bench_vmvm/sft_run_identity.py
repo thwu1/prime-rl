@@ -18,6 +18,25 @@ from pathlib import Path
 from typing import Any, Callable, Mapping
 
 EVAL_RUN_IDENTITY_FILENAME = "eval_run_identity.json"
+PROVIDER_UNION_CERTIFICATE_FILENAME = "direct_qwen_provider_union_certificate.json"
+SANDOQ_PARTITION_CERTIFICATE_FILENAME = "direct_qwen_sandoq_partition_certificate.json"
+VMVM_COMPOSE_CERTIFICATE_FILENAME = "direct_qwen_vmvm_compose_certificate.json"
+SANDOQ_CLEANUP_AUDIT_FILENAME = "sandoq_cleanup_audit.json"
+SANDOQ_AUTH_ROTATION_AUDIT_FILENAME = "sandoq_auth_rotation_audit.json"
+MIXED_PROVIDER_PRIVATE_ARTIFACT_FILENAMES = (
+    PROVIDER_UNION_CERTIFICATE_FILENAME,
+    SANDOQ_PARTITION_CERTIFICATE_FILENAME,
+    VMVM_COMPOSE_CERTIFICATE_FILENAME,
+    SANDOQ_CLEANUP_AUDIT_FILENAME,
+    SANDOQ_AUTH_ROTATION_AUDIT_FILENAME,
+)
+MIXED_PROVIDER_EXPORT_ARTIFACT_FILENAMES = (
+    PROVIDER_UNION_CERTIFICATE_FILENAME,
+    SANDOQ_CLEANUP_AUDIT_FILENAME,
+    SANDOQ_AUTH_ROTATION_AUDIT_FILENAME,
+)
+# Compatibility name for consumers which gate on the complete private proof set.
+MIXED_PROVIDER_ARTIFACT_FILENAMES = MIXED_PROVIDER_PRIVATE_ARTIFACT_FILENAMES
 MAX_IDENTITY_BYTES = 4 * 1024 * 1024
 SHA256_HEX = frozenset("0123456789abcdef")
 SANDOQ_CLEANUP_VERIFIER_COMMIT = "25fa6d57400ef3f452d4c34d874f524ab43c18d5"
@@ -144,6 +163,82 @@ def _read_regular(path: Path) -> tuple[bytes, IdentityArtifact]:
     return bytes(body), IdentityArtifact(bytes=after.st_size, sha256=digest.hexdigest())
 
 
+def _read_private_union_artifact(run_dir: Path, relative: str) -> tuple[bytes, IdentityArtifact]:
+    relative_path = Path(relative)
+    if relative_path.is_absolute() or len(relative_path.parts) != 1 or relative_path.name in {"", ".", ".."}:
+        raise SftRunIdentityError("provider_union_artifact_missing")
+    directory_flags = os.O_RDONLY | os.O_CLOEXEC | os.O_DIRECTORY
+    file_flags = os.O_RDONLY | os.O_CLOEXEC
+    if hasattr(os, "O_NOFOLLOW"):
+        directory_flags |= os.O_NOFOLLOW
+        file_flags |= os.O_NOFOLLOW
+    try:
+        directory = os.open(run_dir, directory_flags)
+    except OSError as error:
+        raise SftRunIdentityError("provider_union_artifact_missing") from error
+    descriptor = -1
+    try:
+        root_before = os.fstat(directory)
+        if (
+            not stat.S_ISDIR(root_before.st_mode)
+            or root_before.st_uid != os.getuid()
+            or stat.S_IMODE(root_before.st_mode) != 0o700
+        ):
+            raise SftRunIdentityError("provider_union_artifact_not_private")
+        try:
+            descriptor = os.open(relative, file_flags, dir_fd=directory)
+        except OSError as error:
+            raise SftRunIdentityError("provider_union_artifact_missing") from error
+        before = os.fstat(descriptor)
+        if (
+            not stat.S_ISREG(before.st_mode)
+            or before.st_uid != os.getuid()
+            or stat.S_IMODE(before.st_mode) != 0o600
+            or before.st_nlink != 1
+            or before.st_size > MAX_IDENTITY_BYTES
+        ):
+            raise SftRunIdentityError("provider_union_artifact_not_private")
+        body = bytearray()
+        digest = hashlib.sha256()
+        while chunk := os.read(descriptor, 1 << 20):
+            body.extend(chunk)
+            digest.update(chunk)
+            if len(body) > MAX_IDENTITY_BYTES:
+                raise SftRunIdentityError("provider_union_artifact_invalid")
+        after = os.fstat(descriptor)
+        root_after = os.fstat(directory)
+    finally:
+        if descriptor >= 0:
+            os.close(descriptor)
+        os.close(directory)
+    file_identity = lambda value: (
+        value.st_dev,
+        value.st_ino,
+        value.st_mode,
+        value.st_uid,
+        value.st_nlink,
+        value.st_size,
+        value.st_mtime_ns,
+        value.st_ctime_ns,
+    )
+    root_identity = lambda value: (
+        value.st_dev,
+        value.st_ino,
+        value.st_mode,
+        value.st_uid,
+    )
+    if (
+        file_identity(before) != file_identity(after)
+        or root_identity(root_before) != root_identity(root_after)
+        or not stat.S_ISREG(after.st_mode)
+        or after.st_uid != os.getuid()
+        or stat.S_IMODE(after.st_mode) != 0o600
+        or after.st_nlink != 1
+    ):
+        raise SftRunIdentityError("provider_union_artifact_changed")
+    return bytes(body), IdentityArtifact(bytes=after.st_size, sha256=digest.hexdigest())
+
+
 def _valid_git_sha(value: object) -> bool:
     return isinstance(value, str) and len(value) == 40 and not (set(value) - SHA256_HEX)
 
@@ -181,6 +276,104 @@ def _source_artifact_sha256(source_artifacts: Mapping[str, Any], relative: str) 
     if not _valid_sha256(expected_sha256):
         raise SftRunIdentityError("eval_run_identity_source_artifact_missing")
     return expected_sha256
+
+
+def _json_object(body: bytes, code: str) -> dict[str, Any]:
+    try:
+        value = json.loads(body)
+    except (UnicodeDecodeError, json.JSONDecodeError) as error:
+        raise SftRunIdentityError(code) from error
+    if not isinstance(value, dict):
+        raise SftRunIdentityError(code)
+    return value
+
+
+def _mixed_provider_union(
+    run_dir: Path,
+    *,
+    provider: str,
+    eval_run_identity_sha256: str,
+    task_count: int,
+) -> tuple[dict[str, Any], dict[str, IdentityArtifact], str]:
+    if provider not in {"sandoq", "vmvm"} or not _valid_sha256(eval_run_identity_sha256):
+        raise SftRunIdentityError("provider_union_binding_invalid")
+    bodies: dict[str, bytes] = {}
+    artifacts: dict[str, IdentityArtifact] = {}
+    for relative in MIXED_PROVIDER_ARTIFACT_FILENAMES:
+        try:
+            body, artifact = _read_private_union_artifact(run_dir, relative)
+        except SftRunIdentityError as error:
+            raise SftRunIdentityError("provider_union_artifact_missing") from error
+        bodies[relative] = body
+        artifacts[relative] = artifact
+    union_value = _json_object(
+        bodies[PROVIDER_UNION_CERTIFICATE_FILENAME],
+        "provider_union_certificate_invalid",
+    )
+    sandoq_value = _json_object(
+        bodies[SANDOQ_PARTITION_CERTIFICATE_FILENAME],
+        "provider_union_certificate_invalid",
+    )
+    vmvm_value = _json_object(
+        bodies[VMVM_COMPOSE_CERTIFICATE_FILENAME],
+        "provider_union_certificate_invalid",
+    )
+    try:
+        from certify_direct_qwen_provider_union import certify_union
+
+        expected_union = certify_union(
+            sandoq_certificate=run_dir / SANDOQ_PARTITION_CERTIFICATE_FILENAME,
+            sandoq_certificate_sha256=artifacts[SANDOQ_PARTITION_CERTIFICATE_FILENAME].sha256,
+            vmvm_certificate=run_dir / VMVM_COMPOSE_CERTIFICATE_FILENAME,
+            vmvm_certificate_sha256=artifacts[VMVM_COMPOSE_CERTIFICATE_FILENAME].sha256,
+        )
+    except Exception as error:
+        raise SftRunIdentityError("provider_union_certificate_invalid") from error
+    if _canonical_json(union_value) != _canonical_json(expected_union):
+        raise SftRunIdentityError("provider_union_certificate_invalid")
+    current = sandoq_value if provider == "sandoq" else vmvm_value
+    expected_count = 2499 if provider == "sandoq" else 1
+    if (
+        not _valid_positive_integer(task_count)
+        or task_count != expected_count
+        or current.get("eval_run_identity_sha256") != eval_run_identity_sha256
+        or current.get("task_count") != expected_count
+        or union_value.get("task_count") != 2500
+        or union_value.get("partition", {}).get("sandoq") != 2499
+        or union_value.get("partition", {}).get("vmvm") != 1
+        or union_value.get("partition", {}).get("total") != 2500
+        or union_value.get("partition", {}).get("compose_count") != 1
+        or union_value.get("partition", {}).get("disjoint") is not True
+        or union_value.get("partition", {}).get("exhaustive") is not True
+        or union_value.get("partition", {}).get("member_commitments_public") is not False
+        or sandoq_value.get("pool_cleanup", {}).get("audit_sha256")
+        != artifacts[SANDOQ_CLEANUP_AUDIT_FILENAME].sha256
+        or sandoq_value.get("auth_rotation", {}).get("audit_sha256")
+        != artifacts[SANDOQ_AUTH_ROTATION_AUDIT_FILENAME].sha256
+        or not _valid_sha256(current.get("results_sha256"))
+    ):
+        raise SftRunIdentityError("provider_union_binding_invalid")
+    provenance = {
+        "schema_version": 1,
+        "kind": "direct-qwen-provider-union",
+        "state": "passed",
+        "current_provider": provider,
+        "task_count": 2500,
+        "partition": dict(union_value["partition"]),
+        "certificate": artifacts[PROVIDER_UNION_CERTIFICATE_FILENAME].as_dict(),
+        "sanitized_cleanup": {
+            "sandoq": artifacts[SANDOQ_CLEANUP_AUDIT_FILENAME].as_dict(),
+            "auth_rotation": artifacts[SANDOQ_AUTH_ROTATION_AUDIT_FILENAME].as_dict(),
+            "source_hashes": dict(sandoq_value["sanitized_cleanup_source_hashes"]),
+            "vmvm_runtime_cleanup": dict(vmvm_value["runtime_cleanup"]),
+        },
+        "materialization": dict(current["materialization"]),
+        "shared_contract_sha256": current["shared_contract_sha256"],
+    }
+    exported_artifacts = {
+        name: artifacts[name] for name in MIXED_PROVIDER_EXPORT_ARTIFACT_FILENAMES
+    }
+    return provenance, exported_artifacts, current["results_sha256"]
 
 
 def _runtime_provider(config_body: bytes) -> str | None:
