@@ -17,7 +17,7 @@ import re
 import stat
 from contextlib import ExitStack, suppress
 from dataclasses import dataclass
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import Any, Mapping
 
 import direct_kimi_workers as direct_workers
@@ -32,6 +32,8 @@ EXECUTED_TASKS = split.LEGACY_SANDOQ_TASKS + fallback.MEMORY_8G_TASKS + fallback
 SYNTHETIC_ZERO_TASKS = fallback.COMPOSE_EXCLUDED_TASKS + fallback.GPU_UNSUPPORTED_TASKS
 EXPECTED_LANES = ("standard_legacy", "fallback_memory_8g", "fallback_memory_16g")
 PROVENANCE_KEY_RE = re.compile(r"[a-z][a-z0-9_]*\Z")
+MOUNT_FIELD_ESCAPE_RE = re.compile(r"\\([0-7]{3})")
+PROC_METADATA_LIMIT = 8 * 1024 * 1024
 
 
 class KimiDiagnosticUnionError(ValueError):
@@ -73,6 +75,20 @@ class _HeldTreeRoot:
     name: str
     identity: tuple[int, int, int, int]
     parent_identity: tuple[int, int, int, int]
+
+
+@dataclass(frozen=True, slots=True)
+class _MountRecord:
+    mount_id: int
+    device: tuple[int, int]
+    root: PurePosixPath
+    mount_point: PurePosixPath
+
+
+@dataclass(frozen=True, slots=True)
+class _MountRegion:
+    device: tuple[int, int]
+    root: PurePosixPath
 
 
 class RetainedAuditEvidence:
@@ -185,6 +201,32 @@ class RetainedAuditEvidence:
                 _verify_source_record(source)
         except (EvalIdentityError, KeyError, OSError, TypeError, ValueError) as error:
             raise KimiDiagnosticUnionError("diagnostic_source_closure_changed") from error
+
+    def revalidate_identity_authorities(self) -> None:
+        """Revalidate each exact held identity and all authority it names."""
+
+        try:
+            for evidence in self._runs:
+                identity_body = evidence.files["eval_run_identity.json"].body
+                invocation_body = evidence.files["eval_invocations.jsonl"].body
+                provenance_body = evidence.files["provenance.txt"].body
+                envelope = load_eval_run_identity_bytes(
+                    identity_body,
+                    run_dir=evidence.root,
+                    verify_references=True,
+                    verify_saved_provenance=False,
+                )
+                identity_sha256, _invocation_sha256, identity = direct_workers.validate_run_binding_bytes(
+                    identity_body,
+                    invocation_body,
+                    provenance_body,
+                )
+                if envelope.get("eval_run_identity_sha256") != identity_sha256 or envelope.get("identity") != identity:
+                    raise KimiDiagnosticUnionError("diagnostic_run_binding_invalid")
+        except KimiDiagnosticUnionError:
+            raise
+        except (EvalIdentityError, KeyError, OSError, direct_workers.DirectKimiWorkerError) as error:
+            raise KimiDiagnosticUnionError("diagnostic_identity_authority_changed") from error
 
     def _close_tree_roots(self) -> None:
         for root in self._tree_roots.values():
@@ -1010,17 +1052,174 @@ def _directory_ancestry(descriptor: int) -> tuple[tuple[int, int], ...]:
     raise KimiDiagnosticUnionError("diagnostic_directory_ancestry_invalid")
 
 
+def _read_proc_metadata(path: str) -> bytes:
+    flags = os.O_RDONLY | os.O_CLOEXEC
+    if hasattr(os, "O_NOFOLLOW"):
+        flags |= os.O_NOFOLLOW
+    try:
+        descriptor = os.open(path, flags)
+        try:
+            body = bytearray()
+            while chunk := os.read(descriptor, 1 << 20):
+                body.extend(chunk)
+                if len(body) > PROC_METADATA_LIMIT:
+                    raise KimiDiagnosticUnionError("diagnostic_mount_topology_invalid")
+            return bytes(body)
+        finally:
+            os.close(descriptor)
+    except KimiDiagnosticUnionError:
+        raise
+    except OSError as error:
+        raise KimiDiagnosticUnionError("diagnostic_mount_topology_invalid") from error
+
+
+def _decode_mount_field(value: str) -> PurePosixPath:
+    decoded: list[str] = []
+    offset = 0
+    while offset < len(value):
+        if value[offset] != "\\":
+            decoded.append(value[offset])
+            offset += 1
+            continue
+        match = MOUNT_FIELD_ESCAPE_RE.match(value, offset)
+        if match is None:
+            raise KimiDiagnosticUnionError("diagnostic_mount_topology_invalid")
+        character = chr(int(match.group(1), 8))
+        if character == "\x00":
+            raise KimiDiagnosticUnionError("diagnostic_mount_topology_invalid")
+        decoded.append(character)
+        offset = match.end()
+    path = PurePosixPath("".join(decoded))
+    if not path.is_absolute() or any(part in {".", ".."} for part in path.parts):
+        raise KimiDiagnosticUnionError("diagnostic_mount_topology_invalid")
+    return path
+
+
+def _read_mount_topology() -> dict[int, _MountRecord]:
+    try:
+        text = _read_proc_metadata("/proc/self/mountinfo").decode("utf-8", errors="surrogateescape")
+        records: dict[int, _MountRecord] = {}
+        for line in text.splitlines():
+            left, separator, _right = line.partition(" - ")
+            fields = left.split()
+            if not separator or len(fields) < 6:
+                raise KimiDiagnosticUnionError("diagnostic_mount_topology_invalid")
+            mount_id = int(fields[0])
+            device_parts = fields[2].split(":")
+            if len(device_parts) != 2 or any(not part.isdigit() for part in device_parts):
+                raise KimiDiagnosticUnionError("diagnostic_mount_topology_invalid")
+            record = _MountRecord(
+                mount_id=mount_id,
+                device=(int(device_parts[0]), int(device_parts[1])),
+                root=_decode_mount_field(fields[3]),
+                mount_point=_decode_mount_field(fields[4]),
+            )
+            if mount_id <= 0 or mount_id in records:
+                raise KimiDiagnosticUnionError("diagnostic_mount_topology_invalid")
+            records[mount_id] = record
+        if not records:
+            raise KimiDiagnosticUnionError("diagnostic_mount_topology_invalid")
+        return records
+    except KimiDiagnosticUnionError:
+        raise
+    except (UnicodeError, ValueError) as error:
+        raise KimiDiagnosticUnionError("diagnostic_mount_topology_invalid") from error
+
+
+def _descriptor_mount_id(descriptor: int) -> int:
+    try:
+        text = _read_proc_metadata(f"/proc/self/fdinfo/{descriptor}").decode("ascii")
+    except UnicodeError as error:
+        raise KimiDiagnosticUnionError("diagnostic_mount_topology_invalid") from error
+    values = [line.split(":", 1)[1].strip() for line in text.splitlines() if line.startswith("mnt_id:")]
+    if len(values) != 1 or not values[0].isdigit() or int(values[0]) <= 0:
+        raise KimiDiagnosticUnionError("diagnostic_mount_topology_invalid")
+    return int(values[0])
+
+
+def _descriptor_namespace_path(descriptor: int) -> PurePosixPath:
+    try:
+        value = os.readlink(f"/proc/self/fd/{descriptor}")
+    except OSError as error:
+        raise KimiDiagnosticUnionError("diagnostic_mount_topology_invalid") from error
+    if value.endswith(" (deleted)"):
+        raise KimiDiagnosticUnionError("diagnostic_mount_topology_invalid")
+    path = PurePosixPath(value)
+    if not path.is_absolute() or any(part in {".", ".."} for part in path.parts):
+        raise KimiDiagnosticUnionError("diagnostic_mount_topology_invalid")
+    return path
+
+
+def _descriptor_device(descriptor: int) -> tuple[int, int]:
+    try:
+        metadata = os.fstat(descriptor)
+    except OSError as error:
+        raise KimiDiagnosticUnionError("diagnostic_mount_topology_invalid") from error
+    if not stat.S_ISDIR(metadata.st_mode):
+        raise KimiDiagnosticUnionError("diagnostic_mount_topology_invalid")
+    return os.major(metadata.st_dev), os.minor(metadata.st_dev)
+
+
+def _directory_mount_regions(
+    descriptor: int,
+    topology: Mapping[int, _MountRecord],
+) -> tuple[_MountRegion, ...]:
+    mount_id = _descriptor_mount_id(descriptor)
+    record = topology.get(mount_id)
+    if record is None:
+        raise KimiDiagnosticUnionError("diagnostic_mount_topology_invalid")
+    device = _descriptor_device(descriptor)
+    namespace_path = _descriptor_namespace_path(descriptor)
+    try:
+        relative = namespace_path.relative_to(record.mount_point)
+    except ValueError as error:
+        raise KimiDiagnosticUnionError("diagnostic_mount_topology_invalid") from error
+    if device != record.device:
+        raise KimiDiagnosticUnionError("diagnostic_mount_topology_invalid")
+    regions = {_MountRegion(device, record.root.joinpath(relative))}
+    for nested in topology.values():
+        if nested.mount_id == mount_id:
+            continue
+        try:
+            nested.mount_point.relative_to(namespace_path)
+        except ValueError:
+            continue
+        regions.add(_MountRegion(nested.device, nested.root))
+    return tuple(sorted(regions, key=lambda region: (region.device, str(region.root))))
+
+
+def _mount_regions_overlap(first: tuple[_MountRegion, ...], second: tuple[_MountRegion, ...]) -> bool:
+    for first_region in first:
+        for second_region in second:
+            if first_region.device != second_region.device:
+                continue
+            if first_region.root.is_relative_to(second_region.root) or second_region.root.is_relative_to(
+                first_region.root
+            ):
+                return True
+    return False
+
+
 def _validate_output_inode_disjoint(
     output_parent: int,
     evidence_directories: tuple[int, ...],
 ) -> None:
     output_ancestry = _directory_ancestry(output_parent)
     output_identity = output_ancestry[0]
+    topology = _read_mount_topology()
+    output_regions = _directory_mount_regions(output_parent, topology)
     for descriptor in evidence_directories:
         evidence_ancestry = _directory_ancestry(descriptor)
         evidence_identity = evidence_ancestry[0]
-        if evidence_identity in output_ancestry or output_identity in evidence_ancestry:
+        evidence_regions = _directory_mount_regions(descriptor, topology)
+        if (
+            evidence_identity in output_ancestry
+            or output_identity in evidence_ancestry
+            or _mount_regions_overlap(output_regions, evidence_regions)
+        ):
             raise KimiDiagnosticUnionError("diagnostic_output_evidence_overlap")
+    if _read_mount_topology() != topology:
+        raise KimiDiagnosticUnionError("diagnostic_mount_topology_changed")
 
 
 @dataclass(slots=True)
@@ -1061,6 +1260,9 @@ class _PendingDiagnosticOutput:
 
         try:
             split._write_at(self.parent_descriptor, self.marker_name, self.marker_payload)
+            # The marker is the sole authority. A failed directory fsync is
+            # indeterminate and the marker is deliberately never removed.
+            os.fsync(self.parent_descriptor)
         except (OSError, split.KimiProviderSplitError) as error:
             raise KimiDiagnosticUnionError("diagnostic_output_publication_indeterminate") from error
 
@@ -1445,6 +1647,13 @@ def build_diagnostic_union(
             # closure. Recheck every retained inode afterwards so a source
             # pathname substitution during that verification cannot survive
             # to the authoritative marker commit.
+            retained.revalidate()
+            pending.revalidate(retained)
+            # Re-run the complete identity verifier from each retained
+            # authoritative identity body. This includes dataset git/archive
+            # authority and every referenced input; the following retained-fd
+            # pass binds those pathname reads back to the audited inodes.
+            retained.revalidate_identity_authorities()
             retained.revalidate()
             pending.revalidate(retained)
             pending.commit()

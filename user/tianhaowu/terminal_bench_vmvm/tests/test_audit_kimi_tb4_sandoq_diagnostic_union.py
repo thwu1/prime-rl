@@ -4,6 +4,7 @@ import os
 import sys
 from dataclasses import replace
 from pathlib import Path
+from types import SimpleNamespace
 
 import audit_kimi_tb4_sandoq_diagnostic_union as diagnostic
 import kimi_tb4_provider_split as split
@@ -355,12 +356,80 @@ def test_inode_ancestry_rejects_bind_alias_shape(monkeypatch: pytest.MonkeyPatch
         50: ((7, 50), (7, 20), (7, 1)),
     }
     monkeypatch.setattr(diagnostic, "_directory_ancestry", lambda descriptor: ancestries[descriptor])
+    monkeypatch.setattr(diagnostic, "_read_mount_topology", lambda: {})
+    monkeypatch.setattr(
+        diagnostic,
+        "_directory_mount_regions",
+        lambda descriptor, _topology: (
+            diagnostic._MountRegion((9, descriptor), diagnostic.PurePosixPath(f"/{descriptor}")),
+        ),
+    )
 
     with pytest.raises(diagnostic.KimiDiagnosticUnionError, match="^diagnostic_output_evidence_overlap$"):
         diagnostic._validate_output_inode_disjoint(10, (20,))
     with pytest.raises(diagnostic.KimiDiagnosticUnionError, match="^diagnostic_output_evidence_overlap$"):
         diagnostic._validate_output_inode_disjoint(40, (50,))
     diagnostic._validate_output_inode_disjoint(10, (30,))
+
+
+def test_mount_topology_rejects_descendant_bind_alias(monkeypatch: pytest.MonkeyPatch) -> None:
+    ancestries = {
+        10: ((7, 30), (7, 1)),
+        20: ((7, 20), (7, 1)),
+        30: ((7, 40), (7, 1)),
+    }
+    regions = {
+        10: (diagnostic._MountRegion((8, 1), diagnostic.PurePosixPath("/source/subdir/private")),),
+        20: (diagnostic._MountRegion((8, 1), diagnostic.PurePosixPath("/source")),),
+        30: (diagnostic._MountRegion((8, 1), diagnostic.PurePosixPath("/unrelated")),),
+    }
+    topology = {1: object()}
+    monkeypatch.setattr(diagnostic, "_directory_ancestry", lambda descriptor: ancestries[descriptor])
+    monkeypatch.setattr(diagnostic, "_read_mount_topology", lambda: topology)
+    monkeypatch.setattr(
+        diagnostic,
+        "_directory_mount_regions",
+        lambda descriptor, observed: regions[descriptor] if observed is topology else (),
+    )
+
+    with pytest.raises(diagnostic.KimiDiagnosticUnionError, match="^diagnostic_output_evidence_overlap$"):
+        diagnostic._validate_output_inode_disjoint(10, (20,))
+    diagnostic._validate_output_inode_disjoint(10, (30,))
+
+
+def test_mount_regions_map_bind_alias_to_underlying_descendant(monkeypatch: pytest.MonkeyPatch) -> None:
+    topology = {
+        1: diagnostic._MountRecord(
+            mount_id=1,
+            device=(8, 1),
+            root=diagnostic.PurePosixPath("/"),
+            mount_point=diagnostic.PurePosixPath("/"),
+        ),
+        2: diagnostic._MountRecord(
+            mount_id=2,
+            device=(8, 1),
+            root=diagnostic.PurePosixPath("/source/subdir"),
+            mount_point=diagnostic.PurePosixPath("/alias"),
+        ),
+    }
+    mount_ids = {10: 2, 20: 1}
+    namespace_paths = {
+        10: diagnostic.PurePosixPath("/alias/private"),
+        20: diagnostic.PurePosixPath("/source"),
+    }
+    monkeypatch.setattr(diagnostic, "_descriptor_mount_id", lambda descriptor: mount_ids[descriptor])
+    monkeypatch.setattr(
+        diagnostic,
+        "_descriptor_namespace_path",
+        lambda descriptor: namespace_paths[descriptor],
+    )
+    monkeypatch.setattr(diagnostic, "_descriptor_device", lambda _descriptor: (8, 1))
+
+    output_regions = diagnostic._directory_mount_regions(10, topology)
+    evidence_regions = diagnostic._directory_mount_regions(20, topology)
+
+    assert diagnostic._MountRegion((8, 1), diagnostic.PurePosixPath("/source/subdir/private")) in output_regions
+    assert diagnostic._mount_regions_overlap(output_regions, evidence_regions) is True
 
 
 def test_identity_tree_roots_are_retained_and_revalidated(tmp_path: Path) -> None:
@@ -404,6 +473,58 @@ def test_authenticated_source_closure_is_revalidated(
     assert observed == [source]
 
 
+def test_complete_identity_authority_uses_retained_run_bytes(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    identity_body = b'{"held":"identity"}\n'
+    invocation_body = b'{"held":"invocation"}\n'
+    provenance_body = b"held=provenance\n"
+    identity = {"dataset": {"kind": "archive"}}
+    envelope = {"eval_run_identity_sha256": "a" * 64, "identity": identity}
+    evidence = SimpleNamespace(
+        root=tmp_path / "run",
+        files={
+            "eval_run_identity.json": SimpleNamespace(body=identity_body),
+            "eval_invocations.jsonl": SimpleNamespace(body=invocation_body),
+            "provenance.txt": SimpleNamespace(body=provenance_body),
+        },
+    )
+    observed: list[tuple[bytes, Path, bool, bool]] = []
+
+    def load_identity(raw: bytes, **kwargs: object) -> dict:
+        observed.append(
+            (
+                raw,
+                kwargs["run_dir"],
+                kwargs["verify_references"],
+                kwargs["verify_saved_provenance"],
+            )
+        )
+        return envelope
+
+    monkeypatch.setattr(diagnostic, "load_eval_run_identity_bytes", load_identity)
+    monkeypatch.setattr(
+        diagnostic.direct_workers,
+        "validate_run_binding_bytes",
+        lambda *bodies: (
+            (
+                "a" * 64,
+                "b" * 64,
+                identity,
+            )
+            if bodies == (identity_body, invocation_body, provenance_body)
+            else pytest.fail("identity authority did not use held run bytes")
+        ),
+    )
+    retained = diagnostic.RetainedAuditEvidence()
+    retained._runs.append(evidence)
+
+    retained.revalidate_identity_authorities()
+
+    assert observed == [(identity_body, tmp_path / "run", True, False)]
+
+
 def test_build_publishes_private_marker_gated_aggregate_only_output(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -438,6 +559,10 @@ def test_build_publishes_private_marker_gated_aggregate_only_output(
         def revalidate_source_closures(self) -> None:
             super().revalidate_source_closures()
             events.append("source-revalidate")
+
+        def revalidate_identity_authorities(self) -> None:
+            super().revalidate_identity_authorities()
+            events.append("identity-authority-revalidate")
 
         def close_after_commit(self) -> None:
             events.append("close-after-commit")
@@ -485,6 +610,8 @@ def test_build_publishes_private_marker_gated_aggregate_only_output(
         "revalidate",
         "source-revalidate",
         "revalidate",
+        "identity-authority-revalidate",
+        "revalidate",
         "commit-marker",
         "close-after-commit",
     ]
@@ -526,6 +653,54 @@ def test_precommit_source_failure_leaves_no_authoritative_marker(
     output = private / "diagnostic-union.json"
 
     with pytest.raises(diagnostic.KimiDiagnosticUnionError, match="^diagnostic_source_closure_changed$"):
+        diagnostic.build_diagnostic_union(
+            standard_plan_path=tmp_path / "standard-plan.json",
+            standard_plan_sha256=plan.standard_plan_sha256,
+            fallback_plan_path=tmp_path / "fallback-plan.json",
+            fallback_plan_sha256=plan.fallback_plan_sha256,
+            standard_source_revision="a" * 40,
+            fallback_source_revision="b" * 40,
+            output=output,
+        )
+
+    assert output.is_file()
+    assert not output.with_name(f".{output.name}{split.FILE_COMMIT_SUFFIX}").exists()
+
+
+def test_precommit_full_identity_failure_leaves_no_authoritative_marker(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    plan = _plan(tmp_path)
+    results = _lane_results()
+    compatibility = {
+        "model_contract": {"model": "Kimi-K3"},
+        "worker_generation_contract_sha256": "4" * 64,
+    }
+    standard_source = {"prime_rl_commit": "a" * 40, "source": "standard"}
+    fallback_source = {"prime_rl_commit": "b" * 40, "source": "fallback"}
+    monkeypatch.setattr(diagnostic, "authenticate_plans", lambda *_args, **_kwargs: plan)
+    monkeypatch.setattr(
+        diagnostic,
+        "audit_lane",
+        lambda lane, _plan_value, **_kwargs: (
+            results[lane.name],
+            compatibility,
+            standard_source if lane.name == "standard_legacy" else fallback_source,
+        ),
+    )
+    monkeypatch.setattr(
+        diagnostic.RetainedAuditEvidence,
+        "revalidate_identity_authorities",
+        lambda _self: (_ for _ in ()).throw(
+            diagnostic.KimiDiagnosticUnionError("diagnostic_identity_authority_changed")
+        ),
+    )
+    private = tmp_path / "private"
+    private.mkdir(mode=0o700)
+    output = private / "diagnostic-union.json"
+
+    with pytest.raises(diagnostic.KimiDiagnosticUnionError, match="^diagnostic_identity_authority_changed$"):
         diagnostic.build_diagnostic_union(
             standard_plan_path=tmp_path / "standard-plan.json",
             standard_plan_sha256=plan.standard_plan_sha256,
@@ -598,6 +773,37 @@ def test_precommit_implementation_replacement_leaves_no_authoritative_marker(
 
     assert output.is_file()
     assert not output.with_name(f".{output.name}{split.FILE_COMMIT_SUFFIX}").exists()
+
+
+def test_marker_parent_fsync_failure_is_indeterminate_and_non_destructive(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    private = tmp_path / "private"
+    private.mkdir(mode=0o700)
+    output = private / "diagnostic-union.json"
+    value = {"kind": diagnostic.KIND, "diagnostic_only": True}
+
+    with diagnostic.RetainedAuditEvidence() as retained:
+        pending = diagnostic._prepare_diagnostic_output(output, value, retained)
+        real_fsync = os.fsync
+
+        def fail_parent_fsync(descriptor: int) -> None:
+            if descriptor == pending.parent_descriptor:
+                raise OSError("injected parent fsync failure")
+            real_fsync(descriptor)
+
+        monkeypatch.setattr(os, "fsync", fail_parent_fsync)
+        with pytest.raises(
+            diagnostic.KimiDiagnosticUnionError,
+            match="^diagnostic_output_publication_indeterminate$",
+        ):
+            pending.commit()
+        pending.close()
+
+    marker = output.with_name(f".{output.name}{split.FILE_COMMIT_SUFFIX}")
+    assert output.read_bytes() == split.canonical_json(value)
+    assert marker.read_bytes() == split._file_commit_payload(output.name, output.read_bytes())
 
 
 def test_retained_evidence_detects_same_bytes_replacement_after_publication(tmp_path: Path) -> None:
