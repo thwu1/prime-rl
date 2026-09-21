@@ -964,6 +964,49 @@ commands emit summaries only; do not print result rows. Resume only through
 `run_qwen_direct_eval.sbatch`, which reuses the snapshotted endpoint set and
 local port and fails if the live metadata no longer exactly matches.
 
+## Sandoq provider modes and Firecracker credentials
+
+The vendored `extensions/sandoq` implementation is the SDK-backed adapter from
+`ram_prime_rl`; do not replace it with handwritten HTTP calls. It exposes two
+different modes which must not be conflated:
+
+- `VF_SANDBOX_PROVIDER=sandoq` leases one predeployed Sandoq Environment and
+  uses `SANDOQ_BASE_URL` plus `SANDOQ_DEFAULT_ENVIRONMENT`/`SANDOQ_ENV_MAP`.
+  The official client discovers its mTLS transport credentials. This mode does
+  not consume `SANDOQ_AUTH_TOKEN` or any `OCI_RUNNER_*` bearer token, and cannot
+  faithfully run arbitrary per-task Harbor images unless each image has a
+  reviewed deployed-environment mapping.
+- `VF_SANDBOX_PROVIDER=oci-runner` preserves each task's OCI image. The isolated
+  Firecracker variant uses `OCI_RUNNER_ENVIRONMENT=oci-runner-firecracker`,
+  `OCI_RUNNER_TASK_NETWORK=none`, and a private bearer-token file selected by
+  `OCI_RUNNER_TOKEN_FILE`. This profile is limited to host-side capacity and
+  recovery diagnostics. Public-network TB4 remains on the separate legacy
+  `oci-runner` provider profile.
+
+The checked-in Firecracker profile is
+`configs/provider_context/use2/kimi_sandoq_firecracker_no_network.json`, SHA-256
+`53e0311216e1b27988b960a782188c5794ed941b9380cba1fbd0f29a67149a93`.
+It points only to `/home/tianhaowu/.config/oci-runner/firecracker-token`; the
+token value never belongs in Git, TOML, Slurm arguments, logs, or receipts.
+Provision that path out of band as one nonempty line in an owner-only regular
+mode-0600 file, and remove any ambient `SANDOQ_AUTH_TOKEN` or `FIRECRACKER_KEY`
+afterward. The supervised provider context strips both variables before
+starting evaluation and passes only the file path. The provider itself opens
+the file without following symlinks and revalidates owner, link count, mode,
+and single-line shape.
+
+The task-free managed-shell recovery gate now uses this Firecracker profile.
+Its schema-2 receipt binds the environment, `task_network=none`, the hash of
+the credential path (never the credential), and the supervised context
+contract hash. A legacy recovery receipt cannot promote a Firecracker run.
+
+Mini-SWE-Agent is an in-sandbox harness. The pinned Sandoq runtime rejects it
+with this no-network profile because both model interception and PEP 723
+dependency preparation require a reachable path. Mini-SWE-Agent 2.4.6 must use
+a separate, independently certified Firecracker host-network profile with the
+native Sandoq reverse tunnel; the no-network receipt above does not certify
+that profile.
+
 ## Direct Kimi Sandoq scored smoke
 
 The server-scoped Kimi smoke uses one reviewed non-security TB4 task through a

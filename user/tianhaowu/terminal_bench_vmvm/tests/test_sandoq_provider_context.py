@@ -30,6 +30,27 @@ def _arguments(tmp_path: Path) -> dict[str, object]:
     }
 
 
+def _runtime_smoke_receipt(tmp_path: Path) -> tuple[Path, str]:
+    path = (tmp_path / "runtime-smoke.json").resolve()
+    body = context._canonical_json(
+        {
+            "schema_version": 1,
+            "kind": "kimi-firecracker-nonnetwork-smoke",
+            "state": "passed",
+            "environment": "oci-runner-firecracker",
+            "network_access": False,
+            "loopback_only_verified": True,
+            "execution_passed": True,
+            "cleanup_verified": True,
+            "cleanup_failures": 0,
+            "slurm_job_id": "123",
+        }
+    )
+    path.write_bytes(body)
+    path.chmod(0o600)
+    return path, context._sha256(body)
+
+
 def test_build_provider_environment_matches_sc3_context_without_reading_tokens(
     tmp_path: Path,
 ) -> None:
@@ -94,6 +115,52 @@ def test_auto_transport_clears_proxy_environment(tmp_path: Path) -> None:
     assert all(name not in environment for name in context.PROXY_ENVIRONMENT_NAMES)
 
 
+def test_firecracker_profile_sets_isolated_network_and_scrubs_ambient_tokens(
+    tmp_path: Path,
+) -> None:
+    profile_path = (
+        Path(__file__).parents[1]
+        / "configs/provider_context/use2/kimi_sandoq_firecracker_no_network.json"
+    ).resolve()
+    profile = context.load_provider_profile(
+        profile_path,
+        context._sha256(profile_path.read_bytes()),
+    )
+    arguments = _arguments(tmp_path)
+    arguments["provider_token_file"] = profile.provider_token_file
+    runtime_smoke_receipt, runtime_smoke_sha256 = _runtime_smoke_receipt(tmp_path)
+    environment = context.build_provider_environment(
+        {
+            "USER": "synthetic-user",
+            "FIRECRACKER_KEY": "must-not-survive",
+            "SANDOQ_AUTH_TOKEN": "must-not-survive",
+            "OCI_RUNNER_ALLOW_DOCKERHUB_FALLBACK": "1",
+        },
+        **arguments,
+        provider_environment=profile.environment,
+        effective_task_network=profile.effective_task_network,
+        task_network=profile.task_network,
+        runtime_smoke_receipt=runtime_smoke_receipt,
+        runtime_smoke_receipt_sha256=runtime_smoke_sha256,
+        provider_profile_sha256=profile.sha256,
+    )
+
+    assert profile.environment == "oci-runner-firecracker"
+    assert profile.task_network == "none"
+    assert environment["OCI_RUNNER_ENVIRONMENT"] == "oci-runner-firecracker"
+    assert environment["OCI_RUNNER_TASK_NETWORK"] == "none"
+    assert environment["SANDOQ_EFFECTIVE_TASK_NETWORK"] == "none"
+    assert environment["OCI_RUNNER_ALLOW_DOCKERHUB_FALLBACK"] == "0"
+    assert environment["OCI_RUNNER_PULL_TIMEOUT"] == "1200s"
+    assert environment["OCI_RUNNER_PULL_POLL_MAX_ERRORS"] == "10"
+    assert environment["OCI_RUNNER_TOKEN_FILE"] == str(profile.provider_token_file)
+    assert environment["SANDOQ_RUNTIME_SMOKE_RECEIPT"] == str(runtime_smoke_receipt)
+    assert environment["SANDOQ_RUNTIME_SMOKE_RECEIPT_SHA256"] == runtime_smoke_sha256
+    assert environment[context.CONTEXT_PROFILE_SHA256] == profile.sha256
+    assert "FIRECRACKER_KEY" not in environment
+    assert "SANDOQ_AUTH_TOKEN" not in environment
+
+
 def test_long_kimi_profile_sets_exact_twelve_hour_initial_lease(tmp_path: Path) -> None:
     arguments = _arguments(tmp_path)
     arguments.update({"transport_mode": "auto", "proxy_url": None, "lease_profile": "kimi-tb4-long"})
@@ -115,6 +182,111 @@ def test_long_kimi_profile_sets_exact_twelve_hour_initial_lease(tmp_path: Path) 
     arguments["lease_profile"] = "arbitrary"
     with pytest.raises(context.ProviderContextError, match="provider_context_configuration_invalid"):
         context.build_provider_environment({"USER": "synthetic-user"}, **arguments)
+
+
+def test_firecracker_supervisor_receipt_binds_isolated_profile(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    result = tmp_path / "firecracker-result.json"
+    profile_path = (
+        Path(__file__).parents[1]
+        / "configs/provider_context/use2/kimi_sandoq_firecracker_no_network.json"
+    ).resolve()
+    profile = context.load_provider_profile(
+        profile_path,
+        context._sha256(profile_path.read_bytes()),
+    )
+    arguments = _arguments(tmp_path)
+    runtime_smoke_receipt, runtime_smoke_sha256 = _runtime_smoke_receipt(tmp_path)
+    monkeypatch.setenv("SLURM_TMPDIR", str(tmp_path))
+    monkeypatch.setenv("SANDOQ_AUTH_TOKEN", "must-not-survive")
+    code = (
+        "import json, os, runpy; from pathlib import Path; "
+        f"module = runpy.run_path({str(Path(context.__file__))!r}); "
+        "provider_context_is_active = module['provider_context_is_active']; "
+        "snapshot_provider_context = module['snapshot_provider_context']; "
+        f"snapshot = snapshot_provider_context(os.environ, Path({str(tmp_path / 'sandoq-provider-context.json')!r})); "
+        "payload = dict(active=provider_context_is_active(os.environ), "
+        "environment=os.environ.get('OCI_RUNNER_ENVIRONMENT'), "
+        "effective_network=os.environ.get('SANDOQ_EFFECTIVE_TASK_NETWORK'), "
+        "task_network=os.environ.get('OCI_RUNNER_TASK_NETWORK'), "
+        "fallback=os.environ.get('OCI_RUNNER_ALLOW_DOCKERHUB_FALLBACK'), "
+        "ambient_token_present='SANDOQ_AUTH_TOKEN' in os.environ, "
+        "profile_sha256=snapshot['provider_profile_sha256'], "
+        "runtime_smoke_sha256=snapshot['runtime_smoke_receipt_sha256']); "
+        f"Path({str(result)!r}).write_text(json.dumps(payload))"
+    )
+
+    return_code = context.supervise(
+        [sys.executable, "-c", code],
+        cluster_identifier=profile.cluster_identifier,
+        transport_mode="auto",
+        concurrency=64,
+        lease_create_cap=4,
+        startup_timeout_seconds=3600,
+        provider_token_file=profile.provider_token_file,
+        ecr_token_file=Path(arguments["ecr_token_file"]),
+        ecr_token_metadata=Path(arguments["ecr_token_metadata"]),
+        project_root=Path(arguments["project_root"]),
+        sandoq_site=Path(arguments["sandoq_site"]),
+        provider_environment=profile.environment,
+        effective_task_network=profile.effective_task_network,
+        task_network=profile.task_network,
+        runtime_smoke_receipt=runtime_smoke_receipt,
+        runtime_smoke_receipt_sha256=runtime_smoke_sha256,
+        provider_profile_sha256=profile.sha256,
+    )
+
+    assert return_code == 0
+    assert json.loads(result.read_text()) == {
+        "active": True,
+        "ambient_token_present": False,
+        "effective_network": "none",
+        "environment": "oci-runner-firecracker",
+        "fallback": "0",
+        "profile_sha256": profile.sha256,
+        "runtime_smoke_sha256": runtime_smoke_sha256,
+        "task_network": "none",
+    }
+    snapshot = json.loads((tmp_path / "sandoq-provider-context.json").read_bytes())
+    assert snapshot["provider_environment"] == "oci-runner-firecracker"
+    assert snapshot["effective_task_network"] == "none"
+    assert snapshot["task_network"] == "none"
+    assert snapshot["network_access"] is False
+    assert snapshot["allow_dockerhub_fallback"] is False
+    assert snapshot["provider_context_contract_sha256"]
+    assert (tmp_path / "sandoq-provider-context.json").stat().st_mode & 0o777 == 0o600
+
+
+def test_firecracker_contract_rejects_smoke_tamper(tmp_path: Path) -> None:
+    arguments = _arguments(tmp_path)
+    runtime_smoke_receipt, runtime_smoke_sha256 = _runtime_smoke_receipt(tmp_path)
+    runtime_smoke_receipt.write_text("{}\n")
+
+    with pytest.raises(
+        context.ProviderContextError,
+        match="provider_context_runtime_smoke_invalid",
+    ):
+        context.supervise(
+            ["/bin/true"],
+            cluster_identifier=str(arguments["cluster_identifier"]),
+            transport_mode="auto",
+            concurrency=64,
+            lease_create_cap=4,
+            startup_timeout_seconds=3600,
+            provider_token_file=Path(arguments["provider_token_file"]),
+            ecr_token_file=Path(arguments["ecr_token_file"]),
+            ecr_token_metadata=Path(arguments["ecr_token_metadata"]),
+            project_root=Path(arguments["project_root"]),
+            sandoq_site=Path(arguments["sandoq_site"]),
+            provider_environment=context.FIRECRACKER_ENVIRONMENT,
+            effective_task_network="none",
+            task_network="none",
+            runtime_smoke_receipt=runtime_smoke_receipt,
+            runtime_smoke_receipt_sha256=runtime_smoke_sha256,
+            provider_profile_sha256="a" * 64,
+        )
 
 
 @pytest.mark.parametrize(
@@ -161,8 +333,9 @@ def test_supervisor_keeps_private_context_live_for_child(
     arguments = _arguments(tmp_path)
     monkeypatch.setenv("SLURM_TMPDIR", str(tmp_path))
     code = (
-        "import json, os; from pathlib import Path; "
-        "from terminal_bench_vmvm.sandoq_provider_context import provider_context_is_active; "
+        "import json, os, runpy; from pathlib import Path; "
+        f"module = runpy.run_path({str(Path(context.__file__))!r}); "
+        "provider_context_is_active = module['provider_context_is_active']; "
         "active = provider_context_is_active(os.environ); "
         "os.environ['OCI_RUNNER_PULL_TIMEOUT'] = '1s'; "
         "payload = dict(active=active, drift_rejected=not provider_context_is_active(os.environ), "
@@ -323,11 +496,19 @@ def test_cluster_profiles_are_separate_and_canonical() -> None:
     root = Path(__file__).parents[1] / "configs/provider_context"
     use2_path = (root / "use2/qwen_sandoq.json").resolve()
     sc3_path = (root / "sc3/qwen_sandoq.json").resolve()
+    firecracker_path = (root / "use2/kimi_sandoq_firecracker_no_network.json").resolve()
     use2 = context.load_provider_profile(use2_path, context._sha256(use2_path.read_bytes()))
     sc3 = context.load_provider_profile(sc3_path, context._sha256(sc3_path.read_bytes()))
+    firecracker = context.load_provider_profile(
+        firecracker_path,
+        context._sha256(firecracker_path.read_bytes()),
+    )
 
     assert use2.cluster_identifier == "use2"
     assert use2.transport_mode == "auto"
     assert sc3.cluster_identifier == "sc3"
     assert sc3.transport_mode == "loopback"
+    assert firecracker.environment == "oci-runner-firecracker"
+    assert firecracker.effective_task_network == "none"
+    assert firecracker.task_network == "none"
     assert use2.sha256 != sc3.sha256

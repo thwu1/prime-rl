@@ -131,6 +131,35 @@ exit, model failure, verifier failure, or malformed reward is never resampled.
 Pier's adapter materializes the DeepSWE verifier Dockerfile inside a separate
 Sandoq runtime. Hidden tests are never copied into the agent runtime.
 
+## Provider-mode boundary
+
+Keep the two SDK-backed adapter modes distinct. `VF_SANDBOX_PROVIDER=sandoq`
+leases a predeployed Environment selected with `SANDOQ_DEFAULT_ENVIRONMENT` or
+`SANDOQ_ENV_MAP` and relies on the official client's mTLS discovery; it does
+not read `SANDOQ_AUTH_TOKEN` or `OCI_RUNNER_*`. It is not a drop-in executor for
+heterogeneous Harbor row images unless every image has an approved deployed
+Environment mapping.
+
+Per-task Harbor images use `VF_SANDBOX_PROVIDER=oci-runner`. The isolated
+Firecracker profile is
+`configs/provider_context/use2/kimi_sandoq_firecracker_no_network.json`: it
+sets environment `oci-runner-firecracker`, nested task network `none`, and
+disables Docker Hub fallback. Its bearer lives only in the owner-only,
+mode-0600 file named by `OCI_RUNNER_TOKEN_FILE`; never put the value in a repo,
+TOML, command line, log, or receipt. The supervisor removes ambient
+`SANDOQ_AUTH_TOKEN` and `FIRECRACKER_KEY` before launching the child.
+
+Keep public-network TB4 on its separately hashed legacy `oci-runner` profile.
+Do not use a capacity or recovery receipt from one provider profile to promote
+the other.
+
+The no-network Firecracker profile is valid only for a host-side harness or
+task-free diagnostics. Mini-SWE-Agent runs inside the task sandbox, and its
+model calls plus PEP 723 dependency preparation require connectivity. Use
+Mini-SWE-Agent 2.4.6 only with a separately sealed Firecracker host-network
+profile and the native Sandoq reverse tunnel; never treat the no-network smoke
+receipt as evidence for that distinct runtime contract.
+
 ## Terminal Bench Kimi scored smoke
 
 The server-scoped Kimi TB4 smoke must use

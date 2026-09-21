@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import hashlib
 import json
 import os
 import re
@@ -24,9 +25,19 @@ from typing import Any
 
 from sandoq_provider import registry
 from sandoq_provider.oci_client import OCIRunnerAsyncSandboxClient
+from terminal_bench_vmvm.sandoq_provider_context import (
+    CONTEXT_RECEIPT,
+    FIRECRACKER_ENVIRONMENT,
+    ProviderContextError,
+    _load_receipt,
+    provider_context_is_active,
+)
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 DEFAULT_IMAGE = "docker.io/library/python@sha256:da047cb8f9d1d98e5c070f5300ba9f7274e33b8fc0e5be5ed88740aed1b95ba9"
+EXPECTED_PROVIDER_TOKEN_FILE = Path("/home/tianhaowu/.config/oci-runner/firecracker-token")
+EXPECTED_PROVIDER_PROFILE_SHA256 = "53e0311216e1b27988b960a782188c5794ed941b9380cba1fbd0f29a67149a93"
+EXPECTED_RUNTIME_SMOKE_SHA256 = "1e5d92d346894a0b8e29a1029278de4a0d4257a529862de87e8715f03dd152bf"
 _DIGEST_IMAGE_RE = re.compile(r"[^\s@]+@sha256:[0-9a-f]{64}")
 
 
@@ -81,14 +92,34 @@ async def run_probe(
         raise RecoveryProbeError("probe_image_invalid")
     if (mode == "forced-delete" and idle_seconds != 0) or (mode == "idle-endurance" and idle_seconds < 3_900):
         raise RecoveryProbeError("probe_idle_budget_invalid")
+    provider_token_file = Path(os.environ.get("OCI_RUNNER_TOKEN_FILE", ""))
     if (
-        os.environ.get("SANDOQ_PROVIDER_CONTEXT_ACTIVE") != "1"
+        not provider_context_is_active(os.environ)
+        or os.environ.get("SANDOQ_PROVIDER_CONTEXT_ACTIVE") != "1"
+        or os.environ.get("OCI_RUNNER_ENVIRONMENT") != FIRECRACKER_ENVIRONMENT
+        or os.environ.get("SANDOQ_EFFECTIVE_TASK_NETWORK") != "none"
+        or os.environ.get("OCI_RUNNER_TASK_NETWORK") != "none"
+        or os.environ.get("OCI_RUNNER_ALLOW_DOCKERHUB_FALLBACK") != "0"
+        or provider_token_file != EXPECTED_PROVIDER_TOKEN_FILE
+        or os.environ.get("SANDOQ_PROVIDER_PROFILE_SHA256")
+        != EXPECTED_PROVIDER_PROFILE_SHA256
+        or os.environ.get("SANDOQ_RUNTIME_SMOKE_RECEIPT_SHA256")
+        != EXPECTED_RUNTIME_SMOKE_SHA256
         or os.environ.get("SANDOQ_LEASE_PROFILE") != "kimi-tb4-long"
         or os.environ.get("OCI_RUNNER_LEASE_DURATION") != "12h"
         or os.environ.get("OCI_RUNNER_POOL_RENEW_INTERVAL") != "5m"
         or os.environ.get("OCI_RUNNER_MANAGED_SHELL_RECOVERY") != "1"
         or os.environ.get("OCI_RUNNER_POOL_SIZE") != "1"
     ):
+        raise RecoveryProbeError("probe_provider_context_invalid")
+    try:
+        context_receipt = _load_receipt(Path(os.environ[CONTEXT_RECEIPT]))
+    except (KeyError, OSError, ProviderContextError, ValueError) as error:
+        raise RecoveryProbeError("probe_provider_context_invalid") from error
+    if re.fullmatch(
+        r"[0-9a-f]{64}",
+        str(context_receipt.get("contract_sha256", "")),
+    ) is None:
         raise RecoveryProbeError("probe_provider_context_invalid")
 
     sandbox_client = client or OCIRunnerAsyncSandboxClient()
@@ -203,6 +234,12 @@ async def run_probe(
         "lease_duration": "12h",
         "renewal_interval": "5m",
         "recovery_policy": "definitive-404-410-single-replay-v1",
+        "provider_environment": FIRECRACKER_ENVIRONMENT,
+        "task_network": "none",
+        "provider_token_file_path_sha256": hashlib.sha256(str(provider_token_file).encode()).hexdigest(),
+        "provider_profile_sha256": EXPECTED_PROVIDER_PROFILE_SHA256,
+        "runtime_smoke_receipt_sha256": EXPECTED_RUNTIME_SMOKE_SHA256,
+        "provider_context_contract_sha256": context_receipt["contract_sha256"],
         "outer_cleanup_verified": True,
         "duration_seconds": round(time.monotonic() - started, 3),
         **observation,

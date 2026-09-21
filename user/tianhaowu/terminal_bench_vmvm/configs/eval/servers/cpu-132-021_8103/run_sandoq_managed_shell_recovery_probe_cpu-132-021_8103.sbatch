@@ -28,8 +28,8 @@ probe_mode=${KIMI_RECOVERY_PROBE_MODE:-forced-delete}
 probe_script="$workflow_dir/probe_sandoq_managed_shell_recovery.py"
 expected_probe_sha256=${KIMI_RECOVERY_PROBE_SHA256:?Set KIMI_RECOVERY_PROBE_SHA256}
 provider_context="$workflow_dir/terminal_bench_vmvm/sandoq_provider_context.py"
-provider_profile="$workflow_dir/configs/provider_context/use2/qwen_sandoq.json"
-provider_profile_sha256=965511eb9578aa303d287491a7414e145241d6dbbf61469d13abbe801980a95a
+provider_profile="$workflow_dir/configs/provider_context/use2/kimi_sandoq_firecracker_no_network.json"
+provider_profile_sha256=53e0311216e1b27988b960a782188c5794ed941b9380cba1fbd0f29a67149a93
 x86_site=${PYTHON_SITE_X86_64:-/checkpoint/ram/tianhaowu/terminal_bench_vmvm/python_x86_64}
 sandoq_site=${SANDOQ_PYTHON_SITE_X86_64:-/checkpoint/ram/tianhaowu/terminal_bench_vmvm/sandoq_x86_64_ram_prime_f7313db4}
 x86_uv=${UV_BIN_X86_64:-/storage/home/tianhaowu/.local/x86_64/bin/uv}
@@ -96,6 +96,11 @@ fi
     --receipt "${SANDOQ_PROVIDER_CONTEXT_RECEIPT:?}" >/dev/null \
     || blocked provider_context_invalid
 [[ "${SANDOQ_LEASE_PROFILE:-}" == kimi-tb4-long \
+    && "${OCI_RUNNER_ENVIRONMENT:-}" == oci-runner-firecracker \
+    && "${SANDOQ_EFFECTIVE_TASK_NETWORK:-}" == none \
+    && "${OCI_RUNNER_TASK_NETWORK:-}" == none \
+    && "${OCI_RUNNER_ALLOW_DOCKERHUB_FALLBACK:-}" == 0 \
+    && "${OCI_RUNNER_TOKEN_FILE:-}" == /home/tianhaowu/.config/oci-runner/firecracker-token \
     && "${OCI_RUNNER_LEASE_DURATION:-}" == 12h \
     && "${OCI_RUNNER_POOL_RENEW_INTERVAL:-}" == 5m \
     && "${OCI_RUNNER_MANAGED_SHELL_RECOVERY:-}" == 1 \
