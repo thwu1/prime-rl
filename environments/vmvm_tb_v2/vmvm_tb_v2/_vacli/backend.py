@@ -1211,6 +1211,17 @@ class VacliVMVMBackend:
     def __init__(self, config: VacliVMVMConfig) -> None:
         self.config = config
         self._sp = config.subprocess_mod or subprocess
+        if any(
+            os.environ.get(name)
+            for name in (
+                "VMVM_CAPACITY_REQUEST",
+                "VMVM_CAPACITY_RECEIPT",
+                "VMVM_CAPACITY_PRIVATE_KEY",
+            )
+        ):
+            from .capacity_attestor import consume_capacity_signing_key
+
+            consume_capacity_signing_key()
         self.init_start_time = time.perf_counter()
         self._destroyed = False
         self._cleanup_result: dict[str, Any] | None = None
@@ -1369,6 +1380,20 @@ class VacliVMVMBackend:
             # the (non-login) session does, so solve.sh subprocesses inherit it.
             self._open_session(run_entrypoint=True)
             self._raise_if_provisioning_cancelled()
+            if any(
+                os.environ.get(name)
+                for name in (
+                    "VMVM_CAPACITY_REQUEST",
+                    "VMVM_CAPACITY_RECEIPT",
+                    "VMVM_CAPACITY_PRIVATE_KEY",
+                )
+            ):
+                from .capacity_attestor import emit_capacity_receipt
+
+                emit_capacity_receipt(
+                    self._cleanup_instance_nonce,
+                    self._measure_outer_capacity,
+                )
             if TELEMETRY is not None:
                 TELEMETRY.vmvm_runtime_became_ready()
         except Exception as primary_error:
@@ -1384,6 +1409,66 @@ class VacliVMVMBackend:
         finally:
             provisioning_done.set()
             cancellation_watcher.join(timeout=0.2)
+
+    def _measure_outer_capacity(self) -> dict[str, int]:
+        command = r"""
+set -eu
+online_cpu=$(getconf _NPROCESSORS_ONLN)
+cpu=$online_cpu
+for candidate in /sys/fs/cgroup/cpuset.cpus.effective /sys/fs/cgroup/cpuset/cpuset.cpus; do
+    if [ -r "$candidate" ]; then
+        cpuset=$(cat "$candidate")
+        if [ -n "$cpuset" ]; then
+            cpuset_cpu=$(printf '%s\n' "$cpuset" | awk -F, '{n=0; for(i=1;i<=NF;i++){split($i,a,"-"); n+=(a[2]?a[2]-a[1]+1:1)} print n}')
+            if [ "$cpuset_cpu" -lt "$cpu" ]; then cpu=$cpuset_cpu; fi
+            break
+        fi
+    fi
+done
+if [ -r /sys/fs/cgroup/cpu.max ]; then
+    read -r quota period < /sys/fs/cgroup/cpu.max
+elif [ -r /sys/fs/cgroup/cpu/cpu.cfs_quota_us ] && [ -r /sys/fs/cgroup/cpu/cpu.cfs_period_us ]; then
+    quota=$(cat /sys/fs/cgroup/cpu/cpu.cfs_quota_us)
+    period=$(cat /sys/fs/cgroup/cpu/cpu.cfs_period_us)
+else
+    quota=max
+    period=1
+fi
+if [ "$quota" != max ] && [ "$quota" -gt 0 ] 2>/dev/null && [ "$period" -gt 0 ] 2>/dev/null; then
+    quota_cpu=$(( quota / period ))
+    if [ "$quota_cpu" -lt 1 ]; then quota_cpu=1; fi
+    if [ "$quota_cpu" -lt "$cpu" ]; then cpu=$quota_cpu; fi
+fi
+physical_memory=$(awk '/^MemTotal:/ {print $2 * 1024}' /proc/meminfo)
+memory=$physical_memory
+for candidate in /sys/fs/cgroup/memory.max /sys/fs/cgroup/memory/memory.limit_in_bytes; do
+    if [ -r "$candidate" ]; then
+        value=$(cat "$candidate")
+        if [ "$value" != max ] && [ "$value" -gt 0 ] 2>/dev/null; then
+            if [ "$value" -lt "$memory" ]; then memory=$value; fi
+            break
+        fi
+    fi
+done
+disk=$(df -PB1 / | awk 'NR == 2 {print $4}')
+printf '%s\t%.0f\t%s\n' "$cpu" "$memory" "$disk"
+"""
+        result = self._ssh_call_raw(
+            "bash -c " + shlex.quote(command),
+            timeout=30,
+        )
+        try:
+            fields = (result.stdout or b"").decode("ascii").strip().split("\t")
+            values = [int(value) for value in fields]
+        except (UnicodeDecodeError, ValueError) as error:
+            raise BackendInitError("VMVM capacity measurement was invalid") from error
+        if result.returncode != 0 or len(values) != 3 or min(values) < 1:
+            raise BackendInitError("VMVM capacity measurement failed")
+        return {
+            "actual_cpu_count": values[0],
+            "outer_memory_bytes": values[1],
+            "disk_available_bytes": values[2],
+        }
 
     def _raise_if_provisioning_cancelled(self) -> None:
         cancel_event = self.config.provisioning_cancel_event

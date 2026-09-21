@@ -93,7 +93,7 @@ SANDOQ_UPSTREAM_COMMIT = "4890302104d76220cef791c86d2009168597d35f"
 SANDOQ_UPSTREAM_TREE = "33f092a3982916660e12f472588e6ce34a906fc2"
 SANDOQ_UPSTREAM_SUBTREE = "10b5bd9bbc76eba1b8253637e1869d6b63b7fc42"
 SANDOQ_UPSTREAM_INVENTORY_SHA256 = "5db69d90ddd34cfbfdcffdacab09353e8be22e917f894e33ddafb5020ca43e73"
-DIRECT_KIMI_ROLES = frozenset({"kimi-direct-smoke", "kimi-direct-tb4"})
+DIRECT_KIMI_ROLES = frozenset({"kimi-direct-smoke", "kimi-direct-tb4", "kimi-direct-tb4-diagnostic"})
 DIRECT_ROLES = frozenset({"qwen-direct", *DIRECT_KIMI_ROLES})
 
 
@@ -139,9 +139,7 @@ def validate_kimi_timeout_contract(
         if not isinstance(overrides, list) or any(not isinstance(value, str) for value in overrides):
             raise EvalIdentityError("kimi_timeout_contract_invalid")
         harness_timeout_override = f"model.model_kwargs.timeout={expected_request_timeout}"
-        harness_timeout_entries = [
-            value for value in overrides if value.startswith("model.model_kwargs.timeout=")
-        ]
+        harness_timeout_entries = [value for value in overrides if value.startswith("model.model_kwargs.timeout=")]
         harness_timeout_valid = harness_timeout_entries == [harness_timeout_override]
         harness_request_timeout = KIMI_REQUEST_TIMEOUT_SECONDS
     request_timeout = client.get("timeout")
@@ -392,10 +390,7 @@ def _sandoq_site_sha256(root: Path) -> str:
 
 
 def _sandoq_host_harness_sha256(project_root: Path) -> str:
-    path = (
-        project_root
-        / "user/tianhaowu/terminal_bench_vmvm/terminal_bench_vmvm/sandoq_host_harness.py"
-    )
+    path = project_root / "user/tianhaowu/terminal_bench_vmvm/terminal_bench_vmvm/sandoq_host_harness.py"
     return _sha256_file(path, label="sandoq_host_harness")
 
 
@@ -836,13 +831,11 @@ def _contract(
     )
     if _allow_legacy_direct_scored_smoke and not direct_kimi_archive_smoke:
         raise EvalIdentityError("resolved_contract_invalid")
-    direct_kimi_scored_smoke = (
-        direct_kimi_archive_smoke and not _allow_legacy_direct_scored_smoke
-    )
+    direct_kimi_scored_smoke = direct_kimi_archive_smoke and not _allow_legacy_direct_scored_smoke
     require_kimi_steady_state_concurrency = role == "mobius"
     if model == "Kimi-K3":
         required_profile: str | None = None
-        if role in {"tb4", "mobius", "kimi-direct-tb4"}:
+        if role in {"tb4", "mobius", "kimi-direct-tb4", "kimi-direct-tb4-diagnostic"}:
             required_profile = "full"
         elif role == "kimi-direct-smoke":
             if not isinstance(taskset, dict):
@@ -852,9 +845,7 @@ def _contract(
                 reward_diagnostic = isinstance(timeout, dict) and timeout.get("rollout") == 600
                 required_profile = "reward_diagnostic" if reward_diagnostic else "diagnostic"
             else:
-                required_profile = (
-                    "quick" if _allow_legacy_direct_scored_smoke else "direct_scored_smoke"
-                )
+                required_profile = "quick" if _allow_legacy_direct_scored_smoke else "direct_scored_smoke"
         elif role == "smoke":
             if not isinstance(taskset, dict):
                 raise EvalIdentityError("resolved_contract_invalid")
@@ -867,9 +858,9 @@ def _contract(
     thinking = sampling.get("chat_template_kwargs")
     expected_thinking = {"enable_thinking": True, "preserve_thinking": True}
     expected_reasoning_effort = "medium" if model == "Qwen3.8-2.4T-A95B" else "max"
-    if sampling.get("reasoning_effort") != expected_reasoning_effort or canonical_json(
-        thinking
-    ) != canonical_json(expected_thinking):
+    if sampling.get("reasoning_effort") != expected_reasoning_effort or canonical_json(thinking) != canonical_json(
+        expected_thinking
+    ):
         raise EvalIdentityError("reasoning_contract_required")
     limits = {
         "max_input_tokens": config.get("max_input_tokens"),
@@ -927,8 +918,7 @@ def _contract(
     ):
         raise EvalIdentityError("sandoq_runtime_contract_invalid")
     if sandbox_provider == "sandoq" and any(
-        key in runtime
-        for key in ("guest_tunnel_url", "tunnel_pool_size", "tunnel_ready_timeout")
+        key in runtime for key in ("guest_tunnel_url", "tunnel_pool_size", "tunnel_ready_timeout")
     ):
         raise EvalIdentityError("sandoq_inactive_tunnel_fields_present")
     host_harness = harness.get("id") == "terminal-bench-sandoq-host"
@@ -1517,12 +1507,8 @@ def _resolved_config_data(
         and runtime.get("type") == "sandoq"
     ):
         explicit_harness = explicit.get("harness") if isinstance(explicit, Mapping) else None
-        explicit_runtime = (
-            explicit_harness.get("runtime") if isinstance(explicit_harness, Mapping) else None
-        )
-        if isinstance(explicit_runtime, Mapping) and inactive_tunnel_fields.intersection(
-            explicit_runtime
-        ):
+        explicit_runtime = explicit_harness.get("runtime") if isinstance(explicit_harness, Mapping) else None
+        if isinstance(explicit_runtime, Mapping) and inactive_tunnel_fields.intersection(explicit_runtime):
             raise EvalIdentityError("sandoq_inactive_tunnel_fields_present")
         for field in inactive_tunnel_fields:
             runtime.pop(field, None)
@@ -1826,7 +1812,7 @@ def _validate_identity_shape(identity: object) -> dict[str, Any]:
                 "worker_count": 24,
             }
             or SHA256_RE.fullmatch(str(router.get("implementation_sha256", ""))) is None
-            or (role == "kimi-direct-smoke" and smoke_checkpoint is not None)
+            or (role != "kimi-direct-tb4" and smoke_checkpoint is not None)
         ):
             raise EvalIdentityError("eval_run_identity_schema_invalid")
         if role == "kimi-direct-tb4":
@@ -1846,9 +1832,7 @@ def _validate_identity_shape(identity: object) -> dict[str, Any]:
         raise EvalIdentityError("eval_run_identity_schema_invalid")
     if not direct_role:
         deployment_id = deployment.get("id")
-    if not direct_role and (
-        not isinstance(deployment_id, str) or METADATA_ID_RE.fullmatch(deployment_id) is None
-    ):
+    if not direct_role and (not isinstance(deployment_id, str) or METADATA_ID_RE.fullmatch(deployment_id) is None):
         raise EvalIdentityError("eval_run_identity_schema_invalid")
     try:
         if direct_role:
@@ -1914,8 +1898,7 @@ def _validate_identity_shape(identity: object) -> dict[str, Any]:
         or any(character in model for character in "\r\n")
         or contract.get("pass_at_1") is not True
         or contract.get("num_rollouts") != 1
-        or contract.get("reasoning_effort")
-        != ("medium" if model == "Qwen3.8-2.4T-A95B" else "max")
+        or contract.get("reasoning_effort") != ("medium" if model == "Qwen3.8-2.4T-A95B" else "max")
         or canonical_json(contract.get("thinking"))
         != canonical_json({"enable_thinking": True, "preserve_thinking": True})
         or not isinstance(context, dict)
@@ -1937,14 +1920,11 @@ def _validate_identity_shape(identity: object) -> dict[str, Any]:
     if role == "kimi-direct-smoke" and dataset.get("kind") == "archive":
         # Schema-v1 scored-smoke identities written before the bounded profile used
         # the generic Kimi harness timeout. Keep those immutable records auditable.
-        allowed_harness_request_timeouts.add(
-            KIMI_DIRECT_SCORED_SMOKE_HOST_HARNESS_REQUEST_TIMEOUT_SECONDS
-        )
+        allowed_harness_request_timeouts.add(KIMI_DIRECT_SCORED_SMOKE_HOST_HARNESS_REQUEST_TIMEOUT_SECONDS)
     observed_harness = contract.get("harness")
     if "harness" in contract and (
         not isinstance(observed_harness, dict)
-        or observed_harness.get("request_timeout_seconds")
-        not in allowed_harness_request_timeouts
+        or observed_harness.get("request_timeout_seconds") not in allowed_harness_request_timeouts
         or observed_harness
         != {
             "id": "terminal-bench-sandoq-host",
@@ -2069,10 +2049,7 @@ def _validate_identity_shape(identity: object) -> dict[str, Any]:
             or runtime.get("network_access") is not True
             or runtime.get("host_tunnel") != "none"
             or runtime.get("expected_environment") != "oci-runner"
-            or any(
-                key in runtime
-                for key in ("guest_tunnel_url", "tunnel_pool_size", "tunnel_ready_timeout")
-            )
+            or any(key in runtime for key in ("guest_tunnel_url", "tunnel_pool_size", "tunnel_ready_timeout"))
             or runtime.get("ecr_token_file") != environment.get("ecr_token_file")
             or not _validate_positive_integer(environment.get("pool_size"))
             or not isinstance(environment.get("pool_min_size"), int)
@@ -2400,8 +2377,7 @@ def _verify_config_and_inputs(
         identity["role"] == "kimi-direct-smoke"
         and identity["dataset"].get("kind") == "archive"
         and isinstance(identity_harness, dict)
-        and identity_harness.get("request_timeout_seconds")
-        == KIMI_HOST_HARNESS_REQUEST_TIMEOUT_SECONDS
+        and identity_harness.get("request_timeout_seconds") == KIMI_HOST_HARNESS_REQUEST_TIMEOUT_SECONDS
     )
     observed_contract, observed_execution = _contract(
         config,
@@ -2418,18 +2394,14 @@ def _verify_config_and_inputs(
         identity["execution"].get(key) != value for key, value in observed_execution.items()
     ):
         raise EvalIdentityError("eval_config_contract_mismatch")
-    direct_kimi_scored_smoke = (
-        identity["role"] == "kimi-direct-smoke"
-        and identity["dataset"].get("kind") == "archive"
-    )
+    direct_kimi_scored_smoke = identity["role"] == "kimi-direct-smoke" and identity["dataset"].get("kind") == "archive"
     expected_request_timeout = (
         KIMI_DIRECT_SCORED_SMOKE_REQUEST_TIMEOUT_SECONDS
         if direct_kimi_scored_smoke and not legacy_direct_kimi_scored_smoke
         else request_timeout_for_model(observed_contract["model"])
     )
     if config["client"].get("timeout") != expected_request_timeout or (
-        not direct_role
-        and identity["deployment"]["proxy_policy"]["request_timeout"] != expected_request_timeout
+        not direct_role and identity["deployment"]["proxy_policy"]["request_timeout"] != expected_request_timeout
     ):
         raise EvalIdentityError("deployment_proxy_timeout_mismatch")
 
@@ -2558,14 +2530,25 @@ def _verify_saved_provenance(output_dir: Path, identity: dict[str, Any], identit
         raise EvalIdentityError("eval_provenance_mismatch")
 
 
-def load_eval_run_identity(
-    path: Path,
+def load_eval_run_identity_bytes(
+    raw: bytes,
     *,
+    run_dir: Path,
     verify_references: bool = True,
+    verify_saved_provenance: bool = True,
     deployment_spec_snapshot: Path | None = None,
     proxy_policy_snapshot: Path | None = None,
 ) -> dict[str, Any]:
-    raw = _read_bytes(path, label="eval_run_identity")
+    """Validate one authoritative identity byte snapshot.
+
+    Certification callers can retain the source descriptor and validate these
+    exact bytes without reopening a mutable pathname.  Provenance may be
+    validated from a separately retained snapshot by setting
+    ``verify_saved_provenance=False``.
+    """
+
+    if not run_dir.is_absolute():
+        raise EvalIdentityError("eval_run_identity_path_invalid")
     try:
         envelope = json.loads(raw)
     except (UnicodeDecodeError, json.JSONDecodeError) as error:
@@ -2614,7 +2597,7 @@ def load_eval_run_identity(
     else:
         endpoint_info = _load_bound_endpoint(identity)
         endpoint_client_base_url = endpoint_info.client_base_url
-    _verify_config_and_inputs(identity, path.resolve().parent, endpoint_client_base_url)
+    _verify_config_and_inputs(identity, run_dir, endpoint_client_base_url)
     dataset = identity["dataset"]
     if not isinstance(dataset, dict):
         raise EvalIdentityError("eval_run_identity_schema_invalid")
@@ -2648,8 +2631,30 @@ def load_eval_run_identity(
             proxy_policy_snapshot=proxy_policy_snapshot,
         )
     assert isinstance(digest, str)
-    _verify_saved_provenance(path.resolve().parent, identity, digest)
+    if verify_saved_provenance:
+        _verify_saved_provenance(run_dir, identity, digest)
     return envelope
+
+
+def load_eval_run_identity(
+    path: Path,
+    *,
+    verify_references: bool = True,
+    deployment_spec_snapshot: Path | None = None,
+    proxy_policy_snapshot: Path | None = None,
+) -> dict[str, Any]:
+    raw = _read_bytes(path, label="eval_run_identity")
+    try:
+        run_dir = path.resolve(strict=True).parent
+    except (OSError, RuntimeError) as error:
+        raise EvalIdentityError("eval_run_identity_path_invalid") from error
+    return load_eval_run_identity_bytes(
+        raw,
+        run_dir=run_dir,
+        verify_references=verify_references,
+        deployment_spec_snapshot=deployment_spec_snapshot,
+        proxy_policy_snapshot=proxy_policy_snapshot,
+    )
 
 
 def _bind_identity(output_dir: Path, identity: dict[str, Any], *, resume: bool) -> str:
@@ -3091,8 +3096,8 @@ def _prepare_direct_qwen(args: argparse.Namespace) -> str:
 def _prepare_direct_kimi(args: argparse.Namespace) -> str:
     from direct_kimi_workers import validate_saved_manifest
 
-    if args.mode != "fresh" or args.sandbox_provider != "sandoq":
-        raise EvalIdentityError("direct_kimi_requires_fresh_sandoq_identity")
+    if args.mode != "fresh" or args.sandbox_provider not in {"sandoq", "vmvm"}:
+        raise EvalIdentityError("direct_kimi_requires_fresh_supported_identity")
     if args.expected_model != "Kimi-K3" or args.role not in DIRECT_KIMI_ROLES:
         raise EvalIdentityError("direct_kimi_model_or_role_invalid")
     if (
@@ -3124,9 +3129,9 @@ def _prepare_direct_kimi(args: argparse.Namespace) -> str:
         config,
         args.expected_model,
         role=args.role,
-        sandbox_provider="sandoq",
+        sandbox_provider=args.sandbox_provider,
     )
-    expected_concurrency = 1 if args.role == "kimi-direct-smoke" else 24
+    expected_concurrency = 1 if args.role == "kimi-direct-smoke" else (24 if args.sandbox_provider == "sandoq" else 4)
     if any(
         execution.get(key) != expected_concurrency
         for key in (
@@ -3137,16 +3142,23 @@ def _prepare_direct_kimi(args: argparse.Namespace) -> str:
         )
     ):
         raise EvalIdentityError("direct_kimi_concurrency_invalid")
-    execution["sandoq_environment"] = _effective_sandoq_environment(
-        args,
-        execution["rollout_concurrency"],
-        output_dir,
-    )
-    if execution["runtime"].get("ecr_token_file") != execution["sandoq_environment"]["ecr_token_file"]:
-        raise EvalIdentityError("sandoq_ecr_token_file_invalid")
+    if args.sandbox_provider == "sandoq":
+        execution["sandoq_environment"] = _effective_sandoq_environment(
+            args,
+            execution["rollout_concurrency"],
+            output_dir,
+        )
+        if execution["runtime"].get("ecr_token_file") != execution["sandoq_environment"]["ecr_token_file"]:
+            raise EvalIdentityError("sandoq_ecr_token_file_invalid")
+    else:
+        execution["vmvm_environment"] = _effective_vmvm_environment(
+            args,
+            execution["rollout_concurrency"],
+        )
     source = _source_identity(args)
-    if inputs["image_manifest"] is None or (
-        inputs["image_manifest"]["sha256"] != source["derived_image_manifest_sha256"]
+    if args.sandbox_provider == "sandoq" and (
+        inputs["image_manifest"] is None
+        or (inputs["image_manifest"]["sha256"] != source["derived_image_manifest_sha256"])
     ):
         raise EvalIdentityError("derived_image_manifest_sha256_mismatch")
 
@@ -3176,7 +3188,7 @@ def _prepare_direct_kimi(args: argparse.Namespace) -> str:
         raise EvalIdentityError("direct_kimi_router_contract_invalid")
 
     smoke_checkpoint = None
-    if args.role == "kimi-direct-smoke":
+    if args.role in {"kimi-direct-smoke", "kimi-direct-tb4-diagnostic"}:
         if args.smoke_checkpoint is not None or args.smoke_checkpoint_sha256 is not None:
             raise EvalIdentityError("direct_kimi_smoke_checkpoint_invalid")
     else:
@@ -3188,12 +3200,16 @@ def _prepare_direct_kimi(args: argparse.Namespace) -> str:
             label="direct_kimi_smoke_checkpoint",
         )
         payload = _json_artifact(smoke_checkpoint, label="direct_kimi_smoke_checkpoint")
+        provider_split_count = inputs["task_file"]["count"] in {28, 35}
         if (
             payload.get("schema_version") != 1
             or payload.get("kind") != "direct-kimi-sandoq-smoke"
             or payload.get("state") != "passed"
             or payload.get("model") != "Kimi-K3"
-            or payload.get("full_tb4_ready") is not True
+            or (
+                payload.get("full_tb4_ready") is not True
+                and not (provider_split_count and payload.get("full_tb4_ready") is False)
+            )
             or payload.get("source_spec_sha256") != manifest["source_spec_sha256"]
             or payload.get("endpoint_bundle_sha256") != manifest["endpoint_bundle_sha256"]
         ):
@@ -3252,7 +3268,15 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--approved-task-count", type=int, required=True)
     parser.add_argument(
         "--role",
-        choices=("smoke", "tb4", "mobius", "qwen-direct", "kimi-direct-smoke", "kimi-direct-tb4"),
+        choices=(
+            "smoke",
+            "tb4",
+            "mobius",
+            "qwen-direct",
+            "kimi-direct-smoke",
+            "kimi-direct-tb4",
+            "kimi-direct-tb4-diagnostic",
+        ),
         required=True,
     )
     parser.add_argument("--dataset-revision")

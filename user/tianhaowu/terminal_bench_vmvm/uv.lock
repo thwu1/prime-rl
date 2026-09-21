@@ -1921,6 +1921,7 @@ name = "terminal-bench-vmvm"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
+    { name = "cryptography" },
     { name = "prime-pydantic-config" },
     { name = "pyyaml" },
     { name = "renderers" },
@@ -1940,6 +1941,7 @@ direct-router = [
 
 [package.metadata]
 requires-dist = [
+    { name = "cryptography", specifier = ">=50" },
     { name = "prime-pydantic-config", editable = "../../../deps/pydantic-config" },
     { name = "pyyaml", specifier = ">=6" },
     { name = "renderers", editable = "../../../deps/renderers" },
@@ -2322,6 +2324,7 @@ name = "vmvm-tb-v2"
 version = "0.1.0"
 source = { editable = "../../../environments/vmvm_tb_v2" }
 dependencies = [
+    { name = "cryptography" },
     { name = "datasets" },
     { name = "pydantic" },
     { name = "verifiers" },
@@ -2329,6 +2332,7 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
+    { name = "cryptography", specifier = ">=50" },
     { name = "datasets" },
     { name = "pydantic" },
     { name = "verifiers" },

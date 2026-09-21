@@ -379,9 +379,7 @@ def test_direct_qwen_vmvm_identity_binds_host_harness_contract() -> None:
         "stream": False,
     }
     identity["execution"]["cleanup_must_succeed"] = True
-    identity["execution"]["cleanup_receipt_contract"] = dict(
-        eval_run_identity.VMVM_HOST_CLEANUP_CONTRACT
-    )
+    identity["execution"]["cleanup_receipt_contract"] = dict(eval_run_identity.VMVM_HOST_CLEANUP_CONTRACT)
     identity["deployment"] = {
         "kind": "direct_qwen",
         "worker_manifest": {"path": "/run/direct_workers.json", "sha256": "8" * 64},
@@ -505,11 +503,7 @@ def _direct_kimi_identity(*, smoke: bool) -> dict:
             "retries": 0,
             "worker_count": 24,
         },
-        "smoke_checkpoint": (
-            None
-            if smoke
-            else {"path": "/run/smoke_checkpoint.json", "sha256": "b" * 64}
-        ),
+        "smoke_checkpoint": (None if smoke else {"path": "/run/smoke_checkpoint.json", "sha256": "b" * 64}),
     }
     return identity
 
@@ -535,6 +529,27 @@ def test_direct_kimi_sandoq_identity_binds_router_and_smoke_lineage() -> None:
         target[path[-1]] = value
         with pytest.raises(EvalIdentityError, match="schema_invalid"):
             _validate_identity_shape(mismatched)
+
+
+def test_direct_kimi_tb4_diagnostic_is_full_budget_but_has_no_smoke_authority(
+    tmp_path: Path,
+) -> None:
+    diagnostic = _direct_kimi_identity(smoke=False)
+    diagnostic["role"] = "kimi-direct-tb4-diagnostic"
+    diagnostic["deployment"]["smoke_checkpoint"] = None
+
+    assert _validate_identity_shape(diagnostic) == diagnostic
+    envelope = _identity_envelope(diagnostic)
+    path = tmp_path / "eval_run_identity.json"
+    path.write_text(json.dumps(envelope))
+    assert load_eval_run_identity(path, verify_references=False) == envelope
+
+    diagnostic["deployment"]["smoke_checkpoint"] = {
+        "path": "/run/smoke_checkpoint.json",
+        "sha256": "b" * 64,
+    }
+    with pytest.raises(EvalIdentityError, match="schema_invalid"):
+        _validate_identity_shape(diagnostic)
 
 
 def test_direct_kimi_scored_smoke_identity_loads_bounded_and_legacy_profiles(
@@ -568,10 +583,7 @@ def test_direct_kimi_scored_smoke_verifies_resolved_config(
     monkeypatch: pytest.MonkeyPatch,
     legacy: bool,
 ) -> None:
-    config_path = (
-        Path(__file__).parents[1]
-        / "configs/eval/servers/cpu-132-021_8103/tb4_kimi_k3_sandoq_smoke.toml"
-    )
+    config_path = Path(__file__).parents[1] / "configs/eval/servers/cpu-132-021_8103/tb4_kimi_k3_sandoq_smoke.toml"
     raw = tomllib.loads(config_path.read_text())
     config = eval_run_identity._resolved_config_data(
         eval_run_identity.EvalConfig.model_validate(raw),
