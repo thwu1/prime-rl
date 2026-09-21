@@ -1,6 +1,6 @@
 # VMVM sandbox coordination
 
-Last updated: 2026-09-21 03:09 UTC
+Last updated: 2026-09-21 04:08 UTC
 
 ## First message to the next teammate
 
@@ -46,6 +46,20 @@ this shared branch again.
 Add new rows below this line; do not overwrite another owner's row.
 
 ## Open coordination requests
+
+- **2026-09-21 04:08 UTC, use2-1 Qwen continuation remains healthy; do not
+  duplicate:** producer `1514358` has 439 durable continuation rows while
+  retaining the disjoint 1,266-row VMVM-sandbox prefix for exact 2,499-task
+  coverage.  At row 437 it had 300 reward-positive and 137 scored-zero rows,
+  with 10 dispersed ordinary errors and no failure cluster.  Formal aggregate
+  audit `1515293` completed `0:0` over exactly 300 positive traces: 10,741,782
+  sampled tokens, 6,467 model-I/O turns, zero trace/global problems, and zero
+  empty/provider-zero reasoning findings.  Pool concurrency remains 64 and
+  the pass-only certificate/export/render-preflight chain `1514996` ->
+  `1514999` -> `1515158` remains dependency-held behind the producer.  Kimi
+  scored smoke `1515020` remains healthy and in-flight with no completed row or
+  upstream failure yet.  Never inspect task identifiers/content, raw errors,
+  model/tool bodies, or credentials.
 
 - **2026-09-21 02:55 UTC, VMVM still unavailable and larger sandbox tier
   needed for full Kimi TB4:** the one authorized fresh task-free revalidation,
