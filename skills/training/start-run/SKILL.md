@@ -341,6 +341,22 @@ uv run sft @ examples/reverse_text/sft.toml --dry-run
 - Entrypoint: `src/prime_rl/entrypoints/sft.py`
 - SLURM: single- and multi-node
 
+When a validated format-v3 export is staged locally but its final destination
+is on NFSv3, publish it with the workflow's manifest-last transport rather than
+falling back from an unsupported no-replace directory rename. For the Qwen
+source-continuation workflow, use
+`user/tianhaowu/terminal_bench_vmvm/publish_qwen_pass_only_bundle_nfs.py` from
+the same clean, commit-pinned source snapshot. Supply the manifest and
+certificate digests captured from the validated local export, require a fresh
+private mode-0700 destination parent, and preserve the publisher's manifest-last
+commit: it binds an `O_PATH | O_NOFOLLOW` descriptor to the verified staging
+inode, then creates the no-replace destination link through
+`/proc/self/fd/<fd>` with `follow_symlinks=True`. Pass that same manifest digest
+to the rendering preflight. Only `state=published` authorizes preflight. A
+`publish_precommit_incomplete` or `publish_commit_indeterminate` result leaves
+evidence in place and requires aggregate inspection plus a fresh destination;
+never delete or reuse the attempted path blindly.
+
 RSCI fixed-clock verifier-defect SFT sweeps must be materialized from a source
 snapshot created at the launch root. After committing the study code, create the
 snapshot, activate its SFT boundary, and materialize the canonical arms from the

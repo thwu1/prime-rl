@@ -664,9 +664,49 @@ def test_direct_qwen_launcher_is_fail_closed() -> None:
     assert "QWEN_SANDOQ_NONCERTIFYING_DIAGNOSTIC_CONFIG_SHA256" in driver
     assert "summarize_qwen_sandoq_diagnostic.py" in wrapper
     assert 'post_eval_pythonpath="$workflow_dir:$project_dir/environments/vmvm_tb_v2:' in wrapper
-    assert wrapper.count('env PYTHONPATH="$post_eval_pythonpath"') == 2
-    assert 'if [[ "$diagnostic_mode" -eq 0 ]]' in driver
+    assert wrapper.count('env PYTHONPATH="$post_eval_pythonpath"') == 4
+    assert 'if [[ "$diagnostic_mode" -eq 0 && "$source_continuation_mode" -eq 0 ]]' in driver
     assert 'if [[ "$diagnostic_mode" -eq 1 ]]' in wrapper
+    assert "QWEN_SANDOQ_SOURCE_CONTINUATION_PLAN" in wrapper
+    assert "QWEN_SANDOQ_SOURCE_CONTINUATION_PLAN_SHA256" in wrapper
+    assert "QWEN_SANDOQ_SOURCE_CONTINUATION_PLAN" in driver
+    assert "QWEN_SANDOQ_SOURCE_CONTINUATION_PLAN_SHA256" in driver
+    assert '"$expected_count" != 1233' in wrapper
+    assert '"$sandoq_stage_count" != 1233' in driver
+    assert '"$source_continuation_mode" -eq 1 && "$sandbox_provider" != sandoq' in wrapper
+    assert '"$source_continuation_mode" -eq 1 && "$sandbox_provider" != sandoq' in driver
+    assert 'sandoq_source_continuation.py" validate-plan' in wrapper
+    assert 'sandoq_source_continuation.py" validate-plan' in driver
+    assert 'sandoq_source_continuation.py" certify' in wrapper
+    assert "qwen_sandoq_source_continuation_certificate.json" in wrapper
+    assert "source_continuation_identity.json" in wrapper
+    assert '--run-dir "$output_dir"' in wrapper
+    assert wrapper.index("approved clean source closure") < wrapper.index(
+        'sandoq_source_continuation.py" validate-plan'
+    )
+    assert wrapper.index('sandoq_source_continuation.py" validate-plan') < wrapper.index(
+        'mkdir -m 0700 -- "$output_dir"'
+    )
+    assert "qwen_sandoq_source_continuation_*" in wrapper
+    assert 'stat -c \'%u\' -- "$output_dir"' in wrapper
+    assert 'stat -c \'%a\' -- "$output_dir"' in wrapper
+    assert "Source continuation output directory is not private" in wrapper
+    assert "Source continuation output directory is not private" in driver
+    assert 'rmdir -- "$output_dir/control"' in wrapper
+    assert "Source-continuation preflight cleanup failed" in wrapper
+    preflight_cleanup = wrapper.index(
+        'if [[ "$sandbox_provider" == sandoq && "$preflight_only" -eq 1 ]]'
+    )
+    assert wrapper.index('kill -TERM -- "-$router_pid"', preflight_cleanup) < wrapper.index(
+        'rmdir -- "$output_dir"', preflight_cleanup
+    )
+    assert wrapper.index("flock -u 8", preflight_cleanup) < wrapper.index(
+        'rm -f -- "$manifest"', preflight_cleanup
+    )
+    assert wrapper.index("exec 8>&-", preflight_cleanup) < wrapper.index(
+        'rm -f -- "$manifest"', preflight_cleanup
+    )
+    assert "for _attempt in $(seq 1 30)" in wrapper
     assert "80e58e7e2b194e9c1b8dc0990c00b7a839127eea" in driver
     assert "configs/eval/shared_qwen38_2p4t/mobius_qwen_a95b_2500_sandoq.toml" in wrapper
     assert wrapper.index("approved clean source closure") < wrapper.index('"$workflow_dir/direct_qwen_workers.py"')

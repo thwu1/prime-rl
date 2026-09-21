@@ -2,6 +2,9 @@ import copy
 import hashlib
 import json
 import os
+import subprocess
+import sys
+import textwrap
 from collections.abc import Iterator
 from dataclasses import replace
 from pathlib import Path
@@ -21,6 +24,32 @@ from prime_rl.trainer.sft.export_preflight import SFTPreflightError
 
 class SyntheticTokenizer:
     eos_token_id = 99
+
+
+def test_export_preflight_imports_without_training_stack() -> None:
+    script = textwrap.dedent(
+        """
+        import builtins
+        import importlib
+        import sys
+
+        blocked = {"torch", "torchdata", "jaxtyping"}
+        original_import = builtins.__import__
+
+        def guarded_import(name, *args, **kwargs):
+            if name == "prime_rl.trainer.sft.data" or name.partition(".")[0] in blocked:
+                raise AssertionError(f"unexpected heavy import: {name}")
+            return original_import(name, *args, **kwargs)
+
+        builtins.__import__ = guarded_import
+        module = importlib.import_module("prime_rl.trainer.sft.export_preflight")
+        assert module.EXPORT_FORMAT_VERSION == 3
+        assert "prime_rl.trainer.sft.data" not in sys.modules
+        """
+    )
+    environment = {**os.environ, "USE_TORCH": "0"}
+
+    subprocess.run([sys.executable, "-c", script], check=True, env=environment)
 
 
 class CharacterTokenizer:
@@ -853,6 +882,13 @@ def test_attestation_rejects_invalid_source_validation_policy(
 
     with pytest.raises(SFTPreflightError, match="^attestation_contract_invalid$"):
         export_preflight._validate_attestation_value(attestation)
+
+
+def test_source_validation_accepts_epoch3_direct_medium_union_contract() -> None:
+    source_validation = _attestation(Path("export"))["source_validation"]
+    source_validation["model_io_contract"] = export_preflight.QWEN3_A95B_EPOCH3_DIRECT_MEDIUM_MODEL_IO_CONTRACT_ID
+
+    assert export_preflight._source_validation_policy(source_validation, "invalid") == source_validation
 
 
 def test_repository_provenance_rejects_checked_out_renderer_gitlink_tamper(

@@ -1280,6 +1280,27 @@ The exported messages are intended for offline retokenization by the target SFT
 renderer. They do not recreate teacher token IDs or sampling log probabilities,
 which were deliberately not requested from the evaluation endpoint.
 
+### NFSv3 publication of a pass-only continuation export
+
+When the validated Qwen source-continuation export is first materialized on a
+local filesystem, copy it to an NFSv3 training root with
+`publish_qwen_pass_only_bundle_nfs.py`. Run the publisher from the same clean,
+commit-pinned source snapshot as the exporter. Both the local source directory
+and destination parent must be private mode 0700, the destination must be new,
+and the caller must provide the authenticated local manifest and certificate
+SHA-256 values.
+
+The publisher requires the exact format-v3 artifact tree and copies every
+payload as a private single-link file. It opens the staged manifest with
+`O_PATH | O_NOFOLLOW`, verifies the open inode against its parent-directory
+entry, and commits `manifest.json` last with a no-replace hard link through
+`/proc/self/fd/<fd>` using `follow_symlinks=True`. It treats an ambiguous NFS
+commit as terminal and never removes output after a commit attempt. Only
+`state=published` authorizes the rendering preflight, which must receive the
+same expected manifest digest. For `publish_precommit_incomplete` or
+`publish_commit_indeterminate`, preserve the attempted directory for audit and
+retry with a fresh destination rather than deleting or reusing it.
+
 Before training format-v3 output, run the rendering preflight from the exact
 clean, detached Prime-RL revision that will launch the trainer:
 

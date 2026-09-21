@@ -60,11 +60,23 @@ approved_task_file_sha256=${DIRECT_QWEN_APPROVED_TASK_FILE_SHA256:-}
 unset PYTHONPATH PYTHONHOME
 serving_generation_bundle=${QWEN_SERVING_GENERATION_BUNDLE:-}
 diagnostic_config_sha256=${QWEN_SANDOQ_NONCERTIFYING_DIAGNOSTIC_CONFIG_SHA256:-}
+source_continuation_plan=${QWEN_SANDOQ_SOURCE_CONTINUATION_PLAN:-}
+source_continuation_plan_sha256=${QWEN_SANDOQ_SOURCE_CONTINUATION_PLAN_SHA256:-}
 diagnostic_mode=0
+source_continuation_mode=0
 if [[ -n "$diagnostic_config_sha256" ]]; then
     diagnostic_mode=1
     if [[ ! "$diagnostic_config_sha256" =~ ^[0-9a-f]{64}$ ]]; then
         printf 'Non-certifying diagnostic config SHA-256 is invalid\n' >&2
+        exit 2
+    fi
+fi
+if [[ -n "$source_continuation_plan" || -n "$source_continuation_plan_sha256" ]]; then
+    source_continuation_mode=1
+    if [[ -n "$diagnostic_config_sha256" \
+        || -z "$source_continuation_plan" \
+        || ! "$source_continuation_plan_sha256" =~ ^[0-9a-f]{64}$ ]]; then
+        printf 'Source-continuation plan inputs are invalid\n' >&2
         exit 2
     fi
 fi
@@ -98,6 +110,10 @@ with open(sys.argv[1], "rb") as handle:
     print(tomllib.load(handle).get("harness", {}).get("runtime", {}).get("type", ""))
 PY
 )
+if [[ "$source_continuation_mode" -eq 1 && "$sandbox_provider" != sandoq ]]; then
+    printf 'Source continuation requires the Sandoq runtime\n' >&2
+    exit 2
+fi
 if [[ "$sandbox_provider" == sandoq && -n "$serving_generation_bundle" ]]; then
     printf '%s\n' \
         'Sandoq ramps require a fresh task-bound live24 manifest, not a repair serving-generation bundle' >&2
@@ -116,7 +132,8 @@ if [[ "$sandbox_provider" == sandoq ]]; then
         inputs config.toml results.jsonl provenance.txt eval_run_identity.json eval_invocations.jsonl \
         direct_workers.json direct_router.log pool_events.jsonl control/sandoq-pool.wal.jsonl \
         pool_cleanup_audit.json sandoq_cleanup_audit.json direct_qwen_sandoq_certificate.json \
-        qwen_sandoq_diagnostic_summary.json; do
+        qwen_sandoq_diagnostic_summary.json qwen_sandoq_source_continuation_certificate.json \
+        source_continuation_identity.json; do
         if [[ -e "$output_dir/$stale" || -L "$output_dir/$stale" ]]; then
             printf 'Sandoq direct runs require a fresh output namespace\n' >&2
             exit 2
@@ -156,6 +173,15 @@ PY
             || -n ${SANDOQ_PREDECESSOR_CERTIFICATE:-} \
             || -n ${SANDOQ_PREDECESSOR_CERTIFICATE_SHA256:-} ]]; then
             printf 'Non-certifying diagnostic inputs are invalid\n' >&2
+            exit 2
+        fi
+    elif [[ "$source_continuation_mode" -eq 1 ]]; then
+        if [[ "$expected_count" != 1233 \
+            || -n ${SANDOQ_RAMP_RECEIPT:-} \
+            || -n ${SANDOQ_RAMP_RECEIPT_SHA256:-} \
+            || -n ${SANDOQ_PREDECESSOR_CERTIFICATE:-} \
+            || -n ${SANDOQ_PREDECESSOR_CERTIFICATE_SHA256:-} ]]; then
+            printf 'Source-continuation launch inputs are invalid\n' >&2
             exit 2
         fi
     else
@@ -294,7 +320,36 @@ PY
     fi
 fi
 
-mkdir -p "$output_dir" /checkpoint/ram/tianhaowu/terminal_bench_vmvm/logs
+if [[ "$source_continuation_mode" -eq 1 ]]; then
+    env PYTHONPATH="$post_eval_pythonpath" \
+        "$x86_uv" run --no-project --offline --python "$python_bin" \
+        python3 "$workflow_dir/sandoq_source_continuation.py" validate-plan \
+        --plan "$source_continuation_plan" \
+        --plan-sha256 "$source_continuation_plan_sha256" \
+        --task-file "$approved_task_file" \
+        --task-file-sha256 "$approved_task_file_sha256" \
+        --config "$eval_config" >/dev/null
+fi
+
+mkdir -p /checkpoint/ram/tianhaowu/terminal_bench_vmvm/logs
+if [[ "$source_continuation_mode" -eq 1 ]]; then
+    continuation_output_parent=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/evals
+    if [[ "$(dirname -- "$output_dir")" != "$continuation_output_parent" \
+        || "$(basename -- "$output_dir")" != qwen_sandoq_source_continuation_* \
+        || -e "$output_dir" || -L "$output_dir" ]]; then
+        printf 'Source continuation requires a fresh provider-scoped output directory\n' >&2
+        exit 2
+    fi
+    if ! mkdir -m 0700 -- "$output_dir" \
+        || [[ -L "$output_dir" || ! -d "$output_dir" \
+            || "$(stat -c '%u' -- "$output_dir")" != "$UID" \
+            || "$(stat -c '%a' -- "$output_dir")" != 700 ]]; then
+        printf 'Source continuation output directory is not private\n' >&2
+        exit 2
+    fi
+else
+    mkdir -p "$output_dir"
+fi
 exec 8>"$output_dir/.direct_router.lock"
 if ! flock -n 8; then
     printf 'Another direct router owns %s\n' "$output_dir" >&2
@@ -520,8 +575,45 @@ eval_pid=$!
 wait "$eval_pid"
 eval_pid=
 if [[ "$sandbox_provider" == sandoq && "$preflight_only" -eq 1 ]]; then
+    if [[ -n "$router_pid" ]] && kill -0 "$router_pid" 2>/dev/null; then
+        kill -TERM -- "-$router_pid" 2>/dev/null || true
+        wait "$router_pid" 2>/dev/null || true
+    fi
+    router_pid=
+    if ! flock -u 8; then
+        printf 'Direct-router preflight lock release failed\n' >&2
+        exit 2
+    fi
+    exec 8>&-
     rm -f -- "$manifest" "$router_log" "$output_dir/.direct_router.lock"
-    rmdir -- "$output_dir" 2>/dev/null || true
+    if [[ "$source_continuation_mode" -eq 1 ]]; then
+        preflight_output_removed=0
+        for _attempt in $(seq 1 30); do
+            if [[ -e "$output_dir/control" || -L "$output_dir/control" ]]; then
+                if [[ -L "$output_dir/control" || ! -d "$output_dir/control" ]]; then
+                    printf 'Source-continuation preflight cleanup failed\n' >&2
+                    exit 2
+                fi
+                rmdir -- "$output_dir/control" 2>/dev/null || true
+            fi
+            if rmdir -- "$output_dir" 2>/dev/null; then
+                preflight_output_removed=1
+                break
+            fi
+            sleep 1
+        done
+        if [[ "$preflight_output_removed" -ne 1 ]]; then
+            if [[ -L "$output_dir" || ! -d "$output_dir" ]]; then
+                printf 'Source-continuation preflight cleanup failed\n' >&2
+                exit 2
+            fi
+            printf 'Source-continuation preflight cleanup failed\n' >&2
+            exit 2
+        fi
+    else
+        rmdir -- "$output_dir/control" 2>/dev/null || true
+        rmdir -- "$output_dir" 2>/dev/null || true
+    fi
 fi
 if [[ "$sandbox_provider" == sandoq && "$preflight_only" -eq 0 ]]; then
     if [[ -z "$router_pid" ]] || ! kill -0 "$router_pid" 2>/dev/null; then
@@ -573,6 +665,16 @@ PY
             --expected-task-file "$approved_task_file" \
             --cleanup-audit "$output_dir/sandoq_cleanup_audit.json" \
             --output "$output_dir/qwen_sandoq_diagnostic_summary.json"
+    elif [[ "$source_continuation_mode" -eq 1 ]]; then
+        env PYTHONPATH="$post_eval_pythonpath" \
+            "$x86_uv" run --no-project --offline --python "$python_bin" \
+            python3 "$workflow_dir/sandoq_source_continuation.py" certify \
+            --plan "$source_continuation_plan" \
+            --plan-sha256 "$source_continuation_plan_sha256" \
+            --run "$output_dir" \
+            --cleanup-audit "$output_dir/sandoq_cleanup_audit.json" \
+            --identity-output "$output_dir/source_continuation_identity.json" \
+            --output "$output_dir/qwen_sandoq_source_continuation_certificate.json" >/dev/null
     else
         certificate_args=(
             "$workflow_dir/certify_direct_qwen_sandoq.py"

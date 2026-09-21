@@ -26,6 +26,17 @@ output_dir=${OUTPUT_DIR:?The direct Qwen wrapper must set OUTPUT_DIR}
 inference_base_url=${INFERENCE_BASE_URL:?The direct Qwen wrapper must set INFERENCE_BASE_URL}
 approved_task_file=${DIRECT_QWEN_APPROVED_TASK_FILE:?Missing direct Qwen task approval}
 approved_task_file_sha256=${DIRECT_QWEN_APPROVED_TASK_FILE_SHA256:?Missing direct Qwen task approval hash}
+source_continuation_plan=${QWEN_SANDOQ_SOURCE_CONTINUATION_PLAN:-}
+source_continuation_plan_sha256=${QWEN_SANDOQ_SOURCE_CONTINUATION_PLAN_SHA256:-}
+source_continuation_mode=0
+if [[ -n "$source_continuation_plan" || -n "$source_continuation_plan_sha256" ]]; then
+    source_continuation_mode=1
+    if [[ -z "$source_continuation_plan" \
+        || ! "$source_continuation_plan_sha256" =~ ^[0-9a-f]{64}$ ]]; then
+        printf 'Source-continuation plan inputs are invalid\n' >&2
+        exit 2
+    fi
+fi
 deployment_root=${DIRECT_QWEN_DEPLOYMENT_ROOT:-/checkpoint/ram/shared/vllm_deployments_v2/shared_qwen38_2p4t}
 worker_manifest="$output_dir/direct_workers.json"
 unset PYTHONPATH PYTHONHOME
@@ -66,6 +77,17 @@ if [[ "$sandbox_provider" != vmvm && "$sandbox_provider" != sandoq ]]; then
     printf 'Direct Qwen config must select vmvm or sandoq explicitly\n' >&2
     exit 2
 fi
+if [[ "$source_continuation_mode" -eq 1 && "$sandbox_provider" != sandoq ]]; then
+    printf 'Source continuation requires the Sandoq runtime\n' >&2
+    exit 2
+fi
+if [[ "$source_continuation_mode" -eq 1 \
+    && ( -L "$output_dir" || ! -d "$output_dir" \
+        || "$(stat -c '%u' -- "$output_dir")" != "$UID" \
+        || "$(stat -c '%a' -- "$output_dir")" != 700 ) ]]; then
+    printf 'Source continuation output directory is not private\n' >&2
+    exit 2
+fi
 if [[ "$sandbox_provider" == sandoq && -n "$resume_dir" ]]; then
     printf 'Sandoq direct Qwen runs require a fresh output directory\n' >&2
     exit 2
@@ -78,7 +100,9 @@ if [[ "$sandbox_provider" == sandoq ]]; then
         "$output_dir/provenance.txt" "$output_dir/eval_run_identity.json" \
         "$output_dir/pool_events.jsonl" "$output_dir/control/sandoq-pool.wal.jsonl" \
         "$output_dir/pool_cleanup_audit.json" "$output_dir/sandoq_cleanup_audit.json" \
-        "$output_dir/direct_qwen_sandoq_certificate.json" "$expected_pool_socket" \
+        "$output_dir/direct_qwen_sandoq_certificate.json" \
+        "$output_dir/qwen_sandoq_source_continuation_certificate.json" \
+        "$output_dir/source_continuation_identity.json" "$expected_pool_socket" \
         "$expected_pool_socket.owner.json" "${expected_pool_socket%.sock}.drained.json"; do
         if [[ -e "$stale" || -L "$stale" ]]; then
             printf 'Sandoq fresh run found stale lifecycle evidence\n' >&2
@@ -284,12 +308,29 @@ if [[ "$sandbox_provider" == sandoq ]]; then
     diagnostic_mode=0
     if [[ -n "$diagnostic_config_sha256" ]]; then
         diagnostic_mode=1
-        if [[ "$sandoq_stage_count" != 1 \
+        if [[ "$source_continuation_mode" -eq 1 \
+            || "$sandoq_stage_count" != 1 \
             || ! "$diagnostic_config_sha256" =~ ^[0-9a-f]{64}$ \
             || "$(sha256sum -- "$eval_config" | cut -d' ' -f1)" != "$diagnostic_config_sha256" ]]; then
             printf 'Non-certifying diagnostic inputs are invalid\n' >&2
             exit 2
         fi
+    elif [[ "$source_continuation_mode" -eq 1 ]]; then
+        if [[ "$sandoq_stage_count" != 1233 \
+            || -n ${SANDOQ_RAMP_RECEIPT:-} \
+            || -n ${SANDOQ_RAMP_RECEIPT_SHA256:-} \
+            || -n ${SANDOQ_PREDECESSOR_CERTIFICATE:-} \
+            || -n ${SANDOQ_PREDECESSOR_CERTIFICATE_SHA256:-} ]]; then
+            printf 'Source-continuation launch inputs are invalid\n' >&2
+            exit 2
+        fi
+        "$x86_uv" run --no-project --offline --python "$python_bin" \
+            python3 "$workflow_dir/sandoq_source_continuation.py" validate-plan \
+            --plan "$source_continuation_plan" \
+            --plan-sha256 "$source_continuation_plan_sha256" \
+            --task-file "$approved_task_file" \
+            --task-file-sha256 "$approved_task_file_sha256" \
+            --config "$eval_config" >/dev/null
     else
         ramp_receipt=${SANDOQ_RAMP_RECEIPT:?SANDOQ_RAMP_RECEIPT is required}
         ramp_receipt_sha256=${SANDOQ_RAMP_RECEIPT_SHA256:?SANDOQ_RAMP_RECEIPT_SHA256 is required}
@@ -323,7 +364,7 @@ PY
         printf 'Sandoq host harness digest is invalid\n' >&2
         exit 2
     fi
-    if [[ "$diagnostic_mode" -eq 0 ]]; then
+    if [[ "$diagnostic_mode" -eq 0 && "$source_continuation_mode" -eq 0 ]]; then
         "$x86_uv" run --no-project --offline --python "$python_bin" \
         python3 - "$sandoq_stage_count" "$approved_task_file_sha256" "$approved_task_file" \
         "$workflow_dir/configs/eval/mobius_valid_tasks_2500.txt" \

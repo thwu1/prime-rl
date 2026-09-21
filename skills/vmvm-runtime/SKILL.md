@@ -737,6 +737,12 @@ revalidates code hashes, project and renderer revisions, dependency versions,
 config bindings, and any bound tokenizer tree at startup; format-v3 rows cannot
 bypass the gate through the generic SFT loader.
 
+Keep format-v3 canonicalization and loss-mask helpers in the lightweight
+`prime_rl.trainer.sft.format_v3` module. The standalone preflight must not
+import `prime_rl.trainer.sft.data`, because that training module eagerly pulls
+in Torch, TorchData, and Jaxtyping and makes otherwise CPU-only verification
+depend on the full trainer environment.
+
 If the source's pinned worker set is no longer available, the repair controller
 must keep that source immutable and create a role-bound serving-generation
 bundle before launching the fresh repair run. The source role remains the exact
