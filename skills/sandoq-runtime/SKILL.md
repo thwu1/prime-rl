@@ -154,3 +154,32 @@ tmux send-keys -t swebench_vmvm:Launcher.0 \
 
 Use only the checked-in, digest-pinned non-security selector. Do not print its
 contents or task identifier while validating or monitoring the run.
+
+## Long-Kimi managed-shell recovery gate
+
+Only the sealed `kimi-tb4-long` lease profile enables managed-shell recovery.
+The server-scoped launcher derives that profile through the provider-context
+supervisor; do not set `OCI_RUNNER_MANAGED_SHELL_RECOVERY` independently. The
+provider rejects a mismatched declaration, and standard plus Qwen profiles keep
+recovery disabled.
+
+For this profile, non-idempotent shell POSTs remain broker-owned until their
+bounded IPC response is published. Request and response frames are capped at
+16 MiB, response publication has an absolute deadline, and ambiguous,
+oversized, or failed publication poisons the assignment without replay. A
+departed client cannot admit new work; its already-running command is allowed
+to quiesce before broker-owned cleanup reaps the assignment.
+
+Run the task-free forced-delete probe before restarting Kimi TB4, then run the
+3,900-second idle-endurance probe before a full rollout. Both use a disposable,
+digest-pinned utility image and access neither benchmark tasks nor a model
+endpoint. Submit Slurm work only through the launcher tmux pane:
+
+```bash
+tmux send-keys -t swebench_vmvm:Launcher.0 \
+  "cd /checkpoint/ram/tianhaowu/terminal_bench_vmvm/sources/prime-kimi-vmvm-<commit> && env PROJECT_DIR=\$PWD KIMI_RECOVERY_EXPECTED_PRIME_RL_REVISION=<full-commit> KIMI_RECOVERY_PROBE_SHA256=<probe-sha256> KIMI_RECOVERY_PROBE_MODE=forced-delete sbatch --parsable \$PWD/user/tianhaowu/terminal_bench_vmvm/configs/eval/servers/cpu-132-021_8103/run_sandoq_managed_shell_recovery_probe_cpu-132-021_8103.sbatch" C-m
+```
+
+Repeat with `KIMI_RECOVERY_PROBE_MODE=idle-endurance` for the endurance gate.
+A probe is valid only when its private receipt records exactly one recovery and
+successful assignment cleanup plus pool drain.
