@@ -291,6 +291,7 @@ async def test_sandoq_declared_no_network_requires_explicit_public_override(
         "SANDOQ_LEASE_PROFILE": "standard",
         "OCI_RUNNER_LEASE_DURATION": "1h",
         "OCI_RUNNER_POOL_RENEW_INTERVAL": "5m",
+        "OCI_RUNNER_MANAGED_SHELL_RECOVERY": "0",
         "OCI_RUNNER_POOL_SIZE": "2",
         "OCI_RUNNER_POOL_MIN_SIZE": "0",
         "OCI_RUNNER_POOL_CREATE_WORKERS": "2",
@@ -321,6 +322,7 @@ async def test_sandoq_declared_no_network_requires_explicit_public_override(
 
     monkeypatch.setenv("SANDOQ_LEASE_PROFILE", "kimi-tb4-long")
     monkeypatch.setenv("OCI_RUNNER_LEASE_DURATION", "12h")
+    monkeypatch.setenv("OCI_RUNNER_MANAGED_SHELL_RECOVERY", "1")
     await TerminalBenchVMVMTaskset._configure_network_policy(task, runtime, "no-network", activate=False)
 
     monkeypatch.setenv("OCI_RUNNER_LEASE_DURATION", "13h")

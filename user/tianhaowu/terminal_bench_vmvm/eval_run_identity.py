@@ -93,7 +93,7 @@ SANDOQ_VENDOR_RELATIVE = Path("extensions/sandoq")
 SANDOQ_UPSTREAM_COMMIT = "4890302104d76220cef791c86d2009168597d35f"
 SANDOQ_UPSTREAM_TREE = "33f092a3982916660e12f472588e6ce34a906fc2"
 SANDOQ_UPSTREAM_SUBTREE = "10b5bd9bbc76eba1b8253637e1869d6b63b7fc42"
-SANDOQ_UPSTREAM_INVENTORY_SHA256 = "5db69d90ddd34cfbfdcffdacab09353e8be22e917f894e33ddafb5020ca43e73"
+SANDOQ_UPSTREAM_INVENTORY_SHA256 = "d2e9d6edbe6ca6b167f07ed9788060dbc1b56f6e29e5b0872dea7bab8621a9b3"
 KIMI_SANDOQ_FALLBACK_ROLE = "kimi-direct-tb4-sandoq-fallback-diagnostic"
 KIMI_PROVIDER_SPLIT_COUNTS = frozenset({31, 32})
 KIMI_SANDOQ_LONG_LEASE_ROLES = frozenset(
@@ -1502,10 +1502,12 @@ def _effective_sandoq_environment(
     ):
         raise EvalIdentityError("sandoq_storage_or_auth_policy_invalid")
     lease_profile, lease_duration = _sandoq_lease_contract(args.expected_model, args.role)
+    managed_shell_recovery = "definitive-404-410-single-replay-v1" if lease_profile == "kimi-tb4-long" else "disabled"
     if (
         os.environ.get("SANDOQ_LEASE_PROFILE") != lease_profile
         or os.environ.get("OCI_RUNNER_LEASE_DURATION") != lease_duration
         or os.environ.get("OCI_RUNNER_POOL_RENEW_INTERVAL") != "5m"
+        or os.environ.get("OCI_RUNNER_MANAGED_SHELL_RECOVERY") != ("1" if lease_profile == "kimi-tb4-long" else "0")
     ):
         raise EvalIdentityError("sandoq_lease_context_invalid")
     exact_policy = {
@@ -1534,6 +1536,7 @@ def _effective_sandoq_environment(
         "lease_profile": lease_profile,
         "lease_duration": lease_duration,
         "pool_renew_interval": "5m",
+        "managed_shell_recovery": managed_shell_recovery,
     }
     for field, expected in exact_policy.items():
         if getattr(args, f"sandoq_{field}") != expected:
@@ -2106,12 +2109,17 @@ def _validate_identity_shape(identity: object) -> dict[str, Any]:
             "lease_profile",
             "lease_duration",
             "pool_renew_interval",
+            "managed_shell_recovery",
         }
         if not isinstance(environment, dict):
             raise EvalIdentityError("eval_run_identity_schema_invalid")
-        profiled_lease = set(environment) == sandoq_environment_keys
-        legacy_lease = set(environment) == sandoq_environment_keys - {"lease_profile"}
-        if not profiled_lease and not legacy_lease:
+        recovery_bound = set(environment) == sandoq_environment_keys
+        profiled_lease = set(environment) == sandoq_environment_keys - {"managed_shell_recovery"}
+        legacy_lease = set(environment) == sandoq_environment_keys - {
+            "lease_profile",
+            "managed_shell_recovery",
+        }
+        if not recovery_bound and not profiled_lease and not legacy_lease:
             raise EvalIdentityError("eval_run_identity_schema_invalid")
         if (
             environment.get("environment") != "oci-runner"
@@ -2181,6 +2189,11 @@ def _validate_identity_shape(identity: object) -> dict[str, Any]:
         }
         if profiled_lease:
             expected_policy["lease_profile"] = lease_profile
+        if recovery_bound:
+            expected_policy["lease_profile"] = lease_profile
+            expected_policy["managed_shell_recovery"] = (
+                "definitive-404-410-single-replay-v1" if lease_profile == "kimi-tb4-long" else "disabled"
+            )
         if any(environment.get(key) != value for key, value in expected_policy.items()):
             raise EvalIdentityError("eval_run_identity_schema_invalid")
         return identity
@@ -2620,6 +2633,7 @@ def _verify_saved_provenance(output_dir: Path, identity: dict[str, Any], identit
                     "lease_profile",
                     "lease_duration",
                     "pool_renew_interval",
+                    "managed_shell_recovery",
                 }
             }
         )
@@ -2909,6 +2923,7 @@ def _bind_provenance(
                     "lease_profile",
                     "lease_duration",
                     "pool_renew_interval",
+                    "managed_shell_recovery",
                 }
             }
         )
@@ -3470,6 +3485,7 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--sandoq-lease-profile", default="")
     parser.add_argument("--sandoq-lease-duration", default="")
     parser.add_argument("--sandoq-pool-renew-interval", default="")
+    parser.add_argument("--sandoq-managed-shell-recovery", default="")
     parser.add_argument("--direct-worker-manifest", type=Path)
     parser.add_argument("--direct-worker-manifest-sha256")
     parser.add_argument("--direct-spec-sha256")

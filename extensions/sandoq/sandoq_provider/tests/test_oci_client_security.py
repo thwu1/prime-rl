@@ -12,6 +12,7 @@ from sandoq_provider.gateway import SandoqHttpResponse
 from sandoq_provider.oci_client import (
     CommandResponse,
     OCIRunnerAsyncSandboxClient,
+    OCIRunnerStageError,
     _image_mounts,
     get_oci_config,
 )
@@ -183,12 +184,15 @@ def test_direct_dockerhub_fallback_is_enabled_by_default(
 def test_oci_config_preserves_legacy_positional_constructor() -> None:
     observed = get_oci_config()
     legacy_values = [
-        getattr(observed, field.name) for field in fields(observed) if field.name != "allow_dockerhub_fallback"
+        getattr(observed, field.name)
+        for field in fields(observed)
+        if field.name not in {"allow_dockerhub_fallback", "managed_shell_recovery"}
     ]
 
     reconstructed = type(observed)(*legacy_values)
 
     assert reconstructed.allow_dockerhub_fallback is True
+    assert reconstructed.managed_shell_recovery is False
 
 
 def test_direct_dockerhub_fallback_can_be_disabled(
@@ -206,6 +210,253 @@ def test_direct_dockerhub_fallback_rejects_ambiguous_value(
 
     with pytest.raises(APIError, match="must be '0' or '1'"):
         get_oci_config()
+
+
+def test_managed_shell_recovery_is_derived_from_sealed_lease_profile(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("SANDOQ_LEASE_PROFILE", "kimi-tb4-long")
+    monkeypatch.setenv("OCI_RUNNER_MANAGED_SHELL_RECOVERY", "1")
+
+    assert get_oci_config().managed_shell_recovery is True
+
+    monkeypatch.setenv("OCI_RUNNER_MANAGED_SHELL_RECOVERY", "0")
+    with pytest.raises(APIError, match="disagrees"):
+        get_oci_config()
+
+
+@pytest.mark.parametrize("missing_status", [404, 410])
+def test_definitive_missing_managed_shell_is_recovered_once(
+    monkeypatch: pytest.MonkeyPatch,
+    missing_status: int,
+) -> None:
+    client = object.__new__(OCIRunnerAsyncSandboxClient)
+    client._oci_cfg = SimpleNamespace(
+        exec_timeout_ceiling_s=270,
+        gateway_retry_attempts=1,
+        gateway_retry_interval_s=0,
+        managed_shell_recovery=True,
+    )
+    client._auth_headers = lambda: {}
+    info = SimpleNamespace(
+        session_id="assignment-1",
+        shell_id="shell-old",
+        session_reuse=True,
+        env_vars={"OCI_EXPECTED_WORKDIR": "/testbed"},
+        metadata={},
+        assignment_poisoned=False,
+        assignment_poison_reason=None,
+        shell_failure_status=None,
+    )
+    calls: list[tuple[str, str, object]] = []
+    responses = iter(
+        [
+            SandoqHttpResponse(status_code=missing_status, body={}),
+            SandoqHttpResponse(status_code=200, body={"status": "ok"}),
+            SandoqHttpResponse(status_code=200, body={"shells": []}),
+            SandoqHttpResponse(
+                status_code=200,
+                body={"stdout": "ok", "stderr": "", "exitCode": 0, "timedOut": False},
+            ),
+        ]
+    )
+
+    async def request_json(_info: object, method: str, path: str, **kwargs: object) -> SandoqHttpResponse:
+        calls.append((method, path, kwargs.get("body")))
+        return next(responses)
+
+    client._request_json = request_json
+
+    class Pool:
+        def __init__(self) -> None:
+            self.operations: list[tuple[str, str]] = []
+            self.recoveries = 0
+
+        def begin_shell_command(
+            self,
+            assignment_id: str,
+            shell_id: str,
+            *,
+            timeout_seconds: float,
+        ) -> dict[str, object]:
+            del assignment_id, timeout_seconds
+            operation_id = f"operation-{len(self.operations)}"
+            self.operations.append(("begin", shell_id))
+            return {"status": "authorized", "operation_id": operation_id, "shell_id": shell_id}
+
+        def complete_shell_command(self, assignment_id: str, operation_id: str) -> dict[str, object]:
+            del assignment_id
+            self.operations.append(("complete", operation_id))
+            return {"completed": True}
+
+        def recover_managed_shell(
+            self,
+            assignment_id: str,
+            expected_shell_id: str,
+            *,
+            workdir: str,
+        ) -> dict[str, object]:
+            del assignment_id
+            assert expected_shell_id == "shell-old"
+            assert workdir == "/testbed"
+            self.recoveries += 1
+            return {"status": "recovered", "shell_id": "shell-new", "shell_generation": 1}
+
+    pool = Pool()
+    monkeypatch.setattr("sandoq_provider.pool.get_pool_client", lambda: pool)
+
+    result = asyncio.run(client._nested_exec_argv(info, ["bash", "-c", "true"]))
+
+    assert result == CommandResponse(stdout="ok", stderr="", exit_code=0)
+    assert info.shell_id == "shell-new"
+    assert info.metadata["managed_shell_recovery_count"] == 1
+    assert pool.recoveries == 1
+    assert [call[:2] for call in calls] == [
+        ("POST", "v1/exec"),
+        ("GET", "healthz"),
+        ("GET", "v1/shells"),
+        ("POST", "v1/exec"),
+    ]
+    assert pool.operations[0] == ("begin", "shell-old")
+    assert pool.operations[2] == ("begin", "shell-new")
+
+
+def test_ambiguous_managed_shell_failure_is_not_recovered(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    client = object.__new__(OCIRunnerAsyncSandboxClient)
+    client._oci_cfg = SimpleNamespace(
+        exec_timeout_ceiling_s=270,
+        gateway_retry_attempts=1,
+        gateway_retry_interval_s=0,
+        managed_shell_recovery=True,
+    )
+    client._auth_headers = lambda: {}
+    info = SimpleNamespace(
+        session_id="assignment-1",
+        shell_id="shell-old",
+        session_reuse=True,
+        env_vars={"OCI_EXPECTED_WORKDIR": "/testbed"},
+        metadata={},
+        assignment_poisoned=False,
+        assignment_poison_reason=None,
+        shell_failure_status=None,
+    )
+    responses = iter(
+        [
+            SandoqHttpResponse(status_code=502, body={}),
+            SandoqHttpResponse(status_code=200, body={"status": "ok"}),
+            SandoqHttpResponse(status_code=200, body={"shells": []}),
+        ]
+    )
+
+    async def request_json(*args: object, **kwargs: object) -> SandoqHttpResponse:
+        del args, kwargs
+        return next(responses)
+
+    client._request_json = request_json
+
+    class Pool:
+        recoveries = 0
+
+        def begin_shell_command(self, *args: object, **kwargs: object) -> dict[str, object]:
+            del args, kwargs
+            return {"status": "authorized", "operation_id": "operation-1", "shell_id": "shell-old"}
+
+        def complete_shell_command(self, *args: object, **kwargs: object) -> dict[str, object]:
+            del args, kwargs
+            return {"completed": True}
+
+        def recover_managed_shell(self, *args: object, **kwargs: object) -> dict[str, object]:
+            del args, kwargs
+            self.recoveries += 1
+            return {"status": "recovered", "shell_id": "shell-new"}
+
+    pool = Pool()
+    monkeypatch.setattr("sandoq_provider.pool.get_pool_client", lambda: pool)
+
+    with pytest.raises(OCIRunnerStageError) as raised:
+        asyncio.run(client._nested_exec_argv(info, ["bash", "-c", "true"]))
+
+    assert raised.value.failure_reason == "gateway_command_outcome_unknown"
+    assert pool.recoveries == 0
+
+
+def test_replacement_shell_failure_is_not_recovered_twice() -> None:
+    client = object.__new__(OCIRunnerAsyncSandboxClient)
+    client._oci_cfg = SimpleNamespace(
+        exec_timeout_ceiling_s=270,
+        gateway_retry_attempts=1,
+        gateway_retry_interval_s=0,
+        managed_shell_recovery=True,
+    )
+    info = SimpleNamespace(
+        session_id="assignment-1",
+        shell_id="shell-old",
+        session_reuse=True,
+        env_vars={"OCI_EXPECTED_WORKDIR": "/testbed"},
+        metadata={},
+        assignment_poisoned=False,
+        assignment_poison_reason=None,
+        shell_failure_status=None,
+    )
+    recoveries: list[str] = []
+
+    async def request(*args: object, **kwargs: object) -> SandoqHttpResponse:
+        del args, kwargs
+        return SandoqHttpResponse(status_code=404, body={})
+
+    async def diagnostics(_info: object) -> dict[str, object]:
+        return {"health_http_status": 200, "shell_http_status": 200}
+
+    async def recover(_info: object, expected_shell_id: str) -> None:
+        recoveries.append(expected_shell_id)
+        info.shell_id = "shell-new"
+
+    client._managed_shell_request = request
+    client._collect_terminal_diagnostics = diagnostics
+    client._recover_managed_shell = recover
+
+    with pytest.raises(OCIRunnerStageError) as raised:
+        asyncio.run(client._nested_exec_argv(info, ["bash", "-c", "true"]))
+
+    assert raised.value.failure_reason == "managed_shell_lost"
+    assert recoveries == ["shell-old"]
+
+
+def test_standard_profile_never_recovers_missing_managed_shell() -> None:
+    client = object.__new__(OCIRunnerAsyncSandboxClient)
+    client._oci_cfg = SimpleNamespace(
+        exec_timeout_ceiling_s=270,
+        gateway_retry_attempts=1,
+        gateway_retry_interval_s=0,
+        managed_shell_recovery=False,
+    )
+    info = SimpleNamespace(
+        session_id="assignment-1",
+        shell_id="shell-old",
+        session_reuse=True,
+        env_vars={"OCI_EXPECTED_WORKDIR": "/testbed"},
+        metadata={},
+        assignment_poisoned=False,
+        assignment_poison_reason=None,
+        shell_failure_status=None,
+    )
+
+    async def request(*args: object, **kwargs: object) -> SandoqHttpResponse:
+        del args, kwargs
+        return SandoqHttpResponse(status_code=404, body={})
+
+    async def diagnostics(_info: object) -> dict[str, object]:
+        return {"health_http_status": 200, "shell_http_status": 200}
+
+    client._managed_shell_request = request
+    client._collect_terminal_diagnostics = diagnostics
+
+    with pytest.raises(OCIRunnerStageError) as raised:
+        asyncio.run(client._nested_exec_argv(info, ["bash", "-c", "true"]))
+
+    assert raised.value.failure_reason == "outer_session_lost"
 
 
 @pytest.mark.parametrize("allow_fallback", [False, True])

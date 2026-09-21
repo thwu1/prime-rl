@@ -76,10 +76,12 @@ functions, aliases, traps, and shell options end with that call. Only trusted
 recipe bootstrap may use direct argv to establish managed cwd, environment, and
 Conda state. Sandoq's `workdir` and `env` fields carry recipe-managed values;
 rollout tools start in the validated `OCI_EXPECTED_WORKDIR` supplied by the
-recipe (default `/testbed` for V1). HTTP 502/503/504 and terminal 404/410
-responses make the command outcome unknown, so the assignment is poisoned and
-the command is never replayed. Only a transport failure proven not to have sent
-the request is eligible for a bounded replay.
+recipe (default `/testbed` for V1). HTTP 502/503/504 responses make the command
+outcome unknown, so the assignment is poisoned and the command is never
+replayed. A terminal 404/410 is also never replayed except for the narrowly
+attested long-Kimi missing-managed-shell recovery described below. Only a
+transport failure proven not to have sent the request is otherwise eligible
+for a bounded replay.
 
 Trusted transfer steps and recipe status probes are explicitly idempotent, but
 they still retry only failures classified as pre-delivery. Exhaustion raises
@@ -88,7 +90,14 @@ and eventual cleanup result. Ambiguous transport failures and terminal HTTP
 responses are never replayed.
 
 Managed shells have a documented idle TTL of 1,800 seconds. The provider does
-not send keepalives.
+not send speculative keepalives.  For the sealed long-Kimi lease profile, a
+definitive shell-command HTTP 404/410 is recoverable only when both outer health
+and the authenticated shell inventory remain HTTP 200 and that inventory proves
+the old shell ID absent.  The pool broker serializes recovery with commands and
+release, creates one replacement shell, restores the validated workdir, records
+the transition durably, and permits exactly one replay of the rejected command.
+Ambiguous transport failures, timeouts, and 5xx responses are never recovered or
+replayed by this path.
 
 Uploads and downloads use the authenticated outer command server and the shared
 mount:
@@ -243,7 +252,8 @@ The environment can record the following non-secret metadata in a rollout:
 - nested-container readiness;
 - background pull mode, job ID, status, poll count, exit code, direct-registry
   fallback, and rootless ownership mode;
-- shell ID, shell-start time, shell failure status, assignment poisoning, and
+- shell ID, shell generation, managed-shell recovery count, shell-start time,
+  shell failure status, assignment poisoning, and
   `shell_command_mode=contained_bash`.
 
 With `OCI_RUNNER_OBSERVABILITY=1`, metadata also contains `oci_timings` for

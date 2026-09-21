@@ -43,7 +43,7 @@ WORKER_PROTOCOL_VERSION = 2
 PINNED_PROVIDER_COMMIT = "4890302104d76220cef791c86d2009168597d35f"
 PINNED_PROVIDER_TREE = "33f092a3982916660e12f472588e6ce34a906fc2"
 PINNED_SANDOQ_CLIENT = "0.4.0.2026.8.20.58304.0+hga81e4ca4d312"
-PINNED_PROVIDER_SOURCE_SHA256 = "690a0039ed04a4db492327d50a0016023ad022e0b2976ae3f8ab9dfb6d2d7f1c"
+PINNED_PROVIDER_SOURCE_SHA256 = "2a9169e8baa16698c761c192f6ed3d80fad8173f467ba9f3ace0a6def4447bd7"
 MAX_JSON_BYTES = 64 * 1024 * 1024
 MAX_ARCHIVE_BYTES = 2 * 1024 * 1024 * 1024
 MAX_COMMAND_OUTPUT_BYTES = 16 * 1024 * 1024
@@ -62,8 +62,8 @@ _PROVIDER_FILES = {
     "config.py": ("082458cd3124928c58931514e3717b41ad9aeb041b4fed96bdecdcf1a25ccc3f", 3379),
     "ecr.py": ("101cafaf6d38bd26016532b1e6084087930b937b0e20ee4fdf2ed2c33a05d869", 10841),
     "gateway.py": ("c0aa4b892238f86c8b5bf25aab8e3e2d7ca4f85cee7fa1b50798396f86118739", 22068),
-    "oci_client.py": ("dabcd0a1fe8f5d3cbd0bb3f71922d84a4d8c765af12df285f4ed8090449d5404", 149610),
-    "pool.py": ("c4e6d63376c69394bf39b4b054c8531ac13db1ef430902a0a59cf3666346f714", 100406),
+    "oci_client.py": ("69d83de6b8e23e27a3ad01d3d06a3a78cdcf88aafeb555d0973440f6e1478339", 157113),
+    "pool.py": ("9c7d316bbf96c5f2a587eac33d1ef523022686cf35f0a0281bf94f57ce302990", 119133),
     "registry.py": ("63fbc7de54428803e582f62d5f22dc0be4cc29463b907ea392061790c8658ea6", 3444),
     "secrets.py": ("3ee859610ee38c7d54296a8fa1f0d1e263a23e91f5a4c54d39181dfdb226cb0a", 2864),
     "sync_client.py": ("d8ff459280fb7ee3482d1a483f851132d4d072ace88565bbab518823e21835b9", 1990),
@@ -1756,10 +1756,7 @@ def _provider_cleanup_record(
     )
     outer_deleted = (
         release_status in {"poisoned", "retired", "deleted"}
-        and (
-            release.get("outer_deletion_verified_http_status") == 404
-            or release.get("verified_http_status") == 404
-        )
+        and (release.get("outer_deletion_verified_http_status") == 404 or release.get("verified_http_status") == 404)
         and release.get("outer_session_id", outer) == outer
     )
     if (
@@ -2942,9 +2939,7 @@ async def _anchor(
                     _fail("provider_anchor_unverified")
                 heartbeat_checks += 1
                 next_heartbeat = now + PROVIDER_ANCHOR_HEARTBEAT_INTERVAL_SECONDS
-            await asyncio.sleep(
-                min(0.1, max(next_heartbeat - loop.time(), 0.01))
-            )
+            await asyncio.sleep(min(0.1, max(next_heartbeat - loop.time(), 0.01)))
     except BaseException as primary_error:
         cleanup_task = asyncio.create_task(
             _provider_recovery_result(

@@ -308,10 +308,14 @@ PY
     sandoq_lease_create_cap=$(( sandoq_capacity < 4 ? sandoq_capacity : 4 ))
     sandoq_lease_profile=standard
     sandoq_lease_duration=1h
+    sandoq_managed_shell_recovery=0
+    sandoq_managed_shell_recovery_policy=disabled
     if [[ "$eval_expected_model" == Kimi-K3 \
         && ( "$eval_run_role" == tb4 || "$eval_run_role" == mobius ) ]]; then
         sandoq_lease_profile=kimi-tb4-long
         sandoq_lease_duration=12h
+        sandoq_managed_shell_recovery=1
+        sandoq_managed_shell_recovery_policy=definitive-404-410-single-replay-v1
     fi
     provider_context="$workflow_dir/terminal_bench_vmvm/sandoq_provider_context.py"
     if [[ ${SANDOQ_PROVIDER_CONTEXT_ACTIVE:-} == 1 ]]; then
@@ -320,7 +324,8 @@ PY
             --receipt "${SANDOQ_PROVIDER_CONTEXT_RECEIPT:?}" >/dev/null
         if [[ "$SANDOQ_LEASE_PROFILE" != "$sandoq_lease_profile" \
             || "$OCI_RUNNER_LEASE_DURATION" != "$sandoq_lease_duration" \
-            || "$OCI_RUNNER_POOL_RENEW_INTERVAL" != 5m ]]; then
+            || "$OCI_RUNNER_POOL_RENEW_INTERVAL" != 5m \
+            || "$OCI_RUNNER_MANAGED_SHELL_RECOVERY" != "$sandoq_managed_shell_recovery" ]]; then
             printf 'Sandoq provider lease profile does not match the evaluation role\n' >&2
             exit 2
         fi
@@ -851,6 +856,7 @@ else
         --sandoq-lease-profile "$SANDOQ_LEASE_PROFILE"
         --sandoq-lease-duration "$OCI_RUNNER_LEASE_DURATION"
         --sandoq-pool-renew-interval "$OCI_RUNNER_POOL_RENEW_INTERVAL"
+        --sandoq-managed-shell-recovery "$sandoq_managed_shell_recovery_policy"
     )
 fi
 if [[ -n "$inference_deployment_id" ]]; then

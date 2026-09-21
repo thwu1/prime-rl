@@ -305,6 +305,7 @@ def _context_contract(
         "lease_profile": lease_profile,
         "lease_duration": lease_duration,
         "pool_renew_interval": "5m",
+        "managed_shell_recovery": lease_profile == "kimi-tb4-long",
         "session_reuse": 1,
         "pool_max_reuse_count": 1,
         "image_cache_max_entries": 0,
@@ -406,6 +407,7 @@ def build_provider_environment(
             "OCI_RUNNER_POOL_HEARTBEAT_TIMEOUT": "45s",
             "OCI_RUNNER_SECRET_CACHE_TTL": "5s",
             "OCI_RUNNER_POOL_RENEW_INTERVAL": "5m",
+            "OCI_RUNNER_MANAGED_SHELL_RECOVERY": ("1" if lease_profile == "kimi-tb4-long" else "0"),
             "OCI_RUNNER_POOL_SIZE": str(concurrency),
             "OCI_RUNNER_POOL_MIN_SIZE": "0",
             "OCI_RUNNER_POOL_CREATE_WORKERS": str(lease_create_cap),
@@ -555,6 +557,8 @@ def provider_context_is_active(environment: Mapping[str, str]) -> bool:
             or environment.get("SANDOQ_LEASE_PROFILE") not in LEASE_PROFILES
             or environment.get("OCI_RUNNER_LEASE_DURATION") != LEASE_PROFILES[environment["SANDOQ_LEASE_PROFILE"]]
             or environment.get("OCI_RUNNER_POOL_RENEW_INTERVAL") != "5m"
+            or environment.get("OCI_RUNNER_MANAGED_SHELL_RECOVERY")
+            != ("1" if environment["SANDOQ_LEASE_PROFILE"] == "kimi-tb4-long" else "0")
             or environment.get("OCI_RUNNER_PULL_TIMEOUT") != "3600s"
             or environment.get("OCI_RUNNER_PULL_POLL_MAX_ERRORS") != "20"
             or environment.get("OCI_RUNNER_OBSERVABILITY") != "1"

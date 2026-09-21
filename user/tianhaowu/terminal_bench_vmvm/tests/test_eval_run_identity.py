@@ -292,6 +292,7 @@ def _sandoq_identity() -> dict:
         "lease_profile": "standard",
         "lease_duration": "1h",
         "pool_renew_interval": "5m",
+        "managed_shell_recovery": "disabled",
     }
     identity["contract"] = contract
     identity["execution"] = execution
@@ -488,6 +489,7 @@ def _direct_kimi_identity(*, smoke: bool) -> dict:
     if not smoke:
         environment["lease_profile"] = "kimi-tb4-long"
         environment["lease_duration"] = "12h"
+        environment["managed_shell_recovery"] = "definitive-404-410-single-replay-v1"
     identity["role"] = "kimi-direct-smoke" if smoke else "kimi-direct-tb4"
     identity["contract"] = contract
     identity["execution"] = execution
@@ -540,8 +542,10 @@ def test_pre_profile_sandoq_identities_remain_loadable_but_fallback_requires_pro
 ) -> None:
     historical_qwen = _sandoq_identity()
     historical_qwen["execution"]["sandoq_environment"].pop("lease_profile")
+    historical_qwen["execution"]["sandoq_environment"].pop("managed_shell_recovery")
     historical_kimi = _direct_kimi_identity(smoke=False)
     historical_kimi["execution"]["sandoq_environment"].pop("lease_profile")
+    historical_kimi["execution"]["sandoq_environment"].pop("managed_shell_recovery")
     historical_kimi["execution"]["sandoq_environment"]["lease_duration"] = "1h"
     for name, identity in (("qwen", historical_qwen), ("kimi", historical_kimi)):
         envelope = _identity_envelope(identity)
@@ -554,6 +558,16 @@ def test_pre_profile_sandoq_identities_remain_loadable_but_fallback_requires_pro
     fallback_identity["deployment"]["smoke_checkpoint"] = None
     with pytest.raises(EvalIdentityError, match="schema_invalid"):
         _validate_identity_shape(fallback_identity)
+
+
+def test_pre_shell_recovery_profiled_identity_remains_loadable(tmp_path: Path) -> None:
+    historical = _direct_kimi_identity(smoke=False)
+    historical["execution"]["sandoq_environment"].pop("managed_shell_recovery")
+    envelope = _identity_envelope(historical)
+    path = tmp_path / "historical-profiled-kimi.json"
+    path.write_text(json.dumps(envelope))
+
+    assert load_eval_run_identity(path, verify_references=False) == envelope
 
 
 @pytest.mark.parametrize(
@@ -661,6 +675,7 @@ def test_sandoq_lease_profile_is_role_and_model_bound() -> None:
     qwen["execution"]["sandoq_environment"].update(
         lease_profile="kimi-tb4-long",
         lease_duration="12h",
+        managed_shell_recovery="definitive-404-410-single-replay-v1",
     )
     with pytest.raises(EvalIdentityError, match="schema_invalid"):
         _validate_identity_shape(qwen)

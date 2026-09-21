@@ -9,6 +9,7 @@ import contextlib
 import fcntl
 import json
 import os
+import posixpath
 import queue
 import random
 import shlex
@@ -118,6 +119,7 @@ class PoolConfig:
     image_cache_max_entries: int
     event_log: Path | None
     ecr: ECRConfig
+    managed_shell_recovery: bool = False
 
     @classmethod
     def from_env(cls) -> PoolConfig:
@@ -157,6 +159,10 @@ class PoolConfig:
         max_reuse_count = int(os.environ.get("OCI_RUNNER_POOL_MAX_REUSE_COUNT", "6"))
         reuse_jitter = int(os.environ.get("OCI_RUNNER_POOL_REUSE_JITTER", "2"))
         image_cache_max_entries = int(os.environ.get("OCI_RUNNER_IMAGE_CACHE_MAX_ENTRIES", "2"))
+        managed_shell_recovery = os.environ.get("SANDOQ_LEASE_PROFILE") == "kimi-tb4-long"
+        declared_shell_recovery = os.environ.get("OCI_RUNNER_MANAGED_SHELL_RECOVERY")
+        if declared_shell_recovery is not None and declared_shell_recovery != ("1" if managed_shell_recovery else "0"):
+            raise ValueError("OCI_RUNNER_MANAGED_SHELL_RECOVERY disagrees with SANDOQ_LEASE_PROFILE")
         if renewal_interval_s <= 0:
             raise ValueError("OCI_RUNNER_POOL_RENEW_INTERVAL must be positive")
         if renewal_workers < 1:
@@ -205,6 +211,7 @@ class PoolConfig:
             image_cache_max_entries=image_cache_max_entries,
             event_log=Path(event_value).expanduser() if event_value else None,
             ecr=ECRConfig.from_env(),
+            managed_shell_recovery=managed_shell_recovery,
         )
 
 
@@ -241,6 +248,12 @@ class Assignment:
     shell_failure_status: str | None = None
     resolved_digest: str | None = None
     ready: bool = False
+    shell_generation: int = 0
+    shell_recovering: bool = False
+    active_shell_operation: str | None = None
+    active_shell_operation_deadline: float = 0.0
+    managed_shell_failure_status: str | None = None
+    managed_shell_recovery_count: int = 0
 
 
 @dataclass
@@ -1178,12 +1191,25 @@ class PoolBroker:
         return {"cancelled": True, "ticket_id": ticket_id}
 
     def update(self, client_id: str, assignment_id: str, values: dict[str, object]) -> dict[str, object]:
-        with self.lock:
+        with self.changed:
             assignment = self.assignments.get(assignment_id)
             if assignment is None or assignment.client_id != client_id:
                 raise RuntimeError("unknown pool assignment")
             if shell_id := values.get("shell_id"):
-                assignment.shell_id = str(shell_id)
+                normalized_shell_id = str(shell_id)
+                if assignment.shell_id not in {None, normalized_shell_id}:
+                    raise RuntimeError("managed shell replacement requires broker recovery")
+                if assignment.shell_id is None:
+                    self._wal_event(
+                        "managed_shell_bound",
+                        assignment_id=assignment_id,
+                        outer_session_id=self.slots[assignment.slot_id].outer_session_id,
+                        slot_id=assignment.slot_id,
+                        generation=self.slots[assignment.slot_id].generation,
+                        shell_id=normalized_shell_id,
+                        shell_generation=assignment.shell_generation,
+                    )
+                assignment.shell_id = normalized_shell_id
             if digest := values.get("resolved_digest"):
                 assignment.resolved_digest = str(digest)
             slot = self.slots[assignment.slot_id]
@@ -1208,6 +1234,253 @@ class PoolBroker:
                 )
                 self._assign_waiters_locked()
         return {"updated": True}
+
+    def begin_shell_command(
+        self,
+        client_id: str,
+        assignment_id: str,
+        expected_shell_id: str,
+        *,
+        timeout_seconds: float,
+    ) -> dict[str, object]:
+        if not self.config.managed_shell_recovery or not expected_shell_id or not 0 < timeout_seconds <= 300:
+            raise RuntimeError("managed shell command reservation is invalid")
+        deadline = time.monotonic() + timeout_seconds
+        with self.changed:
+            while True:
+                assignment = self.assignments.get(assignment_id)
+                if assignment is None or assignment.client_id != client_id:
+                    raise RuntimeError("unknown pool assignment")
+                if assignment_id in self.releasing_assignments:
+                    raise RuntimeError("pool assignment release is in progress")
+                if assignment.managed_shell_failure_status is not None:
+                    return {
+                        "status": "terminal_failure",
+                        "failure_status": assignment.managed_shell_failure_status,
+                    }
+                if assignment.shell_id != expected_shell_id:
+                    if not assignment.shell_id:
+                        raise RuntimeError("pool assignment has no managed shell")
+                    return {
+                        "status": "shell_replaced",
+                        "shell_id": assignment.shell_id,
+                        "shell_generation": assignment.shell_generation,
+                    }
+                if not assignment.shell_recovering and assignment.active_shell_operation is None:
+                    operation_id = "shell-operation-" + uuid.uuid4().hex
+                    assignment.active_shell_operation = operation_id
+                    assignment.active_shell_operation_deadline = deadline
+                    return {
+                        "status": "authorized",
+                        "operation_id": operation_id,
+                        "shell_id": assignment.shell_id,
+                        "shell_generation": assignment.shell_generation,
+                    }
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    raise TimeoutError("managed shell command reservation timed out")
+                self.changed.wait(timeout=min(remaining, 0.25))
+
+    def complete_shell_command(
+        self,
+        client_id: str,
+        assignment_id: str,
+        operation_id: str,
+    ) -> dict[str, object]:
+        with self.changed:
+            assignment = self.assignments.get(assignment_id)
+            if assignment is None or assignment.client_id != client_id:
+                if assignment_id in self.releasing_assignments:
+                    return {"completed": False, "release_in_progress": True}
+                raise RuntimeError("unknown pool assignment")
+            if assignment.active_shell_operation != operation_id:
+                raise RuntimeError("managed shell command reservation mismatch")
+            assignment.active_shell_operation = None
+            assignment.active_shell_operation_deadline = 0.0
+            self.changed.notify_all()
+            return {"completed": True}
+
+    @staticmethod
+    def _validated_managed_workdir(value: str) -> str:
+        if (
+            not value.startswith("/")
+            or value != posixpath.normpath(value)
+            or "\x00" in value
+            or "\n" in value
+            or "\r" in value
+        ):
+            raise RuntimeError("managed shell recovery workdir is invalid")
+        return value
+
+    @staticmethod
+    def _managed_shell_ids(body: object) -> set[str]:
+        value = body
+        if isinstance(value, dict) and "result" in value:
+            value = value["result"]
+        if isinstance(value, dict) and "shells" in value:
+            value = value["shells"]
+        if not isinstance(value, list):
+            raise RuntimeError("managed shell inventory response is invalid")
+        shell_ids: set[str] = set()
+        for item in value:
+            if isinstance(item, str) and item:
+                shell_id = item
+            elif isinstance(item, dict):
+                shell_id = item.get("shellId", item.get("id"))
+                if not isinstance(shell_id, str) or not shell_id:
+                    raise RuntimeError("managed shell inventory response is invalid")
+            else:
+                raise RuntimeError("managed shell inventory response is invalid")
+            shell_ids.add(shell_id)
+        return shell_ids
+
+    def recover_managed_shell(
+        self,
+        client_id: str,
+        assignment_id: str,
+        expected_shell_id: str,
+        *,
+        workdir: str,
+    ) -> dict[str, object]:
+        if not self.config.managed_shell_recovery:
+            raise RuntimeError("managed shell recovery is disabled")
+        normalized_workdir = self._validated_managed_workdir(workdir)
+        reservation_deadline = time.monotonic() + 300.0
+        with self.changed:
+            while True:
+                assignment = self.assignments.get(assignment_id)
+                if assignment is None or assignment.client_id != client_id:
+                    raise RuntimeError("unknown pool assignment")
+                if assignment_id in self.releasing_assignments:
+                    raise RuntimeError("pool assignment release is in progress")
+                if assignment.managed_shell_failure_status is not None:
+                    raise RuntimeError("managed shell recovery previously failed")
+                if assignment.shell_id != expected_shell_id:
+                    if not assignment.shell_id:
+                        raise RuntimeError("pool assignment has no managed shell")
+                    return {
+                        "status": "already_recovered",
+                        "shell_id": assignment.shell_id,
+                        "shell_generation": assignment.shell_generation,
+                    }
+                if not assignment.shell_recovering and assignment.active_shell_operation is None:
+                    assignment.shell_recovering = True
+                    slot = self.slots[assignment.slot_id]
+                    outer_id = slot.outer_session_id
+                    exec_url = slot.exec_url
+                    slot_id = slot.slot_id
+                    slot_generation = slot.generation
+                    break
+                remaining = reservation_deadline - time.monotonic()
+                if remaining <= 0:
+                    raise TimeoutError("managed shell recovery reservation timed out")
+                self.changed.wait(timeout=min(remaining, 0.25))
+        new_shell_id: str | None = None
+        try:
+            if not outer_id or not exec_url:
+                raise RuntimeError("managed shell recovery outer session is unavailable")
+            health = self.gateway.request_json(
+                "GET",
+                exec_url + "healthz",
+                timeout=10.0,
+            )
+            shells = self.gateway.request_json(
+                "GET",
+                exec_url + "v1/shells",
+                headers=self._auth_headers(),
+                timeout=10.0,
+            )
+            if health.status_code != 200 or shells.status_code != 200:
+                raise RuntimeError("managed shell recovery outer diagnostics failed")
+            if expected_shell_id in self._managed_shell_ids(shells.body):
+                raise RuntimeError("managed shell command outcome is ambiguous")
+            created = self.gateway.request_json(
+                "POST",
+                exec_url + "v1/shells",
+                body={"container": "task"},
+                headers=self._auth_headers(),
+                timeout=30.0,
+            )
+            body = created.body
+            candidate = body.get("shellId", body.get("id")) if isinstance(body, dict) else None
+            if created.status_code not in (200, 201) or not isinstance(candidate, str) or not candidate:
+                raise RuntimeError("managed shell replacement creation failed")
+            new_shell_id = candidate
+            initialized = self._request_json_idempotent(
+                "POST",
+                exec_url + "v1/exec",
+                body={"command": ["cd", normalized_workdir], "shellId": new_shell_id, "timeout": 30},
+                headers=self._auth_headers(),
+                timeout=60.0,
+            )
+            result = (
+                initialized.body.get("result") if isinstance(initialized.body.get("result"), dict) else initialized.body
+            )
+            if (
+                initialized.status_code != 200
+                or not isinstance(result, dict)
+                or result.get("exitCode", result.get("exit_code")) != 0
+                or result.get("timedOut", result.get("timed_out", False)) is not False
+            ):
+                raise RuntimeError("managed shell replacement initialization failed")
+            with self.changed:
+                current = self.assignments.get(assignment_id)
+                if current is not assignment or assignment_id in self.releasing_assignments:
+                    raise RuntimeError("managed shell recovery assignment changed")
+                next_generation = assignment.shell_generation + 1
+                # Keep the broker lock across the durable transition and the
+                # in-memory publication.  Release therefore cannot observe an
+                # unrecorded replacement or race between the WAL append and
+                # assignment update.
+                self._wal_event(
+                    "managed_shell_recovered",
+                    assignment_id=assignment_id,
+                    outer_session_id=outer_id,
+                    slot_id=slot_id,
+                    generation=slot_generation,
+                    prior_shell_id=expected_shell_id,
+                    shell_id=new_shell_id,
+                    shell_generation=next_generation,
+                )
+                assignment.shell_id = new_shell_id
+                assignment.shell_generation = next_generation
+                assignment.managed_shell_recovery_count += 1
+                assignment.shell_recovering = False
+                self.changed.notify_all()
+            self._event(
+                "managed_shell_recovered",
+                assignment_id=assignment_id,
+                outer_session_id=outer_id,
+                slot_id=slot_id,
+                generation=slot_generation,
+                shell_generation=next_generation,
+                recovery_count=assignment.managed_shell_recovery_count,
+            )
+            return {
+                "status": "recovered",
+                "shell_id": new_shell_id,
+                "shell_generation": next_generation,
+            }
+        except Exception as error:
+            if new_shell_id is not None:
+                with contextlib.suppress(Exception):
+                    self._delete_shell(slot, new_shell_id)
+            with self.changed:
+                current = self.assignments.get(assignment_id)
+                if current is assignment:
+                    assignment.managed_shell_failure_status = "managed_shell_recovery_failed"
+                    assignment.shell_failure_status = "managed_shell_recovery_failed"
+                    assignment.shell_recovering = False
+                    self.changed.notify_all()
+            self._event(
+                "managed_shell_recovery_failed",
+                assignment_id=assignment_id,
+                outer_session_id=outer_id,
+                slot_id=slot_id,
+                generation=slot_generation,
+                error_type=type(error).__name__,
+            )
+            raise RuntimeError("managed shell recovery failed") from error
 
     def _remember_release_locked(self, assignment_id: str, response: dict[str, object]) -> None:
         self.release_results[assignment_id] = dict(response)
@@ -1255,10 +1528,38 @@ class PoolBroker:
                 raise RuntimeError("unknown pool assignment")
             if assignment.client_id != client_id and reason not in {"stale_client", "client_departure", "drain"}:
                 raise RuntimeError("pool assignment belongs to a different client")
-            assignment.shell_failure_status = shell_failure_status
+            self.releasing_assignments.add(assignment_id)
+            serialization_deadline = max(
+                time.monotonic() + self.config.drain_timeout_s,
+                assignment.active_shell_operation_deadline + 5.0,
+            )
+            while assignment.shell_recovering or assignment.active_shell_operation is not None:
+                now = time.monotonic()
+                if assignment.active_shell_operation is not None and assignment.active_shell_operation_deadline <= now:
+                    assignment.active_shell_operation = None
+                    assignment.active_shell_operation_deadline = 0.0
+                    assignment.managed_shell_failure_status = "managed_shell_operation_abandoned"
+                    assignment.shell_failure_status = "managed_shell_operation_abandoned"
+                    self._event(
+                        "managed_shell_operation_abandoned",
+                        assignment_id=assignment_id,
+                        slot_id=assignment.slot_id,
+                        shell_generation=assignment.shell_generation,
+                    )
+                    self.changed.notify_all()
+                    continue
+                remaining = serialization_deadline - time.monotonic()
+                if remaining <= 0:
+                    self.releasing_assignments.discard(assignment_id)
+                    self.changed.notify_all()
+                    raise TimeoutError("managed shell activity did not quiesce before release")
+                self.changed.wait(timeout=min(remaining, 0.25))
+            assignment.shell_failure_status = assignment.managed_shell_failure_status or shell_failure_status
+            if assignment.managed_shell_failure_status is not None:
+                poison = True
+                reason = "managed_shell_lost"
             slot = self.slots[assignment.slot_id]
             slot.state = "recycling"
-            self.releasing_assignments.add(assignment_id)
         recycle_verified = False
         shell_deleted = False
         gateway_retry_stats = {"retry_count": 0, "exhausted_count": 0}
@@ -1344,6 +1645,8 @@ class PoolBroker:
             "reuse_threshold": reuse_threshold,
             "nested_recycle_verified": recycle_verified,
             "shell_id": assignment.shell_id,
+            "shell_generation": assignment.shell_generation,
+            "managed_shell_recovery_count": assignment.managed_shell_recovery_count,
             "shell_deleted": shell_deleted,
             "shell_failure_status": assignment.shell_failure_status,
             "poisoned": not recycle_verified or deletion_error is not None,
@@ -1539,6 +1842,26 @@ class PoolBroker:
                 slot.state = "delete_queued"
                 self._delete_executor.submit(self._retry_poisoned_slot, slot)
 
+    def _expire_abandoned_shell_operations(self, now: float) -> None:
+        expired: list[tuple[str, Assignment]] = []
+        with self.changed:
+            for assignment_id, assignment in self.assignments.items():
+                if assignment.active_shell_operation is not None and assignment.active_shell_operation_deadline <= now:
+                    assignment.active_shell_operation = None
+                    assignment.active_shell_operation_deadline = 0.0
+                    assignment.managed_shell_failure_status = "managed_shell_operation_abandoned"
+                    assignment.shell_failure_status = "managed_shell_operation_abandoned"
+                    expired.append((assignment_id, assignment))
+            if expired:
+                self.changed.notify_all()
+        for assignment_id, assignment in expired:
+            self._event(
+                "managed_shell_operation_abandoned",
+                assignment_id=assignment_id,
+                slot_id=assignment.slot_id,
+                shell_generation=assignment.shell_generation,
+            )
+
     def _maintenance_loop(self) -> None:
         renew_interval = self.config.renewal_interval_s
         last_renewal = 0.0
@@ -1584,6 +1907,7 @@ class PoolBroker:
                 retry_poisoned = not self.draining
             if retry_poisoned:
                 self._schedule_poisoned_deletes(now)
+            self._expire_abandoned_shell_operations(now)
             if now - last_renewal >= renew_interval:
                 with self.lock:
                     outer_ids = [
@@ -1628,6 +1952,7 @@ class PoolBroker:
                 self.changed.wait(timeout=min(assignment_deadline - time.monotonic(), 0.25))
 
         abandoned: list[tuple[Assignment, str | None, int, int]] = []
+        unserialized_slot_ids: set[int] = set()
         with self.lock:
             has_remaining_assignments = bool(self.assignments)
             incomplete_release_count = len(self.releasing_assignments)
@@ -1636,15 +1961,20 @@ class PoolBroker:
                 for assignment in self.assignments.values():
                     slot = self.slots[assignment.slot_id]
                     abandoned.append((assignment, slot.outer_session_id, slot.generation, slot.reuse_count))
+                    if assignment.shell_recovering or assignment.active_shell_operation is not None:
+                        unserialized_slot_ids.add(slot.slot_id)
                     slot.assignment_id = None
                     slot.state = "poisoned"
                 self.assignments.clear()
                 self.changed.notify_all()
 
-        slots = [slot for slot in self.slots if slot.outer_session_id]
+        slots = [slot for slot in self.slots if slot.outer_session_id and slot.slot_id not in unserialized_slot_ids]
         with self.lock:
             results = list(self.drain_deletions)
-        failures: dict[int, str] = {}
+        failures: dict[int, str] = {
+            slot_id: "managed shell activity did not quiesce before pool drain"
+            for slot_id in sorted(unserialized_slot_ids)
+        }
         if startup_incomplete:
             failures[-3] = "pool startup did not stop before the drain deadline"
         if maintenance_incomplete:
@@ -1827,6 +2157,26 @@ class PoolBroker:
             return self.cancel_acquire(client_id, str(request["ticket_id"]))
         if operation == "update":
             return self.update(client_id, str(request["assignment_id"]), dict(request.get("values") or {}))
+        if operation == "begin_shell_command":
+            return self.begin_shell_command(
+                client_id,
+                str(request["assignment_id"]),
+                str(request["expected_shell_id"]),
+                timeout_seconds=float(request["timeout_seconds"]),
+            )
+        if operation == "complete_shell_command":
+            return self.complete_shell_command(
+                client_id,
+                str(request["assignment_id"]),
+                str(request["operation_id"]),
+            )
+        if operation == "recover_managed_shell":
+            return self.recover_managed_shell(
+                client_id,
+                str(request["assignment_id"]),
+                str(request["expected_shell_id"]),
+                workdir=str(request["workdir"]),
+            )
         if operation == "release":
             return self.release(
                 client_id,
@@ -1849,7 +2199,14 @@ class PoolBroker:
 class _AsyncUnixServer:
     """Multiplex persistent clients without dedicating one broker thread each."""
 
-    _BLOCKING_OPERATIONS = {"drain", "depart", "ecr_credential", "release"}
+    _BLOCKING_OPERATIONS = {
+        "begin_shell_command",
+        "drain",
+        "depart",
+        "ecr_credential",
+        "recover_managed_shell",
+        "release",
+    }
 
     def __init__(self, broker: PoolBroker) -> None:
         self.broker = broker
@@ -2226,6 +2583,44 @@ class PoolClient:
     def update(self, assignment_id: str, **values: object) -> dict[str, object]:
         return self._request("update", assignment_id=assignment_id, values=values)
 
+    def begin_shell_command(
+        self,
+        assignment_id: str,
+        expected_shell_id: str,
+        *,
+        timeout_seconds: float,
+    ) -> dict[str, object]:
+        return self._request(
+            "begin_shell_command",
+            timeout=timeout_seconds + 5.0,
+            assignment_id=assignment_id,
+            expected_shell_id=expected_shell_id,
+            timeout_seconds=timeout_seconds,
+        )
+
+    def complete_shell_command(self, assignment_id: str, operation_id: str) -> dict[str, object]:
+        return self._request(
+            "complete_shell_command",
+            timeout=30.0,
+            assignment_id=assignment_id,
+            operation_id=operation_id,
+        )
+
+    def recover_managed_shell(
+        self,
+        assignment_id: str,
+        expected_shell_id: str,
+        *,
+        workdir: str,
+    ) -> dict[str, object]:
+        return self._request(
+            "recover_managed_shell",
+            timeout=125.0,
+            assignment_id=assignment_id,
+            expected_shell_id=expected_shell_id,
+            workdir=workdir,
+        )
+
     def release(
         self,
         assignment_id: str,
@@ -2236,7 +2631,7 @@ class PoolClient:
     ) -> dict[str, object]:
         return self._request(
             "release",
-            timeout=max(self.config.drain_timeout_s, 120.0) + 30.0,
+            timeout=max(self.config.drain_timeout_s, 330.0) + 30.0,
             assignment_id=assignment_id,
             poison=poison,
             reason=reason,

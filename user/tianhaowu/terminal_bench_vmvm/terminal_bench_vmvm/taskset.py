@@ -526,7 +526,8 @@ def _sandoq_public_network_override_is_safe(expected_ecr_token_file: Path | None
     if (
         os.environ.get("SANDOQ_LEASE_PROFILE"),
         os.environ.get("OCI_RUNNER_LEASE_DURATION"),
-    ) not in {("standard", "1h"), ("kimi-tb4-long", "12h")}:
+        os.environ.get("OCI_RUNNER_MANAGED_SHELL_RECOVERY"),
+    ) not in {("standard", "1h", "0"), ("kimi-tb4-long", "12h", "1")}:
         return False
     owner = os.environ.get("SANDOQ_OWNER", "")
     output_dir = Path(os.environ.get("PRIME_RL_OUTPUT_DIR", ""))

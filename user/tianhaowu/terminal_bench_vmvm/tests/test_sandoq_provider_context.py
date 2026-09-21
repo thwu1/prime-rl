@@ -61,6 +61,7 @@ def test_build_provider_environment_matches_sc3_context_without_reading_tokens(
     assert environment["SANDOQ_LEASE_PROFILE"] == "standard"
     assert environment["OCI_RUNNER_LEASE_DURATION"] == "1h"
     assert environment["OCI_RUNNER_POOL_RENEW_INTERVAL"] == "5m"
+    assert environment["OCI_RUNNER_MANAGED_SHELL_RECOVERY"] == "0"
     assert environment["OCI_RUNNER_IMAGE_CACHE_MAX_ENTRIES"] == "0"
     assert environment["OCI_RUNNER_PODMAN_FUSE_OVERLAYFS"] == "1"
     assert environment["OCI_RUNNER_PULL_TIMEOUT"] == "3600s"
@@ -109,6 +110,7 @@ def test_long_kimi_profile_sets_exact_twelve_hour_initial_lease(tmp_path: Path) 
     assert environment["SANDOQ_LEASE_PROFILE"] == "kimi-tb4-long"
     assert environment["OCI_RUNNER_LEASE_DURATION"] == "12h"
     assert environment["OCI_RUNNER_POOL_RENEW_INTERVAL"] == "5m"
+    assert environment["OCI_RUNNER_MANAGED_SHELL_RECOVERY"] == "1"
 
     arguments["lease_profile"] = "arbitrary"
     with pytest.raises(context.ProviderContextError, match="provider_context_configuration_invalid"):
@@ -170,6 +172,7 @@ def test_supervisor_keeps_private_context_live_for_child(
         "lease_profile=os.environ.get('SANDOQ_LEASE_PROFILE'), "
         "lease_duration=os.environ.get('OCI_RUNNER_LEASE_DURATION'), "
         "renew_interval=os.environ.get('OCI_RUNNER_POOL_RENEW_INTERVAL'), "
+        "managed_shell_recovery=os.environ.get('OCI_RUNNER_MANAGED_SHELL_RECOVERY'), "
         "proxy_equal=os.environ.get('HTTPS_PROXY') == os.environ.get('https_proxy')); "
         f"Path({str(result)!r}).write_text(json.dumps(payload))"
     )
@@ -197,6 +200,7 @@ def test_supervisor_keeps_private_context_live_for_child(
         "lease_profile": lease_profile,
         "lease_duration": lease_duration,
         "renew_interval": "5m",
+        "managed_shell_recovery": "1" if lease_profile == "kimi-tb4-long" else "0",
         "task_network_present": False,
         "proxy_equal": True,
     }

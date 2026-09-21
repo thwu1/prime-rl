@@ -102,6 +102,7 @@ class OCIRunnerConfig:
     podman_ignore_chown_errors: bool
     ecr: ECRConfig
     allow_dockerhub_fallback: bool = True
+    managed_shell_recovery: bool = False
 
     @property
     def dockerhub_auth_enabled(self) -> bool:
@@ -390,6 +391,10 @@ def get_oci_config() -> OCIRunnerConfig:
         raise APIError("OCI_RUNNER_TASK_NETWORK must be 'none' or 'host'")
     if task_network == "host" and not environment.startswith("oci-runner-firecracker"):
         raise APIError("OCI_RUNNER_TASK_NETWORK=host is supported only by Firecracker environments")
+    managed_shell_recovery = os.environ.get("SANDOQ_LEASE_PROFILE") == "kimi-tb4-long"
+    declared_shell_recovery = os.environ.get("OCI_RUNNER_MANAGED_SHELL_RECOVERY")
+    if declared_shell_recovery is not None and declared_shell_recovery != ("1" if managed_shell_recovery else "0"):
+        raise APIError("OCI_RUNNER_MANAGED_SHELL_RECOVERY disagrees with SANDOQ_LEASE_PROFILE")
     from sandoq_provider.pool import default_socket_path
 
     pool_socket = os.environ.get("OCI_RUNNER_POOL_SOCKET")
@@ -429,6 +434,7 @@ def get_oci_config() -> OCIRunnerConfig:
         allow_dockerhub_fallback=allow_dockerhub_fallback_value == "1",
         podman_ignore_chown_errors=os.environ.get("OCI_RUNNER_PODMAN_IGNORE_CHOWN_ERRORS") == "1",
         ecr=ECRConfig.from_env(),
+        managed_shell_recovery=managed_shell_recovery,
     )
 
 
@@ -593,6 +599,134 @@ class OCIRunnerAsyncSandboxClient(SandoqAsyncSandboxClient):
             body=body,
             headers=headers,
             timeout=min(timeout, float(self._oci_cfg.exec_timeout_ceiling_s)),
+        )
+
+    async def _managed_shell_request(
+        self,
+        info: registry.SessionInfo,
+        *,
+        body: dict[str, object],
+        timeout: float,
+    ) -> SandoqHttpResponse:
+        """Serialize long-Kimi managed-shell calls with broker-owned recovery."""
+        if not info.session_reuse or not self._oci_cfg.managed_shell_recovery:
+            return await self._request_json(
+                info,
+                "POST",
+                "v1/exec",
+                body=body,
+                headers=self._auth_headers(),
+                timeout=timeout,
+            )
+        from sandoq_provider.pool import get_pool_client
+
+        pool = get_pool_client()
+        while True:
+            shell_id = info.shell_id
+            if not shell_id:
+                raise self._poisoned_shell_error(
+                    info,
+                    "missing_shell",
+                    "persistent shell is unavailable",
+                    failure_reason="managed_shell_lost",
+                )
+            reservation = await asyncio.to_thread(
+                pool.begin_shell_command,
+                info.session_id,
+                shell_id,
+                timeout_seconds=min(max(timeout + 30.0, 30.0), 300.0),
+            )
+            status = reservation.get("status")
+            if status == "shell_replaced":
+                replacement = reservation.get("shell_id")
+                if not isinstance(replacement, str) or not replacement:
+                    raise self._poisoned_shell_error(
+                        info,
+                        "invalid_replacement",
+                        "managed shell replacement metadata is invalid",
+                        failure_reason="managed_shell_lost",
+                    )
+                info.shell_id = replacement
+                info.metadata["shell_id"] = replacement
+                body["shellId"] = replacement
+                continue
+            if status == "terminal_failure":
+                raise self._poisoned_shell_error(
+                    info,
+                    str(reservation.get("failure_status") or "managed_shell_lost"),
+                    "managed shell recovery previously failed",
+                    failure_reason="managed_shell_lost",
+                )
+            operation_id = reservation.get("operation_id")
+            if status != "authorized" or not isinstance(operation_id, str) or not operation_id:
+                raise self._poisoned_shell_error(
+                    info,
+                    "reservation_invalid",
+                    "managed shell command reservation is invalid",
+                    failure_reason="managed_shell_lost",
+                )
+            body["shellId"] = info.shell_id
+            try:
+                return await self._request_json(
+                    info,
+                    "POST",
+                    "v1/exec",
+                    body=body,
+                    headers=self._auth_headers(),
+                    timeout=timeout,
+                )
+            finally:
+                await asyncio.shield(
+                    asyncio.to_thread(
+                        pool.complete_shell_command,
+                        info.session_id,
+                        operation_id,
+                    )
+                )
+
+    async def _recover_managed_shell(self, info: registry.SessionInfo, expected_shell_id: str) -> None:
+        if not info.session_reuse or not self._oci_cfg.managed_shell_recovery:
+            raise self._poisoned_shell_error(
+                info,
+                "managed_shell_lost",
+                "managed shell expired and recovery is disabled",
+                failure_reason="managed_shell_lost",
+            )
+        from sandoq_provider.pool import get_pool_client
+
+        try:
+            recovered = await asyncio.to_thread(
+                get_pool_client().recover_managed_shell,
+                info.session_id,
+                expected_shell_id,
+                workdir=_managed_workdir(info),
+            )
+        except Exception as error:
+            raise self._poisoned_shell_error(
+                info,
+                "managed_shell_recovery_failed",
+                "managed shell recovery failed",
+                failure_reason="managed_shell_lost",
+            ) from error
+        shell_id = recovered.get("shell_id")
+        shell_generation = recovered.get("shell_generation")
+        if (
+            recovered.get("status") not in {"recovered", "already_recovered"}
+            or not isinstance(shell_id, str)
+            or not isinstance(shell_generation, int)
+            or shell_generation < 1
+        ):
+            raise self._poisoned_shell_error(
+                info,
+                "managed_shell_recovery_invalid",
+                "managed shell recovery returned invalid metadata",
+                failure_reason="managed_shell_lost",
+            )
+        info.shell_id = shell_id
+        info.metadata["shell_id"] = shell_id
+        info.metadata["shell_generation"] = shell_generation
+        info.metadata["managed_shell_recovery_count"] = int(info.metadata.get("managed_shell_recovery_count", 0)) + (
+            1 if recovered["status"] == "recovered" else 0
         )
 
     @staticmethod
@@ -801,6 +935,8 @@ class OCIRunnerAsyncSandboxClient(SandoqAsyncSandboxClient):
                 "resolved_digest": None,
                 "nested_ready": False,
                 "shell_id": None,
+                "shell_generation": 0,
+                "managed_shell_recovery_count": 0,
                 "shell_failure_status": None,
                 "assignment_poisoned": False,
                 "assignment_poison_reason": None,
@@ -865,6 +1001,8 @@ class OCIRunnerAsyncSandboxClient(SandoqAsyncSandboxClient):
             "resolved_digest": None,
             "nested_ready": False,
             "shell_id": None,
+            "shell_generation": 0,
+            "managed_shell_recovery_count": 0,
             "shell_failure_status": None,
             "assignment_poisoned": False,
             "assignment_poison_reason": None,
@@ -2085,12 +2223,9 @@ printf 'OCI_IMAGE_SIZE_BYTES=%s\n' "$size"
         if info.shell_id is None:
             return False
         try:
-            response = await self._request_json(
+            response = await self._managed_shell_request(
                 info,
-                "POST",
-                "v1/exec",
                 body={"command": ["true"], "shellId": info.shell_id, "timeout": 5},
-                headers=self._auth_headers(),
                 timeout=10.0,
             )
         except Exception:
@@ -2292,6 +2427,7 @@ printf 'OCI_IMAGE_SIZE_BYTES=%s\n' "$size"
         stage: str = "shell_exec",
         retry_gateway_unavailable: bool = False,
         deadline: float | None = None,
+        _managed_shell_recovery_attempted: bool = False,
     ) -> CommandResponse:
         command = list(argv)
         if not command:
@@ -2342,12 +2478,9 @@ printf 'OCI_IMAGE_SIZE_BYTES=%s\n' "$size"
             )
             payload["timeout"] = request_command_timeout
             try:
-                response = await self._request_json(
+                response = await self._managed_shell_request(
                     info,
-                    "POST",
-                    "v1/exec",
                     body=payload,
-                    headers=self._auth_headers(),
                     timeout=request_timeout,
                 )
                 status_code, body = response.status_code, response.body
@@ -2423,12 +2556,45 @@ printf 'OCI_IMAGE_SIZE_BYTES=%s\n' "$size"
             )
         if status_code in (404, 410):
             diagnostics = await self._collect_terminal_diagnostics(info)
+            if (
+                self._oci_cfg.managed_shell_recovery
+                and not _managed_shell_recovery_attempted
+                and diagnostics.get("health_http_status") == 200
+                and diagnostics.get("shell_http_status") == 200
+            ):
+                expired_shell_id = info.shell_id
+                if expired_shell_id is None:
+                    raise self._poisoned_shell_error(
+                        info,
+                        "missing_shell",
+                        "managed shell disappeared before recovery",
+                        stage=stage,
+                        failure_reason="managed_shell_lost",
+                    )
+                await self._recover_managed_shell(info, expired_shell_id)
+                return await self._nested_exec_argv(
+                    info,
+                    command,
+                    working_dir=working_dir,
+                    env=env,
+                    timeout=timeout,
+                    stage=stage,
+                    retry_gateway_unavailable=retry_gateway_unavailable,
+                    deadline=deadline,
+                    _managed_shell_recovery_attempted=True,
+                )
             raise self._poisoned_shell_error(
                 info,
                 f"http_{status_code}",
                 f"persistent shell was lost with HTTP {status_code}; diagnostics={diagnostics}",
                 stage=stage,
-                failure_reason="outer_session_lost",
+                failure_reason=(
+                    "managed_shell_lost"
+                    if self._oci_cfg.managed_shell_recovery
+                    and diagnostics.get("health_http_status") == 200
+                    and diagnostics.get("shell_http_status") == 200
+                    else "outer_session_lost"
+                ),
             )
         if status_code != 200:
             raise self._poisoned_shell_error(
@@ -3225,6 +3391,11 @@ true
             "base_commit_final": metadata.get("base_commit_final"),
             "base_commit_repaired": metadata.get("base_commit_repaired"),
             "shell_id": info.shell_id,
+            "shell_generation": response.get("shell_generation", info.metadata.get("shell_generation", 0)),
+            "managed_shell_recovery_count": response.get(
+                "managed_shell_recovery_count",
+                metadata.get("managed_shell_recovery_count", 0),
+            ),
             "shell_failure_status": info.shell_failure_status,
             "shell_command_mode": metadata.get("shell_command_mode"),
             "image_pull_fallback": metadata.get("image_pull_fallback"),

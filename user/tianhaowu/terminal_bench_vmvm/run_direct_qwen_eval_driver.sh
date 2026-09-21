@@ -132,6 +132,7 @@ if [[ "$sandbox_provider" == sandoq ]]; then
         || "$SANDOQ_LEASE_PROFILE" != standard \
         || "$OCI_RUNNER_LEASE_DURATION" != 1h \
         || "$OCI_RUNNER_POOL_RENEW_INTERVAL" != 5m \
+        || "$OCI_RUNNER_MANAGED_SHELL_RECOVERY" != 0 \
         || -n ${OCI_RUNNER_TASK_NETWORK:-} \
         || "$OCI_RUNNER_POOL_SIZE" != "$sandoq_capacity" \
         || "$OCI_RUNNER_POOL_MIN_SIZE" != 0 \
@@ -499,6 +500,7 @@ PY
             --sandoq-lease-profile "$SANDOQ_LEASE_PROFILE" \
             --sandoq-lease-duration "$OCI_RUNNER_LEASE_DURATION" \
             --sandoq-pool-renew-interval "$OCI_RUNNER_POOL_RENEW_INTERVAL" \
+            --sandoq-managed-shell-recovery disabled \
             --direct-worker-manifest "$worker_manifest" \
             --direct-worker-manifest-sha256 "$worker_manifest_sha256" \
             --direct-spec-sha256 "$direct_spec_sha256" \

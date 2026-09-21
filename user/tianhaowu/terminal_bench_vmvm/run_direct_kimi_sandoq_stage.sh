@@ -149,10 +149,14 @@ if [[ "$sandbox_provider" != sandoq && "$sandbox_provider" != vmvm ]]; then
 fi
 expected_sandoq_lease_profile=standard
 expected_sandoq_lease_duration=1h
+expected_managed_shell_recovery=0
+managed_shell_recovery_policy=disabled
 if [[ "$role" == kimi-direct-tb4 || "$role" == kimi-direct-tb4-diagnostic \
     || "$role" == kimi-direct-tb4-sandoq-fallback-diagnostic ]]; then
     expected_sandoq_lease_profile=kimi-tb4-long
     expected_sandoq_lease_duration=12h
+    expected_managed_shell_recovery=1
+    managed_shell_recovery_policy=definitive-404-410-single-replay-v1
 fi
 if [[ "$sandbox_provider" == sandoq ]] \
     && [[ ${SANDOQ_PROVIDER_CONTEXT_ACTIVE:-} != 1 \
@@ -162,6 +166,7 @@ if [[ "$sandbox_provider" == sandoq ]] \
         || "$SANDOQ_LEASE_PROFILE" != "$expected_sandoq_lease_profile" \
         || "$OCI_RUNNER_LEASE_DURATION" != "$expected_sandoq_lease_duration" \
         || "$OCI_RUNNER_POOL_RENEW_INTERVAL" != 5m \
+        || "$OCI_RUNNER_MANAGED_SHELL_RECOVERY" != "$expected_managed_shell_recovery" \
         || -n ${OCI_RUNNER_TASK_NETWORK:-} ]]; then
     printf 'Direct Kimi stage requires the sealed public-network Sandoq context\n' >&2
     exit 2
@@ -391,6 +396,7 @@ if [[ "$sandbox_provider" == sandoq ]]; then
         --sandoq-lease-profile "$SANDOQ_LEASE_PROFILE"
         --sandoq-lease-duration "$OCI_RUNNER_LEASE_DURATION"
         --sandoq-pool-renew-interval "$OCI_RUNNER_POOL_RENEW_INTERVAL"
+        --sandoq-managed-shell-recovery "$managed_shell_recovery_policy"
     )
 else
     vmvm_tb_v2_sha256=$(

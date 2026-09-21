@@ -217,7 +217,8 @@ PY
             --receipt "${SANDOQ_PROVIDER_CONTEXT_RECEIPT:?}" >/dev/null
         if [[ "$SANDOQ_LEASE_PROFILE" != standard \
             || "$OCI_RUNNER_LEASE_DURATION" != 1h \
-            || "$OCI_RUNNER_POOL_RENEW_INTERVAL" != 5m ]]; then
+            || "$OCI_RUNNER_POOL_RENEW_INTERVAL" != 5m \
+            || "$OCI_RUNNER_MANAGED_SHELL_RECOVERY" != 0 ]]; then
             printf 'Direct Qwen requires the standard Sandoq lease profile\n' >&2
             exit 2
         fi
